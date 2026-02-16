@@ -4,8 +4,7 @@
 	"private": true,
 	"type": "module",
 	"scripts": {
-		"dev": "tsx watch src/index.ts",
-		"build": "tsc",
+		"dev": "bun --watch src/index.ts",
 		"check-types": "tsc --noEmit"
 	},
 	"dependencies": {
@@ -14,8 +13,7 @@
 	},
 	"devDependencies": {
 		"@repo/typescript-config": "workspace:*",
-		"@types/node": "^22.0.0",
-		"tsx": "^4.19.0",
+		"bun-types": "latest",
 		"typescript": "5.9.2"
 	}
 }
