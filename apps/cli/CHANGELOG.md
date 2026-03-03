@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.7](https://github.com/obsessiondb/rudel/compare/rudel@0.1.6...rudel@0.1.7) (2026-03-03)
+
+
+### Bug Fixes
+
+* move agent-adapters to devDependencies to fix npm install error ([#105](https://github.com/obsessiondb/rudel/issues/105)) ([84f3544](https://github.com/obsessiondb/rudel/commit/84f35446fb9f455f865355d2e7c30c941c4ab44a))
+
 ## [0.1.6](https://github.com/obsessiondb/rudel/compare/rudel@0.1.5...rudel@0.1.6) (2026-03-02)
 
 
