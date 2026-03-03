@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.8](https://github.com/obsessiondb/rudel/compare/rudel@0.1.7...rudel@0.1.8) (2026-03-03)
+
+
+### Features
+
+* implement developer name resolution with git remote and package name ([#111](https://github.com/obsessiondb/rudel/issues/111)) ([f675de6](https://github.com/obsessiondb/rudel/commit/f675de6717ff6f0f14e8d50414aa47cc5845b9eb))
+* remove repository column from ClickHouse schema ([#114](https://github.com/obsessiondb/rudel/issues/114)) ([6547b25](https://github.com/obsessiondb/rudel/commit/6547b2594666d899ebf0e366bbf85c87df5888d8))
+
 ## [0.1.7](https://github.com/obsessiondb/rudel/compare/rudel@0.1.6...rudel@0.1.7) (2026-03-03)
 
 
