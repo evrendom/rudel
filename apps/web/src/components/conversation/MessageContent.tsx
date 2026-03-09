@@ -67,11 +67,7 @@ function parseTextContent(
 function renderPlainText(text: string, key: number) {
 	const parts = parseTextContent(text);
 	return (
-		<div
-			// biome-ignore lint/suspicious/noArrayIndexKey: static parsed content blocks
-			key={key}
-			className="space-y-3"
-		>
+		<div key={key} className="space-y-3">
 			{parts.map((part, partIdx) =>
 				part.type === "code" ? (
 					<CodeBlock
@@ -86,7 +82,7 @@ function renderPlainText(text: string, key: number) {
 						key={partIdx}
 						className="prose prose-sm max-w-none"
 					>
-						<p className="whitespace-pre-wrap text-foreground leading-relaxed">
+						<p className="whitespace-pre-wrap text-foreground leading-relaxed break-words [overflow-wrap:anywhere]">
 							{part.content}
 						</p>
 					</div>
@@ -106,7 +102,11 @@ export function MessageContent({ content, className }: MessageContentProps) {
 	}
 
 	if (typeof content === "string") {
-		return <div className={cn("space-y-3", className)}>{renderPlainText(content, 0)}</div>;
+		return (
+			<div className={cn("space-y-3", className)}>
+				{renderPlainText(content, 0)}
+			</div>
+		);
 	}
 
 	if (!Array.isArray(content)) {

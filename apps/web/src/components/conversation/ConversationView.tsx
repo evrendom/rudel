@@ -55,9 +55,7 @@ function extractTokenData(content: string): TokenDataPoint[] {
 }
 
 /** Extract tool, skill, and subagent activity from parsed conversations */
-function extractToolActivity(
-	entries: Conversation[],
-): ToolActivityPoint[] {
+function extractToolActivity(entries: Conversation[]): ToolActivityPoint[] {
 	const points: ToolActivityPoint[] = [];
 
 	for (let i = 0; i < entries.length; i++) {
@@ -155,11 +153,11 @@ export function ConversationView({
 
 			setConversations(parsed);
 
-				if (parsed.length > 0) {
-					if (onTokenDataReady) {
-						const tokenData = extractTokenData(content);
-						onTokenDataReady(tokenData, parsed.length);
-					}
+			if (parsed.length > 0) {
+				if (onTokenDataReady) {
+					const tokenData = extractTokenData(content);
+					onTokenDataReady(tokenData, parsed.length);
+				}
 				if (onToolActivityReady) {
 					const activityData = extractToolActivity(parsed);
 					onToolActivityReady(activityData);

@@ -7,7 +7,10 @@ import {
 	Wrench,
 } from "lucide-react";
 import { useState } from "react";
-import type { Conversation, ToolResultContent } from "@/lib/conversation-schema";
+import type {
+	Conversation,
+	ToolResultContent,
+} from "@/lib/conversation-schema";
 import {
 	isSlashCommandMessage,
 	parseSlashCommand,
@@ -250,7 +253,9 @@ export function ConversationMessage({
 			</div>
 			<div className="flex-1 min-w-0 bg-card border border-border rounded-lg p-4 shadow-sm">
 				<div className="flex items-center gap-2 mb-3">
-					<span className="text-sm font-semibold text-foreground">Assistant</span>
+					<span className="text-sm font-semibold text-foreground">
+						Assistant
+					</span>
 					<span className="text-xs text-muted-foreground">
 						{new Date(entry.timestamp).toLocaleTimeString()}
 					</span>
