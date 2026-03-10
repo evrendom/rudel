@@ -22,6 +22,11 @@ jobs:
       - name: Check for local overrides
         run: bun scripts/check-overrides.ts
 
+      - name: Apply Postgres migrations
+        run: bun run --cwd packages/sql-schema migrate
+        env:
+          PG_CONNECTION_STRING: ${{ secrets.PG_CONNECTION_STRING }}
+
       - name: Verify
         run: bunx turbo run lint check-types test build
         env:

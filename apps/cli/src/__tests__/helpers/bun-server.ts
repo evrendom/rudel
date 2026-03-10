@@ -2,6 +2,7 @@ import { createHash, randomBytes } from "node:crypto";
 import { resolve } from "node:path";
 
 const MONOREPO_ROOT = resolve(import.meta.dir, "..", "..", "..", "..", "..");
+let migrationPromise: Promise<void> | null = null;
 
 export interface TestServer {
 	port: number;
@@ -22,9 +23,11 @@ export interface TestBrowserSession {
 
 /**
  * Spawn the Bun API server with PORT=0 so the OS picks a free port.
- * Migrations run automatically at startup.
+ * Test database migrations run once before startup.
  */
 export async function startTestServer(): Promise<TestServer> {
+	await ensureDatabaseMigrated();
+
 	const env = {
 		...process.env,
 		PORT: "0",
@@ -69,6 +72,38 @@ export async function startTestServer(): Promise<TestServer> {
 	};
 
 	return server;
+}
+
+async function ensureDatabaseMigrated(): Promise<void> {
+	if (!migrationPromise) {
+		migrationPromise = runDatabaseMigrations();
+	}
+
+	return migrationPromise;
+}
+
+async function runDatabaseMigrations(): Promise<void> {
+	const proc = Bun.spawn(
+		["bun", "run", "--cwd", "packages/sql-schema", "migrate"],
+		{
+			cwd: MONOREPO_ROOT,
+			stdout: "pipe",
+			stderr: "pipe",
+			env: process.env,
+		},
+	);
+
+	const [exitCode, stdout, stderr] = await Promise.all([
+		proc.exited,
+		proc.stdout ? new Response(proc.stdout).text() : Promise.resolve(""),
+		proc.stderr ? new Response(proc.stderr).text() : Promise.resolve(""),
+	]);
+
+	if (exitCode !== 0) {
+		throw new Error(
+			`Database migrations failed with exit code ${exitCode}.\nstdout: ${stdout}\nstderr: ${stderr}`,
+		);
+	}
 }
 
 function spawnServer(env: Record<string, string | undefined>) {

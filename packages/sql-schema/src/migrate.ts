@@ -12,9 +12,16 @@ const sql = postgres(connectionString, { max: 1 });
 const db = drizzle(sql);
 
 const migrationsFolder = join(import.meta.dir, "..", "db", "migrations");
+const MIGRATION_LOCK_ID = 684214901;
 
 console.log("Running migrations...");
-await migrate(db, { migrationsFolder });
-console.log("Migrations applied successfully.");
+await sql`SELECT pg_advisory_lock(${MIGRATION_LOCK_ID})`;
+
+try {
+	await migrate(db, { migrationsFolder });
+	console.log("Migrations applied successfully.");
+} finally {
+	await sql`SELECT pg_advisory_unlock(${MIGRATION_LOCK_ID})`;
+}
 
 await sql.end();
