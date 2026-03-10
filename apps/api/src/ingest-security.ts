@@ -247,11 +247,3 @@ export function createInMemoryRateLimiter(config: IngestRateLimitConfig) {
 		},
 	};
 }
-
-const ingestRateLimiter = createInMemoryRateLimiter(
-	getIngestSecurityConfig().rateLimit,
-);
-
-export function enforceIngestRateLimit(userId: string): void {
-	ingestRateLimiter.check(userId);
-}
