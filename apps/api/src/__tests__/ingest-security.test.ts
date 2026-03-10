@@ -1,9 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import type { IngestSessionInput } from "@rudel/api-routes";
 import {
+	cloneRequestWithBodyLimit,
 	createIngestSecurityConfig,
 	createInMemoryRateLimiter,
 	getTotalSubagentByteLength,
+	IngestRequestTooLargeError,
 	isIngestRequestTooLarge,
 	validateIngestPayload,
 } from "../ingest-security.js";
@@ -71,6 +73,43 @@ describe("ingest security", () => {
 		});
 
 		expect(isIngestRequestTooLarge(request, config)).toBe(true);
+	});
+
+	test("buffers ingest requests under the configured byte limit", async () => {
+		const config = createIngestSecurityConfig({
+			INGEST_MAX_REQUEST_BYTES: "32",
+		});
+		const request = new Request("http://localhost/rpc/ingestSession", {
+			method: "POST",
+			body: new ReadableStream({
+				start(controller) {
+					controller.enqueue(new TextEncoder().encode("hello"));
+					controller.close();
+				},
+			}),
+		});
+
+		const limitedRequest = await cloneRequestWithBodyLimit(request, config);
+		expect(await limitedRequest.text()).toBe("hello");
+	});
+
+	test("rejects ingest requests that exceed the byte limit without content-length", async () => {
+		const config = createIngestSecurityConfig({
+			INGEST_MAX_REQUEST_BYTES: "4",
+		});
+		const request = new Request("http://localhost/rpc/ingestSession", {
+			method: "POST",
+			body: new ReadableStream({
+				start(controller) {
+					controller.enqueue(new TextEncoder().encode("hello"));
+					controller.close();
+				},
+			}),
+		});
+
+		await expect(cloneRequestWithBodyLimit(request, config)).rejects.toBeInstanceOf(
+			IngestRequestTooLargeError,
+		);
 	});
 
 	test("rate limiter blocks once the window budget is exhausted", () => {

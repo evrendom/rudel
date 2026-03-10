@@ -1,7 +1,8 @@
 import { useTheme } from "next-themes";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { LoginForm } from "./components/auth/login-form";
+import { Button } from "./components/ui/button";
 import { SignupForm } from "./components/auth/signup-form";
 import { DashboardLayout } from "./layouts/DashboardLayout";
 import { authClient } from "./lib/auth-client";
@@ -22,12 +23,13 @@ import { SessionDetailPage } from "./pages/dashboard/SessionDetailPage";
 import { SessionsListPage } from "./pages/dashboard/SessionsListPage";
 
 type Page = "login" | "signup";
-
-function getCliParams(): {
+type CliParams = {
 	cliCallback: string;
 	state: string;
 	codeChallenge: string;
-} | null {
+};
+
+function getCliParams(): CliParams | null {
 	const params = new URLSearchParams(window.location.search);
 	const cliCallback = params.get("cli_callback");
 	const state = params.get("state");
@@ -42,6 +44,23 @@ function getCliParams(): {
 	return { cliCallback, state, codeChallenge };
 }
 
+function clearCliParamsFromLocation() {
+	const url = new URL(window.location.href);
+	url.searchParams.delete("cli_callback");
+	url.searchParams.delete("state");
+	url.searchParams.delete("code_challenge");
+	window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
+}
+
+function formatCliCallback(cliCallback: string): string {
+	try {
+		const url = new URL(cliCallback);
+		return `${url.hostname}:${url.port || "80"}${url.pathname}`;
+	} catch {
+		return cliCallback;
+	}
+}
+
 function getValidRedirect(): string | null {
 	const params = new URLSearchParams(window.location.search);
 	const redirect = params.get("redirect");
@@ -53,17 +72,23 @@ function getValidRedirect(): string | null {
 function App() {
 	const { data: session, isPending } = authClient.useSession();
 	const [page, setPage] = useState<Page>("login");
+	const [cliParams, setCliParams] = useState<CliParams | null>(() =>
+		getCliParams(),
+	);
 	const [cliRedirecting, setCliRedirecting] = useState(false);
-	const cliParams = getCliParams();
+	const [cliError, setCliError] = useState<string | null>(null);
 	const { resolvedTheme } = useTheme();
 	const logoSrc =
 		resolvedTheme === "dark" ? "/logo-light.svg" : "/logo-dark.svg";
+	const redirectPath = getValidRedirect() || "/dashboard";
 
-	useEffect(() => {
-		if (!session || !cliParams || cliRedirecting) return;
+	async function startCliLogin() {
+		if (!cliParams || cliRedirecting) return;
 		setCliRedirecting(true);
+		setCliError(null);
 
-		fetch("/api/cli-token", {
+		try {
+			const response = await fetch("/api/cli-token", {
 			method: "POST",
 			credentials: "include",
 			headers: {
@@ -74,23 +99,31 @@ function App() {
 				state: cliParams.state,
 				codeChallenge: cliParams.codeChallenge,
 			}),
-		})
-			.then(async (res) => {
-				const data = (await res.json()) as { code?: string; error?: string };
-				if (!res.ok || !data.code) {
-					throw new Error(data.error ?? "Failed to create CLI auth code");
-				}
-				return data.code;
-			})
-			.then((code) => {
-				const redirectUrl = `${cliParams.cliCallback}?code=${encodeURIComponent(code)}&state=${encodeURIComponent(cliParams.state)}`;
-				window.location.replace(redirectUrl);
-			})
-			.catch((error) => {
-				console.error("CLI login handoff failed", error);
-				setCliRedirecting(false);
 			});
-	}, [session, cliParams, cliRedirecting]);
+			const data = (await response.json()) as { code?: string; error?: string };
+			if (!response.ok || !data.code) {
+				throw new Error(data.error ?? "Failed to create CLI auth code");
+			}
+
+			const redirectUrl = `${cliParams.cliCallback}?code=${encodeURIComponent(data.code)}&state=${encodeURIComponent(cliParams.state)}`;
+			window.location.replace(redirectUrl);
+		} catch (error) {
+			console.error("CLI login handoff failed", error);
+			setCliRedirecting(false);
+			setCliError(
+				error instanceof Error
+					? error.message
+					: "Failed to complete CLI login.",
+			);
+		}
+	}
+
+	function cancelCliLogin() {
+		clearCliParamsFromLocation();
+		setCliParams(null);
+		setCliError(null);
+		setCliRedirecting(false);
+	}
 
 	if (isPending) {
 		return (
@@ -104,6 +137,48 @@ function App() {
 		return (
 			<div className="flex min-h-screen items-center justify-center">
 				<p className="text-muted-foreground">Completing CLI login...</p>
+			</div>
+		);
+	}
+
+	if (session && cliParams) {
+		return (
+			<div className="flex min-h-screen items-center justify-center px-4">
+				<div className="w-full max-w-lg rounded-xl border bg-card p-6 shadow-sm">
+					<div className="space-y-2">
+						<h1 className="text-xl font-semibold">Authorize CLI login</h1>
+						<p className="text-sm text-muted-foreground">
+							A local Rudel CLI instance is requesting access to your account.
+							Only continue if you started `rudel login` in your terminal.
+						</p>
+					</div>
+					<div className="mt-4 rounded-lg border bg-muted/30 p-4 text-sm">
+						<p>
+							<span className="font-medium">Callback:</span>{" "}
+							{formatCliCallback(cliParams.cliCallback)}
+						</p>
+					</div>
+					{cliError ? (
+						<p className="mt-4 text-sm text-destructive">{cliError}</p>
+					) : null}
+					<div className="mt-6 flex flex-col gap-3 sm:flex-row">
+						<Button
+							type="button"
+							onClick={startCliLogin}
+							disabled={cliRedirecting}
+						>
+							Continue CLI Login
+						</Button>
+						<Button
+							type="button"
+							variant="outline"
+							onClick={cancelCliLogin}
+							disabled={cliRedirecting}
+						>
+							Cancel
+						</Button>
+					</div>
+				</div>
 			</div>
 		);
 	}
@@ -125,7 +200,7 @@ function App() {
 		<Routes>
 			<Route
 				path="/"
-				element={<Navigate to={getValidRedirect() || "/dashboard"} replace />}
+				element={<Navigate to={redirectPath} replace />}
 			/>
 			<Route
 				path="/invitation/:invitationId"

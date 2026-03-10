@@ -14,6 +14,15 @@ const DEFAULT_RATE_LIMIT_MAX_REQUESTS = 60;
 const DEFAULT_RETENTION_MAX_BYTES = 500_000;
 const DEFAULT_SUBAGENT_RETENTION_MAX_BYTES = 100_000;
 
+export class IngestRequestTooLargeError extends Error {
+	constructor(public readonly maxRequestBytes: number) {
+		super(
+			`Ingest request exceeds the configured request size limit of ${maxRequestBytes} bytes.`,
+		);
+		this.name = "IngestRequestTooLargeError";
+	}
+}
+
 interface IngestRateLimitConfig {
 	windowMs: number;
 	maxRequests: number;
@@ -164,6 +173,51 @@ export function isIngestRequestTooLarge(
 	const parsed = Number.parseInt(contentLength, 10);
 	if (!Number.isFinite(parsed)) return false;
 	return parsed > config.maxRequestBytes;
+}
+
+export async function cloneRequestWithBodyLimit(
+	request: Request,
+	config: IngestSecurityConfig = getIngestSecurityConfig(),
+): Promise<Request> {
+	if (isIngestRequestTooLarge(request, config)) {
+		throw new IngestRequestTooLargeError(config.maxRequestBytes);
+	}
+
+	if (!request.body) {
+		return request;
+	}
+
+	const reader = request.body.getReader();
+	const chunks: Uint8Array[] = [];
+	let totalBytes = 0;
+
+	while (true) {
+		const { done, value } = await reader.read();
+		if (done) break;
+		if (!value) continue;
+
+		totalBytes += value.byteLength;
+		if (totalBytes > config.maxRequestBytes) {
+			throw new IngestRequestTooLargeError(config.maxRequestBytes);
+		}
+
+		chunks.push(value);
+	}
+
+	const body = new Uint8Array(totalBytes);
+	let offset = 0;
+	for (const chunk of chunks) {
+		body.set(chunk, offset);
+		offset += chunk.byteLength;
+	}
+
+	const headers = new Headers(request.headers);
+	headers.delete("content-length");
+
+	return new Request(request, {
+		body,
+		headers,
+	});
 }
 
 export function createInMemoryRateLimiter(config: IngestRateLimitConfig) {

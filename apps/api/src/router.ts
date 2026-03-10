@@ -5,11 +5,8 @@ import { and, eq } from "drizzle-orm";
 import { getClickhouse } from "./clickhouse.js";
 import { db } from "./db.js";
 import { analyticsRouter } from "./handlers/analytics/index.js";
-import {
-	enforceIngestRateLimit,
-	getIngestSecurityConfig,
-	validateIngestPayload,
-} from "./ingest-security.js";
+import { getIngestSecurityConfig, validateIngestPayload } from "./ingest-security.js";
+import { enforceIngestRateLimit } from "./ingest-rate-limit.js";
 import {
 	authMiddleware,
 	os,
@@ -66,7 +63,7 @@ const listMyOrganizations = os.listMyOrganizations
 const ingestSessionHandler = os.ingestSession
 	.use(authMiddleware)
 	.handler(async ({ input, context }) => {
-		enforceIngestRateLimit(context.user.id);
+		await enforceIngestRateLimit(context.user.id);
 		const ingestSecurity = getIngestSecurityConfig();
 		validateIngestPayload(input, ingestSecurity);
 

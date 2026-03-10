@@ -5,8 +5,9 @@ import { RPCHandler } from "@orpc/server/fetch";
 import { createAuth } from "./auth.js";
 import { db, pgClient } from "./db.js";
 import {
+	cloneRequestWithBodyLimit,
 	getIngestSecurityConfig,
-	isIngestRequestTooLarge,
+	IngestRequestTooLargeError,
 } from "./ingest-security.js";
 import { setupLogging } from "./logging.js";
 import { router } from "./router.js";
@@ -228,17 +229,26 @@ async function handleRequest(
 	url: URL,
 	cors: Record<string, string>,
 ): Promise<Response> {
-	if (
-		url.pathname === "/rpc/ingestSession" &&
-		isIngestRequestTooLarge(request, getIngestSecurityConfig())
-	) {
-		return jsonResponse(
-			{
-				error: "Ingest request exceeds the configured request size limit.",
-			},
-			cors,
-			413,
-		);
+	let rpcRequest = request;
+
+	if (url.pathname === "/rpc/ingestSession") {
+		try {
+			rpcRequest = await cloneRequestWithBodyLimit(
+				request,
+				getIngestSecurityConfig(),
+			);
+		} catch (error) {
+			if (error instanceof IngestRequestTooLargeError) {
+				return jsonResponse(
+					{
+						error: "Ingest request exceeds the configured request size limit.",
+					},
+					cors,
+					413,
+				);
+			}
+			throw error;
+		}
 	}
 
 	if (url.pathname === "/api/cli-token") {
@@ -399,9 +409,9 @@ async function handleRequest(
 		return response;
 	}
 
-	const { matched, response } = await rpcHandler.handle(request, {
+	const { matched, response } = await rpcHandler.handle(rpcRequest, {
 		prefix: "/rpc",
-		context: await getContext(request),
+		context: await getContext(rpcRequest),
 	});
 
 	if (matched) {
