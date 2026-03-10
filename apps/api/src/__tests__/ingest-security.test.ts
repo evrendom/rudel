@@ -107,9 +107,9 @@ describe("ingest security", () => {
 			}),
 		});
 
-		await expect(cloneRequestWithBodyLimit(request, config)).rejects.toBeInstanceOf(
-			IngestRequestTooLargeError,
-		);
+		await expect(
+			cloneRequestWithBodyLimit(request, config),
+		).rejects.toBeInstanceOf(IngestRequestTooLargeError);
 	});
 
 	test("rate limiter blocks once the window budget is exhausted", () => {

@@ -1,41 +1,41 @@
 {
-  "version": "7",
-  "dialect": "postgresql",
-  "entries": [
-    {
-      "idx": 0,
-      "version": "7",
-      "when": 1771644519976,
-      "tag": "0000_supreme_texas_twister",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1771904565586,
-      "tag": "0001_flippant_sharon_ventura",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1771906427711,
-      "tag": "0002_migrate-users-to-orgs",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1772081558270,
-      "tag": "0003_complete_madripoor",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "7",
-      "when": 1773153455692,
-      "tag": "0004_sad_menace",
-      "breakpoints": true
-    }
-  ]
+	"version": "7",
+	"dialect": "postgresql",
+	"entries": [
+		{
+			"idx": 0,
+			"version": "7",
+			"when": 1771644519976,
+			"tag": "0000_supreme_texas_twister",
+			"breakpoints": true
+		},
+		{
+			"idx": 1,
+			"version": "7",
+			"when": 1771904565586,
+			"tag": "0001_flippant_sharon_ventura",
+			"breakpoints": true
+		},
+		{
+			"idx": 2,
+			"version": "7",
+			"when": 1771906427711,
+			"tag": "0002_migrate-users-to-orgs",
+			"breakpoints": true
+		},
+		{
+			"idx": 3,
+			"version": "7",
+			"when": 1772081558270,
+			"tag": "0003_complete_madripoor",
+			"breakpoints": true
+		},
+		{
+			"idx": 4,
+			"version": "7",
+			"when": 1773153455692,
+			"tag": "0004_sad_menace",
+			"breakpoints": true
+		}
+	]
 }
