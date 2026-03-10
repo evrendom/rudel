@@ -3,15 +3,13 @@ import type {
 	OverviewKPIs,
 	UsageTrendData,
 } from "@rudel/api-routes";
-import { user } from "@rudel/sql-schema";
-import { eq } from "drizzle-orm";
 import {
 	buildAbsoluteDateFilter,
 	buildDateFilter,
 	escapeString,
 	queryClickhouse,
 } from "../clickhouse.js";
-import { db } from "../db.js";
+import { pgClient } from "../db.js";
 
 export interface Insight {
 	type: "trend" | "performer" | "alert" | "info";
@@ -262,11 +260,12 @@ export async function getOverviewInsights(
 	// Insight 2: Top performer identification
 	if (topPerformerData.length > 0 && topPerformerData[0]) {
 		const performer = topPerformerData[0];
-		const [userData] = await db
-			.select({ name: user.name })
-			.from(user)
-			.where(eq(user.id, performer.user_id))
-			.limit(1);
+		const [userData] = await pgClient<{ name: string | null }[]>`
+			SELECT name
+			FROM "user"
+			WHERE id = ${performer.user_id}
+			LIMIT 1
+		`;
 		const displayName =
 			userData?.name || `${performer.user_id.substring(0, 8)}...`;
 
