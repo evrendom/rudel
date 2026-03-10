@@ -95,7 +95,13 @@ export function getClickhouse(): ClickHouseExecutor {
 }
 
 export function escapeString(value: string): string {
-	return value.replace(/'/g, "\\'");
+	return value
+		.replaceAll("\\", "\\\\")
+		.replaceAll("\0", "\\0")
+		.replaceAll("\n", "\\n")
+		.replaceAll("\r", "\\r")
+		.replaceAll("\t", "\\t")
+		.replaceAll("'", "\\'");
 }
 
 export function buildDateFilter(days: number, column = "session_date"): string {

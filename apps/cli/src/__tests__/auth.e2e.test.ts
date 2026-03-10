@@ -9,6 +9,7 @@ import {
 
 setDefaultTimeout(30_000);
 
+import { createHash, randomBytes } from "node:crypto";
 import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -30,7 +31,7 @@ beforeAll(async () => {
 
 	server = await startTestServer();
 	sessionToken = await signUpTestUser(server.baseUrl);
-}, 60_000);
+});
 
 afterAll(async () => {
 	await server?.stop();
@@ -62,7 +63,7 @@ describe("auth e2e", () => {
 			},
 		);
 
-		// Poll the log file for the "Opening browser" message
+		// Poll the log file until the login URL is printed
 		const { readFileSync, existsSync } = require("node:fs");
 		let output = "";
 		const deadline = Date.now() + 10_000;
@@ -70,7 +71,7 @@ describe("auth e2e", () => {
 		while (Date.now() < deadline) {
 			if (existsSync(stdoutLogPath)) {
 				output = readFileSync(stdoutLogPath, "utf-8");
-				if (output.includes("Opening browser")) break;
+				if (output.includes("cli_callback=")) break;
 			}
 			await Bun.sleep(100);
 		}
@@ -85,13 +86,38 @@ describe("auth e2e", () => {
 		expect(stateMatch).not.toBeNull();
 		const state = stateMatch?.[1] ?? "";
 
-		// Simulate what the web app does: hit the callback with token + state
+		const challengeMatch = output.match(/code_challenge=([A-Za-z0-9_-]+)/);
+		expect(challengeMatch).not.toBeNull();
+		const codeChallenge = challengeMatch?.[1] ?? "";
+
+		// Simulate what the web app does: mint a short-lived auth code first
+		const cliTokenResponse = await fetch(`${server.baseUrl}/api/cli-token`, {
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json",
+				Authorization: `Bearer ${sessionToken}`,
+			},
+			body: JSON.stringify({
+				cliCallback: callbackUrl,
+				state,
+				codeChallenge,
+			}),
+		});
+		if (!cliTokenResponse.ok) {
+			throw new Error(
+				`/api/cli-token failed (${cliTokenResponse.status}): ${await cliTokenResponse.text()}`,
+			);
+		}
+		const cliTokenBody = (await cliTokenResponse.json()) as { code: string };
+		expect(typeof cliTokenBody.code).toBe("string");
+
+		// Simulate the browser redirect back to the CLI with code + state
 		const callbackResponse = await fetch(
-			`${callbackUrl}?token=${sessionToken}&state=${state}`,
+			`${callbackUrl}?code=${encodeURIComponent(cliTokenBody.code)}&state=${state}`,
 		);
 		expect(callbackResponse.ok).toBe(true);
 		const callbackBody = await callbackResponse.text();
-		expect(callbackBody).toContain("Login successful");
+		expect(callbackBody).toContain("Return to the terminal");
 
 		// Wait for the process to finish
 		const exitCode = await loginProcess.exited;
@@ -172,6 +198,61 @@ describe("auth e2e", () => {
 
 		expect(exitCode).toBe(0);
 		expect(stdout).toContain("Not logged in");
+	});
+
+	test("cli auth codes are one-time use", async () => {
+		const state = randomBytes(16).toString("hex");
+		const codeVerifier = randomBytes(32).toString("base64url");
+		const codeChallenge = createHash("sha256")
+			.update(codeVerifier)
+			.digest("base64url");
+
+		const createResponse = await fetch(`${server.baseUrl}/api/cli-token`, {
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json",
+				Authorization: `Bearer ${sessionToken}`,
+			},
+			body: JSON.stringify({
+				cliCallback: "http://127.0.0.1:43123/callback",
+				state,
+				codeChallenge,
+			}),
+		});
+		if (!createResponse.ok) {
+			throw new Error(
+				`/api/cli-token failed (${createResponse.status}): ${await createResponse.text()}`,
+			);
+		}
+		const createBody = (await createResponse.json()) as { code: string };
+
+		const firstExchange = await fetch(`${server.baseUrl}/api/cli-exchange`, {
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json",
+			},
+			body: JSON.stringify({
+				code: createBody.code,
+				state,
+				codeVerifier,
+			}),
+		});
+		expect(firstExchange.ok).toBe(true);
+		const firstBody = (await firstExchange.json()) as { token: string };
+		expect(firstBody.token).toBe(sessionToken);
+
+		const replayExchange = await fetch(`${server.baseUrl}/api/cli-exchange`, {
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json",
+			},
+			body: JSON.stringify({
+				code: createBody.code,
+				state,
+				codeVerifier,
+			}),
+		});
+		expect(replayExchange.status).toBe(400);
 	});
 });
 

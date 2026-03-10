@@ -1,8 +1,13 @@
+import { createHash } from "node:crypto";
 import { join } from "node:path";
 import { getLogger, withContext } from "@logtape/logtape";
 import { RPCHandler } from "@orpc/server/fetch";
 import { createAuth } from "./auth.js";
-import { db } from "./db.js";
+import { db, pgClient } from "./db.js";
+import {
+	getIngestSecurityConfig,
+	isIngestRequestTooLarge,
+} from "./ingest-security.js";
 import { setupLogging } from "./logging.js";
 import { router } from "./router.js";
 
@@ -48,6 +53,67 @@ const STATIC_DIR = join(
 	"..",
 	process.env.STATIC_DIR ?? "public",
 );
+const CLI_AUTH_CODE_TTL_MS = 60_000;
+const CLI_AUTH_IDENTIFIER_PREFIX = "cli-auth:";
+
+interface CliAuthCodeValue {
+	sessionToken: string;
+	state: string;
+	codeChallenge: string;
+}
+
+function getLookupToken(token: string): string | null {
+	if (!token) {
+		return null;
+	}
+
+	if (!token.includes(".")) {
+		return token;
+	}
+
+	try {
+		return decodeURIComponent(token).split(".")[0] ?? null;
+	} catch {
+		return null;
+	}
+}
+
+async function getAuthenticatedSessionToken(
+	request: Request,
+): Promise<string | null> {
+	const session = await auth.api.getSession({
+		headers: request.headers,
+	});
+	if (session?.session.token) {
+		return session.session.token;
+	}
+
+	const authorization = request.headers.get("Authorization");
+	if (!authorization?.startsWith("Bearer ")) {
+		return null;
+	}
+
+	const token = authorization.slice("Bearer ".length).trim();
+	if (!token) {
+		return null;
+	}
+
+	const lookupToken = getLookupToken(token);
+	if (!lookupToken) {
+		return null;
+	}
+
+	const now = new Date().toISOString();
+	const matches = await pgClient<{ token: string }[]>`
+		SELECT token
+		FROM "session"
+		WHERE token = ${lookupToken}
+			AND expires_at > ${now}
+		LIMIT 1
+	`;
+
+	return matches[0] ? token : null;
+}
 
 function corsHeaders(origin: string | null): Record<string, string> {
 	if (origin !== ALLOWED_ORIGIN) return {};
@@ -57,6 +123,65 @@ function corsHeaders(origin: string | null): Record<string, string> {
 		"Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
 		"Access-Control-Allow-Headers": "Content-Type, Authorization",
 	};
+}
+
+function jsonResponse(
+	body: Record<string, unknown>,
+	cors: Record<string, string>,
+	status = 200,
+): Response {
+	return new Response(JSON.stringify(body), {
+		status,
+		headers: {
+			...cors,
+			"Content-Type": "application/json",
+			"Cache-Control": "no-store",
+		},
+	});
+}
+
+function isValidCliCallback(cliCallback: unknown): cliCallback is string {
+	if (typeof cliCallback !== "string" || cliCallback.length > 2048) {
+		return false;
+	}
+
+	try {
+		const url = new URL(cliCallback);
+		return url.protocol === "http:" && url.hostname === "127.0.0.1";
+	} catch {
+		return false;
+	}
+}
+
+function isValidState(state: unknown): state is string {
+	return (
+		typeof state === "string" &&
+		state.length >= 16 &&
+		state.length <= 256 &&
+		/^[A-Za-z0-9_-]+$/.test(state)
+	);
+}
+
+function isValidCodeChallenge(codeChallenge: unknown): codeChallenge is string {
+	return (
+		typeof codeChallenge === "string" &&
+		codeChallenge.length >= 43 &&
+		codeChallenge.length <= 128 &&
+		/^[A-Za-z0-9_-]+$/.test(codeChallenge)
+	);
+}
+
+function isValidCliCode(code: unknown): code is string {
+	return (
+		typeof code === "string" &&
+		code.length >= 20 &&
+		code.length <= 128 &&
+		/^[A-Za-z0-9-]+$/.test(code)
+	);
+}
+
+function hashCodeVerifier(codeVerifier: string): string {
+	return createHash("sha256").update(codeVerifier).digest("base64url");
 }
 
 const port = process.env.PORT ?? 4010;
@@ -103,20 +228,167 @@ async function handleRequest(
 	url: URL,
 	cors: Record<string, string>,
 ): Promise<Response> {
+	if (
+		url.pathname === "/rpc/ingestSession" &&
+		isIngestRequestTooLarge(request, getIngestSecurityConfig())
+	) {
+		return jsonResponse(
+			{
+				error: "Ingest request exceeds the configured request size limit.",
+			},
+			cors,
+			413,
+		);
+	}
+
 	if (url.pathname === "/api/cli-token") {
-		const session = await auth.api.getSession({
-			headers: request.headers,
-		});
-		if (!session) {
-			return new Response(JSON.stringify({ error: "Not authenticated" }), {
-				status: 401,
-				headers: { ...cors, "Content-Type": "application/json" },
-			});
+		if (request.method !== "POST") {
+			return jsonResponse({ error: "Method not allowed" }, cors, 405);
 		}
-		return new Response(JSON.stringify({ token: session.session.token }), {
-			status: 200,
-			headers: { ...cors, "Content-Type": "application/json" },
-		});
+
+		const sessionToken = await getAuthenticatedSessionToken(request);
+		if (!sessionToken) {
+			return jsonResponse({ error: "Not authenticated" }, cors, 401);
+		}
+
+		let body: {
+			cliCallback?: unknown;
+			state?: unknown;
+			codeChallenge?: unknown;
+		};
+		try {
+			body = (await request.json()) as typeof body;
+		} catch {
+			return jsonResponse({ error: "Invalid JSON body" }, cors, 400);
+		}
+
+		if (
+			!isValidCliCallback(body.cliCallback) ||
+			!isValidState(body.state) ||
+			!isValidCodeChallenge(body.codeChallenge)
+		) {
+			return jsonResponse({ error: "Invalid CLI auth request" }, cors, 400);
+		}
+
+		const code = crypto.randomUUID();
+		const expiresAt = new Date(Date.now() + CLI_AUTH_CODE_TTL_MS);
+		const expiresAtIso = expiresAt.toISOString();
+		const value: CliAuthCodeValue = {
+			sessionToken,
+			state: body.state,
+			codeChallenge: body.codeChallenge,
+		};
+
+		await pgClient`
+			INSERT INTO verification (id, identifier, value, expires_at)
+			VALUES (
+				${crypto.randomUUID()},
+				${`${CLI_AUTH_IDENTIFIER_PREFIX}${code}`},
+				${JSON.stringify(value)},
+				${expiresAtIso}
+			)
+		`;
+
+		return jsonResponse(
+			{ code, expiresAt: expiresAt.toISOString() },
+			cors,
+			200,
+		);
+	}
+
+	if (url.pathname === "/api/cli-exchange") {
+		if (request.method !== "POST") {
+			return jsonResponse({ error: "Method not allowed" }, cors, 405);
+		}
+
+		let body: {
+			code?: unknown;
+			state?: unknown;
+			codeVerifier?: unknown;
+		};
+		try {
+			body = (await request.json()) as typeof body;
+		} catch {
+			return jsonResponse({ error: "Invalid JSON body" }, cors, 400);
+		}
+
+		if (
+			!isValidCliCode(body.code) ||
+			!isValidState(body.state) ||
+			typeof body.codeVerifier !== "string" ||
+			body.codeVerifier.length < 43 ||
+			body.codeVerifier.length > 128
+		) {
+			return jsonResponse({ error: "Invalid CLI auth exchange" }, cors, 400);
+		}
+
+		const now = new Date().toISOString();
+		const matches = await pgClient<{ id: string; value: string }[]>`
+			SELECT id, value
+			FROM verification
+			WHERE identifier = ${`${CLI_AUTH_IDENTIFIER_PREFIX}${body.code}`}
+				AND expires_at > ${now}
+			LIMIT 1
+		`;
+
+		if (matches.length === 0) {
+			return jsonResponse(
+				{ error: "CLI auth code expired or invalid" },
+				cors,
+				400,
+			);
+		}
+
+		const match = matches[0];
+		if (!match) {
+			return jsonResponse(
+				{ error: "CLI auth code expired or invalid" },
+				cors,
+				400,
+			);
+		}
+
+		await pgClient`
+			DELETE FROM verification
+			WHERE id = ${match.id}
+		`;
+
+		let stored: CliAuthCodeValue;
+		try {
+			stored = JSON.parse(match.value) as CliAuthCodeValue;
+		} catch {
+			return jsonResponse({ error: "CLI auth code is corrupted" }, cors, 400);
+		}
+
+		if (
+			stored.state !== body.state ||
+			stored.codeChallenge !== hashCodeVerifier(body.codeVerifier)
+		) {
+			return jsonResponse({ error: "CLI auth verification failed" }, cors, 400);
+		}
+
+		const lookupToken = getLookupToken(stored.sessionToken);
+		if (!lookupToken) {
+			return jsonResponse({ error: "Session expired" }, cors, 401);
+		}
+
+		const sessionRows = await pgClient<{ token: string }[]>`
+			SELECT token
+			FROM "session"
+			WHERE token = ${lookupToken}
+				AND expires_at > ${now}
+			LIMIT 1
+		`;
+
+		if (sessionRows.length === 0) {
+			return jsonResponse({ error: "Session expired" }, cors, 401);
+		}
+
+		if (!sessionRows[0]) {
+			return jsonResponse({ error: "Session expired" }, cors, 401);
+		}
+
+		return jsonResponse({ token: stored.sessionToken }, cors, 200);
 	}
 
 	if (url.pathname.startsWith("/api/auth")) {

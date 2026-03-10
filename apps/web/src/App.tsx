@@ -23,18 +23,23 @@ import { SessionsListPage } from "./pages/dashboard/SessionsListPage";
 
 type Page = "login" | "signup";
 
-function getCliParams(): { cliCallback: string; state: string } | null {
+function getCliParams(): {
+	cliCallback: string;
+	state: string;
+	codeChallenge: string;
+} | null {
 	const params = new URLSearchParams(window.location.search);
 	const cliCallback = params.get("cli_callback");
 	const state = params.get("state");
-	if (!cliCallback || !state) return null;
+	const codeChallenge = params.get("code_challenge");
+	if (!cliCallback || !state || !codeChallenge) return null;
 	try {
 		const url = new URL(cliCallback);
-		if (url.hostname !== "127.0.0.1") return null;
+		if (url.protocol !== "http:" || url.hostname !== "127.0.0.1") return null;
 	} catch {
 		return null;
 	}
-	return { cliCallback, state };
+	return { cliCallback, state, codeChallenge };
 }
 
 function getValidRedirect(): string | null {
@@ -58,11 +63,32 @@ function App() {
 		if (!session || !cliParams || cliRedirecting) return;
 		setCliRedirecting(true);
 
-		fetch("/api/cli-token", { credentials: "include" })
-			.then((res) => res.json())
-			.then((data: { token: string }) => {
-				const redirectUrl = `${cliParams.cliCallback}?token=${encodeURIComponent(data.token)}&state=${encodeURIComponent(cliParams.state)}`;
-				window.location.href = redirectUrl;
+		fetch("/api/cli-token", {
+			method: "POST",
+			credentials: "include",
+			headers: {
+				"Content-Type": "application/json",
+			},
+			body: JSON.stringify({
+				cliCallback: cliParams.cliCallback,
+				state: cliParams.state,
+				codeChallenge: cliParams.codeChallenge,
+			}),
+		})
+			.then(async (res) => {
+				const data = (await res.json()) as { code?: string; error?: string };
+				if (!res.ok || !data.code) {
+					throw new Error(data.error ?? "Failed to create CLI auth code");
+				}
+				return data.code;
+			})
+			.then((code) => {
+				const redirectUrl = `${cliParams.cliCallback}?code=${encodeURIComponent(code)}&state=${encodeURIComponent(cliParams.state)}`;
+				window.location.replace(redirectUrl);
+			})
+			.catch((error) => {
+				console.error("CLI login handoff failed", error);
+				setCliRedirecting(false);
 			});
 	}, [session, cliParams, cliRedirecting]);
 

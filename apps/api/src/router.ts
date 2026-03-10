@@ -5,7 +5,16 @@ import { and, eq } from "drizzle-orm";
 import { getClickhouse } from "./clickhouse.js";
 import { db } from "./db.js";
 import { analyticsRouter } from "./handlers/analytics/index.js";
-import { authMiddleware, os } from "./middleware.js";
+import {
+	enforceIngestRateLimit,
+	getIngestSecurityConfig,
+	validateIngestPayload,
+} from "./ingest-security.js";
+import {
+	authMiddleware,
+	os,
+	resolveActiveOrganizationId,
+} from "./middleware.js";
 import {
 	deleteOrgSessions,
 	getOrgSessionCount,
@@ -18,16 +27,17 @@ const health = os.health.handler(() => {
 	};
 });
 
-const me = os.me.use(authMiddleware).handler(({ context }) => {
+const me = os.me.use(authMiddleware).handler(async ({ context }) => {
+	const activeOrganizationId = await resolveActiveOrganizationId(
+		context.user.id,
+		context.session,
+	);
 	return {
 		id: context.user.id,
 		email: context.user.email,
 		name: context.user.name,
 		image: context.user.image ?? null,
-		activeOrganizationId:
-			((context.session as Record<string, unknown>).activeOrganizationId as
-				| string
-				| null) ?? null,
+		activeOrganizationId,
 	};
 });
 
@@ -56,12 +66,9 @@ const listMyOrganizations = os.listMyOrganizations
 const ingestSessionHandler = os.ingestSession
 	.use(authMiddleware)
 	.handler(async ({ input, context }) => {
-		const orgId =
-			input.organizationId ??
-			((context.session as Record<string, unknown>).activeOrganizationId as
-				| string
-				| null) ??
-			context.user.id;
+		enforceIngestRateLimit(context.user.id);
+		const ingestSecurity = getIngestSecurityConfig();
+		validateIngestPayload(input, ingestSecurity);
 
 		if (input.organizationId) {
 			const membership = await db
@@ -82,10 +89,15 @@ const ingestSessionHandler = os.ingestSession
 			}
 		}
 
+		const orgId =
+			input.organizationId ??
+			(await resolveActiveOrganizationId(context.user.id, context.session));
+
 		const adapter = getAdapter(input.source);
 		await adapter.ingest(getClickhouse(), input, {
 			userId: context.user.id,
 			organizationId: orgId,
+			retentionPolicy: ingestSecurity.retentionPolicy,
 		});
 
 		return {

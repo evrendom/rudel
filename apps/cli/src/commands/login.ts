@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import {
 	createServer,
 	type IncomingMessage,
@@ -29,10 +29,14 @@ async function runLogin(flags: {
 	}
 
 	const state = randomBytes(16).toString("hex");
+	const codeVerifier = randomBytes(32).toString("base64url");
+	const codeChallenge = createHash("sha256")
+		.update(codeVerifier)
+		.digest("base64url");
 
-	let resolveCallback: (token: string) => void;
+	let resolveCallback: (code: string) => void;
 	let rejectCallback: (error: Error) => void;
-	const tokenPromise = new Promise<string>((resolve, reject) => {
+	const authCodePromise = new Promise<string>((resolve, reject) => {
 		resolveCallback = resolve;
 		rejectCallback = reject;
 	});
@@ -45,7 +49,7 @@ async function runLogin(flags: {
 			return;
 		}
 
-		const receivedToken = url.searchParams.get("token");
+		const receivedCode = url.searchParams.get("code");
 		const receivedState = url.searchParams.get("state");
 
 		if (receivedState !== state) {
@@ -57,19 +61,19 @@ async function runLogin(flags: {
 			return;
 		}
 
-		if (!receivedToken) {
-			rejectCallback(new Error("No token received"));
+		if (!receivedCode) {
+			rejectCallback(new Error("No authorization code received"));
 			res.writeHead(200, { "Content-Type": "text/html" });
 			res.end(
-				"<html><body><h1>Login failed</h1><p>No token received.</p></body></html>",
+				"<html><body><h1>Login failed</h1><p>No authorization code received.</p></body></html>",
 			);
 			return;
 		}
 
-		resolveCallback(receivedToken);
+		resolveCallback(receivedCode);
 		res.writeHead(200, { "Content-Type": "text/html" });
 		res.end(
-			"<html><body><h1>Login successful!</h1><p>You can close this tab and return to the terminal.</p></body></html>",
+			"<html><body><h1>Login received</h1><p>Return to the terminal to finish authentication.</p></body></html>",
 		);
 	});
 
@@ -79,7 +83,7 @@ async function runLogin(flags: {
 
 	const port = (server.address() as AddressInfo).port;
 	const callbackUrl = `http://127.0.0.1:${port}/callback`;
-	const loginUrl = `${flags.webUrl}?cli_callback=${encodeURIComponent(callbackUrl)}&state=${state}`;
+	const loginUrl = `${flags.webUrl}?cli_callback=${encodeURIComponent(callbackUrl)}&state=${state}&code_challenge=${encodeURIComponent(codeChallenge)}`;
 
 	p.log.info(`If the browser doesn't open, visit:\n${loginUrl}`);
 
@@ -111,7 +115,28 @@ async function runLogin(flags: {
 
 	let token: string;
 	try {
-		token = await tokenPromise;
+		const code = await authCodePromise;
+
+		const exchangeResponse = await fetch(`${flags.apiBase}/api/cli-exchange`, {
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json",
+			},
+			body: JSON.stringify({
+				code,
+				state,
+				codeVerifier,
+			}),
+		});
+
+		const exchangeBody = (await exchangeResponse.json()) as {
+			token?: string;
+			error?: string;
+		};
+		if (!exchangeResponse.ok || !exchangeBody.token) {
+			throw new Error(exchangeBody.error ?? "CLI auth exchange failed");
+		}
+		token = exchangeBody.token;
 	} catch (error) {
 		clearTimeout(timeout);
 		server.close();

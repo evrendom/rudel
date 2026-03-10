@@ -15,10 +15,17 @@ export {
 	getAvailableAdapters,
 	registerAdapter,
 } from "./registry.js";
+export {
+	applyRetentionPolicy,
+	applySubagentRetentionPolicy,
+	retainContent,
+} from "./retention.js";
 export type {
 	AgentAdapter,
 	GitInfo,
 	IngestContext,
+	IngestRetentionMode,
+	IngestRetentionPolicy,
 	ScannedProject,
 	SessionFile,
 	UploadContext,

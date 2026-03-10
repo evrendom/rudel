@@ -7,6 +7,7 @@ import {
 	ingestRudelCodexSessions,
 	type RudelCodexSessionsRow,
 } from "@rudel/ch-schema/generated";
+import { applyRetentionPolicy } from "../../retention.js";
 import type {
 	AgentAdapter,
 	IngestContext,
@@ -226,6 +227,9 @@ class CodexAdapter implements AgentAdapter {
 		context: IngestContext,
 	): RudelCodexSessionsRow {
 		const now = new Date().toISOString().replace("Z", "");
+		const retainedContent = context.retentionPolicy
+			? applyRetentionPolicy(input.content, context.retentionPolicy)
+			: input.content;
 
 		const timestamps = this.extractTimestamps(input.content);
 
@@ -242,7 +246,7 @@ class CodexAdapter implements AgentAdapter {
 			git_remote: input.gitRemote ?? "",
 			package_name: input.packageName ?? "",
 			package_type: input.packageType ?? "",
-			content: input.content,
+			content: retainedContent,
 			ingested_at: now,
 			user_id: context.userId,
 			git_branch: input.gitBranch ?? null,

@@ -31,9 +31,19 @@ export interface UploadContext {
 	gitInfo: GitInfo;
 }
 
+export type IngestRetentionMode = "full" | "truncate" | "none";
+
+export interface IngestRetentionPolicy {
+	transcriptMode: IngestRetentionMode;
+	transcriptMaxBytes: number;
+	subagentMode: IngestRetentionMode;
+	subagentMaxBytes: number;
+}
+
 export interface IngestContext {
 	userId: string;
 	organizationId: string;
+	retentionPolicy?: IngestRetentionPolicy;
 }
 
 export interface AgentAdapter {

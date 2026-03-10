@@ -7,6 +7,10 @@ import {
 	ingestRudelClaudeSessions,
 	type RudelClaudeSessionsRow,
 } from "@rudel/ch-schema/generated";
+import {
+	applyRetentionPolicy,
+	applySubagentRetentionPolicy,
+} from "../../retention.js";
 import type {
 	AgentAdapter,
 	IngestContext,
@@ -289,11 +293,19 @@ class ClaudeCodeAdapter implements AgentAdapter {
 		context: IngestContext,
 	): RudelClaudeSessionsRow {
 		const now = new Date().toISOString().replace("Z", "");
+		const retainedContent = context.retentionPolicy
+			? applyRetentionPolicy(input.content, context.retentionPolicy)
+			: input.content;
 
 		const subagents: Record<string, string> = {};
 		if (input.subagents) {
 			for (const sub of input.subagents) {
-				subagents[sub.agentId] = sub.content;
+				const retainedSubagent = context.retentionPolicy
+					? applySubagentRetentionPolicy(sub.content, context.retentionPolicy)
+					: sub.content;
+				if (retainedSubagent) {
+					subagents[sub.agentId] = retainedSubagent;
+				}
 			}
 		}
 
@@ -312,7 +324,7 @@ class ClaudeCodeAdapter implements AgentAdapter {
 			git_remote: input.gitRemote ?? "",
 			package_name: input.packageName ?? "",
 			package_type: input.packageType ?? "",
-			content: input.content,
+			content: retainedContent,
 			subagents,
 			ingested_at: now,
 			user_id: context.userId,

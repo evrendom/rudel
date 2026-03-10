@@ -1,6 +1,3 @@
-import { mkdir, unlink, writeFile } from "node:fs/promises";
-import { homedir } from "node:os";
-import { join } from "node:path";
 import { exec } from "./exec.js";
 import { SESSION_TAGS, type SessionTag } from "./types.js";
 
@@ -25,24 +22,22 @@ export async function classifySession(
 	// Truncate content to avoid excessive API costs
 	const truncatedContent = content.slice(0, 50000);
 
-	const tempDir = join(homedir(), ".claude", "temp");
-	const tempFile = join(tempDir, `classify-${Date.now()}.txt`);
-
 	try {
-		await mkdir(tempDir, { recursive: true });
-		await writeFile(
-			tempFile,
-			`Classify this session transcript:\n\n${truncatedContent}`,
+		const prompt = `Classify this session transcript:\n\n${truncatedContent}`;
+		const result = await exec(
+			"claude",
+			[
+				"--output-format",
+				"text",
+				"--print",
+				"--model",
+				"haiku",
+				"--no-session-persistence",
+				"--system-prompt",
+				SYSTEM_PROMPT,
+			],
+			{ stdin: prompt },
 		);
-
-		const prompt = `Read and classify the session transcript in this file: ${tempFile}`;
-		const escapedPrompt = prompt.replace(/'/g, "'\\''");
-		const escapedSystemPrompt = SYSTEM_PROMPT.replace(/'/g, "'\\''");
-
-		const result = await exec("sh", [
-			"-c",
-			`echo '${escapedPrompt}' | claude --output-format text --print --model haiku --no-session-persistence --dangerously-skip-permissions --system-prompt '${escapedSystemPrompt}'`,
-		]);
 
 		if (result.exitCode !== 0) {
 			return "other";
@@ -65,11 +60,5 @@ export async function classifySession(
 		return "other";
 	} catch {
 		return undefined;
-	} finally {
-		try {
-			await unlink(tempFile);
-		} catch {
-			// Ignore cleanup errors
-		}
 	}
 }
