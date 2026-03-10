@@ -14,15 +14,18 @@ import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
+	issueCliCredential,
 	signUpTestUser,
 	startTestServer,
+	type TestBrowserSession,
 	type TestServer,
 } from "./helpers/bun-server.js";
 
 let server: TestServer;
 let configDir: string;
 let tempDir: string;
-let sessionToken: string;
+let browserSession: TestBrowserSession;
+let originalPlaintextFallback: string | undefined;
 
 beforeAll(async () => {
 	tempDir = mkdtempSync(join(tmpdir(), "rudel-auth-test-"));
@@ -30,11 +33,18 @@ beforeAll(async () => {
 	mkdirSync(configDir, { recursive: true });
 
 	server = await startTestServer();
-	sessionToken = await signUpTestUser(server.baseUrl);
+	browserSession = await signUpTestUser(server.baseUrl);
+	originalPlaintextFallback = process.env.RUDEL_ALLOW_PLAINTEXT_CREDENTIALS;
+	process.env.RUDEL_ALLOW_PLAINTEXT_CREDENTIALS = "1";
 });
 
 afterAll(async () => {
 	await server?.stop();
+	if (originalPlaintextFallback === undefined) {
+		delete process.env.RUDEL_ALLOW_PLAINTEXT_CREDENTIALS;
+	} else {
+		process.env.RUDEL_ALLOW_PLAINTEXT_CREDENTIALS = originalPlaintextFallback;
+	}
 	rmSync(tempDir, { recursive: true, force: true });
 });
 
@@ -76,31 +86,31 @@ describe("auth e2e", () => {
 			await Bun.sleep(100);
 		}
 
-		// Extract the callback URL from the output
-		const callbackMatch = output.match(/cli_callback=([^&]+)/);
-		expect(callbackMatch).not.toBeNull();
-		const callbackUrl = decodeURIComponent(callbackMatch?.[1] ?? "");
+		const loginUrlMatch = output.match(/https?:\/\/[^\s]+/);
+		expect(loginUrlMatch).not.toBeNull();
+		const loginUrl = new URL(loginUrlMatch?.[0] ?? "");
+		const callbackUrl = loginUrl.searchParams.get("cli_callback") ?? "";
+		const state = loginUrl.searchParams.get("state") ?? "";
+		const codeChallenge = loginUrl.searchParams.get("code_challenge") ?? "";
+		const deviceName = loginUrl.searchParams.get("device_name") ?? "";
 
-		// Extract the state
-		const stateMatch = output.match(/state=([a-f0-9]+)/);
-		expect(stateMatch).not.toBeNull();
-		const state = stateMatch?.[1] ?? "";
-
-		const challengeMatch = output.match(/code_challenge=([A-Za-z0-9_-]+)/);
-		expect(challengeMatch).not.toBeNull();
-		const codeChallenge = challengeMatch?.[1] ?? "";
+		expect(callbackUrl).toContain("127.0.0.1");
+		expect(state).not.toBe("");
+		expect(codeChallenge).not.toBe("");
+		expect(deviceName).not.toBe("");
 
 		// Simulate what the web app does: mint a short-lived auth code first
 		const cliTokenResponse = await fetch(`${server.baseUrl}/api/cli-token`, {
 			method: "POST",
 			headers: {
 				"Content-Type": "application/json",
-				Authorization: `Bearer ${sessionToken}`,
+				Cookie: browserSession.cookieHeader,
 			},
 			body: JSON.stringify({
 				cliCallback: callbackUrl,
 				state,
 				codeChallenge,
+				deviceName,
 			}),
 		});
 		if (!cliTokenResponse.ok) {
@@ -126,19 +136,30 @@ describe("auth e2e", () => {
 		// Verify credentials were stored
 		const savedCredentials = loadCredentialsFromDir(configDir);
 		expect(savedCredentials).not.toBeNull();
-		expect(savedCredentials?.token).toBe(sessionToken);
+		expect(savedCredentials?.token).toMatch(/^rcl_[^.]+\.[A-Za-z0-9_-]+$/);
 		expect(savedCredentials?.apiBaseUrl).toBe(server.baseUrl);
+
+		const meResponse = await fetch(`${server.baseUrl}/rpc/me`, {
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json",
+				Authorization: `Bearer ${savedCredentials?.token ?? ""}`,
+			},
+			body: JSON.stringify({}),
+		});
+		expect(meResponse.ok).toBe(true);
 	});
 
 	test("whoami: shows user info with valid credentials", async () => {
-		// Ensure credentials are stored
-		saveCredentialsToDir(configDir, sessionToken, server.baseUrl);
+		const cliToken = await issueCliCredential(server.baseUrl, browserSession);
+		saveCredentialsToDir(configDir, cliToken, server.baseUrl);
 
 		const cliPath = join(import.meta.dir, "..", "bin", "cli.ts");
 		const proc = Bun.spawn(["bun", cliPath, "whoami"], {
 			env: {
 				...process.env,
 				RUDEL_CONFIG_DIR: configDir,
+				RUDEL_ALLOW_PLAINTEXT_CREDENTIALS: "1",
 			},
 			stdout: "pipe",
 			stderr: "pipe",
@@ -155,14 +176,15 @@ describe("auth e2e", () => {
 	});
 
 	test("logout: clears credentials", async () => {
-		// Ensure credentials exist
-		saveCredentialsToDir(configDir, sessionToken, server.baseUrl);
+		const cliToken = await issueCliCredential(server.baseUrl, browserSession);
+		saveCredentialsToDir(configDir, cliToken, server.baseUrl);
 
 		const cliPath = join(import.meta.dir, "..", "bin", "cli.ts");
 		const proc = Bun.spawn(["bun", cliPath, "logout"], {
 			env: {
 				...process.env,
 				RUDEL_CONFIG_DIR: configDir,
+				RUDEL_ALLOW_PLAINTEXT_CREDENTIALS: "1",
 			},
 			stdout: "pipe",
 			stderr: "pipe",
@@ -177,6 +199,16 @@ describe("auth e2e", () => {
 		// Verify credentials are gone
 		const credentials = loadCredentialsFromDir(configDir);
 		expect(credentials).toBeNull();
+
+		const revokedResponse = await fetch(`${server.baseUrl}/rpc/me`, {
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json",
+				Authorization: `Bearer ${cliToken}`,
+			},
+			body: JSON.stringify({}),
+		});
+		expect(revokedResponse.ok).toBe(false);
 	});
 
 	test("whoami: shows not logged in after logout", async () => {
@@ -188,6 +220,7 @@ describe("auth e2e", () => {
 			env: {
 				...process.env,
 				RUDEL_CONFIG_DIR: configDir,
+				RUDEL_ALLOW_PLAINTEXT_CREDENTIALS: "1",
 			},
 			stdout: "pipe",
 			stderr: "pipe",
@@ -211,12 +244,13 @@ describe("auth e2e", () => {
 			method: "POST",
 			headers: {
 				"Content-Type": "application/json",
-				Authorization: `Bearer ${sessionToken}`,
+				Cookie: browserSession.cookieHeader,
 			},
 			body: JSON.stringify({
 				cliCallback: "http://127.0.0.1:43123/callback",
 				state,
 				codeChallenge,
+				deviceName: "Replay Test CLI",
 			}),
 		});
 		if (!createResponse.ok) {
@@ -239,7 +273,7 @@ describe("auth e2e", () => {
 		});
 		expect(firstExchange.ok).toBe(true);
 		const firstBody = (await firstExchange.json()) as { token: string };
-		expect(firstBody.token).toBe(sessionToken);
+		expect(firstBody.token).toMatch(/^rcl_[^.]+\.[A-Za-z0-9_-]+$/);
 
 		const replayExchange = await fetch(`${server.baseUrl}/api/cli-exchange`, {
 			method: "POST",
@@ -268,6 +302,13 @@ function saveCredentialsToDir(
 		JSON.stringify({ token, apiBaseUrl }, null, 2),
 		{ mode: 0o600 },
 	);
+	const metadataPath = join(dir, "credentials-meta.json");
+	try {
+		const { rmSync } = require("node:fs");
+		rmSync(metadataPath);
+	} catch {
+		// already gone
+	}
 }
 
 function loadCredentialsFromDir(
@@ -284,10 +325,15 @@ function loadCredentialsFromDir(
 }
 
 function clearCredentialsFromDir(dir: string): void {
-	const path = join(dir, "credentials.json");
+	const paths = [
+		join(dir, "credentials.json"),
+		join(dir, "credentials-meta.json"),
+	];
 	try {
 		const { rmSync } = require("node:fs");
-		rmSync(path);
+		for (const path of paths) {
+			rmSync(path, { force: true });
+		}
 	} catch {
 		// already gone
 	}

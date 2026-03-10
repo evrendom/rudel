@@ -179,7 +179,7 @@ const DAYS = 90;
 // ── Shared state ────────────────────────────────────────────────────
 
 let server: TestServer;
-let token: string;
+let sessionCookieHeader: string;
 let userId: string;
 let sessionList: Array<{ session_id: string; project_path: string }>;
 
@@ -193,7 +193,7 @@ async function rpc(
 		method: "POST",
 		headers: {
 			"Content-Type": "application/json",
-			Authorization: `Bearer ${token}`,
+			Cookie: sessionCookieHeader,
 		},
 		body: JSON.stringify(input ? { json: input } : {}),
 	});
@@ -228,20 +228,14 @@ beforeAll(async () => {
 		);
 	}
 
-	// Extract token
-	const signInData = (await signInRes.json()) as { token?: string };
-	if (signInData.token) {
-		token = signInData.token;
-	} else {
-		const cookies = signInRes.headers.getSetCookie();
-		const sessionCookie = cookies
-			.find((c) => c.startsWith("better-auth.session_token="))
-			?.split("=")[1]
-			?.split(";")[0];
-		if (!sessionCookie)
-			throw new Error("Could not extract token from sign-in response");
-		token = sessionCookie;
-	}
+	const cookies = signInRes.headers.getSetCookie();
+	const sessionCookie = cookies
+		.find((c) => c.startsWith("better-auth.session_token="))
+		?.split("=")[1]
+		?.split(";")[0];
+	if (!sessionCookie)
+		throw new Error("Could not extract session cookie from sign-in response");
+	sessionCookieHeader = `better-auth.session_token=${sessionCookie}`;
 
 	// Get user ID
 	const me = (await rpc("me")) as { id: string };

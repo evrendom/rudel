@@ -1,12 +1,14 @@
 import { ORPCError } from "@orpc/server";
 import { getAdapter } from "@rudel/agent-adapters";
-import { member, organization, session } from "@rudel/sql-schema";
-import { and, eq } from "drizzle-orm";
+import { revokeCliCredential } from "./cli-credentials.js";
 import { getClickhouse } from "./clickhouse.js";
-import { db } from "./db.js";
+import { pgClient } from "./db.js";
 import { analyticsRouter } from "./handlers/analytics/index.js";
-import { getIngestSecurityConfig, validateIngestPayload } from "./ingest-security.js";
 import { enforceIngestRateLimit } from "./ingest-rate-limit.js";
+import {
+	getIngestSecurityConfig,
+	validateIngestPayload,
+} from "./ingest-security.js";
 import {
 	authMiddleware,
 	os,
@@ -41,16 +43,19 @@ const me = os.me.use(authMiddleware).handler(async ({ context }) => {
 const listMyOrganizations = os.listMyOrganizations
 	.use(authMiddleware)
 	.handler(async ({ context }) => {
-		const memberships = await db
-			.select({
-				id: organization.id,
-				name: organization.name,
-				slug: organization.slug,
-				logo: organization.logo,
-			})
-			.from(member)
-			.innerJoin(organization, eq(member.organizationId, organization.id))
-			.where(eq(member.userId, context.user.id));
+		const memberships = await pgClient<
+			{
+				id: string;
+				name: string;
+				slug: string;
+				logo: string | null;
+			}[]
+		>`
+			SELECT o.id, o.name, o.slug, o.logo
+			FROM member m
+			INNER JOIN organization o ON m.organization_id = o.id
+			WHERE m.user_id = ${context.user.id}
+		`;
 
 		return memberships.map((m) => ({
 			id: m.id,
@@ -58,6 +63,19 @@ const listMyOrganizations = os.listMyOrganizations
 			slug: m.slug,
 			logo: m.logo ?? null,
 		}));
+	});
+
+const revokeCurrentCliCredentialHandler = os.revokeCurrentCliCredential
+	.use(authMiddleware)
+	.handler(async ({ context }) => {
+		if (context.session.kind !== "cli") {
+			throw new ORPCError("BAD_REQUEST", {
+				message: "Current authentication is not a CLI credential",
+			});
+		}
+
+		await revokeCliCredential(context.session.id, context.user.id);
+		return { success: true as const };
 	});
 
 const ingestSessionHandler = os.ingestSession
@@ -68,16 +86,13 @@ const ingestSessionHandler = os.ingestSession
 		validateIngestPayload(input, ingestSecurity);
 
 		if (input.organizationId) {
-			const membership = await db
-				.select({ id: member.id })
-				.from(member)
-				.where(
-					and(
-						eq(member.organizationId, input.organizationId),
-						eq(member.userId, context.user.id),
-					),
-				)
-				.limit(1);
+			const membership = await pgClient<{ id: string }[]>`
+				SELECT id
+				FROM member
+				WHERE organization_id = ${input.organizationId}
+					AND user_id = ${context.user.id}
+				LIMIT 1
+			`;
 
 			if (membership.length === 0) {
 				throw new ORPCError("FORBIDDEN", {
@@ -106,16 +121,13 @@ const ingestSessionHandler = os.ingestSession
 const getOrganizationSessionCount = os.getOrganizationSessionCount
 	.use(authMiddleware)
 	.handler(async ({ input, context }) => {
-		const membership = await db
-			.select({ id: member.id })
-			.from(member)
-			.where(
-				and(
-					eq(member.organizationId, input.organizationId),
-					eq(member.userId, context.user.id),
-				),
-			)
-			.limit(1);
+		const membership = await pgClient<{ id: string }[]>`
+			SELECT id
+			FROM member
+			WHERE organization_id = ${input.organizationId}
+				AND user_id = ${context.user.id}
+			LIMIT 1
+		`;
 
 		if (membership.length === 0) {
 			throw new ORPCError("FORBIDDEN", {
@@ -135,10 +147,11 @@ const deleteOrganization = os.deleteOrganization
 		console.log(`[deleteOrganization] user=${userId} org=${orgId}`);
 
 		// Check user has more than one org
-		const memberships = await db
-			.select({ organizationId: member.organizationId })
-			.from(member)
-			.where(eq(member.userId, userId));
+		const memberships = await pgClient<{ organization_id: string }[]>`
+			SELECT organization_id
+			FROM member
+			WHERE user_id = ${userId}
+		`;
 
 		if (memberships.length <= 1) {
 			console.log(
@@ -150,17 +163,14 @@ const deleteOrganization = os.deleteOrganization
 		}
 
 		// Verify user is owner of the target org
-		const ownership = await db
-			.select({ id: member.id })
-			.from(member)
-			.where(
-				and(
-					eq(member.organizationId, orgId),
-					eq(member.userId, userId),
-					eq(member.role, "owner"),
-				),
-			)
-			.limit(1);
+		const ownership = await pgClient<{ id: string }[]>`
+			SELECT id
+			FROM member
+			WHERE organization_id = ${orgId}
+				AND user_id = ${userId}
+				AND role = 'owner'
+			LIMIT 1
+		`;
 
 		if (ownership.length === 0) {
 			console.log(
@@ -177,16 +187,26 @@ const deleteOrganization = os.deleteOrganization
 
 			// Delete the organization from Postgres (cascade handles member + invitation)
 			console.log(`[deleteOrganization] deleting org=${orgId} from Postgres`);
-			await db.delete(organization).where(eq(organization.id, orgId));
+			await pgClient`
+				DELETE FROM organization
+				WHERE id = ${orgId}
+			`;
 
 			// Clear activeOrganizationId on user sessions that reference the deleted org
 			console.log(
 				`[deleteOrganization] clearing activeOrganizationId references for org=${orgId}`,
 			);
-			await db
-				.update(session)
-				.set({ activeOrganizationId: null })
-				.where(eq(session.activeOrganizationId, orgId));
+			await pgClient`
+				UPDATE "session"
+				SET active_organization_id = NULL
+				WHERE active_organization_id = ${orgId}
+			`;
+
+			await pgClient`
+				UPDATE cli_credential
+				SET active_organization_id = NULL
+				WHERE active_organization_id = ${orgId}
+			`;
 
 			console.log(`[deleteOrganization] success for org=${orgId}`);
 			return { success: true as const };
@@ -201,6 +221,7 @@ export const router = os.router({
 	health,
 	me,
 	listMyOrganizations,
+	revokeCurrentCliCredential: revokeCurrentCliCredentialHandler,
 	ingestSession: ingestSessionHandler,
 	getOrganizationSessionCount,
 	deleteOrganization,

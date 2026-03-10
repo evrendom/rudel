@@ -3,6 +3,11 @@ import { join } from "node:path";
 import { getLogger, withContext } from "@logtape/logtape";
 import { RPCHandler } from "@orpc/server/fetch";
 import { createAuth } from "./auth.js";
+import {
+	authenticateCliCredential,
+	issueCliCredential,
+	normalizeCliDeviceName,
+} from "./cli-credentials.js";
 import { db, pgClient } from "./db.js";
 import {
 	cloneRequestWithBodyLimit,
@@ -10,6 +15,7 @@ import {
 	IngestRequestTooLargeError,
 } from "./ingest-security.js";
 import { setupLogging } from "./logging.js";
+import type { AppContext } from "./middleware.js";
 import { router } from "./router.js";
 
 await setupLogging();
@@ -58,62 +64,38 @@ const CLI_AUTH_CODE_TTL_MS = 60_000;
 const CLI_AUTH_IDENTIFIER_PREFIX = "cli-auth:";
 
 interface CliAuthCodeValue {
-	sessionToken: string;
+	browserSessionId: string;
+	userId: string;
+	activeOrganizationId: string | null;
 	state: string;
 	codeChallenge: string;
+	deviceName: string;
 }
 
-function getLookupToken(token: string): string | null {
-	if (!token) {
-		return null;
-	}
-
-	if (!token.includes(".")) {
-		return token;
-	}
-
-	try {
-		return decodeURIComponent(token).split(".")[0] ?? null;
-	} catch {
-		return null;
-	}
+interface BrowserCliAuthSession {
+	sessionId: string;
+	userId: string;
+	activeOrganizationId: string | null;
 }
 
-async function getAuthenticatedSessionToken(
+async function getAuthenticatedBrowserSession(
 	request: Request,
-): Promise<string | null> {
+): Promise<BrowserCliAuthSession | null> {
 	const session = await auth.api.getSession({
 		headers: request.headers,
 	});
-	if (session?.session.token) {
-		return session.session.token;
-	}
-
-	const authorization = request.headers.get("Authorization");
-	if (!authorization?.startsWith("Bearer ")) {
+	if (!session?.session.id || !session.user.id) {
 		return null;
 	}
 
-	const token = authorization.slice("Bearer ".length).trim();
-	if (!token) {
-		return null;
-	}
-
-	const lookupToken = getLookupToken(token);
-	if (!lookupToken) {
-		return null;
-	}
-
-	const now = new Date().toISOString();
-	const matches = await pgClient<{ token: string }[]>`
-		SELECT token
-		FROM "session"
-		WHERE token = ${lookupToken}
-			AND expires_at > ${now}
-		LIMIT 1
-	`;
-
-	return matches[0] ? token : null;
+	return {
+		sessionId: session.session.id,
+		userId: session.user.id,
+		activeOrganizationId:
+			((session.session as Record<string, unknown>).activeOrganizationId as
+				| string
+				| null) ?? null,
+	};
 }
 
 function corsHeaders(origin: string | null): Record<string, string> {
@@ -169,6 +151,14 @@ function isValidCodeChallenge(codeChallenge: unknown): codeChallenge is string {
 		codeChallenge.length >= 43 &&
 		codeChallenge.length <= 128 &&
 		/^[A-Za-z0-9_-]+$/.test(codeChallenge)
+	);
+}
+
+function isValidDeviceName(deviceName: unknown): deviceName is string {
+	return (
+		typeof deviceName === "string" &&
+		deviceName.trim().length > 0 &&
+		deviceName.trim().length <= 128
 	);
 }
 
@@ -256,8 +246,8 @@ async function handleRequest(
 			return jsonResponse({ error: "Method not allowed" }, cors, 405);
 		}
 
-		const sessionToken = await getAuthenticatedSessionToken(request);
-		if (!sessionToken) {
+		const browserSession = await getAuthenticatedBrowserSession(request);
+		if (!browserSession) {
 			return jsonResponse({ error: "Not authenticated" }, cors, 401);
 		}
 
@@ -265,6 +255,7 @@ async function handleRequest(
 			cliCallback?: unknown;
 			state?: unknown;
 			codeChallenge?: unknown;
+			deviceName?: unknown;
 		};
 		try {
 			body = (await request.json()) as typeof body;
@@ -275,7 +266,8 @@ async function handleRequest(
 		if (
 			!isValidCliCallback(body.cliCallback) ||
 			!isValidState(body.state) ||
-			!isValidCodeChallenge(body.codeChallenge)
+			!isValidCodeChallenge(body.codeChallenge) ||
+			!isValidDeviceName(body.deviceName)
 		) {
 			return jsonResponse({ error: "Invalid CLI auth request" }, cors, 400);
 		}
@@ -284,9 +276,12 @@ async function handleRequest(
 		const expiresAt = new Date(Date.now() + CLI_AUTH_CODE_TTL_MS);
 		const expiresAtIso = expiresAt.toISOString();
 		const value: CliAuthCodeValue = {
-			sessionToken,
+			browserSessionId: browserSession.sessionId,
+			userId: browserSession.userId,
+			activeOrganizationId: browserSession.activeOrganizationId,
 			state: body.state,
 			codeChallenge: body.codeChallenge,
+			deviceName: normalizeCliDeviceName(body.deviceName),
 		};
 
 		await pgClient`
@@ -377,15 +372,11 @@ async function handleRequest(
 			return jsonResponse({ error: "CLI auth verification failed" }, cors, 400);
 		}
 
-		const lookupToken = getLookupToken(stored.sessionToken);
-		if (!lookupToken) {
-			return jsonResponse({ error: "Session expired" }, cors, 401);
-		}
-
-		const sessionRows = await pgClient<{ token: string }[]>`
-			SELECT token
+		const sessionRows = await pgClient<{ id: string }[]>`
+			SELECT id
 			FROM "session"
-			WHERE token = ${lookupToken}
+			WHERE id = ${stored.browserSessionId}
+				AND user_id = ${stored.userId}
 				AND expires_at > ${now}
 			LIMIT 1
 		`;
@@ -398,10 +389,26 @@ async function handleRequest(
 			return jsonResponse({ error: "Session expired" }, cors, 401);
 		}
 
-		return jsonResponse({ token: stored.sessionToken }, cors, 200);
+		const issued = await issueCliCredential({
+			userId: stored.userId,
+			activeOrganizationId: stored.activeOrganizationId,
+			deviceName: stored.deviceName,
+		});
+
+		return jsonResponse(
+			{
+				token: issued.token,
+				expiresAt: issued.expiresAt.toISOString(),
+			},
+			cors,
+			200,
+		);
 	}
 
 	if (url.pathname.startsWith("/api/auth")) {
+		if (url.pathname.startsWith("/api/auth/organization/delete")) {
+			return jsonResponse({ error: "Not found" }, cors, 404);
+		}
 		const response = await auth.handler(request);
 		for (const [key, value] of Object.entries(cors)) {
 			response.headers.set(key, value);
@@ -454,13 +461,53 @@ async function handleRequest(
 	return new Response("Not found", { status: 404, headers: cors });
 }
 
-async function getContext(request: Request) {
+async function getContext(request: Request): Promise<AppContext> {
 	const session = await auth.api.getSession({
 		headers: request.headers,
 	});
+	if (session?.user && session.session.id) {
+		return {
+			user: {
+				id: session.user.id,
+				email: session.user.email,
+				name: session.user.name,
+				image: session.user.image ?? null,
+			},
+			session: {
+				id: session.session.id,
+				userId: session.user.id,
+				activeOrganizationId:
+					((session.session as Record<string, unknown>).activeOrganizationId as
+						| string
+						| null) ?? null,
+				kind: "browser",
+			},
+		};
+	}
+
+	const authorization = request.headers.get("Authorization");
+	if (!authorization?.startsWith("Bearer ")) {
+		return { user: null, session: null };
+	}
+
+	const token = authorization.slice("Bearer ".length).trim();
+	if (!token) {
+		return { user: null, session: null };
+	}
+
+	const cliSession = await authenticateCliCredential(token);
+	if (!cliSession) {
+		return { user: null, session: null };
+	}
+
 	return {
-		user: session?.user ?? null,
-		session: session?.session ?? null,
+		user: cliSession.user,
+		session: {
+			id: cliSession.id,
+			userId: cliSession.userId,
+			activeOrganizationId: cliSession.activeOrganizationId,
+			kind: "cli",
+		},
 	};
 }
 

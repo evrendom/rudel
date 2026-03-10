@@ -1,6 +1,8 @@
 export type {
 	AccountInsert,
 	AccountSelect,
+	CliCredentialInsert,
+	CliCredentialSelect,
 	InvitationInsert,
 	InvitationSelect,
 	MemberInsert,
@@ -16,6 +18,7 @@ export type {
 } from "./schema.js";
 export {
 	account,
+	cliCredential,
 	invitation,
 	member,
 	organization,

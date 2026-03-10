@@ -17,8 +17,9 @@ function getCallbackURL(): string {
 	const cliCallback = params.get("cli_callback");
 	const state = params.get("state");
 	const codeChallenge = params.get("code_challenge");
-	if (cliCallback && state && codeChallenge) {
-		return `/?cli_callback=${encodeURIComponent(cliCallback)}&state=${encodeURIComponent(state)}&code_challenge=${encodeURIComponent(codeChallenge)}`;
+	const deviceName = params.get("device_name");
+	if (cliCallback && state && codeChallenge && deviceName) {
+		return `/?cli_callback=${encodeURIComponent(cliCallback)}&state=${encodeURIComponent(state)}&code_challenge=${encodeURIComponent(codeChallenge)}&device_name=${encodeURIComponent(deviceName)}`;
 	}
 	const redirect = params.get("redirect");
 	if (redirect) {

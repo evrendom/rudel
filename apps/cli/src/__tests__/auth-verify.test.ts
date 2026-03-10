@@ -18,8 +18,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { verifyAuth } from "../lib/auth.js";
 import {
+	issueCliCredential,
 	signUpTestUser,
 	startTestServer,
+	type TestBrowserSession,
 	type TestServer,
 } from "./helpers/bun-server.js";
 
@@ -30,6 +32,8 @@ let configDir: string;
 let tempDir: string;
 let validToken: string;
 let originalConfigDir: string | undefined;
+let originalPlaintextFallback: string | undefined;
+let browserSession: TestBrowserSession;
 
 beforeAll(async () => {
 	tempDir = mkdtempSync(join(tmpdir(), "rudel-auth-verify-test-"));
@@ -37,9 +41,12 @@ beforeAll(async () => {
 	mkdirSync(configDir, { recursive: true });
 
 	originalConfigDir = process.env.RUDEL_CONFIG_DIR;
+	originalPlaintextFallback = process.env.RUDEL_ALLOW_PLAINTEXT_CREDENTIALS;
+	process.env.RUDEL_ALLOW_PLAINTEXT_CREDENTIALS = "1";
 
 	server = await startTestServer();
-	validToken = await signUpTestUser(server.baseUrl);
+	browserSession = await signUpTestUser(server.baseUrl);
+	validToken = await issueCliCredential(server.baseUrl, browserSession);
 }, 60_000);
 
 afterAll(async () => {
@@ -48,6 +55,11 @@ afterAll(async () => {
 		process.env.RUDEL_CONFIG_DIR = originalConfigDir;
 	} else {
 		delete process.env.RUDEL_CONFIG_DIR;
+	}
+	if (originalPlaintextFallback !== undefined) {
+		process.env.RUDEL_ALLOW_PLAINTEXT_CREDENTIALS = originalPlaintextFallback;
+	} else {
+		delete process.env.RUDEL_ALLOW_PLAINTEXT_CREDENTIALS;
 	}
 	rmSync(tempDir, { recursive: true, force: true });
 });

@@ -2,8 +2,8 @@ import { useTheme } from "next-themes";
 import { useState } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { LoginForm } from "./components/auth/login-form";
-import { Button } from "./components/ui/button";
 import { SignupForm } from "./components/auth/signup-form";
+import { Button } from "./components/ui/button";
 import { DashboardLayout } from "./layouts/DashboardLayout";
 import { authClient } from "./lib/auth-client";
 import { AcceptInvitationPage } from "./pages/AcceptInvitationPage";
@@ -27,6 +27,7 @@ type CliParams = {
 	cliCallback: string;
 	state: string;
 	codeChallenge: string;
+	deviceName: string;
 };
 
 function getCliParams(): CliParams | null {
@@ -34,14 +35,15 @@ function getCliParams(): CliParams | null {
 	const cliCallback = params.get("cli_callback");
 	const state = params.get("state");
 	const codeChallenge = params.get("code_challenge");
-	if (!cliCallback || !state || !codeChallenge) return null;
+	const deviceName = params.get("device_name");
+	if (!cliCallback || !state || !codeChallenge || !deviceName) return null;
 	try {
 		const url = new URL(cliCallback);
 		if (url.protocol !== "http:" || url.hostname !== "127.0.0.1") return null;
 	} catch {
 		return null;
 	}
-	return { cliCallback, state, codeChallenge };
+	return { cliCallback, state, codeChallenge, deviceName };
 }
 
 function clearCliParamsFromLocation() {
@@ -49,7 +51,12 @@ function clearCliParamsFromLocation() {
 	url.searchParams.delete("cli_callback");
 	url.searchParams.delete("state");
 	url.searchParams.delete("code_challenge");
-	window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
+	url.searchParams.delete("device_name");
+	window.history.replaceState(
+		null,
+		"",
+		`${url.pathname}${url.search}${url.hash}`,
+	);
 }
 
 function formatCliCallback(cliCallback: string): string {
@@ -89,16 +96,17 @@ function App() {
 
 		try {
 			const response = await fetch("/api/cli-token", {
-			method: "POST",
-			credentials: "include",
-			headers: {
-				"Content-Type": "application/json",
-			},
-			body: JSON.stringify({
-				cliCallback: cliParams.cliCallback,
-				state: cliParams.state,
-				codeChallenge: cliParams.codeChallenge,
-			}),
+				method: "POST",
+				credentials: "include",
+				headers: {
+					"Content-Type": "application/json",
+				},
+				body: JSON.stringify({
+					cliCallback: cliParams.cliCallback,
+					state: cliParams.state,
+					codeChallenge: cliParams.codeChallenge,
+					deviceName: cliParams.deviceName,
+				}),
 			});
 			const data = (await response.json()) as { code?: string; error?: string };
 			if (!response.ok || !data.code) {
@@ -154,6 +162,10 @@ function App() {
 					</div>
 					<div className="mt-4 rounded-lg border bg-muted/30 p-4 text-sm">
 						<p>
+							<span className="font-medium">Device:</span>{" "}
+							{cliParams.deviceName}
+						</p>
+						<p>
 							<span className="font-medium">Callback:</span>{" "}
 							{formatCliCallback(cliParams.cliCallback)}
 						</p>
@@ -198,10 +210,7 @@ function App() {
 
 	return (
 		<Routes>
-			<Route
-				path="/"
-				element={<Navigate to={redirectPath} replace />}
-			/>
+			<Route path="/" element={<Navigate to={redirectPath} replace />} />
 			<Route
 				path="/invitation/:invitationId"
 				element={<AcceptInvitationPage />}

@@ -83,6 +83,36 @@ export const verification = pgTable("verification", {
 		.notNull(),
 });
 
+export const cliCredential = pgTable("cli_credential", {
+	id: text("id").primaryKey(),
+	userId: text("user_id")
+		.notNull()
+		.references(() => user.id, { onDelete: "cascade" }),
+	tokenPrefix: text("token_prefix").notNull().unique(),
+	tokenHash: text("token_hash").notNull().unique(),
+	deviceName: text("device_name").notNull(),
+	activeOrganizationId: text("active_organization_id"),
+	lastUsedAt: timestamp("last_used_at", {
+		withTimezone: true,
+		mode: "date",
+	}).defaultNow(),
+	expiresAt: timestamp("expires_at", {
+		withTimezone: true,
+		mode: "date",
+	}).notNull(),
+	revokedAt: timestamp("revoked_at", {
+		withTimezone: true,
+		mode: "date",
+	}),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
+		.defaultNow()
+		.notNull(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: "date" })
+		.defaultNow()
+		.$onUpdate(() => new Date())
+		.notNull(),
+});
+
 export const organization = pgTable("organization", {
 	id: text("id").primaryKey(),
 	name: text("name").notNull(),
@@ -137,6 +167,8 @@ export type AccountSelect = typeof account.$inferSelect;
 export type AccountInsert = typeof account.$inferInsert;
 export type VerificationSelect = typeof verification.$inferSelect;
 export type VerificationInsert = typeof verification.$inferInsert;
+export type CliCredentialSelect = typeof cliCredential.$inferSelect;
+export type CliCredentialInsert = typeof cliCredential.$inferInsert;
 export type OrganizationSelect = typeof organization.$inferSelect;
 export type OrganizationInsert = typeof organization.$inferInsert;
 export type MemberSelect = typeof member.$inferSelect;

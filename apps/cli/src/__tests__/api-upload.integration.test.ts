@@ -12,19 +12,23 @@ import { join } from "node:path";
 import type { IngestSessionInput } from "@rudel/api-routes";
 import { uploadSession } from "../lib/uploader.js";
 import {
+	issueCliCredential,
 	signUpTestUser,
 	startTestServer,
+	type TestBrowserSession,
 	type TestServer,
 } from "./helpers/bun-server.js";
 
 let server: TestServer;
-let bearerToken: string;
+let browserSession: TestBrowserSession;
+let cliToken: string;
 let tempDir: string;
 
 beforeAll(async () => {
 	tempDir = await mkdtemp(join(tmpdir(), "rudel-api-test-"));
 	server = await startTestServer();
-	bearerToken = await signUpTestUser(server.baseUrl);
+	browserSession = await signUpTestUser(server.baseUrl);
+	cliToken = await issueCliCredential(server.baseUrl, browserSession);
 }, 60_000);
 
 afterAll(async () => {
@@ -42,7 +46,7 @@ describe("CLI upload to local API", () => {
 	});
 
 	test("uploads a session via uploadSession to the local API", async () => {
-		expect(bearerToken).toBeTruthy();
+		expect(cliToken).toBeTruthy();
 
 		const testId = `cli_api_test_${Date.now()}`;
 		const request: IngestSessionInput = {
@@ -70,7 +74,7 @@ describe("CLI upload to local API", () => {
 			result = await Promise.race([
 				uploadSession(request, {
 					endpoint: server.rpcUrl,
-					token: bearerToken,
+					token: cliToken,
 				}),
 				Bun.sleep(25_000).then(
 					() =>
@@ -91,7 +95,7 @@ describe("CLI upload to local API", () => {
 	}, 90_000);
 
 	test("full CLI upload via subprocess to local API", async () => {
-		expect(bearerToken).toBeTruthy();
+		expect(cliToken).toBeTruthy();
 
 		const projectDir = join(tempDir, "cli-e2e-test");
 		await mkdir(projectDir, { recursive: true });
@@ -101,7 +105,7 @@ describe("CLI upload to local API", () => {
 		await mkdir(credDir, { recursive: true });
 		await writeFile(
 			join(credDir, "credentials.json"),
-			JSON.stringify({ token: bearerToken, apiBaseUrl: server.baseUrl }),
+			JSON.stringify({ token: cliToken, apiBaseUrl: server.baseUrl }),
 		);
 
 		const sessionFile = join(projectDir, "e2e-test-session.jsonl");
@@ -138,6 +142,7 @@ describe("CLI upload to local API", () => {
 					env: {
 						...process.env,
 						RUDEL_CONFIG_DIR: credDir,
+						RUDEL_ALLOW_PLAINTEXT_CREDENTIALS: "1",
 					},
 				},
 			);

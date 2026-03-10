@@ -6,6 +6,9 @@ on:
     branches:
       - main
 
+permissions:
+  contents: read
+
 jobs:
   verify:
     runs-on: blacksmith-4vcpu-ubuntu-2404
@@ -32,12 +35,15 @@ jobs:
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     needs: verify
     runs-on: blacksmith-4vcpu-ubuntu-2404
+    permissions:
+      contents: read
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
       - name: Setup Fly.io
-        uses: superfly/flyctl-actions/setup-flyctl@master
+        # v1 branch pinned to commit 63da3ecc5e2793b98a3f2519b3d75d4f4c11cec2
+        uses: superfly/flyctl-actions/setup-flyctl@63da3ecc5e2793b98a3f2519b3d75d4f4c11cec2
 
       - name: Deploy
         run: flyctl deploy --remote-only

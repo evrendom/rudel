@@ -111,12 +111,17 @@ export const IngestSessionOutputSchema = z.object({
 	sessionId: z.string(),
 });
 
+export const SuccessOutputSchema = z.object({
+	success: z.literal(true),
+});
+
 export type IngestSessionInput = z.infer<typeof IngestSessionInputSchema>;
 
 export const contract = {
 	health: oc.output(HealthSchema),
 	me: oc.output(UserSchema),
 	listMyOrganizations: oc.output(z.array(OrganizationSchema)),
+	revokeCurrentCliCredential: oc.output(SuccessOutputSchema),
 	ingestSession: oc
 		.input(IngestSessionInputSchema)
 		.output(IngestSessionOutputSchema),
@@ -125,7 +130,7 @@ export const contract = {
 		.output(z.object({ count: z.number() })),
 	deleteOrganization: oc
 		.input(z.object({ organizationId: z.string() }))
-		.output(z.object({ success: z.literal(true) })),
+		.output(SuccessOutputSchema),
 	analytics: {
 		overview: {
 			kpis: oc.input(DateRangeInputSchema).output(OverviewKPIsSchema),

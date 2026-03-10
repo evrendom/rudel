@@ -2,7 +2,7 @@ import { getLogger } from "@logtape/logtape";
 import * as schema from "@rudel/sql-schema";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { bearer, organization } from "better-auth/plugins";
+import { organization } from "better-auth/plugins";
 import { fetchGitHubHandle, notifySignup } from "./slack.js";
 
 const logger = getLogger(["rudel", "api", "auth"]);
@@ -34,14 +34,14 @@ export function createAuth(db: object, config: AuthConfig) {
 		},
 		socialProviders: config.socialProviders,
 		plugins: [
-			bearer(),
 			organization({
 				allowUserToCreateOrganization: true,
 				creatorRole: "owner",
+				disableOrganizationDeletion: true,
 			}),
 		],
 		session: {
-			expiresIn: 60 * 60 * 24 * 365,
+			expiresIn: 60 * 60 * 24 * 30,
 		},
 		trustedOrigins,
 		databaseHooks: {

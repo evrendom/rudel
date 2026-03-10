@@ -1,13 +1,24 @@
 import { implement, ORPCError } from "@orpc/server";
 import { contract } from "@rudel/api-routes";
-import { member, session as sessionTable } from "@rudel/sql-schema";
-import { and, eq } from "drizzle-orm";
-import type { Session } from "./auth.js";
-import { db } from "./db.js";
+import { pgClient } from "./db.js";
+
+export interface AuthenticatedUser {
+	id: string;
+	email: string;
+	name: string;
+	image: string | null;
+}
+
+export interface AppSession {
+	id: string;
+	userId: string;
+	activeOrganizationId: string | null;
+	kind: "browser" | "cli";
+}
 
 export interface AppContext {
-	user: Session["user"] | null;
-	session: Session["session"] | null;
+	user: AuthenticatedUser | null;
+	session: AppSession | null;
 }
 
 export const os = implement(contract).$context<AppContext>();
@@ -28,40 +39,44 @@ async function hasOrganizationMembership(
 	userId: string,
 	organizationId: string,
 ): Promise<boolean> {
-	const membership = await db
-		.select({ id: member.id })
-		.from(member)
-		.where(
-			and(eq(member.organizationId, organizationId), eq(member.userId, userId)),
-		)
-		.limit(1);
+	const membership = await pgClient<{ id: string }[]>`
+		SELECT id
+		FROM member
+		WHERE organization_id = ${organizationId}
+			AND user_id = ${userId}
+		LIMIT 1
+	`;
 
 	return membership.length > 0;
 }
 
 async function clearStaleActiveOrganization(
-	sessionId: string,
+	currentSession: AppSession,
 	organizationId: string,
 ): Promise<void> {
-	await db
-		.update(sessionTable)
-		.set({ activeOrganizationId: null })
-		.where(
-			and(
-				eq(sessionTable.id, sessionId),
-				eq(sessionTable.activeOrganizationId, organizationId),
-			),
-		);
+	if (currentSession.kind === "browser") {
+		await pgClient`
+			UPDATE "session"
+			SET active_organization_id = NULL
+			WHERE id = ${currentSession.id}
+				AND active_organization_id = ${organizationId}
+		`;
+		return;
+	}
+
+	await pgClient`
+		UPDATE cli_credential
+		SET active_organization_id = NULL
+		WHERE id = ${currentSession.id}
+			AND active_organization_id = ${organizationId}
+	`;
 }
 
 export async function resolveActiveOrganizationId(
 	userId: string,
-	currentSession: Session["session"],
+	currentSession: AppSession,
 ): Promise<string> {
-	const activeOrganizationId =
-		((currentSession as Record<string, unknown>).activeOrganizationId as
-			| string
-			| null) ?? null;
+	const activeOrganizationId = currentSession.activeOrganizationId;
 
 	if (
 		activeOrganizationId &&
@@ -70,12 +85,8 @@ export async function resolveActiveOrganizationId(
 		return activeOrganizationId;
 	}
 
-	if (
-		activeOrganizationId &&
-		typeof currentSession.id === "string" &&
-		currentSession.id.length > 0
-	) {
-		await clearStaleActiveOrganization(currentSession.id, activeOrganizationId);
+	if (activeOrganizationId && currentSession.id.length > 0) {
+		await clearStaleActiveOrganization(currentSession, activeOrganizationId);
 	}
 
 	if (await hasOrganizationMembership(userId, userId)) {

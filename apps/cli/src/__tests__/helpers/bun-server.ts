@@ -1,3 +1,4 @@
+import { createHash, randomBytes } from "node:crypto";
 import { resolve } from "node:path";
 
 const MONOREPO_ROOT = resolve(import.meta.dir, "..", "..", "..", "..", "..");
@@ -9,6 +10,14 @@ export interface TestServer {
 	stop: () => Promise<void>;
 	/** Verify the server is still responding; restart it if Bun's test runner killed it. */
 	ensureAlive: () => Promise<void>;
+}
+
+export interface TestBrowserSession {
+	email: string;
+	password: string;
+	name: string;
+	sessionToken: string;
+	cookieHeader: string;
 }
 
 /**
@@ -150,17 +159,42 @@ async function waitForReady(baseUrl: string): Promise<void> {
 	);
 }
 
+function extractSessionCookie(headers: Headers): {
+	sessionToken: string;
+	cookieHeader: string;
+} {
+	const cookies = headers.getSetCookie();
+	const sessionToken = cookies
+		.find((c) => c.startsWith("better-auth.session_token="))
+		?.split("=")[1]
+		?.split(";")[0];
+
+	if (!sessionToken) {
+		throw new Error("Could not extract session cookie from auth response");
+	}
+
+	return {
+		sessionToken,
+		cookieHeader: `better-auth.session_token=${sessionToken}`,
+	};
+}
+
 /**
- * Create a test user via better-auth sign-up and return a bearer token.
+ * Create a test user via better-auth sign-up and return the browser session.
  */
-export async function signUpTestUser(baseUrl: string): Promise<string> {
+export async function signUpTestUser(
+	baseUrl: string,
+): Promise<TestBrowserSession> {
+	const email = `test-${Date.now()}@example.com`;
+	const password = "test-password-123";
+	const name = "Test User";
 	const res = await fetch(`${baseUrl}/api/auth/sign-up/email`, {
 		method: "POST",
 		headers: { "Content-Type": "application/json" },
 		body: JSON.stringify({
-			email: `test-${Date.now()}@example.com`,
-			password: "test-password-123",
-			name: "Test User",
+			email,
+			password,
+			name,
 		}),
 	});
 
@@ -169,18 +203,76 @@ export async function signUpTestUser(baseUrl: string): Promise<string> {
 		throw new Error(`Sign-up failed (${res.status}): ${body}`);
 	}
 
-	const data = (await res.json()) as { token?: string };
+	const { sessionToken, cookieHeader } = extractSessionCookie(res.headers);
+	return {
+		email,
+		password,
+		name,
+		sessionToken,
+		cookieHeader,
+	};
+}
 
-	if (data.token) return data.token;
+export async function issueCliCredential(
+	baseUrl: string,
+	browserSession: TestBrowserSession,
+	deviceName = "Rudel Test CLI",
+): Promise<string> {
+	const state = randomBytes(16).toString("hex");
+	const codeVerifier = randomBytes(32).toString("base64url");
+	const codeChallenge = createHash("sha256")
+		.update(codeVerifier)
+		.digest("base64url");
 
-	// Fallback: extract session token from set-cookie header
-	const cookies = res.headers.getSetCookie();
-	const sessionCookie = cookies
-		.find((c) => c.startsWith("better-auth.session_token="))
-		?.split("=")[1]
-		?.split(";")[0];
+	const createResponse = await fetch(`${baseUrl}/api/cli-token`, {
+		method: "POST",
+		headers: {
+			"Content-Type": "application/json",
+			Cookie: browserSession.cookieHeader,
+		},
+		body: JSON.stringify({
+			cliCallback: "http://127.0.0.1:43123/callback",
+			state,
+			codeChallenge,
+			deviceName,
+		}),
+	});
 
-	if (sessionCookie) return sessionCookie;
+	if (!createResponse.ok) {
+		const body = await createResponse.text();
+		throw new Error(
+			`/api/cli-token failed (${createResponse.status}): ${body}`,
+		);
+	}
 
-	throw new Error("Could not extract token from sign-up response");
+	const createBody = (await createResponse.json()) as { code?: string };
+	if (!createBody.code) {
+		throw new Error("CLI auth code was not returned");
+	}
+
+	const exchangeResponse = await fetch(`${baseUrl}/api/cli-exchange`, {
+		method: "POST",
+		headers: {
+			"Content-Type": "application/json",
+		},
+		body: JSON.stringify({
+			code: createBody.code,
+			state,
+			codeVerifier,
+		}),
+	});
+
+	if (!exchangeResponse.ok) {
+		const body = await exchangeResponse.text();
+		throw new Error(
+			`/api/cli-exchange failed (${exchangeResponse.status}): ${body}`,
+		);
+	}
+
+	const exchangeBody = (await exchangeResponse.json()) as { token?: string };
+	if (!exchangeBody.token) {
+		throw new Error("CLI credential token was not returned");
+	}
+
+	return exchangeBody.token;
 }

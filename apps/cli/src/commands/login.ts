@@ -6,6 +6,7 @@ import {
 	type ServerResponse,
 } from "node:http";
 import type { AddressInfo } from "node:net";
+import { hostname } from "node:os";
 import * as p from "@clack/prompts";
 import { buildCommand } from "@stricli/core";
 import { loadCredentials, saveCredentials } from "../lib/credentials.js";
@@ -33,6 +34,7 @@ async function runLogin(flags: {
 	const codeChallenge = createHash("sha256")
 		.update(codeVerifier)
 		.digest("base64url");
+	const deviceName = hostname();
 
 	let resolveCallback: (code: string) => void;
 	let rejectCallback: (error: Error) => void;
@@ -83,7 +85,11 @@ async function runLogin(flags: {
 
 	const port = (server.address() as AddressInfo).port;
 	const callbackUrl = `http://127.0.0.1:${port}/callback`;
-	const loginUrl = `${flags.webUrl}?cli_callback=${encodeURIComponent(callbackUrl)}&state=${state}&code_challenge=${encodeURIComponent(codeChallenge)}`;
+	const loginUrl =
+		`${flags.webUrl}?cli_callback=${encodeURIComponent(callbackUrl)}` +
+		`&state=${state}` +
+		`&code_challenge=${encodeURIComponent(codeChallenge)}` +
+		`&device_name=${encodeURIComponent(deviceName)}`;
 
 	p.log.info(`If the browser doesn't open, visit:\n${loginUrl}`);
 
@@ -171,7 +177,14 @@ async function runLogin(flags: {
 		json: { id: string; email: string; name: string };
 	};
 
-	saveCredentials(token, flags.apiBase);
+	try {
+		saveCredentials(token, flags.apiBase);
+	} catch (error) {
+		spin.stop("Credential storage failed");
+		p.log.error(error instanceof Error ? error.message : String(error));
+		process.exitCode = 1;
+		return;
+	}
 	spin.stop("Authenticated");
 	p.log.success(`Logged in as ${body.json.name} (${body.json.email})`);
 	p.outro("Done!");

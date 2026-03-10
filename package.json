@@ -41,7 +41,8 @@
 		"@chkit/plugin-backfill": "0.1.0-beta.15",
 		"@chkit/plugin-codegen": "0.1.0-beta.15",
 		"@chkit/plugin-obsessiondb": "0.1.0-beta.15",
-		"@chkit/plugin-pull": "0.1.0-beta.15"
+		"@chkit/plugin-pull": "0.1.0-beta.15",
+		"rollup": "4.59.0"
 	},
 	"dependencies": {
 		"postgres": "^3.4.8"
