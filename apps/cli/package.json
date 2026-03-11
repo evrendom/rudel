@@ -1,6 +1,6 @@
 {
 	"name": "rudel",
-	"version": "0.1.10",
+	"version": "0.1.9",
 	"type": "module",
 	"description": "CLI for the Coding Agent Analytics Platform rudel.ai",
 	"license": "MIT",

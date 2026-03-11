@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.9](https://github.com/obsessiondb/rudel/compare/rudel@0.1.8...rudel@0.1.9) (2026-03-11)
+
+
+### Bug Fixes
+
+* **cli:** prevent prompt injection in session classifier ([#133](https://github.com/obsessiondb/rudel/issues/133)) ([b234023](https://github.com/obsessiondb/rudel/commit/b234023b8c381fdb0e1983080c7fa5f87e8a1c2e))
+* replace CLI loopback token handoff with device code flow ([#141](https://github.com/obsessiondb/rudel/issues/141)) ([d2f1372](https://github.com/obsessiondb/rudel/commit/d2f1372be2aefe21e912a11531e50d0cfcd63778))
+
 ## [0.1.8](https://github.com/obsessiondb/rudel/compare/rudel@0.1.7...rudel@0.1.8) (2026-03-03)
 
 
