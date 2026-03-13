@@ -71,6 +71,8 @@ export function DateRangeProvider({ children }: { children: ReactNode }) {
 		setIsInitialized(true);
 	}, [searchParams]);
 
+	// Sync state -> URL when USER explicitly changes dates (not during URL navigation)
+	// biome-ignore lint/correctness/useExhaustiveDependencies: searchParams excluded intentionally to prevent circular updates during back navigation
 	useEffect(() => {
 		if (!isInitialized) return;
 		// Only update URL when user explicitly changed dates via setStartDate/setEndDate
@@ -105,7 +107,7 @@ export function DateRangeProvider({ children }: { children: ReactNode }) {
 			},
 			{ replace: true },
 		);
-	}, [startDate, endDate, isInitialized, setSearchParams, searchParams]);
+	}, [startDate, endDate, isInitialized, setSearchParams]);
 
 	const setStartDate = (date: string) => {
 		userChangedDates.current = true;
