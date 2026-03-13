@@ -3,6 +3,7 @@ import {
 	type ReactNode,
 	useContext,
 	useEffect,
+	useRef,
 	useState,
 } from "react";
 import { useSearchParams } from "react-router-dom";
@@ -60,6 +61,8 @@ export function DateRangeProvider({ children }: { children: ReactNode }) {
 	const [startDate, setStartDateInternal] = useState(initialDates.start);
 	const [endDate, setEndDateInternal] = useState(initialDates.end);
 	const [isInitialized, setIsInitialized] = useState(false);
+	// Track whether the user has explicitly changed dates (not just syncing from URL)
+	const userChangedDates = useRef(false);
 
 	useEffect(() => {
 		const dates = getInitialDates(searchParams);
@@ -70,6 +73,12 @@ export function DateRangeProvider({ children }: { children: ReactNode }) {
 
 	useEffect(() => {
 		if (!isInitialized) return;
+		// Only update URL when user explicitly changed dates via setStartDate/setEndDate
+		// This prevents URL updates during back navigation (when state was synced from URL)
+		if (!userChangedDates.current) return;
+
+		// Reset the flag after we've handled the user's change
+		userChangedDates.current = false;
 
 		try {
 			localStorage.setItem(
@@ -80,6 +89,14 @@ export function DateRangeProvider({ children }: { children: ReactNode }) {
 			// Ignore localStorage errors
 		}
 
+		// Only update URL if the params actually differ from current state
+		// This avoids unnecessary history changes
+		const currentFrom = searchParams.get("from");
+		const currentTo = searchParams.get("to");
+		if (currentFrom === startDate && currentTo === endDate) {
+			return;
+		}
+
 		setSearchParams(
 			(prev) => {
 				prev.set("from", startDate);
@@ -88,13 +105,15 @@ export function DateRangeProvider({ children }: { children: ReactNode }) {
 			},
 			{ replace: true },
 		);
-	}, [startDate, endDate, isInitialized, setSearchParams]);
+	}, [startDate, endDate, isInitialized, setSearchParams, searchParams]);
 
 	const setStartDate = (date: string) => {
+		userChangedDates.current = true;
 		setStartDateInternal(date);
 	};
 
 	const setEndDate = (date: string) => {
+		userChangedDates.current = true;
 		setEndDateInternal(date);
 	};
 

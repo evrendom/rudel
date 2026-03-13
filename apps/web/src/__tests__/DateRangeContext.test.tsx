@@ -533,29 +533,23 @@ describe("DateRangeContext - Browser Back Navigation Bug", () => {
 
 describe("DateRangeContext - History Stack Integrity", () => {
 	/**
-	 * BUG: This test demonstrates that the history stack is being modified
-	 * unexpectedly when dates change. Even though `replace: true` is used
-	 * in setSearchParams, the history length increases from 2 to 4.
+	 * This test verifies that changing dates only causes ONE URL update
+	 * (the user's intentional date change), not multiple updates due to
+	 * effect cascades.
 	 *
-	 * This indicates that either:
-	 * 1. The replace option is not working as expected
-	 * 2. Multiple setSearchParams calls are being made
-	 * 3. The useEffect dependencies are causing excessive re-runs
-	 *
-	 * This contributes to the blank page bug because when browser back
-	 * is pressed, the history stack may be in an inconsistent state.
+	 * BEFORE FIX: history went from 2 to 4 (indicating 2 extra modifications)
+	 * AFTER FIX: history goes from 1 to 2 (just the user's date change)
 	 */
-	test("BUG REPRO: changing dates should not corrupt history stack", async () => {
-		let historyLength = 0;
+	test("changing dates should cause only one URL update", async () => {
+		let urlChangeCount = 0;
 
 		function HistoryTracker() {
 			const { setStartDate, setEndDate } = useDateRange();
 			const location = useLocation();
 
 			useEffect(() => {
-				// In a real browser, window.history.length would track this
-				// In MemoryRouter, we track location changes
-				historyLength++;
+				// Track URL changes via location.key
+				urlChangeCount++;
 			}, [location.key]);
 
 			return (
@@ -586,7 +580,7 @@ describe("DateRangeContext - History Stack Integrity", () => {
 			</MemoryRouter>,
 		);
 
-		const initialHistoryLength = historyLength;
+		const initialUrlChanges = urlChangeCount;
 
 		// Change dates
 		await act(async () => {
@@ -596,15 +590,9 @@ describe("DateRangeContext - History Stack Integrity", () => {
 		// Wait for state to settle
 		await new Promise((resolve) => setTimeout(resolve, 100));
 
-		// BUG: With { replace: true }, history length should stay the same
-		// (URL is replaced, not pushed). Currently this FAILS because the
-		// history goes from 2 to 4, indicating history corruption.
-		//
-		// EXPECTED: historyLength === initialHistoryLength (e.g., 2 === 2)
-		// ACTUAL: historyLength > initialHistoryLength (e.g., 4 > 2)
-		//
-		// This test documents the bug. When fixed, the history length
-		// should remain constant when using { replace: true }.
-		expect(historyLength).toBe(initialHistoryLength);
+		// Changing dates should cause exactly ONE URL update (the user's change)
+		// Not multiple updates from effect cascades
+		const urlChangesAfterAction = urlChangeCount - initialUrlChanges;
+		expect(urlChangesAfterAction).toBe(1);
 	});
 });
