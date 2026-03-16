@@ -1,11 +1,13 @@
 import * as p from "@clack/prompts";
 import {
+	type AgentAdapter,
 	claudeCodeAdapter,
 	getAdapter,
+	isPiSession,
+	piAdapter,
 	type ScannedProject,
 	type SessionFile,
 } from "@rudel/agent-adapters";
-import type { Source } from "@rudel/api-routes";
 import { buildCommand } from "@stricli/core";
 import type { BatchUploadItem } from "../lib/batch-upload.js";
 import { renderBatchSummary, runBatchUpload } from "../lib/batch-upload-ui.js";
@@ -65,9 +67,10 @@ async function runInteractiveUpload(flags: UploadFlags): Promise<void> {
 
 	for (const group of groups) {
 		for (const proj of group.projects) {
+			const adapterLabel = await getAdapterLabel(proj);
 			options.push({
 				value: proj,
-				label: `[${getAdapterName(proj.source)}] ${proj.displayPath}`,
+				label: `[${adapterLabel}] ${proj.displayPath}`,
 				hint: sessionCountHint(proj.sessionCount),
 			});
 			if (group.containsCwd) {
@@ -106,13 +109,13 @@ async function runInteractiveUpload(flags: UploadFlags): Promise<void> {
 	const work: Array<{
 		session: (typeof selected)[number]["sessions"][number];
 		project: ScannedProject;
-		adapter: ReturnType<typeof getAdapter>;
+		adapter: AgentAdapter;
 		gitInfo: Awaited<ReturnType<typeof getGitInfo>>;
 		organizationId: string | undefined;
 	}> = [];
 
 	for (const project of selected) {
-		const adapter = getAdapter(project.source);
+		const adapter = await resolveAdapter(project);
 		const gitInfo = await getGitInfo(project.projectPath);
 		const organizationId =
 			flags.org ?? (await getProjectOrgId(project.projectPath));
@@ -178,12 +181,26 @@ async function runInteractiveUpload(flags: UploadFlags): Promise<void> {
 	}
 }
 
-function getAdapterName(source: Source): string {
-	return getAdapter(source).name;
+async function getAdapterLabel(project: ScannedProject): Promise<string> {
+	const adapter = await resolveAdapter(project);
+	return adapter.name;
 }
 
 function sessionCountHint(count: number): string {
 	return `${count} session${count !== 1 ? "s" : ""}`;
+}
+
+/**
+ * Determine the correct adapter for a scanned project. Pi sessions share
+ * source "claude_code" but need their own adapter for upload. We detect
+ * pi projects by checking the first session's transcriptPath.
+ */
+async function resolveAdapter(project: ScannedProject): Promise<AgentAdapter> {
+	const firstSession = project.sessions[0];
+	if (firstSession && (await isPiSession(firstSession.transcriptPath))) {
+		return piAdapter;
+	}
+	return getAdapter(project.source);
 }
 
 async function runSingleUpload(
@@ -236,7 +253,10 @@ async function runSingleUpload(
 		projectPath: sessionInfo.projectPath,
 	};
 
-	const request = await claudeCodeAdapter.buildUploadRequest(sessionFile, {
+	const isPi = await isPiSession(sessionInfo.transcriptPath);
+	const adapter = isPi ? piAdapter : claudeCodeAdapter;
+
+	const request = await adapter.buildUploadRequest(sessionFile, {
 		tag: flags.tag,
 		gitInfo,
 		organizationId,
@@ -341,9 +361,12 @@ async function runRetryUpload(flags: UploadFlags): Promise<void> {
 		label: "Retrying uploads...",
 		concurrency: flags.concurrency,
 		upload: async (item, onRetry) => {
-			const adapter = item.failure.source
-				? getAdapter(item.failure.source)
-				: claudeCodeAdapter;
+			const isPi = await isPiSession(item.failure.transcriptPath);
+			const adapter: AgentAdapter = isPi
+				? piAdapter
+				: item.failure.source
+					? getAdapter(item.failure.source)
+					: claudeCodeAdapter;
 			const sessionFile: SessionFile = {
 				sessionId: item.failure.sessionId,
 				transcriptPath: item.failure.transcriptPath,

@@ -1,7 +1,12 @@
-import { access, readdir } from "node:fs/promises";
+import { access, readdir, stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, dirname, join } from "node:path";
-import { decodeProjectPath } from "@rudel/agent-adapters";
+import {
+	decodeProjectPath,
+	getV3SessionsDir,
+	isPiSessionDir,
+	readJsonlFirstLine,
+} from "@rudel/agent-adapters";
 
 export const SESSIONS_BASE_DIR = join(homedir(), ".claude", "projects");
 
@@ -22,6 +27,51 @@ export async function resolveSession(input: string): Promise<SessionInfo> {
 }
 
 async function resolveFromPath(filePath: string): Promise<SessionInfo> {
+	// Check if input is a directory (pi v2 session)
+	try {
+		const s = await stat(filePath);
+		if (s.isDirectory()) {
+			if (await isPiSessionDir(filePath)) {
+				const sessionId = basename(filePath);
+				const sessionDir = dirname(filePath);
+				const parentDir = basename(sessionDir);
+				const projectPath = await decodeProjectPath(parentDir);
+				return {
+					transcriptPath: filePath,
+					projectPath,
+					sessionDir,
+					sessionId,
+				};
+			}
+			throw new Error(`Directory is not a valid session: ${filePath}`);
+		}
+	} catch (error) {
+		if (
+			error instanceof Error &&
+			error.message.startsWith("Directory is not")
+		) {
+			throw error;
+		}
+		// stat failed — fall through to file-based resolution
+	}
+
+	// Check if input is a pi v3 session file
+	if (filePath.startsWith(getV3SessionsDir()) && filePath.endsWith(".jsonl")) {
+		const sessionId = extractV3SessionIdFromPath(filePath);
+		if (sessionId) {
+			const firstLine = (await readJsonlFirstLine(filePath)) as {
+				cwd?: string;
+			} | null;
+			const projectPath = firstLine?.cwd ?? "";
+			return {
+				transcriptPath: filePath,
+				projectPath,
+				sessionDir: dirname(filePath),
+				sessionId,
+			};
+		}
+	}
+
 	const filename = basename(filePath);
 	validateNotSubagent(filename);
 
@@ -57,6 +107,8 @@ async function resolveFromId(sessionId: string): Promise<SessionInfo> {
 		const sessionDir = join(SESSIONS_BASE_DIR, projectDir);
 		try {
 			const files = await readdir(sessionDir);
+
+			// Check for regular .jsonl session file
 			if (files.includes(sessionFileName)) {
 				const transcriptPath = join(sessionDir, sessionFileName);
 				const projectPath = await decodeProjectPath(projectDir);
@@ -67,10 +119,64 @@ async function resolveFromId(sessionId: string): Promise<SessionInfo> {
 					sessionId,
 				};
 			}
+
+			// Check for pi session directory (UUID dir with subagents/)
+			if (files.includes(sessionId)) {
+				const piDir = join(sessionDir, sessionId);
+				if (await isPiSessionDir(piDir)) {
+					const projectPath = await decodeProjectPath(projectDir);
+					return {
+						transcriptPath: piDir,
+						projectPath,
+						sessionDir,
+						sessionId,
+					};
+				}
+			}
 		} catch {}
 	}
 
+	// Search pi v3 sessions: ~/.pi/agent/sessions/
+	const v3Dir = getV3SessionsDir();
+	try {
+		const v3ProjectDirs = await readdir(v3Dir);
+		for (const projectDir of v3ProjectDirs) {
+			const projectSessionDir = join(v3Dir, projectDir);
+			try {
+				const files = await readdir(projectSessionDir);
+				const match = files.find(
+					(f) => f.endsWith(".jsonl") && f.includes(`_${sessionId}.jsonl`),
+				);
+				if (match) {
+					const transcriptPath = join(projectSessionDir, match);
+					const firstLine = (await readJsonlFirstLine(transcriptPath)) as {
+						cwd?: string;
+					} | null;
+					const projectPath = firstLine?.cwd ?? "";
+					return {
+						transcriptPath,
+						projectPath,
+						sessionDir: projectSessionDir,
+						sessionId,
+					};
+				}
+			} catch {}
+		}
+	} catch {}
+
 	throw new Error(`Session not found: ${sessionId}`);
+}
+
+/** Extract session ID from a v3 filename: `<timestamp>_<uuid>.jsonl` → uuid */
+function extractV3SessionIdFromPath(filePath: string): string | null {
+	const filename = basename(filePath);
+	const base = filename.replace(/\.jsonl$/, "");
+	const underscoreIdx = base.indexOf("_");
+	if (underscoreIdx === -1) return null;
+	const uuid = base.slice(underscoreIdx + 1);
+	const uuidPattern =
+		/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+	return uuidPattern.test(uuid) ? uuid : null;
 }
 
 function validateNotSubagent(filename: string): void {

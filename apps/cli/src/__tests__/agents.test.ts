@@ -2,11 +2,137 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { claudeCodeAdapter, getAvailableAdapters } from "@rudel/agent-adapters";
+import {
+	claudeCodeAdapter,
+	getAvailableAdapters,
+	isPiSession,
+	isPiSessionDir,
+	piAdapter,
+	transformV3Content,
+} from "@rudel/agent-adapters";
 
 const SAMPLE_SESSION = [
 	JSON.stringify({ type: "summary", sessionId: "test-1" }),
 	JSON.stringify({ type: "message", role: "human", content: "hello" }),
+].join("\n");
+
+const PI_SESSION_UUID = "a1b2c3d4-e5f6-7890-abcd-ef1234567890";
+
+const SAMPLE_SUBAGENT_A = [
+	JSON.stringify({
+		type: "user",
+		agentId: "a111111",
+		sessionId: PI_SESSION_UUID,
+		message: { role: "user", content: "explore the codebase" },
+		timestamp: "2026-01-15T10:00:00.000Z",
+	}),
+	JSON.stringify({
+		type: "assistant",
+		agentId: "a111111",
+		sessionId: PI_SESSION_UUID,
+		message: {
+			role: "assistant",
+			model: "claude-sonnet-4-20250514",
+			content: [{ type: "text", text: "I'll explore the codebase." }],
+			usage: { input_tokens: 100, output_tokens: 50 },
+		},
+		timestamp: "2026-01-15T10:00:05.000Z",
+	}),
+].join("\n");
+
+const SAMPLE_SUBAGENT_B = [
+	JSON.stringify({
+		type: "user",
+		agentId: "a222222",
+		sessionId: PI_SESSION_UUID,
+		message: { role: "user", content: "write the tests" },
+		timestamp: "2026-01-15T10:01:00.000Z",
+	}),
+	JSON.stringify({
+		type: "assistant",
+		agentId: "a222222",
+		sessionId: PI_SESSION_UUID,
+		message: {
+			role: "assistant",
+			model: "claude-sonnet-4-20250514",
+			content: [{ type: "text", text: "I'll write the tests." }],
+			usage: { input_tokens: 200, output_tokens: 80 },
+		},
+		timestamp: "2026-01-15T10:01:10.000Z",
+	}),
+].join("\n");
+
+const V3_SESSION_UUID = "b1c2d3e4-f5a6-7890-abcd-ef1234567890";
+
+const SAMPLE_V3_SESSION = [
+	JSON.stringify({
+		type: "session",
+		version: 3,
+		id: V3_SESSION_UUID,
+		timestamp: "2026-03-10T10:00:00.000Z",
+		cwd: "", // Will be set dynamically in beforeAll
+	}),
+	JSON.stringify({
+		type: "thinking_level_change",
+		id: "tl1",
+		parentId: null,
+		timestamp: "2026-03-10T10:00:00.000Z",
+		thinkingLevel: "high",
+	}),
+	JSON.stringify({
+		type: "message",
+		id: "m1",
+		parentId: "tl1",
+		timestamp: "2026-03-10T10:00:05.000Z",
+		message: {
+			role: "user",
+			content: [{ type: "text", text: "fix the bug" }],
+		},
+	}),
+	JSON.stringify({
+		type: "message",
+		id: "m2",
+		parentId: "m1",
+		timestamp: "2026-03-10T10:00:15.000Z",
+		message: {
+			role: "assistant",
+			content: [{ type: "text", text: "I'll fix the bug." }],
+			api: "anthropic",
+			provider: "anthropic",
+			model: "claude-sonnet-4-20250514",
+			usage: {
+				input: 150,
+				output: 75,
+				cacheRead: 1000,
+				cacheWrite: 200,
+				totalTokens: 1425,
+				cost: { total: 0.005 },
+			},
+			stopReason: "end_turn",
+			timestamp: 1741608015000,
+		},
+	}),
+	JSON.stringify({
+		type: "message",
+		id: "m3",
+		parentId: "m2",
+		timestamp: "2026-03-10T10:00:16.000Z",
+		message: {
+			role: "toolResult",
+			toolCallId: "t1",
+			toolName: "bash",
+			content: [{ type: "text", text: "done" }],
+		},
+	}),
+	JSON.stringify({
+		type: "compaction",
+		id: "c1",
+		parentId: "m3",
+		timestamp: "2026-03-10T10:00:20.000Z",
+		summary: "Fixed the bug",
+		firstKeptEntryId: "m1",
+		tokensBefore: 1000,
+	}),
 ].join("\n");
 
 // Use a unique temp project path that we control
@@ -19,6 +145,15 @@ const TEST_PROJECT_PATH = join(
 const ENCODED_PROJECT = TEST_PROJECT_PATH.replace(/\//g, "-");
 const SESSIONS_BASE = join(homedir(), ".claude", "projects");
 const SESSION_DIR = join(SESSIONS_BASE, ENCODED_PROJECT);
+
+// Pi v3 session dir
+const V3_SESSIONS_BASE = join(homedir(), ".pi", "agent", "sessions");
+const V3_ENCODED_PROJECT = `--${TEST_PROJECT_PATH.replace(/^\//, "").replace(/\//g, "-")}--`;
+const V3_SESSION_DIR = join(V3_SESSIONS_BASE, V3_ENCODED_PROJECT);
+const V3_SESSION_FILE = join(
+	V3_SESSION_DIR,
+	`2026-03-10T10-00-00-000Z_${V3_SESSION_UUID}.jsonl`,
+);
 
 beforeAll(async () => {
 	// Create the fake project directory (so decodeProjectPath can verify it exists)
@@ -34,11 +169,33 @@ beforeAll(async () => {
 	await writeFile(join(SESSION_DIR, "agent-sub-001.jsonl"), "{}");
 	// Non-jsonl file — should be excluded
 	await writeFile(join(SESSION_DIR, "notes.txt"), "not a session");
+
+	// Pi v2 session directory: UUID dir with subagents/
+	const piSubagentsDir = join(SESSION_DIR, PI_SESSION_UUID, "subagents");
+	await mkdir(piSubagentsDir, { recursive: true });
+	await writeFile(
+		join(piSubagentsDir, "agent-a111111.jsonl"),
+		SAMPLE_SUBAGENT_A,
+	);
+	await writeFile(
+		join(piSubagentsDir, "agent-a222222.jsonl"),
+		SAMPLE_SUBAGENT_B,
+	);
+
+	// Pi v3 session file
+	await mkdir(V3_SESSION_DIR, { recursive: true });
+	// Rewrite session header with actual TEST_PROJECT_PATH as cwd
+	const v3Content = SAMPLE_V3_SESSION.replace(
+		/"cwd":""/,
+		`"cwd":"${TEST_PROJECT_PATH}"`,
+	);
+	await writeFile(V3_SESSION_FILE, v3Content);
 });
 
 afterAll(async () => {
 	await rm(SESSION_DIR, { recursive: true, force: true });
 	await rm(TEST_PROJECT_PATH, { recursive: true, force: true });
+	await rm(V3_SESSION_DIR, { recursive: true, force: true });
 });
 
 describe("claudeCodeAdapter", () => {
@@ -92,10 +249,226 @@ describe("claudeCodeAdapter", () => {
 	});
 });
 
+describe("piAdapter", () => {
+	test("name is Pi", () => {
+		expect(piAdapter.name).toBe("Pi");
+	});
+
+	test("source is claude_code", () => {
+		expect(piAdapter.source).toBe("claude_code");
+	});
+
+	test("getSessionsBaseDir returns pi v3 sessions dir", () => {
+		expect(piAdapter.getSessionsBaseDir()).toBe(V3_SESSIONS_BASE);
+	});
+
+	test("hook methods are no-ops", () => {
+		expect(piAdapter.getHookConfigPath()).toBe("");
+		expect(piAdapter.isHookInstalled()).toBe(false);
+		// These should not throw
+		piAdapter.installHook();
+		piAdapter.removeHook();
+	});
+
+	test("isPiSessionDir detects pi session directories", async () => {
+		const piDir = join(SESSION_DIR, PI_SESSION_UUID);
+		expect(await isPiSessionDir(piDir)).toBe(true);
+	});
+
+	test("isPiSessionDir rejects non-pi directories", async () => {
+		// Regular session dir has no subagents/
+		expect(await isPiSessionDir(SESSION_DIR)).toBe(false);
+		// Nonexistent path
+		expect(await isPiSessionDir("/nonexistent/path")).toBe(false);
+	});
+
+	test("findProjectSessions returns both v2 and v3 pi sessions", async () => {
+		const sessions = await piAdapter.findProjectSessions(TEST_PROJECT_PATH);
+
+		expect(sessions).toHaveLength(2);
+		const ids = sessions.map((s) => s.sessionId).sort();
+		expect(ids).toContain(PI_SESSION_UUID); // v2
+		expect(ids).toContain(V3_SESSION_UUID); // v3
+
+		// v2 transcriptPath is a directory
+		const v2 = sessions.find((s) => s.sessionId === PI_SESSION_UUID);
+		expect(v2?.transcriptPath).toBe(join(SESSION_DIR, PI_SESSION_UUID));
+
+		// v3 transcriptPath is a file
+		const v3 = sessions.find((s) => s.sessionId === V3_SESSION_UUID);
+		expect(v3?.transcriptPath).toBe(V3_SESSION_FILE);
+	});
+
+	test("scanAllSessions finds pi sessions without including them in Claude Code results", async () => {
+		const piProjects = await piAdapter.scanAllSessions();
+		const ccProjects = await claudeCodeAdapter.scanAllSessions();
+
+		// Pi adapter should find our test project with both v2 and v3 sessions
+		const piTestProject = piProjects.find(
+			(p) => p.projectPath === TEST_PROJECT_PATH,
+		);
+		expect(piTestProject).toBeDefined();
+		expect(piTestProject?.sessionCount).toBe(2);
+		const piSessionIds = piTestProject?.sessions.map((s) => s.sessionId);
+		expect(piSessionIds).toContain(PI_SESSION_UUID); // v2
+		expect(piSessionIds).toContain(V3_SESSION_UUID); // v3
+
+		// Claude Code adapter should NOT include pi sessions
+		const ccTestProject = ccProjects.find(
+			(p) => p.projectPath === TEST_PROJECT_PATH,
+		);
+		expect(ccTestProject).toBeDefined();
+		const ccSessionIds = ccTestProject?.sessions.map((s) => s.sessionId);
+		expect(ccSessionIds).not.toContain(PI_SESSION_UUID);
+		expect(ccSessionIds).not.toContain(V3_SESSION_UUID);
+		// But it should still have the regular sessions
+		expect(ccSessionIds).toContain("session-aaa");
+		expect(ccSessionIds).toContain("session-bbb");
+	});
+
+	test("buildUploadRequest concatenates subagent content and populates subagents", async () => {
+		const sessions = await piAdapter.findProjectSessions(TEST_PROJECT_PATH);
+		const session = sessions[0] as (typeof sessions)[number];
+		expect(session).toBeDefined();
+
+		// biome-ignore lint/style/noNonNullAssertion: guarded by expect above
+		const request = await piAdapter.buildUploadRequest(session!, {
+			gitInfo: {},
+			organizationId: "test-org",
+		});
+
+		// Content is concatenated subagent JSONL (for MV analytics)
+		expect(request.content.length).toBeGreaterThan(0);
+		expect(request.content).toContain('"agentId":"a111111"');
+		expect(request.content).toContain('"agentId":"a222222"');
+
+		// Subagents array preserves per-agent identity
+		expect(request.subagents).toBeDefined();
+		expect(request.subagents).toHaveLength(2);
+		const agentIds = request.subagents?.map((s) => s.agentId).sort();
+		expect(agentIds).toEqual(["a111111", "a222222"]);
+
+		// Source is claude_code
+		expect(request.source).toBe("claude_code");
+		expect(request.sessionId).toBe(PI_SESSION_UUID);
+	});
+
+	test("extractTimestamps works on concatenated subagent content", () => {
+		const content = `${SAMPLE_SUBAGENT_A}\n${SAMPLE_SUBAGENT_B}`;
+		const timestamps = piAdapter.extractTimestamps(content);
+
+		expect(timestamps).not.toBeNull();
+		expect(timestamps?.sessionDate).toBe("2026-01-15T10:00:00.000Z");
+		expect(timestamps?.lastInteractionDate).toBe("2026-01-15T10:01:10.000Z");
+	});
+
+	test("isPiSession detects both v2 and v3 sessions", async () => {
+		// v2: directory
+		expect(await isPiSession(join(SESSION_DIR, PI_SESSION_UUID))).toBe(true);
+		// v3: file under ~/.pi/agent/sessions/
+		expect(await isPiSession(V3_SESSION_FILE)).toBe(true);
+		// Not a pi session
+		expect(await isPiSession("/some/random/path.jsonl")).toBe(false);
+	});
+});
+
+describe("piAdapter v3", () => {
+	test("transformV3Content converts to Claude Code format", () => {
+		const v3Content = SAMPLE_V3_SESSION.replace(/"cwd":""/, '"cwd":"/test"');
+		const transformed = transformV3Content(v3Content);
+		const lines = transformed.split("\n").filter(Boolean);
+
+		// Should have 2 lines: user + assistant (toolResult, session, compaction, thinking_level_change skipped)
+		expect(lines).toHaveLength(2);
+
+		const userLine = JSON.parse(lines[0] as string);
+		expect(userLine.type).toBe("user");
+		expect(userLine.timestamp).toBe("2026-03-10T10:00:05.000Z");
+		expect(userLine.message.role).toBe("user");
+		expect(userLine.message.content[0].text).toBe("fix the bug");
+		// Should have uuid and sessionId (required by web UI conversation parser)
+		expect(userLine.uuid).toBe("m1");
+		expect(userLine.sessionId).toBe(V3_SESSION_UUID);
+		// Should not have v3-only fields
+		expect(userLine.id).toBeUndefined();
+		expect(userLine.parentId).toBeUndefined();
+
+		const assistantLine = JSON.parse(lines[1] as string);
+		expect(assistantLine.type).toBe("assistant");
+		expect(assistantLine.timestamp).toBe("2026-03-10T10:00:15.000Z");
+		expect(assistantLine.uuid).toBe("m2");
+		expect(assistantLine.sessionId).toBe(V3_SESSION_UUID);
+		expect(assistantLine.message.role).toBe("assistant");
+		expect(assistantLine.message.model).toBe("claude-sonnet-4-20250514");
+		// Should not have extra fields
+		expect(assistantLine.message.api).toBeUndefined();
+		expect(assistantLine.message.provider).toBeUndefined();
+		expect(assistantLine.message.stopReason).toBeUndefined();
+	});
+
+	test("transformV3Content maps usage fields correctly", () => {
+		const v3Content = SAMPLE_V3_SESSION.replace(/"cwd":""/, '"cwd":"/test"');
+		const transformed = transformV3Content(v3Content);
+		const lines = transformed.split("\n").filter(Boolean);
+		const assistantLine = JSON.parse(lines[1] as string);
+
+		const usage = assistantLine.message.usage;
+		expect(usage.input_tokens).toBe(150);
+		expect(usage.output_tokens).toBe(75);
+		expect(usage.cache_read_input_tokens).toBe(1000);
+		expect(usage.cache_creation_input_tokens).toBe(200);
+		// Should not have v3-only fields
+		expect(usage.totalTokens).toBeUndefined();
+		expect(usage.cost).toBeUndefined();
+		expect(usage.input).toBeUndefined();
+	});
+
+	test("buildUploadRequest transforms v3 content for MV compatibility", async () => {
+		const sessions = await piAdapter.findProjectSessions(TEST_PROJECT_PATH);
+		const v3Session = sessions.find((s) => s.sessionId === V3_SESSION_UUID);
+		expect(v3Session).toBeDefined();
+
+		// biome-ignore lint/style/noNonNullAssertion: guarded by expect above
+		const request = await piAdapter.buildUploadRequest(v3Session!, {
+			gitInfo: {},
+			organizationId: "test-org",
+		});
+
+		// Content should be transformed (type:"user"/"assistant" lines)
+		expect(request.content).toContain('"type":"user"');
+		expect(request.content).toContain('"type":"assistant"');
+		// Should NOT contain v3-only types
+		expect(request.content).not.toContain('"type":"message"');
+		expect(request.content).not.toContain('"type":"session"');
+		expect(request.content).not.toContain('"type":"compaction"');
+
+		// No subagents for v3 (it's a single file, not a subagent dir)
+		expect(request.subagents).toBeUndefined();
+
+		expect(request.source).toBe("claude_code");
+		expect(request.sessionId).toBe(V3_SESSION_UUID);
+	});
+
+	test("extractTimestamps works on transformed v3 content", () => {
+		const v3Content = SAMPLE_V3_SESSION.replace(/"cwd":""/, '"cwd":"/test"');
+		const transformed = transformV3Content(v3Content);
+		const timestamps = piAdapter.extractTimestamps(transformed);
+
+		expect(timestamps).not.toBeNull();
+		expect(timestamps?.sessionDate).toBe("2026-03-10T10:00:05.000Z");
+		expect(timestamps?.lastInteractionDate).toBe("2026-03-10T10:00:15.000Z");
+	});
+});
+
 describe("getAvailableAdapters", () => {
 	test("returns at least the Claude Code adapter", () => {
 		const adapters = getAvailableAdapters();
 		expect(adapters.length).toBeGreaterThanOrEqual(1);
 		expect(adapters.some((a) => a.name === "Claude Code")).toBe(true);
+	});
+
+	test("returns Pi adapter alongside Claude Code", () => {
+		const adapters = getAvailableAdapters();
+		expect(adapters.some((a) => a.name === "Pi")).toBe(true);
 	});
 });

@@ -1,6 +1,19 @@
-import { getAdapter, type ScannedProject } from "@rudel/agent-adapters";
+import {
+	getAdapter,
+	isPiSession,
+	piAdapter,
+	type ScannedProject,
+} from "@rudel/agent-adapters";
 import { buildCommand } from "@stricli/core";
 import { scanAndGroupProjects } from "../../lib/project-grouping.js";
+
+async function getAdapterName(project: ScannedProject): Promise<string> {
+	const firstSession = project.sessions[0];
+	if (firstSession && (await isPiSession(firstSession.transcriptPath))) {
+		return piAdapter.name;
+	}
+	return getAdapter(project.source).name;
+}
 
 async function runListSessions(): Promise<void> {
 	const { projects: allProjects, groups } = await scanAndGroupProjects();
@@ -17,7 +30,7 @@ async function runListSessions(): Promise<void> {
 
 		if (group.projects.length === 1) {
 			const proj = group.projects[0] as ScannedProject;
-			const name = getAdapter(proj.source).name;
+			const name = await getAdapterName(proj);
 			lines.push(
 				`[${name}] ${proj.displayPath} (${proj.sessionCount} sessions)${isCurrent}`,
 			);
@@ -32,7 +45,7 @@ async function runListSessions(): Promise<void> {
 			`${group.displayName} (${group.projects.length} projects, ${totalSessions} sessions)${isCurrent}`,
 		);
 		for (const proj of group.projects) {
-			const name = getAdapter(proj.source).name;
+			const name = await getAdapterName(proj);
 			const cwdMarker = proj.projectPath === process.cwd() ? " [cwd]" : "";
 			lines.push(
 				`  [${name}] ${proj.displayPath} (${proj.sessionCount} sessions)${cwdMarker}`,
