@@ -3,12 +3,15 @@ import { SourceSchema } from "./source.js";
 
 // ── Common inputs ──────────────────────────────────────────────────
 
+const MAX_DAYS = 365;
+const MAX_LIMIT = 1000;
+
 export const DaysInputSchema = z.object({
-	days: z.number().int().positive().default(7),
+	days: z.number().int().positive().max(MAX_DAYS).default(7),
 });
 
 export const PaginatedDaysInputSchema = DaysInputSchema.extend({
-	limit: z.number().int().positive().default(100),
+	limit: z.number().int().positive().max(MAX_LIMIT).default(100),
 	offset: z.number().int().nonnegative().default(0),
 });
 
@@ -183,7 +186,7 @@ export const DeveloperSessionsInputSchema = DaysInputSchema.extend({
 	userId: z.string().max(MAX_ID_FILTER_LENGTH),
 	projectPath: z.string().max(MAX_PATH_FILTER_LENGTH).optional(),
 	outcome: z.enum(["all", "success"]).default("all"),
-	limit: z.number().int().positive().default(100),
+	limit: z.number().int().positive().max(MAX_LIMIT).default(100),
 	offset: z.number().int().nonnegative().default(0),
 	sortBy: z.enum(["date", "duration", "tokens"]).default("date"),
 	sortOrder: z.enum(["asc", "desc"]).default("desc"),
@@ -306,7 +309,7 @@ export const SessionListInputSchema = DaysInputSchema.extend({
 	projectPath: z.string().max(MAX_PATH_FILTER_LENGTH).optional(),
 	repository: z.string().max(MAX_PATH_FILTER_LENGTH).optional(),
 	source: SourceSchema.optional(),
-	limit: z.number().int().positive().default(100),
+	limit: z.number().int().positive().max(MAX_LIMIT).default(100),
 	offset: z.number().int().nonnegative().default(0),
 	sortBy: z
 		.enum(["session_date", "duration_min", "total_tokens", "success_score"])
@@ -346,7 +349,7 @@ export const DimensionAnalysisInputSchema = DaysInputSchema.extend({
 	dimension: z.enum(VALID_DIMENSIONS),
 	metric: z.enum(VALID_METRICS),
 	splitBy: z.enum(VALID_DIMENSIONS).optional(),
-	limit: z.number().int().positive().default(20),
+	limit: z.number().int().positive().max(MAX_LIMIT).default(20),
 	userId: z.string().max(MAX_ID_FILTER_LENGTH).optional(),
 	projectPath: z.string().max(MAX_PATH_FILTER_LENGTH).optional(),
 });
@@ -473,7 +476,7 @@ export const ErrorTrendsInputSchema = DateRangeInputSchema.extend({
 
 export const RecurringErrorsInputSchema = DaysInputSchema.extend({
 	minOccurrences: z.number().int().positive().default(2),
-	limit: z.number().int().positive().default(20),
+	limit: z.number().int().positive().max(MAX_LIMIT).default(20),
 });
 
 // ── Learnings ──────────────────────────────────────────────────────

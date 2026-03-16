@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { IngestSessionInputSchema } from "@rudel/api-routes";
+import { checkAnalyticsRateLimit } from "../rate-limit.js";
 
 describe("IngestSessionInputSchema metadata field limits", () => {
 	const validBase = {
@@ -78,5 +79,33 @@ describe("IngestSessionInputSchema metadata field limits", () => {
 			subagents: [{ agentId: "agent-1", content: "y".repeat(1_000_000) }],
 		});
 		expect(result.success).toBe(true);
+	});
+});
+
+describe("checkAnalyticsRateLimit", () => {
+	test("allows requests under the limit", () => {
+		const userId = `test-under-${Date.now()}`;
+		expect(() => checkAnalyticsRateLimit(userId)).not.toThrow();
+	});
+
+	test("throws after exceeding the limit", () => {
+		const userId = `test-over-${Date.now()}`;
+		// Default is 90 requests per 60 seconds
+		for (let i = 0; i < 90; i++) {
+			checkAnalyticsRateLimit(userId);
+		}
+		expect(() => checkAnalyticsRateLimit(userId)).toThrow(
+			"Rate limit exceeded",
+		);
+	});
+
+	test("different users have independent limits", () => {
+		const userA = `test-a-${Date.now()}`;
+		const userB = `test-b-${Date.now()}`;
+		for (let i = 0; i < 90; i++) {
+			checkAnalyticsRateLimit(userA);
+		}
+		// userA is exhausted, userB should still work
+		expect(() => checkAnalyticsRateLimit(userB)).not.toThrow();
 	});
 });

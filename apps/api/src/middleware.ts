@@ -4,6 +4,7 @@ import { member } from "@rudel/sql-schema";
 import { and, eq } from "drizzle-orm";
 import type { Session } from "./auth.js";
 import { db } from "./db.js";
+import { checkAnalyticsRateLimit } from "./rate-limit.js";
 
 export interface AppContext {
 	user: Session["user"] | null;
@@ -30,6 +31,8 @@ export const orgMiddleware = os.middleware(async ({ context, next }) => {
 	if (!context.user || !context.session) {
 		throw new ORPCError("UNAUTHORIZED");
 	}
+
+	checkAnalyticsRateLimit(context.user.id);
 	const organizationId =
 		(context.session as Record<string, unknown>).activeOrganizationId ??
 		context.user.id;
