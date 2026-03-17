@@ -1,3 +1,4 @@
+import { PRODUCT_ANALYTICS_EVENTS } from "@rudel/api-routes";
 import {
 	Activity,
 	Bot,
@@ -6,7 +7,8 @@ import {
 	Terminal,
 	Users,
 } from "lucide-react";
-import { ChartCard } from "@/components/analytics/ChartCard";
+import { useEffect, useRef } from "react";
+import { AnalyticsCard } from "@/components/analytics/AnalyticsCard";
 import { CliSetupHint } from "@/components/analytics/CliSetupHint";
 import { DatePicker } from "@/components/analytics/DatePicker";
 import { InsightCard } from "@/components/analytics/InsightCard";
@@ -17,16 +19,35 @@ import { ModelTokensChart } from "@/components/charts/ModelTokensChart";
 import { UsageTrendChart } from "@/components/charts/UsageTrendChart";
 import { Spinner } from "@/components/ui/spinner";
 import { useDateRange } from "@/contexts/DateRangeContext";
+import { useOrganization } from "@/contexts/OrganizationContext";
 import { useAnalyticsQuery } from "@/hooks/useAnalyticsQuery";
+import { authClient } from "@/lib/auth-client";
 import { orpc } from "@/lib/orpc";
+import {
+	captureWebProductAnalyticsEvent,
+	getHttpStatusFromError,
+	normalizeWebErrorCode,
+} from "@/lib/product-analytics";
 
 export function OverviewPage() {
-	const { startDate, endDate, setStartDate, setEndDate } = useDateRange();
+	const { startDate, endDate, setStartDate, setEndDate, calculateDays } =
+		useDateRange();
+	const { activeOrg } = useOrganization();
+	const { data: session } = authClient.useSession();
+	const viewedRangeKeyRef = useRef<string | null>(null);
+	const failedRangeKeyRef = useRef<string | null>(null);
+	const userId =
+		session?.user && "id" in session.user && typeof session.user.id === "string"
+			? session.user.id
+			: null;
+	const organizationId = activeOrg?.id ?? null;
+	const dateRangeDays = calculateDays();
 
 	const {
 		data: kpis,
 		isPending: kpisLoading,
 		isError: kpisError,
+		error: kpisQueryError,
 	} = useAnalyticsQuery(
 		orpc.analytics.overview.kpis.queryOptions({
 			input: { startDate, endDate },
@@ -45,7 +66,11 @@ export function OverviewPage() {
 		}),
 	);
 
-	const { data: insights } = useAnalyticsQuery(
+	const {
+		data: insights,
+		isPending: insightsLoading,
+		isError: insightsError,
+	} = useAnalyticsQuery(
 		orpc.analytics.overview.insights.queryOptions({
 			input: { startDate, endDate },
 		}),
@@ -54,6 +79,83 @@ export function OverviewPage() {
 	const hasData = !kpisLoading && kpis && kpis.distinct_sessions > 0;
 	const hasAnySessions = kpis && kpis.total_sessions > 0;
 	const showDatePicker = hasData || (!kpisLoading && hasAnySessions);
+
+	useEffect(() => {
+		if (!organizationId || !userId) {
+			return;
+		}
+
+		if (!kpisLoading && kpisError) {
+			const failedRangeKey = `${organizationId}:overview:${startDate}:${endDate}`;
+			if (failedRangeKeyRef.current === failedRangeKey) {
+				return;
+			}
+
+			failedRangeKeyRef.current = failedRangeKey;
+			captureWebProductAnalyticsEvent({
+				event: PRODUCT_ANALYTICS_EVENTS.DASHBOARD_LOAD_FAILED,
+				payload: {
+					organization_id: organizationId,
+					user_id: userId,
+					page_name: "overview",
+					query_name: "overview_kpis",
+					error_code: normalizeWebErrorCode(kpisQueryError),
+					date_range_days: dateRangeDays,
+					is_blocking: true,
+					http_status: getHttpStatusFromError(kpisQueryError),
+				},
+			});
+		}
+	}, [
+		dateRangeDays,
+		endDate,
+		kpisError,
+		kpisLoading,
+		kpisQueryError,
+		organizationId,
+		startDate,
+		userId,
+	]);
+
+	useEffect(() => {
+		if (!organizationId || !userId || !kpis || kpisLoading || kpisError) {
+			return;
+		}
+
+		if (insightsLoading) {
+			return;
+		}
+
+		const viewedRangeKey = `${organizationId}:overview:${startDate}:${endDate}`;
+		if (viewedRangeKeyRef.current === viewedRangeKey) {
+			return;
+		}
+
+		viewedRangeKeyRef.current = viewedRangeKey;
+		captureWebProductAnalyticsEvent({
+			event: PRODUCT_ANALYTICS_EVENTS.DASHBOARD_VIEWED,
+			payload: {
+				organization_id: organizationId,
+				user_id: userId,
+				page_name: "overview",
+				has_data: kpis.distinct_sessions > 0,
+				date_range_days: dateRangeDays,
+				insight_count: insightsError ? 0 : (insights?.length ?? 0),
+			},
+		});
+	}, [
+		dateRangeDays,
+		endDate,
+		insights,
+		insightsError,
+		insightsLoading,
+		kpis,
+		kpisError,
+		kpisLoading,
+		organizationId,
+		startDate,
+		userId,
+	]);
 
 	return (
 		<div className="px-8 py-6">
@@ -140,7 +242,7 @@ export function OverviewPage() {
 						/>
 					</div>
 
-					{insights && insights.length > 0 && (
+					{insights && insights.length > 0 && organizationId && userId && (
 						<div className="mb-8">
 							<h2 className="text-xl font-bold text-heading mb-4">
 								Quick Insights
@@ -151,6 +253,7 @@ export function OverviewPage() {
 										// biome-ignore lint/suspicious/noArrayIndexKey: static insights list
 										key={index}
 										insight={{
+											insight_key: insight.insight_key,
 											type: insight.type as
 												| "trend"
 												| "performer"
@@ -160,6 +263,12 @@ export function OverviewPage() {
 											message: insight.message,
 											link: insight.link || "/dashboard",
 										}}
+										tracking={{
+											organizationId,
+											userId,
+											positionIndex: index,
+											dateRangeDays,
+										}}
 									/>
 								))}
 							</div>
@@ -167,26 +276,31 @@ export function OverviewPage() {
 					)}
 
 					{usageTrendData && usageTrendData.length > 0 && (
-						<ChartCard
-							title="Usage Trends"
-							description="Track key metrics over time - switch between metric pairs to see different views"
-							className="mb-8"
-						>
+						<AnalyticsCard className="mb-8">
+							<h2 className="text-xl font-bold text-heading mb-4">
+								Usage Trends
+							</h2>
+							<p className="text-sm text-muted mb-6">
+								Track key metrics over time - switch between metric pairs to see
+								different views
+							</p>
 							<UsageTrendChart
 								data={usageTrendData}
 								showRollingAverage={false}
 							/>
-						</ChartCard>
+						</AnalyticsCard>
 					)}
 
 					{modelTokensData && modelTokensData.length > 0 && (
-						<ChartCard
-							title="Tokens by Model"
-							description="Token consumption broken down by model type over time"
-							className="mb-8"
-						>
+						<AnalyticsCard className="mb-8">
+							<h2 className="text-xl font-bold text-heading mb-4">
+								Tokens by Model
+							</h2>
+							<p className="text-sm text-muted mb-6">
+								Token consumption broken down by model type over time
+							</p>
 							<ModelTokensChart data={modelTokensData} />
-						</ChartCard>
+						</AnalyticsCard>
 					)}
 				</>
 			)}

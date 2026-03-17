@@ -1,3 +1,4 @@
+import { PRODUCT_ANALYTICS_EVENTS } from "@rudel/api-routes";
 import {
 	AlertTriangle,
 	Award,
@@ -7,9 +8,11 @@ import {
 	TrendingUp,
 } from "lucide-react";
 import { Link } from "react-router-dom";
+import { captureWebProductAnalyticsEvent } from "../../lib/product-analytics";
 import { cn } from "../../lib/utils";
 
 export interface Insight {
+	insight_key: string;
 	type: "trend" | "performer" | "alert" | "info";
 	severity: "positive" | "warning" | "negative" | "info";
 	message: string;
@@ -18,6 +21,12 @@ export interface Insight {
 
 interface InsightCardProps {
 	insight: Insight;
+	tracking: {
+		organizationId: string;
+		userId: string;
+		positionIndex: number;
+		dateRangeDays: number;
+	};
 }
 
 const SEVERITY_CONFIG = {
@@ -58,13 +67,29 @@ const TYPE_ICON = {
 	info: Info,
 };
 
-export function InsightCard({ insight }: InsightCardProps) {
+export function InsightCard({ insight, tracking }: InsightCardProps) {
 	const config = SEVERITY_CONFIG[insight.severity];
 	const TypeIcon = TYPE_ICON[insight.type];
 
 	return (
 		<Link
 			to={insight.link}
+			onClick={() => {
+				captureWebProductAnalyticsEvent({
+					event: PRODUCT_ANALYTICS_EVENTS.INSIGHT_CARD_CLICKED,
+					payload: {
+						organization_id: tracking.organizationId,
+						user_id: tracking.userId,
+						page_name: "overview",
+						insight_key: insight.insight_key,
+						insight_type: insight.type,
+						insight_severity: insight.severity,
+						destination_path: insight.link,
+						position_index: tracking.positionIndex,
+						date_range_days: tracking.dateRangeDays,
+					},
+				});
+			}}
 			className={cn(
 				"block p-4 rounded-lg border-2 transition-all duration-200 cursor-pointer hover:scale-[1.02]",
 				config.bgColor,

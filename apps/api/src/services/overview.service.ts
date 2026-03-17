@@ -13,6 +13,7 @@ import {
 import { db } from "../db.js";
 
 export interface Insight {
+	insight_key: string;
 	type: "trend" | "performer" | "alert" | "info";
 	severity: "positive" | "warning" | "negative" | "info";
 	message: string;
@@ -312,10 +313,11 @@ export async function getOverviewInsights(
 			const direction = sessionChange > 0 ? "up" : "down";
 			const severity = sessionChange > 0 ? "positive" : "warning";
 			insights.push({
+				insight_key: "team_activity_change",
 				type: "trend",
 				severity,
 				message: `Team activity ${direction} ${Math.abs(sessionChange).toFixed(1)}% this week`,
-				link: "/dashboard/team",
+				link: "/dashboard/sessions",
 			});
 		}
 	}
@@ -332,6 +334,7 @@ export async function getOverviewInsights(
 			userData?.name || `${performer.user_id.substring(0, 8)}...`;
 
 		insights.push({
+			insight_key: "top_contributor",
 			type: "performer",
 			severity: "info",
 			message: `Top contributor: ${displayName} (${performer.sessions} sessions, ${performer.total_hours}h)`,
@@ -342,6 +345,7 @@ export async function getOverviewInsights(
 	// Insight 3: Knowledge silos detection (uses a wider 30-day window)
 	if (silos.length > 0) {
 		insights.push({
+			insight_key: "knowledge_silos",
 			type: "alert",
 			severity: "warning",
 			message: `${silos.length} project${silos.length > 1 ? "s" : ""} with only one developer - risk of knowledge silos`,
