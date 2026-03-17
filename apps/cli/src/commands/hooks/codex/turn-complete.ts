@@ -3,6 +3,7 @@ import {
 	findActiveRolloutFile,
 	type SessionFile,
 } from "@rudel/agent-adapters";
+import type { IngestSessionInput } from "@rudel/api-routes";
 import { buildCommand } from "@stricli/core";
 import { loadCredentials } from "../../../lib/credentials.js";
 import {
@@ -10,6 +11,12 @@ import {
 	removeFailedUpload,
 } from "../../../lib/failed-uploads.js";
 import { getGitInfo } from "../../../lib/git-info.js";
+import {
+	captureCliUploadFailed,
+	getCliUserId,
+	getUploadPreparationFailureStage,
+	withCliUploadTelemetry,
+} from "../../../lib/product-analytics.js";
 import { getProjectOrgId } from "../../../lib/project-config.js";
 import { uploadSession } from "../../../lib/uploader.js";
 
@@ -53,18 +60,49 @@ async function runTurnComplete(): Promise<void> {
 		const gitInfo = await getGitInfo(input.cwd);
 		const organizationId = await getProjectOrgId(input.cwd);
 
-		const request = await codexAdapter.buildUploadRequest(sessionFile, {
-			gitInfo,
-			organizationId,
-		});
+		let request: IngestSessionInput;
+		try {
+			request = await codexAdapter.buildUploadRequest(sessionFile, {
+				gitInfo,
+				organizationId,
+			});
+		} catch (error) {
+			captureCliUploadFailed({
+				surface: "hook",
+				clientSurface: "hook",
+				uploadMode: "hook",
+				agentSource: codexAdapter.source,
+				failureStage: getUploadPreparationFailureStage(error),
+				error,
+				organizationId,
+				userId: getCliUserId(credentials),
+				projectPath: input.cwd,
+			});
+			return;
+		}
 
 		const apiBase = process.env.RUDEL_API_BASE ?? credentials.apiBaseUrl;
 		const endpoint = `${apiBase}/rpc`;
-		const result = await uploadSession(request, {
-			endpoint,
-			token: credentials.token,
-			authType: credentials.authType,
-		});
+		const result = await uploadSession(
+			withCliUploadTelemetry(request, {
+				clientSurface: "hook",
+				uploadMode: "hook",
+			}),
+			{
+				endpoint,
+				token: credentials.token,
+				authType: credentials.authType,
+				analytics: {
+					clientSurface: "hook",
+					uploadMode: "hook",
+					agentSource: codexAdapter.source,
+					projectPath: input.cwd,
+					organizationId,
+					userId: getCliUserId(credentials),
+					credentials,
+				},
+			},
+		);
 
 		if (result.success) {
 			await removeFailedUpload(input.thread_id);

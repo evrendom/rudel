@@ -42,6 +42,7 @@
 		"@orpc/client": "^1.13.5",
 		"@orpc/contract": "^1.13.5",
 		"@stricli/core": "^1.2.5",
+		"posthog-node": "^5.8.0",
 		"p-map": "^7.0.4"
 	},
 	"devDependencies": {

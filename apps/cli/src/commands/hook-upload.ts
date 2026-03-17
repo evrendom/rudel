@@ -1,9 +1,15 @@
 import { getLogger } from "@logtape/logtape";
 import { claudeCodeAdapter, type SessionFile } from "@rudel/agent-adapters";
+import type { IngestSessionInput } from "@rudel/api-routes";
 import { buildCommand } from "@stricli/core";
 import { classifySession } from "../lib/classifier.js";
 import { readConfig } from "../lib/config.js";
 import { getGitInfo } from "../lib/git-info.js";
+import {
+	captureCliUploadFailed,
+	getUploadPreparationFailureStage,
+	withCliUploadTelemetry,
+} from "../lib/product-analytics.js";
 import { parseStdinInput, readStdin } from "../lib/stdin.js";
 import { DEFAULT_ENDPOINT } from "../lib/types.js";
 import { uploadSession } from "../lib/uploader.js";
@@ -45,13 +51,34 @@ async function runHookUpload(): Promise<void> {
 
 		const gitInfo = await getGitInfo(cwd);
 
-		const request = await claudeCodeAdapter.buildUploadRequest(sessionFile, {
-			gitInfo,
-		});
+		let request: IngestSessionInput;
+		try {
+			request = await claudeCodeAdapter.buildUploadRequest(sessionFile, {
+				gitInfo,
+			});
 
-		const tag = await classifySession(request.content);
-		if (tag) {
-			(request as { tag?: string }).tag = tag;
+			const tag = await classifySession(request.content);
+			if (tag) {
+				(request as { tag?: string }).tag = tag;
+			}
+		} catch (error) {
+			captureCliUploadFailed({
+				surface: "hook",
+				clientSurface: "hook",
+				uploadMode: "hook",
+				agentSource: claudeCodeAdapter.source,
+				failureStage: getUploadPreparationFailureStage(error),
+				error,
+				projectPath: cwd,
+			});
+			logger.error(
+				"Failed to prepare upload for session {sessionId}: {error}",
+				{
+					sessionId: session_id,
+					error,
+				},
+			);
+			return;
 		}
 
 		const endpoint =
@@ -69,11 +96,23 @@ async function runHookUpload(): Promise<void> {
 			},
 		);
 
-		const result = await uploadSession(request, {
-			endpoint,
-			token: config.apiKey,
-			authType: "api-key",
-		});
+		const result = await uploadSession(
+			withCliUploadTelemetry(request, {
+				clientSurface: "hook",
+				uploadMode: "hook",
+			}),
+			{
+				endpoint,
+				token: config.apiKey,
+				authType: "api-key",
+				analytics: {
+					clientSurface: "hook",
+					uploadMode: "hook",
+					agentSource: claudeCodeAdapter.source,
+					projectPath: cwd,
+				},
+			},
+		);
 
 		if (result.success) {
 			logger.info("Upload successful for session {sessionId}", {

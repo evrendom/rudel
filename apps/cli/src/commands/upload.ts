@@ -5,7 +5,7 @@ import {
 	type ScannedProject,
 	type SessionFile,
 } from "@rudel/agent-adapters";
-import type { Source } from "@rudel/api-routes";
+import type { IngestSessionInput, Source } from "@rudel/api-routes";
 import { buildCommand } from "@stricli/core";
 import type { BatchUploadItem } from "../lib/batch-upload.js";
 import { renderBatchSummary, runBatchUpload } from "../lib/batch-upload-ui.js";
@@ -13,6 +13,12 @@ import { classifySession } from "../lib/classifier.js";
 import { loadCredentials } from "../lib/credentials.js";
 import { loadFailedUploads } from "../lib/failed-uploads.js";
 import { getGitInfo } from "../lib/git-info.js";
+import {
+	captureCliUploadFailed,
+	getCliUserId,
+	getUploadPreparationFailureStage,
+	withCliUploadTelemetry,
+} from "../lib/product-analytics.js";
 import { getProjectOrgId } from "../lib/project-config.js";
 import { scanAndGroupProjects } from "../lib/project-grouping.js";
 import { resolveSession } from "../lib/session-resolver.js";
@@ -32,8 +38,6 @@ interface UploadFlags {
 	retry: boolean;
 	concurrency: number;
 }
-
-const RATE_LIMIT_WARNING_THRESHOLD = 480;
 
 async function runInteractiveUpload(flags: UploadFlags): Promise<void> {
 	const credentials = loadCredentials();
@@ -98,25 +102,12 @@ async function runInteractiveUpload(flags: UploadFlags): Promise<void> {
 		`Uploading ${totalSessions} session(s) from ${selected.length} project(s)`,
 	);
 
-	if (totalSessions > RATE_LIMIT_WARNING_THRESHOLD) {
-		p.log.warn(
-			`You're about to upload ${totalSessions} sessions. The server allows 500 sessions per hour — uploads beyond that limit will fail and can be retried later with \`rudel upload --retry\`.`,
-		);
-		const shouldContinue = await p.confirm({
-			message: "Continue?",
-			initialValue: true,
-		});
-		if (p.isCancel(shouldContinue) || !shouldContinue) {
-			p.cancel("Upload cancelled.");
-			return;
-		}
-	}
-
 	const uploadConfig: UploadConfig = {
 		endpoint: flags.endpoint,
 		token: credentials?.token ?? "",
 		authType: credentials?.authType,
 	};
+	const userId = getCliUserId(credentials);
 
 	// Flatten all sessions with their project context for concurrent upload
 	const work: Array<{
@@ -160,24 +151,61 @@ async function runInteractiveUpload(flags: UploadFlags): Promise<void> {
 		label: "Uploading sessions...",
 		concurrency: flags.concurrency,
 		upload: async (item, onRetry) => {
-			const request = await item.adapter.buildUploadRequest(item.session, {
-				tag: flags.tag,
-				gitInfo: item.gitInfo,
-				organizationId: item.organizationId,
-			});
+			let request: IngestSessionInput;
+			try {
+				request = await item.adapter.buildUploadRequest(item.session, {
+					tag: flags.tag,
+					gitInfo: item.gitInfo,
+					organizationId: item.organizationId,
+				});
 
-			if (!flags.tag && flags.classify) {
-				const classified = await classifySession(request.content);
-				if (classified) {
-					(request as { tag?: string }).tag = classified;
+				if (!flags.tag && flags.classify) {
+					const classified = await classifySession(request.content);
+					if (classified) {
+						(request as { tag?: string }).tag = classified;
+					}
 				}
+			} catch (error) {
+				captureCliUploadFailed({
+					surface: "cli",
+					clientSurface: "cli",
+					uploadMode: "manual",
+					agentSource: item.source ?? item.adapter.source,
+					failureStage: getUploadPreparationFailureStage(error),
+					error,
+					organizationId: item.organizationId,
+					userId,
+					projectPath: item.projectPath,
+				});
+				return {
+					success: false,
+					error: error instanceof Error ? error.message : String(error),
+				};
 			}
 
 			if (flags.dryRun) {
 				return { success: true };
 			}
 
-			return uploadSession(request, { ...uploadConfig, onRetry });
+			return uploadSession(
+				withCliUploadTelemetry(request, {
+					clientSurface: "cli",
+					uploadMode: "manual",
+				}),
+				{
+					...uploadConfig,
+					onRetry,
+					analytics: {
+						clientSurface: "cli",
+						uploadMode: "manual",
+						agentSource: item.source ?? item.adapter.source,
+						projectPath: item.projectPath,
+						organizationId: item.organizationId,
+						userId,
+						credentials,
+					},
+				},
+			);
 		},
 	});
 
@@ -215,6 +243,14 @@ async function runSingleUpload(
 
 	const credentials = loadCredentials();
 	if (!credentials && !flags.dryRun) {
+		captureCliUploadFailed({
+			surface: "cli",
+			clientSurface: "cli",
+			uploadMode: "manual",
+			agentSource: claudeCodeAdapter.source,
+			failureStage: "auth",
+			error: new Error("Not authenticated"),
+		});
 		writeError("Error: Not authenticated. Run `rudel login` first.");
 		process.exitCode = 1;
 		return;
@@ -225,6 +261,14 @@ async function runSingleUpload(
 	try {
 		sessionInfo = await resolveSession(session);
 	} catch (error) {
+		captureCliUploadFailed({
+			surface: "cli",
+			clientSurface: "cli",
+			uploadMode: "manual",
+			agentSource: claudeCodeAdapter.source,
+			failureStage: getUploadPreparationFailureStage(error),
+			error,
+		});
 		writeError(
 			`Error: ${error instanceof Error ? error.message : String(error)}`,
 		);
@@ -252,11 +296,31 @@ async function runSingleUpload(
 		projectPath: sessionInfo.projectPath,
 	};
 
-	const request = await claudeCodeAdapter.buildUploadRequest(sessionFile, {
-		tag: flags.tag,
-		gitInfo,
-		organizationId,
-	});
+	let request: IngestSessionInput;
+	try {
+		request = await claudeCodeAdapter.buildUploadRequest(sessionFile, {
+			tag: flags.tag,
+			gitInfo,
+			organizationId,
+		});
+	} catch (error) {
+		captureCliUploadFailed({
+			surface: "cli",
+			clientSurface: "cli",
+			uploadMode: "manual",
+			agentSource: claudeCodeAdapter.source,
+			failureStage: getUploadPreparationFailureStage(error),
+			error,
+			organizationId,
+			userId: getCliUserId(credentials),
+			projectPath: sessionInfo.projectPath,
+		});
+		writeError(
+			`Error: ${error instanceof Error ? error.message : String(error)}`,
+		);
+		process.exitCode = 1;
+		return;
+	}
 
 	write(`Transcript: ${request.content.length} bytes`);
 	if (request.subagents && request.subagents.length > 0) {
@@ -265,10 +329,29 @@ async function runSingleUpload(
 
 	if (!flags.tag && flags.classify) {
 		write("Classifying session...");
-		const classified = await classifySession(request.content);
-		if (classified) {
-			(request as { tag?: string }).tag = classified;
-			write(`Classified as: ${classified}`);
+		try {
+			const classified = await classifySession(request.content);
+			if (classified) {
+				(request as { tag?: string }).tag = classified;
+				write(`Classified as: ${classified}`);
+			}
+		} catch (error) {
+			captureCliUploadFailed({
+				surface: "cli",
+				clientSurface: "cli",
+				uploadMode: "manual",
+				agentSource: claudeCodeAdapter.source,
+				failureStage: getUploadPreparationFailureStage(error),
+				error,
+				organizationId,
+				userId: getCliUserId(credentials),
+				projectPath: sessionInfo.projectPath,
+			});
+			writeError(
+				`Error: ${error instanceof Error ? error.message : String(error)}`,
+			);
+			process.exitCode = 1;
+			return;
 		}
 	}
 
@@ -287,12 +370,27 @@ async function runSingleUpload(
 	}
 
 	write("Uploading...");
-	const result = await uploadSession(request, {
-		endpoint: flags.endpoint,
-		// biome-ignore lint/style/noNonNullAssertion: validated above with early return
-		token: credentials!.token,
-		authType: credentials?.authType,
-	});
+	const result = await uploadSession(
+		withCliUploadTelemetry(request, {
+			clientSurface: "cli",
+			uploadMode: "manual",
+		}),
+		{
+			endpoint: flags.endpoint,
+			// biome-ignore lint/style/noNonNullAssertion: validated above with early return
+			token: credentials!.token,
+			authType: credentials?.authType,
+			analytics: {
+				clientSurface: "cli",
+				uploadMode: "manual",
+				agentSource: claudeCodeAdapter.source,
+				projectPath: sessionInfo.projectPath,
+				organizationId,
+				userId: getCliUserId(credentials),
+				credentials,
+			},
+		},
+	);
 
 	if (result.success) {
 		write("Upload successful!");
@@ -326,12 +424,6 @@ async function runRetryUpload(flags: UploadFlags): Promise<void> {
 		p.log.warn(`  ...and ${failures.length - 10} more`);
 	}
 
-	if (failures.length > RATE_LIMIT_WARNING_THRESHOLD) {
-		p.log.warn(
-			`You're about to retry ${failures.length} sessions. The server allows 500 sessions per hour — uploads beyond that limit will fail and can be retried again later.`,
-		);
-	}
-
 	const shouldRetry = await p.confirm({
 		message: `Retry all ${failures.length} failed upload(s)?`,
 		initialValue: true,
@@ -343,6 +435,7 @@ async function runRetryUpload(flags: UploadFlags): Promise<void> {
 	}
 
 	const endpoint = flags.endpoint;
+	const userId = getCliUserId(credentials);
 
 	type RetryItem = BatchUploadItem & {
 		failure: (typeof failures)[number];
@@ -377,18 +470,51 @@ async function runRetryUpload(flags: UploadFlags): Promise<void> {
 				item.failure.organizationId ??
 				(await getProjectOrgId(item.failure.projectPath));
 
-			const request = await adapter.buildUploadRequest(sessionFile, {
-				tag: flags.tag,
-				gitInfo,
-				organizationId,
-			});
+			try {
+				const request = withCliUploadTelemetry(
+					await adapter.buildUploadRequest(sessionFile, {
+						tag: flags.tag,
+						gitInfo,
+						organizationId,
+					}),
+					{
+						clientSurface: "cli",
+						uploadMode: "retry",
+					},
+				);
 
-			return uploadSession(request, {
-				endpoint,
-				token: credentials.token,
-				authType: credentials.authType,
-				onRetry,
-			});
+				return uploadSession(request, {
+					endpoint,
+					token: credentials.token,
+					authType: credentials.authType,
+					onRetry,
+					analytics: {
+						clientSurface: "cli",
+						uploadMode: "retry",
+						agentSource: adapter.source,
+						projectPath: item.failure.projectPath,
+						organizationId,
+						userId,
+						credentials,
+					},
+				});
+			} catch (error) {
+				captureCliUploadFailed({
+					surface: "cli",
+					clientSurface: "cli",
+					uploadMode: "retry",
+					agentSource: adapter.source,
+					failureStage: getUploadPreparationFailureStage(error),
+					error,
+					organizationId,
+					userId,
+					projectPath: item.failure.projectPath,
+				});
+				return {
+					success: false,
+					error: error instanceof Error ? error.message : String(error),
+				};
+			}
 		},
 	});
 

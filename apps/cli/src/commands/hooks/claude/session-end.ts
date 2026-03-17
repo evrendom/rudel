@@ -1,5 +1,6 @@
 import { getLogger } from "@logtape/logtape";
 import { claudeCodeAdapter, type SessionFile } from "@rudel/agent-adapters";
+import type { IngestSessionInput } from "@rudel/api-routes";
 import { buildCommand } from "@stricli/core";
 import { loadCredentials } from "../../../lib/credentials.js";
 import {
@@ -7,6 +8,12 @@ import {
 	removeFailedUpload,
 } from "../../../lib/failed-uploads.js";
 import { getGitInfo } from "../../../lib/git-info.js";
+import {
+	captureCliUploadFailed,
+	getCliUserId,
+	getUploadPreparationFailureStage,
+	withCliUploadTelemetry,
+} from "../../../lib/product-analytics.js";
 import { getProjectOrgId } from "../../../lib/project-config.js";
 import { uploadSession } from "../../../lib/uploader.js";
 import { disposeLogging, setupHookLogging } from "../../../logging.js";
@@ -52,24 +59,62 @@ async function runSessionEnd(): Promise<void> {
 		const gitInfo = await getGitInfo(input.cwd);
 		const organizationId = await getProjectOrgId(input.cwd);
 
-		const request = await claudeCodeAdapter.buildUploadRequest(sessionFile, {
-			gitInfo,
-			organizationId,
-		});
+		let request: IngestSessionInput;
+		try {
+			request = await claudeCodeAdapter.buildUploadRequest(sessionFile, {
+				gitInfo,
+				organizationId,
+			});
+		} catch (error) {
+			captureCliUploadFailed({
+				surface: "hook",
+				clientSurface: "hook",
+				uploadMode: "hook",
+				agentSource: claudeCodeAdapter.source,
+				failureStage: getUploadPreparationFailureStage(error),
+				error,
+				organizationId,
+				userId: getCliUserId(credentials),
+				projectPath: input.cwd,
+			});
+			logger.error(
+				"Failed to prepare upload for session {sessionId}: {error}",
+				{
+					sessionId: input.session_id,
+					error,
+				},
+			);
+			return;
+		}
 
 		const apiBase = process.env.RUDEL_API_BASE ?? credentials.apiBaseUrl;
 		const endpoint = `${apiBase}/rpc`;
-		const result = await uploadSession(request, {
-			endpoint,
-			token: credentials.token,
-			authType: credentials.authType,
-			onRetry: (attempt, maxAttempts, error) => {
-				logger.warn(
-					"Retrying upload for {sessionId} ({attempt}/{maxAttempts}): {error}",
-					{ sessionId: input.session_id, attempt, maxAttempts, error },
-				);
+		const result = await uploadSession(
+			withCliUploadTelemetry(request, {
+				clientSurface: "hook",
+				uploadMode: "hook",
+			}),
+			{
+				endpoint,
+				token: credentials.token,
+				authType: credentials.authType,
+				onRetry: (attempt, maxAttempts, error) => {
+					logger.warn(
+						"Retrying upload for {sessionId} ({attempt}/{maxAttempts}): {error}",
+						{ sessionId: input.session_id, attempt, maxAttempts, error },
+					);
+				},
+				analytics: {
+					clientSurface: "hook",
+					uploadMode: "hook",
+					agentSource: claudeCodeAdapter.source,
+					projectPath: input.cwd,
+					organizationId,
+					userId: getCliUserId(credentials),
+					credentials,
+				},
 			},
-		});
+		);
 
 		if (result.success) {
 			logger.info(

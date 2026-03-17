@@ -1,10 +1,16 @@
 import { ORPCError } from "@orpc/server";
 import { getAdapter } from "@rudel/agent-adapters";
+import { PRODUCT_ANALYTICS_EVENTS } from "@rudel/api-routes";
 import { apikey, member, organization, session } from "@rudel/sql-schema";
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { getClickhouse } from "./clickhouse.js";
 import { db } from "./db.js";
 import { analyticsRouter } from "./handlers/analytics/index.js";
+import {
+	bucketContentSize,
+	captureApiProductAnalyticsEvent,
+	hashProjectPath,
+} from "./lib/product-analytics.js";
 import { authMiddleware, ingestAuthMiddleware, os } from "./middleware.js";
 import { checkIngestRateLimit } from "./rate-limit.js";
 import {
@@ -104,6 +110,43 @@ const ingestSessionHandler = os.ingestSession
 			userId: context.user.id,
 			organizationId: orgId,
 		});
+
+		const firstUploadClaim = await db
+			.update(organization)
+			.set({ firstSessionUploadedAt: new Date() })
+			.where(
+				and(
+					eq(organization.id, orgId),
+					isNull(organization.firstSessionUploadedAt),
+				),
+			)
+			.returning({ id: organization.id });
+		const isFirstUpload = firstUploadClaim.length > 0;
+
+		if (
+			input.client_surface &&
+			input.upload_mode &&
+			input.cli_version &&
+			input.platform_os
+		) {
+			captureApiProductAnalyticsEvent({
+				distinctId: context.user.id,
+				event: PRODUCT_ANALYTICS_EVENTS.SESSION_UPLOAD_COMPLETED,
+				payload: {
+					organization_id: orgId,
+					user_id: context.user.id,
+					client_surface: input.client_surface,
+					upload_mode: input.upload_mode,
+					agent_source: input.source,
+					cli_version: input.cli_version,
+					platform_os: input.platform_os,
+					is_first_upload: isFirstUpload,
+					project_id_hash: hashProjectPath(input.projectPath),
+					session_tag: input.tag,
+					content_size_bucket: bucketContentSize(input.content.length),
+				},
+			});
+		}
 
 		return {
 			success: true as const,
