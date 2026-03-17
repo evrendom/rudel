@@ -111,17 +111,22 @@ const ingestSessionHandler = os.ingestSession
 			organizationId: orgId,
 		});
 
-		const firstUploadClaim = await db
-			.update(organization)
-			.set({ firstSessionUploadedAt: new Date() })
-			.where(
-				and(
-					eq(organization.id, orgId),
-					isNull(organization.firstSessionUploadedAt),
-				),
-			)
-			.returning({ id: organization.id });
-		const isFirstUpload = firstUploadClaim.length > 0;
+		let isFirstUpload = false;
+		try {
+			const firstUploadClaim = await db
+				.update(organization)
+				.set({ firstSessionUploadedAt: new Date() })
+				.where(
+					and(
+						eq(organization.id, orgId),
+						isNull(organization.firstSessionUploadedAt),
+					),
+				)
+				.returning({ id: organization.id });
+			isFirstUpload = firstUploadClaim.length > 0;
+		} catch {
+			// Upload ingestion must not fail if the analytics marker write fails.
+		}
 
 		if (
 			input.client_surface &&
