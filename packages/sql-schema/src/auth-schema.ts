@@ -95,6 +95,10 @@ export const organization = pgTable("organization", {
 	slug: text("slug").notNull().unique(),
 	logo: text("logo"),
 	metadata: text("metadata"),
+	firstSessionUploadedAt: timestamp("first_session_uploaded_at", {
+		withTimezone: true,
+		mode: "date",
+	}),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
 		.defaultNow()
 		.notNull(),
