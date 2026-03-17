@@ -22,6 +22,17 @@ function inferSignupMethod(
 	return "email_password";
 }
 
+function getEmailDomain(email: string) {
+	const domain = email.split("@")[1]?.trim().toLowerCase();
+	return domain && domain.length > 0 ? domain : "unknown";
+}
+
+function toTrackedOrganizationRole(
+	role: string | null | undefined,
+): "admin" | "member" {
+	return role === "admin" ? "admin" : "member";
+}
+
 export interface AuthConfig {
 	appURL: string;
 	secret?: string;
@@ -164,6 +175,82 @@ export function createAuth(db: object, config: AuthConfig) {
 								},
 							);
 						}
+					},
+				},
+			},
+			invitation: {
+				create: {
+					after: async (invitation: {
+						organizationId: string;
+						inviterId: string;
+						role: string;
+						email: string;
+					}) => {
+						captureApiProductAnalyticsEvent({
+							distinctId: invitation.inviterId,
+							event: PRODUCT_ANALYTICS_EVENTS.INVITE_SENT,
+							payload: {
+								organization_id: invitation.organizationId,
+								inviter_user_id: invitation.inviterId,
+								invite_channel: "email",
+								invite_role: toTrackedOrganizationRole(invitation.role),
+								invitee_email_domain: getEmailDomain(invitation.email),
+								source: "settings_members",
+							},
+						});
+					},
+				},
+			},
+			member: {
+				create: {
+					after: async (
+						createdMember: {
+							organizationId: string;
+							userId: string;
+							role: string;
+						},
+						ctx: {
+							context?: {
+								adapter?: {
+									findMany: (args: {
+										model: string;
+										where: Array<{ field: string; value: string }>;
+									}) => Promise<unknown>;
+								};
+							};
+						},
+					) => {
+						if (
+							createdMember.role === "owner" ||
+							createdMember.organizationId === createdMember.userId
+						) {
+							return;
+						}
+
+						const adapter = ctx?.context?.adapter;
+						const members = adapter
+							? ((await adapter.findMany({
+									model: "member",
+									where: [
+										{
+											field: "organizationId",
+											value: createdMember.organizationId,
+										},
+									],
+								})) as Array<{ id: string }>)
+							: [];
+
+						captureApiProductAnalyticsEvent({
+							distinctId: createdMember.userId,
+							event: PRODUCT_ANALYTICS_EVENTS.ORGANIZATION_MEMBER_JOINED,
+							payload: {
+								organization_id: createdMember.organizationId,
+								member_user_id: createdMember.userId,
+								join_method: "invite_accept",
+								role: toTrackedOrganizationRole(createdMember.role),
+								organization_member_count: members.length,
+							},
+						});
 					},
 				},
 			},

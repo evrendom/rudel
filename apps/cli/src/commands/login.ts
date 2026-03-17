@@ -8,6 +8,7 @@ import {
 	captureCliProductAnalyticsEvent,
 	getBaseCliEventPayload,
 	getCliDistinctId,
+	getNextCliLoginAttemptNumber,
 	normalizeFailureReason,
 	shouldDisableCliPersonProfile,
 } from "../lib/product-analytics.js";
@@ -181,6 +182,7 @@ async function runLogin(flags: {
 	noBrowser: boolean;
 }): Promise<void> {
 	const openedBrowser = !flags.noBrowser;
+	const attemptNumber = getNextCliLoginAttemptNumber();
 	const captureLoginFailure = (
 		failureStage:
 			| "device_code_request"
@@ -200,6 +202,7 @@ async function runLogin(flags: {
 				failure_stage: failureStage,
 				failure_reason: normalizeFailureReason(error),
 				opened_browser: openedBrowser,
+				attempt_number: attemptNumber,
 				...getBaseCliEventPayload(),
 			},
 		});
@@ -226,6 +229,20 @@ async function runLogin(flags: {
 	const verifyUrl =
 		deviceCode.verification_uri_complete ??
 		`${deviceCode.verification_uri}?user_code=${encodeURIComponent(deviceCode.user_code)}`;
+
+	captureCliProductAnalyticsEvent({
+		distinctId: getCliDistinctId(),
+		event: CliProductAnalyticsEvents.CLI_LOGIN_STARTED,
+		surface: "cli",
+		disablePersonProfile: shouldDisableCliPersonProfile(),
+		payload: {
+			auth_flow: "device_authorization",
+			opened_browser: openedBrowser,
+			attempt_number: attemptNumber,
+			...getBaseCliEventPayload(),
+		},
+	});
+
 	p.log.info(`If the browser doesn't open, visit:\n${verifyUrl}`);
 	p.log.info(`User code: ${deviceCode.user_code}`);
 

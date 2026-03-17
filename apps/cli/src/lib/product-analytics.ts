@@ -1,4 +1,4 @@
-import { createHash, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
@@ -7,7 +7,6 @@ import type {
 	ProductAnalyticsEventName,
 	ProductAnalyticsEventPayload,
 	ProductAnalyticsPlatformOs,
-	Source,
 } from "@rudel/api-routes";
 import {
 	PRODUCT_ANALYTICS_EVENT_VERSION,
@@ -28,6 +27,12 @@ type CliCapturePayload<Name extends ProductAnalyticsEventName> = Omit<
 const ANALYTICS_STATE_FILE = "product-analytics.json";
 
 let client: PostHog | null | undefined;
+
+type AnalyticsState = {
+	cli_installation_id?: string;
+	cli_first_run_tracked?: boolean;
+	cli_login_attempt_count?: number;
+};
 
 function isAnalyticsEnabled() {
 	return process.env.POSTHOG_ENABLED === "true";
@@ -71,6 +76,25 @@ function getAnalyticsStatePath() {
 	return join(getConfigDir(), ANALYTICS_STATE_FILE);
 }
 
+function readAnalyticsState(): AnalyticsState {
+	const statePath = getAnalyticsStatePath();
+	if (!existsSync(statePath)) {
+		return {};
+	}
+
+	try {
+		return JSON.parse(readFileSync(statePath, "utf8")) as AnalyticsState;
+	} catch {
+		return {};
+	}
+}
+
+function writeAnalyticsState(state: AnalyticsState) {
+	const statePath = getAnalyticsStatePath();
+	mkdirSync(getConfigDir(), { recursive: true, mode: 0o700 });
+	writeFileSync(statePath, JSON.stringify(state, null, 2), { mode: 0o600 });
+}
+
 function buildPayload<Name extends ProductAnalyticsEventName>(
 	surface: CliSurface,
 	event: Name,
@@ -100,28 +124,50 @@ export function getPlatformOs(): ProductAnalyticsPlatformOs {
 }
 
 export function getOrCreateCliInstallationId() {
-	const statePath = getAnalyticsStatePath();
-	if (existsSync(statePath)) {
-		try {
-			const parsed = JSON.parse(readFileSync(statePath, "utf8")) as {
-				cli_installation_id?: string;
-			};
-			if (typeof parsed.cli_installation_id === "string") {
-				return parsed.cli_installation_id;
-			}
-		} catch {
-			// Ignore corrupted analytics state and recreate it.
-		}
+	const state = readAnalyticsState();
+	if (typeof state.cli_installation_id === "string") {
+		return state.cli_installation_id;
+	}
+	const cliInstallationId = randomUUID();
+	writeAnalyticsState({
+		...state,
+		cli_installation_id: cliInstallationId,
+	});
+	return cliInstallationId;
+}
+
+export function consumeCliFirstRun(
+	cliInstallationId = getOrCreateCliInstallationId(),
+) {
+	const state = readAnalyticsState();
+	if (state.cli_first_run_tracked) {
+		return {
+			cliInstallationId,
+			shouldTrack: false,
+		} as const;
 	}
 
-	const cliInstallationId = randomUUID();
-	mkdirSync(getConfigDir(), { recursive: true, mode: 0o700 });
-	writeFileSync(
-		statePath,
-		JSON.stringify({ cli_installation_id: cliInstallationId }, null, 2),
-		{ mode: 0o600 },
-	);
-	return cliInstallationId;
+	writeAnalyticsState({
+		...state,
+		cli_installation_id: cliInstallationId,
+		cli_first_run_tracked: true,
+	});
+	return {
+		cliInstallationId,
+		shouldTrack: true,
+	} as const;
+}
+
+export function getNextCliLoginAttemptNumber() {
+	const state = readAnalyticsState();
+	const nextAttemptNumber = (state.cli_login_attempt_count ?? 0) + 1;
+	writeAnalyticsState({
+		...state,
+		cli_installation_id:
+			state.cli_installation_id ?? getOrCreateCliInstallationId(),
+		cli_login_attempt_count: nextAttemptNumber,
+	});
+	return nextAttemptNumber;
 }
 
 export function captureCliProductAnalyticsEvent<

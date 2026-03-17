@@ -1,15 +1,18 @@
 import { ORPCError } from "@orpc/server";
 import { getAdapter } from "@rudel/agent-adapters";
+import { PRODUCT_ANALYTICS_EVENTS } from "@rudel/api-routes";
 import { apikey, member, organization, session } from "@rudel/sql-schema";
 import { and, eq } from "drizzle-orm";
 import { getClickhouse } from "./clickhouse.js";
 import { db } from "./db.js";
 import { analyticsRouter } from "./handlers/analytics/index.js";
+import { captureApiProductAnalyticsEvent } from "./lib/product-analytics.js";
 import { authMiddleware, ingestAuthMiddleware, os } from "./middleware.js";
 import { checkIngestRateLimit } from "./rate-limit.js";
 import {
 	deleteOrgSessions,
 	getOrgSessionCount,
+	hasOrgUploadsInLastDays,
 } from "./services/org-session.service.js";
 
 const health = os.health.handler(() => {
@@ -202,6 +205,28 @@ const deleteOrganization = os.deleteOrganization
 		}
 
 		try {
+			const [targetOrganization] = (await db
+				.select({
+					id: organization.id,
+					createdAt: organization.createdAt,
+				})
+				.from(organization)
+				.where(eq(organization.id, orgId))
+				.limit(1)) as Array<{ id: string; createdAt: Date }>;
+			const memberRows = await db
+				.select({ id: member.id })
+				.from(member)
+				.where(eq(member.organizationId, orgId));
+			let hadUploadsLast30d = false;
+			try {
+				hadUploadsLast30d = await hasOrgUploadsInLastDays(orgId, 30);
+			} catch (analyticsError) {
+				console.error(
+					`[deleteOrganization] failed to inspect uploads for org=${orgId}:`,
+					analyticsError,
+				);
+			}
+
 			// Fire-and-forget: ClickHouse mutations are slow, don't block on them
 			deleteOrgSessions(orgId);
 
@@ -217,6 +242,26 @@ const deleteOrganization = os.deleteOrganization
 				.update(session)
 				.set({ activeOrganizationId: null })
 				.where(eq(session.activeOrganizationId, orgId));
+
+			captureApiProductAnalyticsEvent({
+				distinctId: userId,
+				event: PRODUCT_ANALYTICS_EVENTS.ORGANIZATION_DELETED,
+				payload: {
+					organization_id: orgId,
+					deleter_user_id: userId,
+					organization_age_days: targetOrganization
+						? Math.max(
+								0,
+								Math.floor(
+									(Date.now() - targetOrganization.createdAt.getTime()) /
+										(1000 * 60 * 60 * 24),
+								),
+							)
+						: 0,
+					organization_member_count: memberRows.length,
+					had_uploads_last_30d: hadUploadsLast30d,
+				},
+			});
 
 			console.log(`[deleteOrganization] success for org=${orgId}`);
 			return { success: true as const };
