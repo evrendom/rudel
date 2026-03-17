@@ -29,6 +29,18 @@ import {
 	normalizeWebErrorCode,
 } from "@/lib/product-analytics";
 
+function deriveInsightKey(insight: {
+	type: "trend" | "performer" | "alert" | "info";
+	message: string;
+	link?: string | null;
+}) {
+	return `${insight.type}:${insight.message}:${insight.link ?? "/dashboard"}`
+		.toLowerCase()
+		.replace(/[^a-z0-9]+/g, "_")
+		.replace(/^_+|_+$/g, "")
+		.slice(0, 96);
+}
+
 export function OverviewPage() {
 	const { startDate, endDate, setStartDate, setEndDate, calculateDays } =
 		useDateRange();
@@ -236,7 +248,7 @@ export function OverviewPage() {
 						/>
 					</div>
 
-					{insights && insights.length > 0 && (
+					{organizationId && userId && insights && insights.length > 0 && (
 						<div className="mb-8">
 							<h2 className="text-xl font-bold text-heading mb-4">
 								Quick Insights
@@ -247,6 +259,15 @@ export function OverviewPage() {
 										// biome-ignore lint/suspicious/noArrayIndexKey: static insights list
 										key={index}
 										insight={{
+											insight_key: deriveInsightKey({
+												type: insight.type as
+													| "trend"
+													| "performer"
+													| "alert"
+													| "info",
+												message: insight.message,
+												link: insight.link,
+											}),
 											type: insight.type as
 												| "trend"
 												| "performer"
@@ -255,6 +276,12 @@ export function OverviewPage() {
 											severity: insight.severity,
 											message: insight.message,
 											link: insight.link || "/dashboard",
+										}}
+										tracking={{
+											organizationId,
+											userId,
+											positionIndex: index,
+											dateRangeDays,
 										}}
 									/>
 								))}

@@ -167,7 +167,11 @@ export function captureSignUpFailed(payload: {
 	failure_stage: "form_submit" | "provider_redirect";
 	error_code: string;
 	is_invite_flow?: boolean;
-	entry_point?: "homepage" | "cli_device_login" | "accept_invitation" | "direct";
+	entry_point?:
+		| "homepage"
+		| "cli_device_login"
+		| "accept_invitation"
+		| "direct";
 }) {
 	captureEvent("Sign Up Failed", payload);
 }
@@ -194,4 +198,18 @@ export function captureDashboardLoadFailed(payload: {
 	http_status?: number;
 }) {
 	captureEvent("Dashboard Load Failed", payload);
+}
+
+export function captureInsightCardClicked(payload: {
+	organization_id: string;
+	user_id: string;
+	page_name: "overview";
+	insight_key: string;
+	insight_type: "trend" | "performer" | "alert" | "info";
+	insight_severity: "positive" | "warning" | "negative" | "info";
+	destination_path: string;
+	position_index: number;
+	date_range_days: number;
+}) {
+	captureEvent("Insight Card Clicked", payload);
 }
