@@ -1,6 +1,7 @@
 import { resolve } from "node:path";
 
 const MONOREPO_ROOT = resolve(import.meta.dir, "..", "..", "..", "..", "..");
+let migrationsReady: Promise<void> | null = null;
 
 export interface TestServer {
 	port: number;
@@ -13,7 +14,7 @@ export interface TestServer {
 
 /**
  * Spawn the Bun API server with PORT=0 so the OS picks a free port.
- * Migrations run automatically at startup.
+ * Ensure the shared CI/Postgres schema is migrated before booting the server.
  */
 export async function startTestServer(): Promise<TestServer> {
 	const env = {
@@ -23,6 +24,8 @@ export async function startTestServer(): Promise<TestServer> {
 		BETTER_AUTH_SECRET: "test-secret-for-integration-tests",
 		ALLOWED_ORIGIN: "http://localhost",
 	};
+
+	await ensureMigrations(env);
 
 	let proc = spawnServer(env);
 	let port = await parseReadyPort(proc);
@@ -60,6 +63,33 @@ export async function startTestServer(): Promise<TestServer> {
 	};
 
 	return server;
+}
+
+async function ensureMigrations(env: Record<string, string | undefined>) {
+	if (!migrationsReady) {
+		migrationsReady = (async () => {
+			const proc = Bun.spawn(["bun", "packages/sql-schema/src/migrate.ts"], {
+				cwd: MONOREPO_ROOT,
+				stdout: "pipe",
+				stderr: "pipe",
+				env,
+			});
+
+			const [exitCode, stdout, stderr] = await Promise.all([
+				proc.exited,
+				new Response(proc.stdout).text(),
+				new Response(proc.stderr).text(),
+			]);
+
+			if (exitCode !== 0) {
+				throw new Error(
+					`Failed to run SQL migrations before starting test server.\nstdout: ${stdout}\nstderr: ${stderr}`,
+				);
+			}
+		})();
+	}
+
+	await migrationsReady;
 }
 
 function spawnServer(env: Record<string, string | undefined>) {
