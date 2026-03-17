@@ -7,6 +7,7 @@ import { eq } from "drizzle-orm";
 import type { Session as AuthSession } from "./auth.js";
 import { createAuth } from "./auth.js";
 import { db } from "./db.js";
+import { shutdownApiProductAnalytics } from "./lib/product-analytics.js";
 import { setupLogging } from "./logging.js";
 import { router } from "./router.js";
 
@@ -129,6 +130,32 @@ const server = Bun.serve({
 		);
 	},
 });
+
+let isShuttingDown = false;
+
+async function shutdown(signal?: string) {
+	if (isShuttingDown) {
+		return;
+	}
+	isShuttingDown = true;
+
+	await shutdownApiProductAnalytics();
+
+	if (signal) {
+		server.stop(true);
+		process.exit(0);
+	}
+}
+
+process.on("beforeExit", () => {
+	void shutdown();
+});
+
+for (const signal of ["SIGINT", "SIGTERM"] as const) {
+	process.on(signal, () => {
+		void shutdown(signal);
+	});
+}
 
 async function handleRequest(
 	request: Request,

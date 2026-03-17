@@ -49,6 +49,7 @@ import {
 	UsageTrendDataSchema,
 } from "./schemas/analytics.js";
 
+export * from "./product-analytics.js";
 export * from "./schemas/analytics.js";
 
 export const HealthSchema = z.object({

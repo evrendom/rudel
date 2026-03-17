@@ -1,20 +1,60 @@
 import * as p from "@clack/prompts";
 import { type AgentAdapter, getAvailableAdapters } from "@rudel/agent-adapters";
+import type { Source } from "@rudel/api-routes";
 import { buildCommand } from "@stricli/core";
 import { createApiClient } from "../lib/api-client.js";
 import { verifyAuth } from "../lib/auth.js";
 import type { BatchUploadItem } from "../lib/batch-upload.js";
 import { renderBatchSummary, runBatchUpload } from "../lib/batch-upload-ui.js";
 import { getGitInfo } from "../lib/git-info.js";
+import {
+	CliProductAnalyticsEvents,
+	captureCliProductAnalyticsEvent,
+	getBaseCliEventPayload,
+	getCliDistinctId,
+	normalizeFailureReason,
+	shouldDisableCliPersonProfile,
+} from "../lib/product-analytics.js";
 import { getProjectOrgId, setProjectOrgId } from "../lib/project-config.js";
 import { uploadSession } from "../lib/uploader.js";
 
 async function runEnable(): Promise<void> {
 	p.intro("rudel enable");
 
+	const captureEnableFailure = (options: {
+		agentSource?: Source | "unknown";
+		failureStage:
+			| "auth_verify"
+			| "organization_fetch"
+			| "organization_select"
+			| "hook_install";
+		error: unknown;
+		organizationId?: string;
+		userId?: string;
+	}) => {
+		captureCliProductAnalyticsEvent({
+			distinctId: getCliDistinctId(options.userId),
+			event: CliProductAnalyticsEvents.AUTO_UPLOAD_ENABLE_FAILED,
+			surface: "cli",
+			disablePersonProfile: shouldDisableCliPersonProfile(options.userId),
+			payload: {
+				agent_source: options.agentSource ?? "unknown",
+				failure_stage: options.failureStage,
+				failure_reason: normalizeFailureReason(options.error),
+				organization_id: options.organizationId,
+				user_id: options.userId,
+				...getBaseCliEventPayload(),
+			},
+		});
+	};
+
 	// Verify auth (loads credentials + pings API)
 	const auth = await verifyAuth();
 	if (!auth.authenticated) {
+		captureEnableFailure({
+			failureStage: "auth_verify",
+			error: auth.reason,
+		});
 		p.log.error(auth.message);
 		p.outro("Run `rudel login` to authenticate.");
 		process.exitCode = 1;
@@ -31,7 +71,13 @@ async function runEnable(): Promise<void> {
 		const client = createApiClient(credentials);
 		try {
 			orgs = await client.listMyOrganizations();
-		} catch {
+		} catch (error) {
+			captureEnableFailure({
+				agentSource: "unknown",
+				failureStage: "organization_fetch",
+				error,
+				userId: auth.user.id,
+			});
 			p.log.error("Failed to fetch organizations. Check your connection.");
 			process.exitCode = 1;
 			return;
@@ -39,6 +85,12 @@ async function runEnable(): Promise<void> {
 	}
 
 	if (orgs.length === 0) {
+		captureEnableFailure({
+			agentSource: "unknown",
+			failureStage: "organization_fetch",
+			error: new Error("No organizations found"),
+			userId: auth.user.id,
+		});
 		p.log.error("No organizations found.");
 		p.outro("Create one at app.rudel.ai first.");
 		process.exitCode = 1;
@@ -88,6 +140,7 @@ async function runEnable(): Promise<void> {
 	// Detect available agents and install hooks
 	const adapters = getAvailableAdapters();
 	let adaptersToEnable: AgentAdapter[];
+	let hookInstallFailures = 0;
 
 	if (adapters.length > 1) {
 		const agentOptions = adapters.map((a) => ({
@@ -112,16 +165,46 @@ async function runEnable(): Promise<void> {
 	}
 
 	for (const adapter of adaptersToEnable) {
-		if (adapter.isHookInstalled()) {
+		const isAlreadyEnabled = adapter.isHookInstalled();
+
+		if (isAlreadyEnabled) {
 			p.log.info(
 				`${adapter.name}: Auto-upload hook is already enabled. Organization updated.`,
 			);
 		} else {
-			adapter.installHook();
-			p.log.success(
-				`${adapter.name}: Auto-upload hook enabled in ${adapter.getHookConfigPath()}`,
-			);
+			try {
+				adapter.installHook();
+				p.log.success(
+					`${adapter.name}: Auto-upload hook enabled in ${adapter.getHookConfigPath()}`,
+				);
+			} catch (error) {
+				hookInstallFailures++;
+				captureEnableFailure({
+					agentSource: adapter.source,
+					failureStage: "hook_install",
+					error,
+					organizationId: selectedOrgId,
+					userId: auth.user.id,
+				});
+				p.log.error(
+					`${adapter.name}: failed to enable auto-upload hook (${error instanceof Error ? error.message : String(error)})`,
+				);
+				continue;
+			}
 		}
+
+		captureCliProductAnalyticsEvent({
+			distinctId: auth.user.id,
+			event: CliProductAnalyticsEvents.AUTO_UPLOAD_ENABLED,
+			surface: "cli",
+			payload: {
+				organization_id: selectedOrgId,
+				user_id: auth.user.id,
+				agent_source: adapter.source,
+				is_already_enabled: isAlreadyEnabled || undefined,
+				...getBaseCliEventPayload(),
+			},
+		});
 	}
 
 	// Check for existing sessions to upload from all enabled agents
@@ -158,16 +241,23 @@ async function runEnable(): Promise<void> {
 				if (!session) {
 					return { success: false, error: "Session not found" };
 				}
-				const request = await adapter.buildUploadRequest(session, {
-					gitInfo,
-					organizationId: selectedOrgId,
-				});
-				return uploadSession(request, {
-					endpoint,
-					token: credentials.token,
-					authType: credentials.authType,
-					onRetry,
-				});
+				try {
+					const request = await adapter.buildUploadRequest(session, {
+						gitInfo,
+						organizationId: selectedOrgId,
+					});
+					return uploadSession(request, {
+						endpoint,
+						token: credentials.token,
+						authType: credentials.authType,
+						onRetry,
+					});
+				} catch (error) {
+					return {
+						success: false,
+						error: error instanceof Error ? error.message : String(error),
+					};
+				}
 			},
 		});
 
@@ -181,7 +271,7 @@ async function runEnable(): Promise<void> {
 
 	p.outro("Done!");
 
-	if (totalFailed > 0) {
+	if (totalFailed > 0 || hookInstallFailures > 0) {
 		process.exitCode = 1;
 	}
 }

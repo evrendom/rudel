@@ -12,6 +12,7 @@
 	},
 	"devDependencies": {
 		"@rudel/typescript-config": "workspace:*",
+		"bun-types": "latest",
 		"typescript": "5.9.2"
 	}
 }
