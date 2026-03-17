@@ -70,7 +70,7 @@ const ingestCountQuery = (
 });
 
 export const INGEST_RATE_LIMIT: RateLimitConfig = {
-	maxRequests: Number(process.env.RATE_LIMIT_INGEST_MAX ?? 120),
+	maxRequests: Number(process.env.RATE_LIMIT_INGEST_MAX ?? 500),
 	windowSeconds: Number(process.env.RATE_LIMIT_INGEST_WINDOW ?? 3600),
 	countQuery: ingestCountQuery,
 };
@@ -97,7 +97,12 @@ export async function checkIngestRateLimit(
 				{ userId, count, maxRequests, windowSeconds },
 			);
 			throw new ORPCError("TOO_MANY_REQUESTS", {
-				message: `Rate limit exceeded. Maximum ${maxRequests} requests per ${Math.round(windowSeconds / 60)} minutes.`,
+				message: `Rate limit exceeded. Maximum ${maxRequests} sessions per ${Math.round(windowSeconds / 60)} minutes. Try again later.`,
+				data: {
+					limit: maxRequests,
+					windowSeconds,
+					current: count,
+				},
 			});
 		}
 	} catch (error) {

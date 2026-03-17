@@ -33,6 +33,8 @@ interface UploadFlags {
 	concurrency: number;
 }
 
+const RATE_LIMIT_WARNING_THRESHOLD = 480;
+
 async function runInteractiveUpload(flags: UploadFlags): Promise<void> {
 	const credentials = loadCredentials();
 	if (!credentials && !flags.dryRun) {
@@ -95,6 +97,20 @@ async function runInteractiveUpload(flags: UploadFlags): Promise<void> {
 	p.log.info(
 		`Uploading ${totalSessions} session(s) from ${selected.length} project(s)`,
 	);
+
+	if (totalSessions > RATE_LIMIT_WARNING_THRESHOLD) {
+		p.log.warn(
+			`You're about to upload ${totalSessions} sessions. The server allows 500 sessions per hour — uploads beyond that limit will fail and can be retried later with \`rudel upload --retry\`.`,
+		);
+		const shouldContinue = await p.confirm({
+			message: "Continue?",
+			initialValue: true,
+		});
+		if (p.isCancel(shouldContinue) || !shouldContinue) {
+			p.cancel("Upload cancelled.");
+			return;
+		}
+	}
 
 	const uploadConfig: UploadConfig = {
 		endpoint: flags.endpoint,
@@ -308,6 +324,12 @@ async function runRetryUpload(flags: UploadFlags): Promise<void> {
 	}
 	if (failures.length > 10) {
 		p.log.warn(`  ...and ${failures.length - 10} more`);
+	}
+
+	if (failures.length > RATE_LIMIT_WARNING_THRESHOLD) {
+		p.log.warn(
+			`You're about to retry ${failures.length} sessions. The server allows 500 sessions per hour — uploads beyond that limit will fail and can be retried again later.`,
+		);
 	}
 
 	const shouldRetry = await p.confirm({
