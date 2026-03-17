@@ -1,12 +1,16 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { ORPCError } from "@orpc/client";
 import type {
+	ProductAnalyticsClientSurface,
 	ProductAnalyticsEventName,
 	ProductAnalyticsEventPayload,
 	ProductAnalyticsPlatformOs,
+	ProductAnalyticsUploadMode,
+	ProductAnalyticsUploadSkipReason,
+	Source,
 } from "@rudel/api-routes";
 import {
 	PRODUCT_ANALYTICS_EVENT_VERSION,
@@ -215,6 +219,10 @@ export async function shutdownCliProductAnalytics(timeoutMs = 5_000) {
 	}
 }
 
+export function hashProjectPath(projectPath: string) {
+	return createHash("sha256").update(projectPath).digest("hex").slice(0, 24);
+}
+
 export function normalizeFailureReason(error: unknown) {
 	if (error instanceof ORPCError) {
 		if (error.status === 429) {
@@ -295,6 +303,27 @@ export function shouldDisableCliPersonProfile(userId?: string | null) {
 	return !userId;
 }
 
+export function getUploadFailureHttpStatus(error: unknown) {
+	return error instanceof ORPCError ? error.status : undefined;
+}
+
+export function isUploadFailureRetryable(error: unknown) {
+	if (error instanceof ORPCError) {
+		return error.status === 429 || error.status === 502 || error.status === 503;
+	}
+	return error instanceof TypeError;
+}
+
+export function bucketContentSize(bytes: number) {
+	if (bytes < 100_000) {
+		return "lt_100kb";
+	}
+	if (bytes <= 1_000_000) {
+		return "100kb_to_1mb";
+	}
+	return "gt_1mb";
+}
+
 export function getBaseCliEventPayload() {
 	return {
 		cli_version: getCliVersion(),
@@ -343,6 +372,169 @@ export function getUploadTerminalFailureStage(
 		return "auth";
 	}
 	return "unknown";
+}
+
+export function getUploadPreparationFailureStage(
+	error: unknown,
+): "session_discovery" | "read" | "serialize" | "auth" | "unknown" {
+	const message =
+		error instanceof Error
+			? error.message.toLowerCase()
+			: String(error).toLowerCase();
+
+	if (
+		message.includes("not authenticated") ||
+		message.includes("session expired") ||
+		message.includes("re-authenticate")
+	) {
+		return "auth";
+	}
+	if (
+		message.includes("session not found") ||
+		message.includes("subagent file") ||
+		message.includes("missing session")
+	) {
+		return "session_discovery";
+	}
+	if (
+		message.includes("enoent") ||
+		message.includes("eacces") ||
+		message.includes("transcript") ||
+		message.includes("file not found") ||
+		message.includes("permission denied")
+	) {
+		return "read";
+	}
+	if (
+		message.includes("parse") ||
+		message.includes("invalid json") ||
+		message.includes("unexpected token")
+	) {
+		return "serialize";
+	}
+	return "unknown";
+}
+
+export function captureCliUploadFailed(options: {
+	surface: CliSurface;
+	clientSurface: ProductAnalyticsClientSurface;
+	uploadMode: ProductAnalyticsUploadMode;
+	agentSource: Source;
+	failureStage:
+		| "session_discovery"
+		| "read"
+		| "serialize"
+		| "auth"
+		| "network"
+		| "api"
+		| "validation"
+		| "rate_limit"
+		| "unknown";
+	error: unknown;
+	organizationId?: string;
+	userId?: string;
+	projectPath?: string;
+	attemptNumber?: number;
+	httpStatus?: number;
+	isRetryable?: boolean;
+}) {
+	const userId = options.userId;
+	captureCliProductAnalyticsEvent({
+		distinctId: getCliDistinctId(userId),
+		event: PRODUCT_ANALYTICS_EVENTS.SESSION_UPLOAD_FAILED,
+		surface: options.surface,
+		disablePersonProfile: shouldDisableCliPersonProfile(userId),
+		payload: {
+			client_surface: options.clientSurface,
+			upload_mode: options.uploadMode,
+			agent_source: options.agentSource,
+			failure_stage: options.failureStage,
+			failure_reason: normalizeFailureReason(options.error),
+			is_retryable:
+				options.isRetryable ?? isUploadFailureRetryable(options.error),
+			organization_id: options.organizationId,
+			user_id: userId,
+			http_status:
+				options.httpStatus ?? getUploadFailureHttpStatus(options.error),
+			attempt_number: options.attemptNumber,
+			project_id_hash: options.projectPath
+				? hashProjectPath(options.projectPath)
+				: undefined,
+			...getBaseCliEventPayload(),
+		},
+	});
+}
+
+export function captureCliUploadInitiated(options: {
+	surface: CliSurface;
+	clientSurface: ProductAnalyticsClientSurface;
+	uploadMode: ProductAnalyticsUploadMode;
+	agentSource: Source;
+	organizationId?: string;
+	userId?: string;
+	projectPath?: string;
+	attemptNumber: number;
+	contentSizeBytes?: number;
+}) {
+	const userId = options.userId;
+	captureCliProductAnalyticsEvent({
+		distinctId: getCliDistinctId(userId),
+		event: PRODUCT_ANALYTICS_EVENTS.SESSION_UPLOAD_INITIATED,
+		surface: options.surface,
+		disablePersonProfile: shouldDisableCliPersonProfile(userId),
+		payload: {
+			client_surface: options.clientSurface,
+			upload_mode: options.uploadMode,
+			agent_source: options.agentSource,
+			organization_id: options.organizationId,
+			user_id: userId,
+			attempt_number: options.attemptNumber,
+			project_id_hash: options.projectPath
+				? hashProjectPath(options.projectPath)
+				: undefined,
+			content_size_bucket:
+				typeof options.contentSizeBytes === "number"
+					? bucketContentSize(options.contentSizeBytes)
+					: undefined,
+			...getBaseCliEventPayload(),
+		},
+	});
+}
+
+export function captureCliUploadSkipped(options: {
+	surface: CliSurface;
+	clientSurface: ProductAnalyticsClientSurface;
+	uploadMode: ProductAnalyticsUploadMode;
+	agentSource: Source;
+	skipReason: ProductAnalyticsUploadSkipReason;
+	organizationId?: string;
+	userId?: string;
+	projectPath?: string;
+	contentSizeBytes?: number;
+}) {
+	const userId = options.userId;
+	captureCliProductAnalyticsEvent({
+		distinctId: getCliDistinctId(userId),
+		event: PRODUCT_ANALYTICS_EVENTS.SESSION_UPLOAD_SKIPPED,
+		surface: options.surface,
+		disablePersonProfile: shouldDisableCliPersonProfile(userId),
+		payload: {
+			client_surface: options.clientSurface,
+			upload_mode: options.uploadMode,
+			agent_source: options.agentSource,
+			skip_reason: options.skipReason,
+			organization_id: options.organizationId,
+			user_id: userId,
+			project_id_hash: options.projectPath
+				? hashProjectPath(options.projectPath)
+				: undefined,
+			content_size_bucket:
+				typeof options.contentSizeBytes === "number"
+					? bucketContentSize(options.contentSizeBytes)
+					: undefined,
+			...getBaseCliEventPayload(),
+		},
+	});
 }
 
 export const CliProductAnalyticsEvents = PRODUCT_ANALYTICS_EVENTS;

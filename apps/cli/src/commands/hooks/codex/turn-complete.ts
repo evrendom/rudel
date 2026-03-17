@@ -3,6 +3,7 @@ import {
 	findActiveRolloutFile,
 	type SessionFile,
 } from "@rudel/agent-adapters";
+import type { IngestSessionInput } from "@rudel/api-routes";
 import { buildCommand } from "@stricli/core";
 import { loadCredentials } from "../../../lib/credentials.js";
 import {
@@ -10,6 +11,12 @@ import {
 	removeFailedUpload,
 } from "../../../lib/failed-uploads.js";
 import { getGitInfo } from "../../../lib/git-info.js";
+import {
+	captureCliUploadFailed,
+	captureCliUploadSkipped,
+	getCliUserId,
+	getUploadPreparationFailureStage,
+} from "../../../lib/product-analytics.js";
 import { getProjectOrgId } from "../../../lib/project-config.js";
 import { uploadSession } from "../../../lib/uploader.js";
 
@@ -32,17 +39,57 @@ async function readStdin(): Promise<string> {
 async function runTurnComplete(): Promise<void> {
 	try {
 		const raw = await readStdin();
-		if (!raw.trim()) return;
+		if (!raw.trim()) {
+			captureCliUploadSkipped({
+				surface: "hook",
+				clientSurface: "hook",
+				uploadMode: "hook",
+				agentSource: codexAdapter.source,
+				skipReason: "missing_input",
+			});
+			return;
+		}
 
 		const input = JSON.parse(raw) as CodexNotifyInput;
-		if (!input.thread_id || !input.cwd) return;
+		if (!input.thread_id || !input.cwd) {
+			captureCliUploadSkipped({
+				surface: "hook",
+				clientSurface: "hook",
+				uploadMode: "hook",
+				agentSource: codexAdapter.source,
+				skipReason: "missing_input",
+				projectPath: input.cwd || process.cwd(),
+			});
+			return;
+		}
 
 		const credentials = loadCredentials();
-		if (!credentials) return;
+		if (!credentials) {
+			captureCliUploadSkipped({
+				surface: "hook",
+				clientSurface: "hook",
+				uploadMode: "hook",
+				agentSource: codexAdapter.source,
+				skipReason: "not_authenticated",
+				projectPath: input.cwd,
+			});
+			return;
+		}
 
 		const transcriptPath =
 			input.transcript_path ?? (await findActiveRolloutFile(input.thread_id));
-		if (!transcriptPath) return;
+		if (!transcriptPath) {
+			captureCliUploadSkipped({
+				surface: "hook",
+				clientSurface: "hook",
+				uploadMode: "hook",
+				agentSource: codexAdapter.source,
+				skipReason: "no_session_found",
+				projectPath: input.cwd,
+				userId: getCliUserId(credentials),
+			});
+			return;
+		}
 
 		const sessionFile: SessionFile = {
 			sessionId: input.thread_id,
@@ -53,10 +100,26 @@ async function runTurnComplete(): Promise<void> {
 		const gitInfo = await getGitInfo(input.cwd);
 		const organizationId = await getProjectOrgId(input.cwd);
 
-		const request = await codexAdapter.buildUploadRequest(sessionFile, {
-			gitInfo,
-			organizationId,
-		});
+		let request: IngestSessionInput;
+		try {
+			request = await codexAdapter.buildUploadRequest(sessionFile, {
+				gitInfo,
+				organizationId,
+			});
+		} catch (error) {
+			captureCliUploadFailed({
+				surface: "hook",
+				clientSurface: "hook",
+				uploadMode: "hook",
+				agentSource: codexAdapter.source,
+				failureStage: getUploadPreparationFailureStage(error),
+				error,
+				organizationId,
+				userId: getCliUserId(credentials),
+				projectPath: input.cwd,
+			});
+			return;
+		}
 
 		const apiBase = process.env.RUDEL_API_BASE ?? credentials.apiBaseUrl;
 		const endpoint = `${apiBase}/rpc`;
@@ -64,6 +127,15 @@ async function runTurnComplete(): Promise<void> {
 			endpoint,
 			token: credentials.token,
 			authType: credentials.authType,
+			analytics: {
+				clientSurface: "hook",
+				uploadMode: "hook",
+				agentSource: codexAdapter.source,
+				projectPath: input.cwd,
+				organizationId,
+				userId: getCliUserId(credentials),
+				credentials,
+			},
 		});
 
 		if (result.success) {

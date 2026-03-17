@@ -1,5 +1,6 @@
 import { getLogger } from "@logtape/logtape";
 import { claudeCodeAdapter, type SessionFile } from "@rudel/agent-adapters";
+import type { IngestSessionInput } from "@rudel/api-routes";
 import { buildCommand } from "@stricli/core";
 import { loadCredentials } from "../../../lib/credentials.js";
 import {
@@ -7,6 +8,12 @@ import {
 	removeFailedUpload,
 } from "../../../lib/failed-uploads.js";
 import { getGitInfo } from "../../../lib/git-info.js";
+import {
+	captureCliUploadFailed,
+	captureCliUploadSkipped,
+	getCliUserId,
+	getUploadPreparationFailureStage,
+} from "../../../lib/product-analytics.js";
 import { getProjectOrgId } from "../../../lib/project-config.js";
 import { uploadSession } from "../../../lib/uploader.js";
 import { disposeLogging, setupHookLogging } from "../../../logging.js";
@@ -31,13 +38,42 @@ async function runSessionEnd(): Promise<void> {
 
 	try {
 		const raw = await readStdin();
-		if (!raw.trim()) return;
+		if (!raw.trim()) {
+			captureCliUploadSkipped({
+				surface: "hook",
+				clientSurface: "hook",
+				uploadMode: "hook",
+				agentSource: claudeCodeAdapter.source,
+				skipReason: "missing_input",
+			});
+			return;
+		}
 
 		const input = JSON.parse(raw) as HookInput;
-		if (!input.session_id || !input.transcript_path) return;
+		if (!input.session_id || !input.transcript_path) {
+			captureCliUploadSkipped({
+				surface: "hook",
+				clientSurface: "hook",
+				uploadMode: "hook",
+				agentSource: claudeCodeAdapter.source,
+				skipReason: "missing_input",
+				projectPath: input.cwd || process.cwd(),
+			});
+			return;
+		}
 
 		const credentials = loadCredentials();
-		if (!credentials) return;
+		if (!credentials) {
+			captureCliUploadSkipped({
+				surface: "hook",
+				clientSurface: "hook",
+				uploadMode: "hook",
+				agentSource: claudeCodeAdapter.source,
+				skipReason: "not_authenticated",
+				projectPath: input.cwd,
+			});
+			return;
+		}
 
 		logger.info("Uploading session {sessionId}", {
 			sessionId: input.session_id,
@@ -52,10 +88,33 @@ async function runSessionEnd(): Promise<void> {
 		const gitInfo = await getGitInfo(input.cwd);
 		const organizationId = await getProjectOrgId(input.cwd);
 
-		const request = await claudeCodeAdapter.buildUploadRequest(sessionFile, {
-			gitInfo,
-			organizationId,
-		});
+		let request: IngestSessionInput;
+		try {
+			request = await claudeCodeAdapter.buildUploadRequest(sessionFile, {
+				gitInfo,
+				organizationId,
+			});
+		} catch (error) {
+			captureCliUploadFailed({
+				surface: "hook",
+				clientSurface: "hook",
+				uploadMode: "hook",
+				agentSource: claudeCodeAdapter.source,
+				failureStage: getUploadPreparationFailureStage(error),
+				error,
+				organizationId,
+				userId: getCliUserId(credentials),
+				projectPath: input.cwd,
+			});
+			logger.error(
+				"Failed to prepare upload for session {sessionId}: {error}",
+				{
+					sessionId: input.session_id,
+					error,
+				},
+			);
+			return;
+		}
 
 		const apiBase = process.env.RUDEL_API_BASE ?? credentials.apiBaseUrl;
 		const endpoint = `${apiBase}/rpc`;
@@ -68,6 +127,15 @@ async function runSessionEnd(): Promise<void> {
 					"Retrying upload for {sessionId} ({attempt}/{maxAttempts}): {error}",
 					{ sessionId: input.session_id, attempt, maxAttempts, error },
 				);
+			},
+			analytics: {
+				clientSurface: "hook",
+				uploadMode: "hook",
+				agentSource: claudeCodeAdapter.source,
+				projectPath: input.cwd,
+				organizationId,
+				userId: getCliUserId(credentials),
+				credentials,
 			},
 		});
 
