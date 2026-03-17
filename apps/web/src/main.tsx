@@ -4,8 +4,11 @@ import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import App from "./App.tsx";
 import "./index.css";
+import { initProductAnalytics } from "./lib/product-analytics";
 import { queryClient } from "./lib/query-client";
 import { ThemeProvider } from "./providers/ThemeProvider";
+
+initProductAnalytics();
 
 // biome-ignore lint/style/noNonNullAssertion: root element always exists
 createRoot(document.getElementById("root")!).render(

@@ -1,5 +1,9 @@
 import { useState } from "react";
 import { authClient } from "../../lib/auth-client";
+import {
+	captureSignUpFailed,
+	normalizeWebErrorCode,
+} from "../../lib/product-analytics";
 import { Button } from "../ui/button";
 import {
 	Card,
@@ -30,6 +34,33 @@ function getCallbackURL(): string {
 	return "/";
 }
 
+function getSignupContext() {
+	const params = new URLSearchParams(window.location.search);
+	const redirect = params.get("redirect");
+	const userCode = params.get("user_code");
+	const path = window.location.pathname;
+
+	const entryPoint:
+		| "homepage"
+		| "cli_device_login"
+		| "accept_invitation"
+		| "direct" = userCode
+		? "cli_device_login"
+		: path.startsWith("/invitation/") || redirect?.includes("/invitation/")
+			? "accept_invitation"
+			: path === "/" || path === ""
+				? "homepage"
+				: "direct";
+
+	return {
+		entryPoint,
+		isInviteFlow:
+			path.startsWith("/invitation/") ||
+			redirect?.includes("/invitation/") ||
+			false,
+	};
+}
+
 export function SignupForm({
 	onSwitchToLogin,
 }: {
@@ -45,6 +76,7 @@ export function SignupForm({
 		e.preventDefault();
 		setError("");
 		setLoading(true);
+		const signupContext = getSignupContext();
 		const { error } = await authClient.signUp.email({
 			name,
 			email,
@@ -52,17 +84,32 @@ export function SignupForm({
 		});
 		setLoading(false);
 		if (error) {
+			captureSignUpFailed({
+				signup_method: "email_password",
+				failure_stage: "form_submit",
+				error_code: normalizeWebErrorCode(error),
+				is_invite_flow: signupContext.isInviteFlow || undefined,
+				entry_point: signupContext.entryPoint,
+			});
 			setError(error.message ?? "Sign up failed");
 		}
 	}
 
 	async function handleSocialSignIn(provider: "google" | "github") {
 		setError("");
+		const signupContext = getSignupContext();
 		const { error } = await authClient.signIn.social({
 			provider,
 			callbackURL: getCallbackURL(),
 		});
 		if (error) {
+			captureSignUpFailed({
+				signup_method: provider,
+				failure_stage: "provider_redirect",
+				error_code: normalizeWebErrorCode(error),
+				is_invite_flow: signupContext.isInviteFlow || undefined,
+				entry_point: signupContext.entryPoint,
+			});
 			setError(error.message ?? `Sign up with ${provider} failed`);
 		}
 	}
