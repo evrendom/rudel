@@ -4,8 +4,8 @@ import type {
 	ProductAnalyticsEventPayload,
 } from "@rudel/api-routes";
 import {
-	parseProductAnalyticsEvent,
 	PRODUCT_ANALYTICS_EVENT_VERSION,
+	parseProductAnalyticsEvent,
 } from "@rudel/api-routes";
 import { PostHog } from "posthog-node";
 
@@ -21,11 +21,7 @@ function isAnalyticsEnabled() {
 	return process.env.POSTHOG_ENABLED === "true";
 }
 
-function getEnvironment():
-	| "production"
-	| "staging"
-	| "development"
-	| "local" {
+function getEnvironment(): "production" | "staging" | "development" | "local" {
 	const appUrl = process.env.APP_URL ?? "";
 	if (appUrl.includes("localhost") || appUrl.includes("127.0.0.1")) {
 		return "local";
