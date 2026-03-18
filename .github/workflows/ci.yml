@@ -42,10 +42,10 @@ jobs:
       - name: Deploy
         run: |
           flyctl deploy --remote-only \
-            --build-arg VITE_CHATWOOT_BASE_URL=${{ secrets.VITE_CHATWOOT_BASE_URL }} \
-            --build-arg VITE_CHATWOOT_WEBSITE_TOKEN=${{ secrets.VITE_CHATWOOT_WEBSITE_TOKEN }} \
-            --build-arg VITE_POSTHOG_KEY=${{ secrets.VITE_POSTHOG_KEY }} \
-            --build-arg VITE_POSTHOG_HOST=${{ secrets.VITE_POSTHOG_HOST }} \
-            --build-arg VITE_POSTHOG_ENABLED=${{ secrets.VITE_POSTHOG_ENABLED }}
+            --build-arg "VITE_CHATWOOT_BASE_URL=${{ secrets.VITE_CHATWOOT_BASE_URL }}" \
+            --build-arg "VITE_CHATWOOT_WEBSITE_TOKEN=${{ secrets.VITE_CHATWOOT_WEBSITE_TOKEN }}" \
+            --build-arg "VITE_POSTHOG_KEY=${{ secrets.VITE_POSTHOG_KEY }}" \
+            --build-arg "VITE_POSTHOG_HOST=${{ secrets.VITE_POSTHOG_HOST }}" \
+            --build-arg "VITE_POSTHOG_ENABLED=${{ secrets.VITE_POSTHOG_ENABLED }}"
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
