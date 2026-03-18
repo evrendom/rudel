@@ -22,6 +22,9 @@ COPY turbo.json turbo.json
 ARG VITE_CHATWOOT_BASE_URL=""
 ARG VITE_CHATWOOT_WEBSITE_TOKEN=""
 ARG VITE_CHATWOOT_ENABLED="true"
+ARG VITE_POSTHOG_KEY=""
+ARG VITE_POSTHOG_HOST="https://us.i.posthog.com"
+ARG VITE_POSTHOG_ENABLED="false"
 
 # Build web app and place output where the API serves static files
 RUN bun run --cwd apps/web build
