@@ -59,14 +59,23 @@ export function initProductAnalytics() {
 	initialized = true;
 }
 
-export function identifyProductAnalyticsUser(userId: string) {
+export function identifyProductAnalyticsUser(
+	userId: string,
+	properties?: {
+		email?: string;
+		name?: string | null;
+	},
+) {
 	if (!initialized) {
 		initProductAnalytics();
 	}
 	if (!getConfig()) {
 		return;
 	}
-	posthog.identify(userId);
+	posthog.identify(userId, {
+		email: properties?.email,
+		name: properties?.name ?? undefined,
+	});
 }
 
 export function resetProductAnalytics() {

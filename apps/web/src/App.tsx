@@ -60,9 +60,24 @@ function App() {
 			typeof session.user.id === "string"
 				? session.user.id
 				: null;
+		const email =
+			session?.user &&
+			"email" in session.user &&
+			typeof session.user.email === "string"
+				? session.user.email
+				: undefined;
+		const name =
+			session?.user &&
+			"name" in session.user &&
+			typeof session.user.name === "string"
+				? session.user.name
+				: undefined;
 
 		if (userId) {
-			identifyProductAnalyticsUser(userId);
+			identifyProductAnalyticsUser(userId, {
+				email,
+				name,
+			});
 			return;
 		}
 
