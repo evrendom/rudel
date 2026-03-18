@@ -93,17 +93,7 @@ export async function shutdownApiProductAnalytics(timeoutMs = 5_000) {
 	}
 
 	try {
-		const shutdown = (
-			instance as unknown as {
-				_shutdown?: (shutdownTimeoutMs?: number) => Promise<void>;
-				shutdown?: (shutdownTimeoutMs?: number) => void;
-			}
-		)._shutdown;
-		if (typeof shutdown === "function") {
-			await shutdown.call(instance, timeoutMs);
-			return;
-		}
-		instance.shutdown(timeoutMs);
+		await instance.shutdown(timeoutMs);
 	} catch {
 		// Ignore shutdown failures.
 	}
