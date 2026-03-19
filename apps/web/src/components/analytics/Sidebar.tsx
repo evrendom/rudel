@@ -19,10 +19,11 @@ import {
 import { useTheme } from "next-themes";
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { useUiControlTracking } from "@/hooks/useDashboardAnalytics";
+import { useAnalyticsTracking } from "@/hooks/useDashboardAnalytics";
 import { useOrganization } from "../../contexts/OrganizationContext";
 import { useUserInvitations } from "../../hooks/useUserInvitations";
 import { authClient, signOut } from "../../lib/auth-client";
+import { getAnalyticsPageName } from "../../lib/product-analytics";
 import { cn } from "../../lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
 import {
@@ -65,18 +66,20 @@ function getInitials(name: string) {
 
 function OrgSwitcher({ collapsed }: { collapsed: boolean }) {
 	const { activeOrg, organizations, switchOrg } = useOrganization();
-	const { trackUiControl } = useUiControlTracking();
+	const { trackNavigation, trackOrganizationAction } = useAnalyticsTracking();
 
 	const handleSelect = async (orgId: string) => {
-		if (orgId !== activeOrg?.id) {
-			trackUiControl({
-				controlName: "organization_switcher",
-				controlType: "menu",
-				interactionType: "change",
-				value: orgId,
-			});
-			await switchOrg(orgId);
+		if (orgId === activeOrg?.id) {
+			return;
 		}
+
+		trackOrganizationAction({
+			actionName: "switch_organization",
+			targetType: "organization",
+			sourceComponent: "org_switcher",
+			targetId: orgId,
+		});
+		await switchOrg(orgId);
 	};
 
 	return (
@@ -119,11 +122,12 @@ function OrgSwitcher({ collapsed }: { collapsed: boolean }) {
 					<Link
 						to="/dashboard/organization"
 						onClick={() => {
-							trackUiControl({
-								controlName: "organization_manage",
-								controlType: "link",
-								interactionType: "navigate",
+							trackNavigation({
+								navType: "organization_menu",
+								sourceComponent: "org_switcher",
 								targetPath: "/dashboard/organization",
+								targetType: "page",
+								toPageName: "organization",
 							});
 						}}
 					>
@@ -135,11 +139,12 @@ function OrgSwitcher({ collapsed }: { collapsed: boolean }) {
 					<Link
 						to="/dashboard/organization/new"
 						onClick={() => {
-							trackUiControl({
-								controlName: "organization_create",
-								controlType: "link",
-								interactionType: "navigate",
+							trackNavigation({
+								navType: "organization_menu",
+								sourceComponent: "org_switcher",
 								targetPath: "/dashboard/organization/new",
+								targetType: "page",
+								toPageName: "organization_create",
 							});
 						}}
 					>
@@ -158,24 +163,22 @@ export function Sidebar() {
 	const [collapsed, setCollapsed] = useState(false);
 	const { resolvedTheme } = useTheme();
 	const { count: invitationCount } = useUserInvitations();
-	const { trackUiControl } = useUiControlTracking();
+	const { trackAuthenticationAction, trackNavigation, trackUtility } =
+		useAnalyticsTracking();
 
 	const logoSrc =
 		resolvedTheme === "dark" ? "/logo-light.svg" : "/logo-dark.svg";
 
-	const trackInteraction = (options: {
-		controlName: string;
-		controlType: "button" | "link" | "menu";
-		interactionType: "click" | "navigate" | "change";
-		targetPath?: string;
-		value?: string;
-	}) => {
-		trackUiControl({
-			controlName: options.controlName,
-			controlType: options.controlType,
-			interactionType: options.interactionType,
-			targetPath: options.targetPath,
-			value: options.value,
+	const trackSidebarNavigation = (
+		sourceComponent: string,
+		targetPath: string,
+	) => {
+		trackNavigation({
+			navType: "sidebar",
+			sourceComponent,
+			targetPath,
+			targetType: "page",
+			toPageName: getAnalyticsPageName(targetPath) ?? undefined,
 		});
 	};
 
@@ -190,14 +193,7 @@ export function Sidebar() {
 				<div className="flex items-center border-b border-border">
 					<Link
 						to="/dashboard"
-						onClick={() =>
-							trackInteraction({
-								controlName: "sidebar_logo",
-								controlType: "link",
-								interactionType: "navigate",
-								targetPath: "/dashboard",
-							})
-						}
+						onClick={() => trackSidebarNavigation("sidebar_logo", "/dashboard")}
 						className={cn(
 							"flex items-center shrink-0 px-4 h-10",
 							collapsed && "px-3",
@@ -211,11 +207,10 @@ export function Sidebar() {
 					<button
 						type="button"
 						onClick={() => {
-							trackInteraction({
-								controlName: "sidebar_collapse",
-								controlType: "button",
-								interactionType: "click",
-								value: collapsed ? "expand" : "collapse",
+							trackUtility({
+								utilityName: "sidebar_collapse",
+								componentId: "sidebar",
+								utilityState: collapsed ? "expanded" : "collapsed",
 							});
 							setCollapsed(!collapsed);
 						}}
@@ -239,14 +234,12 @@ export function Sidebar() {
 							<Link
 								to={item.href}
 								onClick={() =>
-									trackInteraction({
-										controlName: `sidebar_${item.name
+									trackSidebarNavigation(
+										`sidebar_${item.name
 											.toLowerCase()
 											.replace(/[^a-z0-9]+/g, "_")}`,
-										controlType: "link",
-										interactionType: "navigate",
-										targetPath: item.href,
-									})
+										item.href,
+									)
 								}
 								className={cn(
 									"flex items-center gap-2 rounded-lg px-2 py-2 text-[0.8125rem] font-medium transition-colors duration-150",
@@ -285,12 +278,10 @@ export function Sidebar() {
 								<Link
 									to="/dashboard/invitations"
 									onClick={() =>
-										trackInteraction({
-											controlName: "sidebar_invitations",
-											controlType: "link",
-											interactionType: "navigate",
-											targetPath: "/dashboard/invitations",
-										})
+										trackSidebarNavigation(
+											"sidebar_invitations",
+											"/dashboard/invitations",
+										)
 									}
 									className={cn(
 										"relative flex items-center gap-2 rounded-lg px-2 py-2 text-[0.8125rem] font-medium transition-colors duration-150",
@@ -368,12 +359,10 @@ export function Sidebar() {
 										<Link
 											to="/dashboard/profile"
 											onClick={() =>
-												trackInteraction({
-													controlName: "sidebar_profile_avatar",
-													controlType: "link",
-													interactionType: "navigate",
-													targetPath: "/dashboard/profile",
-												})
+												trackSidebarNavigation(
+													"sidebar_profile_avatar",
+													"/dashboard/profile",
+												)
 											}
 											className="flex items-center gap-2 min-w-0"
 										>
@@ -399,12 +388,10 @@ export function Sidebar() {
 									<Link
 										to="/dashboard/profile"
 										onClick={() =>
-											trackInteraction({
-												controlName: "sidebar_profile",
-												controlType: "link",
-												interactionType: "navigate",
-												targetPath: "/dashboard/profile",
-											})
+											trackSidebarNavigation(
+												"sidebar_profile",
+												"/dashboard/profile",
+											)
 										}
 										className="flex-1 flex items-center gap-2 min-w-0"
 									>
@@ -427,10 +414,10 @@ export function Sidebar() {
 									<button
 										type="button"
 										onClick={() => {
-											trackInteraction({
-												controlName: "sidebar_sign_out",
-												controlType: "button",
-												interactionType: "click",
+											trackAuthenticationAction({
+												actionName: "sign_out",
+												sourceComponent: "sidebar_sign_out",
+												authMethod: "session",
 											});
 											signOut();
 										}}

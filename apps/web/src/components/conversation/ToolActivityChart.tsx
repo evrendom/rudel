@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useUiControlTracking } from "@/hooks/useDashboardAnalytics";
+import { useAnalyticsTracking } from "@/hooks/useDashboardAnalytics";
 import { cn } from "@/lib/utils";
 
 export interface ToolActivityPoint {
@@ -46,7 +46,7 @@ export function ToolActivityChart({
 }: ToolActivityChartProps) {
 	const containerRef = useRef<HTMLDivElement>(null);
 	const [chartWidth, setChartWidth] = useState(400);
-	const { trackUiControl } = useUiControlTracking();
+	const { trackDrilldown } = useAnalyticsTracking();
 
 	useEffect(() => {
 		const el = containerRef.current;
@@ -88,16 +88,16 @@ export function ToolActivityChart({
 				}
 			}
 			if (closest) {
-				trackUiControl({
-					controlName: "tool_activity_chart",
-					controlType: "button",
-					interactionType: "navigate",
-					value: closest.messageIndex,
+				trackDrilldown({
+					drilldownMethod: "chart_click",
+					sourceComponent: "tool_activity_chart",
+					targetType: closest.category,
+					targetId: String(closest.messageIndex),
 				});
 				onClickMessage(closest.messageIndex);
 			}
 		},
-		[data, totalMessages, drawWidth, onClickMessage, trackUiControl],
+		[data, totalMessages, drawWidth, onClickMessage, trackDrilldown],
 	);
 
 	if (data.length === 0) {

@@ -1,12 +1,12 @@
 import { Moon, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
-import { useUiControlTracking } from "@/hooks/useDashboardAnalytics";
+import { useAnalyticsTracking } from "@/hooks/useDashboardAnalytics";
 
 export function ThemeToggle() {
 	const { resolvedTheme, setTheme } = useTheme();
 	const [mounted, setMounted] = useState(false);
-	const { trackUiControl } = useUiControlTracking();
+	const { trackUtility } = useAnalyticsTracking();
 
 	useEffect(() => setMounted(true), []);
 
@@ -18,11 +18,10 @@ export function ThemeToggle() {
 		<button
 			type="button"
 			onClick={() => {
-				trackUiControl({
-					controlName: "theme_toggle",
-					controlType: "toggle",
-					interactionType: "change",
-					value: resolvedTheme === "dark" ? "light" : "dark",
+				trackUtility({
+					utilityName: "theme_toggle",
+					componentId: "theme_toggle",
+					utilityState: resolvedTheme === "dark" ? "light" : "dark",
 				});
 				setTheme(resolvedTheme === "dark" ? "light" : "dark");
 			}}

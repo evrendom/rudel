@@ -4,7 +4,7 @@ import { AnalyticsCard } from "../../components/analytics/AnalyticsCard";
 import { PageHeader } from "../../components/analytics/PageHeader";
 import { Button } from "../../components/ui/button";
 import { useAccounts } from "../../hooks/useAccounts";
-import { useUiControlTracking } from "../../hooks/useDashboardAnalytics";
+import { useAnalyticsTracking } from "../../hooks/useDashboardAnalytics";
 import { useTrackDashboardView } from "../../hooks/useTrackDashboardView";
 import { authClient, signOut } from "../../lib/auth-client";
 
@@ -17,7 +17,7 @@ export function ProfilePage() {
 	const { data: session } = authClient.useSession();
 	const { accounts, isLoading: loading } = useAccounts();
 	const [linkingProvider, setLinkingProvider] = useState<string | null>(null);
-	const { trackUiControl } = useUiControlTracking();
+	const { trackAuthenticationAction } = useAnalyticsTracking();
 
 	const linkedProviders = new Set(accounts.map((a) => a.providerId));
 
@@ -59,10 +59,10 @@ export function ProfilePage() {
 						variant="outline"
 						size="sm"
 						onClick={() => {
-							trackUiControl({
-								controlName: "profile_sign_out",
-								controlType: "button",
-								interactionType: "click",
+							trackAuthenticationAction({
+								actionName: "sign_out",
+								sourceComponent: "profile_page",
+								authMethod: "session",
 							});
 							signOut();
 						}}
@@ -120,11 +120,11 @@ export function ProfilePage() {
 												size="xs"
 												disabled={linkingProvider !== null}
 												onClick={() => {
-													trackUiControl({
-														controlName: "profile_link_provider",
-														controlType: "button",
-														interactionType: "click",
-														value: provider.id,
+													trackAuthenticationAction({
+														actionName: "link_provider",
+														sourceComponent: "profile_page",
+														targetId: provider.id,
+														authMethod: provider.id,
 													});
 													setLinkingProvider(provider.id);
 													authClient.linkSocial({

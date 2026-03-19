@@ -7,7 +7,7 @@ import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { useOrganization } from "../../contexts/OrganizationContext";
-import { useUiControlTracking } from "../../hooks/useDashboardAnalytics";
+import { useAnalyticsTracking } from "../../hooks/useDashboardAnalytics";
 import { useTrackDashboardView } from "../../hooks/useTrackDashboardView";
 import { authClient } from "../../lib/auth-client";
 
@@ -23,7 +23,7 @@ function slugify(name: string): string {
 export function CreateOrgPage() {
 	const navigate = useNavigate();
 	const { switchOrg } = useOrganization();
-	const { trackUiControl } = useUiControlTracking();
+	const { trackOrganizationAction } = useAnalyticsTracking();
 	const [name, setName] = useState("");
 	const [slug, setSlug] = useState("");
 	const [slugManual, setSlugManual] = useState(false);
@@ -45,11 +45,11 @@ export function CreateOrgPage() {
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
 		if (!name.trim() || !slug.trim()) return;
-		trackUiControl({
-			controlName: "organization_create_submit",
-			controlType: "button",
-			interactionType: "submit",
-			value: slug.trim(),
+		trackOrganizationAction({
+			actionName: "create_organization",
+			targetType: "organization",
+			sourceComponent: "create_org_page",
+			targetId: slug.trim(),
 		});
 
 		setCreating(true);

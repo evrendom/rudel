@@ -25,7 +25,7 @@ import {
 	TableHeader,
 	TableRow,
 } from "@/components/ui/table";
-import { useUiControlTracking } from "@/hooks/useDashboardAnalytics";
+import { useAnalyticsTracking } from "@/hooks/useDashboardAnalytics";
 
 interface DataTableProps<TData, TValue> {
 	columns: ColumnDef<TData, TValue>[];
@@ -51,18 +51,21 @@ function DataTable<TData, TValue>({
 	getRowAnalyticsValue,
 }: DataTableProps<TData, TValue>) {
 	const [sorting, setSorting] = useState<SortingState>(defaultSorting);
-	const { trackUiControl } = useUiControlTracking();
+	const { trackDrilldown, trackFilterChange } = useAnalyticsTracking();
 
-	const trackInteraction = (options: {
-		controlName: string;
-		interactionType: "change" | "click" | "navigate";
-		value?: string;
+	const trackTableFilter = (options: {
+		filterName: string;
+		filterCategory: string;
+		changeAction: string;
+		valueKey?: string;
 	}) => {
-		trackUiControl({
-			controlName: `${analyticsId}_${options.controlName}`,
-			controlType: "table",
-			interactionType: options.interactionType,
-			value: options.value,
+		trackFilterChange({
+			filterName: `${analyticsId}_${options.filterName}`,
+			filterCategory: options.filterCategory,
+			changeAction: options.changeAction,
+			sourceComponent: analyticsId,
+			valueKey: options.valueKey,
+			affectedScope: "table",
 		});
 	};
 
@@ -95,10 +98,11 @@ function DataTable<TData, TValue>({
 											type="button"
 											className="inline-flex items-center gap-1 cursor-pointer select-none hover:text-foreground transition-colors"
 											onClick={(event) => {
-												trackInteraction({
-													controlName: "sort",
-													interactionType: "change",
-													value: header.column.id,
+												trackTableFilter({
+													filterName: "sort",
+													filterCategory: "sort",
+													changeAction: "set",
+													valueKey: header.column.id,
 												});
 												header.column.getToggleSortingHandler()?.(event);
 											}}
@@ -137,10 +141,11 @@ function DataTable<TData, TValue>({
 									onClick={
 										clickable
 											? () => {
-													trackInteraction({
-														controlName: "row",
-														interactionType: "navigate",
-														value: getRowAnalyticsValue
+													trackDrilldown({
+														drilldownMethod: "table_row",
+														sourceComponent: analyticsId,
+														targetType: "table_row",
+														targetId: getRowAnalyticsValue
 															? getRowAnalyticsValue(row.original)
 															: row.id,
 													});
@@ -180,10 +185,11 @@ function DataTable<TData, TValue>({
 					<Select
 						value={String(table.getState().pagination.pageSize)}
 						onValueChange={(value) => {
-							trackInteraction({
-								controlName: "page_size",
-								interactionType: "change",
-								value,
+							trackTableFilter({
+								filterName: "page_size",
+								filterCategory: "pagination",
+								changeAction: "set",
+								valueKey: value,
 							});
 							table.setPageSize(Number(value));
 						}}
@@ -211,9 +217,10 @@ function DataTable<TData, TValue>({
 							variant="outline"
 							size="icon-sm"
 							onClick={() => {
-								trackInteraction({
-									controlName: "previous_page",
-									interactionType: "click",
+								trackTableFilter({
+									filterName: "page",
+									filterCategory: "pagination",
+									changeAction: "previous",
 								});
 								table.previousPage();
 							}}
@@ -226,9 +233,10 @@ function DataTable<TData, TValue>({
 							variant="outline"
 							size="icon-sm"
 							onClick={() => {
-								trackInteraction({
-									controlName: "next_page",
-									interactionType: "click",
+								trackTableFilter({
+									filterName: "page",
+									filterCategory: "pagination",
+									changeAction: "next",
 								});
 								table.nextPage();
 							}}

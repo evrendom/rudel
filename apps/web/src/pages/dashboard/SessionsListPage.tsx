@@ -27,7 +27,7 @@ import { Switch } from "@/components/ui/switch";
 import { useDateRange } from "@/contexts/DateRangeContext";
 import { useAnalyticsQuery } from "@/hooks/useAnalyticsQuery";
 import { useCanViewSession } from "@/hooks/useCanViewSession";
-import { useUiControlTracking } from "@/hooks/useDashboardAnalytics";
+import { useAnalyticsTracking } from "@/hooks/useDashboardAnalytics";
 import {
 	type DashboardSection,
 	useTrackDashboardView,
@@ -41,7 +41,7 @@ export function SessionsListPage() {
 	const { startDate, endDate, setStartDate, setEndDate, calculateDays } =
 		useDateRange();
 	const days = calculateDays();
-	const { trackUiControl } = useUiControlTracking();
+	const { trackFilterChange } = useAnalyticsTracking();
 
 	const [selectedRepositories, setSelectedRepositories] = useState<string[]>(
 		[],
@@ -385,11 +385,13 @@ export function SessionsListPage() {
 						<Select
 							value={selectedMetric}
 							onValueChange={(v) => {
-								trackUiControl({
-									controlName: "sessions_metric",
-									controlType: "select",
-									interactionType: "change",
-									value: v,
+								trackFilterChange({
+									filterName: "sessions_metric",
+									filterCategory: "metric",
+									changeAction: "set",
+									sourceComponent: "sessions_list_page",
+									valueKey: v,
+									affectedScope: "chart",
 								});
 								setSelectedMetric(v as DimensionAnalysisInput["metric"]);
 							}}
@@ -422,11 +424,13 @@ export function SessionsListPage() {
 						<Select
 							value={selectedDimension}
 							onValueChange={(v) => {
-								trackUiControl({
-									controlName: "sessions_dimension",
-									controlType: "select",
-									interactionType: "change",
-									value: v,
+								trackFilterChange({
+									filterName: "sessions_dimension",
+									filterCategory: "dimension",
+									changeAction: "set",
+									sourceComponent: "sessions_list_page",
+									valueKey: v,
+									affectedScope: "chart",
 								});
 								setSelectedDimension(v as DimensionAnalysisInput["dimension"]);
 							}}
@@ -454,11 +458,13 @@ export function SessionsListPage() {
 						<Select
 							value={selectedSplitBy || "none"}
 							onValueChange={(v) => {
-								trackUiControl({
-									controlName: "sessions_split_by",
-									controlType: "select",
-									interactionType: "change",
-									value: v,
+								trackFilterChange({
+									filterName: "sessions_split_by",
+									filterCategory: "dimension",
+									changeAction: "set",
+									sourceComponent: "sessions_list_page",
+									valueKey: v,
+									affectedScope: "chart",
 								});
 								const value = v === "none" ? "" : v;
 								setSelectedSplitBy(
@@ -487,11 +493,13 @@ export function SessionsListPage() {
 						<Switch
 							checked={showPercentage}
 							onCheckedChange={(checked) => {
-								trackUiControl({
-									controlName: "sessions_scale_to_100",
-									controlType: "toggle",
-									interactionType: "change",
-									value: checked,
+								trackFilterChange({
+									filterName: "sessions_scale_to_100",
+									filterCategory: "toggle",
+									changeAction: checked ? "enable" : "disable",
+									sourceComponent: "sessions_list_page",
+									valueKey: checked ? "on" : "off",
+									affectedScope: "chart",
 								});
 								setShowPercentage(checked);
 							}}

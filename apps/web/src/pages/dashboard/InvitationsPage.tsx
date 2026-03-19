@@ -4,7 +4,7 @@ import { AnalyticsCard } from "@/components/analytics/AnalyticsCard";
 import { PageHeader } from "@/components/analytics/PageHeader";
 import { Button } from "@/components/ui/button";
 import { useOrganization } from "@/contexts/OrganizationContext";
-import { useUiControlTracking } from "@/hooks/useDashboardAnalytics";
+import { useAnalyticsTracking } from "@/hooks/useDashboardAnalytics";
 import { useTrackDashboardView } from "@/hooks/useTrackDashboardView";
 import { useUserInvitations } from "@/hooks/useUserInvitations";
 import { authClient } from "@/lib/auth-client";
@@ -13,7 +13,9 @@ export function InvitationsPage() {
 	const { invitations, isLoading, invalidate } = useUserInvitations();
 	const { switchOrg } = useOrganization();
 	const [processingId, setProcessingId] = useState<string | null>(null);
-	const { trackUiControl } = useUiControlTracking();
+	const { trackAuthenticationAction } = useAnalyticsTracking({
+		pageName: "invitations",
+	});
 
 	useTrackDashboardView({
 		isLoading,
@@ -21,11 +23,11 @@ export function InvitationsPage() {
 	});
 
 	const handleAccept = async (invitationId: string) => {
-		trackUiControl({
-			controlName: "invitation_accept",
-			controlType: "button",
-			interactionType: "click",
-			value: invitationId,
+		trackAuthenticationAction({
+			actionName: "accept_invitation",
+			sourceComponent: "invitations_page",
+			authMethod: "invitation",
+			targetId: invitationId,
 		});
 		setProcessingId(invitationId);
 		const res = await authClient.organization.acceptInvitation({
@@ -39,11 +41,11 @@ export function InvitationsPage() {
 	};
 
 	const handleDecline = async (invitationId: string) => {
-		trackUiControl({
-			controlName: "invitation_decline",
-			controlType: "button",
-			interactionType: "click",
-			value: invitationId,
+		trackAuthenticationAction({
+			actionName: "decline_invitation",
+			sourceComponent: "invitations_page",
+			authMethod: "invitation",
+			targetId: invitationId,
 		});
 		setProcessingId(invitationId);
 		await authClient.organization.rejectInvitation({ invitationId });

@@ -11,7 +11,7 @@ import { LearningsEmptyState } from "@/components/learnings/LearningsEmptyState"
 import { LearningsTimeline } from "@/components/learnings/LearningsTimeline";
 import { useDateRange } from "@/contexts/DateRangeContext";
 import { useAnalyticsQuery } from "@/hooks/useAnalyticsQuery";
-import { useUiControlTracking } from "@/hooks/useDashboardAnalytics";
+import { useAnalyticsTracking } from "@/hooks/useDashboardAnalytics";
 import {
 	type DashboardSection,
 	useTrackDashboardView,
@@ -23,7 +23,7 @@ export function LearningsPage() {
 	const { startDate, endDate, setStartDate, setEndDate, calculateDays } =
 		useDateRange();
 	const days = calculateDays();
-	const { trackUiControl } = useUiControlTracking();
+	const { trackFilterChange } = useAnalyticsTracking();
 
 	const [splitBy, setSplitBy] = useState<"user_id" | "repository">("user_id");
 	const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
@@ -236,10 +236,13 @@ export function LearningsPage() {
 							<button
 								type="button"
 								onClick={() => {
-									trackUiControl({
-										controlName: "learnings_clear_filters",
-										controlType: "button",
-										interactionType: "click",
+									trackFilterChange({
+										filterName: "learnings_filters",
+										filterCategory: "multi_select",
+										changeAction: "clear",
+										sourceComponent: "learnings_page",
+										selectionCount: 0,
+										affectedScope: "page",
 									});
 									setSelectedUsers([]);
 									setSelectedProjects([]);

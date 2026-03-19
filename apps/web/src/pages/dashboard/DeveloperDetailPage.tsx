@@ -33,7 +33,7 @@ import { useDateRange } from "@/contexts/DateRangeContext";
 import { useAnalyticsQuery } from "@/hooks/useAnalyticsQuery";
 import { useCanViewSession } from "@/hooks/useCanViewSession";
 import { useChartTheme } from "@/hooks/useChartTheme";
-import { useUiControlTracking } from "@/hooks/useDashboardAnalytics";
+import { useAnalyticsTracking } from "@/hooks/useDashboardAnalytics";
 import { useTrackDashboardView } from "@/hooks/useTrackDashboardView";
 import { useUserMap } from "@/hooks/useUserMap";
 import {
@@ -72,7 +72,7 @@ export function DeveloperDetailPage() {
 		useDateRange();
 	const chartTheme = useChartTheme();
 	const days = calculateDays();
-	const { trackUiControl } = useUiControlTracking();
+	const { trackFilterChange } = useAnalyticsTracking();
 
 	const [projectFilter, setProjectFilter] = useState<string>("");
 	const [outcomeFilter, setOutcomeFilter] = useState<"all" | "success">("all");
@@ -585,11 +585,13 @@ export function DeveloperDetailPage() {
 						<Select
 							value={projectFilter || "all"}
 							onValueChange={(v) => {
-								trackUiControl({
-									controlName: "developer_detail_project_filter",
-									controlType: "select",
-									interactionType: "change",
-									value: v,
+								trackFilterChange({
+									filterName: "developer_detail_project_filter",
+									filterCategory: "dimension",
+									changeAction: "set",
+									sourceComponent: "developer_detail_page",
+									valueKey: v,
+									affectedScope: "table",
 								});
 								setProjectFilter(v === "all" ? "" : v);
 							}}
@@ -609,11 +611,13 @@ export function DeveloperDetailPage() {
 						<Select
 							value={outcomeFilter}
 							onValueChange={(v) => {
-								trackUiControl({
-									controlName: "developer_detail_outcome_filter",
-									controlType: "select",
-									interactionType: "change",
-									value: v,
+								trackFilterChange({
+									filterName: "developer_detail_outcome_filter",
+									filterCategory: "status",
+									changeAction: "set",
+									sourceComponent: "developer_detail_page",
+									valueKey: v,
+									affectedScope: "table",
 								});
 								setOutcomeFilter(v as "all" | "success");
 							}}

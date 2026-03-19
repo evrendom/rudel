@@ -1,5 +1,5 @@
 import type { LegendPayload } from "recharts/types/component/DefaultLegendContent";
-import { useUiControlTracking } from "@/hooks/useDashboardAnalytics";
+import { useAnalyticsTracking } from "@/hooks/useDashboardAnalytics";
 
 interface ChartLegendProps {
 	payload?: readonly LegendPayload[];
@@ -14,7 +14,7 @@ export function ChartLegend({
 	hiddenSeries,
 	onToggle,
 }: ChartLegendProps) {
-	const { trackUiControl } = useUiControlTracking();
+	const { trackFilterChange } = useAnalyticsTracking();
 
 	if (!payload || payload.length === 0) return null;
 
@@ -29,11 +29,13 @@ export function ChartLegend({
 						type="button"
 						className="flex items-start gap-2 min-w-0 cursor-pointer select-none text-left bg-transparent border-none p-0"
 						onClick={() => {
-							trackUiControl({
-								controlName: "chart_legend",
-								controlType: "toggle",
-								interactionType: "change",
-								value: key,
+							trackFilterChange({
+								filterName: "legend_series",
+								filterCategory: "series_visibility",
+								changeAction: isHidden ? "show" : "hide",
+								sourceComponent: "chart_legend",
+								valueKey: key,
+								affectedScope: "chart",
 							});
 							onToggle?.(key);
 						}}

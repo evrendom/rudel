@@ -28,7 +28,7 @@ import {
 	SelectValue,
 } from "../../components/ui/select";
 import { useOrganization } from "../../contexts/OrganizationContext";
-import { useUiControlTracking } from "../../hooks/useDashboardAnalytics";
+import { useAnalyticsTracking } from "../../hooks/useDashboardAnalytics";
 import { useFullOrganization } from "../../hooks/useFullOrganization";
 import { useTrackDashboardView } from "../../hooks/useTrackDashboardView";
 import { authClient } from "../../lib/auth-client";
@@ -36,7 +36,7 @@ import { authClient } from "../../lib/auth-client";
 export function OrganizationPage() {
 	const { activeOrg, organizations, switchOrg } = useOrganization();
 	const { data: session } = authClient.useSession();
-	const { trackUiControl } = useUiControlTracking({
+	const { trackNavigation, trackOrganizationAction } = useAnalyticsTracking({
 		organizationId: activeOrg?.id ?? null,
 	});
 	const navigate = useNavigate();
@@ -57,40 +57,11 @@ export function OrganizationPage() {
 	const [saving, setSaving] = useState(false);
 	const [renameError, setRenameError] = useState<string | null>(null);
 	const nameInputRef = useRef<HTMLInputElement>(null);
-	const userId =
-		session?.user && "id" in session.user ? String(session.user.id) : undefined;
 
 	useTrackDashboardView({
 		isLoading: loading,
 		hasData: true,
 	});
-
-	const trackInteraction = (options: {
-		controlName: string;
-		controlType: "button" | "link" | "select" | "dialog";
-		interactionType:
-			| "click"
-			| "submit"
-			| "change"
-			| "copy"
-			| "navigate"
-			| "open"
-			| "close";
-		value?: string;
-		targetPath?: string;
-	}) => {
-		if (!userId) {
-			return;
-		}
-		trackUiControl({
-			controlName: options.controlName,
-			controlType: options.controlType,
-			interactionType: options.interactionType,
-			targetPath: options.targetPath,
-			userId,
-			value: options.value,
-		});
-	};
 
 	const currentUserRole = fullOrg?.members.find(
 		(m) => m.userId === session?.user.id,
@@ -99,10 +70,11 @@ export function OrganizationPage() {
 
 	const handleStartEditing = () => {
 		if (!activeOrg) return;
-		trackInteraction({
-			controlName: "organization_name_edit",
-			controlType: "button",
-			interactionType: "click",
+		trackOrganizationAction({
+			actionName: "start_rename_organization",
+			targetType: "organization",
+			sourceComponent: "organization_page",
+			targetId: activeOrg.id,
 		});
 		setEditName(activeOrg.name);
 		setRenameError(null);
@@ -111,10 +83,12 @@ export function OrganizationPage() {
 	};
 
 	const handleCancelEditing = () => {
-		trackInteraction({
-			controlName: "organization_name_edit_cancel",
-			controlType: "button",
-			interactionType: "click",
+		if (!activeOrg) return;
+		trackOrganizationAction({
+			actionName: "cancel_rename_organization",
+			targetType: "organization",
+			sourceComponent: "organization_page",
+			targetId: activeOrg.id,
 		});
 		setEditing(false);
 		setRenameError(null);
@@ -128,11 +102,11 @@ export function OrganizationPage() {
 			return;
 		}
 
-		trackInteraction({
-			controlName: "organization_name_save",
-			controlType: "button",
-			interactionType: "submit",
-			value: trimmed,
+		trackOrganizationAction({
+			actionName: "rename_organization",
+			targetType: "organization",
+			sourceComponent: "organization_page",
+			targetId: activeOrg.id,
 		});
 		setSaving(true);
 		setRenameError(null);
@@ -155,11 +129,11 @@ export function OrganizationPage() {
 	const handleInvite = async (e: React.FormEvent) => {
 		e.preventDefault();
 		if (!inviteEmail.trim()) return;
-		trackInteraction({
-			controlName: "organization_invite_submit",
-			controlType: "button",
-			interactionType: "submit",
-			value: inviteRole,
+		trackOrganizationAction({
+			actionName: "invite_member",
+			targetType: "invitation",
+			sourceComponent: "organization_page",
+			targetRole: inviteRole,
 		});
 		setInviting(true);
 		const email = inviteEmail.trim();
@@ -179,10 +153,10 @@ export function OrganizationPage() {
 
 	const handleCopyLink = () => {
 		if (!inviteLink) return;
-		trackInteraction({
-			controlName: "organization_invite_link_copy",
-			controlType: "button",
-			interactionType: "copy",
+		trackOrganizationAction({
+			actionName: "copy_invite_link",
+			targetType: "invitation",
+			sourceComponent: "organization_page",
 		});
 		navigator.clipboard.writeText(inviteLink);
 		setCopied(true);
@@ -190,22 +164,22 @@ export function OrganizationPage() {
 	};
 
 	const handleRemoveMember = async (memberIdOrEmail: string) => {
-		trackInteraction({
-			controlName: "organization_member_remove",
-			controlType: "button",
-			interactionType: "click",
-			value: memberIdOrEmail,
+		trackOrganizationAction({
+			actionName: "remove_member",
+			targetType: "member",
+			sourceComponent: "organization_page",
+			targetId: memberIdOrEmail,
 		});
 		await authClient.organization.removeMember({ memberIdOrEmail });
 		invalidate();
 	};
 
 	const handleCancelInvitation = async (invitationId: string) => {
-		trackInteraction({
-			controlName: "organization_invitation_cancel",
-			controlType: "button",
-			interactionType: "click",
-			value: invitationId,
+		trackOrganizationAction({
+			actionName: "cancel_invitation",
+			targetType: "invitation",
+			sourceComponent: "organization_page",
+			targetId: invitationId,
 		});
 		await authClient.organization.cancelInvitation({ invitationId });
 		invalidate();
@@ -215,11 +189,12 @@ export function OrganizationPage() {
 		memberId: string,
 		role: "member" | "admin",
 	) => {
-		trackInteraction({
-			controlName: "organization_member_role",
-			controlType: "select",
-			interactionType: "change",
-			value: `${memberId}:${role}`,
+		trackOrganizationAction({
+			actionName: "update_member_role",
+			targetType: "member",
+			sourceComponent: "organization_page",
+			targetId: memberId,
+			targetRole: role,
 		});
 		await authClient.organization.updateMemberRole({
 			memberId,
@@ -246,11 +221,12 @@ export function OrganizationPage() {
 						<Button
 							size="sm"
 							onClick={() =>
-								trackInteraction({
-									controlName: "organization_create",
-									controlType: "link",
-									interactionType: "navigate",
+								trackNavigation({
+									navType: "organization_page",
+									sourceComponent: "organization_page",
 									targetPath: "/dashboard/organization/new",
+									targetType: "page",
+									toPageName: "organization_create",
 								})
 							}
 						>
@@ -407,10 +383,10 @@ export function OrganizationPage() {
 									variant="outline"
 									size="xs"
 									onClick={() => {
-										trackInteraction({
-											controlName: "organization_invite_link_dismiss",
-											controlType: "button",
-											interactionType: "close",
+										trackOrganizationAction({
+											actionName: "dismiss_invite_link",
+											targetType: "invitation",
+											sourceComponent: "organization_page",
 										});
 										setInviteLink(null);
 										setInvitedEmail(null);
@@ -548,10 +524,11 @@ export function OrganizationPage() {
 							variant="destructive"
 							size="sm"
 							onClick={() => {
-								trackInteraction({
-									controlName: "organization_delete_open",
-									controlType: "dialog",
-									interactionType: "open",
+								trackOrganizationAction({
+									actionName: "open_delete_organization",
+									targetType: "organization",
+									sourceComponent: "organization_page",
+									targetId: activeOrg.id,
 								});
 								setDeleteDialogOpen(true);
 							}}

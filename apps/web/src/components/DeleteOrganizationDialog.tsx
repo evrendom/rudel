@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { AlertTriangle, Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { useUiControlTracking } from "@/hooks/useDashboardAnalytics";
+import { useAnalyticsTracking } from "@/hooks/useDashboardAnalytics";
 import { client } from "../lib/orpc";
 import { Button } from "./ui/button";
 import {
@@ -27,7 +27,7 @@ export function DeleteOrganizationDialog({
 	organization,
 	onDeleted,
 }: DeleteOrganizationDialogProps) {
-	const { trackUiControl } = useUiControlTracking({
+	const { trackOrganizationAction } = useAnalyticsTracking({
 		organizationId: organization.id,
 	});
 	const { data: sessionCountData, isLoading: loading } = useQuery({
@@ -58,10 +58,11 @@ export function DeleteOrganizationDialog({
 	const canDelete = nameMatches && !deleting;
 
 	const handleDelete = async () => {
-		trackUiControl({
-			controlName: "organization_delete_confirm",
-			controlType: "button",
-			interactionType: "submit",
+		trackOrganizationAction({
+			actionName: "delete_organization",
+			targetType: "organization",
+			sourceComponent: "delete_organization_dialog",
+			targetId: organization.id,
 		});
 		setDeleting(true);
 		setError(null);
@@ -132,10 +133,11 @@ export function DeleteOrganizationDialog({
 					<Button
 						variant="outline"
 						onClick={() => {
-							trackUiControl({
-								controlName: "organization_delete_cancel",
-								controlType: "button",
-								interactionType: "close",
+							trackOrganizationAction({
+								actionName: "cancel_delete_organization",
+								targetType: "organization",
+								sourceComponent: "delete_organization_dialog",
+								targetId: organization.id,
 							});
 							onOpenChange(false);
 						}}

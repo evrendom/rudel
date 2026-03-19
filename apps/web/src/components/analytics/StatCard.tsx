@@ -1,6 +1,6 @@
 import type { LucideIcon } from "lucide-react";
 import { Link } from "react-router-dom";
-import { useUiControlTracking } from "@/hooks/useDashboardAnalytics";
+import { useAnalyticsTracking } from "@/hooks/useDashboardAnalytics";
 import { cn } from "../../lib/utils";
 import { AnalyticsCard } from "./AnalyticsCard";
 
@@ -27,7 +27,7 @@ export function StatCard({
 	href,
 	linkLabel,
 }: StatCardProps) {
-	const { trackUiControl } = useUiControlTracking();
+	const { trackNavigation } = useAnalyticsTracking();
 
 	return (
 		<AnalyticsCard className="!p-4">
@@ -61,11 +61,11 @@ export function StatCard({
 						<Link
 							to={href}
 							onClick={() => {
-								trackUiControl({
-									controlName: title.toLowerCase().replace(/[^a-z0-9]+/g, "_"),
-									controlType: "link",
-									interactionType: "navigate",
+								trackNavigation({
+									navType: "stat_card",
+									sourceComponent: "stat_card",
 									targetPath: href,
+									targetType: "page",
 								});
 							}}
 							className="text-[11px] text-muted hover:text-heading transition-colors whitespace-nowrap"

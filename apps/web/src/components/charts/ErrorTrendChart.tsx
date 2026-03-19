@@ -20,7 +20,7 @@ import {
 	SelectValue,
 } from "@/components/ui/select";
 import { useChartTheme } from "@/hooks/useChartTheme";
-import { useUiControlTracking } from "@/hooks/useDashboardAnalytics";
+import { useAnalyticsTracking } from "@/hooks/useDashboardAnalytics";
 import { ChartLegend } from "./ChartLegend";
 import { ChartTooltip } from "./ChartTooltip";
 
@@ -82,7 +82,7 @@ export function ErrorTrendChart({
 	userMap,
 }: ErrorTrendChartProps) {
 	const { gridStroke } = useChartTheme();
-	const { trackUiControl } = useUiControlTracking();
+	const { trackFilterChange } = useAnalyticsTracking();
 	const [hiddenSeries, setHiddenSeries] = useState<Set<string>>(new Set());
 	const toggleSeries = (key: string) =>
 		setHiddenSeries((prev) => {
@@ -213,11 +213,13 @@ export function ErrorTrendChart({
 					<Select
 						value={metric}
 						onValueChange={(v) => {
-							trackUiControl({
-								controlName: "error_trend_metric",
-								controlType: "select",
-								interactionType: "change",
-								value: v,
+							trackFilterChange({
+								filterName: "error_trend_metric",
+								filterCategory: "metric",
+								changeAction: "set",
+								sourceComponent: "error_trend_chart",
+								valueKey: v,
+								affectedScope: "chart",
 							});
 							onMetricChange(v as typeof metric);
 						}}
@@ -245,11 +247,13 @@ export function ErrorTrendChart({
 					<Select
 						value={splitBy}
 						onValueChange={(v) => {
-							trackUiControl({
-								controlName: "error_trend_split",
-								controlType: "select",
-								interactionType: "change",
-								value: v,
+							trackFilterChange({
+								filterName: "error_trend_split",
+								filterCategory: "dimension",
+								changeAction: "set",
+								sourceComponent: "error_trend_chart",
+								valueKey: v,
+								affectedScope: "chart",
 							});
 							onSplitByChange(v as typeof splitBy);
 						}}

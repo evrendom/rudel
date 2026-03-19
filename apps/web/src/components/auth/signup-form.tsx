@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useUiControlTracking } from "../../hooks/useDashboardAnalytics";
+import { useAnalyticsTracking } from "../../hooks/useDashboardAnalytics";
 import { authClient } from "../../lib/auth-client";
 import {
 	captureSignUpFailed,
@@ -72,18 +72,21 @@ export function SignupForm({
 	const [password, setPassword] = useState("");
 	const [error, setError] = useState("");
 	const [loading, setLoading] = useState(false);
-	const { trackUiControl } = useUiControlTracking({ pageName: "signup" });
+	const { trackAuthenticationAction } = useAnalyticsTracking({
+		pageName: "signup",
+	});
 
 	async function handleSubmit(e: React.FormEvent) {
 		e.preventDefault();
-		trackUiControl({
-			controlName: "email_password_submit",
-			controlType: "button",
-			interactionType: "submit",
-		});
 		setError("");
 		setLoading(true);
 		const signupContext = getSignupContext();
+		trackAuthenticationAction({
+			actionName: "sign_up",
+			sourceComponent: "signup_form",
+			authMethod: "email_password",
+			entrypoint: signupContext.entryPoint,
+		});
 		const { error } = await authClient.signUp.email({
 			name,
 			email,
@@ -104,12 +107,13 @@ export function SignupForm({
 
 	async function handleSocialSignIn(provider: "google" | "github") {
 		setError("");
-		trackUiControl({
-			controlName: `${provider}_sign_up`,
-			controlType: "button",
-			interactionType: "click",
-		});
 		const signupContext = getSignupContext();
+		trackAuthenticationAction({
+			actionName: "sign_up",
+			sourceComponent: "signup_form",
+			authMethod: provider,
+			entrypoint: signupContext.entryPoint,
+		});
 		const { error } = await authClient.signIn.social({
 			provider,
 			callbackURL: getCallbackURL(),
@@ -222,10 +226,9 @@ export function SignupForm({
 					<button
 						type="button"
 						onClick={() => {
-							trackUiControl({
-								controlName: "switch_to_login",
-								controlType: "button",
-								interactionType: "navigate",
+							trackAuthenticationAction({
+								actionName: "open_login",
+								sourceComponent: "signup_form",
 							});
 							onSwitchToLogin();
 						}}

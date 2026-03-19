@@ -15,7 +15,7 @@ import {
 } from "recharts";
 import { InfoTooltip } from "@/components/ui/InfoTooltip";
 import { useChartTheme } from "@/hooks/useChartTheme";
-import { useUiControlTracking } from "@/hooks/useDashboardAnalytics";
+import { useAnalyticsTracking } from "@/hooks/useDashboardAnalytics";
 import { ChartLegend } from "./ChartLegend";
 import { ChartTooltip } from "./ChartTooltip";
 
@@ -84,7 +84,7 @@ export function DeveloperTrendChart({
 	userMap,
 }: DeveloperTrendChartProps) {
 	const { gridStroke, axisStroke } = useChartTheme();
-	const { trackUiControl } = useUiControlTracking();
+	const { trackFilterChange } = useAnalyticsTracking();
 	const [selectedMetric, setSelectedMetric] = useState<MetricType>("sessions");
 	const [hiddenSeries, setHiddenSeries] = useState<Set<string>>(new Set());
 	const toggleSeries = (key: string) =>
@@ -213,11 +213,13 @@ export function DeveloperTrendChart({
 							type="button"
 							key={key}
 							onClick={() => {
-								trackUiControl({
-									controlName: "developer_trend_metric",
-									controlType: "button",
-									interactionType: "change",
-									value: key,
+								trackFilterChange({
+									filterName: "developer_trend_metric",
+									filterCategory: "metric",
+									changeAction: "set",
+									sourceComponent: "developer_trend_chart",
+									valueKey: key,
+									affectedScope: "chart",
 								});
 								setSelectedMetric(key as MetricType);
 							}}

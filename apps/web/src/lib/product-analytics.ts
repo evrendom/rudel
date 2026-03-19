@@ -6,6 +6,13 @@ const ANALYTICS_SURFACE = "web";
 
 type AnalyticsEnvironment = "production" | "staging" | "development" | "local";
 type AnalyticsPropertyValue = string | number | boolean | null | undefined;
+type SharedAnalyticsPayload = {
+	page_name: AppPageName;
+	organization_id?: string;
+	user_id?: string;
+	date_range_days?: number;
+	source_component?: string;
+};
 
 export const DASHBOARD_PAGE_NAMES = [
 	"overview",
@@ -37,28 +44,6 @@ export const APP_PAGE_NAMES = [
 export type AppPageName = (typeof APP_PAGE_NAMES)[number];
 
 const DASHBOARD_PAGE_NAME_SET = new Set<string>(DASHBOARD_PAGE_NAMES);
-
-export type UiControlType =
-	| "button"
-	| "link"
-	| "input"
-	| "select"
-	| "toggle"
-	| "menu"
-	| "table"
-	| "dialog";
-
-export type UiInteractionType =
-	| "click"
-	| "submit"
-	| "change"
-	| "open"
-	| "close"
-	| "copy"
-	| "download"
-	| "share"
-	| "navigate"
-	| "reset";
 
 export function isDashboardPageName(
 	pageName: AppPageName | null,
@@ -284,7 +269,7 @@ export function captureDashboardViewed(
 		page_name: DashboardPageName;
 		has_data: boolean;
 		date_range_days: number;
-		insight_count: number;
+		insight_count?: number | null;
 	} & Record<string, AnalyticsPropertyValue>,
 ) {
 	captureEvent("Dashboard Viewed", payload);
@@ -303,32 +288,93 @@ export function captureDashboardLoadFailed(payload: {
 	captureEvent("Dashboard Load Failed", payload);
 }
 
-export function captureInsightCardClicked(payload: {
-	organization_id: string;
-	user_id: string;
-	page_name: "overview";
-	insight_key: string;
-	insight_type: "trend" | "performer" | "alert" | "info";
-	insight_severity: "positive" | "warning" | "negative" | "info";
-	destination_path: string;
-	position_index: number;
-	date_range_days: number;
-}) {
-	captureEvent("Insight Card Clicked", payload);
+export function captureDashboardNavigationClicked(
+	payload: SharedAnalyticsPayload & {
+		nav_type: string;
+		to_page_name?: AppPageName;
+		target_path?: string;
+		target_type?: string;
+		target_id?: string;
+		rank?: number;
+	},
+) {
+	captureEvent("Dashboard Navigation Clicked", payload);
 }
 
-export function captureUiControlUsed(payload: {
-	page_name: AppPageName;
-	control_name: string;
-	control_type: UiControlType;
-	interaction_type: UiInteractionType;
-	organization_id?: string;
-	user_id?: string;
-	date_range_days?: number;
-	target_path?: string;
-	value?: boolean | number | string;
-}) {
-	captureEvent("UI Control Used", payload);
+export function captureDashboardFilterChanged(
+	payload: SharedAnalyticsPayload & {
+		filter_name: string;
+		filter_category: string;
+		change_action: string;
+		selection_count?: number;
+		value_key?: string;
+		affected_scope?: string;
+	},
+) {
+	captureEvent("Dashboard Filter Changed", payload);
+}
+
+export function captureDashboardDrilldownOpened(
+	payload: SharedAnalyticsPayload & {
+		drilldown_method: string;
+		target_type: string;
+		target_path?: string;
+		target_id?: string;
+		rank?: number;
+	},
+) {
+	captureEvent("Dashboard Drilldown Opened", payload);
+}
+
+export function captureChartExportTriggered(
+	payload: SharedAnalyticsPayload & {
+		chart_id: string;
+		export_type: "copy_image" | "download_png" | "share_x";
+		chart_kind?: string;
+		share_destination?: string;
+		visible_series_count?: number;
+	},
+) {
+	captureEvent("Chart Export Triggered", payload);
+}
+
+export function captureOrganizationActionTriggered(
+	payload: SharedAnalyticsPayload & {
+		action_name: string;
+		target_type: string;
+		target_id?: string;
+		target_role?: string;
+		provider?: string;
+		result?: "started" | "succeeded" | "failed";
+		error_code?: string;
+		http_status?: number;
+	},
+) {
+	captureEvent("Organization Action Triggered", payload);
+}
+
+export function captureAuthenticationActionTriggered(
+	payload: SharedAnalyticsPayload & {
+		action_name: string;
+		auth_method?: string;
+		entrypoint?: string;
+		target_id?: string;
+		result?: "started" | "succeeded" | "failed";
+		error_code?: string;
+		http_status?: number;
+	},
+) {
+	captureEvent("Authentication Action Triggered", payload);
+}
+
+export function captureUiUtilityUsed(
+	payload: SharedAnalyticsPayload & {
+		utility_name: string;
+		component_id?: string;
+		utility_state?: string;
+	},
+) {
+	captureEvent("UI Utility Used", payload);
 }
 
 const ANALYTICS_PAGE_MATCHERS: ReadonlyArray<{

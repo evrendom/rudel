@@ -14,7 +14,7 @@ import { Link } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { useCanViewSession } from "@/hooks/useCanViewSession";
-import { useUiControlTracking } from "@/hooks/useDashboardAnalytics";
+import { useAnalyticsTracking } from "@/hooks/useDashboardAnalytics";
 import { formatUsername } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -61,7 +61,7 @@ export function TimelineItem({ learning, userMap }: TimelineItemProps) {
 	const [isExpanded, setIsExpanded] = useState(false);
 	const canViewSession = useCanViewSession();
 	const canView = canViewSession(learning.user_id);
-	const { trackUiControl } = useUiControlTracking();
+	const { trackDrilldown, trackUtility } = useAnalyticsTracking();
 
 	const formattedDate = format(new Date(learning.created_at), "MMM dd, yyyy");
 	const formattedTime = format(new Date(learning.created_at), "h:mm a");
@@ -155,10 +155,11 @@ export function TimelineItem({ learning, userMap }: TimelineItemProps) {
 							<Link
 								to={sessionLink}
 								onClick={() => {
-									trackUiControl({
-										controlName: "learning_view_session",
-										controlType: "link",
-										interactionType: "navigate",
+									trackDrilldown({
+										drilldownMethod: "learning_item",
+										sourceComponent: "learning_timeline_item",
+										targetType: "session",
+										targetId: learning.session_id,
 										targetPath: sessionLink,
 									});
 								}}
@@ -180,11 +181,10 @@ export function TimelineItem({ learning, userMap }: TimelineItemProps) {
 						<button
 							type="button"
 							onClick={() => {
-								trackUiControl({
-									controlName: "learning_expand",
-									controlType: "button",
-									interactionType: "change",
-									value: String(!isExpanded),
+								trackUtility({
+									utilityName: "learning_expand",
+									componentId: "learning_timeline_item",
+									utilityState: !isExpanded ? "expanded" : "collapsed",
 								});
 								setIsExpanded(!isExpanded);
 							}}

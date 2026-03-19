@@ -1,6 +1,6 @@
 import { ChevronRight } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
-import { useUiControlTracking } from "@/hooks/useDashboardAnalytics";
+import { useAnalyticsTracking } from "@/hooks/useDashboardAnalytics";
 import { useUserMap } from "@/hooks/useUserMap";
 import { formatUsername } from "@/lib/format";
 
@@ -19,7 +19,7 @@ const segmentLabels: Record<string, string> = {
 export function Breadcrumb() {
 	const { pathname } = useLocation();
 	const segments = pathname.split("/").filter(Boolean);
-	const { trackUiControl } = useUiControlTracking();
+	const { trackNavigation } = useAnalyticsTracking();
 
 	const { userMap } = useUserMap();
 
@@ -46,11 +46,11 @@ export function Breadcrumb() {
 						<Link
 							to={crumb.href}
 							onClick={() => {
-								trackUiControl({
-									controlName: "breadcrumb",
-									controlType: "link",
-									interactionType: "navigate",
+								trackNavigation({
+									navType: "breadcrumb",
+									sourceComponent: "breadcrumb",
 									targetPath: crumb.href,
+									targetType: "page",
 								});
 							}}
 							className="hover:text-foreground transition-colors"

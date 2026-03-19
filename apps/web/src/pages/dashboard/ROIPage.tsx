@@ -39,7 +39,7 @@ import {
 import { useDateRange } from "@/contexts/DateRangeContext";
 import { useAnalyticsQuery } from "@/hooks/useAnalyticsQuery";
 import { useChartTheme } from "@/hooks/useChartTheme";
-import { useUiControlTracking } from "@/hooks/useDashboardAnalytics";
+import { useAnalyticsTracking } from "@/hooks/useDashboardAnalytics";
 import {
 	type DashboardSection,
 	useTrackDashboardView,
@@ -53,7 +53,7 @@ export function ROIPage() {
 		useDateRange();
 	const chartTheme = useChartTheme();
 	const days = calculateDays();
-	const { trackUiControl } = useUiControlTracking();
+	const { trackFilterChange } = useAnalyticsTracking();
 
 	const [roiInputs, setRoiInputs] = useState({
 		codePercentage: 10,
@@ -278,10 +278,12 @@ export function ROIPage() {
 	});
 
 	const resetToDefaults = () => {
-		trackUiControl({
-			controlName: "roi_reset_defaults",
-			controlType: "button",
-			interactionType: "reset",
+		trackFilterChange({
+			filterName: "roi_defaults",
+			filterCategory: "calculator",
+			changeAction: "reset",
+			sourceComponent: "roi_page",
+			affectedScope: "page",
 		});
 		setRoiInputs({
 			codePercentage: 10,

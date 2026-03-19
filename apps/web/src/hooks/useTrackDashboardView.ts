@@ -263,7 +263,7 @@ export function useTrackDashboardView(options: {
 			page_name: pageName,
 			has_data: options.hasData,
 			date_range_days: dateRangeDays,
-			insight_count: options.insightCount ?? 0,
+			insight_count: options.insightCount ?? null,
 			...sectionPayload,
 			...metricPayload,
 		});

@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { useChartTheme } from "@/hooks/useChartTheme";
-import { useUiControlTracking } from "@/hooks/useDashboardAnalytics";
+import { useAnalyticsTracking } from "@/hooks/useDashboardAnalytics";
 import { ChartLegend } from "./ChartLegend";
 import { ChartTooltip } from "./ChartTooltip";
 
@@ -56,7 +56,7 @@ export function LearningsTrendChart({
 	userMap,
 }: LearningsTrendChartProps) {
 	const { gridStroke } = useChartTheme();
-	const { trackUiControl } = useUiControlTracking();
+	const { trackFilterChange } = useAnalyticsTracking();
 	const [isCumulative, setIsCumulative] = useState(true);
 	const [hiddenSeries, setHiddenSeries] = useState<Set<string>>(new Set());
 	const toggleSeries = (key: string) =>
@@ -182,11 +182,13 @@ export function LearningsTrendChart({
 					<Select
 						value={splitBy}
 						onValueChange={(v) => {
-							trackUiControl({
-								controlName: "learnings_trend_split",
-								controlType: "select",
-								interactionType: "change",
-								value: v,
+							trackFilterChange({
+								filterName: "learnings_trend_split",
+								filterCategory: "dimension",
+								changeAction: "set",
+								sourceComponent: "learnings_trend_chart",
+								valueKey: v,
+								affectedScope: "chart",
 							});
 							onSplitByChange(v as "user_id" | "repository");
 						}}
@@ -212,11 +214,13 @@ export function LearningsTrendChart({
 						id="cumulative-toggle"
 						checked={isCumulative}
 						onCheckedChange={(checked) => {
-							trackUiControl({
-								controlName: "learnings_cumulative_toggle",
-								controlType: "toggle",
-								interactionType: "change",
-								value: checked,
+							trackFilterChange({
+								filterName: "learnings_cumulative",
+								filterCategory: "toggle",
+								changeAction: checked ? "enable" : "disable",
+								sourceComponent: "learnings_trend_chart",
+								valueKey: checked ? "on" : "off",
+								affectedScope: "chart",
 							});
 							setIsCumulative(checked);
 						}}

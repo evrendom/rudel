@@ -7,8 +7,7 @@ import {
 	TrendingUp,
 } from "lucide-react";
 import { Link } from "react-router-dom";
-import { useDashboardAnalytics } from "../../hooks/useDashboardAnalytics";
-import { captureInsightCardClicked } from "../../lib/product-analytics";
+import { useAnalyticsTracking } from "../../hooks/useDashboardAnalytics";
 import { cn } from "../../lib/utils";
 
 export interface Insight {
@@ -63,8 +62,7 @@ const TYPE_ICON = {
 };
 
 export function InsightCard({ insight, positionIndex }: InsightCardProps) {
-	const { organizationId, userId, dateRangeDays, pageName } =
-		useDashboardAnalytics();
+	const { trackDrilldown } = useAnalyticsTracking();
 	const config = SEVERITY_CONFIG[insight.severity];
 	const TypeIcon = TYPE_ICON[insight.type];
 
@@ -72,24 +70,13 @@ export function InsightCard({ insight, positionIndex }: InsightCardProps) {
 		<Link
 			to={insight.link}
 			onClick={() => {
-				if (
-					!organizationId ||
-					!userId ||
-					pageName !== "overview" ||
-					dateRangeDays == null
-				) {
-					return;
-				}
-				captureInsightCardClicked({
-					organization_id: organizationId,
-					user_id: userId,
-					page_name: pageName,
-					insight_key: insight.insight_key,
-					insight_type: insight.type,
-					insight_severity: insight.severity,
-					destination_path: insight.link,
-					position_index: positionIndex,
-					date_range_days: dateRangeDays,
+				trackDrilldown({
+					drilldownMethod: "insight_card",
+					sourceComponent: "insight_card",
+					targetType: "insight",
+					targetId: insight.insight_key,
+					targetPath: insight.link,
+					rank: positionIndex,
 				});
 			}}
 			className={cn(

@@ -8,7 +8,7 @@ import {
 	PopoverContent,
 	PopoverTrigger,
 } from "@/components/ui/popover";
-import { useUiControlTracking } from "@/hooks/useDashboardAnalytics";
+import { useAnalyticsTracking } from "@/hooks/useDashboardAnalytics";
 
 interface DatePickerProps {
 	startDate: string;
@@ -110,19 +110,10 @@ export function DatePicker({
 	const [open, setOpen] = useState(false);
 	const [tempStartDate, setTempStartDate] = useState(startDate);
 	const [tempEndDate, setTempEndDate] = useState(endDate);
-	const { trackUiControl } = useUiControlTracking();
+	const { trackFilterChange } = useAnalyticsTracking();
 
-	const trackInteraction = (
-		interactionType: "change" | "open",
-		value: string,
-	) => {
-		trackUiControl({
-			controlName: "date_picker",
-			controlType: "input",
-			interactionType,
-			value,
-		});
-	};
+	const toAnalyticsKey = (value: string) =>
+		value.toLowerCase().replace(/[^a-z0-9]+/g, "_");
 
 	useEffect(() => {
 		setTempStartDate(startDate);
@@ -130,9 +121,6 @@ export function DatePicker({
 	}, [startDate, endDate]);
 
 	const handleOpenChange = (nextOpen: boolean) => {
-		if (nextOpen) {
-			trackInteraction("open", `${startDate}:${endDate}`);
-		}
 		setOpen(nextOpen);
 		if (!nextOpen) {
 			setTempStartDate(startDate);
@@ -141,7 +129,14 @@ export function DatePicker({
 	};
 
 	const handleApply = () => {
-		trackInteraction("change", `${tempStartDate}:${tempEndDate}`);
+		trackFilterChange({
+			filterName: "date_range",
+			filterCategory: "date",
+			changeAction: "set",
+			sourceComponent: "date_picker",
+			valueKey: "custom",
+			affectedScope: "page",
+		});
 		onStartDateChange(tempStartDate);
 		onEndDateChange(tempEndDate);
 		setOpen(false);
@@ -149,7 +144,14 @@ export function DatePicker({
 
 	const handlePresetClick = (preset: DatePreset) => {
 		const { start, end } = preset.getValue();
-		trackInteraction("change", preset.label);
+		trackFilterChange({
+			filterName: "date_range",
+			filterCategory: "date",
+			changeAction: "preset",
+			sourceComponent: "date_picker",
+			valueKey: toAnalyticsKey(preset.label),
+			affectedScope: "page",
+		});
 		setTempStartDate(start);
 		setTempEndDate(end);
 		onStartDateChange(start);

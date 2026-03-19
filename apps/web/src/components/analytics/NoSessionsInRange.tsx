@@ -1,17 +1,20 @@
 import { CalendarX } from "lucide-react";
 import { useDateRange } from "@/contexts/DateRangeContext";
-import { useUiControlTracking } from "@/hooks/useDashboardAnalytics";
+import { useAnalyticsTracking } from "@/hooks/useDashboardAnalytics";
 import { AnalyticsCard } from "./AnalyticsCard";
 
 export function NoSessionsInRange() {
 	const { setStartDate, setEndDate } = useDateRange();
-	const { trackUiControl } = useUiControlTracking();
+	const { trackFilterChange } = useAnalyticsTracking();
 
 	const handleViewAllTime = () => {
-		trackUiControl({
-			controlName: "no_sessions_view_all_time",
-			controlType: "button",
-			interactionType: "click",
+		trackFilterChange({
+			filterName: "date_range",
+			filterCategory: "date",
+			changeAction: "expand_range",
+			sourceComponent: "no_sessions_in_range",
+			valueKey: "all_time",
+			affectedScope: "page",
 		});
 		setStartDate("2024-01-01");
 		setEndDate(new Date().toISOString().split("T")[0]);

@@ -1,7 +1,7 @@
 import { Clipboard, Download, Share2, Twitter } from "lucide-react";
 import { type ReactNode, useRef } from "react";
 import { toast } from "sonner";
-import { useUiControlTracking } from "@/hooks/useDashboardAnalytics";
+import { useAnalyticsTracking } from "@/hooks/useDashboardAnalytics";
 import {
 	captureElement,
 	copyToClipboard,
@@ -34,15 +34,8 @@ export function ChartCard({
 	shareable = true,
 }: ChartCardProps) {
 	const chartRef = useRef<HTMLDivElement>(null);
-	const { trackUiControl } = useUiControlTracking();
-
-	const trackChartAction = (interactionType: "copy" | "download" | "share") => {
-		trackUiControl({
-			controlName: title.toLowerCase().replace(/[^a-z0-9]+/g, "_"),
-			controlType: "menu",
-			interactionType,
-		});
-	};
+	const { trackChartExport } = useAnalyticsTracking();
+	const chartId = title.toLowerCase().replace(/[^a-z0-9]+/g, "_");
 
 	const handleCapture = async () => {
 		if (!chartRef.current) return null;
@@ -50,7 +43,12 @@ export function ChartCard({
 	};
 
 	const handleShareToX = async () => {
-		trackChartAction("share");
+		trackChartExport({
+			chartId,
+			exportType: "share_x",
+			sourceComponent: "chart_card",
+			shareDestination: "x",
+		});
 		const blob = await handleCapture();
 		if (!blob) return;
 		const copied = await copyToClipboard(blob);
@@ -65,7 +63,11 @@ export function ChartCard({
 	};
 
 	const handleCopyAsImage = async () => {
-		trackChartAction("copy");
+		trackChartExport({
+			chartId,
+			exportType: "copy_image",
+			sourceComponent: "chart_card",
+		});
 		const blob = await handleCapture();
 		if (!blob) return;
 		const copied = await copyToClipboard(blob);
@@ -77,7 +79,11 @@ export function ChartCard({
 	};
 
 	const handleDownload = async () => {
-		trackChartAction("download");
+		trackChartExport({
+			chartId,
+			exportType: "download_png",
+			sourceComponent: "chart_card",
+		});
 		const blob = await handleCapture();
 		if (!blob) return;
 		const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, "-");

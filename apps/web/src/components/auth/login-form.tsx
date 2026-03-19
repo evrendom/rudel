@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useUiControlTracking } from "../../hooks/useDashboardAnalytics";
+import { useAnalyticsTracking } from "../../hooks/useDashboardAnalytics";
 import { authClient } from "../../lib/auth-client";
 import { Button } from "../ui/button";
 import {
@@ -40,14 +40,16 @@ export function LoginForm({
 	const [password, setPassword] = useState("");
 	const [error, setError] = useState("");
 	const [loading, setLoading] = useState(false);
-	const { trackUiControl } = useUiControlTracking({ pageName: "login" });
+	const { trackAuthenticationAction } = useAnalyticsTracking({
+		pageName: "login",
+	});
 
 	async function handleSubmit(e: React.FormEvent) {
 		e.preventDefault();
-		trackUiControl({
-			controlName: "email_password_submit",
-			controlType: "button",
-			interactionType: "submit",
+		trackAuthenticationAction({
+			actionName: "sign_in",
+			sourceComponent: "login_form",
+			authMethod: "email_password",
 		});
 		setError("");
 		setLoading(true);
@@ -60,10 +62,10 @@ export function LoginForm({
 
 	async function handleSocialSignIn(provider: "google" | "github") {
 		setError("");
-		trackUiControl({
-			controlName: `${provider}_sign_in`,
-			controlType: "button",
-			interactionType: "click",
+		trackAuthenticationAction({
+			actionName: "sign_in",
+			sourceComponent: "login_form",
+			authMethod: provider,
 		});
 		const { error } = await authClient.signIn.social({
 			provider,
@@ -158,10 +160,9 @@ export function LoginForm({
 					<button
 						type="button"
 						onClick={() => {
-							trackUiControl({
-								controlName: "switch_to_signup",
-								controlType: "button",
-								interactionType: "navigate",
+							trackAuthenticationAction({
+								actionName: "open_signup",
+								sourceComponent: "login_form",
 							});
 							onSwitchToSignup();
 						}}
