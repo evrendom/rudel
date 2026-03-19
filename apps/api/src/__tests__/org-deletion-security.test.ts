@@ -6,6 +6,7 @@ describe("organization deletion security", () => {
 		const mockDb = {};
 		const auth = createAuth(mockDb, {
 			appURL: "http://localhost:4010",
+			frontendURL: "http://localhost:4011",
 			secret: "test-secret",
 		});
 

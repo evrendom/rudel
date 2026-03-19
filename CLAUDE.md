@@ -46,6 +46,9 @@ A platform for ingesting, storing, and analyzing Claude Code session transcripts
 | `CLICKHOUSE_DB` | No | ClickHouse database name |
 | `APP_URL` | No | API base URL (default: `http://localhost:4010`) |
 | `ALLOWED_ORIGIN` | No | CORS origin (default: `http://localhost:4011`) |
+| `RESEND_API_KEY` | No | Resend API key for email integration |
+| `RESEND_FROM_EMAIL` | No | Sender address for organization invitation emails |
+| `RESEND_AUDIENCE_ID` | No | Resend audience ID for signup contact sync |
 
 ## Local chkit development
 

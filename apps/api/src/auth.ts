@@ -5,6 +5,8 @@ import * as schema from "@rudel/sql-schema";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { bearer, deviceAuthorization, organization } from "better-auth/plugins";
+import type { ResendConfig } from "./email.js";
+import { sendOrganizationInvitationEmail, syncSignupContact } from "./email.js";
 import { captureApiProductAnalyticsEvent } from "./lib/product-analytics.js";
 import { fetchGitHubHandle, notifySignup } from "./slack.js";
 
@@ -35,16 +37,38 @@ function toTrackedOrganizationRole(
 
 export interface AuthConfig {
 	appURL: string;
+	frontendURL: string;
 	secret?: string;
+	resend?: ResendConfig;
 	socialProviders?: Record<string, { clientId: string; clientSecret: string }>;
 	trustedOrigins?: string[];
 	cliDeviceVerificationUrl?: string;
 	slackWebhookUrl?: string;
 }
 
+function createOrganizationPlugin(config: AuthConfig) {
+	const resend = config.resend ?? {};
+
+	return organization({
+		allowUserToCreateOrganization: true,
+		creatorRole: "owner",
+		disableOrganizationDeletion: true,
+		async sendInvitationEmail(data) {
+			await sendOrganizationInvitationEmail(resend, {
+				frontendURL: config.frontendURL,
+				invitationId: data.id,
+				inviteeEmail: data.email,
+				inviterName: data.inviter.user.name,
+				organizationName: data.organization.name,
+			});
+		},
+	});
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- drizzleAdapter accepts { [key: string]: any }
 export function createAuth(db: object, config: AuthConfig) {
 	const trustedOrigins = config.trustedOrigins ?? [];
+	const resend = config.resend ?? {};
 	if (!trustedOrigins.includes(config.appURL)) {
 		trustedOrigins.push(config.appURL);
 	}
@@ -76,11 +100,7 @@ export function createAuth(db: object, config: AuthConfig) {
 				validateClient: async (clientId) => clientId === "rudel-cli",
 				verificationUri: config.cliDeviceVerificationUrl,
 			}),
-			organization({
-				allowUserToCreateOrganization: true,
-				creatorRole: "owner",
-				disableOrganizationDeletion: true,
-			}),
+			createOrganizationPlugin(config),
 		],
 		session: {
 			expiresIn: 60 * 60 * 24 * 365,
@@ -147,6 +167,11 @@ export function createAuth(db: object, config: AuthConfig) {
 								is_default_organization_ready: isDefaultOrganizationReady,
 								organization_id: organizationId,
 							},
+						});
+
+						await syncSignupContact(resend, {
+							email: user.email,
+							name: user.name,
 						});
 
 						if (!config.slackWebhookUrl || !adapter) {

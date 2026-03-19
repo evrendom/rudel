@@ -7,6 +7,7 @@ import { eq } from "drizzle-orm";
 import type { Session as AuthSession } from "./auth.js";
 import { createAuth } from "./auth.js";
 import { db } from "./db.js";
+import { getResendConfigWarnings } from "./email.js";
 import { shutdownApiProductAnalytics } from "./lib/product-analytics.js";
 import { setupLogging } from "./logging.js";
 import { router } from "./router.js";
@@ -38,10 +39,21 @@ const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN ?? "http://localhost:4011";
 const trustedOrigins = process.env.TRUSTED_ORIGINS
 	? process.env.TRUSTED_ORIGINS.split(",").map((o) => o.trim())
 	: [ALLOWED_ORIGIN];
+const resend = {
+	apiKey: process.env.RESEND_API_KEY,
+	audienceId: process.env.RESEND_AUDIENCE_ID,
+	fromEmail: process.env.RESEND_FROM_EMAIL,
+};
+
+for (const warning of getResendConfigWarnings(resend)) {
+	logger.warn(warning);
+}
 
 const auth = createAuth(db, {
 	appURL,
+	frontendURL: ALLOWED_ORIGIN,
 	secret: process.env.BETTER_AUTH_SECRET,
+	resend,
 	socialProviders,
 	trustedOrigins,
 	cliDeviceVerificationUrl:
