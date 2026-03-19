@@ -19,6 +19,7 @@ import {
 import { useTheme } from "next-themes";
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
+import { useUiControlTracking } from "@/hooks/useDashboardAnalytics";
 import { useOrganization } from "../../contexts/OrganizationContext";
 import { useUserInvitations } from "../../hooks/useUserInvitations";
 import { authClient, signOut } from "../../lib/auth-client";
@@ -64,9 +65,16 @@ function getInitials(name: string) {
 
 function OrgSwitcher({ collapsed }: { collapsed: boolean }) {
 	const { activeOrg, organizations, switchOrg } = useOrganization();
+	const { trackUiControl } = useUiControlTracking();
 
 	const handleSelect = async (orgId: string) => {
 		if (orgId !== activeOrg?.id) {
+			trackUiControl({
+				controlName: "organization_switcher",
+				controlType: "menu",
+				interactionType: "change",
+				value: orgId,
+			});
 			await switchOrg(orgId);
 		}
 	};
@@ -108,13 +116,33 @@ function OrgSwitcher({ collapsed }: { collapsed: boolean }) {
 				))}
 				<DropdownMenuSeparator />
 				<DropdownMenuItem asChild>
-					<Link to="/dashboard/organization">
+					<Link
+						to="/dashboard/organization"
+						onClick={() => {
+							trackUiControl({
+								controlName: "organization_manage",
+								controlType: "link",
+								interactionType: "navigate",
+								targetPath: "/dashboard/organization",
+							});
+						}}
+					>
 						<Settings className="h-3.5 w-3.5 shrink-0" />
 						<span>Manage organization</span>
 					</Link>
 				</DropdownMenuItem>
 				<DropdownMenuItem asChild>
-					<Link to="/dashboard/organization/new">
+					<Link
+						to="/dashboard/organization/new"
+						onClick={() => {
+							trackUiControl({
+								controlName: "organization_create",
+								controlType: "link",
+								interactionType: "navigate",
+								targetPath: "/dashboard/organization/new",
+							});
+						}}
+					>
 						<Plus className="h-3.5 w-3.5 shrink-0" />
 						<span>Create organization</span>
 					</Link>
@@ -130,9 +158,26 @@ export function Sidebar() {
 	const [collapsed, setCollapsed] = useState(false);
 	const { resolvedTheme } = useTheme();
 	const { count: invitationCount } = useUserInvitations();
+	const { trackUiControl } = useUiControlTracking();
 
 	const logoSrc =
 		resolvedTheme === "dark" ? "/logo-light.svg" : "/logo-dark.svg";
+
+	const trackInteraction = (options: {
+		controlName: string;
+		controlType: "button" | "link" | "menu";
+		interactionType: "click" | "navigate" | "change";
+		targetPath?: string;
+		value?: string;
+	}) => {
+		trackUiControl({
+			controlName: options.controlName,
+			controlType: options.controlType,
+			interactionType: options.interactionType,
+			targetPath: options.targetPath,
+			value: options.value,
+		});
+	};
 
 	return (
 		<TooltipProvider>
@@ -145,6 +190,14 @@ export function Sidebar() {
 				<div className="flex items-center border-b border-border">
 					<Link
 						to="/dashboard"
+						onClick={() =>
+							trackInteraction({
+								controlName: "sidebar_logo",
+								controlType: "link",
+								interactionType: "navigate",
+								targetPath: "/dashboard",
+							})
+						}
 						className={cn(
 							"flex items-center shrink-0 px-4 h-10",
 							collapsed && "px-3",
@@ -157,7 +210,15 @@ export function Sidebar() {
 					</div>
 					<button
 						type="button"
-						onClick={() => setCollapsed(!collapsed)}
+						onClick={() => {
+							trackInteraction({
+								controlName: "sidebar_collapse",
+								controlType: "button",
+								interactionType: "click",
+								value: collapsed ? "expand" : "collapse",
+							});
+							setCollapsed(!collapsed);
+						}}
 						className="p-1 mr-1 rounded-md text-muted hover:text-foreground hover:bg-hover transition-colors shrink-0"
 						title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
 					>
@@ -177,6 +238,16 @@ export function Sidebar() {
 						const link = (
 							<Link
 								to={item.href}
+								onClick={() =>
+									trackInteraction({
+										controlName: `sidebar_${item.name
+											.toLowerCase()
+											.replace(/[^a-z0-9]+/g, "_")}`,
+										controlType: "link",
+										interactionType: "navigate",
+										targetPath: item.href,
+									})
+								}
 								className={cn(
 									"flex items-center gap-2 rounded-lg px-2 py-2 text-[0.8125rem] font-medium transition-colors duration-150",
 									collapsed && "justify-center",
@@ -213,6 +284,14 @@ export function Sidebar() {
 							const link = (
 								<Link
 									to="/dashboard/invitations"
+									onClick={() =>
+										trackInteraction({
+											controlName: "sidebar_invitations",
+											controlType: "link",
+											interactionType: "navigate",
+											targetPath: "/dashboard/invitations",
+										})
+									}
 									className={cn(
 										"relative flex items-center gap-2 rounded-lg px-2 py-2 text-[0.8125rem] font-medium transition-colors duration-150",
 										collapsed && "justify-center",
@@ -288,6 +367,14 @@ export function Sidebar() {
 									<TooltipTrigger asChild>
 										<Link
 											to="/dashboard/profile"
+											onClick={() =>
+												trackInteraction({
+													controlName: "sidebar_profile_avatar",
+													controlType: "link",
+													interactionType: "navigate",
+													targetPath: "/dashboard/profile",
+												})
+											}
 											className="flex items-center gap-2 min-w-0"
 										>
 											<Avatar size="sm" className="shrink-0">
@@ -311,6 +398,14 @@ export function Sidebar() {
 								<>
 									<Link
 										to="/dashboard/profile"
+										onClick={() =>
+											trackInteraction({
+												controlName: "sidebar_profile",
+												controlType: "link",
+												interactionType: "navigate",
+												targetPath: "/dashboard/profile",
+											})
+										}
 										className="flex-1 flex items-center gap-2 min-w-0"
 									>
 										<Avatar size="sm" className="shrink-0">
@@ -331,7 +426,14 @@ export function Sidebar() {
 									<ThemeToggle />
 									<button
 										type="button"
-										onClick={() => signOut()}
+										onClick={() => {
+											trackInteraction({
+												controlName: "sidebar_sign_out",
+												controlType: "button",
+												interactionType: "click",
+											});
+											signOut();
+										}}
 										className="p-1 rounded-md text-muted hover:text-foreground hover:bg-hover transition-colors shrink-0"
 										title="Sign out"
 									>

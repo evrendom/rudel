@@ -125,11 +125,15 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
 }
 
 export function useOrganization() {
-	const context = useContext(OrganizationContext);
+	const context = useOptionalOrganization();
 	if (context === undefined) {
 		throw new Error(
 			"useOrganization must be used within an OrganizationProvider",
 		);
 	}
 	return context;
+}
+
+export function useOptionalOrganization() {
+	return useContext(OrganizationContext);
 }

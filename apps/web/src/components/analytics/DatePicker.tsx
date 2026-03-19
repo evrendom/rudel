@@ -8,6 +8,7 @@ import {
 	PopoverContent,
 	PopoverTrigger,
 } from "@/components/ui/popover";
+import { useUiControlTracking } from "@/hooks/useDashboardAnalytics";
 
 interface DatePickerProps {
 	startDate: string;
@@ -109,6 +110,19 @@ export function DatePicker({
 	const [open, setOpen] = useState(false);
 	const [tempStartDate, setTempStartDate] = useState(startDate);
 	const [tempEndDate, setTempEndDate] = useState(endDate);
+	const { trackUiControl } = useUiControlTracking();
+
+	const trackInteraction = (
+		interactionType: "change" | "open",
+		value: string,
+	) => {
+		trackUiControl({
+			controlName: "date_picker",
+			controlType: "input",
+			interactionType,
+			value,
+		});
+	};
 
 	useEffect(() => {
 		setTempStartDate(startDate);
@@ -116,6 +130,9 @@ export function DatePicker({
 	}, [startDate, endDate]);
 
 	const handleOpenChange = (nextOpen: boolean) => {
+		if (nextOpen) {
+			trackInteraction("open", `${startDate}:${endDate}`);
+		}
 		setOpen(nextOpen);
 		if (!nextOpen) {
 			setTempStartDate(startDate);
@@ -124,6 +141,7 @@ export function DatePicker({
 	};
 
 	const handleApply = () => {
+		trackInteraction("change", `${tempStartDate}:${tempEndDate}`);
 		onStartDateChange(tempStartDate);
 		onEndDateChange(tempEndDate);
 		setOpen(false);
@@ -131,6 +149,7 @@ export function DatePicker({
 
 	const handlePresetClick = (preset: DatePreset) => {
 		const { start, end } = preset.getValue();
+		trackInteraction("change", preset.label);
 		setTempStartDate(start);
 		setTempEndDate(end);
 		onStartDateChange(start);

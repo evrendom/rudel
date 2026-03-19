@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useUiControlTracking } from "../../hooks/useDashboardAnalytics";
 import { authClient } from "../../lib/auth-client";
 import {
 	captureSignUpFailed,
@@ -71,9 +72,15 @@ export function SignupForm({
 	const [password, setPassword] = useState("");
 	const [error, setError] = useState("");
 	const [loading, setLoading] = useState(false);
+	const { trackUiControl } = useUiControlTracking({ pageName: "signup" });
 
 	async function handleSubmit(e: React.FormEvent) {
 		e.preventDefault();
+		trackUiControl({
+			controlName: "email_password_submit",
+			controlType: "button",
+			interactionType: "submit",
+		});
 		setError("");
 		setLoading(true);
 		const signupContext = getSignupContext();
@@ -97,6 +104,11 @@ export function SignupForm({
 
 	async function handleSocialSignIn(provider: "google" | "github") {
 		setError("");
+		trackUiControl({
+			controlName: `${provider}_sign_up`,
+			controlType: "button",
+			interactionType: "click",
+		});
 		const signupContext = getSignupContext();
 		const { error } = await authClient.signIn.social({
 			provider,
@@ -209,7 +221,14 @@ export function SignupForm({
 					Already have an account?{" "}
 					<button
 						type="button"
-						onClick={onSwitchToLogin}
+						onClick={() => {
+							trackUiControl({
+								controlName: "switch_to_login",
+								controlType: "button",
+								interactionType: "navigate",
+							});
+							onSwitchToLogin();
+						}}
 						className="underline underline-offset-4 hover:text-primary"
 					>
 						Sign in

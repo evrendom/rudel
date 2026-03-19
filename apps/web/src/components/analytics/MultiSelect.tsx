@@ -6,6 +6,7 @@ import {
 	PopoverContent,
 	PopoverTrigger,
 } from "@/components/ui/popover";
+import { useUiControlTracking } from "@/hooks/useDashboardAnalytics";
 import { cn } from "@/lib/utils";
 
 interface MultiSelectProps {
@@ -24,8 +25,22 @@ export function MultiSelect({
 	className = "",
 }: MultiSelectProps) {
 	const [open, setOpen] = useState(false);
+	const { trackUiControl } = useUiControlTracking();
+
+	const trackInteraction = (
+		interactionType: "change" | "open",
+		value: string,
+	) => {
+		trackUiControl({
+			controlName: placeholder.toLowerCase().replace(/[^a-z0-9]+/g, "_"),
+			controlType: "select",
+			interactionType,
+			value,
+		});
+	};
 
 	const toggleOption = (option: string) => {
+		trackInteraction("change", option);
 		if (selected.includes(option)) {
 			onChange(selected.filter((item) => item !== option));
 		} else {
@@ -35,6 +50,7 @@ export function MultiSelect({
 
 	const clearAll = (e: React.MouseEvent) => {
 		e.stopPropagation();
+		trackInteraction("change", "clear_all");
 		onChange([]);
 	};
 
@@ -46,7 +62,15 @@ export function MultiSelect({
 				: `${selected.length} selected`;
 
 	return (
-		<Popover open={open} onOpenChange={setOpen}>
+		<Popover
+			open={open}
+			onOpenChange={(nextOpen) => {
+				if (nextOpen) {
+					trackInteraction("open", "open");
+				}
+				setOpen(nextOpen);
+			}}
+		>
 			<PopoverTrigger asChild>
 				<button
 					type="button"

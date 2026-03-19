@@ -8,6 +8,7 @@ import { StatCard } from "@/components/analytics/StatCard";
 import { ErrorTrendChart } from "@/components/charts/ErrorTrendChart";
 import { useDateRange } from "@/contexts/DateRangeContext";
 import { useAnalyticsQuery } from "@/hooks/useAnalyticsQuery";
+import { useTrackDashboardView } from "@/hooks/useTrackDashboardView";
 import { useUserMap } from "@/hooks/useUserMap";
 import { orpc } from "@/lib/orpc";
 
@@ -47,6 +48,11 @@ export function ErrorsPage() {
 			input: { startDate, endDate, splitBy: trendSplitBy },
 		}),
 	);
+
+	useTrackDashboardView({
+		isLoading,
+		hasData: (errors?.length ?? 0) > 0,
+	});
 
 	const { userMap } = useUserMap();
 

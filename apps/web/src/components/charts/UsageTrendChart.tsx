@@ -11,6 +11,7 @@ import {
 	YAxis,
 } from "recharts";
 import { useChartTheme } from "@/hooks/useChartTheme";
+import { useUiControlTracking } from "@/hooks/useDashboardAnalytics";
 import { ChartLegend } from "./ChartLegend";
 import { ChartTooltip } from "./ChartTooltip";
 
@@ -61,6 +62,7 @@ export function UsageTrendChart({
 	showRollingAverage: _showRollingAverage = false,
 }: UsageTrendChartProps) {
 	const { gridStroke } = useChartTheme();
+	const { trackUiControl } = useUiControlTracking();
 	const [selectedPair, setSelectedPair] =
 		useState<MetricPair>("sessions-tokens");
 	const [hiddenSeries, setHiddenSeries] = useState<Set<string>>(new Set());
@@ -97,7 +99,15 @@ export function UsageTrendChart({
 						<button
 							type="button"
 							key={key}
-							onClick={() => setSelectedPair(key as MetricPair)}
+							onClick={() => {
+								trackUiControl({
+									controlName: "usage_trend_metric_pair",
+									controlType: "button",
+									interactionType: "change",
+									value: key,
+								});
+								setSelectedPair(key as MetricPair);
+							}}
 							className={`
 								flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium
 								transition-all duration-200

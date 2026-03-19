@@ -25,6 +25,7 @@ import {
 	TableHeader,
 	TableRow,
 } from "@/components/ui/table";
+import { useUiControlTracking } from "@/hooks/useDashboardAnalytics";
 
 interface DataTableProps<TData, TValue> {
 	columns: ColumnDef<TData, TValue>[];
@@ -34,6 +35,8 @@ interface DataTableProps<TData, TValue> {
 	pageSizeOptions?: number[];
 	onRowClick?: (row: TData) => void;
 	isRowClickable?: (row: TData) => boolean;
+	analyticsId?: string;
+	getRowAnalyticsValue?: (row: TData) => string;
 }
 
 function DataTable<TData, TValue>({
@@ -44,8 +47,24 @@ function DataTable<TData, TValue>({
 	pageSizeOptions = [10, 20, 50],
 	onRowClick,
 	isRowClickable,
+	analyticsId = "data_table",
+	getRowAnalyticsValue,
 }: DataTableProps<TData, TValue>) {
 	const [sorting, setSorting] = useState<SortingState>(defaultSorting);
+	const { trackUiControl } = useUiControlTracking();
+
+	const trackInteraction = (options: {
+		controlName: string;
+		interactionType: "change" | "click" | "navigate";
+		value?: string;
+	}) => {
+		trackUiControl({
+			controlName: `${analyticsId}_${options.controlName}`,
+			controlType: "table",
+			interactionType: options.interactionType,
+			value: options.value,
+		});
+	};
 
 	const table = useReactTable({
 		data,
@@ -75,7 +94,14 @@ function DataTable<TData, TValue>({
 										<button
 											type="button"
 											className="inline-flex items-center gap-1 cursor-pointer select-none hover:text-foreground transition-colors"
-											onClick={header.column.getToggleSortingHandler()}
+											onClick={(event) => {
+												trackInteraction({
+													controlName: "sort",
+													interactionType: "change",
+													value: header.column.id,
+												});
+												header.column.getToggleSortingHandler()?.(event);
+											}}
 										>
 											{flexRender(
 												header.column.columnDef.header,
@@ -109,7 +135,18 @@ function DataTable<TData, TValue>({
 								<TableRow
 									key={row.id}
 									onClick={
-										clickable ? () => onRowClick(row.original) : undefined
+										clickable
+											? () => {
+													trackInteraction({
+														controlName: "row",
+														interactionType: "navigate",
+														value: getRowAnalyticsValue
+															? getRowAnalyticsValue(row.original)
+															: row.id,
+													});
+													onRowClick(row.original);
+												}
+											: undefined
 									}
 									className={clickable ? "hover:bg-hover cursor-pointer" : ""}
 								>
@@ -142,7 +179,14 @@ function DataTable<TData, TValue>({
 					<span>Rows per page</span>
 					<Select
 						value={String(table.getState().pagination.pageSize)}
-						onValueChange={(value) => table.setPageSize(Number(value))}
+						onValueChange={(value) => {
+							trackInteraction({
+								controlName: "page_size",
+								interactionType: "change",
+								value,
+							});
+							table.setPageSize(Number(value));
+						}}
 					>
 						<SelectTrigger size="sm" className="w-[70px]">
 							<SelectValue />
@@ -166,7 +210,13 @@ function DataTable<TData, TValue>({
 						<Button
 							variant="outline"
 							size="icon-sm"
-							onClick={() => table.previousPage()}
+							onClick={() => {
+								trackInteraction({
+									controlName: "previous_page",
+									interactionType: "click",
+								});
+								table.previousPage();
+							}}
 							disabled={!table.getCanPreviousPage()}
 						>
 							<span className="sr-only">Previous page</span>
@@ -175,7 +225,13 @@ function DataTable<TData, TValue>({
 						<Button
 							variant="outline"
 							size="icon-sm"
-							onClick={() => table.nextPage()}
+							onClick={() => {
+								trackInteraction({
+									controlName: "next_page",
+									interactionType: "click",
+								});
+								table.nextPage();
+							}}
 							disabled={!table.getCanNextPage()}
 						>
 							<span className="sr-only">Next page</span>

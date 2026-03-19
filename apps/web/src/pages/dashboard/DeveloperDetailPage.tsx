@@ -33,6 +33,8 @@ import { useDateRange } from "@/contexts/DateRangeContext";
 import { useAnalyticsQuery } from "@/hooks/useAnalyticsQuery";
 import { useCanViewSession } from "@/hooks/useCanViewSession";
 import { useChartTheme } from "@/hooks/useChartTheme";
+import { useUiControlTracking } from "@/hooks/useDashboardAnalytics";
+import { useTrackDashboardView } from "@/hooks/useTrackDashboardView";
 import { useUserMap } from "@/hooks/useUserMap";
 import {
 	calculateRollingAverage,
@@ -70,6 +72,7 @@ export function DeveloperDetailPage() {
 		useDateRange();
 	const chartTheme = useChartTheme();
 	const days = calculateDays();
+	const { trackUiControl } = useUiControlTracking();
 
 	const [projectFilter, setProjectFilter] = useState<string>("");
 	const [outcomeFilter, setOutcomeFilter] = useState<"all" | "success">("all");
@@ -117,6 +120,11 @@ export function DeveloperDetailPage() {
 			input: { userId: userId as string, days },
 		}),
 	);
+
+	useTrackDashboardView({
+		isLoading: detailsLoading,
+		hasData: Boolean(details),
+	});
 
 	const { userMap } = useUserMap();
 
@@ -562,6 +570,7 @@ export function DeveloperDetailPage() {
 					<DataTable
 						columns={errorColumns}
 						data={errors}
+						analyticsId="developer_detail_errors"
 						defaultSorting={[{ id: "occurrences", desc: true }]}
 						defaultPageSize={50}
 					/>
@@ -575,7 +584,15 @@ export function DeveloperDetailPage() {
 					<div className="flex gap-3">
 						<Select
 							value={projectFilter || "all"}
-							onValueChange={(v) => setProjectFilter(v === "all" ? "" : v)}
+							onValueChange={(v) => {
+								trackUiControl({
+									controlName: "developer_detail_project_filter",
+									controlType: "select",
+									interactionType: "change",
+									value: v,
+								});
+								setProjectFilter(v === "all" ? "" : v);
+							}}
 						>
 							<SelectTrigger className="w-auto">
 								<SelectValue />
@@ -591,7 +608,15 @@ export function DeveloperDetailPage() {
 						</Select>
 						<Select
 							value={outcomeFilter}
-							onValueChange={(v) => setOutcomeFilter(v as "all" | "success")}
+							onValueChange={(v) => {
+								trackUiControl({
+									controlName: "developer_detail_outcome_filter",
+									controlType: "select",
+									interactionType: "change",
+									value: v,
+								});
+								setOutcomeFilter(v as "all" | "success");
+							}}
 						>
 							<SelectTrigger className="w-auto">
 								<SelectValue />
@@ -607,7 +632,9 @@ export function DeveloperDetailPage() {
 				<DataTable
 					columns={sessionColumns}
 					data={sessions ?? []}
+					analyticsId="developer_detail_sessions"
 					defaultSorting={[{ id: "date", desc: true }]}
+					getRowAnalyticsValue={(row) => row.session_id}
 					onRowClick={
 						userId && canViewSession(userId)
 							? (row) => navigate(`/dashboard/sessions/${row.session_id}`)

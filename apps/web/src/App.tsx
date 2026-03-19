@@ -4,6 +4,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { LoginForm } from "./components/auth/login-form";
 import { SignupForm } from "./components/auth/signup-form";
 import { Button } from "./components/ui/button";
+import { useUiControlTracking } from "./hooks/useDashboardAnalytics";
 import { DashboardLayout } from "./layouts/DashboardLayout";
 import { authClient } from "./lib/auth-client";
 import {
@@ -43,6 +44,7 @@ function getValidRedirect(): string | null {
 
 function App() {
 	const { data: session, isPending } = authClient.useSession();
+	const { trackUiControl } = useUiControlTracking({ pageName: "device_login" });
 	const [page, setPage] = useState<Page>("login");
 	const [deviceProcessing, setDeviceProcessing] = useState(false);
 	const [deviceApproved, setDeviceApproved] = useState(false);
@@ -86,6 +88,19 @@ function App() {
 
 	async function submitDeviceDecision(action: "approve" | "deny") {
 		if (!deviceUserCode || deviceProcessing) return;
+		const userId =
+			session?.user &&
+			"id" in session.user &&
+			typeof session.user.id === "string"
+				? session.user.id
+				: undefined;
+		trackUiControl({
+			controlName: `device_login_${action}`,
+			controlType: "button",
+			interactionType: "click",
+			userId,
+			value: deviceUserCode,
+		});
 		setDeviceProcessing(true);
 		setDeviceError(null);
 		try {

@@ -20,6 +20,7 @@ import { DataTable } from "@/components/ui/data-table";
 import { InfoTooltip } from "@/components/ui/InfoTooltip";
 import { useDateRange } from "@/contexts/DateRangeContext";
 import { useAnalyticsQuery } from "@/hooks/useAnalyticsQuery";
+import { useTrackDashboardView } from "@/hooks/useTrackDashboardView";
 import { encodeProjectPath } from "@/lib/format";
 import { orpc } from "@/lib/orpc";
 
@@ -129,6 +130,11 @@ export function ProjectsListPage() {
 	const { data: trendData } = useAnalyticsQuery(
 		orpc.analytics.projects.trends.queryOptions({ input: { days } }),
 	);
+
+	useTrackDashboardView({
+		isLoading,
+		hasData: (projects?.length ?? 0) > 0,
+	});
 
 	const sortedProjects = useMemo(() => projects ?? [], [projects]);
 
@@ -244,7 +250,9 @@ export function ProjectsListPage() {
 				<DataTable
 					columns={columns}
 					data={sortedProjects}
+					analyticsId="projects_list"
 					defaultSorting={[{ id: "sessions", desc: true }]}
+					getRowAnalyticsValue={(row) => row.project_path}
 					onRowClick={handleRowClick}
 				/>
 			</AnalyticsCard>

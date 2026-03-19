@@ -11,6 +11,8 @@ import { LearningsEmptyState } from "@/components/learnings/LearningsEmptyState"
 import { LearningsTimeline } from "@/components/learnings/LearningsTimeline";
 import { useDateRange } from "@/contexts/DateRangeContext";
 import { useAnalyticsQuery } from "@/hooks/useAnalyticsQuery";
+import { useUiControlTracking } from "@/hooks/useDashboardAnalytics";
+import { useTrackDashboardView } from "@/hooks/useTrackDashboardView";
 import { useUserMap } from "@/hooks/useUserMap";
 import { orpc } from "@/lib/orpc";
 
@@ -18,6 +20,7 @@ export function LearningsPage() {
 	const { startDate, endDate, setStartDate, setEndDate, calculateDays } =
 		useDateRange();
 	const days = calculateDays();
+	const { trackUiControl } = useUiControlTracking();
 
 	const [splitBy, setSplitBy] = useState<"user_id" | "repository">("user_id");
 	const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
@@ -105,6 +108,11 @@ export function LearningsPage() {
 
 	const hasData = !isLoading && stats != null && stats.total_learnings > 0;
 
+	useTrackDashboardView({
+		isLoading,
+		hasData,
+	});
+
 	return (
 		<div className="px-8 py-6">
 			<PageHeader
@@ -175,6 +183,11 @@ export function LearningsPage() {
 							<button
 								type="button"
 								onClick={() => {
+									trackUiControl({
+										controlName: "learnings_clear_filters",
+										controlType: "button",
+										interactionType: "click",
+									});
 									setSelectedUsers([]);
 									setSelectedProjects([]);
 								}}

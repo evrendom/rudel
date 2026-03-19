@@ -18,13 +18,12 @@ import { ModelTokensChart } from "@/components/charts/ModelTokensChart";
 import { UsageTrendChart } from "@/components/charts/UsageTrendChart";
 import { Spinner } from "@/components/ui/spinner";
 import { useDateRange } from "@/contexts/DateRangeContext";
-import { useOrganization } from "@/contexts/OrganizationContext";
 import { useAnalyticsQuery } from "@/hooks/useAnalyticsQuery";
-import { authClient } from "@/lib/auth-client";
+import { useDashboardAnalytics } from "@/hooks/useDashboardAnalytics";
+import { useTrackDashboardView } from "@/hooks/useTrackDashboardView";
 import { orpc } from "@/lib/orpc";
 import {
 	captureDashboardLoadFailed,
-	captureDashboardViewed,
 	getHttpStatusFromError,
 	normalizeWebErrorCode,
 } from "@/lib/product-analytics";
@@ -42,18 +41,10 @@ function deriveInsightKey(insight: {
 }
 
 export function OverviewPage() {
-	const { startDate, endDate, setStartDate, setEndDate, calculateDays } =
-		useDateRange();
-	const { activeOrg } = useOrganization();
-	const { data: session } = authClient.useSession();
-	const viewedRangeKeyRef = useRef<string | null>(null);
+	const { startDate, endDate, setStartDate, setEndDate } = useDateRange();
 	const failedRangeKeyRef = useRef<string | null>(null);
-	const userId =
-		session?.user && "id" in session.user && typeof session.user.id === "string"
-			? session.user.id
-			: null;
-	const organizationId = activeOrg?.id ?? null;
-	const dateRangeDays = calculateDays();
+	const { organizationId, userId, pageName, dateRangeDays } =
+		useDashboardAnalytics();
 
 	const {
 		data: kpis,
@@ -92,13 +83,25 @@ export function OverviewPage() {
 	const hasAnySessions = kpis && kpis.total_sessions > 0;
 	const showDatePicker = hasData || (!kpisLoading && hasAnySessions);
 
+	useTrackDashboardView({
+		isLoading: kpisLoading || insightsLoading,
+		isError: kpisError,
+		hasData: Boolean(hasData),
+		insightCount: insightsError ? 0 : (insights?.length ?? 0),
+	});
+
 	useEffect(() => {
-		if (!organizationId || !userId) {
+		if (
+			!organizationId ||
+			!userId ||
+			pageName !== "overview" ||
+			dateRangeDays == null
+		) {
 			return;
 		}
 
 		if (!kpisLoading && kpisError) {
-			const failedRangeKey = `${organizationId}:overview:${startDate}:${endDate}`;
+			const failedRangeKey = `${organizationId}:${pageName}:${startDate}:${endDate}`;
 			if (failedRangeKeyRef.current === failedRangeKey) {
 				return;
 			}
@@ -107,7 +110,7 @@ export function OverviewPage() {
 			captureDashboardLoadFailed({
 				organization_id: organizationId,
 				user_id: userId,
-				page_name: "overview",
+				page_name: pageName,
 				query_name: "overview_kpis",
 				error_code: normalizeWebErrorCode(kpisQueryError),
 				date_range_days: dateRangeDays,
@@ -122,43 +125,7 @@ export function OverviewPage() {
 		kpisLoading,
 		kpisQueryError,
 		organizationId,
-		startDate,
-		userId,
-	]);
-
-	useEffect(() => {
-		if (!organizationId || !userId || !kpis || kpisLoading || kpisError) {
-			return;
-		}
-
-		if (insightsLoading) {
-			return;
-		}
-
-		const viewedRangeKey = `${organizationId}:overview:${startDate}:${endDate}`;
-		if (viewedRangeKeyRef.current === viewedRangeKey) {
-			return;
-		}
-
-		viewedRangeKeyRef.current = viewedRangeKey;
-		captureDashboardViewed({
-			organization_id: organizationId,
-			user_id: userId,
-			page_name: "overview",
-			has_data: kpis.distinct_sessions > 0,
-			date_range_days: dateRangeDays,
-			insight_count: insightsError ? 0 : (insights?.length ?? 0),
-		});
-	}, [
-		dateRangeDays,
-		endDate,
-		insights,
-		insightsError,
-		insightsLoading,
-		kpis,
-		kpisError,
-		kpisLoading,
-		organizationId,
+		pageName,
 		startDate,
 		userId,
 	]);
@@ -277,12 +244,7 @@ export function OverviewPage() {
 											message: insight.message,
 											link: insight.link || "/dashboard",
 										}}
-										tracking={{
-											organizationId,
-											userId,
-											positionIndex: index,
-											dateRangeDays,
-										}}
+										positionIndex={index}
 									/>
 								))}
 							</div>

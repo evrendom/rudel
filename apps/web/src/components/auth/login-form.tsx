@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useUiControlTracking } from "../../hooks/useDashboardAnalytics";
 import { authClient } from "../../lib/auth-client";
 import { Button } from "../ui/button";
 import {
@@ -39,9 +40,15 @@ export function LoginForm({
 	const [password, setPassword] = useState("");
 	const [error, setError] = useState("");
 	const [loading, setLoading] = useState(false);
+	const { trackUiControl } = useUiControlTracking({ pageName: "login" });
 
 	async function handleSubmit(e: React.FormEvent) {
 		e.preventDefault();
+		trackUiControl({
+			controlName: "email_password_submit",
+			controlType: "button",
+			interactionType: "submit",
+		});
 		setError("");
 		setLoading(true);
 		const { error } = await authClient.signIn.email({ email, password });
@@ -53,6 +60,11 @@ export function LoginForm({
 
 	async function handleSocialSignIn(provider: "google" | "github") {
 		setError("");
+		trackUiControl({
+			controlName: `${provider}_sign_in`,
+			controlType: "button",
+			interactionType: "click",
+		});
 		const { error } = await authClient.signIn.social({
 			provider,
 			callbackURL: getCallbackURL(),
@@ -145,7 +157,14 @@ export function LoginForm({
 					Don&apos;t have an account?{" "}
 					<button
 						type="button"
-						onClick={onSwitchToSignup}
+						onClick={() => {
+							trackUiControl({
+								controlName: "switch_to_signup",
+								controlType: "button",
+								interactionType: "navigate",
+							});
+							onSwitchToSignup();
+						}}
 						className="underline underline-offset-4 hover:text-primary"
 					>
 						Sign up

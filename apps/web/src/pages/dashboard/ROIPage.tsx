@@ -39,6 +39,8 @@ import {
 import { useDateRange } from "@/contexts/DateRangeContext";
 import { useAnalyticsQuery } from "@/hooks/useAnalyticsQuery";
 import { useChartTheme } from "@/hooks/useChartTheme";
+import { useUiControlTracking } from "@/hooks/useDashboardAnalytics";
+import { useTrackDashboardView } from "@/hooks/useTrackDashboardView";
 import { useUserMap } from "@/hooks/useUserMap";
 import { formatUsername } from "@/lib/format";
 import { orpc } from "@/lib/orpc";
@@ -48,6 +50,7 @@ export function ROIPage() {
 		useDateRange();
 	const chartTheme = useChartTheme();
 	const days = calculateDays();
+	const { trackUiControl } = useUiControlTracking();
 
 	const [roiInputs, setRoiInputs] = useState({
 		codePercentage: 10,
@@ -71,6 +74,11 @@ export function ROIPage() {
 	const { data: projectCosts } = useAnalyticsQuery(
 		orpc.analytics.roi.breakdownProjects.queryOptions({ input: { days } }),
 	);
+
+	useTrackDashboardView({
+		isLoading,
+		hasData: Boolean(metrics),
+	});
 
 	const { userMap } = useUserMap();
 
@@ -175,6 +183,11 @@ export function ROIPage() {
 	}, [metrics, roiInputs]);
 
 	const resetToDefaults = () => {
+		trackUiControl({
+			controlName: "roi_reset_defaults",
+			controlType: "button",
+			interactionType: "reset",
+		});
 		setRoiInputs({
 			codePercentage: 10,
 			tokensPerLOC: 15,
@@ -581,6 +594,7 @@ export function ROIPage() {
 							<DataTable
 								columns={devCostColumns}
 								data={developerCosts ?? []}
+								analyticsId="roi_developer_costs"
 								defaultSorting={[{ id: "cost", desc: true }]}
 								defaultPageSize={10}
 							/>
@@ -593,6 +607,7 @@ export function ROIPage() {
 							<DataTable
 								columns={projectCostColumns}
 								data={projectCosts ?? []}
+								analyticsId="roi_project_costs"
 								defaultSorting={[{ id: "cost", desc: true }]}
 								defaultPageSize={10}
 							/>

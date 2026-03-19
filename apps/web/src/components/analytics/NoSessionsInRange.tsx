@@ -1,11 +1,18 @@
 import { CalendarX } from "lucide-react";
 import { useDateRange } from "@/contexts/DateRangeContext";
+import { useUiControlTracking } from "@/hooks/useDashboardAnalytics";
 import { AnalyticsCard } from "./AnalyticsCard";
 
 export function NoSessionsInRange() {
 	const { setStartDate, setEndDate } = useDateRange();
+	const { trackUiControl } = useUiControlTracking();
 
 	const handleViewAllTime = () => {
+		trackUiControl({
+			controlName: "no_sessions_view_all_time",
+			controlType: "button",
+			interactionType: "click",
+		});
 		setStartDate("2024-01-01");
 		setEndDate(new Date().toISOString().split("T")[0]);
 	};

@@ -1,5 +1,6 @@
 import type { LucideIcon } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useUiControlTracking } from "@/hooks/useDashboardAnalytics";
 import { cn } from "../../lib/utils";
 import { AnalyticsCard } from "./AnalyticsCard";
 
@@ -26,6 +27,8 @@ export function StatCard({
 	href,
 	linkLabel,
 }: StatCardProps) {
+	const { trackUiControl } = useUiControlTracking();
+
 	return (
 		<AnalyticsCard className="!p-4">
 			<div className="flex items-start justify-between">
@@ -57,6 +60,14 @@ export function StatCard({
 					{href && (
 						<Link
 							to={href}
+							onClick={() => {
+								trackUiControl({
+									controlName: title.toLowerCase().replace(/[^a-z0-9]+/g, "_"),
+									controlType: "link",
+									interactionType: "navigate",
+									targetPath: href,
+								});
+							}}
 							className="text-[11px] text-muted hover:text-heading transition-colors whitespace-nowrap"
 						>
 							{linkLabel || "Details"} &rarr;

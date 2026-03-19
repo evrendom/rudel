@@ -14,6 +14,7 @@ import { Link } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { useCanViewSession } from "@/hooks/useCanViewSession";
+import { useUiControlTracking } from "@/hooks/useDashboardAnalytics";
 import { formatUsername } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -60,6 +61,7 @@ export function TimelineItem({ learning, userMap }: TimelineItemProps) {
 	const [isExpanded, setIsExpanded] = useState(false);
 	const canViewSession = useCanViewSession();
 	const canView = canViewSession(learning.user_id);
+	const { trackUiControl } = useUiControlTracking();
 
 	const formattedDate = format(new Date(learning.created_at), "MMM dd, yyyy");
 	const formattedTime = format(new Date(learning.created_at), "h:mm a");
@@ -152,6 +154,14 @@ export function TimelineItem({ learning, userMap }: TimelineItemProps) {
 						{canView ? (
 							<Link
 								to={sessionLink}
+								onClick={() => {
+									trackUiControl({
+										controlName: "learning_view_session",
+										controlType: "link",
+										interactionType: "navigate",
+										targetPath: sessionLink,
+									});
+								}}
 								className="flex items-center gap-1 px-3 py-1.5 text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-950 rounded-md transition-colors"
 							>
 								<span>View Session</span>
@@ -169,7 +179,15 @@ export function TimelineItem({ learning, userMap }: TimelineItemProps) {
 					{learning.content.length > 300 && (
 						<button
 							type="button"
-							onClick={() => setIsExpanded(!isExpanded)}
+							onClick={() => {
+								trackUiControl({
+									controlName: "learning_expand",
+									controlType: "button",
+									interactionType: "change",
+									value: String(!isExpanded),
+								});
+								setIsExpanded(!isExpanded);
+							}}
 							className="flex items-center gap-1 text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium mt-3"
 						>
 							{isExpanded ? (

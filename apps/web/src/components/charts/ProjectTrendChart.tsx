@@ -15,6 +15,7 @@ import {
 } from "recharts";
 import { InfoTooltip } from "@/components/ui/InfoTooltip";
 import { useChartTheme } from "@/hooks/useChartTheme";
+import { useUiControlTracking } from "@/hooks/useDashboardAnalytics";
 import { ChartLegend } from "./ChartLegend";
 import { ChartTooltip } from "./ChartTooltip";
 
@@ -79,6 +80,7 @@ const PROJECT_COLORS = [
 
 export function ProjectTrendChart({ data }: ProjectTrendChartProps) {
 	const { gridStroke, axisStroke } = useChartTheme();
+	const { trackUiControl } = useUiControlTracking();
 	const [selectedMetric, setSelectedMetric] = useState<MetricType>("sessions");
 	const [hiddenSeries, setHiddenSeries] = useState<Set<string>>(new Set());
 	const toggleSeries = (key: string) =>
@@ -211,7 +213,15 @@ export function ProjectTrendChart({ data }: ProjectTrendChartProps) {
 						<button
 							type="button"
 							key={key}
-							onClick={() => setSelectedMetric(key as MetricType)}
+							onClick={() => {
+								trackUiControl({
+									controlName: "project_trend_metric",
+									controlType: "button",
+									interactionType: "change",
+									value: key,
+								});
+								setSelectedMetric(key as MetricType);
+							}}
 							className={`
 								flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium
 								transition-all duration-200

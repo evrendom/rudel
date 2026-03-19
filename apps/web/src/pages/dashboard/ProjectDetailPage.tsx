@@ -24,6 +24,7 @@ import { DataTable } from "@/components/ui/data-table";
 import { useDateRange } from "@/contexts/DateRangeContext";
 import { useAnalyticsQuery } from "@/hooks/useAnalyticsQuery";
 import { useChartTheme } from "@/hooks/useChartTheme";
+import { useTrackDashboardView } from "@/hooks/useTrackDashboardView";
 import { useUserMap } from "@/hooks/useUserMap";
 import { decodeProjectPath, formatUsername } from "@/lib/format";
 import { orpc } from "@/lib/orpc";
@@ -61,6 +62,11 @@ export function ProjectDetailPage() {
 			input: { projectPath, days },
 		}),
 	);
+
+	useTrackDashboardView({
+		isLoading,
+		hasData: Boolean(details),
+	});
 
 	const { userMap } = useUserMap();
 
@@ -333,6 +339,7 @@ export function ProjectDetailPage() {
 							<DataTable
 								columns={contributorColumns}
 								data={contributors}
+								analyticsId="project_detail_contributors"
 								defaultSorting={[{ id: "sessions", desc: true }]}
 								defaultPageSize={50}
 							/>
@@ -349,6 +356,7 @@ export function ProjectDetailPage() {
 					<DataTable
 						columns={projectErrorColumns}
 						data={errors}
+						analyticsId="project_detail_errors"
 						defaultSorting={[{ id: "occurrences", desc: true }]}
 						defaultPageSize={50}
 					/>

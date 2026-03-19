@@ -2,6 +2,68 @@ import posthog from "posthog-js";
 
 let initialized = false;
 const EVENT_VERSION = 1;
+const ANALYTICS_SURFACE = "web";
+
+type AnalyticsEnvironment = "production" | "staging" | "development" | "local";
+
+export const DASHBOARD_PAGE_NAMES = [
+	"overview",
+	"developers",
+	"developer_detail",
+	"projects",
+	"project_detail",
+	"sessions",
+	"session_detail",
+	"errors",
+	"learnings",
+	"roi",
+	"organization",
+	"organization_create",
+	"invitations",
+	"profile",
+] as const;
+
+export type DashboardPageName = (typeof DASHBOARD_PAGE_NAMES)[number];
+
+export const APP_PAGE_NAMES = [
+	...DASHBOARD_PAGE_NAMES,
+	"login",
+	"signup",
+	"accept_invitation",
+	"device_login",
+] as const;
+
+export type AppPageName = (typeof APP_PAGE_NAMES)[number];
+
+const DASHBOARD_PAGE_NAME_SET = new Set<string>(DASHBOARD_PAGE_NAMES);
+
+export type UiControlType =
+	| "button"
+	| "link"
+	| "input"
+	| "select"
+	| "toggle"
+	| "menu"
+	| "table"
+	| "dialog";
+
+export type UiInteractionType =
+	| "click"
+	| "submit"
+	| "change"
+	| "open"
+	| "close"
+	| "copy"
+	| "download"
+	| "share"
+	| "navigate"
+	| "reset";
+
+export function isDashboardPageName(
+	pageName: AppPageName | null,
+): pageName is DashboardPageName {
+	return pageName !== null && DASHBOARD_PAGE_NAME_SET.has(pageName);
+}
 
 function getConfig() {
 	const key = (import.meta.env.VITE_POSTHOG_KEY ?? "").trim();
@@ -14,7 +76,19 @@ function getConfig() {
 	return { key, host };
 }
 
-function getEnvironment(): "production" | "staging" | "development" | "local" {
+function getEnvironment(): AnalyticsEnvironment {
+	const configuredEnvironment = (
+		import.meta.env.VITE_POSTHOG_ENVIRONMENT ?? ""
+	).trim() as AnalyticsEnvironment | "";
+	if (
+		configuredEnvironment === "production" ||
+		configuredEnvironment === "staging" ||
+		configuredEnvironment === "development" ||
+		configuredEnvironment === "local"
+	) {
+		return configuredEnvironment;
+	}
+
 	const host = window.location.hostname;
 	if (host === "localhost" || host === "127.0.0.1") {
 		return "local";
@@ -28,11 +102,21 @@ function getEnvironment(): "production" | "staging" | "development" | "local" {
 	return "production";
 }
 
+function isDebugModeEnabled() {
+	if (typeof window === "undefined") {
+		return false;
+	}
+	return (
+		new URLSearchParams(window.location.search).get("__posthog_debug") ===
+		"true"
+	);
+}
+
 function buildPayload(payload: Record<string, unknown>) {
 	return {
 		...payload,
 		event_version: EVENT_VERSION,
-		surface: "web",
+		surface: ANALYTICS_SURFACE,
 		environment: getEnvironment(),
 	};
 }
@@ -51,10 +135,17 @@ export function initProductAnalytics() {
 	posthog.init(config.key, {
 		api_host: config.host,
 		autocapture: false,
-		capture_pageview: false,
-		capture_pageleave: false,
+		capture_pageview: "history_change",
+		capture_pageleave: "if_capture_pageview",
 		disable_session_recording: true,
 		disable_surveys: true,
+		debug: isDebugModeEnabled(),
+		defaults: "2026-01-30",
+	});
+	posthog.register({
+		event_version: EVENT_VERSION,
+		surface: ANALYTICS_SURFACE,
+		environment: getEnvironment(),
 	});
 	initialized = true;
 }
@@ -188,7 +279,7 @@ export function captureSignUpFailed(payload: {
 export function captureDashboardViewed(payload: {
 	organization_id: string;
 	user_id: string;
-	page_name: "overview";
+	page_name: DashboardPageName;
 	has_data: boolean;
 	date_range_days: number;
 	insight_count: number;
@@ -199,8 +290,8 @@ export function captureDashboardViewed(payload: {
 export function captureDashboardLoadFailed(payload: {
 	organization_id: string;
 	user_id: string;
-	page_name: "overview";
-	query_name: "overview_kpis";
+	page_name: DashboardPageName;
+	query_name: string;
 	error_code: string;
 	date_range_days: number;
 	is_blocking: true;
@@ -221,4 +312,89 @@ export function captureInsightCardClicked(payload: {
 	date_range_days: number;
 }) {
 	captureEvent("Insight Card Clicked", payload);
+}
+
+export function captureUiControlUsed(payload: {
+	page_name: AppPageName;
+	control_name: string;
+	control_type: UiControlType;
+	interaction_type: UiInteractionType;
+	organization_id?: string;
+	user_id?: string;
+	date_range_days?: number;
+	target_path?: string;
+	value?: boolean | number | string;
+}) {
+	captureEvent("UI Control Used", payload);
+}
+
+const ANALYTICS_PAGE_MATCHERS: ReadonlyArray<{
+	matches: (pathname: string) => boolean;
+	pageName: AppPageName;
+}> = [
+	{
+		pageName: "login",
+		matches: (pathname) => pathname === "/" || pathname === "",
+	},
+	{
+		pageName: "accept_invitation",
+		matches: (pathname) => pathname.startsWith("/invitation/"),
+	},
+	{ pageName: "overview", matches: (pathname) => pathname === "/dashboard" },
+	{
+		pageName: "developer_detail",
+		matches: (pathname) => pathname.startsWith("/dashboard/developers/"),
+	},
+	{
+		pageName: "developers",
+		matches: (pathname) => pathname === "/dashboard/developers",
+	},
+	{
+		pageName: "project_detail",
+		matches: (pathname) => pathname.startsWith("/dashboard/projects/"),
+	},
+	{
+		pageName: "projects",
+		matches: (pathname) => pathname === "/dashboard/projects",
+	},
+	{
+		pageName: "session_detail",
+		matches: (pathname) => pathname.startsWith("/dashboard/sessions/"),
+	},
+	{
+		pageName: "sessions",
+		matches: (pathname) => pathname === "/dashboard/sessions",
+	},
+	{
+		pageName: "errors",
+		matches: (pathname) => pathname === "/dashboard/errors",
+	},
+	{
+		pageName: "learnings",
+		matches: (pathname) => pathname === "/dashboard/learnings",
+	},
+	{ pageName: "roi", matches: (pathname) => pathname === "/dashboard/roi" },
+	{
+		pageName: "organization_create",
+		matches: (pathname) => pathname === "/dashboard/organization/new",
+	},
+	{
+		pageName: "organization",
+		matches: (pathname) => pathname === "/dashboard/organization",
+	},
+	{
+		pageName: "invitations",
+		matches: (pathname) => pathname === "/dashboard/invitations",
+	},
+	{
+		pageName: "profile",
+		matches: (pathname) => pathname === "/dashboard/profile",
+	},
+];
+
+export function getAnalyticsPageName(pathname: string): AppPageName | null {
+	return (
+		ANALYTICS_PAGE_MATCHERS.find(({ matches }) => matches(pathname))
+			?.pageName ?? null
+	);
 }

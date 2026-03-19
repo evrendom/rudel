@@ -20,6 +20,8 @@ import {
 	type ToolActivityPoint,
 } from "@/components/conversation/ToolActivityChart";
 import { InfoTooltip } from "@/components/ui/InfoTooltip";
+import { useUiControlTracking } from "@/hooks/useDashboardAnalytics";
+import { useTrackDashboardView } from "@/hooks/useTrackDashboardView";
 import { useUserMap } from "@/hooks/useUserMap";
 import { calculateCost, formatUsername } from "@/lib/format";
 import { orpc } from "@/lib/orpc";
@@ -44,6 +46,7 @@ const archetypeStyles: Record<
 export function SessionDetailPage() {
 	const { sessionId } = useParams<{ sessionId: string }>();
 	const { userMap } = useUserMap();
+	const { trackUiControl } = useUiControlTracking();
 	const [copied, setCopied] = useState(false);
 	const [tokenData, setTokenData] = useState<TokenDataPoint[]>([]);
 	const [toolActivityData, setToolActivityData] = useState<ToolActivityPoint[]>(
@@ -82,8 +85,20 @@ export function SessionDetailPage() {
 		}),
 	);
 
+	useTrackDashboardView({
+		isLoading,
+		isError: Boolean(error),
+		hasData: Boolean(session),
+	});
+
 	const copySessionId = () => {
 		if (session) {
+			trackUiControl({
+				controlName: "session_id_copy",
+				controlType: "button",
+				interactionType: "copy",
+				value: session.session_id,
+			});
 			navigator.clipboard.writeText(session.session_id);
 			setCopied(true);
 			setTimeout(() => setCopied(false), 2000);

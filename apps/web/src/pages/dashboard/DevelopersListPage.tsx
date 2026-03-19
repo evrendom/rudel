@@ -24,6 +24,7 @@ import { useDateRange } from "@/contexts/DateRangeContext";
 import { useOrganization } from "@/contexts/OrganizationContext";
 import { useAnalyticsQuery } from "@/hooks/useAnalyticsQuery";
 import { useFullOrganization } from "@/hooks/useFullOrganization";
+import { useTrackDashboardView } from "@/hooks/useTrackDashboardView";
 import { useUserMap } from "@/hooks/useUserMap";
 import { formatUsername } from "@/lib/format";
 import { orpc } from "@/lib/orpc";
@@ -45,6 +46,11 @@ export function DevelopersListPage() {
 	const { data: trendsData } = useAnalyticsQuery(
 		orpc.analytics.developers.trends.queryOptions({ input: { days } }),
 	);
+
+	useTrackDashboardView({
+		isLoading,
+		hasData: (developers?.length ?? 0) > 0,
+	});
 
 	const { userMap } = useUserMap();
 
@@ -262,7 +268,9 @@ export function DevelopersListPage() {
 				<DataTable
 					columns={columns}
 					data={developers ?? []}
+					analyticsId="developers_list"
 					defaultSorting={[{ id: "total_sessions", desc: true }]}
+					getRowAnalyticsValue={(row) => row.user_id}
 					onRowClick={(row) => navigate(`/dashboard/developers/${row.user_id}`)}
 				/>
 			</AnalyticsCard>

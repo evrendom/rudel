@@ -7,6 +7,7 @@ import {
 	TrendingUp,
 } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useDashboardAnalytics } from "../../hooks/useDashboardAnalytics";
 import { captureInsightCardClicked } from "../../lib/product-analytics";
 import { cn } from "../../lib/utils";
 
@@ -20,12 +21,7 @@ export interface Insight {
 
 interface InsightCardProps {
 	insight: Insight;
-	tracking: {
-		organizationId: string;
-		userId: string;
-		positionIndex: number;
-		dateRangeDays: number;
-	};
+	positionIndex: number;
 }
 
 const SEVERITY_CONFIG = {
@@ -66,7 +62,9 @@ const TYPE_ICON = {
 	info: Info,
 };
 
-export function InsightCard({ insight, tracking }: InsightCardProps) {
+export function InsightCard({ insight, positionIndex }: InsightCardProps) {
+	const { organizationId, userId, dateRangeDays, pageName } =
+		useDashboardAnalytics();
 	const config = SEVERITY_CONFIG[insight.severity];
 	const TypeIcon = TYPE_ICON[insight.type];
 
@@ -74,16 +72,24 @@ export function InsightCard({ insight, tracking }: InsightCardProps) {
 		<Link
 			to={insight.link}
 			onClick={() => {
+				if (
+					!organizationId ||
+					!userId ||
+					pageName !== "overview" ||
+					dateRangeDays == null
+				) {
+					return;
+				}
 				captureInsightCardClicked({
-					organization_id: tracking.organizationId,
-					user_id: tracking.userId,
-					page_name: "overview",
+					organization_id: organizationId,
+					user_id: userId,
+					page_name: pageName,
 					insight_key: insight.insight_key,
 					insight_type: insight.type,
 					insight_severity: insight.severity,
 					destination_path: insight.link,
-					position_index: tracking.positionIndex,
-					date_range_days: tracking.dateRangeDays,
+					position_index: positionIndex,
+					date_range_days: dateRangeDays,
 				});
 			}}
 			className={cn(
