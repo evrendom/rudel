@@ -59,32 +59,42 @@ export const ProductAnalyticsEntryPointSchema = z.enum([
 	"direct",
 ]);
 
-export const ProductAnalyticsPageNameSchema = z.enum([
+export const PRODUCT_ANALYTICS_DASHBOARD_PAGE_NAMES = [
 	"overview",
+	"developers",
+	"developer_detail",
 	"projects",
 	"project_detail",
 	"sessions",
 	"session_detail",
-	"developers",
 	"errors",
 	"learnings",
 	"roi",
 	"organization",
-]);
+	"organization_create",
+	"invitations",
+	"profile",
+] as const;
 
-export const ProductAnalyticsInsightTypeSchema = z.enum([
-	"trend",
-	"performer",
-	"alert",
-	"info",
-]);
+export const PRODUCT_ANALYTICS_APP_PAGE_NAMES = [
+	...PRODUCT_ANALYTICS_DASHBOARD_PAGE_NAMES,
+	"login",
+	"signup",
+	"accept_invitation",
+	"device_login",
+] as const;
 
-export const ProductAnalyticsInsightSeveritySchema = z.enum([
-	"positive",
-	"warning",
-	"negative",
-	"info",
-]);
+export type ProductAnalyticsDashboardPageName =
+	(typeof PRODUCT_ANALYTICS_DASHBOARD_PAGE_NAMES)[number];
+export type ProductAnalyticsPageName =
+	(typeof PRODUCT_ANALYTICS_APP_PAGE_NAMES)[number];
+
+export const ProductAnalyticsDashboardPageNameSchema = z.enum(
+	PRODUCT_ANALYTICS_DASHBOARD_PAGE_NAMES,
+);
+export const ProductAnalyticsPageNameSchema = z.enum(
+	PRODUCT_ANALYTICS_APP_PAGE_NAMES,
+);
 
 export const ProductAnalyticsOrganizationRoleSchema = z.enum([
 	"owner",
@@ -115,13 +125,6 @@ export type ProductAnalyticsClientSurface = z.infer<
 export type ProductAnalyticsPlatformOs = z.infer<
 	typeof ProductAnalyticsPlatformOsSchema
 >;
-
-export const ProductAnalyticsDashboardQueryNameSchema = z.enum([
-	"overview_kpis",
-	"overview_usage_trend",
-	"overview_model_tokens_trend",
-	"overview_insights",
-]);
 
 export const ProductAnalyticsLoginFailureStageSchema = z.enum([
 	"device_code_request",
@@ -158,6 +161,33 @@ const RequiredCommonSchema = z.object({
 
 const idSchema = z.string().min(1);
 const nonEmptyStringSchema = z.string().min(1);
+const webEventValueSchema = z.union([
+	nonEmptyStringSchema,
+	z.number(),
+	z.boolean(),
+	z.null(),
+]);
+
+const WebEventSchema = RequiredCommonSchema.extend({
+	surface: z.literal("web"),
+	page_name: ProductAnalyticsPageNameSchema,
+	organization_id: idSchema.optional(),
+	user_id: idSchema.optional(),
+	date_range_days: z.number().int().nonnegative().optional(),
+	source_component: nonEmptyStringSchema.optional(),
+});
+
+const DashboardWebEventSchema = WebEventSchema.extend({
+	page_name: ProductAnalyticsDashboardPageNameSchema,
+	organization_id: idSchema,
+	user_id: idSchema,
+});
+
+const ProductAnalyticsActionResultSchema = z.enum([
+	"started",
+	"succeeded",
+	"failed",
+]);
 
 export const PRODUCT_ANALYTICS_EVENTS = {
 	ACCOUNT_SIGNED_UP: "Account Signed Up",
@@ -171,7 +201,13 @@ export const PRODUCT_ANALYTICS_EVENTS = {
 	SESSION_UPLOAD_COMPLETED: "Session Upload Completed",
 	DASHBOARD_VIEWED: "Dashboard Viewed",
 	DASHBOARD_LOAD_FAILED: "Dashboard Load Failed",
-	INSIGHT_CARD_CLICKED: "Insight Card Clicked",
+	DASHBOARD_NAVIGATION_CLICKED: "Dashboard Navigation Clicked",
+	DASHBOARD_FILTER_CHANGED: "Dashboard Filter Changed",
+	DASHBOARD_DRILLDOWN_OPENED: "Dashboard Drilldown Opened",
+	CHART_EXPORT_TRIGGERED: "Chart Export Triggered",
+	ORGANIZATION_ACTION_TRIGGERED: "Organization Action Triggered",
+	AUTHENTICATION_ACTION_TRIGGERED: "Authentication Action Triggered",
+	UI_UTILITY_USED: "UI Utility Used",
 	INVITE_SENT: "Invite Sent",
 	ORGANIZATION_MEMBER_JOINED: "Organization Member Joined",
 	ORGANIZATION_DELETED: "Organization Deleted",
@@ -305,41 +341,82 @@ export const OrganizationDeletedEventSchema = RequiredCommonSchema.extend({
 	had_uploads_last_30d: z.boolean(),
 }).strict();
 
-export const DashboardViewedEventSchema = RequiredCommonSchema.extend({
-	surface: z.literal("web"),
-	organization_id: idSchema,
-	user_id: idSchema,
-	page_name: ProductAnalyticsPageNameSchema,
+export const DashboardViewedEventSchema = DashboardWebEventSchema.extend({
 	has_data: z.boolean(),
 	date_range_days: z.number().int().nonnegative(),
-	insight_count: z.number().int().nonnegative(),
-	is_first_dashboard_view: z.boolean().optional(),
-	entry_point: nonEmptyStringSchema.optional(),
-}).strict();
+	insight_count: z.number().int().nonnegative().nullable(),
+}).catchall(webEventValueSchema);
 
-export const DashboardLoadFailedEventSchema = RequiredCommonSchema.extend({
-	surface: z.literal("web"),
-	organization_id: idSchema,
-	user_id: idSchema,
-	page_name: z.literal("overview"),
-	query_name: ProductAnalyticsDashboardQueryNameSchema,
+export const DashboardLoadFailedEventSchema = DashboardWebEventSchema.extend({
+	query_name: nonEmptyStringSchema,
 	error_code: nonEmptyStringSchema,
 	date_range_days: z.number().int().nonnegative(),
 	is_blocking: z.boolean(),
 	http_status: z.number().int().positive().optional(),
 }).strict();
 
-export const InsightCardClickedEventSchema = RequiredCommonSchema.extend({
-	surface: z.literal("web"),
-	organization_id: idSchema,
-	user_id: idSchema,
-	page_name: z.literal("overview"),
-	insight_key: nonEmptyStringSchema,
-	insight_type: ProductAnalyticsInsightTypeSchema,
-	insight_severity: ProductAnalyticsInsightSeveritySchema,
-	destination_path: nonEmptyStringSchema,
-	position_index: z.number().int().nonnegative(),
-	date_range_days: z.number().int().nonnegative(),
+export const DashboardNavigationClickedEventSchema = WebEventSchema.extend({
+	nav_type: nonEmptyStringSchema,
+	to_page_name: ProductAnalyticsPageNameSchema.optional(),
+	target_path: nonEmptyStringSchema.optional(),
+	target_type: nonEmptyStringSchema.optional(),
+	target_id: nonEmptyStringSchema.optional(),
+	rank: z.number().int().nonnegative().optional(),
+}).strict();
+
+export const DashboardFilterChangedEventSchema = DashboardWebEventSchema.extend(
+	{
+		filter_name: nonEmptyStringSchema,
+		filter_category: nonEmptyStringSchema,
+		change_action: nonEmptyStringSchema,
+		selection_count: z.number().int().nonnegative().optional(),
+		value_key: nonEmptyStringSchema.optional(),
+		affected_scope: nonEmptyStringSchema.optional(),
+	},
+).strict();
+
+export const DashboardDrilldownOpenedEventSchema =
+	DashboardWebEventSchema.extend({
+		drilldown_method: nonEmptyStringSchema,
+		target_type: nonEmptyStringSchema,
+		target_path: nonEmptyStringSchema.optional(),
+		target_id: nonEmptyStringSchema.optional(),
+		rank: z.number().int().nonnegative().optional(),
+	}).strict();
+
+export const ChartExportTriggeredEventSchema = DashboardWebEventSchema.extend({
+	chart_id: nonEmptyStringSchema,
+	export_type: z.enum(["copy_image", "download_png", "share_x"]),
+	chart_kind: nonEmptyStringSchema.optional(),
+	share_destination: nonEmptyStringSchema.optional(),
+	visible_series_count: z.number().int().nonnegative().optional(),
+}).strict();
+
+export const OrganizationActionTriggeredEventSchema = WebEventSchema.extend({
+	action_name: nonEmptyStringSchema,
+	target_type: nonEmptyStringSchema,
+	target_id: nonEmptyStringSchema.optional(),
+	target_role: nonEmptyStringSchema.optional(),
+	provider: nonEmptyStringSchema.optional(),
+	result: ProductAnalyticsActionResultSchema.optional(),
+	error_code: nonEmptyStringSchema.optional(),
+	http_status: z.number().int().positive().optional(),
+}).strict();
+
+export const AuthenticationActionTriggeredEventSchema = WebEventSchema.extend({
+	action_name: nonEmptyStringSchema,
+	auth_method: nonEmptyStringSchema.optional(),
+	entrypoint: nonEmptyStringSchema.optional(),
+	target_id: nonEmptyStringSchema.optional(),
+	result: ProductAnalyticsActionResultSchema.optional(),
+	error_code: nonEmptyStringSchema.optional(),
+	http_status: z.number().int().positive().optional(),
+}).strict();
+
+export const UiUtilityUsedEventSchema = WebEventSchema.extend({
+	utility_name: nonEmptyStringSchema,
+	component_id: nonEmptyStringSchema,
+	utility_state: nonEmptyStringSchema.optional(),
 }).strict();
 
 export const ProductAnalyticsEventSchemas = {
@@ -357,8 +434,19 @@ export const ProductAnalyticsEventSchemas = {
 	[PRODUCT_ANALYTICS_EVENTS.DASHBOARD_VIEWED]: DashboardViewedEventSchema,
 	[PRODUCT_ANALYTICS_EVENTS.DASHBOARD_LOAD_FAILED]:
 		DashboardLoadFailedEventSchema,
-	[PRODUCT_ANALYTICS_EVENTS.INSIGHT_CARD_CLICKED]:
-		InsightCardClickedEventSchema,
+	[PRODUCT_ANALYTICS_EVENTS.DASHBOARD_NAVIGATION_CLICKED]:
+		DashboardNavigationClickedEventSchema,
+	[PRODUCT_ANALYTICS_EVENTS.DASHBOARD_FILTER_CHANGED]:
+		DashboardFilterChangedEventSchema,
+	[PRODUCT_ANALYTICS_EVENTS.DASHBOARD_DRILLDOWN_OPENED]:
+		DashboardDrilldownOpenedEventSchema,
+	[PRODUCT_ANALYTICS_EVENTS.CHART_EXPORT_TRIGGERED]:
+		ChartExportTriggeredEventSchema,
+	[PRODUCT_ANALYTICS_EVENTS.ORGANIZATION_ACTION_TRIGGERED]:
+		OrganizationActionTriggeredEventSchema,
+	[PRODUCT_ANALYTICS_EVENTS.AUTHENTICATION_ACTION_TRIGGERED]:
+		AuthenticationActionTriggeredEventSchema,
+	[PRODUCT_ANALYTICS_EVENTS.UI_UTILITY_USED]: UiUtilityUsedEventSchema,
 	[PRODUCT_ANALYTICS_EVENTS.INVITE_SENT]: InviteSentEventSchema,
 	[PRODUCT_ANALYTICS_EVENTS.ORGANIZATION_MEMBER_JOINED]:
 		OrganizationMemberJoinedEventSchema,
@@ -385,9 +473,25 @@ export type DashboardViewedEvent = z.infer<typeof DashboardViewedEventSchema>;
 export type DashboardLoadFailedEvent = z.infer<
 	typeof DashboardLoadFailedEventSchema
 >;
-export type InsightCardClickedEvent = z.infer<
-	typeof InsightCardClickedEventSchema
+export type DashboardNavigationClickedEvent = z.infer<
+	typeof DashboardNavigationClickedEventSchema
 >;
+export type DashboardFilterChangedEvent = z.infer<
+	typeof DashboardFilterChangedEventSchema
+>;
+export type DashboardDrilldownOpenedEvent = z.infer<
+	typeof DashboardDrilldownOpenedEventSchema
+>;
+export type ChartExportTriggeredEvent = z.infer<
+	typeof ChartExportTriggeredEventSchema
+>;
+export type OrganizationActionTriggeredEvent = z.infer<
+	typeof OrganizationActionTriggeredEventSchema
+>;
+export type AuthenticationActionTriggeredEvent = z.infer<
+	typeof AuthenticationActionTriggeredEventSchema
+>;
+export type UiUtilityUsedEvent = z.infer<typeof UiUtilityUsedEventSchema>;
 export type InviteSentEvent = z.infer<typeof InviteSentEventSchema>;
 export type OrganizationMemberJoinedEvent = z.infer<
 	typeof OrganizationMemberJoinedEventSchema
@@ -408,7 +512,13 @@ export interface ProductAnalyticsEventPayloadMap {
 	[PRODUCT_ANALYTICS_EVENTS.SESSION_UPLOAD_COMPLETED]: SessionUploadCompletedEvent;
 	[PRODUCT_ANALYTICS_EVENTS.DASHBOARD_VIEWED]: DashboardViewedEvent;
 	[PRODUCT_ANALYTICS_EVENTS.DASHBOARD_LOAD_FAILED]: DashboardLoadFailedEvent;
-	[PRODUCT_ANALYTICS_EVENTS.INSIGHT_CARD_CLICKED]: InsightCardClickedEvent;
+	[PRODUCT_ANALYTICS_EVENTS.DASHBOARD_NAVIGATION_CLICKED]: DashboardNavigationClickedEvent;
+	[PRODUCT_ANALYTICS_EVENTS.DASHBOARD_FILTER_CHANGED]: DashboardFilterChangedEvent;
+	[PRODUCT_ANALYTICS_EVENTS.DASHBOARD_DRILLDOWN_OPENED]: DashboardDrilldownOpenedEvent;
+	[PRODUCT_ANALYTICS_EVENTS.CHART_EXPORT_TRIGGERED]: ChartExportTriggeredEvent;
+	[PRODUCT_ANALYTICS_EVENTS.ORGANIZATION_ACTION_TRIGGERED]: OrganizationActionTriggeredEvent;
+	[PRODUCT_ANALYTICS_EVENTS.AUTHENTICATION_ACTION_TRIGGERED]: AuthenticationActionTriggeredEvent;
+	[PRODUCT_ANALYTICS_EVENTS.UI_UTILITY_USED]: UiUtilityUsedEvent;
 	[PRODUCT_ANALYTICS_EVENTS.INVITE_SENT]: InviteSentEvent;
 	[PRODUCT_ANALYTICS_EVENTS.ORGANIZATION_MEMBER_JOINED]: OrganizationMemberJoinedEvent;
 	[PRODUCT_ANALYTICS_EVENTS.ORGANIZATION_DELETED]: OrganizationDeletedEvent;

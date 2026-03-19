@@ -11,7 +11,9 @@ import {
 	captureDashboardNavigationClicked,
 	captureOrganizationActionTriggered,
 	captureUiUtilityUsed,
+	type DashboardPageName,
 	getAnalyticsPageName,
+	isDashboardPageName,
 } from "@/lib/product-analytics";
 
 interface UseAnalyticsOptions {
@@ -50,6 +52,20 @@ type AnalyticsOverrides = {
 	userId?: string | null;
 };
 
+type AnalyticsPayload = {
+	page_name: AppPageName;
+	organization_id?: string;
+	user_id?: string;
+	date_range_days?: number;
+	source_component?: string;
+};
+
+type DashboardAnalyticsPayload = AnalyticsPayload & {
+	page_name: DashboardPageName;
+	organization_id: string;
+	user_id: string;
+};
+
 function normalizeOptionalString(value: string | null | undefined) {
 	if (!value) {
 		return undefined;
@@ -61,7 +77,9 @@ function normalizeOptionalString(value: string | null | undefined) {
 export function useAnalyticsTracking(options?: UseAnalyticsOptions) {
 	const analytics = useDashboardAnalytics(options);
 
-	const buildBasePayload = (overrides?: AnalyticsOverrides) => {
+	const buildBasePayload = (
+		overrides?: AnalyticsOverrides,
+	): AnalyticsPayload | null => {
 		if (!analytics.pageName) {
 			return null;
 		}
@@ -76,6 +94,30 @@ export function useAnalyticsTracking(options?: UseAnalyticsOptions) {
 				normalizeOptionalString(analytics.userId),
 			date_range_days: overrides?.dateRangeDays ?? analytics.dateRangeDays,
 			source_component: overrides?.sourceComponent,
+		};
+	};
+
+	const buildDashboardPayload = (
+		overrides?: AnalyticsOverrides,
+	): DashboardAnalyticsPayload | null => {
+		const basePayload = buildBasePayload(overrides);
+		if (!basePayload) {
+			return null;
+		}
+
+		if (!isDashboardPageName(basePayload.page_name)) {
+			return null;
+		}
+
+		if (!basePayload.organization_id || !basePayload.user_id) {
+			return null;
+		}
+
+		return {
+			...basePayload,
+			page_name: basePayload.page_name,
+			organization_id: basePayload.organization_id,
+			user_id: basePayload.user_id,
 		};
 	};
 
@@ -117,13 +159,13 @@ export function useAnalyticsTracking(options?: UseAnalyticsOptions) {
 			affectedScope?: string;
 		} & AnalyticsOverrides,
 	) => {
-		const basePayload = buildBasePayload(input);
-		if (!basePayload) {
+		const dashboardPayload = buildDashboardPayload(input);
+		if (!dashboardPayload) {
 			return;
 		}
 
 		captureDashboardFilterChanged({
-			...basePayload,
+			...dashboardPayload,
 			filter_name: input.filterName,
 			filter_category: input.filterCategory,
 			change_action: input.changeAction,
@@ -143,13 +185,13 @@ export function useAnalyticsTracking(options?: UseAnalyticsOptions) {
 			rank?: number;
 		} & AnalyticsOverrides,
 	) => {
-		const basePayload = buildBasePayload(input);
-		if (!basePayload) {
+		const dashboardPayload = buildDashboardPayload(input);
+		if (!dashboardPayload) {
 			return;
 		}
 
 		captureDashboardDrilldownOpened({
-			...basePayload,
+			...dashboardPayload,
 			drilldown_method: input.drilldownMethod,
 			target_type: input.targetType,
 			target_path: input.targetPath,
@@ -168,13 +210,13 @@ export function useAnalyticsTracking(options?: UseAnalyticsOptions) {
 			visibleSeriesCount?: number;
 		} & AnalyticsOverrides,
 	) => {
-		const basePayload = buildBasePayload(input);
-		if (!basePayload) {
+		const dashboardPayload = buildDashboardPayload(input);
+		if (!dashboardPayload) {
 			return;
 		}
 
 		captureChartExportTriggered({
-			...basePayload,
+			...dashboardPayload,
 			chart_id: input.chartId,
 			export_type: input.exportType,
 			chart_kind: input.chartKind,
