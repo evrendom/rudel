@@ -5,6 +5,7 @@ import { LoginForm } from "./components/auth/login-form";
 import { SignupForm } from "./components/auth/signup-form";
 import { Button } from "./components/ui/button";
 import { useAnalyticsTracking } from "./hooks/useDashboardAnalytics";
+import { useMountEffect } from "./hooks/useMountEffect";
 import { DashboardLayout } from "./layouts/DashboardLayout";
 import { authClient } from "./lib/auth-client";
 import {
@@ -58,9 +59,9 @@ function App() {
 	const logoSrc =
 		resolvedTheme === "dark" ? "/logo-light.svg" : "/logo-dark.svg";
 
-	useEffect(() => {
+	useMountEffect(() => {
 		initProductAnalytics();
-	}, []);
+	});
 
 	useEffect(() => {
 		const userId =
