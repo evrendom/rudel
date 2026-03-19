@@ -1,7 +1,20 @@
 import { createORPCClient, ORPCError } from "@orpc/client";
 import { RPCLink } from "@orpc/client/fetch";
 import type { ContractRouterClient } from "@orpc/contract";
-import type { contract, IngestSessionInput } from "@rudel/api-routes";
+import type {
+	contract,
+	IngestSessionInput,
+	ProductAnalyticsClientSurface,
+	ProductAnalyticsUploadMode,
+	Source,
+} from "@rudel/api-routes";
+import type { Credentials } from "./credentials.js";
+import {
+	captureCliUploadFailed,
+	captureCliUploadInitiated,
+	getCliUserId,
+	getUploadTerminalFailureStage,
+} from "./product-analytics.js";
 import type { UploadResult } from "./types.js";
 
 export interface UploadConfig {
@@ -9,6 +22,15 @@ export interface UploadConfig {
 	token: string;
 	authType?: "bearer" | "api-key";
 	onRetry?: (attempt: number, maxAttempts: number, error: string) => void;
+	analytics?: {
+		clientSurface: ProductAnalyticsClientSurface;
+		uploadMode: ProductAnalyticsUploadMode;
+		agentSource: Source;
+		projectPath: string;
+		organizationId?: string;
+		userId?: string;
+		credentials?: Credentials | null;
+	};
 }
 
 const RETRYABLE_STATUS_CODES = new Set([502, 503]);
@@ -50,15 +72,55 @@ function formatError(error: unknown): string {
 	return String(error);
 }
 
+function captureTerminalUploadFailure(
+	config: UploadConfig,
+	error: unknown,
+	attemptNumber: number,
+): void {
+	if (!config.analytics) {
+		return;
+	}
+
+	captureCliUploadFailed({
+		surface: config.analytics.clientSurface,
+		clientSurface: config.analytics.clientSurface,
+		uploadMode: config.analytics.uploadMode,
+		agentSource: config.analytics.agentSource,
+		failureStage: getUploadTerminalFailureStage(error),
+		error,
+		organizationId: config.analytics.organizationId,
+		userId:
+			config.analytics.userId ?? getCliUserId(config.analytics.credentials),
+		projectPath: config.analytics.projectPath,
+		attemptNumber,
+		isRetryable: isRetryable(error),
+	});
+}
+
 /**
  * Upload a session transcript to the backend via oRPC.
  * Retries on transient errors (502, 503) with exponential backoff.
- * Rate limit errors (429) are not retried — the window is too long.
+ * Rate limit errors (429) are not retried because the wait window is too long.
  */
 export async function uploadSession(
 	request: IngestSessionInput,
 	config: UploadConfig,
 ): Promise<UploadResult> {
+	if (config.analytics) {
+		captureCliUploadInitiated({
+			surface: config.analytics.clientSurface,
+			clientSurface: config.analytics.clientSurface,
+			uploadMode: config.analytics.uploadMode,
+			agentSource: config.analytics.agentSource,
+			organizationId: config.analytics.organizationId,
+			userId:
+				config.analytics.userId ?? getCliUserId(config.analytics.credentials),
+			projectPath: config.analytics.projectPath,
+			attemptNumber: 1,
+			contentSizeBytes: request.content.length,
+		});
+	}
+
 	const link = new RPCLink({
 		url: config.endpoint,
 		headers:
@@ -77,6 +139,7 @@ export async function uploadSession(
 			const errorMessage = formatError(error);
 
 			if (isRateLimited(error)) {
+				captureTerminalUploadFailure(config, error, attempt);
 				return {
 					success: false,
 					error: errorMessage,
@@ -91,6 +154,8 @@ export async function uploadSession(
 				await new Promise((resolve) => setTimeout(resolve, delay));
 				continue;
 			}
+
+			captureTerminalUploadFailure(config, error, attempt);
 
 			return {
 				success: false,

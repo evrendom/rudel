@@ -112,6 +112,9 @@ export type ProductAnalyticsUploadMode = z.infer<
 export type ProductAnalyticsClientSurface = z.infer<
 	typeof ProductAnalyticsClientSurfaceSchema
 >;
+export type ProductAnalyticsUploadSkipReason = z.infer<
+	typeof ProductAnalyticsUploadSkipReasonSchema
+>;
 export type ProductAnalyticsPlatformOs = z.infer<
 	typeof ProductAnalyticsPlatformOsSchema
 >;
@@ -150,6 +153,12 @@ export const ProductAnalyticsUploadFailureStageSchema = z.enum([
 	"unknown",
 ]);
 
+export const ProductAnalyticsUploadSkipReasonSchema = z.enum([
+	"not_authenticated",
+	"no_session_found",
+	"missing_input",
+]);
+
 const RequiredCommonSchema = z.object({
 	event_version: z.literal(PRODUCT_ANALYTICS_EVENT_VERSION),
 	surface: ProductAnalyticsSurfaceSchema,
@@ -168,6 +177,9 @@ export const PRODUCT_ANALYTICS_EVENTS = {
 	CLI_LOGIN_FAILED: "CLI Login Failed",
 	AUTO_UPLOAD_ENABLED: "Auto Upload Enabled",
 	AUTO_UPLOAD_ENABLE_FAILED: "Auto Upload Enable Failed",
+	SESSION_UPLOAD_INITIATED: "Session Upload Initiated",
+	SESSION_UPLOAD_FAILED: "Session Upload Failed",
+	SESSION_UPLOAD_SKIPPED: "Session Upload Skipped",
 	DASHBOARD_VIEWED: "Dashboard Viewed",
 	DASHBOARD_LOAD_FAILED: "Dashboard Load Failed",
 	INSIGHT_CARD_CLICKED: "Insight Card Clicked",
@@ -262,6 +274,51 @@ export const AutoUploadEnableFailedEventSchema = RequiredCommonSchema.extend({
 	user_id: idSchema.optional(),
 }).strict();
 
+export const SessionUploadInitiatedEventSchema = RequiredCommonSchema.extend({
+	surface: z.union([z.literal("cli"), z.literal("hook")]),
+	client_surface: ProductAnalyticsClientSurfaceSchema,
+	upload_mode: ProductAnalyticsUploadModeSchema,
+	agent_source: SourceSchema,
+	cli_version: nonEmptyStringSchema,
+	platform_os: ProductAnalyticsPlatformOsSchema,
+	organization_id: idSchema.optional(),
+	user_id: idSchema.optional(),
+	attempt_number: z.number().int().positive(),
+	project_id_hash: nonEmptyStringSchema.optional(),
+	content_size_bucket: nonEmptyStringSchema.optional(),
+}).strict();
+
+export const SessionUploadFailedEventSchema = RequiredCommonSchema.extend({
+	surface: z.union([z.literal("cli"), z.literal("hook")]),
+	client_surface: ProductAnalyticsClientSurfaceSchema,
+	upload_mode: ProductAnalyticsUploadModeSchema,
+	agent_source: SourceSchema,
+	failure_stage: ProductAnalyticsUploadFailureStageSchema,
+	failure_reason: nonEmptyStringSchema,
+	is_retryable: z.boolean(),
+	cli_version: nonEmptyStringSchema,
+	platform_os: ProductAnalyticsPlatformOsSchema,
+	organization_id: idSchema.optional(),
+	user_id: idSchema.optional(),
+	http_status: z.number().int().positive().optional(),
+	attempt_number: z.number().int().positive().optional(),
+	project_id_hash: nonEmptyStringSchema.optional(),
+}).strict();
+
+export const SessionUploadSkippedEventSchema = RequiredCommonSchema.extend({
+	surface: z.union([z.literal("cli"), z.literal("hook")]),
+	client_surface: ProductAnalyticsClientSurfaceSchema,
+	upload_mode: ProductAnalyticsUploadModeSchema,
+	agent_source: SourceSchema,
+	skip_reason: ProductAnalyticsUploadSkipReasonSchema,
+	cli_version: nonEmptyStringSchema,
+	platform_os: ProductAnalyticsPlatformOsSchema,
+	organization_id: idSchema.optional(),
+	user_id: idSchema.optional(),
+	project_id_hash: nonEmptyStringSchema.optional(),
+	content_size_bucket: nonEmptyStringSchema.optional(),
+}).strict();
+
 export const InviteSentEventSchema = RequiredCommonSchema.extend({
 	surface: z.literal("api"),
 	organization_id: idSchema,
@@ -337,6 +394,12 @@ export const ProductAnalyticsEventSchemas = {
 	[PRODUCT_ANALYTICS_EVENTS.AUTO_UPLOAD_ENABLED]: AutoUploadEnabledEventSchema,
 	[PRODUCT_ANALYTICS_EVENTS.AUTO_UPLOAD_ENABLE_FAILED]:
 		AutoUploadEnableFailedEventSchema,
+	[PRODUCT_ANALYTICS_EVENTS.SESSION_UPLOAD_INITIATED]:
+		SessionUploadInitiatedEventSchema,
+	[PRODUCT_ANALYTICS_EVENTS.SESSION_UPLOAD_FAILED]:
+		SessionUploadFailedEventSchema,
+	[PRODUCT_ANALYTICS_EVENTS.SESSION_UPLOAD_SKIPPED]:
+		SessionUploadSkippedEventSchema,
 	[PRODUCT_ANALYTICS_EVENTS.DASHBOARD_VIEWED]: DashboardViewedEventSchema,
 	[PRODUCT_ANALYTICS_EVENTS.DASHBOARD_LOAD_FAILED]:
 		DashboardLoadFailedEventSchema,
@@ -360,6 +423,15 @@ export type AutoUploadEnabledEvent = z.infer<
 >;
 export type AutoUploadEnableFailedEvent = z.infer<
 	typeof AutoUploadEnableFailedEventSchema
+>;
+export type SessionUploadInitiatedEvent = z.infer<
+	typeof SessionUploadInitiatedEventSchema
+>;
+export type SessionUploadFailedEvent = z.infer<
+	typeof SessionUploadFailedEventSchema
+>;
+export type SessionUploadSkippedEvent = z.infer<
+	typeof SessionUploadSkippedEventSchema
 >;
 export type DashboardViewedEvent = z.infer<typeof DashboardViewedEventSchema>;
 export type DashboardLoadFailedEvent = z.infer<
@@ -385,6 +457,9 @@ export interface ProductAnalyticsEventPayloadMap {
 	[PRODUCT_ANALYTICS_EVENTS.CLI_LOGIN_FAILED]: CliLoginFailedEvent;
 	[PRODUCT_ANALYTICS_EVENTS.AUTO_UPLOAD_ENABLED]: AutoUploadEnabledEvent;
 	[PRODUCT_ANALYTICS_EVENTS.AUTO_UPLOAD_ENABLE_FAILED]: AutoUploadEnableFailedEvent;
+	[PRODUCT_ANALYTICS_EVENTS.SESSION_UPLOAD_INITIATED]: SessionUploadInitiatedEvent;
+	[PRODUCT_ANALYTICS_EVENTS.SESSION_UPLOAD_FAILED]: SessionUploadFailedEvent;
+	[PRODUCT_ANALYTICS_EVENTS.SESSION_UPLOAD_SKIPPED]: SessionUploadSkippedEvent;
 	[PRODUCT_ANALYTICS_EVENTS.DASHBOARD_VIEWED]: DashboardViewedEvent;
 	[PRODUCT_ANALYTICS_EVENTS.DASHBOARD_LOAD_FAILED]: DashboardLoadFailedEvent;
 	[PRODUCT_ANALYTICS_EVENTS.INSIGHT_CARD_CLICKED]: InsightCardClickedEvent;
