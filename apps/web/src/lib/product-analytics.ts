@@ -18,9 +18,7 @@ import {
 	type SignUpFailedEvent,
 	type UiUtilityUsedEvent,
 } from "@rudel/api-routes";
-import posthog from "posthog-js";
 
-let initialized = false;
 const EVENT_VERSION = PRODUCT_ANALYTICS_EVENT_VERSION;
 const ANALYTICS_SURFACE = "web";
 
@@ -28,11 +26,15 @@ type WebCapturePayload<TEvent> = Omit<
 	TEvent,
 	"environment" | "event_version" | "surface"
 >;
+type PostHogClient = typeof import("posthog-js")["default"];
 
 export { PRODUCT_ANALYTICS_APP_PAGE_NAMES as APP_PAGE_NAMES };
 export { PRODUCT_ANALYTICS_DASHBOARD_PAGE_NAMES as DASHBOARD_PAGE_NAMES };
 export type { AppPageName, DashboardPageName };
 
+let posthogClient: PostHogClient | null = null;
+let posthogClientPromise: Promise<PostHogClient | null> | null = null;
+const pendingActions: Array<(client: PostHogClient) => void> = [];
 const DASHBOARD_PAGE_NAME_SET = new Set<string>(
 	PRODUCT_ANALYTICS_DASHBOARD_PAGE_NAMES,
 );
@@ -99,33 +101,79 @@ function buildPayload(payload: Record<string, unknown>) {
 	};
 }
 
-export function initProductAnalytics() {
-	if (initialized || typeof window === "undefined") {
-		return;
+function flushPendingActions(client: PostHogClient) {
+	const actions = pendingActions.splice(0);
+	for (const action of actions) {
+		try {
+			action(client);
+		} catch {
+			// Analytics must never break the UI.
+		}
+	}
+}
+
+async function loadPostHogClient(): Promise<PostHogClient | null> {
+	if (posthogClient) {
+		return posthogClient;
+	}
+
+	if (typeof window === "undefined") {
+		return null;
 	}
 
 	const config = getConfig();
 	if (!config) {
-		initialized = true;
+		return null;
+	}
+
+	if (!posthogClientPromise) {
+		posthogClientPromise = import("posthog-js")
+			.then(({ default: client }) => {
+				client.init(config.key, {
+					api_host: config.host,
+					autocapture: false,
+					capture_pageview: "history_change",
+					capture_pageleave: "if_capture_pageview",
+					disable_session_recording: true,
+					disable_surveys: true,
+					debug: isDebugModeEnabled(),
+					defaults: "2026-01-30",
+				});
+				client.register({
+					event_version: EVENT_VERSION,
+					surface: ANALYTICS_SURFACE,
+					environment: getEnvironment(),
+				});
+				posthogClient = client;
+				flushPendingActions(client);
+				return client;
+			})
+			.catch(() => {
+				pendingActions.length = 0;
+				posthogClientPromise = null;
+				return null;
+			});
+	}
+
+	return posthogClientPromise;
+}
+
+function withPostHogClient(action: (client: PostHogClient) => void) {
+	if (!getConfig()) {
 		return;
 	}
 
-	posthog.init(config.key, {
-		api_host: config.host,
-		autocapture: false,
-		capture_pageview: "history_change",
-		capture_pageleave: "if_capture_pageview",
-		disable_session_recording: true,
-		disable_surveys: true,
-		debug: isDebugModeEnabled(),
-		defaults: "2026-01-30",
-	});
-	posthog.register({
-		event_version: EVENT_VERSION,
-		surface: ANALYTICS_SURFACE,
-		environment: getEnvironment(),
-	});
-	initialized = true;
+	if (posthogClient) {
+		action(posthogClient);
+		return;
+	}
+
+	pendingActions.push(action);
+	void loadPostHogClient();
+}
+
+export function initProductAnalytics() {
+	void loadPostHogClient();
 }
 
 export function identifyProductAnalyticsUser(
@@ -135,23 +183,18 @@ export function identifyProductAnalyticsUser(
 		name?: string | null;
 	},
 ) {
-	if (!initialized) {
-		initProductAnalytics();
-	}
-	if (!getConfig()) {
-		return;
-	}
-	posthog.identify(userId, {
-		email: properties?.email,
-		name: properties?.name ?? undefined,
+	withPostHogClient((client) => {
+		client.identify(userId, {
+			email: properties?.email,
+			name: properties?.name ?? undefined,
+		});
 	});
 }
 
 export function resetProductAnalytics() {
-	if (!initialized || !getConfig()) {
-		return;
-	}
-	posthog.reset();
+	withPostHogClient((client) => {
+		client.reset();
+	});
 }
 
 export function normalizeWebErrorCode(error: unknown) {
@@ -229,18 +272,9 @@ function captureEvent(
 	event: ProductAnalyticsEventName,
 	payload: Record<string, unknown>,
 ) {
-	if (!initialized) {
-		initProductAnalytics();
-	}
-	if (!getConfig()) {
-		return;
-	}
-
-	try {
-		posthog.capture(event, buildPayload(payload));
-	} catch {
-		// Analytics must never break the UI.
-	}
+	withPostHogClient((client) => {
+		client.capture(event, buildPayload(payload));
+	});
 }
 
 export function captureSignUpFailed(

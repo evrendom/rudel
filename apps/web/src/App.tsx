@@ -9,6 +9,7 @@ import { DashboardLayout } from "./layouts/DashboardLayout";
 import { authClient } from "./lib/auth-client";
 import {
 	identifyProductAnalyticsUser,
+	initProductAnalytics,
 	resetProductAnalytics,
 } from "./lib/product-analytics";
 import { AcceptInvitationPage } from "./pages/AcceptInvitationPage";
@@ -56,6 +57,10 @@ function App() {
 	const { resolvedTheme } = useTheme();
 	const logoSrc =
 		resolvedTheme === "dark" ? "/logo-light.svg" : "/logo-dark.svg";
+
+	useEffect(() => {
+		initProductAnalytics();
+	}, []);
 
 	useEffect(() => {
 		const userId =
