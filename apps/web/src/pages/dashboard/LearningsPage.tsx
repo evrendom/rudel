@@ -12,7 +12,10 @@ import { LearningsTimeline } from "@/components/learnings/LearningsTimeline";
 import { useDateRange } from "@/contexts/DateRangeContext";
 import { useAnalyticsQuery } from "@/hooks/useAnalyticsQuery";
 import { useUiControlTracking } from "@/hooks/useDashboardAnalytics";
-import { useTrackDashboardView } from "@/hooks/useTrackDashboardView";
+import {
+	type DashboardSection,
+	useTrackDashboardView,
+} from "@/hooks/useTrackDashboardView";
 import { useUserMap } from "@/hooks/useUserMap";
 import { orpc } from "@/lib/orpc";
 
@@ -26,17 +29,29 @@ export function LearningsPage() {
 	const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
 	const [selectedProjects, setSelectedProjects] = useState<string[]>([]);
 
-	const { data: learnings, isLoading } = useAnalyticsQuery(
+	const {
+		data: learnings,
+		isLoading: learningsLoading,
+		isError: learningsError,
+	} = useAnalyticsQuery(
 		orpc.analytics.learnings.list.queryOptions({
 			input: { days, limit: 100, offset: 0 },
 		}),
 	);
 
-	const { data: stats } = useAnalyticsQuery(
+	const {
+		data: stats,
+		isLoading: statsLoading,
+		isError: statsError,
+	} = useAnalyticsQuery(
 		orpc.analytics.learnings.stats.queryOptions({ input: { days } }),
 	);
 
-	const { data: trendData } = useAnalyticsQuery(
+	const {
+		data: trendData,
+		isLoading: trendLoading,
+		isError: trendError,
+	} = useAnalyticsQuery(
 		orpc.analytics.learnings.trend.queryOptions({
 			input: { days, splitBy },
 		}),
@@ -106,11 +121,49 @@ export function LearningsPage() {
 		setSelectedProjects(fullPaths);
 	};
 
-	const hasData = !isLoading && stats != null && stats.total_learnings > 0;
+	const hasData =
+		!learningsLoading &&
+		!statsLoading &&
+		stats != null &&
+		stats.total_learnings > 0;
+	const learningsIsLoading = learningsLoading || statsLoading || trendLoading;
+	const learningsSections: DashboardSection[] = [
+		{
+			id: "learnings_stats",
+			state: statsError ? "error" : hasData ? "populated" : "empty",
+			itemCount: hasData ? 3 : 0,
+		},
+		{
+			id: "learnings_trend",
+			state: trendError
+				? "error"
+				: (trendData?.length ?? 0) > 0
+					? "populated"
+					: "empty",
+			itemCount: trendData?.length ?? 0,
+		},
+		{
+			id: "learnings_timeline",
+			state: learningsError
+				? "error"
+				: filteredLearnings.length > 0
+					? "populated"
+					: "empty",
+			itemCount: filteredLearnings.length,
+		},
+	];
+	const learningsMetrics = [
+		{ id: "total_learnings", value: stats?.total_learnings },
+		{ id: "unique_users", value: stats?.unique_users },
+		{ id: "unique_projects", value: stats?.unique_projects },
+	];
 
 	useTrackDashboardView({
-		isLoading,
+		isLoading: learningsIsLoading,
+		isError: learningsError || statsError,
 		hasData,
+		sections: learningsSections,
+		metrics: learningsMetrics,
 	});
 
 	return (
@@ -130,7 +183,7 @@ export function LearningsPage() {
 				}
 			/>
 
-			{!isLoading && !hasData && <LearningsEmptyState />}
+			{!learningsIsLoading && !hasData && <LearningsEmptyState />}
 
 			{hasData && (
 				<>
@@ -228,7 +281,7 @@ export function LearningsPage() {
 
 							<LearningsTimeline
 								learnings={filteredLearnings}
-								isLoading={isLoading}
+								isLoading={learningsIsLoading}
 								userMap={userMap}
 							/>
 						</div>

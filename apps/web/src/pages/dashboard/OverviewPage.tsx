@@ -20,7 +20,10 @@ import { Spinner } from "@/components/ui/spinner";
 import { useDateRange } from "@/contexts/DateRangeContext";
 import { useAnalyticsQuery } from "@/hooks/useAnalyticsQuery";
 import { useDashboardAnalytics } from "@/hooks/useDashboardAnalytics";
-import { useTrackDashboardView } from "@/hooks/useTrackDashboardView";
+import {
+	type DashboardSection,
+	useTrackDashboardView,
+} from "@/hooks/useTrackDashboardView";
 import { orpc } from "@/lib/orpc";
 import {
 	captureDashboardLoadFailed,
@@ -57,13 +60,21 @@ export function OverviewPage() {
 		}),
 	);
 
-	const { data: usageTrendData } = useAnalyticsQuery(
+	const {
+		data: usageTrendData,
+		isPending: usageTrendLoading,
+		isError: usageTrendError,
+	} = useAnalyticsQuery(
 		orpc.analytics.overview.usageTrend.queryOptions({
 			input: { startDate, endDate },
 		}),
 	);
 
-	const { data: modelTokensData } = useAnalyticsQuery(
+	const {
+		data: modelTokensData,
+		isPending: modelTokensLoading,
+		isError: modelTokensError,
+	} = useAnalyticsQuery(
 		orpc.analytics.overview.modelTokensTrend.queryOptions({
 			input: { startDate, endDate },
 		}),
@@ -82,12 +93,58 @@ export function OverviewPage() {
 	const hasData = !kpisLoading && kpis && kpis.distinct_sessions > 0;
 	const hasAnySessions = kpis && kpis.total_sessions > 0;
 	const showDatePicker = hasData || (!kpisLoading && hasAnySessions);
+	const overviewIsLoading =
+		kpisLoading || usageTrendLoading || modelTokensLoading || insightsLoading;
+	const overviewSections: DashboardSection[] = [
+		{
+			id: "kpi_cards",
+			state: kpisError ? "error" : hasData ? "populated" : "empty",
+			itemCount: hasData ? 6 : 0,
+		},
+		{
+			id: "quick_insights",
+			state: insightsError
+				? "error"
+				: (insights?.length ?? 0) > 0
+					? "populated"
+					: "empty",
+			itemCount: insights?.length ?? 0,
+		},
+		{
+			id: "usage_trend",
+			state: usageTrendError
+				? "error"
+				: (usageTrendData?.length ?? 0) > 0
+					? "populated"
+					: "empty",
+			itemCount: usageTrendData?.length ?? 0,
+		},
+		{
+			id: "model_tokens",
+			state: modelTokensError
+				? "error"
+				: (modelTokensData?.length ?? 0) > 0
+					? "populated"
+					: "empty",
+			itemCount: modelTokensData?.length ?? 0,
+		},
+	];
+	const overviewMetrics = [
+		{ id: "distinct_users", value: kpis?.distinct_users },
+		{ id: "distinct_sessions", value: kpis?.distinct_sessions },
+		{ id: "distinct_projects", value: kpis?.distinct_projects },
+		{ id: "distinct_subagents", value: kpis?.distinct_subagents },
+		{ id: "distinct_slash_commands", value: kpis?.distinct_slash_commands },
+		{ id: "distinct_skills", value: kpis?.distinct_skills },
+	];
 
 	useTrackDashboardView({
-		isLoading: kpisLoading || insightsLoading,
+		isLoading: overviewIsLoading,
 		isError: kpisError,
 		hasData: Boolean(hasData),
 		insightCount: insightsError ? 0 : (insights?.length ?? 0),
+		sections: overviewSections,
+		metrics: overviewMetrics,
 	});
 
 	useEffect(() => {

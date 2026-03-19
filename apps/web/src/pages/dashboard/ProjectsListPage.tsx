@@ -20,7 +20,10 @@ import { DataTable } from "@/components/ui/data-table";
 import { InfoTooltip } from "@/components/ui/InfoTooltip";
 import { useDateRange } from "@/contexts/DateRangeContext";
 import { useAnalyticsQuery } from "@/hooks/useAnalyticsQuery";
-import { useTrackDashboardView } from "@/hooks/useTrackDashboardView";
+import {
+	type DashboardSection,
+	useTrackDashboardView,
+} from "@/hooks/useTrackDashboardView";
 import { encodeProjectPath } from "@/lib/format";
 import { orpc } from "@/lib/orpc";
 
@@ -123,18 +126,21 @@ export function ProjectsListPage() {
 		useDateRange();
 	const days = calculateDays();
 
-	const { data: projects, isLoading } = useAnalyticsQuery(
+	const {
+		data: projects,
+		isLoading: projectsLoading,
+		isError: projectsError,
+	} = useAnalyticsQuery(
 		orpc.analytics.projects.investment.queryOptions({ input: { days } }),
 	);
 
-	const { data: trendData } = useAnalyticsQuery(
+	const {
+		data: trendData,
+		isLoading: trendLoading,
+		isError: trendError,
+	} = useAnalyticsQuery(
 		orpc.analytics.projects.trends.queryOptions({ input: { days } }),
 	);
-
-	useTrackDashboardView({
-		isLoading,
-		hasData: (projects?.length ?? 0) > 0,
-	});
 
 	const sortedProjects = useMemo(() => projects ?? [], [projects]);
 
@@ -152,6 +158,48 @@ export function ProjectsListPage() {
 					totalProjects
 				).toFixed(1)
 			: "0";
+	const projectsIsLoading = projectsLoading || trendLoading;
+	const projectsSections: DashboardSection[] = [
+		{
+			id: "summary_cards",
+			state: projectsError ? "error" : "populated",
+			itemCount: projectsError ? 0 : 6,
+		},
+		{
+			id: "project_trends",
+			state: trendError
+				? "error"
+				: (trendData?.length ?? 0) > 0
+					? "populated"
+					: "empty",
+			itemCount: trendData?.length ?? 0,
+		},
+		{
+			id: "project_details",
+			state: projectsError
+				? "error"
+				: sortedProjects.length > 0
+					? "populated"
+					: "empty",
+			itemCount: sortedProjects.length,
+		},
+	];
+	const projectsMetrics = [
+		{ id: "active_projects", value: totalProjects },
+		{ id: "total_sessions", value: totalSessions },
+		{ id: "total_hours", value: totalHours },
+		{ id: "total_tokens", value: totalTokens },
+		{ id: "total_cost", value: totalCost },
+		{ id: "avg_users_per_project", value: Number(avgUsersPerProject) },
+	];
+
+	useTrackDashboardView({
+		isLoading: projectsIsLoading,
+		isError: projectsError,
+		hasData: (projects?.length ?? 0) > 0,
+		sections: projectsSections,
+		metrics: projectsMetrics,
+	});
 
 	const handleRowClick = (row: ProjectInvestment) => {
 		const key = row.repository || row.git_remote || row.project_path;
@@ -159,7 +207,7 @@ export function ProjectsListPage() {
 		navigate(`/dashboard/projects/${encodedPath}`);
 	};
 
-	if (isLoading) {
+	if (projectsIsLoading) {
 		return (
 			<div className="px-8 py-6">
 				<PageHeader

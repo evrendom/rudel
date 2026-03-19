@@ -24,7 +24,10 @@ import { useDateRange } from "@/contexts/DateRangeContext";
 import { useOrganization } from "@/contexts/OrganizationContext";
 import { useAnalyticsQuery } from "@/hooks/useAnalyticsQuery";
 import { useFullOrganization } from "@/hooks/useFullOrganization";
-import { useTrackDashboardView } from "@/hooks/useTrackDashboardView";
+import {
+	type DashboardSection,
+	useTrackDashboardView,
+} from "@/hooks/useTrackDashboardView";
 import { useUserMap } from "@/hooks/useUserMap";
 import { formatUsername } from "@/lib/format";
 import { orpc } from "@/lib/orpc";
@@ -39,18 +42,21 @@ export function DevelopersListPage() {
 	const { data: fullOrg } = useFullOrganization(activeOrg?.id);
 	const memberCount = fullOrg?.members.length ?? null;
 
-	const { data: developers, isLoading } = useAnalyticsQuery(
+	const {
+		data: developers,
+		isLoading: developersLoading,
+		isError: developersError,
+	} = useAnalyticsQuery(
 		orpc.analytics.developers.list.queryOptions({ input: { days } }),
 	);
 
-	const { data: trendsData } = useAnalyticsQuery(
+	const {
+		data: trendsData,
+		isLoading: trendsLoading,
+		isError: trendsError,
+	} = useAnalyticsQuery(
 		orpc.analytics.developers.trends.queryOptions({ input: { days } }),
 	);
-
-	useTrackDashboardView({
-		isLoading,
-		hasData: (developers?.length ?? 0) > 0,
-	});
 
 	const { userMap } = useUserMap();
 
@@ -190,8 +196,49 @@ export function DevelopersListPage() {
 		developers?.reduce((sum, d) => sum + d.total_tokens, 0) ?? 0;
 	const totalHours =
 		(developers?.reduce((sum, d) => sum + d.total_duration_min, 0) ?? 0) / 60;
+	const developersIsLoading = developersLoading || trendsLoading;
+	const developersSections: DashboardSection[] = [
+		{
+			id: "summary_cards",
+			state: developersError ? "error" : "populated",
+			itemCount: developersError ? 0 : 5,
+		},
+		{
+			id: "developer_list",
+			state: developersError
+				? "error"
+				: (developers?.length ?? 0) > 0
+					? "populated"
+					: "empty",
+			itemCount: developers?.length ?? 0,
+		},
+		{
+			id: "developer_trends",
+			state: trendsError
+				? "error"
+				: (trendsData?.length ?? 0) > 0
+					? "populated"
+					: "empty",
+			itemCount: trendsData?.length ?? 0,
+		},
+	];
+	const developersMetrics = [
+		{ id: "team_members", value: memberCount },
+		{ id: "active_developers", value: developers?.length ?? 0 },
+		{ id: "total_sessions", value: totalSessions },
+		{ id: "total_tokens", value: totalTokens },
+		{ id: "total_hours", value: totalHours },
+	];
 
-	if (isLoading) {
+	useTrackDashboardView({
+		isLoading: developersIsLoading,
+		isError: developersError,
+		hasData: (developers?.length ?? 0) > 0,
+		sections: developersSections,
+		metrics: developersMetrics,
+	});
+
+	if (developersIsLoading) {
 		return (
 			<div className="px-8 py-6">
 				<PageHeader

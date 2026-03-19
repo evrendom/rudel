@@ -5,6 +5,7 @@ const EVENT_VERSION = 1;
 const ANALYTICS_SURFACE = "web";
 
 type AnalyticsEnvironment = "production" | "staging" | "development" | "local";
+type AnalyticsPropertyValue = string | number | boolean | null | undefined;
 
 export const DASHBOARD_PAGE_NAMES = [
 	"overview",
@@ -276,14 +277,16 @@ export function captureSignUpFailed(payload: {
 	captureEvent("Sign Up Failed", payload);
 }
 
-export function captureDashboardViewed(payload: {
-	organization_id: string;
-	user_id: string;
-	page_name: DashboardPageName;
-	has_data: boolean;
-	date_range_days: number;
-	insight_count: number;
-}) {
+export function captureDashboardViewed(
+	payload: {
+		organization_id: string;
+		user_id: string;
+		page_name: DashboardPageName;
+		has_data: boolean;
+		date_range_days: number;
+		insight_count: number;
+	} & Record<string, AnalyticsPropertyValue>,
+) {
 	captureEvent("Dashboard Viewed", payload);
 }
 

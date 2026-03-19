@@ -28,7 +28,10 @@ import { useDateRange } from "@/contexts/DateRangeContext";
 import { useAnalyticsQuery } from "@/hooks/useAnalyticsQuery";
 import { useCanViewSession } from "@/hooks/useCanViewSession";
 import { useUiControlTracking } from "@/hooks/useDashboardAnalytics";
-import { useTrackDashboardView } from "@/hooks/useTrackDashboardView";
+import {
+	type DashboardSection,
+	useTrackDashboardView,
+} from "@/hooks/useTrackDashboardView";
 import { useUserMap } from "@/hooks/useUserMap";
 import { calculateCost, formatUsername } from "@/lib/format";
 import { orpc } from "@/lib/orpc";
@@ -71,17 +74,29 @@ export function SessionsListPage() {
 		return () => clearTimeout(timer);
 	}, [selectedDimension, selectedMetric, selectedSplitBy]);
 
-	const { data: summary } = useAnalyticsQuery(
+	const {
+		data: summary,
+		isLoading: summaryLoading,
+		isError: summaryError,
+	} = useAnalyticsQuery(
 		orpc.analytics.sessions.summary.queryOptions({ input: { days } }),
 	);
 
-	const { data: comparison } = useAnalyticsQuery(
+	const {
+		data: comparison,
+		isLoading: comparisonLoading,
+		isError: comparisonError,
+	} = useAnalyticsQuery(
 		orpc.analytics.sessions.summaryComparison.queryOptions({
 			input: { days },
 		}),
 	);
 
-	const { data: sessions, isLoading } = useAnalyticsQuery(
+	const {
+		data: sessions,
+		isLoading: sessionsLoading,
+		isError: sessionsError,
+	} = useAnalyticsQuery(
 		orpc.analytics.sessions.list.queryOptions({
 			input: { days, limit: 100, sortBy: "session_date", sortOrder: "desc" },
 		}),
@@ -90,23 +105,21 @@ export function SessionsListPage() {
 	const { userMap } = useUserMap();
 	const canViewSession = useCanViewSession();
 
-	const { data: dimensionData, isLoading: dimensionLoading } =
-		useAnalyticsQuery(
-			orpc.analytics.sessions.dimensionAnalysis.queryOptions({
-				input: {
-					days,
-					dimension: debouncedDimension,
-					metric: debouncedMetric,
-					splitBy: debouncedSplitBy || undefined,
-					limit: 10,
-				},
-			}),
-		);
-
-	useTrackDashboardView({
-		isLoading,
-		hasData: (sessions?.length ?? 0) > 0,
-	});
+	const {
+		data: dimensionData,
+		isLoading: dimensionLoading,
+		isError: dimensionError,
+	} = useAnalyticsQuery(
+		orpc.analytics.sessions.dimensionAnalysis.queryOptions({
+			input: {
+				days,
+				dimension: debouncedDimension,
+				metric: debouncedMetric,
+				splitBy: debouncedSplitBy || undefined,
+				limit: 10,
+			},
+		}),
+	);
 
 	const columns = useMemo<ColumnDef<SessionAnalytics>[]>(
 		() => [
@@ -240,7 +253,59 @@ export function SessionsListPage() {
 		}));
 	}, [userMap]);
 
-	if (isLoading) {
+	const sessionsIsLoading =
+		summaryLoading || comparisonLoading || sessionsLoading || dimensionLoading;
+	const sessionsSections: DashboardSection[] = [
+		{
+			id: "summary_cards",
+			state:
+				summaryError || comparisonError
+					? "error"
+					: summary && comparison
+						? "populated"
+						: "empty",
+			itemCount: summary && comparison ? 3 : 0,
+		},
+		{
+			id: "dimension_analysis",
+			state: dimensionError
+				? "error"
+				: (dimensionData?.length ?? 0) > 0
+					? "populated"
+					: "empty",
+			itemCount: dimensionData?.length ?? 0,
+		},
+		{
+			id: "sessions_table",
+			state: sessionsError
+				? "error"
+				: filteredSessions.length > 0
+					? "populated"
+					: "empty",
+			itemCount: filteredSessions.length,
+		},
+	];
+	const sessionsMetrics = [
+		{ id: "total_sessions", value: summary?.total_sessions },
+		{
+			id: "avg_session_duration_min",
+			value: summary?.avg_session_duration_min,
+		},
+		{
+			id: "avg_response_time_sec",
+			value: summary?.avg_response_time_sec,
+		},
+	];
+
+	useTrackDashboardView({
+		isLoading: sessionsIsLoading,
+		isError: sessionsError,
+		hasData: (sessions?.length ?? 0) > 0,
+		sections: sessionsSections,
+		metrics: sessionsMetrics,
+	});
+
+	if (sessionsIsLoading) {
 		return (
 			<div className="px-8 py-6">
 				<PageHeader

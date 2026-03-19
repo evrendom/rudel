@@ -40,7 +40,10 @@ import { useDateRange } from "@/contexts/DateRangeContext";
 import { useAnalyticsQuery } from "@/hooks/useAnalyticsQuery";
 import { useChartTheme } from "@/hooks/useChartTheme";
 import { useUiControlTracking } from "@/hooks/useDashboardAnalytics";
-import { useTrackDashboardView } from "@/hooks/useTrackDashboardView";
+import {
+	type DashboardSection,
+	useTrackDashboardView,
+} from "@/hooks/useTrackDashboardView";
 import { useUserMap } from "@/hooks/useUserMap";
 import { formatUsername } from "@/lib/format";
 import { orpc } from "@/lib/orpc";
@@ -59,26 +62,37 @@ export function ROIPage() {
 		devHourlyRate: 100,
 	});
 
-	const { data: metrics, isLoading } = useAnalyticsQuery(
+	const {
+		data: metrics,
+		isLoading: metricsLoading,
+		isError: metricsError,
+	} = useAnalyticsQuery(
 		orpc.analytics.roi.metrics.queryOptions({ input: { days } }),
 	);
 
-	const { data: trends } = useAnalyticsQuery(
+	const {
+		data: trends,
+		isLoading: trendsLoading,
+		isError: trendsError,
+	} = useAnalyticsQuery(
 		orpc.analytics.roi.trends.queryOptions({ input: { days: 56 } }),
 	);
 
-	const { data: developerCosts } = useAnalyticsQuery(
+	const {
+		data: developerCosts,
+		isLoading: developerCostsLoading,
+		isError: developerCostsError,
+	} = useAnalyticsQuery(
 		orpc.analytics.roi.breakdownDevelopers.queryOptions({ input: { days } }),
 	);
 
-	const { data: projectCosts } = useAnalyticsQuery(
+	const {
+		data: projectCosts,
+		isLoading: projectCostsLoading,
+		isError: projectCostsError,
+	} = useAnalyticsQuery(
 		orpc.analytics.roi.breakdownProjects.queryOptions({ input: { days } }),
 	);
-
-	useTrackDashboardView({
-		isLoading,
-		hasData: Boolean(metrics),
-	});
 
 	const { userMap } = useUserMap();
 
@@ -181,6 +195,87 @@ export function ROIPage() {
 			roiPercentage: parseFloat(roiPercentage.toFixed(2)),
 		};
 	}, [metrics, roiInputs]);
+	const roiIsLoading =
+		metricsLoading ||
+		trendsLoading ||
+		developerCostsLoading ||
+		projectCostsLoading;
+	const roiSections: DashboardSection[] = [
+		{
+			id: "roi_parameters",
+			state: metricsError ? "error" : metrics ? "populated" : "empty",
+			itemCount: metrics ? 4 : 0,
+		},
+		{
+			id: "summary_cards",
+			state: metricsError
+				? "error"
+				: metrics && calculatedROI
+					? "populated"
+					: "empty",
+			itemCount: metrics && calculatedROI ? 4 : 0,
+		},
+		{
+			id: "roi_breakdown",
+			state: metricsError
+				? "error"
+				: metrics && calculatedROI
+					? "populated"
+					: "empty",
+			itemCount: metrics && calculatedROI ? 5 : 0,
+		},
+		{
+			id: "weekly_cost_trend",
+			state: trendsError
+				? "error"
+				: (trends?.length ?? 0) > 0
+					? "populated"
+					: "empty",
+			itemCount: trends?.length ?? 0,
+		},
+		{
+			id: "weekly_productivity_trend",
+			state: trendsError
+				? "error"
+				: (trends?.length ?? 0) > 0
+					? "populated"
+					: "empty",
+			itemCount: trends?.length ?? 0,
+		},
+		{
+			id: "developer_cost_breakdown",
+			state: developerCostsError
+				? "error"
+				: (developerCosts?.length ?? 0) > 0
+					? "populated"
+					: "empty",
+			itemCount: developerCosts?.length ?? 0,
+		},
+		{
+			id: "project_cost_breakdown",
+			state: projectCostsError
+				? "error"
+				: (projectCosts?.length ?? 0) > 0
+					? "populated"
+					: "empty",
+			itemCount: projectCosts?.length ?? 0,
+		},
+	];
+	const roiMetrics = [
+		{ id: "total_spend", value: metrics?.total_cost },
+		{ id: "cost_per_commit", value: metrics?.cost_per_commit },
+		{ id: "dev_hours_saved", value: calculatedROI?.hoursSaved },
+		{ id: "dollar_value_saved", value: calculatedROI?.dollarValueSaved },
+		{ id: "roi_percentage", value: calculatedROI?.roiPercentage },
+	];
+
+	useTrackDashboardView({
+		isLoading: roiIsLoading,
+		isError: metricsError,
+		hasData: Boolean(metrics),
+		sections: roiSections,
+		metrics: roiMetrics,
+	});
 
 	const resetToDefaults = () => {
 		trackUiControl({
@@ -232,7 +327,7 @@ export function ROIPage() {
 				}
 			/>
 
-			{isLoading && (
+			{roiIsLoading && (
 				<div className="flex items-center justify-center py-12">
 					<div className="text-center">
 						<Spinner size="lg" className="mb-4" />
@@ -241,7 +336,7 @@ export function ROIPage() {
 				</div>
 			)}
 
-			{!isLoading && metrics && calculatedROI && (
+			{!roiIsLoading && metrics && calculatedROI && (
 				<>
 					{/* Input Configuration */}
 					<AnalyticsCard className="mb-6">
