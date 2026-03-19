@@ -168,6 +168,7 @@ export const PRODUCT_ANALYTICS_EVENTS = {
 	CLI_LOGIN_FAILED: "CLI Login Failed",
 	AUTO_UPLOAD_ENABLED: "Auto Upload Enabled",
 	AUTO_UPLOAD_ENABLE_FAILED: "Auto Upload Enable Failed",
+	SESSION_UPLOAD_COMPLETED: "Session Upload Completed",
 	DASHBOARD_VIEWED: "Dashboard Viewed",
 	DASHBOARD_LOAD_FAILED: "Dashboard Load Failed",
 	INSIGHT_CARD_CLICKED: "Insight Card Clicked",
@@ -262,6 +263,20 @@ export const AutoUploadEnableFailedEventSchema = RequiredCommonSchema.extend({
 	user_id: idSchema.optional(),
 }).strict();
 
+export const SessionUploadCompletedEventSchema = RequiredCommonSchema.extend({
+	surface: z.literal("api"),
+	organization_id: idSchema,
+	user_id: idSchema,
+	client_surface: ProductAnalyticsClientSurfaceSchema,
+	upload_mode: ProductAnalyticsUploadModeSchema,
+	agent_source: SourceSchema,
+	cli_version: nonEmptyStringSchema,
+	platform_os: ProductAnalyticsPlatformOsSchema,
+	project_id_hash: nonEmptyStringSchema.optional(),
+	session_tag: nonEmptyStringSchema.optional(),
+	content_size_bucket: nonEmptyStringSchema.optional(),
+}).strict();
+
 export const InviteSentEventSchema = RequiredCommonSchema.extend({
 	surface: z.literal("api"),
 	organization_id: idSchema,
@@ -337,6 +352,8 @@ export const ProductAnalyticsEventSchemas = {
 	[PRODUCT_ANALYTICS_EVENTS.AUTO_UPLOAD_ENABLED]: AutoUploadEnabledEventSchema,
 	[PRODUCT_ANALYTICS_EVENTS.AUTO_UPLOAD_ENABLE_FAILED]:
 		AutoUploadEnableFailedEventSchema,
+	[PRODUCT_ANALYTICS_EVENTS.SESSION_UPLOAD_COMPLETED]:
+		SessionUploadCompletedEventSchema,
 	[PRODUCT_ANALYTICS_EVENTS.DASHBOARD_VIEWED]: DashboardViewedEventSchema,
 	[PRODUCT_ANALYTICS_EVENTS.DASHBOARD_LOAD_FAILED]:
 		DashboardLoadFailedEventSchema,
@@ -360,6 +377,9 @@ export type AutoUploadEnabledEvent = z.infer<
 >;
 export type AutoUploadEnableFailedEvent = z.infer<
 	typeof AutoUploadEnableFailedEventSchema
+>;
+export type SessionUploadCompletedEvent = z.infer<
+	typeof SessionUploadCompletedEventSchema
 >;
 export type DashboardViewedEvent = z.infer<typeof DashboardViewedEventSchema>;
 export type DashboardLoadFailedEvent = z.infer<
@@ -385,6 +405,7 @@ export interface ProductAnalyticsEventPayloadMap {
 	[PRODUCT_ANALYTICS_EVENTS.CLI_LOGIN_FAILED]: CliLoginFailedEvent;
 	[PRODUCT_ANALYTICS_EVENTS.AUTO_UPLOAD_ENABLED]: AutoUploadEnabledEvent;
 	[PRODUCT_ANALYTICS_EVENTS.AUTO_UPLOAD_ENABLE_FAILED]: AutoUploadEnableFailedEvent;
+	[PRODUCT_ANALYTICS_EVENTS.SESSION_UPLOAD_COMPLETED]: SessionUploadCompletedEvent;
 	[PRODUCT_ANALYTICS_EVENTS.DASHBOARD_VIEWED]: DashboardViewedEvent;
 	[PRODUCT_ANALYTICS_EVENTS.DASHBOARD_LOAD_FAILED]: DashboardLoadFailedEvent;
 	[PRODUCT_ANALYTICS_EVENTS.INSIGHT_CARD_CLICKED]: InsightCardClickedEvent;

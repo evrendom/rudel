@@ -6,7 +6,11 @@ import { and, eq } from "drizzle-orm";
 import { getClickhouse } from "./clickhouse.js";
 import { db } from "./db.js";
 import { analyticsRouter } from "./handlers/analytics/index.js";
-import { captureApiProductAnalyticsEvent } from "./lib/product-analytics.js";
+import {
+	bucketContentSize,
+	captureApiProductAnalyticsEvent,
+	hashProjectPath,
+} from "./lib/product-analytics.js";
 import { authMiddleware, ingestAuthMiddleware, os } from "./middleware.js";
 import { checkIngestRateLimit } from "./rate-limit.js";
 import {
@@ -108,10 +112,38 @@ const ingestSessionHandler = os.ingestSession
 			organizationId: orgId,
 		});
 
-		return {
+		const response = {
 			success: true as const,
 			sessionId: input.sessionId,
 		};
+
+		if (
+			!input.client_surface ||
+			!input.upload_mode ||
+			!input.cli_version ||
+			!input.platform_os
+		) {
+			return response;
+		}
+
+		captureApiProductAnalyticsEvent({
+			distinctId: context.user.id,
+			event: PRODUCT_ANALYTICS_EVENTS.SESSION_UPLOAD_COMPLETED,
+			payload: {
+				organization_id: orgId,
+				user_id: context.user.id,
+				client_surface: input.client_surface,
+				upload_mode: input.upload_mode,
+				agent_source: input.source,
+				cli_version: input.cli_version,
+				platform_os: input.platform_os,
+				project_id_hash: hashProjectPath(input.projectPath),
+				session_tag: input.tag,
+				content_size_bucket: bucketContentSize(input.content.length),
+			},
+		});
+
+		return response;
 	});
 
 const revokeCliToken = os.cli.revokeToken

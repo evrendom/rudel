@@ -1,6 +1,11 @@
 import { oc } from "@orpc/contract";
 import { z } from "zod";
 import {
+	ProductAnalyticsClientSurfaceSchema,
+	ProductAnalyticsPlatformOsSchema,
+	ProductAnalyticsUploadModeSchema,
+} from "./product-analytics.js";
+import {
 	DateRangeInputSchema,
 	DaysInputSchema,
 	DeveloperCostBreakdownSchema,
@@ -114,6 +119,10 @@ export const IngestSessionInputSchema = z.object({
 	content: z.string(),
 	subagents: z.array(SubagentFileSchema).optional(),
 	organizationId: z.string().max(200).optional(),
+	client_surface: ProductAnalyticsClientSurfaceSchema.optional(),
+	upload_mode: ProductAnalyticsUploadModeSchema.optional(),
+	cli_version: z.string().max(200).optional(),
+	platform_os: ProductAnalyticsPlatformOsSchema.optional(),
 });
 
 export const IngestSessionOutputSchema = z.object({
