@@ -1,6 +1,9 @@
 import { ORPCError } from "@orpc/server";
 import { getAdapter } from "@rudel/agent-adapters";
-import { PRODUCT_ANALYTICS_EVENTS } from "@rudel/api-routes";
+import {
+	type IngestSessionInput,
+	PRODUCT_ANALYTICS_EVENTS,
+} from "@rudel/api-routes";
 import { apikey, member, organization, session } from "@rudel/sql-schema";
 import { and, eq } from "drizzle-orm";
 import { getClickhouse } from "./clickhouse.js";
@@ -18,6 +21,38 @@ import {
 	getOrgSessionCount,
 	hasOrgUploadsInLastDays,
 } from "./services/org-session.service.js";
+
+function getSessionUploadCompletedPayload(
+	input: IngestSessionInput,
+	organizationId: string,
+	userId: string,
+) {
+	if (!input.client_surface) {
+		return null;
+	}
+	if (!input.upload_mode) {
+		return null;
+	}
+	if (!input.cli_version) {
+		return null;
+	}
+	if (!input.platform_os) {
+		return null;
+	}
+
+	return {
+		organization_id: organizationId,
+		user_id: userId,
+		client_surface: input.client_surface,
+		upload_mode: input.upload_mode,
+		agent_source: input.source,
+		cli_version: input.cli_version,
+		platform_os: input.platform_os,
+		project_id_hash: hashProjectPath(input.projectPath),
+		session_tag: input.tag,
+		content_size_bucket: bucketContentSize(input.content.length),
+	};
+}
 
 const health = os.health.handler(() => {
 	return {
@@ -117,30 +152,20 @@ const ingestSessionHandler = os.ingestSession
 			sessionId: input.sessionId,
 		};
 
-		if (
-			!input.client_surface ||
-			!input.upload_mode ||
-			!input.cli_version ||
-			!input.platform_os
-		) {
+		const uploadCompletedPayload = getSessionUploadCompletedPayload(
+			input,
+			orgId,
+			context.user.id,
+		);
+
+		if (!uploadCompletedPayload) {
 			return response;
 		}
 
 		captureApiProductAnalyticsEvent({
 			distinctId: context.user.id,
 			event: PRODUCT_ANALYTICS_EVENTS.SESSION_UPLOAD_COMPLETED,
-			payload: {
-				organization_id: orgId,
-				user_id: context.user.id,
-				client_surface: input.client_surface,
-				upload_mode: input.upload_mode,
-				agent_source: input.source,
-				cli_version: input.cli_version,
-				platform_os: input.platform_os,
-				project_id_hash: hashProjectPath(input.projectPath),
-				session_tag: input.tag,
-				content_size_bucket: bucketContentSize(input.content.length),
-			},
+			payload: uploadCompletedPayload,
 		});
 
 		return response;
