@@ -33,7 +33,7 @@ export interface UploadConfig {
 	};
 }
 
-const RETRYABLE_STATUS_CODES = new Set([502, 503, 429]);
+const RETRYABLE_STATUS_CODES = new Set([502, 503]);
 const MAX_ATTEMPTS = 3;
 const BASE_DELAY_MS = 1_000;
 
@@ -47,7 +47,22 @@ function isRetryable(error: unknown): boolean {
 	return false;
 }
 
+function isRateLimited(error: unknown): boolean {
+	return error instanceof ORPCError && error.status === 429;
+}
+
 function formatError(error: unknown): string {
+	if (isRateLimited(error)) {
+		const data = (error as { data?: unknown }).data as {
+			limit?: number;
+			windowSeconds?: number;
+		} | null;
+		const windowMin = data?.windowSeconds
+			? Math.round(data.windowSeconds / 60)
+			: 60;
+		const limit = data?.limit ?? "unknown";
+		return `Rate limit reached (${limit} sessions per ${windowMin} min). Wait and retry with: rudel upload --retry`;
+	}
 	if (error instanceof ORPCError) {
 		return `${error.status} ${error.message}`;
 	}
@@ -57,9 +72,35 @@ function formatError(error: unknown): string {
 	return String(error);
 }
 
+function captureTerminalUploadFailure(
+	config: UploadConfig,
+	error: unknown,
+	attemptNumber: number,
+): void {
+	if (!config.analytics) {
+		return;
+	}
+
+	captureCliUploadFailed({
+		surface: config.analytics.clientSurface,
+		clientSurface: config.analytics.clientSurface,
+		uploadMode: config.analytics.uploadMode,
+		agentSource: config.analytics.agentSource,
+		failureStage: getUploadTerminalFailureStage(error),
+		error,
+		organizationId: config.analytics.organizationId,
+		userId:
+			config.analytics.userId ?? getCliUserId(config.analytics.credentials),
+		projectPath: config.analytics.projectPath,
+		attemptNumber,
+		isRetryable: isRetryable(error),
+	});
+}
+
 /**
  * Upload a session transcript to the backend via oRPC.
- * Retries on transient errors (502, 503, 429) with exponential backoff.
+ * Retries on transient errors (502, 503) with exponential backoff.
+ * Rate limit errors (429) are not retried because the wait window is too long.
  */
 export async function uploadSession(
 	request: IngestSessionInput,
@@ -97,6 +138,16 @@ export async function uploadSession(
 		} catch (error) {
 			const errorMessage = formatError(error);
 
+			if (isRateLimited(error)) {
+				captureTerminalUploadFailure(config, error, attempt);
+				return {
+					success: false,
+					error: errorMessage,
+					attempts: attempt,
+					rateLimited: true,
+				};
+			}
+
 			if (isRetryable(error) && attempt < MAX_ATTEMPTS) {
 				config.onRetry?.(attempt, MAX_ATTEMPTS, errorMessage);
 				const delay = BASE_DELAY_MS * 2 ** (attempt - 1);
@@ -104,23 +155,7 @@ export async function uploadSession(
 				continue;
 			}
 
-			if (config.analytics) {
-				captureCliUploadFailed({
-					surface: config.analytics.clientSurface,
-					clientSurface: config.analytics.clientSurface,
-					uploadMode: config.analytics.uploadMode,
-					agentSource: config.analytics.agentSource,
-					failureStage: getUploadTerminalFailureStage(error),
-					error,
-					organizationId: config.analytics.organizationId,
-					userId:
-						config.analytics.userId ??
-						getCliUserId(config.analytics.credentials),
-					projectPath: config.analytics.projectPath,
-					attemptNumber: attempt,
-					isRetryable: isRetryable(error),
-				});
-			}
+			captureTerminalUploadFailure(config, error, attempt);
 
 			return {
 				success: false,
