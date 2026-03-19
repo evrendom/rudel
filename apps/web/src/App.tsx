@@ -5,12 +5,10 @@ import { LoginForm } from "./components/auth/login-form";
 import { SignupForm } from "./components/auth/signup-form";
 import { Button } from "./components/ui/button";
 import { useAnalyticsTracking } from "./hooks/useDashboardAnalytics";
-import { useMountEffect } from "./hooks/useMountEffect";
 import { DashboardLayout } from "./layouts/DashboardLayout";
 import { authClient } from "./lib/auth-client";
 import {
 	identifyProductAnalyticsUser,
-	initProductAnalytics,
 	resetProductAnalytics,
 } from "./lib/product-analytics";
 import { AcceptInvitationPage } from "./pages/AcceptInvitationPage";
@@ -58,10 +56,6 @@ function App() {
 	const { resolvedTheme } = useTheme();
 	const logoSrc =
 		resolvedTheme === "dark" ? "/logo-light.svg" : "/logo-dark.svg";
-
-	useMountEffect(() => {
-		initProductAnalytics();
-	});
 
 	useEffect(() => {
 		const userId =
