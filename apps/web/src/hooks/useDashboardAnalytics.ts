@@ -3,9 +3,9 @@ import { useOptionalDateRange } from "@/contexts/DateRangeContext";
 import { useOptionalOrganization } from "@/contexts/OrganizationContext";
 import { authClient } from "@/lib/auth-client";
 import {
+	type AppPageName,
 	captureUiControlUsed,
 	getAnalyticsPageName,
-	type AppPageName,
 	type UiControlType,
 	type UiInteractionType,
 } from "@/lib/product-analytics";
@@ -26,10 +26,12 @@ export function useDashboardAnalytics(options?: UseAnalyticsOptions) {
 			? session.user.id
 			: null;
 	const pageName =
-		options?.pageName ?? (getAnalyticsPageName(location.pathname) as AppPageName | null);
+		options?.pageName ??
+		(getAnalyticsPageName(location.pathname) as AppPageName | null);
 
 	return {
-		organizationId: options?.organizationId ?? organization?.activeOrg?.id ?? null,
+		organizationId:
+			options?.organizationId ?? organization?.activeOrg?.id ?? null,
 		userId,
 		pageName,
 		dateRangeDays: dateRange?.calculateDays(),
@@ -59,7 +61,8 @@ export function useUiControlTracking(options?: UseAnalyticsOptions) {
 			control_name: input.controlName,
 			control_type: input.controlType,
 			interaction_type: input.interactionType,
-			organization_id: input.organizationId ?? analytics.organizationId ?? undefined,
+			organization_id:
+				input.organizationId ?? analytics.organizationId ?? undefined,
 			user_id: input.userId ?? analytics.userId ?? undefined,
 			date_range_days: input.dateRangeDays ?? analytics.dateRangeDays,
 			target_path: input.targetPath,
