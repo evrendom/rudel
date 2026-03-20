@@ -64,18 +64,33 @@ async function waitForRow(
 	return undefined;
 }
 
+async function deleteRow(
+	executor: ReturnType<typeof createClickHouseExecutor>,
+	sessionId: string,
+	maxRetries = 3,
+): Promise<boolean> {
+	for (let attempt = 0; attempt < maxRetries; attempt++) {
+		try {
+			await executor.execute({
+				query: `DELETE FROM ${liveTable} WHERE session_id = {sessionId:String}`,
+				query_params: { sessionId },
+			});
+			insertedSessionIds.delete(sessionId);
+			return true;
+		} catch {
+			if (attempt === maxRetries - 1) return false;
+			await Bun.sleep(1_000 * (attempt + 1));
+		}
+	}
+
+	return false;
+}
+
 afterAll(() => {
 	if (insertedSessionIds.size === 0) return;
 	const exec = getExecutor();
 	void Promise.all(
-		[...insertedSessionIds].map((sessionId) =>
-			exec
-				.execute({
-					query: `DELETE FROM ${liveTable} WHERE session_id = {sessionId:String}`,
-					query_params: { sessionId },
-				})
-				.catch(() => {}),
-		),
+		[...insertedSessionIds].map((sessionId) => deleteRow(exec, sessionId)),
 	);
 });
 
@@ -193,13 +208,7 @@ describe("clickhouse executor", () => {
 		expect(row?.project_path).toBe(projectPath);
 		expect(row?.content).toBe(content);
 
-		await executor.execute({
-			query: `DELETE FROM ${liveTable} WHERE session_id = {sessionId:String}`,
-			query_params: {
-				sessionId,
-			},
-		});
-		insertedSessionIds.delete(sessionId);
+		await deleteRow(executor, sessionId);
 	}, 120_000);
 });
 

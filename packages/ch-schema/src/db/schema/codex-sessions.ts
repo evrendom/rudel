@@ -51,9 +51,9 @@ const codex_session_analytics_mv = materializedView({
     arraySum(arrayMap(x -> toUInt64OrZero(JSONExtractRaw(JSONExtractRaw(x, 'payload'), 'usage', 'input_tokens')), _completion_lines)) AS _input_tokens,
     arraySum(arrayMap(x -> toUInt64OrZero(JSONExtractRaw(JSONExtractRaw(x, 'payload'), 'usage', 'output_tokens')), _completion_lines)) AS _output_tokens,
 
-    arrayMin(_timestamps) AS _session_date,
-    arrayMax(_timestamps) AS _last_interaction_date,
-    dateDiff('minute', _session_date, _last_interaction_date) AS _duration_min,
+    if(length(_timestamps) > 0, arrayMin(_timestamps), cs.session_date) AS _session_date,
+    if(length(_timestamps) > 0, arrayMax(_timestamps), cs.last_interaction_date) AS _last_interaction_date,
+    if(length(_timestamps) > 1, dateDiff('minute', arrayMin(_timestamps), arrayMax(_timestamps)), 0) AS _duration_min,
 
     JSONExtractString(
       JSONExtractRaw(
@@ -134,7 +134,6 @@ const codex_session_analytics_mv = materializedView({
     )) as success_score
 
   FROM rudel.codex_sessions AS cs
-  WHERE length(_timestamps) > 0
   QUALIFY ROW_NUMBER() OVER (PARTITION BY cs.session_id ORDER BY cs.ingested_at DESC) = 1`,
 });
 
