@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { useChartTheme } from "@/hooks/useChartTheme";
+import { useAnalyticsTracking } from "@/hooks/useDashboardAnalytics";
 import { ChartLegend } from "./ChartLegend";
 import { ChartTooltip } from "./ChartTooltip";
 
@@ -55,6 +56,7 @@ export function LearningsTrendChart({
 	userMap,
 }: LearningsTrendChartProps) {
 	const { gridStroke } = useChartTheme();
+	const { trackFilterChange } = useAnalyticsTracking();
 	const [isCumulative, setIsCumulative] = useState(true);
 	const [hiddenSeries, setHiddenSeries] = useState<Set<string>>(new Set());
 	const toggleSeries = (key: string) =>
@@ -179,9 +181,17 @@ export function LearningsTrendChart({
 				<div className="flex items-center gap-2">
 					<Select
 						value={splitBy}
-						onValueChange={(v) =>
-							onSplitByChange(v as "user_id" | "repository")
-						}
+						onValueChange={(v) => {
+							trackFilterChange({
+								filterName: "learnings_trend_split",
+								filterCategory: "dimension",
+								changeAction: "set",
+								sourceComponent: "learnings_trend_chart",
+								valueKey: v,
+								affectedScope: "chart",
+							});
+							onSplitByChange(v as "user_id" | "repository");
+						}}
 					>
 						<SelectTrigger className="w-40">
 							<SelectValue />
@@ -203,7 +213,17 @@ export function LearningsTrendChart({
 					<Switch
 						id="cumulative-toggle"
 						checked={isCumulative}
-						onCheckedChange={setIsCumulative}
+						onCheckedChange={(checked) => {
+							trackFilterChange({
+								filterName: "learnings_cumulative",
+								filterCategory: "toggle",
+								changeAction: checked ? "enable" : "disable",
+								sourceComponent: "learnings_trend_chart",
+								valueKey: checked ? "on" : "off",
+								affectedScope: "chart",
+							});
+							setIsCumulative(checked);
+						}}
 					/>
 				</div>
 			</div>

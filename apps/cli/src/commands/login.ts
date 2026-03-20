@@ -3,6 +3,15 @@ import * as p from "@clack/prompts";
 import { buildCommand } from "@stricli/core";
 import { createApiClient } from "../lib/api-client.js";
 import { loadCredentials, saveCredentials } from "../lib/credentials.js";
+import {
+	CliProductAnalyticsEvents,
+	captureCliProductAnalyticsEvent,
+	getBaseCliEventPayload,
+	getCliDistinctId,
+	getNextCliLoginAttemptNumber,
+	normalizeFailureReason,
+	shouldDisableCliPersonProfile,
+} from "../lib/product-analytics.js";
 
 const DEFAULT_API_BASE = "https://app.rudel.ai";
 const DEFAULT_WEB_URL = "https://app.rudel.ai";
@@ -172,6 +181,33 @@ async function runLogin(flags: {
 	webUrl: string;
 	noBrowser: boolean;
 }): Promise<void> {
+	const openedBrowser = !flags.noBrowser;
+	const attemptNumber = getNextCliLoginAttemptNumber();
+	const captureLoginFailure = (
+		failureStage:
+			| "device_code_request"
+			| "browser_approval_timeout"
+			| "token_exchange"
+			| "api_key_create"
+			| "account_fetch",
+		error: unknown,
+	) => {
+		captureCliProductAnalyticsEvent({
+			distinctId: getCliDistinctId(),
+			event: CliProductAnalyticsEvents.CLI_LOGIN_FAILED,
+			surface: "cli",
+			disablePersonProfile: shouldDisableCliPersonProfile(),
+			payload: {
+				auth_flow: "device_authorization",
+				failure_stage: failureStage,
+				failure_reason: normalizeFailureReason(error),
+				opened_browser: openedBrowser,
+				attempt_number: attemptNumber,
+				...getBaseCliEventPayload(),
+			},
+		});
+	};
+
 	p.intro("rudel login");
 
 	const existing = loadCredentials();
@@ -185,6 +221,7 @@ async function runLogin(flags: {
 	try {
 		deviceCode = await requestDeviceCode(flags.apiBase);
 	} catch (error) {
+		captureLoginFailure("device_code_request", error);
 		p.log.error(error instanceof Error ? error.message : String(error));
 		process.exitCode = 1;
 		return;
@@ -192,6 +229,20 @@ async function runLogin(flags: {
 	const verifyUrl =
 		deviceCode.verification_uri_complete ??
 		`${deviceCode.verification_uri}?user_code=${encodeURIComponent(deviceCode.user_code)}`;
+
+	captureCliProductAnalyticsEvent({
+		distinctId: getCliDistinctId(),
+		event: CliProductAnalyticsEvents.CLI_LOGIN_STARTED,
+		surface: "cli",
+		disablePersonProfile: shouldDisableCliPersonProfile(),
+		payload: {
+			auth_flow: "device_authorization",
+			opened_browser: openedBrowser,
+			attempt_number: attemptNumber,
+			...getBaseCliEventPayload(),
+		},
+	});
+
 	p.log.info(`If the browser doesn't open, visit:\n${verifyUrl}`);
 	p.log.info(`User code: ${deviceCode.user_code}`);
 
@@ -206,6 +257,13 @@ async function runLogin(flags: {
 	try {
 		accessToken = await pollForAccessToken(flags.apiBase, deviceCode);
 	} catch (error) {
+		const failureReason = normalizeFailureReason(error);
+		captureLoginFailure(
+			failureReason === "timeout"
+				? "browser_approval_timeout"
+				: "token_exchange",
+			error,
+		);
 		spin.stop("Authentication failed");
 		p.log.error(error instanceof Error ? error.message : String(error));
 		process.exitCode = 1;
@@ -217,6 +275,7 @@ async function runLogin(flags: {
 	try {
 		ingestKey = await createIngestApiKey(flags.apiBase, accessToken);
 	} catch (error) {
+		captureLoginFailure("api_key_create", error);
 		spin.stop("Authentication failed");
 		p.log.error(error instanceof Error ? error.message : String(error));
 		process.exitCode = 1;
@@ -242,20 +301,41 @@ async function runLogin(flags: {
 			name: org.name,
 			slug: org.slug,
 		}));
-	} catch {
+	} catch (error) {
+		captureLoginFailure("account_fetch", error);
 		spin.stop("Authentication failed");
 		p.log.error("Login failed: unable to fetch account details");
 		process.exitCode = 1;
 		return;
 	}
 
-	saveCredentials({
-		token: ingestKey.key,
-		apiBaseUrl: flags.apiBase,
-		authType: "api-key",
-		apiKeyId: ingestKey.id,
-		user,
-		organizations,
+	try {
+		saveCredentials({
+			token: ingestKey.key,
+			apiBaseUrl: flags.apiBase,
+			authType: "api-key",
+			apiKeyId: ingestKey.id,
+			user,
+			organizations,
+		});
+	} catch (error) {
+		captureLoginFailure("account_fetch", error);
+		spin.stop("Authentication failed");
+		p.log.error("Login failed: unable to persist credentials");
+		process.exitCode = 1;
+		return;
+	}
+
+	captureCliProductAnalyticsEvent({
+		distinctId: user.id,
+		event: CliProductAnalyticsEvents.CLI_LOGIN_APPROVED,
+		surface: "cli",
+		payload: {
+			user_id: user.id,
+			auth_flow: "device_authorization",
+			opened_browser: openedBrowser,
+			...getBaseCliEventPayload(),
+		},
 	});
 	spin.stop("Authenticated");
 	p.log.success(`Logged in as ${user.name} (${user.email})`);

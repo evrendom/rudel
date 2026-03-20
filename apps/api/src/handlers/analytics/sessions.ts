@@ -70,6 +70,14 @@ const detail = os.analytics.sessions.detail
 		if (!result) {
 			throw new ORPCError("NOT_FOUND");
 		}
+
+		// Non-admin members can only view their own sessions
+		if (!context.isOrgAdmin && result.user_id !== context.user.id) {
+			throw new ORPCError("FORBIDDEN", {
+				message: "You can only view your own sessions",
+			});
+		}
+
 		return result;
 	});
 

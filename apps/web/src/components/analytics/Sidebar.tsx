@@ -19,9 +19,11 @@ import {
 import { useTheme } from "next-themes";
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
+import { useAnalyticsTracking } from "@/hooks/useDashboardAnalytics";
 import { useOrganization } from "../../contexts/OrganizationContext";
 import { useUserInvitations } from "../../hooks/useUserInvitations";
 import { authClient, signOut } from "../../lib/auth-client";
+import { getAnalyticsPageName } from "../../lib/product-analytics";
 import { cn } from "../../lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
 import {
@@ -64,11 +66,20 @@ function getInitials(name: string) {
 
 function OrgSwitcher({ collapsed }: { collapsed: boolean }) {
 	const { activeOrg, organizations, switchOrg } = useOrganization();
+	const { trackNavigation, trackOrganizationAction } = useAnalyticsTracking();
 
 	const handleSelect = async (orgId: string) => {
-		if (orgId !== activeOrg?.id) {
-			await switchOrg(orgId);
+		if (orgId === activeOrg?.id) {
+			return;
 		}
+
+		trackOrganizationAction({
+			actionName: "switch_organization",
+			targetType: "organization",
+			sourceComponent: "org_switcher",
+			targetId: orgId,
+		});
+		await switchOrg(orgId);
 	};
 
 	return (
@@ -108,13 +119,35 @@ function OrgSwitcher({ collapsed }: { collapsed: boolean }) {
 				))}
 				<DropdownMenuSeparator />
 				<DropdownMenuItem asChild>
-					<Link to="/dashboard/organization">
+					<Link
+						to="/dashboard/organization"
+						onClick={() => {
+							trackNavigation({
+								navType: "organization_menu",
+								sourceComponent: "org_switcher",
+								targetPath: "/dashboard/organization",
+								targetType: "page",
+								toPageName: "organization",
+							});
+						}}
+					>
 						<Settings className="h-3.5 w-3.5 shrink-0" />
 						<span>Manage organization</span>
 					</Link>
 				</DropdownMenuItem>
 				<DropdownMenuItem asChild>
-					<Link to="/dashboard/organization/new">
+					<Link
+						to="/dashboard/organization/new"
+						onClick={() => {
+							trackNavigation({
+								navType: "organization_menu",
+								sourceComponent: "org_switcher",
+								targetPath: "/dashboard/organization/new",
+								targetType: "page",
+								toPageName: "organization_create",
+							});
+						}}
+					>
 						<Plus className="h-3.5 w-3.5 shrink-0" />
 						<span>Create organization</span>
 					</Link>
@@ -130,9 +163,24 @@ export function Sidebar() {
 	const [collapsed, setCollapsed] = useState(false);
 	const { resolvedTheme } = useTheme();
 	const { count: invitationCount } = useUserInvitations();
+	const { trackAuthenticationAction, trackNavigation, trackUtility } =
+		useAnalyticsTracking();
 
 	const logoSrc =
 		resolvedTheme === "dark" ? "/logo-light.svg" : "/logo-dark.svg";
+
+	const trackSidebarNavigation = (
+		sourceComponent: string,
+		targetPath: string,
+	) => {
+		trackNavigation({
+			navType: "sidebar",
+			sourceComponent,
+			targetPath,
+			targetType: "page",
+			toPageName: getAnalyticsPageName(targetPath) ?? undefined,
+		});
+	};
 
 	return (
 		<TooltipProvider>
@@ -145,6 +193,7 @@ export function Sidebar() {
 				<div className="flex items-center border-b border-border">
 					<Link
 						to="/dashboard"
+						onClick={() => trackSidebarNavigation("sidebar_logo", "/dashboard")}
 						className={cn(
 							"flex items-center shrink-0 px-4 h-10",
 							collapsed && "px-3",
@@ -157,7 +206,14 @@ export function Sidebar() {
 					</div>
 					<button
 						type="button"
-						onClick={() => setCollapsed(!collapsed)}
+						onClick={() => {
+							trackUtility({
+								utilityName: "sidebar_collapse",
+								componentId: "sidebar",
+								utilityState: collapsed ? "expanded" : "collapsed",
+							});
+							setCollapsed(!collapsed);
+						}}
 						className="p-1 mr-1 rounded-md text-muted hover:text-foreground hover:bg-hover transition-colors shrink-0"
 						title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
 					>
@@ -177,6 +233,14 @@ export function Sidebar() {
 						const link = (
 							<Link
 								to={item.href}
+								onClick={() =>
+									trackSidebarNavigation(
+										`sidebar_${item.name
+											.toLowerCase()
+											.replace(/[^a-z0-9]+/g, "_")}`,
+										item.href,
+									)
+								}
 								className={cn(
 									"flex items-center gap-2 rounded-lg px-2 py-2 text-[0.8125rem] font-medium transition-colors duration-150",
 									collapsed && "justify-center",
@@ -213,6 +277,12 @@ export function Sidebar() {
 							const link = (
 								<Link
 									to="/dashboard/invitations"
+									onClick={() =>
+										trackSidebarNavigation(
+											"sidebar_invitations",
+											"/dashboard/invitations",
+										)
+									}
 									className={cn(
 										"relative flex items-center gap-2 rounded-lg px-2 py-2 text-[0.8125rem] font-medium transition-colors duration-150",
 										collapsed && "justify-center",
@@ -288,6 +358,12 @@ export function Sidebar() {
 									<TooltipTrigger asChild>
 										<Link
 											to="/dashboard/profile"
+											onClick={() =>
+												trackSidebarNavigation(
+													"sidebar_profile_avatar",
+													"/dashboard/profile",
+												)
+											}
 											className="flex items-center gap-2 min-w-0"
 										>
 											<Avatar size="sm" className="shrink-0">
@@ -311,6 +387,12 @@ export function Sidebar() {
 								<>
 									<Link
 										to="/dashboard/profile"
+										onClick={() =>
+											trackSidebarNavigation(
+												"sidebar_profile",
+												"/dashboard/profile",
+											)
+										}
 										className="flex-1 flex items-center gap-2 min-w-0"
 									>
 										<Avatar size="sm" className="shrink-0">
@@ -331,7 +413,14 @@ export function Sidebar() {
 									<ThemeToggle />
 									<button
 										type="button"
-										onClick={() => signOut()}
+										onClick={() => {
+											trackAuthenticationAction({
+												actionName: "sign_out",
+												sourceComponent: "sidebar_sign_out",
+												authMethod: "session",
+											});
+											signOut();
+										}}
 										className="p-1 rounded-md text-muted hover:text-foreground hover:bg-hover transition-colors shrink-0"
 										title="Sign out"
 									>

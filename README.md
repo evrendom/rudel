@@ -56,6 +56,10 @@ Rudel is designed to ingest full coding-agent session data for analytics. That m
 
 Only enable Rudel on projects and environments where you are comfortable uploading that data. If you use the hosted service at `app.rudel.ai`, we do not have access to personal data contained in uploaded transcripts and cannot read that data. Review the [Rudel Privacy Policy](https://rudel.ai/privacy-policy) before enabling uploads for yourself or your team.
 
+We also use limited product analytics on the hosted service to understand whether core workflows work, diagnose failures, and improve the product. This is explicit event tracking for account and authentication flows, CLI login and enable flows, session upload outcomes, dashboard views and interactions, organization management actions, and a small set of utility interactions such as theme toggle or sidebar collapse.
+
+This product analytics layer is intentionally limited. It does not enable blanket click autocapture, session replay, or surveys by default. It is designed to capture product events and operational context like page name, action name, date range, normalized error codes, and organization or user identifiers where needed. It should not include raw transcript content, source code, prompts, tool output, command output, or file contents from your sessions. By using the hosted app, you agree to this limited analytics processing as part of the service.
+
 ## Development
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for local setup, development commands, and PR guidelines.

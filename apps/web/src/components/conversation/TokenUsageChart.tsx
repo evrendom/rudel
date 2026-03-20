@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useAnalyticsTracking } from "@/hooks/useDashboardAnalytics";
 import { cn } from "@/lib/utils";
 
 export interface TokenDataPoint {
@@ -35,6 +36,7 @@ export function TokenUsageChart({
 }: TokenUsageChartProps) {
 	const containerRef = useRef<HTMLDivElement>(null);
 	const [chartWidth, setChartWidth] = useState(400);
+	const { trackDrilldown } = useAnalyticsTracking();
 
 	useEffect(() => {
 		const el = containerRef.current;
@@ -87,10 +89,16 @@ export function TokenUsageChart({
 				}
 			}
 			if (closest) {
+				trackDrilldown({
+					drilldownMethod: "chart_click",
+					sourceComponent: "token_usage_chart",
+					targetType: "message",
+					targetId: String(closest.messageIndex),
+				});
 				onClickMessage(closest.messageIndex);
 			}
 		},
-		[data, totalMessages, drawWidth, onClickMessage],
+		[data, totalMessages, drawWidth, onClickMessage, trackDrilldown],
 	);
 
 	if (data.length === 0) {

@@ -4,6 +4,8 @@ import { AnalyticsCard } from "@/components/analytics/AnalyticsCard";
 import { PageHeader } from "@/components/analytics/PageHeader";
 import { Button } from "@/components/ui/button";
 import { useOrganization } from "@/contexts/OrganizationContext";
+import { useAnalyticsTracking } from "@/hooks/useDashboardAnalytics";
+import { useTrackDashboardView } from "@/hooks/useTrackDashboardView";
 import { useUserInvitations } from "@/hooks/useUserInvitations";
 import { authClient } from "@/lib/auth-client";
 
@@ -11,8 +13,22 @@ export function InvitationsPage() {
 	const { invitations, isLoading, invalidate } = useUserInvitations();
 	const { switchOrg } = useOrganization();
 	const [processingId, setProcessingId] = useState<string | null>(null);
+	const { trackAuthenticationAction } = useAnalyticsTracking({
+		pageName: "invitations",
+	});
+
+	useTrackDashboardView({
+		isLoading,
+		hasData: invitations.length > 0,
+	});
 
 	const handleAccept = async (invitationId: string) => {
+		trackAuthenticationAction({
+			actionName: "accept_invitation",
+			sourceComponent: "invitations_page",
+			authMethod: "invitation",
+			targetId: invitationId,
+		});
 		setProcessingId(invitationId);
 		const res = await authClient.organization.acceptInvitation({
 			invitationId,
@@ -25,6 +41,12 @@ export function InvitationsPage() {
 	};
 
 	const handleDecline = async (invitationId: string) => {
+		trackAuthenticationAction({
+			actionName: "decline_invitation",
+			sourceComponent: "invitations_page",
+			authMethod: "invitation",
+			targetId: invitationId,
+		});
 		setProcessingId(invitationId);
 		await authClient.organization.rejectInvitation({ invitationId });
 		invalidate();

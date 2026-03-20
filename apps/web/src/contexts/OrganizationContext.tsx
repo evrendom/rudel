@@ -19,6 +19,8 @@ interface OrganizationContextType {
 	organizations: readonly Organization[];
 	switchOrg: (orgId: string) => Promise<void>;
 	isLoading: boolean;
+	/** Whether the current user is an owner or admin of the active org */
+	isOrgAdmin: boolean;
 }
 
 const ACTIVE_ORG_CACHE_KEY = "rudel:activeOrg";
@@ -56,6 +58,7 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
 		authClient.useActiveOrganization();
 	const { data: orgs, isPending: listLoading } =
 		authClient.useListOrganizations();
+	const { data: activeMember } = authClient.useActiveMember();
 	const [switching, setSwitching] = useState(false);
 	const [cachedOrg] = useState(getCachedOrg);
 
@@ -100,6 +103,12 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
 	// Use cached org as optimistic value while better-auth is still loading
 	const resolvedOrg = activeOrg ?? (activeLoading ? cachedOrg : null);
 
+	// Personal workspace (no active org) means you're the owner.
+	// For real orgs, check the member role.
+	const memberRole = activeMember?.role;
+	const isOrgAdmin =
+		!resolvedOrg || memberRole === "owner" || memberRole === "admin";
+
 	return (
 		<OrganizationContext.Provider
 			value={{
@@ -107,6 +116,7 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
 				organizations: orgs ?? [],
 				switchOrg,
 				isLoading: activeLoading || listLoading || switching,
+				isOrgAdmin,
 			}}
 		>
 			{children}
@@ -115,11 +125,15 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
 }
 
 export function useOrganization() {
-	const context = useContext(OrganizationContext);
+	const context = useOptionalOrganization();
 	if (context === undefined) {
 		throw new Error(
 			"useOrganization must be used within an OrganizationProvider",
 		);
 	}
 	return context;
+}
+
+export function useOptionalOrganization() {
+	return useContext(OrganizationContext);
 }

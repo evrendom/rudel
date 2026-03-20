@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useAnalyticsTracking } from "@/hooks/useDashboardAnalytics";
 import { cn } from "@/lib/utils";
 
 export interface ToolActivityPoint {
@@ -45,6 +46,7 @@ export function ToolActivityChart({
 }: ToolActivityChartProps) {
 	const containerRef = useRef<HTMLDivElement>(null);
 	const [chartWidth, setChartWidth] = useState(400);
+	const { trackDrilldown } = useAnalyticsTracking();
 
 	useEffect(() => {
 		const el = containerRef.current;
@@ -86,10 +88,16 @@ export function ToolActivityChart({
 				}
 			}
 			if (closest) {
+				trackDrilldown({
+					drilldownMethod: "chart_click",
+					sourceComponent: "tool_activity_chart",
+					targetType: closest.category,
+					targetId: String(closest.messageIndex),
+				});
 				onClickMessage(closest.messageIndex);
 			}
 		},
-		[data, totalMessages, drawWidth, onClickMessage],
+		[data, totalMessages, drawWidth, onClickMessage, trackDrilldown],
 	);
 
 	if (data.length === 0) {

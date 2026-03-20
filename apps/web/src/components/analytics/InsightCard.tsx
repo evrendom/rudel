@@ -7,9 +7,11 @@ import {
 	TrendingUp,
 } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useAnalyticsTracking } from "../../hooks/useDashboardAnalytics";
 import { cn } from "../../lib/utils";
 
 export interface Insight {
+	insight_key: string;
 	type: "trend" | "performer" | "alert" | "info";
 	severity: "positive" | "warning" | "negative" | "info";
 	message: string;
@@ -18,6 +20,7 @@ export interface Insight {
 
 interface InsightCardProps {
 	insight: Insight;
+	positionIndex: number;
 }
 
 const SEVERITY_CONFIG = {
@@ -58,13 +61,24 @@ const TYPE_ICON = {
 	info: Info,
 };
 
-export function InsightCard({ insight }: InsightCardProps) {
+export function InsightCard({ insight, positionIndex }: InsightCardProps) {
+	const { trackDrilldown } = useAnalyticsTracking();
 	const config = SEVERITY_CONFIG[insight.severity];
 	const TypeIcon = TYPE_ICON[insight.type];
 
 	return (
 		<Link
 			to={insight.link}
+			onClick={() => {
+				trackDrilldown({
+					drilldownMethod: "insight_card",
+					sourceComponent: "insight_card",
+					targetType: "insight",
+					targetId: insight.insight_key,
+					targetPath: insight.link,
+					rank: positionIndex,
+				});
+			}}
 			className={cn(
 				"block p-4 rounded-lg border-2 transition-all duration-200 cursor-pointer hover:scale-[1.02]",
 				config.bgColor,

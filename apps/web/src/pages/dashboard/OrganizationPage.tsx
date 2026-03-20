@@ -28,12 +28,17 @@ import {
 	SelectValue,
 } from "../../components/ui/select";
 import { useOrganization } from "../../contexts/OrganizationContext";
+import { useAnalyticsTracking } from "../../hooks/useDashboardAnalytics";
 import { useFullOrganization } from "../../hooks/useFullOrganization";
+import { useTrackDashboardView } from "../../hooks/useTrackDashboardView";
 import { authClient } from "../../lib/auth-client";
 
 export function OrganizationPage() {
 	const { activeOrg, organizations, switchOrg } = useOrganization();
 	const { data: session } = authClient.useSession();
+	const { trackNavigation, trackOrganizationAction } = useAnalyticsTracking({
+		organizationId: activeOrg?.id ?? null,
+	});
 	const navigate = useNavigate();
 	const {
 		data: fullOrg,
@@ -53,6 +58,11 @@ export function OrganizationPage() {
 	const [renameError, setRenameError] = useState<string | null>(null);
 	const nameInputRef = useRef<HTMLInputElement>(null);
 
+	useTrackDashboardView({
+		isLoading: loading,
+		hasData: true,
+	});
+
 	const currentUserRole = fullOrg?.members.find(
 		(m) => m.userId === session?.user.id,
 	)?.role;
@@ -60,6 +70,12 @@ export function OrganizationPage() {
 
 	const handleStartEditing = () => {
 		if (!activeOrg) return;
+		trackOrganizationAction({
+			actionName: "start_rename_organization",
+			targetType: "organization",
+			sourceComponent: "organization_page",
+			targetId: activeOrg.id,
+		});
 		setEditName(activeOrg.name);
 		setRenameError(null);
 		setEditing(true);
@@ -67,6 +83,13 @@ export function OrganizationPage() {
 	};
 
 	const handleCancelEditing = () => {
+		if (!activeOrg) return;
+		trackOrganizationAction({
+			actionName: "cancel_rename_organization",
+			targetType: "organization",
+			sourceComponent: "organization_page",
+			targetId: activeOrg.id,
+		});
 		setEditing(false);
 		setRenameError(null);
 	};
@@ -79,6 +102,12 @@ export function OrganizationPage() {
 			return;
 		}
 
+		trackOrganizationAction({
+			actionName: "rename_organization",
+			targetType: "organization",
+			sourceComponent: "organization_page",
+			targetId: activeOrg.id,
+		});
 		setSaving(true);
 		setRenameError(null);
 		const res = await authClient.organization.update({
@@ -100,6 +129,12 @@ export function OrganizationPage() {
 	const handleInvite = async (e: React.FormEvent) => {
 		e.preventDefault();
 		if (!inviteEmail.trim()) return;
+		trackOrganizationAction({
+			actionName: "invite_member",
+			targetType: "invitation",
+			sourceComponent: "organization_page",
+			targetRole: inviteRole,
+		});
 		setInviting(true);
 		const email = inviteEmail.trim();
 		const res = await authClient.organization.inviteMember({
@@ -118,18 +153,53 @@ export function OrganizationPage() {
 
 	const handleCopyLink = () => {
 		if (!inviteLink) return;
+		trackOrganizationAction({
+			actionName: "copy_invite_link",
+			targetType: "invitation",
+			sourceComponent: "organization_page",
+		});
 		navigator.clipboard.writeText(inviteLink);
 		setCopied(true);
 		setTimeout(() => setCopied(false), 2000);
 	};
 
 	const handleRemoveMember = async (memberIdOrEmail: string) => {
+		trackOrganizationAction({
+			actionName: "remove_member",
+			targetType: "member",
+			sourceComponent: "organization_page",
+			targetId: memberIdOrEmail,
+		});
 		await authClient.organization.removeMember({ memberIdOrEmail });
 		invalidate();
 	};
 
 	const handleCancelInvitation = async (invitationId: string) => {
+		trackOrganizationAction({
+			actionName: "cancel_invitation",
+			targetType: "invitation",
+			sourceComponent: "organization_page",
+			targetId: invitationId,
+		});
 		await authClient.organization.cancelInvitation({ invitationId });
+		invalidate();
+	};
+
+	const handleUpdateRole = async (
+		memberId: string,
+		role: "member" | "admin",
+	) => {
+		trackOrganizationAction({
+			actionName: "update_member_role",
+			targetType: "member",
+			sourceComponent: "organization_page",
+			targetId: memberId,
+			targetRole: role,
+		});
+		await authClient.organization.updateMemberRole({
+			memberId,
+			role,
+		});
 		invalidate();
 	};
 
@@ -148,7 +218,18 @@ export function OrganizationPage() {
 				description={`Manage ${activeOrg.name}`}
 				actions={
 					<Link to="/dashboard/organization/new">
-						<Button size="sm">
+						<Button
+							size="sm"
+							onClick={() =>
+								trackNavigation({
+									navType: "organization_page",
+									sourceComponent: "organization_page",
+									targetPath: "/dashboard/organization/new",
+									targetType: "page",
+									toPageName: "organization_create",
+								})
+							}
+						>
 							<Plus className="h-4 w-4 mr-1" />
 							Create Organization
 						</Button>
@@ -302,6 +383,11 @@ export function OrganizationPage() {
 									variant="outline"
 									size="xs"
 									onClick={() => {
+										trackOrganizationAction({
+											actionName: "dismiss_invite_link",
+											targetType: "invitation",
+											sourceComponent: "organization_page",
+										});
 										setInviteLink(null);
 										setInvitedEmail(null);
 									}}
@@ -346,12 +432,27 @@ export function OrganizationPage() {
 										</div>
 									</div>
 									<div className="flex items-center gap-2">
-										<Badge
-											variant={m.role === "owner" ? "default" : "secondary"}
-										>
-											{m.role}
-										</Badge>
-										{m.role !== "owner" && (
+										{m.role === "owner" ? (
+											<Badge variant="default">owner</Badge>
+										) : canEdit ? (
+											<Select
+												value={m.role}
+												onValueChange={(value) =>
+													handleUpdateRole(m.id, value as "member" | "admin")
+												}
+											>
+												<SelectTrigger className="h-7 w-auto text-xs">
+													<SelectValue />
+												</SelectTrigger>
+												<SelectContent>
+													<SelectItem value="member">member</SelectItem>
+													<SelectItem value="admin">admin</SelectItem>
+												</SelectContent>
+											</Select>
+										) : (
+											<Badge variant="secondary">{m.role}</Badge>
+										)}
+										{canEdit && m.role !== "owner" && (
 											<Button
 												variant="outline"
 												size="xs"
@@ -422,7 +523,15 @@ export function OrganizationPage() {
 						<Button
 							variant="destructive"
 							size="sm"
-							onClick={() => setDeleteDialogOpen(true)}
+							onClick={() => {
+								trackOrganizationAction({
+									actionName: "open_delete_organization",
+									targetType: "organization",
+									sourceComponent: "organization_page",
+									targetId: activeOrg.id,
+								});
+								setDeleteDialogOpen(true);
+							}}
 						>
 							<Trash2 className="h-4 w-4 mr-1" />
 							Delete Organization

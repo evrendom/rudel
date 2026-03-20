@@ -4,6 +4,8 @@ import { AnalyticsCard } from "../../components/analytics/AnalyticsCard";
 import { PageHeader } from "../../components/analytics/PageHeader";
 import { Button } from "../../components/ui/button";
 import { useAccounts } from "../../hooks/useAccounts";
+import { useAnalyticsTracking } from "../../hooks/useDashboardAnalytics";
+import { useTrackDashboardView } from "../../hooks/useTrackDashboardView";
 import { authClient, signOut } from "../../lib/auth-client";
 
 const providers = [
@@ -15,8 +17,14 @@ export function ProfilePage() {
 	const { data: session } = authClient.useSession();
 	const { accounts, isLoading: loading } = useAccounts();
 	const [linkingProvider, setLinkingProvider] = useState<string | null>(null);
+	const { trackAuthenticationAction } = useAnalyticsTracking();
 
 	const linkedProviders = new Set(accounts.map((a) => a.providerId));
+
+	useTrackDashboardView({
+		isLoading: loading,
+		hasData: true,
+	});
 
 	return (
 		<div className="px-8 py-6">
@@ -47,7 +55,18 @@ export function ProfilePage() {
 						</div>
 					</div>
 
-					<Button variant="outline" size="sm" onClick={() => signOut()}>
+					<Button
+						variant="outline"
+						size="sm"
+						onClick={() => {
+							trackAuthenticationAction({
+								actionName: "sign_out",
+								sourceComponent: "profile_page",
+								authMethod: "session",
+							});
+							signOut();
+						}}
+					>
 						<LogOut className="h-4 w-4 mr-2" />
 						Sign out
 					</Button>
@@ -101,6 +120,12 @@ export function ProfilePage() {
 												size="xs"
 												disabled={linkingProvider !== null}
 												onClick={() => {
+													trackAuthenticationAction({
+														actionName: "link_provider",
+														sourceComponent: "profile_page",
+														targetId: provider.id,
+														authMethod: provider.id,
+													});
 													setLinkingProvider(provider.id);
 													authClient.linkSocial({
 														provider: provider.id,

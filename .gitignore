@@ -45,3 +45,10 @@ coverage/
 
 # Agent (conductor)
 .context
+
+# Local agent/editor skill installs
+skills-lock.json
+.agents/skills/posthog-debugger/
+.agents/skills/vercel-react-best-practices/
+.claude/skills/
+.windsurf/

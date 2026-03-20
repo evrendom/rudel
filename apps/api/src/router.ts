@@ -1,16 +1,58 @@
 import { ORPCError } from "@orpc/server";
 import { getAdapter } from "@rudel/agent-adapters";
+import {
+	type IngestSessionInput,
+	PRODUCT_ANALYTICS_EVENTS,
+} from "@rudel/api-routes";
 import { apikey, member, organization, session } from "@rudel/sql-schema";
 import { and, eq } from "drizzle-orm";
 import { getClickhouse } from "./clickhouse.js";
 import { db } from "./db.js";
 import { analyticsRouter } from "./handlers/analytics/index.js";
+import {
+	bucketContentSize,
+	captureApiProductAnalyticsEvent,
+	hashProjectPath,
+} from "./lib/product-analytics.js";
 import { authMiddleware, ingestAuthMiddleware, os } from "./middleware.js";
 import { checkIngestRateLimit } from "./rate-limit.js";
 import {
 	deleteOrgSessions,
 	getOrgSessionCount,
+	hasOrgUploadsInLastDays,
 } from "./services/org-session.service.js";
+
+function getSessionUploadCompletedPayload(
+	input: IngestSessionInput,
+	organizationId: string,
+	userId: string,
+) {
+	if (!input.client_surface) {
+		return null;
+	}
+	if (!input.upload_mode) {
+		return null;
+	}
+	if (!input.cli_version) {
+		return null;
+	}
+	if (!input.platform_os) {
+		return null;
+	}
+
+	return {
+		organization_id: organizationId,
+		user_id: userId,
+		client_surface: input.client_surface,
+		upload_mode: input.upload_mode,
+		agent_source: input.source,
+		cli_version: input.cli_version,
+		platform_os: input.platform_os,
+		project_id_hash: hashProjectPath(input.projectPath),
+		session_tag: input.tag,
+		content_size_bucket: bucketContentSize(input.content.length),
+	};
+}
 
 const health = os.health.handler(() => {
 	return {
@@ -105,10 +147,28 @@ const ingestSessionHandler = os.ingestSession
 			organizationId: orgId,
 		});
 
-		return {
+		const response = {
 			success: true as const,
 			sessionId: input.sessionId,
 		};
+
+		const uploadCompletedPayload = getSessionUploadCompletedPayload(
+			input,
+			orgId,
+			context.user.id,
+		);
+
+		if (!uploadCompletedPayload) {
+			return response;
+		}
+
+		captureApiProductAnalyticsEvent({
+			distinctId: context.user.id,
+			event: PRODUCT_ANALYTICS_EVENTS.SESSION_UPLOAD_COMPLETED,
+			payload: uploadCompletedPayload,
+		});
+
+		return response;
 	});
 
 const revokeCliToken = os.cli.revokeToken
@@ -202,6 +262,28 @@ const deleteOrganization = os.deleteOrganization
 		}
 
 		try {
+			const [targetOrganization] = (await db
+				.select({
+					id: organization.id,
+					createdAt: organization.createdAt,
+				})
+				.from(organization)
+				.where(eq(organization.id, orgId))
+				.limit(1)) as Array<{ id: string; createdAt: Date }>;
+			const memberRows = await db
+				.select({ id: member.id })
+				.from(member)
+				.where(eq(member.organizationId, orgId));
+			let hadUploadsLast30d = false;
+			try {
+				hadUploadsLast30d = await hasOrgUploadsInLastDays(orgId, 30);
+			} catch (analyticsError) {
+				console.error(
+					`[deleteOrganization] failed to inspect uploads for org=${orgId}:`,
+					analyticsError,
+				);
+			}
+
 			// Fire-and-forget: ClickHouse mutations are slow, don't block on them
 			deleteOrgSessions(orgId);
 
@@ -217,6 +299,26 @@ const deleteOrganization = os.deleteOrganization
 				.update(session)
 				.set({ activeOrganizationId: null })
 				.where(eq(session.activeOrganizationId, orgId));
+
+			captureApiProductAnalyticsEvent({
+				distinctId: userId,
+				event: PRODUCT_ANALYTICS_EVENTS.ORGANIZATION_DELETED,
+				payload: {
+					organization_id: orgId,
+					deleter_user_id: userId,
+					organization_age_days: targetOrganization
+						? Math.max(
+								0,
+								Math.floor(
+									(Date.now() - targetOrganization.createdAt.getTime()) /
+										(1000 * 60 * 60 * 24),
+								),
+							)
+						: 0,
+					organization_member_count: memberRows.length,
+					had_uploads_last_30d: hadUploadsLast30d,
+				},
+			});
 
 			console.log(`[deleteOrganization] success for org=${orgId}`);
 			return { success: true as const };

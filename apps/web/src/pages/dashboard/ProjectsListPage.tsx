@@ -11,6 +11,7 @@ import {
 import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { AnalyticsCard } from "@/components/analytics/AnalyticsCard";
+import { ChartCard } from "@/components/analytics/ChartCard";
 import { DatePicker } from "@/components/analytics/DatePicker";
 import { PageHeader } from "@/components/analytics/PageHeader";
 import { StatCard } from "@/components/analytics/StatCard";
@@ -19,6 +20,10 @@ import { DataTable } from "@/components/ui/data-table";
 import { InfoTooltip } from "@/components/ui/InfoTooltip";
 import { useDateRange } from "@/contexts/DateRangeContext";
 import { useAnalyticsQuery } from "@/hooks/useAnalyticsQuery";
+import {
+	type DashboardSection,
+	useTrackDashboardView,
+} from "@/hooks/useTrackDashboardView";
 import { encodeProjectPath } from "@/lib/format";
 import { orpc } from "@/lib/orpc";
 
@@ -121,11 +126,19 @@ export function ProjectsListPage() {
 		useDateRange();
 	const days = calculateDays();
 
-	const { data: projects, isLoading } = useAnalyticsQuery(
+	const {
+		data: projects,
+		isLoading: projectsLoading,
+		isError: projectsError,
+	} = useAnalyticsQuery(
 		orpc.analytics.projects.investment.queryOptions({ input: { days } }),
 	);
 
-	const { data: trendData } = useAnalyticsQuery(
+	const {
+		data: trendData,
+		isLoading: trendLoading,
+		isError: trendError,
+	} = useAnalyticsQuery(
 		orpc.analytics.projects.trends.queryOptions({ input: { days } }),
 	);
 
@@ -145,6 +158,48 @@ export function ProjectsListPage() {
 					totalProjects
 				).toFixed(1)
 			: "0";
+	const projectsIsLoading = projectsLoading || trendLoading;
+	const projectsSections: DashboardSection[] = [
+		{
+			id: "summary_cards",
+			state: projectsError ? "error" : "populated",
+			itemCount: projectsError ? 0 : 6,
+		},
+		{
+			id: "project_trends",
+			state: trendError
+				? "error"
+				: (trendData?.length ?? 0) > 0
+					? "populated"
+					: "empty",
+			itemCount: trendData?.length ?? 0,
+		},
+		{
+			id: "project_details",
+			state: projectsError
+				? "error"
+				: sortedProjects.length > 0
+					? "populated"
+					: "empty",
+			itemCount: sortedProjects.length,
+		},
+	];
+	const projectsMetrics = [
+		{ id: "active_projects", value: totalProjects },
+		{ id: "total_sessions", value: totalSessions },
+		{ id: "total_hours", value: totalHours },
+		{ id: "total_tokens", value: totalTokens },
+		{ id: "total_cost", value: totalCost },
+		{ id: "avg_users_per_project", value: Number(avgUsersPerProject) },
+	];
+
+	useTrackDashboardView({
+		isLoading: projectsIsLoading,
+		isError: projectsError,
+		hasData: (projects?.length ?? 0) > 0,
+		sections: projectsSections,
+		metrics: projectsMetrics,
+	});
 
 	const handleRowClick = (row: ProjectInvestment) => {
 		const key = row.repository || row.git_remote || row.project_path;
@@ -152,7 +207,7 @@ export function ProjectsListPage() {
 		navigate(`/dashboard/projects/${encodedPath}`);
 	};
 
-	if (isLoading) {
+	if (projectsIsLoading) {
 		return (
 			<div className="px-8 py-6">
 				<PageHeader
@@ -229,15 +284,13 @@ export function ProjectsListPage() {
 			</div>
 
 			{trendData && trendData.length > 0 && (
-				<AnalyticsCard className="mb-8">
-					<h2 className="text-xl font-bold text-heading mb-4">
-						Project Trends
-					</h2>
-					<p className="text-sm text-muted mb-6">
-						Activity metrics over time split by project (top 10)
-					</p>
+				<ChartCard
+					title="Project Trends"
+					description="Activity metrics over time split by project (top 10)"
+					className="mb-8"
+				>
 					<ProjectTrendChart data={trendData} />
-				</AnalyticsCard>
+				</ChartCard>
 			)}
 
 			<AnalyticsCard>
@@ -245,7 +298,9 @@ export function ProjectsListPage() {
 				<DataTable
 					columns={columns}
 					data={sortedProjects}
+					analyticsId="projects_list"
 					defaultSorting={[{ id: "sessions", desc: true }]}
+					getRowAnalyticsValue={(row) => row.project_path}
 					onRowClick={handleRowClick}
 				/>
 			</AnalyticsCard>

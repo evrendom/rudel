@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { AlertTriangle, Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useAnalyticsTracking } from "@/hooks/useDashboardAnalytics";
 import { client } from "../lib/orpc";
 import { Button } from "./ui/button";
 import {
@@ -26,6 +27,9 @@ export function DeleteOrganizationDialog({
 	organization,
 	onDeleted,
 }: DeleteOrganizationDialogProps) {
+	const { trackOrganizationAction } = useAnalyticsTracking({
+		organizationId: organization.id,
+	});
 	const { data: sessionCountData, isLoading: loading } = useQuery({
 		queryKey: ["org-session-count", organization.id],
 		queryFn: async () => {
@@ -54,6 +58,12 @@ export function DeleteOrganizationDialog({
 	const canDelete = nameMatches && !deleting;
 
 	const handleDelete = async () => {
+		trackOrganizationAction({
+			actionName: "delete_organization",
+			targetType: "organization",
+			sourceComponent: "delete_organization_dialog",
+			targetId: organization.id,
+		});
 		setDeleting(true);
 		setError(null);
 		try {
@@ -122,7 +132,15 @@ export function DeleteOrganizationDialog({
 				<DialogFooter>
 					<Button
 						variant="outline"
-						onClick={() => onOpenChange(false)}
+						onClick={() => {
+							trackOrganizationAction({
+								actionName: "cancel_delete_organization",
+								targetType: "organization",
+								sourceComponent: "delete_organization_dialog",
+								targetId: organization.id,
+							});
+							onOpenChange(false);
+						}}
 						disabled={deleting}
 					>
 						Cancel

@@ -3,6 +3,7 @@ import { Building2, Check, Loader2, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Button } from "../components/ui/button";
+import { useAnalyticsTracking } from "../hooks/useDashboardAnalytics";
 import { USER_INVITATIONS_KEY } from "../hooks/useUserInvitations";
 import { authClient } from "../lib/auth-client";
 
@@ -11,6 +12,9 @@ export function AcceptInvitationPage() {
 	const navigate = useNavigate();
 	const queryClient = useQueryClient();
 	const { data: session, isPending: sessionLoading } = authClient.useSession();
+	const { trackAuthenticationAction } = useAnalyticsTracking({
+		pageName: "accept_invitation",
+	});
 	const [status, setStatus] = useState<
 		"loading" | "accepting" | "accepted" | "error"
 	>("loading");
@@ -30,6 +34,16 @@ export function AcceptInvitationPage() {
 
 	const handleAccept = async () => {
 		if (!invitationId) return;
+		trackAuthenticationAction({
+			actionName: "accept_invitation",
+			sourceComponent: "accept_invitation_page",
+			authMethod: "invitation",
+			targetId: invitationId,
+			userId:
+				session?.user && "id" in session.user
+					? String(session.user.id)
+					: undefined,
+		});
 		setStatus("accepting");
 		setError(null);
 
@@ -56,6 +70,16 @@ export function AcceptInvitationPage() {
 
 	const handleReject = async () => {
 		if (!invitationId) return;
+		trackAuthenticationAction({
+			actionName: "decline_invitation",
+			sourceComponent: "accept_invitation_page",
+			authMethod: "invitation",
+			targetId: invitationId,
+			userId:
+				session?.user && "id" in session.user
+					? String(session.user.id)
+					: undefined,
+		});
 		await authClient.organization.rejectInvitation({ invitationId });
 		navigate("/dashboard");
 	};

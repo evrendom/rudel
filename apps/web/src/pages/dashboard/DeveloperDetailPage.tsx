@@ -16,6 +16,7 @@ import {
 	YAxis,
 } from "recharts";
 import { AnalyticsCard } from "@/components/analytics/AnalyticsCard";
+import { ChartCard } from "@/components/analytics/ChartCard";
 import { DatePicker } from "@/components/analytics/DatePicker";
 import { PageHeader } from "@/components/analytics/PageHeader";
 import { StatCard } from "@/components/analytics/StatCard";
@@ -30,7 +31,10 @@ import {
 } from "@/components/ui/select";
 import { useDateRange } from "@/contexts/DateRangeContext";
 import { useAnalyticsQuery } from "@/hooks/useAnalyticsQuery";
+import { useCanViewSession } from "@/hooks/useCanViewSession";
 import { useChartTheme } from "@/hooks/useChartTheme";
+import { useAnalyticsTracking } from "@/hooks/useDashboardAnalytics";
+import { useTrackDashboardView } from "@/hooks/useTrackDashboardView";
 import { useUserMap } from "@/hooks/useUserMap";
 import {
 	calculateRollingAverage,
@@ -63,10 +67,12 @@ function resolveProjectName(row: {
 export function DeveloperDetailPage() {
 	const { userId } = useParams<{ userId: string }>();
 	const navigate = useNavigate();
+	const canViewSession = useCanViewSession();
 	const { startDate, endDate, setStartDate, setEndDate, calculateDays } =
 		useDateRange();
 	const chartTheme = useChartTheme();
 	const days = calculateDays();
+	const { trackFilterChange } = useAnalyticsTracking();
 
 	const [projectFilter, setProjectFilter] = useState<string>("");
 	const [outcomeFilter, setOutcomeFilter] = useState<"all" | "success">("all");
@@ -114,6 +120,11 @@ export function DeveloperDetailPage() {
 			input: { userId: userId as string, days },
 		}),
 	);
+
+	useTrackDashboardView({
+		isLoading: detailsLoading,
+		hasData: Boolean(details),
+	});
 
 	const { userMap } = useUserMap();
 
@@ -383,15 +394,15 @@ export function DeveloperDetailPage() {
 
 			{/* Activity Timeline */}
 			{chartData.length > 0 && (
-				<AnalyticsCard className="mb-8">
-					<div className="flex justify-between items-start mb-4">
-						<div>
-							<h2 className="text-xl font-bold text-heading">
-								Daily Activity{" "}
-								<span className={`ml-2 ${trendColorClass}`}>{trendIcon}</span>
-							</h2>
-						</div>
-						{timeline && timeline.length >= 14 && (
+				<ChartCard
+					title="Daily Activity"
+					titleSuffix={
+						<span className={`ml-2 ${trendColorClass}`}>{trendIcon}</span>
+					}
+					className="mb-8"
+				>
+					{timeline && timeline.length >= 14 && (
+						<div className="flex justify-end mb-4">
 							<div className="bg-surface px-4 py-2 rounded-lg">
 								<p className="text-xs text-muted">Week-over-Week</p>
 								<p
@@ -400,8 +411,8 @@ export function DeveloperDetailPage() {
 									{formatWoWChange(wowChange)}
 								</p>
 							</div>
-						)}
-					</div>
+						</div>
+					)}
 					<ResponsiveContainer width="100%" height={300}>
 						<LineChart data={chartData}>
 							<CartesianGrid
@@ -460,7 +471,7 @@ export function DeveloperDetailPage() {
 							/>
 						</LineChart>
 					</ResponsiveContainer>
-				</AnalyticsCard>
+				</ChartCard>
 			)}
 
 			{/* Feature Adoption */}
@@ -504,10 +515,7 @@ export function DeveloperDetailPage() {
 
 			{/* Projects */}
 			{projectChartData.length > 0 && (
-				<AnalyticsCard className="mb-8">
-					<h2 className="text-xl font-bold text-heading mb-6">
-						Projects Worked On
-					</h2>
+				<ChartCard title="Projects Worked On" className="mb-8">
 					<ResponsiveContainer width="100%" height={350}>
 						<BarChart data={projectChartData}>
 							<CartesianGrid
@@ -550,7 +558,7 @@ export function DeveloperDetailPage() {
 							/>
 						</BarChart>
 					</ResponsiveContainer>
-				</AnalyticsCard>
+				</ChartCard>
 			)}
 
 			{/* Errors */}
@@ -562,6 +570,7 @@ export function DeveloperDetailPage() {
 					<DataTable
 						columns={errorColumns}
 						data={errors}
+						analyticsId="developer_detail_errors"
 						defaultSorting={[{ id: "occurrences", desc: true }]}
 						defaultPageSize={50}
 					/>
@@ -575,7 +584,17 @@ export function DeveloperDetailPage() {
 					<div className="flex gap-3">
 						<Select
 							value={projectFilter || "all"}
-							onValueChange={(v) => setProjectFilter(v === "all" ? "" : v)}
+							onValueChange={(v) => {
+								trackFilterChange({
+									filterName: "developer_detail_project_filter",
+									filterCategory: "dimension",
+									changeAction: "set",
+									sourceComponent: "developer_detail_page",
+									valueKey: v,
+									affectedScope: "table",
+								});
+								setProjectFilter(v === "all" ? "" : v);
+							}}
 						>
 							<SelectTrigger className="w-auto">
 								<SelectValue />
@@ -591,7 +610,17 @@ export function DeveloperDetailPage() {
 						</Select>
 						<Select
 							value={outcomeFilter}
-							onValueChange={(v) => setOutcomeFilter(v as "all" | "success")}
+							onValueChange={(v) => {
+								trackFilterChange({
+									filterName: "developer_detail_outcome_filter",
+									filterCategory: "status",
+									changeAction: "set",
+									sourceComponent: "developer_detail_page",
+									valueKey: v,
+									affectedScope: "table",
+								});
+								setOutcomeFilter(v as "all" | "success");
+							}}
 						>
 							<SelectTrigger className="w-auto">
 								<SelectValue />
@@ -607,9 +636,13 @@ export function DeveloperDetailPage() {
 				<DataTable
 					columns={sessionColumns}
 					data={sessions ?? []}
+					analyticsId="developer_detail_sessions"
 					defaultSorting={[{ id: "date", desc: true }]}
-					onRowClick={(row) =>
-						navigate(`/dashboard/sessions/${row.session_id}`)
+					getRowAnalyticsValue={(row) => row.session_id}
+					onRowClick={
+						userId && canViewSession(userId)
+							? (row) => navigate(`/dashboard/sessions/${row.session_id}`)
+							: undefined
 					}
 				/>
 			</AnalyticsCard>

@@ -8,6 +8,7 @@ import {
 	PopoverContent,
 	PopoverTrigger,
 } from "@/components/ui/popover";
+import { useAnalyticsTracking } from "@/hooks/useDashboardAnalytics";
 
 interface DatePickerProps {
 	startDate: string;
@@ -109,6 +110,10 @@ export function DatePicker({
 	const [open, setOpen] = useState(false);
 	const [tempStartDate, setTempStartDate] = useState(startDate);
 	const [tempEndDate, setTempEndDate] = useState(endDate);
+	const { trackFilterChange } = useAnalyticsTracking();
+
+	const toAnalyticsKey = (value: string) =>
+		value.toLowerCase().replace(/[^a-z0-9]+/g, "_");
 
 	useEffect(() => {
 		setTempStartDate(startDate);
@@ -124,6 +129,14 @@ export function DatePicker({
 	};
 
 	const handleApply = () => {
+		trackFilterChange({
+			filterName: "date_range",
+			filterCategory: "date",
+			changeAction: "set",
+			sourceComponent: "date_picker",
+			valueKey: "custom",
+			affectedScope: "page",
+		});
 		onStartDateChange(tempStartDate);
 		onEndDateChange(tempEndDate);
 		setOpen(false);
@@ -131,6 +144,14 @@ export function DatePicker({
 
 	const handlePresetClick = (preset: DatePreset) => {
 		const { start, end } = preset.getValue();
+		trackFilterChange({
+			filterName: "date_range",
+			filterCategory: "date",
+			changeAction: "preset",
+			sourceComponent: "date_picker",
+			valueKey: toAnalyticsKey(preset.label),
+			affectedScope: "page",
+		});
 		setTempStartDate(start);
 		setTempEndDate(end);
 		onStartDateChange(start);

@@ -22,6 +22,7 @@ import {
 	YAxis,
 } from "recharts";
 import { AnalyticsCard } from "@/components/analytics/AnalyticsCard";
+import { ChartCard } from "@/components/analytics/ChartCard";
 import { DatePicker } from "@/components/analytics/DatePicker";
 import { PageHeader } from "@/components/analytics/PageHeader";
 import { StatCard } from "@/components/analytics/StatCard";
@@ -38,6 +39,11 @@ import {
 import { useDateRange } from "@/contexts/DateRangeContext";
 import { useAnalyticsQuery } from "@/hooks/useAnalyticsQuery";
 import { useChartTheme } from "@/hooks/useChartTheme";
+import { useAnalyticsTracking } from "@/hooks/useDashboardAnalytics";
+import {
+	type DashboardSection,
+	useTrackDashboardView,
+} from "@/hooks/useTrackDashboardView";
 import { useUserMap } from "@/hooks/useUserMap";
 import { formatUsername } from "@/lib/format";
 import { orpc } from "@/lib/orpc";
@@ -47,6 +53,7 @@ export function ROIPage() {
 		useDateRange();
 	const chartTheme = useChartTheme();
 	const days = calculateDays();
+	const { trackFilterChange } = useAnalyticsTracking();
 
 	const [roiInputs, setRoiInputs] = useState({
 		codePercentage: 10,
@@ -55,19 +62,35 @@ export function ROIPage() {
 		devHourlyRate: 100,
 	});
 
-	const { data: metrics, isLoading } = useAnalyticsQuery(
+	const {
+		data: metrics,
+		isLoading: metricsLoading,
+		isError: metricsError,
+	} = useAnalyticsQuery(
 		orpc.analytics.roi.metrics.queryOptions({ input: { days } }),
 	);
 
-	const { data: trends } = useAnalyticsQuery(
+	const {
+		data: trends,
+		isLoading: trendsLoading,
+		isError: trendsError,
+	} = useAnalyticsQuery(
 		orpc.analytics.roi.trends.queryOptions({ input: { days: 56 } }),
 	);
 
-	const { data: developerCosts } = useAnalyticsQuery(
+	const {
+		data: developerCosts,
+		isLoading: developerCostsLoading,
+		isError: developerCostsError,
+	} = useAnalyticsQuery(
 		orpc.analytics.roi.breakdownDevelopers.queryOptions({ input: { days } }),
 	);
 
-	const { data: projectCosts } = useAnalyticsQuery(
+	const {
+		data: projectCosts,
+		isLoading: projectCostsLoading,
+		isError: projectCostsError,
+	} = useAnalyticsQuery(
 		orpc.analytics.roi.breakdownProjects.queryOptions({ input: { days } }),
 	);
 
@@ -172,8 +195,96 @@ export function ROIPage() {
 			roiPercentage: parseFloat(roiPercentage.toFixed(2)),
 		};
 	}, [metrics, roiInputs]);
+	const roiIsLoading =
+		metricsLoading ||
+		trendsLoading ||
+		developerCostsLoading ||
+		projectCostsLoading;
+	const roiSections: DashboardSection[] = [
+		{
+			id: "roi_parameters",
+			state: metricsError ? "error" : metrics ? "populated" : "empty",
+			itemCount: metrics ? 4 : 0,
+		},
+		{
+			id: "summary_cards",
+			state: metricsError
+				? "error"
+				: metrics && calculatedROI
+					? "populated"
+					: "empty",
+			itemCount: metrics && calculatedROI ? 4 : 0,
+		},
+		{
+			id: "roi_breakdown",
+			state: metricsError
+				? "error"
+				: metrics && calculatedROI
+					? "populated"
+					: "empty",
+			itemCount: metrics && calculatedROI ? 5 : 0,
+		},
+		{
+			id: "weekly_cost_trend",
+			state: trendsError
+				? "error"
+				: (trends?.length ?? 0) > 0
+					? "populated"
+					: "empty",
+			itemCount: trends?.length ?? 0,
+		},
+		{
+			id: "weekly_productivity_trend",
+			state: trendsError
+				? "error"
+				: (trends?.length ?? 0) > 0
+					? "populated"
+					: "empty",
+			itemCount: trends?.length ?? 0,
+		},
+		{
+			id: "developer_cost_breakdown",
+			state: developerCostsError
+				? "error"
+				: (developerCosts?.length ?? 0) > 0
+					? "populated"
+					: "empty",
+			itemCount: developerCosts?.length ?? 0,
+		},
+		{
+			id: "project_cost_breakdown",
+			state: projectCostsError
+				? "error"
+				: (projectCosts?.length ?? 0) > 0
+					? "populated"
+					: "empty",
+			itemCount: projectCosts?.length ?? 0,
+		},
+	];
+	const roiMetrics = [
+		{ id: "total_spend", value: metrics?.total_cost },
+		{ id: "cost_per_commit", value: metrics?.cost_per_commit },
+		{ id: "dev_hours_saved", value: calculatedROI?.hoursSaved },
+		{ id: "dollar_value_saved", value: calculatedROI?.dollarValueSaved },
+		{ id: "roi_percentage", value: calculatedROI?.roiPercentage },
+	];
+
+	useTrackDashboardView({
+		isLoading: roiIsLoading,
+		isError: metricsError,
+		hasData: Boolean(metrics),
+		sections: roiSections,
+		metrics: roiMetrics,
+	});
 
 	const resetToDefaults = () => {
+		trackFilterChange({
+			filterName: "roi_defaults",
+			filterCategory: "calculator",
+			changeAction: "reset",
+			sourceComponent: "roi_page",
+			affectedScope: "page",
+		});
 		setRoiInputs({
 			codePercentage: 10,
 			tokensPerLOC: 15,
@@ -218,7 +329,7 @@ export function ROIPage() {
 				}
 			/>
 
-			{isLoading && (
+			{roiIsLoading && (
 				<div className="flex items-center justify-center py-12">
 					<div className="text-center">
 						<Spinner size="lg" className="mb-4" />
@@ -227,7 +338,7 @@ export function ROIPage() {
 				</div>
 			)}
 
-			{!isLoading && metrics && calculatedROI && (
+			{!roiIsLoading && metrics && calculatedROI && (
 				<>
 					{/* Input Configuration */}
 					<AnalyticsCard className="mb-6">
@@ -452,17 +563,12 @@ export function ROIPage() {
 					{/* Trends Charts */}
 					{trends && trends.length > 0 && (
 						<div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-							<AnalyticsCard>
-								<div className="mb-4">
-									<div className="flex items-center gap-1.5">
-										<h3 className="text-lg font-semibold text-heading">
-											Weekly Cost Trend
-										</h3>
-										{pricingTooltip}
-									</div>
-									<p className="text-sm text-muted mt-1">
-										Total spend over time
-									</p>
+							<ChartCard
+								title="Weekly Cost Trend"
+								description="Total spend over time"
+							>
+								<div className="flex items-center gap-1.5 mb-4">
+									{pricingTooltip}
 								</div>
 								<ResponsiveContainer width="100%" height={300}>
 									<LineChart data={trends}>
@@ -508,37 +614,32 @@ export function ROIPage() {
 										/>
 									</LineChart>
 								</ResponsiveContainer>
-							</AnalyticsCard>
+							</ChartCard>
 
-							<AnalyticsCard>
-								<div className="mb-4">
-									<div className="flex items-center gap-1.5">
-										<h3 className="text-lg font-semibold text-heading">
-											Weekly Productivity Score
-										</h3>
-										<TooltipProvider>
-											<Tooltip>
-												<TooltipTrigger asChild>
-													<HelpCircle className="h-4 w-4 text-muted cursor-help shrink-0" />
-												</TooltipTrigger>
-												<TooltipContent className="max-w-xs">
-													<p className="font-medium mb-1">
-														Productivity Score formula:
-													</p>
-													<p className="font-mono text-xs">
-														(commits ÷ total spend) × 100
-													</p>
-													<p className="text-xs text-muted mt-1">
-														Higher is better — more commits delivered per dollar
-														spent on Claude.
-													</p>
-												</TooltipContent>
-											</Tooltip>
-										</TooltipProvider>
-									</div>
-									<p className="text-sm text-muted mt-1">
-										Commits per dollar x 100
-									</p>
+							<ChartCard
+								title="Weekly Productivity Score"
+								description="Commits per dollar x 100"
+							>
+								<div className="flex items-center gap-1.5 mb-4">
+									<TooltipProvider>
+										<Tooltip>
+											<TooltipTrigger asChild>
+												<HelpCircle className="h-4 w-4 text-muted cursor-help shrink-0" />
+											</TooltipTrigger>
+											<TooltipContent className="max-w-xs">
+												<p className="font-medium mb-1">
+													Productivity Score formula:
+												</p>
+												<p className="font-mono text-xs">
+													(commits ÷ total spend) × 100
+												</p>
+												<p className="text-xs text-muted mt-1">
+													Higher is better — more commits delivered per dollar
+													spent on Claude.
+												</p>
+											</TooltipContent>
+										</Tooltip>
+									</TooltipProvider>
 								</div>
 								<ResponsiveContainer width="100%" height={300}>
 									<LineChart data={trends}>
@@ -577,7 +678,7 @@ export function ROIPage() {
 										/>
 									</LineChart>
 								</ResponsiveContainer>
-							</AnalyticsCard>
+							</ChartCard>
 						</div>
 					)}
 
@@ -590,6 +691,7 @@ export function ROIPage() {
 							<DataTable
 								columns={devCostColumns}
 								data={developerCosts ?? []}
+								analyticsId="roi_developer_costs"
 								defaultSorting={[{ id: "cost", desc: true }]}
 								defaultPageSize={10}
 							/>
@@ -602,6 +704,7 @@ export function ROIPage() {
 							<DataTable
 								columns={projectCostColumns}
 								data={projectCosts ?? []}
+								analyticsId="roi_project_costs"
 								defaultSorting={[{ id: "cost", desc: true }]}
 								defaultPageSize={10}
 							/>

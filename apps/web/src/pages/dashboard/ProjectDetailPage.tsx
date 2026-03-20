@@ -14,6 +14,7 @@ import {
 	YAxis,
 } from "recharts";
 import { AnalyticsCard } from "@/components/analytics/AnalyticsCard";
+import { ChartCard } from "@/components/analytics/ChartCard";
 import { DatePicker } from "@/components/analytics/DatePicker";
 import { PageHeader } from "@/components/analytics/PageHeader";
 import { StatCard } from "@/components/analytics/StatCard";
@@ -23,6 +24,7 @@ import { DataTable } from "@/components/ui/data-table";
 import { useDateRange } from "@/contexts/DateRangeContext";
 import { useAnalyticsQuery } from "@/hooks/useAnalyticsQuery";
 import { useChartTheme } from "@/hooks/useChartTheme";
+import { useTrackDashboardView } from "@/hooks/useTrackDashboardView";
 import { useUserMap } from "@/hooks/useUserMap";
 import { decodeProjectPath, formatUsername } from "@/lib/format";
 import { orpc } from "@/lib/orpc";
@@ -60,6 +62,11 @@ export function ProjectDetailPage() {
 			input: { projectPath, days },
 		}),
 	);
+
+	useTrackDashboardView({
+		isLoading,
+		hasData: Boolean(details),
+	});
 
 	const { userMap } = useUserMap();
 
@@ -275,8 +282,7 @@ export function ProjectDetailPage() {
 			)}
 
 			{contributorChartData.length > 0 && (
-				<AnalyticsCard className="mb-8">
-					<h2 className="text-xl font-bold text-heading mb-6">Contributors</h2>
+				<ChartCard title="Contributors" className="mb-8">
 					<ResponsiveContainer width="100%" height={350}>
 						<BarChart
 							data={contributorChartData}
@@ -333,12 +339,13 @@ export function ProjectDetailPage() {
 							<DataTable
 								columns={contributorColumns}
 								data={contributors}
+								analyticsId="project_detail_contributors"
 								defaultSorting={[{ id: "sessions", desc: true }]}
 								defaultPageSize={50}
 							/>
 						</div>
 					)}
-				</AnalyticsCard>
+				</ChartCard>
 			)}
 
 			{errors && errors.length > 0 && (
@@ -349,6 +356,7 @@ export function ProjectDetailPage() {
 					<DataTable
 						columns={projectErrorColumns}
 						data={errors}
+						analyticsId="project_detail_errors"
 						defaultSorting={[{ id: "occurrences", desc: true }]}
 						defaultPageSize={50}
 					/>

@@ -42,12 +42,31 @@ export async function batchUpload<T extends BatchUploadItem>(
 	const total = items.length;
 	let succeeded = 0;
 	let failed = 0;
+	let skipped = 0;
 	let completed = 0;
+	let rateLimited = false;
 	const errors: Array<{ label: string; error: string }> = [];
 
 	await pMap(
 		items,
 		async (item) => {
+			if (rateLimited) {
+				skipped++;
+				const error =
+					"Skipped — rate limit reached. Run `rudel upload --retry` to upload remaining sessions.";
+				await recordFailedUpload({
+					sessionId: item.sessionId,
+					transcriptPath: item.transcriptPath,
+					projectPath: item.projectPath,
+					source: item.source,
+					organizationId: item.organizationId,
+					error,
+				});
+				completed++;
+				onItemComplete?.(completed, total);
+				return;
+			}
+
 			const itemOnRetry = (
 				attempt: number,
 				maxAttempts: number,
@@ -65,6 +84,9 @@ export async function batchUpload<T extends BatchUploadItem>(
 					failed++;
 					const error = result.error ?? "Unknown error";
 					errors.push({ label: item.label, error });
+					if (result.rateLimited) {
+						rateLimited = true;
+					}
 					await recordFailedUpload({
 						sessionId: item.sessionId,
 						transcriptPath: item.transcriptPath,
@@ -93,6 +115,14 @@ export async function batchUpload<T extends BatchUploadItem>(
 		},
 		{ concurrency, stopOnError: false },
 	);
+
+	if (rateLimited && skipped > 0) {
+		errors.push({
+			label: "Rate limit",
+			error: `${skipped} session(s) skipped. Run \`rudel upload --retry\` later to upload them.`,
+		});
+		failed += skipped;
+	}
 
 	return { succeeded, failed, total, errors };
 }

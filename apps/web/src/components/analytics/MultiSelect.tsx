@@ -6,6 +6,7 @@ import {
 	PopoverContent,
 	PopoverTrigger,
 } from "@/components/ui/popover";
+import { useAnalyticsTracking } from "@/hooks/useDashboardAnalytics";
 import { cn } from "@/lib/utils";
 
 interface MultiSelectProps {
@@ -24,8 +25,21 @@ export function MultiSelect({
 	className = "",
 }: MultiSelectProps) {
 	const [open, setOpen] = useState(false);
+	const { trackFilterChange } = useAnalyticsTracking();
+	const filterName = placeholder.toLowerCase().replace(/[^a-z0-9]+/g, "_");
 
 	const toggleOption = (option: string) => {
+		trackFilterChange({
+			filterName,
+			filterCategory: "multi_select",
+			changeAction: selected.includes(option) ? "remove" : "add",
+			sourceComponent: filterName,
+			selectionCount: selected.includes(option)
+				? Math.max(selected.length - 1, 0)
+				: selected.length + 1,
+			valueKey: option,
+			affectedScope: "page",
+		});
 		if (selected.includes(option)) {
 			onChange(selected.filter((item) => item !== option));
 		} else {
@@ -35,6 +49,14 @@ export function MultiSelect({
 
 	const clearAll = (e: React.MouseEvent) => {
 		e.stopPropagation();
+		trackFilterChange({
+			filterName,
+			filterCategory: "multi_select",
+			changeAction: "clear",
+			sourceComponent: filterName,
+			selectionCount: 0,
+			affectedScope: "page",
+		});
 		onChange([]);
 	};
 
@@ -46,7 +68,12 @@ export function MultiSelect({
 				: `${selected.length} selected`;
 
 	return (
-		<Popover open={open} onOpenChange={setOpen}>
+		<Popover
+			open={open}
+			onOpenChange={(nextOpen) => {
+				setOpen(nextOpen);
+			}}
+		>
 			<PopoverTrigger asChild>
 				<button
 					type="button"

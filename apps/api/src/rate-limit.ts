@@ -5,6 +5,51 @@ import { queryClickhouse } from "./clickhouse.js";
 
 const logger = getLogger(["rudel", "api", "rate-limit"]);
 
+// ── In-memory sliding-window rate limiter ─────────────────────────
+
+interface SlidingWindowEntry {
+	timestamps: number[];
+}
+
+const analyticsWindows = new Map<string, SlidingWindowEntry>();
+
+const ANALYTICS_MAX_REQUESTS = Number(
+	process.env.RATE_LIMIT_ANALYTICS_MAX ?? 90,
+);
+const ANALYTICS_WINDOW_MS =
+	Number(process.env.RATE_LIMIT_ANALYTICS_WINDOW ?? 60) * 1000;
+
+export function checkAnalyticsRateLimit(userId: string): void {
+	const now = Date.now();
+	const cutoff = now - ANALYTICS_WINDOW_MS;
+
+	let entry = analyticsWindows.get(userId);
+	if (!entry) {
+		entry = { timestamps: [] };
+		analyticsWindows.set(userId, entry);
+	}
+
+	// Evict expired timestamps
+	entry.timestamps = entry.timestamps.filter((t) => t > cutoff);
+
+	if (entry.timestamps.length >= ANALYTICS_MAX_REQUESTS) {
+		logger.warn(
+			"Analytics rate limit exceeded for user {userId}: {count}/{max} in {window}s",
+			{
+				userId,
+				count: entry.timestamps.length,
+				max: ANALYTICS_MAX_REQUESTS,
+				window: ANALYTICS_WINDOW_MS / 1000,
+			},
+		);
+		throw new ORPCError("TOO_MANY_REQUESTS", {
+			message: `Rate limit exceeded. Maximum ${ANALYTICS_MAX_REQUESTS} requests per ${Math.round(ANALYTICS_WINDOW_MS / 1000)} seconds.`,
+		});
+	}
+
+	entry.timestamps.push(now);
+}
+
 export interface RateLimitConfig {
 	maxRequests: number;
 	windowSeconds: number;
@@ -25,7 +70,7 @@ const ingestCountQuery = (
 });
 
 export const INGEST_RATE_LIMIT: RateLimitConfig = {
-	maxRequests: Number(process.env.RATE_LIMIT_INGEST_MAX ?? 120),
+	maxRequests: Number(process.env.RATE_LIMIT_INGEST_MAX ?? 500),
 	windowSeconds: Number(process.env.RATE_LIMIT_INGEST_WINDOW ?? 3600),
 	countQuery: ingestCountQuery,
 };
@@ -52,7 +97,12 @@ export async function checkIngestRateLimit(
 				{ userId, count, maxRequests, windowSeconds },
 			);
 			throw new ORPCError("TOO_MANY_REQUESTS", {
-				message: `Rate limit exceeded. Maximum ${maxRequests} requests per ${Math.round(windowSeconds / 60)} minutes.`,
+				message: `Rate limit exceeded. Maximum ${maxRequests} sessions per ${Math.round(windowSeconds / 60)} minutes. Try again later.`,
+				data: {
+					limit: maxRequests,
+					windowSeconds,
+					current: count,
+				},
 			});
 		}
 	} catch (error) {

@@ -1,11 +1,16 @@
 import { useTheme } from "next-themes";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { LoginForm } from "./components/auth/login-form";
 import { SignupForm } from "./components/auth/signup-form";
 import { Button } from "./components/ui/button";
+import { useAnalyticsTracking } from "./hooks/useDashboardAnalytics";
 import { DashboardLayout } from "./layouts/DashboardLayout";
 import { authClient } from "./lib/auth-client";
+import {
+	identifyProductAnalyticsUser,
+	resetProductAnalytics,
+} from "./lib/product-analytics";
 import { AcceptInvitationPage } from "./pages/AcceptInvitationPage";
 import { CreateOrgPage } from "./pages/dashboard/CreateOrgPage";
 import { DeveloperDetailPage } from "./pages/dashboard/DeveloperDetailPage";
@@ -39,6 +44,9 @@ function getValidRedirect(): string | null {
 
 function App() {
 	const { data: session, isPending } = authClient.useSession();
+	const { trackAuthenticationAction } = useAnalyticsTracking({
+		pageName: "device_login",
+	});
 	const [page, setPage] = useState<Page>("login");
 	const [deviceProcessing, setDeviceProcessing] = useState(false);
 	const [deviceApproved, setDeviceApproved] = useState(false);
@@ -49,8 +57,53 @@ function App() {
 	const logoSrc =
 		resolvedTheme === "dark" ? "/logo-light.svg" : "/logo-dark.svg";
 
+	useEffect(() => {
+		const userId =
+			session?.user &&
+			"id" in session.user &&
+			typeof session.user.id === "string"
+				? session.user.id
+				: null;
+		const email =
+			session?.user &&
+			"email" in session.user &&
+			typeof session.user.email === "string"
+				? session.user.email
+				: undefined;
+		const name =
+			session?.user &&
+			"name" in session.user &&
+			typeof session.user.name === "string"
+				? session.user.name
+				: undefined;
+
+		if (userId) {
+			identifyProductAnalyticsUser(userId, {
+				email,
+				name,
+			});
+			return;
+		}
+
+		resetProductAnalytics();
+	}, [session]);
+
 	async function submitDeviceDecision(action: "approve" | "deny") {
 		if (!deviceUserCode || deviceProcessing) return;
+		const userId =
+			session?.user &&
+			"id" in session.user &&
+			typeof session.user.id === "string"
+				? session.user.id
+				: undefined;
+		trackAuthenticationAction({
+			actionName:
+				action === "approve" ? "approve_device_login" : "deny_device_login",
+			sourceComponent: "device_login",
+			authMethod: "device_code",
+			targetId: deviceUserCode,
+			userId,
+		});
 		setDeviceProcessing(true);
 		setDeviceError(null);
 		try {

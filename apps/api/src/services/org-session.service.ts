@@ -17,6 +17,26 @@ export async function getOrgSessionCount(orgId: string): Promise<number> {
 	return results.reduce((sum, rows) => sum + Number(rows[0]?.count ?? 0), 0);
 }
 
+export async function hasOrgUploadsInLastDays(
+	orgId: string,
+	days: number,
+): Promise<boolean> {
+	const ch = getClickhouse();
+	const tables = getAllAdapters().map((a) => a.rawTableName);
+	const results = await Promise.all(
+		tables.map((table) =>
+			ch.query<{ count: string }>({
+				query: `SELECT count() as count FROM ${getSafeClickHouseTable(table)} WHERE organization_id = {orgId:String} AND session_date >= now64(3) - toIntervalDay({days:UInt32})`,
+				query_params: {
+					orgId,
+					days,
+				},
+			}),
+		),
+	);
+	return results.some((rows) => Number(rows[0]?.count ?? 0) > 0);
+}
+
 export function deleteOrgSessions(orgId: string): void {
 	const ch = getClickhouse();
 	const tables = getAllAdapters().map((a) => a.rawTableName);

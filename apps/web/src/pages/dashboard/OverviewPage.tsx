@@ -6,6 +6,7 @@ import {
 	Terminal,
 	Users,
 } from "lucide-react";
+import { useEffect, useRef } from "react";
 import { AnalyticsCard } from "@/components/analytics/AnalyticsCard";
 import { CliSetupHint } from "@/components/analytics/CliSetupHint";
 import { DatePicker } from "@/components/analytics/DatePicker";
@@ -18,34 +19,72 @@ import { UsageTrendChart } from "@/components/charts/UsageTrendChart";
 import { Spinner } from "@/components/ui/spinner";
 import { useDateRange } from "@/contexts/DateRangeContext";
 import { useAnalyticsQuery } from "@/hooks/useAnalyticsQuery";
+import { useDashboardAnalytics } from "@/hooks/useDashboardAnalytics";
+import {
+	type DashboardSection,
+	useTrackDashboardView,
+} from "@/hooks/useTrackDashboardView";
 import { orpc } from "@/lib/orpc";
+import {
+	captureDashboardLoadFailed,
+	getHttpStatusFromError,
+	normalizeWebErrorCode,
+} from "@/lib/product-analytics";
+
+function deriveInsightKey(insight: {
+	type: "trend" | "performer" | "alert" | "info";
+	message: string;
+	link?: string | null;
+}) {
+	return `${insight.type}:${insight.message}:${insight.link ?? "/dashboard"}`
+		.toLowerCase()
+		.replace(/[^a-z0-9]+/g, "_")
+		.replace(/^_+|_+$/g, "")
+		.slice(0, 96);
+}
 
 export function OverviewPage() {
 	const { startDate, endDate, setStartDate, setEndDate } = useDateRange();
+	const failedRangeKeyRef = useRef<string | null>(null);
+	const { organizationId, userId, pageName, dateRangeDays } =
+		useDashboardAnalytics();
 
 	const {
 		data: kpis,
 		isPending: kpisLoading,
 		isError: kpisError,
+		error: kpisQueryError,
 	} = useAnalyticsQuery(
 		orpc.analytics.overview.kpis.queryOptions({
 			input: { startDate, endDate },
 		}),
 	);
 
-	const { data: usageTrendData } = useAnalyticsQuery(
+	const {
+		data: usageTrendData,
+		isPending: usageTrendLoading,
+		isError: usageTrendError,
+	} = useAnalyticsQuery(
 		orpc.analytics.overview.usageTrend.queryOptions({
 			input: { startDate, endDate },
 		}),
 	);
 
-	const { data: modelTokensData } = useAnalyticsQuery(
+	const {
+		data: modelTokensData,
+		isPending: modelTokensLoading,
+		isError: modelTokensError,
+	} = useAnalyticsQuery(
 		orpc.analytics.overview.modelTokensTrend.queryOptions({
 			input: { startDate, endDate },
 		}),
 	);
 
-	const { data: insights } = useAnalyticsQuery(
+	const {
+		data: insights,
+		isPending: insightsLoading,
+		isError: insightsError,
+	} = useAnalyticsQuery(
 		orpc.analytics.overview.insights.queryOptions({
 			input: { startDate, endDate },
 		}),
@@ -54,6 +93,99 @@ export function OverviewPage() {
 	const hasData = !kpisLoading && kpis && kpis.distinct_sessions > 0;
 	const hasAnySessions = kpis && kpis.total_sessions > 0;
 	const showDatePicker = hasData || (!kpisLoading && hasAnySessions);
+	const overviewIsLoading =
+		kpisLoading || usageTrendLoading || modelTokensLoading || insightsLoading;
+	const overviewSections: DashboardSection[] = [
+		{
+			id: "kpi_cards",
+			state: kpisError ? "error" : hasData ? "populated" : "empty",
+			itemCount: hasData ? 6 : 0,
+		},
+		{
+			id: "quick_insights",
+			state: insightsError
+				? "error"
+				: (insights?.length ?? 0) > 0
+					? "populated"
+					: "empty",
+			itemCount: insights?.length ?? 0,
+		},
+		{
+			id: "usage_trend",
+			state: usageTrendError
+				? "error"
+				: (usageTrendData?.length ?? 0) > 0
+					? "populated"
+					: "empty",
+			itemCount: usageTrendData?.length ?? 0,
+		},
+		{
+			id: "model_tokens",
+			state: modelTokensError
+				? "error"
+				: (modelTokensData?.length ?? 0) > 0
+					? "populated"
+					: "empty",
+			itemCount: modelTokensData?.length ?? 0,
+		},
+	];
+	const overviewMetrics = [
+		{ id: "distinct_users", value: kpis?.distinct_users },
+		{ id: "distinct_sessions", value: kpis?.distinct_sessions },
+		{ id: "distinct_projects", value: kpis?.distinct_projects },
+		{ id: "distinct_subagents", value: kpis?.distinct_subagents },
+		{ id: "distinct_slash_commands", value: kpis?.distinct_slash_commands },
+		{ id: "distinct_skills", value: kpis?.distinct_skills },
+	];
+
+	useTrackDashboardView({
+		isLoading: overviewIsLoading,
+		isError: kpisError,
+		hasData: Boolean(hasData),
+		insightCount: insightsError ? 0 : (insights?.length ?? 0),
+		sections: overviewSections,
+		metrics: overviewMetrics,
+	});
+
+	useEffect(() => {
+		if (
+			!organizationId ||
+			!userId ||
+			pageName !== "overview" ||
+			dateRangeDays == null
+		) {
+			return;
+		}
+
+		if (!kpisLoading && kpisError) {
+			const failedRangeKey = `${organizationId}:${pageName}:${startDate}:${endDate}`;
+			if (failedRangeKeyRef.current === failedRangeKey) {
+				return;
+			}
+
+			failedRangeKeyRef.current = failedRangeKey;
+			captureDashboardLoadFailed({
+				organization_id: organizationId,
+				user_id: userId,
+				page_name: pageName,
+				query_name: "overview_kpis",
+				error_code: normalizeWebErrorCode(kpisQueryError),
+				date_range_days: dateRangeDays,
+				is_blocking: true,
+				http_status: getHttpStatusFromError(kpisQueryError),
+			});
+		}
+	}, [
+		dateRangeDays,
+		endDate,
+		kpisError,
+		kpisLoading,
+		kpisQueryError,
+		organizationId,
+		pageName,
+		startDate,
+		userId,
+	]);
 
 	return (
 		<div className="px-8 py-6">
@@ -140,7 +272,7 @@ export function OverviewPage() {
 						/>
 					</div>
 
-					{insights && insights.length > 0 && (
+					{organizationId && userId && insights && insights.length > 0 && (
 						<div className="mb-8">
 							<h2 className="text-xl font-bold text-heading mb-4">
 								Quick Insights
@@ -151,6 +283,15 @@ export function OverviewPage() {
 										// biome-ignore lint/suspicious/noArrayIndexKey: static insights list
 										key={index}
 										insight={{
+											insight_key: deriveInsightKey({
+												type: insight.type as
+													| "trend"
+													| "performer"
+													| "alert"
+													| "info",
+												message: insight.message,
+												link: insight.link,
+											}),
 											type: insight.type as
 												| "trend"
 												| "performer"
@@ -160,6 +301,7 @@ export function OverviewPage() {
 											message: insight.message,
 											link: insight.link || "/dashboard",
 										}}
+										positionIndex={index}
 									/>
 								))}
 							</div>

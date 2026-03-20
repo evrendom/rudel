@@ -120,9 +120,13 @@ export function DateRangeProvider({ children }: { children: ReactNode }) {
 }
 
 export function useDateRange() {
-	const context = useContext(DateRangeContext);
+	const context = useOptionalDateRange();
 	if (context === undefined) {
 		throw new Error("useDateRange must be used within a DateRangeProvider");
 	}
 	return context;
+}
+
+export function useOptionalDateRange() {
+	return useContext(DateRangeContext);
 }
