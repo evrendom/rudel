@@ -8,7 +8,7 @@ import {
 	GitCommitHorizontal,
 	User,
 } from "lucide-react";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useState } from "react";
 import { useParams } from "react-router-dom";
 import { ConversationView } from "@/components/conversation/ConversationView";
 import {
@@ -53,9 +53,6 @@ export function SessionDetailPage() {
 		[],
 	);
 	const [totalMessages, setTotalMessages] = useState(0);
-	const [activeMessageIndex, setActiveMessageIndex] = useState(0);
-	const [scrollToIndex, setScrollToIndex] = useState<number | null>(null);
-	const scrollContainerRef = useRef<HTMLDivElement>(null);
 
 	const handleTokenDataReady = useCallback(
 		(data: TokenDataPoint[], total: number) => {
@@ -67,12 +64,6 @@ export function SessionDetailPage() {
 
 	const handleToolActivityReady = useCallback((data: ToolActivityPoint[]) => {
 		setToolActivityData(data);
-	}, []);
-
-	const handleClickMessage = useCallback((messageIndex: number) => {
-		setScrollToIndex(messageIndex);
-		// Reset after triggering scroll so it can be re-triggered
-		setTimeout(() => setScrollToIndex(null), 100);
 	}, []);
 
 	const {
@@ -356,35 +347,25 @@ export function SessionDetailPage() {
 			</div>
 
 			{/* Scrollable content — two-column layout */}
-			<div ref={scrollContainerRef} className="flex-1 overflow-y-auto">
+			<div className="flex-1 overflow-y-auto">
 				<div className="flex">
 					{/* Conversation — left */}
 					<div className="flex-1 min-w-0 py-6 px-8">
 						<ConversationView
 							content={session.content}
-							scrollContainerRef={scrollContainerRef}
-							onActiveMessageChange={setActiveMessageIndex}
 							onTokenDataReady={handleTokenDataReady}
 							onToolActivityReady={handleToolActivityReady}
-							scrollToMessageIndex={scrollToIndex}
 						/>
 					</div>
 
 					{/* Stats panel — right */}
 					<div className="w-[36rem] shrink-0 border-l border-border">
 						<div className="sticky top-0 px-6 py-4">
-							<TokenUsageChart
-								data={tokenData}
-								totalMessages={totalMessages}
-								activeMessageIndex={activeMessageIndex}
-								onClickMessage={handleClickMessage}
-							/>
+							<TokenUsageChart data={tokenData} totalMessages={totalMessages} />
 							<div className="border-t border-border my-4 pt-4">
 								<ToolActivityChart
 									data={toolActivityData}
 									totalMessages={totalMessages}
-									activeMessageIndex={activeMessageIndex}
-									onClickMessage={handleClickMessage}
 								/>
 							</div>
 						</div>

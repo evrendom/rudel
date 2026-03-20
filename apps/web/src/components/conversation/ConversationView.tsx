@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import type { Conversation } from "@/lib/conversation-schema";
 import { parseConversations } from "@/lib/conversation-schema";
 import { isSlashCommandMessage } from "@/lib/parse-slash-command";
@@ -10,11 +10,8 @@ import type { ToolActivityPoint } from "./ToolActivityChart";
 interface ConversationViewProps {
 	content: string;
 	className?: string;
-	scrollContainerRef?: React.RefObject<HTMLElement | null>;
-	onActiveMessageChange?: (messageIndex: number) => void;
 	onTokenDataReady?: (data: TokenDataPoint[], totalMessages: number) => void;
 	onToolActivityReady?: (data: ToolActivityPoint[]) => void;
-	scrollToMessageIndex?: number | null;
 }
 
 /** Extract token usage data from parsed conversations */
@@ -117,16 +114,11 @@ function extractToolActivity(entries: Conversation[]): ToolActivityPoint[] {
 export function ConversationView({
 	content,
 	className,
-	scrollContainerRef,
-	onActiveMessageChange,
 	onTokenDataReady,
 	onToolActivityReady,
-	scrollToMessageIndex,
 }: ConversationViewProps) {
 	const [conversations, setConversations] = useState<Conversation[]>([]);
 	const [parseError, setParseError] = useState<string | null>(null);
-	const messageRefsMap = useRef<Map<number, HTMLDivElement>>(new Map());
-	const observerRef = useRef<IntersectionObserver | null>(null);
 
 	// Parse content
 	useEffect(() => {
@@ -169,78 +161,6 @@ export function ConversationView({
 		}
 	}, [content, onTokenDataReady, onToolActivityReady]);
 
-	// Set up IntersectionObserver for scroll tracking
-	useEffect(() => {
-		if (!onActiveMessageChange) return;
-
-		const root = scrollContainerRef?.current || null;
-
-		observerRef.current = new IntersectionObserver(
-			(entries) => {
-				let topmostIndex = -1;
-				let topmostTop = Infinity;
-
-				for (const ioEntry of entries) {
-					if (ioEntry.isIntersecting) {
-						const idx = Number(
-							ioEntry.target.getAttribute("data-message-index"),
-						);
-						if (
-							!Number.isNaN(idx) &&
-							ioEntry.boundingClientRect.top < topmostTop
-						) {
-							topmostTop = ioEntry.boundingClientRect.top;
-							topmostIndex = idx;
-						}
-					}
-				}
-
-				if (topmostIndex >= 0) {
-					onActiveMessageChange(topmostIndex);
-				}
-			},
-			{
-				root,
-				rootMargin: "0px 0px -80% 0px",
-				threshold: 0,
-			},
-		);
-
-		for (const [, el] of messageRefsMap.current) {
-			observerRef.current.observe(el);
-		}
-
-		return () => {
-			observerRef.current?.disconnect();
-		};
-	}, [onActiveMessageChange, scrollContainerRef]);
-
-	// Scroll to message when scrollToMessageIndex changes
-	useEffect(() => {
-		if (scrollToMessageIndex == null) return;
-
-		const el = messageRefsMap.current.get(scrollToMessageIndex);
-		if (el) {
-			el.scrollIntoView({ behavior: "smooth", block: "center" });
-		}
-	}, [scrollToMessageIndex]);
-
-	const registerMessageRef = useCallback(
-		(index: number, el: HTMLDivElement | null) => {
-			if (el) {
-				messageRefsMap.current.set(index, el);
-				observerRef.current?.observe(el);
-			} else {
-				const existing = messageRefsMap.current.get(index);
-				if (existing) {
-					observerRef.current?.unobserve(existing);
-				}
-				messageRefsMap.current.delete(index);
-			}
-		},
-		[],
-	);
-
 	if (parseError) {
 		return (
 			<div className={cn("py-8 text-center", className)}>
@@ -269,8 +189,6 @@ export function ConversationView({
 				<div
 					// biome-ignore lint/suspicious/noArrayIndexKey: stable conversation order
 					key={idx}
-					ref={(el) => registerMessageRef(idx, el)}
-					data-message-index={idx}
 				>
 					<ConversationMessage entry={entry} messageIndex={idx} />
 				</div>

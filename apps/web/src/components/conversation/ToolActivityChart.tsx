@@ -1,5 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useAnalyticsTracking } from "@/hooks/useDashboardAnalytics";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 
 export interface ToolActivityPoint {
@@ -12,8 +11,6 @@ export interface ToolActivityPoint {
 interface ToolActivityChartProps {
 	data: ToolActivityPoint[];
 	totalMessages: number;
-	activeMessageIndex: number;
-	onClickMessage: (messageIndex: number) => void;
 	className?: string;
 }
 
@@ -40,13 +37,10 @@ const lanes: {
 export function ToolActivityChart({
 	data,
 	totalMessages,
-	activeMessageIndex,
-	onClickMessage,
 	className,
 }: ToolActivityChartProps) {
 	const containerRef = useRef<HTMLDivElement>(null);
 	const [chartWidth, setChartWidth] = useState(400);
-	const { trackDrilldown } = useAnalyticsTracking();
 
 	useEffect(() => {
 		const el = containerRef.current;
@@ -69,37 +63,6 @@ export function ToolActivityChart({
 		return { tools, skills, subagents, errors };
 	}, [data]);
 
-	const handleClick = useCallback(
-		(e: React.MouseEvent<SVGSVGElement>) => {
-			if (totalMessages === 0 || data.length === 0) return;
-
-			const svg = e.currentTarget;
-			const rect = svg.getBoundingClientRect();
-			const px = e.clientX - rect.left - LEFT_MARGIN;
-			const fraction = px / drawWidth;
-
-			let closest = data[0];
-			let closestDist = Infinity;
-			for (const d of data) {
-				const dx = Math.abs(d.messageIndex / totalMessages - fraction);
-				if (dx < closestDist) {
-					closestDist = dx;
-					closest = d;
-				}
-			}
-			if (closest) {
-				trackDrilldown({
-					drilldownMethod: "chart_click",
-					sourceComponent: "tool_activity_chart",
-					targetType: closest.category,
-					targetId: String(closest.messageIndex),
-				});
-				onClickMessage(closest.messageIndex);
-			}
-		},
-		[data, totalMessages, drawWidth, onClickMessage, trackDrilldown],
-	);
-
 	if (data.length === 0) {
 		return (
 			<div className={cn("text-xs text-muted text-center py-4", className)}>
@@ -107,10 +70,6 @@ export function ToolActivityChart({
 			</div>
 		);
 	}
-
-	const cursorX =
-		LEFT_MARGIN +
-		(totalMessages > 0 ? activeMessageIndex / totalMessages : 0) * drawWidth;
 
 	return (
 		<div className={className}>
@@ -126,12 +85,10 @@ export function ToolActivityChart({
 			</div>
 
 			<div ref={containerRef}>
-				{/* biome-ignore lint/a11y/useKeyWithClickEvents: chart click navigation */}
 				<svg
 					viewBox={`0 0 ${chartWidth} ${CHART_HEIGHT}`}
-					className="w-full cursor-pointer"
+					className="w-full"
 					style={{ height: `${CHART_HEIGHT}px` }}
-					onClick={handleClick}
 					role="img"
 					aria-label="Tool activity chart showing tool, skill, and subagent usage"
 				>
@@ -185,28 +142,16 @@ export function ToolActivityChart({
 								r={DOT_RADIUS}
 								className={
 									d.isError
-										? "fill-red-400/80 hover:fill-red-500"
+										? "fill-red-400/80"
 										: d.category === "tool"
-											? "fill-green-400/80 hover:fill-green-500"
+											? "fill-green-400/80"
 											: d.category === "skill"
-												? "fill-purple-400/80 hover:fill-purple-500"
-												: "fill-orange-400/80 hover:fill-orange-500"
+												? "fill-purple-400/80"
+												: "fill-orange-400/80"
 								}
 							/>
 						);
 					})}
-
-					{/* Cursor line */}
-					<line
-						x1={cursorX}
-						y1="0"
-						x2={cursorX}
-						y2={CHART_HEIGHT}
-						stroke="currentColor"
-						strokeWidth="1"
-						className="text-foreground"
-						strokeDasharray="4,2"
-					/>
 				</svg>
 			</div>
 

@@ -1,5 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useAnalyticsTracking } from "@/hooks/useDashboardAnalytics";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 
 export interface TokenDataPoint {
@@ -11,8 +10,6 @@ export interface TokenDataPoint {
 interface TokenUsageChartProps {
 	data: TokenDataPoint[];
 	totalMessages: number;
-	activeMessageIndex: number;
-	onClickMessage: (messageIndex: number) => void;
 	className?: string;
 }
 
@@ -30,13 +27,10 @@ function formatTokenCount(n: number): string {
 export function TokenUsageChart({
 	data,
 	totalMessages,
-	activeMessageIndex,
-	onClickMessage,
 	className,
 }: TokenUsageChartProps) {
 	const containerRef = useRef<HTMLDivElement>(null);
 	const [chartWidth, setChartWidth] = useState(400);
-	const { trackDrilldown } = useAnalyticsTracking();
 
 	useEffect(() => {
 		const el = containerRef.current;
@@ -70,37 +64,6 @@ export function TokenUsageChart({
 		[data],
 	);
 
-	const handleClick = useCallback(
-		(e: React.MouseEvent<SVGSVGElement>) => {
-			if (totalMessages === 0) return;
-
-			const svg = e.currentTarget;
-			const rect = svg.getBoundingClientRect();
-			const px = e.clientX - rect.left - LEFT_MARGIN;
-			const fraction = px / drawWidth;
-
-			let closest = data[0];
-			let closestDist = Infinity;
-			for (const d of data) {
-				const dx = Math.abs(d.messageIndex / totalMessages - fraction);
-				if (dx < closestDist) {
-					closestDist = dx;
-					closest = d;
-				}
-			}
-			if (closest) {
-				trackDrilldown({
-					drilldownMethod: "chart_click",
-					sourceComponent: "token_usage_chart",
-					targetType: "message",
-					targetId: String(closest.messageIndex),
-				});
-				onClickMessage(closest.messageIndex);
-			}
-		},
-		[data, totalMessages, drawWidth, onClickMessage, trackDrilldown],
-	);
-
 	if (data.length === 0) {
 		return (
 			<div className={cn("text-xs text-muted text-center py-4", className)}>
@@ -108,10 +71,6 @@ export function TokenUsageChart({
 			</div>
 		);
 	}
-
-	const cursorX =
-		LEFT_MARGIN +
-		(totalMessages > 0 ? activeMessageIndex / totalMessages : 0) * drawWidth;
 
 	const barWidth = Math.max(2, (drawWidth / totalMessages) * 0.8);
 
@@ -125,12 +84,10 @@ export function TokenUsageChart({
 			</div>
 
 			<div ref={containerRef}>
-				{/* biome-ignore lint/a11y/useKeyWithClickEvents: chart click navigation */}
 				<svg
 					viewBox={`0 0 ${chartWidth} ${CHART_HEIGHT}`}
-					className="w-full cursor-pointer"
+					className="w-full"
 					style={{ height: `${CHART_HEIGHT}px` }}
-					onClick={handleClick}
 					role="img"
 					aria-label="Token usage chart showing input and output tokens per message"
 				>
@@ -188,7 +145,7 @@ export function TokenUsageChart({
 								y={AXIS_Y - barH}
 								width={barWidth}
 								height={barH}
-								className="fill-blue-400/70 hover:fill-blue-500"
+								className="fill-blue-400/70"
 								rx="1"
 							/>
 						);
@@ -208,23 +165,11 @@ export function TokenUsageChart({
 								y={AXIS_Y}
 								width={barWidth}
 								height={barH}
-								className="fill-purple-400/70 hover:fill-purple-500"
+								className="fill-purple-400/70"
 								rx="1"
 							/>
 						);
 					})}
-
-					{/* Cursor line */}
-					<line
-						x1={cursorX}
-						y1="0"
-						x2={cursorX}
-						y2={CHART_HEIGHT}
-						stroke="currentColor"
-						strokeWidth="1"
-						className="text-foreground"
-						strokeDasharray="4,2"
-					/>
 				</svg>
 			</div>
 
