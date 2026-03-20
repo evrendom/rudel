@@ -4,8 +4,8 @@ import { join } from "node:path";
 import type { IngestSessionInput } from "@rudel/api-routes";
 import {
 	type Ingestor,
-	ingestRudelClaudeSessions,
-	type RudelClaudeSessionsRow,
+	ingestRudelPiSessions,
+	type RudelPiSessionsRow,
 } from "@rudel/ch-schema/generated";
 import type {
 	AgentAdapter,
@@ -72,87 +72,6 @@ export async function readPiSubagentFiles(
 	return subagents;
 }
 
-/**
- * Transform pi v3 JSONL content into Claude Code-compatible JSONL
- * so the ClickHouse materialized view can parse it for analytics
- * and the web UI conversation parser can display it.
- */
-export function transformV3Content(rawContent: string): string {
-	const outputLines: string[] = [];
-	let sessionId = "";
-
-	for (const line of rawContent.split("\n")) {
-		if (!line) continue;
-
-		let entry: Record<string, unknown>;
-		try {
-			entry = JSON.parse(line);
-		} catch {
-			continue;
-		}
-
-		// Extract session ID from the session header
-		if (entry.type === "session") {
-			sessionId = (entry.id as string) ?? "";
-			continue;
-		}
-
-		if (entry.type !== "message") continue;
-
-		const message = entry.message as Record<string, unknown> | undefined;
-		if (!message) continue;
-
-		const role = message.role as string;
-		if (role !== "user" && role !== "assistant") continue;
-
-		const timestamp = entry.timestamp as string;
-		const uuid = (entry.id as string) ?? "";
-
-		if (role === "user") {
-			outputLines.push(
-				JSON.stringify({
-					type: "user",
-					uuid,
-					sessionId,
-					timestamp,
-					message: {
-						role: "user",
-						content: message.content,
-					},
-				}),
-			);
-		} else {
-			// Map v3 usage keys → Claude Code usage keys
-			const usage = message.usage as Record<string, unknown> | undefined;
-			const mappedUsage = usage
-				? {
-						input_tokens: usage.input,
-						output_tokens: usage.output,
-						cache_read_input_tokens: usage.cacheRead,
-						cache_creation_input_tokens: usage.cacheWrite,
-					}
-				: undefined;
-
-			outputLines.push(
-				JSON.stringify({
-					type: "assistant",
-					uuid,
-					sessionId,
-					timestamp,
-					message: {
-						role: "assistant",
-						content: message.content,
-						model: message.model,
-						...(mappedUsage ? { usage: mappedUsage } : {}),
-					},
-				}),
-			);
-		}
-	}
-
-	return outputLines.join("\n");
-}
-
 /** Extract session ID from a v3 filename: `<timestamp>_<uuid>.jsonl` → uuid */
 function extractV3SessionId(filename: string): string | null {
 	const base = filename.replace(/\.jsonl$/, "");
@@ -176,8 +95,8 @@ export function getV3SessionsDir(): string {
 
 class PiAdapter implements AgentAdapter {
 	name = "Pi";
-	source = "claude_code" as const;
-	rawTableName = "rudel.claude_sessions";
+	source = "pi" as const;
+	rawTableName = "rudel.pi_sessions";
 
 	getSessionsBaseDir(): string {
 		return V3_SESSIONS_DIR;
@@ -279,21 +198,24 @@ class PiAdapter implements AgentAdapter {
 	): Promise<IngestSessionInput> {
 		let content: string;
 		let subagents: Array<{ agentId: string; content: string }> | undefined;
+		let version: number;
 
 		try {
 			const s = await stat(session.transcriptPath);
 			if (s.isDirectory()) {
-				// v2: directory with subagents/
+				// v2: directory with subagents/ — store raw (already Claude Code JSONL)
+				version = 2;
 				const agentFiles = await readPiSubagentFiles(session.transcriptPath);
 				content = agentFiles.map((a) => a.content).join("\n");
 				subagents = agentFiles.length > 0 ? agentFiles : undefined;
 			} else {
-				// v3: single .jsonl file
-				const rawContent = await readFileWithRetry(session.transcriptPath);
-				content = transformV3Content(rawContent);
+				// v3: single .jsonl file — store raw (native Pi format)
+				version = 3;
+				content = await readFileWithRetry(session.transcriptPath);
 			}
 		} catch {
 			content = "";
+			version = 0;
 		}
 
 		return {
@@ -309,6 +231,7 @@ class PiAdapter implements AgentAdapter {
 			content,
 			subagents,
 			organizationId: context.organizationId,
+			version,
 		};
 	}
 
@@ -321,16 +244,14 @@ class PiAdapter implements AgentAdapter {
 
 		for (const line of content.split("\n")) {
 			if (!line) continue;
-			let parsed: { type?: string; timestamp?: string };
+			let parsed: { timestamp?: string };
 			try {
 				parsed = JSON.parse(line);
 			} catch {
 				continue;
 			}
-			if (
-				(parsed.type === "user" || parsed.type === "assistant") &&
-				parsed.timestamp
-			) {
+			// Accept any line with a timestamp — works for both v2 and v3 raw formats
+			if (parsed.timestamp) {
 				const ts = parsed.timestamp;
 				if (!min || ts < min) min = ts;
 				if (!max || ts > max) max = ts;
@@ -348,13 +269,13 @@ class PiAdapter implements AgentAdapter {
 		context: IngestContext,
 	): Promise<void> {
 		const row = this.buildRow(input, context);
-		await ingestRudelClaudeSessions(ingestor, [row]);
+		await ingestRudelPiSessions(ingestor, [row]);
 	}
 
 	private buildRow(
 		input: IngestSessionInput,
 		context: IngestContext,
-	): RudelClaudeSessionsRow {
+	): RudelPiSessionsRow {
 		const now = new Date().toISOString().replace("Z", "");
 
 		const subagents: Record<string, string> = {};
@@ -386,6 +307,7 @@ class PiAdapter implements AgentAdapter {
 			git_branch: input.gitBranch ?? null,
 			git_sha: input.gitSha ?? null,
 			tag: input.tag ?? null,
+			version: input.version ?? 0,
 		};
 	}
 

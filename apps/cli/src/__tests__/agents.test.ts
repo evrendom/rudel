@@ -8,7 +8,6 @@ import {
 	isPiSession,
 	isPiSessionDir,
 	piAdapter,
-	transformV3Content,
 } from "@rudel/agent-adapters";
 
 const SAMPLE_SESSION = [
@@ -254,8 +253,8 @@ describe("piAdapter", () => {
 		expect(piAdapter.name).toBe("Pi");
 	});
 
-	test("source is claude_code", () => {
-		expect(piAdapter.source).toBe("claude_code");
+	test("source is pi", () => {
+		expect(piAdapter.source).toBe("pi");
 	});
 
 	test("getSessionsBaseDir returns pi v3 sessions dir", () => {
@@ -326,18 +325,18 @@ describe("piAdapter", () => {
 		expect(ccSessionIds).toContain("session-bbb");
 	});
 
-	test("buildUploadRequest concatenates subagent content and populates subagents", async () => {
+	test("buildUploadRequest for v2 concatenates subagent content raw", async () => {
 		const sessions = await piAdapter.findProjectSessions(TEST_PROJECT_PATH);
-		const session = sessions[0] as (typeof sessions)[number];
-		expect(session).toBeDefined();
+		const v2Session = sessions.find((s) => s.sessionId === PI_SESSION_UUID);
+		expect(v2Session).toBeDefined();
 
 		// biome-ignore lint/style/noNonNullAssertion: guarded by expect above
-		const request = await piAdapter.buildUploadRequest(session!, {
+		const request = await piAdapter.buildUploadRequest(v2Session!, {
 			gitInfo: {},
 			organizationId: "test-org",
 		});
 
-		// Content is concatenated subagent JSONL (for MV analytics)
+		// Content is concatenated subagent JSONL (raw, for MV to parse)
 		expect(request.content.length).toBeGreaterThan(0);
 		expect(request.content).toContain('"agentId":"a111111"');
 		expect(request.content).toContain('"agentId":"a222222"');
@@ -348,82 +347,13 @@ describe("piAdapter", () => {
 		const agentIds = request.subagents?.map((s) => s.agentId).sort();
 		expect(agentIds).toEqual(["a111111", "a222222"]);
 
-		// Source is claude_code
-		expect(request.source).toBe("claude_code");
+		// Source is pi, version is 2
+		expect(request.source).toBe("pi");
+		expect(request.version).toBe(2);
 		expect(request.sessionId).toBe(PI_SESSION_UUID);
 	});
 
-	test("extractTimestamps works on concatenated subagent content", () => {
-		const content = `${SAMPLE_SUBAGENT_A}\n${SAMPLE_SUBAGENT_B}`;
-		const timestamps = piAdapter.extractTimestamps(content);
-
-		expect(timestamps).not.toBeNull();
-		expect(timestamps?.sessionDate).toBe("2026-01-15T10:00:00.000Z");
-		expect(timestamps?.lastInteractionDate).toBe("2026-01-15T10:01:10.000Z");
-	});
-
-	test("isPiSession detects both v2 and v3 sessions", async () => {
-		// v2: directory
-		expect(await isPiSession(join(SESSION_DIR, PI_SESSION_UUID))).toBe(true);
-		// v3: file under ~/.pi/agent/sessions/
-		expect(await isPiSession(V3_SESSION_FILE)).toBe(true);
-		// Not a pi session
-		expect(await isPiSession("/some/random/path.jsonl")).toBe(false);
-	});
-});
-
-describe("piAdapter v3", () => {
-	test("transformV3Content converts to Claude Code format", () => {
-		const v3Content = SAMPLE_V3_SESSION.replace(/"cwd":""/, '"cwd":"/test"');
-		const transformed = transformV3Content(v3Content);
-		const lines = transformed.split("\n").filter(Boolean);
-
-		// Should have 2 lines: user + assistant (toolResult, session, compaction, thinking_level_change skipped)
-		expect(lines).toHaveLength(2);
-
-		const userLine = JSON.parse(lines[0] as string);
-		expect(userLine.type).toBe("user");
-		expect(userLine.timestamp).toBe("2026-03-10T10:00:05.000Z");
-		expect(userLine.message.role).toBe("user");
-		expect(userLine.message.content[0].text).toBe("fix the bug");
-		// Should have uuid and sessionId (required by web UI conversation parser)
-		expect(userLine.uuid).toBe("m1");
-		expect(userLine.sessionId).toBe(V3_SESSION_UUID);
-		// Should not have v3-only fields
-		expect(userLine.id).toBeUndefined();
-		expect(userLine.parentId).toBeUndefined();
-
-		const assistantLine = JSON.parse(lines[1] as string);
-		expect(assistantLine.type).toBe("assistant");
-		expect(assistantLine.timestamp).toBe("2026-03-10T10:00:15.000Z");
-		expect(assistantLine.uuid).toBe("m2");
-		expect(assistantLine.sessionId).toBe(V3_SESSION_UUID);
-		expect(assistantLine.message.role).toBe("assistant");
-		expect(assistantLine.message.model).toBe("claude-sonnet-4-20250514");
-		// Should not have extra fields
-		expect(assistantLine.message.api).toBeUndefined();
-		expect(assistantLine.message.provider).toBeUndefined();
-		expect(assistantLine.message.stopReason).toBeUndefined();
-	});
-
-	test("transformV3Content maps usage fields correctly", () => {
-		const v3Content = SAMPLE_V3_SESSION.replace(/"cwd":""/, '"cwd":"/test"');
-		const transformed = transformV3Content(v3Content);
-		const lines = transformed.split("\n").filter(Boolean);
-		const assistantLine = JSON.parse(lines[1] as string);
-
-		const usage = assistantLine.message.usage;
-		expect(usage.input_tokens).toBe(150);
-		expect(usage.output_tokens).toBe(75);
-		expect(usage.cache_read_input_tokens).toBe(1000);
-		expect(usage.cache_creation_input_tokens).toBe(200);
-		// Should not have v3-only fields
-		expect(usage.totalTokens).toBeUndefined();
-		expect(usage.cost).toBeUndefined();
-		expect(usage.input).toBeUndefined();
-	});
-
-	test("buildUploadRequest transforms v3 content for MV compatibility", async () => {
+	test("buildUploadRequest for v3 stores raw content", async () => {
 		const sessions = await piAdapter.findProjectSessions(TEST_PROJECT_PATH);
 		const v3Session = sessions.find((s) => s.sessionId === V3_SESSION_UUID);
 		expect(v3Session).toBeDefined();
@@ -434,29 +364,51 @@ describe("piAdapter v3", () => {
 			organizationId: "test-org",
 		});
 
-		// Content should be transformed (type:"user"/"assistant" lines)
-		expect(request.content).toContain('"type":"user"');
-		expect(request.content).toContain('"type":"assistant"');
-		// Should NOT contain v3-only types
-		expect(request.content).not.toContain('"type":"message"');
-		expect(request.content).not.toContain('"type":"session"');
-		expect(request.content).not.toContain('"type":"compaction"');
+		// Content is raw v3 JSONL — NOT transformed
+		expect(request.content).toContain('"type":"session"');
+		expect(request.content).toContain('"type":"message"');
+		expect(request.content).toContain('"type":"compaction"');
+		// Should preserve native Pi fields
+		expect(request.content).toContain('"cacheRead"');
+		expect(request.content).toContain('"cacheWrite"');
 
-		// No subagents for v3 (it's a single file, not a subagent dir)
+		// No subagents for v3 (it's a single file)
 		expect(request.subagents).toBeUndefined();
 
-		expect(request.source).toBe("claude_code");
+		// Source is pi, version is 3
+		expect(request.source).toBe("pi");
+		expect(request.version).toBe(3);
 		expect(request.sessionId).toBe(V3_SESSION_UUID);
 	});
 
-	test("extractTimestamps works on transformed v3 content", () => {
-		const v3Content = SAMPLE_V3_SESSION.replace(/"cwd":""/, '"cwd":"/test"');
-		const transformed = transformV3Content(v3Content);
-		const timestamps = piAdapter.extractTimestamps(transformed);
+	test("extractTimestamps works on raw v2 content (subagent JSONL)", () => {
+		const content = `${SAMPLE_SUBAGENT_A}\n${SAMPLE_SUBAGENT_B}`;
+		const timestamps = piAdapter.extractTimestamps(content);
 
 		expect(timestamps).not.toBeNull();
-		expect(timestamps?.sessionDate).toBe("2026-03-10T10:00:05.000Z");
-		expect(timestamps?.lastInteractionDate).toBe("2026-03-10T10:00:15.000Z");
+		expect(timestamps?.sessionDate).toBe("2026-01-15T10:00:00.000Z");
+		expect(timestamps?.lastInteractionDate).toBe("2026-01-15T10:01:10.000Z");
+	});
+
+	test("extractTimestamps works on raw v3 content (native Pi JSONL)", () => {
+		const v3Content = SAMPLE_V3_SESSION.replace(/"cwd":""/, '"cwd":"/test"');
+		const timestamps = piAdapter.extractTimestamps(v3Content);
+
+		expect(timestamps).not.toBeNull();
+		// v3 has timestamps on session, thinking_level_change, messages, and compaction
+		// Min should be the earliest timestamp
+		expect(timestamps?.sessionDate).toBe("2026-03-10T10:00:00.000Z");
+		// Max should be the compaction timestamp (latest)
+		expect(timestamps?.lastInteractionDate).toBe("2026-03-10T10:00:20.000Z");
+	});
+
+	test("isPiSession detects both v2 and v3 sessions", async () => {
+		// v2: directory
+		expect(await isPiSession(join(SESSION_DIR, PI_SESSION_UUID))).toBe(true);
+		// v3: file under ~/.pi/agent/sessions/
+		expect(await isPiSession(V3_SESSION_FILE)).toBe(true);
+		// Not a pi session
+		expect(await isPiSession("/some/random/path.jsonl")).toBe(false);
 	});
 });
 

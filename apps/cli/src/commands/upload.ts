@@ -67,10 +67,9 @@ async function runInteractiveUpload(flags: UploadFlags): Promise<void> {
 
 	for (const group of groups) {
 		for (const proj of group.projects) {
-			const adapterLabel = await getAdapterLabel(proj);
 			options.push({
 				value: proj,
-				label: `[${adapterLabel}] ${proj.displayPath}`,
+				label: `[${getAdapter(proj.source).name}] ${proj.displayPath}`,
 				hint: sessionCountHint(proj.sessionCount),
 			});
 			if (group.containsCwd) {
@@ -115,7 +114,7 @@ async function runInteractiveUpload(flags: UploadFlags): Promise<void> {
 	}> = [];
 
 	for (const project of selected) {
-		const adapter = await resolveAdapter(project);
+		const adapter = getAdapter(project.source);
 		const gitInfo = await getGitInfo(project.projectPath);
 		const organizationId =
 			flags.org ?? (await getProjectOrgId(project.projectPath));
@@ -181,26 +180,8 @@ async function runInteractiveUpload(flags: UploadFlags): Promise<void> {
 	}
 }
 
-async function getAdapterLabel(project: ScannedProject): Promise<string> {
-	const adapter = await resolveAdapter(project);
-	return adapter.name;
-}
-
 function sessionCountHint(count: number): string {
 	return `${count} session${count !== 1 ? "s" : ""}`;
-}
-
-/**
- * Determine the correct adapter for a scanned project. Pi sessions share
- * source "claude_code" but need their own adapter for upload. We detect
- * pi projects by checking the first session's transcriptPath.
- */
-async function resolveAdapter(project: ScannedProject): Promise<AgentAdapter> {
-	const firstSession = project.sessions[0];
-	if (firstSession && (await isPiSession(firstSession.transcriptPath))) {
-		return piAdapter;
-	}
-	return getAdapter(project.source);
 }
 
 async function runSingleUpload(

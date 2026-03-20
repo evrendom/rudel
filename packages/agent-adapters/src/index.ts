@@ -15,14 +15,12 @@ export {
 	isPiSessionDir,
 	piAdapter,
 	readPiSubagentFiles,
-	transformV3Content,
 } from "./adapters/pi/index.js";
 export {
 	getAdapter,
 	getAllAdapters,
 	getAvailableAdapters,
 	registerAdapter,
-	registerScanOnlyAdapter,
 } from "./registry.js";
 export type {
 	AgentAdapter,
@@ -44,8 +42,8 @@ export {
 import { claudeCodeAdapter } from "./adapters/claude-code/index.js";
 import { codexAdapter } from "./adapters/codex/index.js";
 import { piAdapter } from "./adapters/pi/index.js";
-import { registerAdapter, registerScanOnlyAdapter } from "./registry.js";
+import { registerAdapter } from "./registry.js";
 
 registerAdapter(claudeCodeAdapter);
 registerAdapter(codexAdapter);
-registerScanOnlyAdapter(piAdapter);
+registerAdapter(piAdapter);

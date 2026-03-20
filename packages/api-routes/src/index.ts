@@ -113,6 +113,7 @@ export const IngestSessionInputSchema = z.object({
 	content: z.string(),
 	subagents: z.array(SubagentFileSchema).optional(),
 	organizationId: z.string().max(200).optional(),
+	version: z.number().int().min(1).max(255).optional(),
 });
 
 export const IngestSessionOutputSchema = z.object({
