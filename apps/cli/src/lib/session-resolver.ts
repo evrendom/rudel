@@ -3,6 +3,7 @@ import { homedir } from "node:os";
 import { basename, dirname, join } from "node:path";
 import {
 	decodeProjectPath,
+	extractV3SessionId,
 	getV3SessionsDir,
 	isPiSessionDir,
 	readJsonlFirstLine,
@@ -57,7 +58,7 @@ async function resolveFromPath(filePath: string): Promise<SessionInfo> {
 
 	// Check if input is a pi v3 session file
 	if (filePath.startsWith(getV3SessionsDir()) && filePath.endsWith(".jsonl")) {
-		const sessionId = extractV3SessionIdFromPath(filePath);
+		const sessionId = extractV3SessionId(basename(filePath));
 		if (sessionId) {
 			const firstLine = (await readJsonlFirstLine(filePath)) as {
 				cwd?: string;
@@ -165,18 +166,6 @@ async function resolveFromId(sessionId: string): Promise<SessionInfo> {
 	} catch {}
 
 	throw new Error(`Session not found: ${sessionId}`);
-}
-
-/** Extract session ID from a v3 filename: `<timestamp>_<uuid>.jsonl` → uuid */
-function extractV3SessionIdFromPath(filePath: string): string | null {
-	const filename = basename(filePath);
-	const base = filename.replace(/\.jsonl$/, "");
-	const underscoreIdx = base.indexOf("_");
-	if (underscoreIdx === -1) return null;
-	const uuid = base.slice(underscoreIdx + 1);
-	const uuidPattern =
-		/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-	return uuidPattern.test(uuid) ? uuid : null;
 }
 
 function validateNotSubagent(filename: string): void {

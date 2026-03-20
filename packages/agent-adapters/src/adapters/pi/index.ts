@@ -73,7 +73,7 @@ export async function readPiSubagentFiles(
 }
 
 /** Extract session ID from a v3 filename: `<timestamp>_<uuid>.jsonl` → uuid */
-function extractV3SessionId(filename: string): string | null {
+export function extractV3SessionId(filename: string): string | null {
 	const base = filename.replace(/\.jsonl$/, "");
 	const underscoreIdx = base.indexOf("_");
 	if (underscoreIdx === -1) return null;
@@ -198,7 +198,7 @@ class PiAdapter implements AgentAdapter {
 	): Promise<IngestSessionInput> {
 		let content: string;
 		let subagents: Array<{ agentId: string; content: string }> | undefined;
-		let version: number;
+		let version: number | undefined;
 
 		try {
 			const s = await stat(session.transcriptPath);
@@ -215,7 +215,7 @@ class PiAdapter implements AgentAdapter {
 			}
 		} catch {
 			content = "";
-			version = 0;
+			version = undefined;
 		}
 
 		return {

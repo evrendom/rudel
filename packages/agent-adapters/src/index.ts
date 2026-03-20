@@ -10,6 +10,7 @@ export {
 	readCodexSessionMeta,
 } from "./adapters/codex/index.js";
 export {
+	extractV3SessionId,
 	getV3SessionsDir,
 	isPiSession,
 	isPiSessionDir,

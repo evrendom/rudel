@@ -96,10 +96,7 @@ const pi_v2_session_analytics_mv = materializedView({
     toUInt32(arrayCount(x -> x < 5, _prompt_periods_sec)) as quick_responses,
     toUInt32(arrayCount(x -> x >= 5 AND x <= 60, _prompt_periods_sec)) as normal_responses,
     toUInt32(arrayCount(x -> x > 300, _prompt_periods_sec)) as long_pauses,
-    toUInt32(
-      length(extractAll(ps.content, '"isApiErrorMessage":true'))
-      + length(extractAll(ps.content, '"is_error":true'))
-    ) as error_count,
+    toUInt32(0) as error_count,
     JSONExtractString(
       JSONExtractRaw(
         arrayElement(
@@ -141,10 +138,6 @@ const pi_v2_session_analytics_mv = materializedView({
       + (if((_output_tokens / nullif(_input_tokens, 0)) > 0.5, 15, 0))
       - (if((_input_tokens + _output_tokens) > 1500000 AND (ps.git_sha IS NULL OR ps.git_sha = ''), 20, 0))
       - (if(_duration_min < 2 AND _output_tokens < 200, 30, 0))
-      - (least(toUInt32(
-          length(extractAll(ps.content, '"isApiErrorMessage":true'))
-          + length(extractAll(ps.content, '"is_error":true'))
-        ), 10) * 2)
     )) as success_score
 
   FROM rudel.pi_sessions AS ps

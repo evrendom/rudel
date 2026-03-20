@@ -196,6 +196,19 @@ async function runInteractiveUpload(flags: UploadFlags): Promise<void> {
 	}
 }
 
+/**
+ * Resolve the correct adapter from a transcript path. Used in single-upload
+ * and retry paths where we have a path but no scanned project source.
+ */
+async function resolveAdapterFromPath(
+	transcriptPath: string,
+	source?: string,
+): Promise<AgentAdapter> {
+	if (await isPiSession(transcriptPath)) return piAdapter;
+	if (source) return getAdapter(source as Parameters<typeof getAdapter>[0]);
+	return claudeCodeAdapter;
+}
+
 function sessionCountHint(count: number): string {
 	return `${count} session${count !== 1 ? "s" : ""}`;
 }
@@ -250,8 +263,7 @@ async function runSingleUpload(
 		projectPath: sessionInfo.projectPath,
 	};
 
-	const isPi = await isPiSession(sessionInfo.transcriptPath);
-	const adapter = isPi ? piAdapter : claudeCodeAdapter;
+	const adapter = await resolveAdapterFromPath(sessionInfo.transcriptPath);
 
 	const request = await adapter.buildUploadRequest(sessionFile, {
 		tag: flags.tag,
@@ -364,12 +376,10 @@ async function runRetryUpload(flags: UploadFlags): Promise<void> {
 		label: "Retrying uploads...",
 		concurrency: flags.concurrency,
 		upload: async (item, onRetry) => {
-			const isPi = await isPiSession(item.failure.transcriptPath);
-			const adapter: AgentAdapter = isPi
-				? piAdapter
-				: item.failure.source
-					? getAdapter(item.failure.source)
-					: claudeCodeAdapter;
+			const adapter = await resolveAdapterFromPath(
+				item.failure.transcriptPath,
+				item.failure.source,
+			);
 			const sessionFile: SessionFile = {
 				sessionId: item.failure.sessionId,
 				transcriptPath: item.failure.transcriptPath,
