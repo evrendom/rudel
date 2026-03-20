@@ -402,21 +402,19 @@ describe("piAdapter", () => {
 		expect(timestamps?.lastInteractionDate).toBe("2026-03-10T10:00:20.000Z");
 	});
 
-	test("buildUploadRequest returns empty content and no version on error", async () => {
+	test("buildUploadRequest throws on nonexistent path (caller handles retry)", async () => {
 		const badSession = {
 			sessionId: "nonexistent",
 			transcriptPath: "/nonexistent/path/that/does/not/exist",
 			projectPath: "/nonexistent",
 		};
 
-		const request = await piAdapter.buildUploadRequest(badSession, {
-			gitInfo: {},
-			organizationId: "test-org",
-		});
-
-		expect(request.content).toBe("");
-		expect(request.version).toBeUndefined();
-		expect(request.source).toBe("pi");
+		await expect(
+			piAdapter.buildUploadRequest(badSession, {
+				gitInfo: {},
+				organizationId: "test-org",
+			}),
+		).rejects.toThrow();
 	});
 
 	test("isPiSession detects both v2 and v3 sessions", async () => {

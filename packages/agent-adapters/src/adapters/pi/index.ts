@@ -198,24 +198,19 @@ class PiAdapter implements AgentAdapter {
 	): Promise<IngestSessionInput> {
 		let content: string;
 		let subagents: Array<{ agentId: string; content: string }> | undefined;
-		let version: number | undefined;
+		let version: number;
 
-		try {
-			const s = await stat(session.transcriptPath);
-			if (s.isDirectory()) {
-				// v2: directory with subagents/ — store raw (already Claude Code JSONL)
-				version = 2;
-				const agentFiles = await readPiSubagentFiles(session.transcriptPath);
-				content = agentFiles.map((a) => a.content).join("\n");
-				subagents = agentFiles.length > 0 ? agentFiles : undefined;
-			} else {
-				// v3: single .jsonl file — store raw (native Pi format)
-				version = 3;
-				content = await readFileWithRetry(session.transcriptPath);
-			}
-		} catch {
-			content = "";
-			version = undefined;
+		const s = await stat(session.transcriptPath);
+		if (s.isDirectory()) {
+			// v2: directory with subagents/ — store raw (already Claude Code JSONL)
+			version = 2;
+			const agentFiles = await readPiSubagentFiles(session.transcriptPath);
+			content = agentFiles.map((a) => a.content).join("\n");
+			subagents = agentFiles.length > 0 ? agentFiles : undefined;
+		} else {
+			// v3: single .jsonl file — store raw (native Pi format)
+			version = 3;
+			content = await readFileWithRetry(session.transcriptPath);
 		}
 
 		return {
@@ -307,7 +302,7 @@ class PiAdapter implements AgentAdapter {
 			git_branch: input.gitBranch ?? null,
 			git_sha: input.gitSha ?? null,
 			tag: input.tag ?? null,
-			version: input.version ?? 0,
+			version: input.version ?? 0, // fallback for legacy/external callers
 		};
 	}
 
