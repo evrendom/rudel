@@ -119,6 +119,7 @@ export const IngestSessionInputSchema = z.object({
 	content: z.string(),
 	subagents: z.array(SubagentFileSchema).optional(),
 	organizationId: z.string().max(200).optional(),
+	version: z.number().int().min(1).max(255).optional(),
 	client_surface: ProductAnalyticsClientSurfaceSchema.optional(),
 	upload_mode: ProductAnalyticsUploadModeSchema.optional(),
 	cli_version: z.string().max(200).optional(),

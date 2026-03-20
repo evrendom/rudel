@@ -10,6 +10,14 @@ export {
 	readCodexSessionMeta,
 } from "./adapters/codex/index.js";
 export {
+	extractV3SessionId,
+	getV3SessionsDir,
+	isPiSession,
+	isPiSessionDir,
+	piAdapter,
+	readPiSubagentFiles,
+} from "./adapters/pi/index.js";
+export {
 	getAdapter,
 	getAllAdapters,
 	getAvailableAdapters,
@@ -25,6 +33,7 @@ export type {
 } from "./types.js";
 export {
 	readFileWithRetry,
+	readJsonlFirstLine,
 	toClickHouseDateTime,
 	toDisplayPath,
 	walkJsonlFiles,
@@ -33,7 +42,9 @@ export {
 // Auto-register adapters
 import { claudeCodeAdapter } from "./adapters/claude-code/index.js";
 import { codexAdapter } from "./adapters/codex/index.js";
+import { piAdapter } from "./adapters/pi/index.js";
 import { registerAdapter } from "./registry.js";
 
 registerAdapter(claudeCodeAdapter);
 registerAdapter(codexAdapter);
+registerAdapter(piAdapter);

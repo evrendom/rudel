@@ -1,11 +1,13 @@
 import * as p from "@clack/prompts";
 import {
+	type AgentAdapter,
 	claudeCodeAdapter,
 	getAdapter,
+	isPiSession,
+	piAdapter,
 	type ScannedProject,
 	type SessionFile,
 } from "@rudel/agent-adapters";
-import type { Source } from "@rudel/api-routes";
 import { buildCommand } from "@stricli/core";
 import type { BatchUploadItem } from "../lib/batch-upload.js";
 import { renderBatchSummary, runBatchUpload } from "../lib/batch-upload-ui.js";
@@ -69,7 +71,7 @@ async function runInteractiveUpload(flags: UploadFlags): Promise<void> {
 		for (const proj of group.projects) {
 			options.push({
 				value: proj,
-				label: `[${getAdapterName(proj.source)}] ${proj.displayPath}`,
+				label: `[${getAdapter(proj.source).name}] ${proj.displayPath}`,
 				hint: sessionCountHint(proj.sessionCount),
 			});
 			if (group.containsCwd) {
@@ -122,7 +124,7 @@ async function runInteractiveUpload(flags: UploadFlags): Promise<void> {
 	const work: Array<{
 		session: (typeof selected)[number]["sessions"][number];
 		project: ScannedProject;
-		adapter: ReturnType<typeof getAdapter>;
+		adapter: AgentAdapter;
 		gitInfo: Awaited<ReturnType<typeof getGitInfo>>;
 		organizationId: string | undefined;
 	}> = [];
@@ -194,8 +196,17 @@ async function runInteractiveUpload(flags: UploadFlags): Promise<void> {
 	}
 }
 
-function getAdapterName(source: Source): string {
-	return getAdapter(source).name;
+/**
+ * Resolve the correct adapter from a transcript path. Used in single-upload
+ * and retry paths where we have a path but no scanned project source.
+ */
+async function resolveAdapterFromPath(
+	transcriptPath: string,
+	source?: string,
+): Promise<AgentAdapter> {
+	if (await isPiSession(transcriptPath)) return piAdapter;
+	if (source) return getAdapter(source as Parameters<typeof getAdapter>[0]);
+	return claudeCodeAdapter;
 }
 
 function sessionCountHint(count: number): string {
@@ -252,7 +263,9 @@ async function runSingleUpload(
 		projectPath: sessionInfo.projectPath,
 	};
 
-	const request = await claudeCodeAdapter.buildUploadRequest(sessionFile, {
+	const adapter = await resolveAdapterFromPath(sessionInfo.transcriptPath);
+
+	const request = await adapter.buildUploadRequest(sessionFile, {
 		tag: flags.tag,
 		gitInfo,
 		organizationId,
@@ -363,9 +376,10 @@ async function runRetryUpload(flags: UploadFlags): Promise<void> {
 		label: "Retrying uploads...",
 		concurrency: flags.concurrency,
 		upload: async (item, onRetry) => {
-			const adapter = item.failure.source
-				? getAdapter(item.failure.source)
-				: claudeCodeAdapter;
+			const adapter = await resolveAdapterFromPath(
+				item.failure.transcriptPath,
+				item.failure.source,
+			);
 			const sessionFile: SessionFile = {
 				sessionId: item.failure.sessionId,
 				transcriptPath: item.failure.transcriptPath,

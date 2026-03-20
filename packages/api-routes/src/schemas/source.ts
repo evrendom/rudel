@@ -1,4 +1,4 @@
 import { z } from "zod";
 
-export const SourceSchema = z.enum(["claude_code", "codex"]);
+export const SourceSchema = z.enum(["claude_code", "codex", "pi"]);
 export type Source = z.infer<typeof SourceSchema>;

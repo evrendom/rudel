@@ -167,7 +167,12 @@ async function runEnable(): Promise<void> {
 	for (const adapter of adaptersToEnable) {
 		const isAlreadyEnabled = adapter.isHookInstalled();
 
-		if (isAlreadyEnabled) {
+		if (!adapter.getHookConfigPath()) {
+			// Adapter has no hook system (e.g. Pi) — skip hook installation
+			p.log.info(
+				`${adapter.name}: No auto-upload hooks needed (upload sessions manually with \`rudel upload\`).`,
+			);
+		} else if (isAlreadyEnabled) {
 			p.log.info(
 				`${adapter.name}: Auto-upload hook is already enabled. Organization updated.`,
 			);
