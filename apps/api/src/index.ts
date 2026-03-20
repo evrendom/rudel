@@ -2,14 +2,24 @@ import { join } from "node:path";
 import { getLogger, withContext } from "@logtape/logtape";
 import { onError } from "@orpc/server";
 import { RPCHandler } from "@orpc/server/fetch";
-import { user as userTable } from "@rudel/sql-schema";
-import { eq } from "drizzle-orm";
+import {
+	invitation as invitationTable,
+	member as memberTable,
+	user as userTable,
+} from "@rudel/sql-schema";
+import { and, eq } from "drizzle-orm";
 import type { Session as AuthSession } from "./auth.js";
 import { createAuth } from "./auth.js";
 import { db } from "./db.js";
 import { getResendConfigWarnings } from "./email.js";
 import { shutdownApiProductAnalytics } from "./lib/product-analytics.js";
 import { setupLogging } from "./logging.js";
+import {
+	getAdminAccessBlockMessage,
+	isAdminAccessPath,
+	isOwnerRole,
+	ORGANIZATION_AUTH_PATHS,
+} from "./organization-role-policy.js";
 import { router } from "./router.js";
 
 await setupLogging();
@@ -179,6 +189,16 @@ async function handleRequest(
 	if (url.pathname === "/api/auth/organization/delete") {
 		return new Response("Not Found", { status: 404, headers: cors });
 	}
+
+	const rolePolicyResponse = await blockUnauthorizedAdminAssignment(
+		request,
+		url.pathname,
+		cors,
+	);
+	if (rolePolicyResponse) {
+		return rolePolicyResponse;
+	}
+
 	if (url.pathname.startsWith("/api/auth")) {
 		const response = await auth.handler(request);
 		for (const [key, value] of Object.entries(cors)) {
@@ -230,6 +250,193 @@ async function handleRequest(
 	}
 
 	return new Response("Not found", { status: 404, headers: cors });
+}
+
+async function blockUnauthorizedAdminAssignment(
+	request: Request,
+	pathname: string,
+	cors: Record<string, string>,
+) {
+	if (!isAdminAccessPath(pathname)) {
+		return null;
+	}
+
+	const body = await readJsonBody(request);
+	if (!body) {
+		return null;
+	}
+
+	const session = await auth.api.getSession({
+		headers: request.headers,
+	});
+	if (!session) {
+		return null;
+	}
+
+	const organizationId =
+		getOrganizationIdFromBody(body) ?? session.session.activeOrganizationId;
+	if (!organizationId) {
+		return null;
+	}
+
+	const [actorMembership] = await db
+		.select({ role: memberTable.role })
+		.from(memberTable)
+		.where(
+			and(
+				eq(memberTable.organizationId, organizationId),
+				eq(memberTable.userId, session.user.id),
+			),
+		)
+		.limit(1);
+
+	const actorRole = actorMembership?.role ?? null;
+	if (isOwnerRole(actorRole)) {
+		return null;
+	}
+
+	const targetMemberRole = await getTargetMemberRole(
+		pathname,
+		body,
+		organizationId,
+	);
+	const targetInvitationRole = await getTargetInvitationRole(
+		pathname,
+		body,
+		organizationId,
+	);
+
+	const blockMessage = getAdminAccessBlockMessage({
+		pathname,
+		actorRole,
+		requestedRole: body.role,
+		targetMemberRole,
+		targetInvitationRole,
+	});
+
+	if (!blockMessage) {
+		return null;
+	}
+
+	return Response.json(
+		{
+			code: "FORBIDDEN",
+			message: blockMessage,
+		},
+		{
+			status: 403,
+			headers: cors,
+		},
+	);
+}
+
+function getOrganizationIdFromBody(body: Record<string, unknown>) {
+	return typeof body.organizationId === "string" ? body.organizationId : null;
+}
+
+async function getTargetMemberRole(
+	pathname: string,
+	body: Record<string, unknown>,
+	organizationId: string,
+) {
+	switch (pathname) {
+		case ORGANIZATION_AUTH_PATHS.updateMemberRole:
+			return getMemberRoleById(body.memberId, organizationId);
+		case ORGANIZATION_AUTH_PATHS.removeMember:
+			return getMemberRoleByIdOrEmail(body.memberIdOrEmail, organizationId);
+		default:
+			return null;
+	}
+}
+
+async function getTargetInvitationRole(
+	pathname: string,
+	body: Record<string, unknown>,
+	organizationId: string,
+) {
+	if (pathname !== ORGANIZATION_AUTH_PATHS.cancelInvitation) {
+		return null;
+	}
+
+	if (typeof body.invitationId !== "string") {
+		return null;
+	}
+
+	const [invitation] = await db
+		.select({ role: invitationTable.role })
+		.from(invitationTable)
+		.where(
+			and(
+				eq(invitationTable.id, body.invitationId),
+				eq(invitationTable.organizationId, organizationId),
+			),
+		)
+		.limit(1);
+
+	return invitation?.role ?? null;
+}
+
+async function getMemberRoleById(memberId: unknown, organizationId: string) {
+	if (typeof memberId !== "string") {
+		return null;
+	}
+
+	const [member] = await db
+		.select({ role: memberTable.role })
+		.from(memberTable)
+		.where(
+			and(
+				eq(memberTable.id, memberId),
+				eq(memberTable.organizationId, organizationId),
+			),
+		)
+		.limit(1);
+
+	return member?.role ?? null;
+}
+
+async function getMemberRoleByIdOrEmail(
+	memberIdOrEmail: unknown,
+	organizationId: string,
+) {
+	if (typeof memberIdOrEmail !== "string") {
+		return null;
+	}
+
+	if (memberIdOrEmail.includes("@")) {
+		return getMemberRoleByEmail(memberIdOrEmail, organizationId);
+	}
+
+	return getMemberRoleById(memberIdOrEmail, organizationId);
+}
+
+async function getMemberRoleByEmail(email: string, organizationId: string) {
+	const [member] = await db
+		.select({ role: memberTable.role })
+		.from(memberTable)
+		.innerJoin(userTable, eq(memberTable.userId, userTable.id))
+		.where(
+			and(
+				eq(memberTable.organizationId, organizationId),
+				eq(userTable.email, email),
+			),
+		)
+		.limit(1);
+
+	return member?.role ?? null;
+}
+
+async function readJsonBody(request: Request) {
+	try {
+		const body = await request.clone().json();
+		if (!body || typeof body !== "object" || Array.isArray(body)) {
+			return null;
+		}
+
+		return body as Record<string, unknown>;
+	} catch {
+		return null;
+	}
 }
 
 async function getContext(request: Request) {
