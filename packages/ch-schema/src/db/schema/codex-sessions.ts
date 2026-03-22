@@ -44,27 +44,40 @@ const codex_session_analytics_mv = materializedView({
     ) AS _interaction_lines,
 
     arrayFilter(
-      x -> position(x, '"turn.completed"') > 0 OR position(x, '"response.completed"') > 0,
+      x -> JSONExtractString(x, 'type') = 'event_msg'
+        AND JSONExtractString(JSONExtractRaw(x, 'payload'), 'type') = 'token_count',
       _all_lines
-    ) AS _completion_lines,
+    ) AS _token_count_lines,
 
-    arraySum(arrayMap(x -> toUInt64OrZero(JSONExtractRaw(JSONExtractRaw(x, 'payload'), 'usage', 'input_tokens')), _completion_lines)) AS _input_tokens,
-    arraySum(arrayMap(x -> toUInt64OrZero(JSONExtractRaw(JSONExtractRaw(x, 'payload'), 'usage', 'output_tokens')), _completion_lines)) AS _output_tokens,
+    if(length(_token_count_lines) > 0,
+      JSONExtractRaw(JSONExtractRaw(JSONExtractRaw(arrayElement(_token_count_lines, -1), 'payload'), 'info'), 'total_token_usage'),
+      '{}'
+    ) AS _final_usage,
+
+    toUInt64OrZero(JSONExtractRaw(_final_usage, 'input_tokens')) AS _input_tokens,
+    toUInt64OrZero(JSONExtractRaw(_final_usage, 'output_tokens')) AS _output_tokens,
+    toUInt64OrZero(JSONExtractRaw(_final_usage, 'cached_input_tokens')) AS _cache_read_input_tokens,
 
     arrayMin(_timestamps) AS _session_date,
     arrayMax(_timestamps) AS _last_interaction_date,
     dateDiff('minute', _session_date, _last_interaction_date) AS _duration_min,
 
+    arrayFilter(x -> JSONExtractString(x, 'type') = 'session_meta', _all_lines) AS _meta_lines,
+
     JSONExtractString(
-      JSONExtractRaw(
-        arrayElement(
-          arrayFilter(x -> JSONExtractString(x, 'type') = 'session_meta', _all_lines),
-          1
-        ),
-        'payload'
-      ),
+      JSONExtractRaw(arrayElement(_meta_lines, 1), 'payload'),
       'model_provider'
-    ) AS _model_provider
+    ) AS _model_provider,
+
+    arrayFilter(
+      x -> JSONExtractString(x, 'type') = 'turn_context',
+      _all_lines
+    ) AS _turn_context_lines,
+
+    if(length(_turn_context_lines) > 0,
+      JSONExtractString(JSONExtractRaw(arrayElement(_turn_context_lines, 1), 'payload'), 'model'),
+      ''
+    ) AS _model_from_turn_context
 
   SELECT
     * EXCEPT (session_date, last_interaction_date),
@@ -73,7 +86,7 @@ const codex_session_analytics_mv = materializedView({
     'codex' as source,
     _input_tokens as input_tokens,
     _output_tokens as output_tokens,
-    toUInt64(0) as cache_read_input_tokens,
+    _cache_read_input_tokens as cache_read_input_tokens,
     toUInt64(0) as cache_creation_input_tokens,
     _input_tokens + _output_tokens as total_tokens,
     [] :: Array(String) as skills,
@@ -98,7 +111,11 @@ const codex_session_analytics_mv = materializedView({
       length(extractAll(cs.content, '"status":"failed"'))
       + length(extractAll(cs.content, '"error"'))
     ) as error_count,
-    if(_model_provider != '', _model_provider, 'unknown') as model_used,
+    multiIf(
+      _model_from_turn_context != '', _model_from_turn_context,
+      _model_provider != '', _model_provider,
+      'unknown'
+    ) as model_used,
     toUInt8(if(cs.git_sha IS NOT NULL AND cs.git_sha != '', 1, 0)) as has_commit,
     toUInt8(0) as used_plan_mode,
     toUInt32(arraySum(_inference_gaps)) as inference_duration_sec,
