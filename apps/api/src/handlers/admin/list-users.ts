@@ -1,5 +1,5 @@
-import { user } from "@rudel/sql-schema";
-import { count, ilike, or, sql } from "drizzle-orm";
+import { member, user } from "@rudel/sql-schema";
+import { count, eq, ilike, or } from "drizzle-orm";
 import { db } from "../../db.js";
 import { adminMiddleware, os } from "../../middleware.js";
 
@@ -20,13 +20,12 @@ export const listUsers = os.admin.listUsers
 					email: user.email,
 					image: user.image,
 					createdAt: user.createdAt,
-					organizationCount:
-						sql<number>`(SELECT count(*) FROM member WHERE member.user_id = ${user.id})`.as(
-							"organization_count",
-						),
+					organizationCount: count(member.id),
 				})
 				.from(user)
+				.leftJoin(member, eq(member.userId, user.id))
 				.where(where)
+				.groupBy(user.id, user.name, user.email, user.image, user.createdAt)
 				.orderBy(user.createdAt)
 				.limit(limit)
 				.offset(offset),
@@ -40,7 +39,7 @@ export const listUsers = os.admin.listUsers
 				email: u.email,
 				image: u.image ?? null,
 				createdAt: u.createdAt.toISOString(),
-				organizationCount: Number(u.organizationCount),
+				organizationCount: u.organizationCount,
 			})),
 			total: totalResult[0]?.count ?? 0,
 		};

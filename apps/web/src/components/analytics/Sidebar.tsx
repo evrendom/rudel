@@ -330,6 +330,7 @@ export function Sidebar() {
 								</div>
 							);
 						})()}
+					{isAdmin && <div className="mt-auto" />}
 					{isAdmin &&
 						(() => {
 							const isActive = pathname === "/dashboard/admin";
