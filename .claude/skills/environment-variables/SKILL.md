@@ -10,7 +10,7 @@ allowed-tools: [Read, Edit, Grep, Glob, Bash]
 
 All environment variables are stored in Doppler. Never hardcode secrets or commit them to git.
 
-## Five Integration Points
+## Six Integration Points
 
 When adding a new environment variable:
 
@@ -32,7 +32,28 @@ jobs:
 
 Secrets must exist in repository settings → Secrets → Actions first.
 
-### 3. Package-Specific turbo.json
+### 3. Frontend `VITE_*` Variables (Dockerfile + CI Deploy)
+
+Frontend variables prefixed with `VITE_` are baked into the web app at build time by Vite. They must be declared in **two places**:
+
+**A) `Dockerfile`** — Add an `ARG` declaration so Docker receives the value:
+
+```dockerfile
+ARG VITE_ADMIN_ORGANIZATION_ID=""
+```
+
+**B) `.github/workflows/ci.yml` deploy step** — Pass the value as a `--build-arg`:
+
+```yaml
+- name: Deploy
+  run: |
+    flyctl deploy --remote-only \
+      --build-arg "VITE_ADMIN_ORGANIZATION_ID=${{ secrets.VITE_ADMIN_ORGANIZATION_ID }}"
+```
+
+If either is missing, the variable will be empty in the deployed frontend.
+
+### 4. Package-Specific turbo.json
 
 **CRITICAL**: Add to package-specific `turbo.json`, NOT root.
 
@@ -47,7 +68,7 @@ Secrets must exist in repository settings → Secrets → Actions first.
 }
 ```
 
-### 4. Miniflare Bindings (Cloudflare Workers Tests)
+### 5. Miniflare Bindings (Cloudflare Workers Tests)
 
 Map and validate in `vitest.config.ts`:
 
@@ -81,7 +102,7 @@ export default defineWorkersConfig(() => {
 
 **Remember**: Workers access via `env.VAR_NAME`, not `process.env.VAR_NAME`.
 
-### 5. Cloudflare Sync Scripts
+### 6. Cloudflare Sync Scripts
 
 Two approaches exist:
 
@@ -114,6 +135,7 @@ Check which approach: Look for `secrets.json` file and inspect `env:sync` script
 - [ ] Add to Doppler for all environments
 - [ ] Add to GitHub Secrets (if used in CI)
 - [ ] Add to `.github/workflows/ci.yml` (if used in CI)
+- [ ] If `VITE_*`: Add `ARG` in `Dockerfile` and `--build-arg` in CI deploy step
 - [ ] Add to package-specific `turbo.json` → `passThroughEnv`
 - [ ] Add to `vitest.config.ts` miniflare bindings with `ok()` validation (if used in tests)
 - [ ] Add to `secrets.json` template (if using substitution approach)
@@ -138,6 +160,7 @@ Check in order:
 ❌ Forgetting to add to `secrets.json` when using template substitution
 ❌ Not running `env:sync` after Doppler changes
 ❌ Not running type generation after adding Worker env vars
+❌ Adding a `VITE_*` var to CI deploy `--build-arg` but not as `ARG` in Dockerfile (or vice versa)
 
 ## Quick Commands
 

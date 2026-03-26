@@ -25,6 +25,7 @@ ARG VITE_CHATWOOT_ENABLED="true"
 ARG VITE_POSTHOG_KEY=""
 ARG VITE_POSTHOG_HOST="https://us.i.posthog.com"
 ARG VITE_POSTHOG_ENABLED="false"
+ARG VITE_ADMIN_ORGANIZATION_ID=""
 
 # Build web app and place output where the API serves static files
 RUN bun run --cwd apps/web build
