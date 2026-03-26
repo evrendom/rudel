@@ -41,7 +41,6 @@
 		"zod": "^3.24.0"
 	},
 	"devDependencies": {
-		"@obsessiondb/chcli": "^0.1.1-beta.4",
 		"@rudel/typescript-config": "workspace:*",
 		"bun-types": "latest",
 		"typescript": "5.9.2"
