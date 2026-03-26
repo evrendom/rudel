@@ -49,6 +49,7 @@ A platform for ingesting, storing, and analyzing Claude Code session transcripts
 | `RESEND_API_KEY` | No | Resend API key for email integration |
 | `RESEND_FROM_EMAIL` | No | Sender address for organization invitation emails |
 | `RESEND_AUDIENCE_ID` | No | Resend audience ID for signup contact sync |
+| `VITE_ADMIN_ORGANIZATION_ID` | No | Organization ID whose members have admin panel access |
 
 ## Local chkit development
 
