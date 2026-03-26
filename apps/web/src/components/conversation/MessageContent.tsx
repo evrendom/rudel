@@ -20,19 +20,63 @@ interface MessageContentProps {
 	className?: string;
 }
 
-// Parse code blocks from text content
-function parseTextContent(
-	text: string,
-): Array<{ type: "text" | "code"; content: string; language?: string }> {
-	const parts: Array<{
-		type: "text" | "code";
-		content: string;
-		language?: string;
-	}> = [];
+type TextPart =
+	| { type: "text"; content: string }
+	| { type: "code"; content: string; language?: string }
+	| {
+			type: "xml";
+			tag: string;
+			entries: Array<{ key: string; value: string }>;
+	  };
 
-	const codeBlockRegex = /```(\w+)?\n([\s\S]*?)```/g;
+/**
+ * Format an XML tag name into a human-readable label.
+ * e.g. "environment_context" -> "Environment Context"
+ */
+function formatTagLabel(tag: string): string {
+	return tag.replace(/[-_]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+/**
+ * Parse an XML block's inner content into key-value entries.
+ * Handles simple `<key>value</key>` pairs and produces a fallback
+ * "content" entry for anything that doesn't match.
+ */
+function parseXmlEntries(
+	innerContent: string,
+): Array<{ key: string; value: string }> {
+	const entries: Array<{ key: string; value: string }> = [];
+	const leafTagRegex = /<([\w-]+)>([\s\S]*?)<\/\1>/g;
+	let leafMatch = leafTagRegex.exec(innerContent);
+
+	if (!leafMatch) {
+		const trimmed = innerContent.trim();
+		if (trimmed) {
+			entries.push({ key: "content", value: trimmed });
+		}
+		return entries;
+	}
+
+	while (leafMatch !== null) {
+		entries.push({
+			key: leafMatch[1] as string,
+			value: (leafMatch[2] as string).trim(),
+		});
+		leafMatch = leafTagRegex.exec(innerContent);
+	}
+
+	return entries;
+}
+
+// Parse code blocks and XML blocks from text content
+function parseTextContent(text: string): Array<TextPart> {
+	const parts: Array<TextPart> = [];
+
+	// Combined regex: code blocks OR top-level XML blocks (inline or multiline)
+	const combinedRegex =
+		/```(\w+)?\n([\s\S]*?)```|<([\w-]+)(?:\s[^>]*)?>([\s\S]*?)<\/\3>/g;
 	let lastIndex = 0;
-	let match: RegExpExecArray | null = codeBlockRegex.exec(text);
+	let match: RegExpExecArray | null = combinedRegex.exec(text);
 
 	while (match !== null) {
 		if (match.index > lastIndex) {
@@ -42,12 +86,21 @@ function parseTextContent(
 			}
 		}
 
-		const language = match[1] || "text";
-		const code = match[2] as string;
-		parts.push({ type: "code", content: code, language });
+		if (match[2] !== undefined) {
+			// Code block match
+			const language = match[1] || "text";
+			parts.push({ type: "code", content: match[2], language });
+		} else if (match[3] !== undefined && match[4] !== undefined) {
+			// XML block match
+			const tag = match[3];
+			const entries = parseXmlEntries(match[4]);
+			if (entries.length > 0) {
+				parts.push({ type: "xml", tag, entries });
+			}
+		}
 
 		lastIndex = match.index + match[0].length;
-		match = codeBlockRegex.exec(text);
+		match = combinedRegex.exec(text);
 	}
 
 	if (lastIndex < text.length) {
@@ -64,19 +117,60 @@ function parseTextContent(
 	return parts;
 }
 
+function XmlBlock({
+	tag,
+	entries,
+}: {
+	tag: string;
+	entries: Array<{ key: string; value: string }>;
+}) {
+	return (
+		<div className="border border-border rounded-lg overflow-hidden text-sm">
+			<div className="bg-muted/50 px-3 py-1.5 text-xs font-semibold text-muted-foreground tracking-wide">
+				{formatTagLabel(tag)}
+			</div>
+			<div className="divide-y divide-border">
+				{entries.map((entry) => (
+					<div key={entry.key} className="flex px-3 py-1.5 gap-3">
+						<span className="text-muted-foreground font-medium shrink-0 min-w-[100px]">
+							{formatTagLabel(entry.key)}
+						</span>
+						<span className="text-foreground font-mono text-xs break-all">
+							{entry.value}
+						</span>
+					</div>
+				))}
+			</div>
+		</div>
+	);
+}
+
 function renderPlainText(text: string, key: number) {
 	const parts = parseTextContent(text);
 	return (
 		<div key={key} className="space-y-3">
-			{parts.map((part, partIdx) =>
-				part.type === "code" ? (
-					<CodeBlock
-						// biome-ignore lint/suspicious/noArrayIndexKey: static parsed content blocks
-						key={partIdx}
-						code={part.content}
-						language={part.language}
-					/>
-				) : (
+			{parts.map((part, partIdx) => {
+				if (part.type === "code") {
+					return (
+						<CodeBlock
+							// biome-ignore lint/suspicious/noArrayIndexKey: static parsed content blocks
+							key={partIdx}
+							code={part.content}
+							language={part.language}
+						/>
+					);
+				}
+				if (part.type === "xml") {
+					return (
+						<XmlBlock
+							// biome-ignore lint/suspicious/noArrayIndexKey: static parsed content blocks
+							key={partIdx}
+							tag={part.tag}
+							entries={part.entries}
+						/>
+					);
+				}
+				return (
 					<div
 						// biome-ignore lint/suspicious/noArrayIndexKey: static parsed content blocks
 						key={partIdx}
@@ -86,8 +180,8 @@ function renderPlainText(text: string, key: number) {
 							{part.content}
 						</p>
 					</div>
-				),
-			)}
+				);
+			})}
 		</div>
 	);
 }

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
+import { extractCodexTokenData } from "@/lib/codex-conversation-parser";
 import type { Conversation } from "@/lib/conversation-schema";
-import { parseConversations } from "@/lib/conversation-schema";
+import { isCodexFormat, parseConversations } from "@/lib/conversation-schema";
 import { isSlashCommandMessage } from "@/lib/parse-slash-command";
 import { cn } from "@/lib/utils";
 import { ConversationMessage } from "./ConversationMessage";
@@ -147,7 +148,9 @@ export function ConversationView({
 
 			if (parsed.length > 0) {
 				if (onTokenDataReady) {
-					const tokenData = extractTokenData(content);
+					const tokenData = isCodexFormat(content)
+						? extractCodexTokenData(content)
+						: extractTokenData(content);
 					onTokenDataReady(tokenData, parsed.length);
 				}
 				if (onToolActivityReady) {
