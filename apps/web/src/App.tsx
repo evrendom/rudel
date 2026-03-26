@@ -12,6 +12,7 @@ import {
 	resetProductAnalytics,
 } from "./lib/product-analytics";
 import { AcceptInvitationPage } from "./pages/AcceptInvitationPage";
+import { AdminPage } from "./pages/dashboard/AdminPage";
 import { CreateOrgPage } from "./pages/dashboard/CreateOrgPage";
 import { DeveloperDetailPage } from "./pages/dashboard/DeveloperDetailPage";
 import { DevelopersListPage } from "./pages/dashboard/DevelopersListPage";
@@ -256,6 +257,7 @@ function App() {
 				<Route path="invitations" element={<InvitationsPage />} />
 				<Route path="organization" element={<OrganizationPage />} />
 				<Route path="organization/new" element={<CreateOrgPage />} />
+				<Route path="admin" element={<AdminPage />} />
 			</Route>
 			<Route path="*" element={<Navigate to="/dashboard" replace />} />
 		</Routes>

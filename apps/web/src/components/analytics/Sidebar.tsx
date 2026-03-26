@@ -14,6 +14,7 @@ import {
 	Mail,
 	Plus,
 	Settings,
+	Shield,
 	UserCircle,
 } from "lucide-react";
 import { useTheme } from "next-themes";
@@ -157,14 +158,23 @@ function OrgSwitcher({ collapsed }: { collapsed: boolean }) {
 	);
 }
 
+const ADMIN_ORGANIZATION_ID = (
+	import.meta.env.VITE_ADMIN_ORGANIZATION_ID ?? ""
+).trim();
+
 export function Sidebar() {
 	const { pathname } = useLocation();
 	const { data: session } = authClient.useSession();
 	const [collapsed, setCollapsed] = useState(false);
 	const { resolvedTheme } = useTheme();
 	const { count: invitationCount } = useUserInvitations();
+	const { organizations } = useOrganization();
 	const { trackAuthenticationAction, trackNavigation, trackUtility } =
 		useAnalyticsTracking();
+
+	const isAdmin =
+		ADMIN_ORGANIZATION_ID !== "" &&
+		organizations.some((org) => org.id === ADMIN_ORGANIZATION_ID);
 
 	const logoSrc =
 		resolvedTheme === "dark" ? "/logo-light.svg" : "/logo-dark.svg";
@@ -313,6 +323,45 @@ export function Sidebar() {
 											<TooltipContent side="right">
 												Invitations ({invitationCount})
 											</TooltipContent>
+										</Tooltip>
+									) : (
+										link
+									)}
+								</div>
+							);
+						})()}
+					{isAdmin &&
+						(() => {
+							const isActive = pathname === "/dashboard/admin";
+							const link = (
+								<Link
+									to="/dashboard/admin"
+									onClick={() =>
+										trackSidebarNavigation("sidebar_admin", "/dashboard/admin")
+									}
+									className={cn(
+										"flex items-center gap-2 rounded-lg px-2 py-2 text-[0.8125rem] font-medium transition-colors duration-150",
+										collapsed && "justify-center",
+										isActive
+											? "bg-hover text-heading"
+											: "text-muted hover:bg-hover hover:text-foreground",
+									)}
+								>
+									<Shield className="h-4 w-4 shrink-0" />
+									{!collapsed && (
+										<span className="whitespace-nowrap overflow-hidden">
+											Admin
+										</span>
+									)}
+								</Link>
+							);
+
+							return (
+								<div>
+									{collapsed ? (
+										<Tooltip>
+											<TooltipTrigger asChild>{link}</TooltipTrigger>
+											<TooltipContent side="right">Admin</TooltipContent>
 										</Tooltip>
 									) : (
 										link

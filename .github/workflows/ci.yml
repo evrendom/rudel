@@ -50,6 +50,7 @@ jobs:
             --build-arg "VITE_CHATWOOT_WEBSITE_TOKEN=${{ secrets.VITE_CHATWOOT_WEBSITE_TOKEN }}" \
             --build-arg "VITE_POSTHOG_KEY=${{ secrets.VITE_POSTHOG_KEY }}" \
             --build-arg "VITE_POSTHOG_HOST=${{ secrets.VITE_POSTHOG_HOST }}" \
-            --build-arg "VITE_POSTHOG_ENABLED=${{ secrets.VITE_POSTHOG_ENABLED }}"
+            --build-arg "VITE_POSTHOG_ENABLED=${{ secrets.VITE_POSTHOG_ENABLED }}" \
+            --build-arg "VITE_ADMIN_ORGANIZATION_ID=${{ secrets.VITE_ADMIN_ORGANIZATION_ID }}"
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}

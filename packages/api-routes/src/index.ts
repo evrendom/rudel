@@ -132,6 +132,15 @@ export const IngestSessionOutputSchema = z.object({
 
 export type IngestSessionInput = z.infer<typeof IngestSessionInputSchema>;
 
+export const AdminUserSchema = z.object({
+	id: z.string(),
+	name: z.string(),
+	email: z.string(),
+	image: z.string().nullable(),
+	createdAt: z.string(),
+	organizationCount: z.number(),
+});
+
 export const contract = {
 	health: oc.output(HealthSchema),
 	me: oc.output(UserSchema),
@@ -149,6 +158,25 @@ export const contract = {
 	deleteOrganization: oc
 		.input(z.object({ organizationId: z.string() }))
 		.output(z.object({ success: z.literal(true) })),
+	admin: {
+		listUsers: oc
+			.input(
+				z.object({
+					search: z.string().optional(),
+					limit: z.number().min(1).max(100).default(50),
+					offset: z.number().min(0).default(0),
+				}),
+			)
+			.output(
+				z.object({
+					users: z.array(AdminUserSchema),
+					total: z.number(),
+				}),
+			),
+		deleteUser: oc
+			.input(z.object({ userId: z.string() }))
+			.output(z.object({ success: z.literal(true) })),
+	},
 	analytics: {
 		overview: {
 			kpis: oc.input(DateRangeInputSchema).output(OverviewKPIsSchema),
