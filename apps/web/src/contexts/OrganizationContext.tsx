@@ -3,6 +3,7 @@ import {
 	type ReactNode,
 	useContext,
 	useEffect,
+	useRef,
 	useState,
 } from "react";
 import { authClient } from "../lib/auth-client";
@@ -60,6 +61,8 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
 		authClient.useListOrganizations();
 	const { data: activeMember } = authClient.useActiveMember();
 	const [switching, setSwitching] = useState(false);
+	const [autoSetFailed, setAutoSetFailed] = useState(false);
+	const prevOrgsRef = useRef(orgs);
 	const [cachedOrg] = useState(getCachedOrg);
 
 	// Persist active org to localStorage whenever it changes
@@ -76,20 +79,33 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
 
 	// Auto-set active org if none is set but user has orgs
 	useEffect(() => {
+		// Reset autoSetFailed when the org list changes (e.g. user joins a new org)
+		if (prevOrgsRef.current !== orgs) {
+			prevOrgsRef.current = orgs;
+			if (autoSetFailed) {
+				setAutoSetFailed(false);
+				return;
+			}
+		}
+
 		if (
 			!activeLoading &&
 			!listLoading &&
 			!activeOrg &&
 			orgs &&
 			orgs.length > 0 &&
-			!switching
+			!switching &&
+			!autoSetFailed
 		) {
 			setSwitching(true);
 			authClient.organization
 				.setActive({ organizationId: orgs[0].id })
+				.catch(() => {
+					setAutoSetFailed(true);
+				})
 				.finally(() => setSwitching(false));
 		}
-	}, [activeOrg, orgs, activeLoading, listLoading, switching]);
+	}, [activeOrg, orgs, activeLoading, listLoading, switching, autoSetFailed]);
 
 	const switchOrg = async (orgId: string) => {
 		setSwitching(true);

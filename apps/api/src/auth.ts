@@ -80,6 +80,16 @@ export function createAuth(db: object, config: AuthConfig) {
 			provider: "pg",
 			schema,
 		}),
+		rateLimit: {
+			window: 60,
+			max: 30,
+			customRules: {
+				"/organization/set-active": {
+					window: 10,
+					max: 10,
+				},
+			},
+		},
 		emailAndPassword: {
 			enabled: true,
 		},

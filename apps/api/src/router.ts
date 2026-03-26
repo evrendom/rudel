@@ -8,6 +8,7 @@ import { apikey, member, organization, session } from "@rudel/sql-schema";
 import { and, eq } from "drizzle-orm";
 import { getClickhouse } from "./clickhouse.js";
 import { db } from "./db.js";
+import { adminRouter } from "./handlers/admin/index.js";
 import { analyticsRouter } from "./handlers/analytics/index.js";
 import {
 	bucketContentSize,
@@ -340,5 +341,6 @@ export const router = os.router({
 	ingestSession: ingestSessionHandler,
 	getOrganizationSessionCount,
 	deleteOrganization,
+	admin: adminRouter,
 	analytics: analyticsRouter,
 });

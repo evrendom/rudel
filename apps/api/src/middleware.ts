@@ -75,6 +75,45 @@ export const orgMiddleware = os.middleware(async ({ context, next }) => {
 	});
 });
 
+const ADMIN_ORGANIZATION_ID = process.env.VITE_ADMIN_ORGANIZATION_ID;
+
+export const adminMiddleware = os.middleware(async ({ context, next }) => {
+	if (!context.user || !context.session) {
+		throw new ORPCError("UNAUTHORIZED");
+	}
+
+	if (!ADMIN_ORGANIZATION_ID) {
+		throw new ORPCError("FORBIDDEN", {
+			message: "Admin panel is not configured",
+		});
+	}
+
+	const membership = await db
+		.select({ id: member.id })
+		.from(member)
+		.where(
+			and(
+				eq(member.organizationId, ADMIN_ORGANIZATION_ID),
+				eq(member.userId, context.user.id),
+			),
+		)
+		.limit(1);
+
+	if (membership.length === 0) {
+		throw new ORPCError("FORBIDDEN", {
+			message: "Admin access required",
+		});
+	}
+
+	return next({
+		context: {
+			user: context.user,
+			session: context.session,
+			apiKeyId: context.apiKeyId,
+		},
+	});
+});
+
 export const ingestAuthMiddleware = os.middleware(async ({ context, next }) => {
 	if (!context.user) {
 		throw new ORPCError("UNAUTHORIZED");
