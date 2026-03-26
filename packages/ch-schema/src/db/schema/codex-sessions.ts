@@ -45,7 +45,9 @@ const codex_session_analytics_mv = materializedView({
 
     arrayFilter(
       x -> JSONExtractString(x, 'type') = 'event_msg'
-        AND JSONExtractString(JSONExtractRaw(x, 'payload'), 'type') = 'token_count',
+        AND JSONExtractString(JSONExtractRaw(x, 'payload'), 'type') = 'token_count'
+        AND JSONExtractRaw(JSONExtractRaw(x, 'payload'), 'info') IS NOT NULL
+        AND JSONExtractRaw(JSONExtractRaw(x, 'payload'), 'info') != 'null',
       _all_lines
     ) AS _token_count_lines,
 
@@ -54,7 +56,8 @@ const codex_session_analytics_mv = materializedView({
       '{}'
     ) AS _final_usage,
 
-    toUInt64OrZero(JSONExtractRaw(_final_usage, 'input_tokens')) AS _input_tokens,
+    toUInt64OrZero(JSONExtractRaw(_final_usage, 'input_tokens'))
+      - toUInt64OrZero(JSONExtractRaw(_final_usage, 'cached_input_tokens')) AS _input_tokens,
     toUInt64OrZero(JSONExtractRaw(_final_usage, 'output_tokens')) AS _output_tokens,
     toUInt64OrZero(JSONExtractRaw(_final_usage, 'cached_input_tokens')) AS _cache_read_input_tokens,
 
