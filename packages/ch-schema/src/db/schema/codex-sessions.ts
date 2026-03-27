@@ -44,6 +44,12 @@ const codex_session_analytics_mv = materializedView({
     ) AS _interaction_lines,
 
     arrayFilter(
+      x -> JSONExtractString(x, 'type') = 'response_item'
+        AND JSONExtractString(JSONExtractRaw(x, 'payload'), 'type') = 'function_call_output',
+      _all_lines
+    ) AS _tool_output_lines,
+
+    arrayFilter(
       x -> JSONExtractString(x, 'type') = 'event_msg'
         AND JSONExtractString(JSONExtractRaw(x, 'payload'), 'type') = 'token_count'
         AND JSONExtractRaw(JSONExtractRaw(x, 'payload'), 'info') IS NOT NULL
@@ -111,8 +117,11 @@ const codex_session_analytics_mv = materializedView({
     toUInt32(arrayCount(x -> x >= 5 AND x <= 60, _prompt_periods_sec)) as normal_responses,
     toUInt32(arrayCount(x -> x > 300, _prompt_periods_sec)) as long_pauses,
     toUInt32(
-      length(extractAll(cs.content, '"status":"failed"'))
-      + length(extractAll(cs.content, '"error"'))
+      length(extractAll(cs.content, '\\\\\\\\"exit_code\\\\\\\\":[1-9][0-9]*'))
+      + arrayCount(
+          x -> x ILIKE '%Error:%' OR x ILIKE '%Exception:%',
+          _tool_output_lines
+        )
     ) as error_count,
     multiIf(
       _model_from_turn_context != '', _model_from_turn_context,
@@ -148,8 +157,12 @@ const codex_session_analytics_mv = materializedView({
       - (if((_input_tokens + _output_tokens) > 1500000 AND (cs.git_sha IS NULL OR cs.git_sha = ''), 20, 0))
       - (if(_duration_min < 2 AND _output_tokens < 200, 30, 0))
       - (least(toUInt32(
-          length(extractAll(cs.content, '"status":"failed"'))
-          + length(extractAll(cs.content, '"error"'))
+          length(extractAll(cs.content, '\\\\\\\\"exit_code\\\\\\\\":[1-9][0-9]*'))
+          + arrayCount(
+              x -> JSONExtractString(JSONExtractRaw(x, 'payload'), 'output') ILIKE '%Error:%'
+                OR JSONExtractString(JSONExtractRaw(x, 'payload'), 'output') ILIKE '%Exception:%',
+              _tool_output_lines
+            )
         ), 10) * 2)
     )) as success_score
 
