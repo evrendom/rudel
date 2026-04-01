@@ -12,10 +12,9 @@ import {
 	X,
 } from "lucide-react";
 import { useRef, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { AnalyticsCard } from "../../components/analytics/AnalyticsCard";
 import { PageHeader } from "../../components/analytics/PageHeader";
-import { DeleteOrganizationDialog } from "../../components/DeleteOrganizationDialog";
 import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
@@ -32,14 +31,14 @@ import { useAnalyticsTracking } from "../../hooks/useDashboardAnalytics";
 import { useFullOrganization } from "../../hooks/useFullOrganization";
 import { useTrackDashboardView } from "../../hooks/useTrackDashboardView";
 import { authClient } from "../../lib/auth-client";
+import { isChatwootEnabled, openChatwoot } from "../../lib/chatwoot";
 
 export function OrganizationPage() {
-	const { activeOrg, organizations, switchOrg } = useOrganization();
+	const { activeOrg } = useOrganization();
 	const { data: session } = authClient.useSession();
 	const { trackNavigation, trackOrganizationAction } = useAnalyticsTracking({
 		organizationId: activeOrg?.id ?? null,
 	});
-	const navigate = useNavigate();
 	const {
 		data: fullOrg,
 		isLoading: loading,
@@ -51,12 +50,13 @@ export function OrganizationPage() {
 	const [inviteLink, setInviteLink] = useState<string | null>(null);
 	const [invitedEmail, setInvitedEmail] = useState<string | null>(null);
 	const [copied, setCopied] = useState(false);
-	const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 	const [editing, setEditing] = useState(false);
 	const [editName, setEditName] = useState("");
 	const [saving, setSaving] = useState(false);
 	const [renameError, setRenameError] = useState<string | null>(null);
 	const nameInputRef = useRef<HTMLInputElement>(null);
+	const canOpenSupportChat = isChatwootEnabled();
+	const inlineLinkClassName = "underline underline-offset-4 hover:text-primary";
 
 	useTrackDashboardView({
 		isLoading: loading,
@@ -512,51 +512,32 @@ export function OrganizationPage() {
 						<AlertTriangle className="h-5 w-5 inline-block mr-2 -mt-0.5" />
 						Danger Zone
 					</h2>
-					<p className="text-sm text-muted mb-4">
-						Permanently delete this organization and all associated data.
+					<p className="text-sm text-muted">
+						If you'd like your data deleted, shoot us a message{" "}
+						{canOpenSupportChat ? (
+							<>
+								by clicking the{" "}
+								<button
+									type="button"
+									className={inlineLinkClassName}
+									onClick={() => {
+										void openChatwoot();
+									}}
+								>
+									support icon in the bottom-right corner
+								</button>{" "}
+								or clicking the chat icon on the bottom right. Real humans only.
+								Or email{" "}
+							</>
+						) : (
+							<>by emailing </>
+						)}
+						<a href="mailto:evren@rudel.ai" className={inlineLinkClassName}>
+							evren@rudel.ai
+						</a>
+						.
 					</p>
-					{organizations.length <= 1 ? (
-						<Button variant="destructive" size="sm" disabled>
-							Cannot delete your only organization
-						</Button>
-					) : (
-						<Button
-							variant="destructive"
-							size="sm"
-							onClick={() => {
-								trackOrganizationAction({
-									actionName: "open_delete_organization",
-									targetType: "organization",
-									sourceComponent: "organization_page",
-									targetId: activeOrg.id,
-								});
-								setDeleteDialogOpen(true);
-							}}
-						>
-							<Trash2 className="h-4 w-4 mr-1" />
-							Delete Organization
-						</Button>
-					)}
 				</AnalyticsCard>
-
-				<DeleteOrganizationDialog
-					open={deleteDialogOpen}
-					onOpenChange={setDeleteDialogOpen}
-					organization={activeOrg}
-					onDeleted={async () => {
-						setDeleteDialogOpen(false);
-						const other = organizations.find((o) => o.id !== activeOrg.id);
-						if (other) {
-							await switchOrg(other.id);
-						}
-						for (const key of Object.keys(authClient.$store.atoms)) {
-							if (key.startsWith("$")) {
-								authClient.$store.notify(key);
-							}
-						}
-						navigate("/dashboard");
-					}}
-				/>
 			</div>
 		</div>
 	);
