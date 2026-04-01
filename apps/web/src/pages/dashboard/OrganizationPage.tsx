@@ -31,7 +31,7 @@ import { useAnalyticsTracking } from "../../hooks/useDashboardAnalytics";
 import { useFullOrganization } from "../../hooks/useFullOrganization";
 import { useTrackDashboardView } from "../../hooks/useTrackDashboardView";
 import { authClient } from "../../lib/auth-client";
-import { isChatwootEnabled, openChatwoot } from "../../lib/chatwoot";
+import { openChatwoot } from "../../lib/chatwoot";
 
 export function OrganizationPage() {
 	const { activeOrg } = useOrganization();
@@ -55,7 +55,9 @@ export function OrganizationPage() {
 	const [saving, setSaving] = useState(false);
 	const [renameError, setRenameError] = useState<string | null>(null);
 	const nameInputRef = useRef<HTMLInputElement>(null);
-	const canOpenSupportChat = isChatwootEnabled();
+	const supportLink = (
+		import.meta.env.VITE_CHATWOOT_BASE_URL ?? "https://app.chatwoot.com"
+	).trim();
 	const inlineLinkClassName = "underline underline-offset-4 hover:text-primary";
 
 	useTrackDashboardView({
@@ -513,25 +515,19 @@ export function OrganizationPage() {
 						Danger Zone
 					</h2>
 					<p className="text-sm text-muted">
-						If you'd like your data deleted, shoot us a message{" "}
-						{canOpenSupportChat ? (
-							<>
-								by clicking the{" "}
-								<button
-									type="button"
-									className={inlineLinkClassName}
-									onClick={() => {
-										void openChatwoot();
-									}}
-								>
-									support icon in the bottom-right corner
-								</button>{" "}
-								or clicking the chat icon on the bottom right. Real humans only.
-								Or email{" "}
-							</>
-						) : (
-							<>by emailing </>
-						)}
+						If you'd like your data deleted, shoot us a message via the{" "}
+						<a
+							href={supportLink}
+							className={inlineLinkClassName}
+							onClick={(event) => {
+								event.preventDefault();
+								void openChatwoot();
+							}}
+						>
+							support chat
+						</a>
+						. (you'll write with someone out of the team, not some AI bot). Or
+						email{" "}
 						<a href="mailto:evren@rudel.ai" className={inlineLinkClassName}>
 							evren@rudel.ai
 						</a>
