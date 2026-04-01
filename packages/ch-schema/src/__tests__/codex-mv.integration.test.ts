@@ -5,7 +5,9 @@ import { createClickHouseExecutor } from "@chkit/clickhouse";
 import { ingestRudelCodexSessions } from "../generated/chkit-ingest.js";
 import type { RudelCodexSessionsRow } from "../generated/chkit-types.js";
 
-const testId = `codex_mv_test_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+const testPrefix = `codex_mv_test_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+const testId = `${testPrefix}_clean`;
+const errorTestId = `${testPrefix}_errors`;
 
 const baseExecutor = createClickHouseExecutor({
 	url: process.env.CLICKHOUSE_URL || "http://localhost:8123",
@@ -57,14 +59,17 @@ async function waitForQuery<T>(
 
 afterAll(() => {
 	executor
-		.execute(`DELETE FROM rudel.codex_sessions WHERE session_id = '${testId}'`)
+		.execute(
+			`DELETE FROM rudel.codex_sessions WHERE session_id IN ('${testId}', '${errorTestId}')`,
+		)
 		.catch(() => {});
 });
 
 // The MV SELECT query extracted from codex-sessions.ts schema definition.
 // We run this directly against the inserted row so the test validates the
 // new SQL logic without requiring a ClickHouse migration first.
-const MV_QUERY = `
+function buildMvQuery(sessionId: string) {
+	return `
   WITH
     arrayFilter(
       x -> x != '',
@@ -93,6 +98,12 @@ const MV_QUERY = `
       x -> JSONExtractString(x, 'type') = 'response_item' OR JSONExtractString(x, 'type') = 'event_msg',
       _all_lines
     ) AS _interaction_lines,
+
+    arrayFilter(
+      x -> JSONExtractString(x, 'type') = 'response_item'
+        AND JSONExtractString(JSONExtractRaw(x, 'payload'), 'type') = 'function_call_output',
+      _all_lines
+    ) AS _tool_output_lines,
 
     arrayFilter(
       x -> JSONExtractString(x, 'type') = 'event_msg'
@@ -145,8 +156,11 @@ const MV_QUERY = `
     toUInt32(arrayCount(x -> x >= 5 AND x <= 60, _prompt_periods_sec)) as normal_responses,
     toUInt32(arrayCount(x -> x > 300, _prompt_periods_sec)) as long_pauses,
     toUInt32(
-      length(extractAll(cs.content, '"status":"failed"'))
-      + length(extractAll(cs.content, '"error"'))
+      length(extractAll(cs.content, '\\\\\\\\"exit_code\\\\\\\\":[1-9][0-9]*'))
+      + arrayCount(
+          x -> x ILIKE '%Error:%' OR x ILIKE '%Exception:%',
+          _tool_output_lines
+        )
     ) as error_count,
     multiIf(
       _model_from_turn_context != '', _model_from_turn_context,
@@ -182,8 +196,12 @@ const MV_QUERY = `
       - (if((_input_tokens + _output_tokens) > 1500000 AND (cs.git_sha IS NULL OR cs.git_sha = ''), 20, 0))
       - (if(_duration_min < 2 AND _output_tokens < 200, 30, 0))
       - (least(toUInt32(
-          length(extractAll(cs.content, '"status":"failed"'))
-          + length(extractAll(cs.content, '"error"'))
+          length(extractAll(cs.content, '\\\\\\\\"exit_code\\\\\\\\":[1-9][0-9]*'))
+          + arrayCount(
+              x -> JSONExtractString(JSONExtractRaw(x, 'payload'), 'output') LIKE '%Error:%'
+                OR JSONExtractString(JSONExtractRaw(x, 'payload'), 'output') LIKE '%Exception:%',
+              _tool_output_lines
+            )
         ), 10) * 2)
     )) as success_score,
     cs.git_remote,
@@ -191,10 +209,13 @@ const MV_QUERY = `
     cs.package_type
 
   FROM rudel.codex_sessions AS cs
-  WHERE cs.session_id = '${testId}'
+  WHERE cs.session_id = '${sessionId}'
     AND length(_timestamps) > 0
   QUALIFY ROW_NUMBER() OVER (PARTITION BY cs.session_id ORDER BY cs.ingested_at DESC) = 1
 `;
+}
+
+const MV_QUERY = buildMvQuery(testId);
 
 interface AnalyticsRow {
 	session_id: string;
@@ -293,7 +314,55 @@ describe("codex_session_analytics_mv", () => {
 		// Session archetype: 55k tokens, >30 min, has commit -> standard (not enough output for deep_work)
 		expect(a.session_archetype).toBeTruthy();
 
+		// Clean session has no tool errors
+		expect(a.error_count).toBe(0);
+
 		// Success score should be reasonable (50 base + 20 for commit)
 		expect(a.success_score).toBeGreaterThanOrEqual(50);
+	}, 120_000);
+
+	test("counts errors from non-zero exit codes and error text in tool output", async () => {
+		const fixtureContent = await readFile(
+			resolve(import.meta.dir, "fixtures", "codex-session-with-errors.jsonl"),
+			"utf-8",
+		);
+
+		const now = new Date().toISOString().replace("Z", "");
+
+		const row: RudelCodexSessionsRow = {
+			session_date: now,
+			last_interaction_date: now,
+			session_id: errorTestId,
+			organization_id: "org_test",
+			project_path: "/Users/testuser/projects/myapp",
+			git_remote: "github.com/testorg/testproject",
+			package_name: "myapp",
+			package_type: "package.json",
+			content: fixtureContent,
+			ingested_at: now,
+			user_id: "user_test",
+			git_branch: "main",
+			git_sha: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+			tag: "codex-mv-error-test",
+		};
+
+		await ingestRudelCodexSessions(executor, [row]);
+
+		const results = await waitForQuery<AnalyticsRow>(buildMvQuery(errorTestId));
+
+		expect(results).toHaveLength(1);
+		const a = results[0] as AnalyticsRow;
+
+		// Fixture has 3 function_call_output items:
+		// 1. exit_code:1 with "error TS2345" text -> counts as 1 (non-zero exit code)
+		//    "error TS2345:" doesn't match ILIKE '%Error:%' (no contiguous "Error:" substring)
+		// 2. exit_code:0 with "TypeError: ..." text -> counts as 1 (ILIKE '%Error:%' matches "TypeError:")
+		// 3. exit_code:0 with clean "Success" text -> counts as 0
+		// Total: 2 errors
+		expect(a.error_count).toBe(2);
+
+		// Success score should be penalized by errors (least(2, 10) * 2 = 4 points)
+		// Base: 50 + 20 (has commit) = 70, minus 4 = 66
+		expect(a.success_score).toBeLessThan(70);
 	}, 120_000);
 });
