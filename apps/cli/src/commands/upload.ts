@@ -477,6 +477,6 @@ export const uploadCommand = buildCommand({
 	},
 	docs: {
 		brief:
-			"Upload session transcripts (Claude Code & Codex). No args = interactive project picker.",
+			"Upload session transcripts (Claude Code / Codex). No args = interactive project picker.",
 	},
 });

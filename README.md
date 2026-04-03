@@ -35,7 +35,7 @@ See the [CLI documentation](apps/cli/README.md) for all available commands.
 ## How It Works
 
 1. You install the CLI and run `rudel enable`
-2. This registers a Claude Code / Codex hook that runs when a session ends
+2. This registers Claude Code / Codex hooks that run when a session ends
 3. The hook uploads the session transcript to Rudel
 4. Transcripts are stored in ClickHouse and processed into analytics
 

@@ -1,6 +1,6 @@
 # rudel
 
-CLI for uploading [Claude Code](https://docs.anthropic.com/en/docs/claude-code) session transcripts to [Rudel](https://app.rudel.ai) for analytics.
+CLI for uploading Claude Code / Codex session transcripts to [Rudel](https://app.rudel.ai) for analytics.
 
 ## Prerequisites
 
@@ -21,7 +21,7 @@ rudel login
 # 2. Enable automatic session uploads
 rudel enable
 
-# That's it! Your Claude Code sessions will now be uploaded automatically.
+# That's it! Your Claude Code / Codex sessions will now be uploaded automatically.
 ```
 
 ## Commands
@@ -32,7 +32,7 @@ Authenticate with Rudel. Opens your browser to [app.rudel.ai](https://app.rudel.
 
 ### `rudel enable`
 
-Registers a [Claude Code hook](https://docs.anthropic.com/en/docs/claude-code/hooks) that automatically uploads your session transcript when a Claude Code session ends. This is the recommended way to use Rudel -- set it and forget it.
+Registers the available Claude Code / Codex hooks so your session transcript uploads automatically when a session ends. This is the recommended way to use Rudel -- set it and forget it.
 
 ### `rudel disable`
 

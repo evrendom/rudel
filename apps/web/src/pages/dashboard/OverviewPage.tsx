@@ -191,7 +191,7 @@ export function OverviewPage() {
 		<div className="px-8 py-6">
 			<PageHeader
 				title="Dashboard Overview"
-				description="Track your team's Claude Code usage and metrics"
+				description="Track your team's Claude Code / Codex usage and metrics"
 				actions={
 					showDatePicker ? (
 						<DatePicker

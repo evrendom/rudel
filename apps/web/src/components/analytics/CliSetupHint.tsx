@@ -33,7 +33,7 @@ export function CliSetupHint() {
 				</h3>
 				<p className="text-sm text-muted-foreground max-w-lg mb-6">
 					Install the Rudel CLI and enable automatic uploads to start tracking
-					your team's Claude Code sessions.
+					your team's Claude Code / Codex sessions.
 				</p>
 				<div className="w-full max-w-md text-left space-y-4">
 					<CommandBlock
@@ -47,7 +47,7 @@ export function CliSetupHint() {
 					<CommandBlock
 						label="3. Enable auto-upload in your repository"
 						command="rudel enable"
-						hint="Sessions will appear here automatically after your next Claude Code session ends. The enable command will also ask you if you want to upload previous sessions"
+						hint="Sessions will appear here automatically after your next Claude Code / Codex session ends. The enable command will also ask you if you want to upload previous sessions"
 					/>
 					<CommandBlock
 						label="4. Or upload sessions manually"
