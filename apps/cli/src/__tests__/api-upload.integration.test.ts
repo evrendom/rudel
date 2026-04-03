@@ -4,6 +4,7 @@ import {
 	beforeEach,
 	describe,
 	expect,
+	setDefaultTimeout,
 	test,
 } from "bun:test";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
@@ -17,6 +18,8 @@ import {
 	type TestServer,
 } from "./helpers/bun-server.js";
 
+setDefaultTimeout(60_000);
+
 let server: TestServer;
 let bearerToken: string;
 let tempDir: string;
@@ -25,7 +28,7 @@ beforeAll(async () => {
 	tempDir = await mkdtemp(join(tmpdir(), "rudel-api-test-"));
 	server = await startTestServer();
 	bearerToken = await signUpTestUser(server.baseUrl);
-}, 60_000);
+});
 
 afterAll(async () => {
 	await server?.stop();

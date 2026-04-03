@@ -318,7 +318,7 @@ export function ROIPage() {
 			<PageHeader
 				title="ROI Calculator"
 				titleSuffix={pricingTooltip}
-				description="Track return on investment and measure business impact of Claude Code"
+				description="Track return on investment and measure business impact of Claude Code / Codex"
 				actions={
 					<DatePicker
 						startDate={startDate}
