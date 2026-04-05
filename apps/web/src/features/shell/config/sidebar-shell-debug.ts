@@ -32,7 +32,7 @@ const numericTuningConfig = {
 	},
 	collapsedSectionPaddingX: {
 		key: "__sidebar_tune_collapsed_section_px",
-		defaultValue: 0,
+		defaultValue: 0.25,
 	},
 	expandedSectionPaddingX: {
 		key: "__sidebar_tune_expanded_section_px",
@@ -40,7 +40,7 @@ const numericTuningConfig = {
 	},
 	collapsedFooterPaddingX: {
 		key: "__sidebar_tune_collapsed_footer_px",
-		defaultValue: 0,
+		defaultValue: 0.25,
 	},
 	expandedFooterPaddingX: {
 		key: "__sidebar_tune_expanded_footer_px",
@@ -68,11 +68,11 @@ const numericTuningConfig = {
 	},
 	collapsedRowPaddingLeft: {
 		key: "__sidebar_tune_collapsed_row_pl",
-		defaultValue: 0.25,
+		defaultValue: 0,
 	},
 	collapsedRowPaddingRight: {
 		key: "__sidebar_tune_collapsed_row_pr",
-		defaultValue: 0.25,
+		defaultValue: 0,
 	},
 	rowPaddingLeft: {
 		key: "__sidebar_tune_row_pl",
