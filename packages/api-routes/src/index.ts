@@ -6,6 +6,7 @@ import {
 	ProductAnalyticsUploadModeSchema,
 } from "./product-analytics.js";
 import {
+	CostsDashboardSchema,
 	DateRangeInputSchema,
 	DaysInputSchema,
 	DeveloperCostBreakdownSchema,
@@ -17,11 +18,13 @@ import {
 	DeveloperSessionSchema,
 	DeveloperSessionsInputSchema,
 	DeveloperSummarySchema,
+	DeveloperTeamCardSchema,
 	DeveloperTimelineSchema,
 	DeveloperTrendDataPointSchema,
 	DimensionAnalysisDataPointSchema,
 	DimensionAnalysisInputSchema,
 	ErrorTrendDataPointSchema,
+	ErrorsDashboardSchema,
 	ErrorTrendsInputSchema,
 	InsightSchema,
 	LearningEntrySchema,
@@ -41,6 +44,7 @@ import {
 	ProjectTrendDataPointSchema,
 	RecurringErrorSchema,
 	RecurringErrorsInputSchema,
+	ROIDashboardSchema,
 	ROIMetricsSchema,
 	ROITrendSchema,
 	SessionAnalyticsSchema,
@@ -48,10 +52,14 @@ import {
 	SessionAnalyticsSummarySchema,
 	SessionDetailInputSchema,
 	SessionDetailSchema,
+	SessionHourlyActivityDataPointSchema,
+	SessionHourlyActivityInputSchema,
 	SessionListInputSchema,
 	SuccessRateSchema,
 	TeamSummaryComparisonSchema,
 	UsageTrendDataSchema,
+	UserDailyTrendDataSchema,
+	UserTokenUsageDataSchema,
 } from "./schemas/analytics.js";
 
 export * from "./product-analytics.js";
@@ -132,15 +140,6 @@ export const IngestSessionOutputSchema = z.object({
 
 export type IngestSessionInput = z.infer<typeof IngestSessionInputSchema>;
 
-export const AdminUserSchema = z.object({
-	id: z.string(),
-	name: z.string(),
-	email: z.string(),
-	image: z.string().nullable(),
-	createdAt: z.string(),
-	organizationCount: z.number(),
-});
-
 export const contract = {
 	health: oc.output(HealthSchema),
 	me: oc.output(UserSchema),
@@ -158,25 +157,6 @@ export const contract = {
 	deleteOrganization: oc
 		.input(z.object({ organizationId: z.string() }))
 		.output(z.object({ success: z.literal(true) })),
-	admin: {
-		listUsers: oc
-			.input(
-				z.object({
-					search: z.string().optional(),
-					limit: z.number().min(1).max(100).default(50),
-					offset: z.number().min(0).default(0),
-				}),
-			)
-			.output(
-				z.object({
-					users: z.array(AdminUserSchema),
-					total: z.number(),
-				}),
-			),
-		deleteUser: oc
-			.input(z.object({ userId: z.string() }))
-			.output(z.object({ success: z.literal(true) })),
-	},
 	analytics: {
 		overview: {
 			kpis: oc.input(DateRangeInputSchema).output(OverviewKPIsSchema),
@@ -186,14 +166,26 @@ export const contract = {
 			modelTokensTrend: oc
 				.input(DateRangeInputSchema)
 				.output(z.array(ModelTokensTrendDataSchema)),
+			usersTokenUsage: oc
+				.input(DateRangeInputSchema)
+				.output(z.array(UserTokenUsageDataSchema)),
+			usersDailyTrend: oc
+				.input(DateRangeInputSchema)
+				.output(z.array(UserDailyTrendDataSchema)),
 			insights: oc.input(DateRangeInputSchema).output(z.array(InsightSchema)),
 			teamSummaryComparison: oc
 				.input(DateRangeInputSchema)
 				.output(TeamSummaryComparisonSchema),
 			successRate: oc.input(DateRangeInputSchema).output(SuccessRateSchema),
 		},
+		costs: {
+			dashboard: oc.output(CostsDashboardSchema),
+		},
 		developers: {
 			list: oc.input(DaysInputSchema).output(z.array(DeveloperSummarySchema)),
+			teamCards: oc
+				.input(DaysInputSchema)
+				.output(z.array(DeveloperTeamCardSchema)),
 			details: oc
 				.input(DeveloperDetailsInputSchema)
 				.output(DeveloperDetailsSchema),
@@ -218,7 +210,7 @@ export const contract = {
 		},
 		projects: {
 			investment: oc
-				.input(DaysInputSchema)
+				.input(PaginatedDaysInputSchema)
 				.output(z.array(ProjectInvestmentSchema)),
 			trends: oc
 				.input(DaysInputSchema)
@@ -241,6 +233,9 @@ export const contract = {
 				.input(SessionListInputSchema)
 				.output(z.array(SessionAnalyticsSchema)),
 			summary: oc.input(DaysInputSchema).output(SessionAnalyticsSummarySchema),
+			hourlyActivity: oc
+				.input(SessionHourlyActivityInputSchema)
+				.output(z.array(SessionHourlyActivityDataPointSchema)),
 			summaryComparison: oc
 				.input(DaysInputSchema)
 				.output(SessionAnalyticsSummaryComparisonSchema),
@@ -250,6 +245,7 @@ export const contract = {
 			detail: oc.input(SessionDetailInputSchema).output(SessionDetailSchema),
 		},
 		roi: {
+			dashboard: oc.input(DateRangeInputSchema).output(ROIDashboardSchema),
 			metrics: oc.input(DaysInputSchema).output(ROIMetricsSchema),
 			trends: oc.input(DaysInputSchema).output(z.array(ROITrendSchema)),
 			breakdownDevelopers: oc
@@ -260,6 +256,9 @@ export const contract = {
 				.output(z.array(ProjectCostBreakdownSchema)),
 		},
 		errors: {
+			dashboard: oc
+				.input(DateRangeInputSchema)
+				.output(ErrorsDashboardSchema),
 			topRecurring: oc
 				.input(RecurringErrorsInputSchema)
 				.output(z.array(RecurringErrorSchema)),

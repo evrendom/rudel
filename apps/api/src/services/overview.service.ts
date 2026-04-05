@@ -2,14 +2,12 @@ import type {
 	ModelTokensTrendData,
 	OverviewKPIs,
 	UsageTrendData,
+	UserDailyTrendData,
+	UserTokenUsageData,
 } from "@rudel/api-routes";
 import { user } from "@rudel/sql-schema";
-import { eq } from "drizzle-orm";
-import {
-	buildAbsoluteDateFilter,
-	buildDateFilter,
-	queryClickhouse,
-} from "../clickhouse.js";
+import { inArray } from "drizzle-orm";
+import { buildAbsoluteDateFilter, queryClickhouse } from "../clickhouse.js";
 import { db } from "../db.js";
 
 export interface Insight {
@@ -147,6 +145,120 @@ export async function getModelTokensTrend(
 
 	return queryClickhouse<ModelTokensTrendData>({
 		query,
+		query_params: {
+			startDate,
+			endDate,
+			orgId,
+		},
+	});
+}
+
+/**
+ * Get token usage aggregated by user for a selected absolute date range
+ */
+export async function getUsersTokenUsage(
+	orgId: string,
+	startDate: string,
+	endDate: string,
+): Promise<UserTokenUsageData[]> {
+	const dateFilter = buildAbsoluteDateFilter("startDate", "endDate");
+
+	const rows = await queryClickhouse<{
+		user_id: string;
+		total_tokens: number;
+		input_tokens: number;
+		output_tokens: number;
+		total_sessions: number;
+		total_duration_min: number;
+		success_rate: number;
+		distinct_skills: number;
+		distinct_slash_commands: number;
+	}>({
+		query: `
+    SELECT
+      user_id,
+      sum(total_tokens) as total_tokens,
+      sum(input_tokens) as input_tokens,
+      sum(output_tokens) as output_tokens,
+      count() as total_sessions,
+      round(sum(actual_duration_min), 2) as total_duration_min,
+      round(avg(success_score), 2) as success_rate,
+      length(arrayDistinct(arrayFilter(x -> x != '', arrayFlatten(groupArray(skills))))) as distinct_skills,
+      length(arrayDistinct(arrayFilter(x -> x != '', arrayFlatten(groupArray(slash_commands))))) as distinct_slash_commands
+    FROM rudel.session_analytics
+    WHERE ${dateFilter}
+      AND organization_id = {orgId:String}
+      AND user_id != ''
+    GROUP BY user_id
+    ORDER BY total_tokens DESC
+  `,
+		query_params: {
+			startDate,
+			endDate,
+			orgId,
+		},
+	});
+
+	if (rows.length === 0) {
+		return [];
+	}
+
+	const userIds = rows.map((row) => row.user_id);
+	const users = await db
+		.select({
+			id: user.id,
+			name: user.name,
+			email: user.email,
+		})
+		.from(user)
+		.where(inArray(user.id, userIds));
+
+	const userMap = new Map(
+		users.map((entry) => [
+			entry.id,
+			entry.name?.trim() || entry.email?.trim() || entry.id,
+		]),
+	);
+
+	return rows.map((row) => ({
+		user_id: row.user_id,
+		user_label: userMap.get(row.user_id) ?? row.user_id,
+		total_tokens: Number(row.total_tokens),
+		input_tokens: Number(row.input_tokens),
+		output_tokens: Number(row.output_tokens),
+		total_sessions: Number(row.total_sessions),
+		total_duration_min: Number(row.total_duration_min),
+		success_rate: Number(row.success_rate),
+		distinct_skills: Number(row.distinct_skills),
+		distinct_slash_commands: Number(row.distinct_slash_commands),
+	}));
+}
+
+export async function getUsersDailyTrend(
+	orgId: string,
+	startDate: string,
+	endDate: string,
+): Promise<UserDailyTrendData[]> {
+	const dateFilter = buildAbsoluteDateFilter("startDate", "endDate");
+
+	return queryClickhouse<UserDailyTrendData>({
+		query: `
+    SELECT
+      toString(toDate(session_date)) as date,
+      user_id,
+      count() as sessions,
+      round(sum(actual_duration_min) / 60, 2) as total_hours,
+      sum(total_tokens) as total_tokens,
+      round(avg(success_score), 2) as avg_success_rate,
+      length(arrayDistinct(arrayFilter(x -> x != '', arrayFlatten(groupArray(skills))))) as distinct_skills,
+      length(arrayDistinct(arrayFilter(x -> x != '', arrayFlatten(groupArray(slash_commands))))) as distinct_slash_commands
+    FROM rudel.session_analytics
+    WHERE ${dateFilter}
+      AND organization_id = {orgId:String}
+      AND user_id != ''
+    GROUP BY date, user_id
+    ORDER BY date ASC, user_id ASC
+  `,
 		query_params: {
 			startDate,
 			endDate,
@@ -315,7 +427,7 @@ export async function getOverviewInsights(
 				type: "trend",
 				severity,
 				message: `Team activity ${direction} ${Math.abs(sessionChange).toFixed(1)}% this week`,
-				link: "/dashboard/team",
+				link: "/dashboard/developers",
 			});
 		}
 	}

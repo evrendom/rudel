@@ -19,6 +19,32 @@
 			"recommended": true
 		}
 	},
+	"overrides": [
+		{
+			"includes": [
+				"apps/web/src/**/*.{ts,tsx}",
+				"!apps/web/src/app/ui/**",
+				"!apps/web/src/hooks/useMountEffect.ts"
+			],
+			"linter": {
+				"rules": {
+					"style": {
+						"noRestrictedImports": {
+							"level": "error",
+							"options": {
+								"paths": {
+									"react": {
+										"importNames": ["useEffect"],
+										"message": "Use render derivation, event handlers, or useMountEffect. Direct useEffect requires a documented imperative-bridge exception."
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	],
 	"css": {
 		"parser": {
 			"cssModules": true,

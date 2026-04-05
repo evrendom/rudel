@@ -5,6 +5,7 @@ import type {
 	DeveloperProject as DeveloperProjectBase,
 	DeveloperSession as DeveloperSessionBase,
 	DeveloperSummary as DeveloperSummaryBase,
+	DeveloperTeamCard as DeveloperTeamCardBase,
 	DeveloperTimeline,
 	DeveloperTrendDataPoint,
 } from "@rudel/api-routes";
@@ -13,6 +14,7 @@ import {
 	buildDateFilter,
 	queryClickhouse,
 } from "../clickhouse.js";
+import { sqlClient } from "../db.js";
 
 export interface DeveloperSummary extends DeveloperSummaryBase {
 	username?: string;
@@ -21,6 +23,8 @@ export interface DeveloperSummary extends DeveloperSummaryBase {
 export interface DeveloperDetails extends DeveloperDetailsBase {
 	username?: string;
 }
+
+export type DeveloperTeamCard = DeveloperTeamCardBase;
 
 export interface DeveloperSession extends DeveloperSessionBase {
 	input_tokens: number;
@@ -100,6 +104,163 @@ export async function getDeveloperList(
 	return queryClickhouse<DeveloperSummary>({
 		query,
 		query_params,
+	});
+}
+
+/**
+ * Get fixed-window team card data for active developers
+ */
+export async function getDeveloperTeamCards(
+	orgId: string,
+	days = 7,
+): Promise<DeveloperTeamCard[]> {
+	const d = Number(days);
+	const query_params = {
+		days: d,
+		orgId,
+	};
+
+	const summaryQuery = `
+    SELECT
+      user_id,
+      COUNT(*) as total_sessions,
+      COUNT(DISTINCT toDate(session_date)) as active_days,
+      SUM(ifNull(input_tokens, 0) + ifNull(output_tokens, 0)) as total_tokens,
+      toString(max(session_date)) as last_active_date
+    FROM rudel.session_analytics
+    WHERE ${buildDateFilter("days")}
+      AND organization_id = {orgId:String}
+    GROUP BY user_id
+    ORDER BY total_tokens DESC, user_id ASC
+  `;
+
+	const favoriteModelQuery = `
+    SELECT
+      user_id,
+      favorite_model
+    FROM (
+      SELECT
+        user_id,
+        model_used as favorite_model,
+        COUNT(*) as session_count,
+        SUM(ifNull(input_tokens, 0) + ifNull(output_tokens, 0)) as total_tokens
+      FROM rudel.session_analytics
+      WHERE ${buildDateFilter("days")}
+        AND organization_id = {orgId:String}
+        AND model_used != ''
+        AND model_used != 'unknown'
+      GROUP BY user_id, favorite_model
+      ORDER BY user_id ASC, session_count DESC, total_tokens DESC, favorite_model ASC
+    )
+    LIMIT 1 BY user_id
+  `;
+
+	const topSkillsQuery = `
+    SELECT
+      user_id,
+      skill as name,
+      COUNT(*) as count
+    FROM rudel.session_analytics
+    ARRAY JOIN skills as skill
+    WHERE ${buildDateFilter("days")}
+      AND organization_id = {orgId:String}
+      AND skill != ''
+    GROUP BY user_id, skill
+    ORDER BY user_id ASC, count DESC, name ASC
+    LIMIT 3 BY user_id
+  `;
+
+	interface SummaryRow {
+		user_id: string;
+		total_sessions: number;
+		active_days: number;
+		total_tokens: number;
+		last_active_date: string;
+	}
+
+	interface FavoriteModelRow {
+		user_id: string;
+		favorite_model: string;
+	}
+
+	interface SkillRow {
+		user_id: string;
+		name: string;
+		count: number;
+	}
+
+	const [summaryRows, favoriteModelRows, skillRows] = await Promise.all([
+		queryClickhouse<SummaryRow>({
+			query: summaryQuery,
+			query_params,
+		}),
+		queryClickhouse<FavoriteModelRow>({
+			query: favoriteModelQuery,
+			query_params,
+		}),
+		queryClickhouse<SkillRow>({
+			query: topSkillsQuery,
+			query_params,
+		}),
+	]);
+	if (summaryRows.length === 0) {
+		return [];
+	}
+
+	const favoriteModelByUser = new Map(
+		favoriteModelRows.map((row) => [row.user_id, row.favorite_model]),
+	);
+	const skillsByUser = new Map<
+		string,
+		Array<{ name: string; count: number }>
+	>();
+
+	for (const row of skillRows) {
+		const current = skillsByUser.get(row.user_id) ?? [];
+		current.push({
+			name: row.name,
+			count: Number(row.count) || 0,
+		});
+		skillsByUser.set(row.user_id, current);
+	}
+	const userIds = summaryRows.map((row) => row.user_id);
+	const users = await sqlClient.unsafe<
+		Array<{
+			id: string;
+			name: string | null;
+		}>
+	>(
+		`
+			SELECT id, name
+			FROM "user"
+			WHERE id = ANY($1::text[])
+		`,
+		[userIds],
+	);
+	const displayNameByUserId = new Map(
+		users
+			.map((entry) => [entry.id, entry.name?.trim() ?? ""] as const)
+			.filter((entry) => entry[1].length > 0),
+	);
+
+	return summaryRows.flatMap((row) => {
+		const displayName = displayNameByUserId.get(row.user_id);
+		if (!displayName) {
+			return [];
+		}
+
+		return [
+			{
+				user_id: row.user_id,
+				display_name: displayName,
+				total_tokens: Number(row.total_tokens) || 0,
+				total_sessions: Number(row.total_sessions) || 0,
+				active_days: Number(row.active_days) || 0,
+				last_active_date: row.last_active_date,
+				favorite_model: favoriteModelByUser.get(row.user_id) ?? null,
+				top_skills: skillsByUser.get(row.user_id) ?? [],
+			},
+		];
 	});
 }
 

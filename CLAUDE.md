@@ -1,6 +1,6 @@
 # Rudel
 
-A platform for ingesting, storing, and analyzing Claude Code / Codex session transcripts. Users authenticate via the web app, use the CLI to upload `.jsonl` session transcripts, which are stored in ClickHouse for analytics.
+A platform for ingesting, storing, and analyzing Claude Code session transcripts. Users authenticate via the web app, use the CLI to upload `.jsonl` session transcripts, which are stored in ClickHouse for analytics.
 
 **Stack**: Bun, Turborepo, Biome, TypeScript
 **Deployment**: Bun server + Postgres (Neon) + ClickHouse
@@ -13,7 +13,7 @@ A platform for ingesting, storing, and analyzing Claude Code / Codex session tra
 | App | Package | Description |
 |-----|---------|-------------|
 | `apps/api` | `@rudel/api` | HTTP API server (Bun). Auth via `better-auth`, RPC via `@orpc/server`, session ingestion into ClickHouse. |
-| `apps/cli` | `rudel` (npm) | CLI tool for authenticating and uploading Claude Code / Codex session transcripts. Commands: `login`, `logout`, `whoami`, `upload`. |
+| `apps/cli` | `rudel` (npm) | CLI tool for authenticating and uploading Claude Code session transcripts. Commands: `login`, `logout`, `whoami`, `upload`. |
 | `apps/web` | `@rudel/web` | React SPA (Vite + Tailwind + shadcn). Auth UI and CLI login portal. |
 
 ### Packages
@@ -49,7 +49,6 @@ A platform for ingesting, storing, and analyzing Claude Code / Codex session tra
 | `RESEND_API_KEY` | No | Resend API key for email integration |
 | `RESEND_FROM_EMAIL` | No | Sender address for organization invitation emails |
 | `RESEND_AUDIENCE_ID` | No | Resend audience ID for signup contact sync |
-| `VITE_ADMIN_ORGANIZATION_ID` | No | Organization ID whose members have admin panel access |
 
 ## Local chkit development
 
@@ -268,7 +267,7 @@ To drop everything and recreate:
 
 **`WITH expr AS alias` columns are NOT included in `SELECT *`.** ClickHouse's column-level WITH aliases (used for intermediate computations in the MV like `_timestamps`, `_prompt_periods_sec`, etc.) are not expanded by `SELECT *`. This is by design and is what allows the MV to use `SELECT *` for source columns while computing additional columns explicitly.
 
-**`organization_id` in ClickHouse is NOT a real organization ID — it is the user's personal ID (`user.id`).** The API sets `organizationId: context.user.id` (see `apps/api/src/router.ts`), so each user's uploaded sessions are stored under their own user ID in the `organization_id` column. This is a legacy naming issue. When querying or deleting ClickHouse data, understand that filtering by `organization_id` targets a single user's data, not an entire organization's data. A Postgres `organization` has a separate ID (found in the `organization` table) and is linked to users via the `member` table. To find all sessions for an actual organization, you must first look up its member user IDs in Postgres, then query ClickHouse for each. Use `scripts/duplicate_org.sql` to copy data with a different org_id for testing.
+**`organization_id` = `user.id` in the API.** The API sets `organizationId: context.user.id` (see `apps/api/src/router.ts`). When testing the frontend locally, the user ID from the Postgres auth database must match the `organization_id` in ClickHouse data. Use `scripts/duplicate_org.sql` to copy data with a different org_id for testing.
 
 **Stale generated types after schema changes.** After modifying `src/db/schema/*.ts`, the generated `chkit-types.ts` will be out of sync. Always run `bun run ch:codegen` (or manually copy the `.tmp` file if EPERM). The old types may have columns that no longer exist or be missing new columns — this won't cause build errors if nothing imports them yet, but will cause runtime issues when consumed.
 

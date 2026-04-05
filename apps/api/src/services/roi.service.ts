@@ -1,18 +1,22 @@
 import type {
 	DeveloperCostBreakdown,
 	ProjectCostBreakdown,
+	ROIDashboard,
 	ROIMetrics,
 	ROITrend,
 } from "@rudel/api-routes";
-import { buildDateFilter, queryClickhouse } from "../clickhouse.js";
+import {
+	buildDateFilter,
+	buildInclusiveDateRangeFilter,
+	queryClickhouse,
+} from "../clickhouse.js";
+import {
+	INPUT_PRICE_PER_MILLION,
+	OUTPUT_PRICE_PER_MILLION,
+	buildEstimatedCostSql,
+	calculateEstimatedCost,
+} from "./pricing.service.js";
 
-// Pricing constants based on Claude Sonnet 4 rates, used as a default approximation
-// across all models. TODO: implement per-model pricing using the model_used column.
-// Sonnet 4: input=$3/MTok, output=$15/MTok
-// Opus 4:   input=$5/MTok, output=$25/MTok
-// Haiku 4:  input=$1/MTok, output=$5/MTok
-const INPUT_PRICE_PER_MILLION = 3.0;
-const OUTPUT_PRICE_PER_MILLION = 15.0;
 const DEFAULT_DEV_HOURLY_RATE = 100;
 
 // ROI calculation constants
@@ -73,6 +77,137 @@ interface ProjectBreakdownQueryResult {
 	total_commits: number;
 	total_hours: number;
 	avg_success_score: number;
+}
+
+interface RangeSnapshotRow {
+	total_sessions: number;
+	total_input_tokens: number;
+	total_output_tokens: number;
+	total_tokens: number;
+	total_hours: number;
+	avg_success_score: number;
+	active_developers: number;
+	total_commits: number;
+}
+
+interface ROIDashboardTrendQueryRow {
+	bucket_start: string;
+	total_sessions: number;
+	total_input_tokens: number;
+	total_output_tokens: number;
+	total_tokens: number;
+	total_commits: number;
+}
+
+type TrendInterval = "day" | "week" | "month";
+
+interface DerivedROISnapshot {
+	total_cost: number;
+	dollar_value_saved: number;
+	roi_percentage: number;
+	dev_hours_saved: number;
+	commits_per_dollar: number;
+	sessions_per_dollar: number;
+	total_sessions: number;
+	total_commits: number;
+	active_developers: number;
+	avg_success_score: number;
+}
+
+function roundTo(value: number, digits = 2) {
+	return Number(value.toFixed(digits));
+}
+
+function calculateChangePct(current: number, previous: number) {
+	if (!Number.isFinite(previous) || previous === 0) {
+		return 0;
+	}
+
+	return roundTo(((current - previous) / previous) * 100);
+}
+
+function shiftIsoDate(isoDate: string, days: number) {
+	const date = new Date(`${isoDate}T00:00:00.000Z`);
+	date.setUTCDate(date.getUTCDate() + days);
+	return date.toISOString().slice(0, 10);
+}
+
+function getInclusiveDateSpanDays(startDate: string, endDate: string) {
+	const start = new Date(`${startDate}T00:00:00.000Z`).getTime();
+	const end = new Date(`${endDate}T00:00:00.000Z`).getTime();
+	return Math.floor((end - start) / 86_400_000) + 1;
+}
+
+function getTrendIntervalForRange(dayCount: number): TrendInterval {
+	if (dayCount <= 31) {
+		return "day";
+	}
+
+	if (dayCount <= 120) {
+		return "week";
+	}
+
+	return "month";
+}
+
+function formatTrendBucketLabel(
+	bucketStart: string,
+	interval: TrendInterval,
+) {
+	const date = new Date(`${bucketStart}T00:00:00.000Z`);
+
+	if (interval === "day") {
+		return new Intl.DateTimeFormat("en-US", {
+			month: "short",
+			day: "numeric",
+		}).format(date);
+	}
+
+	if (interval === "week") {
+		return new Intl.DateTimeFormat("en-US", {
+			month: "short",
+			day: "numeric",
+		}).format(date);
+	}
+
+	return new Intl.DateTimeFormat("en-US", {
+		month: "short",
+		year: "numeric",
+	}).format(date);
+}
+
+function deriveROISnapshot(row?: RangeSnapshotRow): DerivedROISnapshot {
+	const totalSessions = Number(row?.total_sessions) || 0;
+	const totalInputTokens = Number(row?.total_input_tokens) || 0;
+	const totalOutputTokens = Number(row?.total_output_tokens) || 0;
+	const totalCost = calculateEstimatedCost(totalInputTokens, totalOutputTokens, 4);
+	const totalCommits = Number(row?.total_commits) || 0;
+	const activeDevelopers = Number(row?.active_developers) || 0;
+	const avgSuccessScore = roundTo(Number(row?.avg_success_score) || 0);
+	const estimatedLocGenerated =
+		(totalOutputTokens * CODE_PERCENTAGE) / TOKENS_PER_LOC;
+	const devHoursSaved = roundTo(estimatedLocGenerated / LOC_PER_HOUR);
+	const estimatedValueCreated = devHoursSaved * DEFAULT_DEV_HOURLY_RATE;
+	const dollarValueSaved = roundTo(estimatedValueCreated - totalCost);
+	const roiPercentage =
+		totalCost > 0 ? roundTo((dollarValueSaved / totalCost) * 100) : 0;
+	const commitsPerDollar =
+		totalCost > 0 ? roundTo(totalCommits / totalCost) : 0;
+	const sessionsPerDollar =
+		totalCost > 0 ? roundTo(totalSessions / totalCost) : 0;
+
+	return {
+		total_cost: totalCost,
+		dollar_value_saved: dollarValueSaved,
+		roi_percentage: roiPercentage,
+		dev_hours_saved: devHoursSaved,
+		commits_per_dollar: commitsPerDollar,
+		sessions_per_dollar: sessionsPerDollar,
+		total_sessions: totalSessions,
+		total_commits: totalCommits,
+		active_developers: activeDevelopers,
+		avg_success_score: avgSuccessScore,
+	};
 }
 
 /**
@@ -427,4 +562,269 @@ export async function getProjectCostBreakdown(
 			avg_success_score: Number(row.avg_success_score) || 0,
 		};
 	});
+}
+
+async function getRangeSnapshot(
+	orgId: string,
+	startDate: string,
+	endDate: string,
+) {
+	const query = `
+    SELECT
+      COUNT(*) as total_sessions,
+      SUM(input_tokens) as total_input_tokens,
+      SUM(output_tokens) as total_output_tokens,
+      SUM(total_tokens) as total_tokens,
+      SUM(actual_duration_min) / 60.0 as total_hours,
+      AVG(success_score) as avg_success_score,
+      COUNT(DISTINCT user_id) as active_developers,
+      SUM(has_commit) as total_commits
+    FROM rudel.session_analytics
+    WHERE ${buildInclusiveDateRangeFilter("startDate", "endDate")}
+      AND organization_id = {orgId:String}
+  `;
+
+	const result = await queryClickhouse<RangeSnapshotRow>({
+		query,
+		query_params: {
+			startDate,
+			endDate,
+			orgId,
+		},
+	});
+
+	return result[0];
+}
+
+async function getDeveloperCostBreakdownForRange(
+	orgId: string,
+	startDate: string,
+	endDate: string,
+): Promise<DeveloperCostBreakdown[]> {
+	const query = `
+    SELECT
+      user_id,
+      COUNT(*) as total_sessions,
+      SUM(total_tokens) as total_tokens,
+      AVG(success_score) as avg_success_score,
+      ${buildEstimatedCostSql({
+				inputExpr: "SUM(input_tokens)",
+				outputExpr: "SUM(output_tokens)",
+				precision: 4,
+			})} as total_cost
+    FROM rudel.session_analytics
+    WHERE ${buildInclusiveDateRangeFilter("startDate", "endDate")}
+      AND organization_id = {orgId:String}
+    GROUP BY user_id
+    ORDER BY total_cost DESC, total_tokens DESC, user_id ASC
+  `;
+
+	const result = await queryClickhouse<DeveloperBreakdownQueryResult>({
+		query,
+		query_params: {
+			startDate,
+			endDate,
+			orgId,
+		},
+	});
+
+	const grandTotalCost = result.reduce(
+		(sum, row) => sum + (Number(row.total_cost) || 0),
+		0,
+	);
+
+	return result.map((row) => {
+		const cost = Number(row.total_cost) || 0;
+		return {
+			user_id: row.user_id,
+			sessions: Number(row.total_sessions) || 0,
+			total_tokens: Number(row.total_tokens) || 0,
+			cost,
+			cost_percentage:
+				grandTotalCost > 0 ? roundTo((cost / grandTotalCost) * 100) : 0,
+			avg_success_score: roundTo(Number(row.avg_success_score) || 0),
+		};
+	});
+}
+
+async function getProjectCostBreakdownForRange(
+	orgId: string,
+	startDate: string,
+	endDate: string,
+): Promise<ProjectCostBreakdown[]> {
+	const query = `
+    SELECT
+      if(git_remote != '', git_remote, if(package_name != '', package_name, arrayElement(splitByChar('/', project_path), -1))) as project_path,
+      COUNT(*) as total_sessions,
+      SUM(total_tokens) as total_tokens,
+      AVG(success_score) as avg_success_score,
+      ${buildEstimatedCostSql({
+				inputExpr: "SUM(input_tokens)",
+				outputExpr: "SUM(output_tokens)",
+				precision: 4,
+			})} as total_cost
+    FROM rudel.session_analytics
+    WHERE ${buildInclusiveDateRangeFilter("startDate", "endDate")}
+      AND organization_id = {orgId:String}
+      AND project_path != ''
+    GROUP BY project_path
+    ORDER BY total_cost DESC, total_tokens DESC, project_path ASC
+  `;
+
+	const result = await queryClickhouse<ProjectBreakdownQueryResult>({
+		query,
+		query_params: {
+			startDate,
+			endDate,
+			orgId,
+		},
+	});
+
+	const grandTotalCost = result.reduce(
+		(sum, row) => sum + (Number(row.total_cost) || 0),
+		0,
+	);
+
+	return result.map((row) => {
+		const cost = Number(row.total_cost) || 0;
+		return {
+			project_path: row.project_path,
+			sessions: Number(row.total_sessions) || 0,
+			total_tokens: Number(row.total_tokens) || 0,
+			cost,
+			cost_percentage:
+				grandTotalCost > 0 ? roundTo((cost / grandTotalCost) * 100) : 0,
+			avg_success_score: roundTo(Number(row.avg_success_score) || 0),
+		};
+	});
+}
+
+export async function getROIDashboard(
+	orgId: string,
+	params: {
+		start_date: string;
+		end_date: string;
+	},
+): Promise<ROIDashboard> {
+	const { start_date, end_date } = params;
+	const spanDays = getInclusiveDateSpanDays(start_date, end_date);
+	const comparison_end_date = shiftIsoDate(start_date, -1);
+	const comparison_start_date = shiftIsoDate(comparison_end_date, -(spanDays - 1));
+	const trendInterval = getTrendIntervalForRange(spanDays);
+	const bucketExpr =
+		trendInterval === "day"
+			? "toDate(session_date)"
+			: trendInterval === "week"
+				? "toMonday(session_date)"
+				: "toStartOfMonth(session_date)";
+
+	const trendQuery = `
+    SELECT
+      toString(${bucketExpr}) as bucket_start,
+      COUNT(*) as total_sessions,
+      SUM(input_tokens) as total_input_tokens,
+      SUM(output_tokens) as total_output_tokens,
+      SUM(total_tokens) as total_tokens,
+      SUM(has_commit) as total_commits
+    FROM rudel.session_analytics
+    WHERE ${buildInclusiveDateRangeFilter("startDate", "endDate")}
+      AND organization_id = {orgId:String}
+    GROUP BY bucket_start
+    ORDER BY bucket_start ASC
+  `;
+
+	const [
+		currentSnapshotRow,
+		previousSnapshotRow,
+		trendRows,
+		developerBreakdown,
+		projectBreakdown,
+	] = await Promise.all([
+		getRangeSnapshot(orgId, start_date, end_date),
+		getRangeSnapshot(orgId, comparison_start_date, comparison_end_date),
+		queryClickhouse<ROIDashboardTrendQueryRow>({
+			query: trendQuery,
+			query_params: {
+				startDate: start_date,
+				endDate: end_date,
+				orgId,
+			},
+		}),
+		getDeveloperCostBreakdownForRange(orgId, start_date, end_date),
+		getProjectCostBreakdownForRange(orgId, start_date, end_date),
+	]);
+
+	const current = deriveROISnapshot(currentSnapshotRow);
+	const previous = deriveROISnapshot(previousSnapshotRow);
+
+	return {
+		start_date,
+		end_date,
+		comparison_start_date,
+		comparison_end_date,
+		summary: {
+			total_cost: current.total_cost,
+			total_cost_change_pct: calculateChangePct(
+				current.total_cost,
+				previous.total_cost,
+			),
+			dollar_value_saved: current.dollar_value_saved,
+			dollar_value_saved_change_pct: calculateChangePct(
+				current.dollar_value_saved,
+				previous.dollar_value_saved,
+			),
+			roi_percentage: current.roi_percentage,
+			roi_percentage_change_pct: calculateChangePct(
+				current.roi_percentage,
+				previous.roi_percentage,
+			),
+			dev_hours_saved: current.dev_hours_saved,
+			dev_hours_saved_change_pct: calculateChangePct(
+				current.dev_hours_saved,
+				previous.dev_hours_saved,
+			),
+			commits_per_dollar: current.commits_per_dollar,
+			sessions_per_dollar: current.sessions_per_dollar,
+			total_sessions: current.total_sessions,
+			total_commits: current.total_commits,
+			active_developers: current.active_developers,
+			avg_success_score: current.avg_success_score,
+		},
+		assumptions: {
+			input_price_per_million: INPUT_PRICE_PER_MILLION,
+			output_price_per_million: OUTPUT_PRICE_PER_MILLION,
+			code_percentage: CODE_PERCENTAGE,
+			tokens_per_loc: TOKENS_PER_LOC,
+			loc_per_hour: LOC_PER_HOUR,
+			developer_hourly_rate: DEFAULT_DEV_HOURLY_RATE,
+		},
+		trend_interval: trendInterval,
+		trend: trendRows.map((row) => {
+			const snapshot = deriveROISnapshot({
+				total_sessions: Number(row.total_sessions) || 0,
+				total_input_tokens: Number(row.total_input_tokens) || 0,
+				total_output_tokens: Number(row.total_output_tokens) || 0,
+				total_tokens: Number(row.total_tokens) || 0,
+				total_hours: 0,
+				avg_success_score: 0,
+				active_developers: 0,
+				total_commits: Number(row.total_commits) || 0,
+			});
+
+			return {
+				bucket_start: row.bucket_start,
+				bucket_label: formatTrendBucketLabel(row.bucket_start, trendInterval),
+				total_cost: snapshot.total_cost,
+				dollar_value_saved: snapshot.dollar_value_saved,
+				roi_percentage: snapshot.roi_percentage,
+				dev_hours_saved: snapshot.dev_hours_saved,
+				commits_per_dollar: snapshot.commits_per_dollar,
+				sessions_per_dollar: snapshot.sessions_per_dollar,
+				total_sessions: snapshot.total_sessions,
+				total_commits: snapshot.total_commits,
+			};
+		}),
+		developer_breakdown: developerBreakdown,
+		project_breakdown: projectBreakdown,
+	};
 }

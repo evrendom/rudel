@@ -12,7 +12,11 @@ import {
 const investment = os.analytics.projects.investment
 	.use(orgMiddleware)
 	.handler(async ({ input, context }) => {
-		return getProjectInvestment(context.organizationId, { days: input.days });
+		return getProjectInvestment(context.organizationId, {
+			days: input.days,
+			limit: input.limit,
+			offset: input.offset,
+		});
 	});
 
 const trends = os.analytics.projects.trends

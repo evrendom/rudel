@@ -6,6 +6,8 @@ import {
 	getSuccessRateMetrics,
 	getTeamSummaryWithComparison,
 	getUsageTrendDetailed,
+	getUsersDailyTrend,
+	getUsersTokenUsage,
 } from "../../services/overview.service.js";
 
 const kpis = os.analytics.overview.kpis
@@ -32,6 +34,26 @@ const modelTokensTrend = os.analytics.overview.modelTokensTrend
 	.use(orgMiddleware)
 	.handler(async ({ input, context }) => {
 		return getModelTokensTrend(
+			context.organizationId,
+			input.startDate,
+			input.endDate,
+		);
+	});
+
+const usersTokenUsage = os.analytics.overview.usersTokenUsage
+	.use(orgMiddleware)
+	.handler(async ({ input, context }) => {
+		return getUsersTokenUsage(
+			context.organizationId,
+			input.startDate,
+			input.endDate,
+		);
+	});
+
+const usersDailyTrend = os.analytics.overview.usersDailyTrend
+	.use(orgMiddleware)
+	.handler(async ({ input, context }) => {
+		return getUsersDailyTrend(
 			context.organizationId,
 			input.startDate,
 			input.endDate,
@@ -72,6 +94,8 @@ export const overviewRouter = os.analytics.overview.router({
 	kpis,
 	usageTrend,
 	modelTokensTrend,
+	usersTokenUsage,
+	usersDailyTrend,
 	insights,
 	teamSummaryComparison,
 	successRate,

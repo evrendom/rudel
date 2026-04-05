@@ -1,0 +1,381 @@
+@layer components {
+	.style-luma .cn-button {
+		@apply focus-visible:border-ring focus-visible:ring-ring/30 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive dark:aria-invalid:border-destructive/50 rounded-4xl border border-transparent bg-clip-padding text-sm font-medium focus-visible:ring-3 aria-invalid:ring-3 active:not-aria-[haspopup]:translate-y-px [&_svg:not([class*='size-'])]:size-4;
+	}
+
+	.style-luma .cn-button-variant-default {
+		@apply bg-primary text-primary-foreground hover:bg-primary/80;
+	}
+
+	.style-luma .cn-button-variant-outline {
+		@apply border-border bg-background dark:bg-transparent hover:bg-muted hover:text-foreground dark:hover:bg-input/30 aria-expanded:bg-muted aria-expanded:text-foreground;
+	}
+
+	.style-luma .cn-button-variant-secondary {
+		@apply bg-secondary text-secondary-foreground hover:bg-secondary/80 aria-expanded:bg-secondary aria-expanded:text-secondary-foreground;
+	}
+
+	.style-luma .cn-button-variant-ghost {
+		@apply hover:bg-muted hover:text-foreground dark:hover:bg-muted/50 aria-expanded:bg-muted aria-expanded:text-foreground;
+	}
+
+	.style-luma .cn-button-variant-destructive {
+		@apply bg-destructive/10 hover:bg-destructive/20 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/20 text-destructive focus-visible:border-destructive/40 dark:hover:bg-destructive/30;
+	}
+
+	.style-luma .cn-button-variant-link {
+		@apply text-primary underline-offset-4 hover:underline;
+	}
+
+	.style-luma .cn-button-size-xs {
+		@apply h-6 gap-1 px-2.5 text-xs has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2 [&_svg:not([class*='size-'])]:size-3;
+	}
+
+	.style-luma .cn-button-size-sm {
+		@apply h-8 gap-1 px-3 has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2;
+	}
+
+	.style-luma .cn-button-size-default {
+		@apply h-9 gap-1.5 px-3 has-data-[icon=inline-end]:pr-2.5 has-data-[icon=inline-start]:pl-2.5;
+	}
+
+	.style-luma .cn-button-size-lg {
+		@apply h-10 gap-1.5 px-4 has-data-[icon=inline-end]:pr-3 has-data-[icon=inline-start]:pl-3;
+	}
+
+	.style-luma .cn-button-size-icon-xs {
+		@apply size-6 [&_svg:not([class*='size-'])]:size-3;
+	}
+
+	.style-luma .cn-button-size-icon-sm {
+		@apply size-8;
+	}
+
+	.style-luma .cn-button-size-icon {
+		@apply size-9;
+	}
+
+	.style-luma .cn-button-size-icon-lg {
+		@apply size-10;
+	}
+
+	.style-luma .cn-input {
+		@apply bg-input/50 border-transparent focus-visible:border-ring focus-visible:ring-ring/30 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive dark:aria-invalid:border-destructive/50 h-9 rounded-3xl border px-3 py-1 text-base transition-[color,box-shadow,background-color] file:h-7 file:text-sm file:font-medium focus-visible:ring-3 aria-invalid:ring-3 md:text-sm;
+	}
+
+	.style-luma .cn-select-trigger {
+		@apply bg-input/50 border-transparent data-placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/30 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive dark:aria-invalid:border-destructive/50 gap-1.5 rounded-3xl border py-2 px-3 text-sm transition-[color,box-shadow,background-color] focus-visible:ring-3 aria-invalid:ring-3 data-[size=default]:h-9 data-[size=sm]:h-8 *:data-[slot=select-value]:flex *:data-[slot=select-value]:gap-1.5 [&_svg:not([class*='size-'])]:size-4;
+	}
+
+	.style-luma .cn-select-value {
+		@apply flex flex-1 text-left;
+	}
+
+	.style-luma .cn-select-trigger-icon {
+		@apply text-muted-foreground size-4;
+	}
+
+	.style-luma .cn-select-content {
+		@apply bg-popover text-popover-foreground data-open:animate-in data-closed:animate-out data-closed:fade-out-0 data-open:fade-in-0 data-closed:zoom-out-95 data-open:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 ring-foreground/5 dark:ring-foreground/10 min-w-36 rounded-3xl shadow-lg ring-1 duration-100;
+	}
+
+	.style-luma .cn-select-content-logical {
+		@apply data-[side=inline-start]:slide-in-from-right-2 data-[side=inline-end]:slide-in-from-left-2;
+	}
+
+	.style-luma .cn-select-label {
+		@apply text-muted-foreground px-3 py-2.5 text-xs;
+	}
+
+	.style-luma .cn-select-item {
+		@apply focus:bg-accent focus:text-accent-foreground not-data-[variant=destructive]:focus:**:text-accent-foreground gap-2.5 rounded-2xl py-2 pr-8 pl-3 text-sm font-medium [&_svg:not([class*='size-'])]:size-4 *:[span]:last:flex *:[span]:last:items-center *:[span]:last:gap-2;
+	}
+
+	.style-luma .cn-select-item-indicator {
+		@apply pointer-events-none absolute right-2 flex size-4 items-center justify-center;
+	}
+
+	.style-luma .cn-select-group {
+		@apply scroll-my-1.5 p-1.5;
+	}
+
+	.style-luma .cn-select-item-text {
+		@apply flex flex-1 gap-2;
+	}
+
+	.style-luma .cn-select-separator {
+		@apply bg-border -mx-1.5 my-1.5 h-px;
+	}
+
+	.style-luma .cn-select-scroll-up-button {
+		@apply bg-popover z-10 flex cursor-default items-center justify-center py-1 [&_svg:not([class*='size-'])]:size-4;
+	}
+
+	.style-luma .cn-select-scroll-down-button {
+		@apply bg-popover z-10 flex cursor-default items-center justify-center py-1 [&_svg:not([class*='size-'])]:size-4;
+	}
+
+	.style-luma .cn-field {
+		@apply data-[invalid=true]:text-destructive gap-3;
+	}
+
+	.style-luma .cn-field-title {
+		@apply gap-2 text-sm font-medium group-data-[disabled=true]/field:opacity-50;
+	}
+
+	.style-luma .cn-card {
+		@apply bg-card text-card-foreground ring-foreground/5 dark:ring-foreground/10 gap-6 overflow-hidden rounded-4xl py-6 text-sm shadow-md ring-1 has-[>img:first-child]:pt-0 data-[size=sm]:gap-4 data-[size=sm]:py-4 *:[img:first-child]:rounded-t-4xl *:[img:last-child]:rounded-b-4xl;
+	}
+
+	.style-luma .cn-card-header {
+		@apply gap-1.5 rounded-t-4xl px-6 group-data-[size=sm]/card:px-4 [.border-b]:pb-6 group-data-[size=sm]/card:[.border-b]:pb-4;
+	}
+
+	.style-luma .cn-card-title {
+		@apply text-base font-medium;
+	}
+
+	.style-luma .cn-card-description {
+		@apply text-muted-foreground text-sm;
+	}
+
+	.style-luma .cn-card-content {
+		@apply px-6 group-data-[size=sm]/card:px-4;
+	}
+
+	.style-luma .cn-card-footer {
+		@apply rounded-b-4xl px-6 group-data-[size=sm]/card:px-4 [.border-t]:pt-6 group-data-[size=sm]/card:[.border-t]:pt-4;
+	}
+
+	.style-luma .cn-avatar {
+		@apply size-8 rounded-full after:rounded-full data-[size=lg]:size-10 data-[size=sm]:size-6;
+	}
+
+	.style-luma .cn-avatar-fallback {
+		@apply bg-muted text-muted-foreground rounded-full;
+	}
+
+	.style-luma .cn-avatar-image {
+		@apply rounded-full;
+	}
+
+	.style-luma .cn-avatar-badge {
+		@apply bg-primary text-primary-foreground ring-background;
+	}
+
+	.style-luma .cn-avatar-group-count {
+		@apply bg-muted text-muted-foreground size-8 rounded-full text-sm group-has-data-[size=lg]/avatar-group:size-10 group-has-data-[size=sm]/avatar-group:size-6 [&>svg]:size-4 group-has-data-[size=lg]/avatar-group:[&>svg]:size-5 group-has-data-[size=sm]/avatar-group:[&>svg]:size-3;
+	}
+
+	.style-luma .cn-badge {
+		@apply h-5 gap-1 rounded-3xl border border-transparent px-2 py-0.5 text-xs font-medium transition-all has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&>svg]:size-3!;
+	}
+
+	.style-luma .cn-badge-variant-default {
+		@apply bg-primary text-primary-foreground [a]:hover:bg-primary/80;
+	}
+
+	.style-luma .cn-badge-variant-secondary {
+		@apply bg-secondary text-secondary-foreground [a]:hover:bg-secondary/80;
+	}
+
+	.style-luma .cn-badge-variant-outline {
+		@apply border-border text-foreground [a]:hover:bg-muted [a]:hover:text-muted-foreground;
+	}
+
+	.style-luma .cn-badge-variant-destructive {
+		@apply bg-destructive/10 [a]:hover:bg-destructive/20 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 text-destructive dark:bg-destructive/20;
+	}
+
+	.style-luma .cn-badge-variant-ghost {
+		@apply hover:bg-muted hover:text-muted-foreground dark:hover:bg-muted/50;
+	}
+
+	.style-luma .cn-badge-variant-link {
+		@apply text-primary underline-offset-4 hover:underline;
+	}
+
+	.style-luma .cn-dialog-overlay {
+		@apply data-open:animate-in data-closed:animate-out data-closed:fade-out-0 data-open:fade-in-0 bg-black/30 duration-100 supports-backdrop-filter:backdrop-blur-sm;
+	}
+
+	.style-luma .cn-dialog-content {
+		@apply bg-popover text-popover-foreground data-open:animate-in data-closed:animate-out data-closed:fade-out-0 data-open:fade-in-0 data-closed:zoom-out-95 data-open:zoom-in-95 ring-foreground/5 dark:ring-foreground/10 grid max-w-[calc(100%-2rem)] gap-6 rounded-4xl p-6 text-sm shadow-xl ring-1 duration-100 sm:max-w-md;
+	}
+
+	.style-luma .cn-dialog-close {
+		@apply absolute top-4 right-4 bg-secondary;
+	}
+
+	.style-luma .cn-dialog-header {
+		@apply gap-1.5;
+	}
+
+	.style-luma .cn-dialog-footer {
+		@apply gap-2;
+	}
+
+	.style-luma .cn-dialog-title {
+		@apply text-base leading-none font-medium;
+	}
+
+	.style-luma .cn-dialog-description {
+		@apply text-muted-foreground *:[a]:underline *:[a]:underline-offset-3 *:[a]:hover:text-foreground text-sm;
+	}
+
+	.style-luma .cn-dropdown-menu-content {
+		@apply data-open:animate-in data-closed:animate-out data-closed:fade-out-0 data-open:fade-in-0 data-closed:zoom-out-95 data-open:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 ring-foreground/5 dark:ring-foreground/10 bg-popover text-popover-foreground min-w-48 rounded-3xl p-1.5 shadow-lg ring-1 duration-100;
+	}
+
+	.style-luma .cn-dropdown-menu-content-logical {
+		@apply data-[side=inline-start]:slide-in-from-right-2 data-[side=inline-end]:slide-in-from-left-2;
+	}
+
+	.style-luma .cn-dropdown-menu-item {
+		@apply focus:bg-accent focus:text-accent-foreground data-[variant=destructive]:text-destructive data-[variant=destructive]:focus:bg-destructive/10 dark:data-[variant=destructive]:focus:bg-destructive/20 data-[variant=destructive]:focus:text-destructive data-[variant=destructive]:*:[svg]:text-destructive not-data-[variant=destructive]:focus:**:text-accent-foreground gap-2.5 rounded-2xl px-3 py-2 text-sm font-medium data-inset:pl-9.5 [&_svg:not([class*='size-'])]:size-4;
+	}
+
+	.style-luma .cn-dropdown-menu-checkbox-item {
+		@apply focus:bg-accent focus:text-accent-foreground focus:**:text-accent-foreground gap-2.5 rounded-2xl py-2 pr-8 pl-3 text-sm font-medium data-inset:pl-9.5 [&_svg:not([class*='size-'])]:size-4;
+	}
+
+	.style-luma .cn-dropdown-menu-radio-item {
+		@apply focus:bg-accent focus:text-accent-foreground focus:**:text-accent-foreground gap-2.5 rounded-2xl py-2 pr-8 pl-3 text-sm font-medium data-inset:pl-9.5 [&_svg:not([class*='size-'])]:size-4;
+	}
+
+	.style-luma .cn-dropdown-menu-item-indicator {
+		@apply absolute right-2 flex items-center justify-center;
+	}
+
+	.style-luma .cn-dropdown-menu-label {
+		@apply text-muted-foreground px-3 py-2.5 text-xs data-inset:pl-9.5;
+	}
+
+	.style-luma .cn-dropdown-menu-separator {
+		@apply bg-border/50 -mx-1.5 my-1.5 h-px;
+	}
+
+	.style-luma .cn-dropdown-menu-shortcut {
+		@apply text-muted-foreground group-focus/dropdown-menu-item:text-accent-foreground ml-auto text-xs tracking-widest;
+	}
+
+	.style-luma .cn-dropdown-menu-sub-trigger {
+		@apply focus:bg-accent focus:text-accent-foreground data-open:bg-accent data-open:text-accent-foreground not-data-[variant=destructive]:focus:**:text-accent-foreground gap-2 rounded-2xl px-3 py-2 text-sm font-medium data-inset:pl-9.5 [&_svg:not([class*='size-'])]:size-4;
+	}
+
+	.style-luma .cn-dropdown-menu-sub-content {
+		@apply data-open:animate-in data-closed:animate-out data-closed:fade-out-0 data-open:fade-in-0 data-closed:zoom-out-95 data-open:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 ring-foreground/5 dark:ring-foreground/10 bg-popover text-popover-foreground min-w-36 rounded-3xl p-1.5 shadow-lg ring-1 duration-100;
+	}
+
+	.style-luma .cn-label {
+		@apply gap-2 text-sm leading-none font-medium group-data-[disabled=true]:opacity-50 peer-disabled:opacity-50;
+	}
+
+	.style-luma .cn-popover-content {
+		@apply bg-popover text-popover-foreground data-open:animate-in data-closed:animate-out data-closed:fade-out-0 data-open:fade-in-0 data-closed:zoom-out-95 data-open:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 ring-foreground/5 dark:ring-foreground/10 flex flex-col gap-4 rounded-3xl p-4 text-sm shadow-lg ring-1 duration-100;
+	}
+
+	.style-luma .cn-popover-content-logical {
+		@apply data-[side=inline-start]:slide-in-from-right-2 data-[side=inline-end]:slide-in-from-left-2;
+	}
+
+	.style-luma .cn-popover-header {
+		@apply flex flex-col gap-1 text-sm;
+	}
+
+	.style-luma .cn-popover-title {
+		@apply text-base font-medium;
+	}
+
+	.style-luma .cn-popover-description {
+		@apply text-muted-foreground;
+	}
+
+	.style-luma .cn-sheet-overlay {
+		@apply bg-black/30 supports-backdrop-filter:backdrop-blur-sm;
+	}
+
+	.style-luma .cn-sheet-content {
+		@apply bg-popover text-popover-foreground fixed z-50 flex flex-col bg-clip-padding text-sm shadow-xl transition duration-200 ease-in-out data-[side=bottom]:inset-x-0 data-[side=bottom]:bottom-0 data-[side=bottom]:h-auto data-[side=bottom]:border-t data-[side=left]:inset-y-0 data-[side=left]:left-0 data-[side=left]:h-full data-[side=left]:w-3/4 data-[side=left]:border-r data-[side=right]:inset-y-0 data-[side=right]:right-0 data-[side=right]:h-full data-[side=right]:w-3/4 data-[side=right]:border-l data-[side=top]:inset-x-0 data-[side=top]:top-0 data-[side=top]:h-auto data-[side=top]:border-b data-[side=left]:sm:max-w-sm data-[side=right]:sm:max-w-sm;
+	}
+
+	.style-luma .cn-sheet-close {
+		@apply absolute top-4 right-4 bg-secondary;
+	}
+
+	.style-luma .cn-sheet-header {
+		@apply gap-1.5 p-6;
+	}
+
+	.style-luma .cn-sheet-footer {
+		@apply gap-2 p-6;
+	}
+
+	.style-luma .cn-sheet-title {
+		@apply text-foreground text-base font-medium;
+	}
+
+	.style-luma .cn-sheet-description {
+		@apply text-muted-foreground text-sm;
+	}
+
+	.style-luma .cn-skeleton {
+		@apply bg-muted rounded-2xl;
+	}
+
+	.style-luma .cn-table-container {
+		@apply relative w-full overflow-x-auto;
+	}
+
+	.style-luma .cn-table {
+		@apply w-full caption-bottom text-sm;
+	}
+
+	.style-luma .cn-table-header {
+		@apply [&_tr]:border-b;
+	}
+
+	.style-luma .cn-table-body {
+		@apply [&_tr:last-child]:border-0;
+	}
+
+	.style-luma .cn-table-footer {
+		@apply bg-muted/50 border-t font-medium [&>tr]:last:border-b-0;
+	}
+
+	.style-luma .cn-table-row {
+		@apply hover:bg-muted/50 data-[state=selected]:bg-muted border-b transition-colors;
+	}
+
+	.style-luma .cn-table-head {
+		@apply text-foreground h-12 px-3 text-left align-middle font-medium whitespace-nowrap [&:has([role=checkbox])]:pr-0;
+	}
+
+	.style-luma .cn-table-cell {
+		@apply p-3 align-middle whitespace-nowrap [&:has([role=checkbox])]:pr-0;
+	}
+
+	.style-luma .cn-table-caption {
+		@apply text-muted-foreground mt-4 text-sm;
+	}
+
+	.style-luma .cn-tooltip-content {
+		@apply data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-[state=delayed-open]:animate-in data-[state=delayed-open]:fade-in-0 data-[state=delayed-open]:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs has-data-[slot=kbd]:pr-1.5 **:data-[slot=kbd]:relative **:data-[slot=kbd]:isolate **:data-[slot=kbd]:z-50 **:data-[slot=kbd]:rounded-lg;
+	}
+
+	.style-luma .cn-tooltip-content-logical {
+		@apply data-[side=inline-start]:slide-in-from-right-2 data-[side=inline-end]:slide-in-from-left-2;
+	}
+
+	.style-luma .cn-tooltip-arrow {
+		@apply size-2.5 translate-y-[calc(-50%-2px)] rotate-45 rounded-[2px] data-[side=left]:translate-x-[-1.5px] data-[side=right]:translate-x-[1.5px];
+	}
+
+	.style-luma .cn-tooltip-arrow-logical {
+		@apply data-[side=inline-end]:top-1/2! data-[side=inline-end]:-left-1 data-[side=inline-end]:translate-x-[1.5px] data-[side=inline-end]:-translate-y-1/2 data-[side=inline-start]:top-1/2! data-[side=inline-start]:-right-1 data-[side=inline-start]:translate-x-[-1.5px] data-[side=inline-start]:-translate-y-1/2;
+	}
+
+	.style-luma .cn-menu-translucent {
+		@apply animate-none! relative bg-popover/70 before:pointer-events-none before:absolute before:inset-0 before:-z-1 before:rounded-[inherit] before:backdrop-blur-2xl before:backdrop-saturate-150 **:data-[slot$=-item]:focus:bg-foreground/10 **:data-[slot$=-item]:data-highlighted:bg-foreground/10 **:data-[slot$=-separator]:bg-foreground/5 **:data-[slot$=-trigger]:focus:bg-foreground/10 **:data-[slot$=-trigger]:aria-expanded:bg-foreground/10! **:data-[variant=destructive]:focus:bg-foreground/10! **:data-[variant=destructive]:text-accent-foreground! **:data-[variant=destructive]:**:text-accent-foreground!;
+	}
+}

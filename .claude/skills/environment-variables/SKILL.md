@@ -10,7 +10,7 @@ allowed-tools: [Read, Edit, Grep, Glob, Bash]
 
 All environment variables are stored in Doppler. Never hardcode secrets or commit them to git.
 
-## Four Integration Points
+## Five Integration Points
 
 When adding a new environment variable:
 
@@ -32,28 +32,7 @@ jobs:
 
 Secrets must exist in repository settings → Secrets → Actions first.
 
-### 3. Frontend `VITE_*` Variables (Dockerfile + CI Deploy)
-
-Frontend variables prefixed with `VITE_` are baked into the web app at build time by Vite. They must be declared in **two places**:
-
-**A) `Dockerfile`** — Add an `ARG` declaration so Docker receives the value:
-
-```dockerfile
-ARG VITE_ADMIN_ORGANIZATION_ID=""
-```
-
-**B) `.github/workflows/ci.yml` deploy step** — Pass the value as a `--build-arg`:
-
-```yaml
-- name: Deploy
-  run: |
-    flyctl deploy --remote-only \
-      --build-arg "VITE_ADMIN_ORGANIZATION_ID=${{ secrets.VITE_ADMIN_ORGANIZATION_ID }}"
-```
-
-If either is missing, the variable will be empty in the deployed frontend.
-
-### 4. Package-Specific turbo.json
+### 3. Package-Specific turbo.json
 
 **CRITICAL**: Add to package-specific `turbo.json`, NOT root.
 
@@ -68,13 +47,78 @@ If either is missing, the variable will be empty in the deployed frontend.
 }
 ```
 
+### 4. Miniflare Bindings (Cloudflare Workers Tests)
+
+Map and validate in `vitest.config.ts`:
+
+```ts
+import { defineWorkersConfig } from "@cloudflare/vitest-pool-workers/config";
+import { ok } from "node:assert";
+
+export default defineWorkersConfig(() => {
+  const clickhouseUrl = process.env.CLICKHOUSE_URL;
+  ok(clickhouseUrl, "CLICKHOUSE_URL not defined");
+
+  const apiKey = process.env.API_KEY;
+  ok(apiKey, "API_KEY not defined");
+
+  return {
+    test: {
+      poolOptions: {
+        workers: {
+          miniflare: {
+            bindings: {
+              CLICKHOUSE_URL: clickhouseUrl,
+              API_KEY: apiKey,
+            },
+          },
+        },
+      },
+    },
+  };
+});
+```
+
+**Remember**: Workers access via `env.VAR_NAME`, not `process.env.VAR_NAME`.
+
+### 5. Cloudflare Sync Scripts
+
+Two approaches exist:
+
+**A) JSON Export (exports all secrets)**
+
+```json
+"env:sync": "doppler secrets -p app -c prd --json | jq -c 'with_entries(.value = .value.computed)' > secrets.json && wrangler secret bulk < secrets.json && rm secrets.json"
+```
+
+**B) Template Substitution (requires secrets.json)**
+
+```json
+"env:sync": "doppler -p app -c prd secrets substitute secrets.json | wrangler secret bulk --env production"
+```
+
+**CRITICAL for Template Approach:**
+Add new variables to `secrets.json`:
+
+```json
+{
+  "CLICKHOUSE_URL": "{{.CLICKHOUSE_URL}}",
+  "API_KEY": "{{.API_KEY}}"
+}
+```
+
+Check which approach: Look for `secrets.json` file and inspect `env:sync` script in `package.json`.
+
 ## Checklist: Adding New Environment Variable
 
 - [ ] Add to Doppler for all environments
 - [ ] Add to GitHub Secrets (if used in CI)
 - [ ] Add to `.github/workflows/ci.yml` (if used in CI)
-- [ ] If `VITE_*`: Add `ARG` in `Dockerfile` and `--build-arg` in CI deploy step
 - [ ] Add to package-specific `turbo.json` → `passThroughEnv`
+- [ ] Add to `vitest.config.ts` miniflare bindings with `ok()` validation (if used in tests)
+- [ ] Add to `secrets.json` template (if using substitution approach)
+- [ ] Run `env:sync` and `env:sync:stg` (if available)
+- [ ] Run `types` or `wrangler:types` script (if exists in package.json)
 - [ ] Validate tests pass locally and in CI
 
 ## Debugging Missing Env Vars
@@ -83,9 +127,31 @@ Check in order:
 
 1. **Doppler**: `doppler secrets get VAR_NAME`
 2. **Package turbo.json**: `cat packages/your-package/turbo.json | grep -A 10 passThroughEnv`
-3. **GitHub Secrets**: Repository settings → Secrets → Actions
+3. **Miniflare bindings**: `cat vitest.config.ts | grep -A 20 miniflare`
+4. **Template file** (if substitution): `cat secrets.json | grep VAR_NAME`
+5. **GitHub Secrets**: Repository settings → Secrets → Actions
 
 ## Common Mistakes
 
 ❌ Adding to root `turbo.json` instead of package-specific
-❌ Adding a `VITE_*` var to CI deploy `--build-arg` but not as `ARG` in Dockerfile (or vice versa)
+❌ Using `process.env` in Worker code (use `env.VAR_NAME`)
+❌ Forgetting to add to `secrets.json` when using template substitution
+❌ Not running `env:sync` after Doppler changes
+❌ Not running type generation after adding Worker env vars
+
+## Quick Commands
+
+Check which package manager is used (bun/pnpm), then run:
+
+```bash
+# Sync to Cloudflare
+{bun|pnpm} env:sync           # Production
+{bun|pnpm} env:sync:stg       # Staging (if available)
+
+# Regenerate types (if script exists)
+{bun|pnpm} types
+{bun|pnpm} wrangler:types
+{bun|pnpm} codegen
+
+
+```

@@ -23,7 +23,7 @@ const routes = buildRouteMap({
 		dev: devRouteMap,
 	},
 	docs: {
-		brief: "CLI tools for managing Claude Code / Codex sessions",
+		brief: "CLI tools for managing Claude Code sessions",
 		hideRoute: { hooks: true, dev: true },
 	},
 });

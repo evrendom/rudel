@@ -355,37 +355,51 @@ const ANALYTICS_PAGE_MATCHERS: ReadonlyArray<{
 	{ pageName: "overview", matches: (pathname) => pathname === "/dashboard" },
 	{
 		pageName: "developer_detail",
-		matches: (pathname) => pathname.startsWith("/dashboard/developers/"),
+		matches: (pathname) =>
+			pathname.startsWith("/legacy/developers/") ||
+			pathname.startsWith("/dashboard/developers/"),
 	},
 	{
 		pageName: "developers",
-		matches: (pathname) => pathname === "/dashboard/developers",
+		matches: (pathname) =>
+			pathname === "/legacy/developers" || pathname === "/dashboard/developers",
 	},
 	{
 		pageName: "project_detail",
-		matches: (pathname) => pathname.startsWith("/dashboard/projects/"),
+		matches: (pathname) =>
+			pathname.startsWith("/legacy/projects/") ||
+			pathname.startsWith("/dashboard/projects/"),
 	},
 	{
 		pageName: "projects",
-		matches: (pathname) => pathname === "/dashboard/projects",
+		matches: (pathname) =>
+			pathname === "/legacy/projects" || pathname === "/dashboard/projects",
 	},
 	{
 		pageName: "session_detail",
-		matches: (pathname) => pathname.startsWith("/dashboard/sessions/"),
+		matches: (pathname) =>
+			pathname.startsWith("/legacy/sessions/") ||
+			pathname.startsWith("/dashboard/sessions/"),
 	},
 	{
 		pageName: "sessions",
-		matches: (pathname) => pathname === "/dashboard/sessions",
+		matches: (pathname) =>
+			pathname === "/legacy/sessions" || pathname === "/dashboard/sessions",
 	},
 	{
 		pageName: "errors",
-		matches: (pathname) => pathname === "/dashboard/errors",
+		matches: (pathname) =>
+			pathname === "/legacy/errors" || pathname === "/dashboard/errors",
 	},
 	{
 		pageName: "learnings",
-		matches: (pathname) => pathname === "/dashboard/learnings",
+		matches: (pathname) =>
+			pathname === "/legacy/learnings" || pathname === "/dashboard/learnings",
 	},
-	{ pageName: "roi", matches: (pathname) => pathname === "/dashboard/roi" },
+	{
+		pageName: "roi",
+		matches: (pathname) => pathname === "/legacy/roi" || pathname === "/dashboard/roi",
+	},
 	{
 		pageName: "organization_create",
 		matches: (pathname) => pathname === "/dashboard/organization/new",
