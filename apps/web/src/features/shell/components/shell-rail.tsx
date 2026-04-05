@@ -5,31 +5,33 @@ import type { SidebarShellMotionVariant } from "@/app/ui/sidebar";
 import { appendSidebarShellDebugParams } from "@/features/shell/config/sidebar-shell-debug";
 import { cn } from "@/lib/utils";
 
+export type SidebarRowMode = "collapsed" | "expanded";
+
 export type SidebarRowDebugProps = {
 	debugShowBorders?: boolean;
 	debugVariant?: SidebarShellMotionVariant;
-	forceExpandedSidebar?: boolean;
 	forceShowLabels?: boolean;
 };
 
 const shellMenuButtonBaseClassName =
 	"relative flex w-full items-center gap-[var(--sidebar-row-gap)] overflow-hidden h-[var(--sidebar-row-height)] rounded-[var(--sidebar-row-radius)] text-left !bg-[var(--sidebar-row-idle-bg)] text-[color:var(--sidebar-row-fg)] outline-none transition-[background-color] duration-[160ms] ease-[cubic-bezier(0.23,1,0.32,1)] hover:!bg-[var(--sidebar-row-hover-bg)] hover:!text-[color:var(--sidebar-row-active-fg)] active:!bg-[var(--sidebar-row-hover-bg)] active:!text-[color:var(--sidebar-row-active-fg)] focus-visible:ring-3 focus-visible:ring-ring/50 data-[active=true]:!bg-[var(--sidebar-row-active-bg)] data-[active=true]:!text-[color:var(--sidebar-row-active-fg)]";
 
-function getShellMenuButtonClassName(isExpanded: boolean) {
+function getShellMenuButtonClassName(mode: SidebarRowMode) {
 	return cn(
 		shellMenuButtonBaseClassName,
-		isExpanded
+		mode === "expanded"
 			? "justify-start pl-[var(--sidebar-row-padding-left)] pr-[var(--sidebar-row-padding-right)]"
 			: "justify-start pl-[var(--sidebar-collapsed-row-padding-left)] pr-[var(--sidebar-collapsed-row-padding-right)]",
 	);
 }
 
 export function getUtilityRailItemClassName(
-	isExpanded: boolean,
+	mode: SidebarRowMode,
 	forceShowLabels = false,
 ) {
 	return cn(
-		getShellMenuButtonClassName(isExpanded),
+		getShellMenuButtonClassName(mode),
+		mode === "collapsed" && "!w-auto self-start",
 		forceShowLabels && "overflow-visible",
 	);
 }
@@ -62,19 +64,19 @@ export function getSidebarLabelLaneDebugClassName(
 }
 
 export function getRailLabelClassName(
-	isExpanded: boolean,
+	mode: SidebarRowMode,
 	forceShowLabels = false,
 ) {
-	return isExpanded || forceShowLabels
+	return mode === "expanded" || forceShowLabels
 		? "min-w-0 flex-1 truncate whitespace-nowrap text-[length:var(--sidebar-label-font-size)] font-medium"
 		: "sr-only";
 }
 
 export function getUtilityRailLabelClassName(
-	isExpanded: boolean,
+	mode: SidebarRowMode,
 	forceShowLabels = false,
 ) {
-	return isExpanded || forceShowLabels
+	return mode === "expanded" || forceShowLabels
 		? "min-w-0 flex-1 truncate whitespace-nowrap text-[length:var(--sidebar-label-font-size)] font-medium"
 		: "sr-only";
 }
@@ -97,7 +99,7 @@ export function RailLink({
 	children,
 	debugShowBorders,
 	debugVariant,
-	forceExpandedSidebar,
+	mode = "collapsed",
 	forceShowLabels,
 }: {
 	to: string;
@@ -106,9 +108,9 @@ export function RailLink({
 	active?: boolean;
 	badgeLabel?: string;
 	children: ReactNode;
+	mode?: SidebarRowMode;
 } & SidebarRowDebugProps) {
 	const [searchParams] = useSearchParams();
-	const isExpandedSidebar = forceExpandedSidebar ?? false;
 	const resolvedTo = appendSidebarShellDebugParams(to, searchParams);
 
 	return (
@@ -118,9 +120,9 @@ export function RailLink({
 				aria-label={label}
 				data-sidebar-interactive
 				data-sidebar-nav-row
-				title={!isExpandedSidebar ? label : undefined}
+				title={mode === "collapsed" ? label : undefined}
 				className={cn(
-					getUtilityRailItemClassName(isExpandedSidebar, forceShowLabels),
+					getUtilityRailItemClassName(mode, forceShowLabels),
 					active &&
 						"bg-white text-[color:var(--dashboard-01-rail-icon-active)]",
 					getSidebarRowDebugClassName({ debugShowBorders, debugVariant }),
@@ -140,13 +142,13 @@ export function RailLink({
 					aria-hidden="true"
 					data-sidebar-nav-label
 					className={cn(
-						getRailLabelClassName(isExpandedSidebar, forceShowLabels),
+						getRailLabelClassName(mode, forceShowLabels),
 						getSidebarLabelLaneDebugClassName(debugShowBorders, debugVariant),
 					)}
 				>
 					{label}
 				</span>
-				{isExpandedSidebar && shortcut ? (
+				{mode === "expanded" && shortcut ? (
 					<span
 						aria-hidden="true"
 						className="ml-auto inline-flex min-w-5 items-center justify-center rounded-md px-1.5 text-[length:var(--sidebar-shortcut-font-size)] text-[color:var(--sidebar-row-fg)]"

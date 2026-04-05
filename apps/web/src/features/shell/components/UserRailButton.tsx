@@ -26,7 +26,6 @@ import { cn } from "@/lib/utils";
 export function UserRailButton({
 	debugShowBorders,
 	debugVariant,
-	forceExpandedSidebar,
 	forceShowLabels,
 }: SidebarRowDebugProps) {
 	const navigate = useNavigate();
@@ -52,7 +51,6 @@ export function UserRailButton({
 			? session.user.image
 			: undefined;
 	const accountLabel = name ?? email ?? "Account";
-	const isExpandedSidebar = forceExpandedSidebar ?? false;
 
 	return (
 		<DropdownMenu>
@@ -60,12 +58,11 @@ export function UserRailButton({
 				render={
 					<button
 						type="button"
-						title={!isExpandedSidebar ? accountLabel : undefined}
 						aria-label={accountLabel}
 						data-sidebar-interactive
 						data-sidebar-user-row
 						className={cn(
-							getUtilityRailItemClassName(isExpandedSidebar, forceShowLabels),
+							getUtilityRailItemClassName("expanded", forceShowLabels),
 							getSidebarRowDebugClassName({ debugShowBorders, debugVariant }),
 						)}
 					/>
@@ -96,7 +93,7 @@ export function UserRailButton({
 					aria-hidden="true"
 					data-sidebar-user-label
 					className={cn(
-						getUtilityRailLabelClassName(isExpandedSidebar, forceShowLabels),
+						getUtilityRailLabelClassName("expanded", forceShowLabels),
 						getSidebarLabelLaneDebugClassName(debugShowBorders, debugVariant),
 					)}
 				>

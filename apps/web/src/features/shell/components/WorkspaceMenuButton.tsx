@@ -26,14 +26,12 @@ import { cn } from "@/lib/utils";
 export function WorkspaceMenuButton({
 	debugShowBorders,
 	debugVariant,
-	forceExpandedSidebar,
 	forceShowLabels,
 }: SidebarRowDebugProps) {
 	const navigate = useNavigate();
 	const [searchParams] = useSearchParams();
 	const { state, actions } = useOrganization();
 	const workspaceName = state.activeOrg?.name ?? "Workspace";
-	const isExpandedSidebar = forceExpandedSidebar ?? false;
 
 	return (
 		<DropdownMenu>
@@ -41,12 +39,11 @@ export function WorkspaceMenuButton({
 				render={
 					<button
 						type="button"
-						title={!isExpandedSidebar ? workspaceName : undefined}
 						aria-label={workspaceName}
 						data-sidebar-interactive
 						data-sidebar-workspace-row
 						className={cn(
-							getUtilityRailItemClassName(isExpandedSidebar, forceShowLabels),
+							getUtilityRailItemClassName("expanded", forceShowLabels),
 							getSidebarRowDebugClassName({ debugShowBorders, debugVariant }),
 						)}
 					/>
@@ -72,7 +69,7 @@ export function WorkspaceMenuButton({
 					aria-hidden="true"
 					data-sidebar-workspace-label
 					className={cn(
-						getUtilityRailLabelClassName(isExpandedSidebar, forceShowLabels),
+						getUtilityRailLabelClassName("expanded", forceShowLabels),
 						getSidebarLabelLaneDebugClassName(debugShowBorders, debugVariant),
 					)}
 				>
