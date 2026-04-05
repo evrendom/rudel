@@ -30,7 +30,7 @@ const SIDEBAR_SHELL_EASING_BASELINE = "cubic-bezier(0.23,1,0.32,1)";
 // Shell width motion is intentionally disabled for diagnosis right now.
 // Both open and close snap instantly until we restore a tuned transition.
 const SIDEBAR_SHELL_EXPAND_DURATION_MS = 500;
-const SIDEBAR_SHELL_COLLAPSE_DURATION_MS = 500;
+export const SIDEBAR_SHELL_COLLAPSE_DURATION_MS = 500;
 
 export type SidebarShellMotionVariant = "baseline" | "geometry-trace";
 

@@ -1,8 +1,10 @@
 "use client";
 
+import * as React from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import {
 	Sidebar,
+	SIDEBAR_SHELL_COLLAPSE_DURATION_MS,
 	type SidebarShellMotionVariant,
 	useSidebar,
 } from "@/app/ui/sidebar";
@@ -30,18 +32,15 @@ import { cn } from "@/lib/utils";
 function collapsedLayerClassName(isVisible: boolean) {
 	return cn(
 		"absolute inset-y-0 left-0 flex w-(--sidebar-width-icon) min-h-0 flex-col bg-transparent pb-1.5",
-		isVisible
-			? "pointer-events-auto opacity-100"
-			: "pointer-events-none opacity-0",
+		isVisible ? "pointer-events-auto" : "pointer-events-none",
 	);
 }
 
-function expandedLayerClassName(isVisible: boolean) {
+function expandedLayerClassName(isVisible: boolean, isInteractive: boolean) {
 	return cn(
 		"absolute inset-y-0 left-0 flex w-(--sidebar-width) min-h-0 flex-col overflow-x-clip overflow-y-auto text-clip whitespace-nowrap bg-transparent",
-		isVisible
-			? "pointer-events-auto opacity-100"
-			: "pointer-events-none opacity-0",
+		isVisible ? "opacity-100" : "opacity-0",
+		isInteractive ? "pointer-events-auto" : "pointer-events-none",
 	);
 }
 
@@ -233,6 +232,23 @@ export function AppSidebar({
 	const { state, toggleSidebar } = useSidebar();
 	const { data: session } = authClient.useSession();
 	const isExpandedSidebar = state === "expanded";
+	const [showExpandedLayer, setShowExpandedLayer] =
+		React.useState(isExpandedSidebar);
+
+	React.useEffect(() => {
+		if (isExpandedSidebar) {
+			setShowExpandedLayer(true);
+			return;
+		}
+
+		// Keep the expanded layer mounted through the width collapse so clipping,
+		// not an immediate opacity swap, hides the labels.
+		const timeoutId = window.setTimeout(() => {
+			setShowExpandedLayer(false);
+		}, SIDEBAR_SHELL_COLLAPSE_DURATION_MS);
+
+		return () => window.clearTimeout(timeoutId);
+	}, [isExpandedSidebar]);
 	const userName =
 		session?.user &&
 		"name" in session.user &&
@@ -326,9 +342,12 @@ export function AppSidebar({
 				<div
 					aria-hidden={!isExpandedSidebar}
 					data-sidebar-layer="expanded"
-					data-sidebar-layer-active={isExpandedSidebar ? "true" : "false"}
+					data-sidebar-layer-active={showExpandedLayer ? "true" : "false"}
 					inert={!isExpandedSidebar}
-					className={expandedLayerClassName(isExpandedSidebar)}
+					className={expandedLayerClassName(
+						showExpandedLayer,
+						isExpandedSidebar,
+					)}
 				>
 					<div className="flex min-h-full flex-col bg-transparent">
 						<div className="mt-[var(--sidebar-section-first-margin-top)] flex w-full flex-col gap-[var(--sidebar-expanded-stack-gap)] pl-[calc(var(--sidebar-rail-inset-left)+var(--sidebar-expanded-section-padding-x))] pr-[calc(var(--sidebar-rail-inset-right)+var(--sidebar-expanded-section-padding-x))]">
