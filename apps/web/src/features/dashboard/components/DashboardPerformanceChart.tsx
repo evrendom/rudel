@@ -3,7 +3,12 @@ import {
 	type BarTooltipProps,
 	ResponsiveBar,
 } from "@nivo/bar";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
+import {
+	getSidebarShellDebugState,
+	SIDEBAR_NEWS_ACTIVE_ATTRIBUTE,
+} from "@/features/shell/config/sidebar-shell-debug";
 import type { DashboardMetricColorFamily } from "@/features/dashboard/data/dashboard-metric-colors";
 
 export type DashboardPerformanceDatum = {
@@ -57,14 +62,47 @@ function DashboardPerformanceTooltipContent({
 	);
 }
 
+function useSidebarNewsCardActive() {
+	const [isActive, setIsActive] = useState(false);
+
+	useEffect(() => {
+		const preview = document.querySelector(".dashboard-01-preview");
+		if (!(preview instanceof HTMLElement)) {
+			return;
+		}
+
+		const sync = () => {
+			setIsActive(preview.getAttribute(SIDEBAR_NEWS_ACTIVE_ATTRIBUTE) === "true");
+		};
+
+		sync();
+
+		const observer = new MutationObserver(sync);
+		observer.observe(preview, {
+			attributes: true,
+			attributeFilter: [SIDEBAR_NEWS_ACTIVE_ATTRIBUTE],
+		});
+
+		return () => observer.disconnect();
+	}, []);
+
+	return isActive;
+}
+
 export function DashboardPerformanceChart({
 	colors,
 	data,
 	metricLabel,
 }: DashboardPerformanceChartProps) {
+	const [searchParams] = useSearchParams();
+	const debugState = getSidebarShellDebugState(searchParams);
 	const containerRef = useRef<HTMLDivElement>(null);
 	const [placeholderTooltip, setPlaceholderTooltip] =
 		useState<PlaceholderTooltipState | null>(null);
+	const isSidebarNewsCardActive = useSidebarNewsCardActive();
+	const shouldDisableInteractiveLayers =
+		debugState.tuning.newsDisableChartInteractiveLayersWhileActive &&
+		isSidebarNewsCardActive;
 
 	const semanticDataById = useMemo(
 		() => new Map(data.map((entry) => [entry.id, entry] as const)),
@@ -158,33 +196,35 @@ export function DashboardPerformanceChart({
 									strokeDasharray="7 6"
 									strokeWidth={2}
 								/>
-								<foreignObject
-									x={rectX}
-									y={rectY}
-									width={rectWidth}
-									height={placeholderHeight}
-								>
-									<button
-										type="button"
-										className="h-full w-full cursor-default border-0 bg-transparent p-0 opacity-0"
-										aria-label={`${semanticDatum.fullLabel}: no data for ${metricLabel}`}
-										onMouseEnter={(event) =>
-											updatePlaceholderTooltip(event, bar.data.data)
-										}
-										onMouseMove={(event) =>
-											updatePlaceholderTooltip(event, bar.data.data)
-										}
-										onMouseLeave={hidePlaceholderTooltip}
-										onFocus={() =>
-											setPlaceholderTooltip({
-												datum: semanticDatum,
-												left: rectX + rectWidth / 2,
-												top: rectY,
-											})
-										}
-										onBlur={hidePlaceholderTooltip}
-									/>
-								</foreignObject>
+								{shouldDisableInteractiveLayers ? null : (
+									<foreignObject
+										x={rectX}
+										y={rectY}
+										width={rectWidth}
+										height={placeholderHeight}
+									>
+										<button
+											type="button"
+											className="h-full w-full cursor-default border-0 bg-transparent p-0 opacity-0"
+											aria-label={`${semanticDatum.fullLabel}: no data for ${metricLabel}`}
+											onMouseEnter={(event) =>
+												updatePlaceholderTooltip(event, bar.data.data)
+											}
+											onMouseMove={(event) =>
+												updatePlaceholderTooltip(event, bar.data.data)
+											}
+											onMouseLeave={hidePlaceholderTooltip}
+											onFocus={() =>
+												setPlaceholderTooltip({
+													datum: semanticDatum,
+													left: rectX + rectWidth / 2,
+													top: rectY,
+												})
+											}
+											onBlur={hidePlaceholderTooltip}
+										/>
+									</foreignObject>
+								)}
 							</g>
 						);
 					})}
@@ -195,6 +235,7 @@ export function DashboardPerformanceChart({
 			hidePlaceholderTooltip,
 			metricLabel,
 			semanticDataById,
+			shouldDisableInteractiveLayers,
 			updatePlaceholderTooltip,
 		],
 	);
@@ -217,7 +258,7 @@ export function DashboardPerformanceChart({
 				enableGridY={false}
 				enableGridX={false}
 				enableLabel={false}
-				isInteractive
+				isInteractive={!shouldDisableInteractiveLayers}
 				axisTop={null}
 				axisRight={null}
 				axisBottom={{
@@ -261,21 +302,27 @@ export function DashboardPerformanceChart({
 						},
 					},
 				}}
-				tooltip={(datum: BarTooltipProps<DashboardPerformanceChartRow>) => (
-					<DashboardPerformanceTooltipContent
-						fullLabel={datum.data.fullLabel}
-						metricLabel={metricLabel}
-						metricValue={
-							datum.data.placeholder === 1 ? null : datum.data.rawMetricValue
-						}
-					/>
-				)}
+				tooltip={
+					shouldDisableInteractiveLayers
+						? undefined
+						: (datum: BarTooltipProps<DashboardPerformanceChartRow>) => (
+								<DashboardPerformanceTooltipContent
+									fullLabel={datum.data.fullLabel}
+									metricLabel={metricLabel}
+									metricValue={
+										datum.data.placeholder === 1
+											? null
+											: datum.data.rawMetricValue
+									}
+								/>
+							)
+				}
 				layers={["axes", placeholderLayer, "bars"]}
 				role="img"
 				ariaLabel={`${metricLabel} weekly performance`}
 			/>
 
-			{placeholderTooltip ? (
+			{!shouldDisableInteractiveLayers && placeholderTooltip ? (
 				<div
 					className="pointer-events-none absolute z-20"
 					style={{

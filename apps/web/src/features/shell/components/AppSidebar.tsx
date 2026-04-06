@@ -1,5 +1,6 @@
 "use client";
 
+import { AnimatePresence, motion } from "motion/react";
 import * as React from "react";
 import {
 	SIDEBAR_SHELL_COLLAPSE_DURATION_MS,
@@ -7,6 +8,7 @@ import {
 	type SidebarShellMotionVariant,
 	useSidebar,
 } from "@/app/ui/sidebar";
+import { SidebarNewsCard } from "@/features/shell/components/SidebarNewsCard";
 import { SidebarNewsPopover } from "@/features/shell/components/SidebarNewsPopover";
 import {
 	RailLink,
@@ -16,11 +18,22 @@ import {
 import { UserRailButton } from "@/features/shell/components/UserRailButton";
 import { WorkspaceMenuButton } from "@/features/shell/components/WorkspaceMenuButton";
 import { shellRoutes } from "@/features/shell/config/shell-routes";
-import { SHOW_SIDEBAR_NEWS_MODE } from "@/features/shell/config/sidebar-news";
+import {
+	SHOW_SIDEBAR_NEWS_MODE,
+	SIDEBAR_NEWS_ITEM_ID,
+} from "@/features/shell/config/sidebar-news";
+import type { SidebarShellDebugState } from "@/features/shell/config/sidebar-shell-debug";
 import { useCurrentShellRoute } from "@/features/shell/hooks/useCurrentShellRoute";
 import { cn } from "@/lib/utils";
 
 type SidebarDisplayMode = SidebarRowMode;
+
+const SIDEBAR_NEWS_DISMISS_STORAGE_KEY = `sidebar-news-dismissed:${SIDEBAR_NEWS_ITEM_ID}`;
+
+const SIDEBAR_NEWS_VISIBILITY_TRANSITION = {
+	duration: 0.2,
+	ease: [0.22, 1, 0.36, 1] as const,
+};
 
 function getSidebarSectionClassName(mode: SidebarDisplayMode) {
 	return cn(
@@ -50,6 +63,12 @@ function getSidebarFooterClassName(mode: SidebarDisplayMode) {
 			? "pl-[calc(var(--sidebar-rail-inset-left)+var(--sidebar-expanded-footer-padding-x))] pr-[calc(var(--sidebar-rail-inset-right)+var(--sidebar-expanded-footer-padding-x))] pb-[var(--sidebar-expanded-footer-padding-bottom)]"
 			: "pl-[calc(var(--sidebar-rail-inset-left)+var(--sidebar-collapsed-footer-padding-x))] pr-[calc(var(--sidebar-rail-inset-right)+var(--sidebar-collapsed-footer-padding-x))]",
 	);
+}
+
+function getSidebarFooterStackClassName(mode: SidebarDisplayMode) {
+	return mode === "expanded"
+		? "flex w-full flex-col gap-[var(--sidebar-expanded-stack-gap)]"
+		: "flex w-full flex-col gap-[var(--sidebar-collapsed-stack-gap)]";
 }
 
 function getSidebarContentFrameClassName(mode: SidebarDisplayMode) {
@@ -137,16 +156,40 @@ export function AppSidebar({
 	shellMotionShowBorders = true,
 	shellMotionVariant = "baseline",
 	shellMotionForceLabels = false,
+	shellDebugState,
 }: {
 	shellMotionShowBorders?: boolean;
 	shellMotionVariant?: SidebarShellMotionVariant;
 	shellMotionForceLabels?: boolean;
+	shellDebugState: SidebarShellDebugState;
 }) {
 	const { state, isMobile, openMobile, toggleSidebar } = useSidebar();
 	const isSidebarExpanded = isMobile ? openMobile : state === "expanded";
 	const [displayMode, setDisplayMode] = React.useState<SidebarDisplayMode>(
 		isSidebarExpanded ? "expanded" : "collapsed",
 	);
+	const [isNewsDismissed, setIsNewsDismissed] = React.useState(() => {
+		if (typeof window === "undefined") {
+			return false;
+		}
+
+		try {
+			return (
+				window.localStorage.getItem(SIDEBAR_NEWS_DISMISS_STORAGE_KEY) === "true"
+			);
+		} catch {
+			return false;
+		}
+	});
+	const newsDebugTuning = shellDebugState.tuning;
+
+	const dismissNewsCard = React.useCallback(() => {
+		setIsNewsDismissed(true);
+
+		try {
+			window.localStorage.setItem(SIDEBAR_NEWS_DISMISS_STORAGE_KEY, "true");
+		} catch {}
+	}, []);
 
 	React.useEffect(() => {
 		if (isMobile) {
@@ -175,6 +218,7 @@ export function AppSidebar({
 	}, [displayMode, isMobile, isSidebarExpanded]);
 
 	const isExpandedMode = displayMode === "expanded";
+	const showSidebarNewsCard = isSidebarExpanded && !isNewsDismissed;
 
 	return (
 		<Sidebar
@@ -182,6 +226,17 @@ export function AppSidebar({
 			shellMotionShowBorders={shellMotionShowBorders}
 			shellMotionVariant={shellMotionVariant}
 			className="dashboard-01-chrome-sidebar"
+			data-sidebar-news-overflow-debug={
+				newsDebugTuning.newsSidebarOverflowVisible ? "true" : "false"
+			}
+			data-sidebar-news-promote-debug={
+				newsDebugTuning.newsPromoteSidebar ? "true" : "false"
+			}
+			style={
+				{
+					"--sidebar-news-active-sidebar-z": `${newsDebugTuning.newsActiveSidebarZ}`,
+				} as React.CSSProperties
+			}
 		>
 			<div className={getSidebarContentFrameClassName(displayMode)}>
 				<div className={getSidebarSectionClassName(displayMode)}>
@@ -217,20 +272,35 @@ export function AppSidebar({
 					<CollapsedSidebarExpandSurface onClick={toggleSidebar} />
 				)}
 				<div className={getSidebarFooterClassName(displayMode)}>
-					{isExpandedMode ? (
-						<UserRailButton
-							debugShowBorders={shellMotionShowBorders}
-							debugVariant={shellMotionVariant}
-							forceShowLabels={shellMotionForceLabels}
-						/>
-					) : (
-						<UserRailButton
-							mode="collapsed"
-							debugShowBorders={shellMotionShowBorders}
-							debugVariant={shellMotionVariant}
-							forceShowLabels={shellMotionForceLabels}
-						/>
-					)}
+					<div className={getSidebarFooterStackClassName(displayMode)}>
+						<AnimatePresence initial={false}>
+							{showSidebarNewsCard ? (
+								<motion.div
+									key="sidebar-news-card"
+									initial={{ opacity: 0 }}
+									animate={{ opacity: 1 }}
+									exit={{ opacity: 0 }}
+									transition={SIDEBAR_NEWS_VISIBILITY_TRANSITION}
+								>
+									<SidebarNewsCard onDismiss={dismissNewsCard} />
+								</motion.div>
+							) : null}
+						</AnimatePresence>
+						{isExpandedMode ? (
+							<UserRailButton
+								debugShowBorders={shellMotionShowBorders}
+								debugVariant={shellMotionVariant}
+								forceShowLabels={shellMotionForceLabels}
+							/>
+						) : (
+							<UserRailButton
+								mode="collapsed"
+								debugShowBorders={shellMotionShowBorders}
+								debugVariant={shellMotionVariant}
+								forceShowLabels={shellMotionForceLabels}
+							/>
+						)}
+					</div>
 				</div>
 				<SidebarEdgeHotspot
 					isExpanded={isExpandedMode}

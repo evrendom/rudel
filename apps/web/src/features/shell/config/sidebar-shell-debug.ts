@@ -3,6 +3,7 @@ export const SIDEBAR_SHELL_VARIANT_QUERY_PARAM = "__sidebar_shell";
 export const SIDEBAR_SHELL_BORDERS_QUERY_PARAM = "__sidebar_shell_borders";
 export const SIDEBAR_SHELL_FORCE_LABELS_QUERY_PARAM =
 	"__sidebar_shell_force_labels";
+export const SIDEBAR_NEWS_ACTIVE_ATTRIBUTE = "data-sidebar-news-card-active";
 
 export type SidebarShellDebugVariant = "baseline" | "geometry-trace";
 
@@ -106,6 +107,22 @@ const numericTuningConfig = {
 		key: "__sidebar_tune_shortcut_size",
 		defaultValue: 0.6875,
 	},
+	newsCardTriggerZ: {
+		key: "__sidebar_tune_news_card_trigger_z",
+		defaultValue: 60,
+	},
+	newsBackdropZ: {
+		key: "__sidebar_tune_news_backdrop_z",
+		defaultValue: 50,
+	},
+	newsPopupZ: {
+		key: "__sidebar_tune_news_popup_z",
+		defaultValue: 51,
+	},
+	newsActiveSidebarZ: {
+		key: "__sidebar_tune_news_active_sidebar_z",
+		defaultValue: 10,
+	},
 } as const;
 
 const stringTuningConfig = {
@@ -131,11 +148,51 @@ const stringTuningConfig = {
 	},
 } as const;
 
-export type SidebarShellTuningState = {
-	[K in keyof typeof numericTuningConfig]: number;
-} & {
-	[K in keyof typeof stringTuningConfig]: string;
-};
+const booleanTuningConfig = {
+	newsPromoteSidebar: {
+		key: "__sidebar_tune_news_promote_sidebar",
+		defaultValue: false,
+	},
+	newsSidebarOverflowVisible: {
+		key: "__sidebar_tune_news_sidebar_overflow",
+		defaultValue: false,
+	},
+	newsUseSharedLayout: {
+		key: "__sidebar_tune_news_use_shared_layout",
+		defaultValue: true,
+	},
+	newsUseMeasuredClose: {
+		key: "__sidebar_tune_news_use_measured_close",
+		defaultValue: true,
+	},
+	newsUsePlainFixedPopup: {
+		key: "__sidebar_tune_news_use_plain_fixed_popup",
+		defaultValue: true,
+	},
+	newsHidePerformanceChartWhileActive: {
+		key: "__sidebar_tune_news_hide_performance_chart",
+		defaultValue: false,
+	},
+	newsDisableChartInteractiveLayersWhileActive: {
+		key: "__sidebar_tune_news_disable_chart_interactive_layers",
+		defaultValue: false,
+	},
+	newsPromoteModalCompositorLayer: {
+		key: "__sidebar_tune_news_promote_modal_compositor",
+		defaultValue: false,
+	},
+} as const;
+
+export type SidebarShellNumericTuningKey = keyof typeof numericTuningConfig;
+export type SidebarShellStringTuningKey = keyof typeof stringTuningConfig;
+export type SidebarShellBooleanTuningKey = keyof typeof booleanTuningConfig;
+
+export type SidebarShellTuningState = Record<
+	SidebarShellNumericTuningKey,
+	number
+> &
+	Record<SidebarShellStringTuningKey, string> &
+	Record<SidebarShellBooleanTuningKey, boolean>;
 
 const defaultSidebarShellTuningState = {
 	...Object.fromEntries(
@@ -146,6 +203,12 @@ const defaultSidebarShellTuningState = {
 	),
 	...Object.fromEntries(
 		Object.entries(stringTuningConfig).map(([key, config]) => [
+			key,
+			config.defaultValue,
+		]),
+	),
+	...Object.fromEntries(
+		Object.entries(booleanTuningConfig).map(([key, config]) => [
 			key,
 			config.defaultValue,
 		]),
@@ -190,6 +253,19 @@ function getStringTuningValue(
 	return searchParams.get(key) ?? defaultValue;
 }
 
+function getBooleanTuningValue(
+	searchParams: URLSearchParams,
+	key: string,
+	defaultValue: boolean,
+) {
+	const rawValue = searchParams.get(key);
+	if (rawValue == null) {
+		return defaultValue;
+	}
+
+	return rawValue.toLowerCase() === "true";
+}
+
 export function getSidebarShellDebugState(
 	searchParams: URLSearchParams,
 ): SidebarShellDebugState {
@@ -218,6 +294,12 @@ export function getSidebarShellDebugState(
 				getStringTuningValue(searchParams, config.key, config.defaultValue),
 			]),
 		),
+		...Object.fromEntries(
+			Object.entries(booleanTuningConfig).map(([key, config]) => [
+				key,
+				getBooleanTuningValue(searchParams, config.key, config.defaultValue),
+			]),
+		),
 	} as SidebarShellTuningState;
 
 	return {
@@ -241,6 +323,13 @@ function applyTuningSearchParams(
 	}
 
 	for (const [stateKey, config] of Object.entries(stringTuningConfig)) {
+		searchParams.set(
+			config.key,
+			`${tuning[stateKey as keyof SidebarShellTuningState]}`,
+		);
+	}
+
+	for (const [stateKey, config] of Object.entries(booleanTuningConfig)) {
 		searchParams.set(
 			config.key,
 			`${tuning[stateKey as keyof SidebarShellTuningState]}`,
@@ -299,6 +388,9 @@ export function getSidebarShellDebugSearchParams(
 			nextSearchParams.delete(config.key);
 		}
 		for (const config of Object.values(stringTuningConfig)) {
+			nextSearchParams.delete(config.key);
+		}
+		for (const config of Object.values(booleanTuningConfig)) {
 			nextSearchParams.delete(config.key);
 		}
 		return nextSearchParams;

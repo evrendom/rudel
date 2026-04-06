@@ -208,7 +208,10 @@ export function DashboardPerformancePanel({
 							className="bg-muted/20 shadow-none ring-1 ring-border/60"
 						>
 							<CardContent>
-								<div className="h-[18.5rem] sm:h-[20rem]">
+								<div
+									data-slot="dashboard-performance-chart-shell"
+									className="h-[18.5rem] sm:h-[20rem]"
+								>
 									<Suspense fallback={<DashboardPerformanceChartFallback />}>
 										<DashboardPerformanceChart
 											colors={selectedMetricColors}

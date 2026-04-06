@@ -5,8 +5,11 @@ import { useSearchParams } from "react-router-dom";
 import {
 	getDefaultSidebarShellTuningState,
 	getSidebarShellDebugSearchParams,
+	type SidebarShellBooleanTuningKey,
 	type SidebarShellDebugState,
 	type SidebarShellDebugUpdate,
+	type SidebarShellNumericTuningKey,
+	type SidebarShellStringTuningKey,
 	type SidebarShellTuningState,
 } from "@/features/shell/config/sidebar-shell-debug";
 import { cn } from "@/lib/utils";
@@ -24,17 +27,24 @@ type SidebarShellTrace = {
 };
 
 type NumericControl = {
-	key: keyof SidebarShellTuningState;
+	key: SidebarShellNumericTuningKey;
 	label: string;
 	min: number;
 	max: number;
 	step: number;
+	unit?: "rem" | "number";
 };
 
 type ColorControl = {
-	key: keyof SidebarShellTuningState;
+	key: SidebarShellStringTuningKey;
 	label: string;
 	placeholder?: string;
+};
+
+type ToggleControl = {
+	key: SidebarShellBooleanTuningKey;
+	label: string;
+	description: string;
 };
 
 type TargetMeta = {
@@ -229,6 +239,43 @@ const numericSections: Array<{
 			},
 		],
 	},
+	{
+		title: "News Modal",
+		controls: [
+			{
+				key: "newsCardTriggerZ",
+				label: "Card z-index",
+				min: 0,
+				max: 300,
+				step: 1,
+				unit: "number",
+			},
+			{
+				key: "newsBackdropZ",
+				label: "Backdrop z-index",
+				min: 0,
+				max: 300,
+				step: 1,
+				unit: "number",
+			},
+			{
+				key: "newsPopupZ",
+				label: "Popup z-index",
+				min: 0,
+				max: 300,
+				step: 1,
+				unit: "number",
+			},
+			{
+				key: "newsActiveSidebarZ",
+				label: "Active sidebar z-index",
+				min: 0,
+				max: 300,
+				step: 1,
+				unit: "number",
+			},
+		],
+	},
 ];
 
 const REM_IN_PX = 16;
@@ -250,6 +297,57 @@ const colorControls: ColorControl[] = [
 		key: "rowActiveFg",
 		label: "Active text/icon",
 		placeholder: "var(--dashboard-01-rail-icon-active)",
+	},
+];
+
+const toggleControls: ToggleControl[] = [
+	{
+		key: "newsPromoteSidebar",
+		label: "Promote sidebar while active",
+		description:
+			"Raises the sidebar container only while the news card modal or morph is active.",
+	},
+	{
+		key: "newsSidebarOverflowVisible",
+		label: "Sidebar overflow visible while active",
+		description:
+			"Disables sidebar clipping only while the news card modal or morph is active.",
+	},
+	{
+		key: "newsUseSharedLayout",
+		label: "Use shared layout morph",
+		description:
+			"Runs the open and close transition through Motion's shared layoutId handoff.",
+	},
+	{
+		key: "newsUseMeasuredClose",
+		label: "Use measured close overlay",
+		description:
+			"On close, measures the popup and card and animates a fixed clone back to the sidebar.",
+	},
+	{
+		key: "newsUsePlainFixedPopup",
+		label: "Use plain fixed popup",
+		description:
+			"Bypasses Base UI's Popup primitive and renders the open state as a plain fixed portal layer.",
+	},
+	{
+		key: "newsHidePerformanceChartWhileActive",
+		label: "Hide performance chart while active",
+		description:
+			"Temporarily hides the dashboard performance chart while the news card modal or morph is active.",
+	},
+	{
+		key: "newsDisableChartInteractiveLayersWhileActive",
+		label: "Disable chart tooltip layers while active",
+		description:
+			"Turns off the chart tooltip and foreignObject hover layer while the news card modal or morph is active.",
+	},
+	{
+		key: "newsPromoteModalCompositorLayer",
+		label: "Promote modal compositor layer",
+		description:
+			"Adds aggressive compositor hints to the modal popup and close clone while the news card animates.",
 	},
 ];
 
@@ -285,6 +383,28 @@ function getTargetMeta(key: keyof SidebarShellTuningState): TargetMeta {
 				className:
 					"bg-rose-500/12 text-rose-700 ring-1 ring-rose-500/30 dark:text-rose-300",
 			};
+		case "newsCardTriggerZ":
+		case "newsBackdropZ":
+		case "newsPopupZ":
+		case "newsActiveSidebarZ":
+		case "newsPromoteSidebar":
+		case "newsSidebarOverflowVisible":
+			return {
+				label: "Layer",
+				className:
+					"bg-emerald-500/12 text-emerald-700 ring-1 ring-emerald-500/30 dark:text-emerald-300",
+			};
+		case "newsUseSharedLayout":
+		case "newsUseMeasuredClose":
+		case "newsUsePlainFixedPopup":
+		case "newsHidePerformanceChartWhileActive":
+		case "newsDisableChartInteractiveLayersWhileActive":
+		case "newsPromoteModalCompositorLayer":
+			return {
+				label: "Experiment",
+				className:
+					"bg-cyan-500/12 text-cyan-700 ring-1 ring-cyan-500/30 dark:text-cyan-300",
+			};
 		default:
 			return {
 				label: "Row",
@@ -301,17 +421,22 @@ function NumberField({
 	min,
 	max,
 	step,
+	unit,
 	onChange,
 }: NumericControl & {
 	value: number;
 	onChange: (nextValue: number) => void;
 }) {
 	const target = getTargetMeta(key);
-	const valuePx = value * REM_IN_PX;
-	const minPx = min * REM_IN_PX;
-	const maxPx = max * REM_IN_PX;
-	const stepPx = step * REM_IN_PX;
-	const displayPrecision = Number.isInteger(stepPx) ? 0 : 1;
+	const usesRawValue = unit === "number";
+	const sliderValue = usesRawValue ? value : value * REM_IN_PX;
+	const sliderMin = usesRawValue ? min : min * REM_IN_PX;
+	const sliderMax = usesRawValue ? max : max * REM_IN_PX;
+	const sliderStep = usesRawValue ? step : step * REM_IN_PX;
+	const displayPrecision = Number.isInteger(sliderStep) ? 0 : 1;
+	const displayValue = usesRawValue
+		? sliderValue.toFixed(displayPrecision)
+		: `${sliderValue.toFixed(displayPrecision)} px`;
 
 	return (
 		<label className="grid gap-1.5">
@@ -327,18 +452,20 @@ function NumberField({
 						{target.label}
 					</span>
 				</div>
-				<span className="font-mono text-foreground/60">
-					{valuePx.toFixed(displayPrecision)} px
-				</span>
+				<span className="font-mono text-foreground/60">{displayValue}</span>
 			</div>
 			<input
 				type="range"
-				min={minPx}
-				max={maxPx}
-				step={stepPx}
-				value={valuePx}
+				min={sliderMin}
+				max={sliderMax}
+				step={sliderStep}
+				value={sliderValue}
 				onChange={(event) =>
-					onChange(Number.parseFloat(event.target.value) / REM_IN_PX)
+					onChange(
+						usesRawValue
+							? Number.parseFloat(event.target.value)
+							: Number.parseFloat(event.target.value) / REM_IN_PX,
+					)
 				}
 				className="h-2 w-full cursor-pointer appearance-none rounded-full bg-muted accent-foreground"
 			/>
@@ -379,6 +506,53 @@ function TextField({
 				className="h-8 rounded-md border border-border/70 bg-background px-2 font-mono text-[11px] text-foreground outline-none ring-0 placeholder:text-muted-foreground"
 			/>
 		</label>
+	);
+}
+
+function ToggleField({
+	control,
+	value,
+	onChange,
+}: {
+	control: ToggleControl;
+	value: boolean;
+	onChange: (nextValue: boolean) => void;
+}) {
+	const target = getTargetMeta(control.key);
+
+	return (
+		<div className="flex items-center justify-between gap-3 rounded-xl border border-border/70 bg-muted/40 p-3">
+			<div>
+				<div className="flex items-center gap-2">
+					<p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+						{control.label}
+					</p>
+					<span
+						className={cn(
+							"rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.12em]",
+							target.className,
+						)}
+					>
+						{target.label}
+					</span>
+				</div>
+				<p className="mt-1 text-xs text-muted-foreground">
+					{control.description}
+				</p>
+			</div>
+			<button
+				type="button"
+				onClick={() => onChange(!value)}
+				className={cn(
+					"rounded-full px-3 py-1.5 text-xs font-medium transition-colors",
+					value
+						? "bg-foreground text-background"
+						: "bg-background text-foreground ring-1 ring-border",
+				)}
+			>
+				{value ? "On" : "Off"}
+			</button>
+		</div>
 	);
 }
 
@@ -471,7 +645,15 @@ export function SidebarShellDebugPanel({
 	}, [debugState.enabled]);
 
 	if (!debugState.enabled) {
-		return null;
+		return (
+			<button
+				type="button"
+				onClick={() => updateDebugState({ enabled: true })}
+				className="pointer-events-auto fixed right-4 top-4 z-[120] rounded-full border border-foreground/15 bg-background/92 px-3 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-foreground shadow-lg ring-1 ring-foreground/10 backdrop-blur-md transition-colors hover:bg-background"
+			>
+				Open Shell HUD
+			</button>
+		);
 	}
 
 	return (
@@ -479,10 +661,10 @@ export function SidebarShellDebugPanel({
 			<div className="pointer-events-auto flex items-start justify-between gap-3">
 				<div>
 					<p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-						Sidebar Tuner
+						Shell HUD
 					</p>
 					<p className="mt-1 text-sm text-foreground">
-						Live controls for the local sidebar island.
+						Live controls for the local sidebar island and news modal layering.
 					</p>
 				</div>
 				<div className="flex items-center gap-2">
@@ -560,6 +742,25 @@ export function SidebarShellDebugPanel({
 				</button>
 			</div>
 			<div className="pointer-events-auto min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
+				<div className="grid gap-3 rounded-xl border border-border/70 bg-muted/40 p-3">
+					<p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+						News Modal Toggles
+					</p>
+					{toggleControls.map((control) => (
+						<ToggleField
+							key={control.key}
+							control={control}
+							value={debugState.tuning[control.key]}
+							onChange={(nextValue) =>
+								updateDebugState({
+									tuning: {
+										[control.key]: nextValue,
+									} as Partial<SidebarShellTuningState>,
+								})
+							}
+						/>
+					))}
+				</div>
 				{numericSections.map((section) => (
 					<div
 						key={section.title}

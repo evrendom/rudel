@@ -1,6 +1,11 @@
-import * as React from "react";
 import type { CSSProperties } from "react";
-import { Outlet, useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import * as React from "react";
+import {
+	Outlet,
+	useLocation,
+	useNavigate,
+	useSearchParams,
+} from "react-router-dom";
 import { useMountEffect } from "@/app/hooks/useMountEffect";
 import { AppProviders } from "@/app/providers/AppProviders";
 import { AppToaster } from "@/app/ui/AppToaster";
@@ -125,7 +130,14 @@ export function AppShellLayout() {
 	return (
 		<AppProviders>
 			<TooltipProvider>
-				<div className="dashboard-01-preview h-dvh overflow-hidden text-foreground">
+				<div
+					className="dashboard-01-preview h-dvh overflow-hidden text-foreground"
+					data-sidebar-news-hide-performance-chart-debug={
+						sidebarTuning.newsHidePerformanceChartWhileActive
+							? "true"
+							: "false"
+					}
+				>
 					<SidebarProvider
 						defaultOpen={isSidebarNewsModeEnabled}
 						open={isSidebarNewsModeEnabled ? true : undefined}
@@ -171,6 +183,7 @@ export function AppShellLayout() {
 							shellMotionShowBorders={sidebarShellDebugState.showBorders}
 							shellMotionVariant={sidebarShellDebugState.variant}
 							shellMotionForceLabels={sidebarShellDebugState.alwaysShowLabels}
+							shellDebugState={sidebarShellDebugState}
 						/>
 						<SidebarInset className="dashboard-01-window min-h-0 overflow-hidden overscroll-none bg-[var(--dashboard-01-content-background)] md:m-2 md:ml-0 md:rounded-[12px] md:shadow-[0_3px_6px_-2px_rgba(0,0,0,0.02),0_1px_1px_0_rgba(0,0,0,0.04)]">
 							<SiteHeader />

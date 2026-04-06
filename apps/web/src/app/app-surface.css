@@ -440,6 +440,24 @@ body:has(.dashboard-01-preview) {
 	border-right-width: 0;
 }
 
+.dashboard-01-chrome-sidebar[data-sidebar-news-promote-debug="true"][data-sidebar-news-card-active="true"] {
+	z-index: var(--sidebar-news-active-sidebar-z, 10);
+}
+
+.dashboard-01-chrome-sidebar[data-sidebar-news-overflow-debug="true"][data-sidebar-news-card-active="true"]
+	[data-slot="sidebar-inner"],
+.dashboard-01-chrome-sidebar[data-sidebar-news-overflow-debug="true"][data-sidebar-news-card-active="true"]
+	[data-slot="sidebar-inner"]
+	> div {
+	overflow: visible;
+}
+
+.dashboard-01-preview[data-sidebar-news-hide-performance-chart-debug="true"][data-sidebar-news-card-active="true"]
+	[data-slot="dashboard-performance-chart-shell"] {
+	opacity: 0;
+	pointer-events: none;
+}
+
 body:has(.dashboard-01-preview)::before,
 body:has(.dashboard-01-preview)::after {
 	content: "";

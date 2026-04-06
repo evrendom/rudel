@@ -16,7 +16,7 @@ export type SidebarRowDebugProps = {
 };
 
 const shellMenuButtonBaseClassName =
-	"relative flex w-full items-center gap-[var(--sidebar-row-gap)] overflow-hidden h-[var(--sidebar-row-height)] rounded-full text-left !bg-[var(--sidebar-row-idle-bg)] text-[color:var(--sidebar-row-fg)] outline-none transition-[background-color] duration-[160ms] ease-[cubic-bezier(0.23,1,0.32,1)] hover:!bg-[var(--sidebar-row-hover-bg)] hover:!text-[color:var(--sidebar-row-active-fg)] active:!bg-[var(--sidebar-row-hover-bg)] active:!text-[color:var(--sidebar-row-active-fg)] focus-visible:ring-3 focus-visible:ring-ring/50 data-[active=true]:!bg-[var(--sidebar-row-active-bg)] data-[active=true]:!text-[color:var(--sidebar-row-active-fg)]";
+	"relative flex w-full scale-100 items-center gap-[var(--sidebar-row-gap)] overflow-hidden h-[var(--sidebar-row-height)] rounded-full text-left !bg-[var(--sidebar-row-idle-bg)] text-[color:var(--sidebar-row-fg)] outline-none transition-[background-color,color,transform] duration-[160ms] ease-[cubic-bezier(0.23,1,0.32,1)] hover:!bg-[var(--sidebar-row-hover-bg)] hover:!text-[color:var(--sidebar-row-active-fg)] active:scale-[0.98] active:!bg-[var(--sidebar-row-hover-bg)] active:!text-[color:var(--sidebar-row-active-fg)] focus-visible:ring-3 focus-visible:ring-ring/50 data-[active=true]:!bg-[var(--sidebar-row-active-bg)] data-[active=true]:!text-[color:var(--sidebar-row-active-fg)]";
 
 function getShellMenuButtonClassName(mode: SidebarRowMode) {
 	return cn(
