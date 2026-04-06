@@ -1,5 +1,7 @@
+import * as React from "react";
 import type { CSSProperties } from "react";
-import { Outlet, useSearchParams } from "react-router-dom";
+import { Outlet, useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import { useMountEffect } from "@/app/hooks/useMountEffect";
 import { AppProviders } from "@/app/providers/AppProviders";
 import { AppToaster } from "@/app/ui/AppToaster";
 import "@/app/app-surface.css";
@@ -8,8 +10,12 @@ import { TooltipProvider } from "@/app/ui/tooltip";
 import { AppSidebar } from "@/features/shell/components/AppSidebar";
 import { SidebarShellDebugPanel } from "@/features/shell/components/SidebarShellDebugPanel";
 import { SiteHeader } from "@/features/shell/components/SiteHeader";
+import { shellRoutes } from "@/features/shell/config/shell-routes";
 import { SHOW_SIDEBAR_NEWS_MODE } from "@/features/shell/config/sidebar-news";
-import { getSidebarShellDebugState } from "@/features/shell/config/sidebar-shell-debug";
+import {
+	appendSidebarShellDebugParams,
+	getSidebarShellDebugState,
+} from "@/features/shell/config/sidebar-shell-debug";
 
 const defaultDashboardChromeValues = {
 	turbulence: {
@@ -60,11 +66,61 @@ const defaultChromeStyle = {
 	"--dashboard-01-window-shadow": `${defaultDashboardChromeValues.shadow.x}px ${defaultDashboardChromeValues.shadow.y}px ${defaultDashboardChromeValues.shadow.blur}px ${defaultDashboardChromeValues.shadow.spread}px ${hexToRgba(defaultDashboardChromeValues.shadow.color, defaultDashboardChromeValues.shadow.opacity)}`,
 } as CSSProperties;
 
+const shellShortcutRouteByKey = Object.fromEntries(
+	shellRoutes.map((route) => [route.shortcut.toLowerCase(), route.path]),
+) as Record<string, string>;
+
+function isEditableTarget(target: EventTarget | null) {
+	if (!(target instanceof HTMLElement)) {
+		return false;
+	}
+
+	if (target.isContentEditable) {
+		return true;
+	}
+
+	const editableContainer = target.closest(
+		'input, textarea, select, [contenteditable="true"], [role="textbox"]',
+	);
+	return editableContainer instanceof HTMLElement;
+}
+
 export function AppShellLayout() {
+	const navigate = useNavigate();
+	const location = useLocation();
 	const [searchParams] = useSearchParams();
 	const isSidebarNewsModeEnabled = SHOW_SIDEBAR_NEWS_MODE;
 	const sidebarShellDebugState = getSidebarShellDebugState(searchParams);
 	const sidebarTuning = sidebarShellDebugState.tuning;
+	const handleShellShortcutKeyDown = React.useEffectEvent(
+		(event: KeyboardEvent) => {
+			if (
+				event.defaultPrevented ||
+				event.metaKey ||
+				event.ctrlKey ||
+				event.altKey ||
+				event.shiftKey ||
+				event.repeat ||
+				isEditableTarget(event.target)
+			) {
+				return;
+			}
+
+			const nextPath = shellShortcutRouteByKey[event.key.toLowerCase()];
+			if (!nextPath || location.pathname === nextPath) {
+				return;
+			}
+
+			event.preventDefault();
+			navigate(appendSidebarShellDebugParams(nextPath, searchParams));
+		},
+	);
+
+	useMountEffect(() => {
+		window.addEventListener("keydown", handleShellShortcutKeyDown);
+		return () =>
+			window.removeEventListener("keydown", handleShellShortcutKeyDown);
+	});
 
 	return (
 		<AppProviders>
@@ -116,7 +172,7 @@ export function AppShellLayout() {
 							shellMotionVariant={sidebarShellDebugState.variant}
 							shellMotionForceLabels={sidebarShellDebugState.alwaysShowLabels}
 						/>
-						<SidebarInset className="dashboard-01-window min-h-0 overflow-hidden overscroll-none bg-[var(--dashboard-01-content-background)]">
+						<SidebarInset className="dashboard-01-window min-h-0 overflow-hidden overscroll-none bg-[var(--dashboard-01-content-background)] md:m-2 md:ml-0 md:rounded-[12px] md:shadow-[0_3px_6px_-2px_rgba(0,0,0,0.02),0_1px_1px_0_rgba(0,0,0,0.04)]">
 							<SiteHeader />
 							<div className="flex min-h-0 flex-1 flex-col overflow-auto overscroll-none">
 								<div className="@container/main flex min-h-0 flex-1 flex-col gap-2">

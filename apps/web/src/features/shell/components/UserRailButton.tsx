@@ -18,6 +18,7 @@ import {
 	getUtilityRailItemClassName,
 	getUtilityRailLabelClassName,
 	type SidebarRowDebugProps,
+	type SidebarRowMode,
 } from "@/features/shell/components/shell-rail";
 import { appendSidebarShellDebugParams } from "@/features/shell/config/sidebar-shell-debug";
 import { authClient, signOut } from "@/lib/auth-client";
@@ -27,7 +28,8 @@ export function UserRailButton({
 	debugShowBorders,
 	debugVariant,
 	forceShowLabels,
-}: SidebarRowDebugProps) {
+	mode = "expanded",
+}: SidebarRowDebugProps & { mode?: SidebarRowMode }) {
 	const navigate = useNavigate();
 	const [searchParams] = useSearchParams();
 	const { data: session } = authClient.useSession();
@@ -62,7 +64,9 @@ export function UserRailButton({
 						data-sidebar-interactive
 						data-sidebar-user-row
 						className={cn(
-							getUtilityRailItemClassName("expanded", forceShowLabels),
+							getUtilityRailItemClassName(mode, forceShowLabels),
+							mode === "collapsed" &&
+								"hover:!bg-transparent active:!bg-transparent",
 							getSidebarRowDebugClassName({ debugShowBorders, debugVariant }),
 						)}
 					/>
@@ -93,7 +97,7 @@ export function UserRailButton({
 					aria-hidden="true"
 					data-sidebar-user-label
 					className={cn(
-						getUtilityRailLabelClassName("expanded", forceShowLabels),
+						getUtilityRailLabelClassName(mode, forceShowLabels),
 						getSidebarLabelLaneDebugClassName(debugShowBorders, debugVariant),
 					)}
 				>

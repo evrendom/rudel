@@ -9,12 +9,6 @@ import {
 } from "@/app/ui/sidebar";
 import { SidebarNewsPopover } from "@/features/shell/components/SidebarNewsPopover";
 import {
-	getInitials,
-	getSidebarIconLaneDebugClassName,
-	getSidebarLabelLaneDebugClassName,
-	getSidebarRowDebugClassName,
-	getUtilityRailItemClassName,
-	getUtilityRailLabelClassName,
 	RailLink,
 	type SidebarRowDebugProps,
 	type SidebarRowMode,
@@ -24,9 +18,6 @@ import { WorkspaceMenuButton } from "@/features/shell/components/WorkspaceMenuBu
 import { shellRoutes } from "@/features/shell/config/shell-routes";
 import { SHOW_SIDEBAR_NEWS_MODE } from "@/features/shell/config/sidebar-news";
 import { useCurrentShellRoute } from "@/features/shell/hooks/useCurrentShellRoute";
-import workspaceIcon from "@/features/team/assets/team-lineup-workspace-icon-v5.png";
-import { useOrganization } from "@/features/workspace/organization/useOrganization";
-import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
 
 type SidebarDisplayMode = SidebarRowMode;
@@ -35,9 +26,21 @@ function getSidebarSectionClassName(mode: SidebarDisplayMode) {
 	return cn(
 		"mt-[var(--sidebar-section-first-margin-top)] flex w-full flex-col",
 		mode === "expanded"
-			? "gap-[var(--sidebar-expanded-stack-gap)] pl-[calc(var(--sidebar-rail-inset-left)+var(--sidebar-expanded-section-padding-x))] pr-[calc(var(--sidebar-rail-inset-right)+var(--sidebar-expanded-section-padding-x))]"
-			: "gap-[var(--sidebar-collapsed-stack-gap)] pl-[calc(var(--sidebar-rail-inset-left)+var(--sidebar-collapsed-section-padding-x))] pr-[calc(var(--sidebar-rail-inset-right)+var(--sidebar-collapsed-section-padding-x))]",
+			? "pl-[calc(var(--sidebar-rail-inset-left)+var(--sidebar-expanded-section-padding-x))] pr-[calc(var(--sidebar-rail-inset-right)+var(--sidebar-expanded-section-padding-x))]"
+			: "pl-[calc(var(--sidebar-rail-inset-left)+var(--sidebar-collapsed-section-padding-x))] pr-[calc(var(--sidebar-rail-inset-right)+var(--sidebar-collapsed-section-padding-x))]",
 	);
+}
+
+function getSidebarTopClusterClassName(mode: SidebarDisplayMode) {
+	return mode === "expanded"
+		? "flex w-full flex-col gap-[var(--sidebar-expanded-stack-gap)]"
+		: "flex w-full flex-col gap-[var(--sidebar-collapsed-stack-gap)]";
+}
+
+function getSidebarNavigationClusterClassName(mode: SidebarDisplayMode) {
+	return mode === "expanded"
+		? "mt-[calc(var(--sidebar-expanded-stack-gap)+0.5rem)]"
+		: "mt-[calc(var(--sidebar-collapsed-stack-gap)+0.5rem)]";
 }
 
 function getSidebarFooterClassName(mode: SidebarDisplayMode) {
@@ -51,157 +54,49 @@ function getSidebarFooterClassName(mode: SidebarDisplayMode) {
 
 function getSidebarContentFrameClassName(mode: SidebarDisplayMode) {
 	return cn(
-		"flex h-full min-h-0 flex-col bg-transparent",
+		"relative flex h-full min-h-0 flex-col bg-transparent",
 		mode === "expanded"
 			? "w-(--sidebar-width) overflow-x-clip overflow-y-auto text-clip whitespace-nowrap"
 			: "w-(--sidebar-width-icon) pb-1.5",
 	);
 }
 
-function SidebarActionButton({
-	ariaLabel,
-	label,
-	children,
-	onClick,
-	debugShowBorders = true,
-	debugVariant = "baseline",
-	forceShowLabels,
-	rowDataAttribute,
-	iconDataAttribute,
-}: {
-	ariaLabel: string;
-	label: string;
-	children: React.ReactNode;
-	onClick: () => void;
-	forceShowLabels?: boolean;
-	rowDataAttribute: string;
-	iconDataAttribute: string;
-} & Pick<SidebarRowDebugProps, "debugShowBorders" | "debugVariant">) {
+function CollapsedSidebarExpandSurface({ onClick }: { onClick: () => void }) {
 	return (
 		<button
 			type="button"
-			title={label}
-			aria-label={ariaLabel}
+			aria-label="Expand sidebar"
+			onClick={onClick}
+			className="hidden min-h-0 flex-1 cursor-e-resize bg-transparent md:block"
+		/>
+	);
+}
+
+function SidebarEdgeHotspot({
+	isExpanded,
+	onClick,
+}: {
+	isExpanded: boolean;
+	onClick: () => void;
+}) {
+	return (
+		<button
+			type="button"
+			aria-label="Toggle sidebar"
+			tabIndex={-1}
 			onClick={onClick}
 			className={cn(
-				getUtilityRailItemClassName("collapsed", forceShowLabels),
-				getSidebarRowDebugClassName({
-					debugShowBorders,
-					debugVariant,
-				}),
+				"group/sidebar-edge absolute inset-y-0 z-20 hidden w-3 translate-x-1/2 bg-transparent md:block",
+				"group-data-[side=left]:-right-px group-data-[side=right]:-left-px",
+				isExpanded
+					? "group-data-[side=left]:cursor-w-resize group-data-[side=right]:cursor-e-resize"
+					: "group-data-[side=left]:cursor-e-resize group-data-[side=right]:cursor-w-resize",
 			)}
-			{...{ [rowDataAttribute]: true }}
 		>
-			<span
-				className={cn(
-					"flex h-[var(--sidebar-icon-lane-size)] w-[var(--sidebar-icon-lane-size)] shrink-0 items-center justify-center [&_svg]:h-[var(--sidebar-icon-size)] [&_svg]:w-[var(--sidebar-icon-size)] [&_svg]:shrink-0",
-					getSidebarIconLaneDebugClassName(debugShowBorders, debugVariant),
-				)}
-				{...{ [iconDataAttribute]: true }}
-			>
-				{children}
-			</span>
-			<span
-				aria-hidden="true"
-				className={cn(
-					getUtilityRailLabelClassName("collapsed", forceShowLabels),
-					getSidebarLabelLaneDebugClassName(debugShowBorders, debugVariant),
-				)}
-			>
-				{label}
+			<span className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-transparent transition-colors duration-200 ease-out group-hover/sidebar-edge:bg-[color:var(--sidebar-border)]">
+				<span className="absolute inset-0 bg-transparent transition-colors duration-200 ease-out group-hover/sidebar-edge:bg-black/8 dark:group-hover/sidebar-edge:bg-white/12" />
 			</span>
 		</button>
-	);
-}
-
-function CollapsedWorkspaceButton({
-	debugShowBorders,
-	debugVariant,
-	forceShowLabels,
-	onClick,
-}: {
-	onClick: () => void;
-} & SidebarRowDebugProps) {
-	const { state } = useOrganization();
-	const workspaceName = state.activeOrg?.name ?? "Workspace";
-
-	return (
-		<SidebarActionButton
-			ariaLabel="Open workspace menu"
-			label={workspaceName}
-			onClick={onClick}
-			debugShowBorders={debugShowBorders}
-			debugVariant={debugVariant}
-			forceShowLabels={forceShowLabels}
-			rowDataAttribute="data-sidebar-workspace-row"
-			iconDataAttribute="data-sidebar-workspace-icon-lane"
-		>
-			<div className="relative flex h-[var(--sidebar-avatar-size)] min-h-[var(--sidebar-avatar-size)] w-[var(--sidebar-avatar-size)] min-w-[var(--sidebar-avatar-size)] shrink-0 items-center justify-center overflow-hidden rounded-full bg-black">
-				<img
-					src={workspaceIcon}
-					alt=""
-					aria-hidden="true"
-					className="block size-full object-cover"
-				/>
-			</div>
-		</SidebarActionButton>
-	);
-}
-
-function CollapsedUserButton({
-	debugShowBorders,
-	debugVariant,
-	forceShowLabels,
-	onClick,
-}: {
-	onClick: () => void;
-} & SidebarRowDebugProps) {
-	const { data: session } = authClient.useSession();
-	const name =
-		session?.user &&
-		"name" in session.user &&
-		typeof session.user.name === "string"
-			? session.user.name
-			: undefined;
-	const email =
-		session?.user &&
-		"email" in session.user &&
-		typeof session.user.email === "string"
-			? session.user.email
-			: undefined;
-	const image =
-		session?.user &&
-		"image" in session.user &&
-		typeof session.user.image === "string"
-			? session.user.image
-			: undefined;
-
-	return (
-		<SidebarActionButton
-			ariaLabel="Open account menu"
-			label={name ?? email ?? "Account"}
-			onClick={onClick}
-			debugShowBorders={debugShowBorders}
-			debugVariant={debugVariant}
-			forceShowLabels={forceShowLabels}
-			rowDataAttribute="data-sidebar-user-row"
-			iconDataAttribute="data-sidebar-user-icon-lane"
-		>
-			<div className="relative flex h-[var(--sidebar-avatar-size)] min-h-[var(--sidebar-avatar-size)] w-[var(--sidebar-avatar-size)] min-w-[var(--sidebar-avatar-size)] shrink-0 items-center justify-center overflow-hidden rounded-full bg-[color:var(--dashboard-01-avatar-background)] text-[color:var(--dashboard-01-avatar-foreground)]">
-				{image ? (
-					<img
-						src={image}
-						alt=""
-						aria-hidden="true"
-						className="size-6 rounded-full object-cover"
-					/>
-				) : (
-					<span className="text-[10px] font-semibold uppercase">
-						{getInitials(name, email)}
-					</span>
-				)}
-			</div>
-		</SidebarActionButton>
 	);
 }
 
@@ -290,30 +185,37 @@ export function AppSidebar({
 		>
 			<div className={getSidebarContentFrameClassName(displayMode)}>
 				<div className={getSidebarSectionClassName(displayMode)}>
-					{isExpandedMode ? (
-						<WorkspaceMenuButton
+					<div className={getSidebarTopClusterClassName(displayMode)}>
+						{isExpandedMode ? (
+							<WorkspaceMenuButton
+								debugShowBorders={shellMotionShowBorders}
+								debugVariant={shellMotionVariant}
+								forceShowLabels={shellMotionForceLabels}
+							/>
+						) : (
+							<WorkspaceMenuButton
+								mode="collapsed"
+								debugShowBorders={shellMotionShowBorders}
+								debugVariant={shellMotionVariant}
+								forceShowLabels={shellMotionForceLabels}
+							/>
+						)}
+						{SHOW_SIDEBAR_NEWS_MODE && isExpandedMode ? (
+							<SidebarNewsPopover />
+						) : null}
+					</div>
+					<div className={getSidebarNavigationClusterClassName(displayMode)}>
+						<SidebarNavigation
+							mode={displayMode}
 							debugShowBorders={shellMotionShowBorders}
 							debugVariant={shellMotionVariant}
 							forceShowLabels={shellMotionForceLabels}
 						/>
-					) : (
-						<CollapsedWorkspaceButton
-							onClick={toggleSidebar}
-							debugShowBorders={shellMotionShowBorders}
-							debugVariant={shellMotionVariant}
-							forceShowLabels={shellMotionForceLabels}
-						/>
-					)}
-					{SHOW_SIDEBAR_NEWS_MODE && isExpandedMode ? (
-						<SidebarNewsPopover />
-					) : null}
-					<SidebarNavigation
-						mode={displayMode}
-						debugShowBorders={shellMotionShowBorders}
-						debugVariant={shellMotionVariant}
-						forceShowLabels={shellMotionForceLabels}
-					/>
+					</div>
 				</div>
+				{isExpandedMode ? null : (
+					<CollapsedSidebarExpandSurface onClick={toggleSidebar} />
+				)}
 				<div className={getSidebarFooterClassName(displayMode)}>
 					{isExpandedMode ? (
 						<UserRailButton
@@ -322,14 +224,18 @@ export function AppSidebar({
 							forceShowLabels={shellMotionForceLabels}
 						/>
 					) : (
-						<CollapsedUserButton
-							onClick={toggleSidebar}
+						<UserRailButton
+							mode="collapsed"
 							debugShowBorders={shellMotionShowBorders}
 							debugVariant={shellMotionVariant}
 							forceShowLabels={shellMotionForceLabels}
 						/>
 					)}
 				</div>
+				<SidebarEdgeHotspot
+					isExpanded={isExpandedMode}
+					onClick={toggleSidebar}
+				/>
 			</div>
 		</Sidebar>
 	);

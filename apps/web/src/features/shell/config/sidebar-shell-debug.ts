@@ -20,7 +20,7 @@ const numericTuningConfig = {
 	},
 	sectionMarginTop: {
 		key: "__sidebar_tune_section_margin_top",
-		defaultValue: 0.5,
+		defaultValue: 0.8,
 	},
 	railInsetLeft: {
 		key: "__sidebar_tune_rail_inset_left",

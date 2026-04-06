@@ -18,7 +18,7 @@ body:has(.dashboard-01-preview),
 	--dashboard-01-content-background: #fefefe;
 	--dashboard-01-rail-icon: #a4a7a7;
 	--dashboard-01-rail-icon-active: #121517;
-	--dashboard-01-rail-hover: #eff1f2;
+	--dashboard-01-rail-hover: rgba(0, 0, 0, 0.02);
 	--dashboard-01-avatar-background: #e6e7e8;
 	--dashboard-01-avatar-foreground: #6b6f72;
 	--dashboard-01-tone-blue: #2f5fe5;
@@ -41,14 +41,9 @@ body:has(.dashboard-01-preview),
 		rgba(255, 255, 255, 1) 0%,
 		rgba(249, 249, 249, 1) 100%
 	);
-	--dashboard-01-tooltip-surface: #171717;
-	--dashboard-01-tooltip-foreground: #ffffff;
-	--dashboard-01-tooltip-kbd-border: rgba(255, 255, 255, 0.1);
-	--dashboard-01-tooltip-kbd-surface: rgba(255, 255, 255, 0.08);
-	--dashboard-01-tooltip-kbd-foreground: rgba(255, 255, 255, 0.85);
-	--dashboard-01-metric-button-shadow-selected:
-		0 1px 3.1px rgba(0, 0, 0, 0.18),
-		0 12px 24px -18px
+		--dashboard-01-metric-button-shadow-selected:
+			0 1px 3.1px rgba(0, 0, 0, 0.18),
+			0 12px 24px -18px
 		var(--dashboard-01-metric-button-shadow-color, rgba(15, 23, 42, 0.18)),
 		inset 0 10px 5.5px rgba(255, 255, 255, 0.9);
 	--dashboard-01-insights-surface: rgba(255, 255, 255, 0.95);
@@ -362,7 +357,7 @@ body:has(.dashboard-01-preview),
 	--dashboard-01-content-background: oklch(0.205 0 0);
 	--dashboard-01-rail-icon: oklch(0.708 0 0);
 	--dashboard-01-rail-icon-active: oklch(0.985 0 0);
-	--dashboard-01-rail-hover: oklch(0.269 0 0);
+	--dashboard-01-rail-hover: rgba(0, 0, 0, 0.02);
 	--dashboard-01-avatar-background: oklch(0.269 0 0);
 	--dashboard-01-avatar-foreground: oklch(0.708 0 0);
 	--dashboard-01-tone-blue: #6d8fff;
@@ -385,14 +380,9 @@ body:has(.dashboard-01-preview),
 		rgba(255, 255, 255, 0.16) 0%,
 		rgba(255, 255, 255, 0.08) 100%
 	);
-	--dashboard-01-tooltip-surface: #171717;
-	--dashboard-01-tooltip-foreground: #ffffff;
-	--dashboard-01-tooltip-kbd-border: rgba(255, 255, 255, 0.1);
-	--dashboard-01-tooltip-kbd-surface: rgba(255, 255, 255, 0.08);
-	--dashboard-01-tooltip-kbd-foreground: rgba(255, 255, 255, 0.85);
-	--dashboard-01-metric-button-shadow-selected:
-		0 1px 3.1px rgba(0, 0, 0, 0.3),
-		0 12px 24px -18px
+		--dashboard-01-metric-button-shadow-selected:
+			0 1px 3.1px rgba(0, 0, 0, 0.3),
+			0 12px 24px -18px
 		var(--dashboard-01-metric-button-shadow-color, rgba(15, 23, 42, 0.28)),
 		inset 0 10px 5.5px rgba(255, 255, 255, 0.08);
 	--dashboard-01-insights-surface: rgba(37, 39, 42, 0.95);
@@ -447,6 +437,7 @@ body:has(.dashboard-01-preview) {
 
 .dashboard-01-chrome-sidebar [data-slot="sidebar-inner"] {
 	overflow: hidden;
+	border-right-width: 0;
 }
 
 body:has(.dashboard-01-preview)::before,
@@ -592,29 +583,6 @@ body:has(.dashboard-01-preview)::after {
 
 	.dashboard-01-insights-meta {
 		color: var(--dashboard-01-insights-meta);
-	}
-
-	.dashboard-01-tooltip-content {
-		display: inline-flex;
-		width: fit-content;
-		max-width: 20rem;
-		align-items: center;
-		gap: 0.375rem;
-		border-radius: 14px;
-		background: var(--dashboard-01-tooltip-surface);
-		padding: 0.375rem 0.75rem;
-		color: var(--dashboard-01-tooltip-foreground);
-		font-size: 14px;
-	}
-
-	.dashboard-01-tooltip-content [data-slot="kbd"] {
-		position: relative;
-		isolation: isolate;
-		z-index: 50;
-		border-radius: 6px;
-		border: 1px solid var(--dashboard-01-tooltip-kbd-border);
-		background: var(--dashboard-01-tooltip-kbd-surface);
-		color: var(--dashboard-01-tooltip-kbd-foreground);
 	}
 }
 

@@ -17,6 +17,7 @@ import {
 	getUtilityRailItemClassName,
 	getUtilityRailLabelClassName,
 	type SidebarRowDebugProps,
+	type SidebarRowMode,
 } from "@/features/shell/components/shell-rail";
 import { appendSidebarShellDebugParams } from "@/features/shell/config/sidebar-shell-debug";
 import workspaceIcon from "@/features/team/assets/team-lineup-workspace-icon-v5.png";
@@ -27,7 +28,8 @@ export function WorkspaceMenuButton({
 	debugShowBorders,
 	debugVariant,
 	forceShowLabels,
-}: SidebarRowDebugProps) {
+	mode = "expanded",
+}: SidebarRowDebugProps & { mode?: SidebarRowMode }) {
 	const navigate = useNavigate();
 	const [searchParams] = useSearchParams();
 	const { state, actions } = useOrganization();
@@ -43,7 +45,9 @@ export function WorkspaceMenuButton({
 						data-sidebar-interactive
 						data-sidebar-workspace-row
 						className={cn(
-							getUtilityRailItemClassName("expanded", forceShowLabels),
+							getUtilityRailItemClassName(mode, forceShowLabels),
+							mode === "collapsed" &&
+								"hover:!bg-transparent active:!bg-transparent",
 							getSidebarRowDebugClassName({ debugShowBorders, debugVariant }),
 						)}
 					/>
@@ -69,7 +73,7 @@ export function WorkspaceMenuButton({
 					aria-hidden="true"
 					data-sidebar-workspace-label
 					className={cn(
-						getUtilityRailLabelClassName("expanded", forceShowLabels),
+						getUtilityRailLabelClassName(mode, forceShowLabels),
 						getSidebarLabelLaneDebugClassName(debugShowBorders, debugVariant),
 					)}
 				>

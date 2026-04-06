@@ -1,7 +1,9 @@
 import type { ReactNode } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { Badge } from "@/app/ui/badge";
+import { Kbd } from "@/app/ui/kbd";
 import type { SidebarShellMotionVariant } from "@/app/ui/sidebar";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/app/ui/tooltip";
 import { appendSidebarShellDebugParams } from "@/features/shell/config/sidebar-shell-debug";
 import { cn } from "@/lib/utils";
 
@@ -14,7 +16,7 @@ export type SidebarRowDebugProps = {
 };
 
 const shellMenuButtonBaseClassName =
-	"relative flex w-full items-center gap-[var(--sidebar-row-gap)] overflow-hidden h-[var(--sidebar-row-height)] rounded-[var(--sidebar-row-radius)] text-left !bg-[var(--sidebar-row-idle-bg)] text-[color:var(--sidebar-row-fg)] outline-none transition-[background-color] duration-[160ms] ease-[cubic-bezier(0.23,1,0.32,1)] hover:!bg-[var(--sidebar-row-hover-bg)] hover:!text-[color:var(--sidebar-row-active-fg)] active:!bg-[var(--sidebar-row-hover-bg)] active:!text-[color:var(--sidebar-row-active-fg)] focus-visible:ring-3 focus-visible:ring-ring/50 data-[active=true]:!bg-[var(--sidebar-row-active-bg)] data-[active=true]:!text-[color:var(--sidebar-row-active-fg)]";
+	"relative flex w-full items-center gap-[var(--sidebar-row-gap)] overflow-hidden h-[var(--sidebar-row-height)] rounded-full text-left !bg-[var(--sidebar-row-idle-bg)] text-[color:var(--sidebar-row-fg)] outline-none transition-[background-color] duration-[160ms] ease-[cubic-bezier(0.23,1,0.32,1)] hover:!bg-[var(--sidebar-row-hover-bg)] hover:!text-[color:var(--sidebar-row-active-fg)] active:!bg-[var(--sidebar-row-hover-bg)] active:!text-[color:var(--sidebar-row-active-fg)] focus-visible:ring-3 focus-visible:ring-ring/50 data-[active=true]:!bg-[var(--sidebar-row-active-bg)] data-[active=true]:!text-[color:var(--sidebar-row-active-fg)]";
 
 function getShellMenuButtonClassName(mode: SidebarRowMode) {
 	return cn(
@@ -112,61 +114,72 @@ export function RailLink({
 } & SidebarRowDebugProps) {
 	const [searchParams] = useSearchParams();
 	const resolvedTo = appendSidebarShellDebugParams(to, searchParams);
+	const link = (
+		<Link
+			to={resolvedTo}
+			aria-label={label}
+			data-sidebar-interactive
+			data-sidebar-nav-row
+			className={cn(
+				getUtilityRailItemClassName(mode, forceShowLabels),
+				active && "bg-white text-[color:var(--dashboard-01-rail-icon-active)]",
+				getSidebarRowDebugClassName({ debugShowBorders, debugVariant }),
+			)}
+		>
+			<span
+				aria-hidden="true"
+				data-sidebar-nav-icon-lane
+				className={cn(
+					"relative flex h-[var(--sidebar-icon-lane-size)] w-[var(--sidebar-icon-lane-size)] shrink-0 items-center justify-center [&_svg]:h-[var(--sidebar-icon-size)] [&_svg]:w-[var(--sidebar-icon-size)] [&_svg]:shrink-0",
+					getSidebarIconLaneDebugClassName(debugShowBorders, debugVariant),
+				)}
+			>
+				{children}
+			</span>
+			<span
+				aria-hidden="true"
+				data-sidebar-nav-label
+				className={cn(
+					getRailLabelClassName(mode, forceShowLabels),
+					getSidebarLabelLaneDebugClassName(debugShowBorders, debugVariant),
+				)}
+			>
+				{label}
+			</span>
+			{badgeLabel ? (
+				<Badge
+					className={cn(
+						"pointer-events-none absolute -right-1 -top-1 h-4 min-w-4 justify-center px-1 text-[10px]",
+						active ? "bg-primary text-primary-foreground" : undefined,
+					)}
+				>
+					{badgeLabel}
+				</Badge>
+			) : null}
+		</Link>
+	);
 
 	return (
 		<li>
-			<Link
-				to={resolvedTo}
-				aria-label={label}
-				data-sidebar-interactive
-				data-sidebar-nav-row
-				title={mode === "collapsed" ? label : undefined}
-				className={cn(
-					getUtilityRailItemClassName(mode, forceShowLabels),
-					active &&
-						"bg-white text-[color:var(--dashboard-01-rail-icon-active)]",
-					getSidebarRowDebugClassName({ debugShowBorders, debugVariant }),
-				)}
-			>
-				<span
-					aria-hidden="true"
-					data-sidebar-nav-icon-lane
-					className={cn(
-						"relative flex h-[var(--sidebar-icon-lane-size)] w-[var(--sidebar-icon-lane-size)] shrink-0 items-center justify-center [&_svg]:h-[var(--sidebar-icon-size)] [&_svg]:w-[var(--sidebar-icon-size)] [&_svg]:shrink-0",
-						getSidebarIconLaneDebugClassName(debugShowBorders, debugVariant),
-					)}
-				>
-					{children}
-				</span>
-				<span
-					aria-hidden="true"
-					data-sidebar-nav-label
-					className={cn(
-						getRailLabelClassName(mode, forceShowLabels),
-						getSidebarLabelLaneDebugClassName(debugShowBorders, debugVariant),
-					)}
-				>
-					{label}
-				</span>
-				{mode === "expanded" && shortcut ? (
-					<span
-						aria-hidden="true"
-						className="ml-auto inline-flex min-w-5 items-center justify-center rounded-md px-1.5 text-[length:var(--sidebar-shortcut-font-size)] text-[color:var(--sidebar-row-fg)]"
-					>
-						{shortcut}
-					</span>
-				) : null}
-				{badgeLabel ? (
-					<Badge
-						className={cn(
-							"pointer-events-none absolute -right-1 -top-1 h-4 min-w-4 justify-center px-1 text-[10px]",
-							active ? "bg-primary text-primary-foreground" : undefined,
+			{mode === "collapsed" && !forceShowLabels ? (
+				<Tooltip>
+					<TooltipTrigger asChild>{link}</TooltipTrigger>
+					<TooltipContent side="right" className="[&>[aria-hidden='true']]:hidden">
+						{shortcut ? (
+							<div className="flex items-center gap-2">
+								<span>{label}</span>
+								<Kbd className="size-5 min-w-0 rounded-full border-0 p-0 text-[10px]">
+									{shortcut}
+								</Kbd>
+							</div>
+						) : (
+							label
 						)}
-					>
-						{badgeLabel}
-					</Badge>
-				) : null}
-			</Link>
+					</TooltipContent>
+				</Tooltip>
+			) : (
+				link
+			)}
 		</li>
 	);
 }
