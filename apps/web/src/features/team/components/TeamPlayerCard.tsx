@@ -1,10 +1,10 @@
 import type { ReactNode } from "react";
-import { cn } from "@/lib/utils";
 import workspaceIcon from "@/features/team/assets/team-lineup-workspace-icon-v5.png";
 import type {
-	TeamPlayerCardData,
 	TeamCardTone,
+	TeamPlayerCardData,
 } from "@/features/team/data/team-card-types";
+import { cn } from "@/lib/utils";
 
 const featuredMediaRailSlots = ["workspace", "model", "language"] as const;
 
@@ -102,27 +102,6 @@ const defaultShellTextClassNames = {
 	name: "text-[#252220]",
 	title: "text-[#5f5a57]",
 } as const;
-
-const featuredStatsPanelLatticePolygons = Array.from(
-	{ length: 50 },
-	(_, rowIndex) => {
-		const apexY = rowIndex * 5.4;
-		const baseY = apexY + (0.7793999999999999 + 0.088332 * rowIndex);
-		const baseWidth = 0.8999999999999999 + 0.10200000000000001 * rowIndex;
-		const startX = rowIndex % 2 === 0 ? 0 : 5.4;
-
-		return Array.from({ length: 39 }, (_, columnIndex) => {
-			const x = startX + 10.8 * columnIndex;
-			const rightX = x + baseWidth;
-			const centerX = x + baseWidth / 2;
-
-			return {
-				key: `${rowIndex}-${columnIndex}`,
-				points: `${x},${baseY} ${rightX},${baseY} ${centerX},${apexY}`,
-			};
-		});
-	},
-).flat();
 
 type FeaturedPanelOffset = {
 	left: number;
@@ -248,11 +227,7 @@ function FeaturedMediaRail() {
 	);
 }
 
-function FeaturedPlayerPortrait({
-	player,
-}: {
-	player: TeamPlayerCardData;
-}) {
+function FeaturedPlayerPortrait({ player }: { player: TeamPlayerCardData }) {
 	if (player.portraitImageSrc) {
 		return (
 			<img
@@ -339,7 +314,9 @@ function PortraitPanel({
 			)}
 		>
 			<div className="flex items-start justify-between gap-3">
-				<div className={cn(portraitPanelArchetypeClassName, archetypeClassName)}>
+				<div
+					className={cn(portraitPanelArchetypeClassName, archetypeClassName)}
+				>
 					{archetype}
 				</div>
 				<div
@@ -388,11 +365,7 @@ function RoleModelTeamPlayerCardFrame({
 }) {
 	return (
 		<article
-			className={cn(
-				roleModelCardShellClassName,
-				shellClassName,
-				className,
-			)}
+			className={cn(roleModelCardShellClassName, shellClassName, className)}
 		>
 			<div className="flex items-center justify-between">
 				<div className="flex items-center">
@@ -428,9 +401,7 @@ function RoleModelTeamPlayerCardFrame({
 				</div>
 			</div>
 
-			<div
-				className="team-lineup-featured-media-panel mt-[12px] h-[158px] w-full rounded-[14px]"
-			>
+			<div className="team-lineup-featured-media-panel mt-[12px] h-[158px] w-full rounded-[14px]">
 				<FeaturedSharedSurfaceFragment
 					cardHeight={featuredSharedSurfaceLayout.cardHeight}
 					cardWidth={featuredSharedSurfaceLayout.cardWidth}
@@ -463,9 +434,7 @@ function RoleModelTeamPlayerCardFrame({
 				</div>
 			</div>
 
-			<div
-				className="team-lineup-featured-stats-panel mt-auto h-[75px] w-full rounded-[14px]"
-			>
+			<div className="team-lineup-featured-stats-panel mt-auto h-[75px] w-full rounded-[14px]">
 				<FeaturedSharedSurfaceFragment
 					cardHeight={featuredSharedSurfaceLayout.cardHeight}
 					cardWidth={featuredSharedSurfaceLayout.cardWidth}
@@ -557,7 +526,10 @@ function DefaultTeamPlayerCardMedia({
 				>
 					<div className="flex flex-1 items-center justify-center">
 						<div
-							className={cn(portraitPlaceholderInitialsClassName, "text-black/66")}
+							className={cn(
+								portraitPlaceholderInitialsClassName,
+								"text-black/66",
+							)}
 						>
 							{player.badgeInitials}
 						</div>
@@ -612,18 +584,7 @@ function FeaturedSharedSurfaceFragment({
 				width: cardWidth,
 			}}
 		>
-			<svg
-				aria-hidden="true"
-				className="team-lineup-featured-shared-surface__lattice"
-				focusable="false"
-				role="presentation"
-				viewBox="0 0 400 270"
-				preserveAspectRatio="xMidYMid slice"
-			>
-				{featuredStatsPanelLatticePolygons.map((polygon) => (
-					<polygon key={polygon.key} points={polygon.points} fill="white" />
-				))}
-			</svg>
+			{/* Hidden for now: the lattice overlay regressed frontend performance on the team screen. */}
 			<div className="team-lineup-featured-shared-surface__noise-large" />
 			<div className="team-lineup-featured-shared-surface__noise-small" />
 		</div>
