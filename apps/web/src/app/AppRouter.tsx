@@ -24,6 +24,10 @@ const DashboardPage = lazyNamed(
 	() => import("@/features/dashboard/DashboardPage"),
 	"DashboardPage",
 );
+const DashboardyPage = lazyNamed(
+	() => import("@/features/dashboardy/DashboardyPage"),
+	"DashboardyPage",
+);
 const SettingsLayout = lazyNamed(
 	() => import("@/features/settings/SettingsLayout"),
 	"SettingsLayout",
@@ -106,6 +110,10 @@ export function AppRouter({
 				<Route
 					path={shellRouteMap.dashboard.path}
 					element={<LazyRoute Component={DashboardPage} />}
+				/>
+				<Route
+					path={shellRouteMap.dashboardy.path}
+					element={<LazyRoute Component={DashboardyPage} />}
 				/>
 				<Route
 					path={shellRouteMap.team.path}
