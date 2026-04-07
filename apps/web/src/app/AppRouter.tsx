@@ -36,17 +36,9 @@ const WorkspaceSettingsPage = lazyNamed(
 	() => import("@/features/settings/workspace/WorkspaceSettingsPage"),
 	"WorkspaceSettingsPage",
 );
-const InvitationsSettingsPage = lazyNamed(
-	() => import("@/features/settings/invitations/InvitationsSettingsPage"),
-	"InvitationsSettingsPage",
-);
 const AccountSettingsPage = lazyNamed(
 	() => import("@/features/settings/account/AccountSettingsPage"),
 	"AccountSettingsPage",
-);
-const CreateWorkspacePage = lazyNamed(
-	() => import("@/features/settings/create-workspace/CreateWorkspacePage"),
-	"CreateWorkspacePage",
 );
 const TeamPage = lazyNamed(
 	() => import("@/features/team/TeamPage"),
@@ -94,6 +86,10 @@ export function AppRouter({
 		rootRedirectTarget || shellRouteMap.dashboard.path,
 		new URLSearchParams(location.search),
 	);
+	const canonicalWorkspaceSettingsPath = appendSidebarShellDebugParams(
+		settingsRouteMap.workspace.path,
+		new URLSearchParams(location.search),
+	);
 
 	return (
 		<Routes>
@@ -130,7 +126,12 @@ export function AppRouter({
 					/>
 					<Route
 						path={settingsRouteMap.invitations.segment}
-						element={<LazyRoute Component={InvitationsSettingsPage} />}
+						element={
+							<Navigate
+								replace
+								to={`${canonicalWorkspaceSettingsPath}#incoming-invitations`}
+							/>
+						}
 					/>
 					<Route
 						path={settingsRouteMap.account.segment}
@@ -138,7 +139,12 @@ export function AppRouter({
 					/>
 					<Route
 						path={settingsRouteMap["create-workspace"].segment}
-						element={<LazyRoute Component={CreateWorkspacePage} />}
+						element={
+							<Navigate
+								replace
+								to={`${canonicalWorkspaceSettingsPath}#new-workspace`}
+							/>
+						}
 					/>
 				</Route>
 			</Route>

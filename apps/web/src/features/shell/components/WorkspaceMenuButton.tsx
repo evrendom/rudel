@@ -111,10 +111,10 @@ export function WorkspaceMenuButton({
 				<DropdownMenuItem
 					onClick={() =>
 						navigate(
-							appendSidebarShellDebugParams(
-								appRoutes.settingsCreateWorkspace(),
+							`${appendSidebarShellDebugParams(
+								appRoutes.settingsWorkspace(),
 								searchParams,
-							),
+							)}#new-workspace`,
 						)
 					}
 				>

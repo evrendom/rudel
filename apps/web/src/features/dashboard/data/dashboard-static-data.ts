@@ -64,13 +64,6 @@ export interface DashboardDailyPatternPoint {
 	commitRate: number | null;
 }
 
-export interface DashboardWorkTypeStat {
-	label: string;
-	commits: number;
-	sessions: number;
-	commitRate: number;
-}
-
 export interface DashboardRankedOutputRow {
 	label: string;
 	commits: number;
@@ -118,12 +111,6 @@ export interface DashboardBranchActivity {
 export interface DashboardOutputSnapshot {
 	headlineMetrics: DashboardHeadlineMetric[];
 	dailyPattern: DashboardDailyPatternPoint[];
-	lastWeekSamePoint: {
-		commits: number;
-		sessions: number;
-		commitRate: number;
-	};
-	workTypes: DashboardWorkTypeStat[];
 	players: DashboardRankedOutputRow[];
 	repositories: DashboardRankedOutputRow[];
 	models: DashboardDistributionRow[];
@@ -319,13 +306,6 @@ const dailyPatternTemplate = [
 	{ commits: null, sessions: null, commitRate: null },
 ] as const;
 
-const workTypesTemplate: DashboardWorkTypeStat[] = [
-	{ label: "Build", commits: 45, sessions: 56, commitRate: 80 },
-	{ label: "Debug", commits: 20, sessions: 41, commitRate: 49 },
-	{ label: "Refactor", commits: 15, sessions: 24, commitRate: 63 },
-	{ label: "Explore", commits: 9, sessions: 21, commitRate: 43 },
-];
-
 const playersTemplate: DashboardRankedOutputRow[] = [
 	{ label: "Morgan Lee", commits: 21, sessions: 28, commitRate: 75 },
 	{ label: "Riley Nguyen", commits: 17, sessions: 25, commitRate: 68 },
@@ -386,11 +366,6 @@ const sessionProfileTemplate: DashboardProfileComparisonRow[] = [
 	{ label: "Avg errors", committed: "0.8", uncommitted: "1.6" },
 	{ label: "Avg tokens", committed: "84k", uncommitted: "66k" },
 	{ label: "Avg cost", committed: "$3.19", uncommitted: "$2.41" },
-	{
-		label: "Most common archetype",
-		committed: "Build",
-		uncommitted: "Explore",
-	},
 	{ label: "Most common model", committed: "Sonnet 4", uncommitted: "Opus" },
 	{ label: "Plan mode usage", committed: "58%", uncommitted: "31%" },
 ];
@@ -536,12 +511,6 @@ export function createDashboardOutputSnapshot(
 				commitRate: point.commitRate,
 			};
 		}),
-		lastWeekSamePoint: {
-			commits: 76,
-			sessions: 138,
-			commitRate: 55,
-		},
-		workTypes: workTypesTemplate,
 		players: playersTemplate,
 		repositories: repositoriesTemplate,
 		models: modelsTemplate,

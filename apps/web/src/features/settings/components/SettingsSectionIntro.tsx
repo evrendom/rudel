@@ -1,5 +1,4 @@
 import type { ReactNode } from "react";
-import { Card, CardAction, CardDescription, CardHeader, CardTitle } from "@/app/ui/card";
 
 export function SettingsSectionIntro({
 	action,
@@ -11,12 +10,16 @@ export function SettingsSectionIntro({
 	title: string;
 }) {
 	return (
-		<Card size="sm" className="bg-card/95 shadow-none ring-1 ring-border/60">
-			<CardHeader>
-				<CardTitle>{title}</CardTitle>
-				<CardDescription>{description}</CardDescription>
-				{action ? <CardAction>{action}</CardAction> : null}
-			</CardHeader>
-		</Card>
+		<div className="mb-4 flex flex-col gap-4 border-b border-border/60 py-5 sm:flex-row sm:items-end sm:justify-between">
+			<div className="flex max-w-[64ch] flex-col gap-1">
+				<h1 className="font-heading text-2xl font-medium tracking-tight text-balance text-foreground">
+					{title}
+				</h1>
+				<p className="text-base text-muted-foreground text-pretty">
+					{description}
+				</p>
+			</div>
+			{action ? <div className="shrink-0">{action}</div> : null}
+		</div>
 	);
 }

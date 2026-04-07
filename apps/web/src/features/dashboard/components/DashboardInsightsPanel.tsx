@@ -11,7 +11,6 @@ import { DashboardDistributionTable } from "@/features/dashboard/components/Dash
 import { DashboardImpactCards } from "@/features/dashboard/components/DashboardImpactCards";
 import { DashboardRankedOutputTable } from "@/features/dashboard/components/DashboardRankedOutputTable";
 import { DashboardSessionProfileTable } from "@/features/dashboard/components/DashboardSessionProfileTable";
-import { DashboardWorkTypeCards } from "@/features/dashboard/components/DashboardWorkTypeCards";
 import type {
 	DashboardBinaryImpact,
 	DashboardBranchActivity,
@@ -19,11 +18,9 @@ import type {
 	DashboardDistributionRow,
 	DashboardProfileComparisonRow,
 	DashboardRankedOutputRow,
-	DashboardWorkTypeStat,
 } from "@/features/dashboard/data/dashboard-static-data";
 
 export function DashboardInsightsPanel({
-	workTypes,
 	players,
 	repositories,
 	models,
@@ -34,7 +31,6 @@ export function DashboardInsightsPanel({
 	activeBranches,
 	reposTouched,
 }: {
-	workTypes: DashboardWorkTypeStat[];
 	players: DashboardRankedOutputRow[];
 	repositories: DashboardRankedOutputRow[];
 	models: DashboardDistributionRow[];
@@ -56,12 +52,11 @@ export function DashboardInsightsPanel({
 						</CardTitle>
 					</div>
 					<CardDescription className="dashboardy-footnote">
-						The same shipped output sliced by work type, player, repository,
-						model, and source.
+						The same shipped output sliced by player, repository, model, and
+						source.
 					</CardDescription>
 				</CardHeader>
 				<CardContent className="@container/output-breakdown grid gap-4 px-5 py-4">
-					<DashboardWorkTypeCards items={workTypes} />
 					<div className="grid gap-4 @xl/output-breakdown:grid-cols-2">
 						<DashboardRankedOutputTable
 							title="By player"

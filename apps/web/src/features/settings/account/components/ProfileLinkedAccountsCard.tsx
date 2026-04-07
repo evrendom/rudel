@@ -35,49 +35,53 @@ export function ProfileLinkedAccountsCard({
 			<CardHeader>
 				<CardTitle>Linked accounts</CardTitle>
 				<CardDescription>
-					Keep your sign-in methods available without leaving the dashboard.
+					Keep your available sign-in methods connected in one place.
 				</CardDescription>
 			</CardHeader>
-			<CardContent className="flex flex-col gap-3">
-				<Card
-					size="sm"
-					className="bg-muted/20 shadow-none ring-1 ring-border/60"
-				>
-					<CardContent className="flex items-center justify-between gap-3">
-						<div className="flex items-center gap-3">
-							<MailIcon className="text-muted-foreground" />
+			<CardContent>
+				<ul className="flex flex-col divide-y divide-border/60">
+					<li className="flex flex-col gap-3 py-4 first:pt-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between">
+						<div className="flex items-start gap-3">
+							<MailIcon className="mt-0.5 text-muted-foreground" />
 							<div className="flex flex-col gap-1">
-								<span className="font-medium">Email &amp; password</span>
-								<span className="text-xs text-muted-foreground">
-									Primary credential access
-								</span>
+								<p className="font-medium text-foreground">
+									Email &amp; password
+								</p>
+								<p className="text-sm text-muted-foreground">
+									Primary credential access for this account.
+								</p>
 							</div>
 						</div>
-						<Badge variant={linkedProviders.has("credential") ? "secondary" : "outline"}>
+						<Badge
+							variant={
+								linkedProviders.has("credential") ? "secondary" : "outline"
+							}
+						>
 							{linkedProviders.has("credential") ? "Connected" : "Not linked"}
 						</Badge>
-					</CardContent>
-				</Card>
+					</li>
 
-				{providerDefinitions.map((provider) => {
-					const Icon = provider.icon;
-					const isLinked = linkedProviders.has(provider.id);
-					const isLinking = linkingProvider === provider.id;
+					{providerDefinitions.map((provider) => {
+						const Icon = provider.icon;
+						const isLinked = linkedProviders.has(provider.id);
+						const isLinking = linkingProvider === provider.id;
 
-					return (
-						<Card
-							key={provider.id}
-							size="sm"
-							className="bg-muted/20 shadow-none ring-1 ring-border/60"
-						>
-							<CardContent className="flex items-center justify-between gap-3">
-								<div className="flex items-center gap-3">
-									<Icon className="text-muted-foreground" />
+						return (
+							<li
+								key={provider.id}
+								className="flex flex-col gap-3 py-4 first:pt-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between"
+							>
+								<div className="flex items-start gap-3">
+									<Icon className="mt-0.5 text-muted-foreground" />
 									<div className="flex flex-col gap-1">
-										<span className="font-medium">{provider.label}</span>
-										<span className="text-xs text-muted-foreground">
-											{isLinked ? "Already linked" : "Available to connect"}
-										</span>
+										<p className="font-medium text-foreground">
+											{provider.label}
+										</p>
+										<p className="text-sm text-muted-foreground">
+											{isLinked
+												? "Already linked to this profile."
+												: "Available to connect."}
+										</p>
 									</div>
 								</div>
 								{isLinked ? (
@@ -90,14 +94,19 @@ export function ProfileLinkedAccountsCard({
 										onClick={() => onLinkProvider(provider.id)}
 										disabled={isPending || linkingProvider !== null}
 									>
-										{isLinking ? <Loader2Icon data-icon="inline-start" className="animate-spin" /> : null}
+										{isLinking ? (
+											<Loader2Icon
+												data-icon="inline-start"
+												className="animate-spin"
+											/>
+										) : null}
 										Link
 									</Button>
 								)}
-							</CardContent>
-						</Card>
-					);
-				})}
+							</li>
+						);
+					})}
+				</ul>
 			</CardContent>
 		</Card>
 	);

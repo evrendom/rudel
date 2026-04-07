@@ -6,17 +6,17 @@ import { useMemo, useState } from "react";
 import type { DateRange } from "react-day-picker";
 import { Button } from "@/app/ui/button";
 import { Calendar } from "@/app/ui/calendar";
-import { Field, FieldLabel } from "@/app/ui/field";
 import { Popover, PopoverContent, PopoverTrigger } from "@/app/ui/popover";
 import { useDateRange } from "@/features/analytics/date-range/useDateRange";
 import { getSupportedAnalyticsDateRange } from "@/lib/analytics-date-range";
 import { formatIsoDate } from "@/lib/format";
+import { cn } from "@/lib/utils";
 
 function isValidDate(date: Date) {
 	return Number.isFinite(date.getTime());
 }
 
-export function DashboardDateControls() {
+export function DashboardDateControls({ className }: { className?: string }) {
 	const { state, actions } = useDateRange();
 	const [open, setOpen] = useState(false);
 
@@ -51,78 +51,76 @@ export function DashboardDateControls() {
 				: "Pick a date";
 
 	return (
-		<Field className="w-60">
-			<FieldLabel htmlFor="dashboard-date-range" className="dashboardy-label">
-				Date range
-			</FieldLabel>
-			<Popover
-				open={open}
-				onOpenChange={(nextOpen) => {
-					setOpen(nextOpen);
+		<Popover
+			open={open}
+			onOpenChange={(nextOpen) => {
+				setOpen(nextOpen);
 
-					if (nextOpen) {
-						setDraftDateRange(selectedDateRange);
-					}
-				}}
-			>
-				<PopoverTrigger
-					render={
-						<Button
-							variant="outline"
-							size="sm"
-							id="dashboard-date-range"
-							className="dashboardy-action-button h-9 justify-start rounded-full border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-subsurface)] px-2.5 font-normal text-[color:var(--dashboardy-heading)] shadow-none"
-						/>
-					}
-				>
-					<CalendarIcon data-icon="inline-start" />
-					{displayValue ? displayValue : <span>Pick a date</span>}
-				</PopoverTrigger>
-				<PopoverContent
-					className="w-auto gap-0 overflow-hidden p-0"
-					align="end"
-				>
-					<Calendar
-						mode="range"
-						defaultMonth={draftDateRange?.from}
-						selected={draftDateRange}
-						onSelect={setDraftDateRange}
-						numberOfMonths={2}
-						disabled={(date) =>
-							date < supportedDateRange.start || date > supportedDateRange.end
-						}
+				if (nextOpen) {
+					setDraftDateRange(selectedDateRange);
+				}
+			}}
+		>
+			<PopoverTrigger
+				render={
+					<Button
+						variant="outline"
+						size="sm"
+						id="dashboard-date-range"
+						className={cn(
+							"dashboardy-action-button h-8 justify-start gap-1.5 rounded-full border-[color:var(--dashboardy-border)] bg-transparent px-3 text-xs font-medium text-[color:var(--dashboardy-heading)] shadow-none sm:h-9 sm:text-sm",
+							className,
+						)}
 					/>
-					<div className="flex items-center justify-end gap-2 border-t border-border px-3 py-3">
-						<Button
-							variant="ghost"
-							size="sm"
-							onClick={() => {
-								setDraftDateRange(selectedDateRange);
-								setOpen(false);
-							}}
-						>
-							Cancel
-						</Button>
-						<Button
-							size="sm"
-							disabled={!canApplyRange}
-							onClick={() => {
-								if (!draftDateRange?.from || !draftDateRange.to) {
-									return;
-								}
+				}
+			>
+				<CalendarIcon data-icon="inline-start" className="size-3.5" />
+				{displayValue ? displayValue : <span>Pick a date</span>}
+			</PopoverTrigger>
+			<PopoverContent
+				className="w-auto gap-0 overflow-hidden p-0"
+				align="end"
+			>
+				<Calendar
+					mode="range"
+					defaultMonth={draftDateRange?.from}
+					selected={draftDateRange}
+					onSelect={setDraftDateRange}
+					numberOfMonths={2}
+					disabled={(date) =>
+						date < supportedDateRange.start || date > supportedDateRange.end
+					}
+				/>
+				<div className="flex items-center justify-end gap-2 border-t border-border px-3 py-3">
+					<Button
+						variant="ghost"
+						size="sm"
+						onClick={() => {
+							setDraftDateRange(selectedDateRange);
+							setOpen(false);
+						}}
+					>
+						Cancel
+					</Button>
+					<Button
+						size="sm"
+						disabled={!canApplyRange}
+						onClick={() => {
+							if (!draftDateRange?.from || !draftDateRange.to) {
+								return;
+							}
 
-								actions.setDateRange(
-									formatIsoDate(draftDateRange.from),
-									formatIsoDate(draftDateRange.to),
-								);
-								setOpen(false);
-							}}
-						>
-							Apply
-						</Button>
-					</div>
-				</PopoverContent>
-			</Popover>
-		</Field>
+							actions.setDateRange(
+								formatIsoDate(draftDateRange.from),
+								formatIsoDate(draftDateRange.to),
+							);
+							setOpen(false);
+						}}
+					>
+						Apply
+					</Button>
+				</div>
+			</PopoverContent>
+		</Popover>
 	);
 }

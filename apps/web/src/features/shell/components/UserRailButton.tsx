@@ -116,7 +116,7 @@ export function UserRailButton({
 					}
 				>
 					<Settings2Icon />
-					Account settings
+					Profile settings
 				</DropdownMenuItem>
 				<DropdownMenuSeparator />
 				<DropdownMenuItem

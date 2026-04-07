@@ -5,43 +5,57 @@ import type {
 import { cn } from "@/lib/utils";
 
 const deltaToneClass: Record<DashboardDeltaTone, string> = {
-	positive: "text-emerald-700 dark:text-emerald-400",
-	negative: "text-rose-700 dark:text-rose-400",
-	neutral: "text-muted-foreground",
+	positive: "text-status-success-icon",
+	negative: "text-status-error-icon",
+	neutral: "text-[color:var(--dashboardy-muted)]",
+};
+
+const metricBarClass: Record<DashboardHeadlineMetric["id"], string> = {
+	commits: "bg-[color:var(--dashboard-01-tone-orange)]",
+	sessions: "bg-[color:var(--dashboard-01-tone-blue)]",
+	commitRate: "bg-[color:var(--dashboard-01-tone-teal)]",
 };
 
 export function DashboardHeadlineMetricGrid({
 	metrics,
+	className,
+	showDelta = true,
 }: {
 	metrics: DashboardHeadlineMetric[];
+	className?: string;
+	showDelta?: boolean;
 }) {
 	return (
-		<div className="@container/headline-metrics dashboardy-card overflow-hidden rounded-[1.9rem] border shadow-none">
-			<div className="grid divide-y divide-[color:var(--dashboardy-divider)] @lg/headline-metrics:grid-cols-3 @lg/headline-metrics:divide-x @lg/headline-metrics:divide-y-0">
+		<div className={cn("@container/headline-metrics", className)}>
+			<div className="grid grid-cols-2 gap-3 sm:flex sm:flex-wrap sm:gap-x-8 sm:gap-y-4 md:gap-x-10">
 				{metrics.map((metric) => (
-					<div
-						key={metric.id}
-						className="grid gap-3 p-4 @lg/headline-metrics:p-5"
-					>
-						<div className="grid gap-1">
-							<div className="flex items-start justify-between gap-3">
-								<p className="dashboardy-label truncate">{metric.label}</p>
-								<p
+					<div key={metric.id} className="flex min-w-[8.5rem] flex-col gap-1.5">
+						<div className="flex items-end gap-2">
+							<p className="dashboardy-section-title text-[1.8rem]/none text-[color:var(--dashboardy-heading)] sm:text-[3.2rem]/none">
+								{metric.valueLabel}
+							</p>
+							{showDelta ? (
+								<span
 									className={cn(
-										"shrink-0 pt-0.5 text-xs font-medium tabular-nums",
+										"pb-0.5 text-xs font-semibold tabular-nums sm:text-sm",
 										deltaToneClass[metric.deltaTone],
 									)}
 								>
 									{metric.deltaLabel}
-								</p>
-							</div>
-							<p className="dashboard-big-number text-[1.85rem]/8 tabular-nums text-[color:var(--dashboardy-heading)]">
-								{metric.valueLabel}
+								</span>
+							) : null}
+						</div>
+						<div className="flex items-center gap-1.5 leading-none">
+							<span
+								className={cn(
+									"h-3 w-[3px] rounded-full",
+									metricBarClass[metric.id],
+								)}
+							/>
+							<p className="whitespace-nowrap text-[13px] font-semibold text-[color:var(--dashboardy-muted)] sm:text-sm">
+								{metric.label}
 							</p>
 						</div>
-						<p className="dashboardy-footnote max-w-[24ch] text-sm/6">
-							{metric.description}
-						</p>
 					</div>
 				))}
 			</div>
