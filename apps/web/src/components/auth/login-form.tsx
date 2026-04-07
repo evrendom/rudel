@@ -151,7 +151,9 @@ export function LoginForm({
 						disabled={requestingPasswordReset}
 						className="text-left text-sm underline underline-offset-4 hover:text-primary disabled:cursor-not-allowed disabled:opacity-50"
 					>
-						{requestingPasswordReset ? "Sending reset link..." : "Forgot password?"}
+						{requestingPasswordReset
+							? "Sending reset link..."
+							: "Forgot password?"}
 					</button>
 				</form>
 
