@@ -1,6 +1,7 @@
 import type {
 	ModelTokensTrendData,
 	OverviewKPIs,
+	RepositoryDailyTrendData,
 	UsageTrendData,
 	UserDailyTrendData,
 	UserTokenUsageData,
@@ -276,6 +277,7 @@ export async function getUsersDailyTrend(
       toString(toDate(session_date)) as date,
       user_id,
       count() as sessions,
+      sum(has_commit) as total_commits,
       round(sum(actual_duration_min) / 60, 2) as total_hours,
       sum(total_tokens) as total_tokens,
       round(avg(success_score), 2) as avg_success_rate,
@@ -287,6 +289,43 @@ export async function getUsersDailyTrend(
       AND user_id != ''
     GROUP BY date, user_id
     ORDER BY date ASC, user_id ASC
+  `,
+		query_params: {
+			startDate,
+			endDate,
+			orgId,
+		},
+	});
+}
+
+export async function getRepositoriesDailyTrend(
+	orgId: string,
+	startDate: string,
+	endDate: string,
+): Promise<RepositoryDailyTrendData[]> {
+	const dateFilter = buildAbsoluteDateFilter("startDate", "endDate");
+
+	return queryClickhouse<RepositoryDailyTrendData>({
+		query: `
+    SELECT
+      toString(toDate(session_date)) as date,
+      if(
+        git_remote != '',
+        replaceRegexpOne(arrayElement(splitByChar('/', git_remote), -1), '\\\\.git$', ''),
+        if(
+          package_name != '',
+          package_name,
+          arrayElement(splitByChar('/', replaceAll(project_path, '\\\\', '/')), -1)
+        )
+      ) as repository,
+      count() as sessions,
+      sum(has_commit) as total_commits
+    FROM rudel.session_analytics
+    WHERE ${dateFilter}
+      AND organization_id = {orgId:String}
+    GROUP BY date, repository
+    HAVING repository != ''
+    ORDER BY date ASC, repository ASC
   `,
 		query_params: {
 			startDate,

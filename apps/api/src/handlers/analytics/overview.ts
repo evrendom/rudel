@@ -3,6 +3,7 @@ import {
 	getModelTokensTrend,
 	getOverviewInsights,
 	getOverviewKPIs,
+	getRepositoriesDailyTrend,
 	getSuccessRateMetrics,
 	getTeamSummaryWithComparison,
 	getUsageTrendDetailed,
@@ -60,6 +61,16 @@ const usersDailyTrend = os.analytics.overview.usersDailyTrend
 		);
 	});
 
+const repositoriesDailyTrend = os.analytics.overview.repositoriesDailyTrend
+	.use(orgMiddleware)
+	.handler(async ({ input, context }) => {
+		return getRepositoriesDailyTrend(
+			context.organizationId,
+			input.startDate,
+			input.endDate,
+		);
+	});
+
 const insights = os.analytics.overview.insights
 	.use(orgMiddleware)
 	.handler(async ({ input, context }) => {
@@ -96,6 +107,7 @@ export const overviewRouter = os.analytics.overview.router({
 	modelTokensTrend,
 	usersTokenUsage,
 	usersDailyTrend,
+	repositoriesDailyTrend,
 	insights,
 	teamSummaryComparison,
 	successRate,

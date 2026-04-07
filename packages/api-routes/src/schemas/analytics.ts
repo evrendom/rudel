@@ -71,11 +71,19 @@ export const UserDailyTrendDataSchema = z.object({
 	date: z.string(),
 	user_id: z.string(),
 	sessions: z.number(),
+	total_commits: z.number(),
 	total_hours: z.number(),
 	total_tokens: z.number(),
 	avg_success_rate: z.number(),
 	distinct_skills: z.number(),
 	distinct_slash_commands: z.number(),
+});
+
+export const RepositoryDailyTrendDataSchema = z.object({
+	date: z.string(),
+	repository: z.string(),
+	sessions: z.number(),
+	total_commits: z.number(),
 });
 
 export const InsightSchema = z.object({
@@ -689,6 +697,9 @@ export type UsageTrendData = z.infer<typeof UsageTrendDataSchema>;
 export type ModelTokensTrendData = z.infer<typeof ModelTokensTrendDataSchema>;
 export type UserTokenUsageData = z.infer<typeof UserTokenUsageDataSchema>;
 export type UserDailyTrendData = z.infer<typeof UserDailyTrendDataSchema>;
+export type RepositoryDailyTrendData = z.infer<
+	typeof RepositoryDailyTrendDataSchema
+>;
 export type Insight = z.infer<typeof InsightSchema>;
 export type CostWindowMetric = z.infer<typeof CostWindowMetricSchema>;
 export type CostsModelBreakdown = z.infer<typeof CostsModelBreakdownSchema>;

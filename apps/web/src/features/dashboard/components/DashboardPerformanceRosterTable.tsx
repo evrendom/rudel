@@ -1,5 +1,6 @@
 import type { UserDailyTrendData } from "@rudel/api-routes";
-import { format, parseISO } from "date-fns";
+import { useRef } from "react";
+import { useMountEffect } from "@/app/hooks/useMountEffect";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/app/ui/tooltip";
 import type { DashboardPerformanceUserComparison } from "@/features/dashboard/data/dashboard-performance-adapter";
 
@@ -221,29 +222,53 @@ function buildRosterRows(
 
 export function DashboardPerformanceRosterTable({
 	highlightedDate,
+	onHighlightUserChange,
 	performanceUsers,
 	trendData,
 }: {
 	highlightedDate: string | null;
+	onHighlightUserChange?: (userId: string | null) => void;
 	performanceUsers: DashboardPerformanceUserComparison[];
 	trendData: UserDailyTrendData[] | undefined;
 }) {
 	const rows = buildRosterRows(performanceUsers, highlightedDate, trendData);
-	const highlightedDateLabel =
-		highlightedDate != null
-			? format(parseISO(highlightedDate), "EEE, MMM d")
-			: null;
+	const rowContainerRef = useRef<HTMLDivElement | null>(null);
+
+	useMountEffect(() => {
+		const element = rowContainerRef.current;
+
+		if (!element || !onHighlightUserChange) {
+			return;
+		}
+
+		const handlePointerOver = (event: PointerEvent) => {
+			const target = event.target;
+
+			if (!(target instanceof Element)) {
+				return;
+			}
+
+			const row = target.closest<HTMLElement>("[data-performance-row-id]");
+
+			onHighlightUserChange(row?.dataset.performanceRowId ?? null);
+		};
+
+		const handlePointerLeave = () => {
+			onHighlightUserChange(null);
+		};
+
+		element.addEventListener("pointerover", handlePointerOver);
+		element.addEventListener("pointerleave", handlePointerLeave);
+
+		return () => {
+			element.removeEventListener("pointerover", handlePointerOver);
+			element.removeEventListener("pointerleave", handlePointerLeave);
+		};
+	});
 
 	return (
 		<div className="overflow-x-auto">
-			<div className="min-w-[60rem]">
-				<div className="px-3.5 pb-2 text-[12px] font-medium text-[color:var(--dashboardy-muted)]">
-					<p>
-						{highlightedDateLabel
-							? `Showing ${highlightedDateLabel}`
-							: "Showing totals"}
-					</p>
-				</div>
+			<div className="flex min-w-[60rem] flex-col gap-1">
 				<div className="grid grid-cols-[minmax(180px,12fr)_minmax(168px,8fr)_minmax(180px,8fr)_80px_80px_112px] gap-6 px-3.5 text-[13px] font-semibold text-[color:var(--dashboardy-muted)]">
 					<p>User</p>
 					<p>Repository</p>
@@ -252,7 +277,7 @@ export function DashboardPerformanceRosterTable({
 					<p>Commits</p>
 					<p>Rate</p>
 				</div>
-				<div className="grid gap-0">
+				<div ref={rowContainerRef} className="grid gap-0">
 					{rows.map((row) => {
 						const rateTone = getRateTone(row.commitRate);
 						const visibleModels = row.modelsUsed.filter(
@@ -273,6 +298,7 @@ export function DashboardPerformanceRosterTable({
 						return (
 							<div
 								key={row.id}
+								data-performance-row-id={row.id}
 								className="grid min-h-12 grid-cols-[minmax(180px,12fr)_minmax(168px,8fr)_minmax(180px,8fr)_80px_80px_112px] items-center gap-6 rounded-lg px-3.5 py-2 text-sm odd:bg-[color:var(--dashboardy-subsurface-strong)]"
 							>
 								<div className="flex min-w-0 items-center gap-3">

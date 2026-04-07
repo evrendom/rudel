@@ -1,6 +1,6 @@
 "use client";
 
-import type { UserDailyTrendData } from "@rudel/api-routes";
+import type { RepositoryDailyTrendData } from "@rudel/api-routes";
 import { format, parseISO } from "date-fns";
 import { useMemo } from "react";
 import {
@@ -12,12 +12,14 @@ import {
 	YAxis,
 } from "recharts";
 import { type ChartConfig, ChartContainer, ChartTooltip } from "@/app/ui/chart";
+import { Popover, PopoverContent, PopoverTrigger } from "@/app/ui/popover";
 import { ToggleGroup, ToggleGroupItem } from "@/app/ui/toggle-group";
 import {
-	type DashboardPerformanceTrendMetric,
-	type DashboardPerformanceTrendSeries,
-	getDashboardPerformanceTrendValue,
-} from "@/features/dashboard/data/dashboard-performance-trend";
+	type DashboardRepositorySummaryRow,
+	type DashboardRepositoryTrendMetric,
+	type DashboardRepositoryTrendSeries,
+	getDashboardRepositoryTrendValue,
+} from "@/features/dashboard/data/dashboard-repository-trend";
 import { cn } from "@/lib/utils";
 
 type TrendChartRow = {
@@ -56,13 +58,13 @@ function buildFullLabel(dateValue: string) {
 	return format(parsedDate, "EEEE, MMM d");
 }
 
-function PerformanceTrendTooltip({
+function RepositoryTrendTooltip({
 	active,
 	metric,
 	payload,
 }: {
 	active?: boolean;
-	metric: DashboardPerformanceTrendMetric;
+	metric: DashboardRepositoryTrendMetric;
 	payload?: Array<{
 		color?: string;
 		dataKey?: string;
@@ -117,9 +119,38 @@ function PerformanceTrendTooltip({
 	);
 }
 
-export function DashboardPerformanceTrendChart({
+function DashboardRepositoryTrendOverflowPopover({
+	rows,
+}: {
+	rows: DashboardRepositorySummaryRow[];
+}) {
+	return (
+		<Popover>
+			<PopoverTrigger className="rounded-sm text-[11px] font-medium text-[color:var(--dashboardy-muted)] transition-colors hover:text-[color:var(--dashboardy-heading)]">
+				({rows.length} more)
+			</PopoverTrigger>
+			<PopoverContent
+				side="bottom"
+				align="end"
+				sideOffset={6}
+				className="max-h-56 min-w-40 max-w-[18rem] gap-1 overflow-y-auto rounded-lg px-2.5 py-2 text-[11px] shadow-md"
+			>
+				<div className="grid gap-0.5 text-muted-foreground">
+					{rows.map((row) => (
+						<p key={row.id} className="truncate">
+							{row.label}
+						</p>
+					))}
+				</div>
+			</PopoverContent>
+		</Popover>
+	);
+}
+
+export function DashboardRepositoryTrendChart({
 	className,
 	highlightedSeriesId,
+	hiddenRows,
 	hiddenSeriesIds,
 	metric,
 	onHighlightDateChange,
@@ -130,13 +161,14 @@ export function DashboardPerformanceTrendChart({
 }: {
 	className?: string;
 	highlightedSeriesId?: string | null;
+	hiddenRows: DashboardRepositorySummaryRow[];
 	hiddenSeriesIds: string[];
-	metric: DashboardPerformanceTrendMetric;
+	metric: DashboardRepositoryTrendMetric;
 	onHighlightDateChange: (date: string | null) => void;
-	onMetricChange: (metric: DashboardPerformanceTrendMetric) => void;
-	onToggleSeries: (userId: string) => void;
-	trendData: UserDailyTrendData[] | undefined;
-	trendSeries: DashboardPerformanceTrendSeries[];
+	onMetricChange: (metric: DashboardRepositoryTrendMetric) => void;
+	onToggleSeries: (repositoryId: string) => void;
+	trendData: RepositoryDailyTrendData[] | undefined;
+	trendSeries: DashboardRepositoryTrendSeries[];
 }) {
 	const hiddenSeriesSet = useMemo(
 		() => new Set(hiddenSeriesIds),
@@ -147,8 +179,8 @@ export function DashboardPerformanceTrendChart({
 			highlightedSeriesId != null &&
 			trendSeries.some(
 				(series) =>
-					series.userId === highlightedSeriesId &&
-					!hiddenSeriesSet.has(series.userId),
+					series.repositoryId === highlightedSeriesId &&
+					!hiddenSeriesSet.has(series.repositoryId),
 			),
 		[hiddenSeriesSet, highlightedSeriesId, trendSeries],
 	);
@@ -165,32 +197,32 @@ export function DashboardPerformanceTrendChart({
 
 		if (rows.length === 0) {
 			return {
-				allSeries: [] as DashboardPerformanceTrendSeries[],
+				allSeries: [] as DashboardRepositoryTrendSeries[],
 				axisMax: 1,
 				chartConfig: {} satisfies ChartConfig,
 				chartData: [] as TrendChartRow[],
 				seriesTotals: {} as Record<string, number>,
-				visibleSeries: [] as DashboardPerformanceTrendSeries[],
+				visibleSeries: [] as DashboardRepositoryTrendSeries[],
 			};
 		}
 
 		const allDates = Array.from(new Set(rows.map((row) => row.date))).sort();
 		const rowMap = new Map(
-			rows.map((row) => [`${row.user_id}:${row.date}`, row] as const),
+			rows.map((row) => [`${row.repository}:${row.date}`, row] as const),
 		);
 		const allSeries = trendSeries;
 		const seriesTotals = Object.fromEntries(
-			allSeries.map((series) => [series.userId, 0]),
+			allSeries.map((series) => [series.repositoryId, 0]),
 		) as Record<string, number>;
 
 		for (const row of rows) {
-			seriesTotals[row.user_id] =
-				(seriesTotals[row.user_id] ?? 0) +
-				getDashboardPerformanceTrendValue(row, metric);
+			seriesTotals[row.repository] =
+				(seriesTotals[row.repository] ?? 0) +
+				getDashboardRepositoryTrendValue(row, metric);
 		}
 
 		const visibleSeries = allSeries.filter(
-			(series) => !hiddenSeriesSet.has(series.userId),
+			(series) => !hiddenSeriesSet.has(series.repositoryId),
 		);
 		const chartData = allDates.map((date) => {
 			const nextRow: TrendChartRow = {
@@ -199,8 +231,8 @@ export function DashboardPerformanceTrendChart({
 			};
 
 			for (const series of allSeries) {
-				nextRow[series.userId] = getDashboardPerformanceTrendValue(
-					rowMap.get(`${series.userId}:${date}`),
+				nextRow[series.repositoryId] = getDashboardRepositoryTrendValue(
+					rowMap.get(`${series.repositoryId}:${date}`),
 					metric,
 				);
 			}
@@ -209,7 +241,7 @@ export function DashboardPerformanceTrendChart({
 		});
 		const chartConfig = Object.fromEntries(
 			allSeries.map((series) => [
-				series.userId,
+				series.repositoryId,
 				{
 					color: series.color,
 					label: series.label,
@@ -219,7 +251,7 @@ export function DashboardPerformanceTrendChart({
 		const axisMax = Math.max(
 			1,
 			...chartData.flatMap((row) =>
-				visibleSeries.map((series) => Number(row[series.userId] ?? 0)),
+				visibleSeries.map((series) => Number(row[series.repositoryId] ?? 0)),
 			),
 		);
 
@@ -241,7 +273,7 @@ export function DashboardPerformanceTrendChart({
 					className,
 				)}
 			>
-				No developer activity in the selected range.
+				No repository activity in the selected range.
 			</div>
 		);
 	}
@@ -250,7 +282,7 @@ export function DashboardPerformanceTrendChart({
 		<div className={cn("flex h-full min-h-0 flex-col gap-3", className)}>
 			<div className="flex flex-col gap-3 px-1 sm:flex-row sm:items-start sm:justify-between">
 				<ToggleGroup
-					aria-label="Developer performance metric"
+					aria-label="Repository performance metric"
 					className="dashboardy-toggle-group self-start"
 					size="sm"
 					spacing={0}
@@ -273,13 +305,13 @@ export function DashboardPerformanceTrendChart({
 				</ToggleGroup>
 				<div className="flex flex-wrap items-center gap-1.5 sm:max-w-[65%] sm:justify-end">
 					{allSeries.map((series) => {
-						const isHidden = hiddenSeriesSet.has(series.userId);
-						const isHighlighted = highlightedSeriesId === series.userId;
-						const total = seriesTotals[series.userId] ?? 0;
+						const isHidden = hiddenSeriesSet.has(series.repositoryId);
+						const isHighlighted = highlightedSeriesId === series.repositoryId;
+						const total = seriesTotals[series.repositoryId] ?? 0;
 
 						return (
 							<button
-								key={series.userId}
+								key={series.repositoryId}
 								type="button"
 								aria-pressed={!isHidden}
 								aria-label={`${isHidden ? "Show" : "Hide"} ${series.label} in chart`}
@@ -293,7 +325,7 @@ export function DashboardPerformanceTrendChart({
 										isHighlighted &&
 										"border-[color:var(--dashboardy-heading)]",
 								)}
-								onClick={() => onToggleSeries(series.userId)}
+								onClick={() => onToggleSeries(series.repositoryId)}
 							>
 								<span
 									aria-hidden="true"
@@ -310,13 +342,16 @@ export function DashboardPerformanceTrendChart({
 							</button>
 						);
 					})}
+					{hiddenRows.length > 0 ? (
+						<DashboardRepositoryTrendOverflowPopover rows={hiddenRows} />
+					) : null}
 				</div>
 			</div>
 
 			<div className="min-h-0 flex-1">
 				{visibleSeries.length === 0 ? (
 					<div className="flex h-full items-center justify-center px-6 text-center text-sm text-muted-foreground">
-						Select at least one developer.
+						Select at least one repository.
 					</div>
 				) : (
 					<ChartContainer
@@ -380,12 +415,12 @@ export function DashboardPerformanceTrendChart({
 									strokeWidth: 1,
 								}}
 								wrapperStyle={{ pointerEvents: "none", zIndex: 20 }}
-								content={<PerformanceTrendTooltip metric={metric} />}
+								content={<RepositoryTrendTooltip metric={metric} />}
 							/>
 							{visibleSeries.map((series) => (
 								<Line
-									key={series.userId}
-									dataKey={series.userId}
+									key={series.repositoryId}
+									dataKey={series.repositoryId}
 									animationDuration={480}
 									animationEasing="ease-out"
 									name={series.label}
@@ -393,18 +428,18 @@ export function DashboardPerformanceTrendChart({
 									stroke={series.color}
 									strokeOpacity={
 										hasVisibleHighlightedSeries &&
-										highlightedSeriesId !== series.userId
+										highlightedSeriesId !== series.repositoryId
 											? 0.16
 											: 1
 									}
 									strokeWidth={
-										highlightedSeriesId === series.userId ? 3.25 : 2.5
+										highlightedSeriesId === series.repositoryId ? 3.25 : 2.5
 									}
 									connectNulls
 									dot={false}
 									activeDot={{
 										fill: series.color,
-										r: highlightedSeriesId === series.userId ? 4.5 : 4,
+										r: highlightedSeriesId === series.repositoryId ? 4.5 : 4,
 										stroke: "var(--dashboardy-subsurface)",
 										strokeWidth: 2,
 									}}
@@ -419,21 +454,21 @@ export function DashboardPerformanceTrendChart({
 
 								return visibleSeries.map((series) => (
 									<ReferenceDot
-										key={`${series.userId}-endpoint`}
+										key={`${series.repositoryId}-endpoint`}
 										x={lastRow.date}
-										y={Number(lastRow[series.userId] ?? 0)}
-										r={highlightedSeriesId === series.userId ? 4 : 3.5}
+										y={Number(lastRow[series.repositoryId] ?? 0)}
+										r={highlightedSeriesId === series.repositoryId ? 4 : 3.5}
 										fill={series.color}
 										fillOpacity={
 											hasVisibleHighlightedSeries &&
-											highlightedSeriesId !== series.userId
+											highlightedSeriesId !== series.repositoryId
 												? 0.16
 												: 1
 										}
 										stroke="var(--dashboardy-subsurface)"
 										strokeOpacity={
 											hasVisibleHighlightedSeries &&
-											highlightedSeriesId !== series.userId
+											highlightedSeriesId !== series.repositoryId
 												? 0.3
 												: 1
 										}

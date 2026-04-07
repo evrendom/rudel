@@ -1,15 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useMemo } from "react";
 import { Bar, BarChart, XAxis, YAxis } from "recharts";
-import { useMountEffect } from "@/app/hooks/useMountEffect";
 import { type ChartConfig, ChartContainer, ChartTooltip } from "@/app/ui/chart";
 import { DashboardStackedTopRoundedBar } from "@/features/dashboard/components/DashboardStackedTopRoundedBar";
-import {
-	getSidebarShellDebugState,
-	SIDEBAR_NEWS_ACTIVE_ATTRIBUTE,
-} from "@/features/shell/config/sidebar-shell-debug";
 
 const chartConfig = {
 	committed: {
@@ -24,44 +18,29 @@ const chartConfig = {
 
 const ZERO_BAR_STUB_VALUE = 0.75;
 
-export type DashboardPerformanceDatum = {
+export type DashboardRepositoryChartDatum = {
 	axisLabel: string;
 	commits: number;
 	fullLabel: string;
 	id: string;
-	imageUrl?: string;
 	sessions: number;
 };
 
-type DashboardPerformanceChartProps = {
-	activeId?: string | null;
-	data: DashboardPerformanceDatum[];
-};
-
-type DashboardPerformanceChartRow = DashboardPerformanceDatum & {
+type DashboardRepositoryChartRow = DashboardRepositoryChartDatum & {
 	committed: number;
 	stub: number;
 	uncommitted: number;
 };
 
-function getAvatarInitials(fullLabel: string) {
-	const fallbackToken = fullLabel.includes("@")
-		? (fullLabel.split("@")[0] ?? fullLabel)
-		: fullLabel;
-	const parts = fallbackToken.split(/\s+/).filter(Boolean);
-
-	if (parts.length === 0) {
-		return "AI";
+function getRepositoryAxisLabel(label: string) {
+	if (label.length <= 14) {
+		return label;
 	}
 
-	if (parts.length === 1) {
-		return parts[0]?.slice(0, 2).toUpperCase() ?? "AI";
-	}
-
-	return `${parts[0]?.[0] ?? ""}${parts.at(-1)?.[0] ?? ""}`.toUpperCase();
+	return `${label.slice(0, 12)}…`;
 }
 
-function getAxisMax(data: DashboardPerformanceChartRow[]) {
+function getAxisMax(data: DashboardRepositoryChartRow[]) {
 	const maxSessions = Math.max(...data.map((point) => point.sessions), 0);
 
 	if (maxSessions <= 0) {
@@ -112,55 +91,26 @@ function getBarSize(total: number) {
 
 function getLabelWidth(total: number) {
 	if (total <= 7) {
-		return 130;
+		return 128;
 	}
 
 	if (total <= 10) {
-		return 108;
+		return 104;
 	}
 
 	if (total <= 14) {
-		return 92;
+		return 88;
 	}
 
-	return 80;
+	return 76;
 }
 
-function useSidebarNewsCardActive() {
-	const [isActive, setIsActive] = useState(false);
-
-	useMountEffect(() => {
-		const preview = document.querySelector(".dashboard-01-preview");
-		if (!(preview instanceof HTMLElement)) {
-			return;
-		}
-
-		const sync = () => {
-			setIsActive(
-				preview.getAttribute(SIDEBAR_NEWS_ACTIVE_ATTRIBUTE) === "true",
-			);
-		};
-
-		sync();
-
-		const observer = new MutationObserver(sync);
-		observer.observe(preview, {
-			attributes: true,
-			attributeFilter: [SIDEBAR_NEWS_ACTIVE_ATTRIBUTE],
-		});
-
-		return () => observer.disconnect();
-	});
-
-	return isActive;
-}
-
-function DashboardPerformanceTooltip({
+function DashboardRepositoryTooltip({
 	active,
 	payload,
 }: {
 	active?: boolean;
-	payload?: Array<{ payload: DashboardPerformanceChartRow }>;
+	payload?: Array<{ payload: DashboardRepositoryChartRow }>;
 }) {
 	if (!active || !payload?.length) {
 		return null;
@@ -199,7 +149,7 @@ function DashboardPerformanceTooltip({
 	);
 }
 
-function DashboardPerformanceAxisTick({
+function DashboardRepositoryAxisTick({
 	activeId,
 	dataById,
 	labelWidth,
@@ -208,7 +158,7 @@ function DashboardPerformanceAxisTick({
 	y = 0,
 }: {
 	activeId?: string | null;
-	dataById: Map<string, DashboardPerformanceChartRow>;
+	dataById: Map<string, DashboardRepositoryChartRow>;
 	labelWidth: number;
 	payload?: { value?: string | number };
 	x?: number;
@@ -223,62 +173,37 @@ function DashboardPerformanceAxisTick({
 	const isHighlighted = activeId != null && datum.id === activeId;
 	const hasExternalHighlight = activeId != null;
 	const contentOpacity = hasExternalHighlight && !isHighlighted ? 0.28 : 1;
-	const avatarBorderColor = isHighlighted
-		? "color-mix(in srgb, var(--dashboardy-heading) 18%, var(--border))"
-		: undefined;
 
 	return (
 		<g transform={`translate(${x},${y})`}>
 			<foreignObject
 				x={-labelWidth / 2}
-				y={8}
+				y={10}
 				width={labelWidth}
-				height={34}
+				height={30}
 				requiredExtensions="http://www.w3.org/1999/xhtml"
 			>
-				<div className="flex h-full w-full items-center justify-center">
-					<div
-						className="inline-flex min-w-0 max-w-full items-center justify-center gap-2 px-1 transition-opacity duration-300"
-						style={{ opacity: contentOpacity }}
-					>
-						<div
-							className="flex size-7 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border/60 bg-[color:var(--dashboardy-surface)] shadow-sm transition-colors duration-300"
-							style={{ borderColor: avatarBorderColor }}
-						>
-							{datum.imageUrl ? (
-								<img
-									src={datum.imageUrl}
-									alt={datum.fullLabel}
-									className="size-full object-cover"
-								/>
-							) : (
-								<span className="text-[10px] font-semibold text-[color:var(--dashboardy-heading)]">
-									{getAvatarInitials(datum.fullLabel)}
-								</span>
-							)}
-						</div>
-						<span className="min-w-0 max-w-full truncate text-left text-[11px] font-semibold leading-4 text-[color:var(--dashboardy-subheading)]">
-							{datum.axisLabel}
-						</span>
-					</div>
+				<div
+					className="flex h-full w-full items-center justify-center px-1 transition-opacity duration-300"
+					style={{ opacity: contentOpacity }}
+				>
+					<span className="min-w-0 max-w-full truncate text-center text-[11px] font-semibold leading-4 text-[color:var(--dashboardy-subheading)]">
+						{datum.axisLabel}
+					</span>
 				</div>
 			</foreignObject>
 		</g>
 	);
 }
 
-export function DashboardPerformanceChart({
+export function DashboardRepositoryChart({
 	activeId,
 	data,
-}: DashboardPerformanceChartProps) {
-	const [searchParams] = useSearchParams();
-	const debugState = getSidebarShellDebugState(searchParams);
-	const isSidebarNewsCardActive = useSidebarNewsCardActive();
-	const shouldDisableInteractiveLayers =
-		debugState.tuning.newsDisableChartInteractiveLayersWhileActive &&
-		isSidebarNewsCardActive;
-
-	const chartData = useMemo<DashboardPerformanceChartRow[]>(
+}: {
+	activeId?: string | null;
+	data: DashboardRepositoryChartDatum[];
+}) {
+	const chartData = useMemo<DashboardRepositoryChartRow[]>(
 		() =>
 			data.map((entry) => ({
 				...entry,
@@ -310,21 +235,21 @@ export function DashboardPerformanceChart({
 			<ChartContainer
 				config={chartConfig}
 				className="h-full w-full aspect-auto"
-				initialDimension={{ width: 664, height: 240 }}
+				initialDimension={{ width: 664, height: 224 }}
 			>
 				<BarChart
 					data={chartData}
 					barCategoryGap={0}
 					barGap={0}
-					margin={{ top: 8, right: 8, bottom: 44, left: 18 }}
+					margin={{ top: 8, right: 8, bottom: 40, left: 18 }}
 				>
 					<XAxis
 						dataKey="id"
 						axisLine={false}
-						height={44}
+						height={40}
 						interval={0}
 						tick={(props) => (
-							<DashboardPerformanceAxisTick
+							<DashboardRepositoryAxisTick
 								{...props}
 								activeId={resolvedActiveId}
 								dataById={dataById}
@@ -346,12 +271,10 @@ export function DashboardPerformanceChart({
 							fill: "#9A9A9A",
 						}}
 					/>
-					{!shouldDisableInteractiveLayers ? (
-						<ChartTooltip
-							cursor={false}
-							content={<DashboardPerformanceTooltip />}
-						/>
-					) : null}
+					<ChartTooltip
+						cursor={false}
+						content={<DashboardRepositoryTooltip />}
+					/>
 					<Bar
 						dataKey="committed"
 						stackId="sessions"
@@ -392,4 +315,21 @@ export function DashboardPerformanceChart({
 			</ChartContainer>
 		</div>
 	);
+}
+
+export function buildDashboardRepositoryChartData(
+	rows: Array<{
+		id: string;
+		label: string;
+		commits: number;
+		sessions: number;
+	}>,
+): DashboardRepositoryChartDatum[] {
+	return rows.map((row) => ({
+		axisLabel: getRepositoryAxisLabel(row.label),
+		commits: row.commits,
+		fullLabel: row.label,
+		id: row.id,
+		sessions: row.sessions,
+	}));
 }

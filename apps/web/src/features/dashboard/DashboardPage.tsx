@@ -57,8 +57,14 @@ function DashboardPlaceholderView({
 }
 
 export function DashboardPage() {
-	const { isPerformanceChartPending, performanceUsers, snapshot } =
-		useDashboardPageData();
+	const {
+		isPerformanceChartPending,
+		isRepositoryChartPending,
+		performanceUserDailyTrend,
+		performanceUsers,
+		repositoryDailyTrend,
+		snapshot,
+	} = useDashboardPageData();
 	const [activeView, setActiveView] = useState<DashboardView>("commits");
 
 	return (
@@ -107,18 +113,14 @@ export function DashboardPage() {
 					<>
 						<DashboardPerformancePanel
 							isChartPending={isPerformanceChartPending}
+							performanceUserDailyTrend={performanceUserDailyTrend}
 							performanceUsers={performanceUsers}
 							snapshot={snapshot}
 						/>
 						<DashboardInsightsPanel
+							isRepositoryChartPending={isRepositoryChartPending}
 							repositories={snapshot.repositories}
-							models={snapshot.models}
-							sources={snapshot.sources}
-							sessionProfile={snapshot.sessionProfile}
-							impactComparisons={snapshot.impactComparisons}
-							commitCostMetrics={snapshot.commitCostMetrics}
-							activeBranches={snapshot.activeBranches}
-							reposTouched={snapshot.reposTouched}
+							repositoryDailyTrend={repositoryDailyTrend}
 						/>
 					</>
 				) : null}

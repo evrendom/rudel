@@ -31,6 +31,26 @@ export function useDashboardPageData() {
 				},
 			}),
 		);
+	const { data: usersDailyTrend, isPending: isUsersDailyTrendPending } =
+		useAnalyticsQuery(
+			orpc.analytics.overview.usersDailyTrend.queryOptions({
+				input: {
+					startDate: state.startDate,
+					endDate: state.endDate,
+				},
+			}),
+		);
+	const {
+		data: repositoriesDailyTrend,
+		isPending: isRepositoriesDailyTrendPending,
+	} = useAnalyticsQuery(
+		orpc.analytics.overview.repositoriesDailyTrend.queryOptions({
+			input: {
+				startDate: state.startDate,
+				endDate: state.endDate,
+			},
+		}),
+	);
 	const userImageById = useMemo(
 		() =>
 			new Map(
@@ -61,8 +81,13 @@ export function useDashboardPageData() {
 
 	return {
 		endDate: state.endDate,
-		isPerformanceChartPending: isUsersTokenUsagePending,
+		isPerformanceChartPending:
+			isUsersTokenUsagePending || isUsersDailyTrendPending,
+		isRepositoryChartPending: isRepositoriesDailyTrendPending,
+		performanceUserDailyTrend: usersDailyTrend,
 		performanceUsers,
+		repositoryDailyTrend: repositoriesDailyTrend,
+		startDate: state.startDate,
 		snapshot,
 	};
 }

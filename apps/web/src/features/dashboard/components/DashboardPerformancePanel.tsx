@@ -189,6 +189,9 @@ export function DashboardPerformancePanel({
 	const [highlightedTrendDate, setHighlightedTrendDate] = useState<
 		string | null
 	>(null);
+	const [highlightedUserId, setHighlightedUserId] = useState<string | null>(
+		null,
+	);
 	const [trendMetric, setTrendMetric] =
 		useState<DashboardPerformanceTrendMetric>("sessions");
 	const selectedChartData = useMemo(
@@ -228,7 +231,7 @@ export function DashboardPerformancePanel({
 						<div className="flex items-center gap-2.5">
 							<GaugeIcon className="size-5 text-[color:var(--dashboardy-heading)]" />
 							<h2 className="dashboardy-section-title text-xl/7">
-								Developer Performance
+								By developer
 							</h2>
 						</div>
 						<ToggleGroup
@@ -257,7 +260,7 @@ export function DashboardPerformancePanel({
 							</ToggleGroupItem>
 						</ToggleGroup>
 					</div>
-					<div className="overflow-hidden rounded-[1.4rem] border border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-subsurface)]">
+					<div className="rounded-[1.4rem] border border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-subsurface)]">
 						<div className="px-3 py-2 sm:px-4 sm:py-3">
 							<div
 								data-slot="dashboard-performance-chart-shell"
@@ -269,6 +272,7 @@ export function DashboardPerformancePanel({
 									hasTrendData ? (
 										<Suspense fallback={<DashboardPerformanceChartFallback />}>
 											<DashboardPerformanceTrendChart
+												highlightedSeriesId={highlightedUserId}
 												hiddenSeriesIds={hiddenTrendSeriesIds}
 												metric={trendMetric}
 												onHighlightDateChange={setHighlightedTrendDate}
@@ -285,7 +289,10 @@ export function DashboardPerformancePanel({
 									)
 								) : hasChartData ? (
 									<Suspense fallback={<DashboardPerformanceChartFallback />}>
-										<DashboardPerformanceChart data={selectedChartData} />
+										<DashboardPerformanceChart
+											activeId={highlightedUserId}
+											data={selectedChartData}
+										/>
 									</Suspense>
 								) : (
 									<div className="flex h-full items-center justify-center px-6 text-center text-sm text-muted-foreground">
@@ -301,6 +308,7 @@ export function DashboardPerformancePanel({
 						highlightedDate={
 							chartView === "over-time" ? highlightedTrendDate : null
 						}
+						onHighlightUserChange={setHighlightedUserId}
 						performanceUsers={performanceUsers}
 						trendData={performanceUserDailyTrend}
 					/>
