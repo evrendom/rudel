@@ -233,7 +233,7 @@ export function DashboardyPage() {
 				</section>
 
 				<section
-					className="grid gap-4 xl:grid-cols-2"
+					className="grid w-full grid-cols-1 gap-10 lg:grid-cols-2"
 					aria-labelledby={previewLabelId}
 				>
 					<h2 id={previewLabelId} className="sr-only">
