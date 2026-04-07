@@ -1,14 +1,6 @@
 import { addDays, format, parseISO, startOfWeek } from "date-fns";
 
-export type DashboardTone =
-	| "blue"
-	| "teal"
-	| "orange"
-	| "lime"
-	| "violet"
-	| "rose"
-	| "slate";
-
+export type DashboardDeltaTone = "positive" | "negative" | "neutral";
 export type DashboardMetricId =
 	| "output"
 	| "quality"
@@ -17,20 +9,9 @@ export type DashboardMetricId =
 	| "craft"
 	| "consistency";
 
-export type DashboardDeltaTone = "positive" | "negative" | "neutral";
-
 export interface DashboardMetricTrendPoint {
 	date: string;
 	value: number | null;
-}
-
-export interface DashboardMetric {
-	id: DashboardMetricId;
-	label: string;
-	value: number;
-	deltaLabel: string;
-	deltaTone: DashboardDeltaTone;
-	trend: DashboardMetricTrendPoint[];
 }
 
 export interface DashboardGroupedDetailPoint {
@@ -56,15 +37,102 @@ export interface DashboardMetricDetailData {
 	};
 }
 
-export interface DashboardBreakdownGroup {
-	title: string;
-	summary: string;
-	items: Array<{
-		label: string;
-		valueLabel: string;
-		percent: number;
-		tone: DashboardTone;
-	}>;
+export interface DashboardMetric {
+	id: DashboardMetricId;
+	label: string;
+	value: number;
+	deltaLabel: string;
+	deltaTone: DashboardDeltaTone;
+	trend: DashboardMetricTrendPoint[];
+}
+
+export interface DashboardHeadlineMetric {
+	id: "commits" | "sessions" | "commitRate";
+	label: string;
+	valueLabel: string;
+	deltaLabel: string;
+	deltaTone: DashboardDeltaTone;
+	description: string;
+}
+
+export interface DashboardDailyPatternPoint {
+	date: string;
+	axisLabel: string;
+	fullLabel: string;
+	commits: number | null;
+	sessions: number | null;
+	commitRate: number | null;
+}
+
+export interface DashboardWorkTypeStat {
+	label: string;
+	commits: number;
+	sessions: number;
+	commitRate: number;
+}
+
+export interface DashboardRankedOutputRow {
+	label: string;
+	commits: number;
+	sessions: number;
+	commitRate: number;
+	secondaryLabel?: string;
+}
+
+export interface DashboardDistributionRow {
+	label: string;
+	commits: number;
+	sessions: number;
+	commitRate: number;
+	sharePercent: number;
+}
+
+export interface DashboardProfileComparisonRow {
+	label: string;
+	committed: string;
+	uncommitted: string;
+}
+
+export interface DashboardBinaryImpact {
+	label: string;
+	withLabel: string;
+	withValue: string;
+	withoutLabel: string;
+	withoutValue: string;
+	description: string;
+}
+
+export interface DashboardCommitCostMetric {
+	label: string;
+	valueLabel: string;
+	description: string;
+}
+
+export interface DashboardBranchActivity {
+	repository: string;
+	branch: string;
+	commits: number;
+	players: number;
+}
+
+export interface DashboardOutputSnapshot {
+	headlineMetrics: DashboardHeadlineMetric[];
+	dailyPattern: DashboardDailyPatternPoint[];
+	lastWeekSamePoint: {
+		commits: number;
+		sessions: number;
+		commitRate: number;
+	};
+	workTypes: DashboardWorkTypeStat[];
+	players: DashboardRankedOutputRow[];
+	repositories: DashboardRankedOutputRow[];
+	models: DashboardDistributionRow[];
+	sources: DashboardDistributionRow[];
+	sessionProfile: DashboardProfileComparisonRow[];
+	impactComparisons: DashboardBinaryImpact[];
+	commitCostMetrics: DashboardCommitCostMetric[];
+	activeBranches: DashboardBranchActivity[];
+	reposTouched: number;
 }
 
 const dashboardMetricTemplates: Array<{
@@ -214,6 +282,189 @@ const dashboardMetricDetailTemplates: Record<
 	},
 };
 
+const headlineMetricsTemplate: DashboardHeadlineMetric[] = [
+	{
+		id: "commits",
+		label: "Commits shipped",
+		valueLabel: "89",
+		deltaLabel: "+12",
+		deltaTone: "positive",
+		description: "Total commits this period.",
+	},
+	{
+		id: "sessions",
+		label: "Sessions run",
+		valueLabel: "142",
+		deltaLabel: "-6",
+		deltaTone: "negative",
+		description: "Total AI sessions this period.",
+	},
+	{
+		id: "commitRate",
+		label: "Commit rate",
+		valueLabel: "63%",
+		deltaLabel: "+4.6 pp",
+		deltaTone: "positive",
+		description: "Sessions that produced a commit.",
+	},
+];
+
+const dailyPatternTemplate = [
+	{ commits: 17, sessions: 27, commitRate: 63 },
+	{ commits: 14, sessions: 22, commitRate: 64 },
+	{ commits: 18, sessions: 29, commitRate: 62 },
+	{ commits: 21, sessions: 34, commitRate: 62 },
+	{ commits: 19, sessions: 30, commitRate: 63 },
+	{ commits: null, sessions: null, commitRate: null },
+	{ commits: null, sessions: null, commitRate: null },
+] as const;
+
+const workTypesTemplate: DashboardWorkTypeStat[] = [
+	{ label: "Build", commits: 45, sessions: 56, commitRate: 80 },
+	{ label: "Debug", commits: 20, sessions: 41, commitRate: 49 },
+	{ label: "Refactor", commits: 15, sessions: 24, commitRate: 63 },
+	{ label: "Explore", commits: 9, sessions: 21, commitRate: 43 },
+];
+
+const playersTemplate: DashboardRankedOutputRow[] = [
+	{ label: "Morgan Lee", commits: 21, sessions: 28, commitRate: 75 },
+	{ label: "Riley Nguyen", commits: 17, sessions: 25, commitRate: 68 },
+	{ label: "Taylor Chen", commits: 14, sessions: 23, commitRate: 61 },
+	{ label: "Alex Kim", commits: 13, sessions: 18, commitRate: 72 },
+	{ label: "Jordan Rivera", commits: 12, sessions: 20, commitRate: 60 },
+	{ label: "Sam Park", commits: 8, sessions: 18, commitRate: 44 },
+	{ label: "Drew Wilson", commits: 4, sessions: 6, commitRate: 67 },
+	{ label: "Casey Patel", commits: 0, sessions: 4, commitRate: 0 },
+];
+
+const repositoriesTemplate: DashboardRankedOutputRow[] = [
+	{ label: "payments", commits: 28, sessions: 37, commitRate: 76 },
+	{ label: "dashboard", commits: 19, sessions: 31, commitRate: 61 },
+	{ label: "conductor", commits: 16, sessions: 29, commitRate: 55 },
+	{ label: "tel-aviv-v1", commits: 14, sessions: 21, commitRate: 67 },
+	{ label: "docs-site", commits: 12, sessions: 24, commitRate: 50 },
+];
+
+const modelsTemplate: DashboardDistributionRow[] = [
+	{
+		label: "Opus",
+		commits: 48,
+		sessions: 83,
+		commitRate: 58,
+		sharePercent: 54,
+	},
+	{
+		label: "Sonnet 4",
+		commits: 36,
+		sessions: 51,
+		commitRate: 71,
+		sharePercent: 40,
+	},
+	{ label: "Haiku", commits: 5, sessions: 8, commitRate: 63, sharePercent: 6 },
+];
+
+const sourcesTemplate: DashboardDistributionRow[] = [
+	{
+		label: "Claude",
+		commits: 66,
+		sessions: 98,
+		commitRate: 67,
+		sharePercent: 74,
+	},
+	{
+		label: "Codex",
+		commits: 23,
+		sessions: 44,
+		commitRate: 52,
+		sharePercent: 26,
+	},
+];
+
+const sessionProfileTemplate: DashboardProfileComparisonRow[] = [
+	{ label: "Avg duration", committed: "22 min", uncommitted: "18 min" },
+	{ label: "Avg interactions", committed: "9.2", uncommitted: "6.8" },
+	{ label: "Avg errors", committed: "0.8", uncommitted: "1.6" },
+	{ label: "Avg tokens", committed: "84k", uncommitted: "66k" },
+	{ label: "Avg cost", committed: "$3.19", uncommitted: "$2.41" },
+	{
+		label: "Most common archetype",
+		committed: "Build",
+		uncommitted: "Explore",
+	},
+	{ label: "Most common model", committed: "Sonnet 4", uncommitted: "Opus" },
+	{ label: "Plan mode usage", committed: "58%", uncommitted: "31%" },
+];
+
+const impactComparisonsTemplate: DashboardBinaryImpact[] = [
+	{
+		label: "Plan mode impact",
+		withLabel: "Plan mode on",
+		withValue: "74%",
+		withoutLabel: "Plan mode off",
+		withoutValue: "56%",
+		description: "Commit rate for sessions with planning vs without.",
+	},
+	{
+		label: "Subagent impact",
+		withLabel: "Subagents on",
+		withValue: "68%",
+		withoutLabel: "Subagents off",
+		withoutValue: "61%",
+		description: "Commit rate for sessions that used subagents.",
+	},
+];
+
+const commitCostMetricsTemplate: DashboardCommitCostMetric[] = [
+	{
+		label: "Time to commit",
+		valueLabel: "22m",
+		description: "14m human thinking / 8m AI inference.",
+	},
+	{
+		label: "Interactions to commit",
+		valueLabel: "9.2",
+		description: "Average turns in sessions that shipped code.",
+	},
+	{
+		label: "Cost per commit",
+		valueLabel: "$3.19",
+		description: "Committed session spend divided by shipped commits.",
+	},
+];
+
+const activeBranchesTemplate: DashboardBranchActivity[] = [
+	{
+		repository: "payments",
+		branch: "feature/stripe-v3",
+		commits: 8,
+		players: 3,
+	},
+	{
+		repository: "dashboard",
+		branch: "feature/output-overview",
+		commits: 6,
+		players: 2,
+	},
+	{
+		repository: "conductor",
+		branch: "fix/sidebar-reflow",
+		commits: 5,
+		players: 2,
+	},
+	{
+		repository: "tel-aviv-v1",
+		branch: "feature/dashboardy-preview",
+		commits: 4,
+		players: 1,
+	},
+	{
+		repository: "docs-site",
+		branch: "content/agent-skills",
+		commits: 3,
+		players: 2,
+	},
+];
+
 function resolveWeekStart(endDate: string) {
 	const parsedEndDate = parseISO(endDate);
 
@@ -267,59 +518,41 @@ export function createDashboardMetricDetail(
 	};
 }
 
-export const dashboardBreakdownGroups: DashboardBreakdownGroup[] = [
-	{
-		title: "Work types",
-		summary: "142 sessions",
-		items: [
-			{ label: "Build", valueLabel: "45%", percent: 45, tone: "teal" },
-			{ label: "Debug", valueLabel: "28%", percent: 28, tone: "lime" },
-			{ label: "Refactor", valueLabel: "15%", percent: 15, tone: "orange" },
-			{ label: "Explore", valueLabel: "12%", percent: 12, tone: "violet" },
-		],
-	},
-	{
-		title: "Models used",
-		summary: "$284 spend",
-		items: [
-			{ label: "Opus", valueLabel: "52%", percent: 52, tone: "violet" },
-			{ label: "Sonnet 4", valueLabel: "40%", percent: 40, tone: "teal" },
-			{ label: "Haiku", valueLabel: "8%", percent: 8, tone: "orange" },
-		],
-	},
-];
+export function createDashboardOutputSnapshot(
+	endDate: string,
+): DashboardOutputSnapshot {
+	const weekStart = resolveWeekStart(endDate);
 
-export const dashboardTimeComposition = [
-	{
-		label: "31h human thinking",
-		valueLabel: "66%",
-		percent: 66,
-		tone: "violet" as const,
-	},
-	{
-		label: "16h AI inference",
-		valueLabel: "34%",
-		percent: 34,
-		tone: "teal" as const,
-	},
-];
-
-export const dashboardComparisonNotes = [
-	"47h total time with AI this week",
-	"Last week: 52h (62% / 38%)",
-] as const;
-
-export const dashboardToolCards = [
-	{ label: "Plan mode", value: "5/8", progress: 62, tone: "teal" as const },
-	{ label: "Subagents", value: "3/8", progress: 38, tone: "teal" as const },
-	{ label: "Skills", value: "2/8", progress: 25, tone: "teal" as const },
-	{
-		label: "Slash commands",
-		value: "6/8",
-		progress: 75,
-		tone: "teal" as const,
-	},
-];
+	return {
+		headlineMetrics: headlineMetricsTemplate,
+		dailyPattern: dailyPatternTemplate.map((point, index) => {
+			const date = addDays(weekStart, index);
+			return {
+				date: format(date, "yyyy-MM-dd"),
+				axisLabel: format(date, "EEE"),
+				fullLabel: format(date, "EEEE, MMM d"),
+				commits: point.commits,
+				sessions: point.sessions,
+				commitRate: point.commitRate,
+			};
+		}),
+		lastWeekSamePoint: {
+			commits: 76,
+			sessions: 138,
+			commitRate: 55,
+		},
+		workTypes: workTypesTemplate,
+		players: playersTemplate,
+		repositories: repositoriesTemplate,
+		models: modelsTemplate,
+		sources: sourcesTemplate,
+		sessionProfile: sessionProfileTemplate,
+		impactComparisons: impactComparisonsTemplate,
+		commitCostMetrics: commitCostMetricsTemplate,
+		activeBranches: activeBranchesTemplate,
+		reposTouched: 7,
+	};
+}
 
 export const dashboardUserOptions = [
 	"Morgan Lee",

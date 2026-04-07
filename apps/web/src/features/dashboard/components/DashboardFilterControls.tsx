@@ -13,6 +13,7 @@ import {
 	DropdownMenuTrigger,
 } from "@/app/ui/dropdown-menu";
 import { dashboardUserOptions } from "@/features/dashboard/data/dashboard-static-data";
+import { cn } from "@/lib/utils";
 
 const DASHBOARD_USER_OPTIONS = [...dashboardUserOptions];
 const DASHBOARD_MODEL_OPTIONS = ["Opus", "Sonnet 4", "Haiku"];
@@ -22,7 +23,10 @@ function buildFilterButtonLabel(
 	selectedValues: string[],
 	allValues: string[],
 ) {
-	if (selectedValues.length === 0 || selectedValues.length === allValues.length) {
+	if (
+		selectedValues.length === 0 ||
+		selectedValues.length === allValues.length
+	) {
 		return baseLabel;
 	}
 
@@ -33,7 +37,11 @@ function buildFilterButtonLabel(
 	return `${baseLabel} · ${selectedValues.length}`;
 }
 
-function setSelectionState(currentValues: string[], value: string, checked: boolean) {
+function setSelectionState(
+	currentValues: string[],
+	value: string,
+	checked: boolean,
+) {
 	if (checked) {
 		if (currentValues.includes(value)) {
 			return currentValues;
@@ -67,7 +75,7 @@ function DashboardFilterMenu({
 					<Button
 						variant="outline"
 						size="sm"
-						className="w-fit"
+						className="dashboardy-action-button h-9 w-fit rounded-full border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-subsurface)] text-[color:var(--dashboardy-heading)] shadow-none"
 					/>
 				}
 			>
@@ -95,11 +103,7 @@ function DashboardFilterMenu({
 								checked={isSelected}
 								onCheckedChange={(checked) =>
 									setSelectedValues((currentValues) =>
-										setSelectionState(
-											currentValues,
-											option,
-											Boolean(checked),
-										),
+										setSelectionState(currentValues, option, Boolean(checked)),
 									)
 								}
 							>
@@ -113,22 +117,32 @@ function DashboardFilterMenu({
 	);
 }
 
-export function DashboardFilterControls() {
-	const [selectedUsers, setSelectedUsers] = useState<string[]>(DASHBOARD_USER_OPTIONS);
-	const [selectedModels, setSelectedModels] =
-		useState<string[]>(DASHBOARD_MODEL_OPTIONS);
+export function DashboardFilterControls({ className }: { className?: string }) {
+	const [selectedUsers, setSelectedUsers] = useState<string[]>(
+		DASHBOARD_USER_OPTIONS,
+	);
+	const [selectedModels, setSelectedModels] = useState<string[]>(
+		DASHBOARD_MODEL_OPTIONS,
+	);
 
 	const controls = useMemo(
 		() => [
 			{
-				icon: <Users data-icon="inline-start" className="text-muted-foreground" />,
+				icon: (
+					<Users data-icon="inline-start" className="text-muted-foreground" />
+				),
 				label: "Users",
 				options: DASHBOARD_USER_OPTIONS,
 				selectedValues: selectedUsers,
 				setSelectedValues: setSelectedUsers,
 			},
 			{
-				icon: <Sparkles data-icon="inline-start" className="text-muted-foreground" />,
+				icon: (
+					<Sparkles
+						data-icon="inline-start"
+						className="text-muted-foreground"
+					/>
+				),
 				label: "Models",
 				options: DASHBOARD_MODEL_OPTIONS,
 				selectedValues: selectedModels,
@@ -139,7 +153,9 @@ export function DashboardFilterControls() {
 	);
 
 	return (
-		<div className="flex flex-wrap items-center justify-end gap-2">
+		<div
+			className={cn("flex flex-wrap items-center justify-end gap-2", className)}
+		>
 			{controls.map((control) => (
 				<DashboardFilterMenu
 					key={control.label}

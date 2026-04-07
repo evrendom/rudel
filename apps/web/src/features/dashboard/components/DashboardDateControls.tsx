@@ -8,9 +8,9 @@ import { Button } from "@/app/ui/button";
 import { Calendar } from "@/app/ui/calendar";
 import { Field, FieldLabel } from "@/app/ui/field";
 import { Popover, PopoverContent, PopoverTrigger } from "@/app/ui/popover";
+import { useDateRange } from "@/features/analytics/date-range/useDateRange";
 import { getSupportedAnalyticsDateRange } from "@/lib/analytics-date-range";
 import { formatIsoDate } from "@/lib/format";
-import { useDateRange } from "@/features/analytics/date-range/useDateRange";
 
 function isValidDate(date: Date) {
 	return Number.isFinite(date.getTime());
@@ -52,7 +52,9 @@ export function DashboardDateControls() {
 
 	return (
 		<Field className="w-60">
-			<FieldLabel htmlFor="dashboard-date-range">Date range</FieldLabel>
+			<FieldLabel htmlFor="dashboard-date-range" className="dashboardy-label">
+				Date range
+			</FieldLabel>
 			<Popover
 				open={open}
 				onOpenChange={(nextOpen) => {
@@ -69,7 +71,7 @@ export function DashboardDateControls() {
 							variant="outline"
 							size="sm"
 							id="dashboard-date-range"
-							className="justify-start px-2.5 font-normal"
+							className="dashboardy-action-button h-9 justify-start rounded-full border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-subsurface)] px-2.5 font-normal text-[color:var(--dashboardy-heading)] shadow-none"
 						/>
 					}
 				>

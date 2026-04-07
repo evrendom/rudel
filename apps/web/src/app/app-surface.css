@@ -41,9 +41,9 @@ body:has(.dashboard-01-preview),
 		rgba(255, 255, 255, 1) 0%,
 		rgba(249, 249, 249, 1) 100%
 	);
-		--dashboard-01-metric-button-shadow-selected:
-			0 1px 3.1px rgba(0, 0, 0, 0.18),
-			0 12px 24px -18px
+	--dashboard-01-metric-button-shadow-selected:
+		0 1px 3.1px rgba(0, 0, 0, 0.18),
+		0 12px 24px -18px
 		var(--dashboard-01-metric-button-shadow-color, rgba(15, 23, 42, 0.18)),
 		inset 0 10px 5.5px rgba(255, 255, 255, 0.9);
 	--dashboard-01-insights-surface: rgba(255, 255, 255, 0.95);
@@ -380,9 +380,9 @@ body:has(.dashboard-01-preview),
 		rgba(255, 255, 255, 0.16) 0%,
 		rgba(255, 255, 255, 0.08) 100%
 	);
-		--dashboard-01-metric-button-shadow-selected:
-			0 1px 3.1px rgba(0, 0, 0, 0.3),
-			0 12px 24px -18px
+	--dashboard-01-metric-button-shadow-selected:
+		0 1px 3.1px rgba(0, 0, 0, 0.3),
+		0 12px 24px -18px
 		var(--dashboard-01-metric-button-shadow-color, rgba(15, 23, 42, 0.28)),
 		inset 0 10px 5.5px rgba(255, 255, 255, 0.08);
 	--dashboard-01-insights-surface: rgba(37, 39, 42, 0.95);
@@ -472,16 +472,16 @@ body:has(.dashboard-01-preview)::after {
 }
 
 .team-lineup-metric-button {
-	display: flex;
-	flex-direction: column;
+	display: inline-flex;
 	align-items: flex-start;
-	gap: 21px;
-	width: 130px;
+	gap: 0;
+	width: fit-content;
+	max-width: 100%;
 	align-self: flex-start;
 	border-radius: 10px;
 	border: 1.01083px solid var(--dashboard-01-metric-button-border);
 	background: var(--dashboard-01-metric-button-surface);
-	padding: 15px;
+	padding: 12px 14px;
 	text-align: left;
 	color: var(--team-lineup-metric-picker-foreground);
 	box-shadow: none;
@@ -523,57 +523,15 @@ body:has(.dashboard-01-preview)::after {
 	color: var(--team-lineup-metric-picker-foreground);
 	text-box-trim: trim-both;
 	text-box-edge: cap alphabetic;
-	leading-trim: both;
-	text-edge: cap;
 }
 
-.team-lineup-metric-button__metrics {
-	display: flex;
-	align-items: center;
-	gap: 5px;
-}
-
-.team-lineup-metric-button__value {
-	display: block;
-	margin: 0;
+@utility dashboard-big-number {
 	font-family: var(--dashboard-01-font-roster-display);
 	font-style: normal;
 	font-weight: 800;
-	font-size: 26px;
-	line-height: 30px;
 	letter-spacing: -0.01em;
 	text-box-trim: trim-both;
 	text-box-edge: cap alphabetic;
-	leading-trim: both;
-	text-edge: cap;
-	color: var(--team-lineup-metric-picker-foreground);
-}
-
-.team-lineup-metric-button__delta {
-	display: block;
-	margin: 0;
-	font-family: var(--dashboard-01-font-sans);
-	font-style: normal;
-	font-weight: 600;
-	font-size: 15px;
-	line-height: 18px;
-	letter-spacing: -0.03em;
-	text-box-trim: trim-both;
-	text-box-edge: cap alphabetic;
-	leading-trim: both;
-	text-edge: cap;
-}
-
-.team-lineup-metric-button__delta--positive {
-	color: #60ca83;
-}
-
-.team-lineup-metric-button__delta--negative {
-	color: #fd8898;
-}
-
-.team-lineup-metric-button__delta--neutral {
-	color: #bebebe;
 }
 
 @layer components {
