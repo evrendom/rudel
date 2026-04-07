@@ -1,4 +1,3 @@
-import type { CSSProperties } from "react";
 import { lazy, Suspense, useMemo } from "react";
 import { Card, CardContent } from "@/app/ui/card";
 import { Skeleton } from "@/app/ui/skeleton";
@@ -8,15 +7,8 @@ import { DashboardDateControls } from "@/features/dashboard/components/Dashboard
 import { DashboardFilterControls } from "@/features/dashboard/components/DashboardFilterControls";
 import { DashboardHeadlineMetricGrid } from "@/features/dashboard/components/DashboardHeadlineMetricGrid";
 import type { DashboardPerformanceDatum } from "@/features/dashboard/components/DashboardPerformanceChart";
-import {
-	type DashboardMetricColorFamily,
-	dashboardMetricColorFamilies,
-} from "@/features/dashboard/data/dashboard-metric-colors";
-import type {
-	DashboardMetric,
-	DashboardMetricId,
-	DashboardOutputSnapshot,
-} from "@/features/dashboard/data/dashboard-static-data";
+import type { DashboardPerformanceUserComparison } from "@/features/dashboard/data/dashboard-performance-adapter";
+import type { DashboardOutputSnapshot } from "@/features/dashboard/data/dashboard-static-data";
 import { cn } from "@/lib/utils";
 
 const DashboardPerformanceChart = lazy(async () => {
@@ -28,46 +20,55 @@ const DashboardPerformanceChart = lazy(async () => {
 });
 
 function getMemberAxisLabel(fullLabel: string) {
-	return fullLabel.split(" ")[0] ?? fullLabel;
+	const emailSafeLabel = fullLabel.includes("@")
+		? (fullLabel.split("@")[0] ?? fullLabel)
+		: fullLabel;
+
+	return emailSafeLabel.split(" ")[0] ?? emailSafeLabel;
 }
 
-function buildChartData(metric: DashboardMetric): DashboardPerformanceDatum[] {
-	return metric.memberValues.map((member, index) => ({
-		id: `${member.label.toLowerCase().replaceAll(/[^a-z0-9]+/g, "-")}-${index}`,
-		axisLabel: getMemberAxisLabel(member.label),
-		fullLabel: member.label,
-		isPlaceholder: member.value == null,
-		metricValue: member.value,
-	}));
+function getMemberAxisLabels(memberLabels: string[]) {
+	const labelCounts = new Map<string, number>();
+
+	for (const fullLabel of memberLabels) {
+		const axisLabel = getMemberAxisLabel(fullLabel);
+		labelCounts.set(axisLabel, (labelCounts.get(axisLabel) ?? 0) + 1);
+	}
+
+	return memberLabels.map((fullLabel) => {
+		const axisLabel = getMemberAxisLabel(fullLabel);
+
+		if ((labelCounts.get(axisLabel) ?? 0) <= 1) {
+			return axisLabel;
+		}
+
+		const fallbackToken = fullLabel.includes("@")
+			? (fullLabel.split("@")[0] ?? fullLabel)
+			: fullLabel;
+		const [firstName, lastName] = fallbackToken.split(/\s+/);
+		const lastInitial = lastName?.[0]?.toUpperCase();
+
+		return lastInitial ? `${firstName} ${lastInitial}.` : fallbackToken;
+	});
 }
 
-function DashboardMetricButton({
-	isSelected,
-	colors,
-	metric,
-	onSelect,
-}: {
-	isSelected: boolean;
-	colors: DashboardMetricColorFamily;
-	metric: DashboardMetric;
-	onSelect: (metricId: DashboardMetricId) => void;
-}) {
-	return (
-		<button
-			type="button"
-			aria-pressed={isSelected}
-			data-selected={isSelected}
-			onClick={() => onSelect(metric.id)}
-			style={
-				{
-					"--dashboard-01-metric-button-shadow-color": colors.cardShadow,
-				} as CSSProperties
-			}
-			className="team-lineup-metric-button"
-		>
-			<div className="team-lineup-metric-button__label">{metric.label}</div>
-		</button>
+function buildChartData(
+	performanceUsers: DashboardPerformanceUserComparison[],
+): DashboardPerformanceDatum[] {
+	const axisLabels = getMemberAxisLabels(
+		performanceUsers.map((user) => user.label),
 	);
+
+	return performanceUsers.map((user, index) => ({
+		commits: user.commits,
+		id:
+			user.userId ||
+			`${user.label.toLowerCase().replaceAll(/[^a-z0-9]+/g, "-")}-${index}`,
+		axisLabel: axisLabels[index] ?? user.label,
+		fullLabel: user.label,
+		imageUrl: user.imageUrl ?? undefined,
+		sessions: user.sessions,
+	}));
 }
 
 function DashboardPerformanceChartFallback() {
@@ -102,28 +103,19 @@ function DashboardPerformanceChartFallback() {
 }
 
 export function DashboardPerformancePanel({
-	metrics,
-	selectedMetricId,
-	onSelectedMetricChange,
+	isChartPending,
+	performanceUsers,
 	snapshot,
 }: {
-	metrics: DashboardMetric[];
-	selectedMetricId: DashboardMetricId;
-	onSelectedMetricChange: (metricId: DashboardMetricId) => void;
+	isChartPending: boolean;
+	performanceUsers: DashboardPerformanceUserComparison[];
 	snapshot: DashboardOutputSnapshot;
 }) {
-	const selectedMetric =
-		metrics.find((metric) => metric.id === selectedMetricId) ?? metrics[0];
 	const selectedChartData = useMemo(
-		() => (selectedMetric ? buildChartData(selectedMetric) : []),
-		[selectedMetric],
+		() => buildChartData(performanceUsers),
+		[performanceUsers],
 	);
-
-	if (!selectedMetric) {
-		return null;
-	}
-
-	const selectedMetricColors = dashboardMetricColorFamilies[selectedMetric.id];
+	const hasChartData = selectedChartData.length > 0;
 
 	return (
 		<section className="@container/performance-panel grid gap-5">
@@ -133,25 +125,23 @@ export function DashboardPerformancePanel({
 						AI delivery at a glance
 					</h2>
 					<p className="dashboardy-footnote max-w-2xl text-sm/6">
-						Daily output, session load, and conversion quality gathered into one
-						operating view.
+						Committed sessions and total session volume, broken down by
+						developer for the selected date range.
 					</p>
 				</div>
 				<div>
 					<div className="flex h-[54px] w-full items-center overflow-x-auto border-b border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-surface)] md:overflow-visible">
-						<div className="flex w-full min-w-max items-center gap-2 px-3 sm:gap-6 sm:px-0">
-							<fieldset className="flex flex-1 items-center gap-1.5">
-								<legend className="sr-only">Select performance metric</legend>
-								{metrics.map((metric) => (
-									<DashboardMetricButton
-										key={metric.id}
-										colors={dashboardMetricColorFamilies[metric.id]}
-										isSelected={metric.id === selectedMetric.id}
-										metric={metric}
-										onSelect={onSelectedMetricChange}
-									/>
-								))}
-							</fieldset>
+						<div className="flex w-full min-w-max items-center justify-between gap-3 px-3 sm:px-0">
+							<div className="flex flex-wrap items-center gap-3 text-[13px] font-medium text-[color:var(--dashboardy-muted)]">
+								<div className="inline-flex items-center gap-2">
+									<span className="size-2.5 rounded-full bg-[color:var(--dashboard-01-tone-orange)]" />
+									<span>Committed sessions</span>
+								</div>
+								<div className="inline-flex items-center gap-2">
+									<span className="size-2.5 rounded-full bg-[color:var(--dashboard-01-tone-blue)]" />
+									<span>All sessions</span>
+								</div>
+							</div>
 							<div className="flex items-center gap-1.5">
 								<DashboardDateControls className="h-[34px] px-2.5 text-[13px]" />
 								<DashboardFilterControls
@@ -187,13 +177,17 @@ export function DashboardPerformancePanel({
 								data-slot="dashboard-performance-chart-shell"
 								className="h-[18.5rem] sm:h-[20rem]"
 							>
-								<Suspense fallback={<DashboardPerformanceChartFallback />}>
-									<DashboardPerformanceChart
-										colors={selectedMetricColors}
-										data={selectedChartData}
-										metricLabel={selectedMetric.label}
-									/>
-								</Suspense>
+								{isChartPending ? (
+									<DashboardPerformanceChartFallback />
+								) : hasChartData ? (
+									<Suspense fallback={<DashboardPerformanceChartFallback />}>
+										<DashboardPerformanceChart data={selectedChartData} />
+									</Suspense>
+								) : (
+									<div className="flex h-full items-center justify-center px-6 text-center text-sm text-muted-foreground">
+										No developer activity in the selected range.
+									</div>
+								)}
 							</div>
 						</div>
 					</div>

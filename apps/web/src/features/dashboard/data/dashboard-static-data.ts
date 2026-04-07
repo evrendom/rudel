@@ -22,7 +22,9 @@ export interface DashboardMetricTrendPoint {
 }
 
 export interface DashboardMetricMemberPoint {
+	imageUrl?: string | null;
 	label: string;
+	userId?: string;
 	value: number | null;
 }
 

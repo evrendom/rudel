@@ -36,10 +36,8 @@ export function DashboardDateControls({ className }: { className?: string }) {
 	const [draftDateRange, setDraftDateRange] = useState<DateRange | undefined>(
 		selectedDateRange,
 	);
-	const supportedDateRange = useMemo(
-		() => getSupportedAnalyticsDateRange(selectedDateRange?.to ?? new Date()),
-		[selectedDateRange?.to],
-	);
+	const today = new Date();
+	const supportedDateRange = getSupportedAnalyticsDateRange(today);
 
 	const canApplyRange = Boolean(draftDateRange?.from && draftDateRange.to);
 
@@ -77,15 +75,13 @@ export function DashboardDateControls({ className }: { className?: string }) {
 				<CalendarIcon data-icon="inline-start" className="size-3.5" />
 				{displayValue ? displayValue : <span>Pick a date</span>}
 			</PopoverTrigger>
-			<PopoverContent
-				className="w-auto gap-0 overflow-hidden p-0"
-				align="end"
-			>
+			<PopoverContent className="w-auto gap-0 overflow-hidden p-0" align="end">
 				<Calendar
 					mode="range"
 					defaultMonth={draftDateRange?.from}
 					selected={draftDateRange}
 					onSelect={setDraftDateRange}
+					today={today}
 					numberOfMonths={2}
 					disabled={(date) =>
 						date < supportedDateRange.start || date > supportedDateRange.end

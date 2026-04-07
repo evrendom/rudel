@@ -54,6 +54,7 @@ export const ModelTokensTrendDataSchema = z.object({
 export const UserTokenUsageDataSchema = z.object({
 	user_id: z.string(),
 	user_label: z.string(),
+	total_commits: z.number(),
 	total_tokens: z.number(),
 	input_tokens: z.number(),
 	output_tokens: z.number(),

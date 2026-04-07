@@ -165,6 +165,7 @@ export async function getUsersTokenUsage(
 
 	const rows = await queryClickhouse<{
 		user_id: string;
+		total_commits: number;
 		total_tokens: number;
 		input_tokens: number;
 		output_tokens: number;
@@ -177,6 +178,7 @@ export async function getUsersTokenUsage(
 		query: `
     SELECT
       user_id,
+      sum(has_commit) as total_commits,
       sum(total_tokens) as total_tokens,
       sum(input_tokens) as input_tokens,
       sum(output_tokens) as output_tokens,
@@ -223,6 +225,7 @@ export async function getUsersTokenUsage(
 	return rows.map((row) => ({
 		user_id: row.user_id,
 		user_label: userMap.get(row.user_id) ?? row.user_id,
+		total_commits: Number(row.total_commits),
 		total_tokens: Number(row.total_tokens),
 		input_tokens: Number(row.input_tokens),
 		output_tokens: Number(row.output_tokens),
