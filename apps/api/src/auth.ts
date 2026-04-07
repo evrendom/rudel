@@ -6,7 +6,11 @@ import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { bearer, deviceAuthorization, organization } from "better-auth/plugins";
 import type { ResendConfig } from "./email.js";
-import { sendOrganizationInvitationEmail, syncSignupContact } from "./email.js";
+import {
+	sendOrganizationInvitationEmail,
+	sendPasswordResetEmail,
+	syncSignupContact,
+} from "./email.js";
 import { captureApiProductAnalyticsEvent } from "./lib/product-analytics.js";
 import { fetchGitHubHandle, notifySignup } from "./slack.js";
 
@@ -92,6 +96,12 @@ export function createAuth(db: object, config: AuthConfig) {
 		},
 		emailAndPassword: {
 			enabled: true,
+			sendResetPassword: async ({ user, url }) => {
+				void sendPasswordResetEmail(resend, {
+					email: user.email,
+					resetUrl: url,
+				});
+			},
 		},
 		socialProviders: config.socialProviders,
 		plugins: [

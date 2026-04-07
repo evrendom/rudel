@@ -39,13 +39,16 @@ export function LoginForm({
 	const [email, setEmail] = useState("");
 	const [password, setPassword] = useState("");
 	const [error, setError] = useState("");
+	const [infoMessage, setInfoMessage] = useState("");
 	const [loading, setLoading] = useState(false);
+	const [requestingPasswordReset, setRequestingPasswordReset] = useState(false);
 	const { trackAuthenticationAction } = useAnalyticsTracking({
 		pageName: "login",
 	});
 
 	async function handleSubmit(e: React.FormEvent) {
 		e.preventDefault();
+		setInfoMessage("");
 		trackAuthenticationAction({
 			actionName: "sign_in",
 			sourceComponent: "login_form",
@@ -58,6 +61,32 @@ export function LoginForm({
 		if (error) {
 			setError(error.message ?? "Sign in failed");
 		}
+	}
+
+	async function handleRequestPasswordReset() {
+		if (!email) {
+			setError("Enter your email address first to reset your password.");
+			setInfoMessage("");
+			return;
+		}
+
+		setError("");
+		setInfoMessage("");
+		setRequestingPasswordReset(true);
+		const { error } = await authClient.requestPasswordReset({
+			email,
+			redirectTo: `${window.location.origin}/reset-password`,
+		});
+		setRequestingPasswordReset(false);
+
+		if (error) {
+			setError(error.message ?? "Could not send password reset email");
+			return;
+		}
+
+		setInfoMessage(
+			"If an account exists for that email, we sent a password reset link.",
+		);
 	}
 
 	async function handleSocialSignIn(provider: "google" | "github") {
@@ -108,9 +137,22 @@ export function LoginForm({
 						/>
 					</div>
 					{error && <p className="text-sm text-destructive">{error}</p>}
+					{infoMessage && (
+						<p className="text-sm text-muted-foreground">{infoMessage}</p>
+					)}
 					<Button type="submit" disabled={loading}>
 						{loading ? "Signing in..." : "Sign in"}
 					</Button>
+					<button
+						type="button"
+						onClick={() => {
+							void handleRequestPasswordReset();
+						}}
+						disabled={requestingPasswordReset}
+						className="text-left text-sm underline underline-offset-4 hover:text-primary disabled:cursor-not-allowed disabled:opacity-50"
+					>
+						{requestingPasswordReset ? "Sending reset link..." : "Forgot password?"}
+					</button>
 				</form>
 
 				<div className="flex items-center gap-2">

@@ -2,6 +2,7 @@ import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { LoginForm } from "./components/auth/login-form";
+import { ResetPasswordForm } from "./components/auth/reset-password-form";
 import { SignupForm } from "./components/auth/signup-form";
 import { Button } from "./components/ui/button";
 import { useAnalyticsTracking } from "./hooks/useDashboardAnalytics";
@@ -29,6 +30,10 @@ import { SessionDetailPage } from "./pages/dashboard/SessionDetailPage";
 import { SessionsListPage } from "./pages/dashboard/SessionsListPage";
 
 type Page = "login" | "signup";
+
+function isResetPasswordPath() {
+	return window.location.pathname === "/reset-password";
+}
 
 function getDeviceUserCode(): string | null {
 	const params = new URLSearchParams(window.location.search);
@@ -215,6 +220,15 @@ function App() {
 						Deny
 					</Button>
 				</div>
+			</div>
+		);
+	}
+
+	if (!session && isResetPasswordPath()) {
+		return (
+			<div className="flex min-h-screen flex-col items-center justify-center gap-6">
+				<img src={logoSrc} alt="Rudel" className="h-10 w-10" />
+				<ResetPasswordForm onBackToLogin={() => (window.location.href = "/")} />
 			</div>
 		);
 	}
