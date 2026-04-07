@@ -25,7 +25,7 @@ function getStatusLine(point: DailyPoint) {
 		return "Awaiting activity";
 	}
 
-	return `${point.commits} commits from ${point.sessions} sessions`;
+	return `${point.commits} committed sessions from ${point.sessions} sessions`;
 }
 
 function getStatusToneClassName(tone: ReturnType<typeof getRateTone>) {
@@ -89,8 +89,8 @@ export function DashboardDailyRateStrip({
 						<div className="dashboardy-preview-meta">
 							<p className="dashboardy-preview-flight-code">
 								{point.commits == null
-									? "No commits"
-									: `${point.commits} commits`}
+									? "No committed sessions"
+									: `${point.commits} committed`}
 							</p>
 							<p className="dashboardy-preview-detail">
 								{point.sessions == null

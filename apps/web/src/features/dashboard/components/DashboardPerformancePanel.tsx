@@ -1,4 +1,3 @@
-import { addDays, format, parseISO, startOfWeek } from "date-fns";
 import type { CSSProperties } from "react";
 import { lazy, Suspense, useMemo } from "react";
 import { Card, CardContent } from "@/app/ui/card";
@@ -28,38 +27,18 @@ const DashboardPerformanceChart = lazy(async () => {
 	return { default: module.DashboardPerformanceChart };
 });
 
-function resolveWeekStart(endDate: string) {
-	const parsedEndDate = parseISO(endDate);
-
-	if (Number.isNaN(parsedEndDate.getTime())) {
-		return startOfWeek(new Date(), { weekStartsOn: 1 });
-	}
-
-	return startOfWeek(parsedEndDate, { weekStartsOn: 1 });
+function getMemberAxisLabel(fullLabel: string) {
+	return fullLabel.split(" ")[0] ?? fullLabel;
 }
 
-function buildChartData(
-	metric: DashboardMetric,
-	endDate: string,
-): DashboardPerformanceDatum[] {
-	const weekStart = resolveWeekStart(endDate);
-	const trendByDate = new Map(
-		metric.trend.map((point) => [point.date, point.value] as const),
-	);
-
-	return Array.from({ length: 7 }, (_, index) => {
-		const slotDate = addDays(weekStart, index);
-		const slotKey = format(slotDate, "yyyy-MM-dd");
-		const metricValue = trendByDate.get(slotKey) ?? null;
-
-		return {
-			id: slotKey,
-			axisLabel: format(slotDate, "EEEE"),
-			fullLabel: format(slotDate, "EEEE, MMMM d"),
-			isPlaceholder: metricValue == null,
-			metricValue,
-		};
-	});
+function buildChartData(metric: DashboardMetric): DashboardPerformanceDatum[] {
+	return metric.memberValues.map((member, index) => ({
+		id: `${member.label.toLowerCase().replaceAll(/[^a-z0-9]+/g, "-")}-${index}`,
+		axisLabel: getMemberAxisLabel(member.label),
+		fullLabel: member.label,
+		isPlaceholder: member.value == null,
+		metricValue: member.value,
+	}));
 }
 
 function DashboardMetricButton({
@@ -123,13 +102,11 @@ function DashboardPerformanceChartFallback() {
 }
 
 export function DashboardPerformancePanel({
-	endDate,
 	metrics,
 	selectedMetricId,
 	onSelectedMetricChange,
 	snapshot,
 }: {
-	endDate: string;
 	metrics: DashboardMetric[];
 	selectedMetricId: DashboardMetricId;
 	onSelectedMetricChange: (metricId: DashboardMetricId) => void;
@@ -138,8 +115,8 @@ export function DashboardPerformancePanel({
 	const selectedMetric =
 		metrics.find((metric) => metric.id === selectedMetricId) ?? metrics[0];
 	const selectedChartData = useMemo(
-		() => (selectedMetric ? buildChartData(selectedMetric, endDate) : []),
-		[selectedMetric, endDate],
+		() => (selectedMetric ? buildChartData(selectedMetric) : []),
+		[selectedMetric],
 	);
 
 	if (!selectedMetric) {
@@ -150,8 +127,8 @@ export function DashboardPerformancePanel({
 
 	return (
 		<section className="@container/performance-panel grid gap-5">
-			<div className="grid gap-4">
-				<div className="grid gap-1 pb-1">
+			<div className="grid gap-0">
+				<div className="grid gap-1 pb-3">
 					<h2 className="dashboard-big-number text-2xl/8 text-[color:var(--dashboardy-heading)]">
 						AI delivery at a glance
 					</h2>
@@ -160,10 +137,10 @@ export function DashboardPerformancePanel({
 						operating view.
 					</p>
 				</div>
-				<div className="sticky top-[72px] z-10">
-					<div className="flex h-[62px] w-full items-center overflow-x-auto border-b border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-surface)] md:overflow-visible">
-						<div className="flex w-full min-w-max items-center gap-2.5 px-4 sm:gap-8 sm:px-0">
-							<fieldset className="flex flex-1 items-center gap-2">
+				<div>
+					<div className="flex h-[54px] w-full items-center overflow-x-auto border-b border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-surface)] md:overflow-visible">
+						<div className="flex w-full min-w-max items-center gap-2 px-3 sm:gap-6 sm:px-0">
+							<fieldset className="flex flex-1 items-center gap-1.5">
 								<legend className="sr-only">Select performance metric</legend>
 								{metrics.map((metric) => (
 									<DashboardMetricButton
@@ -175,25 +152,25 @@ export function DashboardPerformancePanel({
 									/>
 								))}
 							</fieldset>
-							<div className="flex items-center gap-2">
-								<DashboardDateControls className="h-[38px] px-3 text-sm" />
+							<div className="flex items-center gap-1.5">
+								<DashboardDateControls className="h-[34px] px-2.5 text-[13px]" />
 								<DashboardFilterControls
 									className="shrink-0"
-									buttonClassName="h-[38px] px-3 text-sm"
+									buttonClassName="h-[34px] px-2.5 text-[13px]"
 								/>
 							</div>
 						</div>
 					</div>
 				</div>
-				<div className="flex flex-1 flex-col border-b border-[color:var(--dashboardy-divider)] lg:flex-row lg:gap-5">
-					<div className="flex flex-1 flex-col gap-4 pb-4 pt-6">
+				<div className="flex flex-1 flex-col border-b border-[color:var(--dashboardy-divider)] lg:flex-row lg:items-center lg:gap-0">
+					<div className="flex flex-1 flex-col justify-center pb-4 pt-0 lg:pb-4">
 						<DashboardHeadlineMetricGrid
 							metrics={snapshot.headlineMetrics}
 							className="pb-0"
 							showDelta={false}
 						/>
 					</div>
-					<div className="flex flex-1 pt-0 md:pt-3 lg:max-w-[664px]">
+					<div className="flex flex-1 items-center pt-0 lg:max-w-[664px]">
 						<DashboardDailyPatternChart
 							data={snapshot.dailyPattern}
 							className="min-w-0"
@@ -225,7 +202,6 @@ export function DashboardPerformancePanel({
 					</div>
 				</CardContent>
 			</Card>
-
 		</section>
 	);
 }

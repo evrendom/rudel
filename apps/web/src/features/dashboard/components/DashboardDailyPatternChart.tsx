@@ -1,5 +1,6 @@
 "use client";
 
+import { format, parseISO } from "date-fns";
 import { Bar, BarChart, Rectangle, XAxis, YAxis } from "recharts";
 import { type ChartConfig, ChartContainer, ChartTooltip } from "@/app/ui/chart";
 import type { DashboardDailyPatternPoint } from "@/features/dashboard/data/dashboard-static-data";
@@ -85,6 +86,55 @@ function buildChartData(data: DashboardDailyPatternPoint[]): DailyChartPoint[] {
 	});
 }
 
+function getTickLabel(dateValue: string, index: number, total: number) {
+	const parsedDate = parseISO(dateValue);
+
+	if (Number.isNaN(parsedDate.getTime())) {
+		return "";
+	}
+
+	const isFirstTick = index === 0;
+	const isLastTick = index === total - 1;
+
+	if (!isFirstTick && !isLastTick) {
+		return "";
+	}
+
+	return total <= 7 ? format(parsedDate, "EEE d") : format(parsedDate, "MMM d");
+}
+
+function getBarSize(total: number) {
+	if (total <= 7) {
+		return 18;
+	}
+
+	if (total <= 14) {
+		return 12;
+	}
+
+	if (total <= 21) {
+		return 8;
+	}
+
+	return 5;
+}
+
+function getBarCategoryGap(total: number) {
+	if (total <= 7) {
+		return 26;
+	}
+
+	if (total <= 14) {
+		return 12;
+	}
+
+	if (total <= 21) {
+		return 6;
+	}
+
+	return 3;
+}
+
 function SessionCompositionTooltip({
 	active,
 	payload,
@@ -112,7 +162,7 @@ function SessionCompositionTooltip({
 				</span>
 			</div>
 			<div className="flex items-center justify-between gap-3">
-				<span className="text-white/65">Commits</span>
+				<span className="text-white/65">Committed</span>
 				<span className="tabular-nums text-white">
 					{point.commits == null ? "—" : point.commits}
 				</span>
@@ -180,9 +230,11 @@ export function DashboardDailyPatternChart({
 		{ length: Math.floor(axisMax / 15) + 1 },
 		(_, index) => index * 15,
 	);
+	const barSize = getBarSize(chartData.length);
+	const barCategoryGap = getBarCategoryGap(chartData.length);
 
 	return (
-		<div className={cn("flex flex-1 pt-0 md:pt-3", className)}>
+		<div className={cn("flex min-w-0 flex-1 pt-0 md:pt-4", className)}>
 			<ChartContainer
 				config={chartConfig}
 				className="h-[12.875rem] w-full aspect-auto"
@@ -190,17 +242,21 @@ export function DashboardDailyPatternChart({
 			>
 				<BarChart
 					data={chartData}
-					barCategoryGap={26}
-					margin={{ top: 8, right: 34, bottom: 22, left: 0 }}
+					barCategoryGap={barCategoryGap}
+					margin={{ top: 2, right: 18, bottom: 10, left: 0 }}
 				>
 					<XAxis
-						dataKey="axisLabel"
+						dataKey="date"
+						height={22}
 						axisLine={{
 							stroke:
 								"color-mix(in srgb, var(--dashboardy-muted) 40%, transparent)",
 						}}
+						tickFormatter={(value, index) =>
+							getTickLabel(String(value), index, chartData.length)
+						}
 						tickLine={false}
-						tickMargin={8}
+						tickMargin={4}
 						tick={{
 							fontSize: 12,
 							fontWeight: 500,
@@ -220,8 +276,8 @@ export function DashboardDailyPatternChart({
 							stroke:
 								"color-mix(in srgb, var(--dashboardy-muted) 40%, transparent)",
 						}}
-						tickMargin={8}
-						width={38}
+						tickMargin={4}
+						width={26}
 						tick={{
 							fontSize: 12,
 							fontWeight: 500,
@@ -236,7 +292,7 @@ export function DashboardDailyPatternChart({
 					<Bar
 						dataKey="committed"
 						stackId="sessions"
-						barSize={18}
+						barSize={barSize}
 						fill="var(--color-committed)"
 						isAnimationActive={false}
 						shape={<StackedBarShape dataKey="committed" />}
@@ -244,7 +300,7 @@ export function DashboardDailyPatternChart({
 					<Bar
 						dataKey="active"
 						stackId="sessions"
-						barSize={18}
+						barSize={barSize}
 						fill="var(--color-active)"
 						isAnimationActive={false}
 						shape={<StackedBarShape dataKey="active" />}
@@ -252,7 +308,7 @@ export function DashboardDailyPatternChart({
 					<Bar
 						dataKey="stalled"
 						stackId="sessions"
-						barSize={18}
+						barSize={barSize}
 						fill="var(--color-stalled)"
 						isAnimationActive={false}
 						shape={<StackedBarShape dataKey="stalled" />}
@@ -260,7 +316,7 @@ export function DashboardDailyPatternChart({
 					<Bar
 						dataKey="dropped"
 						stackId="sessions"
-						barSize={18}
+						barSize={barSize}
 						fill="var(--color-dropped)"
 						isAnimationActive={false}
 						shape={<StackedBarShape dataKey="dropped" />}

@@ -78,7 +78,7 @@ function DashboardFilterMenu({
 						variant="outline"
 						size="sm"
 						className={cn(
-							"dashboardy-action-button h-8 w-fit rounded-full border-[color:var(--dashboardy-border)] bg-transparent px-3 text-xs font-medium text-[color:var(--dashboardy-heading)] shadow-none sm:h-9 sm:text-sm",
+							"dashboardy-action-button h-8 w-fit rounded-full border-[color:var(--dashboardy-border)] bg-transparent px-3 text-xs font-medium text-[color:var(--dashboardy-heading)] shadow-none sm:h-8 sm:text-[13px]",
 							buttonClassName,
 						)}
 					/>

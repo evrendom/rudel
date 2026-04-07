@@ -5,11 +5,11 @@ import {
 } from "@nivo/bar";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import type { DashboardMetricColorFamily } from "@/features/dashboard/data/dashboard-metric-colors";
 import {
 	getSidebarShellDebugState,
 	SIDEBAR_NEWS_ACTIVE_ATTRIBUTE,
 } from "@/features/shell/config/sidebar-shell-debug";
-import type { DashboardMetricColorFamily } from "@/features/dashboard/data/dashboard-metric-colors";
 
 export type DashboardPerformanceDatum = {
 	id: string;
@@ -72,7 +72,9 @@ function useSidebarNewsCardActive() {
 		}
 
 		const sync = () => {
-			setIsActive(preview.getAttribute(SIDEBAR_NEWS_ACTIVE_ATTRIBUTE) === "true");
+			setIsActive(
+				preview.getAttribute(SIDEBAR_NEWS_ACTIVE_ATTRIBUTE) === "true",
+			);
 		};
 
 		sync();
@@ -319,7 +321,7 @@ export function DashboardPerformanceChart({
 				}
 				layers={["axes", placeholderLayer, "bars"]}
 				role="img"
-				ariaLabel={`${metricLabel} weekly performance`}
+				ariaLabel={`${metricLabel} team member performance`}
 			/>
 
 			{!shouldDisableInteractiveLayers && placeholderTooltip ? (

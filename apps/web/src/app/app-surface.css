@@ -478,10 +478,10 @@ body:has(.dashboard-01-preview)::after {
 	width: fit-content;
 	max-width: 100%;
 	align-self: flex-start;
-	border-radius: 10px;
+	border-radius: 9px;
 	border: 1px solid var(--dashboard-01-metric-button-border);
 	background: var(--dashboard-01-metric-button-surface);
-	padding: 12px 14px;
+	padding: 8px 12px;
 	text-align: left;
 	color: var(--team-lineup-metric-picker-foreground);
 	box-shadow:
@@ -538,8 +538,8 @@ body:has(.dashboard-01-preview)::after {
 	font-family: var(--dashboard-01-font-sans);
 	font-style: normal;
 	font-weight: 500;
-	font-size: 15.2157px;
-	line-height: 18px;
+	font-size: 14px;
+	line-height: 16px;
 	letter-spacing: -0.03em;
 	color: inherit;
 	text-box-trim: trim-both;
