@@ -1,3 +1,5 @@
+import type { UserDailyTrendData } from "@rudel/api-routes";
+import { format, parseISO } from "date-fns";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/app/ui/tooltip";
 import type { DashboardPerformanceUserComparison } from "@/features/dashboard/data/dashboard-performance-adapter";
 
@@ -181,34 +183,67 @@ function getRateTone(commitRate: number) {
 
 function buildRosterRows(
 	performanceUsers: DashboardPerformanceUserComparison[],
+	highlightedDate: string | null,
+	trendData: UserDailyTrendData[] | undefined,
 ): DashboardPerformanceRosterRow[] {
+	const rowMap = new Map(
+		(trendData ?? []).map(
+			(row) => [`${row.user_id}:${row.date}`, row] as const,
+		),
+	);
+
 	return performanceUsers.map((user) => {
+		const highlightedRow =
+			highlightedDate != null
+				? rowMap.get(`${user.userId}:${highlightedDate}`)
+				: undefined;
+		const sessions =
+			highlightedDate != null ? (highlightedRow?.sessions ?? 0) : user.sessions;
+		const commits =
+			highlightedDate != null
+				? (highlightedRow?.total_commits ?? 0)
+				: user.commits;
 		const commitRate =
-			user.sessions > 0 ? Math.round((user.commits / user.sessions) * 100) : 0;
+			sessions > 0 ? Math.round((commits / sessions) * 100) : 0;
 
 		return {
 			commitRate,
-			commits: user.commits,
+			commits,
 			id: user.userId,
 			imageUrl: user.imageUrl,
 			modelsUsed: user.modelsUsed,
 			repositoriesTouched: user.repositoriesTouched,
-			sessions: user.sessions,
+			sessions,
 			userLabel: user.label,
 		};
 	});
 }
 
 export function DashboardPerformanceRosterTable({
+	highlightedDate,
 	performanceUsers,
+	trendData,
 }: {
+	highlightedDate: string | null;
 	performanceUsers: DashboardPerformanceUserComparison[];
+	trendData: UserDailyTrendData[] | undefined;
 }) {
-	const rows = buildRosterRows(performanceUsers);
+	const rows = buildRosterRows(performanceUsers, highlightedDate, trendData);
+	const highlightedDateLabel =
+		highlightedDate != null
+			? format(parseISO(highlightedDate), "EEE, MMM d")
+			: null;
 
 	return (
 		<div className="overflow-x-auto">
 			<div className="min-w-[60rem]">
+				<div className="px-3.5 pb-2 text-[12px] font-medium text-[color:var(--dashboardy-muted)]">
+					<p>
+						{highlightedDateLabel
+							? `Showing ${highlightedDateLabel}`
+							: "Showing totals"}
+					</p>
+				</div>
 				<div className="grid grid-cols-[minmax(180px,12fr)_minmax(168px,8fr)_minmax(180px,8fr)_80px_80px_112px] gap-6 px-3.5 text-[13px] font-semibold text-[color:var(--dashboardy-muted)]">
 					<p>User</p>
 					<p>Repository</p>
@@ -220,8 +255,6 @@ export function DashboardPerformanceRosterTable({
 				<div className="grid gap-0">
 					{rows.map((row) => {
 						const rateTone = getRateTone(row.commitRate);
-						// Hide raw "Synthetic" provider labels from the UI, including
-						// wrapped values like "<Synthetic>", until the upstream data is fixed.
 						const visibleModels = row.modelsUsed.filter(
 							(model) => !shouldHideModelBadge(model),
 						);

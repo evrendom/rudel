@@ -1,16 +1,23 @@
+import type { UserDailyTrendData } from "@rudel/api-routes";
 import { GaugeIcon } from "lucide-react";
 import { lazy, Suspense, useMemo, useState } from "react";
 import { Skeleton } from "@/app/ui/skeleton";
+import { ToggleGroup, ToggleGroupItem } from "@/app/ui/toggle-group";
 import { DashboardDailyOverviewTable } from "@/features/dashboard/components/DashboardDailyOverviewTable";
 import { DashboardDailyPatternChart } from "@/features/dashboard/components/DashboardDailyPatternChart";
 import { DashboardHeadlineMetricGrid } from "@/features/dashboard/components/DashboardHeadlineMetricGrid";
 import type { DashboardPerformanceDatum } from "@/features/dashboard/components/DashboardPerformanceChart";
 import { DashboardPerformanceRosterTable } from "@/features/dashboard/components/DashboardPerformanceRosterTable";
 import type { DashboardPerformanceUserComparison } from "@/features/dashboard/data/dashboard-performance-adapter";
+import {
+	buildDashboardPerformanceTrendSeries,
+	type DashboardPerformanceTrendMetric,
+} from "@/features/dashboard/data/dashboard-performance-trend";
 import type { DashboardOutputSnapshot } from "@/features/dashboard/data/dashboard-static-data";
 import { cn } from "@/lib/utils";
 
 type DailyHighlightSource = "chart" | "table";
+type PerformanceChartView = "total" | "over-time";
 
 const DashboardPerformanceChart = lazy(async () => {
 	const module = await import(
@@ -18,6 +25,14 @@ const DashboardPerformanceChart = lazy(async () => {
 	);
 
 	return { default: module.DashboardPerformanceChart };
+});
+
+const DashboardPerformanceTrendChart = lazy(async () => {
+	const module = await import(
+		"@/features/dashboard/components/DashboardPerformanceTrendChart"
+	);
+
+	return { default: module.DashboardPerformanceTrendChart };
 });
 
 function getMemberAxisLabel(fullLabel: string) {
@@ -158,18 +173,50 @@ function DashboardDailyPerformanceSnapshot({
 
 export function DashboardPerformancePanel({
 	isChartPending,
+	performanceUserDailyTrend,
 	performanceUsers,
 	snapshot,
 }: {
 	isChartPending: boolean;
+	performanceUserDailyTrend: UserDailyTrendData[] | undefined;
 	performanceUsers: DashboardPerformanceUserComparison[];
 	snapshot: DashboardOutputSnapshot;
 }) {
+	const [chartView, setChartView] = useState<PerformanceChartView>("total");
+	const [hiddenTrendSeriesIds, setHiddenTrendSeriesIds] = useState<string[]>(
+		[],
+	);
+	const [highlightedTrendDate, setHighlightedTrendDate] = useState<
+		string | null
+	>(null);
+	const [trendMetric, setTrendMetric] =
+		useState<DashboardPerformanceTrendMetric>("sessions");
 	const selectedChartData = useMemo(
 		() => buildChartData(performanceUsers),
 		[performanceUsers],
 	);
 	const hasChartData = selectedChartData.length > 0;
+	const hasTrendData = useMemo(
+		() => (performanceUserDailyTrend?.length ?? 0) > 0,
+		[performanceUserDailyTrend],
+	);
+	const trendSeries = useMemo(
+		() =>
+			buildDashboardPerformanceTrendSeries(
+				performanceUsers,
+				performanceUserDailyTrend,
+				trendMetric,
+			),
+		[performanceUserDailyTrend, performanceUsers, trendMetric],
+	);
+
+	function handleToggleTrendSeries(userId: string) {
+		setHiddenTrendSeriesIds((currentIds) =>
+			currentIds.includes(userId)
+				? currentIds.filter((id) => id !== userId)
+				: [...currentIds, userId],
+		);
+	}
 
 	return (
 		<section className="@container/performance-panel flex flex-col gap-8">
@@ -177,11 +224,38 @@ export function DashboardPerformancePanel({
 
 			<div className="flex flex-col gap-8">
 				<div className="grid gap-4">
-					<div className="flex items-center gap-2.5 px-1">
-						<GaugeIcon className="size-5 text-[color:var(--dashboardy-heading)]" />
-						<h2 className="dashboardy-section-title text-xl/7">
-							Developer Performance
-						</h2>
+					<div className="flex flex-col gap-3 px-1 sm:flex-row sm:items-center sm:justify-between">
+						<div className="flex items-center gap-2.5">
+							<GaugeIcon className="size-5 text-[color:var(--dashboardy-heading)]" />
+							<h2 className="dashboardy-section-title text-xl/7">
+								Developer Performance
+							</h2>
+						</div>
+						<ToggleGroup
+							aria-label="Developer performance view"
+							className="dashboardy-toggle-group self-start"
+							size="sm"
+							spacing={0}
+							value={[chartView]}
+							variant="outline"
+							onValueChange={(nextValue) => {
+								const nextView = nextValue[0];
+
+								if (nextView === "total" || nextView === "over-time") {
+									setChartView(nextView);
+								}
+							}}
+						>
+							<ToggleGroupItem value="total" className="dashboardy-toggle-item">
+								Total
+							</ToggleGroupItem>
+							<ToggleGroupItem
+								value="over-time"
+								className="dashboardy-toggle-item"
+							>
+								Over time
+							</ToggleGroupItem>
+						</ToggleGroup>
 					</div>
 					<div className="overflow-hidden rounded-[1.4rem] border border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-subsurface)]">
 						<div className="px-3 py-2 sm:px-4 sm:py-3">
@@ -191,6 +265,24 @@ export function DashboardPerformancePanel({
 							>
 								{isChartPending ? (
 									<DashboardPerformanceChartFallback />
+								) : chartView === "over-time" ? (
+									hasTrendData ? (
+										<Suspense fallback={<DashboardPerformanceChartFallback />}>
+											<DashboardPerformanceTrendChart
+												hiddenSeriesIds={hiddenTrendSeriesIds}
+												metric={trendMetric}
+												onHighlightDateChange={setHighlightedTrendDate}
+												onMetricChange={setTrendMetric}
+												onToggleSeries={handleToggleTrendSeries}
+												trendData={performanceUserDailyTrend}
+												trendSeries={trendSeries}
+											/>
+										</Suspense>
+									) : (
+										<div className="flex h-full items-center justify-center px-6 text-center text-sm text-muted-foreground">
+											No developer activity in the selected range.
+										</div>
+									)
 								) : hasChartData ? (
 									<Suspense fallback={<DashboardPerformanceChartFallback />}>
 										<DashboardPerformanceChart data={selectedChartData} />
@@ -206,7 +298,11 @@ export function DashboardPerformancePanel({
 				</div>
 				<div className="border-t border-[color:var(--dashboardy-divider)] pt-8">
 					<DashboardPerformanceRosterTable
+						highlightedDate={
+							chartView === "over-time" ? highlightedTrendDate : null
+						}
 						performanceUsers={performanceUsers}
+						trendData={performanceUserDailyTrend}
 					/>
 				</div>
 			</div>
