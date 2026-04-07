@@ -1,5 +1,12 @@
+import {
+	Table,
+	TableBody,
+	TableCell,
+	TableHead,
+	TableHeader,
+	TableRow,
+} from "@/app/ui/table";
 import type { DashboardOutputSnapshot } from "@/features/dashboard/data/dashboard-static-data";
-import { cn } from "@/lib/utils";
 
 export function DashboardDailyRateStrip({
 	data,
@@ -7,26 +14,48 @@ export function DashboardDailyRateStrip({
 	data: DashboardOutputSnapshot["dailyPattern"];
 }) {
 	return (
-		<div className="@container/daily-rate grid gap-2 @md/daily-rate:grid-cols-7">
-			{data.map((point) => (
-				<div
-					key={point.date}
-					className={cn(
-						"dashboardy-bucket-card grid gap-1 rounded-[1.2rem] p-3",
-						point.commitRate == null && "opacity-75",
-					)}
-				>
-					<p className="dashboardy-label">{point.axisLabel}</p>
-					<p className="dashboard-big-number text-base/6 tabular-nums text-[color:var(--dashboardy-heading)]">
-						{point.commitRate == null ? "—" : `${point.commitRate}%`}
-					</p>
-					<p className="dashboardy-footnote text-xs/5">
-						{point.commits == null || point.sessions == null
-							? "Future day"
-							: `${point.commits} commits / ${point.sessions} sessions`}
-					</p>
-				</div>
-			))}
+		<div className="dashboardy-bucket-card overflow-x-auto rounded-[1.4rem] p-0">
+			<Table className="dashboardy-board-table min-w-[34rem]">
+				<TableHeader>
+					<TableRow className="border-[color:var(--dashboardy-divider)] hover:bg-transparent">
+						<TableHead className="dashboardy-label h-9 px-4">Day</TableHead>
+						<TableHead className="dashboardy-label h-9 px-4">Date</TableHead>
+						<TableHead className="dashboardy-label h-9 px-4 text-right">
+							Rate
+						</TableHead>
+						<TableHead className="dashboardy-label h-9 px-4 text-right">
+							Commits
+						</TableHead>
+						<TableHead className="dashboardy-label h-9 px-4 text-right">
+							Sessions
+						</TableHead>
+					</TableRow>
+				</TableHeader>
+				<TableBody>
+					{data.map((point) => (
+						<TableRow
+							key={point.date}
+							className="dashboardy-board-row border-[color:var(--dashboardy-divider)] hover:bg-transparent"
+						>
+							<TableCell className="dashboardy-list-primary px-4">
+								{point.axisLabel}
+							</TableCell>
+							<TableCell className="dashboardy-footnote px-4">
+								{point.fullLabel}
+							</TableCell>
+							<TableCell className="px-4 text-right tabular-nums text-[color:var(--dashboardy-heading)]">
+								{point.commitRate == null ? "—" : `${point.commitRate}%`}
+							</TableCell>
+							<TableCell className="px-4 text-right tabular-nums text-[color:var(--dashboardy-heading)]">
+								{point.commits ?? "—"}
+							</TableCell>
+							<TableCell className="px-4 text-right tabular-nums text-[color:var(--dashboardy-muted)]">
+								{point.sessions ?? "—"}
+							</TableCell>
+						</TableRow>
+					))}
+				</TableBody>
+			</Table>
 		</div>
 	);
 }

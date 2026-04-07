@@ -473,17 +473,17 @@ body:has(.dashboard-01-preview)::after {
 
 .team-lineup-metric-button {
 	display: inline-flex;
-	align-items: flex-start;
+	align-items: center;
 	gap: 0;
 	width: fit-content;
 	max-width: 100%;
 	align-self: flex-start;
-	border-radius: 10px;
-	border: 1.01083px solid var(--dashboard-01-metric-button-border);
-	background: var(--dashboard-01-metric-button-surface);
-	padding: 12px 14px;
+	border-radius: 0.8rem;
+	border: 1px solid transparent;
+	background: transparent;
+	padding: 0.4rem 0.55rem;
 	text-align: left;
-	color: var(--team-lineup-metric-picker-foreground);
+	color: var(--dashboardy-muted);
 	box-shadow: none;
 	transition:
 		border-color 200ms ease,
@@ -493,16 +493,17 @@ body:has(.dashboard-01-preview)::after {
 }
 
 .team-lineup-metric-button[data-selected="true"] {
-	background: var(--dashboard-01-metric-button-surface-selected);
-	box-shadow: var(--dashboard-01-metric-button-shadow-selected);
+	border-color: var(--dashboardy-border);
+	background: var(--dashboardy-subsurface-strong);
+	color: var(--dashboardy-heading);
+	box-shadow: none;
 }
 
 .team-lineup-metric-button:focus-visible {
 	outline: none;
 	box-shadow:
-		var(--dashboard-01-metric-button-shadow-selected),
-		0 0 0 2px var(--dashboard-01-metric-button-focus-ring),
-		0 0 0 4px var(--dashboard-01-metric-button-focus-ring-offset);
+		0 0 0 2px color-mix(in srgb, var(--dashboardy-accent) 26%, transparent),
+		0 0 0 4px color-mix(in srgb, var(--dashboardy-accent) 10%, transparent);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -514,13 +515,13 @@ body:has(.dashboard-01-preview)::after {
 .team-lineup-metric-button__label {
 	display: block;
 	margin: 0;
-	font-family: var(--dashboard-01-font-sans);
+	font-family: var(--app-font-sans);
 	font-style: normal;
-	font-weight: 500;
-	font-size: 15.2157px;
-	line-height: 18px;
+	font-weight: 600;
+	font-size: 0.95rem;
+	line-height: 1.1;
 	letter-spacing: -0.03em;
-	color: var(--team-lineup-metric-picker-foreground);
+	color: inherit;
 	text-box-trim: trim-both;
 	text-box-edge: cap alphabetic;
 }
