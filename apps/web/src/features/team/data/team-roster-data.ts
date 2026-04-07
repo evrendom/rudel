@@ -11,7 +11,9 @@ export type TeamDeveloperCardSource = readonly DeveloperTeamCard[];
 export interface TeamRosterMemberSource {
 	userId: string;
 	displayName: string;
+	email?: string | null;
 	imageUrl?: string | null;
+	role?: string | null;
 }
 
 const featuredTemplate = teamCardTemplates.find((player) => player.featured);
@@ -234,7 +236,12 @@ export function buildTeamRosterPlayers(
 
 		if (index === 0) {
 			if (teamCard) {
-				return buildPlayerFromTeamCard(featuredTemplate, teamCard, true, member);
+				return buildPlayerFromTeamCard(
+					featuredTemplate,
+					teamCard,
+					true,
+					member,
+				);
 			}
 
 			return buildPlayerFromMember(featuredTemplate, member, true);
