@@ -124,7 +124,7 @@ export function DashboardDailyOverviewTable({
 					<p>Rate</p>
 					<p>Overview</p>
 				</div>
-				<div className="mt-1 grid gap-1">
+				<div className="grid gap-0">
 					{rows.map((row) => {
 						const tone = getToneClasses(row.statusTone);
 						const isHighlighted = highlightedDate === row.id;

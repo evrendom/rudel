@@ -217,7 +217,7 @@ export function DashboardPerformanceRosterTable({
 					<p>Commits</p>
 					<p>Rate</p>
 				</div>
-				<div className="mt-1 grid gap-1">
+				<div className="grid gap-0">
 					{rows.map((row) => {
 						const rateTone = getRateTone(row.commitRate);
 						// Hide raw "Synthetic" provider labels from the UI, including

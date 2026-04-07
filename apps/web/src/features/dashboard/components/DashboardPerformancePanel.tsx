@@ -2,8 +2,6 @@ import { lazy, Suspense, useMemo, useState } from "react";
 import { Skeleton } from "@/app/ui/skeleton";
 import { DashboardDailyOverviewTable } from "@/features/dashboard/components/DashboardDailyOverviewTable";
 import { DashboardDailyPatternChart } from "@/features/dashboard/components/DashboardDailyPatternChart";
-import { DashboardDateControls } from "@/features/dashboard/components/DashboardDateControls";
-import { DashboardFilterControls } from "@/features/dashboard/components/DashboardFilterControls";
 import { DashboardHeadlineMetricGrid } from "@/features/dashboard/components/DashboardHeadlineMetricGrid";
 import type { DashboardPerformanceDatum } from "@/features/dashboard/components/DashboardPerformanceChart";
 import { DashboardPerformanceRosterTable } from "@/features/dashboard/components/DashboardPerformanceRosterTable";
@@ -125,17 +123,6 @@ function DashboardDailyPerformanceSnapshot({
 
 	return (
 		<div className="flex flex-col gap-8">
-			<div>
-				<div className="flex h-[54px] w-full items-center overflow-x-auto border-b border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-surface)] md:overflow-visible">
-					<div className="flex w-full min-w-max items-center justify-end gap-1.5 px-3 sm:px-0">
-						<DashboardDateControls className="h-[34px] px-2.5 text-[13px]" />
-						<DashboardFilterControls
-							className="shrink-0"
-							buttonClassName="h-[34px] px-2.5 text-[13px]"
-						/>
-					</div>
-				</div>
-			</div>
 			<div className="flex flex-1 flex-col border-b border-[color:var(--dashboardy-divider)] lg:flex-row lg:items-center lg:gap-0">
 				<div className="flex flex-1 flex-col justify-center pb-4 pt-0 lg:pb-4">
 					<DashboardHeadlineMetricGrid
