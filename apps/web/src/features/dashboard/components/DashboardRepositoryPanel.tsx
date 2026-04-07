@@ -14,6 +14,7 @@ import type { DashboardRankedOutputRow } from "@/features/dashboard/data/dashboa
 
 type RepositoryChartView = "total" | "over-time";
 const MAX_VISIBLE_REPOSITORY_SERIES = 7;
+const MAX_VISIBLE_REPOSITORY_BARS = 20;
 
 const CHART_FALLBACK_BAR_KEYS = [
 	"repository-chart-bar-1",
@@ -99,7 +100,10 @@ export function DashboardRepositoryPanel({
 		[repositoryRows],
 	);
 	const chartData = useMemo(
-		() => buildDashboardRepositoryChartData(repositoryRows),
+		() =>
+			buildDashboardRepositoryChartData(
+				repositoryRows.slice(0, MAX_VISIBLE_REPOSITORY_BARS),
+			),
 		[repositoryRows],
 	);
 

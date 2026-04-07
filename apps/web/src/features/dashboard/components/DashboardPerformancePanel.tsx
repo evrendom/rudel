@@ -18,6 +18,7 @@ import { cn } from "@/lib/utils";
 
 type DailyHighlightSource = "chart" | "table";
 type PerformanceChartView = "total" | "over-time";
+const MAX_VISIBLE_PERFORMANCE_BARS = 20;
 
 const DashboardPerformanceChart = lazy(async () => {
 	const module = await import(
@@ -195,7 +196,8 @@ export function DashboardPerformancePanel({
 	const [trendMetric, setTrendMetric] =
 		useState<DashboardPerformanceTrendMetric>("sessions");
 	const selectedChartData = useMemo(
-		() => buildChartData(performanceUsers),
+		() =>
+			buildChartData(performanceUsers).slice(0, MAX_VISIBLE_PERFORMANCE_BARS),
 		[performanceUsers],
 	);
 	const hasChartData = selectedChartData.length > 0;

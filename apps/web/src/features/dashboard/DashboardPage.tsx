@@ -70,42 +70,50 @@ export function DashboardPage() {
 	return (
 		<div className="dashboardy-page px-4 pb-6 pt-2 sm:px-6 lg:px-[76px] lg:pb-8">
 			<div className="@container/dashboard-page mx-auto flex w-full flex-col gap-5">
-				<div className="flex h-[54px] w-full items-center overflow-x-auto border-b border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-surface)] md:overflow-visible">
-					<div className="flex w-full min-w-max items-center gap-2.5 px-3 sm:gap-10 sm:px-0">
-						<Tabs
-							value={activeView}
-							onValueChange={(nextValue) => {
-								if (
-									nextValue === "commits" ||
-									nextValue === "errors" ||
-									nextValue === "repos" ||
-									nextValue === "sessions"
-								) {
-									setActiveView(nextValue);
-								}
-							}}
-							className="dashboardy-sticky-tabs flex-1"
-						>
-							<TabsList className="dashboardy-sticky-tabs-list">
-								<TabsTrigger value="commits" className="dashboardy-sticky-tab">
-									Commits
-								</TabsTrigger>
-								<TabsTrigger value="errors" className="dashboardy-sticky-tab">
-									Errors
-								</TabsTrigger>
-								<TabsTrigger value="repos" className="dashboardy-sticky-tab">
-									Repos
-								</TabsTrigger>
-								<TabsTrigger value="sessions" className="dashboardy-sticky-tab">
-									Sessions
-								</TabsTrigger>
-							</TabsList>
-						</Tabs>
-						<DashboardDateControls className="h-[34px] px-2.5 text-[13px]" />
-						<DashboardFilterControls
-							className="shrink-0"
-							buttonClassName="h-[34px] px-2.5 text-[13px]"
-						/>
+				<div className="sticky top-0 z-20 -mx-4 bg-[color:var(--dashboardy-surface)]/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-[color:var(--dashboardy-surface)]/85 sm:-mx-6 sm:px-6 lg:-mx-[76px] lg:px-[76px]">
+					<div className="flex h-[54px] w-full items-center overflow-x-auto border-b border-[color:var(--dashboardy-border)] md:overflow-visible">
+						<div className="flex w-full min-w-max items-center gap-2.5 px-3 sm:gap-10 sm:px-0">
+							<Tabs
+								value={activeView}
+								onValueChange={(nextValue) => {
+									if (
+										nextValue === "commits" ||
+										nextValue === "errors" ||
+										nextValue === "repos" ||
+										nextValue === "sessions"
+									) {
+										setActiveView(nextValue);
+									}
+								}}
+								className="dashboardy-sticky-tabs flex-1"
+							>
+								<TabsList className="dashboardy-sticky-tabs-list">
+									<TabsTrigger
+										value="commits"
+										className="dashboardy-sticky-tab"
+									>
+										Commits
+									</TabsTrigger>
+									<TabsTrigger value="errors" className="dashboardy-sticky-tab">
+										Errors
+									</TabsTrigger>
+									<TabsTrigger value="repos" className="dashboardy-sticky-tab">
+										Repos
+									</TabsTrigger>
+									<TabsTrigger
+										value="sessions"
+										className="dashboardy-sticky-tab"
+									>
+										Sessions
+									</TabsTrigger>
+								</TabsList>
+							</Tabs>
+							<DashboardDateControls className="h-[34px] px-2.5 text-[13px]" />
+							<DashboardFilterControls
+								className="shrink-0"
+								buttonClassName="h-[34px] px-2.5 text-[13px]"
+							/>
+						</div>
 					</div>
 				</div>
 
