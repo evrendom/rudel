@@ -8,8 +8,8 @@ export function DashboardPage() {
 		useDashboardPageData();
 
 	return (
-		<div className="dashboardy-page px-4 pb-6 pt-2 lg:px-6 lg:pb-8">
-			<div className="@container/dashboard-page mx-auto flex max-w-[1180px] flex-col gap-5">
+		<div className="dashboardy-page px-4 pb-6 pt-2 sm:px-6 lg:px-[76px] lg:pb-8">
+			<div className="@container/dashboard-page mx-auto flex w-full flex-col gap-5">
 				<DashboardPerformancePanel
 					isChartPending={isPerformanceChartPending}
 					performanceUsers={performanceUsers}

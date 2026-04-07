@@ -9,32 +9,21 @@ import { cn } from "@/lib/utils";
 const chartConfig = {
 	committed: {
 		label: "Committed sessions",
-		color: "#039855",
+		color: "#1949A9",
 	},
-	active: {
-		label: "Active sessions",
-		color: "#fbbf24",
-	},
-	stalled: {
-		label: "Stalled sessions",
-		color: "#f79009",
-	},
-	dropped: {
-		label: "Dropped sessions",
-		color: "#f04438",
+	uncommitted: {
+		label: "Uncommitted sessions",
+		color: "#C21674",
 	},
 } satisfies ChartConfig;
 
-const stackOrder = ["committed", "active", "stalled", "dropped"] as const;
+const stackOrder = ["committed", "uncommitted"] as const;
 
-type StackKey = (typeof stackOrder)[number];
+type SeriesKey = (typeof stackOrder)[number];
 
 type DailyChartPoint = DashboardDailyPatternPoint & {
 	committed: number;
-	active: number;
-	stalled: number;
-	dropped: number;
-	totalSessions: number;
+	uncommitted: number;
 };
 
 function getAxisMax(data: DashboardDailyPatternPoint[]) {
@@ -45,52 +34,40 @@ function getAxisMax(data: DashboardDailyPatternPoint[]) {
 
 function buildChartData(data: DashboardDailyPatternPoint[]): DailyChartPoint[] {
 	return data.map((point) => {
-		if (
-			point.sessions == null ||
-			point.commits == null ||
-			point.commitRate == null
-		) {
+		if (point.sessions == null || point.commits == null) {
 			return {
 				...point,
 				committed: 0,
-				active: 0,
-				stalled: 0,
-				dropped: 0,
-				totalSessions: 0,
+				uncommitted: 0,
 			};
 		}
-
-		const unresolvedSessions = Math.max(point.sessions - point.commits, 0);
-		const droppedRatio =
-			point.commitRate >= 60 ? 0.08 : point.commitRate >= 45 ? 0.14 : 0.22;
-		const stalledRatio =
-			point.commitRate >= 60 ? 0.24 : point.commitRate >= 45 ? 0.36 : 0.48;
-		const dropped = Math.min(
-			unresolvedSessions,
-			Math.round(unresolvedSessions * droppedRatio),
-		);
-		const stalled = Math.min(
-			unresolvedSessions - dropped,
-			Math.round(unresolvedSessions * stalledRatio),
-		);
-		const active = Math.max(0, unresolvedSessions - stalled - dropped);
 
 		return {
 			...point,
 			committed: point.commits,
-			active,
-			stalled,
-			dropped,
-			totalSessions: point.sessions,
+			uncommitted: Math.max(point.sessions - point.commits, 0),
 		};
 	});
 }
 
-function getTickLabel(dateValue: string, index: number, total: number) {
+function getTickLabel(
+	dateValue: string,
+	index: number,
+	total: number,
+	activeDate?: string | null,
+) {
 	const parsedDate = parseISO(dateValue);
 
 	if (Number.isNaN(parsedDate.getTime())) {
 		return "";
+	}
+
+	if (activeDate != null) {
+		return activeDate === dateValue
+			? total <= 7
+				? format(parsedDate, "EEE d")
+				: format(parsedDate, "MMM d")
+			: "";
 	}
 
 	const isFirstTick = index === 0;
@@ -105,37 +82,45 @@ function getTickLabel(dateValue: string, index: number, total: number) {
 
 function getBarSize(total: number) {
 	if (total <= 7) {
-		return 18;
+		return 32;
 	}
 
 	if (total <= 14) {
-		return 12;
+		return 24;
 	}
 
 	if (total <= 21) {
-		return 8;
+		return 18;
 	}
 
-	return 5;
+	if (total <= 31) {
+		return 14;
+	}
+
+	return 10;
 }
 
 function getBarCategoryGap(total: number) {
 	if (total <= 7) {
-		return 26;
+		return 0;
 	}
 
 	if (total <= 14) {
-		return 12;
+		return 0;
 	}
 
 	if (total <= 21) {
-		return 6;
+		return 0;
 	}
 
-	return 3;
+	if (total <= 31) {
+		return 0;
+	}
+
+	return 0;
 }
 
-function SessionCompositionTooltip({
+function DailySessionsTooltip({
 	active,
 	payload,
 }: {
@@ -163,28 +148,26 @@ function SessionCompositionTooltip({
 			</div>
 			<div className="flex items-center justify-between gap-3">
 				<span className="text-white/65">Committed</span>
-				<span className="tabular-nums text-white">
-					{point.commits == null ? "—" : point.commits}
-				</span>
+				<span className="tabular-nums text-white">{point.committed}</span>
 			</div>
 			<div className="flex items-center justify-between gap-3">
-				<span className="text-white/65">Commit rate</span>
-				<span className="tabular-nums text-white">
-					{point.commitRate == null ? "—" : `${point.commitRate}%`}
-				</span>
+				<span className="text-white/65">Uncommitted</span>
+				<span className="tabular-nums text-white">{point.uncommitted}</span>
 			</div>
 		</div>
 	);
 }
 
-function StackedBarShape(props: {
+function DailyBarShape(props: {
+	activeDate?: string | null;
+	activeSource?: "chart" | "table" | null;
+	dataKey?: SeriesKey;
 	fill?: string;
 	x?: number;
 	y?: number;
 	width?: number;
 	height?: number;
 	payload?: DailyChartPoint;
-	dataKey?: StackKey;
 }) {
 	const { fill, x, y, width, height, payload, dataKey } = props;
 
@@ -204,6 +187,18 @@ function StackedBarShape(props: {
 	const isTopSegment = stackOrder
 		.slice(keyIndex + 1)
 		.every((key) => payload[key] === 0);
+	const isHighlighted = props.activeDate === payload.date;
+	const hasExternalHighlight = props.activeDate != null;
+	const isTableHighlight = props.activeSource === "table";
+	const highlightStroke =
+		"color-mix(in srgb, var(--dashboardy-heading) 22%, transparent)";
+	const barOpacity =
+		hasExternalHighlight && !isHighlighted
+			? isTableHighlight
+				? 0.16
+				: 0.26
+			: 1;
+	const showStroke = isHighlighted && dataKey === "uncommitted";
 
 	return (
 		<Rectangle
@@ -213,6 +208,14 @@ function StackedBarShape(props: {
 			height={height}
 			fill={fill}
 			radius={isTopSegment ? [4, 4, 0, 0] : 0}
+			stroke={highlightStroke}
+			strokeWidth={showStroke ? 1 : 0}
+			style={{
+				opacity: barOpacity,
+				strokeOpacity: showStroke ? 1 : 0,
+				transition:
+					"opacity 300ms cubic-bezier(0.23, 1, 0.32, 1), stroke-opacity 300ms cubic-bezier(0.23, 1, 0.32, 1)",
+			}}
 		/>
 	);
 }
@@ -220,9 +223,15 @@ function StackedBarShape(props: {
 export function DashboardDailyPatternChart({
 	data,
 	className,
+	highlightedDate,
+	highlightSource,
+	onHighlightDateChange,
 }: {
 	data: DashboardDailyPatternPoint[];
 	className?: string;
+	highlightedDate?: string | null;
+	highlightSource?: "chart" | "table" | null;
+	onHighlightDateChange?: (date: string | null) => void;
 }) {
 	const chartData = buildChartData(data);
 	const axisMax = getAxisMax(data);
@@ -244,6 +253,13 @@ export function DashboardDailyPatternChart({
 					data={chartData}
 					barCategoryGap={barCategoryGap}
 					margin={{ top: 2, right: 18, bottom: 10, left: 0 }}
+					onMouseLeave={() => onHighlightDateChange?.(null)}
+					onMouseMove={(state) => {
+						const dateValue = state?.activePayload?.[0]?.payload?.date;
+						onHighlightDateChange?.(
+							typeof dateValue === "string" ? dateValue : null,
+						);
+					}}
 				>
 					<XAxis
 						dataKey="date"
@@ -253,7 +269,12 @@ export function DashboardDailyPatternChart({
 								"color-mix(in srgb, var(--dashboardy-muted) 40%, transparent)",
 						}}
 						tickFormatter={(value, index) =>
-							getTickLabel(String(value), index, chartData.length)
+							getTickLabel(
+								String(value),
+								index,
+								chartData.length,
+								highlightedDate,
+							)
 						}
 						tickLine={false}
 						tickMargin={4}
@@ -285,41 +306,34 @@ export function DashboardDailyPatternChart({
 							opacity: 0.38,
 						}}
 					/>
-					<ChartTooltip
-						cursor={false}
-						content={<SessionCompositionTooltip />}
-					/>
+					<ChartTooltip cursor={false} content={<DailySessionsTooltip />} />
 					<Bar
 						dataKey="committed"
 						stackId="sessions"
 						barSize={barSize}
 						fill="var(--color-committed)"
 						isAnimationActive={false}
-						shape={<StackedBarShape dataKey="committed" />}
+						shape={
+							<DailyBarShape
+								dataKey="committed"
+								activeDate={highlightedDate}
+								activeSource={highlightSource}
+							/>
+						}
 					/>
 					<Bar
-						dataKey="active"
+						dataKey="uncommitted"
 						stackId="sessions"
 						barSize={barSize}
-						fill="var(--color-active)"
+						fill="var(--color-uncommitted)"
 						isAnimationActive={false}
-						shape={<StackedBarShape dataKey="active" />}
-					/>
-					<Bar
-						dataKey="stalled"
-						stackId="sessions"
-						barSize={barSize}
-						fill="var(--color-stalled)"
-						isAnimationActive={false}
-						shape={<StackedBarShape dataKey="stalled" />}
-					/>
-					<Bar
-						dataKey="dropped"
-						stackId="sessions"
-						barSize={barSize}
-						fill="var(--color-dropped)"
-						isAnimationActive={false}
-						shape={<StackedBarShape dataKey="dropped" />}
+						shape={
+							<DailyBarShape
+								dataKey="uncommitted"
+								activeDate={highlightedDate}
+								activeSource={highlightSource}
+							/>
+						}
 					/>
 				</BarChart>
 			</ChartContainer>

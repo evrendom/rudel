@@ -3,8 +3,9 @@ import {
 	type BarTooltipProps,
 	ResponsiveBar,
 } from "@nivo/bar";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import { useMountEffect } from "@/app/hooks/useMountEffect";
 import {
 	getSidebarShellDebugState,
 	SIDEBAR_NEWS_ACTIVE_ATTRIBUTE,
@@ -24,6 +25,8 @@ const chartSeries = [
 		label: "All sessions",
 	},
 ] as const;
+
+const ZERO_BAR_STUB_HEIGHT = 6;
 
 export type DashboardPerformanceDatum = {
 	axisLabel: string;
@@ -60,7 +63,7 @@ function getAvatarInitials(fullLabel: string) {
 function useSidebarNewsCardActive() {
 	const [isActive, setIsActive] = useState(false);
 
-	useEffect(() => {
+	useMountEffect(() => {
 		const preview = document.querySelector(".dashboard-01-preview");
 		if (!(preview instanceof HTMLElement)) {
 			return;
@@ -81,7 +84,7 @@ function useSidebarNewsCardActive() {
 		});
 
 		return () => observer.disconnect();
-	}, []);
+	});
 
 	return isActive;
 }
@@ -263,6 +266,33 @@ export function DashboardPerformanceChart({
 		},
 		[semanticDataById],
 	);
+	const zeroBarStubLayer = useCallback(
+		({ bars }: BarCustomLayerProps<DashboardPerformanceChartRow>) => {
+			const zeroValueBars = bars.filter((bar) => (bar.data.value ?? 0) === 0);
+
+			if (zeroValueBars.length === 0) {
+				return null;
+			}
+
+			return (
+				<g>
+					{zeroValueBars.map((bar) => (
+						<rect
+							key={`zero-bar-${bar.key}`}
+							x={bar.x}
+							y={Math.max(bar.y - ZERO_BAR_STUB_HEIGHT, 0)}
+							width={bar.width}
+							height={ZERO_BAR_STUB_HEIGHT}
+							rx={Math.min(4, bar.width / 2)}
+							fill="var(--dashboardy-subtle)"
+							fillOpacity={0.35}
+						/>
+					))}
+				</g>
+			);
+		},
+		[],
+	);
 
 	return (
 		<div className="relative h-full w-full">
@@ -337,7 +367,7 @@ export function DashboardPerformanceChart({
 								/>
 							)
 				}
-				layers={["axes", "bars", avatarLabelLayer]}
+				layers={["axes", "bars", zeroBarStubLayer, avatarLabelLayer]}
 				role="img"
 				ariaLabel="Developer commits and sessions comparison"
 			/>

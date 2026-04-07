@@ -1,15 +1,17 @@
-import { lazy, Suspense, useMemo } from "react";
-import { Card, CardContent } from "@/app/ui/card";
+import { lazy, Suspense, useMemo, useState } from "react";
 import { Skeleton } from "@/app/ui/skeleton";
+import { DashboardDailyOverviewTable } from "@/features/dashboard/components/DashboardDailyOverviewTable";
 import { DashboardDailyPatternChart } from "@/features/dashboard/components/DashboardDailyPatternChart";
-import { DashboardDailyRateStrip } from "@/features/dashboard/components/DashboardDailyRateStrip";
 import { DashboardDateControls } from "@/features/dashboard/components/DashboardDateControls";
 import { DashboardFilterControls } from "@/features/dashboard/components/DashboardFilterControls";
 import { DashboardHeadlineMetricGrid } from "@/features/dashboard/components/DashboardHeadlineMetricGrid";
 import type { DashboardPerformanceDatum } from "@/features/dashboard/components/DashboardPerformanceChart";
+import { DashboardPerformanceRosterTable } from "@/features/dashboard/components/DashboardPerformanceRosterTable";
 import type { DashboardPerformanceUserComparison } from "@/features/dashboard/data/dashboard-performance-adapter";
 import type { DashboardOutputSnapshot } from "@/features/dashboard/data/dashboard-static-data";
 import { cn } from "@/lib/utils";
+
+type DailyHighlightSource = "chart" | "table";
 
 const DashboardPerformanceChart = lazy(async () => {
 	const module = await import(
@@ -102,6 +104,79 @@ function DashboardPerformanceChartFallback() {
 	);
 }
 
+function DashboardDailyPerformanceSnapshot({
+	snapshot,
+}: {
+	snapshot: DashboardOutputSnapshot;
+}) {
+	const [highlightedDailyDate, setHighlightedDailyDate] = useState<
+		string | null
+	>(null);
+	const [highlightedDailySource, setHighlightedDailySource] =
+		useState<DailyHighlightSource | null>(null);
+
+	function handleDailyHighlightChange(
+		date: string | null,
+		source: DailyHighlightSource,
+	) {
+		setHighlightedDailyDate(date);
+		setHighlightedDailySource(date ? source : null);
+	}
+
+	return (
+		<div className="flex flex-col gap-8">
+			<div className="grid gap-1 pb-3">
+				<h2 className="dashboard-big-number text-2xl/8 text-[color:var(--dashboardy-heading)]">
+					AI delivery at a glance
+				</h2>
+				<p className="dashboardy-footnote max-w-2xl text-sm/6">
+					Committed sessions and total session volume, broken down by developer
+					for the selected date range.
+				</p>
+			</div>
+			<div>
+				<div className="flex h-[54px] w-full items-center overflow-x-auto border-b border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-surface)] md:overflow-visible">
+					<div className="flex w-full min-w-max items-center justify-end gap-1.5 px-3 sm:px-0">
+						<DashboardDateControls className="h-[34px] px-2.5 text-[13px]" />
+						<DashboardFilterControls
+							className="shrink-0"
+							buttonClassName="h-[34px] px-2.5 text-[13px]"
+						/>
+					</div>
+				</div>
+			</div>
+			<div className="flex flex-1 flex-col border-b border-[color:var(--dashboardy-divider)] lg:flex-row lg:items-center lg:gap-0">
+				<div className="flex flex-1 flex-col justify-center pb-4 pt-0 lg:pb-4">
+					<DashboardHeadlineMetricGrid
+						metrics={snapshot.headlineMetrics}
+						className="pb-0"
+						showDelta={false}
+					/>
+				</div>
+				<div className="flex flex-1 items-center pt-0 lg:max-w-[760px] 2xl:max-w-[820px]">
+					<DashboardDailyPatternChart
+						data={snapshot.dailyPattern}
+						className="min-w-0"
+						highlightedDate={highlightedDailyDate}
+						highlightSource={highlightedDailySource}
+						onHighlightDateChange={(date) =>
+							handleDailyHighlightChange(date, "chart")
+						}
+					/>
+				</div>
+			</div>
+			<DashboardDailyOverviewTable
+				data={snapshot.dailyPattern}
+				highlightedDate={highlightedDailyDate}
+				highlightSource={highlightedDailySource}
+				onHighlightDateChange={(date) =>
+					handleDailyHighlightChange(date, "table")
+				}
+			/>
+		</div>
+	);
+}
+
 export function DashboardPerformancePanel({
 	isChartPending,
 	performanceUsers,
@@ -118,84 +193,38 @@ export function DashboardPerformancePanel({
 	const hasChartData = selectedChartData.length > 0;
 
 	return (
-		<section className="@container/performance-panel grid gap-5">
-			<div className="grid gap-0">
-				<div className="grid gap-1 pb-3">
-					<h2 className="dashboard-big-number text-2xl/8 text-[color:var(--dashboardy-heading)]">
-						AI delivery at a glance
-					</h2>
-					<p className="dashboardy-footnote max-w-2xl text-sm/6">
-						Committed sessions and total session volume, broken down by
-						developer for the selected date range.
-					</p>
-				</div>
-				<div>
-					<div className="flex h-[54px] w-full items-center overflow-x-auto border-b border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-surface)] md:overflow-visible">
-						<div className="flex w-full min-w-max items-center justify-between gap-3 px-3 sm:px-0">
-							<div className="flex flex-wrap items-center gap-3 text-[13px] font-medium text-[color:var(--dashboardy-muted)]">
-								<div className="inline-flex items-center gap-2">
-									<span className="size-2.5 rounded-full bg-[color:var(--dashboard-01-tone-orange)]" />
-									<span>Committed sessions</span>
+		<section className="@container/performance-panel flex flex-col gap-8">
+			<DashboardDailyPerformanceSnapshot snapshot={snapshot} />
+
+			<div className="flex flex-col gap-8">
+				<div className="overflow-hidden rounded-[1.4rem] border border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-subsurface)]">
+					<div className="px-3 py-2 sm:px-4 sm:py-3">
+						<div
+							data-slot="dashboard-performance-chart-shell"
+							className="h-[18.5rem] sm:h-[20rem]"
+						>
+							{isChartPending ? (
+								<DashboardPerformanceChartFallback />
+							) : hasChartData ? (
+								<Suspense fallback={<DashboardPerformanceChartFallback />}>
+									<DashboardPerformanceChart data={selectedChartData} />
+								</Suspense>
+							) : (
+								<div className="flex h-full items-center justify-center px-6 text-center text-sm text-muted-foreground">
+									No developer activity in the selected range.
 								</div>
-								<div className="inline-flex items-center gap-2">
-									<span className="size-2.5 rounded-full bg-[color:var(--dashboard-01-tone-blue)]" />
-									<span>All sessions</span>
-								</div>
-							</div>
-							<div className="flex items-center gap-1.5">
-								<DashboardDateControls className="h-[34px] px-2.5 text-[13px]" />
-								<DashboardFilterControls
-									className="shrink-0"
-									buttonClassName="h-[34px] px-2.5 text-[13px]"
-								/>
-							</div>
+							)}
 						</div>
 					</div>
 				</div>
-				<div className="flex flex-1 flex-col border-b border-[color:var(--dashboardy-divider)] lg:flex-row lg:items-center lg:gap-0">
-					<div className="flex flex-1 flex-col justify-center pb-4 pt-0 lg:pb-4">
-						<DashboardHeadlineMetricGrid
-							metrics={snapshot.headlineMetrics}
-							className="pb-0"
-							showDelta={false}
-						/>
-					</div>
-					<div className="flex flex-1 items-center pt-0 lg:max-w-[664px]">
-						<DashboardDailyPatternChart
-							data={snapshot.dailyPattern}
-							className="min-w-0"
-						/>
-					</div>
+				<div className="border-t border-[color:var(--dashboardy-divider)] pt-8">
+					<DashboardPerformanceRosterTable
+						activeBranches={snapshot.activeBranches}
+						performanceUsers={performanceUsers}
+						repositories={snapshot.repositories}
+					/>
 				</div>
 			</div>
-
-			<Card className="dashboardy-card overflow-hidden rounded-[1.9rem] border py-0 shadow-none">
-				<CardContent className="px-5 py-4">
-					<div className="overflow-hidden rounded-[1.4rem] border border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-subsurface)]">
-						<div className="px-3 py-2 sm:px-4 sm:py-3">
-							<div
-								data-slot="dashboard-performance-chart-shell"
-								className="h-[18.5rem] sm:h-[20rem]"
-							>
-								{isChartPending ? (
-									<DashboardPerformanceChartFallback />
-								) : hasChartData ? (
-									<Suspense fallback={<DashboardPerformanceChartFallback />}>
-										<DashboardPerformanceChart data={selectedChartData} />
-									</Suspense>
-								) : (
-									<div className="flex h-full items-center justify-center px-6 text-center text-sm text-muted-foreground">
-										No developer activity in the selected range.
-									</div>
-								)}
-							</div>
-						</div>
-					</div>
-					<div className="mt-4 border-t border-[color:var(--dashboardy-divider)] pt-4">
-						<DashboardDailyRateStrip data={snapshot.dailyPattern} />
-					</div>
-				</CardContent>
-			</Card>
 		</section>
 	);
 }

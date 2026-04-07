@@ -32,14 +32,15 @@ function buildHeadlineMetrics(
 ) {
 	const committedSessions = roiDashboard.summary.total_commits;
 	const totalSessions = roiDashboard.summary.total_sessions;
+	const uncommittedSessions = Math.max(totalSessions - committedSessions, 0);
 	const commitRate = getCommitRate(committedSessions, totalSessions);
 
 	return currentMetrics.map((metric) => {
-		if (metric.id === "commits") {
+		if (metric.id === "uncommitted") {
 			return {
 				...metric,
-				label: "Committed sessions",
-				valueLabel: formatMetricValue(committedSessions),
+				label: "Uncommitted sessions",
+				valueLabel: formatMetricValue(uncommittedSessions),
 			};
 		}
 
@@ -128,7 +129,9 @@ function formatBucketFullLabel(
 	return format(date, "MMMM yyyy");
 }
 
-function buildDailyPattern(roiDashboard: ROIDashboard): DashboardDailyPatternPoint[] {
+function buildDailyPattern(
+	roiDashboard: ROIDashboard,
+): DashboardDailyPatternPoint[] {
 	const trendByBucket = new Map(
 		roiDashboard.trend.map((row) => [row.bucket_start, row] as const),
 	);

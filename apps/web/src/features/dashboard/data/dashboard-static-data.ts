@@ -62,7 +62,7 @@ export interface DashboardMetric {
 }
 
 export interface DashboardHeadlineMetric {
-	id: "commits" | "sessions" | "commitRate";
+	id: "sessions" | "uncommitted" | "commitRate";
 	label: string;
 	valueLabel: string;
 	deltaLabel: string;
@@ -293,20 +293,20 @@ const dashboardMetricDetailTemplates: Record<
 
 const headlineMetricsTemplate: DashboardHeadlineMetric[] = [
 	{
-		id: "commits",
-		label: "Commits shipped",
-		valueLabel: "89",
-		deltaLabel: "+12",
-		deltaTone: "positive",
-		description: "Total commits this period.",
-	},
-	{
 		id: "sessions",
 		label: "Sessions run",
 		valueLabel: "142",
 		deltaLabel: "-6",
 		deltaTone: "negative",
 		description: "Total AI sessions this period.",
+	},
+	{
+		id: "uncommitted",
+		label: "Uncommitted sessions",
+		valueLabel: "53",
+		deltaLabel: "+8",
+		deltaTone: "negative",
+		description: "Sessions that did not produce a commit.",
 	},
 	{
 		id: "commitRate",
@@ -559,13 +559,14 @@ function buildHeadlineMetrics(dailyPattern: DashboardDailyPatternPoint[]) {
 		(total, point) => total + (point.sessions ?? 0),
 		0,
 	);
+	const uncommitted = Math.max(sessions - commits, 0);
 	const commitRate = sessions > 0 ? Math.round((commits / sessions) * 100) : 0;
 
 	return headlineMetricsTemplate.map((metric) => {
-		if (metric.id === "commits") {
+		if (metric.id === "uncommitted") {
 			return {
 				...metric,
-				valueLabel: `${commits}`,
+				valueLabel: `${uncommitted}`,
 			};
 		}
 

@@ -11,8 +11,8 @@ const deltaToneClass: Record<DashboardDeltaTone, string> = {
 };
 
 const metricBarClass: Record<DashboardHeadlineMetric["id"], string> = {
-	commits: "bg-[color:var(--dashboard-01-tone-orange)]",
 	sessions: "bg-[color:var(--dashboard-01-tone-blue)]",
+	uncommitted: "bg-[#C21674]",
 	commitRate: "bg-[color:var(--dashboard-01-tone-teal)]",
 };
 

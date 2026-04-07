@@ -164,6 +164,7 @@ export async function getUsersTokenUsage(
 	const dateFilter = buildAbsoluteDateFilter("startDate", "endDate");
 
 	const rows = await queryClickhouse<{
+		models_used: string[];
 		user_id: string;
 		total_commits: number;
 		total_tokens: number;
@@ -178,6 +179,10 @@ export async function getUsersTokenUsage(
 		query: `
     SELECT
       user_id,
+      arrayFilter(
+        x -> x != '',
+        topK(3)(if(model_used != '' AND model_used != 'unknown', model_used, ''))
+      ) as models_used,
       sum(has_commit) as total_commits,
       sum(total_tokens) as total_tokens,
       sum(input_tokens) as input_tokens,
@@ -223,6 +228,7 @@ export async function getUsersTokenUsage(
 	);
 
 	return rows.map((row) => ({
+		models_used: row.models_used ?? [],
 		user_id: row.user_id,
 		user_label: userMap.get(row.user_id) ?? row.user_id,
 		total_commits: Number(row.total_commits),

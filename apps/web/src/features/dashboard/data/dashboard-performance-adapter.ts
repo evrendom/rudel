@@ -1,46 +1,107 @@
 import type { UserTokenUsageData } from "@rudel/api-routes";
 
-const MAX_CHART_USERS = 8;
-
 export type DashboardPerformanceUserComparison = {
 	commits: number;
 	imageUrl?: string | null;
 	label: string;
+	modelsUsed: string[];
 	sessions: number;
 	userId: string;
 };
 
+type DashboardPerformanceMember = {
+	userId: string;
+	user: {
+		email: string;
+		image: string | null;
+		name: string;
+	};
+};
+
+type SortablePerformanceUser = {
+	imageUrl?: string | null;
+	modelsUsed: string[];
+	totalCommits: number;
+	totalSessions: number;
+	totalTokens: number;
+	userId: string;
+	userLabel: string;
+};
+
+function getMemberDisplayLabel(member: DashboardPerformanceMember) {
+	const trimmedName = member.user.name.trim();
+
+	return trimmedName || member.user.email || "Unknown user";
+}
+
 export function buildDashboardPerformanceUsers(
 	usersTokenUsage: UserTokenUsageData[] | undefined,
 	userImageById: Map<string, string | null>,
+	organizationMembers: readonly DashboardPerformanceMember[] = [],
 ): DashboardPerformanceUserComparison[] {
-	if (!usersTokenUsage?.length) {
+	const usageByUserId = new Map(
+		(usersTokenUsage ?? []).map((user) => [user.user_id, user] as const),
+	);
+	const memberIds = new Set(organizationMembers.map((member) => member.userId));
+
+	const organizationRows: SortablePerformanceUser[] = organizationMembers.map(
+		(member) => {
+			const usage = usageByUserId.get(member.userId);
+
+			return {
+				imageUrl: member.user.image,
+				modelsUsed: usage?.models_used ?? [],
+				totalCommits: usage?.total_commits ?? 0,
+				totalSessions: usage?.total_sessions ?? 0,
+				totalTokens: usage?.total_tokens ?? 0,
+				userId: member.userId,
+				userLabel: usage?.user_label || getMemberDisplayLabel(member),
+			};
+		},
+	);
+
+	const analyticsOnlyRows: SortablePerformanceUser[] = (usersTokenUsage ?? [])
+		.filter(
+			(user) => user.user_id && user.user_label && !memberIds.has(user.user_id),
+		)
+		.map((user) => ({
+			imageUrl: userImageById.get(user.user_id) ?? null,
+			modelsUsed: user.models_used ?? [],
+			totalCommits: user.total_commits,
+			totalSessions: user.total_sessions,
+			totalTokens: user.total_tokens,
+			userId: user.user_id,
+			userLabel: user.user_label,
+		}));
+
+	const combinedRows = [...organizationRows, ...analyticsOnlyRows];
+
+	if (combinedRows.length === 0) {
 		return [];
 	}
 
-	return usersTokenUsage
-		.filter((user) => user.user_id && user.user_label)
+	return combinedRows
 		.sort((left, right) => {
-			if (right.total_commits !== left.total_commits) {
-				return right.total_commits - left.total_commits;
+			if (right.totalCommits !== left.totalCommits) {
+				return right.totalCommits - left.totalCommits;
 			}
 
-			if (right.total_sessions !== left.total_sessions) {
-				return right.total_sessions - left.total_sessions;
+			if (right.totalSessions !== left.totalSessions) {
+				return right.totalSessions - left.totalSessions;
 			}
 
-			if (right.total_tokens !== left.total_tokens) {
-				return right.total_tokens - left.total_tokens;
+			if (right.totalTokens !== left.totalTokens) {
+				return right.totalTokens - left.totalTokens;
 			}
 
-			return left.user_label.localeCompare(right.user_label);
+			return left.userLabel.localeCompare(right.userLabel);
 		})
-		.slice(0, MAX_CHART_USERS)
 		.map((user) => ({
-			commits: user.total_commits,
-			imageUrl: userImageById.get(user.user_id) ?? null,
-			label: user.user_label,
-			sessions: user.total_sessions,
-			userId: user.user_id,
+			commits: user.totalCommits,
+			imageUrl: user.imageUrl ?? userImageById.get(user.userId) ?? null,
+			label: user.userLabel,
+			modelsUsed: user.modelsUsed,
+			sessions: user.totalSessions,
+			userId: user.userId,
 		}));
 }

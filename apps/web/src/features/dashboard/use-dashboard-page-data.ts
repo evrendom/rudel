@@ -42,8 +42,13 @@ export function useDashboardPageData() {
 		[fullOrganization?.members],
 	);
 	const performanceUsers = useMemo(
-		() => buildDashboardPerformanceUsers(usersTokenUsage, userImageById),
-		[userImageById, usersTokenUsage],
+		() =>
+			buildDashboardPerformanceUsers(
+				usersTokenUsage,
+				userImageById,
+				fullOrganization?.members ?? [],
+			),
+		[fullOrganization?.members, userImageById, usersTokenUsage],
 	);
 	const baseSnapshot = useMemo(
 		() => createDashboardOutputSnapshot(state.startDate, state.endDate),
