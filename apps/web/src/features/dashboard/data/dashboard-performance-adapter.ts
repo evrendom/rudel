@@ -5,6 +5,7 @@ export type DashboardPerformanceUserComparison = {
 	imageUrl?: string | null;
 	label: string;
 	modelsUsed: string[];
+	repositoriesTouched: string[];
 	sessions: number;
 	userId: string;
 };
@@ -21,6 +22,7 @@ type DashboardPerformanceMember = {
 type SortablePerformanceUser = {
 	imageUrl?: string | null;
 	modelsUsed: string[];
+	repositoriesTouched: string[];
 	totalCommits: number;
 	totalSessions: number;
 	totalTokens: number;
@@ -51,6 +53,7 @@ export function buildDashboardPerformanceUsers(
 			return {
 				imageUrl: member.user.image,
 				modelsUsed: usage?.models_used ?? [],
+				repositoriesTouched: usage?.repositories_touched ?? [],
 				totalCommits: usage?.total_commits ?? 0,
 				totalSessions: usage?.total_sessions ?? 0,
 				totalTokens: usage?.total_tokens ?? 0,
@@ -67,6 +70,7 @@ export function buildDashboardPerformanceUsers(
 		.map((user) => ({
 			imageUrl: userImageById.get(user.user_id) ?? null,
 			modelsUsed: user.models_used ?? [],
+			repositoriesTouched: user.repositories_touched ?? [],
 			totalCommits: user.total_commits,
 			totalSessions: user.total_sessions,
 			totalTokens: user.total_tokens,
@@ -101,6 +105,7 @@ export function buildDashboardPerformanceUsers(
 			imageUrl: user.imageUrl ?? userImageById.get(user.userId) ?? null,
 			label: user.userLabel,
 			modelsUsed: user.modelsUsed,
+			repositoriesTouched: user.repositoriesTouched,
 			sessions: user.totalSessions,
 			userId: user.userId,
 		}));

@@ -55,6 +55,7 @@ export const UserTokenUsageDataSchema = z.object({
 	user_id: z.string(),
 	user_label: z.string(),
 	models_used: z.array(z.string()),
+	repositories_touched: z.array(z.string()),
 	total_commits: z.number(),
 	total_tokens: z.number(),
 	input_tokens: z.number(),

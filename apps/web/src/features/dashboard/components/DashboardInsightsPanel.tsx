@@ -21,7 +21,6 @@ import type {
 } from "@/features/dashboard/data/dashboard-static-data";
 
 export function DashboardInsightsPanel({
-	players,
 	repositories,
 	models,
 	sources,
@@ -31,7 +30,6 @@ export function DashboardInsightsPanel({
 	activeBranches,
 	reposTouched,
 }: {
-	players: DashboardRankedOutputRow[];
 	repositories: DashboardRankedOutputRow[];
 	models: DashboardDistributionRow[];
 	sources: DashboardDistributionRow[];
@@ -52,23 +50,15 @@ export function DashboardInsightsPanel({
 						</CardTitle>
 					</div>
 					<CardDescription className="dashboardy-footnote">
-						The same shipped output sliced by player, repository, model, and
-						source.
+						The same shipped output sliced by repository, model, and source.
 					</CardDescription>
 				</CardHeader>
 				<CardContent className="@container/output-breakdown grid gap-4 px-5 py-4">
-					<div className="grid gap-4 @xl/output-breakdown:grid-cols-2">
-						<DashboardRankedOutputTable
-							title="By player"
-							description="Who is driving the output and at what rate."
-							rows={players}
-						/>
-						<DashboardRankedOutputTable
-							title="By repository"
-							description="Where AI-assisted output is concentrating."
-							rows={repositories}
-						/>
-					</div>
+					<DashboardRankedOutputTable
+						title="By repository"
+						description="Where AI-assisted output is concentrating."
+						rows={repositories}
+					/>
 					<div className="grid gap-4 xl:grid-cols-2">
 						<DashboardDistributionTable
 							title="By model"

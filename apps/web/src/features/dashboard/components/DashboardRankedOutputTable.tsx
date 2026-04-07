@@ -21,7 +21,7 @@ export function DashboardRankedOutputTable({
 	const maxCommits = Math.max(...rows.map((row) => row.commits), 1);
 
 	return (
-		<div className="dashboardy-bucket-card rounded-[1.4rem]">
+		<div className="min-w-0">
 			<div className="grid gap-1 pb-3">
 				<h3 className="dashboardy-section-title truncate text-sm/6">{title}</h3>
 				<p className="dashboardy-footnote text-sm/6">{description}</p>

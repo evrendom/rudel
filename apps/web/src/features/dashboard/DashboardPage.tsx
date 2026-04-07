@@ -16,7 +16,6 @@ export function DashboardPage() {
 					snapshot={snapshot}
 				/>
 				<DashboardInsightsPanel
-					players={snapshot.players}
 					repositories={snapshot.repositories}
 					models={snapshot.models}
 					sources={snapshot.sources}

@@ -125,15 +125,6 @@ function DashboardDailyPerformanceSnapshot({
 
 	return (
 		<div className="flex flex-col gap-8">
-			<div className="grid gap-1 pb-3">
-				<h2 className="dashboard-big-number text-2xl/8 text-[color:var(--dashboardy-heading)]">
-					AI delivery at a glance
-				</h2>
-				<p className="dashboardy-footnote max-w-2xl text-sm/6">
-					Committed sessions and total session volume, broken down by developer
-					for the selected date range.
-				</p>
-			</div>
 			<div>
 				<div className="flex h-[54px] w-full items-center overflow-x-auto border-b border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-surface)] md:overflow-visible">
 					<div className="flex w-full min-w-max items-center justify-end gap-1.5 px-3 sm:px-0">
@@ -219,9 +210,7 @@ export function DashboardPerformancePanel({
 				</div>
 				<div className="border-t border-[color:var(--dashboardy-divider)] pt-8">
 					<DashboardPerformanceRosterTable
-						activeBranches={snapshot.activeBranches}
 						performanceUsers={performanceUsers}
-						repositories={snapshot.repositories}
 					/>
 				</div>
 			</div>

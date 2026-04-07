@@ -165,6 +165,7 @@ export async function getUsersTokenUsage(
 
 	const rows = await queryClickhouse<{
 		models_used: string[];
+		repositories_touched: string[];
 		user_id: string;
 		total_commits: number;
 		total_tokens: number;
@@ -183,6 +184,24 @@ export async function getUsersTokenUsage(
         x -> x != '',
         topK(3)(if(model_used != '' AND model_used != 'unknown', model_used, ''))
       ) as models_used,
+      arraySort(
+        arrayDistinct(
+          arrayFilter(
+            x -> x != '',
+            groupArray(
+              if(
+                git_remote != '',
+                replaceRegexpOne(arrayElement(splitByChar('/', git_remote), -1), '\\\\.git$', ''),
+                if(
+                  package_name != '',
+                  package_name,
+                  arrayElement(splitByChar('/', replaceAll(project_path, '\\\\', '/')), -1)
+                )
+              )
+            )
+          )
+        )
+      ) as repositories_touched,
       sum(has_commit) as total_commits,
       sum(total_tokens) as total_tokens,
       sum(input_tokens) as input_tokens,
@@ -229,6 +248,7 @@ export async function getUsersTokenUsage(
 
 	return rows.map((row) => ({
 		models_used: row.models_used ?? [],
+		repositories_touched: row.repositories_touched ?? [],
 		user_id: row.user_id,
 		user_label: userMap.get(row.user_id) ?? row.user_id,
 		total_commits: Number(row.total_commits),

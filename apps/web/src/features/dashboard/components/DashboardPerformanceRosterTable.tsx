@@ -1,17 +1,13 @@
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/app/ui/tooltip";
 import type { DashboardPerformanceUserComparison } from "@/features/dashboard/data/dashboard-performance-adapter";
-import type {
-	DashboardBranchActivity,
-	DashboardRankedOutputRow,
-} from "@/features/dashboard/data/dashboard-static-data";
 
 type DashboardPerformanceRosterRow = {
-	branch: string;
 	commitRate: number;
 	commits: number;
 	id: string;
 	imageUrl?: string | null;
 	modelsUsed: string[];
-	repository: string;
+	repositoriesTouched: string[];
 	sessions: number;
 	userLabel: string;
 };
@@ -20,6 +16,8 @@ type ModelBadgeTone = {
 	chipClassName: string;
 	icon: "claude" | "codex" | null;
 };
+
+const MAX_VISIBLE_REPOSITORIES = 2;
 
 function normalizeModelVersion(version: string | null | undefined) {
 	if (!version) {
@@ -183,32 +181,18 @@ function getRateTone(commitRate: number) {
 
 function buildRosterRows(
 	performanceUsers: DashboardPerformanceUserComparison[],
-	repositories: DashboardRankedOutputRow[],
-	activeBranches: DashboardBranchActivity[],
 ): DashboardPerformanceRosterRow[] {
-	return performanceUsers.map((user, index) => {
-		const hasNoActivity = user.sessions === 0 && user.commits === 0;
-		const rankedRepository =
-			repositories[index % Math.max(repositories.length, 1)];
-		const matchedBranch =
-			activeBranches.find(
-				(branch) => branch.repository === rankedRepository?.label,
-			) ?? activeBranches[index % Math.max(activeBranches.length, 1)];
-		const repository = hasNoActivity
-			? "—"
-			: (rankedRepository?.label ?? matchedBranch?.repository ?? "—");
-		const branch = hasNoActivity ? "—" : (matchedBranch?.branch ?? "—");
+	return performanceUsers.map((user) => {
 		const commitRate =
 			user.sessions > 0 ? Math.round((user.commits / user.sessions) * 100) : 0;
 
 		return {
-			branch,
 			commitRate,
 			commits: user.commits,
 			id: user.userId,
 			imageUrl: user.imageUrl,
 			modelsUsed: user.modelsUsed,
-			repository,
+			repositoriesTouched: user.repositoriesTouched,
 			sessions: user.sessions,
 			userLabel: user.label,
 		};
@@ -216,24 +200,19 @@ function buildRosterRows(
 }
 
 export function DashboardPerformanceRosterTable({
-	activeBranches,
 	performanceUsers,
-	repositories,
 }: {
-	activeBranches: DashboardBranchActivity[];
 	performanceUsers: DashboardPerformanceUserComparison[];
-	repositories: DashboardRankedOutputRow[];
 }) {
-	const rows = buildRosterRows(performanceUsers, repositories, activeBranches);
+	const rows = buildRosterRows(performanceUsers);
 
 	return (
 		<div className="overflow-x-auto">
-			<div className="min-w-[68rem]">
-				<div className="grid grid-cols-[minmax(180px,12fr)_minmax(150px,9fr)_minmax(160px,6fr)_minmax(128px,3fr)_80px_80px_112px] gap-6 px-3.5 text-[13px] font-semibold text-[color:var(--dashboardy-muted)]">
+			<div className="min-w-[60rem]">
+				<div className="grid grid-cols-[minmax(180px,12fr)_minmax(168px,8fr)_minmax(180px,8fr)_80px_80px_112px] gap-6 px-3.5 text-[13px] font-semibold text-[color:var(--dashboardy-muted)]">
 					<p>User</p>
 					<p>Repository</p>
 					<p>Models used</p>
-					<p>Branch</p>
 					<p>Sessions</p>
 					<p>Commits</p>
 					<p>Rate</p>
@@ -246,11 +225,22 @@ export function DashboardPerformanceRosterTable({
 						const visibleModels = row.modelsUsed.filter(
 							(model) => !shouldHideModelBadge(model),
 						);
+						const visibleRepositories = row.repositoriesTouched.slice(
+							0,
+							MAX_VISIBLE_REPOSITORIES,
+						);
+						const hiddenRepositories = row.repositoriesTouched.slice(
+							MAX_VISIBLE_REPOSITORIES,
+						);
+						const hiddenRepositoryCount = Math.max(
+							row.repositoriesTouched.length - visibleRepositories.length,
+							0,
+						);
 
 						return (
 							<div
 								key={row.id}
-								className="grid min-h-12 grid-cols-[minmax(180px,12fr)_minmax(150px,9fr)_minmax(160px,6fr)_minmax(128px,3fr)_80px_80px_112px] items-center gap-6 rounded-lg px-3.5 py-2 text-sm odd:bg-[color:var(--dashboardy-subsurface-strong)]"
+								className="grid min-h-12 grid-cols-[minmax(180px,12fr)_minmax(168px,8fr)_minmax(180px,8fr)_80px_80px_112px] items-center gap-6 rounded-lg px-3.5 py-2 text-sm odd:bg-[color:var(--dashboardy-subsurface-strong)]"
 							>
 								<div className="flex min-w-0 items-center gap-3">
 									<div className="flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border/60 bg-[color:var(--dashboardy-surface)] shadow-sm">
@@ -270,9 +260,45 @@ export function DashboardPerformanceRosterTable({
 										{row.userLabel}
 									</p>
 								</div>
-								<p className="truncate font-medium text-[color:var(--dashboardy-heading)]">
-									{row.repository}
-								</p>
+								<div className="flex min-w-0 flex-wrap items-center gap-1.5">
+									{row.repositoriesTouched.length > 0 ? (
+										<p className="truncate text-[13px] font-medium text-[color:var(--dashboardy-heading)]">
+											{visibleRepositories.map((repository, index) => (
+												<span key={`${row.id}-${repository}`}>
+													{index > 0 ? ", " : null}
+													{repository}
+												</span>
+											))}
+											{hiddenRepositoryCount > 0 ? (
+												<>
+													{visibleRepositories.length > 0 ? ", " : null}
+													<Tooltip>
+														<TooltipTrigger
+															render={
+																<span className="cursor-help text-[color:var(--dashboardy-muted)] underline decoration-black/10 underline-offset-2" />
+															}
+														>
+															{hiddenRepositoryCount} more
+														</TooltipTrigger>
+														<TooltipContent align="start" className="max-w-sm">
+															<div className="grid gap-0.5">
+																{hiddenRepositories.map((repository) => (
+																	<p key={`${row.id}-tooltip-${repository}`}>
+																		{repository}
+																	</p>
+																))}
+															</div>
+														</TooltipContent>
+													</Tooltip>
+												</>
+											) : null}
+										</p>
+									) : (
+										<span className="text-[12px] text-[color:var(--dashboardy-muted)]">
+											—
+										</span>
+									)}
+								</div>
 								<div className="flex min-w-0 flex-wrap items-center gap-1.5">
 									{visibleModels.length > 0 ? (
 										visibleModels.map((model) => {
@@ -299,9 +325,6 @@ export function DashboardPerformanceRosterTable({
 										</span>
 									)}
 								</div>
-								<p className="truncate font-mono text-[12px] text-[color:var(--dashboardy-muted)]">
-									{row.branch}
-								</p>
 								<p className="font-medium tabular-nums text-[color:var(--dashboardy-heading)]">
 									{row.sessions}
 								</p>
