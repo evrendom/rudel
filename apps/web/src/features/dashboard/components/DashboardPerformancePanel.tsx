@@ -1,3 +1,4 @@
+import { GaugeIcon } from "lucide-react";
 import { lazy, Suspense, useMemo, useState } from "react";
 import { Skeleton } from "@/app/ui/skeleton";
 import { DashboardDailyOverviewTable } from "@/features/dashboard/components/DashboardDailyOverviewTable";
@@ -175,23 +176,31 @@ export function DashboardPerformancePanel({
 			<DashboardDailyPerformanceSnapshot snapshot={snapshot} />
 
 			<div className="flex flex-col gap-8">
-				<div className="overflow-hidden rounded-[1.4rem] border border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-subsurface)]">
-					<div className="px-3 py-2 sm:px-4 sm:py-3">
-						<div
-							data-slot="dashboard-performance-chart-shell"
-							className="h-[18.5rem] sm:h-[20rem]"
-						>
-							{isChartPending ? (
-								<DashboardPerformanceChartFallback />
-							) : hasChartData ? (
-								<Suspense fallback={<DashboardPerformanceChartFallback />}>
-									<DashboardPerformanceChart data={selectedChartData} />
-								</Suspense>
-							) : (
-								<div className="flex h-full items-center justify-center px-6 text-center text-sm text-muted-foreground">
-									No developer activity in the selected range.
-								</div>
-							)}
+				<div className="grid gap-4">
+					<div className="flex items-center gap-2.5 px-1">
+						<GaugeIcon className="size-5 text-[color:var(--dashboardy-heading)]" />
+						<h2 className="dashboardy-section-title text-xl/7">
+							Developer Performance
+						</h2>
+					</div>
+					<div className="overflow-hidden rounded-[1.4rem] border border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-subsurface)]">
+						<div className="px-3 py-2 sm:px-4 sm:py-3">
+							<div
+								data-slot="dashboard-performance-chart-shell"
+								className="h-[18.5rem] sm:h-[20rem]"
+							>
+								{isChartPending ? (
+									<DashboardPerformanceChartFallback />
+								) : hasChartData ? (
+									<Suspense fallback={<DashboardPerformanceChartFallback />}>
+										<DashboardPerformanceChart data={selectedChartData} />
+									</Suspense>
+								) : (
+									<div className="flex h-full items-center justify-center px-6 text-center text-sm text-muted-foreground">
+										No developer activity in the selected range.
+									</div>
+								)}
+							</div>
 						</div>
 					</div>
 				</div>
