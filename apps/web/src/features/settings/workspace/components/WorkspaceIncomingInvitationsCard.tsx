@@ -99,25 +99,25 @@ export function WorkspaceIncomingInvitationsCard({
 												Invited {formatDate(invitation.createdAt)}
 											</p>
 										</div>
-										<Badge className="w-fit capitalize" variant="outline">
+										<Badge variant="outline" className="w-fit capitalize">
 											{invitation.role}
 										</Badge>
 									</div>
 									<div className="flex flex-wrap gap-2">
 										<Button
-											disabled={isProcessing}
-											onClick={() => onDecline(invitation.id)}
-											size="sm"
 											type="button"
 											variant="outline"
+											size="sm"
+											onClick={() => onDecline(invitation.id)}
+											disabled={isProcessing}
 										>
 											{isProcessing ? "Working…" : "Decline"}
 										</Button>
 										<Button
-											disabled={isProcessing}
-											onClick={() => onAccept(invitation.id)}
-											size="sm"
 											type="button"
+											size="sm"
+											onClick={() => onAccept(invitation.id)}
+											disabled={isProcessing}
 										>
 											{isProcessing ? "Working…" : "Accept"}
 										</Button>

@@ -1,3 +1,5 @@
+import { DashboardModelBadges } from "@/features/dashboard/components/DashboardModelBadges";
+import type { TeamCardTone } from "@/features/team/data/team-card-types";
 import type { TeamPageMemberRow } from "@/features/team/use-team-page-data";
 import { cn } from "@/lib/utils";
 
@@ -20,22 +22,22 @@ const shortDateFormatter = new Intl.DateTimeFormat("en-US", {
 });
 
 const adaptedTeamCardShellClassName =
-	"relative isolate flex h-[358px] w-[233px] flex-col overflow-hidden rounded-[18px] border border-[#ECECEC] bg-[linear-gradient(180deg,#fbfcfe_0%,#f0f3f7_100%)] px-[14px] pt-[15px] pb-[10px] text-[#302d2b] shadow-[0_0_10.1px_rgba(0,0,0,0.08)]";
+	"team-lineup-featured-card relative isolate flex h-[358px] w-[233px] flex-col overflow-hidden rounded-[18px] border border-[#ECECEC] bg-[linear-gradient(180deg,#fbfcfe_0%,#f0f3f7_100%)] px-[14px] pt-[15px] pb-[10px] text-[#302d2b] shadow-[0_0_10.1px_rgba(0,0,0,0.08)]";
 
 const adaptedTeamCardHeaderValueClassName =
-	"font-heading text-[17.07px] font-extrabold leading-none tracking-[-0.01em] tabular-nums text-[#272423]";
+	"[font-family:var(--dashboard-01-font-roster-display)] text-[17.07px] font-extrabold leading-none tracking-[-0.01em] tabular-nums text-[#272423]";
 
 const adaptedTeamCardHeaderLabelClassName =
 	"ml-[5px] text-[10px] font-semibold leading-none tracking-[-0.03em] text-[#7b7671]";
 
 const adaptedTeamCardNameClassName =
-	"font-heading text-[19px] font-extrabold leading-[0.9] tracking-[-0.02em] text-[#252220]";
+	"[font-family:var(--dashboard-01-font-roster-display)] text-[19px] font-extrabold leading-[0.9] tracking-[-0.02em] text-[#252220]";
 
 const adaptedTeamCardModelSlotClassName =
 	"flex flex-1 items-center justify-center";
 
 const adaptedTeamCardMediaPanelClassName =
-	"relative isolate mt-[12px] h-[158px] w-full rounded-[14px] border border-black/8 bg-white/86";
+	"team-lineup-featured-media-panel mt-[12px] h-[158px] w-full rounded-[14px] border border-black/8 bg-white/86";
 
 const portraitPanelClassName =
 	"relative flex h-full w-full flex-col justify-between overflow-hidden rounded-[10px] px-[12px] py-[10px]";
@@ -51,55 +53,13 @@ const tonePortraitClassNames = {
 	violet: "bg-[linear-gradient(180deg,#ece8ff_0%,#c3b2f5_100%)] text-[#4c3977]",
 	rose: "bg-[linear-gradient(180deg,#ffe5ea_0%,#ec9eb0_100%)] text-[#71364d]",
 	slate: "bg-[linear-gradient(180deg,#e7edf2_0%,#bcc7d4_100%)] text-[#43515f]",
-} as const;
-
-type TeamCardTone = keyof typeof tonePortraitClassNames;
+} as const satisfies Record<TeamCardTone, string>;
 
 type TeamCardStatRow = {
 	label: string;
 	title?: string;
 	value: string;
 };
-
-function formatFavoriteModelLabel(model: string) {
-	const normalizedModel = model.trim().toLowerCase();
-
-	if (normalizedModel.includes("opus")) {
-		return "Opus";
-	}
-
-	if (normalizedModel.includes("sonnet")) {
-		return "Sonnet";
-	}
-
-	if (normalizedModel.includes("haiku")) {
-		return "Haiku";
-	}
-
-	if (normalizedModel.includes("gpt") || normalizedModel.includes("codex")) {
-		return "GPT";
-	}
-
-	return model
-		.replaceAll(/[-_]+/g, " ")
-		.replaceAll(/\s+/g, " ")
-		.trim()
-		.replaceAll(/\b\w/g, (character) => character.toUpperCase());
-}
-
-function getFavoriteModelBadgeClassName(model: string) {
-	const normalizedModel = model.trim().toLowerCase();
-
-	if (normalizedModel.includes("claude")) {
-		return "border-transparent bg-[#CC7D5E] text-[#F9F9F7]";
-	}
-
-	if (normalizedModel.includes("gpt") || normalizedModel.includes("codex")) {
-		return "border-black/10 bg-[#FFFFFF] text-[#111111]";
-	}
-
-	return "border-black/10 bg-[#FFFFFF]/90 text-[#272423]";
-}
 
 function getAvatarInitials(name: string) {
 	const parts = name.split(/\s+/).filter(Boolean);
@@ -228,19 +188,6 @@ function buildCardStats(row: TeamPageMemberRow): TeamCardStatRow[] {
 	];
 }
 
-function FavoriteModelBadge({ model }: { model: string }) {
-	return (
-		<span
-			className={cn(
-				"inline-flex max-w-full items-center rounded-full border px-2 py-0.5 text-[11px] leading-none font-semibold tracking-[-0.01em] tabular-nums",
-				getFavoriteModelBadgeClassName(model),
-			)}
-		>
-			<span className="truncate">{formatFavoriteModelLabel(model)}</span>
-		</span>
-	);
-}
-
 function TeamMemberCard({ row }: { row: TeamPageMemberRow }) {
 	const tone = getCardTone(row);
 	const isMissingProfileImage = !row.imageUrl;
@@ -295,12 +242,14 @@ function TeamMemberCard({ row }: { row: TeamPageMemberRow }) {
 					<div className={adaptedTeamCardNameClassName}>{row.displayName}</div>
 					<div className={adaptedTeamCardModelSlotClassName}>
 						{row.favoriteModel ? (
-							<FavoriteModelBadge model={row.favoriteModel} />
+							<div className="flex max-w-full justify-center">
+								<DashboardModelBadges models={[row.favoriteModel]} />
+							</div>
 						) : null}
 					</div>
 				</div>
 
-				<div className="grid grid-cols-2 gap-[6px] font-mono text-[11px] font-normal text-[#4b4d49]">
+				<div className="grid grid-cols-2 gap-[6px] [font-family:var(--dashboard-01-font-roster-mono)] text-[11px] font-normal text-[#4b4d49]">
 					{stats.map((stat) => (
 						<div
 							key={stat.label}
@@ -323,7 +272,7 @@ function TeamMemberCard({ row }: { row: TeamPageMemberRow }) {
 
 export function TeamMembersCardGrid({ rows }: { rows: TeamPageMemberRow[] }) {
 	return (
-		<div>
+		<div className="team-lineup-surface-scope">
 			<ul className="grid justify-center gap-[10px] [grid-template-columns:repeat(auto-fit,minmax(233px,233px))]">
 				{rows.map((row) => (
 					<TeamMemberCard key={row.userId} row={row} />

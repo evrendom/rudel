@@ -7,7 +7,7 @@ import { Button } from "@/app/ui/button";
 import { Calendar } from "@/app/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/app/ui/popover";
 import { Separator } from "@/app/ui/separator";
-import { useAnalyticsTracking } from "@/hooks/useDashboardAnalytics";
+import { useAnalyticsTracking } from "@/features/analytics/tracking/useAnalyticsTracking";
 import { getSupportedAnalyticsDateRange } from "@/lib/analytics-date-range";
 import { formatIsoDate } from "@/lib/format";
 import { cn } from "@/lib/utils";

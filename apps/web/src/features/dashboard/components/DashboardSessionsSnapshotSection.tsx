@@ -1,11 +1,11 @@
 import type { SessionAnalytics } from "@rudel/api-routes";
 import { format } from "date-fns";
 import { Skeleton } from "@/app/ui/skeleton";
-import { DashboardRecentSessionsTable } from "@/features/dashboard/components/DashboardRecentSessionsTable";
 import {
 	DashboardSessionChart,
 	type DashboardSessionChartDatum,
 } from "@/features/dashboard/components/DashboardSessionChart";
+import { DashboardTokenRecentSessionsTable } from "@/features/dashboard/components/DashboardTokenRecentSessionsTable";
 import { DashboardInteractiveTopChartSection } from "@/features/dashboard/components/DashboardTopChartSection";
 import type { DashboardHeadlineMetric } from "@/features/dashboard/data/dashboard-static-data";
 
@@ -129,7 +129,7 @@ export function DashboardSessionsSnapshotSection({
 				highlightSource,
 				onHighlightItemChange,
 			}) => (
-				<DashboardRecentSessionsTable
+				<DashboardTokenRecentSessionsTable
 					highlightSource={highlightSource}
 					highlightedSessionId={highlightedItemId}
 					isLoading={isSessionsPending}

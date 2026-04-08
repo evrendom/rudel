@@ -1,0 +1,803 @@
+@theme inline {
+	--color-dashboard-01-tone-blue: var(--dashboard-01-tone-blue);
+	--color-dashboard-01-tone-teal: var(--dashboard-01-tone-teal);
+	--color-dashboard-01-tone-orange: var(--dashboard-01-tone-orange);
+	--color-dashboard-01-tone-lime: var(--dashboard-01-tone-lime);
+	--color-dashboard-01-tone-violet: var(--dashboard-01-tone-violet);
+	--color-dashboard-01-tone-rose: var(--dashboard-01-tone-rose);
+	--color-dashboard-01-tone-slate: var(--dashboard-01-tone-slate);
+}
+
+.dashboard-01-theme,
+body:has(.dashboard-01-preview),
+.dashboard-01-preview {
+	--dashboard-01-font-sans: var(--font-sans);
+	--dashboard-01-font-heading: var(--app-font-heading);
+	--dashboard-01-font-roster-display: var(--app-font-heading);
+	--dashboard-01-font-roster-mono: "Geist Mono", ui-monospace, monospace;
+	--dashboard-01-content-background: #fefefe;
+	--dashboard-01-rail-icon: #a4a7a7;
+	--dashboard-01-rail-icon-active: #121517;
+	--dashboard-01-rail-hover: rgba(0, 0, 0, 0.02);
+	--dashboard-01-avatar-background: #e6e7e8;
+	--dashboard-01-avatar-foreground: #6b6f72;
+	--dashboard-01-tone-blue: #2f5fe5;
+	--dashboard-01-tone-teal: #25b5aa;
+	--dashboard-01-tone-orange: #ef9a14;
+	--dashboard-01-tone-lime: #8abf4a;
+	--dashboard-01-tone-violet: #8c7cf3;
+	--dashboard-01-tone-rose: #f08ba7;
+	--dashboard-01-tone-slate: #94a3b8;
+	--dashboard-01-metric-button-border: rgba(217, 217, 217, 0.5);
+	--dashboard-01-metric-button-focus-ring: rgba(115, 130, 255, 0.6);
+	--dashboard-01-metric-button-focus-ring-offset: #f7f8f9;
+	--dashboard-01-metric-button-surface: linear-gradient(
+		180deg,
+		rgba(0, 0, 0, 0) 0%,
+		rgba(0, 0, 0, 0.03) 100%
+	);
+	--dashboard-01-metric-button-surface-selected: linear-gradient(
+		180deg,
+		rgba(255, 255, 255, 1) 0%,
+		rgba(249, 249, 249, 1) 100%
+	);
+	--dashboard-01-metric-button-shadow-selected:
+		0 1px 3.1px rgba(0, 0, 0, 0.18),
+		0 12px 24px -18px
+		var(--dashboard-01-metric-button-shadow-color, rgba(15, 23, 42, 0.18)),
+		inset 0 10px 5.5px rgba(255, 255, 255, 0.9);
+	--dashboard-01-insights-surface: rgba(255, 255, 255, 0.95);
+	--dashboard-01-insights-subsurface: rgba(244, 246, 248, 0.9);
+	--dashboard-01-insights-border: rgba(218, 223, 228, 0.78);
+	--dashboard-01-insights-track: rgba(255, 255, 255, 0.98);
+	--dashboard-01-insights-chip-surface: rgba(255, 255, 255, 0.9);
+	--dashboard-01-insights-chip-border: rgba(214, 219, 224, 0.9);
+	--dashboard-01-insights-chip-foreground: #16181c;
+	--dashboard-01-insights-meta: #6b7280;
+	--dashboard-01-insights-shadow:
+		0 1px 3px rgba(15, 23, 42, 0.08), 0 18px 40px -28px rgba(15, 23, 42, 0.18);
+	--team-lineup-metric-picker-foreground: #303032;
+	--team-lineup-role-chart-main-l: 0.628;
+	--team-lineup-role-chart-main-c: 0.201;
+	--team-lineup-role-series-strong-l: 0.612;
+	--team-lineup-role-series-strong-c: 0.21;
+	--team-lineup-role-series-soft-l: 0.833;
+	--team-lineup-role-series-soft-c: 0.083;
+	--team-lineup-role-series-mid-l: 0.72;
+	--team-lineup-role-series-mid-c: 0.145;
+	--team-lineup-role-card-surface-l: 0.968;
+	--team-lineup-role-card-surface-c: 0.018;
+	--team-lineup-role-card-border-l: 0.812;
+	--team-lineup-role-card-border-c: 0.062;
+	--team-lineup-role-card-shadow-l: 0.628;
+	--team-lineup-role-card-shadow-c: 0.201;
+	--team-lineup-hue-output: 273.8;
+	--team-lineup-hue-quality: 250;
+	--team-lineup-hue-efficiency: 145;
+	--team-lineup-hue-speed: 28;
+	--team-lineup-hue-craft: 72;
+	--team-lineup-hue-consistency: 205;
+	--team-lineup-output-chart-main: oklch(
+		var(--team-lineup-role-chart-main-l) var(--team-lineup-role-chart-main-c)
+			var(--team-lineup-hue-output)
+	);
+	--team-lineup-output-series-strong: oklch(
+		var(--team-lineup-role-series-strong-l)
+			var(--team-lineup-role-series-strong-c) var(--team-lineup-hue-output)
+	);
+	--team-lineup-output-series-soft: oklch(
+		var(--team-lineup-role-series-soft-l) var(--team-lineup-role-series-soft-c)
+			var(--team-lineup-hue-output)
+	);
+	--team-lineup-output-series-mid: oklch(
+		var(--team-lineup-role-series-mid-l) var(--team-lineup-role-series-mid-c)
+			var(--team-lineup-hue-output)
+	);
+	--team-lineup-output-card-surface: oklch(
+		var(--team-lineup-role-card-surface-l)
+			var(--team-lineup-role-card-surface-c) var(--team-lineup-hue-output) /
+		0.42
+	);
+	--team-lineup-output-card-border: oklch(
+		var(--team-lineup-role-card-border-l) var(--team-lineup-role-card-border-c)
+			var(--team-lineup-hue-output) /
+		0.46
+	);
+	--team-lineup-output-card-shadow: oklch(
+		var(--team-lineup-role-card-shadow-l) var(--team-lineup-role-card-shadow-c)
+			var(--team-lineup-hue-output) /
+		0.18
+	);
+	--team-lineup-quality-chart-main: oklch(
+		var(--team-lineup-role-chart-main-l) var(--team-lineup-role-chart-main-c)
+			var(--team-lineup-hue-quality)
+	);
+	--team-lineup-quality-series-strong: oklch(
+		var(--team-lineup-role-series-strong-l)
+			var(--team-lineup-role-series-strong-c) var(--team-lineup-hue-quality)
+	);
+	--team-lineup-quality-series-soft: oklch(
+		var(--team-lineup-role-series-soft-l) var(--team-lineup-role-series-soft-c)
+			var(--team-lineup-hue-quality)
+	);
+	--team-lineup-quality-series-mid: oklch(
+		var(--team-lineup-role-series-mid-l) var(--team-lineup-role-series-mid-c)
+			var(--team-lineup-hue-quality)
+	);
+	--team-lineup-quality-card-surface: oklch(
+		var(--team-lineup-role-card-surface-l)
+			var(--team-lineup-role-card-surface-c) var(--team-lineup-hue-quality) /
+		0.42
+	);
+	--team-lineup-quality-card-border: oklch(
+		var(--team-lineup-role-card-border-l) var(--team-lineup-role-card-border-c)
+			var(--team-lineup-hue-quality) /
+		0.46
+	);
+	--team-lineup-quality-card-shadow: oklch(
+		var(--team-lineup-role-card-shadow-l) var(--team-lineup-role-card-shadow-c)
+			var(--team-lineup-hue-quality) /
+		0.18
+	);
+	--team-lineup-efficiency-chart-main: oklch(
+		var(--team-lineup-role-chart-main-l) var(--team-lineup-role-chart-main-c)
+			var(--team-lineup-hue-efficiency)
+	);
+	--team-lineup-efficiency-series-strong: oklch(
+		var(--team-lineup-role-series-strong-l)
+			var(--team-lineup-role-series-strong-c) var(--team-lineup-hue-efficiency)
+	);
+	--team-lineup-efficiency-series-soft: oklch(
+		var(--team-lineup-role-series-soft-l) var(--team-lineup-role-series-soft-c)
+			var(--team-lineup-hue-efficiency)
+	);
+	--team-lineup-efficiency-series-mid: oklch(
+		var(--team-lineup-role-series-mid-l) var(--team-lineup-role-series-mid-c)
+			var(--team-lineup-hue-efficiency)
+	);
+	--team-lineup-efficiency-card-surface: oklch(
+		var(--team-lineup-role-card-surface-l)
+			var(--team-lineup-role-card-surface-c) var(--team-lineup-hue-efficiency) /
+		0.42
+	);
+	--team-lineup-efficiency-card-border: oklch(
+		var(--team-lineup-role-card-border-l) var(--team-lineup-role-card-border-c)
+			var(--team-lineup-hue-efficiency) /
+		0.46
+	);
+	--team-lineup-efficiency-card-shadow: oklch(
+		var(--team-lineup-role-card-shadow-l) var(--team-lineup-role-card-shadow-c)
+			var(--team-lineup-hue-efficiency) /
+		0.18
+	);
+	--team-lineup-speed-chart-main: oklch(
+		var(--team-lineup-role-chart-main-l) var(--team-lineup-role-chart-main-c)
+			var(--team-lineup-hue-speed)
+	);
+	--team-lineup-speed-series-strong: oklch(
+		var(--team-lineup-role-series-strong-l)
+			var(--team-lineup-role-series-strong-c) var(--team-lineup-hue-speed)
+	);
+	--team-lineup-speed-series-soft: oklch(
+		var(--team-lineup-role-series-soft-l) var(--team-lineup-role-series-soft-c)
+			var(--team-lineup-hue-speed)
+	);
+	--team-lineup-speed-series-mid: oklch(
+		var(--team-lineup-role-series-mid-l) var(--team-lineup-role-series-mid-c)
+			var(--team-lineup-hue-speed)
+	);
+	--team-lineup-speed-card-surface: oklch(
+		var(--team-lineup-role-card-surface-l)
+			var(--team-lineup-role-card-surface-c) var(--team-lineup-hue-speed) /
+		0.42
+	);
+	--team-lineup-speed-card-border: oklch(
+		var(--team-lineup-role-card-border-l) var(--team-lineup-role-card-border-c)
+			var(--team-lineup-hue-speed) /
+		0.46
+	);
+	--team-lineup-speed-card-shadow: oklch(
+		var(--team-lineup-role-card-shadow-l) var(--team-lineup-role-card-shadow-c)
+			var(--team-lineup-hue-speed) /
+		0.18
+	);
+	--team-lineup-craft-chart-main: oklch(
+		var(--team-lineup-role-chart-main-l) var(--team-lineup-role-chart-main-c)
+			var(--team-lineup-hue-craft)
+	);
+	--team-lineup-craft-series-strong: oklch(
+		var(--team-lineup-role-series-strong-l)
+			var(--team-lineup-role-series-strong-c) var(--team-lineup-hue-craft)
+	);
+	--team-lineup-craft-series-soft: oklch(
+		var(--team-lineup-role-series-soft-l) var(--team-lineup-role-series-soft-c)
+			var(--team-lineup-hue-craft)
+	);
+	--team-lineup-craft-series-mid: oklch(
+		var(--team-lineup-role-series-mid-l) var(--team-lineup-role-series-mid-c)
+			var(--team-lineup-hue-craft)
+	);
+	--team-lineup-craft-card-surface: oklch(
+		var(--team-lineup-role-card-surface-l)
+			var(--team-lineup-role-card-surface-c) var(--team-lineup-hue-craft) /
+		0.42
+	);
+	--team-lineup-craft-card-border: oklch(
+		var(--team-lineup-role-card-border-l) var(--team-lineup-role-card-border-c)
+			var(--team-lineup-hue-craft) /
+		0.46
+	);
+	--team-lineup-craft-card-shadow: oklch(
+		var(--team-lineup-role-card-shadow-l) var(--team-lineup-role-card-shadow-c)
+			var(--team-lineup-hue-craft) /
+		0.18
+	);
+	--team-lineup-consistency-chart-main: oklch(
+		var(--team-lineup-role-chart-main-l) var(--team-lineup-role-chart-main-c)
+			var(--team-lineup-hue-consistency)
+	);
+	--team-lineup-consistency-series-strong: oklch(
+		var(--team-lineup-role-series-strong-l)
+			var(--team-lineup-role-series-strong-c) var(--team-lineup-hue-consistency)
+	);
+	--team-lineup-consistency-series-soft: oklch(
+		var(--team-lineup-role-series-soft-l) var(--team-lineup-role-series-soft-c)
+			var(--team-lineup-hue-consistency)
+	);
+	--team-lineup-consistency-series-mid: oklch(
+		var(--team-lineup-role-series-mid-l) var(--team-lineup-role-series-mid-c)
+			var(--team-lineup-hue-consistency)
+	);
+	--team-lineup-consistency-card-surface: oklch(
+		var(--team-lineup-role-card-surface-l)
+			var(--team-lineup-role-card-surface-c) var(--team-lineup-hue-consistency) /
+		0.42
+	);
+	--team-lineup-consistency-card-border: oklch(
+		var(--team-lineup-role-card-border-l) var(--team-lineup-role-card-border-c)
+			var(--team-lineup-hue-consistency) /
+		0.46
+	);
+	--team-lineup-consistency-card-shadow: oklch(
+		var(--team-lineup-role-card-shadow-l) var(--team-lineup-role-card-shadow-c)
+			var(--team-lineup-hue-consistency) /
+		0.18
+	);
+	--team-lineup-card-grain-opacity: 0.17;
+	--team-lineup-card-grain-size: 110px;
+	--team-lineup-card-grain-contrast: 100%;
+	--team-lineup-featured-panel-base-angle: 135deg;
+	--team-lineup-featured-panel-base-edge-color: rgb(58, 58, 58);
+	--team-lineup-featured-panel-base-mid-color: rgb(42, 42, 42);
+	--team-lineup-featured-panel-base-center-color: rgb(26, 26, 26);
+	--team-lineup-featured-panel-base-gradient: linear-gradient(
+		var(--team-lineup-featured-panel-base-angle),
+		var(--team-lineup-featured-panel-base-edge-color) 0%,
+		var(--team-lineup-featured-panel-base-mid-color) 25%,
+		var(--team-lineup-featured-panel-base-center-color) 50%,
+		var(--team-lineup-featured-panel-base-mid-color) 75%,
+		var(--team-lineup-featured-panel-base-edge-color) 100%
+	);
+	--team-lineup-featured-panel-wash-angle: 133.23deg;
+	--team-lineup-featured-panel-wash-color-1: rgba(255, 128, 128, 0.686275);
+	--team-lineup-featured-panel-wash-color-1-stop: 2.91%;
+	--team-lineup-featured-panel-wash-color-2: rgba(255, 237, 102, 0.584314);
+	--team-lineup-featured-panel-wash-color-2-stop: 41.18%;
+	--team-lineup-featured-panel-wash-color-3: rgba(51, 228, 255, 0.584314);
+	--team-lineup-featured-panel-wash-color-3-stop: 65.46%;
+	--team-lineup-featured-panel-wash-color-4: rgba(240, 117, 205, 0.686275);
+	--team-lineup-featured-panel-wash-color-4-stop: 96.73%;
+	--team-lineup-featured-panel-wash-opacity: 0.48;
+	--team-lineup-featured-panel-difference-opacity: 1;
+	--team-lineup-featured-panel-lattice-opacity: 0.4;
+	--team-lineup-featured-panel-noise-large-opacity: 0.3;
+	--team-lineup-featured-panel-noise-small-opacity: 0.5;
+	--team-lineup-featured-panel-noise-large-size: 200px;
+	--team-lineup-featured-panel-noise-small-size: 100px;
+	--team-lineup-featured-panel-color-wash: linear-gradient(
+		var(--team-lineup-featured-panel-wash-angle),
+		var(--team-lineup-featured-panel-wash-color-1)
+			var(--team-lineup-featured-panel-wash-color-1-stop),
+		var(--team-lineup-featured-panel-wash-color-2)
+			var(--team-lineup-featured-panel-wash-color-2-stop),
+		var(--team-lineup-featured-panel-wash-color-3)
+			var(--team-lineup-featured-panel-wash-color-3-stop),
+		var(--team-lineup-featured-panel-wash-color-4)
+			var(--team-lineup-featured-panel-wash-color-4-stop)
+	);
+	--team-lineup-featured-panel-mask-angle: 135deg;
+	--team-lineup-featured-panel-mask-start-opacity: 0.58;
+	--team-lineup-featured-panel-mask-mid-opacity: 0.3;
+	--team-lineup-featured-panel-mask-tail-opacity: 0.06;
+	--team-lineup-featured-panel-mask-mid-stop: 32%;
+	--team-lineup-featured-panel-mask-tail-stop: 58%;
+	--team-lineup-featured-panel-mask-zero-stop: 84%;
+	--team-lineup-featured-panel-color-opacity-mask: linear-gradient(
+		var(--team-lineup-featured-panel-mask-angle),
+		rgba(0, 0, 0, var(--team-lineup-featured-panel-mask-start-opacity)) 0%,
+		rgba(0, 0, 0, var(--team-lineup-featured-panel-mask-mid-opacity))
+			var(--team-lineup-featured-panel-mask-mid-stop),
+		rgba(0, 0, 0, var(--team-lineup-featured-panel-mask-tail-opacity))
+			var(--team-lineup-featured-panel-mask-tail-stop),
+		rgba(0, 0, 0, 0) var(--team-lineup-featured-panel-mask-zero-stop)
+	);
+	--dashboard-01-chrome-turbulence-opacity: 0.18;
+	--dashboard-01-chrome-noise-large-size: 130px;
+	--dashboard-01-chrome-noise-small-size: 136px;
+	--dashboard-01-chrome-turbulence-contrast: 190%;
+	--dashboard-01-chrome-turbulence-darkness: 0.8;
+	--dashboard-01-chrome-highlight-opacity: 0.15;
+	--dashboard-01-chrome-surface: #ffffff;
+	--dashboard-01-chrome-noise-texture:
+		url("/shell/team-lineup-stats-panel-noise.svg"),
+		url("/shell/team-lineup-stats-panel-noise.svg");
+	--dashboard-01-window-shadow: 0 0 4px rgb(0 0 0 / 0.13);
+	--sidebar: var(--dashboard-01-chrome-surface);
+	--sidebar-foreground: oklch(0.145 0 0);
+	--sidebar-primary: oklch(0.205 0 0);
+	--sidebar-primary-foreground: oklch(0.985 0 0);
+	--sidebar-accent: oklch(0.97 0 0);
+	--sidebar-accent-foreground: oklch(0.205 0 0);
+	--sidebar-border: oklch(0.922 0 0);
+	--sidebar-ring: oklch(0.708 0 0);
+	font-family: var(--dashboard-01-font-sans);
+}
+
+.dashboard-01-preview {
+	position: relative;
+	isolation: isolate;
+	background: var(--sidebar);
+	color: var(--foreground);
+	min-height: 100vh;
+}
+
+.dark .dashboard-01-theme,
+.dark body:has(.dashboard-01-preview),
+.dark .dashboard-01-preview {
+	--dashboard-01-content-background: oklch(0.205 0 0);
+	--dashboard-01-rail-icon: oklch(0.708 0 0);
+	--dashboard-01-rail-icon-active: oklch(0.985 0 0);
+	--dashboard-01-rail-hover: rgba(0, 0, 0, 0.02);
+	--dashboard-01-avatar-background: oklch(0.269 0 0);
+	--dashboard-01-avatar-foreground: oklch(0.708 0 0);
+	--dashboard-01-tone-blue: #6d8fff;
+	--dashboard-01-tone-teal: #4fd3c9;
+	--dashboard-01-tone-orange: #f6b34d;
+	--dashboard-01-tone-lime: #a0d35c;
+	--dashboard-01-tone-violet: #a99afc;
+	--dashboard-01-tone-rose: #f4a8bd;
+	--dashboard-01-tone-slate: #a5b4c5;
+	--dashboard-01-metric-button-border: rgba(255, 255, 255, 0.12);
+	--dashboard-01-metric-button-focus-ring: rgba(144, 156, 255, 0.55);
+	--dashboard-01-metric-button-focus-ring-offset: oklch(0.145 0 0);
+	--dashboard-01-metric-button-surface: linear-gradient(
+		180deg,
+		rgba(255, 255, 255, 0.04) 0%,
+		rgba(255, 255, 255, 0.01) 100%
+	);
+	--dashboard-01-metric-button-surface-selected: linear-gradient(
+		180deg,
+		rgba(255, 255, 255, 0.16) 0%,
+		rgba(255, 255, 255, 0.08) 100%
+	);
+	--dashboard-01-metric-button-shadow-selected:
+		0 1px 3.1px rgba(0, 0, 0, 0.3),
+		0 12px 24px -18px
+		var(--dashboard-01-metric-button-shadow-color, rgba(15, 23, 42, 0.28)),
+		inset 0 10px 5.5px rgba(255, 255, 255, 0.08);
+	--dashboard-01-insights-surface: rgba(37, 39, 42, 0.95);
+	--dashboard-01-insights-subsurface: rgba(55, 58, 62, 0.78);
+	--dashboard-01-insights-border: rgba(255, 255, 255, 0.12);
+	--dashboard-01-insights-track: rgba(18, 20, 23, 0.72);
+	--dashboard-01-insights-chip-surface: rgba(255, 255, 255, 0.06);
+	--dashboard-01-insights-chip-border: rgba(255, 255, 255, 0.14);
+	--dashboard-01-insights-chip-foreground: oklch(0.985 0 0);
+	--dashboard-01-insights-meta: oklch(0.708 0 0);
+	--dashboard-01-insights-shadow:
+		0 1px 3px rgba(0, 0, 0, 0.32), 0 18px 40px -28px rgba(0, 0, 0, 0.55);
+	--team-lineup-metric-picker-foreground: oklch(0.985 0 0);
+	--dashboard-01-chrome-turbulence-opacity: 0.18;
+	--dashboard-01-chrome-turbulence-contrast: 190%;
+	--dashboard-01-chrome-turbulence-darkness: 0.8;
+	--dashboard-01-chrome-highlight-opacity: 0.15;
+	--dashboard-01-chrome-surface: oklch(0.205 0 0);
+	--dashboard-01-window-shadow: 0 0 4px rgb(0 0 0 / 0.13);
+	--sidebar: var(--dashboard-01-chrome-surface);
+	--sidebar-foreground: oklch(0.985 0 0);
+	--sidebar-primary: oklch(0.488 0.243 264.376);
+	--sidebar-primary-foreground: oklch(0.985 0 0);
+	--sidebar-accent: oklch(0.269 0 0);
+	--sidebar-accent-foreground: oklch(0.985 0 0);
+	--sidebar-border: oklch(1 0 0 / 10%);
+	--sidebar-ring: oklch(0.556 0 0);
+}
+
+html:has(.dashboard-01-preview),
+body:has(.dashboard-01-preview) {
+	background: var(--dashboard-01-chrome-surface);
+}
+
+body:has(.dashboard-01-preview) {
+	position: relative;
+	isolation: isolate;
+}
+
+.dark .dashboard-01-preview {
+	background: var(--dashboard-01-chrome-surface);
+	color: var(--foreground);
+}
+
+.dashboard-01-preview,
+.dashboard-01-chrome-frame,
+.dashboard-01-chrome-sidebar [data-slot="sidebar-inner"] {
+	position: relative;
+	isolation: isolate;
+	background: var(--dashboard-01-chrome-surface);
+}
+
+.dashboard-01-chrome-sidebar [data-slot="sidebar-inner"] {
+	overflow: hidden;
+	border-right-width: 0;
+}
+
+.dashboard-01-chrome-sidebar[data-sidebar-news-promote-debug="true"][data-sidebar-news-card-active="true"] {
+	z-index: var(--sidebar-news-active-sidebar-z, 10);
+}
+
+.dashboard-01-chrome-sidebar[data-sidebar-news-overflow-debug="true"][data-sidebar-news-card-active="true"]
+	[data-slot="sidebar-inner"],
+.dashboard-01-chrome-sidebar[data-sidebar-news-overflow-debug="true"][data-sidebar-news-card-active="true"]
+	[data-slot="sidebar-inner"]
+	> div {
+	overflow: visible;
+}
+
+.dashboard-01-preview[data-sidebar-news-hide-performance-chart-debug="true"][data-sidebar-news-card-active="true"]
+	[data-slot="dashboard-performance-chart-shell"] {
+	opacity: 0;
+	pointer-events: none;
+}
+
+body:has(.dashboard-01-preview)::before,
+body:has(.dashboard-01-preview)::after {
+	content: "";
+	position: fixed;
+	inset: 0;
+	pointer-events: none;
+	z-index: 0;
+}
+
+.dashboard-01-window {
+	box-shadow: var(--dashboard-01-window-shadow);
+}
+
+.team-lineup-metric-button {
+	display: inline-flex;
+	align-items: center;
+	gap: 0;
+	width: fit-content;
+	max-width: 100%;
+	align-self: flex-start;
+	border-radius: 9px;
+	border: 1px solid var(--dashboard-01-metric-button-border);
+	background: var(--dashboard-01-metric-button-surface);
+	padding: 8px 12px;
+	text-align: left;
+	color: var(--team-lineup-metric-picker-foreground);
+	box-shadow:
+		0 1px 2px rgba(15, 23, 42, 0.06),
+		inset 0 1px 0 rgba(255, 255, 255, 0.32);
+	transition:
+		border-color 200ms ease,
+		box-shadow 200ms ease,
+		transform 200ms ease,
+		background 200ms ease;
+}
+
+.team-lineup-metric-button[data-selected="true"] {
+	border-color: color-mix(
+		in srgb,
+		var(--dashboard-01-metric-button-border) 72%,
+		white
+	);
+	background: var(--dashboard-01-metric-button-surface-selected);
+	color: var(--team-lineup-metric-picker-foreground);
+	box-shadow: var(--dashboard-01-metric-button-shadow-selected);
+	transform: translateY(-0.5px);
+}
+
+.team-lineup-metric-button:hover {
+	border-color: color-mix(
+		in srgb,
+		var(--dashboard-01-metric-button-border) 82%,
+		white
+	);
+	box-shadow:
+		0 1px 3px rgba(15, 23, 42, 0.08),
+		0 10px 18px -18px rgba(15, 23, 42, 0.2),
+		inset 0 1px 0 rgba(255, 255, 255, 0.42);
+}
+
+.team-lineup-metric-button:focus-visible {
+	outline: none;
+	box-shadow:
+		var(--dashboard-01-metric-button-shadow-selected),
+		0 0 0 2px var(--dashboard-01-metric-button-focus-ring),
+		0 0 0 4px var(--dashboard-01-metric-button-focus-ring-offset);
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.team-lineup-metric-button {
+		transition: none;
+	}
+}
+
+.team-lineup-metric-button__label {
+	display: block;
+	margin: 0;
+	font-family: var(--dashboard-01-font-sans);
+	font-style: normal;
+	font-weight: 500;
+	font-size: 14px;
+	line-height: 16px;
+	letter-spacing: -0.03em;
+	color: inherit;
+	text-box-trim: trim-both;
+	text-box-edge: cap alphabetic;
+}
+
+@utility dashboard-big-number {
+	font-family: var(--dashboard-01-font-roster-display);
+	font-style: normal;
+	font-weight: 800;
+	letter-spacing: -0.035em;
+	text-box-trim: trim-both;
+	text-box-edge: cap alphabetic;
+}
+
+@layer components {
+	.dashboard-01-insights-root {
+		background: var(--dashboard-01-insights-surface);
+		border: 1px solid var(--dashboard-01-insights-border);
+		box-shadow: var(--dashboard-01-insights-shadow);
+	}
+
+	.dashboard-01-insights-panel {
+		background: var(--dashboard-01-insights-subsurface);
+		border: 1px solid var(--dashboard-01-insights-border);
+		box-shadow: none;
+	}
+
+	.dashboard-01-insights-track {
+		background: var(--dashboard-01-insights-track);
+	}
+
+	.dashboard-01-insights-chip {
+		background: var(--dashboard-01-insights-chip-surface);
+		border-color: var(--dashboard-01-insights-chip-border);
+		color: var(--dashboard-01-insights-chip-foreground);
+	}
+
+	.dashboard-01-insights-meta {
+		color: var(--dashboard-01-insights-meta);
+	}
+}
+
+.dashboard-01-preview::before,
+.dashboard-01-preview::after,
+.dashboard-01-chrome-frame::before,
+.dashboard-01-chrome-frame::after,
+.dashboard-01-chrome-sidebar [data-slot="sidebar-inner"]::before,
+.dashboard-01-chrome-sidebar [data-slot="sidebar-inner"]::after {
+	content: "";
+	position: absolute;
+	inset: 0;
+	pointer-events: none;
+}
+
+body:has(.dashboard-01-preview)::before,
+.dashboard-01-preview::before,
+.dashboard-01-chrome-frame::before,
+.dashboard-01-chrome-sidebar [data-slot="sidebar-inner"]::before {
+	background-image: var(--dashboard-01-chrome-noise-texture);
+	background-position:
+		0 0,
+		center;
+	background-repeat: repeat, repeat;
+	background-size:
+		var(--dashboard-01-chrome-noise-large-size)
+		var(--dashboard-01-chrome-noise-large-size),
+		var(--dashboard-01-chrome-noise-small-size)
+		var(--dashboard-01-chrome-noise-small-size);
+	opacity: var(--dashboard-01-chrome-turbulence-opacity);
+	mix-blend-mode: multiply;
+	filter: contrast(var(--dashboard-01-chrome-turbulence-contrast))
+		brightness(var(--dashboard-01-chrome-turbulence-darkness));
+}
+
+body:has(.dashboard-01-preview)::after,
+.dashboard-01-preview::after,
+.dashboard-01-chrome-frame::after,
+.dashboard-01-chrome-sidebar [data-slot="sidebar-inner"]::after {
+	background-image: var(--dashboard-01-chrome-noise-texture);
+	background-position:
+		0 0,
+		center;
+	background-repeat: repeat, repeat;
+	background-size:
+		var(--dashboard-01-chrome-noise-large-size)
+		var(--dashboard-01-chrome-noise-large-size),
+		var(--dashboard-01-chrome-noise-small-size)
+		var(--dashboard-01-chrome-noise-small-size);
+	opacity: var(--dashboard-01-chrome-highlight-opacity);
+	mix-blend-mode: screen;
+	filter: contrast(calc(var(--dashboard-01-chrome-turbulence-contrast) * 0.75))
+		brightness(1.22);
+}
+
+.dashboard-01-preview > *,
+.dashboard-01-chrome-frame > *,
+.dashboard-01-chrome-sidebar [data-slot="sidebar-inner"] > * {
+	position: relative;
+	z-index: 1;
+}
+
+.team-lineup-featured-card::before {
+	content: "";
+	position: absolute;
+	inset: 0;
+	border-radius: inherit;
+	pointer-events: none;
+	opacity: var(--team-lineup-card-grain-opacity);
+	mix-blend-mode: multiply;
+	filter: contrast(var(--team-lineup-card-grain-contrast));
+	background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+	background-size: var(--team-lineup-card-grain-size)
+		var(--team-lineup-card-grain-size);
+	background-position: center;
+}
+
+.team-lineup-featured-card > * {
+	position: relative;
+	z-index: 1;
+}
+
+body:has(.dashboard-01-preview) > * {
+	position: relative;
+	z-index: 1;
+}
+
+.team-lineup-featured-media-panel {
+	position: relative;
+	isolation: isolate;
+	overflow: hidden;
+}
+
+.team-lineup-featured-stats-panel {
+	position: relative;
+	isolation: isolate;
+	overflow: hidden;
+}
+
+.team-lineup-featured-shared-surface {
+	position: absolute;
+	left: 0;
+	top: 0;
+	z-index: 0;
+	isolation: isolate;
+	pointer-events: none;
+	overflow: hidden;
+	transform-origin: top left;
+	background-image: var(--team-lineup-featured-panel-base-gradient);
+}
+
+.team-lineup-featured-shared-surface::before {
+	content: "";
+	position: absolute;
+	inset: 0;
+	pointer-events: none;
+	opacity: var(--team-lineup-featured-panel-wash-opacity);
+	z-index: 0;
+	background-image: var(--team-lineup-featured-panel-color-wash);
+	mix-blend-mode: color-dodge;
+	mask-image: var(--team-lineup-featured-panel-color-opacity-mask);
+	mask-repeat: no-repeat;
+	mask-size: 100% 100%;
+	-webkit-mask-image: var(--team-lineup-featured-panel-color-opacity-mask);
+	-webkit-mask-repeat: no-repeat;
+	-webkit-mask-size: 100% 100%;
+}
+
+.team-lineup-featured-shared-surface::after {
+	content: "";
+	position: absolute;
+	inset: 0;
+	z-index: 1;
+	pointer-events: none;
+	background: #ffffff;
+	opacity: var(--team-lineup-featured-panel-difference-opacity);
+	mix-blend-mode: difference;
+}
+
+.team-lineup-featured-shared-surface__lattice {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	z-index: 2;
+	opacity: var(--team-lineup-featured-panel-lattice-opacity);
+	mix-blend-mode: soft-light;
+	pointer-events: none;
+}
+
+.team-lineup-featured-shared-surface__noise-large,
+.team-lineup-featured-shared-surface__noise-small {
+	position: absolute;
+	inset: 0;
+	z-index: 2;
+	pointer-events: none;
+	background-image: url("/shell/team-lineup-stats-panel-noise.svg");
+	background-repeat: repeat;
+	mix-blend-mode: overlay;
+}
+
+.team-lineup-featured-shared-surface__noise-large {
+	background-size: var(--team-lineup-featured-panel-noise-large-size)
+		var(--team-lineup-featured-panel-noise-large-size);
+	opacity: var(--team-lineup-featured-panel-noise-large-opacity);
+}
+
+.team-lineup-featured-shared-surface__noise-small {
+	background-size: var(--team-lineup-featured-panel-noise-small-size)
+		var(--team-lineup-featured-panel-noise-small-size);
+	opacity: var(--team-lineup-featured-panel-noise-small-opacity);
+}
+
+.team-lineup-featured-media-panel__content,
+.team-lineup-featured-stats-panel__content {
+	position: relative;
+	z-index: 1;
+	height: 100%;
+}
+
+.team-lineup-surface-scope[data-lineup-surface-debug="base"]
+	.team-lineup-featured-shared-surface::before,
+.team-lineup-surface-scope[data-lineup-surface-debug="base"]
+	.team-lineup-featured-shared-surface::after,
+.team-lineup-surface-scope[data-lineup-surface-debug="base"]
+	.team-lineup-featured-shared-surface__lattice,
+.team-lineup-surface-scope[data-lineup-surface-debug="base"]
+	.team-lineup-featured-shared-surface__noise-large,
+.team-lineup-surface-scope[data-lineup-surface-debug="base"]
+	.team-lineup-featured-shared-surface__noise-small {
+	opacity: 0;
+}
+
+.team-lineup-surface-scope[data-lineup-surface-debug="wash"]
+	.team-lineup-featured-shared-surface::after,
+.team-lineup-surface-scope[data-lineup-surface-debug="wash"]
+	.team-lineup-featured-shared-surface__lattice,
+.team-lineup-surface-scope[data-lineup-surface-debug="wash"]
+	.team-lineup-featured-shared-surface__noise-large,
+.team-lineup-surface-scope[data-lineup-surface-debug="wash"]
+	.team-lineup-featured-shared-surface__noise-small {
+	opacity: 0;
+}
+
+.team-lineup-surface-scope[data-lineup-surface-debug="difference"]
+	.team-lineup-featured-shared-surface::before,
+.team-lineup-surface-scope[data-lineup-surface-debug="difference"]
+	.team-lineup-featured-shared-surface__lattice,
+.team-lineup-surface-scope[data-lineup-surface-debug="difference"]
+	.team-lineup-featured-shared-surface__noise-large,
+.team-lineup-surface-scope[data-lineup-surface-debug="difference"]
+	.team-lineup-featured-shared-surface__noise-small {
+	opacity: 0;
+}
+
+.team-lineup-surface-scope[data-lineup-surface-debug="pattern"]
+	.team-lineup-featured-shared-surface::before,
+.team-lineup-surface-scope[data-lineup-surface-debug="pattern"]
+	.team-lineup-featured-shared-surface::after {
+	opacity: 0;
+}

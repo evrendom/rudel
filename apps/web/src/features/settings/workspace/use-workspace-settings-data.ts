@@ -1,48 +1,41 @@
-import { useOrganization } from "@/contexts/OrganizationContext";
-import { useFullOrganization } from "@/hooks/useFullOrganization";
+import { useFullOrganization } from "@/features/workspace/hooks/useFullOrganization";
+import { useOrganization } from "@/features/workspace/organization/useOrganization";
 import { authClient } from "@/lib/auth-client";
 
 function readSessionUserId(value: unknown) {
 	return typeof value === "string" ? value : "";
 }
 
-function formatRoleLabel(value: string | null | undefined) {
-	if (!value) {
-		return "—";
-	}
-
-	return value.charAt(0).toUpperCase() + value.slice(1);
-}
-
 export function useWorkspaceSettingsData() {
-	const { activeOrg, organizations, isLoading, isOrgAdmin, switchOrg } =
-		useOrganization();
+	const { state, meta } = useOrganization();
 	const { data: session } = authClient.useSession();
 	const {
 		data: fullOrg,
-		isLoading: isFullOrgLoading,
+		isLoading: isFullOrgPending,
+		isError,
 		invalidate,
-	} = useFullOrganization(activeOrg?.id);
+	} = useFullOrganization(state.activeOrg?.id);
 
 	const currentUserId = readSessionUserId(session?.user?.id);
-	const currentMember =
-		fullOrg?.members.find((member) => member.userId === currentUserId) ?? null;
 	const pendingInvitations =
 		fullOrg?.invitations.filter(
 			(invitation) => invitation.status === "pending",
 		) ?? [];
-	const canManage = Boolean(activeOrg) && isOrgAdmin;
+	const currentMember = fullOrg?.members.find(
+		(member) => member.userId === currentUserId,
+	);
+	const canManage = meta.isOrgAdmin && Boolean(state.activeOrg);
 	const currentUserRole = currentMember?.role ?? null;
 
 	return {
-		activeOrg,
-		canManage,
-		currentUserId,
-		currentUserRole,
+		activeOrg: state.activeOrg,
+		organizations: state.organizations,
 		fullOrg,
-		invalidate,
-		organizations,
 		pendingInvitations,
+		currentUserId,
+		canManage,
+		currentUserRole,
+		invalidate,
 		summaryTiles: [
 			{
 				id: "members",
@@ -57,14 +50,16 @@ export function useWorkspaceSettingsData() {
 			{
 				id: "your_role",
 				label: "Your role",
-				displayValue: formatRoleLabel(currentUserRole),
+				displayValue: currentUserRole
+					? currentUserRole.charAt(0).toUpperCase() + currentUserRole.slice(1)
+					: "—",
 			},
 		],
-		switchOrg,
 		state: {
-			hasOrganization: Boolean(activeOrg),
+			hasOrganization: Boolean(state.activeOrg),
+			isPending: state.isLoading || isFullOrgPending,
+			isError,
 			hasData: Boolean(fullOrg),
-			isPending: isLoading || isFullOrgLoading,
 		},
 	};
 }

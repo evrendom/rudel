@@ -2,7 +2,7 @@ import { format, parseISO } from "date-fns";
 import { DashboardCellStack } from "@/features/dashboard/components/DashboardGridTable";
 import { DashboardTokenCostCell } from "@/features/dashboard/components/DashboardTokenCostCell";
 import type { DashboardHighlightChangeHandler } from "@/features/dashboard/components/dashboard-highlight-state";
-import type { DashboardTokenDailyPoint } from "@/features/dashboard/data/dashboard-token-adapters";
+import type { DashboardTokenDailyPoint } from "@/features/dashboard/data/dashboard-tab-adapters";
 import { formatCompactNumber } from "@/lib/format";
 import { cn } from "@/lib/utils";
 

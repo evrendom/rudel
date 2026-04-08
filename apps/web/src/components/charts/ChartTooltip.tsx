@@ -6,6 +6,7 @@ interface ChartTooltipProps {
 	payload?: ReadonlyArray<any>;
 	label?: string | number;
 	nameFormatter?: (name: string) => string;
+	sortItems?: boolean;
 	valueFormatter?: (value: number, name: string) => string;
 	showTotal?: boolean;
 }
@@ -15,6 +16,7 @@ export function ChartTooltip({
 	payload,
 	label,
 	nameFormatter,
+	sortItems = false,
 	valueFormatter,
 	showTotal = true,
 }: ChartTooltipProps) {
@@ -24,6 +26,13 @@ export function ChartTooltip({
 
 	const visibleItems = payload.filter((item) => item.value !== 0);
 	if (visibleItems.length === 0) return null;
+	const sortedItems = sortItems
+		? [...visibleItems].sort(
+				(left, right) =>
+					Number(right.value ?? 0) - Number(left.value ?? 0) ||
+					String(left.name).localeCompare(String(right.name)),
+			)
+		: visibleItems;
 
 	const total = visibleItems.reduce((sum, item) => sum + item.value, 0);
 
@@ -46,7 +55,7 @@ export function ChartTooltip({
 				</div>
 			)}
 			<div className="space-y-0.5">
-				{visibleItems.map((item) => {
+				{sortedItems.map((item) => {
 					const displayName = nameFormatter
 						? nameFormatter(item.name)
 						: item.name;

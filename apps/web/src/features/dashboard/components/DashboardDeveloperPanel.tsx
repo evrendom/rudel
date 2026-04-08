@@ -1,15 +1,11 @@
 import type { UserDailyTrendData } from "@rudel/api-routes";
 import { GaugeIcon } from "lucide-react";
-import { useMemo, useState } from "react";
+import { lazy, Suspense, useMemo, useState } from "react";
 import { Skeleton } from "@/app/ui/skeleton";
 import { ToggleGroup, ToggleGroupItem } from "@/app/ui/toggle-group";
 import { DashboardAnalysisPanel } from "@/features/dashboard/components/DashboardAnalysisPanel";
-import {
-	DashboardPerformanceChart,
-	type DashboardPerformanceDatum,
-} from "@/features/dashboard/components/DashboardPerformanceChart";
+import type { DashboardPerformanceDatum } from "@/features/dashboard/components/DashboardPerformanceChart";
 import { DashboardPerformanceRosterTable } from "@/features/dashboard/components/DashboardPerformanceRosterTable";
-import { DashboardPerformanceTrendChart } from "@/features/dashboard/components/DashboardPerformanceTrendChart";
 import {
 	DashboardTokenDeveloperChart,
 	type DashboardTokenDeveloperDatum,
@@ -26,6 +22,22 @@ type PerformanceChartView = "total" | "over-time";
 type DashboardDeveloperPanelVariant = "commits" | "repositories";
 
 const MAX_VISIBLE_PERFORMANCE_BARS = 20;
+
+const DashboardPerformanceChart = lazy(async () => {
+	const module = await import(
+		"@/features/dashboard/components/DashboardPerformanceChart"
+	);
+
+	return { default: module.DashboardPerformanceChart };
+});
+
+const DashboardPerformanceTrendChart = lazy(async () => {
+	const module = await import(
+		"@/features/dashboard/components/DashboardPerformanceTrendChart"
+	);
+
+	return { default: module.DashboardPerformanceTrendChart };
+});
 
 function getMemberAxisLabel(fullLabel: string) {
 	const emailSafeLabel = fullLabel.includes("@")
@@ -238,21 +250,23 @@ export function DashboardDeveloperPanel({
 					<DashboardPerformanceChartFallback />
 				) : chartView === "over-time" ? (
 					hasTrendData ? (
-						<DashboardPerformanceTrendChart
-							availableMetrics={
-								variant === "repositories"
-									? ["repositories", "sessions"]
-									: ["sessions", "commits"]
-							}
-							highlightedSeriesId={highlightedItemId}
-							hiddenSeriesIds={hiddenTrendSeriesIds}
-							metric={trendMetric}
-							onHighlightSeriesChange={setHighlight}
-							onMetricChange={setTrendMetric}
-							onToggleSeries={handleToggleTrendSeries}
-							trendData={performanceUserDailyTrend}
-							trendSeries={trendSeries}
-						/>
+						<Suspense fallback={<DashboardPerformanceChartFallback />}>
+							<DashboardPerformanceTrendChart
+								availableMetrics={
+									variant === "repositories"
+										? ["repositories", "sessions"]
+										: ["sessions", "commits"]
+								}
+								highlightedSeriesId={highlightedItemId}
+								hiddenSeriesIds={hiddenTrendSeriesIds}
+								metric={trendMetric}
+								onHighlightSeriesChange={setHighlight}
+								onMetricChange={setTrendMetric}
+								onToggleSeries={handleToggleTrendSeries}
+								trendData={performanceUserDailyTrend}
+								trendSeries={trendSeries}
+							/>
+						</Suspense>
 					) : (
 						<div className="flex h-full items-center justify-center px-6 text-center text-sm text-muted-foreground">
 							{variant === "repositories"
@@ -281,12 +295,14 @@ export function DashboardDeveloperPanel({
 							yAxisTickFormatter={(value) => Math.round(value).toLocaleString()}
 						/>
 					) : (
-						<DashboardPerformanceChart
-							activeId={highlightedItemId}
-							data={commitChartData}
-							highlightSource={highlightSource}
-							onHighlightUserChange={setHighlight}
-						/>
+						<Suspense fallback={<DashboardPerformanceChartFallback />}>
+							<DashboardPerformanceChart
+								activeId={highlightedItemId}
+								data={commitChartData}
+								highlightSource={highlightSource}
+								onHighlightUserChange={setHighlight}
+							/>
+						</Suspense>
 					)
 				) : (
 					<div className="flex h-full items-center justify-center px-6 text-center text-sm text-muted-foreground">

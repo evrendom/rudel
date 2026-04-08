@@ -1,4 +1,5 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, it } from "vitest";
+import { getSupportedAnalyticsDateRange } from "@/lib/analytics-date-range";
 import {
 	formatDashboardDateRangeTriggerLabel,
 	getAnalyticsDatePresets,
@@ -7,43 +8,87 @@ import {
 } from "./date-presets";
 
 describe("date-presets", () => {
-	test("parseIsoDateOnly accepts valid ISO calendar dates", () => {
-		const parsedDate = parseIsoDateOnly("2026-04-08");
+	const today = new Date(2026, 3, 8);
 
-		expect(parsedDate).not.toBeNull();
-		expect(parsedDate?.getFullYear()).toBe(2026);
-		expect(parsedDate?.getMonth()).toBe(3);
-		expect(parsedDate?.getDate()).toBe(8);
+	it("resolves the expected preset ranges", () => {
+		const presetRanges = Object.fromEntries(
+			getAnalyticsDatePresets().map((preset) => [
+				preset.id,
+				preset.resolveRange(today),
+			]),
+		);
+
+		expect(presetRanges["last-7-days"]).toEqual({
+			startDate: "2026-04-01",
+			endDate: "2026-04-08",
+		});
+		expect(presetRanges["last-30-days"]).toEqual({
+			startDate: "2026-03-09",
+			endDate: "2026-04-08",
+		});
+		expect(presetRanges["last-60-days"]).toEqual({
+			startDate: "2026-02-07",
+			endDate: "2026-04-08",
+		});
+		expect(presetRanges["last-90-days"]).toEqual({
+			startDate: "2026-01-08",
+			endDate: "2026-04-08",
+		});
+		expect(presetRanges["this-week"]).toEqual({
+			startDate: "2026-04-06",
+			endDate: "2026-04-08",
+		});
+		expect(presetRanges["this-month"]).toEqual({
+			startDate: "2026-04-01",
+			endDate: "2026-04-08",
+		});
+		expect(presetRanges["this-quarter"]).toEqual({
+			startDate: "2026-04-01",
+			endDate: "2026-04-08",
+		});
+		expect(presetRanges["this-year"]).toEqual({
+			startDate: "2026-01-01",
+			endDate: "2026-04-08",
+		});
 	});
 
-	test("parseIsoDateOnly rejects impossible calendar dates", () => {
+	it("matches a preset from a concrete range", () => {
+		expect(
+			resolveMatchingAnalyticsPreset("2026-04-01", "2026-04-08", today)?.id,
+		).toBe("last-7-days");
+	});
+
+	it("returns null for a custom range", () => {
+		expect(
+			resolveMatchingAnalyticsPreset("2026-02-01", "2026-02-12", today),
+		).toBeNull();
+	});
+
+	it("keeps presets within the supported analytics window", () => {
+		const leapYearEndDate = new Date(2024, 11, 31);
+		const supportedStartDate =
+			getSupportedAnalyticsDateRange(leapYearEndDate).start;
+		const thisYearPreset = getAnalyticsDatePresets().find(
+			(preset) => preset.id === "this-year",
+		);
+
+		expect(thisYearPreset?.resolveRange(leapYearEndDate).startDate).toBe(
+			`${supportedStartDate.getFullYear()}-${String(
+				supportedStartDate.getMonth() + 1,
+			).padStart(
+				2,
+				"0",
+			)}-${String(supportedStartDate.getDate()).padStart(2, "0")}`,
+		);
+	});
+
+	it("parses ISO date-only values and rejects invalid dates", () => {
+		expect(parseIsoDateOnly("2026-04-08")?.getDate()).toBe(8);
 		expect(parseIsoDateOnly("2026-02-31")).toBeNull();
-		expect(parseIsoDateOnly("2026/04/08")).toBeNull();
+		expect(parseIsoDateOnly("not-a-date")).toBeNull();
 	});
 
-	test("resolveMatchingAnalyticsPreset finds the preset for a resolved range", () => {
-		const today = new Date("2026-04-08T12:00:00.000Z");
-		const preset = getAnalyticsDatePresets().find(
-			(candidate) => candidate.id === "this-year",
-		);
-
-		expect(preset).toBeDefined();
-
-		if (!preset) {
-			throw new Error("Expected the this-year preset to exist");
-		}
-
-		const resolvedRange = preset.resolveRange(today);
-		const matchingPreset = resolveMatchingAnalyticsPreset(
-			resolvedRange.startDate,
-			resolvedRange.endDate,
-			today,
-		);
-
-		expect(matchingPreset?.id).toBe("this-year");
-	});
-
-	test("formatDashboardDateRangeTriggerLabel formats the selected range", () => {
+	it("formats the dashboard trigger label", () => {
 		expect(
 			formatDashboardDateRangeTriggerLabel("2026-04-01", "2026-04-08"),
 		).toBe("Apr 1 - Apr 8, 2026");

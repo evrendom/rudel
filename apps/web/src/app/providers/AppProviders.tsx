@@ -1,15 +1,19 @@
-import { QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
-import { BrowserRouter } from "react-router-dom";
-import { queryClient } from "@/lib/query-client";
-import { ThemeProvider } from "@/providers/ThemeProvider";
+import { DateRangeProvider } from "@/features/analytics/date-range/DateRangeProvider";
+import { ChatwootBootstrap } from "@/features/support/chatwoot/ChatwootBootstrap";
+import { OrganizationProvider } from "@/features/workspace/organization/OrganizationProvider";
 
-export function AppProviders({ children }: { children: ReactNode }) {
+type AppProvidersProps = {
+	children: ReactNode;
+};
+
+export function AppProviders({ children }: AppProvidersProps) {
 	return (
-		<QueryClientProvider client={queryClient}>
-			<BrowserRouter>
-				<ThemeProvider>{children}</ThemeProvider>
-			</BrowserRouter>
-		</QueryClientProvider>
+		<OrganizationProvider>
+			<DateRangeProvider>
+				<ChatwootBootstrap />
+				{children}
+			</DateRangeProvider>
+		</OrganizationProvider>
 	);
 }

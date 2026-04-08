@@ -1,15 +1,11 @@
 import type { RepositoryDailyTrendData } from "@rudel/api-routes";
 import { FolderGit2Icon } from "lucide-react";
-import { useMemo, useState } from "react";
+import { lazy, Suspense, useMemo, useState } from "react";
 import { Skeleton } from "@/app/ui/skeleton";
 import { ToggleGroup, ToggleGroupItem } from "@/app/ui/toggle-group";
 import { DashboardAnalysisPanel } from "@/features/dashboard/components/DashboardAnalysisPanel";
-import {
-	buildDashboardRepositoryChartData,
-	DashboardRepositoryChart,
-} from "@/features/dashboard/components/DashboardRepositoryChart";
+import { buildDashboardRepositoryChartData } from "@/features/dashboard/components/DashboardRepositoryChart";
 import { DashboardRepositoryTable } from "@/features/dashboard/components/DashboardRepositoryTable";
-import { DashboardRepositoryTrendChart } from "@/features/dashboard/components/DashboardRepositoryTrendChart";
 import { useDashboardHighlightState } from "@/features/dashboard/components/dashboard-highlight-state";
 import {
 	buildDashboardRepositorySummaryRows,
@@ -38,6 +34,22 @@ const CHART_FALLBACK_LABEL_KEYS = [
 	"repository-chart-label-4",
 	"repository-chart-label-5",
 ] as const;
+
+const DashboardRepositoryChart = lazy(async () => {
+	const module = await import(
+		"@/features/dashboard/components/DashboardRepositoryChart"
+	);
+
+	return { default: module.DashboardRepositoryChart };
+});
+
+const DashboardRepositoryTrendChart = lazy(async () => {
+	const module = await import(
+		"@/features/dashboard/components/DashboardRepositoryTrendChart"
+	);
+
+	return { default: module.DashboardRepositoryTrendChart };
+});
 
 function DashboardRepositoryChartFallback() {
 	return (
@@ -160,33 +172,39 @@ export function DashboardRepositoryPanel({
 					<DashboardRepositoryChartFallback />
 				) : chartView === "over-time" ? (
 					hasTrendData ? (
-						<DashboardRepositoryTrendChart
-							availableMetrics={
-								variant === "sessions" ? ["sessions"] : ["sessions", "commits"]
-							}
-							highlightedSeriesId={highlightedItemId}
-							hiddenRows={hiddenChartRows}
-							hiddenSeriesIds={hiddenTrendSeriesIds}
-							metric={trendMetric}
-							onHighlightSeriesChange={setHighlight}
-							onMetricChange={setTrendMetric}
-							onToggleSeries={handleToggleTrendSeries}
-							trendData={repositoryDailyTrend}
-							trendSeries={trendSeries}
-						/>
+						<Suspense fallback={<DashboardRepositoryChartFallback />}>
+							<DashboardRepositoryTrendChart
+								availableMetrics={
+									variant === "sessions"
+										? ["sessions"]
+										: ["sessions", "commits"]
+								}
+								highlightedSeriesId={highlightedItemId}
+								hiddenRows={hiddenChartRows}
+								hiddenSeriesIds={hiddenTrendSeriesIds}
+								metric={trendMetric}
+								onHighlightSeriesChange={setHighlight}
+								onMetricChange={setTrendMetric}
+								onToggleSeries={handleToggleTrendSeries}
+								trendData={repositoryDailyTrend}
+								trendSeries={trendSeries}
+							/>
+						</Suspense>
 					) : (
 						<div className="flex h-full items-center justify-center px-6 text-center text-sm text-muted-foreground">
 							No repository activity in the selected range.
 						</div>
 					)
 				) : hasChartData ? (
-					<DashboardRepositoryChart
-						activeId={highlightedItemId}
-						data={chartData}
-						highlightSource={highlightSource}
-						onHighlightRepositoryChange={setHighlight}
-						variant={variant}
-					/>
+					<Suspense fallback={<DashboardRepositoryChartFallback />}>
+						<DashboardRepositoryChart
+							activeId={highlightedItemId}
+							data={chartData}
+							highlightSource={highlightSource}
+							onHighlightRepositoryChange={setHighlight}
+							variant={variant}
+						/>
+					</Suspense>
 				) : (
 					<div className="flex h-full items-center justify-center px-6 text-center text-sm text-muted-foreground">
 						No repository activity in the selected range.

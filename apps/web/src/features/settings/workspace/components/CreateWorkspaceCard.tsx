@@ -1,5 +1,6 @@
 import { type FormEvent, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { appRoutes } from "@/app/routes";
 import { Button } from "@/app/ui/button";
 import {
 	Card,
@@ -8,15 +9,10 @@ import {
 	CardHeader,
 	CardTitle,
 } from "@/app/ui/card";
-import {
-	Field,
-	FieldDescription,
-	FieldError,
-	FieldLabel,
-} from "@/app/ui/field";
+import { Field, FieldLabel } from "@/app/ui/field";
 import { Input } from "@/app/ui/input";
-import { useOrganization } from "@/contexts/OrganizationContext";
-import { useAnalyticsTracking } from "@/hooks/useDashboardAnalytics";
+import { useAnalyticsTracking } from "@/features/analytics/tracking/useAnalyticsTracking";
+import { useOrganization } from "@/features/workspace/organization/useOrganization";
 import { authClient } from "@/lib/auth-client";
 
 function slugify(value: string) {
@@ -38,30 +34,31 @@ export function CreateWorkspaceCard({
 	title?: string;
 }) {
 	const navigate = useNavigate();
-	const { switchOrg } = useOrganization();
+	const { actions } = useOrganization();
 	const { trackOrganizationAction } = useAnalyticsTracking({
 		pageName: "organization_create",
 	});
-	const [error, setError] = useState<string | null>(null);
-	const [isCreating, setIsCreating] = useState(false);
 	const [name, setName] = useState("");
+	const [isCreating, setIsCreating] = useState(false);
+	const [error, setError] = useState<string | null>(null);
 
-	async function handleSubmit(event: FormEvent) {
+	const handleSubmit = async (event: FormEvent) => {
 		event.preventDefault();
 		const trimmedName = name.trim();
 		const slug = slugify(trimmedName);
+
 		if (!trimmedName || !slug) {
 			return;
 		}
 
 		trackOrganizationAction({
 			actionName: "create_organization",
+			targetType: "organization",
 			sourceComponent: "create_workspace_card",
 			targetId: slug,
-			targetType: "organization",
 		});
-		setError(null);
 		setIsCreating(true);
+		setError(null);
 
 		const response = await authClient.organization.create({
 			name: trimmedName,
@@ -75,12 +72,12 @@ export function CreateWorkspaceCard({
 		}
 
 		if (response.data) {
-			await switchOrg(response.data.id);
-			navigate("/dashboard/organization");
+			await actions.switchOrganization(response.data.id);
+			navigate(appRoutes.settingsWorkspace());
 		}
 
 		setIsCreating(false);
-	}
+	};
 
 	const slugPreview = slugify(name.trim());
 
@@ -91,33 +88,28 @@ export function CreateWorkspaceCard({
 				<CardDescription>{description}</CardDescription>
 			</CardHeader>
 			<CardContent>
-				<form
-					className="flex flex-col gap-4"
-					onSubmit={(event) => void handleSubmit(event)}
-				>
+				<form onSubmit={handleSubmit} className="flex flex-col gap-4">
 					<Field className="gap-2">
 						<FieldLabel htmlFor="workspace-name">Workspace name</FieldLabel>
 						<Input
-							disabled={isCreating}
 							id="workspace-name"
+							value={name}
 							onChange={(event) => setName(event.target.value)}
 							placeholder="Farmerville team"
-							value={name}
+							disabled={isCreating}
 						/>
 					</Field>
-					<Field className="gap-2">
-						<FieldLabel>Slug preview</FieldLabel>
-						<div className="rounded-3xl border border-border/60 bg-muted/20 px-3 py-2 text-sm text-muted-foreground">
-							{slugPreview ? `/${slugPreview}` : "Generated from the name"}
-						</div>
-						<FieldDescription>
-							Lowercase letters, numbers, and hyphens only.
-						</FieldDescription>
-					</Field>
-					<FieldError>{error}</FieldError>
+
+					<div className="rounded-3xl border border-border/60 bg-muted/20 px-3 py-2 text-sm text-muted-foreground">
+						<span className="font-medium text-foreground">Slug preview:</span>{" "}
+						{slugPreview ? `/${slugPreview}` : "Generated from the name"}
+					</div>
+
+					{error ? <p className="text-sm text-destructive">{error}</p> : null}
+
 					<Button
-						disabled={isCreating || name.trim().length === 0}
 						type="submit"
+						disabled={isCreating || name.trim().length === 0}
 					>
 						{isCreating ? "Creating workspace…" : submitLabel}
 					</Button>

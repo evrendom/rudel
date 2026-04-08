@@ -11,7 +11,7 @@ import type { DashboardPerformanceUserComparison } from "@/features/dashboard/da
 import {
 	buildDashboardTokenDailyPattern,
 	buildDashboardTokenTabMetrics,
-} from "@/features/dashboard/data/dashboard-token-adapters";
+} from "@/features/dashboard/data/dashboard-tab-adapters";
 
 export function DashboardTokensView({
 	endDate,

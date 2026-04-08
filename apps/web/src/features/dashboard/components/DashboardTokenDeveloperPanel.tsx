@@ -1,6 +1,6 @@
 import type { UserDailyTrendData } from "@rudel/api-routes";
 import { GaugeIcon } from "lucide-react";
-import { useMemo, useState } from "react";
+import { Suspense, useMemo, useState } from "react";
 import { Skeleton } from "@/app/ui/skeleton";
 import { ToggleGroup, ToggleGroupItem } from "@/app/ui/toggle-group";
 import { DashboardAnalysisPanel } from "@/features/dashboard/components/DashboardAnalysisPanel";
@@ -131,7 +131,10 @@ export function DashboardTokenDeveloperPanel({
 		[performanceUsers],
 	);
 	const hasChartData = selectedChartData.length > 0;
-	const hasTrendData = (performanceUserDailyTrend?.length ?? 0) > 0;
+	const hasTrendData = useMemo(
+		() => (performanceUserDailyTrend?.length ?? 0) > 0,
+		[performanceUserDailyTrend],
+	);
 	const trendSeries = useMemo(
 		() =>
 			buildDashboardPerformanceTrendSeries(
@@ -190,17 +193,19 @@ export function DashboardTokenDeveloperPanel({
 					<DashboardTokenDeveloperChartFallback />
 				) : chartView === "over-time" ? (
 					hasTrendData ? (
-						<DashboardPerformanceTrendChart
-							availableMetrics={["tokens"]}
-							highlightedSeriesId={highlightedItemId}
-							hiddenSeriesIds={hiddenTrendSeriesIds}
-							metric={trendMetric}
-							onHighlightSeriesChange={setHighlight}
-							onMetricChange={setTrendMetric}
-							onToggleSeries={handleToggleTrendSeries}
-							trendData={performanceUserDailyTrend}
-							trendSeries={trendSeries}
-						/>
+						<Suspense fallback={<DashboardTokenDeveloperChartFallback />}>
+							<DashboardPerformanceTrendChart
+								availableMetrics={["tokens"]}
+								highlightedSeriesId={highlightedItemId}
+								hiddenSeriesIds={hiddenTrendSeriesIds}
+								metric={trendMetric}
+								onHighlightSeriesChange={setHighlight}
+								onMetricChange={setTrendMetric}
+								onToggleSeries={handleToggleTrendSeries}
+								trendData={performanceUserDailyTrend}
+								trendSeries={trendSeries}
+							/>
+						</Suspense>
 					) : (
 						<div className="flex h-full items-center justify-center px-6 text-center text-sm text-muted-foreground">
 							No developer token activity in the selected range.

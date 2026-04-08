@@ -48,6 +48,147 @@ import { useUserMap } from "@/hooks/useUserMap";
 import { formatUsername } from "@/lib/format";
 import { orpc } from "@/lib/orpc";
 
+type RoiTrendPoint = {
+	active_developers: number;
+	avg_success_score: number;
+	productivity_score: number;
+	total_commits: number;
+	total_cost: number;
+	total_sessions: number;
+	week_start: string;
+};
+
+function formatRoiWeekLabel(value: string) {
+	return `Week of ${new Date(value).toLocaleDateString("en-US", {
+		month: "short",
+		day: "numeric",
+		year: "numeric",
+	})}`;
+}
+
+function formatRoiCurrency(value: number) {
+	return `$${value.toFixed(2)}`;
+}
+
+function ROICostTrendTooltip({
+	active,
+	payload,
+	tooltipBg,
+	tooltipBorder,
+}: {
+	active?: boolean;
+	payload?: ReadonlyArray<{ payload?: RoiTrendPoint }>;
+	tooltipBg: string;
+	tooltipBorder: string;
+}) {
+	const point = payload?.[0]?.payload;
+
+	if (!active || !point) {
+		return null;
+	}
+
+	const costPerCommit =
+		point.total_commits > 0 ? point.total_cost / point.total_commits : null;
+
+	return (
+		<div
+			className="rounded-lg shadow-lg p-3 min-w-[200px]"
+			style={{
+				backgroundColor: tooltipBg,
+				border: `1px solid ${tooltipBorder}`,
+			}}
+		>
+			<div className="mb-2 text-xs font-semibold text-foreground">
+				{formatRoiWeekLabel(point.week_start)}
+			</div>
+			<div className="space-y-1 text-xs">
+				<div className="flex items-center justify-between gap-4">
+					<span className="text-muted-foreground">Spend</span>
+					<span className="font-semibold text-foreground">
+						{formatRoiCurrency(point.total_cost)}
+					</span>
+				</div>
+				<div className="flex items-center justify-between gap-4">
+					<span className="text-muted-foreground">Commits</span>
+					<span className="font-semibold text-foreground">
+						{point.total_commits.toLocaleString()}
+					</span>
+				</div>
+				<div className="flex items-center justify-between gap-4">
+					<span className="text-muted-foreground">Cost / commit</span>
+					<span className="font-semibold text-foreground">
+						{costPerCommit == null ? "—" : formatRoiCurrency(costPerCommit)}
+					</span>
+				</div>
+				<div className="flex items-center justify-between gap-4">
+					<span className="text-muted-foreground">Active devs</span>
+					<span className="font-semibold text-foreground">
+						{point.active_developers.toLocaleString()}
+					</span>
+				</div>
+			</div>
+		</div>
+	);
+}
+
+function ROIProductivityTooltip({
+	active,
+	payload,
+	tooltipBg,
+	tooltipBorder,
+}: {
+	active?: boolean;
+	payload?: ReadonlyArray<{ payload?: RoiTrendPoint }>;
+	tooltipBg: string;
+	tooltipBorder: string;
+}) {
+	const point = payload?.[0]?.payload;
+
+	if (!active || !point) {
+		return null;
+	}
+
+	return (
+		<div
+			className="rounded-lg shadow-lg p-3 min-w-[200px]"
+			style={{
+				backgroundColor: tooltipBg,
+				border: `1px solid ${tooltipBorder}`,
+			}}
+		>
+			<div className="mb-2 text-xs font-semibold text-foreground">
+				{formatRoiWeekLabel(point.week_start)}
+			</div>
+			<div className="space-y-1 text-xs">
+				<div className="flex items-center justify-between gap-4">
+					<span className="text-muted-foreground">Productivity</span>
+					<span className="font-semibold text-foreground">
+						{point.productivity_score.toFixed(1)}
+					</span>
+				</div>
+				<div className="flex items-center justify-between gap-4">
+					<span className="text-muted-foreground">Commits</span>
+					<span className="font-semibold text-foreground">
+						{point.total_commits.toLocaleString()}
+					</span>
+				</div>
+				<div className="flex items-center justify-between gap-4">
+					<span className="text-muted-foreground">Spend</span>
+					<span className="font-semibold text-foreground">
+						{formatRoiCurrency(point.total_cost)}
+					</span>
+				</div>
+				<div className="flex items-center justify-between gap-4">
+					<span className="text-muted-foreground">Avg success</span>
+					<span className="font-semibold text-foreground">
+						{point.avg_success_score.toFixed(0)}%
+					</span>
+				</div>
+			</div>
+		</div>
+	);
+}
+
 export function ROIPage() {
 	const { startDate, endDate, setStartDate, setEndDate, calculateDays } =
 		useDateRange();
@@ -588,22 +729,19 @@ export function ROIPage() {
 											}
 										/>
 										<YAxis
+											allowDecimals={false}
 											stroke={chartTheme.axisStroke}
 											fontSize={12}
 											tickFormatter={(value) => `$${value}`}
 										/>
 										<RechartsTooltip
-											contentStyle={{
-												backgroundColor: chartTheme.tooltipBg,
-												borderColor: chartTheme.tooltipBorder,
-											}}
-											formatter={(value) => [
-												`$${((value as number) ?? 0).toFixed(2)}`,
-												"Cost",
-											]}
-											labelFormatter={(label) =>
-												`Week of ${new Date(label).toLocaleDateString()}`
-											}
+											content={(props) => (
+												<ROICostTrendTooltip
+													{...props}
+													tooltipBg={chartTheme.tooltipBg}
+													tooltipBorder={chartTheme.tooltipBorder}
+												/>
+											)}
 										/>
 										<Line
 											type="monotone"
@@ -658,15 +796,19 @@ export function ROIPage() {
 												})
 											}
 										/>
-										<YAxis stroke={chartTheme.axisStroke} fontSize={12} />
+										<YAxis
+											allowDecimals={false}
+											stroke={chartTheme.axisStroke}
+											fontSize={12}
+										/>
 										<RechartsTooltip
-											contentStyle={{
-												backgroundColor: chartTheme.tooltipBg,
-												borderColor: chartTheme.tooltipBorder,
-											}}
-											labelFormatter={(label) =>
-												`Week of ${new Date(label).toLocaleDateString()}`
-											}
+											content={(props) => (
+												<ROIProductivityTooltip
+													{...props}
+													tooltipBg={chartTheme.tooltipBg}
+													tooltipBorder={chartTheme.tooltipBorder}
+												/>
+											)}
 										/>
 										<Line
 											type="monotone"

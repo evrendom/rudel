@@ -367,7 +367,7 @@ export function DashboardPerformanceRosterTable({
 			getHoverRowId={(row) => row.id}
 			rowClassName={(row) =>
 				cn(
-					"w-full text-left transition-[opacity,background-color] duration-300 [transition-timing-function:cubic-bezier(0.23,1,0.32,1)]",
+					"w-full text-left transition-colors duration-300 [transition-timing-function:cubic-bezier(0.23,1,0.32,1)]",
 					hasTableHighlight &&
 						"bg-[color:var(--dashboardy-surface)] odd:bg-[color:var(--dashboardy-surface)]",
 					hasChartHighlight &&
@@ -376,8 +376,6 @@ export function DashboardPerformanceRosterTable({
 					hasTableHighlight &&
 						highlightedUserId === row.id &&
 						"bg-[color:var(--dashboardy-subsurface-strong)] odd:bg-[color:var(--dashboardy-subsurface-strong)]",
-					hasTableHighlight && highlightedUserId !== row.id && "opacity-50",
-					hasChartHighlight && highlightedUserId !== row.id && "opacity-50",
 				)
 			}
 		/>
