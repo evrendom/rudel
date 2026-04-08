@@ -124,6 +124,10 @@ export function formatCompactWholeCurrency(value: number) {
 	return compactWholeCurrencyFormatter.format(value);
 }
 
+export function formatMinutes(value: number) {
+	return `${value.toFixed(1)} min`;
+}
+
 export function formatPercent(value: number) {
 	return `${Math.round(value)}%`;
 }

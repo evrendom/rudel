@@ -4,12 +4,14 @@ import { DashboardDateControls } from "@/features/dashboard/components/Dashboard
 import { DashboardPerformancePanel } from "@/features/dashboard/components/DashboardPerformancePanel";
 import { DashboardRepositoriesView } from "@/features/dashboard/components/DashboardRepositoriesView";
 import { DashboardRepositoryPanel } from "@/features/dashboard/components/DashboardRepositoryPanel";
+import { DashboardSessionsView } from "@/features/dashboard/components/DashboardSessionsView";
 import { DashboardTokensView } from "@/features/dashboard/components/DashboardTokensView";
 import { useDashboardHomeData } from "@/features/dashboard/use-dashboard-home-data";
+import { useDashboardSessionsData } from "@/features/dashboard/use-dashboard-sessions-data";
 import { useDashboardTokensData } from "@/features/dashboard/use-dashboard-tokens-data";
 import "@/features/dashboard/dashboard-theme.css";
 
-type DashboardHomeView = "commits" | "repos" | "tokens";
+type DashboardHomeView = "commits" | "repos" | "sessions" | "tokens";
 
 export function DashboardPage() {
 	const [activeView, setActiveView] = useState<DashboardHomeView>("tokens");
@@ -25,13 +27,21 @@ export function DashboardPage() {
 		startDate: homeStartDate,
 	} = useDashboardHomeData();
 	const {
-		endDate,
+		isRecentSessionsPending,
+		isSessionSummaryPending,
+		recentSessions,
+		sessionSummaryComparison,
+	} = useDashboardSessionsData({
+		enabled: activeView === "sessions",
+	});
+	const {
+		endDate: tokenEndDate,
 		isDeveloperChartPending,
 		isSnapshotPending,
 		modelTokensTrend,
 		performanceUserDailyTrend: tokenPerformanceUserDailyTrend,
 		performanceUsers: tokenPerformanceUsers,
-		startDate,
+		startDate: tokenStartDate,
 		usersTokenUsage,
 	} = useDashboardTokensData({
 		enabled: activeView === "tokens",
@@ -50,6 +60,7 @@ export function DashboardPage() {
 									if (
 										nextValue === "commits" ||
 										nextValue === "repos" ||
+										nextValue === "sessions" ||
 										nextValue === "tokens"
 									) {
 										setActiveView(nextValue);
@@ -78,7 +89,6 @@ export function DashboardPage() {
 									</TabsTrigger>
 									<TabsTrigger
 										value="sessions"
-										disabled
 										className="dashboardy-sticky-tab"
 									>
 										Sessions
@@ -92,14 +102,24 @@ export function DashboardPage() {
 
 				{activeView === "tokens" ? (
 					<DashboardTokensView
-						endDate={endDate}
+						endDate={tokenEndDate}
 						isDeveloperChartPending={isDeveloperChartPending}
 						isSnapshotPending={isSnapshotPending}
 						modelTokensTrend={modelTokensTrend}
 						performanceUserDailyTrend={tokenPerformanceUserDailyTrend}
 						performanceUsers={tokenPerformanceUsers}
-						startDate={startDate}
+						startDate={tokenStartDate}
 						usersTokenUsage={usersTokenUsage}
+					/>
+				) : activeView === "sessions" ? (
+					<DashboardSessionsView
+						isRecentSessionsPending={isRecentSessionsPending}
+						isRepositoryChartPending={isRepositoryChartPending}
+						isSnapshotPending={isSessionSummaryPending}
+						recentSessions={recentSessions}
+						repositories={snapshot.repositories}
+						repositoryDailyTrend={repositoryDailyTrend}
+						sessionSummaryComparison={sessionSummaryComparison}
 					/>
 				) : activeView === "repos" ? (
 					<DashboardRepositoriesView
