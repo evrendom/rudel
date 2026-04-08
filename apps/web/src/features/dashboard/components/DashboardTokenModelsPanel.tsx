@@ -1,18 +1,40 @@
 import type { ModelTokensTrendData } from "@rudel/api-routes";
 import { CpuIcon } from "lucide-react";
-import { useMemo } from "react";
-import { ModelTokensChart } from "@/components/charts/ModelTokensChart";
+import { useMemo, useState } from "react";
+import { Skeleton } from "@/app/ui/skeleton";
+import { DashboardAnalysisPanel } from "@/features/dashboard/components/DashboardAnalysisPanel";
+import { DashboardTokenModelChart } from "@/features/dashboard/components/DashboardTokenModelChart";
+import { DashboardTokenModelTable } from "@/features/dashboard/components/DashboardTokenModelTable";
+import {
+	buildDashboardTokenModelChartData,
+	buildDashboardTokenModelRows,
+} from "@/features/dashboard/data/dashboard-token-model-adapter";
 
-function formatCompactNumber(value: number) {
-	if (value >= 1_000_000) {
-		return `${(value / 1_000_000).toFixed(1)}M`;
-	}
+function DashboardTokenModelChartFallback() {
+	const skeletonHeights = [
+		"h-[8rem]",
+		"h-[10rem]",
+		"h-[6.75rem]",
+		"h-[11rem]",
+		"h-[8.5rem]",
+		"h-[9.5rem]",
+	] as const;
 
-	if (value >= 1_000) {
-		return `${(value / 1_000).toFixed(1)}K`;
-	}
-
-	return value.toLocaleString();
+	return (
+		<div className="flex h-full items-end gap-3 px-4 pb-8 pt-4">
+			{skeletonHeights.map((heightClassName) => (
+				<div
+					key={heightClassName}
+					className="flex min-w-0 flex-1 flex-col items-center gap-3"
+				>
+					<Skeleton
+						className={`w-full max-w-[44px] rounded-xl bg-muted/70 ${heightClassName}`}
+					/>
+					<Skeleton className="h-3 w-16 rounded-full bg-muted/60" />
+				</div>
+			))}
+		</div>
+	);
 }
 
 export function DashboardTokenModelsPanel({
@@ -20,44 +42,50 @@ export function DashboardTokenModelsPanel({
 }: {
 	modelTokensTrend: ModelTokensTrendData[] | undefined;
 }) {
-	const leadingModelNote = useMemo(() => {
-		const totals = new Map<string, number>();
-
-		for (const row of modelTokensTrend ?? []) {
-			totals.set(row.model, (totals.get(row.model) ?? 0) + row.total_tokens);
-		}
-
-		const topModel = Array.from(totals.entries()).sort(
-			(left, right) => right[1] - left[1] || left[0].localeCompare(right[0]),
-		)[0];
-
-		if (!topModel) {
-			return "No model token activity in the selected range.";
-		}
-
-		return `${topModel[0]} is carrying the heaviest token load at ${formatCompactNumber(topModel[1])}.`;
-	}, [modelTokensTrend]);
+	const [highlightedModelId, setHighlightedModelId] = useState<string | null>(
+		null,
+	);
+	const modelRows = useMemo(
+		() => buildDashboardTokenModelRows(modelTokensTrend),
+		[modelTokensTrend],
+	);
+	const chartData = useMemo(
+		() => buildDashboardTokenModelChartData(modelRows),
+		[modelRows],
+	);
+	const hasModelData = modelRows.length > 0;
+	const isPending = modelTokensTrend === undefined;
 
 	return (
-		<div className="flex flex-col gap-4">
-			<div className="flex flex-col gap-2 px-1 sm:flex-row sm:items-end sm:justify-between">
-				<div className="flex items-center gap-2.5">
-					<CpuIcon className="size-5 text-[color:var(--dashboardy-heading)]" />
-					<h2 className="dashboardy-section-title text-xl/7">By model</h2>
-				</div>
-				<p className="max-w-[48ch] text-sm/6 text-[color:var(--dashboardy-muted)] sm:text-right">
-					{leadingModelNote}
-				</p>
-			</div>
-			<div className="rounded-[1.4rem] border border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-subsurface)] px-3 py-2 sm:px-4 sm:py-3">
-				{(modelTokensTrend?.length ?? 0) > 0 ? (
-					<ModelTokensChart data={modelTokensTrend ?? []} />
+		<DashboardAnalysisPanel
+			title="By model"
+			icon={
+				<CpuIcon className="size-5 text-[color:var(--dashboardy-heading)]" />
+			}
+			chartShellDataSlot="dashboard-token-model-chart-shell"
+			showTableDivider={hasModelData}
+			chartContent={
+				isPending ? (
+					<DashboardTokenModelChartFallback />
+				) : hasModelData ? (
+					<DashboardTokenModelChart
+						activeId={highlightedModelId}
+						data={chartData}
+					/>
 				) : (
-					<div className="flex h-[18.5rem] items-center justify-center px-6 text-center text-sm text-muted-foreground sm:h-[20rem]">
+					<div className="flex h-full items-center justify-center px-6 text-center text-sm text-muted-foreground">
 						No model token activity in the selected range.
 					</div>
-				)}
-			</div>
-		</div>
+				)
+			}
+			tableContent={
+				hasModelData ? (
+					<DashboardTokenModelTable
+						onHighlightModelChange={setHighlightedModelId}
+						rows={modelRows}
+					/>
+				) : null
+			}
+		/>
 	);
 }

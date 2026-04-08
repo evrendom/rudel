@@ -4,6 +4,7 @@ import type { RepositoryDailyTrendData } from "@rudel/api-routes";
 import { format, parseISO } from "date-fns";
 import { useMemo } from "react";
 import {
+	Area,
 	CartesianGrid,
 	Line,
 	LineChart,
@@ -56,6 +57,17 @@ function buildFullLabel(dateValue: string) {
 	}
 
 	return format(parsedDate, "EEEE, MMM d");
+}
+
+function getTrendAreaOpacity(
+	hasVisibleHighlightedSeries: boolean,
+	isHighlighted: boolean,
+) {
+	if (!hasVisibleHighlightedSeries) {
+		return 0.08;
+	}
+
+	return isHighlighted ? 0.22 : 0.03;
 }
 
 function RepositoryTrendTooltip({
@@ -184,7 +196,6 @@ export function DashboardRepositoryTrendChart({
 			),
 		[hiddenSeriesSet, highlightedSeriesId, trendSeries],
 	);
-
 	const {
 		allSeries,
 		axisMax,
@@ -264,6 +275,25 @@ export function DashboardRepositoryTrendChart({
 			visibleSeries,
 		};
 	}, [hiddenSeriesSet, metric, trendData, trendSeries]);
+	const orderedVisibleSeries = useMemo(() => {
+		if (
+			highlightedSeriesId == null ||
+			!visibleSeries.some(
+				(series) => series.repositoryId === highlightedSeriesId,
+			)
+		) {
+			return visibleSeries;
+		}
+
+		return [
+			...visibleSeries.filter(
+				(series) => series.repositoryId !== highlightedSeriesId,
+			),
+			...visibleSeries.filter(
+				(series) => series.repositoryId === highlightedSeriesId,
+			),
+		];
+	}, [highlightedSeriesId, visibleSeries]);
 
 	if (allSeries.length === 0) {
 		return (
@@ -417,7 +447,27 @@ export function DashboardRepositoryTrendChart({
 								wrapperStyle={{ pointerEvents: "none", zIndex: 20 }}
 								content={<RepositoryTrendTooltip metric={metric} />}
 							/>
-							{visibleSeries.map((series) => (
+							{orderedVisibleSeries.map((series) => {
+								const isHighlighted =
+									highlightedSeriesId === series.repositoryId;
+
+								return (
+									<Area
+										key={`${series.repositoryId}-fill`}
+										type="monotone"
+										dataKey={series.repositoryId}
+										stroke="none"
+										fill={series.color}
+										fillOpacity={getTrendAreaOpacity(
+											hasVisibleHighlightedSeries,
+											isHighlighted,
+										)}
+										isAnimationActive={false}
+										connectNulls
+									/>
+								);
+							})}
+							{orderedVisibleSeries.map((series) => (
 								<Line
 									key={series.repositoryId}
 									dataKey={series.repositoryId}
@@ -452,7 +502,7 @@ export function DashboardRepositoryTrendChart({
 									return null;
 								}
 
-								return visibleSeries.map((series) => (
+								return orderedVisibleSeries.map((series) => (
 									<ReferenceDot
 										key={`${series.repositoryId}-endpoint`}
 										x={lastRow.date}

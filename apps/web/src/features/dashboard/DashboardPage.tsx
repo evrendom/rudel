@@ -2,10 +2,9 @@ import { useState } from "react";
 import { Tabs, TabsList, TabsTrigger } from "@/app/ui/tabs";
 import { DashboardDateControls } from "@/features/dashboard/components/DashboardDateControls";
 import { DashboardErrorsView } from "@/features/dashboard/components/DashboardErrorsView";
-import { DashboardFilterControls } from "@/features/dashboard/components/DashboardFilterControls";
-import { DashboardInsightsPanel } from "@/features/dashboard/components/DashboardInsightsPanel";
 import { DashboardPerformancePanel } from "@/features/dashboard/components/DashboardPerformancePanel";
 import { DashboardRepositoriesView } from "@/features/dashboard/components/DashboardRepositoriesView";
+import { DashboardRepositoryPanel } from "@/features/dashboard/components/DashboardRepositoryPanel";
 import { DashboardSessionsView } from "@/features/dashboard/components/DashboardSessionsView";
 import { DashboardTokensView } from "@/features/dashboard/components/DashboardTokensView";
 import { useDashboardPageData } from "@/features/dashboard/use-dashboard-page-data";
@@ -42,7 +41,7 @@ export function DashboardPage() {
 			<div className="@container/dashboard-page mx-auto flex w-full flex-col gap-5">
 				<div className="sticky top-0 z-20 -mx-4 bg-[color:var(--dashboardy-surface)]/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-[color:var(--dashboardy-surface)]/85 sm:-mx-6 sm:px-6 lg:-mx-[76px] lg:px-[76px]">
 					<div className="flex h-[54px] w-full items-center overflow-x-auto border-b border-[color:var(--dashboardy-border)] md:overflow-visible">
-						<div className="flex w-full min-w-max items-center gap-2.5 px-3 sm:gap-10 sm:px-0">
+						<div className="flex w-full min-w-max items-center gap-2.5 px-3 sm:px-0">
 							<Tabs
 								value={activeView}
 								onValueChange={(nextValue) => {
@@ -82,11 +81,7 @@ export function DashboardPage() {
 									</TabsTrigger>
 								</TabsList>
 							</Tabs>
-							<DashboardDateControls className="h-[34px] px-2.5 text-[13px]" />
-							<DashboardFilterControls
-								className="shrink-0"
-								buttonClassName="h-[34px] px-2.5 text-[13px]"
-							/>
+							<DashboardDateControls className="ml-auto h-[34px] shrink-0 px-2.5 text-[13px]" />
 						</div>
 					</div>
 				</div>
@@ -113,8 +108,8 @@ export function DashboardPage() {
 							performanceUsers={performanceUsers}
 							snapshot={snapshot}
 						/>
-						<DashboardInsightsPanel
-							isRepositoryChartPending={isRepositoryChartPending}
+						<DashboardRepositoryPanel
+							isChartPending={isRepositoryChartPending}
 							repositories={snapshot.repositories}
 							repositoryDailyTrend={repositoryDailyTrend}
 						/>

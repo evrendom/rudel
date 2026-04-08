@@ -92,6 +92,10 @@ describe("analytics input schemas", () => {
 		expect(
 			DeveloperTeamCardSchema.safeParse({
 				user_id: "u1",
+				display_name: "User One",
+				cost: 1.23,
+				input_tokens: 9000,
+				output_tokens: 3000,
 				total_tokens: 12345,
 				total_sessions: 12,
 				active_days: 5,

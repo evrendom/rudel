@@ -55,7 +55,7 @@ function HourlySessionsTooltip({
 
 function DashboardSessionHourlyChartFallback() {
 	return (
-		<div className="grid h-full gap-4 px-4 pb-6 pt-3">
+		<div className="grid h-[12.875rem] gap-4">
 			<div className="flex items-end gap-2">
 				{Array.from({ length: 12 }, (_, index) => (
 					<Skeleton
@@ -98,104 +98,82 @@ export function DashboardSessionHourlyChart({
 
 	return (
 		<div className={cn("flex min-w-0 flex-1 flex-col pt-0 md:pt-4", className)}>
-			<div className="flex items-end justify-between gap-4 px-1 pb-3">
-				<div className="grid gap-1">
-					<p className="dashboardy-label">Hourly activity</p>
-					<h2 className="dashboardy-section-title text-xl/7">
-						When sessions tend to run
-					</h2>
+			{isLoading ? (
+				<DashboardSessionHourlyChartFallback />
+			) : !hasSessions ? (
+				<div className="flex h-[12.875rem] w-full items-center justify-center px-6 text-center text-sm text-muted-foreground">
+					No session activity in the selected range.
 				</div>
-				<p className="text-right text-sm/6 text-[color:var(--dashboardy-muted)]">
-					Grouped in local time.
-				</p>
-			</div>
-			<div className="rounded-[1.4rem] border border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-subsurface)]">
-				<div className="px-3 py-2 sm:px-4 sm:py-3">
-					<div className="h-[18.5rem] sm:h-[20rem]">
-						{isLoading ? (
-							<DashboardSessionHourlyChartFallback />
-						) : !hasSessions ? (
-							<div className="flex h-full items-center justify-center px-6 text-center text-sm text-muted-foreground">
-								No session activity in the selected range.
-							</div>
-						) : (
-							<ChartContainer
-								config={hourlyChartConfig}
-								className="h-full w-full aspect-auto"
-								initialDimension={{ width: 664, height: 320 }}
-							>
-								<BarChart
-									data={resolvedData}
-									barCategoryGap={2}
-									margin={{ top: 8, right: 18, bottom: 10, left: 0 }}
-								>
-									<XAxis
-										dataKey="hour"
-										height={22}
-										axisLine={{
-											stroke:
-												"color-mix(in srgb, var(--dashboardy-muted) 40%, transparent)",
-										}}
-										tickFormatter={(value) => {
-											const hour = Number(value);
-											const point = resolvedData.find(
-												(entry) => entry.hour === hour,
-											);
+			) : (
+				<ChartContainer
+					config={hourlyChartConfig}
+					className="h-[12.875rem] w-full aspect-auto"
+					initialDimension={{ width: 664, height: 206 }}
+				>
+					<BarChart
+						data={resolvedData}
+						barCategoryGap={2}
+						margin={{ top: 2, right: 18, bottom: 10, left: 0 }}
+					>
+						<XAxis
+							dataKey="hour"
+							height={22}
+							axisLine={{
+								stroke:
+									"color-mix(in srgb, var(--dashboardy-muted) 40%, transparent)",
+							}}
+							tickFormatter={(value) => {
+								const hour = Number(value);
+								const point = resolvedData.find((entry) => entry.hour === hour);
 
-											if (!VISIBLE_HOUR_TICKS.has(hour) || !point) {
-												return "";
-											}
+								if (!VISIBLE_HOUR_TICKS.has(hour) || !point) {
+									return "";
+								}
 
-											return point.label;
-										}}
-										tickLine={false}
-										tickMargin={4}
-										tick={{
-											fontSize: 12,
-											fontWeight: 500,
-											fill: "var(--dashboardy-muted)",
-											opacity: 0.42,
-										}}
-									/>
-									<YAxis
-										allowDecimals={false}
-										orientation="right"
-										domain={[0, axisMax]}
-										ticks={axisTicks}
-										axisLine={{
-											stroke:
-												"color-mix(in srgb, var(--dashboardy-muted) 40%, transparent)",
-										}}
-										tickLine={{
-											stroke:
-												"color-mix(in srgb, var(--dashboardy-muted) 40%, transparent)",
-										}}
-										tickMargin={4}
-										width={28}
-										tick={{
-											fontSize: 12,
-											fontWeight: 500,
-											fill: "var(--dashboardy-muted)",
-											opacity: 0.42,
-										}}
-									/>
-									<ChartTooltip
-										cursor={false}
-										content={<HourlySessionsTooltip />}
-									/>
-									<Bar
-										dataKey="sessions"
-										barSize={12}
-										fill="var(--color-sessions)"
-										radius={[4, 4, 0, 0]}
-										isAnimationActive={false}
-									/>
-								</BarChart>
-							</ChartContainer>
-						)}
-					</div>
-				</div>
-			</div>
+								return point.label;
+							}}
+							tickLine={false}
+							tickMargin={4}
+							tick={{
+								fontSize: 12,
+								fontWeight: 500,
+								fill: "var(--dashboardy-muted)",
+								opacity: 0.42,
+							}}
+						/>
+						<YAxis
+							allowDecimals={false}
+							orientation="right"
+							domain={[0, axisMax]}
+							ticks={axisTicks}
+							axisLine={{
+								stroke:
+									"color-mix(in srgb, var(--dashboardy-muted) 40%, transparent)",
+							}}
+							tickLine={{
+								stroke:
+									"color-mix(in srgb, var(--dashboardy-muted) 40%, transparent)",
+							}}
+							tickMargin={4}
+							width={28}
+							tick={{
+								fontSize: 12,
+								fontWeight: 500,
+								fill: "var(--dashboardy-muted)",
+								opacity: 0.42,
+							}}
+						/>
+						<ChartTooltip cursor={false} content={<HourlySessionsTooltip />} />
+						<Bar
+							dataKey="sessions"
+							barSize={12}
+							fill="var(--color-sessions)"
+							radius={[4, 4, 0, 0]}
+							isAnimationActive={false}
+						/>
+					</BarChart>
+				</ChartContainer>
+			)}
 		</div>
 	);
 }

@@ -3,6 +3,7 @@ import { eachDayOfInterval, format, parseISO } from "date-fns";
 import { FolderGit2Icon, GaugeIcon } from "lucide-react";
 import { useMemo, useState } from "react";
 import {
+	Area,
 	Bar,
 	BarChart,
 	CartesianGrid,
@@ -212,6 +213,17 @@ function getTrendTickLabel(dateValue: string, index: number, total: number) {
 	}
 
 	return format(parsedDate, "MMM d");
+}
+
+function getTrendAreaOpacity(
+	hasVisibleHighlightedSeries: boolean,
+	isHighlighted: boolean,
+) {
+	if (!hasVisibleHighlightedSeries) {
+		return 0.08;
+	}
+
+	return isHighlighted ? 0.22 : 0.03;
 }
 
 function buildErrorHeadlineMetrics(
@@ -1080,6 +1092,23 @@ function DashboardErrorDimensionPanel({
 			visibleTrendSeries.some((series) => series.id === highlightedDimensionId),
 		[highlightedDimensionId, visibleTrendSeries],
 	);
+	const orderedVisibleTrendSeries = useMemo(() => {
+		if (
+			highlightedDimensionId == null ||
+			!visibleTrendSeries.some((series) => series.id === highlightedDimensionId)
+		) {
+			return visibleTrendSeries;
+		}
+
+		return [
+			...visibleTrendSeries.filter(
+				(series) => series.id !== highlightedDimensionId,
+			),
+			...visibleTrendSeries.filter(
+				(series) => series.id === highlightedDimensionId,
+			),
+		];
+	}, [highlightedDimensionId, visibleTrendSeries]);
 	const trendAxisMax = useMemo(
 		() =>
 			Math.max(
@@ -1144,9 +1173,8 @@ function DashboardErrorDimensionPanel({
 					</ToggleGroupItem>
 				</ToggleGroup>
 			}
-			chartInnerClassName="grid gap-4"
 			chartContent={
-				<div className="grid h-full gap-4">
+				<div className="flex h-full min-h-0 flex-col gap-3">
 					<div className="flex flex-col gap-3 px-1 sm:flex-row sm:items-start sm:justify-between">
 						<ToggleGroup
 							aria-label={`${title} error metric`}
@@ -1374,7 +1402,26 @@ function DashboardErrorDimensionPanel({
 											/>
 										}
 									/>
-									{visibleTrendSeries.map((series) => (
+									{orderedVisibleTrendSeries.map((series) => {
+										const isHighlighted = highlightedDimensionId === series.id;
+
+										return (
+											<Area
+												key={`${series.id}-fill`}
+												type="monotone"
+												dataKey={series.id}
+												stroke="none"
+												fill={series.color}
+												fillOpacity={getTrendAreaOpacity(
+													hasVisibleHighlightedSeries,
+													isHighlighted,
+												)}
+												isAnimationActive={false}
+												connectNulls
+											/>
+										);
+									})}
+									{orderedVisibleTrendSeries.map((series) => (
 										<Line
 											key={series.id}
 											dataKey={series.id}
@@ -1409,7 +1456,7 @@ function DashboardErrorDimensionPanel({
 											return null;
 										}
 
-										return visibleTrendSeries.map((series) => (
+										return orderedVisibleTrendSeries.map((series) => (
 											<ReferenceDot
 												key={`${series.id}-endpoint`}
 												x={lastRow.date}

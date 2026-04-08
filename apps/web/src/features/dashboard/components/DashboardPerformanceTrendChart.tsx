@@ -4,6 +4,7 @@ import type { UserDailyTrendData } from "@rudel/api-routes";
 import { format, parseISO } from "date-fns";
 import { useMemo } from "react";
 import {
+	Area,
 	CartesianGrid,
 	Line,
 	LineChart,
@@ -52,6 +53,17 @@ function formatMetricAxisValue(
 	}
 
 	return Math.round(value).toLocaleString();
+}
+
+function getTrendAreaOpacity(
+	hasVisibleHighlightedSeries: boolean,
+	isHighlighted: boolean,
+) {
+	if (!hasVisibleHighlightedSeries) {
+		return 0.08;
+	}
+
+	return isHighlighted ? 0.22 : 0.03;
 }
 
 function getTickLabel(dateValue: string, index: number, total: number) {
@@ -187,7 +199,6 @@ export function DashboardPerformanceTrendChart({
 			),
 		[hiddenSeriesSet, highlightedSeriesId, trendSeries],
 	);
-
 	const {
 		allSeries,
 		axisMax,
@@ -267,6 +278,23 @@ export function DashboardPerformanceTrendChart({
 			visibleSeries,
 		};
 	}, [hiddenSeriesSet, metric, trendData, trendSeries]);
+	const orderedVisibleSeries = useMemo(() => {
+		if (
+			highlightedSeriesId == null ||
+			!visibleSeries.some((series) => series.userId === highlightedSeriesId)
+		) {
+			return visibleSeries;
+		}
+
+		return [
+			...visibleSeries.filter(
+				(series) => series.userId !== highlightedSeriesId,
+			),
+			...visibleSeries.filter(
+				(series) => series.userId === highlightedSeriesId,
+			),
+		];
+	}, [highlightedSeriesId, visibleSeries]);
 
 	if (allSeries.length === 0) {
 		return (
@@ -436,7 +464,26 @@ export function DashboardPerformanceTrendChart({
 								wrapperStyle={{ pointerEvents: "none", zIndex: 20 }}
 								content={<PerformanceTrendTooltip metric={metric} />}
 							/>
-							{visibleSeries.map((series) => (
+							{orderedVisibleSeries.map((series) => {
+								const isHighlighted = highlightedSeriesId === series.userId;
+
+								return (
+									<Area
+										key={`${series.userId}-fill`}
+										type="monotone"
+										dataKey={series.userId}
+										stroke="none"
+										fill={series.color}
+										fillOpacity={getTrendAreaOpacity(
+											hasVisibleHighlightedSeries,
+											isHighlighted,
+										)}
+										isAnimationActive={false}
+										connectNulls
+									/>
+								);
+							})}
+							{orderedVisibleSeries.map((series) => (
 								<Line
 									key={series.userId}
 									dataKey={series.userId}
@@ -471,7 +518,7 @@ export function DashboardPerformanceTrendChart({
 									return null;
 								}
 
-								return visibleSeries.map((series) => (
+								return orderedVisibleSeries.map((series) => (
 									<ReferenceDot
 										key={`${series.userId}-endpoint`}
 										x={lastRow.date}

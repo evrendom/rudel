@@ -7,8 +7,17 @@ const compactNumberFormatter = new Intl.NumberFormat("en-US", {
 	notation: "compact",
 });
 
-const paceNumberFormatter = new Intl.NumberFormat("en-US", {
+const compactCurrencyFormatter = new Intl.NumberFormat("en-US", {
+	currency: "USD",
 	maximumFractionDigits: 1,
+	notation: "compact",
+	style: "currency",
+});
+
+const currencyFormatter = new Intl.NumberFormat("en-US", {
+	currency: "USD",
+	maximumFractionDigits: 2,
+	style: "currency",
 });
 
 const shortDateFormatter = new Intl.DateTimeFormat("en-US", {
@@ -80,6 +89,11 @@ type TeamCardStatColumn = {
 	rows: TeamCardStatRow[];
 };
 
+type TeamCardTag = {
+	title?: string;
+	value: string;
+};
+
 function getAvatarInitials(name: string) {
 	const parts = name.split(/\s+/).filter(Boolean);
 
@@ -104,40 +118,6 @@ function formatModelLabel(model: string | null) {
 		.replaceAll(/\s+/g, " ")
 		.trim()
 		.replaceAll(/\b\w/g, (character) => character.toUpperCase());
-}
-
-function formatModelShort(model: string | null) {
-	if (!model) {
-		return "None";
-	}
-
-	const normalizedModel = model.trim().toLowerCase();
-
-	if (normalizedModel.includes("opus")) {
-		return "Opus";
-	}
-
-	if (normalizedModel.includes("sonnet")) {
-		return "Sonnet";
-	}
-
-	if (normalizedModel.includes("haiku")) {
-		return "Haiku";
-	}
-
-	if (normalizedModel.includes("codex")) {
-		return "Codex";
-	}
-
-	if (normalizedModel.includes("gpt")) {
-		return "GPT";
-	}
-
-	if (normalizedModel.includes("gemini")) {
-		return "Gemini";
-	}
-
-	return model.split(/[\s/_-]+/)[0] ?? "Model";
 }
 
 function formatTopSkill(
@@ -168,6 +148,28 @@ function formatTopSkill(
 	} as const;
 }
 
+function getTopSkillTag(
+	row: Pick<TeamPageMemberRow, "topSkills" | "totalSessions">,
+): TeamCardTag | null {
+	const topSkill = formatTopSkill(row);
+
+	if (topSkill.count > 0) {
+		return {
+			title: topSkill.title,
+			value: topSkill.value,
+		};
+	}
+
+	if (row.totalSessions > 0) {
+		return {
+			title: topSkill.title,
+			value: "skill issue",
+		};
+	}
+
+	return null;
+}
+
 function formatShortDate(lastActiveDate: string | null) {
 	if (!lastActiveDate) {
 		return "None";
@@ -190,12 +192,33 @@ function formatAverageTokens(totalTokens: number, totalSessions: number) {
 	return compactNumberFormatter.format(totalTokens / totalSessions);
 }
 
-function formatSessionPace(totalSessions: number, activeDays: number) {
-	if (totalSessions <= 0 || activeDays <= 0) {
-		return "0";
+function formatSpendValue(cost: number) {
+	if (cost === 0) {
+		return "$0";
 	}
 
-	return paceNumberFormatter.format(totalSessions / activeDays);
+	if (Math.abs(cost) >= 1000) {
+		return compactCurrencyFormatter.format(cost);
+	}
+
+	if (Math.abs(cost) >= 100) {
+		return currencyFormatter.format(cost).replace(/\.00$/, "");
+	}
+
+	return currencyFormatter.format(cost);
+}
+
+function formatInputOutputSplit(inputTokens: number, outputTokens: number) {
+	const totalTokens = inputTokens + outputTokens;
+
+	if (totalTokens <= 0) {
+		return "0/0";
+	}
+
+	const inputShare = Math.round((inputTokens / totalTokens) * 100);
+	const outputShare = 100 - inputShare;
+
+	return `${inputShare}/${outputShare}`;
 }
 
 function getCardTone(row: TeamPageMemberRow): TeamCardTone {
@@ -228,43 +251,7 @@ function getCardTone(row: TeamPageMemberRow): TeamCardTone {
 	return "rose";
 }
 
-function getCardStatus(row: TeamPageMemberRow) {
-	if (row.totalSessions > 0 && row.topSkills.length === 0) {
-		return "skill issue";
-	}
-
-	if (!row.hasActivity) {
-		return "quiet";
-	}
-
-	if (row.totalTokens >= 1_000_000 || row.totalSessions >= 100) {
-		return "power user";
-	}
-
-	if (row.activeDays >= 20) {
-		return "steady";
-	}
-
-	return "tracked";
-}
-
-function getPortraitNote(row: TeamPageMemberRow) {
-	const topSkill = formatTopSkill(row);
-
-	if (topSkill.count > 0) {
-		return `Top skill · ${topSkill.value}`;
-	}
-
-	if (row.totalSessions > 0) {
-		return "No tracked skills";
-	}
-
-	return "No traced sessions yet";
-}
-
 function buildCardStats(row: TeamPageMemberRow): TeamCardStatColumn[] {
-	const topSkill = formatTopSkill(row);
-
 	return [
 		{
 			id: "left",
@@ -287,41 +274,25 @@ function buildCardStats(row: TeamPageMemberRow): TeamCardStatColumn[] {
 							: "No traced sessions yet.",
 					value: formatAverageTokens(row.totalTokens, row.totalSessions),
 				},
-				{
-					label: "PACE",
-					title:
-						row.activeDays > 0
-							? `${formatSessionPace(row.totalSessions, row.activeDays)} sessions per active day`
-							: "No active days yet.",
-					value: formatSessionPace(row.totalSessions, row.activeDays),
-				},
 			],
 		},
 		{
 			id: "right",
 			rows: [
 				{
-					label: "MODEL",
-					title: formatModelLabel(row.favoriteModel),
-					value: formatModelShort(row.favoriteModel),
-				},
-				{
-					label: "SKILL",
-					title: topSkill.title,
-					value: topSkill.value,
-				},
-				{
-					label: "USES",
-					title:
-						topSkill.count > 0
-							? `${topSkill.count.toLocaleString()} sessions tagged with ${topSkill.value}`
-							: "No tracked skill counts yet.",
-					value: topSkill.count.toLocaleString(),
-				},
-				{
 					label: "LAST",
 					title: row.lastActiveDate ?? "No recent activity",
 					value: formatShortDate(row.lastActiveDate),
+				},
+				{
+					label: "COST",
+					title: `${currencyFormatter.format(row.cost)} estimated spend`,
+					value: formatSpendValue(row.cost),
+				},
+				{
+					label: "IN/OUT",
+					title: `${row.inputTokens.toLocaleString()} input tokens / ${row.outputTokens.toLocaleString()} output tokens`,
+					value: formatInputOutputSplit(row.inputTokens, row.outputTokens),
 				},
 			],
 		},
@@ -359,12 +330,11 @@ function TeamCardStatsColumn({ column }: { column: TeamCardStatColumn }) {
 
 function TeamMemberCard({ row }: { row: TeamPageMemberRow }) {
 	const tone = getCardTone(row);
-	const status = getCardStatus(row);
 	const stats = buildCardStats(row);
 	const displayModel = formatModelLabel(row.favoriteModel);
 	const initials = getAvatarInitials(row.displayName);
-	const topHeaderValue = compactNumberFormatter.format(row.totalTokens);
-	const portraitNote = getPortraitNote(row);
+	const topHeaderValue = formatSpendValue(row.cost);
+	const topSkillTag = getTopSkillTag(row);
 
 	return (
 		<li className="list-none">
@@ -372,7 +342,7 @@ function TeamMemberCard({ row }: { row: TeamPageMemberRow }) {
 				<div className="flex items-center justify-between">
 					<div
 						className="flex items-center"
-						title={`${row.totalTokens.toLocaleString()} total tokens`}
+						title={`${currencyFormatter.format(row.cost)} estimated spend`}
 					>
 						<div className={adaptedTeamCardHeaderValueClassName}>
 							{topHeaderValue}
@@ -383,7 +353,7 @@ function TeamMemberCard({ row }: { row: TeamPageMemberRow }) {
 								toneAccentClassNames[tone],
 							)}
 						>
-							TOKENS
+							SPEND
 						</div>
 					</div>
 					<div className={adaptedTeamCardRoleClassName}>{row.role}</div>
@@ -393,20 +363,6 @@ function TeamMemberCard({ row }: { row: TeamPageMemberRow }) {
 					<div
 						className={cn(portraitPanelClassName, tonePortraitClassNames[tone])}
 					>
-						<div className="relative z-10 flex items-start justify-between gap-3">
-							<div
-								className={cn(
-									"text-[10px] font-semibold uppercase tracking-[0.16em]",
-									toneAccentClassNames[tone],
-								)}
-							>
-								{status}
-							</div>
-							<div className="flex size-[28px] items-center justify-center rounded-full bg-white/68 text-[10px] font-semibold uppercase tracking-[0.08em] text-black/65">
-								{initials}
-							</div>
-						</div>
-
 						{row.imageUrl ? (
 							<>
 								<img
@@ -418,16 +374,24 @@ function TeamMemberCard({ row }: { row: TeamPageMemberRow }) {
 								<div className="relative z-10 flex-1" />
 							</>
 						) : (
-							<div className="flex flex-1 items-center justify-center">
+							<div className="flex h-full w-full items-center justify-center">
 								<div className={portraitPlaceholderInitialsClassName}>
 									{initials}
 								</div>
 							</div>
 						)}
 
-						<div className="relative z-10 text-[11px] font-medium uppercase tracking-[0.12em] text-black/56">
-							{portraitNote}
-						</div>
+						{topSkillTag ? (
+							<div
+								className={cn(
+									"absolute right-[10px] bottom-[10px] z-10 max-w-[108px] truncate rounded-full border border-black/10 bg-white/72 px-[10px] py-[4px] text-[10px] font-semibold uppercase tracking-[0.12em] text-black/72 shadow-[0_1px_0_rgba(255,255,255,0.7)_inset] backdrop-blur-[6px]",
+									toneAccentClassNames[tone],
+								)}
+								title={topSkillTag.title}
+							>
+								{topSkillTag.value}
+							</div>
+						) : null}
 					</div>
 				</div>
 
@@ -441,11 +405,9 @@ function TeamMemberCard({ row }: { row: TeamPageMemberRow }) {
 					</div>
 					<div
 						className={adaptedTeamCardFootnoteClassName}
-						title={
-							row.email ? `All-time · ${row.email}` : "All-time teammate card"
-						}
+						title={row.email ?? ""}
 					>
-						{row.email ? `All-time · ${row.email}` : "All-time teammate card"}
+						{row.email ?? "Teammate"}
 					</div>
 				</div>
 
@@ -464,7 +426,7 @@ function TeamMemberCard({ row }: { row: TeamPageMemberRow }) {
 export function TeamMembersCardGrid({ rows }: { rows: TeamPageMemberRow[] }) {
 	return (
 		<div className="team-lineup-surface-scope">
-			<ul className="grid justify-items-center gap-y-4 sm:grid-cols-2 sm:gap-x-5 xl:grid-cols-3 xl:gap-x-4">
+			<ul className="grid justify-items-center gap-y-4 sm:grid-cols-2 sm:gap-x-2 xl:grid-cols-3 xl:gap-x-2">
 				{rows.map((row) => (
 					<TeamMemberCard key={row.userId} row={row} />
 				))}

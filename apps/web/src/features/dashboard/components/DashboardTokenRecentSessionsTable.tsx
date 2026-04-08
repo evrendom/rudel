@@ -6,11 +6,10 @@ import {
 	DashboardTableFooterNote,
 } from "@/features/dashboard/components/DashboardGridTable";
 import { DashboardModelBadges } from "@/features/dashboard/components/DashboardModelBadges";
+import { DashboardTokenCostCell } from "@/features/dashboard/components/DashboardTokenCostCell";
 import { useUserMap } from "@/hooks/useUserMap";
 import {
-	calculateCost,
 	formatCompactNumber,
-	formatCurrency,
 	formatMinutes,
 	formatUsername,
 } from "@/lib/format";
@@ -80,7 +79,7 @@ function DashboardTokenRecentSessionsTableSkeleton() {
 			</div>
 			<div className="overflow-x-auto">
 				<div className="flex min-w-[78rem] flex-col gap-1">
-					<div className="grid grid-cols-[120px_minmax(180px,11fr)_minmax(180px,9fr)_minmax(180px,9fr)_140px_120px_120px] gap-6 px-3.5 text-[13px] font-semibold text-[color:var(--dashboardy-muted)]">
+					<div className="grid grid-cols-[120px_minmax(180px,11fr)_minmax(180px,9fr)_minmax(180px,9fr)_140px_minmax(180px,0.95fr)_120px] gap-6 px-3.5 text-[13px] font-semibold text-[color:var(--dashboardy-muted)]">
 						<p>Time</p>
 						<p>Developer</p>
 						<p>Repository</p>
@@ -93,13 +92,16 @@ function DashboardTokenRecentSessionsTableSkeleton() {
 						{SKELETON_ROW_IDS.slice(0, SKELETON_ROWS).map((rowId) => (
 							<div
 								key={rowId}
-								className="grid min-h-12 grid-cols-[120px_minmax(180px,11fr)_minmax(180px,9fr)_minmax(180px,9fr)_140px_120px_120px] items-center gap-6 rounded-lg px-3.5 py-2 odd:bg-[color:var(--dashboardy-subsurface-strong)]"
+								className="grid min-h-12 grid-cols-[120px_minmax(180px,11fr)_minmax(180px,9fr)_minmax(180px,9fr)_140px_minmax(180px,0.95fr)_120px] items-center gap-6 rounded-lg px-3.5 py-2 odd:bg-[color:var(--dashboardy-subsurface-strong)]"
 							>
 								<Skeleton className="h-4 w-16 rounded-full" />
 								<Skeleton className="h-4 w-28 rounded-full" />
 								<Skeleton className="h-4 w-24 rounded-full" />
 								<Skeleton className="h-6 w-24 rounded-full" />
-								<Skeleton className="h-4 w-16 rounded-full" />
+								<div className="grid gap-1">
+									<Skeleton className="h-4 w-16 rounded-full" />
+									<Skeleton className="h-3 w-24 rounded-full" />
+								</div>
 								<Skeleton className="h-4 w-16 rounded-full" />
 								<Skeleton className="h-4 w-16 rounded-full" />
 							</div>
@@ -224,11 +226,10 @@ export function DashboardTokenRecentSessionsTable({
 						id: "cost",
 						header: "Cost",
 						renderCell: (session) => (
-							<p className="font-medium tabular-nums text-[color:var(--dashboardy-heading)]">
-								{formatCurrency(
-									calculateCost(session.input_tokens, session.output_tokens),
-								)}
-							</p>
+							<DashboardTokenCostCell
+								inputTokens={session.input_tokens}
+								outputTokens={session.output_tokens}
+							/>
 						),
 					},
 					{
@@ -243,7 +244,7 @@ export function DashboardTokenRecentSessionsTable({
 				]}
 				rows={recentSessions}
 				rowKey={(session) => session.session_id}
-				gridTemplateColumns="120px minmax(180px,11fr) minmax(180px,9fr) minmax(180px,9fr) 140px 120px 120px"
+				gridTemplateColumns="120px minmax(180px,11fr) minmax(180px,9fr) minmax(180px,9fr) 140px minmax(180px,0.95fr) 120px"
 				minWidthClassName="min-w-[78rem]"
 				footer={
 					hiddenSessionCount > 0 ? (

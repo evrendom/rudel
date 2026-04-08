@@ -3,8 +3,10 @@ import type { UserTokenUsageData } from "@rudel/api-routes";
 export type DashboardPerformanceUserComparison = {
 	commits: number;
 	imageUrl?: string | null;
+	inputTokens: number;
 	label: string;
 	modelsUsed: string[];
+	outputTokens: number;
 	repositoriesTouched: string[];
 	sessions: number;
 	totalTokens: number;
@@ -22,7 +24,9 @@ type DashboardPerformanceMember = {
 
 type SortablePerformanceUser = {
 	imageUrl?: string | null;
+	inputTokens: number;
 	modelsUsed: string[];
+	outputTokens: number;
 	repositoriesTouched: string[];
 	totalCommits: number;
 	totalSessions: number;
@@ -53,7 +57,9 @@ export function buildDashboardPerformanceUsers(
 
 			return {
 				imageUrl: member.user.image,
+				inputTokens: usage?.input_tokens ?? 0,
 				modelsUsed: usage?.models_used ?? [],
+				outputTokens: usage?.output_tokens ?? 0,
 				repositoriesTouched: usage?.repositories_touched ?? [],
 				totalCommits: usage?.total_commits ?? 0,
 				totalSessions: usage?.total_sessions ?? 0,
@@ -70,7 +76,9 @@ export function buildDashboardPerformanceUsers(
 		)
 		.map((user) => ({
 			imageUrl: userImageById.get(user.user_id) ?? null,
+			inputTokens: user.input_tokens,
 			modelsUsed: user.models_used ?? [],
+			outputTokens: user.output_tokens,
 			repositoriesTouched: user.repositories_touched ?? [],
 			totalCommits: user.total_commits,
 			totalSessions: user.total_sessions,
@@ -104,8 +112,10 @@ export function buildDashboardPerformanceUsers(
 		.map((user) => ({
 			commits: user.totalCommits,
 			imageUrl: user.imageUrl ?? userImageById.get(user.userId) ?? null,
+			inputTokens: user.inputTokens,
 			label: user.userLabel,
 			modelsUsed: user.modelsUsed,
+			outputTokens: user.outputTokens,
 			repositoriesTouched: user.repositoriesTouched,
 			sessions: user.totalSessions,
 			totalTokens: user.totalTokens,

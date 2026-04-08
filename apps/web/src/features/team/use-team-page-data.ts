@@ -1,4 +1,4 @@
-import type { DeveloperTeamCard } from "@rudel/api-routes";
+import type { DeveloperSummary, DeveloperTeamCard } from "@rudel/api-routes";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
 import { useDateRange } from "@/features/analytics/date-range/useDateRange";
@@ -29,8 +29,11 @@ export interface TeamPageMemberRow {
 	email: string | null;
 	role: string;
 	imageUrl?: string | null;
+	cost: number;
 	favoriteModel: string | null;
 	topSkills: DeveloperTeamCard["top_skills"];
+	inputTokens: number;
+	outputTokens: number;
 	totalSessions: number;
 	activeDays: number;
 	totalTokens: number;
@@ -53,6 +56,7 @@ function formatMemberRole(role: string | null | undefined) {
 function buildTeamMemberRows(
 	members: readonly TeamRosterMemberSource[],
 	teamCards: readonly DeveloperTeamCard[] | undefined,
+	developerSummaries: readonly DeveloperSummary[] | undefined,
 ) {
 	const memberByUserId = new Map(
 		members.map((member) => [member.userId, member] as const),
@@ -60,22 +64,41 @@ function buildTeamMemberRows(
 	const analyticsByUserId = new Map(
 		(teamCards ?? []).map((teamCard) => [teamCard.user_id, teamCard] as const),
 	);
+	const summaryByUserId = new Map(
+		(developerSummaries ?? []).map(
+			(summary) => [summary.user_id, summary] as const,
+		),
+	);
 	const memberIds = new Set<string>([
 		...memberByUserId.keys(),
 		...analyticsByUserId.keys(),
+		...summaryByUserId.keys(),
 	]);
 
 	return Array.from(memberIds)
 		.map((userId) => {
 			const member = memberByUserId.get(userId);
 			const teamCard = analyticsByUserId.get(userId);
+			const developerSummary = summaryByUserId.get(userId);
 			const displayName =
 				member?.displayName.trim() ||
 				teamCard?.display_name.trim() ||
 				"Unknown teammate";
-			const totalSessions = teamCard?.total_sessions ?? 0;
-			const activeDays = teamCard?.active_days ?? 0;
-			const totalTokens = teamCard?.total_tokens ?? 0;
+			const totalSessions =
+				developerSummary?.total_sessions ?? teamCard?.total_sessions ?? 0;
+			const activeDays =
+				developerSummary?.active_days ?? teamCard?.active_days ?? 0;
+			const inputTokens =
+				developerSummary?.input_tokens ?? teamCard?.input_tokens ?? 0;
+			const outputTokens =
+				developerSummary?.output_tokens ?? teamCard?.output_tokens ?? 0;
+			const totalTokens =
+				developerSummary?.total_tokens ?? teamCard?.total_tokens ?? 0;
+			const cost = developerSummary?.cost ?? teamCard?.cost ?? 0;
+			const lastActiveDate =
+				developerSummary?.last_active_date ??
+				teamCard?.last_active_date ??
+				null;
 
 			return {
 				userId,
@@ -85,12 +108,15 @@ function buildTeamMemberRows(
 					? formatMemberRole(member.role)
 					: "Tracked collaborator",
 				imageUrl: member?.imageUrl,
+				cost,
 				favoriteModel: teamCard?.favorite_model ?? null,
 				topSkills: teamCard?.top_skills ?? [],
+				inputTokens,
+				outputTokens,
 				totalSessions,
 				activeDays,
 				totalTokens,
-				lastActiveDate: teamCard?.last_active_date ?? null,
+				lastActiveDate,
 				hasActivity: totalSessions > 0 || activeDays > 0 || totalTokens > 0,
 			} satisfies TeamPageMemberRow;
 		})
@@ -147,14 +173,20 @@ export function useTeamPageData() {
 			input: { days: requestedDays },
 		}),
 	});
+	const developersQuery = useAnalyticsQuery({
+		...orpc.analytics.developers.list.queryOptions({
+			input: { days: requestedDays },
+		}),
+	});
 	const teamCards = teamCardsQuery.data;
+	const developerSummaries = developersQuery.data;
 	const teamPlayers = useMemo(
 		() => buildTeamRosterPlayers(teamCards, members),
 		[members, teamCards],
 	);
 	const teamMemberRows = useMemo(
-		() => buildTeamMemberRows(members, teamCards),
-		[members, teamCards],
+		() => buildTeamMemberRows(members, teamCards, developerSummaries),
+		[members, teamCards, developerSummaries],
 	);
 	const hasRosterData = teamMemberRows.length > 0 || teamPlayers.length > 0;
 	const diagnostics: TeamPageDiagnostics = {
@@ -172,17 +204,29 @@ export function useTeamPageData() {
 		diagnostics,
 		error:
 			teamCardsQuery.error ??
+			developersQuery.error ??
 			(isOrganizationError
 				? new Error("Failed to load workspace members.")
 				: null),
-		isError: !hasRosterData && (teamCardsQuery.isError || isOrganizationError),
+		isError:
+			!hasRosterData &&
+			(teamCardsQuery.isError ||
+				developersQuery.isError ||
+				isOrganizationError),
 		isPending:
-			!hasRosterData && (teamCardsQuery.isPending || isOrganizationPending),
+			!hasRosterData &&
+			(teamCardsQuery.isPending ||
+				developersQuery.isPending ||
+				isOrganizationPending),
 		teamMemberRows,
 		teamPlayers,
 		requestedDays,
 		refetch: async () => {
-			await Promise.all([teamCardsQuery.refetch(), refetchMembers()]);
+			await Promise.all([
+				teamCardsQuery.refetch(),
+				developersQuery.refetch(),
+				refetchMembers(),
+			]);
 		},
 		teamCards,
 	};

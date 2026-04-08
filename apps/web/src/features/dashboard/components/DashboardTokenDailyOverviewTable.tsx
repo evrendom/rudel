@@ -1,11 +1,8 @@
 import { format, parseISO } from "date-fns";
 import { DashboardCellStack } from "@/features/dashboard/components/DashboardGridTable";
+import { DashboardTokenCostCell } from "@/features/dashboard/components/DashboardTokenCostCell";
 import type { DashboardTokenDailyPoint } from "@/features/dashboard/data/dashboard-tab-adapters";
-import {
-	calculateCost,
-	formatCompactNumber,
-	formatCurrency,
-} from "@/lib/format";
+import { formatCompactNumber } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 type DashboardTokenDailyOverviewRow = {
@@ -80,7 +77,7 @@ export function DashboardTokenDailyOverviewTable({
 	return (
 		<div className="overflow-x-auto">
 			<div className="min-w-[60rem]">
-				<div className="grid grid-cols-[minmax(180px,1.2fr)_90px_minmax(180px,1.05fr)_130px_120px] gap-6 px-3.5 text-[13px] font-semibold text-[color:var(--dashboardy-muted)]">
+				<div className="grid grid-cols-[minmax(180px,1.2fr)_90px_minmax(180px,1.05fr)_130px_minmax(180px,0.95fr)] gap-6 px-3.5 text-[13px] font-semibold text-[color:var(--dashboardy-muted)]">
 					<p>Day</p>
 					<p>Sessions</p>
 					<p>Tokens</p>
@@ -90,14 +87,13 @@ export function DashboardTokenDailyOverviewTable({
 				<div className="grid gap-0">
 					{rows.map((row) => {
 						const isHighlighted = highlightedDate === row.id;
-						const cost = calculateCost(row.inputTokens, row.outputTokens);
 
 						return (
 							<button
 								key={row.id}
 								type="button"
 								className={cn(
-									"grid min-h-12 w-full grid-cols-[minmax(180px,1.2fr)_90px_minmax(180px,1.05fr)_130px_120px] items-center gap-6 rounded-lg px-3.5 py-2 text-left text-sm transition-colors duration-300 [transition-timing-function:cubic-bezier(0.23,1,0.32,1)]",
+									"grid min-h-12 w-full grid-cols-[minmax(180px,1.2fr)_90px_minmax(180px,1.05fr)_130px_minmax(180px,0.95fr)] items-center gap-6 rounded-lg px-3.5 py-2 text-left text-sm transition-colors duration-300 [transition-timing-function:cubic-bezier(0.23,1,0.32,1)]",
 									!hasTableHighlight &&
 										"odd:bg-[color:var(--dashboardy-subsurface-strong)]",
 									hasTableHighlight &&
@@ -136,9 +132,10 @@ export function DashboardTokenDailyOverviewTable({
 										? "—"
 										: formatCompactNumber(row.avgTokensPerSession)}
 								</p>
-								<p className="font-medium tabular-nums text-[color:var(--dashboardy-heading)]">
-									{formatCurrency(cost)}
-								</p>
+								<DashboardTokenCostCell
+									inputTokens={row.inputTokens}
+									outputTokens={row.outputTokens}
+								/>
 							</button>
 						);
 					})}
