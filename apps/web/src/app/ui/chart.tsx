@@ -3,6 +3,7 @@
 import * as React from "react";
 import type { TooltipValueType } from "recharts";
 import * as RechartsPrimitive from "recharts";
+import { SIDEBAR_SHELL_EXPAND_DURATION_MS } from "@/app/ui/sidebar";
 import { cn } from "@/lib/utils";
 
 const THEMES = { light: "", dark: ".dark" } as const;
@@ -43,6 +44,7 @@ function ChartContainer({
 	children,
 	config,
 	initialDimension = INITIAL_DIMENSION,
+	responsiveDebounce = SIDEBAR_SHELL_EXPAND_DURATION_MS,
 	...props
 }: React.ComponentProps<"div"> & {
 	config: ChartConfig;
@@ -53,6 +55,7 @@ function ChartContainer({
 		width: number;
 		height: number;
 	};
+	responsiveDebounce?: number;
 }) {
 	const uniqueId = React.useId();
 	const chartId = `chart-${id ?? uniqueId.replace(/:/g, "")}`;
@@ -70,6 +73,7 @@ function ChartContainer({
 			>
 				<ChartStyle id={chartId} config={config} />
 				<RechartsPrimitive.ResponsiveContainer
+					debounce={responsiveDebounce}
 					initialDimension={initialDimension}
 				>
 					{children}

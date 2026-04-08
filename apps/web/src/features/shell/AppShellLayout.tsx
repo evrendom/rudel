@@ -135,7 +135,7 @@ export function AppShellLayout() {
 	return (
 		<TooltipProvider>
 			<div
-				className="dashboard-01-preview h-dvh overflow-hidden text-foreground"
+				className="dashboard-01-preview h-dvh overflow-hidden overscroll-none text-foreground"
 				data-sidebar-news-hide-performance-chart-debug={
 					sidebarTuning.newsHidePerformanceChartWhileActive ? "true" : "false"
 				}
@@ -150,7 +150,7 @@ export function AppShellLayout() {
 							? () => {}
 							: undefined
 					}
-					className="dashboard-01-chrome-frame h-full overflow-hidden"
+					className="dashboard-01-chrome-frame h-full overflow-hidden overscroll-none"
 					style={
 						{
 							"--sidebar-width": `${sidebarTuning.expandedWidth}rem`,

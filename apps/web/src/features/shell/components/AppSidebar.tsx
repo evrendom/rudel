@@ -87,7 +87,7 @@ function getSidebarFooterStackClassName(mode: SidebarDisplayMode) {
 
 function getSidebarContentFrameClassName(mode: SidebarDisplayMode) {
 	return cn(
-		"relative flex h-full min-h-0 flex-col bg-transparent",
+		"relative flex h-full min-h-0 flex-col overscroll-none bg-transparent",
 		mode === "expanded"
 			? "w-(--sidebar-width) overflow-x-clip overflow-y-auto text-clip whitespace-nowrap"
 			: "w-(--sidebar-width-icon) pb-1.5",
