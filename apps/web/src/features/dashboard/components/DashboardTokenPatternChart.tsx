@@ -4,11 +4,12 @@ import { format, parseISO } from "date-fns";
 import { useMemo } from "react";
 import { Bar, BarChart, Rectangle, XAxis, YAxis } from "recharts";
 import { type ChartConfig, ChartContainer, ChartTooltip } from "@/app/ui/chart";
+import type { DashboardHighlightChangeHandler } from "@/features/dashboard/components/dashboard-highlight-state";
 import type { DashboardTokenDailyPoint } from "@/features/dashboard/data/dashboard-token-adapters";
 import { formatCompactWholeNumber } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
-const MAX_VISIBLE_MODEL_STACKS = 6;
+const MAX_VISIBLE_MODEL_STACKS = 4;
 const TOKEN_MODEL_COLORS = [
 	"#1949A9",
 	"#159C89",
@@ -329,12 +330,14 @@ export function DashboardTokenPatternChart({
 	className,
 	highlightedDate,
 	highlightSource,
+	onHighlightDateChange,
 	tickLabelStyle = "adaptive",
 }: {
 	className?: string;
 	data: DashboardTokenDailyPoint[];
 	highlightedDate?: string | null;
 	highlightSource?: "chart" | "table" | null;
+	onHighlightDateChange?: DashboardHighlightChangeHandler;
 	tickLabelStyle?: "adaptive" | "month-date";
 }) {
 	const axisMax = getAxisMax(data);
@@ -415,6 +418,17 @@ export function DashboardTokenPatternChart({
 			};
 		}, [data]);
 	const barSize = getBarSize(chartData.length);
+	const chartInteractionProps = onHighlightDateChange
+		? {
+				onMouseLeave: () => onHighlightDateChange(null),
+				onMouseMove: (state: { activeLabel?: unknown }) => {
+					onHighlightDateChange(
+						typeof state.activeLabel === "string" ? state.activeLabel : null,
+						"chart",
+					);
+				},
+			}
+		: undefined;
 
 	return (
 		<div className={cn("flex min-w-0 flex-1 pt-0 md:pt-4", className)}>
@@ -427,6 +441,7 @@ export function DashboardTokenPatternChart({
 					data={chartData}
 					barCategoryGap={0}
 					margin={{ top: 2, right: 18, bottom: 10, left: 0 }}
+					{...chartInteractionProps}
 				>
 					<XAxis
 						dataKey="date"

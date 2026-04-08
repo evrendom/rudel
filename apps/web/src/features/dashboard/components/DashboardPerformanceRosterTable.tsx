@@ -5,8 +5,10 @@ import {
 	DashboardInlineOverflowList,
 } from "@/features/dashboard/components/DashboardGridTable";
 import { DashboardModelBadges } from "@/features/dashboard/components/DashboardModelBadges";
+import type { DashboardHighlightSource } from "@/features/dashboard/components/dashboard-highlight-state";
 import type { DashboardPerformanceUserComparison } from "@/features/dashboard/data/dashboard-performance-adapter";
 import { formatCompactNumber } from "@/lib/format";
+import { cn } from "@/lib/utils";
 
 type DashboardPerformanceRosterRow = {
 	activeRepositoryCount: number;
@@ -125,13 +127,17 @@ function buildRosterRows(
 }
 
 export function DashboardPerformanceRosterTable({
+	highlightSource,
 	highlightedDate,
+	highlightedUserId,
 	onHighlightUserChange,
 	performanceUsers,
 	trendData,
 	variant = "commits",
 }: {
+	highlightSource?: DashboardHighlightSource;
 	highlightedDate: string | null;
+	highlightedUserId?: string | null;
 	onHighlightUserChange?: (userId: string | null) => void;
 	performanceUsers: DashboardPerformanceUserComparison[];
 	trendData: UserDailyTrendData[] | undefined;
@@ -143,6 +149,10 @@ export function DashboardPerformanceRosterTable({
 		trendData,
 		variant,
 	);
+	const hasTableHighlight =
+		highlightSource === "table" && highlightedUserId != null;
+	const hasChartHighlight =
+		highlightSource === "chart" && highlightedUserId != null;
 	const columns =
 		variant === "repositories"
 			? [
@@ -355,6 +365,21 @@ export function DashboardPerformanceRosterTable({
 			}
 			onRowHoverChange={onHighlightUserChange}
 			getHoverRowId={(row) => row.id}
+			rowClassName={(row) =>
+				cn(
+					"w-full text-left transition-[opacity,background-color] duration-300 [transition-timing-function:cubic-bezier(0.23,1,0.32,1)]",
+					hasTableHighlight &&
+						"bg-[color:var(--dashboardy-surface)] odd:bg-[color:var(--dashboardy-surface)]",
+					hasChartHighlight &&
+						highlightedUserId === row.id &&
+						"bg-[color:var(--dashboardy-surface)] odd:bg-[color:var(--dashboardy-surface)]",
+					hasTableHighlight &&
+						highlightedUserId === row.id &&
+						"bg-[color:var(--dashboardy-subsurface-strong)] odd:bg-[color:var(--dashboardy-subsurface-strong)]",
+					hasTableHighlight && highlightedUserId !== row.id && "opacity-50",
+					hasChartHighlight && highlightedUserId !== row.id && "opacity-50",
+				)
+			}
 		/>
 	);
 }

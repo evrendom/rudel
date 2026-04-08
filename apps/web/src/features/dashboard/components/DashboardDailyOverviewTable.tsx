@@ -1,4 +1,5 @@
 import { format, parseISO } from "date-fns";
+import type { DashboardHighlightChangeHandler } from "@/features/dashboard/components/dashboard-highlight-state";
 import type { DashboardDailyPatternPoint } from "@/features/dashboard/data/dashboard-static-data";
 import { cn } from "@/lib/utils";
 
@@ -106,7 +107,7 @@ export function DashboardDailyOverviewTable({
 	data: DashboardDailyPatternPoint[];
 	highlightedDate?: string | null;
 	highlightSource?: "chart" | "table" | null;
-	onHighlightDateChange?: (date: string | null) => void;
+	onHighlightDateChange?: DashboardHighlightChangeHandler;
 }) {
 	const rows = buildDailyRows(data);
 	const hasTableHighlight =

@@ -6,8 +6,10 @@ import {
 	DashboardGridTable,
 	DashboardTableFooterNote,
 } from "@/features/dashboard/components/DashboardGridTable";
+import type { DashboardHighlightSource } from "@/features/dashboard/components/dashboard-highlight-state";
 import type { DashboardRepositorySummaryRow } from "@/features/dashboard/data/dashboard-repository-trend";
 import { formatPercent } from "@/lib/format";
+import { cn } from "@/lib/utils";
 
 type DashboardRepositoryTableRow = DashboardRepositorySummaryRow;
 const MAX_VISIBLE_REPOSITORIES = 7;
@@ -103,13 +105,17 @@ function DashboardRepositoryOverflowPopover({
 }
 
 export function DashboardRepositoryTable({
+	highlightSource,
 	highlightedDate,
+	highlightedRepositoryId,
 	onHighlightRepositoryChange,
 	rows,
 	trendData,
 	variant = "commits",
 }: {
+	highlightSource?: DashboardHighlightSource;
 	highlightedDate: string | null;
+	highlightedRepositoryId?: string | null;
 	onHighlightRepositoryChange?: (repositoryId: string | null) => void;
 	rows: DashboardRepositorySummaryRow[];
 	trendData: RepositoryDailyTrendData[] | undefined;
@@ -120,6 +126,10 @@ export function DashboardRepositoryTable({
 	const hiddenRows = displayRows.slice(MAX_VISIBLE_REPOSITORIES);
 	const hiddenRowCount = Math.max(0, displayRows.length - visibleRows.length);
 	const totalSessions = displayRows.reduce((sum, row) => sum + row.sessions, 0);
+	const hasTableHighlight =
+		highlightSource === "table" && highlightedRepositoryId != null;
+	const hasChartHighlight =
+		highlightSource === "chart" && highlightedRepositoryId != null;
 	const columns =
 		variant === "sessions"
 			? [
@@ -255,6 +265,25 @@ export function DashboardRepositoryTable({
 			}
 			onRowHoverChange={onHighlightRepositoryChange}
 			getHoverRowId={(row) => row.id}
+			rowClassName={(row) =>
+				cn(
+					"w-full text-left transition-[opacity,background-color] duration-300 [transition-timing-function:cubic-bezier(0.23,1,0.32,1)]",
+					hasTableHighlight &&
+						"bg-[color:var(--dashboardy-surface)] odd:bg-[color:var(--dashboardy-surface)]",
+					hasChartHighlight &&
+						highlightedRepositoryId === row.id &&
+						"bg-[color:var(--dashboardy-surface)] odd:bg-[color:var(--dashboardy-surface)]",
+					hasTableHighlight &&
+						highlightedRepositoryId === row.id &&
+						"bg-[color:var(--dashboardy-subsurface-strong)] odd:bg-[color:var(--dashboardy-subsurface-strong)]",
+					hasTableHighlight &&
+						highlightedRepositoryId !== row.id &&
+						"opacity-50",
+					hasChartHighlight &&
+						highlightedRepositoryId !== row.id &&
+						"opacity-50",
+				)
+			}
 			footer={
 				hiddenRowCount > 0 ? (
 					<DashboardTableFooterNote>

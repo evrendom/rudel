@@ -15,6 +15,7 @@ import {
 import { type ChartConfig, ChartContainer, ChartTooltip } from "@/app/ui/chart";
 import { Popover, PopoverContent, PopoverTrigger } from "@/app/ui/popover";
 import { ToggleGroup, ToggleGroupItem } from "@/app/ui/toggle-group";
+import type { DashboardHighlightChangeHandler } from "@/features/dashboard/components/dashboard-highlight-state";
 import {
 	type DashboardRepositorySummaryRow,
 	type DashboardRepositoryTrendMetric,
@@ -179,6 +180,7 @@ export function DashboardRepositoryTrendChart({
 	hiddenSeriesIds,
 	metric,
 	onHighlightDateChange,
+	onHighlightSeriesChange,
 	onMetricChange,
 	onToggleSeries,
 	trendData,
@@ -191,6 +193,7 @@ export function DashboardRepositoryTrendChart({
 	hiddenSeriesIds: string[];
 	metric: DashboardRepositoryTrendMetric;
 	onHighlightDateChange?: (date: string | null) => void;
+	onHighlightSeriesChange?: DashboardHighlightChangeHandler;
 	onMetricChange: (metric: DashboardRepositoryTrendMetric) => void;
 	onToggleSeries: (repositoryId: string) => void;
 	trendData: RepositoryDailyTrendData[] | undefined;
@@ -377,6 +380,14 @@ export function DashboardRepositoryTrendChart({
 										"border-[color:var(--dashboardy-heading)]",
 								)}
 								onClick={() => onToggleSeries(series.repositoryId)}
+								onFocus={() =>
+									onHighlightSeriesChange?.(series.repositoryId, "chart")
+								}
+								onBlur={() => onHighlightSeriesChange?.(null)}
+								onMouseEnter={() =>
+									onHighlightSeriesChange?.(series.repositoryId, "chart")
+								}
+								onMouseLeave={() => onHighlightSeriesChange?.(null)}
 							>
 								<span
 									aria-hidden="true"

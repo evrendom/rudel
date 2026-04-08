@@ -1,13 +1,20 @@
 "use client";
 
 import { useMemo } from "react";
-import { Bar, BarChart, XAxis, YAxis } from "recharts";
+import {
+	Bar,
+	BarChart,
+	type MouseHandlerDataParam,
+	XAxis,
+	YAxis,
+} from "recharts";
 import { type ChartConfig, ChartContainer, ChartTooltip } from "@/app/ui/chart";
 import { DashboardStackedTopRoundedBar } from "@/features/dashboard/components/DashboardStackedTopRoundedBar";
 import {
 	getDashboardBarLabelWidth,
 	getDashboardBarSize,
 } from "@/features/dashboard/components/dashboard-bar-chart-layout";
+import type { DashboardHighlightChangeHandler } from "@/features/dashboard/components/dashboard-highlight-state";
 
 const ZERO_BAR_STUB_VALUE = 0.75;
 const COMMIT_CHART_COLOR = "#1949A9";
@@ -199,10 +206,14 @@ function DashboardRepositoryAxisTick({
 export function DashboardRepositoryChart({
 	activeId,
 	data,
+	highlightSource,
+	onHighlightRepositoryChange,
 	variant = "commits",
 }: {
 	activeId?: string | null;
 	data: DashboardRepositoryChartDatum[];
+	highlightSource?: "chart" | "table" | null;
+	onHighlightRepositoryChange?: DashboardHighlightChangeHandler;
 	variant?: DashboardRepositoryChartVariant;
 }) {
 	const chartData = useMemo<DashboardRepositoryChartRow[]>(
@@ -271,6 +282,17 @@ export function DashboardRepositoryChart({
 					barCategoryGap={0}
 					barGap={0}
 					margin={{ top: 8, right: 8, bottom: 40, left: 18 }}
+					onMouseLeave={() => onHighlightRepositoryChange?.(null)}
+					onMouseMove={(state: MouseHandlerDataParam) => {
+						onHighlightRepositoryChange?.(
+							typeof state.activeLabel === "string"
+								? state.activeLabel
+								: typeof state.activeLabel === "number"
+									? state.activeLabel.toString()
+									: null,
+							"chart",
+						);
+					}}
 				>
 					<XAxis
 						dataKey="id"
@@ -313,6 +335,7 @@ export function DashboardRepositoryChart({
 						shape={
 							<DashboardStackedTopRoundedBar
 								activeId={resolvedActiveId}
+								activeSource={highlightSource}
 								dataKey="committed"
 							/>
 						}
@@ -325,6 +348,7 @@ export function DashboardRepositoryChart({
 						shape={
 							<DashboardStackedTopRoundedBar
 								activeId={resolvedActiveId}
+								activeSource={highlightSource}
 								dataKey="uncommitted"
 							/>
 						}
@@ -337,6 +361,7 @@ export function DashboardRepositoryChart({
 						shape={
 							<DashboardStackedTopRoundedBar
 								activeId={resolvedActiveId}
+								activeSource={highlightSource}
 								dataKey="stub"
 							/>
 						}

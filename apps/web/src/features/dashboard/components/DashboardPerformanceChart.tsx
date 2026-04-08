@@ -1,13 +1,20 @@
 "use client";
 
 import { useMemo } from "react";
-import { Bar, BarChart, XAxis, YAxis } from "recharts";
+import {
+	Bar,
+	BarChart,
+	type MouseHandlerDataParam,
+	XAxis,
+	YAxis,
+} from "recharts";
 import { type ChartConfig, ChartContainer, ChartTooltip } from "@/app/ui/chart";
 import { DashboardStackedTopRoundedBar } from "@/features/dashboard/components/DashboardStackedTopRoundedBar";
 import {
 	getDashboardBarLabelWidth,
 	getDashboardBarSize,
 } from "@/features/dashboard/components/dashboard-bar-chart-layout";
+import type { DashboardHighlightChangeHandler } from "@/features/dashboard/components/dashboard-highlight-state";
 
 const chartConfig = {
 	committed: {
@@ -34,6 +41,8 @@ export type DashboardPerformanceDatum = {
 type DashboardPerformanceChartProps = {
 	activeId?: string | null;
 	data: DashboardPerformanceDatum[];
+	highlightSource?: "chart" | "table" | null;
+	onHighlightUserChange?: DashboardHighlightChangeHandler;
 };
 
 type DashboardPerformanceChartRow = DashboardPerformanceDatum & {
@@ -216,6 +225,8 @@ function DashboardPerformanceAxisTick({
 export function DashboardPerformanceChart({
 	activeId,
 	data,
+	highlightSource,
+	onHighlightUserChange,
 }: DashboardPerformanceChartProps) {
 	const chartData = useMemo<DashboardPerformanceChartRow[]>(
 		() =>
@@ -256,6 +267,17 @@ export function DashboardPerformanceChart({
 					barCategoryGap={0}
 					barGap={0}
 					margin={{ top: 8, right: 8, bottom: 44, left: 18 }}
+					onMouseLeave={() => onHighlightUserChange?.(null)}
+					onMouseMove={(state: MouseHandlerDataParam) => {
+						onHighlightUserChange?.(
+							typeof state.activeLabel === "string"
+								? state.activeLabel
+								: typeof state.activeLabel === "number"
+									? state.activeLabel.toString()
+									: null,
+							"chart",
+						);
+					}}
 				>
 					<XAxis
 						dataKey="id"
@@ -298,6 +320,7 @@ export function DashboardPerformanceChart({
 						shape={
 							<DashboardStackedTopRoundedBar
 								activeId={resolvedActiveId}
+								activeSource={highlightSource}
 								dataKey="committed"
 							/>
 						}
@@ -310,6 +333,7 @@ export function DashboardPerformanceChart({
 						shape={
 							<DashboardStackedTopRoundedBar
 								activeId={resolvedActiveId}
+								activeSource={highlightSource}
 								dataKey="uncommitted"
 							/>
 						}
@@ -322,6 +346,7 @@ export function DashboardPerformanceChart({
 						shape={
 							<DashboardStackedTopRoundedBar
 								activeId={resolvedActiveId}
+								activeSource={highlightSource}
 								dataKey="stub"
 							/>
 						}

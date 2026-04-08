@@ -14,6 +14,7 @@ import {
 	DashboardTokenDeveloperChart,
 	type DashboardTokenDeveloperDatum,
 } from "@/features/dashboard/components/DashboardTokenDeveloperChart";
+import { useDashboardHighlightState } from "@/features/dashboard/components/dashboard-highlight-state";
 import type { DashboardPerformanceUserComparison } from "@/features/dashboard/data/dashboard-performance-adapter";
 import {
 	buildDashboardPerformanceTrendSeries,
@@ -143,9 +144,8 @@ export function DashboardDeveloperPanel({
 	const [hiddenTrendSeriesIds, setHiddenTrendSeriesIds] = useState<string[]>(
 		[],
 	);
-	const [highlightedUserId, setHighlightedUserId] = useState<string | null>(
-		null,
-	);
+	const { highlightSource, highlightedItemId, setHighlight } =
+		useDashboardHighlightState();
 	const [trendMetric, setTrendMetric] =
 		useState<DashboardPerformanceTrendMetric>(
 			variant === "repositories" ? "repositories" : "sessions",
@@ -244,9 +244,10 @@ export function DashboardDeveloperPanel({
 									? ["repositories", "sessions"]
 									: ["sessions", "commits"]
 							}
-							highlightedSeriesId={highlightedUserId}
+							highlightedSeriesId={highlightedItemId}
 							hiddenSeriesIds={hiddenTrendSeriesIds}
 							metric={trendMetric}
+							onHighlightSeriesChange={setHighlight}
 							onMetricChange={setTrendMetric}
 							onToggleSeries={handleToggleTrendSeries}
 							trendData={performanceUserDailyTrend}
@@ -262,7 +263,7 @@ export function DashboardDeveloperPanel({
 				) : hasChartData ? (
 					variant === "repositories" ? (
 						<DashboardTokenDeveloperChart
-							activeId={highlightedUserId}
+							activeId={highlightedItemId}
 							barColor="#1949A9"
 							data={repositoryChartData}
 							primaryLabel="Active repos"
@@ -275,12 +276,16 @@ export function DashboardDeveloperPanel({
 									? Math.round(secondaryValue / primaryValue).toLocaleString()
 									: "—"
 							}
+							highlightSource={highlightSource}
+							onHighlightUserChange={setHighlight}
 							yAxisTickFormatter={(value) => Math.round(value).toLocaleString()}
 						/>
 					) : (
 						<DashboardPerformanceChart
-							activeId={highlightedUserId}
+							activeId={highlightedItemId}
 							data={commitChartData}
+							highlightSource={highlightSource}
+							onHighlightUserChange={setHighlight}
 						/>
 					)
 				) : (
@@ -293,8 +298,10 @@ export function DashboardDeveloperPanel({
 			}
 			tableContent={
 				<DashboardPerformanceRosterTable
+					highlightSource={highlightSource}
 					highlightedDate={null}
-					onHighlightUserChange={setHighlightedUserId}
+					highlightedUserId={highlightedItemId}
+					onHighlightUserChange={setHighlight}
 					performanceUsers={performanceUsers}
 					trendData={performanceUserDailyTrend}
 					variant={variant}

@@ -5,6 +5,7 @@ import { format, parseISO } from "date-fns";
 import { useMemo } from "react";
 import { Bar, BarChart, Rectangle, XAxis, YAxis } from "recharts";
 import { type ChartConfig, ChartContainer, ChartTooltip } from "@/app/ui/chart";
+import type { DashboardHighlightChangeHandler } from "@/features/dashboard/components/dashboard-highlight-state";
 import { DASHBOARD_REPOSITORY_TREND_COLORS } from "@/features/dashboard/data/dashboard-repository-trend";
 import type { DashboardDailyPatternPoint } from "@/features/dashboard/data/dashboard-static-data";
 import { cn } from "@/lib/utils";
@@ -21,6 +22,8 @@ const commitFlowChartConfig = {
 } satisfies ChartConfig;
 
 const commitFlowStackOrder = ["committed", "uncommitted"] as const;
+const MAX_VISIBLE_REPOSITORY_STACKS = 4;
+const OTHER_REPOSITORY_COLOR = "#D7DBE2";
 
 type DailyPatternChartMode = "commit-flow" | "repository-stack";
 type ChartPointRecord = DashboardDailyPatternPoint &
@@ -71,11 +74,19 @@ function buildRepositoryStackData(
 		);
 	}
 
-	const repositorySeries = Array.from(repositoryTotals.entries())
-		.sort(
-			(left, right) => right[1] - left[1] || left[0].localeCompare(right[0]),
-		)
-		.map(([label, totalSessions], index) => ({
+	const sortedRepositories = Array.from(repositoryTotals.entries()).sort(
+		(left, right) => right[1] - left[1] || left[0].localeCompare(right[0]),
+	);
+	const topRepositories = sortedRepositories.slice(
+		0,
+		MAX_VISIBLE_REPOSITORY_STACKS,
+	);
+	const visibleRepositoryLabels = new Set(
+		topRepositories.map(([label]) => label),
+	);
+	const hasOther = sortedRepositories.length > MAX_VISIBLE_REPOSITORY_STACKS;
+	const repositorySeries = topRepositories.map(
+		([label, totalSessions], index) => ({
 			color:
 				DASHBOARD_REPOSITORY_TREND_COLORS[
 					index % DASHBOARD_REPOSITORY_TREND_COLORS.length
@@ -83,20 +94,48 @@ function buildRepositoryStackData(
 			key: `repository-${index + 1}`,
 			label,
 			totalSessions,
-		})) satisfies RepositoryStackSeries[];
+		}),
+	) satisfies RepositoryStackSeries[];
+
+	if (hasOther) {
+		repositorySeries.push({
+			color: OTHER_REPOSITORY_COLOR,
+			key: "other_repositories",
+			label: "Other",
+			totalSessions: sortedRepositories
+				.slice(MAX_VISIBLE_REPOSITORY_STACKS)
+				.reduce((sum, [, totalSessions]) => sum + totalSessions, 0),
+		});
+	}
 
 	const sessionsByDate = new Map(
 		repositoryDailyTrend.map(
 			(row) => [`${row.repository}:${row.date}`, row.sessions] as const,
 		),
 	);
+	const otherSessionsByDate = new Map<string, number>();
+
+	if (hasOther) {
+		for (const row of repositoryDailyTrend) {
+			if (visibleRepositoryLabels.has(row.repository)) {
+				continue;
+			}
+
+			otherSessionsByDate.set(
+				row.date,
+				(otherSessionsByDate.get(row.date) ?? 0) + row.sessions,
+			);
+		}
+	}
 
 	const chartData = data.map((point) => {
 		const nextPoint: ChartPointRecord = { ...point };
 
 		for (const series of repositorySeries) {
 			nextPoint[series.key] =
-				sessionsByDate.get(`${series.label}:${point.date}`) ?? 0;
+				series.key === "other_repositories"
+					? (otherSessionsByDate.get(point.date) ?? 0)
+					: (sessionsByDate.get(`${series.label}:${point.date}`) ?? 0);
 		}
 
 		return nextPoint;
@@ -375,7 +414,7 @@ export function DashboardDailyPatternChart({
 	className?: string;
 	highlightedDate?: string | null;
 	highlightSource?: "chart" | "table" | null;
-	onHighlightDateChange?: (date: string | null) => void;
+	onHighlightDateChange?: DashboardHighlightChangeHandler;
 	mode?: DailyPatternChartMode;
 	repositoryDailyTrend?: RepositoryDailyTrendData[] | undefined;
 }) {
@@ -414,6 +453,7 @@ export function DashboardDailyPatternChart({
 				onMouseMove: (state: { activeLabel?: unknown }) => {
 					onHighlightDateChange(
 						typeof state.activeLabel === "string" ? state.activeLabel : null,
+						"chart",
 					);
 				},
 			}

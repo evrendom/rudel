@@ -5,7 +5,9 @@ import {
 } from "@/features/dashboard/components/DashboardGridTable";
 import { DashboardModelBadges } from "@/features/dashboard/components/DashboardModelBadges";
 import { DashboardTokenCostCell } from "@/features/dashboard/components/DashboardTokenCostCell";
+import type { DashboardHighlightSource } from "@/features/dashboard/components/dashboard-highlight-state";
 import type { DashboardPerformanceUserComparison } from "@/features/dashboard/data/dashboard-performance-adapter";
+import { cn } from "@/lib/utils";
 
 type DashboardTokenDeveloperTableRow = {
 	avgTokensPerSession: number;
@@ -110,17 +112,25 @@ function buildRows(
 }
 
 export function DashboardTokenDeveloperTable({
+	highlightSource,
 	highlightedDate,
+	highlightedUserId,
 	onHighlightUserChange,
 	performanceUsers,
 	trendData,
 }: {
+	highlightSource?: DashboardHighlightSource;
 	highlightedDate: string | null;
+	highlightedUserId?: string | null;
 	onHighlightUserChange?: (userId: string | null) => void;
 	performanceUsers: DashboardPerformanceUserComparison[];
 	trendData: UserDailyTrendData[] | undefined;
 }) {
 	const rows = buildRows(performanceUsers, highlightedDate, trendData);
+	const hasTableHighlight =
+		highlightSource === "table" && highlightedUserId != null;
+	const hasChartHighlight =
+		highlightSource === "chart" && highlightedUserId != null;
 
 	return (
 		<DashboardGridTable
@@ -204,6 +214,21 @@ export function DashboardTokenDeveloperTable({
 			minWidthClassName="min-w-[58rem]"
 			onRowHoverChange={onHighlightUserChange}
 			getHoverRowId={(row) => row.id}
+			rowClassName={(row) =>
+				cn(
+					"w-full text-left transition-[opacity,background-color] duration-300 [transition-timing-function:cubic-bezier(0.23,1,0.32,1)]",
+					hasTableHighlight &&
+						"bg-[color:var(--dashboardy-surface)] odd:bg-[color:var(--dashboardy-surface)]",
+					hasChartHighlight &&
+						highlightedUserId === row.id &&
+						"bg-[color:var(--dashboardy-surface)] odd:bg-[color:var(--dashboardy-surface)]",
+					hasTableHighlight &&
+						highlightedUserId === row.id &&
+						"bg-[color:var(--dashboardy-subsurface-strong)] odd:bg-[color:var(--dashboardy-subsurface-strong)]",
+					hasTableHighlight && highlightedUserId !== row.id && "opacity-50",
+					hasChartHighlight && highlightedUserId !== row.id && "opacity-50",
+				)
+			}
 		/>
 	);
 }

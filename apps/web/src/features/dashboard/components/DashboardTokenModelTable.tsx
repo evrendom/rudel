@@ -4,8 +4,10 @@ import {
 	DashboardGridTable,
 	DashboardTableFooterNote,
 } from "@/features/dashboard/components/DashboardGridTable";
+import type { DashboardHighlightSource } from "@/features/dashboard/components/dashboard-highlight-state";
 import type { DashboardTokenModelSummaryRow } from "@/features/dashboard/data/dashboard-token-model-adapter";
 import { formatCompactWholeNumber, formatCurrency } from "@/lib/format";
+import { cn } from "@/lib/utils";
 
 const MAX_VISIBLE_MODELS = 7;
 
@@ -46,15 +48,23 @@ function DashboardTokenModelOverflowPopover({
 }
 
 export function DashboardTokenModelTable({
+	highlightSource,
+	highlightedModelId,
 	onHighlightModelChange,
 	rows,
 }: {
+	highlightSource?: DashboardHighlightSource;
+	highlightedModelId?: string | null;
 	onHighlightModelChange?: (modelId: string | null) => void;
 	rows: DashboardTokenModelSummaryRow[];
 }) {
 	const visibleRows = rows.slice(0, MAX_VISIBLE_MODELS);
 	const hiddenRows = rows.slice(MAX_VISIBLE_MODELS);
 	const hiddenRowCount = Math.max(rows.length - visibleRows.length, 0);
+	const hasTableHighlight =
+		highlightSource === "table" && highlightedModelId != null;
+	const hasChartHighlight =
+		highlightSource === "chart" && highlightedModelId != null;
 
 	return (
 		<DashboardGridTable
@@ -114,6 +124,21 @@ export function DashboardTokenModelTable({
 			minWidthClassName="min-w-[48rem]"
 			onRowHoverChange={onHighlightModelChange}
 			getHoverRowId={(row) => row.id}
+			rowClassName={(row) =>
+				cn(
+					"w-full text-left transition-[opacity,background-color] duration-300 [transition-timing-function:cubic-bezier(0.23,1,0.32,1)]",
+					hasTableHighlight &&
+						"bg-[color:var(--dashboardy-surface)] odd:bg-[color:var(--dashboardy-surface)]",
+					hasChartHighlight &&
+						highlightedModelId === row.id &&
+						"bg-[color:var(--dashboardy-surface)] odd:bg-[color:var(--dashboardy-surface)]",
+					hasTableHighlight &&
+						highlightedModelId === row.id &&
+						"bg-[color:var(--dashboardy-subsurface-strong)] odd:bg-[color:var(--dashboardy-subsurface-strong)]",
+					hasTableHighlight && highlightedModelId !== row.id && "opacity-50",
+					hasChartHighlight && highlightedModelId !== row.id && "opacity-50",
+				)
+			}
 			footer={
 				hiddenRowCount > 0 ? (
 					<DashboardTableFooterNote>
