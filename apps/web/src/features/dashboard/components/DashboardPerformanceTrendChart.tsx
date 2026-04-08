@@ -25,6 +25,23 @@ type TrendChartRow = {
 	fullLabel: string;
 } & Record<string, number | string>;
 
+function formatMetricValue(
+	metric: DashboardPerformanceTrendMetric,
+	value: number,
+) {
+	if (metric === "tokens") {
+		if (value >= 1_000_000) {
+			return `${(value / 1_000_000).toFixed(1)}M`;
+		}
+
+		if (value >= 1_000) {
+			return `${(value / 1_000).toFixed(1)}K`;
+		}
+	}
+
+	return value.toLocaleString();
+}
+
 function getTickLabel(dateValue: string, index: number, total: number) {
 	const parsedDate = parseISO(dateValue);
 
@@ -86,7 +103,11 @@ function PerformanceTrendTooltip({
 			<div className="flex items-start justify-between gap-4">
 				<p className="font-medium text-foreground">{point.fullLabel}</p>
 				<p className="shrink-0 font-medium text-muted-foreground">
-					{metric === "commits" ? "Commits" : "Sessions"}
+					{metric === "commits"
+						? "Commits"
+						: metric === "tokens"
+							? "Tokens"
+							: "Sessions"}
 				</p>
 			</div>
 			<div className="grid gap-1.5">
@@ -107,7 +128,7 @@ function PerformanceTrendTooltip({
 						</div>
 						<span className="shrink-0 font-mono font-medium tabular-nums text-foreground">
 							{typeof item.value === "number"
-								? item.value.toLocaleString()
+								? formatMetricValue(metric, item.value)
 								: item.value}
 						</span>
 					</div>
@@ -127,12 +148,14 @@ export function DashboardPerformanceTrendChart({
 	onToggleSeries,
 	trendData,
 	trendSeries,
+	availableMetrics = ["sessions", "commits"],
 }: {
+	availableMetrics?: DashboardPerformanceTrendMetric[];
 	className?: string;
 	highlightedSeriesId?: string | null;
 	hiddenSeriesIds: string[];
 	metric: DashboardPerformanceTrendMetric;
-	onHighlightDateChange: (date: string | null) => void;
+	onHighlightDateChange?: (date: string | null) => void;
 	onMetricChange: (metric: DashboardPerformanceTrendMetric) => void;
 	onToggleSeries: (userId: string) => void;
 	trendData: UserDailyTrendData[] | undefined;
@@ -259,17 +282,33 @@ export function DashboardPerformanceTrendChart({
 					onValueChange={(nextValue) => {
 						const nextMetric = nextValue[0];
 
-						if (nextMetric === "sessions" || nextMetric === "commits") {
+						if (
+							nextMetric === "sessions" ||
+							nextMetric === "commits" ||
+							nextMetric === "tokens"
+						) {
 							onMetricChange(nextMetric);
 						}
 					}}
 				>
-					<ToggleGroupItem value="sessions" className="dashboardy-toggle-item">
-						Sessions
-					</ToggleGroupItem>
-					<ToggleGroupItem value="commits" className="dashboardy-toggle-item">
-						Commits
-					</ToggleGroupItem>
+					{availableMetrics.includes("sessions") ? (
+						<ToggleGroupItem
+							value="sessions"
+							className="dashboardy-toggle-item"
+						>
+							Sessions
+						</ToggleGroupItem>
+					) : null}
+					{availableMetrics.includes("commits") ? (
+						<ToggleGroupItem value="commits" className="dashboardy-toggle-item">
+							Commits
+						</ToggleGroupItem>
+					) : null}
+					{availableMetrics.includes("tokens") ? (
+						<ToggleGroupItem value="tokens" className="dashboardy-toggle-item">
+							Tokens
+						</ToggleGroupItem>
+					) : null}
 				</ToggleGroup>
 				<div className="flex flex-wrap items-center gap-1.5 sm:max-w-[65%] sm:justify-end">
 					{allSeries.map((series) => {
@@ -305,7 +344,7 @@ export function DashboardPerformanceTrendChart({
 								/>
 								<span className="truncate">{series.label}</span>
 								<span className="font-mono text-[11px] tabular-nums text-[color:var(--dashboardy-muted)]">
-									{total.toLocaleString()}
+									{formatMetricValue(metric, total)}
 								</span>
 							</button>
 						);
@@ -327,9 +366,9 @@ export function DashboardPerformanceTrendChart({
 						<LineChart
 							data={chartData}
 							margin={{ top: 12, right: 12, bottom: 8, left: 0 }}
-							onMouseLeave={() => onHighlightDateChange(null)}
+							onMouseLeave={() => onHighlightDateChange?.(null)}
 							onMouseMove={(state: { activeLabel?: unknown }) => {
-								onHighlightDateChange(
+								onHighlightDateChange?.(
 									typeof state.activeLabel === "string"
 										? state.activeLabel
 										: null,
@@ -362,6 +401,9 @@ export function DashboardPerformanceTrendChart({
 								allowDecimals={false}
 								axisLine={false}
 								domain={[0, axisMax]}
+								tickFormatter={(value) =>
+									formatMetricValue(metric, Number(value))
+								}
 								tickLine={false}
 								tickMargin={8}
 								width={34}

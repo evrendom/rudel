@@ -1,13 +1,14 @@
 import type {
 	DimensionAnalysisInput,
 	SessionAnalytics,
-	SessionHourlyActivityDataPoint,
 	SessionAnalyticsSummary as SessionAnalyticsSummaryBase,
 	SessionDetail,
+	SessionHourlyActivityDataPoint,
 } from "@rudel/api-routes";
 import {
 	addOptionalStringEqFilter,
 	buildDateFilter,
+	buildInclusiveDateRangeFilter,
 	queryClickhouse,
 } from "../clickhouse.js";
 
@@ -71,6 +72,8 @@ export async function getSessionAnalytics(
 	orgId: string,
 	params: {
 		days?: number;
+		start_date?: string;
+		end_date?: string;
 		user_id?: string;
 		project_path?: string;
 		repository?: string;
@@ -82,6 +85,8 @@ export async function getSessionAnalytics(
 ): Promise<SessionAnalytics[]> {
 	const {
 		days = 30,
+		start_date,
+		end_date,
 		user_id,
 		project_path,
 		repository,
@@ -98,6 +103,14 @@ export async function getSessionAnalytics(
 		offset: Number(offset),
 		orgId,
 	};
+	const dateFilter =
+		start_date && end_date
+			? buildInclusiveDateRangeFilter("startDate", "endDate", "sa.session_date")
+			: buildDateFilter("days", "sa.session_date");
+	if (start_date && end_date) {
+		query_params.startDate = start_date;
+		query_params.endDate = end_date;
+	}
 	const filters: string[] = [];
 	addOptionalStringEqFilter(
 		filters,
@@ -160,7 +173,7 @@ export async function getSessionAnalytics(
       model_used,
       used_plan_mode
     FROM rudel.session_analytics sa
-    WHERE ${buildDateFilter("days", "sa.session_date")}
+    WHERE ${dateFilter}
       AND organization_id = {orgId:String}
       ${filters.length > 0 ? `AND ${filters.join("\n      AND ")}` : ""}
     ORDER BY ${sortColumn} ${sortDirection}

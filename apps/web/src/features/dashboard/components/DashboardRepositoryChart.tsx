@@ -161,10 +161,12 @@ function DashboardRepositoryAxisTick({
 	dataById: Map<string, DashboardRepositoryChartRow>;
 	labelWidth: number;
 	payload?: { value?: string | number };
-	x?: number;
-	y?: number;
+	x?: number | string;
+	y?: number | string;
 }) {
 	const datum = dataById.get(String(payload?.value ?? ""));
+	const resolvedX = typeof x === "number" ? x : Number(x ?? 0);
+	const resolvedY = typeof y === "number" ? y : Number(y ?? 0);
 
 	if (!datum) {
 		return null;
@@ -175,7 +177,7 @@ function DashboardRepositoryAxisTick({
 	const contentOpacity = hasExternalHighlight && !isHighlighted ? 0.28 : 1;
 
 	return (
-		<g transform={`translate(${x},${y})`}>
+		<g transform={`translate(${resolvedX},${resolvedY})`}>
 			<foreignObject
 				x={-labelWidth / 2}
 				y={10}

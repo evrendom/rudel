@@ -24,6 +24,14 @@ const DashboardPage = lazyNamed(
 	() => import("@/features/dashboard/DashboardPage"),
 	"DashboardPage",
 );
+const SessionsListPage = lazyNamed(
+	() => import("@/pages/dashboard/SessionsListPage"),
+	"SessionsListPage",
+);
+const SessionDetailPage = lazyNamed(
+	() => import("@/pages/dashboard/SessionDetailPage"),
+	"SessionDetailPage",
+);
 const DashboardyPage = lazyNamed(
 	() => import("@/features/dashboardy/DashboardyPage"),
 	"DashboardyPage",
@@ -106,6 +114,14 @@ export function AppRouter({
 				<Route
 					path={shellRouteMap.dashboard.path}
 					element={<LazyRoute Component={DashboardPage} />}
+				/>
+				<Route
+					path={`${shellRouteMap.dashboard.path}/sessions`}
+					element={<LazyRoute Component={SessionsListPage} />}
+				/>
+				<Route
+					path={`${shellRouteMap.dashboard.path}/sessions/:sessionId`}
+					element={<LazyRoute Component={SessionDetailPage} />}
 				/>
 				<Route
 					path={shellRouteMap.dashboardy.path}

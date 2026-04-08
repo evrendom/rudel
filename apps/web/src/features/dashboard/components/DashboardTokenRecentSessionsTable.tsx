@@ -1,0 +1,204 @@
+import type { SessionAnalytics } from "@rudel/api-routes";
+import { Skeleton } from "@/app/ui/skeleton";
+import { DashboardModelBadges } from "@/features/dashboard/components/DashboardModelBadges";
+import { useUserMap } from "@/hooks/useUserMap";
+import {
+	formatCompactNumber,
+	formatMinutes,
+	formatUsername,
+} from "@/lib/format";
+import { formatRelativeTime } from "@/lib/time-utils";
+
+const SKELETON_ROWS = 5;
+const SKELETON_ROW_IDS = [
+	"token-session-skeleton-1",
+	"token-session-skeleton-2",
+	"token-session-skeleton-3",
+	"token-session-skeleton-4",
+	"token-session-skeleton-5",
+] as const;
+
+function formatSessionTimestamp(value: string) {
+	const normalizedValue = value.endsWith("Z") ? value : `${value}Z`;
+	const date = new Date(normalizedValue);
+
+	if (Number.isNaN(date.getTime())) {
+		return value;
+	}
+
+	return date.toLocaleString(undefined, {
+		month: "short",
+		day: "numeric",
+		hour: "numeric",
+		minute: "2-digit",
+	});
+}
+
+function getRepositoryLabel(session: SessionAnalytics) {
+	const primaryPath = session.repository || session.project_path;
+	const segments = primaryPath.split("/").filter(Boolean);
+
+	if (segments.length === 0) {
+		return "—";
+	}
+
+	return segments.slice(-2).join("/");
+}
+
+function getModelList(session: SessionAnalytics) {
+	return session.model_used ? [session.model_used] : [];
+}
+
+function DashboardTokenRecentSessionsTableSkeleton() {
+	return (
+		<div className="grid gap-3">
+			<div className="flex items-center justify-between gap-3 px-1">
+				<h3 className="dashboardy-section-title text-lg/6 text-[color:var(--dashboardy-heading)]">
+					Latest sessions
+				</h3>
+				<Skeleton className="h-4 w-28 rounded-full" />
+			</div>
+			<div className="overflow-x-auto">
+				<div className="flex min-w-[68rem] flex-col gap-1">
+					<div className="grid grid-cols-[120px_minmax(180px,11fr)_minmax(180px,9fr)_minmax(180px,9fr)_120px_120px] gap-6 px-3.5 text-[13px] font-semibold text-[color:var(--dashboardy-muted)]">
+						<p>Time</p>
+						<p>Developer</p>
+						<p>Repository</p>
+						<p>Model</p>
+						<p>Tokens</p>
+						<p>Duration</p>
+					</div>
+					<div className="grid gap-0">
+						{SKELETON_ROW_IDS.slice(0, SKELETON_ROWS).map((rowId) => (
+							<div
+								key={rowId}
+								className="grid min-h-12 grid-cols-[120px_minmax(180px,11fr)_minmax(180px,9fr)_minmax(180px,9fr)_120px_120px] items-center gap-6 rounded-lg px-3.5 py-2 odd:bg-[color:var(--dashboardy-subsurface-strong)]"
+							>
+								<Skeleton className="h-4 w-16 rounded-full" />
+								<Skeleton className="h-4 w-28 rounded-full" />
+								<Skeleton className="h-4 w-24 rounded-full" />
+								<Skeleton className="h-6 w-24 rounded-full" />
+								<Skeleton className="h-4 w-16 rounded-full" />
+								<Skeleton className="h-4 w-16 rounded-full" />
+							</div>
+						))}
+					</div>
+				</div>
+			</div>
+		</div>
+	);
+}
+
+export function DashboardTokenRecentSessionsTable({
+	isLoading = false,
+	sessions,
+	totalSessionCount,
+}: {
+	isLoading?: boolean;
+	sessions: SessionAnalytics[] | undefined;
+	totalSessionCount: number;
+}) {
+	const { userMap } = useUserMap();
+	const recentSessions = sessions ?? [];
+	const hiddenSessionCount = Math.max(
+		totalSessionCount - recentSessions.length,
+		0,
+	);
+
+	if (isLoading) {
+		return <DashboardTokenRecentSessionsTableSkeleton />;
+	}
+
+	if (recentSessions.length === 0) {
+		return (
+			<div className="rounded-[1.2rem] border border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-subsurface)] px-6 py-8 text-center text-sm text-[color:var(--dashboardy-muted)]">
+				No recent sessions in the selected range.
+			</div>
+		);
+	}
+
+	return (
+		<div className="grid gap-3">
+			<div className="flex items-center justify-between gap-3 px-1">
+				<h3 className="dashboardy-section-title text-lg/6 text-[color:var(--dashboardy-heading)]">
+					Latest sessions
+				</h3>
+				<p className="text-[13px] font-medium text-[color:var(--dashboardy-muted)]">
+					Last {recentSessions.length} sessions
+				</p>
+			</div>
+			<div className="overflow-x-auto">
+				<div className="flex min-w-[68rem] flex-col gap-1">
+					<div className="grid grid-cols-[120px_minmax(180px,11fr)_minmax(180px,9fr)_minmax(180px,9fr)_120px_120px] gap-6 px-3.5 text-[13px] font-semibold text-[color:var(--dashboardy-muted)]">
+						<p>Time</p>
+						<p>Developer</p>
+						<p>Repository</p>
+						<p>Model</p>
+						<p>Tokens</p>
+						<p>Duration</p>
+					</div>
+					<div className="grid gap-0">
+						{recentSessions.map((session) => {
+							const userLabel = formatUsername(session.user_id, userMap);
+							const repositoryLabel = getRepositoryLabel(session);
+							const modelList = getModelList(session);
+							const absoluteTime = formatSessionTimestamp(session.session_date);
+							const tokenBreakdown = `${session.input_tokens.toLocaleString()} input · ${session.output_tokens.toLocaleString()} output`;
+							const fullRepositoryLabel =
+								session.repository || session.project_path || repositoryLabel;
+
+							return (
+								<div
+									key={session.session_id}
+									className="grid min-h-12 grid-cols-[120px_minmax(180px,11fr)_minmax(180px,9fr)_minmax(180px,9fr)_120px_120px] items-center gap-6 rounded-lg px-3.5 py-2 text-sm odd:bg-[color:var(--dashboardy-subsurface-strong)]"
+								>
+									<p
+										className="truncate font-medium text-[color:var(--dashboardy-heading)]"
+										title={absoluteTime}
+									>
+										{formatRelativeTime(session.session_date)}
+									</p>
+									<p className="truncate font-semibold text-[color:var(--dashboardy-heading)]">
+										{userLabel}
+									</p>
+									<p
+										className="truncate font-medium text-[color:var(--dashboardy-heading)]"
+										title={fullRepositoryLabel}
+									>
+										{repositoryLabel}
+									</p>
+									<div className="flex min-w-0 flex-wrap items-center gap-1.5">
+										{modelList.length > 0 ? (
+											<DashboardModelBadges models={modelList} />
+										) : (
+											<span className="text-[12px] text-[color:var(--dashboardy-muted)]">
+												—
+											</span>
+										)}
+									</div>
+									<p
+										className="font-medium tabular-nums text-[color:var(--dashboardy-heading)]"
+										title={tokenBreakdown}
+									>
+										{formatCompactNumber(session.total_tokens)}
+									</p>
+									<p className="font-medium tabular-nums text-[color:var(--dashboardy-heading)]">
+										{formatMinutes(session.duration_min)}
+									</p>
+								</div>
+							);
+						})}
+					</div>
+				</div>
+			</div>
+			{hiddenSessionCount > 0 ? (
+				<div className="flex justify-end px-1">
+					{/* TODO: Turn this footer count into a real drill-down affordance from the token tab. */}
+					<p className="text-[13px] font-medium text-[color:var(--dashboardy-muted)]">
+						{hiddenSessionCount} more
+					</p>
+				</div>
+			) : null}
+		</div>
+	);
+}

@@ -9,7 +9,7 @@ import { useFullOrganization } from "@/hooks/useFullOrganization";
 import { orpc } from "@/lib/orpc";
 
 export function useDashboardPageData() {
-	const { state } = useDateRange();
+	const { meta, state } = useDateRange();
 	const { state: workspaceState } = useOrganization();
 	const { data: fullOrganization } = useFullOrganization(
 		workspaceState.activeOrg?.id,
@@ -25,6 +25,15 @@ export function useDashboardPageData() {
 	const { data: usersTokenUsage, isPending: isUsersTokenUsagePending } =
 		useAnalyticsQuery(
 			orpc.analytics.overview.usersTokenUsage.queryOptions({
+				input: {
+					startDate: state.startDate,
+					endDate: state.endDate,
+				},
+			}),
+		);
+	const { data: modelTokensTrend, isPending: isModelTokensTrendPending } =
+		useAnalyticsQuery(
+			orpc.analytics.overview.modelTokensTrend.queryOptions({
 				input: {
 					startDate: state.startDate,
 					endDate: state.endDate,
@@ -51,12 +60,63 @@ export function useDashboardPageData() {
 			},
 		}),
 	);
+	const { data: errorDashboard, isPending: isErrorDashboardPending } =
+		useAnalyticsQuery(
+			orpc.analytics.errors.dashboard.queryOptions({
+				input: {
+					startDate: state.startDate,
+					endDate: state.endDate,
+				},
+			}),
+		);
+	const { data: errorProjectTrend, isPending: isErrorProjectTrendPending } =
+		useAnalyticsQuery(
+			orpc.analytics.errors.trends.queryOptions({
+				input: {
+					startDate: state.startDate,
+					endDate: state.endDate,
+					splitBy: "project_path",
+				},
+			}),
+		);
+	const { data: errorDeveloperTrend, isPending: isErrorDeveloperTrendPending } =
+		useAnalyticsQuery(
+			orpc.analytics.errors.trends.queryOptions({
+				input: {
+					startDate: state.startDate,
+					endDate: state.endDate,
+					splitBy: "user_id",
+				},
+			}),
+		);
+	const {
+		data: sessionSummaryComparison,
+		isPending: isSessionSummaryComparisonPending,
+	} = useAnalyticsQuery(
+		orpc.analytics.sessions.summaryComparison.queryOptions({
+			input: {
+				days: meta.dayCount,
+			},
+		}),
+	);
 	const userImageById = useMemo(
 		() =>
 			new Map(
 				(fullOrganization?.members ?? []).map((member) => [
 					member.userId,
 					member.user.image,
+				]),
+			),
+		[fullOrganization?.members],
+	);
+	const userLabelById = useMemo(
+		() =>
+			new Map(
+				(fullOrganization?.members ?? []).map((member) => [
+					member.userId,
+					member.user.name?.trim() ||
+						member.user.email?.trim() ||
+						member.userId,
 				]),
 			),
 		[fullOrganization?.members],
@@ -83,11 +143,27 @@ export function useDashboardPageData() {
 		endDate: state.endDate,
 		isPerformanceChartPending:
 			isUsersTokenUsagePending || isUsersDailyTrendPending,
+		isTokenChartPending:
+			isUsersTokenUsagePending ||
+			isUsersDailyTrendPending ||
+			isModelTokensTrendPending,
+		isSessionSnapshotPending: isSessionSummaryComparisonPending,
 		isRepositoryChartPending: isRepositoriesDailyTrendPending,
+		isErrorDashboardPending:
+			isErrorDashboardPending ||
+			isErrorProjectTrendPending ||
+			isErrorDeveloperTrendPending,
+		errorDashboard,
+		errorProjectTrend,
+		errorDeveloperTrend,
+		modelTokensTrend,
 		performanceUserDailyTrend: usersDailyTrend,
 		performanceUsers,
 		repositoryDailyTrend: repositoriesDailyTrend,
+		sessionSummaryComparison,
 		startDate: state.startDate,
 		snapshot,
+		userLabelById,
+		usersTokenUsage,
 	};
 }

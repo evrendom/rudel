@@ -1,48 +1,57 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useMemo } from "react";
 import { Bar, BarChart, XAxis, YAxis } from "recharts";
-import { useMountEffect } from "@/app/hooks/useMountEffect";
 import { type ChartConfig, ChartContainer, ChartTooltip } from "@/app/ui/chart";
 import { DashboardStackedTopRoundedBar } from "@/features/dashboard/components/DashboardStackedTopRoundedBar";
-import {
-	getSidebarShellDebugState,
-	SIDEBAR_NEWS_ACTIVE_ATTRIBUTE,
-} from "@/features/shell/config/sidebar-shell-debug";
+import { cn } from "@/lib/utils";
 
 const chartConfig = {
 	committed: {
-		label: "Committed sessions",
-		color: "#1949A9",
+		label: "Total tokens",
+		color: "#159C89",
 	},
 	uncommitted: {
-		label: "Uncommitted sessions",
-		color: "#C21674",
+		label: "Total tokens",
+		color: "#159C89",
+	},
+	stub: {
+		label: "No activity",
+		color: "#D7DBE2",
 	},
 } satisfies ChartConfig;
 
-const ZERO_BAR_STUB_VALUE = 0.75;
-
-export type DashboardPerformanceDatum = {
+export type DashboardTokenDeveloperDatum = {
 	axisLabel: string;
-	commits: number;
 	fullLabel: string;
 	id: string;
 	imageUrl?: string;
 	sessions: number;
+	totalTokens: number;
 };
 
-type DashboardPerformanceChartProps = {
+type DashboardTokenDeveloperChartProps = {
 	activeId?: string | null;
-	data: DashboardPerformanceDatum[];
+	data: DashboardTokenDeveloperDatum[];
 };
 
-type DashboardPerformanceChartRow = DashboardPerformanceDatum & {
+type DashboardTokenDeveloperChartRow = DashboardTokenDeveloperDatum & {
 	committed: number;
 	stub: number;
 	uncommitted: number;
 };
+
+function formatCompactNumber(value: number) {
+	if (value >= 1_000_000) {
+		return `${(value / 1_000_000).toFixed(1)}M`;
+	}
+
+	if (value >= 1_000) {
+		return `${(value / 1_000).toFixed(1)}K`;
+	}
+
+	return value.toLocaleString();
+}
 
 function getAvatarInitials(fullLabel: string) {
 	const fallbackToken = fullLabel.includes("@")
@@ -61,27 +70,27 @@ function getAvatarInitials(fullLabel: string) {
 	return `${parts[0]?.[0] ?? ""}${parts.at(-1)?.[0] ?? ""}`.toUpperCase();
 }
 
-function getAxisMax(data: DashboardPerformanceChartRow[]) {
-	const maxSessions = Math.max(...data.map((point) => point.sessions), 0);
+function getAxisMax(data: DashboardTokenDeveloperChartRow[]) {
+	const maxTokens = Math.max(...data.map((point) => point.totalTokens), 0);
 
-	if (maxSessions <= 0) {
-		return 15;
+	if (maxTokens <= 0) {
+		return 50_000;
 	}
 
-	if (maxSessions <= 30) {
-		return Math.ceil(maxSessions / 5) * 5;
+	if (maxTokens <= 250_000) {
+		return Math.ceil(maxTokens / 50_000) * 50_000;
 	}
 
-	if (maxSessions <= 90) {
-		return Math.ceil(maxSessions / 10) * 10;
+	if (maxTokens <= 1_000_000) {
+		return Math.ceil(maxTokens / 100_000) * 100_000;
 	}
 
-	return Math.ceil(maxSessions / 20) * 20;
+	return Math.ceil(maxTokens / 250_000) * 250_000;
 }
 
 function getAxisTicks(axisMax: number) {
 	const step =
-		axisMax <= 30 ? 5 : axisMax <= 90 ? 10 : axisMax <= 180 ? 20 : 40;
+		axisMax <= 250_000 ? 50_000 : axisMax <= 1_000_000 ? 100_000 : 250_000;
 	const ticks = Array.from(
 		{ length: Math.floor(axisMax / step) + 1 },
 		(_, index) => index * step,
@@ -126,41 +135,12 @@ function getLabelWidth(total: number) {
 	return 80;
 }
 
-function useSidebarNewsCardActive() {
-	const [isActive, setIsActive] = useState(false);
-
-	useMountEffect(() => {
-		const preview = document.querySelector(".dashboard-01-preview");
-		if (!(preview instanceof HTMLElement)) {
-			return;
-		}
-
-		const sync = () => {
-			setIsActive(
-				preview.getAttribute(SIDEBAR_NEWS_ACTIVE_ATTRIBUTE) === "true",
-			);
-		};
-
-		sync();
-
-		const observer = new MutationObserver(sync);
-		observer.observe(preview, {
-			attributes: true,
-			attributeFilter: [SIDEBAR_NEWS_ACTIVE_ATTRIBUTE],
-		});
-
-		return () => observer.disconnect();
-	});
-
-	return isActive;
-}
-
-function DashboardPerformanceTooltip({
+function DashboardTokenDeveloperTooltip({
 	active,
 	payload,
 }: {
 	active?: boolean;
-	payload?: Array<{ payload: DashboardPerformanceChartRow }>;
+	payload?: Array<{ payload: DashboardTokenDeveloperChartRow }>;
 }) {
 	if (!active || !payload?.length) {
 		return null;
@@ -177,21 +157,25 @@ function DashboardPerformanceTooltip({
 			<div className="font-medium text-foreground">{point.fullLabel}</div>
 			<div className="grid gap-1">
 				<div className="flex items-center justify-between gap-3">
+					<span className="text-muted-foreground">Tokens</span>
+					<span className="font-mono font-semibold tabular-nums text-foreground">
+						{formatCompactNumber(point.totalTokens)}
+					</span>
+				</div>
+				<div className="flex items-center justify-between gap-3">
 					<span className="text-muted-foreground">Sessions</span>
 					<span className="font-mono font-semibold tabular-nums text-foreground">
 						{point.sessions}
 					</span>
 				</div>
 				<div className="flex items-center justify-between gap-3">
-					<span className="text-muted-foreground">Committed sessions</span>
+					<span className="text-muted-foreground">Avg / session</span>
 					<span className="font-mono font-semibold tabular-nums text-foreground">
-						{point.committed}
-					</span>
-				</div>
-				<div className="flex items-center justify-between gap-3">
-					<span className="text-muted-foreground">Uncommitted sessions</span>
-					<span className="font-mono font-semibold tabular-nums text-foreground">
-						{point.uncommitted}
+						{point.sessions > 0
+							? formatCompactNumber(
+									Math.round(point.totalTokens / point.sessions),
+								)
+							: "—"}
 					</span>
 				</div>
 			</div>
@@ -199,7 +183,7 @@ function DashboardPerformanceTooltip({
 	);
 }
 
-function DashboardPerformanceAxisTick({
+function DashboardTokenDeveloperAxisTick({
 	activeId,
 	dataById,
 	labelWidth,
@@ -208,7 +192,7 @@ function DashboardPerformanceAxisTick({
 	y = 0,
 }: {
 	activeId?: string | null;
-	dataById: Map<string, DashboardPerformanceChartRow>;
+	dataById: Map<string, DashboardTokenDeveloperChartRow>;
 	labelWidth: number;
 	payload?: { value?: string | number };
 	x?: number | string;
@@ -269,24 +253,20 @@ function DashboardPerformanceAxisTick({
 	);
 }
 
-export function DashboardPerformanceChart({
+export function DashboardTokenDeveloperChart({
 	activeId,
+	className,
 	data,
-}: DashboardPerformanceChartProps) {
-	const [searchParams] = useSearchParams();
-	const debugState = getSidebarShellDebugState(searchParams);
-	const isSidebarNewsCardActive = useSidebarNewsCardActive();
-	const shouldDisableInteractiveLayers =
-		debugState.tuning.newsDisableChartInteractiveLayersWhileActive &&
-		isSidebarNewsCardActive;
-
-	const chartData = useMemo<DashboardPerformanceChartRow[]>(
+}: DashboardTokenDeveloperChartProps & {
+	className?: string;
+}) {
+	const chartData = useMemo<DashboardTokenDeveloperChartRow[]>(
 		() =>
 			data.map((entry) => ({
 				...entry,
-				committed: entry.commits,
-				stub: entry.sessions > 0 ? 0 : ZERO_BAR_STUB_VALUE,
-				uncommitted: Math.max(entry.sessions - entry.commits, 0),
+				committed: entry.totalTokens,
+				stub: 0,
+				uncommitted: 0,
 			})),
 		[data],
 	);
@@ -308,7 +288,7 @@ export function DashboardPerformanceChart({
 	);
 
 	return (
-		<div className="relative h-full w-full">
+		<div className={cn("relative h-full w-full", className)}>
 			<ChartContainer
 				config={chartConfig}
 				className="h-full w-full aspect-auto"
@@ -318,7 +298,7 @@ export function DashboardPerformanceChart({
 					data={chartData}
 					barCategoryGap={0}
 					barGap={0}
-					margin={{ top: 8, right: 8, bottom: 44, left: 18 }}
+					margin={{ top: 8, right: 8, bottom: 44, left: 42 }}
 				>
 					<XAxis
 						dataKey="id"
@@ -326,7 +306,7 @@ export function DashboardPerformanceChart({
 						height={44}
 						interval={0}
 						tick={(props) => (
-							<DashboardPerformanceAxisTick
+							<DashboardTokenDeveloperAxisTick
 								{...props}
 								activeId={resolvedActiveId}
 								dataById={dataById}
@@ -342,21 +322,20 @@ export function DashboardPerformanceChart({
 						tickLine={false}
 						tickMargin={12}
 						width={34}
+						tickFormatter={(value) => formatCompactNumber(Number(value))}
 						tick={{
 							fontSize: 13,
 							fontWeight: 800,
 							fill: "#9A9A9A",
 						}}
 					/>
-					{!shouldDisableInteractiveLayers ? (
-						<ChartTooltip
-							cursor={false}
-							content={<DashboardPerformanceTooltip />}
-						/>
-					) : null}
+					<ChartTooltip
+						cursor={false}
+						content={<DashboardTokenDeveloperTooltip />}
+					/>
 					<Bar
 						dataKey="committed"
-						stackId="sessions"
+						stackId="tokens"
 						barSize={barSize}
 						fill="var(--color-committed)"
 						shape={
@@ -368,7 +347,7 @@ export function DashboardPerformanceChart({
 					/>
 					<Bar
 						dataKey="uncommitted"
-						stackId="sessions"
+						stackId="tokens"
 						barSize={barSize}
 						fill="var(--color-uncommitted)"
 						shape={
@@ -380,9 +359,9 @@ export function DashboardPerformanceChart({
 					/>
 					<Bar
 						dataKey="stub"
-						stackId="sessions"
+						stackId="tokens"
 						barSize={barSize}
-						fill="var(--dashboardy-subtle)"
+						fill="var(--color-stub)"
 						shape={
 							<DashboardStackedTopRoundedBar
 								activeId={resolvedActiveId}

@@ -1,12 +1,15 @@
 "use client";
 
+import type { RepositoryDailyTrendData } from "@rudel/api-routes";
 import { format, parseISO } from "date-fns";
+import { useMemo } from "react";
 import { Bar, BarChart, Rectangle, XAxis, YAxis } from "recharts";
 import { type ChartConfig, ChartContainer, ChartTooltip } from "@/app/ui/chart";
+import { DASHBOARD_REPOSITORY_TREND_COLORS } from "@/features/dashboard/data/dashboard-repository-trend";
 import type { DashboardDailyPatternPoint } from "@/features/dashboard/data/dashboard-static-data";
 import { cn } from "@/lib/utils";
 
-const chartConfig = {
+const commitFlowChartConfig = {
 	committed: {
 		label: "Committed sessions",
 		color: "#1949A9",
@@ -17,13 +20,16 @@ const chartConfig = {
 	},
 } satisfies ChartConfig;
 
-const stackOrder = ["committed", "uncommitted"] as const;
+const commitFlowStackOrder = ["committed", "uncommitted"] as const;
 
-type SeriesKey = (typeof stackOrder)[number];
-
-type DailyChartPoint = DashboardDailyPatternPoint & {
-	committed: number;
-	uncommitted: number;
+type DailyPatternChartMode = "commit-flow" | "repository-stack";
+type ChartPointRecord = DashboardDailyPatternPoint &
+	Record<string, number | string | null>;
+type RepositoryStackSeries = {
+	color: string;
+	key: string;
+	label: string;
+	totalSessions: number;
 };
 
 function getAxisMax(data: DashboardDailyPatternPoint[]) {
@@ -32,7 +38,9 @@ function getAxisMax(data: DashboardDailyPatternPoint[]) {
 	return Math.max(15, Math.ceil(maxSessions / 15) * 15);
 }
 
-function buildChartData(data: DashboardDailyPatternPoint[]): DailyChartPoint[] {
+function buildCommitFlowChartData(
+	data: DashboardDailyPatternPoint[],
+): ChartPointRecord[] {
 	return data.map((point) => {
 		if (point.sessions == null || point.commits == null) {
 			return {
@@ -48,6 +56,68 @@ function buildChartData(data: DashboardDailyPatternPoint[]): DailyChartPoint[] {
 			uncommitted: Math.max(point.sessions - point.commits, 0),
 		};
 	});
+}
+
+function buildRepositoryStackData(
+	data: DashboardDailyPatternPoint[],
+	repositoryDailyTrend: RepositoryDailyTrendData[],
+) {
+	const repositoryTotals = new Map<string, number>();
+
+	for (const row of repositoryDailyTrend) {
+		repositoryTotals.set(
+			row.repository,
+			(repositoryTotals.get(row.repository) ?? 0) + row.sessions,
+		);
+	}
+
+	const repositorySeries = Array.from(repositoryTotals.entries())
+		.sort(
+			(left, right) => right[1] - left[1] || left[0].localeCompare(right[0]),
+		)
+		.map(([label, totalSessions], index) => ({
+			color:
+				DASHBOARD_REPOSITORY_TREND_COLORS[
+					index % DASHBOARD_REPOSITORY_TREND_COLORS.length
+				],
+			key: `repository-${index + 1}`,
+			label,
+			totalSessions,
+		})) satisfies RepositoryStackSeries[];
+
+	const sessionsByDate = new Map(
+		repositoryDailyTrend.map(
+			(row) => [`${row.repository}:${row.date}`, row.sessions] as const,
+		),
+	);
+
+	const chartData = data.map((point) => {
+		const nextPoint: ChartPointRecord = { ...point };
+
+		for (const series of repositorySeries) {
+			nextPoint[series.key] =
+				sessionsByDate.get(`${series.label}:${point.date}`) ?? 0;
+		}
+
+		return nextPoint;
+	});
+
+	const chartConfig = Object.fromEntries(
+		repositorySeries.map((series) => [
+			series.key,
+			{
+				label: series.label,
+				color: series.color,
+			},
+		]),
+	) satisfies ChartConfig;
+
+	return {
+		chartConfig,
+		chartData,
+		repositorySeries,
+		stackOrder: repositorySeries.map((series) => series.key),
+	};
 }
 
 function getTickLabel(
@@ -125,7 +195,13 @@ function DailySessionsTooltip({
 	payload,
 }: {
 	active?: boolean;
-	payload?: Array<{ payload: DailyChartPoint }>;
+	payload?: Array<{
+		color?: string;
+		dataKey?: string;
+		name?: string;
+		value?: number | string;
+		payload: ChartPointRecord;
+	}>;
 }) {
 	if (!active || !payload?.length) {
 		return null;
@@ -143,16 +219,20 @@ function DailySessionsTooltip({
 			<div className="flex items-center justify-between gap-3">
 				<span className="text-white/65">Sessions</span>
 				<span className="tabular-nums text-white">
-					{point.sessions == null ? "—" : point.sessions}
+					{point.sessions == null ? "-" : point.sessions}
 				</span>
 			</div>
 			<div className="flex items-center justify-between gap-3">
 				<span className="text-white/65">Committed</span>
-				<span className="tabular-nums text-white">{point.committed}</span>
+				<span className="tabular-nums text-white">
+					{point.commits == null ? "-" : point.commits}
+				</span>
 			</div>
 			<div className="flex items-center justify-between gap-3">
 				<span className="text-white/65">Uncommitted</span>
-				<span className="tabular-nums text-white">{point.uncommitted}</span>
+				<span className="tabular-nums text-white">
+					{Math.max((point.sessions ?? 0) - (point.commits ?? 0), 0)}
+				</span>
 			</div>
 		</div>
 	);
@@ -161,13 +241,14 @@ function DailySessionsTooltip({
 function DailyBarShape(props: {
 	activeDate?: string | null;
 	activeSource?: "chart" | "table" | null;
-	dataKey?: SeriesKey;
+	dataKey?: string;
 	fill?: string;
+	height?: number;
+	payload?: ChartPointRecord;
+	stackOrder: readonly string[];
+	width?: number;
 	x?: number;
 	y?: number;
-	width?: number;
-	height?: number;
-	payload?: DailyChartPoint;
 }) {
 	const { fill, x, y, width, height, payload, dataKey } = props;
 
@@ -183,10 +264,10 @@ function DailyBarShape(props: {
 		return null;
 	}
 
-	const keyIndex = stackOrder.indexOf(dataKey);
-	const isTopSegment = stackOrder
+	const keyIndex = props.stackOrder.indexOf(dataKey);
+	const isTopSegment = props.stackOrder
 		.slice(keyIndex + 1)
-		.every((key) => payload[key] === 0);
+		.every((key) => Number(payload[key] ?? 0) === 0);
 	const isHighlighted = props.activeDate === payload.date;
 	const hasExternalHighlight = props.activeDate != null;
 	const isTableHighlight = props.activeSource === "table";
@@ -198,7 +279,7 @@ function DailyBarShape(props: {
 				? 0.16
 				: 0.26
 			: 1;
-	const showStroke = isHighlighted && dataKey === "uncommitted";
+	const showStroke = isHighlighted && isTopSegment;
 
 	return (
 		<Rectangle
@@ -226,14 +307,39 @@ export function DashboardDailyPatternChart({
 	highlightedDate,
 	highlightSource,
 	onHighlightDateChange,
+	mode = "commit-flow",
+	repositoryDailyTrend,
 }: {
 	data: DashboardDailyPatternPoint[];
 	className?: string;
 	highlightedDate?: string | null;
 	highlightSource?: "chart" | "table" | null;
 	onHighlightDateChange?: (date: string | null) => void;
+	mode?: DailyPatternChartMode;
+	repositoryDailyTrend?: RepositoryDailyTrendData[] | undefined;
 }) {
-	const chartData = buildChartData(data);
+	const hasRepositoryStackData =
+		mode === "repository-stack" && (repositoryDailyTrend?.length ?? 0) > 0;
+	const repositoryStackData = useMemo(
+		() =>
+			hasRepositoryStackData
+				? buildRepositoryStackData(data, repositoryDailyTrend ?? [])
+				: null,
+		[data, hasRepositoryStackData, repositoryDailyTrend],
+	);
+	const commitFlowChartData = useMemo(
+		() => buildCommitFlowChartData(data),
+		[data],
+	);
+	const chartData = hasRepositoryStackData
+		? (repositoryStackData?.chartData ?? [])
+		: commitFlowChartData;
+	const chartConfig = hasRepositoryStackData
+		? (repositoryStackData?.chartConfig ?? {})
+		: commitFlowChartConfig;
+	const stackOrder = hasRepositoryStackData
+		? (repositoryStackData?.stackOrder ?? [])
+		: [...commitFlowStackOrder];
 	const axisMax = getAxisMax(data);
 	const axisTicks = Array.from(
 		{ length: Math.floor(axisMax / 15) + 1 },
@@ -241,6 +347,16 @@ export function DashboardDailyPatternChart({
 	);
 	const barSize = getBarSize(chartData.length);
 	const barCategoryGap = getBarCategoryGap(chartData.length);
+	const chartInteractionProps = onHighlightDateChange
+		? {
+				onMouseLeave: () => onHighlightDateChange(null),
+				onMouseMove: (state: { activeLabel?: unknown }) => {
+					onHighlightDateChange(
+						typeof state.activeLabel === "string" ? state.activeLabel : null,
+					);
+				},
+			}
+		: undefined;
 
 	return (
 		<div className={cn("flex min-w-0 flex-1 pt-0 md:pt-4", className)}>
@@ -253,13 +369,7 @@ export function DashboardDailyPatternChart({
 					data={chartData}
 					barCategoryGap={barCategoryGap}
 					margin={{ top: 2, right: 18, bottom: 10, left: 0 }}
-					onMouseLeave={() => onHighlightDateChange?.(null)}
-					onMouseMove={(state) => {
-						const dateValue = state?.activePayload?.[0]?.payload?.date;
-						onHighlightDateChange?.(
-							typeof dateValue === "string" ? dateValue : null,
-						);
-					}}
+					{...chartInteractionProps}
 				>
 					<XAxis
 						dataKey="date"
@@ -307,34 +417,44 @@ export function DashboardDailyPatternChart({
 						}}
 					/>
 					<ChartTooltip cursor={false} content={<DailySessionsTooltip />} />
-					<Bar
-						dataKey="committed"
-						stackId="sessions"
-						barSize={barSize}
-						fill="var(--color-committed)"
-						isAnimationActive={false}
-						shape={
-							<DailyBarShape
-								dataKey="committed"
-								activeDate={highlightedDate}
-								activeSource={highlightSource}
-							/>
-						}
-					/>
-					<Bar
-						dataKey="uncommitted"
-						stackId="sessions"
-						barSize={barSize}
-						fill="var(--color-uncommitted)"
-						isAnimationActive={false}
-						shape={
-							<DailyBarShape
-								dataKey="uncommitted"
-								activeDate={highlightedDate}
-								activeSource={highlightSource}
-							/>
-						}
-					/>
+					{hasRepositoryStackData
+						? (repositoryStackData?.repositorySeries ?? []).map((series) => (
+								<Bar
+									key={series.key}
+									dataKey={series.key}
+									name={series.label}
+									stackId="sessions"
+									barSize={barSize}
+									fill={series.color}
+									isAnimationActive={false}
+									shape={
+										<DailyBarShape
+											dataKey={series.key}
+											activeDate={highlightedDate}
+											activeSource={highlightSource}
+											stackOrder={stackOrder}
+										/>
+									}
+								/>
+							))
+						: commitFlowStackOrder.map((seriesKey) => (
+								<Bar
+									key={seriesKey}
+									dataKey={seriesKey}
+									stackId="sessions"
+									barSize={barSize}
+									fill={`var(--color-${seriesKey})`}
+									isAnimationActive={false}
+									shape={
+										<DailyBarShape
+											dataKey={seriesKey}
+											activeDate={highlightedDate}
+											activeSource={highlightSource}
+											stackOrder={stackOrder}
+										/>
+									}
+								/>
+							))}
 				</BarChart>
 			</ChartContainer>
 		</div>

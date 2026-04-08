@@ -78,9 +78,6 @@ export function DashboardRepositoryPanel({
 	const [hiddenTrendSeriesIds, setHiddenTrendSeriesIds] = useState<string[]>(
 		[],
 	);
-	const [highlightedTrendDate, setHighlightedTrendDate] = useState<
-		string | null
-	>(null);
 	const [highlightedRepositoryId, setHighlightedRepositoryId] = useState<
 		string | null
 	>(null);
@@ -182,7 +179,6 @@ export function DashboardRepositoryPanel({
 											hiddenRows={hiddenChartRows}
 											hiddenSeriesIds={hiddenTrendSeriesIds}
 											metric={trendMetric}
-											onHighlightDateChange={setHighlightedTrendDate}
 											onMetricChange={setTrendMetric}
 											onToggleSeries={handleToggleTrendSeries}
 											trendData={repositoryDailyTrend}
@@ -212,9 +208,7 @@ export function DashboardRepositoryPanel({
 			</div>
 			<div className="border-t border-[color:var(--dashboardy-divider)] pt-8">
 				<DashboardRepositoryTable
-					highlightedDate={
-						chartView === "over-time" ? highlightedTrendDate : null
-					}
+					highlightedDate={null}
 					onHighlightRepositoryChange={setHighlightedRepositoryId}
 					rows={repositoryRows}
 					trendData={repositoryDailyTrend}

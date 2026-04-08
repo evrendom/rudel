@@ -16,6 +16,13 @@ const currencyFormatter = new Intl.NumberFormat("en-US", {
 	maximumFractionDigits: 2,
 });
 
+const wholeCurrencyFormatter = new Intl.NumberFormat("en-US", {
+	style: "currency",
+	currency: "USD",
+	minimumFractionDigits: 0,
+	maximumFractionDigits: 0,
+});
+
 const fineCurrencyFormatter = new Intl.NumberFormat("en-US", {
 	style: "currency",
 	currency: "USD",
@@ -29,6 +36,14 @@ const compactCurrencyFormatter = new Intl.NumberFormat("en-US", {
 	notation: "compact",
 	minimumFractionDigits: 0,
 	maximumFractionDigits: 1,
+});
+
+const compactWholeCurrencyFormatter = new Intl.NumberFormat("en-US", {
+	style: "currency",
+	currency: "USD",
+	notation: "compact",
+	minimumFractionDigits: 0,
+	maximumFractionDigits: 0,
 });
 
 const minuteFormatter = new Intl.NumberFormat(undefined, {
@@ -88,6 +103,18 @@ export function formatCompactCurrency(value: number) {
 	}
 
 	return compactCurrencyFormatter.format(value);
+}
+
+export function formatWholeCurrency(value: number) {
+	return wholeCurrencyFormatter.format(value);
+}
+
+export function formatCompactWholeCurrency(value: number) {
+	if (Math.abs(value) < 1_000) {
+		return formatWholeCurrency(value);
+	}
+
+	return compactWholeCurrencyFormatter.format(value);
 }
 
 export function formatMinutes(value: number) {

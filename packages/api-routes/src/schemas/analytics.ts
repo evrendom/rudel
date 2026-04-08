@@ -414,6 +414,8 @@ export const SessionHourlyActivityDataPointSchema = z.object({
 });
 
 export const SessionListInputSchema = DaysInputSchema.extend({
+	startDate: z.string().date().optional(),
+	endDate: z.string().date().optional(),
 	userId: z.string().max(MAX_ID_FILTER_LENGTH).optional(),
 	projectPath: z.string().max(MAX_PATH_FILTER_LENGTH).optional(),
 	repository: z.string().max(MAX_PATH_FILTER_LENGTH).optional(),

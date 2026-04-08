@@ -7,6 +7,7 @@ export type DashboardPerformanceUserComparison = {
 	modelsUsed: string[];
 	repositoriesTouched: string[];
 	sessions: number;
+	totalTokens: number;
 	userId: string;
 };
 
@@ -107,6 +108,7 @@ export function buildDashboardPerformanceUsers(
 			modelsUsed: user.modelsUsed,
 			repositoriesTouched: user.repositoriesTouched,
 			sessions: user.totalSessions,
+			totalTokens: user.totalTokens,
 			userId: user.userId,
 		}));
 }

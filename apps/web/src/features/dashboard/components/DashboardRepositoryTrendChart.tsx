@@ -164,7 +164,7 @@ export function DashboardRepositoryTrendChart({
 	hiddenRows: DashboardRepositorySummaryRow[];
 	hiddenSeriesIds: string[];
 	metric: DashboardRepositoryTrendMetric;
-	onHighlightDateChange: (date: string | null) => void;
+	onHighlightDateChange?: (date: string | null) => void;
 	onMetricChange: (metric: DashboardRepositoryTrendMetric) => void;
 	onToggleSeries: (repositoryId: string) => void;
 	trendData: RepositoryDailyTrendData[] | undefined;
@@ -362,9 +362,9 @@ export function DashboardRepositoryTrendChart({
 						<LineChart
 							data={chartData}
 							margin={{ top: 12, right: 12, bottom: 8, left: 0 }}
-							onMouseLeave={() => onHighlightDateChange(null)}
+							onMouseLeave={() => onHighlightDateChange?.(null)}
 							onMouseMove={(state: { activeLabel?: unknown }) => {
-								onHighlightDateChange(
+								onHighlightDateChange?.(
 									typeof state.activeLabel === "string"
 										? state.activeLabel
 										: null,

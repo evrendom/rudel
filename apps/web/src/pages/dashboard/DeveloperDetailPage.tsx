@@ -46,6 +46,7 @@ import {
 } from "@/lib/analytics";
 import { formatUsername } from "@/lib/format";
 import { orpc } from "@/lib/orpc";
+import { getSessionDetailPath } from "@/lib/session-paths";
 
 function resolveProjectName(row: {
 	git_remote?: string;
@@ -641,7 +642,7 @@ export function DeveloperDetailPage() {
 					getRowAnalyticsValue={(row) => row.session_id}
 					onRowClick={
 						userId && canViewSession(userId)
-							? (row) => navigate(`/dashboard/sessions/${row.session_id}`)
+							? (row) => navigate(getSessionDetailPath(row.session_id))
 							: undefined
 					}
 				/>
