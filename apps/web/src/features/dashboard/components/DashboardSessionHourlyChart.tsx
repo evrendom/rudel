@@ -158,6 +158,7 @@ export function DashboardSessionHourlyChart({
 										}}
 									/>
 									<YAxis
+										allowDecimals={false}
 										orientation="right"
 										domain={[0, axisMax]}
 										ticks={axisTicks}

@@ -397,6 +397,7 @@ export function DashboardDailyPatternChart({
 					/>
 					<YAxis
 						orientation="right"
+						allowDecimals={false}
 						domain={[0, axisMax]}
 						ticks={axisTicks}
 						axisLine={{

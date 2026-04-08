@@ -588,6 +588,7 @@ export function ROIPage() {
 											}
 										/>
 										<YAxis
+											allowDecimals={false}
 											stroke={chartTheme.axisStroke}
 											fontSize={12}
 											tickFormatter={(value) => `$${value}`}
@@ -658,7 +659,11 @@ export function ROIPage() {
 												})
 											}
 										/>
-										<YAxis stroke={chartTheme.axisStroke} fontSize={12} />
+										<YAxis
+											allowDecimals={false}
+											stroke={chartTheme.axisStroke}
+											fontSize={12}
+										/>
 										<RechartsTooltip
 											contentStyle={{
 												backgroundColor: chartTheme.tooltipBg,

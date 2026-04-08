@@ -16,6 +16,7 @@ import {
 import { InfoTooltip } from "@/components/ui/InfoTooltip";
 import { useChartTheme } from "@/hooks/useChartTheme";
 import { useAnalyticsTracking } from "@/hooks/useDashboardAnalytics";
+import { formatCompactWholeNumber } from "@/lib/format";
 import { ChartLegend } from "./ChartLegend";
 import { ChartTooltip } from "./ChartTooltip";
 
@@ -34,12 +35,14 @@ const METRICS = {
 		label: "Sessions",
 		icon: Activity,
 		formatter: (value: number) => value.toLocaleString(),
+		axisFormatter: (value: number) => value.toLocaleString(),
 	},
 	hours: {
 		key: "total_hours",
 		label: "Hours",
 		icon: Clock,
 		formatter: (value: number) => `${value.toFixed(1)}h`,
+		axisFormatter: (value: number) => `${value.toFixed(0)}h`,
 	},
 	tokens: {
 		key: "total_tokens",
@@ -50,12 +53,14 @@ const METRICS = {
 			if (value >= 1_000) return `${(value / 1_000).toFixed(1)}K`;
 			return value.toFixed(0);
 		},
+		axisFormatter: (value: number) => formatCompactWholeNumber(value),
 	},
 	success_rate: {
 		key: "avg_success_rate",
 		label: "Success Rate",
 		icon: TrendingUp,
 		formatter: (value: number) => `${value.toFixed(0)}%`,
+		axisFormatter: (value: number) => `${value.toFixed(0)}%`,
 		tooltip:
 			"Average session quality score (0–100): rewards git commits, high output ratio, and skill usage; deducts for errors and abandoned sessions.",
 	},
@@ -267,7 +272,8 @@ export function ProjectTrendChart({ data }: ProjectTrendChartProps) {
 						<YAxis
 							stroke={axisStroke}
 							style={{ fontSize: "12px" }}
-							tickFormatter={currentMetric.formatter}
+							allowDecimals={false}
+							tickFormatter={currentMetric.axisFormatter}
 							domain={[0, 100]}
 						/>
 						<Tooltip
@@ -326,7 +332,8 @@ export function ProjectTrendChart({ data }: ProjectTrendChartProps) {
 						<YAxis
 							stroke={axisStroke}
 							style={{ fontSize: "12px" }}
-							tickFormatter={currentMetric.formatter}
+							allowDecimals={false}
+							tickFormatter={currentMetric.axisFormatter}
 						/>
 						<Tooltip
 							content={(props) => (

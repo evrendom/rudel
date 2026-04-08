@@ -304,6 +304,7 @@ export function DashboardPerformanceChart({
 						tickLine={false}
 					/>
 					<YAxis
+						allowDecimals={false}
 						domain={[0, axisMax]}
 						ticks={axisTicks}
 						axisLine={false}

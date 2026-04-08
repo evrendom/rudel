@@ -1,6 +1,11 @@
 import { format, parseISO } from "date-fns";
+import { DashboardCellStack } from "@/features/dashboard/components/DashboardGridTable";
 import type { DashboardTokenDailyPoint } from "@/features/dashboard/data/dashboard-tab-adapters";
-import { formatCompactNumber } from "@/lib/format";
+import {
+	calculateCost,
+	formatCompactNumber,
+	formatCurrency,
+} from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 type DashboardTokenDailyOverviewRow = {
@@ -8,68 +13,23 @@ type DashboardTokenDailyOverviewRow = {
 	dateLabel: string;
 	dayLabel: string;
 	id: string;
-	mixLabel: string;
-	mixTone: "balanced" | "input-heavy" | "muted" | "output-heavy";
+	inputTokens: number;
+	outputTokens: number;
 	sessions: number;
 	totalTokens: number;
 };
 
 const MAX_DAILY_ROWS = 10;
 
-function getMixStatus(point: DashboardTokenDailyPoint) {
+function formatTokenMix(point: DashboardTokenDailyOverviewRow) {
 	if (point.totalTokens <= 0) {
-		return {
-			label: "No activity",
-			tone: "muted" as const,
-		};
+		return "—";
 	}
 
-	const inputShare = point.inputTokens / point.totalTokens;
-
-	if (inputShare >= 0.6) {
-		return {
-			label: `${Math.round(inputShare * 100)}% input`,
-			tone: "input-heavy" as const,
-		};
-	}
-
-	if (inputShare <= 0.4) {
-		return {
-			label: `${Math.round((1 - inputShare) * 100)}% output`,
-			tone: "output-heavy" as const,
-		};
-	}
-
-	return {
-		label: "Balanced mix",
-		tone: "balanced" as const,
-	};
-}
-
-function getToneClasses(tone: DashboardTokenDailyOverviewRow["mixTone"]) {
-	switch (tone) {
-		case "input-heavy":
-			return {
-				dotClassName: "bg-[color:var(--dashboardy-info-foreground,#1949A9)]",
-				textClassName: "text-[color:var(--dashboardy-info-foreground,#1949A9)]",
-			};
-		case "output-heavy":
-			return {
-				dotClassName: "bg-[color:var(--dashboardy-danger-foreground,#C21674)]",
-				textClassName:
-					"text-[color:var(--dashboardy-danger-foreground,#C21674)]",
-			};
-		case "balanced":
-			return {
-				dotClassName: "bg-[color:var(--dashboardy-success-foreground)]",
-				textClassName: "text-[color:var(--dashboardy-success-foreground)]",
-			};
-		case "muted":
-			return {
-				dotClassName: "bg-[color:var(--dashboardy-subtle)]",
-				textClassName: "text-[color:var(--dashboardy-muted)]",
-			};
-	}
+	const inputPercent = Math.round(
+		(point.inputTokens / point.totalTokens) * 100,
+	);
+	return `${inputPercent} IN / ${100 - inputPercent} OUT`;
 }
 
 function buildTokenRows(
@@ -86,15 +46,14 @@ function buildTokenRows(
 			const safeDayLabel = Number.isNaN(parsedDate.getTime())
 				? point.axisLabel
 				: format(parsedDate, "EEEE");
-			const mixStatus = getMixStatus(point);
 
 			return {
 				avgTokensPerSession: point.avgTokensPerSession,
 				dateLabel: safeDateLabel,
 				dayLabel: safeDayLabel,
 				id: point.date,
-				mixLabel: mixStatus.label,
-				mixTone: mixStatus.tone,
+				inputTokens: point.inputTokens,
+				outputTokens: point.outputTokens,
 				sessions: point.sessions,
 				totalTokens: point.totalTokens,
 			};
@@ -120,27 +79,25 @@ export function DashboardTokenDailyOverviewTable({
 
 	return (
 		<div className="overflow-x-auto">
-			<div className="min-w-[54rem]">
-				<div className="grid grid-cols-[minmax(180px,1.2fr)_90px_130px_130px_minmax(160px,1fr)] gap-6 px-3.5 text-[13px] font-semibold text-[color:var(--dashboardy-muted)]">
+			<div className="min-w-[60rem]">
+				<div className="grid grid-cols-[minmax(180px,1.2fr)_90px_minmax(180px,1.05fr)_130px_120px] gap-6 px-3.5 text-[13px] font-semibold text-[color:var(--dashboardy-muted)]">
 					<p>Day</p>
 					<p>Sessions</p>
-					<p>Total</p>
+					<p>Tokens</p>
 					<p>Avg / session</p>
-					<p>Mix</p>
+					<p>Cost</p>
 				</div>
 				<div className="grid gap-0">
 					{rows.map((row) => {
-						const tone = getToneClasses(row.mixTone);
 						const isHighlighted = highlightedDate === row.id;
-						const totalLabel =
-							row.totalTokens > 0 ? row.totalTokens.toLocaleString() : "0";
+						const cost = calculateCost(row.inputTokens, row.outputTokens);
 
 						return (
 							<button
 								key={row.id}
 								type="button"
 								className={cn(
-									"grid min-h-12 w-full grid-cols-[minmax(180px,1.2fr)_90px_130px_130px_minmax(160px,1fr)] items-center gap-6 rounded-lg px-3.5 py-2 text-left text-sm transition-colors duration-300 [transition-timing-function:cubic-bezier(0.23,1,0.32,1)]",
+									"grid min-h-12 w-full grid-cols-[minmax(180px,1.2fr)_90px_minmax(180px,1.05fr)_130px_120px] items-center gap-6 rounded-lg px-3.5 py-2 text-left text-sm transition-colors duration-300 [transition-timing-function:cubic-bezier(0.23,1,0.32,1)]",
 									!hasTableHighlight &&
 										"odd:bg-[color:var(--dashboardy-subsurface-strong)]",
 									hasTableHighlight &&
@@ -168,25 +125,20 @@ export function DashboardTokenDailyOverviewTable({
 								<p className="font-medium tabular-nums text-[color:var(--dashboardy-heading)]">
 									{row.sessions}
 								</p>
-								<p
-									className="font-medium tabular-nums text-[color:var(--dashboardy-heading)]"
-									title={totalLabel}
-								>
-									{formatCompactNumber(row.totalTokens)}
-								</p>
+								<DashboardCellStack
+									primary={formatCompactNumber(row.totalTokens)}
+									secondary={formatTokenMix(row)}
+									primaryClassName="font-medium tabular-nums"
+									secondaryClassName="font-medium tabular-nums uppercase tracking-[0.02em]"
+								/>
 								<p className="font-medium tabular-nums text-[color:var(--dashboardy-heading)]">
 									{row.avgTokensPerSession == null
 										? "—"
 										: formatCompactNumber(row.avgTokensPerSession)}
 								</p>
-								<div className="flex items-center gap-2">
-									<span
-										className={`size-2 rounded-full ${tone.dotClassName}`}
-									/>
-									<p className={`truncate font-semibold ${tone.textClassName}`}>
-										{row.mixLabel}
-									</p>
-								</div>
+								<p className="font-medium tabular-nums text-[color:var(--dashboardy-heading)]">
+									{formatCurrency(cost)}
+								</p>
 							</button>
 						);
 					})}

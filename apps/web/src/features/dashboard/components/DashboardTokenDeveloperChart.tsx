@@ -8,6 +8,7 @@ import {
 	getDashboardBarLabelWidth,
 	getDashboardBarSize,
 } from "@/features/dashboard/components/dashboard-bar-chart-layout";
+import { formatCompactWholeNumber } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 const chartConfig = {
@@ -284,13 +285,14 @@ export function DashboardTokenDeveloperChart({
 						tickLine={false}
 					/>
 					<YAxis
+						allowDecimals={false}
 						domain={[0, axisMax]}
 						ticks={axisTicks}
 						axisLine={false}
 						tickLine={false}
 						tickMargin={12}
 						width={34}
-						tickFormatter={(value) => formatCompactNumber(Number(value))}
+						tickFormatter={(value) => formatCompactWholeNumber(Number(value))}
 						tick={{
 							fontSize: 13,
 							fontWeight: 800,

@@ -645,6 +645,8 @@ export const ErrorTrendDataPointSchema = z.object({
 	dimension: z.string(),
 	avg_errors_per_interaction: z.number(),
 	avg_errors_per_session: z.number(),
+	error_types: z.array(z.string()),
+	error_type_occurrences: z.array(z.number()),
 	total_errors: z.number(),
 });
 

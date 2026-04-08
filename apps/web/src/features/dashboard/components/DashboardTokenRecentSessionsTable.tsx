@@ -8,7 +8,9 @@ import {
 import { DashboardModelBadges } from "@/features/dashboard/components/DashboardModelBadges";
 import { useUserMap } from "@/hooks/useUserMap";
 import {
+	calculateCost,
 	formatCompactNumber,
+	formatCurrency,
 	formatMinutes,
 	formatUsername,
 } from "@/lib/format";
@@ -54,6 +56,19 @@ function getModelList(session: SessionAnalytics) {
 	return session.model_used ? [session.model_used] : [];
 }
 
+function formatTokenMix(session: SessionAnalytics) {
+	if (session.total_tokens <= 0) {
+		return "—";
+	}
+
+	const inputShare = Math.round(
+		(session.input_tokens / session.total_tokens) * 100,
+	);
+	const outputShare = Math.max(100 - inputShare, 0);
+
+	return `${inputShare} IN / ${outputShare} OUT`;
+}
+
 function DashboardTokenRecentSessionsTableSkeleton() {
 	return (
 		<div className="grid gap-3">
@@ -64,25 +79,27 @@ function DashboardTokenRecentSessionsTableSkeleton() {
 				<Skeleton className="h-4 w-28 rounded-full" />
 			</div>
 			<div className="overflow-x-auto">
-				<div className="flex min-w-[68rem] flex-col gap-1">
-					<div className="grid grid-cols-[120px_minmax(180px,11fr)_minmax(180px,9fr)_minmax(180px,9fr)_120px_120px] gap-6 px-3.5 text-[13px] font-semibold text-[color:var(--dashboardy-muted)]">
+				<div className="flex min-w-[78rem] flex-col gap-1">
+					<div className="grid grid-cols-[120px_minmax(180px,11fr)_minmax(180px,9fr)_minmax(180px,9fr)_140px_120px_120px] gap-6 px-3.5 text-[13px] font-semibold text-[color:var(--dashboardy-muted)]">
 						<p>Time</p>
 						<p>Developer</p>
 						<p>Repository</p>
 						<p>Model</p>
 						<p>Tokens</p>
+						<p>Cost</p>
 						<p>Duration</p>
 					</div>
 					<div className="grid gap-0">
 						{SKELETON_ROW_IDS.slice(0, SKELETON_ROWS).map((rowId) => (
 							<div
 								key={rowId}
-								className="grid min-h-12 grid-cols-[120px_minmax(180px,11fr)_minmax(180px,9fr)_minmax(180px,9fr)_120px_120px] items-center gap-6 rounded-lg px-3.5 py-2 odd:bg-[color:var(--dashboardy-subsurface-strong)]"
+								className="grid min-h-12 grid-cols-[120px_minmax(180px,11fr)_minmax(180px,9fr)_minmax(180px,9fr)_140px_120px_120px] items-center gap-6 rounded-lg px-3.5 py-2 odd:bg-[color:var(--dashboardy-subsurface-strong)]"
 							>
 								<Skeleton className="h-4 w-16 rounded-full" />
 								<Skeleton className="h-4 w-28 rounded-full" />
 								<Skeleton className="h-4 w-24 rounded-full" />
 								<Skeleton className="h-6 w-24 rounded-full" />
+								<Skeleton className="h-4 w-16 rounded-full" />
 								<Skeleton className="h-4 w-16 rounded-full" />
 								<Skeleton className="h-4 w-16 rounded-full" />
 							</div>
@@ -195,11 +212,22 @@ export function DashboardTokenRecentSessionsTable({
 						id: "tokens",
 						header: "Tokens",
 						renderCell: (session) => (
-							<p
-								className="font-medium tabular-nums text-[color:var(--dashboardy-heading)]"
-								title={`${session.input_tokens.toLocaleString()} input · ${session.output_tokens.toLocaleString()} output`}
-							>
-								{formatCompactNumber(session.total_tokens)}
+							<DashboardCellStack
+								primary={formatCompactNumber(session.total_tokens)}
+								secondary={formatTokenMix(session)}
+								primaryClassName="font-medium tabular-nums"
+								secondaryClassName="font-medium tabular-nums uppercase tracking-[0.02em]"
+							/>
+						),
+					},
+					{
+						id: "cost",
+						header: "Cost",
+						renderCell: (session) => (
+							<p className="font-medium tabular-nums text-[color:var(--dashboardy-heading)]">
+								{formatCurrency(
+									calculateCost(session.input_tokens, session.output_tokens),
+								)}
 							</p>
 						),
 					},
@@ -215,8 +243,8 @@ export function DashboardTokenRecentSessionsTable({
 				]}
 				rows={recentSessions}
 				rowKey={(session) => session.session_id}
-				gridTemplateColumns="120px minmax(180px,11fr) minmax(180px,9fr) minmax(180px,9fr) 120px 120px"
-				minWidthClassName="min-w-[68rem]"
+				gridTemplateColumns="120px minmax(180px,11fr) minmax(180px,9fr) minmax(180px,9fr) 140px 120px 120px"
+				minWidthClassName="min-w-[78rem]"
 				footer={
 					hiddenSessionCount > 0 ? (
 						<DashboardTableFooterNote>

@@ -4,6 +4,7 @@ import { format, parseISO } from "date-fns";
 import { Bar, BarChart, Rectangle, XAxis, YAxis } from "recharts";
 import { type ChartConfig, ChartContainer, ChartTooltip } from "@/app/ui/chart";
 import type { DashboardTokenDailyPoint } from "@/features/dashboard/data/dashboard-tab-adapters";
+import { formatCompactWholeNumber } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 const chartConfig = {
@@ -280,6 +281,7 @@ export function DashboardTokenPatternChart({
 					/>
 					<YAxis
 						orientation="right"
+						allowDecimals={false}
 						domain={[0, axisMax]}
 						ticks={axisTicks}
 						axisLine={{
@@ -292,7 +294,7 @@ export function DashboardTokenPatternChart({
 						}}
 						tickMargin={4}
 						width={48}
-						tickFormatter={formatCompactNumber}
+						tickFormatter={formatCompactWholeNumber}
 						tick={{
 							fontSize: 12,
 							fontWeight: 500,

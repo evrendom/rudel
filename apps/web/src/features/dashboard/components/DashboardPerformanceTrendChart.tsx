@@ -18,6 +18,7 @@ import {
 	type DashboardPerformanceTrendSeries,
 	getDashboardPerformanceTrendValue,
 } from "@/features/dashboard/data/dashboard-performance-trend";
+import { formatCompactWholeNumber } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 type TrendChartRow = {
@@ -40,6 +41,17 @@ function formatMetricValue(
 	}
 
 	return value.toLocaleString();
+}
+
+function formatMetricAxisValue(
+	metric: DashboardPerformanceTrendMetric,
+	value: number,
+) {
+	if (metric === "tokens") {
+		return formatCompactWholeNumber(value);
+	}
+
+	return Math.round(value).toLocaleString();
 }
 
 function getTickLabel(dateValue: string, index: number, total: number) {
@@ -402,7 +414,7 @@ export function DashboardPerformanceTrendChart({
 								axisLine={false}
 								domain={[0, axisMax]}
 								tickFormatter={(value) =>
-									formatMetricValue(metric, Number(value))
+									formatMetricAxisValue(metric, Number(value))
 								}
 								tickLine={false}
 								tickMargin={8}

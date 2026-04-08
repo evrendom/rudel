@@ -16,6 +16,12 @@ import {
 import { type ChartConfig, ChartContainer, ChartTooltip } from "@/app/ui/chart";
 import { Popover, PopoverContent, PopoverTrigger } from "@/app/ui/popover";
 import { ToggleGroup, ToggleGroupItem } from "@/app/ui/toggle-group";
+import { DashboardAnalysisPanel } from "@/features/dashboard/components/DashboardAnalysisPanel";
+import {
+	DashboardCellStack,
+	DashboardGridTable,
+	DashboardInlineOverflowList,
+} from "@/features/dashboard/components/DashboardGridTable";
 import { DashboardInteractiveTopChartSection } from "@/features/dashboard/components/DashboardTopChartSection";
 import type { DashboardHeadlineMetric } from "@/features/dashboard/data/dashboard-static-data";
 import { cn } from "@/lib/utils";
@@ -32,6 +38,7 @@ type ErrorDailyPoint = {
 	avgErrorsPerSession: number | null;
 	axisLabel: string;
 	date: string;
+	errorTypes: string[];
 	fullLabel: string;
 	totalErrors: number | null;
 };
@@ -183,7 +190,7 @@ function formatMetricAxisTick(metric: ErrorMetric, value: number | string) {
 		return numericValue.toLocaleString();
 	}
 
-	return numericValue >= 10 ? numericValue.toFixed(1) : numericValue.toFixed(2);
+	return Math.round(numericValue).toLocaleString();
 }
 
 function getTrendTickLabel(dateValue: string, index: number, total: number) {
@@ -205,59 +212,6 @@ function getTrendTickLabel(dateValue: string, index: number, total: number) {
 	}
 
 	return format(parsedDate, "MMM d");
-}
-
-function getErrorMetricTone(value: number | null) {
-	if (value == null || value <= 0) {
-		return {
-			label: "Quiet",
-			tone: "muted" as const,
-		};
-	}
-
-	if (value >= 10) {
-		return {
-			label: "Critical",
-			tone: "danger" as const,
-		};
-	}
-
-	if (value >= 4) {
-		return {
-			label: "Elevated",
-			tone: "warning" as const,
-		};
-	}
-
-	return {
-		label: "Contained",
-		tone: "success" as const,
-	};
-}
-
-function getToneClasses(tone: "danger" | "muted" | "success" | "warning") {
-	switch (tone) {
-		case "success":
-			return {
-				dotClassName: "bg-[color:var(--dashboardy-success-foreground)]",
-				textClassName: "text-[color:var(--dashboardy-success-foreground)]",
-			};
-		case "warning":
-			return {
-				dotClassName: "bg-[color:var(--dashboardy-warning-foreground)]",
-				textClassName: "text-[color:var(--dashboardy-warning-foreground)]",
-			};
-		case "danger":
-			return {
-				dotClassName: "bg-[color:var(--dashboardy-danger-foreground)]",
-				textClassName: "text-[color:var(--dashboardy-danger-foreground)]",
-			};
-		case "muted":
-			return {
-				dotClassName: "bg-[color:var(--dashboardy-subtle)]",
-				textClassName: "text-[color:var(--dashboardy-muted)]",
-			};
-	}
 }
 
 function buildErrorHeadlineMetrics(
@@ -317,12 +271,14 @@ function buildErrorDailyPoints(
 			sessionEstimate: number;
 			totalErrors: number;
 			interactionEstimate: number;
+			errorTypeCounts: Map<string, number>;
 		}
 	>();
 
 	for (const row of rows ?? []) {
 		const current = aggregateByDate.get(row.date) ?? {
 			activeDimensions: 0,
+			errorTypeCounts: new Map<string, number>(),
 			sessionEstimate: 0,
 			totalErrors: 0,
 			interactionEstimate: 0,
@@ -337,6 +293,14 @@ function buildErrorDailyPoints(
 			row.total_errors,
 			row.avg_errors_per_interaction,
 		);
+		for (const [index, errorType] of row.error_types.entries()) {
+			const occurrences = row.error_type_occurrences[index] ?? 0;
+
+			current.errorTypeCounts.set(
+				errorType,
+				(current.errorTypeCounts.get(errorType) ?? 0) + occurrences,
+			);
+		}
 		aggregateByDate.set(row.date, current);
 	}
 
@@ -351,10 +315,17 @@ function buildErrorDailyPoints(
 				avgErrorsPerSession: null,
 				axisLabel: format(date, "EEE"),
 				date: isoDate,
+				errorTypes: [],
 				fullLabel: format(date, "EEEE, MMM d"),
 				totalErrors: null,
 			};
 		}
+
+		const errorTypes = Array.from(aggregate.errorTypeCounts.entries())
+			.sort(
+				(left, right) => right[1] - left[1] || left[0].localeCompare(right[0]),
+			)
+			.map(([errorPattern]) => errorPattern);
 
 		return {
 			activeDimensions: aggregate.activeDimensions,
@@ -374,6 +345,7 @@ function buildErrorDailyPoints(
 					: null,
 			axisLabel: format(date, "EEE"),
 			date: isoDate,
+			errorTypes,
 			fullLabel: format(date, "EEEE, MMM d"),
 			totalErrors: aggregate.totalErrors,
 		};
@@ -930,85 +902,104 @@ function DashboardErrorDailyTable({
 }) {
 	const hasTableHighlight =
 		highlightSource === "table" && highlightedDate != null;
+	const reversedRows = useMemo(() => rows.slice().reverse(), [rows]);
 
 	return (
-		<div className="overflow-x-auto">
-			<div className="min-w-[54rem]">
-				<div className="grid grid-cols-[minmax(180px,1.2fr)_100px_120px_120px_minmax(160px,1fr)] gap-6 px-3.5 text-[13px] font-semibold text-[color:var(--dashboardy-muted)]">
-					<p>Day</p>
-					<p>Errors</p>
-					<p>Avg / session</p>
-					<p>Hot dims</p>
-					<p>Overview</p>
-				</div>
-				<div className="grid gap-0">
-					{rows
-						.slice()
-						.reverse()
-						.map((row) => {
-							const status = getErrorMetricTone(row.totalErrors);
-							const tone = getToneClasses(status.tone);
-							const isHighlighted = highlightedDate === row.date;
-							const parsedDate = parseISO(row.date);
+		<DashboardGridTable
+			columns={[
+				{
+					id: "day",
+					header: "Day",
+					renderCell: (row) => {
+						const parsedDate = parseISO(row.date);
 
-							return (
-								<button
-									key={row.date}
-									type="button"
-									className={cn(
-										"grid min-h-12 w-full grid-cols-[minmax(180px,1.2fr)_100px_120px_120px_minmax(160px,1fr)] items-center gap-6 rounded-lg px-3.5 py-2 text-left text-sm transition-colors duration-300 [transition-timing-function:cubic-bezier(0.23,1,0.32,1)]",
-										!hasTableHighlight &&
-											"odd:bg-[color:var(--dashboardy-subsurface-strong)]",
-										hasTableHighlight &&
-											"bg-[color:var(--dashboardy-surface)] odd:bg-[color:var(--dashboardy-surface)]",
-										hasTableHighlight &&
-											isHighlighted &&
-											"bg-[color:var(--dashboardy-subsurface-strong)] odd:bg-[color:var(--dashboardy-subsurface-strong)]",
-									)}
-									onMouseEnter={() => onHighlightDateChange(row.date)}
-									onMouseLeave={() => onHighlightDateChange(null)}
-									onFocus={() => onHighlightDateChange(row.date)}
-									onBlur={() => onHighlightDateChange(null)}
-								>
-									<div className="min-w-0">
-										<p className="truncate font-semibold text-[color:var(--dashboardy-heading)]">
-											{Number.isNaN(parsedDate.getTime())
-												? row.axisLabel
-												: format(parsedDate, "EEEE")}
-										</p>
-										<p className="mt-0.5 font-mono text-[12px] text-[color:var(--dashboardy-muted)]">
-											{Number.isNaN(parsedDate.getTime())
-												? row.date
-												: format(parsedDate, "MMM d")}
-										</p>
-									</div>
-									<p className="font-medium tabular-nums text-[color:var(--dashboardy-heading)]">
-										{row.totalErrors ?? "-"}
-									</p>
-									<p className="font-medium tabular-nums text-[color:var(--dashboardy-heading)]">
-										{row.avgErrorsPerSession == null
-											? "-"
-											: row.avgErrorsPerSession.toFixed(2)}
-									</p>
-									<p className="font-medium tabular-nums text-[color:var(--dashboardy-heading)]">
-										{row.activeDimensions}
-									</p>
-									<div className="flex items-center gap-2">
-										<span
-											className={`size-2 rounded-full ${tone.dotClassName}`}
-										/>
-										<p
-											className={`truncate font-semibold ${tone.textClassName}`}
-										>
-											{status.label}
-										</p>
-									</div>
-								</button>
-							);
-						})}
-				</div>
-			</div>
-		</div>
+						return (
+							<DashboardCellStack
+								primary={
+									Number.isNaN(parsedDate.getTime())
+										? row.axisLabel
+										: format(parsedDate, "EEEE")
+								}
+								secondary={
+									Number.isNaN(parsedDate.getTime())
+										? row.date
+										: format(parsedDate, "MMM d")
+								}
+								secondaryClassName="font-mono"
+							/>
+						);
+					},
+				},
+				{
+					id: "errors",
+					header: "Errors",
+					renderCell: (row) => (
+						<p className="font-medium tabular-nums text-[color:var(--dashboardy-heading)]">
+							{row.totalErrors ?? "-"}
+						</p>
+					),
+				},
+				{
+					id: "avg-per-session",
+					header: "Avg / session",
+					renderCell: (row) => (
+						<p className="font-medium tabular-nums text-[color:var(--dashboardy-heading)]">
+							{row.avgErrorsPerSession == null
+								? "-"
+								: row.avgErrorsPerSession.toFixed(2)}
+						</p>
+					),
+				},
+				{
+					id: "hot-dims",
+					header: "Hot dims",
+					renderCell: (row) => (
+						<p className="font-medium tabular-nums text-[color:var(--dashboardy-heading)]">
+							{row.activeDimensions}
+						</p>
+					),
+				},
+				{
+					id: "overview",
+					header: "Overview",
+					renderCell: (row) => {
+						const visibleErrorTypes = row.errorTypes.slice(0, 3);
+						const hiddenErrorTypes = row.errorTypes.slice(3);
+
+						return visibleErrorTypes.length > 0 ? (
+							<p className="truncate text-[13px] font-medium text-[color:var(--dashboardy-heading)]">
+								<DashboardInlineOverflowList
+									visibleItems={visibleErrorTypes}
+									hiddenItems={hiddenErrorTypes}
+									overflowLabel={`${hiddenErrorTypes.length} more`}
+								/>
+							</p>
+						) : (
+							<span className="text-[12px] text-[color:var(--dashboardy-muted)]">
+								—
+							</span>
+						);
+					},
+				},
+			]}
+			rows={reversedRows}
+			rowKey={(row) => row.date}
+			gridTemplateColumns="minmax(180px,1.2fr) 100px 120px 120px minmax(160px,1fr)"
+			minWidthClassName="min-w-[54rem]"
+			bodyClassName="gap-0"
+			onRowHoverChange={onHighlightDateChange}
+			getHoverRowId={(row) => row.date}
+			rowClassName={(row) =>
+				cn(
+					"w-full text-left transition-colors duration-300 [transition-timing-function:cubic-bezier(0.23,1,0.32,1)]",
+					hasTableHighlight &&
+						"bg-[color:var(--dashboardy-surface)] odd:bg-[color:var(--dashboardy-surface)]",
+					hasTableHighlight &&
+						highlightedDate === row.date &&
+						"bg-[color:var(--dashboardy-subsurface-strong)] odd:bg-[color:var(--dashboardy-subsurface-strong)]",
+				)
+			}
+		/>
 	);
 }
 
@@ -1121,149 +1112,143 @@ function DashboardErrorDimensionPanel({
 	}
 
 	return (
-		<div className="flex flex-col gap-8">
-			<div className="grid gap-4">
-				<div className="flex flex-col gap-3 px-1 sm:flex-row sm:items-center sm:justify-between">
-					<div className="flex items-center gap-2.5">
-						{splitBy === "project_path" ? (
-							<FolderGit2Icon className="size-5 text-[color:var(--dashboardy-heading)]" />
-						) : (
-							<GaugeIcon className="size-5 text-[color:var(--dashboardy-heading)]" />
-						)}
-						<h2 className="dashboardy-section-title text-xl/7">{title}</h2>
-					</div>
-					<ToggleGroup
-						aria-label={`${title} error chart view`}
-						className="dashboardy-toggle-group self-start"
-						size="sm"
-						spacing={0}
-						value={[chartView]}
-						variant="outline"
-						onValueChange={(nextValue) => {
-							const nextView = nextValue[0];
-							if (nextView === "total" || nextView === "over-time") {
-								setChartView(nextView);
-							}
-						}}
-					>
-						<ToggleGroupItem value="total" className="dashboardy-toggle-item">
-							Total
-						</ToggleGroupItem>
-						<ToggleGroupItem
-							value="over-time"
-							className="dashboardy-toggle-item"
+		<DashboardAnalysisPanel
+			title={title}
+			icon={
+				splitBy === "project_path" ? (
+					<FolderGit2Icon className="size-5 text-[color:var(--dashboardy-heading)]" />
+				) : (
+					<GaugeIcon className="size-5 text-[color:var(--dashboardy-heading)]" />
+				)
+			}
+			controls={
+				<ToggleGroup
+					aria-label={`${title} error chart view`}
+					className="dashboardy-toggle-group self-start"
+					size="sm"
+					spacing={0}
+					value={[chartView]}
+					variant="outline"
+					onValueChange={(nextValue) => {
+						const nextView = nextValue[0];
+						if (nextView === "total" || nextView === "over-time") {
+							setChartView(nextView);
+						}
+					}}
+				>
+					<ToggleGroupItem value="total" className="dashboardy-toggle-item">
+						Total
+					</ToggleGroupItem>
+					<ToggleGroupItem value="over-time" className="dashboardy-toggle-item">
+						Over time
+					</ToggleGroupItem>
+				</ToggleGroup>
+			}
+			chartInnerClassName="grid gap-4"
+			chartContent={
+				<div className="grid h-full gap-4">
+					<div className="flex flex-col gap-3 px-1 sm:flex-row sm:items-start sm:justify-between">
+						<ToggleGroup
+							aria-label={`${title} error metric`}
+							className="dashboardy-toggle-group self-start"
+							size="sm"
+							spacing={0}
+							value={[metric]}
+							variant="outline"
+							onValueChange={(nextValue) => {
+								const nextMetric = nextValue[0];
+								if (
+									nextMetric === "total_errors" ||
+									nextMetric === "avg_errors_per_session" ||
+									nextMetric === "avg_errors_per_interaction"
+								) {
+									setMetric(nextMetric);
+								}
+							}}
 						>
-							Over time
-						</ToggleGroupItem>
-					</ToggleGroup>
-				</div>
-				<div className="rounded-[1.4rem] border border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-subsurface)]">
-					<div className="grid gap-4 px-3 py-2 sm:px-4 sm:py-3">
-						<div className="flex flex-col gap-3 px-1 sm:flex-row sm:items-start sm:justify-between">
-							<ToggleGroup
-								aria-label={`${title} error metric`}
-								className="dashboardy-toggle-group self-start"
-								size="sm"
-								spacing={0}
-								value={[metric]}
-								variant="outline"
-								onValueChange={(nextValue) => {
-									const nextMetric = nextValue[0];
-									if (
-										nextMetric === "total_errors" ||
-										nextMetric === "avg_errors_per_session" ||
-										nextMetric === "avg_errors_per_interaction"
-									) {
-										setMetric(nextMetric);
-									}
-								}}
+							<ToggleGroupItem
+								value="total_errors"
+								className="dashboardy-toggle-item"
 							>
-								<ToggleGroupItem
-									value="total_errors"
-									className="dashboardy-toggle-item"
-								>
-									Errors
-								</ToggleGroupItem>
-								<ToggleGroupItem
-									value="avg_errors_per_session"
-									className="dashboardy-toggle-item"
-								>
-									Avg / session
-								</ToggleGroupItem>
-								<ToggleGroupItem
-									value="avg_errors_per_interaction"
-									className="dashboardy-toggle-item"
-								>
-									Avg / interaction
-								</ToggleGroupItem>
-							</ToggleGroup>
-							{chartView === "over-time" ? (
-								<div className="flex flex-wrap items-center gap-1.5 sm:max-w-[65%] sm:justify-end">
-									{visibleSeries.map((series) => {
-										const isHidden = hiddenSeriesSet.has(series.id);
-										const isHighlighted = highlightedDimensionId === series.id;
-										const row = rowById.get(series.id);
-										const totalValue = row
-											? getErrorMetricValue(row, metric)
-											: 0;
+								Errors
+							</ToggleGroupItem>
+							<ToggleGroupItem
+								value="avg_errors_per_session"
+								className="dashboardy-toggle-item"
+							>
+								Avg / session
+							</ToggleGroupItem>
+							<ToggleGroupItem
+								value="avg_errors_per_interaction"
+								className="dashboardy-toggle-item"
+							>
+								Avg / interaction
+							</ToggleGroupItem>
+						</ToggleGroup>
+						{chartView === "over-time" ? (
+							<div className="flex flex-wrap items-center gap-1.5 sm:max-w-[65%] sm:justify-end">
+								{visibleSeries.map((series) => {
+									const isHidden = hiddenSeriesSet.has(series.id);
+									const isHighlighted = highlightedDimensionId === series.id;
+									const row = rowById.get(series.id);
+									const totalValue = row ? getErrorMetricValue(row, metric) : 0;
 
-										return (
-											<button
-												key={series.id}
-												type="button"
-												aria-pressed={!isHidden}
-												aria-label={`${isHidden ? "Show" : "Hide"} ${series.label} in chart`}
-												className={cn(
-													"inline-flex items-center gap-2 rounded-full border px-2.5 py-1 text-[12px] font-medium transition-[opacity,border-color,background-color,color] duration-300",
-													isHidden
-														? "border-[color:var(--dashboardy-border)] bg-transparent text-[color:var(--dashboardy-muted)]"
-														: "border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-surface)] text-[color:var(--dashboardy-heading)]",
-													hasVisibleHighlightedSeries &&
-														!isHighlighted &&
-														"opacity-35",
-													hasVisibleHighlightedSeries &&
-														isHighlighted &&
-														"border-[color:var(--dashboardy-heading)]",
-												)}
-												onClick={() => handleToggleSeries(series.id)}
-												onMouseEnter={() =>
-													setHighlightedDimensionId(series.id)
-												}
-												onMouseLeave={() => setHighlightedDimensionId(null)}
-											>
-												<span
-													aria-hidden="true"
-													className="size-2 rounded-full transition-opacity"
-													style={{
-														backgroundColor: series.color,
-														opacity: isHidden ? 0.35 : 1,
-													}}
-												/>
-												<span className="truncate">{series.label}</span>
-												<span className="font-mono text-[11px] tabular-nums text-[color:var(--dashboardy-muted)]">
-													{formatMetricValue(metric, totalValue)}
-												</span>
-											</button>
-										);
-									})}
-									{hiddenRows.length > 0 ? (
-										<DashboardErrorTrendOverflowPopover rows={hiddenRows} />
-									) : null}
-								</div>
-							) : (
-								<p className="text-xs font-medium text-[color:var(--dashboardy-muted)]">
-									{totalViewSummary}
-								</p>
-							)}
-						</div>
+									return (
+										<button
+											key={series.id}
+											type="button"
+											aria-pressed={!isHidden}
+											aria-label={`${isHidden ? "Show" : "Hide"} ${series.label} in chart`}
+											className={cn(
+												"inline-flex items-center gap-2 rounded-full border px-2.5 py-1 text-[12px] font-medium transition-[opacity,border-color,background-color,color] duration-300",
+												isHidden
+													? "border-[color:var(--dashboardy-border)] bg-transparent text-[color:var(--dashboardy-muted)]"
+													: "border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-surface)] text-[color:var(--dashboardy-heading)]",
+												hasVisibleHighlightedSeries &&
+													!isHighlighted &&
+													"opacity-35",
+												hasVisibleHighlightedSeries &&
+													isHighlighted &&
+													"border-[color:var(--dashboardy-heading)]",
+											)}
+											onClick={() => handleToggleSeries(series.id)}
+											onMouseEnter={() => setHighlightedDimensionId(series.id)}
+											onMouseLeave={() => setHighlightedDimensionId(null)}
+										>
+											<span
+												aria-hidden="true"
+												className="size-2 rounded-full transition-opacity"
+												style={{
+													backgroundColor: series.color,
+													opacity: isHidden ? 0.35 : 1,
+												}}
+											/>
+											<span className="truncate">{series.label}</span>
+											<span className="font-mono text-[11px] tabular-nums text-[color:var(--dashboardy-muted)]">
+												{formatMetricValue(metric, totalValue)}
+											</span>
+										</button>
+									);
+								})}
+								{hiddenRows.length > 0 ? (
+									<DashboardErrorTrendOverflowPopover rows={hiddenRows} />
+								) : null}
+							</div>
+						) : (
+							<p className="text-xs font-medium text-[color:var(--dashboardy-muted)]">
+								{totalViewSummary}
+							</p>
+						)}
+					</div>
+					<div className="min-h-0 flex-1">
 						{summaryRows.length === 0 ? (
-							<div className="flex h-[18.5rem] items-center justify-center px-6 text-center text-sm text-muted-foreground sm:h-[20rem]">
+							<div className="flex h-full items-center justify-center px-6 text-center text-sm text-muted-foreground">
 								No error activity in the selected range.
 							</div>
 						) : chartView === "total" ? (
 							<ChartContainer
 								config={ERROR_TOTAL_CHART_CONFIG}
-								className="h-[18.5rem] w-full aspect-auto [&_.recharts-cartesian-grid-vertical_line]:stroke-transparent sm:h-[20rem]"
+								className="h-full w-full aspect-auto [&_.recharts-cartesian-grid-vertical_line]:stroke-transparent"
 								initialDimension={{ width: 664, height: 320 }}
 							>
 								<BarChart
@@ -1289,7 +1274,7 @@ function DashboardErrorDimensionPanel({
 										}}
 									/>
 									<YAxis
-										allowDecimals={metric !== "total_errors"}
+										allowDecimals={false}
 										axisLine={false}
 										tickFormatter={(value) =>
 											formatMetricAxisTick(metric, value)
@@ -1321,158 +1306,150 @@ function DashboardErrorDimensionPanel({
 									/>
 								</BarChart>
 							</ChartContainer>
-						) : (
-							<div className="h-[18.5rem] min-h-0 sm:h-[20rem]">
-								{visibleTrendSeries.length === 0 ? (
-									<div className="flex h-full items-center justify-center px-6 text-center text-sm text-muted-foreground">
-										Select at least one {dimensionLabel}.
-									</div>
-								) : (
-									<ChartContainer
-										config={chartConfig}
-										className="h-full w-full aspect-auto [&_.recharts-cartesian-grid-vertical_line]:stroke-transparent [&_.recharts-curve]:drop-shadow-none"
-										initialDimension={{ width: 664, height: 320 }}
-									>
-										<LineChart
-											data={trendRows}
-											margin={{ top: 12, right: 12, bottom: 8, left: 0 }}
-										>
-											<CartesianGrid
-												vertical={false}
-												stroke="color-mix(in srgb, var(--dashboardy-divider) 68%, transparent)"
-												strokeDasharray="0"
-											/>
-											<XAxis
-												dataKey="date"
-												axisLine={false}
-												minTickGap={24}
-												tickFormatter={(value, index) =>
-													getTrendTickLabel(
-														String(value),
-														index,
-														trendRows.length,
-													)
-												}
-												tickLine={false}
-												tickMargin={8}
-												tick={{
-													fontSize: 12,
-													fontWeight: 500,
-													fill: "var(--dashboardy-muted)",
-													opacity: 0.65,
-												}}
-											/>
-											<YAxis
-												orientation="right"
-												allowDecimals={metric !== "total_errors"}
-												axisLine={false}
-												domain={[0, trendAxisMax]}
-												tickFormatter={(value) =>
-													formatMetricAxisTick(metric, value)
-												}
-												tickLine={false}
-												tickMargin={8}
-												width={56}
-												tick={{
-													fontSize: 12,
-													fontWeight: 500,
-													fill: "var(--dashboardy-muted)",
-													opacity: 0.65,
-												}}
-											/>
-											<ChartTooltip
-												allowEscapeViewBox={{ x: true, y: true }}
-												cursor={{
-													stroke:
-														"color-mix(in srgb, var(--dashboardy-divider) 85%, transparent)",
-													strokeWidth: 1,
-												}}
-												wrapperStyle={{ pointerEvents: "none", zIndex: 20 }}
-												content={
-													<ErrorDimensionTooltip
-														metric={metric}
-														nameById={seriesNameById}
-													/>
-												}
-											/>
-											{visibleTrendSeries.map((series) => (
-												<Line
-													key={series.id}
-													dataKey={series.id}
-													animationDuration={480}
-													animationEasing="ease-out"
-													name={series.label}
-													type="monotone"
-													stroke={series.color}
-													strokeOpacity={
-														hasVisibleHighlightedSeries &&
-														highlightedDimensionId !== series.id
-															? 0.16
-															: 1
-													}
-													strokeWidth={
-														highlightedDimensionId === series.id ? 3.25 : 2.5
-													}
-													connectNulls
-													dot={false}
-													activeDot={{
-														fill: series.color,
-														r: highlightedDimensionId === series.id ? 4.5 : 4,
-														stroke: "var(--dashboardy-subsurface)",
-														strokeWidth: 2,
-													}}
-												/>
-											))}
-											{(() => {
-												const lastRow = trendRows.at(-1);
-
-												if (!lastRow) {
-													return null;
-												}
-
-												return visibleTrendSeries.map((series) => (
-													<ReferenceDot
-														key={`${series.id}-endpoint`}
-														x={lastRow.date}
-														y={Number(lastRow[series.id] ?? 0)}
-														r={highlightedDimensionId === series.id ? 4 : 3.5}
-														fill={series.color}
-														fillOpacity={
-															hasVisibleHighlightedSeries &&
-															highlightedDimensionId !== series.id
-																? 0.16
-																: 1
-														}
-														stroke="var(--dashboardy-subsurface)"
-														strokeOpacity={
-															hasVisibleHighlightedSeries &&
-															highlightedDimensionId !== series.id
-																? 0.3
-																: 1
-														}
-														strokeWidth={2}
-														ifOverflow="extendDomain"
-														zIndex={10}
-													/>
-												));
-											})()}
-										</LineChart>
-									</ChartContainer>
-								)}
+						) : visibleTrendSeries.length === 0 ? (
+							<div className="flex h-full items-center justify-center px-6 text-center text-sm text-muted-foreground">
+								Select at least one {dimensionLabel}.
 							</div>
+						) : (
+							<ChartContainer
+								config={chartConfig}
+								className="h-full w-full aspect-auto [&_.recharts-cartesian-grid-vertical_line]:stroke-transparent [&_.recharts-curve]:drop-shadow-none"
+								initialDimension={{ width: 664, height: 320 }}
+							>
+								<LineChart
+									data={trendRows}
+									margin={{ top: 12, right: 12, bottom: 8, left: 0 }}
+								>
+									<CartesianGrid
+										vertical={false}
+										stroke="color-mix(in srgb, var(--dashboardy-divider) 68%, transparent)"
+										strokeDasharray="0"
+									/>
+									<XAxis
+										dataKey="date"
+										axisLine={false}
+										minTickGap={24}
+										tickFormatter={(value, index) =>
+											getTrendTickLabel(String(value), index, trendRows.length)
+										}
+										tickLine={false}
+										tickMargin={8}
+										tick={{
+											fontSize: 12,
+											fontWeight: 500,
+											fill: "var(--dashboardy-muted)",
+											opacity: 0.65,
+										}}
+									/>
+									<YAxis
+										orientation="right"
+										allowDecimals={false}
+										axisLine={false}
+										domain={[0, trendAxisMax]}
+										tickFormatter={(value) =>
+											formatMetricAxisTick(metric, value)
+										}
+										tickLine={false}
+										tickMargin={8}
+										width={56}
+										tick={{
+											fontSize: 12,
+											fontWeight: 500,
+											fill: "var(--dashboardy-muted)",
+											opacity: 0.65,
+										}}
+									/>
+									<ChartTooltip
+										allowEscapeViewBox={{ x: true, y: true }}
+										cursor={{
+											stroke:
+												"color-mix(in srgb, var(--dashboardy-divider) 85%, transparent)",
+											strokeWidth: 1,
+										}}
+										wrapperStyle={{ pointerEvents: "none", zIndex: 20 }}
+										content={
+											<ErrorDimensionTooltip
+												metric={metric}
+												nameById={seriesNameById}
+											/>
+										}
+									/>
+									{visibleTrendSeries.map((series) => (
+										<Line
+											key={series.id}
+											dataKey={series.id}
+											animationDuration={480}
+											animationEasing="ease-out"
+											name={series.label}
+											type="monotone"
+											stroke={series.color}
+											strokeOpacity={
+												hasVisibleHighlightedSeries &&
+												highlightedDimensionId !== series.id
+													? 0.16
+													: 1
+											}
+											strokeWidth={
+												highlightedDimensionId === series.id ? 3.25 : 2.5
+											}
+											connectNulls
+											dot={false}
+											activeDot={{
+												fill: series.color,
+												r: highlightedDimensionId === series.id ? 4.5 : 4,
+												stroke: "var(--dashboardy-subsurface)",
+												strokeWidth: 2,
+											}}
+										/>
+									))}
+									{(() => {
+										const lastRow = trendRows.at(-1);
+
+										if (!lastRow) {
+											return null;
+										}
+
+										return visibleTrendSeries.map((series) => (
+											<ReferenceDot
+												key={`${series.id}-endpoint`}
+												x={lastRow.date}
+												y={Number(lastRow[series.id] ?? 0)}
+												r={highlightedDimensionId === series.id ? 4 : 3.5}
+												fill={series.color}
+												fillOpacity={
+													hasVisibleHighlightedSeries &&
+													highlightedDimensionId !== series.id
+														? 0.16
+														: 1
+												}
+												stroke="var(--dashboardy-subsurface)"
+												strokeOpacity={
+													hasVisibleHighlightedSeries &&
+													highlightedDimensionId !== series.id
+														? 0.3
+														: 1
+												}
+												strokeWidth={2}
+												ifOverflow="extendDomain"
+												zIndex={10}
+											/>
+										));
+									})()}
+								</LineChart>
+							</ChartContainer>
 						)}
 					</div>
 				</div>
-			</div>
-			<div className="border-t border-[color:var(--dashboardy-divider)] pt-8">
+			}
+			tableContent={
 				<DashboardErrorDimensionTable
 					highlightedDate={null}
 					onHighlightDimensionChange={setHighlightedDimensionId}
 					rowMap={rowMap}
 					rows={summaryRows}
 				/>
-			</div>
-		</div>
+			}
+		/>
 	);
 }
 
@@ -1488,57 +1465,88 @@ function DashboardErrorDimensionTable({
 	rows: ErrorDimensionRow[];
 }) {
 	return (
-		<div className="overflow-x-auto">
-			<div className="flex min-w-[58rem] flex-col gap-1">
-				<div className="grid grid-cols-[minmax(220px,12fr)_90px_120px_120px_96px] gap-6 px-3.5 text-[13px] font-semibold text-[color:var(--dashboardy-muted)]">
-					<p>Dimension</p>
-					<p>Errors</p>
-					<p>Avg / session</p>
-					<p>Avg / interaction</p>
-					<p>Active days</p>
-				</div>
-				<div className="grid gap-0">
-					{rows.map((row) => {
+		<DashboardGridTable
+			columns={[
+				{
+					id: "dimension",
+					header: "Dimension",
+					renderCell: (row) => (
+						<p className="truncate font-semibold text-[color:var(--dashboardy-heading)]">
+							{row.label}
+						</p>
+					),
+				},
+				{
+					id: "errors",
+					header: "Errors",
+					renderCell: (row) => {
 						const highlightedRow =
 							highlightedDate != null
 								? rowMap.get(`${row.id}:${highlightedDate}`)
 								: undefined;
-						const totalErrors = highlightedRow?.total_errors ?? row.totalErrors;
-						const avgErrorsPerSession =
+
+						return (
+							<p className="font-medium tabular-nums text-[color:var(--dashboardy-heading)]">
+								{highlightedRow?.total_errors ?? row.totalErrors}
+							</p>
+						);
+					},
+				},
+				{
+					id: "avg-session",
+					header: "Avg / session",
+					renderCell: (row) => {
+						const highlightedRow =
+							highlightedDate != null
+								? rowMap.get(`${row.id}:${highlightedDate}`)
+								: undefined;
+						const value =
 							highlightedRow?.avg_errors_per_session ?? row.avgErrorsPerSession;
-						const avgErrorsPerInteraction =
+
+						return (
+							<p className="font-medium tabular-nums text-[color:var(--dashboardy-heading)]">
+								{value.toFixed(2)}
+							</p>
+						);
+					},
+				},
+				{
+					id: "avg-interaction",
+					header: "Avg / interaction",
+					renderCell: (row) => {
+						const highlightedRow =
+							highlightedDate != null
+								? rowMap.get(`${row.id}:${highlightedDate}`)
+								: undefined;
+						const value =
 							highlightedRow?.avg_errors_per_interaction ??
 							row.avgErrorsPerInteraction;
 
 						return (
-							<button
-								key={row.id}
-								type="button"
-								className="grid min-h-12 grid-cols-[minmax(220px,12fr)_90px_120px_120px_96px] items-center gap-6 rounded-lg px-3.5 py-2 text-sm odd:bg-[color:var(--dashboardy-subsurface-strong)]"
-								onMouseEnter={() => onHighlightDimensionChange?.(row.id)}
-								onMouseLeave={() => onHighlightDimensionChange?.(null)}
-							>
-								<p className="truncate font-semibold text-[color:var(--dashboardy-heading)]">
-									{row.label}
-								</p>
-								<p className="font-medium tabular-nums text-[color:var(--dashboardy-heading)]">
-									{totalErrors}
-								</p>
-								<p className="font-medium tabular-nums text-[color:var(--dashboardy-heading)]">
-									{avgErrorsPerSession.toFixed(2)}
-								</p>
-								<p className="font-medium tabular-nums text-[color:var(--dashboardy-heading)]">
-									{avgErrorsPerInteraction.toFixed(2)}
-								</p>
-								<p className="font-medium tabular-nums text-[color:var(--dashboardy-heading)]">
-									{row.activeDays}
-								</p>
-							</button>
+							<p className="font-medium tabular-nums text-[color:var(--dashboardy-heading)]">
+								{value.toFixed(2)}
+							</p>
 						);
-					})}
-				</div>
-			</div>
-		</div>
+					},
+				},
+				{
+					id: "active-days",
+					header: "Active days",
+					renderCell: (row) => (
+						<p className="font-medium tabular-nums text-[color:var(--dashboardy-heading)]">
+							{row.activeDays}
+						</p>
+					),
+				},
+			]}
+			rows={rows}
+			rowKey={(row) => row.id}
+			gridTemplateColumns="minmax(220px,12fr) 90px 120px 120px 96px"
+			minWidthClassName="min-w-[58rem]"
+			bodyClassName="gap-0"
+			onRowHoverChange={onHighlightDimensionChange}
+			getHoverRowId={(row) => row.id}
+		/>
 	);
 }
 

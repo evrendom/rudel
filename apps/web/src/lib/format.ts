@@ -5,6 +5,11 @@ const compactNumberFormatter = new Intl.NumberFormat(undefined, {
 	maximumFractionDigits: 1,
 });
 
+const compactWholeNumberFormatter = new Intl.NumberFormat(undefined, {
+	notation: "compact",
+	maximumFractionDigits: 0,
+});
+
 const decimalFormatter = new Intl.NumberFormat(undefined, {
 	maximumFractionDigits: 2,
 });
@@ -83,6 +88,10 @@ export function formatNumber(value: number) {
 
 export function formatCompactNumber(value: number) {
 	return compactNumberFormatter.format(value);
+}
+
+export function formatCompactWholeNumber(value: number) {
+	return compactWholeNumberFormatter.format(value);
 }
 
 export function formatDecimal(value: number) {

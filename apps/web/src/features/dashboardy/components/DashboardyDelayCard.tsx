@@ -216,6 +216,7 @@ function DelayChart({
 					/>
 					<YAxis
 						orientation="right"
+						allowDecimals={false}
 						domain={[0, chart.maxMinutes]}
 						ticks={[0, 20, 40, 60]}
 						axisLine={false}

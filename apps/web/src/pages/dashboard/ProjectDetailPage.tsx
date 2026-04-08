@@ -301,9 +301,14 @@ export function ProjectDetailPage() {
 									v.length > 12 ? `${v.slice(0, 12)}…` : v
 								}
 							/>
-							<YAxis yAxisId="left" stroke={chartTheme.axisStroke} />
+							<YAxis
+								yAxisId="left"
+								allowDecimals={false}
+								stroke={chartTheme.axisStroke}
+							/>
 							<YAxis
 								yAxisId="right"
+								allowDecimals={false}
 								orientation="right"
 								stroke={chartTheme.axisStroke}
 							/>

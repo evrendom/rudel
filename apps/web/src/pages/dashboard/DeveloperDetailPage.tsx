@@ -421,9 +421,14 @@ export function DeveloperDetailPage() {
 								stroke={chartTheme.gridStroke}
 							/>
 							<XAxis dataKey="date" stroke={chartTheme.axisStroke} />
-							<YAxis yAxisId="left" stroke={chartTheme.axisStroke} />
+							<YAxis
+								yAxisId="left"
+								allowDecimals={false}
+								stroke={chartTheme.axisStroke}
+							/>
 							<YAxis
 								yAxisId="right"
+								allowDecimals={false}
 								orientation="right"
 								stroke={chartTheme.axisStroke}
 							/>
@@ -532,9 +537,14 @@ export function DeveloperDetailPage() {
 									v.length > 12 ? `${v.slice(0, 12)}...` : v
 								}
 							/>
-							<YAxis yAxisId="left" stroke={chartTheme.axisStroke} />
+							<YAxis
+								yAxisId="left"
+								allowDecimals={false}
+								stroke={chartTheme.axisStroke}
+							/>
 							<YAxis
 								yAxisId="right"
+								allowDecimals={false}
 								orientation="right"
 								stroke={chartTheme.axisStroke}
 							/>
