@@ -1,0 +1,102 @@
+@import "@fontsource/geist-mono/400.css";
+@import "@fontsource/nunito/800.css";
+
+@theme inline {
+	--color-surface: var(--surface);
+	--color-heading: var(--heading);
+	--color-subheading: var(--subheading);
+	--color-hover: var(--hover);
+	--color-accent-hover: var(--accent-hover);
+	--color-accent-light: var(--accent-light);
+	--color-accent-text: var(--accent-text);
+	--color-status-success-bg: var(--status-success-bg);
+	--color-status-success-border: var(--status-success-border);
+	--color-status-success-text: var(--status-success-text);
+	--color-status-success-icon: var(--status-success-icon);
+	--color-status-error-bg: var(--status-error-bg);
+	--color-status-error-border: var(--status-error-border);
+	--color-status-error-text: var(--status-error-text);
+	--color-status-error-icon: var(--status-error-icon);
+	--color-status-warning-bg: var(--status-warning-bg);
+	--color-status-warning-border: var(--status-warning-border);
+	--color-status-warning-text: var(--status-warning-text);
+	--color-status-warning-icon: var(--status-warning-icon);
+	--color-status-info-bg: var(--status-info-bg);
+	--color-status-info-border: var(--status-info-border);
+	--color-status-info-text: var(--status-info-text);
+	--color-status-info-icon: var(--status-info-icon);
+	--color-chart-tooltip-bg: var(--chart-tooltip-bg);
+	--color-chart-tooltip-border: var(--chart-tooltip-border);
+	--color-chart-grid: var(--chart-grid);
+	--color-chart-axis: var(--chart-axis);
+}
+
+:root {
+	--app-font-heading: "Nunito", var(--font-sans);
+	--app-font-sans: var(--font-sans);
+	--surface: #f7f8f9;
+	--heading: oklch(0.145 0 0);
+	--subheading: oklch(0.556 0 0);
+	--hover: oklch(0.97 0 0);
+	--accent-hover: oklch(0.205 0 0);
+	--accent-light: oklch(0.97 0 0);
+	--accent-text: oklch(0.205 0 0);
+	--status-success-bg: #f0fdf4;
+	--status-success-border: #bbf7d0;
+	--status-success-text: #166534;
+	--status-success-icon: #16a34a;
+	--status-error-bg: oklch(0.975 0.014 17.38);
+	--status-error-border: oklch(0.884 0.062 18.334);
+	--status-error-text: oklch(0.444 0.177 26.899);
+	--status-error-icon: oklch(0.577 0.245 27.325);
+	--status-warning-bg: oklch(0.987 0.026 102.212);
+	--status-warning-border: oklch(0.905 0.129 101.54);
+	--status-warning-text: oklch(0.473 0.124 46.201);
+	--status-warning-icon: oklch(0.646 0.222 41.116);
+	--status-info-bg: oklch(0.97 0.014 254.604);
+	--status-info-border: oklch(0.882 0.059 254.128);
+	--status-info-text: oklch(0.488 0.243 264.376);
+	--status-info-icon: oklch(0.546 0.245 262.881);
+	--chart-tooltip-bg: oklch(1 0 0);
+	--chart-tooltip-border: oklch(0.922 0 0);
+	--chart-grid: oklch(0.97 0 0);
+	--chart-axis: oklch(0.556 0 0);
+}
+
+.dark {
+	--surface: oklch(0.145 0 0);
+	--heading: oklch(0.985 0 0);
+	--subheading: oklch(0.708 0 0);
+	--hover: oklch(0.269 0 0);
+	--accent-hover: oklch(0.922 0 0);
+	--accent-light: oklch(0.269 0 0);
+	--accent-text: oklch(0.985 0 0);
+	--status-success-bg: oklch(0.266 0.065 152.934);
+	--status-success-border: oklch(0.393 0.095 152.535);
+	--status-success-text: oklch(0.793 0.118 152.498);
+	--status-success-icon: oklch(0.696 0.17 162.48);
+	--status-error-bg: oklch(0.258 0.092 26.042);
+	--status-error-border: oklch(0.396 0.141 25.723);
+	--status-error-text: oklch(0.808 0.114 19.571);
+	--status-error-icon: oklch(0.704 0.191 22.216);
+	--status-warning-bg: oklch(0.274 0.055 45.571);
+	--status-warning-border: oklch(0.414 0.112 45.904);
+	--status-warning-text: oklch(0.879 0.169 91.605);
+	--status-warning-icon: oklch(0.769 0.188 70.08);
+	--status-info-bg: oklch(0.282 0.091 267.935);
+	--status-info-border: oklch(0.379 0.146 265.522);
+	--status-info-text: oklch(0.785 0.115 274.713);
+	--status-info-icon: oklch(0.707 0.165 254.624);
+	--chart-tooltip-bg: oklch(0.205 0 0);
+	--chart-tooltip-border: oklch(1 0 0 / 10%);
+	--chart-grid: oklch(0.269 0 0);
+	--chart-axis: oklch(0.708 0 0);
+}
+
+@layer base {
+	html,
+	body,
+	#root {
+		@apply h-full;
+	}
+}

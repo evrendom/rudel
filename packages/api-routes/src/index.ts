@@ -41,6 +41,8 @@ import {
 	ProjectTrendDataPointSchema,
 	RecurringErrorSchema,
 	RecurringErrorsInputSchema,
+	RepositoryDailyTrendDataSchema,
+	ROIDashboardSchema,
 	ROIMetricsSchema,
 	ROITrendSchema,
 	SessionAnalyticsSchema,
@@ -52,8 +54,11 @@ import {
 	SuccessRateSchema,
 	TeamSummaryComparisonSchema,
 	UsageTrendDataSchema,
+	UserDailyTrendDataSchema,
+	UserTokenUsageDataSchema,
 } from "./schemas/analytics.js";
 
+export * from "./model-pricing.js";
 export * from "./product-analytics.js";
 export * from "./schemas/analytics.js";
 
@@ -186,6 +191,15 @@ export const contract = {
 			modelTokensTrend: oc
 				.input(DateRangeInputSchema)
 				.output(z.array(ModelTokensTrendDataSchema)),
+			usersTokenUsage: oc
+				.input(DateRangeInputSchema)
+				.output(z.array(UserTokenUsageDataSchema)),
+			usersDailyTrend: oc
+				.input(DateRangeInputSchema)
+				.output(z.array(UserDailyTrendDataSchema)),
+			repositoriesDailyTrend: oc
+				.input(DateRangeInputSchema)
+				.output(z.array(RepositoryDailyTrendDataSchema)),
 			insights: oc.input(DateRangeInputSchema).output(z.array(InsightSchema)),
 			teamSummaryComparison: oc
 				.input(DateRangeInputSchema)
@@ -250,6 +264,7 @@ export const contract = {
 			detail: oc.input(SessionDetailInputSchema).output(SessionDetailSchema),
 		},
 		roi: {
+			dashboard: oc.input(DateRangeInputSchema).output(ROIDashboardSchema),
 			metrics: oc.input(DaysInputSchema).output(ROIMetricsSchema),
 			trends: oc.input(DaysInputSchema).output(z.array(ROITrendSchema)),
 			breakdownDevelopers: oc

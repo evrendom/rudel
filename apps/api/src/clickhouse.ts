@@ -161,6 +161,14 @@ export function buildAbsoluteDateFilter(
 	return `toDate(${column}) >= toDate({${startParamName}:String}) AND toDate(${column}) <= toDate({${endParamName}:String})`;
 }
 
+export function buildInclusiveDateRangeFilter(
+	startParamName: string,
+	endParamName: string,
+	column = "session_date",
+): string {
+	return buildAbsoluteDateFilter(startParamName, endParamName, column);
+}
+
 export async function queryClickhouse<T>(
 	statement: ClickHouseStatement,
 ): Promise<T[]> {
