@@ -1,8 +1,15 @@
+import { calculateEstimatedCost as calculateEstimatedModelCost } from "@rudel/api-routes";
+
 const numberFormatter = new Intl.NumberFormat();
 
 const compactNumberFormatter = new Intl.NumberFormat(undefined, {
 	notation: "compact",
 	maximumFractionDigits: 1,
+});
+
+const compactWholeNumberFormatter = new Intl.NumberFormat(undefined, {
+	notation: "compact",
+	maximumFractionDigits: 0,
 });
 
 const decimalFormatter = new Intl.NumberFormat(undefined, {
@@ -14,6 +21,13 @@ const currencyFormatter = new Intl.NumberFormat("en-US", {
 	currency: "USD",
 	minimumFractionDigits: 2,
 	maximumFractionDigits: 2,
+});
+
+const wholeCurrencyFormatter = new Intl.NumberFormat("en-US", {
+	style: "currency",
+	currency: "USD",
+	minimumFractionDigits: 0,
+	maximumFractionDigits: 0,
 });
 
 const fineCurrencyFormatter = new Intl.NumberFormat("en-US", {
@@ -29,6 +43,14 @@ const compactCurrencyFormatter = new Intl.NumberFormat("en-US", {
 	notation: "compact",
 	minimumFractionDigits: 0,
 	maximumFractionDigits: 1,
+});
+
+const compactWholeCurrencyFormatter = new Intl.NumberFormat("en-US", {
+	style: "currency",
+	currency: "USD",
+	notation: "compact",
+	minimumFractionDigits: 0,
+	maximumFractionDigits: 0,
 });
 
 const minuteFormatter = new Intl.NumberFormat(undefined, {
@@ -59,15 +81,16 @@ function parseDateValue(value: string) {
 	return new Date(value);
 }
 
-const INPUT_TOKEN_COST_PER_MILLION = 3;
-const OUTPUT_TOKEN_COST_PER_MILLION = 15;
-
 export function formatNumber(value: number) {
 	return numberFormatter.format(value);
 }
 
 export function formatCompactNumber(value: number) {
 	return compactNumberFormatter.format(value);
+}
+
+export function formatCompactWholeNumber(value: number) {
+	return compactWholeNumberFormatter.format(value);
 }
 
 export function formatDecimal(value: number) {
@@ -88,6 +111,18 @@ export function formatCompactCurrency(value: number) {
 	}
 
 	return compactCurrencyFormatter.format(value);
+}
+
+export function formatWholeCurrency(value: number) {
+	return wholeCurrencyFormatter.format(value);
+}
+
+export function formatCompactWholeCurrency(value: number) {
+	if (Math.abs(value) < 1_000) {
+		return formatWholeCurrency(value);
+	}
+
+	return compactWholeCurrencyFormatter.format(value);
 }
 
 export function formatMinutes(value: number) {
@@ -141,10 +176,31 @@ export function formatUsername(
 	return userId;
 }
 
-export function calculateCost(inputTokens: number, outputTokens: number) {
-	const inputCost = (inputTokens / 1_000_000) * INPUT_TOKEN_COST_PER_MILLION;
-	const outputCost = (outputTokens / 1_000_000) * OUTPUT_TOKEN_COST_PER_MILLION;
-	return inputCost + outputCost;
+export function calculateCost(
+	inputTokens: number,
+	outputTokens: number,
+	options?:
+		| string
+		| null
+		| {
+				model?: string | null;
+				cacheReadInputTokens?: number;
+				cacheCreationInputTokens?: number;
+		  },
+) {
+	const model =
+		typeof options === "string" ? options : (options?.model ?? null);
+	return calculateEstimatedModelCost({
+		model,
+		inputTokens,
+		outputTokens,
+		cacheReadInputTokens:
+			typeof options === "string" ? 0 : (options?.cacheReadInputTokens ?? 0),
+		cacheCreationInputTokens:
+			typeof options === "string"
+				? 0
+				: (options?.cacheCreationInputTokens ?? 0),
+	});
 }
 
 export function encodeProjectPath(projectPath: string) {

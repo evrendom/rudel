@@ -1,11 +1,7 @@
-import { useState } from "react";
 import { Building2Icon, Loader2Icon } from "lucide-react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { PageViewTrackingMount } from "@/features/analytics/tracking/PageViewTrackingMount";
-import { useAnalyticsTracking } from "@/features/analytics/tracking/useAnalyticsTracking";
-import { authClient } from "@/lib/auth-client";
 import { appRoutes } from "@/app/routes";
-import { Badge } from "@/app/ui/badge";
 import { Button } from "@/app/ui/button";
 import {
 	Card,
@@ -16,8 +12,10 @@ import {
 } from "@/app/ui/card";
 import { Field, FieldLabel } from "@/app/ui/field";
 import { Input } from "@/app/ui/input";
-import { SettingsSectionIntro } from "@/features/settings/components/SettingsSectionIntro";
+import { PageViewTrackingMount } from "@/features/analytics/tracking/PageViewTrackingMount";
+import { useAnalyticsTracking } from "@/features/analytics/tracking/useAnalyticsTracking";
 import { useOrganization } from "@/features/workspace/organization/useOrganization";
+import { authClient } from "@/lib/auth-client";
 
 function slugify(value: string) {
 	return value
@@ -81,16 +79,11 @@ export function CreateWorkspaceSettingsSection() {
 		<>
 			<PageViewTrackingMount isLoading={false} hasData />
 			<div className="px-4 lg:px-6">
-				<SettingsSectionIntro
-					title="Create workspace"
-					description="Set up a new team space directly inside the redesign."
-					action={<Badge variant="outline">Workspace</Badge>}
-				/>
-			</div>
-
-			<div className="px-4 lg:px-6">
 				<div className="max-w-xl">
-					<Card size="sm" className="bg-card/95 shadow-none ring-1 ring-border/60">
+					<Card
+						size="sm"
+						className="bg-card/95 shadow-none ring-1 ring-border/60"
+					>
 						<CardHeader>
 							<div className="flex items-center gap-3">
 								<div className="flex size-10 items-center justify-center rounded-xl bg-muted text-muted-foreground">
@@ -107,7 +100,9 @@ export function CreateWorkspaceSettingsSection() {
 						<CardContent>
 							<form onSubmit={handleSubmit} className="flex flex-col gap-4">
 								<Field className="gap-2">
-									<FieldLabel htmlFor="workspace-name">Workspace name</FieldLabel>
+									<FieldLabel htmlFor="workspace-name">
+										Workspace name
+									</FieldLabel>
 									<Input
 										id="workspace-name"
 										value={name}
@@ -117,10 +112,17 @@ export function CreateWorkspaceSettingsSection() {
 									/>
 								</Field>
 
-								<Card size="sm" className="bg-muted/20 shadow-none ring-1 ring-border/60">
+								<Card
+									size="sm"
+									className="bg-muted/20 shadow-none ring-1 ring-border/60"
+								>
 									<CardContent className="text-sm text-muted-foreground">
-										<span className="font-medium text-foreground">Slug preview:</span>{" "}
-										{slugPreview ? `/${slugPreview}` : "Generated from the name"}
+										<span className="font-medium text-foreground">
+											Slug preview:
+										</span>{" "}
+										{slugPreview
+											? `/${slugPreview}`
+											: "Generated from the name"}
 									</CardContent>
 								</Card>
 
@@ -133,7 +135,10 @@ export function CreateWorkspaceSettingsSection() {
 									disabled={isCreating || name.trim().length === 0}
 								>
 									{isCreating ? (
-										<Loader2Icon data-icon="inline-start" className="animate-spin" />
+										<Loader2Icon
+											data-icon="inline-start"
+											className="animate-spin"
+										/>
 									) : null}
 									{isCreating ? "Creating workspace…" : "Create workspace"}
 								</Button>

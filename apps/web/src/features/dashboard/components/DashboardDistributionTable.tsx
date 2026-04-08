@@ -12,17 +12,25 @@ export function DashboardDistributionTable({
 	title,
 	description,
 	rows,
+	showHeader = true,
 }: {
 	title: string;
 	description: string;
 	rows: DashboardDistributionRow[];
+	showHeader?: boolean;
 }) {
 	return (
 		<div className="dashboardy-bucket-card rounded-[1.4rem]">
-			<div className="grid gap-1 pb-3">
-				<h3 className="dashboardy-section-title truncate text-sm/6">{title}</h3>
-				<p className="dashboardy-footnote text-sm/6">{description}</p>
-			</div>
+			{showHeader ? (
+				<div className="grid gap-1 pb-3">
+					<h3 className="dashboardy-section-title truncate text-sm/6">
+						{title}
+					</h3>
+					<p className="dashboardy-footnote text-sm/6">{description}</p>
+				</div>
+			) : (
+				<p className="dashboardy-footnote pb-3 text-sm/6">{description}</p>
+			)}
 			<div className="overflow-x-auto">
 				<Table className="dashboardy-board-table min-w-[24rem]">
 					<TableHeader>

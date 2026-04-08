@@ -1,6 +1,6 @@
 import type {
-	ErrorTrendDataPoint,
 	ErrorsDashboard,
+	ErrorTrendDataPoint,
 	RecurringError,
 } from "@rudel/api-routes";
 import {
@@ -164,9 +164,8 @@ export async function getErrorsDashboard(
 		summary: {
 			total_errors: recurring.reduce((sum, row) => sum + row.occurrences, 0),
 			distinct_patterns: recurring.length,
-			high_severity_patterns: recurring.filter(
-				(row) => row.severity === "high",
-			).length,
+			high_severity_patterns: recurring.filter((row) => row.severity === "high")
+				.length,
 			max_affected_users: recurring.reduce(
 				(max, row) => Math.max(max, row.affected_users),
 				0,
@@ -195,15 +194,26 @@ export async function getErrorTrends(
 			: split_by === "model"
 				? "sa.model_used"
 				: "sa.user_id";
+	type ErrorTrendBaseRow = Omit<
+		ErrorTrendDataPoint,
+		"error_type_occurrences" | "error_types"
+	>;
+	type ErrorTrendPatternRow = {
+		date: string;
+		dimension: string;
+		error_pattern: string;
+		occurrences: number;
+	};
 
-	const query = `
+	const baseQuery = `
     WITH error_sessions AS (
       SELECT
         toDate(sa.session_date) as date,
         sa.session_id,
         sa.user_id,
         ${dimensionExpr} as dimension_value,
-        sa.error_count
+        sa.error_count,
+        ${ERROR_PATTERN_SQL} as error_pattern
       FROM rudel.session_analytics sa
       WHERE ${buildInclusiveDateRangeFilter("startDate", "endDate", "sa.session_date")}
         AND sa.organization_id = {orgId:String}
@@ -230,12 +240,65 @@ export async function getErrorTrends(
     ORDER BY date, dimension
   `;
 
-	return queryClickhouse<ErrorTrendDataPoint>({
-		query,
-		query_params: {
-			startDate: start_date,
-			endDate: end_date,
-			orgId,
-		},
+	const patternQuery = `
+    WITH error_sessions AS (
+      SELECT
+        toDate(sa.session_date) as date,
+        ${dimensionExpr} as dimension_value,
+        sa.error_count,
+        ${ERROR_PATTERN_SQL} as error_pattern
+      FROM rudel.session_analytics sa
+      WHERE ${buildInclusiveDateRangeFilter("startDate", "endDate", "sa.session_date")}
+        AND sa.organization_id = {orgId:String}
+        AND sa.error_count > 0
+    )
+    SELECT
+      date,
+      dimension_value as dimension,
+      error_pattern,
+      SUM(error_count) as occurrences
+    FROM error_sessions
+    WHERE
+      dimension_value IS NOT NULL
+      AND dimension_value != ''
+      AND dimension_value != 'unknown'
+      AND error_pattern != ''
+    GROUP BY date, dimension_value, error_pattern
+    ORDER BY date, dimension_value, occurrences DESC, error_pattern ASC
+  `;
+
+	const queryParams = {
+		startDate: start_date,
+		endDate: end_date,
+		orgId,
+	};
+
+	const [baseRows, patternRows] = await Promise.all([
+		queryClickhouse<ErrorTrendBaseRow>({
+			query: baseQuery,
+			query_params: queryParams,
+		}),
+		queryClickhouse<ErrorTrendPatternRow>({
+			query: patternQuery,
+			query_params: queryParams,
+		}),
+	]);
+
+	const patternsByRow = new Map<string, ErrorTrendPatternRow[]>();
+	for (const row of patternRows) {
+		const key = `${row.date}:${row.dimension}`;
+		const current = patternsByRow.get(key) ?? [];
+		current.push(row);
+		patternsByRow.set(key, current);
+	}
+
+	return baseRows.map((row) => {
+		const patterns = patternsByRow.get(`${row.date}:${row.dimension}`) ?? [];
+
+		return {
+			...row,
+			error_type_occurrences: patterns.map((pattern) => pattern.occurrences),
+			error_types: patterns.map((pattern) => pattern.error_pattern),
+		};
 	});
 }

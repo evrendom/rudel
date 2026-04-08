@@ -1,14 +1,13 @@
-import { PlusIcon } from "lucide-react"
-import { Link } from "react-router-dom"
-import { appRoutes } from "@/app/routes"
-import { buttonVariants } from "@/app/ui/button"
+import { PlusIcon } from "lucide-react";
+import { Link } from "react-router-dom";
+import { buttonVariants } from "@/app/ui/button";
 import {
 	Card,
 	CardContent,
 	CardDescription,
 	CardHeader,
 	CardTitle,
-} from "@/app/ui/card"
+} from "@/app/ui/card";
 
 export function WorkspaceEmptyStateCard() {
 	return (
@@ -16,19 +15,16 @@ export function WorkspaceEmptyStateCard() {
 			<CardHeader>
 				<CardTitle>No workspace selected</CardTitle>
 				<CardDescription>
-					Create a workspace to start inviting people and configuring
-					organization settings in the redesign.
+					You can create a workspace here or accept an invitation to join one
+					that already exists.
 				</CardDescription>
 			</CardHeader>
 			<CardContent>
-				<Link
-					to={appRoutes.settingsCreateWorkspace()}
-					className={buttonVariants({ size: "sm" })}
-				>
+				<Link to="#new-workspace" className={buttonVariants({ size: "sm" })}>
 					<PlusIcon data-icon="inline-start" />
 					Create workspace
 				</Link>
 			</CardContent>
 		</Card>
-	)
+	);
 }

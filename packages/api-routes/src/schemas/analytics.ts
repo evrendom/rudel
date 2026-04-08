@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ESTIMATED_PRICING_MODE } from "../model-pricing.js";
 import { SourceSchema } from "./source.js";
 
 // ── Common inputs ──────────────────────────────────────────────────
@@ -54,9 +55,13 @@ export const ModelTokensTrendDataSchema = z.object({
 export const UserTokenUsageDataSchema = z.object({
 	user_id: z.string(),
 	user_label: z.string(),
+	models_used: z.array(z.string()),
+	repositories_touched: z.array(z.string()),
+	total_commits: z.number(),
 	total_tokens: z.number(),
 	input_tokens: z.number(),
 	output_tokens: z.number(),
+	cost: z.number(),
 	total_sessions: z.number(),
 	total_duration_min: z.number(),
 	success_rate: z.number(),
@@ -68,11 +73,23 @@ export const UserDailyTrendDataSchema = z.object({
 	date: z.string(),
 	user_id: z.string(),
 	sessions: z.number(),
+	total_commits: z.number(),
 	total_hours: z.number(),
 	total_tokens: z.number(),
+	input_tokens: z.number(),
+	output_tokens: z.number(),
 	avg_success_rate: z.number(),
 	distinct_skills: z.number(),
 	distinct_slash_commands: z.number(),
+	models_used: z.array(z.string()),
+	repositories_touched: z.array(z.string()),
+});
+
+export const RepositoryDailyTrendDataSchema = z.object({
+	date: z.string(),
+	repository: z.string(),
+	sessions: z.number(),
+	total_commits: z.number(),
 });
 
 export const InsightSchema = z.object({
@@ -160,7 +177,7 @@ export const CostsProjectBreakdownSchema = z.object({
 
 export const CostsDashboardSchema = z.object({
 	currency: z.literal("USD"),
-	pricing_mode: z.literal("estimated_flat_tokens_v1"),
+	pricing_mode: z.literal(ESTIMATED_PRICING_MODE),
 	timezone: z.literal("UTC"),
 	generated_at: z.string(),
 	chart_window_start: z.string(),
@@ -185,11 +202,15 @@ export const DeveloperSummarySchema = z.object({
 	success_rate: z.number(),
 	cost: z.number(),
 	success_rate_trend: z.number(),
+	favorite_model: z.string().nullable(),
 });
 
 export const DeveloperTeamCardSchema = z.object({
 	user_id: z.string(),
 	display_name: z.string(),
+	cost: z.number(),
+	input_tokens: z.number(),
+	output_tokens: z.number(),
 	total_tokens: z.number(),
 	total_sessions: z.number(),
 	active_days: z.number(),
@@ -403,6 +424,8 @@ export const SessionHourlyActivityDataPointSchema = z.object({
 });
 
 export const SessionListInputSchema = DaysInputSchema.extend({
+	startDate: z.string().date().optional(),
+	endDate: z.string().date().optional(),
 	userId: z.string().max(MAX_ID_FILTER_LENGTH).optional(),
 	projectPath: z.string().max(MAX_PATH_FILTER_LENGTH).optional(),
 	repository: z.string().max(MAX_PATH_FILTER_LENGTH).optional(),
@@ -519,8 +542,10 @@ export const ROIMetricsSchema = z.object({
 });
 
 export const ROIAssumptionsSchema = z.object({
-	input_price_per_million: z.number(),
-	output_price_per_million: z.number(),
+	pricing_mode: z.literal(ESTIMATED_PRICING_MODE),
+	priced_model_entries: z.number().int().positive(),
+	fallback_input_price_per_million: z.number(),
+	fallback_output_price_per_million: z.number(),
 	code_percentage: z.number(),
 	tokens_per_loc: z.number(),
 	loc_per_hour: z.number(),
@@ -632,6 +657,8 @@ export const ErrorTrendDataPointSchema = z.object({
 	dimension: z.string(),
 	avg_errors_per_interaction: z.number(),
 	avg_errors_per_session: z.number(),
+	error_types: z.array(z.string()),
+	error_type_occurrences: z.array(z.number()),
 	total_errors: z.number(),
 });
 
@@ -686,6 +713,9 @@ export type UsageTrendData = z.infer<typeof UsageTrendDataSchema>;
 export type ModelTokensTrendData = z.infer<typeof ModelTokensTrendDataSchema>;
 export type UserTokenUsageData = z.infer<typeof UserTokenUsageDataSchema>;
 export type UserDailyTrendData = z.infer<typeof UserDailyTrendDataSchema>;
+export type RepositoryDailyTrendData = z.infer<
+	typeof RepositoryDailyTrendDataSchema
+>;
 export type Insight = z.infer<typeof InsightSchema>;
 export type CostWindowMetric = z.infer<typeof CostWindowMetricSchema>;
 export type CostsModelBreakdown = z.infer<typeof CostsModelBreakdownSchema>;

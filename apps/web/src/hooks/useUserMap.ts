@@ -1,16 +1,16 @@
 import { useMemo } from "react";
-import { useOrganization } from "@/contexts/OrganizationContext";
-import { useFullOrganization } from "@/hooks/useFullOrganization";
+import { useFullOrganization } from "@/features/workspace/hooks/useFullOrganization";
+import { useOrganization } from "@/features/workspace/organization/useOrganization";
 
 export function useUserMap() {
-	const { activeOrg } = useOrganization();
-	const { data: fullOrg, isLoading } = useFullOrganization(activeOrg?.id);
+	const { state } = useOrganization();
+	const { data: fullOrg, isLoading } = useFullOrganization(state.activeOrg?.id);
 
 	const userMap = useMemo(() => {
 		const record: Record<string, string> = {};
 		if (fullOrg?.members) {
-			for (const m of fullOrg.members) {
-				record[m.userId] = m.user.name;
+			for (const member of fullOrg.members) {
+				record[member.userId] = member.user.name;
 			}
 		}
 		return record;

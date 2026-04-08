@@ -1,8 +1,8 @@
-import { PlaneIcon, Settings2Icon, StarIcon, UsersIcon } from "lucide-react";
+import { Settings2Icon, StarIcon, UsersIcon } from "lucide-react";
 import type { ReactElement } from "react";
 import { appRoutes } from "@/app/routes";
 
-export type ShellRouteId = "dashboard" | "dashboardy" | "team" | "settings";
+export type ShellRouteId = "dashboard" | "team" | "settings";
 export type ShellRouteIcon = ReactElement<{ size?: number }>;
 
 export type ShellRouteDefinition = {
@@ -24,14 +24,6 @@ export const shellRoutes = [
 		icon: <StarIcon />,
 	},
 	{
-		id: "dashboardy",
-		path: appRoutes.dashboardy(),
-		title: "Dashboardy",
-		navLabel: "Dashboardy",
-		shortcut: "Y",
-		icon: <PlaneIcon />,
-	},
-	{
 		id: "team",
 		path: appRoutes.team(),
 		title: "Team",
@@ -51,9 +43,8 @@ export const shellRoutes = [
 
 export const shellRouteMap = {
 	dashboard: shellRoutes[0],
-	dashboardy: shellRoutes[1],
-	team: shellRoutes[2],
-	settings: shellRoutes[3],
+	team: shellRoutes[1],
+	settings: shellRoutes[2],
 } as const;
 
 export function getCurrentShellRoute(pathname: string): ShellRouteDefinition {

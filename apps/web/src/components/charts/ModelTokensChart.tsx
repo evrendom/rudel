@@ -11,6 +11,7 @@ import {
 	YAxis,
 } from "recharts";
 import { useChartTheme } from "@/hooks/useChartTheme";
+import { formatCompactWholeNumber } from "@/lib/format";
 import { ChartLegend } from "./ChartLegend";
 import { ChartTooltip } from "./ChartTooltip";
 
@@ -133,12 +134,17 @@ export function ModelTokensChart({ data }: ModelTokensChartProps) {
 					height={80}
 					tickMargin={8}
 				/>
-				<YAxis tick={{ fontSize: 12 }} tickFormatter={formatCompactNumber} />
+				<YAxis
+					allowDecimals={false}
+					tick={{ fontSize: 12 }}
+					tickFormatter={formatCompactWholeNumber}
+				/>
 				<Tooltip
 					content={(props) => (
 						<ChartTooltip
 							{...props}
 							nameFormatter={shortenModelName}
+							sortItems
 							valueFormatter={(v) => formatCompactNumber(v)}
 						/>
 					)}

@@ -59,12 +59,14 @@ function DashboardFilterMenu({
 	options,
 	selectedValues,
 	setSelectedValues,
+	buttonClassName,
 }: {
 	icon: ReactNode;
 	label: string;
 	options: string[];
 	selectedValues: string[];
 	setSelectedValues: Dispatch<SetStateAction<string[]>>;
+	buttonClassName?: string;
 }) {
 	const buttonLabel = buildFilterButtonLabel(label, selectedValues, options);
 
@@ -75,7 +77,10 @@ function DashboardFilterMenu({
 					<Button
 						variant="outline"
 						size="sm"
-						className="dashboardy-action-button h-9 w-fit rounded-full border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-subsurface)] text-[color:var(--dashboardy-heading)] shadow-none"
+						className={cn(
+							"dashboardy-action-button h-8 w-fit rounded-full border-[color:var(--dashboardy-border)] bg-transparent px-3 text-xs font-medium text-[color:var(--dashboardy-heading)] shadow-none sm:h-8 sm:text-[13px]",
+							buttonClassName,
+						)}
 					/>
 				}
 			>
@@ -117,7 +122,13 @@ function DashboardFilterMenu({
 	);
 }
 
-export function DashboardFilterControls({ className }: { className?: string }) {
+export function DashboardFilterControls({
+	className,
+	buttonClassName,
+}: {
+	className?: string;
+	buttonClassName?: string;
+}) {
 	const [selectedUsers, setSelectedUsers] = useState<string[]>(
 		DASHBOARD_USER_OPTIONS,
 	);
@@ -129,7 +140,10 @@ export function DashboardFilterControls({ className }: { className?: string }) {
 		() => [
 			{
 				icon: (
-					<Users data-icon="inline-start" className="text-muted-foreground" />
+					<Users
+						data-icon="inline-start"
+						className="size-3.5 text-muted-foreground"
+					/>
 				),
 				label: "Users",
 				options: DASHBOARD_USER_OPTIONS,
@@ -140,7 +154,7 @@ export function DashboardFilterControls({ className }: { className?: string }) {
 				icon: (
 					<Sparkles
 						data-icon="inline-start"
-						className="text-muted-foreground"
+						className="size-3.5 text-muted-foreground"
 					/>
 				),
 				label: "Models",
@@ -154,7 +168,7 @@ export function DashboardFilterControls({ className }: { className?: string }) {
 
 	return (
 		<div
-			className={cn("flex flex-wrap items-center justify-end gap-2", className)}
+			className={cn("flex flex-wrap items-center gap-2", className)}
 		>
 			{controls.map((control) => (
 				<DashboardFilterMenu
@@ -164,6 +178,7 @@ export function DashboardFilterControls({ className }: { className?: string }) {
 					options={control.options}
 					selectedValues={control.selectedValues}
 					setSelectedValues={control.setSelectedValues}
+					buttonClassName={buttonClassName}
 				/>
 			))}
 		</div>

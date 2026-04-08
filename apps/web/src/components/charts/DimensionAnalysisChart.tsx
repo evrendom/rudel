@@ -249,6 +249,7 @@ export const DimensionAnalysisChart = memo(function DimensionAnalysisChart({
 				active={true}
 				payload={normalizedPayload}
 				label={fullName}
+				sortItems={Boolean(split_by)}
 				valueFormatter={valueFormatter}
 				showTotal={!showPercentage}
 			/>

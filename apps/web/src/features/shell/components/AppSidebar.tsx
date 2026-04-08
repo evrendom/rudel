@@ -1,13 +1,19 @@
 "use client";
 
+import { ArrowLeftIcon, Building2Icon, UserIcon } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import * as React from "react";
+import { useLocation } from "react-router-dom";
 import {
 	SIDEBAR_SHELL_COLLAPSE_DURATION_MS,
 	Sidebar,
 	type SidebarShellMotionVariant,
 	useSidebar,
 } from "@/app/ui/sidebar";
+import {
+	getActiveSettingsRouteId,
+	primarySettingsRoutes,
+} from "@/features/settings/config/settings-routes";
 import { SidebarNewsCard } from "@/features/shell/components/SidebarNewsCard";
 import { SidebarNewsPopover } from "@/features/shell/components/SidebarNewsPopover";
 import {
@@ -17,7 +23,10 @@ import {
 } from "@/features/shell/components/shell-rail";
 import { UserRailButton } from "@/features/shell/components/UserRailButton";
 import { WorkspaceMenuButton } from "@/features/shell/components/WorkspaceMenuButton";
-import { shellRoutes } from "@/features/shell/config/shell-routes";
+import {
+	shellRouteMap,
+	shellRoutes,
+} from "@/features/shell/config/shell-routes";
 import {
 	SHOW_SIDEBAR_NEWS_MODE,
 	SIDEBAR_NEWS_ITEM_ID,
@@ -27,6 +36,7 @@ import { useCurrentShellRoute } from "@/features/shell/hooks/useCurrentShellRout
 import { cn } from "@/lib/utils";
 
 type SidebarDisplayMode = SidebarRowMode;
+type SidebarNavigationMode = "app" | "settings";
 
 const SIDEBAR_NEWS_DISMISS_STORAGE_KEY = `sidebar-news-dismissed:${SIDEBAR_NEWS_ITEM_ID}`;
 
@@ -34,6 +44,10 @@ const SIDEBAR_NEWS_VISIBILITY_TRANSITION = {
 	duration: 0.2,
 	ease: [0.22, 1, 0.36, 1] as const,
 };
+
+function getSettingsSidebarIcon(routeId: string) {
+	return routeId === "account" ? <UserIcon /> : <Building2Icon />;
+}
 
 function getSidebarSectionClassName(mode: SidebarDisplayMode) {
 	return cn(
@@ -121,13 +135,40 @@ function SidebarEdgeHotspot({
 
 function SidebarNavigation({
 	mode,
+	navigationMode,
 	debugShowBorders,
 	debugVariant,
 	forceShowLabels,
 }: {
 	mode: SidebarDisplayMode;
+	navigationMode: SidebarNavigationMode;
 } & SidebarRowDebugProps) {
 	const currentShellRoute = useCurrentShellRoute();
+	const location = useLocation();
+	const activeSettingsRouteId = getActiveSettingsRouteId(location.pathname);
+
+	if (navigationMode === "settings") {
+		return (
+			<nav aria-label="Settings">
+				<ul className="flex flex-col gap-1">
+					{primarySettingsRoutes.map((route) => (
+						<RailLink
+							key={route.id}
+							to={route.path}
+							label={route.label}
+							mode={mode}
+							active={activeSettingsRouteId === route.id}
+							debugShowBorders={debugShowBorders}
+							debugVariant={debugVariant}
+							forceShowLabels={forceShowLabels}
+						>
+							{getSettingsSidebarIcon(route.id)}
+						</RailLink>
+					))}
+				</ul>
+			</nav>
+		);
+	}
 
 	return (
 		<nav aria-label="Primary">
@@ -153,11 +194,13 @@ function SidebarNavigation({
 }
 
 export function AppSidebar({
+	navigationMode = "app",
 	shellMotionShowBorders = true,
 	shellMotionVariant = "baseline",
 	shellMotionForceLabels = false,
 	shellDebugState,
 }: {
+	navigationMode?: SidebarNavigationMode;
 	shellMotionShowBorders?: boolean;
 	shellMotionVariant?: SidebarShellMotionVariant;
 	shellMotionForceLabels?: boolean;
@@ -182,6 +225,8 @@ export function AppSidebar({
 		}
 	});
 	const newsDebugTuning = shellDebugState.tuning;
+	const showSidebarNewsFeatures =
+		SHOW_SIDEBAR_NEWS_MODE && navigationMode === "app";
 
 	const dismissNewsCard = React.useCallback(() => {
 		setIsNewsDismissed(true);
@@ -218,7 +263,8 @@ export function AppSidebar({
 	}, [displayMode, isMobile, isSidebarExpanded]);
 
 	const isExpandedMode = displayMode === "expanded";
-	const showSidebarNewsCard = isSidebarExpanded && !isNewsDismissed;
+	const showSidebarNewsCard =
+		showSidebarNewsFeatures && isSidebarExpanded && !isNewsDismissed;
 
 	return (
 		<Sidebar
@@ -241,7 +287,22 @@ export function AppSidebar({
 			<div className={getSidebarContentFrameClassName(displayMode)}>
 				<div className={getSidebarSectionClassName(displayMode)}>
 					<div className={getSidebarTopClusterClassName(displayMode)}>
-						{isExpandedMode ? (
+						{navigationMode === "settings" ? (
+							<nav aria-label="Back to app">
+								<ul className="flex flex-col gap-1">
+									<RailLink
+										to={shellRouteMap.dashboard.path}
+										label="Back to app"
+										mode={displayMode}
+										debugShowBorders={shellMotionShowBorders}
+										debugVariant={shellMotionVariant}
+										forceShowLabels={shellMotionForceLabels}
+									>
+										<ArrowLeftIcon />
+									</RailLink>
+								</ul>
+							</nav>
+						) : isExpandedMode ? (
 							<WorkspaceMenuButton
 								debugShowBorders={shellMotionShowBorders}
 								debugVariant={shellMotionVariant}
@@ -255,13 +316,14 @@ export function AppSidebar({
 								forceShowLabels={shellMotionForceLabels}
 							/>
 						)}
-						{SHOW_SIDEBAR_NEWS_MODE && isExpandedMode ? (
+						{showSidebarNewsFeatures && isExpandedMode ? (
 							<SidebarNewsPopover />
 						) : null}
 					</div>
 					<div className={getSidebarNavigationClusterClassName(displayMode)}>
 						<SidebarNavigation
 							mode={displayMode}
+							navigationMode={navigationMode}
 							debugShowBorders={shellMotionShowBorders}
 							debugVariant={shellMotionVariant}
 							forceShowLabels={shellMotionForceLabels}
@@ -302,10 +364,12 @@ export function AppSidebar({
 						)}
 					</div>
 				</div>
-				<SidebarEdgeHotspot
-					isExpanded={isExpandedMode}
-					onClick={toggleSidebar}
-				/>
+				{navigationMode === "app" ? (
+					<SidebarEdgeHotspot
+						isExpanded={isExpandedMode}
+						onClick={toggleSidebar}
+					/>
+				) : null}
 			</div>
 		</Sidebar>
 	);

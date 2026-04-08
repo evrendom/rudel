@@ -15,7 +15,10 @@ import { TooltipProvider } from "@/app/ui/tooltip";
 import { AppSidebar } from "@/features/shell/components/AppSidebar";
 import { SidebarShellDebugPanel } from "@/features/shell/components/SidebarShellDebugPanel";
 import { SiteHeader } from "@/features/shell/components/SiteHeader";
-import { shellRoutes } from "@/features/shell/config/shell-routes";
+import {
+	shellRouteMap,
+	shellRoutes,
+} from "@/features/shell/config/shell-routes";
 import { SHOW_SIDEBAR_NEWS_MODE } from "@/features/shell/config/sidebar-news";
 import {
 	appendSidebarShellDebugParams,
@@ -95,6 +98,9 @@ export function AppShellLayout() {
 	const location = useLocation();
 	const [searchParams] = useSearchParams();
 	const isSidebarNewsModeEnabled = SHOW_SIDEBAR_NEWS_MODE;
+	const isSettingsShellRoute =
+		location.pathname === shellRouteMap.settings.path ||
+		location.pathname.startsWith(`${shellRouteMap.settings.path}/`);
 	const sidebarShellDebugState = getSidebarShellDebugState(searchParams);
 	const sidebarTuning = sidebarShellDebugState.tuning;
 	const handleShellShortcutKeyDown = React.useEffectEvent(
@@ -133,15 +139,21 @@ export function AppShellLayout() {
 				<div
 					className="dashboard-01-preview h-dvh overflow-hidden text-foreground"
 					data-sidebar-news-hide-performance-chart-debug={
-						sidebarTuning.newsHidePerformanceChartWhileActive
-							? "true"
-							: "false"
+						sidebarTuning.newsHidePerformanceChartWhileActive ? "true" : "false"
 					}
 				>
 					<SidebarProvider
-						defaultOpen={isSidebarNewsModeEnabled}
-						open={isSidebarNewsModeEnabled ? true : undefined}
-						onOpenChange={isSidebarNewsModeEnabled ? () => {} : undefined}
+						defaultOpen={isSettingsShellRoute || isSidebarNewsModeEnabled}
+						open={
+							isSettingsShellRoute || isSidebarNewsModeEnabled
+								? true
+								: undefined
+						}
+						onOpenChange={
+							isSettingsShellRoute || isSidebarNewsModeEnabled
+								? () => {}
+								: undefined
+						}
 						className="dashboard-01-chrome-frame h-full overflow-hidden"
 						style={
 							{
@@ -180,6 +192,7 @@ export function AppShellLayout() {
 						}
 					>
 						<AppSidebar
+							navigationMode={isSettingsShellRoute ? "settings" : "app"}
 							shellMotionShowBorders={sidebarShellDebugState.showBorders}
 							shellMotionVariant={sidebarShellDebugState.variant}
 							shellMotionForceLabels={sidebarShellDebugState.alwaysShowLabels}

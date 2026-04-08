@@ -1,19 +1,15 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { PageViewTrackingMount } from "@/features/analytics/tracking/PageViewTrackingMount";
-import { useAnalyticsTracking } from "@/features/analytics/tracking/useAnalyticsTracking";
-import { authClient, signOut } from "@/lib/auth-client";
 import { appRoutes } from "@/app/routes";
-import { ProfileActionsCard } from "@/features/settings/account/components/ProfileActionsCard";
-import { ProfileAppearanceCard } from "@/features/settings/account/components/ProfileAppearanceCard";
-import { ProfileLinkedAccountsCard } from "@/features/settings/account/components/ProfileLinkedAccountsCard";
-import { ProfileSummaryCard } from "@/features/settings/account/components/ProfileSummaryCard";
-import { Badge } from "@/app/ui/badge";
 import { Card, CardContent } from "@/app/ui/card";
 import { Skeleton } from "@/app/ui/skeleton";
+import { PageViewTrackingMount } from "@/features/analytics/tracking/PageViewTrackingMount";
+import { useAnalyticsTracking } from "@/features/analytics/tracking/useAnalyticsTracking";
+import { ProfileLinkedAccountsCard } from "@/features/settings/account/components/ProfileLinkedAccountsCard";
+import { ProfileOverviewCard } from "@/features/settings/account/components/ProfileOverviewCard";
 import { useAccountSettingsData } from "@/features/settings/account/use-account-settings-data";
-import { SettingsSectionIntro } from "@/features/settings/components/SettingsSectionIntro";
+import { authClient, signOut } from "@/lib/auth-client";
 
 export function AccountSettingsSection() {
 	const navigate = useNavigate();
@@ -81,16 +77,8 @@ export function AccountSettingsSection() {
 					},
 				]}
 			/>
-			<div className="px-4 lg:px-6">
-				<SettingsSectionIntro
-					title="Account"
-					description="Account identity and connected providers inside the redesign."
-					action={<Badge variant="outline">Account</Badge>}
-				/>
-			</div>
-
 			{data.state.isPending ? (
-				<div className="grid gap-4 px-4 lg:px-6 xl:grid-cols-[1.1fr_1.4fr]">
+				<div className="grid gap-4 px-4 lg:px-6 xl:grid-cols-[1.05fr_1fr]">
 					<Card
 						size="sm"
 						className="bg-card/95 shadow-none ring-1 ring-border/60"
@@ -103,6 +91,7 @@ export function AccountSettingsSection() {
 									<Skeleton className="h-3 w-40 rounded-md" />
 								</div>
 							</div>
+							<Skeleton className="h-9 w-full rounded-md" />
 							<Skeleton className="h-8 w-28 rounded-md" />
 						</CardContent>
 					</Card>
@@ -124,19 +113,14 @@ export function AccountSettingsSection() {
 					</Card>
 				</div>
 			) : (
-				<div className="grid gap-4 px-4 lg:px-6 xl:grid-cols-[1.1fr_1.4fr]">
-					<div className="flex flex-col gap-4">
-						<ProfileSummaryCard
-							name={data.user.name}
-							email={data.user.email}
-							image={data.user.image}
-						/>
-						<ProfileAppearanceCard />
-						<ProfileActionsCard
-							isSigningOut={isSigningOut}
-							onSignOut={() => void handleSignOut()}
-						/>
-					</div>
+				<div className="grid gap-4 px-4 lg:px-6 xl:grid-cols-[1.05fr_1fr]">
+					<ProfileOverviewCard
+						name={data.user.name}
+						email={data.user.email}
+						image={data.user.image}
+						isSigningOut={isSigningOut}
+						onSignOut={() => void handleSignOut()}
+					/>
 					<ProfileLinkedAccountsCard
 						isPending={data.state.isPending}
 						linkedProviders={data.linkedProviders}

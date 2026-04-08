@@ -24,9 +24,13 @@ const DashboardPage = lazyNamed(
 	() => import("@/features/dashboard/DashboardPage"),
 	"DashboardPage",
 );
-const DashboardyPage = lazyNamed(
-	() => import("@/features/dashboardy/DashboardyPage"),
-	"DashboardyPage",
+const SessionsListPage = lazyNamed(
+	() => import("@/pages/dashboard/SessionsListPage"),
+	"SessionsListPage",
+);
+const SessionDetailPage = lazyNamed(
+	() => import("@/pages/dashboard/SessionDetailPage"),
+	"SessionDetailPage",
 );
 const SettingsLayout = lazyNamed(
 	() => import("@/features/settings/SettingsLayout"),
@@ -36,17 +40,9 @@ const WorkspaceSettingsPage = lazyNamed(
 	() => import("@/features/settings/workspace/WorkspaceSettingsPage"),
 	"WorkspaceSettingsPage",
 );
-const InvitationsSettingsPage = lazyNamed(
-	() => import("@/features/settings/invitations/InvitationsSettingsPage"),
-	"InvitationsSettingsPage",
-);
 const AccountSettingsPage = lazyNamed(
 	() => import("@/features/settings/account/AccountSettingsPage"),
 	"AccountSettingsPage",
-);
-const CreateWorkspacePage = lazyNamed(
-	() => import("@/features/settings/create-workspace/CreateWorkspacePage"),
-	"CreateWorkspacePage",
 );
 const TeamPage = lazyNamed(
 	() => import("@/features/team/TeamPage"),
@@ -56,6 +52,7 @@ const PresetBaselinePage = lazyNamed(
 	() => import("@/app/system/PresetBaselinePage"),
 	"PresetBaselinePage",
 );
+const LEGACY_DASHBOARDY_PATH = "/dashboardy";
 
 function DashboardRouteLoadingScreen() {
 	return (
@@ -94,6 +91,10 @@ export function AppRouter({
 		rootRedirectTarget || shellRouteMap.dashboard.path,
 		new URLSearchParams(location.search),
 	);
+	const canonicalWorkspaceSettingsPath = appendSidebarShellDebugParams(
+		settingsRouteMap.workspace.path,
+		new URLSearchParams(location.search),
+	);
 
 	return (
 		<Routes>
@@ -112,8 +113,16 @@ export function AppRouter({
 					element={<LazyRoute Component={DashboardPage} />}
 				/>
 				<Route
-					path={shellRouteMap.dashboardy.path}
-					element={<LazyRoute Component={DashboardyPage} />}
+					path={`${shellRouteMap.dashboard.path}/sessions`}
+					element={<LazyRoute Component={SessionsListPage} />}
+				/>
+				<Route
+					path={`${shellRouteMap.dashboard.path}/sessions/:sessionId`}
+					element={<LazyRoute Component={SessionDetailPage} />}
+				/>
+				<Route
+					path={LEGACY_DASHBOARDY_PATH}
+					element={<Navigate to={shellRouteMap.dashboard.path} replace />}
 				/>
 				<Route
 					path={shellRouteMap.team.path}
@@ -130,7 +139,12 @@ export function AppRouter({
 					/>
 					<Route
 						path={settingsRouteMap.invitations.segment}
-						element={<LazyRoute Component={InvitationsSettingsPage} />}
+						element={
+							<Navigate
+								replace
+								to={`${canonicalWorkspaceSettingsPath}#incoming-invitations`}
+							/>
+						}
 					/>
 					<Route
 						path={settingsRouteMap.account.segment}
@@ -138,7 +152,12 @@ export function AppRouter({
 					/>
 					<Route
 						path={settingsRouteMap["create-workspace"].segment}
-						element={<LazyRoute Component={CreateWorkspacePage} />}
+						element={
+							<Navigate
+								replace
+								to={`${canonicalWorkspaceSettingsPath}#new-workspace`}
+							/>
+						}
 					/>
 				</Route>
 			</Route>

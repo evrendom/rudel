@@ -1,4 +1,11 @@
-import { addDays, format, parseISO, startOfWeek } from "date-fns";
+import {
+	addDays,
+	eachDayOfInterval,
+	format,
+	getISODay,
+	parseISO,
+	startOfWeek,
+} from "date-fns";
 
 export type DashboardDeltaTone = "positive" | "negative" | "neutral";
 export type DashboardMetricId =
@@ -11,6 +18,13 @@ export type DashboardMetricId =
 
 export interface DashboardMetricTrendPoint {
 	date: string;
+	value: number | null;
+}
+
+export interface DashboardMetricMemberPoint {
+	imageUrl?: string | null;
+	label: string;
+	userId?: string;
 	value: number | null;
 }
 
@@ -44,10 +58,11 @@ export interface DashboardMetric {
 	deltaLabel: string;
 	deltaTone: DashboardDeltaTone;
 	trend: DashboardMetricTrendPoint[];
+	memberValues: DashboardMetricMemberPoint[];
 }
 
 export interface DashboardHeadlineMetric {
-	id: "commits" | "sessions" | "commitRate";
+	id: "sessions" | "uncommitted" | "commitRate";
 	label: string;
 	valueLabel: string;
 	deltaLabel: string;
@@ -62,13 +77,6 @@ export interface DashboardDailyPatternPoint {
 	commits: number | null;
 	sessions: number | null;
 	commitRate: number | null;
-}
-
-export interface DashboardWorkTypeStat {
-	label: string;
-	commits: number;
-	sessions: number;
-	commitRate: number;
 }
 
 export interface DashboardRankedOutputRow {
@@ -118,12 +126,6 @@ export interface DashboardBranchActivity {
 export interface DashboardOutputSnapshot {
 	headlineMetrics: DashboardHeadlineMetric[];
 	dailyPattern: DashboardDailyPatternPoint[];
-	lastWeekSamePoint: {
-		commits: number;
-		sessions: number;
-		commitRate: number;
-	};
-	workTypes: DashboardWorkTypeStat[];
 	players: DashboardRankedOutputRow[];
 	repositories: DashboardRankedOutputRow[];
 	models: DashboardDistributionRow[];
@@ -142,6 +144,7 @@ const dashboardMetricTemplates: Array<{
 	deltaLabel: string;
 	deltaTone: DashboardDeltaTone;
 	weeklyValues: Array<number | null>;
+	memberValues: Array<number | null>;
 }> = [
 	{
 		id: "output",
@@ -150,6 +153,7 @@ const dashboardMetricTemplates: Array<{
 		deltaLabel: "+12",
 		deltaTone: "positive",
 		weeklyValues: [100, 83, 57, 83, null, null, null],
+		memberValues: [92, 84, 77, 74, 69, 58, 41, 18],
 	},
 	{
 		id: "quality",
@@ -158,6 +162,7 @@ const dashboardMetricTemplates: Array<{
 		deltaLabel: "0",
 		deltaTone: "neutral",
 		weeklyValues: [82, 76, 80, 79, 77, 81, 78],
+		memberValues: [86, 81, 78, 83, 72, 61, 74, 57],
 	},
 	{
 		id: "efficiency",
@@ -166,6 +171,7 @@ const dashboardMetricTemplates: Array<{
 		deltaLabel: "-5",
 		deltaTone: "negative",
 		weeklyValues: [74, 71, 67, 69, 61, null, null],
+		memberValues: [79, 74, 68, 71, 66, 57, 62, 49],
 	},
 	{
 		id: "speed",
@@ -174,6 +180,7 @@ const dashboardMetricTemplates: Array<{
 		deltaLabel: "+2",
 		deltaTone: "positive",
 		weeklyValues: [85, 79, 76, 81, 73, 69, 67],
+		memberValues: [88, 79, 73, 76, 71, 63, 59, 46],
 	},
 	{
 		id: "craft",
@@ -182,6 +189,7 @@ const dashboardMetricTemplates: Array<{
 		deltaLabel: "+4",
 		deltaTone: "positive",
 		weeklyValues: [64, 58, 55, 67, 61, null, null],
+		memberValues: [72, 66, 61, 68, 59, 53, 49, 39],
 	},
 	{
 		id: "consistency",
@@ -190,6 +198,7 @@ const dashboardMetricTemplates: Array<{
 		deltaLabel: "+1",
 		deltaTone: "positive",
 		weeklyValues: [88, 86, 84, 83, 80, 79, 78],
+		memberValues: [90, 84, 79, 82, 76, 68, 52, 34],
 	},
 ];
 
@@ -284,20 +293,20 @@ const dashboardMetricDetailTemplates: Record<
 
 const headlineMetricsTemplate: DashboardHeadlineMetric[] = [
 	{
-		id: "commits",
-		label: "Commits shipped",
-		valueLabel: "89",
-		deltaLabel: "+12",
-		deltaTone: "positive",
-		description: "Total commits this period.",
-	},
-	{
 		id: "sessions",
 		label: "Sessions run",
 		valueLabel: "142",
 		deltaLabel: "-6",
 		deltaTone: "negative",
 		description: "Total AI sessions this period.",
+	},
+	{
+		id: "uncommitted",
+		label: "Uncommitted sessions",
+		valueLabel: "53",
+		deltaLabel: "+8",
+		deltaTone: "negative",
+		description: "Sessions that did not produce a commit.",
 	},
 	{
 		id: "commitRate",
@@ -318,13 +327,6 @@ const dailyPatternTemplate = [
 	{ commits: null, sessions: null, commitRate: null },
 	{ commits: null, sessions: null, commitRate: null },
 ] as const;
-
-const workTypesTemplate: DashboardWorkTypeStat[] = [
-	{ label: "Build", commits: 45, sessions: 56, commitRate: 80 },
-	{ label: "Debug", commits: 20, sessions: 41, commitRate: 49 },
-	{ label: "Refactor", commits: 15, sessions: 24, commitRate: 63 },
-	{ label: "Explore", commits: 9, sessions: 21, commitRate: 43 },
-];
 
 const playersTemplate: DashboardRankedOutputRow[] = [
 	{ label: "Morgan Lee", commits: 21, sessions: 28, commitRate: 75 },
@@ -386,11 +388,6 @@ const sessionProfileTemplate: DashboardProfileComparisonRow[] = [
 	{ label: "Avg errors", committed: "0.8", uncommitted: "1.6" },
 	{ label: "Avg tokens", committed: "84k", uncommitted: "66k" },
 	{ label: "Avg cost", committed: "$3.19", uncommitted: "$2.41" },
-	{
-		label: "Most common archetype",
-		committed: "Build",
-		uncommitted: "Explore",
-	},
 	{ label: "Most common model", committed: "Sonnet 4", uncommitted: "Opus" },
 	{ label: "Plan mode usage", committed: "58%", uncommitted: "31%" },
 ];
@@ -453,7 +450,7 @@ const activeBranchesTemplate: DashboardBranchActivity[] = [
 	},
 	{
 		repository: "tel-aviv-v1",
-		branch: "feature/dashboardy-preview",
+		branch: "feature/dashboard-preview",
 		commits: 4,
 		players: 1,
 	},
@@ -475,7 +472,201 @@ function resolveWeekStart(endDate: string) {
 	return startOfWeek(parsedEndDate, { weekStartsOn: 1 });
 }
 
-export function createDashboardMetrics(endDate: string): DashboardMetric[] {
+function isValidDate(value: Date) {
+	return !Number.isNaN(value.getTime());
+}
+
+function resolveDateInterval(startDate: string, endDate: string) {
+	const parsedStartDate = parseISO(startDate);
+	const parsedEndDate = parseISO(endDate);
+
+	if (!isValidDate(parsedStartDate) && !isValidDate(parsedEndDate)) {
+		const weekStart = resolveWeekStart(endDate);
+		return Array.from({ length: 7 }, (_, index) => addDays(weekStart, index));
+	}
+
+	const safeEndDate = isValidDate(parsedEndDate)
+		? parsedEndDate
+		: parsedStartDate;
+	const safeStartDate = isValidDate(parsedStartDate)
+		? parsedStartDate
+		: addDays(safeEndDate, -6);
+
+	const [intervalStart, intervalEnd] =
+		safeStartDate.getTime() <= safeEndDate.getTime()
+			? [safeStartDate, safeEndDate]
+			: [safeEndDate, safeStartDate];
+
+	return eachDayOfInterval({
+		start: intervalStart,
+		end: intervalEnd,
+	});
+}
+
+function buildDailyPatternPoint(
+	date: Date,
+	index: number,
+): DashboardDailyPatternPoint {
+	const template = dailyPatternTemplate[getISODay(date) - 1];
+
+	if (
+		template.commits == null ||
+		template.sessions == null ||
+		template.commitRate == null
+	) {
+		return {
+			date: format(date, "yyyy-MM-dd"),
+			axisLabel: format(date, "EEE"),
+			fullLabel: format(date, "EEEE, MMM d"),
+			commits: null,
+			sessions: null,
+			commitRate: null,
+		};
+	}
+
+	const weekOffset = Math.floor(index / 7);
+	const variabilitySeed = date.getDate() + date.getMonth() * 3 + weekOffset * 2;
+	const variability = (variabilitySeed % 5) - 2;
+	const sessions = Math.max(
+		template.commits,
+		Math.round(template.sessions * (1 + variability * 0.06)),
+	);
+	const commitRate = Math.max(
+		0,
+		Math.min(100, Math.round(template.commitRate + variability * 2)),
+	);
+	const commits = Math.min(
+		sessions,
+		Math.max(0, Math.round((sessions * commitRate) / 100)),
+	);
+
+	return {
+		date: format(date, "yyyy-MM-dd"),
+		axisLabel: format(date, "EEE"),
+		fullLabel: format(date, "EEEE, MMM d"),
+		commits,
+		sessions,
+		commitRate,
+	};
+}
+
+function buildHeadlineMetrics(dailyPattern: DashboardDailyPatternPoint[]) {
+	const commits = dailyPattern.reduce(
+		(total, point) => total + (point.commits ?? 0),
+		0,
+	);
+	const sessions = dailyPattern.reduce(
+		(total, point) => total + (point.sessions ?? 0),
+		0,
+	);
+	const uncommitted = Math.max(sessions - commits, 0);
+	const commitRate = sessions > 0 ? Math.round((commits / sessions) * 100) : 0;
+
+	return headlineMetricsTemplate.map((metric) => {
+		if (metric.id === "uncommitted") {
+			return {
+				...metric,
+				valueLabel: `${uncommitted}`,
+			};
+		}
+
+		if (metric.id === "sessions") {
+			return {
+				...metric,
+				valueLabel: `${sessions}`,
+			};
+		}
+
+		return {
+			...metric,
+			valueLabel: `${commitRate}%`,
+		};
+	});
+}
+
+function clampDashboardScore(value: number) {
+	return Math.max(0, Math.min(100, value));
+}
+
+function getRangeSeed(interval: Date[]) {
+	return interval.reduce(
+		(total, date, index) =>
+			total + date.getDate() * (index + 3) + (date.getMonth() + 1) * 11,
+		0,
+	);
+}
+
+function getMetricRangeBias(metricId: DashboardMetricId, dayCount: number) {
+	switch (metricId) {
+		case "output":
+			return dayCount >= 21 ? 4 : dayCount <= 3 ? -5 : 0;
+		case "quality":
+			return dayCount >= 14 ? 1 : 0;
+		case "efficiency":
+			return dayCount >= 21 ? 2 : dayCount <= 3 ? -3 : 0;
+		case "speed":
+			return dayCount <= 3 ? 4 : dayCount >= 21 ? -1 : 1;
+		case "craft":
+			return dayCount >= 14 ? 2 : 0;
+		case "consistency":
+			return dayCount >= 21 ? 6 : dayCount >= 14 ? 3 : -2;
+	}
+}
+
+function buildMetricMemberValues(
+	metricId: DashboardMetricId,
+	memberValues: Array<number | null>,
+	startDate: string,
+	endDate: string,
+) {
+	const interval = resolveDateInterval(startDate, endDate);
+	const dayCount = interval.length;
+	const rangeSeed = getRangeSeed(interval);
+	const volatility =
+		dayCount <= 3 ? 8 : dayCount <= 7 ? 6 : dayCount <= 21 ? 4 : 2;
+
+	return playersTemplate.map((player, index) => {
+		const baseValue = memberValues[index] ?? null;
+
+		if (baseValue == null) {
+			return {
+				label: player.label,
+				value: null,
+			};
+		}
+
+		const activityModifier = 0.88 + (((rangeSeed + index * 19) % 9) - 4) * 0.04;
+		const expectedSessions =
+			(player.sessions / 7) * dayCount * activityModifier;
+
+		if (expectedSessions < 1.35) {
+			return {
+				label: player.label,
+				value: null,
+			};
+		}
+
+		const waveform =
+			((((rangeSeed + (index + 1) * 17 + metricId.length * 13) % 11) - 5) *
+				volatility) /
+			5;
+		const playerBias =
+			player.commitRate >= 70 ? 2 : player.commitRate <= 50 ? -3 : 0;
+		const rangeBias = getMetricRangeBias(metricId, dayCount);
+
+		return {
+			label: player.label,
+			value: clampDashboardScore(
+				Math.round(baseValue + waveform + playerBias + rangeBias),
+			),
+		};
+	});
+}
+
+export function createDashboardMetrics(
+	startDate: string,
+	endDate: string,
+): DashboardMetric[] {
 	const weekStart = resolveWeekStart(endDate);
 
 	return dashboardMetricTemplates.map((metric) => ({
@@ -488,6 +679,12 @@ export function createDashboardMetrics(endDate: string): DashboardMetric[] {
 			date: format(addDays(weekStart, index), "yyyy-MM-dd"),
 			value,
 		})),
+		memberValues: buildMetricMemberValues(
+			metric.id,
+			metric.memberValues,
+			startDate,
+			endDate,
+		),
 	}));
 }
 
@@ -519,29 +716,16 @@ export function createDashboardMetricDetail(
 }
 
 export function createDashboardOutputSnapshot(
+	startDate: string,
 	endDate: string,
 ): DashboardOutputSnapshot {
-	const weekStart = resolveWeekStart(endDate);
+	const dailyPattern = resolveDateInterval(startDate, endDate).map(
+		buildDailyPatternPoint,
+	);
 
 	return {
-		headlineMetrics: headlineMetricsTemplate,
-		dailyPattern: dailyPatternTemplate.map((point, index) => {
-			const date = addDays(weekStart, index);
-			return {
-				date: format(date, "yyyy-MM-dd"),
-				axisLabel: format(date, "EEE"),
-				fullLabel: format(date, "EEEE, MMM d"),
-				commits: point.commits,
-				sessions: point.sessions,
-				commitRate: point.commitRate,
-			};
-		}),
-		lastWeekSamePoint: {
-			commits: 76,
-			sessions: 138,
-			commitRate: 55,
-		},
-		workTypes: workTypesTemplate,
+		headlineMetrics: buildHeadlineMetrics(dailyPattern),
+		dailyPattern,
 		players: playersTemplate,
 		repositories: repositoriesTemplate,
 		models: modelsTemplate,

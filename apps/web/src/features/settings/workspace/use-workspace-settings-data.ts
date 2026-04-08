@@ -18,12 +18,14 @@ export function useWorkspaceSettingsData() {
 
 	const currentUserId = readSessionUserId(session?.user?.id);
 	const pendingInvitations =
-		fullOrg?.invitations.filter((invitation) => invitation.status === "pending") ??
-		[];
+		fullOrg?.invitations.filter(
+			(invitation) => invitation.status === "pending",
+		) ?? [];
 	const currentMember = fullOrg?.members.find(
 		(member) => member.userId === currentUserId,
 	);
 	const canManage = meta.isOrgAdmin && Boolean(state.activeOrg);
+	const currentUserRole = currentMember?.role ?? null;
 
 	return {
 		activeOrg: state.activeOrg,
@@ -32,7 +34,7 @@ export function useWorkspaceSettingsData() {
 		pendingInvitations,
 		currentUserId,
 		canManage,
-		currentUserRole: currentMember?.role ?? null,
+		currentUserRole,
 		invalidate,
 		summaryTiles: [
 			{
@@ -46,9 +48,11 @@ export function useWorkspaceSettingsData() {
 				displayValue: fullOrg ? String(pendingInvitations.length) : "—",
 			},
 			{
-				id: "workspace",
-				label: "Workspace",
-				displayValue: state.activeOrg?.name ?? "No workspace",
+				id: "your_role",
+				label: "Your role",
+				displayValue: currentUserRole
+					? currentUserRole.charAt(0).toUpperCase() + currentUserRole.slice(1)
+					: "—",
 			},
 		],
 		state: {

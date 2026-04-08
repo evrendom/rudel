@@ -23,8 +23,8 @@ import {
 	DeveloperTrendDataPointSchema,
 	DimensionAnalysisDataPointSchema,
 	DimensionAnalysisInputSchema,
-	ErrorTrendDataPointSchema,
 	ErrorsDashboardSchema,
+	ErrorTrendDataPointSchema,
 	ErrorTrendsInputSchema,
 	InsightSchema,
 	LearningEntrySchema,
@@ -44,6 +44,7 @@ import {
 	ProjectTrendDataPointSchema,
 	RecurringErrorSchema,
 	RecurringErrorsInputSchema,
+	RepositoryDailyTrendDataSchema,
 	ROIDashboardSchema,
 	ROIMetricsSchema,
 	ROITrendSchema,
@@ -63,6 +64,7 @@ import {
 } from "./schemas/analytics.js";
 
 export * from "./product-analytics.js";
+export * from "./model-pricing.js";
 export * from "./schemas/analytics.js";
 
 export const HealthSchema = z.object({
@@ -172,6 +174,9 @@ export const contract = {
 			usersDailyTrend: oc
 				.input(DateRangeInputSchema)
 				.output(z.array(UserDailyTrendDataSchema)),
+			repositoriesDailyTrend: oc
+				.input(DateRangeInputSchema)
+				.output(z.array(RepositoryDailyTrendDataSchema)),
 			insights: oc.input(DateRangeInputSchema).output(z.array(InsightSchema)),
 			teamSummaryComparison: oc
 				.input(DateRangeInputSchema)
@@ -256,9 +261,7 @@ export const contract = {
 				.output(z.array(ProjectCostBreakdownSchema)),
 		},
 		errors: {
-			dashboard: oc
-				.input(DateRangeInputSchema)
-				.output(ErrorsDashboardSchema),
+			dashboard: oc.input(DateRangeInputSchema).output(ErrorsDashboardSchema),
 			topRecurring: oc
 				.input(RecurringErrorsInputSchema)
 				.output(z.array(RecurringErrorSchema)),

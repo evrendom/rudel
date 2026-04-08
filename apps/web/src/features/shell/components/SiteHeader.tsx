@@ -1,9 +1,19 @@
+import { useLocation } from "react-router-dom";
 import { Separator } from "@/app/ui/separator";
 import { SidebarTrigger } from "@/app/ui/sidebar";
+import {
+	getActiveSettingsRouteId,
+	settingsRouteMap,
+} from "@/features/settings/config/settings-routes";
 import { useCurrentShellRoute } from "@/features/shell/hooks/useCurrentShellRoute";
 
 export function SiteHeader() {
+	const location = useLocation();
 	const currentShellRoute = useCurrentShellRoute();
+	const title =
+		currentShellRoute.id === "settings"
+			? settingsRouteMap[getActiveSettingsRouteId(location.pathname)].label
+			: currentShellRoute.title;
 
 	return (
 		<header className="flex h-(--header-height) shrink-0 items-center gap-2 border-b bg-[var(--dashboard-01-content-background)] px-4 lg:px-6">
@@ -14,7 +24,7 @@ export function SiteHeader() {
 					className="data-vertical:h-4 data-vertical:self-auto md:hidden"
 				/>
 				<h1 className="truncate text-base font-medium [font-family:var(--app-font-heading)]">
-					{currentShellRoute.title}
+					{title}
 				</h1>
 			</div>
 		</header>

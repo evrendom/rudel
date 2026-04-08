@@ -13,19 +13,27 @@ export function DashboardRankedOutputTable({
 	title,
 	description,
 	rows,
+	showHeader = true,
 }: {
 	title: string;
 	description: string;
 	rows: DashboardRankedOutputRow[];
+	showHeader?: boolean;
 }) {
 	const maxCommits = Math.max(...rows.map((row) => row.commits), 1);
 
 	return (
-		<div className="dashboardy-bucket-card rounded-[1.4rem]">
-			<div className="grid gap-1 pb-3">
-				<h3 className="dashboardy-section-title truncate text-sm/6">{title}</h3>
-				<p className="dashboardy-footnote text-sm/6">{description}</p>
-			</div>
+		<div className="dashboardy-bucket-card min-w-0 rounded-[1.4rem]">
+			{showHeader ? (
+				<div className="grid gap-1 pb-3">
+					<h3 className="dashboardy-section-title truncate text-sm/6">
+						{title}
+					</h3>
+					<p className="dashboardy-footnote text-sm/6">{description}</p>
+				</div>
+			) : (
+				<p className="dashboardy-footnote pb-3 text-sm/6">{description}</p>
+			)}
 			<div className="overflow-x-auto">
 				<Table className="dashboardy-board-table min-w-[28rem]">
 					<TableHeader>

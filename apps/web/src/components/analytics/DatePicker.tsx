@@ -1,3 +1,4 @@
+import { parseISO } from "date-fns";
 import { Calendar } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -160,8 +161,8 @@ export function DatePicker({
 	};
 
 	const formatDateRange = () => {
-		const start = new Date(startDate);
-		const end = new Date(endDate);
+		const start = parseISO(startDate);
+		const end = parseISO(endDate);
 		const startStr = start.toLocaleDateString("en-US", {
 			month: "short",
 			day: "numeric",
@@ -228,7 +229,7 @@ export function DatePicker({
 									value={tempEndDate}
 									onChange={(e) => setTempEndDate(e.target.value)}
 									min={tempStartDate}
-									max={new Date().toISOString().split("T")[0]}
+									max={formatLocalDate(new Date())}
 								/>
 							</div>
 

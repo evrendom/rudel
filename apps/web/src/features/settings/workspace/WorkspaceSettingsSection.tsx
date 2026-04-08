@@ -1,44 +1,112 @@
-import { PlusIcon } from "lucide-react"
-import { Link } from "react-router-dom"
+import { useState } from "react";
+import { toast } from "sonner";
+import { Card, CardContent } from "@/app/ui/card";
+import { Skeleton } from "@/app/ui/skeleton";
 import {
-	PageViewTrackingMount,
 	type PageMetric,
 	type PageSection,
-} from "@/features/analytics/tracking/PageViewTrackingMount"
-import { useAnalyticsTracking } from "@/features/analytics/tracking/useAnalyticsTracking"
-import { appRoutes } from "@/app/routes"
-import { Badge } from "@/app/ui/badge"
-import { buttonVariants } from "@/app/ui/button"
-import { Card, CardContent } from "@/app/ui/card"
-import { Skeleton } from "@/app/ui/skeleton"
-import { SettingsSectionIntro } from "@/features/settings/components/SettingsSectionIntro"
-import { useWorkspaceSettingsData } from "@/features/settings/workspace/use-workspace-settings-data"
-import { WorkspaceDangerZoneCard } from "@/features/settings/workspace/components/WorkspaceDangerZoneCard"
-import { WorkspaceEmptyStateCard } from "@/features/settings/workspace/components/WorkspaceEmptyStateCard"
-import { WorkspaceIdentityCard } from "@/features/settings/workspace/components/WorkspaceIdentityCard"
-import { WorkspaceInviteMemberCard } from "@/features/settings/workspace/components/WorkspaceInviteMemberCard"
-import { WorkspaceMembersCard } from "@/features/settings/workspace/components/WorkspaceMembersCard"
-import { WorkspaceOutgoingInvitationsCard } from "@/features/settings/workspace/components/WorkspaceOutgoingInvitationsCard"
-import { WorkspaceSummaryStrip } from "@/features/settings/workspace/components/WorkspaceSummaryStrip"
+	PageViewTrackingMount,
+} from "@/features/analytics/tracking/PageViewTrackingMount";
+import { useAnalyticsTracking } from "@/features/analytics/tracking/useAnalyticsTracking";
+import { useInvitationsSettingsData } from "@/features/settings/invitations/use-invitations-settings-data";
+import { CreateWorkspaceCard } from "@/features/settings/workspace/components/CreateWorkspaceCard";
+import { WorkspaceDangerZoneCard } from "@/features/settings/workspace/components/WorkspaceDangerZoneCard";
+import { WorkspaceEmptyStateCard } from "@/features/settings/workspace/components/WorkspaceEmptyStateCard";
+import { WorkspaceIdentityCard } from "@/features/settings/workspace/components/WorkspaceIdentityCard";
+import { WorkspaceIncomingInvitationsCard } from "@/features/settings/workspace/components/WorkspaceIncomingInvitationsCard";
+import { WorkspaceInviteMemberCard } from "@/features/settings/workspace/components/WorkspaceInviteMemberCard";
+import { WorkspaceMembersCard } from "@/features/settings/workspace/components/WorkspaceMembersCard";
+import { WorkspaceOutgoingInvitationsCard } from "@/features/settings/workspace/components/WorkspaceOutgoingInvitationsCard";
+import { WorkspaceSummaryStrip } from "@/features/settings/workspace/components/WorkspaceSummaryStrip";
+import { useWorkspaceSettingsData } from "@/features/settings/workspace/use-workspace-settings-data";
+import { useOrganization } from "@/features/workspace/organization/useOrganization";
+import { authClient } from "@/lib/auth-client";
 
 export function WorkspaceSettingsSection() {
-	const data = useWorkspaceSettingsData()
-	const { trackNavigation } = useAnalyticsTracking({
+	const data = useWorkspaceSettingsData();
+	const invitationsData = useInvitationsSettingsData();
+	const { actions } = useOrganization();
+	const { trackAuthenticationAction } = useAnalyticsTracking({
 		pageName: "organization",
 		organizationId: data.activeOrg?.id ?? null,
-	})
-	const memberCount = data.fullOrg?.members.length ?? 0
-	const pendingInvitationCount = data.pendingInvitations.length
+	});
+	const [processingInvitationId, setProcessingInvitationId] = useState<
+		string | null
+	>(null);
+	const memberCount = data.fullOrg?.members.length ?? 0;
+	const pendingOutgoingInvitationCount = data.pendingInvitations.length;
+	const pendingIncomingInvitationCount = invitationsData.count;
+
+	const handleAcceptInvitation = async (invitationId: string) => {
+		trackAuthenticationAction({
+			actionName: "accept_invitation",
+			sourceComponent: "workspace_settings_section",
+			authMethod: "invitation",
+			targetId: invitationId,
+		});
+		setProcessingInvitationId(invitationId);
+
+		try {
+			const response = await authClient.organization.acceptInvitation({
+				invitationId,
+			});
+			if (response.data) {
+				try {
+					await actions.switchOrganization(response.data.member.organizationId);
+				} catch (cause) {
+					toast.error(
+						cause instanceof Error
+							? cause.message
+							: "Invitation accepted but workspace switch failed",
+					);
+				}
+			}
+			data.invalidate();
+			invitationsData.invalidate();
+		} catch (cause) {
+			toast.error(
+				cause instanceof Error ? cause.message : "Failed to accept invitation",
+			);
+		} finally {
+			setProcessingInvitationId(null);
+		}
+	};
+
+	const handleDeclineInvitation = async (invitationId: string) => {
+		trackAuthenticationAction({
+			actionName: "decline_invitation",
+			sourceComponent: "workspace_settings_section",
+			authMethod: "invitation",
+			targetId: invitationId,
+		});
+		setProcessingInvitationId(invitationId);
+
+		try {
+			await authClient.organization.rejectInvitation({ invitationId });
+			invitationsData.invalidate();
+		} catch (cause) {
+			toast.error(
+				cause instanceof Error ? cause.message : "Failed to decline invitation",
+			);
+		} finally {
+			setProcessingInvitationId(null);
+		}
+	};
+
 	const trackingMetrics: PageMetric[] = [
 		{
 			id: "members",
 			value: memberCount,
 		},
 		{
-			id: "pending_invitations",
-			value: pendingInvitationCount,
+			id: "pending_outgoing_invitations",
+			value: pendingOutgoingInvitationCount,
 		},
-	]
+		{
+			id: "pending_incoming_invitations",
+			value: pendingIncomingInvitationCount,
+		},
+	];
 	const trackingSections: PageSection[] = [
 		{
 			id: "organization_identity",
@@ -57,12 +125,21 @@ export function WorkspaceSettingsSection() {
 			id: "organization_outgoing_invitations",
 			state: data.state.isPending
 				? "hidden"
-				: pendingInvitationCount > 0
+				: pendingOutgoingInvitationCount > 0
 					? "populated"
 					: "empty",
-			itemCount: pendingInvitationCount,
+			itemCount: pendingOutgoingInvitationCount,
 		},
-	]
+		{
+			id: "incoming_invitations",
+			state: invitationsData.state.isPending
+				? "hidden"
+				: pendingIncomingInvitationCount > 0
+					? "populated"
+					: "empty",
+			itemCount: pendingIncomingInvitationCount,
+		},
+	];
 
 	if (!data.state.hasOrganization) {
 		return (
@@ -74,19 +151,34 @@ export function WorkspaceSettingsSection() {
 					metrics={trackingMetrics}
 					sections={trackingSections}
 				/>
-				<div className="px-4 lg:px-6">
-					<SettingsSectionIntro
-						title="Workspace"
-						description="Create a workspace to manage members and invitations here."
-						action={<Badge variant="outline">Workspace</Badge>}
-					/>
+				<div className="grid gap-4 px-4 lg:px-6 xl:grid-cols-[19fr_21fr]">
+					<WorkspaceEmptyStateCard />
+					<div id="new-workspace" className="scroll-mt-24">
+						<CreateWorkspaceCard
+							title="Create your first workspace"
+							description="Start a workspace for your team, client, or project."
+						/>
+					</div>
 				</div>
 
-				<div className="px-4 lg:px-6">
-					<WorkspaceEmptyStateCard />
+				<div
+					id="incoming-invitations"
+					className="mt-4 px-4 lg:px-6 scroll-mt-24"
+				>
+					<WorkspaceIncomingInvitationsCard
+						invitations={invitationsData.invitations}
+						isPending={invitationsData.state.isPending}
+						processingId={processingInvitationId}
+						onAccept={(invitationId) =>
+							void handleAcceptInvitation(invitationId)
+						}
+						onDecline={(invitationId) =>
+							void handleDeclineInvitation(invitationId)
+						}
+					/>
 				</div>
 			</>
-		)
+		);
 	}
 
 	return (
@@ -99,31 +191,6 @@ export function WorkspaceSettingsSection() {
 				sections={trackingSections}
 			/>
 			<div className="px-4 lg:px-6">
-				<SettingsSectionIntro
-					title="Workspace"
-					description="Manage the active workspace, members, and outgoing invitations."
-					action={
-						<Link
-							to={appRoutes.settingsCreateWorkspace()}
-							className={buttonVariants({ variant: "outline", size: "sm" })}
-							onClick={() =>
-								trackNavigation({
-									navType: "organization_page",
-									sourceComponent: "workspace_settings_section",
-									targetPath: appRoutes.settingsCreateWorkspace(),
-									targetType: "page",
-									toPageName: "organization_create",
-								})
-							}
-						>
-							<PlusIcon data-icon="inline-start" />
-							Create workspace
-						</Link>
-					}
-				/>
-			</div>
-
-			<div className="px-4 lg:px-6">
 				<WorkspaceSummaryStrip
 					tiles={data.summaryTiles}
 					isPending={data.state.isPending}
@@ -132,7 +199,7 @@ export function WorkspaceSettingsSection() {
 			</div>
 
 			{data.state.isPending ? (
-				<div className="grid gap-4 px-4 lg:px-6 xl:grid-cols-2">
+				<div className="mt-4 grid gap-4 px-4 lg:px-6 xl:grid-cols-2">
 					{["org-loading-1", "org-loading-2"].map((key) => (
 						<Card
 							key={key}
@@ -152,8 +219,11 @@ export function WorkspaceSettingsSection() {
 			) : null}
 
 			{!data.state.isPending && data.state.isError ? (
-				<div className="px-4 lg:px-6">
-					<Card size="sm" className="bg-card/95 shadow-none ring-1 ring-border/60">
+				<div className="mt-4 px-4 lg:px-6">
+					<Card
+						size="sm"
+						className="bg-card/95 shadow-none ring-1 ring-border/60"
+					>
 						<CardContent className="text-sm text-muted-foreground">
 							Organization data couldn&apos;t be loaded right now.
 						</CardContent>
@@ -163,7 +233,7 @@ export function WorkspaceSettingsSection() {
 
 			{!data.state.isPending && !data.state.isError && data.activeOrg ? (
 				<>
-					<div className="grid gap-4 px-4 lg:px-6 xl:grid-cols-[1.05fr_1fr]">
+					<div className="mt-4 grid gap-4 px-4 lg:px-6 xl:grid-cols-[21fr_19fr]">
 						<WorkspaceIdentityCard
 							organization={data.activeOrg}
 							canManage={data.canManage}
@@ -175,7 +245,7 @@ export function WorkspaceSettingsSection() {
 						/>
 					</div>
 
-					<div className="grid gap-4 px-4 lg:px-6 xl:grid-cols-[1.5fr_1fr]">
+					<div className="mt-4 grid gap-4 px-4 lg:px-6 xl:grid-cols-[3fr_2fr]">
 						<WorkspaceMembersCard
 							members={data.fullOrg?.members ?? []}
 							canManage={data.canManage}
@@ -188,7 +258,27 @@ export function WorkspaceSettingsSection() {
 						/>
 					</div>
 
-					<div className="px-4 lg:px-6">
+					<div className="mt-4 grid gap-4 px-4 lg:px-6 xl:grid-cols-[3fr_2fr]">
+						<div id="incoming-invitations" className="scroll-mt-24">
+							<WorkspaceIncomingInvitationsCard
+								invitations={invitationsData.invitations}
+								isPending={invitationsData.state.isPending}
+								processingId={processingInvitationId}
+								onAccept={(invitationId) =>
+									void handleAcceptInvitation(invitationId)
+								}
+								onDecline={(invitationId) =>
+									void handleDeclineInvitation(invitationId)
+								}
+							/>
+						</div>
+
+						<div id="new-workspace" className="scroll-mt-24">
+							<CreateWorkspaceCard title="Create another workspace" />
+						</div>
+					</div>
+
+					<div className="mt-4 px-4 lg:px-6">
 						<WorkspaceDangerZoneCard
 							organization={data.activeOrg}
 							organizations={data.organizations}
@@ -198,5 +288,5 @@ export function WorkspaceSettingsSection() {
 				</>
 			) : null}
 		</>
-	)
+	);
 }

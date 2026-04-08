@@ -1,15 +1,13 @@
 import { useState } from "react";
 import { toast } from "sonner";
-import { PageViewTrackingMount } from "@/features/analytics/tracking/PageViewTrackingMount";
-import { useAnalyticsTracking } from "@/features/analytics/tracking/useAnalyticsTracking";
-import { authClient } from "@/lib/auth-client";
-import { InvitationsCards } from "@/features/settings/invitations/components/InvitationsCards";
-import { Badge } from "@/app/ui/badge";
 import { Card, CardContent } from "@/app/ui/card";
 import { Skeleton } from "@/app/ui/skeleton";
+import { PageViewTrackingMount } from "@/features/analytics/tracking/PageViewTrackingMount";
+import { useAnalyticsTracking } from "@/features/analytics/tracking/useAnalyticsTracking";
+import { InvitationsCards } from "@/features/settings/invitations/components/InvitationsCards";
 import { useInvitationsSettingsData } from "@/features/settings/invitations/use-invitations-settings-data";
-import { SettingsSectionIntro } from "@/features/settings/components/SettingsSectionIntro";
 import { useOrganization } from "@/features/workspace/organization/useOrganization";
+import { authClient } from "@/lib/auth-client";
 
 const invitationSkeletonKeys = [
 	"invitation-skeleton-1",
@@ -99,18 +97,6 @@ export function InvitationsSettingsSection() {
 				]}
 			/>
 			<div className="px-4 lg:px-6">
-				<SettingsSectionIntro
-					title="Invitations"
-					description="Accept or decline incoming workspace invites without leaving the redesign."
-					action={
-						<Badge variant={data.count > 0 ? "secondary" : "outline"}>
-							{data.count} pending
-						</Badge>
-					}
-				/>
-			</div>
-
-			<div className="px-4 lg:px-6">
 				{data.state.isPending ? (
 					<div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
 						{invitationSkeletonKeys.map((key) => (
@@ -139,12 +125,15 @@ export function InvitationsSettingsSection() {
 				) : null}
 
 				{!data.state.isPending && !data.state.hasData ? (
-					<Card size="sm" className="bg-card/95 shadow-none ring-1 ring-border/60">
+					<Card
+						size="sm"
+						className="bg-card/95 shadow-none ring-1 ring-border/60"
+					>
 						<CardContent className="flex flex-col gap-2 text-sm text-muted-foreground">
-							<p className="font-medium text-foreground">No pending invitations</p>
-							<p>
-								When another workspace invites you, it will show up here.
+							<p className="font-medium text-foreground">
+								No pending invitations
 							</p>
+							<p>When another workspace invites you, it will show up here.</p>
 						</CardContent>
 					</Card>
 				) : null}

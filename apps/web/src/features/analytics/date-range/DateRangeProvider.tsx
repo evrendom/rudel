@@ -1,10 +1,11 @@
 import { createContext, type ReactNode, useContext } from "react";
 import { useSearchParams } from "react-router-dom";
-import { getInclusiveDateRangeDays } from "@/lib/analytics-date-range";
 import type {
 	DateRangeContextValue,
 	DateRangeSource,
 } from "@/features/analytics/date-range/types";
+import { getInclusiveDateRangeDays } from "@/lib/analytics-date-range";
+import { formatIsoDate } from "@/lib/format";
 
 type StoredDateRange = {
 	start: string;
@@ -22,8 +23,8 @@ function getDefaultDateRange(): StoredDateRange {
 	const start = new Date();
 	start.setDate(start.getDate() - 7);
 	return {
-		start: start.toISOString().split("T")[0],
-		end: end.toISOString().split("T")[0],
+		start: formatIsoDate(start),
+		end: formatIsoDate(end),
 	};
 }
 
