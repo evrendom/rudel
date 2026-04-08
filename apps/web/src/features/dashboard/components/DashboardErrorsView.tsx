@@ -22,6 +22,7 @@ import {
 	DashboardCellStack,
 	DashboardGridTable,
 	DashboardInlineOverflowList,
+	DashboardTableFooterNote,
 } from "@/features/dashboard/components/DashboardGridTable";
 import { DashboardInteractiveTopChartSection } from "@/features/dashboard/components/DashboardTopChartSection";
 import type { DashboardHeadlineMetric } from "@/features/dashboard/data/dashboard-static-data";
@@ -32,6 +33,7 @@ type ErrorMetric =
 	| "avg_errors_per_session"
 	| "avg_errors_per_interaction";
 type ErrorDimensionView = "total" | "over-time";
+type ErrorHighlightSource = "chart" | "table" | null;
 
 type ErrorDailyPoint = {
 	activeDimensions: number;
@@ -83,6 +85,7 @@ const ERROR_TREND_COLORS = [
 ] as const;
 
 const MAX_VISIBLE_ERROR_TREND_SERIES = 7;
+const MAX_VISIBLE_ERROR_TABLE_ROWS = 10;
 
 const ERROR_DAILY_CHART_CONFIG = {
 	totalErrors: {
@@ -524,32 +527,27 @@ function ErrorDailyTooltip({
 	}
 
 	return (
-		<div className="grid min-w-52 gap-2 rounded-xl bg-popover px-3 py-2 text-xs text-popover-foreground shadow-lg ring-1 ring-foreground/5 dark:ring-foreground/10">
-			<div className="flex items-start justify-between gap-4">
-				<p className="font-medium text-foreground">{point.fullLabel}</p>
-				<p className="shrink-0 font-medium text-muted-foreground">Errors</p>
+		<div className="flex min-w-48 flex-col gap-1 rounded-md bg-black px-2.5 py-1.5 text-[11px] font-medium leading-tight text-white/90 shadow-lg">
+			<p className="text-white">{point.fullLabel}</p>
+			<div className="flex items-center justify-between gap-3">
+				<span className="text-white/65">Errors</span>
+				<span className="tabular-nums text-white">
+					{point.totalErrors == null ? "—" : point.totalErrors}
+				</span>
 			</div>
-			<div className="grid gap-1.5">
-				<div className="flex items-center justify-between gap-3">
-					<span className="text-muted-foreground">Total errors</span>
-					<span className="font-mono font-medium tabular-nums text-foreground">
-						{point.totalErrors == null ? "—" : point.totalErrors}
-					</span>
-				</div>
-				<div className="flex items-center justify-between gap-3">
-					<span className="text-muted-foreground">Avg / session</span>
-					<span className="font-mono font-medium tabular-nums text-foreground">
-						{point.avgErrorsPerSession == null
-							? "—"
-							: point.avgErrorsPerSession.toFixed(2)}
-					</span>
-				</div>
-				<div className="flex items-center justify-between gap-3">
-					<span className="text-muted-foreground">Hot dimensions</span>
-					<span className="font-mono font-medium tabular-nums text-foreground">
-						{point.activeDimensions}
-					</span>
-				</div>
+			<div className="flex items-center justify-between gap-3">
+				<span className="text-white/65">Avg / session</span>
+				<span className="tabular-nums text-white">
+					{point.avgErrorsPerSession == null
+						? "—"
+						: point.avgErrorsPerSession.toFixed(2)}
+				</span>
+			</div>
+			<div className="flex items-center justify-between gap-3">
+				<span className="text-white/65">Hot dimensions</span>
+				<span className="tabular-nums text-white">
+					{point.activeDimensions}
+				</span>
 			</div>
 		</div>
 	);
@@ -571,26 +569,17 @@ function ErrorTotalTooltip({
 	}
 
 	return (
-		<div className="grid min-w-52 gap-2 rounded-xl bg-popover px-3 py-2 text-xs text-popover-foreground shadow-lg ring-1 ring-foreground/5 dark:ring-foreground/10">
-			<div className="flex items-start justify-between gap-4">
-				<p className="font-medium text-foreground">{point.label}</p>
-				<p className="shrink-0 font-medium text-muted-foreground">
-					{getErrorMetricLabel(metric)}
-				</p>
+		<div className="flex min-w-48 flex-col gap-1 rounded-md bg-black px-2.5 py-1.5 text-[11px] font-medium leading-tight text-white/90 shadow-lg">
+			<p className="text-white">{point.label}</p>
+			<div className="flex items-center justify-between gap-3">
+				<span className="text-white/65">{getErrorMetricLabel(metric)}</span>
+				<span className="tabular-nums text-white">
+					{formatMetricValue(metric, point.value)}
+				</span>
 			</div>
-			<div className="grid gap-1.5">
-				<div className="flex items-center justify-between gap-3">
-					<span className="text-muted-foreground">Value</span>
-					<span className="font-mono font-medium tabular-nums text-foreground">
-						{formatMetricValue(metric, point.value)}
-					</span>
-				</div>
-				<div className="flex items-center justify-between gap-3">
-					<span className="text-muted-foreground">Active days</span>
-					<span className="font-mono font-medium tabular-nums text-foreground">
-						{point.activeDays}
-					</span>
-				</div>
+			<div className="flex items-center justify-between gap-3">
+				<span className="text-white/65">Active days</span>
+				<span className="tabular-nums text-white">{point.activeDays}</span>
 			</div>
 		</div>
 	);
@@ -620,46 +609,35 @@ function ErrorDimensionTooltip({
 	const point = payload[0]?.payload;
 
 	return (
-		<div className="grid min-w-52 gap-2 rounded-xl bg-popover px-3 py-2 text-xs text-popover-foreground shadow-lg ring-1 ring-foreground/5 dark:ring-foreground/10">
-			<div className="flex items-start justify-between gap-4">
-				<p className="font-medium text-foreground">
-					{point?.fullLabel ?? "Selected day"}
-				</p>
-				<p className="shrink-0 font-medium text-muted-foreground">
-					{getErrorMetricLabel(metric)}
-				</p>
-			</div>
-			<div className="grid gap-1.5">
-				{payload.map((entry) => {
-					const seriesId = String(entry.dataKey ?? entry.name ?? "");
-					const displayLabel = nameById.get(seriesId) ?? seriesId;
-					const numericValue =
-						typeof entry.value === "number"
-							? entry.value
-							: Number(entry.value ?? 0);
+		<div className="flex min-w-52 flex-col gap-1 rounded-md bg-black px-2.5 py-1.5 text-[11px] font-medium leading-tight text-white/90 shadow-lg">
+			<p className="text-white">{point?.fullLabel ?? "Selected day"}</p>
+			{payload.map((entry) => {
+				const seriesId = String(entry.dataKey ?? entry.name ?? "");
+				const displayLabel = nameById.get(seriesId) ?? seriesId;
+				const numericValue =
+					typeof entry.value === "number"
+						? entry.value
+						: Number(entry.value ?? 0);
 
-					return (
-						<div
-							key={`${seriesId}-${entry.value ?? "value"}`}
-							className="flex items-center justify-between gap-6"
-						>
-							<div className="flex min-w-0 items-center gap-2.5">
-								<span
-									aria-hidden="true"
-									className="size-2 shrink-0 rounded-full"
-									style={{ backgroundColor: entry.color }}
-								/>
-								<span className="truncate text-muted-foreground">
-									{displayLabel}
-								</span>
-							</div>
-							<span className="shrink-0 font-mono font-medium tabular-nums text-foreground">
-								{formatMetricValue(metric, numericValue)}
-							</span>
+				return (
+					<div
+						key={`${seriesId}-${entry.value ?? "value"}`}
+						className="flex items-center justify-between gap-6"
+					>
+						<div className="flex min-w-0 items-center gap-2.5">
+							<span
+								aria-hidden="true"
+								className="size-2 shrink-0 rounded-full"
+								style={{ backgroundColor: entry.color }}
+							/>
+							<span className="truncate text-white/65">{displayLabel}</span>
 						</div>
-					);
-				})}
-			</div>
+						<span className="shrink-0 tabular-nums text-white">
+							{formatMetricValue(metric, numericValue)}
+						</span>
+					</div>
+				);
+			})}
 		</div>
 	);
 }
@@ -696,12 +674,13 @@ function ErrorDailyBarShape({
 
 	const isHighlighted = activeDate === payload.date;
 	const hasExternalHighlight = activeDate != null;
+	const showStroke = isHighlighted;
 	const barOpacity =
 		hasExternalHighlight && !isHighlighted
 			? activeSource === "table"
 				? 0.16
-				: 0.24
-			: 0.94;
+				: 0.26
+			: 1;
 
 	return (
 		<Rectangle
@@ -712,10 +691,10 @@ function ErrorDailyBarShape({
 			fill={fill}
 			radius={[4, 4, 0, 0]}
 			stroke="color-mix(in srgb, var(--dashboardy-heading) 22%, transparent)"
-			strokeWidth={isHighlighted ? 1 : 0}
+			strokeWidth={showStroke ? 1 : 0}
 			style={{
 				opacity: barOpacity,
-				strokeOpacity: isHighlighted ? 1 : 0,
+				strokeOpacity: showStroke ? 1 : 0,
 				transition:
 					"opacity 300ms cubic-bezier(0.23, 1, 0.32, 1), stroke-opacity 300ms cubic-bezier(0.23, 1, 0.32, 1)",
 			}}
@@ -725,6 +704,7 @@ function ErrorDailyBarShape({
 
 function ErrorDimensionBarShape({
 	activeId,
+	activeSource,
 	fill,
 	height,
 	payload,
@@ -733,6 +713,7 @@ function ErrorDimensionBarShape({
 	y,
 }: {
 	activeId?: string | null;
+	activeSource?: ErrorHighlightSource;
 	fill?: string;
 	height?: number;
 	payload?: ErrorDimensionBarDatum;
@@ -753,6 +734,7 @@ function ErrorDimensionBarShape({
 
 	const isHighlighted = activeId === payload.id;
 	const hasExternalHighlight = activeId != null;
+	const showStroke = isHighlighted;
 
 	return (
 		<Rectangle
@@ -761,12 +743,17 @@ function ErrorDimensionBarShape({
 			width={width}
 			height={height}
 			fill={fill}
-			radius={[6, 6, 0, 0]}
+			radius={[4, 4, 0, 0]}
 			stroke="color-mix(in srgb, var(--dashboardy-heading) 22%, transparent)"
-			strokeWidth={isHighlighted ? 1 : 0}
+			strokeWidth={showStroke ? 1 : 0}
 			style={{
-				opacity: hasExternalHighlight && !isHighlighted ? 0.24 : 0.96,
-				strokeOpacity: isHighlighted ? 1 : 0,
+				opacity:
+					hasExternalHighlight && !isHighlighted
+						? activeSource === "table"
+							? 0.16
+							: 0.26
+						: 1,
+				strokeOpacity: showStroke ? 1 : 0,
 				transition:
 					"opacity 300ms cubic-bezier(0.23, 1, 0.32, 1), stroke-opacity 300ms cubic-bezier(0.23, 1, 0.32, 1)",
 			}}
@@ -798,7 +785,11 @@ function DashboardErrorDailySnapshot({
 	return (
 		<DashboardInteractiveTopChartSection
 			metrics={metrics}
-			renderChart={({ highlightedItemId, highlightSource }) => (
+			renderChart={({
+				highlightedItemId,
+				highlightSource,
+				onHighlightItemChange,
+			}) => (
 				<div className="flex min-w-0 flex-1 pt-0 md:pt-4">
 					<ChartContainer
 						config={ERROR_DAILY_CHART_CONFIG}
@@ -810,6 +801,14 @@ function DashboardErrorDailySnapshot({
 							barCategoryGap={0}
 							barSize={barSize}
 							margin={{ top: 2, right: 18, bottom: 10, left: 0 }}
+							onMouseLeave={() => onHighlightItemChange(null)}
+							onMouseMove={(state: { activeLabel?: unknown }) => {
+								onHighlightItemChange(
+									typeof state.activeLabel === "string"
+										? state.activeLabel
+										: null,
+								);
+							}}
 						>
 							<XAxis
 								dataKey="date"
@@ -907,14 +906,21 @@ function DashboardErrorDailyTable({
 	highlightSource,
 	onHighlightDateChange,
 }: {
-	highlightSource?: "table" | null;
+	highlightSource?: ErrorHighlightSource;
 	highlightedDate?: string | null;
 	onHighlightDateChange: (date: string | null) => void;
 	rows: ErrorDailyPoint[];
 }) {
 	const hasTableHighlight =
 		highlightSource === "table" && highlightedDate != null;
+	const hasChartHighlight =
+		highlightSource === "chart" && highlightedDate != null;
 	const reversedRows = useMemo(() => rows.slice().reverse(), [rows]);
+	const visibleRows = useMemo(
+		() => reversedRows.slice(0, MAX_VISIBLE_ERROR_TABLE_ROWS),
+		[reversedRows],
+	);
+	const hiddenRowCount = Math.max(reversedRows.length - visibleRows.length, 0);
 
 	return (
 		<DashboardGridTable
@@ -994,17 +1000,27 @@ function DashboardErrorDailyTable({
 					},
 				},
 			]}
-			rows={reversedRows}
+			rows={visibleRows}
 			rowKey={(row) => row.date}
 			gridTemplateColumns="minmax(180px,1.2fr) 100px 120px 120px minmax(160px,1fr)"
 			minWidthClassName="min-w-[54rem]"
 			bodyClassName="gap-0"
+			footer={
+				hiddenRowCount > 0 ? (
+					<DashboardTableFooterNote>
+						<p>{hiddenRowCount} more</p>
+					</DashboardTableFooterNote>
+				) : null
+			}
 			onRowHoverChange={onHighlightDateChange}
 			getHoverRowId={(row) => row.date}
 			rowClassName={(row) =>
 				cn(
 					"w-full text-left transition-colors duration-300 [transition-timing-function:cubic-bezier(0.23,1,0.32,1)]",
 					hasTableHighlight &&
+						"bg-[color:var(--dashboardy-surface)] odd:bg-[color:var(--dashboardy-surface)]",
+					hasChartHighlight &&
+						highlightedDate === row.date &&
 						"bg-[color:var(--dashboardy-surface)] odd:bg-[color:var(--dashboardy-surface)]",
 					hasTableHighlight &&
 						highlightedDate === row.date &&
@@ -1036,6 +1052,8 @@ function DashboardErrorDimensionPanel({
 	const [highlightedDimensionId, setHighlightedDimensionId] = useState<
 		string | null
 	>(null);
+	const [highlightedDimensionSource, setHighlightedDimensionSource] =
+		useState<ErrorHighlightSource>(null);
 	const summaryRows = useMemo(
 		() => buildErrorDimensionRows(rows, splitBy, userLabelById),
 		[rows, splitBy, userLabelById],
@@ -1140,6 +1158,14 @@ function DashboardErrorDimensionPanel({
 		);
 	}
 
+	function setDimensionHighlight(
+		dimensionId: string | null,
+		source: ErrorHighlightSource,
+	) {
+		setHighlightedDimensionId(dimensionId);
+		setHighlightedDimensionSource(dimensionId == null ? null : source);
+	}
+
 	return (
 		<DashboardAnalysisPanel
 			title={title}
@@ -1240,8 +1266,10 @@ function DashboardErrorDimensionPanel({
 													"border-[color:var(--dashboardy-heading)]",
 											)}
 											onClick={() => handleToggleSeries(series.id)}
-											onMouseEnter={() => setHighlightedDimensionId(series.id)}
-											onMouseLeave={() => setHighlightedDimensionId(null)}
+											onMouseEnter={() =>
+												setDimensionHighlight(series.id, "chart")
+											}
+											onMouseLeave={() => setDimensionHighlight(null, null)}
 										>
 											<span
 												aria-hidden="true"
@@ -1283,6 +1311,18 @@ function DashboardErrorDimensionPanel({
 									data={totalChartRows}
 									barCategoryGap={12}
 									margin={{ top: 12, right: 12, bottom: 14, left: 0 }}
+									onMouseLeave={() => setDimensionHighlight(null, null)}
+									onMouseMove={(state) => {
+										const nextId =
+											(
+												state as {
+													activePayload?: Array<{
+														payload?: ErrorDimensionBarDatum;
+													}>;
+												}
+											).activePayload?.[0]?.payload?.id ?? null;
+										setDimensionHighlight(nextId, nextId ? "chart" : null);
+									}}
 								>
 									<CartesianGrid
 										vertical={false}
@@ -1329,6 +1369,7 @@ function DashboardErrorDimensionPanel({
 										shape={
 											<ErrorDimensionBarShape
 												activeId={highlightedDimensionId}
+												activeSource={highlightedDimensionSource}
 											/>
 										}
 									/>
@@ -1490,8 +1531,12 @@ function DashboardErrorDimensionPanel({
 			}
 			tableContent={
 				<DashboardErrorDimensionTable
+					highlightSource={highlightedDimensionSource}
+					highlightedDimensionId={highlightedDimensionId}
 					highlightedDate={null}
-					onHighlightDimensionChange={setHighlightedDimensionId}
+					onHighlightDimensionChange={(dimensionId) =>
+						setDimensionHighlight(dimensionId, dimensionId ? "table" : null)
+					}
 					rowMap={rowMap}
 					rows={summaryRows}
 				/>
@@ -1501,16 +1546,30 @@ function DashboardErrorDimensionPanel({
 }
 
 function DashboardErrorDimensionTable({
+	highlightSource,
+	highlightedDimensionId,
 	rows,
 	rowMap,
 	highlightedDate,
 	onHighlightDimensionChange,
 }: {
+	highlightSource?: ErrorHighlightSource;
+	highlightedDimensionId?: string | null;
 	highlightedDate: string | null;
 	onHighlightDimensionChange?: (dimensionId: string | null) => void;
 	rowMap: Map<string, ErrorTrendDataPoint>;
 	rows: ErrorDimensionRow[];
 }) {
+	const hasTableHighlight =
+		highlightSource === "table" && highlightedDimensionId != null;
+	const hasChartHighlight =
+		highlightSource === "chart" && highlightedDimensionId != null;
+	const visibleRows = useMemo(
+		() => rows.slice(0, MAX_VISIBLE_ERROR_TABLE_ROWS),
+		[rows],
+	);
+	const hiddenRowCount = Math.max(rows.length - visibleRows.length, 0);
+
 	return (
 		<DashboardGridTable
 			columns={[
@@ -1586,13 +1645,33 @@ function DashboardErrorDimensionTable({
 					),
 				},
 			]}
-			rows={rows}
+			rows={visibleRows}
 			rowKey={(row) => row.id}
 			gridTemplateColumns="minmax(220px,12fr) 90px 120px 120px 96px"
 			minWidthClassName="min-w-[58rem]"
 			bodyClassName="gap-0"
+			footer={
+				hiddenRowCount > 0 ? (
+					<DashboardTableFooterNote>
+						<p>{hiddenRowCount} more</p>
+					</DashboardTableFooterNote>
+				) : null
+			}
 			onRowHoverChange={onHighlightDimensionChange}
 			getHoverRowId={(row) => row.id}
+			rowClassName={(row) =>
+				cn(
+					"transition-colors duration-300 [transition-timing-function:cubic-bezier(0.23,1,0.32,1)]",
+					hasTableHighlight &&
+						"bg-[color:var(--dashboardy-surface)] odd:bg-[color:var(--dashboardy-surface)]",
+					hasChartHighlight &&
+						highlightedDimensionId === row.id &&
+						"bg-[color:var(--dashboardy-surface)] odd:bg-[color:var(--dashboardy-surface)]",
+					hasTableHighlight &&
+						highlightedDimensionId === row.id &&
+						"bg-[color:var(--dashboardy-subsurface-strong)] odd:bg-[color:var(--dashboardy-subsurface-strong)]",
+				)
+			}
 		/>
 	);
 }
