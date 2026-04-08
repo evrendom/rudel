@@ -11,7 +11,7 @@ import "@/features/dashboard/dashboard-theme.css";
 type DashboardHomeView = "commits" | "tokens";
 
 export function DashboardPage() {
-	const [activeView, setActiveView] = useState<DashboardHomeView>("commits");
+	const [activeView, setActiveView] = useState<DashboardHomeView>("tokens");
 	const {
 		isDashboardSnapshotPending,
 		isPerformanceChartPending,
