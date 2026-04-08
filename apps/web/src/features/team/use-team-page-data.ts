@@ -31,7 +31,6 @@ export interface TeamPageMemberRow {
 	imageUrl?: string | null;
 	cost: number;
 	favoriteModel: string | null;
-	topSkills: DeveloperTeamCard["top_skills"];
 	inputTokens: number;
 	outputTokens: number;
 	totalSessions: number;
@@ -111,7 +110,6 @@ function buildTeamMemberRows(
 				cost,
 				favoriteModel:
 					teamCard?.favorite_model ?? developerSummary?.favorite_model ?? null,
-				topSkills: teamCard?.top_skills ?? [],
 				inputTokens,
 				outputTokens,
 				totalSessions,
