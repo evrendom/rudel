@@ -1,13 +1,10 @@
-import { QueryClientProvider } from "@tanstack/react-query";
 import { lazy, StrictMode, Suspense } from "react";
 import { createRoot } from "react-dom/client";
-import { BrowserRouter } from "react-router-dom";
+import { AppProviders } from "@/app/providers/AppProviders";
 import App from "./App.tsx";
 import { useMountEffect } from "./app/hooks/useMountEffect";
 import "./index.css";
-import { ThemeProvider } from "./app/providers/ThemeProvider";
 import { initProductAnalytics } from "./lib/product-analytics";
-import { queryClient } from "./lib/query-client";
 
 const DevTools = import.meta.env.DEV
 	? lazy(async () => {
@@ -50,21 +47,17 @@ function deferProductAnalyticsInit() {
 // biome-ignore lint/style/noNonNullAssertion: root element always exists
 createRoot(document.getElementById("root")!).render(
 	<StrictMode>
-		<QueryClientProvider client={queryClient}>
-			<BrowserRouter>
-				<ThemeProvider>
-					<GlobalLumaScope />
-					<div className="h-full">
-						<App />
-						{DevTools ? (
-							<Suspense fallback={null}>
-								<DevTools />
-							</Suspense>
-						) : null}
-					</div>
-				</ThemeProvider>
-			</BrowserRouter>
-		</QueryClientProvider>
+		<AppProviders>
+			<GlobalLumaScope />
+			<div className="h-full">
+				<App />
+				{DevTools ? (
+					<Suspense fallback={null}>
+						<DevTools />
+					</Suspense>
+				) : null}
+			</div>
+		</AppProviders>
 	</StrictMode>,
 );
 

@@ -7,11 +7,22 @@ export function getDeviceUserCode(search?: string): string | null {
 	return params.get("user_code");
 }
 
+export function isResetPasswordPath(pathname?: string): boolean {
+	return (pathname ?? window.location.pathname) === "/reset-password";
+}
+
 export function getValidRedirect(search?: string): string | null {
 	const params = new URLSearchParams(search ?? window.location.search);
 	const redirect = params.get("redirect");
-	if (!redirect) return null;
-	if (!redirect.startsWith("/") || redirect.startsWith("//")) return null;
+
+	if (!redirect) {
+		return null;
+	}
+
+	if (!redirect.startsWith("/") || redirect.startsWith("//")) {
+		return null;
+	}
+
 	return redirect;
 }
 
