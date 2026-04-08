@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import { DashboardPage } from "@/features/dashboard/DashboardPage";
+import { WorkspaceSettingsPage } from "@/features/settings/workspace/WorkspaceSettingsPage";
 import { AppShellLayout } from "@/features/shell/AppShellLayout";
 import { TeamPage } from "@/features/team/TeamPage";
 import { AcceptInvitationPage } from "@/pages/AcceptInvitationPage";
@@ -10,7 +11,6 @@ import { DevelopersListPage } from "@/pages/dashboard/DevelopersListPage";
 import { ErrorsPage } from "@/pages/dashboard/ErrorsPage";
 import { InvitationsPage } from "@/pages/dashboard/InvitationsPage";
 import { LearningsPage } from "@/pages/dashboard/LearningsPage";
-import { OrganizationPage } from "@/pages/dashboard/OrganizationPage";
 import { ProfilePage } from "@/pages/dashboard/ProfilePage";
 import { ProjectDetailPage } from "@/pages/dashboard/ProjectDetailPage";
 import { ProjectsListPage } from "@/pages/dashboard/ProjectsListPage";
@@ -47,7 +47,7 @@ export function AppRouter({
 				<Route path="learnings" element={<LearningsPage />} />
 				<Route path="profile" element={<ProfilePage />} />
 				<Route path="invitations" element={<InvitationsPage />} />
-				<Route path="organization" element={<OrganizationPage />} />
+				<Route path="organization" element={<WorkspaceSettingsPage />} />
 				<Route path="organization/new" element={<CreateOrgPage />} />
 				<Route path="admin" element={<AdminPage />} />
 			</Route>
