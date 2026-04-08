@@ -8,6 +8,7 @@ export function useInvitationsSettingsData() {
 		count,
 		invalidate,
 		state: {
+			hasData: invitations.length > 0,
 			isPending: isLoading,
 		},
 	};
