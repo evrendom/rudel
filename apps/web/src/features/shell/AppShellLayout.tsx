@@ -7,7 +7,6 @@ import {
 	useSearchParams,
 } from "react-router-dom";
 import { useMountEffect } from "@/app/hooks/useMountEffect";
-import { AppProviders } from "@/app/providers/AppProviders";
 import { AppToaster } from "@/app/ui/AppToaster";
 import "@/app/app-surface.css";
 import { SidebarInset, SidebarProvider } from "@/app/ui/sidebar";
@@ -134,85 +133,81 @@ export function AppShellLayout() {
 	});
 
 	return (
-		<AppProviders>
-			<TooltipProvider>
-				<div
-					className="dashboard-01-preview h-dvh overflow-hidden text-foreground"
-					data-sidebar-news-hide-performance-chart-debug={
-						sidebarTuning.newsHidePerformanceChartWhileActive ? "true" : "false"
+		<TooltipProvider>
+			<div
+				className="dashboard-01-preview h-dvh overflow-hidden text-foreground"
+				data-sidebar-news-hide-performance-chart-debug={
+					sidebarTuning.newsHidePerformanceChartWhileActive ? "true" : "false"
+				}
+			>
+				<SidebarProvider
+					defaultOpen={isSettingsShellRoute || isSidebarNewsModeEnabled}
+					open={
+						isSettingsShellRoute || isSidebarNewsModeEnabled ? true : undefined
+					}
+					onOpenChange={
+						isSettingsShellRoute || isSidebarNewsModeEnabled
+							? () => {}
+							: undefined
+					}
+					className="dashboard-01-chrome-frame h-full overflow-hidden"
+					style={
+						{
+							"--sidebar-width": `${sidebarTuning.expandedWidth}rem`,
+							"--sidebar-width-icon": `${sidebarTuning.collapsedWidth}rem`,
+							"--header-height": "calc(var(--spacing) * 12)",
+							"--sidebar-section-first-margin-top": `${sidebarTuning.sectionMarginTop}rem`,
+							"--sidebar-rail-inset-left": `${sidebarTuning.railInsetLeft}rem`,
+							"--sidebar-rail-inset-right": `${sidebarTuning.railInsetRight}rem`,
+							"--sidebar-collapsed-section-padding-x": `${sidebarTuning.collapsedSectionPaddingX}rem`,
+							"--sidebar-expanded-section-padding-x": `${sidebarTuning.expandedSectionPaddingX}rem`,
+							"--sidebar-collapsed-footer-padding-x": `${sidebarTuning.collapsedFooterPaddingX}rem`,
+							"--sidebar-expanded-footer-padding-x": `${sidebarTuning.expandedFooterPaddingX}rem`,
+							"--sidebar-expanded-footer-padding-bottom": `${sidebarTuning.expandedFooterPaddingBottom}rem`,
+							"--sidebar-collapsed-stack-gap": `${sidebarTuning.collapsedStackGap}rem`,
+							"--sidebar-expanded-stack-gap": `${sidebarTuning.expandedStackGap}rem`,
+							"--sidebar-row-height": `${sidebarTuning.rowHeight}rem`,
+							"--sidebar-row-radius": `${sidebarTuning.rowRadius}rem`,
+							"--sidebar-collapsed-row-padding-left": `${sidebarTuning.collapsedRowPaddingLeft}rem`,
+							"--sidebar-collapsed-row-padding-right": `${sidebarTuning.collapsedRowPaddingRight}rem`,
+							"--sidebar-row-padding-left": `${sidebarTuning.rowPaddingLeft}rem`,
+							"--sidebar-row-padding-right": `${sidebarTuning.rowPaddingRight}rem`,
+							"--sidebar-row-gap": `${sidebarTuning.rowGap}rem`,
+							"--sidebar-icon-lane-size": `${sidebarTuning.iconLaneSize}rem`,
+							"--sidebar-icon-size": `${sidebarTuning.iconSize}rem`,
+							"--sidebar-avatar-size": `${sidebarTuning.avatarSize}rem`,
+							"--sidebar-label-font-size": `${sidebarTuning.labelFontSize}rem`,
+							"--sidebar-shortcut-font-size": `${sidebarTuning.shortcutFontSize}rem`,
+							"--sidebar-row-idle-bg": sidebarTuning.rowIdleBg,
+							"--sidebar-row-hover-bg": sidebarTuning.rowHoverBg,
+							"--sidebar-row-active-bg": sidebarTuning.rowActiveBg,
+							"--sidebar-row-fg": sidebarTuning.rowFg,
+							"--sidebar-row-active-fg": sidebarTuning.rowActiveFg,
+							...defaultChromeStyle,
+						} as CSSProperties
 					}
 				>
-					<SidebarProvider
-						defaultOpen={isSettingsShellRoute || isSidebarNewsModeEnabled}
-						open={
-							isSettingsShellRoute || isSidebarNewsModeEnabled
-								? true
-								: undefined
-						}
-						onOpenChange={
-							isSettingsShellRoute || isSidebarNewsModeEnabled
-								? () => {}
-								: undefined
-						}
-						className="dashboard-01-chrome-frame h-full overflow-hidden"
-						style={
-							{
-								"--sidebar-width": `${sidebarTuning.expandedWidth}rem`,
-								"--sidebar-width-icon": `${sidebarTuning.collapsedWidth}rem`,
-								"--header-height": "calc(var(--spacing) * 12)",
-								"--sidebar-section-first-margin-top": `${sidebarTuning.sectionMarginTop}rem`,
-								"--sidebar-rail-inset-left": `${sidebarTuning.railInsetLeft}rem`,
-								"--sidebar-rail-inset-right": `${sidebarTuning.railInsetRight}rem`,
-								"--sidebar-collapsed-section-padding-x": `${sidebarTuning.collapsedSectionPaddingX}rem`,
-								"--sidebar-expanded-section-padding-x": `${sidebarTuning.expandedSectionPaddingX}rem`,
-								"--sidebar-collapsed-footer-padding-x": `${sidebarTuning.collapsedFooterPaddingX}rem`,
-								"--sidebar-expanded-footer-padding-x": `${sidebarTuning.expandedFooterPaddingX}rem`,
-								"--sidebar-expanded-footer-padding-bottom": `${sidebarTuning.expandedFooterPaddingBottom}rem`,
-								"--sidebar-collapsed-stack-gap": `${sidebarTuning.collapsedStackGap}rem`,
-								"--sidebar-expanded-stack-gap": `${sidebarTuning.expandedStackGap}rem`,
-								"--sidebar-row-height": `${sidebarTuning.rowHeight}rem`,
-								"--sidebar-row-radius": `${sidebarTuning.rowRadius}rem`,
-								"--sidebar-collapsed-row-padding-left": `${sidebarTuning.collapsedRowPaddingLeft}rem`,
-								"--sidebar-collapsed-row-padding-right": `${sidebarTuning.collapsedRowPaddingRight}rem`,
-								"--sidebar-row-padding-left": `${sidebarTuning.rowPaddingLeft}rem`,
-								"--sidebar-row-padding-right": `${sidebarTuning.rowPaddingRight}rem`,
-								"--sidebar-row-gap": `${sidebarTuning.rowGap}rem`,
-								"--sidebar-icon-lane-size": `${sidebarTuning.iconLaneSize}rem`,
-								"--sidebar-icon-size": `${sidebarTuning.iconSize}rem`,
-								"--sidebar-avatar-size": `${sidebarTuning.avatarSize}rem`,
-								"--sidebar-label-font-size": `${sidebarTuning.labelFontSize}rem`,
-								"--sidebar-shortcut-font-size": `${sidebarTuning.shortcutFontSize}rem`,
-								"--sidebar-row-idle-bg": sidebarTuning.rowIdleBg,
-								"--sidebar-row-hover-bg": sidebarTuning.rowHoverBg,
-								"--sidebar-row-active-bg": sidebarTuning.rowActiveBg,
-								"--sidebar-row-fg": sidebarTuning.rowFg,
-								"--sidebar-row-active-fg": sidebarTuning.rowActiveFg,
-								...defaultChromeStyle,
-							} as CSSProperties
-						}
-					>
-						<AppSidebar
-							navigationMode={isSettingsShellRoute ? "settings" : "app"}
-							shellMotionShowBorders={sidebarShellDebugState.showBorders}
-							shellMotionVariant={sidebarShellDebugState.variant}
-							shellMotionForceLabels={sidebarShellDebugState.alwaysShowLabels}
-							shellDebugState={sidebarShellDebugState}
-						/>
-						<SidebarInset className="dashboard-01-window min-h-0 overflow-hidden overscroll-none bg-[var(--dashboard-01-content-background)] md:m-2 md:ml-0 md:rounded-[12px] md:shadow-[0_3px_6px_-2px_rgba(0,0,0,0.02),0_1px_1px_0_rgba(0,0,0,0.04)]">
-							<SiteHeader />
-							<div className="flex min-h-0 flex-1 flex-col overflow-auto overscroll-none">
-								<div className="@container/main flex min-h-0 flex-1 flex-col gap-2">
-									<div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
-										<Outlet />
-									</div>
+					<AppSidebar
+						navigationMode={isSettingsShellRoute ? "settings" : "app"}
+						shellMotionShowBorders={sidebarShellDebugState.showBorders}
+						shellMotionVariant={sidebarShellDebugState.variant}
+						shellMotionForceLabels={sidebarShellDebugState.alwaysShowLabels}
+						shellDebugState={sidebarShellDebugState}
+					/>
+					<SidebarInset className="dashboard-01-window min-h-0 overflow-hidden overscroll-none bg-[var(--dashboard-01-content-background)] md:m-2 md:ml-0 md:rounded-[12px] md:shadow-[0_3px_6px_-2px_rgba(0,0,0,0.02),0_1px_1px_0_rgba(0,0,0,0.04)]">
+						<SiteHeader />
+						<div className="flex min-h-0 flex-1 flex-col overflow-auto overscroll-none">
+							<div className="@container/main flex min-h-0 flex-1 flex-col gap-2">
+								<div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
+									<Outlet />
 								</div>
 							</div>
-						</SidebarInset>
-					</SidebarProvider>
-				</div>
-				<SidebarShellDebugPanel debugState={sidebarShellDebugState} />
-				<AppToaster richColors position="bottom-right" />
-			</TooltipProvider>
-		</AppProviders>
+						</div>
+					</SidebarInset>
+				</SidebarProvider>
+			</div>
+			<SidebarShellDebugPanel debugState={sidebarShellDebugState} />
+			<AppToaster richColors position="bottom-right" />
+		</TooltipProvider>
 	);
 }
