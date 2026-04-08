@@ -2,6 +2,7 @@ import type { UserTokenUsageData } from "@rudel/api-routes";
 
 export type DashboardPerformanceUserComparison = {
 	commits: number;
+	cost: number;
 	imageUrl?: string | null;
 	inputTokens: number;
 	label: string;
@@ -23,6 +24,7 @@ type DashboardPerformanceMember = {
 };
 
 type SortablePerformanceUser = {
+	cost: number;
 	imageUrl?: string | null;
 	inputTokens: number;
 	modelsUsed: string[];
@@ -56,6 +58,7 @@ export function buildDashboardPerformanceUsers(
 			const usage = usageByUserId.get(member.userId);
 
 			return {
+				cost: usage?.cost ?? 0,
 				imageUrl: member.user.image,
 				inputTokens: usage?.input_tokens ?? 0,
 				modelsUsed: usage?.models_used ?? [],
@@ -75,6 +78,7 @@ export function buildDashboardPerformanceUsers(
 			(user) => user.user_id && user.user_label && !memberIds.has(user.user_id),
 		)
 		.map((user) => ({
+			cost: user.cost,
 			imageUrl: userImageById.get(user.user_id) ?? null,
 			inputTokens: user.input_tokens,
 			modelsUsed: user.models_used ?? [],
@@ -111,6 +115,7 @@ export function buildDashboardPerformanceUsers(
 		})
 		.map((user) => ({
 			commits: user.totalCommits,
+			cost: user.cost,
 			imageUrl: user.imageUrl ?? userImageById.get(user.userId) ?? null,
 			inputTokens: user.inputTokens,
 			label: user.userLabel,

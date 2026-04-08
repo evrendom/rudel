@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { ESTIMATED_PRICING_MODE } from "../model-pricing.js";
 import {
 	DaysInputSchema,
 	DeveloperDetailsInputSchema,
@@ -157,8 +158,10 @@ describe("analytics input schemas", () => {
 					avg_success_score: 87.4,
 				},
 				assumptions: {
-					input_price_per_million: 3,
-					output_price_per_million: 15,
+					pricing_mode: ESTIMATED_PRICING_MODE,
+					priced_model_entries: 20,
+					fallback_input_price_per_million: 3,
+					fallback_output_price_per_million: 15,
 					code_percentage: 0.65,
 					tokens_per_loc: 15,
 					loc_per_hour: 30,

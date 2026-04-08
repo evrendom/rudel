@@ -84,6 +84,20 @@ function buildDateRange(startDate: string, endDate: string) {
 	});
 }
 
+function normalizeDateKey(value: string) {
+	if (/^\d{4}-\d{2}-\d{2}$/u.test(value)) {
+		return value;
+	}
+
+	const parsedDate = parseISO(value);
+
+	if (Number.isNaN(parsedDate.getTime())) {
+		return value;
+	}
+
+	return format(parsedDate, "yyyy-MM-dd");
+}
+
 function buildDailyPattern(
 	startDate: string,
 	endDate: string,
@@ -117,13 +131,14 @@ export function buildDashboardDailyPatternFromUserTrend(
 	const rowsByDate = new Map<string, { commits: number; sessions: number }>();
 
 	for (const row of rows ?? []) {
-		const currentRow = rowsByDate.get(row.date) ?? {
+		const dateKey = normalizeDateKey(row.date);
+		const currentRow = rowsByDate.get(dateKey) ?? {
 			commits: 0,
 			sessions: 0,
 		};
 		currentRow.commits += row.total_commits;
 		currentRow.sessions += row.sessions;
-		rowsByDate.set(row.date, currentRow);
+		rowsByDate.set(dateKey, currentRow);
 	}
 
 	return buildDailyPattern(startDate, endDate, rowsByDate);
@@ -137,13 +152,14 @@ export function buildDashboardDailyPatternFromRepositoryTrend(
 	const rowsByDate = new Map<string, { commits: number; sessions: number }>();
 
 	for (const row of rows ?? []) {
-		const currentRow = rowsByDate.get(row.date) ?? {
+		const dateKey = normalizeDateKey(row.date);
+		const currentRow = rowsByDate.get(dateKey) ?? {
 			commits: 0,
 			sessions: 0,
 		};
 		currentRow.commits += row.total_commits;
 		currentRow.sessions += row.sessions;
-		rowsByDate.set(row.date, currentRow);
+		rowsByDate.set(dateKey, currentRow);
 	}
 
 	return buildDailyPattern(startDate, endDate, rowsByDate);
@@ -242,22 +258,39 @@ export function buildDashboardTokenDailyPattern(
 			outputTokens: number;
 		}
 	>();
+	let hasUserTokenBreakdown = false;
 
 	for (const row of userRows ?? []) {
+		const dateKey = normalizeDateKey(row.date);
 		sessionsByDate.set(
-			row.date,
-			(sessionsByDate.get(row.date) ?? 0) + row.sessions,
+			dateKey,
+			(sessionsByDate.get(dateKey) ?? 0) + row.sessions,
 		);
-	}
 
-	for (const row of modelRows ?? []) {
-		const currentRow = tokensByDate.get(row.date) ?? {
+		const currentRow = tokensByDate.get(dateKey) ?? {
 			inputTokens: 0,
 			outputTokens: 0,
 		};
 		currentRow.inputTokens += row.input_tokens;
 		currentRow.outputTokens += row.output_tokens;
-		tokensByDate.set(row.date, currentRow);
+		tokensByDate.set(dateKey, currentRow);
+
+		if (row.input_tokens > 0 || row.output_tokens > 0) {
+			hasUserTokenBreakdown = true;
+		}
+	}
+
+	if (!hasUserTokenBreakdown) {
+		for (const row of modelRows ?? []) {
+			const dateKey = normalizeDateKey(row.date);
+			const currentRow = tokensByDate.get(dateKey) ?? {
+				inputTokens: 0,
+				outputTokens: 0,
+			};
+			currentRow.inputTokens += row.input_tokens;
+			currentRow.outputTokens += row.output_tokens;
+			tokensByDate.set(dateKey, currentRow);
+		}
 	}
 
 	return buildDateRange(startDate, endDate).map((date) => {
@@ -286,23 +319,42 @@ export function buildDashboardTokenDailyPattern(
 export function buildDashboardTokenTabMetrics(
 	usersTokenUsage: UserTokenUsageData[] | undefined,
 	dailyPattern: DashboardTokenDailyPoint[],
+	modelRows?: ModelTokensTrendData[] | undefined,
+	userTrendRows?: UserDailyTrendData[] | undefined,
 ): DashboardHeadlineMetric[] {
-	const totalTokens = (usersTokenUsage ?? []).reduce(
+	const totalTokensFromUsage = (usersTokenUsage ?? []).reduce(
 		(sum, row) => sum + row.total_tokens,
 		0,
 	);
-	const totalInputTokens = (usersTokenUsage ?? []).reduce(
-		(sum, row) => sum + row.input_tokens,
+	const totalTokensFromPattern = dailyPattern.reduce(
+		(sum, point) => sum + point.totalTokens,
 		0,
 	);
-	const totalOutputTokens = (usersTokenUsage ?? []).reduce(
-		(sum, row) => sum + row.output_tokens,
+	const totalTokens =
+		totalTokensFromUsage > 0 ? totalTokensFromUsage : totalTokensFromPattern;
+	const totalCostFromUsage = (usersTokenUsage ?? []).reduce(
+		(sum, row) => sum + row.cost,
 		0,
 	);
-	const activeDevelopers = (usersTokenUsage ?? []).filter(
+	const totalCostFromModels = (modelRows ?? []).reduce(
+		(sum, row) =>
+			sum + calculateCost(row.input_tokens, row.output_tokens, row.model),
+		0,
+	);
+	const totalCost =
+		totalCostFromUsage > 0 ? totalCostFromUsage : totalCostFromModels;
+	const activeDevelopersFromUsage = (usersTokenUsage ?? []).filter(
 		(row) => row.total_tokens > 0 || row.total_sessions > 0,
 	).length;
-	const totalCost = calculateCost(totalInputTokens, totalOutputTokens);
+	const activeDevelopersFromTrend = new Set(
+		(userTrendRows ?? [])
+			.filter((row) => row.total_tokens > 0 || row.sessions > 0)
+			.map((row) => row.user_id),
+	).size;
+	const activeDevelopers =
+		activeDevelopersFromUsage > 0
+			? activeDevelopersFromUsage
+			: activeDevelopersFromTrend;
 	const activeDays = dailyPattern.filter(
 		(point) => point.totalTokens > 0,
 	).length;
@@ -325,7 +377,7 @@ export function buildDashboardTokenTabMetrics(
 			deltaLabel: "0",
 			deltaTone: "neutral",
 			description:
-				"Estimated token cost using the current default input and output pricing.",
+				"Estimated token cost using the current model pricing catalog.",
 		},
 		{
 			id: "commitRate",

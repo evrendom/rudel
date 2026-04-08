@@ -11,13 +11,20 @@ import {
 	queryClickhouse,
 } from "../clickhouse.js";
 import {
-	INPUT_PRICE_PER_MILLION,
-	OUTPUT_PRICE_PER_MILLION,
 	buildEstimatedCostSql,
-	calculateEstimatedCost,
+	ESTIMATED_PRICING_MODE,
+	FALLBACK_MODEL_PRICING,
+	getModelPricingCatalog,
 } from "./pricing.service.js";
 
 const DEFAULT_DEV_HOURLY_RATE = 100;
+const PER_SESSION_COST_SQL = buildEstimatedCostSql({
+	modelExpr: "model_used",
+	inputExpr: "ifNull(input_tokens, 0)",
+	outputExpr: "ifNull(output_tokens, 0)",
+	cacheReadInputExpr: "ifNull(cache_read_input_tokens, 0)",
+	cacheCreationInputExpr: "ifNull(cache_creation_input_tokens, 0)",
+});
 
 // ROI calculation constants
 const CODE_PERCENTAGE = 0.65; // 65% of output tokens are actual code
@@ -84,6 +91,7 @@ interface RangeSnapshotRow {
 	total_input_tokens: number;
 	total_output_tokens: number;
 	total_tokens: number;
+	total_cost: number;
 	total_hours: number;
 	avg_success_score: number;
 	active_developers: number;
@@ -96,6 +104,7 @@ interface ROIDashboardTrendQueryRow {
 	total_input_tokens: number;
 	total_output_tokens: number;
 	total_tokens: number;
+	total_cost: number;
 	total_commits: number;
 }
 
@@ -150,10 +159,7 @@ function getTrendIntervalForRange(dayCount: number): TrendInterval {
 	return "month";
 }
 
-function formatTrendBucketLabel(
-	bucketStart: string,
-	interval: TrendInterval,
-) {
+function formatTrendBucketLabel(bucketStart: string, interval: TrendInterval) {
 	const date = new Date(`${bucketStart}T00:00:00.000Z`);
 
 	if (interval === "day") {
@@ -178,9 +184,8 @@ function formatTrendBucketLabel(
 
 function deriveROISnapshot(row?: RangeSnapshotRow): DerivedROISnapshot {
 	const totalSessions = Number(row?.total_sessions) || 0;
-	const totalInputTokens = Number(row?.total_input_tokens) || 0;
 	const totalOutputTokens = Number(row?.total_output_tokens) || 0;
-	const totalCost = calculateEstimatedCost(totalInputTokens, totalOutputTokens, 4);
+	const totalCost = Number(row?.total_cost) || 0;
 	const totalCommits = Number(row?.total_commits) || 0;
 	const activeDevelopers = Number(row?.active_developers) || 0;
 	const avgSuccessScore = roundTo(Number(row?.avg_success_score) || 0);
@@ -231,6 +236,7 @@ export async function getROIMetrics(
         SUM(input_tokens) as total_input_tokens,
         SUM(output_tokens) as total_output_tokens,
         SUM(total_tokens) as total_tokens,
+        round(SUM(${PER_SESSION_COST_SQL}), 4) as total_cost,
         SUM(actual_duration_min) / 60.0 as total_hours,
         AVG(success_score) as avg_success_score,
         COUNT(DISTINCT user_id) as active_developers,
@@ -246,6 +252,7 @@ export async function getROIMetrics(
         COUNT(*) as total_sessions,
         SUM(input_tokens) as total_input_tokens,
         SUM(output_tokens) as total_output_tokens,
+        round(SUM(${PER_SESSION_COST_SQL}), 4) as total_cost,
         SUM(has_commit) as total_commits,
         now64(3) - toIntervalDay({previousDays:UInt32}) as period_start,
         now64(3) - toIntervalDay({currentDays:UInt32}) as period_end
@@ -263,21 +270,15 @@ export async function getROIMetrics(
       c.avg_success_score,
       c.active_developers,
       c.total_commits,
-      round((c.total_output_tokens / 1000000.0) * ${OUTPUT_PRICE_PER_MILLION} +
-            (c.total_input_tokens / 1000000.0) * ${INPUT_PRICE_PER_MILLION}, 2) as total_cost,
-      round((c.total_output_tokens / 1000000.0) * ${OUTPUT_PRICE_PER_MILLION} +
-            (c.total_input_tokens / 1000000.0) * ${INPUT_PRICE_PER_MILLION}, 4) / c.total_sessions as cost_per_session,
+      c.total_cost,
+      if(c.total_sessions > 0, round(c.total_cost / c.total_sessions, 4), 0) as cost_per_session,
       if(c.total_commits > 0,
-        round((c.total_output_tokens / 1000000.0) * ${OUTPUT_PRICE_PER_MILLION} +
-              (c.total_input_tokens / 1000000.0) * ${INPUT_PRICE_PER_MILLION}, 4) / c.total_commits,
+        round(c.total_cost / c.total_commits, 4),
         0) as cost_per_commit,
-      round((p.total_output_tokens / 1000000.0) * ${OUTPUT_PRICE_PER_MILLION} +
-            (p.total_input_tokens / 1000000.0) * ${INPUT_PRICE_PER_MILLION}, 2) as prev_total_cost,
-      round((p.total_output_tokens / 1000000.0) * ${OUTPUT_PRICE_PER_MILLION} +
-            (p.total_input_tokens / 1000000.0) * ${INPUT_PRICE_PER_MILLION}, 4) / p.total_sessions as prev_cost_per_session,
+      p.total_cost as prev_total_cost,
+      if(p.total_sessions > 0, round(p.total_cost / p.total_sessions, 4), 0) as prev_cost_per_session,
       if(p.total_commits > 0,
-        round((p.total_output_tokens / 1000000.0) * ${OUTPUT_PRICE_PER_MILLION} +
-              (p.total_input_tokens / 1000000.0) * ${INPUT_PRICE_PER_MILLION}, 4) / p.total_commits,
+        round(p.total_cost / p.total_commits, 4),
         0) as prev_cost_per_commit,
       p.total_commits as prev_total_commits,
       p.total_output_tokens as prev_total_output_tokens,
@@ -414,8 +415,7 @@ export async function getROITrends(
       SUM(has_commit) as total_commits,
       COUNT(DISTINCT user_id) as active_developers,
       AVG(success_score) as avg_success_score,
-      round((SUM(output_tokens) / 1000000.0) * ${OUTPUT_PRICE_PER_MILLION} +
-            (SUM(input_tokens) / 1000000.0) * ${INPUT_PRICE_PER_MILLION}, 2) as total_cost
+      round(SUM(${PER_SESSION_COST_SQL}), 2) as total_cost
     FROM rudel.session_analytics
     WHERE session_date >= now64(3) - toIntervalDay({days:UInt32})
       AND organization_id = {orgId:String}
@@ -466,8 +466,7 @@ export async function getDeveloperCostBreakdown(
       SUM(output_tokens) as total_output_tokens,
       SUM(total_tokens) as total_tokens,
       AVG(success_score) as avg_success_score,
-      round((SUM(output_tokens) / 1000000.0) * ${OUTPUT_PRICE_PER_MILLION} +
-            (SUM(input_tokens) / 1000000.0) * ${INPUT_PRICE_PER_MILLION}, 2) as total_cost
+      round(SUM(${PER_SESSION_COST_SQL}), 2) as total_cost
     FROM rudel.session_analytics
     WHERE ${buildDateFilter("days")}
       AND organization_id = {orgId:String}
@@ -523,8 +522,7 @@ export async function getProjectCostBreakdown(
       SUM(output_tokens) as total_output_tokens,
       SUM(total_tokens) as total_tokens,
       AVG(success_score) as avg_success_score,
-      round((SUM(output_tokens) / 1000000.0) * ${OUTPUT_PRICE_PER_MILLION} +
-            (SUM(input_tokens) / 1000000.0) * ${INPUT_PRICE_PER_MILLION}, 2) as total_cost
+      round(SUM(${PER_SESSION_COST_SQL}), 2) as total_cost
     FROM rudel.session_analytics
     WHERE ${buildDateFilter("days")}
       AND organization_id = {orgId:String}
@@ -575,6 +573,7 @@ async function getRangeSnapshot(
       SUM(input_tokens) as total_input_tokens,
       SUM(output_tokens) as total_output_tokens,
       SUM(total_tokens) as total_tokens,
+      round(SUM(${PER_SESSION_COST_SQL}), 4) as total_cost,
       SUM(actual_duration_min) / 60.0 as total_hours,
       AVG(success_score) as avg_success_score,
       COUNT(DISTINCT user_id) as active_developers,
@@ -607,11 +606,7 @@ async function getDeveloperCostBreakdownForRange(
       COUNT(*) as total_sessions,
       SUM(total_tokens) as total_tokens,
       AVG(success_score) as avg_success_score,
-      ${buildEstimatedCostSql({
-				inputExpr: "SUM(input_tokens)",
-				outputExpr: "SUM(output_tokens)",
-				precision: 4,
-			})} as total_cost
+      round(SUM(${PER_SESSION_COST_SQL}), 4) as total_cost
     FROM rudel.session_analytics
     WHERE ${buildInclusiveDateRangeFilter("startDate", "endDate")}
       AND organization_id = {orgId:String}
@@ -658,11 +653,7 @@ async function getProjectCostBreakdownForRange(
       COUNT(*) as total_sessions,
       SUM(total_tokens) as total_tokens,
       AVG(success_score) as avg_success_score,
-      ${buildEstimatedCostSql({
-				inputExpr: "SUM(input_tokens)",
-				outputExpr: "SUM(output_tokens)",
-				precision: 4,
-			})} as total_cost
+      round(SUM(${PER_SESSION_COST_SQL}), 4) as total_cost
     FROM rudel.session_analytics
     WHERE ${buildInclusiveDateRangeFilter("startDate", "endDate")}
       AND organization_id = {orgId:String}
@@ -709,7 +700,10 @@ export async function getROIDashboard(
 	const { start_date, end_date } = params;
 	const spanDays = getInclusiveDateSpanDays(start_date, end_date);
 	const comparison_end_date = shiftIsoDate(start_date, -1);
-	const comparison_start_date = shiftIsoDate(comparison_end_date, -(spanDays - 1));
+	const comparison_start_date = shiftIsoDate(
+		comparison_end_date,
+		-(spanDays - 1),
+	);
 	const trendInterval = getTrendIntervalForRange(spanDays);
 	const bucketExpr =
 		trendInterval === "day"
@@ -725,6 +719,7 @@ export async function getROIDashboard(
       SUM(input_tokens) as total_input_tokens,
       SUM(output_tokens) as total_output_tokens,
       SUM(total_tokens) as total_tokens,
+      round(SUM(${PER_SESSION_COST_SQL}), 4) as total_cost,
       SUM(has_commit) as total_commits
     FROM rudel.session_analytics
     WHERE ${buildInclusiveDateRangeFilter("startDate", "endDate")}
@@ -791,8 +786,11 @@ export async function getROIDashboard(
 			avg_success_score: current.avg_success_score,
 		},
 		assumptions: {
-			input_price_per_million: INPUT_PRICE_PER_MILLION,
-			output_price_per_million: OUTPUT_PRICE_PER_MILLION,
+			pricing_mode: ESTIMATED_PRICING_MODE,
+			priced_model_entries: getModelPricingCatalog().length,
+			fallback_input_price_per_million: FALLBACK_MODEL_PRICING.inputPerMillion,
+			fallback_output_price_per_million:
+				FALLBACK_MODEL_PRICING.outputPerMillion,
 			code_percentage: CODE_PERCENTAGE,
 			tokens_per_loc: TOKENS_PER_LOC,
 			loc_per_hour: LOC_PER_HOUR,
@@ -805,6 +803,7 @@ export async function getROIDashboard(
 				total_input_tokens: Number(row.total_input_tokens) || 0,
 				total_output_tokens: Number(row.total_output_tokens) || 0,
 				total_tokens: Number(row.total_tokens) || 0,
+				total_cost: Number(row.total_cost) || 0,
 				total_hours: 0,
 				avg_success_score: 0,
 				active_developers: 0,

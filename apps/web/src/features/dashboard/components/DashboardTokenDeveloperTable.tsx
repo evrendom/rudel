@@ -9,6 +9,7 @@ import type { DashboardPerformanceUserComparison } from "@/features/dashboard/da
 
 type DashboardTokenDeveloperTableRow = {
 	avgTokensPerSession: number;
+	cost: number;
 	id: string;
 	imageUrl?: string | null;
 	inputTokens: number;
@@ -89,6 +90,7 @@ function buildRows(
 			return {
 				avgTokensPerSession:
 					sessions > 0 ? Math.round(totalTokens / sessions) : 0,
+				cost: user.cost,
 				id: user.userId,
 				imageUrl: user.imageUrl,
 				inputTokens: user.inputTokens,
@@ -189,6 +191,7 @@ export function DashboardTokenDeveloperTable({
 					header: "Cost",
 					renderCell: (row) => (
 						<DashboardTokenCostCell
+							cost={row.cost}
 							inputTokens={row.inputTokens}
 							outputTokens={row.outputTokens}
 						/>

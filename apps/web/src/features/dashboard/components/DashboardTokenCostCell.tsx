@@ -1,13 +1,17 @@
 import { DashboardCellStack } from "@/features/dashboard/components/DashboardGridTable";
 import { calculateCost, formatWholeCurrency } from "@/lib/format";
 
-function formatCostSplit(inputTokens: number, outputTokens: number) {
+function formatCostSplit(
+	inputTokens: number,
+	outputTokens: number,
+	model?: string | null,
+) {
 	if (inputTokens <= 0 && outputTokens <= 0) {
 		return "—";
 	}
 
-	const inputCost = calculateCost(inputTokens, 0);
-	const outputCost = calculateCost(0, outputTokens);
+	const inputCost = calculateCost(inputTokens, 0, model);
+	const outputCost = calculateCost(0, outputTokens, model);
 	const totalCost = inputCost + outputCost;
 
 	if (totalCost <= 0) {
@@ -21,16 +25,22 @@ function formatCostSplit(inputTokens: number, outputTokens: number) {
 }
 
 export function DashboardTokenCostCell({
+	cost,
 	inputTokens,
 	outputTokens,
+	model,
 }: {
+	cost?: number;
 	inputTokens: number;
 	outputTokens: number;
+	model?: string | null;
 }) {
+	const resolvedCost = cost ?? calculateCost(inputTokens, outputTokens, model);
+
 	return (
 		<DashboardCellStack
-			primary={formatWholeCurrency(calculateCost(inputTokens, outputTokens))}
-			secondary={formatCostSplit(inputTokens, outputTokens)}
+			primary={formatWholeCurrency(resolvedCost)}
+			secondary={formatCostSplit(inputTokens, outputTokens, model)}
 			primaryClassName="font-medium tabular-nums"
 			secondaryClassName="font-medium tabular-nums uppercase tracking-[0.02em]"
 		/>

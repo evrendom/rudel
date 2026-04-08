@@ -63,7 +63,7 @@ export function buildDashboardTokenModelRows(
 
 	return Array.from(rowsByModel.entries())
 		.map(([model, row]) => ({
-			estimatedCost: calculateCost(row.inputTokens, row.outputTokens),
+			estimatedCost: calculateCost(row.inputTokens, row.outputTokens, model),
 			id: model,
 			inputTokens: row.inputTokens,
 			label: model,

@@ -7,20 +7,15 @@ import type {
 import { queryClickhouse } from "../clickhouse.js";
 import {
 	buildEstimatedCostSql,
-	calculateEstimatedCost,
 	ESTIMATED_PRICING_MODE,
 } from "./pricing.service.js";
 
 interface CostsSummaryRow {
 	first_session_date: string | null;
-	today_input_tokens: number;
-	today_output_tokens: number;
-	week_input_tokens: number;
-	week_output_tokens: number;
-	month_input_tokens: number;
-	month_output_tokens: number;
-	all_time_input_tokens: number;
-	all_time_output_tokens: number;
+	today_cost: number;
+	week_cost: number;
+	month_cost: number;
+	all_time_cost: number;
 }
 
 interface CostsModelRow {
@@ -42,6 +37,13 @@ interface CostsProjectRow {
 }
 
 const ALL_TIME_START = "2000-01-01";
+const PER_SESSION_COST_SQL = buildEstimatedCostSql({
+	modelExpr: "model_used",
+	inputExpr: "ifNull(input_tokens, 0)",
+	outputExpr: "ifNull(output_tokens, 0)",
+	cacheReadInputExpr: "ifNull(cache_read_input_tokens, 0)",
+	cacheCreationInputExpr: "ifNull(cache_creation_input_tokens, 0)",
+});
 
 function formatUtcDate(date: Date) {
 	return date.toISOString().slice(0, 10);
@@ -71,13 +73,12 @@ function buildMetric(
 	label: string,
 	startDate: string,
 	endDate: string,
-	inputTokens: number,
-	outputTokens: number,
+	cost: number,
 ): CostWindowMetric {
 	return {
 		key,
 		label,
-		cost: Number(calculateEstimatedCost(inputTokens, outputTokens, 4)),
+		cost: Number(cost.toFixed(4)),
 		start_date: startDate,
 		end_date: endDate,
 	};
@@ -107,7 +108,9 @@ function getProjectLabel(projectKey: string) {
 	return segments[segments.length - 1] ?? normalized;
 }
 
-export async function getCostsDashboard(orgId: string): Promise<CostsDashboard> {
+export async function getCostsDashboard(
+	orgId: string,
+): Promise<CostsDashboard> {
 	const today = getUtcToday();
 	const todayLabel = formatUtcDate(today);
 	const weekStart = formatUtcDate(getUtcIsoWeekStart(today));
@@ -117,14 +120,10 @@ export async function getCostsDashboard(orgId: string): Promise<CostsDashboard> 
 		query: `
       SELECT
         if(count() = 0, null, min(toString(toDate(session_date)))) as first_session_date,
-        sumIf(input_tokens, toDate(session_date) = toDate({today:String})) as today_input_tokens,
-        sumIf(output_tokens, toDate(session_date) = toDate({today:String})) as today_output_tokens,
-        sumIf(input_tokens, toDate(session_date) >= toDate({weekStart:String}) AND toDate(session_date) <= toDate({today:String})) as week_input_tokens,
-        sumIf(output_tokens, toDate(session_date) >= toDate({weekStart:String}) AND toDate(session_date) <= toDate({today:String})) as week_output_tokens,
-        sumIf(input_tokens, toDate(session_date) >= toDate({monthStart:String}) AND toDate(session_date) <= toDate({today:String})) as month_input_tokens,
-        sumIf(output_tokens, toDate(session_date) >= toDate({monthStart:String}) AND toDate(session_date) <= toDate({today:String})) as month_output_tokens,
-        sum(input_tokens) as all_time_input_tokens,
-        sum(output_tokens) as all_time_output_tokens
+        round(sumIf(${PER_SESSION_COST_SQL}, toDate(session_date) = toDate({today:String})), 4) as today_cost,
+        round(sumIf(${PER_SESSION_COST_SQL}, toDate(session_date) >= toDate({weekStart:String}) AND toDate(session_date) <= toDate({today:String})), 4) as week_cost,
+        round(sumIf(${PER_SESSION_COST_SQL}, toDate(session_date) >= toDate({monthStart:String}) AND toDate(session_date) <= toDate({today:String})), 4) as month_cost,
+        round(sum(${PER_SESSION_COST_SQL}), 4) as all_time_cost
       FROM rudel.session_analytics
       WHERE organization_id = {orgId:String}
     `,
@@ -144,11 +143,7 @@ export async function getCostsDashboard(orgId: string): Promise<CostsDashboard> 
         sum(output_tokens) as output_tokens,
         sum(total_tokens) as total_tokens,
         count() as sessions,
-        ${buildEstimatedCostSql({
-					inputExpr: "sum(input_tokens)",
-					outputExpr: "sum(output_tokens)",
-					precision: 4,
-				})} as cost
+        round(sum(${PER_SESSION_COST_SQL}), 4) as cost
       FROM rudel.session_analytics
       WHERE organization_id = {orgId:String}
         AND toDate(session_date) >= toDate({monthStart:String})
@@ -173,11 +168,7 @@ export async function getCostsDashboard(orgId: string): Promise<CostsDashboard> 
         sum(output_tokens) as output_tokens,
         sum(total_tokens) as total_tokens,
         count() as sessions,
-        ${buildEstimatedCostSql({
-					inputExpr: "sum(input_tokens)",
-					outputExpr: "sum(output_tokens)",
-					precision: 4,
-				})} as cost
+        round(sum(${PER_SESSION_COST_SQL}), 4) as cost
       FROM rudel.session_analytics
       WHERE organization_id = {orgId:String}
         AND toDate(session_date) >= toDate({monthStart:String})
@@ -201,14 +192,10 @@ export async function getCostsDashboard(orgId: string): Promise<CostsDashboard> 
 
 	const summary = summaryRows[0] ?? {
 		first_session_date: null,
-		today_input_tokens: 0,
-		today_output_tokens: 0,
-		week_input_tokens: 0,
-		week_output_tokens: 0,
-		month_input_tokens: 0,
-		month_output_tokens: 0,
-		all_time_input_tokens: 0,
-		all_time_output_tokens: 0,
+		today_cost: 0,
+		week_cost: 0,
+		month_cost: 0,
+		all_time_cost: 0,
 	};
 
 	const allTimeStart = summary.first_session_date || ALL_TIME_START;
@@ -219,32 +206,28 @@ export async function getCostsDashboard(orgId: string): Promise<CostsDashboard> 
 			"Costs today",
 			todayLabel,
 			todayLabel,
-			Number(summary.today_input_tokens) || 0,
-			Number(summary.today_output_tokens) || 0,
+			Number(summary.today_cost) || 0,
 		),
 		buildMetric(
 			"week",
 			"Costs this week",
 			weekStart,
 			todayLabel,
-			Number(summary.week_input_tokens) || 0,
-			Number(summary.week_output_tokens) || 0,
+			Number(summary.week_cost) || 0,
 		),
 		buildMetric(
 			"month",
 			"Costs this month",
 			monthStart,
 			todayLabel,
-			Number(summary.month_input_tokens) || 0,
-			Number(summary.month_output_tokens) || 0,
+			Number(summary.month_cost) || 0,
 		),
 		buildMetric(
 			"all_time",
 			"All time costs",
 			allTimeStart,
 			todayLabel,
-			Number(summary.all_time_input_tokens) || 0,
-			Number(summary.all_time_output_tokens) || 0,
+			Number(summary.all_time_cost) || 0,
 		),
 	];
 

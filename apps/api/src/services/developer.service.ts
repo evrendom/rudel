@@ -15,6 +15,7 @@ import {
 	queryClickhouse,
 } from "../clickhouse.js";
 import { sqlClient } from "../db.js";
+import { buildEstimatedCostSql } from "./pricing.service.js";
 
 export interface DeveloperSummary extends DeveloperSummaryBase {
 	username?: string;
@@ -40,6 +41,14 @@ export interface DeveloperProjectTimeline {
 	total_duration_min: number;
 	total_tokens: number;
 }
+
+const PER_SESSION_COST_SQL = buildEstimatedCostSql({
+	modelExpr: "model_used",
+	inputExpr: "ifNull(input_tokens, 0)",
+	outputExpr: "ifNull(output_tokens, 0)",
+	cacheReadInputExpr: "ifNull(cache_read_input_tokens, 0)",
+	cacheCreationInputExpr: "ifNull(cache_creation_input_tokens, 0)",
+});
 
 /**
  * Get list of all developers with summary stats
@@ -67,7 +76,8 @@ export async function getDeveloperList(
         round(SUM(actual_duration_min), 2) as total_duration_min,
         round(AVG(actual_duration_min), 2) as avg_session_duration_min,
         toString(max(session_date)) as last_active_date,
-        round(AVG(success_score), 2) as success_rate
+        round(AVG(success_score), 2) as success_rate,
+        round(SUM(${PER_SESSION_COST_SQL}), 4) as total_cost
       FROM rudel.session_analytics
       WHERE ${buildDateFilter("currentDays")}
         AND organization_id = {orgId:String}
@@ -94,7 +104,7 @@ export async function getDeveloperList(
       c.avg_session_duration_min,
       c.last_active_date,
       c.success_rate,
-      round((c.output_tokens_sum * 0.000015) + (c.input_tokens_sum * 0.000003), 4) as cost,
+      c.total_cost as cost,
       round(c.success_rate - ifNull(p.prev_success_rate, c.success_rate), 2) as success_rate_trend
     FROM current_period c
     LEFT JOIN previous_period p ON c.user_id = p.user_id
@@ -128,11 +138,7 @@ export async function getDeveloperTeamCards(
       SUM(ifNull(input_tokens, 0)) as input_tokens,
       SUM(ifNull(output_tokens, 0)) as output_tokens,
       SUM(ifNull(input_tokens, 0) + ifNull(output_tokens, 0)) as total_tokens,
-      round(
-        (SUM(ifNull(output_tokens, 0)) * 0.000015) +
-        (SUM(ifNull(input_tokens, 0)) * 0.000003),
-        4
-      ) as cost,
+      round(SUM(${PER_SESSION_COST_SQL}), 4) as cost,
       toString(max(session_date)) as last_active_date
     FROM rudel.session_analytics
     WHERE ${buildDateFilter("days")}
@@ -307,7 +313,8 @@ export async function getDeveloperDetails(
         toString(max(session_date)) as last_active_date,
         round(AVG(success_score), 2) as success_rate,
         COUNT(DISTINCT project_path) as distinct_projects,
-        SUM(error_count) as error_count
+        SUM(error_count) as error_count,
+        round(SUM(${PER_SESSION_COST_SQL}), 4) as total_cost
       FROM rudel.session_analytics
       WHERE user_id = {userId:String}
         AND ${buildDateFilter("currentDays")}
@@ -336,7 +343,7 @@ export async function getDeveloperDetails(
       c.avg_session_duration_min,
       c.last_active_date,
       c.success_rate,
-      round((c.output_tokens_sum * 0.000015) + (c.input_tokens_sum * 0.000003), 4) as cost,
+      c.total_cost as cost,
       round(c.success_rate - ifNull(p.prev_success_rate, c.success_rate), 2) as success_rate_trend,
       c.distinct_projects,
       c.error_count

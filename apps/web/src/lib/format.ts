@@ -1,3 +1,5 @@
+import { calculateEstimatedCost as calculateEstimatedModelCost } from "@rudel/api-routes";
+
 const numberFormatter = new Intl.NumberFormat();
 
 const compactNumberFormatter = new Intl.NumberFormat(undefined, {
@@ -78,9 +80,6 @@ function parseDateValue(value: string) {
 
 	return new Date(value);
 }
-
-const INPUT_TOKEN_COST_PER_MILLION = 3;
-const OUTPUT_TOKEN_COST_PER_MILLION = 15;
 
 export function formatNumber(value: number) {
 	return numberFormatter.format(value);
@@ -177,10 +176,31 @@ export function formatUsername(
 	return userId;
 }
 
-export function calculateCost(inputTokens: number, outputTokens: number) {
-	const inputCost = (inputTokens / 1_000_000) * INPUT_TOKEN_COST_PER_MILLION;
-	const outputCost = (outputTokens / 1_000_000) * OUTPUT_TOKEN_COST_PER_MILLION;
-	return inputCost + outputCost;
+export function calculateCost(
+	inputTokens: number,
+	outputTokens: number,
+	options?:
+		| string
+		| null
+		| {
+				model?: string | null;
+				cacheReadInputTokens?: number;
+				cacheCreationInputTokens?: number;
+		  },
+) {
+	const model =
+		typeof options === "string" ? options : (options?.model ?? null);
+	return calculateEstimatedModelCost({
+		model,
+		inputTokens,
+		outputTokens,
+		cacheReadInputTokens:
+			typeof options === "string" ? 0 : (options?.cacheReadInputTokens ?? 0),
+		cacheCreationInputTokens:
+			typeof options === "string"
+				? 0
+				: (options?.cacheCreationInputTokens ?? 0),
+	});
 }
 
 export function encodeProjectPath(projectPath: string) {

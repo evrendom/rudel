@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ESTIMATED_PRICING_MODE } from "../model-pricing.js";
 import { SourceSchema } from "./source.js";
 
 // ── Common inputs ──────────────────────────────────────────────────
@@ -60,6 +61,7 @@ export const UserTokenUsageDataSchema = z.object({
 	total_tokens: z.number(),
 	input_tokens: z.number(),
 	output_tokens: z.number(),
+	cost: z.number(),
 	total_sessions: z.number(),
 	total_duration_min: z.number(),
 	success_rate: z.number(),
@@ -74,6 +76,8 @@ export const UserDailyTrendDataSchema = z.object({
 	total_commits: z.number(),
 	total_hours: z.number(),
 	total_tokens: z.number(),
+	input_tokens: z.number(),
+	output_tokens: z.number(),
 	avg_success_rate: z.number(),
 	distinct_skills: z.number(),
 	distinct_slash_commands: z.number(),
@@ -171,7 +175,7 @@ export const CostsProjectBreakdownSchema = z.object({
 
 export const CostsDashboardSchema = z.object({
 	currency: z.literal("USD"),
-	pricing_mode: z.literal("estimated_flat_tokens_v1"),
+	pricing_mode: z.literal(ESTIMATED_PRICING_MODE),
 	timezone: z.literal("UTC"),
 	generated_at: z.string(),
 	chart_window_start: z.string(),
@@ -535,8 +539,10 @@ export const ROIMetricsSchema = z.object({
 });
 
 export const ROIAssumptionsSchema = z.object({
-	input_price_per_million: z.number(),
-	output_price_per_million: z.number(),
+	pricing_mode: z.literal(ESTIMATED_PRICING_MODE),
+	priced_model_entries: z.number().int().positive(),
+	fallback_input_price_per_million: z.number(),
+	fallback_output_price_per_million: z.number(),
 	code_percentage: z.number(),
 	tokens_per_loc: z.number(),
 	loc_per_hour: z.number(),

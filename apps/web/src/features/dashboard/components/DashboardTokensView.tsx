@@ -52,8 +52,19 @@ export function DashboardTokensView({
 		[endDate, modelTokensTrend, performanceUserDailyTrend, startDate],
 	);
 	const headlineMetrics = useMemo(
-		() => buildDashboardTokenTabMetrics(usersTokenUsage, dailyPattern),
-		[dailyPattern, usersTokenUsage],
+		() =>
+			buildDashboardTokenTabMetrics(
+				usersTokenUsage,
+				dailyPattern,
+				modelTokensTrend,
+				performanceUserDailyTrend,
+			),
+		[
+			dailyPattern,
+			modelTokensTrend,
+			performanceUserDailyTrend,
+			usersTokenUsage,
+		],
 	);
 	const { data: recentSessions, isPending: isRecentSessionsPending } =
 		useAnalyticsQuery(

@@ -10,6 +10,7 @@ import { user } from "@rudel/sql-schema";
 import { inArray } from "drizzle-orm";
 import { buildAbsoluteDateFilter, queryClickhouse } from "../clickhouse.js";
 import { db } from "../db.js";
+import { buildEstimatedCostSql } from "./pricing.service.js";
 
 export interface Insight {
 	type: "trend" | "performer" | "alert" | "info";
@@ -17,6 +18,14 @@ export interface Insight {
 	message: string;
 	link: string;
 }
+
+const PER_SESSION_COST_SQL = buildEstimatedCostSql({
+	modelExpr: "model_used",
+	inputExpr: "ifNull(input_tokens, 0)",
+	outputExpr: "ifNull(output_tokens, 0)",
+	cacheReadInputExpr: "ifNull(cache_read_input_tokens, 0)",
+	cacheCreationInputExpr: "ifNull(cache_creation_input_tokens, 0)",
+});
 
 /**
  * Get overview KPI counts: distinct users, sessions, projects, subagents, skills, slash commands
@@ -130,11 +139,11 @@ export async function getModelTokensTrend(
 
 	const query = `
     SELECT
-      toDate(session_date) as date,
+      toString(toDate(session_date)) as date,
       model_used as model,
-      sum(total_tokens) as total_tokens,
-      sum(input_tokens) as input_tokens,
-      sum(output_tokens) as output_tokens
+      sum(ifNull(total_tokens, 0)) as total_tokens,
+      sum(ifNull(input_tokens, 0)) as input_tokens,
+      sum(ifNull(output_tokens, 0)) as output_tokens
     FROM rudel.session_analytics
     WHERE ${dateFilter}
       AND organization_id = {orgId:String}
@@ -172,6 +181,7 @@ export async function getUsersTokenUsage(
 		total_tokens: number;
 		input_tokens: number;
 		output_tokens: number;
+		cost: number;
 		total_sessions: number;
 		total_duration_min: number;
 		success_rate: number;
@@ -207,6 +217,7 @@ export async function getUsersTokenUsage(
       sum(total_tokens) as total_tokens,
       sum(input_tokens) as input_tokens,
       sum(output_tokens) as output_tokens,
+      round(sum(${PER_SESSION_COST_SQL}), 4) as cost,
       count() as total_sessions,
       round(sum(actual_duration_min), 2) as total_duration_min,
       round(avg(success_score), 2) as success_rate,
@@ -256,6 +267,7 @@ export async function getUsersTokenUsage(
 		total_tokens: Number(row.total_tokens),
 		input_tokens: Number(row.input_tokens),
 		output_tokens: Number(row.output_tokens),
+		cost: Number(row.cost),
 		total_sessions: Number(row.total_sessions),
 		total_duration_min: Number(row.total_duration_min),
 		success_rate: Number(row.success_rate),
@@ -279,7 +291,9 @@ export async function getUsersDailyTrend(
       count() as sessions,
       sum(has_commit) as total_commits,
       round(sum(actual_duration_min) / 60, 2) as total_hours,
-      sum(total_tokens) as total_tokens,
+      sum(ifNull(total_tokens, 0)) as total_tokens,
+      sum(ifNull(input_tokens, 0)) as input_tokens,
+      sum(ifNull(output_tokens, 0)) as output_tokens,
       round(avg(success_score), 2) as avg_success_rate,
       length(arrayDistinct(arrayFilter(x -> x != '', arrayFlatten(groupArray(skills))))) as distinct_skills,
       length(arrayDistinct(arrayFilter(x -> x != '', arrayFlatten(groupArray(slash_commands))))) as distinct_slash_commands

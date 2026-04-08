@@ -344,7 +344,12 @@ function SessionDetailPageContent() {
 						<div className="text-right">
 							<p className="text-muted">Cost</p>
 							<p className="text-foreground font-mono font-medium">
-								${calculateCost(safeInputTokens, safeOutputTokens).toFixed(4)}
+								$
+								{calculateCost(
+									safeInputTokens,
+									safeOutputTokens,
+									safeModelUsed,
+								).toFixed(4)}
 							</p>
 						</div>
 						{safeSuccessScore !== undefined && (

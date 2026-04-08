@@ -374,6 +374,7 @@ function DashboardRecentSessionsPanelContent({
 		? `${calculateCost(
 				toNumber(selectedSession.input_tokens),
 				toNumber(selectedSession.output_tokens),
+				toOptionalString(selectedSession.model_used),
 			).toFixed(4)} USD`
 		: "—";
 	const avgResponseLabel = selectedSession
