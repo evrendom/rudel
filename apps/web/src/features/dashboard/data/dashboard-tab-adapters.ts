@@ -25,6 +25,24 @@ export type DashboardTokenDailyPoint = {
 	totalTokens: number;
 };
 
+export type DashboardRepositoryDailyOverviewRow = {
+	activeRepositories: number;
+	date: string;
+	leadRepositoryLabel: string | null;
+	leadRepositorySessions: number;
+	leadRepositoryShare: number | null;
+	sessions: number;
+};
+
+export type DashboardSessionHourlyOverviewRow = {
+	bandLabel: string;
+	bandTone: "danger" | "muted" | "success" | "warning";
+	hour: number;
+	label: string;
+	sharePct: number | null;
+	sessions: number;
+};
+
 function formatSignedPercentChange(value: number) {
 	if (!Number.isFinite(value) || value === 0) {
 		return "0%";
@@ -163,6 +181,136 @@ export function buildDashboardDailyPatternFromRepositoryTrend(
 	}
 
 	return buildDailyPattern(startDate, endDate, rowsByDate);
+}
+
+export function buildDashboardRepositoryDailyOverviewRows(
+	startDate: string,
+	endDate: string,
+	rows: RepositoryDailyTrendData[] | undefined,
+): DashboardRepositoryDailyOverviewRow[] {
+	const rowsByDate = new Map<
+		string,
+		{
+			activeRepositories: number;
+			leadRepositoryLabel: string | null;
+			leadRepositorySessions: number;
+			sessions: number;
+		}
+	>();
+
+	for (const row of rows ?? []) {
+		const dateKey = normalizeDateKey(row.date);
+		const currentRow = rowsByDate.get(dateKey) ?? {
+			activeRepositories: 0,
+			leadRepositoryLabel: null,
+			leadRepositorySessions: 0,
+			sessions: 0,
+		};
+
+		currentRow.sessions += row.sessions;
+
+		if (row.sessions > 0) {
+			currentRow.activeRepositories += 1;
+		}
+
+		if (
+			row.sessions > currentRow.leadRepositorySessions ||
+			(row.sessions === currentRow.leadRepositorySessions &&
+				row.sessions > 0 &&
+				row.repository.localeCompare(currentRow.leadRepositoryLabel ?? "") < 0)
+		) {
+			currentRow.leadRepositoryLabel = row.repository;
+			currentRow.leadRepositorySessions = row.sessions;
+		}
+
+		rowsByDate.set(dateKey, currentRow);
+	}
+
+	return buildDateRange(startDate, endDate).map((date) => {
+		const isoDate = format(date, "yyyy-MM-dd");
+		const row = rowsByDate.get(isoDate);
+		const sessions = row?.sessions ?? 0;
+		const leadRepositorySessions = row?.leadRepositorySessions ?? 0;
+
+		return {
+			activeRepositories: row?.activeRepositories ?? 0,
+			date: isoDate,
+			leadRepositoryLabel: row?.leadRepositoryLabel ?? null,
+			leadRepositorySessions,
+			leadRepositoryShare:
+				sessions > 0
+					? Math.round((leadRepositorySessions / sessions) * 100)
+					: null,
+			sessions,
+		};
+	});
+}
+
+function getHourlyActivityBand(
+	sessions: number,
+	maxSessions: number,
+): Pick<DashboardSessionHourlyOverviewRow, "bandLabel" | "bandTone"> {
+	if (sessions <= 0 || maxSessions <= 0) {
+		return {
+			bandLabel: "No activity",
+			bandTone: "muted",
+		};
+	}
+
+	const relativeLoad = sessions / maxSessions;
+
+	if (relativeLoad >= 0.9) {
+		return {
+			bandLabel: "Peak hour",
+			bandTone: "success",
+		};
+	}
+
+	if (relativeLoad >= 0.6) {
+		return {
+			bandLabel: "High activity",
+			bandTone: "warning",
+		};
+	}
+
+	if (relativeLoad >= 0.3) {
+		return {
+			bandLabel: "Steady",
+			bandTone: "warning",
+		};
+	}
+
+	return {
+		bandLabel: "Light activity",
+		bandTone: "danger",
+	};
+}
+
+export function buildDashboardSessionHourlyOverviewRows(
+	rows: { hour: number; label: string; sessions: number }[] | undefined,
+): DashboardSessionHourlyOverviewRow[] {
+	const resolvedRows = rows ?? [];
+	const totalSessions = resolvedRows.reduce(
+		(sum, row) => sum + row.sessions,
+		0,
+	);
+	const maxSessions = Math.max(0, ...resolvedRows.map((row) => row.sessions));
+
+	return [...resolvedRows]
+		.map((row) => ({
+			...getHourlyActivityBand(row.sessions, maxSessions),
+			hour: row.hour,
+			label: row.label,
+			sharePct:
+				totalSessions > 0
+					? Math.round((row.sessions / totalSessions) * 100)
+					: null,
+			sessions: row.sessions,
+		}))
+		.sort(
+			(leftRow, rightRow) =>
+				rightRow.sessions - leftRow.sessions || leftRow.hour - rightRow.hour,
+		);
 }
 
 export function buildDashboardRepositoryTabMetrics(

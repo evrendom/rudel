@@ -1,7 +1,11 @@
 import type { RepositoryDailyTrendData } from "@rudel/api-routes";
+import type { ReactNode } from "react";
 import { DashboardDailyOverviewTable } from "@/features/dashboard/components/DashboardDailyOverviewTable";
 import { DashboardDailyPatternChart } from "@/features/dashboard/components/DashboardDailyPatternChart";
-import { DashboardInteractiveTopChartSection } from "@/features/dashboard/components/DashboardTopChartSection";
+import {
+	DashboardInteractiveTopChartSection,
+	type DashboardTopChartRenderProps,
+} from "@/features/dashboard/components/DashboardTopChartSection";
 import type {
 	DashboardDailyPatternPoint,
 	DashboardHeadlineMetric,
@@ -12,6 +16,7 @@ export function DashboardDailySnapshotSection({
 	dailyPattern,
 	isMetricsLoading = false,
 	metrics,
+	renderDetail,
 	repositoryDailyTrend,
 	showDelta = false,
 }: {
@@ -19,6 +24,7 @@ export function DashboardDailySnapshotSection({
 	dailyPattern: DashboardDailyPatternPoint[];
 	isMetricsLoading?: boolean;
 	metrics: DashboardHeadlineMetric[];
+	renderDetail?: (props: DashboardTopChartRenderProps) => ReactNode;
 	repositoryDailyTrend?: RepositoryDailyTrendData[] | undefined;
 	showDelta?: boolean;
 }) {
@@ -41,14 +47,20 @@ export function DashboardDailySnapshotSection({
 				highlightedItemId,
 				highlightSource,
 				onHighlightItemChange,
-			}) => (
-				<DashboardDailyOverviewTable
-					data={dailyPattern}
-					highlightedDate={highlightedItemId}
-					highlightSource={highlightSource}
-					onHighlightDateChange={onHighlightItemChange}
-				/>
-			)}
+			}) =>
+				renderDetail?.({
+					highlightedItemId,
+					highlightSource,
+					onHighlightItemChange,
+				}) ?? (
+					<DashboardDailyOverviewTable
+						data={dailyPattern}
+						highlightedDate={highlightedItemId}
+						highlightSource={highlightSource}
+						onHighlightDateChange={onHighlightItemChange}
+					/>
+				)
+			}
 		/>
 	);
 }

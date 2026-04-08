@@ -11,10 +11,7 @@ import { DashboardRepositoryPanel } from "@/features/dashboard/components/Dashbo
 import { DashboardSessionsSnapshotSection } from "@/features/dashboard/components/DashboardSessionsSnapshotSection";
 import type { DashboardPerformanceUserComparison } from "@/features/dashboard/data/dashboard-performance-adapter";
 import type { DashboardRankedOutputRow } from "@/features/dashboard/data/dashboard-static-data";
-import {
-	buildDashboardDailyPatternFromUserTrend,
-	buildDashboardSessionTabMetrics,
-} from "@/features/dashboard/data/dashboard-tab-adapters";
+import { buildDashboardSessionTabMetrics } from "@/features/dashboard/data/dashboard-tab-adapters";
 import { orpc } from "@/lib/orpc";
 
 export function DashboardSessionsView({
@@ -36,7 +33,7 @@ export function DashboardSessionsView({
 	repositoryDailyTrend: RepositoryDailyTrendData[] | undefined;
 	sessionSummaryComparison: SessionAnalyticsSummaryComparison | undefined;
 }) {
-	const { meta, state } = useDateRange();
+	const { meta } = useDateRange();
 	const timezone = useMemo(
 		() => Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
 		[],
@@ -57,20 +54,9 @@ export function DashboardSessionsView({
 			},
 		}),
 	);
-	const dailyPattern = useMemo(
-		() =>
-			buildDashboardDailyPatternFromUserTrend(
-				state.startDate,
-				state.endDate,
-				performanceUserDailyTrend,
-			),
-		[performanceUserDailyTrend, state.endDate, state.startDate],
-	);
-
 	return (
 		<section className="@container/sessions-view flex flex-col gap-8">
 			<DashboardSessionsSnapshotSection
-				dailyPattern={dailyPattern}
 				hourlyActivity={sessionHourlyActivity}
 				isHourlyActivityPending={isSessionHourlyActivityPending}
 				isMetricsPending={isSnapshotPending}

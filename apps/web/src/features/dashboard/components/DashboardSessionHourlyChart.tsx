@@ -2,7 +2,7 @@
 
 import type { SessionHourlyActivityDataPoint } from "@rudel/api-routes";
 import { useMemo } from "react";
-import { Bar, BarChart, XAxis, YAxis } from "recharts";
+import { Bar, BarChart, Cell, XAxis, YAxis } from "recharts";
 import { type ChartConfig, ChartContainer, ChartTooltip } from "@/app/ui/chart";
 import { Skeleton } from "@/app/ui/skeleton";
 import { cn } from "@/lib/utils";
@@ -76,10 +76,12 @@ function DashboardSessionHourlyChartFallback() {
 }
 
 export function DashboardSessionHourlyChart({
+	activeHour,
 	className,
 	data,
 	isLoading = false,
 }: {
+	activeHour?: number | null;
 	className?: string;
 	data: SessionHourlyActivityDataPoint[] | undefined;
 	isLoading?: boolean;
@@ -170,7 +172,21 @@ export function DashboardSessionHourlyChart({
 							fill="var(--color-sessions)"
 							radius={[4, 4, 0, 0]}
 							isAnimationActive={false}
-						/>
+						>
+							{resolvedData.map((point) => {
+								const hasExternalHighlight = activeHour != null;
+								const isHighlighted = activeHour === point.hour;
+
+								return (
+									<Cell
+										key={point.hour}
+										fillOpacity={
+											hasExternalHighlight && !isHighlighted ? 0.28 : 1
+										}
+									/>
+								);
+							})}
+						</Bar>
 					</BarChart>
 				</ChartContainer>
 			)}

@@ -1,40 +1,53 @@
 import type { SessionHourlyActivityDataPoint } from "@rudel/api-routes";
-import { DashboardDailyOverviewTable } from "@/features/dashboard/components/DashboardDailyOverviewTable";
 import { DashboardSessionHourlyChart } from "@/features/dashboard/components/DashboardSessionHourlyChart";
-import { DashboardTopChartSection } from "@/features/dashboard/components/DashboardTopChartSection";
-import type {
-	DashboardDailyPatternPoint,
-	DashboardHeadlineMetric,
-} from "@/features/dashboard/data/dashboard-static-data";
+import { DashboardSessionHourlyOverviewTable } from "@/features/dashboard/components/DashboardSessionHourlyOverviewTable";
+import { DashboardInteractiveTopChartSection } from "@/features/dashboard/components/DashboardTopChartSection";
+import type { DashboardHeadlineMetric } from "@/features/dashboard/data/dashboard-static-data";
+import { buildDashboardSessionHourlyOverviewRows } from "@/features/dashboard/data/dashboard-tab-adapters";
 
 export function DashboardSessionsSnapshotSection({
-	dailyPattern,
 	hourlyActivity,
 	isHourlyActivityPending,
 	isMetricsPending = false,
 	metrics,
 	showDelta = false,
 }: {
-	dailyPattern: DashboardDailyPatternPoint[];
 	hourlyActivity: SessionHourlyActivityDataPoint[] | undefined;
 	isHourlyActivityPending: boolean;
 	isMetricsPending?: boolean;
 	metrics: DashboardHeadlineMetric[];
 	showDelta?: boolean;
 }) {
+	const hourlyRows = buildDashboardSessionHourlyOverviewRows(hourlyActivity);
+
 	return (
-		<DashboardTopChartSection
+		<DashboardInteractiveTopChartSection
 			isMetricsLoading={isMetricsPending}
 			metrics={metrics}
 			showDelta={showDelta}
-			chart={
+			renderChart={({ highlightedItemId }) => (
 				<DashboardSessionHourlyChart
+					activeHour={
+						highlightedItemId == null ? null : Number(highlightedItemId)
+					}
 					className="min-w-0"
 					data={hourlyActivity}
 					isLoading={isHourlyActivityPending}
 				/>
-			}
-			detail={<DashboardDailyOverviewTable data={dailyPattern} />}
+			)}
+			renderDetail={({
+				highlightSource,
+				highlightedItemId,
+				onHighlightItemChange,
+			}) => (
+				<DashboardSessionHourlyOverviewTable
+					rows={hourlyRows}
+					highlightSource={highlightSource}
+					highlightedHour={highlightedItemId}
+					isLoading={isHourlyActivityPending}
+					onHighlightHourChange={onHighlightItemChange}
+				/>
+			)}
 		/>
 	);
 }
