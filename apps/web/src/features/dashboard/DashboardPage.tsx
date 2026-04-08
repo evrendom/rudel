@@ -34,7 +34,7 @@ export function DashboardPage() {
 		userLabelById,
 		usersTokenUsage,
 	} = useDashboardPageData();
-	const [activeView, setActiveView] = useState<DashboardView>("commits");
+	const [activeView, setActiveView] = useState<DashboardView>("tokens");
 
 	return (
 		<div className="dashboardy-page px-4 pb-6 pt-2 sm:px-6 lg:px-[76px] lg:pb-8">
