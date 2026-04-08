@@ -1,13 +1,13 @@
 import { useLocation } from "react-router-dom";
 import { AppLoadingScreen } from "@/app/bootstrap/AppLoadingScreen";
-import { DeviceAuthorizationApp } from "@/features/auth/DeviceAuthorizationApp";
+import { ProductAnalyticsSessionSync } from "@/features/analytics/tracking/ProductAnalyticsSessionSync";
 import { AuthenticatedApp } from "@/features/auth/AuthenticatedApp";
-import { GuestApp } from "@/features/auth/GuestApp";
 import {
 	getDeviceUserCode,
 	getValidRedirect,
 } from "@/features/auth/auth-route-utils";
-import { ProductAnalyticsSessionSync } from "@/features/analytics/tracking/ProductAnalyticsSessionSync";
+import { DeviceAuthorizationApp } from "@/features/auth/DeviceAuthorizationApp";
+import { GuestApp } from "@/features/auth/GuestApp";
 import { authClient } from "./lib/auth-client";
 
 function App() {

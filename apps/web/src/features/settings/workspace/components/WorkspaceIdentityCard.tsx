@@ -1,39 +1,34 @@
-import { useState } from "react"
-import {
-	Building2Icon,
-	CheckIcon,
-	PencilIcon,
-	XIcon,
-} from "lucide-react"
-import { useAnalyticsTracking } from "@/features/analytics/tracking/useAnalyticsTracking"
-import { authClient } from "@/lib/auth-client"
-import { Button } from "@/app/ui/button"
+import { Building2Icon, CheckIcon, PencilIcon, XIcon } from "lucide-react";
+import { useState } from "react";
+import { Button } from "@/app/ui/button";
 import {
 	Card,
 	CardContent,
 	CardDescription,
 	CardHeader,
 	CardTitle,
-} from "@/app/ui/card"
-import { Field, FieldLabel } from "@/app/ui/field"
-import { Input } from "@/app/ui/input"
+} from "@/app/ui/card";
+import { Field, FieldLabel } from "@/app/ui/field";
+import { Input } from "@/app/ui/input";
+import { useAnalyticsTracking } from "@/features/analytics/tracking/useAnalyticsTracking";
+import { authClient } from "@/lib/auth-client";
 
 export function WorkspaceIdentityCard({
 	organization,
 	canManage,
 	onInvalidate,
 }: {
-	organization: { id: string; name: string; slug: string }
-	canManage: boolean
-	onInvalidate: () => void
+	organization: { id: string; name: string; slug: string };
+	canManage: boolean;
+	onInvalidate: () => void;
 }) {
 	const { trackOrganizationAction } = useAnalyticsTracking({
 		pageName: "organization",
-	})
-	const [isEditingName, setIsEditingName] = useState(false)
-	const [editedName, setEditedName] = useState("")
-	const [isSavingName, setIsSavingName] = useState(false)
-	const [renameError, setRenameError] = useState<string | null>(null)
+	});
+	const [isEditingName, setIsEditingName] = useState(false);
+	const [editedName, setEditedName] = useState("");
+	const [isSavingName, setIsSavingName] = useState(false);
+	const [renameError, setRenameError] = useState<string | null>(null);
 
 	const startEditing = () => {
 		trackOrganizationAction({
@@ -41,11 +36,11 @@ export function WorkspaceIdentityCard({
 			targetType: "organization",
 			sourceComponent: "workspace_settings_section",
 			targetId: organization.id,
-		})
-		setEditedName(organization.name)
-		setRenameError(null)
-		setIsEditingName(true)
-	}
+		});
+		setEditedName(organization.name);
+		setRenameError(null);
+		setIsEditingName(true);
+	};
 
 	const cancelEditing = () => {
 		trackOrganizationAction({
@@ -53,20 +48,20 @@ export function WorkspaceIdentityCard({
 			targetType: "organization",
 			sourceComponent: "workspace_settings_section",
 			targetId: organization.id,
-		})
-		setIsEditingName(false)
-		setRenameError(null)
-	}
+		});
+		setIsEditingName(false);
+		setRenameError(null);
+	};
 
 	const saveName = async () => {
-		const trimmedName = editedName.trim()
+		const trimmedName = editedName.trim();
 		if (!trimmedName) {
-			return
+			return;
 		}
 
 		if (trimmedName === organization.name) {
-			setIsEditingName(false)
-			return
+			setIsEditingName(false);
+			return;
 		}
 
 		trackOrganizationAction({
@@ -74,25 +69,25 @@ export function WorkspaceIdentityCard({
 			targetType: "organization",
 			sourceComponent: "workspace_settings_section",
 			targetId: organization.id,
-		})
-		setIsSavingName(true)
-		setRenameError(null)
+		});
+		setIsSavingName(true);
+		setRenameError(null);
 
 		const response = await authClient.organization.update({
 			data: { name: trimmedName },
 			organizationId: organization.id,
-		})
+		});
 
 		if (response.error) {
-			setRenameError(response.error.message ?? "Failed to rename workspace")
-			setIsSavingName(false)
-			return
+			setRenameError(response.error.message ?? "Failed to rename workspace");
+			setIsSavingName(false);
+			return;
 		}
 
-		onInvalidate()
-		setIsEditingName(false)
-		setIsSavingName(false)
-	}
+		onInvalidate();
+		setIsEditingName(false);
+		setIsSavingName(false);
+	};
 
 	return (
 		<Card size="sm" className="bg-card/95 shadow-none ring-1 ring-border/60">
@@ -120,10 +115,10 @@ export function WorkspaceIdentityCard({
 								onChange={(event) => setEditedName(event.target.value)}
 								onKeyDown={(event) => {
 									if (event.key === "Enter") {
-										void saveName()
+										void saveName();
 									}
 									if (event.key === "Escape") {
-										cancelEditing()
+										cancelEditing();
 									}
 								}}
 								disabled={isSavingName}
@@ -180,5 +175,5 @@ export function WorkspaceIdentityCard({
 				)}
 			</CardContent>
 		</Card>
-	)
+	);
 }

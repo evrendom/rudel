@@ -2,7 +2,13 @@
 
 import { MonitorCogIcon, MoonIcon, SunIcon } from "lucide-react";
 import { useTheme } from "next-themes";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/app/ui/card";
+import {
+	Card,
+	CardContent,
+	CardDescription,
+	CardHeader,
+	CardTitle,
+} from "@/app/ui/card";
 import { ToggleGroup, ToggleGroupItem } from "@/app/ui/toggle-group";
 
 export function ProfileAppearanceCard() {
@@ -13,7 +19,9 @@ export function ProfileAppearanceCard() {
 		<Card size="sm" className="bg-card/95 shadow-none ring-1 ring-border/60">
 			<CardHeader>
 				<CardTitle>Appearance</CardTitle>
-				<CardDescription>Choose how the app looks in this browser.</CardDescription>
+				<CardDescription>
+					Choose how the app looks in this browser.
+				</CardDescription>
 			</CardHeader>
 			<CardContent className="flex flex-col gap-3">
 				<ToggleGroup

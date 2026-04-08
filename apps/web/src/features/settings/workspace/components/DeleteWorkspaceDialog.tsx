@@ -1,10 +1,7 @@
-import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { AlertTriangleIcon, Loader2Icon } from "lucide-react";
-import { useAnalyticsTracking } from "@/features/analytics/tracking/useAnalyticsTracking";
-import { client } from "@/lib/orpc";
+import { useState } from "react";
 import { Button } from "@/app/ui/button";
-import { Input } from "@/app/ui/input";
 import {
 	Dialog,
 	DialogContent,
@@ -14,6 +11,9 @@ import {
 	DialogTitle,
 } from "@/app/ui/dialog";
 import { Field, FieldLabel } from "@/app/ui/field";
+import { Input } from "@/app/ui/input";
+import { useAnalyticsTracking } from "@/features/analytics/tracking/useAnalyticsTracking";
+import { client } from "@/lib/orpc";
 
 function DeleteWorkspaceDialogBody({
 	onDeleted,
@@ -41,8 +41,8 @@ function DeleteWorkspaceDialogBody({
 	const [error, setError] = useState<string | null>(null);
 
 	const canDelete =
-		confirmName.trim().toLowerCase() === organization.name.trim().toLowerCase() &&
-		!isDeleting;
+		confirmName.trim().toLowerCase() ===
+			organization.name.trim().toLowerCase() && !isDeleting;
 
 	const handleDelete = async () => {
 		trackOrganizationAction({
@@ -106,9 +106,7 @@ function DeleteWorkspaceDialogBody({
 					/>
 				</Field>
 
-				{error ? (
-					<p className="text-sm text-destructive">{error}</p>
-				) : null}
+				{error ? <p className="text-sm text-destructive">{error}</p> : null}
 			</div>
 
 			<DialogFooter>

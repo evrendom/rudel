@@ -28,8 +28,7 @@ const REPOSITORY_STACK_CHART_CONFIG = {
 } satisfies ChartConfig;
 
 const commitFlowStackOrder = ["committed", "uncommitted"] as const;
-const MAX_VISIBLE_REPOSITORY_STACKS =
-	DASHBOARD_REPOSITORY_TREND_COLORS.length;
+const MAX_VISIBLE_REPOSITORY_STACKS = DASHBOARD_REPOSITORY_TREND_COLORS.length;
 const OTHER_REPOSITORY_COLOR = "#D7DBE2";
 
 type DailyPatternChartMode = "commit-flow" | "repository-stack";

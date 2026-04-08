@@ -2,8 +2,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Building2, Check, Loader2, X } from "lucide-react";
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Button } from "@/app/ui/button";
 import { useMountEffect } from "@/app/hooks/useMountEffect";
+import { Button } from "@/app/ui/button";
 import { useAnalyticsTracking } from "@/features/analytics/tracking/useAnalyticsTracking";
 import { USER_INVITATIONS_KEY } from "@/features/workspace/hooks/useUserInvitations";
 import { authClient } from "@/lib/auth-client";
@@ -29,9 +29,9 @@ export function AcceptInvitationPage() {
 	const { trackAuthenticationAction } = useAnalyticsTracking({
 		pageName: "accept_invitation",
 	});
-	const [status, setStatus] = useState<"idle" | "accepting" | "accepted" | "error">(
-		"idle",
-	);
+	const [status, setStatus] = useState<
+		"idle" | "accepting" | "accepted" | "error"
+	>("idle");
 	const [error, setError] = useState<string | null>(null);
 
 	const handleAccept = async () => {

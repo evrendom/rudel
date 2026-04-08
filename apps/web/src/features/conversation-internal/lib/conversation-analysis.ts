@@ -1,10 +1,10 @@
-import type { Conversation } from "@/features/conversation-internal/lib/conversation-schema";
-import { parseConversations } from "@/features/conversation-internal/lib/conversation-schema";
-import { isSlashCommandMessage } from "@/features/conversation-internal/lib/parse-slash-command";
 import type {
 	TokenDataPoint,
 	ToolActivityPoint,
 } from "@/features/conversation-internal/lib/analysis-types";
+import type { Conversation } from "@/features/conversation-internal/lib/conversation-schema";
+import { parseConversations } from "@/features/conversation-internal/lib/conversation-schema";
+import { isSlashCommandMessage } from "@/features/conversation-internal/lib/parse-slash-command";
 
 export interface ConversationArtifacts {
 	conversations: Conversation[];
@@ -144,7 +144,10 @@ export function buildConversationArtifacts(
 			totalMessages: conversations.length,
 		};
 	} catch (error) {
-		console.error("[conversation-analysis] Error parsing conversations:", error);
+		console.error(
+			"[conversation-analysis] Error parsing conversations:",
+			error,
+		);
 		return {
 			conversations: [],
 			parseError: error instanceof Error ? error.message : "Unknown error",

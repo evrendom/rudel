@@ -398,7 +398,8 @@ const ANALYTICS_PAGE_MATCHERS: ReadonlyArray<{
 	},
 	{
 		pageName: "roi",
-		matches: (pathname) => pathname === "/legacy/roi" || pathname === "/dashboard/roi",
+		matches: (pathname) =>
+			pathname === "/legacy/roi" || pathname === "/dashboard/roi",
 	},
 	{
 		pageName: "organization_create",

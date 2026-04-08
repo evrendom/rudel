@@ -4,7 +4,6 @@ import { useOptionalOrganization } from "@/features/workspace/organization/useOr
 import { authClient } from "@/lib/auth-client";
 import {
 	type AppPageName,
-	type DashboardPageName,
 	captureAuthenticationActionTriggered,
 	captureChartExportTriggered,
 	captureDashboardDrilldownOpened,
@@ -12,6 +11,7 @@ import {
 	captureDashboardNavigationClicked,
 	captureOrganizationActionTriggered,
 	captureUiUtilityUsed,
+	type DashboardPageName,
 	getAnalyticsPageName,
 	isDashboardPageName,
 } from "@/lib/product-analytics";

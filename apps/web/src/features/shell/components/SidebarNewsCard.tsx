@@ -346,11 +346,7 @@ function NewsCloseAnimationOverlay({
 	);
 }
 
-export function SidebarNewsCard({
-	onDismiss,
-}: {
-	onDismiss?: () => void;
-}) {
+export function SidebarNewsCard({ onDismiss }: { onDismiss?: () => void }) {
 	const [searchParams] = useSearchParams();
 	const debugState = getSidebarShellDebugState(searchParams);
 	const [open, setOpen] = React.useState(false);
@@ -458,20 +454,20 @@ export function SidebarNewsCard({
 		};
 	}, [isCloseAnimating, isMorphing, open]);
 
-	const popupMotionProps = useSharedLayout
-		&& !isAcknowledging
-		? {
-				layoutId: CARD_LAYOUT_ID,
-				transition: CARD_SPRING,
-				onLayoutAnimationStart: () => setIsMorphing(true),
-				onLayoutAnimationComplete: () => setIsMorphing(false),
-			}
-		: {
-				initial: { opacity: 0, y: 12, scale: 0.965 },
-				animate: { opacity: 1, y: 0, scale: 1 },
-				exit: { opacity: 0, y: 8, scale: 0.985 },
-				transition: POPUP_TRANSITION,
-			};
+	const popupMotionProps =
+		useSharedLayout && !isAcknowledging
+			? {
+					layoutId: CARD_LAYOUT_ID,
+					transition: CARD_SPRING,
+					onLayoutAnimationStart: () => setIsMorphing(true),
+					onLayoutAnimationComplete: () => setIsMorphing(false),
+				}
+			: {
+					initial: { opacity: 0, y: 12, scale: 0.965 },
+					animate: { opacity: 1, y: 0, scale: 1 },
+					exit: { opacity: 0, y: 8, scale: 0.985 },
+					transition: POPUP_TRANSITION,
+				};
 
 	return (
 		<>

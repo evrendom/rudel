@@ -1,3 +1,4 @@
+import { Building2Icon, CheckIcon, XIcon } from "lucide-react";
 import { Badge } from "@/app/ui/badge";
 import { Button } from "@/app/ui/button";
 import {
@@ -7,7 +8,6 @@ import {
 	CardHeader,
 	CardTitle,
 } from "@/app/ui/card";
-import { Building2Icon, CheckIcon, XIcon } from "lucide-react";
 
 function formatDate(value: string | Date) {
 	const date = value instanceof Date ? value : new Date(value);

@@ -1,7 +1,7 @@
 import { createContext, type ReactNode, useContext, useState } from "react";
 import { useMountEffect } from "@/app/hooks/useMountEffect";
-import { authClient } from "@/lib/auth-client";
 import type { WorkspaceContextValue } from "@/features/workspace/organization/types";
+import { authClient } from "@/lib/auth-client";
 
 const OrganizationContext = createContext<WorkspaceContextValue | undefined>(
 	undefined,
@@ -20,15 +20,13 @@ function OrganizationAutoSelectMount({
 		let isCancelled = false;
 
 		onAttempted(organizationId);
-		void authClient.organization
-			.setActive({ organizationId })
-			.finally(() => {
-				if (isCancelled) {
-					return;
-				}
+		void authClient.organization.setActive({ organizationId }).finally(() => {
+			if (isCancelled) {
+				return;
+			}
 
-				onSettled();
-			});
+			onSettled();
+		});
 
 		return () => {
 			isCancelled = true;

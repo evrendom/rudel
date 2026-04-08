@@ -16,11 +16,11 @@ import {
 	getDashboardBarLabelWidth,
 	getDashboardBarSize,
 } from "@/features/dashboard/components/dashboard-bar-chart-layout";
+import type { DashboardHighlightChangeHandler } from "@/features/dashboard/components/dashboard-highlight-state";
 import {
 	getSidebarShellDebugState,
 	SIDEBAR_NEWS_ACTIVE_ATTRIBUTE,
 } from "@/features/shell/config/sidebar-shell-debug";
-import type { DashboardHighlightChangeHandler } from "@/features/dashboard/components/dashboard-highlight-state";
 
 const chartConfig = {
 	committed: {

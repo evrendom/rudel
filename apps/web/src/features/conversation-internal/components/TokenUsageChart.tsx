@@ -1,7 +1,7 @@
 import { useMemo } from "react";
-import { cn } from "@/lib/utils";
 import { useObservedWidth } from "@/features/conversation-internal/hooks/useObservedWidth";
 import type { TokenDataPoint } from "@/features/conversation-internal/lib/analysis-types";
+import { cn } from "@/lib/utils";
 
 interface TokenUsageChartProps {
 	data: TokenDataPoint[];

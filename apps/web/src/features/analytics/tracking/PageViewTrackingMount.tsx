@@ -1,10 +1,10 @@
-import { useDateRange } from "@/features/analytics/date-range/useDateRange";
 import { useMountEffect } from "@/app/hooks/useMountEffect";
+import { useDateRange } from "@/features/analytics/date-range/useDateRange";
+import { useAnalyticsContext } from "@/features/analytics/tracking/useAnalyticsTracking";
 import {
 	captureDashboardViewed,
 	isDashboardPageName,
 } from "@/lib/product-analytics";
-import { useAnalyticsContext } from "@/features/analytics/tracking/useAnalyticsTracking";
 
 export type PageSectionState = "populated" | "empty" | "error" | "hidden";
 

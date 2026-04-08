@@ -14,9 +14,5 @@ function getSnapshot() {
 }
 
 export function useIsMobile() {
-	return React.useSyncExternalStore(
-		subscribe,
-		getSnapshot,
-		() => false,
-	);
+	return React.useSyncExternalStore(subscribe, getSnapshot, () => false);
 }

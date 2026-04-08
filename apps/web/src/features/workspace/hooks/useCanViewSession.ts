@@ -1,5 +1,5 @@
-import { authClient } from "@/lib/auth-client";
 import { useOrganization } from "@/features/workspace/organization/useOrganization";
+import { authClient } from "@/lib/auth-client";
 
 export function useCanViewSession() {
 	const { meta } = useOrganization();

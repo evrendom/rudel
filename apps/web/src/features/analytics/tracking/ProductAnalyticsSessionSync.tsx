@@ -1,9 +1,9 @@
 import { useMountEffect } from "@/app/hooks/useMountEffect";
 import {
+	type AppSession,
 	getSessionUserEmail,
 	getSessionUserId,
 	getSessionUserName,
-	type AppSession,
 } from "@/features/auth/auth-route-utils";
 import {
 	identifyProductAnalyticsUser,

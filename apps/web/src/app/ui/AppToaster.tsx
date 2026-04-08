@@ -1,5 +1,3 @@
-import type { CSSProperties } from "react";
-import { useTheme } from "next-themes";
 import {
 	CircleCheckIcon,
 	InfoIcon,
@@ -7,6 +5,8 @@ import {
 	OctagonXIcon,
 	TriangleAlertIcon,
 } from "lucide-react";
+import { useTheme } from "next-themes";
+import type { CSSProperties } from "react";
 import { Toaster as Sonner, type ToasterProps } from "sonner";
 
 export function AppToaster(props: ToasterProps) {

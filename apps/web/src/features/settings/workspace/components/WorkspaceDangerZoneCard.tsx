@@ -1,32 +1,32 @@
-import { useState } from "react"
-import { useNavigate } from "react-router-dom"
-import { useAnalyticsTracking } from "@/features/analytics/tracking/useAnalyticsTracking"
-import { appRoutes } from "@/app/routes"
-import { Button } from "@/app/ui/button"
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { appRoutes } from "@/app/routes";
+import { Button } from "@/app/ui/button";
 import {
 	Card,
 	CardContent,
 	CardDescription,
 	CardHeader,
 	CardTitle,
-} from "@/app/ui/card"
-import { DeleteWorkspaceDialog } from "@/features/settings/workspace/components/DeleteWorkspaceDialog"
-import { authClient } from "@/lib/auth-client"
+} from "@/app/ui/card";
+import { useAnalyticsTracking } from "@/features/analytics/tracking/useAnalyticsTracking";
+import { DeleteWorkspaceDialog } from "@/features/settings/workspace/components/DeleteWorkspaceDialog";
+import { authClient } from "@/lib/auth-client";
 
 export function WorkspaceDangerZoneCard({
 	organization,
 	organizations,
 	canManage,
 }: {
-	organization: { id: string; name: string }
-	organizations: readonly { id: string; name: string }[]
-	canManage: boolean
+	organization: { id: string; name: string };
+	organizations: readonly { id: string; name: string }[];
+	canManage: boolean;
 }) {
-	const navigate = useNavigate()
+	const navigate = useNavigate();
 	const { trackOrganizationAction } = useAnalyticsTracking({
 		pageName: "organization",
-	})
-	const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+	});
+	const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
 	return (
 		<>
@@ -53,8 +53,8 @@ export function WorkspaceDangerZoneCard({
 									targetType: "organization",
 									sourceComponent: "workspace_settings_section",
 									targetId: organization.id,
-								})
-								setIsDeleteDialogOpen(true)
+								});
+								setIsDeleteDialogOpen(true);
 							}}
 							disabled={!canManage}
 						>
@@ -74,23 +74,23 @@ export function WorkspaceDangerZoneCard({
 				onOpenChange={setIsDeleteDialogOpen}
 				organization={organization}
 				onDeleted={async () => {
-					setIsDeleteDialogOpen(false)
+					setIsDeleteDialogOpen(false);
 					const otherOrganization = organizations.find(
 						(candidate) => candidate.id !== organization.id,
-					)
+					);
 					if (otherOrganization) {
 						await authClient.organization.setActive({
 							organizationId: otherOrganization.id,
-						})
+						});
 					}
 					for (const key of Object.keys(authClient.$store.atoms)) {
 						if (key.startsWith("$")) {
-							authClient.$store.notify(key)
+							authClient.$store.notify(key);
 						}
 					}
-					navigate(appRoutes.dashboard())
+					navigate(appRoutes.dashboard());
 				}}
 			/>
 		</>
-	)
+	);
 }

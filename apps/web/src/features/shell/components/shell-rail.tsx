@@ -164,7 +164,10 @@ export function RailLink({
 			{mode === "collapsed" && !forceShowLabels ? (
 				<Tooltip>
 					<TooltipTrigger asChild>{link}</TooltipTrigger>
-					<TooltipContent side="right" className="[&>[aria-hidden='true']]:hidden">
+					<TooltipContent
+						side="right"
+						className="[&>[aria-hidden='true']]:hidden"
+					>
 						{shortcut ? (
 							<div className="flex items-center gap-2">
 								<span>{label}</span>

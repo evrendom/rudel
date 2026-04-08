@@ -1,24 +1,22 @@
-import { useState } from "react"
 import {
 	CheckIcon,
 	CopyIcon,
 	MailIcon,
 	UserPlusIcon,
 	XIcon,
-} from "lucide-react"
-import { toast } from "sonner"
-import { useAnalyticsTracking } from "@/features/analytics/tracking/useAnalyticsTracking"
-import { authClient } from "@/lib/auth-client"
-import { Button } from "@/app/ui/button"
+} from "lucide-react";
+import { useState } from "react";
+import { toast } from "sonner";
+import { Button } from "@/app/ui/button";
 import {
 	Card,
 	CardContent,
 	CardDescription,
 	CardHeader,
 	CardTitle,
-} from "@/app/ui/card"
-import { Field, FieldLabel } from "@/app/ui/field"
-import { Input } from "@/app/ui/input"
+} from "@/app/ui/card";
+import { Field, FieldLabel } from "@/app/ui/field";
+import { Input } from "@/app/ui/input";
 import {
 	Select,
 	SelectContent,
@@ -26,30 +24,32 @@ import {
 	SelectItem,
 	SelectTrigger,
 	SelectValue,
-} from "@/app/ui/select"
+} from "@/app/ui/select";
+import { useAnalyticsTracking } from "@/features/analytics/tracking/useAnalyticsTracking";
+import { authClient } from "@/lib/auth-client";
 
 export function WorkspaceInviteMemberCard({
 	canManage,
 	onInvalidate,
 }: {
-	canManage: boolean
-	onInvalidate: () => void
+	canManage: boolean;
+	onInvalidate: () => void;
 }) {
 	const { trackOrganizationAction } = useAnalyticsTracking({
 		pageName: "organization",
-	})
-	const [inviteEmail, setInviteEmail] = useState("")
-	const [inviteRole, setInviteRole] = useState<"member" | "admin">("member")
-	const [isInviting, setIsInviting] = useState(false)
-	const [inviteLink, setInviteLink] = useState<string | null>(null)
-	const [invitedEmail, setInvitedEmail] = useState<string | null>(null)
-	const [copiedInviteLink, setCopiedInviteLink] = useState(false)
+	});
+	const [inviteEmail, setInviteEmail] = useState("");
+	const [inviteRole, setInviteRole] = useState<"member" | "admin">("member");
+	const [isInviting, setIsInviting] = useState(false);
+	const [inviteLink, setInviteLink] = useState<string | null>(null);
+	const [invitedEmail, setInvitedEmail] = useState<string | null>(null);
+	const [copiedInviteLink, setCopiedInviteLink] = useState(false);
 
 	const inviteMember = async (event: React.FormEvent) => {
-		event.preventDefault()
-		const email = inviteEmail.trim()
+		event.preventDefault();
+		const email = inviteEmail.trim();
 		if (!email) {
-			return
+			return;
 		}
 
 		trackOrganizationAction({
@@ -57,47 +57,47 @@ export function WorkspaceInviteMemberCard({
 			targetType: "invitation",
 			sourceComponent: "workspace_settings_section",
 			targetRole: inviteRole,
-		})
-		setIsInviting(true)
+		});
+		setIsInviting(true);
 		const response = await authClient.organization.inviteMember({
 			email,
 			role: inviteRole,
-		})
-		setIsInviting(false)
+		});
+		setIsInviting(false);
 
 		if (response.error) {
-			toast.error(response.error.message ?? "Failed to invite member")
-			return
+			toast.error(response.error.message ?? "Failed to invite member");
+			return;
 		}
 
 		if (response.data) {
-			setInviteLink(`${window.location.origin}/invitation/${response.data.id}`)
-			setInvitedEmail(email)
-			setInviteEmail("")
-			setCopiedInviteLink(false)
-			onInvalidate()
+			setInviteLink(`${window.location.origin}/invitation/${response.data.id}`);
+			setInvitedEmail(email);
+			setInviteEmail("");
+			setCopiedInviteLink(false);
+			onInvalidate();
 		}
-	}
+	};
 
 	const copyInviteLink = async () => {
 		if (!inviteLink) {
-			return
+			return;
 		}
 
 		trackOrganizationAction({
 			actionName: "copy_invite_link",
 			targetType: "invitation",
 			sourceComponent: "workspace_settings_section",
-		})
+		});
 
 		try {
-			await navigator.clipboard.writeText(inviteLink)
-			setCopiedInviteLink(true)
-			toast.success("Invite link copied")
+			await navigator.clipboard.writeText(inviteLink);
+			setCopiedInviteLink(true);
+			toast.success("Invite link copied");
 		} catch {
-			toast.error("Failed to copy invite link")
+			toast.error("Failed to copy invite link");
 		}
-	}
+	};
 
 	return (
 		<Card size="sm" className="bg-card/95 shadow-none ring-1 ring-border/60">
@@ -128,10 +128,10 @@ export function WorkspaceInviteMemberCard({
 							type="email"
 							value={inviteEmail}
 							onChange={(event) => {
-								setInviteEmail(event.target.value)
+								setInviteEmail(event.target.value);
 								if (inviteLink) {
-									setInviteLink(null)
-									setInvitedEmail(null)
+									setInviteLink(null);
+									setInvitedEmail(null);
 								}
 							}}
 							placeholder="teammate@company.com"
@@ -144,12 +144,15 @@ export function WorkspaceInviteMemberCard({
 							value={inviteRole}
 							onValueChange={(value) => {
 								if (value === "member" || value === "admin") {
-									setInviteRole(value)
+									setInviteRole(value);
 								}
 							}}
 							disabled={!canManage || isInviting}
 						>
-							<SelectTrigger id="invite-role" className="w-full justify-between">
+							<SelectTrigger
+								id="invite-role"
+								className="w-full justify-between"
+							>
 								<SelectValue />
 							</SelectTrigger>
 							<SelectContent>
@@ -162,7 +165,9 @@ export function WorkspaceInviteMemberCard({
 					</Field>
 					<Button
 						type="submit"
-						disabled={!canManage || isInviting || inviteEmail.trim().length === 0}
+						disabled={
+							!canManage || isInviting || inviteEmail.trim().length === 0
+						}
 					>
 						<MailIcon data-icon="inline-start" />
 						{isInviting ? "Sending invite…" : "Send invite"}
@@ -170,10 +175,15 @@ export function WorkspaceInviteMemberCard({
 				</form>
 
 				{inviteLink ? (
-					<Card size="sm" className="bg-muted/20 shadow-none ring-1 ring-border/60">
+					<Card
+						size="sm"
+						className="bg-muted/20 shadow-none ring-1 ring-border/60"
+					>
 						<CardContent className="flex flex-col gap-3">
 							<div className="flex flex-col gap-1">
-								<span className="font-medium text-foreground">Invite ready</span>
+								<span className="font-medium text-foreground">
+									Invite ready
+								</span>
 								<span className="text-sm text-muted-foreground">
 									{invitedEmail
 										? `Share this link with ${invitedEmail}.`
@@ -202,9 +212,9 @@ export function WorkspaceInviteMemberCard({
 									variant="outline"
 									size="sm"
 									onClick={() => {
-										setInviteLink(null)
-										setInvitedEmail(null)
-										setCopiedInviteLink(false)
+										setInviteLink(null);
+										setInvitedEmail(null);
+										setCopiedInviteLink(false);
 									}}
 								>
 									<XIcon data-icon="inline-start" />
@@ -216,5 +226,5 @@ export function WorkspaceInviteMemberCard({
 				) : null}
 			</CardContent>
 		</Card>
-	)
+	);
 }

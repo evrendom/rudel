@@ -1,4 +1,4 @@
-import { authClient } from "@/lib/auth-client";
+import type { authClient } from "@/lib/auth-client";
 
 export type AppSession = ReturnType<typeof authClient.useSession>["data"];
 

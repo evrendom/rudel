@@ -1,5 +1,9 @@
 import { addDays } from "date-fns";
-import { CalendarIcon, ChevronDownIcon, LayoutPanelTopIcon } from "lucide-react";
+import {
+	CalendarIcon,
+	ChevronDownIcon,
+	LayoutPanelTopIcon,
+} from "lucide-react";
 import { useState } from "react";
 import type { DateRange } from "react-day-picker";
 import { Badge } from "@/app/ui/badge";
@@ -9,9 +13,9 @@ import {
 	Card,
 	CardContent,
 	CardDescription,
+	CardFooter,
 	CardHeader,
 	CardTitle,
-	CardFooter,
 } from "@/app/ui/card";
 import { Checkbox } from "@/app/ui/checkbox";
 import {
@@ -23,13 +27,6 @@ import {
 	DialogTrigger,
 } from "@/app/ui/dialog";
 import {
-	Field,
-	FieldDescription,
-	FieldGroup,
-	FieldLabel,
-} from "@/app/ui/field";
-import { Input } from "@/app/ui/input";
-import {
 	DropdownMenu,
 	DropdownMenuCheckboxItem,
 	DropdownMenuContent,
@@ -39,6 +36,13 @@ import {
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from "@/app/ui/dropdown-menu";
+import {
+	Field,
+	FieldDescription,
+	FieldGroup,
+	FieldLabel,
+} from "@/app/ui/field";
+import { Input } from "@/app/ui/input";
 import {
 	Popover,
 	PopoverContent,
@@ -64,7 +68,12 @@ import {
 	SheetTrigger,
 } from "@/app/ui/sheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/app/ui/tabs";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/app/ui/tooltip";
+import {
+	Tooltip,
+	TooltipContent,
+	TooltipProvider,
+	TooltipTrigger,
+} from "@/app/ui/tooltip";
 
 export function PresetBaselinePage() {
 	const [assigneeEnabled, setAssigneeEnabled] = useState(true);
@@ -80,11 +89,13 @@ export function PresetBaselinePage() {
 				<div className="mx-auto flex max-w-6xl flex-col gap-6">
 					<div className="flex flex-col gap-2">
 						<Badge variant="outline">Internal</Badge>
-						<h1 className="text-3xl font-semibold tracking-tight">Preset baseline</h1>
+						<h1 className="text-3xl font-semibold tracking-tight">
+							Preset baseline
+						</h1>
 						<p className="max-w-2xl text-sm text-muted-foreground">
-							This page renders only preset-managed Base UI primitives so baseline
-							drift is visible without the custom shell, sidebar, insights cards,
-							or team cards interfering.
+							This page renders only preset-managed Base UI primitives so
+							baseline drift is visible without the custom shell, sidebar,
+							insights cards, or team cards interfering.
 						</p>
 					</div>
 
@@ -175,7 +186,9 @@ export function PresetBaselinePage() {
 									</Sheet>
 
 									<Tooltip>
-										<TooltipTrigger render={<Button variant="outline" size="icon" />}>
+										<TooltipTrigger
+											render={<Button variant="outline" size="icon" />}
+										>
 											<LayoutPanelTopIcon />
 										</TooltipTrigger>
 										<TooltipContent>Tooltip baseline</TooltipContent>
@@ -195,7 +208,9 @@ export function PresetBaselinePage() {
 							<CardContent className="flex flex-col gap-6">
 								<FieldGroup>
 									<Field className="gap-2">
-										<FieldLabel htmlFor="baseline-name">Workspace name</FieldLabel>
+										<FieldLabel htmlFor="baseline-name">
+											Workspace name
+										</FieldLabel>
 										<Input
 											id="baseline-name"
 											defaultValue="Rudel Studio"
@@ -217,7 +232,9 @@ export function PresetBaselinePage() {
 													<SelectLabel>Team</SelectLabel>
 													<SelectItem value="design">Design</SelectItem>
 													<SelectItem value="product">Product</SelectItem>
-													<SelectItem value="engineering">Engineering</SelectItem>
+													<SelectItem value="engineering">
+														Engineering
+													</SelectItem>
 												</SelectGroup>
 											</SelectContent>
 										</Select>

@@ -1,18 +1,7 @@
-import {
-	Avatar,
-	AvatarFallback,
-	AvatarImage,
-} from "@/app/ui/avatar";
+import { Trash2Icon } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/app/ui/avatar";
 import { Badge } from "@/app/ui/badge";
 import { Button } from "@/app/ui/button";
-import {
-	Table,
-	TableBody,
-	TableCell,
-	TableHead,
-	TableHeader,
-	TableRow,
-} from "@/app/ui/table";
 import {
 	Select,
 	SelectContent,
@@ -21,7 +10,14 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/app/ui/select";
-import { Trash2Icon } from "lucide-react";
+import {
+	Table,
+	TableBody,
+	TableCell,
+	TableHead,
+	TableHeader,
+	TableRow,
+} from "@/app/ui/table";
 
 function getInitials(name: string, email: string) {
 	const source = name.trim() || email.trim() || "R";
@@ -85,7 +81,10 @@ export function WorkspaceMembersTable({
 								<div className="flex items-center gap-3">
 									<Avatar>
 										{member.user.image ? (
-											<AvatarImage src={member.user.image} alt={member.user.name} />
+											<AvatarImage
+												src={member.user.image}
+												alt={member.user.name}
+											/>
 										) : null}
 										<AvatarFallback>
 											{getInitials(member.user.name, member.user.email)}

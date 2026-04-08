@@ -1,8 +1,4 @@
-import {
-	Avatar,
-	AvatarFallback,
-	AvatarImage,
-} from "@/app/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/app/ui/avatar";
 import {
 	Card,
 	CardContent,
@@ -34,7 +30,9 @@ export function ProfileSummaryCard({
 		<Card size="sm" className="bg-card/95 shadow-none ring-1 ring-border/60">
 			<CardHeader>
 				<CardTitle>Profile</CardTitle>
-				<CardDescription>Your account identity in the workspace.</CardDescription>
+				<CardDescription>
+					Your account identity in the workspace.
+				</CardDescription>
 			</CardHeader>
 			<CardContent>
 				<div className="flex items-center gap-4">
@@ -44,7 +42,9 @@ export function ProfileSummaryCard({
 					</Avatar>
 					<div className="flex min-w-0 flex-col gap-1">
 						<span className="truncate font-medium text-foreground">{name}</span>
-						<span className="truncate text-sm text-muted-foreground">{email}</span>
+						<span className="truncate text-sm text-muted-foreground">
+							{email}
+						</span>
 					</div>
 				</div>
 			</CardContent>

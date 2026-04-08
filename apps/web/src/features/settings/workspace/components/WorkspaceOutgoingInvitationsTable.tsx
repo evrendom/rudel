@@ -1,3 +1,4 @@
+import { XIcon } from "lucide-react";
 import { Badge } from "@/app/ui/badge";
 import { Button } from "@/app/ui/button";
 import {
@@ -8,7 +9,6 @@ import {
 	TableHeader,
 	TableRow,
 } from "@/app/ui/table";
-import { XIcon } from "lucide-react";
 
 function formatDate(value?: string) {
 	if (!value) {

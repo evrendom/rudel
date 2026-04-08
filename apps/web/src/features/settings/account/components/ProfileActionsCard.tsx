@@ -19,7 +19,9 @@ export function ProfileActionsCard({
 		<Card size="sm" className="bg-card/95 shadow-none ring-1 ring-border/60">
 			<CardHeader>
 				<CardTitle>Account actions</CardTitle>
-				<CardDescription>Session-level actions for this browser.</CardDescription>
+				<CardDescription>
+					Session-level actions for this browser.
+				</CardDescription>
 			</CardHeader>
 			<CardContent>
 				<Button

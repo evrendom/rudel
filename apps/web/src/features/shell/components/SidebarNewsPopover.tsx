@@ -1,17 +1,9 @@
 "use client";
 
-import * as React from "react";
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
-import {
-	AnimatePresence,
-	LayoutGroup,
-	motion,
-} from "motion/react";
-import {
-	ArrowUpRightIcon,
-	SparklesIcon,
-	XIcon,
-} from "lucide-react";
+import { ArrowUpRightIcon, SparklesIcon, XIcon } from "lucide-react";
+import { AnimatePresence, LayoutGroup, motion } from "motion/react";
+import * as React from "react";
 import { Button } from "@/app/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -65,12 +57,7 @@ function NewsCardInner({ expanded = false }: { expanded?: boolean }) {
 				<SparklesIcon className="size-3.5" />
 				What&apos;s new
 			</div>
-			<div
-				className={cn(
-					"px-1",
-					expanded ? "pb-1 pt-2" : "pb-1 pt-2",
-				)}
-			>
+			<div className={cn("px-1", expanded ? "pb-1 pt-2" : "pb-1 pt-2")}>
 				<div className="flex items-start justify-between gap-3">
 					<div className="min-w-0">
 						<p className="truncate text-[14px] font-semibold tracking-[-0.02em]">
@@ -162,8 +149,8 @@ export function SidebarNewsPopover() {
 									</DialogPrimitive.Title>
 									<DialogPrimitive.Description className="text-[13px] leading-5 text-muted-foreground">
 										This uses a Base UI dialog for modal behavior and a shared
-										layout transition so the sidebar card can morph into a centered
-										panel instead of just popping open.
+										layout transition so the sidebar card can morph into a
+										centered panel instead of just popping open.
 									</DialogPrimitive.Description>
 									<div className="mt-4 flex justify-end">
 										<DialogPrimitive.Close render={<Button size="sm" />}>

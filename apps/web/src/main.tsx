@@ -5,9 +5,9 @@ import { BrowserRouter } from "react-router-dom";
 import App from "./App.tsx";
 import { useMountEffect } from "./app/hooks/useMountEffect";
 import "./index.css";
+import { ThemeProvider } from "./app/providers/ThemeProvider";
 import { initProductAnalytics } from "./lib/product-analytics";
 import { queryClient } from "./lib/query-client";
-import { ThemeProvider } from "./app/providers/ThemeProvider";
 
 const DevTools = import.meta.env.DEV
 	? lazy(async () => {

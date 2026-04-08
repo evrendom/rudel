@@ -1,12 +1,12 @@
 import { useState } from "react";
 import { AppLoadingScreen } from "@/app/bootstrap/AppLoadingScreen";
 import { Button } from "@/app/ui/button";
-import { GuestApp } from "@/features/auth/GuestApp";
 import { useAnalyticsTracking } from "@/features/analytics/tracking/useAnalyticsTracking";
 import {
 	type AppSession,
 	getSessionUserId,
 } from "@/features/auth/auth-route-utils";
+import { GuestApp } from "@/features/auth/GuestApp";
 
 export function DeviceAuthorizationApp({
 	deviceUserCode,
@@ -47,12 +47,10 @@ export function DeviceAuthorizationApp({
 			});
 
 			if (!response.ok) {
-				const body = (await response.json().catch(() => null)) as
-					| {
-							error_description?: string;
-							message?: string;
-					  }
-					| null;
+				const body = (await response.json().catch(() => null)) as {
+					error_description?: string;
+					message?: string;
+				} | null;
 
 				throw new Error(
 					body?.error_description ??
