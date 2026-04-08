@@ -1,47 +1,81 @@
+import { useMemo } from "react";
 import { useDateRange } from "@/contexts/DateRangeContext";
+import { useOrganization } from "@/contexts/OrganizationContext";
+import { buildDashboardPerformanceUsers } from "@/features/dashboard/data/dashboard-performance-adapter";
+import { mergeDashboardSnapshotWithRoi } from "@/features/dashboard/data/dashboard-roi-adapter";
+import { createDashboardOutputSnapshot } from "@/features/dashboard/data/dashboard-static-data";
 import { useAnalyticsQuery } from "@/hooks/useAnalyticsQuery";
+import { useFullOrganization } from "@/hooks/useFullOrganization";
 import { orpc } from "@/lib/orpc";
 
 export function useDashboardHomeData() {
+	const { activeOrg } = useOrganization();
 	const { endDate, startDate } = useDateRange();
-	const kpisQuery = useAnalyticsQuery(
-		orpc.analytics.overview.kpis.queryOptions({
+	const { data: fullOrganization } = useFullOrganization(activeOrg?.id);
+	const roiDashboardQuery = useAnalyticsQuery(
+		orpc.analytics.roi.dashboard.queryOptions({
 			input: { startDate, endDate },
 		}),
 	);
-	const usageTrendQuery = useAnalyticsQuery(
-		orpc.analytics.overview.usageTrend.queryOptions({
+	const usersTokenUsageQuery = useAnalyticsQuery(
+		orpc.analytics.overview.usersTokenUsage.queryOptions({
 			input: { startDate, endDate },
 		}),
 	);
-	const modelTokensQuery = useAnalyticsQuery(
-		orpc.analytics.overview.modelTokensTrend.queryOptions({
+	const usersDailyTrendQuery = useAnalyticsQuery(
+		orpc.analytics.overview.usersDailyTrend.queryOptions({
 			input: { startDate, endDate },
 		}),
 	);
-	const insightsQuery = useAnalyticsQuery(
-		orpc.analytics.overview.insights.queryOptions({
+	const repositoriesDailyTrendQuery = useAnalyticsQuery(
+		orpc.analytics.overview.repositoriesDailyTrend.queryOptions({
 			input: { startDate, endDate },
 		}),
 	);
 
+	const userImageById = useMemo(
+		() =>
+			new Map(
+				(fullOrganization?.members ?? []).map((member) => [
+					member.userId,
+					member.user.image,
+				]),
+			),
+		[fullOrganization?.members],
+	);
+
+	const performanceUsers = useMemo(
+		() =>
+			buildDashboardPerformanceUsers(
+				usersTokenUsageQuery.data,
+				usersDailyTrendQuery.data,
+				userImageById,
+				fullOrganization?.members ?? [],
+			),
+		[
+			fullOrganization?.members,
+			userImageById,
+			usersDailyTrendQuery.data,
+			usersTokenUsageQuery.data,
+		],
+	);
+
+	const snapshot = useMemo(() => {
+		const baseSnapshot = createDashboardOutputSnapshot(startDate, endDate);
+
+		return mergeDashboardSnapshotWithRoi(baseSnapshot, roiDashboardQuery.data);
+	}, [endDate, roiDashboardQuery.data, startDate]);
+
 	return {
 		endDate,
-		hasAnySessions: (kpisQuery.data?.total_sessions ?? 0) > 0,
-		hasData: (kpisQuery.data?.distinct_sessions ?? 0) > 0,
-		insights: insightsQuery.data ?? [],
-		insightsError: insightsQuery.isError,
-		insightsLoading: insightsQuery.isPending,
-		kpis: kpisQuery.data,
-		kpisError: kpisQuery.isError,
-		kpisLoading: kpisQuery.isPending,
-		kpisQueryError: kpisQuery.error,
-		modelTokensData: modelTokensQuery.data ?? [],
-		modelTokensError: modelTokensQuery.isError,
-		modelTokensLoading: modelTokensQuery.isPending,
+		isDashboardSnapshotPending: roiDashboardQuery.isPending,
+		isPerformanceChartPending:
+			usersTokenUsageQuery.isPending || usersDailyTrendQuery.isPending,
+		isRepositoryChartPending: repositoriesDailyTrendQuery.isPending,
+		performanceUserDailyTrend: usersDailyTrendQuery.data,
+		performanceUsers,
+		repositoryDailyTrend: repositoriesDailyTrendQuery.data,
+		snapshot,
 		startDate,
-		usageTrendData: usageTrendQuery.data ?? [],
-		usageTrendError: usageTrendQuery.isError,
-		usageTrendLoading: usageTrendQuery.isPending,
 	};
 }
