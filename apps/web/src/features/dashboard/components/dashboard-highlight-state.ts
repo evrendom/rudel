@@ -1,4 +1,4 @@
-import { startTransition, useCallback, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 
 export type DashboardHighlightSource = "chart" | "table" | null;
 
@@ -41,9 +41,7 @@ export function useDashboardHighlightState() {
 			}
 
 			stateRef.current = nextState;
-			startTransition(() => {
-				setState(nextState);
-			});
+			setState(nextState);
 		},
 		[],
 	);

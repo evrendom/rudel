@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
 	Bar,
 	BarChart,
@@ -8,12 +9,17 @@ import {
 	XAxis,
 	YAxis,
 } from "recharts";
+import { useMountEffect } from "@/app/hooks/useMountEffect";
 import { type ChartConfig, ChartContainer, ChartTooltip } from "@/app/ui/chart";
 import { DashboardStackedTopRoundedBar } from "@/features/dashboard/components/DashboardStackedTopRoundedBar";
 import {
 	getDashboardBarLabelWidth,
 	getDashboardBarSize,
 } from "@/features/dashboard/components/dashboard-bar-chart-layout";
+import {
+	getSidebarShellDebugState,
+	SIDEBAR_NEWS_ACTIVE_ATTRIBUTE,
+} from "@/features/shell/config/sidebar-shell-debug";
 import type { DashboardHighlightChangeHandler } from "@/features/dashboard/components/dashboard-highlight-state";
 
 const chartConfig = {
@@ -95,6 +101,35 @@ function getAxisTicks(axisMax: number) {
 	);
 
 	return ticks.length > 1 ? ticks : [0, axisMax];
+}
+
+function useSidebarNewsCardActive() {
+	const [isActive, setIsActive] = useState(false);
+
+	useMountEffect(() => {
+		const preview = document.querySelector(".dashboard-01-preview");
+		if (!(preview instanceof HTMLElement)) {
+			return;
+		}
+
+		const sync = () => {
+			setIsActive(
+				preview.getAttribute(SIDEBAR_NEWS_ACTIVE_ATTRIBUTE) === "true",
+			);
+		};
+
+		sync();
+
+		const observer = new MutationObserver(sync);
+		observer.observe(preview, {
+			attributes: true,
+			attributeFilter: [SIDEBAR_NEWS_ACTIVE_ATTRIBUTE],
+		});
+
+		return () => observer.disconnect();
+	});
+
+	return isActive;
 }
 
 function DashboardPerformanceTooltip({
@@ -228,6 +263,13 @@ export function DashboardPerformanceChart({
 	highlightSource,
 	onHighlightUserChange,
 }: DashboardPerformanceChartProps) {
+	const [searchParams] = useSearchParams();
+	const debugState = getSidebarShellDebugState(searchParams);
+	const isSidebarNewsCardActive = useSidebarNewsCardActive();
+	const shouldDisableInteractiveLayers =
+		debugState.tuning.newsDisableChartInteractiveLayersWhileActive &&
+		isSidebarNewsCardActive;
+
 	const chartData = useMemo<DashboardPerformanceChartRow[]>(
 		() =>
 			data.map((entry) => ({
@@ -308,10 +350,12 @@ export function DashboardPerformanceChart({
 							fill: "#9A9A9A",
 						}}
 					/>
-					<ChartTooltip
-						cursor={false}
-						content={<DashboardPerformanceTooltip />}
-					/>
+					{!shouldDisableInteractiveLayers ? (
+						<ChartTooltip
+							cursor={false}
+							content={<DashboardPerformanceTooltip />}
+						/>
+					) : null}
 					<Bar
 						dataKey="committed"
 						stackId="sessions"

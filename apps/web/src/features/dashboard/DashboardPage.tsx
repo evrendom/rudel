@@ -7,58 +7,34 @@ import { DashboardRepositoriesView } from "@/features/dashboard/components/Dashb
 import { DashboardRepositoryPanel } from "@/features/dashboard/components/DashboardRepositoryPanel";
 import { DashboardSessionsView } from "@/features/dashboard/components/DashboardSessionsView";
 import { DashboardTokensView } from "@/features/dashboard/components/DashboardTokensView";
-import { useDashboardErrorsData } from "@/features/dashboard/use-dashboard-errors-data";
-import { useDashboardHomeData } from "@/features/dashboard/use-dashboard-home-data";
-import { useDashboardSessionsData } from "@/features/dashboard/use-dashboard-sessions-data";
-import { useDashboardTokensData } from "@/features/dashboard/use-dashboard-tokens-data";
+import { useDashboardPageData } from "@/features/dashboard/use-dashboard-page-data";
 import "@/features/dashboard/dashboard-theme.css";
 
-type DashboardHomeView = "commits" | "errors" | "repos" | "sessions" | "tokens";
+type DashboardView = "tokens" | "commits" | "errors" | "repos" | "sessions";
 
 export function DashboardPage() {
-	const [activeView, setActiveView] = useState<DashboardHomeView>("tokens");
 	const {
-		isDashboardSnapshotPending,
-		isPerformanceChartPending,
-		isRepositoryChartPending,
-		endDate: homeEndDate,
-		performanceUserDailyTrend,
-		performanceUsers,
-		repositoryDailyTrend,
-		snapshot,
-		startDate: homeStartDate,
-	} = useDashboardHomeData();
-	const {
-		endDate: errorEndDate,
+		endDate,
 		errorDashboard,
 		errorDeveloperTrend,
 		errorProjectTrend,
-		isPending: isErrorPending,
-		startDate: errorStartDate,
-		userLabelById,
-	} = useDashboardErrorsData({
-		enabled: activeView === "errors",
-	});
-	const {
-		isRecentSessionsPending,
-		isSessionSummaryPending,
-		recentSessions,
-		sessionSummaryComparison,
-	} = useDashboardSessionsData({
-		enabled: activeView === "sessions",
-	});
-	const {
-		endDate: tokenEndDate,
-		isDeveloperChartPending,
-		isSnapshotPending,
+		isDashboardSnapshotPending,
+		isErrorDashboardPending,
+		isPerformanceChartPending,
+		isRepositoryChartPending,
+		isSessionSnapshotPending,
+		isTokenChartPending,
 		modelTokensTrend,
-		performanceUserDailyTrend: tokenPerformanceUserDailyTrend,
-		performanceUsers: tokenPerformanceUsers,
-		startDate: tokenStartDate,
+		performanceUserDailyTrend,
+		performanceUsers,
+		repositoryDailyTrend,
+		sessionSummaryComparison,
+		snapshot,
+		startDate,
+		userLabelById,
 		usersTokenUsage,
-	} = useDashboardTokensData({
-		enabled: activeView === "tokens",
-	});
+	} = useDashboardPageData();
+	const [activeView, setActiveView] = useState<DashboardView>("tokens");
 
 	return (
 		<div className="dashboardy-page px-4 pb-6 pt-2 sm:px-6 lg:px-[76px] lg:pb-8">
@@ -68,18 +44,18 @@ export function DashboardPage() {
 						<div className="flex w-full min-w-max items-center gap-2.5 px-3 sm:px-0">
 							<Tabs
 								value={activeView}
-								className="dashboardy-sticky-tabs flex-1"
 								onValueChange={(nextValue) => {
 									if (
+										nextValue === "tokens" ||
 										nextValue === "commits" ||
 										nextValue === "errors" ||
 										nextValue === "repos" ||
-										nextValue === "sessions" ||
-										nextValue === "tokens"
+										nextValue === "sessions"
 									) {
 										setActiveView(nextValue);
 									}
 								}}
+								className="dashboardy-sticky-tabs flex-1"
 							>
 								<TabsList className="dashboardy-sticky-tabs-list">
 									<TabsTrigger value="tokens" className="dashboardy-sticky-tab">
@@ -112,50 +88,18 @@ export function DashboardPage() {
 
 				{activeView === "tokens" ? (
 					<DashboardTokensView
-						endDate={tokenEndDate}
-						isDeveloperChartPending={isDeveloperChartPending}
-						isSnapshotPending={isSnapshotPending}
+						endDate={endDate}
+						isDeveloperChartPending={isTokenChartPending}
+						isSnapshotPending={isTokenChartPending}
 						modelTokensTrend={modelTokensTrend}
-						performanceUserDailyTrend={tokenPerformanceUserDailyTrend}
-						performanceUsers={tokenPerformanceUsers}
-						startDate={tokenStartDate}
-						usersTokenUsage={usersTokenUsage}
-					/>
-				) : activeView === "errors" ? (
-					<DashboardErrorsView
-						endDate={errorEndDate}
-						errorDashboard={errorDashboard}
-						errorDeveloperTrend={errorDeveloperTrend}
-						errorProjectTrend={errorProjectTrend}
-						isPending={isErrorPending}
-						startDate={errorStartDate}
-						userLabelById={userLabelById}
-					/>
-				) : activeView === "sessions" ? (
-					<DashboardSessionsView
-						isRecentSessionsPending={isRecentSessionsPending}
-						isRepositoryChartPending={isRepositoryChartPending}
-						isSnapshotPending={isSessionSummaryPending}
-						recentSessions={recentSessions}
-						repositories={snapshot.repositories}
-						repositoryDailyTrend={repositoryDailyTrend}
-						sessionSummaryComparison={sessionSummaryComparison}
-					/>
-				) : activeView === "repos" ? (
-					<DashboardRepositoriesView
-						endDate={homeEndDate}
-						isDeveloperChartPending={isPerformanceChartPending}
-						isMetricsPending={
-							isDashboardSnapshotPending || isRepositoryChartPending
-						}
-						isRepositoryChartPending={isRepositoryChartPending}
 						performanceUserDailyTrend={performanceUserDailyTrend}
 						performanceUsers={performanceUsers}
-						repositories={snapshot.repositories}
-						repositoryDailyTrend={repositoryDailyTrend}
-						startDate={homeStartDate}
+						startDate={startDate}
+						usersTokenUsage={usersTokenUsage}
 					/>
-				) : (
+				) : null}
+
+				{activeView === "commits" ? (
 					<>
 						<DashboardPerformancePanel
 							isChartPending={isPerformanceChartPending}
@@ -170,7 +114,47 @@ export function DashboardPage() {
 							repositoryDailyTrend={repositoryDailyTrend}
 						/>
 					</>
-				)}
+				) : null}
+
+				{activeView === "errors" ? (
+					<DashboardErrorsView
+						endDate={endDate}
+						errorDashboard={errorDashboard}
+						errorDeveloperTrend={errorDeveloperTrend}
+						errorProjectTrend={errorProjectTrend}
+						isPending={isErrorDashboardPending}
+						startDate={startDate}
+						userLabelById={userLabelById}
+					/>
+				) : null}
+
+				{activeView === "repos" ? (
+					<DashboardRepositoriesView
+						endDate={endDate}
+						isDeveloperChartPending={isPerformanceChartPending}
+						isMetricsPending={
+							isDashboardSnapshotPending || isRepositoryChartPending
+						}
+						isRepositoryChartPending={isRepositoryChartPending}
+						performanceUserDailyTrend={performanceUserDailyTrend}
+						performanceUsers={performanceUsers}
+						repositories={snapshot.repositories}
+						repositoryDailyTrend={repositoryDailyTrend}
+						startDate={startDate}
+					/>
+				) : null}
+
+				{activeView === "sessions" ? (
+					<DashboardSessionsView
+						endDate={endDate}
+						isRepositoryChartPending={isRepositoryChartPending}
+						isSnapshotPending={isSessionSnapshotPending}
+						repositories={snapshot.repositories}
+						repositoryDailyTrend={repositoryDailyTrend}
+						startDate={startDate}
+						sessionSummaryComparison={sessionSummaryComparison}
+					/>
+				) : null}
 			</div>
 		</div>
 	);

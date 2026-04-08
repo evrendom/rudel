@@ -6,12 +6,9 @@
 	--dashboardy-border-strong: rgba(15, 23, 42, 0.12);
 	--dashboardy-divider: rgba(148, 163, 184, 0.22);
 	--dashboardy-heading: #111827;
-	--dashboardy-subheading: #677489;
 	--dashboardy-muted: #667085;
 	--dashboardy-subtle: #98a2b3;
 	--dashboardy-accent: #2563eb;
-	--dashboard-01-tone-blue: #2f5fe5;
-	--dashboard-01-tone-teal: #25b5aa;
 	--dashboardy-card-shadow:
 		0 1px 2px rgba(15, 23, 42, 0.06), 0 22px 44px -34px rgba(15, 23, 42, 0.28);
 	--dashboardy-chip-surface: rgba(238, 242, 255, 0.95);
@@ -34,12 +31,9 @@
 	--dashboardy-border-strong: rgba(148, 163, 184, 0.24);
 	--dashboardy-divider: rgba(148, 163, 184, 0.18);
 	--dashboardy-heading: #f8fafc;
-	--dashboardy-subheading: #b6c2d3;
 	--dashboardy-muted: #cbd5e1;
 	--dashboardy-subtle: #94a3b8;
 	--dashboardy-accent: #93c5fd;
-	--dashboard-01-tone-blue: #6d8fff;
-	--dashboard-01-tone-teal: #4fd3c9;
 	--dashboardy-card-shadow:
 		0 1px 2px rgba(0, 0, 0, 0.14), 0 20px 44px -34px rgba(0, 0, 0, 0.48);
 	--dashboardy-chip-surface: rgba(30, 41, 59, 0.98);

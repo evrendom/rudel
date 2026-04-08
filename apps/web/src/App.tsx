@@ -1,15 +1,13 @@
 import { useLocation } from "react-router-dom";
 import { AppLoadingScreen } from "@/app/bootstrap/AppLoadingScreen";
-import { ProductAnalyticsSessionSync } from "@/features/analytics/tracking/ProductAnalyticsSessionSync";
+import { DeviceAuthorizationApp } from "@/features/auth/DeviceAuthorizationApp";
 import { AuthenticatedApp } from "@/features/auth/AuthenticatedApp";
+import { GuestApp } from "@/features/auth/GuestApp";
 import {
 	getDeviceUserCode,
 	getValidRedirect,
-	isResetPasswordPath,
 } from "@/features/auth/auth-route-utils";
-import { DeviceAuthorizationApp } from "@/features/auth/DeviceAuthorizationApp";
-import { GuestApp } from "@/features/auth/GuestApp";
-import { ResetPasswordApp } from "@/features/auth/ResetPasswordApp";
+import { ProductAnalyticsSessionSync } from "@/features/analytics/tracking/ProductAnalyticsSessionSync";
 import { authClient } from "./lib/auth-client";
 
 function App() {
@@ -27,41 +25,20 @@ function App() {
 		);
 	}
 
-	if (deviceUserCode) {
-		return (
-			<>
-				<ProductAnalyticsSessionSync session={session} />
+	return (
+		<>
+			<ProductAnalyticsSessionSync session={session} />
+			{deviceUserCode ? (
 				<DeviceAuthorizationApp
 					key={deviceUserCode}
 					deviceUserCode={deviceUserCode}
 					session={session ?? null}
 				/>
-			</>
-		);
-	}
-
-	if (session) {
-		return (
-			<>
-				<ProductAnalyticsSessionSync session={session} />
+			) : session ? (
 				<AuthenticatedApp rootRedirectTarget={rootRedirectTarget} />
-			</>
-		);
-	}
-
-	if (isResetPasswordPath(location.pathname)) {
-		return (
-			<>
-				<ProductAnalyticsSessionSync session={session} />
-				<ResetPasswordApp />
-			</>
-		);
-	}
-
-	return (
-		<>
-			<ProductAnalyticsSessionSync session={session} />
-			<GuestApp />
+			) : (
+				<GuestApp />
+			)}
 		</>
 	);
 }

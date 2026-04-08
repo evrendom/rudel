@@ -1,22 +1,24 @@
+import { useState } from "react"
 import {
 	CheckIcon,
 	CopyIcon,
 	MailIcon,
 	UserPlusIcon,
 	XIcon,
-} from "lucide-react";
-import { type FormEvent, useState } from "react";
-import { toast } from "sonner";
-import { Button } from "@/app/ui/button";
+} from "lucide-react"
+import { toast } from "sonner"
+import { useAnalyticsTracking } from "@/features/analytics/tracking/useAnalyticsTracking"
+import { authClient } from "@/lib/auth-client"
+import { Button } from "@/app/ui/button"
 import {
 	Card,
 	CardContent,
 	CardDescription,
 	CardHeader,
 	CardTitle,
-} from "@/app/ui/card";
-import { Field, FieldLabel } from "@/app/ui/field";
-import { Input } from "@/app/ui/input";
+} from "@/app/ui/card"
+import { Field, FieldLabel } from "@/app/ui/field"
+import { Input } from "@/app/ui/input"
 import {
 	Select,
 	SelectContent,
@@ -24,78 +26,76 @@ import {
 	SelectItem,
 	SelectTrigger,
 	SelectValue,
-} from "@/app/ui/select";
-import { useAnalyticsTracking } from "@/hooks/useDashboardAnalytics";
-import { authClient } from "@/lib/auth-client";
+} from "@/app/ui/select"
 
 export function WorkspaceInviteMemberCard({
 	canManage,
 	onInvalidate,
 }: {
-	canManage: boolean;
-	onInvalidate: () => void;
+	canManage: boolean
+	onInvalidate: () => void
 }) {
 	const { trackOrganizationAction } = useAnalyticsTracking({
 		pageName: "organization",
-	});
-	const [copiedInviteLink, setCopiedInviteLink] = useState(false);
-	const [inviteEmail, setInviteEmail] = useState("");
-	const [inviteLink, setInviteLink] = useState<string | null>(null);
-	const [inviteRole, setInviteRole] = useState<"member" | "admin">("member");
-	const [invitedEmail, setInvitedEmail] = useState<string | null>(null);
-	const [isInviting, setIsInviting] = useState(false);
+	})
+	const [inviteEmail, setInviteEmail] = useState("")
+	const [inviteRole, setInviteRole] = useState<"member" | "admin">("member")
+	const [isInviting, setIsInviting] = useState(false)
+	const [inviteLink, setInviteLink] = useState<string | null>(null)
+	const [invitedEmail, setInvitedEmail] = useState<string | null>(null)
+	const [copiedInviteLink, setCopiedInviteLink] = useState(false)
 
-	async function inviteMember(event: FormEvent) {
-		event.preventDefault();
-		const email = inviteEmail.trim();
+	const inviteMember = async (event: React.FormEvent) => {
+		event.preventDefault()
+		const email = inviteEmail.trim()
 		if (!email) {
-			return;
+			return
 		}
 
 		trackOrganizationAction({
 			actionName: "invite_member",
-			sourceComponent: "workspace_invite_member_card",
-			targetRole: inviteRole,
 			targetType: "invitation",
-		});
-		setIsInviting(true);
+			sourceComponent: "workspace_settings_section",
+			targetRole: inviteRole,
+		})
+		setIsInviting(true)
 		const response = await authClient.organization.inviteMember({
 			email,
 			role: inviteRole,
-		});
-		setIsInviting(false);
+		})
+		setIsInviting(false)
 
 		if (response.error) {
-			toast.error(response.error.message ?? "Failed to invite member");
-			return;
+			toast.error(response.error.message ?? "Failed to invite member")
+			return
 		}
 
 		if (response.data) {
-			setInviteLink(`${window.location.origin}/invitation/${response.data.id}`);
-			setInvitedEmail(email);
-			setInviteEmail("");
-			setCopiedInviteLink(false);
-			onInvalidate();
+			setInviteLink(`${window.location.origin}/invitation/${response.data.id}`)
+			setInvitedEmail(email)
+			setInviteEmail("")
+			setCopiedInviteLink(false)
+			onInvalidate()
 		}
 	}
 
-	async function copyInviteLink() {
+	const copyInviteLink = async () => {
 		if (!inviteLink) {
-			return;
+			return
 		}
 
 		trackOrganizationAction({
 			actionName: "copy_invite_link",
-			sourceComponent: "workspace_invite_member_card",
 			targetType: "invitation",
-		});
+			sourceComponent: "workspace_settings_section",
+		})
 
 		try {
-			await navigator.clipboard.writeText(inviteLink);
-			setCopiedInviteLink(true);
-			toast.success("Invite link copied");
+			await navigator.clipboard.writeText(inviteLink)
+			setCopiedInviteLink(true)
+			toast.success("Invite link copied")
 		} catch {
-			toast.error("Failed to copy invite link");
+			toast.error("Failed to copy invite link")
 		}
 	}
 
@@ -120,42 +120,36 @@ export function WorkspaceInviteMemberCard({
 						Only admins and owners can invite new members.
 					</p>
 				) : null}
-				<form
-					className="flex flex-col gap-3"
-					onSubmit={(event) => void inviteMember(event)}
-				>
+				<form onSubmit={inviteMember} className="flex flex-col gap-3">
 					<Field className="gap-2">
 						<FieldLabel htmlFor="invite-email">Email</FieldLabel>
 						<Input
-							disabled={!canManage || isInviting}
 							id="invite-email"
+							type="email"
+							value={inviteEmail}
 							onChange={(event) => {
-								setInviteEmail(event.target.value);
+								setInviteEmail(event.target.value)
 								if (inviteLink) {
-									setInviteLink(null);
-									setInvitedEmail(null);
+									setInviteLink(null)
+									setInvitedEmail(null)
 								}
 							}}
 							placeholder="teammate@company.com"
-							type="email"
-							value={inviteEmail}
+							disabled={!canManage || isInviting}
 						/>
 					</Field>
 					<Field className="gap-2">
 						<FieldLabel htmlFor="invite-role">Role</FieldLabel>
 						<Select
-							disabled={!canManage || isInviting}
+							value={inviteRole}
 							onValueChange={(value) => {
 								if (value === "member" || value === "admin") {
-									setInviteRole(value);
+									setInviteRole(value)
 								}
 							}}
-							value={inviteRole}
+							disabled={!canManage || isInviting}
 						>
-							<SelectTrigger
-								className="w-full justify-between"
-								id="invite-role"
-							>
+							<SelectTrigger id="invite-role" className="w-full justify-between">
 								<SelectValue />
 							</SelectTrigger>
 							<SelectContent>
@@ -167,10 +161,8 @@ export function WorkspaceInviteMemberCard({
 						</Select>
 					</Field>
 					<Button
-						disabled={
-							!canManage || isInviting || inviteEmail.trim().length === 0
-						}
 						type="submit"
+						disabled={!canManage || isInviting || inviteEmail.trim().length === 0}
 					>
 						<MailIcon data-icon="inline-start" />
 						{isInviting ? "Sending invite…" : "Send invite"}
@@ -178,15 +170,10 @@ export function WorkspaceInviteMemberCard({
 				</form>
 
 				{inviteLink ? (
-					<Card
-						size="sm"
-						className="bg-muted/20 shadow-none ring-1 ring-border/60"
-					>
+					<Card size="sm" className="bg-muted/20 shadow-none ring-1 ring-border/60">
 						<CardContent className="flex flex-col gap-3">
 							<div className="flex flex-col gap-1">
-								<span className="font-medium text-foreground">
-									Invite ready
-								</span>
+								<span className="font-medium text-foreground">Invite ready</span>
 								<span className="text-sm text-muted-foreground">
 									{invitedEmail
 										? `Share this link with ${invitedEmail}.`
@@ -198,10 +185,10 @@ export function WorkspaceInviteMemberCard({
 							</div>
 							<div className="flex flex-wrap gap-2">
 								<Button
-									onClick={() => void copyInviteLink()}
-									size="sm"
 									type="button"
 									variant="outline"
+									size="sm"
+									onClick={() => void copyInviteLink()}
 								>
 									{copiedInviteLink ? (
 										<CheckIcon data-icon="inline-start" />
@@ -211,14 +198,14 @@ export function WorkspaceInviteMemberCard({
 									{copiedInviteLink ? "Copied" : "Copy link"}
 								</Button>
 								<Button
-									onClick={() => {
-										setCopiedInviteLink(false);
-										setInviteLink(null);
-										setInvitedEmail(null);
-									}}
-									size="sm"
 									type="button"
 									variant="outline"
+									size="sm"
+									onClick={() => {
+										setInviteLink(null)
+										setInvitedEmail(null)
+										setCopiedInviteLink(false)
+									}}
 								>
 									<XIcon data-icon="inline-start" />
 									Dismiss
@@ -229,5 +216,5 @@ export function WorkspaceInviteMemberCard({
 				) : null}
 			</CardContent>
 		</Card>
-	);
+	)
 }

@@ -18,17 +18,15 @@ export function ProfileActionsCard({
 	return (
 		<Card size="sm" className="bg-card/95 shadow-none ring-1 ring-border/60">
 			<CardHeader>
-				<CardTitle>Session</CardTitle>
-				<CardDescription>
-					Sign out from this device without affecting other sessions.
-				</CardDescription>
+				<CardTitle>Account actions</CardTitle>
+				<CardDescription>Session-level actions for this browser.</CardDescription>
 			</CardHeader>
 			<CardContent>
 				<Button
-					disabled={isSigningOut}
-					onClick={onSignOut}
 					type="button"
 					variant="outline"
+					onClick={onSignOut}
+					disabled={isSigningOut}
 				>
 					<LogOutIcon data-icon="inline-start" />
 					{isSigningOut ? "Signing out…" : "Sign out"}

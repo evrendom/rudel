@@ -1,79 +1,79 @@
-import { useState } from "react";
-import { toast } from "sonner";
+import { useState } from "react"
+import { toast } from "sonner"
+import { useAnalyticsTracking } from "@/features/analytics/tracking/useAnalyticsTracking"
+import { authClient } from "@/lib/auth-client"
 import {
 	Card,
 	CardContent,
 	CardDescription,
 	CardHeader,
 	CardTitle,
-} from "@/app/ui/card";
-import { WorkspaceMembersTable } from "@/features/settings/workspace/components/WorkspaceMembersTable";
-import { useAnalyticsTracking } from "@/hooks/useDashboardAnalytics";
-import { authClient } from "@/lib/auth-client";
+} from "@/app/ui/card"
+import { WorkspaceMembersTable } from "@/features/settings/workspace/components/WorkspaceMembersTable"
 
 export function WorkspaceMembersCard({
-	canManage,
 	members,
+	canManage,
 	onInvalidate,
 }: {
-	canManage: boolean;
 	members: readonly {
-		id: string;
-		role: string;
+		id: string
+		role: string
 		user: {
-			email: string;
-			id: string;
-			image: string | null;
-			name: string;
-		};
-	}[];
-	onInvalidate: () => void;
+			id: string
+			name: string
+			email: string
+			image: string | null
+		}
+	}[]
+	canManage: boolean
+	onInvalidate: () => void
 }) {
 	const { trackOrganizationAction } = useAnalyticsTracking({
 		pageName: "organization",
-	});
-	const [pendingMemberKey, setPendingMemberKey] = useState<string | null>(null);
+	})
+	const [pendingMemberKey, setPendingMemberKey] = useState<string | null>(null)
 
-	async function removeMember(memberId: string) {
-		setPendingMemberKey(`remove:${memberId}`);
+	const removeMember = async (memberId: string) => {
+		setPendingMemberKey(`remove:${memberId}`)
 		trackOrganizationAction({
 			actionName: "remove_member",
-			sourceComponent: "workspace_members_card",
-			targetId: memberId,
 			targetType: "member",
-		});
+			sourceComponent: "workspace_settings_section",
+			targetId: memberId,
+		})
 
 		try {
-			await authClient.organization.removeMember({ memberIdOrEmail: memberId });
-			onInvalidate();
+			await authClient.organization.removeMember({ memberIdOrEmail: memberId })
+			onInvalidate()
 		} catch (cause) {
 			toast.error(
 				cause instanceof Error ? cause.message : "Failed to remove member",
-			);
+			)
 		} finally {
-			setPendingMemberKey(null);
+			setPendingMemberKey(null)
 		}
 	}
 
-	async function updateRole(memberId: string, role: "member" | "admin") {
-		setPendingMemberKey(`role:${memberId}`);
+	const updateRole = async (memberId: string, role: "member" | "admin") => {
+		setPendingMemberKey(`role:${memberId}`)
 		trackOrganizationAction({
 			actionName: "update_member_role",
-			sourceComponent: "workspace_members_card",
+			targetType: "member",
+			sourceComponent: "workspace_settings_section",
 			targetId: memberId,
 			targetRole: role,
-			targetType: "member",
-		});
+		})
 
 		try {
-			await authClient.organization.updateMemberRole({ memberId, role });
-			onInvalidate();
+			await authClient.organization.updateMemberRole({ memberId, role })
+			onInvalidate()
 		} catch (cause) {
 			toast.error(
 				cause instanceof Error ? cause.message : "Failed to update member role",
-			);
+			)
 		} finally {
-			setPendingMemberKey(null);
+			setPendingMemberKey(null)
 		}
 	}
 
@@ -87,13 +87,13 @@ export function WorkspaceMembersCard({
 			</CardHeader>
 			<CardContent>
 				<WorkspaceMembersTable
-					canEdit={canManage}
 					members={members}
-					onRemove={(memberId) => void removeMember(memberId)}
-					onRoleChange={(memberId, role) => void updateRole(memberId, role)}
+					canEdit={canManage}
 					pendingKey={pendingMemberKey}
+					onRoleChange={(memberId, role) => void updateRole(memberId, role)}
+					onRemove={(memberId) => void removeMember(memberId)}
 				/>
 			</CardContent>
 		</Card>
-	);
+	)
 }

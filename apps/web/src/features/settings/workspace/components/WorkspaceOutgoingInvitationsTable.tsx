@@ -1,4 +1,3 @@
-import { XIcon } from "lucide-react";
 import { Badge } from "@/app/ui/badge";
 import { Button } from "@/app/ui/button";
 import {
@@ -9,6 +8,7 @@ import {
 	TableHeader,
 	TableRow,
 } from "@/app/ui/table";
+import { XIcon } from "lucide-react";
 
 function formatDate(value?: string) {
 	if (!value) {
@@ -24,21 +24,21 @@ function formatDate(value?: string) {
 }
 
 export function WorkspaceOutgoingInvitationsTable({
-	canCancel,
 	invitations,
-	onCancel,
+	canCancel,
 	pendingInvitationId,
+	onCancel,
 }: {
-	canCancel: boolean;
 	invitations: readonly {
-		createdAt?: string;
-		email: string;
 		id: string;
+		email: string;
 		role: string | null;
 		status: string;
+		createdAt?: string;
 	}[];
-	onCancel: (invitationId: string) => void;
+	canCancel: boolean;
 	pendingInvitationId: string | null;
+	onCancel: (invitationId: string) => void;
 }) {
 	if (invitations.length === 0) {
 		return (
@@ -67,7 +67,7 @@ export function WorkspaceOutgoingInvitationsTable({
 							<TableCell className="font-medium">{invitation.email}</TableCell>
 							<TableCell>
 								{invitation.role ? (
-									<Badge className="capitalize" variant="secondary">
+									<Badge variant="secondary" className="capitalize">
 										{invitation.role}
 									</Badge>
 								) : (
@@ -80,11 +80,11 @@ export function WorkspaceOutgoingInvitationsTable({
 							<TableCell className="text-right">
 								{canCancel ? (
 									<Button
-										disabled={pendingInvitationId !== null}
-										onClick={() => onCancel(invitation.id)}
-										size="sm"
 										type="button"
 										variant="outline"
+										size="sm"
+										onClick={() => onCancel(invitation.id)}
+										disabled={pendingInvitationId !== null}
 									>
 										<XIcon data-icon="inline-start" />
 										{isPending ? "Canceling…" : "Cancel"}

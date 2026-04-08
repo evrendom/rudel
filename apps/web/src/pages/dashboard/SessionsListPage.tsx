@@ -35,6 +35,7 @@ import {
 import { useUserMap } from "@/hooks/useUserMap";
 import { calculateCost, formatUsername } from "@/lib/format";
 import { orpc } from "@/lib/orpc";
+import { getSessionDetailPath } from "@/lib/session-paths";
 
 export function SessionsListPage() {
 	const navigate = useNavigate();
@@ -209,7 +210,8 @@ export function SessionsListPage() {
 				},
 			},
 			{
-				accessorFn: (row) => calculateCost(row.input_tokens, row.output_tokens),
+				accessorFn: (row) =>
+					calculateCost(row.input_tokens, row.output_tokens, row.model_used),
 				id: "cost",
 				header: "Cost",
 				cell: ({ row }) => (
@@ -218,6 +220,7 @@ export function SessionsListPage() {
 						{calculateCost(
 							row.original.input_tokens,
 							row.original.output_tokens,
+							row.original.model_used,
 						).toFixed(4)}
 					</span>
 				),
@@ -564,9 +567,7 @@ export function SessionsListPage() {
 					analyticsId="sessions_list"
 					defaultSorting={[{ id: "date", desc: true }]}
 					getRowAnalyticsValue={(row) => row.session_id}
-					onRowClick={(row) =>
-						navigate(`/dashboard/sessions/${row.session_id}`)
-					}
+					onRowClick={(row) => navigate(getSessionDetailPath(row.session_id))}
 					isRowClickable={(row) => canViewSession(row.user_id)}
 				/>
 			</AnalyticsCard>

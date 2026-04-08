@@ -1,15 +1,10 @@
-import { Trash2Icon } from "lucide-react";
-import { Avatar, AvatarFallback, AvatarImage } from "@/app/ui/avatar";
+import {
+	Avatar,
+	AvatarFallback,
+	AvatarImage,
+} from "@/app/ui/avatar";
 import { Badge } from "@/app/ui/badge";
 import { Button } from "@/app/ui/button";
-import {
-	Select,
-	SelectContent,
-	SelectGroup,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-} from "@/app/ui/select";
 import {
 	Table,
 	TableBody,
@@ -18,10 +13,18 @@ import {
 	TableHeader,
 	TableRow,
 } from "@/app/ui/table";
+import {
+	Select,
+	SelectContent,
+	SelectGroup,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@/app/ui/select";
+import { Trash2Icon } from "lucide-react";
 
 function getInitials(name: string, email: string) {
 	const source = name.trim() || email.trim() || "R";
-
 	return source
 		.split(" ")
 		.map((part) => part[0])
@@ -31,26 +34,26 @@ function getInitials(name: string, email: string) {
 }
 
 export function WorkspaceMembersTable({
-	canEdit,
 	members,
-	onRemove,
-	onRoleChange,
+	canEdit,
 	pendingKey,
+	onRoleChange,
+	onRemove,
 }: {
-	canEdit: boolean;
 	members: readonly {
 		id: string;
 		role: string;
 		user: {
-			email: string;
 			id: string;
-			image: string | null;
 			name: string;
+			email: string;
+			image: string | null;
 		};
 	}[];
-	onRemove: (memberId: string) => void;
-	onRoleChange: (memberId: string, role: "member" | "admin") => void;
+	canEdit: boolean;
 	pendingKey: string | null;
+	onRoleChange: (memberId: string, role: "member" | "admin") => void;
+	onRemove: (memberId: string) => void;
 }) {
 	if (members.length === 0) {
 		return (
@@ -71,8 +74,10 @@ export function WorkspaceMembersTable({
 			</TableHeader>
 			<TableBody>
 				{members.map((member) => {
-					const isRemovePending = pendingKey === `remove:${member.id}`;
-					const isRolePending = pendingKey === `role:${member.id}`;
+					const roleKey = `role:${member.id}`;
+					const removeKey = `remove:${member.id}`;
+					const isRolePending = pendingKey === roleKey;
+					const isRemovePending = pendingKey === removeKey;
 
 					return (
 						<TableRow key={member.id}>
@@ -80,10 +85,7 @@ export function WorkspaceMembersTable({
 								<div className="flex items-center gap-3">
 									<Avatar>
 										{member.user.image ? (
-											<AvatarImage
-												alt={member.user.name}
-												src={member.user.image}
-											/>
+											<AvatarImage src={member.user.image} alt={member.user.name} />
 										) : null}
 										<AvatarFallback>
 											{getInitials(member.user.name, member.user.email)}
@@ -103,46 +105,42 @@ export function WorkspaceMembersTable({
 								{member.role === "owner" ? (
 									<Badge>Owner</Badge>
 								) : canEdit ? (
-									<div className="flex items-center gap-2">
-										<Select
-											disabled={Boolean(pendingKey)}
-											onValueChange={(value) => {
-												if (value === "member" || value === "admin") {
-													onRoleChange(member.id, value);
-												}
-											}}
-											value={member.role}
-										>
-											<SelectTrigger className="min-w-28" size="sm">
-												<SelectValue />
-											</SelectTrigger>
-											<SelectContent>
-												<SelectGroup>
-													<SelectItem value="member">Member</SelectItem>
-													<SelectItem value="admin">Admin</SelectItem>
-												</SelectGroup>
-											</SelectContent>
-										</Select>
-										{isRolePending ? (
-											<span className="text-xs text-muted-foreground">
-												Saving…
-											</span>
-										) : null}
-									</div>
+									<Select
+										value={member.role}
+										onValueChange={(value) =>
+											onRoleChange(member.id, value as "member" | "admin")
+										}
+										disabled={Boolean(pendingKey)}
+									>
+										<SelectTrigger size="sm" className="min-w-28">
+											<SelectValue />
+										</SelectTrigger>
+										<SelectContent>
+											<SelectGroup>
+												<SelectItem value="member">Member</SelectItem>
+												<SelectItem value="admin">Admin</SelectItem>
+											</SelectGroup>
+										</SelectContent>
+									</Select>
 								) : (
-									<Badge className="capitalize" variant="secondary">
+									<Badge variant="secondary" className="capitalize">
 										{member.role}
 									</Badge>
 								)}
+								{isRolePending ? (
+									<span className="ml-2 text-xs text-muted-foreground">
+										Saving…
+									</span>
+								) : null}
 							</TableCell>
 							<TableCell className="text-right">
 								{canEdit && member.role !== "owner" ? (
 									<Button
-										disabled={Boolean(pendingKey)}
-										onClick={() => onRemove(member.id)}
-										size="sm"
 										type="button"
 										variant="outline"
+										size="sm"
+										onClick={() => onRemove(member.id)}
+										disabled={Boolean(pendingKey)}
 									>
 										<Trash2Icon data-icon="inline-start" />
 										{isRemovePending ? "Removing…" : "Remove"}

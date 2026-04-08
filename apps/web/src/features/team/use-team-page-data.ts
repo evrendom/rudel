@@ -1,10 +1,15 @@
-import type { DeveloperTeamCard } from "@rudel/api-routes";
+import type { DeveloperSummary, DeveloperTeamCard } from "@rudel/api-routes";
+import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
-import { useOrganization } from "@/contexts/OrganizationContext";
 import { useDateRange } from "@/features/analytics/date-range/useDateRange";
-import { useAnalyticsQuery } from "@/hooks/useAnalyticsQuery";
-import { useFullOrganization } from "@/hooks/useFullOrganization";
+import { useAnalyticsQuery } from "@/features/analytics/queries/useAnalyticsQuery";
+import {
+	buildTeamRosterPlayers,
+	type TeamRosterMemberSource,
+} from "@/features/team/data/team-roster-data";
+import { useOrganization } from "@/features/workspace/organization/useOrganization";
 import { MAX_ANALYTICS_DAYS } from "@/lib/analytics-date-range";
+import { authClient } from "@/lib/auth-client";
 import { orpc } from "@/lib/orpc";
 
 export interface TeamPageDiagnostics {
@@ -35,14 +40,6 @@ export interface TeamPageMemberRow {
 	hasActivity: boolean;
 }
 
-interface TeamRosterMemberSource {
-	userId: string;
-	displayName: string;
-	email?: string | null;
-	imageUrl?: string | null;
-	role?: string | null;
-}
-
 function formatMemberRole(role: string | null | undefined) {
 	if (!role) {
 		return "Member";
@@ -58,6 +55,7 @@ function formatMemberRole(role: string | null | undefined) {
 function buildTeamMemberRows(
 	members: readonly TeamRosterMemberSource[],
 	teamCards: readonly DeveloperTeamCard[] | undefined,
+	developerSummaries: readonly DeveloperSummary[] | undefined,
 ) {
 	const memberByUserId = new Map(
 		members.map((member) => [member.userId, member] as const),
@@ -65,26 +63,41 @@ function buildTeamMemberRows(
 	const analyticsByUserId = new Map(
 		(teamCards ?? []).map((teamCard) => [teamCard.user_id, teamCard] as const),
 	);
+	const summaryByUserId = new Map(
+		(developerSummaries ?? []).map(
+			(summary) => [summary.user_id, summary] as const,
+		),
+	);
 	const memberIds = new Set<string>([
 		...memberByUserId.keys(),
 		...analyticsByUserId.keys(),
+		...summaryByUserId.keys(),
 	]);
 
 	return Array.from(memberIds)
 		.map((userId) => {
 			const member = memberByUserId.get(userId);
 			const teamCard = analyticsByUserId.get(userId);
+			const developerSummary = summaryByUserId.get(userId);
 			const displayName =
 				member?.displayName.trim() ||
 				teamCard?.display_name.trim() ||
 				"Unknown teammate";
-			const totalSessions = teamCard?.total_sessions ?? 0;
-			const activeDays = teamCard?.active_days ?? 0;
-			const inputTokens = teamCard?.input_tokens ?? 0;
-			const outputTokens = teamCard?.output_tokens ?? 0;
-			const totalTokens = teamCard?.total_tokens ?? 0;
-			const cost = teamCard?.cost ?? 0;
-			const lastActiveDate = teamCard?.last_active_date ?? null;
+			const totalSessions =
+				developerSummary?.total_sessions ?? teamCard?.total_sessions ?? 0;
+			const activeDays =
+				developerSummary?.active_days ?? teamCard?.active_days ?? 0;
+			const inputTokens =
+				developerSummary?.input_tokens ?? teamCard?.input_tokens ?? 0;
+			const outputTokens =
+				developerSummary?.output_tokens ?? teamCard?.output_tokens ?? 0;
+			const totalTokens =
+				developerSummary?.total_tokens ?? teamCard?.total_tokens ?? 0;
+			const cost = developerSummary?.cost ?? teamCard?.cost ?? 0;
+			const lastActiveDate =
+				developerSummary?.last_active_date ??
+				teamCard?.last_active_date ??
+				null;
 
 			return {
 				userId,
@@ -95,7 +108,8 @@ function buildTeamMemberRows(
 					: "Tracked collaborator",
 				imageUrl: member?.imageUrl,
 				cost,
-				favoriteModel: teamCard?.favorite_model ?? null,
+				favoriteModel:
+					teamCard?.favorite_model ?? developerSummary?.favorite_model ?? null,
 				inputTokens,
 				outputTokens,
 				totalSessions,
@@ -115,64 +129,102 @@ function buildTeamMemberRows(
 }
 
 export function useTeamPageData() {
-	const { meta: dateRangeMeta, state: dateRangeState } = useDateRange();
-	const { activeOrg } = useOrganization();
-	const {
-		data: fullOrganization,
-		invalidate: invalidateFullOrganization,
-		isLoading: isOrganizationPending,
-	} = useFullOrganization(activeOrg?.id);
-	const hasActiveOrganization = Boolean(activeOrg?.id);
+	const { state: dateRangeState, meta: dateRangeMeta } = useDateRange();
+	const { state: workspaceState } = useOrganization();
 	const selectedDays = dateRangeMeta.dayCount;
 	const requestedDays = MAX_ANALYTICS_DAYS;
-	const members = useMemo(
-		() =>
-			(fullOrganization?.members ?? []).map((member) => ({
+	const {
+		data: members = [],
+		isLoading: isOrganizationPending,
+		isError: isOrganizationError,
+		refetch: refetchMembers,
+	} = useQuery<readonly TeamRosterMemberSource[]>({
+		queryKey: ["team-page-members", workspaceState.activeOrg?.id],
+		queryFn: async () => {
+			const response = await authClient.organization.getFullOrganization({
+				query: { organizationId: workspaceState.activeOrg?.id ?? "" },
+			});
+			const fullOrganization =
+				(response.data as {
+					members?: Array<{
+						userId: string;
+						role: string;
+						user: {
+							image: string | null;
+							name: string;
+							email: string;
+						};
+					}>;
+				} | null) ?? null;
+
+			return (fullOrganization?.members ?? []).map((member) => ({
 				displayName: member.user.name,
 				email: member.user.email,
 				imageUrl: member.user.image,
 				role: member.role,
 				userId: member.userId,
-			})) satisfies readonly TeamRosterMemberSource[],
-		[fullOrganization?.members],
-	);
+			}));
+		},
+		enabled: Boolean(workspaceState.activeOrg?.id),
+	});
 	const teamCardsQuery = useAnalyticsQuery({
 		...orpc.analytics.developers.teamCards.queryOptions({
 			input: { days: requestedDays },
 		}),
 	});
+	const developersQuery = useAnalyticsQuery({
+		...orpc.analytics.developers.list.queryOptions({
+			input: { days: requestedDays },
+		}),
+	});
 	const teamCards = teamCardsQuery.data;
-	const teamMemberRows = useMemo(
-		() => buildTeamMemberRows(members, teamCards),
+	const developerSummaries = developersQuery.data;
+	const teamPlayers = useMemo(
+		() => buildTeamRosterPlayers(teamCards, members),
 		[members, teamCards],
 	);
-	const hasRosterData = teamMemberRows.length > 0;
+	const teamMemberRows = useMemo(
+		() => buildTeamMemberRows(members, teamCards, developerSummaries),
+		[members, teamCards, developerSummaries],
+	);
+	const hasRosterData = teamMemberRows.length > 0 || teamPlayers.length > 0;
 	const diagnostics: TeamPageDiagnostics = {
 		endDate: dateRangeState.endDate,
 		endpoint: "analytics.developers.teamCards",
 		maxDays: MAX_ANALYTICS_DAYS,
 		startDate: dateRangeState.startDate,
-		organizationId: activeOrg?.id ?? null,
-		organizationName: activeOrg?.name ?? null,
+		organizationId: workspaceState.activeOrg?.id ?? null,
+		organizationName: workspaceState.activeOrg?.name ?? null,
 		days: selectedDays,
 		requestedDays,
 	};
 
 	return {
 		diagnostics,
-		error: teamCardsQuery.error,
-		hasActiveOrganization,
-		isError: hasActiveOrganization && !hasRosterData && teamCardsQuery.isError,
-		isPending:
-			hasActiveOrganization &&
+		error:
+			teamCardsQuery.error ??
+			developersQuery.error ??
+			(isOrganizationError
+				? new Error("Failed to load workspace members.")
+				: null),
+		isError:
 			!hasRosterData &&
-			(teamCardsQuery.isPending || isOrganizationPending),
+			(teamCardsQuery.isError ||
+				developersQuery.isError ||
+				isOrganizationError),
+		isPending:
+			!hasRosterData &&
+			(teamCardsQuery.isPending ||
+				developersQuery.isPending ||
+				isOrganizationPending),
 		teamMemberRows,
+		teamPlayers,
 		requestedDays,
 		refetch: async () => {
 			await Promise.all([
 				teamCardsQuery.refetch(),
-				invalidateFullOrganization(),
+				developersQuery.refetch(),
+				refetchMembers(),
 			]);
 		},
 		teamCards,

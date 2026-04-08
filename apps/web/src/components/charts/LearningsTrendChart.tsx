@@ -242,12 +242,13 @@ export function LearningsTrendChart({
 						height={80}
 						tickMargin={8}
 					/>
-					<YAxis tick={{ fontSize: 12 }} />
+					<YAxis allowDecimals={false} tick={{ fontSize: 12 }} />
 					<Tooltip
 						content={(props) => (
 							<ChartTooltip
 								{...props}
 								nameFormatter={getDisplayName}
+								sortItems
 								valueFormatter={(v) => v.toLocaleString()}
 							/>
 						)}
