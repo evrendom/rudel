@@ -24,57 +24,61 @@ const teamBoardCardSkeletonKeys = [
 	"card-foxtrot",
 ] as const;
 
-const teamBoardMetricSkeletonKeys = ["sessions", "days", "tokens"] as const;
-
-const teamBoardSkillSkeletonKeys = ["skill-alpha", "skill-bravo"] as const;
+const teamBoardMetricSkeletonKeys = [
+	"sessions",
+	"days",
+	"avg",
+	"last",
+	"cost",
+	"in-out",
+] as const;
 
 function TeamPageSkeleton() {
 	return (
-		<div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-			{teamBoardCardSkeletonKeys.map((cardKey) => (
-				<Card
-					key={cardKey}
-					size="sm"
-					className="border-border/60 bg-card/95 shadow-none"
-				>
-					<CardContent className="flex flex-col gap-4 p-4">
-						<div className="flex items-start gap-3">
-							<Skeleton className="size-8 rounded-full" />
-							<div className="grid flex-1 gap-2">
-								<Skeleton className="h-4 w-28 rounded-full" />
-								<Skeleton className="h-3 w-20 rounded-full" />
+		<div className="team-lineup-surface-scope">
+			<ul className="grid justify-items-center gap-y-4 sm:grid-cols-2 sm:gap-x-2 xl:grid-cols-3 xl:gap-x-2">
+				{teamBoardCardSkeletonKeys.map((cardKey) => (
+					<li key={cardKey} className="list-none">
+						<div className="team-lineup-featured-card relative isolate flex h-[358px] w-[233px] flex-col overflow-hidden rounded-[18px] bg-[linear-gradient(180deg,#ffffff_0%,#f7f6f3_100%)] px-[14px] pt-[15px] pb-[10px] shadow-[0_0_10.1px_rgba(0,0,0,0.08)]">
+							<div className="flex items-center justify-between">
+								<div className="flex items-center gap-[6px]">
+									<Skeleton className="h-[17px] w-[56px] rounded-full" />
+									<Skeleton className="h-[10px] w-[34px] rounded-full" />
+								</div>
+								<Skeleton className="h-[12px] w-[52px] rounded-full" />
+							</div>
+
+							<div className="mt-[12px] h-[158px] w-full rounded-[14px] border border-black/8 bg-white/86 p-[10px]">
+								<div className="relative h-full w-full overflow-hidden rounded-[10px] bg-muted/50">
+									<Skeleton className="h-full w-full rounded-[10px]" />
+									<Skeleton className="absolute right-[10px] bottom-[10px] h-[22px] w-[88px] rounded-full" />
+								</div>
+							</div>
+
+							<div className="mt-[16px] px-[3px] text-center">
+								<div className="flex justify-center">
+									<Skeleton className="h-[19px] w-[124px] rounded-full" />
+								</div>
+								<div className="mt-[8px] flex justify-center">
+									<Skeleton className="h-[16px] w-[132px] rounded-full" />
+								</div>
+							</div>
+
+							<div className="mt-auto grid grid-cols-3 gap-[6px]">
+								{teamBoardMetricSkeletonKeys.map((metricKey) => (
+									<div
+										key={`${cardKey}-${metricKey}`}
+										className="rounded-[10px] border border-black/8 bg-white/74 px-[8px] py-[6px] shadow-[inset_0_1px_0_rgba(255,255,255,0.72)]"
+									>
+										<Skeleton className="h-[11px] w-[52px] rounded-full" />
+										<Skeleton className="mt-[4px] h-[8px] w-[32px] rounded-full" />
+									</div>
+								))}
 							</div>
 						</div>
-						<div className="grid gap-2">
-							<Skeleton className="h-3 w-16 rounded-full" />
-							<Skeleton className="h-4 w-32 rounded-full" />
-						</div>
-						<div className="grid grid-cols-3 gap-2">
-							{teamBoardMetricSkeletonKeys.map((metricKey) => (
-								<div
-									key={`${cardKey}-${metricKey}`}
-									className="rounded-xl border border-border/60 bg-muted/20 px-3 py-2"
-								>
-									<Skeleton className="h-3 w-10 rounded-full" />
-									<Skeleton className="mt-2 h-5 w-12 rounded-full" />
-								</div>
-							))}
-						</div>
-						<div className="flex gap-2">
-							{teamBoardSkillSkeletonKeys.map((skillKey) => (
-								<Skeleton
-									key={`${cardKey}-${skillKey}`}
-									className="h-5 w-20 rounded-full"
-								/>
-							))}
-						</div>
-						<div className="flex items-center justify-between border-t border-border/60 pt-3">
-							<Skeleton className="h-3 w-24 rounded-full" />
-							<Skeleton className="h-3 w-16 rounded-full" />
-						</div>
-					</CardContent>
-				</Card>
-			))}
+					</li>
+				))}
+			</ul>
 		</div>
 	);
 }
