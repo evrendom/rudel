@@ -107,7 +107,7 @@ export function useTeamPageData() {
 	const { state: dateRangeState, meta: dateRangeMeta } = useDateRange();
 	const { state: workspaceState } = useOrganization();
 	const selectedDays = dateRangeMeta.dayCount;
-	const requestedDays = Math.min(selectedDays, MAX_ANALYTICS_DAYS);
+	const requestedDays = MAX_ANALYTICS_DAYS;
 	const {
 		data: members = [],
 		isLoading: isOrganizationPending,

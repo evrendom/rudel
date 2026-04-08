@@ -19,12 +19,28 @@ const metricBarClass: Record<DashboardHeadlineMetric["id"], string> = {
 export function DashboardHeadlineMetricGrid({
 	metrics,
 	className,
+	isLoading = false,
 	showDelta = true,
 }: {
 	metrics: DashboardHeadlineMetric[];
 	className?: string;
+	isLoading?: boolean;
 	showDelta?: boolean;
 }) {
+	if (isLoading) {
+		return (
+			<div className={cn("@container/headline-metrics", className)}>
+				<div className="grid grid-cols-1 gap-3 sm:flex sm:flex-wrap sm:gap-x-8 sm:gap-y-4 md:gap-x-10">
+					<div className="flex min-w-[8.5rem] flex-col gap-1.5">
+						<p className="dashboardy-section-title text-[1.8rem]/none text-[color:var(--dashboardy-muted)] sm:text-[3.2rem]/none">
+							Counting...
+						</p>
+					</div>
+				</div>
+			</div>
+		);
+	}
+
 	return (
 		<div className={cn("@container/headline-metrics", className)}>
 			<div className="grid grid-cols-2 gap-3 sm:flex sm:flex-wrap sm:gap-x-8 sm:gap-y-4 md:gap-x-10">

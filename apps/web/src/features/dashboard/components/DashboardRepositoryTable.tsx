@@ -1,7 +1,10 @@
 import type { RepositoryDailyTrendData } from "@rudel/api-routes";
-import { useRef, useState } from "react";
-import { useMountEffect } from "@/app/hooks/useMountEffect";
+import { useState } from "react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/app/ui/popover";
+import {
+	DashboardGridTable,
+	DashboardTableFooterNote,
+} from "@/features/dashboard/components/DashboardGridTable";
 import type { DashboardRepositorySummaryRow } from "@/features/dashboard/data/dashboard-repository-trend";
 
 type DashboardRepositoryTableRow = DashboardRepositorySummaryRow;
@@ -111,92 +114,80 @@ export function DashboardRepositoryTable({
 	const visibleRows = displayRows.slice(0, MAX_VISIBLE_REPOSITORIES);
 	const hiddenRows = displayRows.slice(MAX_VISIBLE_REPOSITORIES);
 	const hiddenRowCount = Math.max(0, displayRows.length - visibleRows.length);
-	const rowContainerRef = useRef<HTMLDivElement | null>(null);
-
-	useMountEffect(() => {
-		const element = rowContainerRef.current;
-
-		if (!element || !onHighlightRepositoryChange) {
-			return;
-		}
-
-		const handlePointerOver = (event: PointerEvent) => {
-			const target = event.target;
-
-			if (!(target instanceof Element)) {
-				return;
-			}
-
-			const row = target.closest<HTMLElement>("[data-repository-row-id]");
-
-			onHighlightRepositoryChange(row?.dataset.repositoryRowId ?? null);
-		};
-
-		const handlePointerLeave = () => {
-			onHighlightRepositoryChange(null);
-		};
-
-		element.addEventListener("pointerover", handlePointerOver);
-		element.addEventListener("pointerleave", handlePointerLeave);
-
-		return () => {
-			element.removeEventListener("pointerover", handlePointerOver);
-			element.removeEventListener("pointerleave", handlePointerLeave);
-		};
-	});
 
 	return (
-		<div className="overflow-x-auto">
-			<div className="flex min-w-[44rem] flex-col gap-1">
-				<div className="grid grid-cols-[minmax(200px,14fr)_100px_90px_90px_112px] gap-6 px-3.5 text-[13px] font-semibold text-[color:var(--dashboardy-muted)]">
-					<p>Repository</p>
-					<p>Active days</p>
-					<p>Sessions</p>
-					<p>Commits</p>
-					<p>Rate</p>
-				</div>
-				<div ref={rowContainerRef} className="grid gap-0">
-					{visibleRows.map((row) => {
+		<DashboardGridTable
+			columns={[
+				{
+					id: "repository",
+					header: "Repository",
+					renderCell: (row) => (
+						<p className="truncate font-semibold text-[color:var(--dashboardy-heading)]">
+							{row.label}
+						</p>
+					),
+				},
+				{
+					id: "active-days",
+					header: "Active days",
+					renderCell: (row) => (
+						<p className="font-medium tabular-nums text-[color:var(--dashboardy-muted)]">
+							{row.activeDays ?? "—"}
+						</p>
+					),
+				},
+				{
+					id: "sessions",
+					header: "Sessions",
+					renderCell: (row) => (
+						<p className="font-medium tabular-nums text-[color:var(--dashboardy-heading)]">
+							{row.sessions}
+						</p>
+					),
+				},
+				{
+					id: "commits",
+					header: "Commits",
+					renderCell: (row) => (
+						<p className="font-medium tabular-nums text-[color:var(--dashboardy-heading)]">
+							{row.commits}
+						</p>
+					),
+				},
+				{
+					id: "rate",
+					header: "Rate",
+					renderCell: (row) => {
 						const rateTone = getRateTone(row.commitRate);
 
 						return (
-							<div
-								key={row.id}
-								data-repository-row-id={row.id}
-								className="grid min-h-12 grid-cols-[minmax(200px,14fr)_100px_90px_90px_112px] items-center gap-6 rounded-lg px-3.5 py-2 text-sm odd:bg-[color:var(--dashboardy-subsurface-strong)]"
-							>
-								<p className="truncate font-semibold text-[color:var(--dashboardy-heading)]">
-									{row.label}
+							<div className="flex items-center justify-start gap-2">
+								<span
+									className={`size-2 rounded-full ${rateTone.dotClassName}`}
+								/>
+								<p
+									className={`font-semibold tabular-nums ${rateTone.textClassName}`}
+								>
+									{row.commitRate}%
 								</p>
-								<p className="font-medium tabular-nums text-[color:var(--dashboardy-muted)]">
-									{row.activeDays ?? "—"}
-								</p>
-								<p className="font-medium tabular-nums text-[color:var(--dashboardy-heading)]">
-									{row.sessions}
-								</p>
-								<p className="font-medium tabular-nums text-[color:var(--dashboardy-heading)]">
-									{row.commits}
-								</p>
-								<div className="flex items-center justify-start gap-2">
-									<span
-										className={`size-2 rounded-full ${rateTone.dotClassName}`}
-									/>
-									<p
-										className={`font-semibold tabular-nums ${rateTone.textClassName}`}
-									>
-										{row.commitRate}%
-									</p>
-								</div>
 							</div>
 						);
-					})}
-				</div>
-				{hiddenRowCount > 0 ? (
-					<div className="flex justify-end px-3.5 pt-2 text-[12px] font-medium text-[color:var(--dashboardy-muted)]">
+					},
+				},
+			]}
+			rows={visibleRows}
+			rowKey={(row) => row.id}
+			gridTemplateColumns="minmax(200px,14fr) 100px 90px 90px 112px"
+			minWidthClassName="min-w-[44rem]"
+			onRowHoverChange={onHighlightRepositoryChange}
+			getHoverRowId={(row) => row.id}
+			footer={
+				hiddenRowCount > 0 ? (
+					<DashboardTableFooterNote>
 						<DashboardRepositoryOverflowPopover rows={hiddenRows} />
-					</div>
-				) : null}
-			</div>
-		</div>
+					</DashboardTableFooterNote>
+				) : null
+			}
+		/>
 	);
 }

@@ -1,147 +1,84 @@
-import { Avatar, AvatarFallback, AvatarImage } from "@/app/ui/avatar";
-import { Badge } from "@/app/ui/badge";
-import { Card, CardContent } from "@/app/ui/card";
+import type { TeamCardTone } from "@/features/team/data/team-card-types";
 import type { TeamPageMemberRow } from "@/features/team/use-team-page-data";
 import { cn } from "@/lib/utils";
-
-type TeamCardThemeName =
-	| "blue"
-	| "teal"
-	| "orange"
-	| "violet"
-	| "rose"
-	| "slate";
-
-type TeamCardTheme = {
-	accentDotClassName: string;
-	accentTextClassName: string;
-	avatarShellClassName: string;
-	cardClassName: string;
-	footerLabelClassName: string;
-	modelBadgeClassName: string;
-	skillBadgeClassName: string;
-	statLabelClassName: string;
-	statValueClassName: string;
-	topGlowClassName: string;
-};
 
 const compactNumberFormatter = new Intl.NumberFormat("en-US", {
 	maximumFractionDigits: 1,
 	notation: "compact",
 });
 
-const dateFormatter = new Intl.DateTimeFormat("en-US", {
-	day: "numeric",
-	month: "short",
-	year: "numeric",
+const paceNumberFormatter = new Intl.NumberFormat("en-US", {
+	maximumFractionDigits: 1,
 });
 
-const fallbackThemeOrder = [
-	"blue",
-	"teal",
-	"orange",
-	"violet",
-	"rose",
-] as const;
+const shortDateFormatter = new Intl.DateTimeFormat("en-US", {
+	day: "numeric",
+	month: "short",
+});
 
-const teamCardThemes = {
-	blue: {
-		accentDotClassName: "bg-[#4a7bc9]",
-		accentTextClassName: "text-[#315f9e]",
-		avatarShellClassName:
-			"bg-[linear-gradient(180deg,#d8e8ff_0%,#9fc0ef_100%)] text-[#24466d]",
-		cardClassName:
-			"border-[#cfd9ea] bg-[linear-gradient(180deg,#fcfbf8_0%,#f2f6ff_100%)] text-[#252220]",
-		footerLabelClassName: "text-[#58729a]",
-		modelBadgeClassName:
-			"border-[#bfd0f1] bg-white/82 text-[#295ea8] shadow-[0_1px_0_rgba(255,255,255,0.8)_inset]",
-		skillBadgeClassName: "border-[#bfd0f1] bg-white/74 text-[#315f9e]",
-		statLabelClassName: "text-[#5f7bb4]",
-		statValueClassName: "text-[#1f3c6d]",
-		topGlowClassName:
-			"bg-[radial-gradient(circle_at_top_left,rgba(143,183,236,0.52),transparent_68%)]",
-	},
-	teal: {
-		accentDotClassName: "bg-[#2f9e8f]",
-		accentTextClassName: "text-[#20786e]",
-		avatarShellClassName:
-			"bg-[linear-gradient(180deg,#d7f6ef_0%,#8de0cf_100%)] text-[#174f48]",
-		cardClassName:
-			"border-[#cce6df] bg-[linear-gradient(180deg,#fbfffe_0%,#ecfbf6_100%)] text-[#252220]",
-		footerLabelClassName: "text-[#4b8077]",
-		modelBadgeClassName:
-			"border-[#b6e2d6] bg-white/82 text-[#187d71] shadow-[0_1px_0_rgba(255,255,255,0.8)_inset]",
-		skillBadgeClassName: "border-[#b6e2d6] bg-white/74 text-[#20786e]",
-		statLabelClassName: "text-[#4e8d80]",
-		statValueClassName: "text-[#174f48]",
-		topGlowClassName:
-			"bg-[radial-gradient(circle_at_top_left,rgba(135,216,199,0.55),transparent_68%)]",
-	},
-	orange: {
-		accentDotClassName: "bg-[#d67d33]",
-		accentTextClassName: "text-[#b35d18]",
-		avatarShellClassName:
-			"bg-[linear-gradient(180deg,#ffe8d5_0%,#f3bf8d_100%)] text-[#6f3c11]",
-		cardClassName:
-			"border-[#efd7c4] bg-[linear-gradient(180deg,#fffaf5_0%,#fff0e2_100%)] text-[#252220]",
-		footerLabelClassName: "text-[#8b643a]",
-		modelBadgeClassName:
-			"border-[#f0cdaa] bg-white/82 text-[#bf6419] shadow-[0_1px_0_rgba(255,255,255,0.8)_inset]",
-		skillBadgeClassName: "border-[#f0cdaa] bg-white/74 text-[#b35d18]",
-		statLabelClassName: "text-[#b57a4b]",
-		statValueClassName: "text-[#6f3c11]",
-		topGlowClassName:
-			"bg-[radial-gradient(circle_at_top_left,rgba(242,183,128,0.5),transparent_68%)]",
-	},
-	violet: {
-		accentDotClassName: "bg-[#8b6ddc]",
-		accentTextClassName: "text-[#634ea2]",
-		avatarShellClassName:
-			"bg-[linear-gradient(180deg,#ece8ff_0%,#ccbdf7_100%)] text-[#4c3977]",
-		cardClassName:
-			"border-[#d8cff0] bg-[linear-gradient(180deg,#fcfbff_0%,#f1ecff_100%)] text-[#252220]",
-		footerLabelClassName: "text-[#736297]",
-		modelBadgeClassName:
-			"border-[#d8cff0] bg-white/82 text-[#7352d5] shadow-[0_1px_0_rgba(255,255,255,0.8)_inset]",
-		skillBadgeClassName: "border-[#d8cff0] bg-white/74 text-[#634ea2]",
-		statLabelClassName: "text-[#8373aa]",
-		statValueClassName: "text-[#4c3977]",
-		topGlowClassName:
-			"bg-[radial-gradient(circle_at_top_left,rgba(195,178,245,0.52),transparent_68%)]",
-	},
-	rose: {
-		accentDotClassName: "bg-[#d06b87]",
-		accentTextClassName: "text-[#ae4c68]",
-		avatarShellClassName:
-			"bg-[linear-gradient(180deg,#ffe5ea_0%,#efacbb_100%)] text-[#71364d]",
-		cardClassName:
-			"border-[#efd3db] bg-[linear-gradient(180deg,#fffafb_0%,#fff0f4_100%)] text-[#252220]",
-		footerLabelClassName: "text-[#8c6170]",
-		modelBadgeClassName:
-			"border-[#f1cad5] bg-white/82 text-[#c24d70] shadow-[0_1px_0_rgba(255,255,255,0.8)_inset]",
-		skillBadgeClassName: "border-[#f1cad5] bg-white/74 text-[#ae4c68]",
-		statLabelClassName: "text-[#b07483]",
-		statValueClassName: "text-[#71364d]",
-		topGlowClassName:
-			"bg-[radial-gradient(circle_at_top_left,rgba(236,158,176,0.5),transparent_68%)]",
-	},
-	slate: {
-		accentDotClassName: "bg-[#79818c]",
-		accentTextClassName: "text-[#5f6a78]",
-		avatarShellClassName:
-			"bg-[linear-gradient(180deg,#e7edf2_0%,#c4cfda_100%)] text-[#43515f]",
-		cardClassName:
-			"border-[#d7dde5] bg-[linear-gradient(180deg,#fbfcfd_0%,#eef2f6_100%)] text-[#252220]",
-		footerLabelClassName: "text-[#697483]",
-		modelBadgeClassName:
-			"border-[#d3d9e2] bg-white/82 text-[#5e6978] shadow-[0_1px_0_rgba(255,255,255,0.8)_inset]",
-		skillBadgeClassName: "border-[#d3d9e2] bg-white/74 text-[#5f6a78]",
-		statLabelClassName: "text-[#7a8698]",
-		statValueClassName: "text-[#43515f]",
-		topGlowClassName:
-			"bg-[radial-gradient(circle_at_top_left,rgba(188,199,212,0.55),transparent_68%)]",
-	},
-} as const satisfies Record<TeamCardThemeName, TeamCardTheme>;
+const adaptedTeamCardShellClassName =
+	"team-lineup-featured-card relative isolate flex h-[358px] w-[233px] flex-col overflow-hidden rounded-[18px] bg-[linear-gradient(180deg,#fcfbf8_0%,#f4eee7_100%)] px-[14px] pt-[15px] pb-[10px] text-[#302d2b] shadow-[0_0_10.1px_rgba(0,0,0,0.1)]";
+
+const adaptedTeamCardHeaderValueClassName =
+	"[font-family:var(--dashboard-01-font-roster-display)] text-[17.07px] font-extrabold leading-none tracking-[-0.01em] tabular-nums text-[#272423]";
+
+const adaptedTeamCardHeaderLabelClassName =
+	"ml-[5px] text-[10px] font-semibold leading-none tracking-[-0.03em]";
+
+const adaptedTeamCardRoleClassName =
+	"text-[12.36px] font-medium leading-none text-[#5d5955]";
+
+const adaptedTeamCardNameClassName =
+	"[font-family:var(--dashboard-01-font-roster-display)] text-[19px] font-extrabold leading-[0.9] tracking-[-0.02em] text-[#252220]";
+
+const adaptedTeamCardSubtitleClassName =
+	"mt-[8px] truncate text-[16px] font-medium leading-[0.92] tracking-[-0.02em] text-[#5f5a57]";
+
+const adaptedTeamCardFootnoteClassName =
+	"mt-[6px] truncate text-[10px] font-medium uppercase tracking-[0.12em] text-black/40";
+
+const adaptedTeamCardMediaPanelClassName =
+	"team-lineup-featured-media-panel mt-[12px] h-[158px] w-full rounded-[14px] border border-black/8 bg-[#f6f4ef]/74";
+
+const adaptedTeamCardStatsPanelClassName =
+	"team-lineup-featured-stats-panel mt-auto h-[96px] w-full rounded-[14px] border border-black/8 bg-[#f6f4ef]/78";
+
+const portraitPanelClassName =
+	"relative flex h-full w-full flex-col justify-between overflow-hidden rounded-[10px] px-[12px] py-[10px]";
+
+const portraitPlaceholderInitialsClassName =
+	"text-[54px] font-extrabold leading-none tracking-[-0.08em] text-black/66";
+
+const toneAccentClassNames = {
+	blue: "text-[#295ea8]",
+	teal: "text-[#187d71]",
+	orange: "text-[#bf6419]",
+	lime: "text-[#5f8f1d]",
+	violet: "text-[#7352d5]",
+	rose: "text-[#c24d70]",
+	slate: "text-[#5e6978]",
+} as const satisfies Record<TeamCardTone, string>;
+
+const tonePortraitClassNames = {
+	blue: "bg-[linear-gradient(180deg,#d8e8ff_0%,#8fb7ec_100%)] text-[#24466d]",
+	teal: "bg-[linear-gradient(180deg,#d7f6ef_0%,#87d8c7_100%)] text-[#174f48]",
+	orange: "bg-[linear-gradient(180deg,#ffe8d5_0%,#f2b780_100%)] text-[#6f3c11]",
+	lime: "bg-[linear-gradient(180deg,#ecf7d0_0%,#b6db72_100%)] text-[#475d1d]",
+	violet: "bg-[linear-gradient(180deg,#ece8ff_0%,#c3b2f5_100%)] text-[#4c3977]",
+	rose: "bg-[linear-gradient(180deg,#ffe5ea_0%,#ec9eb0_100%)] text-[#71364d]",
+	slate: "bg-[linear-gradient(180deg,#e7edf2_0%,#bcc7d4_100%)] text-[#43515f]",
+} as const satisfies Record<TeamCardTone, string>;
+
+type TeamCardStatRow = {
+	label: string;
+	title?: string;
+	value: string;
+};
+
+type TeamCardStatColumn = {
+	id: "left" | "right";
+	rows: TeamCardStatRow[];
+};
 
 function getAvatarInitials(name: string) {
 	const parts = name.split(/\s+/).filter(Boolean);
@@ -169,9 +106,71 @@ function formatModelLabel(model: string | null) {
 		.replaceAll(/\b\w/g, (character) => character.toUpperCase());
 }
 
-function formatLastActiveDate(lastActiveDate: string | null) {
+function formatModelShort(model: string | null) {
+	if (!model) {
+		return "None";
+	}
+
+	const normalizedModel = model.trim().toLowerCase();
+
+	if (normalizedModel.includes("opus")) {
+		return "Opus";
+	}
+
+	if (normalizedModel.includes("sonnet")) {
+		return "Sonnet";
+	}
+
+	if (normalizedModel.includes("haiku")) {
+		return "Haiku";
+	}
+
+	if (normalizedModel.includes("codex")) {
+		return "Codex";
+	}
+
+	if (normalizedModel.includes("gpt")) {
+		return "GPT";
+	}
+
+	if (normalizedModel.includes("gemini")) {
+		return "Gemini";
+	}
+
+	return model.split(/[\s/_-]+/)[0] ?? "Model";
+}
+
+function formatTopSkill(
+	row: Pick<TeamPageMemberRow, "topSkills" | "totalSessions">,
+) {
+	const topSkill = row.topSkills[0];
+
+	if (topSkill) {
+		return {
+			count: topSkill.count,
+			title: `${topSkill.name} ×${topSkill.count}`,
+			value: topSkill.name,
+		} as const;
+	}
+
+	if (row.totalSessions > 0) {
+		return {
+			count: 0,
+			title: "No tracked skill breakdown in this range.",
+			value: "skill issue",
+		} as const;
+	}
+
+	return {
+		count: 0,
+		title: "No traced sessions yet.",
+		value: "None",
+	} as const;
+}
+
+function formatShortDate(lastActiveDate: string | null) {
 	if (!lastActiveDate) {
-		return "No recent activity";
+		return "None";
 	}
 
 	const parsedDate = new Date(lastActiveDate);
@@ -180,23 +179,32 @@ function formatLastActiveDate(lastActiveDate: string | null) {
 		return lastActiveDate;
 	}
 
-	return dateFormatter.format(parsedDate);
+	return shortDateFormatter.format(parsedDate);
 }
 
-function hashString(value: string) {
-	let hash = 0;
-
-	for (const character of value) {
-		hash = (hash << 5) - hash + character.charCodeAt(0);
-		hash |= 0;
+function formatAverageTokens(totalTokens: number, totalSessions: number) {
+	if (totalSessions <= 0) {
+		return "0";
 	}
 
-	return Math.abs(hash);
+	return compactNumberFormatter.format(totalTokens / totalSessions);
 }
 
-function getCardThemeName(row: TeamPageMemberRow): TeamCardThemeName {
+function formatSessionPace(totalSessions: number, activeDays: number) {
+	if (totalSessions <= 0 || activeDays <= 0) {
+		return "0";
+	}
+
+	return paceNumberFormatter.format(totalSessions / activeDays);
+}
+
+function getCardTone(row: TeamPageMemberRow): TeamCardTone {
 	if (!row.hasActivity) {
 		return "slate";
+	}
+
+	if (row.totalSessions > 0 && row.topSkills.length === 0) {
+		return "rose";
 	}
 
 	const favoriteModel = row.favoriteModel?.toLowerCase() ?? "";
@@ -217,217 +225,245 @@ function getCardThemeName(row: TeamPageMemberRow): TeamCardThemeName {
 		return "blue";
 	}
 
-	return fallbackThemeOrder[
-		hashString(row.displayName) % fallbackThemeOrder.length
+	return "rose";
+}
+
+function getCardStatus(row: TeamPageMemberRow) {
+	if (row.totalSessions > 0 && row.topSkills.length === 0) {
+		return "skill issue";
+	}
+
+	if (!row.hasActivity) {
+		return "quiet";
+	}
+
+	if (row.totalTokens >= 1_000_000 || row.totalSessions >= 100) {
+		return "power user";
+	}
+
+	if (row.activeDays >= 20) {
+		return "steady";
+	}
+
+	return "tracked";
+}
+
+function getPortraitNote(row: TeamPageMemberRow) {
+	const topSkill = formatTopSkill(row);
+
+	if (topSkill.count > 0) {
+		return `Top skill · ${topSkill.value}`;
+	}
+
+	if (row.totalSessions > 0) {
+		return "No tracked skills";
+	}
+
+	return "No traced sessions yet";
+}
+
+function buildCardStats(row: TeamPageMemberRow): TeamCardStatColumn[] {
+	const topSkill = formatTopSkill(row);
+
+	return [
+		{
+			id: "left",
+			rows: [
+				{
+					label: "SESS",
+					title: `${row.totalSessions.toLocaleString()} sessions`,
+					value: row.totalSessions.toLocaleString(),
+				},
+				{
+					label: "DAYS",
+					title: `${row.activeDays.toLocaleString()} active days`,
+					value: row.activeDays.toLocaleString(),
+				},
+				{
+					label: "AVG",
+					title:
+						row.totalSessions > 0
+							? `${Math.round(row.totalTokens / row.totalSessions).toLocaleString()} average tokens per session`
+							: "No traced sessions yet.",
+					value: formatAverageTokens(row.totalTokens, row.totalSessions),
+				},
+				{
+					label: "PACE",
+					title:
+						row.activeDays > 0
+							? `${formatSessionPace(row.totalSessions, row.activeDays)} sessions per active day`
+							: "No active days yet.",
+					value: formatSessionPace(row.totalSessions, row.activeDays),
+				},
+			],
+		},
+		{
+			id: "right",
+			rows: [
+				{
+					label: "MODEL",
+					title: formatModelLabel(row.favoriteModel),
+					value: formatModelShort(row.favoriteModel),
+				},
+				{
+					label: "SKILL",
+					title: topSkill.title,
+					value: topSkill.value,
+				},
+				{
+					label: "USES",
+					title:
+						topSkill.count > 0
+							? `${topSkill.count.toLocaleString()} sessions tagged with ${topSkill.value}`
+							: "No tracked skill counts yet.",
+					value: topSkill.count.toLocaleString(),
+				},
+				{
+					label: "LAST",
+					title: row.lastActiveDate ?? "No recent activity",
+					value: formatShortDate(row.lastActiveDate),
+				},
+			],
+		},
 	];
 }
 
-function getStatusLabel(row: TeamPageMemberRow) {
-	if (!row.hasActivity) {
-		return "Idle";
-	}
-
-	if (row.activeDays >= 5) {
-		return "Hot streak";
-	}
-
-	if (row.activeDays >= 2) {
-		return "Active";
-	}
-
-	return "Started";
+function TeamCardStatsColumn({ column }: { column: TeamCardStatColumn }) {
+	return (
+		<div
+			className={cn(
+				"flex flex-col justify-between gap-[8px]",
+				column.id === "right" ? "items-end" : undefined,
+			)}
+		>
+			{column.rows.map((row) => (
+				<div
+					key={`${column.id}-${row.label}`}
+					className={cn(
+						"flex min-w-0 items-baseline gap-[10px]",
+						column.id === "right" ? "justify-end" : undefined,
+					)}
+					title={row.title}
+				>
+					<div className="max-w-[74px] truncate leading-none tracking-[-0.02em] tabular-nums text-[#272423]">
+						{row.value}
+					</div>
+					<div className="shrink-0 leading-none tracking-[0.08em] text-black/42">
+						{row.label}
+					</div>
+				</div>
+			))}
+		</div>
+	);
 }
 
 function TeamMemberCard({ row }: { row: TeamPageMemberRow }) {
-	const visibleSkills = row.topSkills.slice(0, 2);
-	const hiddenSkillCount = Math.max(
-		row.topSkills.length - visibleSkills.length,
-		0,
-	);
-	const theme = teamCardThemes[getCardThemeName(row)];
-	const metrics = [
-		{ label: "Sessions", value: String(row.totalSessions) },
-		{ label: "Days", value: String(row.activeDays) },
-		{
-			label: "Tokens",
-			value: compactNumberFormatter.format(row.totalTokens),
-			title: `${row.totalTokens.toLocaleString()} tokens`,
-		},
-	] as const;
+	const tone = getCardTone(row);
+	const status = getCardStatus(row);
+	const stats = buildCardStats(row);
+	const displayModel = formatModelLabel(row.favoriteModel);
+	const initials = getAvatarInitials(row.displayName);
+	const topHeaderValue = compactNumberFormatter.format(row.totalTokens);
+	const portraitNote = getPortraitNote(row);
 
 	return (
 		<li className="list-none">
-			<Card
-				size="sm"
-				className={cn(
-					"relative isolate overflow-hidden rounded-[24px] border shadow-[0_20px_60px_-42px_rgba(15,23,42,0.28),0_1px_0_rgba(255,255,255,0.72)_inset]",
-					theme.cardClassName,
-				)}
-			>
-				<div
-					aria-hidden="true"
-					className={cn(
-						"pointer-events-none absolute inset-x-0 top-0 h-36",
-						theme.topGlowClassName,
-					)}
-				/>
-				<CardContent className="relative flex h-full flex-col gap-5 p-5">
-					<div className="flex items-start justify-between gap-3">
-						<Badge
-							variant="outline"
-							className={cn(
-								"h-auto border px-2.5 py-1 text-sm font-medium",
-								theme.modelBadgeClassName,
-							)}
-						>
-							{formatModelLabel(row.favoriteModel)}
-						</Badge>
-						<div className="flex items-center gap-2">
-							<span
-								aria-hidden="true"
-								className={cn("size-2 rounded-full", theme.accentDotClassName)}
-							/>
-							<p
-								className={cn("text-sm font-medium", theme.accentTextClassName)}
-							>
-								{getStatusLabel(row)}
-							</p>
+			<article className={adaptedTeamCardShellClassName}>
+				<div className="flex items-center justify-between">
+					<div
+						className="flex items-center"
+						title={`${row.totalTokens.toLocaleString()} total tokens`}
+					>
+						<div className={adaptedTeamCardHeaderValueClassName}>
+							{topHeaderValue}
 						</div>
-					</div>
-
-					<div className="flex items-center gap-4">
 						<div
 							className={cn(
-								"rounded-[20px] p-1.5 shadow-[0_1px_0_rgba(255,255,255,0.65)_inset]",
-								theme.avatarShellClassName,
+								adaptedTeamCardHeaderLabelClassName,
+								toneAccentClassNames[tone],
 							)}
 						>
-							<Avatar
-								size="lg"
-								className="size-14 border border-black/10 bg-white/85 shadow-sm"
-							>
-								{row.imageUrl ? (
-									<AvatarImage src={row.imageUrl} alt="" />
-								) : null}
-								<AvatarFallback className="bg-white/75 text-sm font-semibold text-black/60">
-									{getAvatarInitials(row.displayName)}
-								</AvatarFallback>
-							</Avatar>
-						</div>
-						<div className="min-w-0">
-							<p className="[font-family:var(--dashboard-01-font-roster-mono)] text-[11px] uppercase tracking-[0.16em] text-black/45">
-								{row.role}
-							</p>
-							<h2 className="[font-family:var(--dashboard-01-font-roster-display)] mt-1 truncate text-[28px] font-semibold tracking-[-0.04em] text-balance text-[#252220]">
-								{row.displayName}
-							</h2>
-							<p className="mt-1 truncate text-sm text-black/56">
-								{row.email ?? "No email available"}
-							</p>
+							TOKENS
 						</div>
 					</div>
+					<div className={adaptedTeamCardRoleClassName}>{row.role}</div>
+				</div>
 
-					<div className="grid grid-cols-3 rounded-[18px] border border-black/8 bg-white/78">
-						{metrics.map((metric, index) => (
+				<div className={adaptedTeamCardMediaPanelClassName}>
+					<div
+						className={cn(portraitPanelClassName, tonePortraitClassNames[tone])}
+					>
+						<div className="relative z-10 flex items-start justify-between gap-3">
 							<div
-								key={`${row.userId}-${metric.label}`}
 								className={cn(
-									"px-3 py-3",
-									index > 0 ? "border-l border-black/8" : undefined,
+									"text-[10px] font-semibold uppercase tracking-[0.16em]",
+									toneAccentClassNames[tone],
 								)}
-								title={metric.title}
 							>
-								<p
-									className={cn(
-										"[font-family:var(--dashboard-01-font-roster-mono)] text-[11px] uppercase tracking-[0.16em]",
-										theme.statLabelClassName,
-									)}
-								>
-									{metric.label}
-								</p>
-								<p
-									className={cn(
-										"mt-2 text-xl font-semibold tracking-[-0.03em]",
-										theme.statValueClassName,
-									)}
-								>
-									{metric.value}
-								</p>
+								{status}
 							</div>
+							<div className="flex size-[28px] items-center justify-center rounded-full bg-white/68 text-[10px] font-semibold uppercase tracking-[0.08em] text-black/65">
+								{initials}
+							</div>
+						</div>
+
+						{row.imageUrl ? (
+							<>
+								<img
+									src={row.imageUrl}
+									alt={row.displayName}
+									className="absolute inset-0 h-full w-full object-cover object-center"
+								/>
+								<div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.18)_0%,rgba(255,255,255,0)_34%,rgba(0,0,0,0.18)_100%)]" />
+								<div className="relative z-10 flex-1" />
+							</>
+						) : (
+							<div className="flex flex-1 items-center justify-center">
+								<div className={portraitPlaceholderInitialsClassName}>
+									{initials}
+								</div>
+							</div>
+						)}
+
+						<div className="relative z-10 text-[11px] font-medium uppercase tracking-[0.12em] text-black/56">
+							{portraitNote}
+						</div>
+					</div>
+				</div>
+
+				<div className="mt-[16px] px-[3px] text-center">
+					<div className={adaptedTeamCardNameClassName}>{row.displayName}</div>
+					<div className={adaptedTeamCardSubtitleClassName} title={displayModel}>
+						{displayModel}
+					</div>
+					<div
+						className={adaptedTeamCardFootnoteClassName}
+						title={row.email ? `All-time · ${row.email}` : "All-time teammate card"}
+					>
+						{row.email ? `All-time · ${row.email}` : "All-time teammate card"}
+					</div>
+				</div>
+
+				<div className={adaptedTeamCardStatsPanelClassName}>
+					<div className="team-lineup-featured-stats-panel__content grid h-full grid-cols-[max-content_max-content] justify-between px-[16px] py-[12px] [font-family:var(--dashboard-01-font-roster-mono)] text-[11px] font-normal text-[#4b4d49]">
+						{stats.map((column) => (
+							<TeamCardStatsColumn key={column.id} column={column} />
 						))}
 					</div>
-
-					<div className="space-y-2.5">
-						<div className="flex items-center justify-between gap-3">
-							<p className="[font-family:var(--dashboard-01-font-roster-mono)] text-[11px] uppercase tracking-[0.16em] text-black/45">
-								Top skills
-							</p>
-							<p className={cn("text-sm", theme.footerLabelClassName)}>
-								{formatLastActiveDate(row.lastActiveDate)}
-							</p>
-						</div>
-						{visibleSkills.length > 0 ? (
-							<div className="flex flex-wrap gap-2">
-								{visibleSkills.map((skill) => (
-									<Badge
-										key={`${row.userId}-${skill.name}`}
-										variant="outline"
-										className={cn(
-											"h-auto border px-2.5 py-1 text-sm font-medium",
-											theme.skillBadgeClassName,
-										)}
-									>
-										{skill.name}
-										<span className="text-black/45">×{skill.count}</span>
-									</Badge>
-								))}
-								{hiddenSkillCount > 0 ? (
-									<Badge
-										variant="outline"
-										className={cn(
-											"h-auto border px-2.5 py-1 text-sm font-medium",
-											theme.skillBadgeClassName,
-										)}
-									>
-										+{hiddenSkillCount} more
-									</Badge>
-								) : null}
-							</div>
-						) : (
-							<p className="text-sm text-black/52">
-								No tracked skill breakdown in this range.
-							</p>
-						)}
-					</div>
-
-					<div className="mt-auto flex items-center justify-between gap-3 border-t border-black/8 pt-3">
-						<p className={cn("text-sm", theme.footerLabelClassName)}>
-							{row.hasActivity
-								? `${row.activeDays} active day${row.activeDays === 1 ? "" : "s"} in range`
-								: "Waiting for first tracked session"}
-						</p>
-						<div className="flex items-center gap-2">
-							<span
-								aria-hidden="true"
-								className={cn("size-2 rounded-full", theme.accentDotClassName)}
-							/>
-							<p className="text-sm font-medium text-[#252220]">
-								{row.hasActivity ? "Tracked" : "Quiet"}
-							</p>
-						</div>
-					</div>
-				</CardContent>
-			</Card>
+				</div>
+			</article>
 		</li>
 	);
 }
 
 export function TeamMembersCardGrid({ rows }: { rows: TeamPageMemberRow[] }) {
 	return (
-		<ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-			{rows.map((row) => (
-				<TeamMemberCard key={row.userId} row={row} />
-			))}
-		</ul>
+		<div className="team-lineup-surface-scope">
+			<ul className="grid justify-items-center gap-y-4 sm:grid-cols-2 sm:gap-x-5 xl:grid-cols-3 xl:gap-x-4">
+				{rows.map((row) => (
+					<TeamMemberCard key={row.userId} row={row} />
+				))}
+			</ul>
+		</div>
 	);
 }

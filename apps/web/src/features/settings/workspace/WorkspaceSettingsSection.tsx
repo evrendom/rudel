@@ -1,9 +1,5 @@
-import { PlusIcon } from "lucide-react";
 import { useState } from "react";
-import { Link } from "react-router-dom";
 import { toast } from "sonner";
-import { appRoutes } from "@/app/routes";
-import { buttonVariants } from "@/app/ui/button";
 import { Card, CardContent } from "@/app/ui/card";
 import { Skeleton } from "@/app/ui/skeleton";
 import {
@@ -12,7 +8,6 @@ import {
 	PageViewTrackingMount,
 } from "@/features/analytics/tracking/PageViewTrackingMount";
 import { useAnalyticsTracking } from "@/features/analytics/tracking/useAnalyticsTracking";
-import { SettingsSectionIntro } from "@/features/settings/components/SettingsSectionIntro";
 import { useInvitationsSettingsData } from "@/features/settings/invitations/use-invitations-settings-data";
 import { CreateWorkspaceCard } from "@/features/settings/workspace/components/CreateWorkspaceCard";
 import { WorkspaceDangerZoneCard } from "@/features/settings/workspace/components/WorkspaceDangerZoneCard";
@@ -31,7 +26,7 @@ export function WorkspaceSettingsSection() {
 	const data = useWorkspaceSettingsData();
 	const invitationsData = useInvitationsSettingsData();
 	const { actions } = useOrganization();
-	const { trackAuthenticationAction, trackNavigation } = useAnalyticsTracking({
+	const { trackAuthenticationAction } = useAnalyticsTracking({
 		pageName: "organization",
 		organizationId: data.activeOrg?.id ?? null,
 	});
@@ -156,31 +151,6 @@ export function WorkspaceSettingsSection() {
 					metrics={trackingMetrics}
 					sections={trackingSections}
 				/>
-				<div className="px-4 lg:px-6">
-					<SettingsSectionIntro
-						title="Workspace"
-						description="Create your first workspace, or accept an invite to join one that already exists."
-						action={
-							<Link
-								to="#new-workspace"
-								className={buttonVariants({ variant: "outline", size: "sm" })}
-								onClick={() =>
-									trackNavigation({
-										navType: "organization_page",
-										sourceComponent: "workspace_settings_section",
-										targetPath: `${appRoutes.settingsWorkspace()}#new-workspace`,
-										targetType: "section",
-										toPageName: "organization_create",
-									})
-								}
-							>
-								<PlusIcon data-icon="inline-start" />
-								Create workspace
-							</Link>
-						}
-					/>
-				</div>
-
 				<div className="grid gap-4 px-4 lg:px-6 xl:grid-cols-[19fr_21fr]">
 					<WorkspaceEmptyStateCard />
 					<div id="new-workspace" className="scroll-mt-24">
@@ -220,31 +190,6 @@ export function WorkspaceSettingsSection() {
 				metrics={trackingMetrics}
 				sections={trackingSections}
 			/>
-			<div className="px-4 lg:px-6">
-				<SettingsSectionIntro
-					title="Workspace"
-					description="Manage the active workspace, team access, and any other workspace invitations tied to your account."
-					action={
-						<Link
-							to="#new-workspace"
-							className={buttonVariants({ variant: "outline", size: "sm" })}
-							onClick={() =>
-								trackNavigation({
-									navType: "organization_page",
-									sourceComponent: "workspace_settings_section",
-									targetPath: `${appRoutes.settingsWorkspace()}#new-workspace`,
-									targetType: "section",
-									toPageName: "organization_create",
-								})
-							}
-						>
-							<PlusIcon data-icon="inline-start" />
-							Create workspace
-						</Link>
-					}
-				/>
-			</div>
-
 			<div className="px-4 lg:px-6">
 				<WorkspaceSummaryStrip
 					tiles={data.summaryTiles}

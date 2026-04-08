@@ -4,6 +4,10 @@ import { useMemo } from "react";
 import { Bar, BarChart, XAxis, YAxis } from "recharts";
 import { type ChartConfig, ChartContainer, ChartTooltip } from "@/app/ui/chart";
 import { DashboardStackedTopRoundedBar } from "@/features/dashboard/components/DashboardStackedTopRoundedBar";
+import {
+	getDashboardBarLabelWidth,
+	getDashboardBarSize,
+} from "@/features/dashboard/components/dashboard-bar-chart-layout";
 import { cn } from "@/lib/utils";
 
 const chartConfig = {
@@ -97,42 +101,6 @@ function getAxisTicks(axisMax: number) {
 	);
 
 	return ticks.length > 1 ? ticks : [0, axisMax];
-}
-
-function getBarSize(total: number) {
-	if (total <= 7) {
-		return 120;
-	}
-
-	if (total <= 10) {
-		return 108;
-	}
-
-	if (total <= 14) {
-		return 90;
-	}
-
-	if (total <= 18) {
-		return 78;
-	}
-
-	return 66;
-}
-
-function getLabelWidth(total: number) {
-	if (total <= 7) {
-		return 130;
-	}
-
-	if (total <= 10) {
-		return 108;
-	}
-
-	if (total <= 14) {
-		return 92;
-	}
-
-	return 80;
 }
 
 function DashboardTokenDeveloperTooltip({
@@ -279,11 +247,11 @@ export function DashboardTokenDeveloperChart({
 	const axisMax = useMemo(() => getAxisMax(chartData), [chartData]);
 	const axisTicks = useMemo(() => getAxisTicks(axisMax), [axisMax]);
 	const barSize = useMemo(
-		() => getBarSize(chartData.length),
+		() => getDashboardBarSize(chartData.length),
 		[chartData.length],
 	);
 	const labelWidth = useMemo(
-		() => getLabelWidth(chartData.length),
+		() => getDashboardBarLabelWidth(chartData.length),
 		[chartData.length],
 	);
 

@@ -9,7 +9,6 @@ import { useAnalyticsTracking } from "@/features/analytics/tracking/useAnalytics
 import { ProfileLinkedAccountsCard } from "@/features/settings/account/components/ProfileLinkedAccountsCard";
 import { ProfileOverviewCard } from "@/features/settings/account/components/ProfileOverviewCard";
 import { useAccountSettingsData } from "@/features/settings/account/use-account-settings-data";
-import { SettingsSectionIntro } from "@/features/settings/components/SettingsSectionIntro";
 import { authClient, signOut } from "@/lib/auth-client";
 
 export function AccountSettingsSection() {
@@ -78,13 +77,6 @@ export function AccountSettingsSection() {
 					},
 				]}
 			/>
-			<div className="px-4 lg:px-6">
-				<SettingsSectionIntro
-					title="Profile"
-					description="Manage your identity, sign-in methods, appearance, and session access."
-				/>
-			</div>
-
 			{data.state.isPending ? (
 				<div className="grid gap-4 px-4 lg:px-6 xl:grid-cols-[1.05fr_1fr]">
 					<Card

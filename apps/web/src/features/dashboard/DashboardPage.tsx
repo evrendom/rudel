@@ -19,9 +19,11 @@ export function DashboardPage() {
 		errorDashboard,
 		errorDeveloperTrend,
 		errorProjectTrend,
+		isDashboardSnapshotPending,
 		isErrorDashboardPending,
 		isPerformanceChartPending,
 		isRepositoryChartPending,
+		isSessionSnapshotPending,
 		isTokenChartPending,
 		modelTokensTrend,
 		performanceUserDailyTrend,
@@ -93,6 +95,7 @@ export function DashboardPage() {
 					<DashboardTokensView
 						endDate={endDate}
 						isDeveloperChartPending={isTokenChartPending}
+						isSnapshotPending={isTokenChartPending}
 						modelTokensTrend={modelTokensTrend}
 						performanceUserDailyTrend={performanceUserDailyTrend}
 						performanceUsers={performanceUsers}
@@ -105,6 +108,7 @@ export function DashboardPage() {
 					<>
 						<DashboardPerformancePanel
 							isChartPending={isPerformanceChartPending}
+							isSnapshotPending={isDashboardSnapshotPending}
 							performanceUserDailyTrend={performanceUserDailyTrend}
 							performanceUsers={performanceUsers}
 							snapshot={snapshot}
@@ -133,6 +137,9 @@ export function DashboardPage() {
 					<DashboardRepositoriesView
 						endDate={endDate}
 						isDeveloperChartPending={isPerformanceChartPending}
+						isMetricsPending={
+							isDashboardSnapshotPending || isRepositoryChartPending
+						}
 						isRepositoryChartPending={isRepositoryChartPending}
 						performanceUserDailyTrend={performanceUserDailyTrend}
 						performanceUsers={performanceUsers}
@@ -146,6 +153,7 @@ export function DashboardPage() {
 					<DashboardSessionsView
 						isDeveloperChartPending={isPerformanceChartPending}
 						isRepositoryChartPending={isRepositoryChartPending}
+						isSnapshotPending={isSessionSnapshotPending}
 						performanceUserDailyTrend={performanceUserDailyTrend}
 						performanceUsers={performanceUsers}
 						repositories={snapshot.repositories}

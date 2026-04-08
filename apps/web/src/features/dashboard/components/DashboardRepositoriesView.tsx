@@ -143,6 +143,7 @@ function DashboardRepositoryStoryStrip({
 export function DashboardRepositoriesView({
 	endDate,
 	isDeveloperChartPending,
+	isMetricsPending = false,
 	isRepositoryChartPending,
 	performanceUserDailyTrend,
 	performanceUsers,
@@ -152,6 +153,7 @@ export function DashboardRepositoriesView({
 }: {
 	endDate: string;
 	isDeveloperChartPending: boolean;
+	isMetricsPending?: boolean;
 	isRepositoryChartPending: boolean;
 	performanceUserDailyTrend: UserDailyTrendData[] | undefined;
 	performanceUsers: DashboardPerformanceUserComparison[];
@@ -191,6 +193,7 @@ export function DashboardRepositoriesView({
 			<DashboardDailySnapshotSection
 				chartMode="repository-stack"
 				dailyPattern={dailyPattern}
+				isMetricsLoading={isMetricsPending}
 				metrics={headlineMetrics}
 				repositoryDailyTrend={repositoryDailyTrend}
 			/>

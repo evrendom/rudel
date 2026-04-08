@@ -3,6 +3,7 @@ import { GaugeIcon } from "lucide-react";
 import { Suspense, useMemo, useState } from "react";
 import { Skeleton } from "@/app/ui/skeleton";
 import { ToggleGroup, ToggleGroupItem } from "@/app/ui/toggle-group";
+import { DashboardAnalysisPanel } from "@/features/dashboard/components/DashboardAnalysisPanel";
 import { DashboardPerformanceTrendChart } from "@/features/dashboard/components/DashboardPerformanceTrendChart";
 import {
 	DashboardTokenDeveloperChart,
@@ -158,85 +159,76 @@ export function DashboardTokenDeveloperPanel({
 	}
 
 	return (
-		<div className="flex flex-col gap-8">
-			<div className="grid gap-4">
-				<div className="flex flex-col gap-3 px-1 sm:flex-row sm:items-center sm:justify-between">
-					<div className="flex items-center gap-2.5">
-						<GaugeIcon className="size-5 text-[color:var(--dashboardy-heading)]" />
-						<h2 className="dashboardy-section-title text-xl/7">By developer</h2>
-					</div>
-					<ToggleGroup
-						aria-label="Developer token view"
-						className="dashboardy-toggle-group self-start"
-						size="sm"
-						spacing={0}
-						value={[chartView]}
-						variant="outline"
-						onValueChange={(nextValue) => {
-							const nextView = nextValue[0];
+		<DashboardAnalysisPanel
+			title="By developer"
+			icon={
+				<GaugeIcon className="size-5 text-[color:var(--dashboardy-heading)]" />
+			}
+			controls={
+				<ToggleGroup
+					aria-label="Developer token view"
+					className="dashboardy-toggle-group self-start"
+					size="sm"
+					spacing={0}
+					value={[chartView]}
+					variant="outline"
+					onValueChange={(nextValue) => {
+						const nextView = nextValue[0];
 
-							if (nextView === "total" || nextView === "over-time") {
-								setChartView(nextView);
-							}
-						}}
-					>
-						<ToggleGroupItem value="total" className="dashboardy-toggle-item">
-							Total
-						</ToggleGroupItem>
-						<ToggleGroupItem
-							value="over-time"
-							className="dashboardy-toggle-item"
-						>
-							Over time
-						</ToggleGroupItem>
-					</ToggleGroup>
-				</div>
-				<div className="rounded-[1.4rem] border border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-subsurface)]">
-					<div className="px-3 py-2 sm:px-4 sm:py-3">
-						<div className="h-[18.5rem] sm:h-[20rem]">
-							{isChartPending ? (
-								<DashboardTokenDeveloperChartFallback />
-							) : chartView === "over-time" ? (
-								hasTrendData ? (
-									<Suspense fallback={<DashboardTokenDeveloperChartFallback />}>
-										<DashboardPerformanceTrendChart
-											availableMetrics={["tokens"]}
-											highlightedSeriesId={highlightedUserId}
-											hiddenSeriesIds={hiddenTrendSeriesIds}
-											metric={trendMetric}
-											onMetricChange={setTrendMetric}
-											onToggleSeries={handleToggleTrendSeries}
-											trendData={performanceUserDailyTrend}
-											trendSeries={trendSeries}
-										/>
-									</Suspense>
-								) : (
-									<div className="flex h-full items-center justify-center px-6 text-center text-sm text-muted-foreground">
-										No developer token activity in the selected range.
-									</div>
-								)
-							) : hasChartData ? (
-								<DashboardTokenDeveloperChart
-									activeId={highlightedUserId}
-									data={selectedChartData}
-								/>
-							) : (
-								<div className="flex h-full items-center justify-center px-6 text-center text-sm text-muted-foreground">
-									No developer token activity in the selected range.
-								</div>
-							)}
+						if (nextView === "total" || nextView === "over-time") {
+							setChartView(nextView);
+						}
+					}}
+				>
+					<ToggleGroupItem value="total" className="dashboardy-toggle-item">
+						Total
+					</ToggleGroupItem>
+					<ToggleGroupItem value="over-time" className="dashboardy-toggle-item">
+						Over time
+					</ToggleGroupItem>
+				</ToggleGroup>
+			}
+			chartContent={
+				isChartPending ? (
+					<DashboardTokenDeveloperChartFallback />
+				) : chartView === "over-time" ? (
+					hasTrendData ? (
+						<Suspense fallback={<DashboardTokenDeveloperChartFallback />}>
+							<DashboardPerformanceTrendChart
+								availableMetrics={["tokens"]}
+								highlightedSeriesId={highlightedUserId}
+								hiddenSeriesIds={hiddenTrendSeriesIds}
+								metric={trendMetric}
+								onMetricChange={setTrendMetric}
+								onToggleSeries={handleToggleTrendSeries}
+								trendData={performanceUserDailyTrend}
+								trendSeries={trendSeries}
+							/>
+						</Suspense>
+					) : (
+						<div className="flex h-full items-center justify-center px-6 text-center text-sm text-muted-foreground">
+							No developer token activity in the selected range.
 						</div>
+					)
+				) : hasChartData ? (
+					<DashboardTokenDeveloperChart
+						activeId={highlightedUserId}
+						data={selectedChartData}
+					/>
+				) : (
+					<div className="flex h-full items-center justify-center px-6 text-center text-sm text-muted-foreground">
+						No developer token activity in the selected range.
 					</div>
-				</div>
-			</div>
-			<div className="border-t border-[color:var(--dashboardy-divider)] pt-8">
+				)
+			}
+			tableContent={
 				<DashboardTokenDeveloperTable
 					highlightedDate={null}
 					onHighlightUserChange={setHighlightedUserId}
 					performanceUsers={performanceUsers}
 					trendData={performanceUserDailyTrend}
 				/>
-			</div>
-		</div>
+			}
+		/>
 	);
 }

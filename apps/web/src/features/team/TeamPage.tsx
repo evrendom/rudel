@@ -1,5 +1,4 @@
 import { AlertCircleIcon } from "lucide-react";
-import { Badge } from "@/app/ui/badge";
 import { Button } from "@/app/ui/button";
 import {
 	Card,
@@ -234,9 +233,6 @@ export function TeamPage() {
 		refetch,
 		teamCards,
 	} = useTeamPageData();
-	const activeMemberCount = teamMemberRows.filter(
-		(row) => row.hasActivity,
-	).length;
 	const showUnreleasedLineupCards = false;
 
 	let content = <TeamMembersCardGrid rows={teamMemberRows} />;
@@ -257,31 +253,6 @@ export function TeamPage() {
 
 	return (
 		<>
-			<div className="px-4 lg:px-6">
-				<div className="flex flex-col gap-3 border-b border-border/60 pb-5 sm:flex-row sm:items-end sm:justify-between">
-					<div className="grid gap-1">
-						<h1 className="text-2xl font-semibold tracking-tight text-foreground">
-							Team
-						</h1>
-						<p className="max-w-2xl text-sm text-muted-foreground">
-							Card roster for every workspace member in the selected date range.
-						</p>
-					</div>
-					<div className="flex flex-wrap items-center gap-2">
-						<Badge variant="outline">Card roster</Badge>
-						{isPending && teamMemberRows.length === 0 ? (
-							<Badge variant="outline">Loading roster</Badge>
-						) : null}
-						{teamMemberRows.length > 0 ? (
-							<>
-								<Badge variant="outline">{teamMemberRows.length} members</Badge>
-								<Badge variant="outline">{activeMemberCount} active</Badge>
-							</>
-						) : null}
-					</div>
-				</div>
-			</div>
-
 			<div className="px-4 lg:px-6">{content}</div>
 
 			{/* Unreleased feature: keep the postponed lineup gallery in code only

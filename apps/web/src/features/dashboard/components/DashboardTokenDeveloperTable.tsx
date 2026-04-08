@@ -1,6 +1,5 @@
 import type { UserDailyTrendData } from "@rudel/api-routes";
-import { useRef } from "react";
-import { useMountEffect } from "@/app/hooks/useMountEffect";
+import { DashboardGridTable } from "@/features/dashboard/components/DashboardGridTable";
 import { DashboardModelBadges } from "@/features/dashboard/components/DashboardModelBadges";
 import type { DashboardPerformanceUserComparison } from "@/features/dashboard/data/dashboard-performance-adapter";
 
@@ -72,78 +71,64 @@ export function DashboardTokenDeveloperTable({
 	trendData: UserDailyTrendData[] | undefined;
 }) {
 	const rows = buildRows(performanceUsers, highlightedDate, trendData);
-	const rowContainerRef = useRef<HTMLDivElement | null>(null);
-
-	useMountEffect(() => {
-		const element = rowContainerRef.current;
-
-		if (!element || !onHighlightUserChange) {
-			return;
-		}
-
-		const handlePointerOver = (event: PointerEvent) => {
-			const target = event.target;
-
-			if (!(target instanceof Element)) {
-				return;
-			}
-
-			const row = target.closest<HTMLElement>("[data-token-row-id]");
-
-			onHighlightUserChange(row?.dataset.tokenRowId ?? null);
-		};
-
-		const handlePointerLeave = () => {
-			onHighlightUserChange(null);
-		};
-
-		element.addEventListener("pointerover", handlePointerOver);
-		element.addEventListener("pointerleave", handlePointerLeave);
-
-		return () => {
-			element.removeEventListener("pointerover", handlePointerOver);
-			element.removeEventListener("pointerleave", handlePointerLeave);
-		};
-	});
 
 	return (
-		<div className="overflow-x-auto">
-			<div className="flex min-w-[54rem] flex-col gap-1">
-				<div className="grid grid-cols-[minmax(180px,11fr)_minmax(180px,9fr)_90px_120px_120px] gap-6 px-3.5 text-[13px] font-semibold text-[color:var(--dashboardy-muted)]">
-					<p>User</p>
-					<p>Models used</p>
-					<p>Sessions</p>
-					<p>Tokens</p>
-					<p>Avg / session</p>
-				</div>
-				<div ref={rowContainerRef} className="grid gap-0">
-					{rows.map((row) => (
-						<div
-							key={row.id}
-							data-token-row-id={row.id}
-							className="grid min-h-12 grid-cols-[minmax(180px,11fr)_minmax(180px,9fr)_90px_120px_120px] items-center gap-6 rounded-lg px-3.5 py-2 text-sm odd:bg-[color:var(--dashboardy-subsurface-strong)]"
-						>
-							<p className="truncate font-semibold text-[color:var(--dashboardy-heading)]">
-								{row.userLabel}
-							</p>
-							<div className="flex min-w-0 flex-wrap items-center gap-1.5">
-								<DashboardModelBadges models={row.modelsUsed} />
-							</div>
-							<p className="font-medium tabular-nums text-[color:var(--dashboardy-heading)]">
-								{row.sessions}
-							</p>
-							<p className="font-medium tabular-nums text-[color:var(--dashboardy-heading)]">
-								{formatCompactNumber(row.totalTokens)}
-							</p>
-							<p className="font-medium tabular-nums text-[color:var(--dashboardy-heading)]">
-								{row.sessions > 0
-									? formatCompactNumber(row.avgTokensPerSession)
-									: "—"}
-							</p>
+		<DashboardGridTable
+			columns={[
+				{
+					id: "user",
+					header: "User",
+					renderCell: (row) => (
+						<p className="truncate font-semibold text-[color:var(--dashboardy-heading)]">
+							{row.userLabel}
+						</p>
+					),
+				},
+				{
+					id: "models",
+					header: "Models used",
+					renderCell: (row) => (
+						<div className="flex min-w-0 flex-wrap items-center gap-1.5">
+							<DashboardModelBadges models={row.modelsUsed} />
 						</div>
-					))}
-				</div>
-			</div>
-		</div>
+					),
+				},
+				{
+					id: "sessions",
+					header: "Sessions",
+					renderCell: (row) => (
+						<p className="font-medium tabular-nums text-[color:var(--dashboardy-heading)]">
+							{row.sessions}
+						</p>
+					),
+				},
+				{
+					id: "tokens",
+					header: "Tokens",
+					renderCell: (row) => (
+						<p className="font-medium tabular-nums text-[color:var(--dashboardy-heading)]">
+							{formatCompactNumber(row.totalTokens)}
+						</p>
+					),
+				},
+				{
+					id: "avg",
+					header: "Avg / session",
+					renderCell: (row) => (
+						<p className="font-medium tabular-nums text-[color:var(--dashboardy-heading)]">
+							{row.sessions > 0
+								? formatCompactNumber(row.avgTokensPerSession)
+								: "—"}
+						</p>
+					),
+				},
+			]}
+			rows={rows}
+			rowKey={(row) => row.id}
+			gridTemplateColumns="minmax(180px,11fr) minmax(180px,9fr) 90px 120px 120px"
+			minWidthClassName="min-w-[54rem]"
+			onRowHoverChange={onHighlightUserChange}
+			getHoverRowId={(row) => row.id}
+		/>
 	);
 }

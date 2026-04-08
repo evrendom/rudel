@@ -1,5 +1,10 @@
 import type { SessionAnalytics } from "@rudel/api-routes";
 import { Skeleton } from "@/app/ui/skeleton";
+import {
+	DashboardCellStack,
+	DashboardGridTable,
+	DashboardTableFooterNote,
+} from "@/features/dashboard/components/DashboardGridTable";
 import { DashboardModelBadges } from "@/features/dashboard/components/DashboardModelBadges";
 import { useUserMap } from "@/hooks/useUserMap";
 import {
@@ -127,78 +132,100 @@ export function DashboardTokenRecentSessionsTable({
 					Last {recentSessions.length} sessions
 				</p>
 			</div>
-			<div className="overflow-x-auto">
-				<div className="flex min-w-[68rem] flex-col gap-1">
-					<div className="grid grid-cols-[120px_minmax(180px,11fr)_minmax(180px,9fr)_minmax(180px,9fr)_120px_120px] gap-6 px-3.5 text-[13px] font-semibold text-[color:var(--dashboardy-muted)]">
-						<p>Time</p>
-						<p>Developer</p>
-						<p>Repository</p>
-						<p>Model</p>
-						<p>Tokens</p>
-						<p>Duration</p>
-					</div>
-					<div className="grid gap-0">
-						{recentSessions.map((session) => {
-							const userLabel = formatUsername(session.user_id, userMap);
+			<DashboardGridTable
+				columns={[
+					{
+						id: "time",
+						header: "Time",
+						renderCell: (session) => (
+							<DashboardCellStack
+								primary={formatRelativeTime(session.session_date)}
+								secondary={formatSessionTimestamp(session.session_date)}
+								primaryClassName="font-medium"
+							/>
+						),
+					},
+					{
+						id: "developer",
+						header: "Developer",
+						renderCell: (session) => (
+							<p className="truncate font-semibold text-[color:var(--dashboardy-heading)]">
+								{formatUsername(session.user_id, userMap)}
+							</p>
+						),
+					},
+					{
+						id: "repository",
+						header: "Repository",
+						renderCell: (session) => {
 							const repositoryLabel = getRepositoryLabel(session);
-							const modelList = getModelList(session);
-							const absoluteTime = formatSessionTimestamp(session.session_date);
-							const tokenBreakdown = `${session.input_tokens.toLocaleString()} input · ${session.output_tokens.toLocaleString()} output`;
 							const fullRepositoryLabel =
 								session.repository || session.project_path || repositoryLabel;
 
 							return (
-								<div
-									key={session.session_id}
-									className="grid min-h-12 grid-cols-[120px_minmax(180px,11fr)_minmax(180px,9fr)_minmax(180px,9fr)_120px_120px] items-center gap-6 rounded-lg px-3.5 py-2 text-sm odd:bg-[color:var(--dashboardy-subsurface-strong)]"
+								<p
+									className="truncate font-medium text-[color:var(--dashboardy-heading)]"
+									title={fullRepositoryLabel}
 								>
-									<p
-										className="truncate font-medium text-[color:var(--dashboardy-heading)]"
-										title={absoluteTime}
-									>
-										{formatRelativeTime(session.session_date)}
-									</p>
-									<p className="truncate font-semibold text-[color:var(--dashboardy-heading)]">
-										{userLabel}
-									</p>
-									<p
-										className="truncate font-medium text-[color:var(--dashboardy-heading)]"
-										title={fullRepositoryLabel}
-									>
-										{repositoryLabel}
-									</p>
-									<div className="flex min-w-0 flex-wrap items-center gap-1.5">
-										{modelList.length > 0 ? (
-											<DashboardModelBadges models={modelList} />
-										) : (
-											<span className="text-[12px] text-[color:var(--dashboardy-muted)]">
-												—
-											</span>
-										)}
-									</div>
-									<p
-										className="font-medium tabular-nums text-[color:var(--dashboardy-heading)]"
-										title={tokenBreakdown}
-									>
-										{formatCompactNumber(session.total_tokens)}
-									</p>
-									<p className="font-medium tabular-nums text-[color:var(--dashboardy-heading)]">
-										{formatMinutes(session.duration_min)}
-									</p>
+									{repositoryLabel}
+								</p>
+							);
+						},
+					},
+					{
+						id: "model",
+						header: "Model",
+						renderCell: (session) => {
+							const modelList = getModelList(session);
+
+							return (
+								<div className="flex min-w-0 flex-wrap items-center gap-1.5">
+									{modelList.length > 0 ? (
+										<DashboardModelBadges models={modelList} />
+									) : (
+										<span className="text-[12px] text-[color:var(--dashboardy-muted)]">
+											—
+										</span>
+									)}
 								</div>
 							);
-						})}
-					</div>
-				</div>
-			</div>
-			{hiddenSessionCount > 0 ? (
-				<div className="flex justify-end px-1">
-					{/* TODO: Turn this footer count into a real drill-down affordance from the token tab. */}
-					<p className="text-[13px] font-medium text-[color:var(--dashboardy-muted)]">
-						{hiddenSessionCount} more
-					</p>
-				</div>
-			) : null}
+						},
+					},
+					{
+						id: "tokens",
+						header: "Tokens",
+						renderCell: (session) => (
+							<p
+								className="font-medium tabular-nums text-[color:var(--dashboardy-heading)]"
+								title={`${session.input_tokens.toLocaleString()} input · ${session.output_tokens.toLocaleString()} output`}
+							>
+								{formatCompactNumber(session.total_tokens)}
+							</p>
+						),
+					},
+					{
+						id: "duration",
+						header: "Duration",
+						renderCell: (session) => (
+							<p className="font-medium tabular-nums text-[color:var(--dashboardy-heading)]">
+								{formatMinutes(session.duration_min)}
+							</p>
+						),
+					},
+				]}
+				rows={recentSessions}
+				rowKey={(session) => session.session_id}
+				gridTemplateColumns="120px minmax(180px,11fr) minmax(180px,9fr) minmax(180px,9fr) 120px 120px"
+				minWidthClassName="min-w-[68rem]"
+				footer={
+					hiddenSessionCount > 0 ? (
+						<DashboardTableFooterNote>
+							{/* TODO: Turn this footer count into a real drill-down affordance from the token tab. */}
+							<p>{hiddenSessionCount} more</p>
+						</DashboardTableFooterNote>
+					) : null
+				}
+			/>
 		</div>
 	);
 }

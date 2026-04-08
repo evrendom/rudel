@@ -6,11 +6,13 @@ import type { DashboardOutputSnapshot } from "@/features/dashboard/data/dashboar
 
 export function DashboardPerformancePanel({
 	isChartPending,
+	isSnapshotPending = false,
 	performanceUserDailyTrend,
 	performanceUsers,
 	snapshot,
 }: {
 	isChartPending: boolean;
+	isSnapshotPending?: boolean;
 	performanceUserDailyTrend: UserDailyTrendData[] | undefined;
 	performanceUsers: DashboardPerformanceUserComparison[];
 	snapshot: DashboardOutputSnapshot;
@@ -19,6 +21,7 @@ export function DashboardPerformancePanel({
 		<section className="@container/performance-panel flex flex-col gap-8">
 			<DashboardDailySnapshotSection
 				dailyPattern={snapshot.dailyPattern}
+				isMetricsLoading={isSnapshotPending}
 				metrics={snapshot.headlineMetrics}
 			/>
 			<DashboardDeveloperPanel

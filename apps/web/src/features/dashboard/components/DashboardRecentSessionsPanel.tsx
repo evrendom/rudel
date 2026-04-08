@@ -4,8 +4,12 @@ import { Component, type ReactNode, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/app/ui/button";
 import { Skeleton } from "@/app/ui/skeleton";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/app/ui/tooltip";
 import { useAnalyticsQuery } from "@/features/analytics/queries/useAnalyticsQuery";
+import {
+	DashboardCellStack,
+	DashboardGridTable,
+	DashboardInlineOverflowList,
+} from "@/features/dashboard/components/DashboardGridTable";
 import { useCanViewSession } from "@/features/workspace/hooks/useCanViewSession";
 import { useUserMap } from "@/hooks/useUserMap";
 import {
@@ -111,6 +115,15 @@ function getFeatureItems(items: string[], limit = 4) {
 	const hiddenCount = Math.max(uniqueItems.length - visibleItems.length, 0);
 
 	return { hiddenCount, visibleItems };
+}
+
+function getSessionSkillItems(session: SessionAnalytics) {
+	const skills = toStringArray(session.skills);
+
+	return {
+		hiddenItems: skills.slice(2),
+		visibleItems: skills.slice(0, 2),
+	};
 }
 
 const SESSION_PANEL_SKELETON_IDS = [
@@ -386,21 +399,110 @@ function DashboardRecentSessionsPanelContent({
 					</p>
 				</div>
 				<div className="mt-4 overflow-x-auto border-y border-[color:var(--dashboardy-divider)]">
-					<div className="hidden min-w-[68rem] grid-cols-[minmax(180px,1.15fr)_minmax(180px,1fr)_minmax(180px,1fr)_minmax(220px,1.1fr)_120px_120px] gap-6 px-3.5 py-2 text-[13px] font-semibold text-[color:var(--dashboardy-muted)] md:grid">
-						<p>Time</p>
-						<p>Developer</p>
-						<p>Repository</p>
-						<p>Skills used</p>
-						<p>Tokens</p>
-						<p>Duration</p>
+					<div className="hidden md:block">
+						<DashboardGridTable
+							columns={[
+								{
+									id: "time",
+									header: "Time",
+									renderCell: (session) => (
+										<DashboardCellStack
+											primary={formatRelativeTime(
+												toOptionalString(session.session_date) ??
+													new Date().toISOString(),
+											)}
+											secondary={formatSessionTimestamp(session.session_date)}
+											secondaryClassName="font-mono"
+										/>
+									),
+								},
+								{
+									id: "developer",
+									header: "Developer",
+									renderCell: (session) => (
+										<p className="truncate font-semibold text-[color:var(--dashboardy-heading)]">
+											{formatUsername(session.user_id, userMap)}
+										</p>
+									),
+								},
+								{
+									id: "repository",
+									header: "Repository",
+									renderCell: (session) => (
+										<p className="truncate font-semibold text-[color:var(--dashboardy-heading)]">
+											{getRepositoryTail(
+												toOptionalString(session.repository) ??
+													toOptionalString(session.project_path),
+											)}
+										</p>
+									),
+								},
+								{
+									id: "skills",
+									header: "Skills used",
+									renderCell: (session) => {
+										const { hiddenItems, visibleItems } =
+											getSessionSkillItems(session);
+
+										return visibleItems.length > 0 ? (
+											<p className="truncate text-[13px] font-medium text-[color:var(--dashboardy-heading)]">
+												<DashboardInlineOverflowList
+													visibleItems={visibleItems}
+													hiddenItems={hiddenItems}
+													overflowLabel={`${hiddenItems.length} more`}
+												/>
+											</p>
+										) : (
+											<span className="text-[12px] text-[color:var(--dashboardy-muted)]">
+												—
+											</span>
+										);
+									},
+								},
+								{
+									id: "tokens",
+									header: "Tokens",
+									renderCell: (session) => (
+										<p className="font-medium tabular-nums text-[color:var(--dashboardy-heading)]">
+											{formatCompactNumber(toNumber(session.total_tokens))}
+										</p>
+									),
+								},
+								{
+									id: "duration",
+									header: "Duration",
+									renderCell: (session) => (
+										<p className="font-medium tabular-nums text-[color:var(--dashboardy-heading)]">
+											{formatMinutes(toNumber(session.duration_min))}
+										</p>
+									),
+								},
+							]}
+							rows={recentSessions}
+							rowKey={(session) => session.session_id}
+							className="overflow-visible"
+							gridTemplateColumns="minmax(180px,1.15fr) minmax(180px,1fr) minmax(180px,1fr) minmax(220px,1.1fr) 120px 120px"
+							minWidthClassName="min-w-[68rem]"
+							bodyClassName="gap-0"
+							onRowClick={(session) => setSelectedSessionId(session.session_id)}
+							isRowSelected={(session) =>
+								session.session_id === selectedSession?.session_id
+							}
+							rowClassName={(session, index) =>
+								cn(
+									"hover:bg-[color:var(--dashboardy-subsurface)]/80",
+									index > 0 &&
+										"border-t border-[color:var(--dashboardy-divider)]",
+									session.session_id === selectedSession?.session_id &&
+										"bg-[color:var(--dashboardy-row-hover)]",
+								)
+							}
+						/>
 					</div>
-					<div className="grid">
+					<div className="grid md:hidden">
 						{recentSessions.map((session, index) => {
 							const isSelected =
 								session.session_id === selectedSession?.session_id;
-							const visibleSkills = toStringArray(session.skills).slice(0, 2);
-							const hiddenSkills = toStringArray(session.skills).slice(2);
-							const hiddenSkillCount = hiddenSkills.length;
 
 							return (
 								<button
@@ -408,7 +510,7 @@ function DashboardRecentSessionsPanelContent({
 									type="button"
 									aria-pressed={isSelected}
 									className={cn(
-										"grid gap-3 px-3.5 py-3 text-left transition-colors duration-200 md:min-h-12 md:grid-cols-[minmax(180px,1.15fr)_minmax(180px,1fr)_minmax(180px,1fr)_minmax(220px,1.1fr)_120px_120px] md:items-center",
+										"grid gap-3 px-3.5 py-3 text-left transition-colors duration-200",
 										index > 0 &&
 											"border-t border-[color:var(--dashboardy-divider)]",
 										isSelected
@@ -442,48 +544,24 @@ function DashboardRecentSessionsPanelContent({
 										</p>
 									</div>
 									<div className="flex min-w-0 flex-wrap items-center gap-1.5">
-										{visibleSkills.length > 0 ? (
-											<p className="truncate text-[13px] font-medium text-[color:var(--dashboardy-heading)]">
-												{visibleSkills.map((skill, skillIndex) => (
-													<span key={`${session.session_id}-${skill}`}>
-														{skillIndex > 0 ? ", " : null}
-														{skill}
-													</span>
-												))}
-												{hiddenSkillCount > 0 ? (
-													<>
-														{visibleSkills.length > 0 ? ", " : null}
-														<Tooltip>
-															<TooltipTrigger
-																render={
-																	<span className="cursor-help text-[color:var(--dashboardy-muted)] underline decoration-black/10 underline-offset-2" />
-																}
-															>
-																{hiddenSkillCount} more
-															</TooltipTrigger>
-															<TooltipContent
-																align="start"
-																className="max-w-sm"
-															>
-																<div className="grid gap-0.5">
-																	{hiddenSkills.map((skill) => (
-																		<p
-																			key={`${session.session_id}-skill-${skill}`}
-																		>
-																			{skill}
-																		</p>
-																	))}
-																</div>
-															</TooltipContent>
-														</Tooltip>
-													</>
-												) : null}
-											</p>
-										) : (
-											<span className="text-[12px] text-[color:var(--dashboardy-muted)]">
-												—
-											</span>
-										)}
+										{(() => {
+											const { hiddenItems, visibleItems } =
+												getSessionSkillItems(session);
+
+											return visibleItems.length > 0 ? (
+												<p className="truncate text-[13px] font-medium text-[color:var(--dashboardy-heading)]">
+													<DashboardInlineOverflowList
+														visibleItems={visibleItems}
+														hiddenItems={hiddenItems}
+														overflowLabel={`${hiddenItems.length} more`}
+													/>
+												</p>
+											) : (
+												<span className="text-[12px] text-[color:var(--dashboardy-muted)]">
+													—
+												</span>
+											);
+										})()}
 									</div>
 									<div className="min-w-0">
 										<p className="font-medium tabular-nums text-[color:var(--dashboardy-heading)]">

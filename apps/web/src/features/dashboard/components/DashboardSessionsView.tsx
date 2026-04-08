@@ -17,6 +17,7 @@ import { orpc } from "@/lib/orpc";
 export function DashboardSessionsView({
 	isDeveloperChartPending,
 	isRepositoryChartPending,
+	isSnapshotPending = false,
 	performanceUserDailyTrend,
 	performanceUsers,
 	repositories,
@@ -25,6 +26,7 @@ export function DashboardSessionsView({
 }: {
 	isDeveloperChartPending: boolean;
 	isRepositoryChartPending: boolean;
+	isSnapshotPending?: boolean;
 	performanceUserDailyTrend: UserDailyTrendData[] | undefined;
 	performanceUsers: DashboardPerformanceUserComparison[];
 	repositories: DashboardRankedOutputRow[];
@@ -80,6 +82,7 @@ export function DashboardSessionsView({
 			<DashboardSessionsSnapshotSection
 				hourlyActivity={sessionHourlyActivity}
 				isHourlyActivityPending={isSessionHourlyActivityPending}
+				isMetricsPending={isSnapshotPending}
 				isRecentSessionsPending={isRecentSessionsPending}
 				metrics={headlineMetrics}
 				recentSessions={sortedRecentSessions}

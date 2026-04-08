@@ -3,6 +3,7 @@ import { FolderGit2Icon } from "lucide-react";
 import { lazy, Suspense, useMemo, useState } from "react";
 import { Skeleton } from "@/app/ui/skeleton";
 import { ToggleGroup, ToggleGroupItem } from "@/app/ui/toggle-group";
+import { DashboardAnalysisPanel } from "@/features/dashboard/components/DashboardAnalysisPanel";
 import { buildDashboardRepositoryChartData } from "@/features/dashboard/components/DashboardRepositoryChart";
 import { DashboardRepositoryTable } from "@/features/dashboard/components/DashboardRepositoryTable";
 import {
@@ -128,92 +129,80 @@ export function DashboardRepositoryPanel({
 	}
 
 	return (
-		<div className="flex flex-col gap-8">
-			<div className="grid gap-4">
-				<div className="flex flex-col gap-3 px-1 sm:flex-row sm:items-center sm:justify-between">
-					<div className="flex items-center gap-2.5">
-						<FolderGit2Icon className="size-5 text-[color:var(--dashboardy-heading)]" />
-						<h3 className="dashboardy-section-title text-lg/7">
-							By repository
-						</h3>
-					</div>
-					<ToggleGroup
-						aria-label="Repository performance view"
-						className="dashboardy-toggle-group self-start"
-						size="sm"
-						spacing={0}
-						value={[chartView]}
-						variant="outline"
-						onValueChange={(nextValue) => {
-							const nextView = nextValue[0];
+		<DashboardAnalysisPanel
+			title="By repository"
+			titleLevel="h3"
+			icon={
+				<FolderGit2Icon className="size-5 text-[color:var(--dashboardy-heading)]" />
+			}
+			chartShellDataSlot="dashboard-repository-chart-shell"
+			controls={
+				<ToggleGroup
+					aria-label="Repository performance view"
+					className="dashboardy-toggle-group self-start"
+					size="sm"
+					spacing={0}
+					value={[chartView]}
+					variant="outline"
+					onValueChange={(nextValue) => {
+						const nextView = nextValue[0];
 
-							if (nextView === "total" || nextView === "over-time") {
-								setChartView(nextView);
-							}
-						}}
-					>
-						<ToggleGroupItem value="total" className="dashboardy-toggle-item">
-							Total
-						</ToggleGroupItem>
-						<ToggleGroupItem
-							value="over-time"
-							className="dashboardy-toggle-item"
-						>
-							Over time
-						</ToggleGroupItem>
-					</ToggleGroup>
-				</div>
-				<div className="rounded-[1.4rem] border border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-subsurface)]">
-					<div className="px-3 py-2 sm:px-4 sm:py-3">
-						<div
-							data-slot="dashboard-repository-chart-shell"
-							className="h-[18.5rem] sm:h-[20rem]"
-						>
-							{isChartPending ? (
-								<DashboardRepositoryChartFallback />
-							) : chartView === "over-time" ? (
-								hasTrendData ? (
-									<Suspense fallback={<DashboardRepositoryChartFallback />}>
-										<DashboardRepositoryTrendChart
-											highlightedSeriesId={highlightedRepositoryId}
-											hiddenRows={hiddenChartRows}
-											hiddenSeriesIds={hiddenTrendSeriesIds}
-											metric={trendMetric}
-											onMetricChange={setTrendMetric}
-											onToggleSeries={handleToggleTrendSeries}
-											trendData={repositoryDailyTrend}
-											trendSeries={trendSeries}
-										/>
-									</Suspense>
-								) : (
-									<div className="flex h-full items-center justify-center px-6 text-center text-sm text-muted-foreground">
-										No repository activity in the selected range.
-									</div>
-								)
-							) : hasChartData ? (
-								<Suspense fallback={<DashboardRepositoryChartFallback />}>
-									<DashboardRepositoryChart
-										activeId={highlightedRepositoryId}
-										data={chartData}
-									/>
-								</Suspense>
-							) : (
-								<div className="flex h-full items-center justify-center px-6 text-center text-sm text-muted-foreground">
-									No repository activity in the selected range.
-								</div>
-							)}
+						if (nextView === "total" || nextView === "over-time") {
+							setChartView(nextView);
+						}
+					}}
+				>
+					<ToggleGroupItem value="total" className="dashboardy-toggle-item">
+						Total
+					</ToggleGroupItem>
+					<ToggleGroupItem value="over-time" className="dashboardy-toggle-item">
+						Over time
+					</ToggleGroupItem>
+				</ToggleGroup>
+			}
+			chartContent={
+				isChartPending ? (
+					<DashboardRepositoryChartFallback />
+				) : chartView === "over-time" ? (
+					hasTrendData ? (
+						<Suspense fallback={<DashboardRepositoryChartFallback />}>
+							<DashboardRepositoryTrendChart
+								highlightedSeriesId={highlightedRepositoryId}
+								hiddenRows={hiddenChartRows}
+								hiddenSeriesIds={hiddenTrendSeriesIds}
+								metric={trendMetric}
+								onMetricChange={setTrendMetric}
+								onToggleSeries={handleToggleTrendSeries}
+								trendData={repositoryDailyTrend}
+								trendSeries={trendSeries}
+							/>
+						</Suspense>
+					) : (
+						<div className="flex h-full items-center justify-center px-6 text-center text-sm text-muted-foreground">
+							No repository activity in the selected range.
 						</div>
+					)
+				) : hasChartData ? (
+					<Suspense fallback={<DashboardRepositoryChartFallback />}>
+						<DashboardRepositoryChart
+							activeId={highlightedRepositoryId}
+							data={chartData}
+						/>
+					</Suspense>
+				) : (
+					<div className="flex h-full items-center justify-center px-6 text-center text-sm text-muted-foreground">
+						No repository activity in the selected range.
 					</div>
-				</div>
-			</div>
-			<div className="border-t border-[color:var(--dashboardy-divider)] pt-8">
+				)
+			}
+			tableContent={
 				<DashboardRepositoryTable
 					highlightedDate={null}
 					onHighlightRepositoryChange={setHighlightedRepositoryId}
 					rows={repositoryRows}
 					trendData={repositoryDailyTrend}
 				/>
-			</div>
-		</div>
+			}
+		/>
 	);
 }

@@ -10,6 +10,7 @@ import type { DashboardHeadlineMetric } from "@/features/dashboard/data/dashboar
 export function DashboardSessionsSnapshotSection({
 	hourlyActivity,
 	isHourlyActivityPending,
+	isMetricsPending = false,
 	isRecentSessionsPending,
 	metrics,
 	recentSessions,
@@ -17,6 +18,7 @@ export function DashboardSessionsSnapshotSection({
 }: {
 	hourlyActivity: SessionHourlyActivityDataPoint[] | undefined;
 	isHourlyActivityPending: boolean;
+	isMetricsPending?: boolean;
 	isRecentSessionsPending: boolean;
 	metrics: DashboardHeadlineMetric[];
 	recentSessions: SessionAnalytics[] | undefined;
@@ -29,6 +31,7 @@ export function DashboardSessionsSnapshotSection({
 					<DashboardHeadlineMetricGrid
 						metrics={metrics}
 						className="pb-0"
+						isLoading={isMetricsPending}
 						showDelta={showDelta}
 					/>
 				</div>
