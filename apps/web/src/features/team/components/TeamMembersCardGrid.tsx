@@ -433,12 +433,17 @@ function TeamMemberCard({ row }: { row: TeamPageMemberRow }) {
 
 				<div className="mt-[16px] px-[3px] text-center">
 					<div className={adaptedTeamCardNameClassName}>{row.displayName}</div>
-					<div className={adaptedTeamCardSubtitleClassName} title={displayModel}>
+					<div
+						className={adaptedTeamCardSubtitleClassName}
+						title={displayModel}
+					>
 						{displayModel}
 					</div>
 					<div
 						className={adaptedTeamCardFootnoteClassName}
-						title={row.email ? `All-time · ${row.email}` : "All-time teammate card"}
+						title={
+							row.email ? `All-time · ${row.email}` : "All-time teammate card"
+						}
 					>
 						{row.email ? `All-time · ${row.email}` : "All-time teammate card"}
 					</div>
