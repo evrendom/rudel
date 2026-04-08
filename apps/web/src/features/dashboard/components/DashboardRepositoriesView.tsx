@@ -90,12 +90,14 @@ export function DashboardRepositoriesView({
 				isChartPending={isRepositoryChartPending}
 				repositories={repositories}
 				repositoryDailyTrend={repositoryDailyTrend}
+				variant="sessions"
 			/>
 			<div className="grid gap-4 border-t border-[color:var(--dashboardy-divider)] pt-8">
 				<DashboardDeveloperPanel
 					isChartPending={isDeveloperChartPending}
 					performanceUserDailyTrend={performanceUserDailyTrend}
 					performanceUsers={performanceUsers}
+					variant="repositories"
 				/>
 			</div>
 		</section>

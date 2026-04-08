@@ -146,13 +146,12 @@ export function DashboardPage() {
 
 				{activeView === "sessions" ? (
 					<DashboardSessionsView
-						isDeveloperChartPending={isPerformanceChartPending}
+						endDate={endDate}
 						isRepositoryChartPending={isRepositoryChartPending}
 						isSnapshotPending={isSessionSnapshotPending}
-						performanceUserDailyTrend={performanceUserDailyTrend}
-						performanceUsers={performanceUsers}
 						repositories={snapshot.repositories}
 						repositoryDailyTrend={repositoryDailyTrend}
+						startDate={startDate}
 						sessionSummaryComparison={sessionSummaryComparison}
 					/>
 				) : null}

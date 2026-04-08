@@ -11,20 +11,8 @@ import {
 import { formatCompactWholeNumber } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
-const chartConfig = {
-	committed: {
-		label: "Total tokens",
-		color: "#159C89",
-	},
-	uncommitted: {
-		label: "Total tokens",
-		color: "#159C89",
-	},
-	stub: {
-		label: "No activity",
-		color: "#D7DBE2",
-	},
-} satisfies ChartConfig;
+const DEFAULT_PRIMARY_COLOR = "#159C89";
+const STUB_COLOR = "#D7DBE2";
 
 export type DashboardTokenDeveloperDatum = {
 	axisLabel: string;
@@ -37,7 +25,16 @@ export type DashboardTokenDeveloperDatum = {
 
 type DashboardTokenDeveloperChartProps = {
 	activeId?: string | null;
+	barColor?: string;
+	className?: string;
 	data: DashboardTokenDeveloperDatum[];
+	derivedLabel?: string;
+	formatDerivedValue?: (primaryValue: number, secondaryValue: number) => string;
+	formatPrimaryValue?: (value: number) => string;
+	formatSecondaryValue?: (value: number) => string;
+	primaryLabel?: string;
+	secondaryLabel?: string;
+	yAxisTickFormatter?: (value: number) => string;
 };
 
 type DashboardTokenDeveloperChartRow = DashboardTokenDeveloperDatum & {
@@ -75,27 +72,43 @@ function getAvatarInitials(fullLabel: string) {
 	return `${parts[0]?.[0] ?? ""}${parts.at(-1)?.[0] ?? ""}`.toUpperCase();
 }
 
+function getAxisStep(maxValue: number) {
+	if (maxValue <= 0) {
+		return 1;
+	}
+
+	const roughStep = maxValue / 4;
+	const magnitude = 10 ** Math.floor(Math.log10(roughStep));
+	const residual = roughStep / magnitude;
+
+	if (residual <= 1) {
+		return magnitude;
+	}
+
+	if (residual <= 2) {
+		return 2 * magnitude;
+	}
+
+	if (residual <= 5) {
+		return 5 * magnitude;
+	}
+
+	return 10 * magnitude;
+}
+
 function getAxisMax(data: DashboardTokenDeveloperChartRow[]) {
-	const maxTokens = Math.max(...data.map((point) => point.totalTokens), 0);
+	const maxValue = Math.max(...data.map((point) => point.totalTokens), 0);
 
-	if (maxTokens <= 0) {
-		return 50_000;
+	if (maxValue <= 0) {
+		return 4;
 	}
 
-	if (maxTokens <= 250_000) {
-		return Math.ceil(maxTokens / 50_000) * 50_000;
-	}
-
-	if (maxTokens <= 1_000_000) {
-		return Math.ceil(maxTokens / 100_000) * 100_000;
-	}
-
-	return Math.ceil(maxTokens / 250_000) * 250_000;
+	const step = getAxisStep(maxValue);
+	return Math.max(step * 4, Math.ceil(maxValue / step) * step);
 }
 
 function getAxisTicks(axisMax: number) {
-	const step =
-		axisMax <= 250_000 ? 50_000 : axisMax <= 1_000_000 ? 100_000 : 250_000;
+	const step = getAxisStep(axisMax);
 	const ticks = Array.from(
 		{ length: Math.floor(axisMax / step) + 1 },
 		(_, index) => index * step,
@@ -106,10 +119,22 @@ function getAxisTicks(axisMax: number) {
 
 function DashboardTokenDeveloperTooltip({
 	active,
+	derivedLabel,
+	formatDerivedValue,
+	formatPrimaryValue,
+	formatSecondaryValue,
 	payload,
+	primaryLabel,
+	secondaryLabel,
 }: {
 	active?: boolean;
+	derivedLabel: string;
+	formatDerivedValue: (primaryValue: number, secondaryValue: number) => string;
+	formatPrimaryValue: (value: number) => string;
+	formatSecondaryValue: (value: number) => string;
 	payload?: Array<{ payload: DashboardTokenDeveloperChartRow }>;
+	primaryLabel: string;
+	secondaryLabel: string;
 }) {
 	if (!active || !payload?.length) {
 		return null;
@@ -126,25 +151,21 @@ function DashboardTokenDeveloperTooltip({
 			<div className="text-white">{point.fullLabel}</div>
 			<div className="grid gap-1">
 				<div className="flex items-center justify-between gap-3">
-					<span className="text-white/65">Tokens</span>
+					<span className="text-white/65">{primaryLabel}</span>
 					<span className="font-mono tabular-nums text-white">
-						{formatCompactNumber(point.totalTokens)}
+						{formatPrimaryValue(point.totalTokens)}
 					</span>
 				</div>
 				<div className="flex items-center justify-between gap-3">
-					<span className="text-white/65">Sessions</span>
+					<span className="text-white/65">{secondaryLabel}</span>
 					<span className="font-mono tabular-nums text-white">
-						{point.sessions}
+						{formatSecondaryValue(point.sessions)}
 					</span>
 				</div>
 				<div className="flex items-center justify-between gap-3">
-					<span className="text-white/65">Avg / session</span>
+					<span className="text-white/65">{derivedLabel}</span>
 					<span className="font-mono tabular-nums text-white">
-						{point.sessions > 0
-							? formatCompactNumber(
-									Math.round(point.totalTokens / point.sessions),
-								)
-							: "—"}
+						{formatDerivedValue(point.totalTokens, point.sessions)}
 					</span>
 				</div>
 			</div>
@@ -224,11 +245,20 @@ function DashboardTokenDeveloperAxisTick({
 
 export function DashboardTokenDeveloperChart({
 	activeId,
+	barColor = DEFAULT_PRIMARY_COLOR,
 	className,
 	data,
-}: DashboardTokenDeveloperChartProps & {
-	className?: string;
-}) {
+	derivedLabel = "Avg / session",
+	formatDerivedValue = (primaryValue, secondaryValue) =>
+		secondaryValue > 0
+			? formatCompactNumber(Math.round(primaryValue / secondaryValue))
+			: "—",
+	formatPrimaryValue = formatCompactNumber,
+	formatSecondaryValue = (value) => value.toLocaleString(),
+	primaryLabel = "Tokens",
+	secondaryLabel = "Sessions",
+	yAxisTickFormatter = (value) => formatCompactWholeNumber(value),
+}: DashboardTokenDeveloperChartProps) {
 	const chartData = useMemo<DashboardTokenDeveloperChartRow[]>(
 		() =>
 			data.map((entry) => ({
@@ -254,6 +284,24 @@ export function DashboardTokenDeveloperChart({
 	const labelWidth = useMemo(
 		() => getDashboardBarLabelWidth(chartData.length),
 		[chartData.length],
+	);
+	const chartConfig = useMemo(
+		() =>
+			({
+				committed: {
+					label: primaryLabel,
+					color: barColor,
+				},
+				uncommitted: {
+					label: primaryLabel,
+					color: barColor,
+				},
+				stub: {
+					label: "No activity",
+					color: STUB_COLOR,
+				},
+			}) satisfies ChartConfig,
+		[barColor, primaryLabel],
 	);
 
 	return (
@@ -292,7 +340,7 @@ export function DashboardTokenDeveloperChart({
 						tickLine={false}
 						tickMargin={12}
 						width={34}
-						tickFormatter={(value) => formatCompactWholeNumber(Number(value))}
+						tickFormatter={(value) => yAxisTickFormatter(Number(value))}
 						tick={{
 							fontSize: 13,
 							fontWeight: 800,
@@ -301,7 +349,16 @@ export function DashboardTokenDeveloperChart({
 					/>
 					<ChartTooltip
 						cursor={false}
-						content={<DashboardTokenDeveloperTooltip />}
+						content={
+							<DashboardTokenDeveloperTooltip
+								derivedLabel={derivedLabel}
+								formatDerivedValue={formatDerivedValue}
+								formatPrimaryValue={formatPrimaryValue}
+								formatSecondaryValue={formatSecondaryValue}
+								primaryLabel={primaryLabel}
+								secondaryLabel={secondaryLabel}
+							/>
+						}
 					/>
 					<Bar
 						dataKey="committed"

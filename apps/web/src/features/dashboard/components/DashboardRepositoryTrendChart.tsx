@@ -158,6 +158,7 @@ function DashboardRepositoryTrendOverflowPopover({
 }
 
 export function DashboardRepositoryTrendChart({
+	availableMetrics = ["sessions", "commits"],
 	className,
 	highlightedSeriesId,
 	hiddenRows,
@@ -169,6 +170,7 @@ export function DashboardRepositoryTrendChart({
 	trendData,
 	trendSeries,
 }: {
+	availableMetrics?: DashboardRepositoryTrendMetric[];
 	className?: string;
 	highlightedSeriesId?: string | null;
 	hiddenRows: DashboardRepositorySummaryRow[];
@@ -324,12 +326,19 @@ export function DashboardRepositoryTrendChart({
 						}
 					}}
 				>
-					<ToggleGroupItem value="sessions" className="dashboardy-toggle-item">
-						Sessions
-					</ToggleGroupItem>
-					<ToggleGroupItem value="commits" className="dashboardy-toggle-item">
-						Commits
-					</ToggleGroupItem>
+					{availableMetrics.includes("sessions") ? (
+						<ToggleGroupItem
+							value="sessions"
+							className="dashboardy-toggle-item"
+						>
+							Sessions
+						</ToggleGroupItem>
+					) : null}
+					{availableMetrics.includes("commits") ? (
+						<ToggleGroupItem value="commits" className="dashboardy-toggle-item">
+							Commits
+						</ToggleGroupItem>
+					) : null}
 				</ToggleGroup>
 				<div className="flex flex-wrap items-center gap-1.5 sm:max-w-[65%] sm:justify-end">
 					{allSeries.map((series) => {

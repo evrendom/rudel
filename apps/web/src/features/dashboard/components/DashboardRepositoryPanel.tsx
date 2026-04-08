@@ -14,6 +14,7 @@ import {
 import type { DashboardRankedOutputRow } from "@/features/dashboard/data/dashboard-static-data";
 
 type RepositoryChartView = "total" | "over-time";
+type DashboardRepositoryPanelVariant = "commits" | "sessions";
 const MAX_VISIBLE_REPOSITORY_SERIES = 7;
 const MAX_VISIBLE_REPOSITORY_BARS = 20;
 
@@ -70,10 +71,12 @@ export function DashboardRepositoryPanel({
 	isChartPending,
 	repositories,
 	repositoryDailyTrend,
+	variant = "commits",
 }: {
 	isChartPending: boolean;
 	repositories: DashboardRankedOutputRow[];
 	repositoryDailyTrend: RepositoryDailyTrendData[] | undefined;
+	variant?: DashboardRepositoryPanelVariant;
 }) {
 	const [chartView, setChartView] = useState<RepositoryChartView>("total");
 	const [hiddenTrendSeriesIds, setHiddenTrendSeriesIds] = useState<string[]>(
@@ -86,8 +89,12 @@ export function DashboardRepositoryPanel({
 		useState<DashboardRepositoryTrendMetric>("sessions");
 	const repositoryRows = useMemo(
 		() =>
-			buildDashboardRepositorySummaryRows(repositories, repositoryDailyTrend),
-		[repositories, repositoryDailyTrend],
+			buildDashboardRepositorySummaryRows(
+				repositories,
+				repositoryDailyTrend,
+				variant === "sessions" ? "sessions" : "commits",
+			),
+		[repositories, repositoryDailyTrend, variant],
 	);
 	const visibleChartRows = useMemo(
 		() => repositoryRows.slice(0, MAX_VISIBLE_REPOSITORY_SERIES),
@@ -167,6 +174,11 @@ export function DashboardRepositoryPanel({
 					hasTrendData ? (
 						<Suspense fallback={<DashboardRepositoryChartFallback />}>
 							<DashboardRepositoryTrendChart
+								availableMetrics={
+									variant === "sessions"
+										? ["sessions"]
+										: ["sessions", "commits"]
+								}
 								highlightedSeriesId={highlightedRepositoryId}
 								hiddenRows={hiddenChartRows}
 								hiddenSeriesIds={hiddenTrendSeriesIds}
@@ -187,6 +199,7 @@ export function DashboardRepositoryPanel({
 						<DashboardRepositoryChart
 							activeId={highlightedRepositoryId}
 							data={chartData}
+							variant={variant}
 						/>
 					</Suspense>
 				) : (
@@ -201,6 +214,7 @@ export function DashboardRepositoryPanel({
 					onHighlightRepositoryChange={setHighlightedRepositoryId}
 					rows={repositoryRows}
 					trendData={repositoryDailyTrend}
+					variant={variant}
 				/>
 			}
 		/>

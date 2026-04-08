@@ -6,6 +6,10 @@ import { ToggleGroup, ToggleGroupItem } from "@/app/ui/toggle-group";
 import { DashboardAnalysisPanel } from "@/features/dashboard/components/DashboardAnalysisPanel";
 import type { DashboardPerformanceDatum } from "@/features/dashboard/components/DashboardPerformanceChart";
 import { DashboardPerformanceRosterTable } from "@/features/dashboard/components/DashboardPerformanceRosterTable";
+import {
+	DashboardTokenDeveloperChart,
+	type DashboardTokenDeveloperDatum,
+} from "@/features/dashboard/components/DashboardTokenDeveloperChart";
 import type { DashboardPerformanceUserComparison } from "@/features/dashboard/data/dashboard-performance-adapter";
 import {
 	buildDashboardPerformanceTrendSeries,
@@ -14,6 +18,7 @@ import {
 import { cn } from "@/lib/utils";
 
 type PerformanceChartView = "total" | "over-time";
+type DashboardDeveloperPanelVariant = "commits" | "repositories";
 
 const MAX_VISIBLE_PERFORMANCE_BARS = 20;
 
@@ -85,6 +90,25 @@ function buildChartData(
 	}));
 }
 
+function buildRepositoryBreadthChartData(
+	performanceUsers: DashboardPerformanceUserComparison[],
+): DashboardTokenDeveloperDatum[] {
+	const axisLabels = getMemberAxisLabels(
+		performanceUsers.map((user) => user.label),
+	);
+
+	return performanceUsers.map((user, index) => ({
+		axisLabel: axisLabels[index] ?? user.label,
+		fullLabel: user.label,
+		id:
+			user.userId ||
+			`${user.label.toLowerCase().replaceAll(/[^a-z0-9]+/g, "-")}-${index}`,
+		imageUrl: user.imageUrl ?? undefined,
+		sessions: user.sessions,
+		totalTokens: user.repositoriesTouched.length,
+	}));
+}
+
 function DashboardPerformanceChartFallback() {
 	const skeletonHeights = [
 		"h-[8.25rem]",
@@ -120,10 +144,12 @@ export function DashboardDeveloperPanel({
 	isChartPending,
 	performanceUserDailyTrend,
 	performanceUsers,
+	variant = "commits",
 }: {
 	isChartPending: boolean;
 	performanceUserDailyTrend: UserDailyTrendData[] | undefined;
 	performanceUsers: DashboardPerformanceUserComparison[];
+	variant?: DashboardDeveloperPanelVariant;
 }) {
 	const [chartView, setChartView] = useState<PerformanceChartView>("total");
 	const [hiddenTrendSeriesIds, setHiddenTrendSeriesIds] = useState<string[]>(
@@ -133,13 +159,31 @@ export function DashboardDeveloperPanel({
 		null,
 	);
 	const [trendMetric, setTrendMetric] =
-		useState<DashboardPerformanceTrendMetric>("sessions");
-	const selectedChartData = useMemo(
+		useState<DashboardPerformanceTrendMetric>(
+			variant === "repositories" ? "repositories" : "sessions",
+		);
+	const repositoryChartData = useMemo(
+		() =>
+			buildRepositoryBreadthChartData(
+				[...performanceUsers].sort(
+					(left, right) =>
+						right.repositoriesTouched.length -
+							left.repositoriesTouched.length ||
+						right.sessions - left.sessions ||
+						left.label.localeCompare(right.label),
+				),
+			).slice(0, MAX_VISIBLE_PERFORMANCE_BARS),
+		[performanceUsers],
+	);
+	const commitChartData = useMemo(
 		() =>
 			buildChartData(performanceUsers).slice(0, MAX_VISIBLE_PERFORMANCE_BARS),
 		[performanceUsers],
 	);
-	const hasChartData = selectedChartData.length > 0;
+	const hasChartData =
+		variant === "repositories"
+			? repositoryChartData.length > 0
+			: commitChartData.length > 0;
 	const hasTrendData = useMemo(
 		() => (performanceUserDailyTrend?.length ?? 0) > 0,
 		[performanceUserDailyTrend],
@@ -147,11 +191,19 @@ export function DashboardDeveloperPanel({
 	const trendSeries = useMemo(
 		() =>
 			buildDashboardPerformanceTrendSeries(
-				performanceUsers,
+				variant === "repositories"
+					? [...performanceUsers].sort(
+							(left, right) =>
+								right.repositoriesTouched.length -
+									left.repositoriesTouched.length ||
+								right.sessions - left.sessions ||
+								left.label.localeCompare(right.label),
+						)
+					: performanceUsers,
 				performanceUserDailyTrend,
 				trendMetric,
 			),
-		[performanceUserDailyTrend, performanceUsers, trendMetric],
+		[performanceUserDailyTrend, performanceUsers, trendMetric, variant],
 	);
 
 	function handleToggleTrendSeries(userId: string) {
@@ -200,6 +252,11 @@ export function DashboardDeveloperPanel({
 					hasTrendData ? (
 						<Suspense fallback={<DashboardPerformanceChartFallback />}>
 							<DashboardPerformanceTrendChart
+								availableMetrics={
+									variant === "repositories"
+										? ["repositories", "sessions"]
+										: ["sessions", "commits"]
+								}
 								highlightedSeriesId={highlightedUserId}
 								hiddenSeriesIds={hiddenTrendSeriesIds}
 								metric={trendMetric}
@@ -211,19 +268,42 @@ export function DashboardDeveloperPanel({
 						</Suspense>
 					) : (
 						<div className="flex h-full items-center justify-center px-6 text-center text-sm text-muted-foreground">
-							No developer activity in the selected range.
+							{variant === "repositories"
+								? "No repository activity in the selected range."
+								: "No developer activity in the selected range."}
 						</div>
 					)
 				) : hasChartData ? (
-					<Suspense fallback={<DashboardPerformanceChartFallback />}>
-						<DashboardPerformanceChart
+					variant === "repositories" ? (
+						<DashboardTokenDeveloperChart
 							activeId={highlightedUserId}
-							data={selectedChartData}
+							barColor="#1949A9"
+							data={repositoryChartData}
+							primaryLabel="Active repos"
+							secondaryLabel="Sessions"
+							derivedLabel="Avg / repo"
+							formatPrimaryValue={(value) => value.toLocaleString()}
+							formatSecondaryValue={(value) => value.toLocaleString()}
+							formatDerivedValue={(primaryValue, secondaryValue) =>
+								primaryValue > 0
+									? Math.round(secondaryValue / primaryValue).toLocaleString()
+									: "—"
+							}
+							yAxisTickFormatter={(value) => Math.round(value).toLocaleString()}
 						/>
-					</Suspense>
+					) : (
+						<Suspense fallback={<DashboardPerformanceChartFallback />}>
+							<DashboardPerformanceChart
+								activeId={highlightedUserId}
+								data={commitChartData}
+							/>
+						</Suspense>
+					)
 				) : (
 					<div className="flex h-full items-center justify-center px-6 text-center text-sm text-muted-foreground">
-						No developer activity in the selected range.
+						{variant === "repositories"
+							? "No repository activity in the selected range."
+							: "No developer activity in the selected range."}
 					</div>
 				)
 			}
@@ -233,6 +313,7 @@ export function DashboardDeveloperPanel({
 					onHighlightUserChange={setHighlightedUserId}
 					performanceUsers={performanceUsers}
 					trendData={performanceUserDailyTrend}
+					variant={variant}
 				/>
 			}
 		/>

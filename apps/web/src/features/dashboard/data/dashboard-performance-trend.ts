@@ -16,7 +16,11 @@ export const DASHBOARD_PERFORMANCE_TREND_COLORS: string[] = [
 	"#a855f7",
 ] as const;
 
-export type DashboardPerformanceTrendMetric = "sessions" | "commits" | "tokens";
+export type DashboardPerformanceTrendMetric =
+	| "sessions"
+	| "commits"
+	| "tokens"
+	| "repositories";
 
 export type DashboardPerformanceTrendSeries = {
 	color: string;
@@ -38,6 +42,10 @@ export function getDashboardPerformanceTrendValue(
 
 	if (metric === "tokens") {
 		return row.total_tokens;
+	}
+
+	if (metric === "repositories") {
+		return row.repositories_touched.length;
 	}
 
 	return row.total_commits;

@@ -9,20 +9,14 @@ import {
 	getDashboardBarSize,
 } from "@/features/dashboard/components/dashboard-bar-chart-layout";
 
-const chartConfig = {
-	committed: {
-		label: "Committed sessions",
-		color: "#1949A9",
-	},
-	uncommitted: {
-		label: "Uncommitted sessions",
-		color: "#C21674",
-	},
-} satisfies ChartConfig;
-
 const ZERO_BAR_STUB_VALUE = 0.75;
+const COMMIT_CHART_COLOR = "#1949A9";
+const UNCOMMITTED_CHART_COLOR = "#C21674";
+const SESSION_CHART_COLOR = "#159C89";
+type DashboardRepositoryChartVariant = "commits" | "sessions";
 
 export type DashboardRepositoryChartDatum = {
+	activeDays?: number | null;
 	axisLabel: string;
 	commits: number;
 	fullLabel: string;
@@ -75,9 +69,11 @@ function getAxisTicks(axisMax: number) {
 
 function DashboardRepositoryTooltip({
 	active,
+	variant,
 	payload,
 }: {
 	active?: boolean;
+	variant: DashboardRepositoryChartVariant;
 	payload?: Array<{ payload: DashboardRepositoryChartRow }>;
 }) {
 	if (!active || !payload?.length) {
@@ -100,18 +96,41 @@ function DashboardRepositoryTooltip({
 						{point.sessions}
 					</span>
 				</div>
-				<div className="flex items-center justify-between gap-3">
-					<span className="text-white/65">Committed sessions</span>
-					<span className="font-mono tabular-nums text-white">
-						{point.committed}
-					</span>
-				</div>
-				<div className="flex items-center justify-between gap-3">
-					<span className="text-white/65">Uncommitted sessions</span>
-					<span className="font-mono tabular-nums text-white">
-						{point.uncommitted}
-					</span>
-				</div>
+				{variant === "commits" ? (
+					<>
+						<div className="flex items-center justify-between gap-3">
+							<span className="text-white/65">Committed sessions</span>
+							<span className="font-mono tabular-nums text-white">
+								{point.committed}
+							</span>
+						</div>
+						<div className="flex items-center justify-between gap-3">
+							<span className="text-white/65">Uncommitted sessions</span>
+							<span className="font-mono tabular-nums text-white">
+								{point.uncommitted}
+							</span>
+						</div>
+					</>
+				) : (
+					<>
+						<div className="flex items-center justify-between gap-3">
+							<span className="text-white/65">Active days</span>
+							<span className="font-mono tabular-nums text-white">
+								{point.activeDays ?? "—"}
+							</span>
+						</div>
+						<div className="flex items-center justify-between gap-3">
+							<span className="text-white/65">Avg / day</span>
+							<span className="font-mono tabular-nums text-white">
+								{point.activeDays && point.activeDays > 0
+									? Math.round(
+											point.sessions / point.activeDays,
+										).toLocaleString()
+									: "—"}
+							</span>
+						</div>
+					</>
+				)}
 			</div>
 		</div>
 	);
@@ -169,19 +188,24 @@ function DashboardRepositoryAxisTick({
 export function DashboardRepositoryChart({
 	activeId,
 	data,
+	variant = "commits",
 }: {
 	activeId?: string | null;
 	data: DashboardRepositoryChartDatum[];
+	variant?: DashboardRepositoryChartVariant;
 }) {
 	const chartData = useMemo<DashboardRepositoryChartRow[]>(
 		() =>
 			data.map((entry) => ({
 				...entry,
-				committed: entry.commits,
+				committed: variant === "sessions" ? entry.sessions : entry.commits,
 				stub: entry.sessions > 0 ? 0 : ZERO_BAR_STUB_VALUE,
-				uncommitted: Math.max(entry.sessions - entry.commits, 0),
+				uncommitted:
+					variant === "sessions"
+						? 0
+						: Math.max(entry.sessions - entry.commits, 0),
 			})),
-		[data],
+		[data, variant],
 	);
 	const dataById = useMemo(
 		() => new Map(chartData.map((entry) => [entry.id, entry] as const)),
@@ -198,6 +222,30 @@ export function DashboardRepositoryChart({
 	const labelWidth = useMemo(
 		() => getDashboardBarLabelWidth(chartData.length, "repository"),
 		[chartData.length],
+	);
+	const chartConfig = useMemo(
+		() =>
+			({
+				committed: {
+					label:
+						variant === "sessions"
+							? "Repository sessions"
+							: "Committed sessions",
+					color:
+						variant === "sessions" ? SESSION_CHART_COLOR : COMMIT_CHART_COLOR,
+				},
+				uncommitted: {
+					label:
+						variant === "sessions"
+							? "Repository sessions"
+							: "Uncommitted sessions",
+					color:
+						variant === "sessions"
+							? SESSION_CHART_COLOR
+							: UNCOMMITTED_CHART_COLOR,
+				},
+			}) satisfies ChartConfig,
+		[variant],
 	);
 
 	return (
@@ -244,7 +292,7 @@ export function DashboardRepositoryChart({
 					/>
 					<ChartTooltip
 						cursor={false}
-						content={<DashboardRepositoryTooltip />}
+						content={<DashboardRepositoryTooltip variant={variant} />}
 					/>
 					<Bar
 						dataKey="committed"
@@ -290,6 +338,7 @@ export function DashboardRepositoryChart({
 
 export function buildDashboardRepositoryChartData(
 	rows: Array<{
+		activeDays?: number | null;
 		id: string;
 		label: string;
 		commits: number;
@@ -297,6 +346,7 @@ export function buildDashboardRepositoryChartData(
 	}>,
 ): DashboardRepositoryChartDatum[] {
 	return rows.map((row) => ({
+		activeDays: row.activeDays,
 		axisLabel: getRepositoryAxisLabel(row.label),
 		commits: row.commits,
 		fullLabel: row.label,

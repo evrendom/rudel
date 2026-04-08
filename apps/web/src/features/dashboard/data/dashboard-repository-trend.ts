@@ -27,6 +27,8 @@ export type DashboardRepositorySummaryRow = {
 	sessions: number;
 };
 
+type DashboardRepositorySortMetric = "commits" | "sessions";
+
 export type DashboardRepositoryTrendSeries = {
 	color: string;
 	label: string;
@@ -55,18 +57,27 @@ export function getDashboardRepositoryTrendValue(
 export function buildDashboardRepositorySummaryRows(
 	fallbackRows: DashboardRankedOutputRow[],
 	trendData: RepositoryDailyTrendData[] | undefined,
+	sortBy: DashboardRepositorySortMetric = "commits",
 ): DashboardRepositorySummaryRow[] {
 	const rows = trendData ?? [];
 
 	if (rows.length === 0) {
-		return fallbackRows.map((row) => ({
-			activeDays: null,
-			commitRate: row.commitRate,
-			commits: row.commits,
-			id: row.label,
-			label: row.label,
-			sessions: row.sessions,
-		}));
+		return [...fallbackRows]
+			.map((row) => ({
+				activeDays: null,
+				commitRate: row.commitRate,
+				commits: row.commits,
+				id: row.label,
+				label: row.label,
+				sessions: row.sessions,
+			}))
+			.sort(
+				(left, right) =>
+					(sortBy === "sessions"
+						? right.sessions - left.sessions || right.commits - left.commits
+						: right.commits - left.commits || right.sessions - left.sessions) ||
+					left.label.localeCompare(right.label),
+			);
 	}
 
 	const repositoryMap = new Map<
@@ -108,8 +119,9 @@ export function buildDashboardRepositorySummaryRows(
 		}))
 		.sort(
 			(left, right) =>
-				right.commits - left.commits ||
-				right.sessions - left.sessions ||
+				(sortBy === "sessions"
+					? right.sessions - left.sessions || right.commits - left.commits
+					: right.commits - left.commits || right.sessions - left.sessions) ||
 				left.label.localeCompare(right.label),
 		);
 }

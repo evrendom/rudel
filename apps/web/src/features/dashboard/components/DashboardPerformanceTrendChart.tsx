@@ -126,12 +126,14 @@ function PerformanceTrendTooltip({
 		<div className="flex min-w-52 flex-col gap-1 rounded-md bg-black px-2.5 py-1.5 text-[11px] font-medium leading-tight text-white/90 shadow-lg">
 			<div className="flex items-start justify-between gap-4">
 				<p className="text-white">{point.fullLabel}</p>
-				<p className="shrink-0 text-white/65">
+		<p className="shrink-0 text-white/65">
 					{metric === "commits"
 						? "Commits"
 						: metric === "tokens"
 							? "Tokens"
-							: "Sessions"}
+							: metric === "repositories"
+								? "Repos"
+								: "Sessions"}
 				</p>
 			</div>
 			<div className="grid gap-1">

@@ -2,13 +2,16 @@ import type { RepositoryDailyTrendData } from "@rudel/api-routes";
 import { useState } from "react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/app/ui/popover";
 import {
+	DashboardCellStack,
 	DashboardGridTable,
 	DashboardTableFooterNote,
 } from "@/features/dashboard/components/DashboardGridTable";
 import type { DashboardRepositorySummaryRow } from "@/features/dashboard/data/dashboard-repository-trend";
+import { formatPercent } from "@/lib/format";
 
 type DashboardRepositoryTableRow = DashboardRepositorySummaryRow;
 const MAX_VISIBLE_REPOSITORIES = 7;
+type DashboardRepositoryTableVariant = "commits" | "sessions";
 
 function buildRepositoryRows(
 	rows: DashboardRepositorySummaryRow[],
@@ -104,81 +107,152 @@ export function DashboardRepositoryTable({
 	onHighlightRepositoryChange,
 	rows,
 	trendData,
+	variant = "commits",
 }: {
 	highlightedDate: string | null;
 	onHighlightRepositoryChange?: (repositoryId: string | null) => void;
 	rows: DashboardRepositorySummaryRow[];
 	trendData: RepositoryDailyTrendData[] | undefined;
+	variant?: DashboardRepositoryTableVariant;
 }) {
 	const displayRows = buildRepositoryRows(rows, highlightedDate, trendData);
 	const visibleRows = displayRows.slice(0, MAX_VISIBLE_REPOSITORIES);
 	const hiddenRows = displayRows.slice(MAX_VISIBLE_REPOSITORIES);
 	const hiddenRowCount = Math.max(0, displayRows.length - visibleRows.length);
+	const totalSessions = displayRows.reduce((sum, row) => sum + row.sessions, 0);
+	const columns =
+		variant === "sessions"
+			? [
+					{
+						id: "repository",
+						header: "Repository",
+						renderCell: (row: DashboardRepositoryTableRow) => (
+							<p className="truncate font-semibold text-[color:var(--dashboardy-heading)]">
+								{row.label}
+							</p>
+						),
+					},
+					{
+						id: "active-days",
+						header: "Active days",
+						renderCell: (row: DashboardRepositoryTableRow) => (
+							<p className="font-medium tabular-nums text-[color:var(--dashboardy-muted)]">
+								{row.activeDays ?? "—"}
+							</p>
+						),
+					},
+					{
+						id: "sessions",
+						header: "Sessions",
+						renderCell: (row: DashboardRepositoryTableRow) => (
+							<p className="font-medium tabular-nums text-[color:var(--dashboardy-heading)]">
+								{row.sessions}
+							</p>
+						),
+					},
+					{
+						id: "avg-day",
+						header: "Avg / day",
+						renderCell: (row: DashboardRepositoryTableRow) => (
+							<DashboardCellStack
+								primary={
+									row.activeDays && row.activeDays > 0
+										? Math.round(row.sessions / row.activeDays).toLocaleString()
+										: "—"
+								}
+								secondary={
+									row.activeDays && row.activeDays > 0
+										? `${row.activeDays} active days`
+										: "No trend data"
+								}
+								primaryClassName="font-medium tabular-nums"
+							/>
+						),
+					},
+					{
+						id: "share",
+						header: "Share",
+						renderCell: (row: DashboardRepositoryTableRow) => (
+							<p className="font-semibold tabular-nums text-[color:var(--dashboardy-heading)]">
+								{totalSessions > 0
+									? formatPercent((row.sessions / totalSessions) * 100)
+									: "0%"}
+							</p>
+						),
+					},
+				]
+			: [
+					{
+						id: "repository",
+						header: "Repository",
+						renderCell: (row: DashboardRepositoryTableRow) => (
+							<p className="truncate font-semibold text-[color:var(--dashboardy-heading)]">
+								{row.label}
+							</p>
+						),
+					},
+					{
+						id: "active-days",
+						header: "Active days",
+						renderCell: (row: DashboardRepositoryTableRow) => (
+							<p className="font-medium tabular-nums text-[color:var(--dashboardy-muted)]">
+								{row.activeDays ?? "—"}
+							</p>
+						),
+					},
+					{
+						id: "sessions",
+						header: "Sessions",
+						renderCell: (row: DashboardRepositoryTableRow) => (
+							<p className="font-medium tabular-nums text-[color:var(--dashboardy-heading)]">
+								{row.sessions}
+							</p>
+						),
+					},
+					{
+						id: "commits",
+						header: "Commits",
+						renderCell: (row: DashboardRepositoryTableRow) => (
+							<p className="font-medium tabular-nums text-[color:var(--dashboardy-heading)]">
+								{row.commits}
+							</p>
+						),
+					},
+					{
+						id: "rate",
+						header: "Rate",
+						renderCell: (row: DashboardRepositoryTableRow) => {
+							const rateTone = getRateTone(row.commitRate);
+
+							return (
+								<div className="flex items-center justify-start gap-2">
+									<span
+										className={`size-2 rounded-full ${rateTone.dotClassName}`}
+									/>
+									<p
+										className={`font-semibold tabular-nums ${rateTone.textClassName}`}
+									>
+										{row.commitRate}%
+									</p>
+								</div>
+							);
+						},
+					},
+				];
 
 	return (
 		<DashboardGridTable
-			columns={[
-				{
-					id: "repository",
-					header: "Repository",
-					renderCell: (row) => (
-						<p className="truncate font-semibold text-[color:var(--dashboardy-heading)]">
-							{row.label}
-						</p>
-					),
-				},
-				{
-					id: "active-days",
-					header: "Active days",
-					renderCell: (row) => (
-						<p className="font-medium tabular-nums text-[color:var(--dashboardy-muted)]">
-							{row.activeDays ?? "—"}
-						</p>
-					),
-				},
-				{
-					id: "sessions",
-					header: "Sessions",
-					renderCell: (row) => (
-						<p className="font-medium tabular-nums text-[color:var(--dashboardy-heading)]">
-							{row.sessions}
-						</p>
-					),
-				},
-				{
-					id: "commits",
-					header: "Commits",
-					renderCell: (row) => (
-						<p className="font-medium tabular-nums text-[color:var(--dashboardy-heading)]">
-							{row.commits}
-						</p>
-					),
-				},
-				{
-					id: "rate",
-					header: "Rate",
-					renderCell: (row) => {
-						const rateTone = getRateTone(row.commitRate);
-
-						return (
-							<div className="flex items-center justify-start gap-2">
-								<span
-									className={`size-2 rounded-full ${rateTone.dotClassName}`}
-								/>
-								<p
-									className={`font-semibold tabular-nums ${rateTone.textClassName}`}
-								>
-									{row.commitRate}%
-								</p>
-							</div>
-						);
-					},
-				},
-			]}
+			columns={columns}
 			rows={visibleRows}
 			rowKey={(row) => row.id}
-			gridTemplateColumns="minmax(200px,14fr) 100px 90px 90px 112px"
-			minWidthClassName="min-w-[44rem]"
+			gridTemplateColumns={
+				variant === "sessions"
+					? "minmax(200px,14fr) 100px 90px minmax(128px,8fr) 100px"
+					: "minmax(200px,14fr) 100px 90px 90px 112px"
+			}
+			minWidthClassName={
+				variant === "sessions" ? "min-w-[46rem]" : "min-w-[44rem]"
+			}
 			onRowHoverChange={onHighlightRepositoryChange}
 			getHoverRowId={(row) => row.id}
 			footer={
