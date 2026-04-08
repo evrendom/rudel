@@ -45,16 +45,6 @@ const portraitPanelClassName =
 const portraitPlaceholderInitialsClassName =
 	"text-[54px] font-extrabold leading-none tracking-[-0.08em] text-black/66";
 
-const toneAccentClassNames = {
-	blue: "text-[#295ea8]",
-	teal: "text-[#187d71]",
-	orange: "text-[#bf6419]",
-	lime: "text-[#5f8f1d]",
-	violet: "text-[#7352d5]",
-	rose: "text-[#c24d70]",
-	slate: "text-[#5e6978]",
-} as const satisfies Record<TeamCardTone, string>;
-
 const tonePortraitClassNames = {
 	blue: "bg-[linear-gradient(180deg,#d8e8ff_0%,#8fb7ec_100%)] text-[#24466d]",
 	teal: "bg-[linear-gradient(180deg,#d7f6ef_0%,#87d8c7_100%)] text-[#174f48]",
@@ -71,11 +61,6 @@ type TeamCardStatRow = {
 	value: string;
 };
 
-type TeamCardTag = {
-	title?: string;
-	value: string;
-};
-
 function getAvatarInitials(name: string) {
 	const parts = name.split(/\s+/).filter(Boolean);
 
@@ -88,50 +73,6 @@ function getAvatarInitials(name: string) {
 	}
 
 	return `${parts[0]?.[0] ?? ""}${parts.at(-1)?.[0] ?? ""}`.toUpperCase();
-}
-
-function formatTopSkill(
-	row: Pick<TeamPageMemberRow, "topSkills" | "totalSessions">,
-) {
-	const topSkill = [...row.topSkills]
-		.filter((skill) => skill.name.trim().length > 0)
-		.sort(
-			(leftSkill, rightSkill) =>
-				rightSkill.count - leftSkill.count ||
-				leftSkill.name.localeCompare(rightSkill.name),
-		)[0];
-
-	if (topSkill) {
-		const normalizedName =
-			topSkill.name.split("/").at(-1)?.trim() ?? topSkill.name.trim();
-
-		return {
-			count: topSkill.count,
-			title: `${topSkill.name} ×${topSkill.count}`,
-			value: normalizedName
-				.replaceAll(/[-_]+/g, " ")
-				.replaceAll(/\s+/g, " ")
-				.trim()
-				.replaceAll(/\b\w/g, (character) => character.toUpperCase()),
-		} as const;
-	}
-
-	return null;
-}
-
-function getTopSkillTag(
-	row: Pick<TeamPageMemberRow, "topSkills" | "totalSessions">,
-): TeamCardTag | null {
-	const topSkill = formatTopSkill(row);
-
-	if (topSkill && topSkill.count > 0) {
-		return {
-			title: topSkill.title,
-			value: topSkill.value,
-		};
-	}
-
-	return null;
 }
 
 function formatShortDate(lastActiveDate: string | null) {
@@ -162,12 +103,6 @@ function formatTotalTokens(totalTokens: number) {
 	}
 
 	return `${Math.ceil(normalizedTotal)}`;
-}
-
-function getTrackedSkillsCount(
-	topSkills: Pick<TeamPageMemberRow, "topSkills">["topSkills"],
-) {
-	return topSkills.filter((skill) => skill.name.trim().length > 0).length;
 }
 
 function formatSpendValue(cost: number) {
@@ -204,10 +139,6 @@ function getCardTone(row: TeamPageMemberRow): TeamCardTone {
 		return "slate";
 	}
 
-	if (row.totalSessions > 0 && row.topSkills.length === 0) {
-		return "rose";
-	}
-
 	const favoriteModel = row.favoriteModel?.toLowerCase() ?? "";
 
 	if (favoriteModel.includes("opus")) {
@@ -237,11 +168,6 @@ function buildCardStats(row: TeamPageMemberRow): TeamCardStatRow[] {
 			value: row.totalSessions.toLocaleString(),
 		},
 		{
-			label: "DAYS",
-			title: `${row.activeDays.toLocaleString()} active days`,
-			value: row.activeDays.toLocaleString(),
-		},
-		{
 			label: "TOK",
 			title:
 				row.totalTokens > 0
@@ -255,11 +181,6 @@ function buildCardStats(row: TeamPageMemberRow): TeamCardStatRow[] {
 			value: formatShortDate(row.lastActiveDate),
 		},
 		{
-			label: "SKILLS",
-			title: `${getTrackedSkillsCount(row.topSkills).toLocaleString()} tracked skills`,
-			value: getTrackedSkillsCount(row.topSkills).toString(),
-		},
-		{
 			label: "IN/OUT",
 			title: `${row.inputTokens.toLocaleString()} input tokens / ${row.outputTokens.toLocaleString()} output tokens`,
 			value: formatInputOutputSplit(row.inputTokens, row.outputTokens),
@@ -269,10 +190,11 @@ function buildCardStats(row: TeamPageMemberRow): TeamCardStatRow[] {
 
 function TeamMemberCard({ row }: { row: TeamPageMemberRow }) {
 	const tone = getCardTone(row);
+	const isMissingProfileImage = !row.imageUrl;
+	const effectiveTone = isMissingProfileImage ? "rose" : tone;
 	const stats = buildCardStats(row);
 	const initials = getAvatarInitials(row.displayName);
 	const topHeaderValue = formatSpendValue(row.cost);
-	const topSkillTag = getTopSkillTag(row);
 
 	return (
 		<li className="list-none">
@@ -291,7 +213,10 @@ function TeamMemberCard({ row }: { row: TeamPageMemberRow }) {
 
 				<div className={adaptedTeamCardMediaPanelClassName}>
 					<div
-						className={cn(portraitPanelClassName, tonePortraitClassNames[tone])}
+						className={cn(
+							portraitPanelClassName,
+							tonePortraitClassNames[effectiveTone],
+						)}
 					>
 						{row.imageUrl ? (
 							<>
@@ -310,18 +235,6 @@ function TeamMemberCard({ row }: { row: TeamPageMemberRow }) {
 								</div>
 							</div>
 						)}
-
-						{topSkillTag ? (
-							<div
-								className={cn(
-									"absolute right-[10px] bottom-[10px] z-10 max-w-[108px] truncate rounded-full border border-black/10 bg-white/72 px-[10px] py-[4px] text-[10px] font-semibold uppercase tracking-[0.12em] text-black/72 shadow-[0_1px_0_rgba(255,255,255,0.7)_inset] backdrop-blur-[6px]",
-									toneAccentClassNames[tone],
-								)}
-								title={topSkillTag.title}
-							>
-								{topSkillTag.value}
-							</div>
-						) : null}
 					</div>
 				</div>
 
@@ -336,18 +249,18 @@ function TeamMemberCard({ row }: { row: TeamPageMemberRow }) {
 					</div>
 				</div>
 
-				<div className="grid grid-cols-3 gap-[6px] [font-family:var(--dashboard-01-font-roster-mono)] text-[11px] font-normal text-[#4b4d49]">
+				<div className="grid grid-cols-2 gap-[6px] [font-family:var(--dashboard-01-font-roster-mono)] text-[11px] font-normal text-[#4b4d49]">
 					{stats.map((stat) => (
 						<div
 							key={stat.label}
-							className="min-w-0 rounded-[10px] border border-black/8 bg-white/74 px-[8px] py-[6px] shadow-[inset_0_1px_0_rgba(255,255,255,0.72)]"
+							className="grid min-h-[32px] min-w-0 grid-cols-[auto_max-content] items-center justify-center gap-[6px] rounded-[10px] border border-black/8 bg-white/74 px-[8px] py-[6px] shadow-[inset_0_1px_0_rgba(255,255,255,0.72)]"
 							title={stat.title}
 						>
-							<div className="truncate leading-none tracking-[-0.02em] tabular-nums text-[#272423]">
-								{stat.value}
-							</div>
-							<div className="mt-[4px] shrink-0 leading-none tracking-[0.08em] text-black/42">
+							<div className="shrink-0 leading-none tracking-[0.08em] text-black/42">
 								{stat.label}
+							</div>
+							<div className="leading-none tracking-[-0.04em] tabular-nums text-[#272423]">
+								{stat.value}
 							</div>
 						</div>
 					))}
