@@ -46,6 +46,144 @@ import {
 } from "@/lib/analytics";
 import { formatUsername } from "@/lib/format";
 import { orpc } from "@/lib/orpc";
+import { getSessionDetailPath } from "@/lib/session-paths";
+
+type DeveloperTimelinePoint = {
+	avg30Sessions: number;
+	avg7Sessions: number;
+	avgHoursPerSession: number;
+	date: string;
+	fullDate: string;
+	hours: number;
+	sessions: number;
+};
+
+type DeveloperProjectPoint = {
+	avgHoursPerSession: number;
+	hours: number;
+	name: string;
+	sessions: number;
+};
+
+function DeveloperTimelineTooltip({
+	active,
+	payload,
+	tooltipBg,
+	tooltipBorder,
+}: {
+	active?: boolean;
+	payload?: ReadonlyArray<{ payload?: DeveloperTimelinePoint }>;
+	tooltipBg: string;
+	tooltipBorder: string;
+}) {
+	const point = payload?.[0]?.payload;
+
+	if (!active || !point) {
+		return null;
+	}
+
+	return (
+		<div
+			className="rounded-lg shadow-lg p-3 min-w-[210px]"
+			style={{
+				backgroundColor: tooltipBg,
+				border: `1px solid ${tooltipBorder}`,
+			}}
+		>
+			<div className="mb-2 text-xs font-semibold text-foreground">
+				{point.fullDate}
+			</div>
+			<div className="space-y-1 text-xs">
+				<div className="flex items-center justify-between gap-4">
+					<span className="text-muted-foreground">Sessions</span>
+					<span className="font-semibold text-foreground">
+						{point.sessions.toLocaleString()}
+					</span>
+				</div>
+				<div className="flex items-center justify-between gap-4">
+					<span className="text-muted-foreground">Hours</span>
+					<span className="font-semibold text-foreground">
+						{point.hours.toFixed(1)}h
+					</span>
+				</div>
+				<div className="flex items-center justify-between gap-4">
+					<span className="text-muted-foreground">Avg / session</span>
+					<span className="font-semibold text-foreground">
+						{point.sessions > 0
+							? `${point.avgHoursPerSession.toFixed(1)}h`
+							: "—"}
+					</span>
+				</div>
+				<div className="flex items-center justify-between gap-4">
+					<span className="text-muted-foreground">7-day baseline</span>
+					<span className="font-semibold text-foreground">
+						{point.avg7Sessions.toFixed(1)}
+					</span>
+				</div>
+				<div className="flex items-center justify-between gap-4">
+					<span className="text-muted-foreground">30-day baseline</span>
+					<span className="font-semibold text-foreground">
+						{point.avg30Sessions.toFixed(1)}
+					</span>
+				</div>
+			</div>
+		</div>
+	);
+}
+
+function DeveloperProjectTooltip({
+	active,
+	payload,
+	tooltipBg,
+	tooltipBorder,
+}: {
+	active?: boolean;
+	payload?: ReadonlyArray<{ payload?: DeveloperProjectPoint }>;
+	tooltipBg: string;
+	tooltipBorder: string;
+}) {
+	const point = payload?.[0]?.payload;
+
+	if (!active || !point) {
+		return null;
+	}
+
+	return (
+		<div
+			className="rounded-lg shadow-lg p-3 min-w-[200px]"
+			style={{
+				backgroundColor: tooltipBg,
+				border: `1px solid ${tooltipBorder}`,
+			}}
+		>
+			<div className="mb-2 text-xs font-semibold text-foreground">
+				{point.name}
+			</div>
+			<div className="space-y-1 text-xs">
+				<div className="flex items-center justify-between gap-4">
+					<span className="text-muted-foreground">Sessions</span>
+					<span className="font-semibold text-foreground">
+						{point.sessions.toLocaleString()}
+					</span>
+				</div>
+				<div className="flex items-center justify-between gap-4">
+					<span className="text-muted-foreground">Hours</span>
+					<span className="font-semibold text-foreground">
+						{point.hours.toFixed(1)}h
+					</span>
+				</div>
+				<div className="flex items-center justify-between gap-4">
+					<span className="text-muted-foreground">Avg / session</span>
+					<span className="font-semibold text-foreground">
+						{point.sessions > 0
+							? `${point.avgHoursPerSession.toFixed(1)}h`
+							: "—"}
+					</span>
+				</div>
+			</div>
+		</div>
+	);
+}
 
 function resolveProjectName(row: {
 	git_remote?: string;
@@ -141,8 +279,18 @@ export function DeveloperDetailPage() {
 				month: "short",
 				day: "numeric",
 			}),
+			fullDate: new Date(day.date).toLocaleDateString("en-US", {
+				weekday: "short",
+				month: "short",
+				day: "numeric",
+				year: "numeric",
+			}),
 			sessions: day.sessions,
 			hours: parseFloat((day.total_duration_min / 60).toFixed(1)),
+			avgHoursPerSession:
+				day.sessions > 0
+					? parseFloat((day.total_duration_min / 60 / day.sessions).toFixed(1))
+					: 0,
 			avg7Sessions: rollingAvg7[index],
 			avg30Sessions: rollingAvg30[index],
 		}));
@@ -174,6 +322,10 @@ export function DeveloperDetailPage() {
 			name: resolveProjectName(p).name,
 			sessions: p.sessions,
 			hours: parseFloat((p.total_duration_min / 60).toFixed(1)),
+			avgHoursPerSession:
+				p.sessions > 0
+					? parseFloat((p.total_duration_min / 60 / p.sessions).toFixed(1))
+					: 0,
 		}));
 	}, [projects]);
 
@@ -420,17 +572,25 @@ export function DeveloperDetailPage() {
 								stroke={chartTheme.gridStroke}
 							/>
 							<XAxis dataKey="date" stroke={chartTheme.axisStroke} />
-							<YAxis yAxisId="left" stroke={chartTheme.axisStroke} />
+							<YAxis
+								yAxisId="left"
+								allowDecimals={false}
+								stroke={chartTheme.axisStroke}
+							/>
 							<YAxis
 								yAxisId="right"
+								allowDecimals={false}
 								orientation="right"
 								stroke={chartTheme.axisStroke}
 							/>
 							<Tooltip
-								contentStyle={{
-									backgroundColor: chartTheme.tooltipBg,
-									borderColor: chartTheme.tooltipBorder,
-								}}
+								content={(props) => (
+									<DeveloperTimelineTooltip
+										{...props}
+										tooltipBg={chartTheme.tooltipBg}
+										tooltipBorder={chartTheme.tooltipBorder}
+									/>
+								)}
 							/>
 							<Legend />
 							<Line
@@ -531,17 +691,25 @@ export function DeveloperDetailPage() {
 									v.length > 12 ? `${v.slice(0, 12)}...` : v
 								}
 							/>
-							<YAxis yAxisId="left" stroke={chartTheme.axisStroke} />
+							<YAxis
+								yAxisId="left"
+								allowDecimals={false}
+								stroke={chartTheme.axisStroke}
+							/>
 							<YAxis
 								yAxisId="right"
+								allowDecimals={false}
 								orientation="right"
 								stroke={chartTheme.axisStroke}
 							/>
 							<Tooltip
-								contentStyle={{
-									backgroundColor: chartTheme.tooltipBg,
-									borderColor: chartTheme.tooltipBorder,
-								}}
+								content={(props) => (
+									<DeveloperProjectTooltip
+										{...props}
+										tooltipBg={chartTheme.tooltipBg}
+										tooltipBorder={chartTheme.tooltipBorder}
+									/>
+								)}
 							/>
 							<Legend />
 							<Bar
@@ -641,7 +809,7 @@ export function DeveloperDetailPage() {
 					getRowAnalyticsValue={(row) => row.session_id}
 					onRowClick={
 						userId && canViewSession(userId)
-							? (row) => navigate(`/dashboard/sessions/${row.session_id}`)
+							? (row) => navigate(getSessionDetailPath(row.session_id))
 							: undefined
 					}
 				/>

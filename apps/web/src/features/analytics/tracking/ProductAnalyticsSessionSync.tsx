@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useMountEffect } from "@/app/hooks/useMountEffect";
 import {
 	type AppSession,
 	getSessionUserEmail,
@@ -10,16 +10,16 @@ import {
 	resetProductAnalytics,
 } from "@/lib/product-analytics";
 
-export function ProductAnalyticsSessionSync({
-	session,
+function ProductAnalyticsSessionSyncMount({
+	email,
+	name,
+	userId,
 }: {
-	session: AppSession | null | undefined;
+	email?: string;
+	name?: string;
+	userId: string | null;
 }) {
-	const userId = getSessionUserId(session);
-	const email = getSessionUserEmail(session);
-	const name = getSessionUserName(session);
-
-	useEffect(() => {
+	useMountEffect(() => {
 		if (userId) {
 			identifyProductAnalyticsUser(userId, {
 				email,
@@ -29,7 +29,26 @@ export function ProductAnalyticsSessionSync({
 		}
 
 		resetProductAnalytics();
-	}, [email, name, userId]);
+	});
 
 	return null;
+}
+
+export function ProductAnalyticsSessionSync({
+	session,
+}: {
+	session: AppSession | null | undefined;
+}) {
+	const userId = getSessionUserId(session);
+	const email = getSessionUserEmail(session);
+	const name = getSessionUserName(session);
+
+	return (
+		<ProductAnalyticsSessionSyncMount
+			key={userId ?? "anonymous"}
+			email={email}
+			name={name}
+			userId={userId}
+		/>
+	);
 }

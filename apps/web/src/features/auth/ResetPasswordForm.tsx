@@ -1,15 +1,15 @@
 import { useState } from "react";
-import { authClient } from "../../lib/auth-client";
-import { Button } from "../ui/button";
+import { Button } from "@/app/ui/button";
 import {
 	Card,
 	CardContent,
 	CardDescription,
 	CardHeader,
 	CardTitle,
-} from "../ui/card";
-import { Input } from "../ui/input";
-import { Label } from "../ui/label";
+} from "@/app/ui/card";
+import { Input } from "@/app/ui/input";
+import { Label } from "@/app/ui/label";
+import { authClient } from "@/lib/auth-client";
 
 export function ResetPasswordForm({
 	onBackToLogin,
@@ -27,17 +27,21 @@ export function ResetPasswordForm({
 
 	async function handleSubmit(e: React.FormEvent) {
 		e.preventDefault();
+
 		if (!token) {
 			setError("This reset link is invalid or expired.");
 			return;
 		}
+
 		setError("");
 		setSuccessMessage("");
 		setLoading(true);
+
 		const { error } = await authClient.resetPassword({
 			newPassword: password,
 			token,
 		});
+
 		setLoading(false);
 
 		if (error) {
@@ -67,10 +71,10 @@ export function ResetPasswordForm({
 							required
 						/>
 					</div>
-					{error && <p className="text-sm text-destructive">{error}</p>}
-					{successMessage && (
+					{error ? <p className="text-sm text-destructive">{error}</p> : null}
+					{successMessage ? (
 						<p className="text-sm text-muted-foreground">{successMessage}</p>
-					)}
+					) : null}
 					<Button type="submit" disabled={loading || !token}>
 						{loading ? "Resetting password..." : "Reset password"}
 					</Button>

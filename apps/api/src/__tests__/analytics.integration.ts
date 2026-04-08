@@ -15,9 +15,11 @@ import {
 	DeveloperProjectSchema,
 	DeveloperSessionSchema,
 	DeveloperSummarySchema,
+	DeveloperTeamCardSchema,
 	DeveloperTimelineSchema,
 	DeveloperTrendDataPointSchema,
 	DimensionAnalysisDataPointSchema,
+	ErrorsDashboardSchema,
 	ErrorTrendDataPointSchema,
 	InsightSchema,
 	LearningEntrySchema,
@@ -267,7 +269,7 @@ beforeAll(async () => {
 		session_id: string;
 		project_path: string;
 	}>;
-}, 120_000);
+});
 
 beforeEach(async () => {
 	await server.ensureAlive();
@@ -323,6 +325,12 @@ describe("analytics/developers", () => {
 	test("list", async () => {
 		const result = await rpc("analytics/developers/list", { days: DAYS });
 		const parsed = parseArray(DeveloperSummarySchema, result);
+		expect(parsed.length).toBeGreaterThanOrEqual(1);
+	}, 30_000);
+
+	test("teamCards", async () => {
+		const result = await rpc("analytics/developers/teamCards", { days: DAYS });
+		const parsed = parseArray(DeveloperTeamCardSchema, result);
 		expect(parsed.length).toBeGreaterThanOrEqual(1);
 	}, 30_000);
 
@@ -533,6 +541,16 @@ describe("analytics/roi", () => {
 // ── Errors ──────────────────────────────────────────────────────────
 
 describe("analytics/errors", () => {
+	test("dashboard", async () => {
+		const result = await rpc("analytics/errors/dashboard", {
+			startDate: START_DATE,
+			endDate: END_DATE,
+		});
+		const parsed = ErrorsDashboardSchema.parse(result);
+		expect(parsed.summary.total_errors).toBeGreaterThanOrEqual(0);
+		expect(Array.isArray(parsed.recurring)).toBe(true);
+	}, 30_000);
+
 	test("topRecurring", async () => {
 		const result = await rpc("analytics/errors/topRecurring", {
 			days: DAYS,
@@ -546,10 +564,12 @@ describe("analytics/errors", () => {
 		const result = await rpc("analytics/errors/trends", {
 			startDate: START_DATE,
 			endDate: END_DATE,
-			splitBy: "repository",
+			splitBy: "project_path",
 		});
 		const parsed = parseArray(ErrorTrendDataPointSchema, result);
-		expect(Array.isArray(parsed)).toBe(true);
+		expect(parsed.length).toBeGreaterThan(0);
+		expect(Array.isArray(parsed[0]?.error_types)).toBe(true);
+		expect(Array.isArray(parsed[0]?.error_type_occurrences)).toBe(true);
 	}, 30_000);
 });
 

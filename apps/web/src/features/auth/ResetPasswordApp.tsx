@@ -1,5 +1,5 @@
 import { useTheme } from "next-themes";
-import { ResetPasswordForm } from "@/components/auth/reset-password-form";
+import { ResetPasswordForm } from "@/features/auth/ResetPasswordForm";
 
 export function ResetPasswordApp() {
 	const { resolvedTheme } = useTheme();

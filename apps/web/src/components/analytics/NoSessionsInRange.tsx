@@ -1,6 +1,7 @@
 import { CalendarX } from "lucide-react";
 import { useDateRange } from "@/contexts/DateRangeContext";
 import { useAnalyticsTracking } from "@/hooks/useDashboardAnalytics";
+import { formatIsoDate } from "@/lib/format";
 import { AnalyticsCard } from "./AnalyticsCard";
 
 export function NoSessionsInRange() {
@@ -17,7 +18,7 @@ export function NoSessionsInRange() {
 			affectedScope: "page",
 		});
 		setStartDate("2024-01-01");
-		setEndDate(new Date().toISOString().split("T")[0]);
+		setEndDate(formatIsoDate(new Date()));
 	};
 
 	return (

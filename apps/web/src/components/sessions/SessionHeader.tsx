@@ -69,7 +69,11 @@ export function SessionHeader({ session }: SessionHeaderProps) {
 		setTimeout(() => setCopied(false), 2000);
 	}
 
-	const cost = calculateCost(session.input_tokens, session.output_tokens);
+	const cost = calculateCost(
+		session.input_tokens,
+		session.output_tokens,
+		session.model_used,
+	);
 
 	return (
 		<div className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-10">
