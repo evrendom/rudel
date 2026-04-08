@@ -557,11 +557,28 @@ export const RecurringErrorSchema = z.object({
 	repositories: z.array(z.string()),
 });
 
+export const ErrorsDashboardSummarySchema = z.object({
+	total_errors: z.number(),
+	distinct_patterns: z.number(),
+	high_severity_patterns: z.number(),
+	max_affected_users: z.number(),
+	top_error_pattern: z.string(),
+});
+
+export const ErrorsDashboardSchema = z.object({
+	start_date: z.string(),
+	end_date: z.string(),
+	summary: ErrorsDashboardSummarySchema,
+	recurring: z.array(RecurringErrorSchema),
+});
+
 export const ErrorTrendDataPointSchema = z.object({
 	date: z.string(),
 	dimension: z.string(),
 	avg_errors_per_interaction: z.number(),
 	avg_errors_per_session: z.number(),
+	error_types: z.array(z.string()),
+	error_type_occurrences: z.array(z.number()),
 	total_errors: z.number(),
 });
 
@@ -643,6 +660,10 @@ export type DeveloperCostBreakdown = z.infer<
 	typeof DeveloperCostBreakdownSchema
 >;
 export type ProjectCostBreakdown = z.infer<typeof ProjectCostBreakdownSchema>;
+export type ErrorsDashboardSummary = z.infer<
+	typeof ErrorsDashboardSummarySchema
+>;
+export type ErrorsDashboard = z.infer<typeof ErrorsDashboardSchema>;
 export type RecurringError = z.infer<typeof RecurringErrorSchema>;
 export type ErrorTrendDataPoint = z.infer<typeof ErrorTrendDataPointSchema>;
 export type LearningEntry = z.infer<typeof LearningEntrySchema>;

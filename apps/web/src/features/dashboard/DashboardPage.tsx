@@ -1,17 +1,19 @@
 import { useState } from "react";
 import { Tabs, TabsList, TabsTrigger } from "@/app/ui/tabs";
 import { DashboardDateControls } from "@/features/dashboard/components/DashboardDateControls";
+import { DashboardErrorsView } from "@/features/dashboard/components/DashboardErrorsView";
 import { DashboardPerformancePanel } from "@/features/dashboard/components/DashboardPerformancePanel";
 import { DashboardRepositoriesView } from "@/features/dashboard/components/DashboardRepositoriesView";
 import { DashboardRepositoryPanel } from "@/features/dashboard/components/DashboardRepositoryPanel";
 import { DashboardSessionsView } from "@/features/dashboard/components/DashboardSessionsView";
 import { DashboardTokensView } from "@/features/dashboard/components/DashboardTokensView";
+import { useDashboardErrorsData } from "@/features/dashboard/use-dashboard-errors-data";
 import { useDashboardHomeData } from "@/features/dashboard/use-dashboard-home-data";
 import { useDashboardSessionsData } from "@/features/dashboard/use-dashboard-sessions-data";
 import { useDashboardTokensData } from "@/features/dashboard/use-dashboard-tokens-data";
 import "@/features/dashboard/dashboard-theme.css";
 
-type DashboardHomeView = "commits" | "repos" | "sessions" | "tokens";
+type DashboardHomeView = "commits" | "errors" | "repos" | "sessions" | "tokens";
 
 export function DashboardPage() {
 	const [activeView, setActiveView] = useState<DashboardHomeView>("tokens");
@@ -26,6 +28,17 @@ export function DashboardPage() {
 		snapshot,
 		startDate: homeStartDate,
 	} = useDashboardHomeData();
+	const {
+		endDate: errorEndDate,
+		errorDashboard,
+		errorDeveloperTrend,
+		errorProjectTrend,
+		isPending: isErrorPending,
+		startDate: errorStartDate,
+		userLabelById,
+	} = useDashboardErrorsData({
+		enabled: activeView === "errors",
+	});
 	const {
 		isRecentSessionsPending,
 		isSessionSummaryPending,
@@ -59,6 +72,7 @@ export function DashboardPage() {
 								onValueChange={(nextValue) => {
 									if (
 										nextValue === "commits" ||
+										nextValue === "errors" ||
 										nextValue === "repos" ||
 										nextValue === "sessions" ||
 										nextValue === "tokens"
@@ -77,11 +91,7 @@ export function DashboardPage() {
 									>
 										Commits
 									</TabsTrigger>
-									<TabsTrigger
-										value="errors"
-										disabled
-										className="dashboardy-sticky-tab"
-									>
+									<TabsTrigger value="errors" className="dashboardy-sticky-tab">
 										Errors
 									</TabsTrigger>
 									<TabsTrigger value="repos" className="dashboardy-sticky-tab">
@@ -110,6 +120,16 @@ export function DashboardPage() {
 						performanceUsers={tokenPerformanceUsers}
 						startDate={tokenStartDate}
 						usersTokenUsage={usersTokenUsage}
+					/>
+				) : activeView === "errors" ? (
+					<DashboardErrorsView
+						endDate={errorEndDate}
+						errorDashboard={errorDashboard}
+						errorDeveloperTrend={errorDeveloperTrend}
+						errorProjectTrend={errorProjectTrend}
+						isPending={isErrorPending}
+						startDate={errorStartDate}
+						userLabelById={userLabelById}
 					/>
 				) : activeView === "sessions" ? (
 					<DashboardSessionsView

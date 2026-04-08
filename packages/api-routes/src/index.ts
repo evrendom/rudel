@@ -21,6 +21,7 @@ import {
 	DeveloperTrendDataPointSchema,
 	DimensionAnalysisDataPointSchema,
 	DimensionAnalysisInputSchema,
+	ErrorsDashboardSchema,
 	ErrorTrendDataPointSchema,
 	ErrorTrendsInputSchema,
 	InsightSchema,
@@ -275,6 +276,7 @@ export const contract = {
 				.output(z.array(ProjectCostBreakdownSchema)),
 		},
 		errors: {
+			dashboard: oc.input(DateRangeInputSchema).output(ErrorsDashboardSchema),
 			topRecurring: oc
 				.input(RecurringErrorsInputSchema)
 				.output(z.array(RecurringErrorSchema)),
