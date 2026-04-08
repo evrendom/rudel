@@ -151,6 +151,21 @@ export const DeveloperSummarySchema = z.object({
 	success_rate: z.number(),
 	cost: z.number(),
 	success_rate_trend: z.number(),
+	favorite_model: z.string().nullable(),
+});
+
+export const DeveloperTeamCardSchema = z.object({
+	user_id: z.string(),
+	display_name: z.string(),
+	cost: z.number(),
+	input_tokens: z.number(),
+	output_tokens: z.number(),
+	total_tokens: z.number(),
+	total_sessions: z.number(),
+	active_days: z.number(),
+	last_active_date: z.string(),
+	favorite_model: z.string().nullable(),
+	top_skills: z.array(z.object({ name: z.string(), count: z.number() })),
 });
 
 export const DeveloperDetailsSchema = DeveloperSummarySchema.extend({
@@ -638,6 +653,7 @@ export type RepositoryDailyTrendData = z.infer<
 >;
 export type Insight = z.infer<typeof InsightSchema>;
 export type DeveloperSummary = z.infer<typeof DeveloperSummarySchema>;
+export type DeveloperTeamCard = z.infer<typeof DeveloperTeamCardSchema>;
 export type DeveloperDetails = z.infer<typeof DeveloperDetailsSchema>;
 export type DeveloperSession = z.infer<typeof DeveloperSessionSchema>;
 export type DeveloperProject = z.infer<typeof DeveloperProjectSchema>;

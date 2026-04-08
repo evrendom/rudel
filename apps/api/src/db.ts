@@ -8,4 +8,5 @@ if (!connectionString) {
 }
 
 const client = postgres(connectionString);
+export const sqlClient = client;
 export const db = drizzle(client, { schema });

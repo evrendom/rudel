@@ -7,10 +7,12 @@ import {
 	FolderKanban,
 	LayoutDashboard,
 	UserCircle,
+	Users,
 } from "lucide-react";
 
 export type ShellRouteId =
 	| "overview"
+	| "team"
 	| "developers"
 	| "projects"
 	| "sessions"
@@ -33,6 +35,12 @@ export const primaryShellRoutes: readonly ShellRouteDefinition[] = [
 		path: "/dashboard",
 		icon: LayoutDashboard,
 		exact: true,
+	},
+	{
+		id: "team",
+		label: "Team",
+		path: "/dashboard/team",
+		icon: Users,
 	},
 	{
 		id: "developers",
