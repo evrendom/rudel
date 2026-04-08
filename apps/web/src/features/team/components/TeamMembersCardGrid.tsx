@@ -3,11 +3,6 @@ import type { TeamCardTone } from "@/features/team/data/team-card-types";
 import type { TeamPageMemberRow } from "@/features/team/use-team-page-data";
 import { cn } from "@/lib/utils";
 
-const compactNumberFormatter = new Intl.NumberFormat("en-US", {
-	maximumFractionDigits: 1,
-	notation: "compact",
-});
-
 const compactCurrencyFormatter = new Intl.NumberFormat("en-US", {
 	currency: "USD",
 	maximumFractionDigits: 1,
@@ -33,16 +28,13 @@ const adaptedTeamCardHeaderValueClassName =
 	"[font-family:var(--dashboard-01-font-roster-display)] text-[17.07px] font-extrabold leading-none tracking-[-0.01em] tabular-nums text-[#272423]";
 
 const adaptedTeamCardHeaderLabelClassName =
-	"ml-[5px] text-[10px] font-semibold leading-none tracking-[-0.03em]";
-
-const adaptedTeamCardRoleClassName =
-	"text-[12.36px] font-medium leading-none text-[#5d5955]";
+	"ml-[5px] text-[10px] font-semibold leading-none tracking-[-0.03em] text-[#7b7671]";
 
 const adaptedTeamCardNameClassName =
 	"[font-family:var(--dashboard-01-font-roster-display)] text-[19px] font-extrabold leading-[0.9] tracking-[-0.02em] text-[#252220]";
 
 const adaptedTeamCardModelSlotClassName =
-	"mt-[8px] flex min-h-[22px] items-center justify-center";
+	"flex flex-1 items-center justify-center";
 
 const adaptedTeamCardMediaPanelClassName =
 	"team-lineup-featured-media-panel mt-[12px] h-[158px] w-full rounded-[14px] border border-black/8 bg-white/86";
@@ -156,12 +148,26 @@ function formatShortDate(lastActiveDate: string | null) {
 	return shortDateFormatter.format(parsedDate);
 }
 
-function formatAverageTokens(totalTokens: number, totalSessions: number) {
-	if (totalSessions <= 0) {
-		return "0";
+function formatTotalTokens(totalTokens: number) {
+	const normalizedTotal = Math.max(0, totalTokens);
+
+	if (normalizedTotal >= 1_000_000) {
+		const value = Math.ceil(normalizedTotal / 100_000) / 10;
+		return `${Number.isInteger(value) ? value.toFixed(0) : value.toFixed(1)}M`;
 	}
 
-	return compactNumberFormatter.format(totalTokens / totalSessions);
+	if (normalizedTotal >= 1_000) {
+		const value = Math.ceil(normalizedTotal / 100) / 10;
+		return `${Number.isInteger(value) ? value.toFixed(0) : value.toFixed(1)}K`;
+	}
+
+	return `${Math.ceil(normalizedTotal)}`;
+}
+
+function getTrackedSkillsCount(
+	topSkills: Pick<TeamPageMemberRow, "topSkills">["topSkills"],
+) {
+	return topSkills.filter((skill) => skill.name.trim().length > 0).length;
 }
 
 function formatSpendValue(cost: number) {
@@ -236,12 +242,12 @@ function buildCardStats(row: TeamPageMemberRow): TeamCardStatRow[] {
 			value: row.activeDays.toLocaleString(),
 		},
 		{
-			label: "AVG",
+			label: "TOK",
 			title:
-				row.totalSessions > 0
-					? `${Math.round(row.totalTokens / row.totalSessions).toLocaleString()} average tokens per session`
-					: "No traced sessions yet.",
-			value: formatAverageTokens(row.totalTokens, row.totalSessions),
+				row.totalTokens > 0
+					? `${row.totalTokens.toLocaleString()} total tokens`
+					: "No traced tokens yet.",
+			value: formatTotalTokens(row.totalTokens),
 		},
 		{
 			label: "LAST",
@@ -249,9 +255,9 @@ function buildCardStats(row: TeamPageMemberRow): TeamCardStatRow[] {
 			value: formatShortDate(row.lastActiveDate),
 		},
 		{
-			label: "COST",
-			title: `${currencyFormatter.format(row.cost)} estimated spend`,
-			value: formatSpendValue(row.cost),
+			label: "SKILLS",
+			title: `${getTrackedSkillsCount(row.topSkills).toLocaleString()} tracked skills`,
+			value: getTrackedSkillsCount(row.topSkills).toString(),
 		},
 		{
 			label: "IN/OUT",
@@ -271,7 +277,7 @@ function TeamMemberCard({ row }: { row: TeamPageMemberRow }) {
 	return (
 		<li className="list-none">
 			<article className={adaptedTeamCardShellClassName}>
-				<div className="flex items-center justify-between">
+				<div className="flex items-center">
 					<div
 						className="flex items-center"
 						title={`${currencyFormatter.format(row.cost)} estimated spend`}
@@ -279,16 +285,8 @@ function TeamMemberCard({ row }: { row: TeamPageMemberRow }) {
 						<div className={adaptedTeamCardHeaderValueClassName}>
 							{topHeaderValue}
 						</div>
-						<div
-							className={cn(
-								adaptedTeamCardHeaderLabelClassName,
-								toneAccentClassNames[tone],
-							)}
-						>
-							SPEND
-						</div>
+						<div className={adaptedTeamCardHeaderLabelClassName}>COST</div>
 					</div>
-					<div className={adaptedTeamCardRoleClassName}>{row.role}</div>
 				</div>
 
 				<div className={adaptedTeamCardMediaPanelClassName}>
@@ -327,7 +325,7 @@ function TeamMemberCard({ row }: { row: TeamPageMemberRow }) {
 					</div>
 				</div>
 
-				<div className="mt-[16px] px-[3px] text-center">
+				<div className="mt-[16px] flex flex-1 flex-col px-[3px] text-center">
 					<div className={adaptedTeamCardNameClassName}>{row.displayName}</div>
 					<div className={adaptedTeamCardModelSlotClassName}>
 						{row.favoriteModel ? (
@@ -338,7 +336,7 @@ function TeamMemberCard({ row }: { row: TeamPageMemberRow }) {
 					</div>
 				</div>
 
-				<div className="mt-auto grid grid-cols-3 gap-[6px] [font-family:var(--dashboard-01-font-roster-mono)] text-[11px] font-normal text-[#4b4d49]">
+				<div className="grid grid-cols-3 gap-[6px] [font-family:var(--dashboard-01-font-roster-mono)] text-[11px] font-normal text-[#4b4d49]">
 					{stats.map((stat) => (
 						<div
 							key={stat.label}
