@@ -10,7 +10,7 @@ export function AnalyticsCard({ children, className }: AnalyticsCardProps) {
 	return (
 		<div
 			className={cn(
-				"bg-input rounded-lg shadow-md border border-border p-6",
+				"group/card flex flex-col gap-6 overflow-hidden rounded-4xl bg-card px-6 py-6 text-sm text-card-foreground shadow-md ring-1 ring-foreground/5 dark:ring-foreground/10",
 				className,
 			)}
 		>
