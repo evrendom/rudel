@@ -8,6 +8,7 @@ import { useMemo } from "react";
 import { useAnalyticsQuery } from "@/features/analytics/queries/useAnalyticsQuery";
 import { DashboardTokenDeveloperPanel } from "@/features/dashboard/components/DashboardTokenDeveloperPanel";
 import { DashboardTokenModelsPanel } from "@/features/dashboard/components/DashboardTokenModelsPanel";
+import { DashboardTokenRecentSessionsTable } from "@/features/dashboard/components/DashboardTokenRecentSessionsTable";
 import { DashboardTokenSnapshotSection } from "@/features/dashboard/components/DashboardTokenSnapshotSection";
 import type { DashboardPerformanceUserComparison } from "@/features/dashboard/data/dashboard-performance-adapter";
 import {
@@ -19,6 +20,7 @@ import { orpc } from "@/lib/orpc";
 export function DashboardTokensView({
 	endDate,
 	isDeveloperChartPending,
+	isSnapshotPending = false,
 	modelTokensTrend,
 	performanceUserDailyTrend,
 	performanceUsers,
@@ -27,6 +29,7 @@ export function DashboardTokensView({
 }: {
 	endDate: string;
 	isDeveloperChartPending: boolean;
+	isSnapshotPending?: boolean;
 	modelTokensTrend: ModelTokensTrendData[] | undefined;
 	performanceUserDailyTrend: UserDailyTrendData[] | undefined;
 	performanceUsers: DashboardPerformanceUserComparison[];
@@ -78,9 +81,12 @@ export function DashboardTokensView({
 		<section className="@container/tokens-view flex flex-col gap-8">
 			<DashboardTokenSnapshotSection
 				dailyPattern={dailyPattern}
-				isRecentSessionsPending={isRecentSessionsPending}
+				isMetricsPending={isSnapshotPending}
 				metrics={headlineMetrics}
-				recentSessions={sortedRecentSessions}
+			/>
+			<DashboardTokenRecentSessionsTable
+				isLoading={isRecentSessionsPending}
+				sessions={sortedRecentSessions}
 				totalSessionCount={totalSessionCount}
 			/>
 			<DashboardTokenDeveloperPanel

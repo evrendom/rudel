@@ -16,7 +16,7 @@ import {
 import { type ChartConfig, ChartContainer, ChartTooltip } from "@/app/ui/chart";
 import { Popover, PopoverContent, PopoverTrigger } from "@/app/ui/popover";
 import { ToggleGroup, ToggleGroupItem } from "@/app/ui/toggle-group";
-import { DashboardHeadlineMetricGrid } from "@/features/dashboard/components/DashboardHeadlineMetricGrid";
+import { DashboardInteractiveTopChartSection } from "@/features/dashboard/components/DashboardTopChartSection";
 import type { DashboardHeadlineMetric } from "@/features/dashboard/data/dashboard-static-data";
 import { cn } from "@/lib/utils";
 
@@ -89,6 +89,26 @@ const ERROR_TOTAL_CHART_CONFIG = {
 		color: "#EF4444",
 	},
 } satisfies ChartConfig;
+
+function getErrorDailyBarSize(total: number) {
+	if (total <= 7) {
+		return 32;
+	}
+
+	if (total <= 14) {
+		return 24;
+	}
+
+	if (total <= 21) {
+		return 18;
+	}
+
+	if (total <= 31) {
+		return 14;
+	}
+
+	return 10;
+}
 
 function buildDateRange(startDate: string, endDate: string) {
 	const parsedStartDate = parseISO(startDate);
@@ -781,7 +801,6 @@ function DashboardErrorDailySnapshot({
 	startDate: string;
 	trendData: ErrorTrendDataPoint[] | undefined;
 }) {
-	const [highlightedDate, setHighlightedDate] = useState<string | null>(null);
 	const metrics = useMemo(
 		() => buildErrorHeadlineMetrics(errorDashboard),
 		[errorDashboard],
@@ -790,40 +809,35 @@ function DashboardErrorDailySnapshot({
 		() => buildErrorDailyPoints(startDate, endDate, trendData),
 		[endDate, startDate, trendData],
 	);
+	const barSize = getErrorDailyBarSize(dailyPoints.length);
 
 	return (
-		<div className="flex flex-col gap-8">
-			<div className="flex flex-1 flex-col border-b border-[color:var(--dashboardy-divider)] lg:flex-row lg:items-center lg:gap-0">
-				<div className="flex flex-1 flex-col justify-center pb-4 pt-0 lg:pb-4">
-					<DashboardHeadlineMetricGrid
-						metrics={metrics}
-						className="pb-0"
-						showDelta={false}
-					/>
-				</div>
-				<div className="flex flex-1 items-center pt-0 lg:max-w-[760px] 2xl:max-w-[820px]">
+		<DashboardInteractiveTopChartSection
+			metrics={metrics}
+			renderChart={({ highlightedItemId, highlightSource }) => (
+				<div className="flex min-w-0 flex-1 pt-0 md:pt-4">
 					<ChartContainer
 						config={ERROR_DAILY_CHART_CONFIG}
-						className="h-[12.875rem] w-full min-w-0 flex-1 aspect-auto pt-0 md:pt-4 [&_.recharts-cartesian-grid-vertical_line]:stroke-transparent"
+						className="h-[12.875rem] w-full aspect-auto"
 						initialDimension={{ width: 664, height: 206 }}
 					>
 						<BarChart
 							data={dailyPoints}
 							barCategoryGap={0}
+							barSize={barSize}
 							margin={{ top: 2, right: 18, bottom: 10, left: 0 }}
 						>
-							<CartesianGrid
-								vertical={false}
-								stroke="color-mix(in srgb, var(--dashboardy-divider) 68%, transparent)"
-								strokeDasharray="0"
-							/>
 							<XAxis
 								dataKey="date"
-								axisLine={false}
+								height={22}
+								axisLine={{
+									stroke:
+										"color-mix(in srgb, var(--dashboardy-muted) 40%, transparent)",
+								}}
 								tickFormatter={(value, index) => {
 									const total = dailyPoints.length;
-									if (highlightedDate != null) {
-										return highlightedDate === value
+									if (highlightedItemId != null) {
+										return highlightedItemId === value
 											? total <= 7
 												? format(parseISO(value), "EEE d")
 												: format(parseISO(value), "MMM d")
@@ -844,21 +858,27 @@ function DashboardErrorDailySnapshot({
 									fontSize: 12,
 									fontWeight: 500,
 									fill: "var(--dashboardy-muted)",
-									opacity: 0.65,
+									opacity: 0.38,
 								}}
 							/>
 							<YAxis
 								orientation="right"
 								allowDecimals={false}
-								axisLine={false}
-								tickLine={false}
-								tickMargin={8}
-								width={34}
+								axisLine={{
+									stroke:
+										"color-mix(in srgb, var(--dashboardy-muted) 40%, transparent)",
+								}}
+								tickLine={{
+									stroke:
+										"color-mix(in srgb, var(--dashboardy-muted) 40%, transparent)",
+								}}
+								tickMargin={4}
+								width={48}
 								tick={{
 									fontSize: 12,
 									fontWeight: 500,
 									fill: "var(--dashboardy-muted)",
-									opacity: 0.65,
+									opacity: 0.38,
 								}}
 							/>
 							<ChartTooltip
@@ -872,22 +892,28 @@ function DashboardErrorDailySnapshot({
 								isAnimationActive={false}
 								shape={
 									<ErrorDailyBarShape
-										activeDate={highlightedDate}
-										activeSource={highlightedDate ? "table" : null}
+										activeDate={highlightedItemId}
+										activeSource={highlightSource}
 									/>
 								}
 							/>
 						</BarChart>
 					</ChartContainer>
 				</div>
-			</div>
-			<DashboardErrorDailyTable
-				highlightedDate={highlightedDate}
-				highlightSource={highlightedDate ? "table" : null}
-				onHighlightDateChange={setHighlightedDate}
-				rows={dailyPoints}
-			/>
-		</div>
+			)}
+			renderDetail={({
+				highlightedItemId,
+				highlightSource,
+				onHighlightItemChange,
+			}) => (
+				<DashboardErrorDailyTable
+					highlightedDate={highlightedItemId}
+					highlightSource={highlightSource}
+					onHighlightDateChange={onHighlightItemChange}
+					rows={dailyPoints}
+				/>
+			)}
+		/>
 	);
 }
 
