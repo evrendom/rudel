@@ -296,7 +296,29 @@ export async function getUsersDailyTrend(
       sum(ifNull(output_tokens, 0)) as output_tokens,
       round(avg(success_score), 2) as avg_success_rate,
       length(arrayDistinct(arrayFilter(x -> x != '', arrayFlatten(groupArray(skills))))) as distinct_skills,
-      length(arrayDistinct(arrayFilter(x -> x != '', arrayFlatten(groupArray(slash_commands))))) as distinct_slash_commands
+      length(arrayDistinct(arrayFilter(x -> x != '', arrayFlatten(groupArray(slash_commands))))) as distinct_slash_commands,
+      arrayFilter(
+        x -> x != '',
+        arrayDistinct(groupArray(if(model_used != '' AND model_used != 'unknown', model_used, '')))
+      ) as models_used,
+      arraySort(
+        arrayDistinct(
+          arrayFilter(
+            x -> x != '',
+            groupArray(
+              if(
+                git_remote != '',
+                replaceRegexpOne(arrayElement(splitByChar('/', git_remote), -1), '\\\\.git$', ''),
+                if(
+                  package_name != '',
+                  package_name,
+                  arrayElement(splitByChar('/', replaceAll(project_path, '\\\\', '/')), -1)
+                )
+              )
+            )
+          )
+        )
+      ) as repositories_touched
     FROM rudel.session_analytics
     WHERE ${dateFilter}
       AND organization_id = {orgId:String}

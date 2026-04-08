@@ -40,6 +40,17 @@ type SortablePerformanceUser = {
 
 type AggregatedTrendUsage = {
 	inputTokens: number;
+	modelsUsed: string[];
+	outputTokens: number;
+	repositoriesTouched: string[];
+	totalCommits: number;
+	totalSessions: number;
+	totalTokens: number;
+};
+
+type ResolvedPerformanceTotals = {
+	cost: number;
+	inputTokens: number;
 	outputTokens: number;
 	totalCommits: number;
 	totalSessions: number;
@@ -55,12 +66,22 @@ function getMemberDisplayLabel(member: DashboardPerformanceMember) {
 function buildTrendUsageByUserId(
 	usersDailyTrend: UserDailyTrendData[] | undefined,
 ) {
-	const usageByUserId = new Map<string, AggregatedTrendUsage>();
+	const usageByUserId = new Map<
+		string,
+		AggregatedTrendUsage & {
+			modelCounts: Map<string, number>;
+			repositoryCounts: Map<string, number>;
+		}
+	>();
 
 	for (const row of usersDailyTrend ?? []) {
 		const currentUsage = usageByUserId.get(row.user_id) ?? {
 			inputTokens: 0,
+			modelCounts: new Map<string, number>(),
+			modelsUsed: [],
 			outputTokens: 0,
+			repositoriesTouched: [],
+			repositoryCounts: new Map<string, number>(),
 			totalCommits: 0,
 			totalSessions: 0,
 			totalTokens: 0,
@@ -71,10 +92,76 @@ function buildTrendUsageByUserId(
 		currentUsage.totalCommits += row.total_commits ?? 0;
 		currentUsage.totalSessions += row.sessions ?? 0;
 		currentUsage.totalTokens += row.total_tokens ?? 0;
+		for (const model of row.models_used ?? []) {
+			if (!model) {
+				continue;
+			}
+
+			currentUsage.modelCounts.set(
+				model,
+				(currentUsage.modelCounts.get(model) ?? 0) + 1,
+			);
+		}
+		for (const repository of row.repositories_touched ?? []) {
+			if (!repository) {
+				continue;
+			}
+
+			currentUsage.repositoryCounts.set(
+				repository,
+				(currentUsage.repositoryCounts.get(repository) ?? 0) + 1,
+			);
+		}
 		usageByUserId.set(row.user_id, currentUsage);
 	}
 
-	return usageByUserId;
+	return new Map<string, AggregatedTrendUsage>(
+		Array.from(usageByUserId.entries()).map(([userId, usage]) => [
+			userId,
+			{
+				inputTokens: usage.inputTokens,
+				modelsUsed: Array.from(usage.modelCounts.entries())
+					.sort(
+						(left, right) =>
+							right[1] - left[1] || left[0].localeCompare(right[0]),
+					)
+					.map(([model]) => model),
+				outputTokens: usage.outputTokens,
+				repositoriesTouched: Array.from(usage.repositoryCounts.entries())
+					.sort(
+						(left, right) =>
+							right[1] - left[1] || left[0].localeCompare(right[0]),
+					)
+					.map(([repository]) => repository),
+				totalCommits: usage.totalCommits,
+				totalSessions: usage.totalSessions,
+				totalTokens: usage.totalTokens,
+			},
+		]),
+	);
+}
+
+function resolvePerformanceTotals(
+	usage: UserTokenUsageData | undefined,
+	trendUsage: AggregatedTrendUsage | undefined,
+): ResolvedPerformanceTotals {
+	const inputTokens = trendUsage?.inputTokens ?? usage?.input_tokens ?? 0;
+	const outputTokens = trendUsage?.outputTokens ?? usage?.output_tokens ?? 0;
+	const totalCommits = trendUsage?.totalCommits ?? usage?.total_commits ?? 0;
+	const totalSessions = trendUsage?.totalSessions ?? usage?.total_sessions ?? 0;
+	const totalTokens = trendUsage?.totalTokens ?? usage?.total_tokens ?? 0;
+
+	return {
+		cost:
+			usage && usage.cost > 0
+				? usage.cost
+				: calculateCost(inputTokens, outputTokens),
+		inputTokens,
+		outputTokens,
+		totalCommits,
+		totalSessions,
+		totalTokens,
+	};
 }
 
 export function buildDashboardPerformanceUsers(
@@ -93,38 +180,26 @@ export function buildDashboardPerformanceUsers(
 		(member) => {
 			const usage = usageByUserId.get(member.userId);
 			const trendUsage = trendUsageByUserId.get(member.userId);
-			const totalSessions =
-				usage && usage.total_sessions > 0
-					? usage.total_sessions
-					: (trendUsage?.totalSessions ?? 0);
-			const totalTokens =
-				usage && usage.total_tokens > 0
-					? usage.total_tokens
-					: (trendUsage?.totalTokens ?? 0);
-			const inputTokens =
-				usage && usage.total_tokens > 0
-					? usage.input_tokens
-					: (trendUsage?.inputTokens ?? 0);
-			const outputTokens =
-				usage && usage.total_tokens > 0
-					? usage.output_tokens
-					: (trendUsage?.outputTokens ?? 0);
-			const totalCommits =
-				usage && (usage.total_commits > 0 || usage.total_sessions > 0)
-					? usage.total_commits
-					: (trendUsage?.totalCommits ?? 0);
-			const cost =
-				usage && usage.cost > 0
-					? usage.cost
-					: calculateCost(inputTokens, outputTokens);
+			const {
+				cost,
+				inputTokens,
+				outputTokens,
+				totalCommits,
+				totalSessions,
+				totalTokens,
+			} = resolvePerformanceTotals(usage, trendUsage);
 
 			return {
 				cost,
 				imageUrl: member.user.image,
 				inputTokens,
-				modelsUsed: usage?.models_used ?? [],
+				modelsUsed: usage?.models_used.length
+					? usage.models_used
+					: (trendUsage?.modelsUsed ?? []),
 				outputTokens,
-				repositoriesTouched: usage?.repositories_touched ?? [],
+				repositoriesTouched: usage?.repositories_touched.length
+					? usage.repositories_touched
+					: (trendUsage?.repositoriesTouched ?? []),
 				totalCommits,
 				totalSessions,
 				totalTokens,
@@ -139,42 +214,33 @@ export function buildDashboardPerformanceUsers(
 		...(usersDailyTrend ?? []).map((row) => row.user_id),
 	]);
 
-	const analyticsOnlyRows: SortablePerformanceUser[] = Array.from(analyticsOnlyIds)
+	const analyticsOnlyRows: SortablePerformanceUser[] = Array.from(
+		analyticsOnlyIds,
+	)
 		.filter((userId) => userId && !memberIds.has(userId))
 		.map((userId) => {
 			const usage = usageByUserId.get(userId);
 			const trendUsage = trendUsageByUserId.get(userId);
-			const totalSessions =
-				usage && usage.total_sessions > 0
-					? usage.total_sessions
-					: (trendUsage?.totalSessions ?? 0);
-			const totalTokens =
-				usage && usage.total_tokens > 0
-					? usage.total_tokens
-					: (trendUsage?.totalTokens ?? 0);
-			const inputTokens =
-				usage && usage.total_tokens > 0
-					? usage.input_tokens
-					: (trendUsage?.inputTokens ?? 0);
-			const outputTokens =
-				usage && usage.total_tokens > 0
-					? usage.output_tokens
-					: (trendUsage?.outputTokens ?? 0);
-			const totalCommits =
-				usage && (usage.total_commits > 0 || usage.total_sessions > 0)
-					? usage.total_commits
-					: (trendUsage?.totalCommits ?? 0);
+			const {
+				cost,
+				inputTokens,
+				outputTokens,
+				totalCommits,
+				totalSessions,
+				totalTokens,
+			} = resolvePerformanceTotals(usage, trendUsage);
 
 			return {
-				cost:
-					usage && usage.cost > 0
-						? usage.cost
-						: calculateCost(inputTokens, outputTokens),
+				cost,
 				imageUrl: userImageById.get(userId) ?? null,
 				inputTokens,
-				modelsUsed: usage?.models_used ?? [],
+				modelsUsed: usage?.models_used.length
+					? usage.models_used
+					: (trendUsage?.modelsUsed ?? []),
 				outputTokens,
-				repositoriesTouched: usage?.repositories_touched ?? [],
+				repositoriesTouched: usage?.repositories_touched.length
+					? usage.repositories_touched
+					: (trendUsage?.repositoriesTouched ?? []),
 				totalCommits,
 				totalSessions,
 				totalTokens,

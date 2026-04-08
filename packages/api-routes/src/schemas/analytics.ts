@@ -81,6 +81,8 @@ export const UserDailyTrendDataSchema = z.object({
 	avg_success_rate: z.number(),
 	distinct_skills: z.number(),
 	distinct_slash_commands: z.number(),
+	models_used: z.array(z.string()),
+	repositories_touched: z.array(z.string()),
 });
 
 export const RepositoryDailyTrendDataSchema = z.object({
