@@ -11,7 +11,10 @@ import { DashboardRepositoryPanel } from "@/features/dashboard/components/Dashbo
 import { DashboardSessionsSnapshotSection } from "@/features/dashboard/components/DashboardSessionsSnapshotSection";
 import type { DashboardPerformanceUserComparison } from "@/features/dashboard/data/dashboard-performance-adapter";
 import type { DashboardRankedOutputRow } from "@/features/dashboard/data/dashboard-static-data";
-import { buildDashboardSessionTabMetrics } from "@/features/dashboard/data/dashboard-tab-adapters";
+import {
+	buildDashboardDailyPatternFromUserTrend,
+	buildDashboardSessionTabMetrics,
+} from "@/features/dashboard/data/dashboard-tab-adapters";
 import { orpc } from "@/lib/orpc";
 
 export function DashboardSessionsView({
@@ -54,38 +57,24 @@ export function DashboardSessionsView({
 			},
 		}),
 	);
-	const { data: recentSessions, isPending: isRecentSessionsPending } =
-		useAnalyticsQuery(
-			orpc.analytics.sessions.list.queryOptions({
-				input: {
-					endDate: state.endDate,
-					limit: 10,
-					startDate: state.startDate,
-					sortBy: "session_date",
-					sortOrder: "desc",
-				},
-			}),
-		);
-
-	const sortedRecentSessions = useMemo(
+	const dailyPattern = useMemo(
 		() =>
-			[...(recentSessions ?? [])].sort(
-				(left, right) =>
-					new Date(right.session_date).getTime() -
-					new Date(left.session_date).getTime(),
+			buildDashboardDailyPatternFromUserTrend(
+				state.startDate,
+				state.endDate,
+				performanceUserDailyTrend,
 			),
-		[recentSessions],
+		[performanceUserDailyTrend, state.endDate, state.startDate],
 	);
 
 	return (
 		<section className="@container/sessions-view flex flex-col gap-8">
 			<DashboardSessionsSnapshotSection
+				dailyPattern={dailyPattern}
 				hourlyActivity={sessionHourlyActivity}
 				isHourlyActivityPending={isSessionHourlyActivityPending}
 				isMetricsPending={isSnapshotPending}
-				isRecentSessionsPending={isRecentSessionsPending}
 				metrics={headlineMetrics}
-				recentSessions={sortedRecentSessions}
 				showDelta
 			/>
 			<DashboardDeveloperPanel

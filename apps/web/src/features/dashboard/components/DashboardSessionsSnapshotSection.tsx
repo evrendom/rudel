@@ -1,27 +1,25 @@
-import type {
-	SessionAnalytics,
-	SessionHourlyActivityDataPoint,
-} from "@rudel/api-routes";
-import { DashboardRecentSessionsPanel } from "@/features/dashboard/components/DashboardRecentSessionsPanel";
+import type { SessionHourlyActivityDataPoint } from "@rudel/api-routes";
+import { DashboardDailyOverviewTable } from "@/features/dashboard/components/DashboardDailyOverviewTable";
 import { DashboardSessionHourlyChart } from "@/features/dashboard/components/DashboardSessionHourlyChart";
 import { DashboardTopChartSection } from "@/features/dashboard/components/DashboardTopChartSection";
-import type { DashboardHeadlineMetric } from "@/features/dashboard/data/dashboard-static-data";
+import type {
+	DashboardDailyPatternPoint,
+	DashboardHeadlineMetric,
+} from "@/features/dashboard/data/dashboard-static-data";
 
 export function DashboardSessionsSnapshotSection({
+	dailyPattern,
 	hourlyActivity,
 	isHourlyActivityPending,
 	isMetricsPending = false,
-	isRecentSessionsPending,
 	metrics,
-	recentSessions,
 	showDelta = false,
 }: {
+	dailyPattern: DashboardDailyPatternPoint[];
 	hourlyActivity: SessionHourlyActivityDataPoint[] | undefined;
 	isHourlyActivityPending: boolean;
 	isMetricsPending?: boolean;
-	isRecentSessionsPending: boolean;
 	metrics: DashboardHeadlineMetric[];
-	recentSessions: SessionAnalytics[] | undefined;
 	showDelta?: boolean;
 }) {
 	return (
@@ -36,12 +34,7 @@ export function DashboardSessionsSnapshotSection({
 					isLoading={isHourlyActivityPending}
 				/>
 			}
-			detail={
-				<DashboardRecentSessionsPanel
-					isLoading={isRecentSessionsPending}
-					sessions={recentSessions}
-				/>
-			}
+			detail={<DashboardDailyOverviewTable data={dailyPattern} />}
 		/>
 	);
 }
