@@ -7,5 +7,5 @@ if (!connectionString) {
 	throw new Error("PG_CONNECTION_STRING environment variable is required");
 }
 
-const client = postgres(connectionString);
-export const db = drizzle(client, { schema });
+export const sqlClient = postgres(connectionString);
+export const db = drizzle(sqlClient, { schema });

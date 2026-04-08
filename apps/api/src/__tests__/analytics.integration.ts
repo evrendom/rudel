@@ -8,6 +8,7 @@ import {
 } from "bun:test";
 import { resolve } from "node:path";
 import {
+	CostsDashboardSchema,
 	DeveloperCostBreakdownSchema,
 	DeveloperDetailsSchema,
 	DeveloperErrorSchema,
@@ -15,10 +16,12 @@ import {
 	DeveloperProjectSchema,
 	DeveloperSessionSchema,
 	DeveloperSummarySchema,
+	DeveloperTeamCardSchema,
 	DeveloperTimelineSchema,
 	DeveloperTrendDataPointSchema,
 	DimensionAnalysisDataPointSchema,
 	ErrorTrendDataPointSchema,
+	ErrorsDashboardSchema,
 	InsightSchema,
 	LearningEntrySchema,
 	LearningsFeedStatsSchema,
@@ -33,6 +36,7 @@ import {
 	ProjectInvestmentSchema,
 	ProjectTrendDataPointSchema,
 	RecurringErrorSchema,
+	ROIDashboardSchema,
 	ROIMetricsSchema,
 	ROITrendSchema,
 	SessionAnalyticsSchema,
@@ -305,6 +309,9 @@ describe("analytics/overview", () => {
 		const result = await rpc("analytics/overview/insights", dateRange);
 		const parsed = parseArray(InsightSchema, result);
 		expect(Array.isArray(parsed)).toBe(true);
+		expect(parsed.some((insight) => insight.link === "/dashboard/team")).toBe(
+			false,
+		);
 	}, 30_000);
 
 	// Known bug: ClickHouse AVG returns null on empty comparison period, failing output validation
@@ -317,6 +324,48 @@ describe("analytics/overview", () => {
 	}, 30_000);
 });
 
+// ── Costs ──────────────────────────────────────────────────────────
+
+describe("analytics/costs", () => {
+	test("dashboard", async () => {
+		const result = await rpc("analytics/costs/dashboard");
+		const parsed = CostsDashboardSchema.parse(result);
+		const todayUtc = new Date().toISOString().slice(0, 10);
+		const monthStartUtc = `${todayUtc.slice(0, 7)}-01`;
+
+		expect(parsed.currency).toBe("USD");
+		expect(parsed.timezone).toBe("UTC");
+		expect(parsed.metrics).toHaveLength(4);
+		expect(parsed.chart_window_start).toBe(monthStartUtc);
+		expect(parsed.chart_window_end).toBe(todayUtc);
+
+		for (const metric of parsed.metrics) {
+			expect(metric.cost).toBeGreaterThanOrEqual(0);
+		}
+
+		for (let index = 1; index < parsed.by_model.length; index += 1) {
+			expect(parsed.by_model[index - 1]!.cost).toBeGreaterThanOrEqual(
+				parsed.by_model[index]!.cost,
+			);
+		}
+
+		for (let index = 1; index < parsed.by_project.length; index += 1) {
+			expect(parsed.by_project[index - 1]!.cost).toBeGreaterThanOrEqual(
+				parsed.by_project[index]!.cost,
+			);
+		}
+
+		expect(
+			parsed.by_model.every(
+				(row) => row.model.trim().length > 0 && row.model !== "unknown",
+			),
+		).toBe(true);
+		expect(
+			parsed.by_project.every((row) => row.project_key.trim().length > 0),
+		).toBe(true);
+	}, 30_000);
+});
+
 // ── Developers ──────────────────────────────────────────────────────
 
 describe("analytics/developers", () => {
@@ -324,6 +373,17 @@ describe("analytics/developers", () => {
 		const result = await rpc("analytics/developers/list", { days: DAYS });
 		const parsed = parseArray(DeveloperSummarySchema, result);
 		expect(parsed.length).toBeGreaterThanOrEqual(1);
+	}, 30_000);
+
+	test("teamCards", async () => {
+		const result = await rpc("analytics/developers/teamCards", { days: DAYS });
+		const parsed = parseArray(DeveloperTeamCardSchema, result);
+		expect(parsed.length).toBeGreaterThanOrEqual(1);
+		expect(
+			parsed.some(
+				(card) => card.favorite_model !== null || card.top_skills.length > 0,
+			),
+		).toBe(true);
 	}, 30_000);
 
 	test("details", async () => {
@@ -501,6 +561,19 @@ describe("analytics/sessions", () => {
 // ── ROI ─────────────────────────────────────────────────────────────
 
 describe("analytics/roi", () => {
+	test("dashboard", async () => {
+		const result = await rpc("analytics/roi/dashboard", {
+			startDate: START_DATE,
+			endDate: END_DATE,
+		});
+		const parsed = ROIDashboardSchema.parse(result);
+		expect(parsed.start_date).toBe(START_DATE);
+		expect(parsed.end_date).toBe(END_DATE);
+		expect(["day", "week", "month"]).toContain(parsed.trend_interval);
+		expect(parsed.developer_breakdown.length).toBeGreaterThanOrEqual(1);
+		expect(parsed.project_breakdown.length).toBeGreaterThanOrEqual(1);
+	}, 30_000);
+
 	test("metrics", async () => {
 		const result = await rpc("analytics/roi/metrics", { days: DAYS });
 		const parsed = ROIMetricsSchema.parse(result);
@@ -528,11 +601,47 @@ describe("analytics/roi", () => {
 		const parsed = parseArray(ProjectCostBreakdownSchema, result);
 		expect(parsed.length).toBeGreaterThanOrEqual(1);
 	}, 30_000);
+
+	test("dashboard interval thresholds", async () => {
+		const dayRange = ROIDashboardSchema.parse(
+			await rpc("analytics/roi/dashboard", {
+				startDate: "2026-03-01",
+				endDate: "2026-03-24",
+			}),
+		);
+		const weekRange = ROIDashboardSchema.parse(
+			await rpc("analytics/roi/dashboard", {
+				startDate: "2025-12-01",
+				endDate: "2026-03-24",
+			}),
+		);
+		const monthRange = ROIDashboardSchema.parse(
+			await rpc("analytics/roi/dashboard", {
+				startDate: "2025-01-01",
+				endDate: "2026-03-24",
+			}),
+		);
+
+		expect(dayRange.trend_interval).toBe("day");
+		expect(weekRange.trend_interval).toBe("week");
+		expect(monthRange.trend_interval).toBe("month");
+	}, 30_000);
 });
 
 // ── Errors ──────────────────────────────────────────────────────────
 
 describe("analytics/errors", () => {
+	test("dashboard", async () => {
+		const result = await rpc("analytics/errors/dashboard", {
+			startDate: START_DATE,
+			endDate: END_DATE,
+		});
+		const parsed = ErrorsDashboardSchema.parse(result);
+		expect(parsed.start_date).toBe(START_DATE);
+		expect(parsed.end_date).toBe(END_DATE);
+		expect(Array.isArray(parsed.recurring)).toBe(true);
+	}, 30_000);
+
 	test("topRecurring", async () => {
 		const result = await rpc("analytics/errors/topRecurring", {
 			days: DAYS,
@@ -546,7 +655,7 @@ describe("analytics/errors", () => {
 		const result = await rpc("analytics/errors/trends", {
 			startDate: START_DATE,
 			endDate: END_DATE,
-			splitBy: "repository",
+			splitBy: "project_path",
 		});
 		const parsed = parseArray(ErrorTrendDataPointSchema, result);
 		expect(Array.isArray(parsed)).toBe(true);

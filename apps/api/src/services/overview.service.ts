@@ -1,16 +1,16 @@
 import type {
 	ModelTokensTrendData,
 	OverviewKPIs,
+	RepositoryDailyTrendData,
 	UsageTrendData,
+	UserDailyTrendData,
+	UserTokenUsageData,
 } from "@rudel/api-routes";
 import { user } from "@rudel/sql-schema";
-import { eq } from "drizzle-orm";
-import {
-	buildAbsoluteDateFilter,
-	buildDateFilter,
-	queryClickhouse,
-} from "../clickhouse.js";
+import { inArray } from "drizzle-orm";
+import { buildAbsoluteDateFilter, queryClickhouse } from "../clickhouse.js";
 import { db } from "../db.js";
+import { buildEstimatedCostSql } from "./pricing.service.js";
 
 export interface Insight {
 	type: "trend" | "performer" | "alert" | "info";
@@ -18,6 +18,14 @@ export interface Insight {
 	message: string;
 	link: string;
 }
+
+const PER_SESSION_COST_SQL = buildEstimatedCostSql({
+	modelExpr: "model_used",
+	inputExpr: "ifNull(input_tokens, 0)",
+	outputExpr: "ifNull(output_tokens, 0)",
+	cacheReadInputExpr: "ifNull(cache_read_input_tokens, 0)",
+	cacheCreationInputExpr: "ifNull(cache_creation_input_tokens, 0)",
+});
 
 /**
  * Get overview KPI counts: distinct users, sessions, projects, subagents, skills, slash commands
@@ -131,11 +139,11 @@ export async function getModelTokensTrend(
 
 	const query = `
     SELECT
-      toDate(session_date) as date,
+      toString(toDate(session_date)) as date,
       model_used as model,
-      sum(total_tokens) as total_tokens,
-      sum(input_tokens) as input_tokens,
-      sum(output_tokens) as output_tokens
+      sum(ifNull(total_tokens, 0)) as total_tokens,
+      sum(ifNull(input_tokens, 0)) as input_tokens,
+      sum(ifNull(output_tokens, 0)) as output_tokens
     FROM rudel.session_analytics
     WHERE ${dateFilter}
       AND organization_id = {orgId:String}
@@ -147,6 +155,214 @@ export async function getModelTokensTrend(
 
 	return queryClickhouse<ModelTokensTrendData>({
 		query,
+		query_params: {
+			startDate,
+			endDate,
+			orgId,
+		},
+	});
+}
+
+/**
+ * Get token usage aggregated by user for a selected absolute date range
+ */
+export async function getUsersTokenUsage(
+	orgId: string,
+	startDate: string,
+	endDate: string,
+): Promise<UserTokenUsageData[]> {
+	const dateFilter = buildAbsoluteDateFilter("startDate", "endDate");
+
+	const rows = await queryClickhouse<{
+		models_used: string[];
+		repositories_touched: string[];
+		user_id: string;
+		total_commits: number;
+		total_tokens: number;
+		input_tokens: number;
+		output_tokens: number;
+		cost: number;
+		total_sessions: number;
+		total_duration_min: number;
+		success_rate: number;
+		distinct_skills: number;
+		distinct_slash_commands: number;
+	}>({
+		query: `
+    SELECT
+      user_id,
+      arrayFilter(
+        x -> x != '',
+        topK(3)(if(model_used != '' AND model_used != 'unknown', model_used, ''))
+      ) as models_used,
+      arraySort(
+        arrayDistinct(
+          arrayFilter(
+            x -> x != '',
+            groupArray(
+              if(
+                git_remote != '',
+                replaceRegexpOne(arrayElement(splitByChar('/', git_remote), -1), '\\\\.git$', ''),
+                if(
+                  package_name != '',
+                  package_name,
+                  arrayElement(splitByChar('/', replaceAll(project_path, '\\\\', '/')), -1)
+                )
+              )
+            )
+          )
+        )
+      ) as repositories_touched,
+      sum(has_commit) as total_commits,
+      sum(total_tokens) as total_tokens,
+      sum(input_tokens) as input_tokens,
+      sum(output_tokens) as output_tokens,
+      round(sum(${PER_SESSION_COST_SQL}), 4) as cost,
+      count() as total_sessions,
+      round(sum(actual_duration_min), 2) as total_duration_min,
+      round(avg(success_score), 2) as success_rate,
+      length(arrayDistinct(arrayFilter(x -> x != '', arrayFlatten(groupArray(skills))))) as distinct_skills,
+      length(arrayDistinct(arrayFilter(x -> x != '', arrayFlatten(groupArray(slash_commands))))) as distinct_slash_commands
+    FROM rudel.session_analytics
+    WHERE ${dateFilter}
+      AND organization_id = {orgId:String}
+      AND user_id != ''
+    GROUP BY user_id
+    ORDER BY total_tokens DESC
+  `,
+		query_params: {
+			startDate,
+			endDate,
+			orgId,
+		},
+	});
+
+	if (rows.length === 0) {
+		return [];
+	}
+
+	const userIds = rows.map((row) => row.user_id);
+	const users = await db
+		.select({
+			id: user.id,
+			name: user.name,
+			email: user.email,
+		})
+		.from(user)
+		.where(inArray(user.id, userIds));
+
+	const userMap = new Map(
+		users.map((entry) => [
+			entry.id,
+			entry.name?.trim() || entry.email?.trim() || entry.id,
+		]),
+	);
+
+	return rows.map((row) => ({
+		models_used: row.models_used ?? [],
+		repositories_touched: row.repositories_touched ?? [],
+		user_id: row.user_id,
+		user_label: userMap.get(row.user_id) ?? row.user_id,
+		total_commits: Number(row.total_commits),
+		total_tokens: Number(row.total_tokens),
+		input_tokens: Number(row.input_tokens),
+		output_tokens: Number(row.output_tokens),
+		cost: Number(row.cost),
+		total_sessions: Number(row.total_sessions),
+		total_duration_min: Number(row.total_duration_min),
+		success_rate: Number(row.success_rate),
+		distinct_skills: Number(row.distinct_skills),
+		distinct_slash_commands: Number(row.distinct_slash_commands),
+	}));
+}
+
+export async function getUsersDailyTrend(
+	orgId: string,
+	startDate: string,
+	endDate: string,
+): Promise<UserDailyTrendData[]> {
+	const dateFilter = buildAbsoluteDateFilter("startDate", "endDate");
+
+	return queryClickhouse<UserDailyTrendData>({
+		query: `
+    SELECT
+      toString(toDate(session_date)) as date,
+      user_id,
+      count() as sessions,
+      sum(has_commit) as total_commits,
+      round(sum(actual_duration_min) / 60, 2) as total_hours,
+      sum(ifNull(total_tokens, 0)) as total_tokens,
+      sum(ifNull(input_tokens, 0)) as input_tokens,
+      sum(ifNull(output_tokens, 0)) as output_tokens,
+      round(avg(success_score), 2) as avg_success_rate,
+      length(arrayDistinct(arrayFilter(x -> x != '', arrayFlatten(groupArray(skills))))) as distinct_skills,
+      length(arrayDistinct(arrayFilter(x -> x != '', arrayFlatten(groupArray(slash_commands))))) as distinct_slash_commands,
+      arrayFilter(
+        x -> x != '',
+        arrayDistinct(groupArray(if(model_used != '' AND model_used != 'unknown', model_used, '')))
+      ) as models_used,
+      arraySort(
+        arrayDistinct(
+          arrayFilter(
+            x -> x != '',
+            groupArray(
+              if(
+                git_remote != '',
+                replaceRegexpOne(arrayElement(splitByChar('/', git_remote), -1), '\\\\.git$', ''),
+                if(
+                  package_name != '',
+                  package_name,
+                  arrayElement(splitByChar('/', replaceAll(project_path, '\\\\', '/')), -1)
+                )
+              )
+            )
+          )
+        )
+      ) as repositories_touched
+    FROM rudel.session_analytics
+    WHERE ${dateFilter}
+      AND organization_id = {orgId:String}
+      AND user_id != ''
+    GROUP BY date, user_id
+    ORDER BY date ASC, user_id ASC
+  `,
+		query_params: {
+			startDate,
+			endDate,
+			orgId,
+		},
+	});
+}
+
+export async function getRepositoriesDailyTrend(
+	orgId: string,
+	startDate: string,
+	endDate: string,
+): Promise<RepositoryDailyTrendData[]> {
+	const dateFilter = buildAbsoluteDateFilter("startDate", "endDate");
+
+	return queryClickhouse<RepositoryDailyTrendData>({
+		query: `
+    SELECT
+      toString(toDate(session_date)) as date,
+      if(
+        git_remote != '',
+        replaceRegexpOne(arrayElement(splitByChar('/', git_remote), -1), '\\\\.git$', ''),
+        if(
+          package_name != '',
+          package_name,
+          arrayElement(splitByChar('/', replaceAll(project_path, '\\\\', '/')), -1)
+        )
+      ) as repository,
+      count() as sessions,
+      sum(has_commit) as total_commits
+    FROM rudel.session_analytics
+    WHERE ${dateFilter}
+      AND organization_id = {orgId:String}
+    GROUP BY date, repository
+    HAVING repository != ''
+    ORDER BY date ASC, repository ASC
+  `,
 		query_params: {
 			startDate,
 			endDate,
@@ -315,7 +531,7 @@ export async function getOverviewInsights(
 				type: "trend",
 				severity,
 				message: `Team activity ${direction} ${Math.abs(sessionChange).toFixed(1)}% this week`,
-				link: "/dashboard/team",
+				link: "/dashboard/developers",
 			});
 		}
 	}

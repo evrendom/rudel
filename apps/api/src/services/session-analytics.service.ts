@@ -3,10 +3,12 @@ import type {
 	SessionAnalytics,
 	SessionAnalyticsSummary as SessionAnalyticsSummaryBase,
 	SessionDetail,
+	SessionHourlyActivityDataPoint,
 } from "@rudel/api-routes";
 import {
 	addOptionalStringEqFilter,
 	buildDateFilter,
+	buildInclusiveDateRangeFilter,
 	queryClickhouse,
 } from "../clickhouse.js";
 
@@ -57,7 +59,6 @@ export interface SessionAnalyticsRaw {
 }
 
 export interface SessionAnalyticsSummary extends SessionAnalyticsSummaryBase {
-	total_interactions: number;
 	avg_interactions_per_session: number;
 	median_response_time_sec: number;
 	quick_response_rate: number;
@@ -71,6 +72,8 @@ export async function getSessionAnalytics(
 	orgId: string,
 	params: {
 		days?: number;
+		start_date?: string;
+		end_date?: string;
 		user_id?: string;
 		project_path?: string;
 		repository?: string;
@@ -82,6 +85,8 @@ export async function getSessionAnalytics(
 ): Promise<SessionAnalytics[]> {
 	const {
 		days = 30,
+		start_date,
+		end_date,
 		user_id,
 		project_path,
 		repository,
@@ -98,6 +103,14 @@ export async function getSessionAnalytics(
 		offset: Number(offset),
 		orgId,
 	};
+	const dateFilter =
+		start_date && end_date
+			? buildInclusiveDateRangeFilter("startDate", "endDate", "sa.session_date")
+			: buildDateFilter("days", "sa.session_date");
+	if (start_date && end_date) {
+		query_params.startDate = start_date;
+		query_params.endDate = end_date;
+	}
 	const filters: string[] = [];
 	addOptionalStringEqFilter(
 		filters,
@@ -160,7 +173,7 @@ export async function getSessionAnalytics(
       model_used,
       used_plan_mode
     FROM rudel.session_analytics sa
-    WHERE ${buildDateFilter("days", "sa.session_date")}
+    WHERE ${dateFilter}
       AND organization_id = {orgId:String}
       ${filters.length > 0 ? `AND ${filters.join("\n      AND ")}` : ""}
     ORDER BY ${sortColumn} ${sortDirection}
@@ -238,6 +251,7 @@ export async function getSessionAnalyticsSummary(
       SELECT
         COUNT(*) as cnt_sessions,
         SUM(total_interactions) as sum_interactions,
+        SUM(total_tokens) as sum_tokens,
         SUM(quick_responses) as sum_quick_responses,
         SUM(long_pauses) as sum_long_pauses,
         ifNull(AVG(actual_duration_min), 0) as avg_duration,
@@ -255,6 +269,7 @@ export async function getSessionAnalyticsSummary(
     SELECT
       cnt_sessions as total_sessions,
       sum_interactions as total_interactions,
+      sum_tokens as total_tokens,
       ifNull(round(avg_duration, 2), 0) as avg_session_duration_min,
       ifNull(round(avg_interactions, 2), 0) as avg_interactions_per_session,
       ifNull(round(avg_response, 2), 0) as avg_response_time_sec,
@@ -275,6 +290,7 @@ export async function getSessionAnalyticsSummary(
 	const defaults: SessionAnalyticsSummary = {
 		total_sessions: 0,
 		total_interactions: 0,
+		total_tokens: 0,
 		avg_session_duration_min: 0,
 		avg_interactions_per_session: 0,
 		avg_response_time_sec: 0,
@@ -333,6 +349,8 @@ export async function getSessionAnalyticsSummaryComparison(
     WITH totals AS (
       SELECT
         COUNT(*) as cnt_sessions,
+        SUM(total_interactions) as total_interactions,
+        SUM(total_tokens) as total_tokens,
         ifNull(AVG(actual_duration_min), 0) as avg_duration,
         ifNull(AVG(avg_period_sec), 0) as avg_response,
         countIf(length(subagent_types) > 0) as cnt_subagents,
@@ -345,6 +363,8 @@ export async function getSessionAnalyticsSummaryComparison(
     )
     SELECT
       cnt_sessions as total_sessions,
+      total_interactions,
+      total_tokens,
       ifNull(round(avg_duration, 2), 0) as avg_session_duration_min,
       ifNull(round(avg_response, 2), 0) as avg_response_time_sec,
       round(cnt_subagents * 100.0 / if(cnt_sessions > 0, cnt_sessions, 1), 2) as subagents_adoption_rate,
@@ -371,6 +391,8 @@ export async function getSessionAnalyticsSummaryComparison(
 
 	const defaultPeriod: SessionSummaryComparisonPeriod = {
 		total_sessions: 0,
+		total_interactions: 0,
+		total_tokens: 0,
 		avg_session_duration_min: 0,
 		avg_response_time_sec: 0,
 		subagents_adoption_rate: 0,
@@ -414,6 +436,71 @@ export async function getSessionAnalyticsSummaryComparison(
 	};
 
 	return { current, previous, changes };
+}
+
+function getHourLabel(hour: number) {
+	if (hour === 0) return "12am";
+	if (hour < 12) return `${hour}am`;
+	if (hour === 12) return "12pm";
+	return `${hour - 12}pm`;
+}
+
+async function querySessionHourlyActivity(
+	orgId: string,
+	days: number,
+	timezone: string,
+): Promise<SessionHourlyActivityDataPoint[]> {
+	return queryClickhouse<SessionHourlyActivityDataPoint>({
+		query: `
+    WITH hourly_sessions AS (
+      SELECT
+        toHour(toTimeZone(session_date, {timezone:String})) as hour,
+        count() as sessions
+      FROM rudel.session_analytics
+      WHERE ${buildDateFilter("days")}
+        AND organization_id = {orgId:String}
+      GROUP BY hour
+    )
+    SELECT
+      hours.number as hour,
+      coalesce(hourly_sessions.sessions, 0) as sessions
+    FROM numbers(24) AS hours
+    LEFT JOIN hourly_sessions ON hourly_sessions.hour = hours.number
+    ORDER BY hour ASC
+  `,
+		query_params: {
+			days,
+			orgId,
+			timezone,
+		},
+	}).then((rows) =>
+		rows.map((row) => ({
+			hour: Number(row.hour),
+			label: getHourLabel(Number(row.hour)),
+			sessions: Number(row.sessions),
+		})),
+	);
+}
+
+export async function getSessionHourlyActivity(
+	orgId: string,
+	params: {
+		days?: number;
+		timezone?: string;
+	} = {},
+): Promise<SessionHourlyActivityDataPoint[]> {
+	const days = Number(params.days ?? 30);
+	const timezone = params.timezone?.trim();
+
+	try {
+		return await querySessionHourlyActivity(orgId, days, timezone || "UTC");
+	} catch (error) {
+		if (!timezone || timezone === "UTC") {
+			throw error;
+		}
+
+		return querySessionHourlyActivity(orgId, days, "UTC");
+	}
 }
 
 /**

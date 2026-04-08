@@ -6,6 +6,7 @@ import {
 	getSessionAnalyticsSummaryComparison,
 	getSessionDetail,
 	getSessionDimensionAnalysis,
+	getSessionHourlyActivity,
 } from "../../services/session-analytics.service.js";
 
 const sortByMap: Record<string, "date" | "duration" | "interactions"> = {
@@ -20,6 +21,8 @@ const list = os.analytics.sessions.list
 	.handler(async ({ input, context }) => {
 		return getSessionAnalytics(context.organizationId, {
 			days: input.days,
+			start_date: input.startDate,
+			end_date: input.endDate,
 			user_id: input.userId,
 			project_path: input.projectPath,
 			repository: input.repository,
@@ -35,6 +38,15 @@ const summary = os.analytics.sessions.summary
 	.handler(async ({ input, context }) => {
 		return getSessionAnalyticsSummary(context.organizationId, {
 			days: input.days,
+		});
+	});
+
+const hourlyActivity = os.analytics.sessions.hourlyActivity
+	.use(orgMiddleware)
+	.handler(async ({ input, context }) => {
+		return getSessionHourlyActivity(context.organizationId, {
+			days: input.days,
+			timezone: input.timezone,
 		});
 	});
 
@@ -84,6 +96,7 @@ const detail = os.analytics.sessions.detail
 export const sessionsRouter = os.analytics.sessions.router({
 	list,
 	summary,
+	hourlyActivity,
 	summaryComparison,
 	dimensionAnalysis,
 	detail,

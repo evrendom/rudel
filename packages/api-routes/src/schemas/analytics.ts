@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ESTIMATED_PRICING_MODE } from "../model-pricing.js";
 import { SourceSchema } from "./source.js";
 
 // ── Common inputs ──────────────────────────────────────────────────
@@ -51,6 +52,46 @@ export const ModelTokensTrendDataSchema = z.object({
 	output_tokens: z.number(),
 });
 
+export const UserTokenUsageDataSchema = z.object({
+	user_id: z.string(),
+	user_label: z.string(),
+	models_used: z.array(z.string()),
+	repositories_touched: z.array(z.string()),
+	total_commits: z.number(),
+	total_tokens: z.number(),
+	input_tokens: z.number(),
+	output_tokens: z.number(),
+	cost: z.number(),
+	total_sessions: z.number(),
+	total_duration_min: z.number(),
+	success_rate: z.number(),
+	distinct_skills: z.number(),
+	distinct_slash_commands: z.number(),
+});
+
+export const UserDailyTrendDataSchema = z.object({
+	date: z.string(),
+	user_id: z.string(),
+	sessions: z.number(),
+	total_commits: z.number(),
+	total_hours: z.number(),
+	total_tokens: z.number(),
+	input_tokens: z.number(),
+	output_tokens: z.number(),
+	avg_success_rate: z.number(),
+	distinct_skills: z.number(),
+	distinct_slash_commands: z.number(),
+	models_used: z.array(z.string()),
+	repositories_touched: z.array(z.string()),
+});
+
+export const RepositoryDailyTrendDataSchema = z.object({
+	date: z.string(),
+	repository: z.string(),
+	sessions: z.number(),
+	total_commits: z.number(),
+});
+
 export const InsightSchema = z.object({
 	type: z.enum(["trend", "performer", "alert", "info"]),
 	severity: z.enum(["positive", "warning", "negative", "info"]),
@@ -95,6 +136,57 @@ export const SuccessRateSchema = z.object({
 	}),
 });
 
+// ── Costs ──────────────────────────────────────────────────────────
+
+export const CostsMetricKeySchema = z.enum([
+	"today",
+	"week",
+	"month",
+	"all_time",
+]);
+
+export const CostWindowMetricSchema = z.object({
+	key: CostsMetricKeySchema,
+	label: z.string(),
+	cost: z.number(),
+	start_date: z.string(),
+	end_date: z.string(),
+});
+
+export const CostsModelBreakdownSchema = z.object({
+	model: z.string(),
+	display_name: z.string(),
+	cost: z.number(),
+	input_tokens: z.number(),
+	output_tokens: z.number(),
+	total_tokens: z.number(),
+	sessions: z.number(),
+	share_pct: z.number(),
+});
+
+export const CostsProjectBreakdownSchema = z.object({
+	project_key: z.string(),
+	project_label: z.string(),
+	cost: z.number(),
+	input_tokens: z.number(),
+	output_tokens: z.number(),
+	total_tokens: z.number(),
+	sessions: z.number(),
+	share_pct: z.number(),
+});
+
+export const CostsDashboardSchema = z.object({
+	currency: z.literal("USD"),
+	pricing_mode: z.literal(ESTIMATED_PRICING_MODE),
+	timezone: z.literal("UTC"),
+	generated_at: z.string(),
+	chart_window_start: z.string(),
+	chart_window_end: z.string(),
+	metrics: z.array(CostWindowMetricSchema),
+	by_model: z.array(CostsModelBreakdownSchema),
+	by_project: z.array(CostsProjectBreakdownSchema),
+});
+
 // ── Developers ─────────────────────────────────────────────────────
 
 export const DeveloperSummarySchema = z.object({
@@ -110,6 +202,21 @@ export const DeveloperSummarySchema = z.object({
 	success_rate: z.number(),
 	cost: z.number(),
 	success_rate_trend: z.number(),
+	favorite_model: z.string().nullable(),
+});
+
+export const DeveloperTeamCardSchema = z.object({
+	user_id: z.string(),
+	display_name: z.string(),
+	cost: z.number(),
+	input_tokens: z.number(),
+	output_tokens: z.number(),
+	total_tokens: z.number(),
+	total_sessions: z.number(),
+	active_days: z.number(),
+	last_active_date: z.string(),
+	favorite_model: z.string().nullable(),
+	top_skills: z.array(z.object({ name: z.string(), count: z.number() })),
 });
 
 export const DeveloperDetailsSchema = DeveloperSummarySchema.extend({
@@ -287,6 +394,8 @@ export const SessionAnalyticsSchema = z.object({
 
 export const SessionAnalyticsSummarySchema = z.object({
 	total_sessions: z.number(),
+	total_interactions: z.number(),
+	total_tokens: z.number(),
 	avg_session_duration_min: z.number(),
 	avg_response_time_sec: z.number(),
 	subagents_adoption_rate: z.number(),
@@ -304,7 +413,19 @@ export const SessionAnalyticsSummaryComparisonSchema = z.object({
 	}),
 });
 
+export const SessionHourlyActivityInputSchema = DaysInputSchema.extend({
+	timezone: z.string().optional(),
+});
+
+export const SessionHourlyActivityDataPointSchema = z.object({
+	hour: z.number().int().min(0).max(23),
+	label: z.string(),
+	sessions: z.number(),
+});
+
 export const SessionListInputSchema = DaysInputSchema.extend({
+	startDate: z.string().date().optional(),
+	endDate: z.string().date().optional(),
 	userId: z.string().max(MAX_ID_FILTER_LENGTH).optional(),
 	projectPath: z.string().max(MAX_PATH_FILTER_LENGTH).optional(),
 	repository: z.string().max(MAX_PATH_FILTER_LENGTH).optional(),
@@ -420,6 +541,60 @@ export const ROIMetricsSchema = z.object({
 	previous_period_end: z.string(),
 });
 
+export const ROIAssumptionsSchema = z.object({
+	pricing_mode: z.literal(ESTIMATED_PRICING_MODE),
+	priced_model_entries: z.number().int().positive(),
+	fallback_input_price_per_million: z.number(),
+	fallback_output_price_per_million: z.number(),
+	code_percentage: z.number(),
+	tokens_per_loc: z.number(),
+	loc_per_hour: z.number(),
+	developer_hourly_rate: z.number(),
+});
+
+export const ROIDashboardTrendPointSchema = z.object({
+	bucket_start: z.string(),
+	bucket_label: z.string(),
+	total_cost: z.number(),
+	dollar_value_saved: z.number(),
+	roi_percentage: z.number(),
+	dev_hours_saved: z.number(),
+	commits_per_dollar: z.number(),
+	sessions_per_dollar: z.number(),
+	total_sessions: z.number(),
+	total_commits: z.number(),
+});
+
+export const ROIDashboardSummarySchema = z.object({
+	total_cost: z.number(),
+	total_cost_change_pct: z.number(),
+	dollar_value_saved: z.number(),
+	dollar_value_saved_change_pct: z.number(),
+	roi_percentage: z.number(),
+	roi_percentage_change_pct: z.number(),
+	dev_hours_saved: z.number(),
+	dev_hours_saved_change_pct: z.number(),
+	commits_per_dollar: z.number(),
+	sessions_per_dollar: z.number(),
+	total_sessions: z.number(),
+	total_commits: z.number(),
+	active_developers: z.number(),
+	avg_success_score: z.number(),
+});
+
+export const ROIDashboardSchema = z.object({
+	start_date: z.string(),
+	end_date: z.string(),
+	comparison_start_date: z.string(),
+	comparison_end_date: z.string(),
+	summary: ROIDashboardSummarySchema,
+	assumptions: ROIAssumptionsSchema,
+	trend_interval: z.enum(["day", "week", "month"]),
+	trend: z.array(ROIDashboardTrendPointSchema),
+	developer_breakdown: z.array(z.lazy(() => DeveloperCostBreakdownSchema)),
+	project_breakdown: z.array(z.lazy(() => ProjectCostBreakdownSchema)),
+});
+
 export const ROITrendSchema = z.object({
 	week_start: z.string(),
 	total_cost: z.number(),
@@ -462,11 +637,28 @@ export const RecurringErrorSchema = z.object({
 	repositories: z.array(z.string()),
 });
 
+export const ErrorsDashboardSummarySchema = z.object({
+	total_errors: z.number(),
+	distinct_patterns: z.number(),
+	high_severity_patterns: z.number(),
+	max_affected_users: z.number(),
+	top_error_pattern: z.string(),
+});
+
+export const ErrorsDashboardSchema = z.object({
+	start_date: z.string(),
+	end_date: z.string(),
+	summary: ErrorsDashboardSummarySchema,
+	recurring: z.array(RecurringErrorSchema),
+});
+
 export const ErrorTrendDataPointSchema = z.object({
 	date: z.string(),
 	dimension: z.string(),
 	avg_errors_per_interaction: z.number(),
 	avg_errors_per_session: z.number(),
+	error_types: z.array(z.string()),
+	error_type_occurrences: z.array(z.number()),
 	total_errors: z.number(),
 });
 
@@ -519,8 +711,18 @@ export const LearningsTrendInputSchema = DaysInputSchema.extend({
 export type OverviewKPIs = z.infer<typeof OverviewKPIsSchema>;
 export type UsageTrendData = z.infer<typeof UsageTrendDataSchema>;
 export type ModelTokensTrendData = z.infer<typeof ModelTokensTrendDataSchema>;
+export type UserTokenUsageData = z.infer<typeof UserTokenUsageDataSchema>;
+export type UserDailyTrendData = z.infer<typeof UserDailyTrendDataSchema>;
+export type RepositoryDailyTrendData = z.infer<
+	typeof RepositoryDailyTrendDataSchema
+>;
 export type Insight = z.infer<typeof InsightSchema>;
+export type CostWindowMetric = z.infer<typeof CostWindowMetricSchema>;
+export type CostsModelBreakdown = z.infer<typeof CostsModelBreakdownSchema>;
+export type CostsProjectBreakdown = z.infer<typeof CostsProjectBreakdownSchema>;
+export type CostsDashboard = z.infer<typeof CostsDashboardSchema>;
 export type DeveloperSummary = z.infer<typeof DeveloperSummarySchema>;
+export type DeveloperTeamCard = z.infer<typeof DeveloperTeamCardSchema>;
 export type DeveloperDetails = z.infer<typeof DeveloperDetailsSchema>;
 export type DeveloperSession = z.infer<typeof DeveloperSessionSchema>;
 export type DeveloperProject = z.infer<typeof DeveloperProjectSchema>;
@@ -536,12 +738,22 @@ export type SessionDetail = z.infer<typeof SessionDetailSchema>;
 export type DimensionAnalysisDataPoint = z.infer<
 	typeof DimensionAnalysisDataPointSchema
 >;
+export type ROIAssumptions = z.infer<typeof ROIAssumptionsSchema>;
+export type ROIDashboardTrendPoint = z.infer<
+	typeof ROIDashboardTrendPointSchema
+>;
+export type ROIDashboardSummary = z.infer<typeof ROIDashboardSummarySchema>;
+export type ROIDashboard = z.infer<typeof ROIDashboardSchema>;
 export type ROIMetrics = z.infer<typeof ROIMetricsSchema>;
 export type ROITrend = z.infer<typeof ROITrendSchema>;
 export type DeveloperCostBreakdown = z.infer<
 	typeof DeveloperCostBreakdownSchema
 >;
 export type ProjectCostBreakdown = z.infer<typeof ProjectCostBreakdownSchema>;
+export type ErrorsDashboardSummary = z.infer<
+	typeof ErrorsDashboardSummarySchema
+>;
+export type ErrorsDashboard = z.infer<typeof ErrorsDashboardSchema>;
 export type RecurringError = z.infer<typeof RecurringErrorSchema>;
 export type ErrorTrendDataPoint = z.infer<typeof ErrorTrendDataPointSchema>;
 export type LearningEntry = z.infer<typeof LearningEntrySchema>;
@@ -555,6 +767,9 @@ export type ProjectFeatureUsage = z.infer<typeof ProjectFeatureUsageSchema>;
 export type ProjectError = z.infer<typeof ProjectErrorSchema>;
 export type SessionAnalyticsSummary = z.infer<
 	typeof SessionAnalyticsSummarySchema
+>;
+export type SessionHourlyActivityDataPoint = z.infer<
+	typeof SessionHourlyActivityDataPointSchema
 >;
 export type SessionAnalyticsSummaryComparison = z.infer<
 	typeof SessionAnalyticsSummaryComparisonSchema
