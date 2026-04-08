@@ -1,11 +1,17 @@
+import { useState } from "react";
 import { Tabs, TabsList, TabsTrigger } from "@/app/ui/tabs";
 import { DashboardDateControls } from "@/features/dashboard/components/DashboardDateControls";
 import { DashboardPerformancePanel } from "@/features/dashboard/components/DashboardPerformancePanel";
 import { DashboardRepositoryPanel } from "@/features/dashboard/components/DashboardRepositoryPanel";
+import { DashboardTokensView } from "@/features/dashboard/components/DashboardTokensView";
 import { useDashboardHomeData } from "@/features/dashboard/use-dashboard-home-data";
+import { useDashboardTokensData } from "@/features/dashboard/use-dashboard-tokens-data";
 import "@/features/dashboard/dashboard-theme.css";
 
+type DashboardHomeView = "commits" | "tokens";
+
 export function DashboardPage() {
+	const [activeView, setActiveView] = useState<DashboardHomeView>("commits");
 	const {
 		isDashboardSnapshotPending,
 		isPerformanceChartPending,
@@ -15,6 +21,18 @@ export function DashboardPage() {
 		repositoryDailyTrend,
 		snapshot,
 	} = useDashboardHomeData();
+	const {
+		endDate,
+		isDeveloperChartPending,
+		isSnapshotPending,
+		modelTokensTrend,
+		performanceUserDailyTrend: tokenPerformanceUserDailyTrend,
+		performanceUsers: tokenPerformanceUsers,
+		startDate,
+		usersTokenUsage,
+	} = useDashboardTokensData({
+		enabled: activeView === "tokens",
+	});
 
 	return (
 		<div className="dashboardy-page px-4 pb-6 pt-2 sm:px-6 lg:px-[76px] lg:pb-8">
@@ -22,13 +40,17 @@ export function DashboardPage() {
 				<div className="sticky top-0 z-20 -mx-4 bg-[color:var(--dashboardy-surface)]/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-[color:var(--dashboardy-surface)]/85 sm:-mx-6 sm:px-6 lg:-mx-[76px] lg:px-[76px]">
 					<div className="flex h-[54px] w-full items-center overflow-x-auto border-b border-[color:var(--dashboardy-border)] md:overflow-visible">
 						<div className="flex w-full min-w-max items-center gap-2.5 px-3 sm:px-0">
-							<Tabs value="commits" className="dashboardy-sticky-tabs flex-1">
+							<Tabs
+								value={activeView}
+								className="dashboardy-sticky-tabs flex-1"
+								onValueChange={(nextValue) => {
+									if (nextValue === "commits" || nextValue === "tokens") {
+										setActiveView(nextValue);
+									}
+								}}
+							>
 								<TabsList className="dashboardy-sticky-tabs-list">
-									<TabsTrigger
-										value="tokens"
-										disabled
-										className="dashboardy-sticky-tab"
-									>
+									<TabsTrigger value="tokens" className="dashboardy-sticky-tab">
 										Tokens
 									</TabsTrigger>
 									<TabsTrigger
@@ -65,18 +87,33 @@ export function DashboardPage() {
 					</div>
 				</div>
 
-				<DashboardPerformancePanel
-					isChartPending={isPerformanceChartPending}
-					isSnapshotPending={isDashboardSnapshotPending}
-					performanceUserDailyTrend={performanceUserDailyTrend}
-					performanceUsers={performanceUsers}
-					snapshot={snapshot}
-				/>
-				<DashboardRepositoryPanel
-					isChartPending={isRepositoryChartPending}
-					repositories={snapshot.repositories}
-					repositoryDailyTrend={repositoryDailyTrend}
-				/>
+				{activeView === "tokens" ? (
+					<DashboardTokensView
+						endDate={endDate}
+						isDeveloperChartPending={isDeveloperChartPending}
+						isSnapshotPending={isSnapshotPending}
+						modelTokensTrend={modelTokensTrend}
+						performanceUserDailyTrend={tokenPerformanceUserDailyTrend}
+						performanceUsers={tokenPerformanceUsers}
+						startDate={startDate}
+						usersTokenUsage={usersTokenUsage}
+					/>
+				) : (
+					<>
+						<DashboardPerformancePanel
+							isChartPending={isPerformanceChartPending}
+							isSnapshotPending={isDashboardSnapshotPending}
+							performanceUserDailyTrend={performanceUserDailyTrend}
+							performanceUsers={performanceUsers}
+							snapshot={snapshot}
+						/>
+						<DashboardRepositoryPanel
+							isChartPending={isRepositoryChartPending}
+							repositories={snapshot.repositories}
+							repositoryDailyTrend={repositoryDailyTrend}
+						/>
+					</>
+				)}
 			</div>
 		</div>
 	);

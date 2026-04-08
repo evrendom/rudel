@@ -1,7 +1,4 @@
-// Claude Sonnet 4 rates, used as a default approximation across all models.
-// TODO: implement per-model pricing using model_used.
-const INPUT_PRICE_PER_MILLION = 3;
-const OUTPUT_PRICE_PER_MILLION = 15;
+import { calculateEstimatedCost as calculateEstimatedModelCost } from "@rudel/api-routes";
 
 const compactFormatter = new Intl.NumberFormat("en-US", {
 	maximumFractionDigits: 1,
@@ -11,6 +8,35 @@ const compactFormatter = new Intl.NumberFormat("en-US", {
 const compactWholeFormatter = new Intl.NumberFormat("en-US", {
 	maximumFractionDigits: 0,
 	notation: "compact",
+});
+
+const currencyFormatter = new Intl.NumberFormat("en-US", {
+	currency: "USD",
+	maximumFractionDigits: 2,
+	minimumFractionDigits: 2,
+	style: "currency",
+});
+
+const fineCurrencyFormatter = new Intl.NumberFormat("en-US", {
+	currency: "USD",
+	maximumFractionDigits: 4,
+	minimumFractionDigits: 4,
+	style: "currency",
+});
+
+const wholeCurrencyFormatter = new Intl.NumberFormat("en-US", {
+	currency: "USD",
+	maximumFractionDigits: 0,
+	minimumFractionDigits: 0,
+	style: "currency",
+});
+
+const compactWholeCurrencyFormatter = new Intl.NumberFormat("en-US", {
+	currency: "USD",
+	maximumFractionDigits: 0,
+	minimumFractionDigits: 0,
+	notation: "compact",
+	style: "currency",
 });
 
 const shortMonthDayFormatter = new Intl.DateTimeFormat("en-US", {
@@ -27,11 +53,29 @@ const shortMonthDayYearFormatter = new Intl.DateTimeFormat("en-US", {
 export function calculateCost(
 	inputTokens: number,
 	outputTokens: number,
+	options?:
+		| string
+		| null
+		| {
+				cacheCreationInputTokens?: number;
+				cacheReadInputTokens?: number;
+				model?: string | null;
+		  },
 ): number {
-	return (
-		(inputTokens / 1_000_000) * INPUT_PRICE_PER_MILLION +
-		(outputTokens / 1_000_000) * OUTPUT_PRICE_PER_MILLION
-	);
+	const model =
+		typeof options === "string" ? options : (options?.model ?? null);
+
+	return calculateEstimatedModelCost({
+		cacheCreationInputTokens:
+			typeof options === "string"
+				? 0
+				: (options?.cacheCreationInputTokens ?? 0),
+		cacheReadInputTokens:
+			typeof options === "string" ? 0 : (options?.cacheReadInputTokens ?? 0),
+		inputTokens,
+		model,
+		outputTokens,
+	});
 }
 
 export function formatIsoDate(date: Date) {
@@ -58,6 +102,26 @@ export function formatCompactNumber(value: number) {
 
 export function formatCompactWholeNumber(value: number) {
 	return compactWholeFormatter.format(value);
+}
+
+export function formatCurrency(value: number) {
+	if (value !== 0 && Math.abs(value) < 1) {
+		return fineCurrencyFormatter.format(value);
+	}
+
+	return currencyFormatter.format(value);
+}
+
+export function formatWholeCurrency(value: number) {
+	return wholeCurrencyFormatter.format(value);
+}
+
+export function formatCompactWholeCurrency(value: number) {
+	if (Math.abs(value) < 1_000) {
+		return formatWholeCurrency(value);
+	}
+
+	return compactWholeCurrencyFormatter.format(value);
 }
 
 export function formatPercent(value: number) {
