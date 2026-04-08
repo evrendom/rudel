@@ -12,6 +12,12 @@ import { Label } from "@/app/ui/label";
 import { Separator } from "@/app/ui/separator";
 import { useAnalyticsTracking } from "@/features/analytics/tracking/useAnalyticsTracking";
 import { authClient } from "@/lib/auth-client";
+import { cn } from "@/lib/utils";
+
+type FeedbackState = {
+	kind: "error" | "success";
+	message: string;
+} | null;
 
 function getCallbackURL(): string {
 	const params = new URLSearchParams(window.location.search);
@@ -38,30 +44,75 @@ export function LoginForm({
 }) {
 	const [email, setEmail] = useState("");
 	const [password, setPassword] = useState("");
-	const [error, setError] = useState("");
+	const [feedback, setFeedback] = useState<FeedbackState>(null);
 	const [loading, setLoading] = useState(false);
+	const [requestingPasswordReset, setRequestingPasswordReset] = useState(false);
 	const { trackAuthenticationAction } = useAnalyticsTracking({
 		pageName: "login",
 	});
 
 	async function handleSubmit(e: React.FormEvent) {
 		e.preventDefault();
+		setFeedback(null);
 		trackAuthenticationAction({
 			actionName: "sign_in",
 			sourceComponent: "login_form",
 			authMethod: "email_password",
 		});
-		setError("");
 		setLoading(true);
 		const { error } = await authClient.signIn.email({ email, password });
 		setLoading(false);
 		if (error) {
-			setError(error.message ?? "Sign in failed");
+			setFeedback({
+				kind: "error",
+				message: error.message ?? "Sign in failed",
+			});
 		}
 	}
 
+	async function handleRequestPasswordReset() {
+		if (!email.trim()) {
+			const emailField = document.getElementById("email");
+			if (emailField instanceof HTMLInputElement) {
+				emailField.focus();
+			}
+			setFeedback({
+				kind: "error",
+				message:
+					"Enter your email first and we will send the reset link there.",
+			});
+			return;
+		}
+
+		trackAuthenticationAction({
+			actionName: "request_password_reset",
+			sourceComponent: "login_form",
+			authMethod: "email_password",
+		});
+		setFeedback(null);
+		setRequestingPasswordReset(true);
+		const { error } = await authClient.requestPasswordReset({
+			email,
+			redirectTo: `${window.location.origin}/reset-password`,
+		});
+		setRequestingPasswordReset(false);
+
+		if (error) {
+			setFeedback({
+				kind: "error",
+				message: error.message ?? "Could not send password reset email",
+			});
+			return;
+		}
+
+		setFeedback({
+			kind: "success",
+			message: `If an account exists for ${email.trim()}, a reset link is on its way.`,
+		});
+	}
+
 	async function handleSocialSignIn(provider: "google" | "github") {
-		setError("");
+		setFeedback(null);
 		trackAuthenticationAction({
 			actionName: "sign_in",
 			sourceComponent: "login_form",
@@ -72,7 +123,10 @@ export function LoginForm({
 			callbackURL: getCallbackURL(),
 		});
 		if (error) {
-			setError(error.message ?? `Sign in with ${provider} failed`);
+			setFeedback({
+				kind: "error",
+				message: error.message ?? `Sign in with ${provider} failed`,
+			});
 		}
 	}
 
@@ -90,25 +144,70 @@ export function LoginForm({
 						<Label htmlFor="email">Email</Label>
 						<Input
 							id="email"
+							name="email"
 							type="email"
+							autoComplete="email"
 							placeholder="you@example.com"
 							value={email}
-							onChange={(e) => setEmail(e.target.value)}
+							onChange={(e) => {
+								setEmail(e.target.value);
+								if (feedback) {
+									setFeedback(null);
+								}
+							}}
 							required
 						/>
 					</div>
 					<div className="flex flex-col gap-2">
-						<Label htmlFor="password">Password</Label>
+						<div className="flex items-center justify-between gap-3">
+							<Label htmlFor="password">Password</Label>
+							<Button
+								type="button"
+								variant="ghost"
+								size="xs"
+								onClick={() => {
+									void handleRequestPasswordReset();
+								}}
+								disabled={requestingPasswordReset}
+								className="text-muted-foreground hover:text-foreground"
+							>
+								{requestingPasswordReset
+									? "Sending link..."
+									: feedback?.kind === "success"
+										? "Resend link"
+										: "Forgot password?"}
+							</Button>
+						</div>
 						<Input
 							id="password"
+							name="password"
 							type="password"
+							autoComplete="current-password"
 							value={password}
-							onChange={(e) => setPassword(e.target.value)}
+							onChange={(e) => {
+								setPassword(e.target.value);
+								if (feedback?.kind === "error") {
+									setFeedback(null);
+								}
+							}}
 							required
 						/>
 					</div>
-					{error && <p className="text-sm text-destructive">{error}</p>}
-					<Button type="submit" disabled={loading}>
+					{feedback ? (
+						<div
+							role={feedback.kind === "error" ? "alert" : "status"}
+							aria-live="polite"
+							className={cn(
+								"rounded-3xl px-3 py-2 text-sm leading-5 ring-1",
+								feedback.kind === "error"
+									? "bg-destructive/5 text-destructive ring-destructive/15"
+									: "bg-muted/35 text-muted-foreground ring-border/60",
+							)}
+						>
+							{feedback.message}
+						</div>
+					) : null}
+					<Button type="submit" disabled={loading || requestingPasswordReset}>
 						{loading ? "Signing in..." : "Sign in"}
 					</Button>
 				</form>

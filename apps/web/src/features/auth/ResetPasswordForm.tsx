@@ -10,6 +10,12 @@ import {
 import { Input } from "@/app/ui/input";
 import { Label } from "@/app/ui/label";
 import { authClient } from "@/lib/auth-client";
+import { cn } from "@/lib/utils";
+
+type FeedbackState = {
+	kind: "error" | "success";
+	message: string;
+} | null;
 
 export function ResetPasswordForm({
 	onBackToLogin,
@@ -19,22 +25,28 @@ export function ResetPasswordForm({
 	const token = new URLSearchParams(window.location.search).get("token");
 	const invalidToken = new URLSearchParams(window.location.search).get("error");
 	const [password, setPassword] = useState("");
-	const [error, setError] = useState(
-		invalidToken ? "This reset link is invalid or expired." : "",
+	const [feedback, setFeedback] = useState<FeedbackState>(
+		invalidToken
+			? {
+					kind: "error",
+					message: "This reset link is invalid or expired.",
+				}
+			: null,
 	);
-	const [successMessage, setSuccessMessage] = useState("");
 	const [loading, setLoading] = useState(false);
 
 	async function handleSubmit(e: React.FormEvent) {
 		e.preventDefault();
 
 		if (!token) {
-			setError("This reset link is invalid or expired.");
+			setFeedback({
+				kind: "error",
+				message: "This reset link is invalid or expired.",
+			});
 			return;
 		}
 
-		setError("");
-		setSuccessMessage("");
+		setFeedback(null);
 		setLoading(true);
 
 		const { error } = await authClient.resetPassword({
@@ -45,11 +57,17 @@ export function ResetPasswordForm({
 		setLoading(false);
 
 		if (error) {
-			setError(error.message ?? "Password reset failed");
+			setFeedback({
+				kind: "error",
+				message: error.message ?? "Password reset failed",
+			});
 			return;
 		}
 
-		setSuccessMessage("Your password has been reset. You can now sign in.");
+		setFeedback({
+			kind: "success",
+			message: "Your password has been reset. You can now sign in.",
+		});
 		setPassword("");
 	}
 
@@ -65,28 +83,49 @@ export function ResetPasswordForm({
 						<Label htmlFor="new-password">New password</Label>
 						<Input
 							id="new-password"
+							name="newPassword"
 							type="password"
+							autoComplete="new-password"
 							value={password}
-							onChange={(e) => setPassword(e.target.value)}
+							onChange={(e) => {
+								setPassword(e.target.value);
+								if (feedback?.kind === "error") {
+									setFeedback(null);
+								}
+							}}
 							required
+							minLength={8}
+							disabled={!token || loading}
 						/>
 					</div>
-					{error ? <p className="text-sm text-destructive">{error}</p> : null}
-					{successMessage ? (
-						<p className="text-sm text-muted-foreground">{successMessage}</p>
+					{feedback ? (
+						<div
+							role={feedback.kind === "error" ? "alert" : "status"}
+							aria-live="polite"
+							className={cn(
+								"rounded-3xl px-3 py-2 text-sm leading-5 ring-1",
+								feedback.kind === "error"
+									? "bg-destructive/5 text-destructive ring-destructive/15"
+									: "bg-muted/35 text-muted-foreground ring-border/60",
+							)}
+						>
+							{feedback.message}
+						</div>
 					) : null}
 					<Button type="submit" disabled={loading || !token}>
 						{loading ? "Resetting password..." : "Reset password"}
 					</Button>
 				</form>
 
-				<button
+				<Button
 					type="button"
+					variant="ghost"
+					size="sm"
 					onClick={onBackToLogin}
-					className="text-left text-sm underline underline-offset-4 hover:text-primary"
+					className="self-start text-muted-foreground"
 				>
 					Back to sign in
-				</button>
+				</Button>
 			</CardContent>
 		</Card>
 	);
