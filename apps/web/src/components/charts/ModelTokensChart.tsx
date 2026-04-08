@@ -144,6 +144,7 @@ export function ModelTokensChart({ data }: ModelTokensChartProps) {
 						<ChartTooltip
 							{...props}
 							nameFormatter={shortenModelName}
+							sortItems
 							valueFormatter={(v) => formatCompactNumber(v)}
 						/>
 					)}

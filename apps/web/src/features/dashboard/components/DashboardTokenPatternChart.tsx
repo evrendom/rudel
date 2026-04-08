@@ -1,24 +1,32 @@
 "use client";
 
 import { format, parseISO } from "date-fns";
+import { useMemo } from "react";
 import { Bar, BarChart, Rectangle, XAxis, YAxis } from "recharts";
 import { type ChartConfig, ChartContainer, ChartTooltip } from "@/app/ui/chart";
 import type { DashboardTokenDailyPoint } from "@/features/dashboard/data/dashboard-tab-adapters";
 import { formatCompactWholeNumber } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
-const chartConfig = {
-	inputTokens: {
-		label: "Input tokens",
-		color: "#1949A9",
-	},
-	outputTokens: {
-		label: "Output tokens",
-		color: "#C21674",
-	},
-} satisfies ChartConfig;
+const MAX_VISIBLE_MODEL_STACKS = 6;
+const TOKEN_MODEL_COLORS = [
+	"#1949A9",
+	"#159C89",
+	"#C21674",
+	"#7C3AED",
+	"#EA580C",
+	"#0F766E",
+] as const;
+const OTHER_MODEL_COLOR = "#D7DBE2";
 
-const stackOrder = ["inputTokens", "outputTokens"] as const;
+type TokenModelSeries = {
+	color: string;
+	key: string;
+	label: string;
+};
+
+type TokenChartRow = DashboardTokenDailyPoint &
+	Record<string, number | string | Record<string, number> | null>;
 
 function formatCompactNumber(value: number) {
 	if (value >= 1_000_000) {
@@ -30,6 +38,21 @@ function formatCompactNumber(value: number) {
 	}
 
 	return value.toLocaleString();
+}
+
+function formatTokenMix(inputTokens: number, outputTokens: number) {
+	const totalTokens = inputTokens + outputTokens;
+
+	if (totalTokens <= 0) {
+		return "—";
+	}
+
+	const inputPercent = Math.round((inputTokens / totalTokens) * 100);
+	return `${inputPercent} IN / ${100 - inputPercent} OUT`;
+}
+
+function shortenModelLabel(model: string) {
+	return model.replace("claude-", "").replace(/-\d{8}$/u, "");
 }
 
 function getAxisMax(data: DashboardTokenDailyPoint[]) {
@@ -129,11 +152,17 @@ function getBarSize(total: number) {
 function TokenPatternTooltip({
 	active,
 	payload,
+	seriesByKey,
 }: {
 	active?: boolean;
 	payload?: Array<{
-		payload: DashboardTokenDailyPoint;
+		color?: string;
+		dataKey?: string;
+		name?: string;
+		payload: TokenChartRow;
+		value?: number | string;
 	}>;
+	seriesByKey: Map<string, TokenModelSeries>;
 }) {
 	if (!active || !payload?.length) {
 		return null;
@@ -145,8 +174,23 @@ function TokenPatternTooltip({
 		return null;
 	}
 
+	const modelRows = payload
+		.map((item) => {
+			const series = seriesByKey.get(String(item.dataKey ?? ""));
+			const value =
+				typeof item.value === "number" ? item.value : Number(item.value ?? 0);
+
+			return {
+				color: item.color,
+				label: series?.label ?? String(item.name ?? item.dataKey ?? "Model"),
+				value,
+			};
+		})
+		.filter((item) => Number.isFinite(item.value) && item.value > 0)
+		.sort((left, right) => right.value - left.value);
+
 	return (
-		<div className="flex min-w-48 flex-col gap-1 rounded-md bg-black px-2.5 py-1.5 text-[11px] font-medium leading-tight text-white/90 shadow-lg">
+		<div className="flex min-w-56 flex-col gap-1 rounded-md bg-black px-2.5 py-1.5 text-[11px] font-medium leading-tight text-white/90 shadow-lg">
 			<p className="text-white">{point.fullLabel}</p>
 			<div className="flex items-center justify-between gap-3">
 				<span className="text-white/65">Total</span>
@@ -155,21 +199,64 @@ function TokenPatternTooltip({
 				</span>
 			</div>
 			<div className="flex items-center justify-between gap-3">
-				<span className="text-white/65">Input</span>
+				<span className="text-white/65">Avg / session</span>
 				<span className="tabular-nums text-white">
-					{formatCompactNumber(point.inputTokens)}
+					{point.avgTokensPerSession == null
+						? "—"
+						: formatCompactNumber(point.avgTokensPerSession)}
 				</span>
 			</div>
 			<div className="flex items-center justify-between gap-3">
-				<span className="text-white/65">Output</span>
+				<span className="text-white/65">Active models</span>
 				<span className="tabular-nums text-white">
-					{formatCompactNumber(point.outputTokens)}
+					{point.activeModels || "—"}
 				</span>
 			</div>
 			<div className="flex items-center justify-between gap-3">
-				<span className="text-white/65">Sessions</span>
-				<span className="tabular-nums text-white">{point.sessions}</span>
+				<span className="text-white/65">Top model</span>
+				<span className="truncate text-white">
+					{point.dominantModel == null
+						? "—"
+						: `${shortenModelLabel(point.dominantModel)} (${formatCompactNumber(point.dominantModelTokens)})`}
+				</span>
 			</div>
+			<div className="flex items-center justify-between gap-3">
+				<span className="text-white/65">Mix</span>
+				<span className="tabular-nums text-white">
+					{formatTokenMix(point.inputTokens, point.outputTokens)}
+				</span>
+			</div>
+			{modelRows.length > 0 ? (
+				<div className="mt-1 grid max-h-40 gap-1 overflow-y-auto pr-1">
+					{modelRows.map((item) => (
+						<div
+							key={item.label}
+							className="flex items-center justify-between gap-6"
+						>
+							<div className="flex min-w-0 items-center gap-2.5">
+								<span
+									aria-hidden="true"
+									className="size-2 shrink-0 rounded-full"
+									style={{ backgroundColor: item.color }}
+								/>
+								<span className="truncate text-white/65">
+									{shortenModelLabel(item.label)}
+								</span>
+							</div>
+							<span className="shrink-0 tabular-nums text-white">
+								{formatCompactNumber(item.value)}
+							</span>
+						</div>
+					))}
+				</div>
+			) : (
+				<div className="flex items-center justify-between gap-3">
+					<span className="text-white/65">Tokens</span>
+					<span className="tabular-nums text-white">
+						{formatCompactNumber(point.totalTokens)}
+					</span>
+				</div>
+			)}
 		</div>
 	);
 }
@@ -180,7 +267,7 @@ function TokenBarShape(props: {
 	dataKey?: string;
 	fill?: string;
 	height?: number;
-	payload?: DashboardTokenDailyPoint;
+	payload?: TokenChartRow;
 	stackOrder: readonly string[];
 	width?: number;
 	x?: number;
@@ -203,10 +290,7 @@ function TokenBarShape(props: {
 	const keyIndex = props.stackOrder.indexOf(dataKey);
 	const isTopSegment = props.stackOrder
 		.slice(keyIndex + 1)
-		.every(
-			(key) =>
-				Number(payload[key as keyof DashboardTokenDailyPoint] ?? 0) === 0,
-		);
+		.every((key) => Number(payload[key] ?? 0) === 0);
 	const isHighlighted = props.activeDate === payload.date;
 	const hasExternalHighlight = props.activeDate != null;
 	const isTableHighlight = props.activeSource === "table";
@@ -255,7 +339,82 @@ export function DashboardTokenPatternChart({
 }) {
 	const axisMax = getAxisMax(data);
 	const axisTicks = getAxisTicks(axisMax);
-	const barSize = getBarSize(data.length);
+	const { chartConfig, chartData, modelSeries, seriesByKey, stackOrder } =
+		useMemo(() => {
+			const modelTotals = new Map<string, number>();
+			for (const point of data) {
+				for (const [model, tokens] of Object.entries(point.modelTokens)) {
+					if (tokens > 0) {
+						modelTotals.set(model, (modelTotals.get(model) ?? 0) + tokens);
+					}
+				}
+			}
+
+			const sortedModels = Array.from(modelTotals.entries()).sort(
+				(left, right) => right[1] - left[1] || left[0].localeCompare(right[0]),
+			);
+			const topModels = sortedModels.slice(0, MAX_VISIBLE_MODEL_STACKS);
+			const topModelLabels = new Set(topModels.map(([label]) => label));
+			const hasOther = sortedModels.length > MAX_VISIBLE_MODEL_STACKS;
+			const modelSeries: TokenModelSeries[] =
+				topModels.length > 0
+					? topModels.map(([label], index) => ({
+							color: TOKEN_MODEL_COLORS[index % TOKEN_MODEL_COLORS.length],
+							key: `model_${index + 1}`,
+							label,
+						}))
+					: [
+							{
+								color: TOKEN_MODEL_COLORS[0],
+								key: "unattributed",
+								label: "Unattributed",
+							},
+						];
+
+			if (hasOther) {
+				modelSeries.push({
+					color: OTHER_MODEL_COLOR,
+					key: "other_models",
+					label: "Other",
+				});
+			}
+
+			const seriesByKey = new Map(
+				modelSeries.map((series) => [series.key, series] as const),
+			);
+			const chartData: TokenChartRow[] = data.map((point) => {
+				const row: TokenChartRow = { ...point };
+				for (const series of modelSeries) {
+					if (series.key === "other_models") {
+						row[series.key] = Object.entries(point.modelTokens)
+							.filter(([model]) => !topModelLabels.has(model))
+							.reduce((sum, [, tokens]) => sum + tokens, 0);
+					} else if (series.key === "unattributed") {
+						row[series.key] = point.totalTokens;
+					} else {
+						row[series.key] = point.modelTokens[series.label] ?? 0;
+					}
+				}
+				return row;
+			});
+
+			return {
+				chartConfig: Object.fromEntries(
+					modelSeries.map((series) => [
+						series.key,
+						{
+							label: shortenModelLabel(series.label),
+							color: series.color,
+						},
+					]),
+				) satisfies ChartConfig,
+				chartData,
+				modelSeries,
+				seriesByKey,
+				stackOrder: modelSeries.map((series) => series.key),
+			};
+		}, [data]);
+	const barSize = getBarSize(chartData.length);
 
 	return (
 		<div className={cn("flex min-w-0 flex-1 pt-0 md:pt-4", className)}>
@@ -265,7 +424,7 @@ export function DashboardTokenPatternChart({
 				initialDimension={{ width: 664, height: 206 }}
 			>
 				<BarChart
-					data={data}
+					data={chartData}
 					barCategoryGap={0}
 					margin={{ top: 2, right: 18, bottom: 10, left: 0 }}
 				>
@@ -280,7 +439,7 @@ export function DashboardTokenPatternChart({
 							getTickLabel(
 								String(value),
 								index,
-								data.length,
+								chartData.length,
 								highlightedDate,
 								tickLabelStyle,
 							)
@@ -317,37 +476,29 @@ export function DashboardTokenPatternChart({
 							opacity: 0.38,
 						}}
 					/>
-					<ChartTooltip cursor={false} content={<TokenPatternTooltip />} />
-					<Bar
-						dataKey="inputTokens"
-						stackId="tokens"
-						barSize={barSize}
-						fill="var(--color-inputTokens)"
-						isAnimationActive={false}
-						shape={
-							<TokenBarShape
-								dataKey="inputTokens"
-								activeDate={highlightedDate}
-								activeSource={highlightSource}
-								stackOrder={stackOrder}
-							/>
-						}
+					<ChartTooltip
+						cursor={false}
+						content={<TokenPatternTooltip seriesByKey={seriesByKey} />}
 					/>
-					<Bar
-						dataKey="outputTokens"
-						stackId="tokens"
-						barSize={barSize}
-						fill="var(--color-outputTokens)"
-						isAnimationActive={false}
-						shape={
-							<TokenBarShape
-								dataKey="outputTokens"
-								activeDate={highlightedDate}
-								activeSource={highlightSource}
-								stackOrder={stackOrder}
-							/>
-						}
-					/>
+					{modelSeries.map((series) => (
+						<Bar
+							key={series.key}
+							dataKey={series.key}
+							name={series.label}
+							stackId="tokens"
+							barSize={barSize}
+							fill={series.color}
+							isAnimationActive={false}
+							shape={
+								<TokenBarShape
+									dataKey={series.key}
+									activeDate={highlightedDate}
+									activeSource={highlightSource}
+									stackOrder={stackOrder}
+								/>
+							}
+						/>
+					))}
 				</BarChart>
 			</ChartContainer>
 		</div>

@@ -120,6 +120,33 @@ function getTickLabel(
 	return point.shortLabel;
 }
 
+function formatSessionTimestamp(value: string) {
+	const normalizedValue = value.endsWith("Z") ? value : `${value}Z`;
+	const date = new Date(normalizedValue);
+
+	if (Number.isNaN(date.getTime())) {
+		return value;
+	}
+
+	return date.toLocaleString(undefined, {
+		month: "short",
+		day: "numeric",
+		hour: "numeric",
+		minute: "2-digit",
+	});
+}
+
+function formatTokenMix(inputTokens: number, outputTokens: number) {
+	const totalTokens = inputTokens + outputTokens;
+
+	if (totalTokens <= 0) {
+		return "—";
+	}
+
+	const inputShare = Math.round((inputTokens / totalTokens) * 100);
+	return `${inputShare} IN / ${100 - inputShare} OUT`;
+}
+
 function DashboardSessionTooltip({
 	active,
 	payload,
@@ -141,8 +168,10 @@ function DashboardSessionTooltip({
 
 	return (
 		<div className="flex min-w-52 flex-col gap-1 rounded-md bg-black px-2.5 py-1.5 text-[11px] font-medium leading-tight text-white/90 shadow-lg">
-			<div className="text-white">{point.developerLabel}</div>
-			<div className="text-white/65">{point.repositoryLabel}</div>
+			<div className="text-white">
+				{formatSessionTimestamp(point.sessionDate)}
+			</div>
+			<div className="text-white/65">{point.label}</div>
 			<div className="grid gap-1">
 				<div className="flex items-center justify-between gap-3">
 					<span className="text-white/65">Total</span>
@@ -151,15 +180,9 @@ function DashboardSessionTooltip({
 					</span>
 				</div>
 				<div className="flex items-center justify-between gap-3">
-					<span className="text-white/65">Input</span>
+					<span className="text-white/65">Mix</span>
 					<span className="font-mono tabular-nums text-white">
-						{formatCompactWholeNumber(point.inputTokens)}
-					</span>
-				</div>
-				<div className="flex items-center justify-between gap-3">
-					<span className="text-white/65">Output</span>
-					<span className="font-mono tabular-nums text-white">
-						{formatCompactWholeNumber(point.outputTokens)}
+						{formatTokenMix(point.inputTokens, point.outputTokens)}
 					</span>
 				</div>
 				<div className="flex items-center justify-between gap-3">
@@ -170,12 +193,6 @@ function DashboardSessionTooltip({
 					<span className="text-white/65">Duration</span>
 					<span className="font-mono tabular-nums text-white">
 						{point.durationLabel}
-					</span>
-				</div>
-				<div className="flex items-center justify-between gap-3">
-					<span className="text-white/65">Skills used</span>
-					<span className="font-mono tabular-nums text-white">
-						{point.skillCount}
 					</span>
 				</div>
 			</div>

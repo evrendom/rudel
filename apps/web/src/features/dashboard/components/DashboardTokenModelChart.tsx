@@ -9,7 +9,7 @@ import {
 	getDashboardBarSize,
 } from "@/features/dashboard/components/dashboard-bar-chart-layout";
 import type { DashboardTokenModelChartDatum } from "@/features/dashboard/data/dashboard-token-model-adapter";
-import { formatCompactWholeNumber } from "@/lib/format";
+import { formatCompactWholeNumber, formatWholeCurrency } from "@/lib/format";
 
 const chartConfig = {
 	committed: {
@@ -62,6 +62,24 @@ function DashboardTokenModelTooltip({
 				<span className="text-white/65">Total tokens</span>
 				<span className="font-mono tabular-nums text-white">
 					{formatCompactWholeNumber(point.value)}
+				</span>
+			</div>
+			<div className="flex items-center justify-between gap-3">
+				<span className="text-white/65">Estimated cost</span>
+				<span className="font-mono tabular-nums text-white">
+					{formatWholeCurrency(point.estimatedCost)}
+				</span>
+			</div>
+			<div className="flex items-center justify-between gap-3">
+				<span className="text-white/65">Input</span>
+				<span className="font-mono tabular-nums text-white">
+					{formatCompactWholeNumber(point.inputTokens)}
+				</span>
+			</div>
+			<div className="flex items-center justify-between gap-3">
+				<span className="text-white/65">Output</span>
+				<span className="font-mono tabular-nums text-white">
+					{formatCompactWholeNumber(point.outputTokens)}
 				</span>
 			</div>
 		</div>

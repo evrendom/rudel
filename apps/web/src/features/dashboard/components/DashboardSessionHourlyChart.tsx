@@ -25,12 +25,14 @@ function getAxisMax(data: SessionHourlyActivityDataPoint[]) {
 function HourlySessionsTooltip({
 	active,
 	payload,
+	totalSessions,
 }: {
 	active?: boolean;
 	payload?: Array<{
 		payload: SessionHourlyActivityDataPoint;
 		value?: number | string;
 	}>;
+	totalSessions: number;
 }) {
 	if (!active || !payload?.length) {
 		return null;
@@ -42,12 +44,23 @@ function HourlySessionsTooltip({
 		return null;
 	}
 
+	const shareOfDay =
+		totalSessions > 0
+			? Math.round((point.sessions / totalSessions) * 100)
+			: null;
+
 	return (
 		<div className="flex min-w-32 flex-col gap-1 rounded-md bg-black px-2.5 py-1.5 text-[11px] font-medium leading-tight text-white/90 shadow-lg">
 			<p className="text-white">{point.label}</p>
 			<div className="flex items-center justify-between gap-3">
 				<span className="text-white/65">Sessions</span>
 				<span className="tabular-nums text-white">{point.sessions}</span>
+			</div>
+			<div className="flex items-center justify-between gap-3">
+				<span className="text-white/65">Share of day</span>
+				<span className="tabular-nums text-white">
+					{shareOfDay == null ? "—" : `${shareOfDay}%`}
+				</span>
 			</div>
 		</div>
 	);
@@ -95,6 +108,10 @@ export function DashboardSessionHourlyChart({
 				(_, index) => index * 4,
 			),
 		[axisMax],
+	);
+	const totalSessions = useMemo(
+		() => resolvedData.reduce((sum, point) => sum + point.sessions, 0),
+		[resolvedData],
 	);
 	const hasSessions = resolvedData.some((point) => point.sessions > 0);
 
@@ -165,7 +182,10 @@ export function DashboardSessionHourlyChart({
 								opacity: 0.42,
 							}}
 						/>
-						<ChartTooltip cursor={false} content={<HourlySessionsTooltip />} />
+						<ChartTooltip
+							cursor={false}
+							content={<HourlySessionsTooltip totalSessions={totalSessions} />}
+						/>
 						<Bar
 							dataKey="sessions"
 							barSize={12}

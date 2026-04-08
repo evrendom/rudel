@@ -607,37 +607,50 @@ function ErrorDimensionTooltip({
 	}
 
 	const point = payload[0]?.payload;
+	const rankedPayload = [...payload]
+		.filter((entry) => {
+			const numericValue =
+				typeof entry.value === "number"
+					? entry.value
+					: Number(entry.value ?? Number.NaN);
+			return Number.isFinite(numericValue) && numericValue > 0;
+		})
+		.sort((left, right) => Number(right.value ?? 0) - Number(left.value ?? 0));
 
 	return (
 		<div className="flex min-w-52 flex-col gap-1 rounded-md bg-black px-2.5 py-1.5 text-[11px] font-medium leading-tight text-white/90 shadow-lg">
 			<p className="text-white">{point?.fullLabel ?? "Selected day"}</p>
-			{payload.map((entry) => {
-				const seriesId = String(entry.dataKey ?? entry.name ?? "");
-				const displayLabel = nameById.get(seriesId) ?? seriesId;
-				const numericValue =
-					typeof entry.value === "number"
-						? entry.value
-						: Number(entry.value ?? 0);
+			{rankedPayload.length > 0 ? (
+				rankedPayload.map((entry) => {
+					const seriesId = String(entry.dataKey ?? entry.name ?? "");
+					const displayLabel = nameById.get(seriesId) ?? seriesId;
+					const numericValue =
+						typeof entry.value === "number"
+							? entry.value
+							: Number(entry.value ?? 0);
 
-				return (
-					<div
-						key={`${seriesId}-${entry.value ?? "value"}`}
-						className="flex items-center justify-between gap-6"
-					>
-						<div className="flex min-w-0 items-center gap-2.5">
-							<span
-								aria-hidden="true"
-								className="size-2 shrink-0 rounded-full"
-								style={{ backgroundColor: entry.color }}
-							/>
-							<span className="truncate text-white/65">{displayLabel}</span>
+					return (
+						<div
+							key={`${seriesId}-${entry.value ?? "value"}`}
+							className="flex items-center justify-between gap-6"
+						>
+							<div className="flex min-w-0 items-center gap-2.5">
+								<span
+									aria-hidden="true"
+									className="size-2 shrink-0 rounded-full"
+									style={{ backgroundColor: entry.color }}
+								/>
+								<span className="truncate text-white/65">{displayLabel}</span>
+							</div>
+							<span className="shrink-0 tabular-nums text-white">
+								{formatMetricValue(metric, numericValue)}
+							</span>
 						</div>
-						<span className="shrink-0 tabular-nums text-white">
-							{formatMetricValue(metric, numericValue)}
-						</span>
-					</div>
-				);
-			})}
+					);
+				})
+			) : (
+				<p className="text-white/65">No visible activity</p>
+			)}
 		</div>
 	);
 }

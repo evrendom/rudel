@@ -280,6 +280,7 @@ export function DeveloperTrendChart({
 								<ChartTooltip
 									{...props}
 									nameFormatter={formatUsername}
+									sortItems
 									valueFormatter={(v) => currentMetric.formatter(v)}
 									showTotal={false}
 								/>
@@ -339,6 +340,7 @@ export function DeveloperTrendChart({
 								<ChartTooltip
 									{...props}
 									nameFormatter={formatUsername}
+									sortItems
 									valueFormatter={(v) => currentMetric.formatter(v)}
 									showTotal
 								/>

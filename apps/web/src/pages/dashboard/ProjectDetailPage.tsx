@@ -29,6 +29,74 @@ import { useUserMap } from "@/hooks/useUserMap";
 import { decodeProjectPath, formatUsername } from "@/lib/format";
 import { orpc } from "@/lib/orpc";
 
+type ContributorChartPoint = {
+	avgHoursPerSession: number;
+	contributionPercentage: number;
+	hours: number;
+	name: string;
+	sessions: number;
+};
+
+function ContributorTooltip({
+	active,
+	payload,
+	tooltipBg,
+	tooltipBorder,
+}: {
+	active?: boolean;
+	payload?: ReadonlyArray<{ payload?: ContributorChartPoint }>;
+	tooltipBg: string;
+	tooltipBorder: string;
+}) {
+	const point = payload?.[0]?.payload;
+
+	if (!active || !point) {
+		return null;
+	}
+
+	return (
+		<div
+			className="rounded-lg shadow-lg p-3 min-w-[200px]"
+			style={{
+				backgroundColor: tooltipBg,
+				border: `1px solid ${tooltipBorder}`,
+			}}
+		>
+			<div className="mb-2 text-xs font-semibold text-foreground">
+				{point.name}
+			</div>
+			<div className="space-y-1 text-xs">
+				<div className="flex items-center justify-between gap-4">
+					<span className="text-muted-foreground">Sessions</span>
+					<span className="font-semibold text-foreground">
+						{point.sessions.toLocaleString()}
+					</span>
+				</div>
+				<div className="flex items-center justify-between gap-4">
+					<span className="text-muted-foreground">Hours</span>
+					<span className="font-semibold text-foreground">
+						{point.hours.toFixed(1)}h
+					</span>
+				</div>
+				<div className="flex items-center justify-between gap-4">
+					<span className="text-muted-foreground">Avg / session</span>
+					<span className="font-semibold text-foreground">
+						{point.sessions > 0
+							? `${point.avgHoursPerSession.toFixed(1)}h`
+							: "—"}
+					</span>
+				</div>
+				<div className="flex items-center justify-between gap-4">
+					<span className="text-muted-foreground">Contribution</span>
+					<span className="font-semibold text-foreground">
+						{point.contributionPercentage.toFixed(0)}%
+					</span>
+				</div>
+			</div>
+		</div>
+	);
+}
+
 export function ProjectDetailPage() {
 	const { projectPath: encodedProjectPath } = useParams<{
 		projectPath: string;
@@ -76,6 +144,11 @@ export function ProjectDetailPage() {
 			name: formatUsername(c.user_id, userMap),
 			sessions: c.sessions,
 			hours: parseFloat((c.total_duration_min / 60).toFixed(1)),
+			avgHoursPerSession:
+				c.sessions > 0
+					? parseFloat((c.total_duration_min / 60 / c.sessions).toFixed(1))
+					: 0,
+			contributionPercentage: c.contribution_percentage,
 		}));
 	}, [contributors, userMap]);
 
@@ -313,10 +386,13 @@ export function ProjectDetailPage() {
 								stroke={chartTheme.axisStroke}
 							/>
 							<Tooltip
-								contentStyle={{
-									backgroundColor: chartTheme.tooltipBg,
-									borderColor: chartTheme.tooltipBorder,
-								}}
+								content={(props) => (
+									<ContributorTooltip
+										{...props}
+										tooltipBg={chartTheme.tooltipBg}
+										tooltipBorder={chartTheme.tooltipBorder}
+									/>
+								)}
 							/>
 							<Legend
 								layout="vertical"

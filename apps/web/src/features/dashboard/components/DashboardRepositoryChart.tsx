@@ -86,6 +86,11 @@ function DashboardRepositoryTooltip({
 		return null;
 	}
 
+	const commitRate =
+		point.sessions > 0
+			? Math.round((point.committed / point.sessions) * 100)
+			: 0;
+
 	return (
 		<div className="flex min-w-44 flex-col gap-1 rounded-md bg-black px-2.5 py-1.5 text-[11px] font-medium leading-tight text-white/90 shadow-lg">
 			<div className="text-white">{point.fullLabel}</div>
@@ -98,6 +103,12 @@ function DashboardRepositoryTooltip({
 				</div>
 				{variant === "commits" ? (
 					<>
+						<div className="flex items-center justify-between gap-3">
+							<span className="text-white/65">Commit rate</span>
+							<span className="font-mono tabular-nums text-white">
+								{commitRate}%
+							</span>
+						</div>
 						<div className="flex items-center justify-between gap-3">
 							<span className="text-white/65">Committed sessions</span>
 							<span className="font-mono tabular-nums text-white">

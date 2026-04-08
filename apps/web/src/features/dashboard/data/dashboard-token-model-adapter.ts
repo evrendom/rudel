@@ -11,8 +11,11 @@ export type DashboardTokenModelSummaryRow = {
 };
 
 export type DashboardTokenModelChartDatum = {
+	estimatedCost: number;
 	id: string;
+	inputTokens: number;
 	label: string;
+	outputTokens: number;
 	shortLabel: string;
 	value: number;
 };
@@ -82,8 +85,11 @@ export function buildDashboardTokenModelChartData(
 	rows: DashboardTokenModelSummaryRow[],
 ): DashboardTokenModelChartDatum[] {
 	return rows.slice(0, MAX_VISIBLE_MODEL_BARS).map((row) => ({
+		estimatedCost: row.estimatedCost,
 		id: row.id,
+		inputTokens: row.inputTokens,
 		label: row.label,
+		outputTokens: row.outputTokens,
 		shortLabel: formatModelAxisLabel(row.label),
 		value: row.totalTokens,
 	}));

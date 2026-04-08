@@ -248,6 +248,7 @@ export function LearningsTrendChart({
 							<ChartTooltip
 								{...props}
 								nameFormatter={getDisplayName}
+								sortItems
 								valueFormatter={(v) => v.toLocaleString()}
 							/>
 						)}

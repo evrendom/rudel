@@ -122,11 +122,21 @@ function PerformanceTrendTooltip({
 		return null;
 	}
 
+	const rankedPayload = [...payload]
+		.filter((item) => {
+			const numericValue =
+				typeof item.value === "number"
+					? item.value
+					: Number(item.value ?? Number.NaN);
+			return Number.isFinite(numericValue) && numericValue > 0;
+		})
+		.sort((left, right) => Number(right.value ?? 0) - Number(left.value ?? 0));
+
 	return (
 		<div className="flex min-w-52 flex-col gap-1 rounded-md bg-black px-2.5 py-1.5 text-[11px] font-medium leading-tight text-white/90 shadow-lg">
 			<div className="flex items-start justify-between gap-4">
 				<p className="text-white">{point.fullLabel}</p>
-		<p className="shrink-0 text-white/65">
+				<p className="shrink-0 text-white/65">
 					{metric === "commits"
 						? "Commits"
 						: metric === "tokens"
@@ -137,26 +147,30 @@ function PerformanceTrendTooltip({
 				</p>
 			</div>
 			<div className="grid gap-1">
-				{payload.map((item) => (
-					<div
-						key={String(item.dataKey ?? item.name ?? "value")}
-						className="flex items-center justify-between gap-6"
-					>
-						<div className="flex min-w-0 items-center gap-2.5">
-							<span
-								aria-hidden="true"
-								className="size-2 shrink-0 rounded-full"
-								style={{ backgroundColor: item.color }}
-							/>
-							<span className="truncate text-white/65">{item.name}</span>
+				{rankedPayload.length > 0 ? (
+					rankedPayload.map((item) => (
+						<div
+							key={String(item.dataKey ?? item.name ?? "value")}
+							className="flex items-center justify-between gap-6"
+						>
+							<div className="flex min-w-0 items-center gap-2.5">
+								<span
+									aria-hidden="true"
+									className="size-2 shrink-0 rounded-full"
+									style={{ backgroundColor: item.color }}
+								/>
+								<span className="truncate text-white/65">{item.name}</span>
+							</div>
+							<span className="shrink-0 font-mono tabular-nums text-white">
+								{typeof item.value === "number"
+									? formatMetricValue(metric, item.value)
+									: item.value}
+							</span>
 						</div>
-						<span className="shrink-0 font-mono tabular-nums text-white">
-							{typeof item.value === "number"
-								? formatMetricValue(metric, item.value)
-								: item.value}
-						</span>
-					</div>
-				))}
+					))
+				) : (
+					<p className="text-white/65">No visible activity</p>
+				)}
 			</div>
 		</div>
 	);

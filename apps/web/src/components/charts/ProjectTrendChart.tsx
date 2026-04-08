@@ -281,6 +281,7 @@ export function ProjectTrendChart({ data }: ProjectTrendChartProps) {
 								<ChartTooltip
 									{...props}
 									nameFormatter={formatProjectName}
+									sortItems
 									valueFormatter={(v) => currentMetric.formatter(v)}
 									showTotal={false}
 								/>
@@ -340,6 +341,7 @@ export function ProjectTrendChart({ data }: ProjectTrendChartProps) {
 								<ChartTooltip
 									{...props}
 									nameFormatter={formatProjectName}
+									sortItems
 									valueFormatter={(v) => currentMetric.formatter(v)}
 									showTotal
 								/>

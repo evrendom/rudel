@@ -15,11 +15,15 @@ import type {
 import { calculateCost, formatCompactWholeCurrency } from "@/lib/format";
 
 export type DashboardTokenDailyPoint = {
+	activeModels: number;
 	avgTokensPerSession: number | null;
 	axisLabel: string;
 	date: string;
+	dominantModel: string | null;
+	dominantModelTokens: number;
 	fullLabel: string;
 	inputTokens: number;
+	modelTokens: Record<string, number>;
 	outputTokens: number;
 	sessions: number;
 	totalTokens: number;
@@ -406,7 +410,9 @@ export function buildDashboardTokenDailyPattern(
 			outputTokens: number;
 		}
 	>();
+	const modelTokensByDate = new Map<string, Record<string, number>>();
 	let hasUserTokenBreakdown = false;
+	let hasModelTokenBreakdown = false;
 
 	for (const row of userRows ?? []) {
 		const dateKey = normalizeDateKey(row.date);
@@ -441,6 +447,18 @@ export function buildDashboardTokenDailyPattern(
 		}
 	}
 
+	for (const row of modelRows ?? []) {
+		const dateKey = normalizeDateKey(row.date);
+		const currentBreakdown = modelTokensByDate.get(dateKey) ?? {};
+		currentBreakdown[row.model] =
+			(currentBreakdown[row.model] ?? 0) + row.total_tokens;
+		modelTokensByDate.set(dateKey, currentBreakdown);
+
+		if (row.total_tokens > 0) {
+			hasModelTokenBreakdown = true;
+		}
+	}
+
 	return buildDateRange(startDate, endDate).map((date) => {
 		const isoDate = format(date, "yyyy-MM-dd");
 		const sessions = sessionsByDate.get(isoDate) ?? 0;
@@ -448,15 +466,26 @@ export function buildDashboardTokenDailyPattern(
 			inputTokens: 0,
 			outputTokens: 0,
 		};
+		const modelTokens = modelTokensByDate.get(isoDate) ?? {};
 		const totalTokens = tokensRow.inputTokens + tokensRow.outputTokens;
+		const sortedModels = Object.entries(modelTokens)
+			.filter(([, value]) => value > 0)
+			.sort(
+				(left, right) => right[1] - left[1] || left[0].localeCompare(right[0]),
+			);
+		const [dominantModel, dominantModelTokens] = sortedModels[0] ?? [null, 0];
 
 		return {
+			activeModels: hasModelTokenBreakdown ? sortedModels.length : 0,
 			avgTokensPerSession:
 				sessions > 0 ? Math.round(totalTokens / sessions) : null,
 			axisLabel: format(date, "EEE"),
 			date: isoDate,
+			dominantModel,
+			dominantModelTokens,
 			fullLabel: format(date, "EEEE, MMM d"),
 			inputTokens: tokensRow.inputTokens,
+			modelTokens,
 			outputTokens: tokensRow.outputTokens,
 			sessions,
 			totalTokens,

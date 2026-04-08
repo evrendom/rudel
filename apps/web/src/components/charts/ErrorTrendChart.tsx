@@ -293,6 +293,7 @@ export function ErrorTrendChart({
 								<ChartTooltip
 									{...props}
 									nameFormatter={getDisplayName}
+									sortItems
 									valueFormatter={(v) => v.toLocaleString()}
 								/>
 							)}
@@ -342,6 +343,7 @@ export function ErrorTrendChart({
 								<ChartTooltip
 									{...props}
 									nameFormatter={getDisplayName}
+									sortItems
 									valueFormatter={(v) => v.toFixed(2)}
 									showTotal={false}
 								/>

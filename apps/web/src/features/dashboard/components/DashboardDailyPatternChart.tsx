@@ -190,11 +190,13 @@ function getBarCategoryGap(total: number) {
 	return 0;
 }
 
-function DailySessionsTooltip({
+function DailyPatternTooltip({
 	active,
+	mode,
 	payload,
 }: {
 	active?: boolean;
+	mode: DailyPatternChartMode;
 	payload?: Array<{
 		color?: string;
 		dataKey?: string;
@@ -213,6 +215,59 @@ function DailySessionsTooltip({
 		return null;
 	}
 
+	if (mode === "repository-stack") {
+		const repositoryItems = payload
+			.map((item) => ({
+				color: item.color,
+				label: String(item.name ?? item.dataKey ?? "Repository"),
+				value:
+					typeof item.value === "number" ? item.value : Number(item.value ?? 0),
+			}))
+			.filter((item) => Number.isFinite(item.value) && item.value > 0)
+			.sort((left, right) => right.value - left.value);
+		const totalSessions =
+			point.sessions ??
+			repositoryItems.reduce((sum, item) => sum + item.value, 0);
+
+		return (
+			<div className="flex min-w-52 flex-col gap-1 rounded-md bg-black px-2.5 py-1.5 text-[11px] font-medium leading-tight text-white/90 shadow-lg">
+				<p className="text-white">{point.fullLabel}</p>
+				<div className="flex items-center justify-between gap-3">
+					<span className="text-white/65">Sessions</span>
+					<span className="tabular-nums text-white">{totalSessions}</span>
+				</div>
+				<div className="flex items-center justify-between gap-3">
+					<span className="text-white/65">Active repos</span>
+					<span className="tabular-nums text-white">
+						{repositoryItems.length}
+					</span>
+				</div>
+				{repositoryItems.length > 0 ? (
+					<div className="mt-1 grid max-h-40 gap-1 overflow-y-auto pr-1">
+						{repositoryItems.map((item) => (
+							<div
+								key={item.label}
+								className="flex items-center justify-between gap-6"
+							>
+								<div className="flex min-w-0 items-center gap-2.5">
+									<span
+										aria-hidden="true"
+										className="size-2 shrink-0 rounded-full"
+										style={{ backgroundColor: item.color }}
+									/>
+									<span className="truncate text-white/65">{item.label}</span>
+								</div>
+								<span className="shrink-0 tabular-nums text-white">
+									{item.value}
+								</span>
+							</div>
+						))}
+					</div>
+				) : null}
+			</div>
+		);
+	}
+
 	return (
 		<div className="flex min-w-44 flex-col gap-1 rounded-md bg-black px-2.5 py-1.5 text-[11px] font-medium leading-tight text-white/90 shadow-lg">
 			<p className="text-white">{point.fullLabel}</p>
@@ -220,6 +275,12 @@ function DailySessionsTooltip({
 				<span className="text-white/65">Sessions</span>
 				<span className="tabular-nums text-white">
 					{point.sessions == null ? "-" : point.sessions}
+				</span>
+			</div>
+			<div className="flex items-center justify-between gap-3">
+				<span className="text-white/65">Commit rate</span>
+				<span className="tabular-nums text-white">
+					{point.commitRate == null ? "-" : `${point.commitRate}%`}
 				</span>
 			</div>
 			<div className="flex items-center justify-between gap-3">
@@ -417,7 +478,10 @@ export function DashboardDailyPatternChart({
 							opacity: 0.38,
 						}}
 					/>
-					<ChartTooltip cursor={false} content={<DailySessionsTooltip />} />
+					<ChartTooltip
+						cursor={false}
+						content={<DailyPatternTooltip mode={mode} />}
+					/>
 					{hasRepositoryStackData
 						? (repositoryStackData?.repositorySeries ?? []).map((series) => (
 								<Bar
