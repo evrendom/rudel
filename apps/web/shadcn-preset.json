@@ -1,0 +1,43 @@
+{
+	"presetCode": "b1VlJAwL",
+	"template": "vite",
+	"base": "base",
+	"managedFiles": [
+		"components.json",
+		"src/index.css",
+		"src/app/luma.css",
+		"src/app/ui/avatar.tsx",
+		"src/app/ui/badge.tsx",
+		"src/app/ui/button.tsx",
+		"src/app/ui/calendar.tsx",
+		"src/app/ui/card.tsx",
+		"src/app/ui/checkbox.tsx",
+		"src/app/ui/dialog.tsx",
+		"src/app/ui/dropdown-menu.tsx",
+		"src/app/ui/field.tsx",
+		"src/app/ui/input.tsx",
+		"src/app/ui/label.tsx",
+		"src/app/ui/popover.tsx",
+		"src/app/ui/select.tsx",
+		"src/app/ui/separator.tsx",
+		"src/app/ui/sheet.tsx",
+		"src/app/ui/skeleton.tsx",
+		"src/app/ui/table.tsx",
+		"src/app/ui/tabs.tsx",
+		"src/app/ui/toggle.tsx",
+		"src/app/ui/toggle-group.tsx",
+		"src/app/ui/tooltip.tsx"
+	],
+	"preservedFiles": [
+		"src/app/ui/sidebar.tsx",
+		"src/app/app-surface.css",
+		"src/features/shell/AppShellLayout.tsx",
+		"src/features/shell/components/AppSidebar.tsx",
+		"src/features/shell/components/SiteHeader.tsx",
+		"src/features/dashboard/components/DashboardPerformancePanel.tsx",
+		"src/features/dashboard/components/DashboardPerformanceChart.tsx",
+		"src/features/dashboard/components/DashboardInsightsPanel.tsx",
+		"src/features/team/components/TeamRosterGallery.tsx",
+		"src/features/team/components/TeamPlayerCard.tsx"
+	]
+}

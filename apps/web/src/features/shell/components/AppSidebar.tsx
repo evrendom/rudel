@@ -13,21 +13,21 @@ import {
 import { useTheme } from "next-themes";
 import { type ReactNode, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { ThemeToggle } from "@/components/analytics/ThemeToggle";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/app/ui/avatar";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
 	DropdownMenuItem,
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+} from "@/app/ui/dropdown-menu";
 import {
 	Tooltip,
 	TooltipContent,
 	TooltipProvider,
 	TooltipTrigger,
-} from "@/components/ui/tooltip";
+} from "@/app/ui/tooltip";
+import { ThemeToggle } from "@/components/analytics/ThemeToggle";
 import { useOrganization } from "@/contexts/OrganizationContext";
 import { useAnalyticsTracking } from "@/hooks/useDashboardAnalytics";
 import { useUserInvitations } from "@/hooks/useUserInvitations";
@@ -102,7 +102,7 @@ function SidebarNavLink({
 
 	return (
 		<Tooltip>
-			<TooltipTrigger asChild>{link}</TooltipTrigger>
+			<TooltipTrigger render={link} />
 			<TooltipContent side="right">
 				{badgeLabel ? `${label} (${badgeLabel})` : label}
 			</TooltipContent>
@@ -131,25 +131,27 @@ function OrgSwitcher({ collapsed }: { collapsed: boolean }) {
 
 	return (
 		<DropdownMenu>
-			<DropdownMenuTrigger asChild>
-				<button
-					type="button"
-					className={cn(
-						"flex h-10 w-full items-center gap-1.5 overflow-hidden px-4 transition-colors hover:bg-hover",
-						collapsed ? "justify-center px-0" : "",
-					)}
-				>
-					<Building2 className="h-4 w-4 shrink-0 text-accent" />
-					{collapsed ? null : (
-						<>
-							<span className="flex-1 truncate text-left text-sm font-bold text-heading">
-								{activeOrg?.name ?? "Select org"}
-							</span>
-							<ChevronsUpDown className="h-3.5 w-3.5 shrink-0 text-muted" />
-						</>
-					)}
-				</button>
-			</DropdownMenuTrigger>
+			<DropdownMenuTrigger
+				render={
+					<button
+						type="button"
+						className={cn(
+							"flex h-10 w-full items-center gap-1.5 overflow-hidden px-4 transition-colors hover:bg-hover",
+							collapsed ? "justify-center px-0" : "",
+						)}
+					>
+						<Building2 className="h-4 w-4 shrink-0 text-accent" />
+						{collapsed ? null : (
+							<>
+								<span className="flex-1 truncate text-left text-sm font-bold text-heading">
+									{activeOrg?.name ?? "Select org"}
+								</span>
+								<ChevronsUpDown className="h-3.5 w-3.5 shrink-0 text-muted" />
+							</>
+						)}
+					</button>
+				}
+			/>
 			<DropdownMenuContent
 				side={collapsed ? "right" : "bottom"}
 				align="start"
@@ -168,39 +170,43 @@ function OrgSwitcher({ collapsed }: { collapsed: boolean }) {
 					</DropdownMenuItem>
 				))}
 				<DropdownMenuSeparator />
-				<DropdownMenuItem asChild>
-					<Link
-						to="/dashboard/organization"
-						onClick={() => {
-							trackNavigation({
-								navType: "organization_menu",
-								sourceComponent: "org_switcher",
-								targetPath: "/dashboard/organization",
-								targetType: "page",
-								toPageName: "organization",
-							});
-						}}
-					>
-						<Settings className="h-3.5 w-3.5 shrink-0" />
-						<span>Manage organization</span>
-					</Link>
+				<DropdownMenuItem
+					render={
+						<Link
+							to="/dashboard/organization"
+							onClick={() => {
+								trackNavigation({
+									navType: "organization_menu",
+									sourceComponent: "org_switcher",
+									targetPath: "/dashboard/organization",
+									targetType: "page",
+									toPageName: "organization",
+								});
+							}}
+						/>
+					}
+				>
+					<Settings className="h-3.5 w-3.5 shrink-0" />
+					<span>Manage organization</span>
 				</DropdownMenuItem>
-				<DropdownMenuItem asChild>
-					<Link
-						to="/dashboard/organization/new"
-						onClick={() => {
-							trackNavigation({
-								navType: "organization_menu",
-								sourceComponent: "org_switcher",
-								targetPath: "/dashboard/organization/new",
-								targetType: "page",
-								toPageName: "organization_create",
-							});
-						}}
-					>
-						<Plus className="h-3.5 w-3.5 shrink-0" />
-						<span>Create organization</span>
-					</Link>
+				<DropdownMenuItem
+					render={
+						<Link
+							to="/dashboard/organization/new"
+							onClick={() => {
+								trackNavigation({
+									navType: "organization_menu",
+									sourceComponent: "org_switcher",
+									targetPath: "/dashboard/organization/new",
+									targetType: "page",
+									toPageName: "organization_create",
+								});
+							}}
+						/>
+					}
+				>
+					<Plus className="h-3.5 w-3.5 shrink-0" />
+					<span>Create organization</span>
 				</DropdownMenuItem>
 			</DropdownMenuContent>
 		</DropdownMenu>
@@ -349,11 +355,13 @@ export function AppSidebar() {
 						{collapsed ? (
 							<div className="mb-2 flex justify-center">
 								<Tooltip>
-									<TooltipTrigger asChild>
-										<div className="flex h-7 w-7 items-center justify-center rounded-md bg-hover text-[0.5625rem] font-bold tracking-[0.14em] text-accent">
-											A
-										</div>
-									</TooltipTrigger>
+									<TooltipTrigger
+										render={
+											<div className="flex h-7 w-7 items-center justify-center rounded-md bg-hover text-[0.5625rem] font-bold tracking-[0.14em] text-accent">
+												A
+											</div>
+										}
+									/>
 									<TooltipContent side="right">
 										OPEN ALPHA Testing v{__APP_VERSION__}
 									</TooltipContent>
@@ -375,30 +383,32 @@ export function AppSidebar() {
 						>
 							{collapsed ? (
 								<Tooltip>
-									<TooltipTrigger asChild>
-										<Link
-											to="/dashboard/profile"
-											onClick={() =>
-												trackSidebarNavigation(
-													"sidebar_profile_avatar",
-													"/dashboard/profile",
-												)
-											}
-											className="flex min-w-0 items-center gap-2"
-										>
-											<Avatar size="sm" className="shrink-0">
-												{session.user.image ? (
-													<AvatarImage
-														src={session.user.image}
-														alt={session.user.name}
-													/>
-												) : null}
-												<AvatarFallback>
-													{getInitials(session.user.name)}
-												</AvatarFallback>
-											</Avatar>
-										</Link>
-									</TooltipTrigger>
+									<TooltipTrigger
+										render={
+											<Link
+												to="/dashboard/profile"
+												onClick={() =>
+													trackSidebarNavigation(
+														"sidebar_profile_avatar",
+														"/dashboard/profile",
+													)
+												}
+												className="flex min-w-0 items-center gap-2"
+											>
+												<Avatar size="sm" className="shrink-0">
+													{session.user.image ? (
+														<AvatarImage
+															src={session.user.image}
+															alt={session.user.name}
+														/>
+													) : null}
+													<AvatarFallback>
+														{getInitials(session.user.name)}
+													</AvatarFallback>
+												</Avatar>
+											</Link>
+										}
+									/>
 									<TooltipContent side="right">
 										{session.user.name}
 									</TooltipContent>

@@ -2,6 +2,7 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 @import "./app/preset-extensions.css";
+@import "./app/luma.css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -244,6 +245,7 @@
 	}
 	#root {
 		@apply h-full;
+		isolation: isolate;
 	}
 }
 
