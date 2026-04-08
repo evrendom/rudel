@@ -202,6 +202,7 @@ export const DeveloperSummarySchema = z.object({
 	success_rate: z.number(),
 	cost: z.number(),
 	success_rate_trend: z.number(),
+	favorite_model: z.string().nullable(),
 });
 
 export const DeveloperTeamCardSchema = z.object({

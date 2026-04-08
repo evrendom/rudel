@@ -4,6 +4,7 @@ import {
 	DaysInputSchema,
 	DeveloperDetailsInputSchema,
 	DeveloperSessionsInputSchema,
+	DeveloperSummarySchema,
 	DeveloperTeamCardSchema,
 	DimensionAnalysisInputSchema,
 	ErrorsDashboardSchema,
@@ -103,6 +104,26 @@ describe("analytics input schemas", () => {
 				last_active_date: "2026-03-24 10:00:00.000",
 				favorite_model: null,
 				top_skills: [{ name: "shadcn", count: 3 }],
+			}).success,
+		).toBe(true);
+	});
+
+	test("developer summary schema accepts nullable favorite model", () => {
+		expect(
+			DeveloperSummarySchema.safeParse({
+				user_id: "u1",
+				total_sessions: 12,
+				active_days: 5,
+				total_tokens: 12345,
+				input_tokens: 9000,
+				output_tokens: 3345,
+				total_duration_min: 42.5,
+				avg_session_duration_min: 3.54,
+				last_active_date: "2026-03-24 10:00:00.000",
+				success_rate: 0.92,
+				cost: 1.23,
+				success_rate_trend: 0.04,
+				favorite_model: null,
 			}).success,
 		).toBe(true);
 	});

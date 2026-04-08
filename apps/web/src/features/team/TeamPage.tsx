@@ -36,10 +36,10 @@ const teamBoardMetricSkeletonKeys = [
 function TeamPageSkeleton() {
 	return (
 		<div className="team-lineup-surface-scope">
-			<ul className="grid justify-items-center gap-y-4 sm:grid-cols-2 sm:gap-x-2 xl:grid-cols-3 xl:gap-x-2">
+			<ul className="grid justify-center gap-[10px] [grid-template-columns:repeat(auto-fit,minmax(233px,233px))]">
 				{teamBoardCardSkeletonKeys.map((cardKey) => (
 					<li key={cardKey} className="list-none">
-						<div className="team-lineup-featured-card relative isolate flex h-[358px] w-[233px] flex-col overflow-hidden rounded-[18px] bg-[linear-gradient(180deg,#fbfcfe_0%,#f0f3f7_100%)] px-[14px] pt-[15px] pb-[10px] shadow-[0_0_10.1px_rgba(0,0,0,0.08)]">
+						<div className="team-lineup-featured-card relative isolate flex h-[358px] w-[233px] flex-col overflow-hidden rounded-[18px] border border-[#ECECEC] bg-[linear-gradient(180deg,#fbfcfe_0%,#f0f3f7_100%)] px-[14px] pt-[15px] pb-[10px] shadow-[0_0_10.1px_rgba(0,0,0,0.08)]">
 							<div className="flex items-center justify-between">
 								<div className="flex items-center gap-[6px]">
 									<Skeleton className="h-[17px] w-[56px] rounded-full" />

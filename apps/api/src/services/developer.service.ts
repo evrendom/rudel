@@ -50,6 +50,42 @@ const PER_SESSION_COST_SQL = buildEstimatedCostSql({
 	cacheCreationInputExpr: "ifNull(cache_creation_input_tokens, 0)",
 });
 
+interface FavoriteModelRow {
+	user_id: string;
+	favorite_model: string;
+}
+
+async function getFavoriteModelByUser(orgId: string, days: number) {
+	const rows = await queryClickhouse<FavoriteModelRow>({
+		query: `
+    SELECT
+      user_id,
+      favorite_model
+    FROM (
+      SELECT
+        user_id,
+        model_used as favorite_model,
+        COUNT(*) as session_count,
+        SUM(ifNull(input_tokens, 0) + ifNull(output_tokens, 0)) as total_tokens
+      FROM rudel.session_analytics
+      WHERE ${buildDateFilter("days")}
+        AND organization_id = {orgId:String}
+        AND model_used != ''
+        AND model_used != 'unknown'
+      GROUP BY user_id, favorite_model
+      ORDER BY user_id ASC, session_count DESC, total_tokens DESC, favorite_model ASC
+    )
+    LIMIT 1 BY user_id
+  `,
+		query_params: {
+			days: Number(days),
+			orgId,
+		},
+	});
+
+	return new Map(rows.map((row) => [row.user_id, row.favorite_model] as const));
+}
+
 /**
  * Get list of all developers with summary stats
  */
@@ -111,10 +147,18 @@ export async function getDeveloperList(
     ORDER BY c.total_sessions DESC
   `;
 
-	return queryClickhouse<DeveloperSummary>({
-		query,
-		query_params,
-	});
+	const [summaryRows, favoriteModelByUser] = await Promise.all([
+		queryClickhouse<Omit<DeveloperSummary, "favorite_model" | "username">>({
+			query,
+			query_params,
+		}),
+		getFavoriteModelByUser(orgId, d),
+	]);
+
+	return summaryRows.map((row) => ({
+		...row,
+		favorite_model: favoriteModelByUser.get(row.user_id) ?? null,
+	}));
 }
 
 /**
@@ -147,27 +191,6 @@ export async function getDeveloperTeamCards(
     ORDER BY total_tokens DESC, user_id ASC
   `;
 
-	const favoriteModelQuery = `
-    SELECT
-      user_id,
-      favorite_model
-    FROM (
-      SELECT
-        user_id,
-        model_used as favorite_model,
-        COUNT(*) as session_count,
-        SUM(ifNull(input_tokens, 0) + ifNull(output_tokens, 0)) as total_tokens
-      FROM rudel.session_analytics
-      WHERE ${buildDateFilter("days")}
-        AND organization_id = {orgId:String}
-        AND model_used != ''
-        AND model_used != 'unknown'
-      GROUP BY user_id, favorite_model
-      ORDER BY user_id ASC, session_count DESC, total_tokens DESC, favorite_model ASC
-    )
-    LIMIT 1 BY user_id
-  `;
-
 	const topSkillsQuery = `
     SELECT
       user_id,
@@ -194,26 +217,18 @@ export async function getDeveloperTeamCards(
 		last_active_date: string;
 	}
 
-	interface FavoriteModelRow {
-		user_id: string;
-		favorite_model: string;
-	}
-
 	interface SkillRow {
 		user_id: string;
 		name: string;
 		count: number;
 	}
 
-	const [summaryRows, favoriteModelRows, skillRows] = await Promise.all([
+	const [summaryRows, favoriteModelByUser, skillRows] = await Promise.all([
 		queryClickhouse<SummaryRow>({
 			query: summaryQuery,
 			query_params,
 		}),
-		queryClickhouse<FavoriteModelRow>({
-			query: favoriteModelQuery,
-			query_params,
-		}),
+		getFavoriteModelByUser(orgId, d),
 		queryClickhouse<SkillRow>({
 			query: topSkillsQuery,
 			query_params,
@@ -223,9 +238,6 @@ export async function getDeveloperTeamCards(
 		return [];
 	}
 
-	const favoriteModelByUser = new Map(
-		favoriteModelRows.map((row) => [row.user_id, row.favorite_model]),
-	);
 	const skillsByUser = new Map<
 		string,
 		Array<{ name: string; count: number }>

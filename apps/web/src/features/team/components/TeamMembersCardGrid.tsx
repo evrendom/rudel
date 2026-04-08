@@ -27,7 +27,7 @@ const shortDateFormatter = new Intl.DateTimeFormat("en-US", {
 });
 
 const adaptedTeamCardShellClassName =
-	"team-lineup-featured-card relative isolate flex h-[358px] w-[233px] flex-col overflow-hidden rounded-[18px] bg-[linear-gradient(180deg,#fbfcfe_0%,#f0f3f7_100%)] px-[14px] pt-[15px] pb-[10px] text-[#302d2b] shadow-[0_0_10.1px_rgba(0,0,0,0.08)]";
+	"team-lineup-featured-card relative isolate flex h-[358px] w-[233px] flex-col overflow-hidden rounded-[18px] border border-[#ECECEC] bg-[linear-gradient(180deg,#fbfcfe_0%,#f0f3f7_100%)] px-[14px] pt-[15px] pb-[10px] text-[#302d2b] shadow-[0_0_10.1px_rgba(0,0,0,0.08)]";
 
 const adaptedTeamCardHeaderValueClassName =
 	"[font-family:var(--dashboard-01-font-roster-display)] text-[17.07px] font-extrabold leading-none tracking-[-0.01em] tabular-nums text-[#272423]";
@@ -362,7 +362,7 @@ function TeamMemberCard({ row }: { row: TeamPageMemberRow }) {
 export function TeamMembersCardGrid({ rows }: { rows: TeamPageMemberRow[] }) {
 	return (
 		<div className="team-lineup-surface-scope">
-			<ul className="grid justify-items-center gap-y-4 sm:grid-cols-2 sm:gap-x-2 xl:grid-cols-3 xl:gap-x-2">
+			<ul className="grid justify-center gap-[10px] [grid-template-columns:repeat(auto-fit,minmax(233px,233px))]">
 				{rows.map((row) => (
 					<TeamMemberCard key={row.userId} row={row} />
 				))}

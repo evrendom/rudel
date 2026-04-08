@@ -109,7 +109,8 @@ function buildTeamMemberRows(
 					: "Tracked collaborator",
 				imageUrl: member?.imageUrl,
 				cost,
-				favoriteModel: teamCard?.favorite_model ?? null,
+				favoriteModel:
+					teamCard?.favorite_model ?? developerSummary?.favorite_model ?? null,
 				topSkills: teamCard?.top_skills ?? [],
 				inputTokens,
 				outputTokens,
