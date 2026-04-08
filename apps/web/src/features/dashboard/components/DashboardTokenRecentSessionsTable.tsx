@@ -14,6 +14,7 @@ import {
 	formatUsername,
 } from "@/lib/format";
 import { formatRelativeTime } from "@/lib/time-utils";
+import { cn } from "@/lib/utils";
 
 const SKELETON_ROWS = 5;
 const SKELETON_ROW_IDS = [
@@ -68,15 +69,21 @@ function formatTokenMix(session: SessionAnalytics) {
 	return `${inputShare} IN / ${outputShare} OUT`;
 }
 
-function DashboardTokenRecentSessionsTableSkeleton() {
+function DashboardTokenRecentSessionsTableSkeleton({
+	showHeader,
+}: {
+	showHeader: boolean;
+}) {
 	return (
 		<div className="grid gap-3">
-			<div className="flex items-center justify-between gap-3 px-1">
-				<h3 className="dashboardy-section-title text-lg/6 text-[color:var(--dashboardy-heading)]">
-					Latest sessions
-				</h3>
-				<Skeleton className="h-4 w-28 rounded-full" />
-			</div>
+			{showHeader ? (
+				<div className="flex items-center justify-between gap-3 px-1">
+					<h3 className="dashboardy-section-title text-lg/6 text-[color:var(--dashboardy-heading)]">
+						Latest sessions
+					</h3>
+					<Skeleton className="h-4 w-28 rounded-full" />
+				</div>
+			) : null}
 			<div className="overflow-x-auto">
 				<div className="flex min-w-[78rem] flex-col gap-1">
 					<div className="grid grid-cols-[120px_minmax(180px,11fr)_minmax(180px,9fr)_minmax(180px,9fr)_140px_minmax(180px,0.95fr)_120px] gap-6 px-3.5 text-[13px] font-semibold text-[color:var(--dashboardy-muted)]">
@@ -114,12 +121,20 @@ function DashboardTokenRecentSessionsTableSkeleton() {
 }
 
 export function DashboardTokenRecentSessionsTable({
+	highlightSource,
+	highlightedSessionId,
 	isLoading = false,
+	onHighlightSessionChange,
 	sessions,
+	showHeader = true,
 	totalSessionCount,
 }: {
+	highlightSource?: "chart" | "table" | null;
+	highlightedSessionId?: string | null;
 	isLoading?: boolean;
+	onHighlightSessionChange?: (sessionId: string | null) => void;
 	sessions: SessionAnalytics[] | undefined;
+	showHeader?: boolean;
 	totalSessionCount: number;
 }) {
 	const { userMap } = useUserMap();
@@ -128,9 +143,15 @@ export function DashboardTokenRecentSessionsTable({
 		totalSessionCount - recentSessions.length,
 		0,
 	);
+	const hasTableHighlight =
+		highlightSource === "table" && highlightedSessionId != null;
+	const hasChartHighlight =
+		highlightSource === "chart" && highlightedSessionId != null;
 
 	if (isLoading) {
-		return <DashboardTokenRecentSessionsTableSkeleton />;
+		return (
+			<DashboardTokenRecentSessionsTableSkeleton showHeader={showHeader} />
+		);
 	}
 
 	if (recentSessions.length === 0) {
@@ -143,14 +164,16 @@ export function DashboardTokenRecentSessionsTable({
 
 	return (
 		<div className="grid gap-3">
-			<div className="flex items-center justify-between gap-3 px-1">
-				<h3 className="dashboardy-section-title text-lg/6 text-[color:var(--dashboardy-heading)]">
-					Latest sessions
-				</h3>
-				<p className="text-[13px] font-medium text-[color:var(--dashboardy-muted)]">
-					Last {recentSessions.length} sessions
-				</p>
-			</div>
+			{showHeader ? (
+				<div className="flex items-center justify-between gap-3 px-1">
+					<h3 className="dashboardy-section-title text-lg/6 text-[color:var(--dashboardy-heading)]">
+						Latest sessions
+					</h3>
+					<p className="text-[13px] font-medium text-[color:var(--dashboardy-muted)]">
+						Last {recentSessions.length} sessions
+					</p>
+				</div>
+			) : null}
 			<DashboardGridTable
 				columns={[
 					{
@@ -246,7 +269,28 @@ export function DashboardTokenRecentSessionsTable({
 				rows={recentSessions}
 				rowKey={(session) => session.session_id}
 				gridTemplateColumns="120px minmax(180px,11fr) minmax(180px,9fr) minmax(180px,9fr) 140px minmax(180px,0.95fr) 120px"
-				minWidthClassName="min-w-[78rem]"
+				minWidthClassName="min-w-[82rem]"
+				onRowHoverChange={onHighlightSessionChange}
+				getHoverRowId={(session) => session.session_id}
+				rowClassName={(session) =>
+					cn(
+						"w-full text-left transition-[opacity,background-color] duration-300 [transition-timing-function:cubic-bezier(0.23,1,0.32,1)]",
+						hasTableHighlight &&
+							"bg-[color:var(--dashboardy-surface)] odd:bg-[color:var(--dashboardy-surface)]",
+						hasChartHighlight &&
+							highlightedSessionId === session.session_id &&
+							"bg-[color:var(--dashboardy-surface)] odd:bg-[color:var(--dashboardy-surface)]",
+						hasTableHighlight &&
+							highlightedSessionId === session.session_id &&
+							"bg-[color:var(--dashboardy-subsurface-strong)] odd:bg-[color:var(--dashboardy-subsurface-strong)]",
+						hasTableHighlight &&
+							highlightedSessionId !== session.session_id &&
+							"opacity-50",
+						hasChartHighlight &&
+							highlightedSessionId !== session.session_id &&
+							"opacity-50",
+					)
+				}
 				footer={
 					hiddenSessionCount > 0 ? (
 						<DashboardTableFooterNote>

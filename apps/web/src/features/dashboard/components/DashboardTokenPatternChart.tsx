@@ -74,6 +74,7 @@ function getTickLabel(
 	index: number,
 	total: number,
 	activeDate?: string | null,
+	labelStyle: "adaptive" | "month-date" = "adaptive",
 ) {
 	const parsedDate = parseISO(dateValue);
 
@@ -83,9 +84,11 @@ function getTickLabel(
 
 	if (activeDate != null) {
 		return activeDate === dateValue
-			? total <= 7
-				? format(parsedDate, "EEE d")
-				: format(parsedDate, "MMM d")
+			? labelStyle === "month-date"
+				? format(parsedDate, "MMM d")
+				: total <= 7
+					? format(parsedDate, "EEE d")
+					: format(parsedDate, "MMM d")
 			: "";
 	}
 
@@ -96,7 +99,11 @@ function getTickLabel(
 		return "";
 	}
 
-	return total <= 7 ? format(parsedDate, "EEE d") : format(parsedDate, "MMM d");
+	return labelStyle === "month-date"
+		? format(parsedDate, "MMM d")
+		: total <= 7
+			? format(parsedDate, "EEE d")
+			: format(parsedDate, "MMM d");
 }
 
 function getBarSize(total: number) {
@@ -238,11 +245,13 @@ export function DashboardTokenPatternChart({
 	className,
 	highlightedDate,
 	highlightSource,
+	tickLabelStyle = "adaptive",
 }: {
 	className?: string;
 	data: DashboardTokenDailyPoint[];
 	highlightedDate?: string | null;
 	highlightSource?: "chart" | "table" | null;
+	tickLabelStyle?: "adaptive" | "month-date";
 }) {
 	const axisMax = getAxisMax(data);
 	const axisTicks = getAxisTicks(axisMax);
@@ -268,7 +277,13 @@ export function DashboardTokenPatternChart({
 								"color-mix(in srgb, var(--dashboardy-muted) 40%, transparent)",
 						}}
 						tickFormatter={(value, index) =>
-							getTickLabel(String(value), index, data.length, highlightedDate)
+							getTickLabel(
+								String(value),
+								index,
+								data.length,
+								highlightedDate,
+								tickLabelStyle,
+							)
 						}
 						tickLine={false}
 						tickMargin={4}

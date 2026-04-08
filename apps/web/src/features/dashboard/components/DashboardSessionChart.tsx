@@ -1,54 +1,133 @@
 "use client";
 
-import { useMemo } from "react";
-import { Bar, BarChart, XAxis, YAxis } from "recharts";
+import { Bar, BarChart, Rectangle, XAxis, YAxis } from "recharts";
 import { type ChartConfig, ChartContainer, ChartTooltip } from "@/app/ui/chart";
-import { DashboardStackedTopRoundedBar } from "@/features/dashboard/components/DashboardStackedTopRoundedBar";
-import {
-	getDashboardBarLabelWidth,
-	getDashboardBarSize,
-} from "@/features/dashboard/components/dashboard-bar-chart-layout";
 import { formatCompactWholeNumber } from "@/lib/format";
+import { cn } from "@/lib/utils";
 
 const chartConfig = {
-	committed: {
+	totalTokens: {
 		label: "Session tokens",
-		color: "#159C89",
-	},
-	stub: {
-		label: "No activity",
-		color: "#D7DBE2",
-	},
-	uncommitted: {
-		label: "Session tokens",
-		color: "#159C89",
+		color: "#1949A9",
 	},
 } satisfies ChartConfig;
+
+const ZERO_BAR_STUB_VALUE = 0.75;
 
 export type DashboardSessionChartDatum = {
 	developerLabel: string;
 	durationLabel: string;
 	id: string;
+	inputTokens: number;
 	label: string;
 	modelLabel: string;
+	outputTokens: number;
 	repositoryLabel: string;
+	sessionDate: string;
 	shortLabel: string;
 	skillCount: number;
-	value: number;
+	totalTokens: number;
 };
 
 type DashboardSessionChartRow = DashboardSessionChartDatum & {
-	committed: number;
-	stub: number;
-	uncommitted: number;
+	displayValue: number;
 };
+
+function getAxisMax(data: DashboardSessionChartDatum[]) {
+	const maxTokens = Math.max(...data.map((point) => point.totalTokens), 0);
+
+	if (maxTokens <= 0) {
+		return 1;
+	}
+
+	const step =
+		maxTokens <= 50_000
+			? 10_000
+			: maxTokens <= 250_000
+				? 50_000
+				: maxTokens <= 1_000_000
+					? 100_000
+					: 250_000;
+
+	return Math.ceil(maxTokens / step) * step;
+}
+
+function getAxisTicks(axisMax: number) {
+	if (axisMax <= 1) {
+		return [0, 1];
+	}
+
+	const step =
+		axisMax <= 50_000
+			? 10_000
+			: axisMax <= 250_000
+				? 50_000
+				: axisMax <= 1_000_000
+					? 100_000
+					: 250_000;
+
+	const ticks = Array.from(
+		{ length: Math.floor(axisMax / step) + 1 },
+		(_, index) => index * step,
+	);
+
+	return ticks.length > 1 ? ticks : [0, axisMax];
+}
+
+function getBarSize(total: number) {
+	if (total <= 7) {
+		return 32;
+	}
+
+	if (total <= 14) {
+		return 24;
+	}
+
+	if (total <= 21) {
+		return 18;
+	}
+
+	if (total <= 31) {
+		return 14;
+	}
+
+	return 10;
+}
+
+function getTickLabel(
+	pointId: string,
+	index: number,
+	data: DashboardSessionChartRow[],
+	activeId?: string | null,
+) {
+	const point = data.find((entry) => entry.id === pointId);
+
+	if (!point) {
+		return "";
+	}
+
+	if (activeId != null) {
+		return activeId === point.id ? point.shortLabel : "";
+	}
+
+	const isFirstTick = index === 0;
+	const isLastTick = index === data.length - 1;
+
+	if (!isFirstTick && !isLastTick) {
+		return "";
+	}
+
+	return point.shortLabel;
+}
 
 function DashboardSessionTooltip({
 	active,
 	payload,
 }: {
 	active?: boolean;
-	payload?: Array<{ payload: DashboardSessionChartRow }>;
+	payload?: Array<{
+		payload: DashboardSessionChartRow;
+	}>;
 }) {
 	if (!active || !payload?.length) {
 		return null;
@@ -66,20 +145,32 @@ function DashboardSessionTooltip({
 			<div className="text-white/65">{point.repositoryLabel}</div>
 			<div className="grid gap-1">
 				<div className="flex items-center justify-between gap-3">
-					<span className="text-white/65">Tokens</span>
+					<span className="text-white/65">Total</span>
 					<span className="font-mono tabular-nums text-white">
-						{formatCompactWholeNumber(point.value)}
+						{formatCompactWholeNumber(point.totalTokens)}
 					</span>
+				</div>
+				<div className="flex items-center justify-between gap-3">
+					<span className="text-white/65">Input</span>
+					<span className="font-mono tabular-nums text-white">
+						{formatCompactWholeNumber(point.inputTokens)}
+					</span>
+				</div>
+				<div className="flex items-center justify-between gap-3">
+					<span className="text-white/65">Output</span>
+					<span className="font-mono tabular-nums text-white">
+						{formatCompactWholeNumber(point.outputTokens)}
+					</span>
+				</div>
+				<div className="flex items-center justify-between gap-3">
+					<span className="text-white/65">Model</span>
+					<span className="truncate text-white">{point.modelLabel}</span>
 				</div>
 				<div className="flex items-center justify-between gap-3">
 					<span className="text-white/65">Duration</span>
 					<span className="font-mono tabular-nums text-white">
 						{point.durationLabel}
 					</span>
-				</div>
-				<div className="flex items-center justify-between gap-3">
-					<span className="text-white/65">Model</span>
-					<span className="truncate text-white">{point.modelLabel}</span>
 				</div>
 				<div className="flex items-center justify-between gap-3">
 					<span className="text-white/65">Skills used</span>
@@ -92,55 +183,59 @@ function DashboardSessionTooltip({
 	);
 }
 
-function DashboardSessionAxisTick({
-	activeId,
-	dataById,
-	labelWidth,
-	payload,
-	x = 0,
-	y = 0,
-}: {
+function SessionBarShape(props: {
 	activeId?: string | null;
-	dataById: Map<string, DashboardSessionChartRow>;
-	labelWidth: number;
-	payload?: { value?: string | number };
-	x?: number | string;
-	y?: number | string;
+	activeSource?: "chart" | "table" | null;
+	fill?: string;
+	height?: number;
+	payload?: DashboardSessionChartRow;
+	width?: number;
+	x?: number;
+	y?: number;
 }) {
-	const datum = dataById.get(String(payload?.value ?? ""));
-	const resolvedX = typeof x === "number" ? x : Number(x ?? 0);
-	const resolvedY = typeof y === "number" ? y : Number(y ?? 0);
+	const { fill, x, y, width, height, payload } = props;
 
-	if (!datum) {
+	if (
+		typeof x !== "number" ||
+		typeof y !== "number" ||
+		typeof width !== "number" ||
+		typeof height !== "number" ||
+		!payload ||
+		height <= 0
+	) {
 		return null;
 	}
 
-	const isHighlighted = activeId != null && datum.id === activeId;
-	const hasExternalHighlight = activeId != null;
-	const contentOpacity = hasExternalHighlight && !isHighlighted ? 0.28 : 1;
+	const isHighlighted = props.activeId === payload.id;
+	const hasExternalHighlight = props.activeId != null;
+	const isTableHighlight = props.activeSource === "table";
+	const highlightStroke =
+		"color-mix(in srgb, var(--dashboardy-heading) 22%, transparent)";
+	const barOpacity =
+		hasExternalHighlight && !isHighlighted
+			? isTableHighlight
+				? 0.16
+				: 0.26
+			: 1;
+	const showStroke = isHighlighted;
 
 	return (
-		<g transform={`translate(${resolvedX},${resolvedY})`}>
-			<foreignObject
-				x={-labelWidth / 2}
-				y={10}
-				width={labelWidth}
-				height={30}
-				requiredExtensions="http://www.w3.org/1999/xhtml"
-			>
-				<div
-					className="flex h-full w-full items-center justify-center px-1 transition-opacity duration-300"
-					style={{ opacity: contentOpacity }}
-				>
-					<span
-						className="min-w-0 max-w-full truncate text-center text-[11px] font-semibold leading-4 text-[color:var(--dashboardy-subheading)]"
-						title={datum.label}
-					>
-						{datum.shortLabel}
-					</span>
-				</div>
-			</foreignObject>
-		</g>
+		<Rectangle
+			x={x}
+			y={y}
+			width={width}
+			height={height}
+			fill={fill}
+			radius={[4, 4, 0, 0]}
+			stroke={highlightStroke}
+			strokeWidth={showStroke ? 1 : 0}
+			style={{
+				opacity: barOpacity,
+				strokeOpacity: showStroke ? 1 : 0,
+				transition:
+					"opacity 300ms cubic-bezier(0.23, 1, 0.32, 1), stroke-opacity 300ms cubic-bezier(0.23, 1, 0.32, 1)",
+			}}
+		/>
 	);
 }
 
@@ -148,86 +243,95 @@ export function DashboardSessionChart({
 	activeId,
 	className,
 	data,
+	highlightSource,
 }: {
 	activeId?: string | null;
 	className?: string;
 	data: DashboardSessionChartDatum[];
+	highlightSource?: "chart" | "table" | null;
 }) {
-	const chartData = useMemo<DashboardSessionChartRow[]>(
-		() =>
-			data.map((entry) => ({
-				...entry,
-				committed: entry.value,
-				stub: 0,
-				uncommitted: 0,
-			})),
-		[data],
-	);
-	const dataById = useMemo(
-		() => new Map(chartData.map((entry) => [entry.id, entry] as const)),
-		[chartData],
-	);
-	const resolvedActiveId =
-		activeId != null && dataById.has(activeId) ? activeId : null;
-	const barSize = useMemo(
-		() => getDashboardBarSize(chartData.length),
-		[chartData.length],
-	);
-	const labelWidth = useMemo(
-		() => getDashboardBarLabelWidth(chartData.length, "repository"),
-		[chartData.length],
-	);
+	const chartData: DashboardSessionChartRow[] = [...data]
+		.sort(
+			(left, right) =>
+				new Date(left.sessionDate).getTime() -
+				new Date(right.sessionDate).getTime(),
+		)
+		.map((entry) => ({
+			...entry,
+			displayValue:
+				entry.totalTokens > 0 ? entry.totalTokens : ZERO_BAR_STUB_VALUE,
+		}));
+	const axisMax = getAxisMax(data);
+	const axisTicks = getAxisTicks(axisMax);
+	const resolvedActiveId = chartData.some((entry) => entry.id === activeId)
+		? activeId
+		: null;
+	const barSize = getBarSize(chartData.length);
 
 	return (
-		<div className={className ?? "relative h-full w-full"}>
+		<div className={cn("flex min-w-0 flex-1 pt-0 md:pt-4", className)}>
 			<ChartContainer
 				config={chartConfig}
-				className="h-full w-full aspect-auto"
-				initialDimension={{ width: 664, height: 240 }}
+				className="h-[12.875rem] w-full aspect-auto"
+				initialDimension={{ width: 664, height: 206 }}
 			>
 				<BarChart
 					data={chartData}
 					barCategoryGap={0}
-					barGap={0}
-					margin={{ top: 8, right: 8, bottom: 40, left: 42 }}
+					margin={{ top: 2, right: 18, bottom: 10, left: 0 }}
 				>
 					<XAxis
 						dataKey="id"
-						axisLine={false}
-						height={40}
-						interval={0}
-						tick={(props) => (
-							<DashboardSessionAxisTick
-								{...props}
-								activeId={resolvedActiveId}
-								dataById={dataById}
-								labelWidth={labelWidth}
-							/>
-						)}
+						height={22}
+						axisLine={{
+							stroke:
+								"color-mix(in srgb, var(--dashboardy-muted) 40%, transparent)",
+						}}
+						tickFormatter={(value, index) =>
+							getTickLabel(String(value), index, chartData, resolvedActiveId)
+						}
 						tickLine={false}
+						tickMargin={4}
+						tick={{
+							fontSize: 12,
+							fontWeight: 500,
+							fill: "var(--dashboardy-muted)",
+							opacity: 0.38,
+						}}
 					/>
 					<YAxis
+						orientation="right"
 						allowDecimals={false}
-						axisLine={false}
-						tickLine={false}
-						tickMargin={12}
-						width={40}
-						tickFormatter={(value) => formatCompactWholeNumber(Number(value))}
+						domain={[0, axisMax]}
+						ticks={axisTicks}
+						axisLine={{
+							stroke:
+								"color-mix(in srgb, var(--dashboardy-muted) 40%, transparent)",
+						}}
+						tickLine={{
+							stroke:
+								"color-mix(in srgb, var(--dashboardy-muted) 40%, transparent)",
+						}}
+						tickMargin={4}
+						width={48}
+						tickFormatter={formatCompactWholeNumber}
 						tick={{
-							fontSize: 13,
-							fontWeight: 800,
-							fill: "#9A9A9A",
+							fontSize: 12,
+							fontWeight: 500,
+							fill: "var(--dashboardy-muted)",
+							opacity: 0.38,
 						}}
 					/>
 					<ChartTooltip cursor={false} content={<DashboardSessionTooltip />} />
 					<Bar
-						dataKey="committed"
+						dataKey="displayValue"
 						barSize={barSize}
-						fill="var(--color-committed)"
+						fill="var(--color-totalTokens)"
+						isAnimationActive={false}
 						shape={
-							<DashboardStackedTopRoundedBar
+							<SessionBarShape
 								activeId={resolvedActiveId}
-								dataKey="committed"
+								activeSource={highlightSource}
 							/>
 						}
 					/>

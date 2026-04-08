@@ -43,6 +43,8 @@ export function DashboardRepositoryDailyOverviewTable({
 	const hiddenCount = Math.max(rows.length - visibleRows.length, 0);
 	const hasTableHighlight =
 		highlightSource === "table" && highlightedDate != null;
+	const hasChartHighlight =
+		highlightSource === "chart" && highlightedDate != null;
 
 	return (
 		<DashboardGridTable
@@ -106,10 +108,17 @@ export function DashboardRepositoryDailyOverviewTable({
 			minWidthClassName="min-w-[54rem]"
 			rowClassName={(row) =>
 				cn(
-					"transition-colors duration-200",
+					"w-full text-left transition-[opacity,background-color] duration-300 [transition-timing-function:cubic-bezier(0.23,1,0.32,1)]",
+					hasTableHighlight &&
+						"bg-[color:var(--dashboardy-surface)] odd:bg-[color:var(--dashboardy-surface)]",
+					hasChartHighlight &&
+						highlightedDate === row.date &&
+						"bg-[color:var(--dashboardy-surface)] odd:bg-[color:var(--dashboardy-surface)]",
 					hasTableHighlight &&
 						highlightedDate === row.date &&
-						"!bg-[color:var(--dashboardy-subsurface-strong)]",
+						"!bg-[color:var(--dashboardy-subsurface-strong)] odd:!bg-[color:var(--dashboardy-subsurface-strong)]",
+					hasTableHighlight && highlightedDate !== row.date && "opacity-50",
+					hasChartHighlight && highlightedDate !== row.date && "opacity-50",
 				)
 			}
 			footer={

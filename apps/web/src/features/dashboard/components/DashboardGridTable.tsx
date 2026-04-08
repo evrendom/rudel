@@ -228,22 +228,6 @@ export function DashboardGridTable<T>({
 				<div
 					className={cn("grid gap-0", bodyClassName)}
 					onPointerLeave={() => onRowHoverChange?.(null)}
-					onPointerOver={(event) => {
-						if (!onRowHoverChange) {
-							return;
-						}
-
-						const target = event.target;
-						if (!(target instanceof Element)) {
-							return;
-						}
-
-						const row = target.closest<HTMLElement>(
-							"[data-dashboard-grid-hover-id]",
-						);
-
-						onRowHoverChange(row?.dataset.dashboardGridHoverId ?? null);
-					}}
 				>
 					{rows.map((row, index) => {
 						const key = rowKey(row);
@@ -259,8 +243,14 @@ export function DashboardGridTable<T>({
 							className: cn(
 								"grid min-h-12 items-center gap-6 rounded-lg px-3.5 py-2 text-sm odd:bg-[color:var(--dashboardy-subsurface-strong)]",
 								onRowClick && "text-left transition-colors duration-200",
+								onRowHoverChange &&
+									"focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--dashboardy-border)] focus-visible:ring-offset-0",
 								resolvedRowClassName,
 							),
+							onMouseEnter: () => onRowHoverChange?.(hoverId ?? null),
+							onFocus: () => onRowHoverChange?.(hoverId ?? null),
+							onBlur: () => onRowHoverChange?.(null),
+							tabIndex: onRowHoverChange && !onRowClick ? 0 : undefined,
 							style: { gridTemplateColumns },
 						};
 
