@@ -2,13 +2,14 @@ import { useState } from "react";
 import { Tabs, TabsList, TabsTrigger } from "@/app/ui/tabs";
 import { DashboardDateControls } from "@/features/dashboard/components/DashboardDateControls";
 import { DashboardPerformancePanel } from "@/features/dashboard/components/DashboardPerformancePanel";
+import { DashboardRepositoriesView } from "@/features/dashboard/components/DashboardRepositoriesView";
 import { DashboardRepositoryPanel } from "@/features/dashboard/components/DashboardRepositoryPanel";
 import { DashboardTokensView } from "@/features/dashboard/components/DashboardTokensView";
 import { useDashboardHomeData } from "@/features/dashboard/use-dashboard-home-data";
 import { useDashboardTokensData } from "@/features/dashboard/use-dashboard-tokens-data";
 import "@/features/dashboard/dashboard-theme.css";
 
-type DashboardHomeView = "commits" | "tokens";
+type DashboardHomeView = "commits" | "repos" | "tokens";
 
 export function DashboardPage() {
 	const [activeView, setActiveView] = useState<DashboardHomeView>("tokens");
@@ -16,10 +17,12 @@ export function DashboardPage() {
 		isDashboardSnapshotPending,
 		isPerformanceChartPending,
 		isRepositoryChartPending,
+		endDate: homeEndDate,
 		performanceUserDailyTrend,
 		performanceUsers,
 		repositoryDailyTrend,
 		snapshot,
+		startDate: homeStartDate,
 	} = useDashboardHomeData();
 	const {
 		endDate,
@@ -44,7 +47,11 @@ export function DashboardPage() {
 								value={activeView}
 								className="dashboardy-sticky-tabs flex-1"
 								onValueChange={(nextValue) => {
-									if (nextValue === "commits" || nextValue === "tokens") {
+									if (
+										nextValue === "commits" ||
+										nextValue === "repos" ||
+										nextValue === "tokens"
+									) {
 										setActiveView(nextValue);
 									}
 								}}
@@ -66,11 +73,7 @@ export function DashboardPage() {
 									>
 										Errors
 									</TabsTrigger>
-									<TabsTrigger
-										value="repos"
-										disabled
-										className="dashboardy-sticky-tab"
-									>
+									<TabsTrigger value="repos" className="dashboardy-sticky-tab">
 										Repos
 									</TabsTrigger>
 									<TabsTrigger
@@ -97,6 +100,20 @@ export function DashboardPage() {
 						performanceUsers={tokenPerformanceUsers}
 						startDate={startDate}
 						usersTokenUsage={usersTokenUsage}
+					/>
+				) : activeView === "repos" ? (
+					<DashboardRepositoriesView
+						endDate={homeEndDate}
+						isDeveloperChartPending={isPerformanceChartPending}
+						isMetricsPending={
+							isDashboardSnapshotPending || isRepositoryChartPending
+						}
+						isRepositoryChartPending={isRepositoryChartPending}
+						performanceUserDailyTrend={performanceUserDailyTrend}
+						performanceUsers={performanceUsers}
+						repositories={snapshot.repositories}
+						repositoryDailyTrend={repositoryDailyTrend}
+						startDate={homeStartDate}
 					/>
 				) : (
 					<>
