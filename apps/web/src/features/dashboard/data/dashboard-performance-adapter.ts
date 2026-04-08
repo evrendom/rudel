@@ -1,4 +1,5 @@
-import type { UserTokenUsageData } from "@rudel/api-routes";
+import type { UserDailyTrendData, UserTokenUsageData } from "@rudel/api-routes";
+import { calculateCost } from "@/lib/format";
 
 export type DashboardPerformanceUserComparison = {
 	commits: number;
@@ -37,59 +38,150 @@ type SortablePerformanceUser = {
 	userLabel: string;
 };
 
+type AggregatedTrendUsage = {
+	inputTokens: number;
+	outputTokens: number;
+	totalCommits: number;
+	totalSessions: number;
+	totalTokens: number;
+};
+
 function getMemberDisplayLabel(member: DashboardPerformanceMember) {
 	const trimmedName = member.user.name.trim();
 
 	return trimmedName || member.user.email || "Unknown user";
 }
 
+function buildTrendUsageByUserId(
+	usersDailyTrend: UserDailyTrendData[] | undefined,
+) {
+	const usageByUserId = new Map<string, AggregatedTrendUsage>();
+
+	for (const row of usersDailyTrend ?? []) {
+		const currentUsage = usageByUserId.get(row.user_id) ?? {
+			inputTokens: 0,
+			outputTokens: 0,
+			totalCommits: 0,
+			totalSessions: 0,
+			totalTokens: 0,
+		};
+
+		currentUsage.inputTokens += row.input_tokens ?? 0;
+		currentUsage.outputTokens += row.output_tokens ?? 0;
+		currentUsage.totalCommits += row.total_commits ?? 0;
+		currentUsage.totalSessions += row.sessions ?? 0;
+		currentUsage.totalTokens += row.total_tokens ?? 0;
+		usageByUserId.set(row.user_id, currentUsage);
+	}
+
+	return usageByUserId;
+}
+
 export function buildDashboardPerformanceUsers(
 	usersTokenUsage: UserTokenUsageData[] | undefined,
+	usersDailyTrend: UserDailyTrendData[] | undefined,
 	userImageById: Map<string, string | null>,
 	organizationMembers: readonly DashboardPerformanceMember[] = [],
 ): DashboardPerformanceUserComparison[] {
 	const usageByUserId = new Map(
 		(usersTokenUsage ?? []).map((user) => [user.user_id, user] as const),
 	);
+	const trendUsageByUserId = buildTrendUsageByUserId(usersDailyTrend);
 	const memberIds = new Set(organizationMembers.map((member) => member.userId));
 
 	const organizationRows: SortablePerformanceUser[] = organizationMembers.map(
 		(member) => {
 			const usage = usageByUserId.get(member.userId);
+			const trendUsage = trendUsageByUserId.get(member.userId);
+			const totalSessions =
+				usage && usage.total_sessions > 0
+					? usage.total_sessions
+					: (trendUsage?.totalSessions ?? 0);
+			const totalTokens =
+				usage && usage.total_tokens > 0
+					? usage.total_tokens
+					: (trendUsage?.totalTokens ?? 0);
+			const inputTokens =
+				usage && usage.total_tokens > 0
+					? usage.input_tokens
+					: (trendUsage?.inputTokens ?? 0);
+			const outputTokens =
+				usage && usage.total_tokens > 0
+					? usage.output_tokens
+					: (trendUsage?.outputTokens ?? 0);
+			const totalCommits =
+				usage && (usage.total_commits > 0 || usage.total_sessions > 0)
+					? usage.total_commits
+					: (trendUsage?.totalCommits ?? 0);
+			const cost =
+				usage && usage.cost > 0
+					? usage.cost
+					: calculateCost(inputTokens, outputTokens);
 
 			return {
-				cost: usage?.cost ?? 0,
+				cost,
 				imageUrl: member.user.image,
-				inputTokens: usage?.input_tokens ?? 0,
+				inputTokens,
 				modelsUsed: usage?.models_used ?? [],
-				outputTokens: usage?.output_tokens ?? 0,
+				outputTokens,
 				repositoriesTouched: usage?.repositories_touched ?? [],
-				totalCommits: usage?.total_commits ?? 0,
-				totalSessions: usage?.total_sessions ?? 0,
-				totalTokens: usage?.total_tokens ?? 0,
+				totalCommits,
+				totalSessions,
+				totalTokens,
 				userId: member.userId,
 				userLabel: usage?.user_label || getMemberDisplayLabel(member),
 			};
 		},
 	);
 
-	const analyticsOnlyRows: SortablePerformanceUser[] = (usersTokenUsage ?? [])
-		.filter(
-			(user) => user.user_id && user.user_label && !memberIds.has(user.user_id),
-		)
-		.map((user) => ({
-			cost: user.cost,
-			imageUrl: userImageById.get(user.user_id) ?? null,
-			inputTokens: user.input_tokens,
-			modelsUsed: user.models_used ?? [],
-			outputTokens: user.output_tokens,
-			repositoriesTouched: user.repositories_touched ?? [],
-			totalCommits: user.total_commits,
-			totalSessions: user.total_sessions,
-			totalTokens: user.total_tokens,
-			userId: user.user_id,
-			userLabel: user.user_label,
-		}));
+	const analyticsOnlyIds = new Set<string>([
+		...(usersTokenUsage ?? []).map((user) => user.user_id),
+		...(usersDailyTrend ?? []).map((row) => row.user_id),
+	]);
+
+	const analyticsOnlyRows: SortablePerformanceUser[] = Array.from(analyticsOnlyIds)
+		.filter((userId) => userId && !memberIds.has(userId))
+		.map((userId) => {
+			const usage = usageByUserId.get(userId);
+			const trendUsage = trendUsageByUserId.get(userId);
+			const totalSessions =
+				usage && usage.total_sessions > 0
+					? usage.total_sessions
+					: (trendUsage?.totalSessions ?? 0);
+			const totalTokens =
+				usage && usage.total_tokens > 0
+					? usage.total_tokens
+					: (trendUsage?.totalTokens ?? 0);
+			const inputTokens =
+				usage && usage.total_tokens > 0
+					? usage.input_tokens
+					: (trendUsage?.inputTokens ?? 0);
+			const outputTokens =
+				usage && usage.total_tokens > 0
+					? usage.output_tokens
+					: (trendUsage?.outputTokens ?? 0);
+			const totalCommits =
+				usage && (usage.total_commits > 0 || usage.total_sessions > 0)
+					? usage.total_commits
+					: (trendUsage?.totalCommits ?? 0);
+
+			return {
+				cost:
+					usage && usage.cost > 0
+						? usage.cost
+						: calculateCost(inputTokens, outputTokens),
+				imageUrl: userImageById.get(userId) ?? null,
+				inputTokens,
+				modelsUsed: usage?.models_used ?? [],
+				outputTokens,
+				repositoriesTouched: usage?.repositories_touched ?? [],
+				totalCommits,
+				totalSessions,
+				totalTokens,
+				userId,
+				userLabel: usage?.user_label ?? userId,
+			};
+		});
 
 	const combinedRows = [...organizationRows, ...analyticsOnlyRows];
 

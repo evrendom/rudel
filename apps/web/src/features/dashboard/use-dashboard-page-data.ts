@@ -126,10 +126,16 @@ export function useDashboardPageData() {
 		() =>
 			buildDashboardPerformanceUsers(
 				usersTokenUsage,
+				usersDailyTrend,
 				userImageById,
 				fullOrganization?.members ?? [],
 			),
-		[fullOrganization?.members, userImageById, usersTokenUsage],
+		[
+			fullOrganization?.members,
+			userImageById,
+			usersDailyTrend,
+			usersTokenUsage,
+		],
 	);
 	const baseSnapshot = useMemo(
 		() => createDashboardOutputSnapshot(state.startDate, state.endDate),
