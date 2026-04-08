@@ -1,4 +1,5 @@
 import { Navigate, Route, Routes } from "react-router-dom";
+import { DashboardPage } from "@/features/dashboard/DashboardPage";
 import { AppShellLayout } from "@/features/shell/AppShellLayout";
 import { AcceptInvitationPage } from "@/pages/AcceptInvitationPage";
 import { AdminPage } from "@/pages/dashboard/AdminPage";
@@ -9,7 +10,6 @@ import { ErrorsPage } from "@/pages/dashboard/ErrorsPage";
 import { InvitationsPage } from "@/pages/dashboard/InvitationsPage";
 import { LearningsPage } from "@/pages/dashboard/LearningsPage";
 import { OrganizationPage } from "@/pages/dashboard/OrganizationPage";
-import { OverviewPage } from "@/pages/dashboard/OverviewPage";
 import { ProfilePage } from "@/pages/dashboard/ProfilePage";
 import { ProjectDetailPage } from "@/pages/dashboard/ProjectDetailPage";
 import { ProjectsListPage } from "@/pages/dashboard/ProjectsListPage";
@@ -33,7 +33,7 @@ export function AppRouter({
 				element={<AcceptInvitationPage />}
 			/>
 			<Route path="/dashboard" element={<AppShellLayout />}>
-				<Route index element={<OverviewPage />} />
+				<Route index element={<DashboardPage />} />
 				<Route path="developers" element={<DevelopersListPage />} />
 				<Route path="developers/:userId" element={<DeveloperDetailPage />} />
 				<Route path="projects" element={<ProjectsListPage />} />
