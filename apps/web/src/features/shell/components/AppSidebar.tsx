@@ -10,7 +10,6 @@ import {
 	Settings,
 	Shield,
 } from "lucide-react";
-import { useTheme } from "next-themes";
 import { type ReactNode, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Avatar, AvatarFallback, AvatarImage } from "@/app/ui/avatar";
@@ -27,7 +26,6 @@ import {
 	TooltipProvider,
 	TooltipTrigger,
 } from "@/app/ui/tooltip";
-import { ThemeToggle } from "@/components/analytics/ThemeToggle";
 import { useOrganization } from "@/contexts/OrganizationContext";
 import { useAnalyticsTracking } from "@/hooks/useDashboardAnalytics";
 import { useUserInvitations } from "@/hooks/useUserInvitations";
@@ -43,6 +41,7 @@ import {
 const ADMIN_ORGANIZATION_ID = (
 	import.meta.env.VITE_ADMIN_ORGANIZATION_ID ?? ""
 ).trim();
+const APP_LOGO_SRC = "/logo-dark.svg";
 
 function getInitials(name: string) {
 	return name
@@ -222,13 +221,10 @@ export function AppSidebar() {
 	const { data: session } = authClient.useSession();
 	const { count: invitationCount } = useUserInvitations();
 	const { organizations } = useOrganization();
-	const { resolvedTheme } = useTheme();
 	const { trackAuthenticationAction, trackNavigation, trackUtility } =
 		useAnalyticsTracking();
 	const [collapsed, setCollapsed] = useState(false);
 
-	const logoSrc =
-		resolvedTheme === "dark" ? "/logo-light.svg" : "/logo-dark.svg";
 	const isAdmin =
 		ADMIN_ORGANIZATION_ID !== "" &&
 		organizations.some(
@@ -277,7 +273,7 @@ export function AppSidebar() {
 							collapsed ? "px-3" : "",
 						)}
 					>
-						<img src={logoSrc} alt="Rudel" className="h-5 w-5" />
+						<img src={APP_LOGO_SRC} alt="Rudel" className="h-5 w-5" />
 					</Link>
 					<div className="min-w-0 flex-1">
 						<OrgSwitcher collapsed={collapsed} />
@@ -440,7 +436,6 @@ export function AppSidebar() {
 											{session.user.name}
 										</span>
 									</Link>
-									<ThemeToggle />
 									<button
 										type="button"
 										onClick={() => {

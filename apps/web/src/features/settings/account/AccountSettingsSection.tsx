@@ -4,7 +4,6 @@ import { toast } from "sonner";
 import { Card, CardContent } from "@/app/ui/card";
 import { Skeleton } from "@/app/ui/skeleton";
 import { ProfileActionsCard } from "@/features/settings/account/components/ProfileActionsCard";
-import { ProfileAppearanceCard } from "@/features/settings/account/components/ProfileAppearanceCard";
 import { ProfileLinkedAccountsCard } from "@/features/settings/account/components/ProfileLinkedAccountsCard";
 import { ProfileSummaryCard } from "@/features/settings/account/components/ProfileSummaryCard";
 import { useAccountSettingsData } from "@/features/settings/account/use-account-settings-data";
@@ -34,10 +33,6 @@ export function AccountSettingsSection() {
 		{
 			id: "profile_summary",
 			state: data.state.hasData ? "populated" : "empty",
-		},
-		{
-			id: "profile_appearance",
-			state: data.state.isPending ? "hidden" : "populated",
 		},
 		{
 			id: "profile_actions",
@@ -117,14 +112,6 @@ export function AccountSettingsSection() {
 						className="bg-card/95 shadow-none ring-1 ring-border/60"
 					>
 						<CardContent className="flex flex-col gap-3">
-							<Skeleton className="h-9 w-full rounded-md" />
-						</CardContent>
-					</Card>
-					<Card
-						size="sm"
-						className="bg-card/95 shadow-none ring-1 ring-border/60"
-					>
-						<CardContent className="flex flex-col gap-3">
 							<Skeleton className="h-9 w-32 rounded-md" />
 						</CardContent>
 					</Card>
@@ -157,8 +144,7 @@ export function AccountSettingsSection() {
 						Account settings
 					</h1>
 					<p className="max-w-2xl text-sm text-muted-foreground">
-						Manage your profile identity, browser appearance, and linked sign-in
-						methods.
+						Manage your profile identity and linked sign-in methods.
 					</p>
 				</div>
 
@@ -167,7 +153,6 @@ export function AccountSettingsSection() {
 					image={data.user.image}
 					name={data.user.name}
 				/>
-				<ProfileAppearanceCard />
 				<ProfileActionsCard
 					isSigningOut={isSigningOut}
 					onSignOut={() => void handleSignOut()}
