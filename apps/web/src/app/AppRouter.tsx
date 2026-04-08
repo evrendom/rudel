@@ -1,5 +1,5 @@
 import { Navigate, Route, Routes } from "react-router-dom";
-import { DashboardLayout } from "@/layouts/DashboardLayout";
+import { AppShellLayout } from "@/features/shell/AppShellLayout";
 import { AcceptInvitationPage } from "@/pages/AcceptInvitationPage";
 import { AdminPage } from "@/pages/dashboard/AdminPage";
 import { CreateOrgPage } from "@/pages/dashboard/CreateOrgPage";
@@ -32,7 +32,7 @@ export function AppRouter({
 				path="/invitation/:invitationId"
 				element={<AcceptInvitationPage />}
 			/>
-			<Route path="/dashboard" element={<DashboardLayout />}>
+			<Route path="/dashboard" element={<AppShellLayout />}>
 				<Route index element={<OverviewPage />} />
 				<Route path="developers" element={<DevelopersListPage />} />
 				<Route path="developers/:userId" element={<DeveloperDetailPage />} />

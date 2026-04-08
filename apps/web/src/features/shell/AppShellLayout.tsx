@@ -1,13 +1,13 @@
 import { Outlet } from "react-router-dom";
 import { Toaster } from "sonner";
-import { Breadcrumb } from "../components/analytics/Breadcrumb";
-import { Sidebar } from "../components/analytics/Sidebar";
-import { ChatwootBootstrap } from "../components/support/ChatwootBootstrap";
-import { DateRangeProvider } from "../contexts/DateRangeContext";
-import { FilterProvider } from "../contexts/FilterContext";
-import { OrganizationProvider } from "../contexts/OrganizationContext";
+import { ChatwootBootstrap } from "@/components/support/ChatwootBootstrap";
+import { DateRangeProvider } from "@/contexts/DateRangeContext";
+import { FilterProvider } from "@/contexts/FilterContext";
+import { OrganizationProvider } from "@/contexts/OrganizationContext";
+import { AppSidebar } from "@/features/shell/components/AppSidebar";
+import { SiteHeader } from "@/features/shell/components/SiteHeader";
 
-export function DashboardLayout() {
+export function AppShellLayout() {
 	return (
 		<OrganizationProvider>
 			<DateRangeProvider>
@@ -15,9 +15,9 @@ export function DashboardLayout() {
 					<div className="fixed inset-0 flex overflow-hidden bg-surface">
 						<Toaster richColors position="bottom-right" />
 						<ChatwootBootstrap />
-						<Sidebar />
+						<AppSidebar />
 						<div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-							<Breadcrumb />
+							<SiteHeader />
 							<main className="min-h-0 flex-1 overflow-y-auto">
 								<Outlet />
 							</main>

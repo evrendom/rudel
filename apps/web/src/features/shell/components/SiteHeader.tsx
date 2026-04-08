@@ -14,32 +14,37 @@ const segmentLabels: Record<string, string> = {
 	errors: "Errors",
 	invitations: "Invitations",
 	profile: "Profile",
+	organization: "Organization",
+	admin: "Admin",
+	new: "Create organization",
 };
 
-export function Breadcrumb() {
+export function SiteHeader() {
 	const { pathname } = useLocation();
-	const segments = pathname.split("/").filter(Boolean);
 	const { trackNavigation } = useAnalyticsTracking();
-
 	const { userMap } = useUserMap();
+	const segments = pathname.split("/").filter(Boolean);
 
 	const crumbs = segments.map((segment, index) => {
 		const href = `/${segments.slice(0, index + 1).join("/")}`;
-		const prevSegment = index > 0 ? segments[index - 1] : null;
-		const isDeveloperUserId = prevSegment === "developers";
-		const label = isDeveloperUserId
+		const previousSegment = index > 0 ? segments[index - 1] : null;
+		const isDeveloperSegment = previousSegment === "developers";
+		const label = isDeveloperSegment
 			? formatUsername(segment, userMap)
-			: segmentLabels[segment] || decodeURIComponent(segment);
-		const isLast = index === segments.length - 1;
+			: (segmentLabels[segment] ?? decodeURIComponent(segment));
 
-		return { href, label, isLast };
+		return {
+			href,
+			label,
+			isLast: index === segments.length - 1,
+		};
 	});
 
 	return (
-		<nav className="flex shrink-0 items-center gap-1 text-xs text-muted h-10 px-8 bg-surface border-b border-border">
+		<nav className="flex h-10 shrink-0 items-center gap-1 border-b border-border bg-surface px-8 text-xs text-muted">
 			{crumbs.map((crumb, index) => (
 				<span key={crumb.href} className="flex items-center gap-1">
-					{index > 0 && <ChevronRight className="h-3 w-3" />}
+					{index > 0 ? <ChevronRight className="h-3 w-3" /> : null}
 					{crumb.isLast ? (
 						<span className="text-subheading">{crumb.label}</span>
 					) : (
@@ -48,12 +53,12 @@ export function Breadcrumb() {
 							onClick={() => {
 								trackNavigation({
 									navType: "breadcrumb",
-									sourceComponent: "breadcrumb",
+									sourceComponent: "site_header",
 									targetPath: crumb.href,
 									targetType: "page",
 								});
 							}}
-							className="hover:text-foreground transition-colors"
+							className="transition-colors hover:text-foreground"
 						>
 							{crumb.label}
 						</Link>
