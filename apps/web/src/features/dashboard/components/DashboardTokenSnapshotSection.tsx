@@ -17,12 +17,17 @@ export function DashboardTokenSnapshotSection({
 		<DashboardInteractiveTopChartSection
 			isMetricsLoading={isMetricsPending}
 			metrics={metrics}
-			renderChart={({ highlightedItemId, highlightSource }) => (
+			renderChart={({
+				highlightedItemId,
+				highlightSource,
+				onHighlightItemChange,
+			}) => (
 				<DashboardTokenPatternChart
 					data={dailyPattern}
 					className="min-w-0"
 					highlightedDate={highlightedItemId}
 					highlightSource={highlightSource}
+					onHighlightDateChange={onHighlightItemChange}
 				/>
 			)}
 			renderDetail={({

@@ -14,6 +14,7 @@ import {
 } from "recharts";
 import { type ChartConfig, ChartContainer, ChartTooltip } from "@/app/ui/chart";
 import { ToggleGroup, ToggleGroupItem } from "@/app/ui/toggle-group";
+import type { DashboardHighlightChangeHandler } from "@/features/dashboard/components/dashboard-highlight-state";
 import {
 	type DashboardPerformanceTrendMetric,
 	type DashboardPerformanceTrendSeries,
@@ -182,6 +183,7 @@ export function DashboardPerformanceTrendChart({
 	hiddenSeriesIds,
 	metric,
 	onHighlightDateChange,
+	onHighlightSeriesChange,
 	onMetricChange,
 	onToggleSeries,
 	trendData,
@@ -194,6 +196,7 @@ export function DashboardPerformanceTrendChart({
 	hiddenSeriesIds: string[];
 	metric: DashboardPerformanceTrendMetric;
 	onHighlightDateChange?: (date: string | null) => void;
+	onHighlightSeriesChange?: DashboardHighlightChangeHandler;
 	onMetricChange: (metric: DashboardPerformanceTrendMetric) => void;
 	onToggleSeries: (userId: string) => void;
 	trendData: UserDailyTrendData[] | undefined;
@@ -387,6 +390,14 @@ export function DashboardPerformanceTrendChart({
 										"border-[color:var(--dashboardy-heading)]",
 								)}
 								onClick={() => onToggleSeries(series.userId)}
+								onFocus={() =>
+									onHighlightSeriesChange?.(series.userId, "chart")
+								}
+								onBlur={() => onHighlightSeriesChange?.(null)}
+								onMouseEnter={() =>
+									onHighlightSeriesChange?.(series.userId, "chart")
+								}
+								onMouseLeave={() => onHighlightSeriesChange?.(null)}
 							>
 								<span
 									aria-hidden="true"

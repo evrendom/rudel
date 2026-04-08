@@ -108,7 +108,7 @@ export function DashboardRepositoryDailyOverviewTable({
 			minWidthClassName="min-w-[54rem]"
 			rowClassName={(row) =>
 				cn(
-					"w-full text-left transition-[opacity,background-color] duration-300 [transition-timing-function:cubic-bezier(0.23,1,0.32,1)]",
+					"w-full text-left transition-colors duration-300 [transition-timing-function:cubic-bezier(0.23,1,0.32,1)]",
 					hasTableHighlight &&
 						"bg-[color:var(--dashboardy-surface)] odd:bg-[color:var(--dashboardy-surface)]",
 					hasChartHighlight &&
@@ -117,8 +117,6 @@ export function DashboardRepositoryDailyOverviewTable({
 					hasTableHighlight &&
 						highlightedDate === row.date &&
 						"!bg-[color:var(--dashboardy-subsurface-strong)] odd:!bg-[color:var(--dashboardy-subsurface-strong)]",
-					hasTableHighlight && highlightedDate !== row.date && "opacity-50",
-					hasChartHighlight && highlightedDate !== row.date && "opacity-50",
 				)
 			}
 			footer={

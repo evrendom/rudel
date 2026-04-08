@@ -1,20 +1,17 @@
-import {
-	type ReactNode,
-	startTransition,
-	useCallback,
-	useRef,
-	useState,
-} from "react";
+import type { ReactNode } from "react";
 import { DashboardHeadlineMetricGrid } from "@/features/dashboard/components/DashboardHeadlineMetricGrid";
+import {
+	type DashboardHighlightChangeHandler,
+	type DashboardHighlightSource,
+	useDashboardHighlightState,
+} from "@/features/dashboard/components/dashboard-highlight-state";
 import type { DashboardHeadlineMetric } from "@/features/dashboard/data/dashboard-static-data";
 import { cn } from "@/lib/utils";
 
-type DashboardTopChartHighlightSource = "table" | null;
-
 export type DashboardTopChartRenderProps = {
-	highlightSource: DashboardTopChartHighlightSource;
+	highlightSource: DashboardHighlightSource;
 	highlightedItemId: string | null;
-	onHighlightItemChange: (itemId: string | null) => void;
+	onHighlightItemChange: DashboardHighlightChangeHandler;
 };
 
 export function DashboardTopChartSection({
@@ -67,26 +64,13 @@ export function DashboardInteractiveTopChartSection({
 	renderDetail: (props: DashboardTopChartRenderProps) => ReactNode;
 	showDelta?: boolean;
 }) {
-	const [highlightedItemId, setHighlightedItemId] = useState<string | null>(
-		null,
-	);
-	const highlightedItemIdRef = useRef<string | null>(null);
-
-	const handleHighlightItemChange = useCallback((itemId: string | null) => {
-		if (highlightedItemIdRef.current === itemId) {
-			return;
-		}
-
-		highlightedItemIdRef.current = itemId;
-		startTransition(() => {
-			setHighlightedItemId(itemId);
-		});
-	}, []);
+	const { highlightSource, highlightedItemId, setHighlight } =
+		useDashboardHighlightState();
 
 	const renderProps: DashboardTopChartRenderProps = {
-		highlightSource: highlightedItemId ? "table" : null,
+		highlightSource,
 		highlightedItemId,
-		onHighlightItemChange: handleHighlightItemChange,
+		onHighlightItemChange: setHighlight,
 	};
 
 	return (

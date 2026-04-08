@@ -820,6 +820,7 @@ function DashboardErrorDailySnapshot({
 									typeof state.activeLabel === "string"
 										? state.activeLabel
 										: null,
+									"chart",
 								);
 							}}
 						>

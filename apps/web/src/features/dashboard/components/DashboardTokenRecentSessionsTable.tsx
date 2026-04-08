@@ -274,7 +274,7 @@ export function DashboardTokenRecentSessionsTable({
 				getHoverRowId={(session) => session.session_id}
 				rowClassName={(session) =>
 					cn(
-						"w-full text-left transition-[opacity,background-color] duration-300 [transition-timing-function:cubic-bezier(0.23,1,0.32,1)]",
+						"w-full text-left transition-colors duration-300 [transition-timing-function:cubic-bezier(0.23,1,0.32,1)]",
 						hasTableHighlight &&
 							"bg-[color:var(--dashboardy-surface)] odd:bg-[color:var(--dashboardy-surface)]",
 						hasChartHighlight &&
@@ -283,12 +283,6 @@ export function DashboardTokenRecentSessionsTable({
 						hasTableHighlight &&
 							highlightedSessionId === session.session_id &&
 							"bg-[color:var(--dashboardy-subsurface-strong)] odd:bg-[color:var(--dashboardy-subsurface-strong)]",
-						hasTableHighlight &&
-							highlightedSessionId !== session.session_id &&
-							"opacity-50",
-						hasChartHighlight &&
-							highlightedSessionId !== session.session_id &&
-							"opacity-50",
 					)
 				}
 				footer={

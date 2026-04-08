@@ -1,7 +1,15 @@
 "use client";
 
-import { Bar, BarChart, Rectangle, XAxis, YAxis } from "recharts";
+import {
+	Bar,
+	BarChart,
+	type MouseHandlerDataParam,
+	Rectangle,
+	XAxis,
+	YAxis,
+} from "recharts";
 import { type ChartConfig, ChartContainer, ChartTooltip } from "@/app/ui/chart";
+import type { DashboardHighlightChangeHandler } from "@/features/dashboard/components/dashboard-highlight-state";
 import { formatCompactWholeNumber } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -261,11 +269,13 @@ export function DashboardSessionChart({
 	className,
 	data,
 	highlightSource,
+	onHighlightSessionChange,
 }: {
 	activeId?: string | null;
 	className?: string;
 	data: DashboardSessionChartDatum[];
 	highlightSource?: "chart" | "table" | null;
+	onHighlightSessionChange?: DashboardHighlightChangeHandler;
 }) {
 	const chartData: DashboardSessionChartRow[] = [...data]
 		.sort(
@@ -296,6 +306,17 @@ export function DashboardSessionChart({
 					data={chartData}
 					barCategoryGap={0}
 					margin={{ top: 2, right: 18, bottom: 10, left: 0 }}
+					onMouseLeave={() => onHighlightSessionChange?.(null)}
+					onMouseMove={(state: MouseHandlerDataParam) => {
+						onHighlightSessionChange?.(
+							typeof state.activeLabel === "string"
+								? state.activeLabel
+								: typeof state.activeLabel === "number"
+									? state.activeLabel.toString()
+									: null,
+							"chart",
+						);
+					}}
 				>
 					<XAxis
 						dataKey="id"

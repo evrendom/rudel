@@ -33,13 +33,18 @@ export function DashboardDailySnapshotSection({
 			isMetricsLoading={isMetricsLoading}
 			metrics={metrics}
 			showDelta={showDelta}
-			renderChart={({ highlightedItemId, highlightSource }) => (
+			renderChart={({
+				highlightedItemId,
+				highlightSource,
+				onHighlightItemChange,
+			}) => (
 				<DashboardDailyPatternChart
 					data={dailyPattern}
 					className="min-w-0"
 					highlightedDate={highlightedItemId}
 					highlightSource={highlightSource}
 					mode={chartMode}
+					onHighlightDateChange={onHighlightItemChange}
 					repositoryDailyTrend={repositoryDailyTrend}
 				/>
 			)}
