@@ -14,25 +14,17 @@ export function PageHeader({
 	actions,
 }: PageHeaderProps) {
 	return (
-		<div className="mb-8 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-			<div className="min-w-0">
-				<div className="mb-2 flex flex-wrap items-center gap-2">
-					<h1 className="font-heading text-3xl font-medium tracking-tight text-heading">
-						{title}
-					</h1>
-					{titleSuffix}
+		<div className="mb-10">
+			<div className="flex items-center justify-between">
+				<div>
+					<div className="flex items-center gap-2 mb-2">
+						<h1 className="text-3xl font-bold text-heading">{title}</h1>
+						{titleSuffix}
+					</div>
+					{description && <p className="text-muted">{description}</p>}
 				</div>
-				{description ? (
-					<p className="max-w-2xl text-sm text-muted-foreground">
-						{description}
-					</p>
-				) : null}
+				{actions && <div className="flex items-center gap-4">{actions}</div>}
 			</div>
-			{actions ? (
-				<div className="flex flex-wrap items-center gap-3 md:justify-end">
-					{actions}
-				</div>
-			) : null}
 		</div>
 	);
 }

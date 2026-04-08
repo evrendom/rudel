@@ -1,12 +1,12 @@
 import { useState } from "react";
 import { AppLoadingScreen } from "@/app/bootstrap/AppLoadingScreen";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/app/ui/button";
+import { GuestApp } from "@/features/auth/GuestApp";
+import { useAnalyticsTracking } from "@/features/analytics/tracking/useAnalyticsTracking";
 import {
 	type AppSession,
 	getSessionUserId,
 } from "@/features/auth/auth-route-utils";
-import { GuestApp } from "@/features/auth/GuestApp";
-import { useAnalyticsTracking } from "@/hooks/useDashboardAnalytics";
 
 export function DeviceAuthorizationApp({
 	deviceUserCode,
@@ -24,9 +24,7 @@ export function DeviceAuthorizationApp({
 	const [deviceError, setDeviceError] = useState<string | null>(null);
 
 	async function submitDeviceDecision(action: "approve" | "deny") {
-		if (deviceProcessing) {
-			return;
-		}
+		if (deviceProcessing) return;
 
 		trackAuthenticationAction({
 			actionName:
@@ -49,10 +47,12 @@ export function DeviceAuthorizationApp({
 			});
 
 			if (!response.ok) {
-				const body = (await response.json().catch(() => null)) as {
-					error_description?: string;
-					message?: string;
-				} | null;
+				const body = (await response.json().catch(() => null)) as
+					| {
+							error_description?: string;
+							message?: string;
+					  }
+					| null;
 
 				throw new Error(
 					body?.error_description ??
@@ -63,15 +63,12 @@ export function DeviceAuthorizationApp({
 
 			if (action === "approve") {
 				setDeviceApproved(true);
-				return;
+			} else {
+				setDeviceDenied(true);
 			}
-
-			setDeviceDenied(true);
-		} catch (error) {
+		} catch (err) {
 			setDeviceError(
-				error instanceof Error
-					? error.message
-					: "Failed to process device login",
+				err instanceof Error ? err.message : "Failed to process device login",
 			);
 		} finally {
 			setDeviceProcessing(false);
@@ -83,7 +80,7 @@ export function DeviceAuthorizationApp({
 	}
 
 	if (deviceProcessing) {
-		return <AppLoadingScreen message="Processing CLI login..." />;
+		return <AppLoadingScreen message="Processing CLI login…" />;
 	}
 
 	if (deviceApproved) {

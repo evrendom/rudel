@@ -1,4 +1,3 @@
-import { Building2Icon, CheckIcon, XIcon } from "lucide-react";
 import { Badge } from "@/app/ui/badge";
 import { Button } from "@/app/ui/button";
 import {
@@ -8,8 +7,9 @@ import {
 	CardHeader,
 	CardTitle,
 } from "@/app/ui/card";
+import { Building2Icon, CheckIcon, XIcon } from "lucide-react";
 
-function formatDate(value: Date | string) {
+function formatDate(value: string | Date) {
 	const date = value instanceof Date ? value : new Date(value);
 	if (Number.isNaN(date.getTime())) {
 		return "Unknown date";
@@ -20,19 +20,19 @@ function formatDate(value: Date | string) {
 
 export function InvitationsCards({
 	invitations,
+	processingId,
 	onAccept,
 	onDecline,
-	processingId,
 }: {
 	invitations: readonly {
-		createdAt: Date | string;
 		id: string;
 		organizationName: string;
 		role: string;
+		createdAt: string | Date;
 	}[];
+	processingId: string | null;
 	onAccept: (invitationId: string) => void;
 	onDecline: (invitationId: string) => void;
-	processingId: string | null;
 }) {
 	return (
 		<div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
@@ -41,9 +41,9 @@ export function InvitationsCards({
 
 				return (
 					<Card
-						className="bg-card/95 shadow-none ring-1 ring-border/60"
 						key={invitation.id}
 						size="sm"
+						className="bg-card/95 shadow-none ring-1 ring-border/60"
 					>
 						<CardHeader className="gap-3">
 							<div className="flex items-start gap-3">
@@ -58,27 +58,27 @@ export function InvitationsCards({
 										Invited {formatDate(invitation.createdAt)}
 									</CardDescription>
 								</div>
-								<Badge className="capitalize" variant="outline">
+								<Badge variant="outline" className="capitalize">
 									{invitation.role}
 								</Badge>
 							</div>
 						</CardHeader>
 						<CardContent className="flex flex-wrap gap-2">
 							<Button
-								disabled={isProcessing}
-								onClick={() => onDecline(invitation.id)}
-								size="sm"
 								type="button"
 								variant="outline"
+								size="sm"
+								onClick={() => onDecline(invitation.id)}
+								disabled={isProcessing}
 							>
 								<XIcon data-icon="inline-start" />
 								{isProcessing ? "Working…" : "Decline"}
 							</Button>
 							<Button
-								disabled={isProcessing}
-								onClick={() => onAccept(invitation.id)}
-								size="sm"
 								type="button"
+								size="sm"
+								onClick={() => onAccept(invitation.id)}
+								disabled={isProcessing}
 							>
 								<CheckIcon data-icon="inline-start" />
 								{isProcessing ? "Working…" : "Accept"}

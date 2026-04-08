@@ -1,99 +1,57 @@
-import type { LucideIcon } from "lucide-react";
-import {
-	AlertCircle,
-	BookOpen,
-	Clock,
-	DollarSign,
-	FolderKanban,
-	LayoutDashboard,
-	UserCircle,
-	Users,
-} from "lucide-react";
+import { Settings2Icon, StarIcon, UsersIcon } from "lucide-react";
+import type { ReactElement } from "react";
+import { appRoutes } from "@/app/routes";
 
-export type ShellRouteId =
-	| "overview"
-	| "team"
-	| "developers"
-	| "projects"
-	| "sessions"
-	| "learnings"
-	| "errors"
-	| "roi";
+export type ShellRouteId = "dashboard" | "team" | "settings";
+export type ShellRouteIcon = ReactElement<{ size?: number }>;
 
 export type ShellRouteDefinition = {
 	id: ShellRouteId;
-	label: string;
 	path: string;
-	icon: LucideIcon;
-	exact?: boolean;
+	title: string;
+	navLabel: string;
+	shortcut: string;
+	icon: ShellRouteIcon;
 };
 
-export const primaryShellRoutes: readonly ShellRouteDefinition[] = [
+export const shellRoutes = [
 	{
-		id: "overview",
-		label: "Overview",
-		path: "/dashboard",
-		icon: LayoutDashboard,
-		exact: true,
+		id: "dashboard",
+		path: appRoutes.dashboard(),
+		title: "Dashboard",
+		navLabel: "Dashboard",
+		shortcut: "D",
+		icon: <StarIcon />,
 	},
 	{
 		id: "team",
-		label: "Team",
-		path: "/dashboard/team",
-		icon: Users,
+		path: appRoutes.team(),
+		title: "Team",
+		navLabel: "Team",
+		shortcut: "T",
+		icon: <UsersIcon />,
 	},
 	{
-		id: "developers",
-		label: "Developers",
-		path: "/dashboard/developers",
-		icon: UserCircle,
+		id: "settings",
+		path: appRoutes.settings(),
+		title: "Settings",
+		navLabel: "Settings",
+		shortcut: "S",
+		icon: <Settings2Icon />,
 	},
-	{
-		id: "projects",
-		label: "Projects",
-		path: "/dashboard/projects",
-		icon: FolderKanban,
-	},
-	{
-		id: "sessions",
-		label: "Sessions",
-		path: "/dashboard/sessions",
-		icon: Clock,
-	},
-	{
-		id: "learnings",
-		label: "Learnings",
-		path: "/dashboard/learnings",
-		icon: BookOpen,
-	},
-	{
-		id: "errors",
-		label: "Errors",
-		path: "/dashboard/errors",
-		icon: AlertCircle,
-	},
-	{
-		id: "roi",
-		label: "ROI Calculator",
-		path: "/dashboard/roi",
-		icon: DollarSign,
-	},
-] as const;
+] satisfies readonly ShellRouteDefinition[];
 
-export function isShellRouteActive(
-	pathname: string,
-	route: ShellRouteDefinition,
-): boolean {
-	if (route.exact) {
-		return pathname === route.path;
-	}
-
-	return pathname === route.path || pathname.startsWith(`${route.path}/`);
-}
+export const shellRouteMap = {
+	dashboard: shellRoutes[0],
+	team: shellRoutes[1],
+	settings: shellRoutes[2],
+} as const;
 
 export function getCurrentShellRoute(pathname: string): ShellRouteDefinition {
 	return (
-		primaryShellRoutes.find((route) => isShellRouteActive(pathname, route)) ??
-		primaryShellRoutes[0]
+		shellRoutes.find(
+			(route) =>
+				pathname === route.path || pathname.startsWith(`${route.path}/`),
+		) ?? shellRouteMap.dashboard
 	);
 }

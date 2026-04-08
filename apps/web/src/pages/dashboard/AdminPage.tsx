@@ -6,14 +6,6 @@ import { AnalyticsCard } from "../../components/analytics/AnalyticsCard";
 import { PageHeader } from "../../components/analytics/PageHeader";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
-import {
-	Table,
-	TableBody,
-	TableCell,
-	TableHead,
-	TableHeader,
-	TableRow,
-} from "../../components/ui/table";
 import { client } from "../../lib/orpc";
 
 interface AdminUser {
@@ -63,9 +55,9 @@ export function AdminPage() {
 			<PageHeader title="Admin" description="Manage platform users and data" />
 
 			<AnalyticsCard>
-				<div className="mb-6 flex items-center gap-4">
+				<div className="flex items-center gap-4 mb-6">
 					<div className="relative flex-1">
-						<Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted" />
+						<Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted" />
 						<Input
 							placeholder="Search by name or email..."
 							value={search}
@@ -85,57 +77,61 @@ export function AdminPage() {
 					</div>
 				) : (
 					<>
-						<div className="mb-4 text-sm text-muted">
+						<div className="text-sm text-muted mb-4">
 							{data?.total ?? 0} user{(data?.total ?? 0) !== 1 ? "s" : ""} found
 						</div>
 
-						<Table>
-							<TableHeader>
-								<TableRow>
-									<TableHead>Name</TableHead>
-									<TableHead>Email</TableHead>
-									<TableHead>Created</TableHead>
-									<TableHead>Orgs</TableHead>
-									<TableHead>Actions</TableHead>
-								</TableRow>
-							</TableHeader>
-							<TableBody>
-								{data?.users.map((user) => (
-									<TableRow key={user.id}>
-										<TableCell className="font-medium text-foreground">
-											{user.name}
-										</TableCell>
-										<TableCell>{user.email}</TableCell>
-										<TableCell className="text-muted-foreground">
-											{new Date(user.createdAt).toLocaleDateString()}
-										</TableCell>
-										<TableCell className="text-muted-foreground">
-											{user.organizationCount}
-										</TableCell>
-										<TableCell>
-											<Button
-												variant="ghost"
-												size="sm"
-												onClick={() => handleDeleteClick(user)}
-												className="text-red-500 hover:text-red-600 hover:bg-red-500/10"
-											>
-												<Trash2 className="h-4 w-4" />
-											</Button>
-										</TableCell>
-									</TableRow>
-								))}
-								{data?.users.length === 0 && (
-									<TableRow>
-										<TableCell
-											colSpan={5}
-											className="py-8 text-center text-muted-foreground"
+						<div className="overflow-x-auto">
+							<table className="w-full text-sm">
+								<thead>
+									<tr className="border-b border-border text-left">
+										<th className="pb-3 pr-4 font-medium text-muted">Name</th>
+										<th className="pb-3 pr-4 font-medium text-muted">Email</th>
+										<th className="pb-3 pr-4 font-medium text-muted">
+											Created
+										</th>
+										<th className="pb-3 pr-4 font-medium text-muted">Orgs</th>
+										<th className="pb-3 font-medium text-muted">Actions</th>
+									</tr>
+								</thead>
+								<tbody>
+									{data?.users.map((user) => (
+										<tr
+											key={user.id}
+											className="border-b border-border last:border-0"
 										>
-											No users found
-										</TableCell>
-									</TableRow>
-								)}
-							</TableBody>
-						</Table>
+											<td className="py-3 pr-4 text-foreground">{user.name}</td>
+											<td className="py-3 pr-4 text-foreground">
+												{user.email}
+											</td>
+											<td className="py-3 pr-4 text-muted">
+												{new Date(user.createdAt).toLocaleDateString()}
+											</td>
+											<td className="py-3 pr-4 text-muted">
+												{user.organizationCount}
+											</td>
+											<td className="py-3">
+												<Button
+													variant="ghost"
+													size="sm"
+													onClick={() => handleDeleteClick(user)}
+													className="text-red-500 hover:text-red-600 hover:bg-red-500/10"
+												>
+													<Trash2 className="h-4 w-4" />
+												</Button>
+											</td>
+										</tr>
+									))}
+									{data?.users.length === 0 && (
+										<tr>
+											<td colSpan={5} className="py-8 text-center text-muted">
+												No users found
+											</td>
+										</tr>
+									)}
+								</tbody>
+							</table>
+						</div>
 					</>
 				)}
 			</AnalyticsCard>

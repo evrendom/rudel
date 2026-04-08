@@ -1,5 +1,5 @@
 export function AppLoadingScreen({
-	message = "Loading...",
+	message = "Loading…",
 }: {
 	message?: string;
 }) {

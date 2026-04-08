@@ -3,7 +3,6 @@ import { Building2, Check, Loader2, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Button } from "../components/ui/button";
-import { Card, CardContent } from "../components/ui/card";
 import { useAnalyticsTracking } from "../hooks/useDashboardAnalytics";
 import { USER_INVITATIONS_KEY } from "../hooks/useUserInvitations";
 import { authClient } from "../lib/auth-client";
@@ -94,70 +93,60 @@ export function AcceptInvitationPage() {
 	}
 
 	return (
-		<div className="flex min-h-screen items-center justify-center px-4 py-10">
-			<Card className="w-full max-w-md">
-				<CardContent className="space-y-6 px-8 py-8 text-center">
-					<div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-secondary">
-						{status === "accepted" ? (
-							<Check className="h-6 w-6 text-status-success-icon" />
-						) : (
-							<Building2 className="h-6 w-6 text-accent" />
-						)}
-					</div>
-
+		<div className="flex min-h-screen items-center justify-center">
+			<div className="w-full max-w-sm rounded-xl border border-border bg-surface p-8 text-center">
+				<div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-hover">
 					{status === "accepted" ? (
-						<>
-							<h1 className="font-heading text-2xl font-medium text-heading">
-								Welcome to the team!
-							</h1>
-							<p className="text-sm text-muted-foreground">
-								Redirecting to dashboard...
-							</p>
-						</>
+						<Check className="h-6 w-6 text-status-success-icon" />
 					) : (
-						<>
-							<div className="space-y-2">
-								<h1 className="font-heading text-2xl font-medium text-heading">
-									You've been invited
-								</h1>
-								<p className="text-sm text-muted-foreground">
-									Accept this invitation to join the organization.
-								</p>
-							</div>
-
-							{error ? (
-								<p className="rounded-3xl border border-status-error-border bg-status-error-bg px-4 py-3 text-sm text-status-error-text">
-									{error}
-								</p>
-							) : null}
-
-							<div className="flex justify-center gap-3">
-								<Button
-									variant="outline"
-									size="sm"
-									onClick={handleReject}
-									disabled={status === "accepting"}
-								>
-									<X className="mr-1 h-4 w-4" />
-									Decline
-								</Button>
-								<Button
-									size="sm"
-									onClick={handleAccept}
-									disabled={status === "accepting"}
-								>
-									{status === "accepting" ? (
-										<Loader2 className="mr-1 h-4 w-4 animate-spin" />
-									) : (
-										<Check className="mr-1 h-4 w-4" />
-									)}
-									Accept
-								</Button>
-							</div>
-						</>
+						<Building2 className="h-6 w-6 text-accent" />
 					)}
-				</CardContent>
-			</Card>
+				</div>
+
+				{status === "accepted" ? (
+					<>
+						<h1 className="text-lg font-semibold text-heading mb-2">
+							Welcome to the team!
+						</h1>
+						<p className="text-sm text-muted">Redirecting to dashboard...</p>
+					</>
+				) : (
+					<>
+						<h1 className="text-lg font-semibold text-heading mb-2">
+							You've been invited
+						</h1>
+						<p className="text-sm text-muted mb-6">
+							Accept this invitation to join the organization.
+						</p>
+
+						{error && <p className="text-sm text-red-500 mb-4">{error}</p>}
+
+						<div className="flex gap-3 justify-center">
+							<Button
+								variant="outline"
+								size="sm"
+								onClick={handleReject}
+								disabled={status === "accepting"}
+							>
+								<X className="h-4 w-4 mr-1" />
+								Decline
+							</Button>
+							<Button
+								size="sm"
+								onClick={handleAccept}
+								disabled={status === "accepting"}
+							>
+								{status === "accepting" ? (
+									<Loader2 className="h-4 w-4 mr-1 animate-spin" />
+								) : (
+									<Check className="h-4 w-4 mr-1" />
+								)}
+								Accept
+							</Button>
+						</div>
+					</>
+				)}
+			</div>
 		</div>
 	);
 }

@@ -1,4 +1,5 @@
 import { PlusIcon } from "lucide-react";
+import { Link } from "react-router-dom";
 import { buttonVariants } from "@/app/ui/button";
 import {
 	Card,
@@ -19,10 +20,10 @@ export function WorkspaceEmptyStateCard() {
 				</CardDescription>
 			</CardHeader>
 			<CardContent>
-				<a className={buttonVariants({ size: "sm" })} href="#new-workspace">
+				<Link to="#new-workspace" className={buttonVariants({ size: "sm" })}>
 					<PlusIcon data-icon="inline-start" />
 					Create workspace
-				</a>
+				</Link>
 			</CardContent>
 		</Card>
 	);

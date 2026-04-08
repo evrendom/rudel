@@ -1,107 +1,100 @@
 import { calculateEstimatedCost as calculateEstimatedModelCost } from "@rudel/api-routes";
 
-const compactFormatter = new Intl.NumberFormat("en-US", {
-	maximumFractionDigits: 1,
+const numberFormatter = new Intl.NumberFormat();
+
+const compactNumberFormatter = new Intl.NumberFormat(undefined, {
 	notation: "compact",
+	maximumFractionDigits: 1,
 });
 
-const compactWholeFormatter = new Intl.NumberFormat("en-US", {
-	maximumFractionDigits: 0,
+const compactWholeNumberFormatter = new Intl.NumberFormat(undefined, {
 	notation: "compact",
+	maximumFractionDigits: 0,
+});
+
+const decimalFormatter = new Intl.NumberFormat(undefined, {
+	maximumFractionDigits: 2,
 });
 
 const currencyFormatter = new Intl.NumberFormat("en-US", {
+	style: "currency",
 	currency: "USD",
-	maximumFractionDigits: 2,
 	minimumFractionDigits: 2,
-	style: "currency",
-});
-
-const fineCurrencyFormatter = new Intl.NumberFormat("en-US", {
-	currency: "USD",
-	maximumFractionDigits: 4,
-	minimumFractionDigits: 4,
-	style: "currency",
+	maximumFractionDigits: 2,
 });
 
 const wholeCurrencyFormatter = new Intl.NumberFormat("en-US", {
-	currency: "USD",
-	maximumFractionDigits: 0,
-	minimumFractionDigits: 0,
 	style: "currency",
+	currency: "USD",
+	minimumFractionDigits: 0,
+	maximumFractionDigits: 0,
+});
+
+const fineCurrencyFormatter = new Intl.NumberFormat("en-US", {
+	style: "currency",
+	currency: "USD",
+	minimumFractionDigits: 4,
+	maximumFractionDigits: 4,
+});
+
+const compactCurrencyFormatter = new Intl.NumberFormat("en-US", {
+	style: "currency",
+	currency: "USD",
+	notation: "compact",
+	minimumFractionDigits: 0,
+	maximumFractionDigits: 1,
 });
 
 const compactWholeCurrencyFormatter = new Intl.NumberFormat("en-US", {
-	currency: "USD",
-	maximumFractionDigits: 0,
-	minimumFractionDigits: 0,
-	notation: "compact",
 	style: "currency",
+	currency: "USD",
+	notation: "compact",
+	minimumFractionDigits: 0,
+	maximumFractionDigits: 0,
 });
 
-const shortMonthDayFormatter = new Intl.DateTimeFormat("en-US", {
-	day: "numeric",
-	month: "short",
+const minuteFormatter = new Intl.NumberFormat(undefined, {
+	maximumFractionDigits: 1,
 });
 
-const shortMonthDayYearFormatter = new Intl.DateTimeFormat("en-US", {
-	day: "numeric",
+const percentFormatter = new Intl.NumberFormat(undefined, {
+	maximumFractionDigits: 1,
+});
+
+const shortDateFormatter = new Intl.DateTimeFormat(undefined, {
 	month: "short",
+	day: "numeric",
+});
+
+const fullDateFormatter = new Intl.DateTimeFormat(undefined, {
+	month: "short",
+	day: "numeric",
 	year: "numeric",
 });
 
-export function calculateCost(
-	inputTokens: number,
-	outputTokens: number,
-	options?:
-		| string
-		| null
-		| {
-				cacheCreationInputTokens?: number;
-				cacheReadInputTokens?: number;
-				model?: string | null;
-		  },
-): number {
-	const model =
-		typeof options === "string" ? options : (options?.model ?? null);
-
-	return calculateEstimatedModelCost({
-		cacheCreationInputTokens:
-			typeof options === "string"
-				? 0
-				: (options?.cacheCreationInputTokens ?? 0),
-		cacheReadInputTokens:
-			typeof options === "string" ? 0 : (options?.cacheReadInputTokens ?? 0),
-		inputTokens,
-		model,
-		outputTokens,
-	});
-}
-
-export function formatIsoDate(date: Date) {
-	return date.toISOString().slice(0, 10);
-}
-
-export function formatDateRangeLabel(startDate: string, endDate: string) {
-	const start = new Date(`${startDate}T00:00:00`);
-	const end = new Date(`${endDate}T00:00:00`);
-
-	if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
-		return "Pick a date";
+function parseDateValue(value: string) {
+	if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+		const [year, month, day] = value.split("-").map(Number);
+		return new Date(year, (month ?? 1) - 1, day ?? 1);
 	}
 
-	const startLabel = shortMonthDayFormatter.format(start);
-	const endLabel = shortMonthDayYearFormatter.format(end);
+	return new Date(value);
+}
 
-	return `${startLabel} - ${endLabel}`;
+export function formatNumber(value: number) {
+	return numberFormatter.format(value);
 }
 
 export function formatCompactNumber(value: number) {
-	return compactFormatter.format(value);
+	return compactNumberFormatter.format(value);
 }
 
 export function formatCompactWholeNumber(value: number) {
-	return compactWholeFormatter.format(value);
+	return compactWholeNumberFormatter.format(value);
+}
+
+export function formatDecimal(value: number) {
+	return decimalFormatter.format(value);
 }
 
 export function formatCurrency(value: number) {
@@ -110,6 +103,14 @@ export function formatCurrency(value: number) {
 	}
 
 	return currencyFormatter.format(value);
+}
+
+export function formatCompactCurrency(value: number) {
+	if (Math.abs(value) < 1_000) {
+		return formatCurrency(value);
+	}
+
+	return compactCurrencyFormatter.format(value);
 }
 
 export function formatWholeCurrency(value: number) {
@@ -125,27 +126,91 @@ export function formatCompactWholeCurrency(value: number) {
 }
 
 export function formatMinutes(value: number) {
-	return `${value.toFixed(1)} min`;
+	return `${minuteFormatter.format(value)} min`;
 }
 
 export function formatPercent(value: number) {
-	return `${Math.round(value)}%`;
+	return `${percentFormatter.format(value)}%`;
+}
+
+export function formatSignedPercent(value: number) {
+	const sign = value > 0 ? "+" : "";
+	return `${sign}${percentFormatter.format(value)}%`;
+}
+
+export function formatDateLabel(value: string) {
+	return shortDateFormatter.format(parseDateValue(value));
+}
+
+export function formatFullDateLabel(value: string) {
+	return fullDateFormatter.format(parseDateValue(value));
+}
+
+export function formatDateRangeLabel(startDate: string, endDate: string) {
+	return `${formatDateLabel(startDate)} - ${formatFullDateLabel(endDate)}`;
+}
+
+export function formatIsoDate(date: Date) {
+	const year = date.getFullYear();
+	const month = String(date.getMonth() + 1).padStart(2, "0");
+	const day = String(date.getDate()).padStart(2, "0");
+	return `${year}-${month}-${day}`;
+}
+
+export function clampToPositiveZero(value: number) {
+	return Number.isFinite(value) ? Math.max(0, value) : 0;
 }
 
 export function formatUsername(
 	userId: string,
-	userMap?: Record<string, string>,
-): string {
-	if (userMap?.[userId]) {
-		return userMap[userId];
+	userMap?: Map<string, string> | Record<string, string | undefined>,
+) {
+	if (userMap instanceof Map) {
+		return userMap.get(userId) ?? userId;
 	}
+
+	if (userMap && typeof userMap === "object") {
+		return userMap[userId] ?? userId;
+	}
+
 	return userId;
 }
 
-export function encodeProjectPath(path: string): string {
-	return encodeURIComponent(path);
+export function calculateCost(
+	inputTokens: number,
+	outputTokens: number,
+	options?:
+		| string
+		| null
+		| {
+				model?: string | null;
+				cacheReadInputTokens?: number;
+				cacheCreationInputTokens?: number;
+		  },
+) {
+	const model =
+		typeof options === "string" ? options : (options?.model ?? null);
+	return calculateEstimatedModelCost({
+		model,
+		inputTokens,
+		outputTokens,
+		cacheReadInputTokens:
+			typeof options === "string" ? 0 : (options?.cacheReadInputTokens ?? 0),
+		cacheCreationInputTokens:
+			typeof options === "string"
+				? 0
+				: (options?.cacheCreationInputTokens ?? 0),
+	});
 }
 
-export function decodeProjectPath(encoded: string): string {
-	return decodeURIComponent(encoded);
+export function encodeProjectPath(projectPath: string) {
+	return encodeURIComponent(projectPath);
+}
+
+export function decodeProjectPath(projectPath: string) {
+	try {
+		return decodeURIComponent(projectPath);
+	} catch {
+		return projectPath;
+	}
 }

@@ -4,40 +4,62 @@ import type {
 	SessionAnalyticsSummaryComparison,
 } from "@rudel/api-routes";
 import { useMemo } from "react";
+import { useAnalyticsQuery } from "@/features/analytics/queries/useAnalyticsQuery";
 import { DashboardRepositoryPanel } from "@/features/dashboard/components/DashboardRepositoryPanel";
 import { DashboardSessionsSnapshotSection } from "@/features/dashboard/components/DashboardSessionsSnapshotSection";
-import { buildDashboardSessionTabMetrics } from "@/features/dashboard/data/dashboard-session-adapters";
 import type { DashboardRankedOutputRow } from "@/features/dashboard/data/dashboard-static-data";
+import { buildDashboardSessionTabMetrics } from "@/features/dashboard/data/dashboard-tab-adapters";
+import { orpc } from "@/lib/orpc";
 
 export function DashboardSessionsView({
+	endDate,
 	isRepositoryChartPending,
-	isRecentSessionsPending,
 	isSnapshotPending = false,
-	recentSessions,
 	repositories,
 	repositoryDailyTrend,
+	startDate,
 	sessionSummaryComparison,
 }: {
+	endDate: string;
 	isRepositoryChartPending: boolean;
-	isRecentSessionsPending: boolean;
 	isSnapshotPending?: boolean;
-	recentSessions: SessionAnalytics[] | undefined;
 	repositories: DashboardRankedOutputRow[];
 	repositoryDailyTrend: RepositoryDailyTrendData[] | undefined;
+	startDate: string;
 	sessionSummaryComparison: SessionAnalyticsSummaryComparison | undefined;
 }) {
 	const headlineMetrics = useMemo(
 		() => buildDashboardSessionTabMetrics(sessionSummaryComparison),
 		[sessionSummaryComparison],
 	);
-
+	const { data: recentSessions, isPending: isRecentSessionsPending } =
+		useAnalyticsQuery(
+			orpc.analytics.sessions.list.queryOptions({
+				input: {
+					endDate,
+					limit: 10,
+					startDate,
+					sortBy: "session_date",
+					sortOrder: "desc",
+				},
+			}),
+		);
+	const sortedRecentSessions = useMemo(
+		() =>
+			[...(recentSessions ?? [])].sort(
+				(left: SessionAnalytics, right: SessionAnalytics) =>
+					new Date(right.session_date).getTime() -
+					new Date(left.session_date).getTime(),
+			),
+		[recentSessions],
+	);
 	return (
 		<section className="@container/sessions-view flex flex-col gap-8">
 			<DashboardSessionsSnapshotSection
 				isMetricsPending={isSnapshotPending}
 				isSessionsPending={isRecentSessionsPending}
 				metrics={headlineMetrics}
-				recentSessions={recentSessions}
+				recentSessions={sortedRecentSessions}
 				showDelta
 				totalSessionCount={
 					sessionSummaryComparison?.current.total_sessions ??

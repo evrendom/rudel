@@ -8,13 +8,13 @@ import { DashboardDeveloperPanel } from "@/features/dashboard/components/Dashboa
 import { DashboardRepositoryDailyOverviewTable } from "@/features/dashboard/components/DashboardRepositoryDailyOverviewTable";
 import { DashboardRepositoryPanel } from "@/features/dashboard/components/DashboardRepositoryPanel";
 import type { DashboardPerformanceUserComparison } from "@/features/dashboard/data/dashboard-performance-adapter";
+import { buildDashboardRepositorySummaryRows } from "@/features/dashboard/data/dashboard-repository-trend";
+import type { DashboardRankedOutputRow } from "@/features/dashboard/data/dashboard-static-data";
 import {
 	buildDashboardDailyPatternFromRepositoryTrend,
 	buildDashboardRepositoryDailyOverviewRows,
 	buildDashboardRepositoryTabMetrics,
-} from "@/features/dashboard/data/dashboard-repository-adapters";
-import { buildDashboardRepositorySummaryRows } from "@/features/dashboard/data/dashboard-repository-trend";
-import type { DashboardRankedOutputRow } from "@/features/dashboard/data/dashboard-static-data";
+} from "@/features/dashboard/data/dashboard-tab-adapters";
 
 export function DashboardRepositoriesView({
 	endDate,

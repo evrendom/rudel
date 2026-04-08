@@ -1,15 +1,15 @@
-import { useUserInvitations } from "@/hooks/useUserInvitations";
+import { useUserInvitations } from "@/features/workspace/hooks/useUserInvitations";
 
 export function useInvitationsSettingsData() {
-	const { invitations, count, isLoading, invalidate } = useUserInvitations();
+	const { invitations, count, invalidate, isLoading } = useUserInvitations();
 
 	return {
 		invitations,
 		count,
 		invalidate,
 		state: {
-			hasData: invitations.length > 0,
 			isPending: isLoading,
+			hasData: invitations.length > 0,
 		},
 	};
 }

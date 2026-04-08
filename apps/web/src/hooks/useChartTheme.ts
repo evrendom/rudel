@@ -1,3 +1,4 @@
+import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
 
 const LIGHT_DEFAULTS = {
@@ -8,6 +9,7 @@ const LIGHT_DEFAULTS = {
 };
 
 export function useChartTheme() {
+	const { resolvedTheme: _resolvedTheme } = useTheme();
 	const [chartTheme, setChartTheme] = useState(LIGHT_DEFAULTS);
 
 	useEffect(() => {

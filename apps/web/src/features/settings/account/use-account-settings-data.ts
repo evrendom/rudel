@@ -1,31 +1,33 @@
-import { useAccounts } from "@/hooks/useAccounts";
+import { useAccounts } from "@/features/workspace/hooks/useAccounts";
 import { authClient } from "@/lib/auth-client";
 
-function readSessionString(value: unknown, fallback = "") {
+function readSessionString(
+	value: unknown,
+	fallback = "",
+): string {
 	return typeof value === "string" ? value : fallback;
 }
 
 export function useAccountSettingsData() {
-	const { data: session, isPending: isSessionPending } =
-		authClient.useSession();
+	const { data: session, isPending: isSessionPending } = authClient.useSession();
 	const { accounts, isLoading: areAccountsPending } = useAccounts();
 
 	const user = {
-		email: readSessionString(session?.user?.email),
 		id: readSessionString(session?.user?.id),
-		image: typeof session?.user?.image === "string" ? session.user.image : null,
 		name: readSessionString(session?.user?.name, "Your profile"),
+		email: readSessionString(session?.user?.email),
+		image:
+			typeof session?.user?.image === "string" ? session.user.image : null,
 	};
-	const linkedProviders = new Set(
-		accounts.map((account) => account.providerId),
-	);
+
+	const linkedProviders = new Set(accounts.map((account) => account.providerId));
 
 	return {
+		user,
 		linkedProviders,
 		state: {
-			hasData: Boolean(user.id),
 			isPending: isSessionPending || areAccountsPending,
+			hasData: Boolean(user.id),
 		},
-		user,
 	};
 }

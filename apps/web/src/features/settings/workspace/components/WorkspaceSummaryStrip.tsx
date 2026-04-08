@@ -1,15 +1,17 @@
 import { Skeleton } from "@/app/ui/skeleton";
 
 export function WorkspaceSummaryStrip({
-	isPending,
 	tiles,
+	isPending,
+	isError,
 }: {
-	isPending: boolean;
 	tiles: Array<{
-		displayValue: string;
 		id: string;
 		label: string;
+		displayValue: string;
 	}>;
+	isPending: boolean;
+	isError: boolean;
 }) {
 	return (
 		<div className="overflow-hidden rounded-4xl border border-border/60 bg-card/95">
@@ -21,7 +23,7 @@ export function WorkspaceSummaryStrip({
 							<Skeleton className="h-6 w-24 rounded-md" />
 						) : (
 							<p className="truncate text-lg font-semibold tabular-nums">
-								{tile.displayValue}
+								{isError ? "—" : tile.displayValue}
 							</p>
 						)}
 					</div>

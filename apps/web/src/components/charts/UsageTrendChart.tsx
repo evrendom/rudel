@@ -12,6 +12,7 @@ import {
 } from "recharts";
 import { useChartTheme } from "@/hooks/useChartTheme";
 import { useAnalyticsTracking } from "@/hooks/useDashboardAnalytics";
+import { formatCompactWholeNumber } from "@/lib/format";
 import { ChartLegend } from "./ChartLegend";
 import { ChartTooltip } from "./ChartTooltip";
 
@@ -162,16 +163,18 @@ export function UsageTrendChart({
 					<YAxis
 						yAxisId="left"
 						orientation="left"
+						allowDecimals={false}
 						stroke={currentPair.left.color}
 						tick={{ fontSize: 12 }}
-						tickFormatter={formatCompactNumber}
+						tickFormatter={formatCompactWholeNumber}
 					/>
 					<YAxis
 						yAxisId="right"
 						orientation="right"
+						allowDecimals={false}
 						stroke={currentPair.right.color}
 						tick={{ fontSize: 12 }}
-						tickFormatter={formatCompactNumber}
+						tickFormatter={formatCompactWholeNumber}
 					/>
 					<Tooltip
 						content={(props) => (

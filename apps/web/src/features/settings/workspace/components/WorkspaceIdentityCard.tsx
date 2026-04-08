@@ -1,93 +1,97 @@
-import { Building2Icon, CheckIcon, PencilIcon, XIcon } from "lucide-react";
-import { useState } from "react";
-import { Button } from "@/app/ui/button";
+import { useState } from "react"
+import {
+	Building2Icon,
+	CheckIcon,
+	PencilIcon,
+	XIcon,
+} from "lucide-react"
+import { useAnalyticsTracking } from "@/features/analytics/tracking/useAnalyticsTracking"
+import { authClient } from "@/lib/auth-client"
+import { Button } from "@/app/ui/button"
 import {
 	Card,
 	CardContent,
 	CardDescription,
 	CardHeader,
 	CardTitle,
-} from "@/app/ui/card";
-import { Field, FieldError, FieldLabel } from "@/app/ui/field";
-import { Input } from "@/app/ui/input";
-import { useAnalyticsTracking } from "@/hooks/useDashboardAnalytics";
-import { authClient } from "@/lib/auth-client";
+} from "@/app/ui/card"
+import { Field, FieldLabel } from "@/app/ui/field"
+import { Input } from "@/app/ui/input"
 
 export function WorkspaceIdentityCard({
+	organization,
 	canManage,
 	onInvalidate,
-	organization,
 }: {
-	canManage: boolean;
-	onInvalidate: () => void;
-	organization: { id: string; name: string; slug: string };
+	organization: { id: string; name: string; slug: string }
+	canManage: boolean
+	onInvalidate: () => void
 }) {
 	const { trackOrganizationAction } = useAnalyticsTracking({
-		organizationId: organization.id,
 		pageName: "organization",
-	});
-	const [editedName, setEditedName] = useState("");
-	const [isEditingName, setIsEditingName] = useState(false);
-	const [isSavingName, setIsSavingName] = useState(false);
-	const [renameError, setRenameError] = useState<string | null>(null);
+	})
+	const [isEditingName, setIsEditingName] = useState(false)
+	const [editedName, setEditedName] = useState("")
+	const [isSavingName, setIsSavingName] = useState(false)
+	const [renameError, setRenameError] = useState<string | null>(null)
 
-	function startEditing() {
+	const startEditing = () => {
 		trackOrganizationAction({
 			actionName: "start_rename_organization",
-			sourceComponent: "workspace_identity_card",
-			targetId: organization.id,
 			targetType: "organization",
-		});
-		setEditedName(organization.name);
-		setRenameError(null);
-		setIsEditingName(true);
+			sourceComponent: "workspace_settings_section",
+			targetId: organization.id,
+		})
+		setEditedName(organization.name)
+		setRenameError(null)
+		setIsEditingName(true)
 	}
 
-	function cancelEditing() {
+	const cancelEditing = () => {
 		trackOrganizationAction({
 			actionName: "cancel_rename_organization",
-			sourceComponent: "workspace_identity_card",
-			targetId: organization.id,
 			targetType: "organization",
-		});
-		setIsEditingName(false);
-		setRenameError(null);
+			sourceComponent: "workspace_settings_section",
+			targetId: organization.id,
+		})
+		setIsEditingName(false)
+		setRenameError(null)
 	}
 
-	async function saveName() {
-		const trimmedName = editedName.trim();
+	const saveName = async () => {
+		const trimmedName = editedName.trim()
 		if (!trimmedName) {
-			return;
+			return
 		}
 
 		if (trimmedName === organization.name) {
-			setIsEditingName(false);
-			return;
+			setIsEditingName(false)
+			return
 		}
 
 		trackOrganizationAction({
 			actionName: "rename_organization",
-			sourceComponent: "workspace_identity_card",
-			targetId: organization.id,
 			targetType: "organization",
-		});
-		setIsSavingName(true);
-		setRenameError(null);
+			sourceComponent: "workspace_settings_section",
+			targetId: organization.id,
+		})
+		setIsSavingName(true)
+		setRenameError(null)
 
 		const response = await authClient.organization.update({
 			data: { name: trimmedName },
 			organizationId: organization.id,
-		});
+		})
 
 		if (response.error) {
-			setRenameError(response.error.message ?? "Failed to rename workspace");
-			setIsSavingName(false);
-			return;
+			setRenameError(response.error.message ?? "Failed to rename workspace")
+			setIsSavingName(false)
+			return
 		}
 
-		onInvalidate();
-		setIsEditingName(false);
-		setIsSavingName(false);
+		onInvalidate()
+		setIsEditingName(false)
+		setIsSavingName(false)
 	}
 
 	return (
@@ -111,44 +115,45 @@ export function WorkspaceIdentityCard({
 						<FieldLabel htmlFor="workspace-name">Workspace name</FieldLabel>
 						<div className="flex flex-col gap-2 sm:flex-row">
 							<Input
-								autoFocus
-								disabled={isSavingName}
 								id="workspace-name"
+								value={editedName}
 								onChange={(event) => setEditedName(event.target.value)}
 								onKeyDown={(event) => {
 									if (event.key === "Enter") {
-										void saveName();
+										void saveName()
 									}
-
 									if (event.key === "Escape") {
-										cancelEditing();
+										cancelEditing()
 									}
 								}}
-								value={editedName}
+								disabled={isSavingName}
+								autoFocus
 							/>
 							<div className="flex gap-2">
 								<Button
-									disabled={isSavingName || editedName.trim().length === 0}
-									onClick={() => void saveName()}
-									size="sm"
 									type="button"
+									size="sm"
+									onClick={() => void saveName()}
+									disabled={isSavingName || editedName.trim().length === 0}
 								>
 									<CheckIcon data-icon="inline-start" />
 									{isSavingName ? "Saving…" : "Save"}
 								</Button>
 								<Button
-									disabled={isSavingName}
-									onClick={cancelEditing}
-									size="sm"
 									type="button"
 									variant="outline"
+									size="sm"
+									onClick={cancelEditing}
+									disabled={isSavingName}
 								>
 									<XIcon data-icon="inline-start" />
 									Cancel
 								</Button>
 							</div>
 						</div>
-						<FieldError>{renameError}</FieldError>
+						{renameError ? (
+							<p className="text-sm text-destructive">{renameError}</p>
+						) : null}
 					</Field>
 				) : (
 					<div className="flex items-start justify-between gap-3">
@@ -162,10 +167,10 @@ export function WorkspaceIdentityCard({
 						</div>
 						{canManage ? (
 							<Button
-								onClick={startEditing}
-								size="sm"
 								type="button"
 								variant="outline"
+								size="sm"
+								onClick={startEditing}
 							>
 								<PencilIcon data-icon="inline-start" />
 								Rename
@@ -175,5 +180,5 @@ export function WorkspaceIdentityCard({
 				)}
 			</CardContent>
 		</Card>
-	);
+	)
 }

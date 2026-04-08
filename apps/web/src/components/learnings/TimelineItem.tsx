@@ -16,6 +16,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { useCanViewSession } from "@/hooks/useCanViewSession";
 import { useAnalyticsTracking } from "@/hooks/useDashboardAnalytics";
 import { formatUsername } from "@/lib/format";
+import { getSessionDetailPath } from "@/lib/session-paths";
 import { cn } from "@/lib/utils";
 
 interface TimelineItemProps {
@@ -74,7 +75,7 @@ export function TimelineItem({ learning, userMap }: TimelineItemProps) {
 	const projectName =
 		learning.project_path.split("/").pop() || learning.project_path;
 
-	const sessionLink = `/dashboard/sessions/${learning.session_id}`;
+	const sessionLink = getSessionDetailPath(learning.session_id);
 
 	const typeStyle = typeBadgeVariant[learning.type] ?? {
 		variant: "secondary" as const,

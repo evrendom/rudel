@@ -11,12 +11,12 @@ import {
 } from "@/app/ui/card";
 
 const providerDefinitions: Array<{
-	icon: LucideIcon;
 	id: "google" | "github";
 	label: string;
+	icon: LucideIcon;
 }> = [
-	{ icon: MailIcon, id: "google", label: "Google" },
-	{ icon: GithubIcon, id: "github", label: "GitHub" },
+	{ id: "google", label: "Google", icon: MailIcon },
+	{ id: "github", label: "GitHub", icon: GithubIcon },
 ];
 
 export function ProfileLinkedAccountsCard({
@@ -68,8 +68,8 @@ export function ProfileLinkedAccountsCard({
 
 						return (
 							<li
-								className="flex flex-col gap-3 py-4 first:pt-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between"
 								key={provider.id}
+								className="flex flex-col gap-3 py-4 first:pt-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between"
 							>
 								<div className="flex items-start gap-3">
 									<Icon className="mt-0.5 text-muted-foreground" />
@@ -88,16 +88,16 @@ export function ProfileLinkedAccountsCard({
 									<Badge variant="secondary">Connected</Badge>
 								) : (
 									<Button
-										disabled={isPending || linkingProvider !== null}
-										onClick={() => onLinkProvider(provider.id)}
-										size="sm"
 										type="button"
 										variant="outline"
+										size="sm"
+										onClick={() => onLinkProvider(provider.id)}
+										disabled={isPending || linkingProvider !== null}
 									>
 										{isLinking ? (
 											<Loader2Icon
-												className="animate-spin"
 												data-icon="inline-start"
+												className="animate-spin"
 											/>
 										) : null}
 										Link

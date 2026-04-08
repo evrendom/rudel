@@ -1,56 +1,56 @@
-import { useState } from "react";
-import { toast } from "sonner";
+import { useState } from "react"
+import { toast } from "sonner"
+import { useAnalyticsTracking } from "@/features/analytics/tracking/useAnalyticsTracking"
+import { authClient } from "@/lib/auth-client"
 import {
 	Card,
 	CardContent,
 	CardDescription,
 	CardHeader,
 	CardTitle,
-} from "@/app/ui/card";
-import { WorkspaceOutgoingInvitationsTable } from "@/features/settings/workspace/components/WorkspaceOutgoingInvitationsTable";
-import { useAnalyticsTracking } from "@/hooks/useDashboardAnalytics";
-import { authClient } from "@/lib/auth-client";
+} from "@/app/ui/card"
+import { WorkspaceOutgoingInvitationsTable } from "@/features/settings/workspace/components/WorkspaceOutgoingInvitationsTable"
 
 export function WorkspaceOutgoingInvitationsCard({
-	canCancel,
 	invitations,
+	canCancel,
 	onInvalidate,
 }: {
-	canCancel: boolean;
 	invitations: readonly {
-		createdAt?: string;
-		email: string;
-		id: string;
-		role: string | null;
-		status: string;
-	}[];
-	onInvalidate: () => void;
+		id: string
+		email: string
+		role: string | null
+		status: string
+		createdAt?: string
+	}[]
+	canCancel: boolean
+	onInvalidate: () => void
 }) {
 	const { trackOrganizationAction } = useAnalyticsTracking({
 		pageName: "organization",
-	});
+	})
 	const [pendingInvitationId, setPendingInvitationId] = useState<string | null>(
 		null,
-	);
+	)
 
-	async function cancelInvitation(invitationId: string) {
-		setPendingInvitationId(invitationId);
+	const cancelInvitation = async (invitationId: string) => {
+		setPendingInvitationId(invitationId)
 		trackOrganizationAction({
 			actionName: "cancel_invitation",
-			sourceComponent: "workspace_outgoing_invitations_card",
-			targetId: invitationId,
 			targetType: "invitation",
-		});
+			sourceComponent: "workspace_settings_section",
+			targetId: invitationId,
+		})
 
 		try {
-			await authClient.organization.cancelInvitation({ invitationId });
-			onInvalidate();
+			await authClient.organization.cancelInvitation({ invitationId })
+			onInvalidate()
 		} catch (cause) {
 			toast.error(
 				cause instanceof Error ? cause.message : "Failed to cancel invitation",
-			);
+			)
 		} finally {
-			setPendingInvitationId(null);
+			setPendingInvitationId(null)
 		}
 	}
 
@@ -64,12 +64,12 @@ export function WorkspaceOutgoingInvitationsCard({
 			</CardHeader>
 			<CardContent>
 				<WorkspaceOutgoingInvitationsTable
-					canCancel={canCancel}
 					invitations={invitations}
-					onCancel={(invitationId) => void cancelInvitation(invitationId)}
+					canCancel={canCancel}
 					pendingInvitationId={pendingInvitationId}
+					onCancel={(invitationId) => void cancelInvitation(invitationId)}
 				/>
 			</CardContent>
 		</Card>
-	);
+	)
 }

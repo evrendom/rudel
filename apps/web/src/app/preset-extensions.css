@@ -33,7 +33,6 @@
 
 :root {
 	--app-font-heading: "Nunito", var(--font-sans);
-	--app-font-sans: var(--font-sans);
 	--surface: #f7f8f9;
 	--heading: oklch(0.145 0 0);
 	--subheading: oklch(0.556 0 0);

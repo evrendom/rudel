@@ -9,6 +9,7 @@ import {
 } from "@/app/ui/card";
 import { Skeleton } from "@/app/ui/skeleton";
 import { TeamMembersCardGrid } from "@/features/team/components/TeamMembersCardGrid";
+import { TeamRosterGallery } from "@/features/team/components/TeamRosterGallery";
 import {
 	type TeamPageDiagnostics,
 	useTeamPageData,
@@ -34,7 +35,7 @@ const teamBoardMetricSkeletonKeys = [
 
 function TeamPageSkeleton() {
 	return (
-		<div>
+		<div className="team-lineup-surface-scope">
 			<ul className="grid justify-center gap-[10px] [grid-template-columns:repeat(auto-fit,minmax(233px,233px))]">
 				{teamBoardCardSkeletonKeys.map((cardKey) => (
 					<li key={cardKey} className="list-none">
@@ -207,26 +208,19 @@ function TeamPageError({
 	);
 }
 
-function TeamPageEmpty({
-	hasActiveOrganization,
-}: {
-	hasActiveOrganization: boolean;
-}) {
-	const heading = hasActiveOrganization
-		? "No team members available"
-		: "No active workspace selected";
-	const description = hasActiveOrganization
-		? "Add teammates to this workspace to populate the team cards."
-		: "Switch to a workspace to view the team roster.";
-
+function TeamPageEmpty() {
 	return (
 		<Card
 			size="sm"
 			className="mx-auto max-w-xl bg-card/95 shadow-none ring-1 ring-border/60"
 		>
 			<CardContent className="px-6 py-10 text-center">
-				<h2 className="text-base font-semibold text-foreground">{heading}</h2>
-				<p className="mt-2 text-sm text-muted-foreground">{description}</p>
+				<h2 className="text-base font-semibold text-foreground">
+					No team members available
+				</h2>
+				<p className="mt-2 text-sm text-muted-foreground">
+					Add teammates to this workspace to populate the team cards.
+				</p>
 			</CardContent>
 		</Card>
 	);
@@ -236,45 +230,58 @@ export function TeamPage() {
 	const {
 		diagnostics,
 		error,
-		hasActiveOrganization,
 		isError,
 		isPending,
 		teamMemberRows,
+		teamPlayers,
 		refetch,
 		teamCards,
 	} = useTeamPageData();
+	const showUnreleasedLineupCards = false;
+
+	let content = <TeamMembersCardGrid rows={teamMemberRows} />;
 
 	if (isPending) {
-		return (
-			<div className="px-4 lg:px-6">
-				<TeamPageSkeleton />
-			</div>
+		content = <TeamPageSkeleton />;
+	} else if (isError) {
+		content = (
+			<TeamPageError
+				diagnostics={diagnostics}
+				error={error}
+				onRetry={refetch}
+			/>
 		);
-	}
-
-	if (isError) {
-		return (
-			<div className="px-4 lg:px-6">
-				<TeamPageError
-					diagnostics={diagnostics}
-					error={error}
-					onRetry={refetch}
-				/>
-			</div>
-		);
-	}
-
-	if (teamMemberRows.length === 0 && (teamCards?.length ?? 0) === 0) {
-		return (
-			<div className="px-4 lg:px-6">
-				<TeamPageEmpty hasActiveOrganization={hasActiveOrganization} />
-			</div>
-		);
+	} else if (teamMemberRows.length === 0 && (teamCards?.length ?? 0) === 0) {
+		content = <TeamPageEmpty />;
 	}
 
 	return (
-		<div className="px-4 lg:px-6">
-			<TeamMembersCardGrid rows={teamMemberRows} />
-		</div>
+		<>
+			<div className="px-4 lg:px-6">{content}</div>
+
+			{/* Unreleased feature: keep the postponed lineup gallery in code only
+			until the team cards return to the roadmap. */}
+			{showUnreleasedLineupCards &&
+			!isPending &&
+			!isError &&
+			teamPlayers.length > 0 ? (
+				<div className="px-4 lg:px-6">
+					<details className="rounded-[1.25rem] border border-border/60 bg-muted/20 px-5 py-4">
+						<summary className="cursor-pointer text-sm font-semibold text-foreground">
+							Postponed lineup cards ({teamPlayers.length})
+						</summary>
+						<p className="pt-2 text-sm text-muted-foreground">
+							Kept below the member cards for reference while this feature stays
+							unreleased.
+						</p>
+						<div className="pt-5">
+							<div className="flex justify-center">
+								<TeamRosterGallery players={teamPlayers} />
+							</div>
+						</div>
+					</details>
+				</div>
+			) : null}
+		</>
 	);
 }

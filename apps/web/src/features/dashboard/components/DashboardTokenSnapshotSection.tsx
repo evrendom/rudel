@@ -2,7 +2,7 @@ import { DashboardTokenDailyOverviewTable } from "@/features/dashboard/component
 import { DashboardTokenPatternChart } from "@/features/dashboard/components/DashboardTokenPatternChart";
 import { DashboardInteractiveTopChartSection } from "@/features/dashboard/components/DashboardTopChartSection";
 import type { DashboardHeadlineMetric } from "@/features/dashboard/data/dashboard-static-data";
-import type { DashboardTokenDailyPoint } from "@/features/dashboard/data/dashboard-token-adapters";
+import type { DashboardTokenDailyPoint } from "@/features/dashboard/data/dashboard-tab-adapters";
 
 export function DashboardTokenSnapshotSection({
 	dailyPattern,

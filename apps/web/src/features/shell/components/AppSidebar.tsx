@@ -1,462 +1,376 @@
+"use client";
+
+import { ArrowLeftIcon, Building2Icon, UserIcon } from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
+import * as React from "react";
+import { useLocation } from "react-router-dom";
 import {
-	Building2,
-	Check,
-	ChevronsLeft,
-	ChevronsRight,
-	ChevronsUpDown,
-	LogOut,
-	Mail,
-	Plus,
-	Settings,
-	Shield,
-} from "lucide-react";
-import { type ReactNode, useState } from "react";
-import { Link, useLocation } from "react-router-dom";
-import { Avatar, AvatarFallback, AvatarImage } from "@/app/ui/avatar";
+	SIDEBAR_SHELL_COLLAPSE_DURATION_MS,
+	Sidebar,
+	type SidebarShellMotionVariant,
+	useSidebar,
+} from "@/app/ui/sidebar";
 import {
-	DropdownMenu,
-	DropdownMenuContent,
-	DropdownMenuItem,
-	DropdownMenuSeparator,
-	DropdownMenuTrigger,
-} from "@/app/ui/dropdown-menu";
+	getActiveSettingsRouteId,
+	primarySettingsRoutes,
+} from "@/features/settings/config/settings-routes";
+import { SidebarNewsCard } from "@/features/shell/components/SidebarNewsCard";
+import { SidebarNewsPopover } from "@/features/shell/components/SidebarNewsPopover";
 import {
-	Tooltip,
-	TooltipContent,
-	TooltipProvider,
-	TooltipTrigger,
-} from "@/app/ui/tooltip";
-import { useOrganization } from "@/contexts/OrganizationContext";
-import { useAnalyticsTracking } from "@/hooks/useDashboardAnalytics";
-import { useUserInvitations } from "@/hooks/useUserInvitations";
-import { authClient, signOut } from "@/lib/auth-client";
-import { getAnalyticsPageName } from "@/lib/product-analytics";
+	RailLink,
+	type SidebarRowDebugProps,
+	type SidebarRowMode,
+} from "@/features/shell/components/shell-rail";
+import { UserRailButton } from "@/features/shell/components/UserRailButton";
+import { WorkspaceMenuButton } from "@/features/shell/components/WorkspaceMenuButton";
+import {
+	shellRouteMap,
+	shellRoutes,
+} from "@/features/shell/config/shell-routes";
+import {
+	SHOW_SIDEBAR_NEWS_MODE,
+	SIDEBAR_NEWS_ITEM_ID,
+} from "@/features/shell/config/sidebar-news";
+import type { SidebarShellDebugState } from "@/features/shell/config/sidebar-shell-debug";
+import { useCurrentShellRoute } from "@/features/shell/hooks/useCurrentShellRoute";
 import { cn } from "@/lib/utils";
-import {
-	isShellRouteActive,
-	primaryShellRoutes,
-	type ShellRouteDefinition,
-} from "../config/shell-routes";
 
-const ADMIN_ORGANIZATION_ID = (
-	import.meta.env.VITE_ADMIN_ORGANIZATION_ID ?? ""
-).trim();
-const APP_LOGO_SRC = "/logo-dark.svg";
+type SidebarDisplayMode = SidebarRowMode;
+type SidebarNavigationMode = "app" | "settings";
 
-function getInitials(name: string) {
-	return name
-		.split(" ")
-		.map((part) => part[0])
-		.join("")
-		.toUpperCase()
-		.slice(0, 2);
+const SIDEBAR_NEWS_DISMISS_STORAGE_KEY = `sidebar-news-dismissed:${SIDEBAR_NEWS_ITEM_ID}`;
+
+const SIDEBAR_NEWS_VISIBILITY_TRANSITION = {
+	duration: 0.2,
+	ease: [0.22, 1, 0.36, 1] as const,
+};
+
+function getSettingsSidebarIcon(routeId: string) {
+	return routeId === "account" ? <UserIcon /> : <Building2Icon />;
 }
 
-function SidebarNavLink({
-	badgeLabel,
-	collapsed,
-	isActive,
-	label,
+function getSidebarSectionClassName(mode: SidebarDisplayMode) {
+	return cn(
+		"mt-[var(--sidebar-section-first-margin-top)] flex w-full flex-col",
+		mode === "expanded"
+			? "pl-[calc(var(--sidebar-rail-inset-left)+var(--sidebar-expanded-section-padding-x))] pr-[calc(var(--sidebar-rail-inset-right)+var(--sidebar-expanded-section-padding-x))]"
+			: "pl-[calc(var(--sidebar-rail-inset-left)+var(--sidebar-collapsed-section-padding-x))] pr-[calc(var(--sidebar-rail-inset-right)+var(--sidebar-collapsed-section-padding-x))]",
+	);
+}
+
+function getSidebarTopClusterClassName(mode: SidebarDisplayMode) {
+	return mode === "expanded"
+		? "flex w-full flex-col gap-[var(--sidebar-expanded-stack-gap)]"
+		: "flex w-full flex-col gap-[var(--sidebar-collapsed-stack-gap)]";
+}
+
+function getSidebarNavigationClusterClassName(mode: SidebarDisplayMode) {
+	return mode === "expanded"
+		? "mt-[calc(var(--sidebar-expanded-stack-gap)+0.5rem)]"
+		: "mt-[calc(var(--sidebar-collapsed-stack-gap)+0.5rem)]";
+}
+
+function getSidebarFooterClassName(mode: SidebarDisplayMode) {
+	return cn(
+		"mt-auto w-full",
+		mode === "expanded"
+			? "pl-[calc(var(--sidebar-rail-inset-left)+var(--sidebar-expanded-footer-padding-x))] pr-[calc(var(--sidebar-rail-inset-right)+var(--sidebar-expanded-footer-padding-x))] pb-[var(--sidebar-expanded-footer-padding-bottom)]"
+			: "pl-[calc(var(--sidebar-rail-inset-left)+var(--sidebar-collapsed-footer-padding-x))] pr-[calc(var(--sidebar-rail-inset-right)+var(--sidebar-collapsed-footer-padding-x))]",
+	);
+}
+
+function getSidebarFooterStackClassName(mode: SidebarDisplayMode) {
+	return mode === "expanded"
+		? "flex w-full flex-col gap-[var(--sidebar-expanded-stack-gap)]"
+		: "flex w-full flex-col gap-[var(--sidebar-collapsed-stack-gap)]";
+}
+
+function getSidebarContentFrameClassName(mode: SidebarDisplayMode) {
+	return cn(
+		"relative flex h-full min-h-0 flex-col bg-transparent",
+		mode === "expanded"
+			? "w-(--sidebar-width) overflow-x-clip overflow-y-auto text-clip whitespace-nowrap"
+			: "w-(--sidebar-width-icon) pb-1.5",
+	);
+}
+
+function CollapsedSidebarExpandSurface({ onClick }: { onClick: () => void }) {
+	return (
+		<button
+			type="button"
+			aria-label="Expand sidebar"
+			onClick={onClick}
+			className="hidden min-h-0 flex-1 cursor-e-resize bg-transparent md:block"
+		/>
+	);
+}
+
+function SidebarEdgeHotspot({
+	isExpanded,
 	onClick,
-	to,
-	icon,
 }: {
-	badgeLabel?: string;
-	collapsed: boolean;
-	isActive: boolean;
-	label: string;
+	isExpanded: boolean;
 	onClick: () => void;
-	to: string;
-	icon: ReactNode;
 }) {
-	const link = (
-		<Link
-			to={to}
+	return (
+		<button
+			type="button"
+			aria-label="Toggle sidebar"
+			tabIndex={-1}
 			onClick={onClick}
 			className={cn(
-				"relative flex items-center gap-2 rounded-lg px-2 py-2 text-[0.8125rem] font-medium transition-colors duration-150",
-				collapsed ? "justify-center" : "",
-				isActive
-					? "bg-hover text-heading"
-					: "text-muted hover:bg-hover hover:text-foreground",
+				"group/sidebar-edge absolute inset-y-0 z-20 hidden w-3 translate-x-1/2 bg-transparent md:block",
+				"group-data-[side=left]:-right-px group-data-[side=right]:-left-px",
+				isExpanded
+					? "group-data-[side=left]:cursor-w-resize group-data-[side=right]:cursor-e-resize"
+					: "group-data-[side=left]:cursor-e-resize group-data-[side=right]:cursor-w-resize",
 			)}
 		>
-			<span className="relative shrink-0">
-				{icon}
-				{badgeLabel ? (
-					<span className="absolute -right-1.5 -top-1.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-red-500 text-[0.5625rem] font-bold leading-none text-white">
-						{badgeLabel}
-					</span>
-				) : null}
+			<span className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-transparent transition-colors duration-200 ease-out group-hover/sidebar-edge:bg-[color:var(--sidebar-border)]">
+				<span className="absolute inset-0 bg-transparent transition-colors duration-200 ease-out group-hover/sidebar-edge:bg-black/8 dark:group-hover/sidebar-edge:bg-white/12" />
 			</span>
-			{collapsed ? null : (
-				<span className="overflow-hidden whitespace-nowrap">{label}</span>
-			)}
-		</Link>
+		</button>
 	);
+}
 
-	if (!collapsed) {
-		return link;
+function SidebarNavigation({
+	mode,
+	navigationMode,
+	debugShowBorders,
+	debugVariant,
+	forceShowLabels,
+}: {
+	mode: SidebarDisplayMode;
+	navigationMode: SidebarNavigationMode;
+} & SidebarRowDebugProps) {
+	const currentShellRoute = useCurrentShellRoute();
+	const location = useLocation();
+	const activeSettingsRouteId = getActiveSettingsRouteId(location.pathname);
+
+	if (navigationMode === "settings") {
+		return (
+			<nav aria-label="Settings">
+				<ul className="flex flex-col gap-1">
+					{primarySettingsRoutes.map((route) => (
+						<RailLink
+							key={route.id}
+							to={route.path}
+							label={route.label}
+							mode={mode}
+							active={activeSettingsRouteId === route.id}
+							debugShowBorders={debugShowBorders}
+							debugVariant={debugVariant}
+							forceShowLabels={forceShowLabels}
+						>
+							{getSettingsSidebarIcon(route.id)}
+						</RailLink>
+					))}
+				</ul>
+			</nav>
+		);
 	}
 
 	return (
-		<Tooltip>
-			<TooltipTrigger render={link} />
-			<TooltipContent side="right">
-				{badgeLabel ? `${label} (${badgeLabel})` : label}
-			</TooltipContent>
-		</Tooltip>
+		<nav aria-label="Primary">
+			<ul className="flex flex-col gap-1">
+				{shellRoutes.map((route) => (
+					<RailLink
+						key={route.id}
+						to={route.path}
+						label={route.navLabel}
+						shortcut={route.shortcut}
+						mode={mode}
+						active={currentShellRoute.id === route.id}
+						debugShowBorders={debugShowBorders}
+						debugVariant={debugVariant}
+						forceShowLabels={forceShowLabels}
+					>
+						{route.icon}
+					</RailLink>
+				))}
+			</ul>
+		</nav>
 	);
 }
 
-function OrgSwitcher({ collapsed }: { collapsed: boolean }) {
-	const { activeOrg, organizations, switchOrg } = useOrganization();
-	const { trackNavigation, trackOrganizationAction } = useAnalyticsTracking();
+export function AppSidebar({
+	navigationMode = "app",
+	shellMotionShowBorders = true,
+	shellMotionVariant = "baseline",
+	shellMotionForceLabels = false,
+	shellDebugState,
+}: {
+	navigationMode?: SidebarNavigationMode;
+	shellMotionShowBorders?: boolean;
+	shellMotionVariant?: SidebarShellMotionVariant;
+	shellMotionForceLabels?: boolean;
+	shellDebugState: SidebarShellDebugState;
+}) {
+	const { state, isMobile, openMobile, toggleSidebar } = useSidebar();
+	const isSidebarExpanded = isMobile ? openMobile : state === "expanded";
+	const [displayMode, setDisplayMode] = React.useState<SidebarDisplayMode>(
+		isSidebarExpanded ? "expanded" : "collapsed",
+	);
+	const [isNewsDismissed, setIsNewsDismissed] = React.useState(() => {
+		if (typeof window === "undefined") {
+			return false;
+		}
 
-	async function handleSelect(orgId: string) {
-		if (orgId === activeOrg?.id) {
+		try {
+			return (
+				window.localStorage.getItem(SIDEBAR_NEWS_DISMISS_STORAGE_KEY) === "true"
+			);
+		} catch {
+			return false;
+		}
+	});
+	const newsDebugTuning = shellDebugState.tuning;
+	const showSidebarNewsFeatures =
+		SHOW_SIDEBAR_NEWS_MODE && navigationMode === "app";
+
+	const dismissNewsCard = React.useCallback(() => {
+		setIsNewsDismissed(true);
+
+		try {
+			window.localStorage.setItem(SIDEBAR_NEWS_DISMISS_STORAGE_KEY, "true");
+		} catch {}
+	}, []);
+
+	React.useEffect(() => {
+		if (isMobile) {
+			setDisplayMode("expanded");
 			return;
 		}
 
-		trackOrganizationAction({
-			actionName: "switch_organization",
-			targetType: "organization",
-			sourceComponent: "org_switcher",
-			targetId: orgId,
-		});
+		if (isSidebarExpanded) {
+			setDisplayMode("expanded");
+			return;
+		}
 
-		await switchOrg(orgId);
-	}
+		if (displayMode === "collapsed") {
+			return;
+		}
 
-	return (
-		<DropdownMenu>
-			<DropdownMenuTrigger
-				render={
-					<button
-						type="button"
-						className={cn(
-							"flex h-10 w-full items-center gap-1.5 overflow-hidden px-4 transition-colors hover:bg-hover",
-							collapsed ? "justify-center px-0" : "",
-						)}
-					>
-						<Building2 className="h-4 w-4 shrink-0 text-accent" />
-						{collapsed ? null : (
-							<>
-								<span className="flex-1 truncate text-left text-sm font-bold text-heading">
-									{activeOrg?.name ?? "Select org"}
-								</span>
-								<ChevronsUpDown className="h-3.5 w-3.5 shrink-0 text-muted" />
-							</>
-						)}
-					</button>
-				}
-			/>
-			<DropdownMenuContent
-				side={collapsed ? "right" : "bottom"}
-				align="start"
-				className="w-56"
-			>
-				{organizations.map((organization) => (
-					<DropdownMenuItem
-						key={organization.id}
-						onClick={() => void handleSelect(organization.id)}
-					>
-						<Building2 className="h-3.5 w-3.5 shrink-0 text-muted" />
-						<span className="flex-1 truncate">{organization.name}</span>
-						{organization.id === activeOrg?.id ? (
-							<Check className="h-3.5 w-3.5 shrink-0 text-accent" />
-						) : null}
-					</DropdownMenuItem>
-				))}
-				<DropdownMenuSeparator />
-				<DropdownMenuItem
-					render={
-						<Link
-							to="/dashboard/organization"
-							onClick={() => {
-								trackNavigation({
-									navType: "organization_menu",
-									sourceComponent: "org_switcher",
-									targetPath: "/dashboard/organization",
-									targetType: "page",
-									toPageName: "organization",
-								});
-							}}
-						/>
-					}
-				>
-					<Settings className="h-3.5 w-3.5 shrink-0" />
-					<span>Manage organization</span>
-				</DropdownMenuItem>
-				<DropdownMenuItem
-					render={
-						<Link
-							to="/dashboard/organization/new"
-							onClick={() => {
-								trackNavigation({
-									navType: "organization_menu",
-									sourceComponent: "org_switcher",
-									targetPath: "/dashboard/organization/new",
-									targetType: "page",
-									toPageName: "organization_create",
-								});
-							}}
-						/>
-					}
-				>
-					<Plus className="h-3.5 w-3.5 shrink-0" />
-					<span>Create organization</span>
-				</DropdownMenuItem>
-			</DropdownMenuContent>
-		</DropdownMenu>
-	);
-}
+		// Keep the expanded row variant mounted through the width collapse so
+		// clipping, not an immediate mode swap, hides the labels.
+		const timeoutId = window.setTimeout(() => {
+			React.startTransition(() => {
+				setDisplayMode("collapsed");
+			});
+		}, SIDEBAR_SHELL_COLLAPSE_DURATION_MS);
 
-function buildRouteSourceComponent(route: ShellRouteDefinition) {
-	return `sidebar_${route.id}`;
-}
+		return () => window.clearTimeout(timeoutId);
+	}, [displayMode, isMobile, isSidebarExpanded]);
 
-export function AppSidebar() {
-	const { pathname } = useLocation();
-	const { data: session } = authClient.useSession();
-	const { count: invitationCount } = useUserInvitations();
-	const { organizations } = useOrganization();
-	const { trackAuthenticationAction, trackNavigation, trackUtility } =
-		useAnalyticsTracking();
-	const [collapsed, setCollapsed] = useState(false);
-
-	const isAdmin =
-		ADMIN_ORGANIZATION_ID !== "" &&
-		organizations.some(
-			(organization) => organization.id === ADMIN_ORGANIZATION_ID,
-		);
-	const isInvitationRouteActive = pathname === "/dashboard/invitations";
-	const isAdminRouteActive =
-		pathname === "/dashboard/admin" || pathname.startsWith("/dashboard/admin/");
-
-	function trackSidebarNavigation(sourceComponent: string, targetPath: string) {
-		trackNavigation({
-			navType: "sidebar",
-			sourceComponent,
-			targetPath,
-			targetType: "page",
-			toPageName: getAnalyticsPageName(targetPath) ?? undefined,
-		});
-	}
-
-	function toggleCollapsed() {
-		const nextCollapsed = !collapsed;
-
-		trackUtility({
-			utilityName: "sidebar_collapse",
-			componentId: "app_sidebar",
-			utilityState: nextCollapsed ? "collapsed" : "expanded",
-		});
-
-		setCollapsed(nextCollapsed);
-	}
+	const isExpandedMode = displayMode === "expanded";
+	const showSidebarNewsCard =
+		showSidebarNewsFeatures && isSidebarExpanded && !isNewsDismissed;
 
 	return (
-		<TooltipProvider>
-			<aside
-				className={cn(
-					"relative z-20 flex h-full shrink-0 flex-col border-r border-border bg-surface transition-[width] duration-200 ease-in-out",
-					collapsed ? "w-14" : "w-64",
-				)}
-			>
-				<div className="flex items-center border-b border-border">
-					<Link
-						to="/dashboard"
-						onClick={() => trackSidebarNavigation("sidebar_logo", "/dashboard")}
-						className={cn(
-							"flex h-10 shrink-0 items-center px-4",
-							collapsed ? "px-3" : "",
-						)}
-					>
-						<img src={APP_LOGO_SRC} alt="Rudel" className="h-5 w-5" />
-					</Link>
-					<div className="min-w-0 flex-1">
-						<OrgSwitcher collapsed={collapsed} />
-					</div>
-					<button
-						type="button"
-						onClick={toggleCollapsed}
-						className="mr-1 shrink-0 rounded-md p-1 text-muted transition-colors hover:bg-hover hover:text-foreground"
-						title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-					>
-						{collapsed ? (
-							<ChevronsRight className="h-4 w-4" />
-						) : (
-							<ChevronsLeft className="h-4 w-4" />
-						)}
-					</button>
-				</div>
-
-				<nav className="flex flex-1 flex-col gap-[1px] px-2 pb-1 pt-2">
-					{primaryShellRoutes.map((route) => {
-						const Icon = route.icon;
-
-						return (
-							<SidebarNavLink
-								key={route.id}
-								collapsed={collapsed}
-								isActive={isShellRouteActive(pathname, route)}
-								label={route.label}
-								onClick={() =>
-									trackSidebarNavigation(
-										buildRouteSourceComponent(route),
-										route.path,
-									)
-								}
-								to={route.path}
-								icon={<Icon className="h-4 w-4 shrink-0" />}
+		<Sidebar
+			collapsible="icon"
+			shellMotionShowBorders={shellMotionShowBorders}
+			shellMotionVariant={shellMotionVariant}
+			className="dashboard-01-chrome-sidebar"
+			data-sidebar-news-overflow-debug={
+				newsDebugTuning.newsSidebarOverflowVisible ? "true" : "false"
+			}
+			data-sidebar-news-promote-debug={
+				newsDebugTuning.newsPromoteSidebar ? "true" : "false"
+			}
+			style={
+				{
+					"--sidebar-news-active-sidebar-z": `${newsDebugTuning.newsActiveSidebarZ}`,
+				} as React.CSSProperties
+			}
+		>
+			<div className={getSidebarContentFrameClassName(displayMode)}>
+				<div className={getSidebarSectionClassName(displayMode)}>
+					<div className={getSidebarTopClusterClassName(displayMode)}>
+						{navigationMode === "settings" ? (
+							<nav aria-label="Back to app">
+								<ul className="flex flex-col gap-1">
+									<RailLink
+										to={shellRouteMap.dashboard.path}
+										label="Back to app"
+										mode={displayMode}
+										debugShowBorders={shellMotionShowBorders}
+										debugVariant={shellMotionVariant}
+										forceShowLabels={shellMotionForceLabels}
+									>
+										<ArrowLeftIcon />
+									</RailLink>
+								</ul>
+							</nav>
+						) : isExpandedMode ? (
+							<WorkspaceMenuButton
+								debugShowBorders={shellMotionShowBorders}
+								debugVariant={shellMotionVariant}
+								forceShowLabels={shellMotionForceLabels}
 							/>
-						);
-					})}
-
-					{invitationCount > 0 ? (
-						<SidebarNavLink
-							collapsed={collapsed}
-							isActive={isInvitationRouteActive}
-							label="Invitations"
-							badgeLabel={`${invitationCount}`}
-							onClick={() =>
-								trackSidebarNavigation(
-									"sidebar_invitations",
-									"/dashboard/invitations",
-								)
-							}
-							to="/dashboard/invitations"
-							icon={<Mail className="h-4 w-4 shrink-0" />}
-						/>
-					) : null}
-
-					{isAdmin ? <div className="mt-auto" /> : null}
-					{isAdmin ? (
-						<SidebarNavLink
-							collapsed={collapsed}
-							isActive={isAdminRouteActive}
-							label="Admin"
-							onClick={() =>
-								trackSidebarNavigation("sidebar_admin", "/dashboard/admin")
-							}
-							to="/dashboard/admin"
-							icon={<Shield className="h-4 w-4 shrink-0" />}
-						/>
-					) : null}
-				</nav>
-
-				{session?.user ? (
-					<div className="border-t border-border p-2">
-						{collapsed ? (
-							<div className="mb-2 flex justify-center">
-								<Tooltip>
-									<TooltipTrigger
-										render={
-											<div className="flex h-7 w-7 items-center justify-center rounded-md bg-hover text-[0.5625rem] font-bold tracking-[0.14em] text-accent">
-												A
-											</div>
-										}
-									/>
-									<TooltipContent side="right">
-										OPEN ALPHA Testing v{__APP_VERSION__}
-									</TooltipContent>
-								</Tooltip>
-							</div>
 						) : (
-							<div className="mb-2 flex items-center justify-between gap-2 rounded-lg bg-hover px-2 py-2">
-								<div className="truncate text-[0.6875rem] font-bold tracking-[0.08em] text-accent">
-									OPEN ALPHA Testing
-								</div>
-							</div>
+							<WorkspaceMenuButton
+								mode="collapsed"
+								debugShowBorders={shellMotionShowBorders}
+								debugVariant={shellMotionVariant}
+								forceShowLabels={shellMotionForceLabels}
+							/>
 						)}
-
-						<div
-							className={cn(
-								"flex items-center gap-2",
-								collapsed ? "justify-center" : "",
-							)}
-						>
-							{collapsed ? (
-								<Tooltip>
-									<TooltipTrigger
-										render={
-											<Link
-												to="/dashboard/profile"
-												onClick={() =>
-													trackSidebarNavigation(
-														"sidebar_profile_avatar",
-														"/dashboard/profile",
-													)
-												}
-												className="flex min-w-0 items-center gap-2"
-											>
-												<Avatar size="sm" className="shrink-0">
-													{session.user.image ? (
-														<AvatarImage
-															src={session.user.image}
-															alt={session.user.name}
-														/>
-													) : null}
-													<AvatarFallback>
-														{getInitials(session.user.name)}
-													</AvatarFallback>
-												</Avatar>
-											</Link>
-										}
-									/>
-									<TooltipContent side="right">
-										{session.user.name}
-									</TooltipContent>
-								</Tooltip>
-							) : (
-								<>
-									<Link
-										to="/dashboard/profile"
-										onClick={() =>
-											trackSidebarNavigation(
-												"sidebar_profile",
-												"/dashboard/profile",
-											)
-										}
-										className="flex min-w-0 flex-1 items-center gap-2"
-									>
-										<Avatar size="sm" className="shrink-0">
-											{session.user.image ? (
-												<AvatarImage
-													src={session.user.image}
-													alt={session.user.name}
-												/>
-											) : null}
-											<AvatarFallback>
-												{getInitials(session.user.name)}
-											</AvatarFallback>
-										</Avatar>
-										<span className="flex-1 truncate text-xs font-medium text-foreground transition-colors hover:text-heading">
-											{session.user.name}
-										</span>
-									</Link>
-									<button
-										type="button"
-										onClick={() => {
-											trackAuthenticationAction({
-												actionName: "sign_out",
-												sourceComponent: "sidebar_sign_out",
-												authMethod: "session",
-											});
-											signOut();
-										}}
-										className="shrink-0 rounded-md p-1 text-muted transition-colors hover:bg-hover hover:text-foreground"
-										title="Sign out"
-									>
-										<LogOut className="h-3.5 w-3.5" />
-									</button>
-								</>
-							)}
-						</div>
+						{showSidebarNewsFeatures && isExpandedMode ? (
+							<SidebarNewsPopover />
+						) : null}
 					</div>
+					<div className={getSidebarNavigationClusterClassName(displayMode)}>
+						<SidebarNavigation
+							mode={displayMode}
+							navigationMode={navigationMode}
+							debugShowBorders={shellMotionShowBorders}
+							debugVariant={shellMotionVariant}
+							forceShowLabels={shellMotionForceLabels}
+						/>
+					</div>
+				</div>
+				{isExpandedMode ? null : (
+					<CollapsedSidebarExpandSurface onClick={toggleSidebar} />
+				)}
+				<div className={getSidebarFooterClassName(displayMode)}>
+					<div className={getSidebarFooterStackClassName(displayMode)}>
+						<AnimatePresence initial={false}>
+							{showSidebarNewsCard ? (
+								<motion.div
+									key="sidebar-news-card"
+									initial={{ opacity: 0 }}
+									animate={{ opacity: 1 }}
+									exit={{ opacity: 0 }}
+									transition={SIDEBAR_NEWS_VISIBILITY_TRANSITION}
+								>
+									<SidebarNewsCard onDismiss={dismissNewsCard} />
+								</motion.div>
+							) : null}
+						</AnimatePresence>
+						{isExpandedMode ? (
+							<UserRailButton
+								debugShowBorders={shellMotionShowBorders}
+								debugVariant={shellMotionVariant}
+								forceShowLabels={shellMotionForceLabels}
+							/>
+						) : (
+							<UserRailButton
+								mode="collapsed"
+								debugShowBorders={shellMotionShowBorders}
+								debugVariant={shellMotionVariant}
+								forceShowLabels={shellMotionForceLabels}
+							/>
+						)}
+					</div>
+				</div>
+				{navigationMode === "app" ? (
+					<SidebarEdgeHotspot
+						isExpanded={isExpandedMode}
+						onClick={toggleSidebar}
+					/>
 				) : null}
-			</aside>
-		</TooltipProvider>
+			</div>
+		</Sidebar>
 	);
 }
