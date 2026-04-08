@@ -1,13 +1,20 @@
 "use client";
 
 import { useMemo } from "react";
-import { Bar, BarChart, XAxis, YAxis } from "recharts";
+import {
+	Bar,
+	BarChart,
+	type MouseHandlerDataParam,
+	XAxis,
+	YAxis,
+} from "recharts";
 import { type ChartConfig, ChartContainer, ChartTooltip } from "@/app/ui/chart";
 import { DashboardStackedTopRoundedBar } from "@/features/dashboard/components/DashboardStackedTopRoundedBar";
 import {
 	getDashboardBarLabelWidth,
 	getDashboardBarSize,
 } from "@/features/dashboard/components/dashboard-bar-chart-layout";
+import type { DashboardHighlightChangeHandler } from "@/features/dashboard/components/dashboard-highlight-state";
 import type { DashboardTokenModelChartDatum } from "@/features/dashboard/data/dashboard-token-model-adapter";
 import { formatCompactWholeNumber, formatWholeCurrency } from "@/lib/format";
 
@@ -30,6 +37,8 @@ type DashboardTokenModelChartProps = {
 	activeId?: string | null;
 	className?: string;
 	data: DashboardTokenModelChartDatum[];
+	highlightSource?: "chart" | "table" | null;
+	onHighlightModelChange?: DashboardHighlightChangeHandler;
 };
 
 type DashboardTokenModelChartRow = DashboardTokenModelChartDatum & {
@@ -142,6 +151,8 @@ export function DashboardTokenModelChart({
 	activeId,
 	className,
 	data,
+	highlightSource,
+	onHighlightModelChange,
 }: DashboardTokenModelChartProps) {
 	const chartData = useMemo<DashboardTokenModelChartRow[]>(
 		() =>
@@ -180,6 +191,17 @@ export function DashboardTokenModelChart({
 					barCategoryGap={0}
 					barGap={0}
 					margin={{ top: 8, right: 8, bottom: 40, left: 42 }}
+					onMouseLeave={() => onHighlightModelChange?.(null)}
+					onMouseMove={(state: MouseHandlerDataParam) => {
+						onHighlightModelChange?.(
+							typeof state.activeLabel === "string"
+								? state.activeLabel
+								: typeof state.activeLabel === "number"
+									? state.activeLabel.toString()
+									: null,
+							"chart",
+						);
+					}}
 				>
 					<XAxis
 						dataKey="id"
@@ -220,6 +242,7 @@ export function DashboardTokenModelChart({
 						shape={
 							<DashboardStackedTopRoundedBar
 								activeId={resolvedActiveId}
+								activeSource={highlightSource}
 								dataKey="committed"
 							/>
 						}

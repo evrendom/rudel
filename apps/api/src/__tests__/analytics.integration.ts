@@ -18,6 +18,7 @@ import {
 	DeveloperTimelineSchema,
 	DeveloperTrendDataPointSchema,
 	DimensionAnalysisDataPointSchema,
+	ErrorsDashboardSchema,
 	ErrorTrendDataPointSchema,
 	InsightSchema,
 	LearningEntrySchema,
@@ -533,6 +534,16 @@ describe("analytics/roi", () => {
 // ── Errors ──────────────────────────────────────────────────────────
 
 describe("analytics/errors", () => {
+	test("dashboard", async () => {
+		const result = await rpc("analytics/errors/dashboard", {
+			startDate: START_DATE,
+			endDate: END_DATE,
+		});
+		const parsed = ErrorsDashboardSchema.parse(result);
+		expect(parsed.summary.total_errors).toBeGreaterThanOrEqual(0);
+		expect(Array.isArray(parsed.recurring)).toBe(true);
+	}, 30_000);
+
 	test("topRecurring", async () => {
 		const result = await rpc("analytics/errors/topRecurring", {
 			days: DAYS,
@@ -546,10 +557,12 @@ describe("analytics/errors", () => {
 		const result = await rpc("analytics/errors/trends", {
 			startDate: START_DATE,
 			endDate: END_DATE,
-			splitBy: "repository",
+			splitBy: "project_path",
 		});
 		const parsed = parseArray(ErrorTrendDataPointSchema, result);
-		expect(Array.isArray(parsed)).toBe(true);
+		expect(parsed.length).toBeGreaterThan(0);
+		expect(Array.isArray(parsed[0]?.error_types)).toBe(true);
+		expect(Array.isArray(parsed[0]?.error_type_occurrences)).toBe(true);
 	}, 30_000);
 });
 

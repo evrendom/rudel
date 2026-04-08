@@ -1,10 +1,11 @@
 import type { ModelTokensTrendData } from "@rudel/api-routes";
 import { CpuIcon } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Skeleton } from "@/app/ui/skeleton";
 import { DashboardAnalysisPanel } from "@/features/dashboard/components/DashboardAnalysisPanel";
 import { DashboardTokenModelChart } from "@/features/dashboard/components/DashboardTokenModelChart";
 import { DashboardTokenModelTable } from "@/features/dashboard/components/DashboardTokenModelTable";
+import { useDashboardHighlightState } from "@/features/dashboard/components/dashboard-highlight-state";
 import {
 	buildDashboardTokenModelChartData,
 	buildDashboardTokenModelRows,
@@ -42,9 +43,8 @@ export function DashboardTokenModelsPanel({
 }: {
 	modelTokensTrend: ModelTokensTrendData[] | undefined;
 }) {
-	const [highlightedModelId, setHighlightedModelId] = useState<string | null>(
-		null,
-	);
+	const { highlightSource, highlightedItemId, setHighlight } =
+		useDashboardHighlightState();
 	const modelRows = useMemo(
 		() => buildDashboardTokenModelRows(modelTokensTrend),
 		[modelTokensTrend],
@@ -69,8 +69,10 @@ export function DashboardTokenModelsPanel({
 					<DashboardTokenModelChartFallback />
 				) : hasModelData ? (
 					<DashboardTokenModelChart
-						activeId={highlightedModelId}
+						activeId={highlightedItemId}
 						data={chartData}
+						highlightSource={highlightSource}
+						onHighlightModelChange={setHighlight}
 					/>
 				) : (
 					<div className="flex h-full items-center justify-center px-6 text-center text-sm text-muted-foreground">
@@ -81,7 +83,9 @@ export function DashboardTokenModelsPanel({
 			tableContent={
 				hasModelData ? (
 					<DashboardTokenModelTable
-						onHighlightModelChange={setHighlightedModelId}
+						highlightSource={highlightSource}
+						highlightedModelId={highlightedItemId}
+						onHighlightModelChange={setHighlight}
 						rows={modelRows}
 					/>
 				) : null

@@ -103,7 +103,11 @@ export function DashboardSessionsSnapshotSection({
 			isMetricsLoading={isMetricsPending}
 			metrics={metrics}
 			showDelta={showDelta}
-			renderChart={({ highlightedItemId, highlightSource }) =>
+			renderChart={({
+				highlightedItemId,
+				highlightSource,
+				onHighlightItemChange,
+			}) =>
 				isSessionsPending ? (
 					<DashboardSessionChartFallback />
 				) : chartData.length > 0 ? (
@@ -112,6 +116,7 @@ export function DashboardSessionsSnapshotSection({
 						className="min-w-0"
 						data={chartData}
 						highlightSource={highlightSource}
+						onHighlightSessionChange={onHighlightItemChange}
 					/>
 				) : (
 					<div className="flex h-[12.875rem] w-full items-center justify-center px-6 text-center text-sm text-muted-foreground">

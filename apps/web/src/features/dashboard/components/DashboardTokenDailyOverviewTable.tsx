@@ -1,6 +1,7 @@
 import { format, parseISO } from "date-fns";
 import { DashboardCellStack } from "@/features/dashboard/components/DashboardGridTable";
 import { DashboardTokenCostCell } from "@/features/dashboard/components/DashboardTokenCostCell";
+import type { DashboardHighlightChangeHandler } from "@/features/dashboard/components/dashboard-highlight-state";
 import type { DashboardTokenDailyPoint } from "@/features/dashboard/data/dashboard-token-adapters";
 import { formatCompactNumber } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -66,7 +67,7 @@ export function DashboardTokenDailyOverviewTable({
 	data: DashboardTokenDailyPoint[];
 	highlightedDate?: string | null;
 	highlightSource?: "chart" | "table" | null;
-	onHighlightDateChange?: (date: string | null) => void;
+	onHighlightDateChange?: DashboardHighlightChangeHandler;
 }) {
 	const rows = buildTokenRows(data);
 	const hasTableHighlight =

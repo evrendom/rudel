@@ -1,6 +1,7 @@
 "use client";
 
 import { Rectangle } from "recharts";
+import type { DashboardHighlightSource } from "@/features/dashboard/components/dashboard-highlight-state";
 
 type SeriesKey = "committed" | "stub" | "uncommitted";
 
@@ -13,6 +14,7 @@ type StackedBarPayload = {
 
 export function DashboardStackedTopRoundedBar({
 	activeId,
+	activeSource,
 	dataKey,
 	fill,
 	height,
@@ -23,6 +25,7 @@ export function DashboardStackedTopRoundedBar({
 	y,
 }: {
 	activeId?: string | null;
+	activeSource?: DashboardHighlightSource;
 	dataKey?: SeriesKey;
 	fill?: string;
 	height?: number;
@@ -56,7 +59,12 @@ export function DashboardStackedTopRoundedBar({
 	const hasExternalHighlight = activeId != null;
 	const highlightStroke =
 		"color-mix(in srgb, var(--dashboardy-heading) 22%, transparent)";
-	const barOpacity = hasExternalHighlight && !isHighlighted ? 0.16 : 1;
+	const barOpacity =
+		hasExternalHighlight && !isHighlighted
+			? activeSource === "table"
+				? 0.16
+				: 0.26
+			: 1;
 	const showStroke = isHighlighted && isTopSegment;
 
 	return (

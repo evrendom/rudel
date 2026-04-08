@@ -10,6 +10,7 @@ import {
 } from "@/features/dashboard/components/DashboardRepositoryChart";
 import { DashboardRepositoryTable } from "@/features/dashboard/components/DashboardRepositoryTable";
 import { DashboardRepositoryTrendChart } from "@/features/dashboard/components/DashboardRepositoryTrendChart";
+import { useDashboardHighlightState } from "@/features/dashboard/components/dashboard-highlight-state";
 import {
 	buildDashboardRepositorySummaryRows,
 	buildDashboardRepositoryTrendSeries,
@@ -70,9 +71,8 @@ export function DashboardRepositoryPanel({
 	const [hiddenTrendSeriesIds, setHiddenTrendSeriesIds] = useState<string[]>(
 		[],
 	);
-	const [highlightedRepositoryId, setHighlightedRepositoryId] = useState<
-		string | null
-	>(null);
+	const { highlightSource, highlightedItemId, setHighlight } =
+		useDashboardHighlightState();
 	const [trendMetric, setTrendMetric] =
 		useState<DashboardRepositoryTrendMetric>("sessions");
 	const repositoryRows = useMemo(
@@ -164,10 +164,11 @@ export function DashboardRepositoryPanel({
 							availableMetrics={
 								variant === "sessions" ? ["sessions"] : ["sessions", "commits"]
 							}
-							highlightedSeriesId={highlightedRepositoryId}
+							highlightedSeriesId={highlightedItemId}
 							hiddenRows={hiddenChartRows}
 							hiddenSeriesIds={hiddenTrendSeriesIds}
 							metric={trendMetric}
+							onHighlightSeriesChange={setHighlight}
 							onMetricChange={setTrendMetric}
 							onToggleSeries={handleToggleTrendSeries}
 							trendData={repositoryDailyTrend}
@@ -180,8 +181,10 @@ export function DashboardRepositoryPanel({
 					)
 				) : hasChartData ? (
 					<DashboardRepositoryChart
-						activeId={highlightedRepositoryId}
+						activeId={highlightedItemId}
 						data={chartData}
+						highlightSource={highlightSource}
+						onHighlightRepositoryChange={setHighlight}
 						variant={variant}
 					/>
 				) : (
@@ -192,8 +195,10 @@ export function DashboardRepositoryPanel({
 			}
 			tableContent={
 				<DashboardRepositoryTable
+					highlightSource={highlightSource}
 					highlightedDate={null}
-					onHighlightRepositoryChange={setHighlightedRepositoryId}
+					highlightedRepositoryId={highlightedItemId}
+					onHighlightRepositoryChange={setHighlight}
 					rows={repositoryRows}
 					trendData={repositoryDailyTrend}
 					variant={variant}

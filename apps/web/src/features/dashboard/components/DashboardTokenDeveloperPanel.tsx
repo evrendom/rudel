@@ -10,6 +10,7 @@ import {
 	type DashboardTokenDeveloperDatum,
 } from "@/features/dashboard/components/DashboardTokenDeveloperChart";
 import { DashboardTokenDeveloperTable } from "@/features/dashboard/components/DashboardTokenDeveloperTable";
+import { useDashboardHighlightState } from "@/features/dashboard/components/dashboard-highlight-state";
 import type { DashboardPerformanceUserComparison } from "@/features/dashboard/data/dashboard-performance-adapter";
 import {
 	buildDashboardPerformanceTrendSeries,
@@ -113,9 +114,8 @@ export function DashboardTokenDeveloperPanel({
 	const [hiddenTrendSeriesIds, setHiddenTrendSeriesIds] = useState<string[]>(
 		[],
 	);
-	const [highlightedUserId, setHighlightedUserId] = useState<string | null>(
-		null,
-	);
+	const { highlightSource, highlightedItemId, setHighlight } =
+		useDashboardHighlightState();
 	const [trendMetric, setTrendMetric] =
 		useState<DashboardPerformanceTrendMetric>("tokens");
 	const selectedChartData = useMemo(
@@ -192,9 +192,10 @@ export function DashboardTokenDeveloperPanel({
 					hasTrendData ? (
 						<DashboardPerformanceTrendChart
 							availableMetrics={["tokens"]}
-							highlightedSeriesId={highlightedUserId}
+							highlightedSeriesId={highlightedItemId}
 							hiddenSeriesIds={hiddenTrendSeriesIds}
 							metric={trendMetric}
+							onHighlightSeriesChange={setHighlight}
 							onMetricChange={setTrendMetric}
 							onToggleSeries={handleToggleTrendSeries}
 							trendData={performanceUserDailyTrend}
@@ -207,8 +208,10 @@ export function DashboardTokenDeveloperPanel({
 					)
 				) : hasChartData ? (
 					<DashboardTokenDeveloperChart
-						activeId={highlightedUserId}
+						activeId={highlightedItemId}
 						data={selectedChartData}
+						highlightSource={highlightSource}
+						onHighlightUserChange={setHighlight}
 					/>
 				) : (
 					<div className="flex h-full items-center justify-center px-6 text-center text-sm text-muted-foreground">
@@ -218,8 +221,10 @@ export function DashboardTokenDeveloperPanel({
 			}
 			tableContent={
 				<DashboardTokenDeveloperTable
+					highlightSource={highlightSource}
 					highlightedDate={null}
-					onHighlightUserChange={setHighlightedUserId}
+					highlightedUserId={highlightedItemId}
+					onHighlightUserChange={setHighlight}
 					performanceUsers={performanceUsers}
 					trendData={performanceUserDailyTrend}
 				/>

@@ -4,11 +4,12 @@ import { format, parseISO } from "date-fns";
 import { useMemo } from "react";
 import { Bar, BarChart, Rectangle, XAxis, YAxis } from "recharts";
 import { type ChartConfig, ChartContainer, ChartTooltip } from "@/app/ui/chart";
+import type { DashboardHighlightChangeHandler } from "@/features/dashboard/components/dashboard-highlight-state";
 import type { DashboardTokenDailyPoint } from "@/features/dashboard/data/dashboard-token-adapters";
 import { formatCompactWholeNumber } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
-const MAX_VISIBLE_MODEL_STACKS = 6;
+const MAX_VISIBLE_MODEL_STACKS = 4;
 const TOKEN_MODEL_COLORS = [
 	"#1949A9",
 	"#159C89",
@@ -18,6 +19,12 @@ const TOKEN_MODEL_COLORS = [
 	"#0F766E",
 ] as const;
 const OTHER_MODEL_COLOR = "#D7DBE2";
+const TOKEN_CHART_CONFIG = {
+	totalTokens: {
+		label: "Tokens",
+		color: TOKEN_MODEL_COLORS[0],
+	},
+} satisfies ChartConfig;
 
 type TokenModelSeries = {
 	color: string;
@@ -151,10 +158,11 @@ function getBarSize(total: number) {
 
 function TokenPatternTooltip({
 	active,
+	modelSeries,
 	payload,
-	seriesByKey,
 }: {
 	active?: boolean;
+	modelSeries: TokenModelSeries[];
 	payload?: Array<{
 		color?: string;
 		dataKey?: string;
@@ -162,7 +170,6 @@ function TokenPatternTooltip({
 		payload: TokenChartRow;
 		value?: number | string;
 	}>;
-	seriesByKey: Map<string, TokenModelSeries>;
 }) {
 	if (!active || !payload?.length) {
 		return null;
@@ -174,18 +181,12 @@ function TokenPatternTooltip({
 		return null;
 	}
 
-	const modelRows = payload
-		.map((item) => {
-			const series = seriesByKey.get(String(item.dataKey ?? ""));
-			const value =
-				typeof item.value === "number" ? item.value : Number(item.value ?? 0);
-
-			return {
-				color: item.color,
-				label: series?.label ?? String(item.name ?? item.dataKey ?? "Model"),
-				value,
-			};
-		})
+	const modelRows = modelSeries
+		.map((series) => ({
+			color: series.color,
+			label: series.label,
+			value: Number(point[series.key] ?? 0),
+		}))
 		.filter((item) => Number.isFinite(item.value) && item.value > 0)
 		.sort((left, right) => right.value - left.value);
 
@@ -264,16 +265,15 @@ function TokenPatternTooltip({
 function TokenBarShape(props: {
 	activeDate?: string | null;
 	activeSource?: "chart" | "table" | null;
-	dataKey?: string;
 	fill?: string;
 	height?: number;
 	payload?: TokenChartRow;
-	stackOrder: readonly string[];
+	segments: readonly TokenModelSeries[];
 	width?: number;
 	x?: number;
 	y?: number;
 }) {
-	const { fill, x, y, width, height, payload, dataKey } = props;
+	const { x, y, width, height, payload } = props;
 
 	if (
 		typeof x !== "number" ||
@@ -281,16 +281,28 @@ function TokenBarShape(props: {
 		typeof width !== "number" ||
 		typeof height !== "number" ||
 		!payload ||
-		!dataKey ||
 		height <= 0
 	) {
 		return null;
 	}
 
-	const keyIndex = props.stackOrder.indexOf(dataKey);
-	const isTopSegment = props.stackOrder
-		.slice(keyIndex + 1)
-		.every((key) => Number(payload[key] ?? 0) === 0);
+	const visibleSegments = props.segments.filter(
+		(segment) => Number(payload[segment.key] ?? 0) > 0,
+	);
+
+	if (!visibleSegments.length) {
+		return null;
+	}
+
+	const totalValue = visibleSegments.reduce(
+		(sum, segment) => sum + Number(payload[segment.key] ?? 0),
+		0,
+	);
+
+	if (totalValue <= 0) {
+		return null;
+	}
+
 	const isHighlighted = props.activeDate === payload.date;
 	const hasExternalHighlight = props.activeDate != null;
 	const isTableHighlight = props.activeSource === "table";
@@ -302,25 +314,45 @@ function TokenBarShape(props: {
 				? 0.16
 				: 0.26
 			: 1;
-	const showStroke = isHighlighted && isTopSegment;
+	const showStroke = isHighlighted;
+	let segmentTop = y + height;
 
 	return (
-		<Rectangle
-			x={x}
-			y={y}
-			width={width}
-			height={height}
-			fill={fill}
-			radius={isTopSegment ? [4, 4, 0, 0] : 0}
-			stroke={highlightStroke}
-			strokeWidth={showStroke ? 1 : 0}
+		<g
 			style={{
 				opacity: barOpacity,
-				strokeOpacity: showStroke ? 1 : 0,
-				transition:
-					"opacity 300ms cubic-bezier(0.23, 1, 0.32, 1), stroke-opacity 300ms cubic-bezier(0.23, 1, 0.32, 1)",
+				transition: "opacity 300ms cubic-bezier(0.23, 1, 0.32, 1)",
 			}}
-		/>
+		>
+			{visibleSegments.map((segment, index) => {
+				const segmentValue = Number(payload[segment.key] ?? 0);
+				const isTopSegment = index === visibleSegments.length - 1;
+				const segmentHeight = isTopSegment
+					? segmentTop - y
+					: (height * segmentValue) / totalValue;
+				const nextY = segmentTop - segmentHeight;
+
+				segmentTop = nextY;
+
+				return (
+					<Rectangle
+						key={segment.key}
+						x={x}
+						y={nextY}
+						width={width}
+						height={segmentHeight}
+						fill={segment.color}
+						radius={isTopSegment ? [4, 4, 0, 0] : 0}
+						stroke={highlightStroke}
+						strokeWidth={showStroke && isTopSegment ? 1 : 0}
+						style={{
+							strokeOpacity: showStroke && isTopSegment ? 1 : 0,
+							transition: "stroke-opacity 300ms cubic-bezier(0.23, 1, 0.32, 1)",
+						}}
+					/>
+				);
+			})}
+		</g>
 	);
 }
 
@@ -329,97 +361,95 @@ export function DashboardTokenPatternChart({
 	className,
 	highlightedDate,
 	highlightSource,
+	onHighlightDateChange,
 	tickLabelStyle = "adaptive",
 }: {
 	className?: string;
 	data: DashboardTokenDailyPoint[];
 	highlightedDate?: string | null;
 	highlightSource?: "chart" | "table" | null;
+	onHighlightDateChange?: DashboardHighlightChangeHandler;
 	tickLabelStyle?: "adaptive" | "month-date";
 }) {
 	const axisMax = getAxisMax(data);
 	const axisTicks = getAxisTicks(axisMax);
-	const { chartConfig, chartData, modelSeries, seriesByKey, stackOrder } =
-		useMemo(() => {
-			const modelTotals = new Map<string, number>();
-			for (const point of data) {
-				for (const [model, tokens] of Object.entries(point.modelTokens)) {
-					if (tokens > 0) {
-						modelTotals.set(model, (modelTotals.get(model) ?? 0) + tokens);
-					}
+	const { chartData, modelSeries } = useMemo(() => {
+		const modelTotals = new Map<string, number>();
+		for (const point of data) {
+			for (const [model, tokens] of Object.entries(point.modelTokens)) {
+				if (tokens > 0) {
+					modelTotals.set(model, (modelTotals.get(model) ?? 0) + tokens);
 				}
 			}
+		}
 
-			const sortedModels = Array.from(modelTotals.entries()).sort(
-				(left, right) => right[1] - left[1] || left[0].localeCompare(right[0]),
-			);
-			const topModels = sortedModels.slice(0, MAX_VISIBLE_MODEL_STACKS);
-			const topModelLabels = new Set(topModels.map(([label]) => label));
-			const hasOther = sortedModels.length > MAX_VISIBLE_MODEL_STACKS;
-			const modelSeries: TokenModelSeries[] =
-				topModels.length > 0
-					? topModels.map(([label], index) => ({
-							color: TOKEN_MODEL_COLORS[index % TOKEN_MODEL_COLORS.length],
-							key: `model_${index + 1}`,
-							label,
-						}))
-					: [
-							{
-								color: TOKEN_MODEL_COLORS[0],
-								key: "unattributed",
-								label: "Unattributed",
-							},
-						];
-
-			if (hasOther) {
-				modelSeries.push({
-					color: OTHER_MODEL_COLOR,
-					key: "other_models",
-					label: "Other",
-				});
-			}
-
-			const seriesByKey = new Map(
-				modelSeries.map((series) => [series.key, series] as const),
-			);
-			const chartData: TokenChartRow[] = data.map((point) => {
-				const row: TokenChartRow = { ...point };
-				for (const series of modelSeries) {
-					if (series.key === "other_models") {
-						row[series.key] = Object.entries(point.modelTokens)
-							.filter(([model]) => !topModelLabels.has(model))
-							.reduce((sum, [, tokens]) => sum + tokens, 0);
-					} else if (series.key === "unattributed") {
-						row[series.key] = point.totalTokens;
-					} else {
-						row[series.key] = point.modelTokens[series.label] ?? 0;
-					}
-				}
-				return row;
-			});
-
-			return {
-				chartConfig: Object.fromEntries(
-					modelSeries.map((series) => [
-						series.key,
+		const sortedModels = Array.from(modelTotals.entries()).sort(
+			(left, right) => right[1] - left[1] || left[0].localeCompare(right[0]),
+		);
+		const topModels = sortedModels.slice(0, MAX_VISIBLE_MODEL_STACKS);
+		const topModelLabels = new Set(topModels.map(([label]) => label));
+		const hasOther = sortedModels.length > MAX_VISIBLE_MODEL_STACKS;
+		const modelSeries: TokenModelSeries[] =
+			topModels.length > 0
+				? topModels.map(([label], index) => ({
+						color: TOKEN_MODEL_COLORS[index % TOKEN_MODEL_COLORS.length],
+						key: `model_${index + 1}`,
+						label,
+					}))
+				: [
 						{
-							label: shortenModelLabel(series.label),
-							color: series.color,
+							color: TOKEN_MODEL_COLORS[0],
+							key: "unattributed",
+							label: "Unattributed",
 						},
-					]),
-				) satisfies ChartConfig,
-				chartData,
-				modelSeries,
-				seriesByKey,
-				stackOrder: modelSeries.map((series) => series.key),
-			};
-		}, [data]);
+					];
+
+		if (hasOther) {
+			modelSeries.push({
+				color: OTHER_MODEL_COLOR,
+				key: "other_models",
+				label: "Other",
+			});
+		}
+
+		const chartData: TokenChartRow[] = data.map((point) => {
+			const row: TokenChartRow = { ...point };
+			for (const series of modelSeries) {
+				if (series.key === "other_models") {
+					row[series.key] = Object.entries(point.modelTokens)
+						.filter(([model]) => !topModelLabels.has(model))
+						.reduce((sum, [, tokens]) => sum + tokens, 0);
+				} else if (series.key === "unattributed") {
+					row[series.key] = point.totalTokens;
+				} else {
+					row[series.key] = point.modelTokens[series.label] ?? 0;
+				}
+			}
+			return row;
+		});
+
+		return {
+			chartData,
+			modelSeries,
+		};
+	}, [data]);
 	const barSize = getBarSize(chartData.length);
+	const chartInteractionProps = onHighlightDateChange
+		? {
+				onMouseLeave: () => onHighlightDateChange(null),
+				onMouseMove: (state: { activeLabel?: unknown }) => {
+					onHighlightDateChange(
+						typeof state.activeLabel === "string" ? state.activeLabel : null,
+						"chart",
+					);
+				},
+			}
+		: undefined;
 
 	return (
 		<div className={cn("flex min-w-0 flex-1 pt-0 md:pt-4", className)}>
 			<ChartContainer
-				config={chartConfig}
+				config={TOKEN_CHART_CONFIG}
 				className="h-[12.875rem] w-full aspect-auto"
 				initialDimension={{ width: 664, height: 206 }}
 			>
@@ -427,6 +457,7 @@ export function DashboardTokenPatternChart({
 					data={chartData}
 					barCategoryGap={0}
 					margin={{ top: 2, right: 18, bottom: 10, left: 0 }}
+					{...chartInteractionProps}
 				>
 					<XAxis
 						dataKey="date"
@@ -478,27 +509,22 @@ export function DashboardTokenPatternChart({
 					/>
 					<ChartTooltip
 						cursor={false}
-						content={<TokenPatternTooltip seriesByKey={seriesByKey} />}
+						content={<TokenPatternTooltip modelSeries={modelSeries} />}
 					/>
-					{modelSeries.map((series) => (
-						<Bar
-							key={series.key}
-							dataKey={series.key}
-							name={series.label}
-							stackId="tokens"
-							barSize={barSize}
-							fill={series.color}
-							isAnimationActive={false}
-							shape={
-								<TokenBarShape
-									dataKey={series.key}
-									activeDate={highlightedDate}
-									activeSource={highlightSource}
-									stackOrder={stackOrder}
-								/>
-							}
-						/>
-					))}
+					<Bar
+						dataKey="totalTokens"
+						name="Tokens"
+						barSize={barSize}
+						fill="var(--color-totalTokens)"
+						isAnimationActive={false}
+						shape={
+							<TokenBarShape
+								activeDate={highlightedDate}
+								activeSource={highlightSource}
+								segments={modelSeries}
+							/>
+						}
+					/>
 				</BarChart>
 			</ChartContainer>
 		</div>
