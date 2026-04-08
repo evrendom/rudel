@@ -56,11 +56,11 @@ function DashboardTokenModelTooltip({
 	}
 
 	return (
-		<div className="grid min-w-44 gap-2 rounded-2xl border border-border/60 bg-background/95 px-3 py-2 text-xs shadow-xl backdrop-blur">
-			<div className="font-medium text-foreground">{point.label}</div>
+		<div className="flex min-w-44 flex-col gap-1 rounded-md bg-black px-2.5 py-1.5 text-[11px] font-medium leading-tight text-white/90 shadow-lg">
+			<div className="text-white">{point.label}</div>
 			<div className="flex items-center justify-between gap-3">
-				<span className="text-muted-foreground">Total tokens</span>
-				<span className="font-mono font-semibold tabular-nums text-foreground">
+				<span className="text-white/65">Total tokens</span>
+				<span className="font-mono tabular-nums text-white">
 					{formatCompactWholeNumber(point.value)}
 				</span>
 			</div>

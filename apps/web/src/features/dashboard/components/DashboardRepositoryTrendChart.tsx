@@ -96,14 +96,14 @@ function RepositoryTrendTooltip({
 	}
 
 	return (
-		<div className="grid min-w-52 gap-2 rounded-xl bg-popover px-3 py-2 text-xs text-popover-foreground shadow-lg ring-1 ring-foreground/5 dark:ring-foreground/10">
+		<div className="flex min-w-52 flex-col gap-1 rounded-md bg-black px-2.5 py-1.5 text-[11px] font-medium leading-tight text-white/90 shadow-lg">
 			<div className="flex items-start justify-between gap-4">
-				<p className="font-medium text-foreground">{point.fullLabel}</p>
-				<p className="shrink-0 font-medium text-muted-foreground">
+				<p className="text-white">{point.fullLabel}</p>
+				<p className="shrink-0 text-white/65">
 					{metric === "commits" ? "Commits" : "Sessions"}
 				</p>
 			</div>
-			<div className="grid gap-1.5">
+			<div className="grid gap-1">
 				{payload.map((item) => (
 					<div
 						key={String(item.dataKey ?? item.name ?? "value")}
@@ -115,11 +115,9 @@ function RepositoryTrendTooltip({
 								className="size-2 shrink-0 rounded-full"
 								style={{ backgroundColor: item.color }}
 							/>
-							<span className="truncate text-muted-foreground">
-								{item.name}
-							</span>
+							<span className="truncate text-white/65">{item.name}</span>
 						</div>
-						<span className="shrink-0 font-mono font-medium tabular-nums text-foreground">
+						<span className="shrink-0 font-mono tabular-nums text-white">
 							{typeof item.value === "number"
 								? item.value.toLocaleString()
 								: item.value}

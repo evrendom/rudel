@@ -122,24 +122,24 @@ function DashboardTokenDeveloperTooltip({
 	}
 
 	return (
-		<div className="grid min-w-44 gap-2 rounded-2xl border border-border/60 bg-background/95 px-3 py-2 text-xs shadow-xl backdrop-blur">
-			<div className="font-medium text-foreground">{point.fullLabel}</div>
+		<div className="flex min-w-44 flex-col gap-1 rounded-md bg-black px-2.5 py-1.5 text-[11px] font-medium leading-tight text-white/90 shadow-lg">
+			<div className="text-white">{point.fullLabel}</div>
 			<div className="grid gap-1">
 				<div className="flex items-center justify-between gap-3">
-					<span className="text-muted-foreground">Tokens</span>
-					<span className="font-mono font-semibold tabular-nums text-foreground">
+					<span className="text-white/65">Tokens</span>
+					<span className="font-mono tabular-nums text-white">
 						{formatCompactNumber(point.totalTokens)}
 					</span>
 				</div>
 				<div className="flex items-center justify-between gap-3">
-					<span className="text-muted-foreground">Sessions</span>
-					<span className="font-mono font-semibold tabular-nums text-foreground">
+					<span className="text-white/65">Sessions</span>
+					<span className="font-mono tabular-nums text-white">
 						{point.sessions}
 					</span>
 				</div>
 				<div className="flex items-center justify-between gap-3">
-					<span className="text-muted-foreground">Avg / session</span>
-					<span className="font-mono font-semibold tabular-nums text-foreground">
+					<span className="text-white/65">Avg / session</span>
+					<span className="font-mono tabular-nums text-white">
 						{point.sessions > 0
 							? formatCompactNumber(
 									Math.round(point.totalTokens / point.sessions),
