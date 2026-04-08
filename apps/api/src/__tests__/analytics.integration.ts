@@ -15,6 +15,7 @@ import {
 	DeveloperProjectSchema,
 	DeveloperSessionSchema,
 	DeveloperSummarySchema,
+	DeveloperTeamCardSchema,
 	DeveloperTimelineSchema,
 	DeveloperTrendDataPointSchema,
 	DimensionAnalysisDataPointSchema,
@@ -268,7 +269,7 @@ beforeAll(async () => {
 		session_id: string;
 		project_path: string;
 	}>;
-}, 120_000);
+});
 
 beforeEach(async () => {
 	await server.ensureAlive();
@@ -324,6 +325,12 @@ describe("analytics/developers", () => {
 	test("list", async () => {
 		const result = await rpc("analytics/developers/list", { days: DAYS });
 		const parsed = parseArray(DeveloperSummarySchema, result);
+		expect(parsed.length).toBeGreaterThanOrEqual(1);
+	}, 30_000);
+
+	test("teamCards", async () => {
+		const result = await rpc("analytics/developers/teamCards", { days: DAYS });
+		const parsed = parseArray(DeveloperTeamCardSchema, result);
 		expect(parsed.length).toBeGreaterThanOrEqual(1);
 	}, 30_000);
 

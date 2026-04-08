@@ -17,6 +17,7 @@ import {
 	DeveloperSessionSchema,
 	DeveloperSessionsInputSchema,
 	DeveloperSummarySchema,
+	DeveloperTeamCardSchema,
 	DeveloperTimelineSchema,
 	DeveloperTrendDataPointSchema,
 	DimensionAnalysisDataPointSchema,
@@ -209,6 +210,9 @@ export const contract = {
 		},
 		developers: {
 			list: oc.input(DaysInputSchema).output(z.array(DeveloperSummarySchema)),
+			teamCards: oc
+				.input(DaysInputSchema)
+				.output(z.array(DeveloperTeamCardSchema)),
 			details: oc
 				.input(DeveloperDetailsInputSchema)
 				.output(DeveloperDetailsSchema),
