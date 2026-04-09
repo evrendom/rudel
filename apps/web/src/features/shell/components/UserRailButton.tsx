@@ -1,7 +1,7 @@
 "use client";
 
 import { LogOutIcon, Settings2Icon } from "lucide-react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { appRoutes } from "@/app/routes";
 import {
 	DropdownMenu,
@@ -12,26 +12,19 @@ import {
 } from "@/app/ui/dropdown-menu";
 import {
 	getInitials,
-	getSidebarIconLaneDebugClassName,
-	getSidebarLabelLaneDebugClassName,
-	getSidebarRowDebugClassName,
 	getUtilityRailItemClassName,
 	getUtilityRailLabelClassName,
-	type SidebarRowDebugProps,
 	type SidebarRowMode,
 } from "@/features/shell/components/shell-rail";
-import { appendSidebarShellDebugParams } from "@/features/shell/config/sidebar-shell-debug";
 import { authClient, signOut } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
 
 export function UserRailButton({
-	debugShowBorders,
-	debugVariant,
-	forceShowLabels,
 	mode = "expanded",
-}: SidebarRowDebugProps & { mode?: SidebarRowMode }) {
+}: {
+	mode?: SidebarRowMode;
+}) {
 	const navigate = useNavigate();
-	const [searchParams] = useSearchParams();
 	const { data: session } = authClient.useSession();
 
 	const name =
@@ -64,20 +57,16 @@ export function UserRailButton({
 						data-sidebar-interactive
 						data-sidebar-user-row
 						className={cn(
-							getUtilityRailItemClassName(mode, forceShowLabels),
+							getUtilityRailItemClassName(mode),
 							mode === "collapsed" &&
 								"hover:!bg-transparent active:!bg-transparent",
-							getSidebarRowDebugClassName({ debugShowBorders, debugVariant }),
 						)}
 					/>
 				}
 			>
 				<div
 					data-sidebar-user-icon-lane
-					className={cn(
-						"flex h-[var(--sidebar-icon-lane-size)] w-[var(--sidebar-icon-lane-size)] shrink-0 items-center justify-center [&_svg]:h-[var(--sidebar-icon-size)] [&_svg]:w-[var(--sidebar-icon-size)] [&_svg]:shrink-0",
-						getSidebarIconLaneDebugClassName(debugShowBorders, debugVariant),
-					)}
+					className="flex h-[var(--sidebar-icon-lane-size)] w-[var(--sidebar-icon-lane-size)] shrink-0 items-center justify-center [&_svg]:h-[var(--sidebar-icon-size)] [&_svg]:w-[var(--sidebar-icon-size)] [&_svg]:shrink-0"
 				>
 					<div className="relative flex h-[var(--sidebar-avatar-size)] min-h-[var(--sidebar-avatar-size)] w-[var(--sidebar-avatar-size)] min-w-[var(--sidebar-avatar-size)] shrink-0 items-center justify-center overflow-hidden rounded-full bg-[color:var(--dashboard-01-avatar-background)] text-[color:var(--dashboard-01-avatar-foreground)]">
 						{image ? (
@@ -96,25 +85,13 @@ export function UserRailButton({
 				<span
 					aria-hidden="true"
 					data-sidebar-user-label
-					className={cn(
-						getUtilityRailLabelClassName(mode, forceShowLabels),
-						getSidebarLabelLaneDebugClassName(debugShowBorders, debugVariant),
-					)}
+					className={getUtilityRailLabelClassName(mode)}
 				>
 					{accountLabel}
 				</span>
 			</DropdownMenuTrigger>
 			<DropdownMenuContent className="min-w-48" side="right" align="end">
-				<DropdownMenuItem
-					onClick={() =>
-						navigate(
-							appendSidebarShellDebugParams(
-								appRoutes.settingsAccount(),
-								searchParams,
-							),
-						)
-					}
-				>
+				<DropdownMenuItem onClick={() => navigate(appRoutes.settingsAccount())}>
 					<Settings2Icon />
 					Profile settings
 				</DropdownMenuItem>
@@ -122,7 +99,7 @@ export function UserRailButton({
 				<DropdownMenuItem
 					onClick={async () => {
 						await signOut();
-						navigate(appendSidebarShellDebugParams("/", searchParams));
+						navigate("/");
 					}}
 				>
 					<LogOutIcon />

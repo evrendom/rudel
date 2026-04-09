@@ -1,28 +1,19 @@
 import type { CSSProperties } from "react";
 import * as React from "react";
-import {
-	Outlet,
-	useLocation,
-	useNavigate,
-	useSearchParams,
-} from "react-router-dom";
+import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useMountEffect } from "@/app/hooks/useMountEffect";
 import { AppToaster } from "@/app/ui/AppToaster";
 import "@/app/app-surface.css";
 import { SidebarInset, SidebarProvider } from "@/app/ui/sidebar";
 import { TooltipProvider } from "@/app/ui/tooltip";
 import { AppSidebar } from "@/features/shell/components/AppSidebar";
-import { SidebarShellDebugPanel } from "@/features/shell/components/SidebarShellDebugPanel";
 import { SiteHeader } from "@/features/shell/components/SiteHeader";
 import {
 	shellRouteMap,
 	shellRoutes,
 } from "@/features/shell/config/shell-routes";
 import { SHOW_SIDEBAR_NEWS_MODE } from "@/features/shell/config/sidebar-news";
-import {
-	appendSidebarShellDebugParams,
-	getSidebarShellDebugState,
-} from "@/features/shell/config/sidebar-shell-debug";
+import { getDefaultSidebarShellTuningState } from "@/features/shell/config/sidebar-shell-debug";
 
 const defaultDashboardChromeValues = {
 	turbulence: {
@@ -95,13 +86,11 @@ function isEditableTarget(target: EventTarget | null) {
 export function AppShellLayout() {
 	const navigate = useNavigate();
 	const location = useLocation();
-	const [searchParams] = useSearchParams();
 	const isSidebarNewsModeEnabled = SHOW_SIDEBAR_NEWS_MODE;
 	const isSettingsShellRoute =
 		location.pathname === shellRouteMap.settings.path ||
 		location.pathname.startsWith(`${shellRouteMap.settings.path}/`);
-	const sidebarShellDebugState = getSidebarShellDebugState(searchParams);
-	const sidebarTuning = sidebarShellDebugState.tuning;
+	const sidebarTuning = React.useMemo(getDefaultSidebarShellTuningState, []);
 	const handleShellShortcutKeyDown = React.useEffectEvent(
 		(event: KeyboardEvent) => {
 			if (
@@ -122,7 +111,7 @@ export function AppShellLayout() {
 			}
 
 			event.preventDefault();
-			navigate(appendSidebarShellDebugParams(nextPath, searchParams));
+			navigate(nextPath);
 		},
 	);
 
@@ -134,12 +123,7 @@ export function AppShellLayout() {
 
 	return (
 		<TooltipProvider>
-			<div
-				className="dashboard-01-preview h-dvh overflow-hidden overscroll-none text-foreground"
-				data-sidebar-news-hide-performance-chart-debug={
-					sidebarTuning.newsHidePerformanceChartWhileActive ? "true" : "false"
-				}
-			>
+			<div className="dashboard-01-preview h-dvh overflow-hidden overscroll-none text-foreground">
 				<SidebarProvider
 					defaultOpen={isSettingsShellRoute || isSidebarNewsModeEnabled}
 					open={
@@ -189,10 +173,6 @@ export function AppShellLayout() {
 				>
 					<AppSidebar
 						navigationMode={isSettingsShellRoute ? "settings" : "app"}
-						shellMotionShowBorders={sidebarShellDebugState.showBorders}
-						shellMotionVariant={sidebarShellDebugState.variant}
-						shellMotionForceLabels={sidebarShellDebugState.alwaysShowLabels}
-						shellDebugState={sidebarShellDebugState}
 					/>
 					<SidebarInset className="dashboard-01-window min-h-0 overflow-hidden overscroll-none bg-[var(--dashboard-01-content-background)] md:m-2 md:ml-0 md:rounded-[12px] md:shadow-[0_3px_6px_-2px_rgba(0,0,0,0.02),0_1px_1px_0_rgba(0,0,0,0.04)]">
 						<SiteHeader />
@@ -206,7 +186,6 @@ export function AppShellLayout() {
 					</SidebarInset>
 				</SidebarProvider>
 			</div>
-			<SidebarShellDebugPanel debugState={sidebarShellDebugState} />
 			<AppToaster richColors position="bottom-right" />
 		</TooltipProvider>
 	);

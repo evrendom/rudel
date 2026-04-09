@@ -1,7 +1,7 @@
 "use client";
 
 import { CheckIcon, CommandIcon, Settings2Icon } from "lucide-react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { appRoutes } from "@/app/routes";
 import {
 	DropdownMenu,
@@ -11,27 +11,20 @@ import {
 	DropdownMenuTrigger,
 } from "@/app/ui/dropdown-menu";
 import {
-	getSidebarIconLaneDebugClassName,
-	getSidebarLabelLaneDebugClassName,
-	getSidebarRowDebugClassName,
 	getUtilityRailItemClassName,
 	getUtilityRailLabelClassName,
-	type SidebarRowDebugProps,
 	type SidebarRowMode,
 } from "@/features/shell/components/shell-rail";
-import { appendSidebarShellDebugParams } from "@/features/shell/config/sidebar-shell-debug";
 import workspaceIcon from "@/features/team/assets/team-lineup-workspace-icon-v5.png";
 import { useOrganization } from "@/features/workspace/organization/useOrganization";
 import { cn } from "@/lib/utils";
 
 export function WorkspaceMenuButton({
-	debugShowBorders,
-	debugVariant,
-	forceShowLabels,
 	mode = "expanded",
-}: SidebarRowDebugProps & { mode?: SidebarRowMode }) {
+}: {
+	mode?: SidebarRowMode;
+}) {
 	const navigate = useNavigate();
-	const [searchParams] = useSearchParams();
 	const { state, actions } = useOrganization();
 	const workspaceName = state.activeOrg?.name ?? "Workspace";
 
@@ -45,20 +38,16 @@ export function WorkspaceMenuButton({
 						data-sidebar-interactive
 						data-sidebar-workspace-row
 						className={cn(
-							getUtilityRailItemClassName(mode, forceShowLabels),
+							getUtilityRailItemClassName(mode),
 							mode === "collapsed" &&
 								"hover:!bg-transparent active:!bg-transparent",
-							getSidebarRowDebugClassName({ debugShowBorders, debugVariant }),
 						)}
 					/>
 				}
 			>
 				<div
 					data-sidebar-workspace-icon-lane
-					className={cn(
-						"flex h-[var(--sidebar-icon-lane-size)] w-[var(--sidebar-icon-lane-size)] shrink-0 items-center justify-center [&_svg]:h-[var(--sidebar-icon-size)] [&_svg]:w-[var(--sidebar-icon-size)] [&_svg]:shrink-0",
-						getSidebarIconLaneDebugClassName(debugShowBorders, debugVariant),
-					)}
+					className="flex h-[var(--sidebar-icon-lane-size)] w-[var(--sidebar-icon-lane-size)] shrink-0 items-center justify-center [&_svg]:h-[var(--sidebar-icon-size)] [&_svg]:w-[var(--sidebar-icon-size)] [&_svg]:shrink-0"
 				>
 					<div className="relative flex h-[var(--sidebar-avatar-size)] min-h-[var(--sidebar-avatar-size)] w-[var(--sidebar-avatar-size)] min-w-[var(--sidebar-avatar-size)] shrink-0 items-center justify-center overflow-hidden rounded-full bg-black">
 						<img
@@ -72,10 +61,7 @@ export function WorkspaceMenuButton({
 				<span
 					aria-hidden="true"
 					data-sidebar-workspace-label
-					className={cn(
-						getUtilityRailLabelClassName(mode, forceShowLabels),
-						getSidebarLabelLaneDebugClassName(debugShowBorders, debugVariant),
-					)}
+					className={getUtilityRailLabelClassName(mode)}
 				>
 					{workspaceName}
 				</span>
@@ -96,26 +82,14 @@ export function WorkspaceMenuButton({
 				)}
 				<DropdownMenuSeparator />
 				<DropdownMenuItem
-					onClick={() =>
-						navigate(
-							appendSidebarShellDebugParams(
-								appRoutes.settingsWorkspace(),
-								searchParams,
-							),
-						)
-					}
+					onClick={() => navigate(appRoutes.settingsWorkspace())}
 				>
 					<Settings2Icon />
 					Workspace settings
 				</DropdownMenuItem>
 				<DropdownMenuItem
 					onClick={() =>
-						navigate(
-							`${appendSidebarShellDebugParams(
-								appRoutes.settingsWorkspace(),
-								searchParams,
-							)}#new-workspace`,
-						)
+						navigate(`${appRoutes.settingsWorkspace()}#new-workspace`)
 					}
 				>
 					<CommandIcon />
