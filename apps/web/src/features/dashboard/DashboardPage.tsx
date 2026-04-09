@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Tabs, TabsList, TabsTrigger } from "@/app/ui/tabs";
+import { CliSetupHint } from "@/components/analytics/CliSetupHint";
 import { DashboardDateControls } from "@/features/dashboard/components/DashboardDateControls";
 import { DashboardErrorsView } from "@/features/dashboard/components/DashboardErrorsView";
 import { DashboardPerformancePanel } from "@/features/dashboard/components/DashboardPerformancePanel";
@@ -20,6 +21,7 @@ export function DashboardPage() {
 		errorProjectTrend,
 		isDashboardSnapshotPending,
 		isErrorDashboardPending,
+		isOverviewKpisPending,
 		isPerformanceChartPending,
 		isRepositoryChartPending,
 		isSessionSnapshotPending,
@@ -31,10 +33,21 @@ export function DashboardPage() {
 		sessionSummaryComparison,
 		snapshot,
 		startDate,
+		totalSessionCount,
 		userLabelById,
 		usersTokenUsage,
 	} = useDashboardPageData();
 	const [activeView, setActiveView] = useState<DashboardView>("tokens");
+
+	if (!isOverviewKpisPending && totalSessionCount === 0) {
+		return (
+			<div className="dashboardy-page px-4 pb-6 pt-2 sm:px-6 lg:px-[76px] lg:pb-8">
+				<div className="@container/dashboard-page mx-auto flex w-full flex-col gap-5">
+					<CliSetupHint />
+				</div>
+			</div>
+		);
+	}
 
 	return (
 		<div className="dashboardy-page px-4 pb-6 pt-2 sm:px-6 lg:px-[76px] lg:pb-8">

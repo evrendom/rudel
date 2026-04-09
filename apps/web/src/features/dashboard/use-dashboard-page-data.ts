@@ -14,6 +14,15 @@ export function useDashboardPageData() {
 	const { data: fullOrganization } = useFullOrganization(
 		workspaceState.activeOrg?.id,
 	);
+	const { data: overviewKpis, isPending: isOverviewKpisPending } =
+		useAnalyticsQuery(
+			orpc.analytics.overview.kpis.queryOptions({
+				input: {
+					startDate: state.startDate,
+					endDate: state.endDate,
+				},
+			}),
+		);
 	const { data: roiDashboard, isPending: isRoiDashboardPending } =
 		useAnalyticsQuery(
 			orpc.analytics.roi.dashboard.queryOptions({
@@ -151,6 +160,7 @@ export function useDashboardPageData() {
 		isDashboardSnapshotPending: isRoiDashboardPending,
 		isPerformanceChartPending:
 			isUsersTokenUsagePending || isUsersDailyTrendPending,
+		isOverviewKpisPending,
 		isTokenChartPending:
 			isUsersTokenUsagePending ||
 			isUsersDailyTrendPending ||
@@ -171,6 +181,7 @@ export function useDashboardPageData() {
 		sessionSummaryComparison,
 		startDate: state.startDate,
 		snapshot,
+		totalSessionCount: overviewKpis?.total_sessions,
 		userLabelById,
 		usersTokenUsage,
 	};
