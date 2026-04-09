@@ -1,6 +1,8 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { addDays } from "date-fns";
 import { describe, expect, it, vi } from "vitest";
+import { formatIsoDate } from "@/lib/format";
 import { AnalyticsDateRangePicker } from "./AnalyticsDateRangePicker";
 
 const { mockTrackFilterChange } = vi.hoisted(() => ({
@@ -78,6 +80,9 @@ describe("AnalyticsDateRangePicker", () => {
 	it("applies a preset immediately and tracks it", async () => {
 		const user = userEvent.setup();
 		const onDateRangeApply = vi.fn();
+		const today = new Date();
+		const expectedStartDate = formatIsoDate(addDays(today, -7));
+		const expectedEndDate = formatIsoDate(today);
 
 		render(
 			<AnalyticsDateRangePicker
@@ -93,7 +98,10 @@ describe("AnalyticsDateRangePicker", () => {
 		);
 		await user.click(screen.getByRole("button", { name: /Last 7 days/i }));
 
-		expect(onDateRangeApply).toHaveBeenCalledWith("2026-04-01", "2026-04-08");
+		expect(onDateRangeApply).toHaveBeenCalledWith(
+			expectedStartDate,
+			expectedEndDate,
+		);
 		expect(mockTrackFilterChange).toHaveBeenCalledWith(
 			expect.objectContaining({
 				changeAction: "preset",

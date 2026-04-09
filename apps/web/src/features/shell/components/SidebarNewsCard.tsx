@@ -5,7 +5,6 @@ import { ArrowUpRightIcon, Minus, XIcon } from "lucide-react";
 import { AnimatePresence, LayoutGroup, motion } from "motion/react";
 import * as React from "react";
 import { createPortal } from "react-dom";
-import { useSearchParams } from "react-router-dom";
 import { Button } from "@/app/ui/button";
 import {
 	DialogDescription,
@@ -14,7 +13,7 @@ import {
 	DialogTitle,
 } from "@/app/ui/dialog";
 import {
-	getSidebarShellDebugState,
+	getDefaultSidebarShellTuningState,
 	SIDEBAR_NEWS_ACTIVE_ATTRIBUTE,
 	type SidebarShellTuningState,
 } from "@/features/shell/config/sidebar-shell-debug";
@@ -347,8 +346,6 @@ function NewsCloseAnimationOverlay({
 }
 
 export function SidebarNewsCard({ onDismiss }: { onDismiss?: () => void }) {
-	const [searchParams] = useSearchParams();
-	const debugState = getSidebarShellDebugState(searchParams);
 	const [open, setOpen] = React.useState(false);
 	const [isMorphing, setIsMorphing] = React.useState(false);
 	const [isAcknowledging, setIsAcknowledging] = React.useState(false);
@@ -356,7 +353,7 @@ export function SidebarNewsCard({ onDismiss }: { onDismiss?: () => void }) {
 		React.useState<CloseAnimationState | null>(null);
 	const triggerRef = React.useRef<HTMLButtonElement | null>(null);
 	const popupRef = React.useRef<HTMLDivElement | null>(null);
-	const newsDebugTuning = debugState.tuning;
+	const newsDebugTuning = React.useMemo(getDefaultSidebarShellTuningState, []);
 	const useSharedLayout = newsDebugTuning.newsUseSharedLayout;
 	const useMeasuredClose = newsDebugTuning.newsUseMeasuredClose;
 	const usePlainFixedPopup = newsDebugTuning.newsUsePlainFixedPopup;

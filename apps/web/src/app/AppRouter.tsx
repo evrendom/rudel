@@ -1,12 +1,11 @@
 import { type ComponentType, lazy, Suspense } from "react";
-import { Navigate, Route, Routes, useLocation } from "react-router-dom";
+import { Navigate, Route, Routes } from "react-router-dom";
 import { NotFoundPage } from "@/app/system/NotFoundPage";
 import { AcceptInvitationPage } from "@/features/invitations/AcceptInvitationPage";
 import { settingsRouteMap } from "@/features/settings/config/settings-routes";
 import { SettingsIndexRedirect } from "@/features/settings/SettingsIndexRedirect";
 import { AppShellLayout } from "@/features/shell/AppShellLayout";
 import { shellRouteMap } from "@/features/shell/config/shell-routes";
-import { appendSidebarShellDebugParams } from "@/features/shell/config/sidebar-shell-debug";
 
 function lazyNamed<TModule extends Record<string, unknown>>(
 	loader: () => Promise<TModule>,
@@ -86,15 +85,8 @@ export function AppRouter({
 }: {
 	rootRedirectTarget: string | null;
 }) {
-	const location = useLocation();
-	const rootRedirect = appendSidebarShellDebugParams(
-		rootRedirectTarget || shellRouteMap.dashboard.path,
-		new URLSearchParams(location.search),
-	);
-	const canonicalWorkspaceSettingsPath = appendSidebarShellDebugParams(
-		settingsRouteMap.workspace.path,
-		new URLSearchParams(location.search),
-	);
+	const rootRedirect = rootRedirectTarget || shellRouteMap.dashboard.path;
+	const canonicalWorkspaceSettingsPath = settingsRouteMap.workspace.path;
 
 	return (
 		<Routes>

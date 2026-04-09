@@ -7,7 +7,6 @@ import { useLocation } from "react-router-dom";
 import {
 	SIDEBAR_SHELL_COLLAPSE_DURATION_MS,
 	Sidebar,
-	type SidebarShellMotionVariant,
 	useSidebar,
 } from "@/app/ui/sidebar";
 import {
@@ -18,7 +17,6 @@ import { SidebarNewsCard } from "@/features/shell/components/SidebarNewsCard";
 import { SidebarNewsPopover } from "@/features/shell/components/SidebarNewsPopover";
 import {
 	RailLink,
-	type SidebarRowDebugProps,
 	type SidebarRowMode,
 } from "@/features/shell/components/shell-rail";
 import { UserRailButton } from "@/features/shell/components/UserRailButton";
@@ -31,7 +29,6 @@ import {
 	SHOW_SIDEBAR_NEWS_MODE,
 	SIDEBAR_NEWS_ITEM_ID,
 } from "@/features/shell/config/sidebar-news";
-import type { SidebarShellDebugState } from "@/features/shell/config/sidebar-shell-debug";
 import { useCurrentShellRoute } from "@/features/shell/hooks/useCurrentShellRoute";
 import { cn } from "@/lib/utils";
 
@@ -136,13 +133,10 @@ function SidebarEdgeHotspot({
 function SidebarNavigation({
 	mode,
 	navigationMode,
-	debugShowBorders,
-	debugVariant,
-	forceShowLabels,
 }: {
 	mode: SidebarDisplayMode;
 	navigationMode: SidebarNavigationMode;
-} & SidebarRowDebugProps) {
+}) {
 	const currentShellRoute = useCurrentShellRoute();
 	const location = useLocation();
 	const activeSettingsRouteId = getActiveSettingsRouteId(location.pathname);
@@ -158,9 +152,6 @@ function SidebarNavigation({
 							label={route.label}
 							mode={mode}
 							active={activeSettingsRouteId === route.id}
-							debugShowBorders={debugShowBorders}
-							debugVariant={debugVariant}
-							forceShowLabels={forceShowLabels}
 						>
 							{getSettingsSidebarIcon(route.id)}
 						</RailLink>
@@ -181,9 +172,6 @@ function SidebarNavigation({
 						shortcut={route.shortcut}
 						mode={mode}
 						active={currentShellRoute.id === route.id}
-						debugShowBorders={debugShowBorders}
-						debugVariant={debugVariant}
-						forceShowLabels={forceShowLabels}
 					>
 						{route.icon}
 					</RailLink>
@@ -195,16 +183,8 @@ function SidebarNavigation({
 
 export function AppSidebar({
 	navigationMode = "app",
-	shellMotionShowBorders = true,
-	shellMotionVariant = "baseline",
-	shellMotionForceLabels = false,
-	shellDebugState,
 }: {
 	navigationMode?: SidebarNavigationMode;
-	shellMotionShowBorders?: boolean;
-	shellMotionVariant?: SidebarShellMotionVariant;
-	shellMotionForceLabels?: boolean;
-	shellDebugState: SidebarShellDebugState;
 }) {
 	const { state, isMobile, openMobile, toggleSidebar } = useSidebar();
 	const isSidebarExpanded = isMobile ? openMobile : state === "expanded";
@@ -224,7 +204,6 @@ export function AppSidebar({
 			return false;
 		}
 	});
-	const newsDebugTuning = shellDebugState.tuning;
 	const showSidebarNewsFeatures =
 		SHOW_SIDEBAR_NEWS_MODE && navigationMode === "app";
 
@@ -267,23 +246,7 @@ export function AppSidebar({
 		showSidebarNewsFeatures && isSidebarExpanded && !isNewsDismissed;
 
 	return (
-		<Sidebar
-			collapsible="icon"
-			shellMotionShowBorders={shellMotionShowBorders}
-			shellMotionVariant={shellMotionVariant}
-			className="dashboard-01-chrome-sidebar"
-			data-sidebar-news-overflow-debug={
-				newsDebugTuning.newsSidebarOverflowVisible ? "true" : "false"
-			}
-			data-sidebar-news-promote-debug={
-				newsDebugTuning.newsPromoteSidebar ? "true" : "false"
-			}
-			style={
-				{
-					"--sidebar-news-active-sidebar-z": `${newsDebugTuning.newsActiveSidebarZ}`,
-				} as React.CSSProperties
-			}
-		>
+		<Sidebar collapsible="icon" className="dashboard-01-chrome-sidebar">
 			<div className={getSidebarContentFrameClassName(displayMode)}>
 				<div className={getSidebarSectionClassName(displayMode)}>
 					<div className={getSidebarTopClusterClassName(displayMode)}>
@@ -294,27 +257,15 @@ export function AppSidebar({
 										to={shellRouteMap.dashboard.path}
 										label="Back to app"
 										mode={displayMode}
-										debugShowBorders={shellMotionShowBorders}
-										debugVariant={shellMotionVariant}
-										forceShowLabels={shellMotionForceLabels}
 									>
 										<ArrowLeftIcon />
 									</RailLink>
 								</ul>
 							</nav>
 						) : isExpandedMode ? (
-							<WorkspaceMenuButton
-								debugShowBorders={shellMotionShowBorders}
-								debugVariant={shellMotionVariant}
-								forceShowLabels={shellMotionForceLabels}
-							/>
+							<WorkspaceMenuButton />
 						) : (
-							<WorkspaceMenuButton
-								mode="collapsed"
-								debugShowBorders={shellMotionShowBorders}
-								debugVariant={shellMotionVariant}
-								forceShowLabels={shellMotionForceLabels}
-							/>
+							<WorkspaceMenuButton mode="collapsed" />
 						)}
 						{showSidebarNewsFeatures && isExpandedMode ? (
 							<SidebarNewsPopover />
@@ -324,9 +275,6 @@ export function AppSidebar({
 						<SidebarNavigation
 							mode={displayMode}
 							navigationMode={navigationMode}
-							debugShowBorders={shellMotionShowBorders}
-							debugVariant={shellMotionVariant}
-							forceShowLabels={shellMotionForceLabels}
 						/>
 					</div>
 				</div>
@@ -349,18 +297,9 @@ export function AppSidebar({
 							) : null}
 						</AnimatePresence>
 						{isExpandedMode ? (
-							<UserRailButton
-								debugShowBorders={shellMotionShowBorders}
-								debugVariant={shellMotionVariant}
-								forceShowLabels={shellMotionForceLabels}
-							/>
+							<UserRailButton />
 						) : (
-							<UserRailButton
-								mode="collapsed"
-								debugShowBorders={shellMotionShowBorders}
-								debugVariant={shellMotionVariant}
-								forceShowLabels={shellMotionForceLabels}
-							/>
+							<UserRailButton mode="collapsed" />
 						)}
 					</div>
 				</div>

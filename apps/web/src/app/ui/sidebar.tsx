@@ -32,8 +32,6 @@ const SIDEBAR_SHELL_EASING_BASELINE = "cubic-bezier(0.23,1,0.32,1)";
 export const SIDEBAR_SHELL_EXPAND_DURATION_MS = 500;
 export const SIDEBAR_SHELL_COLLAPSE_DURATION_MS = 500;
 
-export type SidebarShellMotionVariant = "baseline" | "geometry-trace";
-
 type SidebarContextProps = {
 	state: "expanded" | "collapsed";
 	open: boolean;
@@ -154,8 +152,6 @@ function Sidebar({
 	side = "left",
 	variant = "sidebar",
 	collapsible = "offcanvas",
-	shellMotionVariant = "baseline",
-	shellMotionShowBorders = true,
 	className,
 	children,
 	dir,
@@ -164,13 +160,9 @@ function Sidebar({
 	side?: "left" | "right";
 	variant?: "sidebar" | "floating" | "inset";
 	collapsible?: "offcanvas" | "icon" | "none";
-	shellMotionVariant?: SidebarShellMotionVariant;
-	shellMotionShowBorders?: boolean;
 }) {
 	const { isMobile, state, openMobile, setOpenMobile } = useSidebar();
 	const isExpandedSidebar = state === "expanded";
-	const showGeometryTrace =
-		shellMotionVariant === "geometry-trace" && shellMotionShowBorders;
 	const shellTransitionDuration = isExpandedSidebar
 		? SIDEBAR_SHELL_EXPAND_DURATION_MS
 		: SIDEBAR_SHELL_COLLAPSE_DURATION_MS;
@@ -228,8 +220,6 @@ function Sidebar({
 			data-collapsible={resolvedCollapsible}
 			data-variant={variant}
 			data-side={side}
-			data-shell-motion={shellMotionVariant}
-			data-shell-borders={showGeometryTrace ? "true" : "false"}
 			data-slot="sidebar"
 		>
 			<div
@@ -241,18 +231,13 @@ function Sidebar({
 					variant === "floating" || variant === "inset"
 						? "group-data-[collapsible=icon]:w-(--sidebar-width-icon)"
 						: "group-data-[collapsible=icon]:w-(--sidebar-width-icon)",
-					showGeometryTrace && "border-r-2 border-emerald-500 bg-emerald-500/8",
 				)}
 				style={sidebarContainerStyle}
 			/>
 			<div
 				data-slot="sidebar-container"
 				data-side={side}
-				className={cn(
-					"absolute inset-0 z-10 flex",
-					showGeometryTrace && "border-2 border-violet-500 bg-violet-500/8",
-					className,
-				)}
+				className={cn("absolute inset-0 z-10 flex", className)}
 				{...props}
 			>
 				<div
@@ -261,7 +246,6 @@ function Sidebar({
 					className={cn(
 						"flex size-full min-w-0 flex-col overflow-hidden border-r bg-sidebar",
 						"group-data-[variant=floating]:rounded-lg group-data-[variant=floating]:shadow-sm group-data-[variant=floating]:ring-1 group-data-[variant=floating]:ring-sidebar-border group-data-[variant=inset]:rounded-xl",
-						showGeometryTrace && "border-2 border-cyan-400 bg-cyan-400/8",
 					)}
 				>
 					{children}
@@ -327,7 +311,7 @@ function SidebarInset({ className, ...props }: React.ComponentProps<"main">) {
 		<main
 			data-slot="sidebar-inset"
 			className={cn(
-				"relative flex w-full flex-1 flex-col bg-background md:peer-data-[variant=inset]:m-2 md:peer-data-[variant=inset]:ml-0 md:peer-data-[variant=inset]:rounded-xl md:peer-data-[variant=inset]:shadow-sm md:peer-data-[variant=inset]:peer-data-[state=collapsed]:ml-2 md:peer-data-[shell-motion=geometry-trace]:peer-data-[shell-borders=true]:border-l-2 md:peer-data-[shell-motion=geometry-trace]:peer-data-[shell-borders=true]:border-l-yellow-400 md:peer-data-[shell-motion=geometry-trace]:peer-data-[shell-borders=true]:bg-yellow-400/5",
+				"relative flex w-full flex-1 flex-col bg-background md:peer-data-[variant=inset]:m-2 md:peer-data-[variant=inset]:ml-0 md:peer-data-[variant=inset]:rounded-xl md:peer-data-[variant=inset]:shadow-sm md:peer-data-[variant=inset]:peer-data-[state=collapsed]:ml-2",
 				className,
 			)}
 			{...props}
