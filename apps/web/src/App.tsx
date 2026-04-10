@@ -4,28 +4,26 @@ import { ProductAnalyticsSessionSync } from "@/features/analytics/tracking/Produ
 import { AuthenticatedApp } from "@/features/auth/AuthenticatedApp";
 import {
 	getDeviceUserCode,
+	getPendingSignupRedirect,
 	getValidRedirect,
+	isGetStartedPath,
 	isResetPasswordPath,
 } from "@/features/auth/auth-route-utils";
 import { DeviceAuthorizationApp } from "@/features/auth/DeviceAuthorizationApp";
 import { GuestApp } from "@/features/auth/GuestApp";
 import { ResetPasswordApp } from "@/features/auth/ResetPasswordApp";
+import { GetStartedRouteGate } from "@/features/get-started/GetStartedRouteGate";
 import { authClient } from "./lib/auth-client";
 
 function App() {
 	const location = useLocation();
 	const { data: session, isPending } = authClient.useSession();
 	const deviceUserCode = getDeviceUserCode(location.search);
-	const rootRedirectTarget = getValidRedirect(location.search);
-
-	if (isPending) {
-		return (
-			<>
-				<ProductAnalyticsSessionSync session={session} />
-				<AppLoadingScreen />
-			</>
-		);
-	}
+	const rootRedirectTarget =
+		getValidRedirect(location.search) ??
+		(location.pathname === "/"
+			? getPendingSignupRedirect(location.search)
+			: null);
 
 	if (deviceUserCode) {
 		return (
@@ -36,6 +34,28 @@ function App() {
 					deviceUserCode={deviceUserCode}
 					session={session ?? null}
 				/>
+			</>
+		);
+	}
+
+	if (isGetStartedPath(location.pathname)) {
+		return (
+			<>
+				<ProductAnalyticsSessionSync session={session} />
+				<GetStartedRouteGate
+					isPending={isPending}
+					pathname={location.pathname}
+					session={session ?? null}
+				/>
+			</>
+		);
+	}
+
+	if (isPending) {
+		return (
+			<>
+				<ProductAnalyticsSessionSync session={session} />
+				<AppLoadingScreen />
 			</>
 		);
 	}

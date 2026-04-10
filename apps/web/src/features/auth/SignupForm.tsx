@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { appRoutes } from "@/app/routes";
 import { Button } from "@/app/ui/button";
 import {
 	Card,
@@ -12,30 +11,19 @@ import { Input } from "@/app/ui/input";
 import { Label } from "@/app/ui/label";
 import { Separator } from "@/app/ui/separator";
 import { useAnalyticsTracking } from "@/features/analytics/tracking/useAnalyticsTracking";
-import { authClient, refreshAuthClientState } from "@/lib/auth-client";
+import { authClient } from "@/lib/auth-client";
 import {
 	captureSignUpFailed,
 	normalizeWebErrorCode,
 } from "@/lib/product-analytics";
-
-export function getSignupCallbackURL(
-	pathname = window.location.pathname,
-	search = window.location.search,
-): string {
-	const params = new URLSearchParams(search);
-	const userCode = params.get("user_code");
-	if (userCode) {
-		return `/?user_code=${encodeURIComponent(userCode)}`;
-	}
-	const redirect = params.get("redirect");
-	if (redirect) {
-		return `/?redirect=${encodeURIComponent(redirect)}`;
-	}
-	if (pathname !== "/" && pathname !== "") {
-		return `/?redirect=${encodeURIComponent(`${pathname}${search}`)}`;
-	}
-	return `/?redirect=${encodeURIComponent(appRoutes.dashboardGetStarted())}`;
-}
+import { navigateToDestination } from "./auth-navigation";
+import {
+	clearPendingSignupRedirect,
+	getEmailSignupSuccessDestination,
+	getEmailSignupVerificationCallbackURL,
+	getSocialSignupRedirectOptions,
+	primePendingSignupRedirect,
+} from "./auth-route-utils";
 
 function getSignupContext() {
 	const params = new URLSearchParams(window.location.search);
@@ -82,6 +70,17 @@ export function SignupForm({
 		e.preventDefault();
 		setError("");
 		setLoading(true);
+		const successDestination = getEmailSignupSuccessDestination();
+		const verificationCallbackURL = getEmailSignupVerificationCallbackURL();
+		primePendingSignupRedirect(successDestination);
+		let didNavigate = false;
+		const navigateAfterSignup = () => {
+			if (didNavigate) {
+				return;
+			}
+			didNavigate = true;
+			navigateToDestination(successDestination);
+		};
 		const signupContext = getSignupContext();
 		trackAuthenticationAction({
 			actionName: "sign_up",
@@ -93,10 +92,17 @@ export function SignupForm({
 			name,
 			email,
 			password,
-			callbackURL: getSignupCallbackURL(),
+			callbackURL: verificationCallbackURL,
+			fetchOptions: {
+				disableSignal: true,
+				onSuccess: () => {
+					navigateAfterSignup();
+				},
+			},
 		});
 		setLoading(false);
 		if (error) {
+			clearPendingSignupRedirect();
 			captureSignUpFailed({
 				signup_method: "email_password",
 				failure_stage: "form_submit",
@@ -108,11 +114,14 @@ export function SignupForm({
 			return;
 		}
 
-		refreshAuthClientState();
+		// Better Auth's signUp.email callbackURL is only used for email verification in 1.5.4.
+		navigateAfterSignup();
 	}
 
 	async function handleSocialSignIn(provider: "google" | "github") {
 		setError("");
+		const { callbackURL, newUserCallbackURL } =
+			getSocialSignupRedirectOptions();
 		const signupContext = getSignupContext();
 		trackAuthenticationAction({
 			actionName: "sign_up",
@@ -122,7 +131,8 @@ export function SignupForm({
 		});
 		const { error } = await authClient.signIn.social({
 			provider,
-			callbackURL: getSignupCallbackURL(),
+			callbackURL,
+			newUserCallbackURL,
 		});
 		if (error) {
 			captureSignUpFailed({
