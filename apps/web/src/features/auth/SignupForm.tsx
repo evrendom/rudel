@@ -37,16 +37,6 @@ export function getSignupCallbackURL(
 	return `/?redirect=${encodeURIComponent(appRoutes.dashboardGetStarted())}`;
 }
 
-type SignupRedirectLocation = {
-	assign: (url: string) => void;
-};
-
-export function redirectAfterSignup(
-	location: SignupRedirectLocation = window.location,
-) {
-	location.assign(getSignupCallbackURL());
-}
-
 function getSignupContext() {
 	const params = new URLSearchParams(window.location.search);
 	const redirect = params.get("redirect");
@@ -103,6 +93,7 @@ export function SignupForm({
 			name,
 			email,
 			password,
+			callbackURL: getSignupCallbackURL(),
 		});
 		setLoading(false);
 		if (error) {
@@ -118,7 +109,6 @@ export function SignupForm({
 		}
 
 		refreshAuthClientState();
-		redirectAfterSignup();
 	}
 
 	async function handleSocialSignIn(provider: "google" | "github") {

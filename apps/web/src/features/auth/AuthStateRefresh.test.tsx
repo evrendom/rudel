@@ -2,11 +2,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { LoginForm } from "./LoginForm";
-import {
-	getSignupCallbackURL,
-	redirectAfterSignup,
-	SignupForm,
-} from "./SignupForm";
+import { getSignupCallbackURL, SignupForm } from "./SignupForm";
 
 const {
 	mockRefreshAuthClientState,
@@ -72,19 +68,8 @@ describe("auth state refresh", () => {
 		);
 	});
 
-	it("redirects signups to the get-started page", () => {
-		const assignMock = vi.fn();
-
-		redirectAfterSignup({ assign: assignMock });
-
-		expect(assignMock).toHaveBeenCalledWith(
-			"/?redirect=%2Fdashboard%2Fget-started",
-		);
-	});
-
 	it("refreshes the auth store after a successful email sign up", async () => {
 		mockSignUpEmail.mockResolvedValue({ error: null });
-		vi.spyOn(console, "error").mockImplementation(() => {});
 
 		const user = userEvent.setup();
 		render(<SignupForm onSwitchToLogin={vi.fn()} />);
@@ -99,6 +84,7 @@ describe("auth state refresh", () => {
 				name: "Ada Lovelace",
 				email: "ada@example.com",
 				password: "supersecure",
+				callbackURL: "/?redirect=%2Fdashboard%2Fget-started",
 			});
 		});
 
