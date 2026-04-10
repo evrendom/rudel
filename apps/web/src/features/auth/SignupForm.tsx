@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { appRoutes } from "@/app/routes";
 import { Button } from "@/app/ui/button";
 import {
 	Card,
@@ -17,8 +18,11 @@ import {
 	normalizeWebErrorCode,
 } from "@/lib/product-analytics";
 
-function getCallbackURL(): string {
-	const params = new URLSearchParams(window.location.search);
+export function getSignupCallbackURL(
+	pathname = window.location.pathname,
+	search = window.location.search,
+): string {
+	const params = new URLSearchParams(search);
 	const userCode = params.get("user_code");
 	if (userCode) {
 		return `/?user_code=${encodeURIComponent(userCode)}`;
@@ -27,12 +31,20 @@ function getCallbackURL(): string {
 	if (redirect) {
 		return `/?redirect=${encodeURIComponent(redirect)}`;
 	}
-	const path = window.location.pathname;
-	const search = window.location.search;
-	if (path !== "/" && path !== "") {
-		return `/?redirect=${encodeURIComponent(`${path}${search}`)}`;
+	if (pathname !== "/" && pathname !== "") {
+		return `/?redirect=${encodeURIComponent(`${pathname}${search}`)}`;
 	}
-	return "/";
+	return `/?redirect=${encodeURIComponent(appRoutes.dashboardGetStarted())}`;
+}
+
+type SignupRedirectLocation = {
+	assign: (url: string) => void;
+};
+
+export function redirectAfterSignup(
+	location: SignupRedirectLocation = window.location,
+) {
+	location.assign(getSignupCallbackURL());
 }
 
 function getSignupContext() {
@@ -106,6 +118,7 @@ export function SignupForm({
 		}
 
 		refreshAuthClientState();
+		redirectAfterSignup();
 	}
 
 	async function handleSocialSignIn(provider: "google" | "github") {
@@ -119,7 +132,7 @@ export function SignupForm({
 		});
 		const { error } = await authClient.signIn.social({
 			provider,
-			callbackURL: getCallbackURL(),
+			callbackURL: getSignupCallbackURL(),
 		});
 		if (error) {
 			captureSignUpFailed({

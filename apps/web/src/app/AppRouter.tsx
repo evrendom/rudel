@@ -1,5 +1,6 @@
 import { type ComponentType, lazy, Suspense } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
+import { appRoutes } from "@/app/routes";
 import { NotFoundPage } from "@/app/system/NotFoundPage";
 import { AcceptInvitationPage } from "@/features/invitations/AcceptInvitationPage";
 import { settingsRouteMap } from "@/features/settings/config/settings-routes";
@@ -22,6 +23,10 @@ function lazyNamed<TModule extends Record<string, unknown>>(
 const DashboardPage = lazyNamed(
 	() => import("@/features/dashboard/DashboardPage"),
 	"DashboardPage",
+);
+const DashboardGetStartedPage = lazyNamed(
+	() => import("@/features/dashboard/DashboardGetStartedPage"),
+	"DashboardGetStartedPage",
 );
 const SessionsListPage = lazyNamed(
 	() => import("@/pages/dashboard/SessionsListPage"),
@@ -103,6 +108,10 @@ export function AppRouter({
 				<Route
 					path={shellRouteMap.dashboard.path}
 					element={<LazyRoute Component={DashboardPage} />}
+				/>
+				<Route
+					path={appRoutes.dashboardGetStarted()}
+					element={<LazyRoute Component={DashboardGetStartedPage} />}
 				/>
 				<Route
 					path={`${shellRouteMap.dashboard.path}/sessions`}
