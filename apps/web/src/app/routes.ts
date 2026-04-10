@@ -1,4 +1,5 @@
 const DASHBOARD_PATH = "/dashboard";
+const DASHBOARD_GET_STARTED_PATH = `${DASHBOARD_PATH}/get-started`;
 const TEAM_PATH = "/team";
 const SETTINGS_ROOT_PATH = "/settings";
 const SETTINGS_WORKSPACE_PATH = `${SETTINGS_ROOT_PATH}/workspace`;
@@ -10,6 +11,7 @@ const PRESET_BASELINE_PATH = "/__preset-baseline";
 export const appRoutes = {
 	home: () => DASHBOARD_PATH,
 	dashboard: () => DASHBOARD_PATH,
+	dashboardGetStarted: () => DASHBOARD_GET_STARTED_PATH,
 	team: () => TEAM_PATH,
 	settings: () => SETTINGS_ROOT_PATH,
 	settingsRoot: () => SETTINGS_ROOT_PATH,
