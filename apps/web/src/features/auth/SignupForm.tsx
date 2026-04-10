@@ -11,7 +11,7 @@ import { Input } from "@/app/ui/input";
 import { Label } from "@/app/ui/label";
 import { Separator } from "@/app/ui/separator";
 import { useAnalyticsTracking } from "@/features/analytics/tracking/useAnalyticsTracking";
-import { authClient } from "@/lib/auth-client";
+import { authClient, refreshAuthClientState } from "@/lib/auth-client";
 import {
 	captureSignUpFailed,
 	normalizeWebErrorCode,
@@ -102,7 +102,10 @@ export function SignupForm({
 				entry_point: signupContext.entryPoint,
 			});
 			setError(error.message ?? "Sign up failed");
+			return;
 		}
+
+		refreshAuthClientState();
 	}
 
 	async function handleSocialSignIn(provider: "google" | "github") {
