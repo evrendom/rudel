@@ -1,8 +1,12 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { LoginForm } from "./LoginForm";
-import { SignupForm } from "./SignupForm";
+import {
+	getSignupCallbackURL,
+	redirectAfterSignup,
+	SignupForm,
+} from "./SignupForm";
 
 const {
 	mockRefreshAuthClientState,
@@ -43,7 +47,12 @@ vi.mock("@/lib/product-analytics", () => ({
 }));
 
 describe("auth state refresh", () => {
+	afterEach(() => {
+		vi.restoreAllMocks();
+	});
+
 	beforeEach(() => {
+		window.history.replaceState({}, "", "/");
 		mockRefreshAuthClientState.mockReset();
 		mockSignInEmail.mockReset();
 		mockSignInSocial.mockReset();
@@ -51,8 +60,31 @@ describe("auth state refresh", () => {
 		mockTrackAuthenticationAction.mockReset();
 	});
 
+	it("routes fresh signups to the get-started page by default", () => {
+		expect(getSignupCallbackURL("/", "")).toBe(
+			"/?redirect=%2Fdashboard%2Fget-started",
+		);
+	});
+
+	it("preserves an explicit redirect when building the signup callback URL", () => {
+		expect(getSignupCallbackURL("/", "?redirect=%2Fdashboard%2Fsessions")).toBe(
+			"/?redirect=%2Fdashboard%2Fsessions",
+		);
+	});
+
+	it("redirects signups to the get-started page", () => {
+		const assignMock = vi.fn();
+
+		redirectAfterSignup({ assign: assignMock });
+
+		expect(assignMock).toHaveBeenCalledWith(
+			"/?redirect=%2Fdashboard%2Fget-started",
+		);
+	});
+
 	it("refreshes the auth store after a successful email sign up", async () => {
 		mockSignUpEmail.mockResolvedValue({ error: null });
+		vi.spyOn(console, "error").mockImplementation(() => {});
 
 		const user = userEvent.setup();
 		render(<SignupForm onSwitchToLogin={vi.fn()} />);
