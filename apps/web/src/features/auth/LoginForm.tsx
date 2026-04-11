@@ -13,6 +13,7 @@ import { Separator } from "@/app/ui/separator";
 import { useAnalyticsTracking } from "@/features/analytics/tracking/useAnalyticsTracking";
 import { authClient, refreshAuthClientState } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
+import { clearPendingSignupRedirect } from "./auth-route-utils";
 
 type FeedbackState = {
 	kind: "error" | "success";
@@ -59,6 +60,7 @@ export function LoginForm({
 			sourceComponent: "login_form",
 			authMethod: "email_password",
 		});
+		clearPendingSignupRedirect();
 		setLoading(true);
 		const { error } = await authClient.signIn.email({ email, password });
 		setLoading(false);
