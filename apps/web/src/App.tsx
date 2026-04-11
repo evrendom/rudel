@@ -1,5 +1,6 @@
 import { useLocation } from "react-router-dom";
 import { AppLoadingScreen } from "@/app/bootstrap/AppLoadingScreen";
+import { DesktopOnlyOverlay } from "@/app/ui/DesktopOnlyOverlay";
 import { ProductAnalyticsSessionSync } from "@/features/analytics/tracking/ProductAnalyticsSessionSync";
 import { AuthenticatedApp } from "@/features/auth/AuthenticatedApp";
 import {
@@ -24,6 +25,7 @@ function App() {
 		(location.pathname === "/"
 			? getPendingSignupRedirect(location.search)
 			: null);
+	const showDesktopOnlyOverlay = !deviceUserCode;
 
 	if (deviceUserCode) {
 		return (
@@ -47,6 +49,7 @@ function App() {
 					pathname={location.pathname}
 					session={session ?? null}
 				/>
+				{showDesktopOnlyOverlay ? <DesktopOnlyOverlay /> : null}
 			</>
 		);
 	}
@@ -56,6 +59,7 @@ function App() {
 			<>
 				<ProductAnalyticsSessionSync session={session} />
 				<AppLoadingScreen />
+				{showDesktopOnlyOverlay ? <DesktopOnlyOverlay /> : null}
 			</>
 		);
 	}
@@ -65,6 +69,7 @@ function App() {
 			<>
 				<ProductAnalyticsSessionSync session={session} />
 				<AuthenticatedApp rootRedirectTarget={rootRedirectTarget} />
+				{showDesktopOnlyOverlay ? <DesktopOnlyOverlay /> : null}
 			</>
 		);
 	}
@@ -74,6 +79,7 @@ function App() {
 			<>
 				<ProductAnalyticsSessionSync session={session} />
 				<ResetPasswordApp />
+				{showDesktopOnlyOverlay ? <DesktopOnlyOverlay /> : null}
 			</>
 		);
 	}
@@ -82,6 +88,7 @@ function App() {
 		<>
 			<ProductAnalyticsSessionSync session={session} />
 			<GuestApp />
+			{showDesktopOnlyOverlay ? <DesktopOnlyOverlay /> : null}
 		</>
 	);
 }
