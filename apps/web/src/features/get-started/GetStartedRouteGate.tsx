@@ -21,7 +21,6 @@ export function GetStartedRouteGate({
 	const { hasUploadedSessions } = useSetupProgress({
 		enabled: !isPending && !!session,
 	});
-
 	if (isPending) {
 		return <UploadSetupPage />;
 	}
@@ -41,6 +40,5 @@ export function GetStartedRouteGate({
 	if (hasUploadedSessions) {
 		return <Navigate to={appRoutes.dashboard()} replace />;
 	}
-
 	return <UploadSetupPage />;
 }

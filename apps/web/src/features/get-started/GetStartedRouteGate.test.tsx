@@ -12,7 +12,6 @@ const { mockUseSetupProgress } = vi.hoisted(() => ({
 vi.mock("@/features/get-started/use-setup-progress", () => ({
 	useSetupProgress: mockUseSetupProgress,
 }));
-
 const now = new Date("2026-04-10T15:00:00.000Z");
 
 const session: NonNullable<AppSession> = {
@@ -44,7 +43,6 @@ describe("GetStartedRouteGate", () => {
 			totalSessionCount: 0,
 		});
 	});
-
 	it("renders the setup page immediately while auth is pending", () => {
 		render(
 			<MemoryRouter initialEntries={[appRoutes.getStarted()]}>
