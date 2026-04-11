@@ -1,5 +1,7 @@
 import { useState } from "react";
+import { Navigate } from "react-router-dom";
 import { AppLoadingScreen } from "@/app/bootstrap/AppLoadingScreen";
+import { appRoutes } from "@/app/routes";
 import { Button } from "@/app/ui/button";
 import { useAnalyticsTracking } from "@/features/analytics/tracking/useAnalyticsTracking";
 import {
@@ -7,6 +9,24 @@ import {
 	getSessionUserId,
 } from "@/features/auth/auth-route-utils";
 import { GuestApp } from "@/features/auth/GuestApp";
+import { UploadSetupPage } from "@/features/get-started/UploadSetupPage";
+import { useSetupProgress } from "@/features/get-started/use-setup-progress";
+
+function ApprovedDeviceSetupPage() {
+	const { hasUploadedSessions } = useSetupProgress({ enabled: true });
+
+	if (hasUploadedSessions) {
+		return <Navigate replace to={appRoutes.dashboard()} />;
+	}
+
+	return (
+		<UploadSetupPage
+			completedStepIds={["install-cli", "log-in"]}
+			description="Install CLI and Log in are done. Enable auto-upload next."
+			title="CLI login approved"
+		/>
+	);
+}
 
 export function DeviceAuthorizationApp({
 	deviceUserCode,
@@ -82,20 +102,13 @@ export function DeviceAuthorizationApp({
 	}
 
 	if (deviceApproved) {
-		return (
-			<div className="flex min-h-screen flex-col items-center justify-center gap-2">
-				<p className="text-xl font-semibold">CLI login approved</p>
-				<p className="text-muted-foreground">
-					Return to your terminal to continue.
-				</p>
-			</div>
-		);
+		return <ApprovedDeviceSetupPage />;
 	}
 
 	if (deviceDenied) {
 		return (
 			<div className="flex min-h-screen flex-col items-center justify-center gap-2">
-				<p className="text-xl font-semibold">CLI login denied</p>
+				<h1 className="text-xl font-semibold">CLI login denied</h1>
 				<p className="text-muted-foreground">
 					This authorization request was not approved.
 				</p>
@@ -105,7 +118,7 @@ export function DeviceAuthorizationApp({
 
 	return (
 		<div className="flex min-h-screen flex-col items-center justify-center gap-4">
-			<p className="text-xl font-semibold">Authorize CLI login</p>
+			<h1 className="text-xl font-semibold">Authorize CLI login</h1>
 			<p className="text-muted-foreground">
 				User code: <span className="font-mono">{deviceUserCode}</span>
 			</p>
