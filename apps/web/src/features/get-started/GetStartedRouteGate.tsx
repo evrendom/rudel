@@ -5,6 +5,7 @@ import {
 	isGetStartedPath,
 } from "@/features/auth/auth-route-utils";
 import { UploadSetupPage } from "@/features/get-started/UploadSetupPage";
+import { useSetupProgress } from "@/features/get-started/use-setup-progress";
 
 type GetStartedRouteGateProps = {
 	isPending: boolean;
@@ -17,6 +18,9 @@ export function GetStartedRouteGate({
 	pathname,
 	session,
 }: GetStartedRouteGateProps) {
+	const { hasUploadedSessions } = useSetupProgress({
+		enabled: !isPending && !!session,
+	});
 	if (isPending) {
 		return <UploadSetupPage />;
 	}
@@ -33,5 +37,8 @@ export function GetStartedRouteGate({
 		return <Navigate to={appRoutes.dashboard()} replace />;
 	}
 
+	if (hasUploadedSessions) {
+		return <Navigate to={appRoutes.dashboard()} replace />;
+	}
 	return <UploadSetupPage />;
 }

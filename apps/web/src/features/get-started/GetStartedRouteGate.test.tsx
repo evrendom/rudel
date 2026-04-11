@@ -1,10 +1,17 @@
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { appRoutes } from "@/app/routes";
 import type { AppSession } from "@/features/auth/auth-route-utils";
 import { GetStartedRouteGate } from "@/features/get-started/GetStartedRouteGate";
 
+const { mockUseSetupProgress } = vi.hoisted(() => ({
+	mockUseSetupProgress: vi.fn(),
+}));
+
+vi.mock("@/features/get-started/use-setup-progress", () => ({
+	useSetupProgress: mockUseSetupProgress,
+}));
 const now = new Date("2026-04-10T15:00:00.000Z");
 
 const session: NonNullable<AppSession> = {
@@ -28,6 +35,14 @@ const session: NonNullable<AppSession> = {
 };
 
 describe("GetStartedRouteGate", () => {
+	beforeEach(() => {
+		mockUseSetupProgress.mockReset();
+		mockUseSetupProgress.mockReturnValue({
+			hasUploadedSessions: false,
+			isLoading: false,
+			totalSessionCount: 0,
+		});
+	});
 	it("renders the setup page immediately while auth is pending", () => {
 		render(
 			<MemoryRouter initialEntries={[appRoutes.getStarted()]}>
@@ -116,5 +131,33 @@ describe("GetStartedRouteGate", () => {
 			}),
 		).toBeInTheDocument();
 		expect(screen.queryByRole("link")).toBeNull();
+	});
+
+	it("redirects to the dashboard once sessions exist", () => {
+		mockUseSetupProgress.mockReturnValue({
+			hasUploadedSessions: true,
+			isLoading: false,
+			totalSessionCount: 3,
+		});
+
+		render(
+			<MemoryRouter initialEntries={[appRoutes.getStarted()]}>
+				<Routes>
+					<Route
+						path={appRoutes.getStarted()}
+						element={
+							<GetStartedRouteGate
+								isPending={false}
+								pathname={appRoutes.getStarted()}
+								session={session}
+							/>
+						}
+					/>
+					<Route path={appRoutes.dashboard()} element={<div>Dashboard</div>} />
+				</Routes>
+			</MemoryRouter>,
+		);
+
+		expect(screen.getByText("Dashboard")).toBeInTheDocument();
 	});
 });
