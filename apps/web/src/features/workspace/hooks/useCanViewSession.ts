@@ -7,7 +7,9 @@ export function useCanViewSession() {
 	const currentUserId = session?.user.id;
 
 	return (sessionUserId: string) => {
-		if (meta.isOrgAdmin) return true;
+		if (meta.isOrgAdmin) {
+			return true;
+		}
 		return currentUserId === sessionUserId;
 	};
 }

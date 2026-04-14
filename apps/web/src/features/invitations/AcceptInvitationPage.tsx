@@ -35,7 +35,9 @@ export function AcceptInvitationPage() {
 	const [error, setError] = useState<string | null>(null);
 
 	const handleAccept = async () => {
-		if (!invitationId) return;
+		if (!invitationId) {
+			return;
+		}
 		trackAuthenticationAction({
 			actionName: "accept_invitation",
 			sourceComponent: "accept_invitation_page",
@@ -71,7 +73,9 @@ export function AcceptInvitationPage() {
 	};
 
 	const handleReject = async () => {
-		if (!invitationId) return;
+		if (!invitationId) {
+			return;
+		}
 		trackAuthenticationAction({
 			actionName: "decline_invitation",
 			sourceComponent: "accept_invitation_page",

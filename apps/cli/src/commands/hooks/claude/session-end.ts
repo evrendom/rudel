@@ -31,13 +31,19 @@ async function runSessionEnd(): Promise<void> {
 
 	try {
 		const raw = await readStdin();
-		if (!raw.trim()) return;
+		if (!raw.trim()) {
+			return;
+		}
 
 		const input = JSON.parse(raw) as HookInput;
-		if (!input.session_id || !input.transcript_path) return;
+		if (!input.session_id || !input.transcript_path) {
+			return;
+		}
 
 		const credentials = loadCredentials();
-		if (!credentials) return;
+		if (!credentials) {
+			return;
+		}
 
 		logger.info("Uploading session {sessionId}", {
 			sessionId: input.session_id,

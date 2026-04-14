@@ -71,7 +71,9 @@ export function OrganizationPage() {
 	const canEdit = currentUserRole === "owner" || currentUserRole === "admin";
 
 	const handleStartEditing = () => {
-		if (!activeOrg) return;
+		if (!activeOrg) {
+			return;
+		}
 		trackOrganizationAction({
 			actionName: "start_rename_organization",
 			targetType: "organization",
@@ -85,7 +87,9 @@ export function OrganizationPage() {
 	};
 
 	const handleCancelEditing = () => {
-		if (!activeOrg) return;
+		if (!activeOrg) {
+			return;
+		}
 		trackOrganizationAction({
 			actionName: "cancel_rename_organization",
 			targetType: "organization",
@@ -98,7 +102,9 @@ export function OrganizationPage() {
 
 	const handleSaveName = async () => {
 		const trimmed = editName.trim();
-		if (!trimmed || !activeOrg) return;
+		if (!trimmed || !activeOrg) {
+			return;
+		}
 		if (trimmed === activeOrg.name) {
 			setEditing(false);
 			return;
@@ -130,7 +136,9 @@ export function OrganizationPage() {
 
 	const handleInvite = async (e: React.FormEvent) => {
 		e.preventDefault();
-		if (!inviteEmail.trim()) return;
+		if (!inviteEmail.trim()) {
+			return;
+		}
 		trackOrganizationAction({
 			actionName: "invite_member",
 			targetType: "invitation",
@@ -154,7 +162,9 @@ export function OrganizationPage() {
 	};
 
 	const handleCopyLink = () => {
-		if (!inviteLink) return;
+		if (!inviteLink) {
+			return;
+		}
 		trackOrganizationAction({
 			actionName: "copy_invite_link",
 			targetType: "invitation",
@@ -256,8 +266,12 @@ export function OrganizationPage() {
 										value={editName}
 										onChange={(e) => setEditName(e.target.value)}
 										onKeyDown={(e) => {
-											if (e.key === "Enter") handleSaveName();
-											if (e.key === "Escape") handleCancelEditing();
+											if (e.key === "Enter") {
+												handleSaveName();
+											}
+											if (e.key === "Escape") {
+												handleCancelEditing();
+											}
 										}}
 										disabled={saving}
 										className="max-w-xs"

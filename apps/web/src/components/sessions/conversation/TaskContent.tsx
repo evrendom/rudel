@@ -107,7 +107,9 @@ export function formatTaskSummary(input: TaskInput): string {
 function parseTaskResult(
 	toolResult: ToolResultContent | undefined,
 ): TaskResult | null {
-	if (!toolResult) return null;
+	if (!toolResult) {
+		return null;
+	}
 
 	const content = toolResult.content;
 
@@ -157,13 +159,27 @@ function formatAgentName(subagentType: string): string {
 }
 
 function getAgentCategory(subagentType: string): string {
-	if (subagentType.startsWith("code:")) return "code";
-	if (subagentType === "Explore") return "explore";
-	if (subagentType === "Plan") return "plan";
-	if (subagentType === "Bash") return "bash";
-	if (subagentType.includes("locator")) return "search";
-	if (subagentType.includes("analyzer")) return "analyze";
-	if (subagentType.includes("researcher")) return "research";
+	if (subagentType.startsWith("code:")) {
+		return "code";
+	}
+	if (subagentType === "Explore") {
+		return "explore";
+	}
+	if (subagentType === "Plan") {
+		return "plan";
+	}
+	if (subagentType === "Bash") {
+		return "bash";
+	}
+	if (subagentType.includes("locator")) {
+		return "search";
+	}
+	if (subagentType.includes("analyzer")) {
+		return "analyze";
+	}
+	if (subagentType.includes("researcher")) {
+		return "research";
+	}
 	return "agent";
 }
 

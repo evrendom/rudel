@@ -289,7 +289,9 @@ export async function getLearningsTrend(
 			dataByDate.set(row.date, {});
 		}
 		const entry = dataByDate.get(row.date);
-		if (entry) entry[row.split_key] = row.count;
+		if (entry) {
+			entry[row.split_key] = row.count;
+		}
 		allSplitKeys.add(row.split_key);
 	});
 

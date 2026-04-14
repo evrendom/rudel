@@ -139,7 +139,9 @@ export function formatTaskOutputSummary(
 	const label = result?.description || input.task_id;
 	const truncatedLabel = label.length > 40 ? `${label.slice(0, 40)}...` : label;
 
-	if (!result) return truncatedLabel;
+	if (!result) {
+		return truncatedLabel;
+	}
 
 	if (result.status === "timeout") {
 		return `${truncatedLabel} ...`;
@@ -164,7 +166,9 @@ interface ParsedResult {
 function parseTaskOutputResult(
 	toolResult: ToolResultContent | undefined,
 ): ParsedResult | null {
-	if (!toolResult) return null;
+	if (!toolResult) {
+		return null;
+	}
 
 	const content = toolResult.content;
 
@@ -209,7 +213,9 @@ function parseTaskOutputResult(
 function formatAgentOutput(output: string): React.ReactNode {
 	const lines = output.split("\n").filter((line) => line.trim());
 
-	if (lines.length === 0) return output;
+	if (lines.length === 0) {
+		return output;
+	}
 
 	const toolCallPattern = /\[Tool:\s*(\w+)\]\s*(\{.*\})/;
 	const hasToolCalls = lines.some((line) => toolCallPattern.test(line));

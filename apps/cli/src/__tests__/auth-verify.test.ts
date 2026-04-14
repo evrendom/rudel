@@ -66,7 +66,9 @@ function writeCredentials(token: string, apiBaseUrl: string): void {
 
 function clearCredentials(): void {
 	const path = join(configDir, "credentials.json");
-	if (existsSync(path)) rmSync(path);
+	if (existsSync(path)) {
+		rmSync(path);
+	}
 }
 
 describe("verifyAuth", () => {

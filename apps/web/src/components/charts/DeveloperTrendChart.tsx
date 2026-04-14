@@ -50,8 +50,12 @@ const METRICS = {
 		label: "Tokens",
 		icon: Zap,
 		formatter: (value: number) => {
-			if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
-			if (value >= 1_000) return `${(value / 1_000).toFixed(1)}K`;
+			if (value >= 1_000_000) {
+				return `${(value / 1_000_000).toFixed(1)}M`;
+			}
+			if (value >= 1_000) {
+				return `${(value / 1_000).toFixed(1)}K`;
+			}
 			return value.toFixed(0);
 		},
 		axisFormatter: (value: number) => formatCompactWholeNumber(value),
@@ -203,7 +207,9 @@ export function DeveloperTrendChart({
 	}, [chartData, seriesList, colorMap]);
 
 	const formatUsername = (userId: string) => {
-		if (userId === "Other") return "Other";
+		if (userId === "Other") {
+			return "Other";
+		}
 		return userMap[userId] || userId.substring(0, 12);
 	};
 

@@ -269,7 +269,9 @@ export function DeveloperDetailPage() {
 	const username = formatUsername(userId || "", userMap);
 
 	const chartData = useMemo(() => {
-		if (!timeline) return [];
+		if (!timeline) {
+			return [];
+		}
 		const sessionValues = timeline.map((d) => d.sessions);
 		const rollingAvg7 = calculateRollingAverage(sessionValues, 7);
 		const rollingAvg30 = calculateRollingAverage(sessionValues, 30);
@@ -317,7 +319,9 @@ export function DeveloperDetailPage() {
 	}, [timeline]);
 
 	const projectChartData = useMemo(() => {
-		if (!projects) return [];
+		if (!projects) {
+			return [];
+		}
 		return projects.slice(0, 10).map((p) => ({
 			name: resolveProjectName(p).name,
 			sessions: p.sessions,
@@ -330,7 +334,9 @@ export function DeveloperDetailPage() {
 	}, [projects]);
 
 	const uniqueProjects = useMemo(() => {
-		if (!sessions) return [];
+		if (!sessions) {
+			return [];
+		}
 		const seen = new Map<string, { path: string; name: string }>();
 		for (const s of sessions) {
 			if (!seen.has(s.project_path)) {

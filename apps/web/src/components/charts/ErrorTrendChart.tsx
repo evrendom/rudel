@@ -92,7 +92,9 @@ export function ErrorTrendChart({
 		});
 
 	const stableColorOrder = useMemo(() => {
-		if (data.length === 0) return [];
+		if (data.length === 0) {
+			return [];
+		}
 		const totals = new Map<string, number>();
 		for (const item of data) {
 			totals.set(
@@ -116,7 +118,9 @@ export function ErrorTrendChart({
 	}, [stableColorOrder]);
 
 	const { seriesKeys, chartData } = useMemo(() => {
-		if (data.length === 0) return { seriesKeys: [], chartData: [] };
+		if (data.length === 0) {
+			return { seriesKeys: [], chartData: [] };
+		}
 
 		// Compute totals per dimension to rank and cap at MAX_SERIES
 		const dimTotals = new Map<string, number>();
@@ -163,7 +167,9 @@ export function ErrorTrendChart({
 
 		for (const item of data) {
 			const dateData = dateMap.get(item.date);
-			if (!dateData) continue;
+			if (!dateData) {
+				continue;
+			}
 			if (topDimsSet.has(item.dimension)) {
 				dateData[item.dimension] = item[metric];
 			} else if (hasOther) {
@@ -189,7 +195,9 @@ export function ErrorTrendChart({
 	}, [seriesKeys, colorMap]);
 
 	const getDisplayName = (key: string): string => {
-		if (key === "Other") return "Other";
+		if (key === "Other") {
+			return "Other";
+		}
 		if (splitBy === "user_id" && userMap) {
 			return userMap[key] || `${key.substring(0, 12)}...`;
 		}

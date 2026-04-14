@@ -24,7 +24,9 @@ export function ToolInvocation({
 	// Format input for display
 	const formatInput = () => {
 		const keys = Object.keys(input);
-		if (keys.length === 0) return "No parameters";
+		if (keys.length === 0) {
+			return "No parameters";
+		}
 
 		const important = keys.slice(0, 2);
 		const summary = important
@@ -45,7 +47,9 @@ export function ToolInvocation({
 
 	// Format result content
 	const getResultContent = (): string => {
-		if (!result) return "";
+		if (!result) {
+			return "";
+		}
 
 		if (typeof result.content === "string") {
 			return result.content;

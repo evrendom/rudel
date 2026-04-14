@@ -45,7 +45,9 @@ export function saveCredentials(credentials: Credentials): void {
 
 export function loadCredentials(): Credentials | null {
 	const path = getCredentialsPath();
-	if (!existsSync(path)) return null;
+	if (!existsSync(path)) {
+		return null;
+	}
 	const content = readFileSync(path, "utf-8");
 	return JSON.parse(content) as Credentials;
 }

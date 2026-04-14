@@ -21,7 +21,9 @@ interface FailedUploadsData {
 }
 
 function normalizeSource(raw: unknown): Source | undefined {
-	if (typeof raw !== "string") return undefined;
+	if (typeof raw !== "string") {
+		return undefined;
+	}
 	const normalized = raw.replace(/-/g, "_");
 	const parsed = SourceSchema.safeParse(normalized);
 	return parsed.success ? parsed.data : undefined;
@@ -29,7 +31,9 @@ function normalizeSource(raw: unknown): Source | undefined {
 
 export async function loadFailedUploads(): Promise<FailedUpload[]> {
 	try {
-		if (!existsSync(FAILED_UPLOADS_PATH)) return [];
+		if (!existsSync(FAILED_UPLOADS_PATH)) {
+			return [];
+		}
 		const data = JSON.parse(
 			readFileSync(FAILED_UPLOADS_PATH, "utf-8"),
 		) as FailedUploadsData;

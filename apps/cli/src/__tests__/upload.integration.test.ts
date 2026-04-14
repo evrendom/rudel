@@ -41,7 +41,9 @@ const SAMPLE_SUBAGENT_CONTENT = JSON.stringify({
 const CLAUDE_PROJECTS_DIR = join(homedir(), ".claude", "projects");
 
 function hasRealClaudeSessions(): boolean {
-	if (!existsSync(CLAUDE_PROJECTS_DIR)) return false;
+	if (!existsSync(CLAUDE_PROJECTS_DIR)) {
+		return false;
+	}
 	try {
 		for (const dir of readdirSync(CLAUDE_PROJECTS_DIR)) {
 			try {
@@ -53,8 +55,9 @@ function hasRealClaudeSessions(): boolean {
 							!f.startsWith("agent-") &&
 							f !== "sessions-index.json",
 					)
-				)
+				) {
 					return true;
+				}
 			} catch {}
 		}
 	} catch {

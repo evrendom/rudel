@@ -17,6 +17,7 @@ import {
 	SIDEBAR_NEWS_ACTIVE_ATTRIBUTE,
 	type SidebarShellTuningState,
 } from "@/features/shell/config/sidebar-shell-debug";
+import { useSidebarNewsActiveAttribute } from "@/features/shell/hooks/useSidebarNewsActiveAttribute";
 import { cn } from "@/lib/utils";
 
 /* ─────────────────────────────────────────────────────────
@@ -418,38 +419,11 @@ export function SidebarNewsCard({ onDismiss }: { onDismiss?: () => void }) {
 		[open, startCloseAnimation],
 	);
 
-	React.useEffect(() => {
-		const trigger = triggerRef.current;
-		if (!trigger) {
-			return;
-		}
-
-		const sidebarContainer = trigger.closest(".dashboard-01-chrome-sidebar");
-		const previewContainer = trigger.closest(".dashboard-01-preview");
-		if (!(sidebarContainer instanceof HTMLElement)) {
-			return;
-		}
-
-		const isActive = open || isMorphing || isCloseAnimating;
-		if (isActive) {
-			sidebarContainer.setAttribute(SIDEBAR_NEWS_ACTIVE_ATTRIBUTE, "true");
-			if (previewContainer instanceof HTMLElement) {
-				previewContainer.setAttribute(SIDEBAR_NEWS_ACTIVE_ATTRIBUTE, "true");
-			}
-		} else {
-			sidebarContainer.removeAttribute(SIDEBAR_NEWS_ACTIVE_ATTRIBUTE);
-			if (previewContainer instanceof HTMLElement) {
-				previewContainer.removeAttribute(SIDEBAR_NEWS_ACTIVE_ATTRIBUTE);
-			}
-		}
-
-		return () => {
-			sidebarContainer.removeAttribute(SIDEBAR_NEWS_ACTIVE_ATTRIBUTE);
-			if (previewContainer instanceof HTMLElement) {
-				previewContainer.removeAttribute(SIDEBAR_NEWS_ACTIVE_ATTRIBUTE);
-			}
-		};
-	}, [isCloseAnimating, isMorphing, open]);
+	useSidebarNewsActiveAttribute({
+		isActive: open || isMorphing || isCloseAnimating,
+		attributeName: SIDEBAR_NEWS_ACTIVE_ATTRIBUTE,
+		triggerRef,
+	});
 
 	const popupMotionProps =
 		useSharedLayout && !isAcknowledging

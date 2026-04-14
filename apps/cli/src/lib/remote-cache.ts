@@ -9,7 +9,9 @@ type RemoteCacheData = Record<string, string>;
 
 export async function getRemoteCache(): Promise<RemoteCacheData> {
 	try {
-		if (!existsSync(CACHE_PATH)) return {};
+		if (!existsSync(CACHE_PATH)) {
+			return {};
+		}
 		return JSON.parse(readFileSync(CACHE_PATH, "utf-8")) as RemoteCacheData;
 	} catch {
 		return {};

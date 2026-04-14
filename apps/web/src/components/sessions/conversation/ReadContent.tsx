@@ -72,8 +72,12 @@ export function formatReadSummary(input: ReadInput): string {
 	const fileName = getFileName(input.file_path);
 	if (input.offset || input.limit) {
 		const parts = [];
-		if (input.offset) parts.push(`from ${input.offset}`);
-		if (input.limit) parts.push(`${input.limit} lines`);
+		if (input.offset) {
+			parts.push(`from ${input.offset}`);
+		}
+		if (input.limit) {
+			parts.push(`${input.limit} lines`);
+		}
 		return `${fileName} (${parts.join(", ")})`;
 	}
 	return fileName;
@@ -82,7 +86,9 @@ export function formatReadSummary(input: ReadInput): string {
 function parseReadResult(
 	toolResult: ToolResultContent | undefined,
 ): { preview: string; lineCount?: number; error?: string } | null {
-	if (!toolResult) return null;
+	if (!toolResult) {
+		return null;
+	}
 
 	const content = toolResult.content;
 
@@ -166,9 +172,17 @@ function getFileIcon(
 	const textExtensions = ["md", "mdx", "txt", "rst", "adoc"];
 	const configExtensions = ["yaml", "yml", "toml", "ini", "conf", "env"];
 
-	if (codeExtensions.includes(extension)) return FileCode;
-	if (jsonExtensions.includes(extension)) return FileJson;
-	if (textExtensions.includes(extension)) return FileText;
-	if (configExtensions.includes(extension)) return FileType;
+	if (codeExtensions.includes(extension)) {
+		return FileCode;
+	}
+	if (jsonExtensions.includes(extension)) {
+		return FileJson;
+	}
+	if (textExtensions.includes(extension)) {
+		return FileText;
+	}
+	if (configExtensions.includes(extension)) {
+		return FileType;
+	}
 	return File;
 }

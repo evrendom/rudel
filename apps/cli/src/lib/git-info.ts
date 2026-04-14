@@ -71,7 +71,9 @@ async function getPackageInfo(cwd: string): Promise<PackageInfo | null> {
 function getNodePackage(root: string): PackageInfo | null {
 	try {
 		const filePath = join(root, "package.json");
-		if (!existsSync(filePath)) return null;
+		if (!existsSync(filePath)) {
+			return null;
+		}
 		const pkg = JSON.parse(readFileSync(filePath, "utf-8"));
 		return pkg.name ? { name: pkg.name, type: "package.json" } : null;
 	} catch {
@@ -82,7 +84,9 @@ function getNodePackage(root: string): PackageInfo | null {
 function getPythonPackage(root: string): PackageInfo | null {
 	try {
 		const filePath = join(root, "pyproject.toml");
-		if (!existsSync(filePath)) return null;
+		if (!existsSync(filePath)) {
+			return null;
+		}
 		const content = readFileSync(filePath, "utf-8");
 		const name = content.match(/^\s*name\s*=\s*"([^"]+)"/m)?.[1];
 		return name ? { name, type: "pyproject.toml" } : null;
@@ -94,7 +98,9 @@ function getPythonPackage(root: string): PackageInfo | null {
 function getRustPackage(root: string): PackageInfo | null {
 	try {
 		const filePath = join(root, "Cargo.toml");
-		if (!existsSync(filePath)) return null;
+		if (!existsSync(filePath)) {
+			return null;
+		}
 		const content = readFileSync(filePath, "utf-8");
 		const name = content.match(/^\s*name\s*=\s*"([^"]+)"/m)?.[1];
 		return name ? { name, type: "Cargo.toml" } : null;
@@ -106,7 +112,9 @@ function getRustPackage(root: string): PackageInfo | null {
 function getGoModule(root: string): PackageInfo | null {
 	try {
 		const filePath = join(root, "go.mod");
-		if (!existsSync(filePath)) return null;
+		if (!existsSync(filePath)) {
+			return null;
+		}
 		const content = readFileSync(filePath, "utf-8");
 		const name = content.match(/^module\s+(\S+)/m)?.[1];
 		return name ? { name, type: "go.mod" } : null;
@@ -124,7 +132,9 @@ export async function getGitRemoteUrl(cwd: string): Promise<string | null> {
 			"get-url",
 			"origin",
 		]);
-		if (result.exitCode !== 0) return null;
+		if (result.exitCode !== 0) {
+			return null;
+		}
 		return result.stdout.trim() || null;
 	} catch {
 		return null;
@@ -140,7 +150,9 @@ async function getGitBranch(cwd: string): Promise<string | null> {
 			"--abbrev-ref",
 			"HEAD",
 		]);
-		if (result.exitCode !== 0) return null;
+		if (result.exitCode !== 0) {
+			return null;
+		}
 		return result.stdout.trim();
 	} catch {
 		return null;
@@ -150,7 +162,9 @@ async function getGitBranch(cwd: string): Promise<string | null> {
 async function getGitSha(cwd: string): Promise<string | null> {
 	try {
 		const result = await exec("git", ["-C", cwd, "rev-parse", "HEAD"]);
-		if (result.exitCode !== 0) return null;
+		if (result.exitCode !== 0) {
+			return null;
+		}
 		return result.stdout.trim();
 	} catch {
 		return null;

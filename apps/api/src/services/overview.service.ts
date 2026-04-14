@@ -629,7 +629,9 @@ export async function getTeamSummaryWithComparison(
 	const previous = previousData[0] || defaultPeriod;
 
 	const calculateChange = (curr: number, prev: number) => {
-		if (!prev || prev === 0) return 0;
+		if (!prev || prev === 0) {
+			return 0;
+		}
 		return ((curr - prev) / prev) * 100;
 	};
 

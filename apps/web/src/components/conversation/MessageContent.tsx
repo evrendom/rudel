@@ -215,7 +215,9 @@ export function MessageContent({ content, className }: MessageContentProps) {
 	const toolResults = new Map<string, ToolResultContent>();
 
 	for (const block of content) {
-		if (typeof block === "string") continue;
+		if (typeof block === "string") {
+			continue;
+		}
 		if (block.type === "tool_use") {
 			toolUses.set(block.id, block);
 		} else if (block.type === "tool_result") {

@@ -106,7 +106,9 @@ export async function checkIngestRateLimit(
 			});
 		}
 	} catch (error) {
-		if (error instanceof ORPCError) throw error;
+		if (error instanceof ORPCError) {
+			throw error;
+		}
 		// If ClickHouse is down, log and allow the request through.
 		// Availability > rate limiting.
 		logger.error("Rate limit check failed, allowing request: {error}", {

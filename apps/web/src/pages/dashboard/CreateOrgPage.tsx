@@ -44,7 +44,9 @@ export function CreateOrgPage() {
 
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
-		if (!name.trim() || !slug.trim()) return;
+		if (!name.trim() || !slug.trim()) {
+			return;
+		}
 		trackOrganizationAction({
 			actionName: "create_organization",
 			targetType: "organization",

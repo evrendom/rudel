@@ -1,6 +1,6 @@
 import { parseISO } from "date-fns";
 import { Calendar } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -116,17 +116,10 @@ export function DatePicker({
 	const toAnalyticsKey = (value: string) =>
 		value.toLowerCase().replace(/[^a-z0-9]+/g, "_");
 
-	useEffect(() => {
+	const handleOpenChange = (nextOpen: boolean) => {
 		setTempStartDate(startDate);
 		setTempEndDate(endDate);
-	}, [startDate, endDate]);
-
-	const handleOpenChange = (nextOpen: boolean) => {
 		setOpen(nextOpen);
-		if (!nextOpen) {
-			setTempStartDate(startDate);
-			setTempEndDate(endDate);
-		}
 	};
 
 	const handleApply = () => {

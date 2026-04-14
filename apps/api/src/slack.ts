@@ -9,7 +9,9 @@ export async function fetchGitHubHandle(
 		const res = await fetch(`https://api.github.com/user/${accountId}`, {
 			headers: { Accept: "application/vnd.github.v3+json" },
 		});
-		if (!res.ok) return null;
+		if (!res.ok) {
+			return null;
+		}
 		const data = (await res.json()) as { login?: string };
 		return data.login ?? null;
 	} catch (err) {

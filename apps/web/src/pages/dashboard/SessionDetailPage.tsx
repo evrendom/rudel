@@ -8,18 +8,13 @@ import {
 	GitCommitHorizontal,
 	User,
 } from "lucide-react";
-import { Component, type ReactNode, useCallback, useState } from "react";
+import { Component, type ReactNode, useState } from "react";
 import { useParams } from "react-router-dom";
 import { ConversationView } from "@/components/conversation/ConversationView";
-import {
-	type TokenDataPoint,
-	TokenUsageChart,
-} from "@/components/conversation/TokenUsageChart";
-import {
-	ToolActivityChart,
-	type ToolActivityPoint,
-} from "@/components/conversation/ToolActivityChart";
+import { TokenUsageChart } from "@/components/conversation/TokenUsageChart";
+import { ToolActivityChart } from "@/components/conversation/ToolActivityChart";
 import { InfoTooltip } from "@/components/ui/InfoTooltip";
+import { useConversationViewData } from "@/hooks/useConversationViewData";
 import { useAnalyticsTracking } from "@/hooks/useDashboardAnalytics";
 import { useTrackDashboardView } from "@/hooks/useTrackDashboardView";
 import { useUserMap } from "@/hooks/useUserMap";
@@ -73,7 +68,7 @@ function toContentString(value: unknown): string {
 		return value;
 	}
 
-	if (value == null) {
+	if (value === null || value === undefined) {
 		return "";
 	}
 
@@ -107,6 +102,18 @@ function toSubagentMap(value: unknown): Record<string, string> {
 				typeof key === "string" && typeof entryValue === "string",
 		),
 	);
+}
+
+function getSuccessScoreClassName(score: number) {
+	if (score >= 70) {
+		return "text-status-success-icon";
+	}
+
+	if (score >= 40) {
+		return "text-status-warning-icon";
+	}
+
+	return "text-status-error-icon";
 }
 
 class SessionDetailErrorBoundary extends Component<
@@ -148,23 +155,6 @@ function SessionDetailPageContent() {
 	const { userMap } = useUserMap();
 	const { trackUtility } = useAnalyticsTracking();
 	const [copied, setCopied] = useState(false);
-	const [tokenData, setTokenData] = useState<TokenDataPoint[]>([]);
-	const [toolActivityData, setToolActivityData] = useState<ToolActivityPoint[]>(
-		[],
-	);
-	const [totalMessages, setTotalMessages] = useState(0);
-
-	const handleTokenDataReady = useCallback(
-		(data: TokenDataPoint[], total: number) => {
-			setTokenData(data);
-			setTotalMessages(total);
-		},
-		[],
-	);
-
-	const handleToolActivityReady = useCallback((data: ToolActivityPoint[]) => {
-		setToolActivityData(data);
-	}, []);
 
 	const {
 		data: session,
@@ -176,6 +166,11 @@ function SessionDetailPageContent() {
 		}),
 		enabled: Boolean(sessionId),
 	});
+	const safeContent = session ? toContentString(session.content) : "";
+	const { conversations, parseError, tokenData, toolActivity, totalMessages } =
+		useConversationViewData({
+			content: safeContent,
+		});
 
 	useTrackDashboardView({
 		isLoading,
@@ -265,7 +260,6 @@ function SessionDetailPageContent() {
 	const safeModelUsed = toOptionalString(session.model_used);
 	const safeSessionArchetype =
 		toOptionalString(session.session_archetype) ?? undefined;
-	const safeContent = toContentString(session.content);
 
 	return (
 		<div className="flex flex-col h-full">
@@ -359,13 +353,7 @@ function SessionDetailPageContent() {
 									<InfoTooltip text="Session quality score (0–100): earns points for a git commit (+20), high output ratio (+15), and skills used (+5 each, max 3); loses points for errors (−2 each) and abandoned sessions." />
 								</p>
 								<p
-									className={`font-semibold ${
-										safeSuccessScore >= 70
-											? "text-status-success-icon"
-											: safeSuccessScore >= 40
-												? "text-status-warning-icon"
-												: "text-status-error-icon"
-									}`}
+									className={`font-semibold ${getSuccessScoreClassName(safeSuccessScore)}`}
 								>
 									{safeSuccessScore.toFixed(0)}/100
 								</p>
@@ -478,9 +466,8 @@ function SessionDetailPageContent() {
 					{/* Conversation — left */}
 					<div className="flex-1 min-w-0 py-6 px-8">
 						<ConversationView
-							content={safeContent}
-							onTokenDataReady={handleTokenDataReady}
-							onToolActivityReady={handleToolActivityReady}
+							conversations={conversations}
+							parseError={parseError}
 						/>
 					</div>
 
@@ -490,7 +477,7 @@ function SessionDetailPageContent() {
 							<TokenUsageChart data={tokenData} totalMessages={totalMessages} />
 							<div className="border-t border-border my-4 pt-4">
 								<ToolActivityChart
-									data={toolActivityData}
+									data={toolActivity}
 									totalMessages={totalMessages}
 								/>
 							</div>

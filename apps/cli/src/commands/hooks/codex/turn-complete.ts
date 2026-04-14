@@ -32,17 +32,25 @@ async function readStdin(): Promise<string> {
 async function runTurnComplete(): Promise<void> {
 	try {
 		const raw = await readStdin();
-		if (!raw.trim()) return;
+		if (!raw.trim()) {
+			return;
+		}
 
 		const input = JSON.parse(raw) as CodexNotifyInput;
-		if (!input.thread_id || !input.cwd) return;
+		if (!input.thread_id || !input.cwd) {
+			return;
+		}
 
 		const credentials = loadCredentials();
-		if (!credentials) return;
+		if (!credentials) {
+			return;
+		}
 
 		const transcriptPath =
 			input.transcript_path ?? (await findActiveRolloutFile(input.thread_id));
-		if (!transcriptPath) return;
+		if (!transcriptPath) {
+			return;
+		}
 
 		const sessionFile: SessionFile = {
 			sessionId: input.thread_id,

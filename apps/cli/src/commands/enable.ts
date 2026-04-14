@@ -213,14 +213,18 @@ async function runEnable(): Promise<void> {
 
 	for (const adapter of adaptersToEnable) {
 		const sessions = await adapter.findProjectSessions(cwd);
-		if (sessions.length === 0) continue;
+		if (sessions.length === 0) {
+			continue;
+		}
 
 		const shouldUpload = await p.confirm({
 			message: `Found ${sessions.length} previous ${adapter.name} session(s). Upload them now?`,
 			initialValue: false,
 		});
 
-		if (p.isCancel(shouldUpload) || !shouldUpload) continue;
+		if (p.isCancel(shouldUpload) || !shouldUpload) {
+			continue;
+		}
 
 		const gitInfo = await getGitInfo(cwd);
 

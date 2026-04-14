@@ -150,9 +150,17 @@ function getFileIcon(
 	const textExtensions = ["md", "mdx", "txt", "rst", "adoc"];
 	const configExtensions = ["yaml", "yml", "toml", "ini", "conf", "env"];
 
-	if (codeExtensions.includes(extension)) return FileCode;
-	if (jsonExtensions.includes(extension)) return FileJson;
-	if (textExtensions.includes(extension)) return FileText;
-	if (configExtensions.includes(extension)) return FileType;
+	if (codeExtensions.includes(extension)) {
+		return FileCode;
+	}
+	if (jsonExtensions.includes(extension)) {
+		return FileJson;
+	}
+	if (textExtensions.includes(extension)) {
+		return FileText;
+	}
+	if (configExtensions.includes(extension)) {
+		return FileType;
+	}
 	return File;
 }

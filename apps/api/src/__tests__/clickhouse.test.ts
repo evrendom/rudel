@@ -11,12 +11,13 @@ const {
 	getSafeClickHouseTable,
 } = await import("../clickhouse.js");
 
-const liveTable = getSafeClickHouseTable("rudel.claude_sessions");
-const insertedSessionIds = new Set<string>();
+const liveTable = "default.clickhouse_executor_test";
 
 function getExecutor() {
 	const url = process.env.CLICKHOUSE_URL;
-	if (!url) throw new Error("CLICKHOUSE_URL is required");
+	if (!url) {
+		throw new Error("CLICKHOUSE_URL is required");
+	}
 	return createClickHouseExecutor({
 		url,
 		username:
@@ -54,7 +55,9 @@ async function waitForRow(
 					sessionId,
 				},
 			});
-			if (rows[0]) return rows[0];
+			if (rows[0]) {
+				return rows[0];
+			}
 		} catch {
 			// Transient ClickHouse errors can happen while cloud storage settles.
 		}
@@ -65,18 +68,12 @@ async function waitForRow(
 }
 
 afterAll(() => {
-	if (insertedSessionIds.size === 0) return;
-	const exec = getExecutor();
-	void Promise.all(
-		[...insertedSessionIds].map((sessionId) =>
-			exec
-				.execute({
-					query: `DELETE FROM ${liveTable} WHERE session_id = {sessionId:String}`,
-					query_params: { sessionId },
-				})
-				.catch(() => {}),
-		),
-	);
+	const executor = getExecutor();
+	void executor
+		.execute({
+			query: `DROP TABLE IF EXISTS ${liveTable}`,
+		})
+		.catch(() => {});
 });
 
 describe("clickhouse helpers", () => {
@@ -154,36 +151,28 @@ describe("clickhouse executor", () => {
 		expect(rows[0]?.value).toBe(payload);
 	});
 
-	test("inserts and queries a live row in ClickHouse", async () => {
+	test("executes insert and query against a live ClickHouse table", async () => {
 		const executor = getExecutor();
 		const sessionId = `clickhouse_test_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-		const now = new Date().toISOString().replace("Z", "");
 		const projectPath = "/tmp/quote-'\\\\\n\u2028";
 		const content = "line1\nquote:'\nbackslash:\\\nunicode:\u2028";
 
-		insertedSessionIds.add(sessionId);
-
-		await executor.insert({
-			table: liveTable,
-			values: [
-				{
-					session_date: now,
-					last_interaction_date: now,
-					session_id: sessionId,
-					organization_id: "org_test",
-					project_path: projectPath,
-					git_remote: "",
-					package_name: "",
-					package_type: "",
-					content,
-					ingested_at: now,
-					user_id: "user_test",
-					git_branch: "main",
-					git_sha: null,
-					tag: "clickhouse-test",
-					subagents: {},
-				},
-			],
+		await executor.execute({
+			query: `CREATE TABLE IF NOT EXISTS ${liveTable}
+				(
+					session_id String,
+					project_path String,
+					content String
+				)
+				ENGINE = Memory`,
+		});
+		await executor.execute({
+			query: `INSERT INTO ${liveTable} (session_id, project_path, content) VALUES ({sessionId:String}, {projectPath:String}, {content:String})`,
+			query_params: {
+				sessionId,
+				projectPath,
+				content,
+			},
 		});
 
 		const row = await waitForRow(executor, sessionId);
@@ -192,14 +181,6 @@ describe("clickhouse executor", () => {
 		expect(row?.session_id).toBe(sessionId);
 		expect(row?.project_path).toBe(projectPath);
 		expect(row?.content).toBe(content);
-
-		await executor.execute({
-			query: `DELETE FROM ${liveTable} WHERE session_id = {sessionId:String}`,
-			query_params: {
-				sessionId,
-			},
-		});
-		insertedSessionIds.delete(sessionId);
 	}, 120_000);
 });
 

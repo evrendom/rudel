@@ -82,7 +82,9 @@ describe("CLI upload to local API", () => {
 						>,
 				),
 			]);
-			if (result.success) break;
+			if (result.success) {
+				break;
+			}
 			await server.ensureAlive();
 			await Bun.sleep(1000);
 		}
@@ -161,7 +163,9 @@ describe("CLI upload to local API", () => {
 			lastStderr = stderr;
 			lastExitCode = exitCode;
 
-			if (stdout.includes("Upload successful!")) break;
+			if (stdout.includes("Upload successful!")) {
+				break;
+			}
 			await server.ensureAlive();
 			await Bun.sleep(1000);
 		}

@@ -111,7 +111,9 @@ export function formatBashSummary(input: BashInput): string {
 function parseBashResult(
 	toolResult: ToolResultContent | undefined,
 ): (BashResult & { isError: boolean; exitCode?: number }) | null {
-	if (!toolResult) return null;
+	if (!toolResult) {
+		return null;
+	}
 
 	const content = toolResult.content;
 

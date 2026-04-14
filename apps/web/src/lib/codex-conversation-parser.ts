@@ -35,7 +35,9 @@ export function isCodexFormat(content: string): boolean {
 	const firstNewline = content.indexOf("\n");
 	const firstLine =
 		firstNewline === -1 ? content : content.slice(0, firstNewline);
-	if (!firstLine) return false;
+	if (!firstLine) {
+		return false;
+	}
 	try {
 		const parsed = JSON.parse(firstLine) as { type?: string };
 		return parsed.type === "session_meta";
@@ -71,7 +73,9 @@ export function parseCodexConversations(content: string): Array<Conversation> {
 			continue;
 		}
 
-		if (parsed.type !== "response_item") continue;
+		if (parsed.type !== "response_item") {
+			continue;
+		}
 
 		const payload = parsed.payload as unknown as
 			| CodexMessagePayload
@@ -84,7 +88,9 @@ export function parseCodexConversations(content: string): Array<Conversation> {
 				.map((s) => s.text)
 				.filter(Boolean)
 				.join("\n");
-			if (!summaryText) continue;
+			if (!summaryText) {
+				continue;
+			}
 
 			const thinkingBlock: ThinkingContent = {
 				type: "thinking",
@@ -105,12 +111,16 @@ export function parseCodexConversations(content: string): Array<Conversation> {
 			continue;
 		}
 
-		if (payload.type !== "message") continue;
+		if (payload.type !== "message") {
+			continue;
+		}
 
 		const msg = payload as CodexMessagePayload;
 
 		// Skip developer messages (system prompts, permissions, collaboration mode)
-		if (msg.role === "developer") continue;
+		if (msg.role === "developer") {
+			continue;
+		}
 
 		const textParts = (msg.content ?? [])
 			.filter(
@@ -119,7 +129,9 @@ export function parseCodexConversations(content: string): Array<Conversation> {
 			.map((block) => block.text ?? "")
 			.filter(Boolean);
 
-		if (textParts.length === 0) continue;
+		if (textParts.length === 0) {
+			continue;
+		}
 
 		if (msg.role === "user") {
 			const entry: UserEntry = {
@@ -185,11 +197,17 @@ export function extractCodexTokenData(
 				};
 			};
 
-			if (parsed.type !== "event_msg") continue;
-			if (parsed.payload?.type !== "token_count") continue;
+			if (parsed.type !== "event_msg") {
+				continue;
+			}
+			if (parsed.payload?.type !== "token_count") {
+				continue;
+			}
 
 			const usage = parsed.payload.info?.total_token_usage;
-			if (!usage) continue;
+			if (!usage) {
+				continue;
+			}
 
 			points.push({
 				messageIndex: i,

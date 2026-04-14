@@ -65,6 +65,8 @@ async function resolveAppVersion() {
 
 export default defineConfig(async () => {
 	const appVersion = await resolveAppVersion();
+	const apiProxyTarget =
+		process.env.RUDEL_API_PROXY_TARGET ?? "http://localhost:4010";
 
 	return {
 		define: {
@@ -74,8 +76,8 @@ export default defineConfig(async () => {
 		server: {
 			port: 4011,
 			proxy: {
-				"/api": "http://localhost:4010",
-				"/rpc": "http://localhost:4010",
+				"/api": apiProxyTarget,
+				"/rpc": apiProxyTarget,
 			},
 		},
 		resolve: {

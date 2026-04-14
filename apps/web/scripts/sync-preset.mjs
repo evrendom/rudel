@@ -109,13 +109,17 @@ async function mergeManagedPackages(scaffoldPackagePath, appPackagePath) {
 		const nextVersion =
 			scaffoldPackage.dependencies?.[packageName] ??
 			scaffoldPackage.devDependencies?.[packageName];
-		if (!nextVersion) continue;
+		if (!nextVersion) {
+			continue;
+		}
 
 		const currentVersion =
 			appPackage.dependencies?.[packageName] ??
 			appPackage.devDependencies?.[packageName];
 
-		if (currentVersion === nextVersion) continue;
+		if (currentVersion === nextVersion) {
+			continue;
+		}
 
 		appPackage.dependencies ??= {};
 		appPackage.dependencies[packageName] = nextVersion;
@@ -126,13 +130,17 @@ async function mergeManagedPackages(scaffoldPackagePath, appPackagePath) {
 		const nextVersion =
 			scaffoldPackage.devDependencies?.[packageName] ??
 			scaffoldPackage.dependencies?.[packageName];
-		if (!nextVersion) continue;
+		if (!nextVersion) {
+			continue;
+		}
 
 		const currentVersion =
 			appPackage.devDependencies?.[packageName] ??
 			appPackage.dependencies?.[packageName];
 
-		if (currentVersion === nextVersion) continue;
+		if (currentVersion === nextVersion) {
+			continue;
+		}
 
 		appPackage.devDependencies ??= {};
 		appPackage.devDependencies[packageName] = nextVersion;

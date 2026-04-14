@@ -6,7 +6,7 @@ import {
 	Terminal,
 	Users,
 } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { useMountEffect } from "@/app/hooks/useMountEffect";
 import { AnalyticsCard } from "@/components/analytics/AnalyticsCard";
 import { CliSetupHint } from "@/components/analytics/CliSetupHint";
 import { DatePicker } from "@/components/analytics/DatePicker";
@@ -27,6 +27,7 @@ import {
 import { orpc } from "@/lib/orpc";
 import {
 	captureDashboardLoadFailed,
+	type DashboardPageName,
 	getHttpStatusFromError,
 	normalizeWebErrorCode,
 } from "@/lib/product-analytics";
@@ -45,7 +46,6 @@ function deriveInsightKey(insight: {
 
 export function OverviewPage() {
 	const { startDate, endDate, setStartDate, setEndDate } = useDateRange();
-	const failedRangeKeyRef = useRef<string | null>(null);
 	const { organizationId, userId, pageName, dateRangeDays } =
 		useDashboardAnalytics();
 
@@ -147,48 +147,35 @@ export function OverviewPage() {
 		metrics: overviewMetrics,
 	});
 
-	useEffect(() => {
-		if (
-			!organizationId ||
-			!userId ||
-			pageName !== "overview" ||
-			dateRangeDays == null
-		) {
-			return;
-		}
-
-		if (!kpisLoading && kpisError) {
-			const failedRangeKey = `${organizationId}:${pageName}:${startDate}:${endDate}`;
-			if (failedRangeKeyRef.current === failedRangeKey) {
-				return;
-			}
-
-			failedRangeKeyRef.current = failedRangeKey;
-			captureDashboardLoadFailed({
-				organization_id: organizationId,
-				user_id: userId,
-				page_name: pageName,
-				query_name: "overview_kpis",
-				error_code: normalizeWebErrorCode(kpisQueryError),
-				date_range_days: dateRangeDays,
-				is_blocking: true,
-				http_status: getHttpStatusFromError(kpisQueryError),
-			});
-		}
-	}, [
-		dateRangeDays,
-		endDate,
-		kpisError,
-		kpisLoading,
-		kpisQueryError,
-		organizationId,
-		pageName,
-		startDate,
-		userId,
-	]);
+	const loadFailureTrackingProps =
+		!kpisLoading &&
+		kpisError &&
+		organizationId !== null &&
+		userId !== null &&
+		pageName === "overview" &&
+		dateRangeDays != null
+			? {
+					dateRangeDays,
+					error: kpisQueryError,
+					organizationId,
+					pageName,
+					trackingKey: `${organizationId}:${pageName}:${startDate}:${endDate}`,
+					userId,
+				}
+			: null;
 
 	return (
 		<div className="px-8 py-6">
+			{loadFailureTrackingProps ? (
+				<OverviewLoadFailureTrackingMount
+					key={loadFailureTrackingProps.trackingKey}
+					dateRangeDays={loadFailureTrackingProps.dateRangeDays}
+					error={loadFailureTrackingProps.error}
+					organizationId={loadFailureTrackingProps.organizationId}
+					pageName={loadFailureTrackingProps.pageName}
+					userId={loadFailureTrackingProps.userId}
+				/>
+			) : null}
 			<PageHeader
 				title="Dashboard Overview"
 				description="Track your team's Claude Code / Codex usage and metrics"
@@ -339,4 +326,33 @@ export function OverviewPage() {
 			)}
 		</div>
 	);
+}
+
+function OverviewLoadFailureTrackingMount({
+	dateRangeDays,
+	error,
+	organizationId,
+	pageName,
+	userId,
+}: {
+	dateRangeDays: number;
+	error: unknown;
+	organizationId: string;
+	pageName: DashboardPageName;
+	userId: string;
+}) {
+	useMountEffect(() => {
+		captureDashboardLoadFailed({
+			organization_id: organizationId,
+			user_id: userId,
+			page_name: pageName,
+			query_name: "overview_kpis",
+			error_code: normalizeWebErrorCode(error),
+			date_range_days: dateRangeDays,
+			is_blocking: true,
+			http_status: getHttpStatusFromError(error),
+		});
+	});
+
+	return null;
 }

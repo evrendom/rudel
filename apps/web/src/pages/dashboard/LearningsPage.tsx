@@ -68,14 +68,18 @@ export function LearningsPage() {
 	const { userMap } = useUserMap();
 
 	const userDisplayOptions = useMemo(() => {
-		if (!availableUsers) return [];
+		if (!availableUsers) {
+			return [];
+		}
 		return availableUsers.map(
 			(userId) => userMap[userId] || `${userId.substring(0, 8)}...`,
 		);
 	}, [availableUsers, userMap]);
 
 	const projectDisplayOptions = useMemo(() => {
-		if (!availableProjects) return [];
+		if (!availableProjects) {
+			return [];
+		}
 		return availableProjects.map((path) => {
 			const name = path.split("/").pop() || path;
 			return name;
@@ -83,7 +87,9 @@ export function LearningsPage() {
 	}, [availableProjects]);
 
 	const filteredLearnings = useMemo(() => {
-		if (!learnings) return [];
+		if (!learnings) {
+			return [];
+		}
 		return learnings.filter((learning) => {
 			if (
 				selectedUsers.length > 0 &&
@@ -102,7 +108,9 @@ export function LearningsPage() {
 	}, [learnings, selectedUsers, selectedProjects]);
 
 	const handleUserFilterChange = (selectedNames: string[]) => {
-		if (!availableUsers) return;
+		if (!availableUsers) {
+			return;
+		}
 		const userIds = selectedNames.map((name) => {
 			const userId = availableUsers.find(
 				(id) => (userMap[id] || `${id.substring(0, 8)}...`) === name,
@@ -113,7 +121,9 @@ export function LearningsPage() {
 	};
 
 	const handleProjectFilterChange = (selected: string[]) => {
-		if (!availableProjects) return;
+		if (!availableProjects) {
+			return;
+		}
 		const fullPaths = selected.map((name) => {
 			const path = availableProjects.find((p) => p.split("/").pop() === name);
 			return path || name;

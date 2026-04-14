@@ -16,7 +16,9 @@ export function ChartLegend({
 }: ChartLegendProps) {
 	const { trackFilterChange } = useAnalyticsTracking();
 
-	if (!payload || payload.length === 0) return null;
+	if (!payload || payload.length === 0) {
+		return null;
+	}
 
 	return (
 		<div className="flex flex-col gap-2 max-h-[240px] overflow-y-auto pl-4 pr-1 py-1">

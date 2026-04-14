@@ -69,7 +69,6 @@ function createOrganizationPlugin(config: AuthConfig) {
 	});
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- drizzleAdapter accepts { [key: string]: any }
 export function createAuth(db: object, config: AuthConfig) {
 	const trustedOrigins = config.trustedOrigins ?? [];
 	const resend = config.resend ?? {};

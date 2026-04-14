@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { AlertTriangle, Loader2 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useAnalyticsTracking } from "@/hooks/useDashboardAnalytics";
 import { client } from "../lib/orpc";
 import { Button } from "./ui/button";
@@ -45,17 +45,23 @@ export function DeleteOrganizationDialog({
 	const [deleting, setDeleting] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
-	useEffect(() => {
-		if (!open) {
-			setConfirmName("");
-			setDeleting(false);
-			setError(null);
-		}
-	}, [open]);
-
 	const nameMatches =
 		confirmName.toLowerCase() === organization.name.toLowerCase();
 	const canDelete = nameMatches && !deleting;
+
+	const resetDialogState = () => {
+		setConfirmName("");
+		setDeleting(false);
+		setError(null);
+	};
+
+	const handleOpenChange = (nextOpen: boolean) => {
+		if (!nextOpen) {
+			resetDialogState();
+		}
+
+		onOpenChange(nextOpen);
+	};
 
 	const handleDelete = async () => {
 		trackOrganizationAction({
@@ -80,7 +86,7 @@ export function DeleteOrganizationDialog({
 	};
 
 	return (
-		<Dialog open={open} onOpenChange={onOpenChange}>
+		<Dialog open={open} onOpenChange={handleOpenChange}>
 			<DialogContent>
 				<DialogHeader>
 					<DialogTitle className="flex items-center gap-2">
@@ -139,7 +145,7 @@ export function DeleteOrganizationDialog({
 								sourceComponent: "delete_organization_dialog",
 								targetId: organization.id,
 							});
-							onOpenChange(false);
+							handleOpenChange(false);
 						}}
 						disabled={deleting}
 					>

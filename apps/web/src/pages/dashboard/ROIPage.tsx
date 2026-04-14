@@ -310,13 +310,19 @@ export function ROIPage() {
 		`${value >= 0 ? "+" : ""}${value.toFixed(1)}%`;
 
 	const formatCompact = (value: number): string => {
-		if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
-		if (value >= 1_000) return `${(value / 1_000).toFixed(1)}K`;
+		if (value >= 1_000_000) {
+			return `${(value / 1_000_000).toFixed(1)}M`;
+		}
+		if (value >= 1_000) {
+			return `${(value / 1_000).toFixed(1)}K`;
+		}
 		return value.toString();
 	};
 
 	const calculatedROI = useMemo(() => {
-		if (!metrics) return null;
+		if (!metrics) {
+			return null;
+		}
 		const loc =
 			(metrics.output_tokens * (roiInputs.codePercentage / 100)) /
 			roiInputs.tokensPerLOC;

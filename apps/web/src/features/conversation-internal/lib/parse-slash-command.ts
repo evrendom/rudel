@@ -50,13 +50,17 @@ export function parseSlashCommand(
 	content: MessageContent,
 ): ParsedSlashCommand | null {
 	const textBlocks = extractTextBlocks(content);
-	if (textBlocks.length === 0) return null;
+	if (textBlocks.length === 0) {
+		return null;
+	}
 
 	// Find the block that contains command tags
 	const commandBlockIndex = textBlocks.findIndex((block) =>
 		/<command-name>/.test(block),
 	);
-	if (commandBlockIndex === -1) return null;
+	if (commandBlockIndex === -1) {
+		return null;
+	}
 
 	const commandBlock = textBlocks[commandBlockIndex];
 
@@ -70,7 +74,9 @@ export function parseSlashCommand(
 		/<command-args>([\s\S]*?)<\/command-args>/,
 	);
 
-	if (!commandNameMatch) return null;
+	if (!commandNameMatch) {
+		return null;
+	}
 
 	// Collect expanded content from other text blocks (those without command tags)
 	const expandedBlocks = textBlocks.filter(

@@ -68,18 +68,21 @@ function spawnServer(env: Record<string, string | undefined>) {
 }
 
 function drainStreams(proc: ReturnType<typeof Bun.spawn>) {
-	if (proc.stdout instanceof ReadableStream)
+	if (proc.stdout instanceof ReadableStream) {
 		proc.stdout.pipeTo(new WritableStream()).catch(() => {});
-	if (proc.stderr instanceof ReadableStream)
+	}
+	if (proc.stderr instanceof ReadableStream) {
 		proc.stderr.pipeTo(new WritableStream()).catch(() => {});
+	}
 }
 
 async function parseReadyPort(
 	proc: ReturnType<typeof Bun.spawn>,
 ): Promise<number> {
 	const stdout = proc.stdout;
-	if (!stdout || !(stdout instanceof ReadableStream))
+	if (!stdout || !(stdout instanceof ReadableStream)) {
 		throw new Error("Server process has no readable stdout");
+	}
 	const reader = stdout.getReader();
 	const decoder = new TextDecoder();
 	let buffer = "";
@@ -87,7 +90,9 @@ async function parseReadyPort(
 	try {
 		while (Date.now() < deadline) {
 			const { value, done } = await reader.read();
-			if (done) break;
+			if (done) {
+				break;
+			}
 			buffer += decoder.decode(value, { stream: true });
 			const match = buffer.match(/listening on https?:\/\/localhost:(\d+)/i);
 			if (match?.[1]) {
@@ -109,7 +114,9 @@ async function waitForReady(baseUrl: string): Promise<void> {
 			const res = await fetch(`${baseUrl}/health`, {
 				signal: AbortSignal.timeout(2000),
 			});
-			if (res.ok) return;
+			if (res.ok) {
+				return;
+			}
 		} catch {
 			// retry
 		}
@@ -147,7 +154,9 @@ async function startTestServer(): Promise<TestServer> {
 				const res = await fetch(`http://localhost:${port}/health`, {
 					signal: AbortSignal.timeout(2000),
 				});
-				if (res.ok) return;
+				if (res.ok) {
+					return;
+				}
 			} catch {
 				// restart
 			}
@@ -165,8 +174,9 @@ function parseArray<T>(
 	schema: { parse: (v: unknown) => T },
 	data: unknown,
 ): T[] {
-	if (!Array.isArray(data))
+	if (!Array.isArray(data)) {
 		throw new Error(`Expected array, got ${typeof data}`);
+	}
 	return data.map((item: unknown) => schema.parse(item));
 }
 
@@ -200,8 +210,9 @@ async function rpc(
 		body: JSON.stringify(input ? { json: input } : {}),
 	});
 	const data = await res.json();
-	if (!res.ok)
+	if (!res.ok) {
 		throw new Error(`RPC ${path}: ${res.status} ${JSON.stringify(data)}`);
+	}
 	return (data as { json: unknown }).json;
 }
 
@@ -240,8 +251,9 @@ beforeAll(async () => {
 			.find((c) => c.startsWith("better-auth.session_token="))
 			?.split("=")[1]
 			?.split(";")[0];
-		if (!sessionCookie)
+		if (!sessionCookie) {
 			throw new Error("Could not extract token from sign-in response");
+		}
 		token = sessionCookie;
 	}
 
@@ -276,7 +288,9 @@ beforeEach(async () => {
 });
 
 afterAll(async () => {
-	if (server) await server.stop();
+	if (server) {
+		await server.stop();
+	}
 });
 
 // ── Overview ────────────────────────────────────────────────────────

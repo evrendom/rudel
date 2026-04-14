@@ -21,7 +21,9 @@ function getProjectsConfigPath(): string {
 
 function loadProjectsConfig(): ProjectsConfig {
 	const path = getProjectsConfigPath();
-	if (!existsSync(path)) return { projects: {} };
+	if (!existsSync(path)) {
+		return { projects: {} };
+	}
 	const content = readFileSync(path, "utf-8");
 	return JSON.parse(content) as ProjectsConfig;
 }

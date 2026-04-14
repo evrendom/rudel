@@ -369,7 +369,9 @@ export async function getDeveloperDetails(
 		query_params,
 	});
 	const [first] = results;
-	if (!first) return null;
+	if (!first) {
+		return null;
+	}
 
 	return first;
 }
@@ -701,7 +703,7 @@ export async function getDeveloperFeatureUsage(
 	}
 
 	const [stats] = adoptionResults;
-	if (!stats)
+	if (!stats) {
 		return {
 			subagents_adoption_rate: 0,
 			skills_adoption_rate: 0,
@@ -710,6 +712,7 @@ export async function getDeveloperFeatureUsage(
 			top_skills: [],
 			top_slash_commands: [],
 		};
+	}
 	return {
 		subagents_adoption_rate:
 			stats.total_sessions > 0

@@ -79,7 +79,9 @@ const STATIC_DIR = join(
 );
 
 function corsHeaders(origin: string | null): Record<string, string> {
-	if (origin !== ALLOWED_ORIGIN) return {};
+	if (origin !== ALLOWED_ORIGIN) {
+		return {};
+	}
 	return {
 		"Access-Control-Allow-Origin": ALLOWED_ORIGIN,
 		"Access-Control-Allow-Credentials": "true",

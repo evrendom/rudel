@@ -33,7 +33,9 @@ export async function readJsonlFirstLine(
 	try {
 		const content = await readFile(filePath, "utf-8");
 		const firstLine = content.split("\n")[0];
-		if (!firstLine) return null;
+		if (!firstLine) {
+			return null;
+		}
 		return JSON.parse(firstLine);
 	} catch {
 		return null;

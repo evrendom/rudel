@@ -1,7 +1,8 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { Building2, Check, Loader2, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { useMountEffect } from "@/app/hooks/useMountEffect";
 import { Button } from "../components/ui/button";
 import { useAnalyticsTracking } from "../hooks/useDashboardAnalytics";
 import { USER_INVITATIONS_KEY } from "../hooks/useUserInvitations";
@@ -20,20 +21,10 @@ export function AcceptInvitationPage() {
 	>("loading");
 	const [error, setError] = useState<string | null>(null);
 
-	useEffect(() => {
-		if (sessionLoading || !invitationId) return;
-
-		if (!session) {
-			const returnUrl = `/invitation/${invitationId}`;
-			window.location.href = `/?redirect=${encodeURIComponent(returnUrl)}`;
+	const handleAccept = async () => {
+		if (!invitationId) {
 			return;
 		}
-
-		setStatus("loading");
-	}, [session, sessionLoading, invitationId]);
-
-	const handleAccept = async () => {
-		if (!invitationId) return;
 		trackAuthenticationAction({
 			actionName: "accept_invitation",
 			sourceComponent: "accept_invitation_page",
@@ -69,7 +60,9 @@ export function AcceptInvitationPage() {
 	};
 
 	const handleReject = async () => {
-		if (!invitationId) return;
+		if (!invitationId) {
+			return;
+		}
 		trackAuthenticationAction({
 			actionName: "decline_invitation",
 			sourceComponent: "accept_invitation_page",
@@ -83,6 +76,10 @@ export function AcceptInvitationPage() {
 		await authClient.organization.rejectInvitation({ invitationId });
 		navigate("/dashboard");
 	};
+
+	if (!sessionLoading && invitationId && !session) {
+		return <InvitationRedirectMount invitationId={invitationId} />;
+	}
 
 	if (sessionLoading) {
 		return (
@@ -147,6 +144,19 @@ export function AcceptInvitationPage() {
 					</>
 				)}
 			</div>
+		</div>
+	);
+}
+
+function InvitationRedirectMount({ invitationId }: { invitationId: string }) {
+	useMountEffect(() => {
+		const returnUrl = `/invitation/${invitationId}`;
+		window.location.href = `/?redirect=${encodeURIComponent(returnUrl)}`;
+	});
+
+	return (
+		<div className="flex min-h-screen items-center justify-center">
+			<Loader2 className="h-6 w-6 animate-spin text-muted" />
 		</div>
 	);
 }

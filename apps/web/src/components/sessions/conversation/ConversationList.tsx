@@ -80,9 +80,15 @@ export function ConversationList({
 function getPrevType(
 	prevItem: GroupedItem | undefined,
 ): "summary" | "user" | "assistant" | "system" | null {
-	if (!prevItem) return null;
-	if ("summaries" in prevItem) return "summary";
-	if ("slashCommand" in prevItem) return "user";
+	if (!prevItem) {
+		return null;
+	}
+	if ("summaries" in prevItem) {
+		return "summary";
+	}
+	if ("slashCommand" in prevItem) {
+		return "user";
+	}
 	return prevItem.type;
 }
 

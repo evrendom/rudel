@@ -70,7 +70,9 @@ describe("auth e2e", () => {
 		while (Date.now() < deadline) {
 			if (existsSync(stdoutLogPath)) {
 				output = readFileSync(stdoutLogPath, "utf-8");
-				if (output.includes("User code:")) break;
+				if (output.includes("User code:")) {
+					break;
+				}
 			}
 			await Bun.sleep(100);
 		}

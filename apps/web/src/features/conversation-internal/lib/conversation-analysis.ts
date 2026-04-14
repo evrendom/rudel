@@ -20,7 +20,9 @@ function extractTokenData(content: string): TokenDataPoint[] {
 
 	for (let i = 0; i < lines.length; i += 1) {
 		const line = lines[i];
-		if (!line) continue;
+		if (!line) {
+			continue;
+		}
 
 		try {
 			const parsed = JSON.parse(line) as {
@@ -33,9 +35,13 @@ function extractTokenData(content: string): TokenDataPoint[] {
 				};
 			};
 
-			if (parsed.type !== "assistant") continue;
+			if (parsed.type !== "assistant") {
+				continue;
+			}
 			const usage = parsed.message?.usage;
-			if (!usage) continue;
+			if (!usage) {
+				continue;
+			}
 
 			points.push({
 				messageIndex: i,
@@ -82,7 +88,9 @@ function extractToolActivity(entries: Conversation[]): ToolActivityPoint[] {
 
 		if (entry?.type === "assistant") {
 			for (const block of entry.message.content) {
-				if (block.type !== "tool_use") continue;
+				if (block.type !== "tool_use") {
+					continue;
+				}
 				if (block.name === "Task") {
 					const subagentType =
 						typeof block.input.subagent_type === "string"

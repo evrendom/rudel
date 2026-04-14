@@ -292,7 +292,9 @@ export async function getSessionAnalyticsSummary(
 
 	// Coalesce nulls from ClickHouse (AVG on 0 rows returns null despite ifNull)
 	const row = results[0] as Record<string, unknown> | undefined;
-	if (!row) return defaults;
+	if (!row) {
+		return defaults;
+	}
 	return Object.fromEntries(
 		Object.entries(defaults).map(([key, def]) => [key, row[key] ?? def]),
 	) as SessionAnalyticsSummary;
@@ -382,7 +384,9 @@ export async function getSessionAnalyticsSummaryComparison(
 	const coalesce = (
 		row: SessionSummaryComparisonPeriod | undefined,
 	): SessionSummaryComparisonPeriod => {
-		if (!row) return { ...defaultPeriod };
+		if (!row) {
+			return { ...defaultPeriod };
+		}
 		return Object.fromEntries(
 			Object.entries(defaultPeriod).map(([key, def]) => [
 				key,
@@ -394,7 +398,9 @@ export async function getSessionAnalyticsSummaryComparison(
 	const previous = coalesce(previousData[0]);
 
 	const calculateChange = (curr: number, prev: number) => {
-		if (!prev || prev === 0) return 0;
+		if (!prev || prev === 0) {
+			return 0;
+		}
 		return ((curr - prev) / prev) * 100;
 	};
 
@@ -644,7 +650,9 @@ export async function getSessionDimensionAnalysis(
 			}
 
 			const group = grouped.get(dimVal);
-			if (group) group[splitVal] = metricVal;
+			if (group) {
+				group[splitVal] = metricVal;
+			}
 			totalMetric.set(dimVal, (totalMetric.get(dimVal) || 0) + metricVal);
 		}
 

@@ -7,7 +7,9 @@ export function calculateRollingAverage(
 	data: number[],
 	window: number,
 ): (number | null)[] {
-	if (!data || data.length === 0) return [];
+	if (!data || data.length === 0) {
+		return [];
+	}
 
 	const result: (number | null)[] = [];
 
@@ -30,12 +32,16 @@ export function calculateWeekOverWeek(
 	currentWeekData: number[],
 	previousWeekData: number[],
 ): number {
-	if (!currentWeekData.length || !previousWeekData.length) return 0;
+	if (!currentWeekData.length || !previousWeekData.length) {
+		return 0;
+	}
 
 	const currentSum = currentWeekData.reduce((sum, val) => sum + val, 0);
 	const previousSum = previousWeekData.reduce((sum, val) => sum + val, 0);
 
-	if (previousSum === 0) return currentSum > 0 ? 100 : 0;
+	if (previousSum === 0) {
+		return currentSum > 0 ? 100 : 0;
+	}
 
 	return ((currentSum - previousSum) / previousSum) * 100;
 }
@@ -44,7 +50,9 @@ export function detectAnomalies(
 	data: number[],
 	threshold: number = 50,
 ): boolean[] {
-	if (!data || data.length < 2) return data.map(() => false);
+	if (!data || data.length < 2) {
+		return data.map(() => false);
+	}
 
 	const result: boolean[] = [false];
 
@@ -65,7 +73,9 @@ export function detectAnomalies(
 }
 
 export function getTrendDirection(data: number[]): "up" | "down" | "stable" {
-	if (!data || data.length < 2) return "stable";
+	if (!data || data.length < 2) {
+		return "stable";
+	}
 
 	const firstHalf = data.slice(0, Math.floor(data.length / 2));
 	const lastHalf = data.slice(Math.floor(data.length / 2));
@@ -76,7 +86,9 @@ export function getTrendDirection(data: number[]): "up" | "down" | "stable" {
 
 	const percentChange = ((lastAvg - firstAvg) / firstAvg) * 100;
 
-	if (Math.abs(percentChange) < 5) return "stable";
+	if (Math.abs(percentChange) < 5) {
+		return "stable";
+	}
 	return percentChange > 0 ? "up" : "down";
 }
 
@@ -95,7 +107,9 @@ export function getTrendColor(
 	direction: "up" | "down" | "stable",
 	isPositiveGood: boolean = true,
 ): string {
-	if (direction === "stable") return "text-gray-500";
+	if (direction === "stable") {
+		return "text-gray-500";
+	}
 
 	const isGood = isPositiveGood ? direction === "up" : direction === "down";
 	return isGood ? "text-green-600" : "text-red-600";

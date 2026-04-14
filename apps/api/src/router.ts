@@ -324,7 +324,9 @@ const deleteOrganization = os.deleteOrganization
 			console.log(`[deleteOrganization] success for org=${orgId}`);
 			return { success: true as const };
 		} catch (error) {
-			if (error instanceof ORPCError) throw error;
+			if (error instanceof ORPCError) {
+				throw error;
+			}
 			console.error(`[deleteOrganization] failed for org=${orgId}:`, error);
 			throw error;
 		}

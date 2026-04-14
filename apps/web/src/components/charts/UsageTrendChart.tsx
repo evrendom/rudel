@@ -53,8 +53,12 @@ const METRIC_PAIRS = {
 };
 
 function formatCompactNumber(num: number): string {
-	if (num >= 1_000_000) return `${(num / 1_000_000).toFixed(2)}M`;
-	if (num >= 1_000) return `${(num / 1_000).toFixed(2)}K`;
+	if (num >= 1_000_000) {
+		return `${(num / 1_000_000).toFixed(2)}M`;
+	}
+	if (num >= 1_000) {
+		return `${(num / 1_000).toFixed(2)}K`;
+	}
 	return num.toFixed(0);
 }
 
@@ -85,8 +89,12 @@ export function UsageTrendChart({
 	}));
 
 	const formatValue = (v: number, name: string): string => {
-		if (name === "Hours Spent") return `${v.toFixed(1)}h`;
-		if (name === "Total Tokens") return formatCompactNumber(v);
+		if (name === "Hours Spent") {
+			return `${v.toFixed(1)}h`;
+		}
+		if (name === "Total Tokens") {
+			return formatCompactNumber(v);
+		}
 		return v.toLocaleString();
 	};
 

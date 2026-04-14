@@ -125,7 +125,9 @@ export function addOptionalStringEqFilter(
 	paramName: string,
 	value?: string,
 ): void {
-	if (!value) return;
+	if (!value) {
+		return;
+	}
 	where.push(`${column} = {${paramName}:String}`);
 	query_params[paramName] = value;
 }
@@ -137,7 +139,9 @@ export function addOptionalStringInFilter(
 	paramBase: string,
 	values?: string[],
 ): void {
-	if (!values || values.length === 0) return;
+	if (!values || values.length === 0) {
+		return;
+	}
 	const placeholders = values.map((value, index) => {
 		const paramName = `${paramBase}_${index}`;
 		query_params[paramName] = value;

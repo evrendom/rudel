@@ -1,5 +1,4 @@
 import { useTheme } from "next-themes";
-import { useEffect, useState } from "react";
 
 const LIGHT_DEFAULTS = {
 	tooltipBg: "#ffffff",
@@ -9,26 +8,25 @@ const LIGHT_DEFAULTS = {
 };
 
 export function useChartTheme() {
-	const { resolvedTheme: _resolvedTheme } = useTheme();
-	const [chartTheme, setChartTheme] = useState(LIGHT_DEFAULTS);
+	useTheme();
 
-	useEffect(() => {
-		const styles = getComputedStyle(document.documentElement);
-		setChartTheme({
-			tooltipBg:
-				styles.getPropertyValue("--chart-tooltip-bg").trim() ||
-				LIGHT_DEFAULTS.tooltipBg,
-			tooltipBorder:
-				styles.getPropertyValue("--chart-tooltip-border").trim() ||
-				LIGHT_DEFAULTS.tooltipBorder,
-			gridStroke:
-				styles.getPropertyValue("--chart-grid").trim() ||
-				LIGHT_DEFAULTS.gridStroke,
-			axisStroke:
-				styles.getPropertyValue("--chart-axis").trim() ||
-				LIGHT_DEFAULTS.axisStroke,
-		});
-	}, []);
+	if (typeof window === "undefined") {
+		return LIGHT_DEFAULTS;
+	}
 
-	return chartTheme;
+	const styles = getComputedStyle(document.documentElement);
+	return {
+		tooltipBg:
+			styles.getPropertyValue("--chart-tooltip-bg").trim() ||
+			LIGHT_DEFAULTS.tooltipBg,
+		tooltipBorder:
+			styles.getPropertyValue("--chart-tooltip-border").trim() ||
+			LIGHT_DEFAULTS.tooltipBorder,
+		gridStroke:
+			styles.getPropertyValue("--chart-grid").trim() ||
+			LIGHT_DEFAULTS.gridStroke,
+		axisStroke:
+			styles.getPropertyValue("--chart-axis").trim() ||
+			LIGHT_DEFAULTS.axisStroke,
+	};
 }

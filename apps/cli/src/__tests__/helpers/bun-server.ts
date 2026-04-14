@@ -48,7 +48,9 @@ export async function startTestServer(): Promise<TestServer> {
 				const res = await fetch(`http://localhost:${port}/health`, {
 					signal: AbortSignal.timeout(2000),
 				});
-				if (res.ok) return;
+				if (res.ok) {
+					return;
+				}
 			} catch {
 				// Server is dead — restart it
 			}
@@ -102,7 +104,9 @@ async function parseReadyPort(
 	try {
 		while (Date.now() < deadline) {
 			const { value, done } = await reader.read();
-			if (done) break;
+			if (done) {
+				break;
+			}
 			buffer += decoder.decode(value, { stream: true });
 
 			// index.ts prints: "API server listening on http://localhost:<port>"
@@ -139,7 +143,9 @@ async function waitForReady(baseUrl: string): Promise<void> {
 			const res = await fetch(`${baseUrl}/health`, {
 				signal: AbortSignal.timeout(2000),
 			});
-			if (res.ok) return;
+			if (res.ok) {
+				return;
+			}
 		} catch {
 			// Connection refused or timeout — retry
 		}
@@ -176,15 +182,21 @@ export async function signUpTestUser(baseUrl: string): Promise<string> {
 		?.split("=")[1]
 		?.split(";")[0];
 
-	if (sessionCookie) return sessionCookie;
+	if (sessionCookie) {
+		return sessionCookie;
+	}
 
 	// Fallback: try response body
 	const data = (await res.json()) as {
 		token?: string;
 		session?: { token?: string };
 	};
-	if (data.session?.token) return data.session.token;
-	if (data.token) return data.token;
+	if (data.session?.token) {
+		return data.session.token;
+	}
+	if (data.token) {
+		return data.token;
+	}
 
 	throw new Error("Could not extract token from sign-up response");
 }

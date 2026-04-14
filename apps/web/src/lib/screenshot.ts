@@ -34,7 +34,9 @@ export async function captureElement(element: HTMLElement): Promise<Blob> {
 	canvas.width = img.width + pad * 2;
 	canvas.height = img.height + pad * 2;
 	const ctx = canvas.getContext("2d");
-	if (!ctx) throw new Error("Failed to get canvas context");
+	if (!ctx) {
+		throw new Error("Failed to get canvas context");
+	}
 
 	ctx.fillStyle = bg;
 	ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -42,8 +44,11 @@ export async function captureElement(element: HTMLElement): Promise<Blob> {
 
 	return new Promise((resolve, reject) => {
 		canvas.toBlob((blob) => {
-			if (blob) resolve(blob);
-			else reject(new Error("Failed to capture element as image"));
+			if (blob) {
+				resolve(blob);
+			} else {
+				reject(new Error("Failed to capture element as image"));
+			}
 		}, "image/png");
 	});
 }

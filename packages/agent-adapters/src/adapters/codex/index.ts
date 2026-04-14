@@ -124,7 +124,9 @@ class CodexAdapter implements AgentAdapter {
 
 		for (const filePath of files) {
 			const meta = await readCodexSessionMeta(filePath);
-			if (!meta || !meta.cwd) continue;
+			if (!meta || !meta.cwd) {
+				continue;
+			}
 
 			const sessions = projectMap.get(meta.cwd) ?? [];
 			sessions.push({
@@ -196,7 +198,9 @@ class CodexAdapter implements AgentAdapter {
 		let max: string | null = null;
 
 		for (const line of content.split("\n")) {
-			if (!line) continue;
+			if (!line) {
+				continue;
+			}
 			let parsed: { timestamp?: string };
 			try {
 				parsed = JSON.parse(line);
@@ -205,12 +209,18 @@ class CodexAdapter implements AgentAdapter {
 			}
 			if (parsed.timestamp) {
 				const ts = parsed.timestamp;
-				if (!min || ts < min) min = ts;
-				if (!max || ts > max) max = ts;
+				if (!min || ts < min) {
+					min = ts;
+				}
+				if (!max || ts > max) {
+					max = ts;
+				}
 			}
 		}
 
-		if (!min || !max) return null;
+		if (!min || !max) {
+			return null;
+		}
 
 		return { sessionDate: min, lastInteractionDate: max };
 	}

@@ -51,7 +51,9 @@ export function getClaudeSettingsPath(): string {
 
 export function readClaudeSettings(): ClaudeSettings {
 	const path = getClaudeSettingsPath();
-	if (!existsSync(path)) return {};
+	if (!existsSync(path)) {
+		return {};
+	}
 	const content = readFileSync(path, "utf-8");
 	return JSON.parse(content) as ClaudeSettings;
 }
@@ -65,7 +67,9 @@ export function writeClaudeSettings(settings: ClaudeSettings): void {
 export function isHookEnabled(): boolean {
 	const settings = readClaudeSettings();
 	const entries = settings.hooks?.SessionEnd;
-	if (!Array.isArray(entries)) return false;
+	if (!Array.isArray(entries)) {
+		return false;
+	}
 	return entries.some((entry) =>
 		entry.hooks?.some((h) => h.command === HOOK_COMMAND),
 	);
@@ -83,7 +87,9 @@ export function addHook(): void {
 	const alreadyExists = settings.hooks.SessionEnd.some((entry) =>
 		entry.hooks?.some((h) => h.command === HOOK_COMMAND),
 	);
-	if (alreadyExists) return;
+	if (alreadyExists) {
+		return;
+	}
 
 	settings.hooks.SessionEnd.push({
 		matcher: "",
@@ -97,7 +103,9 @@ export function removeHook(): void {
 	const settings = readClaudeSettings();
 	const hooks = settings.hooks;
 	const entries = hooks?.SessionEnd;
-	if (!hooks || !Array.isArray(entries)) return;
+	if (!hooks || !Array.isArray(entries)) {
+		return;
+	}
 
 	hooks.SessionEnd = entries.filter(
 		(entry) => !entry.hooks?.some((h) => h.command === HOOK_COMMAND),

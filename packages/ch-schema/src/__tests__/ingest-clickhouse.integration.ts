@@ -31,7 +31,9 @@ const executor: typeof baseExecutor = {
 				const isRaceCondition =
 					error instanceof Error &&
 					error.message.includes("INSERT race condition");
-				if (!isRaceCondition || attempt === 4) throw error;
+				if (!isRaceCondition || attempt === 4) {
+					throw error;
+				}
 				await new Promise((r) => setTimeout(r, 1000 * 2 ** attempt));
 			}
 		}
@@ -47,7 +49,9 @@ async function waitForQuery<T>(
 	while (Date.now() - start < timeoutMs) {
 		try {
 			const results = await executor.query<T>(query);
-			if (results.length > 0) return results;
+			if (results.length > 0) {
+				return results;
+			}
 		} catch {
 			// Transient ClickHouse errors (e.g. S3 storage) - retry
 		}
@@ -66,12 +70,16 @@ async function insertWithRetry(
 			await fn();
 		} catch (error) {
 			// Retry on transient ClickHouse errors (e.g. INSERT race conditions)
-			if (attempt === maxAttempts - 1) throw error;
+			if (attempt === maxAttempts - 1) {
+				throw error;
+			}
 			await new Promise((r) => setTimeout(r, 2000 * 2 ** attempt));
 			continue;
 		}
 		const results = await queryFn();
-		if (results.length > 0) return results;
+		if (results.length > 0) {
+			return results;
+		}
 	}
 	return [];
 }

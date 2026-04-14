@@ -1,6 +1,7 @@
 import { Moon, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useMountEffect } from "@/app/hooks/useMountEffect";
 import { useAnalyticsTracking } from "@/hooks/useDashboardAnalytics";
 
 export function ThemeToggle() {
@@ -8,7 +9,9 @@ export function ThemeToggle() {
 	const [mounted, setMounted] = useState(false);
 	const { trackUtility } = useAnalyticsTracking();
 
-	useEffect(() => setMounted(true), []);
+	useMountEffect(() => {
+		setMounted(true);
+	});
 
 	if (!mounted) {
 		return <div className="h-8 w-8" />;

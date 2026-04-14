@@ -1,5 +1,5 @@
 import { AlertTriangle, Loader2 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { client } from "../../lib/orpc";
 import { Button } from "../ui/button";
 import {
@@ -29,19 +29,27 @@ export function DeleteUserDialog({
 	const [deleting, setDeleting] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
-	useEffect(() => {
-		if (!open) {
-			setConfirmEmail("");
-			setDeleting(false);
-			setError(null);
-		}
-	}, [open]);
-
-	if (!targetUser) return null;
+	if (!targetUser) {
+		return null;
+	}
 
 	const emailMatches =
 		confirmEmail.toLowerCase() === targetUser.email.toLowerCase();
 	const canDelete = emailMatches && !deleting;
+
+	const resetDialogState = () => {
+		setConfirmEmail("");
+		setDeleting(false);
+		setError(null);
+	};
+
+	const handleOpenChange = (nextOpen: boolean) => {
+		if (!nextOpen) {
+			resetDialogState();
+		}
+
+		onOpenChange(nextOpen);
+	};
 
 	const handleDelete = async () => {
 		setDeleting(true);
@@ -56,7 +64,7 @@ export function DeleteUserDialog({
 	};
 
 	return (
-		<Dialog open={open} onOpenChange={onOpenChange}>
+		<Dialog open={open} onOpenChange={handleOpenChange}>
 			<DialogContent>
 				<DialogHeader>
 					<DialogTitle className="flex items-center gap-2">
@@ -94,7 +102,7 @@ export function DeleteUserDialog({
 				<DialogFooter>
 					<Button
 						variant="outline"
-						onClick={() => onOpenChange(false)}
+						onClick={() => handleOpenChange(false)}
 						disabled={deleting}
 					>
 						Cancel

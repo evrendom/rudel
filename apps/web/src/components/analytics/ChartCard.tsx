@@ -38,7 +38,9 @@ export function ChartCard({
 	const chartId = title.toLowerCase().replace(/[^a-z0-9]+/g, "_");
 
 	const handleCapture = async () => {
-		if (!chartRef.current) return null;
+		if (!chartRef.current) {
+			return null;
+		}
 		return captureElement(chartRef.current);
 	};
 
@@ -50,7 +52,9 @@ export function ChartCard({
 			shareDestination: "x",
 		});
 		const blob = await handleCapture();
-		if (!blob) return;
+		if (!blob) {
+			return;
+		}
 		const copied = await copyToClipboard(blob);
 		if (copied) {
 			toast.success(
@@ -69,7 +73,9 @@ export function ChartCard({
 			sourceComponent: "chart_card",
 		});
 		const blob = await handleCapture();
-		if (!blob) return;
+		if (!blob) {
+			return;
+		}
 		const copied = await copyToClipboard(blob);
 		if (copied) {
 			toast.success("Chart copied to clipboard");
@@ -85,7 +91,9 @@ export function ChartCard({
 			sourceComponent: "chart_card",
 		});
 		const blob = await handleCapture();
-		if (!blob) return;
+		if (!blob) {
+			return;
+		}
 		const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, "-");
 		const slug = title.toLowerCase().replace(/\s+/g, "-");
 		downloadAsImage(blob, `rudel-${slug}-${timestamp}.png`);

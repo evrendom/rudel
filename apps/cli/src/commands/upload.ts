@@ -238,12 +238,18 @@ async function runSingleUpload(
 		gitInfo.gitRemote ||
 		gitInfo.packageName ||
 		sessionInfo.projectPath.split("/").pop();
-	if (displayName) write(`Repository: ${displayName}`);
-	if (gitInfo.branch) write(`Branch: ${gitInfo.branch}`);
+	if (displayName) {
+		write(`Repository: ${displayName}`);
+	}
+	if (gitInfo.branch) {
+		write(`Branch: ${gitInfo.branch}`);
+	}
 
 	const organizationId =
 		flags.org ?? (await getProjectOrgId(sessionInfo.projectPath));
-	if (organizationId) write(`Organization: ${organizationId}`);
+	if (organizationId) {
+		write(`Organization: ${organizationId}`);
+	}
 
 	write("Building upload request...");
 	const sessionFile: SessionFile = {

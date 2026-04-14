@@ -74,7 +74,7 @@ async function parseReadyPort(proc: ReturnType<typeof Bun.spawn>): Promise<numbe
 	try {
 		while (Date.now() < deadline) {
 			const { value, done } = await reader.read();
-			if (done) break;
+			if (done) {break;}
 			buffer += decoder.decode(value, { stream: true });
 			const match = buffer.match(/listening on https?:\/\/localhost:(\d+)/i);
 			if (match?.[1]) {
@@ -94,7 +94,7 @@ async function waitForReady(baseUrl: string): Promise<void> {
 	while (Date.now() < deadline) {
 		try {
 			const res = await fetch(`${baseUrl}/health`, { signal: AbortSignal.timeout(2000) });
-			if (res.ok) return;
+			if (res.ok) {return;}
 		} catch {
 			// retry
 		}
@@ -137,13 +137,13 @@ async function signIn(baseUrl: string): Promise<string> {
 
 async function extractToken(res: Response): Promise<string> {
 	const data = (await res.json()) as { token?: string };
-	if (data.token) return data.token;
+	if (data.token) {return data.token;}
 	const cookies = res.headers.getSetCookie();
 	const sessionCookie = cookies
 		.find((c) => c.startsWith("better-auth.session_token="))
 		?.split("=")[1]
 		?.split(";")[0];
-	if (sessionCookie) return sessionCookie;
+	if (sessionCookie) {return sessionCookie;}
 	throw new Error("Could not extract token from auth response");
 }
 
@@ -156,7 +156,7 @@ async function rpc(baseUrl: string, token: string, path: string, input?: Record<
 		body: JSON.stringify(input ? { json: input } : {}),
 	});
 	const data = await res.json();
-	if (!res.ok) throw new Error(`RPC ${path}: ${res.status} ${JSON.stringify(data)}`);
+	if (!res.ok) {throw new Error(`RPC ${path}: ${res.status} ${JSON.stringify(data)}`);}
 	return (data as { json: unknown }).json;
 }
 
@@ -168,8 +168,8 @@ async function main() {
 	const port = await parseReadyPort(proc);
 
 	// Drain remaining streams
-	if (proc.stdout instanceof ReadableStream) proc.stdout.pipeTo(new WritableStream()).catch(() => {});
-	if (proc.stderr instanceof ReadableStream) proc.stderr.pipeTo(new WritableStream()).catch(() => {});
+	if (proc.stdout instanceof ReadableStream) {proc.stdout.pipeTo(new WritableStream()).catch(() => {});}
+	if (proc.stderr instanceof ReadableStream) {proc.stderr.pipeTo(new WritableStream()).catch(() => {});}
 
 	const baseUrl = `http://localhost:${port}`;
 	await waitForReady(baseUrl);
@@ -229,7 +229,7 @@ async function main() {
 				endDate: "2026-12-31",
 			})) as { distinct_sessions: number };
 			analyticsCount = result.distinct_sessions;
-			if (analyticsCount >= ingested) break;
+			if (analyticsCount >= ingested) {break;}
 		} catch {
 			// MV not ready yet
 		}

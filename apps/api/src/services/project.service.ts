@@ -87,7 +87,9 @@ export type ProjectTrendDataPoint = ProjectTrendDataPointBase;
  * Extract project name from path (last segment)
  */
 function extractProjectName(projectPath: string): string {
-	if (!projectPath) return "";
+	if (!projectPath) {
+		return "";
+	}
 	const segments = projectPath.replace(/\\/g, "/").split("/").filter(Boolean);
 	return segments[segments.length - 1] || projectPath;
 }
@@ -421,7 +423,9 @@ export async function getProjectDetails(
 	}
 
 	const [row] = results;
-	if (!row || row.total_sessions === 0) return null;
+	if (!row || row.total_sessions === 0) {
+		return null;
+	}
 	const cost =
 		row.output_tokens_sum * 0.000015 + row.input_tokens_sum * 0.000003;
 	return {
@@ -599,7 +603,7 @@ export async function getProjectFeatureUsage(
 	}
 
 	const [stats] = adoptionResults;
-	if (!stats)
+	if (!stats) {
 		return {
 			subagents_adoption_rate: 0,
 			skills_adoption_rate: 0,
@@ -608,6 +612,7 @@ export async function getProjectFeatureUsage(
 			top_skills: [],
 			top_slash_commands: [],
 		};
+	}
 	return {
 		subagents_adoption_rate:
 			stats.total_sessions > 0

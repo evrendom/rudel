@@ -17,7 +17,9 @@ const PROJECT_ROOT = resolve(
 
 function getLogFilePath(): string | null {
 	const logDir = process.env.RUDEL_LOG_DIR;
-	if (!logDir) return null;
+	if (!logDir) {
+		return null;
+	}
 	const day = new Date().toISOString().slice(0, 10);
 	return resolve(PROJECT_ROOT, logDir, `api-logs-${day}.txt`);
 }

@@ -4,7 +4,7 @@ import type {
 } from "@rudel/api-routes";
 import type { ColumnDef } from "@tanstack/react-table";
 import { Activity, Clock, Timer } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useDeferredValue, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AnalyticsCard } from "@/components/analytics/AnalyticsCard";
 import { ChartCard } from "@/components/analytics/ChartCard";
@@ -58,22 +58,9 @@ export function SessionsListPage() {
 	>("");
 	const [showPercentage, setShowPercentage] = useState(false);
 
-	const [debouncedDimension, setDebouncedDimension] =
-		useState<DimensionAnalysisInput["dimension"]>("project_path");
-	const [debouncedMetric, setDebouncedMetric] =
-		useState<DimensionAnalysisInput["metric"]>("session_count");
-	const [debouncedSplitBy, setDebouncedSplitBy] = useState<
-		DimensionAnalysisInput["dimension"] | ""
-	>("");
-
-	useEffect(() => {
-		const timer = setTimeout(() => {
-			setDebouncedDimension(selectedDimension);
-			setDebouncedMetric(selectedMetric);
-			setDebouncedSplitBy(selectedSplitBy);
-		}, 300);
-		return () => clearTimeout(timer);
-	}, [selectedDimension, selectedMetric, selectedSplitBy]);
+	const debouncedDimension = useDeferredValue(selectedDimension);
+	const debouncedMetric = useDeferredValue(selectedMetric);
+	const debouncedSplitBy = useDeferredValue(selectedSplitBy);
 
 	const {
 		data: summary,
@@ -230,7 +217,9 @@ export function SessionsListPage() {
 	);
 
 	const filteredSessions = useMemo(() => {
-		if (!sessions) return [];
+		if (!sessions) {
+			return [];
+		}
 		return sessions.filter((session) => {
 			const repoMatch =
 				selectedRepositories.length === 0 ||
@@ -243,7 +232,9 @@ export function SessionsListPage() {
 	}, [sessions, selectedRepositories, selectedUsers]);
 
 	const repositories = useMemo(() => {
-		if (!sessions) return [];
+		if (!sessions) {
+			return [];
+		}
 		return Array.from(
 			new Set(sessions.map((s) => s.repository).filter(Boolean)),
 		).sort() as string[];
@@ -473,7 +464,9 @@ export function SessionsListPage() {
 								setSelectedSplitBy(
 									value as DimensionAnalysisInput["dimension"] | "",
 								);
-								if (!value) setShowPercentage(false);
+								if (!value) {
+									setShowPercentage(false);
+								}
 							}}
 						>
 							<SelectTrigger className="w-full">

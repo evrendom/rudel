@@ -85,7 +85,9 @@ export function extractAgentIds(sessionContent: string): string[] {
 	const agentIds = new Set<string>();
 
 	for (const line of sessionContent.split("\n")) {
-		if (!line.trim()) continue;
+		if (!line.trim()) {
+			continue;
+		}
 
 		try {
 			const entry = JSON.parse(line);
@@ -150,7 +152,9 @@ class ClaudeCodeAdapter implements AgentAdapter {
 		const sessionDir = join(SESSIONS_BASE_DIR, encoded);
 
 		const files = await this.listSessionFiles(sessionDir, projectPath);
-		if (files.length > 0) return files;
+		if (files.length > 0) {
+			return files;
+		}
 
 		return this.findByDecoding(projectPath);
 	}
@@ -178,7 +182,9 @@ class ClaudeCodeAdapter implements AgentAdapter {
 				(f) => f.endsWith(".jsonl") && !f.startsWith("agent-"),
 			);
 
-			if (sessionFiles.length === 0) continue;
+			if (sessionFiles.length === 0) {
+				continue;
+			}
 
 			const decodedPath = await decodeProjectPath(dir);
 
@@ -253,7 +259,9 @@ class ClaudeCodeAdapter implements AgentAdapter {
 		let max: string | null = null;
 
 		for (const line of content.split("\n")) {
-			if (!line) continue;
+			if (!line) {
+				continue;
+			}
 			let parsed: { type?: string; timestamp?: string };
 			try {
 				parsed = JSON.parse(line);
@@ -265,12 +273,18 @@ class ClaudeCodeAdapter implements AgentAdapter {
 				parsed.timestamp
 			) {
 				const ts = parsed.timestamp;
-				if (!min || ts < min) min = ts;
-				if (!max || ts > max) max = ts;
+				if (!min || ts < min) {
+					min = ts;
+				}
+				if (!max || ts > max) {
+					max = ts;
+				}
 			}
 		}
 
-		if (!min || !max) return null;
+		if (!min || !max) {
+			return null;
+		}
 
 		return { sessionDate: min, lastInteractionDate: max };
 	}

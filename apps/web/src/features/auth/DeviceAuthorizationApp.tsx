@@ -44,7 +44,9 @@ export function DeviceAuthorizationApp({
 	const [deviceError, setDeviceError] = useState<string | null>(null);
 
 	async function submitDeviceDecision(action: "approve" | "deny") {
-		if (deviceProcessing) return;
+		if (deviceProcessing) {
+			return;
+		}
 
 		trackAuthenticationAction({
 			actionName:

@@ -150,10 +150,14 @@ export async function groupProjectsByRemote(
 	}
 
 	groups.sort((a, b) => {
-		if (a.containsCwd !== b.containsCwd) return a.containsCwd ? -1 : 1;
+		if (a.containsCwd !== b.containsCwd) {
+			return a.containsCwd ? -1 : 1;
+		}
 		const aHasRemote = a.gitRemote !== null;
 		const bHasRemote = b.gitRemote !== null;
-		if (aHasRemote !== bHasRemote) return aHasRemote ? -1 : 1;
+		if (aHasRemote !== bHasRemote) {
+			return aHasRemote ? -1 : 1;
+		}
 		return a.displayName.localeCompare(b.displayName);
 	});
 
@@ -170,8 +174,11 @@ function commonPrefixLength(a: string, b: string): number {
 	const partsB = b.split("/");
 	let count = 0;
 	for (let i = 0; i < Math.min(partsA.length, partsB.length); i++) {
-		if (partsA[i] === partsB[i]) count++;
-		else break;
+		if (partsA[i] === partsB[i]) {
+			count++;
+		} else {
+			break;
+		}
 	}
 	return count;
 }
@@ -186,7 +193,9 @@ function findBestGroupByPath(
 	let secondBestLen = 0;
 
 	for (const group of groups) {
-		if (!group.gitRemote) continue;
+		if (!group.gitRemote) {
+			continue;
+		}
 
 		let groupBest = 0;
 		for (const p of group.projects) {

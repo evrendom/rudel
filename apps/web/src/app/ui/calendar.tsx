@@ -4,7 +4,7 @@ import {
 	ArrowRightIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import * as React from "react";
+import type * as React from "react";
 import {
 	type DayButton,
 	DayPicker,
@@ -205,11 +205,6 @@ function CalendarDayButton({
 	...props
 }: React.ComponentProps<typeof DayButton> & { locale?: Partial<Locale> }) {
 	const defaultClassNames = getDefaultClassNames();
-
-	const ref = React.useRef<HTMLButtonElement>(null);
-	React.useEffect(() => {
-		if (modifiers.focused) ref.current?.focus();
-	}, [modifiers.focused]);
 
 	return (
 		<Button

@@ -15,8 +15,12 @@ const BAR_HALF_HEIGHT = AXIS_Y - 4;
 const LEFT_MARGIN = 40; // pixels for Y-axis labels
 
 function formatTokenCount(n: number): string {
-	if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-	if (n >= 1_000) return `${(n / 1_000).toFixed(0)}k`;
+	if (n >= 1_000_000) {
+		return `${(n / 1_000_000).toFixed(1)}M`;
+	}
+	if (n >= 1_000) {
+		return `${(n / 1_000).toFixed(0)}k`;
+	}
 	return String(n);
 }
 
@@ -34,8 +38,12 @@ export function TokenUsageChart({
 		let maxIn = 0;
 		let maxOut = 0;
 		for (const d of data) {
-			if (d.inputTokens > maxIn) maxIn = d.inputTokens;
-			if (d.outputTokens > maxOut) maxOut = d.outputTokens;
+			if (d.inputTokens > maxIn) {
+				maxIn = d.inputTokens;
+			}
+			if (d.outputTokens > maxOut) {
+				maxOut = d.outputTokens;
+			}
 		}
 		return { maxInput: maxIn || 1, maxOutput: maxOut || 1 };
 	}, [data]);

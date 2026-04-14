@@ -16,9 +16,12 @@ import { ChartLegend } from "./ChartLegend";
 import { ChartTooltip } from "./ChartTooltip";
 
 function formatCompactNumber(value: number): string {
-	if (value >= 1000000)
+	if (value >= 1000000) {
 		return `${(value / 1000000).toFixed(1).replace(/\.0$/, "")}M`;
-	if (value >= 1000) return `${(value / 1000).toFixed(1).replace(/\.0$/, "")}K`;
+	}
+	if (value >= 1000) {
+		return `${(value / 1000).toFixed(1).replace(/\.0$/, "")}K`;
+	}
 	return value.toString();
 }
 
@@ -209,7 +212,9 @@ export const DimensionAnalysisChart = memo(function DimensionAnalysisChart({
 
 	const renderTooltip = (props: Record<string, unknown>) => {
 		const { active, payload, label } = props;
-		if (!active || !Array.isArray(payload) || payload.length === 0) return null;
+		if (!active || !Array.isArray(payload) || payload.length === 0) {
+			return null;
+		}
 
 		const payloadData = (payload[0] as Record<string, unknown>)?.payload as
 			| Record<string, unknown>

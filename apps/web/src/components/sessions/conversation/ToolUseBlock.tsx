@@ -340,7 +340,9 @@ function getToolIcon(
 function extractAgentIdFromResult(
 	toolResult: ToolResultContent | undefined,
 ): string | undefined {
-	if (!toolResult) return undefined;
+	if (!toolResult) {
+		return undefined;
+	}
 
 	const content = toolResult.content;
 	const text =

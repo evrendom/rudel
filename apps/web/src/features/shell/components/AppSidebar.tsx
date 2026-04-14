@@ -30,6 +30,7 @@ import {
 	SIDEBAR_NEWS_ITEM_ID,
 } from "@/features/shell/config/sidebar-news";
 import { useCurrentShellRoute } from "@/features/shell/hooks/useCurrentShellRoute";
+import { useSidebarDisplayModeSync } from "@/features/shell/hooks/useSidebarDisplayMode";
 import { cn } from "@/lib/utils";
 
 type SidebarDisplayMode = SidebarRowMode;
@@ -215,31 +216,13 @@ export function AppSidebar({
 		} catch {}
 	}, []);
 
-	React.useEffect(() => {
-		if (isMobile) {
-			setDisplayMode("expanded");
-			return;
-		}
-
-		if (isSidebarExpanded) {
-			setDisplayMode("expanded");
-			return;
-		}
-
-		if (displayMode === "collapsed") {
-			return;
-		}
-
-		// Keep the expanded row variant mounted through the width collapse so
-		// clipping, not an immediate mode swap, hides the labels.
-		const timeoutId = window.setTimeout(() => {
-			React.startTransition(() => {
-				setDisplayMode("collapsed");
-			});
-		}, SIDEBAR_SHELL_COLLAPSE_DURATION_MS);
-
-		return () => window.clearTimeout(timeoutId);
-	}, [displayMode, isMobile, isSidebarExpanded]);
+	useSidebarDisplayModeSync({
+		displayMode,
+		isMobile,
+		isSidebarExpanded,
+		collapseDurationMs: SIDEBAR_SHELL_COLLAPSE_DURATION_MS,
+		setDisplayMode,
+	});
 
 	const isExpandedMode = displayMode === "expanded";
 	const showSidebarNewsCard =

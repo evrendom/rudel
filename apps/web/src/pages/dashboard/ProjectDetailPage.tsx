@@ -139,7 +139,9 @@ export function ProjectDetailPage() {
 	const { userMap } = useUserMap();
 
 	const contributorChartData = useMemo(() => {
-		if (!contributors) return [];
+		if (!contributors) {
+			return [];
+		}
 		return contributors.slice(0, 10).map((c) => ({
 			name: formatUsername(c.user_id, userMap),
 			sessions: c.sessions,

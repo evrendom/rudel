@@ -22,10 +22,14 @@ export function ChartTooltip({
 }: ChartTooltipProps) {
 	const { tooltipBg, tooltipBorder } = useChartTheme();
 
-	if (!active || !payload || payload.length === 0) return null;
+	if (!active || !payload || payload.length === 0) {
+		return null;
+	}
 
 	const visibleItems = payload.filter((item) => item.value !== 0);
-	if (visibleItems.length === 0) return null;
+	if (visibleItems.length === 0) {
+		return null;
+	}
 	const sortedItems = sortItems
 		? [...visibleItems].sort(
 				(left, right) =>
@@ -37,7 +41,9 @@ export function ChartTooltip({
 	const total = visibleItems.reduce((sum, item) => sum + item.value, 0);
 
 	const formatValue = (value: number, name: string): string => {
-		if (valueFormatter) return valueFormatter(value, name);
+		if (valueFormatter) {
+			return valueFormatter(value, name);
+		}
 		return value.toLocaleString();
 	};
 

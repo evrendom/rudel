@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo } from "react";
+import { useObservedWidth } from "@/features/conversation-internal/hooks/useObservedWidth";
 import { cn } from "@/lib/utils";
 
 export interface ToolActivityPoint {
@@ -39,19 +40,8 @@ export function ToolActivityChart({
 	totalMessages,
 	className,
 }: ToolActivityChartProps) {
-	const containerRef = useRef<HTMLDivElement>(null);
-	const [chartWidth, setChartWidth] = useState(400);
-
-	useEffect(() => {
-		const el = containerRef.current;
-		if (!el) return;
-		const observer = new ResizeObserver((entries) => {
-			const entry = entries[0];
-			if (entry) setChartWidth(entry.contentRect.width);
-		});
-		observer.observe(el);
-		return () => observer.disconnect();
-	}, []);
+	const { elementRef: containerRef, width: chartWidth } =
+		useObservedWidth<HTMLDivElement>();
 
 	const drawWidth = chartWidth - LEFT_MARGIN;
 
@@ -131,7 +121,9 @@ export function ToolActivityChart({
 						const x =
 							LEFT_MARGIN + (d.messageIndex / totalMessages) * drawWidth;
 						const lane = lanes.find((l) => l.category === d.category);
-						if (!lane) return null;
+						if (!lane) {
+							return null;
+						}
 
 						return (
 							<circle

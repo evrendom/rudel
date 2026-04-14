@@ -12,7 +12,9 @@ interface CodexConfig {
 }
 
 function readConfig(): CodexConfig {
-	if (!existsSync(CONFIG_PATH)) return {};
+	if (!existsSync(CONFIG_PATH)) {
+		return {};
+	}
 	const content = readFileSync(CONFIG_PATH, "utf-8");
 	return parseTOML(content) as CodexConfig;
 }
@@ -34,7 +36,9 @@ export function installHook(): void {
 
 export function removeHook(): void {
 	const config = readConfig();
-	if (!Array.isArray(config.notify)) return;
+	if (!Array.isArray(config.notify)) {
+		return;
+	}
 	config.notify = config.notify.filter((cmd) => cmd !== HOOK_COMMAND);
 	if (config.notify.length === 0) {
 		delete config.notify;
@@ -44,6 +48,8 @@ export function removeHook(): void {
 
 export function isHookInstalled(): boolean {
 	const config = readConfig();
-	if (!Array.isArray(config.notify)) return false;
+	if (!Array.isArray(config.notify)) {
+		return false;
+	}
 	return config.notify.includes(HOOK_COMMAND);
 }

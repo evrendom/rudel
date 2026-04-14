@@ -115,7 +115,9 @@ export function ToolActivityChart({
 						const x =
 							LEFT_MARGIN + (d.messageIndex / totalMessages) * drawWidth;
 						const lane = lanes.find((l) => l.category === d.category);
-						if (!lane) return null;
+						if (!lane) {
+							return null;
+						}
 
 						return (
 							<circle

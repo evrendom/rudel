@@ -68,11 +68,15 @@ export function LearningsTrendChart({
 
 	// All series keys from the data
 	const allSeriesKeys = useMemo(() => {
-		if (data.length === 0) return [];
+		if (data.length === 0) {
+			return [];
+		}
 		const keys = new Set<string>();
 		for (const item of data) {
 			for (const key of Object.keys(item)) {
-				if (key !== "date") keys.add(key);
+				if (key !== "date") {
+					keys.add(key);
+				}
 			}
 		}
 		return Array.from(keys).sort();
@@ -98,7 +102,9 @@ export function LearningsTrendChart({
 	}, [allSeriesKeys, data]);
 
 	const filledData = useMemo(() => {
-		if (data.length === 0) return [];
+		if (data.length === 0) {
+			return [];
+		}
 
 		const existingDates = Array.from(
 			new Set(data.map((d) => d.date as string)),
@@ -168,7 +174,9 @@ export function LearningsTrendChart({
 	}, [filledData, isCumulative, displayKeys]);
 
 	const getDisplayName = (key: string): string => {
-		if (key === "Other") return "Other";
+		if (key === "Other") {
+			return "Other";
+		}
 		if (splitBy === "user_id" && userMap) {
 			return userMap[key] || `${key.substring(0, 12)}...`;
 		}

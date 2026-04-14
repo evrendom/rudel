@@ -36,14 +36,22 @@ const MODEL_COLORS = [
 ];
 
 function formatCompactNumber(num: number): string {
-	if (num >= 1_000_000_000) return `${(num / 1_000_000_000).toFixed(1)}B`;
-	if (num >= 1_000_000) return `${(num / 1_000_000).toFixed(1)}M`;
-	if (num >= 1_000) return `${(num / 1_000).toFixed(1)}K`;
+	if (num >= 1_000_000_000) {
+		return `${(num / 1_000_000_000).toFixed(1)}B`;
+	}
+	if (num >= 1_000_000) {
+		return `${(num / 1_000_000).toFixed(1)}M`;
+	}
+	if (num >= 1_000) {
+		return `${(num / 1_000).toFixed(1)}K`;
+	}
 	return num.toFixed(0);
 }
 
 function shortenModelName(model: string): string {
-	if (model === "Other") return "Other";
+	if (model === "Other") {
+		return "Other";
+	}
 	return model.replace("claude-", "").replace(/-\d{8}$/, "");
 }
 
@@ -62,7 +70,9 @@ export function ModelTokensChart({ data }: ModelTokensChartProps) {
 		});
 
 	const { chartData, models } = useMemo(() => {
-		if (data.length === 0) return { chartData: [], models: [] };
+		if (data.length === 0) {
+			return { chartData: [], models: [] };
+		}
 
 		// Compute total tokens per model to determine top 14
 		const modelTotals = new Map<string, number>();
@@ -117,7 +127,9 @@ export function ModelTokensChart({ data }: ModelTokensChartProps) {
 		return { chartData: sorted, models: modelList };
 	}, [data]);
 
-	if (chartData.length === 0) return null;
+	if (chartData.length === 0) {
+		return null;
+	}
 
 	return (
 		<ResponsiveContainer width="100%" height={400}>

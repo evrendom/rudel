@@ -77,7 +77,9 @@ export function TaskClassificationChart({
 		const x = cx + radius * Math.cos(-midAngle * RADIAN);
 		const y = cy + radius * Math.sin(-midAngle * RADIAN);
 
-		if (percentage < 5) return null;
+		if (percentage < 5) {
+			return null;
+		}
 
 		return (
 			<text

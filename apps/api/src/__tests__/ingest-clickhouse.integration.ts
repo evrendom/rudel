@@ -57,7 +57,9 @@ async function waitForRow(
 					sessionId,
 				},
 			});
-			if (results.length > 0) return results;
+			if (results.length > 0) {
+				return results;
+			}
 		} catch {
 			// Transient ClickHouse errors (e.g. S3 storage) - retry
 		}
@@ -94,7 +96,9 @@ describe("ingestSession", () => {
 				continue;
 			}
 			results = await waitForRow(testId);
-			if (results.length > 0) break;
+			if (results.length > 0) {
+				break;
+			}
 		}
 
 		expect(results).toHaveLength(1);
