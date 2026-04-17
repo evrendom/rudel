@@ -178,9 +178,9 @@ export async function getUsersTokenUsage(
 		repositories_touched: string[];
 		user_id: string;
 		total_commits: number;
-		total_tokens: number;
-		input_tokens: number;
-		output_tokens: number;
+		total_tokens_sum: number;
+		input_tokens_sum: number;
+		output_tokens_sum: number;
 		cost: number;
 		total_sessions: number;
 		total_duration_min: number;
@@ -214,9 +214,9 @@ export async function getUsersTokenUsage(
         )
       ) as repositories_touched,
       sum(has_commit) as total_commits,
-      sum(ifNull(total_tokens, 0)) as total_tokens,
-      sum(ifNull(input_tokens, 0)) as input_tokens,
-      sum(ifNull(output_tokens, 0)) as output_tokens,
+      sum(ifNull(total_tokens, 0)) as total_tokens_sum,
+      sum(ifNull(input_tokens, 0)) as input_tokens_sum,
+      sum(ifNull(output_tokens, 0)) as output_tokens_sum,
       round(sum(${PER_SESSION_COST_SQL}), 4) as cost,
       count() as total_sessions,
       round(sum(actual_duration_min), 2) as total_duration_min,
@@ -228,7 +228,7 @@ export async function getUsersTokenUsage(
       AND organization_id = {orgId:String}
       AND user_id != ''
     GROUP BY user_id
-    ORDER BY total_tokens DESC
+    ORDER BY total_tokens_sum DESC
   `,
 		query_params: {
 			startDate,
@@ -247,9 +247,9 @@ export async function getUsersTokenUsage(
 		user_id: row.user_id,
 		user_label: row.user_id,
 		total_commits: Number(row.total_commits),
-		total_tokens: Number(row.total_tokens),
-		input_tokens: Number(row.input_tokens),
-		output_tokens: Number(row.output_tokens),
+		total_tokens: Number(row.total_tokens_sum),
+		input_tokens: Number(row.input_tokens_sum),
+		output_tokens: Number(row.output_tokens_sum),
 		cost: Number(row.cost),
 		total_sessions: Number(row.total_sessions),
 		total_duration_min: Number(row.total_duration_min),
