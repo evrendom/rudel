@@ -18,6 +18,7 @@ export function DashboardTopChartSection({
 	chart,
 	className,
 	detail,
+	hideMetrics = false,
 	isMetricsLoading = false,
 	metrics,
 	showDelta = false,
@@ -25,25 +26,32 @@ export function DashboardTopChartSection({
 	chart: ReactNode;
 	className?: string;
 	detail: ReactNode;
+	hideMetrics?: boolean;
 	isMetricsLoading?: boolean;
 	metrics: DashboardHeadlineMetric[];
 	showDelta?: boolean;
 }) {
 	return (
 		<div className={cn("flex flex-col gap-8", className)}>
-			<div className="flex flex-1 flex-col border-b border-[color:var(--dashboardy-divider)] lg:flex-row lg:items-center lg:gap-0">
-				<div className="flex flex-1 flex-col justify-center pb-4 pt-0 lg:pb-4">
-					<DashboardHeadlineMetricGrid
-						metrics={metrics}
-						className="pb-0"
-						isLoading={isMetricsLoading}
-						showDelta={showDelta}
-					/>
-				</div>
-				<div className="flex flex-1 items-center pt-0 lg:max-w-[760px] 2xl:max-w-[820px]">
+			{hideMetrics ? (
+				<div className="w-full border-b border-[color:var(--dashboardy-divider)]">
 					{chart}
 				</div>
-			</div>
+			) : (
+				<div className="flex flex-1 flex-col border-b border-[color:var(--dashboardy-divider)] lg:flex-row lg:items-center lg:gap-0">
+					<div className="flex flex-1 flex-col justify-center pb-4 pt-0 lg:pb-4">
+						<DashboardHeadlineMetricGrid
+							metrics={metrics}
+							className="pb-0"
+							isLoading={isMetricsLoading}
+							showDelta={showDelta}
+						/>
+					</div>
+					<div className="flex flex-1 items-center pt-0 lg:max-w-[760px] 2xl:max-w-[820px]">
+						{chart}
+					</div>
+				</div>
+			)}
 			{detail}
 		</div>
 	);
@@ -51,6 +59,7 @@ export function DashboardTopChartSection({
 
 export function DashboardInteractiveTopChartSection({
 	className,
+	hideMetrics = false,
 	isMetricsLoading = false,
 	metrics,
 	renderChart,
@@ -58,6 +67,7 @@ export function DashboardInteractiveTopChartSection({
 	showDelta = false,
 }: {
 	className?: string;
+	hideMetrics?: boolean;
 	isMetricsLoading?: boolean;
 	metrics: DashboardHeadlineMetric[];
 	renderChart: (props: DashboardTopChartRenderProps) => ReactNode;
@@ -78,6 +88,7 @@ export function DashboardInteractiveTopChartSection({
 			chart={renderChart(renderProps)}
 			className={className}
 			detail={renderDetail(renderProps)}
+			hideMetrics={hideMetrics}
 			isMetricsLoading={isMetricsLoading}
 			metrics={metrics}
 			showDelta={showDelta}

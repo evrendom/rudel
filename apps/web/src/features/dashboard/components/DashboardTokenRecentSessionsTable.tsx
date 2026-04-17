@@ -121,18 +121,22 @@ function DashboardTokenRecentSessionsTableSkeleton({
 }
 
 export function DashboardTokenRecentSessionsTable({
+	canOpenSession,
 	highlightSource,
 	highlightedSessionId,
 	isLoading = false,
 	onHighlightSessionChange,
+	onSessionClick,
 	sessions,
 	showHeader = true,
 	totalSessionCount,
 }: {
+	canOpenSession?: (session: SessionAnalytics) => boolean;
 	highlightSource?: "chart" | "table" | null;
 	highlightedSessionId?: string | null;
 	isLoading?: boolean;
 	onHighlightSessionChange?: (sessionId: string | null) => void;
+	onSessionClick?: (session: SessionAnalytics) => void;
 	sessions: SessionAnalytics[] | undefined;
 	showHeader?: boolean;
 	totalSessionCount: number;
@@ -253,6 +257,7 @@ export function DashboardTokenRecentSessionsTable({
 								inputTokens={session.input_tokens}
 								outputTokens={session.output_tokens}
 								model={session.model_used}
+								showDetailedCost
 							/>
 						),
 					},
@@ -272,9 +277,14 @@ export function DashboardTokenRecentSessionsTable({
 				minWidthClassName="min-w-[82rem]"
 				onRowHoverChange={onHighlightSessionChange}
 				getHoverRowId={(session) => session.session_id}
+				onRowClick={onSessionClick}
+				isRowClickable={canOpenSession}
 				rowClassName={(session) =>
 					cn(
 						"w-full text-left transition-colors duration-300 [transition-timing-function:cubic-bezier(0.23,1,0.32,1)]",
+						onSessionClick &&
+							(canOpenSession?.(session) ?? true) &&
+							"cursor-pointer hover:bg-[color:var(--dashboardy-surface)]",
 						hasTableHighlight &&
 							"bg-[color:var(--dashboardy-surface)] odd:bg-[color:var(--dashboardy-surface)]",
 						hasChartHighlight &&
@@ -283,6 +293,9 @@ export function DashboardTokenRecentSessionsTable({
 						hasTableHighlight &&
 							highlightedSessionId === session.session_id &&
 							"bg-[color:var(--dashboardy-subsurface-strong)] odd:bg-[color:var(--dashboardy-subsurface-strong)]",
+						onSessionClick &&
+							!(canOpenSession?.(session) ?? true) &&
+							"cursor-default opacity-75",
 					)
 				}
 				footer={

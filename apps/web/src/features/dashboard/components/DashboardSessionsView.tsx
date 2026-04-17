@@ -12,6 +12,7 @@ import { DashboardRepositoryPanel } from "@/features/dashboard/components/Dashbo
 import { DashboardSessionsSnapshotSection } from "@/features/dashboard/components/DashboardSessionsSnapshotSection";
 import type { DashboardRankedOutputRow } from "@/features/dashboard/data/dashboard-static-data";
 import { buildDashboardSessionTabMetrics } from "@/features/dashboard/data/dashboard-tab-adapters";
+import { resolveActiveSessionDateRangeOptionId } from "@/features/sessions/session-date-ranges";
 import { orpc } from "@/lib/orpc";
 
 export function DashboardSessionsView({
@@ -27,30 +28,37 @@ export function DashboardSessionsView({
 	repositoryDailyTrend: RepositoryDailyTrendData[] | undefined;
 	sessionSummaryComparison: SessionAnalyticsSummaryComparison | undefined;
 }) {
-	const { meta } = useDateRange();
+	const {
+		meta,
+		state: { endDate, startDate },
+	} = useDateRange();
 	const headlineMetrics = useMemo(
 		() => buildDashboardSessionTabMetrics(sessionSummaryComparison),
 		[sessionSummaryComparison],
 	);
-	const { data: recentSessions, isPending: isRecentSessionsPending } =
+	const activeDateRangeOptionId = resolveActiveSessionDateRangeOptionId({
+		endDate,
+		startDate,
+	});
+	const { data: snapshotSessions, isPending: isSnapshotSessionsPending } =
 		useAnalyticsQuery(
 			orpc.analytics.sessions.list.queryOptions({
 				input: {
-					days: meta.dayCount,
-					limit: 10,
+					days: activeDateRangeOptionId === "24-hours" ? 2 : meta.dayCount,
+					limit: 1000,
 					sortBy: "session_date",
 					sortOrder: "desc",
 				},
 			}),
 		);
-	const sortedRecentSessions = useMemo(
+	const sortedSnapshotSessions = useMemo(
 		() =>
-			[...(recentSessions ?? [])].sort(
+			[...(snapshotSessions ?? [])].sort(
 				(left: SessionAnalytics, right: SessionAnalytics) =>
 					new Date(right.session_date).getTime() -
 					new Date(left.session_date).getTime(),
 			),
-		[recentSessions],
+		[snapshotSessions],
 	);
 	return (
 		<section className="@container/sessions-view flex flex-col gap-8">
@@ -63,16 +71,20 @@ export function DashboardSessionsView({
 				</Link>
 			</div>
 			<DashboardSessionsSnapshotSection
+				endDate={endDate}
+				dateRangeDays={meta.dayCount}
 				isMetricsPending={isSnapshotPending}
-				isSessionsPending={isRecentSessionsPending}
+				isSessionsPending={isSnapshotSessionsPending}
 				metrics={headlineMetrics}
-				recentSessions={sortedRecentSessions}
+				sessions={sortedSnapshotSessions}
 				showDelta
+				startDate={startDate}
 				totalSessionCount={
 					sessionSummaryComparison?.current.total_sessions ??
-					recentSessions?.length ??
+					snapshotSessions?.length ??
 					0
 				}
+				useRolling24Hours={activeDateRangeOptionId === "24-hours"}
 			/>
 			<DashboardRepositoryPanel
 				isChartPending={isRepositoryChartPending}

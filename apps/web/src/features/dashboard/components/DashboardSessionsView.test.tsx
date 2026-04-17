@@ -14,6 +14,10 @@ const { mockQueryOptions, mockUseAnalyticsQuery, mockUseDateRange } =
 			isPending: false,
 		})),
 		mockUseDateRange: vi.fn(() => ({
+			state: {
+				startDate: "2026-04-04",
+				endDate: "2026-04-17",
+			},
 			meta: {
 				dayCount: 14,
 			},
@@ -71,7 +75,7 @@ describe("DashboardSessionsView", () => {
 		expect(mockQueryOptions).toHaveBeenCalledWith({
 			input: {
 				days: 14,
-				limit: 10,
+				limit: 1000,
 				sortBy: "session_date",
 				sortOrder: "desc",
 			},
