@@ -1,0 +1,89 @@
+body.mymind-walk-in-body {
+	overflow: hidden;
+	background:
+		radial-gradient(circle at top, rgba(210, 238, 255, 0.1), transparent 30%),
+		linear-gradient(180deg, #02060d 0%, #061019 48%, #091a24 100%);
+}
+
+body.mymind-walk-in-body #root {
+	min-height: 100vh;
+}
+
+.mymind-walk-in-route {
+	position: fixed;
+	inset: 0;
+	isolation: isolate;
+	overflow: hidden;
+	background:
+		radial-gradient(circle at 50% 20%, rgba(193, 236, 255, 0.12), transparent 28%),
+		radial-gradient(circle at 50% 70%, rgba(255, 255, 255, 0.03), transparent 24%),
+		linear-gradient(180deg, #040b11 0%, #08131d 35%, #061018 100%);
+}
+
+.mymind-walk-in-route::before {
+	position: absolute;
+	inset: 0;
+	background:
+		radial-gradient(circle at center, rgba(255, 255, 255, 0.08), transparent 24%),
+		radial-gradient(circle at center, rgba(122, 184, 255, 0.08), transparent 55%);
+	content: "";
+	pointer-events: none;
+}
+
+.mymind-walk-in-route .achievement-wrapper {
+	opacity: 0;
+}
+
+.mymind-walk-in-route .a-stag {
+	opacity: 0;
+	visibility: hidden;
+}
+
+.mymind-walk-in-route .achievement-canvas {
+	position: relative;
+	min-height: min(84vh, 56rem);
+}
+
+.mymind-walk-in-route .achievement-canvas canvas {
+	display: block;
+}
+
+.mymind-walk-in-route .mymind-walk-in__status {
+	position: absolute;
+	left: 1.5rem;
+	bottom: 1.5rem;
+	z-index: 5;
+	display: inline-flex;
+	align-items: center;
+	gap: 0.75rem;
+	border: 1px solid rgba(255, 255, 255, 0.12);
+	border-radius: 999px;
+	background: rgba(0, 0, 0, 0.28);
+	padding: 0.625rem 0.875rem;
+	color: rgba(255, 255, 255, 0.82);
+	font-size: 0.75rem;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+	backdrop-filter: blur(16px);
+}
+
+.mymind-walk-in-route .mymind-walk-in__status-dot {
+	width: 0.5rem;
+	height: 0.5rem;
+	border-radius: 999px;
+	background: #d4f3ff;
+	box-shadow: 0 0 18px rgba(151, 224, 255, 0.95);
+}
+
+@media (max-width: 900px) {
+	.mymind-walk-in-route .achievement-canvas {
+		min-height: 58vh;
+	}
+
+	.mymind-walk-in-route .mymind-walk-in__status {
+		left: 1rem;
+		right: 1rem;
+		bottom: 1rem;
+		justify-content: center;
+	}
+}

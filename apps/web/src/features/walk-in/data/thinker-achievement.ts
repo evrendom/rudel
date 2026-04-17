@@ -1,0 +1,105 @@
+import { type MymindTradingCardOptions } from "@/features/walk-in/lib/mymind-runtime";
+
+export const thinkerAchievementCopy = {
+	achievementId: 25769803779,
+	title: "The Thinker",
+	lockedDescription:
+		"Save at least 200 notes to unlock this achievement. The note feature in mymind is inspired by the old fashioned sticky note. The easiest place to get down an idea or note before you forget it.",
+	unlockedDescription:
+		"Congratulations on saving 200 notes to your mind \n You fascinating, pondering, beautiful mind, you!",
+	cardDescription:
+		"You're chipping away at the shell of your \n subconscious. What has it revealed to you?",
+} as const;
+
+export const thinkerTradingCardTemplate = {
+	rootUrl: "https://static.accelerator.net/134/0.94.1/tcg",
+	container: null,
+	datGuiActivated: false,
+	preventReveal: false,
+	level: 3,
+	title: "The Thinker",
+	description:
+		"You're chipping away at the shell of your \n subconscious. What has it revealed to you?",
+	titleColor: "#012a0a",
+	descriptionColor: "#012a0a",
+	artworkImage:
+		"https://media.mymind.host/assets/aDc9Ee4771IcNsMVbDkslE;1498x2080.webp",
+	artworkNormalMap:
+		"https://media.mymind.host/assets/0QCXKpfFP80cnTMrmVIpzQ;880x1216.webp",
+	artworkBrightness: 0.9466270354096664,
+	artworkColorContrast: 1.141018350995089,
+	artworkNormalScale: 1,
+	artworkColorMapContrast: 0.95,
+	artworkIridescentBlend: 0.3,
+	artworkShaderType: 4,
+	artworkShaderR: 0,
+	artworkShaderG: 0.5338158008098561,
+	artworkShaderB: 1,
+	foregroundImage: null,
+	foregroundNormalMap: null,
+	foregroundBrightness: 1,
+	foregroundColorContrast: 1,
+	foregroundNormalScale: 8.4,
+	foregroundColorMapContrast: 1,
+	foregroundIridescentBlend: 0.4,
+	foregroundShaderType: 1,
+	foregroundShaderR: 1,
+	foregroundShaderG: 1,
+	foregroundShaderB: 1,
+	overlayImage:
+		"https://media.mymind.host/assets/4LXm0rkoYG7d7ax1fEViIv;1498x2080.webp",
+	overlayNormalMap:
+		"https://media.mymind.host/assets/3JcIqnH7pjNfcvJI39kfr1;1429x1384.webp",
+	overlayBrightness: 1,
+	overlayColorContrast: 1,
+	overlayNormalScale: 1,
+	overlayColorMapContrast: 1,
+	overlayIridescentBlend: 0.5,
+	overlayShaderType: 2,
+	overlayShaderR: 1,
+	overlayShaderG: 1,
+	overlayShaderB: 1,
+	frameImage:
+		"https://media.mymind.host/assets/dEuCL25kgsdeaSyvb6WEVn;1498x2080.webp",
+	frameAlphaMap: null,
+	frameNormalMap: null,
+	frameBrightness: 0.6323339364176789,
+	frameColorContrast: 1.4142643903035694,
+	frameNormalScale: 1.4,
+	frameColorMapContrast: 2,
+	frameIridescentBlend: 0.31325924011372447,
+	frameShaderType: 2,
+	frameShaderR: 0.26914792797449816,
+	frameShaderG: 0.3022314120789179,
+	frameShaderB: 0.22503661583527185,
+	pictoAlphaMap:
+		"https://media.mymind.host/assets/88NI9kfvzB8dVV7f1xZQi6;1498x2080.webp",
+	pictoNormalMap:
+		"https://media.mymind.host/assets/hIqJn4DdnO9c9oN0cCQ9io;1536x1024.webp",
+	pictoBrightness: 0.967579908675799,
+	pictoColorContrast: 1,
+	pictoNormalScale: 1.4368831442898151,
+	pictoColorMapContrast: 1.5033405491794298,
+	pictoIridescentBlend: 0.3882980975570743,
+	pictoShaderType: 2,
+	pictoShaderR: 0.7874558456104075,
+	pictoShaderG: 0,
+	pictoShaderB: 0.33531489618333765,
+	orbAlphaMap:
+		"https://media.mymind.host/assets/hRzx3lvKbB7cXQEFI7Zy9y;1498x2080.webp",
+	orbNormalMap:
+		"https://media.mymind.host/assets/4JBjfvY5cpldQxR3jpxGSY;1024x1024.webp",
+	orbBrightness: 1,
+	orbColorContrast: 1,
+	orbNormalScale: 4,
+	orbColorMapContrast: 1.4,
+	orbIridescentBlend: 0.4,
+	orbShaderType: 2,
+	orbShaderR: 1,
+	orbShaderG: 1,
+	orbShaderB: 1,
+	generalSaturation: 1,
+	generalContrast: 1,
+	generalBrightness: 0.9794089773412596,
+	ooverlayBrightness: 1,
+} satisfies MymindTradingCardOptions;

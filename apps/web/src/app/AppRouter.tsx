@@ -1,5 +1,6 @@
-import { type ComponentType, lazy, Suspense } from "react";
+import { type ComponentType, type ReactNode, lazy, Suspense } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
+import { appRoutes } from "@/app/routes";
 import { NotFoundPage } from "@/app/system/NotFoundPage";
 import { AcceptInvitationPage } from "@/features/invitations/AcceptInvitationPage";
 import { settingsRouteMap } from "@/features/settings/config/settings-routes";
@@ -51,6 +52,10 @@ const PresetBaselinePage = lazyNamed(
 	() => import("@/app/system/PresetBaselinePage"),
 	"PresetBaselinePage",
 );
+const RudelWalkInPage = lazyNamed(
+	() => import("@/features/walk-in/RudelWalkInPage"),
+	"RudelWalkInPage",
+);
 const LEGACY_DASHBOARDY_PATH = "/dashboardy";
 
 function DashboardRouteLoadingScreen() {
@@ -72,9 +77,27 @@ function DashboardRouteLoadingScreen() {
 	);
 }
 
-function LazyRoute({ Component }: { Component: ComponentType }) {
+function FullscreenRouteLoadingScreen() {
 	return (
-		<Suspense fallback={<DashboardRouteLoadingScreen />}>
+		<div
+			aria-busy="true"
+			aria-live="polite"
+			className="flex min-h-screen items-center justify-center bg-[#040b11] text-sm text-white/70"
+		>
+			Loading…
+		</div>
+	);
+}
+
+function LazyRoute({
+	Component,
+	fallback = <DashboardRouteLoadingScreen />,
+}: {
+	Component: ComponentType;
+	fallback?: ReactNode;
+}) {
+	return (
+		<Suspense fallback={fallback}>
 			<Component />
 		</Suspense>
 	);
@@ -98,6 +121,15 @@ export function AppRouter({
 			<Route
 				path="/__preset-baseline"
 				element={<LazyRoute Component={PresetBaselinePage} />}
+			/>
+			<Route
+				path={appRoutes.walkIn()}
+				element={
+					<LazyRoute
+						Component={RudelWalkInPage}
+						fallback={<FullscreenRouteLoadingScreen />}
+					/>
+				}
 			/>
 			<Route element={<AppShellLayout />}>
 				<Route
