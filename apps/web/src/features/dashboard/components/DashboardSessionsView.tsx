@@ -4,6 +4,9 @@ import type {
 	SessionAnalyticsSummaryComparison,
 } from "@rudel/api-routes";
 import { useMemo } from "react";
+import { Link } from "react-router-dom";
+import { appRoutes } from "@/app/routes";
+import { useDateRange } from "@/features/analytics/date-range/useDateRange";
 import { useAnalyticsQuery } from "@/features/analytics/queries/useAnalyticsQuery";
 import { DashboardRepositoryPanel } from "@/features/dashboard/components/DashboardRepositoryPanel";
 import { DashboardSessionsSnapshotSection } from "@/features/dashboard/components/DashboardSessionsSnapshotSection";
@@ -12,22 +15,19 @@ import { buildDashboardSessionTabMetrics } from "@/features/dashboard/data/dashb
 import { orpc } from "@/lib/orpc";
 
 export function DashboardSessionsView({
-	endDate,
 	isRepositoryChartPending,
 	isSnapshotPending = false,
 	repositories,
 	repositoryDailyTrend,
-	startDate,
 	sessionSummaryComparison,
 }: {
-	endDate: string;
 	isRepositoryChartPending: boolean;
 	isSnapshotPending?: boolean;
 	repositories: DashboardRankedOutputRow[];
 	repositoryDailyTrend: RepositoryDailyTrendData[] | undefined;
-	startDate: string;
 	sessionSummaryComparison: SessionAnalyticsSummaryComparison | undefined;
 }) {
+	const { meta } = useDateRange();
 	const headlineMetrics = useMemo(
 		() => buildDashboardSessionTabMetrics(sessionSummaryComparison),
 		[sessionSummaryComparison],
@@ -36,9 +36,8 @@ export function DashboardSessionsView({
 		useAnalyticsQuery(
 			orpc.analytics.sessions.list.queryOptions({
 				input: {
-					endDate,
+					days: meta.dayCount,
 					limit: 10,
-					startDate,
 					sortBy: "session_date",
 					sortOrder: "desc",
 				},
@@ -55,6 +54,14 @@ export function DashboardSessionsView({
 	);
 	return (
 		<section className="@container/sessions-view flex flex-col gap-8">
+			<div className="flex justify-end px-1">
+				<Link
+					to={appRoutes.dashboardSessions()}
+					className="dashboardy-action-button inline-flex h-8 items-center rounded-full border border-[color:var(--dashboardy-border)] bg-transparent px-3 text-[13px] font-medium text-[color:var(--dashboardy-heading)] shadow-none"
+				>
+					Open full sessions view
+				</Link>
+			</div>
 			<DashboardSessionsSnapshotSection
 				isMetricsPending={isSnapshotPending}
 				isSessionsPending={isRecentSessionsPending}

@@ -9,7 +9,6 @@ import { DashboardRepositoryPanel } from "@/features/dashboard/components/Dashbo
 import { DashboardSessionsView } from "@/features/dashboard/components/DashboardSessionsView";
 import { DashboardTokensView } from "@/features/dashboard/components/DashboardTokensView";
 import { useDashboardPageData } from "@/features/dashboard/use-dashboard-page-data";
-import "@/features/dashboard/dashboard-theme.css";
 
 type DashboardView = "tokens" | "commits" | "errors" | "repos" | "sessions";
 
@@ -159,12 +158,10 @@ export function DashboardPage() {
 
 				{activeView === "sessions" ? (
 					<DashboardSessionsView
-						endDate={endDate}
 						isRepositoryChartPending={isRepositoryChartPending}
 						isSnapshotPending={isSessionSnapshotPending}
 						repositories={snapshot.repositories}
 						repositoryDailyTrend={repositoryDailyTrend}
-						startDate={startDate}
 						sessionSummaryComparison={sessionSummaryComparison}
 					/>
 				) : null}
