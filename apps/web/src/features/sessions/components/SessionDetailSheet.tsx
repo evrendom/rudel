@@ -28,11 +28,7 @@ export function SessionDetailSheet({
 					</SheetDescription>
 				</SheetHeader>
 				{sessionId ? (
-					<SessionDetailView
-						sessionId={sessionId}
-						trackView={false}
-						utilitySourceComponent="session_detail_sheet"
-					/>
+					<SessionDetailView sessionId={sessionId} trackView={false} />
 				) : null}
 			</SheetContent>
 		</Sheet>

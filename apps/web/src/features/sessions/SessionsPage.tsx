@@ -122,8 +122,8 @@ export function SessionsPage() {
 
 	return (
 		<>
-			<div className="dashboardy-page px-4 pb-6 pt-2 sm:px-6 lg:px-[76px] lg:pb-8">
-				<div className="@container/dashboard-page mx-auto flex w-full flex-col gap-8">
+			<div className="dashboardy-page overflow-x-hidden overscroll-x-none px-4 pb-6 pt-2 sm:px-6 lg:px-[76px] lg:pb-8">
+				<div className="@container/dashboard-page mx-auto flex w-full min-w-0 flex-col gap-8">
 					<div className="flex flex-col gap-3">
 						<div className="flex justify-end px-1">
 							<SessionsDateRangeControls />
