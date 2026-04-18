@@ -1,345 +1,51 @@
 import { useQuery } from "@tanstack/react-query";
-import {
-	Clock,
-	FolderGit2,
-	GitBranch,
-	GitCommitHorizontal,
-	MessageSquare,
-	User,
-} from "lucide-react";
-import { Component, type ReactNode } from "react";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/app/ui/tooltip";
+import { Clock, GitCommitHorizontal, User } from "lucide-react";
 import { ConversationView } from "@/components/conversation/ConversationView";
 import { InfoTooltip } from "@/components/ui/InfoTooltip";
 import { DashboardModelBadges } from "@/features/dashboard/components/DashboardModelBadges";
 import { useUserMap } from "@/features/workspace/hooks/useUserMap";
 import { useTrackDashboardView } from "@/hooks/useTrackDashboardView";
-import { parseConversations } from "@/lib/conversation-schema";
 import { calculateCost, formatUsername } from "@/lib/format";
 import { orpc } from "@/lib/orpc";
 import { formatRelativeTime } from "@/lib/time-utils";
+import {
+	createSessionMetadataBadges,
+	getConversationSummary,
+	isForbiddenError,
+	SessionDetailErrorBoundary,
+	SessionDetailHoverTooltip,
+	SessionDetailMetric,
+	SessionTranscriptSummaryTab,
+	sessionArchetypeStyles,
+	toContentString,
+	toNumber,
+	toOptionalString,
+	toStringArray,
+	toSubagentMap,
+} from "./session-detail-view-parts";
 
-const archetypeStyles: Record<
-	string,
-	{ bg: string; text: string; label: string }
-> = {
-	quick_win: {
-		bg: "bg-[color:var(--dashboardy-success-surface)]",
-		text: "text-[color:var(--dashboardy-success-foreground)]",
-		label: "Quick Win",
-	},
-	deep_work: {
-		bg: "bg-[color:var(--dashboardy-chip-surface)]",
-		text: "text-[color:var(--dashboardy-chip-foreground)]",
-		label: "Deep Work",
-	},
-	struggle: {
-		bg: "bg-[color:var(--dashboardy-danger-surface)]",
-		text: "text-[color:var(--dashboardy-danger-foreground)]",
-		label: "Struggle",
-	},
-	exploration: {
-		bg: "bg-[color:var(--dashboardy-subsurface-strong)]",
-		text: "text-[color:var(--dashboardy-heading)]",
-		label: "Exploration",
-	},
-	abandoned: {
-		bg: "bg-[color:var(--dashboardy-subsurface)]",
-		text: "text-[color:var(--dashboardy-muted)]",
-		label: "Abandoned",
-	},
-	standard: {
-		bg: "bg-[color:var(--dashboardy-subsurface-strong)]",
-		text: "text-[color:var(--dashboardy-muted)]",
-		label: "Standard",
-	},
+type SessionDetailViewProps = {
+	sessionId: string;
+	trackView?: boolean;
 };
 
-function toNumber(value: unknown, fallback = 0): number {
-	if (typeof value === "number" && Number.isFinite(value)) {
-		return value;
-	}
+const compactMetaBadgeClassName =
+	"dashboardy-inline-badge inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[0.75rem] font-medium";
 
-	if (typeof value === "string") {
-		const parsed = Number(value);
-		if (Number.isFinite(parsed)) {
-			return parsed;
-		}
-	}
+const compactMetaBadgeIconClassName = "h-3 w-3";
 
-	return fallback;
-}
-
-function toStringArray(value: unknown): string[] {
-	return Array.isArray(value)
-		? value.filter((item): item is string => typeof item === "string")
-		: [];
-}
-
-function toOptionalString(value: unknown): string | null {
-	return typeof value === "string" && value.length > 0 ? value : null;
-}
-
-function toContentString(value: unknown): string {
-	if (typeof value === "string") {
-		return value;
-	}
-
-	if (value == null) {
-		return "";
-	}
-
-	try {
-		return JSON.stringify(value, null, 2);
-	} catch {
-		return "";
-	}
-}
-
-function toSubagentMap(value: unknown): Record<string, string> {
-	if (Array.isArray(value)) {
-		return Object.fromEntries(
-			value.filter(
-				(item): item is [string, string] =>
-					Array.isArray(item) &&
-					item.length >= 2 &&
-					typeof item[0] === "string" &&
-					typeof item[1] === "string",
-			),
-		);
-	}
-
-	if (!value || typeof value !== "object") {
-		return {};
-	}
-
-	return Object.fromEntries(
-		Object.entries(value).filter(
-			([key, entryValue]) =>
-				typeof key === "string" && typeof entryValue === "string",
-		),
-	);
-}
-
-function isForbiddenError(value: unknown) {
-	return (
-		typeof value === "object" &&
-		value !== null &&
-		"code" in value &&
-		value.code === "FORBIDDEN"
-	);
-}
-
-function getConversationSummary(content: string) {
-	if (content.trim() === "") {
-		return null;
-	}
-
-	try {
-		const parsed = parseConversations(content);
-		if (parsed.length === 0) {
-			return null;
-		}
-
-		const summary = {
-			totalMessages: 0,
-			userMessages: 0,
-			assistantMessages: 0,
-			systemMessages: 0,
-		};
-
-		for (const entry of parsed) {
-			if (entry.type === "user") {
-				summary.userMessages += 1;
-				summary.totalMessages += 1;
-				continue;
-			}
-
-			if (entry.type === "assistant") {
-				summary.assistantMessages += 1;
-				summary.totalMessages += 1;
-				continue;
-			}
-
-			if (entry.type === "system") {
-				summary.systemMessages += 1;
-				summary.totalMessages += 1;
-			}
-		}
-
-		return summary;
-	} catch {
-		return null;
-	}
-}
-
-function shortenLabelFromLeft(label: string, maxLength: number) {
-	if (label.length <= maxLength) {
-		return label;
-	}
-
-	const slashSegments = label.split("/").filter(Boolean);
-	const trailingPair = slashSegments.slice(-2).join("/");
-
-	if (trailingPair.length > 0 && trailingPair.length + 4 <= maxLength) {
-		return `.../${trailingPair}`;
-	}
-
-	const trailingSegment = slashSegments.at(-1);
-
-	if (trailingSegment && trailingSegment.length + 4 <= maxLength) {
-		return `.../${trailingSegment}`;
-	}
-
-	return `...${label.slice(-(maxLength - 3))}`;
-}
-
-function SessionTranscriptSummaryTab({
-	totalMessages,
-	userMessages,
-	assistantMessages,
-	systemMessages,
-}: {
-	totalMessages: number;
-	userMessages: number;
-	assistantMessages: number;
-	systemMessages: number;
-}) {
-	const segments = [
-		{
-			id: "user",
-			count: userMessages,
-			className: "bg-[#25B6AA]",
-		},
-		{
-			id: "assistant",
-			count: assistantMessages,
-			className: "bg-[color:var(--dashboardy-accent)]",
-		},
-		{
-			id: "system",
-			count: systemMessages,
-			className: "bg-[color:var(--dashboardy-warning-foreground)]",
-		},
-	].filter((segment) => segment.count > 0);
-
-	return (
-		<div className="dashboardy-meter-badge inline-flex max-w-full items-center gap-2 rounded-full border px-2.5 py-1.5">
-			<MessageSquare className="size-4 shrink-0 text-[color:var(--dashboardy-heading)]" />
-			<div className="text-[0.8125rem] font-medium tabular-nums text-[color:var(--dashboardy-heading)]">
-				{totalMessages}
-			</div>
-			<div className="flex h-1.5 w-16 overflow-hidden rounded-full bg-[color:var(--dashboardy-divider)]/55">
-				{segments.map((segment) => (
-					<div
-						key={segment.id}
-						className={segment.className}
-						style={{ flexGrow: segment.count }}
-					/>
-				))}
-			</div>
-		</div>
-	);
-}
-
-type SessionDetailErrorBoundaryProps = {
-	children: ReactNode;
-};
-
-type SessionDetailErrorBoundaryState = {
-	hasError: boolean;
-};
-
-function SessionDetailMetric({
-	label,
-	value,
-	className,
-	valueClassName,
-}: {
-	label: string;
-	value: ReactNode;
-	className?: string;
-	valueClassName?: string;
-}) {
-	return (
-		<div className={className ?? "grid gap-1"}>
-			<p className="text-[0.8125rem] font-medium text-[color:var(--dashboardy-muted)]">
-				{label}
-			</p>
-			<div
-				className={
-					valueClassName ??
-					"text-[0.95rem] font-semibold tabular-nums text-[color:var(--dashboardy-heading)]"
-				}
-			>
-				{value}
-			</div>
-		</div>
-	);
-}
-
-function SessionDetailHoverTooltip({
-	children,
-	text,
-}: {
-	children: ReactNode;
-	text: string;
-}) {
-	return (
-		<Tooltip>
-			<TooltipTrigger asChild>{children}</TooltipTrigger>
-			<TooltipContent>{text}</TooltipContent>
-		</Tooltip>
-	);
-}
-
-class SessionDetailErrorBoundary extends Component<
-	SessionDetailErrorBoundaryProps,
-	SessionDetailErrorBoundaryState
-> {
-	override state = { hasError: false };
-
-	static getDerivedStateFromError() {
-		return { hasError: true };
-	}
-
-	override componentDidCatch(error: unknown) {
-		console.error("[SessionDetailView] Failed to render session detail", error);
-	}
-
-	override render() {
-		if (this.state.hasError) {
-			return (
-				<div className="flex h-full items-center justify-center px-6 py-10">
-					<div className="max-w-md rounded-[1.5rem] border border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-subsurface)] px-6 py-5 text-center shadow-[0_18px_40px_rgba(15,23,42,0.06)]">
-						<p className="text-lg font-semibold text-[color:var(--dashboardy-heading)]">
-							Unable to render this session
-						</p>
-						<p className="mt-2 text-sm text-[color:var(--dashboardy-muted)]">
-							The transcript payload for this session uses an unexpected shape.
-						</p>
-					</div>
-				</div>
-			);
-		}
-
-		return this.props.children;
-	}
-}
+const stickyMetadataRowClassName =
+	"flex min-w-0 flex-wrap items-center justify-end gap-2";
 
 export function SessionDetailView({
 	sessionId,
 	trackView = true,
-}: {
-	sessionId: string;
-	trackView?: boolean;
-}) {
+}: SessionDetailViewProps) {
 	const { userMap } = useUserMap();
-
 	const {
 		data: session,
-		isLoading,
 		error,
+		isLoading,
 	} = useQuery({
 		...orpc.analytics.sessions.detail.queryOptions({
 			input: { sessionId },
@@ -423,34 +129,20 @@ export function SessionDetailView({
 	const safeSessionArchetype =
 		toOptionalString(session.session_archetype) ?? undefined;
 	const safeContent = toContentString(session.content);
-	const compactMetaBadgeClassName =
-		"dashboardy-inline-badge inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[0.75rem] font-medium";
-	const compactMetaBadgeIconClassName = "h-3 w-3";
-	const stickyMetadataRowClassName =
-		"flex min-w-0 flex-wrap items-center justify-end gap-2";
-	const metadataBadges: Array<{
-		displayLabel: string;
-		icon: typeof FolderGit2 | typeof GitBranch;
-		label: string;
-		tooltip: string;
-	}> = [];
-	if (safeRepository) {
-		metadataBadges.push({
-			displayLabel: shortenLabelFromLeft(safeRepository, 30),
-			icon: FolderGit2,
-			label: safeRepository,
-			tooltip: "Worktree",
-		});
-	}
-	if (safeGitBranch) {
-		metadataBadges.push({
-			displayLabel: shortenLabelFromLeft(safeGitBranch, 26),
-			icon: GitBranch,
-			label: safeGitBranch,
-			tooltip: "Branch",
-		});
-	}
+	const metadataBadges = createSessionMetadataBadges({
+		gitBranch: safeGitBranch,
+		repository: safeRepository,
+	});
 	const conversationSummary = getConversationSummary(safeContent);
+	const subagentNames = Object.keys(safeSubagents);
+	const sessionArchetypeStyle = safeSessionArchetype
+		? (sessionArchetypeStyles[safeSessionArchetype] ??
+			sessionArchetypeStyles.standard)
+		: null;
+	const hasActivityBadges =
+		safeSkills.length > 0 ||
+		safeSlashCommands.length > 0 ||
+		subagentNames.length > 0;
 
 	return (
 		<SessionDetailErrorBoundary>
@@ -462,19 +154,13 @@ export function SessionDetailView({
 								<h1 className="dashboardy-section-title text-lg/6 text-[color:var(--dashboardy-heading)] sm:text-xl/7">
 									Session details
 								</h1>
-								{safeSessionArchetype &&
-									(() => {
-										const style =
-											archetypeStyles[safeSessionArchetype] ??
-											archetypeStyles.standard;
-										return (
-											<span
-												className={`inline-flex rounded-full px-2.5 py-1 text-[0.75rem] font-semibold ${style.bg} ${style.text}`}
-											>
-												{style.label}
-											</span>
-										);
-									})()}
+								{sessionArchetypeStyle ? (
+									<span
+										className={`inline-flex rounded-full px-2.5 py-1 text-[0.75rem] font-semibold ${sessionArchetypeStyle.bg} ${sessionArchetypeStyle.text}`}
+									>
+										{sessionArchetypeStyle.label}
+									</span>
+								) : null}
 							</div>
 
 							<div className={stickyMetadataRowClassName}>
@@ -519,11 +205,11 @@ export function SessionDetailView({
 						<div className="grid gap-5">
 							<div className="grid min-w-0 gap-4 rounded-[1.35rem] border border-[color:var(--dashboardy-border)] bg-[color:color-mix(in_srgb,var(--dashboardy-subsurface)_68%,white)] px-4 py-4">
 								<div className="grid gap-4 xl:grid-cols-[auto_minmax(0,1fr)] xl:items-start xl:gap-5">
-								<div className="flex min-w-0 flex-wrap items-center gap-2">
-									{safeGitSha ? (
-										<div className={compactMetaBadgeClassName}>
-											<GitCommitHorizontal
-												className={compactMetaBadgeIconClassName}
+									<div className="flex min-w-0 flex-wrap items-center gap-2">
+										{safeGitSha ? (
+											<div className={compactMetaBadgeClassName}>
+												<GitCommitHorizontal
+													className={compactMetaBadgeIconClassName}
 												/>
 												<div className="font-mono tabular-nums">
 													{safeGitSha.slice(0, 8)}...
@@ -601,19 +287,17 @@ export function SessionDetailView({
 												}
 											/>
 										) : null}
-										{Object.keys(safeSubagents).length > 0 ? (
+										{subagentNames.length > 0 ? (
 											<SessionDetailMetric
 												className="grid min-w-[6rem] flex-1 gap-1 border-l border-[color:var(--dashboardy-divider)] px-3 py-2"
 												label="Subagents"
-												value={Object.keys(safeSubagents).length}
+												value={subagentNames.length}
 											/>
 										) : null}
 									</div>
 								</div>
 
-								{safeSkills.length > 0 ||
-								safeSlashCommands.length > 0 ||
-								Object.keys(safeSubagents).length > 0 ? (
+								{hasActivityBadges ? (
 									<div className="border-t border-[color:var(--dashboardy-divider)] pt-4">
 										<div className="flex flex-wrap gap-2">
 											{[...new Set(safeSkills)].map((skill) => (
@@ -632,7 +316,7 @@ export function SessionDetailView({
 													/{command}
 												</span>
 											))}
-											{Object.keys(safeSubagents).map((agent) => (
+											{subagentNames.map((agent) => (
 												<span
 													key={agent}
 													className="dashboardy-inline-badge inline-flex rounded-full border px-3 py-1.5 text-[0.8125rem] font-medium"
@@ -645,13 +329,7 @@ export function SessionDetailView({
 								) : null}
 							</div>
 
-							{/* idk if it works, none of my sessions show tools */}
-
-							<ConversationView
-								content={safeContent}
-								showHeader={false}
-								userLabel={safeUserDisplayName}
-							/>
+							<ConversationView content={safeContent} showHeader={false} />
 						</div>
 					</div>
 				</div>

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Tabs, TabsList, TabsTrigger } from "@/app/ui/tabs";
 import { CliSetupHint } from "@/components/analytics/CliSetupHint";
 import { DashboardDateControls } from "@/features/dashboard/components/DashboardDateControls";
@@ -9,7 +9,6 @@ import { DashboardRepositoryPanel } from "@/features/dashboard/components/Dashbo
 import { DashboardSessionsView } from "@/features/dashboard/components/DashboardSessionsView";
 import { DashboardTokensView } from "@/features/dashboard/components/DashboardTokensView";
 import { useDashboardPageData } from "@/features/dashboard/use-dashboard-page-data";
-import { useSearchParams } from "react-router-dom";
 
 type DashboardView = "tokens" | "commits" | "errors" | "repos" | "sessions";
 
@@ -49,18 +48,9 @@ export function DashboardPage() {
 	} = useDashboardPageData();
 	const [searchParams, setSearchParams] = useSearchParams();
 	const requestedView = searchParams.get("view");
-	const [activeView, setActiveView] = useState<DashboardView>(
-		isDashboardView(requestedView) ? requestedView : "tokens",
-	);
-
-	useEffect(() => {
-		if (isDashboardView(requestedView) && requestedView !== activeView) {
-			setActiveView(requestedView);
-		}
-	}, [activeView, requestedView]);
+	const activeView = isDashboardView(requestedView) ? requestedView : "tokens";
 
 	function setDashboardView(nextView: DashboardView) {
-		setActiveView(nextView);
 		setSearchParams(
 			(prev) => {
 				const nextParams = new URLSearchParams(prev);

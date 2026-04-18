@@ -1,9 +1,4 @@
-import {
-	ChevronRight,
-	FileText,
-	Settings,
-	Wrench,
-} from "lucide-react";
+import { ChevronRight, FileText, Settings, Wrench } from "lucide-react";
 import { type ComponentType, type ReactNode, useId, useState } from "react";
 import type {
 	Conversation,
@@ -20,7 +15,6 @@ interface ConversationMessageProps {
 	entry: Conversation;
 	messageIndex?: number;
 	className?: string;
-	userLabel?: string;
 }
 
 type MessageSide = "left" | "right" | "full";
@@ -100,16 +94,6 @@ function compactPreview(text: string, maxLength = 140): string {
 	return `${normalized.slice(0, maxLength).trimEnd()}...`;
 }
 
-function MessageMetaTag({ value }: { value: string }) {
-	return (
-		<div className="rounded-full border border-[color:var(--dashboardy-divider)] bg-[color:color-mix(in_srgb,var(--dashboardy-surface)_92%,white)] px-2.5 py-1 shadow-[0_1px_0_rgba(15,23,42,0.02)]">
-			<p className="text-[0.75rem] font-medium tabular-nums text-[color:var(--dashboardy-muted)]">
-				{value}
-			</p>
-		</div>
-	);
-}
-
 function MessageFrame({
 	icon: Icon,
 	iconNode,
@@ -126,7 +110,7 @@ function MessageFrame({
 }: {
 	icon?: ComponentType<{ className?: string }>;
 	iconNode?: ReactNode;
-	label: string;
+	label?: string;
 	timestamp?: string;
 	side: MessageSide;
 	anchorId?: string;
@@ -152,13 +136,16 @@ function MessageFrame({
 							iconShellClassName,
 						)}
 					>
-						{iconNode ?? (Icon ? <Icon className={cn("size-4", iconClassName)} /> : null)}
+						{iconNode ??
+							(Icon ? <Icon className={cn("size-4", iconClassName)} /> : null)}
 					</div>
 					<p className="text-sm font-semibold text-[color:var(--dashboardy-heading)]">
 						{label}
 					</p>
 					{timestamp ? (
-						<MessageMetaTag value={formatMessageTime(timestamp)} />
+						<p className="text-[0.75rem] font-medium tabular-nums text-[color:var(--dashboardy-muted)]">
+							{formatMessageTime(timestamp)}
+						</p>
 					) : null}
 				</div>
 				<div
@@ -198,14 +185,25 @@ function MessageFrame({
 					)}
 				>
 					{children}
-					<p
-						className={cn(
-							"mt-3 max-w-[14rem] truncate text-[0.75rem] font-medium text-[color:var(--dashboardy-muted)]",
-							isRight && "text-right",
-						)}
-					>
-						{label}
-					</p>
+					{timestamp ? (
+						<p
+							className={cn(
+								"mt-3 text-[0.75rem] font-medium tabular-nums text-[color:var(--dashboardy-muted)]",
+								isRight ? "text-right" : "text-left",
+							)}
+						>
+							{formatMessageTime(timestamp)}
+						</p>
+					) : label ? (
+						<p
+							className={cn(
+								"mt-3 text-[0.75rem] font-medium text-[color:var(--dashboardy-muted)]",
+								isRight ? "text-right" : "text-left",
+							)}
+						>
+							{label}
+						</p>
+					) : null}
 				</div>
 			</div>
 		</div>
@@ -331,7 +329,6 @@ export function ConversationMessage({
 	entry,
 	messageIndex,
 	className,
-	userLabel = "User",
 }: ConversationMessageProps) {
 	const anchorId =
 		messageIndex !== undefined ? `message-${messageIndex}` : undefined;
@@ -413,7 +410,6 @@ export function ConversationMessage({
 
 		return (
 			<MessageFrame
-				label={userLabel}
 				timestamp={entry.timestamp}
 				side="right"
 				anchorId={anchorId}
@@ -466,7 +462,6 @@ export function ConversationMessage({
 
 	return (
 		<MessageFrame
-			label="Assistant"
 			timestamp={entry.timestamp}
 			side="left"
 			anchorId={anchorId}

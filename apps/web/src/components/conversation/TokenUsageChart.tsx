@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo } from "react";
+import { useObservedWidth } from "@/features/conversation-internal/hooks/useObservedWidth";
 import { cn } from "@/lib/utils";
 
 export interface TokenDataPoint {
@@ -17,7 +18,8 @@ const CHART_HEIGHT = 160;
 const AXIS_Y = CHART_HEIGHT / 2;
 const BAR_HALF_HEIGHT = AXIS_Y - 6;
 const LEFT_MARGIN = 40;
-const INPUT_BAR_FILL = "color-mix(in srgb, var(--dashboardy-accent) 82%, white)";
+const INPUT_BAR_FILL =
+	"color-mix(in srgb, var(--dashboardy-accent) 82%, white)";
 const OUTPUT_BAR_FILL =
 	"color-mix(in srgb, var(--dashboardy-chip-foreground) 78%, white)";
 
@@ -36,25 +38,9 @@ export function TokenUsageChart({
 	totalMessages,
 	className,
 }: TokenUsageChartProps) {
-	const containerRef = useRef<HTMLDivElement>(null);
-	const [chartWidth, setChartWidth] = useState(400);
+	const { elementRef: containerRef, width: chartWidth } =
+		useObservedWidth<HTMLDivElement>();
 	const safeTotalMessages = Math.max(totalMessages, 1);
-
-	useEffect(() => {
-		const el = containerRef.current;
-		if (!el) {
-			return;
-		}
-
-		const observer = new ResizeObserver((entries) => {
-			const entry = entries[0];
-			if (entry) {
-				setChartWidth(entry.contentRect.width);
-			}
-		});
-		observer.observe(el);
-		return () => observer.disconnect();
-	}, []);
 
 	const drawWidth = chartWidth - LEFT_MARGIN;
 
@@ -194,7 +180,8 @@ export function TokenUsageChart({
 						const x =
 							LEFT_MARGIN +
 							(point.messageIndex / safeTotalMessages) * drawWidth;
-						const barHeight = (point.outputTokens / maxOutput) * BAR_HALF_HEIGHT;
+						const barHeight =
+							(point.outputTokens / maxOutput) * BAR_HALF_HEIGHT;
 
 						return (
 							<rect
