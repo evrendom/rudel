@@ -9,6 +9,7 @@ const SETTINGS_ACCOUNT_PATH = `${SETTINGS_ROOT_PATH}/account`;
 const SETTINGS_CREATE_WORKSPACE_PATH = `${SETTINGS_ROOT_PATH}/create-workspace`;
 const PRESET_BASELINE_PATH = "/__preset-baseline";
 const WALK_IN_PATH = "/walk-in";
+const WRAPPED_PATH = "/wrapped";
 
 export const appRoutes = {
 	home: () => DASHBOARD_PATH,
@@ -20,6 +21,7 @@ export const appRoutes = {
 	settingsRoot: () => SETTINGS_ROOT_PATH,
 	presetBaseline: () => PRESET_BASELINE_PATH,
 	walkIn: () => WALK_IN_PATH,
+	wrapped: () => WRAPPED_PATH,
 	settingsWorkspace: () => SETTINGS_WORKSPACE_PATH,
 	settingsInvitations: () => SETTINGS_INVITATIONS_PATH,
 	settingsAccount: () => SETTINGS_ACCOUNT_PATH,

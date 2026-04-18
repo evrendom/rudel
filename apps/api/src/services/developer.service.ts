@@ -364,14 +364,20 @@ export async function getDeveloperDetails(
     LEFT JOIN previous_period p ON c.user_id = p.user_id
   `;
 
-	const results = await queryClickhouse<DeveloperDetails>({
-		query,
-		query_params,
-	});
+	const [results, favoriteModelByUser] = await Promise.all([
+		queryClickhouse<Omit<DeveloperDetails, "favorite_model" | "username">>({
+			query,
+			query_params,
+		}),
+		getFavoriteModelByUser(orgId, d),
+	]);
 	const [first] = results;
 	if (!first) return null;
 
-	return first;
+	return {
+		...first,
+		favorite_model: favoriteModelByUser.get(userId) ?? null,
+	};
 }
 
 /**

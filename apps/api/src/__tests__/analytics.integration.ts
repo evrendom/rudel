@@ -43,6 +43,7 @@ import {
 	SessionDetailSchema,
 	SuccessRateSchema,
 	UsageTrendDataSchema,
+	UserTokenUsageDataSchema,
 } from "@rudel/api-routes";
 
 // ── Inline test server helper (avoids cross-package TS rootDir issue) ──
@@ -303,6 +304,12 @@ describe("analytics/overview", () => {
 		expect(parsed.length).toBeGreaterThan(0);
 	}, 30_000);
 
+	test("usersTokenUsage", async () => {
+		const result = await rpc("analytics/overview/usersTokenUsage", dateRange);
+		const parsed = parseArray(UserTokenUsageDataSchema, result);
+		expect(parsed.length).toBeGreaterThanOrEqual(1);
+	}, 30_000);
+
 	test("insights", async () => {
 		const result = await rpc("analytics/overview/insights", dateRange);
 		const parsed = parseArray(InsightSchema, result);
@@ -342,6 +349,7 @@ describe("analytics/developers", () => {
 		const parsed = DeveloperDetailsSchema.parse(result);
 		expect(parsed.user_id).toBe(userId);
 		expect(parsed.total_sessions).toBeGreaterThanOrEqual(5);
+		expect(parsed.favorite_model).not.toBeUndefined();
 	}, 30_000);
 
 	test("sessions", async () => {

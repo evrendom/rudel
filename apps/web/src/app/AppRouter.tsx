@@ -56,6 +56,10 @@ const RudelWalkInPage = lazyNamed(
 	() => import("@/features/walk-in/RudelWalkInPage"),
 	"RudelWalkInPage",
 );
+const FifaWrappedPage = lazyNamed(
+	() => import("@/features/wrapped/FifaWrappedPage"),
+	"FifaWrappedPage",
+);
 const LEGACY_DASHBOARDY_PATH = "/dashboardy";
 
 function DashboardRouteLoadingScreen() {
@@ -127,6 +131,15 @@ export function AppRouter({
 				element={
 					<LazyRoute
 						Component={RudelWalkInPage}
+						fallback={<FullscreenRouteLoadingScreen />}
+					/>
+				}
+			/>
+			<Route
+				path={appRoutes.wrapped()}
+				element={
+					<LazyRoute
+						Component={FifaWrappedPage}
 						fallback={<FullscreenRouteLoadingScreen />}
 					/>
 				}
