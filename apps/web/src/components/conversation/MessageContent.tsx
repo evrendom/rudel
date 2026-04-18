@@ -1,3 +1,5 @@
+import { ChevronDown, ChevronRight } from "lucide-react";
+import { useId, useState } from "react";
 import type {
 	TextContent,
 	ThinkingContent,
@@ -117,6 +119,27 @@ function parseTextContent(text: string): Array<TextPart> {
 	return parts;
 }
 
+function shouldCollapseXmlBlockByDefault(tag: string): boolean {
+	return /instruction|context/i.test(tag);
+}
+
+function formatXmlBlockSummary(
+	entries: Array<{ key: string; value: string }>,
+): string {
+	const [firstEntry] = entries;
+	if (!firstEntry) {
+		return "No fields";
+	}
+
+	const valuePreview = firstEntry.value
+		.replace(/\s+/g, " ")
+		.trim()
+		.slice(0, 80);
+	const suffix = entries.length > 1 ? `, +${entries.length - 1} more` : "";
+
+	return `${formatTagLabel(firstEntry.key)}: ${valuePreview}${valuePreview.length === 80 ? "..." : ""}${suffix}`;
+}
+
 function XmlBlock({
 	tag,
 	entries,
@@ -124,25 +147,53 @@ function XmlBlock({
 	tag: string;
 	entries: Array<{ key: string; value: string }>;
 }) {
+	const [isOpen, setIsOpen] = useState(!shouldCollapseXmlBlockByDefault(tag));
+	const panelId = useId();
+
 	return (
 		<div className="overflow-hidden rounded-[1rem] border border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-surface)]">
-			<div className="border-b border-[color:var(--dashboardy-divider)] bg-[color:var(--dashboardy-subsurface)] px-4 py-2">
-				<p className="text-sm font-semibold text-[color:var(--dashboardy-heading)]">
-					{formatTagLabel(tag)}
-				</p>
-			</div>
-			<div className="divide-y divide-[color:var(--dashboardy-divider)]">
-				{entries.map((entry) => (
-					<div key={entry.key} className="flex gap-4 px-4 py-2.5">
-						<p className="min-w-[7rem] shrink-0 text-sm font-medium text-[color:var(--dashboardy-muted)]">
-							{formatTagLabel(entry.key)}
+			<button
+				type="button"
+				onClick={() => setIsOpen((current) => !current)}
+				aria-expanded={isOpen}
+				aria-controls={panelId}
+				className="flex w-full items-start gap-3 border-b border-[color:var(--dashboardy-divider)] bg-[color:color-mix(in_srgb,var(--dashboardy-subsurface)_82%,white)] px-4 py-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--dashboardy-border)]"
+			>
+				<div className="mt-0.5 shrink-0 text-[color:var(--dashboardy-muted)]">
+					{isOpen ? (
+						<ChevronDown className="size-4" />
+					) : (
+						<ChevronRight className="size-4" />
+					)}
+				</div>
+				<div className="grid min-w-0 flex-1 gap-0.5">
+					<p className="text-sm font-semibold text-[color:var(--dashboardy-heading)]">
+						{formatTagLabel(tag)}
+					</p>
+					{isOpen ? null : (
+						<p className="text-sm text-[color:var(--dashboardy-muted)] [overflow-wrap:anywhere]">
+							{formatXmlBlockSummary(entries)}
 						</p>
-						<p className="font-mono text-[0.875rem] leading-6 text-[color:var(--dashboardy-heading)] break-all">
-							{entry.value}
-						</p>
-					</div>
-				))}
-			</div>
+					)}
+				</div>
+			</button>
+			{isOpen ? (
+				<div
+					id={panelId}
+					className="divide-y divide-[color:var(--dashboardy-divider)]"
+				>
+					{entries.map((entry) => (
+						<div key={entry.key} className="flex gap-4 px-4 py-3">
+							<p className="min-w-[6.5rem] shrink-0 text-sm font-medium text-[color:var(--dashboardy-muted)]">
+								{formatTagLabel(entry.key)}
+							</p>
+							<p className="font-mono text-[0.875rem] leading-6 text-[color:var(--dashboardy-heading)] break-all">
+								{entry.value}
+							</p>
+						</div>
+					))}
+				</div>
+			) : null}
 		</div>
 	);
 }
@@ -150,7 +201,7 @@ function XmlBlock({
 function renderPlainText(text: string, key: number) {
 	const parts = parseTextContent(text);
 	return (
-		<div key={key} className="space-y-3">
+		<div key={key} className="space-y-3.5">
 			{parts.map((part, partIdx) => {
 				if (part.type === "code") {
 					return (
@@ -178,7 +229,7 @@ function renderPlainText(text: string, key: number) {
 						key={partIdx}
 						className="max-w-none"
 					>
-						<p className="whitespace-pre-wrap break-words text-base leading-7 text-[color:var(--dashboardy-heading)] [overflow-wrap:anywhere]">
+						<p className="whitespace-pre-wrap break-words text-base leading-7 text-[color:var(--dashboardy-heading)] text-pretty [overflow-wrap:anywhere]">
 							{part.content}
 						</p>
 					</div>
@@ -204,7 +255,7 @@ export function MessageContent({ content, className }: MessageContentProps) {
 
 	if (typeof content === "string") {
 		return (
-			<div className={cn("space-y-3", className)}>
+			<div className={cn("space-y-3.5", className)}>
 				{renderPlainText(content, 0)}
 			</div>
 		);
@@ -236,7 +287,7 @@ export function MessageContent({ content, className }: MessageContentProps) {
 	}
 
 	return (
-		<div className={cn("space-y-3", className)}>
+		<div className={cn("space-y-3.5", className)}>
 			{content.map((block, idx) => {
 				if (typeof block === "string") {
 					return renderPlainText(block, idx);
@@ -251,12 +302,12 @@ export function MessageContent({ content, className }: MessageContentProps) {
 							<div
 								// biome-ignore lint/suspicious/noArrayIndexKey: content blocks have no stable id
 								key={idx}
-								className="rounded-[1rem] border border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-subsurface)] px-4 py-4"
+								className="rounded-[1rem] border border-[color:var(--dashboardy-divider)] bg-[color:color-mix(in_srgb,var(--dashboardy-subsurface)_82%,white)] px-4 py-3.5"
 							>
-								<p className="mb-2 text-sm font-semibold text-[color:var(--dashboardy-heading)]">
-									Internal Thinking
+								<p className="mb-1 text-sm font-semibold text-[color:var(--dashboardy-heading)]">
+									Thinking
 								</p>
-								<p className="whitespace-pre-wrap text-base leading-7 text-[color:var(--dashboardy-muted)] italic">
+								<p className="whitespace-pre-wrap text-base leading-7 text-[color:var(--dashboardy-muted)] italic text-pretty">
 									{block.thinking}
 								</p>
 							</div>
@@ -303,15 +354,15 @@ export function MessageContent({ content, className }: MessageContentProps) {
 								// biome-ignore lint/suspicious/noArrayIndexKey: content blocks have no stable id
 								key={idx}
 								className={cn(
-									"rounded-[1rem] border p-4",
+									"grid gap-2.5 rounded-[1rem] border p-3.5",
 									block.is_error
 										? "border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-danger-surface)]"
-										: "border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-subsurface)]",
+										: "border-[color:var(--dashboardy-divider)] bg-[color:color-mix(in_srgb,var(--dashboardy-subsurface)_82%,white)]",
 								)}
 							>
 								<p
 									className={cn(
-										"mb-2 text-sm font-semibold",
+										"text-sm font-semibold",
 										block.is_error
 											? "text-[color:var(--dashboardy-danger-foreground)]"
 											: "text-[color:var(--dashboardy-heading)]",

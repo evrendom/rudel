@@ -1,12 +1,10 @@
 import {
-	Bot,
 	ChevronRight,
 	FileText,
 	Settings,
-	User,
 	Wrench,
 } from "lucide-react";
-import { useState } from "react";
+import { type ComponentType, type ReactNode, useId, useState } from "react";
 import type {
 	Conversation,
 	ToolResultContent,
@@ -22,30 +20,61 @@ interface ConversationMessageProps {
 	entry: Conversation;
 	messageIndex?: number;
 	className?: string;
+	userLabel?: string;
 }
 
-const variantStyles = {
+type MessageSide = "left" | "right" | "full";
+
+const frameStyles = {
+	assistant: {
+		card: "border-[color:color-mix(in_srgb,var(--dashboardy-border)_86%,white)] bg-[color:color-mix(in_srgb,var(--dashboardy-surface)_94%,white)]",
+		bubble: "rounded-[1.5rem] rounded-bl-[0.55rem]",
+		icon: "border-[color:color-mix(in_srgb,var(--dashboardy-border)_82%,white)] bg-[color:color-mix(in_srgb,var(--dashboardy-subsurface)_70%,white)] text-[color:var(--dashboardy-heading)]",
+	},
+	user: {
+		card: "border-[color:color-mix(in_srgb,var(--dashboardy-chip-border)_78%,white)] bg-[color:color-mix(in_srgb,var(--dashboardy-chip-surface)_52%,white)]",
+		bubble: "rounded-[1.5rem] rounded-br-[0.55rem]",
+		icon: "border-[color:color-mix(in_srgb,var(--dashboardy-chip-border)_78%,white)] bg-[color:color-mix(in_srgb,var(--dashboardy-chip-surface)_88%,white)] text-[color:var(--dashboardy-chip-foreground)]",
+	},
+	summary: {
+		card: "border-[color:var(--dashboardy-border)] bg-[color:color-mix(in_srgb,var(--dashboardy-subsurface)_84%,white)]",
+		bubble: "rounded-[1.2rem]",
+		icon: "border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-subsurface)] text-[color:var(--dashboardy-muted)]",
+	},
+} as const;
+
+const collapsedVariantStyles = {
 	default: {
-		shell:
-			"border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-subsurface)]",
-		icon: "size-3.5 shrink-0 text-[color:var(--dashboardy-muted)]",
+		card: "border-[color:var(--dashboardy-border)] bg-[color:color-mix(in_srgb,var(--dashboardy-subsurface)_84%,white)]",
+		bubble: "rounded-[1.2rem]",
+		iconShell:
+			"border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-surface)]",
+		icon: "text-[color:var(--dashboardy-muted)]",
 		summary: "text-[color:var(--dashboardy-muted)]",
+		button:
+			"hover:bg-[color:var(--dashboardy-subsurface-strong)] focus-visible:bg-[color:var(--dashboardy-subsurface-strong)]",
 		panelBorder: "border-[color:var(--dashboardy-divider)]",
 	},
 	error: {
-		shell:
-			"border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-danger-surface)]",
-		icon:
-			"size-3.5 shrink-0 text-[color:var(--dashboardy-danger-foreground)]",
+		card: "border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-danger-surface)]",
+		bubble: "rounded-[1.35rem] rounded-br-[0.45rem]",
+		iconShell:
+			"border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-surface)]",
+		icon: "text-[color:var(--dashboardy-danger-foreground)]",
 		summary: "text-[color:var(--dashboardy-danger-foreground)]",
+		button:
+			"hover:bg-[color:color-mix(in_srgb,var(--dashboardy-danger-surface)_82%,white)] focus-visible:bg-[color:color-mix(in_srgb,var(--dashboardy-danger-surface)_82%,white)]",
 		panelBorder: "border-[color:var(--dashboardy-border)]",
 	},
 	success: {
-		shell:
-			"border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-success-surface)]",
-		icon:
-			"size-3.5 shrink-0 text-[color:var(--dashboardy-success-foreground)]",
+		card: "border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-success-surface)]",
+		bubble: "rounded-[1.35rem] rounded-br-[0.45rem]",
+		iconShell:
+			"border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-surface)]",
+		icon: "text-[color:var(--dashboardy-success-foreground)]",
 		summary: "text-[color:var(--dashboardy-success-foreground)]",
+		button:
+			"hover:bg-[color:color-mix(in_srgb,var(--dashboardy-success-surface)_82%,white)] focus-visible:bg-[color:color-mix(in_srgb,var(--dashboardy-success-surface)_82%,white)]",
 		panelBorder: "border-[color:var(--dashboardy-border)]",
 	},
 } as const;
@@ -62,71 +91,207 @@ function formatMessageTime(timestamp: string): string {
 	});
 }
 
+function compactPreview(text: string, maxLength = 140): string {
+	const normalized = text.replace(/\s+/g, " ").trim();
+	if (normalized.length <= maxLength) {
+		return normalized;
+	}
+
+	return `${normalized.slice(0, maxLength).trimEnd()}...`;
+}
+
+function MessageMetaTag({ value }: { value: string }) {
+	return (
+		<div className="rounded-full border border-[color:var(--dashboardy-divider)] bg-[color:color-mix(in_srgb,var(--dashboardy-surface)_92%,white)] px-2.5 py-1 shadow-[0_1px_0_rgba(15,23,42,0.02)]">
+			<p className="text-[0.75rem] font-medium tabular-nums text-[color:var(--dashboardy-muted)]">
+				{value}
+			</p>
+		</div>
+	);
+}
+
+function MessageFrame({
+	icon: Icon,
+	iconNode,
+	label,
+	timestamp,
+	side,
+	anchorId,
+	className,
+	cardClassName,
+	bubbleClassName,
+	iconShellClassName,
+	iconClassName,
+	children,
+}: {
+	icon?: ComponentType<{ className?: string }>;
+	iconNode?: ReactNode;
+	label: string;
+	timestamp?: string;
+	side: MessageSide;
+	anchorId?: string;
+	className?: string;
+	cardClassName: string;
+	bubbleClassName: string;
+	iconShellClassName: string;
+	iconClassName: string;
+	children: ReactNode;
+}) {
+	const isRight = side === "right";
+
+	if (side === "full") {
+		return (
+			<div
+				id={anchorId}
+				className={cn("grid max-w-[56rem] scroll-mt-6 gap-2.5", className)}
+			>
+				<div className="flex flex-wrap items-center gap-2">
+					<div
+						className={cn(
+							"flex size-8 shrink-0 items-center justify-center rounded-full border",
+							iconShellClassName,
+						)}
+					>
+						{iconNode ?? (Icon ? <Icon className={cn("size-4", iconClassName)} /> : null)}
+					</div>
+					<p className="text-sm font-semibold text-[color:var(--dashboardy-heading)]">
+						{label}
+					</p>
+					{timestamp ? (
+						<MessageMetaTag value={formatMessageTime(timestamp)} />
+					) : null}
+				</div>
+				<div
+					className={cn(
+						"min-w-0 border px-4 py-4 shadow-[0_1px_0_rgba(15,23,42,0.03)] sm:px-5",
+						cardClassName,
+						bubbleClassName,
+					)}
+				>
+					{children}
+				</div>
+			</div>
+		);
+	}
+
+	return (
+		<div
+			id={anchorId}
+			className={cn(
+				"flex w-full scroll-mt-6",
+				isRight ? "justify-end" : "justify-start",
+				className,
+			)}
+		>
+			<div
+				className={cn(
+					"grid w-full max-w-[60rem]",
+					isRight ? "justify-items-end" : "justify-items-start",
+				)}
+			>
+				<div
+					className={cn(
+						"w-full max-w-[46rem] min-w-0 border px-4 py-3.5 sm:px-5",
+						cardClassName,
+						bubbleClassName,
+						isRight ? "ml-auto" : "mr-auto",
+					)}
+				>
+					{children}
+					<p
+						className={cn(
+							"mt-3 max-w-[14rem] truncate text-[0.75rem] font-medium text-[color:var(--dashboardy-muted)]",
+							isRight && "text-right",
+						)}
+					>
+						{label}
+					</p>
+				</div>
+			</div>
+		</div>
+	);
+}
+
 function CollapsedEntry({
 	icon: Icon,
 	label,
 	summary,
 	children,
+	timestamp,
+	side,
 	anchorId,
 	className,
 	variant = "default",
 }: {
-	icon: React.ComponentType<{ className?: string }>;
+	icon: ComponentType<{ className?: string }>;
 	label: string;
 	summary: string;
-	children: React.ReactNode;
+	children: ReactNode;
+	timestamp?: string;
+	side: MessageSide;
 	anchorId?: string;
 	className?: string;
 	variant?: "default" | "error" | "success";
 }) {
 	const [open, setOpen] = useState(false);
-	const styles = variantStyles[variant];
+	const panelId = useId();
+	const styles = collapsedVariantStyles[variant];
 
 	return (
-		<div id={anchorId} className={cn("scroll-mt-6", className)}>
+		<MessageFrame
+			icon={Icon}
+			label={label}
+			timestamp={timestamp}
+			side={side}
+			anchorId={anchorId}
+			className={className}
+			cardClassName={styles.card}
+			bubbleClassName={styles.bubble}
+			iconShellClassName={styles.iconShell}
+			iconClassName={styles.icon}
+		>
 			<button
 				type="button"
 				onClick={() => setOpen(!open)}
+				aria-expanded={open}
+				aria-controls={panelId}
 				className={cn(
-					"w-full rounded-[1rem] border px-4 py-3 text-left transition-colors hover:bg-[color:var(--dashboardy-subsurface-strong)]",
-					styles.shell,
+					"flex w-full min-w-0 items-start gap-3 rounded-[1rem] px-3 py-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--dashboardy-border)]",
+					styles.button,
 				)}
 			>
-				<div className="flex min-w-0 flex-1 items-center gap-3">
-					<div className="flex size-8 shrink-0 items-center justify-center rounded-full border border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-surface)]">
-						<Icon className={styles.icon} />
-					</div>
-					<div className="grid min-w-0 gap-0.5">
-						<p className="text-sm font-semibold text-[color:var(--dashboardy-heading)]">
-							{label}
-						</p>
-						<p className={cn("truncate text-sm", styles.summary)}>{summary}</p>
-					</div>
+				<div className="grid min-w-0 flex-1 gap-1">
+					<p
+						className={cn(
+							"text-sm leading-6 [overflow-wrap:anywhere]",
+							styles.summary,
+						)}
+					>
+						{summary}
+					</p>
 				</div>
 				<ChevronRight
 					className={cn(
-						"ml-3 size-4 shrink-0 text-[color:var(--dashboardy-muted)] transition-transform",
+						"mt-0.5 size-4 shrink-0 text-[color:var(--dashboardy-muted)] transition-transform",
 						open && "rotate-90",
 					)}
 				/>
 			</button>
-			{open && (
+			{open ? (
 				<div
-					className={cn(
-						"mt-3 ml-4 border-l pl-4",
-						styles.panelBorder,
-					)}
+					id={panelId}
+					className={cn("grid gap-3 border-t px-3 pt-4", styles.panelBorder)}
 				>
-					<div className="grid gap-3">{children}</div>
+					{children}
 				</div>
-			)}
-		</div>
+			) : null}
+		</MessageFrame>
 	);
 }
 
 function contentSummary(content: unknown): string {
 	if (typeof content === "string") {
-		return content.slice(0, 100);
+		return compactPreview(content);
 	}
 
 	if (Array.isArray(content)) {
@@ -137,10 +302,10 @@ function contentSummary(content: unknown): string {
 					typeof first.content === "string"
 						? first.content
 						: JSON.stringify(first.content);
-				return `tool_result: ${text.slice(0, 80)}`;
+				return compactPreview(`Tool result: ${text}`, 120);
 			}
 			if (first.type === "text" && "text" in first) {
-				return String(first.text).slice(0, 100);
+				return compactPreview(String(first.text));
 			}
 		}
 	}
@@ -148,48 +313,48 @@ function contentSummary(content: unknown): string {
 	return "";
 }
 
+function formatToolResultSummary(
+	toolResults: ToolResultContent[],
+	content: unknown,
+): string {
+	const count = toolResults.length;
+	const resultLabel = `${count} result${count === 1 ? "" : "s"}`;
+	const prefix = toolResults.some((item) => item.is_error)
+		? `${resultLabel} with errors`
+		: resultLabel;
+	const summary = contentSummary(content);
+
+	return summary ? `${prefix}. ${summary}` : prefix;
+}
+
 export function ConversationMessage({
 	entry,
 	messageIndex,
 	className,
+	userLabel = "User",
 }: ConversationMessageProps) {
 	const anchorId =
 		messageIndex !== undefined ? `message-${messageIndex}` : undefined;
-	const messageLabel =
-		messageIndex !== undefined ? `#${messageIndex + 1}` : undefined;
 
 	if (entry.type === "summary") {
+		const styles = frameStyles.summary;
+
 		return (
-			<div
-				id={anchorId}
-				className={cn(
-					"scroll-mt-6 rounded-[1.1rem] border border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-subsurface)] px-4 py-4",
-					className,
-				)}
+			<MessageFrame
+				icon={FileText}
+				label="Summary"
+				side="full"
+				anchorId={anchorId}
+				className={className}
+				cardClassName={styles.card}
+				bubbleClassName={styles.bubble}
+				iconShellClassName={styles.icon}
+				iconClassName="text-current"
 			>
-				<div className="flex items-start gap-3">
-					<div className="flex size-9 shrink-0 items-center justify-center rounded-full border border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-surface)]">
-						<FileText className="size-4 text-[color:var(--dashboardy-muted)]" />
-					</div>
-					<div className="flex-1">
-						<div className="mb-2 flex flex-wrap items-center gap-2">
-							<div className="dashboardy-inline-badge rounded-full border px-3 py-1">
-								<p className="text-[0.8125rem] font-medium text-[color:var(--dashboardy-heading)]">
-									Session summary
-								</p>
-							</div>
-							{messageLabel ? (
-								<p className="font-mono text-[0.8125rem] text-[color:var(--dashboardy-muted)]">
-									{messageLabel}
-								</p>
-							) : null}
-						</div>
-						<p className="mt-2 text-base leading-7 text-[color:var(--dashboardy-heading)] whitespace-pre-wrap">
-							{entry.summary}
-						</p>
-					</div>
-				</div>
-			</div>
+				<p className="whitespace-pre-wrap text-base leading-7 text-[color:var(--dashboardy-heading)] text-pretty">
+					{entry.summary}
+				</p>
+			</MessageFrame>
 		);
 	}
 
@@ -198,11 +363,13 @@ export function ConversationMessage({
 			<CollapsedEntry
 				icon={Settings}
 				label="System"
-				summary={entry.message.content.slice(0, 100)}
+				summary={compactPreview(entry.message.content, 180)}
+				timestamp={entry.timestamp}
+				side="full"
 				anchorId={anchorId}
 				className={className}
 			>
-				<p className="font-mono text-[0.875rem] leading-6 text-[color:var(--dashboardy-heading)] whitespace-pre-wrap">
+				<p className="whitespace-pre-wrap font-mono text-[0.875rem] leading-6 text-[color:var(--dashboardy-heading)]">
 					{entry.message.content}
 				</p>
 			</CollapsedEntry>
@@ -223,17 +390,17 @@ export function ConversationMessage({
 				return (
 					<CollapsedEntry
 						icon={Wrench}
-						label={`Tool Results (${content.length})`}
-						summary={contentSummary(content)}
+						label="Tool results"
+						summary={formatToolResultSummary(toolResults, content)}
 						variant={
 							toolResults.some((item) => item.is_error) ? "error" : "success"
 						}
+						timestamp={entry.timestamp}
+						side="right"
 						anchorId={anchorId}
 						className={className}
 					>
-						<div className="py-2">
-							<MessageContent content={content} />
-						</div>
+						<MessageContent content={content} />
 					</CollapsedEntry>
 				);
 			}
@@ -242,106 +409,74 @@ export function ConversationMessage({
 		const isSlashCommand =
 			typeof content === "string" && isSlashCommandMessage(content);
 		const slashCommandInfo = isSlashCommand ? parseSlashCommand(content) : null;
+		const styles = frameStyles.user;
 
 		return (
-			<div
-				id={anchorId}
-				className={cn(
-					"grid gap-3 scroll-mt-6 md:grid-cols-[auto_minmax(0,1fr)] md:gap-4",
-					className,
-				)}
+			<MessageFrame
+				label={userLabel}
+				timestamp={entry.timestamp}
+				side="right"
+				anchorId={anchorId}
+				className={className}
+				cardClassName={styles.card}
+				bubbleClassName={styles.bubble}
+				iconShellClassName={styles.icon}
+				iconClassName="text-current"
 			>
-				<div className="flex items-center gap-3 md:w-[4.5rem] md:flex-col md:items-start md:gap-2">
-					<div className="flex size-9 shrink-0 items-center justify-center rounded-[1rem] border border-[color:var(--dashboardy-chip-border)] bg-[color:var(--dashboardy-chip-surface)]">
-						<User className="size-4 text-[color:var(--dashboardy-chip-foreground)]" />
-					</div>
-					{messageLabel ? (
-						<p className="font-mono text-[0.75rem] text-[color:var(--dashboardy-muted)]">
-							{messageLabel}
+				{isSlashCommand && slashCommandInfo ? (
+					<div className="grid gap-3">
+						<p className="text-sm font-medium text-[color:var(--dashboardy-muted)]">
+							Slash command
 						</p>
-					) : null}
-				</div>
-				<div className="min-w-0 rounded-[1.15rem] border border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-subsurface)] px-4 py-4">
-					<div className="mb-3 flex flex-wrap items-center gap-2 border-b border-[color:var(--dashboardy-divider)] pb-3">
-						<div className="dashboardy-inline-badge rounded-full border px-3 py-1">
-							<p className="text-[0.8125rem] font-medium text-[color:var(--dashboardy-heading)]">
-								User
-							</p>
-						</div>
-						<p className="text-[0.8125rem] text-[color:var(--dashboardy-muted)]">
-							{formatMessageTime(entry.timestamp)}
-						</p>
-					</div>
-
-					{isSlashCommand && slashCommandInfo ? (
-						<div className="grid gap-3">
-							{slashCommandInfo.commandMessage && (
+						<div className="flex flex-wrap gap-2">
+							{slashCommandInfo.commandMessage ? (
 								<div className="dashboardy-inline-badge w-fit rounded-full border px-3 py-1.5">
 									<p className="font-mono text-[0.875rem] text-[color:var(--dashboardy-heading)]">
 										{slashCommandInfo.commandMessage}
 									</p>
 								</div>
-							)}
-							{slashCommandInfo.commandName && (
-								<div className="grid gap-1">
-									<p className="text-sm font-medium text-[color:var(--dashboardy-muted)]">
-										Command
-									</p>
-									<code className="w-fit rounded-full border border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-surface)] px-3 py-1 font-mono text-[0.875rem] text-[color:var(--dashboardy-heading)]">
+							) : null}
+							{slashCommandInfo.commandName ? (
+								<div className="rounded-full border border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-surface)] px-3 py-1.5">
+									<p className="font-mono text-[0.875rem] text-[color:var(--dashboardy-heading)]">
 										{slashCommandInfo.commandName}
-									</code>
-								</div>
-							)}
-							{slashCommandInfo.commandArgs && (
-								<div className="grid gap-1">
-									<p className="text-sm font-medium text-[color:var(--dashboardy-muted)]">
-										Args
 									</p>
-									<code className="w-fit rounded-full border border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-surface)] px-3 py-1 font-mono text-[0.875rem] text-[color:var(--dashboardy-heading)]">
-										{slashCommandInfo.commandArgs}
-									</code>
 								</div>
-							)}
+							) : null}
 						</div>
-					) : (
-						<MessageContent content={content} />
-					)}
-				</div>
-			</div>
+						{slashCommandInfo.commandArgs ? (
+							<div className="rounded-[1rem] border border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-surface)] px-3 py-3">
+								<p className="text-sm font-medium text-[color:var(--dashboardy-muted)]">
+									Args
+								</p>
+								<p className="mt-1 whitespace-pre-wrap break-words font-mono text-[0.875rem] leading-6 text-[color:var(--dashboardy-heading)]">
+									{slashCommandInfo.commandArgs}
+								</p>
+							</div>
+						) : null}
+					</div>
+				) : (
+					<MessageContent content={content} />
+				)}
+			</MessageFrame>
 		);
 	}
 
+	const styles = frameStyles.assistant;
+
 	return (
-		<div
-			id={anchorId}
-			className={cn(
-				"grid gap-3 scroll-mt-6 md:grid-cols-[auto_minmax(0,1fr)] md:gap-4",
-				className,
-			)}
+		<MessageFrame
+			label="Assistant"
+			timestamp={entry.timestamp}
+			side="left"
+			anchorId={anchorId}
+			className={className}
+			cardClassName={styles.card}
+			bubbleClassName={styles.bubble}
+			iconShellClassName={styles.icon}
+			iconClassName="text-current"
 		>
-			<div className="flex items-center gap-3 md:w-[4.5rem] md:flex-col md:items-start md:gap-2">
-				<div className="flex size-9 shrink-0 items-center justify-center rounded-[1rem] border border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-surface)]">
-					<Bot className="size-4 text-[color:var(--dashboardy-heading)]" />
-				</div>
-				{messageLabel ? (
-					<p className="font-mono text-[0.75rem] text-[color:var(--dashboardy-muted)]">
-						{messageLabel}
-					</p>
-				) : null}
-			</div>
-			<div className="min-w-0 rounded-[1.15rem] border border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-surface)] px-4 py-4">
-				<div className="mb-3 flex flex-wrap items-center gap-2 border-b border-[color:var(--dashboardy-divider)] pb-3">
-					<div className="dashboardy-inline-badge rounded-full border px-3 py-1">
-						<p className="text-[0.8125rem] font-medium text-[color:var(--dashboardy-heading)]">
-							Assistant
-						</p>
-					</div>
-					<p className="text-[0.8125rem] text-[color:var(--dashboardy-muted)]">
-						{formatMessageTime(entry.timestamp)}
-					</p>
-				</div>
-				<MessageContent content={entry.message.content} />
-			</div>
-		</div>
+			<MessageContent content={entry.message.content} />
+		</MessageFrame>
 	);
 }

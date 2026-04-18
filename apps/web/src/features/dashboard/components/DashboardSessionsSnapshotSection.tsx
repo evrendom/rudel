@@ -18,8 +18,8 @@ import {
 import { Skeleton } from "@/app/ui/skeleton";
 import {
 	DashboardSessionTrendChart,
-	type DashboardSessionTrendGranularity,
 	type DashboardSessionTrendChartDatum,
+	type DashboardSessionTrendGranularity,
 } from "@/features/dashboard/components/DashboardSessionTrendChart";
 import { DashboardTokenRecentSessionsTable } from "@/features/dashboard/components/DashboardTokenRecentSessionsTable";
 import { DashboardTopChartSection } from "@/features/dashboard/components/DashboardTopChartSection";
@@ -289,13 +289,12 @@ export function DashboardSessionsSnapshotSection({
 			rollingWindowStart,
 		);
 	});
-	const latestSessions = [...snapshotSessions]
-		.sort(
-			(leftSession, rightSession) =>
-				getSessionTimestamp(rightSession.session_date).getTime() -
-				getSessionTimestamp(leftSession.session_date).getTime(),
-		)
-		.slice(0, 10);
+	const latestSessions = [...snapshotSessions].sort(
+		(leftSession, rightSession) =>
+			getSessionTimestamp(rightSession.session_date).getTime() -
+			getSessionTimestamp(leftSession.session_date).getTime(),
+	);
+	const sessionsTableKey = `${latestSessions.length}:${latestSessions[0]?.session_id ?? ""}:${latestSessions.at(-1)?.session_id ?? ""}`;
 
 	return (
 		<DashboardTopChartSection
@@ -309,6 +308,7 @@ export function DashboardSessionsSnapshotSection({
 			}
 			detail={
 				<DashboardTokenRecentSessionsTable
+					key={sessionsTableKey}
 					canOpenSession={canOpenSession}
 					isLoading={isSessionsPending}
 					onSessionClick={onSessionClick}

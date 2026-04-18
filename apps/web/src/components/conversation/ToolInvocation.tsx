@@ -1,5 +1,5 @@
 import { AlertCircle, ChevronDown, ChevronRight, Terminal } from "lucide-react";
-import { useState } from "react";
+import { useId, useState } from "react";
 import { cn } from "@/lib/utils";
 import { CodeBlock } from "./CodeBlock";
 
@@ -20,6 +20,7 @@ export function ToolInvocation({
 	className,
 }: ToolInvocationProps) {
 	const [isExpanded, setIsExpanded] = useState(false);
+	const panelId = useId();
 
 	// Format input for display
 	const formatInput = () => {
@@ -69,14 +70,16 @@ export function ToolInvocation({
 				"overflow-hidden rounded-[1rem] border",
 				isError
 					? "border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-danger-surface)]"
-					: "border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-subsurface)]",
+					: "border-[color:var(--dashboardy-divider)] bg-[color:color-mix(in_srgb,var(--dashboardy-subsurface)_82%,white)]",
 				className,
 			)}
 		>
 			<button
 				type="button"
 				onClick={() => setIsExpanded(!isExpanded)}
-				className="flex min-w-0 w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-[color:var(--dashboardy-subsurface-strong)]"
+				aria-expanded={isExpanded}
+				aria-controls={panelId}
+				className="flex min-w-0 w-full items-center gap-3 px-4 py-3.5 text-left transition-colors hover:bg-[color:var(--dashboardy-subsurface-strong)] focus-visible:bg-[color:var(--dashboardy-subsurface-strong)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--dashboardy-border)]"
 			>
 				{isExpanded ? (
 					<ChevronDown className="size-4 shrink-0 text-[color:var(--dashboardy-muted)]" />
@@ -90,7 +93,7 @@ export function ToolInvocation({
 						<Terminal className="size-4 text-[color:var(--dashboardy-heading)]" />
 					)}
 				</div>
-				<div className="grid min-w-0 flex-1 gap-0.5">
+				<div className="grid min-w-0 flex-1 gap-1">
 					<p
 						className={cn(
 							"font-mono text-sm font-semibold",
@@ -108,7 +111,10 @@ export function ToolInvocation({
 			</button>
 
 			{isExpanded && (
-				<div className="space-y-3 border-t border-[color:var(--dashboardy-divider)] px-4 py-4">
+				<div
+					id={panelId}
+					className="space-y-3.5 border-t border-[color:var(--dashboardy-divider)] px-4 py-4"
+				>
 					{/* Tool Input */}
 					<div>
 						<h4 className="mb-2 text-sm font-semibold text-[color:var(--dashboardy-heading)]">

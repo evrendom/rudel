@@ -14,6 +14,8 @@ interface ConversationViewProps {
 	className?: string;
 	onTokenDataReady?: (data: TokenDataPoint[], totalMessages: number) => void;
 	onToolActivityReady?: (data: ToolActivityPoint[]) => void;
+	showHeader?: boolean;
+	userLabel?: string;
 }
 
 /** Extract token usage data from parsed conversations */
@@ -118,6 +120,8 @@ export function ConversationView({
 	className,
 	onTokenDataReady,
 	onToolActivityReady,
+	showHeader = true,
+	userLabel = "User",
 }: ConversationViewProps) {
 	const [conversations, setConversations] = useState<Conversation[]>([]);
 	const [parseError, setParseError] = useState<string | null>(null);
@@ -210,52 +214,59 @@ export function ConversationView({
 	}
 
 	return (
-		<div className={cn("grid gap-5 px-5 py-5", className)}>
-			<div className="grid gap-3 border-b border-[color:var(--dashboardy-divider)] pb-4">
-				<div className="flex flex-wrap items-center gap-2">
-					<p className="text-sm font-semibold text-[color:var(--dashboardy-heading)]">
-						Session history
-					</p>
-					<div className="dashboardy-inline-badge rounded-full border px-3 py-1">
-						<p className="text-[0.8125rem] font-medium text-[color:var(--dashboardy-heading)]">
-							{conversations.length} messages
+		<div
+			className={cn("grid gap-4", showHeader ? "px-5 py-5" : "py-1", className)}
+		>
+			{showHeader ? (
+				<div className="grid gap-3 border-b border-[color:var(--dashboardy-divider)] pb-5">
+					<div className="flex flex-wrap items-center gap-2">
+						<p className="text-sm font-semibold text-[color:var(--dashboardy-heading)]">
+							Session history
 						</p>
-					</div>
-				</div>
-				<div className="flex flex-wrap items-center gap-2">
-					<div className="dashboardy-inline-badge flex items-center gap-2 rounded-full border px-3 py-1.5">
-						<User className="size-3.5" />
-						<p className="text-[0.8125rem] font-medium text-[color:var(--dashboardy-heading)]">
-							{messageCounts.user} user
-						</p>
-					</div>
-					<div className="dashboardy-inline-badge flex items-center gap-2 rounded-full border px-3 py-1.5">
-						<Bot className="size-3.5" />
-						<p className="text-[0.8125rem] font-medium text-[color:var(--dashboardy-heading)]">
-							{messageCounts.assistant} assistant
-						</p>
-					</div>
-					{messageCounts.system > 0 ? (
-						<div className="dashboardy-inline-badge flex items-center gap-2 rounded-full border px-3 py-1.5">
-							<Settings className="size-3.5" />
+						<div className="dashboardy-inline-badge rounded-full border px-3 py-1">
 							<p className="text-[0.8125rem] font-medium text-[color:var(--dashboardy-heading)]">
-								{messageCounts.system} system
+								{conversations.length} messages
 							</p>
 						</div>
-					) : null}
-				</div>
-			</div>
-			<div role="list" className="grid gap-5">
-				{conversations.map((entry, idx) => (
-					<div
-						// biome-ignore lint/suspicious/noArrayIndexKey: stable conversation order
-						key={idx}
-						role="listitem"
-					>
-						<ConversationMessage entry={entry} messageIndex={idx} />
 					</div>
+					<div className="flex flex-wrap items-center gap-2">
+						<div className="dashboardy-inline-badge flex items-center gap-2 rounded-full border px-3 py-1.5">
+							<User className="size-3.5" />
+							<p className="text-[0.8125rem] font-medium text-[color:var(--dashboardy-heading)]">
+								{messageCounts.user} user
+							</p>
+						</div>
+						<div className="dashboardy-inline-badge flex items-center gap-2 rounded-full border px-3 py-1.5">
+							<Bot className="size-3.5" />
+							<p className="text-[0.8125rem] font-medium text-[color:var(--dashboardy-heading)]">
+								{messageCounts.assistant} assistant
+							</p>
+						</div>
+						{messageCounts.system > 0 ? (
+							<div className="dashboardy-inline-badge flex items-center gap-2 rounded-full border px-3 py-1.5">
+								<Settings className="size-3.5" />
+								<p className="text-[0.8125rem] font-medium text-[color:var(--dashboardy-heading)]">
+									{messageCounts.system} system
+								</p>
+							</div>
+						) : null}
+					</div>
+				</div>
+			) : null}
+			<ol className="grid gap-3.5">
+				{conversations.map((entry, idx) => (
+					<li
+						key={entry.type === "summary" ? `summary-${idx}` : entry.uuid}
+						className="min-w-0"
+					>
+						<ConversationMessage
+							entry={entry}
+							messageIndex={idx}
+							userLabel={userLabel}
+						/>
+					</li>
 				))}
-			</div>
+			</ol>
 		</div>
 	);
 }
