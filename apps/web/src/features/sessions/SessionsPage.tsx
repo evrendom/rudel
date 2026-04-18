@@ -4,8 +4,8 @@ import { useAnalyticsQuery } from "@/features/analytics/queries/useAnalyticsQuer
 import { useAnalyticsTracking } from "@/features/analytics/tracking/useAnalyticsTracking";
 import { DashboardSessionsSnapshotSection } from "@/features/dashboard/components/DashboardSessionsSnapshotSection";
 import { buildDashboardSessionTabMetrics } from "@/features/dashboard/data/dashboard-tab-adapters";
-import { SessionsDateRangeControls } from "@/features/sessions/components/SessionsDateRangeControls";
 import { SessionDetailSheet } from "@/features/sessions/components/SessionDetailSheet";
+import { SessionsDateRangeControls } from "@/features/sessions/components/SessionsDateRangeControls";
 import { resolveActiveSessionDateRangeOptionId } from "@/features/sessions/session-date-ranges";
 import { useCanViewSession } from "@/features/workspace/hooks/useCanViewSession";
 import { useTrackDashboardView } from "@/hooks/useTrackDashboardView";
@@ -19,7 +19,9 @@ export function SessionsPage() {
 	} = useDateRange();
 	const canViewSession = useCanViewSession();
 	const { trackDrilldown } = useAnalyticsTracking();
-	const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
+	const [selectedSessionId, setSelectedSessionId] = useState<string | null>(
+		null,
+	);
 	const activeDateRangeOptionId = resolveActiveSessionDateRangeOptionId({
 		endDate,
 		startDate,
@@ -105,7 +107,10 @@ export function SessionsPage() {
 		}
 	}
 
-	function handleSessionClick(session: { session_id: string; user_id: string }) {
+	function handleSessionClick(session: {
+		session_id: string;
+		user_id: string;
+	}) {
 		if (!canViewSession(session.user_id)) {
 			return;
 		}

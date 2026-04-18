@@ -172,7 +172,9 @@ function getTickLabel(
 				return "";
 			}
 
-			return isMidnightTick ? format(parsedDate, "MMM d") : format(parsedDate, "ha");
+			return isMidnightTick
+				? format(parsedDate, "MMM d")
+				: format(parsedDate, "ha");
 		}
 		case "day":
 			if (total <= 7) {
@@ -222,34 +224,34 @@ export function DashboardSessionTrendChart({
 				className="h-[12.875rem] w-full aspect-auto [&_.recharts-cartesian-grid-vertical_line]:stroke-transparent [&_.recharts-curve]:drop-shadow-none"
 				initialDimension={{ width: 664, height: 206 }}
 			>
-					<BarChart
-						data={data}
-						barCategoryGap="2%"
-						maxBarSize={56}
-						margin={{ top: 8, right: 4, bottom: 8, left: 0 }}
-					>
+				<BarChart
+					data={data}
+					barCategoryGap="2%"
+					maxBarSize={56}
+					margin={{ top: 8, right: 4, bottom: 8, left: 0 }}
+				>
 					<CartesianGrid
 						stroke="color-mix(in srgb, var(--dashboardy-divider) 68%, transparent)"
 						strokeDasharray="0"
 						vertical={false}
 					/>
-						<XAxis
-							dataKey="id"
-							axisLine={false}
-							minTickGap={24}
-							padding="no-gap"
-							tickFormatter={(_value, index) =>
-								getTickLabel(data[index], index, data.length)
-							}
-							tickLine={false}
-							tickMargin={8}
-							tick={{
-								fontSize: 12,
-								fontWeight: 500,
-								fill: "var(--dashboardy-muted)",
-								opacity: 0.65,
-							}}
-						/>
+					<XAxis
+						dataKey="id"
+						axisLine={false}
+						minTickGap={24}
+						padding="no-gap"
+						tickFormatter={(_value, index) =>
+							getTickLabel(data[index], index, data.length)
+						}
+						tickLine={false}
+						tickMargin={8}
+						tick={{
+							fontSize: 12,
+							fontWeight: 500,
+							fill: "var(--dashboardy-muted)",
+							opacity: 0.65,
+						}}
+					/>
 					<YAxis
 						orientation="right"
 						allowDecimals={false}
@@ -259,7 +261,7 @@ export function DashboardSessionTrendChart({
 						tickFormatter={(value) => formatAxisTickValue(Number(value))}
 						tickLine={false}
 						tickMargin={8}
-							width={34}
+						width={34}
 						tick={{
 							fontSize: 12,
 							fontWeight: 500,

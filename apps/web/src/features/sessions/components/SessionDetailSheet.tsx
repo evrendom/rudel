@@ -23,8 +23,8 @@ export function SessionDetailSheet({
 				<SheetHeader className="sr-only">
 					<SheetTitle>Session details</SheetTitle>
 					<SheetDescription>
-						Inspect the full conversation, token usage, and tool activity for the
-						selected session.
+						Inspect the full conversation, token usage, and tool activity for
+						the selected session.
 					</SheetDescription>
 				</SheetHeader>
 				{sessionId ? (
