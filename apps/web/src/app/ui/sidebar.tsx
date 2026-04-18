@@ -32,6 +32,19 @@ const SIDEBAR_SHELL_EASING_BASELINE = "cubic-bezier(0.23,1,0.32,1)";
 export const SIDEBAR_SHELL_EXPAND_DURATION_MS = 500;
 export const SIDEBAR_SHELL_COLLAPSE_DURATION_MS = 500;
 
+function persistSidebarState(openState: boolean) {
+	if (!("cookieStore" in window) || window.cookieStore === undefined) {
+		return;
+	}
+
+	void window.cookieStore.set({
+		name: SIDEBAR_COOKIE_NAME,
+		value: String(openState),
+		path: "/",
+		expires: Date.now() + SIDEBAR_COOKIE_MAX_AGE * 1000,
+	});
+}
+
 type SidebarContextProps = {
 	state: "expanded" | "collapsed";
 	open: boolean;
@@ -82,8 +95,7 @@ function SidebarProvider({
 				_setOpen(openState);
 			}
 
-			// This sets the cookie to keep the sidebar state.
-			document.cookie = `${SIDEBAR_COOKIE_NAME}=${openState}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}`;
+			persistSidebarState(openState);
 		},
 		[setOpenProp, open],
 	);

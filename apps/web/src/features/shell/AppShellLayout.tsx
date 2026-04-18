@@ -6,6 +6,7 @@ import { AppToaster } from "@/app/ui/AppToaster";
 import "@/app/app-surface.css";
 import { SidebarInset, SidebarProvider } from "@/app/ui/sidebar";
 import { TooltipProvider } from "@/app/ui/tooltip";
+import "@/features/dashboard/dashboard-theme.css";
 import { AppSidebar } from "@/features/shell/components/AppSidebar";
 import { SiteHeader } from "@/features/shell/components/SiteHeader";
 import {
@@ -64,9 +65,16 @@ const defaultChromeStyle = {
 	"--dashboard-01-window-shadow": `${defaultDashboardChromeValues.shadow.x}px ${defaultDashboardChromeValues.shadow.y}px ${defaultDashboardChromeValues.shadow.blur}px ${defaultDashboardChromeValues.shadow.spread}px ${hexToRgba(defaultDashboardChromeValues.shadow.color, defaultDashboardChromeValues.shadow.opacity)}`,
 } as CSSProperties;
 
-const shellShortcutRouteByKey = Object.fromEntries(
-	shellRoutes.map((route) => [route.shortcut.toLowerCase(), route.path]),
-) as Record<string, string>;
+const shellShortcutRouteByKey = shellRoutes.reduce<Record<string, string>>(
+	(shortcutRouteMap, route) => {
+		if (route.shortcut) {
+			shortcutRouteMap[route.shortcut.toLowerCase()] = route.path;
+		}
+
+		return shortcutRouteMap;
+	},
+	{},
+);
 
 function isEditableTarget(target: EventTarget | null) {
 	if (!(target instanceof HTMLElement)) {
