@@ -4,6 +4,7 @@ import {
 	ChevronDown,
 	Clock,
 	Copy,
+	FolderGit2,
 	GitBranch,
 	GitCommitHorizontal,
 	User,
@@ -11,6 +12,7 @@ import {
 import { Component, type ReactNode, useCallback, useState } from "react";
 import { toast } from "sonner";
 import { ConversationView } from "@/components/conversation/ConversationView";
+import { DashboardModelBadges } from "@/features/dashboard/components/DashboardModelBadges";
 import {
 	type TokenDataPoint,
 	TokenUsageChart,
@@ -32,16 +34,36 @@ const archetypeStyles: Record<
 	string,
 	{ bg: string; text: string; label: string }
 > = {
-	quick_win: { bg: "bg-green-100", text: "text-green-800", label: "Quick Win" },
-	deep_work: { bg: "bg-blue-100", text: "text-blue-800", label: "Deep Work" },
-	struggle: { bg: "bg-red-100", text: "text-red-800", label: "Struggle" },
+	quick_win: {
+		bg: "bg-[color:var(--dashboardy-success-surface)]",
+		text: "text-[color:var(--dashboardy-success-foreground)]",
+		label: "Quick Win",
+	},
+	deep_work: {
+		bg: "bg-[color:var(--dashboardy-chip-surface)]",
+		text: "text-[color:var(--dashboardy-chip-foreground)]",
+		label: "Deep Work",
+	},
+	struggle: {
+		bg: "bg-[color:var(--dashboardy-danger-surface)]",
+		text: "text-[color:var(--dashboardy-danger-foreground)]",
+		label: "Struggle",
+	},
 	exploration: {
-		bg: "bg-purple-100",
-		text: "text-purple-800",
+		bg: "bg-[color:var(--dashboardy-subsurface-strong)]",
+		text: "text-[color:var(--dashboardy-heading)]",
 		label: "Exploration",
 	},
-	abandoned: { bg: "bg-gray-100", text: "text-gray-600", label: "Abandoned" },
-	standard: { bg: "bg-surface", text: "text-subheading", label: "Standard" },
+	abandoned: {
+		bg: "bg-[color:var(--dashboardy-subsurface)]",
+		text: "text-[color:var(--dashboardy-muted)]",
+		label: "Abandoned",
+	},
+	standard: {
+		bg: "bg-[color:var(--dashboardy-subsurface-strong)]",
+		text: "text-[color:var(--dashboardy-muted)]",
+		label: "Standard",
+	},
 };
 
 function toNumber(value: unknown, fallback = 0): number {
@@ -127,6 +149,32 @@ type SessionDetailErrorBoundaryState = {
 	hasError: boolean;
 };
 
+function SessionDetailMetric({
+	label,
+	value,
+	valueClassName,
+}: {
+	label: string;
+	value: ReactNode;
+	valueClassName?: string;
+}) {
+	return (
+		<div className="grid gap-1">
+			<p className="text-[0.8125rem] font-medium text-[color:var(--dashboardy-muted)]">
+				{label}
+			</p>
+			<div
+				className={
+					valueClassName ??
+					"text-[0.95rem] font-semibold tabular-nums text-[color:var(--dashboardy-heading)]"
+				}
+			>
+				{value}
+			</div>
+		</div>
+	);
+}
+
 class SessionDetailErrorBoundary extends Component<
 	SessionDetailErrorBoundaryProps,
 	SessionDetailErrorBoundaryState
@@ -145,11 +193,11 @@ class SessionDetailErrorBoundary extends Component<
 		if (this.state.hasError) {
 			return (
 				<div className="flex h-full items-center justify-center px-6 py-10">
-					<div className="max-w-md rounded-2xl border border-border bg-card px-6 py-5 text-center shadow-sm">
-						<p className="text-lg font-semibold text-foreground">
+					<div className="max-w-md rounded-[1.5rem] border border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-subsurface)] px-6 py-5 text-center shadow-[0_18px_40px_rgba(15,23,42,0.06)]">
+						<p className="text-lg font-semibold text-[color:var(--dashboardy-heading)]">
 							Unable to render this session
 						</p>
-						<p className="mt-2 text-sm text-muted-foreground">
+						<p className="mt-2 text-sm text-[color:var(--dashboardy-muted)]">
 							The transcript payload for this session uses an unexpected shape.
 						</p>
 					</div>
@@ -237,11 +285,11 @@ export function SessionDetailView({
 
 	if (isLoading) {
 		return (
-			<div className="flex h-full items-center justify-center">
-				<div className="w-full max-w-md animate-pulse space-y-4">
-					<div className="h-8 w-1/3 rounded bg-hover" />
-					<div className="h-4 w-1/2 rounded bg-hover" />
-					<div className="h-4 w-2/3 rounded bg-hover" />
+			<div className="flex h-full items-center justify-center px-6 py-12">
+				<div className="w-full max-w-xl animate-pulse space-y-4 rounded-[1.5rem] border border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-subsurface)] p-6">
+					<div className="h-8 w-1/3 rounded-full bg-[color:var(--dashboardy-subsurface-strong)]" />
+					<div className="h-4 w-1/2 rounded-full bg-[color:var(--dashboardy-subsurface-strong)]" />
+					<div className="h-4 w-2/3 rounded-full bg-[color:var(--dashboardy-subsurface-strong)]" />
 				</div>
 			</div>
 		);
@@ -249,12 +297,12 @@ export function SessionDetailView({
 
 	if (isForbiddenError(error)) {
 		return (
-			<div className="flex h-full items-center justify-center">
-				<div className="text-center">
-					<p className="mb-2 text-lg font-semibold text-status-error-icon">
+			<div className="flex h-full items-center justify-center px-6 py-12">
+				<div className="rounded-[1.5rem] border border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-subsurface)] px-8 py-10 text-center">
+					<p className="mb-2 text-lg font-semibold text-[color:var(--dashboardy-heading)]">
 						Access Denied
 					</p>
-					<p className="text-muted">
+					<p className="text-sm text-[color:var(--dashboardy-muted)]">
 						You can only view your own session transcripts.
 					</p>
 				</div>
@@ -264,9 +312,9 @@ export function SessionDetailView({
 
 	if (!session) {
 		return (
-			<div className="flex h-full items-center justify-center">
-				<div className="text-center">
-					<p className="mb-2 text-lg font-semibold text-status-error-icon">
+			<div className="flex h-full items-center justify-center px-6 py-12">
+				<div className="rounded-[1.5rem] border border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-subsurface)] px-8 py-10 text-center">
+					<p className="mb-2 text-lg font-semibold text-[color:var(--dashboardy-heading)]">
 						Session Not Found
 					</p>
 				</div>
@@ -301,226 +349,223 @@ export function SessionDetailView({
 	const safeSessionArchetype =
 		toOptionalString(session.session_archetype) ?? undefined;
 	const safeContent = toContentString(session.content);
+	const metadataBadges: Array<{
+		icon: typeof FolderGit2 | typeof GitBranch;
+		label: string;
+	}> = [];
+	if (safeRepository) {
+		metadataBadges.push({ icon: FolderGit2, label: safeRepository });
+	}
+	if (safeGitBranch) {
+		metadataBadges.push({ icon: GitBranch, label: safeGitBranch });
+	}
 
 	return (
 		<SessionDetailErrorBoundary>
-			<div className="flex h-full flex-col">
-				<div className="shrink-0 bg-input px-8 py-4">
-					<div className="flex items-start justify-between gap-8">
-						<div className="min-w-0">
-							<div className="mb-2 flex items-center gap-3">
-								<h1 className="text-2xl font-bold text-heading">
-									Session Details
-								</h1>
-								{safeSessionArchetype &&
-									(() => {
-										const style =
-											archetypeStyles[safeSessionArchetype] ??
-											archetypeStyles.standard;
-										return (
-											<span
-												className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${style.bg} ${style.text}`}
-											>
-												{style.label}
+			<div className="dashboardy-page flex h-full min-h-0 flex-col bg-[color:var(--dashboardy-surface)] text-[color:var(--dashboardy-heading)]">
+				<div className="shrink-0 border-b border-[color:var(--dashboardy-divider)] px-6 py-5">
+					<div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">
+						<div className="grid min-w-0 gap-4">
+							<div className="flex flex-wrap items-start justify-between gap-6">
+								<div className="grid min-w-0 gap-4">
+									<div className="flex flex-wrap items-center gap-3">
+										<span className="dashboardy-route-badge inline-flex rounded-full border px-3 py-1">
+											session
+										</span>
+										<h1 className="dashboardy-section-title text-[1.65rem] font-semibold tracking-tight text-balance text-[color:var(--dashboardy-heading)]">
+											Session details
+										</h1>
+										{safeSessionArchetype &&
+											(() => {
+												const style =
+													archetypeStyles[safeSessionArchetype] ??
+													archetypeStyles.standard;
+												return (
+													<span
+														className={`inline-flex rounded-full px-2.5 py-1 text-[0.75rem] font-semibold ${style.bg} ${style.text}`}
+													>
+														{style.label}
+													</span>
+												);
+											})()}
+									</div>
+									<div className="flex flex-wrap items-center gap-3 text-sm text-[color:var(--dashboardy-muted)]">
+										<div className="inline-flex items-center gap-2 rounded-full border border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-subsurface)] px-3 py-1.5">
+											<span className="font-mono text-[0.8125rem] font-semibold tabular-nums text-[color:var(--dashboardy-heading)]">
+												{safeSessionId.slice(0, 8)}...
 											</span>
-										);
-									})()}
-							</div>
-							<div className="flex flex-wrap items-center gap-4 text-sm text-muted">
-								<div className="flex items-center gap-2">
-									<span className="rounded bg-surface px-2 py-1 font-mono text-xs">
-										{safeSessionId.slice(0, 8)}...
-									</span>
-									<button
-										type="button"
-										onClick={handleCopySessionId}
-										className="rounded p-1 hover:bg-hover"
-										title="Copy session ID"
-									>
-										{copied ? (
-											<CheckCircle2 className="h-4 w-4 text-status-success-icon" />
-										) : (
-											<Copy className="h-4 w-4 text-muted" />
-										)}
-									</button>
-								</div>
-								<div className="flex items-center gap-1">
-									<Clock className="h-4 w-4" />
-									{formatRelativeTime(safeSessionDate)}
-								</div>
-								<div className="flex items-center gap-1">
-									<User className="h-4 w-4" />
-									{formatUsername(safeUserId, userMap)}
-								</div>
-							</div>
-						</div>
+											<button
+												type="button"
+												onClick={handleCopySessionId}
+												className="rounded p-1 text-[color:var(--dashboardy-muted)] transition-colors hover:bg-[color:var(--dashboardy-subsurface-strong)] hover:text-[color:var(--dashboardy-heading)]"
+												title="Copy session ID"
+											>
+												{copied ? (
+													<CheckCircle2 className="h-4 w-4 text-status-success-icon" />
+												) : (
+													<Copy className="h-4 w-4" />
+												)}
+											</button>
+										</div>
+										<div className="flex items-center gap-1.5">
+											<Clock className="h-4 w-4" />
+											{formatRelativeTime(safeSessionDate)}
+										</div>
+										<div className="flex items-center gap-1.5">
+											<User className="h-4 w-4" />
+											{formatUsername(safeUserId, userMap)}
+										</div>
+									</div>
+									<div className="flex flex-wrap items-center gap-2">
+										{metadataBadges.map((item) => {
+											const Icon = item.icon;
 
-						<div className="flex flex-wrap items-center justify-end gap-6 text-xs">
-							<div className="text-right">
-								<p className="text-muted">Duration</p>
-								<p className="font-medium text-foreground">
-									{safeDurationMin !== undefined ? `${safeDurationMin} min` : "—"}
-								</p>
-							</div>
-							<div className="text-right">
-								<p className="text-muted">Interactions</p>
-								<p className="font-medium text-foreground">
-									{safeTotalInteractions ?? "—"}
-								</p>
-							</div>
-							<div className="text-right">
-								<p className="text-muted">Tokens</p>
-								<p className="font-medium text-foreground">
-									{safeInputTokens.toLocaleString()} /{" "}
-									{safeOutputTokens.toLocaleString()}
-								</p>
-							</div>
-							<div className="text-right">
-								<p className="text-muted">Cost</p>
-								<p className="font-mono font-medium text-foreground">
-									$
-									{calculateCost(
-										safeInputTokens,
-										safeOutputTokens,
-										safeModelUsed,
-									).toFixed(4)}
-								</p>
-							</div>
-							{safeSuccessScore !== undefined ? (
-								<div className="text-right">
-									<p className="flex items-center justify-end text-muted">
-										Score
-										<InfoTooltip text="Session quality score (0–100): earns points for a git commit (+20), high output ratio (+15), and skills used (+5 each, max 3); loses points for errors (−2 each) and abandoned sessions." />
-									</p>
-									<p
-										className={
-											safeSuccessScore >= 70
-												? "font-semibold text-status-success-icon"
-												: safeSuccessScore >= 40
-													? "font-semibold text-status-warning-icon"
-													: "font-semibold text-status-error-icon"
+											return (
+												<span
+													key={item.label}
+													className="dashboardy-inline-badge inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[0.8125rem] font-medium"
+												>
+													<Icon className="h-3.5 w-3.5" />
+													{item.label}
+												</span>
+											);
+										})}
+										{safeModelUsed ? (
+											<div className="flex items-center gap-2">
+												<DashboardModelBadges models={[safeModelUsed]} />
+											</div>
+										) : null}
+										{safeGitSha ? (
+											<div className="group relative">
+												<div className="dashboardy-inline-badge inline-flex cursor-default items-center gap-2 rounded-full border px-3 py-1.5 text-[0.8125rem] font-medium">
+													<GitCommitHorizontal className="h-3.5 w-3.5" />
+													<span className="font-mono tabular-nums">
+														{safeGitSha.slice(0, 8)}
+													</span>
+													<ChevronDown className="h-3.5 w-3.5 transition-transform group-hover:rotate-180" />
+												</div>
+												<div className="absolute top-full left-0 z-20 mt-2 hidden min-w-[18rem] rounded-[1rem] border border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-surface)] p-2 shadow-[0_18px_40px_rgba(15,23,42,0.08)] group-hover:block">
+													<div className="flex items-center justify-between gap-3 rounded-[0.85rem] px-3 py-2">
+														<span className="select-all font-mono text-[0.8125rem] tabular-nums text-[color:var(--dashboardy-heading)]">
+															{safeGitSha}
+														</span>
+														<button
+															type="button"
+															onClick={() => void handleCopyGitSha(safeGitSha)}
+															className="rounded p-1 text-[color:var(--dashboardy-muted)] transition-colors hover:bg-[color:var(--dashboardy-subsurface)] hover:text-[color:var(--dashboardy-heading)]"
+															title="Copy commit SHA"
+														>
+															<Copy className="h-3.5 w-3.5" />
+														</button>
+													</div>
+												</div>
+											</div>
+										) : null}
+									</div>
+								</div>
+
+								<div className="grid min-w-0 w-full gap-3 border-t border-[color:var(--dashboardy-divider)] pt-4 sm:grid-cols-2 xl:max-w-[32rem] xl:grid-cols-3 xl:justify-items-end xl:border-t-0 xl:pt-0">
+									<SessionDetailMetric
+										label="Duration"
+										value={
+											safeDurationMin !== undefined
+												? `${safeDurationMin} min`
+												: "—"
 										}
-									>
-										{safeSuccessScore.toFixed(0)}/100
-									</p>
+									/>
+									<SessionDetailMetric
+										label="Interactions"
+										value={safeTotalInteractions ?? "—"}
+									/>
+									<SessionDetailMetric
+										label="Tokens"
+										value={`${safeInputTokens.toLocaleString()} / ${safeOutputTokens.toLocaleString()}`}
+									/>
+									<SessionDetailMetric
+										label="Cost"
+										value={`$${calculateCost(
+											safeInputTokens,
+											safeOutputTokens,
+											safeModelUsed,
+										).toFixed(4)}`}
+										valueClassName="font-mono text-[0.95rem] font-semibold tabular-nums text-[color:var(--dashboardy-heading)]"
+									/>
+									{safeSuccessScore !== undefined ? (
+										<SessionDetailMetric
+											label="Score"
+											value={
+												<span className="inline-flex items-center gap-1.5">
+													<span
+														className={
+															safeSuccessScore >= 70
+																? "font-semibold text-status-success-icon"
+																: safeSuccessScore >= 40
+																	? "font-semibold text-status-warning-icon"
+																	: "font-semibold text-status-error-icon"
+														}
+													>
+														{safeSuccessScore.toFixed(0)}/100
+													</span>
+													<InfoTooltip text="Session quality score (0–100): earns points for a git commit (+20), high output ratio (+15), and skills used (+5 each, max 3); loses points for errors (−2 each) and abandoned sessions." />
+												</span>
+											}
+										/>
+									) : null}
+									{Object.keys(safeSubagents).length > 0 ? (
+										<SessionDetailMetric
+											label="Subagents"
+											value={Object.keys(safeSubagents).length}
+										/>
+									) : null}
 								</div>
-							) : null}
-							{Object.keys(safeSubagents).length > 0 ? (
-								<div className="text-right">
-									<p className="text-muted">Subagents</p>
-									<p className="font-medium text-foreground">
-										{Object.keys(safeSubagents).length}
-									</p>
-								</div>
-							) : null}
-						</div>
-					</div>
+							</div>
 
-					<div className="mt-3 flex flex-wrap items-center gap-4 text-sm">
-						{safeRepository ? (
-							<div className="flex items-center gap-2 rounded-lg bg-status-info-bg px-3 py-1">
-								<GitBranch className="h-4 w-4 text-accent" />
-								<span className="font-medium text-status-info-text">
-									{safeRepository}
-								</span>
-							</div>
-						) : null}
-						{safeGitBranch ? (
-							<div className="flex items-center gap-2 rounded-lg bg-status-info-bg px-3 py-1">
-								<GitBranch className="h-4 w-4 text-accent" />
-								<span className="font-medium text-status-info-text">
-									{safeGitBranch}
-								</span>
-							</div>
-						) : null}
-						{safeGitSha ? (
-							<div className="group relative">
-								<div className="cursor-default rounded-lg bg-status-info-bg px-3 py-1">
-									<div className="flex items-center gap-2">
-										<GitCommitHorizontal className="h-4 w-4 text-accent" />
-										<span className="font-medium text-status-info-text">
-											{safeGitSha.slice(0, 8)}
-										</span>
-										<ChevronDown className="h-3 w-3 text-accent transition-transform group-hover:rotate-180" />
+							{safeSkills.length > 0 ||
+							safeSlashCommands.length > 0 ||
+							Object.keys(safeSubagents).length > 0 ? (
+								<div className="border-t border-[color:var(--dashboardy-divider)] pt-4">
+									<div className="flex flex-wrap gap-2">
+										{[...new Set(safeSkills)].map((skill) => (
+											<span
+												key={skill}
+												className="dashboardy-inline-badge inline-flex rounded-full border px-3 py-1.5 text-[0.8125rem] font-medium"
+											>
+												skill:{skill}
+											</span>
+										))}
+										{[...new Set(safeSlashCommands)].map((command) => (
+											<span
+												key={command}
+												className="dashboardy-inline-badge inline-flex rounded-full border px-3 py-1.5 text-[0.8125rem] font-medium"
+											>
+												/{command}
+											</span>
+										))}
+										{Object.keys(safeSubagents).map((agent) => (
+											<span
+												key={agent}
+												className="dashboardy-inline-badge inline-flex rounded-full border px-3 py-1.5 text-[0.8125rem] font-medium"
+											>
+												agent:{agent}
+											</span>
+										))}
 									</div>
 								</div>
-								<div className="absolute top-full left-0 z-20 mt-1 hidden min-w-[280px] rounded-lg border border-border bg-input p-2 shadow-lg group-hover:block">
-									<div className="flex items-center justify-between gap-2 px-2 py-1">
-										<span className="select-all font-mono text-xs text-foreground">
-											{safeGitSha}
-										</span>
-										<button
-											type="button"
-											onClick={() => void handleCopyGitSha(safeGitSha)}
-											className="rounded p-1 hover:bg-hover"
-											title="Copy commit SHA"
-										>
-											<Copy className="h-3 w-3 text-muted" />
-										</button>
-									</div>
-								</div>
-							</div>
-						) : null}
-						{safeModelUsed ? (
-							<div className="rounded-lg bg-surface px-3 py-1">
-								<span className="font-mono text-xs text-subheading">
-									{safeModelUsed}
-								</span>
-							</div>
-						) : null}
-
-						<div className="ml-auto flex flex-wrap gap-2">
-							{[...new Set(safeSkills)].map((skill) => (
-								<span
-									key={skill}
-									className="rounded bg-purple-100 px-2 py-1 text-xs text-purple-800"
-								>
-									skill:{skill}
-								</span>
-							))}
-							{[...new Set(safeSlashCommands)].map((command) => (
-								<span
-									key={command}
-									className="rounded bg-green-100 px-2 py-1 text-xs text-green-800"
-								>
-									/{command}
-								</span>
-							))}
-							{Object.keys(safeSubagents).map((agent) => (
-								<span
-									key={agent}
-									className="rounded bg-orange-100 px-2 py-1 text-xs text-orange-800"
-								>
-									agent:{agent}
-								</span>
-							))}
-						</div>
-					</div>
-				</div>
-
-				<div className="shrink-0 border-y border-border bg-surface px-8">
-					<button
-						type="button"
-						className="border-b-2 border-foreground px-4 py-2 text-sm font-medium text-foreground"
-					>
-						Conversation
-					</button>
-				</div>
-
-				<div className="flex-1 overflow-y-auto">
-					<div className="flex min-h-full">
-						<div className="min-w-0 flex-1 px-8 py-6">
-							<ConversationView
-								content={safeContent}
-								onTokenDataReady={handleTokenDataReady}
-								onToolActivityReady={handleToolActivityReady}
-							/>
+							) : null}
 						</div>
 
-						<div className="w-[36rem] shrink-0 border-l border-border">
-							<div className="sticky top-0 px-6 py-4">
+						<div className="grid gap-4 xl:grid-rows-2">
+							<div className="rounded-[1.15rem] border border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-surface)] p-4">
+								<p className="mb-3 text-sm font-semibold text-[color:var(--dashboardy-heading)]">
+									Token usage
+								</p>
 								<TokenUsageChart data={tokenData} totalMessages={totalMessages} />
-								<div className="my-4 border-t border-border pt-4">
+							</div>
+							<div className="rounded-[1.15rem] border border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-surface)] p-4">
+								<p className="mb-3 text-sm font-semibold text-[color:var(--dashboardy-heading)]">
+									Tool activity
+								</p>
+								<div className="border-t border-[color:var(--dashboardy-divider)] pt-4">
 									<ToolActivityChart
 										data={toolActivityData}
 										totalMessages={totalMessages}
@@ -528,6 +573,29 @@ export function SessionDetailView({
 								</div>
 							</div>
 						</div>
+					</div>
+				</div>
+
+				<div className="shrink-0 border-b border-[color:var(--dashboardy-divider)] px-6 py-3">
+					<div className="flex items-center justify-between gap-4">
+						<div className="grid gap-0.5">
+							<p className="text-sm font-semibold text-[color:var(--dashboardy-heading)]">
+								Conversation
+							</p>
+							<p className="text-sm text-[color:var(--dashboardy-muted)]">
+								Full transcript, tool usage, and token flow for this session.
+							</p>
+						</div>
+					</div>
+				</div>
+
+				<div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
+					<div className="rounded-[1.35rem] border border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-surface)]">
+						<ConversationView
+							content={safeContent}
+							onTokenDataReady={handleTokenDataReady}
+							onToolActivityReady={handleToolActivityReady}
+						/>
 					</div>
 				</div>
 			</div>

@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { Bot, Settings, User } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { extractCodexTokenData } from "@/lib/codex-conversation-parser";
 import type { Conversation } from "@/lib/conversation-schema";
 import { isCodexFormat, parseConversations } from "@/lib/conversation-schema";
@@ -120,11 +121,26 @@ export function ConversationView({
 }: ConversationViewProps) {
 	const [conversations, setConversations] = useState<Conversation[]>([]);
 	const [parseError, setParseError] = useState<string | null>(null);
+	const messageCounts = useMemo(() => {
+		const counts = {
+			user: 0,
+			assistant: 0,
+			system: 0,
+			summary: 0,
+		};
+
+		for (const entry of conversations) {
+			counts[entry.type] += 1;
+		}
+
+		return counts;
+	}, [conversations]);
 
 	// Parse content
 	useEffect(() => {
 		if (!content || content.trim() === "") {
 			setConversations([]);
+			setParseError(null);
 			return;
 		}
 
@@ -142,6 +158,8 @@ export function ConversationView({
 				} catch {
 					setParseError("Content is not valid JSONL format");
 				}
+			} else {
+				setParseError(null);
 			}
 
 			setConversations(parsed);
@@ -166,36 +184,78 @@ export function ConversationView({
 
 	if (parseError) {
 		return (
-			<div className={cn("py-8 text-center", className)}>
-				<p className="text-red-600 dark:text-red-400 font-semibold mb-2">
-					Error parsing conversation data
-				</p>
-				<p className="text-muted-foreground text-sm">{parseError}</p>
+			<div className={cn("px-5 py-6", className)}>
+				<div className="rounded-[1.2rem] border border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-danger-surface)] px-5 py-4 text-center">
+					<p className="mb-2 text-base font-semibold text-[color:var(--dashboardy-danger-foreground)]">
+						Error parsing conversation data
+					</p>
+					<p className="text-sm text-[color:var(--dashboardy-muted)]">
+						{parseError}
+					</p>
+				</div>
 			</div>
 		);
 	}
 
 	if (conversations.length === 0) {
 		return (
-			<div className={cn("py-8 text-center", className)}>
-				<p className="text-muted-foreground">No conversation data available</p>
+			<div className={cn("px-5 py-6", className)}>
+				<div className="rounded-[1.2rem] border border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-subsurface)] px-5 py-4 text-center">
+					<p className="text-sm font-medium text-[color:var(--dashboardy-muted)]">
+						No conversation data available
+					</p>
+				</div>
 			</div>
 		);
 	}
 
 	return (
-		<div className={cn("space-y-6", className)}>
-			<div className="text-xs text-muted-foreground mb-4">
-				Showing {conversations.length} messages
-			</div>
-			{conversations.map((entry, idx) => (
-				<div
-					// biome-ignore lint/suspicious/noArrayIndexKey: stable conversation order
-					key={idx}
-				>
-					<ConversationMessage entry={entry} messageIndex={idx} />
+		<div className={cn("grid gap-5 px-5 py-5", className)}>
+			<div className="grid gap-3 border-b border-[color:var(--dashboardy-divider)] pb-4">
+				<div className="flex flex-wrap items-center gap-2">
+					<p className="text-sm font-semibold text-[color:var(--dashboardy-heading)]">
+						Session history
+					</p>
+					<div className="dashboardy-inline-badge rounded-full border px-3 py-1">
+						<p className="text-[0.8125rem] font-medium text-[color:var(--dashboardy-heading)]">
+							{conversations.length} messages
+						</p>
+					</div>
 				</div>
-			))}
+				<div className="flex flex-wrap items-center gap-2">
+					<div className="dashboardy-inline-badge flex items-center gap-2 rounded-full border px-3 py-1.5">
+						<User className="size-3.5" />
+						<p className="text-[0.8125rem] font-medium text-[color:var(--dashboardy-heading)]">
+							{messageCounts.user} user
+						</p>
+					</div>
+					<div className="dashboardy-inline-badge flex items-center gap-2 rounded-full border px-3 py-1.5">
+						<Bot className="size-3.5" />
+						<p className="text-[0.8125rem] font-medium text-[color:var(--dashboardy-heading)]">
+							{messageCounts.assistant} assistant
+						</p>
+					</div>
+					{messageCounts.system > 0 ? (
+						<div className="dashboardy-inline-badge flex items-center gap-2 rounded-full border px-3 py-1.5">
+							<Settings className="size-3.5" />
+							<p className="text-[0.8125rem] font-medium text-[color:var(--dashboardy-heading)]">
+								{messageCounts.system} system
+							</p>
+						</div>
+					) : null}
+				</div>
+			</div>
+			<div role="list" className="grid gap-5">
+				{conversations.map((entry, idx) => (
+					<div
+						// biome-ignore lint/suspicious/noArrayIndexKey: stable conversation order
+						key={idx}
+						role="listitem"
+					>
+						<ConversationMessage entry={entry} messageIndex={idx} />
+					</div>
+				))}
+			</div>
 		</div>
 	);
 }

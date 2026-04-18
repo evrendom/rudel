@@ -17,7 +17,7 @@ export function SessionDetailSheet({
 	return (
 		<Sheet open={sessionId !== null} onOpenChange={onOpenChange}>
 			<SheetContent
-				className="max-w-none p-0 data-[side=right]:w-[90vw] data-[side=right]:sm:w-[72vw] data-[side=right]:sm:max-w-[72vw]"
+				className="dashboardy-page max-w-none overflow-hidden border-l border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-surface)] p-0 text-[color:var(--dashboardy-heading)] shadow-[0_20px_60px_rgba(15,23,42,0.08)] data-[side=right]:w-[90vw] data-[side=right]:rounded-l-[1.5rem] data-[side=right]:sm:w-[72vw] data-[side=right]:sm:max-w-[72vw]"
 				overlayClassName="backdrop-blur-none supports-backdrop-filter:backdrop-blur-none"
 			>
 				<SheetHeader className="sr-only">

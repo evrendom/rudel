@@ -125,19 +125,21 @@ function XmlBlock({
 	entries: Array<{ key: string; value: string }>;
 }) {
 	return (
-		<div className="border border-border rounded-lg overflow-hidden text-sm">
-			<div className="bg-muted/50 px-3 py-1.5 text-xs font-semibold text-muted-foreground tracking-wide">
-				{formatTagLabel(tag)}
+		<div className="overflow-hidden rounded-[1rem] border border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-surface)]">
+			<div className="border-b border-[color:var(--dashboardy-divider)] bg-[color:var(--dashboardy-subsurface)] px-4 py-2">
+				<p className="text-sm font-semibold text-[color:var(--dashboardy-heading)]">
+					{formatTagLabel(tag)}
+				</p>
 			</div>
-			<div className="divide-y divide-border">
+			<div className="divide-y divide-[color:var(--dashboardy-divider)]">
 				{entries.map((entry) => (
-					<div key={entry.key} className="flex px-3 py-1.5 gap-3">
-						<span className="text-muted-foreground font-medium shrink-0 min-w-[100px]">
+					<div key={entry.key} className="flex gap-4 px-4 py-2.5">
+						<p className="min-w-[7rem] shrink-0 text-sm font-medium text-[color:var(--dashboardy-muted)]">
 							{formatTagLabel(entry.key)}
-						</span>
-						<span className="text-foreground font-mono text-xs break-all">
+						</p>
+						<p className="font-mono text-[0.875rem] leading-6 text-[color:var(--dashboardy-heading)] break-all">
 							{entry.value}
-						</span>
+						</p>
 					</div>
 				))}
 			</div>
@@ -174,9 +176,9 @@ function renderPlainText(text: string, key: number) {
 					<div
 						// biome-ignore lint/suspicious/noArrayIndexKey: static parsed content blocks
 						key={partIdx}
-						className="prose prose-sm max-w-none"
+						className="max-w-none"
 					>
-						<p className="whitespace-pre-wrap text-foreground leading-relaxed break-words [overflow-wrap:anywhere]">
+						<p className="whitespace-pre-wrap break-words text-base leading-7 text-[color:var(--dashboardy-heading)] [overflow-wrap:anywhere]">
 							{part.content}
 						</p>
 					</div>
@@ -189,7 +191,12 @@ function renderPlainText(text: string, key: number) {
 export function MessageContent({ content, className }: MessageContentProps) {
 	if (!content) {
 		return (
-			<div className={cn("text-muted-foreground text-sm italic", className)}>
+			<div
+				className={cn(
+					"text-sm italic text-[color:var(--dashboardy-muted)]",
+					className,
+				)}
+			>
 				(No content)
 			</div>
 		);
@@ -205,7 +212,12 @@ export function MessageContent({ content, className }: MessageContentProps) {
 
 	if (!Array.isArray(content)) {
 		return (
-			<div className={cn("text-muted-foreground text-sm italic", className)}>
+			<div
+				className={cn(
+					"text-sm italic text-[color:var(--dashboardy-muted)]",
+					className,
+				)}
+			>
 				(Invalid content format: {typeof content})
 			</div>
 		);
@@ -239,12 +251,12 @@ export function MessageContent({ content, className }: MessageContentProps) {
 							<div
 								// biome-ignore lint/suspicious/noArrayIndexKey: content blocks have no stable id
 								key={idx}
-								className="border-l-4 border-purple-300 dark:border-purple-800 bg-purple-50 dark:bg-purple-950 p-4 rounded-r"
+								className="rounded-[1rem] border border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-subsurface)] px-4 py-4"
 							>
-								<p className="text-xs font-semibold text-purple-700 dark:text-purple-300 mb-2">
+								<p className="mb-2 text-sm font-semibold text-[color:var(--dashboardy-heading)]">
 									Internal Thinking
 								</p>
-								<p className="text-sm text-purple-900 dark:text-purple-100 whitespace-pre-wrap leading-relaxed italic">
+								<p className="whitespace-pre-wrap text-base leading-7 text-[color:var(--dashboardy-muted)] italic">
 									{block.thinking}
 								</p>
 							</div>
@@ -291,18 +303,18 @@ export function MessageContent({ content, className }: MessageContentProps) {
 								// biome-ignore lint/suspicious/noArrayIndexKey: content blocks have no stable id
 								key={idx}
 								className={cn(
-									"border rounded-lg p-4",
+									"rounded-[1rem] border p-4",
 									block.is_error
-										? "border-red-300 bg-red-50 dark:border-red-800 dark:bg-red-950"
-										: "border-border bg-muted/30",
+										? "border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-danger-surface)]"
+										: "border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-subsurface)]",
 								)}
 							>
 								<p
 									className={cn(
-										"text-xs font-semibold mb-2",
+										"mb-2 text-sm font-semibold",
 										block.is_error
-											? "text-red-700 dark:text-red-300"
-											: "text-muted-foreground",
+											? "text-[color:var(--dashboardy-danger-foreground)]"
+											: "text-[color:var(--dashboardy-heading)]",
 									)}
 								>
 									{block.is_error ? "Tool Error" : "Tool Result"}

@@ -1,19 +1,14 @@
-export async function copyTextToClipboard(text: string): Promise<boolean> {
-	if (typeof window === "undefined" || typeof document === "undefined") {
-		return false;
-	}
+export type ClipboardCopyResult = "copied" | "prompted" | "failed";
 
-	if (
-		typeof navigator !== "undefined" &&
-		"clipboard" in navigator &&
-		window.isSecureContext
-	) {
-		try {
-			await navigator.clipboard.writeText(text);
-			return true;
-		} catch {
-			// Fall back to selection-based copy when the async clipboard API is blocked.
-		}
+interface ClipboardCopyOptions {
+	preferSelectionCopy?: boolean;
+	allowPromptFallback?: boolean;
+	promptMessage?: string;
+}
+
+function copyTextWithSelection(text: string): boolean {
+	if (typeof document === "undefined") {
+		return false;
 	}
 
 	const textarea = document.createElement("textarea");
@@ -51,4 +46,56 @@ export async function copyTextToClipboard(text: string): Promise<boolean> {
 	}
 
 	return copied;
+}
+
+export async function copyTextToClipboardWithResult(
+	text: string,
+	options: ClipboardCopyOptions = {},
+): Promise<ClipboardCopyResult> {
+	if (typeof window === "undefined" || typeof document === "undefined") {
+		return "failed";
+	}
+
+	const {
+		preferSelectionCopy = false,
+		allowPromptFallback = false,
+		promptMessage = "Copy to clipboard: Cmd/Ctrl+C, Enter",
+	} = options;
+
+	if (preferSelectionCopy && copyTextWithSelection(text)) {
+		return "copied";
+	}
+
+	if (
+		typeof navigator !== "undefined" &&
+		"clipboard" in navigator &&
+		window.isSecureContext &&
+		document.hasFocus()
+	) {
+		try {
+			await navigator.clipboard.writeText(text);
+			return "copied";
+		} catch {
+			// Fall back to selection-based copy when the async clipboard API is blocked.
+		}
+	}
+
+	if (!preferSelectionCopy && copyTextWithSelection(text)) {
+		return "copied";
+	}
+
+	if (allowPromptFallback && typeof window.prompt === "function") {
+		window.prompt(promptMessage, text);
+		return "prompted";
+	}
+
+	return "failed";
+}
+
+export async function copyTextToClipboard(
+	text: string,
+	options?: ClipboardCopyOptions,
+): Promise<boolean> {
+	const result = await copyTextToClipboardWithResult(text, options);
+	return result === "copied";
 }

@@ -66,46 +66,52 @@ export function ToolInvocation({
 	return (
 		<div
 			className={cn(
-				"border rounded-lg overflow-hidden",
+				"overflow-hidden rounded-[1rem] border",
 				isError
-					? "border-red-300 bg-red-50 dark:border-red-800 dark:bg-red-950"
-					: "border-border bg-muted/30",
+					? "border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-danger-surface)]"
+					: "border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-subsurface)]",
 				className,
 			)}
 		>
 			<button
 				type="button"
 				onClick={() => setIsExpanded(!isExpanded)}
-				className="w-full px-4 py-3 flex items-center gap-2 text-left hover:bg-muted/50 transition-colors min-w-0"
+				className="flex min-w-0 w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-[color:var(--dashboardy-subsurface-strong)]"
 			>
 				{isExpanded ? (
-					<ChevronDown className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+					<ChevronDown className="size-4 shrink-0 text-[color:var(--dashboardy-muted)]" />
 				) : (
-					<ChevronRight className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+					<ChevronRight className="size-4 shrink-0 text-[color:var(--dashboardy-muted)]" />
 				)}
-				{isError ? (
-					<AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0" />
-				) : (
-					<Terminal className="w-4 h-4 text-blue-500 flex-shrink-0" />
-				)}
-				<span
-					className={cn(
-						"font-mono text-sm font-semibold",
-						isError ? "text-red-700 dark:text-red-300" : "text-foreground",
+				<div className="flex size-8 shrink-0 items-center justify-center rounded-full border border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-surface)]">
+					{isError ? (
+						<AlertCircle className="size-4 text-[color:var(--dashboardy-danger-foreground)]" />
+					) : (
+						<Terminal className="size-4 text-[color:var(--dashboardy-heading)]" />
 					)}
-				>
-					{toolName}
-				</span>
-				<span className="text-xs text-muted-foreground truncate flex-1">
-					{formatInput()}
-				</span>
+				</div>
+				<div className="grid min-w-0 flex-1 gap-0.5">
+					<p
+						className={cn(
+							"font-mono text-sm font-semibold",
+							isError
+								? "text-[color:var(--dashboardy-danger-foreground)]"
+								: "text-[color:var(--dashboardy-heading)]",
+						)}
+					>
+						{toolName}
+					</p>
+					<p className="truncate text-sm text-[color:var(--dashboardy-muted)]">
+						{formatInput()}
+					</p>
+				</div>
 			</button>
 
 			{isExpanded && (
-				<div className="px-4 pb-4 space-y-3">
+				<div className="space-y-3 border-t border-[color:var(--dashboardy-divider)] px-4 py-4">
 					{/* Tool Input */}
 					<div>
-						<h4 className="text-xs font-semibold text-muted-foreground mb-2">
+						<h4 className="mb-2 text-sm font-semibold text-[color:var(--dashboardy-heading)]">
 							Input Parameters
 						</h4>
 						<CodeBlock code={JSON.stringify(input, null, 2)} language="json" />
@@ -116,10 +122,10 @@ export function ToolInvocation({
 						<div>
 							<h4
 								className={cn(
-									"text-xs font-semibold mb-2",
+									"mb-2 text-sm font-semibold",
 									isError
-										? "text-red-700 dark:text-red-300"
-										: "text-muted-foreground",
+										? "text-[color:var(--dashboardy-danger-foreground)]"
+										: "text-[color:var(--dashboardy-heading)]",
 								)}
 							>
 								{isError ? "Error Output" : "Output"}
@@ -129,7 +135,7 @@ export function ToolInvocation({
 								language="text"
 								className={
 									isError
-										? "border-2 border-red-300 dark:border-red-800"
+										? "border-[color:var(--dashboardy-border)]"
 										: undefined
 								}
 							/>

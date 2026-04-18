@@ -26,21 +26,41 @@ interface ConversationMessageProps {
 
 const variantStyles = {
 	default: {
-		row: "text-muted",
-		icon: "w-3.5 h-3.5 shrink-0",
-		border: "border-border",
+		shell:
+			"border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-subsurface)]",
+		icon: "size-3.5 shrink-0 text-[color:var(--dashboardy-muted)]",
+		summary: "text-[color:var(--dashboardy-muted)]",
+		panelBorder: "border-[color:var(--dashboardy-divider)]",
 	},
 	error: {
-		row: "text-red-400",
-		icon: "w-3.5 h-3.5 shrink-0 text-red-400",
-		border: "border-red-300",
+		shell:
+			"border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-danger-surface)]",
+		icon:
+			"size-3.5 shrink-0 text-[color:var(--dashboardy-danger-foreground)]",
+		summary: "text-[color:var(--dashboardy-danger-foreground)]",
+		panelBorder: "border-[color:var(--dashboardy-border)]",
 	},
 	success: {
-		row: "text-green-500",
-		icon: "w-3.5 h-3.5 shrink-0 text-green-500",
-		border: "border-green-300",
+		shell:
+			"border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-success-surface)]",
+		icon:
+			"size-3.5 shrink-0 text-[color:var(--dashboardy-success-foreground)]",
+		summary: "text-[color:var(--dashboardy-success-foreground)]",
+		panelBorder: "border-[color:var(--dashboardy-border)]",
 	},
 } as const;
+
+function formatMessageTime(timestamp: string): string {
+	const date = new Date(timestamp);
+	if (Number.isNaN(date.getTime())) {
+		return "Unknown time";
+	}
+
+	return date.toLocaleTimeString([], {
+		hour: "numeric",
+		minute: "2-digit",
+	});
+}
 
 function CollapsedEntry({
 	icon: Icon,
@@ -68,23 +88,36 @@ function CollapsedEntry({
 				type="button"
 				onClick={() => setOpen(!open)}
 				className={cn(
-					"flex items-center gap-2 w-full text-left px-3 py-1.5 rounded-md hover:bg-hover transition-colors text-xs",
-					styles.row,
+					"w-full rounded-[1rem] border px-4 py-3 text-left transition-colors hover:bg-[color:var(--dashboardy-subsurface-strong)]",
+					styles.shell,
 				)}
 			>
-				<Icon className={styles.icon} />
-				<span className="font-medium">{label}</span>
-				<span className="truncate opacity-60">{summary}</span>
+				<div className="flex min-w-0 flex-1 items-center gap-3">
+					<div className="flex size-8 shrink-0 items-center justify-center rounded-full border border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-surface)]">
+						<Icon className={styles.icon} />
+					</div>
+					<div className="grid min-w-0 gap-0.5">
+						<p className="text-sm font-semibold text-[color:var(--dashboardy-heading)]">
+							{label}
+						</p>
+						<p className={cn("truncate text-sm", styles.summary)}>{summary}</p>
+					</div>
+				</div>
 				<ChevronRight
 					className={cn(
-						"w-3 h-3 ml-auto shrink-0 transition-transform",
+						"ml-3 size-4 shrink-0 text-[color:var(--dashboardy-muted)] transition-transform",
 						open && "rotate-90",
 					)}
 				/>
 			</button>
 			{open && (
-				<div className={cn("mt-1 ml-5 pl-3 border-l-2", styles.border)}>
-					{children}
+				<div
+					className={cn(
+						"mt-3 ml-4 border-l pl-4",
+						styles.panelBorder,
+					)}
+				>
+					<div className="grid gap-3">{children}</div>
 				</div>
 			)}
 		</div>
@@ -122,23 +155,36 @@ export function ConversationMessage({
 }: ConversationMessageProps) {
 	const anchorId =
 		messageIndex !== undefined ? `message-${messageIndex}` : undefined;
+	const messageLabel =
+		messageIndex !== undefined ? `#${messageIndex + 1}` : undefined;
 
 	if (entry.type === "summary") {
 		return (
 			<div
 				id={anchorId}
 				className={cn(
-					"border-l-4 border-blue-300 dark:border-blue-700 bg-blue-50 dark:bg-blue-950 p-4 rounded-r scroll-mt-6",
+					"scroll-mt-6 rounded-[1.1rem] border border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-subsurface)] px-4 py-4",
 					className,
 				)}
 			>
 				<div className="flex items-start gap-3">
-					<FileText className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
+					<div className="flex size-9 shrink-0 items-center justify-center rounded-full border border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-surface)]">
+						<FileText className="size-4 text-[color:var(--dashboardy-muted)]" />
+					</div>
 					<div className="flex-1">
-						<p className="text-xs font-semibold text-blue-700 dark:text-blue-300 mb-2">
-							Session Summary
-						</p>
-						<p className="text-sm text-blue-900 dark:text-blue-100 whitespace-pre-wrap leading-relaxed">
+						<div className="mb-2 flex flex-wrap items-center gap-2">
+							<div className="dashboardy-inline-badge rounded-full border px-3 py-1">
+								<p className="text-[0.8125rem] font-medium text-[color:var(--dashboardy-heading)]">
+									Session summary
+								</p>
+							</div>
+							{messageLabel ? (
+								<p className="font-mono text-[0.8125rem] text-[color:var(--dashboardy-muted)]">
+									{messageLabel}
+								</p>
+							) : null}
+						</div>
+						<p className="mt-2 text-base leading-7 text-[color:var(--dashboardy-heading)] whitespace-pre-wrap">
 							{entry.summary}
 						</p>
 					</div>
@@ -156,7 +202,7 @@ export function ConversationMessage({
 				anchorId={anchorId}
 				className={className}
 			>
-				<p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed font-mono py-2">
+				<p className="font-mono text-[0.875rem] leading-6 text-[color:var(--dashboardy-heading)] whitespace-pre-wrap">
 					{entry.message.content}
 				</p>
 			</CollapsedEntry>
@@ -198,39 +244,60 @@ export function ConversationMessage({
 		const slashCommandInfo = isSlashCommand ? parseSlashCommand(content) : null;
 
 		return (
-			<div id={anchorId} className={cn("flex gap-4 scroll-mt-6", className)}>
-				<div className="flex-shrink-0">
-					<div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center">
-						<User className="w-5 h-5 text-white" />
+			<div
+				id={anchorId}
+				className={cn(
+					"grid gap-3 scroll-mt-6 md:grid-cols-[auto_minmax(0,1fr)] md:gap-4",
+					className,
+				)}
+			>
+				<div className="flex items-center gap-3 md:w-[4.5rem] md:flex-col md:items-start md:gap-2">
+					<div className="flex size-9 shrink-0 items-center justify-center rounded-[1rem] border border-[color:var(--dashboardy-chip-border)] bg-[color:var(--dashboardy-chip-surface)]">
+						<User className="size-4 text-[color:var(--dashboardy-chip-foreground)]" />
 					</div>
+					{messageLabel ? (
+						<p className="font-mono text-[0.75rem] text-[color:var(--dashboardy-muted)]">
+							{messageLabel}
+						</p>
+					) : null}
 				</div>
-				<div className="flex-1 min-w-0 bg-card border border-border rounded-lg p-4 shadow-sm">
-					<div className="flex items-center gap-2 mb-3">
-						<span className="text-sm font-semibold text-foreground">User</span>
-						<span className="text-xs text-muted-foreground">
-							{new Date(entry.timestamp).toLocaleTimeString()}
-						</span>
+				<div className="min-w-0 rounded-[1.15rem] border border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-subsurface)] px-4 py-4">
+					<div className="mb-3 flex flex-wrap items-center gap-2 border-b border-[color:var(--dashboardy-divider)] pb-3">
+						<div className="dashboardy-inline-badge rounded-full border px-3 py-1">
+							<p className="text-[0.8125rem] font-medium text-[color:var(--dashboardy-heading)]">
+								User
+							</p>
+						</div>
+						<p className="text-[0.8125rem] text-[color:var(--dashboardy-muted)]">
+							{formatMessageTime(entry.timestamp)}
+						</p>
 					</div>
 
 					{isSlashCommand && slashCommandInfo ? (
-						<div className="space-y-2">
+						<div className="grid gap-3">
 							{slashCommandInfo.commandMessage && (
-								<div className="inline-block px-3 py-1 bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 rounded-md text-sm font-mono">
-									{slashCommandInfo.commandMessage}
+								<div className="dashboardy-inline-badge w-fit rounded-full border px-3 py-1.5">
+									<p className="font-mono text-[0.875rem] text-[color:var(--dashboardy-heading)]">
+										{slashCommandInfo.commandMessage}
+									</p>
 								</div>
 							)}
 							{slashCommandInfo.commandName && (
-								<div className="text-sm text-muted-foreground">
-									<span className="font-semibold">Command:</span>{" "}
-									<code className="bg-secondary text-foreground px-2 py-0.5 rounded">
+								<div className="grid gap-1">
+									<p className="text-sm font-medium text-[color:var(--dashboardy-muted)]">
+										Command
+									</p>
+									<code className="w-fit rounded-full border border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-surface)] px-3 py-1 font-mono text-[0.875rem] text-[color:var(--dashboardy-heading)]">
 										{slashCommandInfo.commandName}
 									</code>
 								</div>
 							)}
 							{slashCommandInfo.commandArgs && (
-								<div className="text-sm text-muted-foreground">
-									<span className="font-semibold">Args:</span>{" "}
-									<code className="bg-secondary text-foreground px-2 py-0.5 rounded">
+								<div className="grid gap-1">
+									<p className="text-sm font-medium text-[color:var(--dashboardy-muted)]">
+										Args
+									</p>
+									<code className="w-fit rounded-full border border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-surface)] px-3 py-1 font-mono text-[0.875rem] text-[color:var(--dashboardy-heading)]">
 										{slashCommandInfo.commandArgs}
 									</code>
 								</div>
@@ -245,20 +312,33 @@ export function ConversationMessage({
 	}
 
 	return (
-		<div id={anchorId} className={cn("flex gap-4 scroll-mt-6", className)}>
-			<div className="flex-shrink-0">
-				<div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-600 to-blue-600 flex items-center justify-center">
-					<Bot className="w-5 h-5 text-white" />
+		<div
+			id={anchorId}
+			className={cn(
+				"grid gap-3 scroll-mt-6 md:grid-cols-[auto_minmax(0,1fr)] md:gap-4",
+				className,
+			)}
+		>
+			<div className="flex items-center gap-3 md:w-[4.5rem] md:flex-col md:items-start md:gap-2">
+				<div className="flex size-9 shrink-0 items-center justify-center rounded-[1rem] border border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-surface)]">
+					<Bot className="size-4 text-[color:var(--dashboardy-heading)]" />
 				</div>
+				{messageLabel ? (
+					<p className="font-mono text-[0.75rem] text-[color:var(--dashboardy-muted)]">
+						{messageLabel}
+					</p>
+				) : null}
 			</div>
-			<div className="flex-1 min-w-0 bg-card border border-border rounded-lg p-4 shadow-sm">
-				<div className="flex items-center gap-2 mb-3">
-					<span className="text-sm font-semibold text-foreground">
-						Assistant
-					</span>
-					<span className="text-xs text-muted-foreground">
-						{new Date(entry.timestamp).toLocaleTimeString()}
-					</span>
+			<div className="min-w-0 rounded-[1.15rem] border border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-surface)] px-4 py-4">
+				<div className="mb-3 flex flex-wrap items-center gap-2 border-b border-[color:var(--dashboardy-divider)] pb-3">
+					<div className="dashboardy-inline-badge rounded-full border px-3 py-1">
+						<p className="text-[0.8125rem] font-medium text-[color:var(--dashboardy-heading)]">
+							Assistant
+						</p>
+					</div>
+					<p className="text-[0.8125rem] text-[color:var(--dashboardy-muted)]">
+						{formatMessageTime(entry.timestamp)}
+					</p>
 				</div>
 				<MessageContent content={entry.message.content} />
 			</div>
