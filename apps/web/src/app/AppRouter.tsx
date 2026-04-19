@@ -1,4 +1,4 @@
-import { type ComponentType, type ReactNode, lazy, Suspense } from "react";
+import { type ComponentType, lazy, type ReactNode, Suspense } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { appRoutes } from "@/app/routes";
 import { NotFoundPage } from "@/app/system/NotFoundPage";
@@ -59,6 +59,14 @@ const RudelWalkInPage = lazyNamed(
 const FifaWrappedPage = lazyNamed(
 	() => import("@/features/wrapped/FifaWrappedPage"),
 	"FifaWrappedPage",
+);
+const WrappedFamilyPage = lazyNamed(
+	() => import("@/features/wrapped-family/WrappedFamilyPage"),
+	"WrappedFamilyPage",
+);
+const WrappedFamilyMoneyRainPage = lazyNamed(
+	() => import("@/features/wrapped-family/WrappedFamilyMoneyRainPage"),
+	"WrappedFamilyMoneyRainPage",
 );
 const LEGACY_DASHBOARDY_PATH = "/dashboardy";
 
@@ -140,6 +148,24 @@ export function AppRouter({
 				element={
 					<LazyRoute
 						Component={FifaWrappedPage}
+						fallback={<FullscreenRouteLoadingScreen />}
+					/>
+				}
+			/>
+			<Route
+				path={appRoutes.wrappedFamily()}
+				element={
+					<LazyRoute
+						Component={WrappedFamilyPage}
+						fallback={<FullscreenRouteLoadingScreen />}
+					/>
+				}
+			/>
+			<Route
+				path={appRoutes.wrappedFamilyMoneyRain()}
+				element={
+					<LazyRoute
+						Component={WrappedFamilyMoneyRainPage}
 						fallback={<FullscreenRouteLoadingScreen />}
 					/>
 				}

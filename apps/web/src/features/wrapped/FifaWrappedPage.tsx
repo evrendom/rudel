@@ -556,6 +556,12 @@ function MetricChip({ children }: { children: React.ReactNode }) {
 }
 
 function HeroSlide({ story }: { story: FifaWrappedStoryData }) {
+	const tokenRankLabel = buildRankLabel(
+		story.ranks.tokenRank,
+		story.workspaceSize,
+		"Unranked",
+	);
+
 	return (
 		<div className="fifa-wrapped-slide fifa-wrapped-slide--hero">
 			<motion.div
@@ -574,11 +580,17 @@ function HeroSlide({ story }: { story: FifaWrappedStoryData }) {
 						ease: MOTION_EASE_OUT,
 					}}
 				>
-					Rudel Ultimate Team
+					<span>Rudel Wrapped</span>
+					<span>{story.periodLabel}</span>
 				</motion.div>
 				<h1 className="fifa-wrapped-hero-title">
-					<span>{story.firstName},</span>
-					<span>your AI season is ready.</span>
+					<span className="fifa-wrapped-hero-title__line is-outline">
+						Rudel
+					</span>
+					<span className="fifa-wrapped-hero-title__line">Wrapped</span>
+					<span className="fifa-wrapped-hero-title__line is-accent">
+						{story.firstName}
+					</span>
 				</h1>
 				<motion.p
 					className="fifa-wrapped-hero-summary"
@@ -590,8 +602,8 @@ function HeroSlide({ story }: { story: FifaWrappedStoryData }) {
 						ease: MOTION_EASE_OUT,
 					}}
 				>
-					A Spotify-style walkout built from your actual analytics, with a FIFA
-					card spine and zero WebGL baggage.
+					This is your AI season in full color: the rank you climbed, the tokens
+					you spent, and the role you played across the squad.
 				</motion.p>
 				<motion.div
 					className="fifa-wrapped-hero-badges"
@@ -613,6 +625,56 @@ function HeroSlide({ story }: { story: FifaWrappedStoryData }) {
 						<AnimatedMetricText text={story.periodLabel} />
 					</MetricChip>
 				</motion.div>
+				<motion.div
+					className="fifa-wrapped-hero-marquee"
+					initial={{ opacity: 0, y: 18 }}
+					animate={{ opacity: 1, y: 0 }}
+					transition={{
+						delay: 0.22,
+						duration: 0.42,
+						ease: MOTION_EASE_OUT,
+					}}
+				>
+					ranked • remixed • replayed
+				</motion.div>
+			</motion.div>
+			<motion.div
+				className="fifa-wrapped-hero-spotlight"
+				initial={{ opacity: 0, rotateX: -8, scale: 0.94, y: 24 }}
+				animate={{ opacity: 1, rotateX: 0, scale: 1, y: 0 }}
+				transition={{
+					...METRIC_SPRING,
+					delay: 0.12,
+				}}
+			>
+				<div className="fifa-wrapped-hero-spotlight__eyebrow">
+					<Sparkles className="size-4" />
+					<span>Season score</span>
+				</div>
+				<div className="fifa-wrapped-hero-spotlight__value-row">
+					<AnimatedMetricNumber
+						className="fifa-wrapped-hero-spotlight__value"
+						formatter={formatRawInteger}
+						value={story.overallRating}
+					/>
+					<div className="fifa-wrapped-hero-spotlight__badge">OVR</div>
+				</div>
+				<div className="fifa-wrapped-hero-spotlight__role">
+					<AnimatedMetricText text={story.seasonRole} />
+				</div>
+				<p className="fifa-wrapped-hero-spotlight__copy">
+					Token rank{" "}
+					<span className="fifa-wrapped-inline-metric">{tokenRankLabel}</span>{" "}
+					with{" "}
+					<span className="fifa-wrapped-inline-metric">
+						{formatCompactTokenLabel(story.totalTokens)}
+					</span>{" "}
+					across {story.periodLabel}.
+				</p>
+				<div className="fifa-wrapped-hero-spotlight__footer">
+					<span>{formatCompactNumber(story.totalCommits)} commits</span>
+					<span>{story.periodLabel}</span>
+				</div>
 			</motion.div>
 			<motion.div
 				className="fifa-wrapped-hero-scoreboard"
@@ -623,11 +685,7 @@ function HeroSlide({ story }: { story: FifaWrappedStoryData }) {
 				<StatPill
 					icon={<Trophy className="size-4" />}
 					label="Token rank"
-					textValue={buildRankLabel(
-						story.ranks.tokenRank,
-						story.workspaceSize,
-						"Unranked",
-					)}
+					textValue={tokenRankLabel}
 				/>
 				<StatPill
 					icon={<Zap className="size-4" />}

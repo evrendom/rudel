@@ -10,6 +10,8 @@ const SETTINGS_CREATE_WORKSPACE_PATH = `${SETTINGS_ROOT_PATH}/create-workspace`;
 const PRESET_BASELINE_PATH = "/__preset-baseline";
 const WALK_IN_PATH = "/walk-in";
 const WRAPPED_PATH = "/wrapped";
+const WRAPPED_FAMILY_PATH = "/wrapped-family";
+const WRAPPED_FAMILY_MONEY_RAIN_PATH = `${WRAPPED_FAMILY_PATH}/money-rain`;
 
 export const appRoutes = {
 	home: () => DASHBOARD_PATH,
@@ -22,6 +24,8 @@ export const appRoutes = {
 	presetBaseline: () => PRESET_BASELINE_PATH,
 	walkIn: () => WALK_IN_PATH,
 	wrapped: () => WRAPPED_PATH,
+	wrappedFamily: () => WRAPPED_FAMILY_PATH,
+	wrappedFamilyMoneyRain: () => WRAPPED_FAMILY_MONEY_RAIN_PATH,
 	settingsWorkspace: () => SETTINGS_WORKSPACE_PATH,
 	settingsInvitations: () => SETTINGS_INVITATIONS_PATH,
 	settingsAccount: () => SETTINGS_ACCOUNT_PATH,

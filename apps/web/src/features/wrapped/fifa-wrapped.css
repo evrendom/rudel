@@ -244,9 +244,73 @@
 }
 
 .fifa-wrapped-slide--hero {
-	grid-template-columns: minmax(0, 1.4fr) minmax(280px, 0.9fr);
-	align-items: end;
-	gap: clamp(1.25rem, 3vw, 2.5rem);
+	grid-template-columns: minmax(0, 1.08fr) minmax(300px, 0.92fr);
+	grid-template-rows: minmax(0, 1fr) auto;
+	grid-template-areas:
+		"copy spotlight"
+		"copy scoreboard";
+	align-items: stretch;
+	gap: clamp(1rem, 2.6vw, 2rem);
+}
+
+.fifa-wrapped-hero-copy {
+	position: relative;
+	z-index: 1;
+	grid-area: copy;
+	display: flex;
+	flex-direction: column;
+	justify-content: space-between;
+	gap: 1.4rem;
+	overflow: hidden;
+	padding: clamp(1.5rem, 3vw, 2.6rem);
+	border-radius: 36px;
+	background:
+		radial-gradient(
+			circle at 18% 18%,
+			rgba(255, 244, 192, 0.48),
+			transparent 24%
+		),
+		radial-gradient(
+			circle at 82% 76%,
+			rgba(92, 241, 199, 0.32),
+			transparent 28%
+		),
+		linear-gradient(135deg, #f4e45d 0%, #ffb24f 26%, #ff6a61 62%, #55f1c7 100%);
+	color: #160d07;
+	box-shadow:
+		0 30px 80px rgba(0, 0, 0, 0.24),
+		inset 0 1px 0 rgba(255, 255, 255, 0.34);
+	isolation: isolate;
+}
+
+.fifa-wrapped-hero-copy::before,
+.fifa-wrapped-hero-copy::after,
+.fifa-wrapped-hero-spotlight::before,
+.fifa-wrapped-hero-spotlight::after {
+	position: absolute;
+	content: "";
+	pointer-events: none;
+}
+
+.fifa-wrapped-hero-copy::before {
+	inset: 1rem;
+	border: 1px solid rgba(22, 13, 7, 0.12);
+	border-radius: 28px;
+}
+
+.fifa-wrapped-hero-copy::after {
+	inset: 0;
+	background:
+		linear-gradient(120deg, rgba(255, 255, 255, 0.26), transparent 36%),
+		repeating-linear-gradient(
+			135deg,
+			rgba(22, 13, 7, 0.08) 0,
+			rgba(22, 13, 7, 0.08) 1px,
+			transparent 1px,
+			transparent 16px
+		);
+	mix-blend-mode: soft-light;
+	opacity: 0.9;
 }
 
 .fifa-wrapped-kicker,
@@ -259,6 +323,27 @@
 	color: rgba(249, 246, 238, 0.62);
 }
 
+.fifa-wrapped-hero-copy .fifa-wrapped-kicker {
+	position: relative;
+	z-index: 1;
+	display: inline-flex;
+	width: fit-content;
+	align-items: center;
+	gap: 0.75rem;
+	padding: 0.9rem 1rem;
+	border-radius: 999px;
+	background: rgba(22, 13, 7, 0.1);
+	box-shadow:
+		inset 0 1px 0 rgba(255, 255, 255, 0.24),
+		0 14px 30px rgba(22, 13, 7, 0.14);
+	color: rgba(22, 13, 7, 0.74);
+}
+
+.fifa-wrapped-hero-copy .fifa-wrapped-kicker span + span {
+	padding-left: 0.75rem;
+	border-left: 1px solid rgba(22, 13, 7, 0.14);
+}
+
 .fifa-wrapped-hero-title,
 .fifa-wrapped-panel-heading {
 	margin: 0;
@@ -268,13 +353,33 @@
 	letter-spacing: -0.04em;
 }
 
+.fifa-wrapped-hero-title {
+	position: relative;
+	z-index: 1;
+	max-width: 6ch;
+	font-size: clamp(4rem, 9vw, 8.4rem);
+	line-height: 0.82;
+	letter-spacing: -0.08em;
+	text-transform: uppercase;
+}
+
 .fifa-wrapped-panel-heading {
 	font-size: clamp(2rem, 4vw, 3.6rem);
 	max-width: 12ch;
 }
 
-.fifa-wrapped-hero-title span {
+.fifa-wrapped-hero-title__line {
 	display: block;
+}
+
+.fifa-wrapped-hero-title__line.is-outline {
+	color: transparent;
+	-webkit-text-stroke: 2px rgba(22, 13, 7, 0.58);
+}
+
+.fifa-wrapped-hero-title__line.is-accent {
+	color: #fff7c7;
+	text-shadow: 0 16px 30px rgba(22, 13, 7, 0.2);
 }
 
 .fifa-wrapped-hero-summary,
@@ -283,6 +388,13 @@
 	font-size: clamp(1rem, 1.8vw, 1.15rem);
 	line-height: 1.5;
 	color: rgba(249, 246, 238, 0.76);
+}
+
+.fifa-wrapped-hero-summary {
+	position: relative;
+	z-index: 1;
+	max-width: 34ch;
+	color: rgba(22, 13, 7, 0.78);
 }
 
 .fifa-wrapped-hero-badges,
@@ -314,6 +426,15 @@
 	isolation: isolate;
 }
 
+.fifa-wrapped-hero-copy .fifa-wrapped-chip {
+	border-color: rgba(22, 13, 7, 0.12);
+	background: rgba(255, 247, 221, 0.26);
+	color: rgba(22, 13, 7, 0.9);
+	box-shadow:
+		inset 0 1px 0 rgba(255, 255, 255, 0.22),
+		0 12px 24px rgba(22, 13, 7, 0.12);
+}
+
 .fifa-wrapped-chip__content {
 	position: relative;
 	z-index: 1;
@@ -340,10 +461,167 @@
 	background: rgba(8, 17, 26, 0.42);
 }
 
+.fifa-wrapped-hero-marquee {
+	position: relative;
+	z-index: 1;
+	display: inline-flex;
+	width: fit-content;
+	align-items: center;
+	padding: 0.95rem 1.15rem;
+	border-radius: 999px;
+	background: rgba(22, 13, 7, 0.1);
+	font-family: var(--dashboard-01-font-roster-mono);
+	font-size: 0.76rem;
+	letter-spacing: 0.22em;
+	text-transform: uppercase;
+	color: rgba(22, 13, 7, 0.62);
+}
+
+.fifa-wrapped-hero-spotlight {
+	position: relative;
+	grid-area: spotlight;
+	display: grid;
+	align-content: start;
+	gap: 1rem;
+	overflow: hidden;
+	padding: clamp(1.35rem, 2vw, 1.7rem);
+	border: 1px solid rgba(255, 255, 255, 0.14);
+	border-radius: 30px;
+	background:
+		radial-gradient(
+			circle at 86% 18%,
+			rgba(255, 194, 95, 0.28),
+			transparent 26%
+		),
+		radial-gradient(
+			circle at 18% 92%,
+			rgba(85, 241, 199, 0.18),
+			transparent 28%
+		),
+		linear-gradient(180deg, rgba(8, 17, 28, 0.96), rgba(5, 11, 19, 0.98));
+	box-shadow:
+		0 28px 70px rgba(0, 0, 0, 0.32),
+		inset 0 1px 0 rgba(255, 255, 255, 0.08);
+	isolation: isolate;
+}
+
+.fifa-wrapped-hero-spotlight::before {
+	inset: auto -14% -30% auto;
+	width: 240px;
+	height: 240px;
+	border-radius: 999px;
+	background: radial-gradient(
+		circle,
+		rgba(255, 203, 83, 0.24),
+		transparent 70%
+	);
+}
+
+.fifa-wrapped-hero-spotlight::after {
+	inset: 0;
+	background:
+		linear-gradient(125deg, rgba(255, 255, 255, 0.1), transparent 28%),
+		repeating-linear-gradient(
+			180deg,
+			rgba(255, 255, 255, 0.03) 0,
+			rgba(255, 255, 255, 0.03) 1px,
+			transparent 1px,
+			transparent 14px
+		);
+	opacity: 0.85;
+}
+
+.fifa-wrapped-hero-spotlight__eyebrow,
+.fifa-wrapped-hero-spotlight__footer {
+	position: relative;
+	z-index: 1;
+	display: flex;
+	align-items: center;
+	gap: 0.6rem;
+	font-family: var(--dashboard-01-font-roster-mono);
+	font-size: 0.75rem;
+	letter-spacing: 0.16em;
+	text-transform: uppercase;
+	color: rgba(249, 246, 238, 0.64);
+}
+
+.fifa-wrapped-hero-spotlight__value-row {
+	position: relative;
+	z-index: 1;
+	display: flex;
+	align-items: flex-end;
+	justify-content: space-between;
+	gap: 1rem;
+}
+
+.fifa-wrapped-hero-spotlight__value {
+	font-family: "Nunito", var(--font-sans);
+	font-size: clamp(4.25rem, 7vw, 6.4rem);
+	font-weight: 900;
+	line-height: 0.86;
+	letter-spacing: -0.08em;
+	color: #f9f6ee;
+	font-variant-numeric: tabular-nums;
+}
+
+.fifa-wrapped-hero-spotlight__badge {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	align-self: flex-start;
+	padding: 0.8rem 0.95rem;
+	border-radius: 999px;
+	background: linear-gradient(135deg, #f7df5e 0%, #ffb45a 100%);
+	box-shadow:
+		0 14px 24px rgba(255, 170, 73, 0.18),
+		inset 0 1px 0 rgba(255, 255, 255, 0.32);
+	font-family: var(--dashboard-01-font-roster-mono);
+	font-size: 0.8rem;
+	font-weight: 700;
+	letter-spacing: 0.12em;
+	text-transform: uppercase;
+	color: #1d130a;
+}
+
+.fifa-wrapped-hero-spotlight__role {
+	position: relative;
+	z-index: 1;
+	font-family: "Nunito", var(--font-sans);
+	font-size: clamp(1.4rem, 2.2vw, 1.95rem);
+	font-weight: 800;
+	letter-spacing: -0.04em;
+	color: #f9f6ee;
+}
+
+.fifa-wrapped-hero-spotlight__copy {
+	position: relative;
+	z-index: 1;
+	margin: 0;
+	max-width: 28ch;
+	font-size: 1rem;
+	line-height: 1.55;
+	color: rgba(249, 246, 238, 0.74);
+}
+
+.fifa-wrapped-hero-spotlight__footer {
+	justify-content: space-between;
+	padding-top: 0.9rem;
+	border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
 .fifa-wrapped-hero-scoreboard,
 .fifa-wrapped-club-sidebar {
 	display: grid;
 	gap: 0.85rem;
+}
+
+.fifa-wrapped-hero-scoreboard {
+	grid-area: scoreboard;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.fifa-wrapped-hero-scoreboard > :nth-child(3) {
+	grid-column: 1 / -1;
 }
 
 .fifa-wrapped-pill {
@@ -396,6 +674,48 @@
 	font-size: clamp(1.1rem, 2vw, 1.55rem);
 	font-weight: 800;
 	letter-spacing: -0.03em;
+}
+
+.fifa-wrapped-hero-scoreboard .fifa-wrapped-pill {
+	min-height: 0;
+	border-color: rgba(22, 13, 7, 0.08);
+	box-shadow:
+		0 18px 36px rgba(0, 0, 0, 0.16),
+		inset 0 1px 0 rgba(255, 255, 255, 0.2);
+	color: #1a1109;
+}
+
+.fifa-wrapped-hero-scoreboard .fifa-wrapped-pill:nth-child(1) {
+	background: linear-gradient(145deg, #8fff6f 0%, #5df1c6 100%);
+	transform: rotate(-1.2deg);
+}
+
+.fifa-wrapped-hero-scoreboard .fifa-wrapped-pill:nth-child(2) {
+	background: linear-gradient(145deg, #ffd85a 0%, #ff9661 100%);
+	transform: rotate(1.2deg);
+}
+
+.fifa-wrapped-hero-scoreboard .fifa-wrapped-pill:nth-child(3) {
+	background: linear-gradient(145deg, #89dfff 0%, #b6ff84 100%);
+}
+
+.fifa-wrapped-hero-scoreboard .fifa-wrapped-pill__icon {
+	background: rgba(22, 13, 7, 0.12);
+	color: #1a1109;
+	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22);
+}
+
+.fifa-wrapped-hero-scoreboard .fifa-wrapped-pill__label {
+	color: rgba(26, 17, 9, 0.58);
+}
+
+.fifa-wrapped-hero-scoreboard .fifa-wrapped-pill__value,
+.fifa-wrapped-record__value {
+	font-variant-numeric: tabular-nums;
+}
+
+.fifa-wrapped-hero-scoreboard .fifa-wrapped-pill__value {
+	color: #1a1109;
 }
 
 .fifa-wrapped-slide--card,
@@ -939,6 +1259,31 @@
 
 	.fifa-wrapped-stage {
 		min-height: auto;
+	}
+
+	.fifa-wrapped-slide--hero {
+		grid-template-areas:
+			"copy"
+			"spotlight"
+			"scoreboard";
+		grid-template-rows: auto;
+	}
+
+	.fifa-wrapped-hero-copy,
+	.fifa-wrapped-hero-spotlight {
+		padding: 1.35rem;
+	}
+
+	.fifa-wrapped-hero-title {
+		font-size: clamp(3.6rem, 17vw, 5.8rem);
+	}
+
+	.fifa-wrapped-hero-scoreboard {
+		grid-template-columns: 1fr;
+	}
+
+	.fifa-wrapped-hero-scoreboard > :nth-child(3) {
+		grid-column: auto;
 	}
 
 	.fifa-wrapped-panel-grid,
