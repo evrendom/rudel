@@ -5,8 +5,8 @@ export const walkInHandoverData = WalkInHandoverSchema.parse({
 	preview: {
 		title: "Your Claude Code / Codex Wrapped",
 		description:
-			"Current preview stays intentionally simple so design can move fast while the final render pipeline is still being defined.",
-		termsLabel: "Terms apply",
+			"A trading-card view of how you actually use Claude Code and Codex, shaped for screenshots instead of dashboards.",
+		termsLabel: "8 verified metrics",
 		hud: {
 			title: "Metric HUD",
 			description: "Candidate stats to pull into the wrapped story.",

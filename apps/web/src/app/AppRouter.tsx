@@ -56,6 +56,14 @@ const RudelWalkInPage = lazyNamed(
 	() => import("@/features/walk-in/RudelWalkInPage"),
 	"RudelWalkInPage",
 );
+const MymindTutorialPage = lazyNamed(
+	() => import("@/features/walk-in/MymindTutorialPage"),
+	"MymindTutorialPage",
+);
+const SpotifyStyleWalkInPage = lazyNamed(
+	() => import("@/features/walk-in/SpotifyStyleWalkInPage"),
+	"SpotifyStyleWalkInPage",
+);
 const FifaWrappedPage = lazyNamed(
 	() => import("@/features/wrapped/FifaWrappedPage"),
 	"FifaWrappedPage",
@@ -139,6 +147,24 @@ export function AppRouter({
 				element={
 					<LazyRoute
 						Component={RudelWalkInPage}
+						fallback={<FullscreenRouteLoadingScreen />}
+					/>
+				}
+			/>
+			<Route
+				path={appRoutes.mymindTuto()}
+				element={
+					<LazyRoute
+						Component={MymindTutorialPage}
+						fallback={<FullscreenRouteLoadingScreen />}
+					/>
+				}
+			/>
+			<Route
+				path={appRoutes.spotifyStyle()}
+				element={
+					<LazyRoute
+						Component={SpotifyStyleWalkInPage}
 						fallback={<FullscreenRouteLoadingScreen />}
 					/>
 				}

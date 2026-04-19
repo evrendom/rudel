@@ -1,8 +1,6 @@
 body.mymind-walk-in-body {
 	overflow: hidden;
-	background:
-		radial-gradient(circle at top, rgba(210, 238, 255, 0.1), transparent 30%),
-		linear-gradient(180deg, #02060d 0%, #061019 48%, #091a24 100%);
+	background: var(--background);
 }
 
 body.mymind-walk-in-body #root {
@@ -10,80 +8,108 @@ body.mymind-walk-in-body #root {
 }
 
 .mymind-walk-in-route {
-	position: fixed;
-	inset: 0;
+	position: relative;
 	isolation: isolate;
 	overflow: hidden;
-	background:
-		radial-gradient(circle at 50% 20%, rgba(193, 236, 255, 0.12), transparent 28%),
-		radial-gradient(circle at 50% 70%, rgba(255, 255, 255, 0.03), transparent 24%),
-		linear-gradient(180deg, #040b11 0%, #08131d 35%, #061018 100%);
+	background: var(--surface);
 }
 
 .mymind-walk-in-route::before {
-	position: absolute;
-	inset: 0;
-	background:
-		radial-gradient(circle at center, rgba(255, 255, 255, 0.08), transparent 24%),
-		radial-gradient(circle at center, rgba(122, 184, 255, 0.08), transparent 55%);
-	content: "";
-	pointer-events: none;
+	content: none;
 }
 
-.mymind-walk-in-route .achievement-wrapper {
-	opacity: 0;
-}
-
-.mymind-walk-in-route .a-stag {
-	opacity: 0;
-	visibility: hidden;
-}
-
-.mymind-walk-in-route .achievement-canvas {
+.mymind-walk-in__card-stage {
+	--mymind-walk-in-accent: #8aeeff;
+	--mymind-walk-in-accent-glow: rgba(138, 238, 255, 0.35);
 	position: relative;
-	min-height: min(84vh, 56rem);
+	display: grid;
+	place-items: center;
+	width: min(100%, 34rem);
+	aspect-ratio: 0.9;
+	padding: 2.75rem 2.25rem 3.1rem;
+	overflow: hidden;
 }
 
-.mymind-walk-in-route .achievement-canvas canvas {
+.mymind-walk-in__card-stage::before {
+	content: none;
+}
+
+.mymind-walk-in__card-runtime,
+.mymind-walk-in__runtime-fallback {
+	grid-area: 1 / 1;
+	position: relative;
+	width: min(100%, 26rem);
+	aspect-ratio: 0.72;
+	border: 1px solid color-mix(in oklab, var(--border) 92%, white);
+	border-radius: 2rem;
+	box-shadow:
+		0 28px 80px rgba(15, 23, 42, 0.12),
+		inset 0 1px 0 rgba(255, 255, 255, 0.85);
+	transform: rotate(4deg);
+}
+
+.mymind-walk-in__card-runtime {
+	overflow: hidden;
+	background: white;
+}
+
+.mymind-walk-in__card-runtime canvas {
 	display: block;
+	width: 100%;
+	height: 100%;
 }
 
-.mymind-walk-in-route .mymind-walk-in__status {
-	position: absolute;
-	left: 1.5rem;
-	bottom: 1.5rem;
-	z-index: 5;
-	display: inline-flex;
-	align-items: center;
-	gap: 0.75rem;
-	border: 1px solid rgba(255, 255, 255, 0.12);
-	border-radius: 999px;
-	background: rgba(0, 0, 0, 0.28);
-	padding: 0.625rem 0.875rem;
-	color: rgba(255, 255, 255, 0.82);
-	font-size: 0.75rem;
-	letter-spacing: 0.08em;
+.mymind-walk-in__runtime-fallback {
+	display: flex;
+	flex-direction: column;
+	justify-content: flex-end;
+	padding: 1.5rem;
+	border: 1px solid color-mix(in oklab, var(--border) 92%, white);
+	background: white;
+	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85);
+	color: var(--heading);
+}
+
+.mymind-walk-in__runtime-fallback-kicker {
+	margin: 0 0 0.35rem;
+	font-size: 0.68rem;
+	letter-spacing: 0.28em;
 	text-transform: uppercase;
-	backdrop-filter: blur(16px);
+	color: var(--subheading);
 }
 
-.mymind-walk-in-route .mymind-walk-in__status-dot {
-	width: 0.5rem;
-	height: 0.5rem;
-	border-radius: 999px;
-	background: #d4f3ff;
-	box-shadow: 0 0 18px rgba(151, 224, 255, 0.95);
+.mymind-walk-in__runtime-fallback h3 {
+	margin: 0;
+	font-family: var(--app-font-heading);
+	font-size: 2rem;
+	font-weight: 600;
+	letter-spacing: -0.06em;
+	line-height: 0.95;
+	color: var(--heading);
 }
 
-@media (max-width: 900px) {
-	.mymind-walk-in-route .achievement-canvas {
-		min-height: 58vh;
+.mymind-walk-in__runtime-fallback p:last-child {
+	margin: 0.7rem 0 0;
+	font-size: 0.92rem;
+	color: var(--subheading);
+}
+
+@media (max-width: 1024px) {
+	.mymind-walk-in__card-stage {
+		width: min(100%, 32rem);
+		padding: 2.35rem 1.9rem 2.8rem;
+	}
+}
+
+@media (max-width: 640px) {
+	.mymind-walk-in__card-stage {
+		width: min(100%, 25rem);
+		padding: 1.6rem 1.15rem 2rem;
 	}
 
-	.mymind-walk-in-route .mymind-walk-in__status {
-		left: 1rem;
-		right: 1rem;
-		bottom: 1rem;
-		justify-content: center;
+	.mymind-walk-in__card-runtime,
+	.mymind-walk-in__runtime-fallback {
+		width: min(100%, 22rem);
+		transform: rotate(2deg);
 	}
 }

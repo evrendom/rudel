@@ -4,6 +4,7 @@
 	"license": "MIT",
 	"scripts": {
 		"build": "turbo run build",
+		"capture:webgl": "bun ./scripts/capture-webgl-site.ts",
 		"dev": "turbo run dev",
 		"lint": "biome check .",
 		"lint:fix": "biome check --write .",

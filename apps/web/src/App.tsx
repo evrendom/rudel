@@ -15,7 +15,9 @@ import { DeviceAuthorizationApp } from "@/features/auth/DeviceAuthorizationApp";
 import { GuestApp } from "@/features/auth/GuestApp";
 import { ResetPasswordApp } from "@/features/auth/ResetPasswordApp";
 import { GetStartedRouteGate } from "@/features/get-started/GetStartedRouteGate";
+import { MymindTutorialPage } from "@/features/walk-in/MymindTutorialPage";
 import { RudelWalkInPage } from "@/features/walk-in/RudelWalkInPage";
+import { SpotifyStyleWalkInPage } from "@/features/walk-in/SpotifyStyleWalkInPage";
 import { authClient } from "./lib/auth-client";
 
 function App() {
@@ -61,6 +63,26 @@ function App() {
 			<>
 				<ProductAnalyticsSessionSync session={session} />
 				<RudelWalkInPage />
+				{showDesktopOnlyOverlay ? <DesktopOnlyOverlay /> : null}
+			</>
+		);
+	}
+
+	if (location.pathname === appRoutes.mymindTuto()) {
+		return (
+			<>
+				<ProductAnalyticsSessionSync session={session} />
+				<MymindTutorialPage />
+				{showDesktopOnlyOverlay ? <DesktopOnlyOverlay /> : null}
+			</>
+		);
+	}
+
+	if (location.pathname === appRoutes.spotifyStyle()) {
+		return (
+			<>
+				<ProductAnalyticsSessionSync session={session} />
+				<SpotifyStyleWalkInPage />
 				{showDesktopOnlyOverlay ? <DesktopOnlyOverlay /> : null}
 			</>
 		);

@@ -90,19 +90,19 @@ function getPreviewDescription(
 	wrappedData: WrappedV1 | null,
 ): string {
 	if (state === "loading") {
-		return "Loading 8 verified metrics from live analytics for this workspace.";
+		return "Scanning your workspace history to turn Claude Code and Codex usage into a live trading card.";
 	}
 
 	if (state === "error") {
-		return "Using the seed handover while the live analytics adapter is unavailable.";
+		return "Showing the seed trading card while live analytics are temporarily unavailable.";
 	}
 
 	if (state === "live" && wrappedData !== null) {
 		if (wrappedData.metrics.total_sessions === 0) {
-			return "Live analytics are wired, but this workspace does not have enough session history yet.";
+			return "The card engine is ready, but this workspace needs a few recorded sessions before the usage story appears.";
 		}
 
-		return "8 verified metrics are now wired from live analytics for this workspace. The rest stay on the wishlist until their semantics are stable.";
+		return "Live workspace history is driving this card: sessions, favorite model, Claude-vs-Codex split, token volume, longest lock-in, and estimated spend.";
 	}
 
 	return walkInHandoverData.preview.description;
