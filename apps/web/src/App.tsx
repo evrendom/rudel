@@ -18,6 +18,7 @@ import { GetStartedRouteGate } from "@/features/get-started/GetStartedRouteGate"
 import { MymindTutorialPage } from "@/features/walk-in/MymindTutorialPage";
 import { RudelWalkInPage } from "@/features/walk-in/RudelWalkInPage";
 import { SpotifyStyleWalkInPage } from "@/features/walk-in/SpotifyStyleWalkInPage";
+import { TeamCardWalkInPage } from "@/features/walk-in/TeamCardWalkInPage";
 import { authClient } from "./lib/auth-client";
 
 function App() {
@@ -63,6 +64,16 @@ function App() {
 			<>
 				<ProductAnalyticsSessionSync session={session} />
 				<RudelWalkInPage />
+				{showDesktopOnlyOverlay ? <DesktopOnlyOverlay /> : null}
+			</>
+		);
+	}
+
+	if (location.pathname === appRoutes.walkInTeamCard()) {
+		return (
+			<>
+				<ProductAnalyticsSessionSync session={session} />
+				<TeamCardWalkInPage />
 				{showDesktopOnlyOverlay ? <DesktopOnlyOverlay /> : null}
 			</>
 		);

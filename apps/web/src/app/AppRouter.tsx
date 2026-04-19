@@ -56,6 +56,10 @@ const RudelWalkInPage = lazyNamed(
 	() => import("@/features/walk-in/RudelWalkInPage"),
 	"RudelWalkInPage",
 );
+const TeamCardWalkInPage = lazyNamed(
+	() => import("@/features/walk-in/TeamCardWalkInPage"),
+	"TeamCardWalkInPage",
+);
 const MymindTutorialPage = lazyNamed(
 	() => import("@/features/walk-in/MymindTutorialPage"),
 	"MymindTutorialPage",
@@ -147,6 +151,15 @@ export function AppRouter({
 				element={
 					<LazyRoute
 						Component={RudelWalkInPage}
+						fallback={<FullscreenRouteLoadingScreen />}
+					/>
+				}
+			/>
+			<Route
+				path={appRoutes.walkInTeamCard()}
+				element={
+					<LazyRoute
+						Component={TeamCardWalkInPage}
 						fallback={<FullscreenRouteLoadingScreen />}
 					/>
 				}
