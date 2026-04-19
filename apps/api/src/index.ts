@@ -34,11 +34,20 @@ if (process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET) {
 	};
 }
 
+const DEFAULT_DEV_ORIGINS = ["http://localhost:4011", "http://localhost:4012"];
 const appURL = process.env.APP_URL ?? "http://localhost:4010";
-const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN ?? "http://localhost:4011";
-const trustedOrigins = process.env.TRUSTED_ORIGINS
+const preferredFrontendOrigin =
+	process.env.ALLOWED_ORIGIN ?? DEFAULT_DEV_ORIGINS[0];
+const configuredTrustedOrigins = process.env.TRUSTED_ORIGINS
 	? process.env.TRUSTED_ORIGINS.split(",").map((o) => o.trim())
-	: [ALLOWED_ORIGIN];
+	: [];
+const trustedOrigins = [
+	...new Set([
+		preferredFrontendOrigin,
+		...configuredTrustedOrigins,
+		...DEFAULT_DEV_ORIGINS,
+	]),
+];
 const resend = {
 	apiKey: process.env.RESEND_API_KEY,
 	audienceId: process.env.RESEND_AUDIENCE_ID,
@@ -51,13 +60,14 @@ for (const warning of getResendConfigWarnings(resend)) {
 
 const auth = createAuth(db, {
 	appURL,
-	frontendURL: ALLOWED_ORIGIN,
+	frontendURL: preferredFrontendOrigin,
 	secret: process.env.BETTER_AUTH_SECRET,
 	resend,
 	socialProviders,
 	trustedOrigins,
 	cliDeviceVerificationUrl:
-		process.env.CLI_DEVICE_VERIFICATION_URL ?? `${ALLOWED_ORIGIN}/device`,
+		process.env.CLI_DEVICE_VERIFICATION_URL ??
+		`${preferredFrontendOrigin}/device`,
 	slackWebhookUrl: process.env.SLACK_WEBHOOK_URL,
 });
 
@@ -79,9 +89,9 @@ const STATIC_DIR = join(
 );
 
 function corsHeaders(origin: string | null): Record<string, string> {
-	if (origin !== ALLOWED_ORIGIN) return {};
+	if (!origin || !trustedOrigins.includes(origin)) return {};
 	return {
-		"Access-Control-Allow-Origin": ALLOWED_ORIGIN,
+		"Access-Control-Allow-Origin": origin,
 		"Access-Control-Allow-Credentials": "true",
 		"Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
 		"Access-Control-Allow-Headers": "Content-Type, Authorization, X-API-Key",

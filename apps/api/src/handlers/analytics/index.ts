@@ -6,6 +6,7 @@ import { overviewRouter } from "./overview.js";
 import { projectsRouter } from "./projects.js";
 import { roiRouter } from "./roi.js";
 import { sessionsRouter } from "./sessions.js";
+import { wrappedRouter } from "./wrapped.js";
 
 export const analyticsRouter = os.analytics.router({
 	overview: overviewRouter,
@@ -15,4 +16,5 @@ export const analyticsRouter = os.analytics.router({
 	roi: roiRouter,
 	errors: errorsRouter,
 	learnings: learningsRouter,
+	wrapped: wrappedRouter,
 });

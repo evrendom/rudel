@@ -641,6 +641,39 @@ export const LearningsTrendInputSchema = DaysInputSchema.extend({
 	splitBy: z.enum(["user_id", "repository"]),
 });
 
+// ── Wrapped ────────────────────────────────────────────────────────
+
+export const WrappedSourceKindSchema = z.enum(["claude_code", "codex"]);
+
+export const WrappedSourceSplitSchema = z.object({
+	source: WrappedSourceKindSchema,
+	session_count: z.number(),
+	session_share_percent: z.number(),
+});
+
+export const WrappedV1MetricsSchema = z.object({
+	first_session_at: z.string().nullable(),
+	last_session_at: z.string().nullable(),
+	days_since_first_session: z.number(),
+	total_sessions: z.number(),
+	active_days: z.number(),
+	favorite_model: z.string().nullable(),
+	total_tokens: z.number(),
+	estimated_spend_usd: z.number(),
+	longest_session_min: z.number(),
+	source_split: z.array(WrappedSourceSplitSchema),
+});
+
+export const WrappedV1Schema = z.object({
+	generated_at: z.string(),
+	organization_id: z.string(),
+	pricing_mode: z.literal(ESTIMATED_PRICING_MODE),
+	scope: z.literal("active_organization_all_time"),
+	user_id: z.string(),
+	verified_metric_count: z.literal(8),
+	metrics: WrappedV1MetricsSchema,
+});
+
 // ── Type exports ───────────────────────────────────────────────────
 
 export type OverviewKPIs = z.infer<typeof OverviewKPIsSchema>;
@@ -703,3 +736,6 @@ export type LearningsTrendDataPoint = z.infer<
 export type DimensionAnalysisInput = z.infer<
 	typeof DimensionAnalysisInputSchema
 >;
+export type WrappedSourceSplit = z.infer<typeof WrappedSourceSplitSchema>;
+export type WrappedV1Metrics = z.infer<typeof WrappedV1MetricsSchema>;
+export type WrappedV1 = z.infer<typeof WrappedV1Schema>;

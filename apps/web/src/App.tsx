@@ -1,5 +1,6 @@
 import { useLocation } from "react-router-dom";
 import { AppLoadingScreen } from "@/app/bootstrap/AppLoadingScreen";
+import { appRoutes } from "@/app/routes";
 import { DesktopOnlyOverlay } from "@/app/ui/DesktopOnlyOverlay";
 import { ProductAnalyticsSessionSync } from "@/features/analytics/tracking/ProductAnalyticsSessionSync";
 import { AuthenticatedApp } from "@/features/auth/AuthenticatedApp";
@@ -14,6 +15,7 @@ import { DeviceAuthorizationApp } from "@/features/auth/DeviceAuthorizationApp";
 import { GuestApp } from "@/features/auth/GuestApp";
 import { ResetPasswordApp } from "@/features/auth/ResetPasswordApp";
 import { GetStartedRouteGate } from "@/features/get-started/GetStartedRouteGate";
+import { RudelWalkInPage } from "@/features/walk-in/RudelWalkInPage";
 import { authClient } from "./lib/auth-client";
 
 function App() {
@@ -49,6 +51,16 @@ function App() {
 					pathname={location.pathname}
 					session={session ?? null}
 				/>
+				{showDesktopOnlyOverlay ? <DesktopOnlyOverlay /> : null}
+			</>
+		);
+	}
+
+	if (location.pathname === appRoutes.walkIn()) {
+		return (
+			<>
+				<ProductAnalyticsSessionSync session={session} />
+				<RudelWalkInPage />
 				{showDesktopOnlyOverlay ? <DesktopOnlyOverlay /> : null}
 			</>
 		);

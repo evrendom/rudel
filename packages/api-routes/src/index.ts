@@ -58,6 +58,7 @@ import {
 	UsageTrendDataSchema,
 	UserDailyTrendDataSchema,
 	UserTokenUsageDataSchema,
+	WrappedV1Schema,
 } from "./schemas/analytics.js";
 
 export * from "./model-pricing.js";
@@ -298,6 +299,9 @@ export const contract = {
 			trend: oc
 				.input(LearningsTrendInputSchema)
 				.output(z.array(LearningsTrendDataPointSchema)),
+		},
+		wrapped: {
+			v1: oc.output(WrappedV1Schema),
 		},
 	},
 };
