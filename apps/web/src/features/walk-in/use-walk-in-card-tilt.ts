@@ -10,6 +10,9 @@ const ACTIVE_GLARE_OPACITY = 0.9;
 const ACTIVE_SCALE = 1.018;
 const MAX_GYRO_TILT_DEGREES = 9;
 const MAX_POINTER_TILT_DEGREES = 8;
+const RESTING_STAT_GLOSS_ANGLE = "132deg";
+const RESTING_STAT_MASK_X = "38%";
+const RESTING_STAT_MASK_Y = "24%";
 
 type WalkInCardGyroscopeState =
 	| "unavailable"
@@ -311,9 +314,12 @@ function resetTilt(node: HTMLDivElement | null) {
 	node.style.setProperty("--walk-in-card-tilt-rotate-x", "0deg");
 	node.style.setProperty("--walk-in-card-tilt-rotate-y", "0deg");
 	node.style.setProperty("--walk-in-card-tilt-scale", "1");
-	node.style.setProperty("--walk-in-card-stat-gloss-angle", "118deg");
-	node.style.setProperty("--walk-in-card-stat-mask-x", "50%");
-	node.style.setProperty("--walk-in-card-stat-mask-y", "18%");
+	node.style.setProperty(
+		"--walk-in-card-stat-gloss-angle",
+		RESTING_STAT_GLOSS_ANGLE,
+	);
+	node.style.setProperty("--walk-in-card-stat-mask-x", RESTING_STAT_MASK_X);
+	node.style.setProperty("--walk-in-card-stat-mask-y", RESTING_STAT_MASK_Y);
 }
 
 function clamp(value: number, min: number, max: number) {

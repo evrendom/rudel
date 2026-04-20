@@ -1,4 +1,10 @@
-import type { DeveloperDetails, WrappedSourceSplit } from "@rudel/api-routes";
+import type {
+	DeveloperDetails,
+	DeveloperFeatureUsage,
+	DeveloperProject,
+	DimensionAnalysisDataPoint,
+	WrappedSourceSplit,
+} from "@rudel/api-routes";
 import { useDialKit } from "dialkit";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { type CSSProperties, useEffect, useMemo, useState } from "react";
@@ -8,7 +14,10 @@ import {
 	type TeamPageMemberRow,
 	useTeamPageData,
 } from "@/features/team/use-team-page-data";
-import { TeamCardWalkInOnboarding } from "@/features/walk-in/team-card-walk-in-onboarding";
+import {
+	TeamCardWalkInOnboarding,
+	type WalkInOnboardingMetrics,
+} from "@/features/walk-in/team-card-walk-in-onboarding";
 import { useWalkInCardData } from "@/features/walk-in/use-walk-in-card-data";
 import { useWalkInCardTilt } from "@/features/walk-in/use-walk-in-card-tilt";
 import {
@@ -154,6 +163,36 @@ export function TeamCardWalkInPage() {
 		}),
 		enabled: Boolean(resolvedUserId),
 	});
+	const developerFeaturesQuery = useAnalyticsQuery({
+		...orpc.analytics.developers.features.queryOptions({
+			input: {
+				userId: resolvedUserId ?? "",
+				days: MAX_ANALYTICS_DAYS,
+			},
+		}),
+		enabled: Boolean(resolvedUserId),
+	});
+	const developerProjectsQuery = useAnalyticsQuery({
+		...orpc.analytics.developers.projects.queryOptions({
+			input: {
+				userId: resolvedUserId ?? "",
+				days: MAX_ANALYTICS_DAYS,
+			},
+		}),
+		enabled: Boolean(resolvedUserId),
+	});
+	const commitBreakdownQuery = useAnalyticsQuery({
+		...orpc.analytics.sessions.dimensionAnalysis.queryOptions({
+			input: {
+				days: MAX_ANALYTICS_DAYS,
+				dimension: "has_commit",
+				limit: 4,
+				metric: "session_count",
+				userId: resolvedUserId ?? undefined,
+			},
+		}),
+		enabled: Boolean(resolvedUserId),
+	});
 	const visibleTeamCardRow = useMemo(
 		() =>
 			buildResolvedTeamCardRow({
@@ -173,6 +212,21 @@ export function TeamCardWalkInPage() {
 			resolvedUserId,
 			sessionUserName,
 			teamMemberRows,
+		],
+	);
+	const onboardingMetrics = useMemo(
+		() =>
+			buildWalkInOnboardingMetrics({
+				commitBreakdown: commitBreakdownQuery.data,
+				developerDetails: developerDetailsQuery.data,
+				developerFeatures: developerFeaturesQuery.data,
+				developerProjects: developerProjectsQuery.data,
+			}),
+		[
+			commitBreakdownQuery.data,
+			developerDetailsQuery.data,
+			developerFeaturesQuery.data,
+			developerProjectsQuery.data,
 		],
 	);
 	const currentUserRow = useMemo(
@@ -243,6 +297,9 @@ export function TeamCardWalkInPage() {
 				maskTint: "black",
 				rainbowShineOpacity: 0,
 				textTone: "muted-white",
+				tileBaseOpacity: 0,
+				tileFillOpacity: 0.05,
+				tileFillTint: "black",
 				textureOpacity: 0,
 				whiteMaskOpacity: 0.05,
 			};
@@ -436,6 +493,7 @@ export function TeamCardWalkInPage() {
 			distinctProjectCount={developerDetailsQuery.data?.distinct_projects ?? 0}
 			displayName={visibleTeamCardRow.displayName}
 			finalStage={finalStage}
+			onboardingMetrics={onboardingMetrics}
 			totalSessions={visibleTeamCardRow.totalSessions}
 		/>
 	);
@@ -654,6 +712,41 @@ function buildWalkInStatItems(
 	];
 }
 
+function buildWalkInOnboardingMetrics(input: {
+	commitBreakdown: readonly DimensionAnalysisDataPoint[] | undefined;
+	developerDetails: DeveloperDetails | undefined;
+	developerFeatures: DeveloperFeatureUsage | undefined;
+	developerProjects: readonly DeveloperProject[] | undefined;
+}): WalkInOnboardingMetrics {
+	const {
+		commitBreakdown,
+		developerDetails,
+		developerFeatures,
+		developerProjects,
+	} = input;
+	const totalSessions = developerDetails?.total_sessions ?? 0;
+	const commitSessions = findBooleanDimensionCount(commitBreakdown, true);
+	const topProject = findTopProject(developerProjects);
+
+	return {
+		commitRate:
+			totalSessions > 0 ? (commitSessions / totalSessions) * 100 : null,
+		skillsAdoptionRate: developerFeatures?.skills_adoption_rate ?? null,
+		slashCommandsAdoptionRate:
+			developerFeatures?.slash_commands_adoption_rate ?? null,
+		subagentsAdoptionRate: developerFeatures?.subagents_adoption_rate ?? null,
+		successRate: developerDetails?.success_rate ?? null,
+		topProjectName: getProjectDisplayName(topProject),
+		topProjectSessions: topProject?.sessions ?? 0,
+		topProjectTokens: topProject?.total_tokens ?? 0,
+		topSkill: formatWalkInLabel(developerFeatures?.top_skills[0]?.name),
+		topSlashCommand: formatWalkInLabel(
+			developerFeatures?.top_slash_commands[0]?.name,
+		),
+		topSubagent: formatWalkInLabel(developerFeatures?.top_subagents[0]?.name),
+	};
+}
+
 function getSessionUserId(
 	session: ReturnType<typeof useWalkInCardData>["session"],
 ) {
@@ -751,4 +844,67 @@ function getSourceSharePercent(
 		sourceSplit.find((sourceEntry) => sourceEntry.source === source)
 			?.session_share_percent ?? 0
 	);
+}
+
+function formatWalkInLabel(value: string | undefined) {
+	const trimmedValue = value?.trim();
+
+	if (!trimmedValue) {
+		return null;
+	}
+
+	return trimmedValue
+		.replaceAll(/[_-]+/g, " ")
+		.replaceAll(/\s+/g, " ")
+		.trim()
+		.replaceAll(/\b\w/g, (character) => character.toUpperCase());
+}
+
+function getMetricValue(row: DimensionAnalysisDataPoint) {
+	return Number(row.metric_value) || 0;
+}
+
+function findBooleanDimensionCount(
+	rows: readonly DimensionAnalysisDataPoint[] | undefined,
+	target: boolean,
+) {
+	const match = rows?.find((row) => {
+		const normalizedValue = row.dimension_value.trim().toLowerCase();
+		return target
+			? normalizedValue === "true" || normalizedValue === "1"
+			: normalizedValue === "false" || normalizedValue === "0";
+	});
+
+	return match ? getMetricValue(match) : 0;
+}
+
+function findTopProject(projects: readonly DeveloperProject[] | undefined) {
+	return [...(projects ?? [])].sort(
+		(leftRow, rightRow) =>
+			rightRow.total_tokens - leftRow.total_tokens ||
+			rightRow.sessions - leftRow.sessions ||
+			leftRow.project_path.localeCompare(rightRow.project_path),
+	)[0];
+}
+
+function getProjectDisplayName(project: DeveloperProject | undefined) {
+	if (!project) {
+		return null;
+	}
+
+	const packageName = project.package_name?.trim();
+
+	if (packageName) {
+		return packageName;
+	}
+
+	const remoteName = project.git_remote?.split("/").pop()?.trim();
+
+	if (remoteName) {
+		return remoteName.replace(/\.git$/i, "");
+	}
+
+	const projectPath = project.project_path?.trim();
+
+	return projectPath || null;
 }

@@ -28,6 +28,8 @@ const portraitPlaceholderInitialsClassName =
 	"font-extrabold leading-none tracking-[-0.08em] text-black/66";
 
 const STAT_SURFACE_BLEED_PX = 10;
+const STAT_RAINBOW_MASK_IMAGE =
+	"radial-gradient(140% 120% at var(--walk-in-card-stat-mask-x, 50%) var(--walk-in-card-stat-mask-y, 18%), rgb(0 0 0 / var(--walk-in-card-stat-mask-alpha-near, 0.54)) 0%, rgb(0 0 0 / var(--walk-in-card-stat-mask-alpha-mid, 0.34)) 22%, rgb(0 0 0 / var(--walk-in-card-stat-mask-alpha-far, 0.08)) 54%, rgb(0 0 0 / 0) 86%)";
 
 const statSectionSurfaceStyle = {
 	"--walk-in-team-card-stat-surface-texture": `url(${statSectionTextureWebp})`,
@@ -64,9 +66,12 @@ export interface WalkInTeamMemberCardStatLayerOpacities {
 	hideTextureImage?: boolean;
 	maskTint?: "black" | "white";
 	rainbowShineOpacity: number;
+	tileBaseOpacity?: number;
+	tileBaseTint?: "black" | "white";
 	textTone?: "default" | "muted-white";
 	tileBorderOpacity: number;
 	tileFillOpacity: number;
+	tileFillTint?: "black" | "white";
 	tileInsetShadowOpacity: number;
 	tileTopStrokeOpacity: number;
 	textureOpacity: number;
@@ -77,9 +82,12 @@ const DEFAULT_STAT_LAYER_OPACITIES: WalkInTeamMemberCardStatLayerOpacities = {
 	hideTextureImage: false,
 	maskTint: "white",
 	rainbowShineOpacity: 0.38,
+	tileBaseOpacity: 0.74,
+	tileBaseTint: "white",
 	textTone: "default",
 	tileBorderOpacity: 1,
 	tileFillOpacity: 0.04,
+	tileFillTint: "white",
 	tileInsetShadowOpacity: 0.53,
 	tileTopStrokeOpacity: 0.1,
 	textureOpacity: 1,
@@ -137,8 +145,15 @@ export function WalkInTeamMemberCard(props: {
 		1 - statLayerOpacities.textureOpacity;
 	const maskRgb =
 		statLayerOpacities.maskTint === "black" ? "0 0 0" : "255 255 255";
+	const tileBaseRgb =
+		statLayerOpacities.tileBaseTint === "black" ? "0 0 0" : "255 255 255";
+	const tileFillRgb =
+		statLayerOpacities.tileFillTint === "black" ? "0 0 0" : "255 255 255";
+	const statTileBaseStyle: CSSProperties = {
+		backgroundColor: `rgb(${tileBaseRgb} / ${statLayerOpacities.tileBaseOpacity ?? 0})`,
+	};
 	const statTileLayerStyle: CSSProperties = {
-		backgroundColor: `rgb(255 255 255 / ${statLayerOpacities.tileFillOpacity})`,
+		backgroundColor: `rgb(${tileFillRgb} / ${statLayerOpacities.tileFillOpacity})`,
 		boxShadow: `0 1px 0 rgb(255 255 255 / ${statLayerOpacities.tileTopStrokeOpacity * borderLayerOpacity}), inset 0 0.5px 0.5px rgb(0 0 0 / ${statLayerOpacities.tileInsetShadowOpacity * borderLayerOpacity})`,
 	};
 	const cardShellLayoutStyle: CSSProperties = {
@@ -425,7 +440,7 @@ export function WalkInTeamMemberCard(props: {
 							<div
 								key={stat.key}
 								className={cn(
-									"relative z-10 min-w-0 overflow-hidden bg-white/74",
+									"relative z-10 min-w-0 overflow-hidden",
 									statTileClassName,
 								)}
 								ref={(node) => {
@@ -433,6 +448,7 @@ export function WalkInTeamMemberCard(props: {
 								}}
 								style={{
 									...statSurfaceStyles[stat.key],
+									...statTileBaseStyle,
 									...statTileStyle,
 								}}
 								title={stat.title}
@@ -467,14 +483,12 @@ export function WalkInTeamMemberCard(props: {
 										backgroundRepeat: "no-repeat",
 										backgroundSize:
 											"var(--walk-in-team-card-stat-surface-size)",
-										maskImage:
-											"radial-gradient(140% 120% at var(--walk-in-card-stat-mask-x, 50%) var(--walk-in-card-stat-mask-y, 18%), rgb(0 0 0 / 0.96) 0%, rgb(0 0 0 / 0.84) 22%, rgb(0 0 0 / 0.36) 54%, rgb(0 0 0 / 0) 86%)",
+										maskImage: STAT_RAINBOW_MASK_IMAGE,
 										maskPosition:
 											"var(--walk-in-team-card-stat-surface-position)",
 										maskRepeat: "no-repeat",
 										maskSize: "var(--walk-in-team-card-stat-surface-size)",
-										WebkitMaskImage:
-											"radial-gradient(140% 120% at var(--walk-in-card-stat-mask-x, 50%) var(--walk-in-card-stat-mask-y, 18%), rgb(0 0 0 / 0.96) 0%, rgb(0 0 0 / 0.84) 22%, rgb(0 0 0 / 0.36) 54%, rgb(0 0 0 / 0) 86%)",
+										WebkitMaskImage: STAT_RAINBOW_MASK_IMAGE,
 										WebkitMaskPosition:
 											"var(--walk-in-team-card-stat-surface-position)",
 										WebkitMaskRepeat: "no-repeat",
