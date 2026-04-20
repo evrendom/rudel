@@ -10,6 +10,7 @@ import {
 } from "@/features/team/use-team-page-data";
 import { TeamCardWalkInOnboarding } from "@/features/walk-in/team-card-walk-in-onboarding";
 import { useWalkInCardData } from "@/features/walk-in/use-walk-in-card-data";
+import { useWalkInCardTilt } from "@/features/walk-in/use-walk-in-card-tilt";
 import {
 	TEAM_CARD_PREVIEW_ACTIONS,
 	WalkInPreviewColumn,
@@ -28,6 +29,7 @@ import {
 } from "@/lib/format";
 import { orpc } from "@/lib/orpc";
 import "@/features/walk-in/walk-in-clone.css";
+import { authClient } from "@/lib/auth-client";
 
 interface WalkInArchetypeCardTheme {
 	id: string;
@@ -76,6 +78,13 @@ const WALK_IN_ARCHETYPE_CARD_THEMES = [
 		theme: "light",
 	},
 	{
+		id: "decimal",
+		label: "Decimal",
+		shellClassName:
+			"bg-[linear-gradient(180deg,_#F7E08B_0%,_#D4AF37_42%,_#9C7415_100%)]",
+		theme: "light",
+	},
+	{
 		id: "tourist",
 		label: "Tourist",
 		shellClassName:
@@ -114,10 +123,14 @@ export function TeamCardWalkInPage() {
 		wrappedDataState,
 	} = useWalkInCardData();
 	const { teamMemberRows } = useTeamPageData();
+	const tiltController = useWalkInCardTilt();
 	const sessionUserId = getSessionUserId(session);
 	const sessionUserName = getSessionUserName(session);
 	const sessionUserEmail = getSessionUserEmail(session);
-	const sessionUserImage = getSessionUserImage(session);
+	const debugProfileImageSrc = handover.preview.profile.avatarSrc;
+	const { data: activeMember } = authClient.useActiveMember();
+	const activeMemberUserId = getActiveMemberUserId(activeMember);
+	const resolvedUserId = sessionUserId ?? activeMemberUserId;
 	const [activeArchetypeIndex, setActiveArchetypeIndex] = useState(0);
 	const dialValues = useDialKit("Walk-in Team Card", {
 		card: {
@@ -127,7 +140,7 @@ export function TeamCardWalkInPage() {
 			borderOpacity: [1, 0, 1, 0.01],
 			fillOpacity: [0, 0, 1, 0.01],
 			insetShadowOpacity: [0.66, 0, 1, 0.01],
-			shineOpacity: [0.39, 0, 1, 0.01],
+			shineOpacity: [1, 0, 1, 0.01],
 			textureOpacity: [0.81, 0, 1, 0.01],
 			topStrokeOpacity: [0, 0, 1, 0.01],
 		},
@@ -135,32 +148,51 @@ export function TeamCardWalkInPage() {
 	const developerDetailsQuery = useAnalyticsQuery({
 		...orpc.analytics.developers.details.queryOptions({
 			input: {
-				userId: sessionUserId ?? "",
+				userId: resolvedUserId ?? "",
 				days: MAX_ANALYTICS_DAYS,
 			},
 		}),
-		enabled: Boolean(sessionUserId),
+		enabled: Boolean(resolvedUserId),
 	});
 	const visibleTeamCardRow = useMemo(
 		() =>
 			buildResolvedTeamCardRow({
 				accountLabel,
+				debugProfileImageSrc,
 				developerDetails: developerDetailsQuery.data,
 				sessionUserEmail,
-				sessionUserId,
-				sessionUserImage,
+				sessionUserId: resolvedUserId,
 				sessionUserName,
 				teamMemberRows,
 			}),
 		[
 			accountLabel,
+			debugProfileImageSrc,
 			developerDetailsQuery.data,
 			sessionUserEmail,
-			sessionUserId,
-			sessionUserImage,
+			resolvedUserId,
 			sessionUserName,
 			teamMemberRows,
 		],
+	);
+	const currentUserRow = useMemo(
+		() =>
+			findCurrentUserRow({
+				sessionUserEmail,
+				sessionUserId: resolvedUserId,
+				teamMemberRows,
+			}),
+		[sessionUserEmail, resolvedUserId, teamMemberRows],
+	);
+	const resolvedDisplayNameDebug = useMemo(
+		() =>
+			resolveTeamCardDisplayName({
+				accountLabel,
+				currentUserRow,
+				sessionUserEmail,
+				sessionUserName,
+			}),
+		[accountLabel, currentUserRow, sessionUserEmail, sessionUserName],
 	);
 	const activeArchetype = WALK_IN_ARCHETYPE_CARD_THEMES[activeArchetypeIndex];
 	const headerLeftMetric = useMemo<WalkInTeamMemberCardHeaderMetric>(
@@ -190,30 +222,46 @@ export function TeamCardWalkInPage() {
 			wrappedData?.metrics.source_split,
 		],
 	);
-	const statLayerOpacities = useMemo<WalkInTeamMemberCardStatLayerOpacities>(
-		() => ({
-			rainbowShineOpacity: dialValues.statLayers.shineOpacity,
-			tileBorderOpacity: dialValues.statLayers.borderOpacity,
-			tileFillOpacity: dialValues.statLayers.fillOpacity,
-			tileInsetShadowOpacity: dialValues.statLayers.insetShadowOpacity,
-			tileTopStrokeOpacity: dialValues.statLayers.topStrokeOpacity,
-			textureOpacity: dialValues.statLayers.textureOpacity,
-		}),
-		[
+	const statLayerOpacities =
+		useMemo<WalkInTeamMemberCardStatLayerOpacities>(() => {
+			const baseStatLayerOpacities: WalkInTeamMemberCardStatLayerOpacities = {
+				rainbowShineOpacity: dialValues.statLayers.shineOpacity,
+				tileBorderOpacity: dialValues.statLayers.borderOpacity,
+				tileFillOpacity: dialValues.statLayers.fillOpacity,
+				tileInsetShadowOpacity: dialValues.statLayers.insetShadowOpacity,
+				tileTopStrokeOpacity: dialValues.statLayers.topStrokeOpacity,
+				textureOpacity: dialValues.statLayers.textureOpacity,
+			};
+
+			if (activeArchetype.id !== "decimal") {
+				return baseStatLayerOpacities;
+			}
+
+			return {
+				...baseStatLayerOpacities,
+				hideTextureImage: true,
+				maskTint: "black",
+				rainbowShineOpacity: 0,
+				textTone: "muted-white",
+				textureOpacity: 0,
+				whiteMaskOpacity: 0.05,
+			};
+		}, [
+			activeArchetype.id,
 			dialValues.statLayers.borderOpacity,
 			dialValues.statLayers.fillOpacity,
 			dialValues.statLayers.insetShadowOpacity,
 			dialValues.statLayers.shineOpacity,
 			dialValues.statLayers.topStrokeOpacity,
 			dialValues.statLayers.textureOpacity,
-		],
-	);
+		]);
 	const shellStyle = useMemo<WalkInTeamCardShellStyle>(
 		() => ({
-			"--team-lineup-card-grain-opacity": String(dialValues.card.grainOpacity),
+			// Temporary: hide the shell grain on the big walk-in card.
+			"--team-lineup-card-grain-opacity": "0",
 			"--team-lineup-card-grain-size": "40px",
 		}),
-		[dialValues.card.grainOpacity],
+		[],
 	);
 	useEffect(() => {
 		document.body.classList.add("mymind-walk-in-body");
@@ -222,6 +270,35 @@ export function TeamCardWalkInPage() {
 			document.body.classList.remove("mymind-walk-in-body");
 		};
 	}, []);
+	useEffect(() => {
+		console.groupCollapsed("[walk-in-team-card] name debug");
+		console.info("session", {
+			email: sessionUserEmail ?? null,
+			id: sessionUserId ?? null,
+			name: sessionUserName ?? null,
+		});
+		console.info("activeMember", {
+			userId: activeMemberUserId ?? null,
+		});
+		console.info("matchedTeamRow", {
+			displayName: currentUserRow?.displayName ?? null,
+			email: currentUserRow?.email ?? null,
+			userId: currentUserRow?.userId ?? null,
+		});
+		console.info("resolvedDisplayName", resolvedDisplayNameDebug);
+		console.info("renderedRowDisplayName", visibleTeamCardRow.displayName);
+		console.groupEnd();
+	}, [
+		currentUserRow?.displayName,
+		currentUserRow?.email,
+		currentUserRow?.userId,
+		resolvedDisplayNameDebug,
+		activeMemberUserId,
+		sessionUserEmail,
+		sessionUserId,
+		sessionUserName,
+		visibleTeamCardRow.displayName,
+	]);
 
 	const finalStage = (
 		<section className="grid min-h-full w-full items-center gap-10 lg:grid-cols-[minmax(20rem,34rem)_minmax(18rem,1fr)] lg:gap-12">
@@ -236,22 +313,65 @@ export function TeamCardWalkInPage() {
 
 					<div className="flex h-[34rem] w-full items-center justify-center sm:h-[37rem]">
 						<div className="origin-center scale-[1.42] sm:scale-[1.56] lg:scale-[1.72]">
-							<ul className="grid justify-center p-0">
-								<WalkInTeamMemberCard
-									headerLeftMetric={headerLeftMetric}
-									headerRightMetric={headerRightMetric}
-									shellClassName={activeArchetype.shellClassName}
-									shellStyle={shellStyle}
-									row={visibleTeamCardRow}
-									mediaPanelClassName="mx-auto aspect-square w-[9.875rem]"
-									statLayerOpacities={statLayerOpacities}
-									statItems={statItems}
-									statTileClassName="min-h-[26px] rounded-[9px] px-[8px] py-[1px]"
-									theme={activeArchetype.theme}
-								/>
-							</ul>
+							<div className="team-lineup-card-tilt-stage">
+								<div
+									ref={tiltController.cardTiltRef}
+									className="team-lineup-card-tilt-shell"
+									onPointerMove={tiltController.handlePointerMove}
+									onPointerLeave={tiltController.handlePointerLeave}
+									onPointerCancel={tiltController.handlePointerLeave}
+								>
+									<ul className="m-0 grid justify-center p-0">
+										<WalkInTeamMemberCard
+											headerLeftMetric={headerLeftMetric}
+											headerRightMetric={headerRightMetric}
+											shellClassName={activeArchetype.shellClassName}
+											shellStyle={shellStyle}
+											row={visibleTeamCardRow}
+											mediaPanelClassName="mx-auto aspect-square w-[9.875rem]"
+											statLayerOpacities={statLayerOpacities}
+											statItems={statItems}
+											statTileClassName="min-h-[26px] rounded-[9px] px-[8px] py-[1px]"
+											theme={activeArchetype.theme}
+										/>
+									</ul>
+								</div>
+							</div>
 						</div>
 					</div>
+
+					{tiltController.isGyroscopePromptVisible ? (
+						<div className="flex w-full max-w-[24rem] flex-col items-center gap-2">
+							<Button
+								type="button"
+								variant="outline"
+								className="min-h-[44px] rounded-full border-black/10 bg-white/82 px-4 text-[0.82rem] font-semibold tracking-[-0.02em] text-[#2d2927] shadow-[0_12px_28px_rgba(15,23,42,0.08)] hover:bg-white"
+								onClick={() => void tiltController.enableGyroscope()}
+								disabled={tiltController.gyroscopeState === "pending"}
+							>
+								{tiltController.gyroscopeState === "pending"
+									? "Enabling gyroscope…"
+									: tiltController.gyroscopeState === "blocked"
+										? "Request motion access again"
+										: tiltController.gyroscopeState === "error"
+											? "Try motion access again"
+											: "Enable gyroscope tilt"}
+							</Button>
+
+							{tiltController.gyroscopeStatusMessage ? (
+								<p className="max-w-[22rem] text-center text-[0.74rem] font-medium leading-[1.35] tracking-[-0.01em] text-black/52">
+									{tiltController.gyroscopeStatusMessage}
+								</p>
+							) : null}
+						</div>
+					) : null}
+
+					{tiltController.isGyroscopeSupported &&
+					tiltController.gyroscopeState === "active" ? (
+						<div className="rounded-full border border-emerald-500/16 bg-emerald-500/10 px-3 py-2 text-[0.76rem] font-semibold leading-none tracking-[0.1em] text-emerald-800 uppercase">
+							Gyroscope tilt live
+						</div>
+					) : null}
 
 					<div className="flex items-center gap-3">
 						<Button
@@ -322,33 +442,33 @@ export function TeamCardWalkInPage() {
 
 function buildResolvedTeamCardRow(params: {
 	accountLabel: string;
+	debugProfileImageSrc: string;
 	developerDetails: DeveloperDetails | undefined;
 	sessionUserEmail: string | undefined;
 	sessionUserId: string | undefined;
-	sessionUserImage: string | undefined;
 	sessionUserName: string | undefined;
 	teamMemberRows: readonly TeamPageMemberRow[];
 }): TeamPageMemberRow {
 	const {
 		accountLabel,
+		debugProfileImageSrc,
 		developerDetails,
 		sessionUserEmail,
 		sessionUserId,
-		sessionUserImage,
 		sessionUserName,
 		teamMemberRows,
 	} = params;
-	const currentUserRow = sessionUserId
-		? teamMemberRows.find((row) => row.userId === sessionUserId)
-		: undefined;
-	const fallbackDisplayName =
-		getMeaningfulDisplayName(sessionUserName) ||
-		getEmailHandle(sessionUserEmail) ||
-		getFallbackTeamMemberDisplayName(accountLabel);
-	const displayName =
-		getMeaningfulDisplayName(currentUserRow?.displayName) ||
-		fallbackDisplayName;
-	const imageUrl = currentUserRow?.imageUrl ?? sessionUserImage;
+	const currentUserRow = findCurrentUserRow({
+		sessionUserEmail,
+		sessionUserId,
+		teamMemberRows,
+	});
+	const { displayName } = resolveTeamCardDisplayName({
+		accountLabel,
+		currentUserRow,
+		sessionUserEmail,
+		sessionUserName,
+	});
 	const email = currentUserRow?.email ?? sessionUserEmail ?? null;
 
 	if (developerDetails && sessionUserId) {
@@ -362,7 +482,7 @@ function buildResolvedTeamCardRow(params: {
 				developerDetails.total_sessions > 0 ||
 				developerDetails.active_days > 0 ||
 				developerDetails.total_tokens > 0,
-			imageUrl,
+			imageUrl: debugProfileImageSrc,
 			inputTokens: developerDetails.input_tokens,
 			lastActiveDate: developerDetails.last_active_date,
 			outputTokens: developerDetails.output_tokens,
@@ -374,7 +494,10 @@ function buildResolvedTeamCardRow(params: {
 	}
 
 	if (currentUserRow) {
-		return currentUserRow;
+		return {
+			...currentUserRow,
+			imageUrl: debugProfileImageSrc,
+		};
 	}
 
 	return {
@@ -384,7 +507,7 @@ function buildResolvedTeamCardRow(params: {
 		email,
 		favoriteModel: null,
 		hasActivity: false,
-		imageUrl: imageUrl ?? "/walk-in-profile.png",
+		imageUrl: debugProfileImageSrc,
 		inputTokens: 0,
 		lastActiveDate: null,
 		outputTokens: 0,
@@ -393,6 +516,69 @@ function buildResolvedTeamCardRow(params: {
 		totalTokens: 0,
 		userId: sessionUserId ?? "walk-in-preview",
 	};
+}
+
+function findCurrentUserRow(input: {
+	sessionUserEmail: string | undefined;
+	sessionUserId: string | undefined;
+	teamMemberRows: readonly TeamPageMemberRow[];
+}) {
+	const { sessionUserEmail, sessionUserId, teamMemberRows } = input;
+	const normalizedSessionEmail = normalizeEmail(sessionUserEmail);
+
+	return teamMemberRows.find((row) => {
+		if (sessionUserId && row.userId === sessionUserId) {
+			return true;
+		}
+
+		return (
+			Boolean(normalizedSessionEmail) &&
+			normalizeEmail(row.email) === normalizedSessionEmail
+		);
+	});
+}
+
+function resolveTeamCardDisplayName(input: {
+	accountLabel: string;
+	currentUserRow: TeamPageMemberRow | undefined;
+	sessionUserEmail: string | undefined;
+	sessionUserName: string | undefined;
+}) {
+	const { accountLabel, currentUserRow, sessionUserEmail, sessionUserName } =
+		input;
+	const meaningfulSessionUserName = getMeaningfulDisplayName(sessionUserName);
+
+	if (meaningfulSessionUserName) {
+		return {
+			displayName: meaningfulSessionUserName,
+			source: "session.name",
+		} as const;
+	}
+
+	const emailHandle = getEmailHandle(sessionUserEmail);
+
+	if (emailHandle) {
+		return {
+			displayName: emailHandle,
+			source: "session.emailHandle",
+		} as const;
+	}
+
+	const meaningfulCurrentUserDisplayName = getMeaningfulDisplayName(
+		currentUserRow?.displayName,
+	);
+
+	if (meaningfulCurrentUserDisplayName) {
+		return {
+			displayName: meaningfulCurrentUserDisplayName,
+			source: "teamRow.displayName",
+		} as const;
+	}
+
+	return {
+		displayName: getFallbackTeamMemberDisplayName(accountLabel),
+		source: "accountLabelFallback",
+	} as const;
 }
 
 /* Temporary idea: keep the sponsor-burn logo helper commented out for now.
@@ -477,6 +663,16 @@ function getSessionUserId(
 		: undefined;
 }
 
+function getActiveMemberUserId(
+	activeMember: ReturnType<typeof authClient.useActiveMember>["data"],
+) {
+	return activeMember &&
+		"userId" in activeMember &&
+		typeof activeMember.userId === "string"
+		? activeMember.userId
+		: undefined;
+}
+
 function getFallbackTeamMemberDisplayName(accountLabel: string): string {
 	if (accountLabel.includes("@")) {
 		return accountLabel.split("@")[0] || "User";
@@ -494,6 +690,10 @@ function getEmailHandle(email: string | undefined) {
 	return emailHandle?.trim() || undefined;
 }
 
+function normalizeEmail(email: string | null | undefined) {
+	return email?.trim().toLowerCase() || undefined;
+}
+
 function getMeaningfulDisplayName(value: string | undefined) {
 	const normalizedValue = value?.trim();
 
@@ -509,16 +709,6 @@ function getMeaningfulDisplayName(value: string | undefined) {
 	}
 
 	return normalizedValue;
-}
-
-function getSessionUserImage(
-	session: ReturnType<typeof useWalkInCardData>["session"],
-) {
-	return session?.user &&
-		"image" in session.user &&
-		typeof session.user.image === "string"
-		? session.user.image
-		: undefined;
 }
 
 function getSessionUserName(

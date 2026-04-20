@@ -5,7 +5,7 @@ import statSectionTextureWebp from "@/features/walk-in/assets/team-card-stat-tex
 import { cn } from "@/lib/utils";
 
 const adaptedTeamCardShellClassName =
-	"team-lineup-featured-card relative isolate flex h-[358px] w-[233px] flex-col overflow-hidden rounded-[18px] border border-[#ECECEC] bg-[linear-gradient(180deg,#fbfcfe_0%,#f0f3f7_100%)] px-[14px] pt-[15px] pb-[10px] text-[#302d2b] shadow-[0_0_10.1px_rgba(0,0,0,0.08)]";
+	"team-lineup-featured-card relative isolate flex h-[358px] w-[233px] flex-col overflow-hidden rounded-[18px] bg-[linear-gradient(180deg,#fbfcfe_0%,#f0f3f7_100%)] px-[14px] pt-[15px] pb-[10px] text-[#302d2b] shadow-[0_0_10.1px_rgba(0,0,0,0.08)]";
 
 const adaptedTeamCardHeaderValueClassName =
 	"[font-family:var(--dashboard-01-font-roster-display)] text-[17.07px] font-extrabold leading-none tracking-[-0.01em] tabular-nums text-[#272423]";
@@ -58,24 +58,35 @@ export interface WalkInTeamMemberCardStatItem {
 }
 
 export interface WalkInTeamMemberCardStatLayerOpacities {
+	hideTextureImage?: boolean;
+	maskTint?: "black" | "white";
 	rainbowShineOpacity: number;
+	textTone?: "default" | "muted-white";
 	tileBorderOpacity: number;
 	tileFillOpacity: number;
 	tileInsetShadowOpacity: number;
 	tileTopStrokeOpacity: number;
 	textureOpacity: number;
+	whiteMaskOpacity?: number;
 }
 
 const DEFAULT_STAT_LAYER_OPACITIES: WalkInTeamMemberCardStatLayerOpacities = {
+	hideTextureImage: false,
+	maskTint: "white",
 	rainbowShineOpacity: 0.38,
+	textTone: "default",
 	tileBorderOpacity: 1,
 	tileFillOpacity: 0.04,
 	tileInsetShadowOpacity: 0.53,
 	tileTopStrokeOpacity: 0.1,
 	textureOpacity: 1,
+	whiteMaskOpacity: undefined,
 };
 
-interface WalkInTeamMemberCardStatSurfaceStyle extends CSSProperties {}
+interface WalkInTeamMemberCardStatSurfaceStyle extends CSSProperties {
+	"--walk-in-team-card-stat-surface-position"?: string;
+	"--walk-in-team-card-stat-surface-size"?: string;
+}
 
 export function WalkInTeamMemberCard(props: {
 	headerLeftMetric?: WalkInTeamMemberCardHeaderMetric;
@@ -114,7 +125,12 @@ export function WalkInTeamMemberCard(props: {
 		Record<string, WalkInTeamMemberCardStatSurfaceStyle>
 	>({});
 	const borderLayerOpacity = statLayerOpacities.tileBorderOpacity;
-	const textureFadeOpacity = 1 - statLayerOpacities.textureOpacity;
+	const statTextUsesMutedWhite = statLayerOpacities.textTone === "muted-white";
+	const whiteMaskOpacity =
+		statLayerOpacities.whiteMaskOpacity ??
+		1 - statLayerOpacities.textureOpacity;
+	const maskRgb =
+		statLayerOpacities.maskTint === "black" ? "0 0 0" : "255 255 255";
 	const statTileLayerStyle: CSSProperties = {
 		backgroundColor: `rgb(255 255 255 / ${statLayerOpacities.tileFillOpacity})`,
 		boxShadow: `0 1px 0 rgb(255 255 255 / ${statLayerOpacities.tileTopStrokeOpacity * borderLayerOpacity}), inset 0 0.5px 0.5px rgb(0 0 0 / ${statLayerOpacities.tileInsetShadowOpacity * borderLayerOpacity})`,
@@ -144,9 +160,8 @@ export function WalkInTeamMemberCard(props: {
 				const backgroundSize = `${sectionWidth + STAT_SURFACE_BLEED_PX * 2}px ${sectionHeight + STAT_SURFACE_BLEED_PX * 2}px`;
 
 				nextStyles[stat.key] = {
-					backgroundPosition: `${backgroundPosition}, ${backgroundPosition}, ${backgroundPosition}`,
-					backgroundRepeat: "no-repeat, no-repeat, no-repeat",
-					backgroundSize: `${backgroundSize}, ${backgroundSize}, ${backgroundSize}`,
+					"--walk-in-team-card-stat-surface-position": backgroundPosition,
+					"--walk-in-team-card-stat-surface-size": backgroundSize,
 				};
 			}
 
@@ -312,15 +327,62 @@ export function WalkInTeamMemberCard(props: {
 									statTileRefs.current[stat.key] = node;
 								}}
 								style={{
-									...statTileLayerStyle,
 									...statSurfaceStyles[stat.key],
-									// Texture layer temporarily disabled.
-									backgroundImage: `linear-gradient(118deg, rgba(255,255,255,0) 0%, rgba(255,107,156,${0.2 * statLayerOpacities.rainbowShineOpacity}) 14%, rgba(255,199,0,${0.2 * statLayerOpacities.rainbowShineOpacity}) 31%, rgba(102,255,191,${0.22 * statLayerOpacities.rainbowShineOpacity}) 48%, rgba(72,198,255,${0.24 * statLayerOpacities.rainbowShineOpacity}) 66%, rgba(173,127,255,${0.24 * statLayerOpacities.rainbowShineOpacity}) 82%, rgba(255,255,255,0) 100%), linear-gradient(rgb(255 255 255 / ${textureFadeOpacity}), rgb(255 255 255 / ${textureFadeOpacity}))`,
 								}}
 								title={stat.title}
 							>
+								<div
+									aria-hidden="true"
+									className="absolute inset-0 rounded-[inherit]"
+									style={{
+										...statTileLayerStyle,
+										...statSurfaceStyles[stat.key],
+										backgroundImage: [
+											`linear-gradient(rgb(${maskRgb} / ${whiteMaskOpacity}), rgb(${maskRgb} / ${whiteMaskOpacity}))`,
+											...(statLayerOpacities.hideTextureImage
+												? []
+												: ["var(--walk-in-team-card-stat-surface-texture)"]),
+										].join(", "),
+										backgroundPosition:
+											"var(--walk-in-team-card-stat-surface-position)",
+										backgroundRepeat: "no-repeat",
+										backgroundSize:
+											"var(--walk-in-team-card-stat-surface-size)",
+									}}
+								/>
+								<div
+									aria-hidden="true"
+									className="absolute inset-0 rounded-[inherit]"
+									style={{
+										...statSurfaceStyles[stat.key],
+										backgroundImage: `linear-gradient(var(--walk-in-card-stat-gloss-angle, 118deg), rgba(255,255,255,0) 0%, rgba(255,107,156,${statLayerOpacities.rainbowShineOpacity}) 14%, rgba(255,199,0,${statLayerOpacities.rainbowShineOpacity}) 31%, rgba(102,255,191,${statLayerOpacities.rainbowShineOpacity}) 48%, rgba(72,198,255,${statLayerOpacities.rainbowShineOpacity}) 66%, rgba(173,127,255,${statLayerOpacities.rainbowShineOpacity}) 82%, rgba(255,255,255,0) 100%)`,
+										backgroundPosition:
+											"var(--walk-in-team-card-stat-surface-position)",
+										backgroundRepeat: "no-repeat",
+										backgroundSize:
+											"var(--walk-in-team-card-stat-surface-size)",
+										maskImage:
+											"radial-gradient(140% 120% at var(--walk-in-card-stat-mask-x, 50%) var(--walk-in-card-stat-mask-y, 18%), rgb(0 0 0 / 0.96) 0%, rgb(0 0 0 / 0.84) 22%, rgb(0 0 0 / 0.36) 54%, rgb(0 0 0 / 0) 86%)",
+										maskPosition:
+											"var(--walk-in-team-card-stat-surface-position)",
+										maskRepeat: "no-repeat",
+										maskSize: "var(--walk-in-team-card-stat-surface-size)",
+										WebkitMaskImage:
+											"radial-gradient(140% 120% at var(--walk-in-card-stat-mask-x, 50%) var(--walk-in-card-stat-mask-y, 18%), rgb(0 0 0 / 0.96) 0%, rgb(0 0 0 / 0.84) 22%, rgb(0 0 0 / 0.36) 54%, rgb(0 0 0 / 0) 86%)",
+										WebkitMaskPosition:
+											"var(--walk-in-team-card-stat-surface-position)",
+										WebkitMaskRepeat: "no-repeat",
+										WebkitMaskSize:
+											"var(--walk-in-team-card-stat-surface-size)",
+									}}
+								/>
 								<div className="relative z-10 grid h-full translate-y-[0.5px] grid-cols-[auto_minmax(0,1fr)] items-center gap-[6px]">
-									<div className="flex h-full shrink-0 items-center gap-[4px] leading-[1] tracking-[0.08em] text-black/42">
+									<div
+										className={cn(
+											"flex h-full shrink-0 items-center gap-[4px] leading-[1] tracking-[0.08em] text-black/42",
+											statTextUsesMutedWhite ? "text-white/56" : null,
+										)}
+									>
 										{stat.icon === "claude" ? (
 											<ClaudeStatIcon />
 										) : stat.icon === "codex" ? (
@@ -328,7 +390,12 @@ export function WalkInTeamMemberCard(props: {
 										) : null}
 										{stat.label ? <span>{stat.label}</span> : null}
 									</div>
-									<div className="min-w-0 self-center text-right leading-[1] tracking-[-0.04em] tabular-nums text-[#272423]">
+									<div
+										className={cn(
+											"min-w-0 self-center text-right leading-[1] tracking-[-0.04em] tabular-nums text-[#272423]",
+											statTextUsesMutedWhite ? "text-white/72" : null,
+										)}
+									>
 										{stat.value}
 									</div>
 								</div>

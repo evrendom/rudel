@@ -1,19 +1,107 @@
 body.mymind-walk-in-body {
-	overflow: hidden;
 	background: var(--background);
 }
 
 body.mymind-walk-in-body #root {
-	min-height: 100vh;
+	min-height: 100svh;
 }
 
 .mymind-walk-in-route {
 	position: relative;
+	display: flex;
+	min-height: 100svh;
 	isolation: isolate;
-	overflow: hidden;
+	overflow-x: clip;
 	background: var(--surface);
 }
 
 .mymind-walk-in-route::before {
 	content: none;
+}
+
+.mymind-walk-in-shell {
+	min-height: 100svh;
+	padding-top: max(12px, env(safe-area-inset-top));
+	padding-right: max(16px, env(safe-area-inset-right));
+	padding-bottom: max(12px, env(safe-area-inset-bottom));
+	padding-left: max(16px, env(safe-area-inset-left));
+}
+
+.mymind-walk-in-progress {
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: center;
+	gap: 0.5rem;
+}
+
+.mymind-walk-in-progress__button {
+	min-width: 44px;
+	min-height: 44px;
+}
+
+.team-lineup-card-tilt-stage {
+	display: grid;
+	place-items: center;
+	perspective: 1600px;
+}
+
+.team-lineup-card-tilt-shell {
+	border-radius: 18px;
+	display: inline-grid;
+	overflow: clip;
+	position: relative;
+	backface-visibility: hidden;
+	--walk-in-card-tilt-glare-opacity: 0;
+	--walk-in-card-tilt-glare-x: 50%;
+	--walk-in-card-tilt-glare-y: 18%;
+	--walk-in-card-tilt-rotate-x: 0deg;
+	--walk-in-card-tilt-rotate-y: 0deg;
+	--walk-in-card-tilt-scale: 1;
+	--walk-in-card-stat-gloss-angle: 118deg;
+	--walk-in-card-stat-mask-x: 50%;
+	--walk-in-card-stat-mask-y: 18%;
+	transition:
+		transform 220ms cubic-bezier(0.22, 1, 0.36, 1),
+		box-shadow 220ms cubic-bezier(0.22, 1, 0.36, 1);
+	box-shadow: 0 28px 56px rgb(15 23 42 / 0.18);
+}
+
+.team-lineup-card-tilt-shell[data-tilt-active="true"] {
+	transform-style: preserve-3d;
+	will-change: transform;
+	transition-duration: 90ms;
+	transform: rotateX(var(--walk-in-card-tilt-rotate-x))
+		rotateY(var(--walk-in-card-tilt-rotate-y))
+		scale(var(--walk-in-card-tilt-scale));
+	box-shadow: 0 40px 76px rgb(15 23 42 / 0.24);
+}
+
+.team-lineup-card-tilt-shell::before {
+	content: "";
+	position: absolute;
+	inset: 0;
+	border-radius: 18px;
+	background: radial-gradient(
+		circle at var(--walk-in-card-tilt-glare-x) var(--walk-in-card-tilt-glare-y),
+		rgb(255 255 255 / 0.4) 0%,
+		rgb(255 255 255 / 0.08) 18%,
+		rgb(255 255 255 / 0) 44%
+	);
+	opacity: var(--walk-in-card-tilt-glare-opacity);
+	mix-blend-mode: screen;
+	pointer-events: none;
+	transform: translateZ(48px);
+	transition: opacity 180ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.team-lineup-card-tilt-shell {
+		transition: none;
+		transform: none;
+		box-shadow: 0 28px 56px rgb(15 23 42 / 0.18);
+	}
+
+	.team-lineup-card-tilt-shell::before {
+		display: none;
+	}
 }
