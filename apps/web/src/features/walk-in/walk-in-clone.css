@@ -46,7 +46,7 @@ body.mymind-walk-in-body #root {
 }
 
 .team-lineup-card-tilt-shell {
-	border-radius: 18px;
+	border-radius: calc(var(--walk-in-card-render-scale, 1) * 18px);
 	display: inline-grid;
 	overflow: clip;
 	position: relative;
@@ -63,7 +63,8 @@ body.mymind-walk-in-body #root {
 	transition:
 		transform 220ms cubic-bezier(0.22, 1, 0.36, 1),
 		box-shadow 220ms cubic-bezier(0.22, 1, 0.36, 1);
-	box-shadow: 0 28px 56px rgb(15 23 42 / 0.18);
+	box-shadow: 0 calc(var(--walk-in-card-render-scale, 1) * 28px)
+		calc(var(--walk-in-card-render-scale, 1) * 56px) rgb(15 23 42 / 0.18);
 }
 
 .team-lineup-card-tilt-shell[data-tilt-active="true"] {
@@ -73,14 +74,15 @@ body.mymind-walk-in-body #root {
 	transform: rotateX(var(--walk-in-card-tilt-rotate-x))
 		rotateY(var(--walk-in-card-tilt-rotate-y))
 		scale(var(--walk-in-card-tilt-scale));
-	box-shadow: 0 40px 76px rgb(15 23 42 / 0.24);
+	box-shadow: 0 calc(var(--walk-in-card-render-scale, 1) * 40px)
+		calc(var(--walk-in-card-render-scale, 1) * 76px) rgb(15 23 42 / 0.24);
 }
 
 .team-lineup-card-tilt-shell::before {
 	content: "";
 	position: absolute;
 	inset: 0;
-	border-radius: 18px;
+	border-radius: calc(var(--walk-in-card-render-scale, 1) * 18px);
 	background: radial-gradient(
 		circle at var(--walk-in-card-tilt-glare-x) var(--walk-in-card-tilt-glare-y),
 		rgb(255 255 255 / 0.4) 0%,
@@ -90,7 +92,7 @@ body.mymind-walk-in-body #root {
 	opacity: var(--walk-in-card-tilt-glare-opacity);
 	mix-blend-mode: screen;
 	pointer-events: none;
-	transform: translateZ(48px);
+	transform: translateZ(calc(var(--walk-in-card-render-scale, 1) * 48px));
 	transition: opacity 180ms ease;
 }
 
@@ -98,7 +100,8 @@ body.mymind-walk-in-body #root {
 	.team-lineup-card-tilt-shell {
 		transition: none;
 		transform: none;
-		box-shadow: 0 28px 56px rgb(15 23 42 / 0.18);
+		box-shadow: 0 calc(var(--walk-in-card-render-scale, 1) * 28px)
+			calc(var(--walk-in-card-render-scale, 1) * 56px) rgb(15 23 42 / 0.18);
 	}
 
 	.team-lineup-card-tilt-shell::before {

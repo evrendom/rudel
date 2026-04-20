@@ -311,27 +311,28 @@ export function TeamCardWalkInPage() {
 					</div>
 					*/}
 
-					<div className="flex h-[34rem] w-full items-center justify-center sm:h-[37rem]">
-						<div className="origin-center scale-[1.42] sm:scale-[1.56] lg:scale-[1.72]">
-							<div className="team-lineup-card-tilt-stage">
-								<div
-									ref={tiltController.cardTiltRef}
-									className="team-lineup-card-tilt-shell"
-									onPointerMove={tiltController.handlePointerMove}
-									onPointerLeave={tiltController.handlePointerLeave}
-									onPointerCancel={tiltController.handlePointerLeave}
-								>
+					<div className="flex h-[34rem] w-full items-center justify-center sm:h-[37rem] lg:h-[39rem]">
+						<div className="team-lineup-card-tilt-stage">
+							<div
+								ref={tiltController.cardTiltRef}
+								className="team-lineup-card-tilt-shell [--walk-in-card-render-scale:1.42] sm:[--walk-in-card-render-scale:1.56] lg:[--walk-in-card-render-scale:1.72]"
+								onPointerMove={tiltController.handlePointerMove}
+								onPointerLeave={tiltController.handlePointerLeave}
+								onPointerCancel={tiltController.handlePointerLeave}
+							>
+								<div className="grid justify-center">
 									<ul className="m-0 grid justify-center p-0">
 										<WalkInTeamMemberCard
 											headerLeftMetric={headerLeftMetric}
 											headerRightMetric={headerRightMetric}
+											layoutPreset="team-card-preview"
 											shellClassName={activeArchetype.shellClassName}
 											shellStyle={shellStyle}
 											row={visibleTeamCardRow}
-											mediaPanelClassName="mx-auto aspect-square w-[9.875rem]"
+											mediaPanelClassName="mx-auto"
 											statLayerOpacities={statLayerOpacities}
 											statItems={statItems}
-											statTileClassName="min-h-[26px] rounded-[9px] px-[8px] py-[1px]"
+											statTileClassName=""
 											theme={activeArchetype.theme}
 										/>
 									</ul>
