@@ -314,7 +314,8 @@ export function WalkInTeamMemberCard(props: {
 								style={{
 									...statTileLayerStyle,
 									...statSurfaceStyles[stat.key],
-									backgroundImage: `linear-gradient(118deg, rgba(255,255,255,0) 0%, rgba(255,107,156,${0.2 * statLayerOpacities.rainbowShineOpacity}) 14%, rgba(255,199,0,${0.2 * statLayerOpacities.rainbowShineOpacity}) 31%, rgba(102,255,191,${0.22 * statLayerOpacities.rainbowShineOpacity}) 48%, rgba(72,198,255,${0.24 * statLayerOpacities.rainbowShineOpacity}) 66%, rgba(173,127,255,${0.24 * statLayerOpacities.rainbowShineOpacity}) 82%, rgba(255,255,255,0) 100%), linear-gradient(rgb(255 255 255 / ${textureFadeOpacity}), rgb(255 255 255 / ${textureFadeOpacity})), var(--walk-in-team-card-stat-surface-texture)`,
+									// Texture layer temporarily disabled.
+									backgroundImage: `linear-gradient(118deg, rgba(255,255,255,0) 0%, rgba(255,107,156,${0.2 * statLayerOpacities.rainbowShineOpacity}) 14%, rgba(255,199,0,${0.2 * statLayerOpacities.rainbowShineOpacity}) 31%, rgba(102,255,191,${0.22 * statLayerOpacities.rainbowShineOpacity}) 48%, rgba(72,198,255,${0.24 * statLayerOpacities.rainbowShineOpacity}) 66%, rgba(173,127,255,${0.24 * statLayerOpacities.rainbowShineOpacity}) 82%, rgba(255,255,255,0) 100%), linear-gradient(rgb(255 255 255 / ${textureFadeOpacity}), rgb(255 255 255 / ${textureFadeOpacity}))`,
 								}}
 								title={stat.title}
 							>

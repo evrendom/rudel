@@ -22,13 +22,16 @@ function App() {
 	const location = useLocation();
 	const { data: session, isPending } = authClient.useSession();
 	const deviceUserCode = getDeviceUserCode(location.search);
+	const walkInTeamCardPath = appRoutes.walkInTeamCard();
+	const isWalkInTeamCardPath =
+		location.pathname === walkInTeamCardPath ||
+		location.pathname.startsWith(`${walkInTeamCardPath}/`);
 	const rootRedirectTarget =
 		getValidRedirect(location.search) ??
 		(location.pathname === "/"
 			? getPendingSignupRedirect(location.search)
 			: null);
-	const showDesktopOnlyOverlay =
-		!deviceUserCode && location.pathname !== appRoutes.walkInTeamCard();
+	const showDesktopOnlyOverlay = !deviceUserCode && !isWalkInTeamCardPath;
 
 	if (deviceUserCode) {
 		return (
@@ -57,7 +60,7 @@ function App() {
 		);
 	}
 
-	if (location.pathname === appRoutes.walkInTeamCard()) {
+	if (isWalkInTeamCardPath) {
 		return (
 			<>
 				<ProductAnalyticsSessionSync session={session} />

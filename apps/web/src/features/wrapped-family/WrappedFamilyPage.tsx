@@ -1,5 +1,5 @@
-import { WrappedFamilySpendScene } from "@/features/wrapped-family/WrappedFamilySpendScene";
 import { useWrappedFamilySpendData } from "@/features/wrapped-family/useWrappedFamilySpendData";
+import { WrappedFamilySpendScene } from "@/features/wrapped-family/WrappedFamilySpendScene";
 import "@/features/wrapped-family/wrapped-family.css";
 
 export function WrappedFamilyPage() {
@@ -9,7 +9,7 @@ export function WrappedFamilyPage() {
 		return (
 			<div className="wf-spend-status-screen">
 				<div className="wf-spend-status-card">
-					<p className="wf-spend-status-eyebrow">Wrapped // Flight Mode</p>
+					<p className="wf-spend-status-eyebrow">{"Wrapped // Flight Mode"}</p>
 					<h1 className="wf-spend-status-title">Loading spend story</h1>
 					<p className="wf-spend-status-copy">
 						Pulling your real analytics before the board lights up.
@@ -23,7 +23,7 @@ export function WrappedFamilyPage() {
 		return (
 			<div className="wf-spend-status-screen">
 				<div className="wf-spend-status-card">
-					<p className="wf-spend-status-eyebrow">Wrapped // Flight Mode</p>
+					<p className="wf-spend-status-eyebrow">{"Wrapped // Flight Mode"}</p>
 					<h1 className="wf-spend-status-title">Spend story unavailable</h1>
 					<p className="wf-spend-status-copy">
 						{error instanceof Error && error.message.trim().length > 0

@@ -268,7 +268,7 @@ export function WrappedTunnelCanvas({
 				new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]),
 				gl.STATIC_DRAW,
 			);
-			const applyProgram = gl["useProgram"].bind(gl);
+			const applyProgram = gl.useProgram.bind(gl);
 
 			applyProgram(program);
 			gl.enableVertexAttribArray(positionLocation);

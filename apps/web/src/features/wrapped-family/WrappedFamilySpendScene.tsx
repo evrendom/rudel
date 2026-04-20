@@ -1,7 +1,7 @@
-import { ArrowLeft, Plane } from "lucide-react";
-import { MotionPathPlugin } from "gsap/MotionPathPlugin";
-import { CustomEase } from "gsap/CustomEase";
 import { gsap } from "gsap";
+import { CustomEase } from "gsap/CustomEase";
+import { MotionPathPlugin } from "gsap/MotionPathPlugin";
+import { ArrowLeft, Plane } from "lucide-react";
 import * as React from "react";
 import { Link } from "react-router-dom";
 import { appRoutes } from "@/app/routes";
@@ -19,6 +19,11 @@ CustomEase.create("wfFlightyCount", "M0,0 C0.15,0.72 0.08,1 1,1");
 
 const BOARD_CELL_COUNT = 14;
 const BAR_COUNT = 11;
+const BOARD_CELL_IDS = Array.from(
+	{ length: BOARD_CELL_COUNT },
+	(_, index) => `cell-${index}`,
+);
+const BAR_IDS = Array.from({ length: BAR_COUNT }, (_, index) => `bar-${index}`);
 
 type BoardRow = {
 	id: string;
@@ -102,8 +107,7 @@ function getBoardRows(story: WrappedFamilySpendStory): BoardRow[] {
 function getBarHeights(normalizedSpend: number) {
 	return Array.from({ length: BAR_COUNT }, (_, index) => {
 		const centerBias =
-			1 -
-			Math.abs(index - (BAR_COUNT - 1) / 2) / Math.max(BAR_COUNT - 1, 1);
+			1 - Math.abs(index - (BAR_COUNT - 1) / 2) / Math.max(BAR_COUNT - 1, 1);
 		const wave = Math.sin(index * 0.82 + normalizedSpend * Math.PI * 1.8) * 0.1;
 		const height = 0.24 + normalizedSpend * 0.52 + centerBias * 0.16 + wave;
 
@@ -150,7 +154,7 @@ export function WrappedFamilySpendScene({
 		let bestIndex = 0;
 
 		barHeights.forEach((height, index) => {
-			if (height > barHeights[bestIndex]!) {
+			if (height > (barHeights[bestIndex] ?? Number.NEGATIVE_INFINITY)) {
 				bestIndex = index;
 			}
 		});
@@ -190,23 +194,26 @@ export function WrappedFamilySpendScene({
 		}
 
 		const ctx = gsap.context(() => {
-			const boardRowElements =
-				gsap.utils.toArray<HTMLElement>(".wf-flighty__board-row");
+			const boardRowElements = gsap.utils.toArray<HTMLElement>(
+				".wf-flighty__board-row",
+			);
 			const copyElements = gsap.utils.toArray<HTMLElement>(
 				".wf-flighty__brand, .wf-flighty__kicker, .wf-flighty__headline, .wf-flighty__lede, .wf-flighty__summary-card",
 			);
 			const visualElements = gsap.utils.toArray<HTMLElement>(
 				".wf-flighty__glow, .wf-flighty__device-shell",
 			);
-			const deviceScreen =
-				scopeElement.querySelector<HTMLElement>(".wf-flighty__device-screen");
-			const chipElements =
-				gsap.utils.toArray<HTMLElement>(".wf-flighty__chip");
+			const deviceScreen = scopeElement.querySelector<HTMLElement>(
+				".wf-flighty__device-screen",
+			);
+			const chipElements = gsap.utils.toArray<HTMLElement>(".wf-flighty__chip");
 			const barElements = gsap.utils.toArray<HTMLElement>(".wf-flighty__bar");
-			const routePathElement =
-				scopeElement.querySelector<SVGPathElement>("#wf-flighty-route-path");
-			const routePlaneElement =
-				scopeElement.querySelector<HTMLElement>(".wf-flighty__route-plane");
+			const routePathElement = scopeElement.querySelector<SVGPathElement>(
+				"#wf-flighty-route-path",
+			);
+			const routePlaneElement = scopeElement.querySelector<HTMLElement>(
+				".wf-flighty__route-plane",
+			);
 
 			gsap.set(scopeElement, {
 				"--wf-flight-glow": 0.22,
@@ -329,8 +336,7 @@ export function WrappedFamilySpendScene({
 				.to(
 					barElements,
 					{
-						autoAlpha: (index) =>
-							index <= highlightedBarIndex ? 0.94 : 0.72,
+						autoAlpha: (index) => (index <= highlightedBarIndex ? 0.94 : 0.72),
 						duration: prefersReducedMotion ? 0.18 : 0.72,
 						ease: "power3.out",
 						scaleY: (index) => barHeights[index] ?? 0.3,
@@ -458,8 +464,11 @@ export function WrappedFamilySpendScene({
 				{boardRows.map((row) => (
 					<div key={row.id} className="wf-flighty__board-row">
 						<div className="wf-flighty__board-cells">
-							{Array.from({ length: BOARD_CELL_COUNT }, (_, index) => (
-								<span key={`${row.id}-${index}`} className="wf-flighty__board-cell" />
+							{BOARD_CELL_IDS.map((cellId) => (
+								<span
+									key={`${row.id}-${cellId}`}
+									className="wf-flighty__board-cell"
+								/>
 							))}
 						</div>
 						<div className="wf-flighty__board-copy">
@@ -486,7 +495,9 @@ export function WrappedFamilySpendScene({
 							<Plane size={20} strokeWidth={2.2} />
 						</div>
 						<div className="wf-flighty__brand-copy">
-							<p className="wf-flighty__brand-label">Wrapped // Flight Mode</p>
+							<p className="wf-flighty__brand-label">
+								{"Wrapped // Flight Mode"}
+							</p>
 							<p className="wf-flighty__brand-value">{story.periodLabel}</p>
 						</div>
 					</div>
@@ -512,7 +523,10 @@ export function WrappedFamilySpendScene({
 					</div>
 				</section>
 
-				<section className="wf-flighty__visual" aria-label="Flighty-inspired spend display">
+				<section
+					className="wf-flighty__visual"
+					aria-label="Flighty-inspired spend display"
+				>
 					<div className="wf-flighty__device-shell">
 						<div className="wf-flighty__device">
 							<div className="wf-flighty__device-screen">
@@ -523,7 +537,9 @@ export function WrappedFamilySpendScene({
 											{story.periodLabel}
 										</p>
 									</div>
-									<div className="wf-flighty__signal">{story.spendDescriptor}</div>
+									<div className="wf-flighty__signal">
+										{story.spendDescriptor}
+									</div>
 								</div>
 
 								<div className="wf-flighty__amount-block">
@@ -533,7 +549,8 @@ export function WrappedFamilySpendScene({
 									</p>
 									<p className="wf-flighty__amount-copy">
 										Signals grow warmer as spend climbs. Your season closed with{" "}
-										{formatCompactWholeNumber(story.totalTokens)} tokens processed.
+										{formatCompactWholeNumber(story.totalTokens)} tokens
+										processed.
 									</p>
 								</div>
 
@@ -585,15 +602,15 @@ export function WrappedFamilySpendScene({
 								</div>
 
 								<div className="wf-flighty__chart" aria-hidden="true">
-									{barHeights.map((height, index) => (
+									{BAR_IDS.map((barId, index) => (
 										<span
-											key={`bar-${index}`}
+											key={barId}
 											className={`wf-flighty__bar${
 												index === highlightedBarIndex ? " is-highlight" : ""
 											}`}
 											style={
 												{
-													"--wf-bar-target": height,
+													"--wf-bar-target": barHeights[index] ?? 0,
 												} as React.CSSProperties
 											}
 										/>

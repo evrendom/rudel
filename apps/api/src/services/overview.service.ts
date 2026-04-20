@@ -6,14 +6,12 @@ import type {
 	UserDailyTrendData,
 	UserTokenUsageData,
 } from "@rudel/api-routes";
-import { user } from "@rudel/sql-schema";
-import { eq } from "drizzle-orm";
 import {
 	buildAbsoluteDateFilter,
 	buildDateFilter,
 	queryClickhouse,
 } from "../clickhouse.js";
-import { db } from "../db.js";
+import { sqlClient } from "../db.js";
 import { buildEstimatedCostSql } from "./pricing.service.js";
 
 export interface Insight {
@@ -22,14 +20,6 @@ export interface Insight {
 	message: string;
 	link: string;
 }
-
-const PER_SESSION_COST_SQL = buildEstimatedCostSql({
-	modelExpr: "model_used",
-	inputExpr: "ifNull(input_tokens, 0)",
-	outputExpr: "ifNull(output_tokens, 0)",
-	cacheReadInputExpr: "ifNull(cache_read_input_tokens, 0)",
-	cacheCreationInputExpr: "ifNull(cache_creation_input_tokens, 0)",
-});
 
 const USER_USAGE_PER_SESSION_COST_SQL = buildEstimatedCostSql({
 	modelExpr: "sa.model_used",
@@ -530,11 +520,12 @@ export async function getOverviewInsights(
 	// Insight 2: Top performer identification
 	if (topPerformerData.length > 0 && topPerformerData[0]) {
 		const performer = topPerformerData[0];
-		const [userData] = await db
-			.select({ name: user.name })
-			.from(user)
-			.where(eq(user.id, performer.user_id))
-			.limit(1);
+		const [userData] = await sqlClient<Array<{ name: string | null }>>`
+			SELECT name
+			FROM "user"
+			WHERE id = ${performer.user_id}
+			LIMIT 1
+		`;
 		const displayName =
 			userData?.name || `${performer.user_id.substring(0, 8)}...`;
 

@@ -99,7 +99,8 @@ function getSpendPalette(normalizedSpend: number) {
 }
 
 export function useWrappedFamilySpendData(): WrappedFamilySpendState {
-	const { data: session, isPending: isSessionPending } = authClient.useSession();
+	const { data: session, isPending: isSessionPending } =
+		authClient.useSession();
 	const wrappedRange = useMemo(
 		() => getWrappedFamilyRange(WRAPPED_FAMILY_DAYS),
 		[],
@@ -146,7 +147,9 @@ export function useWrappedFamilySpendData(): WrappedFamilySpendState {
 
 		if (!developerDetailsQuery.data) {
 			return {
-				error: new Error("Developer analytics are unavailable for wrapped route."),
+				error: new Error(
+					"Developer analytics are unavailable for wrapped route.",
+				),
 				isError: true,
 				isLoading: false,
 				story: null,

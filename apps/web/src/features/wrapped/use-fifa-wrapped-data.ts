@@ -197,7 +197,9 @@ function findTopDimensionValue(
 function findLongestStreakDays(
 	timeline: readonly { date: string }[] | undefined,
 ) {
-	const sortedDates = [...new Set((timeline ?? []).map((row) => row.date))].sort();
+	const sortedDates = [
+		...new Set((timeline ?? []).map((row) => row.date)),
+	].sort();
 
 	if (sortedDates.length === 0) {
 		return 0;
@@ -354,7 +356,9 @@ function findSeasonRole({
 	return "All-Action Midfielder";
 }
 
-function collectWrappedError(queries: readonly { error: unknown; isError: boolean }[]) {
+function collectWrappedError(
+	queries: readonly { error: unknown; isError: boolean }[],
+) {
 	return queries.find((query) => query.isError)?.error ?? null;
 }
 
@@ -382,7 +386,8 @@ function createWrappedQueryDiagnostic({
 }
 
 export function useFifaWrappedData(): WrappedDataState {
-	const { data: session, isPending: isSessionPending } = authClient.useSession();
+	const { data: session, isPending: isSessionPending } =
+		authClient.useSession();
 	const { state: workspaceState } = useOrganization();
 	const { data: fullOrganization } = useFullOrganization(
 		workspaceState.activeOrg?.id ?? undefined,
@@ -390,146 +395,124 @@ export function useFifaWrappedData(): WrappedDataState {
 	const wrappedRange = useMemo(() => getWrappedRange(WRAPPED_DAYS), []);
 	const currentUserId = session?.user.id ?? null;
 
-	const developerDetailsQuery = useAnalyticsQuery(
-		{
-			...orpc.analytics.developers.details.queryOptions({
-				input: {
-					userId: currentUserId ?? "",
-					days: wrappedRange.days,
-				},
-			}),
-			enabled: Boolean(currentUserId),
-		},
-	);
-	const developerFeaturesQuery = useAnalyticsQuery(
-		{
-			...orpc.analytics.developers.features.queryOptions({
-				input: {
-					userId: currentUserId ?? "",
-					days: wrappedRange.days,
-				},
-			}),
-			enabled: Boolean(currentUserId),
-		},
-	);
-	const developerProjectsQuery = useAnalyticsQuery(
-		{
-			...orpc.analytics.developers.projects.queryOptions({
-				input: {
-					userId: currentUserId ?? "",
-					days: wrappedRange.days,
-				},
-			}),
-			enabled: Boolean(currentUserId),
-		},
-	);
-	const developerTimelineQuery = useAnalyticsQuery(
-		{
-			...orpc.analytics.developers.timeline.queryOptions({
-				input: {
-					userId: currentUserId ?? "",
-					days: wrappedRange.days,
-				},
-			}),
-			enabled: Boolean(currentUserId),
-		},
-	);
-	const developerErrorsQuery = useAnalyticsQuery(
-		{
-			...orpc.analytics.developers.errors.queryOptions({
-				input: {
-					userId: currentUserId ?? "",
-					days: wrappedRange.days,
-				},
-			}),
-			enabled: Boolean(currentUserId),
-		},
-	);
-	const longestSessionQuery = useAnalyticsQuery(
-		{
-			...orpc.analytics.developers.sessions.queryOptions({
-				input: {
-					userId: currentUserId ?? "",
-					days: wrappedRange.days,
-					outcome: "all",
-					limit: 1,
-					offset: 0,
-					sortBy: "duration",
-					sortOrder: "desc",
-				},
-			}),
-			enabled: Boolean(currentUserId),
-		},
-	);
-	const biggestSessionQuery = useAnalyticsQuery(
-		{
-			...orpc.analytics.developers.sessions.queryOptions({
-				input: {
-					userId: currentUserId ?? "",
-					days: wrappedRange.days,
-					outcome: "all",
-					limit: 1,
-					offset: 0,
-					sortBy: "tokens",
-					sortOrder: "desc",
-				},
-			}),
-			enabled: Boolean(currentUserId),
-		},
-	);
-	const usersTokenUsageQuery = useAnalyticsQuery(
-		{
-			...orpc.analytics.overview.usersTokenUsage.queryOptions({
-				input: {
-					startDate: wrappedRange.startDate,
-					endDate: wrappedRange.endDate,
-				},
-			}),
-			enabled: Boolean(currentUserId),
-		},
-	);
-	const planModeBreakdownQuery = useAnalyticsQuery(
-		{
-			...orpc.analytics.sessions.dimensionAnalysis.queryOptions({
-				input: {
-					days: wrappedRange.days,
-					dimension: "used_plan_mode",
-					metric: "session_count",
-					limit: 4,
-					userId: currentUserId ?? undefined,
-				},
-			}),
-			enabled: Boolean(currentUserId),
-		},
-	);
-	const commitBreakdownQuery = useAnalyticsQuery(
-		{
-			...orpc.analytics.sessions.dimensionAnalysis.queryOptions({
-				input: {
-					days: wrappedRange.days,
-					dimension: "has_commit",
-					metric: "session_count",
-					limit: 4,
-					userId: currentUserId ?? undefined,
-				},
-			}),
-			enabled: Boolean(currentUserId),
-		},
-	);
-	const archetypeBreakdownQuery = useAnalyticsQuery(
-		{
-			...orpc.analytics.sessions.dimensionAnalysis.queryOptions({
-				input: {
-					days: wrappedRange.days,
-					dimension: "session_archetype",
-					metric: "session_count",
-					limit: 8,
-					userId: currentUserId ?? undefined,
-				},
-			}),
-			enabled: Boolean(currentUserId),
-		},
-	);
+	const developerDetailsQuery = useAnalyticsQuery({
+		...orpc.analytics.developers.details.queryOptions({
+			input: {
+				userId: currentUserId ?? "",
+				days: wrappedRange.days,
+			},
+		}),
+		enabled: Boolean(currentUserId),
+	});
+	const developerFeaturesQuery = useAnalyticsQuery({
+		...orpc.analytics.developers.features.queryOptions({
+			input: {
+				userId: currentUserId ?? "",
+				days: wrappedRange.days,
+			},
+		}),
+		enabled: Boolean(currentUserId),
+	});
+	const developerProjectsQuery = useAnalyticsQuery({
+		...orpc.analytics.developers.projects.queryOptions({
+			input: {
+				userId: currentUserId ?? "",
+				days: wrappedRange.days,
+			},
+		}),
+		enabled: Boolean(currentUserId),
+	});
+	const developerTimelineQuery = useAnalyticsQuery({
+		...orpc.analytics.developers.timeline.queryOptions({
+			input: {
+				userId: currentUserId ?? "",
+				days: wrappedRange.days,
+			},
+		}),
+		enabled: Boolean(currentUserId),
+	});
+	const developerErrorsQuery = useAnalyticsQuery({
+		...orpc.analytics.developers.errors.queryOptions({
+			input: {
+				userId: currentUserId ?? "",
+				days: wrappedRange.days,
+			},
+		}),
+		enabled: Boolean(currentUserId),
+	});
+	const longestSessionQuery = useAnalyticsQuery({
+		...orpc.analytics.developers.sessions.queryOptions({
+			input: {
+				userId: currentUserId ?? "",
+				days: wrappedRange.days,
+				outcome: "all",
+				limit: 1,
+				offset: 0,
+				sortBy: "duration",
+				sortOrder: "desc",
+			},
+		}),
+		enabled: Boolean(currentUserId),
+	});
+	const biggestSessionQuery = useAnalyticsQuery({
+		...orpc.analytics.developers.sessions.queryOptions({
+			input: {
+				userId: currentUserId ?? "",
+				days: wrappedRange.days,
+				outcome: "all",
+				limit: 1,
+				offset: 0,
+				sortBy: "tokens",
+				sortOrder: "desc",
+			},
+		}),
+		enabled: Boolean(currentUserId),
+	});
+	const usersTokenUsageQuery = useAnalyticsQuery({
+		...orpc.analytics.overview.usersTokenUsage.queryOptions({
+			input: {
+				startDate: wrappedRange.startDate,
+				endDate: wrappedRange.endDate,
+			},
+		}),
+		enabled: Boolean(currentUserId),
+	});
+	const planModeBreakdownQuery = useAnalyticsQuery({
+		...orpc.analytics.sessions.dimensionAnalysis.queryOptions({
+			input: {
+				days: wrappedRange.days,
+				dimension: "used_plan_mode",
+				metric: "session_count",
+				limit: 4,
+				userId: currentUserId ?? undefined,
+			},
+		}),
+		enabled: Boolean(currentUserId),
+	});
+	const commitBreakdownQuery = useAnalyticsQuery({
+		...orpc.analytics.sessions.dimensionAnalysis.queryOptions({
+			input: {
+				days: wrappedRange.days,
+				dimension: "has_commit",
+				metric: "session_count",
+				limit: 4,
+				userId: currentUserId ?? undefined,
+			},
+		}),
+		enabled: Boolean(currentUserId),
+	});
+	const archetypeBreakdownQuery = useAnalyticsQuery({
+		...orpc.analytics.sessions.dimensionAnalysis.queryOptions({
+			input: {
+				days: wrappedRange.days,
+				dimension: "session_archetype",
+				metric: "session_count",
+				limit: 8,
+				userId: currentUserId ?? undefined,
+			},
+		}),
+		enabled: Boolean(currentUserId),
+	});
 	const diagnostics = useMemo(() => {
 		return {
 			activeOrgId: workspaceState.activeOrg?.id ?? null,
@@ -684,8 +667,9 @@ export function useFifaWrappedData(): WrappedDataState {
 			currentUserId,
 		);
 		const organizationMember =
-			fullOrganization?.members.find((member) => member.userId === currentUserId) ??
-			null;
+			fullOrganization?.members.find(
+				(member) => member.userId === currentUserId,
+			) ?? null;
 
 		if (!details || !features) {
 			return null;
@@ -720,7 +704,10 @@ export function useFifaWrappedData(): WrappedDataState {
 			planModeBreakdownQuery.data,
 			true,
 		);
-		const commitSessions = findBooleanDimensionCount(commitBreakdownQuery.data, true);
+		const commitSessions = findBooleanDimensionCount(
+			commitBreakdownQuery.data,
+			true,
+		);
 		const planModeRate =
 			details.total_sessions > 0
 				? (planModeSessions / details.total_sessions) * 100
@@ -777,7 +764,8 @@ export function useFifaWrappedData(): WrappedDataState {
 			periodStart: wrappedRange.startDate,
 			planModeRate,
 			primaryErrorPattern: topError?.error_pattern ?? null,
-			projectCount: userUsage?.repositories_touched.length ?? details.distinct_projects,
+			projectCount:
+				userUsage?.repositories_touched.length ?? details.distinct_projects,
 			repositoryCount: userUsage?.repositories_touched.length ?? 0,
 			seasonRole: findSeasonRole({
 				longestStreakDays,
@@ -792,10 +780,13 @@ export function useFifaWrappedData(): WrappedDataState {
 			successRateTrend: details.success_rate_trend,
 			topProjectName: topProject?.package_name?.trim()
 				? topProject.package_name
-				: topProject?.git_remote?.split("/").pop() || topProject?.project_path || "No project logged",
+				: topProject?.git_remote?.split("/").pop() ||
+					topProject?.project_path ||
+					"No project logged",
 			topProjectSessions: topProject?.sessions ?? 0,
 			topProjectTokens: topProject?.total_tokens ?? 0,
-			topSessionTokens: Number(biggestSessionQuery.data?.[0]?.total_tokens) || 0,
+			topSessionTokens:
+				Number(biggestSessionQuery.data?.[0]?.total_tokens) || 0,
 			topSkill: formatTitleLabel(features.top_skills[0]?.name, "Skill issue"),
 			topSlashCommand: formatTitleLabel(
 				features.top_slash_commands[0]?.name,
