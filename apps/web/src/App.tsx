@@ -27,7 +27,8 @@ function App() {
 		(location.pathname === "/"
 			? getPendingSignupRedirect(location.search)
 			: null);
-	const showDesktopOnlyOverlay = !deviceUserCode;
+	const showDesktopOnlyOverlay =
+		!deviceUserCode && location.pathname !== appRoutes.walkInTeamCard();
 
 	if (deviceUserCode) {
 		return (

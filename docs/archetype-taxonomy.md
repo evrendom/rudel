@@ -5,7 +5,7 @@ This is the active Wrapped archetype taxonomy.
 The product-facing label set is:
 
 - Roadrunner
-- Window Shopper
+- Cheapskate
 - NPC
 - Papa's Credit Card
 - Hit and Runner
@@ -41,7 +41,7 @@ Reads like:
 - tries a lot
 - covers ground quickly
 
-### Window Shopper
+### Cheapskate
 
 Low-to-medium consistency and intensity, moderate output, lighter cost, and relatively high range.
 

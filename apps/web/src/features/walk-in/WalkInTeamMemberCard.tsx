@@ -11,7 +11,7 @@ const adaptedTeamCardHeaderValueClassName =
 	"[font-family:var(--dashboard-01-font-roster-display)] text-[17.07px] font-extrabold leading-none tracking-[-0.01em] tabular-nums text-[#272423]";
 
 const adaptedTeamCardHeaderLabelClassName =
-	"ml-[5px] text-[10px] font-semibold leading-none tracking-[-0.03em] text-[#7b7671]";
+	"ml-[5px] text-[10px] font-semibold leading-none tracking-[-0.03em] text-[#272423]";
 
 const adaptedTeamCardNameClassName =
 	"[font-family:var(--dashboard-01-font-roster-display)] text-[19px] font-extrabold leading-[0.9] tracking-[-0.02em] text-[#252220]";
@@ -78,7 +78,7 @@ const DEFAULT_STAT_LAYER_OPACITIES: WalkInTeamMemberCardStatLayerOpacities = {
 interface WalkInTeamMemberCardStatSurfaceStyle extends CSSProperties {}
 
 export function WalkInTeamMemberCard(props: {
-	headerLeftMetric: WalkInTeamMemberCardHeaderMetric;
+	headerLeftMetric?: WalkInTeamMemberCardHeaderMetric;
 	headerRightMetric?: WalkInTeamMemberCardHeaderMetric;
 	mediaPanelClassName?: string;
 	mediaOverlayClassName?: string;
@@ -117,7 +117,6 @@ export function WalkInTeamMemberCard(props: {
 	const textureFadeOpacity = 1 - statLayerOpacities.textureOpacity;
 	const statTileLayerStyle: CSSProperties = {
 		backgroundColor: `rgb(255 255 255 / ${statLayerOpacities.tileFillOpacity})`,
-		borderColor: `rgb(0 0 0 / ${0.08 * borderLayerOpacity})`,
 		boxShadow: `0 1px 0 rgb(255 255 255 / ${statLayerOpacities.tileTopStrokeOpacity * borderLayerOpacity}), inset 0 0.5px 0.5px rgb(0 0 0 / ${statLayerOpacities.tileInsetShadowOpacity * borderLayerOpacity})`,
 	};
 
@@ -182,30 +181,39 @@ export function WalkInTeamMemberCard(props: {
 				)}
 				style={shellStyle}
 			>
-				<div className="flex items-start justify-between gap-[10px]">
-					<div
-						className="flex min-w-0 items-center"
-						title={headerLeftMetric.title}
-					>
+				<div
+					className={cn(
+						"flex items-start gap-[10px]",
+						headerLeftMetric ? "justify-between" : "justify-end",
+					)}
+				>
+					{headerLeftMetric ? (
 						<div
-							className={cn(
-								adaptedTeamCardHeaderValueClassName,
-								isDarkTheme ? "text-[#fff8f0]" : null,
-								isMutedTheme ? "text-[#f6efe4]" : null,
-							)}
+							className="flex min-w-0 items-start"
+							title={headerLeftMetric.title}
 						>
-							{headerLeftMetric.value}
+							<div
+								className={cn(
+									adaptedTeamCardHeaderValueClassName,
+									isDarkTheme ? "text-[#fff8f0]" : null,
+									isMutedTheme ? "text-[#f6efe4]" : null,
+								)}
+							>
+								{headerLeftMetric.value}
+							</div>
+							{headerLeftMetric.label ? (
+								<div
+									className={cn(
+										adaptedTeamCardHeaderLabelClassName,
+										isDarkTheme ? "text-[#fff8f0]" : null,
+										isMutedTheme ? "text-[#f6efe4]" : null,
+									)}
+								>
+									{headerLeftMetric.label}
+								</div>
+							) : null}
 						</div>
-						<div
-							className={cn(
-								adaptedTeamCardHeaderLabelClassName,
-								isDarkTheme ? "text-white/62" : null,
-								isMutedTheme ? "text-[#d6cdc2]" : null,
-							)}
-						>
-							{headerLeftMetric.label}
-						</div>
-					</div>
+					) : null}
 
 					{headerRightMetric ? (
 						<div
@@ -297,7 +305,7 @@ export function WalkInTeamMemberCard(props: {
 							<div
 								key={stat.key}
 								className={cn(
-									"relative z-10 min-h-[32px] min-w-0 overflow-hidden rounded-[10px] border border-black/8 bg-white/74 px-[8px] py-[6px] shadow-[inset_0_1px_0_rgba(255,255,255,0.72)]",
+									"relative z-10 min-h-[32px] min-w-0 overflow-hidden rounded-[10px] bg-white/74 px-[8px] py-[6px]",
 									statTileClassName,
 								)}
 								ref={(node) => {

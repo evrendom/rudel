@@ -18,7 +18,7 @@ The active product taxonomy is documented in:
 The current label family is:
 
 - Roadrunner
-- Window Shopper
+- Cheapskate
 - NPC
 - Papa's Credit Card
 - Hit and Runner

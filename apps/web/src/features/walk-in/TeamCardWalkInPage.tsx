@@ -65,7 +65,7 @@ const WALK_IN_ARCHETYPE_CARD_THEMES = [
 	},
 	{
 		id: "window-shopper",
-		label: "Free Plan",
+		label: "Cheapskate",
 		shellClassName: "bg-[linear-gradient(180deg,_#00E4E7_0%,_#00EAAE_100%)]",
 		theme: "light",
 	},
@@ -125,11 +125,11 @@ export function TeamCardWalkInPage() {
 		},
 		statLayers: {
 			borderOpacity: [1, 0, 1, 0.01],
-			fillOpacity: [0.04, 0, 1, 0.01],
-			insetShadowOpacity: [0.53, 0, 1, 0.01],
-			shineOpacity: [0.38, 0, 1, 0.01],
-			textureOpacity: [1, 0, 1, 0.01],
-			topStrokeOpacity: [0.1, 0, 1, 0.01],
+			fillOpacity: [0, 0, 1, 0.01],
+			insetShadowOpacity: [0.66, 0, 1, 0.01],
+			shineOpacity: [0.39, 0, 1, 0.01],
+			textureOpacity: [0.81, 0, 1, 0.01],
+			topStrokeOpacity: [0, 0, 1, 0.01],
 		},
 	});
 	const developerDetailsQuery = useAnalyticsQuery({
@@ -165,7 +165,6 @@ export function TeamCardWalkInPage() {
 	const activeArchetype = WALK_IN_ARCHETYPE_CARD_THEMES[activeArchetypeIndex];
 	const headerLeftMetric = useMemo<WalkInTeamMemberCardHeaderMetric>(
 		() => ({
-			label: "SPEND",
 			title: `${formatCompactWholeCurrency(visibleTeamCardRow.cost)} estimated spend`,
 			value: formatCompactWholeCurrency(visibleTeamCardRow.cost),
 		}),
@@ -216,7 +215,6 @@ export function TeamCardWalkInPage() {
 		}),
 		[dialValues.card.grainOpacity],
 	);
-
 	useEffect(() => {
 		document.body.classList.add("mymind-walk-in-body");
 
@@ -241,7 +239,7 @@ export function TeamCardWalkInPage() {
 									mediaPanelClassName="mx-auto aspect-square w-[9.875rem]"
 									statLayerOpacities={statLayerOpacities}
 									statItems={statItems}
-									statTileClassName="min-h-[26px] rounded-[9px] border-transparent px-[8px] py-[1px]"
+									statTileClassName="min-h-[26px] rounded-[9px] px-[8px] py-[1px]"
 									theme={activeArchetype.theme}
 								/>
 							</ul>
