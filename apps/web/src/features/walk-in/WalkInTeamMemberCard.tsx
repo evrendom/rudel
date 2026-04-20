@@ -118,7 +118,6 @@ export function WalkInTeamMemberCard(props: {
 		headerRightMetric,
 		layoutPreset = "default",
 		mediaPanelClassName,
-		mediaOverlayClassName,
 		row,
 		shellClassName,
 		shellStyle,
@@ -199,11 +198,25 @@ export function WalkInTeamMemberCard(props: {
 		paddingRight: scaleLength(12),
 		paddingTop: scaleLength(10),
 	};
+	const portraitImageFrameStyle: CSSProperties = {
+		backgroundImage: row.imageUrl ? `url("${row.imageUrl}")` : undefined,
+		backgroundPosition: "center",
+		backgroundRepeat: "no-repeat",
+		backgroundSize: "cover",
+		borderRadius: scaleLength(10),
+		bottom: 0,
+		boxShadow:
+			"inset 0px -4px 4px rgba(0, 0, 0, 0.63), inset 0px 4px 4px rgba(255, 255, 255, 0.52)",
+		left: 0,
+		overflow: "hidden",
+		position: "absolute",
+		right: 0,
+		top: 0,
+	};
 	const placeholderInitialsStyle: CSSProperties = {
 		fontSize: scaleLength(54),
 	};
 	const nameBlockStyle: CSSProperties = {
-		marginTop: scaleLength(16),
 		paddingLeft: scaleLength(3),
 		paddingRight: scaleLength(3),
 	};
@@ -384,17 +397,7 @@ export function WalkInTeamMemberCard(props: {
 					>
 						{row.imageUrl ? (
 							<>
-								<img
-									src={row.imageUrl}
-									alt={row.displayName}
-									className="absolute inset-0 h-full w-full object-cover object-center"
-								/>
-								<div
-									className={cn(
-										"absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.18)_0%,rgba(255,255,255,0)_34%,rgba(0,0,0,0.18)_100%)]",
-										mediaOverlayClassName,
-									)}
-								/>
+								<div aria-hidden="true" style={portraitImageFrameStyle} />
 								<div className="relative z-10 flex-1" />
 							</>
 						) : (
@@ -411,7 +414,7 @@ export function WalkInTeamMemberCard(props: {
 				</div>
 
 				<div
-					className="flex flex-1 flex-col text-center"
+					className="grid flex-1 place-items-center text-center"
 					style={nameBlockStyle}
 				>
 					<div
@@ -424,7 +427,6 @@ export function WalkInTeamMemberCard(props: {
 					>
 						{row.displayName}
 					</div>
-					<div className="flex flex-1 items-center justify-center" />
 				</div>
 
 				<div
