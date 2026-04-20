@@ -1,9 +1,11 @@
+import { DialRoot } from "dialkit";
 import { lazy, StrictMode, Suspense } from "react";
 import { createRoot } from "react-dom/client";
 import { AppProviders } from "@/app/providers/AppProviders";
 import App from "./App.tsx";
 import { useMountEffect } from "./app/hooks/useMountEffect";
 import "./index.css";
+import "dialkit/styles.css";
 import { initProductAnalytics } from "./lib/product-analytics";
 
 const DevTools = import.meta.env.DEV
@@ -51,6 +53,9 @@ createRoot(document.getElementById("root")!).render(
 			<GlobalLumaScope />
 			<div className="h-full">
 				<App />
+				{import.meta.env.DEV ? (
+					<DialRoot defaultOpen={false} position="bottom-right" />
+				) : null}
 				{DevTools ? (
 					<Suspense fallback={null}>
 						<DevTools />

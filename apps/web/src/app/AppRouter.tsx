@@ -52,21 +52,9 @@ const PresetBaselinePage = lazyNamed(
 	() => import("@/app/system/PresetBaselinePage"),
 	"PresetBaselinePage",
 );
-const RudelWalkInPage = lazyNamed(
-	() => import("@/features/walk-in/RudelWalkInPage"),
-	"RudelWalkInPage",
-);
 const TeamCardWalkInPage = lazyNamed(
 	() => import("@/features/walk-in/TeamCardWalkInPage"),
 	"TeamCardWalkInPage",
-);
-const MymindTutorialPage = lazyNamed(
-	() => import("@/features/walk-in/MymindTutorialPage"),
-	"MymindTutorialPage",
-);
-const SpotifyStyleWalkInPage = lazyNamed(
-	() => import("@/features/walk-in/SpotifyStyleWalkInPage"),
-	"SpotifyStyleWalkInPage",
 );
 const FifaWrappedPage = lazyNamed(
 	() => import("@/features/wrapped/FifaWrappedPage"),
@@ -147,37 +135,10 @@ export function AppRouter({
 				element={<LazyRoute Component={PresetBaselinePage} />}
 			/>
 			<Route
-				path={appRoutes.walkIn()}
-				element={
-					<LazyRoute
-						Component={RudelWalkInPage}
-						fallback={<FullscreenRouteLoadingScreen />}
-					/>
-				}
-			/>
-			<Route
 				path={appRoutes.walkInTeamCard()}
 				element={
 					<LazyRoute
 						Component={TeamCardWalkInPage}
-						fallback={<FullscreenRouteLoadingScreen />}
-					/>
-				}
-			/>
-			<Route
-				path={appRoutes.mymindTuto()}
-				element={
-					<LazyRoute
-						Component={MymindTutorialPage}
-						fallback={<FullscreenRouteLoadingScreen />}
-					/>
-				}
-			/>
-			<Route
-				path={appRoutes.spotifyStyle()}
-				element={
-					<LazyRoute
-						Component={SpotifyStyleWalkInPage}
 						fallback={<FullscreenRouteLoadingScreen />}
 					/>
 				}

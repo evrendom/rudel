@@ -10,7 +10,7 @@ The product-facing label set is:
 - Papa's Credit Card
 - Hit and Runner
 - ADHD Brain
-- Needs to Touch Grass
+- Obsessed
 - Tourist
 - Maniac
 
@@ -85,14 +85,14 @@ Reads like:
 - samples many tools and models
 - values coverage over specialization
 
-### Needs to Touch Grass
+### Obsessed
 
-High consistency, high intensity, strong session shape, high cost intensity, and broad working range.
+Medium-to-high consistency and intensity with high cost and high output, but narrow breadth and tighter range.
 
 Reads like:
-- deeply engaged
-- frequently active
-- operating at sustained, heavyweight usage
+- goes deep, not wide
+- leans hard into a focused mode of work
+- extracts a lot from a narrower lane
 
 ### Tourist
 
@@ -104,12 +104,12 @@ Reads like:
 
 ### Maniac
 
-Medium-to-high consistency and intensity with high cost and high output, but narrow breadth and tighter range.
+High consistency, high intensity, strong session shape, high cost intensity, and broad working range.
 
 Reads like:
-- goes deep, not wide
-- leans hard into a focused mode of work
-- extracts a lot from a narrower lane
+- deeply engaged
+- frequently active
+- operating at sustained, heavyweight usage
 
 ## Canonical Artifacts
 

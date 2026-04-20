@@ -50,7 +50,7 @@ export function WalkInPreviewColumn({
 	return (
 		<section className="relative z-10 max-w-[30rem] lg:justify-self-start">
 			<p className="text-[0.72rem] uppercase tracking-[0.34em] text-muted-foreground">
-				Walk-In / Root Card Runtime
+				Walk-In / Team Card
 			</p>
 			<h1 className="mt-4 max-w-[12ch] text-balance font-[var(--app-font-heading)] text-4xl font-semibold tracking-[-0.06em] text-foreground sm:text-5xl lg:text-[3.6rem]">
 				{handover.preview.title}
@@ -91,8 +91,8 @@ export function WalkInPreviewColumn({
 				</p>
 				<p className="mt-3 text-sm leading-6 text-muted-foreground">
 					{cardModel.totalSessionsLabel} sessions, {cardModel.totalTokensLabel}{" "}
-					tokens, and the root-card visual language adapted into the full mymind
-					front/back WebGL runtime.
+					tokens, shaped into the team-card surface instead of the full
+					analytics dashboard.
 				</p>
 			</article>
 

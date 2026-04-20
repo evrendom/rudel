@@ -25,20 +25,10 @@ export function useWalkInCardData() {
 		state: wrappedDataState,
 		wrappedData,
 	});
-	const name =
-		session?.user &&
-		"name" in session.user &&
-		typeof session.user.name === "string"
-			? session.user.name
-			: undefined;
-	const email =
-		session?.user &&
-		"email" in session.user &&
-		typeof session.user.email === "string"
-			? session.user.email
-			: undefined;
+	const name = getSessionUserName(session);
+	const email = getSessionUserEmail(session);
 	const accountLabel =
-		name ?? email ?? handover.preview.profile.fallbackLabel;
+		name ?? getEmailHandle(email) ?? handover.preview.profile.fallbackLabel;
 	const cardModel = React.useMemo(
 		() =>
 			buildWalkInCardModel({
@@ -56,6 +46,37 @@ export function useWalkInCardData() {
 		wrappedData,
 		wrappedDataState,
 	};
+}
+
+function getEmailHandle(email: string | undefined) {
+	if (!email) {
+		return undefined;
+	}
+
+	const [emailHandle] = email.split("@");
+	return emailHandle?.trim() || undefined;
+}
+
+function getSessionUserName(
+	session: ReturnType<typeof authClient.useSession>["data"],
+) {
+	return session?.user &&
+		"name" in session.user &&
+		typeof session.user.name === "string" &&
+		session.user.name.trim().length > 0
+		? session.user.name.trim()
+		: undefined;
+}
+
+function getSessionUserEmail(
+	session: ReturnType<typeof authClient.useSession>["data"],
+) {
+	return session?.user &&
+		"email" in session.user &&
+		typeof session.user.email === "string" &&
+		session.user.email.trim().length > 0
+		? session.user.email.trim()
+		: undefined;
 }
 
 function getWrappedDataState(params: {
