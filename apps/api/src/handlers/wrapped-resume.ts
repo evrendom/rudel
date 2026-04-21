@@ -5,6 +5,7 @@ import {
 } from "../email.js";
 import { getFrontendOrigin } from "../frontend-origin.js";
 import { authMiddleware, os } from "../middleware.js";
+import { checkWrappedResumeCreateRateLimit } from "../rate-limit.js";
 import {
 	consumeWrappedResume,
 	createWrappedResume,
@@ -28,6 +29,10 @@ const create = os.wrappedResume.create
 				message: "Signed-in user must have an email address",
 			});
 		}
+
+		// Resume links trigger email delivery, so we keep a narrow authenticated
+		// rate limit here to prevent accidental or abusive resend loops.
+		checkWrappedResumeCreateRateLimit(context.user.id);
 
 		const resumeRecord = await createWrappedResume({
 			email,

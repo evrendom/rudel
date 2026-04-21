@@ -61,6 +61,9 @@ export function PublicWrappedSharePage(props: PublicWrappedSharePageProps) {
 	useEffectOnceWhen({
 		effect: () => {
 			trackUtilityUsed({
+				entrySource: "public_share",
+				isAuthenticatedViewer: sessionUserId !== null,
+				shareId,
 				sourceComponent: "wrapped_public_share_page",
 				targetId: shareId,
 				utilityName: "shareViewed",
@@ -86,6 +89,9 @@ export function PublicWrappedSharePage(props: PublicWrappedSharePageProps) {
 			makeYoursHref={makeYoursHref}
 			onMakeYoursClick={() => {
 				trackUtilityUsed({
+					entrySource: "public_share",
+					redirectTarget: makeYoursPath,
+					shareId,
 					sourceComponent: "wrapped_public_share_page",
 					targetId: shareId,
 					utilityName: "makeYoursClicked",
@@ -120,8 +126,8 @@ function PublicShareReadyState(props: {
 					{share.snapshot.row.displayName}&apos;s card
 				</h1>
 				<p className="mt-3 max-w-[28ch] text-pretty text-sm leading-6 text-[#6c6761]">
-					{share.snapshot.archetypeLabel} is the card they picked. Make your own
-					from your uploaded Geneva history.
+					{share.snapshot.archetypeLabel} is the theme they picked for this
+					card. Make your own from your uploaded Geneva history.
 				</p>
 
 				<div className="team-lineup-surface-scope mt-8 w-full">

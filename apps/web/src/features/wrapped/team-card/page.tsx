@@ -1,3 +1,4 @@
+import { WRAPPED_SHARE_PAYLOAD_VERSION } from "@rudel/api-routes";
 import { useDialKit } from "dialkit";
 import {
 	type CSSProperties,
@@ -231,6 +232,10 @@ function WrappedTeamCardPageContent(props: {
 			// the Saturday growth funnel.
 			onShareCreated: (shareRecord) => {
 				trackUtilityUsed({
+					archetypeId: activeArchetype.id,
+					entrySource: "wrapped_team_card",
+					publicPayloadVersion: WRAPPED_SHARE_PAYLOAD_VERSION,
+					shareId: shareRecord.id,
 					sourceComponent: "wrapped_team_card_page",
 					targetId: shareRecord.id,
 					utilityName: "shareCreated",
@@ -314,7 +319,7 @@ function WrappedTeamCardPageContent(props: {
 		/>
 	) : (
 		<WrappedTeamCardRevealStage
-			archetypeLabel={activeArchetype.displayLabel}
+			selectedThemeLabel={activeArchetype.displayLabel}
 			headerLeftMetric={headerLeftMetric}
 			headerRightMetric={headerRightMetric}
 			onNextArchetype={() =>

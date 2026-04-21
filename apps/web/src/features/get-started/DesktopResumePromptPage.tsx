@@ -50,6 +50,8 @@ export function DesktopResumePromptPage(props: DesktopResumePromptPageProps) {
 			});
 
 			trackUtilityUsed({
+				entrySource: "mobile_get_started",
+				shareId: shareId ?? undefined,
 				sourceComponent: "desktop_resume_prompt_page",
 				targetId: shareId ?? undefined,
 				utilityName: "desktopLinkSent",

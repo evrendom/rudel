@@ -58,6 +58,10 @@ export function GetStartedRouteGate({
 	useEffectOnceWhen({
 		effect: () => {
 			trackUtilityUsed({
+				entrySource: "share_redirect",
+				isNewUser: isWrappedLaunchEligible(session),
+				resolvedEntryRoute: pathname,
+				shareId: shareId ?? undefined,
 				sourceComponent: "get_started_route_gate",
 				targetId: shareId ?? undefined,
 				utilityName: "onboardingStartedFromShare",

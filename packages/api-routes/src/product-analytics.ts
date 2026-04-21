@@ -424,6 +424,16 @@ export const UiUtilityUsedEventSchema = WebEventSchema.extend({
 	// For the Saturday wrapped loop we use it to connect public-share events back
 	// to the specific share record that generated the visit.
 	target_id: nonEmptyStringSchema.optional(),
+	// These optional fields keep the Saturday wrapped funnel queryable without
+	// creating one-off event types for every step of the flow.
+	share_id: nonEmptyStringSchema.optional(),
+	entry_source: nonEmptyStringSchema.optional(),
+	redirect_target: nonEmptyStringSchema.optional(),
+	archetype_id: nonEmptyStringSchema.optional(),
+	public_payload_version: z.number().int().positive().optional(),
+	is_authenticated_viewer: z.boolean().optional(),
+	is_new_user: z.boolean().optional(),
+	resolved_entry_route: nonEmptyStringSchema.optional(),
 	utility_state: nonEmptyStringSchema.optional(),
 }).strict();
 

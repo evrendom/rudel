@@ -297,6 +297,14 @@ export function useAnalyticsTracking(options?: UseAnalyticsOptions) {
 			utilityName: string;
 			sourceComponent: string;
 			targetId?: string;
+			shareId?: string;
+			entrySource?: string;
+			redirectTarget?: string;
+			archetypeId?: string;
+			publicPayloadVersion?: number;
+			isAuthenticatedViewer?: boolean;
+			isNewUser?: boolean;
+			resolvedEntryRoute?: string;
 			utilityState?: string;
 		} & AnalyticsOverrides,
 	) {
@@ -316,6 +324,14 @@ export function useAnalyticsTracking(options?: UseAnalyticsOptions) {
 			utility_name: input.utilityName,
 			component_id: input.sourceComponent,
 			target_id: input.targetId,
+			share_id: input.shareId,
+			entry_source: input.entrySource,
+			redirect_target: input.redirectTarget,
+			archetype_id: input.archetypeId,
+			public_payload_version: input.publicPayloadVersion,
+			is_authenticated_viewer: input.isAuthenticatedViewer,
+			is_new_user: input.isNewUser,
+			resolved_entry_route: input.resolvedEntryRoute,
 			utility_state: input.utilityState,
 		});
 	}

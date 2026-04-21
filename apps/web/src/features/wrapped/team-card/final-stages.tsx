@@ -42,7 +42,7 @@ interface WrappedTeamCardShareStageProps extends WrappedTeamCardStageCardProps {
 
 interface WrappedTeamCardRevealStageProps
 	extends WrappedTeamCardStageCardProps {
-	archetypeLabel: string;
+	selectedThemeLabel: string;
 	onNextArchetype: () => void;
 	onPreviousArchetype: () => void;
 	tiltController: WrappedCardTiltController;
@@ -188,7 +188,7 @@ export function WrappedTeamCardRevealStage(
 	props: WrappedTeamCardRevealStageProps,
 ) {
 	const {
-		archetypeLabel,
+		selectedThemeLabel,
 		headerLeftMetric,
 		headerRightMetric,
 		onNextArchetype,
@@ -257,10 +257,10 @@ export function WrappedTeamCardRevealStage(
 
 					<div className="min-w-0 rounded-full bg-[#f7f3ee] px-4 py-2.5 text-center">
 						<div className="text-[0.66rem] font-semibold leading-none tracking-[0.14em] text-[#9b938b] uppercase">
-							Archetype
+							Selected theme
 						</div>
 						<div className="mt-1 truncate text-sm font-semibold leading-none tracking-[-0.03em] text-[#302d2b]">
-							{archetypeLabel}
+							{selectedThemeLabel}
 						</div>
 					</div>
 

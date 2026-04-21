@@ -12,12 +12,30 @@ interface SlidingWindowEntry {
 }
 
 const analyticsWindows = new Map<string, SlidingWindowEntry>();
+const wrappedShareCreateWindows = new Map<string, SlidingWindowEntry>();
+const wrappedShareLookupWindows = new Map<string, SlidingWindowEntry>();
+const wrappedResumeCreateWindows = new Map<string, SlidingWindowEntry>();
 
 const ANALYTICS_MAX_REQUESTS = Number(
 	process.env.RATE_LIMIT_ANALYTICS_MAX ?? 90,
 );
 const ANALYTICS_WINDOW_MS =
 	Number(process.env.RATE_LIMIT_ANALYTICS_WINDOW ?? 60) * 1000;
+const WRAPPED_SHARE_CREATE_MAX_REQUESTS = Number(
+	process.env.RATE_LIMIT_WRAPPED_SHARE_CREATE_MAX ?? 12,
+);
+const WRAPPED_SHARE_CREATE_WINDOW_MS =
+	Number(process.env.RATE_LIMIT_WRAPPED_SHARE_CREATE_WINDOW ?? 600) * 1000;
+const WRAPPED_SHARE_LOOKUP_MAX_REQUESTS = Number(
+	process.env.RATE_LIMIT_WRAPPED_SHARE_LOOKUP_MAX ?? 180,
+);
+const WRAPPED_SHARE_LOOKUP_WINDOW_MS =
+	Number(process.env.RATE_LIMIT_WRAPPED_SHARE_LOOKUP_WINDOW ?? 60) * 1000;
+const WRAPPED_RESUME_CREATE_MAX_REQUESTS = Number(
+	process.env.RATE_LIMIT_WRAPPED_RESUME_CREATE_MAX ?? 6,
+);
+const WRAPPED_RESUME_CREATE_WINDOW_MS =
+	Number(process.env.RATE_LIMIT_WRAPPED_RESUME_CREATE_WINDOW ?? 1800) * 1000;
 
 export function checkAnalyticsRateLimit(userId: string): void {
 	const now = Date.now();
@@ -48,6 +66,42 @@ export function checkAnalyticsRateLimit(userId: string): void {
 	}
 
 	entry.timestamps.push(now);
+}
+
+// Saturday share abuse protection stays intentionally small and auditable.
+// These are not meant to replace edge or IP-based rate limits later. They are
+// just enough to keep one user or one share id from being hammered unchecked.
+export function checkWrappedShareCreateRateLimit(userId: string) {
+	checkSlidingWindowRateLimit({
+		entityId: userId,
+		errorMessage: `Wrapped share creation is temporarily rate limited. Maximum ${WRAPPED_SHARE_CREATE_MAX_REQUESTS} requests per ${Math.round(WRAPPED_SHARE_CREATE_WINDOW_MS / 1000)} seconds.`,
+		maxRequests: WRAPPED_SHARE_CREATE_MAX_REQUESTS,
+		map: wrappedShareCreateWindows,
+		operationName: "wrapped share creation",
+		windowMs: WRAPPED_SHARE_CREATE_WINDOW_MS,
+	});
+}
+
+export function checkWrappedShareLookupRateLimit(shareId: string) {
+	checkSlidingWindowRateLimit({
+		entityId: shareId,
+		errorMessage: `Wrapped share lookup is temporarily rate limited. Maximum ${WRAPPED_SHARE_LOOKUP_MAX_REQUESTS} requests per ${Math.round(WRAPPED_SHARE_LOOKUP_WINDOW_MS / 1000)} seconds.`,
+		maxRequests: WRAPPED_SHARE_LOOKUP_MAX_REQUESTS,
+		map: wrappedShareLookupWindows,
+		operationName: "wrapped share lookup",
+		windowMs: WRAPPED_SHARE_LOOKUP_WINDOW_MS,
+	});
+}
+
+export function checkWrappedResumeCreateRateLimit(userId: string) {
+	checkSlidingWindowRateLimit({
+		entityId: userId,
+		errorMessage: `Desktop resume links are temporarily rate limited. Maximum ${WRAPPED_RESUME_CREATE_MAX_REQUESTS} requests per ${Math.round(WRAPPED_RESUME_CREATE_WINDOW_MS / 1000)} seconds.`,
+		maxRequests: WRAPPED_RESUME_CREATE_MAX_REQUESTS,
+		map: wrappedResumeCreateWindows,
+		operationName: "wrapped desktop resume creation",
+		windowMs: WRAPPED_RESUME_CREATE_WINDOW_MS,
+	});
 }
 
 export interface RateLimitConfig {
@@ -113,4 +167,44 @@ export async function checkIngestRateLimit(
 			error,
 		});
 	}
+}
+
+function checkSlidingWindowRateLimit(input: {
+	entityId: string;
+	errorMessage: string;
+	maxRequests: number;
+	map: Map<string, SlidingWindowEntry>;
+	operationName: string;
+	windowMs: number;
+}) {
+	const { entityId, errorMessage, maxRequests, map, operationName, windowMs } =
+		input;
+	const now = Date.now();
+	const cutoff = now - windowMs;
+
+	let entry = map.get(entityId);
+	if (!entry) {
+		entry = { timestamps: [] };
+		map.set(entityId, entry);
+	}
+
+	entry.timestamps = entry.timestamps.filter((timestamp) => timestamp > cutoff);
+
+	if (entry.timestamps.length >= maxRequests) {
+		logger.warn(
+			"{operationName} rate limit exceeded for {entityId}: {count}/{max} in {window}s",
+			{
+				count: entry.timestamps.length,
+				entityId,
+				max: maxRequests,
+				operationName,
+				window: Math.round(windowMs / 1000),
+			},
+		);
+		throw new ORPCError("TOO_MANY_REQUESTS", {
+			message: errorMessage,
+		});
+	}
+
+	entry.timestamps.push(now);
 }

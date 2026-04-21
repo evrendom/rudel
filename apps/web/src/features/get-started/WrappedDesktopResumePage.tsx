@@ -45,10 +45,13 @@ export function WrappedDesktopResumePage(props: WrappedDesktopResumePageProps) {
 				session,
 				setState,
 				token,
-				trackResumeClaimed: (shareId) => {
+				trackResumeClaimed: (result) => {
 					trackUtilityUsed({
+						entrySource: "desktop_resume_link",
+						resolvedEntryRoute: result.redirectTo,
+						shareId: result.shareId ?? undefined,
 						sourceComponent: "wrapped_desktop_resume_page",
-						targetId: shareId ?? undefined,
+						targetId: result.shareId ?? undefined,
 						utilityName: "resumeClaimed",
 						utilityState: "consumed",
 					});
@@ -91,7 +94,10 @@ async function consumeResumeToken(input: {
 	session: AppSession | null;
 	setState: (state: ResumeConsumeState) => void;
 	token: string;
-	trackResumeClaimed: (shareId: string | null) => void;
+	trackResumeClaimed: (result: {
+		redirectTo: string;
+		shareId: string | null;
+	}) => void;
 }) {
 	const { session, setState, token, trackResumeClaimed } = input;
 	const email = getSessionUserEmail(session);
@@ -112,7 +118,10 @@ async function consumeResumeToken(input: {
 			token,
 		});
 
-		trackResumeClaimed(result.share_id);
+		trackResumeClaimed({
+			redirectTo: result.redirect_to,
+			shareId: result.share_id,
+		});
 		setState({
 			redirectTo: result.redirect_to,
 			status: "ready",
