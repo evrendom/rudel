@@ -19,7 +19,7 @@ export const walkInHandoverData = WalkInHandoverSchema.parse({
 		},
 		profile: {
 			avatarSrc: "/walk-in-profile.png",
-			fallbackLabel: "Operator",
+			fallbackLabel: "User",
 		},
 		callToActions: [
 			{
@@ -38,6 +38,12 @@ export const walkInHandoverData = WalkInHandoverSchema.parse({
 				kind: "follow-x",
 			},
 		],
+		// Reminder: these still need real storage before the inline red walk-in
+		// copy warnings can be removed:
+		// - user timezone / locale
+		// - walk-in onboarding state
+		// - persisted user-level wrapped archetype
+		// - context window capacity metadata
 		metricCandidates: [
 			{
 				id: "favorite-time-to-claude-codex",

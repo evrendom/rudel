@@ -1,0 +1,458 @@
+.card-reference-page {
+	position: relative;
+	display: flex;
+	min-height: 100svh;
+	padding-top: max(12px, env(safe-area-inset-top));
+	padding-right: max(16px, env(safe-area-inset-right));
+	padding-bottom: max(12px, env(safe-area-inset-bottom));
+	padding-left: max(16px, env(safe-area-inset-left));
+	background: radial-gradient(
+		circle at top,
+		#f9f5ed 0%,
+		#ebe4d8 38%,
+		#d9d0c4 100%
+	);
+	color: #161616;
+	isolation: isolate;
+	overflow-x: clip;
+}
+
+.card-reference-page__stage {
+	display: grid;
+	flex: 1;
+	place-items: center;
+	width: 100%;
+}
+
+.card-reference-page__card-wrap {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: min(100%, 42.9rem);
+}
+
+.reference-gift-card-preview-scale {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: min(100%, 30rem);
+	transform: scale(1.43);
+	transform-origin: center center;
+}
+
+.reference-gift-card-preview-frame {
+	position: relative;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 1rem;
+	width: 30rem;
+	height: 32.5rem;
+}
+
+.reference-gift-card-preview-canvas {
+	display: none;
+}
+
+.reference-gift-card-stage {
+	perspective: 1000px;
+	transform: none;
+}
+
+.reference-gift-card {
+	--reference-card-rotate-x: 0deg;
+	--reference-card-rotate-y: 0deg;
+	--reference-card-scale: 1;
+	--reference-card-shell-shine-opacity: 0;
+	--reference-card-shell-x: 90.3034%;
+	--reference-card-shell-y: 8.28258%;
+	--reference-card-shell-rotation: 61.2612deg;
+	--reference-card-art-shine-opacity: 0;
+	--reference-card-art-shine-x: 90.3034%;
+	--reference-card-art-shine-y: 8.28258%;
+	--reference-card-art-foil-rotation: 14.5092deg;
+	--reference-card-art-streak-rotation: 29.8246deg;
+	--reference-card-art-parallax-x: 0px;
+	--reference-card-art-parallax-y: 0px;
+	--reference-card-hand-x: 0px;
+	--reference-card-hand-y: 0px;
+	--reference-card-hand-rotate: 0deg;
+	position: relative;
+	width: 25rem;
+	height: 16.25rem;
+	overflow: hidden;
+	border-radius: 1rem;
+	background: linear-gradient(145deg, rgb(26 26 26) 0%, rgb(10 10 10) 100%);
+	box-shadow: rgb(0 0 0 / 0.3) 0 10px 30px -10px;
+	transform: rotateX(var(--reference-card-rotate-x))
+		rotateY(var(--reference-card-rotate-y)) scale(var(--reference-card-scale));
+	transform-style: preserve-3d;
+	transition:
+		transform 250ms cubic-bezier(0.4, 0, 0.2, 1),
+		box-shadow 250ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.reference-gift-card[data-tilt-active="true"] {
+	box-shadow: rgb(0 0 0 / 0.34) 0 18px 36px -12px;
+}
+
+.reference-gift-card__shell-shine {
+	position: absolute;
+	inset: 0;
+	pointer-events: none;
+	border-radius: inherit;
+	isolation: isolate;
+	opacity: var(--reference-card-shell-shine-opacity);
+	transition: opacity 250ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.reference-gift-card__shell-spot,
+.reference-gift-card__shell-streak {
+	position: absolute;
+	inset: 0;
+	transform-origin: center center;
+}
+
+.reference-gift-card__shell-spot {
+	background: radial-gradient(
+		58.5% 39% at var(--reference-card-shell-x) var(--reference-card-shell-y),
+		rgb(255 255 255 / 0.08) 0%,
+		rgb(255 255 255 / 0.03) 40%,
+		transparent 70%
+	);
+	mix-blend-mode: soft-light;
+	transform: rotate(var(--reference-card-shell-rotation));
+}
+
+.reference-gift-card__shell-streak {
+	background: linear-gradient(
+		105deg,
+		transparent 53.3034%,
+		rgb(255 255 255 / 0.05) 77.9701%,
+		rgb(255 255 255 / 0.12) 90.3034%,
+		rgb(255 255 255 / 0.05) 102.637%,
+		transparent 127.303%
+	);
+	mix-blend-mode: overlay;
+	transform: rotate(calc(var(--reference-card-shell-rotation) * -1));
+}
+
+.reference-gift-card__content {
+	position: relative;
+	z-index: 1;
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+	padding: 0.8125rem 1rem 0.75rem;
+	font-family: system-ui, sans-serif;
+	user-select: none;
+}
+
+.reference-gift-card__header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin-bottom: 0.8125rem;
+}
+
+.reference-gift-card__wordmark-wrap {
+	display: flex;
+	align-items: center;
+	gap: 0.375rem;
+	color: white;
+}
+
+.reference-gift-card__wordmark {
+	width: 1.5rem;
+	height: 0.6875rem;
+}
+
+.reference-gift-card__recipient {
+	color: rgb(255 255 255 / 0.5);
+	font-size: 0.875rem;
+	font-weight: 500;
+	line-height: 1;
+}
+
+.reference-gift-card__art-zone {
+	position: relative;
+	flex: 0 0 12.625rem;
+	height: 12.625rem;
+	margin-inline: 0;
+}
+
+.reference-gift-card__amount-wrap {
+	position: absolute;
+	inset: 0;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	user-select: none;
+}
+
+.reference-gift-card__amount {
+	padding-bottom: 0.5rem;
+	color: white;
+	font-family: ui-monospace, monospace;
+	font-size: clamp(4.75rem, 19vw, 6rem);
+	font-variant-numeric: slashed-zero tabular-nums;
+	font-weight: 500;
+	letter-spacing: -0.02em;
+	transform: translate(-0.5rem, -0.875rem);
+}
+
+.reference-gift-card__art-surface {
+	position: absolute;
+	inset: 0;
+	overflow: hidden;
+	border-radius: 0.5rem;
+	cursor: pointer;
+	box-shadow:
+		inset 0 0 0 1px rgb(255 255 255 / 0.04),
+		0 0 0 1px rgb(0 0 0 / 0.18);
+	mask-image: url("/card-reference-mask.png");
+	mask-position: 0 0;
+	mask-repeat: no-repeat;
+	mask-size: 100% 100%;
+	-webkit-mask-image: url("/card-reference-mask.png");
+	-webkit-mask-position: 0 0;
+	-webkit-mask-repeat: no-repeat;
+	-webkit-mask-size: 100% 100%;
+}
+
+.reference-gift-card__art-base,
+.reference-gift-card__art-triangles-static,
+.reference-gift-card__art-triangles,
+.reference-gift-card__art-noise,
+.reference-gift-card__art-holo,
+.reference-gift-card__art-overlay {
+	position: absolute;
+	inset: 0;
+}
+
+.reference-gift-card__art-base {
+	background: linear-gradient(
+		135deg,
+		rgb(58 58 58) 0%,
+		rgb(42 42 42) 25%,
+		rgb(26 26 26) 50%,
+		rgb(42 42 42) 75%,
+		rgb(58 58 58) 100%
+	);
+}
+
+.reference-gift-card__art-triangles-static {
+	overflow: hidden;
+	opacity: 0.12;
+	mix-blend-mode: soft-light;
+}
+
+.reference-gift-card__art-triangles {
+	overflow: hidden;
+	opacity: 0.3;
+	mix-blend-mode: soft-light;
+	transform: translate(
+		var(--reference-card-art-parallax-x),
+		var(--reference-card-art-parallax-y)
+	);
+}
+
+.reference-gift-card__triangle-svg {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+}
+
+.reference-gift-card__art-noise {
+	background-image: var(--reference-card-noise-image);
+	background-size: 12.5rem 12.5rem;
+	mix-blend-mode: overlay;
+	opacity: 0.3;
+}
+
+.reference-gift-card__art-noise--dense {
+	background-size: 6.25rem 6.25rem;
+	opacity: 0.5;
+}
+
+.reference-gift-card__art-holo {
+	opacity: var(--reference-card-art-shine-opacity);
+	isolation: isolate;
+	mask-image: radial-gradient(
+		105% 193% at var(--reference-card-art-shine-x)
+			var(--reference-card-art-shine-y),
+		black 0%,
+		black 15%,
+		transparent 50%
+	);
+	mask-position: 0 0;
+	mask-size: 100% 100%;
+	transition: opacity 250ms cubic-bezier(0.4, 0, 0.2, 1);
+	-webkit-mask-image: radial-gradient(
+		105% 193% at var(--reference-card-art-shine-x)
+			var(--reference-card-art-shine-y),
+		black 0%,
+		black 15%,
+		transparent 50%
+	);
+	-webkit-mask-position: 0 0;
+	-webkit-mask-size: 100% 100%;
+}
+
+.reference-gift-card__art-holo-base,
+.reference-gift-card__art-holo-rainbow,
+.reference-gift-card__art-holo-spot,
+.reference-gift-card__art-holo-streak {
+	position: absolute;
+	inset: 0;
+	transform-origin: center center;
+}
+
+.reference-gift-card__art-holo-base {
+	background: rgb(30 30 30 / 0.7);
+}
+
+.reference-gift-card__art-holo-rainbow {
+	background: linear-gradient(
+		277.246deg,
+		rgb(255 128 128 / 0.7) 0%,
+		rgb(255 237 102 / 0.6) 30%,
+		rgb(51 228 255 / 0.6) 60%,
+		rgb(240 117 205 / 0.7) 100%
+	);
+	filter: blur(27px);
+	mix-blend-mode: color-dodge;
+	transform: rotate(var(--reference-card-art-foil-rotation)) scale(1.76, 2.87);
+}
+
+.reference-gift-card__art-holo-spot {
+	background: radial-gradient(
+		39% 29.25% at var(--reference-card-art-shine-x)
+			var(--reference-card-art-shine-y),
+		rgb(255 255 255 / 0.58) 0%,
+		rgb(255 255 255 / 0.23) 30%,
+		transparent 70%
+	);
+	mix-blend-mode: soft-light;
+}
+
+.reference-gift-card__art-holo-streak {
+	background: linear-gradient(
+		105deg,
+		transparent 53.3034%,
+		rgb(255 255 255 / 0.1) 77.9701%,
+		rgb(255 255 255 / 0.2) 90.3034%,
+		rgb(255 255 255 / 0.1) 102.637%,
+		transparent 127.303%
+	);
+	filter: blur(8px);
+	mix-blend-mode: overlay;
+	transform: rotate(var(--reference-card-art-streak-rotation));
+}
+
+.reference-gift-card__art-overlay {
+	display: flex;
+	flex-direction: column;
+	padding: 1rem 0.5rem 0.5rem;
+	font-family: ui-monospace, monospace;
+	font-weight: 500;
+}
+
+.reference-gift-card__art-icon-wrap {
+	display: flex;
+	flex: 1;
+	align-items: center;
+	justify-content: center;
+}
+
+.reference-gift-card__art-icon {
+	display: grid;
+	place-items: center;
+	width: 3rem;
+	height: 3rem;
+	color: white;
+	transform: translate(
+			var(--reference-card-hand-x),
+			var(--reference-card-hand-y)
+		)
+		rotate(var(--reference-card-hand-rotate));
+}
+
+.reference-gift-card__hand-icon {
+	width: 3rem;
+	height: 3rem;
+}
+
+.reference-gift-card__metadata {
+	display: flex;
+	align-items: flex-end;
+	justify-content: space-between;
+	color: rgb(255 255 255 / 0.8);
+	font-size: 0.6875rem;
+	font-weight: 600;
+	letter-spacing: 0.12em;
+	line-height: 1.25;
+}
+
+.reference-gift-card__metadata-right {
+	text-align: right;
+	font-variant-numeric: tabular-nums;
+}
+
+.card-reference-page__controls {
+	position: absolute;
+	right: 0;
+	bottom: 1rem;
+	left: 0;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 0.75rem;
+	pointer-events: auto;
+}
+
+.card-reference-page__reset {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 2.75rem;
+	height: 2.75rem;
+	border: 0;
+	border-radius: 999px;
+	background: rgb(0 0 0 / 0.2);
+	backdrop-filter: blur(20px);
+	color: white;
+	cursor: pointer;
+	transition: background-color 150ms ease;
+}
+
+.card-reference-page__reset:hover {
+	background: rgb(0 0 0 / 0.28);
+}
+
+.card-reference-page__reset:focus-visible {
+	outline: 2px solid rgb(255 255 255 / 0.6);
+	outline-offset: 2px;
+}
+
+@media (max-width: 640px) {
+	.reference-gift-card-preview-scale {
+		transform: scale(1);
+		width: min(100%, 100%);
+	}
+
+	.reference-gift-card-preview-frame {
+		width: min(100%, 25rem);
+		height: auto;
+		padding-bottom: 3.75rem;
+	}
+
+	.reference-gift-card {
+		width: min(100%, 25rem);
+		height: auto;
+		aspect-ratio: 20 / 13;
+	}
+}

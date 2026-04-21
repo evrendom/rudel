@@ -14,6 +14,10 @@ import { useAnalyticsTracking } from "@/features/analytics/tracking/useAnalytics
 import { authClient, refreshAuthClientState } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
 import { clearPendingSignupRedirect } from "./auth-route-utils";
+import {
+	recordOAuthRedirectResult,
+	recordOAuthRedirectStart,
+} from "./oauth-debug";
 
 type FeedbackState = {
 	kind: "error" | "success";
@@ -123,9 +127,20 @@ export function LoginForm({
 			sourceComponent: "login_form",
 			authMethod: provider,
 		});
+		const callbackURL = getCallbackURL();
+		recordOAuthRedirectStart({
+			callbackURL,
+			provider,
+			source: "login_form",
+		});
 		const { error } = await authClient.signIn.social({
 			provider,
-			callbackURL: getCallbackURL(),
+			callbackURL,
+		});
+		recordOAuthRedirectResult({
+			errorMessage: error?.message,
+			provider,
+			source: "login_form",
 		});
 		if (error) {
 			setFeedback({

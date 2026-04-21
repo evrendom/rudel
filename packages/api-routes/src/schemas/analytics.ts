@@ -651,6 +651,12 @@ export const WrappedSourceSplitSchema = z.object({
 	session_share_percent: z.number(),
 });
 
+export const MonthlyModelUsageSchema = z.object({
+	month: z.string(),
+	model: z.string(),
+	session_count: z.number(),
+});
+
 export const WrappedV1MetricsSchema = z.object({
 	first_session_at: z.string().nullable(),
 	last_session_at: z.string().nullable(),
@@ -662,6 +668,7 @@ export const WrappedV1MetricsSchema = z.object({
 	estimated_spend_usd: z.number(),
 	longest_session_min: z.number(),
 	source_split: z.array(WrappedSourceSplitSchema),
+	model_by_month: z.array(MonthlyModelUsageSchema),
 });
 
 export const WrappedV1Schema = z.object({
@@ -737,5 +744,6 @@ export type DimensionAnalysisInput = z.infer<
 	typeof DimensionAnalysisInputSchema
 >;
 export type WrappedSourceSplit = z.infer<typeof WrappedSourceSplitSchema>;
+export type MonthlyModelUsage = z.infer<typeof MonthlyModelUsageSchema>;
 export type WrappedV1Metrics = z.infer<typeof WrappedV1MetricsSchema>;
 export type WrappedV1 = z.infer<typeof WrappedV1Schema>;

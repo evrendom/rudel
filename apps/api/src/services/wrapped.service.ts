@@ -1,4 +1,8 @@
-import type { WrappedSourceSplit, WrappedV1 } from "@rudel/api-routes";
+import type {
+	MonthlyModelUsage,
+	WrappedSourceSplit,
+	WrappedV1,
+} from "@rudel/api-routes";
 import { ESTIMATED_PRICING_MODE } from "@rudel/api-routes";
 import { queryClickhouse } from "../clickhouse.js";
 import { buildEstimatedCostSql } from "./pricing.service.js";
@@ -29,13 +33,20 @@ interface FavoriteModelRow {
 	favorite_model: string;
 }
 
+interface MonthlyModelUsageRow {
+	month: string;
+	model: string;
+	session_count: number | string | null;
+}
+
 export async function getWrappedV1Data(
 	orgId: string,
 	userId: string,
 ): Promise<WrappedV1> {
-	const [summaryRow, favoriteModel] = await Promise.all([
+	const [summaryRow, favoriteModel, modelByMonth] = await Promise.all([
 		getWrappedSummary(orgId, userId),
 		getFavoriteModel(orgId, userId),
+		getMonthlyModelUsage(orgId, userId),
 	]);
 
 	const totalSessions = toNumber(summaryRow.total_sessions);
@@ -64,6 +75,7 @@ export async function getWrappedV1Data(
 				buildSourceSplit("claude_code", claudeSessionCount, totalSessions),
 				buildSourceSplit("codex", codexSessionCount, totalSessions),
 			],
+			model_by_month: modelByMonth,
 		},
 	};
 }
@@ -103,6 +115,37 @@ async function getWrappedSummary(
 	});
 
 	return rows[0] ?? getEmptyWrappedSummaryRow();
+}
+
+async function getMonthlyModelUsage(
+	orgId: string,
+	userId: string,
+): Promise<MonthlyModelUsage[]> {
+	const rows = await queryClickhouse<MonthlyModelUsageRow>({
+		query: `
+			SELECT
+				formatDateTime(toStartOfMonth(session_date), '%Y-%m') AS month,
+				model_used AS model,
+				count() AS session_count
+			FROM rudel.session_analytics
+			WHERE organization_id = {orgId:String}
+				AND user_id = {userId:String}
+				AND model_used != ''
+				AND model_used != 'unknown'
+			GROUP BY month, model
+			ORDER BY month ASC, session_count DESC, model ASC
+		`,
+		query_params: {
+			orgId,
+			userId,
+		},
+	});
+
+	return rows.map((row) => ({
+		month: row.month,
+		model: row.model,
+		session_count: toNumber(row.session_count),
+	}));
 }
 
 async function getFavoriteModel(

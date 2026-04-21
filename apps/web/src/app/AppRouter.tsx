@@ -52,6 +52,10 @@ const PresetBaselinePage = lazyNamed(
 	() => import("@/app/system/PresetBaselinePage"),
 	"PresetBaselinePage",
 );
+const CardReferencePage = lazyNamed(
+	() => import("@/features/walk-in/CardReferencePage"),
+	"CardReferencePage",
+);
 const TeamCardWalkInPage = lazyNamed(
 	() => import("@/features/walk-in/TeamCardWalkInPage"),
 	"TeamCardWalkInPage",
@@ -133,6 +137,15 @@ export function AppRouter({
 			<Route
 				path="/__preset-baseline"
 				element={<LazyRoute Component={PresetBaselinePage} />}
+			/>
+			<Route
+				path={appRoutes.cardReference()}
+				element={
+					<LazyRoute
+						Component={CardReferencePage}
+						fallback={<FullscreenRouteLoadingScreen />}
+					/>
+				}
 			/>
 			<Route
 				path={appRoutes.walkInTeamCard()}

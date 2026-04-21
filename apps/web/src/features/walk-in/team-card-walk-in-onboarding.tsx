@@ -5,7 +5,12 @@ import {
 	LoaderCircle,
 } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
-import type { ReactNode, UIEvent } from "react";
+import type {
+	CSSProperties,
+	ReactNode,
+	TouchEvent,
+	UIEvent,
+} from "react";
 import { useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { appRoutes } from "@/app/routes";
@@ -27,7 +32,6 @@ const UPLOAD_STEP = {
 
 const WALK_IN_STEPS = [
 	{ id: "intro", label: "Intro", kind: "placeholder" },
-	{ id: "presence", label: "Presence", kind: "placeholder" },
 	{ id: "skills", label: "Skills", kind: "placeholder" },
 	{ id: "tools", label: "Tools", kind: "placeholder" },
 	{ id: "model", label: "Model", kind: "placeholder" },
@@ -35,6 +39,7 @@ const WALK_IN_STEPS = [
 	{ id: "lock-in", label: "Lock-in", kind: "placeholder" },
 	{ id: "project", label: "Project", kind: "placeholder" },
 	{ id: "quality", label: "Quality", kind: "placeholder" },
+	{ id: "pulse", label: "Repo pulse", kind: "placeholder" },
 	{ id: "card", label: "Final card", kind: "final" },
 ] as const;
 
@@ -57,17 +62,11 @@ export const WALK_IN_BEAT_CONTRACTS: Record<WalkInStepId, WalkInBeatContract> =
 			referenceClass: "User's own history.",
 			eligibility: "Always shown. Copy softens when total_sessions < 10.",
 		},
-		presence: {
-			metricBasis: "active_days divided by days_since_first_session.",
-			timeWindow: "Since first session, in UTC date boundaries.",
-			referenceClass: "User's own history, not peers.",
-			eligibility: "days_since_first_session >= 7.",
-		},
 		skills: {
-			metricBasis: "Top skill by usage and skills_adoption_rate.",
+			metricBasis: "Top 3 skills by usage count plus skills_adoption_rate.",
 			timeWindow: "Developer analytics window (last 90 days).",
 			referenceClass: "User's own history.",
-			eligibility: "At least one skill or adoption rate recorded.",
+			eligibility: "At least one ranked skill or adoption rate recorded.",
 		},
 		tools: {
 			metricBasis: "Top slash command and top subagent by usage.",
@@ -111,6 +110,13 @@ export const WALK_IN_BEAT_CONTRACTS: Record<WalkInStepId, WalkInBeatContract> =
 			referenceClass: "User's own history.",
 			eligibility: "At least one of commit_rate or success_rate is available.",
 		},
+		pulse: {
+			metricBasis:
+				"Three repo roles: highest-session repo, highest-duration repo, and highest-token repo, deduped when possible.",
+			timeWindow: "Developer analytics window.",
+			referenceClass: "User's own repositories.",
+			eligibility: "At least one project recorded before the final card reveal.",
+		},
 		card: {
 			metricBasis:
 				"User-picked archetype theme. Classifier lands later; no automatic assignment yet.",
@@ -147,6 +153,35 @@ interface IntroStageModel {
 	headline: string;
 }
 
+export interface WalkInRepoPulseItem {
+	id: string;
+	proof: string;
+	repoName: string;
+	role: string;
+}
+
+interface RepoPulseStageModel {
+	entries: readonly WalkInRepoPulseItem[];
+	footnote: string;
+	headline: string;
+	subline: string;
+}
+
+interface ToolsStageEntry {
+	id: string;
+	isPlaceholder: boolean;
+	name: string;
+	usageLabel: string;
+	usageRate: number | null;
+}
+
+interface ToolsStageModel {
+	entries: readonly ToolsStageEntry[];
+	footnote: string;
+	headline: string;
+	subline: string;
+}
+
 interface UploadStageModel {
 	body: string;
 	cardBody: string;
@@ -162,6 +197,11 @@ interface UploadStageRollItem {
 	id: string;
 	label: string;
 	meta: string;
+}
+
+export interface WalkInSkillUsageItem {
+	count: number;
+	name: string;
 }
 
 interface WalkInSecondaryActionProps {
@@ -268,18 +308,12 @@ const WALK_IN_STEP_PREVIEW_OPTIONS = {
 		{ value: "sparse", label: "Sparse run" },
 		{ value: "full", label: "Full run" },
 	],
-	presence: [
-		{ value: "auto", label: "Auto (live data)" },
-		{ value: "day-one", label: "Day one" },
-		{ value: "high", label: "High return rate" },
-		{ value: "mid", label: "Mid return rate" },
-		{ value: "low", label: "Low return rate" },
-	],
 	skills: [
 		{ value: "auto", label: "Auto (live data)" },
-		{ value: "dominant", label: "Top skill + adoption" },
-		{ value: "dominant-no-rate", label: "Top skill, no adoption rate" },
-		{ value: "usage-no-winner", label: "Usage, no clear winner" },
+		{ value: "dominant", label: "Clear podium" },
+		{ value: "dominant-no-rate", label: "Podium, no adoption rate" },
+		{ value: "usage-no-winner", label: "Tight race" },
+		{ value: "single-skill", label: "One visible skill" },
 		{ value: "no-signal", label: "No skill signal" },
 	],
 	tools: [
@@ -331,6 +365,12 @@ const WALK_IN_STEP_PREVIEW_OPTIONS = {
 		{ value: "commit-only-low", label: "Commit rate only, low" },
 		{ value: "no-signal", label: "No finish signal" },
 	],
+	pulse: [
+		{ value: "auto", label: "Auto (live data)" },
+		{ value: "single-home", label: "One home repo" },
+		{ value: "split-across", label: "Split across repos" },
+		{ value: "quiet", label: "Low repo signal" },
+	],
 } as const satisfies Record<
 	PreviewableWalkInStepId,
 	readonly WalkInPreviewOption[]
@@ -348,12 +388,18 @@ export interface WalkInOnboardingMetrics {
 	slashCommandsAdoptionRate: number | null;
 	subagentsAdoptionRate: number | null;
 	successRate: number | null;
+	repoPulse: readonly WalkInRepoPulseItem[];
 	topProjectName: string | null;
 	topProjectSessions: number;
 	topProjectTokens: number;
-	topSkill: string | null;
+	topSkills: readonly WalkInSkillUsageItem[];
 	topSlashCommand: string | null;
+	topSlashCommands: readonly WalkInSkillUsageItem[];
+	topSlashCommandCount: number | null;
 	topSubagent: string | null;
+	topSubagents: readonly WalkInSkillUsageItem[];
+	topSubagentCount: number | null;
+	totalSessions: number;
 	totalTokens: number;
 }
 
@@ -669,6 +715,33 @@ function PlaceholderStage(props: {
 		);
 	}
 
+	if (step.id === "skills") {
+		return (
+			<SkillsStage
+				onboardingMetrics={onboardingMetrics}
+				previewState={previewState}
+			/>
+		);
+	}
+
+	if (step.id === "tools") {
+		return (
+			<ToolsStage
+				onboardingMetrics={onboardingMetrics}
+				previewState={previewState}
+			/>
+		);
+	}
+
+	if (step.id === "pulse") {
+		return (
+			<RepoPulseStage
+				onboardingMetrics={onboardingMetrics}
+				previewState={previewState}
+			/>
+		);
+	}
+
 	const content = buildStepContent({
 		distinctProjectCount,
 		displayName,
@@ -695,6 +768,106 @@ function PlaceholderStage(props: {
 					</p>
 				))}
 			</div>
+		</section>
+	);
+}
+
+function ToolsStage(props: {
+	onboardingMetrics: WalkInOnboardingMetrics;
+	previewState: string;
+}) {
+	const { onboardingMetrics, previewState } = props;
+	const model = resolveToolsStageModel(
+			resolveToolsPreviewInput(
+				{
+					slashCommandsAdoptionRate: onboardingMetrics.slashCommandsAdoptionRate,
+					subagentsAdoptionRate: onboardingMetrics.subagentsAdoptionRate,
+					topSlashCommand: onboardingMetrics.topSlashCommand,
+					topSlashCommands: onboardingMetrics.topSlashCommands,
+					topSlashCommandCount: onboardingMetrics.topSlashCommandCount,
+					topSubagent: onboardingMetrics.topSubagent,
+					topSubagents: onboardingMetrics.topSubagents,
+					topSubagentCount: onboardingMetrics.topSubagentCount,
+					totalSessions: onboardingMetrics.totalSessions,
+				},
+				previewState,
+			),
+	);
+	const [activeCardIndex, setActiveCardIndex] = useState(0);
+
+	useEffect(() => {
+		setActiveCardIndex(0);
+	}, [model.entries.length, previewState]);
+
+	return (
+		<section className="mymind-walk-in-tools-stage">
+			<div className="mymind-walk-in-tools-stage__hero">
+				<p className="mymind-walk-in-tools-stage__eyebrow">Workflow tools</p>
+				<h2 className="mymind-walk-in-tools-stage__headline">
+					{model.headline}
+				</h2>
+				<p className="mymind-walk-in-tools-stage__subline">{model.subline}</p>
+			</div>
+
+			<div className="mymind-walk-in-tools-stage__object">
+				<article
+					className="mymind-walk-in-tools-stage__card"
+					style={
+						{
+							"--tools-stack-height": `${getToolsStackHeightRem(
+								model.entries.length,
+							)}rem`,
+						} as CSSProperties
+					}
+				>
+					<div className="mymind-walk-in-tools-stage__list">
+						{model.entries.map((entry, entryIndex) => (
+							<button
+								key={entry.id}
+								type="button"
+								aria-label={`${entry.name}. ${entry.usageLabel}`}
+								aria-pressed={entryIndex === activeCardIndex}
+								className={cn(
+									"mymind-walk-in-tools-stage__entry",
+									entryIndex === activeCardIndex && "is-front",
+									entry.isPlaceholder && "is-placeholder",
+								)}
+								onClick={() => setActiveCardIndex(entryIndex)}
+								onFocus={() => setActiveCardIndex(entryIndex)}
+								style={getToolsEntryStyle(
+									entryIndex,
+									model.entries.length,
+									activeCardIndex,
+								)}
+							>
+								<div className="mymind-walk-in-tools-stage__entry-top">
+									<p className="mymind-walk-in-tools-stage__entry-usage">
+										{entry.usageLabel}
+									</p>
+								</div>
+								<p className="mymind-walk-in-tools-stage__entry-name">
+									{entry.name}
+								</p>
+								<div
+									className="mymind-walk-in-tools-stage__meter"
+									aria-hidden="true"
+								>
+									<span
+										className="mymind-walk-in-tools-stage__meter-fill"
+										style={
+											{
+												"--tools-stage-meter-value": `${entry.usageRate ?? 0}%`,
+											} as CSSProperties
+										}
+									/>
+								</div>
+							</button>
+						))}
+					</div>
+				</article>
+			</div>
+
+			<p className="mymind-walk-in-tools-stage__footnote">{model.footnote}</p>
 		</section>
 	);
 }
@@ -845,6 +1018,263 @@ function IntroStage(props: {
 			>
 				{model.footnote}
 			</motion.p>
+		</section>
+	);
+}
+
+function SkillsStage(props: {
+	onboardingMetrics: WalkInOnboardingMetrics;
+	previewState: string;
+}) {
+	const { onboardingMetrics, previewState } = props;
+	const stackRef = useRef<HTMLDivElement | null>(null);
+	const wheelAccumulationRef = useRef(0);
+	const lastWheelTimestampRef = useRef(0);
+	const lockedUntilTimestampRef = useRef(0);
+	const touchStartYRef = useRef<number | null>(null);
+	const model = resolveSkillsStageModel(
+		resolveSkillsPreviewInput(
+			{
+				skillsAdoptionRate: onboardingMetrics.skillsAdoptionRate,
+				topSkills: onboardingMetrics.topSkills,
+			},
+			previewState,
+		),
+	);
+	const [activeCardIndex, setActiveCardIndex] = useState(0);
+
+	useEffect(() => {
+		setActiveCardIndex(0);
+		wheelAccumulationRef.current = 0;
+		lastWheelTimestampRef.current = 0;
+		lockedUntilTimestampRef.current = 0;
+		touchStartYRef.current = null;
+	}, [previewState, model.cards.length]);
+
+	function setNextActiveCardIndex(direction: 1 | -1) {
+		setActiveCardIndex((previousIndex) =>
+			clampSkillsCardIndex(previousIndex + direction, model.cards.length),
+		);
+	}
+
+	function handleSkillsCardWheelDelta(deltaY: number) {
+		if (!model.isScrollable || deltaY === 0) {
+			return;
+		}
+
+		const now = performance.now();
+		if (now < lockedUntilTimestampRef.current) {
+			return;
+		}
+
+		if (now - lastWheelTimestampRef.current > SKILLS_STACK.wheelResetMs) {
+			wheelAccumulationRef.current = 0;
+		}
+
+		lastWheelTimestampRef.current = now;
+		wheelAccumulationRef.current += deltaY;
+
+		if (Math.abs(wheelAccumulationRef.current) < SKILLS_STACK.wheelThresholdPx) {
+			return;
+		}
+
+		const direction = wheelAccumulationRef.current > 0 ? 1 : -1;
+		wheelAccumulationRef.current = 0;
+		lockedUntilTimestampRef.current = now + SKILLS_STACK.interactionLockMs;
+		setNextActiveCardIndex(direction);
+	}
+
+	useEffect(() => {
+		const stackNode = stackRef.current;
+		if (!stackNode || !model.isScrollable) {
+			return;
+		}
+		const interactiveStackNode: HTMLDivElement = stackNode;
+
+		function handleNativeWheel(event: WheelEvent) {
+			const eventTarget = event.target;
+			if (!(eventTarget instanceof Element)) {
+				return;
+			}
+
+			const cardElement = eventTarget.closest(".mymind-walk-in-skills-stage__card");
+			if (!cardElement || !interactiveStackNode.contains(cardElement)) {
+				return;
+			}
+
+			event.preventDefault();
+			handleSkillsCardWheelDelta(event.deltaY);
+		}
+
+		interactiveStackNode.addEventListener("wheel", handleNativeWheel, { passive: false });
+		return () => {
+			interactiveStackNode.removeEventListener("wheel", handleNativeWheel);
+		};
+	}, [model.isScrollable, model.cards.length]);
+
+	function handleSkillsCardTouchStart(event: TouchEvent<HTMLElement>) {
+		if (!model.isScrollable) {
+			return;
+		}
+
+		touchStartYRef.current = event.touches[0]?.clientY ?? null;
+	}
+
+	function handleSkillsCardTouchEnd(event: TouchEvent<HTMLElement>) {
+		if (!model.isScrollable) {
+			return;
+		}
+
+		const touchStartY = touchStartYRef.current;
+		const touchEndY = event.changedTouches[0]?.clientY ?? null;
+		touchStartYRef.current = null;
+
+		if (touchStartY === null || touchEndY === null) {
+			return;
+		}
+
+		const now = performance.now();
+		if (now < lockedUntilTimestampRef.current) {
+			return;
+		}
+
+		const deltaY = touchStartY - touchEndY;
+		if (Math.abs(deltaY) < SKILLS_STACK.touchThresholdPx) {
+			return;
+		}
+
+		lockedUntilTimestampRef.current = now + SKILLS_STACK.interactionLockMs;
+		setNextActiveCardIndex(deltaY > 0 ? 1 : -1);
+	}
+
+	return (
+		<section className="mymind-walk-in-skills-stage">
+			<div className="mymind-walk-in-skills-stage__hero">
+				<p className="mymind-walk-in-skills-stage__eyebrow">Skills board</p>
+				<h2 className="mymind-walk-in-skills-stage__headline">
+					{model.headline}
+				</h2>
+				{model.subline ? (
+					<p className="mymind-walk-in-skills-stage__subline">{model.subline}</p>
+				) : null}
+			</div>
+
+			<div ref={stackRef} className="mymind-walk-in-skills-stage__stack">
+				<div
+					className="mymind-walk-in-skills-stage__stack-track"
+					style={
+						{
+							"--skills-stack-track-height": `${model.trackHeightRem}rem`,
+						} as CSSProperties
+					}
+				>
+					{model.cards.map((card, cardIndex) => (
+						<article
+							key={card.id}
+							className={cn(
+								"mymind-walk-in-skills-stage__card",
+								cardIndex === activeCardIndex && "is-front",
+							)}
+							onTouchEnd={handleSkillsCardTouchEnd}
+							onTouchStart={handleSkillsCardTouchStart}
+							style={getSkillsCardStyle(cardIndex, activeCardIndex)}
+						>
+							<div
+								className={cn(
+									"mymind-walk-in-skills-stage__card-item",
+									card.item.isPlaceholder && "is-placeholder",
+								)}
+							>
+								<span className="mymind-walk-in-skills-stage__item-rank">
+									{card.item.rank}
+								</span>
+								<div className="mymind-walk-in-skills-stage__item-copy">
+									<p className="mymind-walk-in-skills-stage__item-name">
+										{card.item.name}
+									</p>
+									<p className="mymind-walk-in-skills-stage__item-meta">
+										{card.item.meta}
+									</p>
+								</div>
+							</div>
+						</article>
+					))}
+				</div>
+			</div>
+
+			<p className="mymind-walk-in-skills-stage__footnote">{model.footnote}</p>
+		</section>
+	);
+}
+
+function RepoPulseStage(props: {
+	onboardingMetrics: WalkInOnboardingMetrics;
+	previewState: string;
+}) {
+	const { onboardingMetrics, previewState } = props;
+	const model = resolveRepoPulseStageModel(
+		resolveRepoPulsePreviewInput(onboardingMetrics.repoPulse, previewState),
+	);
+
+	return (
+		<section className="mymind-walk-in-repo-pulse-stage">
+			<div className="mymind-walk-in-repo-pulse-stage__hero">
+				<p className="mymind-walk-in-repo-pulse-stage__eyebrow">Repo pulse</p>
+				<h2 className="mymind-walk-in-repo-pulse-stage__headline">
+					{model.headline}
+				</h2>
+				<p className="mymind-walk-in-repo-pulse-stage__subline">
+					{model.subline}
+				</p>
+			</div>
+
+			<div className="mymind-walk-in-repo-pulse-stage__object">
+				<article className="mymind-walk-in-repo-pulse-stage__card">
+					<div className="mymind-walk-in-repo-pulse-stage__card-top">
+						<div
+							className="mymind-walk-in-repo-pulse-stage__card-dots"
+							aria-hidden="true"
+						>
+							<span />
+							<span />
+							<span />
+						</div>
+						<div className="mymind-walk-in-repo-pulse-stage__card-chip">
+							Where the work happened
+						</div>
+					</div>
+
+					<div className="mymind-walk-in-repo-pulse-stage__stack">
+						{model.entries.map((entry) => (
+							<article
+								key={entry.id}
+								className="mymind-walk-in-repo-pulse-stage__row"
+							>
+								<p className="mymind-walk-in-repo-pulse-stage__role">
+									{entry.role}
+								</p>
+								<div className="mymind-walk-in-repo-pulse-stage__row-copy">
+									<p className="mymind-walk-in-repo-pulse-stage__repo">
+										{entry.repoName}
+									</p>
+									<p className="mymind-walk-in-repo-pulse-stage__proof">
+										{entry.proof}
+									</p>
+								</div>
+							</article>
+						))}
+						{model.entries.length === 0 ? (
+							<article className="mymind-walk-in-repo-pulse-stage__empty">
+								No repo signal yet
+							</article>
+						) : null}
+					</div>
+				</article>
+			</div>
+
+			<p className="mymind-walk-in-repo-pulse-stage__footnote">
+				{model.footnote}
+			</p>
 		</section>
 	);
 }
@@ -1180,29 +1610,6 @@ function buildStepContent(input: {
 					previewState,
 				),
 			);
-		case "presence":
-			return buildPresenceContent(
-				resolvePresencePreviewInput(
-					{
-						activeDays: onboardingMetrics.activeDays,
-						daysSinceFirst: onboardingMetrics.daysSinceFirst,
-					},
-					previewState,
-				),
-			);
-		case "skills": {
-			const skillsPreview = resolveSkillsPreviewInput(
-				{
-					skillsAdoptionRate: onboardingMetrics.skillsAdoptionRate,
-					topSkill: onboardingMetrics.topSkill,
-				},
-				previewState,
-			);
-			return [
-				{ text: getSkillsHeadline(skillsPreview.topSkill) },
-				{ text: getSkillsSubline(skillsPreview.skillsAdoptionRate) },
-			];
-		}
 		case "model":
 			return buildModelContent(
 				resolveModelPreviewInput(
@@ -1247,7 +1654,12 @@ function buildStepContent(input: {
 						onboardingMetrics.slashCommandsAdoptionRate,
 					subagentsAdoptionRate: onboardingMetrics.subagentsAdoptionRate,
 					topSlashCommand: onboardingMetrics.topSlashCommand,
+					topSlashCommands: onboardingMetrics.topSlashCommands,
+					topSlashCommandCount: onboardingMetrics.topSlashCommandCount,
 					topSubagent: onboardingMetrics.topSubagent,
+					topSubagents: onboardingMetrics.topSubagents,
+					topSubagentCount: onboardingMetrics.topSubagentCount,
+					totalSessions: onboardingMetrics.totalSessions,
 				},
 				previewState,
 			);
@@ -1577,46 +1989,366 @@ function getGreetingName(displayName: string) {
 	return trimmedDisplayName.split(/\s+/)[0] ?? trimmedDisplayName;
 }
 
-function resolvePresencePreviewInput(
-	input: {
-		activeDays: number;
-		daysSinceFirst: number;
-	},
-	previewState: string,
-) {
-	switch (previewState) {
-		case "day-one":
-			return { activeDays: 0, daysSinceFirst: 0 };
-		case "high":
-			return { activeDays: 91, daysSinceFirst: 120 };
-		case "mid":
-			return { activeDays: 18, daysSinceFirst: 60 };
-		case "low":
-			return { activeDays: 4, daysSinceFirst: 32 };
-		default:
-			return input;
-	}
-}
-
 function resolveSkillsPreviewInput(
 	input: {
 		skillsAdoptionRate: number | null;
-		topSkill: string | null;
+		topSkills: readonly WalkInSkillUsageItem[];
 	},
 	previewState: string,
 ) {
 	switch (previewState) {
 		case "dominant":
-			return { topSkill: "Refactor", skillsAdoptionRate: 68 };
+			return {
+				topSkills: [
+					{ name: "Refactor", count: 42 },
+					{ name: "Plan", count: 27 },
+					{ name: "Test", count: 18 },
+					{ name: "Review", count: 15 },
+					{ name: "Explain", count: 14 },
+					{ name: "Research", count: 12 },
+					{ name: "Extract", count: 10 },
+					{ name: "Debug", count: 8 },
+					{ name: "Write Docs", count: 7 },
+					{ name: "Migrate", count: 5 },
+				],
+				skillsAdoptionRate: 68,
+			};
 		case "dominant-no-rate":
-			return { topSkill: "Refactor", skillsAdoptionRate: null };
+			return {
+				topSkills: [
+					{ name: "Refactor", count: 33 },
+					{ name: "Plan", count: 19 },
+					{ name: "Explain", count: 14 },
+					{ name: "Review", count: 12 },
+					{ name: "Research", count: 10 },
+					{ name: "Test", count: 8 },
+					{ name: "Extract", count: 6 },
+					{ name: "Summarize", count: 5 },
+					{ name: "Migrate", count: 4 },
+				],
+				skillsAdoptionRate: null,
+			};
 		case "usage-no-winner":
-			return { topSkill: null, skillsAdoptionRate: 24 };
+			return {
+				topSkills: [
+					{ name: "Plan", count: 14 },
+					{ name: "Refactor", count: 13 },
+					{ name: "Research", count: 12 },
+					{ name: "Review", count: 11 },
+					{ name: "Test", count: 11 },
+					{ name: "Explain", count: 10 },
+					{ name: "Debug", count: 9 },
+					{ name: "Extract", count: 9 },
+					{ name: "Summarize", count: 8 },
+				],
+				skillsAdoptionRate: 24,
+			};
+		case "single-skill":
+			return {
+				topSkills: [{ name: "Refactor", count: 11 }],
+				skillsAdoptionRate: 18,
+			};
 		case "no-signal":
-			return { topSkill: null, skillsAdoptionRate: null };
+			return { topSkills: [], skillsAdoptionRate: null };
 		default:
 			return input;
 	}
+}
+
+function resolveSkillsStageModel(input: {
+	skillsAdoptionRate: number | null;
+	topSkills: readonly WalkInSkillUsageItem[];
+}) {
+	const rankedSkills = input.topSkills.filter(
+		(skill) => skill.name.trim().length > 0 && skill.count > 0,
+	);
+	const displayItems = rankedSkills.length > 0 ? [...rankedSkills] : [];
+
+	const minimumVisibleItems = 3;
+	while (displayItems.length < minimumVisibleItems) {
+		displayItems.push(getSkillsPlaceholderItem(displayItems.length + 1));
+	}
+
+	const cardItems = displayItems.map((skill, index) => {
+		const rank = index + 1;
+		const isPlaceholder = skill.count === 0;
+
+		return {
+			id: `skill-rank-${rank}`,
+			isPlaceholder,
+			meta: isPlaceholder
+				? getSkillsPlaceholderMeta(rank)
+				: `${skill.count.toLocaleString()} use${skill.count === 1 ? "" : "s"}`,
+			name: isPlaceholder ? getSkillsPlaceholderName(rank) : skill.name,
+			rank,
+		};
+	});
+
+	const cards = cardItems.map((item) => ({
+		id: `skills-card-${item.rank}`,
+		item,
+	}));
+	const visibleCardCount = Math.max(cards.length, SKILLS_STACK.visibleCards);
+	const trackHeightRem =
+		SKILLS_STACK.viewportHeightRem +
+		(visibleCardCount - 1) * SKILLS_STACK.stepRem;
+	const visibleSkillsCount = rankedSkills.length;
+	const isScrollable = visibleSkillsCount > SKILLS_STACK.visibleCards;
+
+	if (rankedSkills.length === 0) {
+		return {
+			cards,
+			footnote:
+				"No ranked skills yet. The board fills once the same skills start showing up more than once.",
+			headline: "Your skill board is warming up",
+			isScrollable,
+			subline: "The first three repeat skills will stack here once the pattern settles.",
+			trackHeightRem,
+		};
+	}
+
+	if (rankedSkills.length === 1) {
+		return {
+			cards,
+			footnote:
+				input.skillsAdoptionRate === null
+					? "Only one skill has enough signal to make the board so far."
+					: `${formatPercent(input.skillsAdoptionRate)} of sessions pulled in a skill.`,
+			headline: `${rankedSkills[0]?.name} took the lead`,
+			isScrollable,
+			subline: "The board has a leader now. The next two spots are still taking shape.",
+			trackHeightRem,
+		};
+	}
+
+	const leaderName = rankedSkills[0]?.name ?? "One skill";
+	const footnote =
+		isScrollable
+			? `${visibleSkillsCount.toLocaleString()} skills ranked. Scroll or swipe the cards to see the full board.`
+			: input.skillsAdoptionRate === null
+			? "Skill adoption is still settling."
+			: `${formatPercent(input.skillsAdoptionRate)} of sessions pulled in a skill.`;
+
+	return {
+		cards,
+		footnote,
+		headline: `${leaderName} leads the board`,
+		isScrollable,
+		subline: "A playful read on the skills that kept showing up.",
+		trackHeightRem,
+	};
+}
+
+function getSkillsPlaceholderName(rank: number) {
+	if (rank <= 3) {
+		return `Future pick ${rank}`;
+	}
+	if (rank <= 6) {
+		return "Next contender";
+	}
+	return "Still forming";
+}
+
+function getSkillsPlaceholderMeta(rank: number) {
+	if (rank <= 3) {
+		return "Still warming up";
+	}
+	if (rank <= 6) {
+		return "Waiting for repeat use";
+	}
+	return "One more run to get there";
+}
+
+function getSkillsPlaceholderItem(rank: number): WalkInSkillUsageItem {
+	return {
+		count: 0,
+		name: `placeholder-${rank}`,
+	};
+}
+
+const SKILLS_STACK = {
+	focusTopRem: 5.35,
+	interactionLockMs: 220,
+	shadowBleedRem: 0.65,
+	stepRem: 2.95,
+	touchThresholdPx: 34,
+	viewportHeightRem: 16.2,
+	visibleCards: 3,
+	wheelResetMs: 140,
+	wheelThresholdPx: 36,
+} as const;
+
+function clampSkillsCardIndex(index: number, totalCards: number) {
+	if (totalCards <= 0) {
+		return 0;
+	}
+
+	return Math.min(Math.max(index, 0), totalCards - 1);
+}
+
+function getSkillsCardStyle(
+	cardIndex: number,
+	activeCardIndex: number,
+): CSSProperties {
+	const relativeDepth = cardIndex - activeCardIndex;
+	const isVisibleDepth =
+		relativeDepth >= -1 && relativeDepth < SKILLS_STACK.visibleCards - 1;
+	const zIndex =
+		relativeDepth === 0
+			? 40
+			: relativeDepth === -1
+				? 30
+				: relativeDepth === 1
+					? 20
+					: 10;
+
+	const depthStyles =
+		relativeDepth === -1
+			? { rotateDeg: -7, scale: 0.968, translateZ: 16, widthPercent: 96 }
+			: relativeDepth === 0
+			? { rotateDeg: 0, scale: 1, translateZ: 52, widthPercent: 100 }
+			: relativeDepth === 1
+				? { rotateDeg: 8, scale: 0.962, translateZ: 16, widthPercent: 96 }
+				: { rotateDeg: 12, scale: 0.93, translateZ: -4, widthPercent: 92 };
+
+	return {
+		"--skills-card-y": `${relativeDepth * SKILLS_STACK.stepRem}rem`,
+		"--skills-card-scale": depthStyles.scale,
+		"--skills-card-rotate": `${depthStyles.rotateDeg}deg`,
+		"--skills-card-z": `${depthStyles.translateZ}px`,
+		filter: isVisibleDepth ? "blur(0px)" : "blur(2px)",
+		opacity: isVisibleDepth ? 1 : 0,
+		pointerEvents: isVisibleDepth ? "auto" : "none",
+		top: `${SKILLS_STACK.focusTopRem}rem`,
+		width: `calc(${depthStyles.widthPercent}% - ${SKILLS_STACK.shadowBleedRem * 2}rem)`,
+		zIndex,
+	} as CSSProperties;
+}
+
+function resolveRepoPulsePreviewInput(
+	input: readonly WalkInRepoPulseItem[],
+	previewState: string,
+) {
+	switch (previewState) {
+		case "single-home":
+			return [
+				{
+					id: "home-base",
+					proof: "24 sessions",
+					repoName: "geneva",
+					role: "Home base",
+				},
+			] satisfies WalkInRepoPulseItem[];
+		case "split-across":
+			return [
+				{
+					id: "home-base",
+					proof: "61 sessions",
+					repoName: "geneva",
+					role: "Home base",
+				},
+				{
+					id: "deep-work",
+					proof: "19h 40m on canvas",
+					repoName: "rudel-web",
+					role: "Deep work",
+				},
+				{
+					id: "heavy-lift",
+					proof: "1.8M tokens moved",
+					repoName: "api-routes",
+					role: "Heavy lift",
+				},
+			] satisfies WalkInRepoPulseItem[];
+		case "quiet":
+			return [];
+		default:
+			return input;
+	}
+}
+
+function resolveRepoPulseStageModel(
+	input: readonly WalkInRepoPulseItem[],
+): RepoPulseStageModel {
+	if (input.length === 0) {
+		return {
+			entries: [],
+			footnote: "A little more repo history and the pulse will settle into view.",
+			headline: "Your repo pulse is still landing",
+			subline: "When the work settles into projects, this view fills itself in.",
+		};
+	}
+
+	if (input.length === 1) {
+		return {
+			entries: input,
+			footnote: `${input[0]?.repoName} carried most of the run.`,
+			headline: "One repo held onto the run",
+			subline: "The work had a clear home base before the card reveal.",
+		};
+	}
+
+	return {
+		entries: input,
+		footnote: "That rhythm is what the final card is built on.",
+		headline: "A few repos carried the run",
+		subline: "Each one ended up with its own job.",
+	};
+}
+
+function resolveToolsStageModel(input: {
+	slashCommandsAdoptionRate: number | null;
+	subagentsAdoptionRate: number | null;
+	topSlashCommand: string | null;
+	topSlashCommands: readonly WalkInSkillUsageItem[];
+	topSlashCommandCount: number | null;
+	topSubagent: string | null;
+	topSubagents: readonly WalkInSkillUsageItem[];
+	topSubagentCount: number | null;
+	totalSessions: number;
+}): ToolsStageModel {
+	const liveEntries = buildToolsStageEntries(input);
+
+	if (input.topSlashCommand === null && input.topSubagent === null) {
+		return {
+			entries: buildToolsPlaceholderEntries(),
+			footnote:
+				"These numbers are the share of sessions where each layer showed up, not raw invocation counts.",
+			headline: "You stayed close to the base model",
+			subline: "The extension layer is still quiet, so the readout stays intentionally spare.",
+		};
+	}
+
+	if (input.topSlashCommand !== null && input.topSubagent !== null) {
+		return {
+			entries: liveEntries,
+			footnote:
+				"These are session-share numbers: how often that layer appeared in a session at least once.",
+			headline: getToolsHeadline(input),
+			subline:
+				"One thing you reached for directly, one thing you handed work off to.",
+		};
+	}
+
+	if (input.topSlashCommand !== null) {
+		return {
+			entries: liveEntries,
+			footnote:
+				"Session share is based on whether the layer appeared in the session, not how many times it fired.",
+			headline: getToolsHeadline(input),
+			subline:
+				"One command pattern showed up clearly. The rest of the extension layer is still settling.",
+		};
+	}
+
+	return {
+		entries: liveEntries,
+		footnote:
+			"Session share is based on whether the layer appeared in the session, not how many times it fired.",
+		headline: getToolsHeadline(input),
+		subline:
+			"The helper layer is visible already. Slash-command usage can stay quiet and that still tells a story.",
+	};
 }
 
 function resolveToolsPreviewInput(
@@ -1624,7 +2356,12 @@ function resolveToolsPreviewInput(
 		slashCommandsAdoptionRate: number | null;
 		subagentsAdoptionRate: number | null;
 		topSlashCommand: string | null;
+		topSlashCommands: readonly WalkInSkillUsageItem[];
+		topSlashCommandCount: number | null;
 		topSubagent: string | null;
+		topSubagents: readonly WalkInSkillUsageItem[];
+		topSubagentCount: number | null;
+		totalSessions: number;
 	},
 	previewState: string,
 ) {
@@ -1632,34 +2369,212 @@ function resolveToolsPreviewInput(
 		case "both":
 			return {
 				topSlashCommand: "/fix",
+				topSlashCommands: [
+					{ name: "/fix", count: 74 },
+					{ name: "/plan", count: 29 },
+				],
+				topSlashCommandCount: 74,
 				topSubagent: "Reviewer",
+				topSubagents: [{ name: "Reviewer", count: 40 }],
+				topSubagentCount: 40,
 				slashCommandsAdoptionRate: 58,
 				subagentsAdoptionRate: 31,
+				totalSessions: 128,
 			};
 		case "slash-only":
 			return {
 				topSlashCommand: "/plan",
+				topSlashCommands: [
+					{ name: "/plan", count: 79 },
+					{ name: "/test", count: 28 },
+					{ name: "/review", count: 17 },
+				],
+				topSlashCommandCount: 79,
 				topSubagent: null,
+				topSubagents: [],
+				topSubagentCount: null,
 				slashCommandsAdoptionRate: 62,
 				subagentsAdoptionRate: null,
+				totalSessions: 127,
 			};
 		case "subagent-only":
 			return {
 				topSlashCommand: null,
+				topSlashCommands: [],
+				topSlashCommandCount: null,
 				topSubagent: "Researcher",
+				topSubagents: [
+					{ name: "Researcher", count: 37 },
+					{ name: "Reviewer", count: 22 },
+				],
+				topSubagentCount: 37,
 				slashCommandsAdoptionRate: null,
 				subagentsAdoptionRate: 29,
+				totalSessions: 128,
 			};
 		case "base-model":
 			return {
 				topSlashCommand: null,
+				topSlashCommands: [],
+				topSlashCommandCount: null,
 				topSubagent: null,
+				topSubagents: [],
+				topSubagentCount: null,
 				slashCommandsAdoptionRate: null,
 				subagentsAdoptionRate: null,
+				totalSessions: input.totalSessions,
 			};
 		default:
 			return input;
 	}
+}
+
+function getToolsUsageLabel(rate: number, count: number | null) {
+	if (count === null) {
+		return `Used in ${formatPercent(rate)} of sessions`;
+	}
+
+	return `Used in ${formatPercent(rate)} of sessions (${count.toLocaleString()} ${
+		count === 1 ? "time" : "times"
+	})`;
+}
+
+function buildToolsStageEntries(input: {
+	topSlashCommands: readonly WalkInSkillUsageItem[];
+	topSubagents: readonly WalkInSkillUsageItem[];
+	totalSessions: number;
+}): readonly ToolsStageEntry[] {
+	const totalSessions = Math.max(input.totalSessions, 0);
+	const slashEntries = input.topSlashCommands.map((item, index) => ({
+		count: item.count,
+		id: `slash-command-${index}`,
+		name: item.name,
+	}));
+	const subagentEntries = input.topSubagents.map((item, index) => ({
+		count: item.count,
+		id: `subagent-${index}`,
+		name: item.name,
+	}));
+
+	return [...slashEntries, ...subagentEntries]
+		.filter((item) => item.name.trim().length > 0 && item.count > 0)
+		.sort(
+			(leftItem, rightItem) =>
+				rightItem.count - leftItem.count ||
+				leftItem.name.localeCompare(rightItem.name),
+		)
+		.slice(0, 3)
+		.map((item) => ({
+			id: item.id,
+			isPlaceholder: false,
+			name: item.name,
+			usageLabel: getToolsUsageLabel(
+				totalSessions > 0 ? (item.count / totalSessions) * 100 : 0,
+				item.count,
+			),
+			usageRate: totalSessions > 0 ? (item.count / totalSessions) * 100 : 0,
+		}));
+}
+
+function buildToolsPlaceholderEntries(): readonly ToolsStageEntry[] {
+	return [
+		{
+			id: "tools-placeholder-1",
+			isPlaceholder: true,
+			name: "Waiting for a repeat winner",
+			usageLabel: "Session share still landing",
+			usageRate: null,
+		},
+		{
+			id: "tools-placeholder-2",
+			isPlaceholder: true,
+			name: "Still forming",
+			usageLabel: "Nothing ranked yet",
+			usageRate: null,
+		},
+	] as const;
+}
+
+function getToolsStackHeightRem(entryCount: number) {
+	if (entryCount >= 3) {
+		return 17.4;
+	}
+
+	if (entryCount === 2) {
+		return 11.4;
+	}
+
+	return 6.9;
+}
+
+function getToolsEntryStyle(
+	entryIndex: number,
+	totalEntries: number,
+	activeCardIndex: number,
+): CSSProperties {
+	const stackOrder = [
+		activeCardIndex,
+		...Array.from({ length: totalEntries }, (_, index) => index).filter(
+			(index) => index !== activeCardIndex,
+		),
+	];
+	const stackLayer = Math.max(0, stackOrder.indexOf(entryIndex));
+	const styles =
+		totalEntries <= 1
+			? {
+					rotate: "-1deg",
+					scale: 1,
+					translateX: "-50%",
+					translateY: "0rem",
+					zIndex: 30,
+				}
+			: totalEntries === 2
+				? stackLayer === 0
+					? {
+							rotate: "-1.25deg",
+							scale: 1,
+							translateX: "-50%",
+							translateY: "0rem",
+							zIndex: 20,
+						}
+					: {
+							rotate: "3deg",
+							scale: 0.985,
+							translateX: "-49.5%",
+							translateY: "4rem",
+							zIndex: 10,
+						}
+				: stackLayer === 0
+					? {
+							rotate: "-1.25deg",
+							scale: 1,
+							translateX: "-50%",
+							translateY: "0rem",
+							zIndex: 30,
+						}
+					: stackLayer === 1
+						? {
+								rotate: "3deg",
+								scale: 0.988,
+								translateX: "-49.2%",
+								translateY: "4.2rem",
+								zIndex: 20,
+							}
+						: {
+								rotate: "-3.25deg",
+								scale: 0.976,
+								translateX: "-50.8%",
+								translateY: "8.2rem",
+								zIndex: 10,
+							};
+
+	return {
+		"--tools-card-rotate": styles.rotate,
+		"--tools-card-scale": styles.scale,
+		"--tools-card-translate-x": styles.translateX,
+		"--tools-card-translate-y": styles.translateY,
+		zIndex: styles.zIndex,
+	} as CSSProperties;
 }
 
 function resolveModelPreviewInput(
@@ -1854,28 +2769,6 @@ function getSelectedPreviewState(
 	)
 		? normalizedRequestedState
 		: "auto";
-}
-
-function buildPresenceContent(input: {
-	activeDays: number;
-	daysSinceFirst: number;
-}): WalkInStepContentLine[] {
-	const { activeDays, daysSinceFirst } = input;
-
-	if (daysSinceFirst <= 0) {
-		return [{ text: `Day one.` }, { text: `The pattern will shape itself.` }];
-	}
-
-	const ratio = activeDays / daysSinceFirst;
-	const proof = `${activeDays.toLocaleString()} of ${daysSinceFirst.toLocaleString()} days.`;
-
-	if (ratio >= 0.6) {
-		return [{ text: `You kept coming back.` }, { text: proof }];
-	}
-	if (ratio >= 0.25) {
-		return [{ text: `You came back when it mattered.` }, { text: proof }];
-	}
-	return [{ text: `You meant to be here more.` }, { text: proof }];
 }
 
 function buildModelContent(input: {
@@ -2105,8 +2998,15 @@ function resolveActiveStepIndex(
 		return 0;
 	}
 
+	const normalizedStepId =
+		stepId === "presence"
+			? "skills"
+			: stepId === "summary"
+				? "pulse"
+				: stepId;
+
 	const resolvedStepIndex = eligibleSteps.findIndex(
-		(step) => step.id === stepId,
+		(step) => step.id === normalizedStepId,
 	);
 	return resolvedStepIndex >= 0 ? resolvedStepIndex + 1 : 0;
 }
@@ -2143,22 +3043,6 @@ function getVisibleProgressSteps(
 
 function getStepDisplayNumber(stepIndex: number) {
 	return (stepIndex - 1).toString();
-}
-
-function getSkillsHeadline(topSkill: string | null) {
-	if (!topSkill) {
-		return "No single skill took over.";
-	}
-
-	return `You kept reaching for ${topSkill}.`;
-}
-
-function getSkillsSubline(skillsAdoptionRate: number | null) {
-	if (skillsAdoptionRate === null) {
-		return "Skill signal is still landing.";
-	}
-
-	return `${formatPercent(skillsAdoptionRate)} of sessions pulled one in.`;
 }
 
 function getQualityHeadline(input: {
@@ -2248,14 +3132,14 @@ function getToolsSubline(input: {
 	}
 
 	if (slashCommandsAdoptionRate === null) {
-		return `${formatPercent(subagentsAdoptionRate)} subagent adoption.`;
+		return `${formatPercent(subagentsAdoptionRate)} of sessions used a subagent.`;
 	}
 
 	if (subagentsAdoptionRate === null) {
-		return `${formatPercent(slashCommandsAdoptionRate)} slash-command adoption.`;
+		return `${formatPercent(slashCommandsAdoptionRate)} of sessions used a slash command.`;
 	}
 
-	return `${formatPercent(slashCommandsAdoptionRate)} slash. ${formatPercent(subagentsAdoptionRate)} subagent.`;
+	return `${formatPercent(slashCommandsAdoptionRate)} slash-command sessions. ${formatPercent(subagentsAdoptionRate)} subagent sessions.`;
 }
 
 function getProjectHeadline(topProjectName: string | null) {

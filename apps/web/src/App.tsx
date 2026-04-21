@@ -13,16 +13,23 @@ import {
 } from "@/features/auth/auth-route-utils";
 import { DeviceAuthorizationApp } from "@/features/auth/DeviceAuthorizationApp";
 import { GuestApp } from "@/features/auth/GuestApp";
+import { useOAuthDebugAutoDump } from "@/features/auth/oauth-debug";
 import { ResetPasswordApp } from "@/features/auth/ResetPasswordApp";
 import { GetStartedRouteGate } from "@/features/get-started/GetStartedRouteGate";
+import { CardReferencePage } from "@/features/walk-in/CardReferencePage";
 import { TeamCardWalkInPage } from "@/features/walk-in/TeamCardWalkInPage";
 import { authClient } from "./lib/auth-client";
 
 function App() {
 	const location = useLocation();
 	const { data: session, isPending } = authClient.useSession();
+	useOAuthDebugAutoDump(session);
 	const deviceUserCode = getDeviceUserCode(location.search);
+	const cardReferencePath = appRoutes.cardReference();
 	const walkInTeamCardPath = appRoutes.walkInTeamCard();
+	const isCardReferencePath =
+		location.pathname === cardReferencePath ||
+		location.pathname.startsWith(`${cardReferencePath}/`);
 	const isWalkInTeamCardPath =
 		location.pathname === walkInTeamCardPath ||
 		location.pathname.startsWith(`${walkInTeamCardPath}/`);
@@ -31,7 +38,8 @@ function App() {
 		(location.pathname === "/"
 			? getPendingSignupRedirect(location.search)
 			: null);
-	const showDesktopOnlyOverlay = !deviceUserCode && !isWalkInTeamCardPath;
+	const showDesktopOnlyOverlay =
+		!deviceUserCode && !isCardReferencePath && !isWalkInTeamCardPath;
 
 	if (deviceUserCode) {
 		return (
@@ -65,6 +73,16 @@ function App() {
 			<>
 				<ProductAnalyticsSessionSync session={session} />
 				<TeamCardWalkInPage />
+				{showDesktopOnlyOverlay ? <DesktopOnlyOverlay /> : null}
+			</>
+		);
+	}
+
+	if (isCardReferencePath) {
+		return (
+			<>
+				<ProductAnalyticsSessionSync session={session} />
+				<CardReferencePage />
 				{showDesktopOnlyOverlay ? <DesktopOnlyOverlay /> : null}
 			</>
 		);

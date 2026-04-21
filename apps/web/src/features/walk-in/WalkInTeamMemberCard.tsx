@@ -19,7 +19,7 @@ const adaptedTeamCardNameClassName =
 	"[font-family:var(--dashboard-01-font-roster-display)] font-extrabold leading-[0.9] tracking-[-0.02em] text-[#252220]";
 
 const adaptedTeamCardMediaPanelClassName =
-	"team-lineup-featured-media-panel border border-black/8 bg-white/86";
+	"team-lineup-featured-media-panel bg-white/86";
 
 const portraitPanelClassName =
 	"relative flex h-full w-full flex-col justify-between overflow-hidden";
@@ -206,7 +206,7 @@ export function WalkInTeamMemberCard(props: {
 		borderRadius: scaleLength(10),
 		bottom: 0,
 		boxShadow:
-			"inset 0px -4px 4px rgba(0, 0, 0, 0.63), inset 0px 4px 4px rgba(255, 255, 255, 0.52)",
+			"inset var(--walk-in-card-portrait-shadow-x, 0px) var(--walk-in-card-portrait-shadow-y, -4px) var(--walk-in-card-portrait-shadow-blur, 4px) rgb(0 0 0 / var(--walk-in-card-portrait-shadow-opacity, 0.63)), inset var(--walk-in-card-portrait-highlight-x, 0px) var(--walk-in-card-portrait-highlight-y, 4px) var(--walk-in-card-portrait-highlight-blur, 4px) rgb(255 255 255 / var(--walk-in-card-portrait-highlight-opacity, 0.52))",
 		left: 0,
 		overflow: "hidden",
 		position: "absolute",
@@ -312,221 +312,223 @@ export function WalkInTeamMemberCard(props: {
 				)}
 				style={{ ...cardShellLayoutStyle, ...shellStyle }}
 			>
-				<div
-					className={cn(
-						"flex items-start",
-						headerLeftMetric ? "justify-between" : "justify-end",
-					)}
-					style={headerRowStyle}
-				>
-					{headerLeftMetric ? (
-						<div
-							className="flex min-w-0 items-start"
-							title={headerLeftMetric.title}
-						>
+				<div className="relative z-10 flex h-full flex-col">
+					<div
+						className={cn(
+							"flex items-start",
+							headerLeftMetric ? "justify-between" : "justify-end",
+						)}
+						style={headerRowStyle}
+					>
+						{headerLeftMetric ? (
 							<div
-								className={cn(
-									adaptedTeamCardHeaderValueClassName,
-									isDarkTheme ? "text-[#fff8f0]" : null,
-									isMutedTheme ? "text-[#f6efe4]" : null,
-								)}
-								style={headerValueStyle}
+								className="flex min-w-0 items-start"
+								title={headerLeftMetric.title}
 							>
-								{headerLeftMetric.value}
-							</div>
-							{headerLeftMetric.label ? (
 								<div
 									className={cn(
-										adaptedTeamCardHeaderLabelClassName,
+										adaptedTeamCardHeaderValueClassName,
 										isDarkTheme ? "text-[#fff8f0]" : null,
 										isMutedTheme ? "text-[#f6efe4]" : null,
 									)}
-									style={headerMetricLabelStyle}
+									style={headerValueStyle}
 								>
-									{headerLeftMetric.label}
+									{headerLeftMetric.value}
 								</div>
-							) : null}
-						</div>
-					) : null}
+								{headerLeftMetric.label ? (
+									<div
+										className={cn(
+											adaptedTeamCardHeaderLabelClassName,
+											isDarkTheme ? "text-[#fff8f0]" : null,
+											isMutedTheme ? "text-[#f6efe4]" : null,
+										)}
+										style={headerMetricLabelStyle}
+									>
+										{headerLeftMetric.label}
+									</div>
+								) : null}
+							</div>
+						) : null}
 
-					{headerRightMetric ? (
-						<div
-							className="min-w-0 text-right"
-							title={headerRightMetric.title}
-							style={headerRightMetricContainerStyle}
-						>
-							{headerRightMetric.label ? (
+						{headerRightMetric ? (
+							<div
+								className="min-w-0 text-right"
+								title={headerRightMetric.title}
+								style={headerRightMetricContainerStyle}
+							>
+								{headerRightMetric.label ? (
+									<div
+										className={cn(
+											"font-semibold leading-none tracking-[0.06em] text-[#7b7671]",
+											isDarkTheme ? "text-white/62" : null,
+											isMutedTheme ? "text-[#d6cdc2]" : null,
+										)}
+										style={headerRightLabelStyle}
+									>
+										{headerRightMetric.label}
+									</div>
+								) : null}
 								<div
 									className={cn(
-										"font-semibold leading-none tracking-[0.06em] text-[#7b7671]",
-										isDarkTheme ? "text-white/62" : null,
-										isMutedTheme ? "text-[#d6cdc2]" : null,
+										"font-semibold leading-[0.95] tracking-[-0.03em] text-[#272423]",
+										isDarkTheme ? "text-[#fff8f0]" : null,
+										isMutedTheme ? "text-[#f6efe4]" : null,
 									)}
-									style={headerRightLabelStyle}
+									style={headerRightValueStyle}
 								>
-									{headerRightMetric.label}
+									{headerRightMetric.value}
 								</div>
-							) : null}
-							<div
-								className={cn(
-									"font-semibold leading-[0.95] tracking-[-0.03em] text-[#272423]",
-									isDarkTheme ? "text-[#fff8f0]" : null,
-									isMutedTheme ? "text-[#f6efe4]" : null,
-								)}
-								style={headerRightValueStyle}
-							>
-								{headerRightMetric.value}
 							</div>
+						) : null}
+					</div>
+
+					<div
+						className={cn(
+							adaptedTeamCardMediaPanelClassName,
+							mediaPanelClassName,
+						)}
+						style={mediaPanelStyle}
+					>
+						<div
+							className={cn(
+								portraitPanelClassName,
+								tonePortraitClassNames[effectiveTone],
+							)}
+							style={portraitPanelStyle}
+						>
+							{row.imageUrl ? (
+								<>
+									<div aria-hidden="true" style={portraitImageFrameStyle} />
+									<div className="relative z-10 flex-1" />
+								</>
+							) : (
+								<div className="flex h-full w-full items-center justify-center">
+									<div
+										className={portraitPlaceholderInitialsClassName}
+										style={placeholderInitialsStyle}
+									>
+										{initials}
+									</div>
+								</div>
+							)}
 						</div>
-					) : null}
-				</div>
-
-				<div
-					className={cn(
-						adaptedTeamCardMediaPanelClassName,
-						mediaPanelClassName,
-					)}
-					style={mediaPanelStyle}
-				>
-					<div
-						className={cn(
-							portraitPanelClassName,
-							tonePortraitClassNames[effectiveTone],
-						)}
-						style={portraitPanelStyle}
-					>
-						{row.imageUrl ? (
-							<>
-								<div aria-hidden="true" style={portraitImageFrameStyle} />
-								<div className="relative z-10 flex-1" />
-							</>
-						) : (
-							<div className="flex h-full w-full items-center justify-center">
-								<div
-									className={portraitPlaceholderInitialsClassName}
-									style={placeholderInitialsStyle}
-								>
-									{initials}
-								</div>
-							</div>
-						)}
 					</div>
-				</div>
 
-				<div
-					className="grid flex-1 place-items-center text-center"
-					style={nameBlockStyle}
-				>
 					<div
-						className={cn(
-							adaptedTeamCardNameClassName,
-							isDarkTheme ? "text-[#fff8f0]" : null,
-							isMutedTheme ? "text-[#f6efe4]" : null,
-						)}
-						style={nameStyle}
+						className="grid flex-1 place-items-center text-center"
+						style={nameBlockStyle}
 					>
-						{row.displayName}
+						<div
+							className={cn(
+								adaptedTeamCardNameClassName,
+								isDarkTheme ? "text-[#fff8f0]" : null,
+								isMutedTheme ? "text-[#f6efe4]" : null,
+							)}
+							style={nameStyle}
+						>
+							{row.displayName}
+						</div>
 					</div>
-				</div>
 
-				<div
-					className="relative z-10"
-					ref={statSectionRef}
-					style={statSectionStyle}
-				>
 					<div
-						className="relative grid grid-cols-2 [font-family:var(--dashboard-01-font-roster-mono)] font-normal text-[#4b4d49]"
-						style={statGridStyle}
+						className="relative z-10"
+						ref={statSectionRef}
+						style={statSectionStyle}
 					>
-						{statItems.map((stat) => (
-							<div
-								key={stat.key}
-								className={cn(
-									"relative z-10 min-w-0 overflow-hidden",
-									statTileClassName,
-								)}
-								ref={(node) => {
-									statTileRefs.current[stat.key] = node;
-								}}
-								style={{
-									...statSurfaceStyles[stat.key],
-									...statTileBaseStyle,
-									...statTileStyle,
-								}}
-								title={stat.title}
-							>
+						<div
+							className="relative grid grid-cols-2 [font-family:var(--dashboard-01-font-roster-mono)] font-normal text-[#4b4d49]"
+							style={statGridStyle}
+						>
+							{statItems.map((stat) => (
 								<div
-									aria-hidden="true"
-									className="absolute inset-0 rounded-[inherit]"
-									style={{
-										...statTileLayerStyle,
-										...statSurfaceStyles[stat.key],
-										backgroundImage: [
-											`linear-gradient(rgb(${maskRgb} / ${whiteMaskOpacity}), rgb(${maskRgb} / ${whiteMaskOpacity}))`,
-											...(statLayerOpacities.hideTextureImage
-												? []
-												: ["var(--walk-in-team-card-stat-surface-texture)"]),
-										].join(", "),
-										backgroundPosition:
-											"var(--walk-in-team-card-stat-surface-position)",
-										backgroundRepeat: "no-repeat",
-										backgroundSize:
-											"var(--walk-in-team-card-stat-surface-size)",
+									key={stat.key}
+									className={cn(
+										"relative z-10 min-w-0 overflow-hidden",
+										statTileClassName,
+									)}
+									ref={(node) => {
+										statTileRefs.current[stat.key] = node;
 									}}
-								/>
-								<div
-									aria-hidden="true"
-									className="absolute inset-0 rounded-[inherit]"
 									style={{
 										...statSurfaceStyles[stat.key],
-										backgroundImage: `linear-gradient(var(--walk-in-card-stat-gloss-angle, 118deg), rgba(255,255,255,0) 0%, rgba(255,107,156,${statLayerOpacities.rainbowShineOpacity}) 14%, rgba(255,199,0,${statLayerOpacities.rainbowShineOpacity}) 31%, rgba(102,255,191,${statLayerOpacities.rainbowShineOpacity}) 48%, rgba(72,198,255,${statLayerOpacities.rainbowShineOpacity}) 66%, rgba(173,127,255,${statLayerOpacities.rainbowShineOpacity}) 82%, rgba(255,255,255,0) 100%)`,
-										backgroundPosition:
-											"var(--walk-in-team-card-stat-surface-position)",
-										backgroundRepeat: "no-repeat",
-										backgroundSize:
-											"var(--walk-in-team-card-stat-surface-size)",
-										maskImage: STAT_RAINBOW_MASK_IMAGE,
-										maskPosition:
-											"var(--walk-in-team-card-stat-surface-position)",
-										maskRepeat: "no-repeat",
-										maskSize: "var(--walk-in-team-card-stat-surface-size)",
-										WebkitMaskImage: STAT_RAINBOW_MASK_IMAGE,
-										WebkitMaskPosition:
-											"var(--walk-in-team-card-stat-surface-position)",
-										WebkitMaskRepeat: "no-repeat",
-										WebkitMaskSize:
-											"var(--walk-in-team-card-stat-surface-size)",
+										...statTileBaseStyle,
+										...statTileStyle,
 									}}
-								/>
-								<div
-									className="relative z-10 grid h-full grid-cols-[auto_minmax(0,1fr)] items-center"
-									style={statInnerGridStyle}
+									title={stat.title}
 								>
 									<div
-										className={cn(
-											"flex h-full shrink-0 items-center leading-[1] tracking-[0.08em] text-black/42",
-											statTextUsesMutedWhite ? "text-white/56" : null,
-										)}
-										style={statLabelStyle}
-									>
-										{stat.icon === "claude" ? (
-											<ClaudeStatIcon style={statIconStyle} />
-										) : stat.icon === "codex" ? (
-											<CodexStatIcon style={statIconStyle} />
-										) : null}
-										{stat.label ? <span>{stat.label}</span> : null}
-									</div>
+										aria-hidden="true"
+										className="absolute inset-0 rounded-[inherit]"
+										style={{
+											...statTileLayerStyle,
+											...statSurfaceStyles[stat.key],
+											backgroundImage: [
+												`linear-gradient(rgb(${maskRgb} / ${whiteMaskOpacity}), rgb(${maskRgb} / ${whiteMaskOpacity}))`,
+												...(statLayerOpacities.hideTextureImage
+													? []
+													: ["var(--walk-in-team-card-stat-surface-texture)"]),
+											].join(", "),
+											backgroundPosition:
+												"var(--walk-in-team-card-stat-surface-position)",
+											backgroundRepeat: "no-repeat",
+											backgroundSize:
+												"var(--walk-in-team-card-stat-surface-size)",
+										}}
+									/>
 									<div
-										className={cn(
-											"min-w-0 self-center text-right leading-[1] tracking-[-0.04em] tabular-nums text-[#272423]",
-											statTextUsesMutedWhite ? "text-white/72" : null,
-										)}
+										aria-hidden="true"
+										className="absolute inset-0 rounded-[inherit]"
+										style={{
+											...statSurfaceStyles[stat.key],
+											backgroundImage: `linear-gradient(var(--walk-in-card-stat-gloss-angle, 118deg), rgba(255,255,255,0) 0%, rgba(255,107,156,${statLayerOpacities.rainbowShineOpacity}) 14%, rgba(255,199,0,${statLayerOpacities.rainbowShineOpacity}) 31%, rgba(102,255,191,${statLayerOpacities.rainbowShineOpacity}) 48%, rgba(72,198,255,${statLayerOpacities.rainbowShineOpacity}) 66%, rgba(173,127,255,${statLayerOpacities.rainbowShineOpacity}) 82%, rgba(255,255,255,0) 100%)`,
+											backgroundPosition:
+												"var(--walk-in-team-card-stat-surface-position)",
+											backgroundRepeat: "no-repeat",
+											backgroundSize:
+												"var(--walk-in-team-card-stat-surface-size)",
+											maskImage: STAT_RAINBOW_MASK_IMAGE,
+											maskPosition:
+												"var(--walk-in-team-card-stat-surface-position)",
+											maskRepeat: "no-repeat",
+											maskSize: "var(--walk-in-team-card-stat-surface-size)",
+											WebkitMaskImage: STAT_RAINBOW_MASK_IMAGE,
+											WebkitMaskPosition:
+												"var(--walk-in-team-card-stat-surface-position)",
+											WebkitMaskRepeat: "no-repeat",
+											WebkitMaskSize:
+												"var(--walk-in-team-card-stat-surface-size)",
+										}}
+									/>
+									<div
+										className="relative z-10 grid h-full grid-cols-[auto_minmax(0,1fr)] items-center"
+										style={statInnerGridStyle}
 									>
-										{stat.value}
+										<div
+											className={cn(
+												"flex h-full shrink-0 items-center leading-[1] tracking-[0.08em] text-black/42",
+												statTextUsesMutedWhite ? "text-white/56" : null,
+											)}
+											style={statLabelStyle}
+										>
+											{stat.icon === "claude" ? (
+												<ClaudeStatIcon style={statIconStyle} />
+											) : stat.icon === "codex" ? (
+												<CodexStatIcon style={statIconStyle} />
+											) : null}
+											{stat.label ? <span>{stat.label}</span> : null}
+										</div>
+										<div
+											className={cn(
+												"min-w-0 self-center text-right leading-[1] tracking-[-0.04em] tabular-nums text-[#272423]",
+												statTextUsesMutedWhite ? "text-white/72" : null,
+											)}
+										>
+											{stat.value}
+										</div>
 									</div>
 								</div>
-							</div>
-						))}
+							))}
+						</div>
 					</div>
 				</div>
 			</article>

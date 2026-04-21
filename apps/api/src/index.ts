@@ -14,6 +14,13 @@ await setupLogging();
 
 const logger = getLogger(["rudel", "api", "http"]);
 type AuthUser = AuthSession["user"];
+const port = process.env.PORT ?? "4010";
+const DEFAULT_DEV_API_ORIGIN = `http://localhost:${port}`;
+const DEFAULT_DEV_ORIGIN = "http://localhost:4011";
+const DEFAULT_DEV_ORIGINS = [
+	DEFAULT_DEV_ORIGIN,
+	"http://localhost:4012",
+] as const;
 
 const socialProviders: Record<
 	string,
@@ -32,14 +39,14 @@ if (process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET) {
 	};
 }
 
-const DEFAULT_DEV_ORIGIN = "http://localhost:4011";
-const DEFAULT_DEV_ORIGINS = [
-	DEFAULT_DEV_ORIGIN,
-	"http://localhost:4012",
-] as const;
-const appURL = process.env.APP_URL ?? "http://localhost:4010";
 const preferredFrontendOrigin =
 	process.env.ALLOWED_ORIGIN ?? DEFAULT_DEV_ORIGIN;
+const rawAppURL = process.env.APP_URL ?? DEFAULT_DEV_API_ORIGIN;
+const appURL = resolveAuthAppURL({
+	defaultDevApiOrigin: DEFAULT_DEV_API_ORIGIN,
+	preferredFrontendOrigin,
+	rawAppURL,
+});
 const configuredTrustedOrigins = process.env.TRUSTED_ORIGINS
 	? process.env.TRUSTED_ORIGINS.split(",").map((o) => o.trim())
 	: [];
@@ -55,6 +62,17 @@ const resend = {
 	audienceId: process.env.RESEND_AUDIENCE_ID,
 	fromEmail: process.env.RESEND_FROM_EMAIL,
 };
+
+if (appURL !== rawAppURL) {
+	logger.warn(
+		"Overriding APP_URL from {rawAppURL} to {appURL} because the frontend origin is local ({preferredFrontendOrigin})",
+		{
+			appURL,
+			preferredFrontendOrigin,
+			rawAppURL,
+		},
+	);
+}
 
 for (const warning of getResendConfigWarnings(resend)) {
 	logger.warn(warning);
@@ -100,7 +118,6 @@ function corsHeaders(origin: string | null): Record<string, string> {
 	};
 }
 
-const port = process.env.PORT ?? 4010;
 const MAX_REQUEST_BODY_BYTES = Number(
 	process.env.MAX_REQUEST_BODY_BYTES ?? 500 * 1024 * 1024, // 500 MB
 );
@@ -154,6 +171,47 @@ const server = Bun.serve({
 		);
 	},
 });
+
+function resolveAuthAppURL(input: {
+	defaultDevApiOrigin: string;
+	preferredFrontendOrigin: string;
+	rawAppURL: string;
+}) {
+	const { defaultDevApiOrigin, preferredFrontendOrigin, rawAppURL } = input;
+
+	if (!isLoopbackOrigin(preferredFrontendOrigin)) {
+		return rawAppURL;
+	}
+
+	if (!isLoopbackOrigin(rawAppURL)) {
+		return defaultDevApiOrigin;
+	}
+
+	if (sameOrigin(rawAppURL, preferredFrontendOrigin)) {
+		return defaultDevApiOrigin;
+	}
+
+	return rawAppURL;
+}
+
+function isLoopbackOrigin(origin: string) {
+	try {
+		const url = new URL(origin);
+		return url.hostname === "localhost" || url.hostname === "127.0.0.1";
+	} catch {
+		return false;
+	}
+}
+
+function sameOrigin(left: string, right: string) {
+	try {
+		const leftUrl = new URL(left);
+		const rightUrl = new URL(right);
+		return leftUrl.origin === rightUrl.origin;
+	} catch {
+		return false;
+	}
+}
 
 let isShuttingDown = false;
 

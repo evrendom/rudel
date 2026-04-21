@@ -1,0 +1,4 @@
+interface:
+  display_name: "Geneva Wrapped Product"
+  short_description: "Apply recap storytelling to Geneva"
+  default_prompt: "Use $geneva-wrapped-product to map recap storytelling decisions onto Geneva routes, analytics, and share surfaces."

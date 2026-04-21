@@ -24,6 +24,10 @@ import {
 	getSocialSignupRedirectOptions,
 	primePendingSignupRedirect,
 } from "./auth-route-utils";
+import {
+	recordOAuthRedirectResult,
+	recordOAuthRedirectStart,
+} from "./oauth-debug";
 
 function getSignupContext() {
 	const params = new URLSearchParams(window.location.search);
@@ -129,10 +133,21 @@ export function SignupForm({
 			authMethod: provider,
 			entrypoint: signupContext.entryPoint,
 		});
+		recordOAuthRedirectStart({
+			callbackURL,
+			newUserCallbackURL,
+			provider,
+			source: "signup_form",
+		});
 		const { error } = await authClient.signIn.social({
 			provider,
 			callbackURL,
 			newUserCallbackURL,
+		});
+		recordOAuthRedirectResult({
+			errorMessage: error?.message,
+			provider,
+			source: "signup_form",
 		});
 		if (error) {
 			captureSignUpFailed({

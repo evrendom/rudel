@@ -4,10 +4,14 @@ import type {
 	DeveloperProject,
 	DimensionAnalysisDataPoint,
 	WrappedSourceSplit,
+	WrappedV1,
 } from "@rudel/api-routes";
 import { useDialKit } from "dialkit";
-import { ChevronLeft, ChevronRight } from "lucide-react";
-import { type CSSProperties, useEffect, useMemo, useState } from "react";
+import { ChevronLeft, ChevronRight, Clipboard, Download, Share2 } from "lucide-react";
+import { type CSSProperties, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
+import { appRoutes } from "@/app/routes";
+import { toast } from "sonner";
 import { Button } from "@/app/ui/button";
 import { useAnalyticsQuery } from "@/features/analytics/queries/useAnalyticsQuery";
 import {
@@ -21,10 +25,6 @@ import {
 import { useWalkInCardData } from "@/features/walk-in/use-walk-in-card-data";
 import { useWalkInCardTilt } from "@/features/walk-in/use-walk-in-card-tilt";
 import {
-	TEAM_CARD_PREVIEW_ACTIONS,
-	WalkInPreviewColumn,
-} from "@/features/walk-in/WalkInPreviewColumn";
-import {
 	WalkInTeamMemberCard,
 	type WalkInTeamMemberCardHeaderMetric,
 	type WalkInTeamMemberCardStatItem,
@@ -37,6 +37,11 @@ import {
 	formatCompactWholeNumber,
 } from "@/lib/format";
 import { orpc } from "@/lib/orpc";
+import {
+	captureElement,
+	copyToClipboard,
+	downloadAsImage,
+} from "@/lib/screenshot";
 import "@/features/walk-in/walk-in-clone.css";
 import { authClient } from "@/lib/auth-client";
 
@@ -51,6 +56,8 @@ interface WalkInTeamCardShellStyle extends CSSProperties {
 	"--team-lineup-card-grain-opacity"?: string;
 	"--team-lineup-card-grain-size"?: string;
 }
+
+type FinalCardStage = "reveal" | "share";
 
 const WALK_IN_ARCHETYPE_CARD_THEMES = [
 	{
@@ -123,16 +130,16 @@ const WALK_IN_ARCHETYPE_CARD_THEMES = [
 ] as const satisfies readonly WalkInArchetypeCardTheme[];
 
 export function TeamCardWalkInPage() {
+	const [searchParams] = useSearchParams();
 	const {
 		accountLabel,
-		cardModel,
 		handover,
 		session,
 		wrappedData,
-		wrappedDataState,
 	} = useWalkInCardData();
 	const { teamMemberRows } = useTeamPageData();
 	const tiltController = useWalkInCardTilt();
+	const sharePostRef = useRef<HTMLDivElement>(null);
 	const sessionUserId = getSessionUserId(session);
 	const sessionUserName = getSessionUserName(session);
 	const sessionUserEmail = getSessionUserEmail(session);
@@ -141,6 +148,10 @@ export function TeamCardWalkInPage() {
 	const activeMemberUserId = getActiveMemberUserId(activeMember);
 	const resolvedUserId = sessionUserId ?? activeMemberUserId;
 	const [activeArchetypeIndex, setActiveArchetypeIndex] = useState(0);
+	const [finalCardStage, setFinalCardStage] = useState<FinalCardStage>("reveal");
+	const [preparedSharePostBlob, setPreparedSharePostBlob] = useState<Blob | null>(
+		null,
+	);
 	const dialValues = useDialKit("Walk-in Team Card", {
 		card: {
 			grainOpacity: [0.4, 0, 1, 0.01],
@@ -221,12 +232,14 @@ export function TeamCardWalkInPage() {
 				developerDetails: developerDetailsQuery.data,
 				developerFeatures: developerFeaturesQuery.data,
 				developerProjects: developerProjectsQuery.data,
+				wrappedMetrics: wrappedData?.metrics,
 			}),
 		[
 			commitBreakdownQuery.data,
 			developerDetailsQuery.data,
 			developerFeaturesQuery.data,
 			developerProjectsQuery.data,
+			wrappedData?.metrics,
 		],
 	);
 	const currentUserRow = useMemo(
@@ -249,6 +262,7 @@ export function TeamCardWalkInPage() {
 		[accountLabel, currentUserRow, sessionUserEmail, sessionUserName],
 	);
 	const activeArchetype = WALK_IN_ARCHETYPE_CARD_THEMES[activeArchetypeIndex];
+	const activeStepParam = searchParams.get("step");
 	const headerLeftMetric = useMemo<WalkInTeamMemberCardHeaderMetric>(
 		() => ({
 			title: `${formatCompactWholeCurrency(visibleTeamCardRow.cost)} estimated spend`,
@@ -356,87 +370,302 @@ export function TeamCardWalkInPage() {
 		sessionUserName,
 		visibleTeamCardRow.displayName,
 	]);
+	useEffect(() => {
+		if (activeStepParam !== "card") {
+			setFinalCardStage("reveal");
+			setPreparedSharePostBlob(null);
+		}
+	}, [activeStepParam]);
+	useEffect(() => {
+		setPreparedSharePostBlob(null);
+	}, [activeArchetype.id, finalCardStage, visibleTeamCardRow.displayName]);
+	useEffect(() => {
+		if (finalCardStage !== "share") {
+			return;
+		}
+
+		let cancelled = false;
+		const frameId = window.requestAnimationFrame(() => {
+			const sharePostElement = sharePostRef.current;
+
+			if (!sharePostElement) {
+				return;
+			}
+
+			void (async () => {
+				try {
+					const nextBlob = await captureElement(sharePostElement);
+
+					if (!cancelled) {
+						setPreparedSharePostBlob(nextBlob);
+					}
+				} catch {
+					if (!cancelled) {
+						setPreparedSharePostBlob(null);
+					}
+				}
+			})();
+		});
+
+		return () => {
+			cancelled = true;
+			window.cancelAnimationFrame(frameId);
+		};
+	}, [finalCardStage, activeArchetype.id, visibleTeamCardRow.displayName]);
+	const shareTitle = `${visibleTeamCardRow.displayName}'s Geneva post`;
+	const shareText = `${visibleTeamCardRow.displayName}'s ${activeArchetype.label} Geneva card, made with rudel.ai.`;
+	const shareUrl =
+		typeof window === "undefined"
+			? undefined
+			: new URL(appRoutes.walkInTeamCard(), window.location.origin).toString();
+
+	async function captureSharePost() {
+		if (preparedSharePostBlob) {
+			return preparedSharePostBlob;
+		}
+
+		const sharePostElement = sharePostRef.current;
+
+		if (!sharePostElement) {
+			toast.error("Could not find the post to share.");
+			return null;
+		}
+
+		try {
+			return await captureElement(sharePostElement);
+		} catch {
+			toast.error("Could not prepare the share image.");
+			return null;
+		}
+	}
+
+	async function handleSharePost() {
+		const imageBlob = await captureSharePost();
+
+		if (!imageBlob) {
+			return;
+		}
+
+		const file = new File([imageBlob], "geneva-team-card-post.png", {
+			type: imageBlob.type || "image/png",
+		});
+		const canShareFiles = (() => {
+			if (!navigator.canShare) {
+				return true;
+			}
+
+			try {
+				return navigator.canShare({ files: [file] });
+			} catch {
+				return false;
+			}
+		})();
+
+		if (navigator.share && canShareFiles) {
+			try {
+				await navigator.share({
+					files: [file],
+					text: shareText,
+					title: shareTitle,
+					...(shareUrl ? { url: shareUrl } : {}),
+				});
+				return;
+			} catch (error) {
+				if (error instanceof DOMException && error.name === "AbortError") {
+					return;
+				}
+			}
+		}
+
+		const copied = await copyToClipboard(imageBlob);
+
+		if (copied) {
+			toast.success("Post copied. Paste it into the app you want to share to.", {
+				duration: 7000,
+			});
+			return;
+		}
+
+		downloadAsImage(imageBlob, "geneva-team-card-post.png");
+		toast.success("Post downloaded. Share the PNG from your downloads.");
+	}
+
+	async function handleCopyPost() {
+		const imageBlob = await captureSharePost();
+
+		if (!imageBlob) {
+			return;
+		}
+
+		const copied = await copyToClipboard(imageBlob);
+
+		if (copied) {
+			toast.success("Post copied to clipboard");
+			return;
+		}
+
+		toast.error("Could not copy the post. Try downloading it instead.");
+	}
+
+	async function handleDownloadPost() {
+		const imageBlob = await captureSharePost();
+
+		if (!imageBlob) {
+			return;
+		}
+
+		downloadAsImage(imageBlob, "geneva-team-card-post.png");
+		toast.success("Post downloaded");
+	}
 
 	const finalStage = (
-		<section className="grid min-h-full w-full items-center gap-10 lg:grid-cols-[minmax(20rem,34rem)_minmax(18rem,1fr)] lg:gap-12">
-			<div className="team-lineup-surface-scope flex w-full justify-center lg:justify-start">
-				<div className="flex w-full max-w-[30rem] flex-col items-center gap-5">
-					{/* Temporary idea: keep the sponsor-burn line commented out for now.
-					<div className="flex items-center gap-2 text-[0.72rem] font-medium leading-none tracking-[-0.02em] text-[#2f2a27]">
-						<span>not presented to you by</span>
-						<RampWordmark className="h-4 w-[60px] shrink-0 text-black" />
-					</div>
-					*/}
+		finalCardStage === "share" ? (
+			<section className="flex min-h-full w-full items-center justify-center">
+				<div className="flex w-full max-w-[24rem] flex-col items-center text-center">
+					<p className="text-[0.72rem] font-semibold uppercase tracking-[0.28em] text-[#8f887f]">
+						Post preview
+					</p>
+					<h1 className="mt-3 max-w-[10ch] text-balance font-[var(--app-font-heading)] text-[2.3rem] font-semibold tracking-[-0.07em] text-[#22201f] sm:text-[2.8rem]">
+						Ready to share.
+					</h1>
+					<p className="mt-3 max-w-[28ch] text-pretty text-sm leading-6 text-[#6c6761] sm:text-[0.98rem]">
+						This is the exact post that gets exported. Nothing extra gets added
+						after you tap share.
+					</p>
 
-					<div className="flex h-[34rem] w-full items-center justify-center sm:h-[37rem] lg:h-[39rem]">
-						<div className="team-lineup-card-tilt-stage">
+					<div
+						ref={sharePostRef}
+						className="mt-7 aspect-[4/5] w-full border border-black/6 bg-white shadow-[0_20px_44px_rgba(15,23,42,0.08)]"
+					>
+						<div className="team-lineup-surface-scope flex h-full flex-col items-center px-6 py-5">
+							<img
+								src="/assets/wordmark-dark-BeVDO32X.svg"
+								alt="rudel.ai"
+								className="h-5 w-auto"
+							/>
+
+							<div className="flex min-h-0 flex-1 items-center justify-center self-stretch">
+								<div className="team-lineup-card-tilt-stage w-full max-w-[13.4rem]">
+									<div className="team-lineup-card-tilt-shell [--walk-in-card-render-scale:0.92]">
+										<div className="grid justify-center">
+											<WalkInTeamMemberCard
+												headerLeftMetric={headerLeftMetric}
+												headerRightMetric={headerRightMetric}
+												layoutPreset="team-card-preview"
+												shellClassName={activeArchetype.shellClassName}
+												shellStyle={shellStyle}
+												row={visibleTeamCardRow}
+												mediaPanelClassName="mx-auto"
+												statLayerOpacities={statLayerOpacities}
+												statItems={statItems}
+												statTileClassName=""
+												theme={activeArchetype.theme}
+											/>
+										</div>
+									</div>
+								</div>
+							</div>
+
+							<a
+								href="https://rudel.ai/wrapped/evren"
+								className="text-[0.82rem] font-semibold tracking-[-0.02em] text-[#4a4744] underline-offset-4"
+							>
+								rudel.ai/wrapped/evren
+							</a>
+						</div>
+					</div>
+
+					<nav className="mt-7 flex w-full flex-col gap-3">
+						<Button
+							type="button"
+							size="lg"
+							className="min-h-11 rounded-full bg-[#4f7cff] text-white shadow-[0_16px_28px_rgba(79,124,255,0.24)] hover:bg-[#4472f4]"
+							onClick={() => void handleSharePost()}
+						>
+							<Share2 className="size-4" />
+							Share post
+						</Button>
+						<div className="grid grid-cols-2 gap-3">
+							<Button
+								type="button"
+								size="lg"
+								variant="outline"
+								className="min-h-11 rounded-full border-black/8 bg-white/80 text-[#2a2725] hover:bg-white"
+								onClick={() => void handleCopyPost()}
+							>
+								<Clipboard className="size-4" />
+								Copy image
+							</Button>
+							<Button
+								type="button"
+								size="lg"
+								variant="outline"
+								className="min-h-11 rounded-full border-black/8 bg-white/80 text-[#2a2725] hover:bg-white"
+								onClick={() => void handleDownloadPost()}
+							>
+								<Download className="size-4" />
+								Download PNG
+							</Button>
+						</div>
+					</nav>
+
+					<button
+						type="button"
+						className="mt-4 min-h-11 rounded-full px-4 text-sm font-medium text-[#7b746d]"
+						onClick={() => setFinalCardStage("reveal")}
+					>
+						Back to card
+					</button>
+				</div>
+			</section>
+		) : (
+			<section className="flex min-h-full w-full items-center justify-center">
+				<div className="team-lineup-surface-scope flex w-full max-w-[24rem] flex-col items-center text-center">
+					<p className="text-[0.72rem] font-semibold uppercase tracking-[0.28em] text-[#8f887f]">
+						Choose your card
+					</p>
+					<h1 className="mt-3 max-w-[11ch] text-balance font-[var(--app-font-heading)] text-[2.3rem] font-semibold tracking-[-0.07em] text-[#22201f] sm:text-[2.8rem]">
+						Pick the one you&apos;d post.
+					</h1>
+					<p className="mt-3 max-w-[28ch] text-pretty text-sm leading-6 text-[#6c6761] sm:text-[0.98rem]">
+						The next page turns this card into a share post. You can still come
+						back and change it.
+					</p>
+
+					<div className="mt-7 flex h-[27rem] w-full items-center justify-center min-[360px]:h-[29rem] sm:h-[35rem]">
+						<div className="team-lineup-card-tilt-stage w-full max-w-[17rem] min-[360px]:max-w-[18rem] sm:max-w-none">
 							<div
 								ref={tiltController.cardTiltRef}
-								className="team-lineup-card-tilt-shell [--walk-in-card-render-scale:1.42] sm:[--walk-in-card-render-scale:1.56] lg:[--walk-in-card-render-scale:1.72]"
+								className="team-lineup-card-tilt-shell [--walk-in-card-render-scale:1.1] min-[360px]:[--walk-in-card-render-scale:1.2] sm:[--walk-in-card-render-scale:1.5] lg:[--walk-in-card-render-scale:1.64]"
 								onPointerMove={tiltController.handlePointerMove}
 								onPointerLeave={tiltController.handlePointerLeave}
 								onPointerCancel={tiltController.handlePointerLeave}
 							>
 								<div className="grid justify-center">
-									<ul className="m-0 grid justify-center p-0">
-										<WalkInTeamMemberCard
-											headerLeftMetric={headerLeftMetric}
-											headerRightMetric={headerRightMetric}
-											layoutPreset="team-card-preview"
-											shellClassName={activeArchetype.shellClassName}
-											shellStyle={shellStyle}
-											row={visibleTeamCardRow}
-											mediaPanelClassName="mx-auto"
-											statLayerOpacities={statLayerOpacities}
-											statItems={statItems}
-											statTileClassName=""
-											theme={activeArchetype.theme}
-										/>
-									</ul>
+									<WalkInTeamMemberCard
+										headerLeftMetric={headerLeftMetric}
+										headerRightMetric={headerRightMetric}
+										layoutPreset="team-card-preview"
+										shellClassName={activeArchetype.shellClassName}
+										shellStyle={shellStyle}
+										row={visibleTeamCardRow}
+										mediaPanelClassName="mx-auto"
+										statLayerOpacities={statLayerOpacities}
+										statItems={statItems}
+										statTileClassName=""
+										theme={activeArchetype.theme}
+									/>
 								</div>
 							</div>
 						</div>
 					</div>
 
-					{tiltController.isGyroscopePromptVisible ? (
-						<div className="flex w-full max-w-[24rem] flex-col items-center gap-2">
-							<Button
-								type="button"
-								variant="outline"
-								className="min-h-[44px] rounded-full border-black/10 bg-white/82 px-4 text-[0.82rem] font-semibold tracking-[-0.02em] text-[#2d2927] shadow-[0_12px_28px_rgba(15,23,42,0.08)] hover:bg-white"
-								onClick={() => void tiltController.enableGyroscope()}
-								disabled={tiltController.gyroscopeState === "pending"}
-							>
-								{tiltController.gyroscopeState === "pending"
-									? "Enabling gyroscope…"
-									: tiltController.gyroscopeState === "blocked"
-										? "Request motion access again"
-										: tiltController.gyroscopeState === "error"
-											? "Try motion access again"
-											: "Enable gyroscope tilt"}
-							</Button>
-
-							{tiltController.gyroscopeStatusMessage ? (
-								<p className="max-w-[22rem] text-center text-[0.74rem] font-medium leading-[1.35] tracking-[-0.01em] text-black/52">
-									{tiltController.gyroscopeStatusMessage}
-								</p>
-							) : null}
-						</div>
-					) : null}
-
-					{tiltController.isGyroscopeSupported &&
-					tiltController.gyroscopeState === "active" ? (
-						<div className="rounded-full border border-emerald-500/16 bg-emerald-500/10 px-3 py-2 text-[0.76rem] font-semibold leading-none tracking-[0.1em] text-emerald-800 uppercase">
-							Gyroscope tilt live
-						</div>
-					) : null}
-
-					<div className="flex items-center gap-3">
+					<div className="mt-3 grid w-full max-w-[18.5rem] grid-cols-[44px_minmax(0,1fr)_44px] items-center gap-2 rounded-full border border-black/6 bg-white/82 p-1.5 shadow-[0_10px_24px_rgba(15,23,42,0.06)]">
 						<Button
 							type="button"
 							variant="outline"
 							size="icon-sm"
-							className="rounded-full border-black/10 bg-white/82 text-[#2d2927] shadow-[0_12px_28px_rgba(15,23,42,0.1)] hover:bg-white"
+							className="min-h-11 rounded-full border-transparent bg-transparent text-[#4a4744] shadow-none hover:bg-black/4"
 							onClick={() =>
 								setActiveArchetypeIndex((currentIndex) =>
 									getWrappedArchetypeIndex(
@@ -449,11 +678,11 @@ export function TeamCardWalkInPage() {
 							<ChevronLeft />
 						</Button>
 
-						<div className="min-w-[14rem] rounded-full border border-black/10 bg-white/82 px-4 py-2 text-center shadow-[0_12px_28px_rgba(15,23,42,0.08)]">
-							<div className="text-[0.72rem] font-semibold leading-none tracking-[0.12em] text-black/40 uppercase">
+						<div className="min-w-0 rounded-full bg-[#f7f3ee] px-4 py-2.5 text-center">
+							<div className="text-[0.66rem] font-semibold leading-none tracking-[0.14em] text-[#9b938b] uppercase">
 								Archetype
 							</div>
-							<div className="mt-1 text-sm font-semibold leading-none tracking-[-0.03em] text-[#302d2b]">
+							<div className="mt-1 truncate text-sm font-semibold leading-none tracking-[-0.03em] text-[#302d2b]">
 								{activeArchetype.label}
 							</div>
 						</div>
@@ -462,7 +691,7 @@ export function TeamCardWalkInPage() {
 							type="button"
 							variant="outline"
 							size="icon-sm"
-							className="rounded-full border-black/10 bg-white/82 text-[#2d2927] shadow-[0_12px_28px_rgba(15,23,42,0.1)] hover:bg-white"
+							className="min-h-11 rounded-full border-transparent bg-transparent text-[#4a4744] shadow-none hover:bg-black/4"
 							onClick={() =>
 								setActiveArchetypeIndex((currentIndex) =>
 									getWrappedArchetypeIndex(
@@ -476,22 +705,30 @@ export function TeamCardWalkInPage() {
 						</Button>
 					</div>
 				</div>
-			</div>
-
-			<WalkInPreviewColumn
-				actions={TEAM_CARD_PREVIEW_ACTIONS}
-				cardModel={cardModel}
-				handover={handover}
-				wrappedData={wrappedData}
-				wrappedDataState={wrappedDataState}
-			/>
-		</section>
+			</section>
+		)
 	);
 
 	return (
 		<TeamCardWalkInOnboarding
 			distinctProjectCount={developerDetailsQuery.data?.distinct_projects ?? 0}
 			displayName={visibleTeamCardRow.displayName}
+			finalFooter={
+				finalCardStage === "reveal" ? (
+					<div className="mymind-walk-in-action-stack">
+						<Button
+							type="button"
+							className="mymind-walk-in-primary-action h-11 rounded-full bg-[#4f7cff] px-7 text-[19px] font-bold text-white shadow-[0_16px_28px_rgba(79,124,255,0.24)] hover:bg-[#4472f4] [font-family:'Nunito',var(--font-sans)]"
+							onClick={() => setFinalCardStage("share")}
+						>
+							<span>Preview post</span>
+							<span className="mymind-walk-in-primary-action__icon">
+								<ChevronRight className="size-4" />
+							</span>
+						</Button>
+					</div>
+				) : undefined
+			}
 			finalStage={finalStage}
 			onboardingMetrics={onboardingMetrics}
 			totalSessions={visibleTeamCardRow.totalSessions}
@@ -640,31 +877,6 @@ function resolveTeamCardDisplayName(input: {
 	} as const;
 }
 
-/* Temporary idea: keep the sponsor-burn logo helper commented out for now.
-function RampWordmark(props: { className?: string }) {
-	const { className } = props;
-
-	return (
-		<svg
-			viewBox="0 0 75 20"
-			fill="none"
-			aria-hidden="true"
-			className={className}
-			xmlns="http://www.w3.org/2000/svg"
-		>
-			<g clipPath="url(#ramp-wordmark-clip)" fill="currentColor">
-				<path d="M5.19 6.76c-1.79 0-2.667 1.576-2.667 3.681v5.275H0V4.585h2.478v2.888h.043c.53-1.776 1.585-3.21 3.212-3.21 1.144 0 1.627.399 1.627.399L6.22 6.955c0-.002-.363-.195-1.031-.195Zm30.496 1.528v7.427h-2.458V9.192c0-1.872-.587-2.864-2.088-2.864-1.553 0-2.305 1.254-2.305 3.66v5.726H26.4V9.192c0-1.8-.58-2.864-2.066-2.864-1.695 0-2.348 1.486-2.348 3.66v5.726h-2.478V4.584h2.478v2.521h.022c.386-1.744 1.44-2.82 3.218-2.82 1.764 0 2.913.947 3.349 2.627.415-1.617 1.52-2.628 3.218-2.628 2.37 0 3.893 1.486 3.893 4.004ZM12.318 4.262c-2.28 0-3.773 1.071-4.453 3.005l2.099.763c.382-1.166 1.18-1.83 2.398-1.83 1.37 0 2.175.603 2.175 1.528 0 .947-.64 1.145-2.088 1.379-1.61.259-5.437.344-5.437 3.573 0 1.892 1.582 3.315 3.958 3.315 1.786 0 3.003-.73 3.566-2.089h.022v1.81h2.457V8.868c0-2.995-1.508-4.607-4.697-4.607Zm2.283 6.214c0 2.334-1.155 3.833-3 3.833-1.306 0-2.088-.732-2.088-1.788 0-.99.804-1.678 2.348-1.961 1.58-.29 2.375-.648 2.74-1.507v1.423Zm29.826-6.192c-1.88 0-3.121 1.033-3.653 2.585V4.585h-2.61V20h2.588v-6.568h.022c.576 1.681 1.775 2.606 3.653 2.606 2.979 0 5.11-2.454 5.11-5.921 0-3.443-2.131-5.833-5.11-5.833Zm-.642 9.688c-2.063 0-3.207-1.497-3.207-3.822s1.28-3.822 3.207-3.822c1.926 0 3.208 1.57 3.208 3.822 0 2.253-1.28 3.822-3.208 3.822ZM75.172 15.665v.07l-10.1.003v-.073c1.457-.823 2.462-1.66 3.367-2.536h4.147l2.586 2.536ZM72.67 2.51 70.11 0h-.075s.043 4.68-4.255 8.936c-4.206 4.166-9.152 4.175-9.152 4.175v.073l2.608 2.555s4.874.048 9.18-4.175c4.29-4.21 4.254-9.053 4.254-9.053Z" />
-			</g>
-			<defs>
-				<clipPath id="ramp-wordmark-clip">
-					<path fill="#fff" d="M0 0h75v20H0z" />
-				</clipPath>
-			</defs>
-		</svg>
-	);
-}
-*/
-
 function buildWalkInStatItems(
 	row: TeamPageMemberRow,
 	distinctProjectCount: number,
@@ -717,20 +929,35 @@ function buildWalkInOnboardingMetrics(input: {
 	developerDetails: DeveloperDetails | undefined;
 	developerFeatures: DeveloperFeatureUsage | undefined;
 	developerProjects: readonly DeveloperProject[] | undefined;
+	wrappedMetrics: WrappedV1["metrics"] | undefined;
 }): WalkInOnboardingMetrics {
 	const {
 		commitBreakdown,
 		developerDetails,
 		developerFeatures,
 		developerProjects,
+		wrappedMetrics,
 	} = input;
 	const totalSessions = developerDetails?.total_sessions ?? 0;
 	const commitSessions = findBooleanDimensionCount(commitBreakdown, true);
 	const topProject = findTopProject(developerProjects);
+	const repoPulse = buildRepoPulse(developerProjects);
 
 	return {
+		activeDays:
+			wrappedMetrics?.active_days ?? developerDetails?.active_days ?? 0,
+		avgSessionMin: developerDetails?.avg_session_duration_min ?? null,
 		commitRate:
 			totalSessions > 0 ? (commitSessions / totalSessions) * 100 : null,
+		daysSinceFirst: wrappedMetrics?.days_since_first_session ?? 0,
+		favoriteModel: formatWalkInLabel(
+			wrappedMetrics?.favorite_model ??
+				developerDetails?.favorite_model ??
+				undefined,
+		),
+		longestSessionMin: wrappedMetrics?.longest_session_min ?? null,
+		modelByMonth: wrappedMetrics?.model_by_month ?? [],
+		repoPulse,
 		skillsAdoptionRate: developerFeatures?.skills_adoption_rate ?? null,
 		slashCommandsAdoptionRate:
 			developerFeatures?.slash_commands_adoption_rate ?? null,
@@ -739,11 +966,57 @@ function buildWalkInOnboardingMetrics(input: {
 		topProjectName: getProjectDisplayName(topProject),
 		topProjectSessions: topProject?.sessions ?? 0,
 		topProjectTokens: topProject?.total_tokens ?? 0,
-		topSkill: formatWalkInLabel(developerFeatures?.top_skills[0]?.name),
+		topSkills:
+			developerFeatures?.top_skills
+				.map((skill) => ({
+					count: skill.count,
+					name: formatWalkInLabel(skill.name),
+				}))
+				.filter(
+					(
+						skill,
+					): skill is {
+						count: number;
+						name: string;
+					} => Boolean(skill.name),
+				) ?? [],
 		topSlashCommand: formatWalkInLabel(
 			developerFeatures?.top_slash_commands[0]?.name,
 		),
+		topSlashCommands:
+			developerFeatures?.top_slash_commands
+				.map((command) => ({
+					count: command.count,
+					name: formatWalkInLabel(command.name),
+				}))
+				.filter(
+					(
+						command,
+					): command is {
+						count: number;
+						name: string;
+					} => Boolean(command.name),
+				) ?? [],
+		topSlashCommandCount: developerFeatures?.top_slash_commands[0]?.count ?? null,
 		topSubagent: formatWalkInLabel(developerFeatures?.top_subagents[0]?.name),
+		topSubagents:
+			developerFeatures?.top_subagents
+				.map((subagent) => ({
+					count: subagent.count,
+					name: formatWalkInLabel(subagent.name),
+				}))
+				.filter(
+					(
+						subagent,
+					): subagent is {
+						count: number;
+						name: string;
+					} => Boolean(subagent.name),
+				) ?? [],
+		topSubagentCount: developerFeatures?.top_subagents[0]?.count ?? null,
+		totalSessions,
+		totalTokens:
+			wrappedMetrics?.total_tokens ?? developerDetails?.total_tokens ?? 0,
 	};
 }
 
@@ -887,6 +1160,91 @@ function findTopProject(projects: readonly DeveloperProject[] | undefined) {
 	)[0];
 }
 
+function buildRepoPulse(
+	projects: readonly DeveloperProject[] | undefined,
+): WalkInOnboardingMetrics["repoPulse"] {
+	const projectRows = [...(projects ?? [])];
+
+	if (projectRows.length === 0) {
+		return [];
+	}
+
+	const usedProjectKeys = new Set<string>();
+	const candidates = [
+		{
+			id: "home-base",
+			role: "Home base",
+			sortRows: (rows: readonly DeveloperProject[]) =>
+				[...rows].sort(
+					(leftRow, rightRow) =>
+						rightRow.sessions - leftRow.sessions ||
+						rightRow.total_duration_min - leftRow.total_duration_min ||
+						rightRow.total_tokens - leftRow.total_tokens ||
+						leftRow.project_path.localeCompare(rightRow.project_path),
+				),
+			buildProof: (project: DeveloperProject) =>
+				`${project.sessions.toLocaleString()} session${project.sessions === 1 ? "" : "s"}`,
+		},
+		{
+			id: "deep-work",
+			role: "Deep work",
+			sortRows: (rows: readonly DeveloperProject[]) =>
+				[...rows].sort(
+					(leftRow, rightRow) =>
+						rightRow.total_duration_min - leftRow.total_duration_min ||
+						rightRow.sessions - leftRow.sessions ||
+						rightRow.total_tokens - leftRow.total_tokens ||
+						leftRow.project_path.localeCompare(rightRow.project_path),
+				),
+			buildProof: (project: DeveloperProject) =>
+				`${formatDurationMinutesShort(project.total_duration_min)} on canvas`,
+		},
+		{
+			id: "heavy-lift",
+			role: "Heavy lift",
+			sortRows: (rows: readonly DeveloperProject[]) =>
+				[...rows].sort(
+					(leftRow, rightRow) =>
+						rightRow.total_tokens - leftRow.total_tokens ||
+						rightRow.sessions - leftRow.sessions ||
+						rightRow.total_duration_min - leftRow.total_duration_min ||
+						leftRow.project_path.localeCompare(rightRow.project_path),
+				),
+			buildProof: (project: DeveloperProject) =>
+				`${formatCompactWholeNumber(project.total_tokens)} tokens moved`,
+		},
+	] as const;
+
+	return candidates.flatMap((candidate) => {
+		const selectedProject = candidate
+			.sortRows(projectRows)
+			.find((project) => !usedProjectKeys.has(getRepoPulseProjectKey(project)));
+
+		if (!selectedProject) {
+			return [];
+		}
+
+		usedProjectKeys.add(getRepoPulseProjectKey(selectedProject));
+		return [
+			{
+				id: candidate.id,
+				proof: candidate.buildProof(selectedProject),
+				repoName: getProjectDisplayName(selectedProject) ?? "Unknown repo",
+				role: candidate.role,
+			},
+		];
+	});
+}
+
+function getRepoPulseProjectKey(project: DeveloperProject) {
+	return (
+		getProjectDisplayName(project) ??
+		project.project_path ??
+		project.git_remote ??
+		"unknown-project"
+	);
+}
+
 function getProjectDisplayName(project: DeveloperProject | undefined) {
 	if (!project) {
 		return null;
@@ -907,4 +1265,19 @@ function getProjectDisplayName(project: DeveloperProject | undefined) {
 	const projectPath = project.project_path?.trim();
 
 	return projectPath || null;
+}
+
+function formatDurationMinutesShort(totalDurationMin: number) {
+	if (totalDurationMin < 60) {
+		return `${Math.round(totalDurationMin)}m`;
+	}
+
+	const hours = Math.floor(totalDurationMin / 60);
+	const minutes = Math.round(totalDurationMin - hours * 60);
+
+	if (minutes === 0) {
+		return `${hours}h`;
+	}
+
+	return `${hours}h ${minutes}m`;
 }

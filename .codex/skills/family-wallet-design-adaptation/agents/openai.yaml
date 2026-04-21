@@ -1,0 +1,4 @@
+interface:
+  display_name: "Family Wallet Design"
+  short_description: "Adapt wrapped-family toward Family wallet."
+  default_prompt: "Use $family-wallet-design-adaptation to adapt the wrapped-family route toward the Family wallet references in this repo, using the bundled design references and current repo surface."

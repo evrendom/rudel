@@ -1,15 +1,29 @@
 import { gsap } from "gsap";
 import { CustomEase } from "gsap/CustomEase";
 import { MotionPathPlugin } from "gsap/MotionPathPlugin";
-import { ArrowLeft, Plane } from "lucide-react";
+import {
+	ArrowLeft,
+	CheckCircle2,
+	Clipboard,
+	Download,
+	Plane,
+	Twitter,
+} from "lucide-react";
 import * as React from "react";
 import { Link } from "react-router-dom";
+import { toast } from "sonner";
 import { appRoutes } from "@/app/routes";
 import {
 	formatCompactWholeNumber,
 	formatCurrency,
 	formatNumber,
 } from "@/lib/format";
+import {
+	captureElement,
+	copyToClipboard,
+	downloadAsImage,
+	shareToX,
+} from "@/lib/screenshot";
 import type { WrappedFamilySpendStory } from "./useWrappedFamilySpendData";
 
 gsap.registerPlugin(CustomEase, MotionPathPlugin);
@@ -143,6 +157,7 @@ export function WrappedFamilySpendScene({
 }) {
 	const rootRef = React.useRef<HTMLDivElement>(null);
 	const amountRef = React.useRef<HTMLSpanElement>(null);
+	const shareCardRef = React.useRef<HTMLDivElement>(null);
 	const prefersReducedMotion = usePrefersReducedMotion();
 
 	const boardRows = React.useMemo(() => getBoardRows(story), [story]);
@@ -165,12 +180,12 @@ export function WrappedFamilySpendScene({
 		() => [
 			{
 				id: "tokens",
-				label: "Tokens tracked",
+				label: "Tokens on card",
 				value: formatCompactWholeNumber(story.totalTokens),
 			},
 			{
 				id: "sessions",
-				label: "Sessions logged",
+				label: "Sessions on card",
 				value: formatNumber(story.sessionCount),
 			},
 			{
@@ -185,6 +200,65 @@ export function WrappedFamilySpendScene({
 		() => getRouteEnd(story.normalizedSpend),
 		[story.normalizedSpend],
 	);
+	const shareText = `${story.firstName}'s AI spend card for ${story.periodLabel}, made with rudel.ai`;
+
+	async function captureShareCard() {
+		if (!shareCardRef.current) {
+			return null;
+		}
+
+		return captureElement(shareCardRef.current);
+	}
+
+	async function handleCopyImage() {
+		const imageBlob = await captureShareCard();
+
+		if (!imageBlob) {
+			return;
+		}
+
+		const copied = await copyToClipboard(imageBlob);
+
+		if (copied) {
+			toast.success("Card copied to clipboard");
+			return;
+		}
+
+		toast.error("Could not copy the card. Try downloading it instead.");
+	}
+
+	async function handleDownloadImage() {
+		const imageBlob = await captureShareCard();
+
+		if (!imageBlob) {
+			return;
+		}
+
+		const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, "-");
+		downloadAsImage(imageBlob, `rudel-wrapped-card-${timestamp}.png`);
+		toast.success("Card downloaded");
+	}
+
+	async function handleShareToX() {
+		const imageBlob = await captureShareCard();
+
+		if (!imageBlob) {
+			return;
+		}
+
+		const copied = await copyToClipboard(imageBlob);
+
+		if (copied) {
+			toast.success("Card copied. Paste it into your post with Cmd+V.", {
+				duration: 8000,
+			});
+		} else {
+			toast.message("X opened without the image. Download if paste is blocked.");
+		}
+
+		await new Promise((resolve) => setTimeout(resolve, 1800));
+		shareToX(shareText);
+	}
 
 	React.useLayoutEffect(() => {
 		const scopeElement = rootRef.current;
@@ -198,7 +272,7 @@ export function WrappedFamilySpendScene({
 				".wf-flighty__board-row",
 			);
 			const copyElements = gsap.utils.toArray<HTMLElement>(
-				".wf-flighty__brand, .wf-flighty__kicker, .wf-flighty__headline, .wf-flighty__lede, .wf-flighty__summary-card",
+				".wf-flighty__brand, .wf-flighty__kicker, .wf-flighty__headline, .wf-flighty__lede, .wf-flighty__summary-card, .wf-flighty__share-panel",
 			);
 			const visualElements = gsap.utils.toArray<HTMLElement>(
 				".wf-flighty__glow, .wf-flighty__device-shell",
@@ -491,26 +565,19 @@ export function WrappedFamilySpendScene({
 			<main className="wf-flighty__hero">
 				<section className="wf-flighty__copy">
 					<div className="wf-flighty__brand">
-						<div className="wf-flighty__brand-mark">
-							<Plane size={20} strokeWidth={2.2} />
-						</div>
 						<div className="wf-flighty__brand-copy">
-							<p className="wf-flighty__brand-label">
-								{"Wrapped // Flight Mode"}
-							</p>
+							<p className="wf-flighty__brand-label">Wrapped family</p>
 							<p className="wf-flighty__brand-value">{story.periodLabel}</p>
 						</div>
 					</div>
 
-					<p className="wf-flighty__kicker">TOTAL SPEND</p>
+					<p className="wf-flighty__kicker">Share-ready card</p>
 					<h1 className="wf-flighty__headline">
-						Get the truth on your AI spend.
+						{"Your spend card is "}
+						<span className="wf-flighty__headline-accent">ready.</span>
 					</h1>
 					<p className="wf-flighty__lede">
-						{story.firstName} deployed {formatCurrency(story.totalCost)} across{" "}
-						{formatNumber(story.sessionCount)} sessions and{" "}
-						{formatNumber(story.activeDays)} active days. One season, one hard
-						number, no soft focus.
+						{`We turned ${story.firstName}'s last stretch of usage into one clean card. Copy the image, drop it into Slack, or post it for friends without sharing the rest of your dashboard.`}
 					</p>
 
 					<div className="wf-flighty__summary">
@@ -521,6 +588,52 @@ export function WrappedFamilySpendScene({
 							</article>
 						))}
 					</div>
+
+					<section className="wf-flighty__share-panel">
+						<div className="wf-flighty__share-panel-top">
+							<div className="wf-flighty__share-panel-icon">
+								<CheckCircle2 size={18} strokeWidth={2.3} />
+							</div>
+							<div>
+								<p className="wf-flighty__share-panel-eyebrow">
+									Ready to share
+								</p>
+								<h2 className="wf-flighty__share-panel-title">
+									Only the card gets exported.
+								</h2>
+							</div>
+						</div>
+						<p className="wf-flighty__share-panel-copy">
+							The image keeps the card exactly as shown on the right and leaves
+							the surrounding controls behind.
+						</p>
+						<div className="wf-flighty__share-actions">
+							<button
+								type="button"
+								className="wf-flighty__share-action is-primary"
+								onClick={handleCopyImage}
+							>
+								<Clipboard size={16} strokeWidth={2.2} />
+								Copy image
+							</button>
+							<button
+								type="button"
+								className="wf-flighty__share-action"
+								onClick={handleDownloadImage}
+							>
+								<Download size={16} strokeWidth={2.2} />
+								Download PNG
+							</button>
+							<button
+								type="button"
+								className="wf-flighty__share-action is-quiet"
+								onClick={handleShareToX}
+							>
+								<Twitter size={16} strokeWidth={2.2} />
+								Share on X
+							</button>
+						</div>
+					</section>
 				</section>
 
 				<section
@@ -528,7 +641,7 @@ export function WrappedFamilySpendScene({
 					aria-label="Flighty-inspired spend display"
 				>
 					<div className="wf-flighty__device-shell">
-						<div className="wf-flighty__device">
+						<div ref={shareCardRef} className="wf-flighty__device">
 							<div className="wf-flighty__device-screen">
 								<div className="wf-flighty__device-top">
 									<div>

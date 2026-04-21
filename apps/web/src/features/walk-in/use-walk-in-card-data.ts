@@ -27,8 +27,7 @@ export function useWalkInCardData() {
 	});
 	const name = getSessionUserName(session);
 	const email = getSessionUserEmail(session);
-	const accountLabel =
-		name ?? getEmailHandle(email) ?? handover.preview.profile.fallbackLabel;
+	const accountLabel = name ?? getEmailHandle(email) ?? "User";
 	const cardModel = React.useMemo(
 		() =>
 			buildWalkInCardModel({

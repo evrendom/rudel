@@ -30,6 +30,7 @@ const SEED_METRICS: WrappedV1["metrics"] = {
 	first_session_at: "2025-09-17T00:00:00Z",
 	last_session_at: "2026-04-18T00:00:00Z",
 	longest_session_min: 164,
+	model_by_month: [],
 	source_split: [...SEED_SOURCE_SPLIT],
 	total_sessions: 128,
 	total_tokens: 482_300,
