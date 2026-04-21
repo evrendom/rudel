@@ -21,6 +21,49 @@
 	},
 	"overrides": [
 		{
+			"includes": [
+				"apps/web/src/components/analytics/**",
+				"apps/web/src/components/conversation/**",
+				"apps/web/src/features/dashboard/DashboardPage.tsx",
+				"apps/web/src/features/sessions/components/**",
+				"apps/web/src/hooks/useChartTheme.ts"
+			],
+			"linter": {
+				"rules": {
+					"nursery": {
+						"noExcessiveLinesPerFile": {
+							"level": "error",
+							"options": {
+								"maxLines": 500,
+								"skipBlankLines": true
+							}
+						}
+					},
+					"style": {
+						"noRestrictedImports": {
+							"level": "error",
+							"options": {
+								"paths": {
+									"react": {
+										"importNames": ["useEffect"],
+										"message": "Derive state first, then use dedicated hooks like useMountEffect when an effect is still necessary."
+									}
+								}
+							}
+						}
+					},
+					"suspicious": {
+						"noDoubleEquals": {
+							"level": "error",
+							"options": {
+								"ignoreNull": false
+							}
+						}
+					}
+				}
+			}
+		},
+		{
 			"includes": ["apps/web/src/features/wrapped/**"],
 			"linter": {
 				"rules": {

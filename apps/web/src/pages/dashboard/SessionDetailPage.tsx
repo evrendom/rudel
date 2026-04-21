@@ -8,18 +8,13 @@ import {
 	GitCommitHorizontal,
 	User,
 } from "lucide-react";
-import { Component, type ReactNode, useCallback, useState } from "react";
+import { Component, type ReactNode, useState } from "react";
 import { useParams } from "react-router-dom";
 import { ConversationView } from "@/components/conversation/ConversationView";
-import {
-	type TokenDataPoint,
-	TokenUsageChart,
-} from "@/components/conversation/TokenUsageChart";
-import {
-	ToolActivityChart,
-	type ToolActivityPoint,
-} from "@/components/conversation/ToolActivityChart";
+import { TokenUsageChart } from "@/components/conversation/TokenUsageChart";
+import { ToolActivityChart } from "@/components/conversation/ToolActivityChart";
 import { InfoTooltip } from "@/components/ui/InfoTooltip";
+import { buildConversationArtifacts } from "@/features/conversation-internal/lib/conversation-analysis";
 import { useAnalyticsTracking } from "@/hooks/useDashboardAnalytics";
 import { useTrackDashboardView } from "@/hooks/useTrackDashboardView";
 import { useUserMap } from "@/hooks/useUserMap";
@@ -148,23 +143,6 @@ function SessionDetailPageContent() {
 	const { userMap } = useUserMap();
 	const { trackUtility } = useAnalyticsTracking();
 	const [copied, setCopied] = useState(false);
-	const [tokenData, setTokenData] = useState<TokenDataPoint[]>([]);
-	const [toolActivityData, setToolActivityData] = useState<ToolActivityPoint[]>(
-		[],
-	);
-	const [totalMessages, setTotalMessages] = useState(0);
-
-	const handleTokenDataReady = useCallback(
-		(data: TokenDataPoint[], total: number) => {
-			setTokenData(data);
-			setTotalMessages(total);
-		},
-		[],
-	);
-
-	const handleToolActivityReady = useCallback((data: ToolActivityPoint[]) => {
-		setToolActivityData(data);
-	}, []);
 
 	const {
 		data: session,
@@ -211,6 +189,9 @@ function SessionDetailPageContent() {
 		error &&
 		"code" in (error as unknown as Record<string, unknown>) &&
 		(error as unknown as Record<string, unknown>).code === "FORBIDDEN";
+	const safeContent = toContentString(session?.content);
+	const { tokenData, toolActivityData, totalMessages } =
+		buildConversationArtifacts(safeContent);
 
 	if (isForbidden) {
 		return (
@@ -265,7 +246,6 @@ function SessionDetailPageContent() {
 	const safeModelUsed = toOptionalString(session.model_used);
 	const safeSessionArchetype =
 		toOptionalString(session.session_archetype) ?? undefined;
-	const safeContent = toContentString(session.content);
 
 	return (
 		<div className="flex flex-col h-full">
@@ -477,11 +457,7 @@ function SessionDetailPageContent() {
 				<div className="flex">
 					{/* Conversation — left */}
 					<div className="flex-1 min-w-0 py-6 px-8">
-						<ConversationView
-							content={safeContent}
-							onTokenDataReady={handleTokenDataReady}
-							onToolActivityReady={handleToolActivityReady}
-						/>
+						<ConversationView content={safeContent} />
 					</div>
 
 					{/* Stats panel — right */}
