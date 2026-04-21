@@ -19,6 +19,28 @@
 			"recommended": true
 		}
 	},
+	"overrides": [
+		{
+			"includes": ["apps/web/src/features/walk-in/**"],
+			"linter": {
+				"rules": {
+					"style": {
+						"noRestrictedImports": {
+							"level": "error",
+							"options": {
+								"paths": {
+									"react": {
+										"importNames": ["useEffect"],
+										"message": "Walk-in files must use useMountEffect instead of importing useEffect directly."
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	],
 	"css": {
 		"parser": {
 			"cssModules": true,
