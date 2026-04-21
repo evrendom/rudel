@@ -1,6 +1,4 @@
-import * as React from "react";
 import { useAnalyticsQuery } from "@/features/analytics/queries/useAnalyticsQuery";
-import { buildWalkInCardModel } from "@/features/walk-in/lib/build-walk-in-card-model";
 import { buildWalkInHandover } from "@/features/walk-in/lib/build-walk-in-handover";
 import type { WalkInWrappedDataState } from "@/features/walk-in/lib/walk-in-handover-schema";
 import { authClient } from "@/lib/auth-client";
@@ -28,18 +26,9 @@ export function useWalkInCardData() {
 	const name = getSessionUserName(session);
 	const email = getSessionUserEmail(session);
 	const accountLabel = name ?? getEmailHandle(email) ?? "User";
-	const cardModel = React.useMemo(
-		() =>
-			buildWalkInCardModel({
-				accountLabel,
-				wrappedData,
-			}),
-		[accountLabel, wrappedData],
-	);
 
 	return {
 		accountLabel,
-		cardModel,
 		handover,
 		session,
 		wrappedData,
