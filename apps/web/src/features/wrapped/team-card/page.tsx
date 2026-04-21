@@ -16,11 +16,14 @@ import { WrappedTeamCardOnboarding } from "@/features/wrapped/onboarding/shell";
 import type { WrappedOnboardingMetrics } from "@/features/wrapped/onboarding/types";
 import { useMountEffect } from "@/hooks/useMountEffect";
 import { formatCompactWholeCurrency } from "@/lib/format";
+import {
+	WRAPPED_ARCHETYPE_CARD_THEMES,
+	type WrappedArchetypeCardTheme,
+} from "./archetypes";
 import type {
 	WrappedTeamMemberCardHeaderMetric,
 	WrappedTeamMemberCardStatItem,
 	WrappedTeamMemberCardStatLayerOpacities,
-	WrappedTeamMemberCardTheme,
 } from "./card";
 import {
 	WrappedTeamCardRevealFooter,
@@ -39,13 +42,6 @@ import { useWrappedTeamCardShare } from "./use-share";
 import { formatShareCardCreatedAt, getWrappedArchetypeIndex } from "./utils";
 import "@/features/wrapped/wrapped.css";
 
-interface WrappedArchetypeCardTheme {
-	id: string;
-	label: string;
-	shellClassName: string;
-	theme: WrappedTeamMemberCardTheme;
-}
-
 type FinalCardStage = "reveal" | "share";
 
 const TEAM_CARD_SHELL_STYLE = {
@@ -53,76 +49,6 @@ const TEAM_CARD_SHELL_STYLE = {
 	"--team-lineup-card-grain-opacity": "0",
 	"--team-lineup-card-grain-size": "40px",
 } as CSSProperties;
-
-const WRAPPED_ARCHETYPE_CARD_THEMES = [
-	{
-		id: "roadrunner",
-		label: "Roadrunner",
-		shellClassName:
-			"bg-[linear-gradient(161.01deg,_#28D0FF_4.98%,_#FFCA0D_99.99%)]",
-		theme: "light",
-	},
-	{
-		id: "hit-and-runner",
-		label: "Hit and Runner",
-		shellClassName:
-			"bg-[linear-gradient(180deg,_#EE9BEB_0%,_#F29BBB_44.71%,_#EFB09C_100%)]",
-		theme: "light",
-	},
-	{
-		id: "adhd",
-		label: "ADHD",
-		shellClassName:
-			"bg-[linear-gradient(180deg,_#FF7567_0%,_#F8D558_48.08%,_#A4F554_100%)]",
-		theme: "light",
-	},
-	{
-		id: "window-shopper",
-		label: "Cheapskate",
-		shellClassName: "bg-[linear-gradient(180deg,_#00E4E7_0%,_#00EAAE_100%)]",
-		theme: "light",
-	},
-	{
-		id: "papas-credit-card",
-		label: "Company Card",
-		shellClassName: "bg-[linear-gradient(180deg,_#E5F221_0%,_#DFEC1C_100%)]",
-		theme: "light",
-	},
-	{
-		id: "decimal",
-		label: "Decimal",
-		shellClassName:
-			"bg-[linear-gradient(180deg,_#F7E08B_0%,_#D4AF37_42%,_#9C7415_100%)]",
-		theme: "light",
-	},
-	{
-		id: "tourist",
-		label: "Tourist",
-		shellClassName:
-			"bg-[linear-gradient(180deg,_#39E5E7_0%,_#35E895_50.96%,_#7AE762_100%)]",
-		theme: "light",
-	},
-	{
-		id: "npc",
-		label: "Smooth Operator",
-		shellClassName: "bg-[linear-gradient(180deg,_#8ED9F8_0%,_#69B8D9_100%)]",
-		theme: "light",
-	},
-	{
-		id: "needs-to-touch-grass",
-		label: "Obsessed",
-		shellClassName:
-			"border-white/10 bg-[linear-gradient(180deg,_#191919_0%,_#000000_100%)]",
-		theme: "dark",
-	},
-	{
-		id: "maniac",
-		label: "Maniac",
-		shellClassName:
-			"bg-[linear-gradient(180deg,_#F05267_0%,_#F05267_50%,_#F8D558_100%)]",
-		theme: "light",
-	},
-] as const satisfies readonly WrappedArchetypeCardTheme[];
 
 export function WrappedTeamCardPage() {
 	const navigate = useNavigate();
@@ -133,6 +59,9 @@ export function WrappedTeamCardPage() {
 	const { completionUserId, onboardingMetrics, statItems, visibleTeamCardRow } =
 		useWrappedTeamCardPageData();
 	const tiltController = useWrappedCardTilt();
+	// This index is only local card-carousel state for the Saturday launch. It is
+	// not a classifier result. The actual computed-archetype path is tracked
+	// separately in the beat contract and will come from the snapshot pipeline.
 	const [activeArchetypeIndex, setActiveArchetypeIndex] = useState(0);
 	const [shareCardCreatedAt] = useState(() => new Date());
 	const shareCardCreatedAtLabel = formatShareCardCreatedAt(shareCardCreatedAt);
@@ -160,8 +89,11 @@ export function WrappedTeamCardPage() {
 		value: formatCompactWholeCurrency(visibleTeamCardRow.cost),
 	};
 	const headerRightMetric: WrappedTeamMemberCardHeaderMetric = {
-		title: activeArchetype.label,
-		value: activeArchetype.label,
+		// The card shows product-facing labels here, not raw classifier names.
+		// Example: the taxonomy says "NPC", while the visible card says
+		// "Smooth Operator".
+		title: activeArchetype.displayLabel,
+		value: activeArchetype.displayLabel,
 	};
 	const statLayerOpacities =
 		useMemo<WrappedTeamMemberCardStatLayerOpacities>(() => {
@@ -178,6 +110,8 @@ export function WrappedTeamCardPage() {
 				return baseStatLayerOpacities;
 			}
 
+			// Decimal is a VIP special edition, not part of the classifier-backed
+			// taxonomy. It keeps its own visual treatment on purpose.
 			return {
 				...baseStatLayerOpacities,
 				hideTextureImage: true,
@@ -268,7 +202,7 @@ function WrappedTeamCardPageContent(props: {
 	const shareSnapshot = useMemo(
 		() =>
 			buildWrappedShareSnapshot({
-				archetypeLabel: activeArchetype.label,
+				archetypeLabel: activeArchetype.displayLabel,
 				headerLeftMetric,
 				headerRightMetric,
 				row: visibleTeamCardRow,
@@ -277,7 +211,7 @@ function WrappedTeamCardPageContent(props: {
 				theme: activeArchetype.theme,
 			}),
 		[
-			activeArchetype.label,
+			activeArchetype.displayLabel,
 			activeArchetype.shellClassName,
 			activeArchetype.theme,
 			headerLeftMetric,
@@ -308,7 +242,7 @@ function WrappedTeamCardPageContent(props: {
 	// We pass analytics hooks in, but keep the details of clipboard/native share/
 	// download behavior inside the share module.
 	const shareActions = createWrappedTeamCardShareActions({
-		archetypeLabel: activeArchetype.label,
+		archetypeLabel: activeArchetype.displayLabel,
 		displayName: visibleTeamCardRow.displayName,
 		onShareActionTriggered: (action) => {
 			trackUtilityUsed({
@@ -334,6 +268,9 @@ function WrappedTeamCardPageContent(props: {
 	});
 
 	function handlePreviewPost() {
+		// Previewing the share stage is the moment we want to create the public
+		// share record. That keeps sharing event-driven and avoids creating public
+		// share rows just because someone opened wrapped.
 		trackUtilityUsed({
 			sourceComponent: "wrapped_reveal_footer",
 			utilityName: "wrappedSharePreviewOpened",
@@ -377,7 +314,7 @@ function WrappedTeamCardPageContent(props: {
 		/>
 	) : (
 		<WrappedTeamCardRevealStage
-			archetypeLabel={activeArchetype.label}
+			archetypeLabel={activeArchetype.displayLabel}
 			headerLeftMetric={headerLeftMetric}
 			headerRightMetric={headerRightMetric}
 			onNextArchetype={() =>

@@ -7,6 +7,13 @@ import { ESTIMATED_PRICING_MODE } from "@rudel/api-routes";
 import { queryClickhouse } from "../clickhouse.js";
 import { buildEstimatedCostSql } from "./pricing.service.js";
 
+// The wrapped endpoint is intentionally the conservative, high-trust summary.
+// It should answer the broad "what is definitely true about this user's run?"
+// questions and stay small enough to audit quickly.
+//
+// More editorial or heuristic beats can still be layered on the client from
+// developer analytics, but this endpoint should remain the baseline contract
+// product can point to without caveats.
 const VERIFIED_METRIC_COUNT = 8;
 
 const PER_SESSION_COST_SQL = buildEstimatedCostSql({
@@ -43,6 +50,8 @@ export async function getWrappedV1Data(
 	orgId: string,
 	userId: string,
 ): Promise<WrappedV1> {
+	// These reads are independent, so we start them together and only join once.
+	// That keeps the endpoint simple and avoids an avoidable waterfall.
 	const [summaryRow, favoriteModel, modelByMonth] = await Promise.all([
 		getWrappedSummary(orgId, userId),
 		getFavoriteModel(orgId, userId),
@@ -84,6 +93,9 @@ async function getWrappedSummary(
 	orgId: string,
 	userId: string,
 ): Promise<WrappedSummaryRow> {
+	// Archetypes should never be computed here. The archetype pipeline is a
+	// separate snapshot system because global clustering is the wrong job for a
+	// request-time summary endpoint.
 	const rows = await queryClickhouse<WrappedSummaryRow>({
 		query: `
 			SELECT

@@ -21,6 +21,17 @@ interface UseWrappedTeamCardPageDataResult {
 	visibleTeamCardRow: TeamPageMemberRow;
 }
 
+// This hook is the current truth-assembly seam for the wrapped page.
+//
+// Product intentionally reads from two data contracts here:
+// - the wrapped summary endpoint for the safest all-time recap facts
+// - the existing developer analytics endpoints for richer recent-window detail
+//   from the current 365-day analytics range
+//
+// We keep that wiring explicit instead of hiding it behind a clever abstraction
+// so engineers can see exactly why some beats are launch-safe and others are
+// still marked "needs_truth_cleanup" or "needs_codex_feature_parity" in
+// onboarding/config.ts.
 export function useWrappedTeamCardPageData(): UseWrappedTeamCardPageDataResult {
 	const { accountLabel, handover, session, wrappedData } = useWrappedCardData();
 	const { teamMemberRows } = useTeamPageData();
@@ -32,6 +43,9 @@ export function useWrappedTeamCardPageData(): UseWrappedTeamCardPageDataResult {
 	const activeMemberUserId = getActiveMemberUserId(activeMember);
 	const resolvedUserId = sessionUserId ?? activeMemberUserId;
 	const completionUserId = resolvedUserId ?? null;
+	// These recent-window developer queries power the richer story beats. They
+	// are intentionally left separate for now because the Saturday ship still
+	// needs clear visibility into which beat is reading which source.
 	const developerDetailsQuery = useAnalyticsQuery({
 		...orpc.analytics.developers.details.queryOptions({
 			input: {

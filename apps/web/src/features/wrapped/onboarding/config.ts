@@ -29,43 +29,117 @@ export interface WrappedPreviewOption {
 	value: string;
 }
 
+export type WrappedBeatReadiness =
+	| "ship_now"
+	| "ship_now_with_softening"
+	| "needs_truth_cleanup"
+	| "needs_codex_feature_parity"
+	| "needs_classifier_snapshot";
+
 export interface WrappedBeatContract {
+	// currentStatus is the one-line launch decision for the beat.
+	currentStatus: WrappedBeatReadiness;
+	// whatWeShowNow is the concrete metric surface the current UI can defend.
+	whatWeShowNow: readonly string[];
 	metricBasis: string;
 	timeWindow: string;
 	referenceClass: string;
 	eligibility: string;
+	// infraRequirement answers "what needs MV or other backend work?" directly.
+	infraRequirement: string;
+	// productNote explains how product should talk about the beat right now.
+	productNote: string;
 }
 
+// This contract is the Saturday wrapped truth table.
+//
+// It exists so product, design, and engineering can answer the same questions
+// from one file:
+// - which beats are safe to ship now
+// - which beats need softer copy
+// - which beats are blocked on classifier work, Codex feature parity, or other
+//   backend truth-layer changes
+//
+// Rule of thumb:
+// - "ship_now" means the current queries are enough
+// - "ship_now_with_softening" means the beat is usable but copy should stay
+//   clearly heuristic
+// - "needs_truth_cleanup" means the current stage mixes windows or fuzzy metrics
+// - "needs_codex_feature_parity" means Claude data is ahead of Codex data
+// - "needs_classifier_snapshot" means the pipeline must land before we claim a
+//   real computed archetype
 export const WRAPPED_BEAT_CONTRACTS: Record<
 	WrappedStepId,
 	WrappedBeatContract
 > = {
 	upload: {
+		currentStatus: "ship_now",
+		whatWeShowNow: ["Upload placeholder state", "Uploading now", "Ready state"],
 		metricBasis:
 			"Temporary pre-recap beat. Final live version should read from upload job status and uploaded export summary.",
 		timeWindow: "Current upload attempt.",
 		referenceClass: "Current user's uploaded session exports.",
 		eligibility: "Always shown before the intro beat.",
+		infraRequirement:
+			"No MV required for Saturday. Replace the placeholder with real upload job state when the upload flow is finalized.",
+		productNote:
+			"This beat is scaffolding, not a claim about user history. Keep the copy operational and do not position it as recap truth.",
 	},
 	intro: {
-		metricBasis: "Count of session_analytics rows for this user.",
+		currentStatus: "ship_now",
+		whatWeShowNow: [
+			"Total sessions",
+			"Active days",
+			"Days since first session",
+		],
+		metricBasis:
+			"Wrapped summary metrics from the current all-time wrapped endpoint, plus total_sessions from the existing page data.",
 		timeWindow: "All time since first session.",
 		referenceClass: "User's own history.",
 		eligibility: "Always shown. Copy softens when total_sessions < 10.",
+		infraRequirement:
+			"No MV required. Current wrapped summary reads are enough for the intro beat.",
+		productNote:
+			"This is one of the safest beats. It should establish activity and history, not over-interpret behavior.",
 	},
 	skills: {
-		metricBasis: "Top 3 skills by usage count plus skills_adoption_rate.",
-		timeWindow: "Developer analytics window (last 90 days).",
+		currentStatus: "needs_codex_feature_parity",
+		whatWeShowNow: [
+			"Top 3 recorded skills",
+			"Skills adoption rate when present",
+		],
+		metricBasis:
+			"Top 3 skills by usage count plus skills_adoption_rate from developer feature usage.",
+		timeWindow: "Developer analytics window (currently last 365 days).",
 		referenceClass: "User's own history.",
 		eligibility: "At least one ranked skill or adoption rate recorded.",
+		infraRequirement:
+			"Needs Codex feature extraction parity. This is not a new MV problem; it is a source-data completeness problem.",
+		productNote:
+			"Only ship as a fully truthful beat once Codex sessions populate skills the same way Claude sessions do. Until then, keep the copy obviously partial.",
 	},
 	tools: {
+		currentStatus: "needs_codex_feature_parity",
+		whatWeShowNow: [
+			"Top slash command",
+			"Top subagent",
+			"Slash/subagent adoption rates when present",
+		],
 		metricBasis: "Top slash command and top subagent by usage.",
-		timeWindow: "Developer analytics window (last 90 days).",
+		timeWindow: "Developer analytics window (currently last 365 days).",
 		referenceClass: "User's own history.",
 		eligibility: "At least one slash command or subagent recorded.",
+		infraRequirement:
+			"Needs Codex slash-command and subagent extraction parity. No new MV is the blocker here.",
+		productNote:
+			"Treat this beat the same way as skills: interesting when present, but not yet a complete cross-source truth layer.",
 	},
 	model: {
+		currentStatus: "ship_now",
+		whatWeShowNow: [
+			"All-time Claude vs Codex session split",
+			"Monthly model usage trend",
+		],
 		metricBasis:
 			"Claude vs Codex session share across the full run, plus a month-by-month split for the latest 6 months.",
 		timeWindow:
@@ -73,43 +147,93 @@ export const WRAPPED_BEAT_CONTRACTS: Record<
 		referenceClass: "User's own history.",
 		eligibility:
 			"At least one wrapped source_split row or one model_by_month row. Monthly share falls back gracefully when fewer than 6 months are present.",
+		infraRequirement:
+			"No MV required for the live view. If product wants a frozen campaign artifact later, snapshot this series into the wrapped payload.",
+		productNote:
+			"This beat is safe as long as we present it as usage mix, not as preference psychology.",
 	},
 	scale: {
+		currentStatus: "ship_now",
+		whatWeShowNow: [
+			"Total tokens",
+			"Reading-scale anchor",
+			"Token-to-ball mapping",
+		],
 		metricBasis: "Sum of input_tokens + output_tokens across sessions.",
 		timeWindow: "All time since first session.",
 		referenceClass:
 			"Reading-length anchors (essay, novella, novel, War and Peace).",
 		eligibility: "total_tokens > 0.",
+		infraRequirement:
+			"No MV required. Current wrapped total_tokens is enough for this stage.",
+		productNote:
+			"This is a safe spectacle beat. It should stay anchored in countable volume, not inferred productivity.",
 	},
 	"lock-in": {
+		currentStatus: "needs_truth_cleanup",
+		whatWeShowNow: [
+			"Longest session",
+			"Average session duration",
+			"Relative overrun",
+		],
 		metricBasis:
 			"Longest recorded session duration compared to the average session duration, with overrun and ratio derived from those two values.",
 		timeWindow:
-			"Longest session across all time. Average over developer analytics window.",
+			"Longest session across all time. Average over the current 365-day developer analytics window.",
 		referenceClass: "User's own session distribution.",
 		eligibility:
 			"Any recorded session duration. Copy softens when longest_session_min < 30 or avg_session_duration_min is missing.",
+		infraRequirement:
+			"Needs one consistent window or a dedicated wrapped rollup. This is a truth-cleanup problem, not a special MV requirement.",
+		productNote:
+			"Do not present this as a crisp behavioral claim until longest and average session duration are computed from the same contract window.",
 	},
 	quality: {
+		currentStatus: "needs_truth_cleanup",
+		whatWeShowNow: ["Commit rate", "Success rate when present"],
 		metricBasis: "Commit rate and success_rate.",
-		timeWindow: "Developer analytics window.",
+		timeWindow: "Developer analytics window (currently last 365 days).",
 		referenceClass: "User's own history.",
 		eligibility: "At least one of commit_rate or success_rate is available.",
+		infraRequirement:
+			"Needs a clearly frozen success methodology and possibly a wrapped-specific rollup. No new MV should be added blindly before the semantics are settled.",
+		productNote:
+			"This is the easiest beat to overclaim. Keep it out of the core launch story until the definition of success is product-approved.",
 	},
 	pulse: {
+		currentStatus: "ship_now_with_softening",
+		whatWeShowNow: [
+			"Top repos by session count",
+			"Heuristic repo work-type label",
+			"Session and token proof text",
+		],
 		metricBasis:
 			"Top repos by session count, with each repo labeled by the strongest work signal inside it: tool adoption, depth, token load, or delivery.",
-		timeWindow: "Developer analytics window.",
+		timeWindow: "Developer analytics window (currently last 365 days).",
 		referenceClass: "User's own repositories.",
 		eligibility:
 			"At least one recorded session with a project path before the final card reveal.",
+		infraRequirement:
+			"No MV required for v1. The current developer sessions query is enough, but the repo role labels should stay explicitly heuristic.",
+		productNote:
+			"This beat is useful when framed as repo pulse, not as a deterministic classifier of project importance.",
 	},
 	card: {
+		currentStatus: "needs_classifier_snapshot",
+		whatWeShowNow: [
+			"User-picked theme carousel",
+			"Core k9 archetype set",
+			"Decimal VIP special edition",
+		],
 		metricBasis:
 			"User-picked archetype theme. Classifier lands later; no automatic assignment yet.",
 		timeWindow: "Snapshot of the current card stats at view time.",
 		referenceClass: "User browses the full archetype set.",
 		eligibility: "Always shown.",
+		infraRequirement:
+			"Needs the snapshot-based archetype pipeline from docs/archetype-clickhouse-pipeline.md. Do not replace this with an incremental MV. Decimal stays product-only even after the classifier lands.",
+		productNote:
+			"Today this is a theme picker, not a truth claim. The card can show Smooth Operator and other product labels, but only classifier-backed themes should ever be called computed archetypes.",
 	},
 };
 
