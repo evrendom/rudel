@@ -26,7 +26,7 @@ import { createWalkInTeamCardShareActions } from "./share";
 import {
 	type WalkInCardTiltController,
 	useWalkInCardTilt,
-} from "@/features/walk-in/tilt/use-card-tilt";
+} from "./tilt/use-card-tilt";
 import { useWalkInTeamCardPageData } from "./use-page-data";
 import {
 	type WalkInTeamMemberCardHeaderMetric,

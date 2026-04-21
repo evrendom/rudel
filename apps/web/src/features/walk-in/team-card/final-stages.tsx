@@ -2,7 +2,7 @@ import { ChevronLeft, ChevronRight, Clipboard, Download, Share2 } from "lucide-r
 import type { CSSProperties, RefObject } from "react";
 import { Button } from "@/app/ui/button";
 import type { TeamPageMemberRow } from "@/features/team/use-team-page-data";
-import type { WalkInCardTiltController } from "@/features/walk-in/tilt/use-card-tilt";
+import type { WalkInCardTiltController } from "./tilt/use-card-tilt";
 import {
 	WalkInTeamMemberCard,
 	type WalkInTeamMemberCardHeaderMetric,
