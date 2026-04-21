@@ -8,8 +8,8 @@ import {
 	type PreviewableWrappedStepId,
 	STEP_QUERY_PARAM,
 	UPLOAD_STEP,
+	WRAPPED_SATURDAY_STEPS,
 	WRAPPED_STEP_PREVIEW_OPTIONS,
-	WRAPPED_STEPS,
 	type WrappedStepId,
 } from "./config";
 import { WrappedOnboardingFooter, WrappedOnboardingHeader } from "./controls";
@@ -82,17 +82,21 @@ export function WrappedTeamCardOnboarding(
 	const [exitingStepId, setExitingStepId] = useState<WrappedStepId | null>(
 		null,
 	);
+	// Saturday launch intentionally runs a smaller story deck than the full
+	// preview surface. The visibility decision lives in config.ts so product,
+	// design, and engineering all point to the same ship list.
 	const activeStepIndex = resolveActiveStepIndex(
 		searchParams.get(STEP_QUERY_PARAM),
-		WRAPPED_STEPS,
+		WRAPPED_SATURDAY_STEPS,
 	);
 	const activeStep =
 		activeStepIndex === 0
 			? UPLOAD_STEP
-			: (WRAPPED_STEPS[activeStepIndex - 1] ?? WRAPPED_STEPS[0]);
+			: (WRAPPED_SATURDAY_STEPS[activeStepIndex - 1] ??
+				WRAPPED_SATURDAY_STEPS[0]);
 	const visibleProgressSteps = getVisibleProgressSteps(
 		activeStepIndex,
-		WRAPPED_STEPS,
+		WRAPPED_SATURDAY_STEPS,
 	);
 	const activePreviewStepId =
 		activeStep.kind === "final" ? null : activeStep.id;
@@ -129,7 +133,7 @@ export function WrappedTeamCardOnboarding(
 	function goToStep(nextStepIndex: number) {
 		const boundedStepIndex = Math.max(
 			0,
-			Math.min(nextStepIndex, WRAPPED_STEPS.length),
+			Math.min(nextStepIndex, WRAPPED_SATURDAY_STEPS.length),
 		);
 
 		setSearchParams(
@@ -139,7 +143,7 @@ export function WrappedTeamCardOnboarding(
 				if (boundedStepIndex === 0) {
 					nextSearchParams.delete(STEP_QUERY_PARAM);
 				} else {
-					const nextStep = WRAPPED_STEPS[boundedStepIndex - 1];
+					const nextStep = WRAPPED_SATURDAY_STEPS[boundedStepIndex - 1];
 
 					if (!nextStep) {
 						return previousSearchParams;

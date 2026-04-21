@@ -36,9 +36,14 @@ export type WrappedBeatReadiness =
 	| "needs_codex_feature_parity"
 	| "needs_classifier_snapshot";
 
+export type WrappedStoryVisibility = "show_in_saturday_story" | "hide_for_now";
+
 export interface WrappedBeatContract {
 	// currentStatus is the one-line launch decision for the beat.
 	currentStatus: WrappedBeatReadiness;
+	// saturdayStoryVisibility answers the product question directly:
+	// should this beat be in the launch story deck users actually swipe through?
+	saturdayStoryVisibility: WrappedStoryVisibility;
 	// whatWeShowNow is the concrete metric surface the current UI can defend.
 	whatWeShowNow: readonly string[];
 	metricBasis: string;
@@ -68,12 +73,18 @@ export interface WrappedBeatContract {
 // - "needs_codex_feature_parity" means Claude data is ahead of Codex data
 // - "needs_classifier_snapshot" means the pipeline must land before we claim a
 //   real computed archetype
+//
+// Separate from readiness, saturdayStoryVisibility is the launch deck switch.
+// This keeps one simple product truth:
+// - some beats can stay implemented for previews and future work
+// - only the beats we trust enough today appear in the Saturday user story
 export const WRAPPED_BEAT_CONTRACTS: Record<
 	WrappedStepId,
 	WrappedBeatContract
 > = {
 	upload: {
 		currentStatus: "ship_now",
+		saturdayStoryVisibility: "show_in_saturday_story",
 		whatWeShowNow: ["Upload placeholder state", "Uploading now", "Ready state"],
 		metricBasis:
 			"Temporary pre-recap beat. Final live version should read from upload job status and uploaded export summary.",
@@ -87,6 +98,7 @@ export const WRAPPED_BEAT_CONTRACTS: Record<
 	},
 	intro: {
 		currentStatus: "ship_now",
+		saturdayStoryVisibility: "show_in_saturday_story",
 		whatWeShowNow: [
 			"Total sessions",
 			"Active days",
@@ -104,6 +116,7 @@ export const WRAPPED_BEAT_CONTRACTS: Record<
 	},
 	skills: {
 		currentStatus: "needs_codex_feature_parity",
+		saturdayStoryVisibility: "hide_for_now",
 		whatWeShowNow: [
 			"Top 3 recorded skills",
 			"Skills adoption rate when present",
@@ -120,6 +133,7 @@ export const WRAPPED_BEAT_CONTRACTS: Record<
 	},
 	tools: {
 		currentStatus: "needs_codex_feature_parity",
+		saturdayStoryVisibility: "hide_for_now",
 		whatWeShowNow: [
 			"Top slash command",
 			"Top subagent",
@@ -136,6 +150,7 @@ export const WRAPPED_BEAT_CONTRACTS: Record<
 	},
 	model: {
 		currentStatus: "ship_now",
+		saturdayStoryVisibility: "show_in_saturday_story",
 		whatWeShowNow: [
 			"All-time Claude vs Codex session split",
 			"Monthly model usage trend",
@@ -154,6 +169,7 @@ export const WRAPPED_BEAT_CONTRACTS: Record<
 	},
 	scale: {
 		currentStatus: "ship_now",
+		saturdayStoryVisibility: "show_in_saturday_story",
 		whatWeShowNow: [
 			"Total tokens",
 			"Reading-scale anchor",
@@ -171,6 +187,7 @@ export const WRAPPED_BEAT_CONTRACTS: Record<
 	},
 	"lock-in": {
 		currentStatus: "needs_truth_cleanup",
+		saturdayStoryVisibility: "hide_for_now",
 		whatWeShowNow: [
 			"Longest session",
 			"Average session duration",
@@ -190,6 +207,7 @@ export const WRAPPED_BEAT_CONTRACTS: Record<
 	},
 	quality: {
 		currentStatus: "needs_truth_cleanup",
+		saturdayStoryVisibility: "hide_for_now",
 		whatWeShowNow: ["Commit rate", "Success rate when present"],
 		metricBasis: "Commit rate and success_rate.",
 		timeWindow: "Developer analytics window (currently last 365 days).",
@@ -202,6 +220,7 @@ export const WRAPPED_BEAT_CONTRACTS: Record<
 	},
 	pulse: {
 		currentStatus: "ship_now_with_softening",
+		saturdayStoryVisibility: "show_in_saturday_story",
 		whatWeShowNow: [
 			"Top repos by session count",
 			"Heuristic repo work-type label",
@@ -220,6 +239,7 @@ export const WRAPPED_BEAT_CONTRACTS: Record<
 	},
 	card: {
 		currentStatus: "needs_classifier_snapshot",
+		saturdayStoryVisibility: "show_in_saturday_story",
 		whatWeShowNow: [
 			"User-picked theme carousel",
 			"Core k9 archetype set",
@@ -236,6 +256,22 @@ export const WRAPPED_BEAT_CONTRACTS: Record<
 			"Today this is a theme picker, not a truth claim. The card can show Smooth Operator and other product labels, but only classifier-backed themes should ever be called computed archetypes.",
 	},
 };
+
+// This is the actual Saturday launch deck after the upload step.
+//
+// It is intentionally smaller than the full implementation surface. The hidden
+// beats still exist for previewing and future truth work, but users only see
+// the beats we trust enough to ship now.
+export const WRAPPED_SATURDAY_STEPS = WRAPPED_STEPS.filter((step) =>
+	isWrappedStepVisibleInSaturdayStory(step.id),
+) as readonly WrappedPrimaryStep[];
+
+export function isWrappedStepVisibleInSaturdayStory(stepId: WrappedStepId) {
+	return (
+		WRAPPED_BEAT_CONTRACTS[stepId].saturdayStoryVisibility ===
+		"show_in_saturday_story"
+	);
+}
 
 export const WRAPPED_STEP_PREVIEW_OPTIONS = {
 	upload: [
