@@ -1,6 +1,5 @@
 import { type ComponentType, lazy, type ReactNode, Suspense } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
-import { appRoutes } from "@/app/routes";
 import { NotFoundPage } from "@/app/system/NotFoundPage";
 import { AcceptInvitationPage } from "@/features/invitations/AcceptInvitationPage";
 import { settingsRouteMap } from "@/features/settings/config/settings-routes";
@@ -52,14 +51,6 @@ const PresetBaselinePage = lazyNamed(
 	() => import("@/app/system/PresetBaselinePage"),
 	"PresetBaselinePage",
 );
-const CardReferencePage = lazyNamed(
-	() => import("@/features/walk-in/CardReferencePage"),
-	"CardReferencePage",
-);
-const TeamCardWalkInPage = lazyNamed(
-	() => import("@/features/walk-in/TeamCardWalkInPage"),
-	"TeamCardWalkInPage",
-);
 const LEGACY_DASHBOARDY_PATH = "/dashboardy";
 
 function DashboardRouteLoadingScreen() {
@@ -77,18 +68,6 @@ function DashboardRouteLoadingScreen() {
 			</div>
 			<div className="h-[26rem] animate-pulse rounded-xl border border-border bg-card" />
 			<p className="text-sm text-muted-foreground">Loading…</p>
-		</div>
-	);
-}
-
-function FullscreenRouteLoadingScreen() {
-	return (
-		<div
-			aria-busy="true"
-			aria-live="polite"
-			className="flex min-h-screen items-center justify-center bg-[#040b11] text-sm text-white/70"
-		>
-			Loading…
 		</div>
 	);
 }
@@ -125,24 +104,6 @@ export function AppRouter({
 			<Route
 				path="/__preset-baseline"
 				element={<LazyRoute Component={PresetBaselinePage} />}
-			/>
-			<Route
-				path={appRoutes.cardReference()}
-				element={
-					<LazyRoute
-						Component={CardReferencePage}
-						fallback={<FullscreenRouteLoadingScreen />}
-					/>
-				}
-			/>
-			<Route
-				path={appRoutes.walkInTeamCard()}
-				element={
-					<LazyRoute
-						Component={TeamCardWalkInPage}
-						fallback={<FullscreenRouteLoadingScreen />}
-					/>
-				}
 			/>
 			<Route element={<AppShellLayout />}>
 				<Route

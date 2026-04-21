@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react";
 import { useLocation } from "react-router-dom";
 import { AppLoadingScreen } from "@/app/bootstrap/AppLoadingScreen";
 import { appRoutes } from "@/app/routes";
@@ -16,9 +17,31 @@ import { GuestApp } from "@/features/auth/GuestApp";
 import { useOAuthDebugAutoDump } from "@/features/auth/oauth-debug";
 import { ResetPasswordApp } from "@/features/auth/ResetPasswordApp";
 import { GetStartedRouteGate } from "@/features/get-started/GetStartedRouteGate";
-import { CardReferencePage } from "@/features/walk-in/CardReferencePage";
-import { TeamCardWalkInPage } from "@/features/walk-in/TeamCardWalkInPage";
 import { authClient } from "./lib/auth-client";
+
+const CardReferencePage = lazy(() =>
+	import("@/features/walk-in/CardReferencePage").then((module) => ({
+		default: module.CardReferencePage,
+	})),
+);
+
+const TeamCardWalkInPage = lazy(() =>
+	import("@/features/walk-in/TeamCardWalkInPage").then((module) => ({
+		default: module.TeamCardWalkInPage,
+	})),
+);
+
+function FullscreenRouteLoadingScreen() {
+	return (
+		<div
+			aria-busy="true"
+			aria-live="polite"
+			className="flex min-h-screen items-center justify-center bg-[#040b11] text-sm text-white/70"
+		>
+			Loading…
+		</div>
+	);
+}
 
 function App() {
 	const location = useLocation();
@@ -72,7 +95,9 @@ function App() {
 		return (
 			<>
 				<ProductAnalyticsSessionSync session={session} />
-				<TeamCardWalkInPage />
+				<Suspense fallback={<FullscreenRouteLoadingScreen />}>
+					<TeamCardWalkInPage />
+				</Suspense>
 				{showDesktopOnlyOverlay ? <DesktopOnlyOverlay /> : null}
 			</>
 		);
@@ -82,7 +107,9 @@ function App() {
 		return (
 			<>
 				<ProductAnalyticsSessionSync session={session} />
-				<CardReferencePage />
+				<Suspense fallback={<FullscreenRouteLoadingScreen />}>
+					<CardReferencePage />
+				</Suspense>
 				{showDesktopOnlyOverlay ? <DesktopOnlyOverlay /> : null}
 			</>
 		);
