@@ -1,6 +1,6 @@
 import type { WrappedSourceSplit } from "@rudel/api-routes";
 import type { TeamPageMemberRow } from "@/features/team/use-team-page-data";
-import type { WalkInTeamMemberCardStatItem } from "@/features/walk-in/WalkInTeamMemberCard";
+import type { WalkInTeamMemberCardStatItem } from "./card";
 import { MAX_ANALYTICS_DAYS } from "@/lib/analytics-date-range";
 import { formatCompactWholeNumber } from "@/lib/format";
 

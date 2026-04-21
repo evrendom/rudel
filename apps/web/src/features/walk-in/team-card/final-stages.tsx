@@ -2,14 +2,14 @@ import { ChevronLeft, ChevronRight, Clipboard, Download, Share2 } from "lucide-r
 import type { CSSProperties, RefObject } from "react";
 import { Button } from "@/app/ui/button";
 import type { TeamPageMemberRow } from "@/features/team/use-team-page-data";
-import type { WalkInCardTiltController } from "@/features/walk-in/use-walk-in-card-tilt";
+import type { WalkInCardTiltController } from "@/features/walk-in/tilt/use-card-tilt";
 import {
 	WalkInTeamMemberCard,
 	type WalkInTeamMemberCardHeaderMetric,
 	type WalkInTeamMemberCardStatItem,
 	type WalkInTeamMemberCardStatLayerOpacities,
 	type WalkInTeamMemberCardTheme,
-} from "@/features/walk-in/WalkInTeamMemberCard";
+} from "./card";
 
 interface WalkInTeamCardStageCardProps {
 	headerLeftMetric: WalkInTeamMemberCardHeaderMetric;

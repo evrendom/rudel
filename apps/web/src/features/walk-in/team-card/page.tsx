@@ -10,30 +10,30 @@ import {
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { appRoutes } from "@/app/routes";
 import type { TeamPageMemberRow } from "@/features/team/use-team-page-data";
-import { TeamCardWalkInOnboarding } from "@/features/walk-in/team-card-walk-in-onboarding";
-import { type WalkInOnboardingMetrics } from "@/features/walk-in/walk-in-onboarding-types";
+import { TeamCardWalkInOnboarding } from "@/features/walk-in/onboarding/shell";
+import { type WalkInOnboardingMetrics } from "@/features/walk-in/onboarding/types";
 import {
 	WalkInTeamCardRevealFooter,
 	WalkInTeamCardRevealStage,
 	WalkInTeamCardShareFooter,
 	WalkInTeamCardShareStage,
-} from "@/features/walk-in/walk-in-team-card-final-stages";
+} from "./final-stages";
 import {
 	formatShareCardCreatedAt,
 	getWrappedArchetypeIndex,
-} from "@/features/walk-in/walk-in-team-card-utils";
-import { createWalkInTeamCardShareActions } from "@/features/walk-in/walk-in-team-card-share";
+} from "./utils";
+import { createWalkInTeamCardShareActions } from "./share";
 import {
 	type WalkInCardTiltController,
 	useWalkInCardTilt,
-} from "@/features/walk-in/use-walk-in-card-tilt";
-import { useWalkInTeamCardPageData } from "@/features/walk-in/use-walk-in-team-card-page-data";
+} from "@/features/walk-in/tilt/use-card-tilt";
+import { useWalkInTeamCardPageData } from "./use-page-data";
 import {
 	type WalkInTeamMemberCardHeaderMetric,
 	type WalkInTeamMemberCardStatItem,
 	type WalkInTeamMemberCardStatLayerOpacities,
 	type WalkInTeamMemberCardTheme,
-} from "@/features/walk-in/WalkInTeamMemberCard";
+} from "./card";
 import { formatCompactWholeCurrency } from "@/lib/format";
 import { useMountEffect } from "@/hooks/useMountEffect";
 import { markWalkInCompleted } from "@/features/walk-in/walk-in-entry";

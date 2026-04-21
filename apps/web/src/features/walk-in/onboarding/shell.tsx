@@ -11,24 +11,24 @@ import {
 	WALK_IN_STEP_PREVIEW_OPTIONS,
 	type PreviewableWalkInStepId,
 	type WalkInStepId,
-} from "./walk-in-onboarding-config";
+} from "./config";
 import {
 	getSelectedPreviewState,
 	getStepPreviewStateParam,
 	getVisibleProgressSteps,
 	resolveActiveStepIndex,
 	resolveUploadStageModel,
-} from "./walk-in-onboarding-helpers";
+} from "./helpers";
 import {
 	WalkInOnboardingFooter,
 	WalkInOnboardingHeader,
-} from "./walk-in-onboarding-controls";
-import { resolveScalePreviewTokens } from "./walk-in-onboarding-models";
+} from "./controls";
+import { resolveScalePreviewTokens } from "./models";
 import {
 	WalkInOnboardingScaleRainBackdrop,
 	WalkInOnboardingStage,
-} from "./walk-in-onboarding-stages";
-import { type WalkInOnboardingMetrics } from "./walk-in-onboarding-types";
+} from "./stages";
+import { type WalkInOnboardingMetrics } from "./types";
 
 /* ─────────────────────────────────────────────────────────
  * INTRO EXIT STORYBOARD
@@ -59,13 +59,13 @@ export interface TeamCardWalkInOnboardingProps {
 export {
 	WALK_IN_BEAT_CONTRACTS,
 	type WalkInBeatContract,
-} from "./walk-in-onboarding-config";
+} from "./config";
 export type {
 	WalkInOnboardingMetrics,
 	WalkInRepoPulseEntry,
 	WalkInRepoPulseMetrics,
 	WalkInSkillUsageItem,
-} from "./walk-in-onboarding-types";
+} from "./types";
 
 export function TeamCardWalkInOnboarding(props: TeamCardWalkInOnboardingProps) {
 	const {

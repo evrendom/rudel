@@ -1,4 +1,4 @@
-import type { WalkInRepoPulseMetrics } from "./walk-in-onboarding-types";
+import type { WalkInRepoPulseMetrics } from "../types";
 
 interface RepoPulseStageModel {
 	entries: WalkInRepoPulseMetrics["entries"];

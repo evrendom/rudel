@@ -6,8 +6,8 @@ import {
 	getToolsStackHeightRem,
 	resolveToolsPreviewInput,
 	resolveToolsStageModel,
-} from "./walk-in-onboarding-models";
-import type { WalkInOnboardingMetrics } from "./walk-in-onboarding-types";
+} from "../models";
+import type { WalkInOnboardingMetrics } from "../types";
 
 interface ToolsStageProps {
 	onboardingMetrics: WalkInOnboardingMetrics;

@@ -3,11 +3,11 @@ import {
 	ACTIVE_SCALE,
 	MAX_GYRO_TILT_DEGREES,
 	MAX_POINTER_TILT_DEGREES,
-} from "@/features/walk-in/walk-in-card-tilt-constants";
+} from "./constants";
 import type {
 	WalkInCardTiltValues,
 	WalkInGyroscopeBaseline,
-} from "@/features/walk-in/walk-in-card-tilt-types";
+} from "./types";
 
 export function buildGyroscopeTiltValues(input: {
 	baseline: WalkInGyroscopeBaseline;

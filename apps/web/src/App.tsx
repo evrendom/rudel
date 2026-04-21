@@ -20,13 +20,13 @@ import { GetStartedRouteGate } from "@/features/get-started/GetStartedRouteGate"
 import { authClient } from "./lib/auth-client";
 
 const CardReferencePage = lazy(() =>
-	import("@/features/walk-in/CardReferencePage").then((module) => ({
+	import("@/features/walk-in/card-reference/page").then((module) => ({
 		default: module.CardReferencePage,
 	})),
 );
 
 const TeamCardWalkInPage = lazy(() =>
-	import("@/features/walk-in/TeamCardWalkInPage").then((module) => ({
+	import("@/features/walk-in/team-card/page").then((module) => ({
 		default: module.TeamCardWalkInPage,
 	})),
 );

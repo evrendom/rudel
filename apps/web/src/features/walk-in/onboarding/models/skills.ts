@@ -1,6 +1,6 @@
 import type { CSSProperties } from "react";
-import { formatPercent } from "./walk-in-onboarding-format";
-import type { WalkInSkillUsageItem } from "./walk-in-onboarding-types";
+import { formatPercent } from "../format";
+import type { WalkInSkillUsageItem } from "../types";
 
 export const SKILLS_STACK = {
 	focusTopRem: 5.35,

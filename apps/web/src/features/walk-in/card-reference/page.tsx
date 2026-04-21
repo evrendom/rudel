@@ -6,7 +6,7 @@ import {
 	useRef,
 } from "react";
 import { useMountEffect } from "@/hooks/useMountEffect";
-import "@/features/walk-in/card-reference.css";
+import "@/features/walk-in/card-reference/styles.css";
 
 const ART_HOLO_OPACITY_ACTIVE = 0.96;
 const ART_HOLO_OPACITY_REST = 0;

@@ -10,8 +10,8 @@ import {
 	RESTING_STAT_GLOSS_ANGLE,
 	RESTING_STAT_MASK_X,
 	RESTING_STAT_MASK_Y,
-} from "@/features/walk-in/walk-in-card-tilt-constants";
-import type { WalkInCardTiltValues } from "@/features/walk-in/walk-in-card-tilt-types";
+} from "./constants";
+import type { WalkInCardTiltValues } from "./types";
 
 export function applyTilt(node: HTMLDivElement | null, values: WalkInCardTiltValues) {
 	if (!node) {

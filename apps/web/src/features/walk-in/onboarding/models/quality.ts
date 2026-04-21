@@ -1,4 +1,4 @@
-import { clampNumber, formatPercent } from "./walk-in-onboarding-format";
+import { clampNumber, formatPercent } from "../format";
 
 type QualityStageState =
 	| "missing"

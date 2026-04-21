@@ -4,12 +4,12 @@ import {
 	type TeamPageMemberRow,
 	useTeamPageData,
 } from "@/features/team/use-team-page-data";
-import type { WalkInOnboardingMetrics } from "@/features/walk-in/walk-in-onboarding-types";
-import { buildWalkInOnboardingMetrics } from "@/features/walk-in/walk-in-team-card-onboarding-metrics";
-import { buildResolvedTeamCardRow } from "@/features/walk-in/walk-in-team-card-row";
-import { buildWalkInStatItems } from "@/features/walk-in/walk-in-team-card-stat-items";
+import type { WalkInOnboardingMetrics } from "@/features/walk-in/onboarding/types";
+import { buildWalkInOnboardingMetrics } from "./onboarding-metrics";
+import { buildResolvedTeamCardRow } from "./row";
+import { buildWalkInStatItems } from "./stat-items";
 import { useWalkInCardData } from "@/features/walk-in/use-walk-in-card-data";
-import type { WalkInTeamMemberCardStatItem } from "@/features/walk-in/WalkInTeamMemberCard";
+import type { WalkInTeamMemberCardStatItem } from "./card";
 import { MAX_ANALYTICS_DAYS } from "@/lib/analytics-date-range";
 import { authClient } from "@/lib/auth-client";
 import { orpc } from "@/lib/orpc";

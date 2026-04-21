@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 import {
 	resolveUploadStageModel,
 	type UploadStageRollItem,
-} from "./walk-in-onboarding-helpers";
+} from "../helpers";
 
 const UPLOAD_REEL_TIMING = {
 	advance: 1800,

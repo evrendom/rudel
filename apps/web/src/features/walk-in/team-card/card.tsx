@@ -2,7 +2,7 @@ import { type CSSProperties } from "react";
 import type { TeamCardTone } from "@/features/team/data/team-card-types";
 import type { TeamPageMemberRow } from "@/features/team/use-team-page-data";
 import statSectionTextureWebp from "@/features/walk-in/assets/team-card-stat-texture.webp";
-import { useWalkInStatSurfaceStyles } from "@/features/walk-in/use-walk-in-stat-surface-styles";
+import { useWalkInStatSurfaceStyles } from "./stat-surface";
 import { cn } from "@/lib/utils";
 
 const CARD_RENDER_SCALE_VAR = "var(--walk-in-card-render-scale, 1)";

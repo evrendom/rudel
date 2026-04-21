@@ -4,8 +4,8 @@ import {
 	buildIntroCommitGraph,
 	resolveIntroPreviewInput,
 	resolveIntroStageModel,
-} from "./walk-in-onboarding-helpers";
-import type { WalkInOnboardingMetrics } from "./walk-in-onboarding-types";
+} from "../helpers";
+import type { WalkInOnboardingMetrics } from "../types";
 
 const INTRO_EXIT = {
 	distance: 72,

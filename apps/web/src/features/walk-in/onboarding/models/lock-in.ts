@@ -1,4 +1,4 @@
-import { formatDurationMinutes } from "./walk-in-onboarding-format";
+import { formatDurationMinutes } from "../format";
 
 type LockInStageState =
 	| "missing"

@@ -4,7 +4,7 @@ import {
 	WALK_IN_STEP_PREVIEW_OPTIONS,
 	type PreviewableWalkInStepId,
 	type WalkInStep,
-} from "./walk-in-onboarding-config";
+} from "./config";
 
 const INTRO_COMMIT_GRAPH = {
 	columns: 53,

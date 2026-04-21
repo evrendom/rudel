@@ -1,26 +1,26 @@
 import { cn } from "@/lib/utils";
-import type { WalkInStep } from "./walk-in-onboarding-config";
+import type { WalkInStep } from "./config";
 import {
 	type WalkInStepContentLine,
-} from "./walk-in-onboarding-helpers";
+} from "./helpers";
 import {
 	buildScaleRainBalls,
 	buildStepContent,
 	getScaleRainBallCoreStyle,
 	getScaleRainBallStyle,
-} from "./walk-in-onboarding-models";
-import { WalkInOnboardingIntroStage } from "./walk-in-onboarding-stage-intro";
+} from "./models";
+import { WalkInOnboardingIntroStage } from "./stages/intro";
 import {
 	WalkInOnboardingLockInStage,
 	WalkInOnboardingQualityStage,
 	WalkInOnboardingRepoPulseStage,
 	WalkInOnboardingScaleStage,
-} from "./walk-in-onboarding-stage-metrics";
-import { WalkInOnboardingModelStage } from "./walk-in-onboarding-stage-model";
-import { WalkInOnboardingSkillsStage } from "./walk-in-onboarding-stage-skills";
-import { WalkInOnboardingToolsStage } from "./walk-in-onboarding-stage-tools";
-import { WalkInOnboardingUploadStage } from "./walk-in-onboarding-stage-upload";
-import type { WalkInOnboardingMetrics } from "./walk-in-onboarding-types";
+} from "./stages/metrics";
+import { WalkInOnboardingModelStage } from "./stages/model";
+import { WalkInOnboardingSkillsStage } from "./stages/skills";
+import { WalkInOnboardingToolsStage } from "./stages/tools";
+import { WalkInOnboardingUploadStage } from "./stages/upload";
+import type { WalkInOnboardingMetrics } from "./types";
 
 interface WalkInOnboardingStageProps {
 	displayName: string;

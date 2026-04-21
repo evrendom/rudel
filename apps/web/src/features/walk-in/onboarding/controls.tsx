@@ -9,12 +9,12 @@ import {
 	type PreviewableWalkInStepId,
 	type WalkInPreviewOption,
 	type WalkInStep,
-} from "./walk-in-onboarding-config";
+} from "./config";
 import {
 	getStepDisplayNumber,
 	type UploadStageModel,
 	type WalkInVisibleProgressStep,
-} from "./walk-in-onboarding-helpers";
+} from "./helpers";
 
 interface WalkInOnboardingHeaderProps {
 	activePreviewOptions: readonly WalkInPreviewOption[] | null;

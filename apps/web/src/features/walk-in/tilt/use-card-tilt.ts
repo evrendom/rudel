@@ -2,12 +2,12 @@ import {
 	type PointerEvent as ReactPointerEvent,
 	useRef,
 } from "react";
-import { applyTilt, resetTilt } from "@/features/walk-in/walk-in-card-tilt-dom";
-import { buildPointerTiltValues } from "@/features/walk-in/walk-in-card-tilt-math";
-import type { WalkInCardTiltController } from "@/features/walk-in/walk-in-card-tilt-types";
-import { useWalkInCardGyroscope } from "@/features/walk-in/use-walk-in-card-gyroscope";
+import { applyTilt, resetTilt } from "./dom";
+import { buildPointerTiltValues } from "./math";
+import type { WalkInCardTiltController } from "./types";
+import { useWalkInCardGyroscope } from "./use-card-gyroscope";
 
-export type { WalkInCardTiltController } from "@/features/walk-in/walk-in-card-tilt-types";
+export type { WalkInCardTiltController } from "./types";
 
 export function useWalkInCardTilt(): WalkInCardTiltController {
 	const cardTiltRef = useRef<HTMLDivElement | null>(null);

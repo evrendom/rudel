@@ -1,28 +1,28 @@
-import type { WalkInStep } from "./walk-in-onboarding-config";
+import type { WalkInStep } from "./config";
 import {
 	buildIntroContent,
 	resolveIntroPreviewInput,
 	type WalkInStepContentLine,
-} from "./walk-in-onboarding-helpers";
+} from "./helpers";
 import {
 	formatModelStageSourceLabel,
 	getModelStageTone,
 	resolveModelPreviewInput,
 	resolveModelStageModel,
-} from "./walk-in-onboarding-model-mix";
-import { formatCompactNumber } from "./walk-in-onboarding-format";
+} from "./models/model-mix";
+import { formatCompactNumber } from "./format";
 import {
 	resolveLockInPreviewInput,
 	resolveLockInStageModel,
-} from "./walk-in-onboarding-lock-in";
+} from "./models/lock-in";
 import {
 	resolveQualityPreviewInput,
 	resolveQualityStageModel,
-} from "./walk-in-onboarding-quality";
+} from "./models/quality";
 import {
 	resolveRepoPulsePreviewInput,
 	resolveRepoPulseStageModel,
-} from "./walk-in-onboarding-repo-pulse";
+} from "./models/repo-pulse";
 import {
 	buildScaleContent,
 	buildScaleRainBalls,
@@ -32,14 +32,14 @@ import {
 	resolveScaleStageModel,
 	SCALE_STAGE_MIN_BALL_COUNT,
 	SCALE_STAGE_TOKENS_PER_BALL,
-} from "./walk-in-onboarding-scale";
+} from "./models/scale";
 import {
 	clampSkillsCardIndex,
 	getSkillsCardStyle,
 	resolveSkillsPreviewInput,
 	resolveSkillsStageModel,
 	SKILLS_STACK,
-} from "./walk-in-onboarding-skills";
+} from "./models/skills";
 import {
 	getToolsEntryStyle,
 	getToolsHeadline,
@@ -47,8 +47,8 @@ import {
 	getToolsSubline,
 	resolveToolsPreviewInput,
 	resolveToolsStageModel,
-} from "./walk-in-onboarding-tools";
-import type { WalkInOnboardingMetrics } from "./walk-in-onboarding-types";
+} from "./models/tools";
+import type { WalkInOnboardingMetrics } from "./types";
 
 export {
 	buildScaleRainBalls,

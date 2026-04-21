@@ -16,14 +16,17 @@ interface Finding {
 }
 
 const ROOT_DIR = join(import.meta.dirname, "..");
-const WALK_IN_ONBOARDING_PATH =
-	"apps/web/src/features/walk-in/team-card-walk-in-onboarding.tsx";
+const WALK_IN_ONBOARDING_SHELL_PATH =
+	"apps/web/src/features/walk-in/onboarding/shell.tsx";
+const WALK_IN_ONBOARDING_CONFIG_PATH =
+	"apps/web/src/features/walk-in/onboarding/config.ts";
 const WALK_IN_CSS_PATH = "apps/web/src/features/walk-in/walk-in-clone.css";
 const BUTTON_PATH = "apps/web/src/app/ui/button.tsx";
 
 function main() {
 	const auditFiles = loadAuditFiles([
-		WALK_IN_ONBOARDING_PATH,
+		WALK_IN_ONBOARDING_SHELL_PATH,
+		WALK_IN_ONBOARDING_CONFIG_PATH,
 		WALK_IN_CSS_PATH,
 		BUTTON_PATH,
 	]);
@@ -81,7 +84,10 @@ function runWalkInHeightRules(
 	auditFiles: readonly AuditFile[],
 	findings: Finding[],
 ) {
-	const walkInOnboardingFile = getAuditFile(auditFiles, WALK_IN_ONBOARDING_PATH);
+	const walkInOnboardingFile = getAuditFile(
+		auditFiles,
+		WALK_IN_ONBOARDING_SHELL_PATH,
+	);
 	const walkInCssFile = getAuditFile(auditFiles, WALK_IN_CSS_PATH);
 
 	addLineFindings({
@@ -134,14 +140,17 @@ function runStepCountRule(
 	auditFiles: readonly AuditFile[],
 	findings: Finding[],
 ) {
-	const walkInOnboardingFile = getAuditFile(auditFiles, WALK_IN_ONBOARDING_PATH);
+	const walkInOnboardingConfigFile = getAuditFile(
+		auditFiles,
+		WALK_IN_ONBOARDING_CONFIG_PATH,
+	);
 	const walkInStepsSection = getSection(
-		walkInOnboardingFile.content,
+		walkInOnboardingConfigFile.content,
 		"const WALK_IN_STEPS = [",
 		"] as const;",
 	);
 	const configuredStepCount = (walkInStepsSection.match(/id:\s*"/g) ?? []).length;
-	const hiddenLeadingSteps = walkInOnboardingFile.content.includes(
+	const hiddenLeadingSteps = walkInOnboardingConfigFile.content.includes(
 		"WALK_IN_STEPS.slice(1)",
 	)
 		? 1
@@ -155,12 +164,12 @@ function runStepCountRule(
 	findings.push({
 		excerpt: `Detected ${stepCount} visible step indicators.`,
 		line: getLineNumber(
-			walkInOnboardingFile,
+			walkInOnboardingConfigFile,
 			/const WALK_IN_STEPS = \[/,
 		),
 		message:
 			"Apple notes that page controls become hard to parse when they exceed about 10 indicators. Reduce the visible walk-in steps or split the deck into smaller chapters.",
-		relativePath: walkInOnboardingFile.relativePath,
+		relativePath: walkInOnboardingConfigFile.relativePath,
 		rule: "page-control-count",
 	});
 }
@@ -169,7 +178,10 @@ function runProgressTargetRule(
 	auditFiles: readonly AuditFile[],
 	findings: Finding[],
 ) {
-	const walkInOnboardingFile = getAuditFile(auditFiles, WALK_IN_ONBOARDING_PATH);
+	const walkInOnboardingFile = getAuditFile(
+		auditFiles,
+		WALK_IN_ONBOARDING_SHELL_PATH,
+	);
 
 	addLineFindings({
 		auditFile: walkInOnboardingFile,
@@ -185,7 +197,10 @@ function runFooterButtonTargetRule(
 	auditFiles: readonly AuditFile[],
 	findings: Finding[],
 ) {
-	const walkInOnboardingFile = getAuditFile(auditFiles, WALK_IN_ONBOARDING_PATH);
+	const walkInOnboardingFile = getAuditFile(
+		auditFiles,
+		WALK_IN_ONBOARDING_SHELL_PATH,
+	);
 	const buttonFile = getAuditFile(auditFiles, BUTTON_PATH);
 	const walkInUsesLargeButtons = walkInOnboardingFile.content.includes(
 		'buttonVariants({ size: "lg"',
@@ -214,7 +229,10 @@ function runKeyboardOnlyHintRule(
 	auditFiles: readonly AuditFile[],
 	findings: Finding[],
 ) {
-	const walkInOnboardingFile = getAuditFile(auditFiles, WALK_IN_ONBOARDING_PATH);
+	const walkInOnboardingFile = getAuditFile(
+		auditFiles,
+		WALK_IN_ONBOARDING_SHELL_PATH,
+	);
 
 	addLineFindings({
 		auditFile: walkInOnboardingFile,

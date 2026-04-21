@@ -2,8 +2,8 @@ import type { CSSProperties } from "react";
 import {
 	clampNumber,
 	formatCompactNumber,
-} from "./walk-in-onboarding-format";
-import type { WalkInStepContentLine } from "./walk-in-onboarding-helpers";
+} from "../format";
+import type { WalkInStepContentLine } from "../helpers";
 
 export const SCALE_STAGE_TOKENS_PER_BALL = 2_000_000;
 export const SCALE_STAGE_MIN_BALL_COUNT = 50;

@@ -6,7 +6,7 @@ import type {
 	DimensionAnalysisDataPoint,
 	WrappedV1,
 } from "@rudel/api-routes";
-import type { WalkInOnboardingMetrics } from "@/features/walk-in/walk-in-onboarding-types";
+import type { WalkInOnboardingMetrics } from "@/features/walk-in/onboarding/types";
 import { formatCompactWholeNumber } from "@/lib/format";
 
 interface BuildWalkInOnboardingMetricsParams {

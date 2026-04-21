@@ -1,10 +1,10 @@
 import { type MutableRefObject, type RefObject, useRef, useState } from "react";
-import { applyTilt, resetTilt } from "@/features/walk-in/walk-in-card-tilt-dom";
-import { buildGyroscopeTiltValues } from "@/features/walk-in/walk-in-card-tilt-math";
+import { applyTilt, resetTilt } from "./dom";
+import { buildGyroscopeTiltValues } from "./math";
 import type {
 	WalkInCardGyroscopeState,
 	WalkInGyroscopeBaseline,
-} from "@/features/walk-in/walk-in-card-tilt-types";
+} from "./types";
 import { useMountEffect } from "@/hooks/useMountEffect";
 
 interface UseWalkInCardGyroscopeParams {
