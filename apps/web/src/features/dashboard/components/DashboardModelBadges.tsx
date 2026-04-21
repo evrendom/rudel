@@ -99,7 +99,7 @@ function getModelBadgeSizeClasses(
 	};
 }
 
-function ClaudeModelIcon({ className }: { className?: string }) {
+export function ClaudeModelIcon({ className }: { className?: string }) {
 	return (
 		<svg viewBox="0 0 1200 1200" aria-hidden="true" className={className}>
 			<path
@@ -110,7 +110,7 @@ function ClaudeModelIcon({ className }: { className?: string }) {
 	);
 }
 
-function CodexModelIcon({ className }: { className?: string }) {
+export function CodexModelIcon({ className }: { className?: string }) {
 	return (
 		<svg viewBox="0 0 320 320" aria-hidden="true" className={className}>
 			<path
