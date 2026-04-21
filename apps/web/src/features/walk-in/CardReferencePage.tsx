@@ -3,9 +3,9 @@ import {
 	type CSSProperties,
 	type PointerEvent as ReactPointerEvent,
 	type RefObject,
-	useEffect,
 	useRef,
 } from "react";
+import { useMountEffect } from "@/hooks/useMountEffect";
 import "@/features/walk-in/card-reference.css";
 
 const ART_HOLO_OPACITY_ACTIVE = 0.96;
@@ -170,13 +170,13 @@ export function CardReferencePage() {
 function useReferenceCardMotion(): ReferenceCardMotionController {
 	const cardRef = useRef<HTMLDivElement | null>(null);
 
-	useEffect(() => {
+	useMountEffect(() => {
 		resetReferenceCardMotion(cardRef.current);
 
 		return () => {
 			resetReferenceCardMotion(cardRef.current);
 		};
-	}, []);
+	});
 
 	function handlePointerMove(event: ReactPointerEvent<HTMLDivElement>) {
 		if (event.pointerType !== "mouse") {
