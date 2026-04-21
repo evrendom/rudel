@@ -296,6 +296,7 @@ export function useAnalyticsTracking(options?: UseAnalyticsOptions) {
 		input: {
 			utilityName: string;
 			sourceComponent: string;
+			targetId?: string;
 			utilityState?: string;
 		} & AnalyticsOverrides,
 	) {
@@ -309,6 +310,7 @@ export function useAnalyticsTracking(options?: UseAnalyticsOptions) {
 			...payload,
 			utility_name: input.utilityName,
 			component_id: input.sourceComponent,
+			target_id: input.targetId,
 			utility_state: input.utilityState,
 		});
 	}

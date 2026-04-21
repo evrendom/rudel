@@ -6,6 +6,7 @@ import { useAnalyticsTracking } from "@/features/analytics/tracking/useAnalytics
 import { getSessionUserId } from "@/features/auth/auth-route-utils";
 import { WrappedTeamMemberCard } from "@/features/wrapped/team-card/card";
 import { formatShareCardCreatedAt } from "@/features/wrapped/team-card/utils";
+import { useEffectOnceWhen } from "@/hooks/useEffectOnceWhen";
 import { useMountEffect } from "@/hooks/useMountEffect";
 import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
@@ -36,16 +37,24 @@ export function PublicWrappedSharePage(props: PublicWrappedSharePageProps) {
 			: `/?redirect=${encodeURIComponent(makeYoursPath)}`;
 
 	useMountEffect(() => {
-		trackUtilityUsed({
-			sourceComponent: "wrapped_public_share_page",
-			utilityName: "wrappedShareViewed",
-			utilityState: shareId,
-		});
 		document.body.classList.add("mymind-wrapped-body");
 
 		return () => {
 			document.body.classList.remove("mymind-wrapped-body");
 		};
+	});
+
+	useEffectOnceWhen({
+		effect: () => {
+			trackUtilityUsed({
+				sourceComponent: "wrapped_public_share_page",
+				targetId: shareId,
+				utilityName: "shareViewed",
+				utilityState: sessionUserId !== null ? "authenticated" : "anonymous",
+			});
+		},
+		isReady: Boolean(wrappedShareQuery.data),
+		key: shareId,
 	});
 
 	if (wrappedShareQuery.isPending) {
@@ -62,7 +71,8 @@ export function PublicWrappedSharePage(props: PublicWrappedSharePageProps) {
 			onMakeYoursClick={() => {
 				trackUtilityUsed({
 					sourceComponent: "wrapped_public_share_page",
-					utilityName: "wrappedMakeYoursClicked",
+					targetId: shareId,
+					utilityName: "makeYoursClicked",
 					utilityState:
 						sessionUserId !== null ? "authenticated" : "guest_redirect",
 				});

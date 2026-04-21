@@ -8,7 +8,14 @@ import { client } from "@/lib/orpc";
 
 type ShareRecordLookup = Record<string, WrappedShareRecord>;
 
-export function useWrappedTeamCardShare(snapshot: WrappedShareSnapshot) {
+interface UseWrappedTeamCardShareOptions {
+	onShareCreated?: (shareRecord: WrappedShareRecord) => void;
+}
+
+export function useWrappedTeamCardShare(
+	snapshot: WrappedShareSnapshot,
+	options?: UseWrappedTeamCardShareOptions,
+) {
 	const shareRequestByKeyRef = useRef(
 		new Map<string, Promise<WrappedShareRecord>>(),
 	);
@@ -16,6 +23,7 @@ export function useWrappedTeamCardShare(snapshot: WrappedShareSnapshot) {
 		{},
 	);
 	const [pendingShareKey, setPendingShareKey] = useState<string | null>(null);
+	const { onShareCreated } = options ?? {};
 	const snapshotKey = JSON.stringify(snapshot);
 	const activeShareRecord = shareRecordsByKey[snapshotKey] ?? null;
 	const shareUrl = activeShareRecord
@@ -41,6 +49,7 @@ export function useWrappedTeamCardShare(snapshot: WrappedShareSnapshot) {
 					...currentRecords,
 					[snapshotKey]: createdShare,
 				}));
+				onShareCreated?.(createdShare);
 				return createdShare;
 			})
 			.finally(() => {

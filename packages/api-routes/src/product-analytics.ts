@@ -419,6 +419,7 @@ export const AuthenticationActionTriggeredEventSchema = WebEventSchema.extend({
 export const UiUtilityUsedEventSchema = WebEventSchema.extend({
 	utility_name: nonEmptyStringSchema,
 	component_id: nonEmptyStringSchema,
+	target_id: nonEmptyStringSchema.optional(),
 	utility_state: nonEmptyStringSchema.optional(),
 }).strict();
 

@@ -286,8 +286,18 @@ function WrappedTeamCardPageContent(props: {
 			visibleTeamCardRow,
 		],
 	);
-	const { ensureShare, shareUrl, shareUrlLabel } =
-		useWrappedTeamCardShare(shareSnapshot);
+	const { ensureShare, shareUrl, shareUrlLabel } = useWrappedTeamCardShare(
+		shareSnapshot,
+		{
+			onShareCreated: (shareRecord) => {
+				trackUtilityUsed({
+					sourceComponent: "wrapped_team_card_page",
+					targetId: shareRecord.id,
+					utilityName: "shareCreated",
+				});
+			},
+		},
+	);
 	const shareActions = createWrappedTeamCardShareActions({
 		archetypeLabel: activeArchetype.label,
 		displayName: visibleTeamCardRow.displayName,

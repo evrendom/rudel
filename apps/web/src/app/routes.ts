@@ -50,3 +50,14 @@ export function getWrappedShareIdFromPath(pathname: string) {
 		return null;
 	}
 }
+
+export function getWrappedShareIdFromSearch(search: string) {
+	const searchParams = new URLSearchParams(search);
+	const shareId = searchParams.get("share_id");
+
+	if (!shareId) {
+		return null;
+	}
+
+	return shareId;
+}
