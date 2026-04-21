@@ -61,6 +61,12 @@ import {
 	WrappedV1Schema,
 } from "./schemas/analytics.js";
 import {
+	ConsumeWrappedResumeInputSchema,
+	CreateWrappedResumeInputSchema,
+	WrappedResumeConsumeResultSchema,
+	WrappedResumeRecordSchema,
+} from "./schemas/wrapped-resume.js";
+import {
 	CreateWrappedShareInputSchema,
 	GetPublicWrappedShareInputSchema,
 	PublicWrappedShareSchema,
@@ -70,6 +76,7 @@ import {
 export * from "./model-pricing.js";
 export * from "./product-analytics.js";
 export * from "./schemas/analytics.js";
+export * from "./schemas/wrapped-resume.js";
 export * from "./schemas/wrapped-share.js";
 
 export const HealthSchema = z.object({
@@ -180,6 +187,14 @@ export const contract = {
 		getPublic: oc
 			.input(GetPublicWrappedShareInputSchema)
 			.output(PublicWrappedShareSchema),
+	},
+	wrappedResume: {
+		create: oc
+			.input(CreateWrappedResumeInputSchema)
+			.output(WrappedResumeRecordSchema),
+		consume: oc
+			.input(ConsumeWrappedResumeInputSchema)
+			.output(WrappedResumeConsumeResultSchema),
 	},
 	admin: {
 		listUsers: oc

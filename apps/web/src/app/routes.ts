@@ -11,6 +11,7 @@ const PRESET_BASELINE_PATH = "/__preset-baseline";
 const CARD_REFERENCE_PATH = "/card-reference";
 const WRAPPED_TEAM_CARD_PATH = "/wrapped";
 const WRAPPED_SHARE_PATH = `${WRAPPED_TEAM_CARD_PATH}/share`;
+const WRAPPED_RESUME_PATH = "/resume";
 const LEGACY_WALK_IN_TEAM_CARD_PATH = "/walk-in-team-card";
 
 // These helpers are the canonical route surface for the Saturday wrapped loop.
@@ -29,6 +30,8 @@ export const appRoutes = {
 	wrappedTeamCard: () => WRAPPED_TEAM_CARD_PATH,
 	wrappedShare: (shareId: string) =>
 		`${WRAPPED_SHARE_PATH}/${encodeURIComponent(shareId)}`,
+	wrappedResume: (token: string) =>
+		`${WRAPPED_RESUME_PATH}/${encodeURIComponent(token)}`,
 	getStartedFromWrappedShare: (shareId: string) =>
 		`${GET_STARTED_PATH}?share_id=${encodeURIComponent(shareId)}`,
 	walkInTeamCard: () => WRAPPED_TEAM_CARD_PATH,
@@ -68,4 +71,22 @@ export function getWrappedShareIdFromSearch(search: string) {
 	}
 
 	return shareId;
+}
+
+// Resume links stay outside /wrapped because they are not a replay surface.
+// They are a small auth-and-continue route whose only job is to return the
+// signed-in user to the upload step on desktop.
+export function getWrappedResumeTokenFromPath(pathname: string) {
+	const routeMatch = pathname.match(/^\/resume\/([^/]+)\/?$/u);
+	const encodedToken = routeMatch?.[1];
+
+	if (!encodedToken) {
+		return null;
+	}
+
+	try {
+		return decodeURIComponent(encodedToken);
+	} catch {
+		return null;
+	}
 }

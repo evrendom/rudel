@@ -57,6 +57,13 @@
       "when": 1776802353804,
       "tag": "0007_spooky_forge",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1776806310870,
+      "tag": "0008_wrapped_resume",
+      "breakpoints": true
     }
   ]
 }

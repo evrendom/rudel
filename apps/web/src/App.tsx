@@ -1,7 +1,11 @@
 import { lazy, Suspense } from "react";
 import { useLocation } from "react-router-dom";
 import { AppLoadingScreen } from "@/app/bootstrap/AppLoadingScreen";
-import { appRoutes, getWrappedShareIdFromPath } from "@/app/routes";
+import {
+	appRoutes,
+	getWrappedResumeTokenFromPath,
+	getWrappedShareIdFromPath,
+} from "@/app/routes";
 import { DesktopOnlyOverlay } from "@/app/ui/DesktopOnlyOverlay";
 import { ProductAnalyticsSessionSync } from "@/features/analytics/tracking/ProductAnalyticsSessionSync";
 import { AuthenticatedApp } from "@/features/auth/AuthenticatedApp";
@@ -37,6 +41,12 @@ const PublicWrappedSharePage = lazy(() =>
 	})),
 );
 
+const WrappedDesktopResumePage = lazy(() =>
+	import("@/features/get-started/WrappedDesktopResumePage").then((module) => ({
+		default: module.WrappedDesktopResumePage,
+	})),
+);
+
 function FullscreenRouteLoadingScreen() {
 	return (
 		<div
@@ -58,6 +68,7 @@ function App() {
 	const wrappedTeamCardPath = appRoutes.wrappedTeamCard();
 	const legacyWalkInTeamCardPath = appRoutes.legacyWalkInTeamCard();
 	const wrappedShareId = getWrappedShareIdFromPath(location.pathname);
+	const wrappedResumeToken = getWrappedResumeTokenFromPath(location.pathname);
 	const isCardReferencePath =
 		location.pathname === cardReferencePath ||
 		location.pathname.startsWith(`${cardReferencePath}/`);
@@ -70,7 +81,11 @@ function App() {
 			? getPendingSignupRedirect(location.search)
 			: null);
 	const showDesktopOnlyOverlay =
-		!deviceUserCode && !isCardReferencePath && !isWrappedTeamCardPath;
+		!deviceUserCode &&
+		!isCardReferencePath &&
+		!isWrappedTeamCardPath &&
+		!isGetStartedPath(location.pathname) &&
+		!wrappedResumeToken;
 
 	if (deviceUserCode) {
 		return (
@@ -94,6 +109,18 @@ function App() {
 					pathname={location.pathname}
 					session={session ?? null}
 				/>
+				{showDesktopOnlyOverlay ? <DesktopOnlyOverlay /> : null}
+			</>
+		);
+	}
+
+	if (wrappedResumeToken) {
+		return (
+			<>
+				<ProductAnalyticsSessionSync session={session} />
+				<Suspense fallback={<FullscreenRouteLoadingScreen />}>
+					<WrappedDesktopResumePage token={wrappedResumeToken} />
+				</Suspense>
 				{showDesktopOnlyOverlay ? <DesktopOnlyOverlay /> : null}
 			</>
 		);

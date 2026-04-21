@@ -1,11 +1,14 @@
 import { Navigate, useLocation } from "react-router-dom";
+import { useIsMobile } from "@/app/hooks/use-mobile";
 import { appRoutes, getWrappedShareIdFromSearch } from "@/app/routes";
 import { useAnalyticsTracking } from "@/features/analytics/tracking/useAnalyticsTracking";
 import {
 	type AppSession,
+	getSessionUserEmail,
 	getSessionUserId,
 	isGetStartedPath,
 } from "@/features/auth/auth-route-utils";
+import { DesktopResumePromptPage } from "@/features/get-started/DesktopResumePromptPage";
 import { UploadSetupPage } from "@/features/get-started/UploadSetupPage";
 import { useSetupProgress } from "@/features/get-started/use-setup-progress";
 import {
@@ -29,6 +32,7 @@ export function GetStartedRouteGate({
 	session,
 }: GetStartedRouteGateProps) {
 	const location = useLocation();
+	const isMobile = useIsMobile();
 	const { trackUtilityUsed } = useAnalyticsTracking({
 		pageName: "get_started",
 	});
@@ -39,6 +43,7 @@ export function GetStartedRouteGate({
 		enabled: !isPending && !!session,
 	});
 	const sessionUserId = getSessionUserId(session);
+	const sessionUserEmail = getSessionUserEmail(session);
 	// share_id is preserved across the public-share -> auth -> get-started path.
 	// We read it here because this route is the first authenticated checkpoint
 	// where we can truthfully say "the user started onboarding from a share".
@@ -101,6 +106,15 @@ export function GetStartedRouteGate({
 		);
 	}
 
-	// No sessions yet means the user still needs the upload/setup instructions.
+	// Mobile users are allowed to view the public replay, wrapped story, and
+	// final card. The one step that still needs desktop is the upload itself, so
+	// the handoff prompt only appears here, after auth, when uploads are missing.
+	if (isMobile && sessionUserEmail) {
+		return (
+			<DesktopResumePromptPage email={sessionUserEmail} shareId={shareId} />
+		);
+	}
+
+	// Desktop users without uploads keep the existing setup instructions.
 	return <UploadSetupPage />;
 }

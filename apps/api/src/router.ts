@@ -8,6 +8,7 @@ import { getClickhouse } from "./clickhouse.js";
 import { sqlClient } from "./db.js";
 import { adminRouter } from "./handlers/admin/index.js";
 import { analyticsRouter } from "./handlers/analytics/index.js";
+import { wrappedResumeRouter } from "./handlers/wrapped-resume.js";
 import { wrappedShareRouter } from "./handlers/wrapped-share.js";
 import {
 	bucketContentSize,
@@ -344,6 +345,7 @@ export const router = os.router({
 	ingestSession: ingestSessionHandler,
 	getOrganizationSessionCount,
 	deleteOrganization,
+	wrappedResume: wrappedResumeRouter,
 	wrappedShare: wrappedShareRouter,
 	admin: adminRouter,
 	analytics: analyticsRouter,

@@ -4,10 +4,15 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { appRoutes } from "@/app/routes";
 import type { AppSession } from "@/features/auth/auth-route-utils";
 import { GetStartedRouteGate } from "@/features/get-started/GetStartedRouteGate";
-import { markWalkInCompleted } from "@/features/walk-in/walk-in-entry";
+import { markWrappedCompleted } from "@/features/wrapped/entry";
 
-const { mockUseSetupProgress } = vi.hoisted(() => ({
+const { mockUseIsMobile, mockUseSetupProgress } = vi.hoisted(() => ({
+	mockUseIsMobile: vi.fn(),
 	mockUseSetupProgress: vi.fn(),
+}));
+
+vi.mock("@/app/hooks/use-mobile", () => ({
+	useIsMobile: mockUseIsMobile,
 }));
 
 vi.mock("@/features/get-started/use-setup-progress", () => ({
@@ -57,8 +62,10 @@ const eligibleSession: NonNullable<AppSession> = {
 
 describe("GetStartedRouteGate", () => {
 	beforeEach(() => {
+		mockUseIsMobile.mockReset();
 		mockUseSetupProgress.mockReset();
 		window.localStorage.clear();
+		mockUseIsMobile.mockReturnValue(false);
 		mockUseSetupProgress.mockReturnValue({
 			hasUploadedSessions: false,
 			isLoading: false,
@@ -220,7 +227,7 @@ describe("GetStartedRouteGate", () => {
 			isLoading: false,
 			totalSessionCount: 3,
 		});
-		markWalkInCompleted(eligibleSession.user.id);
+		markWrappedCompleted(eligibleSession.user.id);
 
 		render(
 			<MemoryRouter initialEntries={[appRoutes.getStarted()]}>
@@ -241,5 +248,35 @@ describe("GetStartedRouteGate", () => {
 		);
 
 		expect(screen.getByText("Dashboard")).toBeInTheDocument();
+	});
+
+	it("shows the desktop handoff prompt on mobile when uploads are still missing", () => {
+		mockUseIsMobile.mockReturnValue(true);
+
+		render(
+			<MemoryRouter initialEntries={[appRoutes.getStarted()]}>
+				<GetStartedRouteGate
+					isPending={false}
+					pathname={appRoutes.getStarted()}
+					session={session}
+				/>
+			</MemoryRouter>,
+		);
+
+		expect(
+			screen.getByRole("heading", {
+				name: "Continue setup on desktop",
+			}),
+		).toBeInTheDocument();
+		expect(
+			screen.getByRole("button", {
+				name: "Email me a desktop link",
+			}),
+		).toBeInTheDocument();
+		expect(
+			screen.queryByRole("heading", {
+				name: "Run these commands first so your dashboard isn't empty",
+			}),
+		).not.toBeInTheDocument();
 	});
 });
