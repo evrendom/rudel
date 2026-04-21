@@ -1,0 +1,15 @@
+export const ACTIVE_GLARE_OPACITY = 0.9;
+export const ACTIVE_SCALE = 1.018;
+export const MAX_GYRO_TILT_DEGREES = 9;
+export const MAX_POINTER_TILT_DEGREES = 8;
+export const RESTING_PORTRAIT_HIGHLIGHT_BLUR = "4px";
+export const RESTING_PORTRAIT_HIGHLIGHT_OPACITY = "0.52";
+export const RESTING_PORTRAIT_HIGHLIGHT_X = "0px";
+export const RESTING_PORTRAIT_HIGHLIGHT_Y = "4px";
+export const RESTING_PORTRAIT_SHADOW_BLUR = "4px";
+export const RESTING_PORTRAIT_SHADOW_OPACITY = "0.63";
+export const RESTING_PORTRAIT_SHADOW_X = "0px";
+export const RESTING_PORTRAIT_SHADOW_Y = "-4px";
+export const RESTING_STAT_GLOSS_ANGLE = "132deg";
+export const RESTING_STAT_MASK_X = "38%";
+export const RESTING_STAT_MASK_Y = "24%";
