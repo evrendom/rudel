@@ -186,7 +186,7 @@ export function SessionDetailView({
 								})}
 								{safeModelUsed ? (
 									<div className="flex items-center gap-2">
-										<DashboardModelBadges models={[safeModelUsed]} />
+										<DashboardModelBadges models={[safeModelUsed]} size="md" />
 									</div>
 								) : null}
 								{conversationSummary ? (
