@@ -300,12 +300,17 @@ export function useAnalyticsTracking(options?: UseAnalyticsOptions) {
 			utilityState?: string;
 		} & AnalyticsOverrides,
 	) {
+		// UI utility events are our lowest-friction product instrumentation seam.
+		// We keep this helper small and generic so feature code can log concrete
+		// product actions without needing a new analytics wrapper every time.
 		const payload = buildBasePayload(input);
 
 		if (!payload) {
 			return;
 		}
 
+		// target_id is optional by design. Some actions only need a name and state,
+		// while wrapped share events need the share id for funnel attribution.
 		captureUiUtilityUsed({
 			...payload,
 			utility_name: input.utilityName,

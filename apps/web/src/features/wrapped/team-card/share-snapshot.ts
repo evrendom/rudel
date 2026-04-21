@@ -16,6 +16,9 @@ interface BuildWrappedShareSnapshotParams {
 	theme: WrappedTeamMemberCardTheme;
 }
 
+// Convert the live wrapped card state into the exact payload we are willing to
+// persist and replay publicly. This is the boundary where we deliberately stop
+// carrying rich internal data and keep only the rendered snapshot values.
 export function buildWrappedShareSnapshot(
 	params: BuildWrappedShareSnapshotParams,
 ): WrappedShareSnapshot {
@@ -33,6 +36,8 @@ export function buildWrappedShareSnapshot(
 		archetypeLabel,
 		headerLeftMetric,
 		headerRightMetric,
+		// Copy only the public card fields needed for replay. This keeps the public
+		// share payload honest, portable, and easy to reason about.
 		row: {
 			activeDays: row.activeDays,
 			cost: row.cost,
@@ -48,6 +53,8 @@ export function buildWrappedShareSnapshot(
 			totalTokens: row.totalTokens,
 		},
 		shellClassName,
+		// Stat items are flattened into plain values so the public page does not
+		// need the wrapped page's richer derivation logic.
 		statItems: statItems.map((statItem) => ({
 			icon: statItem.icon,
 			key: statItem.key,

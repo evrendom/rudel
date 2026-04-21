@@ -5,6 +5,8 @@ import {
 	getPublicWrappedShare,
 } from "../services/wrapped-share.service.js";
 
+// Create is authenticated because only the signed-in owner of the current card
+// should mint a new public share record.
 const create = os.wrappedShare.create
 	.use(orgMiddleware)
 	.handler(async ({ context, input }) => {
@@ -15,6 +17,8 @@ const create = os.wrappedShare.create
 		});
 	});
 
+// Public replay is intentionally anonymous. The only contract is the share id
+// and the persisted public snapshot returned by the service layer.
 const getPublic = os.wrappedShare.getPublic.handler(async ({ input }) => {
 	const share = await getPublicWrappedShare(input.shareId);
 
@@ -27,6 +31,7 @@ const getPublic = os.wrappedShare.getPublic.handler(async ({ input }) => {
 	return share;
 });
 
+// Keep the router surface tiny: one authenticated create, one anonymous read.
 export const wrappedShareRouter = os.wrappedShare.router({
 	create,
 	getPublic,

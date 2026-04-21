@@ -419,6 +419,10 @@ export const AuthenticationActionTriggeredEventSchema = WebEventSchema.extend({
 export const UiUtilityUsedEventSchema = WebEventSchema.extend({
 	utility_name: nonEmptyStringSchema,
 	component_id: nonEmptyStringSchema,
+	// target_id lets product flows tie a utility event back to a concrete share,
+	// invite, or entity without forcing every UI interaction into a custom event.
+	// For the Saturday wrapped loop we use it to connect public-share events back
+	// to the specific share record that generated the visit.
 	target_id: nonEmptyStringSchema.optional(),
 	utility_state: nonEmptyStringSchema.optional(),
 }).strict();

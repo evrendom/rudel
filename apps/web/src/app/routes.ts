@@ -13,6 +13,9 @@ const WRAPPED_TEAM_CARD_PATH = "/wrapped";
 const WRAPPED_SHARE_PATH = `${WRAPPED_TEAM_CARD_PATH}/share`;
 const LEGACY_WALK_IN_TEAM_CARD_PATH = "/walk-in-team-card";
 
+// These helpers are the canonical route surface for the Saturday wrapped loop.
+// We keep them centralized so design, auth, analytics, and public sharing all
+// talk about the same URLs instead of rebuilding strings in multiple places.
 export const appRoutes = {
 	home: () => DASHBOARD_PATH,
 	dashboard: () => DASHBOARD_PATH,
@@ -36,6 +39,8 @@ export const appRoutes = {
 	settingsCreateWorkspace: () => SETTINGS_CREATE_WORKSPACE_PATH,
 };
 
+// Public wrapped shares live on a path segment because anonymous viewers need a
+// stable, bookmarkable URL that can be opened without auth state.
 export function getWrappedShareIdFromPath(pathname: string) {
 	const routeMatch = pathname.match(/^\/wrapped\/share\/([^/]+)\/?$/u);
 	const encodedShareId = routeMatch?.[1];
@@ -51,6 +56,9 @@ export function getWrappedShareIdFromPath(pathname: string) {
 	}
 }
 
+// Post-auth attribution comes back through a query param on /get-started.
+// We parse it separately from the public route because this value is meant for
+// analytics and continuation, not for rendering the public replay page itself.
 export function getWrappedShareIdFromSearch(search: string) {
 	const searchParams = new URLSearchParams(search);
 	const shareId = searchParams.get("share_id");

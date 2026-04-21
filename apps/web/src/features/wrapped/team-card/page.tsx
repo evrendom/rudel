@@ -286,9 +286,15 @@ function WrappedTeamCardPageContent(props: {
 			visibleTeamCardRow,
 		],
 	);
+	// Share creation lives behind a hook so the page can stay focused on stage
+	// orchestration. The hook owns caching/deduping, while this page only decides
+	// when the product has crossed the line from "previewing" to "real share made".
 	const { ensureShare, shareUrl, shareUrlLabel } = useWrappedTeamCardShare(
 		shareSnapshot,
 		{
+			// "shareCreated" is the moment a persistent public record exists, not the
+			// moment the user merely opened the share UI. That distinction matters for
+			// the Saturday growth funnel.
 			onShareCreated: (shareRecord) => {
 				trackUtilityUsed({
 					sourceComponent: "wrapped_team_card_page",
@@ -298,6 +304,9 @@ function WrappedTeamCardPageContent(props: {
 			},
 		},
 	);
+	// The share action helpers stay presentational from the page's perspective.
+	// We pass analytics hooks in, but keep the details of clipboard/native share/
+	// download behavior inside the share module.
 	const shareActions = createWrappedTeamCardShareActions({
 		archetypeLabel: activeArchetype.label,
 		displayName: visibleTeamCardRow.displayName,

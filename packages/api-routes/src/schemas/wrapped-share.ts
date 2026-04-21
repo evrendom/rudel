@@ -1,5 +1,8 @@
 import { z } from "zod";
 
+// This schema is the public contract for wrapped sharing. It is intentionally
+// narrower than the private wrapped page data so public replay only exposes the
+// fields we are comfortable showing outside the authenticated product.
 export const WrappedShareThemeSchema = z.enum(["dark", "light", "muted"]);
 
 export const WrappedShareHeaderMetricSchema = z.object({
@@ -19,6 +22,9 @@ export const WrappedShareStatItemSchema = z.object({
 });
 
 export const WrappedShareRowSchema = z.object({
+	// These are the card-safe fields needed to faithfully replay the selected card
+	// on a public route. We do not include email, internal ids, or raw analytics
+	// records here because the public page only needs the rendered snapshot values.
 	activeDays: z.number().nonnegative(),
 	cost: z.number().nonnegative(),
 	displayName: z.string().min(1),
@@ -34,6 +40,8 @@ export const WrappedShareRowSchema = z.object({
 });
 
 export const WrappedShareSnapshotSchema = z.object({
+	// The snapshot is a fully materialized replay payload. The public page should
+	// not need to recompute metrics or hit private analytics queries.
 	archetypeLabel: z.string().min(1),
 	headerLeftMetric: WrappedShareHeaderMetricSchema.optional(),
 	headerRightMetric: WrappedShareHeaderMetricSchema.optional(),
@@ -48,6 +56,7 @@ export const CreateWrappedShareInputSchema = z.object({
 });
 
 export const GetPublicWrappedShareInputSchema = z.object({
+	// UUID keeps the lookup opaque and non-sequential.
 	shareId: z.string().uuid(),
 });
 

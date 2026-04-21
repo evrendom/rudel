@@ -22,6 +22,14 @@ const PUBLIC_SHARE_CARD_SHELL_STYLE = {
 	"--team-lineup-card-grain-size": "40px",
 } as CSSProperties;
 
+// This page is the anonymous half of the growth loop:
+// 1. open a real public share
+// 2. see a safe replay of the card
+// 3. click "Make yours"
+// 4. continue into auth and /get-started
+//
+// We keep it separate from the authenticated wrapped page so public access never
+// depends on the viewer's private analytics/session queries.
 export function PublicWrappedSharePage(props: PublicWrappedSharePageProps) {
 	const { shareId } = props;
 	const { data: session } = authClient.useSession();
@@ -36,6 +44,9 @@ export function PublicWrappedSharePage(props: PublicWrappedSharePageProps) {
 			? makeYoursPath
 			: `/?redirect=${encodeURIComponent(makeYoursPath)}`;
 
+	// The wrapped surface uses a route-scoped body class for full-screen styling.
+	// We keep that concern isolated to mount/unmount instead of threading layout
+	// props through the whole public page tree.
 	useMountEffect(() => {
 		document.body.classList.add("mymind-wrapped-body");
 
@@ -44,6 +55,9 @@ export function PublicWrappedSharePage(props: PublicWrappedSharePageProps) {
 		};
 	});
 
+	// Count the share view once the public payload has actually loaded. That keeps
+	// "shareViewed" tied to a real, resolvable share instead of every attempted
+	// route hit or loading state.
 	useEffectOnceWhen({
 		effect: () => {
 			trackUtilityUsed({
@@ -57,6 +71,8 @@ export function PublicWrappedSharePage(props: PublicWrappedSharePageProps) {
 		key: shareId,
 	});
 
+	// Pending and error states stay explicit so the public route is readable and
+	// so product can choose the fallback copy independently of the happy path.
 	if (wrappedShareQuery.isPending) {
 		return <PublicShareLoadingState />;
 	}
@@ -82,6 +98,9 @@ export function PublicWrappedSharePage(props: PublicWrappedSharePageProps) {
 	);
 }
 
+// The ready state is intentionally presentational. All product logic stays in
+// the route component above so the public share card can be iterated on without
+// re-learning the auth and analytics flow.
 function PublicShareReadyState(props: {
 	makeYoursHref: string;
 	onMakeYoursClick: () => void;
@@ -143,6 +162,8 @@ function PublicShareReadyState(props: {
 	);
 }
 
+// Loading stays simple on purpose. The only job here is to hold the screen while
+// the public snapshot is fetched, without introducing another route redirect.
 function PublicShareLoadingState() {
 	return (
 		<section className="min-h-screen bg-[#f8f4ef] text-[#22201f]">
@@ -161,6 +182,9 @@ function PublicShareLoadingState() {
 	);
 }
 
+// Error state still offers the conversion CTA because a broken share link should
+// not kill the acquisition path. Even when the shared card is gone, the viewer
+// can still create their own wrapped card.
 function PublicShareErrorState(props: { makeYoursHref: string }) {
 	const { makeYoursHref } = props;
 
@@ -192,6 +216,9 @@ function PublicShareErrorState(props: { makeYoursHref: string }) {
 	);
 }
 
+// WrappedTeamMemberCard expects the same row shape used in authenticated flows.
+// For public replay we deliberately scrub identity fields that are irrelevant or
+// private and only keep the card-safe snapshot values.
 function buildPublicShareRow(row: WrappedShareRow) {
 	return {
 		...row,
@@ -199,6 +226,9 @@ function buildPublicShareRow(row: WrappedShareRow) {
 		userId: "public-wrapped-share",
 	};
 }
+
+// Shared cards store raw ISO timestamps. The public page formats them here so
+// the persistence layer stays neutral and UI-friendly wording lives at the edge.
 function formatShareDateLabel(createdAt: string) {
 	const parsedDate = new Date(createdAt);
 
