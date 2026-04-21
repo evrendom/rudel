@@ -1,10 +1,10 @@
 import {
 	type PointerEvent as ReactPointerEvent,
 	type RefObject,
-	useEffect,
 	useRef,
 	useState,
 } from "react";
+import { useMountEffect } from "@/hooks/useMountEffect";
 
 const ACTIVE_GLARE_OPACITY = 0.9;
 const ACTIVE_SCALE = 1.018;
@@ -64,8 +64,13 @@ export function useWalkInCardTilt(): WalkInCardTiltController {
 	const [needsGyroscopePermission, setNeedsGyroscopePermission] =
 		useState(false);
 	const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
+	const gyroscopeStateRef = useRef<WalkInCardGyroscopeState>(gyroscopeState);
+	const prefersReducedMotionRef = useRef(prefersReducedMotion);
 
-	useEffect(() => {
+	gyroscopeStateRef.current = gyroscopeState;
+	prefersReducedMotionRef.current = prefersReducedMotion;
+
+	useMountEffect(() => {
 		if (typeof window === "undefined") {
 			return;
 		}
@@ -93,27 +98,13 @@ export function useWalkInCardTilt(): WalkInCardTiltController {
 			setGyroscopeState(requestPermission ? "idle" : "active");
 		};
 
-		syncMotionCapability();
-		motionQuery.addEventListener("change", syncMotionCapability);
-
-		return () => {
-			motionQuery.removeEventListener("change", syncMotionCapability);
-		};
-	}, []);
-
-	useEffect(() => {
-		if (
-			prefersReducedMotion ||
-			gyroscopeState !== "active" ||
-			typeof window === "undefined" ||
-			!("DeviceOrientationEvent" in window)
-		) {
-			gyroscopeBaselineRef.current = null;
-			return;
-		}
-
 		const handleDeviceOrientation = (event: DeviceOrientationEvent) => {
-			if (pointerActiveRef.current) {
+			if (
+				prefersReducedMotionRef.current ||
+				gyroscopeStateRef.current !== "active" ||
+				pointerActiveRef.current
+			) {
+				gyroscopeBaselineRef.current = null;
 				return;
 			}
 
@@ -155,9 +146,12 @@ export function useWalkInCardTilt(): WalkInCardTiltController {
 			});
 		};
 
+		syncMotionCapability();
+		motionQuery.addEventListener("change", syncMotionCapability);
 		window.addEventListener("deviceorientation", handleDeviceOrientation);
 
 		return () => {
+			motionQuery.removeEventListener("change", syncMotionCapability);
 			window.removeEventListener("deviceorientation", handleDeviceOrientation);
 			gyroscopeBaselineRef.current = null;
 
@@ -165,7 +159,7 @@ export function useWalkInCardTilt(): WalkInCardTiltController {
 				resetTilt(cardTiltRef.current);
 			}
 		};
-	}, [gyroscopeState, prefersReducedMotion]);
+	});
 
 	async function enableGyroscope() {
 		if (prefersReducedMotion || gyroscopeState === "pending") {

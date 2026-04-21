@@ -10,8 +10,9 @@ import type {
 	ReactNode,
 	TouchEvent,
 	UIEvent,
+	WheelEvent,
 } from "react";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { appRoutes } from "@/app/routes";
 import { buttonVariants } from "@/app/ui/button";
@@ -40,26 +41,17 @@ import {
 	type UploadStageRollItem,
 	type WalkInStepContentLine,
 } from "./walk-in-onboarding-helpers";
+import {
+	type WalkInOnboardingMetrics,
+	type WalkInRepoPulseEntry,
+	type WalkInRepoPulseMetrics,
+	type WalkInSkillUsageItem,
+} from "./walk-in-onboarding-types";
 
 const COMPACT_NUMBER_FORMATTER = new Intl.NumberFormat("en", {
 	maximumFractionDigits: 1,
 	notation: "compact",
 });
-
-export interface WalkInRepoPulseEntry {
-	id: string;
-	meta: string;
-	proof: string;
-	repoName: string;
-	workType: string;
-}
-
-export interface WalkInRepoPulseMetrics {
-	entries: readonly WalkInRepoPulseEntry[];
-	leadRepoName: string | null;
-	totalRepos: number;
-	totalSessions: number;
-}
 
 interface RepoPulseStageModel {
 	entries: readonly WalkInRepoPulseEntry[];
@@ -83,11 +75,6 @@ interface ToolsStageModel {
 	footnote: string;
 	headline: string;
 	subline: string;
-}
-
-export interface WalkInSkillUsageItem {
-	count: number;
-	name: string;
 }
 
 interface WalkInModelShareSegment {
@@ -267,34 +254,6 @@ const INTRO_EXIT = {
 const SCALE_STAGE_TOKENS_PER_BALL = 2_000_000;
 const SCALE_STAGE_MIN_BALL_COUNT = 50;
 
-export interface WalkInOnboardingMetrics {
-	activeDays: number;
-	avgSessionMin: number | null;
-	commitRate: number | null;
-	daysSinceFirst: number;
-	favoriteModel: string | null;
-	longestSessionMin: number | null;
-	modelByMonth: readonly MonthlyModelUsage[];
-	sourceSplit: readonly WrappedSourceSplit[];
-	skillsAdoptionRate: number | null;
-	slashCommandsAdoptionRate: number | null;
-	subagentsAdoptionRate: number | null;
-	successRate: number | null;
-	repoPulse: WalkInRepoPulseMetrics;
-	topProjectName: string | null;
-	topProjectSessions: number;
-	topProjectTokens: number;
-	topSkills: readonly WalkInSkillUsageItem[];
-	topSlashCommand: string | null;
-	topSlashCommands: readonly WalkInSkillUsageItem[];
-	topSlashCommandCount: number | null;
-	topSubagent: string | null;
-	topSubagents: readonly WalkInSkillUsageItem[];
-	topSubagentCount: number | null;
-	totalSessions: number;
-	totalTokens: number;
-}
-
 export interface TeamCardWalkInOnboardingProps {
 	displayName: string;
 	finalFooter?: ReactNode;
@@ -307,6 +266,12 @@ export {
 	WALK_IN_BEAT_CONTRACTS,
 	type WalkInBeatContract,
 } from "./walk-in-onboarding-config";
+export type {
+	WalkInOnboardingMetrics,
+	WalkInRepoPulseEntry,
+	WalkInRepoPulseMetrics,
+	WalkInSkillUsageItem,
+} from "./walk-in-onboarding-types";
 
 export function TeamCardWalkInOnboarding(props: TeamCardWalkInOnboardingProps) {
 	const {
@@ -1453,7 +1418,6 @@ function SkillsStage(props: {
 	previewState: string;
 }) {
 	const { onboardingMetrics, previewState } = props;
-	const stackRef = useRef<HTMLDivElement | null>(null);
 	const wheelAccumulationRef = useRef(0);
 	const lastWheelTimestampRef = useRef(0);
 	const lockedUntilTimestampRef = useRef(0);
@@ -1502,33 +1466,24 @@ function SkillsStage(props: {
 		setNextActiveCardIndex(direction);
 	}
 
-	useEffect(() => {
-		const stackNode = stackRef.current;
-		if (!stackNode || !model.isScrollable) {
+	function handleSkillsCardWheel(event: WheelEvent<HTMLDivElement>) {
+		if (!model.isScrollable) {
 			return;
 		}
-		const interactiveStackNode: HTMLDivElement = stackNode;
 
-		function handleNativeWheel(event: WheelEvent) {
-			const eventTarget = event.target;
-			if (!(eventTarget instanceof Element)) {
-				return;
-			}
-
-			const cardElement = eventTarget.closest(".mymind-walk-in-skills-stage__card");
-			if (!cardElement || !interactiveStackNode.contains(cardElement)) {
-				return;
-			}
-
-			event.preventDefault();
-			handleSkillsCardWheelDelta(event.deltaY);
+		const eventTarget = event.target;
+		if (!(eventTarget instanceof Element)) {
+			return;
 		}
 
-		interactiveStackNode.addEventListener("wheel", handleNativeWheel, { passive: false });
-		return () => {
-			interactiveStackNode.removeEventListener("wheel", handleNativeWheel);
-		};
-	}, [model.isScrollable, model.cards.length]);
+		const cardElement = eventTarget.closest(".mymind-walk-in-skills-stage__card");
+		if (!cardElement || !event.currentTarget.contains(cardElement)) {
+			return;
+		}
+
+		event.preventDefault();
+		handleSkillsCardWheelDelta(event.deltaY);
+	}
 
 	function handleSkillsCardTouchStart(event: TouchEvent<HTMLElement>) {
 		if (!model.isScrollable) {
@@ -1577,7 +1532,10 @@ function SkillsStage(props: {
 				) : null}
 			</div>
 
-			<div ref={stackRef} className="mymind-walk-in-skills-stage__stack">
+			<div
+				className="mymind-walk-in-skills-stage__stack"
+				onWheel={handleSkillsCardWheel}
+			>
 				<div
 					className="mymind-walk-in-skills-stage__stack-track"
 					style={
@@ -1820,24 +1778,45 @@ function UploadStageReel(props: {
 	const { isUploading, items } = props;
 	const shouldReduceMotion = useReducedMotion();
 	const reduceMotion = shouldReduceMotion ?? false;
-	const viewportRef = useRef<HTMLDivElement | null>(null);
-	const [activeIndex, setActiveIndex] = useState(() =>
-		getDefaultUploadReelIndex(items.length, isUploading),
+	const reelKey = [
+		isUploading ? "uploading" : "ready",
+		reduceMotion ? "reduced" : "motion",
+		...items.map((item) => `${item.id}:${item.label}:${item.meta}`),
+	].join("|");
+
+	return (
+		<UploadStageReelContent
+			key={reelKey}
+			isUploading={isUploading}
+			items={items}
+			reduceMotion={reduceMotion}
+		/>
 	);
+}
 
-	useEffect(() => {
-		const nextIndex = getDefaultUploadReelIndex(items.length, isUploading);
-		setActiveIndex(nextIndex);
-		scrollUploadReelToIndex({
-			index: nextIndex,
-			shouldReduceMotion: true,
-			viewport: viewportRef.current,
+function UploadStageReelContent(props: {
+	isUploading: boolean;
+	items: readonly UploadStageRollItem[];
+	reduceMotion: boolean;
+}) {
+	const { isUploading, items, reduceMotion } = props;
+	const viewportRef = useRef<HTMLDivElement | null>(null);
+	const initialIndex = getDefaultUploadReelIndex(items.length, isUploading);
+	const [activeIndex, setActiveIndex] = useState(initialIndex);
+
+	useMountEffect(() => {
+		const frameId = window.requestAnimationFrame(() => {
+			scrollUploadReelToIndex({
+				index: initialIndex,
+				shouldReduceMotion: true,
+				viewport: viewportRef.current,
+			});
 		});
-	}, [isUploading, items.length]);
 
-	useEffect(() => {
 		if (reduceMotion || !isUploading || items.length < 2) {
-			return;
+			return () => {
+				window.cancelAnimationFrame(frameId);
+			};
 		}
 
 		const intervalId = window.setInterval(() => {
@@ -1853,9 +1832,10 @@ function UploadStageReel(props: {
 		}, UPLOAD_REEL_TIMING.advance);
 
 		return () => {
+			window.cancelAnimationFrame(frameId);
 			window.clearInterval(intervalId);
 		};
-	}, [isUploading, items.length, reduceMotion]);
+	});
 
 	if (items.length === 0) {
 		return null;

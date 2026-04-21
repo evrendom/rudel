@@ -28,8 +28,10 @@ import {
 } from "@/features/team/use-team-page-data";
 import {
 	TeamCardWalkInOnboarding,
-	type WalkInOnboardingMetrics,
 } from "@/features/walk-in/team-card-walk-in-onboarding";
+import {
+	type WalkInOnboardingMetrics,
+} from "@/features/walk-in/walk-in-onboarding-types";
 import { useWalkInCardData } from "@/features/walk-in/use-walk-in-card-data";
 import {
 	type WalkInCardTiltController,
