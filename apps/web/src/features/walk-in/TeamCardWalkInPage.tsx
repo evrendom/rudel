@@ -9,7 +9,6 @@ import {
 } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { appRoutes } from "@/app/routes";
-import { toast } from "sonner";
 import type { TeamPageMemberRow } from "@/features/team/use-team-page-data";
 import { TeamCardWalkInOnboarding } from "@/features/walk-in/team-card-walk-in-onboarding";
 import { type WalkInOnboardingMetrics } from "@/features/walk-in/walk-in-onboarding-types";
@@ -23,6 +22,7 @@ import {
 	formatShareCardCreatedAt,
 	getWrappedArchetypeIndex,
 } from "@/features/walk-in/walk-in-team-card-utils";
+import { createWalkInTeamCardShareActions } from "@/features/walk-in/walk-in-team-card-share";
 import {
 	type WalkInCardTiltController,
 	useWalkInCardTilt,
@@ -35,11 +35,6 @@ import {
 	type WalkInTeamMemberCardTheme,
 } from "@/features/walk-in/WalkInTeamMemberCard";
 import { formatCompactWholeCurrency } from "@/lib/format";
-import {
-	captureElement,
-	copyToClipboard,
-	downloadAsImage,
-} from "@/lib/screenshot";
 import { useMountEffect } from "@/hooks/useMountEffect";
 import { markWalkInCompleted } from "@/features/walk-in/walk-in-entry";
 import "@/features/walk-in/walk-in-clone.css";
@@ -258,113 +253,11 @@ function TeamCardWalkInPageContent(props: {
 	const sharePostRef = useRef<HTMLDivElement>(null);
 	const [finalCardStage, setFinalCardStage] =
 		useState<FinalCardStage>("reveal");
-	const shareTitle = `${visibleTeamCardRow.displayName}'s Geneva post`;
-	const shareText = `${visibleTeamCardRow.displayName}'s ${activeArchetype.label} Geneva card, made with rudel.ai.`;
-	const shareUrl =
-		typeof window === "undefined"
-			? undefined
-			: new URL(appRoutes.walkInTeamCard(), window.location.origin).toString();
-	const shareUrlLabel = shareUrl
-		? shareUrl.replace(/^https?:\/\//u, "")
-		: appRoutes.walkInTeamCard();
-
-	async function captureSharePost() {
-		const sharePostElement = sharePostRef.current;
-
-		if (!sharePostElement) {
-			toast.error("Could not find the post to share.");
-			return null;
-		}
-
-		try {
-			return await captureElement(sharePostElement);
-		} catch {
-			toast.error("Could not prepare the share image.");
-			return null;
-		}
-	}
-
-	async function handleSharePost() {
-		const imageBlob = await captureSharePost();
-
-		if (!imageBlob) {
-			return;
-		}
-
-		const file = new File([imageBlob], "geneva-team-card-post.png", {
-			type: imageBlob.type || "image/png",
-		});
-		const canShareFiles = (() => {
-			if (!navigator.canShare) {
-				return true;
-			}
-
-			try {
-				return navigator.canShare({ files: [file] });
-			} catch {
-				return false;
-			}
-		})();
-
-		if (navigator.share && canShareFiles) {
-			try {
-				await navigator.share({
-					files: [file],
-					text: shareText,
-					title: shareTitle,
-					...(shareUrl ? { url: shareUrl } : {}),
-				});
-				return;
-			} catch (error) {
-				if (error instanceof DOMException && error.name === "AbortError") {
-					return;
-				}
-			}
-		}
-
-		const copied = await copyToClipboard(imageBlob);
-
-		if (copied) {
-			toast.success(
-				"Post copied. Paste it into the app you want to share to.",
-				{
-					duration: 7000,
-				},
-			);
-			return;
-		}
-
-		downloadAsImage(imageBlob, "geneva-team-card-post.png");
-		toast.success("Post downloaded. Share the PNG from your downloads.");
-	}
-
-	async function handleCopyPost() {
-		const imageBlob = await captureSharePost();
-
-		if (!imageBlob) {
-			return;
-		}
-
-		const copied = await copyToClipboard(imageBlob);
-
-		if (copied) {
-			toast.success("Post copied to clipboard");
-			return;
-		}
-
-		toast.error("Could not copy the post. Try downloading it instead.");
-	}
-
-	async function handleDownloadPost() {
-		const imageBlob = await captureSharePost();
-
-		if (!imageBlob) {
-			return;
-		}
-
-		downloadAsImage(imageBlob, "geneva-team-card-post.png");
-		toast.success("Post downloaded");
-	}
+	const shareActions = createWalkInTeamCardShareActions({
+		archetypeLabel: activeArchetype.label,
+		displayName: visibleTeamCardRow.displayName,
+		sharePostRef,
+	});
 
 	const showShareStage = finalCardStage === "share";
 	const finalStage = showShareStage ? (
@@ -372,14 +265,14 @@ function TeamCardWalkInPageContent(props: {
 			headerLeftMetric={headerLeftMetric}
 			headerRightMetric={headerRightMetric}
 			onBack={() => setFinalCardStage("reveal")}
-			onCopy={() => void handleCopyPost()}
-			onDownload={() => void handleDownloadPost()}
-			onShare={() => void handleSharePost()}
+			onCopy={() => void shareActions.handleCopyPost()}
+			onDownload={() => void shareActions.handleDownloadPost()}
+			onShare={() => void shareActions.handleSharePost()}
 			row={visibleTeamCardRow}
 			shareCardCreatedAtLabel={shareCardCreatedAtLabel}
 			sharePostRef={sharePostRef}
-			shareUrl={shareUrl}
-			shareUrlLabel={shareUrlLabel}
+			shareUrl={shareActions.shareUrl}
+			shareUrlLabel={shareActions.shareUrlLabel}
 			shellClassName={activeArchetype.shellClassName}
 			shellStyle={shellStyle}
 			statItems={statItems}
