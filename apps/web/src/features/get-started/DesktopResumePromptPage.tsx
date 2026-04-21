@@ -11,6 +11,7 @@ interface DesktopResumePromptPageProps {
 
 type ResumePromptState =
 	| { status: "idle" }
+	| { status: "pending" }
 	| {
 			emailSent: boolean;
 			expiresAt: string;
@@ -28,21 +29,20 @@ type ResumePromptState =
 // desktop today.
 export function DesktopResumePromptPage(props: DesktopResumePromptPageProps) {
 	const { email, shareId } = props;
-	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [state, setState] = useState<ResumePromptState>({
 		status: "idle",
 	});
 	const { trackUtilityUsed } = useAnalyticsTracking({
 		pageName: "get_started",
 	});
+	const isSubmitting = state.status === "pending";
 
 	async function handleEmailDesktopLink() {
 		if (isSubmitting) {
 			return;
 		}
 
-		setIsSubmitting(true);
-		setState({ status: "idle" });
+		setState({ status: "pending" });
 
 		try {
 			const result = await client.wrappedResume.create({
@@ -69,8 +69,6 @@ export function DesktopResumePromptPage(props: DesktopResumePromptPageProps) {
 				message: getResumePromptErrorMessage(error),
 				status: "error",
 			});
-		} finally {
-			setIsSubmitting(false);
 		}
 	}
 
