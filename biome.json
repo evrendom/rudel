@@ -21,7 +21,7 @@
 	},
 	"overrides": [
 		{
-			"includes": ["apps/web/src/features/walk-in/**"],
+			"includes": ["apps/web/src/features/wrapped/**"],
 			"linter": {
 				"rules": {
 					"style": {
@@ -31,7 +31,7 @@
 								"paths": {
 									"react": {
 										"importNames": ["useEffect"],
-										"message": "Walk-in files must use useMountEffect instead of importing useEffect directly."
+										"message": "Wrapped files must use useMountEffect instead of importing useEffect directly."
 									}
 								}
 							}

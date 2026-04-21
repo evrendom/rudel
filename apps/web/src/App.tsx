@@ -20,14 +20,14 @@ import { GetStartedRouteGate } from "@/features/get-started/GetStartedRouteGate"
 import { authClient } from "./lib/auth-client";
 
 const CardReferencePage = lazy(() =>
-	import("@/features/walk-in/card-reference/page").then((module) => ({
+	import("@/features/wrapped/card-reference/page").then((module) => ({
 		default: module.CardReferencePage,
 	})),
 );
 
-const TeamCardWalkInPage = lazy(() =>
-	import("@/features/walk-in/team-card/page").then((module) => ({
-		default: module.TeamCardWalkInPage,
+const WrappedTeamCardPage = lazy(() =>
+	import("@/features/wrapped/team-card/page").then((module) => ({
+		default: module.WrappedTeamCardPage,
 	})),
 );
 
@@ -49,20 +49,21 @@ function App() {
 	useOAuthDebugAutoDump(session);
 	const deviceUserCode = getDeviceUserCode(location.search);
 	const cardReferencePath = appRoutes.cardReference();
-	const walkInTeamCardPath = appRoutes.walkInTeamCard();
+	const wrappedTeamCardPath = appRoutes.wrappedTeamCard();
+	const legacyWalkInTeamCardPath = appRoutes.legacyWalkInTeamCard();
 	const isCardReferencePath =
 		location.pathname === cardReferencePath ||
 		location.pathname.startsWith(`${cardReferencePath}/`);
-	const isWalkInTeamCardPath =
-		location.pathname === walkInTeamCardPath ||
-		location.pathname.startsWith(`${walkInTeamCardPath}/`);
+	const isWrappedTeamCardPath =
+		isRouteMatch(location.pathname, wrappedTeamCardPath) ||
+		isRouteMatch(location.pathname, legacyWalkInTeamCardPath);
 	const rootRedirectTarget =
 		getValidRedirect(location.search) ??
 		(location.pathname === "/"
 			? getPendingSignupRedirect(location.search)
 			: null);
 	const showDesktopOnlyOverlay =
-		!deviceUserCode && !isCardReferencePath && !isWalkInTeamCardPath;
+		!deviceUserCode && !isCardReferencePath && !isWrappedTeamCardPath;
 
 	if (deviceUserCode) {
 		return (
@@ -91,12 +92,12 @@ function App() {
 		);
 	}
 
-	if (isWalkInTeamCardPath) {
+	if (isWrappedTeamCardPath) {
 		return (
 			<>
 				<ProductAnalyticsSessionSync session={session} />
 				<Suspense fallback={<FullscreenRouteLoadingScreen />}>
-					<TeamCardWalkInPage />
+					<WrappedTeamCardPage />
 				</Suspense>
 				{showDesktopOnlyOverlay ? <DesktopOnlyOverlay /> : null}
 			</>
@@ -155,3 +156,7 @@ function App() {
 }
 
 export default App;
+
+function isRouteMatch(pathname: string, routePath: string) {
+	return pathname === routePath || pathname.startsWith(`${routePath}/`);
+}
