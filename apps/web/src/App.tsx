@@ -1,7 +1,7 @@
 import { lazy, Suspense } from "react";
 import { useLocation } from "react-router-dom";
 import { AppLoadingScreen } from "@/app/bootstrap/AppLoadingScreen";
-import { appRoutes } from "@/app/routes";
+import { appRoutes, getWrappedShareIdFromPath } from "@/app/routes";
 import { DesktopOnlyOverlay } from "@/app/ui/DesktopOnlyOverlay";
 import { ProductAnalyticsSessionSync } from "@/features/analytics/tracking/ProductAnalyticsSessionSync";
 import { AuthenticatedApp } from "@/features/auth/AuthenticatedApp";
@@ -31,6 +31,12 @@ const WrappedTeamCardPage = lazy(() =>
 	})),
 );
 
+const PublicWrappedSharePage = lazy(() =>
+	import("@/features/wrapped/PublicWrappedSharePage").then((module) => ({
+		default: module.PublicWrappedSharePage,
+	})),
+);
+
 function FullscreenRouteLoadingScreen() {
 	return (
 		<div
@@ -51,6 +57,7 @@ function App() {
 	const cardReferencePath = appRoutes.cardReference();
 	const wrappedTeamCardPath = appRoutes.wrappedTeamCard();
 	const legacyWalkInTeamCardPath = appRoutes.legacyWalkInTeamCard();
+	const wrappedShareId = getWrappedShareIdFromPath(location.pathname);
 	const isCardReferencePath =
 		location.pathname === cardReferencePath ||
 		location.pathname.startsWith(`${cardReferencePath}/`);
@@ -93,6 +100,18 @@ function App() {
 	}
 
 	if (isWrappedTeamCardPath) {
+		if (wrappedShareId) {
+			return (
+				<>
+					<ProductAnalyticsSessionSync session={session} />
+					<Suspense fallback={<FullscreenRouteLoadingScreen />}>
+						<PublicWrappedSharePage shareId={wrappedShareId} />
+					</Suspense>
+					{showDesktopOnlyOverlay ? <DesktopOnlyOverlay /> : null}
+				</>
+			);
+		}
+
 		return (
 			<>
 				<ProductAnalyticsSessionSync session={session} />

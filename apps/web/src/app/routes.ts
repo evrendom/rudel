@@ -10,6 +10,7 @@ const SETTINGS_CREATE_WORKSPACE_PATH = `${SETTINGS_ROOT_PATH}/create-workspace`;
 const PRESET_BASELINE_PATH = "/__preset-baseline";
 const CARD_REFERENCE_PATH = "/card-reference";
 const WRAPPED_TEAM_CARD_PATH = "/wrapped";
+const WRAPPED_SHARE_PATH = `${WRAPPED_TEAM_CARD_PATH}/share`;
 const LEGACY_WALK_IN_TEAM_CARD_PATH = "/walk-in-team-card";
 
 export const appRoutes = {
@@ -23,6 +24,10 @@ export const appRoutes = {
 	presetBaseline: () => PRESET_BASELINE_PATH,
 	cardReference: () => CARD_REFERENCE_PATH,
 	wrappedTeamCard: () => WRAPPED_TEAM_CARD_PATH,
+	wrappedShare: (shareId: string) =>
+		`${WRAPPED_SHARE_PATH}/${encodeURIComponent(shareId)}`,
+	getStartedFromWrappedShare: (shareId: string) =>
+		`${GET_STARTED_PATH}?share_id=${encodeURIComponent(shareId)}`,
 	walkInTeamCard: () => WRAPPED_TEAM_CARD_PATH,
 	legacyWalkInTeamCard: () => LEGACY_WALK_IN_TEAM_CARD_PATH,
 	settingsWorkspace: () => SETTINGS_WORKSPACE_PATH,
@@ -30,3 +35,18 @@ export const appRoutes = {
 	settingsAccount: () => SETTINGS_ACCOUNT_PATH,
 	settingsCreateWorkspace: () => SETTINGS_CREATE_WORKSPACE_PATH,
 };
+
+export function getWrappedShareIdFromPath(pathname: string) {
+	const routeMatch = pathname.match(/^\/wrapped\/share\/([^/]+)\/?$/u);
+	const encodedShareId = routeMatch?.[1];
+
+	if (!encodedShareId) {
+		return null;
+	}
+
+	try {
+		return decodeURIComponent(encodedShareId);
+	} catch {
+		return null;
+	}
+}

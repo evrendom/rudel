@@ -1,6 +1,5 @@
 import type { RefObject } from "react";
 import { toast } from "sonner";
-import { appRoutes } from "@/app/routes";
 import {
 	captureElement,
 	copyToClipboard,
@@ -15,6 +14,9 @@ interface CreateWrappedTeamCardShareActionsParams {
 	archetypeLabel: string;
 	displayName: string;
 	onShareActionTriggered?: (action: WrappedShareActionKind) => void;
+	resolveShareUrl?: () => Promise<string | undefined>;
+	shareUrl?: string;
+	shareUrlLabel: string;
 	sharePostRef: RefObject<HTMLDivElement | null>;
 }
 
@@ -29,23 +31,33 @@ interface WrappedTeamCardShareActions {
 export function createWrappedTeamCardShareActions(
 	params: CreateWrappedTeamCardShareActionsParams,
 ): WrappedTeamCardShareActions {
-	const { archetypeLabel, displayName, onShareActionTriggered, sharePostRef } =
-		params;
+	const {
+		archetypeLabel,
+		displayName,
+		onShareActionTriggered,
+		resolveShareUrl,
+		sharePostRef,
+		shareUrl,
+		shareUrlLabel,
+	} = params;
 	const shareTitle = `${displayName}'s Geneva post`;
 	const shareText = `${displayName}'s ${archetypeLabel} Geneva card, made with rudel.ai.`;
-	const shareUrl = buildWrappedTeamCardShareUrl();
 
 	return {
 		handleCopyPost,
 		handleDownloadPost,
 		handleSharePost,
 		shareUrl,
-		shareUrlLabel: formatShareUrlLabel(shareUrl),
+		shareUrlLabel,
 	};
 
 	async function handleSharePost() {
 		onShareActionTriggered?.("share");
 		const imageBlob = await captureSharePost(sharePostRef);
+		const resolvedShareUrl = await getResolvedShareUrl({
+			resolveShareUrl,
+			shareUrl,
+		});
 
 		if (!imageBlob) {
 			return;
@@ -61,7 +73,7 @@ export function createWrappedTeamCardShareActions(
 					files: [shareFile],
 					text: shareText,
 					title: shareTitle,
-					...(shareUrl ? { url: shareUrl } : {}),
+					...(resolvedShareUrl ? { url: resolvedShareUrl } : {}),
 				});
 				return;
 			} catch (error) {
@@ -118,6 +130,24 @@ export function createWrappedTeamCardShareActions(
 	}
 }
 
+async function getResolvedShareUrl(options: {
+	resolveShareUrl?: () => Promise<string | undefined>;
+	shareUrl?: string;
+}) {
+	const { resolveShareUrl, shareUrl } = options;
+
+	if (!resolveShareUrl) {
+		return shareUrl;
+	}
+
+	try {
+		return (await resolveShareUrl()) ?? shareUrl;
+	} catch {
+		toast.error("Could not create a share link. Sharing the image without it.");
+		return shareUrl;
+	}
+}
+
 async function captureSharePost(
 	sharePostRef: RefObject<HTMLDivElement | null>,
 ): Promise<Blob | null> {
@@ -134,25 +164,6 @@ async function captureSharePost(
 		toast.error("Could not prepare the share image.");
 		return null;
 	}
-}
-
-function buildWrappedTeamCardShareUrl() {
-	if (typeof window === "undefined") {
-		return undefined;
-	}
-
-	return new URL(
-		appRoutes.wrappedTeamCard(),
-		window.location.origin,
-	).toString();
-}
-
-function formatShareUrlLabel(shareUrl: string | undefined) {
-	if (!shareUrl) {
-		return appRoutes.wrappedTeamCard();
-	}
-
-	return shareUrl.replace(/^https?:\/\//u, "");
 }
 
 function canShareFiles(shareFile: File) {

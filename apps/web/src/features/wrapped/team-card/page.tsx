@@ -29,11 +29,13 @@ import {
 	WrappedTeamCardShareStage,
 } from "./final-stages";
 import { createWrappedTeamCardShareActions } from "./share";
+import { buildWrappedShareSnapshot } from "./share-snapshot";
 import {
 	useWrappedCardTilt,
 	type WrappedCardTiltController,
 } from "./tilt/use-card-tilt";
 import { useWrappedTeamCardPageData } from "./use-page-data";
+import { useWrappedTeamCardShare } from "./use-share";
 import { formatShareCardCreatedAt, getWrappedArchetypeIndex } from "./utils";
 import "@/features/wrapped/wrapped.css";
 
@@ -263,6 +265,29 @@ function WrappedTeamCardPageContent(props: {
 		pageName: "wrapped_team_card",
 	});
 	const showShareStage = finalCardStage === "share";
+	const shareSnapshot = useMemo(
+		() =>
+			buildWrappedShareSnapshot({
+				archetypeLabel: activeArchetype.label,
+				headerLeftMetric,
+				headerRightMetric,
+				row: visibleTeamCardRow,
+				shellClassName: activeArchetype.shellClassName,
+				statItems,
+				theme: activeArchetype.theme,
+			}),
+		[
+			activeArchetype.label,
+			activeArchetype.shellClassName,
+			activeArchetype.theme,
+			headerLeftMetric,
+			headerRightMetric,
+			statItems,
+			visibleTeamCardRow,
+		],
+	);
+	const { ensureShare, shareUrl, shareUrlLabel } =
+		useWrappedTeamCardShare(shareSnapshot);
 	const shareActions = createWrappedTeamCardShareActions({
 		archetypeLabel: activeArchetype.label,
 		displayName: visibleTeamCardRow.displayName,
@@ -273,6 +298,19 @@ function WrappedTeamCardPageContent(props: {
 				utilityState: action,
 			});
 		},
+		resolveShareUrl: async () => {
+			const shareRecord = await ensureShare();
+			if (typeof window === "undefined") {
+				return undefined;
+			}
+
+			return new URL(
+				appRoutes.wrappedShare(shareRecord.id),
+				window.location.origin,
+			).toString();
+		},
+		shareUrl,
+		shareUrlLabel,
 		sharePostRef,
 	});
 
@@ -282,6 +320,7 @@ function WrappedTeamCardPageContent(props: {
 			utilityName: "wrappedSharePreviewOpened",
 			utilityState: "sharePreview",
 		});
+		void ensureShare().catch(() => {});
 		setFinalCardStage("share");
 	}
 

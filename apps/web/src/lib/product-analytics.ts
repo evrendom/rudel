@@ -358,6 +358,10 @@ const ANALYTICS_PAGE_MATCHERS: ReadonlyArray<{
 			pathname === "/get-started" || pathname === "/dashboard/get-started",
 	},
 	{
+		pageName: "wrapped_share",
+		matches: (pathname) => pathname.startsWith("/wrapped/share/"),
+	},
+	{
 		pageName: "wrapped_team_card",
 		matches: (pathname) =>
 			pathname === "/wrapped" ||

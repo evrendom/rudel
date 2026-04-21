@@ -60,10 +60,17 @@ import {
 	UserTokenUsageDataSchema,
 	WrappedV1Schema,
 } from "./schemas/analytics.js";
+import {
+	CreateWrappedShareInputSchema,
+	GetPublicWrappedShareInputSchema,
+	PublicWrappedShareSchema,
+	WrappedShareRecordSchema,
+} from "./schemas/wrapped-share.js";
 
 export * from "./model-pricing.js";
 export * from "./product-analytics.js";
 export * from "./schemas/analytics.js";
+export * from "./schemas/wrapped-share.js";
 
 export const HealthSchema = z.object({
 	status: z.literal("ok"),
@@ -166,6 +173,14 @@ export const contract = {
 	deleteOrganization: oc
 		.input(z.object({ organizationId: z.string() }))
 		.output(z.object({ success: z.literal(true) })),
+	wrappedShare: {
+		create: oc
+			.input(CreateWrappedShareInputSchema)
+			.output(WrappedShareRecordSchema),
+		getPublic: oc
+			.input(GetPublicWrappedShareInputSchema)
+			.output(PublicWrappedShareSchema),
+	},
 	admin: {
 		listUsers: oc
 			.input(

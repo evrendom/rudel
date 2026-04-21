@@ -1,0 +1,105 @@
+import type {
+	WrappedShareRecord,
+	WrappedShareSnapshot,
+} from "@rudel/api-routes";
+import { useRef, useState } from "react";
+import { appRoutes } from "@/app/routes";
+import { client } from "@/lib/orpc";
+
+type ShareRecordLookup = Record<string, WrappedShareRecord>;
+
+export function useWrappedTeamCardShare(snapshot: WrappedShareSnapshot) {
+	const shareRequestByKeyRef = useRef(
+		new Map<string, Promise<WrappedShareRecord>>(),
+	);
+	const [shareError, setShareError] = useState<string | null>(null);
+	const [shareRecordsByKey, setShareRecordsByKey] = useState<ShareRecordLookup>(
+		{},
+	);
+	const [pendingShareKey, setPendingShareKey] = useState<string | null>(null);
+	const snapshotKey = JSON.stringify(snapshot);
+	const activeShareRecord = shareRecordsByKey[snapshotKey] ?? null;
+	const shareUrl = activeShareRecord
+		? buildWrappedShareUrl(activeShareRecord.id)
+		: undefined;
+
+	async function ensureShare() {
+		if (activeShareRecord) {
+			return activeShareRecord;
+		}
+
+		const pendingShareRequest = shareRequestByKeyRef.current.get(snapshotKey);
+		if (pendingShareRequest) {
+			return pendingShareRequest;
+		}
+
+		setPendingShareKey(snapshotKey);
+		setShareError(null);
+
+		const shareRequest = client.wrappedShare
+			.create({ snapshot })
+			.then((createdShare) => {
+				setShareRecordsByKey((currentRecords) => ({
+					...currentRecords,
+					[snapshotKey]: createdShare,
+				}));
+				return createdShare;
+			})
+			.catch((error) => {
+				const message =
+					error instanceof Error
+						? error.message
+						: "Could not create a share link.";
+				setShareError(message);
+				throw error;
+			})
+			.finally(() => {
+				shareRequestByKeyRef.current.delete(snapshotKey);
+				setPendingShareKey((currentPendingShareKey) =>
+					currentPendingShareKey === snapshotKey
+						? null
+						: currentPendingShareKey,
+				);
+			});
+
+		shareRequestByKeyRef.current.set(snapshotKey, shareRequest);
+		return shareRequest;
+	}
+
+	return {
+		ensureShare,
+		isCreatingShare: pendingShareKey === snapshotKey,
+		shareError,
+		shareUrl,
+		shareUrlLabel: formatShareUrlLabel(
+			shareUrl,
+			pendingShareKey === snapshotKey,
+		),
+	};
+}
+
+function buildWrappedShareUrl(shareId: string) {
+	if (typeof window === "undefined") {
+		return undefined;
+	}
+
+	return new URL(
+		appRoutes.wrappedShare(shareId),
+		window.location.origin,
+	).toString();
+}
+
+function formatShareUrlLabel(
+	shareUrl: string | undefined,
+	isCreatingShare: boolean,
+) {
+	if (isCreatingShare) {
+		return "Creating link...";
+	}
+
+	if (!shareUrl) {
+		return appRoutes.wrappedTeamCard();
+	}
+
+	return shareUrl.replace(/^https?:\/\//u, "");
+}

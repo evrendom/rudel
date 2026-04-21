@@ -17,6 +17,8 @@ export type {
 	UserSelect,
 	VerificationInsert,
 	VerificationSelect,
+	WrappedShareInsert,
+	WrappedShareSelect,
 } from "./schema.js";
 export {
 	account,
@@ -28,4 +30,5 @@ export {
 	session,
 	user,
 	verification,
+	wrappedShare,
 } from "./schema.js";
