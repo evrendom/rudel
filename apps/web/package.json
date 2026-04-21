@@ -39,7 +39,6 @@
 		"clsx": "^2.1.1",
 		"date-fns": "^4.1.0",
 		"dialkit": "^1.1.0",
-		"gsap": "3.14.2",
 		"html-to-image": "^1.11.13",
 		"lucide-react": "^0.564.0",
 		"motion": "^12.38.0",

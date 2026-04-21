@@ -60,18 +60,6 @@ const TeamCardWalkInPage = lazyNamed(
 	() => import("@/features/walk-in/TeamCardWalkInPage"),
 	"TeamCardWalkInPage",
 );
-const FifaWrappedPage = lazyNamed(
-	() => import("@/features/wrapped/FifaWrappedPage"),
-	"FifaWrappedPage",
-);
-const WrappedFamilyPage = lazyNamed(
-	() => import("@/features/wrapped-family/WrappedFamilyPage"),
-	"WrappedFamilyPage",
-);
-const WrappedFamilyMoneyRainPage = lazyNamed(
-	() => import("@/features/wrapped-family/WrappedFamilyMoneyRainPage"),
-	"WrappedFamilyMoneyRainPage",
-);
 const LEGACY_DASHBOARDY_PATH = "/dashboardy";
 
 function DashboardRouteLoadingScreen() {
@@ -152,33 +140,6 @@ export function AppRouter({
 				element={
 					<LazyRoute
 						Component={TeamCardWalkInPage}
-						fallback={<FullscreenRouteLoadingScreen />}
-					/>
-				}
-			/>
-			<Route
-				path={appRoutes.wrapped()}
-				element={
-					<LazyRoute
-						Component={FifaWrappedPage}
-						fallback={<FullscreenRouteLoadingScreen />}
-					/>
-				}
-			/>
-			<Route
-				path={appRoutes.wrappedFamily()}
-				element={
-					<LazyRoute
-						Component={WrappedFamilyPage}
-						fallback={<FullscreenRouteLoadingScreen />}
-					/>
-				}
-			/>
-			<Route
-				path={appRoutes.wrappedFamilyMoneyRain()}
-				element={
-					<LazyRoute
-						Component={WrappedFamilyMoneyRainPage}
 						fallback={<FullscreenRouteLoadingScreen />}
 					/>
 				}

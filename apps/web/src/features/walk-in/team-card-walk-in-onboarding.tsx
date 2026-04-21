@@ -1,4 +1,4 @@
-import type { MonthlyModelUsage } from "@rudel/api-routes";
+import type { MonthlyModelUsage, WrappedSourceSplit } from "@rudel/api-routes";
 import {
 	BadgeCheck,
 	ChevronLeft,
@@ -15,156 +15,59 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { appRoutes } from "@/app/routes";
 import { buttonVariants } from "@/app/ui/button";
+import { useMountEffect } from "@/hooks/useMountEffect";
 import { cn } from "@/lib/utils";
+import {
+	STEP_QUERY_PARAM,
+	UPLOAD_STEP,
+	WALK_IN_STEPS,
+	WALK_IN_STEP_PREVIEW_OPTIONS,
+	type PreviewableWalkInStepId,
+	type WalkInStep,
+	type WalkInStepId,
+} from "./walk-in-onboarding-config";
+import {
+	buildIntroCommitGraph,
+	buildIntroContent,
+	getSelectedPreviewState,
+	getStepDisplayNumber,
+	getStepPreviewStateParam,
+	getVisibleProgressSteps,
+	resolveActiveStepIndex,
+	resolveIntroPreviewInput,
+	resolveIntroStageModel,
+	resolveUploadStageModel,
+	type UploadStageRollItem,
+	type WalkInStepContentLine,
+} from "./walk-in-onboarding-helpers";
 
-const STEP_QUERY_PARAM = "step";
-const STEP_PREVIEW_QUERY_PARAM_PREFIX = "preview-";
 const COMPACT_NUMBER_FORMATTER = new Intl.NumberFormat("en", {
 	maximumFractionDigits: 1,
 	notation: "compact",
 });
 
-const UPLOAD_STEP = {
-	id: "upload",
-	label: "Upload",
-	kind: "placeholder",
-} as const;
-
-const WALK_IN_STEPS = [
-	{ id: "intro", label: "Intro", kind: "placeholder" },
-	{ id: "skills", label: "Skills", kind: "placeholder" },
-	{ id: "tools", label: "Tools", kind: "placeholder" },
-	{ id: "model", label: "Model", kind: "placeholder" },
-	{ id: "scale", label: "Scale", kind: "placeholder" },
-	{ id: "lock-in", label: "Lock-in", kind: "placeholder" },
-	{ id: "project", label: "Project", kind: "placeholder" },
-	{ id: "quality", label: "Quality", kind: "placeholder" },
-	{ id: "pulse", label: "Repo pulse", kind: "placeholder" },
-	{ id: "card", label: "Final card", kind: "final" },
-] as const;
-
-type WalkInPrimaryStep = (typeof WALK_IN_STEPS)[number];
-type WalkInStep = typeof UPLOAD_STEP | WalkInPrimaryStep;
-type WalkInStepId = WalkInStep["id"];
-
-export const WALK_IN_BEAT_CONTRACTS: Record<WalkInStepId, WalkInBeatContract> =
-	{
-		upload: {
-			metricBasis:
-				"Temporary pre-recap beat. Final live version should read from upload job status and uploaded export summary.",
-			timeWindow: "Current upload attempt.",
-			referenceClass: "Current user's uploaded session exports.",
-			eligibility: "Always shown before the intro beat.",
-		},
-		intro: {
-			metricBasis: "Count of session_analytics rows for this user.",
-			timeWindow: "All time since first session.",
-			referenceClass: "User's own history.",
-			eligibility: "Always shown. Copy softens when total_sessions < 10.",
-		},
-		skills: {
-			metricBasis: "Top 3 skills by usage count plus skills_adoption_rate.",
-			timeWindow: "Developer analytics window (last 90 days).",
-			referenceClass: "User's own history.",
-			eligibility: "At least one ranked skill or adoption rate recorded.",
-		},
-		tools: {
-			metricBasis: "Top slash command and top subagent by usage.",
-			timeWindow: "Developer analytics window (last 90 days).",
-			referenceClass: "User's own history.",
-			eligibility: "At least one slash command or subagent recorded.",
-		},
-		model: {
-			metricBasis:
-				"Favorite model by session count. When eligible, monthly top model from model_by_month.",
-			timeWindow: "All time since first session.",
-			referenceClass: "User's own history.",
-			eligibility:
-				"Single-model copy when a favorite model exists. Evolution copy when >= 3 distinct months and >= 2 distinct top models across months.",
-		},
-		scale: {
-			metricBasis: "Sum of input_tokens + output_tokens across sessions.",
-			timeWindow: "All time since first session.",
-			referenceClass:
-				"Reading-length anchors (essay, novella, novel, War and Peace).",
-			eligibility: "total_tokens > 0.",
-		},
-		"lock-in": {
-			metricBasis:
-				"Longest session duration (min) compared to avg session duration.",
-			timeWindow:
-				"Longest session across all time. Average over developer analytics window.",
-			referenceClass: "User's own session distribution.",
-			eligibility: "longest_session_min >= 30.",
-		},
-		project: {
-			metricBasis:
-				"Top project by total_tokens, with sessions as tie-break. Falls back to distinct_projects.",
-			timeWindow: "Developer analytics window.",
-			referenceClass: "User's own projects.",
-			eligibility: "At least one project recorded or distinct_projects > 0.",
-		},
-		quality: {
-			metricBasis: "Commit rate and success_rate.",
-			timeWindow: "Developer analytics window.",
-			referenceClass: "User's own history.",
-			eligibility: "At least one of commit_rate or success_rate is available.",
-		},
-		pulse: {
-			metricBasis:
-				"Three repo roles: highest-session repo, highest-duration repo, and highest-token repo, deduped when possible.",
-			timeWindow: "Developer analytics window.",
-			referenceClass: "User's own repositories.",
-			eligibility: "At least one project recorded before the final card reveal.",
-		},
-		card: {
-			metricBasis:
-				"User-picked archetype theme. Classifier lands later; no automatic assignment yet.",
-			timeWindow: "Snapshot of the current card stats at view time.",
-			referenceClass: "User browses the full archetype set.",
-			eligibility: "Always shown.",
-		},
-	};
-
-type WalkInStepContentTone = "default" | "danger";
-
-interface WalkInStepContentLine {
-	text: string;
-	tone?: WalkInStepContentTone;
-}
-
-interface WalkInVisibleProgressStep {
-	step: WalkInStep;
-	stepIndex: number;
-}
-
-type PreviewableWalkInStepId = Exclude<WalkInStepId, "card">;
-
-interface WalkInPreviewOption {
-	label: string;
-	value: string;
-}
-
-interface IntroStageModel {
-	cardDetail: string;
-	cardMeta: string;
-	cardValue: string;
-	footnote: string;
-	headline: string;
-}
-
-export interface WalkInRepoPulseItem {
+export interface WalkInRepoPulseEntry {
 	id: string;
+	meta: string;
 	proof: string;
 	repoName: string;
-	role: string;
+	workType: string;
+}
+
+export interface WalkInRepoPulseMetrics {
+	entries: readonly WalkInRepoPulseEntry[];
+	leadRepoName: string | null;
+	totalRepos: number;
+	totalSessions: number;
 }
 
 interface RepoPulseStageModel {
-	entries: readonly WalkInRepoPulseItem[];
+	entries: readonly WalkInRepoPulseEntry[];
 	footnote: string;
 	headline: string;
 	subline: string;
+	totalReposLabel: string;
+	totalSessionsLabel: string;
 }
 
 interface ToolsStageEntry {
@@ -182,26 +85,36 @@ interface ToolsStageModel {
 	subline: string;
 }
 
-interface UploadStageModel {
-	body: string;
-	cardBody: string;
-	cardEyebrow: string;
-	cardMeta: string | null;
-	headline: string;
-	isUploading: boolean;
-	rollItems: readonly UploadStageRollItem[];
-	secondaryActionLabel: string | null;
-}
-
-interface UploadStageRollItem {
-	id: string;
-	label: string;
-	meta: string;
-}
-
 export interface WalkInSkillUsageItem {
 	count: number;
 	name: string;
+}
+
+interface WalkInModelShareSegment {
+	id: string;
+	label: string;
+	sessionCount: number;
+	share: number;
+	source: WrappedSourceSplit["source"];
+}
+
+interface WalkInModelShareMonth {
+	id: string;
+	label: string;
+	leaderLabel: string;
+	leaderShare: number;
+	segments: readonly WalkInModelShareSegment[];
+	totalSessions: number;
+}
+
+interface ModelStageModel {
+	footnote: string;
+	headline: string;
+	months: readonly WalkInModelShareMonth[];
+	monthsLabel: string;
+	subline: string;
+	summary: readonly WalkInModelShareSegment[];
+	totalSessionsLabel: string;
 }
 
 interface WalkInSecondaryActionProps {
@@ -235,11 +148,72 @@ type WalkInPrimaryActionProps =
 			to: string;
 	  };
 
-type IntroCommitDotLevel = 0 | 1 | 2 | 3 | 4;
-
-interface IntroCommitDot {
+interface ScaleRainBall {
+	delayMs: number;
+	driftPx: number;
+	durationMs: number;
+	endRotationDeg: number;
+	hue: number;
 	id: string;
-	level: IntroCommitDotLevel;
+	leftPercent: number;
+	sizePx: number;
+	startRotationDeg: number;
+	startYOffsetPx: number;
+	staticTopSvh: number;
+	zIndex: number;
+}
+
+interface ScaleStageModel {
+	displayBallCount: number;
+	footnote: string;
+	headline: string;
+	showsMinimumFloor: boolean;
+	subline: string;
+	totalTokens: number;
+}
+
+type LockInStageState =
+	| "missing"
+	| "settled"
+	| "stretched"
+	| "got-away"
+	| "didnt-end";
+
+interface LockInStageModel {
+	averageDurationLabel: string;
+	averageShare: number;
+	comparisonLabel: string;
+	footnote: string;
+	headline: string;
+	longestDurationLabel: string;
+	longestShare: number;
+	state: LockInStageState;
+	stateLabel: string;
+	subline: string;
+}
+
+type QualityStageState =
+	| "missing"
+	| "strong"
+	| "delivery-led"
+	| "commit-led"
+	| "iterating"
+	| "success-only"
+	| "commit-only";
+
+interface QualityStageModel {
+	comparisonLabel: string;
+	commitRateLabel: string;
+	commitShare: number;
+	footnote: string;
+	hasCommitRate: boolean;
+	hasSuccessRate: boolean;
+	headline: string;
+	state: QualityStageState;
+	stateLabel: string;
+	subline: string;
+	successRateLabel: string;
+	successShare: number;
 }
 
 /* ─────────────────────────────────────────────────────────
@@ -290,91 +264,8 @@ const INTRO_EXIT = {
 	ease: [0.22, 1, 0.36, 1] as const,
 };
 
-const INTRO_COMMIT_GRAPH = {
-	columns: 53,
-	rows: 19,
-	totalDots: 365,
-};
-
-const WALK_IN_STEP_PREVIEW_OPTIONS = {
-	upload: [
-		{ value: "auto", label: "Auto (placeholder)" },
-		{ value: "uploading", label: "Uploading now" },
-		{ value: "ready-single", label: "Ready, one export" },
-		{ value: "ready-multi", label: "Ready, multiple exports" },
-	],
-	intro: [
-		{ value: "auto", label: "Auto (live data)" },
-		{ value: "sparse", label: "Sparse run" },
-		{ value: "full", label: "Full run" },
-	],
-	skills: [
-		{ value: "auto", label: "Auto (live data)" },
-		{ value: "dominant", label: "Clear podium" },
-		{ value: "dominant-no-rate", label: "Podium, no adoption rate" },
-		{ value: "usage-no-winner", label: "Tight race" },
-		{ value: "single-skill", label: "One visible skill" },
-		{ value: "no-signal", label: "No skill signal" },
-	],
-	tools: [
-		{ value: "auto", label: "Auto (live data)" },
-		{ value: "both", label: "Slash + subagent" },
-		{ value: "slash-only", label: "Slash only" },
-		{ value: "subagent-only", label: "Subagent only" },
-		{ value: "base-model", label: "No extension usage" },
-	],
-	model: [
-		{ value: "auto", label: "Auto (live data)" },
-		{ value: "favorite", label: "Clear favorite" },
-		{ value: "played-field", label: "No favorite" },
-		{ value: "single-switch", label: "One monthly switch" },
-		{ value: "exploring", label: "Constant exploration" },
-		{ value: "settled", label: "Explored, then settled" },
-		{ value: "rotation", label: "Mostly one, some rotation" },
-	],
-	scale: [
-		{ value: "auto", label: "Auto (live data)" },
-		{ value: "missing", label: "No token signal" },
-		{ value: "essay", label: "Essay scale" },
-		{ value: "novella", label: "Novella scale" },
-		{ value: "novels", label: "Novel scale" },
-		{ value: "war-and-peace", label: "War and Peace scale" },
-	],
-	"lock-in": [
-		{ value: "auto", label: "Auto (live data)" },
-		{ value: "none", label: "No runaway session" },
-		{ value: "stretched", label: "Stretched session" },
-		{ value: "got-away", label: "Session got away" },
-		{ value: "didnt-end", label: "Session never ended" },
-	],
-	project: [
-		{ value: "auto", label: "Auto (live data)" },
-		{ value: "top-project", label: "One clear repo" },
-		{ value: "spread-repos", label: "Spread across repos" },
-		{ value: "spread-work", label: "Spread, no repo count" },
-	],
-	quality: [
-		{ value: "auto", label: "Auto (live data)" },
-		{ value: "strong", label: "Strong finish" },
-		{ value: "lands-commits-lag", label: "High success, lower commits" },
-		{ value: "ship-through-mess", label: "High commits, lower success" },
-		{ value: "iterate", label: "Mostly iteration" },
-		{ value: "lands-only", label: "Success only" },
-		{ value: "iterating-only", label: "Low success only" },
-		{ value: "commit-only-high", label: "Commit rate only, high" },
-		{ value: "commit-only-low", label: "Commit rate only, low" },
-		{ value: "no-signal", label: "No finish signal" },
-	],
-	pulse: [
-		{ value: "auto", label: "Auto (live data)" },
-		{ value: "single-home", label: "One home repo" },
-		{ value: "split-across", label: "Split across repos" },
-		{ value: "quiet", label: "Low repo signal" },
-	],
-} as const satisfies Record<
-	PreviewableWalkInStepId,
-	readonly WalkInPreviewOption[]
->;
+const SCALE_STAGE_TOKENS_PER_BALL = 2_000_000;
+const SCALE_STAGE_MIN_BALL_COUNT = 50;
 
 export interface WalkInOnboardingMetrics {
 	activeDays: number;
@@ -384,11 +275,12 @@ export interface WalkInOnboardingMetrics {
 	favoriteModel: string | null;
 	longestSessionMin: number | null;
 	modelByMonth: readonly MonthlyModelUsage[];
+	sourceSplit: readonly WrappedSourceSplit[];
 	skillsAdoptionRate: number | null;
 	slashCommandsAdoptionRate: number | null;
 	subagentsAdoptionRate: number | null;
 	successRate: number | null;
-	repoPulse: readonly WalkInRepoPulseItem[];
+	repoPulse: WalkInRepoPulseMetrics;
 	topProjectName: string | null;
 	topProjectSessions: number;
 	topProjectTokens: number;
@@ -403,15 +295,7 @@ export interface WalkInOnboardingMetrics {
 	totalTokens: number;
 }
 
-export interface WalkInBeatContract {
-	metricBasis: string;
-	timeWindow: string;
-	referenceClass: string;
-	eligibility: string;
-}
-
 export interface TeamCardWalkInOnboardingProps {
-	distinctProjectCount: number;
 	displayName: string;
 	finalFooter?: ReactNode;
 	finalStage: ReactNode;
@@ -419,9 +303,13 @@ export interface TeamCardWalkInOnboardingProps {
 	totalSessions: number;
 }
 
+export {
+	WALK_IN_BEAT_CONTRACTS,
+	type WalkInBeatContract,
+} from "./walk-in-onboarding-config";
+
 export function TeamCardWalkInOnboarding(props: TeamCardWalkInOnboardingProps) {
 	const {
-		distinctProjectCount,
 		displayName,
 		finalFooter,
 		finalStage,
@@ -461,15 +349,19 @@ export function TeamCardWalkInOnboarding(props: TeamCardWalkInOnboardingProps) {
 		activeStep.id === "upload"
 			? resolveUploadStageModel(activePreviewState)
 			: null;
+	const isScaleStep = activeStep.id === "scale";
+	const scaleRainTotalTokens = isScaleStep
+		? resolveScalePreviewTokens(onboardingMetrics.totalTokens, activePreviewState)
+		: 0;
 	const isStepTransitioning = pendingStepIndex !== null;
 
-	useEffect(() => {
+	useMountEffect(() => {
 		return () => {
 			if (exitTimerRef.current !== null) {
 				window.clearTimeout(exitTimerRef.current);
 			}
 		};
-	}, []);
+	});
 
 	function goToStep(nextStepIndex: number) {
 		const boundedStepIndex = Math.max(
@@ -540,8 +432,19 @@ export function TeamCardWalkInOnboarding(props: TeamCardWalkInOnboardingProps) {
 	}
 
 	return (
-		<main className="mymind-walk-in-route">
-			<div className="mymind-walk-in-shell mx-auto flex w-full max-w-[68rem] flex-1 flex-col text-foreground">
+		<main
+			className={cn(
+				"mymind-walk-in-route",
+				isScaleStep ? "mymind-walk-in-route--scale-rain" : undefined,
+			)}
+		>
+			{isScaleStep ? (
+				<ScaleRainBackdrop
+					reduceMotion={reduceMotion}
+					totalTokens={scaleRainTotalTokens}
+				/>
+			) : null}
+			<div className="mymind-walk-in-shell relative z-[1] mx-auto flex w-full max-w-[68rem] flex-1 flex-col text-foreground">
 				<header className="space-y-3">
 					<div className="mymind-walk-in-header-row">
 						{activeStepIndex > 0 ? (
@@ -635,7 +538,6 @@ export function TeamCardWalkInOnboarding(props: TeamCardWalkInOnboardingProps) {
 						) : (
 							<div className="flex w-full flex-1 flex-col">
 								<PlaceholderStage
-									distinctProjectCount={distinctProjectCount}
 									displayName={displayName}
 									isExiting={activeStep.id === exitingStepId}
 									onboardingMetrics={onboardingMetrics}
@@ -680,7 +582,6 @@ export function TeamCardWalkInOnboarding(props: TeamCardWalkInOnboardingProps) {
 }
 
 function PlaceholderStage(props: {
-	distinctProjectCount: number;
 	displayName: string;
 	isExiting: boolean;
 	onboardingMetrics: WalkInOnboardingMetrics;
@@ -689,7 +590,6 @@ function PlaceholderStage(props: {
 	totalSessions: number;
 }) {
 	const {
-		distinctProjectCount,
 		displayName,
 		isExiting,
 		onboardingMetrics,
@@ -718,6 +618,7 @@ function PlaceholderStage(props: {
 	if (step.id === "skills") {
 		return (
 			<SkillsStage
+				key={`skills:${previewState}:${onboardingMetrics.topSkills.length}:${onboardingMetrics.skillsAdoptionRate ?? -1}`}
 				onboardingMetrics={onboardingMetrics}
 				previewState={previewState}
 			/>
@@ -727,6 +628,16 @@ function PlaceholderStage(props: {
 	if (step.id === "tools") {
 		return (
 			<ToolsStage
+				key={`tools:${previewState}:${onboardingMetrics.topSlashCommands.length}:${onboardingMetrics.topSubagents.length}:${onboardingMetrics.topSlashCommandCount ?? -1}:${onboardingMetrics.topSubagentCount ?? -1}:${onboardingMetrics.totalSessions}`}
+				onboardingMetrics={onboardingMetrics}
+				previewState={previewState}
+			/>
+		);
+	}
+
+	if (step.id === "model") {
+		return (
+			<ModelStage
 				onboardingMetrics={onboardingMetrics}
 				previewState={previewState}
 			/>
@@ -742,8 +653,34 @@ function PlaceholderStage(props: {
 		);
 	}
 
+	if (step.id === "scale") {
+		return (
+			<ScaleStage
+				onboardingMetrics={onboardingMetrics}
+				previewState={previewState}
+			/>
+		);
+	}
+
+	if (step.id === "lock-in") {
+		return (
+			<LockInStage
+				onboardingMetrics={onboardingMetrics}
+				previewState={previewState}
+			/>
+		);
+	}
+
+	if (step.id === "quality") {
+		return (
+			<QualityStage
+				onboardingMetrics={onboardingMetrics}
+				previewState={previewState}
+			/>
+		);
+	}
+
 	const content = buildStepContent({
-		distinctProjectCount,
 		displayName,
 		onboardingMetrics,
 		previewState,
@@ -772,6 +709,347 @@ function PlaceholderStage(props: {
 	);
 }
 
+function ScaleStage(props: {
+	onboardingMetrics: WalkInOnboardingMetrics;
+	previewState: string;
+}) {
+	const { onboardingMetrics, previewState } = props;
+	const totalTokens = resolveScalePreviewTokens(
+		onboardingMetrics.totalTokens,
+		previewState,
+	);
+	const model = resolveScaleStageModel(totalTokens);
+
+	return (
+		<section className="mymind-walk-in-scale-stage">
+			<div className="mymind-walk-in-scale-stage__hero">
+				<p className="mymind-walk-in-scale-stage__eyebrow">Token scale</p>
+				<h2 className="mymind-walk-in-scale-stage__headline">
+					{model.headline}
+				</h2>
+				<p className="mymind-walk-in-scale-stage__subline">{model.subline}</p>
+			</div>
+
+			<div className="mymind-walk-in-scale-stage__object">
+				<article className="mymind-walk-in-scale-stage__card">
+					<div className="mymind-walk-in-scale-stage__stats">
+						<div className="mymind-walk-in-scale-stage__stat">
+							<p className="mymind-walk-in-scale-stage__stat-label">
+								Tokens logged
+							</p>
+							<p className="mymind-walk-in-scale-stage__stat-value">
+								{formatCompactNumber(model.totalTokens)}
+							</p>
+						</div>
+						<div className="mymind-walk-in-scale-stage__stat">
+							<p className="mymind-walk-in-scale-stage__stat-label">
+								Balls dropping
+							</p>
+							<p className="mymind-walk-in-scale-stage__stat-value">
+								{model.displayBallCount.toLocaleString()}
+							</p>
+						</div>
+					</div>
+
+					<div className="mymind-walk-in-scale-stage__chips">
+						<span className="mymind-walk-in-scale-stage__chip">
+							{`1 ball = ${formatCompactNumber(SCALE_STAGE_TOKENS_PER_BALL)} tokens`}
+						</span>
+						{model.showsMinimumFloor ? (
+							<span className="mymind-walk-in-scale-stage__chip is-highlight">
+								{`${SCALE_STAGE_MIN_BALL_COUNT}-ball floor active`}
+							</span>
+						) : null}
+					</div>
+				</article>
+			</div>
+
+			<p className="mymind-walk-in-scale-stage__footnote">{model.footnote}</p>
+		</section>
+	);
+}
+
+function ScaleRainBackdrop(props: {
+	reduceMotion: boolean;
+	totalTokens: number;
+}) {
+	const { reduceMotion, totalTokens } = props;
+	const balls = buildScaleRainBalls(totalTokens);
+
+	return (
+		<div
+			className={cn(
+				"mymind-walk-in-scale-rain",
+				reduceMotion ? "is-reduced-motion" : undefined,
+			)}
+			aria-hidden="true"
+			>
+				<div className="mymind-walk-in-scale-rain__ambient">
+					<div className="mymind-walk-in-scale-rain__glow is-peach" />
+					<div className="mymind-walk-in-scale-rain__glow is-blue" />
+				</div>
+				{balls.map((ball) => (
+					<span
+						key={ball.id}
+						className="mymind-walk-in-scale-rain__ball"
+						style={getScaleRainBallStyle(ball)}
+					>
+						<span
+							className="mymind-walk-in-scale-rain__ball-core"
+							style={getScaleRainBallCoreStyle(ball)}
+						/>
+					</span>
+				))}
+			</div>
+		);
+}
+
+function LockInStage(props: {
+	onboardingMetrics: WalkInOnboardingMetrics;
+	previewState: string;
+}) {
+	const { onboardingMetrics, previewState } = props;
+	const model = resolveLockInStageModel(
+		resolveLockInPreviewInput(
+			{
+				avgSessionMin: onboardingMetrics.avgSessionMin,
+				longestSessionMin: onboardingMetrics.longestSessionMin,
+			},
+			previewState,
+		),
+	);
+
+	return (
+		<section className="mymind-walk-in-lock-in-stage">
+			<div className="mymind-walk-in-lock-in-stage__hero">
+				<p className="mymind-walk-in-lock-in-stage__eyebrow">Session length</p>
+				<h2 className="mymind-walk-in-lock-in-stage__headline">
+					{model.headline}
+				</h2>
+				<p className="mymind-walk-in-lock-in-stage__subline">{model.subline}</p>
+			</div>
+
+			<div className="mymind-walk-in-lock-in-stage__object">
+				<article
+					className={cn(
+						"mymind-walk-in-lock-in-stage__card",
+						`is-${model.state}`,
+					)}
+				>
+					<div className="mymind-walk-in-lock-in-stage__stats">
+						<div className="mymind-walk-in-lock-in-stage__stat">
+							<p className="mymind-walk-in-lock-in-stage__stat-label">
+								Longest recorded
+							</p>
+							<p className="mymind-walk-in-lock-in-stage__stat-value">
+								{model.longestDurationLabel}
+							</p>
+						</div>
+						<div className="mymind-walk-in-lock-in-stage__stat">
+							<p className="mymind-walk-in-lock-in-stage__stat-label">
+								Usual session
+							</p>
+							<p className="mymind-walk-in-lock-in-stage__stat-value">
+								{model.averageDurationLabel}
+							</p>
+						</div>
+					</div>
+
+					<div className="mymind-walk-in-lock-in-stage__chips">
+						<span className="mymind-walk-in-lock-in-stage__chip is-state">
+							{model.stateLabel}
+						</span>
+						<span className="mymind-walk-in-lock-in-stage__chip">
+							{model.comparisonLabel}
+						</span>
+					</div>
+
+					<div className="mymind-walk-in-lock-in-stage__compare">
+						<div className="mymind-walk-in-lock-in-stage__row">
+							<div className="mymind-walk-in-lock-in-stage__row-head">
+								<p className="mymind-walk-in-lock-in-stage__row-label">
+									Usual session
+								</p>
+								<p className="mymind-walk-in-lock-in-stage__row-value">
+									{model.averageDurationLabel}
+								</p>
+							</div>
+							<div
+								className="mymind-walk-in-lock-in-stage__track"
+								aria-hidden="true"
+							>
+								<span
+									className="mymind-walk-in-lock-in-stage__fill is-average"
+									style={
+										{
+											"--lock-in-stage-meter-value": `${model.averageShare}%`,
+										} as CSSProperties
+									}
+								/>
+							</div>
+						</div>
+
+						<div className="mymind-walk-in-lock-in-stage__row">
+							<div className="mymind-walk-in-lock-in-stage__row-head">
+								<p className="mymind-walk-in-lock-in-stage__row-label">
+									Longest recorded
+								</p>
+								<p className="mymind-walk-in-lock-in-stage__row-value">
+									{model.longestDurationLabel}
+								</p>
+							</div>
+							<div
+								className="mymind-walk-in-lock-in-stage__track"
+								aria-hidden="true"
+							>
+								<span
+									className="mymind-walk-in-lock-in-stage__fill is-longest"
+									style={
+										{
+											"--lock-in-stage-meter-value": `${model.longestShare}%`,
+										} as CSSProperties
+									}
+								/>
+							</div>
+						</div>
+					</div>
+				</article>
+			</div>
+
+			<p className="mymind-walk-in-lock-in-stage__footnote">{model.footnote}</p>
+		</section>
+	);
+}
+
+function QualityStage(props: {
+	onboardingMetrics: WalkInOnboardingMetrics;
+	previewState: string;
+}) {
+	const { onboardingMetrics, previewState } = props;
+	const model = resolveQualityStageModel(
+		resolveQualityPreviewInput(
+			{
+				commitRate: onboardingMetrics.commitRate,
+				successRate: onboardingMetrics.successRate,
+			},
+			previewState,
+		),
+	);
+
+	return (
+		<section className="mymind-walk-in-quality-stage">
+			<div className="mymind-walk-in-quality-stage__hero">
+				<p className="mymind-walk-in-quality-stage__eyebrow">Finish quality</p>
+				<h2 className="mymind-walk-in-quality-stage__headline">
+					{model.headline}
+				</h2>
+				<p className="mymind-walk-in-quality-stage__subline">{model.subline}</p>
+			</div>
+
+			<div className="mymind-walk-in-quality-stage__object">
+				<article
+					className={cn(
+						"mymind-walk-in-quality-stage__card",
+						`is-${model.state}`,
+					)}
+				>
+					<div className="mymind-walk-in-quality-stage__stats">
+						<div className="mymind-walk-in-quality-stage__stat">
+							<p className="mymind-walk-in-quality-stage__stat-label">
+								Commit rate
+							</p>
+							<p className="mymind-walk-in-quality-stage__stat-value">
+								{model.commitRateLabel}
+							</p>
+						</div>
+						<div className="mymind-walk-in-quality-stage__stat">
+							<p className="mymind-walk-in-quality-stage__stat-label">
+								Success rate
+							</p>
+							<p className="mymind-walk-in-quality-stage__stat-value">
+								{model.successRateLabel}
+							</p>
+						</div>
+					</div>
+
+					<div className="mymind-walk-in-quality-stage__chips">
+						<span className="mymind-walk-in-quality-stage__chip is-state">
+							{model.stateLabel}
+						</span>
+						<span className="mymind-walk-in-quality-stage__chip">
+							{model.comparisonLabel}
+						</span>
+					</div>
+
+					<div className="mymind-walk-in-quality-stage__compare">
+						<div
+							className={cn(
+								"mymind-walk-in-quality-stage__row",
+								!model.hasCommitRate ? "is-pending" : undefined,
+							)}
+						>
+							<div className="mymind-walk-in-quality-stage__row-head">
+								<p className="mymind-walk-in-quality-stage__row-label">
+									Sessions with commits
+								</p>
+								<p className="mymind-walk-in-quality-stage__row-value">
+									{model.commitRateLabel}
+								</p>
+							</div>
+							<div
+								className="mymind-walk-in-quality-stage__track"
+								aria-hidden="true"
+							>
+								<span
+									className="mymind-walk-in-quality-stage__fill is-commit"
+									style={
+										{
+											"--quality-stage-meter-value": `${model.commitShare}%`,
+										} as CSSProperties
+									}
+								/>
+							</div>
+						</div>
+
+						<div
+							className={cn(
+								"mymind-walk-in-quality-stage__row",
+								!model.hasSuccessRate ? "is-pending" : undefined,
+							)}
+						>
+							<div className="mymind-walk-in-quality-stage__row-head">
+								<p className="mymind-walk-in-quality-stage__row-label">
+									Successful sessions
+								</p>
+								<p className="mymind-walk-in-quality-stage__row-value">
+									{model.successRateLabel}
+								</p>
+							</div>
+							<div
+								className="mymind-walk-in-quality-stage__track"
+								aria-hidden="true"
+							>
+								<span
+									className="mymind-walk-in-quality-stage__fill is-success"
+									style={
+										{
+											"--quality-stage-meter-value": `${model.successShare}%`,
+										} as CSSProperties
+									}
+								/>
+							</div>
+						</div>
+					</div>
+				</article>
+			</div>
+
+			<p className="mymind-walk-in-quality-stage__footnote">
+				{model.footnote}
+			</p>
+		</section>
+	);
+}
+
 function ToolsStage(props: {
 	onboardingMetrics: WalkInOnboardingMetrics;
 	previewState: string;
@@ -794,10 +1072,6 @@ function ToolsStage(props: {
 			),
 	);
 	const [activeCardIndex, setActiveCardIndex] = useState(0);
-
-	useEffect(() => {
-		setActiveCardIndex(0);
-	}, [model.entries.length, previewState]);
 
 	return (
 		<section className="mymind-walk-in-tools-stage">
@@ -868,6 +1142,158 @@ function ToolsStage(props: {
 			</div>
 
 			<p className="mymind-walk-in-tools-stage__footnote">{model.footnote}</p>
+		</section>
+	);
+}
+
+function ModelStage(props: {
+	onboardingMetrics: WalkInOnboardingMetrics;
+	previewState: string;
+}) {
+	const { onboardingMetrics, previewState } = props;
+	const model = resolveModelStageModel(
+		resolveModelPreviewInput(
+			{
+				modelByMonth: onboardingMetrics.modelByMonth,
+				sourceSplit: onboardingMetrics.sourceSplit,
+			},
+			previewState,
+		),
+	);
+
+	return (
+		<section className="mymind-walk-in-model-stage">
+			<div className="mymind-walk-in-model-stage__hero">
+				<p className="mymind-walk-in-model-stage__eyebrow">Model mix</p>
+				<h2 className="mymind-walk-in-model-stage__headline">{model.headline}</h2>
+				<p className="mymind-walk-in-model-stage__subline">{model.subline}</p>
+			</div>
+
+			<div className="mymind-walk-in-model-stage__object">
+				<article className="mymind-walk-in-model-stage__card">
+					<div className="mymind-walk-in-model-stage__summary-card">
+						<div className="mymind-walk-in-model-stage__section-head">
+							<p className="mymind-walk-in-model-stage__section-label">
+								Entire period
+							</p>
+							<p className="mymind-walk-in-model-stage__section-value">
+								{model.totalSessionsLabel}
+							</p>
+						</div>
+
+						{model.summary.length === 0 ? (
+							<p className="mymind-walk-in-model-stage__empty">
+								The all-time split shows up once session history lands.
+							</p>
+						) : (
+							<>
+								<div
+									className="mymind-walk-in-model-stage__summary-track"
+									aria-hidden="true"
+								>
+									{model.summary.map((segment) => (
+										<span
+											key={segment.id}
+											className="mymind-walk-in-model-stage__summary-segment"
+											style={
+												{
+													"--model-stage-segment-color": getModelStageTone(
+														segment.source,
+													),
+													"--model-stage-segment-share": `${segment.share}%`,
+												} as CSSProperties
+											}
+											title={`${segment.label}: ${Math.round(segment.share)}%`}
+										/>
+									))}
+								</div>
+
+								<div className="mymind-walk-in-model-stage__legend">
+									{model.summary.map((segment) => (
+										<div
+											key={segment.id}
+											className="mymind-walk-in-model-stage__legend-row"
+										>
+											<span
+												className="mymind-walk-in-model-stage__legend-dot"
+												style={{
+													backgroundColor: getModelStageTone(segment.source),
+												}}
+												aria-hidden="true"
+											/>
+											<p className="mymind-walk-in-model-stage__legend-name">
+												{segment.label}
+											</p>
+											<p className="mymind-walk-in-model-stage__legend-value">
+												{Math.round(segment.share)}%
+											</p>
+										</div>
+									))}
+								</div>
+							</>
+						)}
+					</div>
+
+					<div className="mymind-walk-in-model-stage__months-card">
+						<div className="mymind-walk-in-model-stage__section-head">
+							<p className="mymind-walk-in-model-stage__section-label">
+								Last 6 months
+							</p>
+							<p className="mymind-walk-in-model-stage__section-value">
+								{model.monthsLabel}
+							</p>
+						</div>
+
+						{model.months.length === 0 ? (
+							<p className="mymind-walk-in-model-stage__empty">
+								The monthly stacks fill in once model history spans a few sessions.
+							</p>
+						) : (
+							<div className="mymind-walk-in-model-stage__month-grid">
+								{model.months.map((month) => (
+									<div
+										key={month.id}
+										className="mymind-walk-in-model-stage__month-column"
+										title={
+											month.totalSessions > 0
+												? `${month.label}: ${month.leaderLabel} led with ${month.leaderShare}%`
+												: `${month.label}: no model activity`
+										}
+									>
+										<div
+											className={cn(
+												"mymind-walk-in-model-stage__month-bar",
+												month.totalSessions === 0 ? "is-empty" : null,
+											)}
+											aria-hidden="true"
+										>
+											{month.segments.map((segment) => (
+												<span
+													key={segment.id}
+													className="mymind-walk-in-model-stage__month-segment"
+													style={
+														{
+															"--model-stage-segment-color": getModelStageTone(
+																segment.source,
+															),
+															"--model-stage-segment-share": `${segment.share}%`,
+														} as CSSProperties
+													}
+												/>
+											))}
+										</div>
+										<p className="mymind-walk-in-model-stage__month-label">
+											{month.label}
+										</p>
+									</div>
+								))}
+							</div>
+						)}
+					</div>
+				</article>
+			</div>
+
+			<p className="mymind-walk-in-model-stage__footnote">{model.footnote}</p>
 		</section>
 	);
 }
@@ -1042,14 +1468,6 @@ function SkillsStage(props: {
 		),
 	);
 	const [activeCardIndex, setActiveCardIndex] = useState(0);
-
-	useEffect(() => {
-		setActiveCardIndex(0);
-		wheelAccumulationRef.current = 0;
-		lastWheelTimestampRef.current = 0;
-		lockedUntilTimestampRef.current = 0;
-		touchStartYRef.current = null;
-	}, [previewState, model.cards.length]);
 
 	function setNextActiveCardIndex(direction: 1 | -1) {
 		setActiveCardIndex((previousIndex) =>
@@ -1244,6 +1662,15 @@ function RepoPulseStage(props: {
 						</div>
 					</div>
 
+					<div className="mymind-walk-in-repo-pulse-stage__section-head">
+						<p className="mymind-walk-in-repo-pulse-stage__section-label">
+							Top repos
+						</p>
+						<p className="mymind-walk-in-repo-pulse-stage__section-value">
+							{model.totalSessionsLabel}
+						</p>
+					</div>
+
 					<div className="mymind-walk-in-repo-pulse-stage__stack">
 						{model.entries.map((entry) => (
 							<article
@@ -1251,7 +1678,7 @@ function RepoPulseStage(props: {
 								className="mymind-walk-in-repo-pulse-stage__row"
 							>
 								<p className="mymind-walk-in-repo-pulse-stage__role">
-									{entry.role}
+									{entry.workType}
 								</p>
 								<div className="mymind-walk-in-repo-pulse-stage__row-copy">
 									<p className="mymind-walk-in-repo-pulse-stage__repo">
@@ -1260,12 +1687,16 @@ function RepoPulseStage(props: {
 									<p className="mymind-walk-in-repo-pulse-stage__proof">
 										{entry.proof}
 									</p>
+									<p className="mymind-walk-in-repo-pulse-stage__meta">
+										{entry.meta}
+									</p>
 								</div>
 							</article>
 						))}
+
 						{model.entries.length === 0 ? (
 							<article className="mymind-walk-in-repo-pulse-stage__empty">
-								No repo signal yet
+								Repo work types show up once a few project sessions land.
 							</article>
 						) : null}
 					</div>
@@ -1581,7 +2012,6 @@ function getUploadReelMotionState(relativePosition: number) {
 }
 
 function buildStepContent(input: {
-	distinctProjectCount: number;
 	displayName: string;
 	onboardingMetrics: WalkInOnboardingMetrics;
 	previewState: string;
@@ -1589,7 +2019,6 @@ function buildStepContent(input: {
 	totalSessions: number;
 }): WalkInStepContentLine[] {
 	const {
-		distinctProjectCount,
 		displayName,
 		onboardingMetrics,
 		previewState,
@@ -1610,43 +2039,26 @@ function buildStepContent(input: {
 					previewState,
 				),
 			);
-		case "model":
-			return buildModelContent(
-				resolveModelPreviewInput(
-					{
-						favoriteModel: onboardingMetrics.favoriteModel,
-						modelByMonth: onboardingMetrics.modelByMonth,
-					},
-					previewState,
-				),
-			);
+			case "model":
+				return (() => {
+					const modelStage = resolveModelStageModel(
+						resolveModelPreviewInput(
+							{
+								modelByMonth: onboardingMetrics.modelByMonth,
+								sourceSplit: onboardingMetrics.sourceSplit,
+							},
+							previewState,
+						),
+					);
+					return [
+						{ text: modelStage.headline },
+						{ text: modelStage.subline },
+					];
+				})();
 		case "scale":
 			return buildScaleContent(
 				resolveScalePreviewTokens(onboardingMetrics.totalTokens, previewState),
 			);
-		case "quality": {
-			const qualityPreview = resolveQualityPreviewInput(
-				{
-					commitRate: onboardingMetrics.commitRate,
-					successRate: onboardingMetrics.successRate,
-				},
-				previewState,
-			);
-			return [
-				{
-					text: getQualityHeadline({
-						commitRate: qualityPreview.commitRate,
-						successRate: qualityPreview.successRate,
-					}),
-				},
-				{
-					text: getQualitySubline({
-						commitRate: qualityPreview.commitRate,
-						successRate: qualityPreview.successRate,
-					}),
-				},
-			];
-		}
 		case "tools": {
 			const toolsPreview = resolveToolsPreviewInput(
 				{
@@ -1678,316 +2090,27 @@ function buildStepContent(input: {
 				},
 			];
 		}
-		case "project": {
-			const projectPreview = resolveProjectPreviewInput(
-				{
-					distinctProjectCount,
-					topProjectName: onboardingMetrics.topProjectName,
-					topProjectSessions: onboardingMetrics.topProjectSessions,
-					topProjectTokens: onboardingMetrics.topProjectTokens,
-				},
-				previewState,
-			);
-			return [
-				{ text: getProjectHeadline(projectPreview.topProjectName) },
-				{
-					text: getProjectSubline({
-						distinctProjectCount: projectPreview.distinctProjectCount,
-						topProjectName: projectPreview.topProjectName,
-						topProjectSessions: projectPreview.topProjectSessions,
-						topProjectTokens: projectPreview.topProjectTokens,
-					}),
-				},
-			];
-		}
 		case "lock-in":
-			return buildLockInContent(
-				resolveLockInPreviewInput(
-					{
-						avgSessionMin: onboardingMetrics.avgSessionMin,
-						longestSessionMin: onboardingMetrics.longestSessionMin,
-					},
-					previewState,
-				),
-			);
+			return (() => {
+				const lockInStage = resolveLockInStageModel(
+					resolveLockInPreviewInput(
+						{
+							avgSessionMin: onboardingMetrics.avgSessionMin,
+							longestSessionMin: onboardingMetrics.longestSessionMin,
+						},
+						previewState,
+					),
+				);
+				return [
+					{ text: lockInStage.headline },
+					{ text: lockInStage.subline },
+				];
+			})();
 		default:
 			return [{ text: "" }];
 	}
 }
 
-function resolveUploadStageModel(previewState: string): UploadStageModel {
-	switch (previewState) {
-		case "ready-single":
-			return {
-				body: "One export is in. Add another, or start the story.",
-				cardBody: "1 export added",
-				cardEyebrow: "Upload complete",
-				cardMeta: "128 sessions from Cursor",
-				headline: "Your upload is ready.",
-				isUploading: false,
-				rollItems: [
-					{
-						id: "cursor-export-1",
-						label: "Cursor export",
-						meta: "128 sessions",
-					},
-				],
-				secondaryActionLabel: "Upload more",
-			};
-		case "ready-multi":
-			return {
-				body: "This pass is done. Add more, or keep going.",
-				cardBody: "3 exports added",
-				cardEyebrow: "Uploads complete",
-				cardMeta: "412 sessions across 2 tools",
-				headline: "Your uploads are ready.",
-				isUploading: false,
-				rollItems: [
-					{
-						id: "cursor-export-1",
-						label: "Cursor export",
-						meta: "128 sessions",
-					},
-					{
-						id: "cursor-export-2",
-						label: "Cursor export",
-						meta: "96 sessions",
-					},
-					{
-						id: "claude-export-1",
-						label: "Claude Code export",
-						meta: "188 sessions",
-					},
-				],
-				secondaryActionLabel: "Upload more",
-			};
-		default:
-			return {
-				body: "We'll start as soon as this upload pass finishes.",
-				cardBody: "2 of 3 exports processed",
-				cardEyebrow: "2 exports landed",
-				cardMeta: "284 sessions landed so far",
-				headline: "Bringing your sessions in.",
-				isUploading: true,
-				rollItems: [
-					{
-						id: "cursor-export-1",
-						label: "Cursor export",
-						meta: "128 sessions added",
-					},
-					{
-						id: "claude-export-1",
-						label: "Claude Code export",
-						meta: "156 sessions added",
-					},
-					{
-						id: "windsurf-export-1",
-						label: "Windsurf export",
-						meta: "Still processing",
-					},
-				],
-				secondaryActionLabel: null,
-			};
-	}
-}
-
-function buildIntroContent(input: {
-	activeDays: number;
-	daysSinceFirst: number;
-	displayName: string;
-	totalSessions: number;
-}): WalkInStepContentLine[] {
-	const { activeDays, daysSinceFirst, displayName, totalSessions } = input;
-	const resolvedActiveDays = Math.max(activeDays, totalSessions > 0 ? 1 : 0);
-	const resolvedDaysSinceFirst = Math.max(daysSinceFirst, resolvedActiveDays);
-	const greetingName = getGreetingName(displayName);
-
-	if (totalSessions <= 0) {
-		return [
-			{ text: `No sessions yet.` },
-			{ text: `Start the run and the story will show up here.` },
-		];
-	}
-
-	if (totalSessions < 10) {
-		return [
-			{
-				text: `Hey ${greetingName}, we got the outline.`,
-			},
-			{
-				text: `${totalSessions.toLocaleString()} sessions in, and it's starting to show.`,
-			},
-			{
-				text: `${resolvedActiveDays.toLocaleString()} active days across your first ${resolvedDaysSinceFirst.toLocaleString()} days.`,
-			},
-		];
-	}
-
-	return [
-		{
-			text: `Hey ${greetingName}, we got the shape of it.`,
-		},
-		{
-			text: `${totalSessions.toLocaleString()} sessions later, a real pattern showed up.`,
-		},
-		{
-			text: `${resolvedActiveDays.toLocaleString()} active days across ${resolvedDaysSinceFirst.toLocaleString()} days.`,
-		},
-	];
-}
-
-function resolveIntroStageModel(input: {
-	activeDays: number;
-	daysSinceFirst: number;
-	displayName: string;
-	totalSessions: number;
-}): IntroStageModel {
-	const { activeDays, daysSinceFirst, displayName, totalSessions } = input;
-	const resolvedActiveDays = Math.max(activeDays, totalSessions > 0 ? 1 : 0);
-	const resolvedDaysSinceFirst = Math.max(daysSinceFirst, resolvedActiveDays);
-	const greetingName = getGreetingName(displayName);
-
-	if (totalSessions <= 0) {
-		return {
-			cardDetail: "across 0 days",
-			cardMeta: "0 day run",
-			cardValue: "0 active days",
-			footnote: "As soon as sessions land, this step turns into your opening beat.",
-			headline: "No sessions yet.",
-		};
-	}
-
-	if (totalSessions < 10) {
-		return {
-			cardDetail: `across ${resolvedDaysSinceFirst.toLocaleString()} days`,
-			cardMeta: `${totalSessions.toLocaleString()} sessions`,
-			cardValue: `${resolvedActiveDays.toLocaleString()} active days`,
-			footnote: "A light run, but enough signal to keep going.",
-			headline: `Hey ${greetingName}, we got the outline.`,
-		};
-	}
-
-	return {
-		cardDetail: `across ${resolvedDaysSinceFirst.toLocaleString()} days`,
-		cardMeta: `${totalSessions.toLocaleString()} sessions`,
-		cardValue: `${resolvedActiveDays.toLocaleString()} active days`,
-		footnote: "Enough signal to start the story with something real.",
-		headline: `Hey ${greetingName}, we got the shape of it.`,
-	};
-}
-
-function buildIntroCommitGraph(input: {
-	activeDays: number;
-	daysSinceFirst: number;
-	displayName: string;
-	totalSessions: number;
-}): IntroCommitDot[] {
-	const TOTAL_DOTS = INTRO_COMMIT_GRAPH.totalDots;
-	const resolvedVisibleDays = Math.max(
-		0,
-		Math.min(TOTAL_DOTS, Math.max(input.daysSinceFirst, input.totalSessions > 0 ? 1 : 0)),
-	);
-	const resolvedActiveDays = Math.max(
-		0,
-		Math.min(resolvedVisibleDays, input.activeDays),
-	);
-	const startOffset = TOTAL_DOTS - resolvedVisibleDays;
-	const activeDotIndices = new Set<number>();
-	const intensityByIndex = new Map<number, IntroCommitDotLevel>();
-
-	if (resolvedVisibleDays > 0 && resolvedActiveDays > 0) {
-		const random = createSeededRandom(
-			input.totalSessions * 31 +
-				input.activeDays * 17 +
-				input.daysSinceFirst * 13 +
-				input.displayName.length * 7,
-		);
-		const rankedDays = Array.from({ length: resolvedVisibleDays }, (_, dayIndex) => {
-			const recency =
-				resolvedVisibleDays <= 1 ? 1 : dayIndex / (resolvedVisibleDays - 1);
-			const noise = random();
-			const streak = (Math.sin((dayIndex + 1) * 0.72 + noise * 2.4) + 1) / 2;
-			return {
-				dayIndex,
-				score: recency * 0.48 + noise * 0.32 + streak * 0.2,
-			};
-		})
-			.sort((left, right) => right.score - left.score)
-			.slice(0, resolvedActiveDays)
-			.sort((left, right) => left.dayIndex - right.dayIndex);
-
-		for (const entry of rankedDays) {
-			const graphIndex = startOffset + entry.dayIndex;
-			activeDotIndices.add(graphIndex);
-			const intensityNoise = (Math.sin((entry.dayIndex + 1) * 1.13) + 1) / 2;
-			const recency =
-				resolvedVisibleDays <= 1
-					? 1
-					: entry.dayIndex / (resolvedVisibleDays - 1);
-			const intensityScore = recency * 0.55 + intensityNoise * 0.45;
-			const level =
-				intensityScore > 0.82
-					? 4
-					: intensityScore > 0.58
-						? 3
-						: intensityScore > 0.34
-							? 2
-							: 1;
-			intensityByIndex.set(graphIndex, level);
-		}
-	}
-
-	return Array.from({ length: TOTAL_DOTS }, (_, index) => ({
-		id: `intro-commit-dot-${index}`,
-		level: activeDotIndices.has(index) ? (intensityByIndex.get(index) ?? 1) : 0,
-	}));
-}
-
-function createSeededRandom(seed: number) {
-	let state = (seed >>> 0) || 1;
-	return () => {
-		state = (state * 1_664_525 + 1_013_904_223) >>> 0;
-		return state / 4_294_967_296;
-	};
-}
-
-function resolveIntroPreviewInput(
-	input: {
-		activeDays: number;
-		daysSinceFirst: number;
-		displayName: string;
-		totalSessions: number;
-	},
-	previewState: string,
-) {
-	switch (previewState) {
-		case "sparse":
-			return {
-				activeDays: 4,
-				daysSinceFirst: 12,
-				displayName: input.displayName,
-				totalSessions: 7,
-			};
-		case "full":
-			return {
-				activeDays: 37,
-				daysSinceFirst: 214,
-				displayName: input.displayName,
-				totalSessions: 128,
-			};
-		default:
-			return input;
-	}
-}
-
-function getGreetingName(displayName: string) {
-	const trimmedDisplayName = displayName.trim();
-	if (!trimmedDisplayName) {
-		return "there";
-	}
-
-	return trimmedDisplayName.split(/\s+/)[0] ?? trimmedDisplayName;
-}
 
 function resolveSkillsPreviewInput(
 	input: {
@@ -2226,73 +2349,107 @@ function getSkillsCardStyle(
 }
 
 function resolveRepoPulsePreviewInput(
-	input: readonly WalkInRepoPulseItem[],
+	input: WalkInRepoPulseMetrics,
 	previewState: string,
 ) {
 	switch (previewState) {
 		case "single-home":
-			return [
-				{
-					id: "home-base",
-					proof: "24 sessions",
-					repoName: "geneva",
-					role: "Home base",
-				},
-			] satisfies WalkInRepoPulseItem[];
+			return {
+				entries: [
+					{
+						id: "repo-preview-geneva",
+						meta: "84 sessions · 42h total",
+						proof: "52m avg session",
+						repoName: "geneva",
+						workType: "Deep work",
+					},
+				],
+				leadRepoName: "geneva",
+				totalRepos: 1,
+				totalSessions: 84,
+			} satisfies WalkInRepoPulseMetrics;
 		case "split-across":
-			return [
-				{
-					id: "home-base",
-					proof: "61 sessions",
-					repoName: "geneva",
-					role: "Home base",
-				},
-				{
-					id: "deep-work",
-					proof: "19h 40m on canvas",
-					repoName: "rudel-web",
-					role: "Deep work",
-				},
-				{
-					id: "heavy-lift",
-					proof: "1.8M tokens moved",
-					repoName: "api-routes",
-					role: "Heavy lift",
-				},
-			] satisfies WalkInRepoPulseItem[];
+			return {
+				entries: [
+					{
+						id: "repo-preview-geneva",
+						meta: "61 sessions · 31h total",
+						proof: "48m avg session",
+						repoName: "geneva",
+						workType: "Deep work",
+					},
+					{
+						id: "repo-preview-rudel-web",
+						meta: "28 sessions · 17h total",
+						proof: "43% used skills",
+						repoName: "rudel-web",
+						workType: "Skills-heavy",
+					},
+					{
+						id: "repo-preview-api-routes",
+						meta: "19 sessions · 1.8M tokens",
+						proof: "94K tokens / session",
+						repoName: "api-routes",
+						workType: "Heavy lift",
+					},
+				],
+				leadRepoName: "geneva",
+				totalRepos: 6,
+				totalSessions: 108,
+			} satisfies WalkInRepoPulseMetrics;
 		case "quiet":
-			return [];
+			return {
+				entries: [],
+				leadRepoName: null,
+				totalRepos: 0,
+				totalSessions: 0,
+			} satisfies WalkInRepoPulseMetrics;
 		default:
 			return input;
 	}
 }
 
 function resolveRepoPulseStageModel(
-	input: readonly WalkInRepoPulseItem[],
+	input: WalkInRepoPulseMetrics,
 ): RepoPulseStageModel {
-	if (input.length === 0) {
+	if (input.entries.length === 0) {
 		return {
 			entries: [],
 			footnote: "A little more repo history and the pulse will settle into view.",
 			headline: "Your repo pulse is still landing",
-			subline: "When the work settles into projects, this view fills itself in.",
+			subline:
+				"When the work settles into projects, this view turns into repo-by-repo work types.",
+			totalReposLabel: "No repo signal yet",
+			totalSessionsLabel: "No sessions yet",
 		};
 	}
 
-	if (input.length === 1) {
+	if (input.entries.length === 1) {
 		return {
-			entries: input,
-			footnote: `${input[0]?.repoName} carried most of the run.`,
+			entries: input.entries,
+			footnote:
+				"Each label comes from the strongest signal inside that repo: tool adoption, depth, token load, or delivery.",
 			headline: "One repo held onto the run",
-			subline: "The work had a clear home base before the card reveal.",
+			subline: "There was a clear home base before the final card reveal.",
+			totalReposLabel: `${input.totalRepos} repo${input.totalRepos === 1 ? "" : "s"} in play`,
+			totalSessionsLabel: `${input.totalSessions.toLocaleString()} sessions`,
 		};
 	}
 
 	return {
-		entries: input,
-		footnote: "That rhythm is what the final card is built on.",
-		headline: "A few repos carried the run",
-		subline: "Each one ended up with its own job.",
+		entries: input.entries,
+		footnote:
+			"Each label comes from the strongest signal inside that repo: tool adoption, depth, token load, or delivery.",
+		headline:
+			input.entries.length >= 3
+				? "Each repo had its own rhythm"
+				: "The work split across a couple repos",
+		subline:
+			input.entries.length >= 3
+				? "The top repos were not interchangeable. Each one carried a different kind of work."
+				: "Even the busiest repos ended up with different patterns of work.",
+		totalReposLabel: `${input.totalRepos} repo${input.totalRepos === 1 ? "" : "s"} in play`,
+		totalSessionsLabel: `${input.totalSessions.toLocaleString()} sessions`,
 	};
 }
 
@@ -2579,60 +2736,138 @@ function getToolsEntryStyle(
 
 function resolveModelPreviewInput(
 	input: {
-		favoriteModel: string | null;
 		modelByMonth: readonly MonthlyModelUsage[];
+		sourceSplit: readonly WrappedSourceSplit[];
 	},
 	previewState: string,
 ) {
 	switch (previewState) {
 		case "favorite":
-			return { favoriteModel: "Claude Sonnet 4", modelByMonth: [] };
+			return {
+				modelByMonth: buildPreviewMonthlyModelUsage([
+					["2026-01", "Claude Sonnet 4", 28],
+					["2026-01", "GPT-4.1", 8],
+					["2026-02", "Claude Sonnet 4", 25],
+					["2026-02", "GPT-4.1", 6],
+					["2026-03", "Claude Sonnet 4", 24],
+					["2026-03", "GPT-4.1", 7],
+					["2026-04", "Claude Sonnet 4", 29],
+					["2026-04", "GPT-4.1", 8],
+					["2026-05", "Claude Sonnet 4", 27],
+					["2026-05", "GPT-4.1", 7],
+					["2026-06", "Claude Sonnet 4", 31],
+					["2026-06", "GPT-4.1", 9],
+				]),
+				sourceSplit: buildPreviewSourceSplit([
+					["claude_code", 78],
+					["codex", 22],
+				]),
+			};
 		case "played-field":
-			return { favoriteModel: null, modelByMonth: [] };
+			return {
+				modelByMonth: buildPreviewMonthlyModelUsage([
+					["2026-01", "Claude Sonnet 4", 14],
+					["2026-01", "GPT-4.1", 13],
+					["2026-01", "Gemini 2.5 Pro", 11],
+					["2026-02", "GPT-4.1", 15],
+					["2026-02", "Claude Sonnet 4", 14],
+					["2026-02", "Gemini 2.5 Pro", 12],
+					["2026-03", "Gemini 2.5 Pro", 13],
+					["2026-03", "Claude Sonnet 4", 12],
+					["2026-03", "GPT-4.1", 12],
+					["2026-04", "Claude Sonnet 4", 16],
+					["2026-04", "GPT-4.1", 15],
+					["2026-04", "Gemini 2.5 Pro", 12],
+					["2026-05", "GPT-4.1", 14],
+					["2026-05", "Claude Sonnet 4", 13],
+					["2026-05", "Gemini 2.5 Pro", 13],
+					["2026-06", "Claude Sonnet 4", 15],
+					["2026-06", "GPT-4.1", 15],
+					["2026-06", "Gemini 2.5 Pro", 11],
+				]),
+				sourceSplit: buildPreviewSourceSplit([
+					["claude_code", 51],
+					["codex", 49],
+				]),
+			};
 		case "single-switch":
 			return {
-				favoriteModel: "GPT-4.1",
 				modelByMonth: buildPreviewMonthlyModelUsage([
 					["2026-01", "Claude Sonnet 4", 22],
+					["2026-01", "GPT-4.1", 8],
 					["2026-02", "Claude Sonnet 4", 18],
+					["2026-02", "GPT-4.1", 7],
 					["2026-03", "GPT-4.1", 25],
+					["2026-03", "Claude Sonnet 4", 11],
 					["2026-04", "GPT-4.1", 29],
+					["2026-04", "Claude Sonnet 4", 9],
+				]),
+				sourceSplit: buildPreviewSourceSplit([
+					["claude_code", 42],
+					["codex", 58],
 				]),
 			};
 		case "exploring":
 			return {
-				favoriteModel: null,
 				modelByMonth: buildPreviewMonthlyModelUsage([
 					["2026-01", "Claude Sonnet 4", 18],
+					["2026-01", "GPT-4.1", 12],
 					["2026-02", "GPT-4.1", 17],
+					["2026-02", "Claude Sonnet 4", 14],
 					["2026-03", "Gemini 2.5 Pro", 15],
+					["2026-03", "Claude Sonnet 4", 11],
 					["2026-04", "Claude Sonnet 4", 19],
+					["2026-04", "GPT-4.1", 14],
 					["2026-05", "GPT-4.1", 16],
+					["2026-05", "Gemini 2.5 Pro", 13],
+				]),
+				sourceSplit: buildPreviewSourceSplit([
+					["claude_code", 55],
+					["codex", 45],
 				]),
 			};
 		case "settled":
 			return {
-				favoriteModel: "GPT-4.1",
 				modelByMonth: buildPreviewMonthlyModelUsage([
 					["2026-01", "Claude Sonnet 4", 18],
+					["2026-01", "GPT-4.1", 11],
 					["2026-02", "Claude Sonnet 4", 19],
+					["2026-02", "GPT-4.1", 12],
 					["2026-03", "GPT-4.1", 21],
+					["2026-03", "Claude Sonnet 4", 14],
 					["2026-04", "GPT-4.1", 22],
+					["2026-04", "Claude Sonnet 4", 13],
 					["2026-05", "Claude Sonnet 4", 17],
+					["2026-05", "GPT-4.1", 18],
 					["2026-06", "GPT-4.1", 24],
+					["2026-06", "Claude Sonnet 4", 14],
 					["2026-07", "GPT-4.1", 26],
+					["2026-07", "Claude Sonnet 4", 11],
+				]),
+				sourceSplit: buildPreviewSourceSplit([
+					["claude_code", 39],
+					["codex", 61],
 				]),
 			};
 		case "rotation":
 			return {
-				favoriteModel: "Claude Sonnet 4",
 				modelByMonth: buildPreviewMonthlyModelUsage([
 					["2026-01", "Claude Sonnet 4", 18],
+					["2026-01", "GPT-4.1", 12],
 					["2026-02", "Claude Sonnet 4", 21],
+					["2026-02", "GPT-4.1", 9],
 					["2026-03", "GPT-4.1", 19],
+					["2026-03", "Claude Sonnet 4", 16],
 					["2026-04", "GPT-4.1", 17],
+					["2026-04", "Claude Sonnet 4", 15],
 					["2026-05", "Claude Sonnet 4", 22],
+					["2026-05", "GPT-4.1", 11],
 					["2026-06", "Claude Sonnet 4", 24],
+					["2026-06", "GPT-4.1", 10],
+				]),
+				sourceSplit: buildPreviewSourceSplit([
+					["claude_code", 57],
+					["codex", 43],
 				]),
 			};
 		default:
@@ -2648,6 +2883,285 @@ function buildPreviewMonthlyModelUsage(
 		model,
 		session_count: sessionCount,
 	}));
+}
+
+function buildPreviewSourceSplit(
+	entries: readonly [WrappedSourceSplit["source"], number][],
+): WrappedSourceSplit[] {
+	return entries.map(([source, sessionSharePercent]) => ({
+		source,
+		session_count: Math.round(sessionSharePercent),
+		session_share_percent: sessionSharePercent,
+	}));
+}
+
+function resolveModelStageModel(input: {
+	modelByMonth: readonly MonthlyModelUsage[];
+	sourceSplit: readonly WrappedSourceSplit[];
+}): ModelStageModel {
+	const months = buildModelShareMonths(input.modelByMonth);
+	const summary = buildModelShareSummary(input.sourceSplit);
+	const sourceSplit = summarizeModelSourceSplit(summary);
+	const activeMonths = months.filter((month) => month.totalSessions > 0);
+	const distinctLeaders = new Set(
+		activeMonths.map((month) => month.leaderLabel),
+	).size;
+	const latestLeader = activeMonths[activeMonths.length - 1]?.leaderLabel ?? null;
+	const earliestLeader = activeMonths[0]?.leaderLabel ?? null;
+	const overallLeader = sourceSplit.leadingLabel ?? latestLeader;
+	const headline =
+		summary.length === 0 && activeMonths.length === 0
+			? "Your Claude vs Codex split is warming up"
+			: sourceSplit.isBalanced
+				? "You kept both tools in play"
+				: distinctLeaders <= 1 && overallLeader
+					? `${overallLeader} held the line`
+					: earliestLeader && latestLeader && earliestLeader !== latestLeader
+						? `${latestLeader} took the latest stretch`
+						: overallLeader
+							? `${overallLeader} led the run`
+							: "Your tool split kept moving";
+	const subline =
+		summary.length === 0 && activeMonths.length === 0
+			? "We will chart Claude and Codex once enough history lands."
+			: activeMonths.length === 0
+				? "The full-run split is ready. The month-by-month view needs a little more history."
+				: sourceSplit.isBalanced
+					? "The all-time bar stayed close, and the monthly stacks kept both tools in rotation."
+					: earliestLeader && latestLeader && earliestLeader !== latestLeader
+						? `${earliestLeader} led early, then ${latestLeader} took the latest month.`
+						: overallLeader
+							? `The full-run bar and the monthly stacks both leaned ${overallLeader}.`
+							: "The top bar shows the full-run split. The six stacks show how it moved month to month.";
+	const totalSessions = summary.reduce(
+		(sum, segment) => sum + segment.sessionCount,
+		0,
+	);
+
+	return {
+		footnote:
+			"Top bar uses the entire run. The six monthly stacks collapse model history into Claude vs Codex.",
+		headline,
+		months,
+		monthsLabel: `${activeMonths.length} active month${activeMonths.length === 1 ? "" : "s"}`,
+		subline,
+		summary,
+		totalSessionsLabel:
+			totalSessions > 0
+				? `${totalSessions.toLocaleString()} sessions`
+				: "No sessions yet",
+	};
+}
+
+function buildModelShareMonths(
+	modelByMonth: readonly MonthlyModelUsage[],
+): WalkInModelShareMonth[] {
+	const rowsByMonth = buildModelSourceCountsByMonth(modelByMonth);
+	const months = getLatestModelStageMonthKeys([...rowsByMonth.keys()]);
+
+	if (months.length === 0) {
+		return [];
+	}
+
+	return months.map((month) => {
+		const monthCounts = rowsByMonth.get(month) ?? new Map();
+		const sourceCounts = MODEL_STAGE_SOURCE_ORDER.map((source) => ({
+			label: formatModelStageSourceLabel(source),
+			sessionCount: monthCounts.get(source) ?? 0,
+			source,
+		}));
+		const totalSessions = sourceCounts.reduce(
+			(sum, sourceEntry) => sum + sourceEntry.sessionCount,
+			0,
+		);
+		const leader = [...sourceCounts].sort(
+			(leftEntry, rightEntry) =>
+				rightEntry.sessionCount - leftEntry.sessionCount ||
+				leftEntry.label.localeCompare(rightEntry.label),
+		)[0];
+		const segments = sourceCounts.flatMap((sourceEntry) =>
+			sourceEntry.sessionCount > 0
+				? [
+						{
+							id: `${month}:${sourceEntry.source}`,
+							label: sourceEntry.label,
+							sessionCount: sourceEntry.sessionCount,
+							share: (sourceEntry.sessionCount / totalSessions) * 100,
+							source: sourceEntry.source,
+						},
+					]
+				: [],
+		);
+
+		if (totalSessions <= 0) {
+			return {
+				id: `model-month-${month}`,
+				label: formatMonthTickLabel(month),
+				leaderLabel: "No activity",
+				leaderShare: 0,
+				segments: [],
+				totalSessions: 0,
+			};
+		}
+
+		return {
+			id: `model-month-${month}`,
+			label: formatMonthTickLabel(month),
+			leaderLabel: leader?.label ?? "No activity",
+			leaderShare: Math.round(
+				((leader?.sessionCount ?? 0) / totalSessions) * 100,
+			),
+			segments,
+			totalSessions,
+		};
+	});
+}
+
+function buildModelShareSummary(
+	sourceSplit: readonly WrappedSourceSplit[],
+): WalkInModelShareSegment[] {
+	const summaryRows = MODEL_STAGE_SOURCE_ORDER.map((source) => ({
+		label: formatModelStageSourceLabel(source),
+		sessionCount:
+			sourceSplit.find((sourceEntry) => sourceEntry.source === source)
+				?.session_count ?? 0,
+		sessionShare:
+			sourceSplit.find((sourceEntry) => sourceEntry.source === source)
+				?.session_share_percent ?? 0,
+		source,
+	})).filter(
+		(sourceEntry) =>
+			sourceEntry.sessionCount > 0 || sourceEntry.sessionShare > 0,
+	);
+
+	if (summaryRows.length === 0) {
+		return [];
+	}
+
+	const totalSessions = summaryRows.reduce(
+		(sum, sourceEntry) => sum + sourceEntry.sessionCount,
+		0,
+	);
+
+	return summaryRows.map((sourceEntry) => ({
+		id: `model-summary-${sourceEntry.source}`,
+		label: sourceEntry.label,
+		sessionCount: sourceEntry.sessionCount,
+		share:
+			totalSessions > 0
+				? (sourceEntry.sessionCount / totalSessions) * 100
+				: sourceEntry.sessionShare,
+		source: sourceEntry.source,
+	}));
+}
+
+function buildModelSourceCountsByMonth(modelByMonth: readonly MonthlyModelUsage[]) {
+	const rowsByMonth = new Map<string, Map<WrappedSourceSplit["source"], number>>();
+
+	for (const row of modelByMonth) {
+		const source = resolveModelStageSource(row.model);
+		if (!source || row.session_count <= 0) {
+			continue;
+		}
+
+		const monthCounts = rowsByMonth.get(row.month) ?? new Map();
+		monthCounts.set(source, (monthCounts.get(source) ?? 0) + row.session_count);
+		rowsByMonth.set(row.month, monthCounts);
+	}
+
+	return rowsByMonth;
+}
+
+function getLatestModelStageMonthKeys(months: readonly string[]) {
+	const uniqueMonths = [...new Set(months)].sort();
+	const latestMonth = uniqueMonths[uniqueMonths.length - 1];
+	if (!latestMonth) {
+		return [];
+	}
+
+	const [yearPart, monthPart] = latestMonth.split("-");
+	const monthIndex = Number(monthPart) - 1;
+	if (!yearPart || !monthPart || Number.isNaN(monthIndex)) {
+		return uniqueMonths.slice(-6);
+	}
+
+	const latestDate = new Date(Date.UTC(Number(yearPart), monthIndex, 1));
+	if (Number.isNaN(latestDate.getTime())) {
+		return uniqueMonths.slice(-6);
+	}
+
+	return Array.from({ length: 6 }, (_, index) => {
+		const date = new Date(latestDate);
+		date.setUTCMonth(date.getUTCMonth() - (5 - index));
+		return [
+			date.getUTCFullYear().toString(),
+			String(date.getUTCMonth() + 1).padStart(2, "0"),
+		].join("-");
+	});
+}
+
+function summarizeModelSourceSplit(summary: readonly WalkInModelShareSegment[]) {
+	const claudeShare = Math.round(
+		summary.find((segment) => segment.source === "claude_code")?.share ?? 0,
+	);
+	const codexShare = Math.round(
+		summary.find((segment) => segment.source === "codex")?.share ?? 0,
+	);
+	const rankedSegments = [...summary].sort(
+		(leftSegment, rightSegment) =>
+			rightSegment.share - leftSegment.share ||
+			leftSegment.label.localeCompare(rightSegment.label),
+	);
+
+	return {
+		claudeShare,
+		codexShare,
+		hasSignal: claudeShare > 0 || codexShare > 0,
+		isBalanced: Math.abs(claudeShare - codexShare) <= 8,
+		leadingLabel: rankedSegments[0]?.label ?? null,
+	};
+}
+
+function resolveModelStageSource(
+	model: string | null | undefined,
+): WrappedSourceSplit["source"] | null {
+	const modelLabel = formatModelLabel(model)?.toLowerCase();
+	if (!modelLabel) {
+		return null;
+	}
+
+	// This beat is intentionally framed as Claude vs Codex, so non-Claude rows roll into Codex.
+	return modelLabel.includes("claude") ? "claude_code" : "codex";
+}
+
+const MODEL_STAGE_SOURCE_ORDER = ["claude_code", "codex"] as const;
+
+const MODEL_STAGE_TONES: Record<WrappedSourceSplit["source"], string> = {
+	claude_code: "#ff9a2f",
+	codex: "#2d6df6",
+};
+
+function formatModelStageSourceLabel(source: WrappedSourceSplit["source"]) {
+	return source === "claude_code" ? "Claude" : "Codex";
+}
+
+function getModelStageTone(source: WrappedSourceSplit["source"]) {
+	return MODEL_STAGE_TONES[source];
+}
+
+function formatMonthTickLabel(month: string) {
+	const [year, monthPart] = month.split("-");
+	if (!year || !monthPart) {
+		return month;
+	}
+
+	const monthIndex = Number(monthPart) - 1;
+	if (!Number.isInteger(monthIndex) || monthIndex < 0 || monthIndex > 11) {
+		return month;
+	}
+
+	const date = new Date(Date.UTC(Number(year), monthIndex, 1));
+	return date.toLocaleString("en", { month: "short" });
 }
 
 function resolveScalePreviewTokens(totalTokens: number, previewState: string) {
@@ -2667,40 +3181,157 @@ function resolveScalePreviewTokens(totalTokens: number, previewState: string) {
 	}
 }
 
-function resolveProjectPreviewInput(
-	input: {
-		distinctProjectCount: number;
-		topProjectName: string | null;
-		topProjectSessions: number;
-		topProjectTokens: number;
-	},
-	previewState: string,
-) {
-	switch (previewState) {
-		case "top-project":
-			return {
-				distinctProjectCount: 5,
-				topProjectName: "geneva",
-				topProjectSessions: 46,
-				topProjectTokens: 1_400_000,
-			};
-		case "spread-repos":
-			return {
-				distinctProjectCount: 7,
-				topProjectName: null,
-				topProjectSessions: 0,
-				topProjectTokens: 0,
-			};
-		case "spread-work":
-			return {
-				distinctProjectCount: 0,
-				topProjectName: null,
-				topProjectSessions: 0,
-				topProjectTokens: 0,
-			};
-		default:
-			return input;
+function resolveScaleStageModel(totalTokens: number): ScaleStageModel {
+	if (totalTokens <= 0) {
+		return {
+			displayBallCount: 0,
+			footnote:
+				"The rain uses a compressed visual scale so large token totals still fit inside one phone-sized story page.",
+			headline: "Your token pile is still warming up",
+			showsMinimumFloor: false,
+			subline:
+				"Once tokens land, the whole page turns into a token shower instead of another raw metric card.",
+			totalTokens,
+		};
 	}
+
+	const { displayBallCount, showsMinimumFloor } =
+		getScaleBallCountSummary(totalTokens);
+	const headline =
+		totalTokens >= 10_000_000
+			? "The token pile got absurd"
+			: totalTokens >= 1_000_000
+				? "The token pile got heavy"
+				: totalTokens >= 200_000
+					? "The token pile started stacking up"
+					: "The token pile is getting started";
+	const subline = showsMinimumFloor
+		? "Even smaller totals get the same visual floor, so the page still fills with rain instead of a stub."
+		: "Ball count compresses the total so the rain reads at a glance instead of as another metric card.";
+
+	return {
+		displayBallCount,
+		footnote:
+			"Each ball stands in for a chunk of tokens, not a single session. The count is compressed to keep the full-screen shower readable.",
+		headline,
+		showsMinimumFloor,
+		subline,
+		totalTokens,
+	};
+}
+
+function clampNumber(value: number, min: number, max: number) {
+	return Math.min(max, Math.max(min, value));
+}
+
+function createScaleRainSeededRandom(seed: number) {
+	let state = seed % 2147483647;
+
+	if (state <= 0) {
+		state += 2147483646;
+	}
+
+	return () => {
+		state = (state * 16807) % 2147483647;
+		return (state - 1) / 2147483646;
+	};
+}
+
+function getScaleBallCountSummary(totalTokens: number) {
+	if (totalTokens <= 0) {
+		return {
+			displayBallCount: 0,
+			showsMinimumFloor: false,
+		};
+	}
+
+	const computedBallCount = Math.max(
+		1,
+		Math.round(totalTokens / SCALE_STAGE_TOKENS_PER_BALL),
+	);
+	const showsMinimumFloor = computedBallCount < SCALE_STAGE_MIN_BALL_COUNT;
+
+	return {
+		displayBallCount: showsMinimumFloor
+			? SCALE_STAGE_MIN_BALL_COUNT
+			: computedBallCount,
+		showsMinimumFloor,
+	};
+}
+
+function buildScaleRainBalls(totalTokens: number): ScaleRainBall[] {
+	const { displayBallCount } = getScaleBallCountSummary(totalTokens);
+	if (displayBallCount <= 0) {
+		return [];
+	}
+
+	const visibleBallCount = Math.min(displayBallCount, 72);
+	const random = createScaleRainSeededRandom(
+		Math.max(1, Math.floor(totalTokens)),
+	);
+	const columnCount = Math.min(
+		16,
+		Math.max(6, Math.ceil(Math.sqrt(visibleBallCount * 1.25))),
+	);
+	const rowCount = Math.ceil(visibleBallCount / columnCount);
+
+	return Array.from({ length: visibleBallCount }, (_, index) => {
+		const lane = index % columnCount;
+		const row = Math.floor(index / columnCount);
+		const laneCenter = (lane + 0.5) / columnCount;
+		const laneJitter = (random() - 0.5) * (0.72 / columnCount);
+		const leftPercent = clampNumber((laneCenter + laneJitter) * 100, 4, 96);
+			const sizePx = Math.round(
+				24 + random() * 28 + (1 - row / Math.max(rowCount, 1)) * 10,
+			);
+			const tintBand = index % 5;
+			const hue =
+				tintBand <= 3
+					? 28 + random() * 14
+					: 214 + random() * 16;
+
+		return {
+			delayMs: Math.round(random() * 3000 + row * 120 + lane * 32),
+			driftPx: Math.round((random() - 0.5) * Math.max(56, 132 - row * 5)),
+			durationMs: Math.round(3600 + random() * 1900 + row * 85),
+			endRotationDeg: (random() - 0.5) * 56,
+			hue,
+			id: `scale-rain-ball-${index}`,
+			leftPercent,
+			sizePx,
+			startRotationDeg: (random() - 0.5) * 120,
+			startYOffsetPx: Math.round(72 + random() * 160 + row * 26),
+			staticTopSvh: clampNumber(12 + row * 8 + random() * 10, 10, 82),
+			zIndex: 8 + row,
+		} satisfies ScaleRainBall;
+	});
+}
+
+function getScaleRainBallStyle(ball: ScaleRainBall): CSSProperties {
+	return {
+		"--scale-rain-ball-delay": `${ball.delayMs}ms`,
+		"--scale-rain-ball-drift-end": `${ball.driftPx}px`,
+		"--scale-rain-ball-drift-start": `${Math.round(ball.driftPx * -0.35)}px`,
+		"--scale-rain-ball-duration": `${ball.durationMs}ms`,
+		"--scale-rain-ball-end-rotation": `${ball.endRotationDeg}deg`,
+		"--scale-rain-ball-start-rotation": `${ball.startRotationDeg}deg`,
+		"--scale-rain-ball-start-y": `${-ball.startYOffsetPx}px`,
+		"--scale-rain-ball-static-y": `${ball.staticTopSvh}svh`,
+		height: `${ball.sizePx}px`,
+		left: `${ball.leftPercent}%`,
+		marginLeft: `${-ball.sizePx / 2}px`,
+		width: `${ball.sizePx}px`,
+		zIndex: ball.zIndex,
+	} as CSSProperties;
+}
+
+function getScaleRainBallCoreStyle(ball: ScaleRainBall): CSSProperties {
+	const fillLightness = ball.hue < 120 ? "82%" : "84%";
+
+	return {
+		backgroundColor: `hsl(${ball.hue} 56% ${fillLightness})`,
+		border: "1px solid rgba(255, 255, 255, 0.42)",
+	};
 }
 
 function resolveLockInPreviewInput(
@@ -2721,6 +3352,202 @@ function resolveLockInPreviewInput(
 			return { avgSessionMin: 54, longestSessionMin: 288 };
 		default:
 			return input;
+	}
+}
+
+function resolveLockInStageModel(input: {
+	avgSessionMin: number | null;
+	longestSessionMin: number | null;
+}): LockInStageModel {
+	const longestSessionMin =
+		input.longestSessionMin && input.longestSessionMin > 0
+			? input.longestSessionMin
+			: null;
+	const avgSessionMin =
+		input.avgSessionMin && input.avgSessionMin > 0 ? input.avgSessionMin : null;
+
+	if (longestSessionMin === null) {
+		return {
+			averageDurationLabel: "No average yet",
+			averageShare: 0,
+			comparisonLabel: "No recorded duration yet",
+			footnote:
+				"Longest session is all time. Usual session uses average duration over the analytics window.",
+			headline: "Your session rhythm is still landing",
+			longestDurationLabel: "No record yet",
+			longestShare: 0,
+			state: "missing",
+			stateLabel: "Still landing",
+			subline:
+				"We will compare the longest recorded session to your usual session length once more history lands.",
+		};
+	}
+
+	const overrunMin =
+		avgSessionMin !== null ? longestSessionMin - avgSessionMin : null;
+	const ratio =
+		avgSessionMin !== null && avgSessionMin > 0
+			? longestSessionMin / avgSessionMin
+			: null;
+	const comparisonMaxDuration = Math.max(
+		longestSessionMin,
+		avgSessionMin ?? longestSessionMin,
+	);
+	const state = getLockInStageState({
+		avgSessionMin,
+		longestSessionMin,
+		overrunMin,
+		ratio,
+	});
+	const longestDurationLabel = formatDurationMinutes(longestSessionMin);
+	const averageDurationLabel =
+		avgSessionMin !== null ? formatDurationMinutes(avgSessionMin) : "No average yet";
+	const comparisonLabel =
+		overrunMin === null
+			? "Average still catching up"
+			: overrunMin <= 0
+				? "Stayed inside your usual pace"
+				: `+${formatDurationMinutes(overrunMin)} over usual`;
+
+	return {
+		averageDurationLabel,
+		averageShare: getLockInStageShare(avgSessionMin, comparisonMaxDuration),
+		comparisonLabel,
+		footnote:
+			"Longest session is all time. Usual session uses average duration over the analytics window.",
+		headline: getLockInStageHeadline(state, longestSessionMin),
+		longestDurationLabel,
+		longestShare: getLockInStageShare(
+			longestSessionMin,
+			comparisonMaxDuration,
+		),
+		state,
+		stateLabel: getLockInStageStateLabel(state, ratio),
+		subline: getLockInStageSubline({
+			avgSessionMin,
+			longestDurationLabel,
+			overrunMin,
+			ratio,
+			state,
+		}),
+	};
+}
+
+function getLockInStageState(input: {
+	avgSessionMin: number | null;
+	longestSessionMin: number;
+	overrunMin: number | null;
+	ratio: number | null;
+}): LockInStageState {
+	const { avgSessionMin, longestSessionMin, overrunMin, ratio } = input;
+
+	if (avgSessionMin !== null) {
+		if ((overrunMin ?? 0) <= 0) {
+			return "settled";
+		}
+		if ((ratio ?? 0) > 4) {
+			return "didnt-end";
+		}
+		if ((ratio ?? 0) >= 2) {
+			return "got-away";
+		}
+		return "stretched";
+	}
+
+	if (longestSessionMin < 30) {
+		return "settled";
+	}
+	if (longestSessionMin >= 180) {
+		return "didnt-end";
+	}
+	if (longestSessionMin >= 90) {
+		return "got-away";
+	}
+	return "stretched";
+}
+
+function getLockInStageShare(
+	durationMin: number | null,
+	maxDurationMin: number,
+) {
+	if (durationMin === null || durationMin <= 0 || maxDurationMin <= 0) {
+		return 0;
+	}
+
+	return Math.min(
+		100,
+		Math.max(18, Math.round((durationMin / maxDurationMin) * 100)),
+	);
+}
+
+function getLockInStageHeadline(
+	state: LockInStageState,
+	longestSessionMin: number,
+) {
+	switch (state) {
+		case "settled":
+			return longestSessionMin < 30
+				? "Your sessions stayed contained"
+				: "Your sessions stayed in rhythm";
+		case "stretched":
+			return "One session stretched past the usual";
+		case "got-away":
+			return "One session got away from you";
+		case "didnt-end":
+			return "One session did not want to end";
+		case "missing":
+			return "Your session rhythm is still landing";
+	}
+}
+
+function getLockInStageStateLabel(
+	state: LockInStageState,
+	ratio: number | null,
+) {
+	switch (state) {
+		case "settled":
+			return "Contained";
+		case "stretched":
+			return ratio !== null ? `${ratio.toFixed(1)}x usual` : "Stretched";
+		case "got-away":
+			return ratio !== null ? `${ratio.toFixed(1)}x usual` : "Runaway";
+		case "didnt-end":
+			return ratio !== null ? `${ratio.toFixed(1)}x usual` : "Marathon";
+		case "missing":
+			return "Still landing";
+	}
+}
+
+function getLockInStageSubline(input: {
+	avgSessionMin: number | null;
+	longestDurationLabel: string;
+	overrunMin: number | null;
+	ratio: number | null;
+	state: LockInStageState;
+}) {
+	const { avgSessionMin, longestDurationLabel, overrunMin, ratio, state } = input;
+	const averageDurationLabel =
+		avgSessionMin !== null ? formatDurationMinutes(avgSessionMin) : null;
+
+	switch (state) {
+		case "settled":
+			return averageDurationLabel
+				? `${longestDurationLabel} was the longest recorded run. Your usual session sits around ${averageDurationLabel}.`
+				: `${longestDurationLabel} was your longest recorded session, without turning into a runaway.`;
+		case "stretched":
+			return averageDurationLabel
+				? `${longestDurationLabel} was the record. A usual session sits around ${averageDurationLabel}.`
+				: `${longestDurationLabel} was the record run, even though the average session is still catching up.`;
+		case "got-away":
+			return averageDurationLabel && overrunMin !== null
+				? `${longestDurationLabel} ran ${formatDurationMinutes(overrunMin)} past a usual ${averageDurationLabel}.`
+				: `${longestDurationLabel} clearly ran longer than your normal rhythm.`;
+		case "didnt-end":
+			return averageDurationLabel && ratio !== null
+				? `${longestDurationLabel} landed at ${ratio.toFixed(1)}x your usual ${averageDurationLabel}.`
+				: `${longestDurationLabel} stretched well past a normal session.`;
+		case "missing":
+			return "We will compare the longest recorded session to your usual session length once more history lands.";
 	}
 }
 
@@ -2755,158 +3582,46 @@ function resolveQualityPreviewInput(
 	}
 }
 
-function getStepPreviewStateParam(stepId: PreviewableWalkInStepId) {
-	return `${STEP_PREVIEW_QUERY_PARAM_PREFIX}${stepId}`;
-}
-
-function getSelectedPreviewState(
-	stepId: PreviewableWalkInStepId,
-	requestedState: string | null,
-) {
-	const normalizedRequestedState = requestedState?.trim() ?? "";
-	return WALK_IN_STEP_PREVIEW_OPTIONS[stepId].some(
-		(option) => option.value === normalizedRequestedState,
-	)
-		? normalizedRequestedState
-		: "auto";
-}
-
-function buildModelContent(input: {
-	favoriteModel: string | null;
-	modelByMonth: readonly MonthlyModelUsage[];
-}): WalkInStepContentLine[] {
-	const { favoriteModel, modelByMonth } = input;
-	const evolution = summarizeModelEvolution(modelByMonth);
-	const favoriteLabel = formatModelLabel(favoriteModel);
-
-	if (
-		evolution &&
-		evolution.months.length >= 3 &&
-		evolution.distinctTops >= 2
-	) {
-		return buildEvolutionContent(evolution, favoriteLabel);
-	}
-
-	if (!favoriteLabel) {
-		return [
-			{ text: `You played the field.` },
-			{ text: `No single model carried the run.` },
-		];
-	}
-
-	return [{ text: `You reached for ${favoriteLabel} most.` }];
-}
-
-interface ModelEvolutionSummary {
-	months: string[];
-	topModelByMonth: string[];
-	distinctTops: number;
-	transitions: number;
-	firstTop: string;
-	latestTop: string;
-	latestSwitchMonth: string | null;
-}
-
-function summarizeModelEvolution(
-	modelByMonth: readonly MonthlyModelUsage[],
-): ModelEvolutionSummary | null {
-	if (modelByMonth.length === 0) {
-		return null;
-	}
-
-	const monthToLeader = new Map<string, MonthlyModelUsage>();
-
-	for (const row of modelByMonth) {
-		const existing = monthToLeader.get(row.month);
-		if (!existing || row.session_count > existing.session_count) {
-			monthToLeader.set(row.month, row);
-		}
-	}
-
-	const months = [...monthToLeader.keys()].sort();
-	const topModelByMonth = months.map(
-		(month) => formatModelLabel(monthToLeader.get(month)?.model) ?? "Unknown",
-	);
-	const distinctTops = new Set(topModelByMonth).size;
-
-	let transitions = 0;
-	let latestSwitchMonth: string | null = null;
-
-	for (let i = 1; i < topModelByMonth.length; i += 1) {
-		if (topModelByMonth[i] !== topModelByMonth[i - 1]) {
-			transitions += 1;
-			latestSwitchMonth = months[i] ?? null;
-		}
-	}
+function resolveQualityStageModel(input: {
+	commitRate: number | null;
+	successRate: number | null;
+}): QualityStageModel {
+	const commitRate =
+		input.commitRate !== null ? clampNumber(input.commitRate, 0, 100) : null;
+	const successRate =
+		input.successRate !== null ? clampNumber(input.successRate, 0, 100) : null;
+	const state = getQualityStageState({ commitRate, successRate });
 
 	return {
-		months,
-		topModelByMonth,
-		distinctTops,
-		transitions,
-		firstTop: topModelByMonth[0] ?? "Unknown",
-		latestTop: topModelByMonth[topModelByMonth.length - 1] ?? "Unknown",
-		latestSwitchMonth,
+		comparisonLabel: getQualityStageComparisonLabel({
+			commitRate,
+			successRate,
+		}),
+		commitRateLabel: formatRateOrPending(commitRate),
+		commitShare: getQualityStageShare(commitRate),
+		footnote:
+			"Commit rate and success rate come from the developer analytics window. Missing lanes mean that signal has not landed yet.",
+		hasCommitRate: commitRate !== null,
+		hasSuccessRate: successRate !== null,
+		headline: getQualityStageHeadline({
+			commitRate,
+			state,
+			successRate,
+		}),
+		state,
+		stateLabel: getQualityStageStateLabel({
+			commitRate,
+			state,
+			successRate,
+		}),
+		subline: getQualityStageSubline({
+			commitRate,
+			state,
+			successRate,
+		}),
+		successRateLabel: formatRateOrPending(successRate),
+		successShare: getQualityStageShare(successRate),
 	};
-}
-
-function buildEvolutionContent(
-	evolution: ModelEvolutionSummary,
-	favoriteLabel: string | null,
-): WalkInStepContentLine[] {
-	const { months, latestTop, firstTop, transitions, latestSwitchMonth } =
-		evolution;
-	const monthCount = months.length;
-	const headlineFavorite = latestTop || favoriteLabel || "one";
-
-	if (transitions === 1 && latestSwitchMonth && latestTop !== firstTop) {
-		return [
-			{
-				text: `In ${formatMonthLabel(latestSwitchMonth)}, ${latestTop} took over.`,
-			},
-			{ text: `Before that it was ${firstTop}.` },
-		];
-	}
-
-	if (transitions >= Math.ceil(monthCount / 2)) {
-		return [
-			{ text: `You kept exploring.` },
-			{
-				text: `${evolution.distinctTops} models across ${monthCount} months. No single winner.`,
-			},
-		];
-	}
-
-	if (latestTop !== firstTop) {
-		return [
-			{ text: `You tried a few. Then ${headlineFavorite} stuck.` },
-			{
-				text: `${transitions} shift${transitions === 1 ? "" : "s"} across ${monthCount} months.`,
-			},
-		];
-	}
-
-	return [
-		{ text: `${headlineFavorite}, mostly.` },
-		{
-			text: `${monthCount} months, ${evolution.distinctTops} model${evolution.distinctTops === 1 ? "" : "s"} in rotation.`,
-		},
-	];
-}
-
-function formatMonthLabel(month: string) {
-	const [year, monthPart] = month.split("-");
-	if (!year || !monthPart) {
-		return month;
-	}
-
-	const monthIndex = Number(monthPart) - 1;
-	if (!Number.isInteger(monthIndex) || monthIndex < 0 || monthIndex > 11) {
-		return month;
-	}
-
-	const date = new Date(Date.UTC(Number(year), monthIndex, 1));
-	return date.toLocaleString("en", { month: "long", year: "numeric" });
 }
 
 function formatModelLabel(value: string | null | undefined) {
@@ -2944,40 +3659,6 @@ function buildScaleContent(totalTokens: number): WalkInStepContentLine[] {
 	return [{ text: headline }, { text: `A long essay's worth.` }];
 }
 
-function buildLockInContent(input: {
-	avgSessionMin: number | null;
-	longestSessionMin: number | null;
-}): WalkInStepContentLine[] {
-	const { avgSessionMin, longestSessionMin } = input;
-
-	if (longestSessionMin === null || longestSessionMin < 30) {
-		return [
-			{ text: `You close the tab when you're done.` },
-			{ text: `No session ran away from you.` },
-		];
-	}
-
-	const headline = `Your longest session lasted ${formatDurationMinutes(longestSessionMin)}.`;
-
-	if (avgSessionMin && avgSessionMin > 0) {
-		const ratio = longestSessionMin / avgSessionMin;
-		if (ratio > 4) {
-			return [
-				{ text: headline },
-				{ text: `Most sessions end. That one didn't.` },
-			];
-		}
-		if (ratio >= 2) {
-			return [{ text: headline }, { text: `One session got away from you.` }];
-		}
-	}
-
-	return [
-		{ text: headline },
-		{ text: `Close to your usual rhythm, just stretched.` },
-	];
-}
-
 function formatDurationMinutes(minutes: number) {
 	if (minutes < 60) {
 		return `${Math.round(minutes)} min`;
@@ -2990,114 +3671,162 @@ function formatDurationMinutes(minutes: number) {
 	return `${hours}h ${remaining}m`;
 }
 
-function resolveActiveStepIndex(
-	stepId: string | null,
-	eligibleSteps: readonly WalkInStep[],
-) {
-	if (!stepId || stepId === UPLOAD_STEP.id) {
-		return 0;
-	}
-
-	const normalizedStepId =
-		stepId === "presence"
-			? "skills"
-			: stepId === "summary"
-				? "pulse"
-				: stepId;
-
-	const resolvedStepIndex = eligibleSteps.findIndex(
-		(step) => step.id === normalizedStepId,
-	);
-	return resolvedStepIndex >= 0 ? resolvedStepIndex + 1 : 0;
-}
-
-function getVisibleProgressSteps(
-	activeStepIndex: number,
-	eligibleSteps: readonly WalkInStep[],
-): WalkInVisibleProgressStep[] {
-	const MAX_VISIBLE_PROGRESS_STEPS = 10;
-	const progressSteps = eligibleSteps.filter((step) => step.kind !== "final");
-
-	if (progressSteps.length <= MAX_VISIBLE_PROGRESS_STEPS) {
-		return progressSteps.map((step, progressIndex) => ({
-			step,
-			stepIndex: progressIndex + 1,
-		}));
-	}
-
-	const activeProgressIndex = Math.max(0, activeStepIndex - 1);
-	const maxStartIndex = progressSteps.length - MAX_VISIBLE_PROGRESS_STEPS;
-	const desiredStartIndex = Math.max(
-		0,
-		activeProgressIndex - Math.floor(MAX_VISIBLE_PROGRESS_STEPS / 2),
-	);
-	const startIndex = Math.min(desiredStartIndex, maxStartIndex);
-
-	return progressSteps
-		.slice(startIndex, startIndex + MAX_VISIBLE_PROGRESS_STEPS)
-		.map((step, visibleIndex) => ({
-			step,
-			stepIndex: startIndex + visibleIndex + 1,
-		}));
-}
-
-function getStepDisplayNumber(stepIndex: number) {
-	return (stepIndex - 1).toString();
-}
-
-function getQualityHeadline(input: {
+function getQualityStageState(input: {
 	commitRate: number | null;
 	successRate: number | null;
 }) {
 	const { commitRate, successRate } = input;
 
 	if (commitRate === null && successRate === null) {
-		return "The finish is still settling.";
+		return "missing" as const;
 	}
 
 	if (commitRate !== null && successRate !== null) {
 		if (commitRate >= 60 && successRate >= 80) {
-			return "You finish what you start.";
+			return "strong" as const;
 		}
 		if (successRate >= 80) {
-			return "The code lands. Commits lag.";
+			return "delivery-led" as const;
 		}
 		if (commitRate >= 60) {
-			return "You shipped through the mess.";
+			return "commit-led" as const;
 		}
-		return "You iterated more than you landed.";
+		return "iterating" as const;
 	}
 
 	if (commitRate === null) {
-		return successRate !== null && successRate >= 80
-			? "The work lands."
-			: "Still iterating toward a clean finish.";
+		return "success-only" as const;
 	}
 
-	return commitRate >= 60
-		? "You usually left with code that moved."
-		: "Plenty of sessions stayed exploratory.";
+	return "commit-only" as const;
 }
 
-function getQualitySubline(input: {
+function getQualityStageHeadline(input: {
+	commitRate: number | null;
+	state: QualityStageState;
+	successRate: number | null;
+}) {
+	const { commitRate, state, successRate } = input;
+
+	switch (state) {
+		case "strong":
+			return "The work usually landed clean";
+		case "delivery-led":
+			return "The work landed more often than it committed";
+		case "commit-led":
+			return "You kept moving code through rougher sessions";
+		case "iterating":
+			return "This stretch was more iteration than finish";
+		case "success-only":
+			return successRate !== null && successRate >= 80
+				? "The work usually landed clean"
+				: "The finish signal is still settling";
+		case "commit-only":
+			return commitRate !== null && commitRate >= 60
+				? "Code usually moved before the recap ended"
+				: "Many sessions stayed exploratory";
+		case "missing":
+			return "The finish is still settling";
+	}
+}
+
+function getQualityStageStateLabel(input: {
+	commitRate: number | null;
+	state: QualityStageState;
+	successRate: number | null;
+}) {
+	const { commitRate, state, successRate } = input;
+
+	switch (state) {
+		case "strong":
+			return "Strong finish";
+		case "delivery-led":
+			return "Lands clean";
+		case "commit-led":
+			return "Ships through";
+		case "iterating":
+			return "Still iterating";
+		case "success-only":
+			return successRate !== null && successRate >= 80
+				? "Success signal"
+				: "Partial finish";
+		case "commit-only":
+			return commitRate !== null && commitRate >= 60
+				? "Commit signal"
+				: "Exploratory";
+		case "missing":
+			return "Still landing";
+	}
+}
+
+function getQualityStageSubline(input: {
+	commitRate: number | null;
+	state: QualityStageState;
+	successRate: number | null;
+}) {
+	const { commitRate, state, successRate } = input;
+
+	switch (state) {
+		case "strong":
+			return `${formatPercent(commitRate)} of sessions ended with commits, and ${formatPercent(successRate)} were marked successful.`;
+		case "delivery-led":
+			return `${formatPercent(successRate)} success led the window, even though commits landed in ${formatPercent(commitRate)} of sessions.`;
+		case "commit-led":
+			return `${formatPercent(commitRate)} of sessions moved code, even while success sat at ${formatPercent(successRate)}.`;
+		case "iterating":
+			return `${formatPercent(commitRate)} commits. ${formatPercent(successRate)} success. More loop than finish.`;
+		case "success-only":
+			return `${formatPercent(successRate)} success rate is in. Commit rate is still missing.`;
+		case "commit-only":
+			return `${formatPercent(commitRate)} commit rate is in. Success rate is still missing.`;
+		case "missing":
+			return "We will compare commit rate and success rate once more finished sessions land.";
+	}
+}
+
+function getQualityStageComparisonLabel(input: {
 	commitRate: number | null;
 	successRate: number | null;
 }) {
 	const { commitRate, successRate } = input;
 
-	if (commitRate === null && successRate === null) {
-		return "Not enough signal yet to call it.";
-	}
-
 	if (commitRate !== null && successRate !== null) {
-		return `${formatPercent(commitRate)} commits. ${formatPercent(successRate)} success.`;
+		const gap = Math.round(Math.abs(successRate - commitRate));
+
+		if (gap <= 6) {
+			return "Commit and success stayed close";
+		}
+
+		return successRate > commitRate
+			? `Success led by ${gap} pts`
+			: `Commits led by ${gap} pts`;
 	}
 
-	if (commitRate === null) {
-		return `${formatPercent(successRate)} success rate.`;
+	if (successRate !== null) {
+		return "Commit lane pending";
 	}
 
-	return `${formatPercent(commitRate)} commit rate.`;
+	if (commitRate !== null) {
+		return "Success lane pending";
+	}
+
+	return "Waiting for finish signal";
+}
+
+function getQualityStageShare(rate: number | null) {
+	if (rate === null || rate <= 0) {
+		return 0;
+	}
+
+	return Math.min(100, Math.max(16, Math.round(rate)));
+}
+
+function formatRateOrPending(rate: number | null) {
+	if (rate === null) {
+		return "Pending";
+	}
+
+	return formatPercent(rate);
 }
 
 function getToolsHeadline(input: {
@@ -3140,37 +3869,6 @@ function getToolsSubline(input: {
 	}
 
 	return `${formatPercent(slashCommandsAdoptionRate)} slash-command sessions. ${formatPercent(subagentsAdoptionRate)} subagent sessions.`;
-}
-
-function getProjectHeadline(topProjectName: string | null) {
-	if (!topProjectName) {
-		return "No single repo dominated the run.";
-	}
-
-	return `${topProjectName} got the most of you.`;
-}
-
-function getProjectSubline(input: {
-	distinctProjectCount: number;
-	topProjectName: string | null;
-	topProjectSessions: number;
-	topProjectTokens: number;
-}) {
-	const {
-		distinctProjectCount,
-		topProjectName,
-		topProjectSessions,
-		topProjectTokens,
-	} = input;
-
-	if (!topProjectName) {
-		if (distinctProjectCount > 0) {
-			return `Attention spread across ${distinctProjectCount.toLocaleString()} repos.`;
-		}
-		return "Attention spread across the work.";
-	}
-
-	return `${topProjectSessions.toLocaleString()} sessions. ${formatCompactNumber(topProjectTokens)} tokens.`;
 }
 
 function formatCompactNumber(value: number) {
