@@ -1,5 +1,6 @@
 import type { PublicWrappedShare, WrappedShareRow } from "@rudel/api-routes";
 import type { CSSProperties } from "react";
+import { appRoutes } from "@/app/routes";
 import { buttonVariants } from "@/app/ui/button";
 import { useAnalyticsTracking } from "@/features/analytics/tracking/useAnalyticsTracking";
 import { getSessionUserId } from "@/features/auth/auth-route-utils";
@@ -28,7 +29,7 @@ export function PublicWrappedSharePage(props: PublicWrappedSharePageProps) {
 	});
 	const wrappedShareQuery = usePublicWrappedShare(shareId);
 	const sessionUserId = getSessionUserId(session);
-	const makeYoursPath = buildWrappedShareMakeYoursPath(shareId);
+	const makeYoursPath = appRoutes.getStartedFromWrappedShare(shareId);
 	const makeYoursHref =
 		sessionUserId !== null
 			? makeYoursPath
@@ -188,11 +189,6 @@ function buildPublicShareRow(row: WrappedShareRow) {
 		userId: "public-wrapped-share",
 	};
 }
-
-function buildWrappedShareMakeYoursPath(shareId: string) {
-	return `/get-started?share_id=${encodeURIComponent(shareId)}`;
-}
-
 function formatShareDateLabel(createdAt: string) {
 	const parsedDate = new Date(createdAt);
 

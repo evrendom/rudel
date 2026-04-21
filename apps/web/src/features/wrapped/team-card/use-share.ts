@@ -12,7 +12,6 @@ export function useWrappedTeamCardShare(snapshot: WrappedShareSnapshot) {
 	const shareRequestByKeyRef = useRef(
 		new Map<string, Promise<WrappedShareRecord>>(),
 	);
-	const [shareError, setShareError] = useState<string | null>(null);
 	const [shareRecordsByKey, setShareRecordsByKey] = useState<ShareRecordLookup>(
 		{},
 	);
@@ -34,7 +33,6 @@ export function useWrappedTeamCardShare(snapshot: WrappedShareSnapshot) {
 		}
 
 		setPendingShareKey(snapshotKey);
-		setShareError(null);
 
 		const shareRequest = client.wrappedShare
 			.create({ snapshot })
@@ -44,14 +42,6 @@ export function useWrappedTeamCardShare(snapshot: WrappedShareSnapshot) {
 					[snapshotKey]: createdShare,
 				}));
 				return createdShare;
-			})
-			.catch((error) => {
-				const message =
-					error instanceof Error
-						? error.message
-						: "Could not create a share link.";
-				setShareError(message);
-				throw error;
 			})
 			.finally(() => {
 				shareRequestByKeyRef.current.delete(snapshotKey);
@@ -69,7 +59,6 @@ export function useWrappedTeamCardShare(snapshot: WrappedShareSnapshot) {
 	return {
 		ensureShare,
 		isCreatingShare: pendingShareKey === snapshotKey,
-		shareError,
 		shareUrl,
 		shareUrlLabel: formatShareUrlLabel(
 			shareUrl,

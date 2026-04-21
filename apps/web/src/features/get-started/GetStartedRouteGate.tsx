@@ -8,9 +8,9 @@ import {
 import { UploadSetupPage } from "@/features/get-started/UploadSetupPage";
 import { useSetupProgress } from "@/features/get-started/use-setup-progress";
 import {
-	hasCompletedWalkIn,
-	isWalkInLaunchEligible,
-} from "@/features/walk-in/walk-in-entry";
+	hasCompletedWrapped,
+	isWrappedLaunchEligible,
+} from "@/features/wrapped/entry";
 
 type GetStartedRouteGateProps = {
 	isPending: boolean;
@@ -27,10 +27,10 @@ export function GetStartedRouteGate({
 		enabled: !isPending && !!session,
 	});
 	const sessionUserId = getSessionUserId(session);
-	const shouldRouteToWalkIn =
+	const shouldRouteToWrapped =
 		hasUploadedSessions &&
-		isWalkInLaunchEligible(session) &&
-		!hasCompletedWalkIn(sessionUserId);
+		isWrappedLaunchEligible(session) &&
+		!hasCompletedWrapped(sessionUserId);
 
 	if (isPending) {
 		return <UploadSetupPage />;
@@ -52,8 +52,8 @@ export function GetStartedRouteGate({
 		return (
 			<Navigate
 				to={
-					shouldRouteToWalkIn
-						? appRoutes.walkInTeamCard()
+					shouldRouteToWrapped
+						? appRoutes.wrappedTeamCard()
 						: appRoutes.dashboard()
 				}
 				replace
