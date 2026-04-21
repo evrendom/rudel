@@ -200,8 +200,8 @@ export function WrappedTeamCardPage() {
 	useMountEffect(() => {
 		trackUtilityUsed({
 			sourceComponent: "wrapped_team_card_page",
-			utilityName: "wrapped_stage_viewed",
-			utilityState: activeStepParam === "card" ? "card_direct" : "story",
+			utilityName: "wrappedStageViewed",
+			utilityState: activeStepParam === "card" ? "cardDirect" : "story",
 		});
 		document.body.classList.add("mymind-wrapped-body");
 
@@ -269,7 +269,7 @@ function WrappedTeamCardPageContent(props: {
 		onShareActionTriggered: (action) => {
 			trackUtilityUsed({
 				sourceComponent: "wrapped_share_actions",
-				utilityName: "wrapped_share_action_triggered",
+				utilityName: "wrappedShareActionTriggered",
 				utilityState: action,
 			});
 		},
@@ -279,8 +279,8 @@ function WrappedTeamCardPageContent(props: {
 	function handlePreviewPost() {
 		trackUtilityUsed({
 			sourceComponent: "wrapped_reveal_footer",
-			utilityName: "wrapped_share_preview_opened",
-			utilityState: "share_preview",
+			utilityName: "wrappedSharePreviewOpened",
+			utilityState: "sharePreview",
 		});
 		setFinalCardStage("share");
 	}
@@ -289,7 +289,7 @@ function WrappedTeamCardPageContent(props: {
 		sourceComponent: "wrapped_reveal_footer" | "wrapped_share_footer",
 	) {
 		trackNavigation({
-			navType: "wrapped_continue_to_dashboard",
+			navType: "wrappedContinueToDashboard",
 			sourceComponent,
 			targetPath: appRoutes.dashboard(),
 			targetType: "route",
