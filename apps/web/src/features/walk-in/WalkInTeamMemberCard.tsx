@@ -1,7 +1,8 @@
-import { type CSSProperties, useLayoutEffect, useRef, useState } from "react";
+import { type CSSProperties } from "react";
 import type { TeamCardTone } from "@/features/team/data/team-card-types";
 import type { TeamPageMemberRow } from "@/features/team/use-team-page-data";
 import statSectionTextureWebp from "@/features/walk-in/assets/team-card-stat-texture.webp";
+import { useWalkInStatSurfaceStyles } from "@/features/walk-in/use-walk-in-stat-surface-styles";
 import { cn } from "@/lib/utils";
 
 const CARD_RENDER_SCALE_VAR = "var(--walk-in-card-render-scale, 1)";
@@ -94,14 +95,10 @@ const DEFAULT_STAT_LAYER_OPACITIES: WalkInTeamMemberCardStatLayerOpacities = {
 	whiteMaskOpacity: undefined,
 };
 
-interface WalkInTeamMemberCardStatSurfaceStyle extends CSSProperties {
-	"--walk-in-team-card-stat-surface-position"?: string;
-	"--walk-in-team-card-stat-surface-size"?: string;
-}
-
 export function WalkInTeamMemberCard(props: {
 	headerLeftMetric?: WalkInTeamMemberCardHeaderMetric;
 	headerRightMetric?: WalkInTeamMemberCardHeaderMetric;
+	hideHeaderLogo?: boolean;
 	layoutPreset?: WalkInTeamMemberCardLayoutPreset;
 	mediaPanelClassName?: string;
 	mediaOverlayClassName?: string;
@@ -116,6 +113,7 @@ export function WalkInTeamMemberCard(props: {
 	const {
 		headerLeftMetric,
 		headerRightMetric,
+		hideHeaderLogo = false,
 		layoutPreset = "default",
 		mediaPanelClassName,
 		row,
@@ -131,14 +129,16 @@ export function WalkInTeamMemberCard(props: {
 	const initials = getAvatarInitials(row.displayName);
 	const isDarkTheme = theme === "dark";
 	const isMutedTheme = theme === "muted";
-	const statSectionRef = useRef<HTMLDivElement | null>(null);
-	const statTileRefs = useRef<Record<string, HTMLDivElement | null>>({});
-	const [statSurfaceStyles, setStatSurfaceStyles] = useState<
-		Record<string, WalkInTeamMemberCardStatSurfaceStyle>
-	>({});
+	const { statSectionRef, statSurfaceStyles, statTileRefs } =
+		useWalkInStatSurfaceStyles({
+			bleedPx: STAT_SURFACE_BLEED_PX,
+			statItems,
+		});
 	const borderLayerOpacity = statLayerOpacities.tileBorderOpacity;
 	const statTextUsesMutedWhite = statLayerOpacities.textTone === "muted-white";
 	const usesTeamCardPreviewLayout = layoutPreset === "team-card-preview";
+	const rudelLogoSrc =
+		isDarkTheme || isMutedTheme ? "/logo-light.svg" : "/logo-dark.svg";
 	const whiteMaskOpacity =
 		statLayerOpacities.whiteMaskOpacity ??
 		1 - statLayerOpacities.textureOpacity;
@@ -166,7 +166,10 @@ export function WalkInTeamMemberCard(props: {
 		width: scaleLength(233),
 	};
 	const headerRowStyle: CSSProperties = {
-		gap: scaleLength(10),
+		gap: scaleLength(8),
+	};
+	const headerLeftGroupStyle: CSSProperties = {
+		gap: scaleLength(6),
 	};
 	const headerValueStyle: CSSProperties = {
 		fontSize: scaleLength(17.07),
@@ -179,11 +182,15 @@ export function WalkInTeamMemberCard(props: {
 		fontSize: scaleLength(10),
 	};
 	const headerRightMetricContainerStyle: CSSProperties = {
-		maxWidth: scaleLength(112),
+		maxWidth: scaleLength(92),
 	};
 	const headerRightValueStyle: CSSProperties = {
 		fontSize: scaleLength(11),
 		marginTop: headerRightMetric?.label ? scaleLength(4) : undefined,
+	};
+	const rudelLogoStyle: CSSProperties = {
+		height: scaleLength(14),
+		width: scaleLength(14),
 	};
 	const mediaPanelStyle: CSSProperties = {
 		borderRadius: scaleLength(14),
@@ -252,56 +259,6 @@ export function WalkInTeamMemberCard(props: {
 		width: scaleLength(12),
 	};
 
-	useLayoutEffect(() => {
-		const statSectionNode = statSectionRef.current;
-
-		if (!statSectionNode) {
-			return;
-		}
-
-		const updateStatSurfaceStyles = () => {
-			const sectionWidth = statSectionNode.clientWidth;
-			const sectionHeight = statSectionNode.clientHeight;
-			const nextStyles: Record<string, WalkInTeamMemberCardStatSurfaceStyle> =
-				{};
-
-			for (const stat of statItems) {
-				const statTileNode = statTileRefs.current[stat.key];
-
-				if (!statTileNode) {
-					continue;
-				}
-
-				const backgroundPosition = `-${statTileNode.offsetLeft + STAT_SURFACE_BLEED_PX}px -${statTileNode.offsetTop + STAT_SURFACE_BLEED_PX}px`;
-				const backgroundSize = `${sectionWidth + STAT_SURFACE_BLEED_PX * 2}px ${sectionHeight + STAT_SURFACE_BLEED_PX * 2}px`;
-
-				nextStyles[stat.key] = {
-					"--walk-in-team-card-stat-surface-position": backgroundPosition,
-					"--walk-in-team-card-stat-surface-size": backgroundSize,
-				};
-			}
-
-			setStatSurfaceStyles(nextStyles);
-		};
-
-		updateStatSurfaceStyles();
-		const resizeObserver = new ResizeObserver(() => {
-			updateStatSurfaceStyles();
-		});
-
-		resizeObserver.observe(statSectionNode);
-		for (const stat of statItems) {
-			const statTileNode = statTileRefs.current[stat.key];
-			if (statTileNode) {
-				resizeObserver.observe(statTileNode);
-			}
-		}
-
-		return () => {
-			resizeObserver.disconnect();
-		};
-	}, [statItems]);
-
 	return (
 		<li className="list-none">
 			<article
@@ -324,7 +281,16 @@ export function WalkInTeamMemberCard(props: {
 							<div
 								className="flex min-w-0 items-start"
 								title={headerLeftMetric.title}
+								style={headerLeftGroupStyle}
 							>
+								{hideHeaderLogo ? null : (
+									<img
+										src={rudelLogoSrc}
+										alt="Rudel"
+										className="shrink-0"
+										style={rudelLogoStyle}
+									/>
+								)}
 								<div
 									className={cn(
 										adaptedTeamCardHeaderValueClassName,

@@ -10,11 +10,7 @@ import {
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { appRoutes } from "@/app/routes";
 import { toast } from "sonner";
-import { useAnalyticsQuery } from "@/features/analytics/queries/useAnalyticsQuery";
-import {
-	type TeamPageMemberRow,
-	useTeamPageData,
-} from "@/features/team/use-team-page-data";
+import type { TeamPageMemberRow } from "@/features/team/use-team-page-data";
 import { TeamCardWalkInOnboarding } from "@/features/walk-in/team-card-walk-in-onboarding";
 import { type WalkInOnboardingMetrics } from "@/features/walk-in/walk-in-onboarding-types";
 import {
@@ -24,26 +20,21 @@ import {
 	WalkInTeamCardShareStage,
 } from "@/features/walk-in/walk-in-team-card-final-stages";
 import {
-	buildResolvedTeamCardRow,
-	buildWalkInOnboardingMetrics,
-	buildWalkInStatItems,
 	formatShareCardCreatedAt,
 	getWrappedArchetypeIndex,
 } from "@/features/walk-in/walk-in-team-card-models";
-import { useWalkInCardData } from "@/features/walk-in/use-walk-in-card-data";
 import {
 	type WalkInCardTiltController,
 	useWalkInCardTilt,
 } from "@/features/walk-in/use-walk-in-card-tilt";
+import { useWalkInTeamCardPageData } from "@/features/walk-in/use-walk-in-team-card-page-data";
 import {
 	type WalkInTeamMemberCardHeaderMetric,
 	type WalkInTeamMemberCardStatItem,
 	type WalkInTeamMemberCardStatLayerOpacities,
 	type WalkInTeamMemberCardTheme,
 } from "@/features/walk-in/WalkInTeamMemberCard";
-import { MAX_ANALYTICS_DAYS } from "@/lib/analytics-date-range";
 import { formatCompactWholeCurrency } from "@/lib/format";
-import { orpc } from "@/lib/orpc";
 import {
 	captureElement,
 	copyToClipboard,
@@ -52,7 +43,6 @@ import {
 import { useMountEffect } from "@/hooks/useMountEffect";
 import { markWalkInCompleted } from "@/features/walk-in/walk-in-entry";
 import "@/features/walk-in/walk-in-clone.css";
-import { authClient } from "@/lib/auth-client";
 
 interface WalkInArchetypeCardTheme {
 	id: string;
@@ -142,17 +132,9 @@ const WALK_IN_ARCHETYPE_CARD_THEMES = [
 export function TeamCardWalkInPage() {
 	const navigate = useNavigate();
 	const [searchParams] = useSearchParams();
-	const { accountLabel, handover, session, wrappedData } = useWalkInCardData();
-	const { teamMemberRows } = useTeamPageData();
+	const { completionUserId, onboardingMetrics, statItems, visibleTeamCardRow } =
+		useWalkInTeamCardPageData();
 	const tiltController = useWalkInCardTilt();
-	const sessionUserId = getSessionUserId(session);
-	const sessionUserName = getSessionUserName(session);
-	const sessionUserEmail = getSessionUserEmail(session);
-	const debugProfileImageSrc = handover.preview.profile.avatarSrc;
-	const { data: activeMember } = authClient.useActiveMember();
-	const activeMemberUserId = getActiveMemberUserId(activeMember);
-	const resolvedUserId = sessionUserId ?? activeMemberUserId;
-	const completionUserId = resolvedUserId ?? null;
 	const [activeArchetypeIndex, setActiveArchetypeIndex] = useState(0);
 	const [shareCardCreatedAt] = useState(() => new Date());
 	const shareCardCreatedAtLabel = formatShareCardCreatedAt(shareCardCreatedAt);
@@ -169,99 +151,6 @@ export function TeamCardWalkInPage() {
 			topStrokeOpacity: [0, 0, 1, 0.01],
 		},
 	});
-	const developerDetailsQuery = useAnalyticsQuery({
-		...orpc.analytics.developers.details.queryOptions({
-			input: {
-				userId: resolvedUserId ?? "",
-				days: MAX_ANALYTICS_DAYS,
-			},
-		}),
-		enabled: Boolean(resolvedUserId),
-	});
-	const developerFeaturesQuery = useAnalyticsQuery({
-		...orpc.analytics.developers.features.queryOptions({
-			input: {
-				userId: resolvedUserId ?? "",
-				days: MAX_ANALYTICS_DAYS,
-			},
-		}),
-		enabled: Boolean(resolvedUserId),
-	});
-	const developerProjectsQuery = useAnalyticsQuery({
-		...orpc.analytics.developers.projects.queryOptions({
-			input: {
-				userId: resolvedUserId ?? "",
-				days: MAX_ANALYTICS_DAYS,
-			},
-		}),
-		enabled: Boolean(resolvedUserId),
-	});
-	const developerSessionsQuery = useAnalyticsQuery({
-		...orpc.analytics.developers.sessions.queryOptions({
-			input: {
-				userId: resolvedUserId ?? "",
-				days: MAX_ANALYTICS_DAYS,
-				outcome: "all",
-				limit: 1000,
-				offset: 0,
-				sortBy: "date",
-				sortOrder: "desc",
-			},
-		}),
-		enabled: Boolean(resolvedUserId),
-	});
-	const commitBreakdownQuery = useAnalyticsQuery({
-		...orpc.analytics.sessions.dimensionAnalysis.queryOptions({
-			input: {
-				days: MAX_ANALYTICS_DAYS,
-				dimension: "has_commit",
-				limit: 4,
-				metric: "session_count",
-				userId: resolvedUserId ?? undefined,
-			},
-		}),
-		enabled: Boolean(resolvedUserId),
-	});
-	const visibleTeamCardRow = useMemo(
-		() =>
-			buildResolvedTeamCardRow({
-				accountLabel,
-				debugProfileImageSrc,
-				developerDetails: developerDetailsQuery.data,
-				sessionUserEmail,
-				sessionUserId: resolvedUserId,
-				sessionUserName,
-				teamMemberRows,
-			}),
-		[
-			accountLabel,
-			debugProfileImageSrc,
-			developerDetailsQuery.data,
-			sessionUserEmail,
-			resolvedUserId,
-			sessionUserName,
-			teamMemberRows,
-		],
-	);
-	const onboardingMetrics = useMemo(
-		() =>
-			buildWalkInOnboardingMetrics({
-				commitBreakdown: commitBreakdownQuery.data,
-				developerDetails: developerDetailsQuery.data,
-				developerFeatures: developerFeaturesQuery.data,
-				developerProjects: developerProjectsQuery.data,
-				developerSessions: developerSessionsQuery.data,
-				wrappedMetrics: wrappedData?.metrics,
-			}),
-		[
-			commitBreakdownQuery.data,
-			developerDetailsQuery.data,
-			developerFeaturesQuery.data,
-			developerProjectsQuery.data,
-			developerSessionsQuery.data,
-			wrappedData?.metrics,
-		],
-	);
 	const activeArchetype = WALK_IN_ARCHETYPE_CARD_THEMES[activeArchetypeIndex];
 	const activeStepParam = searchParams.get("step");
 	const handleContinueToDashboard = () => {
@@ -276,19 +165,6 @@ export function TeamCardWalkInPage() {
 		title: activeArchetype.label,
 		value: activeArchetype.label,
 	};
-	const statItems = useMemo(
-		() =>
-			buildWalkInStatItems(
-				visibleTeamCardRow,
-				developerDetailsQuery.data?.distinct_projects ?? 0,
-				wrappedData?.metrics.source_split ?? [],
-			),
-		[
-			developerDetailsQuery.data?.distinct_projects,
-			visibleTeamCardRow,
-			wrappedData?.metrics.source_split,
-		],
-	);
 	const statLayerOpacities =
 		useMemo<WalkInTeamMemberCardStatLayerOpacities>(() => {
 			const baseStatLayerOpacities: WalkInTeamMemberCardStatLayerOpacities = {
@@ -561,44 +437,4 @@ function TeamCardWalkInPageContent(props: {
 			totalSessions={visibleTeamCardRow.totalSessions}
 		/>
 	);
-}
-
-function getSessionUserId(
-	session: ReturnType<typeof useWalkInCardData>["session"],
-) {
-	return session?.user &&
-		"id" in session.user &&
-		typeof session.user.id === "string"
-		? session.user.id
-		: undefined;
-}
-
-function getActiveMemberUserId(
-	activeMember: ReturnType<typeof authClient.useActiveMember>["data"],
-) {
-	return activeMember &&
-		"userId" in activeMember &&
-		typeof activeMember.userId === "string"
-		? activeMember.userId
-		: undefined;
-}
-
-function getSessionUserName(
-	session: ReturnType<typeof useWalkInCardData>["session"],
-) {
-	return session?.user &&
-		"name" in session.user &&
-		typeof session.user.name === "string"
-		? session.user.name
-		: undefined;
-}
-
-function getSessionUserEmail(
-	session: ReturnType<typeof useWalkInCardData>["session"],
-) {
-	return session?.user &&
-		"email" in session.user &&
-		typeof session.user.email === "string"
-		? session.user.email
-		: undefined;
 }
