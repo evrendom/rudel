@@ -127,13 +127,13 @@ export const WrappedHandoverSchema = z.object({
 });
 
 export type WrappedCallToAction = z.infer<typeof WrappedCallToActionSchema>;
-export type WrappedMetricCandidate = z.infer<typeof WrappedMetricCandidateSchema>;
+export type WrappedMetricCandidate = z.infer<
+	typeof WrappedMetricCandidateSchema
+>;
 export type WrappedPreview = z.infer<typeof WrappedPreviewSchema>;
 export type WrappedStoryBeat = z.infer<typeof WrappedStoryBeatSchema>;
 export type WrappedRenderTarget = z.infer<typeof WrappedRenderTargetSchema>;
 export type WrappedRenderPlan = z.infer<typeof WrappedRenderPlanSchema>;
-export type WrappedDataState = z.infer<
-	typeof WrappedDataStateSchema
->;
+export type WrappedDataState = z.infer<typeof WrappedDataStateSchema>;
 export type WrappedData = z.infer<typeof WrappedDataSchema>;
 export type WrappedHandover = z.infer<typeof WrappedHandoverSchema>;

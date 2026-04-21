@@ -36,80 +36,82 @@ export interface WrappedBeatContract {
 	eligibility: string;
 }
 
-export const WRAPPED_BEAT_CONTRACTS: Record<WrappedStepId, WrappedBeatContract> =
-	{
-		upload: {
-			metricBasis:
-				"Temporary pre-recap beat. Final live version should read from upload job status and uploaded export summary.",
-			timeWindow: "Current upload attempt.",
-			referenceClass: "Current user's uploaded session exports.",
-			eligibility: "Always shown before the intro beat.",
-		},
-		intro: {
-			metricBasis: "Count of session_analytics rows for this user.",
-			timeWindow: "All time since first session.",
-			referenceClass: "User's own history.",
-			eligibility: "Always shown. Copy softens when total_sessions < 10.",
-		},
-		skills: {
-			metricBasis: "Top 3 skills by usage count plus skills_adoption_rate.",
-			timeWindow: "Developer analytics window (last 90 days).",
-			referenceClass: "User's own history.",
-			eligibility: "At least one ranked skill or adoption rate recorded.",
-		},
-		tools: {
-			metricBasis: "Top slash command and top subagent by usage.",
-			timeWindow: "Developer analytics window (last 90 days).",
-			referenceClass: "User's own history.",
-			eligibility: "At least one slash command or subagent recorded.",
-		},
-		model: {
-			metricBasis:
-				"Claude vs Codex session share across the full run, plus a month-by-month split for the latest 6 months.",
-			timeWindow:
-				"Top bar is all time. Monthly stacks cover the latest 6-month window.",
-			referenceClass: "User's own history.",
-			eligibility:
-				"At least one wrapped source_split row or one model_by_month row. Monthly share falls back gracefully when fewer than 6 months are present.",
-		},
-		scale: {
-			metricBasis: "Sum of input_tokens + output_tokens across sessions.",
-			timeWindow: "All time since first session.",
-			referenceClass:
-				"Reading-length anchors (essay, novella, novel, War and Peace).",
-			eligibility: "total_tokens > 0.",
-		},
-		"lock-in": {
-			metricBasis:
-				"Longest recorded session duration compared to the average session duration, with overrun and ratio derived from those two values.",
-			timeWindow:
-				"Longest session across all time. Average over developer analytics window.",
-			referenceClass: "User's own session distribution.",
-			eligibility:
-				"Any recorded session duration. Copy softens when longest_session_min < 30 or avg_session_duration_min is missing.",
-		},
-		quality: {
-			metricBasis: "Commit rate and success_rate.",
-			timeWindow: "Developer analytics window.",
-			referenceClass: "User's own history.",
-			eligibility: "At least one of commit_rate or success_rate is available.",
-		},
-		pulse: {
-			metricBasis:
-				"Top repos by session count, with each repo labeled by the strongest work signal inside it: tool adoption, depth, token load, or delivery.",
-			timeWindow: "Developer analytics window.",
-			referenceClass: "User's own repositories.",
-			eligibility:
-				"At least one recorded session with a project path before the final card reveal.",
-		},
-		card: {
-			metricBasis:
-				"User-picked archetype theme. Classifier lands later; no automatic assignment yet.",
-			timeWindow: "Snapshot of the current card stats at view time.",
-			referenceClass: "User browses the full archetype set.",
-			eligibility: "Always shown.",
-		},
-	};
+export const WRAPPED_BEAT_CONTRACTS: Record<
+	WrappedStepId,
+	WrappedBeatContract
+> = {
+	upload: {
+		metricBasis:
+			"Temporary pre-recap beat. Final live version should read from upload job status and uploaded export summary.",
+		timeWindow: "Current upload attempt.",
+		referenceClass: "Current user's uploaded session exports.",
+		eligibility: "Always shown before the intro beat.",
+	},
+	intro: {
+		metricBasis: "Count of session_analytics rows for this user.",
+		timeWindow: "All time since first session.",
+		referenceClass: "User's own history.",
+		eligibility: "Always shown. Copy softens when total_sessions < 10.",
+	},
+	skills: {
+		metricBasis: "Top 3 skills by usage count plus skills_adoption_rate.",
+		timeWindow: "Developer analytics window (last 90 days).",
+		referenceClass: "User's own history.",
+		eligibility: "At least one ranked skill or adoption rate recorded.",
+	},
+	tools: {
+		metricBasis: "Top slash command and top subagent by usage.",
+		timeWindow: "Developer analytics window (last 90 days).",
+		referenceClass: "User's own history.",
+		eligibility: "At least one slash command or subagent recorded.",
+	},
+	model: {
+		metricBasis:
+			"Claude vs Codex session share across the full run, plus a month-by-month split for the latest 6 months.",
+		timeWindow:
+			"Top bar is all time. Monthly stacks cover the latest 6-month window.",
+		referenceClass: "User's own history.",
+		eligibility:
+			"At least one wrapped source_split row or one model_by_month row. Monthly share falls back gracefully when fewer than 6 months are present.",
+	},
+	scale: {
+		metricBasis: "Sum of input_tokens + output_tokens across sessions.",
+		timeWindow: "All time since first session.",
+		referenceClass:
+			"Reading-length anchors (essay, novella, novel, War and Peace).",
+		eligibility: "total_tokens > 0.",
+	},
+	"lock-in": {
+		metricBasis:
+			"Longest recorded session duration compared to the average session duration, with overrun and ratio derived from those two values.",
+		timeWindow:
+			"Longest session across all time. Average over developer analytics window.",
+		referenceClass: "User's own session distribution.",
+		eligibility:
+			"Any recorded session duration. Copy softens when longest_session_min < 30 or avg_session_duration_min is missing.",
+	},
+	quality: {
+		metricBasis: "Commit rate and success_rate.",
+		timeWindow: "Developer analytics window.",
+		referenceClass: "User's own history.",
+		eligibility: "At least one of commit_rate or success_rate is available.",
+	},
+	pulse: {
+		metricBasis:
+			"Top repos by session count, with each repo labeled by the strongest work signal inside it: tool adoption, depth, token load, or delivery.",
+		timeWindow: "Developer analytics window.",
+		referenceClass: "User's own repositories.",
+		eligibility:
+			"At least one recorded session with a project path before the final card reveal.",
+	},
+	card: {
+		metricBasis:
+			"User-picked archetype theme. Classifier lands later; no automatic assignment yet.",
+		timeWindow: "Snapshot of the current card stats at view time.",
+		referenceClass: "User browses the full archetype set.",
+		eligibility: "Always shown.",
+	},
+};
 
 export const WRAPPED_STEP_PREVIEW_OPTIONS = {
 	upload: [

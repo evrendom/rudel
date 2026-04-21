@@ -33,7 +33,9 @@ export function WrappedOnboardingModelStage(props: ModelStageProps) {
 		<section className="mymind-wrapped-model-stage">
 			<div className="mymind-wrapped-model-stage__hero">
 				<p className="mymind-wrapped-model-stage__eyebrow">Model mix</p>
-				<h2 className="mymind-wrapped-model-stage__headline">{model.headline}</h2>
+				<h2 className="mymind-wrapped-model-stage__headline">
+					{model.headline}
+				</h2>
 				<p className="mymind-wrapped-model-stage__subline">{model.subline}</p>
 			</div>
 
@@ -116,7 +118,8 @@ export function WrappedOnboardingModelStage(props: ModelStageProps) {
 
 						{model.months.length === 0 ? (
 							<p className="mymind-wrapped-model-stage__empty">
-								The monthly stacks fill in once model history spans a few sessions.
+								The monthly stacks fill in once model history spans a few
+								sessions.
 							</p>
 						) : (
 							<div className="mymind-wrapped-model-stage__month-grid">

@@ -4,10 +4,7 @@ import type { UIEvent } from "react";
 import { useRef, useState } from "react";
 import { useMountEffect } from "@/hooks/useMountEffect";
 import { cn } from "@/lib/utils";
-import {
-	resolveUploadStageModel,
-	type UploadStageRollItem,
-} from "../helpers";
+import { resolveUploadStageModel, type UploadStageRollItem } from "../helpers";
 
 const UPLOAD_REEL_TIMING = {
 	advance: 1800,

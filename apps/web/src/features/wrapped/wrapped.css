@@ -277,7 +277,11 @@ body.mymind-wrapped-body #root {
 	inset-inline: -1.5rem;
 	top: -0.25rem;
 	height: 3.2rem;
-	background: linear-gradient(to bottom, var(--surface) 30%, rgb(255 255 255 / 0));
+	background: linear-gradient(
+		to bottom,
+		var(--surface) 30%,
+		rgb(255 255 255 / 0)
+	);
 	pointer-events: none;
 }
 
@@ -331,11 +335,8 @@ body.mymind-wrapped-body #root {
 	transform-style: preserve-3d;
 	backface-visibility: hidden;
 	will-change: transform, opacity, filter;
-	transform:
-		translateX(-50%)
-		translateY(var(--skills-card-y, 0rem))
-		translateZ(var(--skills-card-z, 0))
-		rotateX(var(--skills-card-rotate, 0deg))
+	transform: translateX(-50%) translateY(var(--skills-card-y, 0rem))
+		translateZ(var(--skills-card-z, 0)) rotateX(var(--skills-card-rotate, 0deg))
 		scale(var(--skills-card-scale, 1));
 	pointer-events: auto;
 	touch-action: none;
@@ -406,17 +407,21 @@ body.mymind-wrapped-body #root {
 	line-height: 1.2;
 }
 
-.mymind-wrapped-skills-stage__card.is-front .mymind-wrapped-skills-stage__item-meta {
+.mymind-wrapped-skills-stage__card.is-front
+	.mymind-wrapped-skills-stage__item-meta {
 	color: rgb(23 22 28 / 0.72);
 }
 
-.mymind-wrapped-skills-stage__card-item.is-placeholder .mymind-wrapped-skills-stage__item-rank {
+.mymind-wrapped-skills-stage__card-item.is-placeholder
+	.mymind-wrapped-skills-stage__item-rank {
 	background: rgb(255 255 255 / 0.92);
 	color: rgb(58 61 70 / 0.66);
 }
 
-.mymind-wrapped-skills-stage__card-item.is-placeholder .mymind-wrapped-skills-stage__item-name,
-.mymind-wrapped-skills-stage__card-item.is-placeholder .mymind-wrapped-skills-stage__item-meta {
+.mymind-wrapped-skills-stage__card-item.is-placeholder
+	.mymind-wrapped-skills-stage__item-name,
+.mymind-wrapped-skills-stage__card-item.is-placeholder
+	.mymind-wrapped-skills-stage__item-meta {
 	color: rgb(58 61 70 / 0.68);
 }
 
@@ -513,11 +518,9 @@ body.mymind-wrapped-body #root {
 	box-shadow: 0 8px 20px rgb(15 23 42 / 0.06);
 	cursor: pointer;
 	text-align: left;
-	transform:
-		translateX(var(--tools-card-translate-x, -50%))
+	transform: translateX(var(--tools-card-translate-x, -50%))
 		translateY(var(--tools-card-translate-y, 0rem))
-		rotate(var(--tools-card-rotate, 0deg))
-		scale(var(--tools-card-scale, 1));
+		rotate(var(--tools-card-rotate, 0deg)) scale(var(--tools-card-scale, 1));
 	transform-origin: center top;
 	transition:
 		transform 220ms cubic-bezier(0.23, 1, 0.32, 1),
@@ -586,12 +589,15 @@ body.mymind-wrapped-body #root {
 	background: #17161c;
 }
 
-.mymind-wrapped-tools-stage__entry.is-placeholder .mymind-wrapped-tools-stage__entry-name,
-.mymind-wrapped-tools-stage__entry.is-placeholder .mymind-wrapped-tools-stage__entry-usage {
+.mymind-wrapped-tools-stage__entry.is-placeholder
+	.mymind-wrapped-tools-stage__entry-name,
+.mymind-wrapped-tools-stage__entry.is-placeholder
+	.mymind-wrapped-tools-stage__entry-usage {
 	color: rgb(58 61 70 / 0.62);
 }
 
-.mymind-wrapped-tools-stage__entry.is-placeholder .mymind-wrapped-tools-stage__meter-fill {
+.mymind-wrapped-tools-stage__entry.is-placeholder
+	.mymind-wrapped-tools-stage__meter-fill {
 	background: rgb(15 23 42 / 0.18);
 }
 
@@ -696,7 +702,11 @@ body.mymind-wrapped-body #root {
 	padding: 1rem 0.95rem 1rem;
 	border-radius: 2.2rem;
 	background:
-		radial-gradient(circle at top right, rgb(255 227 180 / 0.38), transparent 30%),
+		radial-gradient(
+			circle at top right,
+			rgb(255 227 180 / 0.38),
+			transparent 30%
+		),
 		linear-gradient(180deg, #ffc36e 0%, #f7ab38 100%);
 	box-shadow:
 		inset 0 0 0 1px rgb(255 255 255 / 0.18),
@@ -708,7 +718,11 @@ body.mymind-wrapped-body #root {
 	position: absolute;
 	inset: 0.55rem;
 	border-radius: 1.75rem;
-	background: linear-gradient(180deg, rgb(255 255 255 / 0.16) 0%, rgb(255 255 255 / 0.04) 100%);
+	background: linear-gradient(
+		180deg,
+		rgb(255 255 255 / 0.16) 0%,
+		rgb(255 255 255 / 0.04) 100%
+	);
 	pointer-events: none;
 	z-index: -1;
 }
@@ -1068,8 +1082,11 @@ body.mymind-wrapped-body #root {
 }
 
 .mymind-wrapped-model-stage__month-bar.is-empty {
-	background:
-		linear-gradient(180deg, rgb(255 255 255 / 0.55) 0%, rgb(228 234 241 / 0.95) 100%);
+	background: linear-gradient(
+		180deg,
+		rgb(255 255 255 / 0.55) 0%,
+		rgb(228 234 241 / 0.95) 100%
+	);
 }
 
 .mymind-wrapped-model-stage__month-label {
@@ -1198,7 +1215,11 @@ body.mymind-wrapped-body #root {
 	padding: 1rem;
 	border-radius: 2.1rem;
 	background:
-		radial-gradient(circle at top center, rgb(255 229 215 / 0.82), transparent 36%),
+		radial-gradient(
+			circle at top center,
+			rgb(255 229 215 / 0.82),
+			transparent 36%
+		),
 		linear-gradient(180deg, #fff9f5 0%, #ffd9c7 100%);
 	box-shadow:
 		inset 0 0 0 1px rgb(255 255 255 / 0.28),
@@ -1207,7 +1228,11 @@ body.mymind-wrapped-body #root {
 
 .mymind-wrapped-lock-in-stage__card.is-settled {
 	background:
-		radial-gradient(circle at top center, rgb(228 243 218 / 0.82), transparent 36%),
+		radial-gradient(
+			circle at top center,
+			rgb(228 243 218 / 0.82),
+			transparent 36%
+		),
 		linear-gradient(180deg, #f8fcf4 0%, #dceec8 100%);
 	box-shadow:
 		inset 0 0 0 1px rgb(255 255 255 / 0.3),
@@ -1216,7 +1241,11 @@ body.mymind-wrapped-body #root {
 
 .mymind-wrapped-lock-in-stage__card.is-didnt-end {
 	background:
-		radial-gradient(circle at top center, rgb(255 213 205 / 0.84), transparent 36%),
+		radial-gradient(
+			circle at top center,
+			rgb(255 213 205 / 0.84),
+			transparent 36%
+		),
 		linear-gradient(180deg, #fff7f4 0%, #ffc6b7 100%);
 	box-shadow:
 		inset 0 0 0 1px rgb(255 255 255 / 0.28),
@@ -1225,7 +1254,11 @@ body.mymind-wrapped-body #root {
 
 .mymind-wrapped-lock-in-stage__card.is-missing {
 	background:
-		radial-gradient(circle at top center, rgb(235 239 246 / 0.8), transparent 36%),
+		radial-gradient(
+			circle at top center,
+			rgb(235 239 246 / 0.8),
+			transparent 36%
+		),
 		linear-gradient(180deg, #fbfcfe 0%, #e3e8f2 100%);
 	box-shadow:
 		inset 0 0 0 1px rgb(255 255 255 / 0.3),
@@ -1314,16 +1347,20 @@ body.mymind-wrapped-body #root {
 	color: #17161c;
 }
 
-.mymind-wrapped-lock-in-stage__card.is-settled .mymind-wrapped-lock-in-stage__chip.is-state {
+.mymind-wrapped-lock-in-stage__card.is-settled
+	.mymind-wrapped-lock-in-stage__chip.is-state {
 	background: rgb(235 246 224 / 0.96);
 }
 
-.mymind-wrapped-lock-in-stage__card.is-stretched .mymind-wrapped-lock-in-stage__chip.is-state {
+.mymind-wrapped-lock-in-stage__card.is-stretched
+	.mymind-wrapped-lock-in-stage__chip.is-state {
 	background: rgb(255 235 213 / 0.96);
 }
 
-.mymind-wrapped-lock-in-stage__card.is-got-away .mymind-wrapped-lock-in-stage__chip.is-state,
-.mymind-wrapped-lock-in-stage__card.is-didnt-end .mymind-wrapped-lock-in-stage__chip.is-state {
+.mymind-wrapped-lock-in-stage__card.is-got-away
+	.mymind-wrapped-lock-in-stage__chip.is-state,
+.mymind-wrapped-lock-in-stage__card.is-didnt-end
+	.mymind-wrapped-lock-in-stage__chip.is-state {
 	background: rgb(255 223 216 / 0.98);
 }
 
@@ -1492,7 +1529,11 @@ body.mymind-wrapped-body #root {
 	padding: 1rem;
 	border-radius: 2.1rem;
 	background:
-		radial-gradient(circle at top center, rgb(214 244 230 / 0.78), transparent 36%),
+		radial-gradient(
+			circle at top center,
+			rgb(214 244 230 / 0.78),
+			transparent 36%
+		),
 		linear-gradient(180deg, #f5fffb 0%, #d8f1e6 100%);
 	box-shadow:
 		inset 0 0 0 1px rgb(255 255 255 / 0.28),
@@ -1502,7 +1543,11 @@ body.mymind-wrapped-body #root {
 .mymind-wrapped-quality-stage__card.is-delivery-led,
 .mymind-wrapped-quality-stage__card.is-success-only {
 	background:
-		radial-gradient(circle at top center, rgb(213 235 255 / 0.82), transparent 36%),
+		radial-gradient(
+			circle at top center,
+			rgb(213 235 255 / 0.82),
+			transparent 36%
+		),
 		linear-gradient(180deg, #f7fbff 0%, #dbeaff 100%);
 	box-shadow:
 		inset 0 0 0 1px rgb(255 255 255 / 0.3),
@@ -1512,7 +1557,11 @@ body.mymind-wrapped-body #root {
 .mymind-wrapped-quality-stage__card.is-commit-led,
 .mymind-wrapped-quality-stage__card.is-commit-only {
 	background:
-		radial-gradient(circle at top center, rgb(255 226 204 / 0.82), transparent 36%),
+		radial-gradient(
+			circle at top center,
+			rgb(255 226 204 / 0.82),
+			transparent 36%
+		),
 		linear-gradient(180deg, #fff9f5 0%, #ffe0c7 100%);
 	box-shadow:
 		inset 0 0 0 1px rgb(255 255 255 / 0.28),
@@ -1521,7 +1570,11 @@ body.mymind-wrapped-body #root {
 
 .mymind-wrapped-quality-stage__card.is-iterating {
 	background:
-		radial-gradient(circle at top center, rgb(252 235 196 / 0.82), transparent 36%),
+		radial-gradient(
+			circle at top center,
+			rgb(252 235 196 / 0.82),
+			transparent 36%
+		),
 		linear-gradient(180deg, #fffbf1 0%, #f8e3b7 100%);
 	box-shadow:
 		inset 0 0 0 1px rgb(255 255 255 / 0.28),
@@ -1530,7 +1583,11 @@ body.mymind-wrapped-body #root {
 
 .mymind-wrapped-quality-stage__card.is-missing {
 	background:
-		radial-gradient(circle at top center, rgb(235 239 246 / 0.8), transparent 36%),
+		radial-gradient(
+			circle at top center,
+			rgb(235 239 246 / 0.8),
+			transparent 36%
+		),
 		linear-gradient(180deg, #fbfcfe 0%, #e3e8f2 100%);
 	box-shadow:
 		inset 0 0 0 1px rgb(255 255 255 / 0.3),
@@ -1618,21 +1675,27 @@ body.mymind-wrapped-body #root {
 	color: #17161c;
 }
 
-.mymind-wrapped-quality-stage__card.is-strong .mymind-wrapped-quality-stage__chip.is-state {
+.mymind-wrapped-quality-stage__card.is-strong
+	.mymind-wrapped-quality-stage__chip.is-state {
 	background: rgb(224 246 234 / 0.96);
 }
 
-.mymind-wrapped-quality-stage__card.is-delivery-led .mymind-wrapped-quality-stage__chip.is-state,
-.mymind-wrapped-quality-stage__card.is-success-only .mymind-wrapped-quality-stage__chip.is-state {
+.mymind-wrapped-quality-stage__card.is-delivery-led
+	.mymind-wrapped-quality-stage__chip.is-state,
+.mymind-wrapped-quality-stage__card.is-success-only
+	.mymind-wrapped-quality-stage__chip.is-state {
 	background: rgb(226 238 255 / 0.98);
 }
 
-.mymind-wrapped-quality-stage__card.is-commit-led .mymind-wrapped-quality-stage__chip.is-state,
-.mymind-wrapped-quality-stage__card.is-commit-only .mymind-wrapped-quality-stage__chip.is-state {
+.mymind-wrapped-quality-stage__card.is-commit-led
+	.mymind-wrapped-quality-stage__chip.is-state,
+.mymind-wrapped-quality-stage__card.is-commit-only
+	.mymind-wrapped-quality-stage__chip.is-state {
 	background: rgb(255 234 217 / 0.98);
 }
 
-.mymind-wrapped-quality-stage__card.is-iterating .mymind-wrapped-quality-stage__chip.is-state {
+.mymind-wrapped-quality-stage__card.is-iterating
+	.mymind-wrapped-quality-stage__chip.is-state {
 	background: rgb(251 239 205 / 0.98);
 }
 
@@ -1652,7 +1715,8 @@ body.mymind-wrapped-body #root {
 	gap: 0.46rem;
 }
 
-.mymind-wrapped-quality-stage__row.is-pending .mymind-wrapped-quality-stage__row-value {
+.mymind-wrapped-quality-stage__row.is-pending
+	.mymind-wrapped-quality-stage__row-value {
 	color: rgb(58 61 70 / 0.52);
 }
 
@@ -1689,7 +1753,8 @@ body.mymind-wrapped-body #root {
 	box-shadow: inset 0 0 0 1px rgb(23 22 28 / 0.05);
 }
 
-.mymind-wrapped-quality-stage__row.is-pending .mymind-wrapped-quality-stage__track {
+.mymind-wrapped-quality-stage__row.is-pending
+	.mymind-wrapped-quality-stage__track {
 	background: rgb(233 237 243 / 0.86);
 }
 
@@ -1913,11 +1978,8 @@ body.mymind-wrapped-body #root {
 	top: 0;
 	opacity: 0;
 	will-change: transform, opacity;
-	animation: wrapped-scale-rain-fall
-		var(--scale-rain-ball-duration, 4200ms)
-		linear
-		var(--scale-rain-ball-delay, 0ms)
-		infinite;
+	animation: wrapped-scale-rain-fall var(--scale-rain-ball-duration, 4200ms)
+		linear var(--scale-rain-ball-delay, 0ms) infinite;
 }
 
 .mymind-wrapped-scale-rain__ball-core {
@@ -1932,20 +1994,22 @@ body.mymind-wrapped-body #root {
 	opacity: 0.84;
 	animation: none;
 	transform: translate3d(
-		var(--scale-rain-ball-drift-start, 0px),
-		var(--scale-rain-ball-static-y, 12%),
-		0
-	) rotate(var(--scale-rain-ball-start-rotation, 0deg));
+			var(--scale-rain-ball-drift-start, 0px),
+			var(--scale-rain-ball-static-y, 12%),
+			0
+		)
+		rotate(var(--scale-rain-ball-start-rotation, 0deg));
 }
 
 @keyframes wrapped-scale-rain-fall {
 	0% {
 		opacity: 0;
 		transform: translate3d(
-			var(--scale-rain-ball-drift-start, 0px),
-			var(--scale-rain-ball-start-y, -96px),
-			0
-		) rotate(var(--scale-rain-ball-start-rotation, 0deg));
+				var(--scale-rain-ball-drift-start, 0px),
+				var(--scale-rain-ball-start-y, -96px),
+				0
+			)
+			rotate(var(--scale-rain-ball-start-rotation, 0deg));
 	}
 
 	8% {
@@ -1959,10 +2023,11 @@ body.mymind-wrapped-body #root {
 	100% {
 		opacity: 0;
 		transform: translate3d(
-			var(--scale-rain-ball-drift-end, 0px),
-			calc(100svh + 12rem),
-			0
-		) rotate(var(--scale-rain-ball-end-rotation, 0deg));
+				var(--scale-rain-ball-drift-end, 0px),
+				calc(100svh + 12rem),
+				0
+			)
+			rotate(var(--scale-rain-ball-end-rotation, 0deg));
 	}
 }
 

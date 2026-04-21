@@ -4,10 +4,7 @@ import {
 	MAX_GYRO_TILT_DEGREES,
 	MAX_POINTER_TILT_DEGREES,
 } from "./constants";
-import type {
-	WrappedCardTiltValues,
-	WrappedGyroscopeBaseline,
-} from "./types";
+import type { WrappedCardTiltValues, WrappedGyroscopeBaseline } from "./types";
 
 export function buildGyroscopeTiltValues(input: {
 	baseline: WrappedGyroscopeBaseline;

@@ -1,8 +1,5 @@
 import type { CSSProperties } from "react";
-import {
-	clampNumber,
-	formatCompactNumber,
-} from "../format";
+import { clampNumber, formatCompactNumber } from "../format";
 import type { WrappedStepContentLine } from "../helpers";
 
 export const SCALE_STAGE_TOKENS_PER_BALL = 2_000_000;
@@ -117,10 +114,7 @@ export function buildScaleRainBalls(totalTokens: number): ScaleRainBall[] {
 			24 + random() * 28 + (1 - row / Math.max(rowCount, 1)) * 10,
 		);
 		const tintBand = index % 5;
-		const hue =
-			tintBand <= 3
-				? 28 + random() * 14
-				: 214 + random() * 16;
+		const hue = tintBand <= 3 ? 28 + random() * 14 : 214 + random() * 16;
 
 		return {
 			delayMs: Math.round(random() * 3000 + row * 120 + lane * 32),
@@ -166,7 +160,9 @@ export function getScaleRainBallCoreStyle(ball: ScaleRainBall): CSSProperties {
 	};
 }
 
-export function buildScaleContent(totalTokens: number): WrappedStepContentLine[] {
+export function buildScaleContent(
+	totalTokens: number,
+): WrappedStepContentLine[] {
 	if (totalTokens <= 0) {
 		return [
 			{ text: "Token count is still catching up." },

@@ -1,8 +1,8 @@
 import {
+	type PreviewableWrappedStepId,
 	STEP_PREVIEW_QUERY_PARAM_PREFIX,
 	UPLOAD_STEP,
 	WRAPPED_STEP_PREVIEW_OPTIONS,
-	type PreviewableWrappedStepId,
 	type WrappedStep,
 } from "./config";
 
@@ -81,11 +81,7 @@ export function resolveActiveStepIndex(
 	}
 
 	const normalizedStepId =
-		stepId === "presence"
-			? "skills"
-			: stepId === "summary"
-				? "pulse"
-				: stepId;
+		stepId === "presence" ? "skills" : stepId === "summary" ? "pulse" : stepId;
 
 	const resolvedStepIndex = eligibleSteps.findIndex(
 		(step) => step.id === normalizedStepId,
@@ -127,7 +123,9 @@ export function getStepDisplayNumber(stepIndex: number) {
 	return (stepIndex - 1).toString();
 }
 
-export function resolveUploadStageModel(previewState: string): UploadStageModel {
+export function resolveUploadStageModel(
+	previewState: string,
+): UploadStageModel {
 	switch (previewState) {
 		case "ready-single":
 			return {
@@ -264,7 +262,8 @@ export function resolveIntroStageModel(input: {
 			cardDetail: "across 0 days",
 			cardMeta: "0 day run",
 			cardValue: "0 active days",
-			footnote: "As soon as sessions land, this step turns into your opening beat.",
+			footnote:
+				"As soon as sessions land, this step turns into your opening beat.",
 			headline: "No sessions yet.",
 		};
 	}
@@ -297,7 +296,10 @@ export function buildIntroCommitGraph(input: {
 	const totalDots = INTRO_COMMIT_GRAPH.totalDots;
 	const resolvedVisibleDays = Math.max(
 		0,
-		Math.min(totalDots, Math.max(input.daysSinceFirst, input.totalSessions > 0 ? 1 : 0)),
+		Math.min(
+			totalDots,
+			Math.max(input.daysSinceFirst, input.totalSessions > 0 ? 1 : 0),
+		),
 	);
 	const resolvedActiveDays = Math.max(
 		0,
@@ -314,16 +316,19 @@ export function buildIntroCommitGraph(input: {
 				input.daysSinceFirst * 13 +
 				input.displayName.length * 7,
 		);
-		const rankedDays = Array.from({ length: resolvedVisibleDays }, (_, dayIndex) => {
-			const recency =
-				resolvedVisibleDays <= 1 ? 1 : dayIndex / (resolvedVisibleDays - 1);
-			const noise = random();
-			const streak = (Math.sin((dayIndex + 1) * 0.72 + noise * 2.4) + 1) / 2;
-			return {
-				dayIndex,
-				score: recency * 0.48 + noise * 0.32 + streak * 0.2,
-			};
-		})
+		const rankedDays = Array.from(
+			{ length: resolvedVisibleDays },
+			(_, dayIndex) => {
+				const recency =
+					resolvedVisibleDays <= 1 ? 1 : dayIndex / (resolvedVisibleDays - 1);
+				const noise = random();
+				const streak = (Math.sin((dayIndex + 1) * 0.72 + noise * 2.4) + 1) / 2;
+				return {
+					dayIndex,
+					score: recency * 0.48 + noise * 0.32 + streak * 0.2,
+				};
+			},
+		)
 			.sort((left, right) => right.score - left.score)
 			.slice(0, resolvedActiveDays)
 			.sort((left, right) => left.dayIndex - right.dayIndex);
@@ -385,7 +390,7 @@ export function resolveIntroPreviewInput(
 }
 
 function createSeededRandom(seed: number) {
-	let state = (seed >>> 0) || 1;
+	let state = seed >>> 0 || 1;
 	return () => {
 		state = (state * 1_664_525 + 1_013_904_223) >>> 0;
 		return state / 4_294_967_296;

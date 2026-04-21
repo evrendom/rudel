@@ -11,7 +11,9 @@ export function isWrappedLaunchEligible(
 	return createdAt ? createdAt >= WRAPPED_LAUNCH_CUTOFF : false;
 }
 
-export function hasCompletedWrapped(userId: string | null | undefined): boolean {
+export function hasCompletedWrapped(
+	userId: string | null | undefined,
+): boolean {
 	const storageKeys = getCompletionStorageKeys(userId);
 	if (storageKeys.length === 0 || typeof window === "undefined") {
 		return false;

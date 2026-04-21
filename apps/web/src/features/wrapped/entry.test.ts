@@ -26,15 +26,18 @@ describe("entry", () => {
 
 	it("stores the completion flag in a versioned localStorage key", () => {
 		const userId = "user-1";
+		const storageKey = getWrappedCompletionStorageKey(userId);
 
 		expect(hasCompletedWrapped(userId)).toBe(false);
+		expect(storageKey).not.toBeNull();
 
 		markWrappedCompleted(userId);
 
 		expect(hasCompletedWrapped(userId)).toBe(true);
-		expect(
-			window.localStorage.getItem(getWrappedCompletionStorageKey(userId)!),
-		).toBe("true");
+		if (storageKey === null) {
+			throw new Error("Expected wrapped completion storage key");
+		}
+		expect(window.localStorage.getItem(storageKey)).toBe("true");
 
 		clearWrappedCompleted(userId);
 

@@ -186,7 +186,8 @@ export function resolveModelStageModel(input: {
 	const distinctLeaders = new Set(
 		activeMonths.map((month) => month.leaderLabel),
 	).size;
-	const latestLeader = activeMonths[activeMonths.length - 1]?.leaderLabel ?? null;
+	const latestLeader =
+		activeMonths[activeMonths.length - 1]?.leaderLabel ?? null;
 	const earliestLeader = activeMonths[0]?.leaderLabel ?? null;
 	const overallLeader = sourceSplit.leadingLabel ?? latestLeader;
 	const headline =
@@ -368,7 +369,10 @@ function buildModelShareSummary(
 function buildModelSourceCountsByMonth(
 	modelByMonth: readonly MonthlyModelUsage[],
 ) {
-	const rowsByMonth = new Map<string, Map<WrappedSourceSplit["source"], number>>();
+	const rowsByMonth = new Map<
+		string,
+		Map<WrappedSourceSplit["source"], number>
+	>();
 
 	for (const row of modelByMonth) {
 		const source = resolveModelStageSource(row.model);
@@ -412,7 +416,9 @@ function getLatestModelStageMonthKeys(months: readonly string[]) {
 	});
 }
 
-function summarizeModelSourceSplit(summary: readonly WrappedModelShareSegment[]) {
+function summarizeModelSourceSplit(
+	summary: readonly WrappedModelShareSegment[],
+) {
 	const claudeShare = Math.round(
 		summary.find((segment) => segment.source === "claude_code")?.share ?? 0,
 	);

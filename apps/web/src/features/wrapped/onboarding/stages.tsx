@@ -1,8 +1,6 @@
 import { cn } from "@/lib/utils";
 import type { WrappedStep } from "./config";
-import {
-	type WrappedStepContentLine,
-} from "./helpers";
+import type { WrappedStepContentLine } from "./helpers";
 import {
 	buildScaleRainBalls,
 	buildStepContent,

@@ -5,13 +5,14 @@ import { useSearchParams } from "react-router-dom";
 import { useMountEffect } from "@/hooks/useMountEffect";
 import { cn } from "@/lib/utils";
 import {
+	type PreviewableWrappedStepId,
 	STEP_QUERY_PARAM,
 	UPLOAD_STEP,
-	WRAPPED_STEPS,
 	WRAPPED_STEP_PREVIEW_OPTIONS,
-	type PreviewableWrappedStepId,
+	WRAPPED_STEPS,
 	type WrappedStepId,
 } from "./config";
+import { WrappedOnboardingFooter, WrappedOnboardingHeader } from "./controls";
 import {
 	getSelectedPreviewState,
 	getStepPreviewStateParam,
@@ -19,16 +20,12 @@ import {
 	resolveActiveStepIndex,
 	resolveUploadStageModel,
 } from "./helpers";
-import {
-	WrappedOnboardingFooter,
-	WrappedOnboardingHeader,
-} from "./controls";
 import { resolveScalePreviewTokens } from "./models";
 import {
 	WrappedOnboardingScaleRainBackdrop,
 	WrappedOnboardingStage,
 } from "./stages";
-import { type WrappedOnboardingMetrics } from "./types";
+import type { WrappedOnboardingMetrics } from "./types";
 
 /* ─────────────────────────────────────────────────────────
  * INTRO EXIT STORYBOARD
@@ -67,7 +64,9 @@ export type {
 	WrappedSkillUsageItem,
 } from "./types";
 
-export function WrappedTeamCardOnboarding(props: WrappedTeamCardOnboardingProps) {
+export function WrappedTeamCardOnboarding(
+	props: WrappedTeamCardOnboardingProps,
+) {
 	const {
 		displayName,
 		finalFooter,
@@ -80,7 +79,9 @@ export function WrappedTeamCardOnboarding(props: WrappedTeamCardOnboardingProps)
 	const reduceMotion = shouldReduceMotion ?? false;
 	const exitTimerRef = useRef<number | null>(null);
 	const [pendingStepIndex, setPendingStepIndex] = useState<number | null>(null);
-	const [exitingStepId, setExitingStepId] = useState<WrappedStepId | null>(null);
+	const [exitingStepId, setExitingStepId] = useState<WrappedStepId | null>(
+		null,
+	);
 	const activeStepIndex = resolveActiveStepIndex(
 		searchParams.get(STEP_QUERY_PARAM),
 		WRAPPED_STEPS,
@@ -110,7 +111,10 @@ export function WrappedTeamCardOnboarding(props: WrappedTeamCardOnboardingProps)
 			: null;
 	const isScaleStep = activeStep.id === "scale";
 	const scaleRainTotalTokens = isScaleStep
-		? resolveScalePreviewTokens(onboardingMetrics.totalTokens, activePreviewState)
+		? resolveScalePreviewTokens(
+				onboardingMetrics.totalTokens,
+				activePreviewState,
+			)
 		: 0;
 	const isStepTransitioning = pendingStepIndex !== null;
 

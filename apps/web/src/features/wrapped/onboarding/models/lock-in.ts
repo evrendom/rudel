@@ -87,7 +87,9 @@ export function resolveLockInStageModel(input: {
 	});
 	const longestDurationLabel = formatDurationMinutes(longestSessionMin);
 	const averageDurationLabel =
-		avgSessionMin !== null ? formatDurationMinutes(avgSessionMin) : "No average yet";
+		avgSessionMin !== null
+			? formatDurationMinutes(avgSessionMin)
+			: "No average yet";
 	const comparisonLabel =
 		overrunMin === null
 			? "Average still catching up"
@@ -103,10 +105,7 @@ export function resolveLockInStageModel(input: {
 			"Longest session is all time. Usual session uses average duration over the analytics window.",
 		headline: getLockInStageHeadline(state, longestSessionMin),
 		longestDurationLabel,
-		longestShare: getLockInStageShare(
-			longestSessionMin,
-			comparisonMaxDuration,
-		),
+		longestShare: getLockInStageShare(longestSessionMin, comparisonMaxDuration),
 		state,
 		stateLabel: getLockInStageStateLabel(state, ratio),
 		subline: getLockInStageSubline({
@@ -152,7 +151,10 @@ function getLockInStageState(input: {
 	return "stretched";
 }
 
-function getLockInStageShare(durationMin: number | null, maxDurationMin: number) {
+function getLockInStageShare(
+	durationMin: number | null,
+	maxDurationMin: number,
+) {
 	if (durationMin === null || durationMin <= 0 || maxDurationMin <= 0) {
 		return 0;
 	}
@@ -208,7 +210,8 @@ function getLockInStageSubline(input: {
 	ratio: number | null;
 	state: LockInStageState;
 }) {
-	const { avgSessionMin, longestDurationLabel, overrunMin, ratio, state } = input;
+	const { avgSessionMin, longestDurationLabel, overrunMin, ratio, state } =
+		input;
 	const averageDurationLabel =
 		avgSessionMin !== null ? formatDurationMinutes(avgSessionMin) : null;
 

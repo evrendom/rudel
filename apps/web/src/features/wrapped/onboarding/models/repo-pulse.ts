@@ -76,7 +76,8 @@ export function resolveRepoPulseStageModel(
 	if (input.entries.length === 0) {
 		return {
 			entries: [],
-			footnote: "A little more repo history and the pulse will settle into view.",
+			footnote:
+				"A little more repo history and the pulse will settle into view.",
 			headline: "Your repo pulse is still landing",
 			subline:
 				"When the work settles into projects, this view turns into repo-by-repo work types.",

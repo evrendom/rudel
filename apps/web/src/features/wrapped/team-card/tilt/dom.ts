@@ -13,7 +13,10 @@ import {
 } from "./constants";
 import type { WrappedCardTiltValues } from "./types";
 
-export function applyTilt(node: HTMLDivElement | null, values: WrappedCardTiltValues) {
+export function applyTilt(
+	node: HTMLDivElement | null,
+	values: WrappedCardTiltValues,
+) {
 	if (!node) {
 		return;
 	}

@@ -1,11 +1,11 @@
 import { type MutableRefObject, type RefObject, useRef, useState } from "react";
+import { useMountEffect } from "@/hooks/useMountEffect";
 import { applyTilt, resetTilt } from "./dom";
 import { buildGyroscopeTiltValues } from "./math";
 import type {
 	WrappedCardGyroscopeState,
 	WrappedGyroscopeBaseline,
 } from "./types";
-import { useMountEffect } from "@/hooks/useMountEffect";
 
 interface UseWrappedCardGyroscopeParams {
 	cardTiltRef: RefObject<HTMLDivElement | null>;

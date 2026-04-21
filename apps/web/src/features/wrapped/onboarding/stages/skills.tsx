@@ -2,11 +2,11 @@ import type { CSSProperties, TouchEvent, WheelEvent } from "react";
 import { useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import {
-	SKILLS_STACK,
 	clampSkillsCardIndex,
 	getSkillsCardStyle,
 	resolveSkillsPreviewInput,
 	resolveSkillsStageModel,
+	SKILLS_STACK,
 } from "../models";
 import type { WrappedOnboardingMetrics } from "../types";
 
@@ -59,7 +59,9 @@ export function WrappedOnboardingSkillsStage(props: SkillsStageProps) {
 		lastWheelTimestampRef.current = now;
 		wheelAccumulationRef.current += deltaY;
 
-		if (Math.abs(wheelAccumulationRef.current) < SKILLS_STACK.wheelThresholdPx) {
+		if (
+			Math.abs(wheelAccumulationRef.current) < SKILLS_STACK.wheelThresholdPx
+		) {
 			return;
 		}
 
@@ -79,7 +81,9 @@ export function WrappedOnboardingSkillsStage(props: SkillsStageProps) {
 			return;
 		}
 
-		const cardElement = eventTarget.closest(".mymind-wrapped-skills-stage__card");
+		const cardElement = eventTarget.closest(
+			".mymind-wrapped-skills-stage__card",
+		);
 		if (!cardElement || !event.currentTarget.contains(cardElement)) {
 			return;
 		}
@@ -135,7 +139,9 @@ export function WrappedOnboardingSkillsStage(props: SkillsStageProps) {
 					{model.headline}
 				</h2>
 				{model.subline ? (
-					<p className="mymind-wrapped-skills-stage__subline">{model.subline}</p>
+					<p className="mymind-wrapped-skills-stage__subline">
+						{model.subline}
+					</p>
 				) : null}
 			</div>
 

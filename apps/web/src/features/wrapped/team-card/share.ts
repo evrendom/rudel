@@ -1,6 +1,6 @@
-import { type RefObject } from "react";
-import { appRoutes } from "@/app/routes";
+import type { RefObject } from "react";
 import { toast } from "sonner";
+import { appRoutes } from "@/app/routes";
 import {
 	captureElement,
 	copyToClipboard,
@@ -134,7 +134,10 @@ function buildWrappedTeamCardShareUrl() {
 		return undefined;
 	}
 
-	return new URL(appRoutes.wrappedTeamCard(), window.location.origin).toString();
+	return new URL(
+		appRoutes.wrappedTeamCard(),
+		window.location.origin,
+	).toString();
 }
 
 function formatShareUrlLabel(shareUrl: string | undefined) {

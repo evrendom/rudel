@@ -1,9 +1,9 @@
 import type { WrappedV1 } from "@rudel/api-routes";
 import { wrappedHandoverData } from "@/features/wrapped/data/handover-data";
 import type {
+	WrappedDataState,
 	WrappedHandover,
 	WrappedMetricCandidate,
-	WrappedDataState,
 } from "@/features/wrapped/lib/handover-schema";
 
 const COMPACT_NUMBER_FORMATTER = new Intl.NumberFormat("en", {

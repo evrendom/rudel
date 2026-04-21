@@ -1,9 +1,14 @@
-import { ChevronLeft, ChevronRight, Clipboard, Download, Share2 } from "lucide-react";
+import {
+	ChevronLeft,
+	ChevronRight,
+	Clipboard,
+	Download,
+	Share2,
+} from "lucide-react";
 import type { CSSProperties, RefObject } from "react";
 import { appRoutes } from "@/app/routes";
 import { Button } from "@/app/ui/button";
 import type { TeamPageMemberRow } from "@/features/team/use-team-page-data";
-import type { WrappedCardTiltController } from "./tilt/use-card-tilt";
 import {
 	WrappedTeamMemberCard,
 	type WrappedTeamMemberCardHeaderMetric,
@@ -11,6 +16,7 @@ import {
 	type WrappedTeamMemberCardStatLayerOpacities,
 	type WrappedTeamMemberCardTheme,
 } from "./card";
+import type { WrappedCardTiltController } from "./tilt/use-card-tilt";
 
 interface WrappedTeamCardStageCardProps {
 	headerLeftMetric: WrappedTeamMemberCardHeaderMetric;
@@ -34,14 +40,17 @@ interface WrappedTeamCardShareStageProps extends WrappedTeamCardStageCardProps {
 	shareUrlLabel: string;
 }
 
-interface WrappedTeamCardRevealStageProps extends WrappedTeamCardStageCardProps {
+interface WrappedTeamCardRevealStageProps
+	extends WrappedTeamCardStageCardProps {
 	archetypeLabel: string;
 	onNextArchetype: () => void;
 	onPreviousArchetype: () => void;
 	tiltController: WrappedCardTiltController;
 }
 
-export function WrappedTeamCardShareStage(props: WrappedTeamCardShareStageProps) {
+export function WrappedTeamCardShareStage(
+	props: WrappedTeamCardShareStageProps,
+) {
 	const {
 		headerLeftMetric,
 		headerRightMetric,
@@ -175,7 +184,9 @@ export function WrappedTeamCardShareStage(props: WrappedTeamCardShareStageProps)
 	);
 }
 
-export function WrappedTeamCardRevealStage(props: WrappedTeamCardRevealStageProps) {
+export function WrappedTeamCardRevealStage(
+	props: WrappedTeamCardRevealStageProps,
+) {
 	const {
 		archetypeLabel,
 		headerLeftMetric,

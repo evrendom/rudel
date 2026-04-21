@@ -1,8 +1,8 @@
 import type { WrappedSourceSplit } from "@rudel/api-routes";
 import type { TeamPageMemberRow } from "@/features/team/use-team-page-data";
-import type { WrappedTeamMemberCardStatItem } from "./card";
 import { MAX_ANALYTICS_DAYS } from "@/lib/analytics-date-range";
 import { formatCompactWholeNumber } from "@/lib/format";
+import type { WrappedTeamMemberCardStatItem } from "./card";
 
 export function buildWrappedStatItems(
 	row: TeamPageMemberRow,

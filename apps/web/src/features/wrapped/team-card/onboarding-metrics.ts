@@ -89,7 +89,8 @@ export function buildWrappedOnboardingMetrics(
 						name: string;
 					} => Boolean(command.name),
 				) ?? [],
-		topSlashCommandCount: developerFeatures?.top_slash_commands[0]?.count ?? null,
+		topSlashCommandCount:
+			developerFeatures?.top_slash_commands[0]?.count ?? null,
 		topSubagent: formatWrappedLabel(developerFeatures?.top_subagents[0]?.name),
 		topSubagents:
 			developerFeatures?.top_subagents
@@ -188,7 +189,8 @@ function buildRepoPulse(
 			skillSessions:
 				(existingStats?.skillSessions ?? 0) + Number(session.has_skills),
 			slashSessions:
-				(existingStats?.slashSessions ?? 0) + Number(session.has_slash_commands),
+				(existingStats?.slashSessions ?? 0) +
+				Number(session.has_slash_commands),
 			subagentSessions:
 				(existingStats?.subagentSessions ?? 0) + Number(session.has_subagents),
 			successSessions:

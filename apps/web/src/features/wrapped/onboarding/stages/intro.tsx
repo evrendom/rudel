@@ -66,7 +66,9 @@ export function WrappedOnboardingIntroStage(props: IntroStageProps) {
 						: { duration: 0 }
 				}
 			>
-				<h2 className="mymind-wrapped-intro-stage__headline">{model.headline}</h2>
+				<h2 className="mymind-wrapped-intro-stage__headline">
+					{model.headline}
+				</h2>
 			</motion.div>
 
 			<motion.div

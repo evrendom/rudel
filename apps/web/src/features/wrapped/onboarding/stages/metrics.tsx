@@ -1,8 +1,6 @@
 import type { CSSProperties } from "react";
 import { cn } from "@/lib/utils";
 import {
-	SCALE_STAGE_MIN_BALL_COUNT,
-	SCALE_STAGE_TOKENS_PER_BALL,
 	formatCompactNumber,
 	resolveLockInPreviewInput,
 	resolveLockInStageModel,
@@ -12,6 +10,8 @@ import {
 	resolveRepoPulseStageModel,
 	resolveScalePreviewTokens,
 	resolveScaleStageModel,
+	SCALE_STAGE_MIN_BALL_COUNT,
+	SCALE_STAGE_TOKENS_PER_BALL,
 } from "../models";
 import type { WrappedOnboardingMetrics } from "../types";
 
@@ -314,9 +314,7 @@ export function WrappedOnboardingQualityStage(props: SharedStageProps) {
 				</article>
 			</div>
 
-			<p className="mymind-wrapped-quality-stage__footnote">
-				{model.footnote}
-			</p>
+			<p className="mymind-wrapped-quality-stage__footnote">{model.footnote}</p>
 		</section>
 	);
 }

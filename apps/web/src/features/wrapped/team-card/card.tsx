@@ -1,9 +1,9 @@
-import { type CSSProperties } from "react";
+import type { CSSProperties } from "react";
 import type { TeamCardTone } from "@/features/team/data/team-card-types";
 import type { TeamPageMemberRow } from "@/features/team/use-team-page-data";
 import statSectionTextureWebp from "@/features/wrapped/assets/team-card-stat-texture.webp";
-import { useWrappedStatSurfaceStyles } from "./stat-surface";
 import { cn } from "@/lib/utils";
+import { useWrappedStatSurfaceStyles } from "./stat-surface";
 
 const CARD_RENDER_SCALE_VAR = "var(--wrapped-card-render-scale, 1)";
 

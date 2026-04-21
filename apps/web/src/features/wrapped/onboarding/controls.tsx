@@ -5,8 +5,8 @@ import { appRoutes } from "@/app/routes";
 import { buttonVariants } from "@/app/ui/button";
 import { cn } from "@/lib/utils";
 import {
-	UPLOAD_STEP,
 	type PreviewableWrappedStepId,
+	UPLOAD_STEP,
 	type WrappedPreviewOption,
 	type WrappedStep,
 } from "./config";
@@ -189,11 +189,11 @@ export function WrappedOnboardingFooter(props: WrappedOnboardingFooterProps) {
 	return (
 		<footer className="mymind-wrapped-step-footer mt-auto flex flex-wrap items-center justify-between gap-3 border-t border-border/70 pt-5">
 			{activeStep.kind === "final" ? (
-				finalFooter ?? (
+				(finalFooter ?? (
 					<WrappedPrimaryAction kind="link" to={appRoutes.dashboard()}>
 						Done
 					</WrappedPrimaryAction>
-				)
+				))
 			) : activeStep.id === "upload" ? (
 				<WrappedActionStack
 					continueDisabled={activeUploadModel?.isUploading}
@@ -206,7 +206,9 @@ export function WrappedOnboardingFooter(props: WrappedOnboardingFooterProps) {
 						activeUploadModel?.isUploading ? "Uploading..." : "Continue"
 					}
 					onContinue={() => onGoToStep(activeStepIndex + 1)}
-					secondaryActionLabel={activeUploadModel?.secondaryActionLabel ?? undefined}
+					secondaryActionLabel={
+						activeUploadModel?.secondaryActionLabel ?? undefined
+					}
 				/>
 			) : (
 				<WrappedActionStack
@@ -266,7 +268,9 @@ function WrappedPrimaryAction(props: WrappedPrimaryActionProps) {
 		>
 			<span>{props.children}</span>
 			{props.icon ? (
-				<span className="mymind-wrapped-primary-action__icon">{props.icon}</span>
+				<span className="mymind-wrapped-primary-action__icon">
+					{props.icon}
+				</span>
 			) : null}
 		</button>
 	);

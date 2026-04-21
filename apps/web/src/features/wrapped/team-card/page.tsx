@@ -2,41 +2,38 @@ import { useDialKit } from "dialkit";
 import {
 	type CSSProperties,
 	type Dispatch,
+	type SetStateAction,
 	useMemo,
 	useRef,
-	type SetStateAction,
 	useState,
 } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { appRoutes } from "@/app/routes";
 import type { TeamPageMemberRow } from "@/features/team/use-team-page-data";
+import { markWrappedCompleted } from "@/features/wrapped/entry";
 import { WrappedTeamCardOnboarding } from "@/features/wrapped/onboarding/shell";
-import { type WrappedOnboardingMetrics } from "@/features/wrapped/onboarding/types";
+import type { WrappedOnboardingMetrics } from "@/features/wrapped/onboarding/types";
+import { useMountEffect } from "@/hooks/useMountEffect";
+import { formatCompactWholeCurrency } from "@/lib/format";
+import type {
+	WrappedTeamMemberCardHeaderMetric,
+	WrappedTeamMemberCardStatItem,
+	WrappedTeamMemberCardStatLayerOpacities,
+	WrappedTeamMemberCardTheme,
+} from "./card";
 import {
 	WrappedTeamCardRevealFooter,
 	WrappedTeamCardRevealStage,
 	WrappedTeamCardShareFooter,
 	WrappedTeamCardShareStage,
 } from "./final-stages";
-import {
-	formatShareCardCreatedAt,
-	getWrappedArchetypeIndex,
-} from "./utils";
 import { createWrappedTeamCardShareActions } from "./share";
 import {
-	type WrappedCardTiltController,
 	useWrappedCardTilt,
+	type WrappedCardTiltController,
 } from "./tilt/use-card-tilt";
 import { useWrappedTeamCardPageData } from "./use-page-data";
-import {
-	type WrappedTeamMemberCardHeaderMetric,
-	type WrappedTeamMemberCardStatItem,
-	type WrappedTeamMemberCardStatLayerOpacities,
-	type WrappedTeamMemberCardTheme,
-} from "./card";
-import { formatCompactWholeCurrency } from "@/lib/format";
-import { useMountEffect } from "@/hooks/useMountEffect";
-import { markWrappedCompleted } from "@/features/wrapped/entry";
+import { formatShareCardCreatedAt, getWrappedArchetypeIndex } from "./utils";
 import "@/features/wrapped/wrapped.css";
 
 interface WrappedArchetypeCardTheme {

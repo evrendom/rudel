@@ -1,20 +1,20 @@
 import type { WrappedStep } from "./config";
+import { formatCompactNumber } from "./format";
 import {
 	buildIntroContent,
 	resolveIntroPreviewInput,
 	type WrappedStepContentLine,
 } from "./helpers";
 import {
+	resolveLockInPreviewInput,
+	resolveLockInStageModel,
+} from "./models/lock-in";
+import {
 	formatModelStageSourceLabel,
 	getModelStageTone,
 	resolveModelPreviewInput,
 	resolveModelStageModel,
 } from "./models/model-mix";
-import { formatCompactNumber } from "./format";
-import {
-	resolveLockInPreviewInput,
-	resolveLockInStageModel,
-} from "./models/lock-in";
 import {
 	resolveQualityPreviewInput,
 	resolveQualityStageModel,

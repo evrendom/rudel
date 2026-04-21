@@ -1,7 +1,4 @@
-import {
-	type PointerEvent as ReactPointerEvent,
-	useRef,
-} from "react";
+import { type PointerEvent as ReactPointerEvent, useRef } from "react";
 import { applyTilt, resetTilt } from "./dom";
 import { buildPointerTiltValues } from "./math";
 import type { WrappedCardTiltController } from "./types";
