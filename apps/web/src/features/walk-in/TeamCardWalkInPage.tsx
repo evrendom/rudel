@@ -22,7 +22,7 @@ import {
 import {
 	formatShareCardCreatedAt,
 	getWrappedArchetypeIndex,
-} from "@/features/walk-in/walk-in-team-card-models";
+} from "@/features/walk-in/walk-in-team-card-utils";
 import {
 	type WalkInCardTiltController,
 	useWalkInCardTilt,

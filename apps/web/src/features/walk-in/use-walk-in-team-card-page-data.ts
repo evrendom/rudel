@@ -5,11 +5,9 @@ import {
 	useTeamPageData,
 } from "@/features/team/use-team-page-data";
 import type { WalkInOnboardingMetrics } from "@/features/walk-in/walk-in-onboarding-types";
-import {
-	buildResolvedTeamCardRow,
-	buildWalkInOnboardingMetrics,
-	buildWalkInStatItems,
-} from "@/features/walk-in/walk-in-team-card-models";
+import { buildWalkInOnboardingMetrics } from "@/features/walk-in/walk-in-team-card-onboarding-metrics";
+import { buildResolvedTeamCardRow } from "@/features/walk-in/walk-in-team-card-row";
+import { buildWalkInStatItems } from "@/features/walk-in/walk-in-team-card-stat-items";
 import { useWalkInCardData } from "@/features/walk-in/use-walk-in-card-data";
 import type { WalkInTeamMemberCardStatItem } from "@/features/walk-in/WalkInTeamMemberCard";
 import { MAX_ANALYTICS_DAYS } from "@/lib/analytics-date-range";
