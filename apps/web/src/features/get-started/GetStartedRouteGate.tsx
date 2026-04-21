@@ -2,10 +2,15 @@ import { Navigate } from "react-router-dom";
 import { appRoutes } from "@/app/routes";
 import {
 	type AppSession,
+	getSessionUserId,
 	isGetStartedPath,
 } from "@/features/auth/auth-route-utils";
 import { UploadSetupPage } from "@/features/get-started/UploadSetupPage";
 import { useSetupProgress } from "@/features/get-started/use-setup-progress";
+import {
+	hasCompletedWalkIn,
+	isWalkInLaunchEligible,
+} from "@/features/walk-in/walk-in-entry";
 
 type GetStartedRouteGateProps = {
 	isPending: boolean;
@@ -21,6 +26,12 @@ export function GetStartedRouteGate({
 	const { hasUploadedSessions } = useSetupProgress({
 		enabled: !isPending && !!session,
 	});
+	const sessionUserId = getSessionUserId(session);
+	const shouldRouteToWalkIn =
+		hasUploadedSessions &&
+		isWalkInLaunchEligible(session) &&
+		!hasCompletedWalkIn(sessionUserId);
+
 	if (isPending) {
 		return <UploadSetupPage />;
 	}
@@ -38,7 +49,16 @@ export function GetStartedRouteGate({
 	}
 
 	if (hasUploadedSessions) {
-		return <Navigate to={appRoutes.dashboard()} replace />;
+		return (
+			<Navigate
+				to={
+					shouldRouteToWalkIn
+						? appRoutes.walkInTeamCard()
+						: appRoutes.dashboard()
+				}
+				replace
+			/>
+		);
 	}
 	return <UploadSetupPage />;
 }

@@ -9,7 +9,7 @@ const SETTINGS_ACCOUNT_PATH = `${SETTINGS_ROOT_PATH}/account`;
 const SETTINGS_CREATE_WORKSPACE_PATH = `${SETTINGS_ROOT_PATH}/create-workspace`;
 const PRESET_BASELINE_PATH = "/__preset-baseline";
 const CARD_REFERENCE_PATH = "/card-reference";
-const WRAPPED_TEAM_CARD_PATH = "/wrapped-team-card";
+const WRAPPED_TEAM_CARD_PATH = "/wrapped";
 const LEGACY_WALK_IN_TEAM_CARD_PATH = "/walk-in-team-card";
 
 export const appRoutes = {

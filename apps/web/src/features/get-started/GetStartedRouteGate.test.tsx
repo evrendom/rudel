@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { appRoutes } from "@/app/routes";
 import type { AppSession } from "@/features/auth/auth-route-utils";
 import { GetStartedRouteGate } from "@/features/get-started/GetStartedRouteGate";
+import { markWalkInCompleted } from "@/features/walk-in/walk-in-entry";
 
 const { mockUseSetupProgress } = vi.hoisted(() => ({
 	mockUseSetupProgress: vi.fn(),
@@ -34,9 +35,30 @@ const session: NonNullable<AppSession> = {
 	},
 };
 
+const eligibleSession: NonNullable<AppSession> = {
+	session: {
+		id: "session-2",
+		token: "token-2",
+		userId: "user-2",
+		createdAt: new Date("2026-04-21T15:00:00.000Z"),
+		updatedAt: new Date("2026-04-21T15:00:00.000Z"),
+		expiresAt: new Date("2026-04-21T15:00:00.000Z"),
+	},
+	user: {
+		id: "user-2",
+		email: "grace@example.com",
+		name: "Grace Hopper",
+		emailVerified: true,
+		image: null,
+		createdAt: new Date("2026-04-21T15:00:00.000Z"),
+		updatedAt: new Date("2026-04-21T15:00:00.000Z"),
+	},
+};
+
 describe("GetStartedRouteGate", () => {
 	beforeEach(() => {
 		mockUseSetupProgress.mockReset();
+		window.localStorage.clear();
 		mockUseSetupProgress.mockReturnValue({
 			hasUploadedSessions: false,
 			isLoading: false,
@@ -150,6 +172,66 @@ describe("GetStartedRouteGate", () => {
 								isPending={false}
 								pathname={appRoutes.getStarted()}
 								session={session}
+							/>
+						}
+					/>
+					<Route path={appRoutes.dashboard()} element={<div>Dashboard</div>} />
+				</Routes>
+			</MemoryRouter>,
+		);
+
+		expect(screen.getByText("Dashboard")).toBeInTheDocument();
+	});
+
+	it("redirects launch-eligible users into walk-in once sessions exist", () => {
+		mockUseSetupProgress.mockReturnValue({
+			hasUploadedSessions: true,
+			isLoading: false,
+			totalSessionCount: 3,
+		});
+
+		render(
+			<MemoryRouter initialEntries={[appRoutes.getStarted()]}>
+				<Routes>
+					<Route
+						path={appRoutes.getStarted()}
+						element={
+							<GetStartedRouteGate
+								isPending={false}
+								pathname={appRoutes.getStarted()}
+								session={eligibleSession}
+							/>
+						}
+					/>
+					<Route
+						path={appRoutes.walkInTeamCard()}
+						element={<div>Walk-in</div>}
+					/>
+				</Routes>
+			</MemoryRouter>,
+		);
+
+		expect(screen.getByText("Walk-in")).toBeInTheDocument();
+	});
+
+	it("keeps completed launch-eligible users on the dashboard", () => {
+		mockUseSetupProgress.mockReturnValue({
+			hasUploadedSessions: true,
+			isLoading: false,
+			totalSessionCount: 3,
+		});
+		markWalkInCompleted(eligibleSession.user.id);
+
+		render(
+			<MemoryRouter initialEntries={[appRoutes.getStarted()]}>
+				<Routes>
+					<Route
+						path={appRoutes.getStarted()}
+						element={
+							<GetStartedRouteGate
+								isPending={false}
+								pathname={appRoutes.getStarted()}
+								session={eligibleSession}
 							/>
 						}
 					/>
