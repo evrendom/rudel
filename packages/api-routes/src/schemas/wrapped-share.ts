@@ -1,5 +1,9 @@
 import { z } from "zod";
 
+// Version the public share payload explicitly so the server can reject older
+// persisted snapshots if the share card shape changes after launch.
+export const WRAPPED_SHARE_PAYLOAD_VERSION = 1 as const;
+
 // This schema is the public contract for wrapped sharing. It is intentionally
 // narrower than the private wrapped page data so public replay only exposes the
 // fields we are comfortable showing outside the authenticated product.
@@ -62,6 +66,7 @@ export const GetPublicWrappedShareInputSchema = z.object({
 
 export const WrappedShareRecordSchema = z.object({
 	created_at: z.string(),
+	expires_at: z.string(),
 	id: z.string().uuid(),
 });
 

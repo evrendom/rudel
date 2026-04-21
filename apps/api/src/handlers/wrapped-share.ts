@@ -20,6 +20,9 @@ const create = os.wrappedShare.create
 // Public replay is intentionally anonymous. The only contract is the share id
 // and the persisted public snapshot returned by the service layer.
 const getPublic = os.wrappedShare.getPublic.handler(async ({ input }) => {
+	// The service intentionally collapses "missing", "expired", and "unsupported
+	// payload version" into the same null result so the public route can fail
+	// closed without leaking implementation details.
 	const share = await getPublicWrappedShare(input.shareId);
 
 	if (!share) {

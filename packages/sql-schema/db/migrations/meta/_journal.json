@@ -50,6 +50,13 @@
       "when": 1776800205232,
       "tag": "0006_purple_lady_deathstrike",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1776802353804,
+      "tag": "0007_spooky_forge",
+      "breakpoints": true
     }
   ]
 }
