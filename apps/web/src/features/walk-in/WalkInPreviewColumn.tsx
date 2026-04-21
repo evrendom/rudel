@@ -1,15 +1,14 @@
 import type { WrappedV1 } from "@rudel/api-routes";
 import {
-	ArrowUpRightIcon,
+	Clipboard,
 	Clock3,
 	Coins,
 	Command,
+	Download,
 	Layers3,
 	Linkedin,
-	Settings2Icon,
 	Share2,
 	Twitter,
-	UserPlus,
 } from "lucide-react";
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
@@ -24,11 +23,23 @@ import type {
 import { cn } from "@/lib/utils";
 
 export interface WalkInPreviewAction {
+	disabled?: boolean;
 	icon: ReactNode;
 	id: string;
 	label: string;
+	onClick?: () => void | Promise<void>;
 	to?: string;
 	variant?: "default" | "outline";
+}
+
+interface InsightRowModel {
+	icon: ReactNode;
+	id: string;
+	label: string;
+	subtitle: string;
+	value: string;
+	valueMeta: string;
+	valueMetaClassName?: string;
 }
 
 export function WalkInPreviewColumn({
@@ -46,11 +57,46 @@ export function WalkInPreviewColumn({
 }) {
 	const resolvedActions =
 		actions ?? buildDefaultPreviewActions(handover.preview.callToActions);
+	const insightRows: readonly InsightRowModel[] = [
+		{
+			icon: <Layers3 className="size-4" />,
+			id: "sessions",
+			label: "Sessions",
+			subtitle: "Recorded on this card",
+			value: cardModel.totalSessionsLabel,
+			valueMeta: "tracked",
+		},
+		{
+			icon: <Command className="size-4" />,
+			id: "favorite-model",
+			label: "Favorite model",
+			subtitle: "Most-used across the season",
+			value: cardModel.favoriteModelLabel,
+			valueMeta: "top pick",
+		},
+		{
+			icon: <Clock3 className="size-4" />,
+			id: "first-session",
+			label: "First session",
+			subtitle: "Where the story starts",
+			value: cardModel.firstSessionLabel,
+			valueMeta: "origin",
+		},
+		{
+			icon: <Coins className="size-4" />,
+			id: "split",
+			label: "Split",
+			subtitle: cardModel.sourceSummary,
+			value: cardModel.splitLabel,
+			valueMeta: "mix",
+			valueMetaClassName: "text-emerald-600",
+		},
+	] as const;
 
 	return (
-		<section className="relative z-10 max-w-[30rem] lg:justify-self-start">
+		<section className="relative z-10 w-full max-w-[30rem] lg:justify-self-start">
 			<p className="text-[0.72rem] uppercase tracking-[0.34em] text-muted-foreground">
-				Walk-In / Team Card
+				Share card
 			</p>
 			<h1 className="mt-4 max-w-[12ch] text-balance font-[var(--app-font-heading)] text-4xl font-semibold tracking-[-0.06em] text-foreground sm:text-5xl lg:text-[3.6rem]">
 				{handover.preview.title}
@@ -59,48 +105,45 @@ export function WalkInPreviewColumn({
 				{handover.preview.description}
 			</p>
 
-			<ul className="mt-8 grid gap-3 p-0 sm:grid-cols-2">
-				<InsightCard
-					icon={<Layers3 className="size-4" />}
-					label="Archetype"
-					value={cardModel.archetypeLabel}
-				/>
-				<InsightCard
-					icon={<Command className="size-4" />}
-					label="Favorite model"
-					value={cardModel.favoriteModelLabel}
-				/>
-				<InsightCard
-					icon={<Clock3 className="size-4" />}
-					label="First recorded session"
-					value={cardModel.firstSessionLabel}
-				/>
-				<InsightCard
-					icon={<Coins className="size-4" />}
-					label="Split"
-					value={cardModel.splitLabel}
-				/>
-			</ul>
-
-			<article className="mt-8 rounded-[1.6rem] border border-border/70 bg-card p-5 shadow-[0_20px_60px_rgba(15,23,42,0.08)]">
-				<p className="text-[0.72rem] uppercase tracking-[0.28em] text-muted-foreground">
-					Card readout
-				</p>
-				<p className="mt-3 text-lg font-medium tracking-[-0.03em] text-foreground">
-					{cardModel.sourceSummary}
-				</p>
-				<p className="mt-3 text-sm leading-6 text-muted-foreground">
-					{cardModel.totalSessionsLabel} sessions, {cardModel.totalTokensLabel}{" "}
-					tokens, shaped into the team-card surface instead of the full
-					analytics dashboard.
-				</p>
-			</article>
-
 			<nav className="mt-8 flex flex-col gap-3 sm:max-w-sm">
 				{resolvedActions.map((action) => (
 					<CallToActionButton key={action.id} action={action} />
 				))}
 			</nav>
+
+			<p className="mt-4 max-w-[34ch] text-sm leading-6 text-muted-foreground">
+				Share uses the system share sheet when your browser supports image
+				sharing. Copy and download stay here as direct fallbacks.
+			</p>
+
+			<ul className="mt-8 overflow-hidden rounded-[1.6rem] border border-border/70 bg-card p-0 shadow-[0_20px_60px_rgba(15,23,42,0.06)]">
+				{insightRows.map((row, rowIndex) => (
+					<InsightRow
+						key={row.id}
+						icon={row.icon}
+						isFirstRow={rowIndex === 0}
+						label={row.label}
+						subtitle={row.subtitle}
+						value={row.value}
+						valueMeta={row.valueMeta}
+						valueMetaClassName={row.valueMetaClassName}
+					/>
+				))}
+			</ul>
+
+			<article className="mt-8 rounded-[1.6rem] border border-border/70 bg-card p-5 shadow-[0_20px_60px_rgba(15,23,42,0.08)]">
+				<p className="text-[0.72rem] uppercase tracking-[0.28em] text-muted-foreground">
+					Share summary
+				</p>
+				<p className="mt-3 text-lg font-medium tracking-[-0.03em] text-foreground">
+					{cardModel.sourceSummary}
+				</p>
+				<p className="mt-3 text-sm leading-6 text-muted-foreground">
+					{cardModel.totalSessionsLabel} sessions and {cardModel.totalTokensLabel}{" "}
+					tokens reduced to one image that still reads without the rest of the
+					deck.
+				</p>
+			</article>
 
 			<p className="mt-4 text-xs uppercase tracking-[0.2em] text-muted-foreground">
 				{getFooterLabel(wrappedDataState, wrappedData)}
@@ -111,42 +154,80 @@ export function WalkInPreviewColumn({
 
 export const TEAM_CARD_PREVIEW_ACTIONS = [
 	{
-		icon: <UserPlus className="size-4" />,
-		id: "invite-teammates",
-		label: "Invite teammates",
+		icon: <Share2 className="size-4" />,
+		id: "share-card",
+		label: "Share card",
 		to: appRoutes.settingsWorkspace(),
 		variant: "default",
 	},
 	{
-		icon: <ArrowUpRightIcon className="size-4" />,
-		id: "incoming-invites",
-		label: "Pending invitations",
+		icon: <Clipboard className="size-4" />,
+		id: "copy-image",
+		label: "Copy image",
 		to: `${appRoutes.settingsWorkspace()}#incoming-invitations`,
 		variant: "outline",
 	},
 	{
-		icon: <Settings2Icon className="size-4" />,
-		id: "workspace-settings",
-		label: "Open workspace settings",
+		icon: <Download className="size-4" />,
+		id: "download-png",
+		label: "Download PNG",
 		to: appRoutes.settingsWorkspace(),
 		variant: "outline",
 	},
 ] as const satisfies readonly WalkInPreviewAction[];
 
-function InsightCard(props: { icon: ReactNode; label: string; value: string }) {
-	const { icon, label, value } = props;
+function InsightRow(props: {
+	icon: ReactNode;
+	isFirstRow: boolean;
+	label: string;
+	subtitle: string;
+	value: string;
+	valueMeta: string;
+	valueMetaClassName?: string;
+}) {
+	const {
+		icon,
+		isFirstRow,
+		label,
+		subtitle,
+		value,
+		valueMeta,
+		valueMetaClassName,
+	} = props;
 
 	return (
-		<li className="list-none rounded-[1.35rem] border border-border/70 bg-card p-4 shadow-[0_20px_60px_rgba(15,23,42,0.06)]">
-			<div className="flex items-center gap-2 text-[0.72rem] uppercase tracking-[0.24em] text-muted-foreground">
-				<span className="flex size-8 items-center justify-center rounded-full border border-border/70 bg-background text-foreground">
+		<li
+			className={cn(
+				"list-none px-4 py-3.5",
+				isFirstRow ? null : "border-t border-border/60",
+			)}
+		>
+			<div className="grid grid-cols-[44px_minmax(0,1fr)] gap-x-3 gap-y-2">
+				<span className="row-span-2 flex size-11 shrink-0 items-center justify-center rounded-full bg-muted/60 text-foreground shadow-[inset_0_0_0_1px_rgba(15,23,42,0.06)]">
 					{icon}
 				</span>
-				{label}
-			</div>
-			<p className="mt-4 text-sm font-medium leading-6 text-foreground">
-				{value}
-			</p>
+				<div className="flex min-w-0 items-start justify-between gap-3">
+					<p className="min-w-0 text-[1.02rem] font-semibold leading-[1.1] tracking-[-0.03em] text-foreground">
+						{label}
+					</p>
+					<p className="max-w-[9.5rem] text-right text-[1.02rem] font-semibold leading-[1.1] tracking-[-0.03em] text-foreground min-[360px]:max-w-[11rem]">
+						{value}
+					</p>
+				</div>
+				<div className="flex min-w-0 items-start justify-between gap-3">
+					<p className="min-w-0 text-[0.92rem] leading-[1.25] text-muted-foreground">
+						{subtitle}
+					</p>
+					<p
+						className={cn(
+							"shrink-0 text-right text-[0.92rem] leading-[1.25] text-muted-foreground",
+							valueMetaClassName,
+						)}
+					>
+						{valueMeta}
+					</p>
+				</div>
+					</div>
 		</li>
 	);
 }
@@ -185,10 +266,13 @@ function CallToActionButton(props: { action: WalkInPreviewAction }) {
 	const { action } = props;
 	const className =
 		action.variant === "default"
-			? cn(buttonVariants({ size: "lg" }), "justify-start rounded-full")
+			? cn(
+					buttonVariants({ size: "lg" }),
+					"min-h-11 justify-start rounded-full",
+				)
 			: cn(
 					buttonVariants({ size: "lg", variant: "outline" }),
-					"justify-start rounded-full border-border bg-background text-foreground hover:bg-muted hover:text-foreground",
+					"min-h-11 justify-start rounded-full border-border bg-background text-foreground hover:bg-muted hover:text-foreground",
 				);
 
 	if (action.to) {
@@ -201,7 +285,12 @@ function CallToActionButton(props: { action: WalkInPreviewAction }) {
 	}
 
 	return (
-		<button type="button" className={className}>
+		<button
+			type="button"
+			className={className}
+			disabled={action.disabled}
+			onClick={() => void action.onClick?.()}
+		>
 			{action.icon}
 			{action.label}
 		</button>
