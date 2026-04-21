@@ -9,9 +9,12 @@ import {
 
 const TEAM_CARD_SHARE_IMAGE_FILE_NAME = "geneva-team-card-post.png";
 
+type WrappedShareActionKind = "copy" | "download" | "share";
+
 interface CreateWrappedTeamCardShareActionsParams {
 	archetypeLabel: string;
 	displayName: string;
+	onShareActionTriggered?: (action: WrappedShareActionKind) => void;
 	sharePostRef: RefObject<HTMLDivElement | null>;
 }
 
@@ -26,7 +29,8 @@ interface WrappedTeamCardShareActions {
 export function createWrappedTeamCardShareActions(
 	params: CreateWrappedTeamCardShareActionsParams,
 ): WrappedTeamCardShareActions {
-	const { archetypeLabel, displayName, sharePostRef } = params;
+	const { archetypeLabel, displayName, onShareActionTriggered, sharePostRef } =
+		params;
 	const shareTitle = `${displayName}'s Geneva post`;
 	const shareText = `${displayName}'s ${archetypeLabel} Geneva card, made with rudel.ai.`;
 	const shareUrl = buildWrappedTeamCardShareUrl();
@@ -40,6 +44,7 @@ export function createWrappedTeamCardShareActions(
 	};
 
 	async function handleSharePost() {
+		onShareActionTriggered?.("share");
 		const imageBlob = await captureSharePost(sharePostRef);
 
 		if (!imageBlob) {
@@ -83,6 +88,7 @@ export function createWrappedTeamCardShareActions(
 	}
 
 	async function handleCopyPost() {
+		onShareActionTriggered?.("copy");
 		const imageBlob = await captureSharePost(sharePostRef);
 
 		if (!imageBlob) {
@@ -100,6 +106,7 @@ export function createWrappedTeamCardShareActions(
 	}
 
 	async function handleDownloadPost() {
+		onShareActionTriggered?.("download");
 		const imageBlob = await captureSharePost(sharePostRef);
 
 		if (!imageBlob) {

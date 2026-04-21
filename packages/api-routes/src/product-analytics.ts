@@ -82,6 +82,8 @@ export const PRODUCT_ANALYTICS_APP_PAGE_NAMES = [
 	"signup",
 	"accept_invitation",
 	"device_login",
+	"get_started",
+	"wrapped_team_card",
 ] as const;
 
 export type ProductAnalyticsDashboardPageName =

@@ -9,6 +9,7 @@ import {
 } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { appRoutes } from "@/app/routes";
+import { useAnalyticsTracking } from "@/features/analytics/tracking/useAnalyticsTracking";
 import type { TeamPageMemberRow } from "@/features/team/use-team-page-data";
 import { markWrappedCompleted } from "@/features/wrapped/entry";
 import { WrappedTeamCardOnboarding } from "@/features/wrapped/onboarding/shell";
@@ -124,6 +125,9 @@ const WRAPPED_ARCHETYPE_CARD_THEMES = [
 export function WrappedTeamCardPage() {
 	const navigate = useNavigate();
 	const [searchParams] = useSearchParams();
+	const { trackUtilityUsed } = useAnalyticsTracking({
+		pageName: "wrapped_team_card",
+	});
 	const { completionUserId, onboardingMetrics, statItems, visibleTeamCardRow } =
 		useWrappedTeamCardPageData();
 	const tiltController = useWrappedCardTilt();
@@ -194,6 +198,11 @@ export function WrappedTeamCardPage() {
 			dialValues.statLayers.textureOpacity,
 		]);
 	useMountEffect(() => {
+		trackUtilityUsed({
+			sourceComponent: "wrapped_team_card_page",
+			utilityName: "wrapped_stage_viewed",
+			utilityState: activeStepParam === "card" ? "card_direct" : "story",
+		});
 		document.body.classList.add("mymind-wrapped-body");
 
 		return () => {
@@ -250,13 +259,45 @@ function WrappedTeamCardPageContent(props: {
 	const sharePostRef = useRef<HTMLDivElement>(null);
 	const [finalCardStage, setFinalCardStage] =
 		useState<FinalCardStage>("reveal");
+	const { trackNavigation, trackUtilityUsed } = useAnalyticsTracking({
+		pageName: "wrapped_team_card",
+	});
+	const showShareStage = finalCardStage === "share";
 	const shareActions = createWrappedTeamCardShareActions({
 		archetypeLabel: activeArchetype.label,
 		displayName: visibleTeamCardRow.displayName,
+		onShareActionTriggered: (action) => {
+			trackUtilityUsed({
+				sourceComponent: "wrapped_share_actions",
+				utilityName: "wrapped_share_action_triggered",
+				utilityState: action,
+			});
+		},
 		sharePostRef,
 	});
 
-	const showShareStage = finalCardStage === "share";
+	function handlePreviewPost() {
+		trackUtilityUsed({
+			sourceComponent: "wrapped_reveal_footer",
+			utilityName: "wrapped_share_preview_opened",
+			utilityState: "share_preview",
+		});
+		setFinalCardStage("share");
+	}
+
+	function handleContinueToDashboard(
+		sourceComponent: "wrapped_reveal_footer" | "wrapped_share_footer",
+	) {
+		trackNavigation({
+			navType: "wrapped_continue_to_dashboard",
+			sourceComponent,
+			targetPath: appRoutes.dashboard(),
+			targetType: "route",
+			toPageName: "overview",
+		});
+		onContinueToDashboard();
+	}
+
 	const finalStage = showShareStage ? (
 		<WrappedTeamCardShareStage
 			headerLeftMetric={headerLeftMetric}
@@ -313,12 +354,16 @@ function WrappedTeamCardPageContent(props: {
 			finalFooter={
 				showShareStage ? (
 					<WrappedTeamCardShareFooter
-						onContinueToDashboard={onContinueToDashboard}
+						onContinueToDashboard={() =>
+							handleContinueToDashboard("wrapped_share_footer")
+						}
 					/>
 				) : (
 					<WrappedTeamCardRevealFooter
-						onContinueToDashboard={onContinueToDashboard}
-						onPreviewPost={() => setFinalCardStage("share")}
+						onContinueToDashboard={() =>
+							handleContinueToDashboard("wrapped_reveal_footer")
+						}
+						onPreviewPost={handlePreviewPost}
 					/>
 				)
 			}

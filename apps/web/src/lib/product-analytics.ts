@@ -352,6 +352,19 @@ const ANALYTICS_PAGE_MATCHERS: ReadonlyArray<{
 		pageName: "accept_invitation",
 		matches: (pathname) => pathname.startsWith("/invitation/"),
 	},
+	{
+		pageName: "get_started",
+		matches: (pathname) =>
+			pathname === "/get-started" || pathname === "/dashboard/get-started",
+	},
+	{
+		pageName: "wrapped_team_card",
+		matches: (pathname) =>
+			pathname === "/wrapped" ||
+			pathname.startsWith("/wrapped/") ||
+			pathname === "/walk-in-team-card" ||
+			pathname.startsWith("/walk-in-team-card/"),
+	},
 	{ pageName: "overview", matches: (pathname) => pathname === "/dashboard" },
 	{
 		pageName: "developer_detail",
