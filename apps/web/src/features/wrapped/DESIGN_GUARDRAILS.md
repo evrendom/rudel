@@ -68,13 +68,25 @@ Do not invent new archetypes on this branch.
 
 Do not reintroduce retired labels on this branch.
 
-Current product-facing labels in this branch intentionally use these aliases:
+Current product-facing labels in this branch are:
 
-- `NPC` is presented as `Smooth Operator`
-- `Papa's Credit Card` is presented as `Company Card`
-- `Needs to Touch Grass` is presented as `Obsessed`
+- `Smooth Operator`
+- `Company Card`
+- `Obsessed`
 
-Those are product labels, not new classifier classes.
+Those are the names that should be used in:
+
+- product UI
+- design reviews
+- share surfaces
+- exported assets
+- product copy
+
+Internal taxonomy keys may still exist in code or data references, but they are
+not meant to be shown to users on this branch.
+
+Do not surface internal names like `NPC`, `Papa's Credit Card`, or `Needs to
+Touch Grass` in the user-facing design work.
 
 `Decimal` is special:
 
