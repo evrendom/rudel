@@ -6,24 +6,24 @@ import {
 } from "@rudel/api-routes";
 import { apikey, member, organization, session } from "@rudel/sql-schema";
 import { and, eq } from "drizzle-orm";
-import { getClickhouse } from "./clickhouse.js";
-import { db } from "./db.js";
-import { adminRouter } from "./handlers/admin/index.js";
-import { analyticsRouter } from "./handlers/analytics/index.js";
-import { wrappedResumeRouter } from "./handlers/wrapped-resume.js";
-import { wrappedShareRouter } from "./handlers/wrapped-share.js";
+import { getClickhouse } from "./clickhouse";
+import { db } from "./db";
+import { adminRouter } from "./handlers/admin/index";
+import { analyticsRouter } from "./handlers/analytics/index";
+import { wrappedResumeRouter } from "./handlers/wrapped-resume";
+import { wrappedShareRouter } from "./handlers/wrapped-share";
 import {
 	bucketContentSize,
 	captureApiProductAnalyticsEvent,
 	hashProjectPath,
-} from "./lib/product-analytics.js";
-import { authMiddleware, ingestAuthMiddleware, os } from "./middleware.js";
-import { checkIngestRateLimit } from "./rate-limit.js";
+} from "./lib/product-analytics";
+import { authMiddleware, ingestAuthMiddleware, os } from "./middleware";
+import { checkIngestRateLimit } from "./rate-limit";
 import {
 	deleteOrgSessions,
 	getOrgSessionCount,
 	hasOrgUploadsInLastDays,
-} from "./services/org-session.service.js";
+} from "./services/org-session.service";
 
 function getSessionUploadCompletedPayload(
 	input: IngestSessionInput,

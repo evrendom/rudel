@@ -1,5 +1,5 @@
 import { materializedView, schema, table } from "@chkit/core";
-import { baseSessionColumns, baseSessionTableConfig } from "./base-sessions.js";
+import { baseSessionColumns, baseSessionTableConfig } from "./base-sessions";
 
 const rudel_codex_sessions = table({
 	database: "rudel",

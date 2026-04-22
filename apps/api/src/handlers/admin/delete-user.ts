@@ -2,8 +2,8 @@ import { getLogger } from "@logtape/logtape";
 import { ORPCError } from "@orpc/server";
 import { apikey, member, organization, user } from "@rudel/sql-schema";
 import { count, eq, inArray } from "drizzle-orm";
-import { db } from "../../db.js";
-import { adminMiddleware, os } from "../../middleware.js";
+import { db } from "../../db";
+import { adminMiddleware, os } from "../../middleware";
 
 const logger = getLogger(["rudel", "api", "admin"]);
 

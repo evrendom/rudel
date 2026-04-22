@@ -1,5 +1,5 @@
 import { ORPCError } from "@orpc/server";
-import { orgMiddleware, os } from "../../middleware.js";
+import { orgMiddleware, os } from "../../middleware";
 import {
 	getProjectContributors,
 	getProjectDetails,
@@ -7,7 +7,7 @@ import {
 	getProjectFeatureUsage,
 	getProjectInvestment,
 	getProjectTrends,
-} from "../../services/project.service.js";
+} from "../../services/project.service";
 
 const investment = os.analytics.projects.investment
 	.use(orgMiddleware)

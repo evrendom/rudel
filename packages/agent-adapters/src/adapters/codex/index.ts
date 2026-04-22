@@ -13,19 +13,19 @@ import type {
 	ScannedProject,
 	SessionFile,
 	UploadContext,
-} from "../../types.js";
+} from "../../types";
 import {
 	readJsonlFirstLine,
 	toClickHouseDateTime,
 	toDisplayPath,
 	walkJsonlFiles,
-} from "../../utils.js";
+} from "../../utils";
 import {
 	CONFIG_PATH,
 	installHook,
 	isHookInstalled,
 	removeHook,
-} from "./config.js";
+} from "./config";
 
 const SESSIONS_BASE_DIR = join(homedir(), ".codex", "sessions");
 

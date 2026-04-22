@@ -8,7 +8,7 @@ import {
 	addOptionalStringEqFilter,
 	buildDateFilter,
 	queryClickhouse,
-} from "../clickhouse.js";
+} from "../clickhouse";
 
 export interface SessionAnalyticsRaw {
 	session_id: string;

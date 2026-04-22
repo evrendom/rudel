@@ -3,7 +3,7 @@ import type {
 	LearningsFeedStats,
 	LearningsTrendDataPoint,
 } from "@rudel/api-routes";
-import { addOptionalStringEqFilter, queryClickhouse } from "../clickhouse.js";
+import { addOptionalStringEqFilter, queryClickhouse } from "../clickhouse";
 
 export interface LearningEntry extends LearningEntryBase {
 	organization_id: string;

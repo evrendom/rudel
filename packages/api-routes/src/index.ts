@@ -4,7 +4,7 @@ import {
 	ProductAnalyticsClientSurfaceSchema,
 	ProductAnalyticsPlatformOsSchema,
 	ProductAnalyticsUploadModeSchema,
-} from "./product-analytics.js";
+} from "./product-analytics";
 import {
 	DateRangeInputSchema,
 	DaysInputSchema,
@@ -59,25 +59,25 @@ import {
 	UserDailyTrendDataSchema,
 	UserTokenUsageDataSchema,
 	WrappedV1Schema,
-} from "./schemas/analytics.js";
+} from "./schemas/analytics";
 import {
 	ConsumeWrappedResumeInputSchema,
 	CreateWrappedResumeInputSchema,
 	WrappedResumeConsumeResultSchema,
 	WrappedResumeRecordSchema,
-} from "./schemas/wrapped-resume.js";
+} from "./schemas/wrapped-resume";
 import {
 	CreateWrappedShareInputSchema,
 	GetPublicWrappedShareInputSchema,
 	PublicWrappedShareSchema,
 	WrappedShareRecordSchema,
-} from "./schemas/wrapped-share.js";
+} from "./schemas/wrapped-share";
 
-export * from "./model-pricing.js";
-export * from "./product-analytics.js";
-export * from "./schemas/analytics.js";
-export * from "./schemas/wrapped-resume.js";
-export * from "./schemas/wrapped-share.js";
+export * from "./model-pricing";
+export * from "./product-analytics";
+export * from "./schemas/analytics";
+export * from "./schemas/wrapped-resume";
+export * from "./schemas/wrapped-share";
 
 export const HealthSchema = z.object({
 	status: z.literal("ok"),
@@ -115,10 +115,10 @@ export const SessionTagSchema = z.enum([
 	"other",
 ]);
 
-export type { Source } from "./schemas/source.js";
-export { SourceSchema } from "./schemas/source.js";
+export type { Source } from "./schemas/source";
+export { SourceSchema } from "./schemas/source";
 
-import { SourceSchema } from "./schemas/source.js";
+import { SourceSchema } from "./schemas/source";
 
 export const SubagentFileSchema = z.object({
 	agentId: z.string(),

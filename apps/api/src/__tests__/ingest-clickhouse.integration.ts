@@ -4,7 +4,7 @@ import type { IngestSessionInput } from "@rudel/api-routes";
 import {
 	createClickHouseExecutor,
 	getSafeClickHouseTable,
-} from "../clickhouse.js";
+} from "../clickhouse";
 
 const testId = `api_test_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 

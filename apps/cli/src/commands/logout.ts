@@ -1,7 +1,7 @@
 import * as p from "@clack/prompts";
 import { buildCommand } from "@stricli/core";
-import { createApiClient } from "../lib/api-client.js";
-import { clearCredentials, loadCredentials } from "../lib/credentials.js";
+import { createApiClient } from "../lib/api-client";
+import { clearCredentials, loadCredentials } from "../lib/credentials";
 
 async function runLogout(): Promise<void> {
 	const credentials = loadCredentials();

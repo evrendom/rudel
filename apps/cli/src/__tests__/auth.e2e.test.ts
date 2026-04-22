@@ -16,7 +16,7 @@ import {
 	signUpTestUser,
 	startTestServer,
 	type TestServer,
-} from "./helpers/bun-server.js";
+} from "./helpers/bun-server";
 
 let server: TestServer;
 let configDir: string;

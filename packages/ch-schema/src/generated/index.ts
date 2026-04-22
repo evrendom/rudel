@@ -1,2 +1,2 @@
-export * from "./chkit-ingest.js";
-export * from "./chkit-types.js";
+export * from "./chkit-ingest";
+export * from "./chkit-types";

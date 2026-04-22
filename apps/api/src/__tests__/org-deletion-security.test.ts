@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { createAuth } from "../auth.js";
+import { createAuth } from "../auth";
 
 describe("organization deletion security", () => {
 	test("createAuth disables Better Auth organization deletion", () => {

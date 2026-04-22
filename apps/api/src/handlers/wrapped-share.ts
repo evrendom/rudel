@@ -1,13 +1,13 @@
 import { ORPCError } from "@orpc/server";
-import { orgMiddleware, os } from "../middleware.js";
+import { orgMiddleware, os } from "../middleware";
 import {
 	checkWrappedShareCreateRateLimit,
 	checkWrappedShareLookupRateLimit,
-} from "../rate-limit.js";
+} from "../rate-limit";
 import {
 	createWrappedShare,
 	getPublicWrappedShare,
-} from "../services/wrapped-share.service.js";
+} from "../services/wrapped-share.service";
 
 // Create is authenticated because only the signed-in owner of the current card
 // should mint a new public share record.

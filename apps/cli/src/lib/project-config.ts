@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { exec } from "./exec.js";
+import { exec } from "./exec";
 
 interface ProjectEntry {
 	organizationId: string;

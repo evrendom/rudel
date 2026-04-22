@@ -1,5 +1,5 @@
 import { buildCommand } from "@stricli/core";
-import { readConfig } from "../lib/config.js";
+import { readConfig } from "../lib/config";
 
 async function runConfigShow(): Promise<void> {
 	const config = await readConfig();

@@ -7,21 +7,17 @@ import {
 } from "@rudel/agent-adapters";
 import type { Source } from "@rudel/api-routes";
 import { buildCommand } from "@stricli/core";
-import type { BatchUploadItem } from "../lib/batch-upload.js";
-import { renderBatchSummary, runBatchUpload } from "../lib/batch-upload-ui.js";
-import { classifySession } from "../lib/classifier.js";
-import { loadCredentials } from "../lib/credentials.js";
-import { loadFailedUploads } from "../lib/failed-uploads.js";
-import { getGitInfo } from "../lib/git-info.js";
-import { getProjectOrgId } from "../lib/project-config.js";
-import { scanAndGroupProjects } from "../lib/project-grouping.js";
-import { resolveSession } from "../lib/session-resolver.js";
-import {
-	DEFAULT_ENDPOINT,
-	SESSION_TAGS,
-	type SessionTag,
-} from "../lib/types.js";
-import { type UploadConfig, uploadSession } from "../lib/uploader.js";
+import type { BatchUploadItem } from "../lib/batch-upload";
+import { renderBatchSummary, runBatchUpload } from "../lib/batch-upload-ui";
+import { classifySession } from "../lib/classifier";
+import { loadCredentials } from "../lib/credentials";
+import { loadFailedUploads } from "../lib/failed-uploads";
+import { getGitInfo } from "../lib/git-info";
+import { getProjectOrgId } from "../lib/project-config";
+import { scanAndGroupProjects } from "../lib/project-grouping";
+import { resolveSession } from "../lib/session-resolver";
+import { DEFAULT_ENDPOINT, SESSION_TAGS, type SessionTag } from "../lib/types";
+import { type UploadConfig, uploadSession } from "../lib/uploader";
 
 interface UploadFlags {
 	tag?: SessionTag;

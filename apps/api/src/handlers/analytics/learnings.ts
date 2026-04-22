@@ -1,11 +1,11 @@
-import { orgMiddleware, os } from "../../middleware.js";
+import { orgMiddleware, os } from "../../middleware";
 import {
 	getLearningProjects,
 	getLearningsFeed,
 	getLearningsFeedStats,
 	getLearningsTrend,
 	getLearningUsers,
-} from "../../services/learnings.service.js";
+} from "../../services/learnings.service";
 
 const list = os.analytics.learnings.list
 	.use(orgMiddleware)

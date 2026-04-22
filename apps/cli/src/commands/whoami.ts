@@ -1,6 +1,6 @@
 import * as p from "@clack/prompts";
 import { buildCommand } from "@stricli/core";
-import { verifyAuth } from "../lib/auth.js";
+import { verifyAuth } from "../lib/auth";
 
 async function runWhoami(): Promise<void> {
 	const result = await verifyAuth();

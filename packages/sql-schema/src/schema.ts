@@ -1,3 +1,3 @@
-export * from "./auth-schema.js";
-export * from "./wrapped-resume-schema.js";
-export * from "./wrapped-share-schema.js";
+export * from "./auth-schema";
+export * from "./wrapped-resume-schema";
+export * from "./wrapped-share-schema";

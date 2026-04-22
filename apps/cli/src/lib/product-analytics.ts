@@ -15,7 +15,7 @@ import {
 } from "@rudel/api-routes";
 import { PostHog } from "posthog-node";
 import pkg from "../../package.json" with { type: "json" };
-import type { Credentials } from "./credentials.js";
+import type { Credentials } from "./credentials";
 
 type CliSurface = "cli" | "hook";
 type CliAutoProps = "event_version" | "surface" | "environment";

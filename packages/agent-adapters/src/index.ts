@@ -3,18 +3,18 @@ export {
 	decodeProjectPath,
 	extractAgentIds,
 	readSubagentFiles,
-} from "./adapters/claude-code/index.js";
+} from "./adapters/claude-code/index";
 export {
 	codexAdapter,
 	findActiveRolloutFile,
 	readCodexSessionMeta,
-} from "./adapters/codex/index.js";
+} from "./adapters/codex/index";
 export {
 	getAdapter,
 	getAllAdapters,
 	getAvailableAdapters,
 	registerAdapter,
-} from "./registry.js";
+} from "./registry";
 export type {
 	AgentAdapter,
 	GitInfo,
@@ -22,18 +22,18 @@ export type {
 	ScannedProject,
 	SessionFile,
 	UploadContext,
-} from "./types.js";
+} from "./types";
 export {
 	readFileWithRetry,
 	toClickHouseDateTime,
 	toDisplayPath,
 	walkJsonlFiles,
-} from "./utils.js";
+} from "./utils";
 
 // Auto-register adapters
-import { claudeCodeAdapter } from "./adapters/claude-code/index.js";
-import { codexAdapter } from "./adapters/codex/index.js";
-import { registerAdapter } from "./registry.js";
+import { claudeCodeAdapter } from "./adapters/claude-code/index";
+import { codexAdapter } from "./adapters/codex/index";
+import { registerAdapter } from "./registry";
 
 registerAdapter(claudeCodeAdapter);
 registerAdapter(codexAdapter);

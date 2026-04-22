@@ -4,13 +4,13 @@ import { onError } from "@orpc/server";
 import { RPCHandler } from "@orpc/server/fetch";
 import { user as userTable } from "@rudel/sql-schema";
 import { eq } from "drizzle-orm";
-import type { Session as AuthSession } from "./auth.js";
-import { createAuth } from "./auth.js";
-import { db } from "./db.js";
-import { getResendConfigWarnings } from "./email.js";
-import { shutdownApiProductAnalytics } from "./lib/product-analytics.js";
-import { setupLogging } from "./logging.js";
-import { router } from "./router.js";
+import type { Session as AuthSession } from "./auth";
+import { createAuth } from "./auth";
+import { db } from "./db";
+import { getResendConfigWarnings } from "./email";
+import { shutdownApiProductAnalytics } from "./lib/product-analytics";
+import { setupLogging } from "./logging";
+import { router } from "./router";
 
 await setupLogging();
 

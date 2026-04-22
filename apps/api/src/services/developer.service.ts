@@ -13,9 +13,9 @@ import {
 	addOptionalStringEqFilter,
 	buildDateFilter,
 	queryClickhouse,
-} from "../clickhouse.js";
-import { sqlClient } from "../db.js";
-import { buildEstimatedCostSql } from "./pricing.service.js";
+} from "../clickhouse";
+import { sqlClient } from "../db";
+import { buildEstimatedCostSql } from "./pricing.service";
 
 export interface DeveloperSummary extends DeveloperSummaryBase {
 	username?: string;

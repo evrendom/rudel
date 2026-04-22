@@ -5,14 +5,14 @@ import * as schema from "@rudel/sql-schema";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { bearer, deviceAuthorization, organization } from "better-auth/plugins";
-import type { ResendConfig } from "./email.js";
+import type { ResendConfig } from "./email";
 import {
 	sendOrganizationInvitationEmail,
 	sendPasswordResetEmail,
 	syncSignupContact,
-} from "./email.js";
-import { captureApiProductAnalyticsEvent } from "./lib/product-analytics.js";
-import { fetchGitHubHandle, notifySignup } from "./slack.js";
+} from "./email";
+import { captureApiProductAnalyticsEvent } from "./lib/product-analytics";
+import { fetchGitHubHandle, notifySignup } from "./slack";
 
 const logger = getLogger(["rudel", "api", "auth"]);
 

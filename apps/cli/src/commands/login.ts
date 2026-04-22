@@ -1,8 +1,8 @@
 import { spawn } from "node:child_process";
 import * as p from "@clack/prompts";
 import { buildCommand } from "@stricli/core";
-import { createApiClient } from "../lib/api-client.js";
-import { loadCredentials, saveCredentials } from "../lib/credentials.js";
+import { createApiClient } from "../lib/api-client";
+import { loadCredentials, saveCredentials } from "../lib/credentials";
 import {
 	CliProductAnalyticsEvents,
 	captureCliProductAnalyticsEvent,
@@ -11,7 +11,7 @@ import {
 	getNextCliLoginAttemptNumber,
 	normalizeFailureReason,
 	shouldDisableCliPersonProfile,
-} from "../lib/product-analytics.js";
+} from "../lib/product-analytics";
 
 const DEFAULT_API_BASE = "https://app.rudel.ai";
 const DEFAULT_WEB_URL = "https://app.rudel.ai";

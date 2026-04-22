@@ -3,13 +3,13 @@ import {
 	getAvailableAdapters,
 	type ScannedProject,
 } from "@rudel/agent-adapters";
-import { getGitRemoteUrl, normalizeRemoteUrl } from "./git-info.js";
+import { getGitRemoteUrl, normalizeRemoteUrl } from "./git-info";
 import {
 	cacheRemote,
 	cacheRemotes,
 	getCachedRemote,
 	getRemoteCache,
-} from "./remote-cache.js";
+} from "./remote-cache";
 
 export interface ScanResult {
 	projects: ScannedProject[];

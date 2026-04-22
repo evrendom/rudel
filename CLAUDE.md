@@ -34,6 +34,14 @@ A platform for ingesting, storing, and analyzing Claude Code / Codex session tra
 @rudel/ch-schema         ← @rudel/api
 ```
 
+## TypeScript Imports
+
+**Never use `.js` extensions in relative TypeScript imports.** Write `from "./auth-schema"`, not `from "./auth-schema.js"`.
+
+The shared base tsconfig (`@rudel/typescript-config/base.json`) uses `moduleResolution: "Bundler"`, and every runtime in this repo (Bun for the API/CLI, Vite for the web app) resolves extensionless relative imports. The `.js` form is not just redundant — it actively breaks tools whose loaders can't resolve a `.js` extension against a `.ts` source file. Concretely, `drizzle-kit generate` fails with `Cannot find module './foo.js'` and silently leaves the migration state corrupt (journal entry gets written but no snapshot).
+
+Applies to all `.ts` / `.tsx` files across `apps/` and `packages/`.
+
 ## Environment Variables
 
 | Variable | Required | Description |
@@ -305,6 +313,8 @@ bun run ch:codegen
 ```
 
 This updates `src/generated/chkit-types.ts` (interfaces + Zod schemas) and `src/generated/chkit-ingest.ts` (typed ingest functions). If codegen fails, check for stale `.tmp` files in `src/generated/` and clean them up.
+
+**chkit codegen emits `.js` import extensions** in the generated files, which violates the "TypeScript Imports" rule at the top of this file. After running `ch:codegen`, open `src/generated/*.ts` and strip any `.js` extension from relative `./foo.js` imports. Biome will not auto-fix this.
 
 The generated `RudelSessionAnalyticsRow` type includes both source columns (from `SELECT *` on `claude_sessions`) and computed columns (from the MV). The `RudelClaudeSessionsRow` type covers only the source table columns.
 

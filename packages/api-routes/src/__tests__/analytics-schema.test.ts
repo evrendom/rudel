@@ -7,7 +7,7 @@ import {
 	RecurringErrorsInputSchema,
 	SessionDetailInputSchema,
 	SessionListInputSchema,
-} from "../schemas/analytics.js";
+} from "../schemas/analytics";
 
 describe("analytics input schemas", () => {
 	test("reject oversized free-form analytics filters", () => {

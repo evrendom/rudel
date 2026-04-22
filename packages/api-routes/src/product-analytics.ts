@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { SourceSchema } from "./schemas/source.js";
+import { SourceSchema } from "./schemas/source";
 
 export const PRODUCT_ANALYTICS_EVENT_VERSION = 1 as const;
 

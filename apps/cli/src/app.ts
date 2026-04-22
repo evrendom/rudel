@@ -1,14 +1,14 @@
 import { buildApplication, buildRouteMap } from "@stricli/core";
 import pkg from "../package.json" with { type: "json" };
-import { devRouteMap } from "./commands/dev/index.js";
-import { disableCommand } from "./commands/disable.js";
-import { enableCommand } from "./commands/enable.js";
-import { hooksRouteMap } from "./commands/hooks/index.js";
-import { loginCommand } from "./commands/login.js";
-import { logoutCommand } from "./commands/logout.js";
-import { setOrgCommand } from "./commands/set-org.js";
-import { uploadCommand } from "./commands/upload.js";
-import { whoamiCommand } from "./commands/whoami.js";
+import { devRouteMap } from "./commands/dev/index";
+import { disableCommand } from "./commands/disable";
+import { enableCommand } from "./commands/enable";
+import { hooksRouteMap } from "./commands/hooks/index";
+import { loginCommand } from "./commands/login";
+import { logoutCommand } from "./commands/logout";
+import { setOrgCommand } from "./commands/set-org";
+import { uploadCommand } from "./commands/upload";
+import { whoamiCommand } from "./commands/whoami";
 
 const routes = buildRouteMap({
 	routes: {

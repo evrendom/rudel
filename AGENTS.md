@@ -1,3 +1,15 @@
+# Repo-wide Rules
+
+## TypeScript Imports
+
+**Never use `.js` extensions in relative TypeScript imports.** Write `from "./auth-schema"`, not `from "./auth-schema.js"`.
+
+The shared base tsconfig uses `moduleResolution: "Bundler"` and every runtime here (Bun, Vite) resolves extensionless relative imports. The `.js` form breaks tools whose loaders can't resolve a `.js` extension against a `.ts` source file — e.g. `drizzle-kit generate` fails silently and leaves migration state corrupt.
+
+Applies to all `.ts` / `.tsx` files across `apps/` and `packages/`.
+
+---
+
 # Walk-In Layout Rules
 
 These instructions apply only to the `apps/web/src/features/walk-in/*` route and supporting files that shape its layout.

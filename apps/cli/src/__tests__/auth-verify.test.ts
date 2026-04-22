@@ -16,12 +16,12 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { verifyAuth } from "../lib/auth.js";
+import { verifyAuth } from "../lib/auth";
 import {
 	signUpTestUser,
 	startTestServer,
 	type TestServer,
-} from "./helpers/bun-server.js";
+} from "./helpers/bun-server";
 
 setDefaultTimeout(60_000);
 

@@ -1,9 +1,9 @@
-import { orgMiddleware, os } from "../../middleware.js";
+import { orgMiddleware, os } from "../../middleware";
 import {
 	getErrorsDashboard,
 	getErrorTrends,
 	getTopRecurringErrors,
-} from "../../services/error.service.js";
+} from "../../services/error.service";
 
 const dashboard = os.analytics.errors.dashboard
 	.use(orgMiddleware)

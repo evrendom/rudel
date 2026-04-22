@@ -1,5 +1,5 @@
 import { ORPCError } from "@orpc/server";
-import { orgMiddleware, os } from "../../middleware.js";
+import { orgMiddleware, os } from "../../middleware";
 import {
 	getDeveloperDetails,
 	getDeveloperErrors,
@@ -10,7 +10,7 @@ import {
 	getDeveloperTeamCards,
 	getDeveloperTimeline,
 	getDeveloperTrends,
-} from "../../services/developer.service.js";
+} from "../../services/developer.service";
 
 const list = os.analytics.developers.list
 	.use(orgMiddleware)

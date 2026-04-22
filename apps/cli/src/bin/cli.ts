@@ -1,14 +1,14 @@
 #!/usr/bin/env node
 import { run } from "@stricli/core";
-import { app } from "../app.js";
-import { loadCredentials } from "../lib/credentials.js";
+import { app } from "../app";
+import { loadCredentials } from "../lib/credentials";
 import {
 	CliProductAnalyticsEvents,
 	captureCliProductAnalyticsEvent,
 	consumeCliFirstRun,
 	getBaseCliEventPayload,
 	shutdownCliProductAnalytics,
-} from "../lib/product-analytics.js";
+} from "../lib/product-analytics";
 
 function getTopLevelCommandName(args: string[]) {
 	const commandName = args.find((arg) => !arg.startsWith("-"));

@@ -1,9 +1,9 @@
-import { createApiClient } from "./api-client.js";
+import { createApiClient } from "./api-client";
 import {
 	type Credentials,
 	clearCredentials,
 	loadCredentials,
-} from "./credentials.js";
+} from "./credentials";
 
 type AuthSuccess = {
 	authenticated: true;

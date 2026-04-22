@@ -11,12 +11,12 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { IngestSessionInput } from "@rudel/api-routes";
-import { uploadSession } from "../lib/uploader.js";
+import { uploadSession } from "../lib/uploader";
 import {
 	signUpTestUser,
 	startTestServer,
 	type TestServer,
-} from "./helpers/bun-server.js";
+} from "./helpers/bun-server";
 
 setDefaultTimeout(60_000);
 

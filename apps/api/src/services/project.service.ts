@@ -12,7 +12,7 @@ import {
 	addOptionalStringInFilter,
 	buildDateFilter,
 	queryClickhouse,
-} from "../clickhouse.js";
+} from "../clickhouse";
 
 const logger = getLogger(["rudel", "api", "project-service"]);
 

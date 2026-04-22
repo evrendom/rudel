@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { IngestSessionInputSchema } from "@rudel/api-routes";
-import { checkAnalyticsRateLimit } from "../rate-limit.js";
+import { checkAnalyticsRateLimit } from "../rate-limit";
 
 describe("IngestSessionInputSchema metadata field limits", () => {
 	const validBase = {

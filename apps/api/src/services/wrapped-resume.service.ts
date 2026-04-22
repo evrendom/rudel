@@ -1,4 +1,4 @@
-import { sqlClient } from "../db.js";
+import { sqlClient } from "../db";
 
 interface CreateWrappedResumeOptions {
 	email: string;

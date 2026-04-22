@@ -1,5 +1,5 @@
 import { integer, pgTable, text, timestamp } from "drizzle-orm/pg-core";
-import { organization, user } from "./auth-schema.js";
+import { organization, user } from "./auth-schema";
 
 // wrapped_share stores the public replay payload for the Saturday growth loop.
 // The table is intentionally snapshot-based: we persist exactly what the public

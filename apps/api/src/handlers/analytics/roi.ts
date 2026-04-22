@@ -1,11 +1,11 @@
-import { orgMiddleware, os } from "../../middleware.js";
+import { orgMiddleware, os } from "../../middleware";
 import {
 	getDeveloperCostBreakdown,
 	getProjectCostBreakdown,
 	getROIDashboard,
 	getROIMetrics,
 	getROITrends,
-} from "../../services/roi.service.js";
+} from "../../services/roi.service";
 
 const dashboard = os.analytics.roi.dashboard
 	.use(orgMiddleware)

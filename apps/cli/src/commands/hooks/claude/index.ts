@@ -1,5 +1,5 @@
 import { buildRouteMap } from "@stricli/core";
-import { sessionEndCommand } from "./session-end.js";
+import { sessionEndCommand } from "./session-end";
 
 export const claudeRouteMap = buildRouteMap({
 	routes: {

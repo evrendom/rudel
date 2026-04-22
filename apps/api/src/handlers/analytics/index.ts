@@ -1,12 +1,12 @@
-import { os } from "../../middleware.js";
-import { developersRouter } from "./developers.js";
-import { errorsRouter } from "./errors.js";
-import { learningsRouter } from "./learnings.js";
-import { overviewRouter } from "./overview.js";
-import { projectsRouter } from "./projects.js";
-import { roiRouter } from "./roi.js";
-import { sessionsRouter } from "./sessions.js";
-import { wrappedRouter } from "./wrapped.js";
+import { os } from "../../middleware";
+import { developersRouter } from "./developers";
+import { errorsRouter } from "./errors";
+import { learningsRouter } from "./learnings";
+import { overviewRouter } from "./overview";
+import { projectsRouter } from "./projects";
+import { roiRouter } from "./roi";
+import { sessionsRouter } from "./sessions";
+import { wrappedRouter } from "./wrapped";
 
 export const analyticsRouter = os.analytics.router({
 	overview: overviewRouter,

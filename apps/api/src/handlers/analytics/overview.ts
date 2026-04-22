@@ -1,4 +1,4 @@
-import { orgMiddleware, os } from "../../middleware.js";
+import { orgMiddleware, os } from "../../middleware";
 import {
 	getModelTokensTrend,
 	getOverviewInsights,
@@ -9,7 +9,7 @@ import {
 	getUsageTrendDetailed,
 	getUsersDailyTrend,
 	getUsersTokenUsage,
-} from "../../services/overview.service.js";
+} from "../../services/overview.service";
 
 const kpis = os.analytics.overview.kpis
 	.use(orgMiddleware)

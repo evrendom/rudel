@@ -1,5 +1,5 @@
-import { orgMiddleware, os } from "../../middleware.js";
-import { getWrappedV1Data } from "../../services/wrapped.service.js";
+import { orgMiddleware, os } from "../../middleware";
+import { getWrappedV1Data } from "../../services/wrapped.service";
 
 const v1 = os.analytics.wrapped.v1
 	.use(orgMiddleware)

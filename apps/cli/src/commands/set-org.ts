@@ -1,8 +1,8 @@
 import * as p from "@clack/prompts";
 import { buildCommand } from "@stricli/core";
-import { createApiClient } from "../lib/api-client.js";
-import { loadCredentials } from "../lib/credentials.js";
-import { getProjectOrgId, setProjectOrgId } from "../lib/project-config.js";
+import { createApiClient } from "../lib/api-client";
+import { loadCredentials } from "../lib/credentials";
+import { getProjectOrgId, setProjectOrgId } from "../lib/project-config";
 
 async function runSetOrg(): Promise<void> {
 	p.intro("rudel set-org");

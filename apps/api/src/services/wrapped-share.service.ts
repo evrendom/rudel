@@ -7,7 +7,7 @@ import {
 	WRAPPED_SHARE_PAYLOAD_VERSION,
 	WrappedShareSnapshotSchema,
 } from "@rudel/api-routes";
-import { sqlClient } from "../db.js";
+import { sqlClient } from "../db";
 
 interface CreateWrappedShareOptions {
 	organizationId: string;

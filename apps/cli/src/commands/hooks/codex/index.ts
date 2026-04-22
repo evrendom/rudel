@@ -1,5 +1,5 @@
 import { buildRouteMap } from "@stricli/core";
-import { turnCompleteCommand } from "./turn-complete.js";
+import { turnCompleteCommand } from "./turn-complete";
 
 export const codexRouteMap = buildRouteMap({
 	routes: {

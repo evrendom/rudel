@@ -2,8 +2,8 @@ import { afterAll, describe, expect, test } from "bun:test";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { createClickHouseExecutor } from "@chkit/clickhouse";
-import { ingestRudelCodexSessions } from "../generated/chkit-ingest.js";
-import type { RudelCodexSessionsRow } from "../generated/chkit-types.js";
+import { ingestRudelCodexSessions } from "../generated/chkit-ingest";
+import type { RudelCodexSessionsRow } from "../generated/chkit-types";
 
 const testPrefix = `codex_mv_test_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 const testId = `${testPrefix}_clean`;

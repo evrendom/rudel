@@ -1,5 +1,5 @@
 import { buildRouteMap } from "@stricli/core";
-import { listSessionsCommand } from "./list-sessions.js";
+import { listSessionsCommand } from "./list-sessions";
 
 export const devRouteMap = buildRouteMap({
 	routes: {

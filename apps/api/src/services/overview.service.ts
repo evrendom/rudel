@@ -12,9 +12,9 @@ import {
 	buildAbsoluteDateFilter,
 	buildDateFilter,
 	queryClickhouse,
-} from "../clickhouse.js";
-import { db } from "../db.js";
-import { buildEstimatedCostSql } from "./pricing.service.js";
+} from "../clickhouse";
+import { db } from "../db";
+import { buildEstimatedCostSql } from "./pricing.service";
 
 export interface Insight {
 	type: "trend" | "performer" | "alert" | "info";

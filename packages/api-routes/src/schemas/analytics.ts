@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { ESTIMATED_PRICING_MODE } from "../model-pricing.js";
-import { SourceSchema } from "./source.js";
+import { ESTIMATED_PRICING_MODE } from "../model-pricing";
+import { SourceSchema } from "./source";
 
 // ── Common inputs ──────────────────────────────────────────────────
 

@@ -4,7 +4,7 @@ import {
 	type BatchUploadOptions,
 	type BatchUploadSummary,
 	batchUpload,
-} from "./batch-upload.js";
+} from "./batch-upload";
 
 export interface BatchProgressOptions<T extends BatchUploadItem> {
 	items: T[];

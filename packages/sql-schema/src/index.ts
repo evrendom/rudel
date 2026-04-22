@@ -21,7 +21,7 @@ export type {
 	WrappedResumeSelect,
 	WrappedShareInsert,
 	WrappedShareSelect,
-} from "./schema.js";
+} from "./schema";
 export {
 	account,
 	apikey,
@@ -34,4 +34,4 @@ export {
 	verification,
 	wrappedResume,
 	wrappedShare,
-} from "./schema.js";
+} from "./schema";

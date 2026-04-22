@@ -2,14 +2,14 @@ import { ORPCError } from "@orpc/server";
 import {
 	buildWrappedDesktopResumeLink,
 	sendWrappedDesktopResumeEmail,
-} from "../email.js";
-import { getFrontendOrigin } from "../frontend-origin.js";
-import { authMiddleware, os } from "../middleware.js";
-import { checkWrappedResumeCreateRateLimit } from "../rate-limit.js";
+} from "../email";
+import { getFrontendOrigin } from "../frontend-origin";
+import { authMiddleware, os } from "../middleware";
+import { checkWrappedResumeCreateRateLimit } from "../rate-limit";
 import {
 	consumeWrappedResume,
 	createWrappedResume,
-} from "../services/wrapped-resume.service.js";
+} from "../services/wrapped-resume.service";
 
 const resendConfig = {
 	apiKey: process.env.RESEND_API_KEY,

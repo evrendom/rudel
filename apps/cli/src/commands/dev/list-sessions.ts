@@ -1,6 +1,6 @@
 import { getAdapter, type ScannedProject } from "@rudel/agent-adapters";
 import { buildCommand } from "@stricli/core";
-import { scanAndGroupProjects } from "../../lib/project-grouping.js";
+import { scanAndGroupProjects } from "../../lib/project-grouping";
 
 async function runListSessions(): Promise<void> {
 	const { projects: allProjects, groups } = await scanAndGroupProjects();

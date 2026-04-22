@@ -2,11 +2,11 @@ import * as p from "@clack/prompts";
 import { type AgentAdapter, getAvailableAdapters } from "@rudel/agent-adapters";
 import type { Source } from "@rudel/api-routes";
 import { buildCommand } from "@stricli/core";
-import { createApiClient } from "../lib/api-client.js";
-import { verifyAuth } from "../lib/auth.js";
-import type { BatchUploadItem } from "../lib/batch-upload.js";
-import { renderBatchSummary, runBatchUpload } from "../lib/batch-upload-ui.js";
-import { getGitInfo } from "../lib/git-info.js";
+import { createApiClient } from "../lib/api-client";
+import { verifyAuth } from "../lib/auth";
+import type { BatchUploadItem } from "../lib/batch-upload";
+import { renderBatchSummary, runBatchUpload } from "../lib/batch-upload-ui";
+import { getGitInfo } from "../lib/git-info";
 import {
 	CliProductAnalyticsEvents,
 	captureCliProductAnalyticsEvent,
@@ -14,9 +14,9 @@ import {
 	getCliDistinctId,
 	normalizeFailureReason,
 	shouldDisableCliPersonProfile,
-} from "../lib/product-analytics.js";
-import { getProjectOrgId, setProjectOrgId } from "../lib/project-config.js";
-import { uploadSession } from "../lib/uploader.js";
+} from "../lib/product-analytics";
+import { getProjectOrgId, setProjectOrgId } from "../lib/project-config";
+import { uploadSession } from "../lib/uploader";
 
 async function runEnable(): Promise<void> {
 	p.intro("rudel enable");

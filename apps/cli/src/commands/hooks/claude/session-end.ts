@@ -1,15 +1,15 @@
 import { getLogger } from "@logtape/logtape";
 import { claudeCodeAdapter, type SessionFile } from "@rudel/agent-adapters";
 import { buildCommand } from "@stricli/core";
-import { loadCredentials } from "../../../lib/credentials.js";
+import { loadCredentials } from "../../../lib/credentials";
 import {
 	recordFailedUpload,
 	removeFailedUpload,
-} from "../../../lib/failed-uploads.js";
-import { getGitInfo } from "../../../lib/git-info.js";
-import { getProjectOrgId } from "../../../lib/project-config.js";
-import { uploadSession } from "../../../lib/uploader.js";
-import { disposeLogging, setupHookLogging } from "../../../logging.js";
+} from "../../../lib/failed-uploads";
+import { getGitInfo } from "../../../lib/git-info";
+import { getProjectOrgId } from "../../../lib/project-config";
+import { uploadSession } from "../../../lib/uploader";
+import { disposeLogging, setupHookLogging } from "../../../logging";
 
 interface HookInput {
 	session_id: string;

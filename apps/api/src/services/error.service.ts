@@ -7,7 +7,7 @@ import {
 	buildDateFilter,
 	buildInclusiveDateRangeFilter,
 	queryClickhouse,
-} from "../clickhouse.js";
+} from "../clickhouse";
 
 export interface CrossDeveloperError {
 	error_pattern: string;

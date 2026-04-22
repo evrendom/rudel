@@ -4,8 +4,8 @@ import type {
 	WrappedV1,
 } from "@rudel/api-routes";
 import { ESTIMATED_PRICING_MODE } from "@rudel/api-routes";
-import { queryClickhouse } from "../clickhouse.js";
-import { buildEstimatedCostSql } from "./pricing.service.js";
+import { queryClickhouse } from "../clickhouse";
+import { buildEstimatedCostSql } from "./pricing.service";
 
 // The wrapped endpoint is intentionally the conservative, high-trust summary.
 // It should answer the broad "what is definitely true about this user's run?"

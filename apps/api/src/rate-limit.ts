@@ -1,7 +1,7 @@
 import { getLogger } from "@logtape/logtape";
 import { ORPCError } from "@orpc/server";
-import type { ClickHouseStatement } from "./clickhouse.js";
-import { queryClickhouse } from "./clickhouse.js";
+import type { ClickHouseStatement } from "./clickhouse";
+import { queryClickhouse } from "./clickhouse";
 
 const logger = getLogger(["rudel", "api", "rate-limit"]);
 

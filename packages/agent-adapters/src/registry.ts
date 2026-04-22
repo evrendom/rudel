@@ -1,6 +1,6 @@
 import { existsSync } from "node:fs";
 import type { Source } from "@rudel/api-routes";
-import type { AgentAdapter } from "./types.js";
+import type { AgentAdapter } from "./types";
 
 const adapters = new Map<Source, AgentAdapter>();
 

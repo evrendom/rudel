@@ -13,18 +13,18 @@ import type {
 	ScannedProject,
 	SessionFile,
 	UploadContext,
-} from "../../types.js";
+} from "../../types";
 import {
 	readFileWithRetry,
 	toClickHouseDateTime,
 	toDisplayPath,
-} from "../../utils.js";
+} from "../../utils";
 import {
 	addHook,
 	getClaudeSettingsPath,
 	isHookEnabled,
 	removeHook,
-} from "./settings.js";
+} from "./settings";
 
 const SESSIONS_BASE_DIR = join(homedir(), ".claude", "projects");
 

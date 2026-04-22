@@ -1,13 +1,13 @@
 import { getLogger } from "@logtape/logtape";
 import { claudeCodeAdapter, type SessionFile } from "@rudel/agent-adapters";
 import { buildCommand } from "@stricli/core";
-import { classifySession } from "../lib/classifier.js";
-import { readConfig } from "../lib/config.js";
-import { getGitInfo } from "../lib/git-info.js";
-import { parseStdinInput, readStdin } from "../lib/stdin.js";
-import { DEFAULT_ENDPOINT } from "../lib/types.js";
-import { uploadSession } from "../lib/uploader.js";
-import { disposeLogging, setupHookLogging } from "../logging.js";
+import { classifySession } from "../lib/classifier";
+import { readConfig } from "../lib/config";
+import { getGitInfo } from "../lib/git-info";
+import { parseStdinInput, readStdin } from "../lib/stdin";
+import { DEFAULT_ENDPOINT } from "../lib/types";
+import { uploadSession } from "../lib/uploader";
+import { disposeLogging, setupHookLogging } from "../logging";
 
 async function runHookUpload(): Promise<void> {
 	await setupHookLogging();

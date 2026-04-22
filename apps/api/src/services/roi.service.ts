@@ -9,13 +9,13 @@ import {
 	buildDateFilter,
 	buildInclusiveDateRangeFilter,
 	queryClickhouse,
-} from "../clickhouse.js";
+} from "../clickhouse";
 import {
 	buildEstimatedCostSql,
 	ESTIMATED_PRICING_MODE,
 	FALLBACK_MODEL_PRICING,
 	getModelPricingCatalog,
-} from "./pricing.service.js";
+} from "./pricing.service";
 
 // Pricing constants based on Claude Sonnet 4 rates, used as a default approximation
 // across all models. TODO: implement per-model pricing using the model_used column.

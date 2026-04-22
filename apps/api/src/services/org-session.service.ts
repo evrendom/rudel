@@ -1,5 +1,5 @@
 import { getAllAdapters } from "@rudel/agent-adapters";
-import { getClickhouse, getSafeClickHouseTable } from "../clickhouse.js";
+import { getClickhouse, getSafeClickHouseTable } from "../clickhouse";
 
 export async function getOrgSessionCount(orgId: string): Promise<number> {
 	const ch = getClickhouse();

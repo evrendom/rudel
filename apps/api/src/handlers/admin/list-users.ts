@@ -1,7 +1,7 @@
 import { member, user } from "@rudel/sql-schema";
 import { count, eq, ilike, or } from "drizzle-orm";
-import { db } from "../../db.js";
-import { adminMiddleware, os } from "../../middleware.js";
+import { db } from "../../db";
+import { adminMiddleware, os } from "../../middleware";
 
 export const listUsers = os.admin.listUsers
 	.use(adminMiddleware)

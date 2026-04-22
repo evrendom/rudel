@@ -5,7 +5,7 @@ import {
 	getResendConfigWarnings,
 	sendOrganizationInvitationEmail,
 	syncSignupContact,
-} from "../email.js";
+} from "../email";
 
 const invitation = {
 	frontendURL: "https://app.rudel.ai/",

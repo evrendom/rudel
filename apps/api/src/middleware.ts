@@ -2,9 +2,9 @@ import { implement, ORPCError } from "@orpc/server";
 import { contract } from "@rudel/api-routes";
 import { member } from "@rudel/sql-schema";
 import { and, eq } from "drizzle-orm";
-import type { Session } from "./auth.js";
-import { db } from "./db.js";
-import { checkAnalyticsRateLimit } from "./rate-limit.js";
+import type { Session } from "./auth";
+import { db } from "./db";
+import { checkAnalyticsRateLimit } from "./rate-limit";
 
 export interface AppContext {
 	user: Session["user"] | null;

@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { exec } from "./exec.js";
+import { exec } from "./exec";
 
 export interface GitInfo {
 	gitRemote?: string;

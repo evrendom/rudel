@@ -1,5 +1,5 @@
 import { schema, table } from "@chkit/core";
-import { baseSessionColumns, baseSessionTableConfig } from "./base-sessions.js";
+import { baseSessionColumns, baseSessionTableConfig } from "./base-sessions";
 
 const rudel_claude_sessions = table({
 	database: "rudel",

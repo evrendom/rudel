@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { SESSION_TAGS, type SessionTag } from "./types.js";
+import { SESSION_TAGS, type SessionTag } from "./types";
 
 const SYSTEM_PROMPT = `You are a session classifier. Analyze the Claude Code / Codex session transcript and classify it into exactly ONE of these categories:
 

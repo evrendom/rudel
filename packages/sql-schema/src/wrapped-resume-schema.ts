@@ -1,5 +1,5 @@
 import { pgTable, text, timestamp } from "drizzle-orm/pg-core";
-import { user } from "./auth-schema.js";
+import { user } from "./auth-schema";
 
 // wrapped_resume stores the temporary cross-device handoff token for users who
 // sign in on mobile but need to continue setup on desktop. It is intentionally

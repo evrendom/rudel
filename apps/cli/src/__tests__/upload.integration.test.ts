@@ -8,8 +8,8 @@ import {
 	readFileWithRetry,
 	readSubagentFiles,
 } from "@rudel/agent-adapters";
-import { getGitInfo } from "../lib/git-info.js";
-import { resolveSession } from "../lib/session-resolver.js";
+import { getGitInfo } from "../lib/git-info";
+import { resolveSession } from "../lib/session-resolver";
 
 // Sample JSONL content mimicking a real Claude session
 const SAMPLE_SESSION_CONTENT = [

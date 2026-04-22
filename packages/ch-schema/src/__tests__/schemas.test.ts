@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { RudelClaudeSessionsRowSchema } from "../generated/chkit-types.js";
+import { RudelClaudeSessionsRowSchema } from "../generated/chkit-types";
 
 describe("RudelClaudeSessionsRowSchema", () => {
 	const validRow = {

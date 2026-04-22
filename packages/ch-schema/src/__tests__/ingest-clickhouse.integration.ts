@@ -1,7 +1,7 @@
 import { afterAll, describe, expect, it, test } from "bun:test";
 import { createClickHouseExecutor } from "@chkit/clickhouse";
-import { ingestRudelClaudeSessions } from "../generated/chkit-ingest.js";
-import type { RudelClaudeSessionsRow } from "../generated/chkit-types.js";
+import { ingestRudelClaudeSessions } from "../generated/chkit-ingest";
+import type { RudelClaudeSessionsRow } from "../generated/chkit-types";
 
 const testId = `test_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 

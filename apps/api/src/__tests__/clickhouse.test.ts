@@ -9,7 +9,7 @@ const {
 	buildDateFilter,
 	createClickHouseExecutor,
 	getSafeClickHouseTable,
-} = await import("../clickhouse.js");
+} = await import("../clickhouse");
 
 function getExecutor() {
 	const url = process.env.CLICKHOUSE_URL;

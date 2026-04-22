@@ -4,14 +4,14 @@ import {
 	type SessionFile,
 } from "@rudel/agent-adapters";
 import { buildCommand } from "@stricli/core";
-import { loadCredentials } from "../../../lib/credentials.js";
+import { loadCredentials } from "../../../lib/credentials";
 import {
 	recordFailedUpload,
 	removeFailedUpload,
-} from "../../../lib/failed-uploads.js";
-import { getGitInfo } from "../../../lib/git-info.js";
-import { getProjectOrgId } from "../../../lib/project-config.js";
-import { uploadSession } from "../../../lib/uploader.js";
+} from "../../../lib/failed-uploads";
+import { getGitInfo } from "../../../lib/git-info";
+import { getProjectOrgId } from "../../../lib/project-config";
+import { uploadSession } from "../../../lib/uploader";
 
 interface CodexNotifyInput {
 	type: string;

@@ -2,7 +2,7 @@ import { createORPCClient, ORPCError } from "@orpc/client";
 import { RPCLink } from "@orpc/client/fetch";
 import type { ContractRouterClient } from "@orpc/contract";
 import type { contract, IngestSessionInput } from "@rudel/api-routes";
-import type { UploadResult } from "./types.js";
+import type { UploadResult } from "./types";
 
 export interface UploadConfig {
 	endpoint: string;

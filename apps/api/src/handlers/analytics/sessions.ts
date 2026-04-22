@@ -1,12 +1,12 @@
 import { ORPCError } from "@orpc/server";
-import { orgMiddleware, os } from "../../middleware.js";
+import { orgMiddleware, os } from "../../middleware";
 import {
 	getSessionAnalytics,
 	getSessionAnalyticsSummary,
 	getSessionAnalyticsSummaryComparison,
 	getSessionDetail,
 	getSessionDimensionAnalysis,
-} from "../../services/session-analytics.service.js";
+} from "../../services/session-analytics.service";
 
 const sortByMap: Record<string, "date" | "duration" | "interactions"> = {
 	session_date: "date",
