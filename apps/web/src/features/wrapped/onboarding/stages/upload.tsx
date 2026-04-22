@@ -46,10 +46,13 @@ export function WrappedOnboardingUploadStage(props: UploadStageProps) {
 		<section className="mymind-wrapped-upload-stage">
 			<div className="mymind-wrapped-upload-card">
 				<div className="mymind-wrapped-upload-card__summary">
-					<p className="mymind-wrapped-upload-card__body">{model.cardBody}</p>
-					{model.cardMeta ? (
-						<p className="mymind-wrapped-upload-card__meta">{model.cardMeta}</p>
-					) : null}
+					<h2 className="mymind-wrapped-upload-card__title">
+						<span>{model.headline}</span>
+						<span className="mymind-wrapped-upload-card__title-detail">
+							{model.cardBody}
+						</span>
+					</h2>
+					<p className="mymind-wrapped-upload-card__body">{model.body}</p>
 				</div>
 
 				<UploadStageReel

@@ -377,6 +377,7 @@ function WrappedTeamCardPageContent(props: {
 			}
 			finalStage={finalStage}
 			onboardingMetrics={onboardingMetrics}
+			rewardHeaderTitle={showShareStage ? "Share preview" : "Final card"}
 			totalSessions={visibleTeamCardRow.totalSessions}
 		/>
 	);

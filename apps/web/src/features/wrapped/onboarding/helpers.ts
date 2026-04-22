@@ -20,8 +20,14 @@ export interface WrappedStepContentLine {
 }
 
 export interface WrappedVisibleProgressStep {
+	displayNumber: number;
+	routeIndex: number;
 	step: WrappedStep;
-	stepIndex: number;
+}
+
+export interface WrappedStoryProgress {
+	currentNumber: number;
+	total: number;
 }
 
 export type IntroCommitDotLevel = 0 | 1 | 2 | 3 | 4;
@@ -43,11 +49,9 @@ export interface UploadStageModel {
 	body: string;
 	cardBody: string;
 	cardEyebrow: string;
-	cardMeta: string | null;
 	headline: string;
 	isUploading: boolean;
 	rollItems: readonly UploadStageRollItem[];
-	secondaryActionLabel: string | null;
 }
 
 export interface UploadStageRollItem {
@@ -94,16 +98,22 @@ export function getVisibleProgressSteps(
 	eligibleSteps: readonly WrappedStep[],
 ): WrappedVisibleProgressStep[] {
 	const MAX_VISIBLE_PROGRESS_STEPS = 10;
-	const progressSteps = eligibleSteps.filter((step) => step.kind !== "final");
+	const progressSteps = getOnboardingProgressSteps(eligibleSteps);
 
 	if (progressSteps.length <= MAX_VISIBLE_PROGRESS_STEPS) {
 		return progressSteps.map((step, progressIndex) => ({
+			displayNumber: progressIndex + 1,
+			routeIndex: resolveProgressRouteIndex(step, eligibleSteps),
 			step,
-			stepIndex: progressIndex + 1,
 		}));
 	}
 
-	const activeProgressIndex = Math.max(0, activeStepIndex - 1);
+	const activeProgressIndex = Math.max(
+		0,
+		progressSteps.findIndex(
+			(step) => resolveProgressRouteIndex(step, eligibleSteps) === activeStepIndex,
+		),
+	);
 	const maxStartIndex = progressSteps.length - MAX_VISIBLE_PROGRESS_STEPS;
 	const desiredStartIndex = Math.max(
 		0,
@@ -114,13 +124,53 @@ export function getVisibleProgressSteps(
 	return progressSteps
 		.slice(startIndex, startIndex + MAX_VISIBLE_PROGRESS_STEPS)
 		.map((step, visibleIndex) => ({
+			displayNumber: startIndex + visibleIndex + 1,
+			routeIndex: resolveProgressRouteIndex(step, eligibleSteps),
 			step,
-			stepIndex: startIndex + visibleIndex + 1,
 		}));
 }
 
-export function getStepDisplayNumber(stepIndex: number) {
-	return (stepIndex - 1).toString();
+export function resolveStoryProgress(
+	activeStepIndex: number,
+	eligibleSteps: readonly WrappedStep[],
+): WrappedStoryProgress | null {
+	const activeStep =
+		activeStepIndex === 0
+			? UPLOAD_STEP
+			: (eligibleSteps[activeStepIndex - 1] ?? null);
+
+	if (!activeStep || activeStep.phase === "reward") {
+		return null;
+	}
+
+	const progressSteps = getOnboardingProgressSteps(eligibleSteps);
+	const currentIndex = progressSteps.findIndex(
+		(step) => step.id === activeStep.id,
+	);
+
+	if (currentIndex < 0) {
+		return null;
+	}
+
+	return {
+		currentNumber: currentIndex + 1,
+		total: progressSteps.length,
+	};
+}
+
+function getOnboardingProgressSteps(eligibleSteps: readonly WrappedStep[]) {
+	return [UPLOAD_STEP, ...eligibleSteps.filter((step) => step.phase === "story")];
+}
+
+function resolveProgressRouteIndex(
+	step: WrappedStep,
+	eligibleSteps: readonly WrappedStep[],
+) {
+	if (step.id === UPLOAD_STEP.id) {
+		return 0;
+	}
+
+	return eligibleSteps.findIndex((candidate) => candidate.id === step.id) + 1;
 }
 
 export function resolveUploadStageModel(
@@ -132,7 +182,6 @@ export function resolveUploadStageModel(
 				body: "One export is in. Add another, or start the story.",
 				cardBody: "1 export added",
 				cardEyebrow: "Upload complete",
-				cardMeta: "128 sessions from Cursor",
 				headline: "Your upload is ready.",
 				isUploading: false,
 				rollItems: [
@@ -142,14 +191,12 @@ export function resolveUploadStageModel(
 						meta: "128 sessions",
 					},
 				],
-				secondaryActionLabel: "Upload more",
 			};
 		case "ready-multi":
 			return {
 				body: "This pass is done. Add more, or keep going.",
 				cardBody: "3 exports added",
 				cardEyebrow: "Uploads complete",
-				cardMeta: "412 sessions across 2 tools",
 				headline: "Your uploads are ready.",
 				isUploading: false,
 				rollItems: [
@@ -169,14 +216,12 @@ export function resolveUploadStageModel(
 						meta: "188 sessions",
 					},
 				],
-				secondaryActionLabel: "Upload more",
 			};
 		default:
 			return {
 				body: "We'll start as soon as this upload pass finishes.",
 				cardBody: "2 of 3 exports processed",
 				cardEyebrow: "2 exports landed",
-				cardMeta: "284 sessions landed so far",
 				headline: "Bringing your sessions in.",
 				isUploading: true,
 				rollItems: [
@@ -196,7 +241,6 @@ export function resolveUploadStageModel(
 						meta: "Still processing",
 					},
 				],
-				secondaryActionLabel: null,
 			};
 	}
 }

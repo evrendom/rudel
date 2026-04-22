@@ -1,19 +1,18 @@
-import { ChevronLeft, LoaderCircle } from "lucide-react";
+import { ChevronLeft, LoaderCircle, X } from "lucide-react";
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { appRoutes } from "@/app/routes";
 import { buttonVariants } from "@/app/ui/button";
 import { cn } from "@/lib/utils";
-import {
-	type PreviewableWrappedStepId,
-	UPLOAD_STEP,
-	type WrappedPreviewOption,
-	type WrappedStep,
+import type {
+	PreviewableWrappedStepId,
+	WrappedPreviewOption,
+	WrappedStep,
 } from "./config";
-import {
-	getStepDisplayNumber,
-	type UploadStageModel,
-	type WrappedVisibleProgressStep,
+import type {
+	UploadStageModel,
+	WrappedStoryProgress,
+	WrappedVisibleProgressStep,
 } from "./helpers";
 
 interface WrappedOnboardingHeaderProps {
@@ -22,39 +21,31 @@ interface WrappedOnboardingHeaderProps {
 	activePreviewStepId: PreviewableWrappedStepId | null;
 	activeStep: WrappedStep;
 	activeStepIndex: number;
+	isDebugControlsVisible: boolean;
 	isStepTransitioning: boolean;
 	onGoToStep: (nextStepIndex: number) => void;
 	onPreviewStateChange: (
 		stepId: PreviewableWrappedStepId,
 		value: string,
 	) => void;
+	rewardTitle?: string;
+	setupStatus: string | null;
+	storyProgress: WrappedStoryProgress | null;
 	visibleProgressSteps: readonly WrappedVisibleProgressStep[];
 }
 
 interface WrappedOnboardingFooterProps {
 	activeStep: WrappedStep;
-	activeStepIndex: number;
 	activeUploadModel: UploadStageModel | null;
 	finalFooter?: ReactNode;
 	isStepTransitioning: boolean;
 	onContinue: () => void;
-	onGoToStep: (nextStepIndex: number) => void;
 }
 
 interface WrappedSecondaryActionProps {
 	children: ReactNode;
 	disabled?: boolean;
 	onClick?: () => void;
-}
-
-interface WrappedActionStackProps {
-	continueDisabled?: boolean;
-	continueIcon?: ReactNode;
-	continueLabel: string;
-	onContinue?: () => void;
-	onSecondaryAction?: () => void;
-	secondaryActionDisabled?: boolean;
-	secondaryActionLabel?: string;
 }
 
 type WrappedPrimaryActionProps =
@@ -79,73 +70,99 @@ export function WrappedOnboardingHeader(props: WrappedOnboardingHeaderProps) {
 		activePreviewStepId,
 		activeStep,
 		activeStepIndex,
+		isDebugControlsVisible,
 		isStepTransitioning,
 		onGoToStep,
 		onPreviewStateChange,
+		rewardTitle,
+		setupStatus,
+		storyProgress,
 		visibleProgressSteps,
 	} = props;
+	const title = getWrappedHeaderTitle(activeStep, rewardTitle, setupStatus);
+	const isDebugTrayVisible =
+		isDebugControlsVisible && activePreviewStepId && activePreviewOptions;
 
 	return (
-		<header className="space-y-3">
-			<div className="mymind-wrapped-header-row">
-				{activeStepIndex > 0 ? (
-					<button
-						type="button"
-						aria-label={`Go back to ${activeStepIndex === 1 ? "step -1" : `step ${getStepDisplayNumber(activeStepIndex - 1)}`}`}
-						disabled={isStepTransitioning}
-						className="mymind-wrapped-back-button rounded-full border border-border bg-background text-foreground transition-colors hover:text-foreground"
-						onClick={() => onGoToStep(activeStepIndex - 1)}
-					>
-						<ChevronLeft className="size-4" />
-					</button>
-				) : null}
+		<header className="mymind-wrapped-top-tray">
+			<div className="mymind-wrapped-top-tray__row">
+				<div className="mymind-wrapped-top-tray__slot mymind-wrapped-top-tray__slot--start">
+					{activeStepIndex > 0 ? (
+						<button
+							type="button"
+							aria-label="Go back"
+							disabled={isStepTransitioning}
+							className="mymind-wrapped-back-button rounded-full transition-colors"
+							onClick={() => onGoToStep(activeStepIndex - 1)}
+						>
+							<ChevronLeft className="size-4" />
+						</button>
+					) : (
+						<Link
+							to={appRoutes.dashboard()}
+							aria-label="Close wrapped onboarding"
+							className="mymind-wrapped-back-button rounded-full transition-colors"
+						>
+							<X className="size-4" />
+						</Link>
+					)}
+				</div>
 
-				<div className="mymind-wrapped-progress">
-					<button
-						type="button"
-						aria-label={`Go to step -1: ${UPLOAD_STEP.label}`}
-						disabled={isStepTransitioning}
-						className={cn(
-							"mymind-wrapped-progress__button rounded-full border text-[0.72rem] font-medium tabular-nums transition-colors",
-							activeStepIndex === 0
-								? "border-foreground bg-foreground text-background"
-								: "border-border bg-background text-muted-foreground hover:text-foreground",
-						)}
-						onClick={() => onGoToStep(0)}
-					>
-						-1
-					</button>
-					{visibleProgressSteps.map(({ step, stepIndex }) => {
-						const displayStepNumber = getStepDisplayNumber(stepIndex);
+				<div className="mymind-wrapped-top-tray__center">
+					{storyProgress ? (
+						<nav
+							className="mymind-wrapped-progress"
+							aria-label="Wrapped story progress"
+						>
+								{visibleProgressSteps.map(({ displayNumber, routeIndex, step }) => (
+									<button
+										key={step.id}
+									type="button"
+									aria-current={routeIndex === activeStepIndex ? "step" : undefined}
+										aria-label={`Go to story step ${displayNumber}: ${step.label}`}
+										disabled={isStepTransitioning}
+										className={cn(
+											"mymind-wrapped-progress__button",
+											routeIndex === activeStepIndex
+												? "mymind-wrapped-progress__button--active"
+												: "mymind-wrapped-progress__button--inactive",
+										)}
+										onClick={() => onGoToStep(routeIndex)}
+									>
+									<span
+										aria-hidden="true"
+										className={cn(
+											"mymind-wrapped-progress__segment",
+											routeIndex === activeStepIndex
+												? "mymind-wrapped-progress__segment--active"
+												: "mymind-wrapped-progress__segment--inactive",
+										)}
+									/>
+								</button>
+							))}
+						</nav>
+					) : (
+						<p className="mymind-wrapped-top-tray__status">{title}</p>
+					)}
+				</div>
 
-						return (
-							<button
-								key={step.id}
-								type="button"
-								aria-label={`Go to step ${displayStepNumber}: ${step.label}`}
-								disabled={isStepTransitioning}
-								className={cn(
-									"mymind-wrapped-progress__button rounded-full border text-[0.72rem] font-medium tabular-nums transition-colors",
-									stepIndex === activeStepIndex
-										? "border-foreground bg-foreground text-background"
-										: "border-border bg-background text-muted-foreground hover:text-foreground",
-								)}
-								onClick={() => onGoToStep(stepIndex)}
-							>
-								{displayStepNumber}
-							</button>
-						);
-					})}
+				<div className="mymind-wrapped-top-tray__slot mymind-wrapped-top-tray__slot--end">
+					<span
+						aria-hidden="true"
+						className="mymind-wrapped-top-tray__utility-placeholder"
+					/>
 				</div>
 			</div>
 
-			{activePreviewStepId && activePreviewOptions ? (
-				<div className="w-full rounded-full border border-border/50 bg-background/65 px-2 py-1">
-					<div className="flex items-center gap-2 overflow-x-auto whitespace-nowrap [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-						<fieldset className="flex flex-nowrap gap-1">
+			{isDebugTrayVisible ? (
+				<div className="mymind-wrapped-debug-tray">
+					<div className="mymind-wrapped-debug-tray__scroller">
+						<fieldset className="mymind-wrapped-debug-tray__options">
 							<legend className="sr-only">{`${activeStep.label} preview states`}</legend>
 							{activePreviewOptions.map((option) => {
 								const isSelected = option.value === activePreviewState;
+								const [primaryLine, secondaryLine] =
+									splitWrappedDebugLabel(option.label);
 
 								return (
 									<button
@@ -157,13 +174,16 @@ export function WrappedOnboardingHeader(props: WrappedOnboardingHeaderProps) {
 											onPreviewStateChange(activePreviewStepId, option.value)
 										}
 										className={cn(
-											"min-h-11 shrink-0 rounded-full border px-2.5 py-1 text-[0.68rem] font-medium transition-colors",
+											"mymind-wrapped-debug-tray__option",
 											isSelected
-												? "border-foreground bg-foreground text-background"
-												: "border-border bg-background text-muted-foreground hover:text-foreground",
+												? "mymind-wrapped-debug-tray__option--active"
+												: "mymind-wrapped-debug-tray__option--inactive",
 										)}
 									>
-										{option.label}
+										<span className="mymind-wrapped-debug-tray__option-label">
+											<span>{primaryLine}</span>
+											{secondaryLine ? <span>{secondaryLine}</span> : null}
+										</span>
 									</button>
 								);
 							})}
@@ -178,77 +198,48 @@ export function WrappedOnboardingHeader(props: WrappedOnboardingHeaderProps) {
 export function WrappedOnboardingFooter(props: WrappedOnboardingFooterProps) {
 	const {
 		activeStep,
-		activeStepIndex,
 		activeUploadModel,
 		finalFooter,
 		isStepTransitioning,
 		onContinue,
-		onGoToStep,
 	} = props;
 
 	return (
-		<footer className="mymind-wrapped-step-footer mt-auto flex flex-wrap items-center justify-between gap-3 border-t border-border/70 pt-5">
+		<footer className="mymind-wrapped-dock">
 			{activeStep.kind === "final" ? (
 				(finalFooter ?? (
 					<WrappedPrimaryAction kind="link" to={appRoutes.dashboard()}>
 						Done
 					</WrappedPrimaryAction>
 				))
-			) : activeStep.id === "upload" ? (
-				<WrappedActionStack
-					continueDisabled={activeUploadModel?.isUploading}
-					continueIcon={
-						activeUploadModel?.isUploading ? (
+			) : (
+				<WrappedPrimaryAction
+					kind="button"
+					disabled={
+						activeStep.id === "upload"
+							? activeUploadModel?.isUploading
+							: isStepTransitioning
+					}
+					icon={
+						activeStep.id === "upload" && activeUploadModel?.isUploading ? (
 							<LoaderCircle className="size-4 animate-spin" />
 						) : undefined
 					}
-					continueLabel={
-						activeUploadModel?.isUploading ? "Uploading..." : "Continue"
-					}
-					onContinue={() => onGoToStep(activeStepIndex + 1)}
-					secondaryActionLabel={
-						activeUploadModel?.secondaryActionLabel ?? undefined
-					}
-				/>
-			) : (
-				<WrappedActionStack
-					continueDisabled={isStepTransitioning}
-					continueLabel="Continue"
-					onContinue={onContinue}
-				/>
+					onClick={onContinue}
+				>
+					{activeStep.id === "upload" && activeUploadModel?.isUploading
+						? "Uploading..."
+						: "Continue"}
+				</WrappedPrimaryAction>
 			)}
 		</footer>
-	);
-}
-
-function WrappedActionStack(props: WrappedActionStackProps) {
-	return (
-		<div className="mymind-wrapped-action-stack">
-			<WrappedPrimaryAction
-				kind="button"
-				disabled={props.continueDisabled}
-				onClick={props.onContinue}
-				icon={props.continueIcon}
-			>
-				{props.continueLabel}
-			</WrappedPrimaryAction>
-
-			{props.secondaryActionLabel ? (
-				<WrappedSecondaryAction
-					disabled={props.secondaryActionDisabled}
-					onClick={props.onSecondaryAction}
-				>
-					{props.secondaryActionLabel}
-				</WrappedSecondaryAction>
-			) : null}
-		</div>
 	);
 }
 
 function WrappedPrimaryAction(props: WrappedPrimaryActionProps) {
 	const className = cn(
 		buttonVariants({}),
-		"mymind-wrapped-primary-action h-11 rounded-full px-7 [font-family:'Nunito',var(--font-sans)] text-[19px] font-bold",
+		"mymind-wrapped-primary-action h-11 rounded-full px-7 [font-family:var(--app-font-heading)] text-[1.0625rem] font-semibold",
 	);
 
 	if (props.kind === "link") {
@@ -276,15 +267,59 @@ function WrappedPrimaryAction(props: WrappedPrimaryActionProps) {
 	);
 }
 
-function WrappedSecondaryAction(props: WrappedSecondaryActionProps) {
+export function WrappedSecondaryAction(props: WrappedSecondaryActionProps) {
 	return (
 		<button
 			type="button"
 			disabled={props.disabled}
 			onClick={props.onClick}
-			className="mymind-wrapped-secondary-action [font-family:'Nunito',var(--font-sans)] text-[19px] font-bold"
+			className="mymind-wrapped-secondary-action [font-family:var(--app-font-heading)] text-[1.0625rem] font-semibold"
 		>
 			{props.children}
 		</button>
 	);
+}
+
+function splitWrappedDebugLabel(label: string): [string, string?] {
+	if (label.includes(" (") && label.endsWith(")")) {
+		const [head, tail] = label.split(" (");
+
+		return [head.trim(), tail.replace(/\)$/, "").trim()];
+	}
+
+	if (label.includes(",")) {
+		const [head, ...rest] = label.split(",");
+
+		return [head.trim(), rest.join(",").trim()];
+	}
+
+	const words = label.trim().split(/\s+/);
+
+	if (words.length <= 1) {
+		return [label];
+	}
+
+	if (words.length === 2) {
+		return [words[0] ?? label, words[1]];
+	}
+
+	const midpoint = Math.ceil(words.length / 2);
+	const primaryLine = words.slice(0, midpoint).join(" ");
+	const secondaryLine = words.slice(midpoint).join(" ");
+
+	return [primaryLine, secondaryLine];
+}
+
+function getWrappedHeaderTitle(
+	activeStep: WrappedStep,
+	rewardTitle: string | undefined,
+	setupStatus: string | null,
+) {
+	if (activeStep.phase === "setup") {
+		return setupStatus ?? "Preparing your story";
+	}
+
+	return activeStep.phase === "reward"
+		? (rewardTitle ?? activeStep.label)
+		: activeStep.label;
 }

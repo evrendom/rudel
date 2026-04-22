@@ -71,25 +71,22 @@ export function WrappedTeamCardShareStage(
 	} = props;
 
 	return (
-		<section className="flex min-h-full w-full items-center justify-center">
-			<div className="flex w-full max-w-[24rem] flex-col items-center text-center">
-				<p className="text-[0.72rem] font-semibold uppercase tracking-[0.28em] text-[#8f887f]">
-					Post preview
-				</p>
-				<h1 className="mt-3 max-w-[10ch] text-balance font-[var(--app-font-heading)] text-[2.3rem] font-semibold tracking-[-0.07em] text-[#22201f] sm:text-[2.8rem]">
+		<section className="mymind-wrapped-final-stage mymind-wrapped-final-stage--share">
+			<div className="mymind-wrapped-final-stage__copy">
+				<p className="mymind-wrapped-final-stage__eyebrow">Post preview</p>
+				<h1 className="mymind-wrapped-final-stage__headline">
 					Ready to share.
 				</h1>
-				<p className="mt-3 max-w-[28ch] text-pretty text-sm leading-6 text-[#6c6761] sm:text-[0.98rem]">
+				<p className="mymind-wrapped-final-stage__subline">
 					This is the exact post that gets exported. Nothing extra gets added
 					after you tap share.
 				</p>
+			</div>
 
-				<div
-					ref={sharePostRef}
-					className="mt-7 aspect-[4/5] w-full border border-black/6 bg-white shadow-[0_20px_44px_rgba(15,23,42,0.08)]"
-				>
-					<div className="team-lineup-surface-scope flex h-full flex-col items-center px-6 py-5">
-						<div className="flex w-full items-start justify-between text-[#1a1a1a]">
+			<div className="mymind-wrapped-final-stage__object">
+				<div ref={sharePostRef} className="mymind-wrapped-share-preview">
+					<div className="mymind-wrapped-share-preview__shell team-lineup-surface-scope">
+						<div className="mymind-wrapped-share-preview__top">
 							<img
 								src="/assets/wordmark-dark-BeVDO32X.svg"
 								alt="rudel.ai"
@@ -101,7 +98,7 @@ export function WrappedTeamCardShareStage(
 							</div>
 						</div>
 
-						<div className="flex min-h-0 flex-1 items-center justify-center self-stretch">
+						<div className="mymind-wrapped-share-preview__body">
 							<div className="team-lineup-card-tilt-stage w-full max-w-[13.4rem]">
 								<div className="team-lineup-card-tilt-shell [--wrapped-card-render-scale:0.92]">
 									<div className="grid justify-center">
@@ -124,36 +121,38 @@ export function WrappedTeamCardShareStage(
 							</div>
 						</div>
 
-						<div className="flex w-full items-center justify-between gap-3">
+						<div className="mymind-wrapped-share-preview__meta">
 							<a
 								href={shareUrl ?? appRoutes.wrappedTeamCard()}
-								className="text-[0.82rem] font-semibold tracking-[-0.02em] text-[#4a4744] underline-offset-4"
+								className="mymind-wrapped-share-preview__link"
 							>
 								{shareUrlLabel}
 							</a>
-							<span className="[font-family:var(--dashboard-01-font-roster-mono)] text-[0.68rem] font-semibold tracking-[-0.01em] tabular-nums text-[#6e6862]">
+							<span className="mymind-wrapped-share-preview__timestamp">
 								{shareCardCreatedAtLabel}
 							</span>
 						</div>
 					</div>
 				</div>
+			</div>
 
-				<nav className="mt-7 flex w-full flex-col gap-3">
+			<div className="mymind-wrapped-final-stage__support">
+				<nav className="mymind-wrapped-share-actions">
 					<Button
 						type="button"
 						size="lg"
-						className="min-h-11 rounded-full bg-[#4f7cff] text-white shadow-[0_16px_28px_rgba(79,124,255,0.24)] hover:bg-[#4472f4]"
+						className="mymind-wrapped-share-actions__primary"
 						onClick={onShare}
 					>
 						<Share2 className="size-4" />
 						Share post
 					</Button>
-					<div className="grid grid-cols-2 gap-3">
+					<div className="mymind-wrapped-share-actions__grid">
 						<Button
 							type="button"
 							size="lg"
 							variant="outline"
-							className="min-h-11 rounded-full border-black/8 bg-white/80 text-[#2a2725] hover:bg-white"
+							className="mymind-wrapped-share-actions__secondary"
 							onClick={onCopy}
 						>
 							<Clipboard className="size-4" />
@@ -163,7 +162,7 @@ export function WrappedTeamCardShareStage(
 							type="button"
 							size="lg"
 							variant="outline"
-							className="min-h-11 rounded-full border-black/8 bg-white/80 text-[#2a2725] hover:bg-white"
+							className="mymind-wrapped-share-actions__secondary"
 							onClick={onDownload}
 						>
 							<Download className="size-4" />
@@ -174,7 +173,7 @@ export function WrappedTeamCardShareStage(
 
 				<button
 					type="button"
-					className="mt-4 min-h-11 rounded-full px-4 text-sm font-medium text-[#7b746d]"
+					className="mymind-wrapped-final-stage__back"
 					onClick={onBack}
 				>
 					Back to card
@@ -203,24 +202,24 @@ export function WrappedTeamCardRevealStage(
 	} = props;
 
 	return (
-		<section className="flex min-h-full w-full items-center justify-center">
-			<div className="team-lineup-surface-scope flex w-full max-w-[24rem] flex-col items-center text-center">
-				<p className="text-[0.72rem] font-semibold uppercase tracking-[0.28em] text-[#8f887f]">
-					Choose your card
-				</p>
-				<h1 className="mt-3 max-w-[11ch] text-balance font-[var(--app-font-heading)] text-[2.3rem] font-semibold tracking-[-0.07em] text-[#22201f] sm:text-[2.8rem]">
+		<section className="mymind-wrapped-final-stage mymind-wrapped-final-stage--reveal">
+			<div className="mymind-wrapped-final-stage__copy">
+				<p className="mymind-wrapped-final-stage__eyebrow">Choose your card</p>
+				<h1 className="mymind-wrapped-final-stage__headline">
 					Pick the one you&apos;d post.
 				</h1>
-				<p className="mt-3 max-w-[28ch] text-pretty text-sm leading-6 text-[#6c6761] sm:text-[0.98rem]">
+				<p className="mymind-wrapped-final-stage__subline">
 					The next page turns this card into a share post. You can still come
 					back and change it.
 				</p>
+			</div>
 
-				<div className="mt-7 flex h-[27rem] w-full items-center justify-center min-[360px]:h-[29rem] sm:h-[35rem]">
+			<div className="mymind-wrapped-final-stage__object mymind-wrapped-final-stage__object--card">
+				<div className="mymind-wrapped-final-stage__card-frame">
 					<div className="team-lineup-card-tilt-stage w-full max-w-[17rem] min-[360px]:max-w-[18rem] sm:max-w-none">
 						<div
 							ref={tiltController.cardTiltRef}
-							className="team-lineup-card-tilt-shell [--wrapped-card-render-scale:1.1] min-[360px]:[--wrapped-card-render-scale:1.2] sm:[--wrapped-card-render-scale:1.5] lg:[--wrapped-card-render-scale:1.64]"
+							className="team-lineup-card-tilt-shell mymind-wrapped-final-stage__tilt-shell [--wrapped-card-render-scale:1.1] min-[360px]:[--wrapped-card-render-scale:1.2] sm:[--wrapped-card-render-scale:1.5] lg:[--wrapped-card-render-scale:1.64]"
 							onPointerMove={tiltController.handlePointerMove}
 							onPointerLeave={tiltController.handlePointerLeave}
 							onPointerCancel={tiltController.handlePointerLeave}
@@ -243,23 +242,25 @@ export function WrappedTeamCardRevealStage(
 						</div>
 					</div>
 				</div>
+			</div>
 
-				<div className="mt-3 grid w-full max-w-[18.5rem] grid-cols-[44px_minmax(0,1fr)_44px] items-center gap-2 rounded-full border border-black/6 bg-white/82 p-1.5 shadow-[0_10px_24px_rgba(15,23,42,0.06)]">
+			<div className="mymind-wrapped-final-stage__support">
+				<div className="mymind-wrapped-archetype-switcher">
 					<Button
 						type="button"
 						variant="outline"
 						size="icon-sm"
-						className="min-h-11 rounded-full border-transparent bg-transparent text-[#4a4744] shadow-none hover:bg-black/4"
+						className="mymind-wrapped-archetype-switcher__button"
 						onClick={onPreviousArchetype}
 					>
 						<ChevronLeft />
 					</Button>
 
-					<div className="min-w-0 rounded-full bg-[#f7f3ee] px-4 py-2.5 text-center">
-						<div className="text-[0.66rem] font-semibold leading-none tracking-[0.14em] text-[#9b938b] uppercase">
+					<div className="mymind-wrapped-archetype-switcher__pill">
+						<div className="mymind-wrapped-archetype-switcher__label">
 							Selected theme
 						</div>
-						<div className="mt-1 truncate text-sm font-semibold leading-none tracking-[-0.03em] text-[#302d2b]">
+						<div className="mymind-wrapped-archetype-switcher__value">
 							{selectedThemeLabel}
 						</div>
 					</div>
@@ -268,7 +269,7 @@ export function WrappedTeamCardRevealStage(
 						type="button"
 						variant="outline"
 						size="icon-sm"
-						className="min-h-11 rounded-full border-transparent bg-transparent text-[#4a4744] shadow-none hover:bg-black/4"
+						className="mymind-wrapped-archetype-switcher__button"
 						onClick={onNextArchetype}
 					>
 						<ChevronRight />
@@ -289,7 +290,7 @@ export function WrappedTeamCardRevealFooter(props: {
 		<div className="mymind-wrapped-action-stack">
 			<Button
 				type="button"
-				className="mymind-wrapped-primary-action h-11 rounded-full bg-[#4f7cff] px-7 text-[19px] font-bold text-white shadow-[0_16px_28px_rgba(79,124,255,0.24)] hover:bg-[#4472f4] [font-family:'Nunito',var(--font-sans)]"
+				className="mymind-wrapped-primary-action h-11 rounded-full bg-[#4f7cff] px-7 text-[19px] font-bold text-white shadow-[0_16px_28px_rgba(79,124,255,0.24)] hover:bg-[#4472f4] [font-family:var(--app-font-heading)]"
 				onClick={onPreviewPost}
 			>
 				<span>Preview post</span>
@@ -299,7 +300,7 @@ export function WrappedTeamCardRevealFooter(props: {
 			</Button>
 			<button
 				type="button"
-				className="mymind-wrapped-secondary-action [font-family:'Nunito',var(--font-sans)] text-[19px] font-bold"
+				className="mymind-wrapped-secondary-action [font-family:var(--font-sans)] text-[0.98rem] font-semibold"
 				onClick={onContinueToDashboard}
 			>
 				Continue to dashboard
@@ -317,7 +318,7 @@ export function WrappedTeamCardShareFooter(props: {
 		<div className="mymind-wrapped-action-stack">
 			<Button
 				type="button"
-				className="mymind-wrapped-primary-action h-11 rounded-full bg-[#4f7cff] px-7 text-[19px] font-bold text-white shadow-[0_16px_28px_rgba(79,124,255,0.24)] hover:bg-[#4472f4] [font-family:'Nunito',var(--font-sans)]"
+				className="mymind-wrapped-primary-action h-11 rounded-full bg-[#4f7cff] px-7 text-[19px] font-bold text-white shadow-[0_16px_28px_rgba(79,124,255,0.24)] hover:bg-[#4472f4] [font-family:var(--app-font-heading)]"
 				onClick={onContinueToDashboard}
 			>
 				Continue to dashboard

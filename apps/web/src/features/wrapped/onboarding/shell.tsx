@@ -1,4 +1,10 @@
-import { useReducedMotion } from "motion/react";
+import {
+	AnimatePresence,
+	LayoutGroup,
+	MotionConfig,
+	motion,
+	useReducedMotion,
+} from "motion/react";
 import type { ReactNode } from "react";
 import { useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
@@ -18,6 +24,7 @@ import {
 	getStepPreviewStateParam,
 	getVisibleProgressSteps,
 	resolveActiveStepIndex,
+	resolveStoryProgress,
 	resolveUploadStageModel,
 } from "./helpers";
 import { resolveScalePreviewTokens } from "./models";
@@ -25,7 +32,9 @@ import {
 	WrappedOnboardingScaleRainBackdrop,
 	WrappedOnboardingStage,
 } from "./stages";
-import type { WrappedOnboardingMetrics } from "./types";
+import type {
+	WrappedOnboardingMetrics,
+} from "./types";
 
 /* ─────────────────────────────────────────────────────────
  * INTRO EXIT STORYBOARD
@@ -45,11 +54,17 @@ const INTRO_EXIT = {
 	ease: [0.22, 1, 0.36, 1] as const,
 };
 
+const STAGE_TRANSITION = {
+	duration: 0.24,
+	ease: [0.22, 1, 0.36, 1] as const,
+};
+
 export interface WrappedTeamCardOnboardingProps {
 	displayName: string;
 	finalFooter?: ReactNode;
 	finalStage: ReactNode;
 	onboardingMetrics: WrappedOnboardingMetrics;
+	rewardHeaderTitle?: string;
 	totalSessions: number;
 }
 
@@ -72,6 +87,7 @@ export function WrappedTeamCardOnboarding(
 		finalFooter,
 		finalStage,
 		onboardingMetrics,
+		rewardHeaderTitle,
 		totalSessions,
 	} = props;
 	const [searchParams, setSearchParams] = useSearchParams();
@@ -85,6 +101,7 @@ export function WrappedTeamCardOnboarding(
 	// Saturday launch intentionally runs a smaller story deck than the full
 	// preview surface. The visibility decision lives in config.ts so product,
 	// design, and engineering all point to the same ship list.
+	const [navigationDirection, setNavigationDirection] = useState<-1 | 0 | 1>(0);
 	const activeStepIndex = resolveActiveStepIndex(
 		searchParams.get(STEP_QUERY_PARAM),
 		WRAPPED_SATURDAY_STEPS,
@@ -95,6 +112,10 @@ export function WrappedTeamCardOnboarding(
 			: (WRAPPED_SATURDAY_STEPS[activeStepIndex - 1] ??
 				WRAPPED_SATURDAY_STEPS[0]);
 	const visibleProgressSteps = getVisibleProgressSteps(
+		activeStepIndex,
+		WRAPPED_SATURDAY_STEPS,
+	);
+	const storyProgress = resolveStoryProgress(
 		activeStepIndex,
 		WRAPPED_SATURDAY_STEPS,
 	);
@@ -121,6 +142,7 @@ export function WrappedTeamCardOnboarding(
 			)
 		: 0;
 	const isStepTransitioning = pendingStepIndex !== null;
+	const showPreviewControls = import.meta.env.DEV;
 
 	useMountEffect(() => {
 		return () => {
@@ -135,6 +157,10 @@ export function WrappedTeamCardOnboarding(
 			0,
 			Math.min(nextStepIndex, WRAPPED_SATURDAY_STEPS.length),
 		);
+
+		if (boundedStepIndex !== activeStepIndex) {
+			setNavigationDirection(boundedStepIndex > activeStepIndex ? 1 : -1);
+		}
 
 		setSearchParams(
 			(previousSearchParams) => {
@@ -170,6 +196,7 @@ export function WrappedTeamCardOnboarding(
 			return;
 		}
 
+		setNavigationDirection(1);
 		setExitingStepId(activeStep.id);
 		setPendingStepIndex(nextStepIndex);
 
@@ -199,58 +226,112 @@ export function WrappedTeamCardOnboarding(
 	}
 
 	return (
-		<main
-			className={cn(
-				"mymind-wrapped-route",
-				isScaleStep ? "mymind-wrapped-route--scale-rain" : undefined,
-			)}
-		>
-			{isScaleStep ? (
-				<WrappedOnboardingScaleRainBackdrop
-					reduceMotion={reduceMotion}
-					totalTokens={scaleRainTotalTokens}
-				/>
-			) : null}
-			<div className="mymind-wrapped-shell relative z-[1] mx-auto flex w-full max-w-[68rem] flex-1 flex-col text-foreground">
-				<WrappedOnboardingHeader
-					activePreviewOptions={activePreviewOptions}
-					activePreviewState={activePreviewState}
-					activePreviewStepId={activePreviewStepId}
-					activeStep={activeStep}
-					activeStepIndex={activeStepIndex}
-					isStepTransitioning={isStepTransitioning}
-					onGoToStep={goToStep}
-					onPreviewStateChange={setPreviewState}
-					visibleProgressSteps={visibleProgressSteps}
-				/>
-
-				<div className="flex flex-1 py-6 md:py-8">
-					{activeStep.kind === "final" ? (
-						<div className="flex w-full flex-1">{finalStage}</div>
-					) : (
-						<div className="flex w-full flex-1 flex-col">
-							<WrappedOnboardingStage
-								displayName={displayName}
-								isExiting={activeStep.id === exitingStepId}
-								onboardingMetrics={onboardingMetrics}
-								previewState={activePreviewState}
-								step={activeStep}
-								totalSessions={totalSessions}
-							/>
-						</div>
+		<MotionConfig reducedMotion="user">
+			<LayoutGroup id="wrapped-onboarding-shell">
+				<main
+					className={cn(
+						"mymind-wrapped-route",
+						isScaleStep ? "mymind-wrapped-route--scale-rain" : undefined,
 					)}
-				</div>
+				>
+					{isScaleStep ? (
+						<WrappedOnboardingScaleRainBackdrop
+							reduceMotion={reduceMotion}
+							totalTokens={scaleRainTotalTokens}
+						/>
+					) : null}
+					<motion.div
+						layout
+						className="mymind-wrapped-shell relative z-[1] mx-auto flex w-full flex-1 flex-col text-foreground"
+					>
+						<motion.div layout className="mymind-wrapped-shell__frame">
+							<WrappedOnboardingHeader
+								activePreviewOptions={activePreviewOptions}
+								activePreviewState={activePreviewState}
+								activePreviewStepId={activePreviewStepId}
+								activeStep={activeStep}
+								activeStepIndex={activeStepIndex}
+								isDebugControlsVisible={showPreviewControls}
+								isStepTransitioning={isStepTransitioning}
+								onGoToStep={goToStep}
+								onPreviewStateChange={setPreviewState}
+								rewardTitle={rewardHeaderTitle}
+								setupStatus={activeUploadModel?.headline ?? null}
+								storyProgress={storyProgress}
+								visibleProgressSteps={visibleProgressSteps}
+							/>
 
-				<WrappedOnboardingFooter
-					activeStep={activeStep}
-					activeStepIndex={activeStepIndex}
-					activeUploadModel={activeUploadModel}
-					finalFooter={finalFooter}
-					isStepTransitioning={isStepTransitioning}
-					onContinue={handleStepAdvance}
-					onGoToStep={goToStep}
-				/>
-			</div>
-		</main>
+							<div className="mymind-wrapped-stage-area">
+								<AnimatePresence
+									custom={navigationDirection}
+									initial={false}
+									mode="wait"
+								>
+									<motion.div
+										key={activeStep.id}
+										layout
+										animate={{ opacity: 1, x: 0 }}
+										className="mymind-wrapped-stage-slot"
+										custom={navigationDirection}
+										exit={{
+											opacity: 0,
+											x: reduceMotion
+												? 0
+												: resolveWrappedStageExitOffset(navigationDirection),
+										}}
+										initial={{
+											opacity: 0,
+											x: reduceMotion
+												? 0
+												: resolveWrappedStageEnterOffset(navigationDirection),
+										}}
+										transition={STAGE_TRANSITION}
+									>
+										{activeStep.kind === "final" ? (
+											<div className="flex w-full flex-1">{finalStage}</div>
+										) : (
+											<div className="flex w-full flex-1 flex-col">
+												<WrappedOnboardingStage
+													displayName={displayName}
+													isExiting={activeStep.id === exitingStepId}
+													onboardingMetrics={onboardingMetrics}
+													previewState={activePreviewState}
+													step={activeStep}
+													totalSessions={totalSessions}
+												/>
+											</div>
+										)}
+									</motion.div>
+								</AnimatePresence>
+							</div>
+
+							<WrappedOnboardingFooter
+								activeStep={activeStep}
+								activeUploadModel={activeUploadModel}
+								finalFooter={finalFooter}
+								isStepTransitioning={isStepTransitioning}
+								onContinue={handleStepAdvance}
+							/>
+						</motion.div>
+					</motion.div>
+				</main>
+			</LayoutGroup>
+		</MotionConfig>
 	);
+}
+
+function resolveWrappedStageEnterOffset(direction: -1 | 0 | 1) {
+	if (direction === -1) {
+		return -32;
+	}
+
+	return 32;
+}
+
+function resolveWrappedStageExitOffset(direction: -1 | 0 | 1) {
+	if (direction === -1) {
+		return 24;
+	}
+
+	return -24;
 }

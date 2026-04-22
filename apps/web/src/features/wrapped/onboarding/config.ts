@@ -5,23 +5,25 @@ export const UPLOAD_STEP = {
 	id: "upload",
 	label: "Upload",
 	kind: "placeholder",
+	phase: "setup",
 } as const;
 
 export const WRAPPED_STEPS = [
-	{ id: "intro", label: "Intro", kind: "placeholder" },
-	{ id: "skills", label: "Skills", kind: "placeholder" },
-	{ id: "tools", label: "Tools", kind: "placeholder" },
-	{ id: "model", label: "Model", kind: "placeholder" },
-	{ id: "scale", label: "Scale", kind: "placeholder" },
-	{ id: "lock-in", label: "Lock-in", kind: "placeholder" },
-	{ id: "quality", label: "Quality", kind: "placeholder" },
-	{ id: "pulse", label: "Repo pulse", kind: "placeholder" },
-	{ id: "card", label: "Final card", kind: "final" },
+	{ id: "intro", label: "Intro", kind: "placeholder", phase: "story" },
+	{ id: "skills", label: "Skills", kind: "placeholder", phase: "story" },
+	{ id: "tools", label: "Tools", kind: "placeholder", phase: "story" },
+	{ id: "model", label: "Model", kind: "placeholder", phase: "story" },
+	{ id: "scale", label: "Scale", kind: "placeholder", phase: "story" },
+	{ id: "lock-in", label: "Lock-in", kind: "placeholder", phase: "story" },
+	{ id: "quality", label: "Quality", kind: "placeholder", phase: "story" },
+	{ id: "pulse", label: "Repo pulse", kind: "placeholder", phase: "story" },
+	{ id: "card", label: "Final card", kind: "final", phase: "reward" },
 ] as const;
 
 export type WrappedPrimaryStep = (typeof WRAPPED_STEPS)[number];
 export type WrappedStep = typeof UPLOAD_STEP | WrappedPrimaryStep;
 export type WrappedStepId = WrappedStep["id"];
+export type WrappedStepPhase = WrappedStep["phase"];
 export type PreviewableWrappedStepId = Exclude<WrappedStepId, "card">;
 
 export interface WrappedPreviewOption {
