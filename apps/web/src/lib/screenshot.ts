@@ -1,6 +1,8 @@
 import { toPng } from "html-to-image";
 
 const PADDING = 24;
+const TRANSPARENT_IMAGE_PLACEHOLDER =
+	"data:image/gif;base64,R0lGODlhAQABAAAAACwAAAAAAQABAAA=";
 
 function resolveBackgroundColor(element: HTMLElement): string {
 	let el: HTMLElement | null = element;
@@ -18,7 +20,14 @@ export async function captureElement(element: HTMLElement): Promise<Blob> {
 	const bg = resolveBackgroundColor(element);
 	const dataUrl = await toPng(element, {
 		backgroundColor: bg,
+		// Official html-to-image options:
+		// - cacheBust avoids stale asset fetches during repeated share attempts
+		// - imagePlaceholder keeps capture from crashing when an image fetch fails
+		// - preferredFontFormat keeps font embedding small and deterministic
+		cacheBust: true,
+		imagePlaceholder: TRANSPARENT_IMAGE_PLACEHOLDER,
 		pixelRatio: 2,
+		preferredFontFormat: "woff2",
 	});
 
 	// Draw onto a canvas with padding

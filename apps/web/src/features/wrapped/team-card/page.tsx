@@ -33,6 +33,7 @@ import {
 	WrappedTeamCardShareStage,
 } from "./final-stages";
 import { createWrappedTeamCardShareActions } from "./share";
+import { buildWrappedShareSafeRow } from "./share-media";
 import { buildWrappedShareSnapshot } from "./share-snapshot";
 import {
 	useWrappedCardTilt,
@@ -200,13 +201,20 @@ function WrappedTeamCardPageContent(props: {
 		pageName: "wrapped_team_card",
 	});
 	const showShareStage = finalCardStage === "share";
+	// The final exported post intentionally uses a stricter media policy than the
+	// live card. That keeps image export and public replay reliable without
+	// freezing future design changes for the live experience.
+	const sharePreviewRow = useMemo(
+		() => buildWrappedShareSafeRow(visibleTeamCardRow),
+		[visibleTeamCardRow],
+	);
 	const shareSnapshot = useMemo(
 		() =>
 			buildWrappedShareSnapshot({
 				archetypeLabel: activeArchetype.displayLabel,
 				headerLeftMetric,
 				headerRightMetric,
-				row: visibleTeamCardRow,
+				row: sharePreviewRow,
 				shellClassName: activeArchetype.shellClassName,
 				statItems,
 				theme: activeArchetype.theme,
@@ -217,8 +225,8 @@ function WrappedTeamCardPageContent(props: {
 			activeArchetype.theme,
 			headerLeftMetric,
 			headerRightMetric,
+			sharePreviewRow,
 			statItems,
-			visibleTeamCardRow,
 		],
 	);
 	// Share creation lives behind a hook so the page can stay focused on stage
@@ -306,7 +314,7 @@ function WrappedTeamCardPageContent(props: {
 			onCopy={() => void shareActions.handleCopyPost()}
 			onDownload={() => void shareActions.handleDownloadPost()}
 			onShare={() => void shareActions.handleSharePost()}
-			row={visibleTeamCardRow}
+			row={sharePreviewRow}
 			shareCardCreatedAtLabel={shareCardCreatedAtLabel}
 			sharePostRef={sharePostRef}
 			shareUrl={shareActions.shareUrl}

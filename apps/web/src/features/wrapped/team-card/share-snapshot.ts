@@ -5,6 +5,7 @@ import type {
 	WrappedTeamMemberCardStatItem,
 	WrappedTeamMemberCardTheme,
 } from "./card";
+import { getWrappedShareSafeImageUrl } from "./share-media";
 
 interface BuildWrappedShareSnapshotParams {
 	archetypeLabel: string;
@@ -44,7 +45,10 @@ export function buildWrappedShareSnapshot(
 			displayName: row.displayName,
 			favoriteModel: row.favoriteModel,
 			hasActivity: row.hasActivity,
-			imageUrl: row.imageUrl ?? null,
+			// Persist the share-safe image url only. That keeps public replay stable
+			// even if the live card used a third-party profile image that cannot be
+			// exported or replayed reliably later.
+			imageUrl: getWrappedShareSafeImageUrl(row.imageUrl),
 			inputTokens: row.inputTokens,
 			lastActiveDate: row.lastActiveDate,
 			outputTokens: row.outputTokens,

@@ -5,6 +5,7 @@ import { buttonVariants } from "@/app/ui/button";
 import { useAnalyticsTracking } from "@/features/analytics/tracking/useAnalyticsTracking";
 import { getSessionUserId } from "@/features/auth/auth-route-utils";
 import { WrappedTeamMemberCard } from "@/features/wrapped/team-card/card";
+import { getWrappedShareSafeImageUrl } from "@/features/wrapped/team-card/share-media";
 import { formatShareCardCreatedAt } from "@/features/wrapped/team-card/utils";
 import { useEffectOnceWhen } from "@/hooks/useEffectOnceWhen";
 import { useMountEffect } from "@/hooks/useMountEffect";
@@ -229,6 +230,7 @@ function buildPublicShareRow(row: WrappedShareRow) {
 	return {
 		...row,
 		email: null,
+		imageUrl: getWrappedShareSafeImageUrl(row.imageUrl),
 		userId: "public-wrapped-share",
 	};
 }
