@@ -4,7 +4,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 API_BASE_URL="${API_BASE_URL:-http://localhost:4010}"
-AUTH_ORIGIN="${AUTH_ORIGIN:-http://localhost:4010}"
+AUTH_ORIGIN="${AUTH_ORIGIN:-http://localhost:4011}"
 COOKIE_JAR="$ROOT_DIR/.context/qa-pr-223-cookies.txt"
 TMP_DIR="$ROOT_DIR/.context/qa-pr-223"
 
@@ -331,8 +331,23 @@ require_env API_TESTING_ORG
 
 echo "==> PR #223 local API smoke"
 echo "API base URL: $API_BASE_URL"
+echo "Auth origin:  $AUTH_ORIGIN"
 
-curl -sS "$API_BASE_URL/rpc/health" >"$TMP_DIR/health.json"
+# Health is a POST RPC method in this server. Keep the smoke strict here so we
+# fail on a real API issue instead of silently ignoring a method mismatch.
+curl -sS \
+	-o "$TMP_DIR/health.json" \
+	-w "%{http_code}" \
+	-X POST "$API_BASE_URL/rpc/health" \
+	-H "Content-Type: application/json" \
+	-d "{}" \
+	>"$TMP_DIR/health.status"
+
+assert_http_status \
+	"$(cat "$TMP_DIR/health.status")" \
+	"200" \
+	"$TMP_DIR/health.json" \
+	"Health check should succeed before wrapped API smoke starts"
 
 sign_in
 set_active_org

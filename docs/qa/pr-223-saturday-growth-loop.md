@@ -73,7 +73,13 @@ Use this before merge. It is the closest local approximation of CI.
 ### Local API smoke
 
 Prerequisites:
-- local API server running on `http://localhost:4010`
+- local API server running for this branch
+- wrapped migrations applied to the local Postgres used by that API:
+
+```bash
+doppler run --project rudel --config prd_local -- bun run --cwd packages/sql-schema migrate
+```
+
 - `.env` contains:
   - `API_TESTING_USER`
   - `API_TESTING_PASSWORD`
@@ -81,6 +87,13 @@ Prerequisites:
 
 ```bash
 bun run qa:pr223:api
+```
+
+If you run the branch backend on a separate local port, pass the API base URL
+explicitly and keep the auth origin on the local frontend origin:
+
+```bash
+API_BASE_URL=http://localhost:4110 AUTH_ORIGIN=http://localhost:4011 bun run qa:pr223:api
 ```
 
 What it covers:
