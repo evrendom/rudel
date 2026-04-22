@@ -179,16 +179,16 @@ export async function getDeveloperTeamCards(
       user_id,
       COUNT(*) as total_sessions,
       COUNT(DISTINCT toDate(session_date)) as active_days,
-      SUM(ifNull(input_tokens, 0)) as input_tokens,
-      SUM(ifNull(output_tokens, 0)) as output_tokens,
-      SUM(ifNull(input_tokens, 0) + ifNull(output_tokens, 0)) as total_tokens,
+      SUM(ifNull(input_tokens, 0)) as input_tokens_sum,
+      SUM(ifNull(output_tokens, 0)) as output_tokens_sum,
+      SUM(ifNull(input_tokens, 0) + ifNull(output_tokens, 0)) as total_tokens_sum,
       round(SUM(${PER_SESSION_COST_SQL}), 4) as cost,
       toString(max(session_date)) as last_active_date
     FROM rudel.session_analytics
     WHERE ${buildDateFilter("days")}
       AND organization_id = {orgId:String}
     GROUP BY user_id
-    ORDER BY total_tokens DESC, user_id ASC
+    ORDER BY total_tokens_sum DESC, user_id ASC
   `;
 
 	const topSkillsQuery = `
@@ -210,9 +210,9 @@ export async function getDeveloperTeamCards(
 		user_id: string;
 		total_sessions: number;
 		active_days: number;
-		input_tokens: number;
-		output_tokens: number;
-		total_tokens: number;
+		input_tokens_sum: number;
+		output_tokens_sum: number;
+		total_tokens_sum: number;
 		cost: number;
 		last_active_date: string;
 	}
@@ -283,9 +283,9 @@ export async function getDeveloperTeamCards(
 				user_id: row.user_id,
 				display_name: displayName,
 				cost: Number(row.cost) || 0,
-				input_tokens: Number(row.input_tokens) || 0,
-				output_tokens: Number(row.output_tokens) || 0,
-				total_tokens: Number(row.total_tokens) || 0,
+				input_tokens: Number(row.input_tokens_sum) || 0,
+				output_tokens: Number(row.output_tokens_sum) || 0,
+				total_tokens: Number(row.total_tokens_sum) || 0,
 				total_sessions: Number(row.total_sessions) || 0,
 				active_days: Number(row.active_days) || 0,
 				last_active_date: row.last_active_date,
