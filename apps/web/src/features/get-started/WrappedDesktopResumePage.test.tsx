@@ -3,11 +3,8 @@ import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { WrappedDesktopResumePage } from "@/features/get-started/WrappedDesktopResumePage";
 
-const {
-	mockTrackUtilityUsed,
-	mockUseSession,
-	mockWrappedResumeConsume,
-} = vi.hoisted(() => ({
+const { mockTrackUtilityUsed, mockUseSession, mockWrappedResumeConsume } =
+	vi.hoisted(() => ({
 		mockTrackUtilityUsed: vi.fn(),
 		mockUseSession: vi.fn(),
 		mockWrappedResumeConsume: vi.fn(),
@@ -98,7 +95,9 @@ describe("WrappedDesktopResumePage", () => {
 		);
 
 		await waitFor(() => {
-			expect(screen.getByText("/?redirect=%2Fresume%2Ftoken-123")).toBeInTheDocument();
+			expect(
+				screen.getByText("/?redirect=%2Fresume%2Ftoken-123"),
+			).toBeInTheDocument();
 		});
 	});
 
@@ -125,7 +124,9 @@ describe("WrappedDesktopResumePage", () => {
 		);
 
 		await waitFor(() => {
-			expect(screen.getByText("/wrapped?share_id=share-123")).toBeInTheDocument();
+			expect(
+				screen.getByText("/wrapped?share_id=share-123"),
+			).toBeInTheDocument();
 		});
 
 		expect(mockWrappedResumeConsume).toHaveBeenCalledWith({

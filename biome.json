@@ -19,6 +19,17 @@
 			"recommended": true
 		}
 	},
+	"css": {
+		"parser": {
+			"cssModules": true,
+			"tailwindDirectives": true
+		}
+	},
+	"javascript": {
+		"formatter": {
+			"quoteStyle": "double"
+		}
+	},
 	"overrides": [
 		{
 			"includes": [
@@ -84,17 +95,6 @@
 			}
 		}
 	],
-	"css": {
-		"parser": {
-			"cssModules": true,
-			"tailwindDirectives": true
-		}
-	},
-	"javascript": {
-		"formatter": {
-			"quoteStyle": "double"
-		}
-	},
 	"assist": {
 		"enabled": true,
 		"actions": {

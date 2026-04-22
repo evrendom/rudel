@@ -150,10 +150,7 @@ describe("auth state refresh", () => {
 
 	it("preserves explicit redirect destinations for email login", () => {
 		expect(
-			getEmailLoginSuccessDestination(
-				"/",
-				"?redirect=%2Fdashboard%2Fsessions",
-			),
+			getEmailLoginSuccessDestination("/", "?redirect=%2Fdashboard%2Fsessions"),
 		).toBe("/dashboard/sessions");
 	});
 

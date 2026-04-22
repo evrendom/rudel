@@ -2,8 +2,8 @@ import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Button } from "@/app/ui/button";
 import { GuestApp } from "@/features/auth/GuestApp";
-import { WrappedSetupPage } from "@/features/wrapped/WrappedSetupPage";
 import { WrappedTeamCardPage } from "@/features/wrapped/team-card/page";
+import { WrappedSetupPage } from "@/features/wrapped/WrappedSetupPage";
 
 type WrappedDevStage =
 	| "auth"
@@ -50,14 +50,9 @@ export function WrappedDevPage() {
 
 	return (
 		<>
-			<WrappedDevToolbar
-				activeStage={activeStage}
-				onStageChange={setStage}
-			/>
+			<WrappedDevToolbar activeStage={activeStage} onStageChange={setStage} />
 			{activeStage === "auth" ? <WrappedDevAuthStage /> : null}
-			{activeStage === "checking" ? (
-				<WrappedSetupPage mode="checking" />
-			) : null}
+			{activeStage === "checking" ? <WrappedSetupPage mode="checking" /> : null}
 			{activeStage === "setup" ? (
 				<WrappedSetupPage
 					mode="setup"
@@ -130,9 +125,7 @@ function WrappedDevAuthStage() {
 	);
 }
 
-function WrappedDevMobileStage(props: {
-	onContinueToSetup: () => void;
-}) {
+function WrappedDevMobileStage(props: { onContinueToSetup: () => void }) {
 	const { onContinueToSetup } = props;
 	const [isReady, setIsReady] = useState(false);
 

@@ -10,10 +10,10 @@ import {
 import { GuestApp } from "@/features/auth/GuestApp";
 import { DesktopResumePromptPage } from "@/features/get-started/DesktopResumePromptPage";
 import { useSetupProgress } from "@/features/get-started/use-setup-progress";
-import { useEffectOnceWhen } from "@/hooks/useEffectOnceWhen";
-import { WrappedSetupPage } from "@/features/wrapped/WrappedSetupPage";
-import { WrappedPublicPage } from "@/features/wrapped/WrappedPublicPage";
 import { WrappedTeamCardPage } from "@/features/wrapped/team-card/page";
+import { WrappedPublicPage } from "@/features/wrapped/WrappedPublicPage";
+import { WrappedSetupPage } from "@/features/wrapped/WrappedSetupPage";
+import { useEffectOnceWhen } from "@/hooks/useEffectOnceWhen";
 
 interface WrappedRouteGateProps {
 	isPending: boolean;
@@ -67,7 +67,9 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 	}
 
 	if (isPending) {
-		return <WrappedRouteLoadingState body="Checking your account before loading wrapped…" />;
+		return (
+			<WrappedRouteLoadingState body="Checking your account before loading wrapped…" />
+		);
 	}
 
 	if (!session) {
@@ -90,7 +92,9 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 	}
 
 	if (isMobile && sessionUserEmail) {
-		return <DesktopResumePromptPage email={sessionUserEmail} shareId={shareId} />;
+		return (
+			<DesktopResumePromptPage email={sessionUserEmail} shareId={shareId} />
+		);
 	}
 
 	if (setupStage === "waiting") {

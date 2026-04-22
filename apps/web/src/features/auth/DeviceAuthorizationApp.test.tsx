@@ -74,7 +74,10 @@ describe("DeviceAuthorizationApp", () => {
 							/>
 						}
 					/>
-					<Route path={appRoutes.wrappedTeamCard()} element={<div>Wrapped</div>} />
+					<Route
+						path={appRoutes.wrappedTeamCard()}
+						element={<div>Wrapped</div>}
+					/>
 				</Routes>
 			</MemoryRouter>,
 		);

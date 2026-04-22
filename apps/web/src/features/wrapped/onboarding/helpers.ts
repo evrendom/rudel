@@ -111,7 +111,8 @@ export function getVisibleProgressSteps(
 	const activeProgressIndex = Math.max(
 		0,
 		progressSteps.findIndex(
-			(step) => resolveProgressRouteIndex(step, eligibleSteps) === activeStepIndex,
+			(step) =>
+				resolveProgressRouteIndex(step, eligibleSteps) === activeStepIndex,
 		),
 	);
 	const maxStartIndex = progressSteps.length - MAX_VISIBLE_PROGRESS_STEPS;
@@ -159,7 +160,10 @@ export function resolveStoryProgress(
 }
 
 function getOnboardingProgressSteps(eligibleSteps: readonly WrappedStep[]) {
-	return [UPLOAD_STEP, ...eligibleSteps.filter((step) => step.phase === "story")];
+	return [
+		UPLOAD_STEP,
+		...eligibleSteps.filter((step) => step.phase === "story"),
+	];
 }
 
 function resolveProgressRouteIndex(

@@ -32,9 +32,7 @@ import {
 	WrappedOnboardingScaleRainBackdrop,
 	WrappedOnboardingStage,
 } from "./stages";
-import type {
-	WrappedOnboardingMetrics,
-} from "./types";
+import type { WrappedOnboardingMetrics } from "./types";
 
 /* ─────────────────────────────────────────────────────────
  * INTRO EXIT STORYBOARD

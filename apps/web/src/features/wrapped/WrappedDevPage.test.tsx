@@ -5,7 +5,9 @@ import { describe, expect, it, vi } from "vitest";
 import { WrappedDevPage } from "@/features/wrapped/WrappedDevPage";
 
 vi.mock("@/features/auth/GuestApp", () => ({
-	GuestApp: ({ title }: { title?: string }) => <div>{title ?? "Guest App"}</div>,
+	GuestApp: ({ title }: { title?: string }) => (
+		<div>{title ?? "Guest App"}</div>
+	),
 }));
 
 vi.mock("@/features/wrapped/WrappedSetupPage", () => ({
@@ -28,7 +30,9 @@ describe("WrappedDevPage", () => {
 			</MemoryRouter>,
 		);
 
-		expect(screen.getByText("Sign in to start your wrapped")).toBeInTheDocument();
+		expect(
+			screen.getByText("Sign in to start your wrapped"),
+		).toBeInTheDocument();
 
 		await user.click(screen.getByRole("button", { name: "Setup" }));
 		expect(screen.getByText("Wrapped setup mode: setup")).toBeInTheDocument();

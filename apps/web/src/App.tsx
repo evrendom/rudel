@@ -156,10 +156,7 @@ function App() {
 		return (
 			<>
 				<ProductAnalyticsSessionSync session={session} />
-				<Navigate
-					replace
-					to={appRoutes.wrappedPublic(legacyWrappedPublicId)}
-				/>
+				<Navigate replace to={appRoutes.wrappedPublic(legacyWrappedPublicId)} />
 				{showDesktopOnlyOverlay ? <DesktopOnlyOverlay /> : null}
 			</>
 		);

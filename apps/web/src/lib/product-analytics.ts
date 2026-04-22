@@ -1,4 +1,3 @@
-import { getWrappedPublicIdFromPath } from "@/app/routes";
 import {
 	type ProductAnalyticsPageName as AppPageName,
 	type AuthenticationActionTriggeredEvent,
@@ -19,6 +18,7 @@ import {
 	type SignUpFailedEvent,
 	type UiUtilityUsedEvent,
 } from "@rudel/api-routes";
+import { getWrappedPublicIdFromPath } from "@/app/routes";
 
 const EVENT_VERSION = PRODUCT_ANALYTICS_EVENT_VERSION;
 const ANALYTICS_SURFACE = "web";

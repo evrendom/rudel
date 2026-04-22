@@ -114,11 +114,14 @@ export function WrappedOnboardingHeader(props: WrappedOnboardingHeaderProps) {
 							className="mymind-wrapped-progress"
 							aria-label="Wrapped story progress"
 						>
-								{visibleProgressSteps.map(({ displayNumber, routeIndex, step }) => (
+							{visibleProgressSteps.map(
+								({ displayNumber, routeIndex, step }) => (
 									<button
 										key={step.id}
-									type="button"
-									aria-current={routeIndex === activeStepIndex ? "step" : undefined}
+										type="button"
+										aria-current={
+											routeIndex === activeStepIndex ? "step" : undefined
+										}
 										aria-label={`Go to story step ${displayNumber}: ${step.label}`}
 										disabled={isStepTransitioning}
 										className={cn(
@@ -129,17 +132,18 @@ export function WrappedOnboardingHeader(props: WrappedOnboardingHeaderProps) {
 										)}
 										onClick={() => onGoToStep(routeIndex)}
 									>
-									<span
-										aria-hidden="true"
-										className={cn(
-											"mymind-wrapped-progress__segment",
-											routeIndex === activeStepIndex
-												? "mymind-wrapped-progress__segment--active"
-												: "mymind-wrapped-progress__segment--inactive",
-										)}
-									/>
-								</button>
-							))}
+										<span
+											aria-hidden="true"
+											className={cn(
+												"mymind-wrapped-progress__segment",
+												routeIndex === activeStepIndex
+													? "mymind-wrapped-progress__segment--active"
+													: "mymind-wrapped-progress__segment--inactive",
+											)}
+										/>
+									</button>
+								),
+							)}
 						</nav>
 					) : (
 						<p className="mymind-wrapped-top-tray__status">{title}</p>
@@ -161,8 +165,9 @@ export function WrappedOnboardingHeader(props: WrappedOnboardingHeaderProps) {
 							<legend className="sr-only">{`${activeStep.label} preview states`}</legend>
 							{activePreviewOptions.map((option) => {
 								const isSelected = option.value === activePreviewState;
-								const [primaryLine, secondaryLine] =
-									splitWrappedDebugLabel(option.label);
+								const [primaryLine, secondaryLine] = splitWrappedDebugLabel(
+									option.label,
+								);
 
 								return (
 									<button

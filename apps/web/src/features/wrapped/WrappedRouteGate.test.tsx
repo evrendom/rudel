@@ -5,15 +5,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { AppSession } from "@/features/auth/auth-route-utils";
 import { WrappedRouteGate } from "@/features/wrapped/WrappedRouteGate";
 
-const {
-	mockTrackUtilityUsed,
-	mockUseIsMobile,
-	mockUseSetupProgress,
-} = vi.hoisted(() => ({
-	mockTrackUtilityUsed: vi.fn(),
-	mockUseIsMobile: vi.fn(),
-	mockUseSetupProgress: vi.fn(),
-}));
+const { mockTrackUtilityUsed, mockUseIsMobile, mockUseSetupProgress } =
+	vi.hoisted(() => ({
+		mockTrackUtilityUsed: vi.fn(),
+		mockUseIsMobile: vi.fn(),
+		mockUseSetupProgress: vi.fn(),
+	}));
 
 vi.mock("@/app/hooks/use-mobile", () => ({
 	useIsMobile: mockUseIsMobile,
@@ -36,7 +33,9 @@ vi.mock("@/features/wrapped/WrappedPublicPage", () => ({
 }));
 
 vi.mock("@/features/auth/GuestApp", () => ({
-	GuestApp: ({ title }: { title?: string }) => <div>{title ?? "Guest App"}</div>,
+	GuestApp: ({ title }: { title?: string }) => (
+		<div>{title ?? "Guest App"}</div>
+	),
 }));
 
 vi.mock("@/features/get-started/DesktopResumePromptPage", () => ({
@@ -114,7 +113,11 @@ describe("WrappedRouteGate", () => {
 	it("renders the public page before auth branching when a public id exists", () => {
 		render(
 			<MemoryRouter initialEntries={["/wrapped/share-123"]}>
-				<WrappedRouteGate isPending={true} publicId="share-123" session={null} />
+				<WrappedRouteGate
+					isPending={true}
+					publicId="share-123"
+					session={null}
+				/>
 			</MemoryRouter>,
 		);
 
@@ -138,7 +141,9 @@ describe("WrappedRouteGate", () => {
 			</MemoryRouter>,
 		);
 
-		expect(screen.getByText("Sign in to start your wrapped")).toBeInTheDocument();
+		expect(
+			screen.getByText("Sign in to start your wrapped"),
+		).toBeInTheDocument();
 	});
 
 	it("renders mobile handoff for signed-in mobile viewers without uploads", () => {
@@ -146,25 +151,19 @@ describe("WrappedRouteGate", () => {
 
 		render(
 			<MemoryRouter initialEntries={["/wrapped"]}>
-				<WrappedRouteGate
-					isPending={false}
-					publicId={null}
-					session={session}
-				/>
+				<WrappedRouteGate isPending={false} publicId={null} session={session} />
 			</MemoryRouter>,
 		);
 
-		expect(screen.getByText("Wrapped mobile handoff: ada@example.com")).toBeInTheDocument();
+		expect(
+			screen.getByText("Wrapped mobile handoff: ada@example.com"),
+		).toBeInTheDocument();
 	});
 
 	it("renders setup for signed-in desktop viewers without uploads", () => {
 		render(
 			<MemoryRouter initialEntries={["/wrapped"]}>
-				<WrappedRouteGate
-					isPending={false}
-					publicId={null}
-					session={session}
-				/>
+				<WrappedRouteGate isPending={false} publicId={null} session={session} />
 			</MemoryRouter>,
 		);
 
@@ -176,11 +175,7 @@ describe("WrappedRouteGate", () => {
 
 		render(
 			<MemoryRouter initialEntries={["/wrapped"]}>
-				<WrappedRouteGate
-					isPending={false}
-					publicId={null}
-					session={session}
-				/>
+				<WrappedRouteGate isPending={false} publicId={null} session={session} />
 			</MemoryRouter>,
 		);
 
@@ -198,15 +193,13 @@ describe("WrappedRouteGate", () => {
 
 		render(
 			<MemoryRouter initialEntries={["/wrapped"]}>
-				<WrappedRouteGate
-					isPending={false}
-					publicId={null}
-					session={session}
-				/>
+				<WrappedRouteGate isPending={false} publicId={null} session={session} />
 			</MemoryRouter>,
 		);
 
-		expect(screen.getByText("Wrapped setup mode: checking")).toBeInTheDocument();
+		expect(
+			screen.getByText("Wrapped setup mode: checking"),
+		).toBeInTheDocument();
 	});
 
 	it("renders the wrapped story when sessions already exist", () => {
@@ -218,11 +211,7 @@ describe("WrappedRouteGate", () => {
 
 		render(
 			<MemoryRouter initialEntries={["/wrapped"]}>
-				<WrappedRouteGate
-					isPending={false}
-					publicId={null}
-					session={session}
-				/>
+				<WrappedRouteGate isPending={false} publicId={null} session={session} />
 			</MemoryRouter>,
 		);
 

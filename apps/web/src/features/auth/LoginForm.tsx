@@ -13,11 +13,11 @@ import { Separator } from "@/app/ui/separator";
 import { useAnalyticsTracking } from "@/features/analytics/tracking/useAnalyticsTracking";
 import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
+import { navigateToDestination } from "./auth-navigation";
 import {
 	clearPendingSignupRedirect,
 	getEmailLoginSuccessDestination,
 } from "./auth-route-utils";
-import { navigateToDestination } from "./auth-navigation";
 import {
 	recordOAuthRedirectResult,
 	recordOAuthRedirectStart,

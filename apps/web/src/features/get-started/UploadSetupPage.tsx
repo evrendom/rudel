@@ -1,8 +1,8 @@
+import type { ReactNode } from "react";
 import {
 	CliSetupHint,
 	type CliSetupStepId,
 } from "@/components/analytics/CliSetupHint";
-import type { ReactNode } from "react";
 
 export function UploadSetupPage({
 	completedStepIds,
@@ -37,7 +37,9 @@ export function UploadSetupPage({
 				</div>
 
 				<CliSetupHint completedStepIds={completedStepIds} />
-				{footer ? <div className="mx-auto w-full max-w-xl">{footer}</div> : null}
+				{footer ? (
+					<div className="mx-auto w-full max-w-xl">{footer}</div>
+				) : null}
 			</div>
 		</div>
 	);

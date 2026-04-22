@@ -13,12 +13,7 @@ interface GuestAppProps {
 }
 
 export function GuestApp(props: GuestAppProps = {}) {
-	const {
-		description,
-		eyebrow,
-		showLogo = true,
-		title,
-	} = props;
+	const { description, eyebrow, showLogo = true, title } = props;
 	const [page, setPage] = useState<Page>("login");
 
 	return (
