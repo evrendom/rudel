@@ -35,7 +35,7 @@ export function WrappedDesktopResumePage(props: WrappedDesktopResumePageProps) {
 		status: "idle",
 	});
 	const { trackUtilityUsed } = useAnalyticsTracking({
-		pageName: "get_started",
+		pageName: "wrapped_team_card",
 	});
 	const resumePath = appRoutes.wrappedResume(token);
 

@@ -33,7 +33,7 @@ export function DesktopResumePromptPage(props: DesktopResumePromptPageProps) {
 		status: "idle",
 	});
 	const { trackUtilityUsed } = useAnalyticsTracking({
-		pageName: "get_started",
+		pageName: "wrapped_team_card",
 	});
 	const isSubmitting = state.status === "pending";
 

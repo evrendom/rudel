@@ -27,12 +27,14 @@ export function useSetupProgress({
 	});
 
 	const totalSessionCount = summaryQuery.data?.total_sessions ?? 0;
+	const isInitialLoading =
+		enabled &&
+		!summaryQuery.isFetched &&
+		(state.isLoading || summaryQuery.isPending);
 
 	return {
 		hasUploadedSessions: totalSessionCount > 0,
-		isLoading:
-			enabled &&
-			(state.isLoading || summaryQuery.isPending || summaryQuery.isRefetching),
+		isLoading: isInitialLoading,
 		totalSessionCount,
 	};
 }

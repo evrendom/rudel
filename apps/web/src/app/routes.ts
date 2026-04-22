@@ -10,7 +10,7 @@ const SETTINGS_CREATE_WORKSPACE_PATH = `${SETTINGS_ROOT_PATH}/create-workspace`;
 const PRESET_BASELINE_PATH = "/__preset-baseline";
 const CARD_REFERENCE_PATH = "/card-reference";
 const WRAPPED_TEAM_CARD_PATH = "/wrapped";
-const WRAPPED_SHARE_PATH = `${WRAPPED_TEAM_CARD_PATH}/share`;
+const DEV_WRAPPED_PATH = "/dev/wrapped";
 const WRAPPED_RESUME_PATH = "/resume";
 const LEGACY_WALK_IN_TEAM_CARD_PATH = "/walk-in-team-card";
 
@@ -28,12 +28,13 @@ export const appRoutes = {
 	presetBaseline: () => PRESET_BASELINE_PATH,
 	cardReference: () => CARD_REFERENCE_PATH,
 	wrappedTeamCard: () => WRAPPED_TEAM_CARD_PATH,
-	wrappedShare: (shareId: string) =>
-		`${WRAPPED_SHARE_PATH}/${encodeURIComponent(shareId)}`,
+	devWrapped: () => DEV_WRAPPED_PATH,
+	wrappedPublic: (publicId: string) =>
+		`${WRAPPED_TEAM_CARD_PATH}/${encodeURIComponent(publicId)}`,
 	wrappedResume: (token: string) =>
 		`${WRAPPED_RESUME_PATH}/${encodeURIComponent(token)}`,
-	getStartedFromWrappedShare: (shareId: string) =>
-		`${GET_STARTED_PATH}?share_id=${encodeURIComponent(shareId)}`,
+	wrappedTeamCardFromShare: (shareId: string) =>
+		`${WRAPPED_TEAM_CARD_PATH}?share_id=${encodeURIComponent(shareId)}`,
 	walkInTeamCard: () => WRAPPED_TEAM_CARD_PATH,
 	legacyWalkInTeamCard: () => LEGACY_WALK_IN_TEAM_CARD_PATH,
 	settingsWorkspace: () => SETTINGS_WORKSPACE_PATH,
@@ -42,26 +43,44 @@ export const appRoutes = {
 	settingsCreateWorkspace: () => SETTINGS_CREATE_WORKSPACE_PATH,
 };
 
-// Public wrapped shares live on a path segment because anonymous viewers need a
-// stable, bookmarkable URL that can be opened without auth state.
-export function getWrappedShareIdFromPath(pathname: string) {
-	const routeMatch = pathname.match(/^\/wrapped\/share\/([^/]+)\/?$/u);
-	const encodedShareId = routeMatch?.[1];
+// Public wrapped pages live at /wrapped/:id in this pass. The id is still the
+// existing UUID-backed share id even though the route shape is changing.
+export function getWrappedPublicIdFromPath(pathname: string) {
+	const routeMatch = pathname.match(/^\/wrapped\/([^/]+)\/?$/u);
+	const encodedPublicId = routeMatch?.[1];
 
-	if (!encodedShareId) {
+	if (!encodedPublicId) {
 		return null;
 	}
 
 	try {
-		return decodeURIComponent(encodedShareId);
+		return decodeURIComponent(encodedPublicId);
 	} catch {
 		return null;
 	}
 }
 
-// Post-auth attribution comes back through a query param on /get-started.
-// We parse it separately from the public route because this value is meant for
-// analytics and continuation, not for rendering the public replay page itself.
+// Legacy launch links used /wrapped/share/:id. Keep that parser separate so
+// App.tsx can redirect old links to the canonical /wrapped/:id route without
+// mixing legacy compatibility into the main public-route matcher.
+export function getLegacyWrappedPublicIdFromPath(pathname: string) {
+	const routeMatch = pathname.match(/^\/wrapped\/share\/([^/]+)\/?$/u);
+	const encodedPublicId = routeMatch?.[1];
+
+	if (!encodedPublicId) {
+		return null;
+	}
+
+	try {
+		return decodeURIComponent(encodedPublicId);
+	} catch {
+		return null;
+	}
+}
+
+// Post-auth attribution stays in a query param on /wrapped. We parse it
+// separately from the public route because it is for analytics and continuation,
+// not for rendering the public page itself.
 export function getWrappedShareIdFromSearch(search: string) {
 	const searchParams = new URLSearchParams(search);
 	const shareId = searchParams.get("share_id");

@@ -115,7 +115,7 @@ export async function consumeWrappedResume(options: {
 	}
 
 	return {
-		redirectTo: buildGetStartedRedirect(row.shareId),
+		redirectTo: buildWrappedRedirect(row.shareId),
 		shareId: row.shareId,
 		status: "consumed",
 	};
@@ -167,12 +167,12 @@ async function markWrappedResumeUsed(token: string) {
 	return updatedRows.length === 1;
 }
 
-function buildGetStartedRedirect(shareId: string | null) {
+function buildWrappedRedirect(shareId: string | null) {
 	if (!shareId) {
-		return "/get-started";
+		return "/wrapped";
 	}
 
-	return `/get-started?share_id=${encodeURIComponent(shareId)}`;
+	return `/wrapped?share_id=${encodeURIComponent(shareId)}`;
 }
 
 function toDate(value: Date | string) {

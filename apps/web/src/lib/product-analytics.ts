@@ -1,3 +1,4 @@
+import { getWrappedPublicIdFromPath } from "@/app/routes";
 import {
 	type ProductAnalyticsPageName as AppPageName,
 	type AuthenticationActionTriggeredEvent,
@@ -359,13 +360,12 @@ const ANALYTICS_PAGE_MATCHERS: ReadonlyArray<{
 	},
 	{
 		pageName: "wrapped_share",
-		matches: (pathname) => pathname.startsWith("/wrapped/share/"),
+		matches: (pathname) => getWrappedPublicIdFromPath(pathname) !== null,
 	},
 	{
 		pageName: "wrapped_team_card",
 		matches: (pathname) =>
 			pathname === "/wrapped" ||
-			pathname.startsWith("/wrapped/") ||
 			pathname === "/walk-in-team-card" ||
 			pathname.startsWith("/walk-in-team-card/"),
 	},

@@ -11,9 +11,13 @@ import { Input } from "@/app/ui/input";
 import { Label } from "@/app/ui/label";
 import { Separator } from "@/app/ui/separator";
 import { useAnalyticsTracking } from "@/features/analytics/tracking/useAnalyticsTracking";
-import { authClient, refreshAuthClientState } from "@/lib/auth-client";
+import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
-import { clearPendingSignupRedirect } from "./auth-route-utils";
+import {
+	clearPendingSignupRedirect,
+	getEmailLoginSuccessDestination,
+} from "./auth-route-utils";
+import { navigateToDestination } from "./auth-navigation";
 import {
 	recordOAuthRedirectResult,
 	recordOAuthRedirectStart,
@@ -59,6 +63,7 @@ export function LoginForm({
 	async function handleSubmit(e: React.FormEvent) {
 		e.preventDefault();
 		setFeedback(null);
+		const successDestination = getEmailLoginSuccessDestination();
 		trackAuthenticationAction({
 			actionName: "sign_in",
 			sourceComponent: "login_form",
@@ -76,7 +81,7 @@ export function LoginForm({
 			return;
 		}
 
-		refreshAuthClientState();
+		navigateToDestination(successDestination);
 	}
 
 	async function handleRequestPasswordReset() {

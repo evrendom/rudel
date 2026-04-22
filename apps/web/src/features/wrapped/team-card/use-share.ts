@@ -97,7 +97,7 @@ function buildWrappedShareUrl(shareId: string) {
 	}
 
 	return new URL(
-		appRoutes.wrappedShare(shareId),
+		appRoutes.wrappedPublic(shareId),
 		window.location.origin,
 	).toString();
 }

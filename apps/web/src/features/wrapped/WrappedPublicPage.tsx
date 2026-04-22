@@ -11,11 +11,11 @@ import { useEffectOnceWhen } from "@/hooks/useEffectOnceWhen";
 import { useMountEffect } from "@/hooks/useMountEffect";
 import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
-import { usePublicWrappedShare } from "./use-public-share";
+import { useWrappedPublicPage } from "./use-wrapped-public-page";
 import "@/features/wrapped/wrapped.css";
 
-interface PublicWrappedSharePageProps {
-	shareId: string;
+interface WrappedPublicPageProps {
+	publicId: string;
 }
 
 const PUBLIC_SHARE_CARD_SHELL_STYLE = {
@@ -24,26 +24,23 @@ const PUBLIC_SHARE_CARD_SHELL_STYLE = {
 } as CSSProperties;
 
 // This page is the anonymous half of the growth loop:
-// 1. open a real public share
-// 2. see a safe replay of the card
+// 1. open a real public wrapped page
+// 2. see the safe card snapshot behind that page
 // 3. click "Make yours"
-// 4. continue into auth and /get-started
+// 4. continue into /wrapped for auth, setup, and replay
 //
 // We keep it separate from the authenticated wrapped page so public access never
 // depends on the viewer's private analytics/session queries.
-export function PublicWrappedSharePage(props: PublicWrappedSharePageProps) {
-	const { shareId } = props;
+export function WrappedPublicPage(props: WrappedPublicPageProps) {
+	const { publicId } = props;
 	const { data: session } = authClient.useSession();
 	const { trackUtilityUsed } = useAnalyticsTracking({
+		// The analytics contract still uses the older "wrapped_share" page name.
 		pageName: "wrapped_share",
 	});
-	const wrappedShareQuery = usePublicWrappedShare(shareId);
+	const publicPageQuery = useWrappedPublicPage(publicId);
 	const sessionUserId = getSessionUserId(session);
-	const makeYoursPath = appRoutes.getStartedFromWrappedShare(shareId);
-	const makeYoursHref =
-		sessionUserId !== null
-			? makeYoursPath
-			: `/?redirect=${encodeURIComponent(makeYoursPath)}`;
+	const makeYoursHref = appRoutes.wrappedTeamCardFromShare(publicId);
 
 	// The wrapped surface uses a route-scoped body class for full-screen styling.
 	// We keep that concern isolated to mount/unmount instead of threading layout
@@ -64,24 +61,24 @@ export function PublicWrappedSharePage(props: PublicWrappedSharePageProps) {
 			trackUtilityUsed({
 				entrySource: "public_share",
 				isAuthenticatedViewer: sessionUserId !== null,
-				shareId,
-				sourceComponent: "wrapped_public_share_page",
-				targetId: shareId,
+				shareId: publicId,
+				sourceComponent: "wrapped_public_page",
+				targetId: publicId,
 				utilityName: "shareViewed",
 				utilityState: sessionUserId !== null ? "authenticated" : "anonymous",
 			});
 		},
-		isReady: Boolean(wrappedShareQuery.data),
-		key: shareId,
+		isReady: Boolean(publicPageQuery.data),
+		key: publicId,
 	});
 
 	// Pending and error states stay explicit so the public route is readable and
 	// so product can choose the fallback copy independently of the happy path.
-	if (wrappedShareQuery.isPending) {
+	if (publicPageQuery.isPending) {
 		return <PublicShareLoadingState />;
 	}
 
-	if (wrappedShareQuery.isError || !wrappedShareQuery.data) {
+	if (publicPageQuery.isError || !publicPageQuery.data) {
 		return <PublicShareErrorState makeYoursHref={makeYoursHref} />;
 	}
 
@@ -91,22 +88,22 @@ export function PublicWrappedSharePage(props: PublicWrappedSharePageProps) {
 			onMakeYoursClick={() => {
 				trackUtilityUsed({
 					entrySource: "public_share",
-					redirectTarget: makeYoursPath,
-					shareId,
-					sourceComponent: "wrapped_public_share_page",
-					targetId: shareId,
+					redirectTarget: makeYoursHref,
+					shareId: publicId,
+					sourceComponent: "wrapped_public_page",
+					targetId: publicId,
 					utilityName: "makeYoursClicked",
 					utilityState:
 						sessionUserId !== null ? "authenticated" : "guest_redirect",
 				});
 			}}
-			share={wrappedShareQuery.data}
+			share={publicPageQuery.data}
 		/>
 	);
 }
 
 // The ready state is intentionally presentational. All product logic stays in
-// the route component above so the public share card can be iterated on without
+// the route component above so the public page card can be iterated on without
 // re-learning the auth and analytics flow.
 function PublicShareReadyState(props: {
 	makeYoursHref: string;
@@ -115,7 +112,7 @@ function PublicShareReadyState(props: {
 }) {
 	const { makeYoursHref, onMakeYoursClick, share } = props;
 	const shareDateLabel = formatShareDateLabel(share.created_at);
-	const publicRow = buildPublicShareRow(share.snapshot.row);
+	const publicRow = buildPublicPageRow(share.snapshot.row);
 
 	return (
 		<section className="min-h-screen bg-[#f8f4ef] text-[#22201f]">
@@ -226,7 +223,7 @@ function PublicShareErrorState(props: { makeYoursHref: string }) {
 // WrappedTeamMemberCard expects the same row shape used in authenticated flows.
 // For public replay we deliberately scrub identity fields that are irrelevant or
 // private and only keep the card-safe snapshot values.
-function buildPublicShareRow(row: WrappedShareRow) {
+function buildPublicPageRow(row: WrappedShareRow) {
 	return {
 		...row,
 		email: null,

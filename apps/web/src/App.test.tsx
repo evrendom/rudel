@@ -29,12 +29,17 @@ vi.mock("@/features/auth/AuthenticatedApp", () => ({
 	AuthenticatedApp: () => <div>Authenticated App</div>,
 }));
 
-vi.mock("@/features/wrapped/team-card/page", () => ({
-	WrappedTeamCardPage: () => <div>Wrapped Team Card</div>,
+vi.mock("@/features/wrapped/WrappedRouteGate", () => ({
+	WrappedRouteGate: ({ publicId }: { publicId: string | null }) => (
+		<div>
+			<div>Wrapped Route Gate</div>
+			<div>Public id: {publicId ?? "none"}</div>
+		</div>
+	),
 }));
 
-vi.mock("@/features/wrapped/PublicWrappedSharePage", () => ({
-	PublicWrappedSharePage: () => <div>Wrapped Share Page</div>,
+vi.mock("@/features/wrapped/WrappedDevPage", () => ({
+	WrappedDevPage: () => <div>Wrapped Dev Page</div>,
 }));
 
 vi.mock("@/features/get-started/WrappedDesktopResumePage", () => ({
@@ -45,11 +50,7 @@ vi.mock("@/features/auth/ResetPasswordApp", () => ({
 	ResetPasswordApp: () => <div>Reset Password App</div>,
 }));
 
-vi.mock("@/features/get-started/GetStartedRouteGate", () => ({
-	GetStartedRouteGate: () => <div>Get Started Gate</div>,
-}));
-
-describe("App mobile desktop-only overlay", () => {
+describe("App wrapped routing", () => {
 	beforeEach(() => {
 		mockUseSession.mockReset();
 		mockUseSession.mockReturnValue({ data: null, isPending: false });
@@ -67,14 +68,9 @@ describe("App mobile desktop-only overlay", () => {
 			"hidden",
 			"max-[499px]:flex",
 		);
-		expect(
-			screen.getByText(
-				"Please use it on desktop or resize your window. Otherwise it will look horrendous.",
-			),
-		).toBeInTheDocument();
 	});
 
-	it("does not show the overlay for the device approval utility screen", () => {
+	it("keeps the device approval route outside the wrapped gate", () => {
 		mockUseSession.mockReturnValue({
 			data: { session: { userId: "user-1" }, user: { id: "user-1" } },
 			isPending: false,
@@ -87,28 +83,83 @@ describe("App mobile desktop-only overlay", () => {
 		);
 
 		expect(screen.getByText("Device App")).toBeInTheDocument();
-		expect(screen.queryByText("Desktop only")).toBeNull();
+		expect(screen.queryByText("Wrapped Route Gate")).toBeNull();
 	});
 
-	it("routes /wrapped to the wrapped team card flow without the desktop overlay", async () => {
+	it("routes /wrapped to the wrapped route gate", async () => {
 		render(
 			<MemoryRouter initialEntries={["/wrapped"]}>
 				<App />
 			</MemoryRouter>,
 		);
 
-		expect(await screen.findByText("Wrapped Team Card")).toBeInTheDocument();
+		expect(await screen.findByText("Wrapped Route Gate")).toBeInTheDocument();
+		expect(screen.getByText("Public id: none")).toBeInTheDocument();
 		expect(screen.queryByText("Desktop only")).toBeNull();
 	});
 
-	it("routes /wrapped/share/:id to the public wrapped share flow", async () => {
+	it("routes /wrapped/:id to the public wrapped route gate branch", async () => {
+		render(
+			<MemoryRouter initialEntries={["/wrapped/share-123"]}>
+				<App />
+			</MemoryRouter>,
+		);
+
+		expect(await screen.findByText("Wrapped Route Gate")).toBeInTheDocument();
+		expect(screen.getByText("Public id: share-123")).toBeInTheDocument();
+	});
+
+	it("routes /dev/wrapped to the wrapped dev page in development", async () => {
+		render(
+			<MemoryRouter initialEntries={["/dev/wrapped"]}>
+				<App />
+			</MemoryRouter>,
+		);
+
+		expect(await screen.findByText("Wrapped Dev Page")).toBeInTheDocument();
+	});
+
+	it("redirects /get-started into /wrapped", async () => {
+		render(
+			<MemoryRouter initialEntries={["/get-started"]}>
+				<App />
+			</MemoryRouter>,
+		);
+
+		expect(await screen.findByText("Wrapped Route Gate")).toBeInTheDocument();
+		expect(screen.getByText("Public id: none")).toBeInTheDocument();
+	});
+
+	it("redirects /dashboard/get-started into /wrapped", async () => {
+		render(
+			<MemoryRouter initialEntries={["/dashboard/get-started"]}>
+				<App />
+			</MemoryRouter>,
+		);
+
+		expect(await screen.findByText("Wrapped Route Gate")).toBeInTheDocument();
+		expect(screen.getByText("Public id: none")).toBeInTheDocument();
+	});
+
+	it("redirects the legacy /walk-in-team-card route back to /wrapped", async () => {
+		render(
+			<MemoryRouter initialEntries={["/walk-in-team-card"]}>
+				<App />
+			</MemoryRouter>,
+		);
+
+		expect(await screen.findByText("Wrapped Route Gate")).toBeInTheDocument();
+		expect(screen.getByText("Public id: none")).toBeInTheDocument();
+	});
+
+	it("redirects the legacy /wrapped/share/:id route to the canonical public page", async () => {
 		render(
 			<MemoryRouter initialEntries={["/wrapped/share/share-123"]}>
 				<App />
 			</MemoryRouter>,
 		);
 
-		expect(await screen.findByText("Wrapped Share Page")).toBeInTheDocument();
-		expect(screen.queryByText("Desktop only")).toBeNull();
+		expect(await screen.findByText("Wrapped Route Gate")).toBeInTheDocument();
+		expect(screen.getByText("Public id: share-123")).toBeInTheDocument();
 	});
 });

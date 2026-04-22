@@ -56,22 +56,33 @@ describe("DeviceAuthorizationApp", () => {
 		});
 	});
 
-	it("marks install and login as completed after approving CLI login", async () => {
+	it("redirects to wrapped after approval when sessions are still missing", async () => {
 		const fetchMock = vi
 			.spyOn(globalThis, "fetch")
 			.mockResolvedValue(new Response(null, { status: 200 }));
 
 		const user = userEvent.setup();
 		render(
-			<DeviceAuthorizationApp deviceUserCode="ABCD-1234" session={session} />,
+			<MemoryRouter initialEntries={["/device?user_code=ABCD-1234"]}>
+				<Routes>
+					<Route
+						path="/device"
+						element={
+							<DeviceAuthorizationApp
+								deviceUserCode="ABCD-1234"
+								session={session}
+							/>
+						}
+					/>
+					<Route path={appRoutes.wrappedTeamCard()} element={<div>Wrapped</div>} />
+				</Routes>
+			</MemoryRouter>,
 		);
 
 		await user.click(screen.getByRole("button", { name: "Approve" }));
 
 		await waitFor(() => {
-			expect(
-				screen.getByRole("heading", { name: "CLI login approved" }),
-			).toBeInTheDocument();
+			expect(screen.getByText("Wrapped")).toBeInTheDocument();
 		});
 
 		expect(fetchMock).toHaveBeenCalledWith("/api/auth/device/approve", {
@@ -81,17 +92,7 @@ describe("DeviceAuthorizationApp", () => {
 			body: JSON.stringify({ userCode: "ABCD-1234" }),
 		});
 
-		const installStep = screen
-			.getByText("Install CLI")
-			.closest("[data-complete]");
-		const loginStep = screen.getByText("Log in").closest("[data-complete]");
-		const enableStep = screen
-			.getByText("Enable auto-upload")
-			.closest("[data-complete]");
-
-		expect(installStep).toHaveAttribute("data-complete", "true");
-		expect(loginStep).toHaveAttribute("data-complete", "true");
-		expect(enableStep).toHaveAttribute("data-complete", "false");
+		expect(screen.queryByText("CLI login approved")).toBeNull();
 	});
 
 	it("redirects to the dashboard after approval once sessions exist", async () => {

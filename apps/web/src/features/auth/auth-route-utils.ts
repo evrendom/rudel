@@ -67,7 +67,16 @@ export function getEmailSignupSuccessDestination(
 	pathname = window.location.pathname,
 	search = window.location.search,
 ): string {
-	return getDirectAuthDestination(pathname, search) ?? appRoutes.getStarted();
+	return (
+		getDirectAuthDestination(pathname, search) ?? appRoutes.wrappedTeamCard()
+	);
+}
+
+export function getEmailLoginSuccessDestination(
+	pathname = window.location.pathname,
+	search = window.location.search,
+): string {
+	return getDirectAuthDestination(pathname, search) ?? "/";
 }
 
 export function getEmailSignupVerificationCallbackURL(
@@ -94,7 +103,7 @@ export function getSocialSignupRedirectOptions(
 
 	return {
 		callbackURL: "/",
-		newUserCallbackURL: appRoutes.getStarted(),
+		newUserCallbackURL: appRoutes.wrappedTeamCard(),
 	};
 }
 

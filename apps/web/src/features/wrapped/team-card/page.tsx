@@ -271,7 +271,7 @@ function WrappedTeamCardPageContent(props: {
 			}
 
 			return new URL(
-				appRoutes.wrappedShare(shareRecord.id),
+				appRoutes.wrappedPublic(shareRecord.id),
 				window.location.origin,
 			).toString();
 		},

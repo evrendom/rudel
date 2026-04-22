@@ -1,10 +1,11 @@
 import { lazy, Suspense } from "react";
-import { useLocation } from "react-router-dom";
+import { Navigate, useLocation } from "react-router-dom";
 import { AppLoadingScreen } from "@/app/bootstrap/AppLoadingScreen";
 import {
 	appRoutes,
+	getLegacyWrappedPublicIdFromPath,
+	getWrappedPublicIdFromPath,
 	getWrappedResumeTokenFromPath,
-	getWrappedShareIdFromPath,
 } from "@/app/routes";
 import { DesktopOnlyOverlay } from "@/app/ui/DesktopOnlyOverlay";
 import { ProductAnalyticsSessionSync } from "@/features/analytics/tracking/ProductAnalyticsSessionSync";
@@ -29,15 +30,15 @@ const CardReferencePage = lazy(() =>
 	})),
 );
 
-const WrappedTeamCardPage = lazy(() =>
-	import("@/features/wrapped/team-card/page").then((module) => ({
-		default: module.WrappedTeamCardPage,
+const WrappedRouteGate = lazy(() =>
+	import("@/features/wrapped/WrappedRouteGate").then((module) => ({
+		default: module.WrappedRouteGate,
 	})),
 );
 
-const PublicWrappedSharePage = lazy(() =>
-	import("@/features/wrapped/PublicWrappedSharePage").then((module) => ({
-		default: module.PublicWrappedSharePage,
+const WrappedDevPage = lazy(() =>
+	import("@/features/wrapped/WrappedDevPage").then((module) => ({
+		default: module.WrappedDevPage,
 	})),
 );
 
@@ -65,16 +66,26 @@ function App() {
 	useOAuthDebugAutoDump(session);
 	const deviceUserCode = getDeviceUserCode(location.search);
 	const cardReferencePath = appRoutes.cardReference();
+	const wrappedDevPath = appRoutes.devWrapped();
 	const wrappedTeamCardPath = appRoutes.wrappedTeamCard();
 	const legacyWalkInTeamCardPath = appRoutes.legacyWalkInTeamCard();
-	const wrappedShareId = getWrappedShareIdFromPath(location.pathname);
+	const wrappedPublicId = getWrappedPublicIdFromPath(location.pathname);
+	const legacyWrappedPublicId = getLegacyWrappedPublicIdFromPath(
+		location.pathname,
+	);
 	const wrappedResumeToken = getWrappedResumeTokenFromPath(location.pathname);
+	const isLegacyWrappedPath =
+		location.pathname === legacyWalkInTeamCardPath ||
+		location.pathname.startsWith(`${legacyWalkInTeamCardPath}/`);
+	const isLegacyWrappedSharePath = legacyWrappedPublicId !== null;
 	const isCardReferencePath =
 		location.pathname === cardReferencePath ||
 		location.pathname.startsWith(`${cardReferencePath}/`);
+	const isWrappedDevPath =
+		location.pathname === wrappedDevPath ||
+		location.pathname.startsWith(`${wrappedDevPath}/`);
 	const isWrappedTeamCardPath =
-		isRouteMatch(location.pathname, wrappedTeamCardPath) ||
-		isRouteMatch(location.pathname, legacyWalkInTeamCardPath);
+		location.pathname === wrappedTeamCardPath || wrappedPublicId !== null;
 	const rootRedirectTarget =
 		getValidRedirect(location.search) ??
 		(location.pathname === "/"
@@ -83,7 +94,10 @@ function App() {
 	const showDesktopOnlyOverlay =
 		!deviceUserCode &&
 		!isCardReferencePath &&
+		!isWrappedDevPath &&
 		!isWrappedTeamCardPath &&
+		!isLegacyWrappedPath &&
+		!isLegacyWrappedSharePath &&
 		!isGetStartedPath(location.pathname) &&
 		!wrappedResumeToken;
 
@@ -104,11 +118,7 @@ function App() {
 		return (
 			<>
 				<ProductAnalyticsSessionSync session={session} />
-				<GetStartedRouteGate
-					isPending={isPending}
-					pathname={location.pathname}
-					session={session ?? null}
-				/>
+				<GetStartedRouteGate />
 				{showDesktopOnlyOverlay ? <DesktopOnlyOverlay /> : null}
 			</>
 		);
@@ -126,24 +136,55 @@ function App() {
 		);
 	}
 
-	if (isWrappedTeamCardPath) {
-		if (wrappedShareId) {
-			return (
-				<>
-					<ProductAnalyticsSessionSync session={session} />
-					<Suspense fallback={<FullscreenRouteLoadingScreen />}>
-						<PublicWrappedSharePage shareId={wrappedShareId} />
-					</Suspense>
-					{showDesktopOnlyOverlay ? <DesktopOnlyOverlay /> : null}
-				</>
-			);
-		}
-
+	if (isWrappedDevPath) {
 		return (
 			<>
 				<ProductAnalyticsSessionSync session={session} />
 				<Suspense fallback={<FullscreenRouteLoadingScreen />}>
-					<WrappedTeamCardPage />
+					{import.meta.env.DEV ? (
+						<WrappedDevPage />
+					) : (
+						<Navigate replace to={appRoutes.wrappedTeamCard()} />
+					)}
+				</Suspense>
+				{showDesktopOnlyOverlay ? <DesktopOnlyOverlay /> : null}
+			</>
+		);
+	}
+
+	if (legacyWrappedPublicId !== null) {
+		return (
+			<>
+				<ProductAnalyticsSessionSync session={session} />
+				<Navigate
+					replace
+					to={appRoutes.wrappedPublic(legacyWrappedPublicId)}
+				/>
+				{showDesktopOnlyOverlay ? <DesktopOnlyOverlay /> : null}
+			</>
+		);
+	}
+
+	if (isLegacyWrappedPath) {
+		return (
+			<>
+				<ProductAnalyticsSessionSync session={session} />
+				<Navigate replace to={appRoutes.wrappedTeamCard()} />
+				{showDesktopOnlyOverlay ? <DesktopOnlyOverlay /> : null}
+			</>
+		);
+	}
+
+	if (isWrappedTeamCardPath) {
+		return (
+			<>
+				<ProductAnalyticsSessionSync session={session} />
+				<Suspense fallback={<FullscreenRouteLoadingScreen />}>
+					<WrappedRouteGate
+						isPending={isPending}
+						publicId={wrappedPublicId}
+						session={session ?? null}
+					/>
 				</Suspense>
 				{showDesktopOnlyOverlay ? <DesktopOnlyOverlay /> : null}
 			</>
@@ -202,7 +243,3 @@ function App() {
 }
 
 export default App;
-
-function isRouteMatch(pathname: string, routePath: string) {
-	return pathname === routePath || pathname.startsWith(`${routePath}/`);
-}

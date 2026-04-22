@@ -2,7 +2,7 @@ import { z } from "zod";
 
 export const CreateWrappedResumeInputSchema = z.object({
 	// shareId is optional because mobile users can also need a desktop handoff
-	// from plain /get-started, not only from a public wrapped share.
+	// from plain /wrapped, not only from a public wrapped page.
 	shareId: z.string().uuid().nullable().optional(),
 });
 
