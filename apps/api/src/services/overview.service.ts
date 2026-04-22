@@ -6,12 +6,14 @@ import type {
 	UserDailyTrendData,
 	UserTokenUsageData,
 } from "@rudel/api-routes";
+import { user } from "@rudel/sql-schema";
+import { eq } from "drizzle-orm";
 import {
 	buildAbsoluteDateFilter,
 	buildDateFilter,
 	queryClickhouse,
 } from "../clickhouse.js";
-import { sqlClient } from "../db.js";
+import { db } from "../db.js";
 import { buildEstimatedCostSql } from "./pricing.service.js";
 
 export interface Insight {
@@ -520,12 +522,11 @@ export async function getOverviewInsights(
 	// Insight 2: Top performer identification
 	if (topPerformerData.length > 0 && topPerformerData[0]) {
 		const performer = topPerformerData[0];
-		const [userData] = await sqlClient<Array<{ name: string | null }>>`
-			SELECT name
-			FROM "user"
-			WHERE id = ${performer.user_id}
-			LIMIT 1
-		`;
+		const [userData] = await db
+			.select({ name: user.name })
+			.from(user)
+			.where(eq(user.id, performer.user_id))
+			.limit(1);
 		const displayName =
 			userData?.name || `${performer.user_id.substring(0, 8)}...`;
 

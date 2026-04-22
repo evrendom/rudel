@@ -1,6 +1,8 @@
 import { getLogger } from "@logtape/logtape";
 import { ORPCError } from "@orpc/server";
-import { sqlClient } from "../../db.js";
+import { apikey, member, organization, user } from "@rudel/sql-schema";
+import { count, eq, inArray } from "drizzle-orm";
+import { db } from "../../db.js";
 import { adminMiddleware, os } from "../../middleware.js";
 
 const logger = getLogger(["rudel", "api", "admin"]);
@@ -16,12 +18,11 @@ export const deleteUser = os.admin.deleteUser
 			});
 		}
 
-		const [targetUser] = await sqlClient<Array<{ email: string; id: string }>>`
-			SELECT id, email
-			FROM "user"
-			WHERE id = ${userId}
-			LIMIT 1
-		`;
+		const [targetUser] = await db
+			.select({ id: user.id, email: user.email })
+			.from(user)
+			.where(eq(user.id, userId))
+			.limit(1);
 
 		if (!targetUser) {
 			throw new ORPCError("NOT_FOUND", {
@@ -41,38 +42,37 @@ export const deleteUser = os.admin.deleteUser
 		// where user_id = userId (across all organizations the user belongs to).
 		// See deleteOrgSessions() in services/org-session.service.ts for reference.
 
-		await sqlClient.begin(async (sql) => {
+		await db.transaction(async (tx) => {
 			// Find organizations where this user is the sole member
-			const orphanedOrgs = await sql.unsafe<Array<{ organizationId: string }>>(
-				`
-					SELECT organization_id AS "organizationId"
-					FROM member
-					WHERE organization_id IN (
-						SELECT organization_id
-						FROM member
-						WHERE user_id = $1
-					)
-					GROUP BY organization_id
-					HAVING COUNT(*) = 1
-				`,
-				[userId],
-			);
+			const orphanedOrgs = await tx
+				.select({ organizationId: member.organizationId })
+				.from(member)
+				.where(
+					inArray(
+						member.organizationId,
+						tx
+							.select({ organizationId: member.organizationId })
+							.from(member)
+							.where(eq(member.userId, userId)),
+					),
+				)
+				.groupBy(member.organizationId)
+				.having(eq(count(), 1));
 
-			const orphanedOrgIds = orphanedOrgs.map((org) => org.organizationId);
+			const orphanedOrgIds = orphanedOrgs.map((o) => o.organizationId);
 
 			// Delete API keys (no FK cascade from user)
-			await sql.unsafe(`DELETE FROM apikey WHERE reference_id = $1`, [userId]);
+			await tx.delete(apikey).where(eq(apikey.referenceId, userId));
 
 			// Delete orphaned organizations (cascades invitation + member rows for those orgs)
 			if (orphanedOrgIds.length > 0) {
-				await sql.unsafe(
-					`DELETE FROM organization WHERE id = ANY($1::text[])`,
-					[orphanedOrgIds],
-				);
+				await tx
+					.delete(organization)
+					.where(inArray(organization.id, orphanedOrgIds));
 			}
 
 			// Delete user (cascades session, account, member, invitation, deviceCode)
-			await sql.unsafe(`DELETE FROM "user" WHERE id = $1`, [userId]);
+			await tx.delete(user).where(eq(user.id, userId));
 		});
 
 		logger.info("Successfully deleted user {userId}", { userId });

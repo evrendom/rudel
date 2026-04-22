@@ -2,9 +2,11 @@ import { join } from "node:path";
 import { getLogger, withContext } from "@logtape/logtape";
 import { onError } from "@orpc/server";
 import { RPCHandler } from "@orpc/server/fetch";
+import { user as userTable } from "@rudel/sql-schema";
+import { eq } from "drizzle-orm";
 import type { Session as AuthSession } from "./auth.js";
 import { createAuth } from "./auth.js";
-import { db, sqlClient } from "./db.js";
+import { db } from "./db.js";
 import { getResendConfigWarnings } from "./email.js";
 import { shutdownApiProductAnalytics } from "./lib/product-analytics.js";
 import { setupLogging } from "./logging.js";
@@ -324,40 +326,22 @@ async function getContext(request: Request) {
 			});
 
 			if (verification.valid && verification.key) {
-				const [foundUser] = await sqlClient<
-					Array<{
-						createdAt: Date;
-						email: string;
-						emailVerified: boolean;
-						id: string;
-						image: string | null;
-						name: string;
-						updatedAt: Date;
-					}>
-				>`
-					SELECT
-						id,
-						name,
-						email,
-						email_verified AS "emailVerified",
-						image,
-						created_at AS "createdAt",
-						updated_at AS "updatedAt"
-					FROM "user"
-					WHERE id = ${verification.key.referenceId}
-					LIMIT 1
-				`;
+				const [foundUser] = await db
+					.select({
+						id: userTable.id,
+						name: userTable.name,
+						email: userTable.email,
+						emailVerified: userTable.emailVerified,
+						image: userTable.image,
+						createdAt: userTable.createdAt,
+						updatedAt: userTable.updatedAt,
+					})
+					.from(userTable)
+					.where(eq(userTable.id, verification.key.referenceId))
+					.limit(1);
 
 				if (foundUser) {
-					apiKeyUser = {
-						id: foundUser.id,
-						name: foundUser.name,
-						email: foundUser.email,
-						emailVerified: foundUser.emailVerified,
-						image: foundUser.image,
-						createdAt: foundUser.createdAt,
-						updatedAt: foundUser.updatedAt,
-					} satisfies AuthUser;
+					apiKeyUser = foundUser as AuthUser;
 					apiKeyId = verification.key.id;
 				}
 			}

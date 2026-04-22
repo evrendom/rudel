@@ -1,7 +1,9 @@
 import { implement, ORPCError } from "@orpc/server";
 import { contract } from "@rudel/api-routes";
+import { member } from "@rudel/sql-schema";
+import { and, eq } from "drizzle-orm";
 import type { Session } from "./auth.js";
-import { sqlClient } from "./db.js";
+import { db } from "./db.js";
 import { checkAnalyticsRateLimit } from "./rate-limit.js";
 
 export interface AppContext {
@@ -40,13 +42,16 @@ export const orgMiddleware = os.middleware(async ({ context, next }) => {
 		});
 	}
 
-	const membership = await sqlClient<Array<{ id: string; role: string }>>`
-		SELECT id, role
-		FROM member
-		WHERE organization_id = ${organizationId}
-			AND user_id = ${context.user.id}
-		LIMIT 1
-	`;
+	const membership = await db
+		.select({ id: member.id, role: member.role })
+		.from(member)
+		.where(
+			and(
+				eq(member.organizationId, organizationId),
+				eq(member.userId, context.user.id),
+			),
+		)
+		.limit(1);
 
 	const row = membership[0];
 	if (!row) {
@@ -83,13 +88,16 @@ export const adminMiddleware = os.middleware(async ({ context, next }) => {
 		});
 	}
 
-	const membership = await sqlClient<Array<{ id: string }>>`
-		SELECT id
-		FROM member
-		WHERE organization_id = ${ADMIN_ORGANIZATION_ID}
-			AND user_id = ${context.user.id}
-		LIMIT 1
-	`;
+	const membership = await db
+		.select({ id: member.id })
+		.from(member)
+		.where(
+			and(
+				eq(member.organizationId, ADMIN_ORGANIZATION_ID),
+				eq(member.userId, context.user.id),
+			),
+		)
+		.limit(1);
 
 	if (membership.length === 0) {
 		throw new ORPCError("FORBIDDEN", {
