@@ -82,11 +82,9 @@ Those are the names that should be used in:
 - exported assets
 - product copy
 
-Internal taxonomy keys may still exist in code or data references, but they are
-not meant to be shown to users on this branch.
-
-Do not surface internal names like `NPC`, `Papa's Credit Card`, or `Needs to
-Touch Grass` in the user-facing design work.
+Internal taxonomy keys may still exist in data references, but the wrapped
+branch should use the product-facing names above in its design work and local
+implementation.
 
 `Decimal` is special:
 

@@ -80,7 +80,7 @@ const WRAPPED_ARCHETYPE_CARD_THEMES = [
 		theme: "light",
 	},
 	{
-		id: "papas-credit-card",
+		id: "company-card",
 		label: "Company Card",
 		shellClassName: "bg-[linear-gradient(180deg,_#E5F221_0%,_#DFEC1C_100%)]",
 		theme: "light",
@@ -100,13 +100,13 @@ const WRAPPED_ARCHETYPE_CARD_THEMES = [
 		theme: "light",
 	},
 	{
-		id: "npc",
+		id: "smooth-operator",
 		label: "Smooth Operator",
 		shellClassName: "bg-[linear-gradient(180deg,_#8ED9F8_0%,_#69B8D9_100%)]",
 		theme: "light",
 	},
 	{
-		id: "needs-to-touch-grass",
+		id: "obsessed",
 		label: "Obsessed",
 		shellClassName:
 			"border-white/10 bg-[linear-gradient(180deg,_#191919_0%,_#000000_100%)]",
