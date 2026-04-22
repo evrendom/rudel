@@ -1,4 +1,0 @@
-interface:
-  display_name: "Repeatable Page Creation"
-  short_description: "Create pages with a repeatable workflow."
-  default_prompt: "Use $repeatable-page-creation to define the page contract, state model, surface choice, layout scaffold, and motion order for this screen."

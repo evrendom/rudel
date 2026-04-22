@@ -1,4 +1,0 @@
-interface:
-  display_name: "Personalized Recap Storytelling"
-  short_description: "Design great recap storytelling systems"
-  default_prompt: "Use $personalized-recap-storytelling to design a personalized recap experience with strong beats, trust, and shareability."
