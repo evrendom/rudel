@@ -29,6 +29,18 @@ vi.mock("@/features/auth/AuthenticatedApp", () => ({
 	AuthenticatedApp: () => <div>Authenticated App</div>,
 }));
 
+vi.mock("@/features/wrapped/team-card/page", () => ({
+	WrappedTeamCardPage: () => <div>Wrapped Team Card</div>,
+}));
+
+vi.mock("@/features/wrapped/PublicWrappedSharePage", () => ({
+	PublicWrappedSharePage: () => <div>Wrapped Share Page</div>,
+}));
+
+vi.mock("@/features/get-started/WrappedDesktopResumePage", () => ({
+	WrappedDesktopResumePage: () => <div>Wrapped Desktop Resume</div>,
+}));
+
 vi.mock("@/features/auth/ResetPasswordApp", () => ({
 	ResetPasswordApp: () => <div>Reset Password App</div>,
 }));
@@ -75,6 +87,28 @@ describe("App mobile desktop-only overlay", () => {
 		);
 
 		expect(screen.getByText("Device App")).toBeInTheDocument();
+		expect(screen.queryByText("Desktop only")).toBeNull();
+	});
+
+	it("routes /wrapped to the wrapped team card flow without the desktop overlay", async () => {
+		render(
+			<MemoryRouter initialEntries={["/wrapped"]}>
+				<App />
+			</MemoryRouter>,
+		);
+
+		expect(await screen.findByText("Wrapped Team Card")).toBeInTheDocument();
+		expect(screen.queryByText("Desktop only")).toBeNull();
+	});
+
+	it("routes /wrapped/share/:id to the public wrapped share flow", async () => {
+		render(
+			<MemoryRouter initialEntries={["/wrapped/share/share-123"]}>
+				<App />
+			</MemoryRouter>,
+		);
+
+		expect(await screen.findByText("Wrapped Share Page")).toBeInTheDocument();
 		expect(screen.queryByText("Desktop only")).toBeNull();
 	});
 });
