@@ -62,8 +62,7 @@ const codex_session_analytics_mv = materializedView({
       '{}'
     ) AS _final_usage,
 
-    toUInt64OrZero(JSONExtractRaw(_final_usage, 'input_tokens'))
-      - toUInt64OrZero(JSONExtractRaw(_final_usage, 'cached_input_tokens')) AS _input_tokens,
+    toUInt64OrZero(JSONExtractRaw(_final_usage, 'input_tokens')) AS _input_tokens,
     toUInt64OrZero(JSONExtractRaw(_final_usage, 'output_tokens')) AS _output_tokens,
     toUInt64OrZero(JSONExtractRaw(_final_usage, 'cached_input_tokens')) AS _cache_read_input_tokens,
 
