@@ -85,7 +85,9 @@ const codex_session_analytics_mv = materializedView({
     if(length(_turn_context_lines) > 0,
       JSONExtractString(JSONExtractRaw(arrayElement(_turn_context_lines, 1), 'payload'), 'model'),
       ''
-    ) AS _model_from_turn_context
+    ) AS _model_from_turn_context,
+
+    arrayDistinct(arrayFilter(x -> x != '', extractAll(cs.content, '"name":"exec_command"[^}]*skills/([a-zA-Z0-9_-]+)/SKILL'))) AS _skills
 
   SELECT
     * EXCEPT (session_date, last_interaction_date),
@@ -97,7 +99,7 @@ const codex_session_analytics_mv = materializedView({
     _cache_read_input_tokens as cache_read_input_tokens,
     toUInt64(0) as cache_creation_input_tokens,
     _input_tokens + _output_tokens as total_tokens,
-    [] :: Array(String) as skills,
+    _skills as skills,
     [] :: Array(String) as slash_commands,
     [] :: Array(String) as subagent_types,
     map() as subagents,
@@ -144,6 +146,10 @@ const codex_session_analytics_mv = materializedView({
           AND (_output_tokens / nullif(_input_tokens, 0)) < 0.3
           AND _duration_min > 20
       THEN 'struggle'
+      WHEN length(_skills) >= 3
+          AND (cs.git_sha IS NULL OR cs.git_sha = '')
+          AND (_input_tokens + _output_tokens) > 200000
+      THEN 'exploration'
       WHEN _duration_min < 3
           AND _output_tokens < 500
       THEN 'abandoned'
@@ -153,6 +159,7 @@ const codex_session_analytics_mv = materializedView({
       50
       + (if(cs.git_sha IS NOT NULL AND cs.git_sha != '', 20, 0))
       + (if((_output_tokens / nullif(_input_tokens, 0)) > 0.5, 15, 0))
+      + (least(toUInt32(length(_skills)), 3) * 5)
       - (if((_input_tokens + _output_tokens) > 1500000 AND (cs.git_sha IS NULL OR cs.git_sha = ''), 20, 0))
       - (if(_duration_min < 2 AND _output_tokens < 200, 30, 0))
       - (least(toUInt32(
