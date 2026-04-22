@@ -28,6 +28,7 @@ type DashboardGridTableProps<T> = {
 	onRowHoverChange?: (rowId: string | null) => void;
 	getHoverRowId?: (row: T) => string;
 	onRowClick?: (row: T) => void;
+	isRowClickable?: (row: T) => boolean;
 	isRowSelected?: (row: T) => boolean;
 };
 
@@ -203,6 +204,7 @@ export function DashboardGridTable<T>({
 	onRowHoverChange,
 	getHoverRowId,
 	onRowClick,
+	isRowClickable,
 	isRowSelected,
 }: DashboardGridTableProps<T>) {
 	if (rows.length === 0) {
@@ -237,12 +239,14 @@ export function DashboardGridTable<T>({
 								: rowClassName;
 						const hoverId = getHoverRowId?.(row);
 						const isSelected = isRowSelected?.(row) ?? false;
+						const isClickable =
+							onRowClick != null && (isRowClickable?.(row) ?? true);
 						const sharedProps = {
 							"data-dashboard-grid-hover-id": hoverId,
 							"data-selected": isSelected ? "true" : undefined,
 							className: cn(
 								"grid min-h-12 items-center gap-6 rounded-lg px-3.5 py-2 text-sm odd:bg-[color:var(--dashboardy-subsurface-strong)]",
-								onRowClick && "text-left transition-colors duration-200",
+								isClickable && "text-left transition-colors duration-200",
 								onRowHoverChange &&
 									"focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--dashboardy-border)] focus-visible:ring-offset-0",
 								resolvedRowClassName,
@@ -270,7 +274,7 @@ export function DashboardGridTable<T>({
 							);
 						});
 
-						return onRowClick ? (
+						return isClickable ? (
 							<button
 								key={key}
 								type="button"

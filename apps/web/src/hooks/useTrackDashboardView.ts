@@ -1,10 +1,10 @@
 import { useEffect, useRef } from "react";
-import { useDateRange } from "@/contexts/DateRangeContext";
+import { useDateRange } from "@/features/analytics/date-range/useDateRange";
+import { useAnalyticsContext } from "@/features/analytics/tracking/useAnalyticsTracking";
 import {
 	captureDashboardViewed,
 	isDashboardPageName,
 } from "@/lib/product-analytics";
-import { useDashboardAnalytics } from "./useDashboardAnalytics";
 
 export type DashboardSectionState = "populated" | "empty" | "error" | "hidden";
 
@@ -223,10 +223,11 @@ export function useTrackDashboardView(options: {
 	sections?: DashboardSection[];
 	metrics?: DashboardMetric[];
 }) {
-	const { startDate, endDate, calculateDays } = useDateRange();
-	const { organizationId, userId, pageName } = useDashboardAnalytics();
+	const { meta, state } = useDateRange();
+	const { organizationId, userId, pageName } = useAnalyticsContext();
 	const viewedRangeKeyRef = useRef<string | null>(null);
-	const dateRangeDays = calculateDays();
+	const dateRangeDays = meta.dayCount;
+	const { endDate, startDate } = state;
 
 	useEffect(() => {
 		if (

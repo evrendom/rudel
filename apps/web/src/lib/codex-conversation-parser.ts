@@ -169,6 +169,9 @@ export function extractCodexTokenData(
 		outputTokens: number;
 	}> = [];
 	const lines = content.split("\n").filter((line) => line.trim() !== "");
+	let previousInputTokens = 0;
+	let previousOutputTokens = 0;
+	let tokenSnapshotIndex = 0;
 
 	for (let i = 0; i < lines.length; i++) {
 		try {
@@ -179,6 +182,7 @@ export function extractCodexTokenData(
 					info?: {
 						total_token_usage?: {
 							input_tokens?: number;
+							cached_input_tokens?: number;
 							output_tokens?: number;
 						};
 					};
@@ -190,12 +194,31 @@ export function extractCodexTokenData(
 
 			const usage = parsed.payload.info?.total_token_usage;
 			if (!usage) continue;
+			const currentInputTokens = Math.max(
+				0,
+				(usage.input_tokens ?? previousInputTokens) -
+					(usage.cached_input_tokens ?? 0),
+			);
+			const currentOutputTokens = usage.output_tokens ?? previousOutputTokens;
+			const inputTokens = Math.max(0, currentInputTokens - previousInputTokens);
+			const outputTokens = Math.max(
+				0,
+				currentOutputTokens - previousOutputTokens,
+			);
+
+			previousInputTokens = currentInputTokens;
+			previousOutputTokens = currentOutputTokens;
+
+			if (inputTokens === 0 && outputTokens === 0) {
+				continue;
+			}
 
 			points.push({
-				messageIndex: i,
-				inputTokens: usage.input_tokens ?? 0,
-				outputTokens: usage.output_tokens ?? 0,
+				messageIndex: tokenSnapshotIndex,
+				inputTokens,
+				outputTokens,
 			});
+			tokenSnapshotIndex += 1;
 		} catch {
 			// Skip malformed lines
 		}

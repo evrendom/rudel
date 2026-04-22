@@ -1,5 +1,9 @@
 import { DashboardCellStack } from "@/features/dashboard/components/DashboardGridTable";
-import { calculateCost, formatWholeCurrency } from "@/lib/format";
+import {
+	calculateCost,
+	formatCurrency,
+	formatWholeCurrency,
+} from "@/lib/format";
 
 function formatCostSplit(
 	inputTokens: number,
@@ -29,17 +33,23 @@ export function DashboardTokenCostCell({
 	inputTokens,
 	outputTokens,
 	model,
+	showDetailedCost = true,
 }: {
 	cost?: number;
 	inputTokens: number;
 	outputTokens: number;
 	model?: string | null;
+	showDetailedCost?: boolean;
 }) {
 	const resolvedCost = cost ?? calculateCost(inputTokens, outputTokens, model);
 
 	return (
 		<DashboardCellStack
-			primary={formatWholeCurrency(resolvedCost)}
+			primary={
+				showDetailedCost
+					? formatCurrency(resolvedCost)
+					: formatWholeCurrency(resolvedCost)
+			}
 			secondary={formatCostSplit(inputTokens, outputTokens, model)}
 			primaryClassName="font-medium tabular-nums"
 			secondaryClassName="font-medium tabular-nums uppercase tracking-[0.02em]"

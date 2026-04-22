@@ -102,30 +102,17 @@ function getBarSize(total: number) {
 	return 10;
 }
 
-function getTickLabel(
-	pointId: string,
-	index: number,
-	data: DashboardSessionChartRow[],
-	activeId?: string | null,
-) {
-	const point = data.find((entry) => entry.id === pointId);
-
-	if (!point) {
-		return "";
+function buildVisibleTickIndexes(total: number) {
+	if (total <= 4) {
+		return new Set(Array.from({ length: total }, (_, index) => index));
 	}
 
-	if (activeId != null) {
-		return activeId === point.id ? point.shortLabel : "";
-	}
-
-	const isFirstTick = index === 0;
-	const isLastTick = index === data.length - 1;
-
-	if (!isFirstTick && !isLastTick) {
-		return "";
-	}
-
-	return point.shortLabel;
+	return new Set([
+		0,
+		Math.round((total - 1) / 3),
+		Math.round(((total - 1) * 2) / 3),
+		total - 1,
+	]);
 }
 
 function formatSessionTimestamp(value: string) {
@@ -290,10 +277,10 @@ export function DashboardSessionChart({
 		}));
 	const axisMax = getAxisMax(data);
 	const axisTicks = getAxisTicks(axisMax);
-	const resolvedActiveId = chartData.some((entry) => entry.id === activeId)
-		? activeId
-		: null;
+	const resolvedActiveId =
+		chartData.find((entry) => entry.id === activeId)?.id ?? null;
 	const barSize = getBarSize(chartData.length);
+	const visibleTickIndexes = buildVisibleTickIndexes(chartData.length);
 
 	return (
 		<div className={cn("flex min-w-0 flex-1 pt-0 md:pt-4", className)}>
@@ -305,7 +292,7 @@ export function DashboardSessionChart({
 				<BarChart
 					data={chartData}
 					barCategoryGap={0}
-					margin={{ top: 2, right: 18, bottom: 10, left: 0 }}
+					margin={{ top: 2, right: 18, bottom: 12, left: 0 }}
 					onMouseLeave={() => onHighlightSessionChange?.(null)}
 					onMouseMove={(state: MouseHandlerDataParam) => {
 						onHighlightSessionChange?.(
@@ -320,13 +307,16 @@ export function DashboardSessionChart({
 				>
 					<XAxis
 						dataKey="id"
-						height={22}
+						height={28}
 						axisLine={{
 							stroke:
 								"color-mix(in srgb, var(--dashboardy-muted) 40%, transparent)",
 						}}
 						tickFormatter={(value, index) =>
-							getTickLabel(String(value), index, chartData, resolvedActiveId)
+							visibleTickIndexes.has(index)
+								? (chartData.find((entry) => entry.id === String(value))
+										?.shortLabel ?? "")
+								: ""
 						}
 						tickLine={false}
 						tickMargin={4}

@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import { DashboardPage } from "./DashboardPage";
 
@@ -49,7 +50,11 @@ describe("DashboardPage", () => {
 			usersTokenUsage: [],
 		});
 
-		render(<DashboardPage />);
+		render(
+			<MemoryRouter>
+				<DashboardPage />
+			</MemoryRouter>,
+		);
 
 		expect(screen.getByText("No sessions yet")).toBeInTheDocument();
 		expect(
