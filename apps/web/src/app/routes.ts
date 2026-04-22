@@ -1,4 +1,5 @@
 const DASHBOARD_PATH = "/dashboard";
+const DASHBOARD_SESSIONS_PATH = `${DASHBOARD_PATH}/sessions`;
 const DASHBOARD_GET_STARTED_LEGACY_PATH = `${DASHBOARD_PATH}/get-started`;
 const GET_STARTED_PATH = "/get-started";
 const TEAM_PATH = "/team";
@@ -15,6 +16,7 @@ const LEGACY_WALK_IN_TEAM_CARD_PATH = "/walk-in-team-card";
 export const appRoutes = {
 	home: () => DASHBOARD_PATH,
 	dashboard: () => DASHBOARD_PATH,
+	dashboardSessions: () => DASHBOARD_SESSIONS_PATH,
 	getStarted: () => GET_STARTED_PATH,
 	dashboardGetStartedLegacy: () => DASHBOARD_GET_STARTED_LEGACY_PATH,
 	team: () => TEAM_PATH,

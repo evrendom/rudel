@@ -16,7 +16,7 @@ import {
 } from "@/features/dashboard/components/dashboard-bar-chart-layout";
 import type { DashboardHighlightChangeHandler } from "@/features/dashboard/components/dashboard-highlight-state";
 import type { DashboardTokenModelChartDatum } from "@/features/dashboard/data/dashboard-token-model-adapter";
-import { formatCompactWholeNumber, formatWholeCurrency } from "@/lib/format";
+import { formatCompactWholeNumber, formatCurrency } from "@/lib/format";
 
 const chartConfig = {
 	committed: {
@@ -76,7 +76,7 @@ function DashboardTokenModelTooltip({
 			<div className="flex items-center justify-between gap-3">
 				<span className="text-white/65">Estimated cost</span>
 				<span className="font-mono tabular-nums text-white">
-					{formatWholeCurrency(point.estimatedCost)}
+					{formatCurrency(point.estimatedCost)}
 				</span>
 			</div>
 			<div className="flex items-center justify-between gap-3">

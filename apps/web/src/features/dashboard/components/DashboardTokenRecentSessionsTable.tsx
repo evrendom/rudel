@@ -1,5 +1,8 @@
 import type { SessionAnalytics } from "@rudel/api-routes";
+import { ArrowUpRight } from "lucide-react";
+import { useState } from "react";
 import { Skeleton } from "@/app/ui/skeleton";
+import { Button } from "@/components/ui/button";
 import {
 	DashboardCellStack,
 	DashboardGridTable,
@@ -24,6 +27,8 @@ const SKELETON_ROW_IDS = [
 	"token-session-skeleton-4",
 	"token-session-skeleton-5",
 ] as const;
+const INITIAL_VISIBLE_ROWS = 10;
+const VISIBLE_ROW_INCREMENT = 10;
 
 function formatSessionTimestamp(value: string) {
 	const normalizedValue = value.endsWith("Z") ? value : `${value}Z`;
@@ -67,6 +72,39 @@ function formatTokenMix(session: SessionAnalytics) {
 	const outputShare = Math.max(100 - inputShare, 0);
 
 	return `${inputShare} IN / ${outputShare} OUT`;
+}
+
+function DashboardTokenRecentSessionsTimeCell({
+	isHovered,
+	sessionDate,
+}: {
+	isHovered: boolean;
+	sessionDate: string;
+}) {
+	return (
+		<div className="relative min-w-0 overflow-hidden">
+			<div
+				className={cn(
+					"pointer-events-none absolute inset-y-0 left-0 flex items-center text-[color:var(--dashboardy-muted)] opacity-0 -translate-x-2 transition-[opacity,transform] duration-200",
+					isHovered && "translate-x-0 opacity-100",
+				)}
+			>
+				<ArrowUpRight className="size-3.5" />
+			</div>
+			<div
+				className={cn(
+					"transition-transform duration-200",
+					isHovered && "translate-x-6",
+				)}
+			>
+				<DashboardCellStack
+					primary={formatRelativeTime(sessionDate)}
+					secondary={formatSessionTimestamp(sessionDate)}
+					primaryClassName="font-medium"
+				/>
+			</div>
+		</div>
+	);
 }
 
 function DashboardTokenRecentSessionsTableSkeleton({
@@ -121,25 +159,37 @@ function DashboardTokenRecentSessionsTableSkeleton({
 }
 
 export function DashboardTokenRecentSessionsTable({
+	canOpenSession,
 	highlightSource,
 	highlightedSessionId,
 	isLoading = false,
 	onHighlightSessionChange,
+	onSessionClick,
 	sessions,
 	showHeader = true,
 	totalSessionCount,
 }: {
+	canOpenSession?: (session: SessionAnalytics) => boolean;
 	highlightSource?: "chart" | "table" | null;
 	highlightedSessionId?: string | null;
 	isLoading?: boolean;
 	onHighlightSessionChange?: (sessionId: string | null) => void;
+	onSessionClick?: (session: SessionAnalytics) => void;
 	sessions: SessionAnalytics[] | undefined;
 	showHeader?: boolean;
 	totalSessionCount: number;
 }) {
+	const [hoveredSessionId, setHoveredSessionId] = useState<string | null>(null);
 	const { userMap } = useUserMap();
 	const recentSessions = sessions ?? [];
-	const hiddenSessionCount = Math.max(
+	const [visibleRowCount, setVisibleRowCount] =
+		useState<number>(INITIAL_VISIBLE_ROWS);
+	const visibleSessions = recentSessions.slice(0, visibleRowCount);
+	const remainingLoadedSessionCount = Math.max(
+		recentSessions.length - visibleSessions.length,
+		0,
+	);
+	const unloadedSessionCount = Math.max(
 		totalSessionCount - recentSessions.length,
 		0,
 	);
@@ -147,6 +197,12 @@ export function DashboardTokenRecentSessionsTable({
 		highlightSource === "table" && highlightedSessionId != null;
 	const hasChartHighlight =
 		highlightSource === "chart" && highlightedSessionId != null;
+	const hasHoveredSession = hoveredSessionId != null;
+
+	function handleRowHoverChange(sessionId: string | null) {
+		setHoveredSessionId(sessionId);
+		onHighlightSessionChange?.(sessionId);
+	}
 
 	if (isLoading) {
 		return (
@@ -170,7 +226,7 @@ export function DashboardTokenRecentSessionsTable({
 						Latest sessions
 					</h3>
 					<p className="text-[13px] font-medium text-[color:var(--dashboardy-muted)]">
-						Last {recentSessions.length} sessions
+						Showing {visibleSessions.length} of {recentSessions.length} sessions
 					</p>
 				</div>
 			) : null}
@@ -180,10 +236,9 @@ export function DashboardTokenRecentSessionsTable({
 						id: "time",
 						header: "Time",
 						renderCell: (session) => (
-							<DashboardCellStack
-								primary={formatRelativeTime(session.session_date)}
-								secondary={formatSessionTimestamp(session.session_date)}
-								primaryClassName="font-medium"
+							<DashboardTokenRecentSessionsTimeCell
+								isHovered={hoveredSessionId === session.session_id}
+								sessionDate={session.session_date}
 							/>
 						),
 					},
@@ -253,6 +308,7 @@ export function DashboardTokenRecentSessionsTable({
 								inputTokens={session.input_tokens}
 								outputTokens={session.output_tokens}
 								model={session.model_used}
+								showDetailedCost
 							/>
 						),
 					},
@@ -266,15 +322,25 @@ export function DashboardTokenRecentSessionsTable({
 						),
 					},
 				]}
-				rows={recentSessions}
+				rows={visibleSessions}
 				rowKey={(session) => session.session_id}
 				gridTemplateColumns="120px minmax(180px,11fr) minmax(180px,9fr) minmax(180px,9fr) 140px minmax(180px,0.95fr) 120px"
 				minWidthClassName="min-w-[82rem]"
-				onRowHoverChange={onHighlightSessionChange}
+				onRowHoverChange={handleRowHoverChange}
 				getHoverRowId={(session) => session.session_id}
+				onRowClick={onSessionClick}
+				isRowClickable={canOpenSession}
 				rowClassName={(session) =>
 					cn(
-						"w-full text-left transition-colors duration-300 [transition-timing-function:cubic-bezier(0.23,1,0.32,1)]",
+						"w-full text-left",
+						onSessionClick &&
+							(canOpenSession?.(session) ?? true) &&
+							"cursor-pointer",
+						hasHoveredSession &&
+							hoveredSessionId !== session.session_id &&
+							"opacity-40",
+						hoveredSessionId === session.session_id &&
+							"bg-[color:var(--dashboardy-subsurface-strong)] odd:bg-[color:var(--dashboardy-subsurface-strong)]",
 						hasTableHighlight &&
 							"bg-[color:var(--dashboardy-surface)] odd:bg-[color:var(--dashboardy-surface)]",
 						hasChartHighlight &&
@@ -283,13 +349,34 @@ export function DashboardTokenRecentSessionsTable({
 						hasTableHighlight &&
 							highlightedSessionId === session.session_id &&
 							"bg-[color:var(--dashboardy-subsurface-strong)] odd:bg-[color:var(--dashboardy-subsurface-strong)]",
+						onSessionClick &&
+							!(canOpenSession?.(session) ?? true) &&
+							"cursor-default opacity-75",
 					)
 				}
 				footer={
-					hiddenSessionCount > 0 ? (
+					remainingLoadedSessionCount > 0 || unloadedSessionCount > 0 ? (
 						<DashboardTableFooterNote>
-							{/* TODO: Turn this footer count into a real drill-down affordance from the token tab. */}
-							<p>{hiddenSessionCount} more</p>
+							<div className="flex flex-wrap items-center justify-end gap-2">
+								{remainingLoadedSessionCount > 0 ? (
+									<Button
+										type="button"
+										variant="ghost"
+										size="sm"
+										className="h-auto rounded-full px-3 py-1.5 text-[12px] font-semibold text-[color:var(--dashboardy-heading)] hover:bg-[color:var(--dashboardy-subsurface-strong)]"
+										onClick={() =>
+											setVisibleRowCount(
+												(currentCount) => currentCount + VISIBLE_ROW_INCREMENT,
+											)
+										}
+									>
+										Show 10 more rows
+									</Button>
+								) : null}
+								{unloadedSessionCount > 0 ? (
+									<p>{unloadedSessionCount} more not shown</p>
+								) : null}
+							</div>
 						</DashboardTableFooterNote>
 					) : null
 				}
