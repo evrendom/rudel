@@ -152,6 +152,7 @@ export function useWrappedTeamCardPageData(): UseWrappedTeamCardPageDataResult {
 			wrappedData?.metrics.source_split,
 		],
 	);
+
 	return {
 		completionUserId,
 		onboardingMetrics,

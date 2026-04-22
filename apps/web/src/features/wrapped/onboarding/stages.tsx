@@ -16,7 +16,7 @@ import {
 } from "./stages/metrics";
 import { WrappedOnboardingModelStage } from "./stages/model";
 import { WrappedOnboardingSkillsStage } from "./stages/skills";
-	import { WrappedOnboardingToolsStage } from "./stages/tools";
+import { WrappedOnboardingToolsStage } from "./stages/tools";
 import { WrappedOnboardingUploadStage } from "./stages/upload";
 import type { WrappedOnboardingMetrics } from "./types";
 
