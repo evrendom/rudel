@@ -32,14 +32,12 @@ vi.mock("@/features/wrapped/WrappedPublicPage", () => ({
 	),
 }));
 
-vi.mock("@/features/auth/GuestApp", () => ({
-	GuestApp: ({ title }: { title?: string }) => (
-		<div>{title ?? "Guest App"}</div>
-	),
+vi.mock("@/features/wrapped/WrappedGuestPage", () => ({
+	WrappedGuestPage: () => <div>Sign in to start your wrapped</div>,
 }));
 
-vi.mock("@/features/get-started/DesktopResumePromptPage", () => ({
-	DesktopResumePromptPage: ({ email }: { email: string }) => (
+vi.mock("@/features/wrapped/WrappedDesktopResumePromptPage", () => ({
+	WrappedDesktopResumePromptPage: ({ email }: { email: string }) => (
 		<div>Wrapped mobile handoff: {email}</div>
 	),
 }));

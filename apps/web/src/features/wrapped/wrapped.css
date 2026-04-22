@@ -1,5 +1,6 @@
 body.mymind-wrapped-body {
-	background: #fffdfe;
+	--wrapped-shell-bg: #f4f5f7;
+	background: var(--wrapped-shell-bg);
 }
 
 body.mymind-wrapped-body #root {
@@ -14,11 +15,11 @@ body.mymind-wrapped-body #root {
 	overflow-x: clip;
 	overscroll-behavior-y: none;
 	scrollbar-gutter: stable;
-	background: #fffdfe;
+	background: var(--wrapped-shell-bg);
 }
 
 .mymind-wrapped-route--scale-rain {
-	background: #fffdfe;
+	background: var(--wrapped-shell-bg);
 }
 
 .mymind-wrapped-route::before {
@@ -36,12 +37,27 @@ body.mymind-wrapped-body #root {
 	--wrapped-stage-card-shadow: 0 16px 30px rgb(15 23 42 / 0.05);
 	--wrapped-stage-divider: rgb(17 24 39 / 0.08);
 	--wrapped-shell-stage-gap: clamp(1rem, 2vw, 1.75rem);
+	--wrapped-shell-top-inset: 40px;
+	--wrapped-shell-inline-inset: 40px;
+	--wrapped-shell-bottom-inset: 40px;
 	max-width: var(--wrapped-shell-max-width);
 	min-height: 100svh;
-	padding-top: max(12px, env(safe-area-inset-top));
-	padding-right: max(16px, env(safe-area-inset-right));
-	padding-bottom: max(12px, env(safe-area-inset-bottom));
-	padding-left: max(16px, env(safe-area-inset-left));
+	padding-top: calc(
+		env(safe-area-inset-top, 0px) +
+		var(--wrapped-shell-top-inset)
+	);
+	padding-right: calc(
+		env(safe-area-inset-right, 0px) +
+		var(--wrapped-shell-inline-inset)
+	);
+	padding-bottom: calc(
+		env(safe-area-inset-bottom, 0px) +
+		var(--wrapped-shell-bottom-inset)
+	);
+	padding-left: calc(
+		env(safe-area-inset-left, 0px) +
+		var(--wrapped-shell-inline-inset)
+	);
 }
 
 .mymind-wrapped-shell__frame {
@@ -99,7 +115,7 @@ body.mymind-wrapped-body #root {
 	padding-inline: 0.95rem;
 	border: 1px solid rgb(17 24 39 / 0.06);
 	border-radius: 999px;
-	background: rgb(255 255 255 / 0.86);
+	background: #fefefe;
 	box-shadow:
 		inset 0 1px 0 rgb(255 255 255 / 0.82),
 		0 10px 22px rgb(15 23 42 / 0.05);
@@ -129,7 +145,7 @@ body.mymind-wrapped-body #root {
 	height: 44px;
 	min-height: 44px;
 	border: 1px solid rgb(17 24 39 / 0.08);
-	background: rgb(255 255 255 / 0.9);
+	background: #fefefe;
 	box-shadow:
 		inset 0 1px 0 rgb(255 255 255 / 0.82),
 		0 10px 22px rgb(15 23 42 / 0.05);
@@ -138,7 +154,7 @@ body.mymind-wrapped-body #root {
 }
 
 .mymind-wrapped-back-button:hover {
-	background: white;
+	background: #fefefe;
 	color: #17161c;
 }
 
@@ -321,23 +337,15 @@ body.mymind-wrapped-body #root {
 	padding: 1rem 1rem 1.05rem;
 	border: 1px solid rgb(17 24 39 / 0.05);
 	border-radius: 1.7rem;
-	background: linear-gradient(
-		180deg,
-		rgb(255 251 244 / 0.94) 0%,
-		rgb(255 243 221 / 0.82) 100%
-	);
+	background: rgb(255 255 255 / 0.9);
 	box-shadow:
-		inset 0 1px 0 rgb(255 255 255 / 0.72),
-		0 16px 30px rgb(15 23 42 / 0.05);
+		inset 0 1px 0 rgb(255 255 255 / 0.82),
+		0 12px 24px rgb(15 23 42 / 0.04);
 	color: #17161c;
 }
 
 .mymind-wrapped-intro-stage__signal-card.is-sparse {
-	background: linear-gradient(
-		180deg,
-		rgb(255 255 255 / 0.92) 0%,
-		rgb(245 247 250 / 0.88) 100%
-	);
+	background: rgb(255 255 255 / 0.9);
 	color: #17161c;
 }
 
@@ -1982,11 +1990,6 @@ body.mymind-wrapped-body #root {
 	gap: 0.46rem;
 }
 
-.mymind-wrapped-quality-stage__row.is-pending
-	.mymind-wrapped-quality-stage__row-value {
-	color: rgb(58 61 70 / 0.52);
-}
-
 .mymind-wrapped-quality-stage__row-head {
 	display: flex;
 	align-items: center;
@@ -2010,6 +2013,11 @@ body.mymind-wrapped-body #root {
 .mymind-wrapped-quality-stage__row-value {
 	color: #17161c;
 	letter-spacing: -0.03em;
+}
+
+.mymind-wrapped-quality-stage__row.is-pending
+	.mymind-wrapped-quality-stage__row-value {
+	color: rgb(58 61 70 / 0.52);
 }
 
 .mymind-wrapped-quality-stage__track {
@@ -2633,6 +2641,422 @@ body.mymind-wrapped-body #root {
 	text-wrap: pretty;
 }
 
+.mymind-wrapped-entry-stage {
+	display: grid;
+	gap: 1.2rem;
+	align-content: center;
+	width: 100%;
+	max-width: 34rem;
+	margin: 0 auto;
+	min-height: 100%;
+}
+
+.mymind-wrapped-entry-stage__copy {
+	display: grid;
+	justify-items: center;
+	gap: 0.55rem;
+	text-align: center;
+}
+
+.mymind-wrapped-entry-stage__eyebrow {
+	margin: 0;
+	color: rgb(58 61 70 / 0.66);
+	font-size: 0.8125rem;
+	font-family: var(--font-sans);
+	font-weight: 600;
+	letter-spacing: -0.01em;
+	line-height: 1;
+}
+
+.mymind-wrapped-entry-stage__headline {
+	margin: 0;
+	max-width: 12ch;
+	color: #22201f;
+	font-size: clamp(2.2rem, 6vw, 2.85rem);
+	font-family: var(--app-font-heading);
+	font-weight: 700;
+	letter-spacing: -0.07em;
+	line-height: 0.94;
+	text-align: center;
+	text-wrap: balance;
+}
+
+.mymind-wrapped-entry-stage__subline {
+	max-width: 32ch;
+	color: #6c6761;
+	font-size: 1rem;
+	font-family: var(--font-sans);
+	font-weight: 500;
+	line-height: 1.55;
+	text-align: center;
+	text-wrap: pretty;
+}
+
+.mymind-wrapped-entry-stage__subline strong {
+	color: #22201f;
+	font-weight: 700;
+}
+
+.mymind-wrapped-entry-stage__subline p {
+	margin: 0;
+}
+
+.mymind-wrapped-entry-stage__object {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 100%;
+	min-width: 0;
+}
+
+.mymind-wrapped-entry-card {
+	display: grid;
+	gap: 1rem;
+	width: min(100%, 25rem);
+	padding: 1.15rem 1.1rem;
+	border: 1px solid rgb(17 24 39 / 0.05);
+	border-radius: 2rem;
+	background: #fefefe;
+	box-shadow:
+		inset 0 1px 0 rgb(255 255 255 / 0.84),
+		0 12px 24px rgb(15 23 42 / 0.04);
+}
+
+.mymind-wrapped-entry-card--status {
+	justify-items: center;
+	width: min(100%, 20rem);
+	padding-block: 1.35rem;
+	text-align: center;
+}
+
+.mymind-wrapped-entry-card__status-dot {
+	width: 0.78rem;
+	height: 0.78rem;
+	border-radius: 999px;
+	background: #1bb5ff;
+	box-shadow: 0 0 0 0.32rem rgb(27 181 255 / 0.14);
+}
+
+.mymind-wrapped-entry-card__status-copy,
+.mymind-wrapped-entry-card__body {
+	margin: 0;
+	color: #6b655f;
+	font-size: 0.95rem;
+	font-family: var(--font-sans);
+	font-weight: 500;
+	line-height: 1.55;
+	text-wrap: pretty;
+}
+
+.mymind-wrapped-entry-card__section {
+	display: grid;
+	gap: 0.72rem;
+}
+
+.mymind-wrapped-entry-card__section-eyebrow {
+	margin: 0;
+	color: #8d857d;
+	font-size: 0.72rem;
+	font-family: var(--font-sans);
+	font-weight: 700;
+	letter-spacing: 0.16em;
+	line-height: 1;
+	text-transform: uppercase;
+}
+
+.mymind-wrapped-entry-card__list {
+	display: grid;
+	gap: 0.45rem;
+	margin: 0;
+	padding-left: 1.15rem;
+	color: #4d4945;
+	font-size: 0.9375rem;
+	font-family: var(--font-sans);
+	font-weight: 500;
+	line-height: 1.55;
+}
+
+.mymind-wrapped-entry-card__code {
+	display: block;
+	width: 100%;
+	padding: 0.95rem 1rem;
+	border: 1px solid rgb(17 24 39 / 0.06);
+	border-radius: 1.35rem;
+	background: #fefefe;
+	color: #25211e;
+	font-family: var(--dashboard-01-font-roster-mono);
+	font-size: 0.84rem;
+	font-weight: 600;
+	line-height: 1.45;
+}
+
+.mymind-wrapped-entry-card__feedback {
+	display: grid;
+	gap: 0.45rem;
+	padding: 0.9rem 1rem;
+	border-radius: 1.35rem;
+	font-size: 0.92rem;
+	font-family: var(--font-sans);
+	font-weight: 500;
+	line-height: 1.55;
+}
+
+.mymind-wrapped-entry-card__feedback.is-error {
+	border: 1px solid rgb(220 38 38 / 0.12);
+	background: #fefefe;
+	color: #b91c1c;
+}
+
+.mymind-wrapped-entry-card__feedback.is-success {
+	border: 1px solid rgb(20 184 166 / 0.12);
+	background: #fefefe;
+	color: #115e59;
+}
+
+.mymind-wrapped-entry-card__feedback-copy {
+	margin: 0;
+}
+
+.mymind-wrapped-entry-card__link {
+	color: #115e59;
+	font-size: 0.9rem;
+	font-family: var(--font-sans);
+	font-weight: 700;
+	line-height: 1.45;
+	text-decoration: underline;
+	text-underline-offset: 0.24rem;
+	overflow-wrap: anywhere;
+}
+
+.mymind-wrapped-auth-panel {
+	display: grid;
+	gap: 0.85rem;
+	width: min(100%, 26rem);
+}
+
+.mymind-wrapped-auth-toggle {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 0.35rem;
+	padding: 0.3rem;
+	border: 1px solid rgb(17 24 39 / 0.05);
+	border-radius: 999px;
+	background: #fefefe;
+	box-shadow:
+		inset 0 1px 0 rgb(255 255 255 / 0.84),
+		0 12px 24px rgb(15 23 42 / 0.04);
+}
+
+.mymind-wrapped-auth-toggle__button {
+	min-height: 44px;
+	padding-inline: 1rem;
+	border: 0;
+	border-radius: 999px;
+	background: transparent;
+	font-size: 0.95rem;
+	font-family: var(--font-sans);
+	font-weight: 600;
+	letter-spacing: -0.01em;
+	transition:
+		background-color 160ms ease,
+		color 160ms ease,
+		box-shadow 160ms ease;
+}
+
+.mymind-wrapped-auth-toggle__button--active {
+	background: #fefefe;
+	box-shadow: 0 10px 18px rgb(15 23 42 / 0.06);
+	color: #22201f;
+}
+
+.mymind-wrapped-auth-toggle__button--inactive {
+	color: #7b746d;
+}
+
+.mymind-wrapped-auth-form {
+	display: grid;
+	gap: 0.85rem;
+}
+
+.mymind-wrapped-auth-form__field {
+	display: grid;
+	gap: 0.45rem;
+}
+
+.mymind-wrapped-auth-form__email-row {
+	position: relative;
+}
+
+.mymind-wrapped-auth-form__email-input {
+	width: 100%;
+	padding-right: 5.5rem;
+}
+
+.mymind-wrapped-auth-form__email-button {
+	position: absolute;
+	top: 50%;
+	right: 0.375rem;
+	transform: translateY(-50%);
+	height: 2rem;
+	padding-inline: 0.9rem;
+}
+
+.mymind-wrapped-auth-form__label {
+	color: #645f59;
+	font-size: 0.82rem;
+	font-family: var(--font-sans);
+	font-weight: 600;
+	letter-spacing: -0.01em;
+}
+
+.mymind-wrapped-auth-form__input {
+	height: 3rem;
+	border-color: rgb(17 24 39 / 0.08);
+	border-radius: 1rem;
+	background: #fefefe;
+	padding-inline: 1rem;
+	color: #1d1a18;
+}
+
+.mymind-wrapped-auth-form__input::placeholder {
+	color: #99928a;
+}
+
+.mymind-wrapped-auth-form__inline-action {
+	padding-inline: 0;
+	color: #807970;
+	font-size: 0.8rem;
+	font-family: var(--font-sans);
+	font-weight: 600;
+}
+
+.mymind-wrapped-auth-form__feedback {
+	padding: 0.8rem 0.95rem;
+	border-radius: 1.3rem;
+	font-size: 0.92rem;
+	font-family: var(--font-sans);
+	font-weight: 500;
+	line-height: 1.45;
+}
+
+.mymind-wrapped-auth-form__feedback.is-error {
+	border: 1px solid rgb(220 38 38 / 0.12);
+	background: #fefefe;
+	color: #b91c1c;
+}
+
+.mymind-wrapped-auth-form__feedback.is-success {
+	border: 1px solid rgb(15 23 42 / 0.06);
+	background: #fefefe;
+	color: #57524d;
+}
+
+.mymind-wrapped-auth-form__divider {
+	display: flex;
+	align-items: center;
+	gap: 0.75rem;
+}
+
+.mymind-wrapped-auth-form__divider-line {
+	flex: 1 1 0;
+	background: rgb(17 24 39 / 0.1);
+}
+
+.mymind-wrapped-auth-form__divider-label {
+	color: #938c85;
+	font-size: 0.72rem;
+	font-family: var(--font-sans);
+	font-weight: 700;
+	letter-spacing: 0.14em;
+}
+
+.mymind-wrapped-auth-form__social {
+	display: grid;
+	gap: 0.6rem;
+}
+
+.mymind-wrapped-auth-form__terms,
+.mymind-wrapped-auth-form__switch-copy {
+	margin: 0;
+	color: #7a736c;
+	font-size: 0.82rem;
+	font-family: var(--font-sans);
+	font-weight: 500;
+	line-height: 1.5;
+	text-align: center;
+	text-wrap: pretty;
+}
+
+.mymind-wrapped-auth-form__switch-copy {
+	font-size: 0.9rem;
+}
+
+.mymind-wrapped-auth-form__switch-link {
+	color: #22201f;
+	font-weight: 700;
+	text-decoration: underline;
+	text-underline-offset: 0.24rem;
+}
+
+.mymind-wrapped-setup-steps {
+	display: grid;
+	gap: 0.75rem;
+	width: min(100%, 25rem);
+}
+
+.mymind-wrapped-setup-command {
+	padding: 1rem 1rem 1.05rem;
+	border: 1px solid rgb(17 24 39 / 0.05);
+	border-radius: 1.7rem;
+	background: #fefefe;
+	box-shadow:
+		inset 0 1px 0 rgb(255 255 255 / 0.84),
+		0 12px 24px rgb(15 23 42 / 0.04);
+	transition:
+		border-color 160ms ease,
+		background-color 160ms ease,
+		color 160ms ease;
+}
+
+.mymind-wrapped-setup-command.is-complete {
+	border-color: rgb(20 184 166 / 0.18);
+	background: #fefefe;
+}
+
+.mymind-wrapped-setup-command__label {
+	margin: 0;
+	color: #1f1c1a;
+	font-size: 1rem;
+	font-family: var(--app-font-heading);
+	font-weight: 700;
+	letter-spacing: -0.03em;
+	line-height: 1.1;
+}
+
+.mymind-wrapped-setup-command__label.is-complete {
+	color: #115e59;
+}
+
+.mymind-wrapped-setup-command__code {
+	display: block;
+	margin-top: 0.75rem;
+	padding: 0.9rem 1rem;
+	border: 1px solid rgb(17 24 39 / 0.06);
+	border-radius: 1.2rem;
+	background: #fefefe;
+	color: #2a2623;
+	font-family: var(--dashboard-01-font-roster-mono);
+	font-size: 0.82rem;
+	font-weight: 600;
+	line-height: 1.45;
+}
+
+.mymind-wrapped-setup-command__code.is-complete {
+	border-color: rgb(20 184 166 / 0.18);
+	background: #fefefe;
+	color: #115e59;
+}
+
 .mymind-wrapped-action-stack {
 	display: grid;
 	gap: 0.75rem;
@@ -2652,7 +3076,7 @@ body.mymind-wrapped-body #root {
 	gap: 0.5rem;
 	border: 1px solid rgb(19 28 36 / 0.08);
 	border-radius: 999px;
-	background: rgb(255 255 255 / 0.88);
+	background: #fefefe;
 	box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.7);
 	color: #2b2a31;
 	font-family: var(--font-sans);
@@ -2663,11 +3087,182 @@ body.mymind-wrapped-body #root {
 }
 
 .mymind-wrapped-secondary-action:hover {
-	background: white;
+	background: #fefefe;
 	box-shadow:
 		inset 0 1px 0 rgb(255 255 255 / 0.8),
 		0 10px 20px rgb(15 23 42 / 0.05);
 	transform: translateY(-1px);
+}
+
+.mymind-wrapped-route--onboarding .mymind-wrapped-secondary-action {
+	background: var(--wrapped-onboarding-surface-bg);
+}
+
+.mymind-wrapped-route--onboarding {
+	--wrapped-shell-bg: #fefefe;
+	--wrapped-onboarding-surface-bg: #fefefe;
+	--surface: var(--wrapped-onboarding-surface-bg);
+	background: var(--wrapped-shell-bg);
+}
+
+.mymind-wrapped-route--onboarding .mymind-wrapped-top-tray__status,
+.mymind-wrapped-route--onboarding .mymind-wrapped-back-button,
+.mymind-wrapped-route--onboarding .mymind-wrapped-debug-tray__option--inactive,
+.mymind-wrapped-route--onboarding .mymind-wrapped-entry-card,
+.mymind-wrapped-route--onboarding .mymind-wrapped-entry-card__code,
+.mymind-wrapped-route--onboarding .mymind-wrapped-auth-toggle,
+.mymind-wrapped-route--onboarding .mymind-wrapped-auth-toggle__button--active,
+.mymind-wrapped-route--onboarding .mymind-wrapped-auth-form,
+.mymind-wrapped-route--onboarding .mymind-wrapped-auth-form__input,
+.mymind-wrapped-route--onboarding .mymind-wrapped-setup-command,
+.mymind-wrapped-route--onboarding .mymind-wrapped-setup-command.is-complete,
+.mymind-wrapped-route--onboarding .mymind-wrapped-setup-command__code,
+.mymind-wrapped-route--onboarding
+	.mymind-wrapped-setup-command__code.is-complete,
+.mymind-wrapped-route--onboarding .mymind-wrapped-intro-stage__signal-card,
+.mymind-wrapped-route--onboarding
+	.mymind-wrapped-intro-stage__signal-card.is-sparse,
+.mymind-wrapped-route--onboarding .mymind-wrapped-skills-stage__card,
+.mymind-wrapped-route--onboarding .mymind-wrapped-skills-stage__card.is-front,
+.mymind-wrapped-route--onboarding .mymind-wrapped-skills-stage__item-rank,
+.mymind-wrapped-route--onboarding
+	.mymind-wrapped-skills-stage__card-item.is-placeholder
+	.mymind-wrapped-skills-stage__item-rank,
+.mymind-wrapped-route--onboarding .mymind-wrapped-tools-stage__entry,
+.mymind-wrapped-route--onboarding
+	.mymind-wrapped-tools-stage__entry.is-placeholder,
+.mymind-wrapped-route--onboarding .mymind-wrapped-tools-stage__meter,
+.mymind-wrapped-route--onboarding .mymind-wrapped-repo-pulse-stage__card,
+.mymind-wrapped-route--onboarding .mymind-wrapped-repo-pulse-stage__role,
+.mymind-wrapped-route--onboarding .mymind-wrapped-repo-pulse-stage__empty,
+.mymind-wrapped-route--onboarding .mymind-wrapped-model-stage__card,
+.mymind-wrapped-route--onboarding .mymind-wrapped-model-stage__summary-track,
+.mymind-wrapped-route--onboarding .mymind-wrapped-model-stage__month-bar,
+.mymind-wrapped-route--onboarding
+	.mymind-wrapped-model-stage__month-bar.is-empty,
+.mymind-wrapped-route--onboarding .mymind-wrapped-model-stage__empty,
+.mymind-wrapped-route--onboarding .mymind-wrapped-lock-in-stage__card,
+.mymind-wrapped-route--onboarding
+	.mymind-wrapped-lock-in-stage__card.is-settled,
+.mymind-wrapped-route--onboarding
+	.mymind-wrapped-lock-in-stage__card.is-didnt-end,
+.mymind-wrapped-route--onboarding
+	.mymind-wrapped-lock-in-stage__card.is-missing,
+.mymind-wrapped-route--onboarding .mymind-wrapped-quality-stage__card,
+.mymind-wrapped-route--onboarding
+	.mymind-wrapped-quality-stage__card.is-delivery-led,
+.mymind-wrapped-route--onboarding
+	.mymind-wrapped-quality-stage__card.is-success-only,
+.mymind-wrapped-route--onboarding
+	.mymind-wrapped-quality-stage__card.is-commit-led,
+.mymind-wrapped-route--onboarding
+	.mymind-wrapped-quality-stage__card.is-commit-only,
+.mymind-wrapped-route--onboarding
+	.mymind-wrapped-quality-stage__card.is-iterating,
+.mymind-wrapped-route--onboarding
+	.mymind-wrapped-quality-stage__card.is-missing,
+.mymind-wrapped-route--onboarding .mymind-wrapped-quality-stage__track,
+.mymind-wrapped-route--onboarding
+	.mymind-wrapped-quality-stage__row.is-pending
+	.mymind-wrapped-quality-stage__track,
+.mymind-wrapped-route--onboarding .mymind-wrapped-scale-stage__card,
+.mymind-wrapped-route--onboarding .mymind-wrapped-upload-card,
+.mymind-wrapped-route--onboarding .mymind-wrapped-upload-reel,
+.mymind-wrapped-route--onboarding .mymind-wrapped-upload-card__tag,
+.mymind-wrapped-route--onboarding .mymind-wrapped-upload-card__tag.is-ready,
+.mymind-wrapped-route--onboarding
+	.mymind-wrapped-upload-card__tag.is-uploading {
+	background: var(--wrapped-onboarding-surface-bg);
+}
+
+.mymind-wrapped-route--onboarding
+	.mymind-wrapped-repo-pulse-stage__card::before,
+.mymind-wrapped-route--onboarding .mymind-wrapped-lock-in-stage__card::before,
+.mymind-wrapped-route--onboarding .mymind-wrapped-quality-stage__card::before,
+.mymind-wrapped-route--onboarding
+	.mymind-wrapped-repo-pulse-stage__object::before,
+.mymind-wrapped-route--onboarding
+	.mymind-wrapped-repo-pulse-stage__object::after,
+.mymind-wrapped-route--onboarding .mymind-wrapped-lock-in-stage__object::before,
+.mymind-wrapped-route--onboarding .mymind-wrapped-lock-in-stage__object::after,
+.mymind-wrapped-route--onboarding .mymind-wrapped-quality-stage__object::before,
+.mymind-wrapped-route--onboarding .mymind-wrapped-quality-stage__object::after,
+.mymind-wrapped-route--onboarding .mymind-wrapped-scale-rain__ambient {
+	background: transparent;
+}
+
+.mymind-wrapped-route--onboarding .mymind-wrapped-scale-rain__glow {
+	animation: none;
+	opacity: 0;
+}
+
+.mymind-wrapped-route--onboarding .mymind-wrapped-scale-stage__card {
+	backdrop-filter: none;
+}
+
+.mymind-wrapped-route--onboarding
+	.mymind-wrapped-lock-in-stage__card.is-settled
+	.mymind-wrapped-lock-in-stage__chip.is-state,
+.mymind-wrapped-route--onboarding
+	.mymind-wrapped-lock-in-stage__card.is-stretched
+	.mymind-wrapped-lock-in-stage__chip.is-state,
+.mymind-wrapped-route--onboarding
+	.mymind-wrapped-lock-in-stage__card.is-got-away
+	.mymind-wrapped-lock-in-stage__chip.is-state,
+.mymind-wrapped-route--onboarding
+	.mymind-wrapped-lock-in-stage__card.is-didnt-end
+	.mymind-wrapped-lock-in-stage__chip.is-state,
+.mymind-wrapped-route--onboarding
+	.mymind-wrapped-quality-stage__card.is-strong
+	.mymind-wrapped-quality-stage__chip.is-state,
+.mymind-wrapped-route--onboarding
+	.mymind-wrapped-quality-stage__card.is-delivery-led
+	.mymind-wrapped-quality-stage__chip.is-state,
+.mymind-wrapped-route--onboarding
+	.mymind-wrapped-quality-stage__card.is-success-only
+	.mymind-wrapped-quality-stage__chip.is-state,
+.mymind-wrapped-route--onboarding
+	.mymind-wrapped-quality-stage__card.is-commit-led
+	.mymind-wrapped-quality-stage__chip.is-state,
+.mymind-wrapped-route--onboarding
+	.mymind-wrapped-quality-stage__card.is-commit-only
+	.mymind-wrapped-quality-stage__chip.is-state,
+.mymind-wrapped-route--onboarding
+	.mymind-wrapped-quality-stage__card.is-iterating
+	.mymind-wrapped-quality-stage__chip.is-state {
+	background: var(--wrapped-onboarding-surface-bg);
+}
+
+.mymind-wrapped-entry-action {
+	display: inline-flex;
+	height: 44px;
+	width: 100%;
+	align-items: center;
+	justify-content: center;
+	gap: 0.5rem;
+	border: 1px solid rgb(17 24 39 / 0.08);
+	border-radius: 999px;
+	background: #17161c;
+	box-shadow: 0 8px 18px rgb(23 22 28 / 0.1);
+	color: white;
+	font-family: var(--app-font-heading);
+	letter-spacing: -0.02em;
+	transition:
+		transform 160ms ease,
+		background-color 160ms ease,
+		box-shadow 160ms ease;
+}
+
+.mymind-wrapped-entry-action:hover {
+	background: #22201f;
+	box-shadow: 0 10px 20px rgb(23 22 28 / 0.12);
+	transform: translateY(-1px);
+}
+
+.mymind-wrapped-entry-action:disabled {
+	background: rgb(23 22 28 / 0.28);
+	box-shadow: none;
+	color: rgb(255 255 255 / 0.94);
 }
 
 .mymind-wrapped-primary-action {
@@ -2865,8 +3460,10 @@ body.mymind-wrapped-body #root {
 	aspect-ratio: 4 / 5;
 	border: 1px solid rgb(17 24 39 / 0.06);
 	border-radius: 2rem;
-	background: linear-gradient(180deg, #ffffff 0%, #fffaf7 100%);
-	box-shadow: var(--wrapped-shell-card-shadow);
+	background: rgb(255 255 255 / 0.9);
+	box-shadow:
+		inset 0 1px 0 rgb(255 255 255 / 0.84),
+		0 18px 36px rgb(15 23 42 / 0.08);
 	overflow: clip;
 }
 
@@ -2931,17 +3528,23 @@ body.mymind-wrapped-body #root {
 .mymind-wrapped-share-actions__primary {
 	min-height: 44px;
 	border-radius: 999px;
-	border: 1px solid rgb(15 167 247 / 0.12);
-	background: linear-gradient(180deg, #1bb5ff 0%, #0fa7f7 100%);
+	border: 1px solid rgb(17 24 39 / 0.08);
+	background: #17161c;
 	color: white;
 	font-family: var(--app-font-heading);
 	font-size: 1.0625rem;
 	font-weight: 700;
-	box-shadow: 0 16px 28px rgb(15 167 247 / 0.24);
+	box-shadow: 0 8px 18px rgb(23 22 28 / 0.1);
+	transition:
+		transform 160ms ease,
+		background-color 160ms ease,
+		box-shadow 160ms ease;
 }
 
 .mymind-wrapped-share-actions__primary:hover {
-	background: linear-gradient(180deg, #16aff8 0%, #0898e2 100%);
+	background: #22201f;
+	box-shadow: 0 10px 20px rgb(23 22 28 / 0.12);
+	transform: translateY(-1px);
 }
 
 .mymind-wrapped-share-actions__grid {
@@ -2967,8 +3570,9 @@ body.mymind-wrapped-body #root {
 
 @media (min-width: 48rem) {
 	.mymind-wrapped-shell {
-		padding-top: max(16px, env(safe-area-inset-top));
-		padding-bottom: max(16px, env(safe-area-inset-bottom));
+		--wrapped-shell-top-inset: 40px;
+		--wrapped-shell-inline-inset: 40px;
+		--wrapped-shell-bottom-inset: 40px;
 	}
 
 	.mymind-wrapped-intro-stage {

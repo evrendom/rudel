@@ -123,14 +123,42 @@ function runSafeAreaRule(
 	auditFiles: readonly AuditFile[],
 	findings: Finding[],
 ) {
-	if (containsPattern(auditFiles, /safe-area-inset|env\(/g)) {
+	const wrappedCssFile = getAuditFile(auditFiles, WRAPPED_CSS_PATH);
+	const usesSafeAreaInsets = containsPattern(auditFiles, /safe-area-inset|env\(/g);
+
+	if (!usesSafeAreaInsets) {
+		findings.push({
+			line: null,
+			message:
+				"The wrapped route does not reference safe-area insets. Add `env(safe-area-inset-*)` padding to the shell so controls and story content clear the notch, rounded corners, and home indicator.",
+			relativePath: WRAPPED_CSS_PATH,
+			rule: "safe-area",
+		});
+		return;
+	}
+
+	addLineFindings({
+		auditFile: wrappedCssFile,
+		findings,
+		message:
+			"Do not use `max(baseline, env(safe-area-inset-*))` for wrapped shell padding. Apple-style mobile shells need a baseline gutter plus the safe-area inset, not one or the other.",
+		pattern: /max\([^)]*safe-area-inset[^)]*\)/g,
+		rule: "safe-area",
+	});
+
+	const usesAdditiveSafeAreaPadding =
+		/padding-(top|right|bottom|left):\s*calc\(\s*env\(safe-area-inset-(top|right|bottom|left),?\s*0px\)\s*\+/.test(
+			wrappedCssFile.content,
+		);
+
+	if (usesAdditiveSafeAreaPadding) {
 		return;
 	}
 
 	findings.push({
 		line: null,
 		message:
-			"The wrapped route does not reference safe-area insets. Add `env(safe-area-inset-*)` padding to the shell so controls and story content clear the notch, rounded corners, and home indicator.",
+			"The wrapped shell should use additive safe-area padding such as `calc(env(safe-area-inset-bottom, 0px) + 16px)` so content keeps both the device-safe inset and a readable gutter.",
 		relativePath: WRAPPED_CSS_PATH,
 		rule: "safe-area",
 	});

@@ -187,6 +187,9 @@ describe("auth state refresh", () => {
 		const user = userEvent.setup();
 		render(<SignupForm onSwitchToLogin={vi.fn()} />);
 
+		await user.click(
+			screen.getByRole("button", { name: "Continue with email instead" }),
+		);
 		await user.type(screen.getByLabelText("Name"), "Ada Lovelace");
 		await user.type(screen.getByLabelText("Email"), "ada@example.com");
 		await user.type(screen.getByLabelText("Password"), "supersecure");
@@ -223,6 +226,9 @@ describe("auth state refresh", () => {
 		const user = userEvent.setup();
 		render(<SignupForm onSwitchToLogin={vi.fn()} />);
 
+		await user.click(
+			screen.getByRole("button", { name: "Continue with email instead" }),
+		);
 		await user.type(screen.getByLabelText("Name"), "Ada Lovelace");
 		await user.type(screen.getByLabelText("Email"), "ada@example.com");
 		await user.type(screen.getByLabelText("Password"), "supersecure");
@@ -242,6 +248,9 @@ describe("auth state refresh", () => {
 		const user = userEvent.setup();
 		render(<SignupForm onSwitchToLogin={vi.fn()} />);
 
+		await user.click(
+			screen.getByRole("button", { name: "Continue with email instead" }),
+		);
 		await user.type(screen.getByLabelText("Name"), "Ada Lovelace");
 		await user.type(screen.getByLabelText("Email"), "ada@example.com");
 		await user.type(screen.getByLabelText("Password"), "supersecure");
@@ -262,6 +271,9 @@ describe("auth state refresh", () => {
 		const user = userEvent.setup();
 		render(<SignupForm onSwitchToLogin={vi.fn()} />);
 
+		await user.click(
+			screen.getByRole("button", { name: "Continue with email instead" }),
+		);
 		await user.type(screen.getByLabelText("Name"), "Ada Lovelace");
 		await user.type(screen.getByLabelText("Email"), "ada@example.com");
 		await user.type(screen.getByLabelText("Password"), "supersecure");
@@ -304,6 +316,9 @@ describe("auth state refresh", () => {
 		const user = userEvent.setup();
 		render(<LoginForm onSwitchToSignup={vi.fn()} />);
 
+		await user.click(
+			screen.getByRole("button", { name: "Use email and password instead" }),
+		);
 		await user.type(screen.getByLabelText("Email"), "ada@example.com");
 		await user.type(screen.getByLabelText("Password"), "supersecure");
 		await user.click(screen.getByRole("button", { name: "Sign in" }));
@@ -329,6 +344,9 @@ describe("auth state refresh", () => {
 		const user = userEvent.setup();
 		render(<LoginForm onSwitchToSignup={vi.fn()} />);
 
+		await user.click(
+			screen.getByRole("button", { name: "Use email and password instead" }),
+		);
 		await user.type(screen.getByLabelText("Email"), "ada@example.com");
 		await user.type(screen.getByLabelText("Password"), "supersecure");
 		await user.click(screen.getByRole("button", { name: "Sign in" }));

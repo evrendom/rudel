@@ -7,13 +7,15 @@ import {
 	type AppSession,
 	getSessionUserEmail,
 } from "@/features/auth/auth-route-utils";
-import { GuestApp } from "@/features/auth/GuestApp";
-import { DesktopResumePromptPage } from "@/features/get-started/DesktopResumePromptPage";
 import { useSetupProgress } from "@/features/get-started/use-setup-progress";
+import { WrappedRouteStageShell } from "@/features/wrapped/route-stage-shell";
 import { WrappedTeamCardPage } from "@/features/wrapped/team-card/page";
+import { WrappedDesktopResumePromptPage } from "@/features/wrapped/WrappedDesktopResumePromptPage";
+import { WrappedGuestPage } from "@/features/wrapped/WrappedGuestPage";
 import { WrappedPublicPage } from "@/features/wrapped/WrappedPublicPage";
 import { WrappedSetupPage } from "@/features/wrapped/WrappedSetupPage";
 import { useEffectOnceWhen } from "@/hooks/useEffectOnceWhen";
+import { useMountEffect } from "@/hooks/useMountEffect";
 
 interface WrappedRouteGateProps {
 	isPending: boolean;
@@ -37,6 +39,14 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 	const sessionUserEmail = getSessionUserEmail(session);
 	const setupProgress = useSetupProgress({
 		enabled: !publicId && !!session,
+	});
+
+	useMountEffect(() => {
+		document.body.classList.add("mymind-wrapped-body");
+
+		return () => {
+			document.body.classList.remove("mymind-wrapped-body");
+		};
 	});
 
 	useEffectOnceWhen({
@@ -68,19 +78,12 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 
 	if (isPending) {
 		return (
-			<WrappedRouteLoadingState body="Checking your account before loading wrapped…" />
+			<WrappedRouteLoadingState body="Checking your account before loading wrapped..." />
 		);
 	}
 
 	if (!session) {
-		return (
-			<GuestApp
-				description="Create an account or sign in first. Once you are in, this same route will take you through upload, waiting, and the wrapped story."
-				eyebrow="Geneva Wrapped"
-				showLogo={false}
-				title="Sign in to start your wrapped"
-			/>
-		);
+		return <WrappedGuestPage />;
 	}
 
 	if (setupProgress.hasUploadedSessions) {
@@ -93,7 +96,10 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 
 	if (isMobile && sessionUserEmail) {
 		return (
-			<DesktopResumePromptPage email={sessionUserEmail} shareId={shareId} />
+			<WrappedDesktopResumePromptPage
+				email={sessionUserEmail}
+				shareId={shareId}
+			/>
 		);
 	}
 
@@ -116,18 +122,20 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 
 function WrappedRouteLoadingState(props: { body: string }) {
 	return (
-		<div className="flex min-h-screen items-center bg-background px-4 py-6 sm:px-6 lg:px-8">
-			<div className="mx-auto w-full max-w-2xl space-y-3 text-center">
-				<p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">
-					Geneva Wrapped
-				</p>
-				<h1 className="text-3xl font-semibold tracking-[-0.04em] text-foreground">
-					Loading wrapped
-				</h1>
-				<p className="text-sm leading-6 text-muted-foreground sm:text-[0.9375rem]">
-					{props.body}
-				</p>
-			</div>
-		</div>
+		<WrappedRouteStageShell
+			description={props.body}
+			eyebrow="Account"
+			stage={
+				<div className="mymind-wrapped-entry-card mymind-wrapped-entry-card--status">
+					<div className="mymind-wrapped-entry-card__status-dot" />
+					<p className="mymind-wrapped-entry-card__status-copy">
+						Holding the route while auth, uploads, and share continuation are
+						resolved.
+					</p>
+				</div>
+			}
+			status="Geneva Wrapped"
+			title="Loading wrapped"
+		/>
 	);
 }

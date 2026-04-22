@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Button } from "@/app/ui/button";
-import { GuestApp } from "@/features/auth/GuestApp";
 import { WrappedTeamCardPage } from "@/features/wrapped/team-card/page";
+import { WrappedGuestPage } from "@/features/wrapped/WrappedGuestPage";
 import { WrappedSetupPage } from "@/features/wrapped/WrappedSetupPage";
+import { WrappedRouteStageShell } from "./route-stage-shell";
 
 type WrappedDevStage =
 	| "auth"
@@ -109,17 +110,10 @@ function WrappedDevToolbar(props: {
 function WrappedDevAuthStage() {
 	return (
 		<div className="relative">
-			<div className="pointer-events-none">
-				<GuestApp
-					description="This is a read-only preview of the wrapped auth surface. Use the dev stage switcher to move into setup, waiting, mobile handoff, or the story."
-					eyebrow="Geneva Wrapped"
-					showLogo={false}
-					title="Sign in to start your wrapped"
-				/>
-			</div>
-			<div className="pointer-events-none fixed inset-x-4 bottom-4 z-[1000] mx-auto max-w-2xl rounded-2xl border border-border bg-background/95 px-4 py-3 text-sm text-muted-foreground shadow-lg backdrop-blur">
-				Auth controls are disabled on <code>/dev/wrapped</code>. Use the stage
-				switcher to continue.
+			<WrappedGuestPage />
+			<div className="pointer-events-none fixed inset-x-4 bottom-4 z-[1000] mx-auto max-w-2xl rounded-2xl border border-border bg-[#FEFEFE]/95 px-4 py-3 text-sm text-muted-foreground shadow-lg backdrop-blur">
+				Auth controls are interactive on <code>/dev/wrapped</code>. Use the
+				stage switcher to continue through the rest of the flow.
 			</div>
 		</div>
 	);
@@ -130,62 +124,53 @@ function WrappedDevMobileStage(props: { onContinueToSetup: () => void }) {
 	const [isReady, setIsReady] = useState(false);
 
 	return (
-		<section className="flex min-h-screen items-center bg-background px-4 py-6 sm:px-6 lg:px-8">
-			<div className="mx-auto w-full max-w-2xl space-y-8 text-center">
-				<div className="space-y-3">
-					<p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">
-						Continue on desktop
-					</p>
-					<h1 className="text-3xl font-semibold tracking-[-0.04em] text-foreground">
-						Continue setup on desktop
-					</h1>
-					<p className="mx-auto max-w-xl text-sm leading-6 text-muted-foreground sm:text-[0.9375rem]">
-						This is a local preview of the mobile handoff screen. No email is
-						sent from <code>/dev/wrapped</code>.
-					</p>
-				</div>
-
-				<div className="space-y-4 rounded-3xl border border-border/70 bg-card px-5 py-6 text-left shadow-sm sm:px-6">
-					<div className="space-y-2">
-						<h2 className="text-sm font-semibold text-foreground">
-							What happens next
-						</h2>
-						<ol className="space-y-2 text-sm leading-6 text-muted-foreground">
-							<li>1. Request the desktop link from mobile.</li>
-							<li>2. Open it on desktop.</li>
-							<li>3. Continue into wrapped setup there.</li>
-						</ol>
-					</div>
-
-					<Button
-						className="w-full rounded-full"
-						onClick={() => setIsReady(true)}
-						size="lg"
-						type="button"
-					>
-						Preview desktop link sent
-					</Button>
+		<WrappedRouteStageShell
+			description={
+				<>
+					This is a local preview of the mobile handoff screen. No email is sent
+					from <code>/dev/wrapped</code>.
+				</>
+			}
+			footer={
+				<button
+					type="button"
+					className="mymind-wrapped-primary-action h-11 rounded-full px-7 [font-family:var(--app-font-heading)] text-[1.0625rem] font-semibold"
+					onClick={() => setIsReady(true)}
+				>
+					<span>Preview desktop link sent</span>
+				</button>
+			}
+			objectClassName="mymind-wrapped-entry-card"
+			stage={
+				<>
+					<ol className="mymind-wrapped-entry-card__list">
+						<li>1. Request the desktop link from mobile.</li>
+						<li>2. Open it on desktop.</li>
+						<li>3. Continue into wrapped setup there.</li>
+					</ol>
 
 					{isReady ? (
-						<div className="space-y-3 rounded-2xl border border-border/70 bg-background/80 p-4">
-							<p className="text-sm leading-6 text-muted-foreground">
+						<div className="mymind-wrapped-entry-card__feedback is-success">
+							<p className="mymind-wrapped-entry-card__feedback-copy">
 								Dev preview only. In the real flow this state appears after the
 								desktop link is created.
 							</p>
 							<Button
-								className="w-full"
-								onClick={onContinueToSetup}
-								size="lg"
 								type="button"
 								variant="outline"
+								className="mymind-wrapped-secondary-action rounded-full"
+								onClick={onContinueToSetup}
 							>
 								Continue to desktop setup preview
 							</Button>
 						</div>
 					) : null}
-				</div>
-			</div>
-		</section>
+				</>
+			}
+			status="Continue on desktop"
+			title="Continue on desktop"
+			titleClassName="max-w-[11ch]"
+		/>
 	);
 }
 

@@ -229,6 +229,7 @@ export function WrappedTeamCardOnboarding(
 				<main
 					className={cn(
 						"mymind-wrapped-route",
+						"mymind-wrapped-route--onboarding",
 						isScaleStep ? "mymind-wrapped-route--scale-rain" : undefined,
 					)}
 				>

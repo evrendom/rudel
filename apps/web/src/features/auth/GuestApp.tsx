@@ -14,7 +14,7 @@ interface GuestAppProps {
 
 export function GuestApp(props: GuestAppProps = {}) {
 	const { description, eyebrow, showLogo = true, title } = props;
-	const [page, setPage] = useState<Page>("login");
+	const [page, setPage] = useState<Page>("signup");
 
 	return (
 		<div className="flex min-h-screen flex-col items-center justify-center gap-6">
