@@ -8,10 +8,10 @@ interface CreateWrappedResumeOptions {
 
 interface WrappedResumeRow {
 	email: string;
-	expiresAt: Date;
+	expiresAt: Date | string;
 	shareId: string | null;
 	token: string;
-	usedAt: Date | null;
+	usedAt: Date | string | null;
 }
 
 export interface WrappedResumeRecord {
@@ -45,6 +45,8 @@ export async function createWrappedResume(
 	const expiresAt = createWrappedResumeExpiry(createdAt);
 	const normalizedEmail = normalizeEmail(email);
 	const token = crypto.randomUUID();
+	const createdAtIso = createdAt.toISOString();
+	const expiresAtIso = expiresAt.toISOString();
 
 	await sqlClient`
 		INSERT INTO wrapped_resume (
@@ -60,14 +62,14 @@ export async function createWrappedResume(
 			${normalizedEmail},
 			${shareId},
 			${userId},
-			${createdAt},
-			${expiresAt}
+			${createdAtIso},
+			${expiresAtIso}
 		)
 	`;
 
 	return {
 		email: normalizedEmail,
-		expiresAt: expiresAt.toISOString(),
+		expiresAt: expiresAtIso,
 		shareId,
 		token,
 	};
@@ -91,11 +93,14 @@ export async function consumeWrappedResume(options: {
 		return { status: "missing" };
 	}
 
-	if (row.usedAt) {
+	const expiresAt = toDate(row.expiresAt);
+	const usedAt = row.usedAt ? toDate(row.usedAt) : null;
+
+	if (usedAt) {
 		return { status: "used" };
 	}
 
-	if (isWrappedResumeExpired(row.expiresAt)) {
+	if (isWrappedResumeExpired(expiresAt)) {
 		return { status: "expired" };
 	}
 
@@ -149,9 +154,11 @@ async function getWrappedResumeRow(
 }
 
 async function markWrappedResumeUsed(token: string) {
+	const usedAtIso = new Date().toISOString();
+
 	const updatedRows = await sqlClient<Array<{ token: string }>>`
 		UPDATE wrapped_resume
-		SET used_at = ${new Date()}
+		SET used_at = ${usedAtIso}
 		WHERE token = ${token}
 			AND used_at IS NULL
 		RETURNING token
@@ -166,4 +173,8 @@ function buildGetStartedRedirect(shareId: string | null) {
 	}
 
 	return `/get-started?share_id=${encodeURIComponent(shareId)}`;
+}
+
+function toDate(value: Date | string) {
+	return value instanceof Date ? value : new Date(value);
 }

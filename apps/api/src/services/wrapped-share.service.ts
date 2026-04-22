@@ -28,6 +28,8 @@ export async function createWrappedShare(
 	const shareId = crypto.randomUUID();
 	const createdAt = new Date();
 	const expiresAt = createWrappedShareExpiry(createdAt);
+	const createdAtIso = createdAt.toISOString();
+	const expiresAtIso = expiresAt.toISOString();
 
 	await sqlClient`
 		INSERT INTO wrapped_share (
@@ -45,14 +47,14 @@ export async function createWrappedShare(
 			${WRAPPED_SHARE_PAYLOAD_VERSION},
 			${JSON.stringify(snapshot)},
 			${userId},
-			${createdAt},
-			${expiresAt}
+			${createdAtIso},
+			${expiresAtIso}
 		)
 	`;
 
 	return {
-		created_at: createdAt.toISOString(),
-		expires_at: expiresAt.toISOString(),
+		created_at: createdAtIso,
+		expires_at: expiresAtIso,
 		id: shareId,
 	};
 }
@@ -64,8 +66,8 @@ export async function getPublicWrappedShare(
 ): Promise<PublicWrappedShare | null> {
 	const [row] = await sqlClient<
 		Array<{
-			createdAt: Date;
-			expiresAt: Date;
+			createdAt: Date | string;
+			expiresAt: Date | string;
 			id: string;
 			payloadVersion: number;
 			snapshotJson: string;
@@ -86,7 +88,10 @@ export async function getPublicWrappedShare(
 		return null;
 	}
 
-	if (isWrappedShareExpired(row.expiresAt)) {
+	const createdAt = toDate(row.createdAt);
+	const expiresAt = toDate(row.expiresAt);
+
+	if (isWrappedShareExpired(expiresAt)) {
 		return null;
 	}
 
@@ -95,8 +100,8 @@ export async function getPublicWrappedShare(
 	}
 
 	return {
-		created_at: row.createdAt.toISOString(),
-		expires_at: row.expiresAt.toISOString(),
+		created_at: createdAt.toISOString(),
+		expires_at: expiresAt.toISOString(),
 		id: row.id,
 		snapshot: parseWrappedShareSnapshot(row.snapshotJson),
 	};
@@ -128,4 +133,8 @@ function isWrappedShareExpired(expiresAt: Date) {
 // rendering until migrated or regenerated.
 function isWrappedSharePayloadSupported(payloadVersion: number) {
 	return payloadVersion === WRAPPED_SHARE_PAYLOAD_VERSION;
+}
+
+function toDate(value: Date | string) {
+	return value instanceof Date ? value : new Date(value);
 }
