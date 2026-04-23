@@ -36,6 +36,7 @@ interface WrappedTeamCardStageCardProps {
 interface WrappedTeamCardShareStageProps extends WrappedTeamCardStageCardProps {
 	onBack: () => void;
 	onCopy: () => void | Promise<void>;
+	onContinueToDashboard: () => void;
 	onDownload: () => void | Promise<void>;
 	onShare: () => void | Promise<void>;
 	shareCardCreatedAtLabel: string;
@@ -60,6 +61,7 @@ export function WrappedTeamCardShareStage(
 		headerRightMetric,
 		onBack,
 		onCopy,
+		onContinueToDashboard,
 		onDownload,
 		onShare,
 		row,
@@ -178,13 +180,27 @@ export function WrappedTeamCardShareStage(
 						</div>
 					</nav>
 
-					<button
-						type="button"
-						className="mymind-wrapped-final-stage__back"
-						onClick={onBack}
-					>
-						Back to card
-					</button>
+					<div className="mymind-wrapped-share-actions__meta-grid">
+						<Button
+							type="button"
+							size="lg"
+							variant="outline"
+							className="mymind-wrapped-share-actions__secondary"
+							onClick={onBack}
+						>
+							Back to card
+						</Button>
+						<Button
+							type="button"
+							size="lg"
+							variant="outline"
+							aria-label="Continue to dashboard"
+							className="mymind-wrapped-share-actions__secondary"
+							onClick={onContinueToDashboard}
+						>
+							Continue
+						</Button>
+					</div>
 				</>
 			}
 		/>

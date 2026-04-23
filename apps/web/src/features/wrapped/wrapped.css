@@ -4512,6 +4512,15 @@ body.mymind-wrapped-body #root {
 	gap: 0.75rem;
 }
 
+.mymind-wrapped-share-actions__meta-grid {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 0.75rem;
+	width: 100%;
+	max-width: 22rem;
+	margin: 0 auto;
+}
+
 .mymind-wrapped-share-actions__secondary {
 	min-height: 44px;
 	border-color: rgb(17 24 39 / 0.08);
@@ -4598,6 +4607,61 @@ body.mymind-wrapped-body #root {
 
 	.mymind-wrapped-share-actions__grid {
 		gap: 0.5rem;
+	}
+
+	.mymind-wrapped-share-actions__meta-grid {
+		gap: 0.5rem;
+	}
+
+	.mymind-wrapped-final-stage--share {
+		gap: 0.45rem;
+	}
+
+	.mymind-wrapped-final-stage--share .mymind-wrapped-stage-copy {
+		gap: 0.35rem;
+	}
+
+	.mymind-wrapped-final-stage--share .mymind-wrapped-final-stage__headline {
+		font-size: clamp(1.7rem, 6vw, 1.95rem);
+	}
+
+	.mymind-wrapped-final-stage--share .mymind-wrapped-final-stage__subline {
+		max-width: 34ch;
+		font-size: 0.84rem;
+		line-height: 1.28;
+	}
+
+	.mymind-wrapped-final-stage--share .mymind-wrapped-share-preview {
+		width: min(100%, 15rem);
+	}
+
+	.mymind-wrapped-final-stage--share .mymind-wrapped-share-preview__shell {
+		padding: 0.85rem 0.95rem;
+	}
+
+	.mymind-wrapped-final-stage--share .team-lineup-card-tilt-shell {
+		--wrapped-card-render-scale: 0.82;
+	}
+
+	.mymind-wrapped-final-stage--share .mymind-wrapped-share-preview__link {
+		font-size: 0.76rem;
+	}
+
+	.mymind-wrapped-final-stage--share .mymind-wrapped-share-preview__timestamp {
+		font-size: 0.63rem;
+	}
+
+	.mymind-wrapped-final-stage--share .mymind-wrapped-final-stage__support {
+		gap: 0.45rem;
+	}
+
+	.mymind-wrapped-final-stage--share .mymind-wrapped-share-actions {
+		gap: 0.4rem;
+	}
+
+	.mymind-wrapped-final-stage--share .mymind-wrapped-share-actions__grid,
+	.mymind-wrapped-final-stage--share .mymind-wrapped-share-actions__meta-grid {
+		gap: 0.4rem;
 	}
 
 	.mymind-wrapped-final-stage__tilt-shell {

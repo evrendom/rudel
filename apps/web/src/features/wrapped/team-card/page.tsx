@@ -29,7 +29,6 @@ import type {
 import {
 	WrappedTeamCardRevealFooter,
 	WrappedTeamCardRevealStage,
-	WrappedTeamCardShareFooter,
 	WrappedTeamCardShareStage,
 } from "./final-stages";
 import { createWrappedTeamCardShareActions } from "./share";
@@ -312,6 +311,9 @@ function WrappedTeamCardPageContent(props: {
 			headerRightMetric={headerRightMetric}
 			onBack={() => setFinalCardStage("reveal")}
 			onCopy={() => void shareActions.handleCopyPost()}
+			onContinueToDashboard={() =>
+				handleContinueToDashboard("wrapped_share_footer")
+			}
 			onDownload={() => void shareActions.handleDownloadPost()}
 			onShare={() => void shareActions.handleSharePost()}
 			row={sharePreviewRow}
@@ -361,11 +363,7 @@ function WrappedTeamCardPageContent(props: {
 			displayName={visibleTeamCardRow.displayName}
 			finalFooter={
 				showShareStage ? (
-					<WrappedTeamCardShareFooter
-						onContinueToDashboard={() =>
-							handleContinueToDashboard("wrapped_share_footer")
-						}
-					/>
+					false
 				) : (
 					<WrappedTeamCardRevealFooter
 						onContinueToDashboard={() =>
