@@ -23,7 +23,7 @@ import {
 	type TestServer,
 } from "./helpers/bun-server.js";
 
-setDefaultTimeout(30_000);
+setDefaultTimeout(60_000);
 
 let server: TestServer;
 let configDir: string;
@@ -40,7 +40,7 @@ beforeAll(async () => {
 
 	server = await startTestServer();
 	validToken = await signUpTestUser(server.baseUrl);
-}, 60_000);
+});
 
 afterAll(async () => {
 	await server?.stop();

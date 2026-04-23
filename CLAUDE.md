@@ -1,6 +1,6 @@
 # Rudel
 
-A platform for ingesting, storing, and analyzing Claude Code session transcripts. Users authenticate via the web app, use the CLI to upload `.jsonl` session transcripts, which are stored in ClickHouse for analytics.
+A platform for ingesting, storing, and analyzing Claude Code / Codex session transcripts. Users authenticate via the web app, use the CLI to upload `.jsonl` session transcripts, which are stored in ClickHouse for analytics.
 
 **Stack**: Bun, Turborepo, Biome, TypeScript
 **Deployment**: Bun server + Postgres (Neon) + ClickHouse
@@ -13,7 +13,7 @@ A platform for ingesting, storing, and analyzing Claude Code session transcripts
 | App | Package | Description |
 |-----|---------|-------------|
 | `apps/api` | `@rudel/api` | HTTP API server (Bun). Auth via `better-auth`, RPC via `@orpc/server`, session ingestion into ClickHouse. |
-| `apps/cli` | `rudel` (npm) | CLI tool for authenticating and uploading Claude Code session transcripts. Commands: `login`, `logout`, `whoami`, `upload`. |
+| `apps/cli` | `rudel` (npm) | CLI tool for authenticating and uploading Claude Code / Codex session transcripts. Commands: `login`, `logout`, `whoami`, `upload`. |
 | `apps/web` | `@rudel/web` | React SPA (Vite + Tailwind + shadcn). Auth UI and CLI login portal. |
 
 ### Packages

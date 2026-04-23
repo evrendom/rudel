@@ -1,61 +1,88 @@
-import { Terminal } from "lucide-react";
-import { AnalyticsCard } from "./AnalyticsCard";
+import { cn } from "@/lib/utils";
+
+const setupCommands = [
+	{
+		command: "npm install -g rudel",
+		id: "install-cli",
+		title: "Install CLI",
+	},
+	{
+		command: "rudel login",
+		id: "log-in",
+		title: "Log in",
+	},
+	{
+		command: "rudel enable",
+		id: "enable-auto-upload",
+		title: "Enable auto-upload",
+	},
+	{
+		command: "rudel upload",
+		id: "upload-sessions",
+		title: "Upload sessions",
+	},
+] as const;
+
+export type CliSetupStepId = (typeof setupCommands)[number]["id"];
 
 interface CommandBlockProps {
 	label: string;
 	command: string;
-	hint?: string;
+	isComplete?: boolean;
 }
 
-function CommandBlock({ label, command, hint }: CommandBlockProps) {
+function CommandBlock({
+	label,
+	command,
+	isComplete = false,
+}: CommandBlockProps) {
 	return (
-		<div>
-			<p className="text-xs font-medium text-muted-foreground mb-2">{label}</p>
-			<pre className="bg-background rounded-md border border-border px-4 py-3 text-sm font-mono text-foreground">
-				{command}
-			</pre>
-			{hint && (
-				<p className="text-xs text-muted-foreground/60 mt-1.5">{hint}</p>
+		<div
+			data-complete={isComplete ? "true" : "false"}
+			className={cn(
+				"rounded-[1.75rem] border border-border/60 bg-card px-5 py-5 shadow-none transition-colors",
+				isComplete &&
+					"border-status-success-border bg-status-success-bg text-status-success-text",
 			)}
+		>
+			<p
+				className={cn(
+					"[font-family:var(--app-font-heading)] text-lg font-extrabold tracking-[-0.02em] text-foreground transition-colors",
+					isComplete && "text-status-success-text",
+				)}
+			>
+				{label}
+			</p>
+			<code
+				className={cn(
+					"mt-4 block rounded-2xl border border-border/60 bg-background px-3 py-3 font-mono text-[13px] text-foreground transition-colors",
+					isComplete &&
+						"border-status-success-border bg-status-success-bg text-status-success-text",
+				)}
+			>
+				{command}
+			</code>
 		</div>
 	);
 }
 
-export function CliSetupHint() {
+export function CliSetupHint({
+	completedStepIds = [],
+}: {
+	completedStepIds?: readonly CliSetupStepId[];
+}) {
+	const completedSteps = new Set(completedStepIds);
+
 	return (
-		<AnalyticsCard className="mt-4">
-			<div className="flex flex-col items-center justify-center py-20 px-4 text-center">
-				<div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-6">
-					<Terminal className="w-8 h-8 text-muted-foreground" />
-				</div>
-				<h3 className="text-lg font-semibold text-foreground mb-3">
-					No sessions yet
-				</h3>
-				<p className="text-sm text-muted-foreground max-w-lg mb-6">
-					Install the Rudel CLI and enable automatic uploads to start tracking
-					your team's Claude Code sessions.
-				</p>
-				<div className="w-full max-w-md text-left space-y-4">
-					<CommandBlock
-						label="1. Install the CLI globally"
-						command="npm install -g rudel"
-					/>
-					<CommandBlock
-						label="2. Log in to your account"
-						command="rudel login"
-					/>
-					<CommandBlock
-						label="3. Enable auto-upload in your repository"
-						command="rudel enable"
-						hint="Sessions will appear here automatically after your next Claude Code session ends. The enable command will also ask you if you want to upload previous sessions"
-					/>
-					<CommandBlock
-						label="4. Or upload sessions manually"
-						command="rudel upload"
-						hint="Upload previous sessions at any time."
-					/>
-				</div>
-			</div>
-		</AnalyticsCard>
+		<div className="mt-4 mx-auto grid w-full max-w-xl gap-3">
+			{setupCommands.map((step) => (
+				<CommandBlock
+					key={step.command}
+					label={step.title}
+					command={step.command}
+					isComplete={completedSteps.has(step.id)}
+				/>
+			))}
+		</div>
 	);
 }

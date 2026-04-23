@@ -6,6 +6,7 @@ import {
 	useState,
 } from "react";
 import { useSearchParams } from "react-router-dom";
+import { formatIsoDate } from "@/lib/format";
 
 interface DateRangeContextType {
 	startDate: string;
@@ -26,8 +27,8 @@ const getDefaultDates = () => {
 	const start = new Date();
 	start.setDate(start.getDate() - 7);
 	return {
-		start: start.toISOString().split("T")[0],
-		end: end.toISOString().split("T")[0],
+		start: formatIsoDate(start),
+		end: formatIsoDate(end),
 	};
 };
 

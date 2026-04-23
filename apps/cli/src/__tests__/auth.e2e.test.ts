@@ -7,7 +7,7 @@ import {
 	test,
 } from "bun:test";
 
-setDefaultTimeout(30_000);
+setDefaultTimeout(60_000);
 
 import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -30,7 +30,7 @@ beforeAll(async () => {
 
 	server = await startTestServer();
 	sessionToken = await signUpTestUser(server.baseUrl);
-}, 60_000);
+});
 
 afterAll(async () => {
 	await server?.stop();

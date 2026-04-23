@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo } from "react";
+import { useObservedWidth } from "@/features/conversation-internal/hooks/useObservedWidth";
 import { cn } from "@/lib/utils";
 
 export interface ToolActivityPoint {
@@ -14,17 +15,17 @@ interface ToolActivityChartProps {
 	className?: string;
 }
 
-const CHART_HEIGHT = 100;
+const CHART_HEIGHT = 104;
 const LANE_HEIGHT = 28;
-const LANE_TOP_PAD = 8;
+const LANE_TOP_PAD = 10;
 const DOT_RADIUS = 4;
-const LEFT_MARGIN = 40; // match token chart
+const LEFT_MARGIN = 44;
 
-const lanes: {
+const lanes: Array<{
 	category: ToolActivityPoint["category"];
 	label: string;
 	y: number;
-}[] = [
+}> = [
 	{ category: "tool", label: "Tools", y: LANE_TOP_PAD + LANE_HEIGHT * 0.5 },
 	{ category: "skill", label: "Skills", y: LANE_TOP_PAD + LANE_HEIGHT * 1.5 },
 	{
@@ -34,54 +35,86 @@ const lanes: {
 	},
 ];
 
+function getPointFill(point: ToolActivityPoint): string {
+	if (point.isError) {
+		return "color-mix(in srgb, var(--dashboardy-danger-foreground) 85%, white)";
+	}
+	if (point.category === "tool") {
+		return "color-mix(in srgb, var(--dashboardy-accent) 82%, white)";
+	}
+	if (point.category === "skill") {
+		return "color-mix(in srgb, var(--dashboardy-chip-foreground) 78%, white)";
+	}
+	return "color-mix(in srgb, var(--dashboardy-warning-foreground) 82%, white)";
+}
+
 export function ToolActivityChart({
 	data,
 	totalMessages,
 	className,
 }: ToolActivityChartProps) {
-	const containerRef = useRef<HTMLDivElement>(null);
-	const [chartWidth, setChartWidth] = useState(400);
-
-	useEffect(() => {
-		const el = containerRef.current;
-		if (!el) return;
-		const observer = new ResizeObserver((entries) => {
-			const entry = entries[0];
-			if (entry) setChartWidth(entry.contentRect.width);
-		});
-		observer.observe(el);
-		return () => observer.disconnect();
-	}, []);
+	const { elementRef: containerRef, width: chartWidth } =
+		useObservedWidth<HTMLDivElement>();
+	const safeTotalMessages = Math.max(totalMessages, 1);
 
 	const drawWidth = chartWidth - LEFT_MARGIN;
 
 	const counts = useMemo(() => {
-		const tools = data.filter((d) => d.category === "tool").length;
-		const skills = data.filter((d) => d.category === "skill").length;
-		const subagents = data.filter((d) => d.category === "subagent").length;
-		const errors = data.filter((d) => d.isError).length;
+		const tools = data.filter((point) => point.category === "tool").length;
+		const skills = data.filter((point) => point.category === "skill").length;
+		const subagents = data.filter(
+			(point) => point.category === "subagent",
+		).length;
+		const errors = data.filter((point) => point.isError).length;
 		return { tools, skills, subagents, errors };
 	}, [data]);
 
 	if (data.length === 0) {
 		return (
-			<div className={cn("text-xs text-muted text-center py-4", className)}>
-				No tool activity
+			<div className={cn("grid gap-3", className)}>
+				<div className="grid gap-1">
+					<p className="text-sm font-medium text-[color:var(--dashboardy-muted)]">
+						No tool activity
+					</p>
+					<p className="text-sm text-[color:var(--dashboardy-subtle)]">
+						This session didn&apos;t call tools, skills, or subagents.
+					</p>
+				</div>
+				<div className="rounded-[0.95rem] border border-[color:var(--dashboardy-divider)] bg-[color:var(--dashboardy-subsurface)] px-4 py-6 text-center">
+					<p className="text-sm text-[color:var(--dashboardy-muted)]">
+						Activity markers show up here as the session invokes tools and
+						agents.
+					</p>
+				</div>
 			</div>
 		);
 	}
 
 	return (
-		<div className={className}>
-			<div className="text-xs font-medium text-muted mb-2">Tool Activity</div>
-
-			<div className="flex gap-3 text-[10px] text-muted mb-1">
-				<span>{counts.tools} tools</span>
-				<span>{counts.skills} skills</span>
-				<span>{counts.subagents} subagents</span>
-				{counts.errors > 0 && (
-					<span className="text-red-400">{counts.errors} errors</span>
-				)}
+		<div className={cn("grid gap-4", className)}>
+			<div className="flex flex-wrap gap-2">
+				<div className="dashboardy-inline-badge rounded-full border px-3 py-1.5">
+					<p className="text-[0.8125rem] font-medium text-[color:var(--dashboardy-heading)]">
+						{counts.tools} tools
+					</p>
+				</div>
+				<div className="dashboardy-inline-badge rounded-full border px-3 py-1.5">
+					<p className="text-[0.8125rem] font-medium text-[color:var(--dashboardy-heading)]">
+						{counts.skills} skills
+					</p>
+				</div>
+				<div className="dashboardy-inline-badge rounded-full border px-3 py-1.5">
+					<p className="text-[0.8125rem] font-medium text-[color:var(--dashboardy-heading)]">
+						{counts.subagents} agents
+					</p>
+				</div>
+				{counts.errors > 0 ? (
+					<div className="rounded-full border border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-danger-surface)] px-3 py-1.5">
+						<p className="text-[0.8125rem] font-medium text-[color:var(--dashboardy-danger-foreground)]">
+							{counts.errors} errors
+						</p>
+					</div>
+				) : null}
 			</div>
 
 			<div ref={containerRef}>
@@ -92,86 +125,83 @@ export function ToolActivityChart({
 					role="img"
 					aria-label="Tool activity chart showing tool, skill, and subagent usage"
 				>
-					{/* Lane labels + separators */}
-					{lanes.map((lane, idx) => (
+					{lanes.map((lane, index) => (
 						<g key={lane.category}>
 							<line
 								x1={LEFT_MARGIN}
-								y1={LANE_TOP_PAD + idx * LANE_HEIGHT}
+								y1={LANE_TOP_PAD + index * LANE_HEIGHT}
 								x2={chartWidth}
-								y2={LANE_TOP_PAD + idx * LANE_HEIGHT}
-								stroke="currentColor"
-								strokeWidth="0.5"
-								className="text-border"
+								y2={LANE_TOP_PAD + index * LANE_HEIGHT}
+								stroke="var(--dashboardy-divider)"
+								strokeWidth="0.75"
 							/>
 							<text
-								x={LEFT_MARGIN - 4}
+								x={LEFT_MARGIN - 6}
 								y={lane.y + 3}
 								textAnchor="end"
-								className="fill-muted"
-								fontSize="9"
+								className="fill-[color:var(--dashboardy-muted)]"
+								fontSize="10"
 							>
 								{lane.label}
 							</text>
 						</g>
 					))}
-					{/* Bottom border */}
 					<line
 						x1={LEFT_MARGIN}
 						y1={LANE_TOP_PAD + lanes.length * LANE_HEIGHT}
 						x2={chartWidth}
 						y2={LANE_TOP_PAD + lanes.length * LANE_HEIGHT}
-						stroke="currentColor"
-						strokeWidth="0.5"
-						className="text-border"
+						stroke="var(--dashboardy-divider)"
+						strokeWidth="0.75"
 					/>
 
-					{/* Activity dots */}
-					{data.map((d, i) => {
+					{data.map((point, index) => {
 						const x =
-							LEFT_MARGIN + (d.messageIndex / totalMessages) * drawWidth;
-						const lane = lanes.find((l) => l.category === d.category);
-						if (!lane) return null;
+							LEFT_MARGIN +
+							(point.messageIndex / safeTotalMessages) * drawWidth;
+						const lane = lanes.find((item) => item.category === point.category);
+						if (!lane) {
+							return null;
+						}
 
 						return (
 							<circle
 								// biome-ignore lint/suspicious/noArrayIndexKey: static chart dot data
-								key={i}
+								key={index}
 								cx={x}
 								cy={lane.y}
 								r={DOT_RADIUS}
-								className={
-									d.isError
-										? "fill-red-400/80"
-										: d.category === "tool"
-											? "fill-green-400/80"
-											: d.category === "skill"
-												? "fill-purple-400/80"
-												: "fill-orange-400/80"
-								}
+								fill={getPointFill(point)}
 							/>
 						);
 					})}
 				</svg>
 			</div>
 
-			{/* Legend */}
-			<div className="flex items-center gap-3 mt-1.5 text-[10px] text-muted">
-				<div className="flex items-center gap-1">
-					<div className="w-2 h-2 rounded-full bg-green-400" />
-					<span>Tools</span>
+			<div className="flex flex-wrap items-center gap-2">
+				<div className="dashboardy-inline-badge flex items-center gap-2 rounded-full border px-3 py-1.5">
+					<div className="size-2 rounded-full [background:color-mix(in_srgb,var(--dashboardy-accent)_82%,white)]" />
+					<p className="text-[0.8125rem] font-medium text-[color:var(--dashboardy-heading)]">
+						Tools
+					</p>
 				</div>
-				<div className="flex items-center gap-1">
-					<div className="w-2 h-2 rounded-full bg-purple-400" />
-					<span>Skills</span>
+				<div className="dashboardy-inline-badge flex items-center gap-2 rounded-full border px-3 py-1.5">
+					<div className="size-2 rounded-full [background:color-mix(in_srgb,var(--dashboardy-chip-foreground)_78%,white)]" />
+					<p className="text-[0.8125rem] font-medium text-[color:var(--dashboardy-heading)]">
+						Skills
+					</p>
 				</div>
-				<div className="flex items-center gap-1">
-					<div className="w-2 h-2 rounded-full bg-orange-400" />
-					<span>Subagents</span>
+				<div className="dashboardy-inline-badge flex items-center gap-2 rounded-full border px-3 py-1.5">
+					<div className="size-2 rounded-full [background:color-mix(in_srgb,var(--dashboardy-warning-foreground)_82%,white)]" />
+					<p className="text-[0.8125rem] font-medium text-[color:var(--dashboardy-heading)]">
+						Agents
+					</p>
 				</div>
-				<div className="flex items-center gap-1">
-					<div className="w-2 h-2 rounded-full bg-red-400" />
-					<span>Error</span>
+				<div className="dashboardy-inline-badge flex items-center gap-2 rounded-full border px-3 py-1.5">
+					<div className="size-2 rounded-full [background:color-mix(in_srgb,var(--dashboardy-danger-foreground)_85%,white)]" />
+					<p className="text-[0.8125rem] font-medium text-[color:var(--dashboardy-heading)]">
+						Error
+					</p>
 				</div>
 			</div>
 		</div>

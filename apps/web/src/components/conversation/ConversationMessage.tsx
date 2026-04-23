@@ -1,12 +1,5 @@
-import {
-	Bot,
-	ChevronRight,
-	FileText,
-	Settings,
-	User,
-	Wrench,
-} from "lucide-react";
-import { useState } from "react";
+import { ChevronRight, FileText, Settings, Wrench } from "lucide-react";
+import { type ComponentType, type ReactNode, useId, useState } from "react";
 import type {
 	Conversation,
 	ToolResultContent,
@@ -24,76 +17,279 @@ interface ConversationMessageProps {
 	className?: string;
 }
 
-const variantStyles = {
-	default: {
-		row: "text-muted",
-		icon: "w-3.5 h-3.5 shrink-0",
-		border: "border-border",
+type MessageSide = "left" | "right" | "full";
+
+const frameStyles = {
+	assistant: {
+		card: "border-[color:color-mix(in_srgb,var(--dashboardy-border)_86%,white)] bg-[color:color-mix(in_srgb,var(--dashboardy-surface)_94%,white)]",
+		bubble: "rounded-[1.5rem] rounded-bl-[0.55rem]",
+		icon: "border-[color:color-mix(in_srgb,var(--dashboardy-border)_82%,white)] bg-[color:color-mix(in_srgb,var(--dashboardy-subsurface)_70%,white)] text-[color:var(--dashboardy-heading)]",
 	},
-	error: {
-		row: "text-red-400",
-		icon: "w-3.5 h-3.5 shrink-0 text-red-400",
-		border: "border-red-300",
+	user: {
+		card: "border-[color:color-mix(in_srgb,var(--dashboardy-chip-border)_78%,white)] bg-[color:color-mix(in_srgb,var(--dashboardy-chip-surface)_52%,white)]",
+		bubble: "rounded-[1.5rem] rounded-br-[0.55rem]",
+		icon: "border-[color:color-mix(in_srgb,var(--dashboardy-chip-border)_78%,white)] bg-[color:color-mix(in_srgb,var(--dashboardy-chip-surface)_88%,white)] text-[color:var(--dashboardy-chip-foreground)]",
 	},
-	success: {
-		row: "text-green-500",
-		icon: "w-3.5 h-3.5 shrink-0 text-green-500",
-		border: "border-green-300",
+	summary: {
+		card: "border-[color:var(--dashboardy-border)] bg-[color:color-mix(in_srgb,var(--dashboardy-subsurface)_84%,white)]",
+		bubble: "rounded-[1.2rem]",
+		icon: "border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-subsurface)] text-[color:var(--dashboardy-muted)]",
 	},
 } as const;
+
+const collapsedVariantStyles = {
+	default: {
+		card: "border-[color:var(--dashboardy-border)] bg-[color:color-mix(in_srgb,var(--dashboardy-subsurface)_84%,white)]",
+		bubble: "rounded-[1.2rem]",
+		iconShell:
+			"border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-surface)]",
+		icon: "text-[color:var(--dashboardy-muted)]",
+		summary: "text-[color:var(--dashboardy-muted)]",
+		button:
+			"hover:bg-[color:var(--dashboardy-subsurface-strong)] focus-visible:bg-[color:var(--dashboardy-subsurface-strong)]",
+		panelBorder: "border-[color:var(--dashboardy-divider)]",
+	},
+	error: {
+		card: "border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-danger-surface)]",
+		bubble: "rounded-[1.35rem] rounded-br-[0.45rem]",
+		iconShell:
+			"border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-surface)]",
+		icon: "text-[color:var(--dashboardy-danger-foreground)]",
+		summary: "text-[color:var(--dashboardy-danger-foreground)]",
+		button:
+			"hover:bg-[color:color-mix(in_srgb,var(--dashboardy-danger-surface)_82%,white)] focus-visible:bg-[color:color-mix(in_srgb,var(--dashboardy-danger-surface)_82%,white)]",
+		panelBorder: "border-[color:var(--dashboardy-border)]",
+	},
+	success: {
+		card: "border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-success-surface)]",
+		bubble: "rounded-[1.35rem] rounded-br-[0.45rem]",
+		iconShell:
+			"border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-surface)]",
+		icon: "text-[color:var(--dashboardy-success-foreground)]",
+		summary: "text-[color:var(--dashboardy-success-foreground)]",
+		button:
+			"hover:bg-[color:color-mix(in_srgb,var(--dashboardy-success-surface)_82%,white)] focus-visible:bg-[color:color-mix(in_srgb,var(--dashboardy-success-surface)_82%,white)]",
+		panelBorder: "border-[color:var(--dashboardy-border)]",
+	},
+} as const;
+
+function formatMessageTime(timestamp: string): string {
+	const date = new Date(timestamp);
+	if (Number.isNaN(date.getTime())) {
+		return "Unknown time";
+	}
+
+	return date.toLocaleTimeString([], {
+		hour: "numeric",
+		minute: "2-digit",
+	});
+}
+
+function compactPreview(text: string, maxLength = 140): string {
+	const normalized = text.replace(/\s+/g, " ").trim();
+	if (normalized.length <= maxLength) {
+		return normalized;
+	}
+
+	return `${normalized.slice(0, maxLength).trimEnd()}...`;
+}
+
+function MessageFrame({
+	icon: Icon,
+	iconNode,
+	label,
+	timestamp,
+	side,
+	anchorId,
+	className,
+	cardClassName,
+	bubbleClassName,
+	iconShellClassName,
+	iconClassName,
+	children,
+}: {
+	icon?: ComponentType<{ className?: string }>;
+	iconNode?: ReactNode;
+	label?: string;
+	timestamp?: string;
+	side: MessageSide;
+	anchorId?: string;
+	className?: string;
+	cardClassName: string;
+	bubbleClassName: string;
+	iconShellClassName: string;
+	iconClassName: string;
+	children: ReactNode;
+}) {
+	const isRight = side === "right";
+
+	if (side === "full") {
+		return (
+			<div
+				id={anchorId}
+				className={cn("grid max-w-[56rem] scroll-mt-6 gap-2.5", className)}
+			>
+				<div className="flex flex-wrap items-center gap-2">
+					<div
+						className={cn(
+							"flex size-8 shrink-0 items-center justify-center rounded-full border",
+							iconShellClassName,
+						)}
+					>
+						{iconNode ??
+							(Icon ? <Icon className={cn("size-4", iconClassName)} /> : null)}
+					</div>
+					<p className="text-sm font-semibold text-[color:var(--dashboardy-heading)]">
+						{label}
+					</p>
+					{timestamp ? (
+						<p className="text-[0.75rem] font-medium tabular-nums text-[color:var(--dashboardy-muted)]">
+							{formatMessageTime(timestamp)}
+						</p>
+					) : null}
+				</div>
+				<div
+					className={cn(
+						"min-w-0 border px-4 py-4 shadow-[0_1px_0_rgba(15,23,42,0.03)] sm:px-5",
+						cardClassName,
+						bubbleClassName,
+					)}
+				>
+					{children}
+				</div>
+			</div>
+		);
+	}
+
+	return (
+		<div
+			id={anchorId}
+			className={cn(
+				"flex w-full scroll-mt-6",
+				isRight ? "justify-end" : "justify-start",
+				className,
+			)}
+		>
+			<div
+				className={cn(
+					"grid w-full max-w-[60rem]",
+					isRight ? "justify-items-end" : "justify-items-start",
+				)}
+			>
+				<div
+					className={cn(
+						"w-full max-w-[46rem] min-w-0 border px-4 py-3.5 sm:px-5",
+						cardClassName,
+						bubbleClassName,
+						isRight ? "ml-auto" : "mr-auto",
+					)}
+				>
+					{children}
+					{timestamp ? (
+						<p
+							className={cn(
+								"mt-3 text-[0.75rem] font-medium tabular-nums text-[color:var(--dashboardy-muted)]",
+								isRight ? "text-right" : "text-left",
+							)}
+						>
+							{formatMessageTime(timestamp)}
+						</p>
+					) : label ? (
+						<p
+							className={cn(
+								"mt-3 text-[0.75rem] font-medium text-[color:var(--dashboardy-muted)]",
+								isRight ? "text-right" : "text-left",
+							)}
+						>
+							{label}
+						</p>
+					) : null}
+				</div>
+			</div>
+		</div>
+	);
+}
 
 function CollapsedEntry({
 	icon: Icon,
 	label,
 	summary,
 	children,
+	timestamp,
+	side,
 	anchorId,
 	className,
 	variant = "default",
 }: {
-	icon: React.ComponentType<{ className?: string }>;
+	icon: ComponentType<{ className?: string }>;
 	label: string;
 	summary: string;
-	children: React.ReactNode;
+	children: ReactNode;
+	timestamp?: string;
+	side: MessageSide;
 	anchorId?: string;
 	className?: string;
 	variant?: "default" | "error" | "success";
 }) {
 	const [open, setOpen] = useState(false);
-	const styles = variantStyles[variant];
+	const panelId = useId();
+	const styles = collapsedVariantStyles[variant];
 
 	return (
-		<div id={anchorId} className={cn("scroll-mt-6", className)}>
+		<MessageFrame
+			icon={Icon}
+			label={label}
+			timestamp={timestamp}
+			side={side}
+			anchorId={anchorId}
+			className={className}
+			cardClassName={styles.card}
+			bubbleClassName={styles.bubble}
+			iconShellClassName={styles.iconShell}
+			iconClassName={styles.icon}
+		>
 			<button
 				type="button"
 				onClick={() => setOpen(!open)}
+				aria-expanded={open}
+				aria-controls={panelId}
 				className={cn(
-					"flex items-center gap-2 w-full text-left px-3 py-1.5 rounded-md hover:bg-hover transition-colors text-xs",
-					styles.row,
+					"flex w-full min-w-0 items-start gap-3 rounded-[1rem] px-3 py-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--dashboardy-border)]",
+					styles.button,
 				)}
 			>
-				<Icon className={styles.icon} />
-				<span className="font-medium">{label}</span>
-				<span className="truncate opacity-60">{summary}</span>
+				<div className="grid min-w-0 flex-1 gap-1">
+					<p
+						className={cn(
+							"text-sm leading-6 [overflow-wrap:anywhere]",
+							styles.summary,
+						)}
+					>
+						{summary}
+					</p>
+				</div>
 				<ChevronRight
 					className={cn(
-						"w-3 h-3 ml-auto shrink-0 transition-transform",
+						"mt-0.5 size-4 shrink-0 text-[color:var(--dashboardy-muted)] transition-transform",
 						open && "rotate-90",
 					)}
 				/>
 			</button>
-			{open && (
-				<div className={cn("mt-1 ml-5 pl-3 border-l-2", styles.border)}>
+			{open ? (
+				<div
+					id={panelId}
+					className={cn("grid gap-3 border-t px-3 pt-4", styles.panelBorder)}
+				>
 					{children}
 				</div>
-			)}
-		</div>
+			) : null}
+		</MessageFrame>
 	);
 }
 
 function contentSummary(content: unknown): string {
 	if (typeof content === "string") {
-		return content.slice(0, 100);
+		return compactPreview(content);
 	}
 
 	if (Array.isArray(content)) {
@@ -104,15 +300,29 @@ function contentSummary(content: unknown): string {
 					typeof first.content === "string"
 						? first.content
 						: JSON.stringify(first.content);
-				return `tool_result: ${text.slice(0, 80)}`;
+				return compactPreview(`Tool result: ${text}`, 120);
 			}
 			if (first.type === "text" && "text" in first) {
-				return String(first.text).slice(0, 100);
+				return compactPreview(String(first.text));
 			}
 		}
 	}
 
 	return "";
+}
+
+function formatToolResultSummary(
+	toolResults: ToolResultContent[],
+	content: unknown,
+): string {
+	const count = toolResults.length;
+	const resultLabel = `${count} result${count === 1 ? "" : "s"}`;
+	const prefix = toolResults.some((item) => item.is_error)
+		? `${resultLabel} with errors`
+		: resultLabel;
+	const summary = contentSummary(content);
+
+	return summary ? `${prefix}. ${summary}` : prefix;
 }
 
 export function ConversationMessage({
@@ -124,26 +334,24 @@ export function ConversationMessage({
 		messageIndex !== undefined ? `message-${messageIndex}` : undefined;
 
 	if (entry.type === "summary") {
+		const styles = frameStyles.summary;
+
 		return (
-			<div
-				id={anchorId}
-				className={cn(
-					"border-l-4 border-blue-300 dark:border-blue-700 bg-blue-50 dark:bg-blue-950 p-4 rounded-r scroll-mt-6",
-					className,
-				)}
+			<MessageFrame
+				icon={FileText}
+				label="Summary"
+				side="full"
+				anchorId={anchorId}
+				className={className}
+				cardClassName={styles.card}
+				bubbleClassName={styles.bubble}
+				iconShellClassName={styles.icon}
+				iconClassName="text-current"
 			>
-				<div className="flex items-start gap-3">
-					<FileText className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
-					<div className="flex-1">
-						<p className="text-xs font-semibold text-blue-700 dark:text-blue-300 mb-2">
-							Session Summary
-						</p>
-						<p className="text-sm text-blue-900 dark:text-blue-100 whitespace-pre-wrap leading-relaxed">
-							{entry.summary}
-						</p>
-					</div>
-				</div>
-			</div>
+				<p className="whitespace-pre-wrap text-base leading-7 text-[color:var(--dashboardy-heading)] text-pretty">
+					{entry.summary}
+				</p>
+			</MessageFrame>
 		);
 	}
 
@@ -152,11 +360,13 @@ export function ConversationMessage({
 			<CollapsedEntry
 				icon={Settings}
 				label="System"
-				summary={entry.message.content.slice(0, 100)}
+				summary={compactPreview(entry.message.content, 180)}
+				timestamp={entry.timestamp}
+				side="full"
 				anchorId={anchorId}
 				className={className}
 			>
-				<p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed font-mono py-2">
+				<p className="whitespace-pre-wrap font-mono text-[0.875rem] leading-6 text-[color:var(--dashboardy-heading)]">
 					{entry.message.content}
 				</p>
 			</CollapsedEntry>
@@ -177,17 +387,17 @@ export function ConversationMessage({
 				return (
 					<CollapsedEntry
 						icon={Wrench}
-						label={`Tool Results (${content.length})`}
-						summary={contentSummary(content)}
+						label="Tool results"
+						summary={formatToolResultSummary(toolResults, content)}
 						variant={
 							toolResults.some((item) => item.is_error) ? "error" : "success"
 						}
+						timestamp={entry.timestamp}
+						side="right"
 						anchorId={anchorId}
 						className={className}
 					>
-						<div className="py-2">
-							<MessageContent content={content} />
-						</div>
+						<MessageContent content={content} />
 					</CollapsedEntry>
 				);
 			}
@@ -196,72 +406,72 @@ export function ConversationMessage({
 		const isSlashCommand =
 			typeof content === "string" && isSlashCommandMessage(content);
 		const slashCommandInfo = isSlashCommand ? parseSlashCommand(content) : null;
+		const styles = frameStyles.user;
 
 		return (
-			<div id={anchorId} className={cn("flex gap-4 scroll-mt-6", className)}>
-				<div className="flex-shrink-0">
-					<div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center">
-						<User className="w-5 h-5 text-white" />
-					</div>
-				</div>
-				<div className="flex-1 min-w-0 bg-card border border-border rounded-lg p-4 shadow-sm">
-					<div className="flex items-center gap-2 mb-3">
-						<span className="text-sm font-semibold text-foreground">User</span>
-						<span className="text-xs text-muted-foreground">
-							{new Date(entry.timestamp).toLocaleTimeString()}
-						</span>
-					</div>
-
-					{isSlashCommand && slashCommandInfo ? (
-						<div className="space-y-2">
-							{slashCommandInfo.commandMessage && (
-								<div className="inline-block px-3 py-1 bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 rounded-md text-sm font-mono">
-									{slashCommandInfo.commandMessage}
+			<MessageFrame
+				timestamp={entry.timestamp}
+				side="right"
+				anchorId={anchorId}
+				className={className}
+				cardClassName={styles.card}
+				bubbleClassName={styles.bubble}
+				iconShellClassName={styles.icon}
+				iconClassName="text-current"
+			>
+				{isSlashCommand && slashCommandInfo ? (
+					<div className="grid gap-3">
+						<p className="text-sm font-medium text-[color:var(--dashboardy-muted)]">
+							Slash command
+						</p>
+						<div className="flex flex-wrap gap-2">
+							{slashCommandInfo.commandMessage ? (
+								<div className="dashboardy-inline-badge w-fit rounded-full border px-3 py-1.5">
+									<p className="font-mono text-[0.875rem] text-[color:var(--dashboardy-heading)]">
+										{slashCommandInfo.commandMessage}
+									</p>
 								</div>
-							)}
-							{slashCommandInfo.commandName && (
-								<div className="text-sm text-muted-foreground">
-									<span className="font-semibold">Command:</span>{" "}
-									<code className="bg-secondary text-foreground px-2 py-0.5 rounded">
+							) : null}
+							{slashCommandInfo.commandName ? (
+								<div className="rounded-full border border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-surface)] px-3 py-1.5">
+									<p className="font-mono text-[0.875rem] text-[color:var(--dashboardy-heading)]">
 										{slashCommandInfo.commandName}
-									</code>
+									</p>
 								</div>
-							)}
-							{slashCommandInfo.commandArgs && (
-								<div className="text-sm text-muted-foreground">
-									<span className="font-semibold">Args:</span>{" "}
-									<code className="bg-secondary text-foreground px-2 py-0.5 rounded">
-										{slashCommandInfo.commandArgs}
-									</code>
-								</div>
-							)}
+							) : null}
 						</div>
-					) : (
-						<MessageContent content={content} />
-					)}
-				</div>
-			</div>
+						{slashCommandInfo.commandArgs ? (
+							<div className="rounded-[1rem] border border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-surface)] px-3 py-3">
+								<p className="text-sm font-medium text-[color:var(--dashboardy-muted)]">
+									Args
+								</p>
+								<p className="mt-1 whitespace-pre-wrap break-words font-mono text-[0.875rem] leading-6 text-[color:var(--dashboardy-heading)]">
+									{slashCommandInfo.commandArgs}
+								</p>
+							</div>
+						) : null}
+					</div>
+				) : (
+					<MessageContent content={content} />
+				)}
+			</MessageFrame>
 		);
 	}
 
+	const styles = frameStyles.assistant;
+
 	return (
-		<div id={anchorId} className={cn("flex gap-4 scroll-mt-6", className)}>
-			<div className="flex-shrink-0">
-				<div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-600 to-blue-600 flex items-center justify-center">
-					<Bot className="w-5 h-5 text-white" />
-				</div>
-			</div>
-			<div className="flex-1 min-w-0 bg-card border border-border rounded-lg p-4 shadow-sm">
-				<div className="flex items-center gap-2 mb-3">
-					<span className="text-sm font-semibold text-foreground">
-						Assistant
-					</span>
-					<span className="text-xs text-muted-foreground">
-						{new Date(entry.timestamp).toLocaleTimeString()}
-					</span>
-				</div>
-				<MessageContent content={entry.message.content} />
-			</div>
-		</div>
+		<MessageFrame
+			timestamp={entry.timestamp}
+			side="left"
+			anchorId={anchorId}
+			className={className}
+			cardClassName={styles.card}
+			bubbleClassName={styles.bubble}
+			iconShellClassName={styles.icon}
+			iconClassName="text-current"
+		>
+			<MessageContent content={entry.message.content} />
+		</MessageFrame>
 	);
 }

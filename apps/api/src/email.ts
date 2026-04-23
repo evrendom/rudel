@@ -24,6 +24,12 @@ export interface InvitationEmailContent {
 	text: string;
 }
 
+export interface PasswordResetEmailContent {
+	subject: string;
+	html: string;
+	text: string;
+}
+
 export function getResendConfigWarnings(config: ResendConfig): string[] {
 	if (!config.apiKey || config.fromEmail) {
 		return [];
@@ -91,6 +97,27 @@ export function buildInvitationEmailContent(
 	};
 }
 
+export function buildPasswordResetEmailContent(
+	resetUrl: string,
+): PasswordResetEmailContent {
+	const safeUrl = normalizeText(resetUrl);
+
+	return {
+		subject: "Reset your Rudel password",
+		html: `
+<p>We received a request to reset your Rudel password.</p>
+<p>
+  <a href="${escapeHtml(safeUrl)}" style="display:inline-block;padding:12px 24px;background:#000;color:#fff;text-decoration:none;border-radius:6px;font-weight:600;">
+    Reset Password
+  </a>
+</p>
+<p>Or copy this link into your browser:</p>
+<p>${escapeHtml(safeUrl)}</p>
+`,
+		text: `We received a request to reset your Rudel password.\n\nReset your password here: ${safeUrl}`,
+	};
+}
+
 export async function syncSignupContact(
 	config: ResendConfig,
 	user: { email: string; name: string },
@@ -142,6 +169,36 @@ export async function sendOrganizationInvitationEmail(
 	} catch (err) {
 		logger.error("Failed to send invitation email to {email}: {error}", {
 			email: data.inviteeEmail,
+			error: err,
+		});
+	}
+}
+
+export async function sendPasswordResetEmail(
+	config: ResendConfig,
+	data: { email: string; resetUrl: string },
+): Promise<void> {
+	if (!config.apiKey || !config.fromEmail) {
+		return;
+	}
+
+	const message = buildPasswordResetEmailContent(data.resetUrl);
+
+	try {
+		const resend = new Resend(config.apiKey);
+		await resend.emails.send({
+			from: config.fromEmail,
+			to: data.email,
+			subject: message.subject,
+			html: message.html,
+			text: message.text,
+		});
+		logger.info("Password reset email sent to {email}", {
+			email: data.email,
+		});
+	} catch (err) {
+		logger.error("Failed to send password reset email to {email}: {error}", {
+			email: data.email,
 			error: err,
 		});
 	}

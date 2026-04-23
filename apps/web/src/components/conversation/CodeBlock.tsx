@@ -14,10 +14,17 @@ export function CodeBlock({
 	className,
 }: CodeBlockProps) {
 	return (
-		<div className={cn("relative rounded-lg overflow-hidden", className)}>
+		<div
+			className={cn(
+				"relative overflow-hidden rounded-[1rem] border border-[color:var(--dashboardy-border)] bg-[#0f172a]",
+				className,
+			)}
+		>
 			{language && language !== "text" && (
-				<div className="absolute top-0 right-0 px-3 py-1 text-xs font-mono text-gray-400 bg-gray-800 rounded-bl z-10">
-					{language.toUpperCase()}
+				<div className="absolute top-0 right-0 z-10 rounded-bl-[0.9rem] border-l border-b border-white/10 bg-white/5 px-3 py-1">
+					<p className="font-mono text-[0.75rem] text-white/70">
+						{language.toUpperCase()}
+					</p>
 				</div>
 			)}
 			<div className="overflow-x-auto max-w-full">
@@ -26,10 +33,12 @@ export function CodeBlock({
 					style={vscDarkPlus}
 					customStyle={{
 						margin: 0,
-						padding: "1.5rem",
-						fontSize: "0.875rem",
-						lineHeight: "1.5",
-						borderRadius: "0.5rem",
+						padding: "1.125rem",
+						fontSize: "0.8125rem",
+						lineHeight: "1.6",
+						borderRadius: 0,
+						background: "transparent",
+						backgroundColor: "transparent",
 					}}
 					showLineNumbers={language !== "text"}
 					wrapLines={false}

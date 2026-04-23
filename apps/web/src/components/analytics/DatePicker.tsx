@@ -1,5 +1,6 @@
+import { parseISO } from "date-fns";
 import { Calendar } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,6 +16,12 @@ interface DatePickerProps {
 	endDate: string;
 	onStartDateChange: (date: string) => void;
 	onEndDateChange: (date: string) => void;
+}
+
+interface DatePickerPanelProps extends DatePickerProps {
+	onApplyComplete: () => void;
+	trackPresetSelection: (presetLabel: string) => void;
+	trackCustomSelection: () => void;
 }
 
 interface DatePreset {
@@ -101,6 +108,111 @@ const DATE_PRESETS: DatePreset[] = [
 	},
 ];
 
+function formatDateRange(startDate: string, endDate: string) {
+	const start = parseISO(startDate);
+	const end = parseISO(endDate);
+	const startLabel = start.toLocaleDateString("en-US", {
+		month: "short",
+		day: "numeric",
+	});
+	const endLabel = end.toLocaleDateString("en-US", {
+		month: "short",
+		day: "numeric",
+		year: "numeric",
+	});
+
+	return `${startLabel} - ${endLabel}`;
+}
+
+function DatePickerPanel({
+	endDate,
+	onApplyComplete,
+	onEndDateChange,
+	onStartDateChange,
+	startDate,
+	trackCustomSelection,
+	trackPresetSelection,
+}: DatePickerPanelProps) {
+	const [draftStartDate, setDraftStartDate] = useState(startDate);
+	const [draftEndDate, setDraftEndDate] = useState(endDate);
+
+	function handleApply() {
+		trackCustomSelection();
+		onStartDateChange(draftStartDate);
+		onEndDateChange(draftEndDate);
+		onApplyComplete();
+	}
+
+	function handlePresetClick(preset: DatePreset) {
+		const { end, start } = preset.getValue();
+
+		trackPresetSelection(preset.label);
+		onStartDateChange(start);
+		onEndDateChange(end);
+		onApplyComplete();
+	}
+
+	return (
+		<div className="flex overflow-hidden">
+			<div className="w-40 border-r border-border bg-surface">
+				{DATE_PRESETS.map((preset) => (
+					<button
+						key={preset.label}
+						type="button"
+						onClick={() => handlePresetClick(preset)}
+						className="w-full text-left px-4 py-2 text-sm text-foreground hover:bg-accent-light hover:text-accent-text transition-colors"
+					>
+						{preset.label}
+					</button>
+				))}
+			</div>
+
+			<div className="w-64 p-4">
+				<div className="space-y-3">
+					<div>
+						<Label
+							htmlFor="date-picker-start"
+							className="mb-1 text-xs text-muted"
+						>
+							Start date
+						</Label>
+						<Input
+							id="date-picker-start"
+							type="date"
+							value={draftStartDate}
+							onChange={(event) => setDraftStartDate(event.target.value)}
+							max={draftEndDate}
+						/>
+					</div>
+
+					<div>
+						<Label
+							htmlFor="date-picker-end"
+							className="mb-1 text-xs text-muted"
+						>
+							End date
+						</Label>
+						<Input
+							id="date-picker-end"
+							type="date"
+							value={draftEndDate}
+							onChange={(event) => setDraftEndDate(event.target.value)}
+							min={draftStartDate}
+							max={formatLocalDate(new Date())}
+						/>
+					</div>
+
+					<div className="pt-2">
+						<Button className="w-full" onClick={handleApply}>
+							Apply
+						</Button>
+					</div>
+				</div>
+			</div>
+		</div>
+	);
+}
+
 export function DatePicker({
 	startDate,
 	endDate,
@@ -108,27 +220,12 @@ export function DatePicker({
 	onEndDateChange,
 }: DatePickerProps) {
 	const [open, setOpen] = useState(false);
-	const [tempStartDate, setTempStartDate] = useState(startDate);
-	const [tempEndDate, setTempEndDate] = useState(endDate);
 	const { trackFilterChange } = useAnalyticsTracking();
 
 	const toAnalyticsKey = (value: string) =>
 		value.toLowerCase().replace(/[^a-z0-9]+/g, "_");
 
-	useEffect(() => {
-		setTempStartDate(startDate);
-		setTempEndDate(endDate);
-	}, [startDate, endDate]);
-
-	const handleOpenChange = (nextOpen: boolean) => {
-		setOpen(nextOpen);
-		if (!nextOpen) {
-			setTempStartDate(startDate);
-			setTempEndDate(endDate);
-		}
-	};
-
-	const handleApply = () => {
+	function trackCustomSelection() {
 		trackFilterChange({
 			filterName: "date_range",
 			filterCategory: "date",
@@ -137,109 +234,40 @@ export function DatePicker({
 			valueKey: "custom",
 			affectedScope: "page",
 		});
-		onStartDateChange(tempStartDate);
-		onEndDateChange(tempEndDate);
-		setOpen(false);
-	};
+	}
 
-	const handlePresetClick = (preset: DatePreset) => {
-		const { start, end } = preset.getValue();
+	function trackPresetSelection(presetLabel: string) {
 		trackFilterChange({
 			filterName: "date_range",
 			filterCategory: "date",
 			changeAction: "preset",
 			sourceComponent: "date_picker",
-			valueKey: toAnalyticsKey(preset.label),
+			valueKey: toAnalyticsKey(presetLabel),
 			affectedScope: "page",
 		});
-		setTempStartDate(start);
-		setTempEndDate(end);
-		onStartDateChange(start);
-		onEndDateChange(end);
-		setOpen(false);
-	};
-
-	const formatDateRange = () => {
-		const start = new Date(startDate);
-		const end = new Date(endDate);
-		const startStr = start.toLocaleDateString("en-US", {
-			month: "short",
-			day: "numeric",
-		});
-		const endStr = end.toLocaleDateString("en-US", {
-			month: "short",
-			day: "numeric",
-			year: "numeric",
-		});
-		return `${startStr} - ${endStr}`;
-	};
+	}
 
 	return (
-		<Popover open={open} onOpenChange={handleOpenChange}>
+		<Popover open={open} onOpenChange={setOpen}>
 			<PopoverTrigger asChild>
 				<Button variant="outline" className="gap-2">
 					<Calendar className="h-4 w-4 text-muted" />
-					<span className="text-sm font-medium">{formatDateRange()}</span>
+					<span className="text-sm font-medium">
+						{formatDateRange(startDate, endDate)}
+					</span>
 				</Button>
 			</PopoverTrigger>
 			<PopoverContent className="w-auto p-0" align="end">
-				<div className="flex overflow-hidden">
-					<div className="w-40 border-r border-border bg-surface">
-						{DATE_PRESETS.map((preset) => (
-							<button
-								key={preset.label}
-								type="button"
-								onClick={() => handlePresetClick(preset)}
-								className="w-full text-left px-4 py-2 text-sm text-foreground hover:bg-accent-light hover:text-accent-text transition-colors"
-							>
-								{preset.label}
-							</button>
-						))}
-					</div>
-
-					<div className="p-4 w-64">
-						<div className="space-y-3">
-							<div>
-								<Label
-									htmlFor="date-picker-start"
-									className="text-xs text-muted mb-1"
-								>
-									Start date
-								</Label>
-								<Input
-									id="date-picker-start"
-									type="date"
-									value={tempStartDate}
-									onChange={(e) => setTempStartDate(e.target.value)}
-									max={tempEndDate}
-								/>
-							</div>
-
-							<div>
-								<Label
-									htmlFor="date-picker-end"
-									className="text-xs text-muted mb-1"
-								>
-									End date
-								</Label>
-								<Input
-									id="date-picker-end"
-									type="date"
-									value={tempEndDate}
-									onChange={(e) => setTempEndDate(e.target.value)}
-									min={tempStartDate}
-									max={new Date().toISOString().split("T")[0]}
-								/>
-							</div>
-
-							<div className="pt-2">
-								<Button className="w-full" onClick={handleApply}>
-									Apply
-								</Button>
-							</div>
-						</div>
-					</div>
-				</div>
+				<DatePickerPanel
+					key={`${startDate}:${endDate}`}
+					startDate={startDate}
+					endDate={endDate}
+					onStartDateChange={onStartDateChange}
+					onEndDateChange={onEndDateChange}
+					onApplyComplete={() => setOpen(false)}
+					trackCustomSelection={trackCustomSelection}
+					trackPresetSelection={trackPresetSelection}
+				/>
 			</PopoverContent>
 		</Popover>
 	);

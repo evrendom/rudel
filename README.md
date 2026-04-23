@@ -2,7 +2,7 @@
 
 **Try the hosted version for free at [rudel.ai](https://rudel.ai)**
 
-Analytics for [Claude Code](https://docs.anthropic.com/en/docs/claude-code). Rudel gives you a dashboard with insights on your coding sessions — token usage, session duration, activity patterns, model usage, and more.
+Analytics for Claude Code and Codex. Rudel gives you a dashboard with insights on your coding sessions — token usage, session duration, activity patterns, model usage, and more.
 
 ## Prerequisites
 
@@ -17,12 +17,12 @@ Analytics for [Claude Code](https://docs.anthropic.com/en/docs/claude-code). Rud
 npm install -g rudel
 
 rudel login     # authenticate via your browser
-rudel enable    # auto-upload sessions when Claude Code exits
+rudel enable    # auto-upload sessions when Claude Code / Codex exits
 ```
 
 3. Invite teammates (optional): go to **Settings → Organization** in the dashboard, enter their email, and share the generated invite link with them.
 
-That's it. Your Claude Code sessions will now be uploaded automatically.
+That's it. Your Claude Code / Codex sessions will now be uploaded automatically.
 
 Already have past sessions? Upload them in one go:
 
@@ -35,7 +35,7 @@ See the [CLI documentation](apps/cli/README.md) for all available commands.
 ## How It Works
 
 1. You install the CLI and run `rudel enable`
-2. This registers a [Claude Code hook](https://docs.anthropic.com/en/docs/claude-code/hooks) that runs when a session ends
+2. This registers Claude Code / Codex hooks that run when a session ends
 3. The hook uploads the session transcript to Rudel
 4. Transcripts are stored in ClickHouse and processed into analytics
 
