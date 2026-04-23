@@ -159,7 +159,7 @@ export async function getSessionAnalytics(
       error_count,
       model_used,
       used_plan_mode
-    FROM rudel.session_analytics sa
+    FROM rudel.session_analytics FINAL sa
     WHERE ${buildDateFilter("days", "sa.session_date")}
       AND organization_id = {orgId:String}
       ${filters.length > 0 ? `AND ${filters.join("\n      AND ")}` : ""}
@@ -247,7 +247,7 @@ export async function getSessionAnalyticsSummary(
         countIf(length(subagent_types) > 0) as cnt_subagents,
         countIf(length(skills) > 0) as cnt_skills,
         countIf(length(slash_commands) > 0) as cnt_slash
-      FROM rudel.session_analytics
+      FROM rudel.session_analytics FINAL
       WHERE ${buildDateFilter("days")}
         AND organization_id = {orgId:String}
         ${filters.length > 0 ? `AND ${filters.join("\n        AND ")}` : ""}
@@ -338,7 +338,7 @@ export async function getSessionAnalyticsSummaryComparison(
         countIf(length(subagent_types) > 0) as cnt_subagents,
         countIf(length(skills) > 0) as cnt_skills,
         countIf(length(slash_commands) > 0) as cnt_slash
-      FROM rudel.session_analytics
+      FROM rudel.session_analytics FINAL
       WHERE ${dateCondition}
         AND organization_id = {orgId:String}
         ${filters.length > 0 ? `AND ${filters.join("\n        AND ")}` : ""}
@@ -456,7 +456,7 @@ export async function getInteractionTimingDistribution(
 	const query = `
     WITH total AS (
       SELECT SUM(total_interactions) as total_count
-      FROM rudel.session_analytics
+      FROM rudel.session_analytics FINAL
       WHERE ${buildDateFilter("days")}
         AND organization_id = {orgId:String}
         ${filterSql}
@@ -465,7 +465,7 @@ export async function getInteractionTimingDistribution(
       'Instant (< 5s)' as bucket,
       SUM(quick_responses) as count,
       round(SUM(quick_responses) * 100.0 / (SELECT total_count FROM total), 2) as percentage
-    FROM rudel.session_analytics
+    FROM rudel.session_analytics FINAL
     WHERE ${buildDateFilter("days")}
       AND organization_id = {orgId:String}
       ${repeatedFilterSql}
@@ -476,7 +476,7 @@ export async function getInteractionTimingDistribution(
       'Normal (5-60s)' as bucket,
       SUM(normal_responses) as count,
       round(SUM(normal_responses) * 100.0 / (SELECT total_count FROM total), 2) as percentage
-    FROM rudel.session_analytics
+    FROM rudel.session_analytics FINAL
     WHERE ${buildDateFilter("days")}
       AND organization_id = {orgId:String}
       ${repeatedFilterSql}
@@ -487,7 +487,7 @@ export async function getInteractionTimingDistribution(
       'Long Pause (> 5m)' as bucket,
       SUM(long_pauses) as count,
       round(SUM(long_pauses) * 100.0 / (SELECT total_count FROM total), 2) as percentage
-    FROM rudel.session_analytics
+    FROM rudel.session_analytics FINAL
     WHERE ${buildDateFilter("days")}
       AND organization_id = {orgId:String}
       ${repeatedFilterSql}
@@ -596,7 +596,7 @@ export async function getSessionDimensionAnalysis(
         ${dimensionExpression} as dimension_value,
         ${splitByExpression} as split_value,
         ${metricExpression} as metric_value
-      FROM rudel.session_analytics
+      FROM rudel.session_analytics FINAL
       WHERE ${buildDateFilter("days")}
         AND organization_id = {orgId:String}
         ${filters.length > 0 ? `AND ${filters.join("\n        AND ")}` : ""}
@@ -608,7 +608,7 @@ export async function getSessionDimensionAnalysis(
       SELECT
         ${dimensionExpression} as dimension_value,
         ${metricExpression} as metric_value
-      FROM rudel.session_analytics
+      FROM rudel.session_analytics FINAL
       WHERE ${buildDateFilter("days")}
         AND organization_id = {orgId:String}
         ${filters.length > 0 ? `AND ${filters.join("\n        AND ")}` : ""}
@@ -699,7 +699,7 @@ export async function getSessionDetail(
       total_interactions,
       session_archetype,
       model_used
-    FROM rudel.session_analytics sa
+    FROM rudel.session_analytics FINAL sa
     WHERE session_id = {sessionId:String}
       AND organization_id = {orgId:String}
     ORDER BY ingested_at DESC
