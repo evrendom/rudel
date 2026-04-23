@@ -7,6 +7,7 @@ import type { WrappedStepContentLine } from "./helpers";
 import {
 	buildScaleRainBalls,
 	buildStepContent,
+	resolveScaleRainBallCount,
 	type ScaleRainBall,
 } from "./models";
 import { WrappedOnboardingIntroStage } from "./stages/intro";
@@ -52,6 +53,9 @@ interface ScaleRainSimulationBall extends ScaleRainBall {
 }
 
 const SCALE_RAIN_FLOOR_OFFSET_PX = 0;
+const SCALE_RAIN_BASE_FLOW_DURATION_MS = 16_000;
+const SCALE_RAIN_MIN_FLOW_DURATION_MS = 3_200;
+const SCALE_RAIN_MAX_FLOW_DURATION_MS = 15_000;
 const SCALE_RAIN_RELEASE_VELOCITY_PX = 2.6;
 const SCALE_RAIN_SQUASH_DURATION_MS = 80;
 const SCALE_RAIN_EXIT_FADE_STEP = 0.045;
@@ -198,13 +202,14 @@ export function WrappedOnboardingScaleRainBackdrop(
 ) {
 	const { reduceMotion, totalTokens } = props;
 	const balls = buildScaleRainBalls(totalTokens);
+	const logicalBallCount = resolveScaleRainBallCount(totalTokens);
 
 	return (
 		<WrappedOnboardingScaleRainSimulation
 			key={`scale-rain:${totalTokens}:${reduceMotion ? "reduce" : "full"}`}
 			balls={balls}
 			reduceMotion={reduceMotion}
-			totalTokens={Math.max(0, Math.round(totalTokens))}
+			totalBallCount={logicalBallCount}
 		/>
 	);
 }
@@ -212,9 +217,9 @@ export function WrappedOnboardingScaleRainBackdrop(
 function WrappedOnboardingScaleRainSimulation(props: {
 	balls: readonly ScaleRainBall[];
 	reduceMotion: boolean;
-	totalTokens: number;
+	totalBallCount: number;
 }) {
-	const { balls, reduceMotion, totalTokens } = props;
+	const { balls, reduceMotion, totalBallCount } = props;
 	const ballRefs = useRef<Array<HTMLSpanElement | null>>([]);
 
 	useMountEffect(() => {
@@ -240,20 +245,26 @@ function WrappedOnboardingScaleRainSimulation(props: {
 		}
 
 		let frameId = 0;
-		let emittedTokens = 0;
+		let emittedBallCount = 0;
+		const releaseIntervalMs = resolveScaleRainReleaseIntervalMs(totalBallCount);
+		let nextReleaseAtMs = window.performance.now();
+		let releaseCursor = 0;
 
 		const animate = (now: number) => {
-			for (const ball of simulationBalls) {
-				if (emittedTokens >= totalTokens) {
+			while (emittedBallCount < totalBallCount && now >= nextReleaseAtMs) {
+				const activation = activateNextScaleRainBall(
+					simulationBalls,
+					releaseCursor,
+					width,
+				);
+
+				if (!activation.didActivate) {
 					break;
 				}
 
-				if (ball.active) {
-					continue;
-				}
-
-				activateScaleRainBall(ball, width);
-				emittedTokens += 1;
+				emittedBallCount += 1;
+				releaseCursor = activation.nextCursor;
+				nextReleaseAtMs += releaseIntervalMs;
 			}
 
 			let hasActiveBall = false;
@@ -285,7 +296,7 @@ function WrappedOnboardingScaleRainSimulation(props: {
 
 			renderScaleRainSimulation(nodes, simulationBalls, now);
 
-			if (hasActiveBall || emittedTokens < totalTokens) {
+			if (hasActiveBall || emittedBallCount < totalBallCount) {
 				frameId = window.requestAnimationFrame(animate);
 			}
 		};
@@ -513,6 +524,47 @@ function positionReducedMotionScaleRain(
 		ball.x = clampScaleRainX(x, ball.radius, width);
 		ball.y = y;
 	}
+}
+
+function activateNextScaleRainBall(
+	balls: readonly ScaleRainSimulationBall[],
+	startIndex: number,
+	width: number,
+) {
+	for (let offset = 0; offset < balls.length; offset += 1) {
+		const index = (startIndex + offset) % balls.length;
+		const ball = balls[index];
+		if (!ball || ball.active) {
+			continue;
+		}
+
+		activateScaleRainBall(ball, width);
+		return {
+			didActivate: true,
+			nextCursor: (index + 1) % balls.length,
+		};
+	}
+
+	return {
+		didActivate: false,
+		nextCursor: startIndex,
+	};
+}
+
+function resolveScaleRainReleaseIntervalMs(totalBallCount: number) {
+	if (totalBallCount <= 0) {
+		return SCALE_RAIN_MAX_FLOW_DURATION_MS;
+	}
+
+	const flowDurationMs = Math.min(
+		SCALE_RAIN_MAX_FLOW_DURATION_MS,
+		Math.max(
+			SCALE_RAIN_MIN_FLOW_DURATION_MS,
+			(totalBallCount / 1_000) * SCALE_RAIN_BASE_FLOW_DURATION_MS,
+		),
+	);
+
+	return flowDurationMs / totalBallCount;
 }
 
 function clampScaleRainX(x: number, radius: number, width: number) {

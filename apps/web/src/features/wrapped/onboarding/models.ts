@@ -27,6 +27,7 @@ import {
 	buildScaleContent,
 	buildScaleRainBalls,
 	resolveScalePreviewTokens,
+	resolveScaleRainBallCount,
 	resolveScaleStageModel,
 	type ScaleRainBall,
 } from "./models/scale";
@@ -64,6 +65,7 @@ export {
 	resolveQualityStageModel,
 	resolveRepoPulsePreviewInput,
 	resolveRepoPulseStageModel,
+	resolveScaleRainBallCount,
 	resolveScalePreviewTokens,
 	resolveScaleStageModel,
 	resolveSkillsPreviewInput,

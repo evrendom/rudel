@@ -125,7 +125,7 @@ export function resolveSkillsStageModel(input: {
 			cards,
 			footnote: "",
 			hasRankedSkills: false,
-			headline: "skill issue, 404 skill not found",
+			headline: "You've got a skill issue.",
 			isScrollable,
 			subline: "",
 			trackHeightRem,

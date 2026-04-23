@@ -1,4 +1,3 @@
-import type { ReactNode } from "react";
 import type { DeveloperProject } from "@rudel/api-routes";
 import {
 	AnimatePresence,
@@ -6,6 +5,7 @@ import {
 	motion,
 	useReducedMotion,
 } from "motion/react";
+import type { ReactNode } from "react";
 import { useMemo, useState } from "react";
 import { WrappedSetupCommandSurface } from "@/components/analytics/CliSetupCommandSurface";
 import { cliSetupCommands } from "@/components/analytics/CliSetupHint";
@@ -53,12 +53,12 @@ export function WrappedSetupCompletePage(props: WrappedSetupCompletePageProps) {
 	return (
 		<MotionConfig reducedMotion="user">
 			<WrappedRouteStageShell
-				description="Your first sessions are in."
+				description="Are you ready to see what the sessions tell about you?"
 				footerDebugControls={props.debugControls}
 				footer={
 					<div className="mymind-wrapped-action-stack">
 						<WrappedPrimaryAction kind="button" onClick={props.onContinue}>
-							See your story
+							See what it reveal about you
 						</WrappedPrimaryAction>
 						<WrappedSecondaryAction
 							aria-expanded={isUploadMoreVisible}
@@ -66,7 +66,7 @@ export function WrappedSetupCompletePage(props: WrappedSetupCompletePageProps) {
 								setIsUploadMoreVisible((currentValue) => !currentValue)
 							}
 						>
-							Upload more
+							Upload more for a better picture
 						</WrappedSecondaryAction>
 					</div>
 				}

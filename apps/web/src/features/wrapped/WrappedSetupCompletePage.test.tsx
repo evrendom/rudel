@@ -66,6 +66,11 @@ describe("WrappedSetupCompletePage", () => {
 		expect(
 			screen.getByRole("heading", { name: "Sessions landed" }),
 		).toBeInTheDocument();
+		expect(
+			screen.getByText(
+				"Are you ready to see what the sessions tell about you?",
+			),
+		).toBeInTheDocument();
 		expect(screen.getByText("11 sessions across 2 repos")).toBeInTheDocument();
 		expect(screen.getByText("geneva")).toBeInTheDocument();
 		expect(screen.getByText("@acme/design-system")).toBeInTheDocument();
@@ -74,7 +79,11 @@ describe("WrappedSetupCompletePage", () => {
 		expect(screen.queryByText("rudel enable")).toBeNull();
 		expect(screen.queryByText("rudel upload")).toBeNull();
 
-		await user.click(screen.getByRole("button", { name: "Upload more" }));
+		await user.click(
+			screen.getByRole("button", {
+				name: "Upload more for a better picture",
+			}),
+		);
 
 		expect(
 			screen.getByText(
@@ -97,7 +106,11 @@ describe("WrappedSetupCompletePage", () => {
 			}),
 		).toBeInTheDocument();
 
-		await user.click(screen.getByRole("button", { name: "See your story" }));
+		await user.click(
+			screen.getByRole("button", {
+				name: "See what it reveal about you",
+			}),
+		);
 
 		expect(onContinue).toHaveBeenCalledTimes(1);
 	});
@@ -180,7 +193,11 @@ describe("WrappedSetupCompletePage", () => {
 		expect(screen.getByText("web-sdk")).toBeInTheDocument();
 		expect(screen.getAllByText("1 session")).toHaveLength(10);
 
-		await user.click(screen.getByRole("button", { name: "See your story" }));
+		await user.click(
+			screen.getByRole("button", {
+				name: "See what it reveal about you",
+			}),
+		);
 
 		expect(onContinue).toHaveBeenCalledTimes(1);
 	});

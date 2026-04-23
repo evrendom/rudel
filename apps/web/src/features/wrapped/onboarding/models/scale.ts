@@ -1,7 +1,6 @@
-import { clampNumber } from "../format";
 import type { WrappedStepContentLine } from "../helpers";
 
-const SCALE_STAGE_TOKENS_PER_BALL = 1;
+const SCALE_STAGE_TOKENS_PER_BALL = 1_000;
 const SCALE_STAGE_MIN_BALL_COUNT = 1;
 const SCALE_STAGE_MAX_ACTIVE_BALL_COUNT = 240;
 const SCALE_STAGE_BALL_SIZE_PX = 24;
@@ -57,13 +56,13 @@ export function resolveScaleStageModel(totalTokens: number): ScaleStageModel {
 }
 
 export function buildScaleRainBalls(totalTokens: number): ScaleRainBall[] {
-	const { displayBallCount } = getScaleBallCountSummary(totalTokens);
-	if (displayBallCount <= 0) {
+	const logicalBallCount = resolveScaleRainBallCount(totalTokens);
+	if (logicalBallCount <= 0) {
 		return [];
 	}
 
 	const visibleBallCount = Math.min(
-		displayBallCount,
+		logicalBallCount,
 		SCALE_STAGE_MAX_ACTIVE_BALL_COUNT,
 	);
 	const random = createScaleRainSeededRandom(
@@ -77,17 +76,17 @@ export function buildScaleRainBalls(totalTokens: number): ScaleRainBall[] {
 			] ?? 50;
 
 		return {
-			bounceDamping: Number((0.58 + random() * 0.12).toFixed(2)),
-			floorThreshold: Number((1.1 + random() * 1.4).toFixed(2)),
-			friction: Number((0.986 + random() * 0.01).toFixed(3)),
-			gravityPx: Number((0.42 + random() * 0.12).toFixed(2)),
+			bounceDamping: Number((0.62 + random() * 0.08).toFixed(2)),
+			floorThreshold: Number((1.35 + random() * 0.85).toFixed(2)),
+			friction: Number((0.989 + random() * 0.006).toFixed(3)),
+			gravityPx: Number((0.44 + random() * 0.08).toFixed(2)),
 			id: `scale-rain-ball-${index}`,
-			initialVelocityXPx: Number(((random() - 0.5) * 3.6).toFixed(2)),
-			maxBounces: random() > 0.56 ? 2 : 1,
+			initialVelocityXPx: Number(((random() - 0.5) * 2.6).toFixed(2)),
+			maxBounces: random() > 0.72 ? 2 : 1,
 			sizePx: SCALE_STAGE_BALL_SIZE_PX,
 			sourceXPercent,
-			sourceYOffsetPx: Math.round(48 + random() * 28),
-			spawnJitterPx: Math.round(18 + random() * 16),
+			sourceYOffsetPx: Math.round(-36 - random() * 22),
+			spawnJitterPx: Math.round(10 + random() * 10),
 			squashMultiplier: Number((0.038 + random() * 0.02).toFixed(3)),
 		} satisfies ScaleRainBall;
 	});
@@ -97,6 +96,17 @@ export function buildScaleContent(
 	totalTokens: number,
 ): WrappedStepContentLine[] {
 	return [{ text: `${formatScaleTokenTotal(totalTokens)} tokens` }];
+}
+
+export function resolveScaleRainBallCount(totalTokens: number) {
+	if (totalTokens <= 0) {
+		return 0;
+	}
+
+	return Math.max(
+		SCALE_STAGE_MIN_BALL_COUNT,
+		Math.ceil(totalTokens / SCALE_STAGE_TOKENS_PER_BALL),
+	);
 }
 
 function createScaleRainSeededRandom(seed: number) {
@@ -109,27 +119,6 @@ function createScaleRainSeededRandom(seed: number) {
 	return () => {
 		state = (state * 16807) % 2147483647;
 		return (state - 1) / 2147483646;
-	};
-}
-
-function getScaleBallCountSummary(totalTokens: number) {
-	if (totalTokens <= 0) {
-		return {
-			displayBallCount: 0,
-		};
-	}
-
-	const computedBallCount = Math.max(
-		1,
-		Math.ceil(totalTokens / SCALE_STAGE_TOKENS_PER_BALL),
-	);
-
-	return {
-		displayBallCount: clampNumber(
-			Math.max(SCALE_STAGE_MIN_BALL_COUNT, computedBallCount),
-			SCALE_STAGE_MIN_BALL_COUNT,
-			SCALE_STAGE_MAX_ACTIVE_BALL_COUNT,
-		),
 	};
 }
 

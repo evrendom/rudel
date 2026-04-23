@@ -70,7 +70,7 @@ export function WrappedAuthFlow(props: WrappedAuthFlowProps) {
 
 	return (
 		<WrappedRouteStageShell
-			description={getWrappedAuthDescription(mode, previewProfile)}
+			description={getWrappedAuthDescription(mode)}
 			footerDebugControls={mode ? debugControls : undefined}
 			leadingControl={null}
 			objectClassName={
@@ -126,10 +126,7 @@ function renderWrappedAuthStage(
 	);
 }
 
-function getWrappedAuthDescription(
-	mode: WrappedAuthMode,
-	previewProfile: WrappedGuestPreviewProfile | null,
-) {
+function getWrappedAuthDescription(mode: WrappedAuthMode) {
 	if (mode === "login") {
 		return "Use your Rudel account to continue.";
 	}
@@ -138,11 +135,7 @@ function getWrappedAuthDescription(
 		return "Create your Rudel account to continue.";
 	}
 
-	if (!previewProfile) {
-		return "Save the preview to your Rudel account before the full story starts.";
-	}
-
-	return `Save @${previewProfile.username} to your Rudel account before the full story starts.`;
+	return "Are you ready to see what the sessions tell about you?";
 }
 
 function getWrappedAuthTitle(mode: WrappedAuthMode) {
