@@ -46,7 +46,7 @@ function buildRecurringErrorsQuery(dateFilter: string) {
         session_date,
         if(git_remote != '', git_remote, if(package_name != '', package_name, project_path)) as repository,
         ${ERROR_PATTERN_SQL} as error_pattern
-      FROM rudel.session_analytics
+      FROM rudel.session_analytics FINAL
       WHERE ${dateFilter}
         AND organization_id = {orgId:String}
         AND ${ERROR_CONTENT_FILTER}
@@ -119,7 +119,7 @@ export async function getCrossDeveloperErrors(
       COUNT(*) as total_occurrences,
       groupUniqArray(user_id) as affected_user_ids,
       round(AVG(actual_duration_min), 2) as avg_session_duration_min
-    FROM rudel.session_analytics
+    FROM rudel.session_analytics FINAL
     WHERE ${buildDateFilter("days")}
       AND organization_id = {orgId:String}
       AND ${ERROR_CONTENT_FILTER}
@@ -213,7 +213,7 @@ export async function getErrorTrends(
         ${dimensionExpr} as dimension_value,
         sa.error_count,
         ${ERROR_PATTERN_SQL} as error_pattern
-      FROM rudel.session_analytics sa
+      FROM rudel.session_analytics FINAL sa
       WHERE ${buildInclusiveDateRangeFilter("startDate", "endDate", "sa.session_date")}
         AND sa.organization_id = {orgId:String}
         AND sa.error_count > 0
@@ -246,7 +246,7 @@ export async function getErrorTrends(
         ${dimensionExpr} as dimension_value,
         sa.error_count,
         ${ERROR_PATTERN_SQL} as error_pattern
-      FROM rudel.session_analytics sa
+      FROM rudel.session_analytics FINAL sa
       WHERE ${buildInclusiveDateRangeFilter("startDate", "endDate", "sa.session_date")}
         AND sa.organization_id = {orgId:String}
         AND sa.error_count > 0

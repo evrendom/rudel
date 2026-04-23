@@ -68,7 +68,7 @@ export async function getLearningsFeed(
           skills,
           slash_commands,
           content
-        FROM rudel.session_analytics
+        FROM rudel.session_analytics FINAL
         WHERE ${filters.join("\n          AND ")}
       )
     SELECT
@@ -153,7 +153,7 @@ export async function getLearningsFeedStats(
       count() as total_learnings,
       uniq(user_id) as unique_users,
       uniq(project_path) as unique_projects
-    FROM rudel.session_analytics
+    FROM rudel.session_analytics FINAL
     WHERE ${filters.join("\n      AND ")}
   `;
 
@@ -161,7 +161,7 @@ export async function getLearningsFeedStats(
     SELECT
       toDate(last_interaction_date) as date,
       count() as count
-    FROM rudel.session_analytics
+    FROM rudel.session_analytics FINAL
     WHERE ${filters.join("\n      AND ")}
     GROUP BY date
     ORDER BY date DESC
@@ -197,7 +197,7 @@ export async function getLearningsFeedStats(
 export async function getLearningUsers(orgId: string): Promise<string[]> {
 	const query = `
     SELECT DISTINCT user_id
-    FROM rudel.session_analytics
+    FROM rudel.session_analytics FINAL
     WHERE last_interaction_date >= now64(3) - toIntervalDay({days:UInt32})
       AND has(slash_commands, 'compound:feedback')
       AND organization_id = {orgId:String}
@@ -220,7 +220,7 @@ export async function getLearningUsers(orgId: string): Promise<string[]> {
 export async function getLearningProjects(orgId: string): Promise<string[]> {
 	const query = `
     SELECT DISTINCT project_path
-    FROM rudel.session_analytics
+    FROM rudel.session_analytics FINAL
     WHERE last_interaction_date >= now64(3) - toIntervalDay({days:UInt32})
       AND has(slash_commands, 'compound:feedback')
       AND organization_id = {orgId:String}
@@ -260,7 +260,7 @@ export async function getLearningsTrend(
       toDate(last_interaction_date) as date,
       ${splitColumn} as split_key,
       count() as count
-    FROM rudel.session_analytics
+    FROM rudel.session_analytics FINAL
     WHERE last_interaction_date >= now64(3) - toIntervalDay({days:UInt32})
       AND has(slash_commands, 'compound:feedback')
       AND organization_id = {orgId:String}
