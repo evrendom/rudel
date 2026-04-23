@@ -1,22 +1,21 @@
-import { X } from "lucide-react";
+import { ChevronLeft, HelpCircle, X } from "lucide-react";
 import type { ReactNode } from "react";
-import { Link } from "react-router-dom";
-import { appRoutes } from "@/app/routes";
+import { useNavigate } from "react-router-dom";
+import {
+	WrappedStageCopy,
+	WrappedStageFrame,
+} from "@/features/wrapped/stage-frame";
 import { WrappedProgress } from "@/features/wrapped/WrappedProgress";
 import {
 	getWrappedOnboardingProgressView,
 	type WrappedOnboardingProgressStepId,
 } from "@/features/wrapped/wrapped-onboarding-progress";
-import {
-	WrappedStageCopy,
-	WrappedStageFrame,
-} from "@/features/wrapped/stage-frame";
+import { openChatwoot } from "@/lib/chatwoot";
 import { cn } from "@/lib/utils";
 import "@/features/wrapped/wrapped.css";
 
 interface WrappedRouteStageShellProps {
 	backLabel?: string;
-	backTo?: string;
 	description?: ReactNode;
 	eyebrow?: ReactNode;
 	footer?: ReactNode;
@@ -33,7 +32,6 @@ interface WrappedRouteStageShellProps {
 export function WrappedRouteStageShell(props: WrappedRouteStageShellProps) {
 	const {
 		backLabel = "Close wrapped",
-		backTo = appRoutes.dashboard(),
 		description,
 		eyebrow,
 		footer,
@@ -46,13 +44,33 @@ export function WrappedRouteStageShell(props: WrappedRouteStageShellProps) {
 		title,
 		titleClassName,
 	} = props;
+	const navigate = useNavigate();
 	const progressView = progressStepId
 		? getWrappedOnboardingProgressView(progressStepId)
 		: null;
+	const shouldUseReferenceTopChrome = progressView !== null;
+
+	function handleDefaultBack() {
+		const historyIndex =
+			typeof window.history.state?.idx === "number"
+				? window.history.state.idx
+				: 0;
+
+		if (historyIndex > 0) {
+			navigate(-1);
+		}
+	}
 
 	return (
 		<main className="mymind-wrapped-route mymind-wrapped-route--onboarding">
-			<div className="mymind-wrapped-shell relative z-[1] mx-auto flex w-full flex-1 flex-col text-foreground">
+			<div
+				className={cn(
+					"mymind-wrapped-shell relative z-[1] mx-auto flex w-full flex-1 flex-col text-foreground",
+					shouldUseReferenceTopChrome
+						? "mymind-wrapped-shell--reference-top-chrome"
+						: null,
+				)}
+			>
 				<div
 					className={cn(
 						"mymind-wrapped-shell__frame",
@@ -65,13 +83,22 @@ export function WrappedRouteStageShell(props: WrappedRouteStageShellProps) {
 								{leadingControl !== undefined ? (
 									leadingControl
 								) : (
-									<Link
-										to={backTo}
+									<button
+										type="button"
 										aria-label={backLabel}
-										className="mymind-wrapped-back-button rounded-full transition-colors"
+										className={cn(
+											shouldUseReferenceTopChrome
+												? "mymind-wrapped-top-tray__edge-control"
+												: "mymind-wrapped-back-button rounded-full transition-colors",
+										)}
+										onClick={handleDefaultBack}
 									>
-										<X className="size-4" />
-									</Link>
+										{shouldUseReferenceTopChrome ? (
+											<ChevronLeft className="mymind-wrapped-top-tray__edge-icon mymind-wrapped-top-tray__edge-icon--back" />
+										) : (
+											<X className="size-4" />
+										)}
+									</button>
 								)}
 							</div>
 
@@ -91,10 +118,21 @@ export function WrappedRouteStageShell(props: WrappedRouteStageShellProps) {
 							</div>
 
 							<div className="mymind-wrapped-top-tray__slot mymind-wrapped-top-tray__slot--end">
-								<span
-									aria-hidden="true"
-									className="mymind-wrapped-top-tray__utility-placeholder"
-								/>
+								{shouldUseReferenceTopChrome ? (
+									<button
+										type="button"
+										aria-label="Open support"
+										className="mymind-wrapped-top-tray__edge-control"
+										onClick={() => void openChatwoot()}
+									>
+										<HelpCircle className="mymind-wrapped-top-tray__edge-icon mymind-wrapped-top-tray__edge-icon--help" />
+									</button>
+								) : (
+									<span
+										aria-hidden="true"
+										className="mymind-wrapped-top-tray__utility-placeholder"
+									/>
+								)}
 							</div>
 						</div>
 					</header>

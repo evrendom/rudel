@@ -60,6 +60,11 @@ body.mymind-wrapped-body #root {
 	);
 }
 
+.mymind-wrapped-shell--reference-top-chrome {
+	--wrapped-shell-top-inset: 24px;
+	--wrapped-reference-top-chrome-edge-inset: calc(27px - ((44px - 23px) / 2));
+}
+
 .mymind-wrapped-shell__frame {
 	display: grid;
 	grid-template-columns: minmax(0, 1fr);
@@ -87,6 +92,16 @@ body.mymind-wrapped-body #root {
 	grid-template-columns: 44px minmax(0, 1fr) 44px;
 	align-items: center;
 	gap: 0.9rem;
+}
+
+.mymind-wrapped-shell--reference-top-chrome .mymind-wrapped-top-tray__row {
+	margin-inline: calc(
+		-1 *
+		(
+			var(--wrapped-shell-inline-inset) -
+			var(--wrapped-reference-top-chrome-edge-inset)
+		)
+	);
 }
 
 .mymind-wrapped-top-tray__slot {
@@ -137,6 +152,51 @@ body.mymind-wrapped-body #root {
 	display: inline-flex;
 	width: 44px;
 	height: 44px;
+}
+
+.mymind-wrapped-top-tray__edge-control {
+	display: inline-flex;
+	flex: 0 0 auto;
+	align-items: center;
+	justify-content: center;
+	width: 44px;
+	min-width: 44px;
+	height: 44px;
+	min-height: 44px;
+	border: 0;
+	padding: 0;
+	background: transparent;
+	color: rgb(140 142 151 / 0.96);
+	transition:
+		color 160ms ease,
+		transform 160ms ease,
+		opacity 160ms ease;
+}
+
+.mymind-wrapped-top-tray__edge-control:hover {
+	color: rgb(112 114 123 / 0.98);
+	transform: translateY(-0.5px);
+}
+
+.mymind-wrapped-top-tray__edge-control:disabled {
+	opacity: 0.48;
+	transform: none;
+}
+
+.mymind-wrapped-top-tray__edge-icon {
+	flex: 0 0 auto;
+}
+
+.mymind-wrapped-top-tray__edge-icon--back {
+	width: 23px;
+	height: 23px;
+	stroke-width: 1.8;
+}
+
+.mymind-wrapped-top-tray__edge-icon--help {
+	width: 23px;
+	height: 23px;
+	stroke-width: 1.7;
 }
 
 .mymind-wrapped-back-button {
@@ -2515,9 +2575,22 @@ body.mymind-wrapped-body #root {
 .mymind-wrapped-dock {
 	display: grid;
 	width: 100%;
+	gap: 0.6rem;
 	padding-top: 0.1rem;
 	background: transparent;
 	min-width: 0;
+}
+
+.mymind-wrapped-dock__debug-stack {
+	display: grid;
+	gap: 0.45rem;
+	width: 100%;
+	max-width: 30rem;
+	margin-inline: auto;
+}
+
+.mymind-wrapped-dock__debug-control {
+	width: 100%;
 }
 
 .mymind-wrapped-dock > * {
@@ -4568,6 +4641,10 @@ body.mymind-wrapped-body #root {
 		--wrapped-shell-bottom-inset: 40px;
 	}
 
+	.mymind-wrapped-shell--reference-top-chrome {
+		--wrapped-shell-top-inset: 24px;
+	}
+
 	.mymind-wrapped-intro-stage {
 		max-width: 34rem;
 	}
@@ -4583,6 +4660,10 @@ body.mymind-wrapped-body #root {
 		--wrapped-shell-inline-inset: 20px;
 		--wrapped-shell-bottom-inset: 8px;
 		--wrapped-shell-stage-gap: 0.8rem;
+	}
+
+	.mymind-wrapped-shell--reference-top-chrome {
+		--wrapped-shell-top-inset: 24px;
 	}
 
 	.mymind-wrapped-entry-stage--auth {

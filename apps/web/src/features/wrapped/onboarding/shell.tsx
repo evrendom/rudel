@@ -7,7 +7,7 @@ import {
 } from "motion/react";
 import type { ReactNode } from "react";
 import { useRef, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useMountEffect } from "@/hooks/useMountEffect";
 import { cn } from "@/lib/utils";
 import {
@@ -55,6 +55,7 @@ const STAGE_TRANSITION = {
 
 export interface WrappedTeamCardOnboardingProps {
 	displayName: string;
+	footerDebugControls?: ReactNode;
 	finalFooter?: ReactNode;
 	finalStage: ReactNode;
 	onboardingMetrics: WrappedOnboardingMetrics;
@@ -77,11 +78,13 @@ export function WrappedTeamCardOnboarding(
 ) {
 	const {
 		displayName,
+		footerDebugControls,
 		finalFooter,
 		finalStage,
 		onboardingMetrics,
 		totalSessions,
 	} = props;
+	const navigate = useNavigate();
 	const [searchParams, setSearchParams] = useSearchParams();
 	const shouldReduceMotion = useReducedMotion();
 	const reduceMotion = shouldReduceMotion ?? false;
@@ -202,6 +205,17 @@ export function WrappedTeamCardOnboarding(
 		);
 	}
 
+	function handleTopChromeBack() {
+		const historyIndex =
+			typeof window.history.state?.idx === "number"
+				? window.history.state.idx
+				: 0;
+
+		if (historyIndex > 0) {
+			navigate(-1);
+		}
+	}
+
 	return (
 		<MotionConfig reducedMotion="user">
 			<LayoutGroup id="wrapped-onboarding-shell">
@@ -220,19 +234,15 @@ export function WrappedTeamCardOnboarding(
 					) : null}
 					<motion.div
 						layout
-						className="mymind-wrapped-shell relative z-[1] mx-auto flex w-full flex-1 flex-col text-foreground"
+						className="mymind-wrapped-shell mymind-wrapped-shell--reference-top-chrome relative z-[1] mx-auto flex w-full flex-1 flex-col text-foreground"
 					>
 						<motion.div layout className="mymind-wrapped-shell__frame">
 							<WrappedOnboardingHeader
-								activePreviewOptions={activePreviewOptions}
-								activePreviewState={activePreviewState}
-								activePreviewStepId={activePreviewStepId}
 								activeStep={activeStep}
 								activeStepIndex={activeStepIndex}
-								isDebugControlsVisible={showPreviewControls}
 								isStepTransitioning={isStepTransitioning}
+								onBack={handleTopChromeBack}
 								onGoToStep={goToStep}
-								onPreviewStateChange={setPreviewState}
 							/>
 
 							<div className="mymind-wrapped-stage-area">
@@ -281,9 +291,15 @@ export function WrappedTeamCardOnboarding(
 
 							<WrappedOnboardingFooter
 								activeStep={activeStep}
+								activePreviewOptions={activePreviewOptions}
+								activePreviewState={activePreviewState}
+								activePreviewStepId={activePreviewStepId}
 								finalFooter={finalFooter}
+								generalDebugControls={footerDebugControls}
+								isDebugControlsVisible={showPreviewControls}
 								isStepTransitioning={isStepTransitioning}
 								onContinue={handleStepAdvance}
+								onPreviewStateChange={setPreviewState}
 							/>
 						</motion.div>
 					</motion.div>

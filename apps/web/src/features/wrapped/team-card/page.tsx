@@ -3,6 +3,7 @@ import { useDialKit } from "dialkit";
 import {
 	type CSSProperties,
 	type Dispatch,
+	type ReactNode,
 	type SetStateAction,
 	useMemo,
 	useRef,
@@ -51,7 +52,8 @@ const TEAM_CARD_SHELL_STYLE = {
 	"--team-lineup-card-grain-size": "40px",
 } as CSSProperties;
 
-export function WrappedTeamCardPage() {
+export function WrappedTeamCardPage(props: { debugControls?: ReactNode }) {
+	const { debugControls } = props;
 	const navigate = useNavigate();
 	const [searchParams] = useSearchParams();
 	const { trackUtilityUsed } = useAnalyticsTracking({
@@ -150,6 +152,7 @@ export function WrappedTeamCardPage() {
 		<WrappedTeamCardPageContent
 			key={activeStepParam === "card" ? "card" : "not-card"}
 			activeArchetype={activeArchetype}
+			debugControls={debugControls}
 			headerLeftMetric={headerLeftMetric}
 			headerRightMetric={headerRightMetric}
 			onboardingMetrics={onboardingMetrics}
@@ -167,6 +170,7 @@ export function WrappedTeamCardPage() {
 
 function WrappedTeamCardPageContent(props: {
 	activeArchetype: WrappedArchetypeCardTheme;
+	debugControls?: ReactNode;
 	headerLeftMetric: WrappedTeamMemberCardHeaderMetric;
 	headerRightMetric: WrappedTeamMemberCardHeaderMetric;
 	onboardingMetrics: WrappedOnboardingMetrics;
@@ -181,6 +185,7 @@ function WrappedTeamCardPageContent(props: {
 }) {
 	const {
 		activeArchetype,
+		debugControls,
 		headerLeftMetric,
 		headerRightMetric,
 		onboardingMetrics,
@@ -361,6 +366,7 @@ function WrappedTeamCardPageContent(props: {
 	return (
 		<WrappedTeamCardOnboarding
 			displayName={visibleTeamCardRow.displayName}
+			footerDebugControls={debugControls}
 			finalFooter={
 				showShareStage ? (
 					false

@@ -108,25 +108,45 @@ export function WrappedDevPage() {
 
 	return (
 		<>
-			<WrappedDevToolbar activeStage={activeStage} onStageChange={setStage} />
+			{activeStage === "story" ? null : (
+				<WrappedDevToolbar activeStage={activeStage} onStageChange={setStage} />
+			)}
 			{activeStage === "auth" ? <WrappedDevAuthStage /> : null}
 			{activeStage === "setup" ? (
 				<WrappedDevSetupStage onContinueToStory={() => setStage("story")} />
 			) : null}
 			{activeStage === "mobile" ? <WrappedDevMobileStage /> : null}
-			{activeStage === "story" ? <WrappedTeamCardPage /> : null}
+			{activeStage === "story" ? (
+				<WrappedTeamCardPage
+					debugControls={
+						<WrappedDevToolbar
+							activeStage={activeStage}
+							layout="inline"
+							onStageChange={setStage}
+						/>
+					}
+				/>
+			) : null}
 		</>
 	);
 }
 
 function WrappedDevToolbar(props: {
 	activeStage: WrappedDevStage;
+	layout?: "fixed" | "inline";
 	onStageChange: (stage: WrappedDevStage) => void;
 }) {
-	const { activeStage, onStageChange } = props;
+	const { activeStage, layout = "fixed", onStageChange } = props;
+	const isInline = layout === "inline";
 
 	return (
-		<div className="fixed top-1 left-1/2 z-[1000] flex max-w-[calc(100%-0.5rem)] -translate-x-1/2 rounded-xl border border-border/80 bg-background/95 p-1 shadow-md backdrop-blur">
+		<div
+			className={
+				isInline
+					? "flex w-full rounded-xl border border-border/80 bg-background/95 p-1 shadow-md backdrop-blur"
+					: "fixed top-1 left-1/2 z-[1000] flex max-w-[calc(100%-0.5rem)] -translate-x-1/2 rounded-xl border border-border/80 bg-background/95 p-1 shadow-md backdrop-blur"
+			}
+		>
 			<div className="flex flex-wrap items-center gap-1">
 				{WRAPPED_DEV_STAGES.map((stage) => (
 					<Button

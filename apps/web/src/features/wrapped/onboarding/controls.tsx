@@ -1,10 +1,10 @@
-import { ChevronLeft, X } from "lucide-react";
+import { ChevronLeft, HelpCircle } from "lucide-react";
 import type { ReactNode } from "react";
-import { Link } from "react-router-dom";
 import { appRoutes } from "@/app/routes";
-import { WrappedProgress } from "@/features/wrapped/WrappedProgress";
 import { WrappedPrimaryAction } from "@/features/wrapped/actions";
+import { WrappedProgress } from "@/features/wrapped/WrappedProgress";
 import { getWrappedOnboardingProgressView } from "@/features/wrapped/wrapped-onboarding-progress";
+import { openChatwoot } from "@/lib/chatwoot";
 import { cn } from "@/lib/utils";
 import type {
 	PreviewableWrappedStepId,
@@ -14,41 +14,37 @@ import type {
 import { WRAPPED_SATURDAY_STEPS } from "./config";
 
 interface WrappedOnboardingHeaderProps {
+	activeStep: WrappedPrimaryStep;
+	activeStepIndex: number;
+	isStepTransitioning: boolean;
+	onBack: () => void;
+	onGoToStep: (nextStepIndex: number) => void;
+}
+
+interface WrappedOnboardingFooterProps {
+	activeStep: WrappedPrimaryStep;
 	activePreviewOptions: readonly WrappedPreviewOption[] | null;
 	activePreviewState: string;
 	activePreviewStepId: PreviewableWrappedStepId | null;
-	activeStep: WrappedPrimaryStep;
-	activeStepIndex: number;
+	finalFooter?: ReactNode;
+	generalDebugControls?: ReactNode;
 	isDebugControlsVisible: boolean;
 	isStepTransitioning: boolean;
-	onGoToStep: (nextStepIndex: number) => void;
+	onContinue: () => void;
 	onPreviewStateChange: (
 		stepId: PreviewableWrappedStepId,
 		value: string,
 	) => void;
 }
 
-interface WrappedOnboardingFooterProps {
-	activeStep: WrappedPrimaryStep;
-	finalFooter?: ReactNode;
-	isStepTransitioning: boolean;
-	onContinue: () => void;
-}
-
 export function WrappedOnboardingHeader(props: WrappedOnboardingHeaderProps) {
 	const {
-		activePreviewOptions,
-		activePreviewState,
-		activePreviewStepId,
 		activeStep,
 		activeStepIndex,
-		isDebugControlsVisible,
 		isStepTransitioning,
+		onBack,
 		onGoToStep,
-		onPreviewStateChange,
 	} = props;
-	const isDebugTrayVisible =
-		isDebugControlsVisible && activePreviewStepId && activePreviewOptions;
 	const progressView = getWrappedOnboardingProgressView(activeStep.id);
 
 	return (
@@ -60,19 +56,20 @@ export function WrappedOnboardingHeader(props: WrappedOnboardingHeaderProps) {
 							type="button"
 							aria-label="Go back"
 							disabled={isStepTransitioning}
-							className="mymind-wrapped-back-button rounded-full transition-colors"
+							className="mymind-wrapped-top-tray__edge-control"
 							onClick={() => onGoToStep(activeStepIndex - 1)}
 						>
-							<ChevronLeft className="size-4" />
+							<ChevronLeft className="mymind-wrapped-top-tray__edge-icon mymind-wrapped-top-tray__edge-icon--back" />
 						</button>
 					) : (
-						<Link
-							to={appRoutes.dashboard()}
-							aria-label="Close wrapped onboarding"
-							className="mymind-wrapped-back-button rounded-full transition-colors"
+						<button
+							type="button"
+							aria-label="Go back"
+							className="mymind-wrapped-top-tray__edge-control"
+							onClick={onBack}
 						>
-							<X className="size-4" />
-						</Link>
+							<ChevronLeft className="mymind-wrapped-top-tray__edge-icon mymind-wrapped-top-tray__edge-icon--back" />
+						</button>
 					)}
 				</div>
 
@@ -97,60 +94,63 @@ export function WrappedOnboardingHeader(props: WrappedOnboardingHeaderProps) {
 				</div>
 
 				<div className="mymind-wrapped-top-tray__slot mymind-wrapped-top-tray__slot--end">
-					<span
-						aria-hidden="true"
-						className="mymind-wrapped-top-tray__utility-placeholder"
-					/>
+					<button
+						type="button"
+						aria-label="Open support"
+						className="mymind-wrapped-top-tray__edge-control"
+						onClick={() => void openChatwoot()}
+					>
+						<HelpCircle className="mymind-wrapped-top-tray__edge-icon mymind-wrapped-top-tray__edge-icon--help" />
+					</button>
 				</div>
 			</div>
-
-			{isDebugTrayVisible ? (
-				<div className="mymind-wrapped-debug-tray">
-					<div className="mymind-wrapped-debug-tray__scroller">
-						<fieldset className="mymind-wrapped-debug-tray__options">
-							<legend className="sr-only">{`${activeStep.label} preview states`}</legend>
-							{activePreviewOptions.map((option) => {
-								const isSelected = option.value === activePreviewState;
-								const [primaryLine, secondaryLine] = splitWrappedDebugLabel(
-									option.label,
-								);
-
-								return (
-									<button
-										key={option.value}
-										type="button"
-										aria-pressed={isSelected}
-										disabled={isStepTransitioning}
-										onClick={() =>
-											onPreviewStateChange(activePreviewStepId, option.value)
-										}
-										className={cn(
-											"mymind-wrapped-debug-tray__option",
-											isSelected
-												? "mymind-wrapped-debug-tray__option--active"
-												: "mymind-wrapped-debug-tray__option--inactive",
-										)}
-									>
-										<span className="mymind-wrapped-debug-tray__option-label">
-											<span>{primaryLine}</span>
-											{secondaryLine ? <span>{secondaryLine}</span> : null}
-										</span>
-									</button>
-								);
-							})}
-						</fieldset>
-					</div>
-				</div>
-			) : null}
 		</header>
 	);
 }
 
 export function WrappedOnboardingFooter(props: WrappedOnboardingFooterProps) {
-	const { activeStep, finalFooter, isStepTransitioning, onContinue } = props;
+	const {
+		activePreviewOptions,
+		activePreviewState,
+		activePreviewStepId,
+		activeStep,
+		finalFooter,
+		generalDebugControls,
+		isDebugControlsVisible,
+		isStepTransitioning,
+		onContinue,
+		onPreviewStateChange,
+	} = props;
+	const isStoryDebugTrayVisible =
+		isDebugControlsVisible && activePreviewStepId && activePreviewOptions;
+	const hasDebugControls =
+		Boolean(generalDebugControls) || isStoryDebugTrayVisible;
 
 	return (
 		<footer className="mymind-wrapped-dock">
+			{hasDebugControls ? (
+				<div className="mymind-wrapped-dock__debug-stack">
+					{generalDebugControls ? (
+						<div className="mymind-wrapped-dock__debug-control">
+							{generalDebugControls}
+						</div>
+					) : null}
+
+					{isStoryDebugTrayVisible ? (
+						<div className="mymind-wrapped-dock__debug-control">
+							<WrappedOnboardingDebugTray
+								activePreviewOptions={activePreviewOptions}
+								activePreviewState={activePreviewState}
+								activePreviewStepId={activePreviewStepId}
+								activeStep={activeStep}
+								isStepTransitioning={isStepTransitioning}
+								onPreviewStateChange={onPreviewStateChange}
+							/>
+						</div>
+					) : null}
+				</div>
+			) : null}
+
 			{activeStep.kind === "final" ? (
 				(finalFooter ?? (
 					<WrappedPrimaryAction kind="link" to={appRoutes.dashboard()}>
@@ -167,6 +167,66 @@ export function WrappedOnboardingFooter(props: WrappedOnboardingFooterProps) {
 				</WrappedPrimaryAction>
 			)}
 		</footer>
+	);
+}
+
+function WrappedOnboardingDebugTray(props: {
+	activePreviewOptions: readonly WrappedPreviewOption[];
+	activePreviewState: string;
+	activePreviewStepId: PreviewableWrappedStepId;
+	activeStep: WrappedPrimaryStep;
+	isStepTransitioning: boolean;
+	onPreviewStateChange: (
+		stepId: PreviewableWrappedStepId,
+		value: string,
+	) => void;
+}) {
+	const {
+		activePreviewOptions,
+		activePreviewState,
+		activePreviewStepId,
+		activeStep,
+		isStepTransitioning,
+		onPreviewStateChange,
+	} = props;
+
+	return (
+		<div className="mymind-wrapped-debug-tray">
+			<div className="mymind-wrapped-debug-tray__scroller">
+				<fieldset className="mymind-wrapped-debug-tray__options">
+					<legend className="sr-only">{`${activeStep.label} preview states`}</legend>
+					{activePreviewOptions.map((option) => {
+						const isSelected = option.value === activePreviewState;
+						const [primaryLine, secondaryLine] = splitWrappedDebugLabel(
+							option.label,
+						);
+
+						return (
+							<button
+								key={option.value}
+								type="button"
+								aria-pressed={isSelected}
+								disabled={isStepTransitioning}
+								onClick={() =>
+									onPreviewStateChange(activePreviewStepId, option.value)
+								}
+								className={cn(
+									"mymind-wrapped-debug-tray__option",
+									isSelected
+										? "mymind-wrapped-debug-tray__option--active"
+										: "mymind-wrapped-debug-tray__option--inactive",
+								)}
+							>
+								<span className="mymind-wrapped-debug-tray__option-label">
+									<span>{primaryLine}</span>
+									{secondaryLine ? <span>{secondaryLine}</span> : null}
+								</span>
+							</button>
+						);
+					})}
+				</fieldset>
+			</div>
+		</div>
 	);
 }
 

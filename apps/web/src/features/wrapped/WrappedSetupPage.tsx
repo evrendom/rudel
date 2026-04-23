@@ -1,8 +1,5 @@
-import { ArrowLeft } from "lucide-react";
 import { MotionConfig } from "motion/react";
 import { useMemo } from "react";
-import { useNavigate } from "react-router-dom";
-import { appRoutes } from "@/app/routes";
 import {
 	CliSetupHint,
 	type CliSetupStepId,
@@ -19,7 +16,6 @@ interface WrappedSetupPageProps {
 export function WrappedSetupPage(props: WrappedSetupPageProps) {
 	const { completedStepIdsOverride, currentStepIdOverride, initialStepId } =
 		props;
-	const navigate = useNavigate();
 	const lastStepIndex = cliSetupCommands.length - 1;
 	const initialStepIndex = getInitialStepIndex(initialStepId, lastStepIndex);
 	const currentStepIndex = initialStepIndex;
@@ -39,33 +35,9 @@ export function WrappedSetupPage(props: WrappedSetupPageProps) {
 			: currentStepIdOverride;
 	const completedStepIds = completedStepIdsOverride ?? derivedCompletedStepIds;
 
-	function handleBack() {
-		const historyIndex =
-			typeof window.history.state?.idx === "number"
-				? window.history.state.idx
-				: 0;
-
-		if (historyIndex > 0) {
-			navigate(-1);
-			return;
-		}
-
-		navigate(appRoutes.dashboard());
-	}
-
 	return (
 		<MotionConfig reducedMotion="user">
 			<WrappedRouteStageShell
-				leadingControl={
-					<button
-						type="button"
-						aria-label="Go back"
-						className="mymind-wrapped-back-button rounded-full transition-colors"
-						onClick={handleBack}
-					>
-						<ArrowLeft className="size-4" />
-					</button>
-				}
 				description="Start sending sessions to Rudel."
 				progressStepId="desktop-ready"
 				stage={
