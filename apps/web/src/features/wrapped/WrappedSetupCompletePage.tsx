@@ -6,10 +6,13 @@ import {
 	useReducedMotion,
 } from "motion/react";
 import { useState } from "react";
-import { Button } from "@/app/ui/button";
 import { WrappedSetupCommandSurface } from "@/components/analytics/CliSetupCommandSurface";
 import { cliSetupCommands } from "@/components/analytics/CliSetupHint";
 import { useAnalyticsQuery } from "@/features/analytics/queries/useAnalyticsQuery";
+import {
+	WrappedPrimaryAction,
+	WrappedSecondaryAction,
+} from "@/features/wrapped/actions";
 import { MAX_ANALYTICS_DAYS } from "@/lib/analytics-date-range";
 import { orpc } from "@/lib/orpc";
 import { WrappedRouteStageShell } from "./route-stage-shell";
@@ -47,22 +50,20 @@ export function WrappedSetupCompletePage(props: WrappedSetupCompletePageProps) {
 				description="Your first sessions are in."
 				footer={
 					<div className="mymind-wrapped-action-stack">
-						<Button
-							className="mymind-wrapped-entry-action h-11 rounded-full px-7 [font-family:var(--app-font-heading)] text-[1.0625rem] font-semibold"
+						<WrappedPrimaryAction
+							kind="button"
 							onClick={props.onContinue}
 						>
 							See your story
-						</Button>
-						<button
-							type="button"
+						</WrappedPrimaryAction>
+						<WrappedSecondaryAction
 							aria-expanded={isUploadMoreVisible}
-							className="mymind-wrapped-secondary-action rounded-full"
 							onClick={() =>
 								setIsUploadMoreVisible((currentValue) => !currentValue)
 							}
 						>
 							Upload more
-						</button>
+						</WrappedSecondaryAction>
 					</div>
 				}
 				stageClassName="mymind-wrapped-entry-stage--setup-complete"

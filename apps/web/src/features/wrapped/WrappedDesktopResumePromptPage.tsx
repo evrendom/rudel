@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { Button } from "@/app/ui/button";
 import { useAnalyticsTracking } from "@/features/analytics/tracking/useAnalyticsTracking";
+import { WrappedPrimaryAction } from "@/features/wrapped/actions";
 import { client } from "@/lib/orpc";
 import { WrappedDesktopResumePromptStage } from "./WrappedDesktopResumePromptStage";
 
@@ -117,13 +117,12 @@ export function WrappedDesktopResumePromptPage(
 				</>
 			}
 			primaryAction={
-				<Button
-					type="button"
-					className="mymind-wrapped-entry-action h-11 rounded-full px-7 [font-family:var(--app-font-heading)] text-[1.0625rem] font-semibold"
+				<WrappedPrimaryAction
+					kind="button"
 					onClick={handleEmailDesktopLink}
 				>
 					{isSubmitting ? "Sending desktop link..." : "Email me a desktop link"}
-				</Button>
+				</WrappedPrimaryAction>
 			}
 		/>
 	);

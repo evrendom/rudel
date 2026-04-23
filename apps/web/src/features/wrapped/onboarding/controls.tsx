@@ -2,8 +2,8 @@ import { ChevronLeft, X } from "lucide-react";
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { appRoutes } from "@/app/routes";
-import { buttonVariants } from "@/app/ui/button";
 import { WrappedProgress } from "@/features/wrapped/WrappedProgress";
+import { WrappedPrimaryAction } from "@/features/wrapped/actions";
 import { getWrappedOnboardingProgressView } from "@/features/wrapped/wrapped-onboarding-progress";
 import { cn } from "@/lib/utils";
 import type {
@@ -34,27 +34,6 @@ interface WrappedOnboardingFooterProps {
 	isStepTransitioning: boolean;
 	onContinue: () => void;
 }
-
-interface WrappedSecondaryActionProps {
-	children: ReactNode;
-	disabled?: boolean;
-	onClick?: () => void;
-}
-
-type WrappedPrimaryActionProps =
-	| {
-			children: ReactNode;
-			disabled?: boolean;
-			icon?: ReactNode;
-			kind: "button";
-			onClick?: () => void;
-			type?: "button" | "reset" | "submit";
-	  }
-	| {
-			children: ReactNode;
-			kind: "link";
-			to: string;
-	  };
 
 export function WrappedOnboardingHeader(props: WrappedOnboardingHeaderProps) {
 	const {
@@ -188,50 +167,6 @@ export function WrappedOnboardingFooter(props: WrappedOnboardingFooterProps) {
 				</WrappedPrimaryAction>
 			)}
 		</footer>
-	);
-}
-
-function WrappedPrimaryAction(props: WrappedPrimaryActionProps) {
-	const className = cn(
-		buttonVariants({}),
-		"mymind-wrapped-primary-action h-11 rounded-full px-7 [font-family:var(--app-font-heading)] text-[1.0625rem] font-semibold",
-	);
-
-	if (props.kind === "link") {
-		return (
-			<Link to={props.to} className={className}>
-				{props.children}
-			</Link>
-		);
-	}
-
-	return (
-		<button
-			type={props.type ?? "button"}
-			disabled={props.disabled}
-			onClick={props.onClick}
-			className={className}
-		>
-			<span>{props.children}</span>
-			{props.icon ? (
-				<span className="mymind-wrapped-primary-action__icon">
-					{props.icon}
-				</span>
-			) : null}
-		</button>
-	);
-}
-
-export function WrappedSecondaryAction(props: WrappedSecondaryActionProps) {
-	return (
-		<button
-			type="button"
-			disabled={props.disabled}
-			onClick={props.onClick}
-			className="mymind-wrapped-secondary-action [font-family:var(--app-font-heading)] text-[1.0625rem] font-semibold"
-		>
-			{props.children}
-		</button>
 	);
 }
 

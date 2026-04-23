@@ -4,6 +4,10 @@ import { useState } from "react";
 import { LoginForm } from "@/features/auth/LoginForm";
 import { SignupForm } from "@/features/auth/SignupForm";
 import type { TeamPageMemberRow } from "@/features/team/use-team-page-data";
+import {
+	WrappedPrimaryAction,
+	WrappedSecondaryAction,
+} from "@/features/wrapped/actions";
 import { WrappedRouteStageShell } from "./route-stage-shell";
 import { WRAPPED_ARCHETYPE_CARD_THEMES } from "./team-card/archetypes";
 import {
@@ -115,20 +119,17 @@ function WrappedAuthIntent(props: WrappedAuthIntentProps) {
 		<div className="mymind-wrapped-auth-panel mymind-wrapped-auth-panel--intro">
 			<WrappedAuthPlayerCardPreview />
 			<div className="mymind-wrapped-auth-panel__actions">
-				<button
-					type="button"
-					className="mymind-wrapped-entry-action h-11 rounded-full px-7 [font-family:var(--app-font-heading)] text-[1.0625rem] font-semibold"
+				<WrappedPrimaryAction
+					kind="button"
 					onClick={() => onChooseMode("signup")}
 				>
 					Create account
-				</button>
-				<button
-					type="button"
-					className="mymind-wrapped-secondary-action rounded-full [font-family:var(--app-font-heading)] text-[1.0625rem] font-semibold"
+				</WrappedPrimaryAction>
+				<WrappedSecondaryAction
 					onClick={() => onChooseMode("login")}
 				>
 					Log in
-				</button>
+				</WrappedSecondaryAction>
 			</div>
 		</div>
 	);
@@ -184,11 +185,11 @@ export function WrappedAuthFlow() {
 					</button>
 				) : null
 			}
-				objectClassName={
-					mode
-						? "mymind-wrapped-entry-stage__object--auth"
-						: "mymind-wrapped-entry-stage__object--auth-intro"
-				}
+			objectClassName={
+				mode
+					? "mymind-wrapped-entry-stage__object--auth"
+					: "mymind-wrapped-entry-stage__object--auth-intro"
+			}
 			stage={renderWrappedAuthStage(mode, setMode)}
 			stageClassName="mymind-wrapped-entry-stage--auth"
 			title={getWrappedAuthTitle(mode)}

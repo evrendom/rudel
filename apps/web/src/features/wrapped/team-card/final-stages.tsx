@@ -10,6 +10,10 @@ import { appRoutes } from "@/app/routes";
 import { Button } from "@/app/ui/button";
 import type { TeamPageMemberRow } from "@/features/team/use-team-page-data";
 import {
+	WrappedPrimaryAction,
+	WrappedSecondaryAction,
+} from "@/features/wrapped/actions";
+import {
 	WrappedStageCopy,
 	WrappedStageFrame,
 } from "@/features/wrapped/stage-frame";
@@ -316,41 +320,19 @@ export function WrappedTeamCardRevealFooter(props: {
 
 	return (
 		<div className="mymind-wrapped-action-stack">
-			<Button
-				type="button"
-				className="mymind-wrapped-primary-action h-11 rounded-full bg-[#4f7cff] px-7 text-[19px] font-bold text-white shadow-[0_16px_28px_rgba(79,124,255,0.24)] hover:bg-[#4472f4] [font-family:var(--app-font-heading)]"
+			<WrappedPrimaryAction
+				kind="button"
+				className="text-[1.0625rem] font-semibold"
+				icon={<ChevronRight className="size-4" />}
 				onClick={onPreviewPost}
 			>
-				<span>Preview post</span>
-				<span className="mymind-wrapped-primary-action__icon">
-					<ChevronRight className="size-4" />
-				</span>
-			</Button>
-			<button
-				type="button"
-				className="mymind-wrapped-secondary-action [font-family:var(--font-sans)] text-[0.98rem] font-semibold"
+				Preview post
+			</WrappedPrimaryAction>
+			<WrappedSecondaryAction
 				onClick={onContinueToDashboard}
 			>
 				Continue to dashboard
-			</button>
-		</div>
-	);
-}
-
-export function WrappedTeamCardShareFooter(props: {
-	onContinueToDashboard: () => void;
-}) {
-	const { onContinueToDashboard } = props;
-
-	return (
-		<div className="mymind-wrapped-action-stack">
-			<Button
-				type="button"
-				className="mymind-wrapped-primary-action h-11 rounded-full bg-[#4f7cff] px-7 text-[19px] font-bold text-white shadow-[0_16px_28px_rgba(79,124,255,0.24)] hover:bg-[#4472f4] [font-family:var(--app-font-heading)]"
-				onClick={onContinueToDashboard}
-			>
-				Continue to dashboard
-			</Button>
+			</WrappedSecondaryAction>
 		</div>
 	);
 }
