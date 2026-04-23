@@ -13,11 +13,19 @@ import {
 	buildDateFilter,
 	queryClickhouse,
 } from "../clickhouse.js";
+import { buildEstimatedCostSql } from "./pricing.service.js";
 
 const logger = getLogger(["rudel", "api", "project-service"]);
 
 const PROJECT_KEY_EXPR = `if(git_remote != '', git_remote, if(package_name != '', package_name, project_path))`;
 const PROJECT_DISPLAY_EXPR = `if(git_remote != '', arrayElement(splitByChar('/', git_remote), -1), arrayElement(splitByChar('/', replaceAll(project_path, '\\\\', '/')), -1))`;
+const PER_SESSION_COST_SQL = buildEstimatedCostSql({
+	modelExpr: "model_used",
+	inputExpr: "ifNull(input_tokens, 0)",
+	outputExpr: "ifNull(output_tokens, 0)",
+	cacheReadInputExpr: "ifNull(cache_read_input_tokens, 0)",
+	cacheCreationInputExpr: "ifNull(cache_creation_input_tokens, 0)",
+});
 
 function buildProjectDisplaySubquery(
 	orgParamName: string,
@@ -158,7 +166,8 @@ export async function getProjectInvestment(
         SUM(ifNull(input_tokens, 0) + ifNull(output_tokens, 0)) as total_tokens,
         round(SUM(actual_duration_min), 2) as total_duration_min,
         round(AVG(actual_duration_min), 2) as avg_session_duration_min,
-        round(AVG(success_score), 2) as success_rate
+        round(AVG(success_score), 2) as success_rate,
+        round(SUM(${PER_SESSION_COST_SQL}), 4) as total_cost
       FROM rudel.session_analytics FINAL
       WHERE ${buildDateFilter("currentDays")}
         AND organization_id = {orgId:String}
@@ -190,7 +199,7 @@ export async function getProjectInvestment(
       c.total_duration_min,
       c.avg_session_duration_min,
       c.success_rate,
-      round((c.output_tokens_sum / 1000000.0) * 15.0 + (c.input_tokens_sum / 1000000.0) * 3.0, 4) as cost,
+      c.total_cost as cost,
       round(c.success_rate - ifNull(p.prev_success_rate, c.success_rate), 2) as success_rate_trend
     FROM current_period c
     LEFT JOIN previous_period p ON c.project_display = p.project_display
@@ -382,13 +391,12 @@ export async function getProjectDetails(
       any(project_path) as raw_project_path,
       COUNT(*) as total_sessions,
       SUM(ifNull(input_tokens, 0) + ifNull(output_tokens, 0)) as total_tokens,
-      SUM(ifNull(input_tokens, 0)) as input_tokens_sum,
-      SUM(ifNull(output_tokens, 0)) as output_tokens_sum,
       COUNT(DISTINCT user_id) as contributors_count,
       countIf(success_score < 40) as errors_count,
       ifNull(round(avgOrNull(actual_duration_min), 2), 0) as avg_session_duration_min,
       ifNull(round(avgOrNull(success_score), 2), 0) as success_rate,
-      round(SUM(actual_duration_min), 2) as total_duration_min
+      round(SUM(actual_duration_min), 2) as total_duration_min,
+      round(SUM(${PER_SESSION_COST_SQL}), 4) as total_cost
     FROM rudel.session_analytics FINAL
     WHERE ${PROJECT_DISPLAY_EXPR} = ${projectDisplaySubquery}
       AND ${buildDateFilter("days")}
@@ -398,15 +406,13 @@ export async function getProjectDetails(
 
 	let results: (Omit<ProjectDetails, "project_path"> & {
 		raw_project_path: string;
-		input_tokens_sum: number;
-		output_tokens_sum: number;
+		total_cost: number;
 	})[];
 	try {
 		results = await queryClickhouse<
 			Omit<ProjectDetails, "project_path"> & {
 				raw_project_path: string;
-				input_tokens_sum: number;
-				output_tokens_sum: number;
+				total_cost: number;
 			}
 		>({
 			query,
@@ -422,8 +428,6 @@ export async function getProjectDetails(
 
 	const [row] = results;
 	if (!row || row.total_sessions === 0) return null;
-	const cost =
-		row.output_tokens_sum * 0.000015 + row.input_tokens_sum * 0.000003;
 	return {
 		project_path: row.raw_project_path,
 		total_sessions: row.total_sessions,
@@ -433,7 +437,7 @@ export async function getProjectDetails(
 		avg_session_duration_min: row.avg_session_duration_min,
 		success_rate: row.success_rate,
 		total_duration_min: row.total_duration_min,
-		cost: parseFloat(cost.toFixed(4)),
+		cost: Number(row.total_cost) || 0,
 	};
 }
 

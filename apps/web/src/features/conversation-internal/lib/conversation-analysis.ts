@@ -5,6 +5,10 @@ import type {
 import type { Conversation } from "@/features/conversation-internal/lib/conversation-schema";
 import { parseConversations } from "@/features/conversation-internal/lib/conversation-schema";
 import { isSlashCommandMessage } from "@/features/conversation-internal/lib/parse-slash-command";
+import {
+	extractCodexTokenData,
+	isCodexFormat,
+} from "@/lib/codex-conversation-parser";
 
 export interface ConversationArtifacts {
 	conversations: Conversation[];
@@ -48,6 +52,14 @@ function extractTokenData(content: string): TokenDataPoint[] {
 	}
 
 	return points;
+}
+
+function getTokenData(content: string): TokenDataPoint[] {
+	if (isCodexFormat(content)) {
+		return extractCodexTokenData(content);
+	}
+
+	return extractTokenData(content);
 }
 
 function extractToolActivity(entries: Conversation[]): ToolActivityPoint[] {
@@ -138,7 +150,7 @@ export function buildConversationArtifacts(
 		return {
 			conversations,
 			parseError,
-			tokenData: conversations.length > 0 ? extractTokenData(content) : [],
+			tokenData: conversations.length > 0 ? getTokenData(content) : [],
 			toolActivityData:
 				conversations.length > 0 ? extractToolActivity(conversations) : [],
 			totalMessages: conversations.length,

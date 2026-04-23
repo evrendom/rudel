@@ -6,6 +6,10 @@
 	"exports": {
 		".": "./src/index.ts"
 	},
+	"scripts": {
+		"check-types": "tsc --noEmit",
+		"test": "bun test"
+	},
 	"dependencies": {
 		"@orpc/contract": "latest",
 		"zod": "^3.24.0"

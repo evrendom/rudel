@@ -66,6 +66,8 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for local setup, development commands, an
 
 For self-hosting your own instance, see [docs/self-hosting.md](docs/self-hosting.md).
 
+For the Codex token and cost accounting rules used by Rudel, see [docs/codex-token-accounting.md](docs/codex-token-accounting.md).
+
 ## Security
 
 To report a vulnerability, see [SECURITY.md](SECURITY.md). Do not open public issues for security concerns.

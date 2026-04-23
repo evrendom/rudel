@@ -1,4 +1,8 @@
 import { z } from "zod";
+import {
+	isCodexFormat,
+	parseCodexConversations,
+} from "@/lib/codex-conversation-parser";
 
 // Content block schemas
 export const TextContentSchema = z.object({
@@ -97,6 +101,10 @@ export type Conversation = z.infer<typeof ConversationSchema>;
 
 // Parser
 export function parseConversations(content: string): Array<Conversation> {
+	if (isCodexFormat(content)) {
+		return parseCodexConversations(content);
+	}
+
 	const conversations: Array<Conversation> = [];
 	const lines = content.split("\n").filter(Boolean);
 
