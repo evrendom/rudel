@@ -36,6 +36,7 @@ export function WrappedOnboardingModelStage(props: ModelStageProps) {
 	return (
 		<WrappedOnboardingStageFrame
 			className="mymind-wrapped-model-stage"
+			objectClassName="mymind-wrapped-model-stage__object"
 			copy={
 				<WrappedOnboardingStageCopy
 					eyebrow="Model mix"
@@ -44,134 +45,132 @@ export function WrappedOnboardingModelStage(props: ModelStageProps) {
 				/>
 			}
 			object={
-				<div className="mymind-wrapped-model-stage__object">
-					<article className="mymind-wrapped-model-stage__card">
-						<div className="mymind-wrapped-model-stage__summary-card">
-							<div className="mymind-wrapped-model-stage__section-head">
-								<p className="mymind-wrapped-model-stage__section-label">
-									Entire period
-								</p>
-								<p className="mymind-wrapped-model-stage__section-value">
-									{model.totalSessionsLabel}
-								</p>
-							</div>
+				<article className="mymind-wrapped-model-stage__card">
+					<section className="mymind-wrapped-model-stage__summary-card">
+						<header className="mymind-wrapped-model-stage__section-head">
+							<p className="mymind-wrapped-model-stage__section-label">
+								Entire period
+							</p>
+							<p className="mymind-wrapped-model-stage__section-value">
+								{model.totalSessionsLabel}
+							</p>
+						</header>
 
-							{model.summary.length === 0 ? (
-								<p className="mymind-wrapped-model-stage__empty">
-									The all-time split shows up once session history lands.
-								</p>
-							) : (
-								<>
-									<div
-										aria-hidden="true"
-										className="mymind-wrapped-model-stage__summary-track"
-									>
-										{model.summary.map((segment) => {
-											const segmentStyle: ModelSegmentStyle = {
-												"--model-stage-segment-color": getModelStageTone(
-													segment.source,
-												),
-												"--model-stage-segment-share": `${segment.share}%`,
-											};
+						{model.summary.length === 0 ? (
+							<p className="mymind-wrapped-model-stage__empty">
+								The all-time split shows up once session history lands.
+							</p>
+						) : (
+							<>
+								<span
+									aria-hidden="true"
+									className="mymind-wrapped-model-stage__summary-track"
+								>
+									{model.summary.map((segment) => {
+										const segmentStyle: ModelSegmentStyle = {
+											"--model-stage-segment-color": getModelStageTone(
+												segment.source,
+											),
+											"--model-stage-segment-share": `${segment.share}%`,
+										};
 
-											return (
-												<span
-													key={segment.id}
-													className="mymind-wrapped-model-stage__summary-segment"
-													style={segmentStyle}
-													title={`${segment.label}: ${Math.round(segment.share)}%`}
-												/>
-											);
-										})}
-									</div>
-
-									<div className="mymind-wrapped-model-stage__legend">
-										{model.summary.map((segment) => (
-											<div
+										return (
+											<span
 												key={segment.id}
-												className="mymind-wrapped-model-stage__legend-row"
-											>
-												<span
-													aria-hidden="true"
-													className="mymind-wrapped-model-stage__legend-dot"
-													style={{
-														backgroundColor: getModelStageTone(segment.source),
-													}}
-												/>
-												<p className="mymind-wrapped-model-stage__legend-name">
-													{segment.label}
-												</p>
-												<p className="mymind-wrapped-model-stage__legend-value">
-													{Math.round(segment.share)}%
-												</p>
-											</div>
-										))}
-									</div>
-								</>
-							)}
-						</div>
+												className="mymind-wrapped-model-stage__summary-segment"
+												style={segmentStyle}
+												title={`${segment.label}: ${Math.round(segment.share)}%`}
+											/>
+										);
+									})}
+								</span>
 
-						<div className="mymind-wrapped-model-stage__months-card">
-							<div className="mymind-wrapped-model-stage__section-head">
-								<p className="mymind-wrapped-model-stage__section-label">
-									Last 6 months
-								</p>
-								<p className="mymind-wrapped-model-stage__section-value">
-									{model.monthsLabel}
-								</p>
-							</div>
-
-							{model.months.length === 0 ? (
-								<p className="mymind-wrapped-model-stage__empty">
-									The monthly stacks fill in once model history spans a few
-									sessions.
-								</p>
-							) : (
-								<div className="mymind-wrapped-model-stage__month-grid">
-									{model.months.map((month) => (
-										<div
-											key={month.id}
-											className="mymind-wrapped-model-stage__month-column"
-											title={
-												month.totalSessions > 0
-													? `${month.label}: ${month.leaderLabel} led with ${month.leaderShare}%`
-													: `${month.label}: no model activity`
-											}
+								<ul className="mymind-wrapped-model-stage__legend">
+									{model.summary.map((segment) => (
+										<li
+											key={segment.id}
+											className="mymind-wrapped-model-stage__legend-row"
 										>
-											<div
+											<span
 												aria-hidden="true"
-												className={cn(
-													"mymind-wrapped-model-stage__month-bar",
-													month.totalSessions === 0 ? "is-empty" : null,
-												)}
-											>
-												{month.segments.map((segment) => {
-													const segmentStyle: ModelSegmentStyle = {
-														"--model-stage-segment-color": getModelStageTone(
-															segment.source,
-														),
-														"--model-stage-segment-share": `${segment.share}%`,
-													};
-
-													return (
-														<span
-															key={segment.id}
-															className="mymind-wrapped-model-stage__month-segment"
-															style={segmentStyle}
-														/>
-													);
-												})}
-											</div>
-											<p className="mymind-wrapped-model-stage__month-label">
-												{month.label}
+												className="mymind-wrapped-model-stage__legend-dot"
+												style={{
+													backgroundColor: getModelStageTone(segment.source),
+												}}
+											/>
+											<p className="mymind-wrapped-model-stage__legend-name">
+												{segment.label}
 											</p>
-										</div>
+											<p className="mymind-wrapped-model-stage__legend-value">
+												{Math.round(segment.share)}%
+											</p>
+										</li>
 									))}
-								</div>
-							)}
-						</div>
-					</article>
-				</div>
+								</ul>
+							</>
+						)}
+					</section>
+
+					<section className="mymind-wrapped-model-stage__months-card">
+						<header className="mymind-wrapped-model-stage__section-head">
+							<p className="mymind-wrapped-model-stage__section-label">
+								Last 6 months
+							</p>
+							<p className="mymind-wrapped-model-stage__section-value">
+								{model.monthsLabel}
+							</p>
+						</header>
+
+						{model.months.length === 0 ? (
+							<p className="mymind-wrapped-model-stage__empty">
+								The monthly stacks fill in once model history spans a few
+								sessions.
+							</p>
+						) : (
+							<ol className="mymind-wrapped-model-stage__month-grid">
+								{model.months.map((month) => (
+									<li
+										key={month.id}
+										className="mymind-wrapped-model-stage__month-column"
+										title={
+											month.totalSessions > 0
+												? `${month.label}: ${month.leaderLabel} led with ${month.leaderShare}%`
+												: `${month.label}: no model activity`
+										}
+									>
+										<span
+											aria-hidden="true"
+											className={cn(
+												"mymind-wrapped-model-stage__month-bar",
+												month.totalSessions === 0 ? "is-empty" : null,
+											)}
+										>
+											{month.segments.map((segment) => {
+												const segmentStyle: ModelSegmentStyle = {
+													"--model-stage-segment-color": getModelStageTone(
+														segment.source,
+													),
+													"--model-stage-segment-share": `${segment.share}%`,
+												};
+
+												return (
+													<span
+														key={segment.id}
+														className="mymind-wrapped-model-stage__month-segment"
+														style={segmentStyle}
+													/>
+												);
+											})}
+										</span>
+										<p className="mymind-wrapped-model-stage__month-label">
+											{month.label}
+										</p>
+									</li>
+								))}
+							</ol>
+						)}
+					</section>
+				</article>
 			}
 			support={
 				<p className="mymind-wrapped-model-stage__footnote">{model.footnote}</p>

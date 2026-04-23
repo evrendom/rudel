@@ -52,6 +52,7 @@ export function WrappedOnboardingToolsStage(props: ToolsStageProps) {
 	return (
 		<WrappedOnboardingStageFrame
 			className="mymind-wrapped-tools-stage"
+			objectClassName="mymind-wrapped-tools-stage__object"
 			copy={
 				<WrappedOnboardingStageCopy
 					eyebrow="Workflow tools"
@@ -60,20 +61,16 @@ export function WrappedOnboardingToolsStage(props: ToolsStageProps) {
 				/>
 			}
 			object={
-				<div className="mymind-wrapped-tools-stage__object">
-					<article
-						className="mymind-wrapped-tools-stage__card"
-						style={cardStyle}
-					>
-						<div className="mymind-wrapped-tools-stage__list">
-							{model.entries.map((entry, entryIndex) => {
-								const meterStyle: ToolsMeterStyle = {
-									"--tools-stage-meter-value": `${entry.usageRate ?? 0}%`,
-								};
+				<article className="mymind-wrapped-tools-stage__card" style={cardStyle}>
+					<ul className="mymind-wrapped-tools-stage__list">
+						{model.entries.map((entry, entryIndex) => {
+							const meterStyle: ToolsMeterStyle = {
+								"--tools-stage-meter-value": `${entry.usageRate ?? 0}%`,
+							};
 
-								return (
+							return (
+								<li key={entry.id}>
 									<button
-										key={entry.id}
 										aria-label={`${entry.name}. ${entry.usageLabel}`}
 										aria-pressed={entryIndex === activeCardIndex}
 										className={cn(
@@ -90,15 +87,15 @@ export function WrappedOnboardingToolsStage(props: ToolsStageProps) {
 										)}
 										type="button"
 									>
-										<div className="mymind-wrapped-tools-stage__entry-top">
-											<p className="mymind-wrapped-tools-stage__entry-usage">
+										<span className="mymind-wrapped-tools-stage__entry-top">
+											<span className="mymind-wrapped-tools-stage__entry-usage">
 												{entry.usageLabel}
-											</p>
-										</div>
-										<p className="mymind-wrapped-tools-stage__entry-name">
+											</span>
+										</span>
+										<span className="mymind-wrapped-tools-stage__entry-name">
 											{entry.name}
-										</p>
-										<div
+										</span>
+										<span
 											aria-hidden="true"
 											className="mymind-wrapped-tools-stage__meter"
 										>
@@ -106,13 +103,13 @@ export function WrappedOnboardingToolsStage(props: ToolsStageProps) {
 												className="mymind-wrapped-tools-stage__meter-fill"
 												style={meterStyle}
 											/>
-										</div>
+										</span>
 									</button>
-								);
-							})}
-						</div>
-					</article>
-				</div>
+								</li>
+							);
+						})}
+					</ul>
+				</article>
 			}
 			support={
 				<p className="mymind-wrapped-tools-stage__footnote">{model.footnote}</p>

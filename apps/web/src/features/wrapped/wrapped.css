@@ -760,6 +760,9 @@ body.mymind-wrapped-body #root {
 .mymind-wrapped-tools-stage__list {
 	position: relative;
 	min-height: inherit;
+	margin: 0;
+	padding: 0;
+	list-style: none;
 }
 
 .mymind-wrapped-tools-stage__entry {
@@ -833,6 +836,7 @@ body.mymind-wrapped-body #root {
 }
 
 .mymind-wrapped-tools-stage__meter {
+	display: block;
 	position: relative;
 	height: 0.38rem;
 	overflow: clip;
@@ -1059,6 +1063,9 @@ body.mymind-wrapped-body #root {
 	display: grid;
 	gap: 0;
 	padding-top: 0.2rem;
+	margin: 0;
+	padding-inline: 0;
+	list-style: none;
 }
 
 .mymind-wrapped-repo-pulse-stage__row {
@@ -1286,6 +1293,9 @@ body.mymind-wrapped-body #root {
 .mymind-wrapped-model-stage__legend {
 	display: grid;
 	gap: 0.5rem;
+	margin: 0;
+	padding: 0;
+	list-style: none;
 }
 
 .mymind-wrapped-model-stage__legend-row {
@@ -1327,6 +1337,9 @@ body.mymind-wrapped-body #root {
 	grid-template-columns: repeat(6, minmax(0, 1fr));
 	gap: 0.5rem;
 	align-items: end;
+	margin: 0;
+	padding: 0;
+	list-style: none;
 }
 
 .mymind-wrapped-model-stage__month-column {
@@ -1567,6 +1580,9 @@ body.mymind-wrapped-body #root {
 	display: grid;
 	grid-template-columns: repeat(2, minmax(0, 1fr));
 	gap: 0.72rem;
+	margin: 0;
+	padding: 0;
+	list-style: none;
 }
 
 .mymind-wrapped-lock-in-stage__stat {
@@ -1606,6 +1622,9 @@ body.mymind-wrapped-body #root {
 	flex-wrap: wrap;
 	justify-content: center;
 	gap: 0.45rem;
+	margin: 0;
+	padding: 0;
+	list-style: none;
 }
 
 .mymind-wrapped-lock-in-stage__chip {
@@ -1655,6 +1674,8 @@ body.mymind-wrapped-body #root {
 	border-radius: 0;
 	background: transparent;
 	box-shadow: none;
+	margin: 0;
+	list-style: none;
 }
 
 .mymind-wrapped-lock-in-stage__row {
@@ -1688,6 +1709,7 @@ body.mymind-wrapped-body #root {
 }
 
 .mymind-wrapped-lock-in-stage__track {
+	display: block;
 	height: 0.9rem;
 	overflow: clip;
 	border-radius: 999px;
@@ -1915,6 +1937,9 @@ body.mymind-wrapped-body #root {
 	display: grid;
 	grid-template-columns: repeat(2, minmax(0, 1fr));
 	gap: 0.72rem;
+	margin: 0;
+	padding: 0;
+	list-style: none;
 }
 
 .mymind-wrapped-quality-stage__stat {
@@ -1953,6 +1978,9 @@ body.mymind-wrapped-body #root {
 	flex-wrap: wrap;
 	justify-content: center;
 	gap: 0.45rem;
+	margin: 0;
+	padding: 0;
+	list-style: none;
 }
 
 .mymind-wrapped-quality-stage__chip {
@@ -2009,6 +2037,8 @@ body.mymind-wrapped-body #root {
 	border-radius: 0;
 	background: transparent;
 	box-shadow: none;
+	margin: 0;
+	list-style: none;
 }
 
 .mymind-wrapped-quality-stage__row {
@@ -2047,6 +2077,7 @@ body.mymind-wrapped-body #root {
 }
 
 .mymind-wrapped-quality-stage__track {
+	display: block;
 	height: 0.9rem;
 	overflow: clip;
 	border-radius: 999px;
@@ -2160,6 +2191,9 @@ body.mymind-wrapped-body #root {
 	display: grid;
 	grid-template-columns: repeat(2, minmax(0, 1fr));
 	gap: 0.72rem;
+	margin: 0;
+	padding: 0;
+	list-style: none;
 }
 
 .mymind-wrapped-scale-stage__stat {
@@ -2200,6 +2234,9 @@ body.mymind-wrapped-body #root {
 	flex-wrap: wrap;
 	justify-content: center;
 	gap: 0.45rem;
+	margin: 0;
+	padding: 0;
+	list-style: none;
 }
 
 .mymind-wrapped-scale-stage__chip {
