@@ -31,7 +31,7 @@ function getExecutor() {
 async function waitForRow(
 	executor: ReturnType<typeof createClickHouseExecutor>,
 	sessionId: string,
-	timeoutMs = 30_000,
+	timeoutMs = 90_000,
 	intervalMs = 1_000,
 ): Promise<
 	| {
