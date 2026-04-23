@@ -184,11 +184,11 @@ export function WrappedAuthFlow() {
 					</button>
 				) : null
 			}
-			objectClassName={
-				mode
-					? "mymind-wrapped-entry-stage__object--auth-form"
-					: "mymind-wrapped-entry-stage__object--auth-intro"
-			}
+				objectClassName={
+					mode
+						? "mymind-wrapped-entry-stage__object--auth"
+						: "mymind-wrapped-entry-stage__object--auth-intro"
+				}
 			stage={renderWrappedAuthStage(mode, setMode)}
 			stageClassName="mymind-wrapped-entry-stage--auth"
 			title={getWrappedAuthTitle(mode)}

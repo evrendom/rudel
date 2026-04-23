@@ -151,7 +151,13 @@ function getCommandMotionState(props: {
 }) {
 	const { reduceMotion, visualState } = props;
 	const opacity =
-		visualState === "upcoming" ? 0.55 : visualState === "idle" ? 0.72 : 1;
+		visualState === "complete"
+			? 0.68
+			: visualState === "upcoming"
+				? 0.55
+				: visualState === "idle"
+					? 0.72
+					: 1;
 
 	if (reduceMotion) {
 		return { opacity };
@@ -159,7 +165,12 @@ function getCommandMotionState(props: {
 
 	return {
 		opacity,
-		scale: visualState === "current" ? 1 : 0.985,
+		scale:
+			visualState === "current"
+				? 1
+				: visualState === "complete"
+					? 0.965
+					: 0.985,
 		y: visualState === "current" ? -2 : 0,
 	};
 }

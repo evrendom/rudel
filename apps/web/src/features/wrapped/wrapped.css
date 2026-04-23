@@ -3272,7 +3272,6 @@ body.mymind-wrapped-body #root {
 .mymind-wrapped-auth-card-preview {
 	display: grid;
 	justify-items: center;
-	margin-block: auto;
 	width: 100%;
 }
 

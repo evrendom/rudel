@@ -78,7 +78,7 @@ describe("WrappedSetupCompletePage", () => {
 
 		expect(
 			screen.getByText(
-				"Auto upload + upload historical sessions in a given repo",
+				"Auto upload future and historical sessions in the given repo",
 			),
 		).toBeInTheDocument();
 		expect(
