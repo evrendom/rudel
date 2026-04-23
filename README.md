@@ -68,6 +68,8 @@ For self-hosting your own instance, see [docs/self-hosting.md](docs/self-hosting
 
 For the Codex token and cost accounting rules used by Rudel, see [docs/codex-token-accounting.md](docs/codex-token-accounting.md).
 
+For the Claude token accounting rewrite based on Anthropic's prompt-caching and streaming semantics, see [docs/claude-token-accounting-v2.md](docs/claude-token-accounting-v2.md).
+
 ## Security
 
 To report a vulnerability, see [SECURITY.md](SECURITY.md). Do not open public issues for security concerns.

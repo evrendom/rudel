@@ -1,3 +1,4 @@
+import { buildClaudeTokenTimeline } from "@rudel/api-routes";
 import type {
 	TokenDataPoint,
 	ToolActivityPoint,
@@ -18,42 +19,6 @@ export interface ConversationArtifacts {
 	totalMessages: number;
 }
 
-function extractTokenData(content: string): TokenDataPoint[] {
-	const points: TokenDataPoint[] = [];
-	const lines = content.split("\n").filter((line) => line.trim() !== "");
-
-	for (let i = 0; i < lines.length; i += 1) {
-		const line = lines[i];
-		if (!line) continue;
-
-		try {
-			const parsed = JSON.parse(line) as {
-				type?: string;
-				message?: {
-					usage?: {
-						input_tokens?: number;
-						output_tokens?: number;
-					};
-				};
-			};
-
-			if (parsed.type !== "assistant") continue;
-			const usage = parsed.message?.usage;
-			if (!usage) continue;
-
-			points.push({
-				messageIndex: i,
-				inputTokens: usage.input_tokens ?? 0,
-				outputTokens: usage.output_tokens ?? 0,
-			});
-		} catch {
-			// Skip malformed JSON lines.
-		}
-	}
-
-	return points;
-}
-
 function getTokenData(content: string): TokenDataPoint[] {
 	// Internal conversation charts need provider-specific token extraction
 	// because Codex does not emit Claude-style assistant usage entries.
@@ -61,7 +26,20 @@ function getTokenData(content: string): TokenDataPoint[] {
 		return extractCodexTokenData(content);
 	}
 
-	return extractTokenData(content);
+	// Anthropic reports uncached input separately from cache reads and writes,
+	// so Claude charts must expand those fields to show the true processed input.
+	return buildClaudeTokenTimeline(content, {}).map((point, messageIndex) => ({
+		messageIndex,
+		inputTokens: point.input_tokens,
+		outputTokens: point.output_tokens,
+		uncachedInputTokens: point.uncached_input_tokens,
+		cacheReadInputTokens: point.cache_read_input_tokens,
+		cacheCreationInputTokens: point.cache_creation_input_tokens,
+		totalTokens: point.total_tokens,
+		source: point.source,
+		sourceId: point.source_id,
+		timestamp: point.timestamp,
+	}));
 }
 
 function extractToolActivity(entries: Conversation[]): ToolActivityPoint[] {

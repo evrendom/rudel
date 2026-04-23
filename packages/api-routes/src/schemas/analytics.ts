@@ -1,4 +1,8 @@
 import { z } from "zod";
+import {
+	ClaudeTokenBreakdownSchema,
+	ClaudeTokenTimelinePointSchema,
+} from "../claude-token-accounting.js";
 import { ESTIMATED_PRICING_MODE } from "../model-pricing.js";
 import { SourceSchema } from "./source.js";
 
@@ -326,8 +330,14 @@ export const SessionAnalyticsSchema = z.object({
 	git_remote: z.string().optional(),
 	duration_min: z.number(),
 	total_tokens: z.number(),
+	// `input_tokens` is the provider-normalized processed input across sources.
+	// Claude's uncached suffix is exposed separately as `uncached_input_tokens`.
 	input_tokens: z.number(),
 	output_tokens: z.number(),
+	cache_read_input_tokens: z.number(),
+	cache_creation_input_tokens: z.number(),
+	uncached_input_tokens: z.number(),
+	token_accounting_version: z.number().int().positive(),
 	success_score: z.number(),
 	total_interactions: z.number(),
 	avg_period_sec: z.number(),
@@ -432,6 +442,30 @@ export const SessionDetailSchema = z.object({
 	total_tokens: z.number(),
 	input_tokens: z.number(),
 	output_tokens: z.number(),
+	// Session detail carries the full Claude V2 breakdown so reviewers can
+	// reconcile parent, subagent, uncached, and cached totals explicitly.
+	cache_read_input_tokens: z.number(),
+	cache_creation_input_tokens: z.number(),
+	uncached_input_tokens: z.number(),
+	parent_input_tokens: z.number(),
+	parent_output_tokens: z.number(),
+	parent_cache_read_input_tokens: z.number(),
+	parent_cache_creation_input_tokens: z.number(),
+	parent_uncached_input_tokens: z.number(),
+	parent_total_tokens: z.number(),
+	subagent_input_tokens: z.number(),
+	subagent_output_tokens: z.number(),
+	subagent_cache_read_input_tokens: z.number(),
+	subagent_cache_creation_input_tokens: z.number(),
+	subagent_uncached_input_tokens: z.number(),
+	subagent_total_tokens: z.number(),
+	token_accounting_version: z.number().int().positive(),
+	token_breakdown: z.object({
+		parent: ClaudeTokenBreakdownSchema,
+		subagent: ClaudeTokenBreakdownSchema,
+		session: ClaudeTokenBreakdownSchema,
+	}),
+	token_timeline: z.array(ClaudeTokenTimelinePointSchema),
 	success_score: z.number().optional(),
 	duration_min: z.number().optional(),
 	total_interactions: z.number().optional(),
