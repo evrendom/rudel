@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useSearchParams } from "react-router-dom";
 import { useIsMobile } from "@/app/hooks/use-mobile";
 import { getWrappedShareIdFromSearch } from "@/app/routes";
 import { useAnalyticsTracking } from "@/features/analytics/tracking/useAnalyticsTracking";
@@ -29,9 +29,14 @@ interface WrappedRouteGateProps {
 	session: AppSession | null;
 }
 
+type WrappedRouteFlowStage = "sessions-landed" | "story";
+
+const WRAPPED_ROUTE_FLOW_QUERY_PARAM = "flow";
+
 export function WrappedRouteGate(props: WrappedRouteGateProps) {
 	const { isPending, publicId, session } = props;
 	const location = useLocation();
+	const [searchParams, setSearchParams] = useSearchParams();
 	const isMobile = useIsMobile();
 	const { trackUtilityUsed } = useAnalyticsTracking({
 		// The analytics contract still calls the public surface "wrapped_share".
@@ -47,11 +52,29 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 	const [completedSetupUserIds, setCompletedSetupUserIds] = useState<
 		Record<string, true>
 	>({});
+	const forcedFlowStage = getWrappedRouteFlowStage(
+		searchParams.get(WRAPPED_ROUTE_FLOW_QUERY_PARAM),
+	);
 	const hasCompletedSetup =
 		sessionUserId === null
 			? false
 			: completedSetupUserIds[sessionUserId] === true ||
 				hasCompletedWrappedSetup(sessionUserId);
+	const shouldForceSessionsLanded =
+		forcedFlowStage === "sessions-landed" && setupProgress.hasUploadedSessions;
+	const shouldForceStory =
+		forcedFlowStage === "story" && setupProgress.hasUploadedSessions;
+
+	function setWrappedRouteFlowStage(nextStage: WrappedRouteFlowStage) {
+		setSearchParams(
+			(previousSearchParams) => {
+				const nextSearchParams = new URLSearchParams(previousSearchParams);
+				nextSearchParams.set(WRAPPED_ROUTE_FLOW_QUERY_PARAM, nextStage);
+				return nextSearchParams;
+			},
+			{ replace: nextStage === "sessions-landed" },
+		);
+	}
 
 	function handleSetupComplete() {
 		if (!sessionUserId) {
@@ -63,6 +86,7 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 			...currentState,
 			[sessionUserId]: true,
 		}));
+		setWrappedRouteFlowStage("story");
 	}
 
 	useMountEffect(() => {
@@ -96,6 +120,23 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 		key: shareId,
 	});
 
+	useEffectOnceWhen({
+		effect: () => {
+			if (forcedFlowStage === "sessions-landed") {
+				return;
+			}
+
+			setWrappedRouteFlowStage("sessions-landed");
+		},
+		isReady:
+			!publicId &&
+			!isPending &&
+			!!sessionUserId &&
+			setupProgress.hasUploadedSessions &&
+			!hasCompletedSetup,
+		key: sessionUserId,
+	});
+
 	if (publicId) {
 		return <WrappedPublicPage publicId={publicId} />;
 	}
@@ -115,9 +156,11 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 	}
 
 	if (
-		setupProgress.hasUploadedSessions &&
 		sessionUserId &&
-		!hasCompletedSetup
+		(shouldForceSessionsLanded ||
+			(setupProgress.hasUploadedSessions &&
+				sessionUserId &&
+				!hasCompletedSetup))
 	) {
 		return (
 			<WrappedSetupCompletePage
@@ -128,8 +171,12 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 		);
 	}
 
-	if (setupProgress.hasUploadedSessions) {
-		return <WrappedTeamCardPage />;
+	if (shouldForceStory || setupProgress.hasUploadedSessions) {
+		return (
+			<WrappedTeamCardPage
+				onBackFromFirstStep={() => setWrappedRouteFlowStage("sessions-landed")}
+			/>
+		);
 	}
 
 	if (isMobile && sessionUserEmail) {
@@ -142,6 +189,14 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 	}
 
 	return <WrappedSetupPage />;
+}
+
+function getWrappedRouteFlowStage(
+	flowStage: string | null,
+): WrappedRouteFlowStage | null {
+	return flowStage === "sessions-landed" || flowStage === "story"
+		? flowStage
+		: null;
 }
 
 function WrappedRouteLoadingState(props: { body: string }) {

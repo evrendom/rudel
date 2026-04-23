@@ -19,6 +19,7 @@ interface WrappedRouteStageShellProps {
 	description?: ReactNode;
 	eyebrow?: ReactNode;
 	footer?: ReactNode;
+	footerDebugControls?: ReactNode;
 	leadingControl?: ReactNode | null;
 	objectClassName?: string;
 	progressStepId?: WrappedOnboardingProgressStepId;
@@ -35,6 +36,7 @@ export function WrappedRouteStageShell(props: WrappedRouteStageShellProps) {
 		description,
 		eyebrow,
 		footer,
+		footerDebugControls,
 		leadingControl,
 		objectClassName,
 		progressStepId,
@@ -49,6 +51,7 @@ export function WrappedRouteStageShell(props: WrappedRouteStageShellProps) {
 		? getWrappedOnboardingProgressView(progressStepId)
 		: null;
 	const shouldUseReferenceTopChrome = progressView !== null;
+	const hasFooter = Boolean(footer) || Boolean(footerDebugControls);
 
 	function handleDefaultBack() {
 		const historyIndex =
@@ -74,7 +77,7 @@ export function WrappedRouteStageShell(props: WrappedRouteStageShellProps) {
 				<div
 					className={cn(
 						"mymind-wrapped-shell__frame",
-						!footer ? "mymind-wrapped-shell__frame--no-footer" : null,
+						!hasFooter ? "mymind-wrapped-shell__frame--no-footer" : null,
 					)}
 				>
 					<header className="mymind-wrapped-top-tray">
@@ -164,8 +167,11 @@ export function WrappedRouteStageShell(props: WrappedRouteStageShellProps) {
 						</div>
 					</div>
 
-					{footer ? (
-						<footer className="mymind-wrapped-dock">{footer}</footer>
+					{hasFooter ? (
+						<footer className="mymind-wrapped-dock">
+							{footerDebugControls}
+							{footer}
+						</footer>
 					) : null}
 				</div>
 			</div>

@@ -1,4 +1,5 @@
 import { MotionConfig } from "motion/react";
+import type { ReactNode } from "react";
 import { useMemo } from "react";
 import {
 	CliSetupHint,
@@ -10,12 +11,17 @@ import { WrappedRouteStageShell } from "./route-stage-shell";
 interface WrappedSetupPageProps {
 	completedStepIdsOverride?: readonly CliSetupStepId[];
 	currentStepIdOverride?: CliSetupStepId | null;
+	debugControls?: ReactNode;
 	initialStepId?: CliSetupStepId;
 }
 
 export function WrappedSetupPage(props: WrappedSetupPageProps) {
-	const { completedStepIdsOverride, currentStepIdOverride, initialStepId } =
-		props;
+	const {
+		completedStepIdsOverride,
+		currentStepIdOverride,
+		debugControls,
+		initialStepId,
+	} = props;
 	const lastStepIndex = cliSetupCommands.length - 1;
 	const initialStepIndex = getInitialStepIndex(initialStepId, lastStepIndex);
 	const currentStepIndex = initialStepIndex;
@@ -39,6 +45,7 @@ export function WrappedSetupPage(props: WrappedSetupPageProps) {
 		<MotionConfig reducedMotion="user">
 			<WrappedRouteStageShell
 				description="Start sending sessions to Rudel."
+				footerDebugControls={debugControls}
 				progressStepId="desktop-ready"
 				stage={
 					<CliSetupHint

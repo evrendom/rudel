@@ -1,4 +1,4 @@
-import { ArrowLeft } from "lucide-react";
+import type { ReactNode } from "react";
 import { useState } from "react";
 import { LoginForm } from "@/features/auth/LoginForm";
 import { SignupForm } from "@/features/auth/SignupForm";
@@ -27,21 +27,29 @@ const WRAPPED_AUTH_INTRO_TITLE = (
 );
 
 interface WrappedAuthFlowProps {
-	onBackToHandleStep?: () => void;
+	debugControls?: ReactNode;
 	previewProfile: WrappedGuestPreviewProfile | null;
 }
 
 interface WrappedAuthIntentProps {
+	debugControls?: ReactNode;
 	onChooseMode: (mode: Exclude<WrappedAuthMode, null>) => void;
 	previewProfile: WrappedGuestPreviewProfile | null;
 }
 
 function WrappedAuthIntent(props: WrappedAuthIntentProps) {
-	const { onChooseMode, previewProfile } = props;
+	const { debugControls, onChooseMode, previewProfile } = props;
 
 	return (
 		<div className="mymind-wrapped-auth-panel mymind-wrapped-auth-panel--intro">
 			<WrappedGuestPreviewCard profile={previewProfile} />
+			{debugControls ? (
+				<div className="mymind-wrapped-dock__debug-stack">
+					<div className="mymind-wrapped-dock__debug-control">
+						{debugControls}
+					</div>
+				</div>
+			) : null}
 			<div className="mymind-wrapped-auth-panel__actions">
 				<WrappedPrimaryAction
 					kind="button"
@@ -58,23 +66,33 @@ function WrappedAuthIntent(props: WrappedAuthIntentProps) {
 }
 
 export function WrappedAuthFlow(props: WrappedAuthFlowProps) {
-	const { onBackToHandleStep, previewProfile } = props;
+	const { debugControls, previewProfile } = props;
 	const [mode, setMode] = useState<WrappedAuthMode>(null);
 
 	return (
 		<WrappedRouteStageShell
 			description={getWrappedAuthDescription(mode, previewProfile)}
-			leadingControl={renderWrappedAuthLeadingControl({
-				mode,
-				onBackToHandleStep,
-				setMode,
-			})}
+			footerDebugControls={
+				mode && debugControls ? (
+					<div className="mymind-wrapped-dock__debug-stack">
+						<div className="mymind-wrapped-dock__debug-control">
+							{debugControls}
+						</div>
+					</div>
+				) : undefined
+			}
+			leadingControl={null}
 			objectClassName={
 				mode
 					? "mymind-wrapped-entry-stage__object--auth"
 					: "mymind-wrapped-entry-stage__object--auth-intro"
 			}
-			stage={renderWrappedAuthStage(mode, previewProfile, setMode)}
+			stage={renderWrappedAuthStage(
+				mode,
+				debugControls,
+				previewProfile,
+				setMode,
+			)}
 			stageClassName="mymind-wrapped-entry-stage--auth"
 			title={getWrappedAuthTitle(mode)}
 			titleClassName={
@@ -84,44 +102,9 @@ export function WrappedAuthFlow(props: WrappedAuthFlowProps) {
 	);
 }
 
-function renderWrappedAuthLeadingControl(input: {
-	mode: WrappedAuthMode;
-	onBackToHandleStep?: () => void;
-	setMode: (mode: WrappedAuthMode) => void;
-}) {
-	const { mode, onBackToHandleStep, setMode } = input;
-
-	if (mode) {
-		return (
-			<button
-				type="button"
-				aria-label="Go back"
-				className="mymind-wrapped-back-button rounded-full transition-colors"
-				onClick={() => setMode(null)}
-			>
-				<ArrowLeft className="size-4" />
-			</button>
-		);
-	}
-
-	if (!onBackToHandleStep) {
-		return null;
-	}
-
-	return (
-		<button
-			type="button"
-			aria-label="Go back"
-			className="mymind-wrapped-back-button rounded-full transition-colors"
-			onClick={onBackToHandleStep}
-		>
-			<ArrowLeft className="size-4" />
-		</button>
-	);
-}
-
 function renderWrappedAuthStage(
 	mode: WrappedAuthMode,
+	debugControls: ReactNode | undefined,
 	previewProfile: WrappedGuestPreviewProfile | null,
 	setMode: (mode: WrappedAuthMode) => void,
 ) {
@@ -144,7 +127,11 @@ function renderWrappedAuthStage(
 	}
 
 	return (
-		<WrappedAuthIntent onChooseMode={setMode} previewProfile={previewProfile} />
+		<WrappedAuthIntent
+			debugControls={debugControls}
+			onChooseMode={setMode}
+			previewProfile={previewProfile}
+		/>
 	);
 }
 

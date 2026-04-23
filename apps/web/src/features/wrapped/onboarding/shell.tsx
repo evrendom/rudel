@@ -59,6 +59,7 @@ export interface WrappedTeamCardOnboardingProps {
 	finalFooter?: ReactNode;
 	finalStage: ReactNode;
 	onboardingMetrics: WrappedOnboardingMetrics;
+	onBackFromFirstStep?: () => void;
 	totalSessions: number;
 }
 
@@ -82,6 +83,7 @@ export function WrappedTeamCardOnboarding(
 		finalFooter,
 		finalStage,
 		onboardingMetrics,
+		onBackFromFirstStep,
 		totalSessions,
 	} = props;
 	const navigate = useNavigate();
@@ -206,6 +208,11 @@ export function WrappedTeamCardOnboarding(
 	}
 
 	function handleTopChromeBack() {
+		if (activeStepIndex === 0 && onBackFromFirstStep) {
+			onBackFromFirstStep();
+			return;
+		}
+
 		const historyIndex =
 			typeof window.history.state?.idx === "number"
 				? window.history.state.idx

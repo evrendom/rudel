@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { AppSession } from "@/features/auth/auth-route-utils";
@@ -51,7 +52,18 @@ vi.mock("@/features/wrapped/WrappedSetupCompletePage", () => ({
 }));
 
 vi.mock("@/features/wrapped/team-card/page", () => ({
-	WrappedTeamCardPage: () => <div>Wrapped story</div>,
+	WrappedTeamCardPage: ({
+		onBackFromFirstStep,
+	}: {
+		onBackFromFirstStep?: () => void;
+	}) => (
+		<div>
+			<div>Wrapped story</div>
+			<button type="button" onClick={onBackFromFirstStep}>
+				Back to upload
+			</button>
+		</div>
+	),
 }));
 
 const now = new Date("2026-04-22T10:00:00.000Z");
@@ -212,5 +224,31 @@ describe("WrappedRouteGate", () => {
 		);
 
 		expect(screen.getByText("Wrapped story")).toBeInTheDocument();
+	});
+
+	it("returns from the first story page to the upload screen", async () => {
+		const user = userEvent.setup();
+		const storageKey = getWrappedSetupCompletionStorageKey(session.user.id);
+
+		if (storageKey === null) {
+			throw new Error("Expected wrapped setup completion storage key");
+		}
+
+		window.localStorage.setItem(storageKey, "true");
+		mockUseSetupProgress.mockReturnValue({
+			hasUploadedSessions: true,
+			isLoading: false,
+			totalSessionCount: 3,
+		});
+
+		render(
+			<MemoryRouter initialEntries={["/wrapped?flow=story"]}>
+				<WrappedRouteGate isPending={false} publicId={null} session={session} />
+			</MemoryRouter>,
+		);
+
+		expect(screen.getByText("Wrapped story")).toBeInTheDocument();
+		await user.click(screen.getByRole("button", { name: "Back to upload" }));
+		expect(screen.getByText("Wrapped setup complete page")).toBeInTheDocument();
 	});
 });

@@ -3,6 +3,7 @@ import { WrappedRouteStageShell } from "./route-stage-shell";
 
 interface WrappedDesktopResumePromptStageProps {
 	description: ReactNode;
+	debugControls?: ReactNode;
 	feedback?: ReactNode;
 	primaryAction: ReactNode;
 }
@@ -10,7 +11,7 @@ interface WrappedDesktopResumePromptStageProps {
 export function WrappedDesktopResumePromptStage(
 	props: WrappedDesktopResumePromptStageProps,
 ) {
-	const { description, feedback, primaryAction } = props;
+	const { description, debugControls, feedback, primaryAction } = props;
 
 	return (
 		<WrappedRouteStageShell
@@ -20,6 +21,13 @@ export function WrappedDesktopResumePromptStage(
 			stage={
 				<div className="mymind-wrapped-entry-card mymind-wrapped-entry-card--prompt-shellless">
 					<div className="mymind-wrapped-action-stack">
+						{debugControls ? (
+							<div className="mymind-wrapped-dock__debug-stack">
+								<div className="mymind-wrapped-dock__debug-control">
+									{debugControls}
+								</div>
+							</div>
+						) : null}
 						{primaryAction}
 						{feedback}
 					</div>

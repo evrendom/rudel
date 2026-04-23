@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { useState } from "react";
 import { useAnalyticsTracking } from "@/features/analytics/tracking/useAnalyticsTracking";
 import { WrappedPrimaryAction } from "@/features/wrapped/actions";
@@ -10,6 +11,7 @@ interface WrappedDesktopResumePromptPageProps {
 		expires_at: string;
 		resume_url: string;
 	}>;
+	debugControls?: ReactNode;
 	email: string;
 	shareId: string | null;
 }
@@ -33,6 +35,7 @@ export function WrappedDesktopResumePromptPage(
 ) {
 	const {
 		createResumeLink = client.wrappedResume.create,
+		debugControls,
 		email,
 		shareId,
 	} = props;
@@ -88,6 +91,7 @@ export function WrappedDesktopResumePromptPage(
 					<strong className="font-semibold text-[#22201f]">{email}</strong>.
 				</>
 			}
+			debugControls={debugControls}
 			feedback={
 				<>
 					{state.status === "error" ? (

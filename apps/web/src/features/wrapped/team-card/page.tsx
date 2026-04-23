@@ -52,8 +52,11 @@ const TEAM_CARD_SHELL_STYLE = {
 	"--team-lineup-card-grain-size": "40px",
 } as CSSProperties;
 
-export function WrappedTeamCardPage(props: { debugControls?: ReactNode }) {
-	const { debugControls } = props;
+export function WrappedTeamCardPage(props: {
+	debugControls?: ReactNode;
+	onBackFromFirstStep?: () => void;
+}) {
+	const { debugControls, onBackFromFirstStep } = props;
 	const navigate = useNavigate();
 	const [searchParams] = useSearchParams();
 	const { trackUtilityUsed } = useAnalyticsTracking({
@@ -156,6 +159,7 @@ export function WrappedTeamCardPage(props: { debugControls?: ReactNode }) {
 			headerLeftMetric={headerLeftMetric}
 			headerRightMetric={headerRightMetric}
 			onboardingMetrics={onboardingMetrics}
+			onBackFromFirstStep={onBackFromFirstStep}
 			onContinueToDashboard={handleContinueToDashboard}
 			setActiveArchetypeIndex={setActiveArchetypeIndex}
 			shareCardCreatedAtLabel={shareCardCreatedAtLabel}
@@ -174,6 +178,7 @@ function WrappedTeamCardPageContent(props: {
 	headerLeftMetric: WrappedTeamMemberCardHeaderMetric;
 	headerRightMetric: WrappedTeamMemberCardHeaderMetric;
 	onboardingMetrics: WrappedOnboardingMetrics;
+	onBackFromFirstStep?: () => void;
 	onContinueToDashboard: () => void;
 	setActiveArchetypeIndex: Dispatch<SetStateAction<number>>;
 	shareCardCreatedAtLabel: string;
@@ -189,6 +194,7 @@ function WrappedTeamCardPageContent(props: {
 		headerLeftMetric,
 		headerRightMetric,
 		onboardingMetrics,
+		onBackFromFirstStep,
 		onContinueToDashboard,
 		setActiveArchetypeIndex,
 		shareCardCreatedAtLabel,
@@ -381,6 +387,7 @@ function WrappedTeamCardPageContent(props: {
 			}
 			finalStage={finalStage}
 			onboardingMetrics={onboardingMetrics}
+			onBackFromFirstStep={onBackFromFirstStep}
 			totalSessions={visibleTeamCardRow.totalSessions}
 		/>
 	);

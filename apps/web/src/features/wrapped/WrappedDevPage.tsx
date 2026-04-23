@@ -1,5 +1,5 @@
+import { Children, type ReactNode, useState } from "react";
 import { Link as LinkIcon, Mail } from "lucide-react";
-import { useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Button } from "@/app/ui/button";
 import {
@@ -14,14 +14,16 @@ import {
 	type WrappedUploadedRepoRow,
 } from "@/features/wrapped/WrappedSetupCompletePage";
 import { WrappedSetupPage } from "@/features/wrapped/WrappedSetupPage";
-import { useMountEffect } from "@/hooks/useMountEffect";
 import { copyTextToClipboardWithResult } from "@/lib/clipboard";
 
 type WrappedDevStage = "auth" | "setup" | "mobile" | "story";
+type WrappedDevSetupView = "guide" | "uploaded";
 
 const DEFAULT_WRAPPED_DEV_STAGE: WrappedDevStage = "auth";
+const DEFAULT_WRAPPED_DEV_SETUP_VIEW: WrappedDevSetupView = "guide";
+const WRAPPED_DEV_SETUP_VIEW_QUERY_PARAM = "setup-view";
+const WRAPPED_DEV_SETUP_STEP_QUERY_PARAM = "setup-step";
 const WRAPPED_DESKTOP_SETUP_URL = "app.rudel.ai/wrapped";
-const WRAPPED_DEV_UPLOAD_TRANSITION_MS = 220;
 const WRAPPED_DEBUG_UPLOADED_REPOS: WrappedUploadedRepoRow[] = [
 	{
 		name: "geneva",
@@ -88,12 +90,44 @@ const WRAPPED_DEV_STAGES: Array<{
 export function WrappedDevPage() {
 	const [searchParams, setSearchParams] = useSearchParams();
 	const activeStage = getWrappedDevStage(searchParams.get("stage"));
+	const activeSetupView = getWrappedDevSetupView(
+		searchParams.get(WRAPPED_DEV_SETUP_VIEW_QUERY_PARAM),
+	);
+	const activeGuideStep = getWrappedDevSetupStep(
+		searchParams.get(WRAPPED_DEV_SETUP_STEP_QUERY_PARAM),
+	);
 
-	function setStage(nextStage: WrappedDevStage) {
+	function updateWrappedDevSearchParams(updates: {
+		stage?: WrappedDevStage;
+		setupStep?: CliSetupStepId;
+		setupView?: WrappedDevSetupView;
+	}) {
 		setSearchParams(
 			(previousSearchParams) => {
 				const nextSearchParams = new URLSearchParams(previousSearchParams);
 
+				if (updates.setupStep === undefined) {
+					nextSearchParams.delete(WRAPPED_DEV_SETUP_STEP_QUERY_PARAM);
+				} else {
+					nextSearchParams.set(
+						WRAPPED_DEV_SETUP_STEP_QUERY_PARAM,
+						updates.setupStep,
+					);
+				}
+
+				if (
+					updates.setupView === undefined ||
+					updates.setupView === DEFAULT_WRAPPED_DEV_SETUP_VIEW
+				) {
+					nextSearchParams.delete(WRAPPED_DEV_SETUP_VIEW_QUERY_PARAM);
+				} else {
+					nextSearchParams.set(
+						WRAPPED_DEV_SETUP_VIEW_QUERY_PARAM,
+						updates.setupView,
+					);
+				}
+
+				const nextStage = updates.stage ?? DEFAULT_WRAPPED_DEV_STAGE;
 				if (nextStage === DEFAULT_WRAPPED_DEV_STAGE) {
 					nextSearchParams.delete("stage");
 				} else {
@@ -102,28 +136,85 @@ export function WrappedDevPage() {
 
 				return nextSearchParams;
 			},
-			{ replace: true },
+			{ replace: false },
 		);
+	}
+
+	function setStage(nextStage: WrappedDevStage) {
+		if (nextStage === activeStage) {
+			return;
+		}
+
+		updateWrappedDevSearchParams({
+			stage: nextStage,
+			setupStep: activeGuideStep,
+			setupView: activeSetupView,
+		});
 	}
 
 	return (
 		<>
-			{activeStage === "story" ? null : (
-				<WrappedDevToolbar activeStage={activeStage} onStageChange={setStage} />
-			)}
-			{activeStage === "auth" ? <WrappedDevAuthStage /> : null}
-			{activeStage === "setup" ? (
-				<WrappedDevSetupStage onContinueToStory={() => setStage("story")} />
+			{activeStage === "auth" ? (
+				<WrappedDevAuthStage
+					debugControls={
+						<WrappedDevToolbar activeStage={activeStage} onStageChange={setStage} />
+					}
+				/>
 			) : null}
-			{activeStage === "mobile" ? <WrappedDevMobileStage /> : null}
+			{activeStage === "setup" ? (
+				<WrappedDevSetupStage
+					activeView={activeSetupView}
+					debugControls={
+						<WrappedDevInlineDebugStack>
+							<WrappedDevToolbar
+								activeStage={activeStage}
+								onStageChange={setStage}
+							/>
+							<WrappedDevSetupPreviewToggle
+								activeView={activeSetupView}
+								canAdvanceGuideStep={
+									activeSetupView === "guide" &&
+									activeGuideStep === "install-and-login"
+								}
+								onAdvanceGuideStep={() =>
+									updateWrappedDevSearchParams({
+										stage: "setup",
+										setupStep: "enable-auto-upload",
+										setupView: activeSetupView,
+									})
+								}
+								onViewChange={(nextView) =>
+									updateWrappedDevSearchParams({
+										stage: "setup",
+										setupStep: activeGuideStep,
+										setupView: nextView,
+									})
+								}
+							/>
+						</WrappedDevInlineDebugStack>
+					}
+					guideStep={activeGuideStep}
+					onContinueToStory={() => setStage("story")}
+				/>
+			) : null}
+			{activeStage === "mobile" ? (
+				<WrappedDevMobileStage
+					debugControls={
+						<WrappedDevToolbar activeStage={activeStage} onStageChange={setStage} />
+					}
+				/>
+			) : null}
 			{activeStage === "story" ? (
 				<WrappedTeamCardPage
 					debugControls={
-						<WrappedDevToolbar
-							activeStage={activeStage}
-							layout="inline"
-							onStageChange={setStage}
-						/>
+						<WrappedDevToolbar activeStage={activeStage} onStageChange={setStage} />
+					}
+					onBackFromFirstStep={() =>
+						updateWrappedDevSearchParams({
+							stage: "setup",
+							setupStep: activeGuideStep,
+							setupView: "uploaded",
+						})
 					}
 				/>
 			) : null}
@@ -133,20 +224,12 @@ export function WrappedDevPage() {
 
 function WrappedDevToolbar(props: {
 	activeStage: WrappedDevStage;
-	layout?: "fixed" | "inline";
 	onStageChange: (stage: WrappedDevStage) => void;
 }) {
-	const { activeStage, layout = "fixed", onStageChange } = props;
-	const isInline = layout === "inline";
+	const { activeStage, onStageChange } = props;
 
 	return (
-		<div
-			className={
-				isInline
-					? "flex w-full rounded-xl border border-border/80 bg-background/95 p-1 shadow-md backdrop-blur"
-					: "fixed top-1 left-1/2 z-[1000] flex max-w-[calc(100%-0.5rem)] -translate-x-1/2 rounded-xl border border-border/80 bg-background/95 p-1 shadow-md backdrop-blur"
-			}
-		>
+		<div className="flex w-full rounded-xl border border-border/80 bg-background/95 p-1 shadow-md backdrop-blur">
 			<div className="flex flex-wrap items-center gap-1">
 				{WRAPPED_DEV_STAGES.map((stage) => (
 					<Button
@@ -165,55 +248,38 @@ function WrappedDevToolbar(props: {
 	);
 }
 
-function WrappedDevAuthStage() {
-	return <WrappedGuestPage />;
+function WrappedDevInlineDebugStack(props: { children: ReactNode }) {
+	const controls = Children.toArray(props.children);
+
+	return (
+		<div className="mymind-wrapped-dock__debug-stack">
+			{controls.map((control, index) => (
+				<div key={index} className="mymind-wrapped-dock__debug-control">
+					{control}
+				</div>
+			))}
+		</div>
+	);
 }
 
-function WrappedDevSetupStage(props: { onContinueToStory: () => void }) {
-	const { onContinueToStory } = props;
-	const [view, setView] = useState<"guide" | "uploading" | "uploaded">("guide");
-	const [guideStep, setGuideStep] =
-		useState<CliSetupStepId>("install-and-login");
-	const uploadTransitionTimeoutRef = useRef<number | null>(null);
-	const isInstallGuideStep = guideStep === "install-and-login";
-	const uploadTransitionState = getWrappedUploadTransitionState(guideStep);
-	const activeSetupView = view === "guide" ? "guide" : "uploaded";
-	const isUploadedView = view === "uploaded";
+function WrappedDevAuthStage(props: { debugControls: ReactNode }) {
+	return <WrappedGuestPage debugControls={props.debugControls} />;
+}
 
-	useMountEffect(() => {
-		return () => {
-			if (uploadTransitionTimeoutRef.current !== null) {
-				window.clearTimeout(uploadTransitionTimeoutRef.current);
-			}
-		};
-	});
-
-	function handleViewChange(nextView: "guide" | "uploaded") {
-		if (uploadTransitionTimeoutRef.current !== null) {
-			window.clearTimeout(uploadTransitionTimeoutRef.current);
-			uploadTransitionTimeoutRef.current = null;
-		}
-
-		if (nextView === "guide") {
-			setView("guide");
-			return;
-		}
-
-		if (view === "uploaded") {
-			return;
-		}
-
-		setView("uploading");
-		uploadTransitionTimeoutRef.current = window.setTimeout(() => {
-			setView("uploaded");
-			uploadTransitionTimeoutRef.current = null;
-		}, WRAPPED_DEV_UPLOAD_TRANSITION_MS);
-	}
+function WrappedDevSetupStage(props: {
+	activeView: WrappedDevSetupView;
+	debugControls: ReactNode;
+	guideStep: CliSetupStepId;
+	onContinueToStory: () => void;
+}) {
+	const { activeView, debugControls, guideStep, onContinueToStory } = props;
+	const isUploadedView = activeView === "uploaded";
 
 	return (
 		<>
 			{isUploadedView ? (
 				<WrappedSetupCompletePage
+					debugControls={debugControls}
 					onContinue={onContinueToStory}
 					reposOverride={WRAPPED_DEBUG_UPLOADED_REPOS}
 					totalSessionCount={10}
@@ -221,44 +287,15 @@ function WrappedDevSetupStage(props: { onContinueToStory: () => void }) {
 				/>
 			) : (
 				<WrappedSetupPage
-					completedStepIdsOverride={
-						view === "uploading"
-							? uploadTransitionState.completedStepIds
-							: undefined
-					}
-					currentStepIdOverride={
-						view === "uploading"
-							? uploadTransitionState.currentStepId
-							: undefined
-					}
+					debugControls={debugControls}
 					initialStepId={guideStep}
 				/>
 			)}
-			<WrappedDevSetupPreviewToggle
-				activeView={activeSetupView}
-				canAdvanceGuideStep={view === "guide" && isInstallGuideStep}
-				onAdvanceGuideStep={() => setGuideStep("enable-auto-upload")}
-				onViewChange={handleViewChange}
-			/>
 		</>
 	);
 }
 
-function getWrappedUploadTransitionState(guideStep: CliSetupStepId) {
-	if (guideStep === "install-and-login") {
-		return {
-			completedStepIds: ["install-and-login"] as const,
-			currentStepId: "enable-auto-upload" as const,
-		};
-	}
-
-	return {
-		completedStepIds: cliSetupCommands.map((step) => step.id),
-		currentStepId: null,
-	};
-}
-
-function WrappedDevMobileStage() {
+function WrappedDevMobileStage(props: { debugControls: ReactNode }) {
 	const desktopPreviewHref = WRAPPED_DESKTOP_SETUP_URL;
 	const [copied, setCopied] = useState(false);
 
@@ -283,6 +320,7 @@ function WrappedDevMobileStage() {
 	return (
 		<WrappedDesktopResumePromptStage
 			description="The next step will be to enable Rudel within the terminal on your desktop."
+			debugControls={props.debugControls}
 			feedback={
 				<>
 					<div className="mymind-wrapped-entry-card__or-row">
@@ -332,7 +370,7 @@ function WrappedDevSetupPreviewToggle(props: {
 		props;
 
 	return (
-		<div className="fixed top-8 left-1/2 z-[1000] flex max-w-[calc(100%-0.5rem)] -translate-x-1/2 rounded-xl border border-border/80 bg-background/95 p-1 shadow-md backdrop-blur">
+		<div className="flex w-full rounded-xl border border-border/80 bg-background/95 p-1 shadow-md backdrop-blur">
 			<div className="flex items-center gap-1">
 				<Button
 					type="button"
@@ -372,4 +410,14 @@ function getWrappedDevStage(stage: string | null): WrappedDevStage {
 	return WRAPPED_DEV_STAGES.some((candidate) => candidate.value === stage)
 		? (stage as WrappedDevStage)
 		: DEFAULT_WRAPPED_DEV_STAGE;
+}
+
+function getWrappedDevSetupView(setupView: string | null): WrappedDevSetupView {
+	return setupView === "uploaded" ? "uploaded" : DEFAULT_WRAPPED_DEV_SETUP_VIEW;
+}
+
+function getWrappedDevSetupStep(setupStep: string | null): CliSetupStepId {
+	return cliSetupCommands.some((step) => step.id === setupStep)
+		? (setupStep as CliSetupStepId)
+		: "install-and-login";
 }

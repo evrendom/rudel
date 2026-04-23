@@ -4,6 +4,7 @@ import { WRAPPED_SATURDAY_STEPS } from "@/features/wrapped/onboarding/config";
 const WRAPPED_ROUTE_PROGRESS_STEPS = [
 	{ id: "account-check", label: "Check access" },
 	{ id: "desktop-ready", label: "Connect sessions" },
+	{ id: "sessions-landed", label: "Sessions landed" },
 ] as const;
 
 const WRAPPED_STORY_PROGRESS_LABELS: Partial<

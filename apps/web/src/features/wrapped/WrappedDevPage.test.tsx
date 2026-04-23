@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
@@ -5,19 +6,49 @@ import { describe, expect, it, vi } from "vitest";
 import { WrappedDevPage } from "@/features/wrapped/WrappedDevPage";
 
 vi.mock("@/features/wrapped/WrappedGuestPage", () => ({
-	WrappedGuestPage: () => <div>Wrapped guest page</div>,
+	WrappedGuestPage: ({ debugControls }: { debugControls?: ReactNode }) => (
+		<div>
+			{debugControls}
+			<div>Wrapped guest page</div>
+		</div>
+	),
 }));
 
 vi.mock("@/features/wrapped/WrappedSetupPage", () => ({
-	WrappedSetupPage: () => <div>Wrapped setup page</div>,
+	WrappedSetupPage: ({ debugControls }: { debugControls?: ReactNode }) => (
+		<div>
+			{debugControls}
+			<div>Wrapped setup page</div>
+		</div>
+	),
 }));
 
 vi.mock("@/features/wrapped/WrappedSetupCompletePage", () => ({
-	WrappedSetupCompletePage: () => <div>Wrapped setup complete page</div>,
+	WrappedSetupCompletePage: ({
+		debugControls,
+	}: {
+		debugControls?: ReactNode;
+	}) => (
+		<div>
+			{debugControls}
+			<div>Wrapped setup complete page</div>
+		</div>
+	),
 }));
 
 vi.mock("@/features/wrapped/team-card/page", () => ({
-	WrappedTeamCardPage: () => <div>Wrapped story</div>,
+	WrappedTeamCardPage: ({
+		onBackFromFirstStep,
+	}: {
+		onBackFromFirstStep?: () => void;
+	}) => (
+		<div>
+			<div>Wrapped story</div>
+			<button type="button" onClick={onBackFromFirstStep}>
+				Back to upload
+			</button>
+		</div>
+	),
 }));
 
 describe("WrappedDevPage", () => {
@@ -46,6 +77,9 @@ describe("WrappedDevPage", () => {
 
 		await user.click(screen.getByRole("button", { name: "Story" }));
 		expect(screen.getByText("Wrapped story")).toBeInTheDocument();
+
+		await user.click(screen.getByRole("button", { name: "Back to upload" }));
+		expect(screen.getByText("Wrapped setup complete page")).toBeInTheDocument();
 	});
 
 	it("renders the mobile handoff preview with simplified copy", () => {
@@ -86,6 +120,7 @@ describe("WrappedDevPage", () => {
 		expect(screen.getByText("OR")).toBeInTheDocument();
 		expect(screen.getByText("app.rudel.ai/wrapped")).toBeInTheDocument();
 		expect(screen.getByRole("button", { name: "Copy" })).toBeInTheDocument();
+		expect(screen.getByRole("button", { name: "Story" })).toBeInTheDocument();
 		expect(stageObject?.querySelector("a")).toBeNull();
 
 		const dock = container.querySelector(".mymind-wrapped-dock");

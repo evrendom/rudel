@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type { DeveloperProject } from "@rudel/api-routes";
 import {
 	AnimatePresence,
@@ -18,6 +19,7 @@ import { orpc } from "@/lib/orpc";
 import { WrappedRouteStageShell } from "./route-stage-shell";
 
 interface WrappedSetupCompletePageProps {
+	debugControls?: ReactNode;
 	onContinue: () => void;
 	reposOverride?: WrappedUploadedRepoRow[];
 	totalSessionCount: number;
@@ -48,12 +50,10 @@ export function WrappedSetupCompletePage(props: WrappedSetupCompletePageProps) {
 		<MotionConfig reducedMotion="user">
 			<WrappedRouteStageShell
 				description="Your first sessions are in."
+				footerDebugControls={props.debugControls}
 				footer={
 					<div className="mymind-wrapped-action-stack">
-						<WrappedPrimaryAction
-							kind="button"
-							onClick={props.onContinue}
-						>
+						<WrappedPrimaryAction kind="button" onClick={props.onContinue}>
 							See your story
 						</WrappedPrimaryAction>
 						<WrappedSecondaryAction
@@ -67,7 +67,7 @@ export function WrappedSetupCompletePage(props: WrappedSetupCompletePageProps) {
 					</div>
 				}
 				stageClassName="mymind-wrapped-entry-stage--setup-complete"
-				progressStepId="desktop-ready"
+				progressStepId="sessions-landed"
 				stage={
 					<WrappedUploadedReposStage
 						isLoading={hasReposOverride ? false : isLoading}

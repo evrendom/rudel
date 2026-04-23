@@ -97,7 +97,7 @@ describe("WrappedGuestPage", () => {
 			screen.getByRole("button", { name: "Create account" }),
 		).toBeInTheDocument();
 		expect(screen.getByRole("button", { name: "Log in" })).toBeInTheDocument();
-		expect(screen.getByLabelText("Go back")).toBeInTheDocument();
+		expect(screen.queryByLabelText("Go back")).toBeNull();
 	});
 
 	it("restores the auth step from session storage", () => {

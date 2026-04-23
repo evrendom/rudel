@@ -1,9 +1,9 @@
+import type { ReactNode } from "react";
 import { useState } from "react";
 import { WrappedAuthFlow } from "./WrappedAuthFlow";
 import { WrappedXHandleStep } from "./WrappedXHandleStep";
 import {
 	buildLocalWrappedGuestPreviewProfile,
-	clearWrappedGuestPreviewSnapshot,
 	isWrappedGuestUsernameValid,
 	readWrappedGuestPreviewSnapshot,
 	type WrappedGuestFlowStep,
@@ -11,7 +11,8 @@ import {
 	writeWrappedGuestPreviewSnapshot,
 } from "./wrapped-guest-preview";
 
-export function WrappedGuestPage() {
+export function WrappedGuestPage(props: { debugControls?: ReactNode }) {
+	const { debugControls } = props;
 	const [initialSnapshot] = useState(() => readWrappedGuestPreviewSnapshot());
 	const [step, setStep] = useState<WrappedGuestFlowStep>(
 		initialSnapshot?.step ?? "x-handle",
@@ -44,15 +45,10 @@ export function WrappedGuestPage() {
 		});
 	}
 
-	function handleBackToHandleStep() {
-		setStep("x-handle");
-		clearWrappedGuestPreviewSnapshot();
-	}
-
 	if (step === "auth") {
 		return (
 			<WrappedAuthFlow
-				onBackToHandleStep={handleBackToHandleStep}
+				debugControls={debugControls}
 				previewProfile={previewProfile}
 			/>
 		);
@@ -60,6 +56,7 @@ export function WrappedGuestPage() {
 
 	return (
 		<WrappedXHandleStep
+			debugControls={debugControls}
 			handleValue={handleValue}
 			isHandleValid={isWrappedGuestUsernameValid(handleValue)}
 			onContinue={handleContinueToAuth}

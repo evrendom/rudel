@@ -1,4 +1,5 @@
 import { ArrowRight, AtSign } from "lucide-react";
+import type { ReactNode } from "react";
 import { Button } from "@/app/ui/button";
 import { Input } from "@/app/ui/input";
 import { WrappedRouteStageShell } from "./route-stage-shell";
@@ -17,6 +18,7 @@ const WRAPPED_X_HANDLE_TITLE = (
 );
 
 interface WrappedXHandleStepProps {
+	debugControls?: ReactNode;
 	handleValue: string;
 	isHandleValid: boolean;
 	onContinue: () => void;
@@ -26,6 +28,7 @@ interface WrappedXHandleStepProps {
 
 export function WrappedXHandleStep(props: WrappedXHandleStepProps) {
 	const {
+		debugControls,
 		handleValue,
 		isHandleValid,
 		onContinue,
@@ -83,6 +86,13 @@ export function WrappedXHandleStep(props: WrappedXHandleStepProps) {
 						</p>
 					</div>
 					<div className="mymind-wrapped-auth-panel__footer">
+						{debugControls ? (
+							<div className="mymind-wrapped-dock__debug-stack">
+								<div className="mymind-wrapped-dock__debug-control">
+									{debugControls}
+								</div>
+							</div>
+						) : null}
 						<Button
 							type="button"
 							className="mymind-wrapped-entry-action mymind-wrapped-x-handle-step__action h-11 rounded-full px-7 [font-family:var(--app-font-heading)] text-[1.0625rem] font-semibold"
