@@ -4580,6 +4580,26 @@ body.mymind-wrapped-body #root {
 		min-height: clamp(13rem, 24svh, 15.5rem);
 	}
 
+	.mymind-wrapped-share-preview {
+		width: min(100%, 18rem);
+	}
+
+	.mymind-wrapped-share-preview__shell {
+		padding: 1rem 1.1rem;
+	}
+
+	.mymind-wrapped-final-stage__support {
+		gap: 0.6rem;
+	}
+
+	.mymind-wrapped-share-actions {
+		gap: 0.5rem;
+	}
+
+	.mymind-wrapped-share-actions__grid {
+		gap: 0.5rem;
+	}
+
 	.mymind-wrapped-final-stage__tilt-shell {
 		--wrapped-card-render-scale: 0.66 !important;
 	}
