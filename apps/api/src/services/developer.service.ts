@@ -64,7 +64,7 @@ export async function getDeveloperList(
         round(AVG(actual_duration_min), 2) as avg_session_duration_min,
         toString(max(session_date)) as last_active_date,
         round(AVG(success_score), 2) as success_rate
-      FROM rudel.session_analytics
+      FROM rudel.session_analytics FINAL
       WHERE ${buildDateFilter("currentDays")}
         AND organization_id = {orgId:String}
       GROUP BY user_id
@@ -73,7 +73,7 @@ export async function getDeveloperList(
       SELECT
         user_id,
         round(AVG(success_score), 2) as prev_success_rate
-      FROM rudel.session_analytics
+      FROM rudel.session_analytics FINAL
       WHERE session_date >= now64(3) - toIntervalDay({previousDays:UInt32})
         AND session_date < now64(3) - toIntervalDay({currentDays:UInt32})
         AND organization_id = {orgId:String}
@@ -134,7 +134,7 @@ export async function getDeveloperDetails(
         round(AVG(success_score), 2) as success_rate,
         COUNT(DISTINCT project_path) as distinct_projects,
         SUM(error_count) as error_count
-      FROM rudel.session_analytics
+      FROM rudel.session_analytics FINAL
       WHERE user_id = {userId:String}
         AND ${buildDateFilter("currentDays")}
         AND organization_id = {orgId:String}
@@ -144,7 +144,7 @@ export async function getDeveloperDetails(
       SELECT
         user_id,
         round(AVG(success_score), 2) as prev_success_rate
-      FROM rudel.session_analytics
+      FROM rudel.session_analytics FINAL
       WHERE user_id = {userId:String}
         AND session_date >= now64(3) - toIntervalDay({previousDays:UInt32})
         AND session_date < now64(3) - toIntervalDay({currentDays:UInt32})
@@ -250,7 +250,7 @@ export async function getDeveloperSessions(
       length(slash_commands) > 0 as has_slash_commands,
       error_count > 0 as has_errors,
       actual_duration_min BETWEEN 5 AND 240 as likely_success
-    FROM rudel.session_analytics
+    FROM rudel.session_analytics FINAL
     WHERE user_id = {userId:String}
       AND ${buildDateFilter("days")}
       AND organization_id = {orgId:String}
@@ -295,7 +295,7 @@ export async function getDeveloperProjects(
       SUM(ifNull(input_tokens, 0) + ifNull(output_tokens, 0)) as total_tokens,
       toString(min(session_date)) as first_session,
       toString(max(session_date)) as last_session
-    FROM rudel.session_analytics
+    FROM rudel.session_analytics FINAL
     WHERE user_id = {userId:String}
       AND ${buildDateFilter("days")}
       AND organization_id = {orgId:String}
@@ -339,7 +339,7 @@ export async function getDeveloperErrors(
           WHEN content LIKE '%Error:%' OR content LIKE '%error:%' THEN 'GenericError'
           ELSE NULL
         END as error_pattern
-      FROM rudel.session_analytics
+      FROM rudel.session_analytics FINAL
       WHERE user_id = {userId:String}
         AND ${buildDateFilter("days")}
         AND organization_id = {orgId:String}
@@ -386,7 +386,7 @@ export async function getDeveloperTimeline(
       SUM(ifNull(input_tokens, 0) + ifNull(output_tokens, 0)) as total_tokens,
       COUNT(DISTINCT project_path) as projects_worked,
       round(AVG(success_score), 2) as avg_success_rate
-    FROM rudel.session_analytics
+    FROM rudel.session_analytics FINAL
     WHERE user_id = {userId:String}
       AND ${buildDateFilter("days")}
       AND organization_id = {orgId:String}
@@ -425,7 +425,7 @@ export async function getDeveloperFeatureUsage(
       countIf(length(subagent_types) > 0) as subagents_sessions,
       countIf(length(skills) > 0) as skills_sessions,
       countIf(length(slash_commands) > 0) as slash_commands_sessions
-    FROM rudel.session_analytics
+    FROM rudel.session_analytics FINAL
     WHERE user_id = {userId:String}
       AND ${buildDateFilter("days")}
       AND organization_id = {orgId:String}
@@ -433,7 +433,7 @@ export async function getDeveloperFeatureUsage(
 
 	const topSubagentsQuery = `
     SELECT val as name, count() as count
-    FROM rudel.session_analytics
+    FROM rudel.session_analytics FINAL
     ARRAY JOIN subagent_types as val
     WHERE user_id = {userId:String}
       AND ${buildDateFilter("days")}
@@ -446,7 +446,7 @@ export async function getDeveloperFeatureUsage(
 
 	const topSkillsQuery = `
     SELECT val as name, count() as count
-    FROM rudel.session_analytics
+    FROM rudel.session_analytics FINAL
     ARRAY JOIN skills as val
     WHERE user_id = {userId:String}
       AND ${buildDateFilter("days")}
@@ -459,7 +459,7 @@ export async function getDeveloperFeatureUsage(
 
 	const topSlashCommandsQuery = `
     SELECT val as name, count() as count
-    FROM rudel.session_analytics
+    FROM rudel.session_analytics FINAL
     ARRAY JOIN slash_commands as val
     WHERE user_id = {userId:String}
       AND ${buildDateFilter("days")}
@@ -558,7 +558,7 @@ export async function getDeveloperTrends(
       round(SUM(actual_duration_min) / 60, 2) as total_hours,
       SUM(ifNull(input_tokens, 0) + ifNull(output_tokens, 0)) as total_tokens,
       round(AVG(success_score), 2) as avg_success_rate
-    FROM rudel.session_analytics
+    FROM rudel.session_analytics FINAL
     WHERE ${buildDateFilter("days")}
       AND organization_id = {orgId:String}
     GROUP BY date, user_id
@@ -591,7 +591,7 @@ export async function getDeveloperProjectTimeline(
       COUNT(*) as sessions,
       round(SUM(actual_duration_min), 2) as total_duration_min,
       SUM(ifNull(input_tokens, 0) + ifNull(output_tokens, 0)) as total_tokens
-    FROM rudel.session_analytics
+    FROM rudel.session_analytics FINAL
     WHERE user_id = {userId:String}
       AND ${buildDateFilter("days")}
       AND organization_id = {orgId:String}

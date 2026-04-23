@@ -34,7 +34,7 @@ function buildProjectDisplaySubquery(
           {${projectParamName}:String}
         )
       ) as project_display
-    FROM rudel.session_analytics
+    FROM rudel.session_analytics FINAL
     WHERE organization_id = {${orgParamName}:String}
       AND (
         project_path = {${projectParamName}:String}
@@ -159,7 +159,7 @@ export async function getProjectInvestment(
         round(SUM(actual_duration_min), 2) as total_duration_min,
         round(AVG(actual_duration_min), 2) as avg_session_duration_min,
         round(AVG(success_score), 2) as success_rate
-      FROM rudel.session_analytics
+      FROM rudel.session_analytics FINAL
       WHERE ${buildDateFilter("currentDays")}
         AND organization_id = {orgId:String}
         AND (git_remote != '' OR package_name != '' OR project_path != '')
@@ -170,7 +170,7 @@ export async function getProjectInvestment(
       SELECT
         ${PROJECT_DISPLAY_EXPR} as project_display,
         round(AVG(success_score), 2) as prev_success_rate
-      FROM rudel.session_analytics
+      FROM rudel.session_analytics FINAL
       WHERE session_date >= now64(3) - toIntervalDay({previousDays:UInt32})
         AND session_date < now64(3) - toIntervalDay({currentDays:UInt32})
         AND organization_id = {orgId:String}
@@ -238,7 +238,7 @@ export async function getKnowledgeSilos(
         WHEN COUNT(*) >= 10 THEN 'medium'
         ELSE 'low'
       END as risk_level
-    FROM rudel.session_analytics
+    FROM rudel.session_analytics FINAL
     WHERE ${buildDateFilter("days")}
       AND organization_id = {orgId:String}
       AND project_path != ''
@@ -281,7 +281,7 @@ export async function getProjectActivity(
 	const query = `
     WITH project_key AS (
       SELECT if(git_remote != '', git_remote, if(package_name != '', package_name, project_path)) as pk, any(project_path) as project_path
-      FROM rudel.session_analytics
+      FROM rudel.session_analytics FINAL
       WHERE project_path = {projectPath:String}
         AND (git_remote != '' OR package_name != '' OR project_path != '')
         AND organization_id = {orgId:String}
@@ -293,7 +293,7 @@ export async function getProjectActivity(
       COUNT(*) as sessions,
       COUNT(DISTINCT s.user_id) as unique_users
     FROM project_key pk
-    INNER JOIN rudel.session_analytics s ON if(s.git_remote != '', s.git_remote, if(s.package_name != '', s.package_name, s.project_path)) = pk.pk
+    INNER JOIN rudel.session_analytics FINAL s ON if(s.git_remote != '', s.git_remote, if(s.package_name != '', s.package_name, s.project_path)) = pk.pk
     WHERE ${buildDateFilter("days", "s.session_date")}
       AND s.organization_id = {orgId:String}
     GROUP BY ${dateGrouping}, pk.project_path
@@ -325,7 +325,7 @@ export async function getProjectSummary(
         project_path,
         COUNT(*) as sessions,
         COUNT(DISTINCT user_id) as users
-      FROM rudel.session_analytics
+      FROM rudel.session_analytics FINAL
       WHERE ${buildDateFilter("days")}
         AND organization_id = {orgId:String}
         AND project_path != ''
@@ -389,7 +389,7 @@ export async function getProjectDetails(
       ifNull(round(avgOrNull(actual_duration_min), 2), 0) as avg_session_duration_min,
       ifNull(round(avgOrNull(success_score), 2), 0) as success_rate,
       round(SUM(actual_duration_min), 2) as total_duration_min
-    FROM rudel.session_analytics
+    FROM rudel.session_analytics FINAL
     WHERE ${PROJECT_DISPLAY_EXPR} = ${projectDisplaySubquery}
       AND ${buildDateFilter("days")}
       AND organization_id = {orgId:String}
@@ -459,7 +459,7 @@ export async function getProjectContributors(
 	const query = `
     WITH project_totals AS (
       SELECT COUNT(*) as total_sessions
-      FROM rudel.session_analytics
+      FROM rudel.session_analytics FINAL
       WHERE ${PROJECT_DISPLAY_EXPR} = ${projectDisplaySubquery}
         AND ${buildDateFilter("days")}
         AND organization_id = {orgId:String}
@@ -473,7 +473,7 @@ export async function getProjectContributors(
       toString(min(session_date)) as first_session,
       toString(max(session_date)) as last_session,
       round(COUNT(*) * 100.0 / (SELECT total_sessions FROM project_totals), 2) as contribution_percentage
-    FROM rudel.session_analytics
+    FROM rudel.session_analytics FINAL
     WHERE ${PROJECT_DISPLAY_EXPR} = ${projectDisplaySubquery}
       AND ${buildDateFilter("days")}
       AND organization_id = {orgId:String}
@@ -513,7 +513,7 @@ export async function getProjectFeatureUsage(
       countIf(length(subagent_types) > 0) as subagents_sessions,
       countIf(length(skills) > 0) as skills_sessions,
       countIf(length(slash_commands) > 0) as slash_commands_sessions
-    FROM rudel.session_analytics
+    FROM rudel.session_analytics FINAL
     WHERE ${PROJECT_DISPLAY_EXPR} = ${projectDisplaySubquery}
       AND ${buildDateFilter("days")}
       AND organization_id = {orgId:String}
@@ -522,7 +522,7 @@ export async function getProjectFeatureUsage(
 
 	const topSubagentsQuery = `
     SELECT val as name, count() as count
-    FROM rudel.session_analytics
+    FROM rudel.session_analytics FINAL
     ARRAY JOIN subagent_types as val
     WHERE ${PROJECT_DISPLAY_EXPR} = ${projectDisplaySubquery}
       AND ${buildDateFilter("days")}
@@ -536,7 +536,7 @@ export async function getProjectFeatureUsage(
 
 	const topSkillsQuery = `
     SELECT val as name, count() as count
-    FROM rudel.session_analytics
+    FROM rudel.session_analytics FINAL
     ARRAY JOIN skills as val
     WHERE ${PROJECT_DISPLAY_EXPR} = ${projectDisplaySubquery}
       AND ${buildDateFilter("days")}
@@ -550,7 +550,7 @@ export async function getProjectFeatureUsage(
 
 	const topSlashCommandsQuery = `
     SELECT val as name, count() as count
-    FROM rudel.session_analytics
+    FROM rudel.session_analytics FINAL
     ARRAY JOIN slash_commands as val
     WHERE ${PROJECT_DISPLAY_EXPR} = ${projectDisplaySubquery}
       AND ${buildDateFilter("days")}
@@ -657,7 +657,7 @@ export async function getProjectErrors(
           WHEN content LIKE '%Error:%' OR content LIKE '%error:%' THEN 'GenericError'
           ELSE NULL
         END as error_pattern
-      FROM rudel.session_analytics
+      FROM rudel.session_analytics FINAL
       WHERE ${PROJECT_DISPLAY_EXPR} = ${projectDisplaySubquery}
         AND ${buildDateFilter("days")}
         AND organization_id = {orgId:String}
@@ -711,7 +711,7 @@ export async function getProjectTrends(
       round(SUM(actual_duration_min) / 60, 2) as total_hours,
       SUM(ifNull(input_tokens, 0) + ifNull(output_tokens, 0)) as total_tokens,
       round(AVG(success_score), 2) as avg_success_rate
-    FROM rudel.session_analytics
+    FROM rudel.session_analytics FINAL
     WHERE ${buildDateFilter("days")}
       AND organization_id = {orgId:String}
       AND (git_remote != '' OR package_name != '' OR project_path != '')

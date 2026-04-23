@@ -41,7 +41,7 @@ export async function getTopRecurringErrors(
           WHEN content ILIKE '%not found%' THEN 'NotFound'
           ELSE 'UnknownError'
         END as error_pattern
-      FROM rudel.session_analytics
+      FROM rudel.session_analytics FINAL
       WHERE ${buildDateFilter("days")}
         AND organization_id = {orgId:String}
         AND (
@@ -106,7 +106,7 @@ export async function getCrossDeveloperErrors(
       COUNT(*) as total_occurrences,
       groupUniqArray(user_id) as affected_user_ids,
       round(AVG(actual_duration_min), 2) as avg_session_duration_min
-    FROM rudel.session_analytics
+    FROM rudel.session_analytics FINAL
     WHERE ${buildDateFilter("days")}
       AND organization_id = {orgId:String}
       AND (
@@ -156,7 +156,7 @@ export async function getErrorTrends(
           sa.user_id,
           ${dimensionExpr} as dimension_value,
           sa.error_count
-        FROM rudel.session_analytics sa
+        FROM rudel.session_analytics FINAL sa
         WHERE sa.session_date >= toDateTime64({startDate:String}, 3)
           AND sa.session_date < toDateTime64({endDate:String}, 3)
           AND sa.organization_id = {orgId:String}
@@ -200,7 +200,7 @@ export async function getErrorTrends(
         user_id,
         ${dimension_field} as dimension_value,
         length(splitByRegexp('\\\\n', content)) as error_count
-      FROM rudel.session_analytics
+      FROM rudel.session_analytics FINAL
       WHERE session_date >= toDateTime64({startDate:String}, 3)
         AND session_date < toDateTime64({endDate:String}, 3)
         AND organization_id = {orgId:String}

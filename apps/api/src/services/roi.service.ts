@@ -102,7 +102,7 @@ export async function getROIMetrics(
         SUM(has_commit) as total_commits,
         now64(3) - toIntervalDay({currentDays:UInt32}) as period_start,
         now64(3) as period_end
-      FROM rudel.session_analytics
+      FROM rudel.session_analytics FINAL
       WHERE ${buildDateFilter("currentDays")}
         AND organization_id = {orgId:String}
     ),
@@ -114,7 +114,7 @@ export async function getROIMetrics(
         SUM(has_commit) as total_commits,
         now64(3) - toIntervalDay({previousDays:UInt32}) as period_start,
         now64(3) - toIntervalDay({currentDays:UInt32}) as period_end
-      FROM rudel.session_analytics
+      FROM rudel.session_analytics FINAL
       WHERE session_date >= now64(3) - toIntervalDay({previousDays:UInt32})
         AND session_date < now64(3) - toIntervalDay({currentDays:UInt32})
         AND organization_id = {orgId:String}
@@ -281,7 +281,7 @@ export async function getROITrends(
       AVG(success_score) as avg_success_score,
       round((SUM(output_tokens) / 1000000.0) * ${OUTPUT_PRICE_PER_MILLION} +
             (SUM(input_tokens) / 1000000.0) * ${INPUT_PRICE_PER_MILLION}, 2) as total_cost
-    FROM rudel.session_analytics
+    FROM rudel.session_analytics FINAL
     WHERE session_date >= now64(3) - toIntervalDay({days:UInt32})
       AND organization_id = {orgId:String}
     GROUP BY week_start
@@ -333,7 +333,7 @@ export async function getDeveloperCostBreakdown(
       AVG(success_score) as avg_success_score,
       round((SUM(output_tokens) / 1000000.0) * ${OUTPUT_PRICE_PER_MILLION} +
             (SUM(input_tokens) / 1000000.0) * ${INPUT_PRICE_PER_MILLION}, 2) as total_cost
-    FROM rudel.session_analytics
+    FROM rudel.session_analytics FINAL
     WHERE ${buildDateFilter("days")}
       AND organization_id = {orgId:String}
     GROUP BY user_id
@@ -390,7 +390,7 @@ export async function getProjectCostBreakdown(
       AVG(success_score) as avg_success_score,
       round((SUM(output_tokens) / 1000000.0) * ${OUTPUT_PRICE_PER_MILLION} +
             (SUM(input_tokens) / 1000000.0) * ${INPUT_PRICE_PER_MILLION}, 2) as total_cost
-    FROM rudel.session_analytics
+    FROM rudel.session_analytics FINAL
     WHERE ${buildDateFilter("days")}
       AND organization_id = {orgId:String}
       AND project_path != ''

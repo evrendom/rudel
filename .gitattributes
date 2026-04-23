@@ -1,0 +1,2 @@
+# Force LF line endings for all files (consistent across Windows/Mac/Linux)
+* text=auto eol=lf
