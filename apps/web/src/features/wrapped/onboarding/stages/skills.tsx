@@ -1,5 +1,5 @@
 import { useDialKit } from "dialkit";
-import { useReducedMotion } from "motion/react";
+import { motion, useReducedMotion } from "motion/react";
 import { Frown } from "lucide-react";
 import type { CSSProperties, TouchEvent } from "react";
 import { startTransition, useEffect, useRef, useState } from "react";
@@ -45,13 +45,31 @@ const ANTHROPIC_SKILLS_DOCS_URL =
  *
  * Read top-to-bottom. Each `at` value is ms after mount.
  *
- *    0ms   one lead card is visible with the rest tucked behind it
- *  140ms   the stack opens into a full in-stage column
- * 1140ms   the full column holds for a beat
- * 1140ms   cards settle into the final deck
- * 1700ms   deck motion ends and swipe / scroll controls unlock
+ *    0ms   a single intro line sits alone in the middle of the stage
+ *  920ms   one lead card is visible with the rest tucked behind it
+ * 1060ms   the stack opens into a full in-stage column
+ * 2060ms   the full column holds for a beat
+ * 2060ms   cards settle into the final deck
+ * 2620ms   deck motion ends, title/subtitle arrive, and controls unlock
  * ───────────────────────────────────────────────────────── */
-type SkillsEntranceStage = "collapsed" | "column" | "settling" | "deck";
+type SkillsEntranceStage =
+	| "intro"
+	| "collapsed"
+	| "column"
+	| "settling"
+	| "deck";
+
+const SKILLS_STAGE_COPY_TRANSITION = {
+	duration: 0.24,
+	ease: [0.22, 1, 0.36, 1] as const,
+};
+
+const SKILLS_STAGE_OBJECT_TRANSITION = {
+	duration: 0.42,
+	ease: [0.22, 1, 0.36, 1] as const,
+};
+
+const SKILLS_STAGE_INTRO_LINE = "The same skills kept showing up.";
 
 export function WrappedOnboardingSkillsStage(props: SkillsStageProps) {
 	const { onboardingMetrics, previewState } = props;
@@ -75,32 +93,35 @@ export function WrappedOnboardingSkillsStage(props: SkillsStageProps) {
 	);
 	const [activeCardIndex, setActiveCardIndex] = useState(0);
 	const [skillsEntranceStage, setSkillsEntranceStage] =
-		useState<SkillsEntranceStage>(() => (reduceMotion ? "deck" : "collapsed"));
+		useState<SkillsEntranceStage>(() => (reduceMotion ? "deck" : "intro"));
 	const dialValues = useDialKit(
 		"Wrapped Skills Stage",
 		{
 			animation: {
 				_collapsed: true,
-				collapsedHoldMs: [140, 0, 700, 10],
+				introHoldMs: [920, 200, 1800, 10],
+				collapsedHoldMs: [60, 0, 500, 10],
 				columnHoldMs: [1000, 150, 2200, 10],
 				deckSettleMs: [560, 180, 1400, 10],
 			},
 			collapsed: {
 				_collapsed: true,
-				scaleStep: [0.004, 0, 0.02, 0.001],
-				stepRem: [1.02, 0.2, 1.6, 0.01],
-				topRem: [0.72, 0, 2.4, 0.01],
+				scaleStep: [0.002, 0, 0.02, 0.001],
+				stepRem: [1.48, 0.2, 2.2, 0.01],
+				topRem: [0.1, 0, 2.4, 0.01],
 				widthPercent: [100, 96, 100, 0.5],
 			},
 			column: {
 				_collapsed: true,
-				insetRem: [0.6, 0, 1.8, 0.01],
+				scale: [1, 0.6, 1.2, 0.01],
+				stepRem: [5.15, 3.8, 6.6, 0.01],
+				topRem: [0.15, -6, 4, 0.01],
 			},
 			fade: {
 				_collapsed: true,
-				bottomHeightRem: [5.2, 1.5, 9, 0.1],
-				insetRem: [-2, -4, 0, 0.1],
-				topHeightRem: [4.6, 1.5, 8, 0.1],
+				bottomHeightRem: [3.8, 1.5, 10, 0.1],
+				insetRem: [-2.4, -4, 0, 0.1],
+				topHeightRem: [3.2, 1.5, 9, 0.1],
 			},
 			replay: { type: "action", label: "Replay sequence" },
 		},
@@ -118,6 +139,12 @@ export function WrappedOnboardingSkillsStage(props: SkillsStageProps) {
 	);
 	const isEmptySkillsBoard = !model.hasRankedSkills;
 	const isStackInteractive = skillsEntranceStage === "deck";
+	const isIntroCopyVisible = skillsEntranceStage === "intro";
+	const isComponentOnlyVisible =
+		skillsEntranceStage === "collapsed" ||
+		skillsEntranceStage === "column" ||
+		skillsEntranceStage === "settling";
+	const isFinalCopyVisible = skillsEntranceStage === "deck";
 	const resolvedStackStage =
 		skillsEntranceStage === "collapsed"
 			? "collapsed"
@@ -242,17 +269,24 @@ export function WrappedOnboardingSkillsStage(props: SkillsStageProps) {
 		}
 
 		setActiveCardIndex(0);
-		setSkillsEntranceStage("collapsed");
+		setSkillsEntranceStage("intro");
 		const timers = [
 			window.setTimeout(() => {
+				setSkillsEntranceStage("collapsed");
+			}, dialValues.animation.introHoldMs),
+			window.setTimeout(() => {
 				setSkillsEntranceStage("column");
-			}, dialValues.animation.collapsedHoldMs),
+			}, dialValues.animation.introHoldMs +
+				dialValues.animation.collapsedHoldMs),
 			window.setTimeout(() => {
 				setSkillsEntranceStage("settling");
-			}, dialValues.animation.collapsedHoldMs + dialValues.animation.columnHoldMs),
+			}, dialValues.animation.introHoldMs +
+				dialValues.animation.collapsedHoldMs +
+				dialValues.animation.columnHoldMs),
 			window.setTimeout(() => {
 				setSkillsEntranceStage("deck");
-			}, dialValues.animation.collapsedHoldMs +
+			}, dialValues.animation.introHoldMs +
+				dialValues.animation.collapsedHoldMs +
 				dialValues.animation.columnHoldMs +
 				dialValues.animation.deckSettleMs),
 		];
@@ -263,6 +297,7 @@ export function WrappedOnboardingSkillsStage(props: SkillsStageProps) {
 			}
 		};
 	}, [
+		dialValues.animation.introHoldMs,
 		dialValues.animation.collapsedHoldMs,
 		dialValues.animation.columnHoldMs,
 		dialValues.animation.deckSettleMs,
@@ -280,12 +315,41 @@ export function WrappedOnboardingSkillsStage(props: SkillsStageProps) {
 
 	return (
 		<WrappedOnboardingStageFrame
-			className="mymind-wrapped-skills-stage"
+			className={cn(
+				"mymind-wrapped-skills-stage",
+				isIntroCopyVisible && "mymind-wrapped-skills-stage--intro-copy",
+				isComponentOnlyVisible &&
+					"mymind-wrapped-skills-stage--component-only",
+			)}
 			copy={
-				<WrappedOnboardingStageCopy
-					title={model.headline}
-					description={isEmptySkillsBoard ? undefined : model.subline}
-				/>
+				isEmptySkillsBoard ? (
+					<WrappedOnboardingStageCopy
+						title={model.headline}
+						description={model.subline}
+					/>
+				) : isIntroCopyVisible ? (
+					<motion.div
+						animate={{ opacity: 1, scale: 1, y: 0 }}
+						initial={{ opacity: 0, scale: 0.985, y: 16 }}
+						transition={SKILLS_STAGE_COPY_TRANSITION}
+					>
+						<WrappedOnboardingStageCopy
+							title={SKILLS_STAGE_INTRO_LINE}
+							titleClassName="mymind-wrapped-stage-copy__headline--intro"
+						/>
+					</motion.div>
+				) : isFinalCopyVisible ? (
+					<motion.div
+						animate={{ opacity: 1, scale: 1, y: 0 }}
+						initial={{ opacity: 0, scale: 0.985, y: 16 }}
+						transition={SKILLS_STAGE_COPY_TRANSITION}
+					>
+						<WrappedOnboardingStageCopy
+							title={model.headline}
+							description={model.subline}
+						/>
+					</motion.div>
+				) : undefined
 			}
 			object={
 				isEmptySkillsBoard ? (
@@ -316,86 +380,93 @@ export function WrappedOnboardingSkillsStage(props: SkillsStageProps) {
 							</a>
 						</p>
 					</div>
-				) : (
-					<div
-						ref={stackRef}
-						className="mymind-wrapped-skills-stage__stack"
-						data-stack-stage={resolvedStackStage}
+				) : isIntroCopyVisible ? undefined : (
+					<motion.div
+						animate={{ opacity: 1, scale: 1, y: 0 }}
+						className="mymind-wrapped-skills-stage__object-shell"
+						initial={{ opacity: 0, scale: 0.99, y: 18 }}
+						transition={SKILLS_STAGE_OBJECT_TRANSITION}
 					>
 						<div
-							className="mymind-wrapped-skills-stage__stack-track"
-							style={stackStyle}
+							ref={stackRef}
+							className="mymind-wrapped-skills-stage__stack"
+							data-stack-stage={resolvedStackStage}
 						>
-							{model.cards.map((card, cardIndex) => {
-								const baseCardStyle =
-									skillsEntranceStage === "collapsed"
-										? getSkillsCollapsedCardStyle({
-												cardIndex,
-												collapsedScaleStep:
-													dialValues.collapsed.scaleStep,
-												collapsedStepRem:
-													dialValues.collapsed.stepRem,
-												totalCards: model.cards.length,
-												topRem: dialValues.collapsed.topRem,
-												widthPercent:
-													dialValues.collapsed.widthPercent,
-											})
-										: skillsEntranceStage === "column"
-											? getSkillsColumnCardStyle(
+							<div
+								className="mymind-wrapped-skills-stage__stack-track"
+								style={stackStyle}
+							>
+								{model.cards.map((card, cardIndex) => {
+									const baseCardStyle =
+										skillsEntranceStage === "collapsed"
+											? getSkillsCollapsedCardStyle({
 													cardIndex,
-													model.cards.length,
-													dialValues.column.insetRem,
-												)
-											: getSkillsCardStyle(cardIndex, activeCardIndex);
-								const cardStyle: SkillsCardStyle = {
-									...baseCardStyle,
-									pointerEvents: isStackInteractive
-										? baseCardStyle.pointerEvents
-										: "none",
-									"--skills-card-transform-duration":
-										`${dialValues.animation.deckSettleMs}ms`,
-									"--skills-card-visibility-duration": `${Math.max(
-										dialValues.animation.deckSettleMs - 140,
-										220,
-									)}ms`,
-								};
+													collapsedScaleStep:
+														dialValues.collapsed.scaleStep,
+													collapsedStepRem:
+														dialValues.collapsed.stepRem,
+													totalCards: model.cards.length,
+													topRem: dialValues.collapsed.topRem,
+													widthPercent:
+														dialValues.collapsed.widthPercent,
+												})
+											: skillsEntranceStage === "column"
+												? getSkillsColumnCardStyle(cardIndex, {
+														scale: dialValues.column.scale,
+														stepRem: dialValues.column.stepRem,
+														topRem: dialValues.column.topRem,
+													})
+												: getSkillsCardStyle(cardIndex, activeCardIndex);
+									const cardStyle: SkillsCardStyle = {
+										...baseCardStyle,
+										pointerEvents: isStackInteractive
+											? baseCardStyle.pointerEvents
+											: "none",
+										"--skills-card-transform-duration":
+											`${dialValues.animation.deckSettleMs}ms`,
+										"--skills-card-visibility-duration": `${Math.max(
+											dialValues.animation.deckSettleMs - 140,
+											220,
+										)}ms`,
+									};
 
-								return (
-									<article
-										key={card.id}
-										className={cn(
-											"mymind-wrapped-skills-stage__card",
-											cardIndex === activeCardIndex &&
-												skillsEntranceStage !== "column" &&
-												"is-front",
-										)}
-										onTouchEnd={handleSkillsCardTouchEnd}
-										onTouchStart={handleSkillsCardTouchStart}
-										style={cardStyle}
-									>
-										<div
+									return (
+										<article
+											key={card.id}
 											className={cn(
-												"mymind-wrapped-skills-stage__card-item",
-												card.item.isPlaceholder && "is-placeholder",
+												"mymind-wrapped-skills-stage__card",
+												cardIndex === activeCardIndex &&
+													skillsEntranceStage !== "column" &&
+													"is-front",
 											)}
+											onTouchEnd={handleSkillsCardTouchEnd}
+											onTouchStart={handleSkillsCardTouchStart}
+											style={cardStyle}
 										>
-											<span className="mymind-wrapped-skills-stage__item-rank">
-												{card.item.rank}
-											</span>
-											<div className="mymind-wrapped-skills-stage__item-copy">
-												<p className="mymind-wrapped-skills-stage__item-name">
-													{card.item.name}
-												</p>
-												<p className="mymind-wrapped-skills-stage__item-meta">
-													{card.item.meta}
-												</p>
+											<div
+												className={cn(
+													"mymind-wrapped-skills-stage__card-item",
+													card.item.isPlaceholder && "is-placeholder",
+												)}
+											>
+												<span className="mymind-wrapped-skills-stage__item-rank">
+													{card.item.rank}
+												</span>
+												<div className="mymind-wrapped-skills-stage__item-copy">
+													<p className="mymind-wrapped-skills-stage__item-name">
+														{card.item.name}
+													</p>
+													<p className="mymind-wrapped-skills-stage__item-meta">
+														{card.item.meta}
+													</p>
+												</div>
 											</div>
-										</div>
-									</article>
-								);
-							})}
+										</article>
+									);
+								})}
+							</div>
 						</div>
-					</div>
+					</motion.div>
 				)
 			}
 		/>

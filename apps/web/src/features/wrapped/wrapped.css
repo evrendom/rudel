@@ -622,6 +622,23 @@ body.mymind-wrapped-body #root {
 	width: 100%;
 }
 
+.mymind-wrapped-skills-stage.mymind-wrapped-stage--without-support.mymind-wrapped-skills-stage--intro-copy,
+.mymind-wrapped-skills-stage.mymind-wrapped-stage--without-support.mymind-wrapped-skills-stage--component-only {
+	align-content: center;
+	justify-items: center;
+	grid-template-rows: minmax(0, 1fr);
+}
+
+.mymind-wrapped-skills-stage.mymind-wrapped-stage--without-support.mymind-wrapped-skills-stage--intro-copy
+	.mymind-wrapped-stage__copy {
+	align-self: center;
+}
+
+.mymind-wrapped-skills-stage.mymind-wrapped-stage--without-support.mymind-wrapped-skills-stage--component-only
+	.mymind-wrapped-stage__object {
+	align-self: center;
+}
+
 .mymind-wrapped-skills-stage__hero {
 	display: grid;
 	justify-items: center;
@@ -769,7 +786,7 @@ body.mymind-wrapped-body #root {
 	height: var(--skills-stack-top-fade-height, 3.2rem);
 	background: linear-gradient(
 		to bottom,
-		var(--surface) 22%,
+		var(--surface) 0%,
 		rgb(255 255 255 / 0)
 	);
 	pointer-events: none;
@@ -783,14 +800,17 @@ body.mymind-wrapped-body #root {
 	inset-inline: var(--skills-stack-fade-inset, -1.5rem);
 	bottom: -0.25rem;
 	height: var(--skills-stack-bottom-fade-height, 3.6rem);
-	background: linear-gradient(to top, var(--surface) 24%, rgb(255 255 255 / 0));
+	background: linear-gradient(to top, var(--surface) 0%, rgb(255 255 255 / 0));
 	pointer-events: none;
 	transition: opacity 220ms var(--skills-ease-out);
 }
 
-.mymind-wrapped-skills-stage__stack[data-stack-stage="collapsed"]::before,
-.mymind-wrapped-skills-stage__stack[data-stack-stage="collapsed"]::after {
-	opacity: 0;
+.mymind-wrapped-skills-stage__title-shell {
+	display: block;
+}
+
+.mymind-wrapped-skills-stage__object-shell {
+	width: 100%;
 }
 
 .mymind-wrapped-skills-stage__card {
@@ -974,6 +994,10 @@ body.mymind-wrapped-body #root {
 .mymind-wrapped-tools-stage__title-shell,
 .mymind-wrapped-tools-stage__description-shell {
 	display: block;
+}
+
+.mymind-wrapped-tools-stage__copy-shell {
+	width: 100%;
 }
 
 .mymind-wrapped-tools-stage__object {
@@ -1360,6 +1384,20 @@ body.mymind-wrapped-body #root {
 	text-wrap: balance;
 }
 
+.mymind-wrapped-model-stage__headline--sequenced {
+	max-width: min(11ch, 100%);
+}
+
+.mymind-wrapped-model-stage__sequence-title {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	min-height: 3.2em;
+	width: 100%;
+	text-align: center;
+	text-wrap: balance;
+}
+
 .mymind-wrapped-model-stage__subline {
 	margin: 0;
 	max-width: 19rem;
@@ -1373,6 +1411,22 @@ body.mymind-wrapped-body #root {
 .mymind-wrapped-model-stage__object {
 	width: min(100%, 24rem);
 	margin: 1.7rem auto 0;
+}
+
+.mymind-wrapped-model-stage.mymind-wrapped-stage--without-support.mymind-wrapped-model-stage--intro-copy {
+	align-content: center;
+	justify-items: center;
+	grid-template-rows: minmax(0, 1fr);
+}
+
+.mymind-wrapped-model-stage.mymind-wrapped-stage--without-support.mymind-wrapped-model-stage--intro-copy
+	.mymind-wrapped-stage__copy {
+	align-self: center;
+}
+
+.mymind-wrapped-model-stage__scene-shell {
+	width: 100%;
+	overflow: clip;
 }
 
 .mymind-wrapped-model-stage__card {
@@ -1479,10 +1533,19 @@ body.mymind-wrapped-body #root {
 	box-shadow: inset 0 0 0 1px rgb(23 22 28 / 0.05);
 }
 
-.mymind-wrapped-model-stage__summary-segment,
-.mymind-wrapped-model-stage__month-segment {
+.mymind-wrapped-model-stage__summary-segment {
 	flex: 0 0 var(--model-stage-segment-share, 0%);
 	background: var(--model-stage-segment-color, #2d6df6);
+}
+
+.mymind-wrapped-model-stage__month-segment {
+	flex: 0 0 auto;
+	height: var(--model-stage-segment-share, 0%);
+	background: var(--model-stage-segment-color, #2d6df6);
+	transition:
+		height 620ms cubic-bezier(0.22, 1, 0.36, 1),
+		opacity 280ms ease;
+	transition-delay: var(--model-stage-segment-delay, 0s);
 }
 
 .mymind-wrapped-model-stage__legend {
@@ -2797,6 +2860,17 @@ body.mymind-wrapped-body #root {
 }
 
 .mymind-wrapped-scale-stage.mymind-wrapped-stage--without-support
+	.mymind-wrapped-stage__copy {
+	align-self: center;
+}
+
+.mymind-wrapped-tools-stage.mymind-wrapped-stage--without-support.mymind-wrapped-tools-stage--intro-copy {
+	align-content: center;
+	justify-items: center;
+	grid-template-rows: minmax(0, 1fr);
+}
+
+.mymind-wrapped-tools-stage.mymind-wrapped-stage--without-support.mymind-wrapped-tools-stage--intro-copy
 	.mymind-wrapped-stage__copy {
 	align-self: center;
 }

@@ -29,8 +29,7 @@ export function resolveToolsStageModel(input: {
 			footnote:
 				"These numbers are the share of sessions where each layer showed up, not raw invocation counts.",
 			headline: "You stayed close to the base model",
-			subline:
-				"The extension layer is still quiet, so the readout stays intentionally spare.",
+			subline: "The tool layer stayed quiet.",
 		};
 	}
 
@@ -40,8 +39,7 @@ export function resolveToolsStageModel(input: {
 			footnote:
 				"These are session-share numbers: how often that layer appeared in a session at least once.",
 			headline: getToolsHeadline(input),
-			subline:
-				"One thing you reached for directly, one thing you handed work off to.",
+			subline: "One command. One helper.",
 		};
 	}
 
@@ -51,8 +49,7 @@ export function resolveToolsStageModel(input: {
 			footnote:
 				"Session share is based on whether the layer appeared in the session, not how many times it fired.",
 			headline: getToolsHeadline(input),
-			subline:
-				"One command pattern showed up clearly. The rest of the extension layer is still settling.",
+			subline: "One command kept showing up.",
 		};
 	}
 
@@ -61,8 +58,7 @@ export function resolveToolsStageModel(input: {
 		footnote:
 			"Session share is based on whether the layer appeared in the session, not how many times it fired.",
 		headline: getToolsHeadline(input),
-		subline:
-			"The helper layer is visible already. Slash-command usage can stay quiet and that still tells a story.",
+		subline: "One helper kept showing up.",
 	};
 }
 

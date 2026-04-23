@@ -1,4 +1,8 @@
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import type { CSSProperties } from "react";
+import { useEffect, useState } from "react";
+import type { ReactNode } from "react";
+import { useMountEffect } from "@/hooks/useMountEffect";
 import { cn } from "@/lib/utils";
 import {
 	getModelStageTone,
@@ -18,8 +22,72 @@ interface ModelStageProps {
 
 interface ModelSegmentStyle extends CSSProperties {
 	"--model-stage-segment-color": string;
+	"--model-stage-segment-delay"?: string;
 	"--model-stage-segment-share": string;
 }
+
+type ModelStageSequencePhase =
+	| "question"
+	| "answer"
+	| "logos"
+	| "summary"
+	| "bars";
+
+/* ─────────────────────────────────────────────────────────
+ * MODEL STAGE STORYBOARD
+ *
+ * Read top-to-bottom. Each `at` value is ms after mount.
+ *
+ *    0ms   centered question fades in
+ * 1250ms   question swaps to "let's find out"
+ * 2100ms   scene shell rises in and owns the size change
+ * 2900ms   percentages count up inside the stable split cards
+ * 3900ms   month bars expand upward with a short stagger
+ * ───────────────────────────────────────────────────────── */
+
+const MODEL_STAGE_MOTION = {
+	distance: {
+		lift: 8,
+		nudge: 4,
+		slide: 16,
+	},
+	duration: {
+		micro: 0.18,
+		reveal: 0.4,
+		section: 0.26,
+		shell: 0.6,
+	},
+	easing: {
+		enter: [0.22, 1, 0.36, 1] as const,
+		exit: [0.4, 0, 0.2, 1] as const,
+		morph: [0.32, 0.72, 0, 1] as const,
+	},
+};
+
+const MODEL_STAGE_SURFACE_TRANSITION = {
+	duration: MODEL_STAGE_MOTION.duration.reveal,
+	ease: MODEL_STAGE_MOTION.easing.enter,
+};
+
+const MODEL_STAGE_COPY_TRANSITION = {
+	duration: MODEL_STAGE_MOTION.duration.section,
+	ease: MODEL_STAGE_MOTION.easing.enter,
+};
+
+const MODEL_STAGE_LAYOUT_TRANSITION = {
+	duration: MODEL_STAGE_MOTION.duration.shell,
+	ease: MODEL_STAGE_MOTION.easing.morph,
+};
+
+const MODEL_STAGE_SEQUENCE = [
+	{ holdMs: 1_250, phase: "question" },
+	{ holdMs: 850, phase: "answer" },
+	{ holdMs: 800, phase: "logos" },
+	{ holdMs: 1_000, phase: "summary" },
+] as const satisfies ReadonlyArray<{
+	holdMs: number;
+	phase: Exclude<ModelStageSequencePhase, "bars">;
+}>;
 
 export function WrappedOnboardingModelStage(props: ModelStageProps) {
 	const { onboardingMetrics, previewState } = props;
@@ -32,6 +100,9 @@ export function WrappedOnboardingModelStage(props: ModelStageProps) {
 			previewState,
 		),
 	);
+	const shouldReduceMotion = useReducedMotion();
+	const reduceMotion = shouldReduceMotion ?? false;
+	const hasAnimatedData = model.summary.length > 0;
 	const splitCards = [
 		{
 			label: "Codex",
@@ -48,117 +119,425 @@ export function WrappedOnboardingModelStage(props: ModelStageProps) {
 			source: "claude_code",
 		},
 	] as const;
+	const [phase, setPhase] = useState<ModelStageSequencePhase>(() =>
+		reduceMotion || !hasAnimatedData ? "bars" : "question",
+	);
+	const isIntroCopyPhase = phase === "question" || phase === "answer";
 
-	return (
-		<WrappedOnboardingStageFrame
-			className="mymind-wrapped-model-stage"
-			objectClassName="mymind-wrapped-model-stage__object"
-			copy={
-				<WrappedOnboardingStageCopy
-					title={model.headline}
-					description={model.subline}
-				/>
+	useMountEffect(() => {
+		if (reduceMotion || !hasAnimatedData) {
+			setPhase("bars");
+			return;
+		}
+
+		setPhase("question");
+		const timeoutIds: number[] = [];
+		let elapsedMs = 0;
+
+		for (const item of MODEL_STAGE_SEQUENCE) {
+			timeoutIds.push(
+				window.setTimeout(() => {
+					setPhase(item.phase);
+				}, elapsedMs),
+			);
+			elapsedMs += item.holdMs;
+		}
+
+		timeoutIds.push(
+			window.setTimeout(() => {
+				setPhase("bars");
+			}, elapsedMs),
+		);
+
+		return () => {
+			for (const timeoutId of timeoutIds) {
+				window.clearTimeout(timeoutId);
 			}
-			object={
-				<article className="mymind-wrapped-model-stage__card">
-					<section className="mymind-wrapped-model-stage__summary-card">
-						{model.summary.length === 0 ? (
+		};
+	});
+
+	if (!hasAnimatedData) {
+		return (
+			<WrappedOnboardingStageFrame
+				className="mymind-wrapped-model-stage"
+				objectClassName="mymind-wrapped-model-stage__object"
+				copy={
+					<WrappedOnboardingStageCopy
+						title={model.headline}
+						description={model.subline}
+					/>
+				}
+				object={
+					<article className="mymind-wrapped-model-stage__card">
+						<section className="mymind-wrapped-model-stage__summary-card">
 							<p className="mymind-wrapped-model-stage__empty">
 								The all-time split shows up once session history lands.
 							</p>
-						) : (
-							<div className="mymind-wrapped-model-stage__split-grid">
-								{splitCards.map((splitCard) => {
-									const share = Math.round(splitCard.segment?.share ?? 0);
-									const sessionCount = splitCard.segment?.sessionCount ?? 0;
-									const sessionLabel = `${sessionCount.toLocaleString()} ${
-										sessionCount === 1 ? "session" : "sessions"
-									}`;
+						</section>
 
-									return (
-										<section
-											key={splitCard.source}
-											className="mymind-wrapped-model-stage__split-card"
-										>
-											<div
-												aria-hidden="true"
-												className="mymind-wrapped-model-stage__split-logo"
-												style={{
-													color: getModelStageTone(splitCard.source),
-												}}
-											>
-												{splitCard.logo}
-											</div>
-											<p className="mymind-wrapped-model-stage__split-brand">
-												{splitCard.label}
-											</p>
-											<p className="mymind-wrapped-model-stage__split-share">
-												{share}%
-											</p>
-											<p className="mymind-wrapped-model-stage__split-sessions">
-												{sessionLabel}
-											</p>
-										</section>
-									);
-								})}
-							</div>
-						)}
-					</section>
-
-					<section className="mymind-wrapped-model-stage__months-card">
-						{model.months.length === 0 ? (
+						<section className="mymind-wrapped-model-stage__months-card">
 							<p className="mymind-wrapped-model-stage__empty">
 								The monthly stacks fill in once model history spans a few
 								sessions.
 							</p>
-						) : (
-							<ol className="mymind-wrapped-model-stage__month-grid">
-								{model.months.map((month) => (
-									<li
-										key={month.id}
-										className="mymind-wrapped-model-stage__month-column"
-										title={
-											month.totalSessions > 0
-												? `${month.label}: ${month.leaderLabel} led with ${month.leaderShare}%`
-												: `${month.label}: no model activity`
-										}
-									>
-										<span
-											aria-hidden="true"
-											className={cn(
-												"mymind-wrapped-model-stage__month-bar",
-												month.totalSessions === 0 ? "is-empty" : null,
-											)}
-										>
-											{month.segments.map((segment) => {
-												const segmentStyle: ModelSegmentStyle = {
-													"--model-stage-segment-color": getModelStageTone(
-														segment.source,
-													),
-													"--model-stage-segment-share": `${segment.share}%`,
-												};
+						</section>
+					</article>
+				}
+			/>
+		);
+	}
 
-												return (
-													<span
-														key={segment.id}
-														className="mymind-wrapped-model-stage__month-segment"
-														style={segmentStyle}
-													/>
-												);
-											})}
-										</span>
-										<p className="mymind-wrapped-model-stage__month-label">
-											{month.label}
-										</p>
-									</li>
-								))}
-							</ol>
-						)}
-					</section>
-				</article>
+	return (
+		<WrappedOnboardingStageFrame
+			className={cn(
+				"mymind-wrapped-model-stage",
+				isIntroCopyPhase
+					? "mymind-wrapped-model-stage--intro-copy"
+					: undefined,
+			)}
+			objectClassName="mymind-wrapped-model-stage__object"
+			copy={
+				<WrappedOnboardingStageCopy
+					title={
+						<WrappedModelStageSequenceTitle
+							phase={phase}
+							reduceMotion={reduceMotion}
+						/>
+					}
+					titleClassName="mymind-wrapped-model-stage__headline mymind-wrapped-model-stage__headline--sequenced"
+				/>
+			}
+			object={
+				isIntroCopyPhase ? null : (
+					<WrappedModelStageBody
+						model={model}
+						phase={phase}
+						splitCards={splitCards}
+					/>
+				)
 			}
 		/>
 	);
+}
+
+function WrappedModelStageSequenceTitle(props: {
+	phase: ModelStageSequencePhase;
+	reduceMotion: boolean;
+}) {
+	const { phase, reduceMotion } = props;
+	const title =
+		phase === "question"
+			? "Claude pilled? or Codex piled?"
+			: phase === "answer"
+				? "let's find out"
+				: "\u00A0";
+
+	if (reduceMotion) {
+		return "\u00A0";
+	}
+
+	return (
+		<AnimatePresence initial={false} mode="wait">
+			<motion.span
+				key={phase === "question" || phase === "answer" ? phase : "hidden"}
+				animate={{ filter: "blur(0px)", opacity: 1, scale: 1, y: 0 }}
+				className="mymind-wrapped-model-stage__sequence-title"
+				exit={{
+					filter: "blur(4px)",
+					opacity: 0,
+					scale: 0.992,
+					y: -MODEL_STAGE_MOTION.distance.lift,
+				}}
+				initial={{
+					filter: "blur(8px)",
+					opacity: 0,
+					scale: 0.988,
+					y: MODEL_STAGE_MOTION.distance.slide,
+				}}
+				transition={MODEL_STAGE_COPY_TRANSITION}
+			>
+				{title}
+			</motion.span>
+		</AnimatePresence>
+	);
+}
+
+function WrappedModelStageBody(props: {
+	model: ReturnType<typeof resolveModelStageModel>;
+	phase: ModelStageSequencePhase;
+	splitCards: ReadonlyArray<{
+		label: string;
+		logo: ReactNode;
+		segment:
+			| ReturnType<typeof resolveModelStageModel>["summary"][number]
+			| undefined;
+		source: "claude_code" | "codex";
+	}>;
+}) {
+	const { model, phase, splitCards } = props;
+	const shouldReduceMotion = useReducedMotion();
+	const reduceMotion = shouldReduceMotion ?? false;
+	const areLogosVisible =
+		phase === "logos" || phase === "summary" || phase === "bars";
+	const areSummaryValuesVisible = phase === "summary" || phase === "bars";
+	const areBarsVisible = phase === "bars";
+	const [areBarsExpanded, setAreBarsExpanded] = useState(() =>
+		reduceMotion ? areBarsVisible : false,
+	);
+
+	useEffect(() => {
+		if (reduceMotion) {
+			setAreBarsExpanded(areBarsVisible);
+			return;
+		}
+
+		if (!areBarsVisible) {
+			setAreBarsExpanded(false);
+			return;
+		}
+
+		const animationFrameId = window.requestAnimationFrame(() => {
+			setAreBarsExpanded(true);
+		});
+
+		return () => {
+			window.cancelAnimationFrame(animationFrameId);
+		};
+	}, [areBarsVisible, reduceMotion]);
+
+	return (
+		<motion.div
+			layout
+			className="mymind-wrapped-model-stage__scene-shell"
+			transition={{ layout: MODEL_STAGE_LAYOUT_TRANSITION }}
+		>
+			<motion.article
+				layout
+				animate={{
+					filter: areLogosVisible ? "blur(0px)" : "blur(8px)",
+					opacity: areLogosVisible ? 1 : 0,
+					scale: areLogosVisible ? 1 : 0.988,
+					y: areLogosVisible ? 0 : MODEL_STAGE_MOTION.distance.slide,
+				}}
+				className="mymind-wrapped-model-stage__card"
+				initial={
+					reduceMotion
+						? false
+						: {
+								filter: "blur(10px)",
+								opacity: 0,
+								scale: 0.988,
+								y: MODEL_STAGE_MOTION.distance.slide,
+							}
+				}
+				transition={{
+					...MODEL_STAGE_SURFACE_TRANSITION,
+					layout: MODEL_STAGE_LAYOUT_TRANSITION,
+				}}
+			>
+				<section className="mymind-wrapped-model-stage__summary-card">
+				<div className="mymind-wrapped-model-stage__split-grid">
+					{splitCards.map((splitCard) => {
+						const share = Math.round(splitCard.segment?.share ?? 0);
+						const sessionCount = splitCard.segment?.sessionCount ?? 0;
+						const sessionLabel = `${sessionCount.toLocaleString()} ${
+							sessionCount === 1 ? "session" : "sessions"
+						}`;
+
+						return (
+							<section
+								key={splitCard.source}
+								className="mymind-wrapped-model-stage__split-card"
+							>
+								<motion.div
+									animate={{
+										filter: areLogosVisible ? "blur(0px)" : "blur(6px)",
+										opacity: areLogosVisible ? 1 : 0,
+										scale: areLogosVisible ? 1 : 0.88,
+										y: areLogosVisible ? 0 : MODEL_STAGE_MOTION.distance.slide,
+									}}
+									aria-hidden="true"
+									className="mymind-wrapped-model-stage__split-logo"
+									initial={false}
+									style={{
+										color: getModelStageTone(splitCard.source),
+									}}
+									transition={MODEL_STAGE_SURFACE_TRANSITION}
+								>
+									{splitCard.logo}
+								</motion.div>
+								<motion.p
+									animate={{
+										opacity: areSummaryValuesVisible ? 1 : 0,
+										y: areSummaryValuesVisible
+											? 0
+											: MODEL_STAGE_MOTION.distance.lift,
+									}}
+									className="mymind-wrapped-model-stage__split-brand"
+									initial={false}
+									transition={MODEL_STAGE_SURFACE_TRANSITION}
+								>
+									{splitCard.label}
+								</motion.p>
+								<motion.p
+									animate={{
+										opacity: areSummaryValuesVisible ? 1 : 0,
+										y: areSummaryValuesVisible
+											? 0
+											: MODEL_STAGE_MOTION.distance.lift,
+									}}
+									className="mymind-wrapped-model-stage__split-share"
+									initial={false}
+									transition={MODEL_STAGE_SURFACE_TRANSITION}
+								>
+									<WrappedModelStageAnimatedPercent
+										isActive={areSummaryValuesVisible}
+										targetValue={share}
+									/>
+									%
+								</motion.p>
+								<motion.p
+									animate={{
+										opacity: areSummaryValuesVisible ? 1 : 0,
+										y: areSummaryValuesVisible
+											? 0
+											: MODEL_STAGE_MOTION.distance.lift,
+									}}
+									className="mymind-wrapped-model-stage__split-sessions"
+									initial={false}
+									transition={MODEL_STAGE_SURFACE_TRANSITION}
+								>
+									{sessionLabel}
+								</motion.p>
+							</section>
+							);
+						})}
+					</div>
+				</section>
+
+				<AnimatePresence initial={false}>
+					{areBarsVisible ? (
+						<motion.section
+							key="model-months"
+							layout
+							animate={{ opacity: 1, y: 0 }}
+							className="mymind-wrapped-model-stage__months-card"
+							exit={{
+								opacity: 0,
+								y: MODEL_STAGE_MOTION.distance.nudge,
+							}}
+							initial={{
+								opacity: 0,
+								y: MODEL_STAGE_MOTION.distance.slide,
+							}}
+							transition={{
+								...MODEL_STAGE_SURFACE_TRANSITION,
+								layout: MODEL_STAGE_LAYOUT_TRANSITION,
+							}}
+						>
+							{model.months.length === 0 ? (
+								<p className="mymind-wrapped-model-stage__empty">
+									The monthly stacks fill in once model history spans a few
+									sessions.
+								</p>
+							) : (
+								<ol className="mymind-wrapped-model-stage__month-grid">
+									{model.months.map((month, monthIndex) => (
+										<li
+											key={month.id}
+											className="mymind-wrapped-model-stage__month-column"
+											title={
+												month.totalSessions > 0
+													? `${month.label}: ${month.leaderLabel} led with ${month.leaderShare}%`
+													: `${month.label}: no model activity`
+											}
+										>
+											<span
+												aria-hidden="true"
+												className={cn(
+													"mymind-wrapped-model-stage__month-bar",
+													month.totalSessions === 0 ? "is-empty" : null,
+												)}
+											>
+												{month.segments.map((segment, segmentIndex) => {
+													const segmentStyle: ModelSegmentStyle = {
+														"--model-stage-segment-color": getModelStageTone(
+															segment.source,
+														),
+														"--model-stage-segment-delay": `${0.08 * monthIndex + 0.04 * segmentIndex}s`,
+														"--model-stage-segment-share": areBarsExpanded
+															? `${segment.share}%`
+															: "0%",
+													};
+
+													return (
+														<span
+															key={segment.id}
+															className="mymind-wrapped-model-stage__month-segment"
+															style={segmentStyle}
+														/>
+													);
+												})}
+											</span>
+											<p className="mymind-wrapped-model-stage__month-label">
+												{month.label}
+											</p>
+										</li>
+									))}
+								</ol>
+							)}
+						</motion.section>
+					) : null}
+				</AnimatePresence>
+			</motion.article>
+		</motion.div>
+	);
+}
+
+function WrappedModelStageAnimatedPercent(props: {
+	isActive: boolean;
+	targetValue: number;
+}) {
+	const { isActive, targetValue } = props;
+	const shouldReduceMotion = useReducedMotion();
+	const reduceMotion = shouldReduceMotion ?? false;
+	const [visibleValue, setVisibleValue] = useState(() =>
+		reduceMotion || !isActive ? (reduceMotion ? targetValue : 0) : 0,
+	);
+
+	useEffect(() => {
+		if (reduceMotion) {
+			setVisibleValue(targetValue);
+			return;
+		}
+
+		if (!isActive) {
+			setVisibleValue(0);
+			return;
+		}
+
+		let animationFrameId = 0;
+		const startTime = performance.now();
+		const durationMs = 900;
+
+		function step(now: number) {
+			const progress = Math.min((now - startTime) / durationMs, 1);
+			const easedProgress = 1 - (1 - progress) ** 3;
+			setVisibleValue(Math.round(targetValue * easedProgress));
+
+			if (progress < 1) {
+				animationFrameId = window.requestAnimationFrame(step);
+			}
+		}
+
+		animationFrameId = window.requestAnimationFrame(step);
+
+		return () => {
+			window.cancelAnimationFrame(animationFrameId);
+		};
+	}, [isActive, reduceMotion, targetValue]);
+
+	return <>{visibleValue}</>;
 }
 
 function ClaudeModelStageLogo() {

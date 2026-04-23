@@ -236,19 +236,10 @@ export function getSkillsCollapsedCardStyle(
 		widthPercent,
 	} = input;
 	const usableCardCount = Math.max(totalCards, 1);
-	const maxStepRem =
-		usableCardCount === 1
-			? 0
-			: Math.max(
-					0,
-					(SKILLS_STACK.viewportHeightRem - topRem - SKILLS_STACK.cardHeightRem) /
-						(usableCardCount - 1),
-				);
-	const resolvedStepRem = Math.min(collapsedStepRem, maxStepRem);
 	const scale = Math.max(0.88, 1 - cardIndex * collapsedScaleStep);
 
 	return {
-		"--skills-card-y": `${cardIndex * resolvedStepRem}rem`,
+		"--skills-card-y": `${cardIndex * collapsedStepRem}rem`,
 		"--skills-card-scale": scale,
 		"--skills-card-rotate": "0deg",
 		"--skills-card-z": "0px",
@@ -263,30 +254,25 @@ export function getSkillsCollapsedCardStyle(
 
 export function getSkillsColumnCardStyle(
 	cardIndex: number,
-	totalCards: number,
-	columnInsetRem: number,
+	input: {
+		scale: number;
+		stepRem: number;
+		topRem: number;
+	},
 ): CSSProperties {
-	const usableCardCount = Math.max(totalCards, 1);
-	const availableTravelRem = Math.max(
-		0,
-		SKILLS_STACK.viewportHeightRem -
-			SKILLS_STACK.cardHeightRem -
-			columnInsetRem * 2,
-	);
-	const stepRem =
-		usableCardCount === 1 ? 0 : availableTravelRem / (usableCardCount - 1);
+	const { scale, stepRem, topRem } = input;
 
 	return {
 		"--skills-card-y": `${cardIndex * stepRem}rem`,
-		"--skills-card-scale": 1,
+		"--skills-card-scale": scale,
 		"--skills-card-rotate": "0deg",
 		"--skills-card-z": "0px",
 		filter: "blur(0px)",
 		opacity: 1,
 		pointerEvents: "none",
-		top: `${columnInsetRem}rem`,
+		top: `${topRem}rem`,
 		width: `calc(100% - ${SKILLS_STACK.shadowBleedRem * 2}rem)`,
-		zIndex: usableCardCount - cardIndex,
+		zIndex: 1,
 	} as CSSProperties;
 }
 

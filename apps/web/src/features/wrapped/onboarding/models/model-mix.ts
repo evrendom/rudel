@@ -25,7 +25,6 @@ interface WrappedModelShareMonth {
 }
 
 interface ModelStageModel {
-	footnote: string;
 	headline: string;
 	months: readonly WrappedModelShareMonth[];
 	monthsLabel: string;
@@ -220,8 +219,6 @@ export function resolveModelStageModel(input: {
 	);
 
 	return {
-		footnote:
-			"Top bar uses the entire run. The six monthly stacks collapse model history into Claude vs Codex.",
 		headline,
 		months,
 		monthsLabel: `${activeMonths.length} active month${activeMonths.length === 1 ? "" : "s"}`,
