@@ -4543,6 +4543,53 @@ body.mymind-wrapped-body #root {
 	}
 }
 
+@media (max-height: 720px) {
+	.mymind-wrapped-shell {
+		--wrapped-shell-top-inset: 20px;
+		--wrapped-shell-inline-inset: 20px;
+		--wrapped-shell-bottom-inset: 8px;
+		--wrapped-shell-stage-gap: 0.8rem;
+	}
+
+	.mymind-wrapped-entry-stage--auth {
+		gap: 0.9rem;
+	}
+
+	.mymind-wrapped-auth-panel--intro {
+		gap: 0.8rem;
+	}
+
+	.mymind-wrapped-auth-card-preview__tilt {
+		--wrapped-card-render-scale: 0.84;
+	}
+
+	.mymind-wrapped-final-stage {
+		gap: 0.6rem;
+	}
+
+	.mymind-wrapped-final-stage__headline {
+		font-size: clamp(1.85rem, 7.2vw, 2.2rem);
+	}
+
+	.mymind-wrapped-final-stage__subline {
+		font-size: 0.9rem;
+		line-height: 1.36;
+	}
+
+	.mymind-wrapped-final-stage__object--card {
+		min-height: clamp(13rem, 24svh, 15.5rem);
+	}
+
+	.mymind-wrapped-final-stage__tilt-shell {
+		--wrapped-card-render-scale: 0.66 !important;
+	}
+
+	.mymind-wrapped-action-stack {
+		gap: 0.25rem;
+		min-height: calc(44px * 2 + 0.25rem);
+	}
+}
+
 @media (min-width: 70rem) {
 	.mymind-wrapped-final-stage {
 		grid-template-columns: minmax(18rem, 24rem) minmax(0, 1fr);
