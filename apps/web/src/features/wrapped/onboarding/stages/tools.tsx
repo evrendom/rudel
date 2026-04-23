@@ -8,6 +8,10 @@ import {
 	resolveToolsStageModel,
 } from "../models";
 import type { WrappedOnboardingMetrics } from "../types";
+import {
+	WrappedOnboardingStageCopy,
+	WrappedOnboardingStageFrame,
+} from "./frame";
 
 interface ToolsStageProps {
 	onboardingMetrics: WrappedOnboardingMetrics;
@@ -46,67 +50,73 @@ export function WrappedOnboardingToolsStage(props: ToolsStageProps) {
 	};
 
 	return (
-		<section className="mymind-wrapped-tools-stage">
-			<div className="mymind-wrapped-tools-stage__hero">
-				<p className="mymind-wrapped-tools-stage__eyebrow">Workflow tools</p>
-				<h2 className="mymind-wrapped-tools-stage__headline">
-					{model.headline}
-				</h2>
-				<p className="mymind-wrapped-tools-stage__subline">{model.subline}</p>
-			</div>
+		<WrappedOnboardingStageFrame
+			className="mymind-wrapped-tools-stage"
+			copy={
+				<WrappedOnboardingStageCopy
+					eyebrow="Workflow tools"
+					title={model.headline}
+					description={model.subline}
+				/>
+			}
+			object={
+				<div className="mymind-wrapped-tools-stage__object">
+					<article
+						className="mymind-wrapped-tools-stage__card"
+						style={cardStyle}
+					>
+						<div className="mymind-wrapped-tools-stage__list">
+							{model.entries.map((entry, entryIndex) => {
+								const meterStyle: ToolsMeterStyle = {
+									"--tools-stage-meter-value": `${entry.usageRate ?? 0}%`,
+								};
 
-			<div className="mymind-wrapped-tools-stage__object">
-				<article className="mymind-wrapped-tools-stage__card" style={cardStyle}>
-					<div className="mymind-wrapped-tools-stage__list">
-						{model.entries.map((entry, entryIndex) => {
-							const meterStyle: ToolsMeterStyle = {
-								"--tools-stage-meter-value": `${entry.usageRate ?? 0}%`,
-							};
-
-							return (
-								<button
-									key={entry.id}
-									aria-label={`${entry.name}. ${entry.usageLabel}`}
-									aria-pressed={entryIndex === activeCardIndex}
-									className={cn(
-										"mymind-wrapped-tools-stage__entry",
-										entryIndex === activeCardIndex && "is-front",
-										entry.isPlaceholder && "is-placeholder",
-									)}
-									onClick={() => setActiveCardIndex(entryIndex)}
-									onFocus={() => setActiveCardIndex(entryIndex)}
-									style={getToolsEntryStyle(
-										entryIndex,
-										model.entries.length,
-										activeCardIndex,
-									)}
-									type="button"
-								>
-									<div className="mymind-wrapped-tools-stage__entry-top">
-										<p className="mymind-wrapped-tools-stage__entry-usage">
-											{entry.usageLabel}
-										</p>
-									</div>
-									<p className="mymind-wrapped-tools-stage__entry-name">
-										{entry.name}
-									</p>
-									<div
-										aria-hidden="true"
-										className="mymind-wrapped-tools-stage__meter"
+								return (
+									<button
+										key={entry.id}
+										aria-label={`${entry.name}. ${entry.usageLabel}`}
+										aria-pressed={entryIndex === activeCardIndex}
+										className={cn(
+											"mymind-wrapped-tools-stage__entry",
+											entryIndex === activeCardIndex && "is-front",
+											entry.isPlaceholder && "is-placeholder",
+										)}
+										onClick={() => setActiveCardIndex(entryIndex)}
+										onFocus={() => setActiveCardIndex(entryIndex)}
+										style={getToolsEntryStyle(
+											entryIndex,
+											model.entries.length,
+											activeCardIndex,
+										)}
+										type="button"
 									>
-										<span
-											className="mymind-wrapped-tools-stage__meter-fill"
-											style={meterStyle}
-										/>
-									</div>
-								</button>
-							);
-						})}
-					</div>
-				</article>
-			</div>
-
-			<p className="mymind-wrapped-tools-stage__footnote">{model.footnote}</p>
-		</section>
+										<div className="mymind-wrapped-tools-stage__entry-top">
+											<p className="mymind-wrapped-tools-stage__entry-usage">
+												{entry.usageLabel}
+											</p>
+										</div>
+										<p className="mymind-wrapped-tools-stage__entry-name">
+											{entry.name}
+										</p>
+										<div
+											aria-hidden="true"
+											className="mymind-wrapped-tools-stage__meter"
+										>
+											<span
+												className="mymind-wrapped-tools-stage__meter-fill"
+												style={meterStyle}
+											/>
+										</div>
+									</button>
+								);
+							})}
+						</div>
+					</article>
+				</div>
+			}
+			support={
+				<p className="mymind-wrapped-tools-stage__footnote">{model.footnote}</p>
+			}
+		/>
 	);
 }

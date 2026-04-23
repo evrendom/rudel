@@ -9,6 +9,10 @@ import {
 	SKILLS_STACK,
 } from "../models";
 import type { WrappedOnboardingMetrics } from "../types";
+import {
+	WrappedOnboardingStageCopy,
+	WrappedOnboardingStageFrame,
+} from "./frame";
 
 interface SkillsStageProps {
 	onboardingMetrics: WrappedOnboardingMetrics;
@@ -132,62 +136,63 @@ export function WrappedOnboardingSkillsStage(props: SkillsStageProps) {
 	};
 
 	return (
-		<section className="mymind-wrapped-skills-stage">
-			<div className="mymind-wrapped-skills-stage__hero">
-				<p className="mymind-wrapped-skills-stage__eyebrow">Skills board</p>
-				<h2 className="mymind-wrapped-skills-stage__headline">
-					{model.headline}
-				</h2>
-				{model.subline ? (
-					<p className="mymind-wrapped-skills-stage__subline">
-						{model.subline}
-					</p>
-				) : null}
-			</div>
-
-			<div
-				className="mymind-wrapped-skills-stage__stack"
-				onWheel={handleSkillsCardWheel}
-			>
+		<WrappedOnboardingStageFrame
+			className="mymind-wrapped-skills-stage"
+			copy={
+				<WrappedOnboardingStageCopy
+					eyebrow="Skills board"
+					title={model.headline}
+					description={model.subline}
+				/>
+			}
+			object={
 				<div
-					className="mymind-wrapped-skills-stage__stack-track"
-					style={stackStyle}
+					className="mymind-wrapped-skills-stage__stack"
+					onWheel={handleSkillsCardWheel}
 				>
-					{model.cards.map((card, cardIndex) => (
-						<article
-							key={card.id}
-							className={cn(
-								"mymind-wrapped-skills-stage__card",
-								cardIndex === activeCardIndex && "is-front",
-							)}
-							onTouchEnd={handleSkillsCardTouchEnd}
-							onTouchStart={handleSkillsCardTouchStart}
-							style={getSkillsCardStyle(cardIndex, activeCardIndex)}
-						>
-							<div
+					<div
+						className="mymind-wrapped-skills-stage__stack-track"
+						style={stackStyle}
+					>
+						{model.cards.map((card, cardIndex) => (
+							<article
+								key={card.id}
 								className={cn(
-									"mymind-wrapped-skills-stage__card-item",
-									card.item.isPlaceholder && "is-placeholder",
+									"mymind-wrapped-skills-stage__card",
+									cardIndex === activeCardIndex && "is-front",
 								)}
+								onTouchEnd={handleSkillsCardTouchEnd}
+								onTouchStart={handleSkillsCardTouchStart}
+								style={getSkillsCardStyle(cardIndex, activeCardIndex)}
 							>
-								<span className="mymind-wrapped-skills-stage__item-rank">
-									{card.item.rank}
-								</span>
-								<div className="mymind-wrapped-skills-stage__item-copy">
-									<p className="mymind-wrapped-skills-stage__item-name">
-										{card.item.name}
-									</p>
-									<p className="mymind-wrapped-skills-stage__item-meta">
-										{card.item.meta}
-									</p>
+								<div
+									className={cn(
+										"mymind-wrapped-skills-stage__card-item",
+										card.item.isPlaceholder && "is-placeholder",
+									)}
+								>
+									<span className="mymind-wrapped-skills-stage__item-rank">
+										{card.item.rank}
+									</span>
+									<div className="mymind-wrapped-skills-stage__item-copy">
+										<p className="mymind-wrapped-skills-stage__item-name">
+											{card.item.name}
+										</p>
+										<p className="mymind-wrapped-skills-stage__item-meta">
+											{card.item.meta}
+										</p>
+									</div>
 								</div>
-							</div>
-						</article>
-					))}
+							</article>
+						))}
+					</div>
 				</div>
-			</div>
-
-			<p className="mymind-wrapped-skills-stage__footnote">{model.footnote}</p>
-		</section>
+			}
+			support={
+				<p className="mymind-wrapped-skills-stage__footnote">
+					{model.footnote}
+				</p>
+			}
+		/>
 	);
 }

@@ -2667,10 +2667,157 @@ body.mymind-wrapped-body #root {
 	text-wrap: pretty;
 }
 
+.mymind-wrapped-onboarding-stage {
+	display: grid;
+	grid-template-rows: auto minmax(0, 1fr) auto;
+	gap: clamp(1rem, 2.4svh, 1.5rem);
+	width: 100%;
+	min-height: 100%;
+	margin: 0 auto;
+	container: wrapped-onboarding-stage / inline-size;
+}
+
+.mymind-wrapped-onboarding-stage__copy,
+.mymind-wrapped-onboarding-stage__object,
+.mymind-wrapped-onboarding-stage__support {
+	min-width: 0;
+}
+
+.mymind-wrapped-onboarding-stage__copy {
+	display: grid;
+	justify-items: center;
+	align-content: start;
+	width: min(100%, 34rem);
+	margin: 0 auto;
+}
+
+.mymind-wrapped-onboarding-stage__object {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	min-height: 0;
+	width: 100%;
+}
+
+.mymind-wrapped-onboarding-stage__support {
+	display: grid;
+	justify-items: center;
+	align-content: start;
+	width: 100%;
+}
+
+.mymind-wrapped-onboarding-stage__support > * {
+	margin-block-start: 0;
+}
+
+.mymind-wrapped-onboarding-stage-copy {
+	display: grid;
+	justify-items: center;
+	gap: 0.55rem;
+	text-align: center;
+}
+
+.mymind-wrapped-onboarding-stage-copy__eyebrow {
+	margin: 0;
+	color: rgb(58 61 70 / 0.66);
+	font-size: 0.8125rem;
+	font-family: var(--font-sans);
+	font-weight: 600;
+	letter-spacing: -0.01em;
+	line-height: 1;
+}
+
+.mymind-wrapped-onboarding-stage-copy__headline {
+	margin: 0;
+	max-width: 12ch;
+	color: #22201f;
+	font-size: clamp(2.2rem, 6vw, 2.85rem);
+	font-family: var(--app-font-heading);
+	font-weight: 700;
+	letter-spacing: -0.07em;
+	line-height: 0.94;
+	text-align: center;
+	text-wrap: balance;
+}
+
+.mymind-wrapped-onboarding-stage-copy__headline--intro {
+	font-size: clamp(2.55rem, 7vw, 3.25rem);
+	line-height: 1.02;
+}
+
+.mymind-wrapped-onboarding-stage-copy__description {
+	display: grid;
+	gap: 0.45rem;
+	max-width: 32ch;
+	color: #6c6761;
+	font-size: 1rem;
+	font-family: var(--font-sans);
+	font-weight: 500;
+	line-height: 1.55;
+	text-align: center;
+	text-wrap: pretty;
+}
+
+.mymind-wrapped-onboarding-stage-copy__description p {
+	margin: 0;
+}
+
+.mymind-wrapped-upload-stage__headline {
+	max-width: 14ch;
+	font-size: clamp(1.55rem, 5vw, 1.95rem);
+	line-height: 1;
+}
+
+.mymind-wrapped-upload-stage__description {
+	gap: 0.45rem;
+}
+
+.mymind-wrapped-upload-stage__detail {
+	color: rgb(55 58 66 / 0.78);
+	font-size: 0.95rem;
+	font-family: var(--font-sans);
+	font-weight: 600;
+	letter-spacing: -0.01em;
+	line-height: 1.35;
+	text-wrap: pretty;
+}
+
+.mymind-wrapped-upload-stage__body {
+	color: rgb(55 58 66 / 0.7);
+	font-size: 0.9375rem;
+	font-family: var(--font-sans);
+	font-weight: 500;
+	line-height: 1.5;
+	text-wrap: pretty;
+}
+
+:is(
+		.mymind-wrapped-skills-stage__stack,
+		.mymind-wrapped-tools-stage__object,
+		.mymind-wrapped-repo-pulse-stage__object,
+		.mymind-wrapped-model-stage__object,
+		.mymind-wrapped-lock-in-stage__object,
+		.mymind-wrapped-quality-stage__object,
+		.mymind-wrapped-scale-stage__object
+	) {
+	margin-block-start: 0;
+}
+
+@container wrapped-onboarding-stage (width > 34rem) {
+	.mymind-wrapped-onboarding-stage__copy {
+		width: min(100%, 36rem);
+	}
+
+	.mymind-wrapped-onboarding-stage__object {
+		padding-inline: 0.75rem;
+	}
+}
+
 .mymind-wrapped-entry-stage {
 	display: grid;
+	grid-template-rows: auto minmax(0, 1fr);
 	gap: 1.2rem;
-	align-content: center;
+	align-content: stretch;
 	width: 100%;
 	max-width: 34rem;
 	margin: 0 auto;
@@ -2699,7 +2846,6 @@ body.mymind-wrapped-body #root {
 }
 
 .mymind-wrapped-entry-stage--setup-complete {
-	align-content: center;
 	gap: 1rem;
 	padding-top: 0;
 }
@@ -2805,6 +2951,8 @@ body.mymind-wrapped-body #root {
 	display: flex;
 	align-items: center;
 	justify-content: center;
+	min-height: 0;
+	align-self: stretch;
 	width: 100%;
 	min-width: 0;
 }
@@ -4194,10 +4342,12 @@ body.mymind-wrapped-body #root {
 		"copy"
 		"object"
 		"support";
+	grid-template-rows: auto minmax(0, 1fr) auto;
 	gap: 1.2rem;
-	align-content: center;
+	align-content: stretch;
 	width: 100%;
 	max-width: 72rem;
+	min-height: 100%;
 	margin: 0 auto;
 }
 

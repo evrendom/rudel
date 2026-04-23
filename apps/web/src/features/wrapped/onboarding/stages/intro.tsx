@@ -1,4 +1,8 @@
 import { motion } from "motion/react";
+import {
+	WrappedOnboardingStageCopy,
+	WrappedOnboardingStageFrame,
+} from "./frame";
 
 const INTRO_EXIT = {
 	distance: 72,
@@ -17,36 +21,37 @@ export function WrappedOnboardingIntroStage(props: IntroStageProps) {
 	const greetingName = getGreetingName(displayName);
 
 	return (
-		<section className="mymind-wrapped-intro-stage">
-			<motion.div
-				animate={
-					isExiting
-						? {
-								opacity: 0,
-								x: -INTRO_EXIT.distance,
-							}
-						: { opacity: 1, x: 0 }
-				}
-				className="mymind-wrapped-intro-stage__hero"
-				initial={false}
-				transition={
-					isExiting
-						? {
-								duration: INTRO_EXIT.duration,
-								ease: INTRO_EXIT.ease,
-							}
-						: { duration: 0 }
-				}
-			>
-				<p className="mymind-wrapped-intro-stage__eyebrow">{`Hey, ${greetingName}.`}</p>
-				<h2 className="mymind-wrapped-intro-stage__headline">
-					Ready to see what your sessions say about you?
-				</h2>
-				<p className="mymind-wrapped-intro-stage__subline">
-					Claude Code and Codex, pulled into one story.
-				</p>
-			</motion.div>
-		</section>
+		<WrappedOnboardingStageFrame
+			className="mymind-wrapped-intro-stage"
+			copy={
+				<motion.div
+					animate={
+						isExiting
+							? {
+									opacity: 0,
+									x: -INTRO_EXIT.distance,
+								}
+							: { opacity: 1, x: 0 }
+					}
+					initial={false}
+					transition={
+						isExiting
+							? {
+									duration: INTRO_EXIT.duration,
+									ease: INTRO_EXIT.ease,
+								}
+							: { duration: 0 }
+					}
+				>
+					<WrappedOnboardingStageCopy
+						eyebrow={`Hey, ${greetingName}.`}
+						title="Ready to see what your sessions say about you?"
+						titleClassName="mymind-wrapped-onboarding-stage-copy__headline--intro"
+						description="Claude Code and Codex, pulled into one story."
+					/>
+				</motion.div>
+			}
+		/>
 	);
 }
 

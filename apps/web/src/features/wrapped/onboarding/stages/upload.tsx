@@ -5,6 +5,10 @@ import { useRef, useState } from "react";
 import { useMountEffect } from "@/hooks/useMountEffect";
 import { cn } from "@/lib/utils";
 import { resolveUploadStageModel, type UploadStageRollItem } from "../helpers";
+import {
+	WrappedOnboardingStageCopy,
+	WrappedOnboardingStageFrame,
+} from "./frame";
 
 const UPLOAD_REEL_TIMING = {
 	advance: 1800,
@@ -43,23 +47,32 @@ export function WrappedOnboardingUploadStage(props: UploadStageProps) {
 	const model = resolveUploadStageModel(previewState);
 
 	return (
-		<section className="mymind-wrapped-upload-stage">
-			<div className="mymind-wrapped-upload-card">
-				<div className="mymind-wrapped-upload-card__summary">
-					<h2 className="mymind-wrapped-upload-card__title">
-						<span>{model.headline}</span>
-						<span className="mymind-wrapped-upload-card__title-detail">
-							{model.cardBody}
-						</span>
-					</h2>
-					<p className="mymind-wrapped-upload-card__body">{model.body}</p>
-				</div>
-
-				<UploadStageReel
-					isUploading={model.isUploading}
-					items={model.rollItems}
+		<WrappedOnboardingStageFrame
+			className="mymind-wrapped-upload-stage"
+			copy={
+				<WrappedOnboardingStageCopy
+					title={model.headline}
+					description={
+						<>
+							<p className="mymind-wrapped-upload-stage__detail">
+								{model.cardBody}
+							</p>
+							<p className="mymind-wrapped-upload-stage__body">{model.body}</p>
+						</>
+					}
+					titleClassName="mymind-wrapped-upload-stage__headline"
+					descriptionClassName="mymind-wrapped-upload-stage__description"
 				/>
-
+			}
+			object={
+				<div className="mymind-wrapped-upload-card">
+					<UploadStageReel
+						isUploading={model.isUploading}
+						items={model.rollItems}
+					/>
+				</div>
+			}
+			support={
 				<div
 					className={cn(
 						"mymind-wrapped-upload-card__tag",
@@ -73,8 +86,8 @@ export function WrappedOnboardingUploadStage(props: UploadStageProps) {
 					)}
 					<span>{model.cardEyebrow}</span>
 				</div>
-			</div>
-		</section>
+			}
+		/>
 	);
 }
 
