@@ -8,7 +8,6 @@ import {
 describe("wrapped saturday story visibility", () => {
 	it("keeps only the launch-safe beats in the saturday deck", () => {
 		expect(WRAPPED_SATURDAY_STEPS.map((step) => step.id)).toEqual([
-			"intro",
 			"skills",
 			"tools",
 			"model",
@@ -18,7 +17,8 @@ describe("wrapped saturday story visibility", () => {
 		]);
 	});
 
-	it("keeps only lock-in and quality hidden among the middle story beats", () => {
+	it("keeps intro, lock-in, and quality out of the shipped story deck", () => {
+		expect(isWrappedStepVisibleInSaturdayStory("intro")).toBe(false);
 		expect(isWrappedStepVisibleInSaturdayStory("skills")).toBe(true);
 		expect(isWrappedStepVisibleInSaturdayStory("tools")).toBe(true);
 		expect(isWrappedStepVisibleInSaturdayStory("lock-in")).toBe(false);

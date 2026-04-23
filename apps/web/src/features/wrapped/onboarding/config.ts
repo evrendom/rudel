@@ -100,7 +100,7 @@ export const WRAPPED_BEAT_CONTRACTS: Record<
 	},
 	intro: {
 		currentStatus: "ship_now",
-		saturdayStoryVisibility: "show_in_saturday_story",
+		saturdayStoryVisibility: "hide_for_now",
 		whatWeShowNow: [
 			"Total sessions",
 			"Active days",
@@ -261,7 +261,7 @@ export const WRAPPED_BEAT_CONTRACTS: Record<
 
 // This is the actual Saturday launch deck.
 //
-// Upload now belongs to setup, so the story itself starts on intro. The deck is
+// Upload now belongs to setup, so the story itself starts on skills. The deck is
 // intentionally smaller than the full implementation surface. The hidden beats
 // still exist for previewing and future truth work, but users only see the
 // beats we trust enough to ship now.
