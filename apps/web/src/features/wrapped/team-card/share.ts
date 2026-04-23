@@ -6,7 +6,7 @@ import {
 	downloadAsImage,
 } from "@/lib/screenshot";
 
-const TEAM_CARD_SHARE_IMAGE_FILE_NAME = "geneva-team-card-post.png";
+const TEAM_CARD_SHARE_IMAGE_FILE_NAME = "rudel-team-card-post.png";
 
 type WrappedShareActionKind = "copy" | "download" | "share";
 
@@ -40,8 +40,8 @@ export function createWrappedTeamCardShareActions(
 		shareUrl,
 		shareUrlLabel,
 	} = params;
-	const shareTitle = `${displayName}'s Geneva post`;
-	const shareText = `${displayName}'s ${archetypeLabel} Geneva card, made with rudel.ai.`;
+	const shareTitle = `${displayName}'s Rudel post`;
+	const shareText = `${displayName}'s ${archetypeLabel} Rudel card, made with rudel.ai.`;
 
 	return {
 		handleCopyPost,

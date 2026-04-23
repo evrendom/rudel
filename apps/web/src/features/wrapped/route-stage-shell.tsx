@@ -2,6 +2,11 @@ import { X } from "lucide-react";
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { appRoutes } from "@/app/routes";
+import { WrappedProgress } from "@/features/wrapped/WrappedProgress";
+import {
+	getWrappedOnboardingProgressView,
+	type WrappedOnboardingProgressStepId,
+} from "@/features/wrapped/wrapped-onboarding-progress";
 import { cn } from "@/lib/utils";
 import "@/features/wrapped/wrapped.css";
 
@@ -11,9 +16,12 @@ interface WrappedRouteStageShellProps {
 	description?: ReactNode;
 	eyebrow?: ReactNode;
 	footer?: ReactNode;
+	leadingControl?: ReactNode | null;
 	objectClassName?: string;
+	progressStepId?: WrappedOnboardingProgressStepId;
+	status?: ReactNode;
+	stageClassName?: string;
 	stage: ReactNode;
-	status: ReactNode;
 	title: ReactNode;
 	titleClassName?: string;
 }
@@ -25,31 +33,57 @@ export function WrappedRouteStageShell(props: WrappedRouteStageShellProps) {
 		description,
 		eyebrow,
 		footer,
+		leadingControl,
 		objectClassName,
+		progressStepId,
+		stageClassName,
 		stage,
 		status,
 		title,
 		titleClassName,
 	} = props;
+	const progressView = progressStepId
+		? getWrappedOnboardingProgressView(progressStepId)
+		: null;
 
 	return (
 		<main className="mymind-wrapped-route mymind-wrapped-route--onboarding">
 			<div className="mymind-wrapped-shell relative z-[1] mx-auto flex w-full flex-1 flex-col text-foreground">
-				<div className="mymind-wrapped-shell__frame">
+				<div
+					className={cn(
+						"mymind-wrapped-shell__frame",
+						!footer ? "mymind-wrapped-shell__frame--no-footer" : null,
+					)}
+				>
 					<header className="mymind-wrapped-top-tray">
 						<div className="mymind-wrapped-top-tray__row">
 							<div className="mymind-wrapped-top-tray__slot mymind-wrapped-top-tray__slot--start">
-								<Link
-									to={backTo}
-									aria-label={backLabel}
-									className="mymind-wrapped-back-button rounded-full transition-colors"
-								>
-									<X className="size-4" />
-								</Link>
+								{leadingControl !== undefined ? (
+									leadingControl
+								) : (
+									<Link
+										to={backTo}
+										aria-label={backLabel}
+										className="mymind-wrapped-back-button rounded-full transition-colors"
+									>
+										<X className="size-4" />
+									</Link>
+								)}
 							</div>
 
 							<div className="mymind-wrapped-top-tray__center">
-								<p className="mymind-wrapped-top-tray__status">{status}</p>
+								{progressView ? (
+									<WrappedProgress
+										ariaLabel="Wrapped onboarding progress"
+										items={progressView.items.map((item) => ({
+											ariaLabel: `Onboarding step ${item.stepNumber}: ${item.label}`,
+											id: item.id,
+											isActive: item.isActive,
+										}))}
+									/>
+								) : status ? (
+									<p className="mymind-wrapped-top-tray__status">{status}</p>
+								) : null}
 							</div>
 
 							<div className="mymind-wrapped-top-tray__slot mymind-wrapped-top-tray__slot--end">
@@ -63,7 +97,9 @@ export function WrappedRouteStageShell(props: WrappedRouteStageShellProps) {
 
 					<div className="mymind-wrapped-stage-area">
 						<div className="mymind-wrapped-stage-slot">
-							<section className="mymind-wrapped-entry-stage">
+							<section
+								className={cn("mymind-wrapped-entry-stage", stageClassName)}
+							>
 								<div className="mymind-wrapped-entry-stage__copy">
 									{eyebrow ? (
 										<p className="mymind-wrapped-entry-stage__eyebrow">

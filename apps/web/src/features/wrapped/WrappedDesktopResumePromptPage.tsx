@@ -2,9 +2,14 @@ import { useState } from "react";
 import { Button } from "@/app/ui/button";
 import { useAnalyticsTracking } from "@/features/analytics/tracking/useAnalyticsTracking";
 import { client } from "@/lib/orpc";
-import { WrappedRouteStageShell } from "./route-stage-shell";
+import { WrappedDesktopResumePromptStage } from "./WrappedDesktopResumePromptStage";
 
 interface WrappedDesktopResumePromptPageProps {
+	createResumeLink?: (input: { shareId: string | null }) => Promise<{
+		email_sent: boolean;
+		expires_at: string;
+		resume_url: string;
+	}>;
 	email: string;
 	shareId: string | null;
 }
@@ -26,7 +31,11 @@ type ResumePromptState =
 export function WrappedDesktopResumePromptPage(
 	props: WrappedDesktopResumePromptPageProps,
 ) {
-	const { email, shareId } = props;
+	const {
+		createResumeLink = client.wrappedResume.create,
+		email,
+		shareId,
+	} = props;
 	const [state, setState] = useState<ResumePromptState>({
 		status: "idle",
 	});
@@ -43,7 +52,7 @@ export function WrappedDesktopResumePromptPage(
 		setState({ status: "pending" });
 
 		try {
-			const result = await client.wrappedResume.create({
+			const result = await createResumeLink({
 				shareId,
 			});
 
@@ -71,69 +80,51 @@ export function WrappedDesktopResumePromptPage(
 	}
 
 	return (
-		<WrappedRouteStageShell
+		<WrappedDesktopResumePromptStage
 			description={
 				<>
-					Uploading Geneva sessions still needs desktop, so we'll send a secure
+					Uploading Rudel sessions still needs desktop, so we'll send a secure
 					resume link to{" "}
 					<strong className="font-semibold text-[#22201f]">{email}</strong>.
 				</>
 			}
-			eyebrow="Mobile handoff"
-			stage={
-				<div className="mymind-wrapped-entry-card">
-					<div className="mymind-wrapped-entry-card__section">
-						<p className="mymind-wrapped-entry-card__section-eyebrow">
-							What happens next
+			feedback={
+				<>
+					{state.status === "error" ? (
+						<p className="mymind-wrapped-entry-card__feedback is-error">
+							{state.message}
 						</p>
-						<ol className="mymind-wrapped-entry-card__list">
-							<li>1. Tap the button below on your phone.</li>
-							<li>2. Open the emailed link on your desktop.</li>
-							<li>3. Upload your sessions there and continue normally.</li>
-						</ol>
-					</div>
+					) : null}
 
-					<div className="mymind-wrapped-action-stack">
-						<Button
-							type="button"
-							className="mymind-wrapped-entry-action h-11 rounded-full px-7 [font-family:var(--app-font-heading)] text-[1.0625rem] font-semibold"
-							onClick={handleEmailDesktopLink}
-						>
-							{isSubmitting
-								? "Sending desktop link..."
-								: "Email me a desktop link"}
-						</Button>
-
-						{state.status === "error" ? (
-							<p className="mymind-wrapped-entry-card__feedback is-error">
-								{state.message}
+					{state.status === "ready" ? (
+						<div className="mymind-wrapped-entry-card__feedback is-success">
+							<p className="mymind-wrapped-entry-card__feedback-copy">
+								{state.emailSent
+									? `We sent the desktop link to ${email}.`
+									: "Email sending is unavailable right now, so we're showing the desktop link directly below."}
 							</p>
-						) : null}
-
-						{state.status === "ready" ? (
-							<div className="mymind-wrapped-entry-card__feedback is-success">
-								<p className="mymind-wrapped-entry-card__feedback-copy">
-									{state.emailSent
-										? `We sent the desktop link to ${email}.`
-										: "Email sending is unavailable right now, so we're showing the desktop link directly below."}
-								</p>
-								<p className="mymind-wrapped-entry-card__feedback-copy">
-									This link expires {formatResumeExpiry(state.expiresAt)}.
-								</p>
-								<a
-									className="mymind-wrapped-entry-card__link"
-									href={state.resumeUrl}
-								>
-									{state.resumeUrl}
-								</a>
-							</div>
-						) : null}
-					</div>
-				</div>
+							<p className="mymind-wrapped-entry-card__feedback-copy">
+								This link expires {formatResumeExpiry(state.expiresAt)}.
+							</p>
+							<a
+								className="mymind-wrapped-entry-card__link"
+								href={state.resumeUrl}
+							>
+								{state.resumeUrl}
+							</a>
+						</div>
+					) : null}
+				</>
 			}
-			status="Continue on desktop"
-			title="Continue setup on desktop"
-			titleClassName="max-w-[11ch]"
+			primaryAction={
+				<Button
+					type="button"
+					className="mymind-wrapped-entry-action h-11 rounded-full px-7 [font-family:var(--app-font-heading)] text-[1.0625rem] font-semibold"
+					onClick={handleEmailDesktopLink}
+				>
+					{isSubmitting ? "Sending desktop link..." : "Email me a desktop link"}
+				</Button>
+			}
 		/>
 	);
 }

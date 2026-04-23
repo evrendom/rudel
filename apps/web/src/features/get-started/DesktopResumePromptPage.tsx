@@ -84,9 +84,8 @@ export function DesktopResumePromptPage(props: DesktopResumePromptPageProps) {
 					</h1>
 					<p className="mx-auto max-w-xl text-sm leading-6 text-muted-foreground sm:text-[0.9375rem]">
 						You can keep viewing your Wrapped story and final card on mobile.
-						Uploading Geneva sessions still needs desktop, so we’ll send a
-						secure resume link to{" "}
-						<strong className="text-foreground">{email}</strong>.
+						Uploading Rudel sessions still needs desktop, so we’ll send a secure
+						resume link to <strong className="text-foreground">{email}</strong>.
 					</p>
 				</div>
 

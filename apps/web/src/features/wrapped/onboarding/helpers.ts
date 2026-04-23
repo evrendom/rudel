@@ -1,7 +1,6 @@
 import {
 	type PreviewableWrappedStepId,
 	STEP_PREVIEW_QUERY_PARAM_PREFIX,
-	UPLOAD_STEP,
 	WRAPPED_STEP_PREVIEW_OPTIONS,
 	type WrappedStep,
 } from "./config";
@@ -80,7 +79,7 @@ export function resolveActiveStepIndex(
 	stepId: string | null,
 	eligibleSteps: readonly WrappedStep[],
 ) {
-	if (!stepId || stepId === UPLOAD_STEP.id) {
+	if (!stepId) {
 		return 0;
 	}
 
@@ -90,7 +89,7 @@ export function resolveActiveStepIndex(
 	const resolvedStepIndex = eligibleSteps.findIndex(
 		(step) => step.id === normalizedStepId,
 	);
-	return resolvedStepIndex >= 0 ? resolvedStepIndex + 1 : 0;
+	return resolvedStepIndex >= 0 ? resolvedStepIndex : 0;
 }
 
 export function getVisibleProgressSteps(
@@ -135,10 +134,7 @@ export function resolveStoryProgress(
 	activeStepIndex: number,
 	eligibleSteps: readonly WrappedStep[],
 ): WrappedStoryProgress | null {
-	const activeStep =
-		activeStepIndex === 0
-			? UPLOAD_STEP
-			: (eligibleSteps[activeStepIndex - 1] ?? null);
+	const activeStep = eligibleSteps[activeStepIndex] ?? null;
 
 	if (!activeStep || activeStep.phase === "reward") {
 		return null;
@@ -160,21 +156,14 @@ export function resolveStoryProgress(
 }
 
 function getOnboardingProgressSteps(eligibleSteps: readonly WrappedStep[]) {
-	return [
-		UPLOAD_STEP,
-		...eligibleSteps.filter((step) => step.phase === "story"),
-	];
+	return eligibleSteps.filter((step) => step.phase === "story");
 }
 
 function resolveProgressRouteIndex(
 	step: WrappedStep,
 	eligibleSteps: readonly WrappedStep[],
 ) {
-	if (step.id === UPLOAD_STEP.id) {
-		return 0;
-	}
-
-	return eligibleSteps.findIndex((candidate) => candidate.id === step.id) + 1;
+	return eligibleSteps.findIndex((candidate) => candidate.id === step.id);
 }
 
 export function resolveUploadStageModel(

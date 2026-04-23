@@ -9,9 +9,11 @@ vi.mock("@/features/wrapped/WrappedGuestPage", () => ({
 }));
 
 vi.mock("@/features/wrapped/WrappedSetupPage", () => ({
-	WrappedSetupPage: ({ mode }: { mode: string }) => (
-		<div>Wrapped setup mode: {mode}</div>
-	),
+	WrappedSetupPage: () => <div>Wrapped setup page</div>,
+}));
+
+vi.mock("@/features/wrapped/WrappedSetupCompletePage", () => ({
+	WrappedSetupCompletePage: () => <div>Wrapped setup complete page</div>,
 }));
 
 vi.mock("@/features/wrapped/team-card/page", () => ({
@@ -31,17 +33,22 @@ describe("WrappedDevPage", () => {
 		expect(screen.getByText("Wrapped guest page")).toBeInTheDocument();
 
 		await user.click(screen.getByRole("button", { name: "Setup" }));
-		expect(screen.getByText("Wrapped setup mode: setup")).toBeInTheDocument();
+		expect(screen.getByText("Wrapped setup page")).toBeInTheDocument();
+		expect(screen.getByRole("button", { name: "Guide" })).toBeInTheDocument();
+		expect(
+			screen.getByRole("button", { name: "Uploaded" }),
+		).toBeInTheDocument();
 
-		await user.click(screen.getByRole("button", { name: "Waiting" }));
-		expect(screen.getByText("Wrapped setup mode: waiting")).toBeInTheDocument();
+		await user.click(screen.getByRole("button", { name: "Uploaded" }));
+		expect(
+			await screen.findByText("Wrapped setup complete page"),
+		).toBeInTheDocument();
 
 		await user.click(screen.getByRole("button", { name: "Story" }));
 		expect(screen.getByText("Wrapped story")).toBeInTheDocument();
 	});
 
-	it("renders the mobile handoff preview with simplified copy", async () => {
-		const user = userEvent.setup();
+	it("renders the mobile handoff preview with simplified copy", () => {
 		const { container } = render(
 			<MemoryRouter initialEntries={["/dev/wrapped?stage=mobile"]}>
 				<WrappedDevPage />
@@ -49,35 +56,39 @@ describe("WrappedDevPage", () => {
 		);
 
 		expect(
-			screen.getByRole("heading", { name: "Continue on desktop" }),
+			screen.getByRole("heading", { name: "Continue setup on desktop" }),
 		).toBeInTheDocument();
-		expect(screen.queryByText("Continue setup on desktop")).toBeNull();
-		expect(screen.queryByText("What happens next")).toBeNull();
+		expect(
+			container.querySelector(".mymind-wrapped-top-tray__status"),
+		).toBeNull();
+		expect(
+			screen.getByRole("navigation", { name: "Wrapped onboarding progress" }),
+		).toBeInTheDocument();
+		expect(screen.queryByText("Mobile handoff")).toBeNull();
+		expect(
+			screen.getByText(
+				"The next step will be to enable Rudel within the terminal on your desktop.",
+			),
+		).toBeInTheDocument();
+		expect(
+			screen.getByRole("button", { name: "Send link to my mail" }),
+		).toBeInTheDocument();
+		expect(screen.queryByText("Email sent")).toBeNull();
 
 		const stageObject = container.querySelector(
 			".mymind-wrapped-entry-stage__object",
 		);
-		expect(stageObject).toHaveClass("mymind-wrapped-entry-card");
-		expect(stageObject?.querySelector(".mymind-wrapped-entry-card")).toBeNull();
 		expect(
-			stageObject?.querySelector(".mymind-wrapped-entry-card__section"),
-		).toBeNull();
-		expect(stageObject?.querySelector("button")).toBeNull();
+			stageObject?.querySelector(".mymind-wrapped-entry-card"),
+		).not.toBeNull();
+		expect(stageObject?.querySelector("ol")).toBeNull();
+		expect(stageObject?.querySelectorAll("svg")).toHaveLength(2);
+		expect(screen.getByText("OR")).toBeInTheDocument();
+		expect(screen.getByText("app.rudel.ai/wrapped")).toBeInTheDocument();
+		expect(screen.getByRole("button", { name: "Copy" })).toBeInTheDocument();
+		expect(stageObject?.querySelector("a")).toBeNull();
 
 		const dock = container.querySelector(".mymind-wrapped-dock");
-		expect(dock).not.toBeNull();
-		expect(dock?.querySelector("button")).not.toBeNull();
-		expect(
-			screen.getByRole("button", { name: "Preview desktop link sent" }),
-		).toHaveClass("mymind-wrapped-primary-action");
-
-		await user.click(
-			screen.getByRole("button", { name: "Preview desktop link sent" }),
-		);
-		expect(
-			screen.getByText(
-				"Dev preview only. In the real flow this state appears after the desktop link is created.",
-			),
-		).toBeInTheDocument();
+		expect(dock).toBeNull();
 	});
 });

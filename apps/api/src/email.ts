@@ -41,9 +41,7 @@ export function getResendConfigWarnings(config: ResendConfig): string[] {
 		return [];
 	}
 
-	return [
-		"Resend invitation emails are disabled because RESEND_FROM_EMAIL is not set.",
-	];
+	return ["Resend emails are disabled because RESEND_FROM_EMAIL is not set."];
 }
 
 function escapeHtml(value: string): string {
@@ -141,9 +139,9 @@ export function buildWrappedDesktopResumeEmailContent(
 	const safeUrl = normalizeText(resumeUrl);
 
 	return {
-		subject: "Continue your Geneva setup on desktop",
+		subject: "Continue your Rudel setup on desktop",
 		html: `
-<p>You can keep viewing Geneva Wrapped on your phone, but uploading sessions still needs desktop.</p>
+<p>You can keep viewing Rudel Wrapped on your phone, but uploading sessions still needs desktop.</p>
 <p>
   <a href="${escapeHtml(safeUrl)}" style="display:inline-block;padding:12px 24px;background:#000;color:#fff;text-decoration:none;border-radius:6px;font-weight:600;">
     Continue on Desktop
@@ -152,7 +150,7 @@ export function buildWrappedDesktopResumeEmailContent(
 <p>Or copy this link into your browser on your desktop:</p>
 <p>${escapeHtml(safeUrl)}</p>
 `,
-		text: `You can keep viewing Geneva Wrapped on your phone, but uploading sessions still needs desktop.\n\nContinue on desktop here: ${safeUrl}`,
+		text: `You can keep viewing Rudel Wrapped on your phone, but uploading sessions still needs desktop.\n\nContinue on desktop here: ${safeUrl}`,
 	};
 }
 

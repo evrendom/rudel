@@ -40,7 +40,7 @@ describe("email helpers", () => {
 
 	test("getResendConfigWarnings warns when sender is missing", () => {
 		expect(getResendConfigWarnings({ apiKey: "test-key" })).toEqual([
-			"Resend invitation emails are disabled because RESEND_FROM_EMAIL is not set.",
+			"Resend emails are disabled because RESEND_FROM_EMAIL is not set.",
 		]);
 		expect(
 			getResendConfigWarnings({

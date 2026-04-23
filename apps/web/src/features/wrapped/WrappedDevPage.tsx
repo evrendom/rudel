@@ -1,29 +1,86 @@
-import { useState } from "react";
+import { Link as LinkIcon, Mail } from "lucide-react";
+import { useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Button } from "@/app/ui/button";
+import {
+	type CliSetupStepId,
+	cliSetupCommands,
+} from "@/components/analytics/CliSetupHint";
 import { WrappedTeamCardPage } from "@/features/wrapped/team-card/page";
+import { WrappedDesktopResumePromptStage } from "@/features/wrapped/WrappedDesktopResumePromptStage";
 import { WrappedGuestPage } from "@/features/wrapped/WrappedGuestPage";
+import {
+	WrappedSetupCompletePage,
+	type WrappedUploadedRepoRow,
+} from "@/features/wrapped/WrappedSetupCompletePage";
 import { WrappedSetupPage } from "@/features/wrapped/WrappedSetupPage";
-import { WrappedRouteStageShell } from "./route-stage-shell";
+import { useMountEffect } from "@/hooks/useMountEffect";
+import { copyTextToClipboardWithResult } from "@/lib/clipboard";
 
-type WrappedDevStage =
-	| "auth"
-	| "checking"
-	| "setup"
-	| "waiting"
-	| "mobile"
-	| "story";
+type WrappedDevStage = "auth" | "setup" | "mobile" | "story";
 
 const DEFAULT_WRAPPED_DEV_STAGE: WrappedDevStage = "auth";
+const WRAPPED_DESKTOP_SETUP_URL = "app.rudel.ai/wrapped";
+const WRAPPED_DEV_UPLOAD_TRANSITION_MS = 220;
+const WRAPPED_DEBUG_UPLOADED_REPOS: WrappedUploadedRepoRow[] = [
+	{
+		name: "geneva",
+		projectPath: "/Users/evren/geneva",
+		sessions: 1,
+	},
+	{
+		name: "@acme/design-system",
+		projectPath: "/Users/evren/design-system",
+		sessions: 1,
+	},
+	{
+		name: "rudel-cli",
+		projectPath: "/Users/evren/rudel-cli",
+		sessions: 1,
+	},
+	{
+		name: "agentation",
+		projectPath: "/Users/evren/agentation",
+		sessions: 1,
+	},
+	{
+		name: "analytics-pipeline",
+		projectPath: "/Users/evren/analytics-pipeline",
+		sessions: 1,
+	},
+	{
+		name: "docs-site",
+		projectPath: "/Users/evren/docs-site",
+		sessions: 1,
+	},
+	{
+		name: "infra",
+		projectPath: "/Users/evren/infra",
+		sessions: 1,
+	},
+	{
+		name: "mobile-app",
+		projectPath: "/Users/evren/mobile-app",
+		sessions: 1,
+	},
+	{
+		name: "playground",
+		projectPath: "/Users/evren/playground",
+		sessions: 1,
+	},
+	{
+		name: "web-sdk",
+		projectPath: "/Users/evren/web-sdk",
+		sessions: 1,
+	},
+];
 
 const WRAPPED_DEV_STAGES: Array<{
 	label: string;
 	value: WrappedDevStage;
 }> = [
 	{ label: "Auth", value: "auth" },
-	{ label: "Checking", value: "checking" },
 	{ label: "Setup", value: "setup" },
-	{ label: "Waiting", value: "waiting" },
 	{ label: "Mobile", value: "mobile" },
 	{ label: "Story", value: "story" },
 ];
@@ -53,22 +110,10 @@ export function WrappedDevPage() {
 		<>
 			<WrappedDevToolbar activeStage={activeStage} onStageChange={setStage} />
 			{activeStage === "auth" ? <WrappedDevAuthStage /> : null}
-			{activeStage === "checking" ? <WrappedSetupPage mode="checking" /> : null}
 			{activeStage === "setup" ? (
-				<WrappedSetupPage
-					mode="setup"
-					onWaitForFirstSession={() => setStage("waiting")}
-				/>
+				<WrappedDevSetupStage onContinueToStory={() => setStage("story")} />
 			) : null}
-			{activeStage === "waiting" ? (
-				<WrappedSetupPage
-					mode="waiting"
-					onBackToSetup={() => setStage("setup")}
-				/>
-			) : null}
-			{activeStage === "mobile" ? (
-				<WrappedDevMobileStage onContinueToSetup={() => setStage("setup")} />
-			) : null}
+			{activeStage === "mobile" ? <WrappedDevMobileStage /> : null}
 			{activeStage === "story" ? <WrappedTeamCardPage /> : null}
 		</>
 	);
@@ -81,96 +126,225 @@ function WrappedDevToolbar(props: {
 	const { activeStage, onStageChange } = props;
 
 	return (
-		<div className="fixed inset-x-4 top-4 z-[1000] mx-auto max-w-5xl rounded-2xl border border-border bg-background/95 p-3 shadow-lg backdrop-blur">
-			<div className="flex flex-wrap items-center gap-2">
-				<p className="mr-2 text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">
-					Wrapped dev
-				</p>
+		<div className="fixed top-1 left-1/2 z-[1000] flex max-w-[calc(100%-0.5rem)] -translate-x-1/2 rounded-xl border border-border/80 bg-background/95 p-1 shadow-md backdrop-blur">
+			<div className="flex flex-wrap items-center gap-1">
 				{WRAPPED_DEV_STAGES.map((stage) => (
 					<Button
 						key={stage.value}
 						onClick={() => onStageChange(stage.value)}
-						size="sm"
+						size="xs"
 						type="button"
 						variant={activeStage === stage.value ? "default" : "outline"}
+						className="h-5 rounded-md px-1.5 text-[8px] leading-none"
 					>
 						{stage.label}
 					</Button>
 				))}
 			</div>
-			<p className="mt-2 text-xs text-muted-foreground">
-				Use this route to preview the outer wrapped flow without signing in or
-				uploading sessions. The story stage keeps the existing wrapped preview
-				controls.
-			</p>
 		</div>
 	);
 }
 
 function WrappedDevAuthStage() {
+	return <WrappedGuestPage />;
+}
+
+function WrappedDevSetupStage(props: { onContinueToStory: () => void }) {
+	const { onContinueToStory } = props;
+	const [view, setView] = useState<"guide" | "uploading" | "uploaded">("guide");
+	const [guideStep, setGuideStep] =
+		useState<CliSetupStepId>("install-and-login");
+	const uploadTransitionTimeoutRef = useRef<number | null>(null);
+	const isInstallGuideStep = guideStep === "install-and-login";
+	const uploadTransitionState = getWrappedUploadTransitionState(guideStep);
+	const activeSetupView = view === "guide" ? "guide" : "uploaded";
+	const isUploadedView = view === "uploaded";
+
+	useMountEffect(() => {
+		return () => {
+			if (uploadTransitionTimeoutRef.current !== null) {
+				window.clearTimeout(uploadTransitionTimeoutRef.current);
+			}
+		};
+	});
+
+	function handleViewChange(nextView: "guide" | "uploaded") {
+		if (uploadTransitionTimeoutRef.current !== null) {
+			window.clearTimeout(uploadTransitionTimeoutRef.current);
+			uploadTransitionTimeoutRef.current = null;
+		}
+
+		if (nextView === "guide") {
+			setView("guide");
+			return;
+		}
+
+		if (view === "uploaded") {
+			return;
+		}
+
+		setView("uploading");
+		uploadTransitionTimeoutRef.current = window.setTimeout(() => {
+			setView("uploaded");
+			uploadTransitionTimeoutRef.current = null;
+		}, WRAPPED_DEV_UPLOAD_TRANSITION_MS);
+	}
+
 	return (
-		<div className="relative">
-			<WrappedGuestPage />
-			<div className="pointer-events-none fixed inset-x-4 bottom-4 z-[1000] mx-auto max-w-2xl rounded-2xl border border-border bg-[#FEFEFE]/95 px-4 py-3 text-sm text-muted-foreground shadow-lg backdrop-blur">
-				Auth controls are interactive on <code>/dev/wrapped</code>. Use the
-				stage switcher to continue through the rest of the flow.
-			</div>
-		</div>
+		<>
+			{isUploadedView ? (
+				<WrappedSetupCompletePage
+					onContinue={onContinueToStory}
+					reposOverride={WRAPPED_DEBUG_UPLOADED_REPOS}
+					totalSessionCount={10}
+					userId="wrapped-dev-preview"
+				/>
+			) : (
+				<WrappedSetupPage
+					completedStepIdsOverride={
+						view === "uploading"
+							? uploadTransitionState.completedStepIds
+							: undefined
+					}
+					currentStepIdOverride={
+						view === "uploading"
+							? uploadTransitionState.currentStepId
+							: undefined
+					}
+					initialStepId={guideStep}
+				/>
+			)}
+			<WrappedDevSetupPreviewToggle
+				activeView={activeSetupView}
+				canAdvanceGuideStep={view === "guide" && isInstallGuideStep}
+				onAdvanceGuideStep={() => setGuideStep("enable-auto-upload")}
+				onViewChange={handleViewChange}
+			/>
+		</>
 	);
 }
 
-function WrappedDevMobileStage(props: { onContinueToSetup: () => void }) {
-	const { onContinueToSetup } = props;
-	const [isReady, setIsReady] = useState(false);
+function getWrappedUploadTransitionState(guideStep: CliSetupStepId) {
+	if (guideStep === "install-and-login") {
+		return {
+			completedStepIds: ["install-and-login"] as const,
+			currentStepId: "enable-auto-upload" as const,
+		};
+	}
+
+	return {
+		completedStepIds: cliSetupCommands.map((step) => step.id),
+		currentStepId: null,
+	};
+}
+
+function WrappedDevMobileStage() {
+	const desktopPreviewHref = WRAPPED_DESKTOP_SETUP_URL;
+	const [copied, setCopied] = useState(false);
+
+	async function handleCopyDesktopLink() {
+		const result = await copyTextToClipboardWithResult(desktopPreviewHref, {
+			preferSelectionCopy: true,
+			allowPromptFallback: true,
+			promptMessage: "Copy desktop link: Cmd/Ctrl+C, Enter",
+		});
+
+		if (result !== "copied") {
+			return;
+		}
+
+		setCopied(true);
+
+		window.setTimeout(() => {
+			setCopied(false);
+		}, 1800);
+	}
 
 	return (
-		<WrappedRouteStageShell
-			description={
+		<WrappedDesktopResumePromptStage
+			description="The next step will be to enable Rudel within the terminal on your desktop."
+			feedback={
 				<>
-					This is a local preview of the mobile handoff screen. No email is sent
-					from <code>/dev/wrapped</code>.
-				</>
-			}
-			footer={
-				<button
-					type="button"
-					className="mymind-wrapped-primary-action h-11 rounded-full px-7 [font-family:var(--app-font-heading)] text-[1.0625rem] font-semibold"
-					onClick={() => setIsReady(true)}
-				>
-					<span>Preview desktop link sent</span>
-				</button>
-			}
-			objectClassName="mymind-wrapped-entry-card"
-			stage={
-				<>
-					<ol className="mymind-wrapped-entry-card__list">
-						<li>1. Request the desktop link from mobile.</li>
-						<li>2. Open it on desktop.</li>
-						<li>3. Continue into wrapped setup there.</li>
-					</ol>
-
-					{isReady ? (
-						<div className="mymind-wrapped-entry-card__feedback is-success">
-							<p className="mymind-wrapped-entry-card__feedback-copy">
-								Dev preview only. In the real flow this state appears after the
-								desktop link is created.
-							</p>
-							<Button
-								type="button"
-								variant="outline"
-								className="mymind-wrapped-secondary-action rounded-full"
-								onClick={onContinueToSetup}
-							>
-								Continue to desktop setup preview
-							</Button>
+					<div className="mymind-wrapped-entry-card__or-row">
+						<span>OR</span>
+					</div>
+					<div className="mymind-wrapped-entry-card__desktop-copy-surface mymind-wrapped-entry-card__desktop-copy-surface--flat">
+						<LinkIcon
+							aria-hidden="true"
+							className="mymind-wrapped-entry-card__desktop-copy-icon"
+						/>
+						<div className="mymind-wrapped-entry-card__desktop-copy-text">
+							{desktopPreviewHref}
 						</div>
-					) : null}
+						<button
+							className="mymind-wrapped-entry-card__desktop-copy-button"
+							onClick={() => void handleCopyDesktopLink()}
+							type="button"
+						>
+							{copied ? "Copied" : "Copy"}
+						</button>
+					</div>
 				</>
 			}
-			status="Continue on desktop"
-			title="Continue on desktop"
-			titleClassName="max-w-[11ch]"
+			primaryAction={
+				<Button
+					type="button"
+					className="mymind-wrapped-entry-action mymind-wrapped-mobile-handoff-action h-11 rounded-full px-7 [font-family:var(--app-font-heading)] text-[1.0625rem] font-semibold"
+				>
+					<Mail
+						aria-hidden="true"
+						className="mymind-wrapped-mobile-handoff-action__icon"
+					/>
+					Send link to my mail
+				</Button>
+			}
 		/>
+	);
+}
+
+function WrappedDevSetupPreviewToggle(props: {
+	activeView: "guide" | "uploaded";
+	canAdvanceGuideStep: boolean;
+	onAdvanceGuideStep: () => void;
+	onViewChange: (nextView: "guide" | "uploaded") => void;
+}) {
+	const { activeView, canAdvanceGuideStep, onAdvanceGuideStep, onViewChange } =
+		props;
+
+	return (
+		<div className="fixed top-8 left-1/2 z-[1000] flex max-w-[calc(100%-0.5rem)] -translate-x-1/2 rounded-xl border border-border/80 bg-background/95 p-1 shadow-md backdrop-blur">
+			<div className="flex items-center gap-1">
+				<Button
+					type="button"
+					size="xs"
+					variant={activeView === "guide" ? "default" : "outline"}
+					className="h-5 rounded-md px-1.5 text-[8px] leading-none"
+					onClick={() => onViewChange("guide")}
+				>
+					Guide
+				</Button>
+				<Button
+					type="button"
+					size="xs"
+					variant={activeView === "uploaded" ? "default" : "outline"}
+					className="h-5 rounded-md px-1.5 text-[8px] leading-none"
+					onClick={() => onViewChange("uploaded")}
+				>
+					Uploaded
+				</Button>
+				{activeView === "guide" && canAdvanceGuideStep ? (
+					<Button
+						type="button"
+						size="xs"
+						variant="outline"
+						className="h-5 rounded-md px-1.5 text-[8px] leading-none"
+						onClick={onAdvanceGuideStep}
+					>
+						Debug next
+					</Button>
+				) : null}
+			</div>
+		</div>
 	);
 }
 

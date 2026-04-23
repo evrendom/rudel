@@ -18,14 +18,14 @@ export function resolveRepoPulsePreviewInput(
 			return {
 				entries: [
 					{
-						id: "repo-preview-geneva",
+						id: "repo-preview-rudel",
 						meta: "84 sessions · 42h total",
 						proof: "52m avg session",
-						repoName: "geneva",
+						repoName: "rudel",
 						workType: "Deep work",
 					},
 				],
-				leadRepoName: "geneva",
+				leadRepoName: "rudel",
 				totalRepos: 1,
 				totalSessions: 84,
 			} satisfies WrappedRepoPulseMetrics;
@@ -33,10 +33,10 @@ export function resolveRepoPulsePreviewInput(
 			return {
 				entries: [
 					{
-						id: "repo-preview-geneva",
+						id: "repo-preview-rudel",
 						meta: "61 sessions · 31h total",
 						proof: "48m avg session",
-						repoName: "geneva",
+						repoName: "rudel",
 						workType: "Deep work",
 					},
 					{
@@ -54,7 +54,7 @@ export function resolveRepoPulsePreviewInput(
 						workType: "Heavy lift",
 					},
 				],
-				leadRepoName: "geneva",
+				leadRepoName: "rudel",
 				totalRepos: 6,
 				totalSessions: 108,
 			} satisfies WrappedRepoPulseMetrics;

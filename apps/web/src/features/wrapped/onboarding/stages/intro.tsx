@@ -1,11 +1,4 @@
 import { motion } from "motion/react";
-import { cn } from "@/lib/utils";
-import {
-	buildIntroCommitGraph,
-	resolveIntroPreviewInput,
-	resolveIntroStageModel,
-} from "../helpers";
-import type { WrappedOnboardingMetrics } from "../types";
 
 const INTRO_EXIT = {
 	distance: 72,
@@ -17,32 +10,11 @@ const INTRO_EXIT = {
 interface IntroStageProps {
 	displayName: string;
 	isExiting: boolean;
-	isSparse: boolean;
-	onboardingMetrics: WrappedOnboardingMetrics;
-	previewState: string;
-	totalSessions: number;
 }
 
 export function WrappedOnboardingIntroStage(props: IntroStageProps) {
-	const {
-		displayName,
-		isExiting,
-		isSparse,
-		onboardingMetrics,
-		previewState,
-		totalSessions,
-	} = props;
-	const introInput = resolveIntroPreviewInput(
-		{
-			activeDays: onboardingMetrics.activeDays,
-			daysSinceFirst: onboardingMetrics.daysSinceFirst,
-			displayName,
-			totalSessions,
-		},
-		previewState,
-	);
-	const model = resolveIntroStageModel(introInput);
-	const commitGraph = buildIntroCommitGraph(introInput);
+	const { displayName, isExiting } = props;
+	const greetingName = getGreetingName(displayName);
 
 	return (
 		<section className="mymind-wrapped-intro-stage">
@@ -66,104 +38,24 @@ export function WrappedOnboardingIntroStage(props: IntroStageProps) {
 						: { duration: 0 }
 				}
 			>
+				<p className="mymind-wrapped-intro-stage__eyebrow">{`Hey, ${greetingName}.`}</p>
 				<h2 className="mymind-wrapped-intro-stage__headline">
-					{model.headline}
+					Ready to see what your sessions say about you?
 				</h2>
+				<p className="mymind-wrapped-intro-stage__subline">
+					Claude Code and Codex, pulled into one story.
+				</p>
 			</motion.div>
-
-			<motion.div
-				animate={
-					isExiting
-						? {
-								opacity: 0,
-								y: 14,
-							}
-						: { opacity: 1, y: 0 }
-				}
-				aria-hidden="true"
-				className="mymind-wrapped-intro-stage__commit-graph"
-				initial={false}
-				transition={
-					isExiting
-						? {
-								duration: INTRO_EXIT.duration,
-								ease: INTRO_EXIT.ease,
-								delay: INTRO_EXIT.lineDelay * 2,
-							}
-						: { duration: 0 }
-				}
-			>
-				{commitGraph.map((dot) => (
-					<span
-						key={dot.id}
-						className={cn(
-							"mymind-wrapped-intro-stage__commit-dot",
-							`is-level-${dot.level}`,
-						)}
-					/>
-				))}
-			</motion.div>
-
-			<motion.div
-				animate={
-					isExiting
-						? {
-								opacity: 0,
-								x: INTRO_EXIT.distance,
-							}
-						: { opacity: 1, x: 0 }
-				}
-				className={cn(
-					"mymind-wrapped-intro-stage__signal-card",
-					isSparse && "is-sparse",
-				)}
-				initial={false}
-				transition={
-					isExiting
-						? {
-								duration: INTRO_EXIT.duration,
-								ease: INTRO_EXIT.ease,
-								delay: INTRO_EXIT.lineDelay,
-							}
-						: { duration: 0 }
-				}
-			>
-				<div className="mymind-wrapped-intro-stage__signal-main">
-					<p className="mymind-wrapped-intro-stage__signal-value">
-						{model.cardValue}
-					</p>
-					<p className="mymind-wrapped-intro-stage__signal-detail">
-						{model.cardDetail}
-					</p>
-					<p className="mymind-wrapped-intro-stage__signal-meta">
-						{model.cardMeta}
-					</p>
-				</div>
-			</motion.div>
-
-			<motion.p
-				animate={
-					isExiting
-						? {
-								opacity: 0,
-								y: 12,
-							}
-						: { opacity: 1, y: 0 }
-				}
-				className="mymind-wrapped-intro-stage__footnote"
-				initial={false}
-				transition={
-					isExiting
-						? {
-								duration: INTRO_EXIT.duration,
-								ease: INTRO_EXIT.ease,
-								delay: INTRO_EXIT.lineDelay * 3,
-							}
-						: { duration: 0 }
-				}
-			>
-				{model.footnote}
-			</motion.p>
 		</section>
 	);
+}
+
+function getGreetingName(displayName: string) {
+	const trimmedDisplayName = displayName.trim();
+
+	if (!trimmedDisplayName) {
+		return "there";
+	}
+
+	return trimmedDisplayName.split(/\s+/)[0] ?? trimmedDisplayName;
 }

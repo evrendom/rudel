@@ -118,14 +118,14 @@ function PublicShareReadyState(props: {
 		<section className="min-h-screen bg-[#f8f4ef] text-[#22201f]">
 			<div className="mx-auto flex min-h-screen w-full max-w-[28rem] flex-col items-center justify-center px-6 py-10 text-center">
 				<p className="text-[0.72rem] font-semibold uppercase tracking-[0.28em] text-[#8f887f]">
-					Geneva Wrapped
+					Rudel Wrapped
 				</p>
 				<h1 className="mt-3 max-w-[12ch] text-balance font-[var(--app-font-heading)] text-[2.5rem] font-semibold tracking-[-0.07em] text-[#22201f]">
 					{share.snapshot.row.displayName}&apos;s card
 				</h1>
 				<p className="mt-3 max-w-[28ch] text-pretty text-sm leading-6 text-[#6c6761]">
 					{share.snapshot.archetypeLabel} is the theme they picked for this
-					card. Make your own from your uploaded Geneva history.
+					card. Make your own from your uploaded Rudel history.
 				</p>
 
 				<div className="team-lineup-surface-scope mt-8 w-full">
@@ -173,7 +173,7 @@ function PublicShareLoadingState() {
 		<section className="min-h-screen bg-[#f8f4ef] text-[#22201f]">
 			<div className="mx-auto flex min-h-screen w-full max-w-[28rem] flex-col items-center justify-center px-6 py-10 text-center">
 				<p className="text-[0.72rem] font-semibold uppercase tracking-[0.28em] text-[#8f887f]">
-					Geneva Wrapped
+					Rudel Wrapped
 				</p>
 				<h1 className="mt-3 max-w-[13ch] text-balance font-[var(--app-font-heading)] text-[2.4rem] font-semibold tracking-[-0.07em] text-[#22201f]">
 					Loading card…
@@ -196,7 +196,7 @@ function PublicShareErrorState(props: { makeYoursHref: string }) {
 		<section className="min-h-screen bg-[#f8f4ef] text-[#22201f]">
 			<div className="mx-auto flex min-h-screen w-full max-w-[28rem] flex-col items-center justify-center px-6 py-10 text-center">
 				<p className="text-[0.72rem] font-semibold uppercase tracking-[0.28em] text-[#8f887f]">
-					Geneva Wrapped
+					Rudel Wrapped
 				</p>
 				<h1 className="mt-3 max-w-[12ch] text-balance font-[var(--app-font-heading)] text-[2.4rem] font-semibold tracking-[-0.07em] text-[#22201f]">
 					This card link expired or never existed.

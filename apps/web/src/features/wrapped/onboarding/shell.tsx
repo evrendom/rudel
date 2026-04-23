@@ -13,7 +13,6 @@ import { cn } from "@/lib/utils";
 import {
 	type PreviewableWrappedStepId,
 	STEP_QUERY_PARAM,
-	UPLOAD_STEP,
 	WRAPPED_SATURDAY_STEPS,
 	WRAPPED_STEP_PREVIEW_OPTIONS,
 	type WrappedStepId,
@@ -22,10 +21,7 @@ import { WrappedOnboardingFooter, WrappedOnboardingHeader } from "./controls";
 import {
 	getSelectedPreviewState,
 	getStepPreviewStateParam,
-	getVisibleProgressSteps,
 	resolveActiveStepIndex,
-	resolveStoryProgress,
-	resolveUploadStageModel,
 } from "./helpers";
 import { resolveScalePreviewTokens } from "./models";
 import {
@@ -62,7 +58,6 @@ export interface WrappedTeamCardOnboardingProps {
 	finalFooter?: ReactNode;
 	finalStage: ReactNode;
 	onboardingMetrics: WrappedOnboardingMetrics;
-	rewardHeaderTitle?: string;
 	totalSessions: number;
 }
 
@@ -85,7 +80,6 @@ export function WrappedTeamCardOnboarding(
 		finalFooter,
 		finalStage,
 		onboardingMetrics,
-		rewardHeaderTitle,
 		totalSessions,
 	} = props;
 	const [searchParams, setSearchParams] = useSearchParams();
@@ -105,18 +99,7 @@ export function WrappedTeamCardOnboarding(
 		WRAPPED_SATURDAY_STEPS,
 	);
 	const activeStep =
-		activeStepIndex === 0
-			? UPLOAD_STEP
-			: (WRAPPED_SATURDAY_STEPS[activeStepIndex - 1] ??
-				WRAPPED_SATURDAY_STEPS[0]);
-	const visibleProgressSteps = getVisibleProgressSteps(
-		activeStepIndex,
-		WRAPPED_SATURDAY_STEPS,
-	);
-	const storyProgress = resolveStoryProgress(
-		activeStepIndex,
-		WRAPPED_SATURDAY_STEPS,
-	);
+		WRAPPED_SATURDAY_STEPS[activeStepIndex] ?? WRAPPED_SATURDAY_STEPS[0];
 	const activePreviewStepId =
 		activeStep.kind === "final" ? null : activeStep.id;
 	const activePreviewOptions = activePreviewStepId
@@ -128,10 +111,6 @@ export function WrappedTeamCardOnboarding(
 				searchParams.get(getStepPreviewStateParam(activePreviewStepId)),
 			)
 		: "auto";
-	const activeUploadModel =
-		activeStep.id === "upload"
-			? resolveUploadStageModel(activePreviewState)
-			: null;
 	const isScaleStep = activeStep.id === "scale";
 	const scaleRainTotalTokens = isScaleStep
 		? resolveScalePreviewTokens(
@@ -153,7 +132,7 @@ export function WrappedTeamCardOnboarding(
 	function goToStep(nextStepIndex: number) {
 		const boundedStepIndex = Math.max(
 			0,
-			Math.min(nextStepIndex, WRAPPED_SATURDAY_STEPS.length),
+			Math.min(nextStepIndex, WRAPPED_SATURDAY_STEPS.length - 1),
 		);
 
 		if (boundedStepIndex !== activeStepIndex) {
@@ -167,7 +146,7 @@ export function WrappedTeamCardOnboarding(
 				if (boundedStepIndex === 0) {
 					nextSearchParams.delete(STEP_QUERY_PARAM);
 				} else {
-					const nextStep = WRAPPED_SATURDAY_STEPS[boundedStepIndex - 1];
+					const nextStep = WRAPPED_SATURDAY_STEPS[boundedStepIndex];
 
 					if (!nextStep) {
 						return previousSearchParams;
@@ -254,10 +233,6 @@ export function WrappedTeamCardOnboarding(
 								isStepTransitioning={isStepTransitioning}
 								onGoToStep={goToStep}
 								onPreviewStateChange={setPreviewState}
-								rewardTitle={rewardHeaderTitle}
-								setupStatus={activeUploadModel?.headline ?? null}
-								storyProgress={storyProgress}
-								visibleProgressSteps={visibleProgressSteps}
 							/>
 
 							<div className="mymind-wrapped-stage-area">
@@ -306,7 +281,6 @@ export function WrappedTeamCardOnboarding(
 
 							<WrappedOnboardingFooter
 								activeStep={activeStep}
-								activeUploadModel={activeUploadModel}
 								finalFooter={finalFooter}
 								isStepTransitioning={isStepTransitioning}
 								onContinue={handleStepAdvance}

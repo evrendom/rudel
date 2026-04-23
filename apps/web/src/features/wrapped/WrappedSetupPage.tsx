@@ -1,91 +1,100 @@
-import { Button } from "@/app/ui/button";
-import { CliSetupHint } from "@/components/analytics/CliSetupHint";
+import { ArrowLeft } from "lucide-react";
+import { MotionConfig } from "motion/react";
+import { useMemo } from "react";
+import { useNavigate } from "react-router-dom";
+import { appRoutes } from "@/app/routes";
+import {
+	CliSetupHint,
+	type CliSetupStepId,
+	cliSetupCommands,
+} from "@/components/analytics/CliSetupHint";
 import { WrappedRouteStageShell } from "./route-stage-shell";
 
-type WrappedSetupPageMode = "checking" | "setup" | "waiting";
-
 interface WrappedSetupPageProps {
-	mode: WrappedSetupPageMode;
-	onBackToSetup?: () => void;
-	onWaitForFirstSession?: () => void;
+	completedStepIdsOverride?: readonly CliSetupStepId[];
+	currentStepIdOverride?: CliSetupStepId | null;
+	initialStepId?: CliSetupStepId;
 }
 
 export function WrappedSetupPage(props: WrappedSetupPageProps) {
-	const { mode, onBackToSetup, onWaitForFirstSession } = props;
+	const { completedStepIdsOverride, currentStepIdOverride, initialStepId } =
+		props;
+	const navigate = useNavigate();
+	const lastStepIndex = cliSetupCommands.length - 1;
+	const initialStepIndex = getInitialStepIndex(initialStepId, lastStepIndex);
+	const currentStepIndex = initialStepIndex;
+	const derivedCurrentStepId =
+		cliSetupCommands[Math.min(currentStepIndex, lastStepIndex)]?.id ??
+		cliSetupCommands[0].id;
+	const derivedCompletedStepIds = useMemo(
+		() =>
+			cliSetupCommands
+				.slice(0, currentStepIndex)
+				.map((step) => step.id) as CliSetupStepId[],
+		[currentStepIndex],
+	);
+	const currentStepId =
+		currentStepIdOverride === undefined
+			? derivedCurrentStepId
+			: currentStepIdOverride;
+	const completedStepIds = completedStepIdsOverride ?? derivedCompletedStepIds;
 
-	if (mode === "checking") {
-		return (
-			<WrappedRouteStageShell
-				description="Checking whether your first Geneva sessions already exist. Stay on this page for a moment."
-				eyebrow="Wrapped setup"
-				stage={
-					<div className="mymind-wrapped-entry-card mymind-wrapped-entry-card--status">
-						<div className="mymind-wrapped-entry-card__status-dot" />
-						<p className="mymind-wrapped-entry-card__status-copy">
-							Looking for uploaded sessions and any in-flight share handoff.
-						</p>
-					</div>
-				}
-				status="Wrapped setup"
-				title="Checking your uploaded sessions"
-			/>
-		);
-	}
+	function handleBack() {
+		const historyIndex =
+			typeof window.history.state?.idx === "number"
+				? window.history.state.idx
+				: 0;
 
-	if (mode === "waiting") {
-		return (
-			<WrappedRouteStageShell
-				description="Leave this open after you run the commands. We will continue into the wrapped story as soon as your first session lands."
-				eyebrow="Wrapped setup"
-				footer={
-					<div className="mymind-wrapped-action-stack">
-						<Button
-							className="mymind-wrapped-secondary-action rounded-full"
-							onClick={onBackToSetup}
-							variant="outline"
-						>
-							Back to setup
-						</Button>
-					</div>
-				}
-				stage={
-					<div className="mymind-wrapped-entry-card">
-						<div className="mymind-wrapped-entry-card__section">
-							<p className="mymind-wrapped-entry-card__section-eyebrow">
-								Listening for uploads
-							</p>
-							<div className="mymind-wrapped-entry-card__code">
-								rudel upload
-							</div>
-							<p className="mymind-wrapped-entry-card__body">
-								Keep this page open while you run the command on desktop. The
-								wrapped story opens automatically as soon as the first session
-								lands.
-							</p>
-						</div>
-					</div>
-				}
-				status="Wrapped setup"
-				title="Waiting for your first session"
-			/>
-		);
+		if (historyIndex > 0) {
+			navigate(-1);
+			return;
+		}
+
+		navigate(appRoutes.dashboard());
 	}
 
 	return (
-		<WrappedRouteStageShell
-			description="Run these commands on desktop. When your first session lands, we will continue into the wrapped story automatically."
-			eyebrow="Wrapped setup"
-			footer={
-				<Button
-					className="mymind-wrapped-entry-action h-11 rounded-full px-7 [font-family:var(--app-font-heading)] text-[1.0625rem] font-semibold"
-					onClick={onWaitForFirstSession}
-				>
-					I ran the commands. Wait for my first session
-				</Button>
-			}
-			stage={<CliSetupHint variant="wrapped-story" />}
-			status="Wrapped setup"
-			title="Connect Rudel first"
-		/>
+		<MotionConfig reducedMotion="user">
+			<WrappedRouteStageShell
+				leadingControl={
+					<button
+						type="button"
+						aria-label="Go back"
+						className="mymind-wrapped-back-button rounded-full transition-colors"
+						onClick={handleBack}
+					>
+						<ArrowLeft className="size-4" />
+					</button>
+				}
+				description="Start sending sessions to Rudel."
+				progressStepId="desktop-ready"
+				stage={
+					<CliSetupHint
+						completedStepIds={completedStepIds}
+						currentStepId={currentStepId}
+						variant="wrapped-story"
+					/>
+				}
+				title="Set up Rudel"
+			/>
+		</MotionConfig>
 	);
+}
+
+function getInitialStepIndex(
+	initialStepId: CliSetupStepId | undefined,
+	lastStepIndex: number,
+) {
+	if (!initialStepId) {
+		return 0;
+	}
+
+	const stepIndex = cliSetupCommands.findIndex(
+		(step) => step.id === initialStepId,
+	);
+	if (stepIndex < 0) {
+		return 0;
+	}
+
+	return Math.min(stepIndex, lastStepIndex);
 }

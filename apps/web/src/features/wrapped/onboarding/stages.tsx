@@ -53,10 +53,6 @@ export function WrappedOnboardingStage(props: WrappedOnboardingStageProps) {
 			<WrappedOnboardingIntroStage
 				displayName={displayName}
 				isExiting={isExiting}
-				isSparse={totalSessions < 10}
-				onboardingMetrics={onboardingMetrics}
-				previewState={previewState}
-				totalSessions={totalSessions}
 			/>
 		);
 	}

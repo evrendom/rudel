@@ -1,9 +1,9 @@
 import { render, screen } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { AppSession } from "@/features/auth/auth-route-utils";
 import { WrappedRouteGate } from "@/features/wrapped/WrappedRouteGate";
+import { getWrappedSetupCompletionStorageKey } from "@/features/wrapped/wrapped-setup-state";
 
 const { mockTrackUtilityUsed, mockUseIsMobile, mockUseSetupProgress } =
 	vi.hoisted(() => ({
@@ -43,29 +43,11 @@ vi.mock("@/features/wrapped/WrappedDesktopResumePromptPage", () => ({
 }));
 
 vi.mock("@/features/wrapped/WrappedSetupPage", () => ({
-	WrappedSetupPage: ({
-		mode,
-		onBackToSetup,
-		onWaitForFirstSession,
-	}: {
-		mode: "checking" | "setup" | "waiting";
-		onBackToSetup?: () => void;
-		onWaitForFirstSession?: () => void;
-	}) => (
-		<div>
-			<div>Wrapped setup mode: {mode}</div>
-			{onWaitForFirstSession ? (
-				<button onClick={onWaitForFirstSession} type="button">
-					Start waiting
-				</button>
-			) : null}
-			{onBackToSetup ? (
-				<button onClick={onBackToSetup} type="button">
-					Back to setup
-				</button>
-			) : null}
-		</div>
-	),
+	WrappedSetupPage: () => <div>Wrapped setup page</div>,
+}));
+
+vi.mock("@/features/wrapped/WrappedSetupCompletePage", () => ({
+	WrappedSetupCompletePage: () => <div>Wrapped setup complete page</div>,
 }));
 
 vi.mock("@/features/wrapped/team-card/page", () => ({
@@ -99,6 +81,7 @@ describe("WrappedRouteGate", () => {
 		mockTrackUtilityUsed.mockReset();
 		mockUseIsMobile.mockReset();
 		mockUseSetupProgress.mockReset();
+		window.localStorage.clear();
 
 		mockUseIsMobile.mockReturnValue(false);
 		mockUseSetupProgress.mockReturnValue({
@@ -130,6 +113,9 @@ describe("WrappedRouteGate", () => {
 		);
 
 		expect(screen.getByText("Loading wrapped")).toBeInTheDocument();
+		expect(
+			screen.getByRole("navigation", { name: "Wrapped onboarding progress" }),
+		).toBeInTheDocument();
 	});
 
 	it("renders auth when the viewer is not signed in", () => {
@@ -165,24 +151,10 @@ describe("WrappedRouteGate", () => {
 			</MemoryRouter>,
 		);
 
-		expect(screen.getByText("Wrapped setup mode: setup")).toBeInTheDocument();
+		expect(screen.getByText("Wrapped setup page")).toBeInTheDocument();
 	});
 
-	it("switches from setup to waiting when the desktop user is ready to wait", async () => {
-		const user = userEvent.setup();
-
-		render(
-			<MemoryRouter initialEntries={["/wrapped"]}>
-				<WrappedRouteGate isPending={false} publicId={null} session={session} />
-			</MemoryRouter>,
-		);
-
-		await user.click(screen.getByRole("button", { name: "Start waiting" }));
-
-		expect(screen.getByText("Wrapped setup mode: waiting")).toBeInTheDocument();
-	});
-
-	it("keeps the setup shell visible while uploaded sessions are being checked", () => {
+	it("shows a checking state while uploaded sessions are still being checked", () => {
 		mockUseSetupProgress.mockReturnValue({
 			hasUploadedSessions: false,
 			isLoading: true,
@@ -195,12 +167,38 @@ describe("WrappedRouteGate", () => {
 			</MemoryRouter>,
 		);
 
+		expect(screen.getByText("Checking your sessions")).toBeInTheDocument();
 		expect(
-			screen.getByText("Wrapped setup mode: checking"),
+			screen.getByText(
+				"Looking for uploaded sessions and any in-flight desktop handoff.",
+			),
 		).toBeInTheDocument();
 	});
 
-	it("renders the wrapped story when sessions already exist", () => {
+	it("renders setup completion when sessions already exist but setup is not finished yet", () => {
+		mockUseSetupProgress.mockReturnValue({
+			hasUploadedSessions: true,
+			isLoading: false,
+			totalSessionCount: 3,
+		});
+
+		render(
+			<MemoryRouter initialEntries={["/wrapped"]}>
+				<WrappedRouteGate isPending={false} publicId={null} session={session} />
+			</MemoryRouter>,
+		);
+
+		expect(screen.getByText("Wrapped setup complete page")).toBeInTheDocument();
+	});
+
+	it("renders the wrapped story when setup completion was already acknowledged", () => {
+		const storageKey = getWrappedSetupCompletionStorageKey(session.user.id);
+
+		if (storageKey === null) {
+			throw new Error("Expected wrapped setup completion storage key");
+		}
+
+		window.localStorage.setItem(storageKey, "true");
 		mockUseSetupProgress.mockReturnValue({
 			hasUploadedSessions: true,
 			isLoading: false,

@@ -86,17 +86,17 @@ export const WRAPPED_BEAT_CONTRACTS: Record<
 > = {
 	upload: {
 		currentStatus: "ship_now",
-		saturdayStoryVisibility: "show_in_saturday_story",
+		saturdayStoryVisibility: "hide_for_now",
 		whatWeShowNow: ["Upload placeholder state", "Uploading now", "Ready state"],
 		metricBasis:
 			"Temporary pre-recap beat. Final live version should read from upload job status and uploaded export summary.",
 		timeWindow: "Current upload attempt.",
 		referenceClass: "Current user's uploaded session exports.",
-		eligibility: "Always shown before the intro beat.",
+		eligibility: "Setup-only scaffolding. Not shown inside the story deck.",
 		infraRequirement:
 			"No MV required for Saturday. Replace the placeholder with real upload job state when the upload flow is finalized.",
 		productNote:
-			"This beat is scaffolding, not a claim about user history. Keep the copy operational and do not position it as recap truth.",
+			"This beat is scaffolding, not a claim about user history. Keep it in setup, not in the recap story itself.",
 	},
 	intro: {
 		currentStatus: "ship_now",
@@ -259,11 +259,12 @@ export const WRAPPED_BEAT_CONTRACTS: Record<
 	},
 };
 
-// This is the actual Saturday launch deck after the upload step.
+// This is the actual Saturday launch deck.
 //
-// It is intentionally smaller than the full implementation surface. The hidden
-// beats still exist for previewing and future truth work, but users only see
-// the beats we trust enough to ship now.
+// Upload now belongs to setup, so the story itself starts on intro. The deck is
+// intentionally smaller than the full implementation surface. The hidden beats
+// still exist for previewing and future truth work, but users only see the
+// beats we trust enough to ship now.
 export const WRAPPED_SATURDAY_STEPS = WRAPPED_STEPS.filter((step) =>
 	isWrappedStepVisibleInSaturdayStory(step.id),
 ) as readonly WrappedPrimaryStep[];
