@@ -1,6 +1,6 @@
 {
 	"version": 1,
-	"generatedAt": "2026-04-22T14:49:31.343Z",
+	"generatedAt": "2026-04-23T15:38:34.936Z",
 	"definitions": [
 		{
 			"database": "rudel",
@@ -278,6 +278,61 @@
 					"name": "total_tokens",
 					"type": "UInt64",
 					"default": "fn:0"
+				},
+				{
+					"name": "parent_input_tokens",
+					"type": "UInt64",
+					"default": "fn:0"
+				},
+				{
+					"name": "parent_output_tokens",
+					"type": "UInt64",
+					"default": "fn:0"
+				},
+				{
+					"name": "parent_cache_read_input_tokens",
+					"type": "UInt64",
+					"default": "fn:0"
+				},
+				{
+					"name": "parent_cache_creation_input_tokens",
+					"type": "UInt64",
+					"default": "fn:0"
+				},
+				{
+					"name": "parent_total_tokens",
+					"type": "UInt64",
+					"default": "fn:0"
+				},
+				{
+					"name": "subagent_input_tokens",
+					"type": "UInt64",
+					"default": "fn:0"
+				},
+				{
+					"name": "subagent_output_tokens",
+					"type": "UInt64",
+					"default": "fn:0"
+				},
+				{
+					"name": "subagent_cache_read_input_tokens",
+					"type": "UInt64",
+					"default": "fn:0"
+				},
+				{
+					"name": "subagent_cache_creation_input_tokens",
+					"type": "UInt64",
+					"default": "fn:0"
+				},
+				{
+					"name": "subagent_total_tokens",
+					"type": "UInt64",
+					"default": "fn:0"
+				},
+				{
+					"name": "token_accounting_version",
+					"type": "UInt8",
+					"default": "fn:1"
 				},
 				{
 					"name": "tag",

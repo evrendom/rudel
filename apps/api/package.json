@@ -11,7 +11,8 @@
 		"test": "bun test",
 		"test:integration": "bun test src/__tests__/ingest-clickhouse.integration.ts",
 		"test:analytics": "bun test src/__tests__/analytics.integration.ts",
-		"test:migrate": "bun test src/__tests__/migrate-sessions.integration.ts"
+		"test:migrate": "bun test src/__tests__/migrate-sessions.integration.ts",
+		"backfill:claude-token-accounting": "bun src/scripts/backfill-claude-token-accounting-v2.ts"
 	},
 	"dependencies": {
 		"@better-auth/api-key": "^1.5.4",

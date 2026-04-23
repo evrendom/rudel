@@ -17,6 +17,7 @@ import {
 } from "./lib/product-analytics.js";
 import { authMiddleware, ingestAuthMiddleware, os } from "./middleware.js";
 import { checkIngestRateLimit } from "./rate-limit.js";
+import { rewriteClaudeSessionAnalyticsAfterIngest } from "./services/claude-session-analytics.service.js";
 import {
 	deleteOrgSessions,
 	getOrgSessionCount,
@@ -147,6 +148,17 @@ const ingestSessionHandler = os.ingestSession
 			userId: context.user.id,
 			organizationId: orgId,
 		});
+		if (input.source === "claude_code") {
+			// The raw Claude row is immutable source material. We immediately
+			// append a corrected analytics row so FINAL reads pick the docs-based
+			// Anthropic accounting instead of the MV bootstrap calculation.
+			await rewriteClaudeSessionAnalyticsAfterIngest(
+				input,
+				orgId,
+				context.user.id,
+				{ clickhouse: getClickhouse() },
+			);
+		}
 
 		const response = {
 			success: true as const,

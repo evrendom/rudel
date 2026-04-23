@@ -40,6 +40,39 @@ const rudel_session_analytics = table({
 		{ name: "cache_read_input_tokens", type: "UInt64", default: "fn:0" },
 		{ name: "cache_creation_input_tokens", type: "UInt64", default: "fn:0" },
 		{ name: "total_tokens", type: "UInt64", default: "fn:0" },
+		// Claude V2 stores parent and subagent token totals separately so the
+		// session-wide aggregates remain explainable after we fold them together.
+		{ name: "parent_input_tokens", type: "UInt64", default: "fn:0" },
+		{ name: "parent_output_tokens", type: "UInt64", default: "fn:0" },
+		{
+			name: "parent_cache_read_input_tokens",
+			type: "UInt64",
+			default: "fn:0",
+		},
+		{
+			name: "parent_cache_creation_input_tokens",
+			type: "UInt64",
+			default: "fn:0",
+		},
+		{ name: "parent_total_tokens", type: "UInt64", default: "fn:0" },
+		{ name: "subagent_input_tokens", type: "UInt64", default: "fn:0" },
+		{ name: "subagent_output_tokens", type: "UInt64", default: "fn:0" },
+		{
+			name: "subagent_cache_read_input_tokens",
+			type: "UInt64",
+			default: "fn:0",
+		},
+		{
+			name: "subagent_cache_creation_input_tokens",
+			type: "UInt64",
+			default: "fn:0",
+		},
+		{ name: "subagent_total_tokens", type: "UInt64", default: "fn:0" },
+		{
+			name: "token_accounting_version",
+			type: "UInt8",
+			default: "fn:1",
+		},
 		{ name: "tag", type: "String", nullable: true },
 		{
 			name: "source",
@@ -113,6 +146,9 @@ const rudel_session_analytics_mv = materializedView({
 	database: "rudel",
 	name: "session_analytics_mv",
 	to: { database: "rudel", name: "session_analytics" },
+	// The Claude MV still provides a bootstrap analytics row, but the API
+	// reinserts a corrected replacement row because Anthropic's final-per-
+	// message semantics and subagent folding are easier to audit in TS.
 	as: `
   WITH
     arrayFilter(
