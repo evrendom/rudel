@@ -6,12 +6,17 @@ import { WrappedProgress } from "@/features/wrapped/WrappedProgress";
 import { getWrappedOnboardingProgressView } from "@/features/wrapped/wrapped-onboarding-progress";
 import { openChatwoot } from "@/lib/chatwoot";
 import { cn } from "@/lib/utils";
+import { WrappedDebugControlStack } from "../route-stage-shell";
 import type {
 	PreviewableWrappedStepId,
 	WrappedPreviewOption,
 	WrappedPrimaryStep,
 } from "./config";
 import { WRAPPED_SATURDAY_STEPS } from "./config";
+
+const WRAPPED_SATURDAY_STEP_INDEX_BY_ID = new Map(
+	WRAPPED_SATURDAY_STEPS.map((step, index) => [step.id, index]),
+);
 
 interface WrappedOnboardingHeaderProps {
 	activeStep: WrappedPrimaryStep;
@@ -78,9 +83,7 @@ export function WrappedOnboardingHeader(props: WrappedOnboardingHeaderProps) {
 						ariaLabel="Wrapped onboarding progress"
 						disabled={isStepTransitioning}
 						items={progressView.items.map((item) => {
-							const routeIndex = WRAPPED_SATURDAY_STEPS.findIndex(
-								(step) => step.id === item.id,
-							);
+							const routeIndex = getWrappedSaturdayRouteIndex(item.id);
 
 							return {
 								ariaLabel: `Go to onboarding step ${item.stepNumber}: ${item.label}`,
@@ -126,29 +129,22 @@ export function WrappedOnboardingFooter(props: WrappedOnboardingFooterProps) {
 	const hasDebugControls =
 		Boolean(generalDebugControls) || isStoryDebugTrayVisible;
 
-	return (
+		return (
 		<footer className="mymind-wrapped-dock">
 			{hasDebugControls ? (
-				<div className="mymind-wrapped-dock__debug-stack">
-					{generalDebugControls ? (
-						<div className="mymind-wrapped-dock__debug-control">
-							{generalDebugControls}
-						</div>
-					) : null}
-
+				<WrappedDebugControlStack>
+					{generalDebugControls}
 					{isStoryDebugTrayVisible ? (
-						<div className="mymind-wrapped-dock__debug-control">
-							<WrappedOnboardingDebugTray
-								activePreviewOptions={activePreviewOptions}
-								activePreviewState={activePreviewState}
-								activePreviewStepId={activePreviewStepId}
-								activeStep={activeStep}
-								isStepTransitioning={isStepTransitioning}
-								onPreviewStateChange={onPreviewStateChange}
-							/>
-						</div>
+						<WrappedOnboardingDebugTray
+							activePreviewOptions={activePreviewOptions}
+							activePreviewState={activePreviewState}
+							activePreviewStepId={activePreviewStepId}
+							activeStep={activeStep}
+							isStepTransitioning={isStepTransitioning}
+							onPreviewStateChange={onPreviewStateChange}
+						/>
 					) : null}
-				</div>
+				</WrappedDebugControlStack>
 			) : null}
 
 			{activeStep.kind === "final" ? (
@@ -228,6 +224,12 @@ function WrappedOnboardingDebugTray(props: {
 			</div>
 		</div>
 	);
+}
+
+function getWrappedSaturdayRouteIndex(stepId: string) {
+	return WRAPPED_SATURDAY_STEP_INDEX_BY_ID.get(
+		stepId as (typeof WRAPPED_SATURDAY_STEPS)[number]["id"],
+	) ?? -1;
 }
 
 function splitWrappedDebugLabel(label: string): [string, string?] {

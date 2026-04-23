@@ -6,7 +6,7 @@ import {
 	motion,
 	useReducedMotion,
 } from "motion/react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { WrappedSetupCommandSurface } from "@/components/analytics/CliSetupCommandSurface";
 import { cliSetupCommands } from "@/components/analytics/CliSetupHint";
 import { useAnalyticsQuery } from "@/features/analytics/queries/useAnalyticsQuery";
@@ -38,13 +38,16 @@ export function WrappedSetupCompletePage(props: WrappedSetupCompletePageProps) {
 		}),
 		enabled: !hasReposOverride,
 	});
-	const uploadedRepos =
-		props.reposOverride ??
-		(projects ?? []).map((project) => ({
-			name: getUploadedRepoName(project),
-			projectPath: project.project_path,
-			sessions: project.sessions,
-		}));
+	const uploadedRepos = useMemo(
+		() =>
+			props.reposOverride ??
+			(projects ?? []).map((project) => ({
+				name: getUploadedRepoName(project),
+				projectPath: project.project_path,
+				sessions: project.sessions,
+			})),
+		[projects, props.reposOverride],
+	);
 
 	return (
 		<MotionConfig reducedMotion="user">

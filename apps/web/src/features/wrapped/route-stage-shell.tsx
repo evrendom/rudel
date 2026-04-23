@@ -1,3 +1,4 @@
+import { Children } from "react";
 import { ChevronLeft, HelpCircle, X } from "lucide-react";
 import type { ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
@@ -169,12 +170,32 @@ export function WrappedRouteStageShell(props: WrappedRouteStageShellProps) {
 
 					{hasFooter ? (
 						<footer className="mymind-wrapped-dock">
-							{footerDebugControls}
+							<WrappedDebugControlStack>
+								{footerDebugControls}
+							</WrappedDebugControlStack>
 							{footer}
 						</footer>
 					) : null}
 				</div>
 			</div>
 		</main>
+	);
+}
+
+export function WrappedDebugControlStack(props: { children: ReactNode }) {
+	const controls = Children.toArray(props.children);
+
+	if (controls.length === 0) {
+		return null;
+	}
+
+	return (
+		<div className="mymind-wrapped-dock__debug-stack">
+			{controls.map((control, index) => (
+				<div key={index} className="mymind-wrapped-dock__debug-control">
+					{control}
+				</div>
+			))}
+		</div>
 	);
 }

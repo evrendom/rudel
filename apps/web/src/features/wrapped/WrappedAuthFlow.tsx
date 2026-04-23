@@ -6,7 +6,10 @@ import {
 	WrappedPrimaryAction,
 	WrappedSecondaryAction,
 } from "@/features/wrapped/actions";
-import { WrappedRouteStageShell } from "./route-stage-shell";
+import {
+	WrappedDebugControlStack,
+	WrappedRouteStageShell,
+} from "./route-stage-shell";
 import { WrappedGuestPreviewCard } from "./WrappedGuestPreviewCard";
 import type { WrappedGuestPreviewProfile } from "./wrapped-guest-preview";
 
@@ -44,11 +47,7 @@ function WrappedAuthIntent(props: WrappedAuthIntentProps) {
 		<div className="mymind-wrapped-auth-panel mymind-wrapped-auth-panel--intro">
 			<WrappedGuestPreviewCard profile={previewProfile} />
 			{debugControls ? (
-				<div className="mymind-wrapped-dock__debug-stack">
-					<div className="mymind-wrapped-dock__debug-control">
-						{debugControls}
-					</div>
-				</div>
+				<WrappedDebugControlStack>{debugControls}</WrappedDebugControlStack>
 			) : null}
 			<div className="mymind-wrapped-auth-panel__actions">
 				<WrappedPrimaryAction
@@ -72,15 +71,7 @@ export function WrappedAuthFlow(props: WrappedAuthFlowProps) {
 	return (
 		<WrappedRouteStageShell
 			description={getWrappedAuthDescription(mode, previewProfile)}
-			footerDebugControls={
-				mode && debugControls ? (
-					<div className="mymind-wrapped-dock__debug-stack">
-						<div className="mymind-wrapped-dock__debug-control">
-							{debugControls}
-						</div>
-					</div>
-				) : undefined
-			}
+			footerDebugControls={mode ? debugControls : undefined}
 			leadingControl={null}
 			objectClassName={
 				mode

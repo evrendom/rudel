@@ -6,7 +6,7 @@ import {
 	useReducedMotion,
 } from "motion/react";
 import type { ReactNode } from "react";
-import { useRef, useState } from "react";
+import { startTransition, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useMountEffect } from "@/hooks/useMountEffect";
 import { cn } from "@/lib/utils";
@@ -144,26 +144,28 @@ export function WrappedTeamCardOnboarding(
 			setNavigationDirection(boundedStepIndex > activeStepIndex ? 1 : -1);
 		}
 
-		setSearchParams(
-			(previousSearchParams) => {
-				const nextSearchParams = new URLSearchParams(previousSearchParams);
+		startTransition(() => {
+			setSearchParams(
+				(previousSearchParams) => {
+					const nextSearchParams = new URLSearchParams(previousSearchParams);
 
-				if (boundedStepIndex === 0) {
-					nextSearchParams.delete(STEP_QUERY_PARAM);
-				} else {
-					const nextStep = WRAPPED_SATURDAY_STEPS[boundedStepIndex];
+					if (boundedStepIndex === 0) {
+						nextSearchParams.delete(STEP_QUERY_PARAM);
+					} else {
+						const nextStep = WRAPPED_SATURDAY_STEPS[boundedStepIndex];
 
-					if (!nextStep) {
-						return previousSearchParams;
+						if (!nextStep) {
+							return previousSearchParams;
+						}
+
+						nextSearchParams.set(STEP_QUERY_PARAM, nextStep.id);
 					}
 
-					nextSearchParams.set(STEP_QUERY_PARAM, nextStep.id);
-				}
-
-				return nextSearchParams;
-			},
-			{ replace: true },
-		);
+					return nextSearchParams;
+				},
+				{ replace: true },
+			);
+		});
 	}
 
 	function handleStepAdvance() {
@@ -190,21 +192,23 @@ export function WrappedTeamCardOnboarding(
 	}
 
 	function setPreviewState(stepId: PreviewableWrappedStepId, value: string) {
-		setSearchParams(
-			(previousSearchParams) => {
-				const nextSearchParams = new URLSearchParams(previousSearchParams);
-				const previewParam = getStepPreviewStateParam(stepId);
+		startTransition(() => {
+			setSearchParams(
+				(previousSearchParams) => {
+					const nextSearchParams = new URLSearchParams(previousSearchParams);
+					const previewParam = getStepPreviewStateParam(stepId);
 
-				if (value === "auto") {
-					nextSearchParams.delete(previewParam);
-				} else {
-					nextSearchParams.set(previewParam, value);
-				}
+					if (value === "auto") {
+						nextSearchParams.delete(previewParam);
+					} else {
+						nextSearchParams.set(previewParam, value);
+					}
 
-				return nextSearchParams;
-			},
-			{ replace: true },
-		);
+					return nextSearchParams;
+				},
+				{ replace: true },
+			);
+		});
 	}
 
 	function handleTopChromeBack() {

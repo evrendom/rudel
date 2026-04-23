@@ -1,6 +1,7 @@
 import { WRAPPED_SHARE_PAYLOAD_VERSION } from "@rudel/api-routes";
 import { useDialKit } from "dialkit";
 import {
+	startTransition,
 	type CSSProperties,
 	type Dispatch,
 	type ReactNode,
@@ -86,21 +87,28 @@ export function WrappedTeamCardPage(props: {
 	});
 	const activeArchetype = WRAPPED_ARCHETYPE_CARD_THEMES[activeArchetypeIndex];
 	const activeStepParam = searchParams.get("step");
+	const estimatedSpendValue = formatCompactWholeCurrency(visibleTeamCardRow.cost);
 	const handleContinueToDashboard = () => {
 		markWrappedCompleted(completionUserId);
 		navigate(appRoutes.dashboard());
 	};
-	const headerLeftMetric: WrappedTeamMemberCardHeaderMetric = {
-		title: `${formatCompactWholeCurrency(visibleTeamCardRow.cost)} estimated spend`,
-		value: formatCompactWholeCurrency(visibleTeamCardRow.cost),
-	};
-	const headerRightMetric: WrappedTeamMemberCardHeaderMetric = {
-		// The card shows product-facing labels here, not raw classifier names.
-		// Example: the taxonomy says "NPC", while the visible card says
-		// "Smooth Operator".
-		title: activeArchetype.displayLabel,
-		value: activeArchetype.displayLabel,
-	};
+	const headerLeftMetric = useMemo<WrappedTeamMemberCardHeaderMetric>(
+		() => ({
+			title: `${estimatedSpendValue} estimated spend`,
+			value: estimatedSpendValue,
+		}),
+		[estimatedSpendValue],
+	);
+	const headerRightMetric = useMemo<WrappedTeamMemberCardHeaderMetric>(
+		() => ({
+			// The card shows product-facing labels here, not raw classifier names.
+			// Example: the taxonomy says "NPC", while the visible card says
+			// "Smooth Operator".
+			title: activeArchetype.displayLabel,
+			value: activeArchetype.displayLabel,
+		}),
+		[activeArchetype.displayLabel],
+	);
 	const statLayerOpacities =
 		useMemo<WrappedTeamMemberCardStatLayerOpacities>(() => {
 			const baseStatLayerOpacities: WrappedTeamMemberCardStatLayerOpacities = {
@@ -300,7 +308,9 @@ function WrappedTeamCardPageContent(props: {
 			utilityState: "sharePreview",
 		});
 		void ensureShare().catch(() => {});
-		setFinalCardStage("share");
+		startTransition(() => {
+			setFinalCardStage("share");
+		});
 	}
 
 	function handleContinueToDashboard(
@@ -320,7 +330,11 @@ function WrappedTeamCardPageContent(props: {
 		<WrappedTeamCardShareStage
 			headerLeftMetric={headerLeftMetric}
 			headerRightMetric={headerRightMetric}
-			onBack={() => setFinalCardStage("reveal")}
+			onBack={() => {
+				startTransition(() => {
+					setFinalCardStage("reveal");
+				});
+			}}
 			onCopy={() => void shareActions.handleCopyPost()}
 			onContinueToDashboard={() =>
 				handleContinueToDashboard("wrapped_share_footer")
@@ -343,22 +357,26 @@ function WrappedTeamCardPageContent(props: {
 			selectedThemeLabel={activeArchetype.displayLabel}
 			headerLeftMetric={headerLeftMetric}
 			headerRightMetric={headerRightMetric}
-			onNextArchetype={() =>
-				setActiveArchetypeIndex((currentIndex) =>
-					getWrappedArchetypeIndex(
-						currentIndex + 1,
-						WRAPPED_ARCHETYPE_CARD_THEMES.length,
-					),
-				)
-			}
-			onPreviousArchetype={() =>
-				setActiveArchetypeIndex((currentIndex) =>
-					getWrappedArchetypeIndex(
-						currentIndex - 1,
-						WRAPPED_ARCHETYPE_CARD_THEMES.length,
-					),
-				)
-			}
+			onNextArchetype={() => {
+				startTransition(() => {
+					setActiveArchetypeIndex((currentIndex) =>
+						getWrappedArchetypeIndex(
+							currentIndex + 1,
+							WRAPPED_ARCHETYPE_CARD_THEMES.length,
+						),
+					);
+				});
+			}}
+			onPreviousArchetype={() => {
+				startTransition(() => {
+					setActiveArchetypeIndex((currentIndex) =>
+						getWrappedArchetypeIndex(
+							currentIndex - 1,
+							WRAPPED_ARCHETYPE_CARD_THEMES.length,
+						),
+					);
+				});
+			}}
 			row={visibleTeamCardRow}
 			shellClassName={activeArchetype.shellClassName}
 			shellStyle={shellStyle}

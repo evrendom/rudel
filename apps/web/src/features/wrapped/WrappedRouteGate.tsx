@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { startTransition, useState } from "react";
 import { useLocation, useSearchParams } from "react-router-dom";
 import { useIsMobile } from "@/app/hooks/use-mobile";
 import { getWrappedShareIdFromSearch } from "@/app/routes";
@@ -66,14 +66,16 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 		forcedFlowStage === "story" && setupProgress.hasUploadedSessions;
 
 	function setWrappedRouteFlowStage(nextStage: WrappedRouteFlowStage) {
-		setSearchParams(
-			(previousSearchParams) => {
-				const nextSearchParams = new URLSearchParams(previousSearchParams);
-				nextSearchParams.set(WRAPPED_ROUTE_FLOW_QUERY_PARAM, nextStage);
-				return nextSearchParams;
-			},
-			{ replace: nextStage === "sessions-landed" },
-		);
+		startTransition(() => {
+			setSearchParams(
+				(previousSearchParams) => {
+					const nextSearchParams = new URLSearchParams(previousSearchParams);
+					nextSearchParams.set(WRAPPED_ROUTE_FLOW_QUERY_PARAM, nextStage);
+					return nextSearchParams;
+				},
+				{ replace: nextStage === "sessions-landed" },
+			);
+		});
 	}
 
 	function handleSetupComplete() {

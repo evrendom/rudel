@@ -1,4 +1,4 @@
-import { Children, type ReactNode, useState } from "react";
+import { startTransition, type ReactNode, useState } from "react";
 import { Link as LinkIcon, Mail } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 import { Button } from "@/app/ui/button";
@@ -102,42 +102,44 @@ export function WrappedDevPage() {
 		setupStep?: CliSetupStepId;
 		setupView?: WrappedDevSetupView;
 	}) {
-		setSearchParams(
-			(previousSearchParams) => {
-				const nextSearchParams = new URLSearchParams(previousSearchParams);
+		startTransition(() => {
+			setSearchParams(
+				(previousSearchParams) => {
+					const nextSearchParams = new URLSearchParams(previousSearchParams);
 
-				if (updates.setupStep === undefined) {
-					nextSearchParams.delete(WRAPPED_DEV_SETUP_STEP_QUERY_PARAM);
-				} else {
-					nextSearchParams.set(
-						WRAPPED_DEV_SETUP_STEP_QUERY_PARAM,
-						updates.setupStep,
-					);
-				}
+					if (updates.setupStep === undefined) {
+						nextSearchParams.delete(WRAPPED_DEV_SETUP_STEP_QUERY_PARAM);
+					} else {
+						nextSearchParams.set(
+							WRAPPED_DEV_SETUP_STEP_QUERY_PARAM,
+							updates.setupStep,
+						);
+					}
 
-				if (
-					updates.setupView === undefined ||
-					updates.setupView === DEFAULT_WRAPPED_DEV_SETUP_VIEW
-				) {
-					nextSearchParams.delete(WRAPPED_DEV_SETUP_VIEW_QUERY_PARAM);
-				} else {
-					nextSearchParams.set(
-						WRAPPED_DEV_SETUP_VIEW_QUERY_PARAM,
-						updates.setupView,
-					);
-				}
+					if (
+						updates.setupView === undefined ||
+						updates.setupView === DEFAULT_WRAPPED_DEV_SETUP_VIEW
+					) {
+						nextSearchParams.delete(WRAPPED_DEV_SETUP_VIEW_QUERY_PARAM);
+					} else {
+						nextSearchParams.set(
+							WRAPPED_DEV_SETUP_VIEW_QUERY_PARAM,
+							updates.setupView,
+						);
+					}
 
-				const nextStage = updates.stage ?? DEFAULT_WRAPPED_DEV_STAGE;
-				if (nextStage === DEFAULT_WRAPPED_DEV_STAGE) {
-					nextSearchParams.delete("stage");
-				} else {
-					nextSearchParams.set("stage", nextStage);
-				}
+					const nextStage = updates.stage ?? DEFAULT_WRAPPED_DEV_STAGE;
+					if (nextStage === DEFAULT_WRAPPED_DEV_STAGE) {
+						nextSearchParams.delete("stage");
+					} else {
+						nextSearchParams.set("stage", nextStage);
+					}
 
-				return nextSearchParams;
-			},
-			{ replace: false },
-		);
+					return nextSearchParams;
+				},
+				{ replace: false },
+			);
+		});
 	}
 
 	function setStage(nextStage: WrappedDevStage) {
@@ -165,7 +167,7 @@ export function WrappedDevPage() {
 				<WrappedDevSetupStage
 					activeView={activeSetupView}
 					debugControls={
-						<WrappedDevInlineDebugStack>
+						<>
 							<WrappedDevToolbar
 								activeStage={activeStage}
 								onStageChange={setStage}
@@ -191,7 +193,7 @@ export function WrappedDevPage() {
 									})
 								}
 							/>
-						</WrappedDevInlineDebugStack>
+						</>
 					}
 					guideStep={activeGuideStep}
 					onContinueToStory={() => setStage("story")}
@@ -244,20 +246,6 @@ function WrappedDevToolbar(props: {
 					</Button>
 				))}
 			</div>
-		</div>
-	);
-}
-
-function WrappedDevInlineDebugStack(props: { children: ReactNode }) {
-	const controls = Children.toArray(props.children);
-
-	return (
-		<div className="mymind-wrapped-dock__debug-stack">
-			{controls.map((control, index) => (
-				<div key={index} className="mymind-wrapped-dock__debug-control">
-					{control}
-				</div>
-			))}
 		</div>
 	);
 }
