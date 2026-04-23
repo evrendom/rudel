@@ -117,8 +117,8 @@ export const WRAPPED_BEAT_CONTRACTS: Record<
 			"This is one of the safest beats. It should establish activity and history, not over-interpret behavior.",
 	},
 	skills: {
-		currentStatus: "needs_codex_feature_parity",
-		saturdayStoryVisibility: "hide_for_now",
+		currentStatus: "ship_now",
+		saturdayStoryVisibility: "show_in_saturday_story",
 		whatWeShowNow: [
 			"Top 3 recorded skills",
 			"Skills adoption rate when present",
@@ -129,13 +129,13 @@ export const WRAPPED_BEAT_CONTRACTS: Record<
 		referenceClass: "User's own history.",
 		eligibility: "At least one ranked skill or adoption rate recorded.",
 		infraRequirement:
-			"Needs Codex feature extraction parity. This is not a new MV problem; it is a source-data completeness problem.",
+			"No MV is required for v1. Cross-source skills coverage is now good enough to ship as a recap beat.",
 		productNote:
-			"Only ship as a fully truthful beat once Codex sessions populate skills the same way Claude sessions do. Until then, keep the copy obviously partial.",
+			"Ship this as a concrete usage recap, not as a personality claim. Let the podium stay evidence-first.",
 	},
 	tools: {
-		currentStatus: "needs_codex_feature_parity",
-		saturdayStoryVisibility: "hide_for_now",
+		currentStatus: "ship_now",
+		saturdayStoryVisibility: "show_in_saturday_story",
 		whatWeShowNow: [
 			"Top slash command",
 			"Top subagent",
@@ -146,9 +146,9 @@ export const WRAPPED_BEAT_CONTRACTS: Record<
 		referenceClass: "User's own history.",
 		eligibility: "At least one slash command or subagent recorded.",
 		infraRequirement:
-			"Needs Codex slash-command and subagent extraction parity. No new MV is the blocker here.",
+			"No MV is required for v1. Slash-command and subagent coverage is now strong enough to ship in the core story.",
 		productNote:
-			"Treat this beat the same way as skills: interesting when present, but not yet a complete cross-source truth layer.",
+			"Frame this as observed tool usage, not as a judgment about sophistication or workflow maturity.",
 	},
 	model: {
 		currentStatus: "ship_now",
@@ -208,7 +208,7 @@ export const WRAPPED_BEAT_CONTRACTS: Record<
 			"Do not present this as a crisp behavioral claim until longest and average session duration are computed from the same contract window.",
 	},
 	quality: {
-		currentStatus: "needs_truth_cleanup",
+		currentStatus: "ship_now_with_softening",
 		saturdayStoryVisibility: "hide_for_now",
 		whatWeShowNow: ["Commit rate", "Success rate when present"],
 		metricBasis: "Commit rate and success_rate.",
@@ -216,9 +216,9 @@ export const WRAPPED_BEAT_CONTRACTS: Record<
 		referenceClass: "User's own history.",
 		eligibility: "At least one of commit_rate or success_rate is available.",
 		infraRequirement:
-			"Needs a clearly frozen success methodology and possibly a wrapped-specific rollup. No new MV should be added blindly before the semantics are settled.",
+			"No MV is required for v1, but success methodology still needs to stay explicitly soft until the semantics are fully settled.",
 		productNote:
-			"This is the easiest beat to overclaim. Keep it out of the core launch story until the definition of success is product-approved.",
+			"This beat can stay in the core story if the copy remains operational and avoids turning success into a moral score.",
 	},
 	pulse: {
 		currentStatus: "ship_now_with_softening",
@@ -315,6 +315,7 @@ export const WRAPPED_STEP_PREVIEW_OPTIONS = {
 	scale: [
 		{ value: "auto", label: "Auto (live data)" },
 		{ value: "missing", label: "No token signal" },
+		{ value: "million", label: "1M tokens" },
 		{ value: "essay", label: "Essay scale" },
 		{ value: "novella", label: "Novella scale" },
 		{ value: "novels", label: "Novel scale" },

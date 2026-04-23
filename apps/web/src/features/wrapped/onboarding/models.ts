@@ -26,12 +26,9 @@ import {
 import {
 	buildScaleContent,
 	buildScaleRainBalls,
-	getScaleRainBallCoreStyle,
-	getScaleRainBallStyle,
 	resolveScalePreviewTokens,
 	resolveScaleStageModel,
-	SCALE_STAGE_MIN_BALL_COUNT,
-	SCALE_STAGE_TOKENS_PER_BALL,
+	type ScaleRainBall,
 } from "./models/scale";
 import {
 	clampSkillsCardIndex,
@@ -56,8 +53,6 @@ export {
 	formatCompactNumber,
 	formatModelStageSourceLabel,
 	getModelStageTone,
-	getScaleRainBallCoreStyle,
-	getScaleRainBallStyle,
 	getSkillsCardStyle,
 	getToolsEntryStyle,
 	getToolsStackHeightRem,
@@ -75,9 +70,8 @@ export {
 	resolveSkillsStageModel,
 	resolveToolsPreviewInput,
 	resolveToolsStageModel,
-	SCALE_STAGE_MIN_BALL_COUNT,
-	SCALE_STAGE_TOKENS_PER_BALL,
 	SKILLS_STACK,
+	type ScaleRainBall,
 };
 
 export function buildStepContent(input: {

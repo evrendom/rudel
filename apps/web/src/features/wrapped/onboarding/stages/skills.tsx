@@ -1,5 +1,7 @@
-import type { CSSProperties, TouchEvent, WheelEvent } from "react";
+import { Frown } from "lucide-react";
+import type { CSSProperties, TouchEvent } from "react";
 import { useRef, useState } from "react";
+import { useMountEffect } from "@/hooks/useMountEffect";
 import { cn } from "@/lib/utils";
 import {
 	clampSkillsCardIndex,
@@ -23,9 +25,14 @@ interface SkillsTrackStyle extends CSSProperties {
 	"--skills-stack-track-height": string;
 }
 
+const ANTHROPIC_SKILLS_DOCS_URL =
+	"https://docs.anthropic.com/en/docs/claude-code/skills";
+
 export function WrappedOnboardingSkillsStage(props: SkillsStageProps) {
 	const { onboardingMetrics, previewState } = props;
+	const stackRef = useRef<HTMLDivElement | null>(null);
 	const wheelAccumulationRef = useRef(0);
+	const wheelHandlerRef = useRef<(event: WheelEvent) => void>(() => {});
 	const lastWheelTimestampRef = useRef(0);
 	const lockedUntilTimestampRef = useRef(0);
 	const touchStartYRef = useRef<number | null>(null);
@@ -39,6 +46,7 @@ export function WrappedOnboardingSkillsStage(props: SkillsStageProps) {
 		),
 	);
 	const [activeCardIndex, setActiveCardIndex] = useState(0);
+	const isEmptySkillsBoard = !model.hasRankedSkills;
 
 	function setNextActiveCardIndex(direction: 1 | -1) {
 		setActiveCardIndex((previousIndex) =>
@@ -75,7 +83,7 @@ export function WrappedOnboardingSkillsStage(props: SkillsStageProps) {
 		setNextActiveCardIndex(direction);
 	}
 
-	function handleSkillsCardWheel(event: WheelEvent<HTMLDivElement>) {
+	wheelHandlerRef.current = (event: WheelEvent) => {
 		if (!model.isScrollable) {
 			return;
 		}
@@ -88,13 +96,32 @@ export function WrappedOnboardingSkillsStage(props: SkillsStageProps) {
 		const cardElement = eventTarget.closest(
 			".mymind-wrapped-skills-stage__card",
 		);
-		if (!cardElement || !event.currentTarget.contains(cardElement)) {
+		if (!cardElement || !stackRef.current?.contains(cardElement)) {
 			return;
 		}
 
 		event.preventDefault();
 		handleSkillsCardWheelDelta(event.deltaY);
-	}
+	};
+
+	useMountEffect(() => {
+		const stackElement = stackRef.current;
+		if (!stackElement) {
+			return;
+		}
+
+		function handleWheelEvent(event: WheelEvent) {
+			wheelHandlerRef.current(event);
+		}
+
+		stackElement.addEventListener("wheel", handleWheelEvent, {
+			passive: false,
+		});
+
+		return () => {
+			stackElement.removeEventListener("wheel", handleWheelEvent);
+		};
+	});
 
 	function handleSkillsCardTouchStart(event: TouchEvent<HTMLElement>) {
 		if (!model.isScrollable) {
@@ -140,58 +167,86 @@ export function WrappedOnboardingSkillsStage(props: SkillsStageProps) {
 			className="mymind-wrapped-skills-stage"
 			copy={
 				<WrappedOnboardingStageCopy
-					eyebrow="Skills board"
 					title={model.headline}
-					description={model.subline}
+					description={isEmptySkillsBoard ? undefined : model.subline}
 				/>
 			}
 			object={
-				<div
-					className="mymind-wrapped-skills-stage__stack"
-					onWheel={handleSkillsCardWheel}
-				>
-					<div
-						className="mymind-wrapped-skills-stage__stack-track"
-						style={stackStyle}
-					>
-						{model.cards.map((card, cardIndex) => (
-							<article
-								key={card.id}
-								className={cn(
-									"mymind-wrapped-skills-stage__card",
-									cardIndex === activeCardIndex && "is-front",
-								)}
-								onTouchEnd={handleSkillsCardTouchEnd}
-								onTouchStart={handleSkillsCardTouchStart}
-								style={getSkillsCardStyle(cardIndex, activeCardIndex)}
+				isEmptySkillsBoard ? (
+					<div className="mymind-wrapped-skills-stage__empty-state">
+						<div
+							aria-hidden="true"
+							className="mymind-wrapped-skills-stage__empty-icon-shell"
+						>
+							<span className="mymind-wrapped-skills-stage__empty-code">
+								404
+							</span>
+							<span className="mymind-wrapped-skills-stage__empty-icon-badge">
+								<Frown
+									className="mymind-wrapped-skills-stage__empty-icon"
+									strokeWidth={1.9}
+								/>
+							</span>
+						</div>
+						<p className="mymind-wrapped-skills-stage__empty-caption">
+							you should try skills out,{" "}
+							<a
+								className="mymind-wrapped-skills-stage__footnote-link"
+								href={ANTHROPIC_SKILLS_DOCS_URL}
+								rel="noreferrer"
+								target="_blank"
 							>
-								<div
-									className={cn(
-										"mymind-wrapped-skills-stage__card-item",
-										card.item.isPlaceholder && "is-placeholder",
-									)}
-								>
-									<span className="mymind-wrapped-skills-stage__item-rank">
-										{card.item.rank}
-									</span>
-									<div className="mymind-wrapped-skills-stage__item-copy">
-										<p className="mymind-wrapped-skills-stage__item-name">
-											{card.item.name}
-										</p>
-										<p className="mymind-wrapped-skills-stage__item-meta">
-											{card.item.meta}
-										</p>
-									</div>
-								</div>
-							</article>
-						))}
+								see here
+							</a>
+						</p>
 					</div>
-				</div>
+				) : (
+					<div ref={stackRef} className="mymind-wrapped-skills-stage__stack">
+						<div
+							className="mymind-wrapped-skills-stage__stack-track"
+							style={stackStyle}
+						>
+							{model.cards.map((card, cardIndex) => (
+								<article
+									key={card.id}
+									className={cn(
+										"mymind-wrapped-skills-stage__card",
+										cardIndex === activeCardIndex && "is-front",
+									)}
+									onTouchEnd={handleSkillsCardTouchEnd}
+									onTouchStart={handleSkillsCardTouchStart}
+									style={getSkillsCardStyle(cardIndex, activeCardIndex)}
+								>
+									<div
+										className={cn(
+											"mymind-wrapped-skills-stage__card-item",
+											card.item.isPlaceholder && "is-placeholder",
+										)}
+									>
+										<span className="mymind-wrapped-skills-stage__item-rank">
+											{card.item.rank}
+										</span>
+										<div className="mymind-wrapped-skills-stage__item-copy">
+											<p className="mymind-wrapped-skills-stage__item-name">
+												{card.item.name}
+											</p>
+											<p className="mymind-wrapped-skills-stage__item-meta">
+												{card.item.meta}
+											</p>
+										</div>
+									</div>
+								</article>
+							))}
+						</div>
+					</div>
+				)
 			}
 			support={
-				<p className="mymind-wrapped-skills-stage__footnote">
-					{model.footnote}
-				</p>
+				isEmptySkillsBoard ? undefined : (
+					<p className="mymind-wrapped-skills-stage__footnote">
+						{model.footnote}
+					</p>
+				)
 			}
 		/>
 	);

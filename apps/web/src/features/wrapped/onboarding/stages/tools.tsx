@@ -55,7 +55,6 @@ export function WrappedOnboardingToolsStage(props: ToolsStageProps) {
 			objectClassName="mymind-wrapped-tools-stage__object"
 			copy={
 				<WrappedOnboardingStageCopy
-					eyebrow="Workflow tools"
 					title={model.headline}
 					description={model.subline}
 				/>

@@ -29,7 +29,7 @@ interface WrappedRouteGateProps {
 	session: AppSession | null;
 }
 
-type WrappedRouteFlowStage = "sessions-landed" | "story";
+type WrappedRouteFlowStage = "desktop-ready" | "sessions-landed" | "story";
 
 const WRAPPED_ROUTE_FLOW_QUERY_PARAM = "flow";
 
@@ -62,6 +62,8 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 				hasCompletedWrappedSetup(sessionUserId);
 	const shouldForceSessionsLanded =
 		forcedFlowStage === "sessions-landed" && setupProgress.hasUploadedSessions;
+	const shouldForceDesktopReady =
+		forcedFlowStage === "desktop-ready" && setupProgress.hasUploadedSessions;
 	const shouldForceStory =
 		forcedFlowStage === "story" && setupProgress.hasUploadedSessions;
 
@@ -124,7 +126,7 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 
 	useEffectOnceWhen({
 		effect: () => {
-			if (forcedFlowStage === "sessions-landed") {
+			if (forcedFlowStage !== null) {
 				return;
 			}
 
@@ -157,6 +159,10 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 		return <WrappedSetupLoadingState />;
 	}
 
+	if (shouldForceDesktopReady) {
+		return <WrappedSetupPage />;
+	}
+
 	if (
 		sessionUserId &&
 		(shouldForceSessionsLanded ||
@@ -166,6 +172,7 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 	) {
 		return (
 			<WrappedSetupCompletePage
+				onBack={() => setWrappedRouteFlowStage("desktop-ready")}
 				onContinue={handleSetupComplete}
 				totalSessionCount={setupProgress.totalSessionCount}
 				userId={sessionUserId}
@@ -196,7 +203,9 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 function getWrappedRouteFlowStage(
 	flowStage: string | null,
 ): WrappedRouteFlowStage | null {
-	return flowStage === "sessions-landed" || flowStage === "story"
+	return flowStage === "desktop-ready" ||
+		flowStage === "sessions-landed" ||
+		flowStage === "story"
 		? flowStage
 		: null;
 }

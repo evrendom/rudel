@@ -20,6 +20,7 @@ import { WrappedRouteStageShell } from "./route-stage-shell";
 
 interface WrappedSetupCompletePageProps {
 	debugControls?: ReactNode;
+	onBack?: () => void;
 	onContinue: () => void;
 	reposOverride?: WrappedUploadedRepoRow[];
 	totalSessionCount: number;
@@ -69,6 +70,7 @@ export function WrappedSetupCompletePage(props: WrappedSetupCompletePageProps) {
 						</WrappedSecondaryAction>
 					</div>
 				}
+				onBack={props.onBack}
 				stageClassName="mymind-wrapped-entry-stage--setup-complete"
 				progressStepId="sessions-landed"
 				stage={

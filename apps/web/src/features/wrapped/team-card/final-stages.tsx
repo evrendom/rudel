@@ -1,12 +1,10 @@
 import {
-	ChevronLeft,
 	ChevronRight,
 	Clipboard,
 	Download,
 	Share2,
 } from "lucide-react";
 import type { CSSProperties, RefObject } from "react";
-import { appRoutes } from "@/app/routes";
 import { Button } from "@/app/ui/button";
 import type { TeamPageMemberRow } from "@/features/team/use-team-page-data";
 import {
@@ -17,6 +15,7 @@ import {
 	WrappedStageCopy,
 	WrappedStageFrame,
 } from "@/features/wrapped/stage-frame";
+import type { WrappedArchetypeCardTheme } from "./archetypes";
 import {
 	WrappedTeamMemberCard,
 	type WrappedTeamMemberCardHeaderMetric,
@@ -51,9 +50,7 @@ interface WrappedTeamCardShareStageProps extends WrappedTeamCardStageCardProps {
 
 interface WrappedTeamCardRevealStageProps
 	extends WrappedTeamCardStageCardProps {
-	selectedThemeLabel: string;
-	onNextArchetype: () => void;
-	onPreviousArchetype: () => void;
+	activeArchetype: WrappedArchetypeCardTheme;
 	tiltController: WrappedCardTiltController;
 }
 
@@ -71,8 +68,6 @@ export function WrappedTeamCardShareStage(
 		row,
 		shareCardCreatedAtLabel,
 		sharePostRef,
-		shareUrl,
-		shareUrlLabel,
 		shellClassName,
 		shellStyle,
 		statItems,
@@ -112,8 +107,8 @@ export function WrappedTeamCardShareStage(
 						</div>
 
 						<div className="mymind-wrapped-share-preview__body">
-							<div className="team-lineup-card-tilt-stage w-full max-w-[13.4rem]">
-								<div className="team-lineup-card-tilt-shell [--wrapped-card-render-scale:0.92]">
+							<div className="team-lineup-card-tilt-stage mymind-wrapped-share-preview__card-stage">
+								<div className="team-lineup-card-tilt-shell mymind-wrapped-share-preview__card-shell [--wrapped-card-render-scale:0.8]">
 									<div className="grid justify-center">
 										<WrappedTeamMemberCard
 											headerLeftMetric={headerLeftMetric}
@@ -135,15 +130,15 @@ export function WrappedTeamCardShareStage(
 						</div>
 
 						<div className="mymind-wrapped-share-preview__meta">
-							<a
-								href={shareUrl ?? appRoutes.wrappedTeamCard()}
-								className="mymind-wrapped-share-preview__link"
-							>
-								{shareUrlLabel}
-							</a>
 							<span className="mymind-wrapped-share-preview__timestamp">
 								{shareCardCreatedAtLabel}
 							</span>
+							<a
+								href="https://rudel.ai/wrapped"
+								className="mymind-wrapped-share-preview__link"
+							>
+								rudel.ai/wrapped
+							</a>
 						</div>
 					</div>
 				</div>
@@ -215,11 +210,9 @@ export function WrappedTeamCardRevealStage(
 	props: WrappedTeamCardRevealStageProps,
 ) {
 	const {
-		selectedThemeLabel,
+		activeArchetype,
 		headerLeftMetric,
 		headerRightMetric,
-		onNextArchetype,
-		onPreviousArchetype,
 		row,
 		shellClassName,
 		shellStyle,
@@ -228,6 +221,7 @@ export function WrappedTeamCardRevealStage(
 		theme,
 		tiltController,
 	} = props;
+	const revealCopy = getWrappedRevealCopy(activeArchetype);
 
 	return (
 		<WrappedStageFrame
@@ -237,20 +231,18 @@ export function WrappedTeamCardRevealStage(
 			supportClassName="mymind-wrapped-final-stage__support"
 			copy={
 				<WrappedStageCopy
-					description="The next page turns this card into a share post. You can still come back and change it."
+					description={revealCopy.description}
 					descriptionClassName="mymind-wrapped-final-stage__subline"
-					eyebrow="Choose your card"
-					eyebrowClassName="mymind-wrapped-final-stage__eyebrow"
-					title="Pick the one you'd post."
+					title={revealCopy.title}
 					titleClassName="mymind-wrapped-final-stage__headline"
 				/>
 			}
 			object={
 				<div className="mymind-wrapped-final-stage__card-frame">
-					<div className="team-lineup-card-tilt-stage w-full max-w-[17rem] min-[360px]:max-w-[18rem] sm:max-w-none">
+					<div className="team-lineup-card-tilt-stage w-full max-w-[16rem] min-[360px]:max-w-[16.75rem] sm:max-w-none">
 						<div
 							ref={tiltController.cardTiltRef}
-							className="team-lineup-card-tilt-shell mymind-wrapped-final-stage__tilt-shell [--wrapped-card-render-scale:1.1] min-[360px]:[--wrapped-card-render-scale:1.2] sm:[--wrapped-card-render-scale:1.5] lg:[--wrapped-card-render-scale:1.64]"
+							className="team-lineup-card-tilt-shell mymind-wrapped-final-stage__tilt-shell [--wrapped-card-render-scale:1] min-[360px]:[--wrapped-card-render-scale:1.08] sm:[--wrapped-card-render-scale:1.42] lg:[--wrapped-card-render-scale:1.56]"
 							onPointerMove={tiltController.handlePointerMove}
 							onPointerLeave={tiltController.handlePointerLeave}
 							onPointerCancel={tiltController.handlePointerLeave}
@@ -259,6 +251,7 @@ export function WrappedTeamCardRevealStage(
 								<WrappedTeamMemberCard
 									headerLeftMetric={headerLeftMetric}
 									headerRightMetric={headerRightMetric}
+									hideHeaderLogo
 									layoutPreset="team-card-preview"
 									mediaPanelClassName="mx-auto"
 									row={row}
@@ -274,42 +267,82 @@ export function WrappedTeamCardRevealStage(
 					</div>
 				</div>
 			}
-			support={
-				<div className="mymind-wrapped-archetype-switcher">
-					<Button
-						type="button"
-						variant="outline"
-						size="icon-sm"
-						aria-label="Show previous card theme"
-						className="mymind-wrapped-archetype-switcher__button"
-						onClick={onPreviousArchetype}
-					>
-						<ChevronLeft />
-					</Button>
-
-					<div className="mymind-wrapped-archetype-switcher__pill">
-						<div className="mymind-wrapped-archetype-switcher__label">
-							Selected theme
-						</div>
-						<div className="mymind-wrapped-archetype-switcher__value">
-							{selectedThemeLabel}
-						</div>
-					</div>
-
-					<Button
-						type="button"
-						variant="outline"
-						size="icon-sm"
-						aria-label="Show next card theme"
-						className="mymind-wrapped-archetype-switcher__button"
-						onClick={onNextArchetype}
-					>
-						<ChevronRight />
-					</Button>
-				</div>
-			}
 		/>
 	);
+}
+
+function getWrappedRevealCopy(archetype: WrappedArchetypeCardTheme): {
+	description: string;
+	title: string;
+} {
+	switch (archetype.id) {
+		case "roadrunner":
+			return {
+				description:
+					"For the one who clears the pass, ships the fix, and is already halfway into the next task.",
+				title: "Roadrunner energy.",
+			};
+		case "hit_and_runner":
+			return {
+				description:
+					"For the operator who gets in, lands the move, and disappears before the mess settles.",
+				title: "Hit. Run. Repeat.",
+			};
+		case "adhd_brain":
+			return {
+				description:
+					"For the mind that keeps five tabs alive, three ideas moving, and the pace somehow intact.",
+				title: "Every tab had a job.",
+			};
+		case "window_shopper":
+			return {
+				description:
+					"For the selective one who keeps the spend light and still finds the exact tool worth using.",
+				title: "Low spend, sharp eye.",
+			};
+		case "papas_credit_card":
+			return {
+				description:
+					"For the teammate who never thinks small when the work calls for a heavier swing.",
+				title: "Big-budget instincts.",
+			};
+		case "decimal":
+			return {
+				description:
+					"For the rare edition energy: polished, expensive-looking, and very aware of the room.",
+				title: "Decimal treatment.",
+			};
+		case "tourist":
+			return {
+				description:
+					"For the wanderer who touched every corner of the work and kept moving between scenes.",
+				title: "Every repo got a visit.",
+			};
+		case "npc":
+			return {
+				description:
+					"For the steady hand who keeps the machine moving without asking for attention on every pass.",
+				title: "Smooth by default.",
+			};
+		case "needs_to_touch_grass":
+			return {
+				description:
+					"For the one who locked in so hard the sessions started stacking on top of each other.",
+				title: "Fully, maybe too fully, locked in.",
+			};
+		case "maniac":
+			return {
+				description:
+					"For the all-gas operator who pushes the pace until the card feels barely contained.",
+				title: "No chill. All velocity.",
+			};
+		default:
+			return {
+				description:
+					"For the kind of operator whose working style is strong enough to deserve its own card.",
+				title: `${archetype.displayLabel}, framed.`,
+			};
+	}
 }
 
 export function WrappedTeamCardRevealFooter(props: {

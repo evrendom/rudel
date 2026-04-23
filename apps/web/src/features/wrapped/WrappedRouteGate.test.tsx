@@ -48,7 +48,14 @@ vi.mock("@/features/wrapped/WrappedSetupPage", () => ({
 }));
 
 vi.mock("@/features/wrapped/WrappedSetupCompletePage", () => ({
-	WrappedSetupCompletePage: () => <div>Wrapped setup complete page</div>,
+	WrappedSetupCompletePage: ({ onBack }: { onBack?: () => void }) => (
+		<div>
+			<div>Wrapped setup complete page</div>
+			<button type="button" onClick={onBack}>
+				Back to setup
+			</button>
+		</div>
+	),
 }));
 
 vi.mock("@/features/wrapped/team-card/page", () => ({
@@ -250,5 +257,7 @@ describe("WrappedRouteGate", () => {
 		expect(screen.getByText("Wrapped story")).toBeInTheDocument();
 		await user.click(screen.getByRole("button", { name: "Back to upload" }));
 		expect(screen.getByText("Wrapped setup complete page")).toBeInTheDocument();
+		await user.click(screen.getByRole("button", { name: "Back to setup" }));
+		expect(screen.getByText("Wrapped setup page")).toBeInTheDocument();
 	});
 });

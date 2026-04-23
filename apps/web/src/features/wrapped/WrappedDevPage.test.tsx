@@ -26,12 +26,17 @@ vi.mock("@/features/wrapped/WrappedSetupPage", () => ({
 vi.mock("@/features/wrapped/WrappedSetupCompletePage", () => ({
 	WrappedSetupCompletePage: ({
 		debugControls,
+		onBack,
 	}: {
 		debugControls?: ReactNode;
+		onBack?: () => void;
 	}) => (
 		<div>
 			{debugControls}
 			<div>Wrapped setup complete page</div>
+			<button type="button" onClick={onBack}>
+				Back to setup
+			</button>
 		</div>
 	),
 }));
@@ -80,6 +85,9 @@ describe("WrappedDevPage", () => {
 
 		await user.click(screen.getByRole("button", { name: "Back to upload" }));
 		expect(screen.getByText("Wrapped setup complete page")).toBeInTheDocument();
+
+		await user.click(screen.getByRole("button", { name: "Back to setup" }));
+		expect(screen.getByText("Wrapped setup page")).toBeInTheDocument();
 	});
 
 	it("renders the mobile handoff preview with simplified copy", () => {

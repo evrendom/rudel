@@ -234,6 +234,7 @@ export function WrappedTeamCardOnboarding(
 					className={cn(
 						"mymind-wrapped-route",
 						"mymind-wrapped-route--onboarding",
+						`mymind-wrapped-route--step-${activeStep.id}`,
 						isScaleStep ? "mymind-wrapped-route--scale-rain" : undefined,
 					)}
 				>

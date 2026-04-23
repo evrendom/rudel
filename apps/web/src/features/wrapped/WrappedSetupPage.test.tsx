@@ -41,6 +41,9 @@ describe("WrappedSetupPage", () => {
 			screen.getByRole("navigation", { name: "Wrapped onboarding progress" }),
 		).toBeInTheDocument();
 		expect(
+			screen.queryByRole("button", { name: "Close wrapped" }),
+		).toBeNull();
+		expect(
 			screen.queryByRole("button", { name: "I installed and logged in" }),
 		).toBeNull();
 		expect(screen.getAllByText("Set up Rudel in your terminal")).toHaveLength(

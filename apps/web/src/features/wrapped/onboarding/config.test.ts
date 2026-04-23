@@ -9,6 +9,8 @@ describe("wrapped saturday story visibility", () => {
 	it("keeps only the launch-safe beats in the saturday deck", () => {
 		expect(WRAPPED_SATURDAY_STEPS.map((step) => step.id)).toEqual([
 			"intro",
+			"skills",
+			"tools",
 			"model",
 			"scale",
 			"pulse",
@@ -16,11 +18,16 @@ describe("wrapped saturday story visibility", () => {
 		]);
 	});
 
-	it("marks blocked truth-layer beats as hidden for now", () => {
-		expect(isWrappedStepVisibleInSaturdayStory("skills")).toBe(false);
-		expect(isWrappedStepVisibleInSaturdayStory("tools")).toBe(false);
+	it("keeps only lock-in and quality hidden among the middle story beats", () => {
+		expect(isWrappedStepVisibleInSaturdayStory("skills")).toBe(true);
+		expect(isWrappedStepVisibleInSaturdayStory("tools")).toBe(true);
 		expect(isWrappedStepVisibleInSaturdayStory("lock-in")).toBe(false);
 		expect(isWrappedStepVisibleInSaturdayStory("quality")).toBe(false);
+		expect(WRAPPED_BEAT_CONTRACTS.skills.currentStatus).toBe("ship_now");
+		expect(WRAPPED_BEAT_CONTRACTS.tools.currentStatus).toBe("ship_now");
+		expect(WRAPPED_BEAT_CONTRACTS.quality.currentStatus).toBe(
+			"ship_now_with_softening",
+		);
 	});
 
 	it("keeps the final card visible even before classifier assignment lands", () => {

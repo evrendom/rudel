@@ -1,17 +1,19 @@
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { WRAPPED_SHARE_PAYLOAD_VERSION } from "@rudel/api-routes";
 import { useDialKit } from "dialkit";
 import {
+	cloneElement,
+	isValidElement,
 	startTransition,
 	type CSSProperties,
-	type Dispatch,
 	type ReactNode,
-	type SetStateAction,
 	useMemo,
 	useRef,
 	useState,
 } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { appRoutes } from "@/app/routes";
+import { Button } from "@/app/ui/button";
 import { useAnalyticsTracking } from "@/features/analytics/tracking/useAnalyticsTracking";
 import type { TeamPageMemberRow } from "@/features/team/use-team-page-data";
 import { markWrappedCompleted } from "@/features/wrapped/entry";
@@ -66,9 +68,8 @@ export function WrappedTeamCardPage(props: {
 	const { completionUserId, onboardingMetrics, statItems, visibleTeamCardRow } =
 		useWrappedTeamCardPageData();
 	const tiltController = useWrappedCardTilt();
-	// This index is only local card-carousel state for the Saturday launch. It is
-	// not a classifier result. The actual computed-archetype path is tracked
-	// separately in the beat contract and will come from the snapshot pipeline.
+	// The live flow still defaults to a single fallback theme. This index only
+	// exists so the dev footer can preview the full card set when needed.
 	const [activeArchetypeIndex, setActiveArchetypeIndex] = useState(0);
 	const [shareCardCreatedAt] = useState(() => new Date());
 	const shareCardCreatedAtLabel = formatShareCardCreatedAt(shareCardCreatedAt);
@@ -85,7 +86,14 @@ export function WrappedTeamCardPage(props: {
 			topStrokeOpacity: [0, 0, 1, 0.01],
 		},
 	});
-	const activeArchetype = WRAPPED_ARCHETYPE_CARD_THEMES[activeArchetypeIndex];
+	const activeArchetype: WrappedArchetypeCardTheme =
+		WRAPPED_ARCHETYPE_CARD_THEMES[activeArchetypeIndex] ??
+		WRAPPED_ARCHETYPE_CARD_THEMES[0];
+
+	if (!activeArchetype) {
+		throw new Error("Wrapped archetype themes are missing.");
+	}
+
 	const activeStepParam = searchParams.get("step");
 	const estimatedSpendValue = formatCompactWholeCurrency(visibleTeamCardRow.cost);
 	const handleContinueToDashboard = () => {
@@ -169,11 +177,11 @@ export function WrappedTeamCardPage(props: {
 			onboardingMetrics={onboardingMetrics}
 			onBackFromFirstStep={onBackFromFirstStep}
 			onContinueToDashboard={handleContinueToDashboard}
-			setActiveArchetypeIndex={setActiveArchetypeIndex}
 			shareCardCreatedAtLabel={shareCardCreatedAtLabel}
 			shellStyle={TEAM_CARD_SHELL_STYLE}
 			statItems={statItems}
 			statLayerOpacities={statLayerOpacities}
+			setActiveArchetypeIndex={setActiveArchetypeIndex}
 			tiltController={tiltController}
 			visibleTeamCardRow={visibleTeamCardRow}
 		/>
@@ -188,7 +196,7 @@ function WrappedTeamCardPageContent(props: {
 	onboardingMetrics: WrappedOnboardingMetrics;
 	onBackFromFirstStep?: () => void;
 	onContinueToDashboard: () => void;
-	setActiveArchetypeIndex: Dispatch<SetStateAction<number>>;
+	setActiveArchetypeIndex: (nextValue: number | ((currentValue: number) => number)) => void;
 	shareCardCreatedAtLabel: string;
 	shellStyle: CSSProperties;
 	statItems: readonly WrappedTeamMemberCardStatItem[];
@@ -215,9 +223,11 @@ function WrappedTeamCardPageContent(props: {
 	const sharePostRef = useRef<HTMLDivElement>(null);
 	const [finalCardStage, setFinalCardStage] =
 		useState<FinalCardStage>("reveal");
+	const [searchParams] = useSearchParams();
 	const { trackNavigation, trackUtilityUsed } = useAnalyticsTracking({
 		pageName: "wrapped_team_card",
 	});
+	const isCardStep = searchParams.get("step") === "card";
 	const showShareStage = finalCardStage === "share";
 	// The final exported post intentionally uses a stricter media policy than the
 	// live card. That keeps image export and public replay reliable without
@@ -354,29 +364,9 @@ function WrappedTeamCardPageContent(props: {
 		/>
 	) : (
 		<WrappedTeamCardRevealStage
-			selectedThemeLabel={activeArchetype.displayLabel}
+			activeArchetype={activeArchetype}
 			headerLeftMetric={headerLeftMetric}
 			headerRightMetric={headerRightMetric}
-			onNextArchetype={() => {
-				startTransition(() => {
-					setActiveArchetypeIndex((currentIndex) =>
-						getWrappedArchetypeIndex(
-							currentIndex + 1,
-							WRAPPED_ARCHETYPE_CARD_THEMES.length,
-						),
-					);
-				});
-			}}
-			onPreviousArchetype={() => {
-				startTransition(() => {
-					setActiveArchetypeIndex((currentIndex) =>
-						getWrappedArchetypeIndex(
-							currentIndex - 1,
-							WRAPPED_ARCHETYPE_CARD_THEMES.length,
-						),
-					);
-				});
-			}}
 			row={visibleTeamCardRow}
 			shellClassName={activeArchetype.shellClassName}
 			shellStyle={shellStyle}
@@ -386,11 +376,38 @@ function WrappedTeamCardPageContent(props: {
 			tiltController={tiltController}
 		/>
 	);
+	const footerDebugControls =
+		import.meta.env.DEV && isCardStep
+			? getWrappedTeamCardDebugControls({
+					activeArchetypeLabel: activeArchetype.displayLabel,
+					debugControls,
+					onNext: () => {
+						startTransition(() => {
+							setActiveArchetypeIndex((currentIndex) =>
+								getWrappedArchetypeIndex(
+									currentIndex + 1,
+									WRAPPED_ARCHETYPE_CARD_THEMES.length,
+								),
+							);
+						});
+					},
+					onPrevious: () => {
+						startTransition(() => {
+							setActiveArchetypeIndex((currentIndex) =>
+								getWrappedArchetypeIndex(
+									currentIndex - 1,
+									WRAPPED_ARCHETYPE_CARD_THEMES.length,
+								),
+							);
+						});
+					},
+				})
+			: debugControls;
 
 	return (
 		<WrappedTeamCardOnboarding
 			displayName={visibleTeamCardRow.displayName}
-			footerDebugControls={debugControls}
+			footerDebugControls={footerDebugControls}
 			finalFooter={
 				showShareStage ? (
 					false
@@ -408,5 +425,85 @@ function WrappedTeamCardPageContent(props: {
 			onBackFromFirstStep={onBackFromFirstStep}
 			totalSessions={visibleTeamCardRow.totalSessions}
 		/>
+	);
+}
+
+function getWrappedTeamCardDebugControls(input: {
+	activeArchetypeLabel: string;
+	debugControls?: ReactNode;
+	onNext: () => void;
+	onPrevious: () => void;
+}) {
+	const themePicker = (
+		<div className="mymind-wrapped-card-debug-switcher-slot">
+			<WrappedTeamCardThemeDebugControls
+				activeArchetypeLabel={input.activeArchetypeLabel}
+				onNext={input.onNext}
+				onPrevious={input.onPrevious}
+			/>
+		</div>
+	);
+
+	if (
+		isValidElement<{ children?: ReactNode; className?: string }>(
+			input.debugControls,
+		)
+	) {
+		return cloneElement(input.debugControls, {
+			children: (
+				<>
+					{input.debugControls.props.children}
+					{themePicker}
+				</>
+			),
+		});
+	}
+
+	return (
+		<div className="mymind-wrapped-card-debug-combined-bar">
+			{input.debugControls}
+			{themePicker}
+		</div>
+	);
+}
+
+function WrappedTeamCardThemeDebugControls(props: {
+	activeArchetypeLabel: string;
+	onNext: () => void;
+	onPrevious: () => void;
+}) {
+	const { activeArchetypeLabel, onNext, onPrevious } = props;
+
+	return (
+		<div className="mymind-wrapped-card-debug-switcher">
+			<Button
+				type="button"
+				size="icon-xs"
+				variant="outline"
+				aria-label="Show previous card"
+				className="mymind-wrapped-card-debug-switcher__button"
+				onClick={onPrevious}
+			>
+				<ChevronLeft className="size-3" />
+			</Button>
+			<div className="mymind-wrapped-card-debug-switcher__copy">
+				<div className="mymind-wrapped-card-debug-switcher__label">
+					Card theme
+				</div>
+				<div className="mymind-wrapped-card-debug-switcher__value">
+					{activeArchetypeLabel}
+				</div>
+			</div>
+			<Button
+				type="button"
+				size="icon-xs"
+				variant="outline"
+				aria-label="Show next card"
+				className="mymind-wrapped-card-debug-switcher__button"
+				onClick={onNext}
+			>
+				<ChevronRight className="size-3" />
+			</Button>
+		</div>
 	);
 }

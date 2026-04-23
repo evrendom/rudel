@@ -196,6 +196,13 @@ export function WrappedDevPage() {
 						</>
 					}
 					guideStep={activeGuideStep}
+					onBackToGuide={() =>
+						updateWrappedDevSearchParams({
+							stage: "setup",
+							setupStep: activeGuideStep,
+							setupView: "guide",
+						})
+					}
 					onContinueToStory={() => setStage("story")}
 				/>
 			) : null}
@@ -258,9 +265,16 @@ function WrappedDevSetupStage(props: {
 	activeView: WrappedDevSetupView;
 	debugControls: ReactNode;
 	guideStep: CliSetupStepId;
+	onBackToGuide: () => void;
 	onContinueToStory: () => void;
 }) {
-	const { activeView, debugControls, guideStep, onContinueToStory } = props;
+	const {
+		activeView,
+		debugControls,
+		guideStep,
+		onBackToGuide,
+		onContinueToStory,
+	} = props;
 	const isUploadedView = activeView === "uploaded";
 
 	return (
@@ -268,6 +282,7 @@ function WrappedDevSetupStage(props: {
 			{isUploadedView ? (
 				<WrappedSetupCompletePage
 					debugControls={debugControls}
+					onBack={onBackToGuide}
 					onContinue={onContinueToStory}
 					reposOverride={WRAPPED_DEBUG_UPLOADED_REPOS}
 					totalSessionCount={10}

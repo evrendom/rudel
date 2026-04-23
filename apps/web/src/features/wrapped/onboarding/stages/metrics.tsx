@@ -1,7 +1,9 @@
+import { useReducedMotion } from "motion/react";
 import type { CSSProperties } from "react";
+import { useState } from "react";
+import { useMountEffect } from "@/hooks/useMountEffect";
 import { cn } from "@/lib/utils";
 import {
-	formatCompactNumber,
 	resolveLockInPreviewInput,
 	resolveLockInStageModel,
 	resolveQualityPreviewInput,
@@ -10,8 +12,6 @@ import {
 	resolveRepoPulseStageModel,
 	resolveScalePreviewTokens,
 	resolveScaleStageModel,
-	SCALE_STAGE_MIN_BALL_COUNT,
-	SCALE_STAGE_TOKENS_PER_BALL,
 } from "../models";
 import type { WrappedOnboardingMetrics } from "../types";
 import {
@@ -43,52 +43,54 @@ export function WrappedOnboardingScaleStage(props: SharedStageProps) {
 	return (
 		<WrappedOnboardingStageFrame
 			className="mymind-wrapped-scale-stage"
-			objectClassName="mymind-wrapped-scale-stage__object"
 			copy={
 				<WrappedOnboardingStageCopy
-					eyebrow="Token scale"
-					title={model.headline}
-					description={model.subline}
+					key={`scale-count:${model.totalTokens}`}
+					title={<WrappedScaleCountTitle totalTokens={model.totalTokens} />}
+					titleClassName="mymind-wrapped-scale-stage__headline"
 				/>
-			}
-			object={
-				<article className="mymind-wrapped-scale-stage__card">
-					<ul className="mymind-wrapped-scale-stage__stats">
-						<li className="mymind-wrapped-scale-stage__stat">
-							<p className="mymind-wrapped-scale-stage__stat-label">
-								Tokens logged
-							</p>
-							<p className="mymind-wrapped-scale-stage__stat-value">
-								{formatCompactNumber(model.totalTokens)}
-							</p>
-						</li>
-						<li className="mymind-wrapped-scale-stage__stat">
-							<p className="mymind-wrapped-scale-stage__stat-label">
-								Balls dropping
-							</p>
-							<p className="mymind-wrapped-scale-stage__stat-value">
-								{model.displayBallCount.toLocaleString()}
-							</p>
-						</li>
-					</ul>
-
-					<ul className="mymind-wrapped-scale-stage__chips">
-						<li className="mymind-wrapped-scale-stage__chip">
-							{`1 ball = ${formatCompactNumber(SCALE_STAGE_TOKENS_PER_BALL)} tokens`}
-						</li>
-						{model.showsMinimumFloor ? (
-							<li className="mymind-wrapped-scale-stage__chip is-highlight">
-								{`${SCALE_STAGE_MIN_BALL_COUNT}-ball floor active`}
-							</li>
-						) : null}
-					</ul>
-				</article>
-			}
-			support={
-				<p className="mymind-wrapped-scale-stage__footnote">{model.footnote}</p>
 			}
 		/>
 	);
+}
+
+function WrappedScaleCountTitle(props: { totalTokens: number }) {
+	const { totalTokens } = props;
+	const shouldReduceMotion = useReducedMotion();
+	const reduceMotion = shouldReduceMotion ?? false;
+	const [displayValue, setDisplayValue] = useState(() => {
+		return reduceMotion ? totalTokens : 0;
+	});
+
+	useMountEffect(() => {
+		if (reduceMotion || totalTokens <= 0) {
+			setDisplayValue(totalTokens);
+			return;
+		}
+
+		const durationMs = 1100;
+		const startTime = window.performance.now();
+		let frameId = 0;
+
+		const tick = (currentTime: number) => {
+			const elapsedMs = currentTime - startTime;
+			const progress = Math.min(elapsedMs / durationMs, 1);
+			const easedProgress = 1 - (1 - progress) ** 3;
+			setDisplayValue(Math.round(totalTokens * easedProgress));
+
+			if (progress < 1) {
+				frameId = window.requestAnimationFrame(tick);
+			}
+		};
+
+		frameId = window.requestAnimationFrame(tick);
+
+		return () => {
+			window.cancelAnimationFrame(frameId);
+		};
+	});
+
+	return <>{displayValue.toLocaleString("en-US")} tokens</>;
 }
 
 export function WrappedOnboardingLockInStage(props: SharedStageProps) {
@@ -115,7 +117,6 @@ export function WrappedOnboardingLockInStage(props: SharedStageProps) {
 			objectClassName="mymind-wrapped-lock-in-stage__object"
 			copy={
 				<WrappedOnboardingStageCopy
-					eyebrow="Session length"
 					title={model.headline}
 					description={model.subline}
 				/>
@@ -231,7 +232,6 @@ export function WrappedOnboardingQualityStage(props: SharedStageProps) {
 			objectClassName="mymind-wrapped-quality-stage__object"
 			copy={
 				<WrappedOnboardingStageCopy
-					eyebrow="Finish quality"
 					title={model.headline}
 					description={model.subline}
 				/>
@@ -345,27 +345,12 @@ export function WrappedOnboardingRepoPulseStage(props: SharedStageProps) {
 			objectClassName="mymind-wrapped-repo-pulse-stage__object"
 			copy={
 				<WrappedOnboardingStageCopy
-					eyebrow="Repo pulse"
 					title={model.headline}
 					description={model.subline}
 				/>
 			}
 			object={
 				<article className="mymind-wrapped-repo-pulse-stage__card">
-					<header className="mymind-wrapped-repo-pulse-stage__card-top">
-						<span
-							aria-hidden="true"
-							className="mymind-wrapped-repo-pulse-stage__card-dots"
-						>
-							<span />
-							<span />
-							<span />
-						</span>
-						<p className="mymind-wrapped-repo-pulse-stage__card-chip">
-							Where the work happened
-						</p>
-					</header>
-
 					<header className="mymind-wrapped-repo-pulse-stage__section-head">
 						<p className="mymind-wrapped-repo-pulse-stage__section-label">
 							Top repos
@@ -381,9 +366,6 @@ export function WrappedOnboardingRepoPulseStage(props: SharedStageProps) {
 								key={entry.id}
 								className="mymind-wrapped-repo-pulse-stage__row"
 							>
-								<p className="mymind-wrapped-repo-pulse-stage__role">
-									{entry.workType}
-								</p>
 								<section className="mymind-wrapped-repo-pulse-stage__row-copy">
 									<p className="mymind-wrapped-repo-pulse-stage__repo">
 										{entry.repoName}
@@ -405,11 +387,6 @@ export function WrappedOnboardingRepoPulseStage(props: SharedStageProps) {
 						) : null}
 					</ul>
 				</article>
-			}
-			support={
-				<p className="mymind-wrapped-repo-pulse-stage__footnote">
-					{model.footnote}
-				</p>
 			}
 		/>
 	);

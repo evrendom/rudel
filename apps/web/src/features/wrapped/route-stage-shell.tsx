@@ -23,6 +23,7 @@ interface WrappedRouteStageShellProps {
 	footerDebugControls?: ReactNode;
 	leadingControl?: ReactNode | null;
 	objectClassName?: string;
+	onBack?: () => void;
 	progressStepId?: WrappedOnboardingProgressStepId;
 	status?: ReactNode;
 	stageClassName?: string;
@@ -40,6 +41,7 @@ export function WrappedRouteStageShell(props: WrappedRouteStageShellProps) {
 		footerDebugControls,
 		leadingControl,
 		objectClassName,
+		onBack,
 		progressStepId,
 		stageClassName,
 		stage,
@@ -64,6 +66,8 @@ export function WrappedRouteStageShell(props: WrappedRouteStageShellProps) {
 			navigate(-1);
 		}
 	}
+
+	const handleBack = onBack ?? handleDefaultBack;
 
 	return (
 		<main className="mymind-wrapped-route mymind-wrapped-route--onboarding">
@@ -95,7 +99,7 @@ export function WrappedRouteStageShell(props: WrappedRouteStageShellProps) {
 												? "mymind-wrapped-top-tray__edge-control"
 												: "mymind-wrapped-back-button rounded-full transition-colors",
 										)}
-										onClick={handleDefaultBack}
+										onClick={handleBack}
 									>
 										{shouldUseReferenceTopChrome ? (
 											<ChevronLeft className="mymind-wrapped-top-tray__edge-icon mymind-wrapped-top-tray__edge-icon--back" />

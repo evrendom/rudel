@@ -3,9 +3,9 @@ import { formatPercent } from "../format";
 import type { WrappedSkillUsageItem } from "../types";
 
 export const SKILLS_STACK = {
-	focusTopRem: 5.35,
+	focusTopRem: 4.65,
 	interactionLockMs: 220,
-	shadowBleedRem: 0.65,
+	shadowBleedRem: 1,
 	stepRem: 2.95,
 	touchThresholdPx: 34,
 	viewportHeightRem: 16.2,
@@ -123,12 +123,11 @@ export function resolveSkillsStageModel(input: {
 	if (rankedSkills.length === 0) {
 		return {
 			cards,
-			footnote:
-				"No ranked skills yet. The board fills once the same skills start showing up more than once.",
-			headline: "Your skill board is warming up",
+			footnote: "",
+			hasRankedSkills: false,
+			headline: "skill issue, 404 skill not found",
 			isScrollable,
-			subline:
-				"The first three repeat skills will stack here once the pattern settles.",
+			subline: "",
 			trackHeightRem,
 		};
 	}
@@ -140,6 +139,7 @@ export function resolveSkillsStageModel(input: {
 				input.skillsAdoptionRate === null
 					? "Only one skill has enough signal to make the board so far."
 					: `${formatPercent(input.skillsAdoptionRate)} of sessions pulled in a skill.`,
+			hasRankedSkills: true,
 			headline: `${rankedSkills[0]?.name} took the lead`,
 			isScrollable,
 			subline:
@@ -158,6 +158,7 @@ export function resolveSkillsStageModel(input: {
 	return {
 		cards,
 		footnote,
+		hasRankedSkills: true,
 		headline: `${leaderName} leads the board`,
 		isScrollable,
 		subline: "A playful read on the skills that kept showing up.",

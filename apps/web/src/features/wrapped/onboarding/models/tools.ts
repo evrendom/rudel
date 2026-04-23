@@ -268,14 +268,8 @@ export function getToolsSubline(input: {
 	return `${formatPercent(slashCommandsAdoptionRate)} slash-command sessions. ${formatPercent(subagentsAdoptionRate)} subagent sessions.`;
 }
 
-function getToolsUsageLabel(rate: number, count: number | null) {
-	if (count === null) {
-		return `Used in ${formatPercent(rate)} of sessions`;
-	}
-
-	return `Used in ${formatPercent(rate)} of sessions (${count.toLocaleString()} ${
-		count === 1 ? "time" : "times"
-	})`;
+function getToolsUsageLabel(rate: number) {
+	return `${formatPercent(rate)} of sessions`;
 }
 
 function buildToolsStageEntries(input: {
@@ -309,7 +303,6 @@ function buildToolsStageEntries(input: {
 			name: item.name,
 			usageLabel: getToolsUsageLabel(
 				totalSessions > 0 ? (item.count / totalSessions) * 100 : 0,
-				item.count,
 			),
 			usageRate: totalSessions > 0 ? (item.count / totalSessions) * 100 : 0,
 		}));
