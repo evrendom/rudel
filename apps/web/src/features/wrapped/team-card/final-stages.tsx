@@ -10,6 +10,10 @@ import { appRoutes } from "@/app/routes";
 import { Button } from "@/app/ui/button";
 import type { TeamPageMemberRow } from "@/features/team/use-team-page-data";
 import {
+	WrappedStageCopy,
+	WrappedStageFrame,
+} from "@/features/wrapped/stage-frame";
+import {
 	WrappedTeamMemberCard,
 	type WrappedTeamMemberCardHeaderMetric,
 	type WrappedTeamMemberCardStatItem,
@@ -71,19 +75,22 @@ export function WrappedTeamCardShareStage(
 	} = props;
 
 	return (
-		<section className="mymind-wrapped-final-stage mymind-wrapped-final-stage--share">
-			<div className="mymind-wrapped-final-stage__copy">
-				<p className="mymind-wrapped-final-stage__eyebrow">Post preview</p>
-				<h1 className="mymind-wrapped-final-stage__headline">
-					Ready to share.
-				</h1>
-				<p className="mymind-wrapped-final-stage__subline">
-					This is the exact post that gets exported. Nothing extra gets added
-					after you tap share.
-				</p>
-			</div>
-
-			<div className="mymind-wrapped-final-stage__object">
+		<WrappedStageFrame
+			className="mymind-wrapped-final-stage mymind-wrapped-final-stage--share"
+			copyClassName="mymind-wrapped-final-stage__copy"
+			objectClassName="mymind-wrapped-final-stage__object"
+			supportClassName="mymind-wrapped-final-stage__support"
+			copy={
+				<WrappedStageCopy
+					description="This is the exact post that gets exported. Nothing extra gets added after you tap share."
+					descriptionClassName="mymind-wrapped-final-stage__subline"
+					eyebrow="Post preview"
+					eyebrowClassName="mymind-wrapped-final-stage__eyebrow"
+					title="Ready to share."
+					titleClassName="mymind-wrapped-final-stage__headline"
+				/>
+			}
+			object={
 				<div ref={sharePostRef} className="mymind-wrapped-share-preview">
 					<div className="mymind-wrapped-share-preview__shell team-lineup-surface-scope">
 						<div className="mymind-wrapped-share-preview__top">
@@ -134,52 +141,53 @@ export function WrappedTeamCardShareStage(
 						</div>
 					</div>
 				</div>
-			</div>
+			}
+			support={
+				<>
+					<nav className="mymind-wrapped-share-actions">
+						<Button
+							type="button"
+							size="lg"
+							className="mymind-wrapped-share-actions__primary"
+							onClick={onShare}
+						>
+							<Share2 className="size-4" />
+							Share post
+						</Button>
+						<div className="mymind-wrapped-share-actions__grid">
+							<Button
+								type="button"
+								size="lg"
+								variant="outline"
+								className="mymind-wrapped-share-actions__secondary"
+								onClick={onCopy}
+							>
+								<Clipboard className="size-4" />
+								Copy image
+							</Button>
+							<Button
+								type="button"
+								size="lg"
+								variant="outline"
+								className="mymind-wrapped-share-actions__secondary"
+								onClick={onDownload}
+							>
+								<Download className="size-4" />
+								Download PNG
+							</Button>
+						</div>
+					</nav>
 
-			<div className="mymind-wrapped-final-stage__support">
-				<nav className="mymind-wrapped-share-actions">
-					<Button
+					<button
 						type="button"
-						size="lg"
-						className="mymind-wrapped-share-actions__primary"
-						onClick={onShare}
+						className="mymind-wrapped-final-stage__back"
+						onClick={onBack}
 					>
-						<Share2 className="size-4" />
-						Share post
-					</Button>
-					<div className="mymind-wrapped-share-actions__grid">
-						<Button
-							type="button"
-							size="lg"
-							variant="outline"
-							className="mymind-wrapped-share-actions__secondary"
-							onClick={onCopy}
-						>
-							<Clipboard className="size-4" />
-							Copy image
-						</Button>
-						<Button
-							type="button"
-							size="lg"
-							variant="outline"
-							className="mymind-wrapped-share-actions__secondary"
-							onClick={onDownload}
-						>
-							<Download className="size-4" />
-							Download PNG
-						</Button>
-					</div>
-				</nav>
-
-				<button
-					type="button"
-					className="mymind-wrapped-final-stage__back"
-					onClick={onBack}
-				>
-					Back to card
-				</button>
-			</div>
-		</section>
+						Back to card
+					</button>
+				</>
+			}
+		/>
 	);
 }
 
@@ -202,19 +210,22 @@ export function WrappedTeamCardRevealStage(
 	} = props;
 
 	return (
-		<section className="mymind-wrapped-final-stage mymind-wrapped-final-stage--reveal">
-			<div className="mymind-wrapped-final-stage__copy">
-				<p className="mymind-wrapped-final-stage__eyebrow">Choose your card</p>
-				<h1 className="mymind-wrapped-final-stage__headline">
-					Pick the one you&apos;d post.
-				</h1>
-				<p className="mymind-wrapped-final-stage__subline">
-					The next page turns this card into a share post. You can still come
-					back and change it.
-				</p>
-			</div>
-
-			<div className="mymind-wrapped-final-stage__object mymind-wrapped-final-stage__object--card">
+		<WrappedStageFrame
+			className="mymind-wrapped-final-stage mymind-wrapped-final-stage--reveal"
+			copyClassName="mymind-wrapped-final-stage__copy"
+			objectClassName="mymind-wrapped-final-stage__object mymind-wrapped-final-stage__object--card"
+			supportClassName="mymind-wrapped-final-stage__support"
+			copy={
+				<WrappedStageCopy
+					description="The next page turns this card into a share post. You can still come back and change it."
+					descriptionClassName="mymind-wrapped-final-stage__subline"
+					eyebrow="Choose your card"
+					eyebrowClassName="mymind-wrapped-final-stage__eyebrow"
+					title="Pick the one you'd post."
+					titleClassName="mymind-wrapped-final-stage__headline"
+				/>
+			}
+			object={
 				<div className="mymind-wrapped-final-stage__card-frame">
 					<div className="team-lineup-card-tilt-stage w-full max-w-[17rem] min-[360px]:max-w-[18rem] sm:max-w-none">
 						<div
@@ -242,14 +253,14 @@ export function WrappedTeamCardRevealStage(
 						</div>
 					</div>
 				</div>
-			</div>
-
-			<div className="mymind-wrapped-final-stage__support">
+			}
+			support={
 				<div className="mymind-wrapped-archetype-switcher">
 					<Button
 						type="button"
 						variant="outline"
 						size="icon-sm"
+						aria-label="Show previous card theme"
 						className="mymind-wrapped-archetype-switcher__button"
 						onClick={onPreviousArchetype}
 					>
@@ -269,14 +280,15 @@ export function WrappedTeamCardRevealStage(
 						type="button"
 						variant="outline"
 						size="icon-sm"
+						aria-label="Show next card theme"
 						className="mymind-wrapped-archetype-switcher__button"
 						onClick={onNextArchetype}
 					>
 						<ChevronRight />
 					</Button>
 				</div>
-			</div>
-		</section>
+			}
+		/>
 	);
 }
 

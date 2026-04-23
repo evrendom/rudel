@@ -46,7 +46,7 @@ export function WrappedOnboardingIntroStage(props: IntroStageProps) {
 					<WrappedOnboardingStageCopy
 						eyebrow={`Hey, ${greetingName}.`}
 						title="Ready to see what your sessions say about you?"
-						titleClassName="mymind-wrapped-onboarding-stage-copy__headline--intro"
+						titleClassName="mymind-wrapped-stage-copy__headline--intro"
 						description="Claude Code and Codex, pulled into one story."
 					/>
 				</motion.div>

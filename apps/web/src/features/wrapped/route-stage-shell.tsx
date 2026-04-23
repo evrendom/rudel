@@ -7,6 +7,10 @@ import {
 	getWrappedOnboardingProgressView,
 	type WrappedOnboardingProgressStepId,
 } from "@/features/wrapped/wrapped-onboarding-progress";
+import {
+	WrappedStageCopy,
+	WrappedStageFrame,
+} from "@/features/wrapped/stage-frame";
 import { cn } from "@/lib/utils";
 import "@/features/wrapped/wrapped.css";
 
@@ -97,39 +101,28 @@ export function WrappedRouteStageShell(props: WrappedRouteStageShellProps) {
 
 					<div className="mymind-wrapped-stage-area">
 						<div className="mymind-wrapped-stage-slot">
-							<section
+							<WrappedStageFrame
 								className={cn("mymind-wrapped-entry-stage", stageClassName)}
-							>
-								<div className="mymind-wrapped-entry-stage__copy">
-									{eyebrow ? (
-										<p className="mymind-wrapped-entry-stage__eyebrow">
-											{eyebrow}
-										</p>
-									) : null}
-									<h1
-										className={cn(
+								copyClassName="mymind-wrapped-entry-stage__copy"
+								objectClassName={cn(
+									"mymind-wrapped-entry-stage__object",
+									objectClassName,
+								)}
+								copy={
+									<WrappedStageCopy
+										description={description}
+										descriptionClassName="mymind-wrapped-entry-stage__subline"
+										eyebrow={eyebrow}
+										eyebrowClassName="mymind-wrapped-entry-stage__eyebrow"
+										title={title}
+										titleClassName={cn(
 											"mymind-wrapped-entry-stage__headline",
 											titleClassName,
 										)}
-									>
-										{title}
-									</h1>
-									{description ? (
-										<div className="mymind-wrapped-entry-stage__subline">
-											{description}
-										</div>
-									) : null}
-								</div>
-
-								<div
-									className={cn(
-										"mymind-wrapped-entry-stage__object",
-										objectClassName,
-									)}
-								>
-									{stage}
-								</div>
-							</section>
+									/>
+								}
+								object={stage}
+							/>
 						</div>
 					</div>
 

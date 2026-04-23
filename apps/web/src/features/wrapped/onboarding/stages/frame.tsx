@@ -1,5 +1,9 @@
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
+import {
+	WrappedStageCopy,
+	WrappedStageFrame,
+} from "@/features/wrapped/stage-frame";
 
 interface WrappedOnboardingStageFrameProps {
 	className?: string;
@@ -23,81 +27,34 @@ interface WrappedOnboardingStageCopyProps {
 export function WrappedOnboardingStageFrame(
 	props: WrappedOnboardingStageFrameProps,
 ) {
-	const {
-		className,
-		copy,
-		object,
-		objectClassName,
-		support,
-		supportClassName,
-	} = props;
-
 	return (
-		<section className={cn("mymind-wrapped-onboarding-stage", className)}>
-			<div className="mymind-wrapped-onboarding-stage__copy">{copy}</div>
-			<div
-				className={cn(
-					"mymind-wrapped-onboarding-stage__object",
-					objectClassName,
-				)}
-			>
-				{object}
-			</div>
-			<div
-				className={cn(
-					"mymind-wrapped-onboarding-stage__support",
-					supportClassName,
-				)}
-			>
-				{support}
-			</div>
-		</section>
+		<WrappedStageFrame
+			{...props}
+			className={cn("mymind-wrapped-onboarding-stage", props.className)}
+			copyClassName="mymind-wrapped-onboarding-stage__copy"
+			objectClassName={cn(
+				"mymind-wrapped-onboarding-stage__object",
+				props.objectClassName,
+			)}
+			supportClassName={cn(
+				"mymind-wrapped-onboarding-stage__support",
+				props.supportClassName,
+			)}
+		/>
 	);
 }
 
 export function WrappedOnboardingStageCopy(
 	props: WrappedOnboardingStageCopyProps,
 ) {
-	const {
-		className,
-		description,
-		descriptionClassName,
-		eyebrow,
-		eyebrowClassName,
-		title,
-		titleClassName,
-	} = props;
-
 	return (
-		<div className={cn("mymind-wrapped-onboarding-stage-copy", className)}>
-			{eyebrow ? (
-				<p
-					className={cn(
-						"mymind-wrapped-onboarding-stage-copy__eyebrow",
-						eyebrowClassName,
-					)}
-				>
-					{eyebrow}
-				</p>
-			) : null}
-			<h2
-				className={cn(
-					"mymind-wrapped-onboarding-stage-copy__headline",
-					titleClassName,
-				)}
-			>
-				{title}
-			</h2>
-			{description ? (
-				<div
-					className={cn(
-						"mymind-wrapped-onboarding-stage-copy__description",
-						descriptionClassName,
-					)}
-				>
-					{description}
-				</div>
-			) : null}
-		</div>
+		<WrappedStageCopy
+			{...props}
+			titleAs="h1"
+			className={props.className}
+			descriptionClassName={props.descriptionClassName}
+			eyebrowClassName={props.eyebrowClassName}
+			titleClassName={props.titleClassName}
+		/>
 	);
 }

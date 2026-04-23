@@ -2667,57 +2667,56 @@ body.mymind-wrapped-body #root {
 	text-wrap: pretty;
 }
 
-.mymind-wrapped-onboarding-stage {
+.mymind-wrapped-stage {
 	display: grid;
-	grid-template-rows: auto minmax(0, 1fr) auto;
-	gap: clamp(1rem, 2.4svh, 1.5rem);
+	gap: 1.2rem;
 	width: 100%;
 	min-height: 100%;
 	margin: 0 auto;
-	container: wrapped-onboarding-stage / inline-size;
 }
 
-.mymind-wrapped-onboarding-stage__copy,
-.mymind-wrapped-onboarding-stage__object,
-.mymind-wrapped-onboarding-stage__support {
+.mymind-wrapped-stage--with-support {
+	grid-template-rows: auto minmax(0, 1fr) auto;
+}
+
+.mymind-wrapped-stage--without-support {
+	grid-template-rows: auto minmax(0, 1fr);
+}
+
+.mymind-wrapped-stage__copy,
+.mymind-wrapped-stage__object,
+.mymind-wrapped-stage__support {
 	min-width: 0;
 }
 
-.mymind-wrapped-onboarding-stage__copy {
+.mymind-wrapped-stage__copy {
 	display: grid;
-	justify-items: center;
 	align-content: start;
-	width: min(100%, 34rem);
-	margin: 0 auto;
 }
 
-.mymind-wrapped-onboarding-stage__object {
+.mymind-wrapped-stage__object {
 	display: flex;
 	align-items: center;
 	justify-content: center;
 	min-height: 0;
 	width: 100%;
+	min-width: 0;
 }
 
-.mymind-wrapped-onboarding-stage__support {
+.mymind-wrapped-stage__support {
 	display: grid;
-	justify-items: center;
 	align-content: start;
 	width: 100%;
 }
 
-.mymind-wrapped-onboarding-stage__support > * {
-	margin-block-start: 0;
-}
-
-.mymind-wrapped-onboarding-stage-copy {
+.mymind-wrapped-stage-copy {
 	display: grid;
 	justify-items: center;
 	gap: 0.55rem;
 	text-align: center;
 }
 
-.mymind-wrapped-onboarding-stage-copy__eyebrow {
+.mymind-wrapped-stage-copy__eyebrow {
 	margin: 0;
 	color: rgb(58 61 70 / 0.66);
 	font-size: 0.8125rem;
@@ -2727,7 +2726,7 @@ body.mymind-wrapped-body #root {
 	line-height: 1;
 }
 
-.mymind-wrapped-onboarding-stage-copy__headline {
+.mymind-wrapped-stage-copy__headline {
 	margin: 0;
 	max-width: 12ch;
 	color: #22201f;
@@ -2740,12 +2739,12 @@ body.mymind-wrapped-body #root {
 	text-wrap: balance;
 }
 
-.mymind-wrapped-onboarding-stage-copy__headline--intro {
+.mymind-wrapped-stage-copy__headline--intro {
 	font-size: clamp(2.55rem, 7vw, 3.25rem);
 	line-height: 1.02;
 }
 
-.mymind-wrapped-onboarding-stage-copy__description {
+.mymind-wrapped-stage-copy__description {
 	display: grid;
 	gap: 0.45rem;
 	max-width: 32ch;
@@ -2758,8 +2757,26 @@ body.mymind-wrapped-body #root {
 	text-wrap: pretty;
 }
 
-.mymind-wrapped-onboarding-stage-copy__description p {
+.mymind-wrapped-stage-copy__description p {
 	margin: 0;
+}
+
+.mymind-wrapped-onboarding-stage {
+	gap: clamp(1rem, 2.4svh, 1.5rem);
+	container: wrapped-onboarding-stage / inline-size;
+}
+
+.mymind-wrapped-onboarding-stage__copy {
+	width: min(100%, 34rem);
+	margin: 0 auto;
+}
+
+.mymind-wrapped-onboarding-stage__support {
+	justify-items: center;
+}
+
+.mymind-wrapped-onboarding-stage__support > * {
+	margin-block-start: 0;
 }
 
 .mymind-wrapped-upload-stage__headline {
@@ -2808,20 +2825,13 @@ body.mymind-wrapped-body #root {
 		width: min(100%, 36rem);
 	}
 
-	.mymind-wrapped-onboarding-stage__object {
+	.mymind-wrapped-onboarding-stage .mymind-wrapped-stage__object {
 		padding-inline: 0.75rem;
 	}
 }
 
 .mymind-wrapped-entry-stage {
-	display: grid;
-	grid-template-rows: auto minmax(0, 1fr);
-	gap: 1.2rem;
-	align-content: stretch;
-	width: 100%;
 	max-width: 34rem;
-	margin: 0 auto;
-	min-height: 100%;
 }
 
 .mymind-wrapped-entry-stage--auth {
@@ -2851,33 +2861,8 @@ body.mymind-wrapped-body #root {
 }
 
 .mymind-wrapped-entry-stage__copy {
-	display: grid;
-	justify-items: center;
-	gap: 0.55rem;
-	text-align: center;
-}
-
-.mymind-wrapped-entry-stage__eyebrow {
-	margin: 0;
-	color: rgb(58 61 70 / 0.66);
-	font-size: 0.8125rem;
-	font-family: var(--font-sans);
-	font-weight: 600;
-	letter-spacing: -0.01em;
-	line-height: 1;
-}
-
-.mymind-wrapped-entry-stage__headline {
-	margin: 0;
-	max-width: 12ch;
-	color: #22201f;
-	font-size: clamp(2.2rem, 6vw, 2.85rem);
-	font-family: var(--app-font-heading);
-	font-weight: 700;
-	letter-spacing: -0.07em;
-	line-height: 0.94;
-	text-align: center;
-	text-wrap: balance;
+	width: min(100%, 34rem);
+	margin: 0 auto;
 }
 
 .mymind-wrapped-entry-stage__headline--auth-intro {
@@ -2929,13 +2914,6 @@ body.mymind-wrapped-body #root {
 
 .mymind-wrapped-entry-stage__subline {
 	max-width: 32ch;
-	color: #6c6761;
-	font-size: 1rem;
-	font-family: var(--font-sans);
-	font-weight: 500;
-	line-height: 1.55;
-	text-align: center;
-	text-wrap: pretty;
 }
 
 .mymind-wrapped-entry-stage__subline strong {
@@ -2948,13 +2926,7 @@ body.mymind-wrapped-body #root {
 }
 
 .mymind-wrapped-entry-stage__object {
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	min-height: 0;
 	align-self: stretch;
-	width: 100%;
-	min-width: 0;
 }
 
 .mymind-wrapped-entry-stage--mobile-handoff
@@ -4337,68 +4309,25 @@ body.mymind-wrapped-body #root {
 }
 
 .mymind-wrapped-final-stage {
-	display: grid;
-	grid-template-areas:
-		"copy"
-		"object"
-		"support";
-	grid-template-rows: auto minmax(0, 1fr) auto;
-	gap: 1.2rem;
-	align-content: stretch;
-	width: 100%;
 	max-width: 72rem;
-	min-height: 100%;
-	margin: 0 auto;
 }
 
 .mymind-wrapped-final-stage__copy {
-	grid-area: copy;
-	display: grid;
-	justify-items: center;
-	gap: 0.55rem;
-	text-align: center;
-}
-
-.mymind-wrapped-final-stage__eyebrow {
-	margin: 0;
-	color: rgb(58 61 70 / 0.66);
-	font-size: 0.8125rem;
-	font-family: var(--font-sans);
-	font-weight: 600;
-	letter-spacing: -0.01em;
-	line-height: 1;
+	width: min(100%, 34rem);
+	margin: 0 auto;
 }
 
 .mymind-wrapped-final-stage__headline {
-	margin: 0;
 	max-width: 11ch;
-	color: #22201f;
 	font-size: clamp(2.2rem, 6vw, 2.8rem);
-	font-family: var(--app-font-heading);
-	font-weight: 700;
-	letter-spacing: -0.07em;
-	line-height: 0.94;
-	text-align: center;
-	text-wrap: balance;
 }
 
 .mymind-wrapped-final-stage__subline {
-	margin: 0;
 	max-width: 30ch;
-	color: #6c6761;
-	font-size: 1rem;
-	font-family: var(--font-sans);
-	font-weight: 500;
 	line-height: 1.5;
-	text-align: center;
-	text-wrap: pretty;
 }
 
 .mymind-wrapped-final-stage__object {
-	grid-area: object;
-	display: flex;
-	align-items: center;
-	justify-content: center;
 	min-width: 0;
 }
 
@@ -4414,10 +4343,7 @@ body.mymind-wrapped-body #root {
 }
 
 .mymind-wrapped-final-stage__support {
-	grid-area: support;
-	display: grid;
 	gap: 0.85rem;
-	align-content: start;
 }
 
 .mymind-wrapped-final-stage__back {

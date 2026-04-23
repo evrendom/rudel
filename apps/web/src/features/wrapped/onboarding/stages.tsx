@@ -18,6 +18,7 @@ import { WrappedOnboardingModelStage } from "./stages/model";
 import { WrappedOnboardingSkillsStage } from "./stages/skills";
 import { WrappedOnboardingToolsStage } from "./stages/tools";
 import { WrappedOnboardingUploadStage } from "./stages/upload";
+import { WrappedStageCopy, WrappedStageFrame } from "../stage-frame";
 import type { WrappedOnboardingMetrics } from "./types";
 
 interface WrappedOnboardingStageProps {
@@ -129,25 +130,45 @@ export function WrappedOnboardingStage(props: WrappedOnboardingStageProps) {
 		stepId: step.id,
 		totalSessions,
 	});
+	const [headlineLine, ...detailLines] = content;
 
 	return (
-		<section className="mymind-wrapped-copy-stage">
-			<div className="mymind-wrapped-copy-stage__content">
-				{content.map((line) => (
-					<p
-						key={`${line.tone ?? "default"}:${line.text}`}
-						className={cn(
-							"mymind-wrapped-copy-stage__line",
-							line.tone === "danger"
+		<WrappedStageFrame
+			className="mymind-wrapped-onboarding-stage"
+			copyClassName="mymind-wrapped-onboarding-stage__copy"
+			objectClassName="mymind-wrapped-onboarding-stage__object"
+			copy={
+				headlineLine ? (
+					<WrappedStageCopy
+						title={headlineLine.text}
+						titleClassName={cn(
+							headlineLine.tone === "danger"
 								? "text-red-700 dark:text-red-400"
 								: undefined,
 						)}
-					>
-						{line.text}
-					</p>
-				))}
-			</div>
-		</section>
+					/>
+				) : null
+			}
+			object={
+				detailLines.length > 0 ? (
+					<div className="mymind-wrapped-copy-stage__content">
+						{detailLines.map((line) => (
+							<p
+								key={`${line.tone ?? "default"}:${line.text}`}
+								className={cn(
+									"mymind-wrapped-copy-stage__line",
+									line.tone === "danger"
+										? "text-red-700 dark:text-red-400"
+										: undefined,
+								)}
+							>
+								{line.text}
+							</p>
+						))}
+					</div>
+				) : null
+			}
+		/>
 	);
 }
 
