@@ -18,6 +18,8 @@ import {
 } from "./pricing.service.js";
 
 const DEFAULT_DEV_HOURLY_RATE = 100;
+// ROI rollups need model-aware per-session pricing; a flat token rate would
+// reintroduce the Codex cached-input bug at the aggregate layer.
 const PER_SESSION_COST_SQL = buildEstimatedCostSql({
 	modelExpr: "model_used",
 	inputExpr: "ifNull(input_tokens, 0)",

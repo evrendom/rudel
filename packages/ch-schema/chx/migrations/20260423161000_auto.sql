@@ -100,6 +100,8 @@ WITH
     '{}'
   ) AS _final_usage,
 
+  -- Keep the provider totals intact here: cached input is already nested inside
+  -- Codex/OpenAI input_tokens, and total_tokens remains input + output.
   toUInt64OrZero(JSONExtractRaw(_final_usage, 'input_tokens')) AS _input_tokens,
   toUInt64OrZero(JSONExtractRaw(_final_usage, 'output_tokens')) AS _output_tokens,
   toUInt64OrZero(JSONExtractRaw(_final_usage, 'cached_input_tokens')) AS _cache_read_input_tokens,

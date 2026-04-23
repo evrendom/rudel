@@ -6,6 +6,8 @@ import {
 } from "../model-pricing.js";
 
 describe("model pricing", () => {
+	// OpenAI/Codex cached input is a subset of total input, so the regression
+	// tests pin the non-double-counted formula in both JS and SQL paths.
 	test("charges OpenAI cached input at the cached rate instead of twice", () => {
 		const baseRateInputTokens = calculateBaseRateInputTokens({
 			inputTokens: 55_031,

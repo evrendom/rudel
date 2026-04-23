@@ -19,6 +19,8 @@ const logger = getLogger(["rudel", "api", "project-service"]);
 
 const PROJECT_KEY_EXPR = `if(git_remote != '', git_remote, if(package_name != '', package_name, project_path))`;
 const PROJECT_DISPLAY_EXPR = `if(git_remote != '', arrayElement(splitByChar('/', git_remote), -1), arrayElement(splitByChar('/', replaceAll(project_path, '\\\\', '/')), -1))`;
+// Project cost views must reuse the shared pricing helper so Codex cached-input
+// fixes stay consistent with the rest of the analytics surface.
 const PER_SESSION_COST_SQL = buildEstimatedCostSql({
 	modelExpr: "model_used",
 	inputExpr: "ifNull(input_tokens, 0)",

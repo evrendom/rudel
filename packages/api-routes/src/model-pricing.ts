@@ -368,6 +368,8 @@ export function calculateBaseRateInputTokens({
 	cacheReadInputTokens?: number;
 	cacheCreationInputTokens?: number;
 }) {
+	// OpenAI/Codex report cached and cache-write tokens inside total input, so
+	// the full-rate bucket must exclude both before pricing the remainder.
 	return Math.max(
 		0,
 		inputTokens - cacheReadInputTokens - cacheCreationInputTokens,
@@ -448,6 +450,8 @@ export function buildEstimatedCostSql({
 	const outputRateSql = buildRateSql(modelExpr, "outputPerMillion");
 	const cachedInputRateSql = buildRateSql(modelExpr, "cachedInputPerMillion");
 	const cacheWriteRateSql = buildRateSql(modelExpr, "cacheWritePerMillion");
+	// Keep the SQL path aligned with the TypeScript estimator so aggregate API
+	// queries and per-session calculations cannot drift.
 	const baseRateInputExpr = `greatest(((${inputExpr}) - (${cacheReadInputExpr}) - (${cacheCreationInputExpr})), 0)`;
 
 	const expression = `((${baseRateInputExpr}) / 1000000.0) * (${inputRateSql}) + ((${outputExpr}) / 1000000.0) * (${outputRateSql}) + ((${cacheReadInputExpr}) / 1000000.0) * (${cachedInputRateSql}) + ((${cacheCreationInputExpr}) / 1000000.0) * (${cacheWriteRateSql})`;

@@ -55,6 +55,8 @@ function extractTokenData(content: string): TokenDataPoint[] {
 }
 
 function getTokenData(content: string): TokenDataPoint[] {
+	// Internal conversation charts need provider-specific token extraction
+	// because Codex does not emit Claude-style assistant usage entries.
 	if (isCodexFormat(content)) {
 		return extractCodexTokenData(content);
 	}

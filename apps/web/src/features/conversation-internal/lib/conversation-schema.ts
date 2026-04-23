@@ -101,6 +101,8 @@ export type Conversation = z.infer<typeof ConversationSchema>;
 
 // Parser
 export function parseConversations(content: string): Array<Conversation> {
+	// Route Codex transcripts through the Codex parser first so the internal view
+	// sees the same normalized message shape as the shared session detail flow.
 	if (isCodexFormat(content)) {
 		return parseCodexConversations(content);
 	}
