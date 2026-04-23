@@ -1,98 +1,16 @@
 import { ArrowLeft } from "lucide-react";
-import type { CSSProperties } from "react";
 import { useState } from "react";
 import { LoginForm } from "@/features/auth/LoginForm";
 import { SignupForm } from "@/features/auth/SignupForm";
-import type { TeamPageMemberRow } from "@/features/team/use-team-page-data";
 import {
 	WrappedPrimaryAction,
 	WrappedSecondaryAction,
 } from "@/features/wrapped/actions";
 import { WrappedRouteStageShell } from "./route-stage-shell";
-import { WRAPPED_ARCHETYPE_CARD_THEMES } from "./team-card/archetypes";
-import {
-	WrappedTeamMemberCard,
-	type WrappedTeamMemberCardHeaderMetric,
-	type WrappedTeamMemberCardStatItem,
-} from "./team-card/card";
+import { WrappedGuestPreviewCard } from "./WrappedGuestPreviewCard";
+import type { WrappedGuestPreviewProfile } from "./wrapped-guest-preview";
 
 type WrappedAuthMode = "login" | "signup" | null;
-
-const AUTH_PLAYER_CARD_THEME =
-	WRAPPED_ARCHETYPE_CARD_THEMES.find(({ id }) => id === "npc") ??
-	WRAPPED_ARCHETYPE_CARD_THEMES[0];
-
-const AUTH_PLAYER_CARD_SHELL_STYLE = {
-	"--team-lineup-card-grain-opacity": "0",
-	"--team-lineup-card-grain-size": "40px",
-} as CSSProperties;
-
-const AUTH_PLAYER_CARD_ROW: TeamPageMemberRow = {
-	userId: "wrapped-auth-preview",
-	displayName: "You",
-	email: null,
-	role: "Wrapped preview",
-	imageUrl: "/wrapped-profile.png",
-	cost: 182,
-	favoriteModel: "claude-3-7-sonnet",
-	inputTokens: 540_000,
-	outputTokens: 320_000,
-	totalSessions: 142,
-	activeDays: 46,
-	totalTokens: 860_000,
-	lastActiveDate: "2026-04-18T00:00:00.000Z",
-	hasActivity: true,
-};
-
-const AUTH_PLAYER_CARD_HEADER_LEFT_METRIC: WrappedTeamMemberCardHeaderMetric = {
-	title: "$182 estimated spend",
-	value: "$182",
-};
-
-const AUTH_PLAYER_CARD_HEADER_RIGHT_METRIC: WrappedTeamMemberCardHeaderMetric =
-	{
-		title: "Smooth Operator",
-		value: "Smooth Operator",
-	};
-
-const AUTH_PLAYER_CARD_STAT_ITEMS = [
-	{
-		key: "codex-share",
-		title: "32% of wrapped sessions came from Codex",
-		icon: "codex",
-		value: "32%",
-	},
-	{
-		key: "claude-share",
-		title: "68% of wrapped sessions came from Claude Code",
-		icon: "claude",
-		value: "68%",
-	},
-	{
-		key: "sessions",
-		label: "SESS",
-		title: "142 sessions",
-		value: "142",
-	},
-	{
-		key: "days",
-		label: "DAYS",
-		title: "46 active days",
-		value: "46",
-	},
-	{
-		key: "tokens",
-		label: "TOK",
-		title: "860,000 total tokens",
-		value: "860K",
-	},
-	{
-		key: "repos",
-		label: "REPOS",
-		title: "9 distinct tracked projects",
-		value: "9",
-	},
-] as const satisfies readonly WrappedTeamMemberCardStatItem[];
 
 const WRAPPED_AUTH_INTRO_TITLE = (
 	<span className="mymind-wrapped-auth-intro-title">
@@ -108,16 +26,22 @@ const WRAPPED_AUTH_INTRO_TITLE = (
 	</span>
 );
 
+interface WrappedAuthFlowProps {
+	onBackToHandleStep?: () => void;
+	previewProfile: WrappedGuestPreviewProfile | null;
+}
+
 interface WrappedAuthIntentProps {
 	onChooseMode: (mode: Exclude<WrappedAuthMode, null>) => void;
+	previewProfile: WrappedGuestPreviewProfile | null;
 }
 
 function WrappedAuthIntent(props: WrappedAuthIntentProps) {
-	const { onChooseMode } = props;
+	const { onChooseMode, previewProfile } = props;
 
 	return (
 		<div className="mymind-wrapped-auth-panel mymind-wrapped-auth-panel--intro">
-			<WrappedAuthPlayerCardPreview />
+			<WrappedGuestPreviewCard profile={previewProfile} />
 			<div className="mymind-wrapped-auth-panel__actions">
 				<WrappedPrimaryAction
 					kind="button"
@@ -125,9 +49,7 @@ function WrappedAuthIntent(props: WrappedAuthIntentProps) {
 				>
 					Create account
 				</WrappedPrimaryAction>
-				<WrappedSecondaryAction
-					onClick={() => onChooseMode("login")}
-				>
+				<WrappedSecondaryAction onClick={() => onChooseMode("login")}>
 					Log in
 				</WrappedSecondaryAction>
 			</div>
@@ -135,62 +57,24 @@ function WrappedAuthIntent(props: WrappedAuthIntentProps) {
 	);
 }
 
-function WrappedAuthPlayerCardPreview() {
-	return (
-		<section
-			aria-label="Wrapped player card preview"
-			className="mymind-wrapped-auth-card-preview team-lineup-surface-scope"
-		>
-			<div className="team-lineup-card-tilt-stage w-full max-w-[14.75rem]">
-				<div
-					data-tilt-active="true"
-					className="team-lineup-card-tilt-shell mymind-wrapped-auth-card-preview__tilt"
-				>
-					<div className="grid justify-center">
-						<WrappedTeamMemberCard
-							headerLeftMetric={AUTH_PLAYER_CARD_HEADER_LEFT_METRIC}
-							headerRightMetric={AUTH_PLAYER_CARD_HEADER_RIGHT_METRIC}
-							hideHeaderLogo
-							layoutPreset="team-card-preview"
-							mediaPanelClassName="mx-auto"
-							row={AUTH_PLAYER_CARD_ROW}
-							shellClassName={AUTH_PLAYER_CARD_THEME.shellClassName}
-							shellStyle={AUTH_PLAYER_CARD_SHELL_STYLE}
-							statItems={AUTH_PLAYER_CARD_STAT_ITEMS}
-							statTileClassName=""
-							theme={AUTH_PLAYER_CARD_THEME.theme}
-						/>
-					</div>
-				</div>
-			</div>
-		</section>
-	);
-}
-
-export function WrappedAuthFlow() {
+export function WrappedAuthFlow(props: WrappedAuthFlowProps) {
+	const { onBackToHandleStep, previewProfile } = props;
 	const [mode, setMode] = useState<WrappedAuthMode>(null);
 
 	return (
 		<WrappedRouteStageShell
-			description={getWrappedAuthDescription(mode)}
-			leadingControl={
-				mode ? (
-					<button
-						type="button"
-						aria-label="Go back"
-						className="mymind-wrapped-back-button rounded-full transition-colors"
-						onClick={() => setMode(null)}
-					>
-						<ArrowLeft className="size-4" />
-					</button>
-				) : null
-			}
+			description={getWrappedAuthDescription(mode, previewProfile)}
+			leadingControl={renderWrappedAuthLeadingControl({
+				mode,
+				onBackToHandleStep,
+				setMode,
+			})}
 			objectClassName={
 				mode
 					? "mymind-wrapped-entry-stage__object--auth"
 					: "mymind-wrapped-entry-stage__object--auth-intro"
 			}
-			stage={renderWrappedAuthStage(mode, setMode)}
+			stage={renderWrappedAuthStage(mode, previewProfile, setMode)}
 			stageClassName="mymind-wrapped-entry-stage--auth"
 			title={getWrappedAuthTitle(mode)}
 			titleClassName={
@@ -200,8 +84,45 @@ export function WrappedAuthFlow() {
 	);
 }
 
+function renderWrappedAuthLeadingControl(input: {
+	mode: WrappedAuthMode;
+	onBackToHandleStep?: () => void;
+	setMode: (mode: WrappedAuthMode) => void;
+}) {
+	const { mode, onBackToHandleStep, setMode } = input;
+
+	if (mode) {
+		return (
+			<button
+				type="button"
+				aria-label="Go back"
+				className="mymind-wrapped-back-button rounded-full transition-colors"
+				onClick={() => setMode(null)}
+			>
+				<ArrowLeft className="size-4" />
+			</button>
+		);
+	}
+
+	if (!onBackToHandleStep) {
+		return null;
+	}
+
+	return (
+		<button
+			type="button"
+			aria-label="Go back"
+			className="mymind-wrapped-back-button rounded-full transition-colors"
+			onClick={onBackToHandleStep}
+		>
+			<ArrowLeft className="size-4" />
+		</button>
+	);
+}
+
 function renderWrappedAuthStage(
 	mode: WrappedAuthMode,
+	previewProfile: WrappedGuestPreviewProfile | null,
 	setMode: (mode: WrappedAuthMode) => void,
 ) {
 	if (mode === "login") {
@@ -222,10 +143,15 @@ function renderWrappedAuthStage(
 		);
 	}
 
-	return <WrappedAuthIntent onChooseMode={setMode} />;
+	return (
+		<WrappedAuthIntent onChooseMode={setMode} previewProfile={previewProfile} />
+	);
 }
 
-function getWrappedAuthDescription(mode: WrappedAuthMode) {
+function getWrappedAuthDescription(
+	mode: WrappedAuthMode,
+	previewProfile: WrappedGuestPreviewProfile | null,
+) {
 	if (mode === "login") {
 		return "Use your Rudel account to continue.";
 	}
@@ -234,7 +160,11 @@ function getWrappedAuthDescription(mode: WrappedAuthMode) {
 		return "Create your Rudel account to continue.";
 	}
 
-	return undefined;
+	if (!previewProfile) {
+		return "Save the preview to your Rudel account before the full story starts.";
+	}
+
+	return `Save @${previewProfile.username} to your Rudel account before the full story starts.`;
 }
 
 function getWrappedAuthTitle(mode: WrappedAuthMode) {
