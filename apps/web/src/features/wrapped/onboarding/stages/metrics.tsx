@@ -1,4 +1,4 @@
-import { useReducedMotion } from "motion/react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import type { CSSProperties } from "react";
 import { useState } from "react";
 import { useMountEffect } from "@/hooks/useMountEffect";
@@ -20,8 +20,12 @@ import {
 } from "./frame";
 
 interface SharedStageProps {
+	displayName?: string;
 	onboardingMetrics: WrappedOnboardingMetrics;
+	onScaleRainRevealChange?: (isVisible: boolean) => void;
 	previewState: string;
+	scaleDisplayedTokens?: number;
+	totalSessions?: number;
 }
 
 interface LockInMeterStyle extends CSSProperties {
@@ -33,64 +37,171 @@ interface QualityMeterStyle extends CSSProperties {
 }
 
 export function WrappedOnboardingScaleStage(props: SharedStageProps) {
-	const { onboardingMetrics, previewState } = props;
+	const {
+		displayName,
+		onboardingMetrics,
+		onScaleRainRevealChange,
+		previewState,
+		scaleDisplayedTokens,
+		totalSessions,
+	} = props;
 	const totalTokens = resolveScalePreviewTokens(
 		onboardingMetrics.totalTokens,
 		previewState,
 	);
 	const model = resolveScaleStageModel(totalTokens);
+	const sessionCount = totalSessions ?? onboardingMetrics.totalSessions;
 
 	return (
 		<WrappedOnboardingStageFrame
 			className="mymind-wrapped-scale-stage"
 			copy={
 				<WrappedOnboardingStageCopy
-					key={`scale-count:${model.totalTokens}`}
-					title={<WrappedScaleCountTitle totalTokens={model.totalTokens} />}
-					titleClassName="mymind-wrapped-scale-stage__headline"
+					title={
+						<WrappedScaleStageSequenceTitle
+							displayName={displayName}
+							displayTokens={scaleDisplayedTokens ?? 0}
+							onRevealChange={onScaleRainRevealChange}
+							totalSessions={sessionCount}
+							totalTokens={model.totalTokens}
+						/>
+					}
+					titleClassName={cn(
+						"mymind-wrapped-scale-stage__headline",
+						model.totalTokens > 0
+							? "mymind-wrapped-scale-stage__headline--sequenced"
+							: undefined,
+					)}
 				/>
 			}
 		/>
 	);
 }
 
-function WrappedScaleCountTitle(props: { totalTokens: number }) {
-	const { totalTokens } = props;
+type ScaleStageSequencePhase = "greeting" | "sessions" | "burned" | "total";
+
+const SCALE_STAGE_SEQUENCE = [
+	{ phase: "greeting", holdMs: 2_000 },
+	{ phase: "sessions", holdMs: 2_000 },
+	{ phase: "burned", holdMs: 2_000 },
+] as const satisfies ReadonlyArray<{
+	holdMs: number;
+	phase: Exclude<ScaleStageSequencePhase, "total">;
+}>;
+
+const SCALE_STAGE_SEQUENCE_TRANSITION = {
+	duration: 0.26,
+	ease: [0.22, 1, 0.36, 1] as const,
+};
+
+function WrappedScaleStageSequenceTitle(props: {
+	displayName?: string;
+	displayTokens: number;
+	onRevealChange?: (isVisible: boolean) => void;
+	totalSessions: number;
+	totalTokens: number;
+}) {
+	const {
+		displayName,
+		displayTokens,
+		onRevealChange,
+		totalSessions,
+		totalTokens,
+	} = props;
 	const shouldReduceMotion = useReducedMotion();
 	const reduceMotion = shouldReduceMotion ?? false;
-	const [displayValue, setDisplayValue] = useState(() => {
-		return reduceMotion ? totalTokens : 0;
-	});
+	const [phase, setPhase] = useState<ScaleStageSequencePhase>(() =>
+		reduceMotion ? "total" : "greeting",
+	);
 
 	useMountEffect(() => {
-		if (reduceMotion || totalTokens <= 0) {
-			setDisplayValue(totalTokens);
+		if (reduceMotion) {
+			setPhase("total");
+			onRevealChange?.(true);
 			return;
 		}
 
-		const durationMs = 1100;
-		const startTime = window.performance.now();
-		let frameId = 0;
+		setPhase("greeting");
+		onRevealChange?.(false);
+		const timeoutIds: number[] = [];
+		let elapsedMs = 0;
 
-		const tick = (currentTime: number) => {
-			const elapsedMs = currentTime - startTime;
-			const progress = Math.min(elapsedMs / durationMs, 1);
-			const easedProgress = 1 - (1 - progress) ** 3;
-			setDisplayValue(Math.round(totalTokens * easedProgress));
+		for (const item of SCALE_STAGE_SEQUENCE) {
+			elapsedMs += item.holdMs;
+			timeoutIds.push(
+				window.setTimeout(() => {
+					setPhase(item.phase);
+				}, elapsedMs - item.holdMs),
+			);
+		}
 
-			if (progress < 1) {
-				frameId = window.requestAnimationFrame(tick);
-			}
-		};
-
-		frameId = window.requestAnimationFrame(tick);
+		timeoutIds.push(
+			window.setTimeout(() => {
+				setPhase("total");
+				onRevealChange?.(true);
+			}, elapsedMs),
+		);
 
 		return () => {
-			window.cancelAnimationFrame(frameId);
+			for (const timeoutId of timeoutIds) {
+				window.clearTimeout(timeoutId);
+			}
 		};
 	});
 
-	return <>{displayValue.toLocaleString("en-US")} tokens</>;
+	return (
+		<AnimatePresence initial={false} mode="wait">
+			<motion.span
+				key={`${phase}:${displayName ?? ""}:${totalSessions}:${totalTokens}`}
+				animate={{ opacity: 1, scale: 1, y: 0 }}
+				className="mymind-wrapped-scale-stage__title-shell"
+				exit={{ opacity: 0, scale: 0.985, y: -18 }}
+				initial={{ opacity: 0, scale: 0.985, y: 18 }}
+				transition={SCALE_STAGE_SEQUENCE_TRANSITION}
+			>
+				{phase === "total" ? (
+					<WrappedScaleCountTitle
+						displayTokens={displayTokens}
+						totalTokens={totalTokens}
+					/>
+				) : (
+					resolveScaleStageSequenceLine(phase, displayName, totalSessions)
+				)}
+			</motion.span>
+		</AnimatePresence>
+	);
+}
+
+function resolveScaleStageSequenceLine(
+	phase: Exclude<ScaleStageSequencePhase, "total">,
+	displayName: string | undefined,
+	totalSessions: number,
+) {
+	if (phase === "greeting") {
+		const trimmedName = displayName?.trim();
+		return trimmedName ? `Hey ${trimmedName}.` : "Hey there.";
+	}
+
+	if (phase === "sessions") {
+		const sessionLabel = totalSessions === 1 ? "session" : "sessions";
+		return `Out of the ${totalSessions.toLocaleString("en-US")} ${sessionLabel} you uploaded...`;
+	}
+
+	return "You've burned...";
+}
+
+function WrappedScaleCountTitle(props: {
+	displayTokens: number;
+	totalTokens: number;
+}) {
+	const { displayTokens, totalTokens } = props;
+	const shouldReduceMotion = useReducedMotion();
+	const reduceMotion = shouldReduceMotion ?? false;
+	const visibleTokens = reduceMotion
+		? totalTokens
+		: Math.max(0, Math.min(totalTokens, displayTokens));
+
+	return <>{visibleTokens.toLocaleString("en-US")} tokens</>;
 }
 
 export function WrappedOnboardingLockInStage(props: SharedStageProps) {

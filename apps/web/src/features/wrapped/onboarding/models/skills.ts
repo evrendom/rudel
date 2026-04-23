@@ -3,6 +3,8 @@ import { formatPercent } from "../format";
 import type { WrappedSkillUsageItem } from "../types";
 
 export const SKILLS_STACK = {
+	cardHeightRem: 5.5,
+	columnInsetRem: 0.45,
 	focusTopRem: 4.65,
 	interactionLockMs: 220,
 	shadowBleedRem: 1,
@@ -13,6 +15,15 @@ export const SKILLS_STACK = {
 	wheelResetMs: 140,
 	wheelThresholdPx: 36,
 } as const;
+
+interface SkillsCollapsedCardStyleInput {
+	cardIndex: number;
+	collapsedScaleStep: number;
+	collapsedStepRem: number;
+	totalCards: number;
+	topRem: number;
+	widthPercent: number;
+}
 
 export function resolveSkillsPreviewInput(
 	input: {
@@ -161,7 +172,7 @@ export function resolveSkillsStageModel(input: {
 		hasRankedSkills: true,
 		headline: `${leaderName} leads the board`,
 		isScrollable,
-		subline: "A playful read on the skills that kept showing up.",
+		subline: "The skills that kept showing up across your sessions.",
 		trackHeightRem,
 	};
 }
@@ -210,6 +221,72 @@ export function getSkillsCardStyle(
 		top: `${SKILLS_STACK.focusTopRem}rem`,
 		width: `calc(${depthStyles.widthPercent}% - ${SKILLS_STACK.shadowBleedRem * 2}rem)`,
 		zIndex,
+	} as CSSProperties;
+}
+
+export function getSkillsCollapsedCardStyle(
+	input: SkillsCollapsedCardStyleInput,
+): CSSProperties {
+	const {
+		cardIndex,
+		collapsedScaleStep,
+		collapsedStepRem,
+		totalCards,
+		topRem,
+		widthPercent,
+	} = input;
+	const usableCardCount = Math.max(totalCards, 1);
+	const maxStepRem =
+		usableCardCount === 1
+			? 0
+			: Math.max(
+					0,
+					(SKILLS_STACK.viewportHeightRem - topRem - SKILLS_STACK.cardHeightRem) /
+						(usableCardCount - 1),
+				);
+	const resolvedStepRem = Math.min(collapsedStepRem, maxStepRem);
+	const scale = Math.max(0.88, 1 - cardIndex * collapsedScaleStep);
+
+	return {
+		"--skills-card-y": `${cardIndex * resolvedStepRem}rem`,
+		"--skills-card-scale": scale,
+		"--skills-card-rotate": "0deg",
+		"--skills-card-z": "0px",
+		filter: "blur(0px)",
+		opacity: 1,
+		pointerEvents: "none",
+		top: `${topRem}rem`,
+		width: `calc(${widthPercent}% - ${SKILLS_STACK.shadowBleedRem * 2}rem)`,
+		zIndex: usableCardCount - cardIndex,
+	} as CSSProperties;
+}
+
+export function getSkillsColumnCardStyle(
+	cardIndex: number,
+	totalCards: number,
+	columnInsetRem: number,
+): CSSProperties {
+	const usableCardCount = Math.max(totalCards, 1);
+	const availableTravelRem = Math.max(
+		0,
+		SKILLS_STACK.viewportHeightRem -
+			SKILLS_STACK.cardHeightRem -
+			columnInsetRem * 2,
+	);
+	const stepRem =
+		usableCardCount === 1 ? 0 : availableTravelRem / (usableCardCount - 1);
+
+	return {
+		"--skills-card-y": `${cardIndex * stepRem}rem`,
+		"--skills-card-scale": 1,
+		"--skills-card-rotate": "0deg",
+		"--skills-card-z": "0px",
+		filter: "blur(0px)",
+		opacity: 1,
+		pointerEvents: "none",
+		top: `${columnInsetRem}rem`,
+		width: `calc(100% - ${SKILLS_STACK.shadowBleedRem * 2}rem)`,
+		zIndex: usableCardCount - cardIndex,
 	} as CSSProperties;
 }
 

@@ -4,7 +4,7 @@ const SCALE_STAGE_TOKENS_PER_BALL = 1_000;
 const SCALE_STAGE_MIN_BALL_COUNT = 1;
 const SCALE_STAGE_MAX_ACTIVE_BALL_COUNT = 240;
 const SCALE_STAGE_BALL_SIZE_PX = 24;
-const SCALE_STAGE_SOURCE_X_PERCENTS = [18, 50, 82] as const;
+const SCALE_STAGE_SOURCE_X_PERCENTS = [50] as const;
 
 export interface ScaleRainBall {
 	bounceDamping: number;
@@ -81,12 +81,12 @@ export function buildScaleRainBalls(totalTokens: number): ScaleRainBall[] {
 			friction: Number((0.989 + random() * 0.006).toFixed(3)),
 			gravityPx: Number((0.44 + random() * 0.08).toFixed(2)),
 			id: `scale-rain-ball-${index}`,
-			initialVelocityXPx: Number(((random() - 0.5) * 2.6).toFixed(2)),
+			initialVelocityXPx: Number(((random() - 0.5) * 0.9).toFixed(2)),
 			maxBounces: random() > 0.72 ? 2 : 1,
 			sizePx: SCALE_STAGE_BALL_SIZE_PX,
 			sourceXPercent,
-			sourceYOffsetPx: Math.round(-36 - random() * 22),
-			spawnJitterPx: Math.round(10 + random() * 10),
+			sourceYOffsetPx: Math.round(-48 - random() * 14),
+			spawnJitterPx: Math.round(6 + random() * 6),
 			squashMultiplier: Number((0.038 + random() * 0.02).toFixed(3)),
 		} satisfies ScaleRainBall;
 	});
@@ -106,6 +106,51 @@ export function resolveScaleRainBallCount(totalTokens: number) {
 	return Math.max(
 		SCALE_STAGE_MIN_BALL_COUNT,
 		Math.ceil(totalTokens / SCALE_STAGE_TOKENS_PER_BALL),
+	);
+}
+
+export function resolveScaleRainDisplayedTokens(
+	totalTokens: number,
+	displayedBallProgress: number,
+	totalBallCount: number,
+) {
+	if (totalTokens <= 0 || displayedBallProgress <= 0 || totalBallCount <= 0) {
+		return 0;
+	}
+
+	const clampedBallProgress = Math.max(
+		0,
+		Math.min(totalBallCount, displayedBallProgress),
+	);
+
+	if (totalBallCount === 1) {
+		return Math.min(
+			Math.max(0, Math.round(totalTokens)),
+			Math.round(totalTokens * clampedBallProgress),
+		);
+	}
+
+	const fullBallCount = Math.max(0, totalBallCount - 1);
+	const fullBallTokens = fullBallCount * SCALE_STAGE_TOKENS_PER_BALL;
+	const finalBallTokens = Math.max(0, totalTokens - fullBallTokens);
+
+	if (clampedBallProgress <= fullBallCount) {
+		return Math.min(
+			Math.max(0, Math.round(totalTokens)),
+			Math.round(clampedBallProgress * SCALE_STAGE_TOKENS_PER_BALL),
+		);
+	}
+
+	const finalBallProgress = Math.min(1, clampedBallProgress - fullBallCount);
+	return Math.min(
+		Math.max(0, Math.round(totalTokens)),
+		fullBallTokens +
+			Math.round(
+				finalBallProgress *
+					(finalBallTokens === 0
+						? SCALE_STAGE_TOKENS_PER_BALL
+						: finalBallTokens),
+			),
 	);
 }
 

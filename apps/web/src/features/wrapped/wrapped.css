@@ -678,6 +678,12 @@ body.mymind-wrapped-body #root {
 	pointer-events: none;
 }
 
+.mymind-wrapped-skills-stage__stack[data-stack-stage="collapsed"],
+.mymind-wrapped-skills-stage__stack[data-stack-stage="column"] {
+	perspective: none;
+	transform-style: flat;
+}
+
 .mymind-wrapped-skills-stage__empty-state {
 	display: grid;
 	justify-items: center;
@@ -758,26 +764,33 @@ body.mymind-wrapped-body #root {
 	content: "";
 	position: absolute;
 	z-index: 55;
-	inset-inline: -1.5rem;
+	inset-inline: var(--skills-stack-fade-inset, -1.5rem);
 	top: -0.25rem;
-	height: 3.2rem;
+	height: var(--skills-stack-top-fade-height, 3.2rem);
 	background: linear-gradient(
 		to bottom,
-		var(--surface) 30%,
+		var(--surface) 22%,
 		rgb(255 255 255 / 0)
 	);
 	pointer-events: none;
+	transition: opacity 220ms var(--skills-ease-out);
 }
 
 .mymind-wrapped-skills-stage__stack::after {
 	content: "";
 	position: absolute;
 	z-index: 55;
-	inset-inline: -1.5rem;
+	inset-inline: var(--skills-stack-fade-inset, -1.5rem);
 	bottom: -0.25rem;
-	height: 3.6rem;
-	background: linear-gradient(to top, var(--surface) 34%, rgb(255 255 255 / 0));
+	height: var(--skills-stack-bottom-fade-height, 3.6rem);
+	background: linear-gradient(to top, var(--surface) 24%, rgb(255 255 255 / 0));
 	pointer-events: none;
+	transition: opacity 220ms var(--skills-ease-out);
+}
+
+.mymind-wrapped-skills-stage__stack[data-stack-stage="collapsed"]::before,
+.mymind-wrapped-skills-stage__stack[data-stack-stage="collapsed"]::after {
+	opacity: 0;
 }
 
 .mymind-wrapped-skills-stage__card {
@@ -805,9 +818,10 @@ body.mymind-wrapped-body #root {
 	pointer-events: auto;
 	touch-action: none;
 	transition:
-		transform 260ms var(--skills-ease-drawer),
-		opacity 180ms var(--skills-ease-out),
-		filter 220ms var(--skills-ease-out),
+		transform var(--skills-card-transform-duration, 260ms)
+		var(--skills-ease-drawer),
+		opacity var(--skills-card-visibility-duration, 180ms) var(--skills-ease-out),
+		filter var(--skills-card-visibility-duration, 220ms) var(--skills-ease-out),
 		box-shadow 260ms var(--skills-ease-drawer),
 		background 240ms var(--skills-ease-in-out);
 }
@@ -957,6 +971,11 @@ body.mymind-wrapped-body #root {
 	text-wrap: balance;
 }
 
+.mymind-wrapped-tools-stage__title-shell,
+.mymind-wrapped-tools-stage__description-shell {
+	display: block;
+}
+
 .mymind-wrapped-tools-stage__object {
 	width: min(100%, 18.5rem);
 	margin: 1.7rem auto 0;
@@ -977,6 +996,13 @@ body.mymind-wrapped-body #root {
 	list-style: none;
 }
 
+.mymind-wrapped-tools-stage__entry-shell {
+	position: absolute;
+	inset: 0;
+	pointer-events: none;
+	will-change: transform, opacity, filter;
+}
+
 .mymind-wrapped-tools-stage__entry {
 	position: absolute;
 	top: 0;
@@ -991,6 +1017,7 @@ body.mymind-wrapped-body #root {
 	background: rgb(255 255 255 / 0.92);
 	box-shadow: 0 8px 18px rgb(15 23 42 / 0.05);
 	cursor: pointer;
+	pointer-events: auto;
 	text-align: left;
 	transform: translateX(var(--tools-card-translate-x, -50%))
 		translateY(var(--tools-card-translate-y, 0rem))
@@ -2292,6 +2319,14 @@ body.mymind-wrapped-body #root {
 	letter-spacing: -0.08em;
 	line-height: 0.9;
 	text-wrap: balance;
+}
+
+.mymind-wrapped-scale-stage__headline--sequenced {
+	max-width: min(14ch, 100%);
+}
+
+.mymind-wrapped-scale-stage__title-shell {
+	display: block;
 }
 
 :is(

@@ -8,6 +8,7 @@ import {
 	buildScaleRainBalls,
 	buildStepContent,
 	resolveScaleRainBallCount,
+	resolveScaleRainDisplayedTokens,
 	type ScaleRainBall,
 } from "./models";
 import { WrappedOnboardingIntroStage } from "./stages/intro";
@@ -27,12 +28,15 @@ interface WrappedOnboardingStageProps {
 	displayName: string;
 	isExiting: boolean;
 	onboardingMetrics: WrappedOnboardingMetrics;
+	onScaleRainRevealChange?: (isVisible: boolean) => void;
 	previewState: string;
+	scaleDisplayedTokens?: number;
 	step: WrappedStep;
 	totalSessions: number;
 }
 
 interface WrappedOnboardingScaleRainBackdropProps {
+	onDisplayedTokensChange?: (tokens: number) => void;
 	reduceMotion: boolean;
 	totalTokens: number;
 }
@@ -41,8 +45,10 @@ interface ScaleRainSimulationBall extends ScaleRainBall {
 	active: boolean;
 	bounceCount: number;
 	exiting: boolean;
+	hasTouchedFloor: boolean;
 	opacity: number;
 	radius: number;
+	spawnY: number;
 	squashScaleX: number;
 	squashScaleY: number;
 	squashUntilMs: number;
@@ -59,13 +65,18 @@ const SCALE_RAIN_MAX_FLOW_DURATION_MS = 15_000;
 const SCALE_RAIN_RELEASE_VELOCITY_PX = 2.6;
 const SCALE_RAIN_SQUASH_DURATION_MS = 80;
 const SCALE_RAIN_EXIT_FADE_STEP = 0.045;
+const SCALE_RAIN_SWAY_CYCLE_MS = 2_800;
+const SCALE_RAIN_SWAY_EDGE_INSET_PX = 18;
+const SCALE_RAIN_SWAY_VELOCITY_FACTOR = 0.56;
 
 export function WrappedOnboardingStage(props: WrappedOnboardingStageProps) {
 	const {
 		displayName,
 		isExiting,
 		onboardingMetrics,
+		onScaleRainRevealChange,
 		previewState,
+		scaleDisplayedTokens,
 		step,
 		totalSessions,
 	} = props;
@@ -124,8 +135,13 @@ export function WrappedOnboardingStage(props: WrappedOnboardingStageProps) {
 	if (step.id === "scale") {
 		return (
 			<WrappedOnboardingScaleStage
+				key={`scale:${displayName}:${totalSessions}:${previewState}:${onboardingMetrics.totalTokens}`}
+				displayName={displayName}
 				onboardingMetrics={onboardingMetrics}
+				onScaleRainRevealChange={onScaleRainRevealChange}
 				previewState={previewState}
+				scaleDisplayedTokens={scaleDisplayedTokens}
+				totalSessions={totalSessions}
 			/>
 		);
 	}
@@ -200,7 +216,7 @@ export function WrappedOnboardingStage(props: WrappedOnboardingStageProps) {
 export function WrappedOnboardingScaleRainBackdrop(
 	props: WrappedOnboardingScaleRainBackdropProps,
 ) {
-	const { reduceMotion, totalTokens } = props;
+	const { onDisplayedTokensChange, reduceMotion, totalTokens } = props;
 	const balls = buildScaleRainBalls(totalTokens);
 	const logicalBallCount = resolveScaleRainBallCount(totalTokens);
 
@@ -208,7 +224,9 @@ export function WrappedOnboardingScaleRainBackdrop(
 		<WrappedOnboardingScaleRainSimulation
 			key={`scale-rain:${totalTokens}:${reduceMotion ? "reduce" : "full"}`}
 			balls={balls}
+			onDisplayedTokensChange={onDisplayedTokensChange}
 			reduceMotion={reduceMotion}
+			totalTokens={totalTokens}
 			totalBallCount={logicalBallCount}
 		/>
 	);
@@ -216,10 +234,18 @@ export function WrappedOnboardingScaleRainBackdrop(
 
 function WrappedOnboardingScaleRainSimulation(props: {
 	balls: readonly ScaleRainBall[];
+	onDisplayedTokensChange?: (tokens: number) => void;
 	reduceMotion: boolean;
+	totalTokens: number;
 	totalBallCount: number;
 }) {
-	const { balls, reduceMotion, totalBallCount } = props;
+	const {
+		balls,
+		onDisplayedTokensChange,
+		reduceMotion,
+		totalBallCount,
+		totalTokens,
+	} = props;
 	const ballRefs = useRef<Array<HTMLSpanElement | null>>([]);
 
 	useMountEffect(() => {
@@ -227,6 +253,8 @@ function WrappedOnboardingScaleRainSimulation(props: {
 		if (nodes.length === 0) {
 			return;
 		}
+
+		onDisplayedTokensChange?.(0);
 
 		const width = window.innerWidth;
 		const height = window.innerHeight;
@@ -236,6 +264,7 @@ function WrappedOnboardingScaleRainSimulation(props: {
 
 		if (reduceMotion) {
 			positionReducedMotionScaleRain(simulationBalls, width, height);
+			onDisplayedTokensChange?.(totalTokens);
 			renderScaleRainSimulation(
 				nodes,
 				simulationBalls,
@@ -246,6 +275,8 @@ function WrappedOnboardingScaleRainSimulation(props: {
 
 		let frameId = 0;
 		let emittedBallCount = 0;
+		let completedBallCount = 0;
+		let reportedTokens = 0;
 		const releaseIntervalMs = resolveScaleRainReleaseIntervalMs(totalBallCount);
 		let nextReleaseAtMs = window.performance.now();
 		let releaseCursor = 0;
@@ -255,6 +286,7 @@ function WrappedOnboardingScaleRainSimulation(props: {
 				const activation = activateNextScaleRainBall(
 					simulationBalls,
 					releaseCursor,
+					now,
 					width,
 				);
 
@@ -289,9 +321,26 @@ function WrappedOnboardingScaleRainSimulation(props: {
 						ball.y - ball.radius > height + ball.radius * 3 ||
 						ball.opacity <= 0
 					) {
+						if (ball.hasTouchedFloor) {
+							completedBallCount += 1;
+						}
 						deactivateScaleRainBall(ball);
 					}
 				}
+			}
+
+			const nextReportedTokens = resolveScaleRainDisplayedTokens(
+				totalTokens,
+				resolveScaleRainDisplayedBallProgress(
+					simulationBalls,
+					completedBallCount,
+					height,
+				),
+				totalBallCount,
+			);
+			if (nextReportedTokens !== reportedTokens) {
+				reportedTokens = nextReportedTokens;
+				onDisplayedTokensChange?.(nextReportedTokens);
 			}
 
 			renderScaleRainSimulation(nodes, simulationBalls, now);
@@ -344,8 +393,10 @@ function createScaleRainSimulationBall(
 		active: false,
 		bounceCount: 0,
 		exiting: false,
+		hasTouchedFloor: false,
 		opacity: 0,
 		radius,
+		spawnY: ball.sourceYOffsetPx,
 		squashScaleX: 1,
 		squashScaleY: 1,
 		squashUntilMs: 0,
@@ -419,6 +470,7 @@ function resolveScaleRainFloorCollision(
 	}
 
 	ball.y = floorY;
+	ball.hasTouchedFloor = true;
 	if (
 		ball.bounceCount < ball.maxBounces &&
 		Math.abs(ball.vy) > ball.floorThreshold
@@ -465,9 +517,15 @@ function applyScaleRainImpact(
 	ball.squashUntilMs = now + SCALE_RAIN_SQUASH_DURATION_MS;
 }
 
-function activateScaleRainBall(ball: ScaleRainSimulationBall, width: number) {
+function activateScaleRainBall(
+	ball: ScaleRainSimulationBall,
+	width: number,
+	now: number,
+) {
+	const emitterMotion = resolveScaleRainEmitterMotion(now, width);
 	const sourceX = clampScaleRainX(
 		(width * ball.sourceXPercent) / 100 +
+			emitterMotion.offsetPx +
 			(Math.random() - 0.5) * ball.spawnJitterPx,
 		ball.radius,
 		width,
@@ -476,20 +534,26 @@ function activateScaleRainBall(ball: ScaleRainSimulationBall, width: number) {
 	ball.active = true;
 	ball.bounceCount = 0;
 	ball.exiting = false;
+	ball.hasTouchedFloor = false;
 	ball.opacity = 1;
 	ball.squashScaleX = 1;
 	ball.squashScaleY = 1;
 	ball.squashUntilMs = 0;
-	ball.vx = ball.initialVelocityXPx + (Math.random() - 0.5) * 1.4;
+	ball.vx =
+		ball.initialVelocityXPx +
+		emitterMotion.velocityPx +
+		(Math.random() - 0.5) * 0.24;
 	ball.vy = 0.35 + Math.random() * 0.75;
 	ball.x = sourceX;
 	ball.y = ball.sourceYOffsetPx;
+	ball.spawnY = ball.sourceYOffsetPx;
 }
 
 function deactivateScaleRainBall(ball: ScaleRainSimulationBall) {
 	ball.active = false;
 	ball.bounceCount = 0;
 	ball.exiting = false;
+	ball.hasTouchedFloor = false;
 	ball.opacity = 0;
 	ball.squashScaleX = 1;
 	ball.squashScaleY = 1;
@@ -526,9 +590,41 @@ function positionReducedMotionScaleRain(
 	}
 }
 
+function resolveScaleRainDisplayedBallProgress(
+	balls: readonly ScaleRainSimulationBall[],
+	completedBallCount: number,
+	height: number,
+) {
+	let progress = completedBallCount;
+
+	for (const ball of balls) {
+		if (!ball.active) {
+			continue;
+		}
+
+		progress += resolveScaleRainBallProgress(ball, height);
+	}
+
+	return progress;
+}
+
+function resolveScaleRainBallProgress(
+	ball: ScaleRainSimulationBall,
+	height: number,
+) {
+	if (ball.hasTouchedFloor || ball.exiting) {
+		return 1;
+	}
+
+	const floorY = height - ball.radius + SCALE_RAIN_FLOOR_OFFSET_PX;
+	const travelDistance = Math.max(1, floorY - ball.spawnY);
+	return Math.max(0, Math.min(1, (ball.y - ball.spawnY) / travelDistance));
+}
+
 function activateNextScaleRainBall(
 	balls: readonly ScaleRainSimulationBall[],
 	startIndex: number,
+	now: number,
 	width: number,
 ) {
 	for (let offset = 0; offset < balls.length; offset += 1) {
@@ -538,7 +634,7 @@ function activateNextScaleRainBall(
 			continue;
 		}
 
-		activateScaleRainBall(ball, width);
+		activateScaleRainBall(ball, width, now);
 		return {
 			didActivate: true,
 			nextCursor: (index + 1) % balls.length,
@@ -569,4 +665,17 @@ function resolveScaleRainReleaseIntervalMs(totalBallCount: number) {
 
 function clampScaleRainX(x: number, radius: number, width: number) {
 	return Math.max(radius, Math.min(width - radius, x));
+}
+
+function resolveScaleRainEmitterMotion(now: number, width: number) {
+	const cycleProgress =
+		((now % SCALE_RAIN_SWAY_CYCLE_MS) / SCALE_RAIN_SWAY_CYCLE_MS) * Math.PI * 2;
+	const amplitudePx = Math.max(0, width / 2 - SCALE_RAIN_SWAY_EDGE_INSET_PX);
+	const offsetPx = Math.sin(cycleProgress) * amplitudePx;
+	const velocityPx = Math.cos(cycleProgress) * SCALE_RAIN_SWAY_VELOCITY_FACTOR;
+
+	return {
+		offsetPx,
+		velocityPx,
+	};
 }

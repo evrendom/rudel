@@ -108,7 +108,7 @@ describe("WrappedSetupCompletePage", () => {
 
 		await user.click(
 			screen.getByRole("button", {
-				name: "See what it reveal about you",
+				name: "See what it reveals about you",
 			}),
 		);
 
@@ -195,7 +195,7 @@ describe("WrappedSetupCompletePage", () => {
 
 		await user.click(
 			screen.getByRole("button", {
-				name: "See what it reveal about you",
+				name: "See what it reveals about you",
 			}),
 		);
 

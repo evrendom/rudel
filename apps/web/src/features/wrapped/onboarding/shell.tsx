@@ -92,6 +92,8 @@ export function WrappedTeamCardOnboarding(
 	const reduceMotion = shouldReduceMotion ?? false;
 	const exitTimerRef = useRef<number | null>(null);
 	const [pendingStepIndex, setPendingStepIndex] = useState<number | null>(null);
+	const [scaleDisplayedTokens, setScaleDisplayedTokens] = useState(0);
+	const [isScaleRainVisible, setIsScaleRainVisible] = useState(false);
 	const [exitingStepId, setExitingStepId] = useState<WrappedStepId | null>(
 		null,
 	);
@@ -117,12 +119,13 @@ export function WrappedTeamCardOnboarding(
 			)
 		: "auto";
 	const isScaleStep = activeStep.id === "scale";
-	const scaleRainTotalTokens = isScaleStep
-		? resolveScalePreviewTokens(
-				onboardingMetrics.totalTokens,
-				activePreviewState,
-			)
-		: 0;
+	const scaleRainTotalTokens =
+		isScaleStep && isScaleRainVisible
+			? resolveScalePreviewTokens(
+					onboardingMetrics.totalTokens,
+					activePreviewState,
+				)
+			: 0;
 	const isStepTransitioning = pendingStepIndex !== null;
 	const showPreviewControls = import.meta.env.DEV;
 
@@ -144,6 +147,12 @@ export function WrappedTeamCardOnboarding(
 			setNavigationDirection(boundedStepIndex > activeStepIndex ? 1 : -1);
 		}
 
+		const nextStep = WRAPPED_SATURDAY_STEPS[boundedStepIndex];
+		if (activeStep.id === "scale" || nextStep?.id === "scale") {
+			setIsScaleRainVisible(false);
+			setScaleDisplayedTokens(0);
+		}
+
 		startTransition(() => {
 			setSearchParams(
 				(previousSearchParams) => {
@@ -152,8 +161,6 @@ export function WrappedTeamCardOnboarding(
 					if (boundedStepIndex === 0) {
 						nextSearchParams.delete(STEP_QUERY_PARAM);
 					} else {
-						const nextStep = WRAPPED_SATURDAY_STEPS[boundedStepIndex];
-
 						if (!nextStep) {
 							return previousSearchParams;
 						}
@@ -192,6 +199,11 @@ export function WrappedTeamCardOnboarding(
 	}
 
 	function setPreviewState(stepId: PreviewableWrappedStepId, value: string) {
+		if (stepId === "scale") {
+			setIsScaleRainVisible(false);
+			setScaleDisplayedTokens(0);
+		}
+
 		startTransition(() => {
 			setSearchParams(
 				(previousSearchParams) => {
@@ -209,6 +221,13 @@ export function WrappedTeamCardOnboarding(
 				{ replace: true },
 			);
 		});
+	}
+
+	function handleScaleRainRevealChange(isVisible: boolean) {
+		setIsScaleRainVisible(isVisible);
+		if (!isVisible) {
+			setScaleDisplayedTokens(0);
+		}
 	}
 
 	function handleTopChromeBack() {
@@ -240,6 +259,7 @@ export function WrappedTeamCardOnboarding(
 				>
 					{isScaleStep ? (
 						<WrappedOnboardingScaleRainBackdrop
+							onDisplayedTokensChange={setScaleDisplayedTokens}
 							reduceMotion={reduceMotion}
 							totalTokens={scaleRainTotalTokens}
 						/>
@@ -291,7 +311,9 @@ export function WrappedTeamCardOnboarding(
 													displayName={displayName}
 													isExiting={activeStep.id === exitingStepId}
 													onboardingMetrics={onboardingMetrics}
+													onScaleRainRevealChange={handleScaleRainRevealChange}
 													previewState={activePreviewState}
+													scaleDisplayedTokens={scaleDisplayedTokens}
 													step={activeStep}
 													totalSessions={totalSessions}
 												/>

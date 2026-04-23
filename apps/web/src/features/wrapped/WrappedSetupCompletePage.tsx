@@ -58,7 +58,7 @@ export function WrappedSetupCompletePage(props: WrappedSetupCompletePageProps) {
 				footer={
 					<div className="mymind-wrapped-action-stack">
 						<WrappedPrimaryAction kind="button" onClick={props.onContinue}>
-							See what it reveal about you
+							See what it reveals about you
 						</WrappedPrimaryAction>
 						<WrappedSecondaryAction
 							aria-expanded={isUploadMoreVisible}
