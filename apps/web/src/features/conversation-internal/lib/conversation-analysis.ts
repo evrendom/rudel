@@ -1,3 +1,4 @@
+import { buildClaudeTokenTimeline } from "@rudel/api-routes";
 import type {
 	TokenDataPoint,
 	ToolActivityPoint,
@@ -5,6 +6,10 @@ import type {
 import type { Conversation } from "@/features/conversation-internal/lib/conversation-schema";
 import { parseConversations } from "@/features/conversation-internal/lib/conversation-schema";
 import { isSlashCommandMessage } from "@/features/conversation-internal/lib/parse-slash-command";
+import {
+	extractCodexTokenData,
+	isCodexFormat,
+} from "@/lib/codex-conversation-parser";
 
 export interface ConversationArtifacts {
 	conversations: Conversation[];
@@ -14,40 +19,27 @@ export interface ConversationArtifacts {
 	totalMessages: number;
 }
 
-function extractTokenData(content: string): TokenDataPoint[] {
-	const points: TokenDataPoint[] = [];
-	const lines = content.split("\n").filter((line) => line.trim() !== "");
-
-	for (let i = 0; i < lines.length; i += 1) {
-		const line = lines[i];
-		if (!line) continue;
-
-		try {
-			const parsed = JSON.parse(line) as {
-				type?: string;
-				message?: {
-					usage?: {
-						input_tokens?: number;
-						output_tokens?: number;
-					};
-				};
-			};
-
-			if (parsed.type !== "assistant") continue;
-			const usage = parsed.message?.usage;
-			if (!usage) continue;
-
-			points.push({
-				messageIndex: i,
-				inputTokens: usage.input_tokens ?? 0,
-				outputTokens: usage.output_tokens ?? 0,
-			});
-		} catch {
-			// Skip malformed JSON lines.
-		}
+function getTokenData(content: string): TokenDataPoint[] {
+	// Internal conversation charts need provider-specific token extraction
+	// because Codex does not emit Claude-style assistant usage entries.
+	if (isCodexFormat(content)) {
+		return extractCodexTokenData(content);
 	}
 
-	return points;
+	// Anthropic reports uncached input separately from cache reads and writes,
+	// so Claude charts must expand those fields to show the true processed input.
+	return buildClaudeTokenTimeline(content, {}).map((point, messageIndex) => ({
+		messageIndex,
+		inputTokens: point.input_tokens,
+		outputTokens: point.output_tokens,
+		uncachedInputTokens: point.uncached_input_tokens,
+		cacheReadInputTokens: point.cache_read_input_tokens,
+		cacheCreationInputTokens: point.cache_creation_input_tokens,
+		totalTokens: point.total_tokens,
+		source: point.source,
+		sourceId: point.source_id,
+		timestamp: point.timestamp,
+	}));
 }
 
 function extractToolActivity(entries: Conversation[]): ToolActivityPoint[] {
@@ -138,7 +130,7 @@ export function buildConversationArtifacts(
 		return {
 			conversations,
 			parseError,
-			tokenData: conversations.length > 0 ? extractTokenData(content) : [],
+			tokenData: conversations.length > 0 ? getTokenData(content) : [],
 			toolActivityData:
 				conversations.length > 0 ? extractToolActivity(conversations) : [],
 			totalMessages: conversations.length,

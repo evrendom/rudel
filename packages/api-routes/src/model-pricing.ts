@@ -359,6 +359,23 @@ export function getModelPricingCatalog() {
 	return MODEL_PRICING_CATALOG;
 }
 
+export function calculateBaseRateInputTokens({
+	inputTokens,
+	cacheReadInputTokens = 0,
+	cacheCreationInputTokens = 0,
+}: {
+	inputTokens: number;
+	cacheReadInputTokens?: number;
+	cacheCreationInputTokens?: number;
+}) {
+	// OpenAI/Codex report cached and cache-write tokens inside total input, so
+	// the full-rate bucket must exclude both before pricing the remainder.
+	return Math.max(
+		0,
+		inputTokens - cacheReadInputTokens - cacheCreationInputTokens,
+	);
+}
+
 export function calculateEstimatedCost({
 	model,
 	inputTokens,
@@ -375,8 +392,13 @@ export function calculateEstimatedCost({
 	precision?: number;
 }) {
 	const pricing = getResolvedPricing(model);
+	const baseRateInputTokens = calculateBaseRateInputTokens({
+		inputTokens,
+		cacheReadInputTokens,
+		cacheCreationInputTokens,
+	});
 	const cost =
-		(inputTokens / 1_000_000) * pricing.inputPerMillion +
+		(baseRateInputTokens / 1_000_000) * pricing.inputPerMillion +
 		(outputTokens / 1_000_000) * pricing.outputPerMillion +
 		(cacheReadInputTokens / 1_000_000) * pricing.cachedInputPerMillion +
 		(cacheCreationInputTokens / 1_000_000) * pricing.cacheWritePerMillion;
@@ -428,8 +450,11 @@ export function buildEstimatedCostSql({
 	const outputRateSql = buildRateSql(modelExpr, "outputPerMillion");
 	const cachedInputRateSql = buildRateSql(modelExpr, "cachedInputPerMillion");
 	const cacheWriteRateSql = buildRateSql(modelExpr, "cacheWritePerMillion");
+	// Keep the SQL path aligned with the TypeScript estimator so aggregate API
+	// queries and per-session calculations cannot drift.
+	const baseRateInputExpr = `greatest(((${inputExpr}) - (${cacheReadInputExpr}) - (${cacheCreationInputExpr})), 0)`;
 
-	const expression = `((${inputExpr}) / 1000000.0) * (${inputRateSql}) + ((${outputExpr}) / 1000000.0) * (${outputRateSql}) + ((${cacheReadInputExpr}) / 1000000.0) * (${cachedInputRateSql}) + ((${cacheCreationInputExpr}) / 1000000.0) * (${cacheWriteRateSql})`;
+	const expression = `((${baseRateInputExpr}) / 1000000.0) * (${inputRateSql}) + ((${outputExpr}) / 1000000.0) * (${outputRateSql}) + ((${cacheReadInputExpr}) / 1000000.0) * (${cachedInputRateSql}) + ((${cacheCreationInputExpr}) / 1000000.0) * (${cacheWriteRateSql})`;
 
 	if (typeof precision === "number") {
 		return `round(${expression}, ${precision})`;

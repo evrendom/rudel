@@ -1,0 +1,228 @@
+-- chkit-migration-format: v1
+-- generated-at: 2026-04-23T16:10:00.000Z
+-- cli-version: manual
+-- definition-count: 0
+-- operation-count: 1
+-- rename-suggestion-count: 0
+-- risk-summary: safe=0, caution=1, danger=0
+
+-- operation: insert key=table:rudel.session_analytics risk=caution
+-- Backfill historical Codex rows with canonical token semantics.
+-- session_analytics is a ReplacingMergeTree(ingested_at), so reinserting the
+-- latest Codex projection with a fresh ingested_at makes FINAL prefer the
+-- corrected row without deleting the legacy record.
+INSERT INTO rudel.session_analytics (
+  session_date,
+  last_interaction_date,
+  session_id,
+  organization_id,
+  project_path,
+  git_remote,
+  package_name,
+  package_type,
+  content,
+  subagents,
+  skills,
+  slash_commands,
+  subagent_types,
+  ingested_at,
+  user_id,
+  git_branch,
+  git_sha,
+  input_tokens,
+  output_tokens,
+  cache_read_input_tokens,
+  cache_creation_input_tokens,
+  total_tokens,
+  tag,
+  source,
+  total_interactions,
+  actual_duration_min,
+  avg_period_sec,
+  median_period_sec,
+  quick_responses,
+  normal_responses,
+  long_pauses,
+  error_count,
+  model_used,
+  has_commit,
+  session_archetype,
+  success_score,
+  used_plan_mode,
+  inference_duration_sec,
+  human_duration_sec
+)
+WITH
+  arrayFilter(
+    x -> x != '',
+    splitByChar('\n', cs.content)
+  ) AS _all_lines,
+
+  arrayFilter(x -> JSONHas(x, 'timestamp'), _all_lines) AS _ts_lines,
+
+  arrayMap(
+    x -> parseDateTime64BestEffort(JSONExtractString(x, 'timestamp')),
+    _ts_lines
+  ) AS _timestamps,
+
+  if(length(_timestamps) > 1,
+    arrayMap(i -> dateDiff('second', _timestamps[i], _timestamps[i+1]), range(1, length(_timestamps))),
+    []
+  ) AS _prompt_periods_sec,
+
+  if(length(_timestamps) > 1,
+    arrayMap(i -> if(i < length(_timestamps),
+      dateDiff('second', _timestamps[i], _timestamps[i+1]), 0), range(1, length(_timestamps))),
+    []
+  ) AS _inference_gaps,
+
+  arrayFilter(
+    x -> JSONExtractString(x, 'type') = 'response_item' OR JSONExtractString(x, 'type') = 'event_msg',
+    _all_lines
+  ) AS _interaction_lines,
+
+  arrayFilter(
+    x -> JSONExtractString(x, 'type') = 'response_item'
+      AND JSONExtractString(JSONExtractRaw(x, 'payload'), 'type') = 'function_call_output',
+    _all_lines
+  ) AS _tool_output_lines,
+
+  arrayFilter(
+    x -> JSONExtractString(x, 'type') = 'event_msg'
+      AND JSONExtractString(JSONExtractRaw(x, 'payload'), 'type') = 'token_count'
+      AND JSONExtractRaw(JSONExtractRaw(x, 'payload'), 'info') IS NOT NULL
+      AND JSONExtractRaw(JSONExtractRaw(x, 'payload'), 'info') != 'null',
+    _all_lines
+  ) AS _token_count_lines,
+
+  if(length(_token_count_lines) > 0,
+    JSONExtractRaw(JSONExtractRaw(JSONExtractRaw(arrayElement(_token_count_lines, -1), 'payload'), 'info'), 'total_token_usage'),
+    '{}'
+  ) AS _final_usage,
+
+  -- Keep the provider totals intact here: cached input is already nested inside
+  -- Codex/OpenAI input_tokens, and total_tokens remains input + output.
+  toUInt64OrZero(JSONExtractRaw(_final_usage, 'input_tokens')) AS _input_tokens,
+  toUInt64OrZero(JSONExtractRaw(_final_usage, 'output_tokens')) AS _output_tokens,
+  toUInt64OrZero(JSONExtractRaw(_final_usage, 'cached_input_tokens')) AS _cache_read_input_tokens,
+
+  arrayMin(_timestamps) AS _session_date,
+  arrayMax(_timestamps) AS _last_interaction_date,
+  dateDiff('minute', _session_date, _last_interaction_date) AS _duration_min,
+
+  arrayFilter(x -> JSONExtractString(x, 'type') = 'session_meta', _all_lines) AS _meta_lines,
+
+  JSONExtractString(
+    JSONExtractRaw(arrayElement(_meta_lines, 1), 'payload'),
+    'model_provider'
+  ) AS _model_provider,
+
+  arrayFilter(
+    x -> JSONExtractString(x, 'type') = 'turn_context',
+    _all_lines
+  ) AS _turn_context_lines,
+
+  if(length(_turn_context_lines) > 0,
+    JSONExtractString(JSONExtractRaw(arrayElement(_turn_context_lines, 1), 'payload'), 'model'),
+    ''
+  ) AS _model_from_turn_context,
+
+  arrayDistinct(arrayFilter(x -> x != '', extractAll(cs.content, '"name":"exec_command"[^}]*skills/([a-zA-Z0-9_-]+)/SKILL'))) AS _skills
+
+SELECT
+  _session_date as session_date,
+  _last_interaction_date as last_interaction_date,
+  cs.session_id,
+  cs.organization_id,
+  cs.project_path,
+  cs.git_remote,
+  cs.package_name,
+  cs.package_type,
+  cs.content,
+  map() as subagents,
+  _skills as skills,
+  [] :: Array(String) as slash_commands,
+  [] :: Array(String) as subagent_types,
+  now64(3) as ingested_at,
+  cs.user_id,
+  cs.git_branch,
+  cs.git_sha,
+  _input_tokens as input_tokens,
+  _output_tokens as output_tokens,
+  _cache_read_input_tokens as cache_read_input_tokens,
+  toUInt64(0) as cache_creation_input_tokens,
+  _input_tokens + _output_tokens as total_tokens,
+  cs.tag,
+  'codex' as source,
+  toUInt32(length(_interaction_lines)) as total_interactions,
+  toUInt32(_duration_min) as actual_duration_min,
+  if(length(_prompt_periods_sec) > 0, round(arrayAvg(_prompt_periods_sec), 2), 0) as avg_period_sec,
+  if(
+    length(_prompt_periods_sec) > 0,
+    toFloat64(arrayElement(
+      arraySort(_prompt_periods_sec),
+      toUInt64(ceil(length(_prompt_periods_sec) / 2))
+    )),
+    0
+  ) as median_period_sec,
+  toUInt32(arrayCount(x -> x < 5, _prompt_periods_sec)) as quick_responses,
+  toUInt32(arrayCount(x -> x >= 5 AND x <= 60, _prompt_periods_sec)) as normal_responses,
+  toUInt32(arrayCount(x -> x > 300, _prompt_periods_sec)) as long_pauses,
+  toUInt32(
+    length(extractAll(cs.content, '\\\\\\\\"exit_code\\\\\\\\":[1-9][0-9]*'))
+    + arrayCount(
+        x -> x ILIKE '%Error:%' OR x ILIKE '%Exception:%',
+        _tool_output_lines
+      )
+  ) as error_count,
+  multiIf(
+    _model_from_turn_context != '', _model_from_turn_context,
+    _model_provider != '', _model_provider,
+    'unknown'
+  ) as model_used,
+  toUInt8(if(cs.git_sha IS NOT NULL AND cs.git_sha != '', 1, 0)) as has_commit,
+  CASE
+    WHEN _duration_min <= 10
+        AND (_input_tokens + _output_tokens) < 500000
+        AND _output_tokens > 1000
+    THEN 'quick_win'
+    WHEN _duration_min > 30
+        AND _output_tokens > 50000
+        AND cs.git_sha IS NOT NULL AND cs.git_sha != ''
+    THEN 'deep_work'
+    WHEN (_input_tokens + _output_tokens) > 1000000
+        AND (_output_tokens / nullif(_input_tokens, 0)) < 0.3
+        AND _duration_min > 20
+    THEN 'struggle'
+    WHEN length(_skills) >= 3
+        AND (cs.git_sha IS NULL OR cs.git_sha = '')
+        AND (_input_tokens + _output_tokens) > 200000
+    THEN 'exploration'
+    WHEN _duration_min < 3
+        AND _output_tokens < 500
+    THEN 'abandoned'
+    ELSE 'standard'
+  END as session_archetype,
+  toUInt8(round(
+    50
+    + (if(cs.git_sha IS NOT NULL AND cs.git_sha != '', 20, 0))
+    + (if((_output_tokens / nullif(_input_tokens, 0)) > 0.5, 15, 0))
+    + (least(toUInt32(length(_skills)), 3) * 5)
+    - (if((_input_tokens + _output_tokens) > 1500000 AND (cs.git_sha IS NULL OR cs.git_sha = ''), 20, 0))
+    - (if(_duration_min < 2 AND _output_tokens < 200, 30, 0))
+    - (least(toUInt32(
+        length(extractAll(cs.content, '\\\\\\\\"exit_code\\\\\\\\":[1-9][0-9]*'))
+        + arrayCount(
+            x -> JSONExtractString(JSONExtractRaw(x, 'payload'), 'output') ILIKE '%Error:%'
+              OR JSONExtractString(JSONExtractRaw(x, 'payload'), 'output') ILIKE '%Exception:%',
+            _tool_output_lines
+          )
+      ), 10) * 2)
+  )) as success_score,
+  toUInt8(0) as used_plan_mode,
+  toUInt32(arraySum(_inference_gaps)) as inference_duration_sec,
+  toUInt32(0) as human_duration_sec
+
+FROM rudel.codex_sessions AS cs
+WHERE length(_timestamps) > 0
+QUALIFY ROW_NUMBER() OVER (PARTITION BY cs.session_id ORDER BY cs.ingested_at DESC) = 1;

@@ -1,8 +1,13 @@
-import type {
-	DimensionAnalysisInput,
-	SessionAnalytics,
-	SessionAnalyticsSummary as SessionAnalyticsSummaryBase,
-	SessionDetail,
+import {
+	buildClaudeSessionTokenBreakdown,
+	type ClaudeSessionTokenBreakdown,
+	type ClaudeTokenTimelinePoint,
+	type DimensionAnalysisInput,
+	deriveClaudeUncachedInputTokens,
+	type SessionAnalytics,
+	type SessionAnalyticsSummary as SessionAnalyticsSummaryBase,
+	type SessionDetail,
+	type Source,
 } from "@rudel/api-routes";
 import {
 	addOptionalStringEqFilter,
@@ -35,6 +40,9 @@ export interface SessionAnalyticsRaw {
 	total_tokens: number;
 	input_tokens: number;
 	output_tokens: number;
+	cache_read_input_tokens: number;
+	cache_creation_input_tokens: number;
+	token_accounting_version: number;
 
 	// Git activity
 	git_sha: string;
@@ -62,6 +70,43 @@ export interface SessionAnalyticsSummary extends SessionAnalyticsSummaryBase {
 	median_response_time_sec: number;
 	quick_response_rate: number;
 	long_pause_rate: number;
+}
+
+interface SessionDetailRaw {
+	session_id: string;
+	user_id: string;
+	session_date: string;
+	last_interaction_date: string;
+	project_path: string;
+	repository: string | null;
+	content: string;
+	subagents: Record<string, string>;
+	skills: string[];
+	slash_commands: string[];
+	git_branch: string | null;
+	git_sha: string | null;
+	total_tokens: number;
+	input_tokens: number;
+	output_tokens: number;
+	cache_read_input_tokens: number;
+	cache_creation_input_tokens: number;
+	parent_input_tokens: number;
+	parent_output_tokens: number;
+	parent_cache_read_input_tokens: number;
+	parent_cache_creation_input_tokens: number;
+	parent_total_tokens: number;
+	subagent_input_tokens: number;
+	subagent_output_tokens: number;
+	subagent_cache_read_input_tokens: number;
+	subagent_cache_creation_input_tokens: number;
+	subagent_total_tokens: number;
+	token_accounting_version: number;
+	success_score?: number;
+	duration_min?: number;
+	total_interactions?: number;
+	session_archetype?: string;
+	model_used?: string;
+	source?: Source;
 }
 
 /**
@@ -145,11 +190,14 @@ export async function getSessionAnalytics(
       long_pauses,
       actual_duration_min,
       formatDateTime(sa.last_interaction_date, '%Y-%m-%dT%H:%i:%SZ') as last_interaction_date,
-      total_tokens,
-      input_tokens,
-      output_tokens,
-      git_sha,
-      git_branch,
+	      total_tokens,
+	      input_tokens,
+	      output_tokens,
+	      cache_read_input_tokens,
+	      cache_creation_input_tokens,
+	      token_accounting_version,
+	      git_sha,
+	      git_branch,
       has_commit,
       subagent_types,
       skills,
@@ -186,6 +234,14 @@ export async function getSessionAnalytics(
 			total_tokens: row.total_tokens,
 			input_tokens: row.input_tokens,
 			output_tokens: row.output_tokens,
+			cache_read_input_tokens: row.cache_read_input_tokens,
+			cache_creation_input_tokens: row.cache_creation_input_tokens,
+			uncached_input_tokens: deriveClaudeUncachedInputTokens(
+				row.input_tokens,
+				row.cache_read_input_tokens,
+				row.cache_creation_input_tokens,
+			),
+			token_accounting_version: row.token_accounting_version,
 			success_score: row.success_score,
 			total_interactions: row.total_interactions,
 			avg_period_sec: row.avg_period_sec,
@@ -694,11 +750,25 @@ export async function getSessionDetail(
       total_tokens,
       input_tokens,
       output_tokens,
+      cache_read_input_tokens,
+      cache_creation_input_tokens,
+      parent_input_tokens,
+      parent_output_tokens,
+      parent_cache_read_input_tokens,
+      parent_cache_creation_input_tokens,
+      parent_total_tokens,
+      subagent_input_tokens,
+      subagent_output_tokens,
+      subagent_cache_read_input_tokens,
+      subagent_cache_creation_input_tokens,
+      subagent_total_tokens,
+      token_accounting_version,
       success_score,
       actual_duration_min as duration_min,
       total_interactions,
       session_archetype,
-      model_used
+      model_used,
+      source
     FROM rudel.session_analytics FINAL sa
     WHERE session_id = {sessionId:String}
       AND organization_id = {orgId:String}
@@ -706,7 +776,7 @@ export async function getSessionDetail(
     LIMIT 1
   `;
 
-	const results = await queryClickhouse<SessionDetail>({
+	const results = await queryClickhouse<SessionDetailRaw>({
 		query,
 		query_params: {
 			orgId,
@@ -718,10 +788,135 @@ export async function getSessionDetail(
 	if (!row) {
 		return null;
 	}
+
+	const claudeTokenBreakdown = buildClaudeDetailTokenBreakdown(row);
+	const tokenBreakdown = claudeTokenBreakdown ?? buildStoredTokenBreakdown(row);
+	const inputTokens = tokenBreakdown.session.input_tokens;
+	const outputTokens = tokenBreakdown.session.output_tokens;
+	const cacheReadInputTokens = tokenBreakdown.session.cache_read_input_tokens;
+	const cacheCreationInputTokens =
+		tokenBreakdown.session.cache_creation_input_tokens;
+	const uncachedInputTokens = tokenBreakdown.session.uncached_input_tokens;
+	const tokenTimeline =
+		claudeTokenBreakdown?.timeline ?? ([] as ClaudeTokenTimelinePoint[]);
+
 	return {
 		...row,
 		repository: row.repository || null,
 		git_branch: row.git_branch || null,
 		git_sha: row.git_sha || null,
+		total_tokens: tokenBreakdown.session.total_tokens,
+		input_tokens: inputTokens,
+		output_tokens: outputTokens,
+		cache_read_input_tokens: cacheReadInputTokens,
+		cache_creation_input_tokens: cacheCreationInputTokens,
+		uncached_input_tokens: uncachedInputTokens,
+		parent_input_tokens: tokenBreakdown.parent.input_tokens,
+		parent_output_tokens: tokenBreakdown.parent.output_tokens,
+		parent_cache_read_input_tokens:
+			tokenBreakdown.parent.cache_read_input_tokens,
+		parent_cache_creation_input_tokens:
+			tokenBreakdown.parent.cache_creation_input_tokens,
+		parent_uncached_input_tokens: tokenBreakdown.parent.uncached_input_tokens,
+		parent_total_tokens: tokenBreakdown.parent.total_tokens,
+		subagent_input_tokens: tokenBreakdown.subagent.input_tokens,
+		subagent_output_tokens: tokenBreakdown.subagent.output_tokens,
+		subagent_cache_read_input_tokens:
+			tokenBreakdown.subagent.cache_read_input_tokens,
+		subagent_cache_creation_input_tokens:
+			tokenBreakdown.subagent.cache_creation_input_tokens,
+		subagent_uncached_input_tokens:
+			tokenBreakdown.subagent.uncached_input_tokens,
+		subagent_total_tokens: tokenBreakdown.subagent.total_tokens,
+		token_accounting_version:
+			row.source === "claude_code" ? 2 : row.token_accounting_version,
+		token_breakdown: tokenBreakdown,
+		token_timeline: tokenTimeline,
 	};
+}
+
+function buildClaudeDetailTokenBreakdown(
+	row: SessionDetailRaw,
+): ClaudeSessionTokenBreakdown | null {
+	if (row.source !== "claude_code") {
+		return null;
+	}
+
+	// Session detail recalculates Claude directly from raw transcript content so
+	// the detail page is correct even before a historical backfill is run.
+	return buildClaudeSessionTokenBreakdown(row.content, row.subagents);
+}
+
+function buildStoredTokenBreakdown(
+	row: SessionDetailRaw,
+): ClaudeSessionTokenBreakdown {
+	const parentCacheReadInputTokens = toNumber(
+		row.parent_cache_read_input_tokens,
+	);
+	const parentCacheCreationInputTokens = toNumber(
+		row.parent_cache_creation_input_tokens,
+	);
+	const parentInputTokens = toNumber(row.parent_input_tokens);
+	const parentOutputTokens = toNumber(row.parent_output_tokens);
+	const subagentCacheReadInputTokens = toNumber(
+		row.subagent_cache_read_input_tokens,
+	);
+	const subagentCacheCreationInputTokens = toNumber(
+		row.subagent_cache_creation_input_tokens,
+	);
+	const subagentInputTokens = toNumber(row.subagent_input_tokens);
+	const subagentOutputTokens = toNumber(row.subagent_output_tokens);
+
+	return {
+		parent: {
+			input_tokens: parentInputTokens,
+			uncached_input_tokens: deriveClaudeUncachedInputTokens(
+				parentInputTokens,
+				parentCacheReadInputTokens,
+				parentCacheCreationInputTokens,
+			),
+			cache_read_input_tokens: parentCacheReadInputTokens,
+			cache_creation_input_tokens: parentCacheCreationInputTokens,
+			output_tokens: parentOutputTokens,
+			total_tokens: toNumber(row.parent_total_tokens),
+		},
+		subagent: {
+			input_tokens: subagentInputTokens,
+			uncached_input_tokens: deriveClaudeUncachedInputTokens(
+				subagentInputTokens,
+				subagentCacheReadInputTokens,
+				subagentCacheCreationInputTokens,
+			),
+			cache_read_input_tokens: subagentCacheReadInputTokens,
+			cache_creation_input_tokens: subagentCacheCreationInputTokens,
+			output_tokens: subagentOutputTokens,
+			total_tokens: toNumber(row.subagent_total_tokens),
+		},
+		session: {
+			input_tokens: toNumber(row.input_tokens),
+			uncached_input_tokens: deriveClaudeUncachedInputTokens(
+				toNumber(row.input_tokens),
+				toNumber(row.cache_read_input_tokens),
+				toNumber(row.cache_creation_input_tokens),
+			),
+			cache_read_input_tokens: toNumber(row.cache_read_input_tokens),
+			cache_creation_input_tokens: toNumber(row.cache_creation_input_tokens),
+			output_tokens: toNumber(row.output_tokens),
+			total_tokens: toNumber(row.total_tokens),
+		},
+		timeline: [],
+	};
+}
+
+function toNumber(value: number | string | undefined): number {
+	if (typeof value === "number") {
+		return value;
+	}
+
+	if (typeof value === "string") {
+		const parsed = Number(value);
+		return Number.isFinite(parsed) ? parsed : 0;
+	}
+
+	return 0;
 }

@@ -194,11 +194,9 @@ export function extractCodexTokenData(
 
 			const usage = parsed.payload.info?.total_token_usage;
 			if (!usage) continue;
-			const currentInputTokens = Math.max(
-				0,
-				(usage.input_tokens ?? previousInputTokens) -
-					(usage.cached_input_tokens ?? 0),
-			);
+			// Codex snapshots already report total input with cached tokens included,
+			// so the per-point delta should be based on raw cumulative input.
+			const currentInputTokens = usage.input_tokens ?? previousInputTokens;
 			const currentOutputTokens = usage.output_tokens ?? previousOutputTokens;
 			const inputTokens = Math.max(0, currentInputTokens - previousInputTokens);
 			const outputTokens = Math.max(

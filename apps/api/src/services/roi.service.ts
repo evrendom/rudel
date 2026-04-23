@@ -17,14 +17,9 @@ import {
 	getModelPricingCatalog,
 } from "./pricing.service.js";
 
-// Pricing constants based on Claude Sonnet 4 rates, used as a default approximation
-// across all models. TODO: implement per-model pricing using the model_used column.
-// Sonnet 4: input=$3/MTok, output=$15/MTok
-// Opus 4:   input=$5/MTok, output=$25/MTok
-// Haiku 4:  input=$1/MTok, output=$5/MTok
-const INPUT_PRICE_PER_MILLION = 3.0;
-const OUTPUT_PRICE_PER_MILLION = 15.0;
 const DEFAULT_DEV_HOURLY_RATE = 100;
+// ROI rollups need model-aware per-session pricing; a flat token rate would
+// reintroduce the Codex cached-input bug at the aggregate layer.
 const PER_SESSION_COST_SQL = buildEstimatedCostSql({
 	modelExpr: "model_used",
 	inputExpr: "ifNull(input_tokens, 0)",
@@ -240,6 +235,7 @@ export async function getROIMetrics(
         AVG(success_score) as avg_success_score,
         COUNT(DISTINCT user_id) as active_developers,
         SUM(has_commit) as total_commits,
+        SUM(${PER_SESSION_COST_SQL}) as total_cost,
         now64(3) - toIntervalDay({currentDays:UInt32}) as period_start,
         now64(3) as period_end
       FROM rudel.session_analytics FINAL
@@ -252,6 +248,7 @@ export async function getROIMetrics(
         SUM(input_tokens) as total_input_tokens,
         SUM(output_tokens) as total_output_tokens,
         SUM(has_commit) as total_commits,
+        SUM(${PER_SESSION_COST_SQL}) as total_cost,
         now64(3) - toIntervalDay({previousDays:UInt32}) as period_start,
         now64(3) - toIntervalDay({currentDays:UInt32}) as period_end
       FROM rudel.session_analytics FINAL
@@ -268,21 +265,15 @@ export async function getROIMetrics(
       c.avg_success_score,
       c.active_developers,
       c.total_commits,
-      round((c.total_output_tokens / 1000000.0) * ${OUTPUT_PRICE_PER_MILLION} +
-            (c.total_input_tokens / 1000000.0) * ${INPUT_PRICE_PER_MILLION}, 2) as total_cost,
-      round((c.total_output_tokens / 1000000.0) * ${OUTPUT_PRICE_PER_MILLION} +
-            (c.total_input_tokens / 1000000.0) * ${INPUT_PRICE_PER_MILLION}, 4) / c.total_sessions as cost_per_session,
+      round(c.total_cost, 2) as total_cost,
+      if(c.total_sessions > 0, round(c.total_cost / c.total_sessions, 4), 0) as cost_per_session,
       if(c.total_commits > 0,
-        round((c.total_output_tokens / 1000000.0) * ${OUTPUT_PRICE_PER_MILLION} +
-              (c.total_input_tokens / 1000000.0) * ${INPUT_PRICE_PER_MILLION}, 4) / c.total_commits,
+        round(c.total_cost / c.total_commits, 4),
         0) as cost_per_commit,
-      round((p.total_output_tokens / 1000000.0) * ${OUTPUT_PRICE_PER_MILLION} +
-            (p.total_input_tokens / 1000000.0) * ${INPUT_PRICE_PER_MILLION}, 2) as prev_total_cost,
-      round((p.total_output_tokens / 1000000.0) * ${OUTPUT_PRICE_PER_MILLION} +
-            (p.total_input_tokens / 1000000.0) * ${INPUT_PRICE_PER_MILLION}, 4) / p.total_sessions as prev_cost_per_session,
+      round(p.total_cost, 2) as prev_total_cost,
+      if(p.total_sessions > 0, round(p.total_cost / p.total_sessions, 4), 0) as prev_cost_per_session,
       if(p.total_commits > 0,
-        round((p.total_output_tokens / 1000000.0) * ${OUTPUT_PRICE_PER_MILLION} +
-              (p.total_input_tokens / 1000000.0) * ${INPUT_PRICE_PER_MILLION}, 4) / p.total_commits,
+        round(p.total_cost / p.total_commits, 4),
         0) as prev_cost_per_commit,
       p.total_commits as prev_total_commits,
       p.total_output_tokens as prev_total_output_tokens,
@@ -419,8 +410,7 @@ export async function getROITrends(
       SUM(has_commit) as total_commits,
       COUNT(DISTINCT user_id) as active_developers,
       AVG(success_score) as avg_success_score,
-      round((SUM(output_tokens) / 1000000.0) * ${OUTPUT_PRICE_PER_MILLION} +
-            (SUM(input_tokens) / 1000000.0) * ${INPUT_PRICE_PER_MILLION}, 2) as total_cost
+      round(SUM(${PER_SESSION_COST_SQL}), 4) as total_cost
     FROM rudel.session_analytics FINAL
     WHERE session_date >= now64(3) - toIntervalDay({days:UInt32})
       AND organization_id = {orgId:String}
@@ -471,8 +461,7 @@ export async function getDeveloperCostBreakdown(
       SUM(output_tokens) as total_output_tokens,
       SUM(total_tokens) as total_tokens,
       AVG(success_score) as avg_success_score,
-      round((SUM(output_tokens) / 1000000.0) * ${OUTPUT_PRICE_PER_MILLION} +
-            (SUM(input_tokens) / 1000000.0) * ${INPUT_PRICE_PER_MILLION}, 2) as total_cost
+      round(SUM(${PER_SESSION_COST_SQL}), 4) as total_cost
     FROM rudel.session_analytics FINAL
     WHERE ${buildDateFilter("days")}
       AND organization_id = {orgId:String}
@@ -528,8 +517,7 @@ export async function getProjectCostBreakdown(
       SUM(output_tokens) as total_output_tokens,
       SUM(total_tokens) as total_tokens,
       AVG(success_score) as avg_success_score,
-      round((SUM(output_tokens) / 1000000.0) * ${OUTPUT_PRICE_PER_MILLION} +
-            (SUM(input_tokens) / 1000000.0) * ${INPUT_PRICE_PER_MILLION}, 2) as total_cost
+      round(SUM(${PER_SESSION_COST_SQL}), 4) as total_cost
     FROM rudel.session_analytics FINAL
     WHERE ${buildDateFilter("days")}
       AND organization_id = {orgId:String}

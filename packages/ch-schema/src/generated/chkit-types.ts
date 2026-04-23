@@ -102,6 +102,17 @@ export type RudelSessionAnalyticsRow = {
   cache_read_input_tokens: string
   cache_creation_input_tokens: string
   total_tokens: string
+  parent_input_tokens: string
+  parent_output_tokens: string
+  parent_cache_read_input_tokens: string
+  parent_cache_creation_input_tokens: string
+  parent_total_tokens: string
+  subagent_input_tokens: string
+  subagent_output_tokens: string
+  subagent_cache_read_input_tokens: string
+  subagent_cache_creation_input_tokens: string
+  subagent_total_tokens: string
+  token_accounting_version: number
   tag: string | null
   source: string
   total_interactions: number
@@ -144,6 +155,17 @@ export const RudelSessionAnalyticsRowSchema = z.object({
   cache_read_input_tokens: z.string(),
   cache_creation_input_tokens: z.string(),
   total_tokens: z.string(),
+  parent_input_tokens: z.string(),
+  parent_output_tokens: z.string(),
+  parent_cache_read_input_tokens: z.string(),
+  parent_cache_creation_input_tokens: z.string(),
+  parent_total_tokens: z.string(),
+  subagent_input_tokens: z.string(),
+  subagent_output_tokens: z.string(),
+  subagent_cache_read_input_tokens: z.string(),
+  subagent_cache_creation_input_tokens: z.string(),
+  subagent_total_tokens: z.string(),
+  token_accounting_version: z.number(),
   tag: z.string().nullable(),
   source: z.string(),
   total_interactions: z.number(),

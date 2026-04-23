@@ -105,8 +105,20 @@ export function SessionDetailView({
 		safeUserId === "unknown-user"
 			? "User"
 			: formatUsername(safeUserId, userMap);
+	const safeTotalTokens = toNumber(session.total_tokens);
 	const safeInputTokens = toNumber(session.input_tokens);
 	const safeOutputTokens = toNumber(session.output_tokens);
+	const safeCacheReadInputTokens = toNumber(session.cache_read_input_tokens);
+	const safeCacheCreationInputTokens = toNumber(
+		session.cache_creation_input_tokens,
+	);
+	const safeUncachedInputTokens = toNumber(session.uncached_input_tokens);
+	const safeParentTotalTokens = toNumber(session.parent_total_tokens);
+	const safeSubagentTotalTokens = toNumber(session.subagent_total_tokens);
+	const safeTokenAccountingVersion = toNumber(
+		session.token_accounting_version,
+		1,
+	);
 	const safeDurationMin =
 		session.duration_min === undefined
 			? undefined
@@ -143,6 +155,8 @@ export function SessionDetailView({
 		safeSkills.length > 0 ||
 		safeSlashCommands.length > 0 ||
 		subagentNames.length > 0;
+	const hasClaudeTokenBreakdown =
+		session.source === "claude_code" && safeTokenAccountingVersion >= 2;
 
 	return (
 		<SessionDetailErrorBoundary>
@@ -251,7 +265,7 @@ export function SessionDetailView({
 										/>
 										<SessionDetailMetric
 											className="grid min-w-[8rem] flex-[1.35] gap-1 border-l border-[color:var(--dashboardy-divider)] px-3 py-2"
-											label="Tokens"
+											label="Processed / output"
 											value={`${safeInputTokens.toLocaleString()} / ${safeOutputTokens.toLocaleString()}`}
 											valueClassName="text-[0.95rem] font-semibold tabular-nums whitespace-nowrap text-[color:var(--dashboardy-heading)]"
 										/>
@@ -328,6 +342,43 @@ export function SessionDetailView({
 									</div>
 								) : null}
 							</div>
+
+							{hasClaudeTokenBreakdown ? (
+								<div className="grid gap-3 rounded-[1rem] border border-[color:var(--dashboardy-divider)] bg-[color:var(--dashboardy-surface)] px-4 py-4">
+									<div className="flex items-center gap-2">
+										<h2 className="text-sm font-semibold text-[color:var(--dashboardy-heading)]">
+											Claude token accounting
+										</h2>
+										<InfoTooltip text="Anthropic reports uncached input separately from cache reads and cache writes. This panel shows the v2 processed-input breakdown used by the corrected Claude analytics path." />
+									</div>
+									<div className="grid gap-4 md:grid-cols-3 xl:grid-cols-6">
+										<SessionDetailMetric
+											label="Session total"
+											value={safeTotalTokens.toLocaleString()}
+										/>
+										<SessionDetailMetric
+											label="Uncached input"
+											value={safeUncachedInputTokens.toLocaleString()}
+										/>
+										<SessionDetailMetric
+											label="Cache read"
+											value={safeCacheReadInputTokens.toLocaleString()}
+										/>
+										<SessionDetailMetric
+											label="Cache write"
+											value={safeCacheCreationInputTokens.toLocaleString()}
+										/>
+										<SessionDetailMetric
+											label="Parent total"
+											value={safeParentTotalTokens.toLocaleString()}
+										/>
+										<SessionDetailMetric
+											label="Subagent total"
+											value={safeSubagentTotalTokens.toLocaleString()}
+										/>
+									</div>
+								</div>
+							) : null}
 
 							<ConversationView content={safeContent} showHeader={false} />
 						</div>

@@ -60,6 +60,7 @@ import {
 	UserTokenUsageDataSchema,
 } from "./schemas/analytics.js";
 
+export * from "./claude-token-accounting.js";
 export * from "./model-pricing.js";
 export * from "./product-analytics.js";
 export * from "./schemas/analytics.js";
