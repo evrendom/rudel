@@ -9,11 +9,11 @@ export const UPLOAD_STEP = {
 } as const;
 
 export const WRAPPED_STEPS = [
+	{ id: "scale", label: "Scale", kind: "placeholder", phase: "story" },
 	{ id: "intro", label: "Intro", kind: "placeholder", phase: "story" },
 	{ id: "skills", label: "Skills", kind: "placeholder", phase: "story" },
 	{ id: "tools", label: "Tools", kind: "placeholder", phase: "story" },
 	{ id: "model", label: "Model", kind: "placeholder", phase: "story" },
-	{ id: "scale", label: "Scale", kind: "placeholder", phase: "story" },
 	{ id: "lock-in", label: "Lock-in", kind: "placeholder", phase: "story" },
 	{ id: "quality", label: "Quality", kind: "placeholder", phase: "story" },
 	{ id: "pulse", label: "Repo pulse", kind: "placeholder", phase: "story" },
@@ -261,7 +261,7 @@ export const WRAPPED_BEAT_CONTRACTS: Record<
 
 // This is the actual Saturday launch deck.
 //
-// Upload now belongs to setup, so the story itself starts on skills. The deck is
+// Upload now belongs to setup, so the story itself starts on scale. The deck is
 // intentionally smaller than the full implementation surface. The hidden beats
 // still exist for previewing and future truth work, but users only see the
 // beats we trust enough to ship now.

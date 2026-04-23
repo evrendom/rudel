@@ -8,10 +8,10 @@ import {
 describe("wrapped saturday story visibility", () => {
 	it("keeps only the launch-safe beats in the saturday deck", () => {
 		expect(WRAPPED_SATURDAY_STEPS.map((step) => step.id)).toEqual([
+			"scale",
 			"skills",
 			"tools",
 			"model",
-			"scale",
 			"pulse",
 			"card",
 		]);
