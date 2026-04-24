@@ -619,7 +619,8 @@ body.mymind-wrapped-body #root {
 }
 
 .mymind-wrapped-skills-stage.mymind-wrapped-stage--without-support.mymind-wrapped-skills-stage--intro-copy,
-.mymind-wrapped-skills-stage.mymind-wrapped-stage--without-support.mymind-wrapped-skills-stage--component-only {
+.mymind-wrapped-skills-stage.mymind-wrapped-stage--without-support.mymind-wrapped-skills-stage--component-only,
+.mymind-wrapped-skills-stage.mymind-wrapped-stage--without-support.mymind-wrapped-skills-stage--overlay-copy {
 	align-content: center;
 	justify-items: center;
 	grid-template-rows: minmax(0, 1fr);
@@ -632,6 +633,27 @@ body.mymind-wrapped-body #root {
 
 .mymind-wrapped-skills-stage.mymind-wrapped-stage--without-support.mymind-wrapped-skills-stage--component-only
 	.mymind-wrapped-stage__object {
+	align-self: center;
+}
+
+.mymind-wrapped-skills-stage.mymind-wrapped-stage--without-support.mymind-wrapped-skills-stage--overlay-copy
+	.mymind-wrapped-stage__copy,
+.mymind-wrapped-skills-stage.mymind-wrapped-stage--without-support.mymind-wrapped-skills-stage--overlay-copy
+	.mymind-wrapped-stage__object {
+	grid-area: 1 / 1;
+}
+
+.mymind-wrapped-skills-stage.mymind-wrapped-stage--without-support.mymind-wrapped-skills-stage--overlay-copy
+	.mymind-wrapped-stage__copy {
+	z-index: 2;
+	align-self: start;
+	padding-top: clamp(0.5rem, 2svh, 1.25rem);
+	pointer-events: none;
+}
+
+.mymind-wrapped-skills-stage.mymind-wrapped-stage--without-support.mymind-wrapped-skills-stage--overlay-copy
+	.mymind-wrapped-stage__object {
+	z-index: 1;
 	align-self: center;
 }
 
@@ -672,22 +694,6 @@ body.mymind-wrapped-body #root {
 	font-weight: 600;
 	line-height: 1.35;
 	text-wrap: balance;
-}
-
-.mymind-wrapped-skills-stage__copy-shell {
-	display: grid;
-	width: 100%;
-}
-
-.mymind-wrapped-skills-stage__copy-reserve,
-.mymind-wrapped-skills-stage__copy-overlay {
-	grid-area: 1 / 1;
-	width: 100%;
-}
-
-.mymind-wrapped-skills-stage__copy-reserve {
-	visibility: hidden;
-	pointer-events: none;
 }
 
 .mymind-wrapped-skills-stage__stack {
@@ -816,10 +822,6 @@ body.mymind-wrapped-body #root {
 	background: linear-gradient(to top, var(--surface) 0%, rgb(255 255 255 / 0));
 	pointer-events: none;
 	transition: opacity 220ms var(--skills-ease-out);
-}
-
-.mymind-wrapped-skills-stage__title-shell {
-	display: block;
 }
 
 .mymind-wrapped-skills-stage__intro-line {
@@ -3261,7 +3263,7 @@ body.mymind-wrapped-body #root {
 .mymind-wrapped-mobile-handoff-action,
 .mymind-wrapped-entry-card__desktop-copy-button {
 	position: relative;
-	overflow: hidden;
+	overflow: clip;
 	isolation: isolate;
 }
 
@@ -4344,7 +4346,7 @@ body.mymind-wrapped-body #root {
 
 .mymind-wrapped-auth-form__identity-value {
 	min-width: 0;
-	overflow: hidden;
+	overflow: clip;
 	color: #22201f;
 	font-size: 0.95rem;
 	font-family: var(--font-sans);
