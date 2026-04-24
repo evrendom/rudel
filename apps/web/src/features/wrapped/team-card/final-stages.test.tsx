@@ -1,8 +1,8 @@
-import { act, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { TeamPageMemberRow } from "@/features/team/use-team-page-data";
-import { WrappedTeamCardRevealStage } from "@/features/wrapped/team-card/final-stages";
 import type { WrappedOnboardingMetrics } from "@/features/wrapped/onboarding/types";
+import { WrappedTeamCardRevealStage } from "@/features/wrapped/team-card/final-stages";
 import type { WrappedCardTiltController } from "@/features/wrapped/team-card/tilt/use-card-tilt";
 
 vi.mock("motion/react", async () => {
@@ -11,8 +11,23 @@ vi.mock("motion/react", async () => {
 		React.forwardRef<
 			HTMLElement,
 			Record<string, unknown> & { children?: React.ReactNode }
-		>(({ animate: _animate, children, exit: _exit, initial: _initial, transition: _transition, ...props }, ref) =>
-			React.createElement(tag, { ...props, ref }, children as React.ReactNode),
+		>(
+			(
+				{
+					animate: _animate,
+					children,
+					exit: _exit,
+					initial: _initial,
+					transition: _transition,
+					...props
+				},
+				ref,
+			) =>
+				React.createElement(
+					tag,
+					{ ...props, ref },
+					children as React.ReactNode,
+				),
 		);
 
 	return {
@@ -121,7 +136,7 @@ afterEach(() => {
 });
 
 describe("WrappedTeamCardRevealStage", () => {
-	it("keeps the text on the canvas while the card drops in afterward", () => {
+	it("drops the back of the card first and flips to the front on click", () => {
 		vi.useFakeTimers();
 
 		render(
@@ -195,5 +210,23 @@ describe("WrappedTeamCardRevealStage", () => {
 		expect(
 			screen.getByTestId("wrapped-team-card").closest("[data-card-state]"),
 		).toHaveAttribute("data-card-state", "dropped");
+		expect(
+			screen
+				.getByTestId("wrapped-team-card-back")
+				.querySelector(".mymind-wrapped-team-card-back__content"),
+		).toBeNull();
+		const revealButton = screen.getByRole("button", {
+			name: "Reveal front of card",
+		});
+		expect(revealButton).toHaveAttribute("data-card-face", "back");
+
+		fireEvent.click(revealButton);
+
+		expect(tiltController.handlePointerLeave).toHaveBeenCalledTimes(1);
+		expect(
+			screen.getByRole("button", {
+				name: "Show back of card",
+			}),
+		).toHaveAttribute("data-card-face", "front");
 	});
 });

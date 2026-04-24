@@ -1,18 +1,14 @@
-import {
-	ChevronRight,
-	Clipboard,
-	Download,
-	Share2,
-} from "lucide-react";
+import { ChevronRight, Clipboard, Download, Share2 } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { useEffect, useState, type CSSProperties, type RefObject } from "react";
+// biome-ignore lint/style/noRestrictedImports: reveal-stage timers are an imperative storyboard bridge for this wrapped surface.
+import { type CSSProperties, type RefObject, useEffect, useState } from "react";
 import { Button } from "@/app/ui/button";
 import type { TeamPageMemberRow } from "@/features/team/use-team-page-data";
-import type { WrappedOnboardingMetrics } from "@/features/wrapped/onboarding/types";
 import {
 	WrappedPrimaryAction,
 	WrappedSecondaryAction,
 } from "@/features/wrapped/actions";
+import type { WrappedOnboardingMetrics } from "@/features/wrapped/onboarding/types";
 import {
 	WrappedStageCopy,
 	WrappedStageFrame,
@@ -31,6 +27,10 @@ import {
 	type WrappedTeamMemberCardStatLayerOpacities,
 	type WrappedTeamMemberCardTheme,
 } from "./card";
+import {
+	WrappedTeamMemberCardBack,
+	type WrappedTeamMemberCardBackHighlight,
+} from "./card-back";
 import type { WrappedCardTiltController } from "./tilt/use-card-tilt";
 
 interface WrappedTeamCardStageCardProps {
@@ -63,19 +63,18 @@ interface WrappedTeamCardRevealStageProps
 	tiltController: WrappedCardTiltController;
 }
 
-type WrappedRevealSequencePhase =
-	| "sessions"
-	| "tokens"
-	| "archetype";
+type WrappedRevealSequencePhase = "sessions" | "tokens" | "archetype";
 
 const REVEAL_STAGE_MOTION = {
 	duration: {
 		card: 1.02,
+		flip: 0.68,
 		text: 0.26,
 	},
 	easing: {
 		enter: [0.22, 1, 0.36, 1] as const,
 		drop: [0.16, 1, 0.22, 1] as const,
+		flip: [0.32, 0.72, 0, 1] as const,
 	},
 };
 
@@ -93,6 +92,9 @@ const REVEAL_STAGE_SEQUENCE = [
 }>;
 
 const REVEAL_STAGE_CARD_DROP_DELAY_MS = 1_250;
+const REVEAL_STAGE_CARD_FLIP_DURATION_MS = Math.round(
+	REVEAL_STAGE_MOTION.duration.flip * 1_000,
+);
 
 export function WrappedTeamCardShareStage(
 	props: WrappedTeamCardShareStageProps,
@@ -264,26 +266,45 @@ export function WrappedTeamCardRevealStage(
 	} = props;
 	const shouldReduceMotion = useReducedMotion();
 	const reduceMotion = shouldReduceMotion ?? false;
-	const [sequencePhase, setSequencePhase] = useState<WrappedRevealSequencePhase>(
-		() => (reduceMotion ? "archetype" : "sessions"),
-	);
+	const [sequencePhase, setSequencePhase] =
+		useState<WrappedRevealSequencePhase>(() =>
+			reduceMotion ? "archetype" : "sessions",
+		);
 	const [isCardDropped, setIsCardDropped] = useState(() => reduceMotion);
-	const revealTextLine = getWrappedRevealTextLine({
+	const [isCardFrontVisible, setIsCardFrontVisible] = useState(false);
+	const [isCardFlipAnimating, setIsCardFlipAnimating] = useState(false);
+	const revealCopy = getWrappedRevealCopy(activeArchetype);
+	const revealStoryCopy = getWrappedRevealStoryCopy({
 		archetype: activeArchetype,
 		onboardingMetrics,
-		phase: sequencePhase,
 		row,
 	});
+	const revealBackHighlights = getWrappedRevealBackHighlights({
+		archetype: activeArchetype,
+		onboardingMetrics,
+		row,
+	});
+	const revealTextLine =
+		sequencePhase === "sessions"
+			? revealStoryCopy.claim
+			: sequencePhase === "tokens"
+				? revealStoryCopy.proof
+				: revealCopy.title;
 
+	// biome-ignore lint/correctness/useExhaustiveDependencies: the reveal sequence should restart when the active archetype changes.
 	useEffect(() => {
 		if (reduceMotion) {
 			setSequencePhase("archetype");
 			setIsCardDropped(true);
+			setIsCardFrontVisible(false);
+			setIsCardFlipAnimating(false);
 			return;
 		}
 
 		setSequencePhase("sessions");
 		setIsCardDropped(false);
+		setIsCardFrontVisible(false);
+		setIsCardFlipAnimating(false);
 		let elapsedMs = 0;
 		const timeoutIds = REVEAL_STAGE_SEQUENCE.map((step) => {
 			elapsedMs += step.holdMs;
@@ -303,6 +324,36 @@ export function WrappedTeamCardRevealStage(
 			}
 		};
 	}, [activeArchetype.id, reduceMotion]);
+
+	useEffect(() => {
+		if (!isCardFlipAnimating || reduceMotion) {
+			return;
+		}
+
+		const timeoutId = window.setTimeout(() => {
+			setIsCardFlipAnimating(false);
+		}, REVEAL_STAGE_CARD_FLIP_DURATION_MS);
+
+		return () => {
+			window.clearTimeout(timeoutId);
+		};
+	}, [isCardFlipAnimating, reduceMotion]);
+
+	function handleCardFlipToggle() {
+		if (!isCardDropped || isCardFlipAnimating) {
+			return;
+		}
+
+		tiltController.handlePointerLeave();
+
+		if (reduceMotion) {
+			setIsCardFrontVisible((currentValue) => !currentValue);
+			return;
+		}
+
+		setIsCardFlipAnimating(true);
+		setIsCardFrontVisible((currentValue) => !currentValue);
+	}
 
 	return (
 		<WrappedStageFrame
@@ -362,26 +413,78 @@ export function WrappedTeamCardRevealStage(
 							<div
 								ref={tiltController.cardTiltRef}
 								className="team-lineup-card-tilt-shell mymind-wrapped-final-stage__tilt-shell [--wrapped-card-render-scale:1] min-[360px]:[--wrapped-card-render-scale:1.08] sm:[--wrapped-card-render-scale:1.42] lg:[--wrapped-card-render-scale:1.56]"
-								onPointerMove={tiltController.handlePointerMove}
+								data-flip-active={isCardFlipAnimating ? "true" : "false"}
+								onPointerMove={(event) => {
+									if (!isCardFlipAnimating) {
+										tiltController.handlePointerMove(event);
+									}
+								}}
 								onPointerLeave={tiltController.handlePointerLeave}
 								onPointerCancel={tiltController.handlePointerLeave}
+								style={
+									{
+										"--wrapped-card-flip-rotate-y": isCardFrontVisible
+											? "0deg"
+											: "180deg",
+									} as CSSProperties
+								}
 							>
-								<div className="grid justify-center">
-									<WrappedTeamMemberCard
-										headerLeftMetric={headerLeftMetric}
-										headerRightMetric={headerRightMetric}
-										hideHeaderLogo
-										layoutPreset="team-card-preview"
-										mediaPanelClassName="mx-auto"
-										row={row}
-										shellClassName={shellClassName}
-										shellStyle={shellStyle}
-										statItems={statItems}
-										statLayerOpacities={statLayerOpacities}
-										statTileClassName=""
-										theme={theme}
-									/>
-								</div>
+								<button
+									aria-label={
+										isCardFrontVisible
+											? "Show back of card"
+											: "Reveal front of card"
+									}
+									aria-pressed={isCardFrontVisible}
+									className="mymind-wrapped-final-stage__flip-control"
+									data-card-face={isCardFrontVisible ? "front" : "back"}
+									disabled={!isCardDropped}
+									onClick={handleCardFlipToggle}
+									type="button"
+								>
+									<div className="mymind-wrapped-final-stage__flip-rotator">
+										<div
+											aria-hidden={!isCardFrontVisible}
+											className="mymind-wrapped-final-stage__flip-face mymind-wrapped-final-stage__flip-face--front"
+										>
+											<div className="grid justify-center">
+												<WrappedTeamMemberCard
+													headerLeftMetric={headerLeftMetric}
+													headerRightMetric={headerRightMetric}
+													hideHeaderLogo
+													layoutPreset="team-card-preview"
+													mediaPanelClassName="mx-auto"
+													row={row}
+													shellClassName={shellClassName}
+													shellStyle={shellStyle}
+													statItems={statItems}
+													statLayerOpacities={statLayerOpacities}
+													statTileClassName=""
+													theme={theme}
+												/>
+											</div>
+										</div>
+										<div
+											aria-hidden={isCardFrontVisible}
+											className="mymind-wrapped-final-stage__flip-face mymind-wrapped-final-stage__flip-face--back"
+										>
+											<WrappedTeamMemberCardBack
+												archetypeLabel={activeArchetype.displayLabel}
+												displayName={row.displayName}
+												editionLabel={
+													activeArchetype.taxonomyLabel ?? "Special Edition"
+												}
+												highlights={revealBackHighlights}
+												hintLabel="Turn to reveal the card."
+												narrative={revealCopy.description}
+												shellClassName={shellClassName}
+												shellStyle={shellStyle}
+												theme={theme}
+												variant="gradient-only"
+											/>
+										</div>
+									</div>
+								</button>
 							</div>
 						</div>
 					</motion.div>
@@ -389,31 +492,6 @@ export function WrappedTeamCardRevealStage(
 			}
 		/>
 	);
-}
-
-function getWrappedRevealTextLine(input: {
-	archetype: WrappedArchetypeCardTheme;
-	onboardingMetrics: WrappedOnboardingMetrics;
-	phase: WrappedRevealSequencePhase;
-	row: TeamPageMemberRow;
-}): string {
-	const { archetype, onboardingMetrics, phase, row } = input;
-	const revealCopy = getWrappedRevealCopy(archetype);
-	const storyCopy = getWrappedRevealStoryCopy({
-		archetype,
-		onboardingMetrics,
-		row,
-	});
-
-	if (phase === "sessions") {
-		return storyCopy.claim;
-	}
-
-	if (phase === "tokens") {
-		return storyCopy.proof;
-	}
-
-	return revealCopy.title;
 }
 
 function getWrappedRevealStoryCopy(input: {
@@ -426,7 +504,10 @@ function getWrappedRevealStoryCopy(input: {
 } {
 	const { archetype, onboardingMetrics, row } = input;
 	const firstName = getWrappedRevealFirstName(row.displayName);
-	const activeDays = Math.max(0, onboardingMetrics.activeDays || row.activeDays);
+	const activeDays = Math.max(
+		0,
+		onboardingMetrics.activeDays || row.activeDays,
+	);
 	const avgSessionMin =
 		onboardingMetrics.avgSessionMin && onboardingMetrics.avgSessionMin > 0
 			? onboardingMetrics.avgSessionMin
@@ -436,7 +517,8 @@ function getWrappedRevealStoryCopy(input: {
 			? onboardingMetrics.commitRate
 			: null;
 	const longestSessionMin =
-		onboardingMetrics.longestSessionMin && onboardingMetrics.longestSessionMin > 0
+		onboardingMetrics.longestSessionMin &&
+		onboardingMetrics.longestSessionMin > 0
 			? onboardingMetrics.longestSessionMin
 			: null;
 	const topProjectName = onboardingMetrics.topProjectName?.trim() || null;
@@ -453,7 +535,8 @@ function getWrappedRevealStoryCopy(input: {
 	const activeDaysLabel = formatCompactWholeNumber(activeDays);
 	const repoCountLabel = formatCompactWholeNumber(totalRepos);
 	const spendLabel = formatCompactWholeCurrency(estimatedSpend);
-	const commitRateLabel = commitRate !== null ? formatPercent(commitRate) : null;
+	const commitRateLabel =
+		commitRate !== null ? formatPercent(commitRate) : null;
 	const topProjectSessionLabel = formatCompactWholeNumber(topProjectSessions);
 
 	switch (archetype.id) {
@@ -575,6 +658,100 @@ function getWrappedRevealStoryCopy(input: {
 				proof: `${sessionCountLabel} sessions and ${tokenCountLabel} tokens made that easy to see.`,
 			};
 	}
+}
+
+function getWrappedRevealBackHighlights(input: {
+	archetype: WrappedArchetypeCardTheme;
+	onboardingMetrics: WrappedOnboardingMetrics;
+	row: TeamPageMemberRow;
+}): readonly WrappedTeamMemberCardBackHighlight[] {
+	const { archetype, onboardingMetrics, row } = input;
+	const activeDays = Math.max(
+		0,
+		onboardingMetrics.activeDays || row.activeDays,
+	);
+	const commitRate =
+		onboardingMetrics.commitRate && onboardingMetrics.commitRate > 0
+			? onboardingMetrics.commitRate
+			: null;
+	const longestSessionMin =
+		onboardingMetrics.longestSessionMin &&
+		onboardingMetrics.longestSessionMin > 0
+			? onboardingMetrics.longestSessionMin
+			: null;
+	const totalRepos = Math.max(0, onboardingMetrics.repoPulse.totalRepos);
+	const totalTokens = Math.max(0, onboardingMetrics.totalTokens);
+	const estimatedSpend = Math.max(
+		0,
+		Math.round(Math.max(row.cost, onboardingMetrics.estimatedCostUsd)),
+	);
+	const sessionValue = formatCompactWholeNumber(Math.max(0, row.totalSessions));
+
+	const highlights: WrappedTeamMemberCardBackHighlight[] = [
+		{ label: "Sessions", value: sessionValue },
+		{
+			label: "Active days",
+			value: formatCompactWholeNumber(activeDays),
+		},
+	];
+
+	switch (archetype.id) {
+		case "hit_and_runner":
+		case "npc":
+			highlights.push({
+				label: commitRate !== null ? "Commit rate" : "Tokens",
+				value:
+					commitRate !== null
+						? formatPercent(commitRate)
+						: formatCompactWholeNumber(totalTokens),
+			});
+			break;
+		case "roadrunner":
+		case "adhd_brain":
+		case "tourist":
+			highlights.push({
+				label: totalRepos > 1 ? "Repos" : "Tokens",
+				value:
+					totalRepos > 1
+						? formatCompactWholeNumber(totalRepos)
+						: formatCompactWholeNumber(totalTokens),
+			});
+			break;
+		case "window_shopper":
+		case "papas_credit_card":
+		case "decimal":
+			highlights.push({
+				label: estimatedSpend > 0 ? "Spend" : "Tokens",
+				value:
+					estimatedSpend > 0
+						? formatCompactWholeCurrency(estimatedSpend)
+						: formatCompactWholeNumber(totalTokens),
+			});
+			break;
+		case "needs_to_touch_grass":
+			highlights.push({
+				label: longestSessionMin !== null ? "Longest run" : "Tokens",
+				value:
+					longestSessionMin !== null
+						? formatMinutes(longestSessionMin)
+						: formatCompactWholeNumber(totalTokens),
+			});
+			break;
+		case "maniac":
+			highlights.push({
+				label: "Tokens",
+				value: formatCompactWholeNumber(totalTokens),
+			});
+			break;
+		default:
+			highlights.push({
+				label: "Tokens",
+				value: formatCompactWholeNumber(totalTokens),
+			});
+			break;
+	}
+
+	return highlights;
 }
 
 function getWrappedRevealFirstName(displayName: string) {
@@ -757,9 +934,7 @@ export function WrappedTeamCardRevealFooter(props: {
 			>
 				Preview post
 			</WrappedPrimaryAction>
-			<WrappedSecondaryAction
-				onClick={onContinueToDashboard}
-			>
+			<WrappedSecondaryAction onClick={onContinueToDashboard}>
 				Continue to dashboard
 			</WrappedSecondaryAction>
 		</div>
