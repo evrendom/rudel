@@ -41,6 +41,21 @@ export function resolveModelPreviewInput(
 	previewState: string,
 ) {
 	switch (previewState) {
+		case "codex-zero":
+			return {
+				modelByMonth: buildPreviewMonthlyModelUsage([
+					["2026-01", "Claude Sonnet 4", 28],
+					["2026-02", "Claude Sonnet 4", 25],
+					["2026-03", "Claude Sonnet 4", 24],
+					["2026-04", "Claude Sonnet 4", 29],
+					["2026-05", "Claude Sonnet 4", 27],
+					["2026-06", "Claude Sonnet 4", 31],
+				]),
+				sourceSplit: buildPreviewSourceSplit([
+					["claude_code", 100],
+					["codex", 0],
+				]),
+			};
 		case "favorite":
 			return {
 				modelByMonth: buildPreviewMonthlyModelUsage([

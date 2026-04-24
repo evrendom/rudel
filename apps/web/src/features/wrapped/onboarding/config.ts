@@ -305,6 +305,7 @@ export const WRAPPED_STEP_PREVIEW_OPTIONS = {
 	],
 	model: [
 		{ value: "auto", label: "Auto (live data)" },
+		{ value: "codex-zero", label: "Codex zero" },
 		{ value: "favorite", label: "Clear favorite" },
 		{ value: "played-field", label: "No favorite" },
 		{ value: "single-switch", label: "One monthly switch" },
