@@ -1,5 +1,5 @@
 import { Check } from "lucide-react";
-import { motion, useReducedMotion } from "motion/react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useState } from "react";
 import { WrappedSetupCommandSurface } from "@/components/analytics/CliSetupCommandSurface";
 
@@ -11,6 +11,7 @@ const WRAPPED_SETUP_MOTION = {
 	duration: 0.24,
 	ease: [0.22, 1, 0.36, 1] as const,
 };
+const WRAPPED_SETUP_CARD_RADIUS = "0.82rem";
 
 interface WrappedCliSetupCommandProps {
 	alternateCommand?: string;
@@ -52,10 +53,21 @@ export function WrappedCliSetupCommand(props: WrappedCliSetupCommandProps) {
 	const shouldShowAlternateCommand =
 		(visualState === "current" || visualState === "upcoming") &&
 		alternateCommand !== undefined;
+	const shouldOverlayAlternateCommand =
+		shouldShowAlternateCommand && index === 1;
+	const alternatePanelTransition = reduceMotion
+		? {
+				duration: 0.14,
+				ease: "linear" as const,
+			}
+		: {
+				duration: 0.2,
+				ease: WRAPPED_SETUP_MOTION.ease,
+			};
 
 	return (
 		<motion.li
-			layout
+			layout="position"
 			initial={
 				reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.985, y: 16 }
 			}
@@ -69,13 +81,18 @@ export function WrappedCliSetupCommand(props: WrappedCliSetupCommandProps) {
 			className="list-none"
 		>
 			<motion.div
-				layout
+				layout="position"
 				animate={getCommandMotionState({
 					reduceMotion,
 					visualState,
 				})}
 				className="mymind-wrapped-setup-command"
 				data-step-state={visualState}
+				data-overlay-expanded={
+					shouldOverlayAlternateCommand && isAlternateCommandVisible
+						? "true"
+						: "false"
+				}
 				initial={false}
 				transition={{
 					duration: reduceMotion ? 0.16 : 0.2,
@@ -114,7 +131,10 @@ export function WrappedCliSetupCommand(props: WrappedCliSetupCommandProps) {
 						command={command}
 					/>
 					{shouldShowAlternateCommand ? (
-						<>
+						<div
+							className="mymind-wrapped-setup-command__alternate-region"
+							data-overlay={shouldOverlayAlternateCommand ? "true" : "false"}
+						>
 							<button
 								type="button"
 								className="mymind-wrapped-setup-command__alternate-toggle"
@@ -135,13 +155,73 @@ export function WrappedCliSetupCommand(props: WrappedCliSetupCommandProps) {
 									sessions?
 								</span>
 							</button>
-							{isAlternateCommandVisible ? (
-								<WrappedSetupCommandSurface
-									caption={alternateCommandCaption}
-									command={alternateCommand}
-								/>
-							) : null}
-						</>
+							<AnimatePresence initial={false}>
+								{isAlternateCommandVisible ? (
+									<motion.div
+										key="alternate-command"
+										animate={
+											reduceMotion
+												? { opacity: 1 }
+												: shouldOverlayAlternateCommand
+													? {
+															opacity: 1,
+															scale: 1,
+															y: 0,
+															borderTopLeftRadius: "0rem",
+															borderTopRightRadius: "0rem",
+															borderBottomLeftRadius: WRAPPED_SETUP_CARD_RADIUS,
+															borderBottomRightRadius:
+																WRAPPED_SETUP_CARD_RADIUS,
+														}
+													: { opacity: 1, scale: 1, y: 0 }
+										}
+										className="mymind-wrapped-setup-command__alternate-panel"
+										exit={
+											reduceMotion
+												? { opacity: 0 }
+												: shouldOverlayAlternateCommand
+													? {
+															opacity: 0,
+															scale: 0.99,
+															y: -6,
+															borderTopLeftRadius: WRAPPED_SETUP_CARD_RADIUS,
+															borderTopRightRadius: WRAPPED_SETUP_CARD_RADIUS,
+															borderBottomLeftRadius: WRAPPED_SETUP_CARD_RADIUS,
+															borderBottomRightRadius:
+																WRAPPED_SETUP_CARD_RADIUS,
+														}
+													: { opacity: 0, scale: 0.99, y: -6 }
+										}
+										initial={
+											reduceMotion
+												? { opacity: 0 }
+												: shouldOverlayAlternateCommand
+													? {
+															opacity: 0,
+															scale: 0.99,
+															y: -8,
+															borderTopLeftRadius: WRAPPED_SETUP_CARD_RADIUS,
+															borderTopRightRadius: WRAPPED_SETUP_CARD_RADIUS,
+															borderBottomLeftRadius: WRAPPED_SETUP_CARD_RADIUS,
+															borderBottomRightRadius:
+																WRAPPED_SETUP_CARD_RADIUS,
+														}
+													: { opacity: 0, scale: 0.99, y: -8 }
+										}
+										transition={alternatePanelTransition}
+									>
+											<div className="mymind-wrapped-setup-command__alternate-panel-inner">
+												<WrappedSetupCommandSurface
+													caption={alternateCommandCaption}
+													className="mymind-wrapped-setup-command__alternate-surface"
+													command={alternateCommand}
+													forceShell={alternateCommandCaption === undefined}
+												/>
+											</div>
+										</motion.div>
+								) : null}
+							</AnimatePresence>
+						</div>
 					) : null}
 				</div>
 			</motion.div>

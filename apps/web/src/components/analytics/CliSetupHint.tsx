@@ -8,10 +8,12 @@ export type { CliSetupStepId };
 export function CliSetupHint({
 	completedStepIds = [],
 	currentStepId,
+	hideAlternateCommandCaption = false,
 	variant = "default",
 }: {
 	completedStepIds?: readonly CliSetupStepId[];
 	currentStepId?: CliSetupStepId | null;
+	hideAlternateCommandCaption?: boolean;
 	variant?: "default" | "wrapped-story";
 }) {
 	const completedSteps = new Set(completedStepIds);
@@ -48,7 +50,11 @@ export function CliSetupHint({
 					key={step.command}
 					label={step.title}
 					alternateCommand={step.alternateCommand}
-					alternateCommandCaption={step.alternateCommandCaption}
+					alternateCommandCaption={
+						hideAlternateCommandCaption
+							? undefined
+							: step.alternateCommandCaption
+					}
 					command={step.command}
 					commandCaption={step.commandCaption}
 					description={step.description}

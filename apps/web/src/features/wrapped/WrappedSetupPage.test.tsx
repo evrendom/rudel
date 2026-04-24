@@ -149,10 +149,10 @@ describe("WrappedSetupPage", () => {
 			}),
 		).toBeInTheDocument();
 		expect(
-			screen.getByText(
+			screen.queryByText(
 				"Manually select sessions in a given repo with no auto upload in the future",
 			),
-		).toBeInTheDocument();
+		).toBeNull();
 		expect(
 			screen.getAllByRole("button", { name: "Copy to clipboard" }),
 		).toHaveLength(3);

@@ -53,6 +53,7 @@ export function WrappedSetupPage(props: WrappedSetupPageProps) {
 					<CliSetupHint
 						completedStepIds={completedStepIds}
 						currentStepId={currentStepId}
+						hideAlternateCommandCaption
 						variant="wrapped-story"
 					/>
 				}

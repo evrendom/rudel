@@ -4447,6 +4447,7 @@ body.mymind-wrapped-body #root {
 	background: #f0f3f7;
 	box-shadow: 0 12px 24px rgb(15 23 42 / 0.04);
 	transition:
+		border-radius 200ms cubic-bezier(0.23, 1, 0.32, 1),
 		border-color 180ms ease,
 		background-color 180ms ease,
 		box-shadow 180ms ease,
@@ -4588,11 +4589,23 @@ body.mymind-wrapped-body #root {
 	position: relative;
 	display: grid;
 	gap: 0.34rem;
+	border-bottom-right-radius: 0.82rem;
+	border-bottom-left-radius: 0.82rem;
+	background: #f0f3f7;
+	transition: border-radius 200ms cubic-bezier(0.23, 1, 0.32, 1);
 }
 
 .mymind-wrapped-setup-command[data-overlay-expanded="true"] {
 	position: relative;
 	z-index: 3;
+	border-bottom-right-radius: 0;
+	border-bottom-left-radius: 0;
+}
+
+.mymind-wrapped-setup-command[data-overlay-expanded="true"]
+	.mymind-wrapped-setup-command__alternate-region {
+	border-bottom-right-radius: 0;
+	border-bottom-left-radius: 0;
 }
 
 .mymind-wrapped-setup-command__alternate-region[data-overlay="true"] {
@@ -4601,12 +4614,14 @@ body.mymind-wrapped-body #root {
 
 .mymind-wrapped-setup-command__alternate-panel {
 	overflow: clip;
+	border-radius: 0.82rem;
+	background: #f0f3f7;
 	transform-origin: top center;
 }
 
 .mymind-wrapped-setup-command__alternate-panel-inner {
 	display: grid;
-	padding-top: 0.04rem;
+	padding: 0.28rem 0.18rem 0.18rem;
 }
 
 .mymind-wrapped-setup-command__alternate-region[data-overlay="true"]
@@ -4617,11 +4632,17 @@ body.mymind-wrapped-body #root {
 	left: 0;
 	z-index: 3;
 	overflow: visible;
+	border-top-left-radius: 0;
+	border-top-right-radius: 0;
+}
+
+.mymind-wrapped-setup-command__alternate-surface {
+	box-shadow: 0 18px 32px rgb(15 23 42 / 0.08);
 }
 
 .mymind-wrapped-setup-command__alternate-region[data-overlay="true"]
 	.mymind-wrapped-setup-command__alternate-panel-inner {
-	filter: drop-shadow(0 18px 32px rgb(15 23 42 / 0.08));
+	padding-top: 0.26rem;
 }
 
 .mymind-wrapped-setup-command__surface-shell {
@@ -4772,7 +4793,9 @@ body.mymind-wrapped-body #root {
 	margin: -0.02rem 0 0.06rem;
 	padding: 0 1rem 0.22rem;
 	border: 0;
-	background: transparent;
+	border-bottom-right-radius: 0.82rem;
+	border-bottom-left-radius: 0.82rem;
+	background: #f0f3f7;
 	color: rgb(44 40 36 / 0.7);
 	font-size: 0.76rem;
 	font-family: var(--font-sans);
@@ -4780,6 +4803,15 @@ body.mymind-wrapped-body #root {
 	line-height: 1.35;
 	text-align: left;
 	cursor: pointer;
+	transition:
+		border-radius 200ms cubic-bezier(0.23, 1, 0.32, 1),
+		color 180ms ease;
+}
+
+.mymind-wrapped-setup-command[data-overlay-expanded="true"]
+	.mymind-wrapped-setup-command__alternate-toggle {
+	border-bottom-right-radius: 0;
+	border-bottom-left-radius: 0;
 }
 
 .mymind-wrapped-setup-command__alternate-toggle-arrow {

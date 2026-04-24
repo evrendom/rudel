@@ -10,10 +10,11 @@ export function WrappedSetupCommandSurface(props: {
 	caption?: string;
 	command: string;
 	className?: string;
+	forceShell?: boolean;
 }) {
-	const { caption, className, command } = props;
+	const { caption, className, command, forceShell = false } = props;
 
-	if (!caption) {
+	if (!caption && !forceShell) {
 		return <CopyableCommandSurface command={command} />;
 	}
 
@@ -21,7 +22,11 @@ export function WrappedSetupCommandSurface(props: {
 		<div
 			className={cn("mymind-wrapped-setup-command__surface-shell", className)}
 		>
-			<p className="mymind-wrapped-setup-command__surface-caption">{caption}</p>
+			{caption ? (
+				<p className="mymind-wrapped-setup-command__surface-caption">
+					{caption}
+				</p>
+			) : null}
 			<CopyableCommandSurface command={command} />
 		</div>
 	);
