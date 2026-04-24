@@ -40,6 +40,7 @@ export function buildWrappedOnboardingMetrics(
 		avgSessionMin: developerDetails?.avg_session_duration_min ?? null,
 		commitRate:
 			totalSessions > 0 ? (commitSessions / totalSessions) * 100 : null,
+		commitSessions,
 		daysSinceFirst: wrappedMetrics?.days_since_first_session ?? 0,
 		estimatedCostTokenBasis: Math.max(
 			0,

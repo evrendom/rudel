@@ -71,6 +71,7 @@ const onboardingMetrics: WrappedOnboardingMetrics = {
 	activeDays: 12,
 	avgSessionMin: 24,
 	commitRate: 41,
+	commitSessions: 15,
 	daysSinceFirst: 180,
 	estimatedCostTokenBasis: 0,
 	estimatedCostUsd: 42,
@@ -83,21 +84,27 @@ const onboardingMetrics: WrappedOnboardingMetrics = {
 		totalRepos: 0,
 		totalSessions: 0,
 	},
-	skillsAdoptionRate: null,
-	slashCommandsAdoptionRate: null,
-	sourceSplit: [],
-	subagentsAdoptionRate: null,
-	successRate: null,
-	topProjectName: null,
-	topProjectSessions: 0,
-	topProjectTokens: 0,
-	topSkills: [],
-	topSlashCommand: null,
-	topSlashCommandCount: null,
-	topSlashCommands: [],
-	topSubagent: null,
-	topSubagentCount: null,
-	topSubagents: [],
+	skillsAdoptionRate: 62.16,
+	sourceSplit: [
+		{ session_count: 21, session_share_percent: 57, source: "claude_code" },
+		{ session_count: 16, session_share_percent: 43, source: "codex" },
+	],
+	subagentsAdoptionRate: 10.81,
+	successRate: 64,
+	topProjectName: "geneva",
+	topProjectSessions: 17,
+	topProjectTokens: 58_000,
+	topSkills: [
+		{ count: 14, name: "Refactor" },
+		{ count: 9, name: "Test" },
+	],
+	slashCommandsAdoptionRate: 29.73,
+	topSlashCommand: "Architect",
+	topSlashCommandCount: 11,
+	topSlashCommands: [{ count: 11, name: "Architect" }],
+	topSubagent: "Reviewer",
+	topSubagentCount: 4,
+	topSubagents: [{ count: 4, name: "Reviewer" }],
 	totalSessions: 37,
 	totalTokens: 124_000,
 };
@@ -161,6 +168,7 @@ describe("WrappedTeamCardRevealStage", () => {
 				row={row}
 				shellClassName="bg-sky-200"
 				shellStyle={{}}
+				shareCardCreatedAtLabel="04/24/2026"
 				statItems={[]}
 				statLayerOpacities={{
 					rainbowShineOpacity: 0.3,
@@ -214,7 +222,28 @@ describe("WrappedTeamCardRevealStage", () => {
 			screen
 				.getByTestId("wrapped-team-card-back")
 				.querySelector(".mymind-wrapped-team-card-back__content"),
-		).toBeNull();
+		).not.toBeNull();
+		expect(screen.getByRole("img", { name: "Rudel" })).toBeInTheDocument();
+		expect(screen.queryByText("Last 365 days")).toBeNull();
+		expect(screen.queryByText("Smooth Operator")).toBeNull();
+		expect(screen.queryByText("Project: geneva")).toBeNull();
+		expect(screen.queryByText("Skill: Refactor")).toBeNull();
+		expect(screen.getByText("Claude/Codex %")).toBeInTheDocument();
+		expect(screen.getByText("57%/43%")).toBeInTheDocument();
+		expect(screen.getByText("Input/output tokens")).toBeInTheDocument();
+		expect(screen.getByText("60000/64000")).toBeInTheDocument();
+		expect(screen.getByText("Skills used")).toBeInTheDocument();
+		expect(screen.getByText("23")).toBeInTheDocument();
+		expect(screen.getByText("Favorite skill")).toBeInTheDocument();
+		expect(screen.getByText("Refactor")).toBeInTheDocument();
+		expect(screen.getByText("Commands used")).toBeInTheDocument();
+		expect(screen.getAllByText("11")[0]).toBeInTheDocument();
+		expect(screen.getByText("Sub-agents used")).toBeInTheDocument();
+		expect(screen.getByText("Repos touched")).toBeInTheDocument();
+		expect(screen.getByText("Spent")).toBeInTheDocument();
+		expect(screen.getByText("Dollar per commit")).toBeInTheDocument();
+		expect(screen.getByText("2.8")).toBeInTheDocument();
+		expect(screen.getByText("04/24/2026")).toBeInTheDocument();
 		const revealButton = screen.getByRole("button", {
 			name: "Reveal front of card",
 		});

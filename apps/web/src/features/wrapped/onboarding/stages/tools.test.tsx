@@ -21,6 +21,7 @@ const emptyToolsMetrics: WrappedOnboardingMetrics = {
 	activeDays: 0,
 	avgSessionMin: null,
 	commitRate: null,
+	commitSessions: 0,
 	daysSinceFirst: 0,
 	estimatedCostTokenBasis: 0,
 	estimatedCostUsd: 0,
@@ -133,13 +134,13 @@ describe("WrappedOnboardingToolsStage", () => {
 				name: "/fix led. Reviewer backed it up.",
 			}),
 		).toBeInTheDocument();
-			expect(
-				screen.queryByRole("heading", {
-					name: "Your workflow grew beyond the base model.",
-				}),
-			).toBeNull();
-			expect(
-				screen.getByRole("button", { name: "/fix. 58% of sessions" }),
-			).toBeInTheDocument();
-		});
+		expect(
+			screen.queryByRole("heading", {
+				name: "Your workflow grew beyond the base model.",
+			}),
+		).toBeNull();
+		expect(
+			screen.getByRole("button", { name: "/fix. 58% of sessions" }),
+		).toBeInTheDocument();
 	});
+});

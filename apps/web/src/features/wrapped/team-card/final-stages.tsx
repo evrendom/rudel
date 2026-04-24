@@ -29,7 +29,7 @@ import {
 } from "./card";
 import {
 	WrappedTeamMemberCardBack,
-	type WrappedTeamMemberCardBackHighlight,
+	type WrappedTeamMemberCardBackMetric,
 } from "./card-back";
 import type { WrappedCardTiltController } from "./tilt/use-card-tilt";
 
@@ -60,6 +60,7 @@ interface WrappedTeamCardRevealStageProps
 	extends WrappedTeamCardStageCardProps {
 	activeArchetype: WrappedArchetypeCardTheme;
 	onboardingMetrics: WrappedOnboardingMetrics;
+	shareCardCreatedAtLabel: string;
 	tiltController: WrappedCardTiltController;
 }
 
@@ -259,6 +260,7 @@ export function WrappedTeamCardRevealStage(
 		row,
 		shellClassName,
 		shellStyle,
+		shareCardCreatedAtLabel,
 		statItems,
 		statLayerOpacities,
 		theme,
@@ -279,10 +281,11 @@ export function WrappedTeamCardRevealStage(
 		onboardingMetrics,
 		row,
 	});
-	const revealBackHighlights = getWrappedRevealBackHighlights({
+	const revealBackMetrics = getWrappedRevealBackMetrics({
 		archetype: activeArchetype,
 		onboardingMetrics,
 		row,
+		shareCardCreatedAtLabel,
 	});
 	const revealTextLine =
 		sequencePhase === "sessions"
@@ -471,18 +474,10 @@ export function WrappedTeamCardRevealStage(
 												className="mymind-wrapped-final-stage__flip-face mymind-wrapped-final-stage__flip-face--back"
 											>
 												<WrappedTeamMemberCardBack
-													archetypeLabel={activeArchetype.displayLabel}
-													displayName={row.displayName}
-													editionLabel={
-														activeArchetype.taxonomyLabel ?? "Special Edition"
-													}
-													highlights={revealBackHighlights}
-													hintLabel="Turn to reveal the card."
-													narrative={revealCopy.description}
+													metrics={revealBackMetrics}
 													shellClassName={shellClassName}
 													shellStyle={shellStyle}
 													theme={theme}
-													variant="gradient-only"
 												/>
 											</div>
 										</div>
@@ -663,98 +658,225 @@ function getWrappedRevealStoryCopy(input: {
 	}
 }
 
-function getWrappedRevealBackHighlights(input: {
+function getWrappedRevealBackMetrics(input: {
 	archetype: WrappedArchetypeCardTheme;
 	onboardingMetrics: WrappedOnboardingMetrics;
 	row: TeamPageMemberRow;
-}): readonly WrappedTeamMemberCardBackHighlight[] {
-	const { archetype, onboardingMetrics, row } = input;
+	shareCardCreatedAtLabel: string;
+}): readonly WrappedTeamMemberCardBackMetric[] {
+	const { onboardingMetrics, row, shareCardCreatedAtLabel } = input;
 	const activeDays = Math.max(
 		0,
 		onboardingMetrics.activeDays || row.activeDays,
 	);
+	const totalSessions = Math.max(
+		0,
+		onboardingMetrics.totalSessions || row.totalSessions,
+	);
+	const totalTokens = Math.max(
+		0,
+		onboardingMetrics.totalTokens || row.totalTokens,
+	);
+	const inputTokens = Math.max(0, row.inputTokens);
+	const outputTokens = Math.max(0, row.outputTokens);
+	const avgSessionMin =
+		onboardingMetrics.avgSessionMin && onboardingMetrics.avgSessionMin > 0
+			? onboardingMetrics.avgSessionMin
+			: null;
 	const commitRate =
 		onboardingMetrics.commitRate && onboardingMetrics.commitRate > 0
 			? onboardingMetrics.commitRate
+			: null;
+	const successRate =
+		onboardingMetrics.successRate && onboardingMetrics.successRate > 0
+			? onboardingMetrics.successRate
 			: null;
 	const longestSessionMin =
 		onboardingMetrics.longestSessionMin &&
 		onboardingMetrics.longestSessionMin > 0
 			? onboardingMetrics.longestSessionMin
 			: null;
-	const totalRepos = Math.max(0, onboardingMetrics.repoPulse.totalRepos);
-	const totalTokens = Math.max(0, onboardingMetrics.totalTokens);
 	const estimatedSpend = Math.max(
 		0,
 		Math.round(Math.max(row.cost, onboardingMetrics.estimatedCostUsd)),
 	);
-	const sessionValue = formatCompactWholeNumber(Math.max(0, row.totalSessions));
+	const reposTouched = Math.max(0, onboardingMetrics.repoPulse.totalRepos);
+	const skillSessionsUsed = getWrappedBackFeatureSessionCount(
+		totalSessions,
+		onboardingMetrics.skillsAdoptionRate,
+	);
+	const commandSessionsUsed = getWrappedBackFeatureSessionCount(
+		totalSessions,
+		onboardingMetrics.slashCommandsAdoptionRate,
+	);
+	const subagentSessionsUsed = getWrappedBackFeatureSessionCount(
+		totalSessions,
+		onboardingMetrics.subagentsAdoptionRate,
+	);
+	const claudeShare = Math.round(
+		onboardingMetrics.sourceSplit.find(
+			(entry) => entry.source === "claude_code",
+		)?.session_share_percent ?? 0,
+	);
+	const codexShare = Math.round(
+		onboardingMetrics.sourceSplit.find((entry) => entry.source === "codex")
+			?.session_share_percent ?? 0,
+	);
+	const dollarsPerCommit =
+		onboardingMetrics.commitSessions > 0
+			? estimatedSpend / onboardingMetrics.commitSessions
+			: 0;
+	const issuedDateLabel = formatWrappedBackIssuedDate(shareCardCreatedAtLabel);
 
-	const highlights: WrappedTeamMemberCardBackHighlight[] = [
-		{ label: "Sessions", value: sessionValue },
+	return [
+		{
+			label: "Sessions",
+			value: formatWrappedBackInteger(totalSessions),
+		},
 		{
 			label: "Active days",
-			value: formatCompactWholeNumber(activeDays),
+			value: formatWrappedBackInteger(activeDays),
+		},
+		{
+			label: "Avg session min",
+			value: formatWrappedBackInteger(avgSessionMin),
+		},
+		{
+			label: "Longest session min",
+			value: formatWrappedBackInteger(longestSessionMin),
+		},
+		{
+			label: "Input/output tokens",
+			value: formatWrappedBackIntegerPair(inputTokens, outputTokens),
+		},
+		{
+			label: "Total tokens",
+			value: formatWrappedBackInteger(totalTokens),
+		},
+		{
+			label: "Commit rate %",
+			value: formatWrappedBackInteger(commitRate),
+		},
+		{
+			label: "Success rate %",
+			value: formatWrappedBackInteger(successRate),
+		},
+		{
+			label: "Claude/Codex %",
+			value: formatWrappedBackPercentPair(claudeShare, codexShare),
+		},
+		{
+			label: "Skills used",
+			value: formatWrappedBackInteger(skillSessionsUsed),
+		},
+		{
+			label: "Favorite skill",
+			value: onboardingMetrics.topSkills[0]?.name ?? "Skill issue",
+		},
+		{
+			label: "Commands used",
+			value: formatWrappedBackInteger(commandSessionsUsed),
+		},
+		{
+			label: "Sub-agents used",
+			value: formatWrappedBackInteger(subagentSessionsUsed),
+		},
+		{
+			label: "Repos touched",
+			value: formatWrappedBackInteger(reposTouched),
+		},
+		{
+			label: "Spent",
+			value: formatWrappedBackInteger(estimatedSpend),
+		},
+		{
+			label: "Dollar per commit",
+			value: formatWrappedBackDecimal(dollarsPerCommit),
+		},
+		{
+			label: "",
+			slot: "footer",
+			value: issuedDateLabel,
 		},
 	];
+}
 
-	switch (archetype.id) {
-		case "hit_and_runner":
-		case "npc":
-			highlights.push({
-				label: commitRate !== null ? "Commit rate" : "Tokens",
-				value:
-					commitRate !== null
-						? formatPercent(commitRate)
-						: formatCompactWholeNumber(totalTokens),
-			});
-			break;
-		case "roadrunner":
-		case "adhd_brain":
-		case "tourist":
-			highlights.push({
-				label: totalRepos > 1 ? "Repos" : "Tokens",
-				value:
-					totalRepos > 1
-						? formatCompactWholeNumber(totalRepos)
-						: formatCompactWholeNumber(totalTokens),
-			});
-			break;
-		case "window_shopper":
-		case "papas_credit_card":
-		case "decimal":
-			highlights.push({
-				label: estimatedSpend > 0 ? "Spend" : "Tokens",
-				value:
-					estimatedSpend > 0
-						? formatCompactWholeCurrency(estimatedSpend)
-						: formatCompactWholeNumber(totalTokens),
-			});
-			break;
-		case "needs_to_touch_grass":
-			highlights.push({
-				label: longestSessionMin !== null ? "Longest run" : "Tokens",
-				value:
-					longestSessionMin !== null
-						? formatMinutes(longestSessionMin)
-						: formatCompactWholeNumber(totalTokens),
-			});
-			break;
-		case "maniac":
-			highlights.push({
-				label: "Tokens",
-				value: formatCompactWholeNumber(totalTokens),
-			});
-			break;
-		default:
-			highlights.push({
-				label: "Tokens",
-				value: formatCompactWholeNumber(totalTokens),
-			});
-			break;
+function formatWrappedBackInteger(value: number | null) {
+	if (value === null || !Number.isFinite(value)) {
+		return "0";
 	}
 
-	return highlights;
+	return Math.round(Math.max(0, value)).toString();
+}
+
+function formatWrappedBackIntegerPair(
+	leftValue: number | null,
+	rightValue: number | null,
+) {
+	return `${formatWrappedBackInteger(leftValue)}/${formatWrappedBackInteger(rightValue)}`;
+}
+
+function formatWrappedBackPercentPair(
+	leftValue: number | null,
+	rightValue: number | null,
+) {
+	return `${formatWrappedBackInteger(leftValue)}%/${formatWrappedBackInteger(rightValue)}%`;
+}
+
+function formatWrappedBackDecimal(value: number | null) {
+	if (value === null || !Number.isFinite(value) || value <= 0) {
+		return "0";
+	}
+
+	const roundedValue = Math.round(value * 10) / 10;
+
+	return Number.isInteger(roundedValue)
+		? roundedValue.toString()
+		: roundedValue.toFixed(1);
+}
+
+function getWrappedBackFeatureSessionCount(
+	totalSessions: number,
+	adoptionRate: number | null,
+) {
+	if (!Number.isFinite(totalSessions) || totalSessions <= 0) {
+		return 0;
+	}
+
+	if (
+		adoptionRate === null ||
+		!Number.isFinite(adoptionRate) ||
+		adoptionRate <= 0
+	) {
+		return 0;
+	}
+
+	return Math.min(
+		totalSessions,
+		Math.max(0, Math.round((totalSessions * adoptionRate) / 100)),
+	);
+}
+
+function formatWrappedBackIssuedDate(value: string) {
+	const parsedDate = new Date(value);
+
+	if (Number.isNaN(parsedDate.getTime())) {
+		const [month = "", day = "", year = ""] = value
+			.split(/[^\d]+/)
+			.filter(Boolean);
+
+		if (month && day && year) {
+			return `${month.padStart(2, "0")}/${day.padStart(2, "0")}/${year}`;
+		}
+
+		return value;
+	}
+
+	const month = `${parsedDate.getMonth() + 1}`.padStart(2, "0");
+	const day = `${parsedDate.getDate()}`.padStart(2, "0");
+	const year = parsedDate.getFullYear().toString();
+
+	return `${month}/${day}/${year}`;
 }
 
 function getWrappedRevealFirstName(displayName: string) {

@@ -24,6 +24,7 @@ export interface WrappedOnboardingMetrics {
 	activeDays: number;
 	avgSessionMin: number | null;
 	commitRate: number | null;
+	commitSessions: number;
 	daysSinceFirst: number;
 	estimatedCostTokenBasis: number;
 	estimatedCostUsd: number;

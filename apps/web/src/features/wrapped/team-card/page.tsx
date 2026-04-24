@@ -1,12 +1,12 @@
-import { ChevronLeft, ChevronRight } from "lucide-react";
 import { WRAPPED_SHARE_PAYLOAD_VERSION } from "@rudel/api-routes";
 import { useDialKit } from "dialkit";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import {
+	type CSSProperties,
 	cloneElement,
 	isValidElement,
-	startTransition,
-	type CSSProperties,
 	type ReactNode,
+	startTransition,
 	useMemo,
 	useRef,
 	useState,
@@ -95,7 +95,9 @@ export function WrappedTeamCardPage(props: {
 	}
 
 	const activeStepParam = searchParams.get("step");
-	const estimatedSpendValue = formatCompactWholeCurrency(visibleTeamCardRow.cost);
+	const estimatedSpendValue = formatCompactWholeCurrency(
+		visibleTeamCardRow.cost,
+	);
 	const handleContinueToDashboard = () => {
 		markWrappedCompleted(completionUserId);
 		navigate(appRoutes.dashboard());
@@ -196,7 +198,9 @@ function WrappedTeamCardPageContent(props: {
 	onboardingMetrics: WrappedOnboardingMetrics;
 	onBackFromFirstStep?: () => void;
 	onContinueToDashboard: () => void;
-	setActiveArchetypeIndex: (nextValue: number | ((currentValue: number) => number)) => void;
+	setActiveArchetypeIndex: (
+		nextValue: number | ((currentValue: number) => number),
+	) => void;
 	shareCardCreatedAtLabel: string;
 	shellStyle: CSSProperties;
 	statItems: readonly WrappedTeamMemberCardStatItem[];
@@ -371,6 +375,7 @@ function WrappedTeamCardPageContent(props: {
 			row={visibleTeamCardRow}
 			shellClassName={activeArchetype.shellClassName}
 			shellStyle={shellStyle}
+			shareCardCreatedAtLabel={shareCardCreatedAtLabel}
 			statItems={statItems}
 			statLayerOpacities={statLayerOpacities}
 			theme={activeArchetype.theme}

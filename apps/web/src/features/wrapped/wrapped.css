@@ -1599,7 +1599,7 @@ body.mymind-wrapped-body #root {
 
 .mymind-wrapped-model-stage__scene-shell--history
 	.mymind-wrapped-model-stage__card {
-	grid-template-rows: minmax(0, 1fr) auto;
+	grid-template-rows: minmax(0, 1fr);
 }
 
 .mymind-wrapped-model-stage__summary-card,
@@ -1619,9 +1619,34 @@ body.mymind-wrapped-body #root {
 	padding-top: clamp(8.8rem, 20svh, 11.6rem);
 }
 
+.mymind-wrapped-model-stage__summary-card--history {
+	padding-top: clamp(6.4rem, 15svh, 8.4rem);
+}
+
 .mymind-wrapped-model-stage__months-card {
 	padding-top: 1.05rem;
 	border-top: 1px solid var(--wrapped-stage-divider);
+}
+
+.mymind-wrapped-model-stage__chart-shell {
+	display: grid;
+	width: 100%;
+	min-height: clamp(24rem, 62svh, 31rem);
+	align-content: end;
+}
+
+.mymind-wrapped-model-stage__summary-card--history
+	.mymind-wrapped-model-stage__chart-shell {
+	min-height: clamp(16.4rem, 42svh, 19.2rem);
+}
+
+.mymind-wrapped-model-stage__chart-panel {
+	width: 100%;
+}
+
+.mymind-wrapped-model-stage__chart-panel--history {
+	width: min(100%, 21.5rem);
+	justify-self: center;
 }
 
 .mymind-wrapped-model-stage__legend-name,
@@ -1963,6 +1988,7 @@ body.mymind-wrapped-body #root {
 	margin: 0;
 	padding: 0;
 	list-style: none;
+	width: 100%;
 }
 
 .mymind-wrapped-model-stage__month-column {
@@ -5662,7 +5688,9 @@ body.mymind-wrapped-body #root {
 		calc(var(--wrapped-card-render-scale, 1) * 14px)
 		calc(var(--wrapped-card-render-scale, 1) * 10px);
 	border-radius: calc(var(--wrapped-card-render-scale, 1) * 18px);
-	box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.16);
+	box-shadow:
+		0 0 calc(var(--wrapped-card-render-scale, 1) * 10.1px) rgb(0 0 0 / 0.08),
+		inset 0 1px 0 rgb(255 255 255 / 0.16);
 }
 
 .mymind-wrapped-team-card-back__wash {
@@ -5690,166 +5718,108 @@ body.mymind-wrapped-body #root {
 .mymind-wrapped-team-card-back__content {
 	position: relative;
 	z-index: 1;
-	display: grid;
-	grid-template-rows: auto auto minmax(0, 1fr) auto auto;
-	gap: calc(var(--wrapped-card-render-scale, 1) * 10px);
+	display: flex;
+	flex-direction: column;
+	gap: calc(var(--wrapped-card-render-scale, 1) * 8px);
 	height: 100%;
 }
 
-.mymind-wrapped-team-card-back__meta {
+.mymind-wrapped-team-card-back__logo-shell {
+	display: grid;
+	place-items: center;
+	padding-top: calc(var(--wrapped-card-render-scale, 1) * 3px);
+}
+
+.mymind-wrapped-team-card-back__logo {
+	display: block;
+	width: calc(var(--wrapped-card-render-scale, 1) * 15px);
+	height: calc(var(--wrapped-card-render-scale, 1) * 15px);
+	color: var(--wrapped-team-card-back-muted);
+}
+
+.mymind-wrapped-team-card-back__metrics-shell {
 	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	gap: calc(var(--wrapped-card-render-scale, 1) * 8px);
+	flex: 1 1 auto;
+	min-height: 0;
+	align-self: stretch;
 }
 
-.mymind-wrapped-team-card-back__eyebrow,
-.mymind-wrapped-team-card-back__edition {
-	font-size: calc(var(--wrapped-card-render-scale, 1) * 9px);
-	font-family: var(--font-sans);
-	font-weight: 700;
+.mymind-wrapped-team-card-back__metric-footer-shell {
+	margin-top: auto;
+	padding-top: calc(var(--wrapped-card-render-scale, 1) * 18px);
+}
+
+.mymind-wrapped-team-card-back__metrics-table {
+	width: 100%;
+	border-collapse: collapse;
+	table-layout: fixed;
+}
+
+.mymind-wrapped-team-card-back__metric-row
+	+ .mymind-wrapped-team-card-back__metric-row
+	> * {
+	border-top: 1px solid var(--wrapped-team-card-back-divider);
+}
+
+.mymind-wrapped-team-card-back__metric-label,
+.mymind-wrapped-team-card-back__metric-value {
+	padding-block: calc(var(--wrapped-card-render-scale, 1) * 3.4px);
+	vertical-align: middle;
+}
+
+.mymind-wrapped-team-card-back__metric-label {
+	width: 56%;
+	padding-right: calc(var(--wrapped-card-render-scale, 1) * 8px);
+	font-size: calc(var(--wrapped-card-render-scale, 1) * 7.2px);
+	font-family: "Geist Mono", ui-monospace, monospace;
+	font-weight: 500;
 	letter-spacing: 0.08em;
-	line-height: 1;
-	opacity: 0.72;
+	line-height: 1.1;
+	text-align: left;
 	text-transform: uppercase;
+	white-space: nowrap;
+	overflow: clip;
+	text-overflow: ellipsis;
+	color: var(--wrapped-team-card-back-muted);
 }
 
-.mymind-wrapped-team-card-back__edition {
+.mymind-wrapped-team-card-back__metric-value {
 	text-align: right;
 }
 
-.mymind-wrapped-team-card-back__crest {
-	position: relative;
-	display: grid;
-	place-items: center;
-	width: calc(var(--wrapped-card-render-scale, 1) * 110px);
-	height: calc(var(--wrapped-card-render-scale, 1) * 110px);
-	margin: 0 auto;
-}
-
-.mymind-wrapped-team-card-back__crest-ring {
-	position: absolute;
-	inset: 0;
-	border: calc(var(--wrapped-card-render-scale, 1) * 1.5px) solid
-		rgb(255 255 255 / 0.34);
-	border-radius: 999px;
-	background:
-		radial-gradient(
-			80% 80% at 50% 30%,
-			rgb(255 255 255 / 0.18) 0%,
-			rgb(255 255 255 / 0) 100%
-		),
-		rgb(255 255 255 / 0.08);
-	box-shadow:
-		inset 0 1px 0 rgb(255 255 255 / 0.2),
-		0 calc(var(--wrapped-card-render-scale, 1) * 16px)
-		calc(var(--wrapped-card-render-scale, 1) * 32px) rgb(15 23 42 / 0.12);
-}
-
-.mymind-wrapped-team-card-back__crest-mark {
-	position: relative;
-	font-size: calc(var(--wrapped-card-render-scale, 1) * 30px);
-	font-family: var(--dashboard-01-font-roster-display);
-	font-weight: 900;
-	letter-spacing: -0.08em;
-	line-height: 0.9;
-}
-
-.mymind-wrapped-team-card-back__story {
-	display: grid;
-	gap: calc(var(--wrapped-card-render-scale, 1) * 4px);
-	text-align: center;
-}
-
-.mymind-wrapped-team-card-back__name,
-.mymind-wrapped-team-card-back__title,
-.mymind-wrapped-team-card-back__narrative {
-	margin: 0;
-}
-
-.mymind-wrapped-team-card-back__name {
-	font-size: calc(var(--wrapped-card-render-scale, 1) * 11px);
-	font-family: var(--font-sans);
-	font-weight: 700;
-	letter-spacing: -0.02em;
-	line-height: 1.15;
-	opacity: 0.74;
-}
-
-.mymind-wrapped-team-card-back__title {
-	font-size: calc(var(--wrapped-card-render-scale, 1) * 23px);
-	font-family: var(--dashboard-01-font-roster-display);
-	font-weight: 900;
-	letter-spacing: -0.06em;
-	line-height: 0.92;
-	text-wrap: balance;
-}
-
-.mymind-wrapped-team-card-back__narrative {
-	max-width: calc(var(--wrapped-card-render-scale, 1) * 175px);
-	margin: 0 auto;
-	font-size: calc(var(--wrapped-card-render-scale, 1) * 10px);
-	font-family: var(--font-sans);
-	font-weight: 600;
-	letter-spacing: -0.02em;
-	line-height: 1.3;
-	opacity: 0.82;
-	text-wrap: balance;
-}
-
-.mymind-wrapped-team-card-back__highlight-grid {
-	display: grid;
-	grid-template-columns: repeat(3, minmax(0, 1fr));
-	gap: calc(var(--wrapped-card-render-scale, 1) * 6px);
-	margin: 0;
-}
-
-.mymind-wrapped-team-card-back__highlight {
-	display: grid;
-	gap: calc(var(--wrapped-card-render-scale, 1) * 4px);
-	min-width: 0;
-	padding: calc(var(--wrapped-card-render-scale, 1) * 8px)
-		calc(var(--wrapped-card-render-scale, 1) * 7px);
-	border: 1px solid rgb(255 255 255 / 0.16);
-	border-radius: calc(var(--wrapped-card-render-scale, 1) * 10px);
-	background: rgb(255 255 255 / 0.12);
-	box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.16);
-}
-
-.mymind-wrapped-team-card-back__highlight-label,
-.mymind-wrapped-team-card-back__highlight-value {
-	margin: 0;
-}
-
-.mymind-wrapped-team-card-back__highlight-label {
-	font-size: calc(var(--wrapped-card-render-scale, 1) * 8px);
-	font-family: var(--font-sans);
-	font-weight: 700;
-	letter-spacing: 0.06em;
-	line-height: 1;
-	opacity: 0.62;
-	text-transform: uppercase;
-}
-
-.mymind-wrapped-team-card-back__highlight-value {
-	font-size: calc(var(--wrapped-card-render-scale, 1) * 12px);
-	font-family: var(--dashboard-01-font-roster-display);
-	font-weight: 800;
-	letter-spacing: -0.04em;
-	line-height: 1;
+.mymind-wrapped-team-card-back__metric-value-text {
+	display: block;
+	font-size: calc(var(--wrapped-card-render-scale, 1) * 7.2px);
+	font-family: "Geist Mono", ui-monospace, monospace;
+	font-weight: 500;
+	letter-spacing: 0.08em;
+	line-height: 1.1;
 	overflow-wrap: anywhere;
+	text-align: right;
+	text-transform: uppercase;
+	white-space: nowrap;
+	color: var(--wrapped-team-card-back-muted);
 }
 
-.mymind-wrapped-team-card-back__hint {
-	margin: 0;
-	font-size: calc(var(--wrapped-card-render-scale, 1) * 9px);
-	font-family: var(--font-sans);
-	font-weight: 700;
+.mymind-wrapped-team-card-back__footer-lockup {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: calc(var(--wrapped-card-render-scale, 1) * 6px);
+}
+
+.mymind-wrapped-team-card-back__footer-date {
+	font-size: calc(var(--wrapped-card-render-scale, 1) * 7.4px);
+	font-family: "Geist Mono", ui-monospace, monospace;
+	font-weight: 600;
 	letter-spacing: 0.08em;
 	line-height: 1;
-	opacity: 0.7;
-	text-align: center;
-	text-transform: uppercase;
+	color: var(--wrapped-team-card-back-footer-ink);
+}
+
+.mymind-wrapped-team-card-back__metric-value
+	.mymind-wrapped-team-card-back__metric-value-text {
+	text-align: right;
 }
 
 .mymind-wrapped-final-stage__support {

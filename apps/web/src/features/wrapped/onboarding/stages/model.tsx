@@ -40,6 +40,15 @@ interface ModelRaceRowStyle extends CSSProperties {
 	"--model-stage-race-tint": string;
 }
 
+type WrappedModelStageResolvedModel = ReturnType<typeof resolveModelStageModel>;
+
+type WrappedModelStageSplitCard = {
+	label: string;
+	logo: ReactNode;
+	segment: WrappedModelStageResolvedModel["summary"][number] | undefined;
+	source: "claude_code" | "codex";
+};
+
 type ModelStageSequencePhase =
 	| "lead-in"
 	| "question"
@@ -254,16 +263,12 @@ export function WrappedOnboardingModelStage(props: ModelStageProps) {
 				object={
 					<article className="mymind-wrapped-model-stage__card">
 						<section className="mymind-wrapped-model-stage__summary-card">
-							<p className="mymind-wrapped-model-stage__empty">
-								The all-time split shows up once session history lands.
-							</p>
-						</section>
-
-						<section className="mymind-wrapped-model-stage__months-card">
-							<p className="mymind-wrapped-model-stage__empty">
-								The monthly stacks fill in once model history spans a few
-								sessions.
-							</p>
+							<div className="mymind-wrapped-model-stage__chart-shell">
+								<p className="mymind-wrapped-model-stage__empty">
+									The all-time split and the month-by-month stacks show up once
+									session history lands.
+								</p>
+							</div>
 						</section>
 					</article>
 				}
@@ -416,16 +421,9 @@ function WrappedModelStageResultKicker(props: {
 
 function WrappedModelStageBody(props: {
 	leadingSource: "claude_code" | "codex" | null;
-	model: ReturnType<typeof resolveModelStageModel>;
+	model: WrappedModelStageResolvedModel;
 	phase: ModelStageSequencePhase;
-	splitCards: ReadonlyArray<{
-		label: string;
-		logo: ReactNode;
-		segment:
-			| ReturnType<typeof resolveModelStageModel>["summary"][number]
-			| undefined;
-		source: "claude_code" | "codex";
-	}>;
+	splitCards: readonly WrappedModelStageSplitCard[];
 }) {
 	const { leadingSource, model, phase, splitCards } = props;
 	const shouldReduceMotion = useReducedMotion();
@@ -577,319 +575,273 @@ function WrappedModelStageBody(props: {
 				}}
 			>
 				<motion.section
+					layout
 					animate={{
-						scale: isHistoryRevealPhase ? 0.972 : areDetailsVisible ? 1.008 : 1,
-						y: isHistoryRevealPhase ? -12 : areDetailsVisible ? -2 : 0,
+						scale: areMonthsVisible ? 1 : areDetailsVisible ? 1.008 : 1,
+						y: areMonthsVisible ? 0 : areDetailsVisible ? -2 : 0,
 					}}
-					className="mymind-wrapped-model-stage__summary-card"
+					className={cn(
+						"mymind-wrapped-model-stage__summary-card",
+						areMonthsVisible &&
+							"mymind-wrapped-model-stage__summary-card--history",
+					)}
 					initial={false}
-					transition={MODEL_STAGE_SURFACE_TRANSITION}
+					transition={{
+						...MODEL_STAGE_SURFACE_TRANSITION,
+						layout: MODEL_STAGE_LAYOUT_TRANSITION,
+					}}
 				>
-					<div className="mymind-wrapped-model-stage__race-stack">
-						{splitCards.map((splitCard, splitCardIndex) => {
-							const animatedShare = raceDisplayShares[splitCardIndex] ?? 0;
-							const displayedShare = Math.round(
-								animatedShare,
-							);
-							const share = Math.round(splitCard.segment?.share ?? 0);
-							const sessionCount = splitCard.segment?.sessionCount ?? 0;
-							const displayedSessionCount = resolveModelStageDisplayedSessionCount(
-								{
-									displayedShare,
-									isComparisonPhase,
-									sessionCount,
-									totalSessionCount,
+					<motion.div
+						layout
+						className="mymind-wrapped-model-stage__chart-shell"
+						transition={{ layout: MODEL_STAGE_LAYOUT_TRANSITION }}
+					>
+						<AnimatePresence initial={false} mode="sync">
+							{areMonthsVisible ? (
+								<WrappedModelStageHistoryChart
+									key="history"
+									areMonthBarsExpanded={areMonthBarsExpanded}
+									model={model}
+									reduceMotion={reduceMotion}
+								/>
+							) : (
+								<WrappedModelStageRaceChart
+									key="race"
+									areCountersVisible={areCountersVisible}
+									areDetailsVisible={areDetailsVisible}
+									areSplitFillsVisible={areSplitFillsVisible}
+									isComparisonPhase={isComparisonPhase}
+									leadingSource={leadingSource}
+									raceDisplayShares={raceDisplayShares}
+									reduceMotion={reduceMotion}
+									splitCards={splitCards}
+									totalSessionCount={totalSessionCount}
+								/>
+							)}
+						</AnimatePresence>
+					</motion.div>
+				</motion.section>
+			</motion.article>
+		</motion.div>
+	);
+}
+
+function WrappedModelStageRaceChart(props: {
+	areCountersVisible: boolean;
+	areDetailsVisible: boolean;
+	areSplitFillsVisible: boolean;
+	isComparisonPhase: boolean;
+	leadingSource: "claude_code" | "codex" | null;
+	raceDisplayShares: number[];
+	reduceMotion: boolean;
+	splitCards: readonly WrappedModelStageSplitCard[];
+	totalSessionCount: number;
+}) {
+	const {
+		areCountersVisible,
+		areDetailsVisible,
+		areSplitFillsVisible,
+		isComparisonPhase,
+		leadingSource,
+		raceDisplayShares,
+		reduceMotion,
+		splitCards,
+		totalSessionCount,
+	} = props;
+
+	return (
+		<motion.div
+			key="race-stack"
+			layout
+			animate={{ filter: "blur(0px)", opacity: 1, scale: 1, y: 0 }}
+			className="mymind-wrapped-model-stage__chart-panel mymind-wrapped-model-stage__chart-panel--race"
+			exit={{
+				filter: "blur(8px)",
+				opacity: 0,
+				scale: 0.985,
+				y: -MODEL_STAGE_MOTION.distance.lift,
+			}}
+			initial={
+				reduceMotion
+					? false
+					: {
+							filter: "blur(10px)",
+							opacity: 0,
+							scale: 0.97,
+							y: MODEL_STAGE_MOTION.distance.slide,
+						}
+			}
+			transition={{
+				...MODEL_STAGE_SURFACE_TRANSITION,
+				layout: MODEL_STAGE_LAYOUT_TRANSITION,
+			}}
+		>
+			<div className="mymind-wrapped-model-stage__race-stack">
+				{splitCards.map((splitCard, splitCardIndex) => {
+					const animatedShare = raceDisplayShares[splitCardIndex] ?? 0;
+					const displayedShare = Math.round(animatedShare);
+					const share = Math.round(splitCard.segment?.share ?? 0);
+					const sessionCount = splitCard.segment?.sessionCount ?? 0;
+					const displayedSessionCount = resolveModelStageDisplayedSessionCount({
+						displayedShare,
+						isComparisonPhase,
+						sessionCount,
+						totalSessionCount,
+					});
+					const sessionLabel = `${displayedSessionCount.toLocaleString()} ${
+						displayedSessionCount === 1 ? "session" : "sessions"
+					}`;
+					const isLeading = leadingSource === splitCard.source;
+					const renderedFillShare = resolveModelStageRenderedFillShare({
+						animatedShare,
+						areDetailsVisible,
+						isLeading,
+						leadingSource,
+						share,
+					});
+					const shouldFloatBarText = shouldFloatModelStageBarText({
+						areDetailsVisible,
+						isLeading,
+						leadingSource,
+						renderedFillShare,
+					});
+					const floatingTextBottomShare = Math.max(
+						renderedFillShare,
+						MODEL_STAGE_MIN_RESULT_FILL_SHARE,
+					);
+					const revealFillStyle = areDetailsVisible
+						? getModelStageRevealFillStyle(splitCard.source)
+						: null;
+					const raceRowStyle: ModelRaceRowStyle = {
+						"--model-stage-race-tint": isComparisonPhase
+							? MODEL_STAGE_SUSPENSE_TONE
+							: areDetailsVisible
+								? getModelStageRevealTint(splitCard.source)
+								: MODEL_STAGE_NEUTRAL_TONE,
+						"--model-stage-race-fill-background": revealFillStyle?.background,
+						"--model-stage-race-fill-box-shadow": revealFillStyle?.boxShadow,
+						"--model-stage-race-fill-highlight-opacity":
+							revealFillStyle?.highlightOpacity,
+						"--model-stage-race-fill-radius": revealFillStyle?.borderRadius,
+					};
+					const splitCardDelay = reduceMotion
+						? 0
+						: resolveModelStageCardDelaySeconds({
+								index: splitCardIndex,
+								isLeading,
+								leadingSource,
+							});
+					const counterDelaySeconds = reduceMotion
+						? 0
+						: isComparisonPhase
+							? 0.1 + splitCardIndex * 0.08
+							: areCountersVisible
+								? MODEL_STAGE_RESULT_DETAIL_DELAY_MS / 1_000
+								: 0;
+					const fillTransition = {
+						opacity: reduceMotion
+							? { duration: 0 }
+							: {
+									duration: 0.26,
+									ease: MODEL_STAGE_MOTION.easing.enter,
+									delay: isComparisonPhase
+										? splitCardIndex * 0.06
+										: splitCardDelay,
 								},
-							);
-							const sessionLabel = `${displayedSessionCount.toLocaleString()} ${
-								displayedSessionCount === 1 ? "session" : "sessions"
-							}`;
-							const isLeading = leadingSource === splitCard.source;
-							const renderedFillShare = resolveModelStageRenderedFillShare({
-								animatedShare,
-								areDetailsVisible,
-								isLeading,
-								leadingSource,
-								share,
-							});
-							const shouldFloatBarText = shouldFloatModelStageBarText({
-								areDetailsVisible,
-								isLeading,
-								leadingSource,
-								renderedFillShare,
-							});
-							const floatingTextBottomShare = Math.max(
-								renderedFillShare,
-								MODEL_STAGE_MIN_RESULT_FILL_SHARE,
-							);
-							const revealFillStyle = areDetailsVisible
-								? getModelStageRevealFillStyle(splitCard.source)
-								: null;
-							const raceRowStyle: ModelRaceRowStyle = {
-								"--model-stage-race-tint": isComparisonPhase
-									? MODEL_STAGE_SUSPENSE_TONE
-									: areDetailsVisible
-										? getModelStageRevealTint(splitCard.source)
-										: MODEL_STAGE_NEUTRAL_TONE,
-								"--model-stage-race-fill-background":
-									revealFillStyle?.background,
-								"--model-stage-race-fill-box-shadow":
-									revealFillStyle?.boxShadow,
-								"--model-stage-race-fill-highlight-opacity":
-									revealFillStyle?.highlightOpacity,
-								"--model-stage-race-fill-radius":
-									revealFillStyle?.borderRadius,
-							};
-							const splitCardDelay = reduceMotion
-								? 0
-								: resolveModelStageCardDelaySeconds({
-										index: splitCardIndex,
-										isLeading,
-										leadingSource,
-									});
-							const counterDelaySeconds = reduceMotion
-								? 0
-								: isComparisonPhase
-									? 0.1 + splitCardIndex * 0.08
-									: areCountersVisible
-										? MODEL_STAGE_RESULT_DETAIL_DELAY_MS / 1_000
-										: 0;
-							const fillTransition = {
-								opacity: reduceMotion
+					};
+
+					return (
+						<motion.section
+							key={splitCard.source}
+							layout
+							animate={{
+								filter: "blur(0px)",
+								opacity: 1,
+								scale: 1,
+								y: 0,
+							}}
+							className={cn(
+								"mymind-wrapped-model-stage__race-row",
+								isLeading && "is-leading",
+							)}
+							initial={
+								reduceMotion
+									? false
+									: isComparisonPhase
+										? {
+												filter: "blur(8px)",
+												opacity: 0,
+												scale: 0.95,
+												y: 24,
+											}
+										: {
+												filter: "blur(10px)",
+												opacity: 0,
+												scale: 0.95,
+												y: MODEL_STAGE_MOTION.distance.slide,
+											}
+							}
+							style={raceRowStyle}
+							transition={{
+								filter: {
+									duration: MODEL_STAGE_MOTION.duration.reveal,
+									ease: MODEL_STAGE_MOTION.easing.enter,
+									delay: isComparisonPhase ? 0 : splitCardDelay,
+								},
+								layout: MODEL_STAGE_LAYOUT_TRANSITION,
+								opacity: {
+									duration: 0.26,
+									ease: MODEL_STAGE_MOTION.easing.enter,
+									delay: isComparisonPhase ? 0 : splitCardDelay,
+								},
+								scale: reduceMotion
 									? { duration: 0 }
 									: {
-											duration: 0.26,
-											ease: MODEL_STAGE_MOTION.easing.enter,
-											delay: isComparisonPhase
-												? splitCardIndex * 0.06
-												: splitCardDelay,
-										},
-							};
-							const rowTranslateY = 0;
-							const rowScale = 1;
-
-							return (
-								<motion.section
-									key={splitCard.source}
-									animate={{
-										filter: "blur(0px)",
-										opacity: 1,
-										scale: rowScale,
-										y: rowTranslateY,
-									}}
-									className={cn(
-										"mymind-wrapped-model-stage__race-row",
-										isLeading && "is-leading",
-									)}
-									initial={
-										reduceMotion
-											? false
-											: isComparisonPhase
-												? {
-														filter: "blur(8px)",
-														opacity: 0,
-														scale: 0.95,
-														y: 24,
-													}
-												: {
-														filter: "blur(10px)",
-														opacity: 0,
-														scale: 0.95,
-														y: MODEL_STAGE_MOTION.distance.slide,
-													}
-									}
-									style={raceRowStyle}
-									transition={{
-										filter: {
-											duration: MODEL_STAGE_MOTION.duration.reveal,
-											ease: MODEL_STAGE_MOTION.easing.enter,
+											type: "spring",
+											stiffness: areDetailsVisible ? 260 : 220,
+											damping: 22,
+											mass: isLeading ? 0.9 : 1,
 											delay: isComparisonPhase ? 0 : splitCardDelay,
 										},
-										opacity: {
-											duration: 0.26,
-											ease: MODEL_STAGE_MOTION.easing.enter,
+								y: reduceMotion
+									? { duration: 0 }
+									: {
+											type: "spring",
+											stiffness: areDetailsVisible ? 240 : 210,
+											damping: 24,
+											mass: 0.94,
 											delay: isComparisonPhase ? 0 : splitCardDelay,
 										},
-										scale: reduceMotion
-											? { duration: 0 }
-											: {
-													type: "spring",
-													stiffness: areDetailsVisible ? 260 : 220,
-													damping: 22,
-													mass: isLeading ? 0.9 : 1,
-													delay: isComparisonPhase ? 0 : splitCardDelay,
-												},
-										y: reduceMotion
-											? { duration: 0 }
-											: {
-													type: "spring",
-													stiffness: areDetailsVisible ? 240 : 210,
-													damping: 24,
-													mass: 0.94,
-													delay: isComparisonPhase ? 0 : splitCardDelay,
-												},
-									}}
-								>
-									<div className="mymind-wrapped-model-stage__race-track-shell">
-										<div
-											aria-hidden="true"
-											className="mymind-wrapped-model-stage__race-track-grid"
-										/>
-										<div className="mymind-wrapped-model-stage__race-track">
-											<motion.div
-												animate={{
-													opacity: areSplitFillsVisible ? 1 : 0,
-												}}
-												className="mymind-wrapped-model-stage__race-fill"
-												initial={false}
-												style={{
-													height: areSplitFillsVisible
-														? `${renderedFillShare}%`
-														: "0%",
-												}}
-												transition={fillTransition}
-											>
-												{shouldFloatBarText ? null : (
-													<div className="mymind-wrapped-model-stage__race-value-anchor">
-														<motion.p
-															animate={{
-																opacity: areCountersVisible ? 1 : 0,
-																scale: areCountersVisible ? 1 : 0.92,
-																y: areCountersVisible ? 0 : 12,
-															}}
-															className="mymind-wrapped-model-stage__race-value"
-															initial={false}
-															transition={{
-																opacity: {
-																	duration: 0.24,
-																	ease: MODEL_STAGE_MOTION.easing.enter,
-																	delay: counterDelaySeconds,
-																},
-																scale: reduceMotion
-																	? { duration: 0 }
-																	: {
-																			type: "spring",
-																			stiffness: 260,
-																			damping: 20,
-																			mass: 0.85,
-																			delay: counterDelaySeconds,
-																		},
-																y: reduceMotion
-																	? { duration: 0 }
-																	: {
-																			type: "spring",
-																			stiffness: 240,
-																			damping: 22,
-																			mass: 0.9,
-																			delay: counterDelaySeconds,
-																		},
-															}}
-														>
-															{displayedShare}%
-														</motion.p>
-														<motion.p
-															animate={{
-																opacity: areCountersVisible ? 1 : 0,
-																scale: areCountersVisible ? 1 : 0.96,
-																y: areCountersVisible ? 0 : 10,
-															}}
-															className="mymind-wrapped-model-stage__race-session-count"
-															initial={false}
-															transition={{
-																opacity: {
-																	duration: 0.22,
-																	ease: MODEL_STAGE_MOTION.easing.enter,
-																	delay: counterDelaySeconds + 0.08,
-																},
-																scale: reduceMotion
-																	? { duration: 0 }
-																	: {
-																			type: "spring",
-																			stiffness: 220,
-																			damping: 22,
-																			mass: 0.92,
-																			delay: counterDelaySeconds + 0.08,
-																		},
-																y: reduceMotion
-																	? { duration: 0 }
-																	: {
-																			type: "spring",
-																			stiffness: 210,
-																			damping: 24,
-																			mass: 0.96,
-																			delay: counterDelaySeconds + 0.08,
-																		},
-															}}
-														>
-															{sessionLabel}
-														</motion.p>
-													</div>
-												)}
-												<motion.div
+							}}
+						>
+							<div className="mymind-wrapped-model-stage__race-track-shell">
+								<div
+									aria-hidden="true"
+									className="mymind-wrapped-model-stage__race-track-grid"
+								/>
+								<div className="mymind-wrapped-model-stage__race-track">
+									<motion.div
+										animate={{
+											opacity: areSplitFillsVisible ? 1 : 0,
+										}}
+										className="mymind-wrapped-model-stage__race-fill"
+										initial={false}
+										style={{
+											height: areSplitFillsVisible
+												? `${renderedFillShare}%`
+												: "0%",
+										}}
+										transition={fillTransition}
+									>
+										{shouldFloatBarText ? null : (
+											<div className="mymind-wrapped-model-stage__race-value-anchor">
+												<motion.p
 													animate={{
-														opacity: areDetailsVisible ? 1 : 0,
-														scale: areDetailsVisible ? 1 : 0.84,
-														y: areDetailsVisible ? 0 : 14,
+														opacity: areCountersVisible ? 1 : 0,
+														scale: areCountersVisible ? 1 : 0.92,
+														y: areCountersVisible ? 0 : 12,
 													}}
-													aria-hidden="true"
-													className={cn(
-														"mymind-wrapped-model-stage__split-logo",
-														"mymind-wrapped-model-stage__split-logo--in-bar",
-														areDetailsVisible &&
-															share === 0 &&
-															"mymind-wrapped-model-stage__split-logo--zero-result",
-													)}
-													initial={false}
-													transition={{
-														opacity: {
-															duration: 0.24,
-															ease: MODEL_STAGE_MOTION.easing.enter,
-															delay: areDetailsVisible
-																? MODEL_STAGE_RESULT_LOGO_DELAY_MS / 1_000
-																: 0,
-														},
-														scale: reduceMotion
-															? { duration: 0 }
-															: {
-																	type: "spring",
-																	stiffness: 260,
-																	damping: 18,
-																	mass: 0.82,
-																	delay: areDetailsVisible
-																		? MODEL_STAGE_RESULT_LOGO_DELAY_MS / 1_000
-																		: 0,
-																},
-														y: reduceMotion
-															? { duration: 0 }
-															: {
-																	type: "spring",
-																	stiffness: 240,
-																	damping: 22,
-																	mass: 0.9,
-																	delay: areDetailsVisible
-																		? MODEL_STAGE_RESULT_LOGO_DELAY_MS / 1_000
-																		: 0,
-																},
-													}}
-												>
-													{splitCard.logo}
-												</motion.div>
-											</motion.div>
-										</div>
-										{shouldFloatBarText ? (
-											<div
-												className="mymind-wrapped-model-stage__race-value-anchor-shell"
-												style={{
-													bottom: `calc(${floatingTextBottomShare}% + clamp(0.55rem, 1.8svh, 0.85rem))`,
-												}}
-											>
-												<motion.div
-													animate={{
-														opacity: areDetailsVisible ? 1 : 0,
-														scale: areDetailsVisible ? 1 : 0.84,
-														y: areDetailsVisible ? 0 : 14,
-													}}
-													className="mymind-wrapped-model-stage__race-value-anchor mymind-wrapped-model-stage__race-value-anchor--outside"
+													className="mymind-wrapped-model-stage__race-value"
 													initial={false}
 													transition={{
 														opacity: {
@@ -901,116 +853,253 @@ function WrappedModelStageBody(props: {
 															? { duration: 0 }
 															: {
 																	type: "spring",
-																	stiffness: 240,
+																	stiffness: 260,
 																	damping: 20,
-																	mass: 0.86,
+																	mass: 0.85,
 																	delay: counterDelaySeconds,
 																},
 														y: reduceMotion
 															? { duration: 0 }
 															: {
 																	type: "spring",
-																	stiffness: 220,
+																	stiffness: 240,
 																	damping: 22,
-																	mass: 0.92,
+																	mass: 0.9,
 																	delay: counterDelaySeconds,
 																},
 													}}
 												>
-													<p className="mymind-wrapped-model-stage__race-value">
-														{displayedShare}%
-													</p>
-													<p className="mymind-wrapped-model-stage__race-session-count">
-														{sessionLabel}
-													</p>
-												</motion.div>
+													{displayedShare}%
+												</motion.p>
+												<motion.p
+													animate={{
+														opacity: areCountersVisible ? 1 : 0,
+														scale: areCountersVisible ? 1 : 0.96,
+														y: areCountersVisible ? 0 : 10,
+													}}
+													className="mymind-wrapped-model-stage__race-session-count"
+													initial={false}
+													transition={{
+														opacity: {
+															duration: 0.22,
+															ease: MODEL_STAGE_MOTION.easing.enter,
+															delay: counterDelaySeconds + 0.08,
+														},
+														scale: reduceMotion
+															? { duration: 0 }
+															: {
+																	type: "spring",
+																	stiffness: 220,
+																	damping: 22,
+																	mass: 0.92,
+																	delay: counterDelaySeconds + 0.08,
+																},
+														y: reduceMotion
+															? { duration: 0 }
+															: {
+																	type: "spring",
+																	stiffness: 210,
+																	damping: 24,
+																	mass: 0.96,
+																	delay: counterDelaySeconds + 0.08,
+																},
+													}}
+												>
+													{sessionLabel}
+												</motion.p>
 											</div>
-										) : null}
-									</div>
-								</motion.section>
-							);
-						})}
-					</div>
-				</motion.section>
-
-				<AnimatePresence initial={false}>
-					{areMonthsVisible ? (
-						<motion.section
-							key="model-months"
-							layout
-							animate={{ opacity: 1, scale: 1, y: 0 }}
-							className="mymind-wrapped-model-stage__months-card"
-							exit={{
-								opacity: 0,
-								scale: 0.992,
-								y: MODEL_STAGE_MOTION.distance.nudge,
-							}}
-							initial={{
-								opacity: 0,
-								scale: 0.972,
-								y: MODEL_STAGE_MOTION.distance.slide,
-							}}
-							transition={{
-								duration: 0.54,
-								ease: MODEL_STAGE_MOTION.easing.enter,
-								layout: MODEL_STAGE_LAYOUT_TRANSITION,
-							}}
-						>
-							{model.months.length === 0 ? (
-								<p className="mymind-wrapped-model-stage__empty">
-									The monthly stacks fill in once model history spans a few
-									sessions.
-								</p>
-							) : (
-								<ol className="mymind-wrapped-model-stage__month-grid">
-									{model.months.map((month, monthIndex) => (
-										<li
-											key={month.id}
-											className="mymind-wrapped-model-stage__month-column"
-											title={
-												month.totalSessions > 0
-													? `${month.label}: ${month.leaderLabel} led with ${month.leaderShare}%`
-													: `${month.label}: no model activity`
-											}
+										)}
+										<motion.div
+											animate={{
+												opacity: areDetailsVisible ? 1 : 0,
+												scale: areDetailsVisible ? 1 : 0.84,
+												y: areDetailsVisible ? 0 : 14,
+											}}
+											aria-hidden="true"
+											className={cn(
+												"mymind-wrapped-model-stage__split-logo",
+												"mymind-wrapped-model-stage__split-logo--in-bar",
+												areDetailsVisible &&
+													share === 0 &&
+													"mymind-wrapped-model-stage__split-logo--zero-result",
+											)}
+											initial={false}
+											transition={{
+												opacity: {
+													duration: 0.24,
+													ease: MODEL_STAGE_MOTION.easing.enter,
+													delay: areDetailsVisible
+														? MODEL_STAGE_RESULT_LOGO_DELAY_MS / 1_000
+														: 0,
+												},
+												scale: reduceMotion
+													? { duration: 0 }
+													: {
+															type: "spring",
+															stiffness: 260,
+															damping: 18,
+															mass: 0.82,
+															delay: areDetailsVisible
+																? MODEL_STAGE_RESULT_LOGO_DELAY_MS / 1_000
+																: 0,
+														},
+												y: reduceMotion
+													? { duration: 0 }
+													: {
+															type: "spring",
+															stiffness: 240,
+															damping: 22,
+															mass: 0.9,
+															delay: areDetailsVisible
+																? MODEL_STAGE_RESULT_LOGO_DELAY_MS / 1_000
+																: 0,
+														},
+											}}
 										>
-											<span
-												aria-hidden="true"
-												className={cn(
-													"mymind-wrapped-model-stage__month-bar",
-													month.totalSessions === 0 ? "is-empty" : null,
-												)}
-											>
-												{month.segments.map((segment, segmentIndex) => {
-													const segmentStyle: ModelSegmentStyle = {
-														"--model-stage-segment-color": getModelStageTone(
-															segment.source,
-														),
-														"--model-stage-segment-delay": `${0.08 * monthIndex + 0.04 * segmentIndex}s`,
-														"--model-stage-segment-share": areMonthBarsExpanded
-															? `${segment.share}%`
-															: "0%",
-													};
-
-													return (
-														<span
-															key={segment.id}
-															className="mymind-wrapped-model-stage__month-segment"
-															style={segmentStyle}
-														/>
-													);
-												})}
-											</span>
-											<p className="mymind-wrapped-model-stage__month-label">
-												{month.label}
+											{splitCard.logo}
+										</motion.div>
+									</motion.div>
+								</div>
+								{shouldFloatBarText ? (
+									<div
+										className="mymind-wrapped-model-stage__race-value-anchor-shell"
+										style={{
+											bottom: `calc(${floatingTextBottomShare}% + clamp(0.55rem, 1.8svh, 0.85rem))`,
+										}}
+									>
+										<motion.div
+											animate={{
+												opacity: areDetailsVisible ? 1 : 0,
+												scale: areDetailsVisible ? 1 : 0.84,
+												y: areDetailsVisible ? 0 : 14,
+											}}
+											className="mymind-wrapped-model-stage__race-value-anchor mymind-wrapped-model-stage__race-value-anchor--outside"
+											initial={false}
+											transition={{
+												opacity: {
+													duration: 0.24,
+													ease: MODEL_STAGE_MOTION.easing.enter,
+													delay: counterDelaySeconds,
+												},
+												scale: reduceMotion
+													? { duration: 0 }
+													: {
+															type: "spring",
+															stiffness: 240,
+															damping: 20,
+															mass: 0.86,
+															delay: counterDelaySeconds,
+														},
+												y: reduceMotion
+													? { duration: 0 }
+													: {
+															type: "spring",
+															stiffness: 220,
+															damping: 22,
+															mass: 0.92,
+															delay: counterDelaySeconds,
+														},
+											}}
+										>
+											<p className="mymind-wrapped-model-stage__race-value">
+												{displayedShare}%
 											</p>
-										</li>
-									))}
-								</ol>
-							)}
+											<p className="mymind-wrapped-model-stage__race-session-count">
+												{sessionLabel}
+											</p>
+										</motion.div>
+									</div>
+								) : null}
+							</div>
 						</motion.section>
-					) : null}
-				</AnimatePresence>
-			</motion.article>
+					);
+				})}
+			</div>
+		</motion.div>
+	);
+}
+
+function WrappedModelStageHistoryChart(props: {
+	areMonthBarsExpanded: boolean;
+	model: WrappedModelStageResolvedModel;
+	reduceMotion: boolean;
+}) {
+	const { areMonthBarsExpanded, model, reduceMotion } = props;
+
+	return (
+		<motion.div
+			key="history-bars"
+			layout
+			animate={{ filter: "blur(0px)", opacity: 1, scale: 1, y: 0 }}
+			className="mymind-wrapped-model-stage__chart-panel mymind-wrapped-model-stage__chart-panel--history"
+			initial={
+				reduceMotion
+					? false
+					: {
+							filter: "blur(8px)",
+							opacity: 0,
+							scale: 0.975,
+							y: MODEL_STAGE_MOTION.distance.slide,
+						}
+			}
+			transition={{
+				duration: 0.54,
+				ease: MODEL_STAGE_MOTION.easing.enter,
+				layout: MODEL_STAGE_LAYOUT_TRANSITION,
+			}}
+		>
+			{model.months.length === 0 ? (
+				<p className="mymind-wrapped-model-stage__empty">
+					The monthly stacks fill in once model history spans a few sessions.
+				</p>
+			) : (
+				<ol className="mymind-wrapped-model-stage__month-grid">
+					{model.months.map((month, monthIndex) => (
+						<motion.li
+							key={month.id}
+							layout
+							className="mymind-wrapped-model-stage__month-column"
+							title={
+								month.totalSessions > 0
+									? `${month.label}: ${month.leaderLabel} led with ${month.leaderShare}%`
+									: `${month.label}: no model activity`
+							}
+							transition={{ layout: MODEL_STAGE_LAYOUT_TRANSITION }}
+						>
+							<span
+								aria-hidden="true"
+								className={cn(
+									"mymind-wrapped-model-stage__month-bar",
+									month.totalSessions === 0 ? "is-empty" : null,
+								)}
+							>
+								{month.segments.map((segment, segmentIndex) => {
+									const segmentStyle: ModelSegmentStyle = {
+										"--model-stage-segment-color": getModelStageTone(
+											segment.source,
+										),
+										"--model-stage-segment-delay": `${0.08 * monthIndex + 0.04 * segmentIndex}s`,
+										"--model-stage-segment-share": areMonthBarsExpanded
+											? `${segment.share}%`
+											: "0%",
+									};
+
+									return (
+										<span
+											key={segment.id}
+											className="mymind-wrapped-model-stage__month-segment"
+											style={segmentStyle}
+										/>
+									);
+								})}
+							</span>
+							<p className="mymind-wrapped-model-stage__month-label">
+								{month.label}
+							</p>
+						</motion.li>
+					))}
+				</ol>
+			)}
 		</motion.div>
 	);
 }
