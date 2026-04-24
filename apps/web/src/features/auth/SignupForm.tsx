@@ -1,5 +1,5 @@
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { startTransition, useState } from "react";
+import { useState } from "react";
 import { Button } from "@/app/ui/button";
 import { Input } from "@/app/ui/input";
 import { Label } from "@/app/ui/label";
@@ -24,14 +24,7 @@ import {
 	recordOAuthRedirectStart,
 } from "./oauth-debug";
 import {
-	WRAPPED_AUTH_SCENE_EASE,
-	WRAPPED_AUTH_SCENE_ENTER_DELAY,
-	WRAPPED_AUTH_SCENE_ENTER_DURATION,
-	WRAPPED_AUTH_SCENE_EXIT_DURATION,
-	WRAPPED_AUTH_SCENE_EXIT_EASE,
-	WRAPPED_AUTH_SCENE_LAYOUT_DURATION,
-	WRAPPED_AUTH_SCENE_LAYOUT_EASE,
-	WRAPPED_AUTH_SCENE_REDUCED_DURATION,
+	getWrappedAuthSceneMotion,
 	type WrappedAuthScene,
 } from "./wrapped-auth-motion";
 
@@ -91,48 +84,7 @@ export function SignupForm(props: SignupFormProps) {
 		isWrappedStory && onEmailPasswordPreviewSubmit !== undefined;
 	const hasValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
 	const shouldReduceMotion = useReducedMotion() ?? false;
-	const wrappedSceneEnter = shouldReduceMotion
-		? { opacity: 1 }
-		: { filter: "blur(0px)", opacity: 1, y: 0 };
-	const wrappedSceneExit = shouldReduceMotion
-		? {
-				opacity: 0,
-				transition: {
-					duration: WRAPPED_AUTH_SCENE_REDUCED_DURATION,
-					ease: "linear" as const,
-				},
-			}
-		: {
-				filter: "blur(6px)",
-				opacity: 0,
-				y: -8,
-				transition: {
-					duration: WRAPPED_AUTH_SCENE_EXIT_DURATION,
-					ease: WRAPPED_AUTH_SCENE_EXIT_EASE,
-				},
-			};
-	const wrappedSceneInitial = shouldReduceMotion
-		? { opacity: 0 }
-		: { filter: "blur(8px)", opacity: 0, y: 12 };
-	const wrappedSceneTransition = shouldReduceMotion
-		? {
-				duration: WRAPPED_AUTH_SCENE_REDUCED_DURATION,
-				ease: "linear" as const,
-			}
-		: {
-				delay: WRAPPED_AUTH_SCENE_ENTER_DELAY,
-				duration: WRAPPED_AUTH_SCENE_ENTER_DURATION,
-				ease: WRAPPED_AUTH_SCENE_EASE,
-			};
-	const wrappedSceneLayoutTransition = shouldReduceMotion
-		? {
-				duration: WRAPPED_AUTH_SCENE_REDUCED_DURATION,
-				ease: "linear" as const,
-			}
-		: {
-				duration: WRAPPED_AUTH_SCENE_LAYOUT_DURATION,
-				ease: WRAPPED_AUTH_SCENE_LAYOUT_EASE,
-			};
+	const wrappedSceneMotion = getWrappedAuthSceneMotion(shouldReduceMotion);
 
 	async function handleSubmit(e: React.FormEvent) {
 		e.preventDefault();
@@ -284,15 +236,9 @@ export function SignupForm(props: SignupFormProps) {
 		);
 	}
 
-	function transitionWrappedScene(scene: WrappedAuthScene) {
-		startTransition(() => {
-			setWrappedScene(scene);
-		});
-	}
-
 	function handleOpenWrappedEmail() {
 		setError("");
-		transitionWrappedScene("email");
+		setWrappedScene("email");
 	}
 
 	function handleContinueWrappedEmail() {
@@ -305,28 +251,28 @@ export function SignupForm(props: SignupFormProps) {
 			setError("Enter a valid email to continue.");
 			return;
 		}
-		transitionWrappedScene("credentials");
+		setWrappedScene("credentials");
 	}
 
 	function handleReturnToWrappedChoice() {
 		setError("");
-		transitionWrappedScene("choice");
+		setWrappedScene("choice");
 	}
 
 	function handleReturnToWrappedEmail() {
 		setError("");
-		transitionWrappedScene("email");
+		setWrappedScene("email");
 	}
 
 	function renderWrappedChoiceScene() {
 		return (
 			<motion.div
 				key="choice"
-				animate={wrappedSceneEnter}
+				animate={wrappedSceneMotion.enter}
 				className="mymind-wrapped-auth-form__scene mymind-wrapped-auth-form__scene--choice"
-				exit={wrappedSceneExit}
-				initial={wrappedSceneInitial}
-				transition={wrappedSceneTransition}
+				exit={wrappedSceneMotion.exit}
+				initial={wrappedSceneMotion.initial}
+				transition={wrappedSceneMotion.transition}
 			>
 				<div className="mymind-wrapped-auth-form__social">
 					<Button
@@ -368,11 +314,11 @@ export function SignupForm(props: SignupFormProps) {
 		return (
 			<motion.div
 				key="email"
-				animate={wrappedSceneEnter}
+				animate={wrappedSceneMotion.enter}
 				className="mymind-wrapped-auth-form__scene mymind-wrapped-auth-form__scene--email"
-				exit={wrappedSceneExit}
-				initial={wrappedSceneInitial}
-				transition={wrappedSceneTransition}
+				exit={wrappedSceneMotion.exit}
+				initial={wrappedSceneMotion.initial}
+				transition={wrappedSceneMotion.transition}
 			>
 				<div className="mymind-wrapped-auth-form__field">
 					<Label
@@ -417,11 +363,11 @@ export function SignupForm(props: SignupFormProps) {
 		return (
 			<motion.div
 				key="credentials"
-				animate={wrappedSceneEnter}
+				animate={wrappedSceneMotion.enter}
 				className="mymind-wrapped-auth-form__scene mymind-wrapped-auth-form__scene--credentials"
-				exit={wrappedSceneExit}
-				initial={wrappedSceneInitial}
-				transition={wrappedSceneTransition}
+				exit={wrappedSceneMotion.exit}
+				initial={wrappedSceneMotion.initial}
+				transition={wrappedSceneMotion.transition}
 			>
 				<div className="mymind-wrapped-auth-form__identity">
 					<div className="mymind-wrapped-auth-form__identity-copy">
@@ -492,11 +438,9 @@ export function SignupForm(props: SignupFormProps) {
 
 	if (isWrappedStory) {
 		return (
-			<motion.div
-				layout
+			<div
 				className="mymind-wrapped-auth-form"
 				data-email-auth-stage={wrappedScene}
-				transition={{ layout: wrappedSceneLayoutTransition }}
 			>
 				{error ? (
 					<p
@@ -509,11 +453,7 @@ export function SignupForm(props: SignupFormProps) {
 
 				{renderWrappedTerms()}
 
-				<motion.div
-					layout
-					className="mymind-wrapped-auth-form__scene-shell"
-					transition={{ layout: wrappedSceneLayoutTransition }}
-				>
+				<div className="mymind-wrapped-auth-form__scene-shell">
 					<AnimatePresence initial={false} mode="wait">
 						{wrappedScene === "choice"
 							? renderWrappedChoiceScene()
@@ -521,7 +461,7 @@ export function SignupForm(props: SignupFormProps) {
 								? renderWrappedEmailScene()
 								: renderWrappedCredentialsScene()}
 					</AnimatePresence>
-				</motion.div>
+				</div>
 
 				{hideSwitchPrompt ? null : (
 					<p className="mymind-wrapped-auth-form__switch-copy">
@@ -541,7 +481,7 @@ export function SignupForm(props: SignupFormProps) {
 						</button>
 					</p>
 				)}
-			</motion.div>
+			</div>
 		);
 	}
 

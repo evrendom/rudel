@@ -1,5 +1,5 @@
 import { ChevronLeft, HelpCircle, X } from "lucide-react";
-import { LayoutGroup, motion, useReducedMotion } from "motion/react";
+import { motion, useReducedMotion } from "motion/react";
 import type { ReactNode } from "react";
 import { Children, isValidElement } from "react";
 import { useNavigate } from "react-router-dom";
@@ -23,10 +23,9 @@ interface WrappedRouteStageShellProps {
 	eyebrow?: ReactNode;
 	footer?: ReactNode;
 	footerDebugControls?: ReactNode;
+	hideTopChromeControls?: boolean;
 	leadingControl?: ReactNode | null;
-	layoutGroupId?: string;
 	objectClassName?: string;
-	objectLayout?: boolean;
 	onBack?: () => void;
 	progressStepId?: WrappedOnboardingProgressStepId;
 	status?: ReactNode;
@@ -34,7 +33,7 @@ interface WrappedRouteStageShellProps {
 	stage: ReactNode;
 	title: ReactNode;
 	titleClassName?: string;
-	titleObjectLayout?: boolean;
+	useReferenceTopChrome?: boolean;
 }
 
 const WRAPPED_SETUP_ENTRANCE_EASE = [0.22, 1, 0.36, 1] as const;
@@ -92,10 +91,9 @@ export function WrappedRouteStageShell(props: WrappedRouteStageShellProps) {
 		eyebrow,
 		footer,
 		footerDebugControls,
+		hideTopChromeControls = false,
 		leadingControl,
-		layoutGroupId,
 		objectClassName,
-		objectLayout = false,
 		onBack,
 		progressStepId,
 		stageClassName,
@@ -103,7 +101,7 @@ export function WrappedRouteStageShell(props: WrappedRouteStageShellProps) {
 		status,
 		title,
 		titleClassName,
-		titleObjectLayout = false,
+		useReferenceTopChrome = false,
 	} = props;
 	const navigate = useNavigate();
 	const shouldReduceMotion = useReducedMotion();
@@ -111,7 +109,8 @@ export function WrappedRouteStageShell(props: WrappedRouteStageShellProps) {
 	const progressView = progressStepId
 		? getWrappedOnboardingProgressView(progressStepId)
 		: null;
-	const shouldUseReferenceTopChrome = progressView !== null;
+	const shouldUseReferenceTopChrome =
+		useReferenceTopChrome || progressView !== null;
 	const hasFooter = Boolean(footer) || Boolean(footerDebugControls);
 	const shouldAnimateSetupEntrance = entrancePreset === "setup";
 	const animatedCopy = (
@@ -157,13 +156,11 @@ export function WrappedRouteStageShell(props: WrappedRouteStageShellProps) {
 			className={cn("mymind-wrapped-entry-stage", stageClassName)}
 			copy={animatedCopy}
 			copyClassName="mymind-wrapped-entry-stage__copy"
-			copyLayout={titleObjectLayout}
 			object={animatedStage}
 			objectClassName={cn(
 				"mymind-wrapped-entry-stage__object",
 				objectClassName,
 			)}
-			objectLayout={titleObjectLayout || objectLayout}
 		/>
 	);
 
@@ -201,7 +198,12 @@ export function WrappedRouteStageShell(props: WrappedRouteStageShellProps) {
 						    and help button should anchor the screen instead of joining the entrance motion. */}
 						<div className="mymind-wrapped-top-tray__row">
 							<div className="mymind-wrapped-top-tray__slot mymind-wrapped-top-tray__slot--start">
-								{leadingControl !== undefined ? (
+								{hideTopChromeControls ? (
+									<span
+										aria-hidden="true"
+										className="mymind-wrapped-top-tray__utility-placeholder"
+									/>
+								) : leadingControl !== undefined ? (
 									leadingControl
 								) : (
 									<button
@@ -224,7 +226,7 @@ export function WrappedRouteStageShell(props: WrappedRouteStageShellProps) {
 							</div>
 
 							<div className="mymind-wrapped-top-tray__center">
-								{progressView ? (
+								{hideTopChromeControls ? null : progressView ? (
 									<WrappedProgress
 										ariaLabel="Wrapped onboarding progress"
 										items={progressView.items.map((item) => ({
@@ -239,7 +241,12 @@ export function WrappedRouteStageShell(props: WrappedRouteStageShellProps) {
 							</div>
 
 							<div className="mymind-wrapped-top-tray__slot mymind-wrapped-top-tray__slot--end">
-								{shouldUseReferenceTopChrome ? (
+								{hideTopChromeControls ? (
+									<span
+										aria-hidden="true"
+										className="mymind-wrapped-top-tray__utility-placeholder"
+									/>
+								) : shouldUseReferenceTopChrome ? (
 									<button
 										type="button"
 										aria-label="Open support"
@@ -259,13 +266,7 @@ export function WrappedRouteStageShell(props: WrappedRouteStageShellProps) {
 					</header>
 
 					<div className="mymind-wrapped-stage-area">
-						<div className="mymind-wrapped-stage-slot">
-							{layoutGroupId ? (
-								<LayoutGroup id={layoutGroupId}>{stageFrame}</LayoutGroup>
-							) : (
-								stageFrame
-							)}
-						</div>
+						<div className="mymind-wrapped-stage-slot">{stageFrame}</div>
 					</div>
 
 					{hasFooter ? (

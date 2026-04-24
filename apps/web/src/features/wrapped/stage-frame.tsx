@@ -6,10 +6,8 @@ interface WrappedStageFrameProps {
 	className?: string;
 	copy?: ReactNode;
 	copyClassName?: string;
-	copyLayout?: boolean;
 	object?: ReactNode;
 	objectClassName?: string;
-	objectLayout?: boolean;
 	support?: ReactNode;
 	supportClassName?: string;
 }
@@ -37,10 +35,8 @@ export function WrappedStageFrame(props: WrappedStageFrameProps) {
 		className,
 		copy,
 		copyClassName,
-		copyLayout = false,
 		object,
 		objectClassName,
-		objectLayout = false,
 		support,
 		supportClassName,
 	} = props;
@@ -59,32 +55,14 @@ export function WrappedStageFrame(props: WrappedStageFrameProps) {
 			)}
 		>
 			{hasCopy ? (
-				copyLayout ? (
-					<motion.div
-						layout
-						className={cn("mymind-wrapped-stage__copy", copyClassName)}
-					>
-						{copy}
-					</motion.div>
-				) : (
-					<div className={cn("mymind-wrapped-stage__copy", copyClassName)}>
-						{copy}
-					</div>
-				)
+				<div className={cn("mymind-wrapped-stage__copy", copyClassName)}>
+					{copy}
+				</div>
 			) : null}
 			{hasObject ? (
-				objectLayout ? (
-					<motion.div
-						layout
-						className={cn("mymind-wrapped-stage__object", objectClassName)}
-					>
-						{object}
-					</motion.div>
-				) : (
-					<div className={cn("mymind-wrapped-stage__object", objectClassName)}>
-						{object}
-					</div>
-				)
+				<div className={cn("mymind-wrapped-stage__object", objectClassName)}>
+					{object}
+				</div>
 			) : null}
 			{hasSupport ? (
 				<div className={cn("mymind-wrapped-stage__support", supportClassName)}>

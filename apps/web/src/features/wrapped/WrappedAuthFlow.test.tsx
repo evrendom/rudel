@@ -118,7 +118,7 @@ describe("WrappedGuestPage", () => {
 		);
 		expect(
 			screen.getByRole("heading", {
-				name: "Find out what your Claude Code / Codex sessions tell about you",
+				name: "Your Claude/Codex Wrapped",
 			}),
 		).toBeInTheDocument();
 		expect(screen.getAllByText("$182").length).toBeGreaterThan(0);
@@ -197,13 +197,13 @@ describe("WrappedGuestPage", () => {
 		await user.type(screen.getByLabelText("X handle"), "@evren");
 		await user.click(screen.getByRole("button", { name: "Use this handle" }));
 		await user.click(screen.getByRole("button", { name: "Log in" }));
-		expect(screen.getByText("Wrapped login form")).toBeInTheDocument();
+		expect(await screen.findByText("Wrapped login form")).toBeInTheDocument();
 
 		await user.click(screen.getByRole("button", { name: "Switch to signup" }));
-		expect(screen.getByText("Wrapped signup form")).toBeInTheDocument();
+		expect(await screen.findByText("Wrapped signup form")).toBeInTheDocument();
 
 		await user.click(screen.getByRole("button", { name: "Switch to login" }));
-		expect(screen.getByText("Wrapped login form")).toBeInTheDocument();
+		expect(await screen.findByText("Wrapped login form")).toBeInTheDocument();
 	});
 
 	it("continues into the setup preview after wrapped email auth submits locally", async () => {
@@ -219,7 +219,9 @@ describe("WrappedGuestPage", () => {
 		await user.click(screen.getByRole("button", { name: "Use this handle" }));
 		await user.click(screen.getByRole("button", { name: "Log in" }));
 		await user.click(
-			screen.getByRole("button", { name: "Preview wrapped email submit" }),
+			await screen.findByRole("button", {
+				name: "Preview wrapped email submit",
+			}),
 		);
 
 		expect(screen.getByText("Wrapped setup page")).toBeInTheDocument();
@@ -239,7 +241,9 @@ describe("WrappedGuestPage", () => {
 		await user.click(screen.getByRole("button", { name: "Use this handle" }));
 		await user.click(screen.getByRole("button", { name: "Log in" }));
 		await user.click(
-			screen.getByRole("button", { name: "Preview wrapped email submit" }),
+			await screen.findByRole("button", {
+				name: "Preview wrapped email submit",
+			}),
 		);
 
 		expect(
