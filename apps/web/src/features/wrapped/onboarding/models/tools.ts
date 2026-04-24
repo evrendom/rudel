@@ -27,11 +27,9 @@ export function resolveToolsStageModel(input: {
 	if (input.topSlashCommand === null && input.topSubagent === null) {
 		return {
 			entries: buildToolsPlaceholderEntries(),
-			footnote:
-				"These numbers are the share of sessions where each layer showed up, not raw invocation counts.",
-			headline: "You stayed close to the base model.",
-			subline:
-				"Slash commands and subagents have not shown up often enough to form a pattern yet.",
+			footnote: "You should try them out tho: slash commands and subagents.",
+			headline: "Just vibes.",
+			subline: "You should try them out tho: slash commands and subagents.",
 		};
 	}
 
@@ -242,7 +240,7 @@ export function getToolsHeadline(input: {
 		return `${topSubagent} became your go-to subagent.`;
 	}
 
-	return "You stayed close to the base model.";
+	return "Just vibes.";
 }
 
 export function getToolsSubline(input: {
@@ -252,7 +250,7 @@ export function getToolsSubline(input: {
 	const { slashCommandsAdoptionRate, subagentsAdoptionRate } = input;
 
 	if (slashCommandsAdoptionRate === null && subagentsAdoptionRate === null) {
-		return "This page tracks how often slash commands and subagents showed up.";
+		return "You should try them out tho: slash commands and subagents.";
 	}
 
 	if (slashCommandsAdoptionRate === null) {
@@ -312,19 +310,11 @@ function buildToolsStageEntries(input: {
 function buildToolsPlaceholderEntries(): readonly ToolsStageEntry[] {
 	return [
 		{
-			kindLabel: "Command or subagent",
+			kindLabel: "Base model",
 			id: "tools-placeholder-1",
 			isPlaceholder: true,
-			name: "Waiting for a repeat winner",
-			usageLabel: "Session share still landing",
-			usageRate: null,
-		},
-		{
-			kindLabel: "Command or subagent",
-			id: "tools-placeholder-2",
-			isPlaceholder: true,
-			name: "Still forming",
-			usageLabel: "Nothing ranked yet",
+			name: "Solo mode",
+			usageLabel: "Zero side quests",
 			usageRate: null,
 		},
 	] as const;

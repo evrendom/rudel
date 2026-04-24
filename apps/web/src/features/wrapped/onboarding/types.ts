@@ -50,4 +50,6 @@ export interface WrappedOnboardingMetrics {
 	totalTokens: number;
 }
 
+export type WrappedModelAdvanceState = "intro" | "history" | "complete";
+
 export type WrappedScaleAdvanceState = "idle" | "spend" | "kebabs" | "complete";

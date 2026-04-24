@@ -23,6 +23,7 @@ import { WrappedOnboardingSkillsStage } from "./stages/skills";
 import { WrappedOnboardingToolsStage } from "./stages/tools";
 import { WrappedOnboardingUploadStage } from "./stages/upload";
 import type {
+	WrappedModelAdvanceState,
 	WrappedOnboardingMetrics,
 	WrappedScaleAdvanceState,
 } from "./types";
@@ -30,9 +31,13 @@ import type {
 interface WrappedOnboardingStageProps {
 	displayName: string;
 	isExiting: boolean;
+	modelAdvanceState?: WrappedModelAdvanceState;
 	onboardingMetrics: WrappedOnboardingMetrics;
+	onModelComparisonSequenceComplete?: () => void;
+	onModelHistoryRevealComplete?: () => void;
 	onScaleAdvanceSequenceComplete?: () => void;
 	onScaleRainRevealChange?: (isVisible: boolean) => void;
+	onToolsBaseModelSequenceComplete?: () => void;
 	previewState: string;
 	scaleAdvanceState?: WrappedScaleAdvanceState;
 	scaleDisplayedTokens?: number;
@@ -78,9 +83,13 @@ export function WrappedOnboardingStage(props: WrappedOnboardingStageProps) {
 	const {
 		displayName,
 		isExiting,
+		modelAdvanceState,
 		onboardingMetrics,
+		onModelComparisonSequenceComplete,
+		onModelHistoryRevealComplete,
 		onScaleAdvanceSequenceComplete,
 		onScaleRainRevealChange,
+		onToolsBaseModelSequenceComplete,
 		previewState,
 		scaleAdvanceState,
 		scaleDisplayedTokens,
@@ -116,6 +125,7 @@ export function WrappedOnboardingStage(props: WrappedOnboardingStageProps) {
 			<WrappedOnboardingToolsStage
 				key={`tools:${previewState}:${onboardingMetrics.topSlashCommands.length}:${onboardingMetrics.topSubagents.length}:${onboardingMetrics.topSlashCommandCount ?? -1}:${onboardingMetrics.topSubagentCount ?? -1}:${onboardingMetrics.totalSessions}`}
 				onboardingMetrics={onboardingMetrics}
+				onBaseModelSequenceComplete={onToolsBaseModelSequenceComplete}
 				previewState={previewState}
 			/>
 		);
@@ -124,7 +134,16 @@ export function WrappedOnboardingStage(props: WrappedOnboardingStageProps) {
 	if (step.id === "model") {
 		return (
 			<WrappedOnboardingModelStage
+				key={`model:${previewState}:${onboardingMetrics.totalSessions}:${onboardingMetrics.modelByMonth.length}:${onboardingMetrics.sourceSplit
+					.map(
+						(sourceEntry) =>
+							`${sourceEntry.source}:${sourceEntry.session_count}`,
+					)
+					.join("|")}`}
+				advanceState={modelAdvanceState ?? "intro"}
 				onboardingMetrics={onboardingMetrics}
+				onComparisonSequenceComplete={onModelComparisonSequenceComplete}
+				onHistoryRevealComplete={onModelHistoryRevealComplete}
 				previewState={previewState}
 			/>
 		);

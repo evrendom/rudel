@@ -46,12 +46,12 @@ const ANTHROPIC_SKILLS_DOCS_URL =
  * Read top-to-bottom. Each `at` value is ms after mount.
  *
  *    0ms   a single intro line sits alone in the middle of the stage
- *  760ms   the intro line clears out of the way
- * 1000ms   the last visible card lands at the front
- * 1210ms   the next card lands in front and pushes the first one back
- * 1420ms   the lead card lands in front and completes the stack
- * 1700ms   the deck settles and holds on its own
- * 2340ms   the final title returns without moving the cards
+ * 1400ms   the intro line clears out of the way
+ * 1640ms   the last visible card lands at the front
+ * 1850ms   the next card lands in front and pushes the first one back
+ * 2060ms   the lead card lands in front and completes the stack
+ * 2340ms   the deck settles and holds on its own
+ * 2980ms   the final title returns without moving the cards
  * ───────────────────────────────────────────────────────── */
 type SkillsEntranceStage =
 	| "intro"
@@ -110,13 +110,13 @@ export function WrappedOnboardingSkillsStage(props: SkillsStageProps) {
 	const dialValues = useDialKit(
 		"Wrapped Skills Stage",
 		{
-			animation: {
-				_collapsed: true,
-				deckBreatherMs: [640, 160, 2_000, 10],
-				introHoldMs: [760, 200, 1800, 10],
-				dealStepMs: [210, 120, 480, 10],
-				deckSettleMs: [260, 120, 1000, 10],
-			},
+				animation: {
+					_collapsed: true,
+					deckBreatherMs: [640, 160, 2_000, 10],
+					introHoldMs: [1_400, 200, 2_400, 10],
+					dealStepMs: [210, 120, 480, 10],
+					deckSettleMs: [260, 120, 1000, 10],
+				},
 			fade: {
 				_collapsed: true,
 				bottomHeightRem: [3.8, 1.5, 10, 0.1],
