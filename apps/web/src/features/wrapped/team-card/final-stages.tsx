@@ -4,9 +4,11 @@ import {
 	Download,
 	Share2,
 } from "lucide-react";
-import type { CSSProperties, RefObject } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { useEffect, useState, type CSSProperties, type RefObject } from "react";
 import { Button } from "@/app/ui/button";
 import type { TeamPageMemberRow } from "@/features/team/use-team-page-data";
+import type { WrappedOnboardingMetrics } from "@/features/wrapped/onboarding/types";
 import {
 	WrappedPrimaryAction,
 	WrappedSecondaryAction,
@@ -15,6 +17,12 @@ import {
 	WrappedStageCopy,
 	WrappedStageFrame,
 } from "@/features/wrapped/stage-frame";
+import {
+	formatCompactWholeCurrency,
+	formatCompactWholeNumber,
+	formatMinutes,
+	formatPercent,
+} from "@/lib/format";
 import type { WrappedArchetypeCardTheme } from "./archetypes";
 import {
 	WrappedTeamMemberCard,
@@ -51,8 +59,40 @@ interface WrappedTeamCardShareStageProps extends WrappedTeamCardStageCardProps {
 interface WrappedTeamCardRevealStageProps
 	extends WrappedTeamCardStageCardProps {
 	activeArchetype: WrappedArchetypeCardTheme;
+	onboardingMetrics: WrappedOnboardingMetrics;
 	tiltController: WrappedCardTiltController;
 }
+
+type WrappedRevealSequencePhase =
+	| "sessions"
+	| "tokens"
+	| "archetype";
+
+const REVEAL_STAGE_MOTION = {
+	duration: {
+		card: 1.02,
+		text: 0.26,
+	},
+	easing: {
+		enter: [0.22, 1, 0.36, 1] as const,
+		drop: [0.16, 1, 0.22, 1] as const,
+	},
+};
+
+const REVEAL_STAGE_TEXT_TRANSITION = {
+	duration: REVEAL_STAGE_MOTION.duration.text,
+	ease: REVEAL_STAGE_MOTION.easing.enter,
+};
+
+const REVEAL_STAGE_SEQUENCE = [
+	{ holdMs: 1_700, phase: "tokens" },
+	{ holdMs: 1_900, phase: "archetype" },
+] as const satisfies ReadonlyArray<{
+	holdMs: number;
+	phase: Exclude<WrappedRevealSequencePhase, "sessions">;
+}>;
+
+const REVEAL_STAGE_CARD_DROP_DELAY_MS = 1_250;
 
 export function WrappedTeamCardShareStage(
 	props: WrappedTeamCardShareStageProps,
@@ -213,6 +253,7 @@ export function WrappedTeamCardRevealStage(
 		activeArchetype,
 		headerLeftMetric,
 		headerRightMetric,
+		onboardingMetrics,
 		row,
 		shellClassName,
 		shellStyle,
@@ -221,54 +262,409 @@ export function WrappedTeamCardRevealStage(
 		theme,
 		tiltController,
 	} = props;
-	const revealCopy = getWrappedRevealCopy(activeArchetype);
+	const shouldReduceMotion = useReducedMotion();
+	const reduceMotion = shouldReduceMotion ?? false;
+	const [sequencePhase, setSequencePhase] = useState<WrappedRevealSequencePhase>(
+		() => (reduceMotion ? "archetype" : "sessions"),
+	);
+	const [isCardDropped, setIsCardDropped] = useState(() => reduceMotion);
+	const revealTextLine = getWrappedRevealTextLine({
+		archetype: activeArchetype,
+		onboardingMetrics,
+		phase: sequencePhase,
+		row,
+	});
+
+	useEffect(() => {
+		if (reduceMotion) {
+			setSequencePhase("archetype");
+			setIsCardDropped(true);
+			return;
+		}
+
+		setSequencePhase("sessions");
+		setIsCardDropped(false);
+		let elapsedMs = 0;
+		const timeoutIds = REVEAL_STAGE_SEQUENCE.map((step) => {
+			elapsedMs += step.holdMs;
+			return window.setTimeout(() => {
+				setSequencePhase(step.phase);
+			}, elapsedMs);
+		});
+		timeoutIds.push(
+			window.setTimeout(() => {
+				setIsCardDropped(true);
+			}, elapsedMs + REVEAL_STAGE_CARD_DROP_DELAY_MS),
+		);
+
+		return () => {
+			for (const timeoutId of timeoutIds) {
+				window.clearTimeout(timeoutId);
+			}
+		};
+	}, [activeArchetype.id, reduceMotion]);
 
 	return (
 		<WrappedStageFrame
 			className="mymind-wrapped-final-stage mymind-wrapped-final-stage--reveal"
-			copyClassName="mymind-wrapped-final-stage__copy"
-			objectClassName="mymind-wrapped-final-stage__object mymind-wrapped-final-stage__object--card"
+			objectClassName="mymind-wrapped-final-stage__object mymind-wrapped-final-stage__object--canvas"
 			supportClassName="mymind-wrapped-final-stage__support"
-			copy={
-				<WrappedStageCopy
-					description={revealCopy.description}
-					descriptionClassName="mymind-wrapped-final-stage__subline"
-					title={revealCopy.title}
-					titleClassName="mymind-wrapped-final-stage__headline"
-				/>
-			}
 			object={
-				<div className="mymind-wrapped-final-stage__card-frame">
-					<div className="team-lineup-card-tilt-stage w-full max-w-[16rem] min-[360px]:max-w-[16.75rem] sm:max-w-none">
-						<div
-							ref={tiltController.cardTiltRef}
-							className="team-lineup-card-tilt-shell mymind-wrapped-final-stage__tilt-shell [--wrapped-card-render-scale:1] min-[360px]:[--wrapped-card-render-scale:1.08] sm:[--wrapped-card-render-scale:1.42] lg:[--wrapped-card-render-scale:1.56]"
-							onPointerMove={tiltController.handlePointerMove}
-							onPointerLeave={tiltController.handlePointerLeave}
-							onPointerCancel={tiltController.handlePointerLeave}
-						>
-							<div className="grid justify-center">
-								<WrappedTeamMemberCard
-									headerLeftMetric={headerLeftMetric}
-									headerRightMetric={headerRightMetric}
-									hideHeaderLogo
-									layoutPreset="team-card-preview"
-									mediaPanelClassName="mx-auto"
-									row={row}
-									shellClassName={shellClassName}
-									shellStyle={shellStyle}
-									statItems={statItems}
-									statLayerOpacities={statLayerOpacities}
-									statTileClassName=""
-									theme={theme}
-								/>
+				<div className="mymind-wrapped-final-stage__canvas">
+					<div className="mymind-wrapped-final-stage__text-layer">
+						<AnimatePresence initial={false} mode="wait">
+							<motion.p
+								key={`${activeArchetype.id}:${sequencePhase}`}
+								animate={{
+									filter: "blur(0px)",
+									opacity: 1,
+									scale: 1,
+									y: 0,
+								}}
+								className="mymind-wrapped-final-stage__canvas-copy"
+								exit={{
+									filter: "blur(8px)",
+									opacity: 0,
+									scale: 1.015,
+									y: -18,
+								}}
+								initial={{
+									filter: "blur(12px)",
+									opacity: 0,
+									scale: 0.986,
+									y: 18,
+								}}
+								transition={REVEAL_STAGE_TEXT_TRANSITION}
+							>
+								{revealTextLine}
+							</motion.p>
+						</AnimatePresence>
+					</div>
+					<motion.div
+						animate={resolveWrappedRevealCardAnimate({
+							isCardDropped,
+							reduceMotion,
+						})}
+						className="mymind-wrapped-final-stage__card-drop-layer"
+						data-card-state={isCardDropped ? "dropped" : "waiting"}
+						initial={false}
+						style={{
+							pointerEvents: isCardDropped ? "auto" : "none",
+							transformPerspective: 2200,
+							transformStyle: "preserve-3d",
+						}}
+						transition={resolveWrappedRevealCardTransition({
+							isCardDropped,
+							reduceMotion,
+						})}
+					>
+						<div className="team-lineup-card-tilt-stage w-full max-w-[16rem] min-[360px]:max-w-[16.75rem] sm:max-w-none">
+							<div
+								ref={tiltController.cardTiltRef}
+								className="team-lineup-card-tilt-shell mymind-wrapped-final-stage__tilt-shell [--wrapped-card-render-scale:1] min-[360px]:[--wrapped-card-render-scale:1.08] sm:[--wrapped-card-render-scale:1.42] lg:[--wrapped-card-render-scale:1.56]"
+								onPointerMove={tiltController.handlePointerMove}
+								onPointerLeave={tiltController.handlePointerLeave}
+								onPointerCancel={tiltController.handlePointerLeave}
+							>
+								<div className="grid justify-center">
+									<WrappedTeamMemberCard
+										headerLeftMetric={headerLeftMetric}
+										headerRightMetric={headerRightMetric}
+										hideHeaderLogo
+										layoutPreset="team-card-preview"
+										mediaPanelClassName="mx-auto"
+										row={row}
+										shellClassName={shellClassName}
+										shellStyle={shellStyle}
+										statItems={statItems}
+										statLayerOpacities={statLayerOpacities}
+										statTileClassName=""
+										theme={theme}
+									/>
+								</div>
 							</div>
 						</div>
-					</div>
+					</motion.div>
 				</div>
 			}
 		/>
 	);
+}
+
+function getWrappedRevealTextLine(input: {
+	archetype: WrappedArchetypeCardTheme;
+	onboardingMetrics: WrappedOnboardingMetrics;
+	phase: WrappedRevealSequencePhase;
+	row: TeamPageMemberRow;
+}): string {
+	const { archetype, onboardingMetrics, phase, row } = input;
+	const revealCopy = getWrappedRevealCopy(archetype);
+	const storyCopy = getWrappedRevealStoryCopy({
+		archetype,
+		onboardingMetrics,
+		row,
+	});
+
+	if (phase === "sessions") {
+		return storyCopy.claim;
+	}
+
+	if (phase === "tokens") {
+		return storyCopy.proof;
+	}
+
+	return revealCopy.title;
+}
+
+function getWrappedRevealStoryCopy(input: {
+	archetype: WrappedArchetypeCardTheme;
+	onboardingMetrics: WrappedOnboardingMetrics;
+	row: TeamPageMemberRow;
+}): {
+	claim: string;
+	proof: string;
+} {
+	const { archetype, onboardingMetrics, row } = input;
+	const firstName = getWrappedRevealFirstName(row.displayName);
+	const activeDays = Math.max(0, onboardingMetrics.activeDays || row.activeDays);
+	const avgSessionMin =
+		onboardingMetrics.avgSessionMin && onboardingMetrics.avgSessionMin > 0
+			? onboardingMetrics.avgSessionMin
+			: null;
+	const commitRate =
+		onboardingMetrics.commitRate && onboardingMetrics.commitRate > 0
+			? onboardingMetrics.commitRate
+			: null;
+	const longestSessionMin =
+		onboardingMetrics.longestSessionMin && onboardingMetrics.longestSessionMin > 0
+			? onboardingMetrics.longestSessionMin
+			: null;
+	const topProjectName = onboardingMetrics.topProjectName?.trim() || null;
+	const topProjectSessions = Math.max(0, onboardingMetrics.topProjectSessions);
+	const totalRepos = Math.max(0, onboardingMetrics.repoPulse.totalRepos);
+	const totalSessions = Math.max(0, row.totalSessions);
+	const totalTokens = Math.max(0, onboardingMetrics.totalTokens);
+	const estimatedSpend = Math.max(
+		0,
+		Math.round(Math.max(row.cost, onboardingMetrics.estimatedCostUsd)),
+	);
+	const sessionCountLabel = formatCompactWholeNumber(totalSessions);
+	const tokenCountLabel = formatCompactWholeNumber(totalTokens);
+	const activeDaysLabel = formatCompactWholeNumber(activeDays);
+	const repoCountLabel = formatCompactWholeNumber(totalRepos);
+	const spendLabel = formatCompactWholeCurrency(estimatedSpend);
+	const commitRateLabel = commitRate !== null ? formatPercent(commitRate) : null;
+	const topProjectSessionLabel = formatCompactWholeNumber(topProjectSessions);
+
+	switch (archetype.id) {
+		case "roadrunner":
+			return {
+				claim: formatWrappedRevealClaim(
+					firstName,
+					"you were never in one place for long.",
+				),
+				proof:
+					totalRepos > 1
+						? `${tokenCountLabel} tokens across ${repoCountLabel} repos made the bursts obvious.`
+						: `${sessionCountLabel} sessions and ${tokenCountLabel} tokens made the pace obvious.`,
+			};
+		case "hit_and_runner":
+			return {
+				claim: formatWrappedRevealClaim(
+					firstName,
+					"you came in to land the move, not linger.",
+				),
+				proof:
+					commitRateLabel && avgSessionMin !== null
+						? `${commitRateLabel} ended in a commit. Average session: ${formatMinutes(avgSessionMin)}.`
+						: `${sessionCountLabel} sessions, sharp and direct.`,
+			};
+		case "adhd_brain":
+			return {
+				claim: formatWrappedRevealClaim(
+					firstName,
+					"one thread was never going to be enough.",
+				),
+				proof:
+					totalRepos > 1
+						? `${tokenCountLabel} tokens across ${repoCountLabel} repos kept the work split wide.`
+						: `${tokenCountLabel} tokens, and still no single lane held you.`,
+			};
+		case "window_shopper":
+			return {
+				claim: formatWrappedRevealClaim(
+					firstName,
+					"you stayed picky and still found what was worth using.",
+				),
+				proof:
+					estimatedSpend > 0
+						? `${spendLabel} total spend still turned into ${sessionCountLabel} sessions.`
+						: `${sessionCountLabel} sessions, with a very light footprint.`,
+			};
+		case "papas_credit_card":
+			return {
+				claim: formatWrappedRevealClaim(
+					firstName,
+					"when the work got bigger, so did your appetite for it.",
+				),
+				proof:
+					estimatedSpend > 0
+						? `${spendLabel} across ${sessionCountLabel} sessions made that pretty clear.`
+						: `${tokenCountLabel} tokens says you were not thinking small.`,
+			};
+		case "decimal":
+			return {
+				claim: formatWrappedRevealClaim(
+					firstName,
+					"you made heavy usage look considered.",
+				),
+				proof: `${tokenCountLabel} tokens. ${sessionCountLabel} sessions. Still composed.`,
+			};
+		case "tourist":
+			return {
+				claim: formatWrappedRevealClaim(
+					firstName,
+					"you passed through more than you ever settled into.",
+				),
+				proof:
+					totalRepos > 1
+						? `${sessionCountLabel} sessions across ${repoCountLabel} repos, without one real home base.`
+						: `${sessionCountLabel} sessions, always a little in motion.`,
+			};
+		case "npc":
+			return {
+				claim: formatWrappedRevealClaim(
+					firstName,
+					"you became the person the work could count on.",
+				),
+				proof:
+					commitRateLabel !== null
+						? `${sessionCountLabel} sessions over ${activeDaysLabel} active days. ${commitRateLabel} ended in a commit.`
+						: `${sessionCountLabel} sessions over ${activeDaysLabel} active days kept the pattern steady.`,
+			};
+		case "needs_to_touch_grass":
+			return {
+				claim: formatWrappedRevealClaim(
+					firstName,
+					"you kept coming back long after most people would have closed the tab.",
+				),
+				proof:
+					topProjectName && topProjectSessions > 0
+						? `${topProjectName} alone pulled ${topProjectSessionLabel} sessions out of you.`
+						: longestSessionMin !== null
+							? `Your longest session hit ${formatMinutes(longestSessionMin)}.`
+							: `${activeDaysLabel} active days and ${tokenCountLabel} tokens kept the thread alive.`,
+			};
+		case "maniac":
+			return {
+				claim: formatWrappedRevealClaim(
+					firstName,
+					"you did not ease off once the pace picked up.",
+				),
+				proof:
+					topProjectName && topProjectSessions > 0
+						? `${tokenCountLabel} tokens over ${activeDaysLabel} active days, with ${topProjectName} taking ${topProjectSessionLabel} sessions.`
+						: `${tokenCountLabel} tokens over ${activeDaysLabel} active days. No letup.`,
+			};
+		default:
+			return {
+				claim: formatWrappedRevealClaim(
+					firstName,
+					"your pattern was specific enough to feel unmistakably yours.",
+				),
+				proof: `${sessionCountLabel} sessions and ${tokenCountLabel} tokens made that easy to see.`,
+			};
+	}
+}
+
+function getWrappedRevealFirstName(displayName: string) {
+	const trimmedName = displayName.trim();
+
+	if (
+		trimmedName.length === 0 ||
+		trimmedName.toLowerCase() === "unknown teammate"
+	) {
+		return null;
+	}
+
+	const firstToken = trimmedName.split(/\s+/)[0]?.replace(/[,:;.!?]+$/g, "");
+
+	if (!firstToken || firstToken.includes("@")) {
+		return null;
+	}
+
+	return firstToken;
+}
+
+function formatWrappedRevealClaim(firstName: string | null, claim: string) {
+	if (firstName) {
+		return `${firstName}, ${claim}`;
+	}
+
+	return `${claim.charAt(0).toUpperCase()}${claim.slice(1)}`;
+}
+
+function resolveWrappedRevealCardAnimate(input: {
+	isCardDropped: boolean;
+	reduceMotion: boolean;
+}) {
+	const { isCardDropped, reduceMotion } = input;
+
+	if (reduceMotion) {
+		return {
+			filter: "blur(0px)",
+			opacity: 1,
+			rotate: "0deg",
+			rotateX: "0deg",
+			scale: 1,
+			y: 0,
+		};
+	}
+
+	if (!isCardDropped) {
+		return {
+			filter: "blur(24px)",
+			opacity: 0,
+			rotate: "-10deg",
+			rotateX: "76deg",
+			scale: 2.65,
+			y: -240,
+		};
+	}
+
+	return {
+		filter: "blur(0px)",
+		opacity: 1,
+		rotate: "0deg",
+		rotateX: "0deg",
+		scale: 1,
+		y: 0,
+	};
+}
+
+function resolveWrappedRevealCardTransition(input: {
+	isCardDropped: boolean;
+	reduceMotion: boolean;
+}) {
+	const { isCardDropped, reduceMotion } = input;
+
+	if (reduceMotion) {
+		return {
+			duration: 0.14,
+			ease: "linear" as const,
+		};
+	}
+
+	if (!isCardDropped) {
+		return {
+			duration: 0,
+		};
+	}
+
+	return {
+		duration: REVEAL_STAGE_MOTION.duration.card,
+		ease: REVEAL_STAGE_MOTION.easing.drop,
+	};
 }
 
 function getWrappedRevealCopy(archetype: WrappedArchetypeCardTheme): {

@@ -5258,23 +5258,49 @@ body.mymind-wrapped-body #root {
 	min-width: 0;
 }
 
-.mymind-wrapped-final-stage__object--card {
-	min-height: clamp(27rem, 60vh, 37rem);
+.mymind-wrapped-final-stage__object--canvas {
+	min-height: clamp(24rem, 56svh, 34rem);
 }
 
-.mymind-wrapped-final-stage--reveal .mymind-wrapped-stage-copy {
-	gap: 0.42rem;
-}
-
-.mymind-wrapped-final-stage--reveal .mymind-wrapped-final-stage__object--card {
-	min-height: clamp(22rem, 48svh, 25rem);
-}
-
-.mymind-wrapped-final-stage__card-frame {
-	display: flex;
+.mymind-wrapped-final-stage__canvas {
+	position: relative;
 	width: 100%;
-	align-items: center;
-	justify-content: center;
+	min-height: clamp(24rem, 56svh, 34rem);
+}
+
+.mymind-wrapped-final-stage__text-layer {
+	position: absolute;
+	inset: 0;
+	z-index: 0;
+	display: grid;
+	place-items: center;
+	padding-inline: 1rem;
+	transform: translateY(-6%);
+	pointer-events: none;
+}
+
+.mymind-wrapped-final-stage__canvas-copy {
+	margin: 0;
+	max-width: 12ch;
+	color: #17161c;
+	font-size: clamp(2.4rem, 9vw, 4.6rem);
+	font-family: var(--app-font-heading);
+	font-weight: 700;
+	letter-spacing: -0.08em;
+	line-height: 0.9;
+	text-align: center;
+	text-wrap: balance;
+}
+
+.mymind-wrapped-final-stage__card-drop-layer {
+	position: relative;
+	z-index: 1;
+	display: grid;
+	place-items: center;
+	width: 100%;
+	min-height: clamp(24rem, 56svh, 34rem);
+	padding-top: clamp(4rem, 10svh, 5.5rem);
+	will-change: transform, opacity, filter;
 }
 
 .mymind-wrapped-final-stage__support {
@@ -5470,8 +5496,18 @@ body.mymind-wrapped-body #root {
 		line-height: 1.36;
 	}
 
-	.mymind-wrapped-final-stage__object--card {
-		min-height: clamp(13rem, 24svh, 15.5rem);
+	.mymind-wrapped-final-stage__object--canvas,
+	.mymind-wrapped-final-stage__canvas,
+	.mymind-wrapped-final-stage__card-drop-layer {
+		min-height: clamp(16rem, 28svh, 19rem);
+	}
+
+	.mymind-wrapped-final-stage__text-layer {
+		transform: translateY(-3%);
+	}
+
+	.mymind-wrapped-final-stage__canvas-copy {
+		font-size: clamp(1.95rem, 7vw, 2.6rem);
 	}
 
 	.mymind-wrapped-share-preview {
@@ -5599,6 +5635,21 @@ body.mymind-wrapped-body #root {
 
 	.mymind-wrapped-final-stage__object {
 		justify-content: flex-end;
+	}
+
+	.mymind-wrapped-final-stage--reveal {
+		grid-template-columns: minmax(0, 1fr);
+		grid-template-areas:
+			"object"
+			"support";
+	}
+
+	.mymind-wrapped-final-stage--reveal .mymind-wrapped-final-stage__support {
+		justify-items: center;
+	}
+
+	.mymind-wrapped-final-stage--reveal .mymind-wrapped-final-stage__object {
+		justify-content: center;
 	}
 }
 

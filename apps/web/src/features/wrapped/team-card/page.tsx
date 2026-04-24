@@ -367,6 +367,7 @@ function WrappedTeamCardPageContent(props: {
 			activeArchetype={activeArchetype}
 			headerLeftMetric={headerLeftMetric}
 			headerRightMetric={headerRightMetric}
+			onboardingMetrics={onboardingMetrics}
 			row={visibleTeamCardRow}
 			shellClassName={activeArchetype.shellClassName}
 			shellStyle={shellStyle}
