@@ -612,14 +612,9 @@ body.mymind-wrapped-body #root {
 }
 
 .mymind-wrapped-skills-stage {
-	display: flex;
-	flex: 1;
-	flex-direction: column;
-	justify-content: center;
 	margin: 0 auto;
 	max-width: 32rem;
-	min-height: 100%;
-	width: 100%;
+	min-height: 100%;	width: 100%;
 }
 
 .mymind-wrapped-skills-stage.mymind-wrapped-stage--without-support.mymind-wrapped-skills-stage--intro-copy,
@@ -678,16 +673,32 @@ body.mymind-wrapped-body #root {
 	text-wrap: balance;
 }
 
+.mymind-wrapped-skills-stage__copy-shell {
+	display: grid;
+	width: 100%;
+}
+
+.mymind-wrapped-skills-stage__copy-reserve,
+.mymind-wrapped-skills-stage__copy-overlay {
+	grid-area: 1 / 1;
+	width: 100%;
+}
+
+.mymind-wrapped-skills-stage__copy-reserve {
+	visibility: hidden;
+	pointer-events: none;
+}
+
 .mymind-wrapped-skills-stage__stack {
 	--skills-ease-out: cubic-bezier(0.23, 1, 0.32, 1);
 	--skills-ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
 	--skills-ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
 	position: relative;
-	width: min(100%, 21rem);
+	width: 100%;
+	max-width: 21rem;
 	height: 16.2rem;
 	margin: 1.75rem auto 0;
-	perspective: 1400px;
-	transform-style: preserve-3d;
+	perspective: 1400px;	transform-style: preserve-3d;
 	isolation: isolate;
 	overflow-x: visible;
 	overflow-y: visible;
@@ -824,9 +835,9 @@ body.mymind-wrapped-body #root {
 }
 
 .mymind-wrapped-skills-stage__object-shell {
+	display: block;
 	width: 100%;
 }
-
 .mymind-wrapped-skills-stage__card {
 	display: grid;
 	position: absolute;

@@ -273,11 +273,13 @@ export function getSkillsDealCardStyle(
 		SKILLS_STACK.visibleCards,
 		revealedCardCount,
 	);
-	const revealIndex = SKILLS_STACK.visibleCards - 1 - cardIndex;
-	const isEligibleCard =
-		cardIndex < SKILLS_STACK.visibleCards && revealIndex >= 0;
+	const firstRevealedCardIndex = Math.max(
+		0,
+		SKILLS_STACK.visibleCards - visibleCardLimit,
+	);
 	const isRevealedCard =
-		isEligibleCard && revealIndex < Math.max(visibleCardLimit, 0);
+		cardIndex >= firstRevealedCardIndex &&
+		cardIndex < SKILLS_STACK.visibleCards;
 
 	if (!isRevealedCard) {
 		return {
@@ -291,20 +293,14 @@ export function getSkillsDealCardStyle(
 		} as CSSProperties;
 	}
 
-	const stackDepth = visibleCardLimit - 1 - revealIndex;
-	const depthStyles = getSkillsDeckDepthStyle(stackDepth);
+	const frontCardIndex = firstRevealedCardIndex;
+	const deckStyle = getSkillsCardStyle(cardIndex, frontCardIndex);
 
 	return {
-		"--skills-card-y": `${stackDepth * SKILLS_STACK.stepRem}rem`,
-		"--skills-card-scale": depthStyles.scale,
-		"--skills-card-rotate": `${depthStyles.rotateDeg}deg`,
-		"--skills-card-z": `${depthStyles.translateZ}px`,
-		filter: stackDepth === 2 ? "blur(0.8px)" : "blur(0px)",
-		opacity: 1,
+		...deckStyle,
+		filter: deckStyle.filter ?? "blur(0px)",
+		opacity: deckStyle.opacity ?? 1,
 		pointerEvents: "none",
-		top: `${SKILLS_STACK.focusTopRem}rem`,
-		width: `calc(${depthStyles.widthPercent}% - ${SKILLS_STACK.shadowBleedRem * 2}rem)`,
-		zIndex: 40 - stackDepth * 10,
 	} as CSSProperties;
 }
 

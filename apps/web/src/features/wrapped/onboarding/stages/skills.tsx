@@ -335,40 +335,85 @@ export function WrappedOnboardingSkillsStage(props: SkillsStageProps) {
 						title={model.headline}
 						description={model.subline}
 					/>
-				) : (
+				) : isIntroCopyVisible ? (
 					<AnimatePresence initial={false} mode="wait">
-						{isFinalCopyVisible ? (
-							<motion.div
-								key="skills-final-copy"
-								animate={{ filter: "blur(0px)", opacity: 1, scale: 1, y: 0 }}
-								initial={{
-									filter: "blur(10px)",
-									opacity: 0,
-									scale: 0.985,
-									y: 16,
-								}}
-								transition={SKILLS_STAGE_COPY_TRANSITION}
-							>
-								<WrappedOnboardingStageCopy
-									title={model.headline}
-									description={model.subline}
-								/>
-							</motion.div>
-						) : (
-							<motion.div
-								key="skills-intro-copy"
-								animate={{ filter: "blur(0px)", opacity: 1, scale: 1, y: 0 }}
-								exit={{ filter: "blur(6px)", opacity: 0, scale: 0.992, y: -8 }}
-								initial={false}
-								transition={SKILLS_STAGE_COPY_TRANSITION}
-							>
-								<WrappedOnboardingStageCopy
-									title={<WrappedSkillsIntroLine reduceMotion={reduceMotion} />}
-									titleClassName="mymind-wrapped-stage-copy__headline--intro"
-								/>
-							</motion.div>
-						)}
+						<motion.div
+							key="skills-intro-copy"
+							animate={{ filter: "blur(0px)", opacity: 1, scale: 1, y: 0 }}
+							exit={{ filter: "blur(6px)", opacity: 0, scale: 0.992, y: -8 }}
+							initial={false}
+							transition={SKILLS_STAGE_COPY_TRANSITION}
+						>
+							<WrappedOnboardingStageCopy
+								title={<WrappedSkillsIntroLine reduceMotion={reduceMotion} />}
+								titleClassName="mymind-wrapped-stage-copy__headline--intro"
+							/>
+						</motion.div>
 					</AnimatePresence>
+				) : (
+					<div className="mymind-wrapped-skills-stage__copy-shell">
+						<div
+							aria-hidden="true"
+							className="mymind-wrapped-skills-stage__copy-reserve"
+						>
+							<WrappedOnboardingStageCopy
+								title={model.headline}
+								description={model.subline}
+							/>
+						</div>
+						<div className="mymind-wrapped-skills-stage__copy-overlay">
+							<AnimatePresence initial={false} mode="wait">
+								{isFinalCopyVisible ? (
+									<motion.div
+										key="skills-final-copy"
+										animate={{
+											filter: "blur(0px)",
+											opacity: 1,
+											scale: 1,
+											y: 0,
+										}}
+										initial={{
+											filter: "blur(10px)",
+											opacity: 0,
+											scale: 0.985,
+											y: 16,
+										}}
+										transition={SKILLS_STAGE_COPY_TRANSITION}
+									>
+										<WrappedOnboardingStageCopy
+											title={model.headline}
+											description={model.subline}
+										/>
+									</motion.div>
+								) : (
+									<motion.div
+										key="skills-deal-copy"
+										animate={{
+											filter: "blur(0px)",
+											opacity: 1,
+											scale: 1,
+											y: 0,
+										}}
+										exit={{
+											filter: "blur(6px)",
+											opacity: 0,
+											scale: 0.992,
+											y: -8,
+										}}
+										initial={false}
+										transition={SKILLS_STAGE_COPY_TRANSITION}
+									>
+										<WrappedOnboardingStageCopy
+											title={
+												<WrappedSkillsIntroLine reduceMotion={reduceMotion} />
+											}
+											titleClassName="mymind-wrapped-stage-copy__headline--intro"
+										/>
+									</motion.div>
+								)}
+							</AnimatePresence>
+						</div>
+					</div>
 				)
 			}
 			object={
