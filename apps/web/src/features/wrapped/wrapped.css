@@ -2452,17 +2452,14 @@ body.mymind-wrapped-body #root {
 	position: relative;
 	display: grid;
 	justify-items: center;
-	gap: 0.34rem;
+	gap: 0.42rem;
 }
 
 .mymind-wrapped-scale-stage__spend-value-shell {
-	display: grid;
-	justify-items: center;
-	gap: 0.28rem;
+	display: block;
 }
 
 .mymind-wrapped-scale-stage__spend-label,
-.mymind-wrapped-scale-stage__spend-unit,
 .mymind-wrapped-scale-stage__spend-kebab-line {
 	display: block;
 	font-family: var(--app-font-heading);
@@ -2484,15 +2481,10 @@ body.mymind-wrapped-body #root {
 	line-height: 0.88;
 }
 
-.mymind-wrapped-scale-stage__spend-unit {
-	color: rgb(23 22 28 / 0.62);
-	font-size: 0.96rem;
-}
-
 .mymind-wrapped-scale-stage__spend-kebab-line {
 	color: rgb(23 22 28 / 0.78);
 	font-size: 1rem;
-	margin-block-start: 0.6rem;
+	margin-block-start: 0.28rem;
 	text-wrap: balance;
 }
 
@@ -3084,7 +3076,6 @@ body.mymind-wrapped-body #root {
 	margin: 0 auto;
 }
 
-.mymind-wrapped-entry-stage__headline--auth,
 .mymind-wrapped-entry-stage__headline--auth-intro {
 	max-width: 100%;
 	font-size: clamp(1.95rem, 8vw, 2.7rem);
@@ -3249,8 +3240,10 @@ body.mymind-wrapped-body #root {
 
 .mymind-wrapped-auth-stage-title {
 	display: block;
-	font-size: clamp(2.2rem, 6vw, 2.85rem);
-	line-height: 0.94;
+	font: inherit;
+	letter-spacing: inherit;
+	line-height: inherit;
+	text-align: inherit;
 }
 
 .mymind-wrapped-auth-intro-title__line {
@@ -3731,8 +3724,9 @@ body.mymind-wrapped-body #root {
 }
 
 .mymind-wrapped-auth-panel--form {
+	--wrapped-auth-form-overlap: clamp(1.15rem, 4.8vw, 1.75rem);
 	align-content: start;
-	gap: 0.85rem;
+	gap: 0;
 	min-height: 100%;
 }
 
@@ -3742,6 +3736,8 @@ body.mymind-wrapped-body #root {
 }
 
 .mymind-wrapped-auth-panel__card {
+	position: relative;
+	z-index: 1;
 	display: grid;
 	justify-items: center;
 	width: 100%;
@@ -3823,7 +3819,14 @@ body.mymind-wrapped-body #root {
 }
 
 .mymind-wrapped-auth-panel__body--form {
+	position: relative;
+	z-index: 0;
 	width: 100%;
+}
+
+.mymind-wrapped-auth-panel--form .mymind-wrapped-auth-panel__body--form {
+	margin-top: calc(var(--wrapped-auth-form-overlap) * -1);
+	padding-top: var(--wrapped-auth-form-overlap);
 }
 
 .mymind-wrapped-auth-panel__footer {

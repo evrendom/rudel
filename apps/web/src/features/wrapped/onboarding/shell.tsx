@@ -28,6 +28,7 @@ import {
 	WrappedOnboardingScaleRainBackdrop,
 	WrappedOnboardingStage,
 } from "./stages";
+import { SCALE_STAGE_KEBAB_REVEAL_MS } from "./stages/metrics";
 import type {
 	WrappedOnboardingMetrics,
 	WrappedScaleAdvanceState,
@@ -57,7 +58,7 @@ const STAGE_TRANSITION = {
 };
 
 const SCALE_ADVANCE_SEQUENCE = {
-	kebabRevealMs: 1_250,
+	kebabRevealMs: SCALE_STAGE_KEBAB_REVEAL_MS,
 };
 
 export interface WrappedTeamCardOnboardingProps {

@@ -4,7 +4,6 @@ import { useRef, useState } from "react";
 import { useMountEffect } from "@/hooks/useMountEffect";
 import { formatCompactWholeCurrency } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { formatCompactNumber } from "../format";
 import {
 	resolveLockInPreviewInput,
 	resolveLockInStageModel,
@@ -76,12 +75,16 @@ interface ScaleKebabSimulationDrop extends ScaleKebabDrop {
 }
 
 const SCALE_STAGE_KEBAB_COST_USD = 8;
-const SCALE_STAGE_MAX_KEBAB_DROPS = 24;
 const SCALE_STAGE_KEBAB_EMOJI = "🥙";
 const SCALE_STAGE_KEBAB_EXIT_VELOCITY_PX = 3.8;
 const SCALE_STAGE_KEBAB_SQUASH_DURATION_MS = 120;
-const SCALE_STAGE_SPEND_LABEL_HOLD_MS = 500;
-const SCALE_STAGE_SPEND_COUNT_DURATION_MS = 680;
+export const SCALE_STAGE_SPEND_LABEL_HOLD_MS = 500;
+export const SCALE_STAGE_SPEND_COUNT_DURATION_MS = 680;
+const SCALE_STAGE_SPEND_TO_KEBAB_DELAY_MS = 280;
+export const SCALE_STAGE_KEBAB_REVEAL_MS =
+	SCALE_STAGE_SPEND_LABEL_HOLD_MS +
+	SCALE_STAGE_SPEND_COUNT_DURATION_MS +
+	SCALE_STAGE_SPEND_TO_KEBAB_DELAY_MS;
 
 export function WrappedOnboardingScaleStage(props: SharedStageProps) {
 	const {
@@ -175,7 +178,7 @@ function WrappedScaleStageSequenceTitle(props: {
 	const reduceMotion = shouldReduceMotion ?? false;
 	const isScaleAdvanceVisible = scaleAdvanceState !== "idle";
 	const totalKebabs = resolveScaleKebabCount(estimatedSpendUsd);
-	const kebabDropCount = resolveScaleKebabDropCount(estimatedSpendUsd);
+	const kebabDropCount = totalKebabs;
 	const [phase, setPhase] = useState<ScaleStageSequencePhase>(() =>
 		reduceMotion ? "total" : "greeting",
 	);
@@ -391,7 +394,7 @@ function WrappedScaleSpendTitle(props: {
 	return (
 		<span className="mymind-wrapped-scale-stage__spend-shell">
 			<span className="mymind-wrapped-scale-stage__spend-label">
-				This equals
+				This equals to
 			</span>
 			<AnimatePresence initial={false}>
 				{isSpendValueVisible ? (
@@ -428,9 +431,6 @@ function WrappedScaleSpendTitle(props: {
 						<span className="mymind-wrapped-scale-stage__spend-value">
 							{formatCompactWholeCurrency(displaySpendUsd)}
 						</span>
-						<span className="mymind-wrapped-scale-stage__spend-unit">
-							dollars
-						</span>
 					</motion.span>
 				) : null}
 			</AnimatePresence>
@@ -466,7 +466,7 @@ function WrappedScaleSpendTitle(props: {
 									}
 						}
 					>
-						{`or ${formatCompactNumber(totalKebabs)} kebabs`}
+						{`or ${totalKebabs.toLocaleString("en-US")} kebabs`}
 					</motion.span>
 				) : null}
 			</AnimatePresence>
@@ -489,9 +489,13 @@ function WrappedScaleKebabRain(props: {
 	const dropRefs = useRef<Array<HTMLSpanElement | null>>([]);
 
 	useMountEffect(() => {
-		const nodes = dropRefs.current;
+		if (drops.length === 0) {
+			onComplete?.();
+			return;
+		}
 
-		if (drops.length === 0 || nodes.length === 0) {
+		const nodes = dropRefs.current;
+		if (nodes.length === 0) {
 			return;
 		}
 
@@ -581,17 +585,6 @@ function resolveScaleKebabCount(estimatedSpendUsd: number) {
 	return Math.max(
 		1,
 		Math.round(estimatedSpendUsd / SCALE_STAGE_KEBAB_COST_USD),
-	);
-}
-
-function resolveScaleKebabDropCount(estimatedSpendUsd: number) {
-	if (estimatedSpendUsd <= 0) {
-		return 0;
-	}
-
-	return Math.min(
-		SCALE_STAGE_MAX_KEBAB_DROPS,
-		Math.max(1, Math.round(estimatedSpendUsd / 10)),
 	);
 }
 
