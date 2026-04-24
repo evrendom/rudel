@@ -3,6 +3,7 @@ import { formatPercent } from "../format";
 import type { WrappedSkillUsageItem } from "../types";
 
 interface ToolsStageEntry {
+	kindLabel: string;
 	id: string;
 	isPlaceholder: boolean;
 	name: string;
@@ -28,8 +29,9 @@ export function resolveToolsStageModel(input: {
 			entries: buildToolsPlaceholderEntries(),
 			footnote:
 				"These numbers are the share of sessions where each layer showed up, not raw invocation counts.",
-			headline: "You stayed close to the base model",
-			subline: "The tool layer stayed quiet.",
+			headline: "You stayed close to the base model.",
+			subline:
+				"Slash commands and subagents have not shown up often enough to form a pattern yet.",
 		};
 	}
 
@@ -39,7 +41,7 @@ export function resolveToolsStageModel(input: {
 			footnote:
 				"These are session-share numbers: how often that layer appeared in a session at least once.",
 			headline: getToolsHeadline(input),
-			subline: "One command. One helper.",
+			subline: getToolsSubline(input),
 		};
 	}
 
@@ -49,7 +51,7 @@ export function resolveToolsStageModel(input: {
 			footnote:
 				"Session share is based on whether the layer appeared in the session, not how many times it fired.",
 			headline: getToolsHeadline(input),
-			subline: "One command kept showing up.",
+			subline: getToolsSubline(input),
 		};
 	}
 
@@ -58,7 +60,7 @@ export function resolveToolsStageModel(input: {
 		footnote:
 			"Session share is based on whether the layer appeared in the session, not how many times it fired.",
 		headline: getToolsHeadline(input),
-		subline: "One helper kept showing up.",
+		subline: getToolsSubline(input),
 	};
 }
 
@@ -229,15 +231,15 @@ export function getToolsHeadline(input: {
 	const { topSlashCommand, topSubagent } = input;
 
 	if (topSlashCommand && topSubagent) {
-		return `${topSlashCommand} up front. ${topSubagent} in reserve.`;
+		return `${topSlashCommand} led. ${topSubagent} backed it up.`;
 	}
 
 	if (topSlashCommand) {
-		return `${topSlashCommand} led the workflow.`;
+		return `${topSlashCommand} was your go-to command.`;
 	}
 
 	if (topSubagent) {
-		return `${topSubagent} carried the extra work.`;
+		return `${topSubagent} became your go-to subagent.`;
 	}
 
 	return "You stayed close to the base model.";
@@ -250,18 +252,18 @@ export function getToolsSubline(input: {
 	const { slashCommandsAdoptionRate, subagentsAdoptionRate } = input;
 
 	if (slashCommandsAdoptionRate === null && subagentsAdoptionRate === null) {
-		return "Extension signal is still landing.";
+		return "This page tracks how often slash commands and subagents showed up.";
 	}
 
 	if (slashCommandsAdoptionRate === null) {
-		return `${formatPercent(subagentsAdoptionRate)} of sessions used a subagent.`;
+		return `${formatPercent(subagentsAdoptionRate)} of sessions used a subagent. No slash command ranked yet.`;
 	}
 
 	if (subagentsAdoptionRate === null) {
-		return `${formatPercent(slashCommandsAdoptionRate)} of sessions used a slash command.`;
+		return `${formatPercent(slashCommandsAdoptionRate)} of sessions used a slash command. No subagent ranked yet.`;
 	}
 
-	return `${formatPercent(slashCommandsAdoptionRate)} slash-command sessions. ${formatPercent(subagentsAdoptionRate)} subagent sessions.`;
+	return `${formatPercent(slashCommandsAdoptionRate)} used a slash command. ${formatPercent(subagentsAdoptionRate)} used a subagent.`;
 }
 
 function getToolsUsageLabel(rate: number) {
@@ -294,6 +296,9 @@ function buildToolsStageEntries(input: {
 		)
 		.slice(0, 3)
 		.map((item) => ({
+			kindLabel: item.id.startsWith("slash-command-")
+				? "Slash command"
+				: "Subagent",
 			id: item.id,
 			isPlaceholder: false,
 			name: item.name,
@@ -307,6 +312,7 @@ function buildToolsStageEntries(input: {
 function buildToolsPlaceholderEntries(): readonly ToolsStageEntry[] {
 	return [
 		{
+			kindLabel: "Command or subagent",
 			id: "tools-placeholder-1",
 			isPlaceholder: true,
 			name: "Waiting for a repeat winner",
@@ -314,6 +320,7 @@ function buildToolsPlaceholderEntries(): readonly ToolsStageEntry[] {
 			usageRate: null,
 		},
 		{
+			kindLabel: "Command or subagent",
 			id: "tools-placeholder-2",
 			isPlaceholder: true,
 			name: "Still forming",

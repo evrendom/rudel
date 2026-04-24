@@ -141,17 +141,6 @@ describe("App wrapped routing", () => {
 		expect(screen.getByText("Public id: none")).toBeInTheDocument();
 	});
 
-	it("redirects the legacy /walk-in-team-card route back to /wrapped", async () => {
-		render(
-			<MemoryRouter initialEntries={["/walk-in-team-card"]}>
-				<App />
-			</MemoryRouter>,
-		);
-
-		expect(await screen.findByText("Wrapped Route Gate")).toBeInTheDocument();
-		expect(screen.getByText("Public id: none")).toBeInTheDocument();
-	});
-
 	it("redirects the legacy /wrapped/share/:id route to the canonical public page", async () => {
 		render(
 			<MemoryRouter initialEntries={["/wrapped/share/share-123"]}>

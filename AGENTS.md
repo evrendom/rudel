@@ -1,18 +1,18 @@
-# Walk-In Layout Rules
+# Wrapped Layout Rules
 
-These instructions apply only to the `apps/web/src/features/walk-in/*` route and supporting files that shape its layout.
+These instructions apply only to the `apps/web/src/features/wrapped/*` route and supporting files that shape its layout.
 
 This document is intentionally limited to layout. It does not define copy, motion, analytics, or visual tone.
 
 ## Scope
 
-- Apply these rules only when editing the walk-in story deck layout.
-- Do not treat these rules as global guidance for auth, dashboard, or wrapped routes.
+- Apply these rules only when editing the wrapped story deck layout.
+- Do not treat these rules as global guidance for auth, dashboard, or non-wrapped routes.
 
 ## Core Layout Model
 
-- Design the walk-in route as a full-screen mobile story first.
-- Size the route with safe viewport units like `100svh`; do not use `100vh` or `min-h-screen` for the primary walk-in shell.
+- Design the wrapped route as a full-screen mobile story first.
+- Size the route with safe viewport units like `100svh`; do not use `100vh` or `min-h-screen` for the primary wrapped shell.
 - Respect safe areas with `env(safe-area-inset-top/right/bottom/left)` padding on the route shell.
 - Keep the story as a single focused stage on phone. Do not center a desktop card inside a phone viewport.
 - Prefer one screen per step before allowing internal scrolling.
@@ -37,13 +37,13 @@ This document is intentionally limited to layout. It does not define copy, motio
 
 ## Structure Rules
 
-- Keep the walk-in route resilient to narrow, tall, and resized viewports.
+- Keep the wrapped route resilient to narrow, tall, and resized viewports.
 - Avoid `overflow: hidden` on the overall route when it would block fallback scrolling for larger text.
 - Prefer container-based layout decisions over screen-class assumptions.
 - Keep the number of visible page indicators manageable; if the deck grows too long, split it into chapters or reduce visible steps.
 
 ## Verification
 
-- Run `bun run lint:walkin:hig` after layout changes.
-- End every walk-in layout task by running `bun run lint:walkin:hig`.
-- A layout change is not complete until the walk-in route passes the Apple HIG walk-in audit.
+- Run `bun run lint:wrapped:hig` after layout changes.
+- End every wrapped layout task by running `bun run lint:wrapped:hig`.
+- A layout change is not complete until the wrapped route passes the Apple HIG audit.

@@ -68,15 +68,11 @@ function App() {
 	const cardReferencePath = appRoutes.cardReference();
 	const wrappedDevPath = appRoutes.devWrapped();
 	const wrappedTeamCardPath = appRoutes.wrappedTeamCard();
-	const legacyWalkInTeamCardPath = appRoutes.legacyWalkInTeamCard();
 	const wrappedPublicId = getWrappedPublicIdFromPath(location.pathname);
 	const legacyWrappedPublicId = getLegacyWrappedPublicIdFromPath(
 		location.pathname,
 	);
 	const wrappedResumeToken = getWrappedResumeTokenFromPath(location.pathname);
-	const isLegacyWrappedPath =
-		location.pathname === legacyWalkInTeamCardPath ||
-		location.pathname.startsWith(`${legacyWalkInTeamCardPath}/`);
 	const isLegacyWrappedSharePath = legacyWrappedPublicId !== null;
 	const isCardReferencePath =
 		location.pathname === cardReferencePath ||
@@ -96,7 +92,6 @@ function App() {
 		!isCardReferencePath &&
 		!isWrappedDevPath &&
 		!isWrappedTeamCardPath &&
-		!isLegacyWrappedPath &&
 		!isLegacyWrappedSharePath &&
 		!isGetStartedPath(location.pathname) &&
 		!wrappedResumeToken;
@@ -157,16 +152,6 @@ function App() {
 			<>
 				<ProductAnalyticsSessionSync session={session} />
 				<Navigate replace to={appRoutes.wrappedPublic(legacyWrappedPublicId)} />
-				{showDesktopOnlyOverlay ? <DesktopOnlyOverlay /> : null}
-			</>
-		);
-	}
-
-	if (isLegacyWrappedPath) {
-		return (
-			<>
-				<ProductAnalyticsSessionSync session={session} />
-				<Navigate replace to={appRoutes.wrappedTeamCard()} />
 				{showDesktopOnlyOverlay ? <DesktopOnlyOverlay /> : null}
 			</>
 		);

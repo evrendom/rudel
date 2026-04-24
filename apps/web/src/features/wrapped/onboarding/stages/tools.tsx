@@ -3,7 +3,6 @@ import type { CSSProperties } from "react";
 import { useState } from "react";
 import { useMountEffect } from "@/hooks/useMountEffect";
 import { cn } from "@/lib/utils";
-import { formatPercent } from "../format";
 import {
 	getToolsEntryStyle,
 	getToolsStackHeightRem,
@@ -45,8 +44,8 @@ const TOOLS_STAGE_COPY_TRANSITION = {
 	type: "spring" as const,
 };
 
-const TOOLS_STAGE_SEQUENCE_HOLD_MS = [1_420, 1_520] as const;
-const TOOLS_STAGE_SCENE_REVEAL_HOLD_MS = 2_160;
+const TOOLS_STAGE_SEQUENCE_HOLD_MS = [2_040, 2_160] as const;
+const TOOLS_STAGE_SCENE_REVEAL_HOLD_MS = 2_760;
 
 export function WrappedOnboardingToolsStage(props: ToolsStageProps) {
 	const { onboardingMetrics, previewState } = props;
@@ -68,8 +67,6 @@ export function WrappedOnboardingToolsStage(props: ToolsStageProps) {
 	);
 	const model = resolveToolsStageModel(previewInput);
 	const sequenceFrames = resolveToolsStageSequenceFrames(
-		onboardingMetrics.skillsAdoptionRate,
-		onboardingMetrics.topSkills,
 		previewInput.topSlashCommand,
 		previewInput.topSubagent,
 		model.headline,
@@ -134,6 +131,8 @@ export function WrappedOnboardingToolsStage(props: ToolsStageProps) {
 					transition={TOOLS_STAGE_SEQUENCE_TRANSITION}
 				>
 					<WrappedOnboardingStageCopy
+						description={showFinalScene ? model.subline : undefined}
+						descriptionClassName="mymind-wrapped-tools-stage__description-shell"
 						title={
 							<AnimatePresence initial={false} mode="wait">
 								<motion.span
@@ -259,6 +258,9 @@ export function WrappedOnboardingToolsStage(props: ToolsStageProps) {
 											type="button"
 										>
 											<span className="mymind-wrapped-tools-stage__entry-top">
+												<span className="mymind-wrapped-tools-stage__entry-kind">
+													{entry.kindLabel}
+												</span>
 												<span className="mymind-wrapped-tools-stage__entry-usage">
 													{entry.usageLabel}
 												</span>
@@ -288,16 +290,14 @@ export function WrappedOnboardingToolsStage(props: ToolsStageProps) {
 }
 
 function resolveToolsStageSequenceFrames(
-	skillsAdoptionRate: number | null,
-	topSkills: readonly { count: number; name: string }[],
 	topSlashCommand: string | null,
 	topSubagent: string | null,
 	finalTitle: string,
 ): ToolsStageSequenceFrame[] {
 	return [
 		{
-			key: "skills",
-			title: resolveToolsSkillsBridgeLine(skillsAdoptionRate, topSkills),
+			key: "intro",
+			title: resolveToolsIntroLine(topSlashCommand, topSubagent),
 		},
 		{
 			key: "tools",
@@ -310,22 +310,23 @@ function resolveToolsStageSequenceFrames(
 	];
 }
 
-function resolveToolsSkillsBridgeLine(
-	skillsAdoptionRate: number | null,
-	topSkills: readonly { count: number; name: string }[],
+function resolveToolsIntroLine(
+	topSlashCommand: string | null,
+	topSubagent: string | null,
 ) {
-	if (skillsAdoptionRate !== null) {
-		return `Skills showed up in ${formatPercent(skillsAdoptionRate)} of sessions.`;
+	if (topSlashCommand && topSubagent) {
+		return "Your workflow grew beyond the base model.";
 	}
 
-	const leadSkill = topSkills.find(
-		(skill) => skill.name.trim().length > 0 && skill.count > 0,
-	);
-	if (leadSkill) {
-		return `${leadSkill.name} was your clearest skill signal.`;
+	if (topSlashCommand) {
+		return "Slash commands became part of the routine.";
 	}
 
-	return "Skills were the first extra layer to show up.";
+	if (topSubagent) {
+		return "Subagents became part of the routine.";
+	}
+
+	return "You mostly stayed close to the base model.";
 }
 
 function resolveToolsTransitionLine(
@@ -333,18 +334,18 @@ function resolveToolsTransitionLine(
 	topSubagent: string | null,
 ) {
 	if (topSlashCommand && topSubagent) {
-		return "Then tools split into commands and helpers.";
+		return "Commands led. Subagents backed them up.";
 	}
 
 	if (topSlashCommand) {
-		return "Then one command started to stand out.";
+		return "One slash command stood out.";
 	}
 
 	if (topSubagent) {
-		return "Then one helper started to stand out.";
+		return "One subagent stood out.";
 	}
 
-	return "Then the tool layer stayed quiet.";
+	return "No clear slash-command or subagent pattern formed.";
 }
 
 function resolveToolsCardHiddenPose(entryIndex: number) {

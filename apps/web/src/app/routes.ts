@@ -13,7 +13,6 @@ const CARD_REFERENCE_PATH = "/card-reference";
 const WRAPPED_TEAM_CARD_PATH = "/wrapped";
 const DEV_WRAPPED_PATH = "/dev/wrapped";
 const WRAPPED_RESUME_PATH = "/resume";
-const LEGACY_WALK_IN_TEAM_CARD_PATH = "/walk-in-team-card";
 
 // These helpers are the canonical route surface for the Saturday wrapped loop.
 // We keep them centralized so design, auth, analytics, and public sharing all
@@ -37,8 +36,6 @@ export const appRoutes = {
 		`${WRAPPED_RESUME_PATH}/${encodeURIComponent(token)}`,
 	wrappedTeamCardFromShare: (shareId: string) =>
 		`${WRAPPED_TEAM_CARD_PATH}?share_id=${encodeURIComponent(shareId)}`,
-	walkInTeamCard: () => WRAPPED_TEAM_CARD_PATH,
-	legacyWalkInTeamCard: () => LEGACY_WALK_IN_TEAM_CARD_PATH,
 	settingsWorkspace: () => SETTINGS_WORKSPACE_PATH,
 	settingsInvitations: () => SETTINGS_INVITATIONS_PATH,
 	settingsAccount: () => SETTINGS_ACCOUNT_PATH,
