@@ -203,12 +203,14 @@ export function WrappedAuthFlow(props: WrappedAuthFlowProps) {
 	return (
 		<WrappedRouteStageShell
 			footerDebugControls={mode ? debugControls : undefined}
+			layoutGroupId="wrapped-auth-stage"
 			leadingControl={null}
 			objectClassName={
 				mode
 					? "mymind-wrapped-entry-stage__object--auth-form"
 					: "mymind-wrapped-entry-stage__object--auth-intro"
 			}
+			objectLayout
 			stage={
 				<WrappedAuthStage
 					debugControls={debugControls}
@@ -221,6 +223,7 @@ export function WrappedAuthFlow(props: WrappedAuthFlowProps) {
 			stageClassName="mymind-wrapped-entry-stage--auth"
 			title={getWrappedAuthTitle(mode, shouldReduceMotion)}
 			titleClassName="mymind-wrapped-entry-stage__headline--auth"
+			titleObjectLayout
 		/>
 	);
 }
@@ -230,7 +233,25 @@ function getWrappedAuthTitle(
 	shouldReduceMotion: boolean,
 ) {
 	return (
-		<motion.span className="mymind-wrapped-auth-title-handoff">
+		<motion.span
+			layout
+			className="mymind-wrapped-auth-title-handoff"
+			transition={
+				shouldReduceMotion
+					? {
+							layout: {
+								duration: WRAPPED_AUTH_INTRO_REDUCED_DURATION,
+								ease: "linear",
+							},
+						}
+					: {
+							layout: {
+								duration: WRAPPED_AUTH_LAYOUT_DURATION,
+								ease: WRAPPED_AUTH_LAYOUT_EASE,
+							},
+						}
+			}
+		>
 			<AnimatePresence mode="sync">
 				{mode === null ? (
 					<motion.span
