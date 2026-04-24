@@ -44,7 +44,8 @@ export function WrappedOnboardingIntroStage(props: IntroStageProps) {
 					}
 				>
 					<WrappedOnboardingStageCopy
-						eyebrow={`Hey, ${greetingName}.`}
+						entrancePreset="story"
+						eyebrow={greetingName}
 						title="Ready to see what your sessions say about you?"
 						titleClassName="mymind-wrapped-stage-copy__headline--intro"
 						description="Claude Code and Codex, pulled into one story."
@@ -59,7 +60,7 @@ function getGreetingName(displayName: string) {
 	const trimmedDisplayName = displayName.trim();
 
 	if (!trimmedDisplayName) {
-		return "there";
+		return undefined;
 	}
 
 	return trimmedDisplayName.split(/\s+/)[0] ?? trimmedDisplayName;

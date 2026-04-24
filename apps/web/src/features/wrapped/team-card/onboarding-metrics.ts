@@ -41,6 +41,11 @@ export function buildWrappedOnboardingMetrics(
 		commitRate:
 			totalSessions > 0 ? (commitSessions / totalSessions) * 100 : null,
 		daysSinceFirst: wrappedMetrics?.days_since_first_session ?? 0,
+		estimatedCostTokenBasis: Math.max(
+			0,
+			developerDetails?.total_tokens ?? wrappedMetrics?.total_tokens ?? 0,
+		),
+		estimatedCostUsd: Math.max(0, Math.round(developerDetails?.cost ?? 0)),
 		favoriteModel: formatWrappedLabel(
 			wrappedMetrics?.favorite_model ??
 				developerDetails?.favorite_model ??

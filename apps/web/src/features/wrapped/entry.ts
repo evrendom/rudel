@@ -1,7 +1,6 @@
 import type { AppSession } from "@/features/auth/auth-route-utils";
 
 const WRAPPED_COMPLETION_STORAGE_VERSION = "v1";
-const LEGACY_WALK_IN_COMPLETION_STORAGE_VERSION = "v1";
 export const WRAPPED_LAUNCH_CUTOFF = new Date("2026-04-20T00:00:00.000Z");
 
 export function isWrappedLaunchEligible(
@@ -14,15 +13,13 @@ export function isWrappedLaunchEligible(
 export function hasCompletedWrapped(
 	userId: string | null | undefined,
 ): boolean {
-	const storageKeys = getCompletionStorageKeys(userId);
-	if (storageKeys.length === 0 || typeof window === "undefined") {
+	const storageKey = getWrappedCompletionStorageKey(userId);
+	if (!storageKey || typeof window === "undefined") {
 		return false;
 	}
 
 	try {
-		return storageKeys.some(
-			(storageKey) => window.localStorage.getItem(storageKey) === "true",
-		);
+		return window.localStorage.getItem(storageKey) === "true";
 	} catch {
 		return false;
 	}
@@ -36,24 +33,17 @@ export function markWrappedCompleted(userId: string | null | undefined): void {
 
 	try {
 		window.localStorage.setItem(storageKey, "true");
-		const legacyStorageKey = getLegacyWalkInCompletionStorageKey(userId);
-
-		if (legacyStorageKey) {
-			window.localStorage.removeItem(legacyStorageKey);
-		}
 	} catch {}
 }
 
 export function clearWrappedCompleted(userId: string | null | undefined): void {
-	const storageKeys = getCompletionStorageKeys(userId);
-	if (storageKeys.length === 0 || typeof window === "undefined") {
+	const storageKey = getWrappedCompletionStorageKey(userId);
+	if (!storageKey || typeof window === "undefined") {
 		return;
 	}
 
 	try {
-		for (const storageKey of storageKeys) {
-			window.localStorage.removeItem(storageKey);
-		}
+		window.localStorage.removeItem(storageKey);
 	} catch {}
 }
 
@@ -66,26 +56,6 @@ export function getWrappedCompletionStorageKey(
 	}
 
 	return `wrapped:completed:${WRAPPED_COMPLETION_STORAGE_VERSION}:${normalizedUserId}`;
-}
-
-function getLegacyWalkInCompletionStorageKey(
-	userId: string | null | undefined,
-): string | null {
-	const normalizedUserId = userId?.trim();
-	if (!normalizedUserId) {
-		return null;
-	}
-
-	return `walk-in:completed:${LEGACY_WALK_IN_COMPLETION_STORAGE_VERSION}:${normalizedUserId}`;
-}
-
-function getCompletionStorageKeys(userId: string | null | undefined) {
-	const wrappedStorageKey = getWrappedCompletionStorageKey(userId);
-	const legacyStorageKey = getLegacyWalkInCompletionStorageKey(userId);
-
-	return [wrappedStorageKey, legacyStorageKey].filter(
-		(storageKey): storageKey is string => Boolean(storageKey),
-	);
 }
 
 function getSessionUserCreatedAt(

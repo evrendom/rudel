@@ -28,7 +28,10 @@ import {
 	WrappedOnboardingScaleRainBackdrop,
 	WrappedOnboardingStage,
 } from "./stages";
-import type { WrappedOnboardingMetrics } from "./types";
+import type {
+	WrappedOnboardingMetrics,
+	WrappedScaleAdvanceState,
+} from "./types";
 
 /* ─────────────────────────────────────────────────────────
  * INTRO EXIT STORYBOARD
@@ -51,6 +54,10 @@ const INTRO_EXIT = {
 const STAGE_TRANSITION = {
 	duration: 0.24,
 	ease: [0.22, 1, 0.36, 1] as const,
+};
+
+const SCALE_ADVANCE_SEQUENCE = {
+	kebabRevealMs: 1_250,
 };
 
 export interface WrappedTeamCardOnboardingProps {
@@ -91,7 +98,10 @@ export function WrappedTeamCardOnboarding(
 	const shouldReduceMotion = useReducedMotion();
 	const reduceMotion = shouldReduceMotion ?? false;
 	const exitTimerRef = useRef<number | null>(null);
+	const scaleAdvanceTimerRefs = useRef<number[]>([]);
 	const [pendingStepIndex, setPendingStepIndex] = useState<number | null>(null);
+	const [scaleAdvanceState, setScaleAdvanceState] =
+		useState<WrappedScaleAdvanceState>("idle");
 	const [scaleDisplayedTokens, setScaleDisplayedTokens] = useState(0);
 	const [isScaleRainVisible, setIsScaleRainVisible] = useState(false);
 	const [exitingStepId, setExitingStepId] = useState<WrappedStepId | null>(
@@ -119,6 +129,12 @@ export function WrappedTeamCardOnboarding(
 			)
 		: "auto";
 	const isScaleStep = activeStep.id === "scale";
+	const scaleStepTotalTokens = isScaleStep
+		? resolveScalePreviewTokens(
+				onboardingMetrics.totalTokens,
+				activePreviewState,
+			)
+		: 0;
 	const scaleRainTotalTokens =
 		isScaleStep && isScaleRainVisible
 			? resolveScalePreviewTokens(
@@ -126,14 +142,34 @@ export function WrappedTeamCardOnboarding(
 					activePreviewState,
 				)
 			: 0;
-	const isStepTransitioning = pendingStepIndex !== null;
+	const effectiveScaleAdvanceState = isScaleStep ? scaleAdvanceState : "idle";
+	const isScaleAdvancePending =
+		effectiveScaleAdvanceState === "spend" ||
+		effectiveScaleAdvanceState === "kebabs";
+	const isScaleStepContinueVisible =
+		!isScaleStep ||
+		(!isScaleAdvancePending &&
+			(reduceMotion ||
+				(isScaleRainVisible && scaleDisplayedTokens >= scaleStepTotalTokens)));
+	const isStepTransitioning =
+		pendingStepIndex !== null || isScaleAdvancePending;
 	const showPreviewControls = import.meta.env.DEV;
+
+	function clearScaleAdvanceTimers() {
+		for (const timeoutId of scaleAdvanceTimerRefs.current) {
+			window.clearTimeout(timeoutId);
+		}
+
+		scaleAdvanceTimerRefs.current = [];
+	}
 
 	useMountEffect(() => {
 		return () => {
 			if (exitTimerRef.current !== null) {
 				window.clearTimeout(exitTimerRef.current);
 			}
+
+			clearScaleAdvanceTimers();
 		};
 	});
 
@@ -151,6 +187,11 @@ export function WrappedTeamCardOnboarding(
 		if (activeStep.id === "scale" || nextStep?.id === "scale") {
 			setIsScaleRainVisible(false);
 			setScaleDisplayedTokens(0);
+		}
+
+		if (nextStep?.id === "scale") {
+			clearScaleAdvanceTimers();
+			setScaleAdvanceState("idle");
 		}
 
 		startTransition(() => {
@@ -175,12 +216,43 @@ export function WrappedTeamCardOnboarding(
 		});
 	}
 
+	function playScaleAdvanceSequence() {
+		clearScaleAdvanceTimers();
+		setScaleAdvanceState("spend");
+
+		scaleAdvanceTimerRefs.current.push(
+			window.setTimeout(() => {
+				setScaleAdvanceState("kebabs");
+			}, SCALE_ADVANCE_SEQUENCE.kebabRevealMs),
+		);
+	}
+
+	function handleScaleAdvanceSequenceComplete() {
+		clearScaleAdvanceTimers();
+		setScaleAdvanceState("complete");
+	}
+
 	function handleStepAdvance() {
 		if (activeStep.kind === "final" || isStepTransitioning) {
 			return;
 		}
 
 		const nextStepIndex = activeStepIndex + 1;
+
+		if (activeStep.id === "scale") {
+			if (scaleAdvanceState === "complete") {
+				goToStep(nextStepIndex);
+				return;
+			}
+
+			if (reduceMotion) {
+				goToStep(nextStepIndex);
+				return;
+			}
+
+			playScaleAdvanceSequence();
+			return;
+		}
 
 		if (activeStep.id !== "intro" || reduceMotion) {
 			goToStep(nextStepIndex);
@@ -200,6 +272,8 @@ export function WrappedTeamCardOnboarding(
 
 	function setPreviewState(stepId: PreviewableWrappedStepId, value: string) {
 		if (stepId === "scale") {
+			clearScaleAdvanceTimers();
+			setScaleAdvanceState("idle");
 			setIsScaleRainVisible(false);
 			setScaleDisplayedTokens(0);
 		}
@@ -226,6 +300,8 @@ export function WrappedTeamCardOnboarding(
 	function handleScaleRainRevealChange(isVisible: boolean) {
 		setIsScaleRainVisible(isVisible);
 		if (!isVisible) {
+			clearScaleAdvanceTimers();
+			setScaleAdvanceState("idle");
 			setScaleDisplayedTokens(0);
 		}
 	}
@@ -278,11 +354,7 @@ export function WrappedTeamCardOnboarding(
 							/>
 
 							<div className="mymind-wrapped-stage-area">
-								<AnimatePresence
-									custom={navigationDirection}
-									initial={false}
-									mode="wait"
-								>
+								<AnimatePresence custom={navigationDirection} mode="wait">
 									<motion.div
 										key={activeStep.id}
 										layout
@@ -312,7 +384,11 @@ export function WrappedTeamCardOnboarding(
 													isExiting={activeStep.id === exitingStepId}
 													onboardingMetrics={onboardingMetrics}
 													onScaleRainRevealChange={handleScaleRainRevealChange}
+													onScaleAdvanceSequenceComplete={
+														handleScaleAdvanceSequenceComplete
+													}
 													previewState={activePreviewState}
+													scaleAdvanceState={effectiveScaleAdvanceState}
 													scaleDisplayedTokens={scaleDisplayedTokens}
 													step={activeStep}
 													totalSessions={totalSessions}
@@ -330,6 +406,7 @@ export function WrappedTeamCardOnboarding(
 								activePreviewStepId={activePreviewStepId}
 								finalFooter={finalFooter}
 								generalDebugControls={footerDebugControls}
+								isContinueVisible={isScaleStepContinueVisible}
 								isDebugControlsVisible={showPreviewControls}
 								isStepTransitioning={isStepTransitioning}
 								onContinue={handleStepAdvance}
@@ -344,6 +421,10 @@ export function WrappedTeamCardOnboarding(
 }
 
 function resolveWrappedStageEnterOffset(direction: -1 | 0 | 1) {
+	if (direction === 0) {
+		return 0;
+	}
+
 	if (direction === -1) {
 		return -32;
 	}
@@ -352,6 +433,10 @@ function resolveWrappedStageEnterOffset(direction: -1 | 0 | 1) {
 }
 
 function resolveWrappedStageExitOffset(direction: -1 | 0 | 1) {
+	if (direction === 0) {
+		return 0;
+	}
+
 	if (direction === -1) {
 		return 24;
 	}

@@ -26,6 +26,7 @@ import {
 import {
 	buildScaleContent,
 	buildScaleRainBalls,
+	resolveScaleEstimatedSpendUsd,
 	resolveScalePreviewTokens,
 	resolveScaleRainBallCount,
 	resolveScaleRainDisplayedTokens,
@@ -34,9 +35,10 @@ import {
 } from "./models/scale";
 import {
 	clampSkillsCardIndex,
-	getSkillsCollapsedCardStyle,
 	getSkillsCardStyle,
+	getSkillsCollapsedCardStyle,
 	getSkillsColumnCardStyle,
+	getSkillsDealCardStyle,
 	resolveSkillsPreviewInput,
 	resolveSkillsStageModel,
 	SKILLS_STACK,
@@ -59,6 +61,7 @@ export {
 	getModelStageTone,
 	getSkillsCollapsedCardStyle,
 	getSkillsCardStyle,
+	getSkillsDealCardStyle,
 	getSkillsColumnCardStyle,
 	getToolsEntryStyle,
 	getToolsStackHeightRem,
@@ -70,6 +73,7 @@ export {
 	resolveQualityStageModel,
 	resolveRepoPulsePreviewInput,
 	resolveRepoPulseStageModel,
+	resolveScaleEstimatedSpendUsd,
 	resolveScalePreviewTokens,
 	resolveScaleRainBallCount,
 	resolveScaleRainDisplayedTokens,

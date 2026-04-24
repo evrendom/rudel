@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { startTransition, useState } from "react";
 import { Button } from "@/app/ui/button";
 import { Input } from "@/app/ui/input";
 import { Label } from "@/app/ui/label";
@@ -22,6 +23,17 @@ import {
 	recordOAuthRedirectResult,
 	recordOAuthRedirectStart,
 } from "./oauth-debug";
+import {
+	WRAPPED_AUTH_SCENE_EASE,
+	WRAPPED_AUTH_SCENE_ENTER_DELAY,
+	WRAPPED_AUTH_SCENE_ENTER_DURATION,
+	WRAPPED_AUTH_SCENE_EXIT_DURATION,
+	WRAPPED_AUTH_SCENE_EXIT_EASE,
+	WRAPPED_AUTH_SCENE_LAYOUT_DURATION,
+	WRAPPED_AUTH_SCENE_LAYOUT_EASE,
+	WRAPPED_AUTH_SCENE_REDUCED_DURATION,
+	type WrappedAuthScene,
+} from "./wrapped-auth-motion";
 
 function getSignupContext() {
 	const params = new URLSearchParams(window.location.search);
@@ -52,6 +64,7 @@ function getSignupContext() {
 
 interface SignupFormProps {
 	hideSwitchPrompt?: boolean;
+	onEmailPasswordPreviewSubmit?: (email: string) => void;
 	onSwitchToLogin: () => void;
 	variant?: "default" | "wrapped-story";
 }
@@ -59,6 +72,7 @@ interface SignupFormProps {
 export function SignupForm(props: SignupFormProps) {
 	const {
 		hideSwitchPrompt = false,
+		onEmailPasswordPreviewSubmit,
 		onSwitchToLogin,
 		variant = "default",
 	} = props;
@@ -68,28 +82,94 @@ export function SignupForm(props: SignupFormProps) {
 	const [error, setError] = useState("");
 	const [loading, setLoading] = useState(false);
 	const [showEmailForm, setShowEmailForm] = useState(false);
+	const [wrappedScene, setWrappedScene] = useState<WrappedAuthScene>("choice");
 	const { trackAuthenticationAction } = useAnalyticsTracking({
 		pageName: "signup",
 	});
 	const isWrappedStory = variant === "wrapped-story";
+	const usesWrappedEmailPreview =
+		isWrappedStory && onEmailPasswordPreviewSubmit !== undefined;
 	const hasValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
-
-	function handleRevealEmailSignup() {
-		setError("");
-		if (!hasValidEmail) {
-			const emailField = document.getElementById("signup-email");
-			if (emailField instanceof HTMLInputElement) {
-				emailField.focus();
+	const shouldReduceMotion = useReducedMotion() ?? false;
+	const wrappedSceneEnter = shouldReduceMotion
+		? { opacity: 1 }
+		: { filter: "blur(0px)", opacity: 1, y: 0 };
+	const wrappedSceneExit = shouldReduceMotion
+		? {
+				opacity: 0,
+				transition: {
+					duration: WRAPPED_AUTH_SCENE_REDUCED_DURATION,
+					ease: "linear" as const,
+				},
 			}
-			setError("Enter a valid email to continue.");
-			return;
-		}
-		setShowEmailForm(true);
-	}
+		: {
+				filter: "blur(6px)",
+				opacity: 0,
+				y: -8,
+				transition: {
+					duration: WRAPPED_AUTH_SCENE_EXIT_DURATION,
+					ease: WRAPPED_AUTH_SCENE_EXIT_EASE,
+				},
+			};
+	const wrappedSceneInitial = shouldReduceMotion
+		? { opacity: 0 }
+		: { filter: "blur(8px)", opacity: 0, y: 12 };
+	const wrappedSceneTransition = shouldReduceMotion
+		? {
+				duration: WRAPPED_AUTH_SCENE_REDUCED_DURATION,
+				ease: "linear" as const,
+			}
+		: {
+				delay: WRAPPED_AUTH_SCENE_ENTER_DELAY,
+				duration: WRAPPED_AUTH_SCENE_ENTER_DURATION,
+				ease: WRAPPED_AUTH_SCENE_EASE,
+			};
+	const wrappedSceneLayoutTransition = shouldReduceMotion
+		? {
+				duration: WRAPPED_AUTH_SCENE_REDUCED_DURATION,
+				ease: "linear" as const,
+			}
+		: {
+				duration: WRAPPED_AUTH_SCENE_LAYOUT_DURATION,
+				ease: WRAPPED_AUTH_SCENE_LAYOUT_EASE,
+			};
 
 	async function handleSubmit(e: React.FormEvent) {
 		e.preventDefault();
 		setError("");
+
+		if (usesWrappedEmailPreview) {
+			if (!name.trim()) {
+				const nameField = document.getElementById("name");
+				if (nameField instanceof HTMLInputElement) {
+					nameField.focus();
+				}
+				setError("Enter your name to continue.");
+				return;
+			}
+
+			if (!hasValidEmail) {
+				const emailField = document.getElementById("signup-email");
+				if (emailField instanceof HTMLInputElement) {
+					emailField.focus();
+				}
+				setError("Enter a valid email to continue.");
+				return;
+			}
+
+			if (password.length < 8) {
+				const passwordField = document.getElementById("password");
+				if (passwordField instanceof HTMLInputElement) {
+					passwordField.focus();
+				}
+				setError("Use at least 8 characters for the password.");
+				return;
+			}
+
+			onEmailPasswordPreviewSubmit(email.trim());
+			return;
+		}
+
 		setLoading(true);
 		const successDestination = getEmailSignupSuccessDestination();
 		const verificationCallbackURL = getEmailSignupVerificationCallbackURL();
@@ -178,9 +258,76 @@ export function SignupForm(props: SignupFormProps) {
 		}
 	}
 
-	if (isWrappedStory) {
+	function renderWrappedTerms() {
 		return (
-			<div className="mymind-wrapped-auth-form">
+			<p className="mymind-wrapped-auth-form__terms">
+				By signing up, you agree to our{" "}
+				<a
+					href="https://rudel.ai/terms"
+					target="_blank"
+					rel="noopener noreferrer"
+					className="mymind-wrapped-auth-form__switch-link"
+				>
+					Terms of Service
+				</a>{" "}
+				and{" "}
+				<a
+					href="https://obsessiondb.com/privacy"
+					target="_blank"
+					rel="noopener noreferrer"
+					className="mymind-wrapped-auth-form__switch-link"
+				>
+					Privacy Policy
+				</a>
+				.
+			</p>
+		);
+	}
+
+	function transitionWrappedScene(scene: WrappedAuthScene) {
+		startTransition(() => {
+			setWrappedScene(scene);
+		});
+	}
+
+	function handleOpenWrappedEmail() {
+		setError("");
+		transitionWrappedScene("email");
+	}
+
+	function handleContinueWrappedEmail() {
+		setError("");
+		if (!hasValidEmail) {
+			const emailField = document.getElementById("signup-email");
+			if (emailField instanceof HTMLInputElement) {
+				emailField.focus();
+			}
+			setError("Enter a valid email to continue.");
+			return;
+		}
+		transitionWrappedScene("credentials");
+	}
+
+	function handleReturnToWrappedChoice() {
+		setError("");
+		transitionWrappedScene("choice");
+	}
+
+	function handleReturnToWrappedEmail() {
+		setError("");
+		transitionWrappedScene("email");
+	}
+
+	function renderWrappedChoiceScene() {
+		return (
+			<motion.div
+				key="choice"
+				animate={wrappedSceneEnter}
+				className="mymind-wrapped-auth-form__scene mymind-wrapped-auth-form__scene--choice"
+				exit={wrappedSceneExit}
+				initial={wrappedSceneInitial}
+				transition={wrappedSceneTransition}
+			>
 				<div className="mymind-wrapped-auth-form__social">
 					<Button
 						type="button"
@@ -206,6 +353,151 @@ export function SignupForm(props: SignupFormProps) {
 					<Separator className="mymind-wrapped-auth-form__divider-line" />
 				</div>
 
+				<Button
+					type="button"
+					onClick={handleOpenWrappedEmail}
+					className="mymind-wrapped-entry-action mymind-wrapped-auth-form__scene-action h-11 rounded-full px-7 [font-family:var(--app-font-heading)] text-[1.0625rem] font-semibold"
+				>
+					Continue with Email
+				</Button>
+			</motion.div>
+		);
+	}
+
+	function renderWrappedEmailScene() {
+		return (
+			<motion.div
+				key="email"
+				animate={wrappedSceneEnter}
+				className="mymind-wrapped-auth-form__scene mymind-wrapped-auth-form__scene--email"
+				exit={wrappedSceneExit}
+				initial={wrappedSceneInitial}
+				transition={wrappedSceneTransition}
+			>
+				<div className="mymind-wrapped-auth-form__field">
+					<Label
+						className="mymind-wrapped-auth-form__label"
+						htmlFor="signup-email"
+					>
+						Email
+					</Label>
+					<Input
+						aria-label="Email"
+						autoFocus
+						id="signup-email"
+						type="email"
+						placeholder="you@example.com"
+						value={email}
+						onChange={(e) => setEmail(e.target.value)}
+						className="mymind-wrapped-auth-form__input"
+						required
+					/>
+				</div>
+
+				<Button
+					type="button"
+					onClick={handleContinueWrappedEmail}
+					className="mymind-wrapped-entry-action mymind-wrapped-auth-form__scene-action h-11 rounded-full px-7 [font-family:var(--app-font-heading)] text-[1.0625rem] font-semibold"
+				>
+					Continue
+				</Button>
+
+				<button
+					type="button"
+					onClick={handleReturnToWrappedChoice}
+					className="mymind-wrapped-auth-form__scene-link"
+				>
+					Use another method
+				</button>
+			</motion.div>
+		);
+	}
+
+	function renderWrappedCredentialsScene() {
+		return (
+			<motion.div
+				key="credentials"
+				animate={wrappedSceneEnter}
+				className="mymind-wrapped-auth-form__scene mymind-wrapped-auth-form__scene--credentials"
+				exit={wrappedSceneExit}
+				initial={wrappedSceneInitial}
+				transition={wrappedSceneTransition}
+			>
+				<div className="mymind-wrapped-auth-form__identity">
+					<div className="mymind-wrapped-auth-form__identity-copy">
+						<span className="mymind-wrapped-auth-form__identity-label">
+							Email
+						</span>
+						<span className="mymind-wrapped-auth-form__identity-value">
+							{email.trim()}
+						</span>
+					</div>
+					<button
+						type="button"
+						onClick={handleReturnToWrappedEmail}
+						className="mymind-wrapped-auth-form__identity-action"
+					>
+						Change
+					</button>
+				</div>
+
+				<form
+					onSubmit={handleSubmit}
+					className="mymind-wrapped-auth-form__scene-form"
+				>
+					<div className="mymind-wrapped-auth-form__field">
+						<Label className="mymind-wrapped-auth-form__label" htmlFor="name">
+							Name
+						</Label>
+						<Input
+							autoFocus
+							id="name"
+							type="text"
+							placeholder="Your name"
+							value={name}
+							onChange={(e) => setName(e.target.value)}
+							className="mymind-wrapped-auth-form__input"
+							required
+						/>
+					</div>
+					<div className="mymind-wrapped-auth-form__field">
+						<Label
+							className="mymind-wrapped-auth-form__label"
+							htmlFor="password"
+						>
+							Password
+						</Label>
+						<Input
+							id="password"
+							type="password"
+							value={password}
+							onChange={(e) => setPassword(e.target.value)}
+							className="mymind-wrapped-auth-form__input"
+							required
+							minLength={8}
+						/>
+					</div>
+
+					<Button
+						type="submit"
+						disabled={loading}
+						className="mymind-wrapped-entry-action mymind-wrapped-auth-form__scene-action h-11 rounded-full px-7 [font-family:var(--app-font-heading)] text-[1.0625rem] font-semibold"
+					>
+						{loading ? "Creating account..." : "Sign up"}
+					</Button>
+				</form>
+			</motion.div>
+		);
+	}
+
+	if (isWrappedStory) {
+		return (
+			<motion.div
+				layout
+				className="mymind-wrapped-auth-form"
+				data-email-auth-stage={wrappedScene}
+				transition={{ layout: wrappedSceneLayoutTransition }}
+			>
 				{error ? (
 					<p
 						role="alert"
@@ -215,94 +507,21 @@ export function SignupForm(props: SignupFormProps) {
 					</p>
 				) : null}
 
-				<div className="mymind-wrapped-auth-form__email-row">
-					<Input
-						aria-label="Email"
-						id="signup-email"
-						type="email"
-						placeholder="you@example.com"
-						value={email}
-						onChange={(e) => setEmail(e.target.value)}
-						className="mymind-wrapped-auth-form__email-input h-11"
-						required
-					/>
-					{hasValidEmail ? (
-						<Button
-							type="button"
-							variant="outline"
-							size="sm"
-							className="mymind-wrapped-auth-form__email-button"
-							onClick={handleRevealEmailSignup}
-						>
-							Continue
-						</Button>
-					) : null}
-				</div>
+				{renderWrappedTerms()}
 
-				{showEmailForm ? (
-					<form onSubmit={handleSubmit} className="flex flex-col gap-4">
-						<div className="mymind-wrapped-auth-form__field">
-							<Label className="mymind-wrapped-auth-form__label" htmlFor="name">
-								Name
-							</Label>
-							<Input
-								id="name"
-								type="text"
-								placeholder="Your name"
-								value={name}
-								onChange={(e) => setName(e.target.value)}
-								className="mymind-wrapped-auth-form__input"
-								required
-							/>
-						</div>
-						<div className="mymind-wrapped-auth-form__field">
-							<Label
-								className="mymind-wrapped-auth-form__label"
-								htmlFor="password"
-							>
-								Password
-							</Label>
-							<Input
-								id="password"
-								type="password"
-								value={password}
-								onChange={(e) => setPassword(e.target.value)}
-								className="mymind-wrapped-auth-form__input"
-								required
-								minLength={8}
-							/>
-						</div>
-						<Button
-							type="submit"
-							disabled={loading}
-							className="mymind-wrapped-entry-action h-11 rounded-full px-7 [font-family:var(--app-font-heading)] text-[1.0625rem] font-semibold"
-						>
-							{loading ? "Creating account..." : "Sign up"}
-						</Button>
-					</form>
-				) : null}
-
-				<p className="mymind-wrapped-auth-form__terms">
-					By signing up, you agree to our{" "}
-					<a
-						href="https://rudel.ai/terms"
-						target="_blank"
-						rel="noopener noreferrer"
-						className="mymind-wrapped-auth-form__switch-link"
-					>
-						Terms of Service
-					</a>{" "}
-					and{" "}
-					<a
-						href="https://obsessiondb.com/privacy"
-						target="_blank"
-						rel="noopener noreferrer"
-						className="mymind-wrapped-auth-form__switch-link"
-					>
-						Privacy Policy
-					</a>
-					.
-				</p>
+				<motion.div
+					layout
+					className="mymind-wrapped-auth-form__scene-shell"
+					transition={{ layout: wrappedSceneLayoutTransition }}
+				>
+					<AnimatePresence initial={false} mode="wait">
+						{wrappedScene === "choice"
+							? renderWrappedChoiceScene()
+							: wrappedScene === "email"
+								? renderWrappedEmailScene()
+								: renderWrappedCredentialsScene()}
+					</AnimatePresence>
+				</motion.div>
 
 				{hideSwitchPrompt ? null : (
 					<p className="mymind-wrapped-auth-form__switch-copy">
@@ -322,7 +541,7 @@ export function SignupForm(props: SignupFormProps) {
 						</button>
 					</p>
 				)}
-			</div>
+			</motion.div>
 		);
 	}
 

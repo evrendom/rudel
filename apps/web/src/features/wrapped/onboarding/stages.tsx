@@ -22,14 +22,19 @@ import { WrappedOnboardingModelStage } from "./stages/model";
 import { WrappedOnboardingSkillsStage } from "./stages/skills";
 import { WrappedOnboardingToolsStage } from "./stages/tools";
 import { WrappedOnboardingUploadStage } from "./stages/upload";
-import type { WrappedOnboardingMetrics } from "./types";
+import type {
+	WrappedOnboardingMetrics,
+	WrappedScaleAdvanceState,
+} from "./types";
 
 interface WrappedOnboardingStageProps {
 	displayName: string;
 	isExiting: boolean;
 	onboardingMetrics: WrappedOnboardingMetrics;
+	onScaleAdvanceSequenceComplete?: () => void;
 	onScaleRainRevealChange?: (isVisible: boolean) => void;
 	previewState: string;
+	scaleAdvanceState?: WrappedScaleAdvanceState;
 	scaleDisplayedTokens?: number;
 	step: WrappedStep;
 	totalSessions: number;
@@ -74,8 +79,10 @@ export function WrappedOnboardingStage(props: WrappedOnboardingStageProps) {
 		displayName,
 		isExiting,
 		onboardingMetrics,
+		onScaleAdvanceSequenceComplete,
 		onScaleRainRevealChange,
 		previewState,
+		scaleAdvanceState,
 		scaleDisplayedTokens,
 		step,
 		totalSessions,
@@ -138,8 +145,10 @@ export function WrappedOnboardingStage(props: WrappedOnboardingStageProps) {
 				key={`scale:${displayName}:${totalSessions}:${previewState}:${onboardingMetrics.totalTokens}`}
 				displayName={displayName}
 				onboardingMetrics={onboardingMetrics}
+				onScaleAdvanceSequenceComplete={onScaleAdvanceSequenceComplete}
 				onScaleRainRevealChange={onScaleRainRevealChange}
 				previewState={previewState}
+				scaleAdvanceState={scaleAdvanceState}
 				scaleDisplayedTokens={scaleDisplayedTokens}
 				totalSessions={totalSessions}
 			/>
@@ -181,6 +190,7 @@ export function WrappedOnboardingStage(props: WrappedOnboardingStageProps) {
 			copy={
 				headlineLine ? (
 					<WrappedStageCopy
+						entrancePreset="story"
 						title={headlineLine.text}
 						titleClassName={cn(
 							headlineLine.tone === "danger"

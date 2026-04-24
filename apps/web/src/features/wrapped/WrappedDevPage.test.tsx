@@ -1,6 +1,6 @@
-import type { ReactNode } from "react";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import type { ReactNode } from "react";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import { WrappedDevPage } from "@/features/wrapped/WrappedDevPage";
@@ -90,7 +90,8 @@ describe("WrappedDevPage", () => {
 		expect(screen.getByText("Wrapped setup page")).toBeInTheDocument();
 	});
 
-	it("renders the mobile handoff preview with simplified copy", () => {
+	it("renders the mobile handoff preview with simplified copy", async () => {
+		const user = userEvent.setup();
 		const { container } = render(
 			<MemoryRouter initialEntries={["/dev/wrapped?stage=mobile"]}>
 				<WrappedDevPage />
@@ -130,6 +131,14 @@ describe("WrappedDevPage", () => {
 		expect(screen.getByRole("button", { name: "Copy" })).toBeInTheDocument();
 		expect(screen.getByRole("button", { name: "Story" })).toBeInTheDocument();
 		expect(stageObject?.querySelector("a")).toBeNull();
+
+		await user.click(
+			screen.getByRole("button", { name: "Send link to my mail" }),
+		);
+
+		expect(
+			await screen.findByRole("button", { name: "Email sent!" }),
+		).toBeInTheDocument();
 
 		const dock = container.querySelector(".mymind-wrapped-dock");
 		expect(dock).toBeNull();

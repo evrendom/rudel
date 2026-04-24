@@ -16,13 +16,51 @@ export const SKILLS_STACK = {
 	wheelThresholdPx: 36,
 } as const;
 
+interface SkillsDepthStyle {
+	rotateDeg: number;
+	scale: number;
+	translateZ: number;
+	widthPercent: number;
+}
+
+function getSkillsStackWidthPercent(cardIndex: number) {
+	if (cardIndex <= 0) {
+		return 100;
+	}
+
+	if (cardIndex === 1) {
+		return 96;
+	}
+
+	if (cardIndex === 2) {
+		return 92;
+	}
+
+	return 88;
+}
+
+function getSkillsDeckDepthStyle(depth: number): SkillsDepthStyle {
+	if (depth <= 0) {
+		return { rotateDeg: 0, scale: 1, translateZ: 52, widthPercent: 100 };
+	}
+
+	if (depth === 1) {
+		return { rotateDeg: 8, scale: 0.962, translateZ: 16, widthPercent: 96 };
+	}
+
+	if (depth === 2) {
+		return { rotateDeg: 12, scale: 0.93, translateZ: -4, widthPercent: 92 };
+	}
+
+	return { rotateDeg: 12, scale: 0.93, translateZ: -4, widthPercent: 88 };
+}
+
 interface SkillsCollapsedCardStyleInput {
 	cardIndex: number;
 	collapsedScaleStep: number;
 	collapsedStepRem: number;
 	totalCards: number;
 	topRem: number;
-	widthPercent: number;
 }
 
 export function resolveSkillsPreviewInput(
@@ -190,8 +228,10 @@ export function getSkillsCardStyle(
 	activeCardIndex: number,
 ): CSSProperties {
 	const relativeDepth = cardIndex - activeCardIndex;
-	const isVisibleDepth =
-		relativeDepth >= -1 && relativeDepth < SKILLS_STACK.visibleCards - 1;
+	const isLeadingStack = activeCardIndex === 0;
+	const isVisibleDepth = isLeadingStack
+		? relativeDepth >= 0 && relativeDepth < SKILLS_STACK.visibleCards
+		: relativeDepth >= -1 && relativeDepth < SKILLS_STACK.visibleCards - 1;
 	const zIndex =
 		relativeDepth === 0
 			? 40
@@ -204,23 +244,67 @@ export function getSkillsCardStyle(
 	const depthStyles =
 		relativeDepth === -1
 			? { rotateDeg: -7, scale: 0.968, translateZ: 16, widthPercent: 96 }
-			: relativeDepth === 0
-				? { rotateDeg: 0, scale: 1, translateZ: 52, widthPercent: 100 }
-				: relativeDepth === 1
-					? { rotateDeg: 8, scale: 0.962, translateZ: 16, widthPercent: 96 }
-					: { rotateDeg: 12, scale: 0.93, translateZ: -4, widthPercent: 92 };
+			: getSkillsDeckDepthStyle(relativeDepth);
 
 	return {
 		"--skills-card-y": `${relativeDepth * SKILLS_STACK.stepRem}rem`,
 		"--skills-card-scale": depthStyles.scale,
 		"--skills-card-rotate": `${depthStyles.rotateDeg}deg`,
 		"--skills-card-z": `${depthStyles.translateZ}px`,
-		filter: isVisibleDepth ? "blur(0px)" : "blur(2px)",
+		filter:
+			isVisibleDepth && relativeDepth === 2
+				? "blur(0.8px)"
+				: isVisibleDepth
+					? "blur(0px)"
+					: "blur(2px)",
 		opacity: isVisibleDepth ? 1 : 0,
 		pointerEvents: isVisibleDepth ? "auto" : "none",
 		top: `${SKILLS_STACK.focusTopRem}rem`,
 		width: `calc(${depthStyles.widthPercent}% - ${SKILLS_STACK.shadowBleedRem * 2}rem)`,
 		zIndex,
+	} as CSSProperties;
+}
+
+export function getSkillsDealCardStyle(
+	cardIndex: number,
+	revealedCardCount: number,
+): CSSProperties {
+	const visibleCardLimit = Math.min(
+		SKILLS_STACK.visibleCards,
+		revealedCardCount,
+	);
+	const revealIndex = SKILLS_STACK.visibleCards - 1 - cardIndex;
+	const isEligibleCard =
+		cardIndex < SKILLS_STACK.visibleCards && revealIndex >= 0;
+	const isRevealedCard =
+		isEligibleCard && revealIndex < Math.max(visibleCardLimit, 0);
+
+	if (!isRevealedCard) {
+		return {
+			filter: "blur(6px)",
+			opacity: 0,
+			pointerEvents: "none",
+			top: `${SKILLS_STACK.focusTopRem}rem`,
+			transformOrigin: "center top",
+			width: `calc(100% - ${SKILLS_STACK.shadowBleedRem * 2}rem)`,
+			zIndex: 1,
+		} as CSSProperties;
+	}
+
+	const stackDepth = visibleCardLimit - 1 - revealIndex;
+	const depthStyles = getSkillsDeckDepthStyle(stackDepth);
+
+	return {
+		"--skills-card-y": `${stackDepth * SKILLS_STACK.stepRem}rem`,
+		"--skills-card-scale": depthStyles.scale,
+		"--skills-card-rotate": `${depthStyles.rotateDeg}deg`,
+		"--skills-card-z": `${depthStyles.translateZ}px`,
+		filter: stackDepth === 2 ? "blur(0.8px)" : "blur(0px)",
+		opacity: 1,
+		pointerEvents: "none",
+		top: `${SKILLS_STACK.focusTopRem}rem`,
+		width: `calc(${depthStyles.widthPercent}% - ${SKILLS_STACK.shadowBleedRem * 2}rem)`,
+		zIndex: 40 - stackDepth * 10,
 	} as CSSProperties;
 }
 
@@ -233,18 +317,30 @@ export function getSkillsCollapsedCardStyle(
 		collapsedStepRem,
 		totalCards,
 		topRem,
-		widthPercent,
 	} = input;
 	const usableCardCount = Math.max(totalCards, 1);
-	const scale = Math.max(0.88, 1 - cardIndex * collapsedScaleStep);
+	const introVisibleCards = 3;
+	const introDepth = Math.min(cardIndex, introVisibleCards - 1);
+	const isVisibleDepth = cardIndex < introVisibleCards;
+	const widthPercent = getSkillsStackWidthPercent(cardIndex);
+	const scale = Math.max(
+		0.992,
+		1 - cardIndex * Math.max(collapsedScaleStep, 0.004),
+	);
+	const xOffsetRem = cardIndex === 1 ? -0.22 : cardIndex === 2 ? 0.18 : 0;
+	const rotateDeg = cardIndex === 1 ? -2.15 : cardIndex === 2 ? 1.85 : 0;
+	const translateZ =
+		cardIndex === 0 ? 42 : cardIndex === 1 ? 22 : cardIndex === 2 ? 8 : -6;
 
 	return {
-		"--skills-card-y": `${cardIndex * collapsedStepRem}rem`,
+		"--skills-card-x": `${xOffsetRem}rem`,
+		"--skills-card-y": `${introDepth * collapsedStepRem}rem`,
 		"--skills-card-scale": scale,
+		"--skills-card-spin": `${rotateDeg}deg`,
 		"--skills-card-rotate": "0deg",
-		"--skills-card-z": "0px",
-		filter: "blur(0px)",
-		opacity: 1,
+		"--skills-card-z": `${translateZ}px`,
+		filter: isVisibleDepth ? "blur(0px)" : "blur(2px)",
+		opacity: isVisibleDepth ? 1 : 0,
 		pointerEvents: "none",
 		top: `${topRem}rem`,
 		width: `calc(${widthPercent}% - ${SKILLS_STACK.shadowBleedRem * 2}rem)`,
@@ -261,18 +357,30 @@ export function getSkillsColumnCardStyle(
 	},
 ): CSSProperties {
 	const { scale, stepRem, topRem } = input;
+	const introVisibleCards = 3;
+	const introDepth = Math.min(cardIndex, introVisibleCards - 1);
+	const isVisibleDepth = cardIndex < introVisibleCards;
+	const widthPercent = getSkillsStackWidthPercent(cardIndex);
+	const resolvedScale =
+		cardIndex === 0 ? 1 : Math.max(0.994, scale - cardIndex * 0.002);
+	const xOffsetRem = cardIndex === 1 ? -0.1 : cardIndex === 2 ? 0.08 : 0;
+	const rotateDeg = cardIndex === 1 ? -0.75 : cardIndex === 2 ? 0.6 : 0;
+	const translateZ =
+		cardIndex === 0 ? 34 : cardIndex === 1 ? 18 : cardIndex === 2 ? 8 : -4;
 
 	return {
-		"--skills-card-y": `${cardIndex * stepRem}rem`,
-		"--skills-card-scale": scale,
+		"--skills-card-x": `${xOffsetRem}rem`,
+		"--skills-card-y": `${introDepth * stepRem}rem`,
+		"--skills-card-scale": resolvedScale,
+		"--skills-card-spin": `${rotateDeg}deg`,
 		"--skills-card-rotate": "0deg",
-		"--skills-card-z": "0px",
-		filter: "blur(0px)",
-		opacity: 1,
+		"--skills-card-z": `${translateZ}px`,
+		filter: isVisibleDepth ? "blur(0px)" : "blur(2px)",
+		opacity: isVisibleDepth ? 1 : 0,
 		pointerEvents: "none",
 		top: `${topRem}rem`,
-		width: `calc(100% - ${SKILLS_STACK.shadowBleedRem * 2}rem)`,
-		zIndex: 1,
+		width: `calc(${widthPercent}% - ${SKILLS_STACK.shadowBleedRem * 2}rem)`,
+		zIndex: introVisibleCards - introDepth,
 	} as CSSProperties;
 }
 

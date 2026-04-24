@@ -6,6 +6,7 @@ import { WrappedSetupCommandSurface } from "@/components/analytics/CliSetupComma
 type CommandVisualState = "complete" | "current" | "upcoming" | "idle";
 
 const WRAPPED_SETUP_MOTION = {
+	baseDelay: 0.24,
 	delay: 0.06,
 	duration: 0.24,
 	ease: [0.22, 1, 0.36, 1] as const,
@@ -55,10 +56,13 @@ export function WrappedCliSetupCommand(props: WrappedCliSetupCommandProps) {
 	return (
 		<motion.li
 			layout
-			initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 16 }}
-			animate={{ opacity: 1, y: 0 }}
+			initial={
+				reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.985, y: 16 }
+			}
+			animate={reduceMotion ? { opacity: 1 } : { opacity: 1, scale: 1, y: 0 }}
 			transition={{
-				delay: index * WRAPPED_SETUP_MOTION.delay,
+				delay:
+					WRAPPED_SETUP_MOTION.baseDelay + index * WRAPPED_SETUP_MOTION.delay,
 				duration: reduceMotion ? 0.16 : WRAPPED_SETUP_MOTION.duration,
 				ease: WRAPPED_SETUP_MOTION.ease,
 			}}

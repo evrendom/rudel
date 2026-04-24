@@ -25,6 +25,8 @@ export interface WrappedOnboardingMetrics {
 	avgSessionMin: number | null;
 	commitRate: number | null;
 	daysSinceFirst: number;
+	estimatedCostTokenBasis: number;
+	estimatedCostUsd: number;
 	favoriteModel: string | null;
 	longestSessionMin: number | null;
 	modelByMonth: readonly MonthlyModelUsage[];
@@ -47,3 +49,5 @@ export interface WrappedOnboardingMetrics {
 	totalSessions: number;
 	totalTokens: number;
 }
+
+export type WrappedScaleAdvanceState = "idle" | "spend" | "kebabs" | "complete";

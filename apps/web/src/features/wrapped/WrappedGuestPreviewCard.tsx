@@ -1,5 +1,6 @@
 import type { CSSProperties } from "react";
 import type { TeamPageMemberRow } from "@/features/team/use-team-page-data";
+import { cn } from "@/lib/utils";
 import { WRAPPED_ARCHETYPE_CARD_THEMES } from "./team-card/archetypes";
 import {
 	WrappedTeamMemberCard,
@@ -34,15 +35,17 @@ const DEFAULT_WRAPPED_GUEST_CARD_ROW: TeamPageMemberRow = {
 	hasActivity: true,
 };
 
-const WRAPPED_GUEST_CARD_HEADER_LEFT_METRIC: WrappedTeamMemberCardHeaderMetric = {
-	title: "$182 estimated spend",
-	value: "$182",
-};
+const WRAPPED_GUEST_CARD_HEADER_LEFT_METRIC: WrappedTeamMemberCardHeaderMetric =
+	{
+		title: "$182 estimated spend",
+		value: "$182",
+	};
 
-const WRAPPED_GUEST_CARD_HEADER_RIGHT_METRIC: WrappedTeamMemberCardHeaderMetric = {
-	title: "Smooth Operator",
-	value: "Smooth Operator",
-};
+const WRAPPED_GUEST_CARD_HEADER_RIGHT_METRIC: WrappedTeamMemberCardHeaderMetric =
+	{
+		title: "Smooth Operator",
+		value: "Smooth Operator",
+	};
 
 const WRAPPED_GUEST_CARD_STAT_ITEMS = [
 	{
@@ -85,18 +88,24 @@ const WRAPPED_GUEST_CARD_STAT_ITEMS = [
 
 interface WrappedGuestPreviewCardProps {
 	profile: WrappedGuestPreviewProfile | null;
+	size?: "hero" | "compact";
 }
 
 export function WrappedGuestPreviewCard(props: WrappedGuestPreviewCardProps) {
-	const { profile } = props;
+	const { profile, size = "hero" } = props;
 	const row = buildWrappedGuestCardRow(profile);
 
 	return (
 		<section
 			aria-label="Wrapped player card preview"
-			className="mymind-wrapped-auth-card-preview team-lineup-surface-scope"
+			className={cn(
+				"mymind-wrapped-auth-card-preview team-lineup-surface-scope",
+				size === "compact"
+					? "mymind-wrapped-auth-card-preview--compact"
+					: "mymind-wrapped-auth-card-preview--hero",
+			)}
 		>
-			<div className="team-lineup-card-tilt-stage w-full max-w-[14.75rem]">
+			<div className="team-lineup-card-tilt-stage mymind-wrapped-auth-card-preview__tilt-stage">
 				<div
 					data-tilt-active="true"
 					className="team-lineup-card-tilt-shell mymind-wrapped-auth-card-preview__tilt"

@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -112,7 +112,9 @@ describe("WrappedSetupCompletePage", () => {
 			}),
 		);
 
-		expect(onContinue).toHaveBeenCalledTimes(1);
+		await waitFor(() => expect(onContinue).toHaveBeenCalledTimes(1), {
+			timeout: 2000,
+		});
 	});
 
 	it("renders debug override repos without relying on analytics data", async () => {
@@ -199,7 +201,9 @@ describe("WrappedSetupCompletePage", () => {
 			}),
 		);
 
-		expect(onContinue).toHaveBeenCalledTimes(1);
+		await waitFor(() => expect(onContinue).toHaveBeenCalledTimes(1), {
+			timeout: 2000,
+		});
 	});
 });
 

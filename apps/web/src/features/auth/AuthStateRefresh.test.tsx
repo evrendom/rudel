@@ -305,6 +305,32 @@ describe("auth state refresh", () => {
 		});
 	});
 
+	it("uses a local wrapped preview submit for email sign up when requested", async () => {
+		const user = userEvent.setup();
+		const handlePreviewSubmit = vi.fn();
+
+		render(
+			<SignupForm
+				onEmailPasswordPreviewSubmit={handlePreviewSubmit}
+				onSwitchToLogin={vi.fn()}
+				variant="wrapped-story"
+			/>,
+		);
+
+		await user.click(
+			screen.getByRole("button", { name: "Continue with Email" }),
+		);
+		await user.type(await screen.findByLabelText("Email"), "ada@example.com");
+		await user.click(screen.getByRole("button", { name: "Continue" }));
+		await user.type(await screen.findByLabelText("Name"), "Ada Lovelace");
+		await user.type(await screen.findByLabelText("Password"), "supersecure");
+		await user.click(screen.getByRole("button", { name: "Sign up" }));
+
+		expect(handlePreviewSubmit).toHaveBeenCalledWith("ada@example.com");
+		expect(mockSignUpEmail).not.toHaveBeenCalled();
+		expect(mockNavigateToDestination).not.toHaveBeenCalled();
+	});
+
 	it("hard-navigates after a successful email sign in", async () => {
 		window.history.replaceState(
 			{},
@@ -354,5 +380,33 @@ describe("auth state refresh", () => {
 		await waitFor(() => {
 			expect(mockNavigateToDestination).toHaveBeenCalledWith("/wrapped");
 		});
+	});
+
+	it("uses a local wrapped preview submit for email sign in when requested", async () => {
+		const user = userEvent.setup();
+		const handlePreviewSubmit = vi.fn();
+
+		render(
+			<LoginForm
+				onEmailPasswordPreviewSubmit={handlePreviewSubmit}
+				onSwitchToSignup={vi.fn()}
+				variant="wrapped-story"
+			/>,
+		);
+
+		await user.click(
+			screen.getByRole("button", { name: "Continue with Email" }),
+		);
+		await user.type(await screen.findByLabelText("Email"), "ada@example.com");
+		await user.click(screen.getByRole("button", { name: "Continue" }));
+		await user.type(await screen.findByLabelText("Password"), "supersecure");
+		await user.click(screen.getByRole("button", { name: "Sign in" }));
+
+		expect(handlePreviewSubmit).toHaveBeenCalledWith("ada@example.com");
+		expect(mockSignInEmail).not.toHaveBeenCalled();
+		expect(mockNavigateToDestination).not.toHaveBeenCalled();
+		expect(
+			screen.queryByRole("button", { name: "Forgot password?" }),
+		).not.toBeInTheDocument();
 	});
 });

@@ -1,4 +1,5 @@
 import { ChevronLeft, HelpCircle } from "lucide-react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import type { ReactNode } from "react";
 import { appRoutes } from "@/app/routes";
 import { WrappedPrimaryAction } from "@/features/wrapped/actions";
@@ -18,6 +19,9 @@ const WRAPPED_SATURDAY_STEP_INDEX_BY_ID = new Map(
 	WRAPPED_SATURDAY_STEPS.map((step, index) => [step.id, index]),
 );
 
+const WRAPPED_ONBOARDING_FOOTER_EASE = [0.22, 1, 0.36, 1] as const;
+const WRAPPED_ONBOARDING_FOOTER_REDUCED_DURATION = 0.14;
+
 interface WrappedOnboardingHeaderProps {
 	activeStep: WrappedPrimaryStep;
 	activeStepIndex: number;
@@ -33,6 +37,7 @@ interface WrappedOnboardingFooterProps {
 	activePreviewStepId: PreviewableWrappedStepId | null;
 	finalFooter?: ReactNode;
 	generalDebugControls?: ReactNode;
+	isContinueVisible?: boolean;
 	isDebugControlsVisible: boolean;
 	isStepTransitioning: boolean;
 	onContinue: () => void;
@@ -119,17 +124,24 @@ export function WrappedOnboardingFooter(props: WrappedOnboardingFooterProps) {
 		activeStep,
 		finalFooter,
 		generalDebugControls,
+		isContinueVisible = true,
 		isDebugControlsVisible,
 		isStepTransitioning,
 		onContinue,
 		onPreviewStateChange,
 	} = props;
+	const shouldReduceMotion = useReducedMotion();
+	const reduceMotion = shouldReduceMotion ?? false;
 	const isStoryDebugTrayVisible =
 		isDebugControlsVisible && activePreviewStepId && activePreviewOptions;
 	const hasDebugControls =
 		Boolean(generalDebugControls) || isStoryDebugTrayVisible;
+	const footerActionKey =
+		activeStep.kind === "final"
+			? "final"
+			: `${activeStep.id}:${isContinueVisible ? "visible" : "hidden"}`;
 
-		return (
+	return (
 		<footer className="mymind-wrapped-dock">
 			{hasDebugControls ? (
 				<WrappedDebugControlStack>
@@ -147,21 +159,56 @@ export function WrappedOnboardingFooter(props: WrappedOnboardingFooterProps) {
 				</WrappedDebugControlStack>
 			) : null}
 
-			{activeStep.kind === "final" ? (
-				(finalFooter ?? (
-					<WrappedPrimaryAction kind="link" to={appRoutes.dashboard()}>
-						Done
-					</WrappedPrimaryAction>
-				))
-			) : (
-				<WrappedPrimaryAction
-					kind="button"
-					disabled={isStepTransitioning}
-					onClick={onContinue}
-				>
-					Continue
-				</WrappedPrimaryAction>
-			)}
+			<AnimatePresence mode="wait">
+				{activeStep.kind === "final" || isContinueVisible ? (
+					<motion.div
+						key={footerActionKey}
+						animate={
+							reduceMotion
+								? { opacity: 1 }
+								: { filter: "blur(0px)", opacity: 1, y: 0 }
+						}
+						className="w-full"
+						exit={
+							reduceMotion
+								? { opacity: 0 }
+								: { filter: "blur(8px)", opacity: 0, y: 8 }
+						}
+						initial={
+							reduceMotion
+								? { opacity: 0 }
+								: { filter: "blur(10px)", opacity: 0, y: 12 }
+						}
+						transition={
+							reduceMotion
+								? {
+										duration: WRAPPED_ONBOARDING_FOOTER_REDUCED_DURATION,
+										ease: "linear",
+									}
+								: {
+										duration: 0.26,
+										ease: WRAPPED_ONBOARDING_FOOTER_EASE,
+									}
+						}
+					>
+						{activeStep.kind === "final" ? (
+							(finalFooter ?? (
+								<WrappedPrimaryAction kind="link" to={appRoutes.dashboard()}>
+									Done
+								</WrappedPrimaryAction>
+							))
+						) : (
+							<WrappedPrimaryAction
+								kind="button"
+								disabled={isStepTransitioning}
+								onClick={onContinue}
+							>
+								Continue
+							</WrappedPrimaryAction>
+						)}
+					</motion.div>
+				) : null}
+			</AnimatePresence>
 		</footer>
 	);
 }
@@ -227,9 +274,11 @@ function WrappedOnboardingDebugTray(props: {
 }
 
 function getWrappedSaturdayRouteIndex(stepId: string) {
-	return WRAPPED_SATURDAY_STEP_INDEX_BY_ID.get(
-		stepId as (typeof WRAPPED_SATURDAY_STEPS)[number]["id"],
-	) ?? -1;
+	return (
+		WRAPPED_SATURDAY_STEP_INDEX_BY_ID.get(
+			stepId as (typeof WRAPPED_SATURDAY_STEPS)[number]["id"],
+		) ?? -1
+	);
 }
 
 function splitWrappedDebugLabel(label: string): [string, string?] {

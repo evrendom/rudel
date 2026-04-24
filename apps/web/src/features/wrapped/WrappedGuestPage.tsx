@@ -1,6 +1,9 @@
 import type { ReactNode } from "react";
 import { useState } from "react";
+import { useIsMobile } from "@/app/hooks/use-mobile";
 import { WrappedAuthFlow } from "./WrappedAuthFlow";
+import { WrappedDesktopResumePreviewStage } from "./WrappedDesktopResumePreviewStage";
+import { WrappedSetupPage } from "./WrappedSetupPage";
 import { WrappedXHandleStep } from "./WrappedXHandleStep";
 import {
 	buildLocalWrappedGuestPreviewProfile,
@@ -11,17 +14,25 @@ import {
 	writeWrappedGuestPreviewSnapshot,
 } from "./wrapped-guest-preview";
 
+type WrappedGuestPageStep =
+	| WrappedGuestFlowStep
+	| "setup-preview"
+	| "mobile-preview";
+
 export function WrappedGuestPage(props: { debugControls?: ReactNode }) {
 	const { debugControls } = props;
+	const isMobile = useIsMobile();
 	const [initialSnapshot] = useState(() => readWrappedGuestPreviewSnapshot());
-	const [step, setStep] = useState<WrappedGuestFlowStep>(
+	const [step, setStep] = useState<WrappedGuestPageStep>(
 		initialSnapshot?.step ?? "x-handle",
 	);
 	const [handleValue, setHandleValue] = useState(
 		initialSnapshot?.profile ? `@${initialSnapshot.profile.username}` : "",
 	);
 	const [previewProfile, setPreviewProfile] =
-		useState<WrappedGuestPreviewProfile | null>(initialSnapshot?.profile ?? null);
+		useState<WrappedGuestPreviewProfile | null>(
+			initialSnapshot?.profile ?? null,
+		);
 
 	function handleXHandleChange(nextValue: string) {
 		setHandleValue(nextValue);
@@ -45,10 +56,23 @@ export function WrappedGuestPage(props: { debugControls?: ReactNode }) {
 		});
 	}
 
+	function handlePreviewEmailPasswordSubmit(_email: string) {
+		setStep(isMobile ? "mobile-preview" : "setup-preview");
+	}
+
+	if (step === "mobile-preview") {
+		return <WrappedDesktopResumePreviewStage debugControls={debugControls} />;
+	}
+
+	if (step === "setup-preview") {
+		return <WrappedSetupPage debugControls={debugControls} />;
+	}
+
 	if (step === "auth") {
 		return (
 			<WrappedAuthFlow
 				debugControls={debugControls}
+				onEmailPasswordPreviewSubmit={handlePreviewEmailPasswordSubmit}
 				previewProfile={previewProfile}
 			/>
 		);

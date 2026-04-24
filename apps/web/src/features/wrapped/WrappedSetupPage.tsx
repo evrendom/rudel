@@ -45,6 +45,7 @@ export function WrappedSetupPage(props: WrappedSetupPageProps) {
 		<MotionConfig reducedMotion="user">
 			<WrappedRouteStageShell
 				description="Start sending sessions to Rudel."
+				entrancePreset="setup"
 				footerDebugControls={debugControls}
 				leadingControl={null}
 				progressStepId="desktop-ready"

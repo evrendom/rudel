@@ -364,10 +364,7 @@ const ANALYTICS_PAGE_MATCHERS: ReadonlyArray<{
 	},
 	{
 		pageName: "wrapped_team_card",
-		matches: (pathname) =>
-			pathname === "/wrapped" ||
-			pathname === "/walk-in-team-card" ||
-			pathname.startsWith("/walk-in-team-card/"),
+		matches: (pathname) => pathname === "/wrapped",
 	},
 	{ pageName: "overview", matches: (pathname) => pathname === "/dashboard" },
 	{

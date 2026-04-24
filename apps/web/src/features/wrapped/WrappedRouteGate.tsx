@@ -9,6 +9,10 @@ import {
 	getSessionUserId,
 } from "@/features/auth/auth-route-utils";
 import { useSetupProgress } from "@/features/get-started/use-setup-progress";
+import {
+	STEP_PREVIEW_QUERY_PARAM_PREFIX,
+	STEP_QUERY_PARAM,
+} from "@/features/wrapped/onboarding/config";
 import { WrappedRouteStageShell } from "@/features/wrapped/route-stage-shell";
 import { WrappedTeamCardPage } from "@/features/wrapped/team-card/page";
 import { WrappedDesktopResumePromptPage } from "@/features/wrapped/WrappedDesktopResumePromptPage";
@@ -80,6 +84,27 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 		});
 	}
 
+	function startWrappedStoryFromBeginning() {
+		startTransition(() => {
+			setSearchParams(
+				(previousSearchParams) => {
+					const nextSearchParams = new URLSearchParams(previousSearchParams);
+					nextSearchParams.set(WRAPPED_ROUTE_FLOW_QUERY_PARAM, "story");
+					nextSearchParams.delete(STEP_QUERY_PARAM);
+
+					for (const key of Array.from(nextSearchParams.keys())) {
+						if (key.startsWith(STEP_PREVIEW_QUERY_PARAM_PREFIX)) {
+							nextSearchParams.delete(key);
+						}
+					}
+
+					return nextSearchParams;
+				},
+				{ replace: false },
+			);
+		});
+	}
+
 	function handleSetupComplete() {
 		if (!sessionUserId) {
 			return;
@@ -90,7 +115,7 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 			...currentState,
 			[sessionUserId]: true,
 		}));
-		setWrappedRouteFlowStage("story");
+		startWrappedStoryFromBeginning();
 	}
 
 	useMountEffect(() => {

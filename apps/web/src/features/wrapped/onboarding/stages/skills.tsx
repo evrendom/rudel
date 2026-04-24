@@ -1,15 +1,15 @@
 import { useDialKit } from "dialkit";
-import { motion, useReducedMotion } from "motion/react";
 import { Frown } from "lucide-react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import type { CSSProperties, TouchEvent } from "react";
+// biome-ignore lint/style/noRestrictedImports: sequence timers are an imperative animation bridge for the preview storyboard.
 import { startTransition, useEffect, useRef, useState } from "react";
 import { useMountEffect } from "@/hooks/useMountEffect";
 import { cn } from "@/lib/utils";
 import {
 	clampSkillsCardIndex,
-	getSkillsCollapsedCardStyle,
 	getSkillsCardStyle,
-	getSkillsColumnCardStyle,
+	getSkillsDealCardStyle,
 	resolveSkillsPreviewInput,
 	resolveSkillsStageModel,
 	SKILLS_STACK,
@@ -46,30 +46,33 @@ const ANTHROPIC_SKILLS_DOCS_URL =
  * Read top-to-bottom. Each `at` value is ms after mount.
  *
  *    0ms   a single intro line sits alone in the middle of the stage
- *  920ms   one lead card is visible with the rest tucked behind it
- * 1060ms   the stack opens into a full in-stage column
- * 2060ms   the full column holds for a beat
- * 2060ms   cards settle into the final deck
- * 2620ms   deck motion ends, title/subtitle arrive, and controls unlock
+ *  760ms   the last visible card lands at the front
+ *  970ms   the next card lands in front and pushes the first one back
+ * 1180ms   the lead card lands in front and completes the stack
+ * 1460ms   the copy returns and controls unlock
  * ───────────────────────────────────────────────────────── */
-type SkillsEntranceStage =
-	| "intro"
-	| "collapsed"
-	| "column"
-	| "settling"
-	| "deck";
+type SkillsEntranceStage = "intro" | "deal" | "deck";
 
 const SKILLS_STAGE_COPY_TRANSITION = {
 	duration: 0.24,
 	ease: [0.22, 1, 0.36, 1] as const,
 };
 
+const SKILLS_STAGE_INTRO_TOKEN_TRANSITION = {
+	duration: 0.22,
+	ease: [0.22, 1, 0.36, 1] as const,
+};
+
 const SKILLS_STAGE_OBJECT_TRANSITION = {
-	duration: 0.42,
+	duration: 0.38,
 	ease: [0.22, 1, 0.36, 1] as const,
 };
 
 const SKILLS_STAGE_INTRO_LINE = "The same skills kept showing up.";
+const SKILLS_STAGE_INTRO_TOKENS =
+	SKILLS_STAGE_INTRO_LINE.split(/\s+/).filter(Boolean);
+const SKILLS_STAGE_DEAL_FINAL_HOLD_MS = 280;
+const SKILLS_STAGE_INTRO_TOKEN_STAGGER_S = 0.055;
 
 export function WrappedOnboardingSkillsStage(props: SkillsStageProps) {
 	const { onboardingMetrics, previewState } = props;
@@ -92,6 +95,9 @@ export function WrappedOnboardingSkillsStage(props: SkillsStageProps) {
 		),
 	);
 	const [activeCardIndex, setActiveCardIndex] = useState(0);
+	const [dealCardCount, setDealCardCount] = useState(() =>
+		reduceMotion ? SKILLS_STACK.visibleCards : 0,
+	);
 	const [skillsEntranceStage, setSkillsEntranceStage] =
 		useState<SkillsEntranceStage>(() => (reduceMotion ? "deck" : "intro"));
 	const dialValues = useDialKit(
@@ -99,23 +105,9 @@ export function WrappedOnboardingSkillsStage(props: SkillsStageProps) {
 		{
 			animation: {
 				_collapsed: true,
-				introHoldMs: [920, 200, 1800, 10],
-				collapsedHoldMs: [60, 0, 500, 10],
-				columnHoldMs: [1000, 150, 2200, 10],
-				deckSettleMs: [560, 180, 1400, 10],
-			},
-			collapsed: {
-				_collapsed: true,
-				scaleStep: [0.002, 0, 0.02, 0.001],
-				stepRem: [1.48, 0.2, 2.2, 0.01],
-				topRem: [0.1, 0, 2.4, 0.01],
-				widthPercent: [100, 96, 100, 0.5],
-			},
-			column: {
-				_collapsed: true,
-				scale: [1, 0.6, 1.2, 0.01],
-				stepRem: [5.15, 3.8, 6.6, 0.01],
-				topRem: [0.15, -6, 4, 0.01],
+				introHoldMs: [760, 200, 1800, 10],
+				dealStepMs: [210, 120, 480, 10],
+				deckSettleMs: [260, 120, 1000, 10],
 			},
 			fade: {
 				_collapsed: true,
@@ -140,17 +132,13 @@ export function WrappedOnboardingSkillsStage(props: SkillsStageProps) {
 	const isEmptySkillsBoard = !model.hasRankedSkills;
 	const isStackInteractive = skillsEntranceStage === "deck";
 	const isIntroCopyVisible = skillsEntranceStage === "intro";
-	const isComponentOnlyVisible =
-		skillsEntranceStage === "collapsed" ||
-		skillsEntranceStage === "column" ||
-		skillsEntranceStage === "settling";
 	const isFinalCopyVisible = skillsEntranceStage === "deck";
-	const resolvedStackStage =
-		skillsEntranceStage === "collapsed"
-			? "collapsed"
-			: skillsEntranceStage === "column"
-				? "column"
-				: "deck";
+	const visibleDealCardCount = Math.min(
+		SKILLS_STACK.visibleCards,
+		model.cards.length,
+	);
+	const frontDealCardIndex =
+		dealCardCount > 0 ? visibleDealCardCount - dealCardCount : null;
 
 	function setNextActiveCardIndex(direction: 1 | -1) {
 		setActiveCardIndex((previousIndex) =>
@@ -263,33 +251,55 @@ export function WrappedOnboardingSkillsStage(props: SkillsStageProps) {
 	}
 
 	useEffect(() => {
+		void replayNonce;
+
 		if (reduceMotion || isEmptySkillsBoard) {
 			setSkillsEntranceStage("deck");
 			return;
 		}
 
 		setActiveCardIndex(0);
+		setDealCardCount(0);
 		setSkillsEntranceStage("intro");
 		const timers = [
 			window.setTimeout(() => {
-				setSkillsEntranceStage("collapsed");
+				setSkillsEntranceStage("deal");
+				setDealCardCount(1);
 			}, dialValues.animation.introHoldMs),
-			window.setTimeout(() => {
-				setSkillsEntranceStage("column");
-			}, dialValues.animation.introHoldMs +
-				dialValues.animation.collapsedHoldMs),
-			window.setTimeout(() => {
-				setSkillsEntranceStage("settling");
-			}, dialValues.animation.introHoldMs +
-				dialValues.animation.collapsedHoldMs +
-				dialValues.animation.columnHoldMs),
-			window.setTimeout(() => {
-				setSkillsEntranceStage("deck");
-			}, dialValues.animation.introHoldMs +
-				dialValues.animation.collapsedHoldMs +
-				dialValues.animation.columnHoldMs +
-				dialValues.animation.deckSettleMs),
 		];
+
+		for (
+			let revealCount = 2;
+			revealCount <= visibleDealCardCount;
+			revealCount += 1
+		) {
+			timers.push(
+				window.setTimeout(
+					() => {
+						setSkillsEntranceStage("deal");
+						setDealCardCount(revealCount);
+					},
+					dialValues.animation.introHoldMs +
+						(revealCount - 1) * dialValues.animation.dealStepMs,
+				),
+			);
+		}
+
+		timers.push(
+			window.setTimeout(
+				() => {
+					setSkillsEntranceStage("deck");
+					setDealCardCount(visibleDealCardCount);
+				},
+				dialValues.animation.introHoldMs +
+					Math.max(visibleDealCardCount - 1, 0) *
+						dialValues.animation.dealStepMs +
+					Math.max(
+						dialValues.animation.deckSettleMs,
+						SKILLS_STAGE_DEAL_FINAL_HOLD_MS,
+					),
+			),
+		);
 
 		return () => {
 			for (const timer of timers) {
@@ -298,12 +308,12 @@ export function WrappedOnboardingSkillsStage(props: SkillsStageProps) {
 		};
 	}, [
 		dialValues.animation.introHoldMs,
-		dialValues.animation.collapsedHoldMs,
-		dialValues.animation.columnHoldMs,
+		dialValues.animation.dealStepMs,
 		dialValues.animation.deckSettleMs,
 		isEmptySkillsBoard,
 		reduceMotion,
 		replayNonce,
+		visibleDealCardCount,
 	]);
 
 	const stackStyle: SkillsTrackStyle = {
@@ -318,8 +328,6 @@ export function WrappedOnboardingSkillsStage(props: SkillsStageProps) {
 			className={cn(
 				"mymind-wrapped-skills-stage",
 				isIntroCopyVisible && "mymind-wrapped-skills-stage--intro-copy",
-				isComponentOnlyVisible &&
-					"mymind-wrapped-skills-stage--component-only",
 			)}
 			copy={
 				isEmptySkillsBoard ? (
@@ -327,29 +335,41 @@ export function WrappedOnboardingSkillsStage(props: SkillsStageProps) {
 						title={model.headline}
 						description={model.subline}
 					/>
-				) : isIntroCopyVisible ? (
-					<motion.div
-						animate={{ opacity: 1, scale: 1, y: 0 }}
-						initial={{ opacity: 0, scale: 0.985, y: 16 }}
-						transition={SKILLS_STAGE_COPY_TRANSITION}
-					>
-						<WrappedOnboardingStageCopy
-							title={SKILLS_STAGE_INTRO_LINE}
-							titleClassName="mymind-wrapped-stage-copy__headline--intro"
-						/>
-					</motion.div>
-				) : isFinalCopyVisible ? (
-					<motion.div
-						animate={{ opacity: 1, scale: 1, y: 0 }}
-						initial={{ opacity: 0, scale: 0.985, y: 16 }}
-						transition={SKILLS_STAGE_COPY_TRANSITION}
-					>
-						<WrappedOnboardingStageCopy
-							title={model.headline}
-							description={model.subline}
-						/>
-					</motion.div>
-				) : undefined
+				) : (
+					<AnimatePresence initial={false} mode="wait">
+						{isFinalCopyVisible ? (
+							<motion.div
+								key="skills-final-copy"
+								animate={{ filter: "blur(0px)", opacity: 1, scale: 1, y: 0 }}
+								initial={{
+									filter: "blur(10px)",
+									opacity: 0,
+									scale: 0.985,
+									y: 16,
+								}}
+								transition={SKILLS_STAGE_COPY_TRANSITION}
+							>
+								<WrappedOnboardingStageCopy
+									title={model.headline}
+									description={model.subline}
+								/>
+							</motion.div>
+						) : (
+							<motion.div
+								key="skills-intro-copy"
+								animate={{ filter: "blur(0px)", opacity: 1, scale: 1, y: 0 }}
+								exit={{ filter: "blur(6px)", opacity: 0, scale: 0.992, y: -8 }}
+								initial={false}
+								transition={SKILLS_STAGE_COPY_TRANSITION}
+							>
+								<WrappedOnboardingStageCopy
+									title={<WrappedSkillsIntroLine reduceMotion={reduceMotion} />}
+									titleClassName="mymind-wrapped-stage-copy__headline--intro"
+								/>
+							</motion.div>
+						)}
+					</AnimatePresence>
+				)
 			}
 			object={
 				isEmptySkillsBoard ? (
@@ -382,15 +402,15 @@ export function WrappedOnboardingSkillsStage(props: SkillsStageProps) {
 					</div>
 				) : isIntroCopyVisible ? undefined : (
 					<motion.div
-						animate={{ opacity: 1, scale: 1, y: 0 }}
+						animate={{ filter: "blur(0px)", opacity: 1, y: 0 }}
 						className="mymind-wrapped-skills-stage__object-shell"
-						initial={{ opacity: 0, scale: 0.99, y: 18 }}
+						initial={{ filter: "blur(10px)", opacity: 0, y: 14 }}
 						transition={SKILLS_STAGE_OBJECT_TRANSITION}
 					>
 						<div
 							ref={stackRef}
 							className="mymind-wrapped-skills-stage__stack"
-							data-stack-stage={resolvedStackStage}
+							data-stack-stage={skillsEntranceStage}
 						>
 							<div
 								className="mymind-wrapped-skills-stage__stack-track"
@@ -398,32 +418,15 @@ export function WrappedOnboardingSkillsStage(props: SkillsStageProps) {
 							>
 								{model.cards.map((card, cardIndex) => {
 									const baseCardStyle =
-										skillsEntranceStage === "collapsed"
-											? getSkillsCollapsedCardStyle({
-													cardIndex,
-													collapsedScaleStep:
-														dialValues.collapsed.scaleStep,
-													collapsedStepRem:
-														dialValues.collapsed.stepRem,
-													totalCards: model.cards.length,
-													topRem: dialValues.collapsed.topRem,
-													widthPercent:
-														dialValues.collapsed.widthPercent,
-												})
-											: skillsEntranceStage === "column"
-												? getSkillsColumnCardStyle(cardIndex, {
-														scale: dialValues.column.scale,
-														stepRem: dialValues.column.stepRem,
-														topRem: dialValues.column.topRem,
-													})
-												: getSkillsCardStyle(cardIndex, activeCardIndex);
+										skillsEntranceStage === "deal"
+											? getSkillsDealCardStyle(cardIndex, dealCardCount)
+											: getSkillsCardStyle(cardIndex, activeCardIndex);
 									const cardStyle: SkillsCardStyle = {
 										...baseCardStyle,
 										pointerEvents: isStackInteractive
 											? baseCardStyle.pointerEvents
 											: "none",
-										"--skills-card-transform-duration":
-											`${dialValues.animation.deckSettleMs}ms`,
+										"--skills-card-transform-duration": `${dialValues.animation.deckSettleMs}ms`,
 										"--skills-card-visibility-duration": `${Math.max(
 											dialValues.animation.deckSettleMs - 140,
 											220,
@@ -435,10 +438,14 @@ export function WrappedOnboardingSkillsStage(props: SkillsStageProps) {
 											key={card.id}
 											className={cn(
 												"mymind-wrapped-skills-stage__card",
-												cardIndex === activeCardIndex &&
-													skillsEntranceStage !== "column" &&
+												((skillsEntranceStage === "deck" &&
+													cardIndex === activeCardIndex) ||
+													(skillsEntranceStage === "deal" &&
+														frontDealCardIndex !== null &&
+														cardIndex === frontDealCardIndex)) &&
 													"is-front",
 											)}
+											data-card-stage={skillsEntranceStage}
 											onTouchEnd={handleSkillsCardTouchEnd}
 											onTouchStart={handleSkillsCardTouchStart}
 											style={cardStyle}
@@ -470,5 +477,44 @@ export function WrappedOnboardingSkillsStage(props: SkillsStageProps) {
 				)
 			}
 		/>
+	);
+}
+
+function WrappedSkillsIntroLine(props: { reduceMotion: boolean }) {
+	const { reduceMotion } = props;
+
+	return (
+		<span className="mymind-wrapped-skills-stage__intro-line">
+			{SKILLS_STAGE_INTRO_TOKENS.map((token, tokenIndex) => (
+				<motion.span
+					key={token}
+					animate={
+						reduceMotion
+							? { opacity: 1 }
+							: { filter: "blur(0px)", opacity: 1, y: 0 }
+					}
+					className="mymind-wrapped-skills-stage__intro-token"
+					initial={
+						reduceMotion
+							? { opacity: 0 }
+							: { filter: "blur(10px)", opacity: 0, y: 12 }
+					}
+					transition={
+						reduceMotion
+							? {
+									delay: tokenIndex * 0.03,
+									duration: 0.1,
+									ease: "linear",
+								}
+							: {
+									delay: tokenIndex * SKILLS_STAGE_INTRO_TOKEN_STAGGER_S,
+									...SKILLS_STAGE_INTRO_TOKEN_TRANSITION,
+								}
+					}
+				>
+					{token}
+				</motion.span>
+			))}
+		</span>
 	);
 }

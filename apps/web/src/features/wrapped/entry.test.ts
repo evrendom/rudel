@@ -43,20 +43,6 @@ describe("entry", () => {
 
 		expect(hasCompletedWrapped(userId)).toBe(false);
 	});
-
-	it("reads and clears the legacy walk-in completion key", () => {
-		const userId = "user-1";
-		const legacyStorageKey = `walk-in:completed:v1:${userId}`;
-
-		window.localStorage.setItem(legacyStorageKey, "true");
-
-		expect(hasCompletedWrapped(userId)).toBe(true);
-
-		clearWrappedCompleted(userId);
-
-		expect(window.localStorage.getItem(legacyStorageKey)).toBeNull();
-		expect(hasCompletedWrapped(userId)).toBe(false);
-	});
 });
 
 function createSession(createdAt: Date): NonNullable<AppSession> {

@@ -1,5 +1,4 @@
-import { startTransition, type ReactNode, useState } from "react";
-import { Link as LinkIcon, Mail } from "lucide-react";
+import { type ReactNode, startTransition } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Button } from "@/app/ui/button";
 import {
@@ -7,14 +6,13 @@ import {
 	cliSetupCommands,
 } from "@/components/analytics/CliSetupHint";
 import { WrappedTeamCardPage } from "@/features/wrapped/team-card/page";
-import { WrappedDesktopResumePromptStage } from "@/features/wrapped/WrappedDesktopResumePromptStage";
+import { WrappedDesktopResumePreviewStage } from "@/features/wrapped/WrappedDesktopResumePreviewStage";
 import { WrappedGuestPage } from "@/features/wrapped/WrappedGuestPage";
 import {
 	WrappedSetupCompletePage,
 	type WrappedUploadedRepoRow,
 } from "@/features/wrapped/WrappedSetupCompletePage";
 import { WrappedSetupPage } from "@/features/wrapped/WrappedSetupPage";
-import { copyTextToClipboardWithResult } from "@/lib/clipboard";
 
 type WrappedDevStage = "auth" | "setup" | "mobile" | "story";
 type WrappedDevSetupView = "guide" | "uploaded";
@@ -159,7 +157,10 @@ export function WrappedDevPage() {
 			{activeStage === "auth" ? (
 				<WrappedDevAuthStage
 					debugControls={
-						<WrappedDevToolbar activeStage={activeStage} onStageChange={setStage} />
+						<WrappedDevToolbar
+							activeStage={activeStage}
+							onStageChange={setStage}
+						/>
 					}
 				/>
 			) : null}
@@ -209,14 +210,20 @@ export function WrappedDevPage() {
 			{activeStage === "mobile" ? (
 				<WrappedDevMobileStage
 					debugControls={
-						<WrappedDevToolbar activeStage={activeStage} onStageChange={setStage} />
+						<WrappedDevToolbar
+							activeStage={activeStage}
+							onStageChange={setStage}
+						/>
 					}
 				/>
 			) : null}
 			{activeStage === "story" ? (
 				<WrappedTeamCardPage
 					debugControls={
-						<WrappedDevToolbar activeStage={activeStage} onStageChange={setStage} />
+						<WrappedDevToolbar
+							activeStage={activeStage}
+							onStageChange={setStage}
+						/>
 					}
 					onBackFromFirstStep={() =>
 						updateWrappedDevSearchParams({
@@ -299,66 +306,10 @@ function WrappedDevSetupStage(props: {
 }
 
 function WrappedDevMobileStage(props: { debugControls: ReactNode }) {
-	const desktopPreviewHref = WRAPPED_DESKTOP_SETUP_URL;
-	const [copied, setCopied] = useState(false);
-
-	async function handleCopyDesktopLink() {
-		const result = await copyTextToClipboardWithResult(desktopPreviewHref, {
-			preferSelectionCopy: true,
-			allowPromptFallback: true,
-			promptMessage: "Copy desktop link: Cmd/Ctrl+C, Enter",
-		});
-
-		if (result !== "copied") {
-			return;
-		}
-
-		setCopied(true);
-
-		window.setTimeout(() => {
-			setCopied(false);
-		}, 1800);
-	}
-
 	return (
-		<WrappedDesktopResumePromptStage
-			description="The next step will be to enable Rudel within the terminal on your desktop."
+		<WrappedDesktopResumePreviewStage
 			debugControls={props.debugControls}
-			feedback={
-				<>
-					<div className="mymind-wrapped-entry-card__or-row">
-						<span>OR</span>
-					</div>
-					<div className="mymind-wrapped-entry-card__desktop-copy-surface mymind-wrapped-entry-card__desktop-copy-surface--flat">
-						<LinkIcon
-							aria-hidden="true"
-							className="mymind-wrapped-entry-card__desktop-copy-icon"
-						/>
-						<div className="mymind-wrapped-entry-card__desktop-copy-text">
-							{desktopPreviewHref}
-						</div>
-						<button
-							className="mymind-wrapped-entry-card__desktop-copy-button"
-							onClick={() => void handleCopyDesktopLink()}
-							type="button"
-						>
-							{copied ? "Copied" : "Copy"}
-						</button>
-					</div>
-				</>
-			}
-			primaryAction={
-				<Button
-					type="button"
-					className="mymind-wrapped-entry-action mymind-wrapped-mobile-handoff-action h-11 rounded-full px-7 [font-family:var(--app-font-heading)] text-[1.0625rem] font-semibold"
-				>
-					<Mail
-						aria-hidden="true"
-						className="mymind-wrapped-mobile-handoff-action__icon"
-					/>
-					Send link to my mail
-				</Button>
-			}
+			desktopPreviewHref={WRAPPED_DESKTOP_SETUP_URL}
 		/>
 	);
 }

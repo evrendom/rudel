@@ -6,7 +6,7 @@ import {
 	useReducedMotion,
 } from "motion/react";
 import type { ReactNode } from "react";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { WrappedSetupCommandSurface } from "@/components/analytics/CliSetupCommandSurface";
 import { cliSetupCommands } from "@/components/analytics/CliSetupHint";
 import { useAnalyticsQuery } from "@/features/analytics/queries/useAnalyticsQuery";
@@ -14,6 +14,7 @@ import {
 	WrappedPrimaryAction,
 	WrappedSecondaryAction,
 } from "@/features/wrapped/actions";
+import { useMountEffect } from "@/hooks/useMountEffect";
 import { MAX_ANALYTICS_DAYS } from "@/lib/analytics-date-range";
 import { orpc } from "@/lib/orpc";
 import { WrappedRouteStageShell } from "./route-stage-shell";
@@ -27,8 +28,16 @@ interface WrappedSetupCompletePageProps {
 	userId: string;
 }
 
+const SESSIONS_LANDED_EASE = [0.22, 1, 0.36, 1] as const;
+const SESSIONS_LANDED_HANDOFF_MS = 1000;
+const SESSIONS_LANDED_REDUCED_DURATION = 0.14;
+const SESSIONS_LANDED_ROW_STAGGER = 0.035;
+
 export function WrappedSetupCompletePage(props: WrappedSetupCompletePageProps) {
 	const [isUploadMoreVisible, setIsUploadMoreVisible] = useState(false);
+	const [isContinuingToStory, setIsContinuingToStory] = useState(false);
+	const reduceMotion = useReducedMotion() ?? false;
+	const continueTimerRef = useRef<number | null>(null);
 	const hasReposOverride = props.reposOverride !== undefined;
 	const { data: projects, isLoading } = useAnalyticsQuery({
 		...orpc.analytics.developers.projects.queryOptions({
@@ -49,93 +58,396 @@ export function WrappedSetupCompletePage(props: WrappedSetupCompletePageProps) {
 			})),
 		[projects, props.reposOverride],
 	);
+	const titleAnimate = isContinuingToStory
+		? reduceMotion
+			? { opacity: 0 }
+			: { filter: "blur(10px)", opacity: 0, y: -10 }
+		: reduceMotion
+			? { opacity: 1 }
+			: { filter: "blur(0px)", opacity: 1, y: 0 };
+	const descriptionAnimate = isContinuingToStory
+		? reduceMotion
+			? { opacity: 0 }
+			: { filter: "blur(8px)", opacity: 0, y: -8 }
+		: reduceMotion
+			? { opacity: 1 }
+			: { filter: "blur(0px)", opacity: 1, y: 0 };
+	const footerPrimaryAnimate = isContinuingToStory
+		? reduceMotion
+			? { opacity: 0 }
+			: { filter: "blur(10px)", opacity: 0, y: -8 }
+		: reduceMotion
+			? { opacity: 1 }
+			: { filter: "blur(0px)", opacity: 1, y: 0 };
+	const footerSecondaryAnimate = isContinuingToStory
+		? reduceMotion
+			? { opacity: 0 }
+			: { filter: "blur(8px)", opacity: 0, y: -6 }
+		: reduceMotion
+			? { opacity: 1 }
+			: { filter: "blur(0px)", opacity: 1, y: 0 };
+
+	useMountEffect(() => {
+		return () => {
+			if (continueTimerRef.current !== null) {
+				window.clearTimeout(continueTimerRef.current);
+			}
+		};
+	});
+
+	function handleContinue() {
+		if (isContinuingToStory) {
+			return;
+		}
+
+		if (reduceMotion) {
+			props.onContinue();
+			return;
+		}
+
+		setIsContinuingToStory(true);
+		continueTimerRef.current = window.setTimeout(() => {
+			props.onContinue();
+		}, SESSIONS_LANDED_HANDOFF_MS);
+	}
 
 	return (
 		<MotionConfig reducedMotion="user">
 			<WrappedRouteStageShell
-				description="Are you ready to see what the sessions tell about you?"
+				description={
+					<motion.span
+						animate={descriptionAnimate}
+						initial={
+							reduceMotion
+								? { opacity: 0 }
+								: { filter: "blur(10px)", opacity: 0, y: 10 }
+						}
+						transition={
+							isContinuingToStory
+								? reduceMotion
+									? {
+											duration: SESSIONS_LANDED_REDUCED_DURATION,
+											ease: "linear",
+										}
+									: {
+											duration: 0.18,
+											ease: SESSIONS_LANDED_EASE,
+										}
+								: reduceMotion
+									? {
+											delay: 0.12,
+											duration: SESSIONS_LANDED_REDUCED_DURATION,
+											ease: "linear",
+										}
+									: {
+											delay: 0.18,
+											duration: 0.24,
+											ease: SESSIONS_LANDED_EASE,
+										}
+						}
+					>
+						Are you ready to see what the sessions tell about you?
+					</motion.span>
+				}
 				footerDebugControls={props.debugControls}
 				footer={
 					<div className="mymind-wrapped-action-stack">
-						<WrappedPrimaryAction kind="button" onClick={props.onContinue}>
-							See what it reveals about you
-						</WrappedPrimaryAction>
-						<WrappedSecondaryAction
-							aria-expanded={isUploadMoreVisible}
-							onClick={() =>
-								setIsUploadMoreVisible((currentValue) => !currentValue)
+						<motion.div
+							animate={footerPrimaryAnimate}
+							initial={
+								reduceMotion
+									? { opacity: 0 }
+									: { filter: "blur(8px)", opacity: 0, y: 10 }
+							}
+							transition={
+								isContinuingToStory
+									? reduceMotion
+										? {
+												duration: SESSIONS_LANDED_REDUCED_DURATION,
+												ease: "linear",
+											}
+										: {
+												duration: 0.18,
+												ease: SESSIONS_LANDED_EASE,
+											}
+									: reduceMotion
+										? {
+												delay: 0.16,
+												duration: SESSIONS_LANDED_REDUCED_DURATION,
+												ease: "linear",
+											}
+										: {
+												delay: 0.3,
+												duration: 0.24,
+												ease: SESSIONS_LANDED_EASE,
+											}
 							}
 						>
-							Upload more for a better picture
-						</WrappedSecondaryAction>
+							<WrappedPrimaryAction
+								kind="button"
+								disabled={isContinuingToStory}
+								onClick={handleContinue}
+							>
+								See what it reveals about you
+							</WrappedPrimaryAction>
+						</motion.div>
+						<motion.div
+							animate={footerSecondaryAnimate}
+							initial={
+								reduceMotion
+									? { opacity: 0 }
+									: { filter: "blur(10px)", opacity: 0, y: 12 }
+							}
+							transition={
+								isContinuingToStory
+									? reduceMotion
+										? {
+												duration: SESSIONS_LANDED_REDUCED_DURATION,
+												ease: "linear",
+											}
+										: {
+												duration: 0.16,
+												ease: SESSIONS_LANDED_EASE,
+											}
+									: reduceMotion
+										? {
+												delay: 0.18,
+												duration: SESSIONS_LANDED_REDUCED_DURATION,
+												ease: "linear",
+											}
+										: {
+												delay: 0.36,
+												duration: 0.22,
+												ease: SESSIONS_LANDED_EASE,
+											}
+							}
+						>
+							<WrappedSecondaryAction
+								aria-expanded={isUploadMoreVisible}
+								disabled={isContinuingToStory}
+								onClick={() =>
+									setIsUploadMoreVisible((currentValue) => !currentValue)
+								}
+							>
+								Upload more for a better picture
+							</WrappedSecondaryAction>
+						</motion.div>
 					</div>
 				}
-				onBack={props.onBack}
+				onBack={isContinuingToStory ? () => {} : props.onBack}
 				stageClassName="mymind-wrapped-entry-stage--setup-complete"
 				progressStepId="sessions-landed"
 				stage={
 					<WrappedUploadedReposStage
 						isLoading={hasReposOverride ? false : isLoading}
+						isContinuingToStory={isContinuingToStory}
 						isUploadMoreVisible={isUploadMoreVisible}
+						reduceMotion={reduceMotion}
 						repos={uploadedRepos}
 						totalSessionCount={props.totalSessionCount}
 					/>
 				}
-				title="Sessions landed"
+				title={
+					<motion.span
+						animate={titleAnimate}
+						initial={
+							reduceMotion
+								? { opacity: 0 }
+								: { filter: "blur(14px)", opacity: 0, y: 12 }
+						}
+						transition={
+							isContinuingToStory
+								? reduceMotion
+									? {
+											duration: SESSIONS_LANDED_REDUCED_DURATION,
+											ease: "linear",
+										}
+									: {
+											duration: 0.18,
+											ease: SESSIONS_LANDED_EASE,
+										}
+								: reduceMotion
+									? {
+											delay: 0.08,
+											duration: SESSIONS_LANDED_REDUCED_DURATION,
+											ease: "linear",
+										}
+									: {
+											delay: 0.1,
+											duration: 0.32,
+											ease: SESSIONS_LANDED_EASE,
+										}
+						}
+					>
+						Sessions landed
+					</motion.span>
+				}
 			/>
+			<AnimatePresence initial={false}>
+				{isContinuingToStory && !reduceMotion ? (
+					<motion.div
+						key="sessions-landed-white-interstitial"
+						animate={{ opacity: 1 }}
+						aria-hidden="true"
+						className="pointer-events-none fixed inset-0 z-[40] bg-white"
+						exit={{ opacity: 0 }}
+						initial={{ opacity: 0 }}
+						transition={{ duration: 0.06, ease: "linear" }}
+					/>
+				) : null}
+			</AnimatePresence>
 		</MotionConfig>
 	);
 }
 
 function WrappedUploadedReposStage(props: {
+	isContinuingToStory: boolean;
 	isLoading: boolean;
 	isUploadMoreVisible: boolean;
+	reduceMotion: boolean;
 	repos: WrappedUploadedRepoRow[];
 	totalSessionCount: number;
 }) {
+	const cardAnimate = props.isContinuingToStory
+		? props.reduceMotion
+			? { opacity: 0 }
+			: { filter: "blur(10px)", opacity: 0, scale: 1.01, y: -14 }
+		: props.reduceMotion
+			? { opacity: 1 }
+			: { filter: "blur(0px)", opacity: 1, scale: 1, y: 0 };
+	const cardInitial = props.reduceMotion
+		? { opacity: 0 }
+		: { filter: "blur(8px)", opacity: 0, scale: 0.982, y: 20 };
+	const cardTransition = props.isContinuingToStory
+		? props.reduceMotion
+			? {
+					duration: SESSIONS_LANDED_REDUCED_DURATION,
+					ease: "linear" as const,
+				}
+			: {
+					duration: 0.18,
+					ease: SESSIONS_LANDED_EASE,
+				}
+		: props.reduceMotion
+			? {
+					delay: 0.08,
+					duration: SESSIONS_LANDED_REDUCED_DURATION,
+					ease: "linear" as const,
+				}
+			: {
+					delay: 0.18,
+					duration: 0.42,
+					ease: SESSIONS_LANDED_EASE,
+				};
+
 	if (props.isLoading) {
 		return (
-			<div className="mymind-wrapped-entry-card mymind-wrapped-entry-card--status">
+			<motion.div
+				animate={cardAnimate}
+				className="mymind-wrapped-entry-card mymind-wrapped-entry-card--status"
+				initial={cardInitial}
+				transition={cardTransition}
+			>
 				<div className="mymind-wrapped-entry-card__status-dot" />
 				<p className="mymind-wrapped-entry-card__status-copy">
 					Loading the repos that already sent sessions to Rudel.
 				</p>
-			</div>
+			</motion.div>
 		);
 	}
 
 	if (props.repos.length === 0) {
 		return (
-			<div className="mymind-wrapped-entry-card mymind-wrapped-entry-card--flat">
+			<motion.div
+				animate={cardAnimate}
+				className="mymind-wrapped-entry-card mymind-wrapped-entry-card--flat"
+				initial={cardInitial}
+				transition={cardTransition}
+			>
 				<p className="mymind-wrapped-entry-card__body">
 					{formatSessionCount(props.totalSessionCount)} uploaded. Repo names are
 					still being resolved.
 				</p>
-			</div>
+			</motion.div>
 		);
 	}
 
 	return (
-		<div
+		<motion.div
+			animate={cardAnimate}
 			className="mymind-wrapped-entry-card mymind-wrapped-entry-card--flat mymind-wrapped-uploaded-repos"
 			data-upload-more-visible={props.isUploadMoreVisible ? "true" : "false"}
+			initial={cardInitial}
+			transition={cardTransition}
 		>
-			<div className="mymind-wrapped-uploaded-repos__summary">
+			<motion.div
+				animate={{ opacity: 1, y: 0 }}
+				className="mymind-wrapped-uploaded-repos__summary"
+				initial={props.reduceMotion ? { opacity: 0 } : { opacity: 0, y: 10 }}
+				transition={
+					props.reduceMotion
+						? {
+								delay: 0.12,
+								duration: SESSIONS_LANDED_REDUCED_DURATION,
+								ease: "linear",
+							}
+						: {
+								delay: 0.24,
+								duration: 0.24,
+								ease: SESSIONS_LANDED_EASE,
+							}
+				}
+			>
 				<p className="mymind-wrapped-uploaded-repos__summary-copy">
 					{formatSessionCount(props.totalSessionCount)} across{" "}
 					{formatRepoCount(props.repos.length)}
 				</p>
-			</div>
+			</motion.div>
 
-			<div className="mymind-wrapped-uploaded-repos__viewport">
+			<motion.div
+				animate={{ opacity: 1, y: 0 }}
+				className="mymind-wrapped-uploaded-repos__viewport"
+				initial={props.reduceMotion ? { opacity: 0 } : { opacity: 0, y: 14 }}
+				transition={
+					props.reduceMotion
+						? {
+								delay: 0.14,
+								duration: SESSIONS_LANDED_REDUCED_DURATION,
+								ease: "linear",
+							}
+						: {
+								delay: 0.28,
+								duration: 0.28,
+								ease: SESSIONS_LANDED_EASE,
+							}
+				}
+			>
 				<ul
 					aria-label="Uploaded repos"
 					className="mymind-wrapped-uploaded-repos__list"
 				>
-					{props.repos.map((repo) => (
-						<li
+					{props.repos.map((repo, index) => (
+						<motion.li
+							animate={{ opacity: 1, y: 0 }}
 							key={repo.projectPath}
 							className="mymind-wrapped-uploaded-repos__item"
+							initial={
+								props.reduceMotion ? { opacity: 0 } : { opacity: 0, y: 12 }
+							}
+							transition={
+								props.reduceMotion
+									? {
+											delay: 0.16,
+											duration: SESSIONS_LANDED_REDUCED_DURATION,
+											ease: "linear",
+										}
+									: {
+											delay:
+												0.34 + Math.min(index, 6) * SESSIONS_LANDED_ROW_STAGGER,
+											duration: 0.22,
+											ease: SESSIONS_LANDED_EASE,
+										}
+							}
 						>
 							<span className="mymind-wrapped-uploaded-repos__name">
 								{repo.name}
@@ -143,13 +455,13 @@ function WrappedUploadedReposStage(props: {
 							<span className="mymind-wrapped-uploaded-repos__count">
 								{formatSessionCount(repo.sessions)}
 							</span>
-						</li>
+						</motion.li>
 					))}
 				</ul>
-			</div>
+			</motion.div>
 
 			<WrappedUploadMorePanel isVisible={props.isUploadMoreVisible} />
-		</div>
+		</motion.div>
 	);
 }
 

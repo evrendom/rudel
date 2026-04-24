@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, useSearchParams } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { AppSession } from "@/features/auth/auth-route-utils";
 import { WrappedRouteGate } from "@/features/wrapped/WrappedRouteGate";
@@ -48,11 +48,20 @@ vi.mock("@/features/wrapped/WrappedSetupPage", () => ({
 }));
 
 vi.mock("@/features/wrapped/WrappedSetupCompletePage", () => ({
-	WrappedSetupCompletePage: ({ onBack }: { onBack?: () => void }) => (
+	WrappedSetupCompletePage: ({
+		onBack,
+		onContinue,
+	}: {
+		onBack?: () => void;
+		onContinue: () => void;
+	}) => (
 		<div>
 			<div>Wrapped setup complete page</div>
 			<button type="button" onClick={onBack}>
 				Back to setup
+			</button>
+			<button type="button" onClick={onContinue}>
+				Start story
 			</button>
 		</div>
 	),
@@ -63,14 +72,19 @@ vi.mock("@/features/wrapped/team-card/page", () => ({
 		onBackFromFirstStep,
 	}: {
 		onBackFromFirstStep?: () => void;
-	}) => (
-		<div>
-			<div>Wrapped story</div>
-			<button type="button" onClick={onBackFromFirstStep}>
-				Back to upload
-			</button>
-		</div>
-	),
+	}) => {
+		const [searchParams] = useSearchParams();
+
+		return (
+			<div>
+				<div>Wrapped story</div>
+				<div>Story step: {searchParams.get("step") ?? "none"}</div>
+				<button type="button" onClick={onBackFromFirstStep}>
+					Back to upload
+				</button>
+			</div>
+		);
+	},
 }));
 
 const now = new Date("2026-04-22T10:00:00.000Z");
@@ -259,5 +273,30 @@ describe("WrappedRouteGate", () => {
 		expect(screen.getByText("Wrapped setup complete page")).toBeInTheDocument();
 		await user.click(screen.getByRole("button", { name: "Back to setup" }));
 		expect(screen.getByText("Wrapped setup page")).toBeInTheDocument();
+	});
+
+	it("restarts the story from scale when continuing from sessions landed", async () => {
+		const user = userEvent.setup();
+
+		mockUseSetupProgress.mockReturnValue({
+			hasUploadedSessions: true,
+			isLoading: false,
+			totalSessionCount: 3,
+		});
+
+		render(
+			<MemoryRouter
+				initialEntries={[
+					"/wrapped?flow=sessions-landed&step=intro&preview-scale=million",
+				]}
+			>
+				<WrappedRouteGate isPending={false} publicId={null} session={session} />
+			</MemoryRouter>,
+		);
+
+		expect(screen.getByText("Wrapped setup complete page")).toBeInTheDocument();
+		await user.click(screen.getByRole("button", { name: "Start story" }));
+		expect(screen.getByText("Wrapped story")).toBeInTheDocument();
+		expect(screen.getByText("Story step: none")).toBeInTheDocument();
 	});
 });

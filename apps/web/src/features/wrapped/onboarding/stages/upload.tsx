@@ -51,6 +51,7 @@ export function WrappedOnboardingUploadStage(props: UploadStageProps) {
 			className="mymind-wrapped-upload-stage"
 			copy={
 				<WrappedOnboardingStageCopy
+					entrancePreset="story"
 					title={model.headline}
 					description={
 						<>
