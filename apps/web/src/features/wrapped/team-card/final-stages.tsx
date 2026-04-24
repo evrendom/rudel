@@ -442,46 +442,49 @@ export function WrappedTeamCardRevealStage(
 									onClick={handleCardFlipToggle}
 									type="button"
 								>
-									<div className="mymind-wrapped-final-stage__flip-rotator">
-										<div
-											aria-hidden={!isCardFrontVisible}
-											className="mymind-wrapped-final-stage__flip-face mymind-wrapped-final-stage__flip-face--front"
-										>
-											<div className="grid justify-center">
-												<WrappedTeamMemberCard
-													headerLeftMetric={headerLeftMetric}
-													headerRightMetric={headerRightMetric}
-													hideHeaderLogo
-													layoutPreset="team-card-preview"
-													mediaPanelClassName="mx-auto"
-													row={row}
+									<div className="mymind-wrapped-final-stage__flip-shell">
+										<div className="mymind-wrapped-final-stage__flip-rotator">
+											<div
+												aria-hidden={!isCardFrontVisible}
+												className="mymind-wrapped-final-stage__flip-face mymind-wrapped-final-stage__flip-face--front"
+											>
+												<div className="grid justify-center">
+													<WrappedTeamMemberCard
+														headerLeftMetric={headerLeftMetric}
+														headerRightMetric={headerRightMetric}
+														hideHeaderLogo
+														layoutPreset="team-card-preview"
+														mediaPanelClassName="mx-auto"
+														row={row}
+														shellClassName={shellClassName}
+														shellStyle={shellStyle}
+														statItems={statItems}
+														statLayerOpacities={statLayerOpacities}
+														statTileClassName=""
+														theme={theme}
+													/>
+												</div>
+											</div>
+
+											<div
+												aria-hidden={isCardFrontVisible}
+												className="mymind-wrapped-final-stage__flip-face mymind-wrapped-final-stage__flip-face--back"
+											>
+												<WrappedTeamMemberCardBack
+													archetypeLabel={activeArchetype.displayLabel}
+													displayName={row.displayName}
+													editionLabel={
+														activeArchetype.taxonomyLabel ?? "Special Edition"
+													}
+													highlights={revealBackHighlights}
+													hintLabel="Turn to reveal the card."
+													narrative={revealCopy.description}
 													shellClassName={shellClassName}
 													shellStyle={shellStyle}
-													statItems={statItems}
-													statLayerOpacities={statLayerOpacities}
-													statTileClassName=""
 													theme={theme}
+													variant="gradient-only"
 												/>
 											</div>
-										</div>
-										<div
-											aria-hidden={isCardFrontVisible}
-											className="mymind-wrapped-final-stage__flip-face mymind-wrapped-final-stage__flip-face--back"
-										>
-											<WrappedTeamMemberCardBack
-												archetypeLabel={activeArchetype.displayLabel}
-												displayName={row.displayName}
-												editionLabel={
-													activeArchetype.taxonomyLabel ?? "Special Edition"
-												}
-												highlights={revealBackHighlights}
-												hintLabel="Turn to reveal the card."
-												narrative={revealCopy.description}
-												shellClassName={shellClassName}
-												shellStyle={shellStyle}
-												theme={theme}
-												variant="gradient-only"
-											/>
 										</div>
 									</div>
 								</button>
