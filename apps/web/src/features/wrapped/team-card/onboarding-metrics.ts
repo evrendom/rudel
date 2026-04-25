@@ -29,14 +29,18 @@ export function buildWrappedOnboardingMetrics(
 		developerSessions,
 		wrappedMetrics,
 	} = input;
-	const totalSessions = developerDetails?.total_sessions ?? 0;
+	const totalSessions =
+		developerDetails?.total_sessions ?? wrappedMetrics?.total_sessions ?? 0;
 	const commitSessions = findBooleanDimensionCount(commitBreakdown, true);
 	const topProject = findTopProject(developerProjects);
 	const estimatedCostTokenBasis = Math.max(
 		0,
 		developerDetails?.total_tokens ?? wrappedMetrics?.total_tokens ?? 0,
 	);
-	const estimatedCostUsdRaw = Math.max(0, developerDetails?.cost ?? 0);
+	const estimatedCostUsdRaw = Math.max(
+		0,
+		developerDetails?.cost ?? wrappedMetrics?.estimated_spend_usd ?? 0,
+	);
 	const estimatedCostUsd = Math.round(estimatedCostUsdRaw);
 	const repoPulse = buildRepoPulse(developerSessions, {
 		baseCostTokenBasis: estimatedCostTokenBasis,

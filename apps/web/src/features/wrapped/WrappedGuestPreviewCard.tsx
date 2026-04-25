@@ -1,6 +1,7 @@
 import { useReducedMotion } from "motion/react";
-import { type CSSProperties, useEffect, useState } from "react";
+import { type CSSProperties, type RefObject, useRef, useState } from "react";
 import type { TeamPageMemberRow } from "@/features/team/use-team-page-data";
+import { useMountEffect } from "@/hooks/useMountEffect";
 import { cn } from "@/lib/utils";
 import type { WrappedOnboardingMetrics } from "./onboarding/types";
 import { WRAPPED_ARCHETYPE_CARD_THEMES } from "./team-card/archetypes";
@@ -12,182 +13,210 @@ import {
 } from "./team-card/card";
 import { WrappedTeamMemberCardBack } from "./team-card/card-back";
 import { WrappedPrintedCardFlip } from "./team-card/printed-card-flip";
+import { DEFAULT_WRAPPED_SHARE_APPEARANCE } from "./team-card/share-appearance";
+import { buildWrappedShareSafeRow } from "./team-card/share-media";
+import { WrappedTeamCardSharePreview } from "./team-card/share-preview";
 import { useWrappedCardTilt } from "./team-card/tilt/use-card-tilt";
 import type { WrappedGuestPreviewProfile } from "./wrapped-guest-preview";
 
-const WRAPPED_GUEST_CARD_THEME =
-	WRAPPED_ARCHETYPE_CARD_THEMES.find(({ id }) => id === "npc") ??
+const RICK_PLACEHOLDER_THEME =
+	WRAPPED_ARCHETYPE_CARD_THEMES.find(({ id }) => id === "maniac") ??
 	WRAPPED_ARCHETYPE_CARD_THEMES[0];
 
-const WRAPPED_GUEST_CARD_SHELL_STYLE = {
+const WRAPPED_UNKNOWN_CARD_SHELL_CLASS_NAME =
+	"bg-[linear-gradient(180deg,_#F5F6F8_0%,_#D9DEE4_52%,_#B8C0CA_100%)]";
+
+const RICK_PLACEHOLDER_SHELL_STYLE = {
 	"--team-lineup-card-grain-opacity": "0",
 	"--team-lineup-card-grain-size": "40px",
 } as CSSProperties;
 
-const WRAPPED_GUEST_CARD_ISSUED_AT_LABEL = "04/25/2026";
-const WRAPPED_GUEST_CARD_FLIP_DURATION_MS = 680;
+const RICK_PLACEHOLDER_ISSUED_AT_LABEL = "04/25/2026";
+const RICK_PLACEHOLDER_FLIP_DURATION_MS = 680;
 
-const DEFAULT_WRAPPED_GUEST_CARD_ROW: TeamPageMemberRow = {
-	userId: "wrapped-guest-preview",
-	displayName: "You",
+const RICK_PLACEHOLDER_ROW: TeamPageMemberRow = {
+	userId: "RickPlaceholder",
+	displayName: "Jon Doe",
 	email: null,
 	role: "Wrapped preview",
-	imageUrl: "/wrapped-profile.png",
-	cost: 182,
+	imageUrl: null,
+	cost: 347,
 	favoriteModel: "claude-3-7-sonnet",
-	inputTokens: 540_000,
-	outputTokens: 320_000,
-	totalSessions: 142,
-	activeDays: 46,
-	totalTokens: 860_000,
-	lastActiveDate: "2026-04-18T00:00:00.000Z",
+	inputTokens: 1_180_000,
+	outputTokens: 740_000,
+	totalSessions: 219,
+	activeDays: 58,
+	totalTokens: 1_920_000,
+	lastActiveDate: "2026-04-24T00:00:00.000Z",
 	hasActivity: true,
 };
 
-const WRAPPED_GUEST_CARD_ONBOARDING_METRICS: WrappedOnboardingMetrics = {
-	activeDays: 46,
-	avgSessionMin: 24,
-	commitRate: 41,
-	commitSessions: 58,
-	daysSinceFirst: 180,
+const RICK_PLACEHOLDER_ONBOARDING_METRICS: WrappedOnboardingMetrics = {
+	activeDays: 58,
+	avgSessionMin: 37,
+	commitRate: 48,
+	commitSessions: 105,
+	daysSinceFirst: 214,
 	estimatedCostTokenBasis: 0,
-	estimatedCostUsd: 182,
+	estimatedCostUsd: 347,
 	favoriteModel: "claude-3-7-sonnet",
-	longestSessionMin: 88,
+	longestSessionMin: 143,
 	modelByMonth: [],
 	repoPulse: {
 		entries: [],
 		leadRepoName: "geneva",
-		totalRepos: 9,
-		totalSessions: 142,
+		totalRepos: 12,
+		totalSessions: 219,
 	},
-	skillsAdoptionRate: 62.16,
+	skillsAdoptionRate: 71.23,
 	sourceSplit: [
-		{ session_count: 97, session_share_percent: 68, source: "claude_code" },
-		{ session_count: 45, session_share_percent: 32, source: "codex" },
+		{ session_count: 125, session_share_percent: 57, source: "claude_code" },
+		{ session_count: 94, session_share_percent: 43, source: "codex" },
 	],
-	subagentsAdoptionRate: 10.81,
-	successRate: 64,
+	subagentsAdoptionRate: 22.83,
+	successRate: 69,
 	topProjectName: "geneva",
-	topProjectSessions: 44,
-	topProjectTokens: 420_000,
+	topProjectSessions: 63,
+	topProjectTokens: 610_000,
 	topSkills: [
-		{ count: 14, name: "Refactor" },
-		{ count: 9, name: "Test" },
+		{ count: 18, name: "Refactor" },
+		{ count: 13, name: "Test" },
 	],
-	slashCommandsAdoptionRate: 29.73,
+	slashCommandsAdoptionRate: 46.12,
 	topSlashCommand: "Architect",
-	topSlashCommandCount: 11,
-	topSlashCommands: [{ count: 11, name: "Architect" }],
+	topSlashCommandCount: 24,
+	topSlashCommands: [{ count: 24, name: "Architect" }],
 	topSubagent: "Reviewer",
-	topSubagentCount: 4,
-	topSubagents: [{ count: 4, name: "Reviewer" }],
-	totalSessions: 142,
-	totalTokens: 860_000,
+	topSubagentCount: 11,
+	topSubagents: [{ count: 11, name: "Reviewer" }],
+	totalSessions: 219,
+	totalTokens: 1_920_000,
 };
 
-const WRAPPED_GUEST_CARD_HEADER_LEFT_METRIC: WrappedTeamMemberCardHeaderMetric =
+const RICK_PLACEHOLDER_HEADER_LEFT_METRIC: WrappedTeamMemberCardHeaderMetric = {
+	title: "$347 estimated spend",
+	value: "$347",
+};
+
+const RICK_PLACEHOLDER_HEADER_RIGHT_METRIC: WrappedTeamMemberCardHeaderMetric =
 	{
-		title: "$182 estimated spend",
-		value: "$182",
+		title: "Maniac",
+		value: "Maniac",
 	};
 
-const WRAPPED_GUEST_CARD_HEADER_RIGHT_METRIC: WrappedTeamMemberCardHeaderMetric =
+const WRAPPED_UNKNOWN_CARD_HEADER_RIGHT_METRIC: WrappedTeamMemberCardHeaderMetric =
 	{
-		title: "Smooth Operator",
-		value: "Smooth Operator",
+		title: "Unknown",
+		value: "Unknown",
 	};
 
-const WRAPPED_GUEST_CARD_STAT_ITEMS = [
+const RICK_PLACEHOLDER_STAT_ITEMS = [
 	{
 		key: "codex-share",
-		title: "32% of wrapped sessions came from Codex",
+		title: "43% of wrapped sessions came from Codex",
 		icon: "codex",
-		value: "32%",
+		value: "43%",
 	},
 	{
 		key: "claude-share",
-		title: "68% of wrapped sessions came from Claude Code",
+		title: "57% of wrapped sessions came from Claude Code",
 		icon: "claude",
-		value: "68%",
+		value: "57%",
 	},
 	{
 		key: "sessions",
 		label: "SESS",
-		title: "142 sessions",
-		value: "142",
+		title: "219 sessions",
+		value: "219",
 	},
 	{
 		key: "days",
 		label: "DAYS",
-		title: "46 active days",
-		value: "46",
+		title: "58 active days",
+		value: "58",
 	},
 	{
 		key: "tokens",
 		label: "TOK",
-		title: "860,000 total tokens",
-		value: "860K",
+		title: "1,920,000 total tokens",
+		value: "1.9M",
 	},
 	{
 		key: "repos",
 		label: "REPOS",
-		title: "9 distinct tracked projects",
-		value: "9",
+		title: "12 distinct tracked projects",
+		value: "12",
 	},
 ] as const satisfies readonly WrappedTeamMemberCardStatItem[];
 
 interface WrappedGuestPreviewCardProps {
+	appearance?: "default" | "unknown";
 	profile: WrappedGuestPreviewProfile | null;
-	size?: "hero" | "compact";
+	size?: "hero" | "compact" | "profile";
 }
 
 export function WrappedGuestPreviewCard(props: WrappedGuestPreviewCardProps) {
-	const { profile, size = "hero" } = props;
+	const { appearance = "default", profile, size = "hero" } = props;
+	const isUnknownCard = appearance === "unknown";
 	const row = buildWrappedGuestCardRow(profile);
 	const shouldReduceMotion = useReducedMotion();
 	const reduceMotion = shouldReduceMotion ?? false;
 	const tiltController = useWrappedCardTilt();
+	const flipAnimationTimeoutRef = useRef<number | null>(null);
 	const [isCardFlipAnimating, setIsCardFlipAnimating] = useState(false);
 	const [isCardFrontVisible, setIsCardFrontVisible] = useState(true);
+	const cardTheme = isUnknownCard ? "light" : RICK_PLACEHOLDER_THEME.theme;
+	const cardShellClassName = isUnknownCard
+		? WRAPPED_UNKNOWN_CARD_SHELL_CLASS_NAME
+		: RICK_PLACEHOLDER_THEME.shellClassName;
+	const headerRightMetric = isUnknownCard
+		? WRAPPED_UNKNOWN_CARD_HEADER_RIGHT_METRIC
+		: RICK_PLACEHOLDER_HEADER_RIGHT_METRIC;
 	const backMetrics = buildWrappedTeamCardBackMetrics({
-		onboardingMetrics: WRAPPED_GUEST_CARD_ONBOARDING_METRICS,
+		onboardingMetrics: RICK_PLACEHOLDER_ONBOARDING_METRICS,
 		row,
-		shareCardCreatedAtLabel: WRAPPED_GUEST_CARD_ISSUED_AT_LABEL,
+		shareCardCreatedAtLabel: RICK_PLACEHOLDER_ISSUED_AT_LABEL,
 	});
 	const printedCardCaptureKey = [
 		row.userId,
 		row.displayName,
 		row.imageUrl ?? "",
-		WRAPPED_GUEST_CARD_THEME.theme,
-		...WRAPPED_GUEST_CARD_STAT_ITEMS.map((item) => `${item.key}:${item.value}`),
+		cardTheme,
+		cardShellClassName,
+		headerRightMetric.value,
+		...RICK_PLACEHOLDER_STAT_ITEMS.map((item) => `${item.key}:${item.value}`),
 		...backMetrics.map((metric) => `${metric.label}:${metric.value}`),
 	].join("|");
 
-	useEffect(() => {
-		if (!isCardFlipAnimating || reduceMotion) {
-			return;
-		}
-
-		const timeoutId = window.setTimeout(() => {
-			setIsCardFlipAnimating(false);
-		}, WRAPPED_GUEST_CARD_FLIP_DURATION_MS);
-
-		return () => {
-			window.clearTimeout(timeoutId);
-		};
-	}, [isCardFlipAnimating, reduceMotion]);
+	useMountEffect(() => () => {
+		clearFlipAnimationTimeout();
+	});
 
 	function handleCardFlipToggle() {
 		tiltController.handlePointerLeave();
+		clearFlipAnimationTimeout();
 
 		if (reduceMotion) {
+			setIsCardFlipAnimating(false);
 			setIsCardFrontVisible((currentValue) => !currentValue);
 			return;
 		}
 
 		setIsCardFlipAnimating(true);
 		setIsCardFrontVisible((currentValue) => !currentValue);
+		flipAnimationTimeoutRef.current = window.setTimeout(() => {
+			setIsCardFlipAnimating(false);
+			flipAnimationTimeoutRef.current = null;
+		}, RICK_PLACEHOLDER_FLIP_DURATION_MS);
+	}
+
+	function clearFlipAnimationTimeout() {
+		if (flipAnimationTimeoutRef.current === null) {
+			return;
+		}
+
+		window.clearTimeout(flipAnimationTimeoutRef.current);
+		flipAnimationTimeoutRef.current = null;
 	}
 
 	return (
@@ -197,89 +226,118 @@ export function WrappedGuestPreviewCard(props: WrappedGuestPreviewCardProps) {
 				"mymind-wrapped-auth-card-preview team-lineup-surface-scope",
 				size === "compact"
 					? "mymind-wrapped-auth-card-preview--compact"
-					: "mymind-wrapped-auth-card-preview--hero",
+					: size === "profile"
+						? "mymind-wrapped-auth-card-preview--profile"
+						: "mymind-wrapped-auth-card-preview--hero",
 			)}
-			>
-				<div className="team-lineup-card-tilt-stage mymind-wrapped-auth-card-preview__tilt-stage">
-					<div
-						ref={tiltController.cardTiltRef}
-						className="team-lineup-card-tilt-shell mymind-wrapped-auth-card-preview__tilt mymind-wrapped-final-stage__tilt-shell"
-						data-flip-active={isCardFlipAnimating ? "true" : "false"}
-						onPointerMove={(event) => {
-							if (!isCardFlipAnimating) {
-								tiltController.handlePointerMove(event);
-							}
-						}}
-						onPointerLeave={tiltController.handlePointerLeave}
-						onPointerCancel={tiltController.handlePointerLeave}
-						style={
-							{
-								"--wrapped-card-flip-rotate-y": isCardFrontVisible
-									? "0deg"
-									: "180deg",
-							} as CSSProperties
+		>
+			<div className="team-lineup-card-tilt-stage mymind-wrapped-auth-card-preview__tilt-stage">
+				<div
+					ref={tiltController.cardTiltRef}
+					className="team-lineup-card-tilt-shell mymind-wrapped-auth-card-preview__tilt mymind-wrapped-final-stage__tilt-shell"
+					data-flip-active={isCardFlipAnimating ? "true" : "false"}
+					onPointerMove={(event) => {
+						if (!isCardFlipAnimating) {
+							tiltController.handlePointerMove(event);
 						}
+					}}
+					onPointerLeave={tiltController.handlePointerLeave}
+					onPointerCancel={tiltController.handlePointerLeave}
+					style={
+						{
+							"--wrapped-card-flip-rotate-y": isCardFrontVisible
+								? "0deg"
+								: "180deg",
+						} as CSSProperties
+					}
+				>
+					<button
+						type="button"
+						aria-label={
+							isCardFrontVisible ? "Show back of card" : "Reveal front of card"
+						}
+						aria-pressed={isCardFrontVisible}
+						className="mymind-wrapped-final-stage__flip-control"
+						data-card-face={isCardFrontVisible ? "front" : "back"}
+						onClick={handleCardFlipToggle}
 					>
-						<button
-							type="button"
-							aria-label={
-								isCardFrontVisible
-									? "Show back of card"
-									: "Reveal front of card"
+						<WrappedPrintedCardFlip
+							captureKey={printedCardCaptureKey}
+							front={
+								<div className="grid justify-center">
+									<WrappedTeamMemberCard
+										disableOuterShadow
+										headerLeftMetric={RICK_PLACEHOLDER_HEADER_LEFT_METRIC}
+										headerRightMetric={headerRightMetric}
+										hideHeaderLogo
+										layoutPreset="team-card-preview"
+										mediaPanelClassName="mx-auto"
+										row={row}
+										shellClassName={cardShellClassName}
+										shellStyle={RICK_PLACEHOLDER_SHELL_STYLE}
+										statItems={RICK_PLACEHOLDER_STAT_ITEMS}
+										statTileClassName=""
+										theme={cardTheme}
+									/>
+								</div>
 							}
-							aria-pressed={isCardFrontVisible}
-							className="mymind-wrapped-final-stage__flip-control"
-							data-card-face={isCardFrontVisible ? "front" : "back"}
-							onClick={handleCardFlipToggle}
-						>
-							<WrappedPrintedCardFlip
-								captureKey={printedCardCaptureKey}
-								front={
-									<div className="grid justify-center">
-										<WrappedTeamMemberCard
-											disableOuterShadow
-											headerLeftMetric={WRAPPED_GUEST_CARD_HEADER_LEFT_METRIC}
-											headerRightMetric={WRAPPED_GUEST_CARD_HEADER_RIGHT_METRIC}
-											hideHeaderLogo
-											layoutPreset="team-card-preview"
-											mediaPanelClassName="mx-auto"
-											row={row}
-											shellClassName={WRAPPED_GUEST_CARD_THEME.shellClassName}
-											shellStyle={WRAPPED_GUEST_CARD_SHELL_STYLE}
-											statItems={WRAPPED_GUEST_CARD_STAT_ITEMS}
-											statTileClassName=""
-											theme={WRAPPED_GUEST_CARD_THEME.theme}
-										/>
-									</div>
-								}
-								back={
-									<div className="grid justify-center">
-										<WrappedTeamMemberCardBack
-											disableOuterShadow
-											metrics={backMetrics}
-											shellClassName={WRAPPED_GUEST_CARD_THEME.shellClassName}
-											shellStyle={WRAPPED_GUEST_CARD_SHELL_STYLE}
-											theme={WRAPPED_GUEST_CARD_THEME.theme}
-										/>
-									</div>
-								}
-								isFrontVisible={isCardFrontVisible}
-								reduceMotion={reduceMotion}
-							/>
-						</button>
-					</div>
+							back={
+								<div className="grid justify-center">
+									<WrappedTeamMemberCardBack
+										disableOuterShadow
+										metrics={backMetrics}
+										shellClassName={cardShellClassName}
+										shellStyle={RICK_PLACEHOLDER_SHELL_STYLE}
+										theme={cardTheme}
+									/>
+								</div>
+							}
+							isFrontVisible={isCardFrontVisible}
+							reduceMotion={reduceMotion}
+						/>
+					</button>
 				</div>
-			</section>
+			</div>
+		</section>
+	);
+}
+
+export function WrappedGuestShareImagePreview(props: {
+	profile: WrappedGuestPreviewProfile | null;
+	sharePostRef?: RefObject<HTMLDivElement | null>;
+}) {
+	const { profile, sharePostRef } = props;
+	const row = buildWrappedShareSafeRow(buildWrappedGuestCardRow(profile));
+	const backMetrics = buildWrappedTeamCardBackMetrics({
+		onboardingMetrics: RICK_PLACEHOLDER_ONBOARDING_METRICS,
+		row,
+		shareCardCreatedAtLabel: RICK_PLACEHOLDER_ISSUED_AT_LABEL,
+	});
+
+	return (
+		<WrappedTeamCardSharePreview
+			appearance={DEFAULT_WRAPPED_SHARE_APPEARANCE}
+			backMetrics={backMetrics}
+			headerLeftMetric={RICK_PLACEHOLDER_HEADER_LEFT_METRIC}
+			headerRightMetric={RICK_PLACEHOLDER_HEADER_RIGHT_METRIC}
+			row={row}
+			shareCardCreatedAtLabel={RICK_PLACEHOLDER_ISSUED_AT_LABEL}
+			sharePostRef={sharePostRef}
+			shellClassName={RICK_PLACEHOLDER_THEME.shellClassName}
+			shellStyle={RICK_PLACEHOLDER_SHELL_STYLE}
+			statItems={RICK_PLACEHOLDER_STAT_ITEMS}
+			theme={RICK_PLACEHOLDER_THEME.theme}
+		/>
 	);
 }
 
 function buildWrappedGuestCardRow(profile: WrappedGuestPreviewProfile | null) {
 	if (!profile) {
-		return DEFAULT_WRAPPED_GUEST_CARD_ROW;
+		return RICK_PLACEHOLDER_ROW;
 	}
 
 	return {
-		...DEFAULT_WRAPPED_GUEST_CARD_ROW,
+		...RICK_PLACEHOLDER_ROW,
 		displayName: profile.displayName,
 		imageUrl: profile.imageUrl,
 		userId: `wrapped-guest:${profile.username}`,

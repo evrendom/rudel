@@ -109,6 +109,7 @@ export function useWrappedTeamCardPageData(): UseWrappedTeamCardPageDataResult {
 				sessionUserId: resolvedUserId,
 				sessionUserName,
 				teamMemberRows,
+				wrappedMetrics: wrappedData?.metrics,
 			}),
 		[
 			accountLabel,
@@ -118,6 +119,7 @@ export function useWrappedTeamCardPageData(): UseWrappedTeamCardPageDataResult {
 			resolvedUserId,
 			sessionUserName,
 			teamMemberRows,
+			wrappedData?.metrics,
 		],
 	);
 	const onboardingMetrics = useMemo(

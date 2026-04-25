@@ -322,17 +322,14 @@ describe("auth state refresh", () => {
 		);
 		await user.type(await screen.findByLabelText("Email"), "ada@example.com");
 		await user.click(screen.getByRole("button", { name: "Continue" }));
-		expect(
-			await screen.findByText(/Enter the code we sent to/i),
-		).toBeInTheDocument();
-		await user.type(screen.getByLabelText("Verification code"), "123456");
-		await user.click(screen.getByRole("button", { name: "Continue" }));
+		expect(await screen.findByLabelText("Password")).toBeInTheDocument();
+		await user.type(screen.getByLabelText("Password"), "supersecure");
+		await user.click(screen.getByRole("button", { name: "Sign up" }));
 
 		expect(handlePreviewSubmit).toHaveBeenCalledWith("ada@example.com");
 		expect(mockSignUpEmail).not.toHaveBeenCalled();
 		expect(mockNavigateToDestination).not.toHaveBeenCalled();
 		expect(screen.queryByLabelText("Name")).not.toBeInTheDocument();
-		expect(screen.queryByLabelText("Password")).not.toBeInTheDocument();
 	});
 
 	it("hard-navigates after a successful email sign in", async () => {
@@ -397,11 +394,9 @@ describe("auth state refresh", () => {
 		await user.click(screen.getByRole("button", { name: "Log in with Email" }));
 		await user.type(await screen.findByLabelText("Email"), "ada@example.com");
 		await user.click(screen.getByRole("button", { name: "Continue" }));
-		expect(
-			await screen.findByText(/Enter the code we sent to/i),
-		).toBeInTheDocument();
-		await user.type(screen.getByLabelText("Verification code"), "123456");
-		await user.click(screen.getByRole("button", { name: "Continue" }));
+		expect(await screen.findByLabelText("Password")).toBeInTheDocument();
+		await user.type(screen.getByLabelText("Password"), "supersecure");
+		await user.click(screen.getByRole("button", { name: "Sign in" }));
 
 		expect(handlePreviewSubmit).toHaveBeenCalledWith("ada@example.com");
 		expect(mockSignInEmail).not.toHaveBeenCalled();
@@ -409,6 +404,5 @@ describe("auth state refresh", () => {
 		expect(
 			screen.queryByRole("button", { name: "Forgot password?" }),
 		).not.toBeInTheDocument();
-		expect(screen.queryByLabelText("Password")).not.toBeInTheDocument();
 	});
 });

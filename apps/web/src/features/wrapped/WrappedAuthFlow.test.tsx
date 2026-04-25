@@ -89,6 +89,22 @@ Object.defineProperty(window, "matchMedia", {
 	})),
 });
 
+const WRAPPED_UNKNOWN_CARD_CLASS_NAME =
+	"bg-[linear-gradient(180deg,_#F5F6F8_0%,_#D9DEE4_52%,_#B8C0CA_100%)]";
+
+async function openWrappedLoginForm(user: ReturnType<typeof userEvent.setup>) {
+	await user.click(screen.getByRole("button", { name: "Log in" }));
+	expect(await screen.findByText("Wrapped login form")).toBeInTheDocument();
+}
+
+async function submitWrappedPreviewEmail(
+	user: ReturnType<typeof userEvent.setup>,
+) {
+	await user.click(
+		screen.getByRole("button", { name: "Preview wrapped email submit" }),
+	);
+}
+
 describe("WrappedGuestPage", () => {
 	beforeEach(() => {
 		clearWrappedGuestPreviewSnapshot();
@@ -96,7 +112,7 @@ describe("WrappedGuestPage", () => {
 		mockUseIsMobile.mockReturnValue(false);
 	});
 
-	it("starts on the X handle step", () => {
+	it("starts on the auth intro step", () => {
 		render(
 			<MemoryRouter initialEntries={["/wrapped"]}>
 				<WrappedGuestPage />
@@ -105,16 +121,24 @@ describe("WrappedGuestPage", () => {
 
 		expect(
 			screen.getByRole("heading", {
-				name: "Drop in your X handle We'll tune the card first",
+				name: "Your Claude Wrapped",
 			}),
 		).toBeInTheDocument();
-		expect(screen.getByLabelText("X handle")).toBeInTheDocument();
 		expect(
-			screen.getByRole("button", { name: "Use this handle" }),
-		).toBeDisabled();
+			screen.getByRole("region", {
+				name: "Wrapped player card preview",
+			}),
+		).toBeInTheDocument();
+		expect(screen.getByText("Jon Doe")).toBeInTheDocument();
+		expect(screen.getAllByText("Maniac").length).toBeGreaterThan(0);
+		expect(
+			screen.getByRole("button", { name: "Create account" }),
+		).toBeInTheDocument();
+		expect(screen.getByRole("button", { name: "Log in" })).toBeInTheDocument();
+		expect(screen.queryByLabelText("Go back")).toBeNull();
 	});
 
-	it("personalizes locally and continues into auth", async () => {
+	it("shows the intro card metrics and back face", async () => {
 		const user = userEvent.setup();
 
 		render(
@@ -123,33 +147,17 @@ describe("WrappedGuestPage", () => {
 			</MemoryRouter>,
 		);
 
-		await user.type(screen.getByLabelText("X handle"), "@evren");
+		expect(screen.getAllByText("$347").length).toBeGreaterThan(0);
+		expect(screen.getAllByText("Maniac").length).toBeGreaterThan(0);
+		expect(screen.getAllByText("43%").length).toBeGreaterThan(0);
+		expect(screen.getAllByText("57%").length).toBeGreaterThan(0);
+		expect(screen.getAllByText("219").length).toBeGreaterThan(0);
+		expect(screen.getAllByText("58").length).toBeGreaterThan(0);
+		expect(screen.getAllByText("1.9M").length).toBeGreaterThan(0);
+		expect(screen.getAllByText("12").length).toBeGreaterThan(0);
 
-		expect(screen.getByText("Evren")).toBeInTheDocument();
-		await user.click(screen.getByRole("button", { name: "Use this handle" }));
-		expect(readWrappedGuestPreviewSnapshot()?.profile.imageUrl).toBe(
-			"https://unavatar.io/x/evren",
-		);
-		expect(
-			screen.getByRole("heading", {
-				name: "Your Claude Wrapped",
-			}),
-		).toBeInTheDocument();
-		expect(screen.getAllByText("$182").length).toBeGreaterThan(0);
-		expect(screen.getAllByText("Smooth Operator").length).toBeGreaterThan(0);
-		expect(screen.getAllByText("32%").length).toBeGreaterThan(0);
-		expect(screen.getAllByText("68%").length).toBeGreaterThan(0);
-		expect(screen.getAllByText("142").length).toBeGreaterThan(0);
-		expect(screen.getAllByText("46").length).toBeGreaterThan(0);
-		expect(screen.getAllByText("860K").length).toBeGreaterThan(0);
-		expect(screen.getAllByText("9").length).toBeGreaterThan(0);
 		await user.click(screen.getByRole("button", { name: "Show back of card" }));
 		expect(await screen.findByText("Input/output tokens")).toBeInTheDocument();
-		expect(
-			screen.getByRole("button", { name: "Create account" }),
-		).toBeInTheDocument();
-		expect(screen.getByRole("button", { name: "Log in" })).toBeInTheDocument();
-		expect(screen.queryByLabelText("Go back")).toBeNull();
 	});
 
 	it("restores the auth step from session storage", () => {
@@ -177,7 +185,7 @@ describe("WrappedGuestPage", () => {
 		expect(screen.getByText("Stored User")).toBeInTheDocument();
 	});
 
-	it("upgrades stale local snapshots with a fallback avatar", () => {
+	it("keeps image-less local snapshots ready for the animal avatar fallback", () => {
 		writeWrappedGuestPreviewSnapshot({
 			profile: {
 				displayName: "Stored User",
@@ -196,9 +204,7 @@ describe("WrappedGuestPage", () => {
 			</MemoryRouter>,
 		);
 
-		expect(readWrappedGuestPreviewSnapshot()?.profile.imageUrl).toBe(
-			"https://unavatar.io/x/storeduser",
-		);
+		expect(readWrappedGuestPreviewSnapshot()?.profile.imageUrl).toBeNull();
 	});
 
 	it("lets the shared auth forms switch between login and signup", async () => {
@@ -210,10 +216,7 @@ describe("WrappedGuestPage", () => {
 			</MemoryRouter>,
 		);
 
-		await user.type(screen.getByLabelText("X handle"), "@evren");
-		await user.click(screen.getByRole("button", { name: "Use this handle" }));
-		await user.click(screen.getByRole("button", { name: "Log in" }));
-		expect(await screen.findByText("Wrapped login form")).toBeInTheDocument();
+		await openWrappedLoginForm(user);
 		expect(screen.getByLabelText("Go back")).toBeInTheDocument();
 		expect(screen.getByLabelText("Open support")).toBeInTheDocument();
 
@@ -230,7 +233,7 @@ describe("WrappedGuestPage", () => {
 		expect(screen.getByRole("button", { name: "Log in" })).toBeInTheDocument();
 	});
 
-	it("continues into the setup preview after wrapped email auth submits locally", async () => {
+	it("uses an unknown grey card while the user creates an account", async () => {
 		const user = userEvent.setup();
 
 		render(
@@ -239,18 +242,73 @@ describe("WrappedGuestPage", () => {
 			</MemoryRouter>,
 		);
 
-		await user.type(screen.getByLabelText("X handle"), "@evren");
-		await user.click(screen.getByRole("button", { name: "Use this handle" }));
-		await user.click(screen.getByRole("button", { name: "Log in" }));
-		expect(await screen.findByText("Wrapped login form")).toBeInTheDocument();
-		await user.click(
-			screen.getByRole("button", { name: "Preview wrapped email submit" }),
-		);
+		await user.click(screen.getByRole("button", { name: "Create account" }));
 
-		expect(screen.getByText("Wrapped setup page")).toBeInTheDocument();
+		expect(await screen.findByText("Wrapped signup form")).toBeInTheDocument();
+		expect(screen.getAllByText("Unknown").length).toBeGreaterThan(0);
+		expect(
+			screen
+				.getByRole("region", { name: "Wrapped player card preview" })
+				.querySelector(".team-lineup-featured-card"),
+		).toHaveClass(WRAPPED_UNKNOWN_CARD_CLASS_NAME);
 	});
 
-	it("continues into the mobile handoff preview on mobile after wrapped email auth submits locally", async () => {
+	it("opens card profile setup after wrapped email auth submits locally", async () => {
+		const user = userEvent.setup();
+
+		render(
+			<MemoryRouter initialEntries={["/wrapped"]}>
+				<WrappedGuestPage />
+			</MemoryRouter>,
+		);
+
+		await openWrappedLoginForm(user);
+		await submitWrappedPreviewEmail(user);
+
+		expect(
+			screen.getByRole("heading", { name: "Make the card yours" }),
+		).toBeInTheDocument();
+		expect(screen.queryByText(/stays local/i)).not.toBeInTheDocument();
+		expect(screen.getByLabelText("Name on card")).toHaveValue("Preview");
+		expect(readWrappedGuestPreviewSnapshot()?.profile.imageUrl).toBeNull();
+		expect(screen.getAllByText("Maniac").length).toBeGreaterThan(0);
+		expect(
+			screen
+				.getByRole("region", { name: "Wrapped player card preview" })
+				.querySelector(".team-lineup-featured-card"),
+		).not.toHaveClass(WRAPPED_UNKNOWN_CARD_CLASS_NAME);
+		expect(
+			screen.getByRole("group", { name: "Card image export actions" }),
+		).toBeInTheDocument();
+		expect(screen.getByRole("button", { name: "Share card" })).toBeEnabled();
+		expect(screen.getByRole("button", { name: "Download" })).toBeEnabled();
+		expect(screen.getByRole("button", { name: "Continue" })).toBeEnabled();
+		expect(screen.queryByText("Wrapped setup page")).not.toBeInTheDocument();
+	});
+
+	it("continues into the setup preview after card profile setup", async () => {
+		const user = userEvent.setup();
+
+		render(
+			<MemoryRouter initialEntries={["/wrapped"]}>
+				<WrappedGuestPage />
+			</MemoryRouter>,
+		);
+
+		await openWrappedLoginForm(user);
+		await submitWrappedPreviewEmail(user);
+		await user.clear(screen.getByLabelText("Name on card"));
+		await user.type(screen.getByLabelText("Name on card"), "Ada Lovelace");
+		expect(screen.getAllByText("Ada Lovelace").length).toBeGreaterThan(0);
+		await user.click(screen.getByRole("button", { name: "Continue" }));
+
+		expect(screen.getByText("Wrapped setup page")).toBeInTheDocument();
+		expect(readWrappedGuestPreviewSnapshot()?.profile.displayName).toBe(
+			"Ada Lovelace",
+		);
+	});
+
+	it("continues into the mobile handoff preview after card profile setup on mobile", async () => {
 		mockUseIsMobile.mockReturnValue(true);
 		const user = userEvent.setup();
 
@@ -260,13 +318,12 @@ describe("WrappedGuestPage", () => {
 			</MemoryRouter>,
 		);
 
-		await user.type(screen.getByLabelText("X handle"), "@evren");
-		await user.click(screen.getByRole("button", { name: "Use this handle" }));
-		await user.click(screen.getByRole("button", { name: "Log in" }));
-		expect(await screen.findByText("Wrapped login form")).toBeInTheDocument();
-		await user.click(
-			screen.getByRole("button", { name: "Preview wrapped email submit" }),
-		);
+		await openWrappedLoginForm(user);
+		await submitWrappedPreviewEmail(user);
+		expect(
+			screen.getByRole("heading", { name: "Make the card yours" }),
+		).toBeInTheDocument();
+		await user.click(screen.getByRole("button", { name: "Continue" }));
 
 		expect(
 			screen.getByText("Wrapped mobile handoff preview"),

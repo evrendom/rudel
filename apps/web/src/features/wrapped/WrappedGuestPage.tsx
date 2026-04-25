@@ -2,12 +2,11 @@ import type { ReactNode } from "react";
 import { useState } from "react";
 import { useIsMobile } from "@/app/hooks/use-mobile";
 import { WrappedAuthFlow } from "./WrappedAuthFlow";
+import { WrappedCardProfileStep } from "./WrappedCardProfileStep";
 import { WrappedDesktopResumePreviewStage } from "./WrappedDesktopResumePreviewStage";
 import { WrappedSetupPage } from "./WrappedSetupPage";
-import { WrappedXHandleStep } from "./WrappedXHandleStep";
 import {
 	buildLocalWrappedGuestPreviewProfile,
-	isWrappedGuestUsernameValid,
 	readWrappedGuestPreviewSnapshot,
 	type WrappedGuestFlowStep,
 	type WrappedGuestPreviewProfile,
@@ -15,7 +14,8 @@ import {
 } from "./wrapped-guest-preview";
 
 type WrappedGuestPageStep =
-	| WrappedGuestFlowStep
+	| "auth"
+	| "profile"
 	| "setup-preview"
 	| "mobile-preview";
 
@@ -28,40 +28,93 @@ export function WrappedGuestPage(props: {
 	const isMobile = useIsMobile();
 	const [initialSnapshot] = useState(() => readWrappedGuestPreviewSnapshot());
 	const [step, setStep] = useState<WrappedGuestPageStep>(
-		initialSnapshot?.step ?? "x-handle",
-	);
-	const [handleValue, setHandleValue] = useState(
-		initialSnapshot?.profile ? `@${initialSnapshot.profile.username}` : "",
+		getInitialWrappedGuestPageStep(initialSnapshot?.step),
 	);
 	const [previewProfile, setPreviewProfile] =
 		useState<WrappedGuestPreviewProfile | null>(
 			initialSnapshot?.profile ?? null,
 		);
 
-	function handleXHandleChange(nextValue: string) {
-		setHandleValue(nextValue);
-		setPreviewProfile(buildLocalWrappedGuestPreviewProfile(nextValue));
+	function handlePreviewEmailPasswordSubmit(email: string) {
+		const nextProfile =
+			previewProfile ??
+			buildLocalWrappedGuestPreviewProfile(getEmailHandle(email));
+
+		if (nextProfile) {
+			setPreviewProfile(nextProfile);
+			writeWrappedGuestPreviewSnapshot({
+				profile: nextProfile,
+				step: "profile",
+			});
+		}
+
+		setStep("profile");
 	}
 
-	function handleContinueToAuth() {
-		const localPreviewProfile =
-			buildLocalWrappedGuestPreviewProfile(handleValue) ?? previewProfile;
+	function handleProfileDisplayNameChange(nextValue: string) {
+		updatePreviewProfile({ displayName: nextValue });
+	}
 
-		if (!localPreviewProfile) {
+	function handleProfileImageChange(nextValue: string | null) {
+		updatePreviewProfile({ imageUrl: nextValue });
+	}
+
+	function handleBackToAuth() {
+		if (previewProfile) {
+			writeWrappedGuestPreviewSnapshot({
+				profile: previewProfile,
+				step: "auth",
+			});
+		}
+
+		setStep("auth");
+	}
+
+	function handleContinueFromProfile() {
+		const normalizedProfile = previewProfile
+			? {
+					...previewProfile,
+					displayName: previewProfile.displayName.trim(),
+				}
+			: null;
+
+		if (!normalizedProfile?.displayName) {
 			return;
 		}
 
-		setHandleValue(`@${localPreviewProfile.username}`);
-		setPreviewProfile(localPreviewProfile);
-		setStep("auth");
+		setPreviewProfile(normalizedProfile);
 		writeWrappedGuestPreviewSnapshot({
-			profile: localPreviewProfile,
-			step: "auth",
+			profile: normalizedProfile,
+			step: "profile",
 		});
+		setStep(isMobile ? "mobile-preview" : "setup-preview");
 	}
 
-	function handlePreviewEmailPasswordSubmit(_email: string) {
-		setStep(isMobile ? "mobile-preview" : "setup-preview");
+	function updatePreviewProfile(
+		updates: Partial<
+			Pick<WrappedGuestPreviewProfile, "displayName" | "imageUrl">
+		>,
+	) {
+		const nextProfile =
+			previewProfile ?? buildLocalWrappedGuestPreviewProfile("you");
+
+		if (!nextProfile) {
+			return;
+		}
+
+		const updatedProfile = {
+			...nextProfile,
+			...updates,
+		};
+
+		setPreviewProfile(updatedProfile);
+
+		if (updatedProfile.displayName.trim()) {
+			writeWrappedGuestPreviewSnapshot({
+				profile: updatedProfile,
+				step: "profile",
+			});
+		}
 	}
 
 	if (step === "mobile-preview") {
@@ -70,6 +123,22 @@ export function WrappedGuestPage(props: {
 
 	if (step === "setup-preview") {
 		return <WrappedSetupPage debugControls={debugControls} />;
+	}
+
+	if (step === "profile") {
+		return (
+			<WrappedCardProfileStep
+				debugControls={debugControls}
+				displayName={previewProfile?.displayName ?? ""}
+				imageUrl={previewProfile?.imageUrl ?? null}
+				isComplete={Boolean(previewProfile?.displayName.trim())}
+				onBack={handleBackToAuth}
+				onContinue={handleContinueFromProfile}
+				onDisplayNameChange={handleProfileDisplayNameChange}
+				onImageChange={handleProfileImageChange}
+				previewProfile={previewProfile}
+			/>
+		);
 	}
 
 	if (step === "auth") {
@@ -83,15 +152,15 @@ export function WrappedGuestPage(props: {
 			/>
 		);
 	}
+}
 
-	return (
-		<WrappedXHandleStep
-			debugControls={debugControls}
-			handleValue={handleValue}
-			isHandleValid={isWrappedGuestUsernameValid(handleValue)}
-			onContinue={handleContinueToAuth}
-			onHandleChange={handleXHandleChange}
-			previewProfile={previewProfile}
-		/>
-	);
+function getInitialWrappedGuestPageStep(
+	step: WrappedGuestFlowStep | undefined,
+): WrappedGuestPageStep {
+	return step === "profile" ? "profile" : "auth";
+}
+
+function getEmailHandle(email: string) {
+	const [emailHandle] = email.split("@");
+	return emailHandle?.trim() || "you";
 }

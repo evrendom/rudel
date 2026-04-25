@@ -67,7 +67,6 @@ export function LoginForm(props: LoginFormProps) {
 	const [requestingPasswordReset, setRequestingPasswordReset] = useState(false);
 	const [showEmailForm, setShowEmailForm] = useState(false);
 	const [wrappedScene, setWrappedScene] = useState<WrappedAuthScene>("choice");
-	const [wrappedVerificationCode, setWrappedVerificationCode] = useState("");
 	const { trackAuthenticationAction } = useAnalyticsTracking({
 		pageName: "login",
 	});
@@ -243,7 +242,7 @@ export function LoginForm(props: LoginFormProps) {
 
 	function handleOpenWrappedEmail() {
 		setFeedback(null);
-		setWrappedVerificationCode("");
+		setPassword("");
 		setWrappedScene("email");
 	}
 
@@ -260,41 +259,14 @@ export function LoginForm(props: LoginFormProps) {
 			});
 			return;
 		}
-		setWrappedVerificationCode("");
+		setPassword("");
 		setWrappedScene("credentials");
 	}
 
 	function handleReturnToWrappedChoice() {
 		setFeedback(null);
-		setWrappedVerificationCode("");
+		setPassword("");
 		setWrappedScene("choice");
-	}
-
-	function handleReturnToWrappedEmail() {
-		setFeedback(null);
-		setWrappedVerificationCode("");
-		setWrappedScene("email");
-	}
-
-	function handleContinueWrappedPreview() {
-		const trimmedCode = wrappedVerificationCode.trim();
-		if (trimmedCode.length < 6) {
-			const codeField = document.getElementById("login-verification-code");
-			if (codeField instanceof HTMLInputElement) {
-				codeField.focus();
-			}
-			setFeedback({
-				kind: "error",
-				message: "Enter the 6-digit code to continue.",
-			});
-			return;
-		}
-
-		if (!hasValidEmail || onEmailPasswordPreviewSubmit === undefined) {
-			return;
-		}
-
-		onEmailPasswordPreviewSubmit(email.trim());
 	}
 
 	function renderWrappedChoiceScene() {
@@ -385,127 +357,115 @@ export function LoginForm(props: LoginFormProps) {
 		);
 	}
 
-	function renderWrappedEmailScene() {
+	function renderWrappedEmailPasswordScene() {
+		const isPasswordStep = wrappedScene === "credentials";
+
 		return (
 			<motion.div
-				key="email"
+				key="email-password"
 				animate={wrappedSceneShellMotion.animate}
-				className="mymind-wrapped-auth-form__scene mymind-wrapped-auth-form__scene--email"
+				className={cn(
+					"mymind-wrapped-auth-form__scene mymind-wrapped-auth-form__scene--email",
+					isPasswordStep
+						? "mymind-wrapped-auth-form__scene--credentials"
+						: null,
+				)}
 				exit={wrappedSceneShellMotion.exit}
 				initial={getWrappedSceneInitialState(wrappedSceneShellMotion.initial)}
 				transition={wrappedSceneShellMotion.transition}
 			>
-				<motion.div
-					animate={wrappedSceneMotion.enter}
-					className="mymind-wrapped-auth-form__field"
-					exit={wrappedSceneMotion.exit}
-					initial={getWrappedSceneInitialState(wrappedSceneMotion.initial)}
-					transition={wrappedSceneMotion.transition}
-				>
-					<Input
-						aria-label="Email"
-						autoComplete="email"
-						autoFocus
-						id="login-email"
-						name="email"
-						type="email"
-						placeholder="you@example.com"
-						value={email}
-						onChange={(e) => {
-							setEmail(e.target.value);
-							if (feedback) {
-								setFeedback(null);
-							}
-						}}
-						className="mymind-wrapped-auth-form__input"
-						required
-					/>
-				</motion.div>
+				<form
+					onSubmit={(event) => {
+						if (!isPasswordStep) {
+							event.preventDefault();
+							handleContinueWrappedEmail();
+							return;
+						}
 
-				{renderWrappedFeedback()}
-
-				<motion.div
-					animate={getWrappedSceneItemMotion(0.06).animate}
-					className="mymind-wrapped-auth-form__action-item mymind-wrapped-auth-form__action-item--primary"
-					exit={getWrappedSceneItemMotion(0.06).exit}
-					initial={getWrappedSceneInitialState(
-						getWrappedSceneItemMotion(0.06).initial,
-					)}
-					transition={getWrappedSceneItemMotion(0.06).transition}
-				>
-					<Button
-						type="button"
-						onClick={handleContinueWrappedEmail}
-						className="mymind-wrapped-entry-action mymind-wrapped-auth-form__scene-action h-11 rounded-full px-7 [font-family:var(--app-font-heading)] text-[1.0625rem] font-semibold"
-					>
-						Continue
-					</Button>
-				</motion.div>
-
-				<motion.div
-					animate={getWrappedSceneItemMotion(0.1).animate}
-					className="mymind-wrapped-auth-form__action-item"
-					exit={getWrappedSceneItemMotion(0.1).exit}
-					initial={getWrappedSceneInitialState(
-						getWrappedSceneItemMotion(0.1).initial,
-					)}
-					transition={getWrappedSceneItemMotion(0.1).transition}
-				>
-					<button
-						type="button"
-						onClick={handleReturnToWrappedChoice}
-						className="mymind-wrapped-auth-form__scene-link"
-					>
-						Use another method
-					</button>
-				</motion.div>
-			</motion.div>
-		);
-	}
-
-	function renderWrappedCredentialsScene() {
-		if (usesWrappedEmailPreview) {
-			return (
-				<motion.div
-					key="credentials"
-					animate={wrappedSceneShellMotion.animate}
-					className="mymind-wrapped-auth-form__scene mymind-wrapped-auth-form__scene--credentials mymind-wrapped-auth-form__scene--verification"
-					exit={wrappedSceneShellMotion.exit}
-					initial={getWrappedSceneInitialState(wrappedSceneShellMotion.initial)}
-					transition={wrappedSceneShellMotion.transition}
+						void handleSubmit(event);
+					}}
+					className="mymind-wrapped-auth-form__scene-form"
 				>
 					<motion.div
 						animate={wrappedSceneMotion.enter}
-						className="mymind-wrapped-auth-form__verification"
+						className="mymind-wrapped-auth-form__scene-fields"
 						exit={wrappedSceneMotion.exit}
 						initial={getWrappedSceneInitialState(wrappedSceneMotion.initial)}
 						transition={wrappedSceneMotion.transition}
 					>
-						<p className="mymind-wrapped-auth-form__verification-copy">
-							Enter the code we sent to{" "}
-							<span className="mymind-wrapped-auth-form__verification-email">
-								{email.trim()}
-							</span>
-						</p>
-						<Input
-							aria-label="Verification code"
-							autoComplete="one-time-code"
-							autoFocus
-							id="login-verification-code"
-							inputMode="numeric"
-							maxLength={6}
-							placeholder="123456"
-							value={wrappedVerificationCode}
-							onChange={(e) => {
-								const nextValue = e.target.value.replace(/\D/g, "").slice(0, 6);
-								setWrappedVerificationCode(nextValue);
-								if (feedback?.kind === "error") {
-									setFeedback(null);
-								}
-							}}
-							className="mymind-wrapped-auth-form__input mymind-wrapped-auth-step__otp-input mymind-wrapped-auth-form__verification-code"
-							required
-						/>
+						<motion.div
+							layout="position"
+							className="mymind-wrapped-auth-form__field"
+							transition={wrappedSceneMotion.transition}
+						>
+							<Input
+								aria-label="Email"
+								autoComplete="email"
+								autoFocus={!isPasswordStep}
+								id="login-email"
+								name="email"
+								type="email"
+								placeholder="you@example.com"
+								value={email}
+								onChange={(e) => {
+									setEmail(e.target.value);
+									if (feedback) {
+										setFeedback(null);
+									}
+								}}
+								className="mymind-wrapped-auth-form__input"
+								required
+							/>
+						</motion.div>
+						<AnimatePresence initial={false}>
+							{isPasswordStep ? (
+								<motion.div
+									key="password"
+									animate={wrappedSceneMotion.enter}
+									className="mymind-wrapped-auth-form__field"
+									exit={wrappedSceneMotion.exit}
+									initial={wrappedSceneMotion.initial}
+									transition={wrappedSceneMotion.transition}
+								>
+									<Input
+										autoFocus
+										aria-label="Password"
+										id="password"
+										name="password"
+										type="password"
+										autoComplete="current-password"
+										placeholder="Password"
+										value={password}
+										onChange={(e) => {
+											setPassword(e.target.value);
+											if (feedback?.kind === "error") {
+												setFeedback(null);
+											}
+										}}
+										className="mymind-wrapped-auth-form__input"
+										required
+									/>
+									{usesWrappedEmailPreview ? null : (
+										<Button
+											type="button"
+											variant="ghost"
+											size="xs"
+											onClick={() => {
+												void handleRequestPasswordReset();
+											}}
+											disabled={requestingPasswordReset}
+											className="mymind-wrapped-auth-form__inline-action"
+										>
+											{requestingPasswordReset
+												? "Sending link..."
+												: feedback?.kind === "success"
+													? "Resend link"
+													: "Forgot password?"}
+										</Button>
+									)}
+								</motion.div>
+							) : null}
+						</AnimatePresence>
 					</motion.div>
 
 					{renderWrappedFeedback()}
@@ -520,146 +480,42 @@ export function LoginForm(props: LoginFormProps) {
 						transition={getWrappedSceneItemMotion(0.08).transition}
 					>
 						<Button
-							type="button"
-							onClick={handleContinueWrappedPreview}
-							className="mymind-wrapped-entry-action mymind-wrapped-auth-form__scene-action h-11 rounded-full px-7 [font-family:var(--app-font-heading)] text-[1.0625rem] font-semibold"
-						>
-							Continue
-						</Button>
-					</motion.div>
-
-					<motion.div
-						animate={getWrappedSceneItemMotion(0.12).animate}
-						className="mymind-wrapped-auth-form__action-item"
-						exit={getWrappedSceneItemMotion(0.12).exit}
-						initial={getWrappedSceneInitialState(
-							getWrappedSceneItemMotion(0.12).initial,
-						)}
-						transition={getWrappedSceneItemMotion(0.12).transition}
-					>
-						<button
-							type="button"
-							onClick={handleReturnToWrappedChoice}
-							className="mymind-wrapped-auth-form__scene-link"
-						>
-							Use another method
-						</button>
-					</motion.div>
-				</motion.div>
-			);
-		}
-
-		return (
-			<motion.div
-				key="credentials"
-				animate={wrappedSceneShellMotion.animate}
-				className="mymind-wrapped-auth-form__scene mymind-wrapped-auth-form__scene--credentials"
-				exit={wrappedSceneShellMotion.exit}
-				initial={getWrappedSceneInitialState(wrappedSceneShellMotion.initial)}
-				transition={wrappedSceneShellMotion.transition}
-			>
-				<motion.div
-					animate={wrappedSceneMotion.enter}
-					className="mymind-wrapped-auth-form__identity"
-					exit={wrappedSceneMotion.exit}
-					initial={getWrappedSceneInitialState(wrappedSceneMotion.initial)}
-					transition={wrappedSceneMotion.transition}
-				>
-					<div className="mymind-wrapped-auth-form__identity-copy">
-						<span className="mymind-wrapped-auth-form__identity-label">
-							Email
-						</span>
-						<span className="mymind-wrapped-auth-form__identity-value">
-							{email.trim()}
-						</span>
-					</div>
-					<button
-						type="button"
-						onClick={handleReturnToWrappedEmail}
-						className="mymind-wrapped-auth-form__identity-action"
-					>
-						Change
-					</button>
-				</motion.div>
-
-				<form
-					onSubmit={handleSubmit}
-					className="mymind-wrapped-auth-form__scene-form"
-				>
-					<motion.div
-						animate={wrappedSceneMotion.enter}
-						className="mymind-wrapped-auth-form__scene-fields"
-						exit={wrappedSceneMotion.exit}
-						initial={getWrappedSceneInitialState(wrappedSceneMotion.initial)}
-						transition={wrappedSceneMotion.transition}
-					>
-						<div className="mymind-wrapped-auth-form__field">
-							<div className="flex items-center justify-between gap-3">
-								<Label
-									className="mymind-wrapped-auth-form__label"
-									htmlFor="password"
-								>
-									Password
-								</Label>
-								{usesWrappedEmailPreview ? null : (
-									<Button
-										type="button"
-										variant="ghost"
-										size="xs"
-										onClick={() => {
-											void handleRequestPasswordReset();
-										}}
-										disabled={requestingPasswordReset}
-										className="mymind-wrapped-auth-form__inline-action"
-									>
-										{requestingPasswordReset
-											? "Sending link..."
-											: feedback?.kind === "success"
-												? "Resend link"
-												: "Forgot password?"}
-									</Button>
-								)}
-							</div>
-							<Input
-								autoFocus
-								id="password"
-								name="password"
-								type="password"
-								autoComplete="current-password"
-								value={password}
-								onChange={(e) => {
-									setPassword(e.target.value);
-									if (feedback?.kind === "error") {
-										setFeedback(null);
-									}
-								}}
-								className="mymind-wrapped-auth-form__input"
-								required
-							/>
-						</div>
-					</motion.div>
-
-					<motion.div
-						animate={getWrappedSceneItemMotion(0.08).animate}
-						className="mymind-wrapped-auth-form__action-item mymind-wrapped-auth-form__action-item--primary"
-						exit={getWrappedSceneItemMotion(0.08).exit}
-						initial={getWrappedSceneInitialState(
-							getWrappedSceneItemMotion(0.08).initial,
-						)}
-						transition={getWrappedSceneItemMotion(0.08).transition}
-					>
-						<Button
-							type="submit"
+							type={isPasswordStep ? "submit" : "button"}
+							onClick={isPasswordStep ? undefined : handleContinueWrappedEmail}
 							disabled={
-								usesWrappedEmailPreview
-									? false
-									: loading || requestingPasswordReset
+								isPasswordStep && !usesWrappedEmailPreview
+									? loading || requestingPasswordReset
+									: false
 							}
 							className="mymind-wrapped-entry-action mymind-wrapped-auth-form__scene-action h-11 rounded-full px-7 [font-family:var(--app-font-heading)] text-[1.0625rem] font-semibold"
 						>
-							{loading ? "Signing in..." : "Sign in"}
+							{isPasswordStep
+								? loading
+									? "Signing in..."
+									: "Sign in"
+								: "Continue"}
 						</Button>
 					</motion.div>
+
+					{isPasswordStep ? null : (
+						<motion.div
+							animate={getWrappedSceneItemMotion(0.1).animate}
+							className="mymind-wrapped-auth-form__action-item"
+							exit={getWrappedSceneItemMotion(0.1).exit}
+							initial={getWrappedSceneInitialState(
+								getWrappedSceneItemMotion(0.1).initial,
+							)}
+							transition={getWrappedSceneItemMotion(0.1).transition}
+						>
+							<button
+								type="button"
+								onClick={handleReturnToWrappedChoice}
+								className="mymind-wrapped-auth-form__scene-link"
+							>
+								Use another method
+							</button>
+						</motion.div>
+					)}
 				</form>
 			</motion.div>
 		);
@@ -675,30 +531,9 @@ export function LoginForm(props: LoginFormProps) {
 					<AnimatePresence initial={false} mode="wait">
 						{wrappedScene === "choice"
 							? renderWrappedChoiceScene()
-							: wrappedScene === "email"
-								? renderWrappedEmailScene()
-								: renderWrappedCredentialsScene()}
+							: renderWrappedEmailPasswordScene()}
 					</AnimatePresence>
 				</div>
-
-				{hideSwitchPrompt ? null : (
-					<p className="mymind-wrapped-auth-form__switch-copy">
-						Don&apos;t have an account?{" "}
-						<button
-							type="button"
-							onClick={() => {
-								trackAuthenticationAction({
-									actionName: "open_signup",
-									sourceComponent: "login_form",
-								});
-								onSwitchToSignup();
-							}}
-							className="mymind-wrapped-auth-form__switch-link"
-						>
-							Sign up
-						</button>
-					</p>
-				)}
 			</div>
 		);
 	}

@@ -149,7 +149,11 @@ function WrappedAuthStage(props: WrappedAuthStageProps) {
 						className="mymind-wrapped-auth-panel__card-scale-shell"
 						transition={cardScaleTransition}
 					>
-						<WrappedGuestPreviewCard profile={previewProfile} size="hero" />
+						<WrappedGuestPreviewCard
+							appearance={mode === "signup" ? "unknown" : "default"}
+							profile={previewProfile}
+							size="hero"
+						/>
 					</motion.div>
 				</motion.div>
 

@@ -46,6 +46,10 @@ export function WrappedXHandleStep(props: WrappedXHandleStepProps) {
 			stage={
 				<div className="mymind-wrapped-auth-panel mymind-wrapped-auth-panel--intro">
 					<WrappedGuestPreviewCard profile={previewProfile} />
+					<p className="mymind-wrapped-x-handle-step__debug-comment">
+						DEBUG: To be continued. This X-card preview was scrapped because of
+						time constraints.
+					</p>
 					<div className="mymind-wrapped-auth-panel__body">
 						<div className="mymind-wrapped-auth-form">
 							<div className="mymind-wrapped-auth-form__field">
@@ -90,7 +94,9 @@ export function WrappedXHandleStep(props: WrappedXHandleStepProps) {
 					</div>
 					<div className="mymind-wrapped-auth-panel__footer">
 						{debugControls ? (
-							<WrappedDebugControlStack>{debugControls}</WrappedDebugControlStack>
+							<WrappedDebugControlStack>
+								{debugControls}
+							</WrappedDebugControlStack>
 						) : null}
 						<Button
 							type="button"

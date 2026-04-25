@@ -90,11 +90,11 @@ export function buildWrappedTeamCardBackMetrics(input: {
 		},
 		{
 			label: "Input/output tokens",
-			value: formatWrappedBackIntegerPair(inputTokens, outputTokens),
+			value: formatWrappedBackTokenPair(inputTokens, outputTokens),
 		},
 		{
 			label: "Total tokens",
-			value: formatWrappedBackInteger(totalTokens),
+			value: formatWrappedBackTokenCount(totalTokens),
 		},
 		{
 			label: "Commit rate %",
@@ -152,11 +152,45 @@ function formatWrappedBackInteger(value: number | null) {
 	return Math.round(Math.max(0, value)).toString();
 }
 
-function formatWrappedBackIntegerPair(
+function formatWrappedBackTokenPair(
 	leftValue: number | null,
 	rightValue: number | null,
 ) {
-	return `${formatWrappedBackInteger(leftValue)}/${formatWrappedBackInteger(rightValue)}`;
+	return `${formatWrappedBackTokenCount(leftValue)}/${formatWrappedBackTokenCount(rightValue)}`;
+}
+
+function formatWrappedBackTokenCount(value: number | null) {
+	if (value === null || !Number.isFinite(value)) {
+		return "0";
+	}
+
+	const integerValue = Math.round(Math.max(0, value));
+
+	if (integerValue < 1000) {
+		return integerValue.toString();
+	}
+
+	if (integerValue >= 1_000_000) {
+		return `${formatWrappedBackScaledTokenCount(integerValue, 1_000_000)}M`;
+	}
+
+	return `${formatWrappedBackScaledTokenCount(integerValue, 1000)}K`;
+}
+
+function formatWrappedBackScaledTokenCount(value: number, scale: number) {
+	const scaledValue = value / scale;
+	const roundedValue = roundWrappedBackValueToSecondDigit(scaledValue);
+
+	return roundedValue.toLocaleString("en-US", {
+		maximumFractionDigits: roundedValue < 10 ? 1 : 0,
+	});
+}
+
+function roundWrappedBackValueToSecondDigit(value: number) {
+	const digitMagnitude = 10 ** Math.floor(Math.log10(value));
+	const roundingScale = digitMagnitude / 10;
+
+	return Math.round(value / roundingScale) * roundingScale;
 }
 
 function formatWrappedBackPercentPair(

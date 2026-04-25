@@ -1,4 +1,4 @@
-import type { DeveloperDetails } from "@rudel/api-routes";
+import type { DeveloperDetails, WrappedV1 } from "@rudel/api-routes";
 import type { TeamPageMemberRow } from "@/features/team/use-team-page-data";
 
 interface BuildResolvedTeamCardRowParams {
@@ -9,6 +9,7 @@ interface BuildResolvedTeamCardRowParams {
 	sessionUserId: string | undefined;
 	sessionUserName: string | undefined;
 	teamMemberRows: readonly TeamPageMemberRow[];
+	wrappedMetrics: WrappedV1["metrics"] | undefined;
 }
 
 export function buildResolvedTeamCardRow(
@@ -22,6 +23,7 @@ export function buildResolvedTeamCardRow(
 		sessionUserId,
 		sessionUserName,
 		teamMemberRows,
+		wrappedMetrics,
 	} = params;
 	const currentUserRow = findCurrentUserRow({
 		sessionUserEmail,
@@ -61,25 +63,64 @@ export function buildResolvedTeamCardRow(
 	if (currentUserRow) {
 		return {
 			...currentUserRow,
+			...getWrappedMetricFallbackFields(wrappedMetrics, currentUserRow),
 			imageUrl: debugProfileImageSrc,
 		};
 	}
 
+	const wrappedFallbackFields = getWrappedMetricFallbackFields(wrappedMetrics);
+
 	return {
-		activeDays: 0,
-		cost: 0,
+		activeDays: wrappedFallbackFields.activeDays,
+		cost: wrappedFallbackFields.cost,
 		displayName,
 		email,
-		favoriteModel: null,
-		hasActivity: false,
+		favoriteModel: wrappedFallbackFields.favoriteModel,
+		hasActivity: wrappedFallbackFields.hasActivity,
 		imageUrl: debugProfileImageSrc,
 		inputTokens: 0,
-		lastActiveDate: null,
+		lastActiveDate: wrappedMetrics?.last_session_at ?? null,
 		outputTokens: 0,
 		role: "Tracked collaborator",
-		totalSessions: 0,
-		totalTokens: 0,
+		totalSessions: wrappedFallbackFields.totalSessions,
+		totalTokens: wrappedFallbackFields.totalTokens,
 		userId: sessionUserId ?? "wrapped-preview",
+	};
+}
+
+function getWrappedMetricFallbackFields(
+	wrappedMetrics: WrappedV1["metrics"] | undefined,
+	currentRow?: TeamPageMemberRow,
+) {
+	const totalSessions = Math.max(
+		currentRow?.totalSessions ?? 0,
+		wrappedMetrics?.total_sessions ?? 0,
+	);
+	const activeDays = Math.max(
+		currentRow?.activeDays ?? 0,
+		wrappedMetrics?.active_days ?? 0,
+	);
+	const totalTokens = Math.max(
+		currentRow?.totalTokens ?? 0,
+		wrappedMetrics?.total_tokens ?? 0,
+	);
+	const cost = Math.max(
+		currentRow?.cost ?? 0,
+		wrappedMetrics?.estimated_spend_usd ?? 0,
+	);
+
+	return {
+		activeDays,
+		cost,
+		favoriteModel:
+			currentRow?.favoriteModel ?? wrappedMetrics?.favorite_model ?? null,
+		hasActivity:
+			Boolean(currentRow?.hasActivity) ||
+			totalSessions > 0 ||
+			activeDays > 0 ||
+			totalTokens > 0,
+		totalSessions,
+		totalTokens,
 	};
 }
 

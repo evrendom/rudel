@@ -2,7 +2,9 @@ import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { TeamPageMemberRow } from "@/features/team/use-team-page-data";
 import type { WrappedOnboardingMetrics } from "@/features/wrapped/onboarding/types";
+import { buildWrappedTeamCardBackMetrics } from "@/features/wrapped/team-card/back-metrics";
 import { WrappedTeamCardRevealStage } from "@/features/wrapped/team-card/final-stages";
+import { WrappedTeamCardSharePreview } from "@/features/wrapped/team-card/share-preview";
 import type { WrappedCardTiltController } from "@/features/wrapped/team-card/tilt/use-card-tilt";
 
 vi.mock("motion/react", async () => {
@@ -50,7 +52,16 @@ vi.mock("motion/react", async () => {
 });
 
 vi.mock("@/features/wrapped/team-card/card", () => ({
-	WrappedTeamMemberCard: () => <div data-testid="wrapped-team-card" />,
+	WrappedTeamMemberCard: ({
+		headerRightMetric,
+	}: {
+		headerRightMetric?: { value: string };
+	}) => (
+		<div
+			data-header-right={headerRightMetric?.value ?? ""}
+			data-testid="wrapped-team-card"
+		/>
+	),
 }));
 
 Object.defineProperty(window, "matchMedia", {
@@ -140,6 +151,89 @@ const tiltController: WrappedCardTiltController = {
 afterEach(() => {
 	vi.clearAllTimers();
 	vi.useRealTimers();
+});
+
+describe("buildWrappedTeamCardBackMetrics", () => {
+	it("rounds token metrics to compact second-digit labels", () => {
+		const metrics = buildWrappedTeamCardBackMetrics({
+			onboardingMetrics: {
+				...onboardingMetrics,
+				totalTokens: 1_920_000,
+			},
+			row: {
+				...row,
+				inputTokens: 1_180_000,
+				outputTokens: 740_000,
+				totalTokens: 1_920_000,
+			},
+			shareCardCreatedAtLabel: "04/24/2026",
+		});
+
+		expect(
+			metrics.find((metric) => metric.label === "Input/output tokens")?.value,
+		).toBe("1.2M/740K");
+		expect(
+			metrics.find((metric) => metric.label === "Total tokens")?.value,
+		).toBe("1.9M");
+	});
+});
+
+describe("WrappedTeamCardSharePreview", () => {
+	it("shows the archetype on the one-card variant without caption text", () => {
+		const { container } = render(
+			<WrappedTeamCardSharePreview
+				appearance={{ layoutMode: "front", showArchetypeLabel: true }}
+				headerLeftMetric={{ title: "$42 estimated spend", value: "$42" }}
+				headerRightMetric={{
+					title: "Smooth Operator",
+					value: "Smooth Operator",
+				}}
+				row={row}
+				shareCardCreatedAtLabel="04/24/2026"
+				shellClassName="bg-sky-200"
+				shellStyle={{}}
+				statItems={[]}
+				theme="light"
+			/>,
+		);
+
+		expect(container.querySelectorAll("p")).toHaveLength(0);
+		expect(screen.getByTestId("wrapped-team-card")).toHaveAttribute(
+			"data-header-right",
+			"Smooth Operator",
+		);
+	});
+
+	it("shows the archetype on the two-card variant without caption text", () => {
+		const { container } = render(
+			<WrappedTeamCardSharePreview
+				appearance={{ layoutMode: "front_back", showArchetypeLabel: true }}
+				backMetrics={buildWrappedTeamCardBackMetrics({
+					onboardingMetrics,
+					row,
+					shareCardCreatedAtLabel: "04/24/2026",
+				})}
+				headerLeftMetric={{ title: "$42 estimated spend", value: "$42" }}
+				headerRightMetric={{
+					title: "Smooth Operator",
+					value: "Smooth Operator",
+				}}
+				row={row}
+				shareCardCreatedAtLabel="04/24/2026"
+				shellClassName="bg-sky-200"
+				shellStyle={{}}
+				statItems={[]}
+				theme="light"
+			/>,
+		);
+
+		expect(container.querySelectorAll("p")).toHaveLength(0);
+		expect(screen.getByTestId("wrapped-team-card")).toHaveAttribute(
+			"data-header-right",
+			"Smooth Operator",
+		);
+		expect(screen.getByText("Input/output tokens")).toBeInTheDocument();
+	});
 });
 
 describe("WrappedTeamCardRevealStage", () => {
@@ -242,7 +336,9 @@ describe("WrappedTeamCardRevealStage", () => {
 		expect(screen.getByText("Claude/Codex %")).toBeInTheDocument();
 		expect(screen.getByText("57%/43%")).toBeInTheDocument();
 		expect(screen.getByText("Input/output tokens")).toBeInTheDocument();
-		expect(screen.getByText("60000/64000")).toBeInTheDocument();
+		expect(screen.getByText("60K/64K")).toBeInTheDocument();
+		expect(screen.getByText("Total tokens")).toBeInTheDocument();
+		expect(screen.getByText("120K")).toBeInTheDocument();
 		expect(screen.getByText("Skills used")).toBeInTheDocument();
 		expect(screen.getByText("23")).toBeInTheDocument();
 		expect(screen.getByText("Favorite skill")).toBeInTheDocument();
@@ -319,7 +415,7 @@ describe("WrappedTeamCardRevealStage", () => {
 		});
 
 		const turnAroundButton = screen.getByRole("button", {
-			name: "Turn around",
+			name: "Continue",
 		});
 		fireEvent.click(turnAroundButton);
 

@@ -47,17 +47,6 @@ export function WrappedTeamCardSharePreview(
 		theme,
 	} = props;
 	const resolvedAppearance = resolveWrappedShareAppearance(appearance);
-	const visibleHeaderRightMetric = resolvedAppearance.showArchetypeLabel
-		? headerRightMetric
-		: undefined;
-	const topComment =
-		resolvedAppearance.layoutMode === "front" &&
-		!resolvedAppearance.showArchetypeLabel
-			? formatWrappedShareTopComment({
-					archetypeLabel: headerRightMetric?.value,
-					displayName: row.displayName,
-				})
-			: null;
 	const spreadBackMetrics =
 		resolvedAppearance.layoutMode === "front_back" ? (backMetrics ?? []) : [];
 	const shouldShowFrontBackSpread = spreadBackMetrics.length > 0;
@@ -70,23 +59,15 @@ export function WrappedTeamCardSharePreview(
 		>
 			<div className="mymind-wrapped-share-preview__shell team-lineup-surface-scope">
 				<div className="mymind-wrapped-share-preview__top">
-					{topComment ? (
-						<p className="mymind-wrapped-share-preview__top-comment">
-							{topComment}
-						</p>
-					) : (
-						<>
-							<img
-								src="/assets/wordmark-dark-BeVDO32X.svg"
-								alt="rudel.ai"
-								className="h-4 w-auto"
-							/>
-							<div className="flex items-center gap-2.5">
-								<SharePreviewAnthropicLogo />
-								<SharePreviewCodexLogo />
-							</div>
-						</>
-					)}
+					<img
+						src="/assets/wordmark-dark-BeVDO32X.svg"
+						alt="rudel.ai"
+						className="h-4 w-auto"
+					/>
+					<div className="flex items-center gap-2.5">
+						<SharePreviewAnthropicLogo />
+						<SharePreviewCodexLogo />
+					</div>
 				</div>
 
 				<div className="mymind-wrapped-share-preview__body">
@@ -99,7 +80,7 @@ export function WrappedTeamCardSharePreview(
 											<WrappedTeamMemberCard
 												disableOuterShadow
 												headerLeftMetric={headerLeftMetric}
-												headerRightMetric={visibleHeaderRightMetric}
+												headerRightMetric={headerRightMetric}
 												hideHeaderLogo
 												layoutPreset="team-card-preview"
 												mediaPanelClassName="mx-auto"
@@ -139,7 +120,7 @@ export function WrappedTeamCardSharePreview(
 									<WrappedTeamMemberCard
 										disableOuterShadow
 										headerLeftMetric={headerLeftMetric}
-										headerRightMetric={visibleHeaderRightMetric}
+										headerRightMetric={headerRightMetric}
 										hideHeaderLogo
 										layoutPreset="team-card-preview"
 										mediaPanelClassName="mx-auto"
@@ -171,21 +152,6 @@ export function WrappedTeamCardSharePreview(
 			</div>
 		</div>
 	);
-}
-
-function formatWrappedShareTopComment(input: {
-	archetypeLabel?: string;
-	displayName: string;
-}) {
-	const displayName = input.displayName.trim();
-	const archetypeLabel = input.archetypeLabel?.trim();
-
-	if (!displayName || !archetypeLabel) {
-		return null;
-	}
-
-	const firstName = displayName.split(/\s+/u)[0] ?? displayName;
-	return `${firstName} has ${archetypeLabel} energy.`;
 }
 
 function SharePreviewAnthropicLogo() {

@@ -25,8 +25,27 @@ const adaptedTeamCardMediaPanelClassName =
 const portraitPanelClassName =
 	"relative flex h-full w-full flex-col justify-between overflow-hidden";
 
-const portraitPlaceholderInitialsClassName =
-	"font-extrabold leading-none tracking-[-0.08em] text-black/66";
+const portraitPlaceholderEmojiClassName =
+	"select-none leading-none drop-shadow-[0_1px_0_rgb(255_255_255_/_0.58)]";
+
+const WRAPPED_ANIMAL_FACE_EMOJIS = [
+	"🐶",
+	"🐱",
+	"🐭",
+	"🐹",
+	"🐰",
+	"🦊",
+	"🐻",
+	"🐼",
+	"🐨",
+	"🐯",
+	"🦁",
+	"🐮",
+	"🐷",
+	"🐸",
+	"🐵",
+	"🐔",
+] as const;
 
 const STAT_SURFACE_BLEED_PX = 10;
 const STAT_RAINBOW_MASK_IMAGE =
@@ -45,6 +64,9 @@ const tonePortraitClassNames = {
 	rose: "bg-[linear-gradient(180deg,#ffe5ea_0%,#ec9eb0_100%)] text-[#71364d]",
 	slate: "bg-[linear-gradient(180deg,#e7edf2_0%,#bcc7d4_100%)] text-[#43515f]",
 } as const satisfies Record<TeamCardTone, string>;
+
+const portraitPlaceholderPanelClassName =
+	"bg-[#ebebeb] text-[#676767]";
 
 export interface WrappedTeamMemberCardHeaderMetric {
 	label?: string;
@@ -133,8 +155,9 @@ export function WrappedTeamMemberCard(props: {
 	const shouldRenderPortraitImage = Boolean(
 		row.imageUrl && row.imageUrl !== failedPortraitImageUrl,
 	);
-	const effectiveTone = shouldRenderPortraitImage ? tone : "rose";
-	const initials = getAvatarInitials(row.displayName);
+	const animalFaceEmoji = getWrappedAnimalFaceEmoji(
+		`${row.userId}:${row.displayName}`,
+	);
 	const isDarkTheme = theme === "dark";
 	const isMutedTheme = theme === "muted";
 	const { statSectionRef, statSurfaceStyles, statTileRefs } =
@@ -156,6 +179,7 @@ export function WrappedTeamMemberCard(props: {
 		statLayerOpacities.tileBaseTint === "black" ? "0 0 0" : "255 255 255";
 	const tileFillRgb =
 		statLayerOpacities.tileFillTint === "black" ? "0 0 0" : "255 255 255";
+	const cardOuterRadius = `var(--wrapped-team-card-outer-radius, ${scaleLength(18)})`;
 	const statTileBaseStyle: CSSProperties = {
 		backgroundColor: `rgb(${tileBaseRgb} / ${statLayerOpacities.tileBaseOpacity ?? 0})`,
 	};
@@ -164,7 +188,7 @@ export function WrappedTeamMemberCard(props: {
 		boxShadow: `0 1px 0 rgb(255 255 255 / ${statLayerOpacities.tileTopStrokeOpacity * borderLayerOpacity}), inset 0 0.5px 0.5px rgb(0 0 0 / ${statLayerOpacities.tileInsetShadowOpacity * borderLayerOpacity})`,
 	};
 	const cardShellLayoutStyle: CSSProperties = {
-		borderRadius: scaleLength(18),
+		borderRadius: cardOuterRadius,
 		boxShadow: disableOuterShadow
 			? "none"
 			: `0 0 ${scaleLength(10.1)} rgba(0,0,0,0.08)`,
@@ -241,8 +265,9 @@ export function WrappedTeamMemberCard(props: {
 		right: 0,
 		top: 0,
 	};
-	const placeholderInitialsStyle: CSSProperties = {
-		fontSize: scaleLength(54),
+	const portraitPlaceholderEmojiStyle: CSSProperties = {
+		fontSize: scaleLength(62),
+		transform: "translateY(-2%)",
 	};
 	const nameBlockStyle: CSSProperties = {
 		paddingLeft: scaleLength(3),
@@ -378,7 +403,9 @@ export function WrappedTeamMemberCard(props: {
 					<div
 						className={cn(
 							portraitPanelClassName,
-							tonePortraitClassNames[effectiveTone],
+							shouldRenderPortraitImage
+								? tonePortraitClassNames[tone]
+								: portraitPlaceholderPanelClassName,
 						)}
 						style={portraitPanelStyle}
 					>
@@ -401,14 +428,20 @@ export function WrappedTeamMemberCard(props: {
 								<div className="relative z-10 flex-1" />
 							</>
 						) : (
-							<div className="flex h-full w-full items-center justify-center">
+							<>
+								<div aria-hidden="true" style={portraitImageOverlayStyle} />
 								<div
-									className={portraitPlaceholderInitialsClassName}
-									style={placeholderInitialsStyle}
+									aria-label="Animal avatar"
+									className={cn(
+										"relative z-10 flex h-full w-full items-center justify-center",
+										portraitPlaceholderEmojiClassName,
+									)}
+									role="img"
+									style={portraitPlaceholderEmojiStyle}
 								>
-									{initials}
+									{animalFaceEmoji}
 								</div>
-							</div>
+							</>
 						)}
 					</div>
 				</div>
@@ -534,18 +567,17 @@ export function WrappedTeamMemberCard(props: {
 	);
 }
 
-function getAvatarInitials(name: string) {
-	const parts = name.split(/\s+/).filter(Boolean);
+function getWrappedAnimalFaceEmoji(seed: string) {
+	const normalizedSeed = seed.trim() || "wrapped-animal";
+	let hash = 0;
 
-	if (parts.length === 0) {
-		return "TM";
+	for (let index = 0; index < normalizedSeed.length; index += 1) {
+		hash = (hash * 31 + normalizedSeed.charCodeAt(index)) >>> 0;
 	}
 
-	if (parts.length === 1) {
-		return parts[0]?.slice(0, 2).toUpperCase() ?? "TM";
-	}
-
-	return `${parts[0]?.[0] ?? ""}${parts.at(-1)?.[0] ?? ""}`.toUpperCase();
+	return (
+		WRAPPED_ANIMAL_FACE_EMOJIS[hash % WRAPPED_ANIMAL_FACE_EMOJIS.length] ?? "🐶"
+	);
 }
 
 function getCardTone(row: TeamPageMemberRow): TeamCardTone {

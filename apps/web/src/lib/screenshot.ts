@@ -1,8 +1,15 @@
-import { toPng } from "html-to-image";
+import { toBlob } from "html-to-image";
 
 const PADDING = 24;
+const DEFAULT_PIXEL_RATIO = 2;
+const ASSET_READY_TIMEOUT_MS = 3000;
 const TRANSPARENT_IMAGE_PLACEHOLDER =
 	"data:image/gif;base64,R0lGODlhAQABAAAAACwAAAAAAQABAAA=";
+
+export interface CaptureElementOptions {
+	padding?: number;
+	pixelRatio?: number;
+}
 
 function resolveBackgroundColor(element: HTMLElement): string {
 	let el: HTMLElement | null = element;
@@ -16,9 +23,15 @@ function resolveBackgroundColor(element: HTMLElement): string {
 	return "#ffffff";
 }
 
-export async function captureElement(element: HTMLElement): Promise<Blob> {
+export async function captureElement(
+	element: HTMLElement,
+	options: CaptureElementOptions = {},
+): Promise<Blob> {
+	await waitForElementAssets(element);
+
 	const bg = resolveBackgroundColor(element);
-	const dataUrl = await toPng(element, {
+	const pixelRatio = options.pixelRatio ?? DEFAULT_PIXEL_RATIO;
+	const imageBlob = await toBlob(element, {
 		backgroundColor: bg,
 		// Official html-to-image options:
 		// - cacheBust avoids stale asset fetches during repeated share attempts
@@ -26,19 +39,33 @@ export async function captureElement(element: HTMLElement): Promise<Blob> {
 		// - preferredFontFormat keeps font embedding small and deterministic
 		cacheBust: true,
 		imagePlaceholder: TRANSPARENT_IMAGE_PLACEHOLDER,
-		pixelRatio: 2,
+		pixelRatio,
 		preferredFontFormat: "woff2",
 	});
 
-	// Draw onto a canvas with padding
-	const img = new Image();
-	await new Promise<void>((resolve, reject) => {
-		img.onload = () => resolve();
-		img.onerror = reject;
-		img.src = dataUrl;
-	});
+	if (!imageBlob) {
+		throw new Error("Failed to capture element as image");
+	}
 
-	const pad = PADDING * 2; // pixelRatio is already applied in the image
+	const padding = options.padding ?? PADDING;
+	if (padding <= 0) {
+		return imageBlob;
+	}
+
+	// Draw onto a canvas with padding.
+	const img = new Image();
+	const imageUrl = URL.createObjectURL(imageBlob);
+	try {
+		await new Promise<void>((resolve, reject) => {
+			img.onload = () => resolve();
+			img.onerror = reject;
+			img.src = imageUrl;
+		});
+	} finally {
+		URL.revokeObjectURL(imageUrl);
+	}
+
+	const pad = padding * pixelRatio;
 	const canvas = document.createElement("canvas");
 	canvas.width = img.width + pad * 2;
 	canvas.height = img.height + pad * 2;
@@ -54,6 +81,49 @@ export async function captureElement(element: HTMLElement): Promise<Blob> {
 			if (blob) resolve(blob);
 			else reject(new Error("Failed to capture element as image"));
 		}, "image/png");
+	});
+}
+
+async function waitForElementAssets(element: HTMLElement) {
+	await Promise.race([
+		document.fonts?.ready.catch(() => undefined) ?? Promise.resolve(),
+		wait(ASSET_READY_TIMEOUT_MS),
+	]);
+
+	const images = Array.from(element.querySelectorAll("img"));
+	await Promise.all(images.map(waitForImage));
+
+	await new Promise<void>((resolve) => {
+		requestAnimationFrame(() => {
+			requestAnimationFrame(() => resolve());
+		});
+	});
+}
+
+function waitForImage(image: HTMLImageElement) {
+	return new Promise<void>((resolve) => {
+		if (image.complete) {
+			resolve();
+			return;
+		}
+
+		const timeoutId = window.setTimeout(finish, ASSET_READY_TIMEOUT_MS);
+
+		function finish() {
+			window.clearTimeout(timeoutId);
+			image.removeEventListener("load", finish);
+			image.removeEventListener("error", finish);
+			resolve();
+		}
+
+		image.addEventListener("load", finish, { once: true });
+		image.addEventListener("error", finish, { once: true });
+	});
+}
+
+function wait(timeoutMs: number) {
+	return new Promise<void>((resolve) => {
+		window.setTimeout(resolve, timeoutMs);
 	});
 }
 

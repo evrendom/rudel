@@ -78,39 +78,23 @@ type WrappedRevealSequencePhase = "sessions" | "tokens" | "archetype";
 const WRAPPED_SHARE_VARIANTS: ReadonlyArray<{
 	appearance: WrappedShareAppearance;
 	description: string;
-	number: "1" | "2" | "3" | "4";
+	label: "1 card" | "2 cards";
 }> = [
 	{
 		appearance: {
 			layoutMode: "front",
 			showArchetypeLabel: true,
 		},
-		description: "Front card with archetype text",
-		number: "1",
-	},
-	{
-		appearance: {
-			layoutMode: "front",
-			showArchetypeLabel: false,
-		},
-		description: "Front card with archetype comment",
-		number: "2",
+		description: "One card",
+		label: "1 card",
 	},
 	{
 		appearance: {
 			layoutMode: "front_back",
 			showArchetypeLabel: true,
 		},
-		description: "Front and back card with archetype text",
-		number: "3",
-	},
-	{
-		appearance: {
-			layoutMode: "front_back",
-			showArchetypeLabel: false,
-		},
-		description: "Front and back card without archetype text",
-		number: "4",
+		description: "Two cards",
+		label: "2 cards",
 	},
 ];
 
@@ -203,18 +187,18 @@ export function WrappedTeamCardShareStage(
 
 									return (
 										<Button
-											key={variant.number}
+											key={variant.label}
 											type="button"
-											size="icon-sm"
+											size="sm"
 											variant="outline"
-											aria-label={`Variant ${variant.number}: ${variant.description}`}
+											aria-label={variant.description}
 											aria-pressed={isActive}
-											title={`Variant ${variant.number}: ${variant.description}`}
+											title={variant.description}
 											className="mymind-wrapped-share-variant-button"
 											data-active={isActive ? "true" : "false"}
 											onClick={() => onAppearanceChange(variant.appearance)}
 										>
-											{variant.number}
+											{variant.label}
 										</Button>
 									);
 								})}
@@ -315,8 +299,7 @@ function isWrappedShareAppearanceActive(input: {
 	const { currentValue, targetValue } = input;
 
 	return (
-		currentValue.layoutMode === targetValue.layoutMode &&
-		currentValue.showArchetypeLabel === targetValue.showArchetypeLabel
+		currentValue.layoutMode === targetValue.layoutMode
 	);
 }
 
@@ -625,7 +608,7 @@ export function WrappedTeamCardRevealStage(
 				<WrappedTeamCardRevealFooter
 					isDisabled={isCardFlipAnimating}
 					isVisible={isPreviewPostVisible}
-					label={hasCardFrontBeenRevealed ? "Continue" : "Turn around"}
+					label="Continue"
 					onAction={handleRevealFooterAction}
 				/>
 			}
