@@ -529,7 +529,7 @@ export function WrappedTeamCardRevealStage(
 							reduceMotion,
 						})}
 					>
-						<div className="team-lineup-card-tilt-stage w-full max-w-[16rem] min-[360px]:max-w-[16.75rem] sm:max-w-none">
+						<div className="team-lineup-card-tilt-stage mymind-wrapped-final-stage__card-visual-stage w-full max-w-[16rem] min-[360px]:max-w-[16.75rem] sm:max-w-none">
 							<div
 								ref={tiltController.cardTiltRef}
 								className="team-lineup-card-tilt-shell mymind-wrapped-final-stage__tilt-shell [--wrapped-card-render-scale:1] min-[360px]:[--wrapped-card-render-scale:1.08] sm:[--wrapped-card-render-scale:1.42] lg:[--wrapped-card-render-scale:1.56]"

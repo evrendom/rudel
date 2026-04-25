@@ -6081,6 +6081,10 @@ body.mymind-wrapped-body #cw-bubble-holder {
 	will-change: transform, opacity, filter;
 }
 
+.mymind-wrapped-final-stage__card-visual-stage {
+	transform: translateY(clamp(-3.5rem, -5.8svh, -1.6rem));
+}
+
 .mymind-wrapped-final-stage__flip-control {
 	position: relative;
 	display: grid;

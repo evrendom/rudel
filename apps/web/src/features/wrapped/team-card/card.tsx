@@ -1,4 +1,4 @@
-import type { CSSProperties } from "react";
+import { type CSSProperties, useState } from "react";
 import type { TeamCardTone } from "@/features/team/data/team-card-types";
 import type { TeamPageMemberRow } from "@/features/team/use-team-page-data";
 import statSectionTextureWebp from "@/features/wrapped/assets/team-card-stat-texture.webp";
@@ -127,7 +127,13 @@ export function WrappedTeamMemberCard(props: {
 		theme = "light",
 	} = props;
 	const tone = getCardTone(row);
-	const effectiveTone = row.imageUrl ? tone : "rose";
+	const [failedPortraitImageUrl, setFailedPortraitImageUrl] = useState<
+		string | null
+	>(null);
+	const shouldRenderPortraitImage = Boolean(
+		row.imageUrl && row.imageUrl !== failedPortraitImageUrl,
+	);
+	const effectiveTone = shouldRenderPortraitImage ? tone : "rose";
 	const initials = getAvatarInitials(row.displayName);
 	const isDarkTheme = theme === "dark";
 	const isMutedTheme = theme === "muted";
@@ -210,16 +216,27 @@ export function WrappedTeamMemberCard(props: {
 		paddingTop: scaleLength(10),
 	};
 	const portraitImageFrameStyle: CSSProperties = {
-		backgroundImage: row.imageUrl ? `url("${row.imageUrl}")` : undefined,
-		backgroundPosition: "center",
-		backgroundRepeat: "no-repeat",
-		backgroundSize: "cover",
 		borderRadius: scaleLength(10),
+		bottom: 0,
+		left: 0,
+		overflow: "hidden",
+		position: "absolute",
+		right: 0,
+		top: 0,
+	};
+	const portraitImageStyle: CSSProperties = {
+		display: "block",
+		height: "100%",
+		objectFit: "cover",
+		width: "100%",
+	};
+	const portraitImageOverlayStyle: CSSProperties = {
+		borderRadius: "inherit",
 		bottom: 0,
 		boxShadow:
 			"inset var(--wrapped-card-portrait-shadow-x, 0px) var(--wrapped-card-portrait-shadow-y, -4px) var(--wrapped-card-portrait-shadow-blur, 4px) rgb(0 0 0 / var(--wrapped-card-portrait-shadow-opacity, 0.63)), inset var(--wrapped-card-portrait-highlight-x, 0px) var(--wrapped-card-portrait-highlight-y, 4px) var(--wrapped-card-portrait-highlight-blur, 4px) rgb(255 255 255 / var(--wrapped-card-portrait-highlight-opacity, 0.52))",
 		left: 0,
-		overflow: "hidden",
+		pointerEvents: "none",
 		position: "absolute",
 		right: 0,
 		top: 0,
@@ -365,9 +382,22 @@ export function WrappedTeamMemberCard(props: {
 						)}
 						style={portraitPanelStyle}
 					>
-						{row.imageUrl ? (
+						{shouldRenderPortraitImage ? (
 							<>
-								<div aria-hidden="true" style={portraitImageFrameStyle} />
+								<div aria-hidden="true" style={portraitImageFrameStyle}>
+									<img
+										alt=""
+										draggable={false}
+										onError={() => {
+											if (row.imageUrl) {
+												setFailedPortraitImageUrl(row.imageUrl);
+											}
+										}}
+										src={row.imageUrl ?? undefined}
+										style={portraitImageStyle}
+									/>
+									<div style={portraitImageOverlayStyle} />
+								</div>
 								<div className="relative z-10 flex-1" />
 							</>
 						) : (
