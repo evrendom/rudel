@@ -56,7 +56,7 @@ export async function getOverviewKPIs(
           uniq(user_id) as distinct_users,
           count() as distinct_sessions,
           uniq(if(git_remote != '', git_remote, if(package_name != '', package_name, project_path))) as distinct_projects
-        FROM rudel.session_analytics
+        FROM rudel.session_analytics FINAL
         WHERE ${dateFilter}
           AND organization_id = {orgId:String}
       `,
@@ -65,7 +65,7 @@ export async function getOverviewKPIs(
 			queryClickhouse<{ count: number }>({
 				query: `
         SELECT uniqExact(val) as count
-        FROM rudel.session_analytics
+        FROM rudel.session_analytics FINAL
         ARRAY JOIN subagent_types as val
         WHERE ${dateFilter}
           AND organization_id = {orgId:String}
@@ -76,7 +76,7 @@ export async function getOverviewKPIs(
 			queryClickhouse<{ count: number }>({
 				query: `
         SELECT uniqExact(val) as count
-        FROM rudel.session_analytics
+        FROM rudel.session_analytics FINAL
         ARRAY JOIN skills as val
         WHERE ${dateFilter}
           AND organization_id = {orgId:String}
@@ -87,7 +87,7 @@ export async function getOverviewKPIs(
 			queryClickhouse<{ count: number }>({
 				query: `
         SELECT uniqExact(val) as count
-        FROM rudel.session_analytics
+        FROM rudel.session_analytics FINAL
         ARRAY JOIN slash_commands as val
         WHERE ${dateFilter}
           AND organization_id = {orgId:String}
@@ -98,7 +98,7 @@ export async function getOverviewKPIs(
 			queryClickhouse<{ count: number }>({
 				query: `
         SELECT count() as count
-        FROM rudel.session_analytics
+        FROM rudel.session_analytics FINAL
         WHERE organization_id = {orgId:String}
       `,
 				query_params,
@@ -146,7 +146,7 @@ export async function getModelTokensTrend(
       sum(total_tokens) as total_tokens,
       sum(input_tokens) as input_tokens,
       sum(output_tokens) as output_tokens
-    FROM rudel.session_analytics
+    FROM rudel.session_analytics FINAL
     WHERE ${dateFilter}
       AND organization_id = {orgId:String}
       AND model_used != ''
@@ -212,7 +212,7 @@ export async function getUsersTokenUsage(
         )
       ) as repositories_touched,
       sum(sa.has_commit) as total_commits,
-      sum(ifNull(sa.input_tokens, 0) + ifNull(sa.output_tokens, 0)) as total_tokens,
+      sum(ifNull(sa.total_tokens, 0)) as total_tokens,
       sum(ifNull(sa.input_tokens, 0)) as input_tokens,
       sum(ifNull(sa.output_tokens, 0)) as output_tokens,
       round(sum(${USER_USAGE_PER_SESSION_COST_SQL}), 4) as cost,
@@ -221,7 +221,7 @@ export async function getUsersTokenUsage(
       round(avg(sa.success_score), 2) as success_rate,
       length(arrayDistinct(arrayFilter(x -> x != '', arrayFlatten(groupArray(sa.skills))))) as distinct_skills,
       length(arrayDistinct(arrayFilter(x -> x != '', arrayFlatten(groupArray(sa.slash_commands))))) as distinct_slash_commands
-    FROM rudel.session_analytics sa
+    FROM rudel.session_analytics FINAL AS sa
     WHERE ${dateFilter}
       AND sa.organization_id = {orgId:String}
       AND sa.user_id != ''
@@ -300,7 +300,7 @@ export async function getUsersDailyTrend(
           )
         )
       ) as repositories_touched
-    FROM rudel.session_analytics
+    FROM rudel.session_analytics FINAL
     WHERE ${dateFilter}
       AND organization_id = {orgId:String}
       AND user_id != ''
@@ -337,7 +337,7 @@ export async function getRepositoriesDailyTrend(
       ) as repository,
       count() as sessions,
       sum(has_commit) as total_commits
-    FROM rudel.session_analytics
+    FROM rudel.session_analytics FINAL
     WHERE ${dateFilter}
       AND organization_id = {orgId:String}
     GROUP BY date, repository
@@ -369,7 +369,7 @@ export async function getUsageTrendDetailed(
       uniq(user_id) as active_users,
       round(sum(actual_duration_min) / 60, 2) as total_hours,
       sum(total_tokens) as total_tokens
-    FROM rudel.session_analytics
+    FROM rudel.session_analytics FINAL
     WHERE ${dateFilter}
       AND organization_id = {orgId:String}
     GROUP BY date
@@ -420,7 +420,7 @@ export async function getOverviewInsights(
         count() as total_sessions,
         uniq(user_id) as total_users,
         round(avg(actual_duration_min), 2) as avg_duration_min
-      FROM rudel.session_analytics
+      FROM rudel.session_analytics FINAL
       WHERE ${currentDateFilter}
         AND organization_id = {orgId:String}
     `,
@@ -436,7 +436,7 @@ export async function getOverviewInsights(
         count() as total_sessions,
         uniq(user_id) as total_users,
         round(avg(actual_duration_min), 2) as avg_duration_min
-      FROM rudel.session_analytics
+      FROM rudel.session_analytics FINAL
       WHERE ${previousDateFilter}
         AND organization_id = {orgId:String}
     `,
@@ -456,7 +456,7 @@ export async function getOverviewInsights(
         user_id,
         count() as sessions,
         round(sum(actual_duration_min) / 60, 1) as total_hours
-      FROM rudel.session_analytics
+      FROM rudel.session_analytics FINAL
       WHERE ${currentDateFilter}
         AND organization_id = {orgId:String}
       GROUP BY user_id
@@ -479,7 +479,7 @@ export async function getOverviewInsights(
         project_path,
         uniq(user_id) as unique_users,
         count() as sessions
-      FROM rudel.session_analytics
+      FROM rudel.session_analytics FINAL
       WHERE ${buildDateFilter("siloDays")}
         AND organization_id = {orgId:String}
       GROUP BY project_path
@@ -582,7 +582,7 @@ export async function getTeamSummaryWithComparison(
       uniq(user_id) as active_users,
       round(avg(actual_duration_min), 2) as avg_duration_min,
       round(count() / uniq(user_id), 2) as avg_sessions_per_user
-    FROM rudel.session_analytics
+    FROM rudel.session_analytics FINAL
     WHERE ${currentDateFilter}
       AND organization_id = {orgId:String}
   `;
@@ -593,7 +593,7 @@ export async function getTeamSummaryWithComparison(
       uniq(user_id) as active_users,
       round(avg(actual_duration_min), 2) as avg_duration_min,
       round(count() / uniq(user_id), 2) as avg_sessions_per_user
-    FROM rudel.session_analytics
+    FROM rudel.session_analytics FINAL
     WHERE ${previousDateFilter}
       AND organization_id = {orgId:String}
   `;
@@ -678,7 +678,7 @@ export async function getSuccessRateMetrics(
       count() as total_sessions,
       round(avg(success_score), 1) as avg_success_score,
       countIf(success_score >= 70) as high_quality_sessions
-    FROM rudel.session_analytics
+    FROM rudel.session_analytics FINAL
     WHERE ${currentDateFilter}
       AND organization_id = {orgId:String}
   `;
@@ -688,7 +688,7 @@ export async function getSuccessRateMetrics(
       count() as total_sessions,
       round(avg(success_score), 1) as avg_success_score,
       countIf(success_score >= 70) as high_quality_sessions
-    FROM rudel.session_analytics
+    FROM rudel.session_analytics FINAL
     WHERE ${previousDateFilter}
       AND organization_id = {orgId:String}
   `;
