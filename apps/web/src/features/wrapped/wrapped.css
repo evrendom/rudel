@@ -7080,14 +7080,14 @@ body.mymind-wrapped-body #cw-bubble-holder {
 	.mymind-wrapped-auth-panel--form:has(
 			.mymind-wrapped-auth-form__scene--credentials
 		) {
-		--wrapped-auth-form-overlap: clamp(0.2rem, 1svh, 0.65rem);
+		--wrapped-auth-form-overlap: clamp(0.75rem, 2.2svh, 1.2rem);
 	}
 
 	.mymind-wrapped-auth-panel--form:has(
 			.mymind-wrapped-auth-form__scene--credentials
 		)
 		.mymind-wrapped-auth-card-preview__tilt {
-		--wrapped-card-render-scale: 0.76;
+		--wrapped-card-render-scale: 0.82;
 	}
 
 	.mymind-wrapped-final-stage {
