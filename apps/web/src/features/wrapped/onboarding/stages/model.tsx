@@ -376,6 +376,8 @@ function WrappedModelStageSequenceTitle(props: {
 					"mymind-wrapped-model-stage__sequence-title",
 					titleKey === "result" &&
 						"mymind-wrapped-model-stage__sequence-title--result",
+					(titleKey === "result" || titleKey === "history") &&
+						"mymind-wrapped-model-stage__sequence-title--compact",
 				)}
 				exit={{
 					filter: "blur(4px)",

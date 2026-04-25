@@ -1655,7 +1655,8 @@ body.mymind-wrapped-body #cw-bubble-holder {
 	text-wrap: balance;
 }
 
-.mymind-wrapped-model-stage__sequence-title--result {
+.mymind-wrapped-model-stage__sequence-title--result,
+.mymind-wrapped-model-stage__sequence-title--compact {
 	min-height: 1.22em;
 }
 
