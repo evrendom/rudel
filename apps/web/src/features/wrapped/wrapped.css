@@ -5553,19 +5553,10 @@ body.mymind-wrapped-body #cw-bubble-holder {
 	--wrapped-shell-inline-inset: 16px;
 }
 
-.mymind-wrapped-route--step-pulse div {
-	outline: 1px solid rgb(255 0 0 / 0.35);
-	outline-offset: -1px;
-}
-
-.mymind-wrapped-route--step-pulse .mymind-wrapped-repo-pulse-stage__card {
-	padding-inline: 0;
-}
-
 .mymind-wrapped-route--step-pulse .mymind-wrapped-repo-pulse-stage__object {
-	width: calc(100% + 1.5rem);
+	width: calc(100% + (var(--wrapped-shell-inline-inset) * 2));
 	max-width: none;
-	margin-inline: -0.75rem;
+	margin-inline: calc(-1 * var(--wrapped-shell-inline-inset));
 }
 
 .mymind-wrapped-route--onboarding .mymind-wrapped-top-tray__status,

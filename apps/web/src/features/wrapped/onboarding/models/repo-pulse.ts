@@ -102,10 +102,7 @@ export function resolveRepoPulseStageModel(
 		entries: input.entries,
 		footnote:
 			"Each label comes from the strongest signal inside that repo: tool adoption, depth, token load, or delivery.",
-		headline:
-			input.entries.length >= 3
-				? "Each repo had its own rhythm"
-				: "The work split across a couple repos",
+		headline: "These were the repos you worked on",
 		subline:
 			input.entries.length >= 3
 				? "The top repos were not interchangeable. Each one carried a different kind of work."
