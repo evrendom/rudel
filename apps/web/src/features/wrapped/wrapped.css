@@ -6084,16 +6084,15 @@ body.mymind-wrapped-body #cw-bubble-holder {
 	box-shadow: var(
 		--wrapped-card-dynamic-shadow,
 		0 calc(var(--wrapped-card-render-scale, 1) * 20px)
-		calc(var(--wrapped-card-render-scale, 1) * 36px) rgb(15 23 42 / 0.12),
+			calc(var(--wrapped-card-render-scale, 1) * 36px) rgb(15 23 42 / 0.12),
 		0 calc(var(--wrapped-card-render-scale, 1) * 46px)
-		calc(var(--wrapped-card-render-scale, 1) * 88px) rgb(15 23 42 / 0.24)
+			calc(var(--wrapped-card-render-scale, 1) * 88px) rgb(15 23 42 / 0.24)
 	);
 	opacity: var(--wrapped-card-shadow-opacity, 0.82);
 	pointer-events: none;
 	transform: var(
 		--wrapped-card-shadow-transform,
-		translateZ(calc(var(--wrapped-card-flip-depth, 6px) * -1.35))
-		scale(0.94)
+		translateZ(calc(var(--wrapped-card-flip-depth, 6px) * -1.35)) scale(0.94)
 	);
 	transition:
 		opacity 220ms cubic-bezier(0.22, 1, 0.36, 1),
@@ -6123,8 +6122,7 @@ body.mymind-wrapped-body #cw-bubble-holder {
 			rgb(255 255 255 / 0.08) 54%,
 			rgb(17 24 39 / 0.5) 100%
 		);
-	box-shadow:
-		0 0 calc(var(--wrapped-card-render-scale, 1) * 12px)
+	box-shadow: 0 0 calc(var(--wrapped-card-render-scale, 1) * 12px)
 		rgb(15 23 42 / 0.08);
 	filter: saturate(0.9) brightness(0.92);
 	opacity: var(--wrapped-card-edge-opacity, 0.08);
@@ -6283,13 +6281,13 @@ body.mymind-wrapped-body #cw-bubble-holder {
 	transform: rotateX(
 			calc(
 				var(--wrapped-card-base-rotate-x) +
-					var(--wrapped-card-tilt-rotate-x)
+				var(--wrapped-card-tilt-rotate-x)
 			)
 		)
 		rotateY(
 			calc(
 				var(--wrapped-card-base-rotate-y) +
-					var(--wrapped-card-tilt-rotate-y)
+				var(--wrapped-card-tilt-rotate-y)
 			)
 		)
 		scale(var(--wrapped-card-tilt-scale));
@@ -6351,13 +6349,13 @@ body.mymind-wrapped-body #cw-bubble-holder {
 	transform: rotateX(
 			calc(
 				var(--wrapped-card-base-rotate-x) +
-					var(--wrapped-card-tilt-rotate-x)
+				var(--wrapped-card-tilt-rotate-x)
 			)
 		)
 		rotateY(
 			calc(
 				var(--wrapped-card-base-rotate-y) +
-					var(--wrapped-card-tilt-rotate-y)
+				var(--wrapped-card-tilt-rotate-y)
 			)
 		)
 		scale(var(--wrapped-card-tilt-scale));
@@ -6708,8 +6706,7 @@ body.mymind-wrapped-body #cw-bubble-holder {
 	box-shadow: none;
 	filter: drop-shadow(
 		0 calc(var(--wrapped-card-render-scale, 1) * 18px)
-			calc(var(--wrapped-card-render-scale, 1) * 28px)
-			rgb(15 23 42 / 0.11)
+			calc(var(--wrapped-card-render-scale, 1) * 28px) rgb(15 23 42 / 0.11)
 	);
 	pointer-events: none;
 	user-select: none;
@@ -6720,8 +6717,7 @@ body.mymind-wrapped-body #cw-bubble-holder {
 	--wrapped-card-render-scale: var(--wrapped-share-preview-spread-scale);
 	filter: drop-shadow(
 		0 calc(var(--wrapped-card-render-scale, 1) * 14px)
-			calc(var(--wrapped-card-render-scale, 1) * 22px)
-			rgb(15 23 42 / 0.1)
+			calc(var(--wrapped-card-render-scale, 1) * 22px) rgb(15 23 42 / 0.1)
 	);
 	transform: translateZ(0);
 }
@@ -7270,7 +7266,6 @@ body.mymind-wrapped-body #cw-bubble-holder {
 	.mymind-wrapped-final-stage__flip-shell::after {
 		display: none;
 	}
-
 }
 
 @keyframes wrapped-card-flip-pop {
