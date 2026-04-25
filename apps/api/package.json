@@ -9,6 +9,7 @@
 		"lint": "bun ../../scripts/check-clickhouse-guardrails.ts",
 		"check-types": "tsc --noEmit",
 		"test": "bun test",
+		"test:clickhouse": "bun test src/__tests__/clickhouse.integration.ts",
 		"test:integration": "bun test src/__tests__/ingest-clickhouse.integration.ts",
 		"test:analytics": "bun test src/__tests__/analytics.integration.ts",
 		"test:migrate": "bun test src/__tests__/migrate-sessions.integration.ts"
