@@ -79,7 +79,6 @@ const SCALE_STAGE_KEBAB_COST_USD = 8;
 const SCALE_STAGE_KEBAB_EMOJI = "🥙";
 const SCALE_STAGE_KEBAB_EXIT_VELOCITY_PX = 3.8;
 const SCALE_STAGE_KEBAB_SQUASH_DURATION_MS = 120;
-const SCALE_STAGE_KEBAB_MIN_VISUAL_DROPS = 96;
 const SCALE_STAGE_KEBAB_SOURCE_X_PERCENTS = [8, 24, 40, 56, 72, 88] as const;
 export const SCALE_STAGE_SPEND_LABEL_HOLD_MS = 500;
 export const SCALE_STAGE_SPEND_COUNT_DURATION_MS = 680;
@@ -537,16 +536,30 @@ function WrappedScaleKebabRain(props: {
 	totalDrops: number;
 }) {
 	const { onComplete, totalDrops } = props;
-	const visualDropCount = resolveScaleKebabVisualDropCount(totalDrops);
+	const dropCount = Math.max(0, totalDrops);
+	const kebabRainRef = useRef<HTMLDivElement | null>(null);
 	const dropRefs = useRef<Array<HTMLSpanElement | null>>([]);
 
 	useMountEffect(() => {
-		if (visualDropCount <= 0) {
+		if (dropCount <= 0) {
 			onComplete?.();
 			return;
 		}
 
-		const nodes = dropRefs.current;
+		const kebabRainNode = kebabRainRef.current;
+		if (!kebabRainNode) {
+			return;
+		}
+
+		for (const staleRainNode of document.querySelectorAll(
+			".mymind-wrapped-scale-stage__kebab-rain",
+		)) {
+			if (staleRainNode !== kebabRainNode) {
+				staleRainNode.remove();
+			}
+		}
+
+		const nodes = dropRefs.current.slice(0, dropCount);
 		if (nodes.length === 0) {
 			return;
 		}
@@ -554,7 +567,7 @@ function WrappedScaleKebabRain(props: {
 		const width = window.innerWidth;
 		const height = window.innerHeight;
 		const simulationDrops = buildScaleKebabDrops({
-			totalDrops: visualDropCount,
+			totalDrops: dropCount,
 			viewportWidthPx: width,
 		}).map((drop) => createScaleKebabSimulationDrop(drop));
 
@@ -602,15 +615,20 @@ function WrappedScaleKebabRain(props: {
 		};
 	});
 
-	if (visualDropCount <= 0) {
+	if (dropCount <= 0) {
 		return null;
 	}
 
 	const kebabRain = (
-		<div aria-hidden="true" className="mymind-wrapped-scale-stage__kebab-rain">
-			{Array.from({ length: visualDropCount }, (_, index) => (
+		<div
+			aria-hidden="true"
+			className="mymind-wrapped-scale-stage__kebab-rain"
+			data-scale-kebab-count={dropCount}
+			ref={kebabRainRef}
+		>
+			{Array.from({ length: dropCount }, (_, index) => (
 				<span
-					key={`scale-kebab-drop-${visualDropCount}-${index}`}
+					key={`scale-kebab-drop-${dropCount}-${index}`}
 					ref={(node) => {
 						dropRefs.current[index] = node;
 					}}
@@ -632,14 +650,6 @@ function WrappedScaleKebabRain(props: {
 	}
 
 	return createPortal(kebabRain, document.body);
-}
-
-function resolveScaleKebabVisualDropCount(totalDrops: number) {
-	if (totalDrops <= 0) {
-		return 0;
-	}
-
-	return Math.max(totalDrops, SCALE_STAGE_KEBAB_MIN_VISUAL_DROPS);
 }
 
 function resolveScaleKebabCount(estimatedSpendUsd: number) {
