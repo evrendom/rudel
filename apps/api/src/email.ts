@@ -30,14 +30,18 @@ export interface PasswordResetEmailContent {
 	text: string;
 }
 
+export interface WrappedDesktopResumeEmailContent {
+	subject: string;
+	html: string;
+	text: string;
+}
+
 export function getResendConfigWarnings(config: ResendConfig): string[] {
 	if (!config.apiKey || config.fromEmail) {
 		return [];
 	}
 
-	return [
-		"Resend invitation emails are disabled because RESEND_FROM_EMAIL is not set.",
-	];
+	return ["Resend emails are disabled because RESEND_FROM_EMAIL is not set."];
 }
 
 function escapeHtml(value: string): string {
@@ -115,6 +119,38 @@ export function buildPasswordResetEmailContent(
 <p>${escapeHtml(safeUrl)}</p>
 `,
 		text: `We received a request to reset your Rudel password.\n\nReset your password here: ${safeUrl}`,
+	};
+}
+
+// Wrapped desktop resume links are intentionally separate from auth emails.
+// This email exists for one narrow product moment only:
+// a signed-in mobile user reached setup, but uploads must continue on desktop.
+export function buildWrappedDesktopResumeLink(
+	frontendURL: string,
+	token: string,
+): string {
+	const trimmedFrontendURL = frontendURL.replace(/\/+$/, "");
+	return `${trimmedFrontendURL}/resume/${token}`;
+}
+
+export function buildWrappedDesktopResumeEmailContent(
+	resumeUrl: string,
+): WrappedDesktopResumeEmailContent {
+	const safeUrl = normalizeText(resumeUrl);
+
+	return {
+		subject: "Continue your Rudel setup on desktop",
+		html: `
+<p>You can keep viewing Rudel Wrapped on your phone, but uploading sessions still needs desktop.</p>
+<p>
+  <a href="${escapeHtml(safeUrl)}" style="display:inline-block;padding:12px 24px;background:#000;color:#fff;text-decoration:none;border-radius:6px;font-weight:600;">
+    Continue on Desktop
+  </a>
+</p>
+<p>Or copy this link into your browser on your desktop:</p>
+<p>${escapeHtml(safeUrl)}</p>
+`,
+		text: `You can keep viewing Rudel Wrapped on your phone, but uploading sessions still needs desktop.\n\nContinue on desktop here: ${safeUrl}`,
 	};
 }
 
@@ -201,5 +237,42 @@ export async function sendPasswordResetEmail(
 			email: data.email,
 			error: err,
 		});
+	}
+}
+
+// The resume-link email is best-effort. The UI still receives the direct link
+// so product is not blocked on email deliverability or Resend configuration.
+export async function sendWrappedDesktopResumeEmail(
+	config: ResendConfig,
+	data: { email: string; resumeUrl: string },
+): Promise<boolean> {
+	if (!config.apiKey || !config.fromEmail) {
+		return false;
+	}
+
+	const message = buildWrappedDesktopResumeEmailContent(data.resumeUrl);
+
+	try {
+		const resend = new Resend(config.apiKey);
+		await resend.emails.send({
+			from: config.fromEmail,
+			to: data.email,
+			subject: message.subject,
+			html: message.html,
+			text: message.text,
+		});
+		logger.info("Wrapped desktop resume email sent to {email}", {
+			email: data.email,
+		});
+		return true;
+	} catch (err) {
+		logger.error(
+			"Failed to send wrapped desktop resume email to {email}: {error}",
+			{
+				email: data.email,
+				error: err,
+			},
+		);
+		return false;
 	}
 }

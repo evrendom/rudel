@@ -58,11 +58,26 @@ import {
 	UsageTrendDataSchema,
 	UserDailyTrendDataSchema,
 	UserTokenUsageDataSchema,
+	WrappedV1Schema,
 } from "./schemas/analytics.js";
+import {
+	ConsumeWrappedResumeInputSchema,
+	CreateWrappedResumeInputSchema,
+	WrappedResumeConsumeResultSchema,
+	WrappedResumeRecordSchema,
+} from "./schemas/wrapped-resume.js";
+import {
+	CreateWrappedShareInputSchema,
+	GetPublicWrappedShareInputSchema,
+	PublicWrappedShareSchema,
+	WrappedShareRecordSchema,
+} from "./schemas/wrapped-share.js";
 
 export * from "./model-pricing.js";
 export * from "./product-analytics.js";
 export * from "./schemas/analytics.js";
+export * from "./schemas/wrapped-resume.js";
+export * from "./schemas/wrapped-share.js";
 
 export const HealthSchema = z.object({
 	status: z.literal("ok"),
@@ -165,6 +180,22 @@ export const contract = {
 	deleteOrganization: oc
 		.input(z.object({ organizationId: z.string() }))
 		.output(z.object({ success: z.literal(true) })),
+	wrappedShare: {
+		create: oc
+			.input(CreateWrappedShareInputSchema)
+			.output(WrappedShareRecordSchema),
+		getPublic: oc
+			.input(GetPublicWrappedShareInputSchema)
+			.output(PublicWrappedShareSchema),
+	},
+	wrappedResume: {
+		create: oc
+			.input(CreateWrappedResumeInputSchema)
+			.output(WrappedResumeRecordSchema),
+		consume: oc
+			.input(ConsumeWrappedResumeInputSchema)
+			.output(WrappedResumeConsumeResultSchema),
+	},
 	admin: {
 		listUsers: oc
 			.input(
@@ -298,6 +329,9 @@ export const contract = {
 			trend: oc
 				.input(LearningsTrendInputSchema)
 				.output(z.array(LearningsTrendDataPointSchema)),
+		},
+		wrapped: {
+			v1: oc.output(WrappedV1Schema),
 		},
 	},
 };

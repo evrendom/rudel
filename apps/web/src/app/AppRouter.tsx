@@ -1,4 +1,4 @@
-import { type ComponentType, lazy, Suspense } from "react";
+import { type ComponentType, lazy, type ReactNode, Suspense } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { NotFoundPage } from "@/app/system/NotFoundPage";
 import { AcceptInvitationPage } from "@/features/invitations/AcceptInvitationPage";
@@ -72,9 +72,15 @@ function DashboardRouteLoadingScreen() {
 	);
 }
 
-function LazyRoute({ Component }: { Component: ComponentType }) {
+function LazyRoute({
+	Component,
+	fallback = <DashboardRouteLoadingScreen />,
+}: {
+	Component: ComponentType;
+	fallback?: ReactNode;
+}) {
 	return (
-		<Suspense fallback={<DashboardRouteLoadingScreen />}>
+		<Suspense fallback={fallback}>
 			<Component />
 		</Suspense>
 	);

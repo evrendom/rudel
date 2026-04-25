@@ -1,0 +1,281 @@
+import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { MemoryRouter } from "react-router-dom";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { WrappedGuestPage } from "@/features/wrapped/WrappedGuestPage";
+import {
+	clearWrappedGuestPreviewSnapshot,
+	readWrappedGuestPreviewSnapshot,
+	writeWrappedGuestPreviewSnapshot,
+} from "@/features/wrapped/wrapped-guest-preview";
+
+vi.mock("@/features/auth/LoginForm", () => ({
+	LoginForm: ({
+		onEmailPasswordPreviewSubmit,
+		onSwitchToSignup,
+	}: {
+		onEmailPasswordPreviewSubmit?: (email: string) => void;
+		onSwitchToSignup: () => void;
+		variant: string;
+	}) => (
+		<div>
+			<p>Wrapped login form</p>
+			<button
+				type="button"
+				onClick={() => onEmailPasswordPreviewSubmit?.("preview@example.com")}
+			>
+				Preview wrapped email submit
+			</button>
+			<button type="button" onClick={onSwitchToSignup}>
+				Switch to signup
+			</button>
+		</div>
+	),
+}));
+
+vi.mock("@/features/auth/SignupForm", () => ({
+	SignupForm: ({
+		onEmailPasswordPreviewSubmit,
+		onSwitchToLogin,
+	}: {
+		onEmailPasswordPreviewSubmit?: (email: string) => void;
+		onSwitchToLogin: () => void;
+		variant: string;
+	}) => (
+		<div>
+			<p>Wrapped signup form</p>
+			<button
+				type="button"
+				onClick={() => onEmailPasswordPreviewSubmit?.("preview@example.com")}
+			>
+				Preview wrapped email submit
+			</button>
+			<button type="button" onClick={onSwitchToLogin}>
+				Switch to login
+			</button>
+		</div>
+	),
+}));
+
+Object.defineProperty(window, "matchMedia", {
+	writable: true,
+	value: vi.fn().mockImplementation((query: string) => ({
+		matches: false,
+		media: query,
+		onchange: null,
+		addEventListener: vi.fn(),
+		addListener: vi.fn(),
+		dispatchEvent: vi.fn(),
+		removeEventListener: vi.fn(),
+		removeListener: vi.fn(),
+	})),
+});
+
+const WRAPPED_UNKNOWN_CARD_CLASS_NAME =
+	"bg-[linear-gradient(180deg,_#FFFFFF_0%,_#FBFCFE_48%,_#EEF2F7_100%)]";
+
+async function openWrappedLoginForm(user: ReturnType<typeof userEvent.setup>) {
+	await user.click(screen.getByRole("button", { name: "Log in" }));
+	expect(await screen.findByText("Wrapped login form")).toBeInTheDocument();
+}
+
+async function submitWrappedPreviewEmail(
+	user: ReturnType<typeof userEvent.setup>,
+) {
+	await user.click(
+		screen.getByRole("button", { name: "Preview wrapped email submit" }),
+	);
+}
+
+describe("WrappedGuestPage", () => {
+	beforeEach(() => {
+		clearWrappedGuestPreviewSnapshot();
+	});
+
+	it("starts on the auth intro step", () => {
+		render(
+			<MemoryRouter initialEntries={["/wrapped"]}>
+				<WrappedGuestPage />
+			</MemoryRouter>,
+		);
+
+		expect(
+			screen.getByRole("heading", {
+				name: "Your Claude Wrapped",
+			}),
+		).toBeInTheDocument();
+		expect(
+			screen.getByRole("region", {
+				name: "Wrapped player card preview",
+			}),
+		).toBeInTheDocument();
+		expect(screen.getByText("Jon Doe")).toBeInTheDocument();
+		expect(screen.getAllByText("Maniac").length).toBeGreaterThan(0);
+		expect(
+			screen.getByRole("button", { name: "Create account" }),
+		).toBeInTheDocument();
+		expect(screen.getByRole("button", { name: "Log in" })).toBeInTheDocument();
+		expect(screen.queryByLabelText("Go back")).toBeNull();
+	});
+
+	it("shows the intro card metrics and back face", async () => {
+		const user = userEvent.setup();
+
+		render(
+			<MemoryRouter initialEntries={["/wrapped"]}>
+				<WrappedGuestPage />
+			</MemoryRouter>,
+		);
+
+		expect(screen.getAllByText("$347").length).toBeGreaterThan(0);
+		expect(screen.getAllByText("Maniac").length).toBeGreaterThan(0);
+		expect(screen.getAllByText("43%").length).toBeGreaterThan(0);
+		expect(screen.getAllByText("57%").length).toBeGreaterThan(0);
+		expect(screen.getAllByText("219").length).toBeGreaterThan(0);
+		expect(screen.getAllByText("58").length).toBeGreaterThan(0);
+		expect(screen.getAllByText("1.9M").length).toBeGreaterThan(0);
+		expect(screen.getAllByText("12").length).toBeGreaterThan(0);
+
+		await user.click(screen.getByRole("button", { name: "Show back of card" }));
+		expect(await screen.findByText("Input/output tokens")).toBeInTheDocument();
+	});
+
+	it("restores the auth step from session storage", () => {
+		writeWrappedGuestPreviewSnapshot({
+			profile: {
+				displayName: "Stored User",
+				followerCount: null,
+				imageUrl: null,
+				source: "local",
+				username: "storeduser",
+				verified: false,
+			},
+			step: "auth",
+		});
+
+		render(
+			<MemoryRouter initialEntries={["/wrapped"]}>
+				<WrappedGuestPage />
+			</MemoryRouter>,
+		);
+
+		expect(
+			screen.getByRole("button", { name: "Create account" }),
+		).toBeInTheDocument();
+		expect(screen.getByText("Stored User")).toBeInTheDocument();
+	});
+
+	it("still restores the auth intro when an older snapshot was left on the profile step", () => {
+		writeWrappedGuestPreviewSnapshot({
+			profile: {
+				displayName: "Stored User",
+				followerCount: null,
+				imageUrl: null,
+				source: "local",
+				username: "storeduser",
+				verified: false,
+			},
+			step: "profile",
+		});
+
+		render(
+			<MemoryRouter initialEntries={["/wrapped"]}>
+				<WrappedGuestPage />
+			</MemoryRouter>,
+		);
+
+		expect(
+			screen.getByRole("button", { name: "Create account" }),
+		).toBeInTheDocument();
+		expect(screen.getByText("Stored User")).toBeInTheDocument();
+	});
+
+	it("keeps image-less local snapshots ready for the animal avatar fallback", () => {
+		writeWrappedGuestPreviewSnapshot({
+			profile: {
+				displayName: "Stored User",
+				followerCount: null,
+				imageUrl: null,
+				source: "local",
+				username: "storeduser",
+				verified: false,
+			},
+			step: "auth",
+		});
+
+		render(
+			<MemoryRouter initialEntries={["/wrapped"]}>
+				<WrappedGuestPage />
+			</MemoryRouter>,
+		);
+
+		expect(readWrappedGuestPreviewSnapshot()?.profile.imageUrl).toBeNull();
+	});
+
+	it("lets the shared auth forms switch between login and signup", async () => {
+		const user = userEvent.setup();
+
+		render(
+			<MemoryRouter initialEntries={["/wrapped"]}>
+				<WrappedGuestPage />
+			</MemoryRouter>,
+		);
+
+		await openWrappedLoginForm(user);
+		expect(screen.getByLabelText("Go back")).toBeInTheDocument();
+		expect(screen.getByLabelText("Open support")).toBeInTheDocument();
+
+		await user.click(screen.getByRole("button", { name: "Switch to signup" }));
+		expect(await screen.findByText("Wrapped signup form")).toBeInTheDocument();
+
+		await user.click(screen.getByRole("button", { name: "Switch to login" }));
+		expect(await screen.findByText("Wrapped login form")).toBeInTheDocument();
+
+		await user.click(screen.getByLabelText("Go back"));
+		expect(
+			await screen.findByRole("button", { name: "Create account" }),
+		).toBeInTheDocument();
+		expect(screen.getByRole("button", { name: "Log in" })).toBeInTheDocument();
+	});
+
+	it("uses an unknown neutral card while the user creates an account", async () => {
+		const user = userEvent.setup();
+
+		render(
+			<MemoryRouter initialEntries={["/wrapped"]}>
+				<WrappedGuestPage />
+			</MemoryRouter>,
+		);
+
+		await user.click(screen.getByRole("button", { name: "Create account" }));
+
+		expect(await screen.findByText("Wrapped signup form")).toBeInTheDocument();
+		expect(screen.getAllByText("Unknown Archetype").length).toBeGreaterThan(0);
+		expect(screen.getAllByText("???").length).toBeGreaterThan(0);
+		expect(
+			screen
+				.getByRole("region", { name: "Wrapped player card preview" })
+				.querySelector(".team-lineup-featured-card"),
+		).toHaveClass(WRAPPED_UNKNOWN_CARD_CLASS_NAME);
+	});
+
+	it("keeps wrapped auth in place when the preview-only submit callback is absent", async () => {
+		const user = userEvent.setup();
+
+		render(
+			<MemoryRouter initialEntries={["/wrapped"]}>
+				<WrappedGuestPage />
+			</MemoryRouter>,
+		);
+
+		await openWrappedLoginForm(user);
+		await submitWrappedPreviewEmail(user);
+
+		expect(screen.getByText("Wrapped login form")).toBeInTheDocument();
+		expect(
+			screen.queryByRole("heading", { name: "Make the card yours" }),
+		).toBeNull();
+		expect(screen.queryByText("Wrapped setup page")).toBeNull();
+		expect(readWrappedGuestPreviewSnapshot()).toBeNull();
+	});
+});

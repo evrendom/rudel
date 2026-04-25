@@ -9,6 +9,7 @@
 		"lint": "bun ../../scripts/check-clickhouse-guardrails.ts",
 		"check-types": "tsc --noEmit",
 		"test": "bun test",
+		"test:clickhouse": "bun test src/__tests__/clickhouse.integration.ts",
 		"test:integration": "bun test src/__tests__/ingest-clickhouse.integration.ts",
 		"test:analytics": "bun test src/__tests__/analytics.integration.ts",
 		"test:migrate": "bun test src/__tests__/migrate-sessions.integration.ts"
@@ -19,6 +20,7 @@
 		"@logtape/file": "^2.0.4",
 		"@logtape/logtape": "^2.0.4",
 		"@orpc/server": "latest",
+		"@resvg/resvg-js": "^2.6.2",
 		"@rudel/agent-adapters": "workspace:*",
 		"@rudel/api-routes": "workspace:*",
 		"@rudel/ch-schema": "workspace:*",

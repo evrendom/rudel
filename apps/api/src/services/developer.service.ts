@@ -364,14 +364,33 @@ export async function getDeveloperDetails(
     LEFT JOIN previous_period p ON c.user_id = p.user_id
   `;
 
-	const results = await queryClickhouse<DeveloperDetails>({
-		query,
-		query_params,
-	});
+	const [results, favoriteModelByUser] = await Promise.all([
+		queryClickhouse<Omit<DeveloperDetails, "favorite_model" | "username">>({
+			query,
+			query_params,
+		}),
+		getFavoriteModelByUser(orgId, d),
+	]);
 	const [first] = results;
 	if (!first) return null;
 
-	return first;
+	return {
+		active_days: Number(first.active_days) || 0,
+		avg_session_duration_min: Number(first.avg_session_duration_min) || 0,
+		cost: Number(first.cost) || 0,
+		distinct_projects: Number(first.distinct_projects) || 0,
+		error_count: Number(first.error_count) || 0,
+		favorite_model: favoriteModelByUser.get(userId) ?? null,
+		input_tokens: Number(first.input_tokens) || 0,
+		last_active_date: first.last_active_date,
+		output_tokens: Number(first.output_tokens) || 0,
+		success_rate: Number(first.success_rate) || 0,
+		success_rate_trend: Number(first.success_rate_trend) || 0,
+		total_duration_min: Number(first.total_duration_min) || 0,
+		total_sessions: Number(first.total_sessions) || 0,
+		total_tokens: Number(first.total_tokens) || 0,
+		user_id: first.user_id,
+	};
 }
 
 /**

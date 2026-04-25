@@ -9,23 +9,9 @@ import {
 	getSessionUserId,
 } from "@/features/auth/auth-route-utils";
 import { GuestApp } from "@/features/auth/GuestApp";
-import { UploadSetupPage } from "@/features/get-started/UploadSetupPage";
-import { useSetupProgress } from "@/features/get-started/use-setup-progress";
 
 function ApprovedDeviceSetupPage() {
-	const { hasUploadedSessions } = useSetupProgress({ enabled: true });
-
-	if (hasUploadedSessions) {
-		return <Navigate replace to={appRoutes.dashboard()} />;
-	}
-
-	return (
-		<UploadSetupPage
-			completedStepIds={["install-cli", "log-in"]}
-			description="Install CLI and Log in are done. Enable auto-upload next."
-			title="CLI login approved"
-		/>
-	);
+	return <Navigate replace to={appRoutes.wrappedTeamCard()} />;
 }
 
 export function DeviceAuthorizationApp({

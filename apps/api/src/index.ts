@@ -1,21 +1,33 @@
 import { join } from "node:path";
 import { getLogger, withContext } from "@logtape/logtape";
-import { onError } from "@orpc/server";
+import { ORPCError, onError } from "@orpc/server";
 import { RPCHandler } from "@orpc/server/fetch";
-import { user as userTable } from "@rudel/sql-schema";
-import { eq } from "drizzle-orm";
 import type { Session as AuthSession } from "./auth.js";
 import { createAuth } from "./auth.js";
-import { db } from "./db.js";
+import { db, sqlClient } from "./db.js";
 import { getResendConfigWarnings } from "./email.js";
 import { shutdownApiProductAnalytics } from "./lib/product-analytics.js";
 import { setupLogging } from "./logging.js";
+import { checkWrappedShareLookupRateLimit } from "./rate-limit.js";
 import { router } from "./router.js";
+import { getPublicWrappedShare } from "./services/wrapped-share.service.js";
+import { renderWrappedShareCardPng } from "./services/wrapped-share-card-image.js";
+import {
+	buildWrappedSharePageMetadata,
+	injectWrappedSharePageMetadata,
+} from "./services/wrapped-share-page-metadata.js";
 
 await setupLogging();
 
 const logger = getLogger(["rudel", "api", "http"]);
 type AuthUser = AuthSession["user"];
+const port = process.env.PORT ?? "4010";
+const DEFAULT_DEV_API_ORIGIN = `http://localhost:${port}`;
+const DEFAULT_DEV_ORIGIN = "http://localhost:4011";
+const DEFAULT_DEV_ORIGINS = [
+	DEFAULT_DEV_ORIGIN,
+	"http://localhost:4012",
+] as const;
 
 const socialProviders: Record<
 	string,
@@ -34,16 +46,40 @@ if (process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET) {
 	};
 }
 
-const appURL = process.env.APP_URL ?? "http://localhost:4010";
-const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN ?? "http://localhost:4011";
-const trustedOrigins = process.env.TRUSTED_ORIGINS
+const preferredFrontendOrigin =
+	process.env.ALLOWED_ORIGIN ?? DEFAULT_DEV_ORIGIN;
+const rawAppURL = process.env.APP_URL ?? DEFAULT_DEV_API_ORIGIN;
+const appURL = resolveAuthAppURL({
+	defaultDevApiOrigin: DEFAULT_DEV_API_ORIGIN,
+	preferredFrontendOrigin,
+	rawAppURL,
+});
+const configuredTrustedOrigins = process.env.TRUSTED_ORIGINS
 	? process.env.TRUSTED_ORIGINS.split(",").map((o) => o.trim())
-	: [ALLOWED_ORIGIN];
+	: [];
+const trustedOrigins = [
+	...new Set([
+		preferredFrontendOrigin,
+		...configuredTrustedOrigins,
+		...DEFAULT_DEV_ORIGINS,
+	]),
+];
 const resend = {
 	apiKey: process.env.RESEND_API_KEY,
 	audienceId: process.env.RESEND_AUDIENCE_ID,
 	fromEmail: process.env.RESEND_FROM_EMAIL,
 };
+
+if (appURL !== rawAppURL) {
+	logger.warn(
+		"Overriding APP_URL from {rawAppURL} to {appURL} because the frontend origin is local ({preferredFrontendOrigin})",
+		{
+			appURL,
+			preferredFrontendOrigin,
+			rawAppURL,
+		},
+	);
+}
 
 for (const warning of getResendConfigWarnings(resend)) {
 	logger.warn(warning);
@@ -51,13 +87,14 @@ for (const warning of getResendConfigWarnings(resend)) {
 
 const auth = createAuth(db, {
 	appURL,
-	frontendURL: ALLOWED_ORIGIN,
+	frontendURL: preferredFrontendOrigin,
 	secret: process.env.BETTER_AUTH_SECRET,
 	resend,
 	socialProviders,
 	trustedOrigins,
 	cliDeviceVerificationUrl:
-		process.env.CLI_DEVICE_VERIFICATION_URL ?? `${ALLOWED_ORIGIN}/device`,
+		process.env.CLI_DEVICE_VERIFICATION_URL ??
+		`${preferredFrontendOrigin}/device`,
 	slackWebhookUrl: process.env.SLACK_WEBHOOK_URL,
 });
 
@@ -77,18 +114,21 @@ const STATIC_DIR = join(
 	"..",
 	process.env.STATIC_DIR ?? "public",
 );
+const WRAPPED_PUBLIC_PATH_PATTERN =
+	/^\/wrapped\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\/?$/iu;
+const WRAPPED_SHARE_CARD_IMAGE_PATH_PATTERN =
+	/^\/wrapped\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\/x-card\.png$/iu;
 
 function corsHeaders(origin: string | null): Record<string, string> {
-	if (origin !== ALLOWED_ORIGIN) return {};
+	if (!origin || !trustedOrigins.includes(origin)) return {};
 	return {
-		"Access-Control-Allow-Origin": ALLOWED_ORIGIN,
+		"Access-Control-Allow-Origin": origin,
 		"Access-Control-Allow-Credentials": "true",
 		"Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
 		"Access-Control-Allow-Headers": "Content-Type, Authorization, X-API-Key",
 	};
 }
 
-const port = process.env.PORT ?? 4010;
 const MAX_REQUEST_BODY_BYTES = Number(
 	process.env.MAX_REQUEST_BODY_BYTES ?? 500 * 1024 * 1024, // 500 MB
 );
@@ -143,6 +183,47 @@ const server = Bun.serve({
 	},
 });
 
+function resolveAuthAppURL(input: {
+	defaultDevApiOrigin: string;
+	preferredFrontendOrigin: string;
+	rawAppURL: string;
+}) {
+	const { defaultDevApiOrigin, preferredFrontendOrigin, rawAppURL } = input;
+
+	if (!isLoopbackOrigin(preferredFrontendOrigin)) {
+		return rawAppURL;
+	}
+
+	if (!isLoopbackOrigin(rawAppURL)) {
+		return defaultDevApiOrigin;
+	}
+
+	if (sameOrigin(rawAppURL, preferredFrontendOrigin)) {
+		return defaultDevApiOrigin;
+	}
+
+	return rawAppURL;
+}
+
+function isLoopbackOrigin(origin: string) {
+	try {
+		const url = new URL(origin);
+		return url.hostname === "localhost" || url.hostname === "127.0.0.1";
+	} catch {
+		return false;
+	}
+}
+
+function sameOrigin(left: string, right: string) {
+	try {
+		const leftUrl = new URL(left);
+		const rightUrl = new URL(right);
+		return leftUrl.origin === rightUrl.origin;
+	} catch {
+		return false;
+	}
+}
+
 let isShuttingDown = false;
 
 async function shutdown(signal?: string) {
@@ -174,6 +255,15 @@ async function handleRequest(
 	url: URL,
 	cors: Record<string, string>,
 ): Promise<Response> {
+	const wrappedShareCardImageId = getWrappedShareCardImageId(url.pathname);
+	if (wrappedShareCardImageId) {
+		return handleWrappedShareCardImageRequest({
+			cors,
+			method: request.method,
+			shareId: wrappedShareCardImageId,
+		});
+	}
+
 	// Defense in depth: block Better Auth's built-in org deletion route.
 	// Rudel has its own guarded deletion path via the RPC router.
 	if (url.pathname === "/api/auth/organization/delete") {
@@ -217,19 +307,175 @@ async function handleRequest(
 	// SPA fallback: serve index.html for non-API routes
 	const indexFile = Bun.file(join(STATIC_DIR, "index.html"));
 	if (await indexFile.exists()) {
+		const wrappedPublicShareId = getWrappedPublicShareId(url.pathname);
+		if (wrappedPublicShareId) {
+			return handleWrappedPublicPageRequest({
+				cors,
+				indexFile,
+				method: request.method,
+				publicOrigin: getPublicRequestOrigin(request, url),
+				requestPathname: url.pathname,
+				shareId: wrappedPublicShareId,
+			});
+		}
+
 		return new Response(indexFile);
 	}
 
 	// Dev mode: redirect to frontend dev server for non-API routes
 	// (e.g., after OAuth callback redirects to APP_URL which has no SPA)
-	if (ALLOWED_ORIGIN !== appURL) {
+	if (preferredFrontendOrigin !== appURL) {
 		return Response.redirect(
-			`${ALLOWED_ORIGIN}${url.pathname}${url.search}`,
+			`${preferredFrontendOrigin}${url.pathname}${url.search}`,
 			302,
 		);
 	}
 
 	return new Response("Not found", { status: 404, headers: cors });
+}
+
+async function handleWrappedShareCardImageRequest(input: {
+	cors: Record<string, string>;
+	method: string;
+	shareId: string;
+}) {
+	const { cors, method, shareId } = input;
+	if (method !== "GET" && method !== "HEAD") {
+		return new Response("Method not allowed", {
+			headers: { ...cors, Allow: "GET, HEAD" },
+			status: 405,
+		});
+	}
+
+	try {
+		checkWrappedShareLookupRateLimit(shareId);
+		const share = await getPublicWrappedShare(shareId);
+
+		if (!share) {
+			return new Response("Not found", { headers: cors, status: 404 });
+		}
+
+		const image = renderWrappedShareCardPng(share.snapshot);
+		const headers = {
+			...cors,
+			"Cache-Control": "public, max-age=300, s-maxage=86400",
+			"Content-Length": image.byteLength.toString(),
+			"Content-Type": "image/png",
+		};
+
+		return new Response(method === "HEAD" ? null : image, {
+			headers,
+			status: 200,
+		});
+	} catch (error) {
+		if (isTooManyRequestsError(error)) {
+			return new Response("Too many requests", {
+				headers: cors,
+				status: 429,
+			});
+		}
+
+		logger.error("Failed to render wrapped share card image: {error}", {
+			error: String(error),
+		});
+		return new Response("Could not render image", {
+			headers: cors,
+			status: 500,
+		});
+	}
+}
+
+async function handleWrappedPublicPageRequest(input: {
+	cors: Record<string, string>;
+	indexFile: Bun.BunFile;
+	method: string;
+	publicOrigin: string;
+	requestPathname: string;
+	shareId: string;
+}) {
+	const { cors, indexFile, method, publicOrigin, requestPathname, shareId } =
+		input;
+
+	if (method !== "GET" && method !== "HEAD") {
+		return new Response("Method not allowed", {
+			headers: { ...cors, Allow: "GET, HEAD" },
+			status: 405,
+		});
+	}
+
+	const indexHtml = await indexFile.text();
+
+	try {
+		checkWrappedShareLookupRateLimit(shareId);
+		const share = await getPublicWrappedShare(shareId);
+
+		if (!share) {
+			return new Response(method === "HEAD" ? null : indexHtml, {
+				headers: { ...cors, "Content-Type": "text/html; charset=utf-8" },
+			});
+		}
+
+		const publicUrl = new URL(requestPathname, publicOrigin).toString();
+		const imageUrl = new URL(
+			`${requestPathname.replace(/\/$/u, "")}/x-card.png`,
+			publicOrigin,
+		).toString();
+		const html = injectWrappedSharePageMetadata(
+			indexHtml,
+			buildWrappedSharePageMetadata({
+				imageUrl,
+				publicUrl,
+				share,
+			}),
+		);
+
+		return new Response(method === "HEAD" ? null : html, {
+			headers: { ...cors, "Content-Type": "text/html; charset=utf-8" },
+		});
+	} catch (error) {
+		logger.error("Failed to inject wrapped share metadata: {error}", {
+			error: String(error),
+		});
+		return new Response(method === "HEAD" ? null : indexHtml, {
+			headers: { ...cors, "Content-Type": "text/html; charset=utf-8" },
+		});
+	}
+}
+
+function getWrappedPublicShareId(pathname: string) {
+	return getFirstPathMatch(pathname, WRAPPED_PUBLIC_PATH_PATTERN);
+}
+
+function getWrappedShareCardImageId(pathname: string) {
+	return getFirstPathMatch(pathname, WRAPPED_SHARE_CARD_IMAGE_PATH_PATTERN);
+}
+
+function getFirstPathMatch(pathname: string, pattern: RegExp) {
+	const match = pathname.match(pattern);
+	const shareId = match?.[1];
+
+	if (!shareId) {
+		return null;
+	}
+
+	return shareId;
+}
+
+function getPublicRequestOrigin(request: Request, url: URL) {
+	const forwardedProto = request.headers.get("x-forwarded-proto");
+	const forwardedHost = request.headers.get("x-forwarded-host");
+	const proto =
+		forwardedProto?.split(",")[0]?.trim() || url.protocol.slice(0, -1);
+	const host =
+		forwardedHost?.split(",")[0]?.trim() ||
+		request.headers.get("host") ||
+		url.host;
+
+	return `${proto}://${host}`;
+}
+
+function isTooManyRequestsError(error: unknown) {
+	return error instanceof ORPCError && error.code === "TOO_MANY_REQUESTS";
 }
 
 async function getContext(request: Request) {
@@ -254,22 +500,40 @@ async function getContext(request: Request) {
 			});
 
 			if (verification.valid && verification.key) {
-				const [foundUser] = await db
-					.select({
-						id: userTable.id,
-						name: userTable.name,
-						email: userTable.email,
-						emailVerified: userTable.emailVerified,
-						image: userTable.image,
-						createdAt: userTable.createdAt,
-						updatedAt: userTable.updatedAt,
-					})
-					.from(userTable)
-					.where(eq(userTable.id, verification.key.referenceId))
-					.limit(1);
+				const [foundUser] = await sqlClient<
+					Array<{
+						createdAt: Date;
+						email: string;
+						emailVerified: boolean;
+						id: string;
+						image: string | null;
+						name: string;
+						updatedAt: Date;
+					}>
+				>`
+					SELECT
+						id,
+						name,
+						email,
+						email_verified AS "emailVerified",
+						image,
+						created_at AS "createdAt",
+						updated_at AS "updatedAt"
+					FROM "user"
+					WHERE id = ${verification.key.referenceId}
+					LIMIT 1
+				`;
 
 				if (foundUser) {
-					apiKeyUser = foundUser as AuthUser;
+					apiKeyUser = {
+						id: foundUser.id,
+						name: foundUser.name,
+						email: foundUser.email,
+						emailVerified: foundUser.emailVerified,
+						image: foundUser.image,
+						createdAt: foundUser.createdAt,
+						updatedAt: foundUser.updatedAt,
+					} satisfies AuthUser;
 					apiKeyId = verification.key.id;
 				}
 			}

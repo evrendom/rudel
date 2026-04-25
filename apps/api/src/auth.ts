@@ -33,6 +33,32 @@ function getEmailDomain(email: string) {
 	return domain && domain.length > 0 ? domain : "unknown";
 }
 
+function formatFallbackName(email: string) {
+	const localPart = email.split("@")[0]?.trim();
+	if (!localPart) {
+		return "Rudel User";
+	}
+
+	const words = localPart
+		.split(/[._-]+/)
+		.map((word) => word.trim())
+		.filter(Boolean);
+	if (words.length === 0) {
+		return localPart;
+	}
+
+	return words
+		.map((word) => `${word.charAt(0).toUpperCase()}${word.slice(1)}`)
+		.join(" ");
+}
+
+function getUserDisplayName(user: { email: string; name?: string | null }) {
+	const trimmedName = user.name?.trim();
+	return trimmedName && trimmedName.length > 0
+		? trimmedName
+		: formatFallbackName(user.email);
+}
+
 function toTrackedOrganizationRole(
 	role: string | null | undefined,
 ): "admin" | "member" {
@@ -139,6 +165,7 @@ export function createAuth(db: object, config: AuthConfig) {
 						}> = [];
 
 						try {
+							const displayName = getUserDisplayName(user);
 							if (adapter) {
 								accounts = (await adapter.findMany({
 									model: "account",
@@ -150,7 +177,7 @@ export function createAuth(db: object, config: AuthConfig) {
 									model: "organization",
 									data: {
 										id: user.id,
-										name: `${user.name}'s Workspace`,
+										name: `${displayName}'s Workspace`,
 										slug,
 										createdAt: new Date(),
 									},
@@ -191,7 +218,7 @@ export function createAuth(db: object, config: AuthConfig) {
 
 						await syncSignupContact(resend, {
 							email: user.email,
-							name: user.name,
+							name: getUserDisplayName(user),
 						});
 
 						if (!config.slackWebhookUrl || !adapter) {
@@ -208,7 +235,10 @@ export function createAuth(db: object, config: AuthConfig) {
 							}
 							await notifySignup(
 								config.slackWebhookUrl,
-								{ name: user.name, email: user.email },
+								{
+									email: user.email,
+									name: getUserDisplayName(user),
+								},
 								githubHandle,
 							);
 						} catch (err) {

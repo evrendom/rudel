@@ -18,6 +18,7 @@ import {
 	type SignUpFailedEvent,
 	type UiUtilityUsedEvent,
 } from "@rudel/api-routes";
+import { getWrappedPublicIdFromPath } from "@/app/routes";
 
 const EVENT_VERSION = PRODUCT_ANALYTICS_EVENT_VERSION;
 const ANALYTICS_SURFACE = "web";
@@ -351,6 +352,19 @@ const ANALYTICS_PAGE_MATCHERS: ReadonlyArray<{
 	{
 		pageName: "accept_invitation",
 		matches: (pathname) => pathname.startsWith("/invitation/"),
+	},
+	{
+		pageName: "get_started",
+		matches: (pathname) =>
+			pathname === "/get-started" || pathname === "/dashboard/get-started",
+	},
+	{
+		pageName: "wrapped_share",
+		matches: (pathname) => getWrappedPublicIdFromPath(pathname) !== null,
+	},
+	{
+		pageName: "wrapped_team_card",
+		matches: (pathname) => pathname === "/wrapped",
 	},
 	{ pageName: "overview", matches: (pathname) => pathname === "/dashboard" },
 	{

@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { appRoutes } from "@/app/routes";
 import {
 	clearPendingSignupRedirect,
+	getEmailLoginSuccessDestination,
 	getEmailSignupSuccessDestination,
 	getEmailSignupVerificationCallbackURL,
 	getPendingSignupRedirect,
@@ -65,23 +66,23 @@ describe("auth state refresh", () => {
 
 	beforeEach(() => {
 		window.history.replaceState({}, "", "/");
-		mockRefreshAuthClientState.mockReset();
 		mockSignInEmail.mockReset();
 		mockSignInSocial.mockReset();
 		mockSignUpEmail.mockReset();
 		mockNavigateToDestination.mockReset();
+		mockRefreshAuthClientState.mockReset();
 		mockTrackAuthenticationAction.mockReset();
 	});
 
-	it("routes homepage email signups to the get-started page", () => {
+	it("routes homepage email signups to the wrapped entry", () => {
 		expect(getEmailSignupSuccessDestination("/", "")).toBe(
-			appRoutes.getStarted(),
+			appRoutes.wrappedTeamCard(),
 		);
 	});
 
 	it("uses the direct redirect destination for homepage email verification callbacks", () => {
 		expect(getEmailSignupVerificationCallbackURL("/", "")).toBe(
-			appRoutes.getStarted(),
+			appRoutes.wrappedTeamCard(),
 		);
 	});
 
@@ -146,10 +147,24 @@ describe("auth state refresh", () => {
 		);
 	});
 
+	it("routes homepage email logins back to the app root", () => {
+		expect(getEmailLoginSuccessDestination("/", "")).toBe("/");
+	});
+
+	it("preserves explicit redirect destinations for email login", () => {
+		expect(
+			getEmailLoginSuccessDestination("/", "?redirect=%2Fdashboard%2Fsessions"),
+		).toBe("/dashboard/sessions");
+	});
+
+	it("preserves direct wrapped destinations for email login", () => {
+		expect(getEmailLoginSuccessDestination("/wrapped", "")).toBe("/wrapped");
+	});
+
 	it("uses a separate new-user social signup destination on the homepage", () => {
 		expect(getSocialSignupRedirectOptions("/", "")).toEqual({
 			callbackURL: "/",
-			newUserCallbackURL: appRoutes.getStarted(),
+			newUserCallbackURL: appRoutes.wrappedTeamCard(),
 		});
 	});
 
@@ -175,6 +190,9 @@ describe("auth state refresh", () => {
 		const user = userEvent.setup();
 		render(<SignupForm onSwitchToLogin={vi.fn()} />);
 
+		await user.click(
+			screen.getByRole("button", { name: "Create account with Email" }),
+		);
 		await user.type(screen.getByLabelText("Name"), "Ada Lovelace");
 		await user.type(screen.getByLabelText("Email"), "ada@example.com");
 		await user.type(screen.getByLabelText("Password"), "supersecure");
@@ -186,7 +204,7 @@ describe("auth state refresh", () => {
 					name: "Ada Lovelace",
 					email: "ada@example.com",
 					password: "supersecure",
-					callbackURL: "/get-started",
+					callbackURL: "/wrapped",
 					fetchOptions: expect.objectContaining({
 						disableSignal: true,
 						onSuccess: expect.any(Function),
@@ -196,11 +214,11 @@ describe("auth state refresh", () => {
 		});
 
 		await waitFor(() => {
-			expect(mockNavigateToDestination).toHaveBeenCalledWith("/get-started");
+			expect(mockNavigateToDestination).toHaveBeenCalledWith("/wrapped");
 		});
 
 		expect(window.location.search).toBe(
-			`?signup_redirect=${encodeURIComponent(appRoutes.getStarted())}`,
+			`?signup_redirect=${encodeURIComponent(appRoutes.wrappedTeamCard())}`,
 		);
 	});
 
@@ -211,6 +229,9 @@ describe("auth state refresh", () => {
 		const user = userEvent.setup();
 		render(<SignupForm onSwitchToLogin={vi.fn()} />);
 
+		await user.click(
+			screen.getByRole("button", { name: "Create account with Email" }),
+		);
 		await user.type(screen.getByLabelText("Name"), "Ada Lovelace");
 		await user.type(screen.getByLabelText("Email"), "ada@example.com");
 		await user.type(screen.getByLabelText("Password"), "supersecure");
@@ -230,6 +251,9 @@ describe("auth state refresh", () => {
 		const user = userEvent.setup();
 		render(<SignupForm onSwitchToLogin={vi.fn()} />);
 
+		await user.click(
+			screen.getByRole("button", { name: "Create account with Email" }),
+		);
 		await user.type(screen.getByLabelText("Name"), "Ada Lovelace");
 		await user.type(screen.getByLabelText("Email"), "ada@example.com");
 		await user.type(screen.getByLabelText("Password"), "supersecure");
@@ -250,6 +274,9 @@ describe("auth state refresh", () => {
 		const user = userEvent.setup();
 		render(<SignupForm onSwitchToLogin={vi.fn()} />);
 
+		await user.click(
+			screen.getByRole("button", { name: "Create account with Email" }),
+		);
 		await user.type(screen.getByLabelText("Name"), "Ada Lovelace");
 		await user.type(screen.getByLabelText("Email"), "ada@example.com");
 		await user.type(screen.getByLabelText("Password"), "supersecure");
@@ -269,19 +296,46 @@ describe("auth state refresh", () => {
 		render(<SignupForm onSwitchToLogin={vi.fn()} />);
 
 		await user.click(
-			screen.getByRole("button", { name: "Continue with Google" }),
+			screen.getByRole("button", { name: "Create account with Google" }),
 		);
 
 		await waitFor(() => {
 			expect(mockSignInSocial).toHaveBeenCalledWith({
 				provider: "google",
 				callbackURL: "/",
-				newUserCallbackURL: "/get-started",
+				newUserCallbackURL: "/wrapped",
 			});
 		});
 	});
 
-	it("refreshes the auth store after a successful email sign in", async () => {
+	it("uses a local wrapped preview submit for email sign up when requested", async () => {
+		const user = userEvent.setup();
+		const handlePreviewSubmit = vi.fn();
+
+		render(
+			<SignupForm
+				onEmailPasswordPreviewSubmit={handlePreviewSubmit}
+				onSwitchToLogin={vi.fn()}
+				variant="wrapped-story"
+			/>,
+		);
+
+		await user.click(
+			screen.getByRole("button", { name: "Create account with Email" }),
+		);
+		await user.type(await screen.findByLabelText("Email"), "ada@example.com");
+		await user.click(screen.getByRole("button", { name: "Continue" }));
+		expect(await screen.findByLabelText("Password")).toBeInTheDocument();
+		await user.type(screen.getByLabelText("Password"), "supersecure");
+		await user.click(screen.getByRole("button", { name: "Sign up" }));
+
+		expect(handlePreviewSubmit).toHaveBeenCalledWith("ada@example.com");
+		expect(mockSignUpEmail).not.toHaveBeenCalled();
+		expect(mockNavigateToDestination).not.toHaveBeenCalled();
+		expect(screen.queryByLabelText("Name")).not.toBeInTheDocument();
+	});
+
+	it("hard-navigates after a successful email sign in", async () => {
 		window.history.replaceState(
 			{},
 			"",
@@ -292,6 +346,7 @@ describe("auth state refresh", () => {
 		const user = userEvent.setup();
 		render(<LoginForm onSwitchToSignup={vi.fn()} />);
 
+		await user.click(screen.getByRole("button", { name: "Log in with Email" }));
 		await user.type(screen.getByLabelText("Email"), "ada@example.com");
 		await user.type(screen.getByLabelText("Password"), "supersecure");
 		await user.click(screen.getByRole("button", { name: "Sign in" }));
@@ -304,9 +359,55 @@ describe("auth state refresh", () => {
 		});
 
 		await waitFor(() => {
-			expect(mockRefreshAuthClientState).toHaveBeenCalledTimes(1);
+			expect(mockNavigateToDestination).toHaveBeenCalledWith("/");
 		});
 
+		expect(mockRefreshAuthClientState).toHaveBeenCalledTimes(1);
 		expect(window.location.search).toBe("");
+	});
+
+	it("hard-navigates wrapped logins back into wrapped", async () => {
+		window.history.replaceState({}, "", "/wrapped");
+		mockSignInEmail.mockResolvedValue({ error: null });
+
+		const user = userEvent.setup();
+		render(<LoginForm onSwitchToSignup={vi.fn()} />);
+
+		await user.click(screen.getByRole("button", { name: "Log in with Email" }));
+		await user.type(screen.getByLabelText("Email"), "ada@example.com");
+		await user.type(screen.getByLabelText("Password"), "supersecure");
+		await user.click(screen.getByRole("button", { name: "Sign in" }));
+
+		await waitFor(() => {
+			expect(mockNavigateToDestination).toHaveBeenCalledWith("/wrapped");
+		});
+		expect(mockRefreshAuthClientState).toHaveBeenCalledTimes(1);
+	});
+
+	it("uses a local wrapped preview submit for email sign in when requested", async () => {
+		const user = userEvent.setup();
+		const handlePreviewSubmit = vi.fn();
+
+		render(
+			<LoginForm
+				onEmailPasswordPreviewSubmit={handlePreviewSubmit}
+				onSwitchToSignup={vi.fn()}
+				variant="wrapped-story"
+			/>,
+		);
+
+		await user.click(screen.getByRole("button", { name: "Log in with Email" }));
+		await user.type(await screen.findByLabelText("Email"), "ada@example.com");
+		await user.click(screen.getByRole("button", { name: "Continue" }));
+		expect(await screen.findByLabelText("Password")).toBeInTheDocument();
+		await user.type(screen.getByLabelText("Password"), "supersecure");
+		await user.click(screen.getByRole("button", { name: "Sign in" }));
+
+		expect(handlePreviewSubmit).toHaveBeenCalledWith("ada@example.com");
+		expect(mockSignInEmail).not.toHaveBeenCalled();
+		expect(mockNavigateToDestination).not.toHaveBeenCalled();
+		expect(
+			screen.queryByRole("button", { name: "Forgot password?" }),
+		).not.toBeInTheDocument();
 	});
 });

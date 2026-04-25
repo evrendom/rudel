@@ -1,54 +1,99 @@
 import { cn } from "@/lib/utils";
+import { type CliSetupStepId, cliSetupCommands } from "./cli-setup-commands";
+import { WrappedCliSetupCommand } from "./WrappedCliSetupCommand";
 
-const setupCommands = [
-	{
-		command: "npm install -g rudel",
-		id: "install-cli",
-		title: "Install CLI",
-	},
-	{
-		command: "rudel login",
-		id: "log-in",
-		title: "Log in",
-	},
-	{
-		command: "rudel enable",
-		id: "enable-auto-upload",
-		title: "Enable auto-upload",
-	},
-	{
-		command: "rudel upload",
-		id: "upload-sessions",
-		title: "Upload sessions",
-	},
-] as const;
+export { cliSetupCommands };
+export type { CliSetupStepId };
 
-export type CliSetupStepId = (typeof setupCommands)[number]["id"];
+export function CliSetupHint({
+	completedStepIds = [],
+	currentStepId,
+	hideAlternateCommandCaption = false,
+	variant = "default",
+}: {
+	completedStepIds?: readonly CliSetupStepId[];
+	currentStepId?: CliSetupStepId | null;
+	hideAlternateCommandCaption?: boolean;
+	variant?: "default" | "wrapped-story";
+}) {
+	const completedSteps = new Set(completedStepIds);
+	const isWrappedStory = variant === "wrapped-story";
+	const currentStepIndex =
+		currentStepId === undefined || currentStepId === null
+			? null
+			: cliSetupCommands.findIndex((step) => step.id === currentStepId);
+	const containerClassName = cn(
+		isWrappedStory
+			? "mymind-wrapped-setup-steps"
+			: "mt-4 mx-auto grid w-full max-w-xl gap-3",
+	);
 
-interface CommandBlockProps {
-	label: string;
-	command: string;
-	isComplete?: boolean;
+	if (!isWrappedStory) {
+		return (
+			<div className={containerClassName}>
+				{cliSetupCommands.map((step) => (
+					<DefaultCliSetupCommand
+						key={step.command}
+						label={step.title}
+						command={step.command}
+						isComplete={completedSteps.has(step.id)}
+					/>
+				))}
+			</div>
+		);
+	}
+
+	return (
+		<ol className={containerClassName}>
+			{cliSetupCommands.map((step, index) => (
+				<WrappedCliSetupCommand
+					key={step.command}
+					label={step.title}
+					alternateCommand={step.alternateCommand}
+					alternateCommandCaption={
+						hideAlternateCommandCaption
+							? undefined
+							: step.alternateCommandCaption
+					}
+					command={step.command}
+					commandCaption={step.commandCaption}
+					description={step.description}
+					index={index}
+					isActive={currentStepId === step.id}
+					isComplete={completedSteps.has(step.id)}
+					isUpcoming={
+						currentStepIndex !== null &&
+						currentStepId !== step.id &&
+						index > currentStepIndex &&
+						!completedSteps.has(step.id)
+					}
+				/>
+			))}
+		</ol>
+	);
 }
 
-function CommandBlock({
-	label,
-	command,
-	isComplete = false,
-}: CommandBlockProps) {
+function DefaultCliSetupCommand(props: {
+	command: string;
+	isComplete: boolean;
+	label: string;
+}) {
+	const { command, isComplete, label } = props;
+
 	return (
 		<div
 			data-complete={isComplete ? "true" : "false"}
 			className={cn(
 				"rounded-[1.75rem] border border-border/60 bg-card px-5 py-5 shadow-none transition-colors",
-				isComplete &&
-					"border-status-success-border bg-status-success-bg text-status-success-text",
+				isComplete
+					? "border-status-success-border bg-status-success-bg text-status-success-text"
+					: null,
 			)}
 		>
 			<p
 				className={cn(
 					"[font-family:var(--app-font-heading)] text-lg font-extrabold tracking-[-0.02em] text-foreground transition-colors",
-					isComplete && "text-status-success-text",
+					isComplete ? "text-status-success-text" : null,
 				)}
 			>
 				{label}
@@ -56,33 +101,13 @@ function CommandBlock({
 			<code
 				className={cn(
 					"mt-4 block rounded-2xl border border-border/60 bg-background px-3 py-3 font-mono text-[13px] text-foreground transition-colors",
-					isComplete &&
-						"border-status-success-border bg-status-success-bg text-status-success-text",
+					isComplete
+						? "border-status-success-border bg-status-success-bg text-status-success-text"
+						: null,
 				)}
 			>
 				{command}
 			</code>
-		</div>
-	);
-}
-
-export function CliSetupHint({
-	completedStepIds = [],
-}: {
-	completedStepIds?: readonly CliSetupStepId[];
-}) {
-	const completedSteps = new Set(completedStepIds);
-
-	return (
-		<div className="mt-4 mx-auto grid w-full max-w-xl gap-3">
-			{setupCommands.map((step) => (
-				<CommandBlock
-					key={step.command}
-					label={step.title}
-					command={step.command}
-					isComplete={completedSteps.has(step.id)}
-				/>
-			))}
 		</div>
 	);
 }

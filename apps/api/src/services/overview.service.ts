@@ -6,14 +6,12 @@ import type {
 	UserDailyTrendData,
 	UserTokenUsageData,
 } from "@rudel/api-routes";
-import { user } from "@rudel/sql-schema";
-import { eq } from "drizzle-orm";
 import {
 	buildAbsoluteDateFilter,
 	buildDateFilter,
 	queryClickhouse,
 } from "../clickhouse.js";
-import { db } from "../db.js";
+import { sqlClient } from "../db.js";
 import { buildEstimatedCostSql } from "./pricing.service.js";
 
 export interface Insight {
@@ -23,12 +21,12 @@ export interface Insight {
 	link: string;
 }
 
-const PER_SESSION_COST_SQL = buildEstimatedCostSql({
-	modelExpr: "model_used",
-	inputExpr: "ifNull(input_tokens, 0)",
-	outputExpr: "ifNull(output_tokens, 0)",
-	cacheReadInputExpr: "ifNull(cache_read_input_tokens, 0)",
-	cacheCreationInputExpr: "ifNull(cache_creation_input_tokens, 0)",
+const USER_USAGE_PER_SESSION_COST_SQL = buildEstimatedCostSql({
+	modelExpr: "sa.model_used",
+	inputExpr: "ifNull(sa.input_tokens, 0)",
+	outputExpr: "ifNull(sa.output_tokens, 0)",
+	cacheReadInputExpr: "ifNull(sa.cache_read_input_tokens, 0)",
+	cacheCreationInputExpr: "ifNull(sa.cache_creation_input_tokens, 0)",
 });
 
 /**
@@ -190,10 +188,10 @@ export async function getUsersTokenUsage(
 	}>({
 		query: `
     SELECT
-      user_id,
+      sa.user_id,
       arrayFilter(
         x -> x != '',
-        topK(3)(if(model_used != '' AND model_used != 'unknown', model_used, ''))
+        topK(3)(if(sa.model_used != '' AND sa.model_used != 'unknown', sa.model_used, ''))
       ) as models_used,
       arraySort(
         arrayDistinct(
@@ -201,33 +199,33 @@ export async function getUsersTokenUsage(
             x -> x != '',
             groupArray(
               if(
-                git_remote != '',
-                replaceRegexpOne(arrayElement(splitByChar('/', git_remote), -1), '\\\\.git$', ''),
+                sa.git_remote != '',
+                replaceRegexpOne(arrayElement(splitByChar('/', sa.git_remote), -1), '\\\\.git$', ''),
                 if(
-                  package_name != '',
-                  package_name,
-                  arrayElement(splitByChar('/', replaceAll(project_path, '\\\\', '/')), -1)
+                  sa.package_name != '',
+                  sa.package_name,
+                  arrayElement(splitByChar('/', replaceAll(sa.project_path, '\\\\', '/')), -1)
                 )
               )
             )
           )
         )
       ) as repositories_touched,
-      sum(has_commit) as total_commits,
-      sum(ifNull(total_tokens, 0)) as total_tokens,
-      sum(ifNull(input_tokens, 0)) as input_tokens,
-      sum(ifNull(output_tokens, 0)) as output_tokens,
-      round(sum(${PER_SESSION_COST_SQL}), 4) as cost,
+      sum(sa.has_commit) as total_commits,
+      sum(ifNull(sa.total_tokens, 0)) as total_tokens,
+      sum(ifNull(sa.input_tokens, 0)) as input_tokens,
+      sum(ifNull(sa.output_tokens, 0)) as output_tokens,
+      round(sum(${USER_USAGE_PER_SESSION_COST_SQL}), 4) as cost,
       count() as total_sessions,
-      round(sum(actual_duration_min), 2) as total_duration_min,
-      round(avg(success_score), 2) as success_rate,
-      length(arrayDistinct(arrayFilter(x -> x != '', arrayFlatten(groupArray(skills))))) as distinct_skills,
-      length(arrayDistinct(arrayFilter(x -> x != '', arrayFlatten(groupArray(slash_commands))))) as distinct_slash_commands
-    FROM rudel.session_analytics FINAL
+      round(sum(sa.actual_duration_min), 2) as total_duration_min,
+      round(avg(sa.success_score), 2) as success_rate,
+      length(arrayDistinct(arrayFilter(x -> x != '', arrayFlatten(groupArray(sa.skills))))) as distinct_skills,
+      length(arrayDistinct(arrayFilter(x -> x != '', arrayFlatten(groupArray(sa.slash_commands))))) as distinct_slash_commands
+    FROM rudel.session_analytics FINAL AS sa
     WHERE ${dateFilter}
-      AND organization_id = {orgId:String}
-      AND user_id != ''
-    GROUP BY user_id
+      AND sa.organization_id = {orgId:String}
+      AND sa.user_id != ''
+    GROUP BY sa.user_id
     ORDER BY total_tokens DESC
   `,
 		query_params: {
@@ -522,11 +520,12 @@ export async function getOverviewInsights(
 	// Insight 2: Top performer identification
 	if (topPerformerData.length > 0 && topPerformerData[0]) {
 		const performer = topPerformerData[0];
-		const [userData] = await db
-			.select({ name: user.name })
-			.from(user)
-			.where(eq(user.id, performer.user_id))
-			.limit(1);
+		const [userData] = await sqlClient<Array<{ name: string | null }>>`
+			SELECT name
+			FROM "user"
+			WHERE id = ${performer.user_id}
+			LIMIT 1
+		`;
 		const displayName =
 			userData?.name || `${performer.user_id.substring(0, 8)}...`;
 

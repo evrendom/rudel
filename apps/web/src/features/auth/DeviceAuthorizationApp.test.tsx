@@ -5,21 +5,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { appRoutes } from "@/app/routes";
 import { DeviceAuthorizationApp } from "./DeviceAuthorizationApp";
 
-const { mockTrackAuthenticationAction, mockUseSetupProgress } = vi.hoisted(
-	() => ({
-		mockTrackAuthenticationAction: vi.fn(),
-		mockUseSetupProgress: vi.fn(),
-	}),
-);
+const { mockTrackAuthenticationAction } = vi.hoisted(() => ({
+	mockTrackAuthenticationAction: vi.fn(),
+}));
 
 vi.mock("@/features/analytics/tracking/useAnalyticsTracking", () => ({
 	useAnalyticsTracking: () => ({
 		trackAuthenticationAction: mockTrackAuthenticationAction,
 	}),
-}));
-
-vi.mock("@/features/get-started/use-setup-progress", () => ({
-	useSetupProgress: mockUseSetupProgress,
 }));
 
 const now = new Date("2026-04-11T08:00:00.000Z");
@@ -48,61 +41,12 @@ describe("DeviceAuthorizationApp", () => {
 	beforeEach(() => {
 		vi.restoreAllMocks();
 		mockTrackAuthenticationAction.mockReset();
-		mockUseSetupProgress.mockReset();
-		mockUseSetupProgress.mockReturnValue({
-			hasUploadedSessions: false,
-			isLoading: false,
-			totalSessionCount: 0,
-		});
 	});
 
-	it("marks install and login as completed after approving CLI login", async () => {
+	it("redirects to wrapped after approval when sessions are still missing", async () => {
 		const fetchMock = vi
 			.spyOn(globalThis, "fetch")
 			.mockResolvedValue(new Response(null, { status: 200 }));
-
-		const user = userEvent.setup();
-		render(
-			<DeviceAuthorizationApp deviceUserCode="ABCD-1234" session={session} />,
-		);
-
-		await user.click(screen.getByRole("button", { name: "Approve" }));
-
-		await waitFor(() => {
-			expect(
-				screen.getByRole("heading", { name: "CLI login approved" }),
-			).toBeInTheDocument();
-		});
-
-		expect(fetchMock).toHaveBeenCalledWith("/api/auth/device/approve", {
-			method: "POST",
-			credentials: "include",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ userCode: "ABCD-1234" }),
-		});
-
-		const installStep = screen
-			.getByText("Install CLI")
-			.closest("[data-complete]");
-		const loginStep = screen.getByText("Log in").closest("[data-complete]");
-		const enableStep = screen
-			.getByText("Enable auto-upload")
-			.closest("[data-complete]");
-
-		expect(installStep).toHaveAttribute("data-complete", "true");
-		expect(loginStep).toHaveAttribute("data-complete", "true");
-		expect(enableStep).toHaveAttribute("data-complete", "false");
-	});
-
-	it("redirects to the dashboard after approval once sessions exist", async () => {
-		vi.spyOn(globalThis, "fetch").mockResolvedValue(
-			new Response(null, { status: 200 }),
-		);
-		mockUseSetupProgress.mockReturnValue({
-			hasUploadedSessions: true,
-			isLoading: false,
-			totalSessionCount: 1,
-		});
 
 		const user = userEvent.setup();
 		render(
@@ -117,6 +61,52 @@ describe("DeviceAuthorizationApp", () => {
 							/>
 						}
 					/>
+					<Route
+						path={appRoutes.wrappedTeamCard()}
+						element={<div>Wrapped</div>}
+					/>
+				</Routes>
+			</MemoryRouter>,
+		);
+
+		await user.click(screen.getByRole("button", { name: "Approve" }));
+
+		await waitFor(() => {
+			expect(screen.getByText("Wrapped")).toBeInTheDocument();
+		});
+
+		expect(fetchMock).toHaveBeenCalledWith("/api/auth/device/approve", {
+			method: "POST",
+			credentials: "include",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ userCode: "ABCD-1234" }),
+		});
+
+		expect(screen.queryByText("CLI login approved")).toBeNull();
+	});
+
+	it("keeps users in wrapped after approval instead of sending them to dashboard", async () => {
+		vi.spyOn(globalThis, "fetch").mockResolvedValue(
+			new Response(null, { status: 200 }),
+		);
+
+		const user = userEvent.setup();
+		render(
+			<MemoryRouter initialEntries={["/device?user_code=ABCD-1234"]}>
+				<Routes>
+					<Route
+						path="/device"
+						element={
+							<DeviceAuthorizationApp
+								deviceUserCode="ABCD-1234"
+								session={session}
+							/>
+						}
+					/>
+					<Route
+						path={appRoutes.wrappedTeamCard()}
+						element={<div>Wrapped</div>}
+					/>
 					<Route path={appRoutes.dashboard()} element={<div>Dashboard</div>} />
 				</Routes>
 			</MemoryRouter>,
@@ -125,7 +115,8 @@ describe("DeviceAuthorizationApp", () => {
 		await user.click(screen.getByRole("button", { name: "Approve" }));
 
 		await waitFor(() => {
-			expect(screen.getByText("Dashboard")).toBeInTheDocument();
+			expect(screen.getByText("Wrapped")).toBeInTheDocument();
 		});
+		expect(screen.queryByText("Dashboard")).toBeNull();
 	});
 });

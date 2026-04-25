@@ -120,6 +120,8 @@
 
 @layer base {
 	* {
+		scrollbar-width: thin;
+		scrollbar-color: gray transparent;
 		@apply border-border outline-ring/50;
 	}
 	body {

@@ -55,11 +55,18 @@ const tonePortraitClassNames = {
 	slate: "bg-[linear-gradient(180deg,#e7edf2_0%,#bcc7d4_100%)] text-[#43515f]",
 } as const satisfies Record<TeamCardTone, string>;
 
-type TeamCardStatRow = {
+export interface TeamMemberCardHeaderMetric {
+	label?: string;
+	title?: string;
+	value: string;
+}
+
+export interface TeamMemberCardStatItem {
+	key: string;
 	label: string;
 	title?: string;
 	value: string;
-};
+}
 
 function getAvatarInitials(name: string) {
 	const parts = name.split(/\s+/).filter(Boolean);
@@ -160,14 +167,16 @@ function getCardTone(row: TeamPageMemberRow): TeamCardTone {
 	return "rose";
 }
 
-function buildCardStats(row: TeamPageMemberRow): TeamCardStatRow[] {
+function buildCardStats(row: TeamPageMemberRow): TeamMemberCardStatItem[] {
 	return [
 		{
+			key: "sessions",
 			label: "SESS",
 			title: `${row.totalSessions.toLocaleString()} sessions`,
 			value: row.totalSessions.toLocaleString(),
 		},
 		{
+			key: "tokens",
 			label: "TOK",
 			title:
 				row.totalTokens > 0
@@ -176,11 +185,13 @@ function buildCardStats(row: TeamPageMemberRow): TeamCardStatRow[] {
 			value: formatTotalTokens(row.totalTokens),
 		},
 		{
+			key: "last",
 			label: "LAST",
 			title: row.lastActiveDate ?? "No recent activity",
 			value: formatShortDate(row.lastActiveDate),
 		},
 		{
+			key: "input-output",
 			label: "IN/OUT",
 			title: `${row.inputTokens.toLocaleString()} input tokens / ${row.outputTokens.toLocaleString()} output tokens`,
 			value: formatInputOutputSplit(row.inputTokens, row.outputTokens),
@@ -188,30 +199,78 @@ function buildCardStats(row: TeamPageMemberRow): TeamCardStatRow[] {
 	];
 }
 
-function TeamMemberCard({ row }: { row: TeamPageMemberRow }) {
+export function TeamMemberCard({
+	headerLeftMetric,
+	headerRightMetric,
+	row,
+	mediaPanelClassName,
+	statItems,
+	statValueClassName,
+	statTileClassName,
+}: {
+	headerLeftMetric?: TeamMemberCardHeaderMetric;
+	headerRightMetric?: TeamMemberCardHeaderMetric;
+	row: TeamPageMemberRow;
+	mediaPanelClassName?: string;
+	statItems?: readonly TeamMemberCardStatItem[];
+	statValueClassName?: string;
+	statTileClassName?: string;
+}) {
 	const tone = getCardTone(row);
 	const isMissingProfileImage = !row.imageUrl;
 	const effectiveTone = isMissingProfileImage ? "rose" : tone;
-	const stats = buildCardStats(row);
+	const stats = statItems ?? buildCardStats(row);
 	const initials = getAvatarInitials(row.displayName);
-	const topHeaderValue = formatSpendValue(row.cost);
+	const resolvedHeaderLeftMetric = headerLeftMetric ?? {
+		label: "COST",
+		title: `${currencyFormatter.format(row.cost)} estimated spend`,
+		value: formatSpendValue(row.cost),
+	};
 
 	return (
 		<li className="list-none">
 			<article className={adaptedTeamCardShellClassName}>
-				<div className="flex items-center">
+				<div className="flex items-start justify-between gap-[10px]">
 					<div
-						className="flex items-center"
-						title={`${currencyFormatter.format(row.cost)} estimated spend`}
+						className="flex min-w-0 items-center"
+						title={resolvedHeaderLeftMetric.title}
 					>
 						<div className={adaptedTeamCardHeaderValueClassName}>
-							{topHeaderValue}
+							{resolvedHeaderLeftMetric.value}
 						</div>
-						<div className={adaptedTeamCardHeaderLabelClassName}>COST</div>
+						<div className={adaptedTeamCardHeaderLabelClassName}>
+							{resolvedHeaderLeftMetric.label}
+						</div>
 					</div>
+
+					{headerRightMetric ? (
+						<div
+							className="min-w-0 max-w-[7rem] text-right"
+							title={headerRightMetric.title}
+						>
+							{headerRightMetric.label ? (
+								<div className="text-[10px] font-semibold leading-none tracking-[0.06em] text-[#7b7671]">
+									{headerRightMetric.label}
+								</div>
+							) : null}
+							<div
+								className={cn(
+									"text-[11px] font-semibold leading-[0.95] tracking-[-0.03em] text-[#272423]",
+									headerRightMetric.label ? "mt-[4px]" : null,
+								)}
+							>
+								{headerRightMetric.value}
+							</div>
+						</div>
+					) : null}
 				</div>
 
-				<div className={adaptedTeamCardMediaPanelClassName}>
+				<div
+					className={cn(
+						adaptedTeamCardMediaPanelClassName,
+						mediaPanelClassName,
+					)}
+				>
 					<div
 						className={cn(
 							portraitPanelClassName,
@@ -249,17 +308,25 @@ function TeamMemberCard({ row }: { row: TeamPageMemberRow }) {
 					</div>
 				</div>
 
-				<div className="grid grid-cols-2 gap-[6px] [font-family:var(--dashboard-01-font-roster-mono)] text-[11px] font-normal text-[#4b4d49]">
+				<div className="relative z-10 grid grid-cols-2 gap-[6px] [font-family:var(--dashboard-01-font-roster-mono)] text-[11px] font-normal text-[#4b4d49]">
 					{stats.map((stat) => (
 						<div
-							key={stat.label}
-							className="grid min-h-[32px] min-w-0 grid-cols-[auto_max-content] items-center justify-center gap-[6px] rounded-[10px] border border-black/8 bg-white/74 px-[8px] py-[6px] shadow-[inset_0_1px_0_rgba(255,255,255,0.72)]"
+							key={stat.key}
+							className={cn(
+								"relative z-10 grid min-h-[32px] min-w-0 grid-cols-[auto_minmax(0,1fr)] items-center justify-center gap-[6px] rounded-[10px] border border-black/8 bg-white/74 px-[8px] py-[6px] shadow-[inset_0_1px_0_rgba(255,255,255,0.72)]",
+								statTileClassName,
+							)}
 							title={stat.title}
 						>
 							<div className="shrink-0 leading-none tracking-[0.08em] text-black/42">
 								{stat.label}
 							</div>
-							<div className="leading-none tracking-[-0.04em] tabular-nums text-[#272423]">
+							<div
+								className={cn(
+									"min-w-0 text-right leading-none tracking-[-0.04em] tabular-nums text-[#272423]",
+									statValueClassName,
+								)}
+							>
 								{stat.value}
 							</div>
 						</div>

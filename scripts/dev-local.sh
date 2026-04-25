@@ -17,7 +17,9 @@ export PG_CONNECTION_STRING=postgres://postgres:postgres@localhost:5432/rudel
 export BETTER_AUTH_SECRET=local-dev-secret-that-is-at-least-32-chars-long
 export CLICKHOUSE_URL=http://localhost:8123
 export CLICKHOUSE_PASSWORD=clickhouse
-export APP_URL=http://localhost:4011
+export APP_URL=http://localhost:4010
+export ALLOWED_ORIGIN=http://localhost:4011
+export TRUSTED_ORIGINS=http://localhost:4011,http://localhost:4012
 
 # Run API and Web in parallel, kill both on Ctrl+C
 bun --watch apps/api/src/index.ts &
