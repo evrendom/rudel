@@ -1,5 +1,5 @@
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/app/ui/button";
 import { Input } from "@/app/ui/input";
 import { Label } from "@/app/ui/label";
@@ -24,7 +24,9 @@ import {
 	recordOAuthRedirectStart,
 } from "./oauth-debug";
 import {
+	getWrappedAuthSceneItemMotion,
 	getWrappedAuthSceneMotion,
+	getWrappedAuthSceneShellMotion,
 	type WrappedAuthScene,
 } from "./wrapped-auth-motion";
 
@@ -84,7 +86,26 @@ export function SignupForm(props: SignupFormProps) {
 		isWrappedStory && onEmailPasswordPreviewSubmit !== undefined;
 	const hasValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
 	const shouldReduceMotion = useReducedMotion() ?? false;
+	const [hasMountedWrappedScene, setHasMountedWrappedScene] = useState(false);
+	const wrappedSceneShellMotion =
+		getWrappedAuthSceneShellMotion(shouldReduceMotion);
 	const wrappedSceneMotion = getWrappedAuthSceneMotion(shouldReduceMotion);
+
+	useEffect(() => {
+		if (!isWrappedStory) {
+			return;
+		}
+
+		setHasMountedWrappedScene(true);
+	}, [isWrappedStory]);
+
+	function getWrappedSceneItemMotion(delay = 0) {
+		return getWrappedAuthSceneItemMotion(shouldReduceMotion, delay);
+	}
+
+	function getWrappedSceneInitialState<T>(initial: T): T | false {
+		return hasMountedWrappedScene ? initial : false;
+	}
 
 	async function handleSubmit(e: React.FormEvent) {
 		e.preventDefault();
@@ -218,7 +239,7 @@ export function SignupForm(props: SignupFormProps) {
 					href="https://rudel.ai/terms"
 					target="_blank"
 					rel="noopener noreferrer"
-					className="mymind-wrapped-auth-form__switch-link"
+					className="mymind-wrapped-auth-form__terms-link"
 				>
 					Terms of Service
 				</a>{" "}
@@ -227,7 +248,7 @@ export function SignupForm(props: SignupFormProps) {
 					href="https://obsessiondb.com/privacy"
 					target="_blank"
 					rel="noopener noreferrer"
-					className="mymind-wrapped-auth-form__switch-link"
+					className="mymind-wrapped-auth-form__terms-link"
 				>
 					Privacy Policy
 				</a>
@@ -268,44 +289,84 @@ export function SignupForm(props: SignupFormProps) {
 		return (
 			<motion.div
 				key="choice"
-				animate={wrappedSceneMotion.enter}
+				animate={wrappedSceneShellMotion.animate}
 				className="mymind-wrapped-auth-form__scene mymind-wrapped-auth-form__scene--choice"
-				exit={wrappedSceneMotion.exit}
-				initial={wrappedSceneMotion.initial}
-				transition={wrappedSceneMotion.transition}
+				exit={wrappedSceneShellMotion.exit}
+				initial={getWrappedSceneInitialState(wrappedSceneShellMotion.initial)}
+				transition={wrappedSceneShellMotion.transition}
 			>
-				<div className="mymind-wrapped-auth-form__social">
-					<Button
-						type="button"
-						variant="outline"
-						className="mymind-wrapped-secondary-action rounded-full"
-						onClick={() => handleSocialSignIn("google")}
-					>
-						Continue with Google
-					</Button>
-					<Button
-						type="button"
-						variant="outline"
-						className="mymind-wrapped-secondary-action rounded-full"
-						onClick={() => handleSocialSignIn("github")}
-					>
-						Continue with GitHub
-					</Button>
-				</div>
+				<div className="mymind-wrapped-auth-form__choice-footer">
+					<div className="mymind-wrapped-auth-form__social">
+						<motion.div
+							animate={getWrappedSceneItemMotion().animate}
+							className="mymind-wrapped-auth-form__action-item"
+							exit={getWrappedSceneItemMotion().exit}
+							initial={getWrappedSceneInitialState(
+								getWrappedSceneItemMotion().initial,
+							)}
+							transition={getWrappedSceneItemMotion().transition}
+						>
+							<Button
+								type="button"
+								variant="outline"
+								className="mymind-wrapped-secondary-action rounded-full"
+								onClick={() => handleSocialSignIn("google")}
+							>
+								Continue with Google
+							</Button>
+						</motion.div>
+						<motion.div
+							animate={getWrappedSceneItemMotion(0.04).animate}
+							className="mymind-wrapped-auth-form__action-item"
+							exit={getWrappedSceneItemMotion(0.04).exit}
+							initial={getWrappedSceneInitialState(
+								getWrappedSceneItemMotion(0.04).initial,
+							)}
+							transition={getWrappedSceneItemMotion(0.04).transition}
+						>
+							<Button
+								type="button"
+								variant="outline"
+								className="mymind-wrapped-secondary-action rounded-full"
+								onClick={() => handleSocialSignIn("github")}
+							>
+								Continue with GitHub
+							</Button>
+						</motion.div>
+					</div>
 
-				<div className="mymind-wrapped-auth-form__divider">
-					<Separator className="mymind-wrapped-auth-form__divider-line" />
-					<span className="mymind-wrapped-auth-form__divider-label">OR</span>
-					<Separator className="mymind-wrapped-auth-form__divider-line" />
-				</div>
+					<motion.div
+						animate={getWrappedSceneItemMotion(0.08).animate}
+						className="mymind-wrapped-auth-form__divider"
+						exit={getWrappedSceneItemMotion(0.08).exit}
+						initial={getWrappedSceneInitialState(
+							getWrappedSceneItemMotion(0.08).initial,
+						)}
+						transition={getWrappedSceneItemMotion(0.08).transition}
+					>
+						<Separator className="mymind-wrapped-auth-form__divider-line" />
+						<span className="mymind-wrapped-auth-form__divider-label">OR</span>
+						<Separator className="mymind-wrapped-auth-form__divider-line" />
+					</motion.div>
 
-				<Button
-					type="button"
-					onClick={handleOpenWrappedEmail}
-					className="mymind-wrapped-entry-action mymind-wrapped-auth-form__scene-action h-11 rounded-full px-7 [font-family:var(--app-font-heading)] text-[1.0625rem] font-semibold"
-				>
-					Continue with Email
-				</Button>
+					<motion.div
+						animate={getWrappedSceneItemMotion(0.12).animate}
+						className="mymind-wrapped-auth-form__action-item"
+						exit={getWrappedSceneItemMotion(0.12).exit}
+						initial={getWrappedSceneInitialState(
+							getWrappedSceneItemMotion(0.12).initial,
+						)}
+						transition={getWrappedSceneItemMotion(0.12).transition}
+					>
+						<Button
+							type="button"
+							onClick={handleOpenWrappedEmail}
+							className="mymind-wrapped-entry-action mymind-wrapped-auth-form__scene-action h-11 rounded-full px-7 [font-family:var(--app-font-heading)] text-[1.0625rem] font-semibold"
+						>
+							Continue with Email
+						</Button>
+					</motion.div>
+				</div>
 			</motion.div>
 		);
 	}
@@ -314,19 +375,19 @@ export function SignupForm(props: SignupFormProps) {
 		return (
 			<motion.div
 				key="email"
-				animate={wrappedSceneMotion.enter}
+				animate={wrappedSceneShellMotion.animate}
 				className="mymind-wrapped-auth-form__scene mymind-wrapped-auth-form__scene--email"
-				exit={wrappedSceneMotion.exit}
-				initial={wrappedSceneMotion.initial}
-				transition={wrappedSceneMotion.transition}
+				exit={wrappedSceneShellMotion.exit}
+				initial={getWrappedSceneInitialState(wrappedSceneShellMotion.initial)}
+				transition={wrappedSceneShellMotion.transition}
 			>
-				<div className="mymind-wrapped-auth-form__field">
-					<Label
-						className="mymind-wrapped-auth-form__label"
-						htmlFor="signup-email"
-					>
-						Email
-					</Label>
+				<motion.div
+					animate={wrappedSceneMotion.enter}
+					className="mymind-wrapped-auth-form__field"
+					exit={wrappedSceneMotion.exit}
+					initial={getWrappedSceneInitialState(wrappedSceneMotion.initial)}
+					transition={wrappedSceneMotion.transition}
+				>
 					<Input
 						aria-label="Email"
 						autoFocus
@@ -338,23 +399,43 @@ export function SignupForm(props: SignupFormProps) {
 						className="mymind-wrapped-auth-form__input"
 						required
 					/>
-				</div>
+				</motion.div>
 
-				<Button
-					type="button"
-					onClick={handleContinueWrappedEmail}
-					className="mymind-wrapped-entry-action mymind-wrapped-auth-form__scene-action h-11 rounded-full px-7 [font-family:var(--app-font-heading)] text-[1.0625rem] font-semibold"
+				<motion.div
+					animate={getWrappedSceneItemMotion(0.06).animate}
+					className="mymind-wrapped-auth-form__action-item mymind-wrapped-auth-form__action-item--primary"
+					exit={getWrappedSceneItemMotion(0.06).exit}
+					initial={getWrappedSceneInitialState(
+						getWrappedSceneItemMotion(0.06).initial,
+					)}
+					transition={getWrappedSceneItemMotion(0.06).transition}
 				>
-					Continue
-				</Button>
+					<Button
+						type="button"
+						onClick={handleContinueWrappedEmail}
+						className="mymind-wrapped-entry-action mymind-wrapped-auth-form__scene-action h-11 rounded-full px-7 [font-family:var(--app-font-heading)] text-[1.0625rem] font-semibold"
+					>
+						Continue
+					</Button>
+				</motion.div>
 
-				<button
-					type="button"
-					onClick={handleReturnToWrappedChoice}
-					className="mymind-wrapped-auth-form__scene-link"
+				<motion.div
+					animate={getWrappedSceneItemMotion(0.1).animate}
+					className="mymind-wrapped-auth-form__action-item"
+					exit={getWrappedSceneItemMotion(0.1).exit}
+					initial={getWrappedSceneInitialState(
+						getWrappedSceneItemMotion(0.1).initial,
+					)}
+					transition={getWrappedSceneItemMotion(0.1).transition}
 				>
-					Use another method
-				</button>
+					<button
+						type="button"
+						onClick={handleReturnToWrappedChoice}
+						className="mymind-wrapped-auth-form__scene-link"
+					>
+						Use another method
+					</button>
+				</motion.div>
 			</motion.div>
 		);
 	}
@@ -363,13 +444,19 @@ export function SignupForm(props: SignupFormProps) {
 		return (
 			<motion.div
 				key="credentials"
-				animate={wrappedSceneMotion.enter}
+				animate={wrappedSceneShellMotion.animate}
 				className="mymind-wrapped-auth-form__scene mymind-wrapped-auth-form__scene--credentials"
-				exit={wrappedSceneMotion.exit}
-				initial={wrappedSceneMotion.initial}
-				transition={wrappedSceneMotion.transition}
+				exit={wrappedSceneShellMotion.exit}
+				initial={getWrappedSceneInitialState(wrappedSceneShellMotion.initial)}
+				transition={wrappedSceneShellMotion.transition}
 			>
-				<div className="mymind-wrapped-auth-form__identity">
+				<motion.div
+					animate={wrappedSceneMotion.enter}
+					className="mymind-wrapped-auth-form__identity"
+					exit={wrappedSceneMotion.exit}
+					initial={getWrappedSceneInitialState(wrappedSceneMotion.initial)}
+					transition={wrappedSceneMotion.transition}
+				>
 					<div className="mymind-wrapped-auth-form__identity-copy">
 						<span className="mymind-wrapped-auth-form__identity-label">
 							Email
@@ -385,52 +472,70 @@ export function SignupForm(props: SignupFormProps) {
 					>
 						Change
 					</button>
-				</div>
+				</motion.div>
 
 				<form
 					onSubmit={handleSubmit}
 					className="mymind-wrapped-auth-form__scene-form"
 				>
-					<div className="mymind-wrapped-auth-form__field">
-						<Label className="mymind-wrapped-auth-form__label" htmlFor="name">
-							Name
-						</Label>
-						<Input
-							autoFocus
-							id="name"
-							type="text"
-							placeholder="Your name"
-							value={name}
-							onChange={(e) => setName(e.target.value)}
-							className="mymind-wrapped-auth-form__input"
-							required
-						/>
-					</div>
-					<div className="mymind-wrapped-auth-form__field">
-						<Label
-							className="mymind-wrapped-auth-form__label"
-							htmlFor="password"
-						>
-							Password
-						</Label>
-						<Input
-							id="password"
-							type="password"
-							value={password}
-							onChange={(e) => setPassword(e.target.value)}
-							className="mymind-wrapped-auth-form__input"
-							required
-							minLength={8}
-						/>
-					</div>
-
-					<Button
-						type="submit"
-						disabled={loading}
-						className="mymind-wrapped-entry-action mymind-wrapped-auth-form__scene-action h-11 rounded-full px-7 [font-family:var(--app-font-heading)] text-[1.0625rem] font-semibold"
+					<motion.div
+						animate={wrappedSceneMotion.enter}
+						className="mymind-wrapped-auth-form__scene-fields"
+						exit={wrappedSceneMotion.exit}
+						initial={getWrappedSceneInitialState(wrappedSceneMotion.initial)}
+						transition={wrappedSceneMotion.transition}
 					>
-						{loading ? "Creating account..." : "Sign up"}
-					</Button>
+						<div className="mymind-wrapped-auth-form__field">
+							<Label className="mymind-wrapped-auth-form__label" htmlFor="name">
+								Name
+							</Label>
+							<Input
+								autoFocus
+								id="name"
+								type="text"
+								placeholder="Your name"
+								value={name}
+								onChange={(e) => setName(e.target.value)}
+								className="mymind-wrapped-auth-form__input"
+								required
+							/>
+						</div>
+						<div className="mymind-wrapped-auth-form__field">
+							<Label
+								className="mymind-wrapped-auth-form__label"
+								htmlFor="password"
+							>
+								Password
+							</Label>
+							<Input
+								id="password"
+								type="password"
+								value={password}
+								onChange={(e) => setPassword(e.target.value)}
+								className="mymind-wrapped-auth-form__input"
+								required
+								minLength={8}
+							/>
+						</div>
+					</motion.div>
+
+					<motion.div
+						animate={getWrappedSceneItemMotion(0.08).animate}
+						className="mymind-wrapped-auth-form__action-item mymind-wrapped-auth-form__action-item--primary"
+						exit={getWrappedSceneItemMotion(0.08).exit}
+						initial={getWrappedSceneInitialState(
+							getWrappedSceneItemMotion(0.08).initial,
+						)}
+						transition={getWrappedSceneItemMotion(0.08).transition}
+					>
+						<Button
+							type="submit"
+							disabled={loading}
+							className="mymind-wrapped-entry-action mymind-wrapped-auth-form__scene-action h-11 rounded-full px-7 [font-family:var(--app-font-heading)] text-[1.0625rem] font-semibold"
+						>
+							{loading ? "Creating account..." : "Sign up"}
+						</Button>
+					</motion.div>
 				</form>
 			</motion.div>
 		);
