@@ -188,7 +188,7 @@ describe("auth state refresh", () => {
 		render(<SignupForm onSwitchToLogin={vi.fn()} />);
 
 		await user.click(
-			screen.getByRole("button", { name: "Continue with email instead" }),
+			screen.getByRole("button", { name: "Create account with Email" }),
 		);
 		await user.type(screen.getByLabelText("Name"), "Ada Lovelace");
 		await user.type(screen.getByLabelText("Email"), "ada@example.com");
@@ -227,7 +227,7 @@ describe("auth state refresh", () => {
 		render(<SignupForm onSwitchToLogin={vi.fn()} />);
 
 		await user.click(
-			screen.getByRole("button", { name: "Continue with email instead" }),
+			screen.getByRole("button", { name: "Create account with Email" }),
 		);
 		await user.type(screen.getByLabelText("Name"), "Ada Lovelace");
 		await user.type(screen.getByLabelText("Email"), "ada@example.com");
@@ -249,7 +249,7 @@ describe("auth state refresh", () => {
 		render(<SignupForm onSwitchToLogin={vi.fn()} />);
 
 		await user.click(
-			screen.getByRole("button", { name: "Continue with email instead" }),
+			screen.getByRole("button", { name: "Create account with Email" }),
 		);
 		await user.type(screen.getByLabelText("Name"), "Ada Lovelace");
 		await user.type(screen.getByLabelText("Email"), "ada@example.com");
@@ -272,7 +272,7 @@ describe("auth state refresh", () => {
 		render(<SignupForm onSwitchToLogin={vi.fn()} />);
 
 		await user.click(
-			screen.getByRole("button", { name: "Continue with email instead" }),
+			screen.getByRole("button", { name: "Create account with Email" }),
 		);
 		await user.type(screen.getByLabelText("Name"), "Ada Lovelace");
 		await user.type(screen.getByLabelText("Email"), "ada@example.com");
@@ -293,7 +293,7 @@ describe("auth state refresh", () => {
 		render(<SignupForm onSwitchToLogin={vi.fn()} />);
 
 		await user.click(
-			screen.getByRole("button", { name: "Continue with Google" }),
+			screen.getByRole("button", { name: "Create account with Google" }),
 		);
 
 		await waitFor(() => {
@@ -318,17 +318,21 @@ describe("auth state refresh", () => {
 		);
 
 		await user.click(
-			screen.getByRole("button", { name: "Continue with Email" }),
+			screen.getByRole("button", { name: "Create account with Email" }),
 		);
 		await user.type(await screen.findByLabelText("Email"), "ada@example.com");
 		await user.click(screen.getByRole("button", { name: "Continue" }));
-		await user.type(await screen.findByLabelText("Name"), "Ada Lovelace");
-		await user.type(await screen.findByLabelText("Password"), "supersecure");
-		await user.click(screen.getByRole("button", { name: "Sign up" }));
+		expect(
+			await screen.findByText(/Enter the code we sent to/i),
+		).toBeInTheDocument();
+		await user.type(screen.getByLabelText("Verification code"), "123456");
+		await user.click(screen.getByRole("button", { name: "Continue" }));
 
 		expect(handlePreviewSubmit).toHaveBeenCalledWith("ada@example.com");
 		expect(mockSignUpEmail).not.toHaveBeenCalled();
 		expect(mockNavigateToDestination).not.toHaveBeenCalled();
+		expect(screen.queryByLabelText("Name")).not.toBeInTheDocument();
+		expect(screen.queryByLabelText("Password")).not.toBeInTheDocument();
 	});
 
 	it("hard-navigates after a successful email sign in", async () => {
@@ -342,9 +346,7 @@ describe("auth state refresh", () => {
 		const user = userEvent.setup();
 		render(<LoginForm onSwitchToSignup={vi.fn()} />);
 
-		await user.click(
-			screen.getByRole("button", { name: "Use email and password instead" }),
-		);
+		await user.click(screen.getByRole("button", { name: "Log in with Email" }));
 		await user.type(screen.getByLabelText("Email"), "ada@example.com");
 		await user.type(screen.getByLabelText("Password"), "supersecure");
 		await user.click(screen.getByRole("button", { name: "Sign in" }));
@@ -370,9 +372,7 @@ describe("auth state refresh", () => {
 		const user = userEvent.setup();
 		render(<LoginForm onSwitchToSignup={vi.fn()} />);
 
-		await user.click(
-			screen.getByRole("button", { name: "Use email and password instead" }),
-		);
+		await user.click(screen.getByRole("button", { name: "Log in with Email" }));
 		await user.type(screen.getByLabelText("Email"), "ada@example.com");
 		await user.type(screen.getByLabelText("Password"), "supersecure");
 		await user.click(screen.getByRole("button", { name: "Sign in" }));
@@ -394,13 +394,14 @@ describe("auth state refresh", () => {
 			/>,
 		);
 
-		await user.click(
-			screen.getByRole("button", { name: "Continue with Email" }),
-		);
+		await user.click(screen.getByRole("button", { name: "Log in with Email" }));
 		await user.type(await screen.findByLabelText("Email"), "ada@example.com");
 		await user.click(screen.getByRole("button", { name: "Continue" }));
-		await user.type(await screen.findByLabelText("Password"), "supersecure");
-		await user.click(screen.getByRole("button", { name: "Sign in" }));
+		expect(
+			await screen.findByText(/Enter the code we sent to/i),
+		).toBeInTheDocument();
+		await user.type(screen.getByLabelText("Verification code"), "123456");
+		await user.click(screen.getByRole("button", { name: "Continue" }));
 
 		expect(handlePreviewSubmit).toHaveBeenCalledWith("ada@example.com");
 		expect(mockSignInEmail).not.toHaveBeenCalled();
@@ -408,5 +409,6 @@ describe("auth state refresh", () => {
 		expect(
 			screen.queryByRole("button", { name: "Forgot password?" }),
 		).not.toBeInTheDocument();
+		expect(screen.queryByLabelText("Password")).not.toBeInTheDocument();
 	});
 });

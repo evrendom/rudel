@@ -305,6 +305,18 @@ body.mymind-wrapped-body #cw-bubble-holder {
 	transition: flex-grow 180ms ease;
 }
 
+.mymind-wrapped-progress__button--reward {
+	flex-basis: 0.82rem;
+}
+
+.mymind-wrapped-progress__button--reward.mymind-wrapped-progress__button--active {
+	flex-grow: 0.9;
+}
+
+.mymind-wrapped-progress__button--reward.mymind-wrapped-progress__button--inactive {
+	flex-grow: 0.72;
+}
+
 .mymind-wrapped-progress__button--active {
 	flex-grow: 2.5;
 }
@@ -336,6 +348,40 @@ body.mymind-wrapped-body #cw-bubble-holder {
 	background: rgb(17 24 39 / 0.14);
 	width: calc(100% - 0.48rem);
 	opacity: 0.72;
+}
+
+.mymind-wrapped-progress__reward-card {
+	position: relative;
+	display: inline-flex;
+	width: 0.72rem;
+	height: 0.94rem;
+	margin-left: -0.18rem;
+	border-radius: 0.2rem;
+	background: var(
+		--wrapped-progress-reward-card-background,
+		linear-gradient(160deg, #17161c 0%, #24222a 45%, #131217 100%)
+	);
+	box-shadow: 0 2px 6px rgb(15 23 42 / 0.16);
+	opacity: 0.76;
+	transform-origin: center bottom;
+	transition:
+		background 180ms ease,
+		transform 180ms ease,
+		opacity 180ms ease,
+		box-shadow 180ms ease;
+}
+
+.mymind-wrapped-progress__reward-card--active {
+	opacity: 0.92;
+	transform: perspective(1.1rem) translateX(-0.08rem) translateY(-0.02rem)
+		scale(1.02) rotateX(14deg) rotateY(-12deg) rotateZ(-4.5deg);
+	box-shadow: 0 4px 10px rgb(15 23 42 / 0.19);
+}
+
+.mymind-wrapped-progress__reward-card--inactive {
+	opacity: 0.62;
+	transform: perspective(1.1rem) translateX(-0.06rem) scale(0.97)
+		rotateX(8deg) rotateY(-7deg) rotateZ(-3deg);
 }
 
 .mymind-wrapped-debug-tray {
@@ -1702,18 +1748,10 @@ body.mymind-wrapped-body #cw-bubble-holder {
 }
 
 .mymind-wrapped-model-stage__chart-grid--history {
-	--model-stage-bar-gap: clamp(0.26rem, 1.2vw, 0.44rem);
-	width: min(
-		calc(100% + 0.9rem),
-		calc(
-			100vw -
-			env(safe-area-inset-left, 0px) -
-			env(safe-area-inset-right, 0px) -
-			1rem
-		)
-	);
+	--model-stage-bar-gap: clamp(0.32rem, 1.4vw, 0.72rem);
+	width: 100%;
 	grid-template-columns: repeat(6, minmax(0, 1fr));
-	justify-self: center;
+	justify-self: stretch;
 	transform: none;
 }
 
@@ -2199,7 +2237,7 @@ body.mymind-wrapped-body #cw-bubble-holder {
 .mymind-wrapped-model-stage__scene-shell--history
 	.mymind-wrapped-model-stage__race-track {
 	width: 100%;
-	border-radius: 0.95rem;
+	border-radius: 0.7rem;
 }
 
 .mymind-wrapped-model-stage__scene-shell--history
@@ -2237,13 +2275,11 @@ body.mymind-wrapped-body #cw-bubble-holder {
 	}
 
 	.mymind-wrapped-model-stage__chart-grid--history {
-		--model-stage-bar-gap: clamp(0.82rem, 2.8vw, 1.15rem);
-		width: max-content;
-		grid-template-columns: repeat(6, minmax(0, var(--model-stage-bar-width)));
-		justify-self: center;
-		transform: translateX(
-			calc(-2 * (var(--model-stage-bar-width) + var(--model-stage-bar-gap)))
-		);
+		--model-stage-bar-gap: clamp(0.6rem, 1.8vw, 1.1rem);
+		width: 100%;
+		grid-template-columns: repeat(6, minmax(0, 1fr));
+		justify-self: stretch;
+		transform: none;
 	}
 
 	.mymind-wrapped-model-stage__scene-shell--history
@@ -2255,13 +2291,13 @@ body.mymind-wrapped-body #cw-bubble-holder {
 		.mymind-wrapped-model-stage__race-track-grid,
 	.mymind-wrapped-model-stage__scene-shell--history
 		.mymind-wrapped-model-stage__race-track {
-		width: clamp(7.2rem, 32vw, 9.8rem);
-		border-radius: 2rem;
+		width: 100%;
+		border-radius: clamp(0.7rem, 1.2vw, 1rem);
 	}
 
 	.mymind-wrapped-model-stage__scene-shell--history
 		.mymind-wrapped-model-stage__race-track-shell::after {
-		width: clamp(8.2rem, 36vw, 11rem);
+		width: calc(100% - 0.24rem);
 	}
 
 	.mymind-wrapped-model-stage__scene-shell--history
@@ -4834,6 +4870,14 @@ body.mymind-wrapped-body #cw-bubble-holder {
 	width: 100%;
 }
 
+.mymind-wrapped-auth-form__scene--email {
+	justify-content: center;
+}
+
+.mymind-wrapped-auth-form__scene--verification {
+	justify-content: center;
+}
+
 .mymind-wrapped-auth-form__scene-form {
 	display: flex;
 	flex: 1 1 auto;
@@ -4854,6 +4898,16 @@ body.mymind-wrapped-body #cw-bubble-holder {
 	margin-top: auto;
 }
 
+.mymind-wrapped-auth-form__scene--email
+	.mymind-wrapped-auth-form__action-item--primary {
+	margin-top: 0;
+}
+
+.mymind-wrapped-auth-form__scene--verification
+	.mymind-wrapped-auth-form__action-item--primary {
+	margin-top: 0;
+}
+
 .mymind-wrapped-auth-form__scene-action {
 	width: 100%;
 }
@@ -4871,7 +4925,37 @@ body.mymind-wrapped-body #cw-bubble-holder {
 }
 
 .mymind-wrapped-auth-form__scene-link {
+	display: block;
+	width: fit-content;
+	margin-inline: auto;
 	justify-self: center;
+	text-align: center;
+}
+
+.mymind-wrapped-auth-form__verification {
+	display: grid;
+	gap: 0.65rem;
+}
+
+.mymind-wrapped-auth-form__verification-copy {
+	margin: 0;
+	color: #7a736c;
+	font-size: 0.82rem;
+	font-family: var(--font-sans);
+	font-weight: 500;
+	line-height: 1.45;
+	text-align: center;
+	text-wrap: pretty;
+}
+
+.mymind-wrapped-auth-form__verification-email {
+	color: #22201f;
+	font-weight: 600;
+}
+
+.mymind-wrapped-auth-form__verification-code {
+	font-size: 1rem;
+	font-weight: 600;
 }
 
 .mymind-wrapped-auth-form__identity {
@@ -4944,12 +5028,15 @@ body.mymind-wrapped-body #cw-bubble-holder {
 }
 
 .mymind-wrapped-auth-form__feedback {
+	width: min(100%, 28ch);
+	margin-inline: auto;
 	padding: 0.8rem 0.95rem;
 	border-radius: 1.3rem;
 	font-size: 0.92rem;
 	font-family: var(--font-sans);
 	font-weight: 500;
 	line-height: 1.45;
+	text-align: center;
 }
 
 .mymind-wrapped-auth-form__feedback.is-success {
@@ -5553,6 +5640,68 @@ body.mymind-wrapped-body #cw-bubble-holder {
 	--wrapped-shell-inline-inset: 16px;
 }
 
+.mymind-wrapped-route--step-model {
+	--wrapped-shell-inline-inset: 16px;
+}
+
+.mymind-wrapped-route--step-model .mymind-wrapped-model-stage {
+	max-width: none;
+}
+
+.mymind-wrapped-route--step-model .mymind-wrapped-model-stage__object {
+	width: 100%;
+	max-width: none;
+}
+
+.mymind-wrapped-route--step-model
+	.mymind-wrapped-model-stage__chart-grid--history {
+	width: 100%;
+}
+
+.mymind-wrapped-route--debug-model-layout .mymind-wrapped-stage-area,
+.mymind-wrapped-route--debug-model-layout .mymind-wrapped-stage-slot,
+.mymind-wrapped-route--debug-model-layout .mymind-wrapped-model-stage,
+.mymind-wrapped-route--debug-model-layout .mymind-wrapped-stage__copy,
+.mymind-wrapped-route--debug-model-layout .mymind-wrapped-stage__object,
+.mymind-wrapped-route--debug-model-layout .mymind-wrapped-model-stage__object,
+.mymind-wrapped-route--debug-model-layout
+	.mymind-wrapped-model-stage__chart-shell,
+.mymind-wrapped-route--debug-model-layout
+	.mymind-wrapped-model-stage__chart-grid--history {
+	outline-offset: -1px;
+}
+
+.mymind-wrapped-route--debug-model-layout .mymind-wrapped-stage-area {
+	outline: 1px solid rgb(59 130 246 / 0.3);
+}
+
+.mymind-wrapped-route--debug-model-layout .mymind-wrapped-stage-slot {
+	outline: 1px solid rgb(16 185 129 / 0.3);
+}
+
+.mymind-wrapped-route--debug-model-layout .mymind-wrapped-model-stage {
+	outline: 1px solid rgb(168 85 247 / 0.32);
+}
+
+.mymind-wrapped-route--debug-model-layout .mymind-wrapped-stage__copy {
+	outline: 1px solid rgb(236 72 153 / 0.32);
+}
+
+.mymind-wrapped-route--debug-model-layout .mymind-wrapped-stage__object,
+.mymind-wrapped-route--debug-model-layout .mymind-wrapped-model-stage__object {
+	outline: 1px solid rgb(245 158 11 / 0.34);
+}
+
+.mymind-wrapped-route--debug-model-layout
+	.mymind-wrapped-model-stage__chart-shell {
+	outline: 1px solid rgb(34 197 94 / 0.34);
+}
+
+.mymind-wrapped-route--debug-model-layout
+	.mymind-wrapped-model-stage__chart-grid--history {
+	outline: 1px solid rgb(239 68 68 / 0.36);
+}
+
 .mymind-wrapped-route--step-pulse .mymind-wrapped-repo-pulse-stage__object {
 	width: calc(100% + (var(--wrapped-shell-inline-inset) * 2));
 	max-width: none;
@@ -6121,7 +6270,7 @@ body.mymind-wrapped-body #cw-bubble-holder {
 	width: min(100%, 25rem);
 	aspect-ratio: 4 / 5;
 	border: 1px solid rgb(17 24 39 / 0.06);
-	border-radius: 2rem;
+	border-radius: 0.75rem;
 	background: rgb(255 255 255 / 0.9);
 	box-shadow:
 		inset 0 1px 0 rgb(255 255 255 / 0.84),
@@ -6251,6 +6400,30 @@ body.mymind-wrapped-body #cw-bubble-holder {
 	}
 }
 
+@media (max-width: 47.999rem) {
+	.mymind-wrapped-route--step-card {
+		--wrapped-shell-inline-inset: 16px;
+	}
+
+	.mymind-wrapped-final-stage--share .mymind-wrapped-share-preview {
+		width: min(100%, 22.5rem);
+	}
+
+	.mymind-wrapped-final-stage--share .mymind-wrapped-share-preview__shell {
+		padding: 1rem 1.05rem;
+	}
+
+	.mymind-wrapped-final-stage--share .mymind-wrapped-share-preview__body {
+		padding-block: 0.5rem 0.7rem;
+		padding-inline: 0.15rem;
+	}
+
+	.mymind-wrapped-final-stage--share .mymind-wrapped-share-preview__card-stage {
+		width: min(100%, 12rem);
+		max-width: 12rem;
+	}
+}
+
 @media (max-height: 720px) {
 	.mymind-wrapped-shell {
 		--wrapped-shell-top-inset: 20px;
@@ -6350,11 +6523,11 @@ body.mymind-wrapped-body #cw-bubble-holder {
 	}
 
 	.mymind-wrapped-final-stage--share .mymind-wrapped-share-preview {
-		width: min(100%, 15rem);
+		width: min(100%, 16.75rem);
 	}
 
 	.mymind-wrapped-final-stage--share .mymind-wrapped-share-preview__shell {
-		padding: 0.85rem 0.95rem;
+		padding: 0.9rem 0.95rem;
 	}
 
 	.mymind-wrapped-final-stage--share .mymind-wrapped-share-preview__body {
@@ -6362,8 +6535,8 @@ body.mymind-wrapped-body #cw-bubble-holder {
 	}
 
 	.mymind-wrapped-final-stage--share .mymind-wrapped-share-preview__card-stage {
-		width: min(100%, 10.9rem);
-		max-width: 10.9rem;
+		width: min(100%, 11.6rem);
+		max-width: 11.6rem;
 	}
 
 	.mymind-wrapped-final-stage--share .mymind-wrapped-share-preview__card-shell {

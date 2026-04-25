@@ -23,6 +23,7 @@ import { useMountEffect } from "@/hooks/useMountEffect";
 import { formatCompactWholeCurrency } from "@/lib/format";
 import {
 	WRAPPED_ARCHETYPE_CARD_THEMES,
+	getWrappedArchetypeCardBackgroundValue,
 	type WrappedArchetypeCardTheme,
 } from "./archetypes";
 import type {
@@ -409,6 +410,8 @@ function WrappedTeamCardPageContent(props: {
 					},
 				})
 			: debugControls;
+	const rewardCardBackground =
+		getWrappedArchetypeCardBackgroundValue(activeArchetype) ?? undefined;
 
 	return (
 		<WrappedTeamCardOnboarding
@@ -429,6 +432,7 @@ function WrappedTeamCardPageContent(props: {
 			finalStage={finalStage}
 			onboardingMetrics={onboardingMetrics}
 			onBackFromFirstStep={onBackFromFirstStep}
+			rewardCardBackground={rewardCardBackground}
 			totalSessions={visibleTeamCardRow.totalSessions}
 		/>
 	);

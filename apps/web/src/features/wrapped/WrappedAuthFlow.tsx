@@ -150,6 +150,7 @@ function WrappedAuthStage(props: WrappedAuthStageProps) {
 							exit={intentExit}
 							transition={formContentTransition}
 						>
+							<WrappedAuthIntroTerms />
 							<div className="mymind-wrapped-auth-panel__actions">
 								<WrappedPrimaryAction
 									kind="button"
@@ -397,6 +398,32 @@ function getWrappedAuthTitleText(mode: WrappedAuthMode) {
 	}
 
 	return mode === "login" ? "Log in" : "Create account";
+}
+
+function WrappedAuthIntroTerms() {
+	return (
+		<p className="mymind-wrapped-auth-form__terms">
+			By continuing, you agree to our{" "}
+			<a
+				href="https://rudel.ai/terms"
+				target="_blank"
+				rel="noopener noreferrer"
+				className="mymind-wrapped-auth-form__terms-link"
+			>
+				Terms of Service
+			</a>{" "}
+			and{" "}
+			<a
+				href="https://obsessiondb.com/privacy"
+				target="_blank"
+				rel="noopener noreferrer"
+				className="mymind-wrapped-auth-form__terms-link"
+			>
+				Privacy Policy
+			</a>
+			.
+		</p>
+	);
 }
 
 function transitionWrappedAuthMode(

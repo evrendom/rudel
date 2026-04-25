@@ -7,7 +7,7 @@ import type {
 	WrappedV1,
 } from "@rudel/api-routes";
 import type { WrappedOnboardingMetrics } from "@/features/wrapped/onboarding/types";
-import { formatCompactWholeNumber } from "@/lib/format";
+import { formatCompactCurrency } from "@/lib/format";
 
 interface BuildWrappedOnboardingMetricsParams {
 	commitBreakdown: readonly DimensionAnalysisDataPoint[] | undefined;
@@ -32,7 +32,16 @@ export function buildWrappedOnboardingMetrics(
 	const totalSessions = developerDetails?.total_sessions ?? 0;
 	const commitSessions = findBooleanDimensionCount(commitBreakdown, true);
 	const topProject = findTopProject(developerProjects);
-	const repoPulse = buildRepoPulse(developerSessions);
+	const estimatedCostTokenBasis = Math.max(
+		0,
+		developerDetails?.total_tokens ?? wrappedMetrics?.total_tokens ?? 0,
+	);
+	const estimatedCostUsdRaw = Math.max(0, developerDetails?.cost ?? 0);
+	const estimatedCostUsd = Math.round(estimatedCostUsdRaw);
+	const repoPulse = buildRepoPulse(developerSessions, {
+		baseCostTokenBasis: estimatedCostTokenBasis,
+		baseCostUsd: estimatedCostUsdRaw,
+	});
 
 	return {
 		activeDays:
@@ -42,11 +51,8 @@ export function buildWrappedOnboardingMetrics(
 			totalSessions > 0 ? (commitSessions / totalSessions) * 100 : null,
 		commitSessions,
 		daysSinceFirst: wrappedMetrics?.days_since_first_session ?? 0,
-		estimatedCostTokenBasis: Math.max(
-			0,
-			developerDetails?.total_tokens ?? wrappedMetrics?.total_tokens ?? 0,
-		),
-		estimatedCostUsd: Math.max(0, Math.round(developerDetails?.cost ?? 0)),
+		estimatedCostTokenBasis,
+		estimatedCostUsd,
 		favoriteModel: formatWrappedLabel(
 			wrappedMetrics?.favorite_model ??
 				developerDetails?.favorite_model ??
@@ -162,17 +168,16 @@ function findTopProject(projects: readonly DeveloperProject[] | undefined) {
 
 function buildRepoPulse(
 	sessions: readonly DeveloperSession[] | undefined,
+	input: {
+		baseCostTokenBasis: number;
+		baseCostUsd: number;
+	},
 ): WrappedOnboardingMetrics["repoPulse"] {
 	const repoStats = new Map<
 		string,
 		{
-			errorSessions: number;
 			repoName: string;
 			sessionCount: number;
-			skillSessions: number;
-			slashSessions: number;
-			subagentSessions: number;
-			successSessions: number;
 			totalDurationMin: number;
 			totalTokens: number;
 		}
@@ -188,19 +193,8 @@ function buildRepoPulse(
 
 		const existingStats = repoStats.get(repoKey);
 		repoStats.set(repoKey, {
-			errorSessions:
-				(existingStats?.errorSessions ?? 0) + Number(session.has_errors),
 			repoName: repoLabel,
 			sessionCount: (existingStats?.sessionCount ?? 0) + 1,
-			skillSessions:
-				(existingStats?.skillSessions ?? 0) + Number(session.has_skills),
-			slashSessions:
-				(existingStats?.slashSessions ?? 0) +
-				Number(session.has_slash_commands),
-			subagentSessions:
-				(existingStats?.subagentSessions ?? 0) + Number(session.has_subagents),
-			successSessions:
-				(existingStats?.successSessions ?? 0) + Number(session.likely_success),
 			totalDurationMin:
 				(existingStats?.totalDurationMin ?? 0) + session.duration_min,
 			totalTokens: (existingStats?.totalTokens ?? 0) + session.total_tokens,
@@ -219,21 +213,23 @@ function buildRepoPulse(
 	const rankedRepos = [...repoStats.entries()].sort(
 		(leftEntry, rightEntry) =>
 			rightEntry[1].sessionCount - leftEntry[1].sessionCount ||
-			rightEntry[1].totalTokens - leftEntry[1].totalTokens ||
 			rightEntry[1].totalDurationMin - leftEntry[1].totalDurationMin ||
+			rightEntry[1].totalTokens - leftEntry[1].totalTokens ||
 			leftEntry[1].repoName.localeCompare(rightEntry[1].repoName),
 	);
-	const entries = rankedRepos.slice(0, 3).map(([repoKey, stats]) => {
-		const workType = resolveRepoPulseWorkType(stats);
-
-		return {
-			id: `repo-pulse-${repoKey}`,
-			meta: buildRepoPulseMeta(stats),
-			proof: workType.proof,
-			repoName: stats.repoName,
-			workType: workType.label,
-		};
-	});
+	const entries = rankedRepos.slice(0, 3).map(([repoKey, stats]) => ({
+		id: `repo-pulse-${repoKey}`,
+		repoName: stats.repoName,
+		sessionCountLabel: formatRepoPulseSessionCount(stats.sessionCount),
+		totalHoursLabel: buildRepoPulseHoursLabel(stats.totalDurationMin),
+		totalSpendLabel: buildRepoPulseSpendLabel(
+			resolveRepoPulseSpendUsd({
+				baseCostTokenBasis: input.baseCostTokenBasis,
+				baseCostUsd: input.baseCostUsd,
+				totalTokens: stats.totalTokens,
+			}),
+		),
+	}));
 	const totalSessions = rankedRepos.reduce(
 		(sum, [, stats]) => sum + stats.sessionCount,
 		0,
@@ -290,93 +286,36 @@ function getProjectDisplayName(
 	return projectPath || null;
 }
 
-function resolveRepoPulseWorkType(stats: {
-	errorSessions: number;
-	sessionCount: number;
-	skillSessions: number;
-	slashSessions: number;
-	subagentSessions: number;
-	successSessions: number;
-	totalDurationMin: number;
-	totalTokens: number;
-}) {
-	const avgDurationMin = stats.totalDurationMin / stats.sessionCount;
-	const avgTokens = stats.totalTokens / stats.sessionCount;
-	const skillRate = (stats.skillSessions / stats.sessionCount) * 100;
-	const slashRate = (stats.slashSessions / stats.sessionCount) * 100;
-	const subagentRate = (stats.subagentSessions / stats.sessionCount) * 100;
-	const successRate = (stats.successSessions / stats.sessionCount) * 100;
-
-	if (subagentRate >= 25) {
-		return {
-			label: "Delegating",
-			proof: `${Math.round(subagentRate)}% used subagents`,
-		};
-	}
-
-	if (skillRate >= 28) {
-		return {
-			label: "Skills-heavy",
-			proof: `${Math.round(skillRate)}% used skills`,
-		};
-	}
-
-	if (slashRate >= 28) {
-		return {
-			label: "Command-heavy",
-			proof: `${Math.round(slashRate)}% used slash commands`,
-		};
-	}
-
-	if (avgDurationMin >= 45) {
-		return {
-			label: "Deep work",
-			proof: `${formatDurationMinutesShort(avgDurationMin)} avg session`,
-		};
-	}
-
-	if (avgTokens >= 45_000) {
-		return {
-			label: "Heavy lift",
-			proof: `${formatCompactWholeNumber(Math.round(avgTokens))} tokens / session`,
-		};
-	}
-
-	if (successRate >= 78) {
-		return {
-			label: "Shipping lane",
-			proof: `${Math.round(successRate)}% likely successful`,
-		};
-	}
-
-	return {
-		label: avgDurationMin <= 18 ? "Quick passes" : "Steady work",
-		proof:
-			avgDurationMin <= 18
-				? `${formatDurationMinutesShort(avgDurationMin)} avg session`
-				: `${Math.round(successRate)}% likely successful`,
-	};
+function formatRepoPulseSessionCount(sessionCount: number) {
+	return `${sessionCount.toLocaleString()} session${sessionCount === 1 ? "" : "s"}`;
 }
 
-function buildRepoPulseMeta(stats: {
-	sessionCount: number;
-	totalDurationMin: number;
-	totalTokens: number;
-}) {
-	return `${stats.sessionCount.toLocaleString()} sessions · ${formatDurationMinutesShort(stats.totalDurationMin)} total`;
+function buildRepoPulseHoursLabel(totalDurationMin: number) {
+	return `${formatDurationMinutesAsHours(totalDurationMin)} total`;
 }
 
-function formatDurationMinutesShort(totalDurationMin: number) {
-	if (totalDurationMin < 60) {
-		return `${Math.round(totalDurationMin)}m`;
+function buildRepoPulseSpendLabel(spendUsd: number) {
+	return `${formatCompactCurrency(spendUsd)} spent`;
+}
+
+function resolveRepoPulseSpendUsd(input: {
+	baseCostTokenBasis: number;
+	baseCostUsd: number;
+	totalTokens: number;
+}) {
+	if (input.baseCostTokenBasis <= 0 || input.baseCostUsd <= 0) {
+		return 0;
 	}
 
-	const hours = Math.floor(totalDurationMin / 60);
-	const minutes = Math.round(totalDurationMin - hours * 60);
+	return (input.totalTokens / input.baseCostTokenBasis) * input.baseCostUsd;
+}
 
-	if (minutes === 0) {
-		return `${hours}h`;
+function formatDurationMinutesAsHours(totalDurationMin: number) {
+	const totalHours = Math.round((totalDurationMin / 60) * 10) / 10;
+
+	if (Number.isInteger(totalHours)) {
+		return `${totalHours.toFixed(0)}h`;
 	}
 
-	return `${hours}h ${minutes}m`;
+	return `${totalHours.toFixed(1)}h`;
 }

@@ -126,10 +126,6 @@ export function WrappedTeamCardShareStage(
 			supportClassName="mymind-wrapped-final-stage__support"
 			copy={
 				<WrappedStageCopy
-					description="This is the exact post that gets exported. Nothing extra gets added after you tap share."
-					descriptionClassName="mymind-wrapped-final-stage__subline"
-					eyebrow="Post preview"
-					eyebrowClassName="mymind-wrapped-final-stage__eyebrow"
 					title="Ready to share."
 					titleClassName="mymind-wrapped-final-stage__headline"
 				/>

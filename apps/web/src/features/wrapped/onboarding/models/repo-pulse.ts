@@ -2,11 +2,8 @@ import type { WrappedRepoPulseMetrics } from "../types";
 
 interface RepoPulseStageModel {
 	entries: WrappedRepoPulseMetrics["entries"];
-	footnote: string;
 	headline: string;
-	subline: string;
-	totalReposLabel: string;
-	totalSessionsLabel: string;
+	hiddenRepoCount: number;
 }
 
 export function resolveRepoPulsePreviewInput(
@@ -19,10 +16,10 @@ export function resolveRepoPulsePreviewInput(
 				entries: [
 					{
 						id: "repo-preview-rudel",
-						meta: "84 sessions · 42h total",
-						proof: "52m avg session",
 						repoName: "rudel",
-						workType: "Deep work",
+						sessionCountLabel: "84 sessions",
+						totalHoursLabel: "42h total",
+						totalSpendLabel: "$118 spent",
 					},
 				],
 				leadRepoName: "rudel",
@@ -34,24 +31,24 @@ export function resolveRepoPulsePreviewInput(
 				entries: [
 					{
 						id: "repo-preview-rudel",
-						meta: "61 sessions · 31h total",
-						proof: "48m avg session",
 						repoName: "rudel",
-						workType: "Deep work",
+						sessionCountLabel: "61 sessions",
+						totalHoursLabel: "31h total",
+						totalSpendLabel: "$86 spent",
 					},
 					{
 						id: "repo-preview-rudel-web",
-						meta: "28 sessions · 17h total",
-						proof: "43% used skills",
 						repoName: "rudel-web",
-						workType: "Skills-heavy",
+						sessionCountLabel: "28 sessions",
+						totalHoursLabel: "17h total",
+						totalSpendLabel: "$44 spent",
 					},
 					{
 						id: "repo-preview-api-routes",
-						meta: "19 sessions · 1.8M tokens",
-						proof: "94K tokens / session",
 						repoName: "api-routes",
-						workType: "Heavy lift",
+						sessionCountLabel: "19 sessions",
+						totalHoursLabel: "14h total",
+						totalSpendLabel: "$31 spent",
 					},
 				],
 				leadRepoName: "rudel",
@@ -73,41 +70,27 @@ export function resolveRepoPulsePreviewInput(
 export function resolveRepoPulseStageModel(
 	input: WrappedRepoPulseMetrics,
 ): RepoPulseStageModel {
+	const hiddenRepoCount = Math.max(0, input.totalRepos - input.entries.length);
+
 	if (input.entries.length === 0) {
 		return {
 			entries: [],
-			footnote:
-				"A little more repo history and the pulse will settle into view.",
 			headline: "Your repo pulse is still landing",
-			subline:
-				"When the work settles into projects, this view turns into repo-by-repo work types.",
-			totalReposLabel: "No repo signal yet",
-			totalSessionsLabel: "No sessions yet",
+			hiddenRepoCount: 0,
 		};
 	}
 
-	if (input.entries.length === 1) {
+	if (input.totalRepos === 1) {
 		return {
 			entries: input.entries,
-			footnote:
-				"Each label comes from the strongest signal inside that repo: tool adoption, depth, token load, or delivery.",
-			headline: "One repo held onto the run",
-			subline: "There was a clear home base before the final card reveal.",
-			totalReposLabel: `${input.totalRepos} repo${input.totalRepos === 1 ? "" : "s"} in play`,
-			totalSessionsLabel: `${input.totalSessions.toLocaleString()} sessions`,
+			headline: "... and you only worked on this repo",
+			hiddenRepoCount,
 		};
 	}
 
 	return {
 		entries: input.entries,
-		footnote:
-			"Each label comes from the strongest signal inside that repo: tool adoption, depth, token load, or delivery.",
-		headline: "These were the repos you worked on",
-		subline:
-			input.entries.length >= 3
-				? "The top repos were not interchangeable. Each one carried a different kind of work."
-				: "Even the busiest repos ended up with different patterns of work.",
-		totalReposLabel: `${input.totalRepos} repo${input.totalRepos === 1 ? "" : "s"} in play`,
-		totalSessionsLabel: `${input.totalSessions.toLocaleString()} sessions`,
+		headline: "... and these were the repos you worked on",
+		hiddenRepoCount,
 	};
 }

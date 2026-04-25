@@ -73,6 +73,7 @@ export interface WrappedTeamCardOnboardingProps {
 	finalStage: ReactNode;
 	onboardingMetrics: WrappedOnboardingMetrics;
 	onBackFromFirstStep?: () => void;
+	rewardCardBackground?: string;
 	totalSessions: number;
 }
 
@@ -97,6 +98,7 @@ export function WrappedTeamCardOnboarding(
 		finalStage,
 		onboardingMetrics,
 		onBackFromFirstStep,
+		rewardCardBackground,
 		totalSessions,
 	} = props;
 	const navigate = useNavigate();
@@ -424,6 +426,9 @@ export function WrappedTeamCardOnboarding(
 						"mymind-wrapped-route",
 						"mymind-wrapped-route--onboarding",
 						`mymind-wrapped-route--step-${activeStep.id}`,
+						showPreviewControls && isModelStep
+							? "mymind-wrapped-route--debug-model-layout"
+							: undefined,
 						isScaleStep ? "mymind-wrapped-route--scale-rain" : undefined,
 					)}
 				>
@@ -445,6 +450,7 @@ export function WrappedTeamCardOnboarding(
 								isStepTransitioning={isStepTransitioning}
 								onBack={handleTopChromeBack}
 								onGoToStep={goToStep}
+								rewardCardBackground={rewardCardBackground}
 							/>
 
 							<div className="mymind-wrapped-stage-area">

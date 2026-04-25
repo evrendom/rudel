@@ -86,6 +86,43 @@ export const SCALE_STAGE_KEBAB_REVEAL_MS =
 	SCALE_STAGE_SPEND_COUNT_DURATION_MS +
 	SCALE_STAGE_SPEND_TO_KEBAB_DELAY_MS;
 
+const REPO_PULSE_STAGE_TRANSITION = {
+	card: {
+		duration: 0.58,
+		ease: [0.22, 1, 0.36, 1] as const,
+	},
+	idle: {
+		duration: 6.4,
+		ease: "easeInOut" as const,
+		repeat: Number.POSITIVE_INFINITY,
+		repeatType: "mirror" as const,
+	},
+	rows: {
+		delayChildren: 0.16,
+		staggerChildren: 0.08,
+	},
+	row: {
+		duration: 0.42,
+		ease: [0.22, 1, 0.36, 1] as const,
+	},
+};
+
+const REPO_PULSE_STAGE_ROW_VARIANTS = {
+	hidden: {
+		filter: "blur(8px)",
+		opacity: 0,
+		scale: 0.985,
+		y: 18,
+	},
+	visible: {
+		filter: "blur(0px)",
+		opacity: 1,
+		scale: 1,
+		y: 0,
+		transition: REPO_PULSE_STAGE_TRANSITION.row,
+	},
+};
+
 export function WrappedOnboardingScaleStage(props: SharedStageProps) {
 	const {
 		displayName,
@@ -1044,9 +1081,17 @@ export function WrappedOnboardingQualityStage(props: SharedStageProps) {
 
 export function WrappedOnboardingRepoPulseStage(props: SharedStageProps) {
 	const { onboardingMetrics, previewState } = props;
+	const shouldReduceMotion = useReducedMotion();
+	const reduceMotion = shouldReduceMotion ?? false;
 	const model = resolveRepoPulseStageModel(
 		resolveRepoPulsePreviewInput(onboardingMetrics.repoPulse, previewState),
 	);
+	const sceneKey = `${previewState}:${model.entries
+		.map(
+			(entry) =>
+				`${entry.id}:${entry.sessionCountLabel}:${entry.totalHoursLabel}:${entry.totalSpendLabel}`,
+		)
+		.join(":")}:${model.hiddenRepoCount}`;
 
 	return (
 		<WrappedOnboardingStageFrame
@@ -1056,47 +1101,99 @@ export function WrappedOnboardingRepoPulseStage(props: SharedStageProps) {
 				<WrappedOnboardingStageCopy
 					entrancePreset="story"
 					title={model.headline}
-					description={model.subline}
 				/>
 			}
 			object={
-				<article className="mymind-wrapped-repo-pulse-stage__card">
-					<header className="mymind-wrapped-repo-pulse-stage__section-head">
-						<p className="mymind-wrapped-repo-pulse-stage__section-label">
-							Top repos
-						</p>
-						<p className="mymind-wrapped-repo-pulse-stage__section-value">
-							{model.totalSessionsLabel}
-						</p>
-					</header>
+				<motion.div
+					key={sceneKey}
+					animate={{
+						filter: "blur(0px)",
+						opacity: 1,
+						scale: 1,
+						y: 0,
+					}}
+					className="mymind-wrapped-repo-pulse-stage__scene"
+					initial={
+						reduceMotion
+							? false
+							: {
+									filter: "blur(14px)",
+									opacity: 0,
+									scale: 0.975,
+									y: 26,
+								}
+					}
+					style={{
+						transformPerspective: 1800,
+						transformStyle: "preserve-3d",
+					}}
+					transition={REPO_PULSE_STAGE_TRANSITION.card}
+				>
+					<motion.article
+						animate={
+							reduceMotion
+								? undefined
+								: {
+										rotateX: [0, 1.25, 0],
+										y: [0, -4, 0],
+									}
+						}
+						className="mymind-wrapped-repo-pulse-stage__card"
+						transition={REPO_PULSE_STAGE_TRANSITION.idle}
+					>
+						<motion.ul
+							animate="visible"
+							className="mymind-wrapped-repo-pulse-stage__stack"
+							initial={reduceMotion ? "visible" : "hidden"}
+							variants={{
+								hidden: {},
+								visible: {
+									transition: REPO_PULSE_STAGE_TRANSITION.rows,
+								},
+							}}
+						>
+							{model.entries.map((entry) => (
+								<motion.li
+									key={entry.id}
+									className="mymind-wrapped-repo-pulse-stage__row"
+									variants={REPO_PULSE_STAGE_ROW_VARIANTS}
+								>
+									<section className="mymind-wrapped-repo-pulse-stage__row-copy">
+										<div className="mymind-wrapped-repo-pulse-stage__row-main">
+											<p className="mymind-wrapped-repo-pulse-stage__repo">
+												{entry.repoName}
+											</p>
+											<p className="mymind-wrapped-repo-pulse-stage__meta">
+												{entry.sessionCountLabel}
+											</p>
+										</div>
+										<p className="mymind-wrapped-repo-pulse-stage__proof">
+											{entry.totalHoursLabel} · {entry.totalSpendLabel}
+										</p>
+									</section>
+								</motion.li>
+							))}
 
-					<ul className="mymind-wrapped-repo-pulse-stage__stack">
-						{model.entries.map((entry) => (
-							<li
-								key={entry.id}
-								className="mymind-wrapped-repo-pulse-stage__row"
-							>
-								<section className="mymind-wrapped-repo-pulse-stage__row-copy">
-									<p className="mymind-wrapped-repo-pulse-stage__repo">
-										{entry.repoName}
-									</p>
-									<p className="mymind-wrapped-repo-pulse-stage__proof">
-										{entry.proof}
-									</p>
-									<p className="mymind-wrapped-repo-pulse-stage__meta">
-										{entry.meta}
-									</p>
-								</section>
-							</li>
-						))}
+							{model.hiddenRepoCount > 0 ? (
+								<motion.li
+									className="mymind-wrapped-repo-pulse-stage__overflow"
+									variants={REPO_PULSE_STAGE_ROW_VARIANTS}
+								>
+									+{model.hiddenRepoCount} more
+								</motion.li>
+							) : null}
 
-						{model.entries.length === 0 ? (
-							<li className="mymind-wrapped-repo-pulse-stage__empty">
-								Repo work types show up once a few project sessions land.
-							</li>
-						) : null}
-					</ul>
-				</article>
+							{model.entries.length === 0 ? (
+								<motion.li
+									className="mymind-wrapped-repo-pulse-stage__empty"
+									variants={REPO_PULSE_STAGE_ROW_VARIANTS}
+								>
+									Repo stats show up once a few project sessions land.
+								</motion.li>
+							) : null}
+						</motion.ul>
+					</motion.article>
+				</motion.div>
 			}
 		/>
 	);

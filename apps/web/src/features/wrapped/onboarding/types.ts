@@ -2,10 +2,10 @@ import type { MonthlyModelUsage, WrappedSourceSplit } from "@rudel/api-routes";
 
 export interface WrappedRepoPulseEntry {
 	id: string;
-	meta: string;
-	proof: string;
 	repoName: string;
-	workType: string;
+	sessionCountLabel: string;
+	totalHoursLabel: string;
+	totalSpendLabel: string;
 }
 
 export interface WrappedRepoPulseMetrics {

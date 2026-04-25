@@ -28,6 +28,7 @@ interface WrappedOnboardingHeaderProps {
 	isStepTransitioning: boolean;
 	onBack: () => void;
 	onGoToStep: (nextStepIndex: number) => void;
+	rewardCardBackground?: string;
 }
 
 interface WrappedOnboardingFooterProps {
@@ -69,6 +70,7 @@ export function WrappedOnboardingHeader(props: WrappedOnboardingHeaderProps) {
 		isStepTransitioning,
 		onBack,
 		onGoToStep,
+		rewardCardBackground,
 	} = props;
 	const progressView = getWrappedOnboardingProgressView(activeStep.id);
 
@@ -113,6 +115,7 @@ export function WrappedOnboardingHeader(props: WrappedOnboardingHeaderProps) {
 									routeIndex >= 0 ? () => onGoToStep(routeIndex) : undefined,
 							};
 						})}
+						rewardCardBackground={rewardCardBackground}
 					/>
 				</div>
 
@@ -195,6 +198,8 @@ export function WrappedOnboardingFooter(props: WrappedOnboardingFooterProps) {
 		activeStep.kind === "final" || isContinueVisible;
 	const shouldRenderFooterActionSlot =
 		isFooterActionVisible || shouldReserveActionSlot;
+	const continueLabel =
+		activeStep.id === "pulse" ? "Finally reveal my card!" : "Continue";
 	const footerActionKey =
 		activeStep.kind === "final"
 			? "final"
@@ -271,7 +276,7 @@ export function WrappedOnboardingFooter(props: WrappedOnboardingFooterProps) {
 								}
 								onClick={onContinue}
 							>
-								Continue
+								{continueLabel}
 							</WrappedPrimaryAction>
 						)}
 					</motion.div>

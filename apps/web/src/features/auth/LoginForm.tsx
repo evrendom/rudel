@@ -67,6 +67,7 @@ export function LoginForm(props: LoginFormProps) {
 	const [requestingPasswordReset, setRequestingPasswordReset] = useState(false);
 	const [showEmailForm, setShowEmailForm] = useState(false);
 	const [wrappedScene, setWrappedScene] = useState<WrappedAuthScene>("choice");
+	const [wrappedVerificationCode, setWrappedVerificationCode] = useState("");
 	const { trackAuthenticationAction } = useAnalyticsTracking({
 		pageName: "login",
 	});
@@ -221,34 +222,28 @@ export function LoginForm(props: LoginFormProps) {
 		}
 	}
 
-	function renderWrappedTerms() {
+	function renderWrappedFeedback() {
+		if (!feedback) {
+			return null;
+		}
+
 		return (
-			<p className="mymind-wrapped-auth-form__terms">
-				By continuing, you agree to our{" "}
-				<a
-					href="https://rudel.ai/terms"
-					target="_blank"
-					rel="noopener noreferrer"
-					className="mymind-wrapped-auth-form__terms-link"
-				>
-					Terms of Service
-				</a>{" "}
-				and{" "}
-				<a
-					href="https://obsessiondb.com/privacy"
-					target="_blank"
-					rel="noopener noreferrer"
-					className="mymind-wrapped-auth-form__terms-link"
-				>
-					Privacy Policy
-				</a>
-				.
-			</p>
+			<div
+				role={feedback.kind === "error" ? "alert" : "status"}
+				aria-live="polite"
+				className={cn(
+					"mymind-wrapped-auth-form__feedback",
+					feedback.kind === "error" ? "is-error" : "is-success",
+				)}
+			>
+				{feedback.message}
+			</div>
 		);
 	}
 
 	function handleOpenWrappedEmail() {
 		setFeedback(null);
+		setWrappedVerificationCode("");
 		setWrappedScene("email");
 	}
 
@@ -265,17 +260,41 @@ export function LoginForm(props: LoginFormProps) {
 			});
 			return;
 		}
+		setWrappedVerificationCode("");
 		setWrappedScene("credentials");
 	}
 
 	function handleReturnToWrappedChoice() {
 		setFeedback(null);
+		setWrappedVerificationCode("");
 		setWrappedScene("choice");
 	}
 
 	function handleReturnToWrappedEmail() {
 		setFeedback(null);
+		setWrappedVerificationCode("");
 		setWrappedScene("email");
+	}
+
+	function handleContinueWrappedPreview() {
+		const trimmedCode = wrappedVerificationCode.trim();
+		if (trimmedCode.length < 6) {
+			const codeField = document.getElementById("login-verification-code");
+			if (codeField instanceof HTMLInputElement) {
+				codeField.focus();
+			}
+			setFeedback({
+				kind: "error",
+				message: "Enter the 6-digit code to continue.",
+			});
+			return;
+		}
+
+		if (!hasValidEmail || onEmailPasswordPreviewSubmit === undefined) {
+			return;
+		}
+
+		onEmailPasswordPreviewSubmit(email.trim());
 	}
 
 	function renderWrappedChoiceScene() {
@@ -305,7 +324,7 @@ export function LoginForm(props: LoginFormProps) {
 								className="mymind-wrapped-secondary-action rounded-full"
 								onClick={() => handleSocialSignIn("google")}
 							>
-								Continue with Google
+								Log in with Google
 							</Button>
 						</motion.div>
 						<motion.div
@@ -323,7 +342,7 @@ export function LoginForm(props: LoginFormProps) {
 								className="mymind-wrapped-secondary-action rounded-full"
 								onClick={() => handleSocialSignIn("github")}
 							>
-								Continue with GitHub
+								Log in with GitHub
 							</Button>
 						</motion.div>
 					</div>
@@ -356,9 +375,11 @@ export function LoginForm(props: LoginFormProps) {
 							onClick={handleOpenWrappedEmail}
 							className="mymind-wrapped-entry-action mymind-wrapped-auth-form__scene-action h-11 rounded-full px-7 [font-family:var(--app-font-heading)] text-[1.0625rem] font-semibold"
 						>
-							Continue with Email
+							Log in with Email
 						</Button>
 					</motion.div>
+
+					{renderWrappedFeedback()}
 				</div>
 			</motion.div>
 		);
@@ -401,6 +422,8 @@ export function LoginForm(props: LoginFormProps) {
 					/>
 				</motion.div>
 
+				{renderWrappedFeedback()}
+
 				<motion.div
 					animate={getWrappedSceneItemMotion(0.06).animate}
 					className="mymind-wrapped-auth-form__action-item mymind-wrapped-auth-form__action-item--primary"
@@ -441,6 +464,91 @@ export function LoginForm(props: LoginFormProps) {
 	}
 
 	function renderWrappedCredentialsScene() {
+		if (usesWrappedEmailPreview) {
+			return (
+				<motion.div
+					key="credentials"
+					animate={wrappedSceneShellMotion.animate}
+					className="mymind-wrapped-auth-form__scene mymind-wrapped-auth-form__scene--credentials mymind-wrapped-auth-form__scene--verification"
+					exit={wrappedSceneShellMotion.exit}
+					initial={getWrappedSceneInitialState(wrappedSceneShellMotion.initial)}
+					transition={wrappedSceneShellMotion.transition}
+				>
+					<motion.div
+						animate={wrappedSceneMotion.enter}
+						className="mymind-wrapped-auth-form__verification"
+						exit={wrappedSceneMotion.exit}
+						initial={getWrappedSceneInitialState(wrappedSceneMotion.initial)}
+						transition={wrappedSceneMotion.transition}
+					>
+						<p className="mymind-wrapped-auth-form__verification-copy">
+							Enter the code we sent to{" "}
+							<span className="mymind-wrapped-auth-form__verification-email">
+								{email.trim()}
+							</span>
+						</p>
+						<Input
+							aria-label="Verification code"
+							autoComplete="one-time-code"
+							autoFocus
+							id="login-verification-code"
+							inputMode="numeric"
+							maxLength={6}
+							placeholder="123456"
+							value={wrappedVerificationCode}
+							onChange={(e) => {
+								const nextValue = e.target.value.replace(/\D/g, "").slice(0, 6);
+								setWrappedVerificationCode(nextValue);
+								if (feedback?.kind === "error") {
+									setFeedback(null);
+								}
+							}}
+							className="mymind-wrapped-auth-form__input mymind-wrapped-auth-step__otp-input mymind-wrapped-auth-form__verification-code"
+							required
+						/>
+					</motion.div>
+
+					{renderWrappedFeedback()}
+
+					<motion.div
+						animate={getWrappedSceneItemMotion(0.08).animate}
+						className="mymind-wrapped-auth-form__action-item mymind-wrapped-auth-form__action-item--primary"
+						exit={getWrappedSceneItemMotion(0.08).exit}
+						initial={getWrappedSceneInitialState(
+							getWrappedSceneItemMotion(0.08).initial,
+						)}
+						transition={getWrappedSceneItemMotion(0.08).transition}
+					>
+						<Button
+							type="button"
+							onClick={handleContinueWrappedPreview}
+							className="mymind-wrapped-entry-action mymind-wrapped-auth-form__scene-action h-11 rounded-full px-7 [font-family:var(--app-font-heading)] text-[1.0625rem] font-semibold"
+						>
+							Continue
+						</Button>
+					</motion.div>
+
+					<motion.div
+						animate={getWrappedSceneItemMotion(0.12).animate}
+						className="mymind-wrapped-auth-form__action-item"
+						exit={getWrappedSceneItemMotion(0.12).exit}
+						initial={getWrappedSceneInitialState(
+							getWrappedSceneItemMotion(0.12).initial,
+						)}
+						transition={getWrappedSceneItemMotion(0.12).transition}
+					>
+						<button
+							type="button"
+							onClick={handleReturnToWrappedChoice}
+							className="mymind-wrapped-auth-form__scene-link"
+						>
+							Use another method
+						</button>
+					</motion.div>
+				</motion.div>
+			);
+		}
+
 		return (
 			<motion.div
 				key="credentials"
@@ -563,21 +671,6 @@ export function LoginForm(props: LoginFormProps) {
 				className="mymind-wrapped-auth-form"
 				data-email-auth-stage={wrappedScene}
 			>
-				{feedback ? (
-					<div
-						role={feedback.kind === "error" ? "alert" : "status"}
-						aria-live="polite"
-						className={cn(
-							"mymind-wrapped-auth-form__feedback",
-							feedback.kind === "error" ? "is-error" : "is-success",
-						)}
-					>
-						{feedback.message}
-					</div>
-				) : null}
-
-				{renderWrappedTerms()}
-
 				<div className="mymind-wrapped-auth-form__scene-shell">
 					<AnimatePresence initial={false} mode="wait">
 						{wrappedScene === "choice"
@@ -619,14 +712,14 @@ export function LoginForm(props: LoginFormProps) {
 						variant="outline"
 						onClick={() => handleSocialSignIn("google")}
 					>
-						Continue with Google
+						Log in with Google
 					</Button>
 					<Button
 						type="button"
 						variant="outline"
 						onClick={() => handleSocialSignIn("github")}
 					>
-						Continue with GitHub
+						Log in with GitHub
 					</Button>
 				</div>
 
@@ -718,7 +811,7 @@ export function LoginForm(props: LoginFormProps) {
 							setShowEmailForm(true);
 						}}
 					>
-						Use email and password instead
+						Log in with Email
 					</Button>
 				)}
 

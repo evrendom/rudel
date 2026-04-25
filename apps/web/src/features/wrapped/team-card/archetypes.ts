@@ -20,6 +20,8 @@ export interface WrappedArchetypeCardTheme {
 	theme: WrappedTeamMemberCardTheme;
 }
 
+const WRAPPED_SHELL_BACKGROUND_VALUE_PATTERN = /bg-\[(.+?)\]/;
+
 // This is the Saturday wrapped card archetype catalog.
 //
 // Product rule:
@@ -139,3 +141,13 @@ export const WRAPPED_ARCHETYPE_CARD_THEMES = [
 		theme: "light",
 	},
 ] as const satisfies readonly WrappedArchetypeCardTheme[];
+
+export function getWrappedArchetypeCardBackgroundValue(
+	theme: WrappedArchetypeCardTheme,
+) {
+	const backgroundMatch = theme.shellClassName.match(
+		WRAPPED_SHELL_BACKGROUND_VALUE_PATTERN,
+	);
+
+	return backgroundMatch?.[1].replaceAll("_", " ") ?? null;
+}
