@@ -47,6 +47,21 @@ interface WrappedOnboardingFooterProps {
 	) => void;
 }
 
+interface WrappedOnboardingDebugControlsProps {
+	activePreviewOptions: readonly WrappedPreviewOption[] | null;
+	activePreviewState: string;
+	activePreviewStepId: PreviewableWrappedStepId | null;
+	activeStep: WrappedPrimaryStep;
+	className?: string;
+	generalDebugControls?: ReactNode;
+	isDebugControlsVisible: boolean;
+	isStepTransitioning: boolean;
+	onPreviewStateChange: (
+		stepId: PreviewableWrappedStepId,
+		value: string,
+	) => void;
+}
+
 export function WrappedOnboardingHeader(props: WrappedOnboardingHeaderProps) {
 	const {
 		activeStep,
@@ -116,6 +131,48 @@ export function WrappedOnboardingHeader(props: WrappedOnboardingHeaderProps) {
 	);
 }
 
+export function WrappedOnboardingDebugControls(
+	props: WrappedOnboardingDebugControlsProps,
+) {
+	const {
+		activePreviewOptions,
+		activePreviewState,
+		activePreviewStepId,
+		activeStep,
+		className,
+		generalDebugControls,
+		isDebugControlsVisible,
+		isStepTransitioning,
+		onPreviewStateChange,
+	} = props;
+	const isStoryDebugTrayVisible =
+		isDebugControlsVisible && activePreviewStepId && activePreviewOptions;
+	const hasDebugControls =
+		Boolean(generalDebugControls) || isStoryDebugTrayVisible;
+
+	if (!hasDebugControls) {
+		return null;
+	}
+
+	const controls = (
+		<WrappedDebugControlStack>
+			{generalDebugControls}
+			{isStoryDebugTrayVisible ? (
+				<WrappedOnboardingDebugTray
+					activePreviewOptions={activePreviewOptions}
+					activePreviewState={activePreviewState}
+					activePreviewStepId={activePreviewStepId}
+					activeStep={activeStep}
+					isStepTransitioning={isStepTransitioning}
+					onPreviewStateChange={onPreviewStateChange}
+				/>
+			) : null}
+		</WrappedDebugControlStack>
+	);
+
+	return className ? <div className={className}>{controls}</div> : controls;
+}
+
 export function WrappedOnboardingFooter(props: WrappedOnboardingFooterProps) {
 	const {
 		activePreviewOptions,
@@ -132,10 +189,12 @@ export function WrappedOnboardingFooter(props: WrappedOnboardingFooterProps) {
 	} = props;
 	const shouldReduceMotion = useReducedMotion();
 	const reduceMotion = shouldReduceMotion ?? false;
-	const isStoryDebugTrayVisible =
-		isDebugControlsVisible && activePreviewStepId && activePreviewOptions;
-	const hasDebugControls =
-		Boolean(generalDebugControls) || isStoryDebugTrayVisible;
+	const shouldReserveActionSlot =
+		activeStep.kind !== "final" && activeStep.id === "model";
+	const isFooterActionVisible =
+		activeStep.kind === "final" || isContinueVisible;
+	const shouldRenderFooterActionSlot =
+		isFooterActionVisible || shouldReserveActionSlot;
 	const footerActionKey =
 		activeStep.kind === "final"
 			? "final"
@@ -143,41 +202,47 @@ export function WrappedOnboardingFooter(props: WrappedOnboardingFooterProps) {
 
 	return (
 		<footer className="mymind-wrapped-dock">
-			{hasDebugControls ? (
-				<WrappedDebugControlStack>
-					{generalDebugControls}
-					{isStoryDebugTrayVisible ? (
-						<WrappedOnboardingDebugTray
-							activePreviewOptions={activePreviewOptions}
-							activePreviewState={activePreviewState}
-							activePreviewStepId={activePreviewStepId}
-							activeStep={activeStep}
-							isStepTransitioning={isStepTransitioning}
-							onPreviewStateChange={onPreviewStateChange}
-						/>
-					) : null}
-				</WrappedDebugControlStack>
-			) : null}
+			<WrappedOnboardingDebugControls
+				activePreviewOptions={activePreviewOptions}
+				activePreviewState={activePreviewState}
+				activePreviewStepId={activePreviewStepId}
+				activeStep={activeStep}
+				generalDebugControls={generalDebugControls}
+				isDebugControlsVisible={isDebugControlsVisible}
+				isStepTransitioning={isStepTransitioning}
+				onPreviewStateChange={onPreviewStateChange}
+			/>
 
 			<AnimatePresence mode="wait">
-				{activeStep.kind === "final" || isContinueVisible ? (
+				{shouldRenderFooterActionSlot ? (
 					<motion.div
 						key={footerActionKey}
 						animate={
-							reduceMotion
-								? { opacity: 1 }
-								: { filter: "blur(0px)", opacity: 1, y: 0 }
+							isFooterActionVisible
+								? reduceMotion
+									? { opacity: 1 }
+									: { filter: "blur(0px)", opacity: 1, y: 0 }
+								: reduceMotion
+									? { opacity: 0 }
+									: { filter: "blur(8px)", opacity: 0, y: 0 }
 						}
-						className="w-full"
+						className={cn(
+							"w-full",
+							shouldReserveActionSlot && !isFooterActionVisible
+								? "mymind-wrapped-dock__action-slot--hidden"
+								: null,
+						)}
 						exit={
 							reduceMotion
 								? { opacity: 0 }
 								: { filter: "blur(8px)", opacity: 0, y: 8 }
 						}
 						initial={
-							reduceMotion
-								? { opacity: 0 }
-								: { filter: "blur(10px)", opacity: 0, y: 12 }
+							shouldReserveActionSlot && !isFooterActionVisible
+								? false
+								: reduceMotion
+									? { opacity: 0 }
+									: { filter: "blur(10px)", opacity: 0, y: 12 }
 						}
 						transition={
 							reduceMotion
@@ -200,7 +265,10 @@ export function WrappedOnboardingFooter(props: WrappedOnboardingFooterProps) {
 						) : (
 							<WrappedPrimaryAction
 								kind="button"
-								disabled={isStepTransitioning}
+								disabled={
+									isStepTransitioning ||
+									(shouldReserveActionSlot && !isFooterActionVisible)
+								}
 								onClick={onContinue}
 							>
 								Continue

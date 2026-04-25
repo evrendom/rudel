@@ -17,7 +17,11 @@ import {
 	WRAPPED_STEP_PREVIEW_OPTIONS,
 	type WrappedStepId,
 } from "./config";
-import { WrappedOnboardingFooter, WrappedOnboardingHeader } from "./controls";
+import {
+	WrappedOnboardingDebugControls,
+	WrappedOnboardingFooter,
+	WrappedOnboardingHeader,
+} from "./controls";
 import {
 	getSelectedPreviewState,
 	getStepPreviewStateParam,
@@ -199,6 +203,7 @@ export function WrappedTeamCardOnboarding(
 	const isStepTransitioning =
 		pendingStepIndex !== null || isScaleAdvancePending || isModelAdvancePending;
 	const showPreviewControls = import.meta.env.DEV;
+	const areModelDebugControlsFloating = showPreviewControls && isModelStep;
 
 	function clearScaleAdvanceTimers() {
 		for (const timeoutId of scaleAdvanceTimerRefs.current) {
@@ -443,6 +448,20 @@ export function WrappedTeamCardOnboarding(
 							/>
 
 							<div className="mymind-wrapped-stage-area">
+								{areModelDebugControlsFloating ? (
+									<WrappedOnboardingDebugControls
+										activePreviewOptions={activePreviewOptions}
+										activePreviewState={activePreviewState}
+										activePreviewStepId={activePreviewStepId}
+										activeStep={activeStep}
+										className="mymind-wrapped-onboarding-debug-controls mymind-wrapped-onboarding-debug-controls--floating"
+										generalDebugControls={footerDebugControls}
+										isDebugControlsVisible={showPreviewControls}
+										isStepTransitioning={isStepTransitioning}
+										onPreviewStateChange={setPreviewState}
+									/>
+								) : null}
+
 								<AnimatePresence custom={navigationDirection} mode="wait">
 									<motion.div
 										key={activeStep.id}
@@ -504,9 +523,15 @@ export function WrappedTeamCardOnboarding(
 								activePreviewState={activePreviewState}
 								activePreviewStepId={activePreviewStepId}
 								finalFooter={finalFooter}
-								generalDebugControls={footerDebugControls}
+								generalDebugControls={
+									areModelDebugControlsFloating
+										? undefined
+										: footerDebugControls
+								}
 								isContinueVisible={isContinueVisible}
-								isDebugControlsVisible={showPreviewControls}
+								isDebugControlsVisible={
+									showPreviewControls && !areModelDebugControlsFloating
+								}
 								isStepTransitioning={isStepTransitioning}
 								onContinue={handleStepAdvance}
 								onPreviewStateChange={setPreviewState}
