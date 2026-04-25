@@ -1075,9 +1075,49 @@ function WrappedModelStageRaceSlot(props: {
 					</div>
 				) : null}
 			</div>
-			<p className="mymind-wrapped-model-stage__month-label">
+			<motion.p
+				animate={{
+					opacity: areDetailsVisible ? 1 : 0,
+					scale: areDetailsVisible ? 1 : 0.96,
+					y: areDetailsVisible ? 0 : 8,
+				}}
+				aria-hidden={!areDetailsVisible}
+				className="mymind-wrapped-model-stage__month-label"
+				initial={false}
+				transition={{
+					opacity: {
+						duration: 0.22,
+						ease: MODEL_STAGE_MOTION.easing.enter,
+						delay: areDetailsVisible
+							? MODEL_STAGE_RESULT_DETAIL_DELAY_MS / 1_000
+							: 0,
+					},
+					scale: reduceMotion
+						? { duration: 0 }
+						: {
+								type: "spring",
+								stiffness: 240,
+								damping: 22,
+								mass: 0.92,
+								delay: areDetailsVisible
+									? MODEL_STAGE_RESULT_DETAIL_DELAY_MS / 1_000
+									: 0,
+							},
+					y: reduceMotion
+						? { duration: 0 }
+						: {
+								type: "spring",
+								stiffness: 220,
+								damping: 24,
+								mass: 0.96,
+								delay: areDetailsVisible
+									? MODEL_STAGE_RESULT_DETAIL_DELAY_MS / 1_000
+									: 0,
+							},
+				}}
+			>
 				{splitCard.label}
-			</p>
+			</motion.p>
 		</motion.div>
 	);
 }

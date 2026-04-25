@@ -1,14 +1,20 @@
-import type { WrappedShareSnapshot } from "@rudel/api-routes";
+import type {
+	WrappedShareAppearance,
+	WrappedShareSnapshot,
+} from "@rudel/api-routes";
 import type { TeamPageMemberRow } from "@/features/team/use-team-page-data";
 import type {
 	WrappedTeamMemberCardHeaderMetric,
 	WrappedTeamMemberCardStatItem,
 	WrappedTeamMemberCardTheme,
 } from "./card";
+import type { WrappedTeamMemberCardBackMetric } from "./card-back";
 import { getWrappedShareSafeImageUrl } from "./share-media";
 
 interface BuildWrappedShareSnapshotParams {
+	appearance: WrappedShareAppearance;
 	archetypeLabel: string;
+	backMetrics: readonly WrappedTeamMemberCardBackMetric[];
 	headerLeftMetric?: WrappedTeamMemberCardHeaderMetric;
 	headerRightMetric?: WrappedTeamMemberCardHeaderMetric;
 	row: TeamPageMemberRow;
@@ -24,7 +30,9 @@ export function buildWrappedShareSnapshot(
 	params: BuildWrappedShareSnapshotParams,
 ): WrappedShareSnapshot {
 	const {
+		appearance,
 		archetypeLabel,
+		backMetrics,
 		headerLeftMetric,
 		headerRightMetric,
 		row,
@@ -34,7 +42,13 @@ export function buildWrappedShareSnapshot(
 	} = params;
 
 	return {
+		appearance,
 		archetypeLabel,
+		backMetrics: backMetrics.map((metric) => ({
+			label: metric.label,
+			slot: metric.slot,
+			value: metric.value,
+		})),
 		headerLeftMetric,
 		headerRightMetric,
 		// Copy only the public card fields needed for replay. This keeps the public

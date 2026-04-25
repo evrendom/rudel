@@ -15,7 +15,6 @@ import {
 import { useMountEffect } from "@/hooks/useMountEffect";
 import { cn } from "@/lib/utils";
 import {
-	WrappedDebugControlStack,
 	WrappedRouteStageShell,
 } from "./route-stage-shell";
 import { WrappedGuestPreviewCard } from "./WrappedGuestPreviewCard";
@@ -30,7 +29,9 @@ const WRAPPED_AUTH_EXIT_EASE = [0.4, 0, 0.2, 1] as const;
 const WRAPPED_AUTH_LAYOUT_EASE = [0.32, 0.72, 0, 1] as const;
 const WRAPPED_AUTH_FORM_TRANSITION_DURATION = 0.32;
 const WRAPPED_AUTH_LAYOUT_DURATION = 0.6;
+const WRAPPED_AUTH_FORM_CARD_SCALE = 1.84;
 const WRAPPED_AUTH_INTRO_REDUCED_DURATION = 0.14;
+const WRAPPED_AUTH_INTRO_CARD_SCALE = 2;
 const WRAPPED_AUTH_INTRO_TOOL_ROTATION_MS = 3000;
 const WRAPPED_AUTH_TITLE_ENTER_DELAY = 0.16;
 const WRAPPED_AUTH_TITLE_ENTER_DURATION = 0.34;
@@ -38,12 +39,16 @@ const WRAPPED_AUTH_TITLE_EXIT_DURATION = 0.22;
 const WRAPPED_AUTH_TITLE_MICRO_DURATION = 0.2;
 
 interface WrappedAuthFlowProps {
+	authFormCardScale?: number;
+	authIntroCardScale?: number;
 	debugControls?: ReactNode;
 	onEmailPasswordPreviewSubmit?: (email: string) => void;
 	previewProfile: WrappedGuestPreviewProfile | null;
 }
 
 interface WrappedAuthStageProps {
+	authFormCardScale?: number;
+	authIntroCardScale?: number;
 	mode: WrappedAuthMode;
 	onEmailPasswordPreviewSubmit?: (email: string) => void;
 	previewProfile: WrappedGuestPreviewProfile | null;
@@ -53,6 +58,8 @@ interface WrappedAuthStageProps {
 
 function WrappedAuthStage(props: WrappedAuthStageProps) {
 	const {
+		authFormCardScale,
+		authIntroCardScale,
 		mode,
 		onEmailPasswordPreviewSubmit,
 		previewProfile,
@@ -61,6 +68,9 @@ function WrappedAuthStage(props: WrappedAuthStageProps) {
 	} = props;
 	const shouldReduceMotion = useReducedMotion() ?? false;
 	const isIntro = mode === null;
+	const activeCardScale = isIntro
+		? (authIntroCardScale ?? WRAPPED_AUTH_INTRO_CARD_SCALE)
+		: (authFormCardScale ?? WRAPPED_AUTH_FORM_CARD_SCALE);
 	const panelLayoutTransition = shouldReduceMotion
 		? {
 				duration: WRAPPED_AUTH_INTRO_REDUCED_DURATION,
@@ -131,9 +141,7 @@ function WrappedAuthStage(props: WrappedAuthStageProps) {
 					transition={{ layout: panelLayoutTransition }}
 				>
 					<motion.div
-						animate={
-							shouldReduceMotion ? { scale: 1 } : { scale: isIntro ? 1 : 0.92 }
-						}
+						animate={{ scale: activeCardScale }}
 						className="mymind-wrapped-auth-panel__card-scale-shell"
 						transition={cardScaleTransition}
 					>
@@ -204,7 +212,13 @@ function WrappedAuthStage(props: WrappedAuthStageProps) {
 }
 
 export function WrappedAuthFlow(props: WrappedAuthFlowProps) {
-	const { debugControls, onEmailPasswordPreviewSubmit, previewProfile } = props;
+	const {
+		authFormCardScale,
+		authIntroCardScale,
+		debugControls,
+		onEmailPasswordPreviewSubmit,
+		previewProfile,
+	} = props;
 	const [mode, setMode] = useState<WrappedAuthMode>(null);
 	const [introTool, setIntroTool] = useState<WrappedAuthIntroTool>("Claude");
 	const shouldReduceMotion = useReducedMotion() ?? false;
@@ -234,19 +248,28 @@ export function WrappedAuthFlow(props: WrappedAuthFlowProps) {
 
 	return (
 		<WrappedRouteStageShell
-			leadingControl={null}
+			backLabel="Go back"
+			leadingControl={mode === null ? null : undefined}
 			objectClassName={
 				mode
 					? "mymind-wrapped-entry-stage__object--auth-form"
 					: "mymind-wrapped-entry-stage__object--auth-intro"
 			}
-			description={
-				hasDebugControls ? (
-					<WrappedDebugControlStack>{debugControls}</WrappedDebugControlStack>
-				) : undefined
+			onBack={
+				mode === null
+					? undefined
+					: () => {
+							startTransition(() => {
+								setIntroTool("Claude");
+								setMode(null);
+							});
+						}
 			}
+			status={hasDebugControls ? debugControls : undefined}
 			stage={
 				<WrappedAuthStage
+					authFormCardScale={authFormCardScale}
+					authIntroCardScale={authIntroCardScale}
 					mode={mode}
 					onEmailPasswordPreviewSubmit={onEmailPasswordPreviewSubmit}
 					previewProfile={previewProfile}
@@ -254,10 +277,7 @@ export function WrappedAuthFlow(props: WrappedAuthFlowProps) {
 					setMode={setMode}
 				/>
 			}
-			stageClassName={cn(
-				"mymind-wrapped-entry-stage--auth",
-				hasDebugControls ? "mymind-wrapped-entry-stage--auth-debug" : null,
-			)}
+			stageClassName={cn("mymind-wrapped-entry-stage--auth")}
 			title={
 				<WrappedAuthTitle
 					introTool={introTool}
@@ -266,6 +286,7 @@ export function WrappedAuthFlow(props: WrappedAuthFlowProps) {
 				/>
 			}
 			titleClassName="mymind-wrapped-entry-stage__headline--auth"
+			useReferenceTopChrome={mode !== null}
 		/>
 	);
 }

@@ -6,7 +6,10 @@ import {
 	type CliSetupStepId,
 	cliSetupCommands,
 } from "@/components/analytics/CliSetupHint";
-import { WrappedRouteStageShell } from "./route-stage-shell";
+import {
+	WrappedDebugControlStack,
+	WrappedRouteStageShell,
+} from "./route-stage-shell";
 
 interface WrappedSetupPageProps {
 	completedStepIdsOverride?: readonly CliSetupStepId[];
@@ -44,11 +47,20 @@ export function WrappedSetupPage(props: WrappedSetupPageProps) {
 	return (
 		<MotionConfig reducedMotion="user">
 			<WrappedRouteStageShell
-				description="Start sending sessions to Rudel."
+				description={
+					<>
+						<p>Start sending sessions to Rudel.</p>
+						{debugControls ? (
+							<WrappedDebugControlStack>
+								{debugControls}
+							</WrappedDebugControlStack>
+						) : null}
+					</>
+				}
 				entrancePreset="setup"
-				footerDebugControls={debugControls}
 				leadingControl={null}
 				progressStepId="desktop-ready"
+				stageClassName="mymind-wrapped-entry-stage--setup"
 				stage={
 					<CliSetupHint
 						completedStepIds={completedStepIds}

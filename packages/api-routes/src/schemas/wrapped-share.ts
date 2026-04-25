@@ -8,6 +8,7 @@ export const WRAPPED_SHARE_PAYLOAD_VERSION = 1 as const;
 // narrower than the private wrapped page data so public replay only exposes the
 // fields we are comfortable showing outside the authenticated product.
 export const WrappedShareThemeSchema = z.enum(["dark", "light", "muted"]);
+export const WrappedShareLayoutModeSchema = z.enum(["front", "front_back"]);
 
 export const WrappedShareHeaderMetricSchema = z.object({
 	label: z.string().optional(),
@@ -23,6 +24,17 @@ export const WrappedShareStatItemSchema = z.object({
 	label: z.string().optional(),
 	title: z.string().optional(),
 	value: z.string().min(1),
+});
+
+export const WrappedShareBackMetricSchema = z.object({
+	label: z.string(),
+	slot: z.enum(["body", "footer"]).optional(),
+	value: z.string().min(1),
+});
+
+export const WrappedShareAppearanceSchema = z.object({
+	layoutMode: WrappedShareLayoutModeSchema,
+	showArchetypeLabel: z.boolean(),
 });
 
 export const WrappedShareRowSchema = z.object({
@@ -46,7 +58,9 @@ export const WrappedShareRowSchema = z.object({
 export const WrappedShareSnapshotSchema = z.object({
 	// The snapshot is a fully materialized replay payload. The public page should
 	// not need to recompute metrics or hit private analytics queries.
+	appearance: WrappedShareAppearanceSchema.optional(),
 	archetypeLabel: z.string().min(1),
+	backMetrics: z.array(WrappedShareBackMetricSchema).optional(),
 	headerLeftMetric: WrappedShareHeaderMetricSchema.optional(),
 	headerRightMetric: WrappedShareHeaderMetricSchema.optional(),
 	row: WrappedShareRowSchema,
@@ -75,10 +89,17 @@ export const PublicWrappedShareSchema = WrappedShareRecordSchema.extend({
 });
 
 export type WrappedShareTheme = z.infer<typeof WrappedShareThemeSchema>;
+export type WrappedShareLayoutMode = z.infer<typeof WrappedShareLayoutModeSchema>;
 export type WrappedShareHeaderMetric = z.infer<
 	typeof WrappedShareHeaderMetricSchema
 >;
 export type WrappedShareStatItem = z.infer<typeof WrappedShareStatItemSchema>;
+export type WrappedShareBackMetric = z.infer<
+	typeof WrappedShareBackMetricSchema
+>;
+export type WrappedShareAppearance = z.infer<
+	typeof WrappedShareAppearanceSchema
+>;
 export type WrappedShareRow = z.infer<typeof WrappedShareRowSchema>;
 export type WrappedShareSnapshot = z.infer<typeof WrappedShareSnapshotSchema>;
 export type CreateWrappedShareInput = z.infer<

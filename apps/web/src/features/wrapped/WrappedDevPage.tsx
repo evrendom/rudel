@@ -1,3 +1,4 @@
+import { useDialKit } from "dialkit";
 import { type ReactNode, startTransition } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Button } from "@/app/ui/button";
@@ -87,6 +88,13 @@ const WRAPPED_DEV_STAGES: Array<{
 
 export function WrappedDevPage() {
 	const [searchParams, setSearchParams] = useSearchParams();
+	const dialValues = useDialKit("Wrapped Auth Flow", {
+		card: {
+			_collapsed: true,
+			formScale: [1.84, 0.72, 3, 0.01],
+			introScale: [2, 0.72, 3, 0.01],
+		},
+	});
 	const activeStage = getWrappedDevStage(searchParams.get("stage"));
 	const activeSetupView = getWrappedDevSetupView(
 		searchParams.get(WRAPPED_DEV_SETUP_VIEW_QUERY_PARAM),
@@ -96,6 +104,7 @@ export function WrappedDevPage() {
 	);
 
 	function updateWrappedDevSearchParams(updates: {
+		replace?: boolean;
 		stage?: WrappedDevStage;
 		setupStep?: CliSetupStepId;
 		setupView?: WrappedDevSetupView;
@@ -135,7 +144,7 @@ export function WrappedDevPage() {
 
 					return nextSearchParams;
 				},
-				{ replace: false },
+				{ replace: updates.replace ?? false },
 			);
 		});
 	}
@@ -156,9 +165,12 @@ export function WrappedDevPage() {
 		<>
 			{activeStage === "auth" ? (
 				<WrappedDevAuthStage
+					authFormCardScale={dialValues.card.formScale}
+					authIntroCardScale={dialValues.card.introScale}
 					debugControls={
 						<WrappedDevToolbar
 							activeStage={activeStage}
+							floating
 							onStageChange={setStage}
 						/>
 					}
@@ -240,12 +252,19 @@ export function WrappedDevPage() {
 
 function WrappedDevToolbar(props: {
 	activeStage: WrappedDevStage;
+	floating?: boolean;
 	onStageChange: (stage: WrappedDevStage) => void;
 }) {
-	const { activeStage, onStageChange } = props;
+	const { activeStage, floating = false, onStageChange } = props;
 
 	return (
-		<div className="flex w-full rounded-xl border border-border/80 bg-background/95 p-1 shadow-md backdrop-blur">
+		<div
+			className={
+				floating
+					? "mymind-wrapped-dev-toolbar flex w-fit max-w-full rounded-xl border border-border/80 bg-background/95 p-1 shadow-md backdrop-blur"
+					: "mymind-wrapped-dev-toolbar flex w-full rounded-xl border border-border/80 bg-background/95 p-1 shadow-md backdrop-blur"
+			}
+		>
 			<div className="flex flex-wrap items-center gap-1">
 				{WRAPPED_DEV_STAGES.map((stage) => (
 					<Button
@@ -264,8 +283,18 @@ function WrappedDevToolbar(props: {
 	);
 }
 
-function WrappedDevAuthStage(props: { debugControls: ReactNode }) {
-	return <WrappedGuestPage debugControls={props.debugControls} />;
+function WrappedDevAuthStage(props: {
+	authFormCardScale: number;
+	authIntroCardScale: number;
+	debugControls: ReactNode;
+}) {
+	return (
+		<WrappedGuestPage
+			authFormCardScale={props.authFormCardScale}
+			authIntroCardScale={props.authIntroCardScale}
+			debugControls={props.debugControls}
+		/>
+	);
 }
 
 function WrappedDevSetupStage(props: {

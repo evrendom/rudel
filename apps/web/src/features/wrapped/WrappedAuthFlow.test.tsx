@@ -75,6 +75,20 @@ vi.mock("@/features/wrapped/WrappedSetupPage", () => ({
 	WrappedSetupPage: () => <div>Wrapped setup page</div>,
 }));
 
+Object.defineProperty(window, "matchMedia", {
+	writable: true,
+	value: vi.fn().mockImplementation((query: string) => ({
+		matches: false,
+		media: query,
+		onchange: null,
+		addEventListener: vi.fn(),
+		addListener: vi.fn(),
+		dispatchEvent: vi.fn(),
+		removeEventListener: vi.fn(),
+		removeListener: vi.fn(),
+	})),
+});
+
 describe("WrappedGuestPage", () => {
 	beforeEach(() => {
 		clearWrappedGuestPreviewSnapshot();
@@ -129,6 +143,8 @@ describe("WrappedGuestPage", () => {
 		expect(screen.getAllByText("46").length).toBeGreaterThan(0);
 		expect(screen.getAllByText("860K").length).toBeGreaterThan(0);
 		expect(screen.getAllByText("9").length).toBeGreaterThan(0);
+		await user.click(screen.getByRole("button", { name: "Show back of card" }));
+		expect(await screen.findByText("Input/output tokens")).toBeInTheDocument();
 		expect(
 			screen.getByRole("button", { name: "Create account" }),
 		).toBeInTheDocument();
@@ -197,13 +213,21 @@ describe("WrappedGuestPage", () => {
 		await user.type(screen.getByLabelText("X handle"), "@evren");
 		await user.click(screen.getByRole("button", { name: "Use this handle" }));
 		await user.click(screen.getByRole("button", { name: "Log in" }));
-		expect(screen.getByText("Wrapped login form")).toBeInTheDocument();
+		expect(await screen.findByText("Wrapped login form")).toBeInTheDocument();
+		expect(screen.getByLabelText("Go back")).toBeInTheDocument();
+		expect(screen.getByLabelText("Open support")).toBeInTheDocument();
 
 		await user.click(screen.getByRole("button", { name: "Switch to signup" }));
-		expect(screen.getByText("Wrapped signup form")).toBeInTheDocument();
+		expect(await screen.findByText("Wrapped signup form")).toBeInTheDocument();
 
 		await user.click(screen.getByRole("button", { name: "Switch to login" }));
-		expect(screen.getByText("Wrapped login form")).toBeInTheDocument();
+		expect(await screen.findByText("Wrapped login form")).toBeInTheDocument();
+
+		await user.click(screen.getByLabelText("Go back"));
+		expect(
+			await screen.findByRole("button", { name: "Create account" }),
+		).toBeInTheDocument();
+		expect(screen.getByRole("button", { name: "Log in" })).toBeInTheDocument();
 	});
 
 	it("continues into the setup preview after wrapped email auth submits locally", async () => {
@@ -218,6 +242,7 @@ describe("WrappedGuestPage", () => {
 		await user.type(screen.getByLabelText("X handle"), "@evren");
 		await user.click(screen.getByRole("button", { name: "Use this handle" }));
 		await user.click(screen.getByRole("button", { name: "Log in" }));
+		expect(await screen.findByText("Wrapped login form")).toBeInTheDocument();
 		await user.click(
 			screen.getByRole("button", { name: "Preview wrapped email submit" }),
 		);
@@ -238,6 +263,7 @@ describe("WrappedGuestPage", () => {
 		await user.type(screen.getByLabelText("X handle"), "@evren");
 		await user.click(screen.getByRole("button", { name: "Use this handle" }));
 		await user.click(screen.getByRole("button", { name: "Log in" }));
+		expect(await screen.findByText("Wrapped login form")).toBeInTheDocument();
 		await user.click(
 			screen.getByRole("button", { name: "Preview wrapped email submit" }),
 		);

@@ -38,6 +38,7 @@ import type {
 	WrappedOnboardingMetrics,
 	WrappedScaleAdvanceState,
 } from "./types";
+import type { WrappedProgressTransitionPhase } from "../WrappedProgress";
 
 /* ─────────────────────────────────────────────────────────
  * INTRO EXIT STORYBOARD
@@ -62,8 +63,34 @@ const STAGE_TRANSITION = {
 	ease: [0.22, 1, 0.36, 1] as const,
 };
 
+const PULSE_REVEAL_STAGE_TRANSITION = {
+	duration: 0.28,
+	ease: [0.22, 1, 0.36, 1] as const,
+};
+
+const PULSE_TO_CARD_PROGRESS_RESET_MS = 180;
+const PULSE_TO_CARD_PROGRESS_ACTIVATE_MS = 220;
+
+const REDUCED_STAGE_TRANSITION = {
+	duration: 0.14,
+	ease: "linear" as const,
+};
+
 const SCALE_ADVANCE_SEQUENCE = {
 	kebabRevealMs: SCALE_STAGE_KEBAB_REVEAL_MS,
+};
+
+type WrappedStageTransitionPair = {
+	fromStepId: WrappedStepId;
+	toStepId: WrappedStepId;
+};
+
+type WrappedStagePresenceMode = "default" | "pulse-to-card" | "card-to-pulse";
+
+type WrappedStagePresenceContext = {
+	direction: -1 | 0 | 1;
+	mode: WrappedStagePresenceMode;
+	reduceMotion: boolean;
 };
 
 export interface WrappedTeamCardOnboardingProps {
@@ -106,6 +133,7 @@ export function WrappedTeamCardOnboarding(
 	const shouldReduceMotion = useReducedMotion();
 	const reduceMotion = shouldReduceMotion ?? false;
 	const exitTimerRef = useRef<number | null>(null);
+	const progressTransitionTimerRefs = useRef<number[]>([]);
 	const scaleAdvanceTimerRefs = useRef<number[]>([]);
 	const [pendingStepIndex, setPendingStepIndex] = useState<number | null>(null);
 	const [scaleAdvanceState, setScaleAdvanceState] =
@@ -125,6 +153,10 @@ export function WrappedTeamCardOnboarding(
 	const [exitingStepId, setExitingStepId] = useState<WrappedStepId | null>(
 		null,
 	);
+	const [lastStageTransition, setLastStageTransition] =
+		useState<WrappedStageTransitionPair | null>(null);
+	const [progressTransitionPhase, setProgressTransitionPhase] =
+		useState<WrappedProgressTransitionPhase>("idle");
 	// Saturday launch intentionally runs a smaller story deck than the full
 	// preview surface. The visibility decision lives in config.ts so product,
 	// design, and engineering all point to the same ship list.
@@ -206,6 +238,11 @@ export function WrappedTeamCardOnboarding(
 		pendingStepIndex !== null || isScaleAdvancePending || isModelAdvancePending;
 	const showPreviewControls = import.meta.env.DEV;
 	const areModelDebugControlsFloating = showPreviewControls && isModelStep;
+	const stagePresenceContext = resolveWrappedStagePresenceContext({
+		direction: navigationDirection,
+		reduceMotion,
+		transition: lastStageTransition,
+	});
 
 	function clearScaleAdvanceTimers() {
 		for (const timeoutId of scaleAdvanceTimerRefs.current) {
@@ -215,17 +252,26 @@ export function WrappedTeamCardOnboarding(
 		scaleAdvanceTimerRefs.current = [];
 	}
 
+	function clearProgressTransitionTimers() {
+		for (const timeoutId of progressTransitionTimerRefs.current) {
+			window.clearTimeout(timeoutId);
+		}
+
+		progressTransitionTimerRefs.current = [];
+	}
+
 	useMountEffect(() => {
 		return () => {
 			if (exitTimerRef.current !== null) {
 				window.clearTimeout(exitTimerRef.current);
 			}
 
+			clearProgressTransitionTimers();
 			clearScaleAdvanceTimers();
 		};
 	});
 
-	function goToStep(nextStepIndex: number) {
+	function commitStepNavigation(nextStepIndex: number) {
 		const boundedStepIndex = Math.max(
 			0,
 			Math.min(nextStepIndex, WRAPPED_SATURDAY_STEPS.length - 1),
@@ -236,6 +282,13 @@ export function WrappedTeamCardOnboarding(
 		}
 
 		const nextStep = WRAPPED_SATURDAY_STEPS[boundedStepIndex];
+		if (nextStep && boundedStepIndex !== activeStepIndex) {
+			setLastStageTransition({
+				fromStepId: activeStep.id,
+				toStepId: nextStep.id,
+			});
+		}
+
 		if (activeStep.id === "scale" || nextStep?.id === "scale") {
 			setIsScaleRainVisible(false);
 			setScaleDisplayedTokens(0);
@@ -275,6 +328,45 @@ export function WrappedTeamCardOnboarding(
 				{ replace: true },
 			);
 		});
+	}
+
+	function goToStep(nextStepIndex: number) {
+		const boundedStepIndex = Math.max(
+			0,
+			Math.min(nextStepIndex, WRAPPED_SATURDAY_STEPS.length - 1),
+		);
+		const nextStep = WRAPPED_SATURDAY_STEPS[boundedStepIndex];
+
+		if (
+			!reduceMotion &&
+			boundedStepIndex !== activeStepIndex &&
+			activeStep.id === "pulse" &&
+			nextStep?.id === "card"
+		) {
+			clearProgressTransitionTimers();
+			setPendingStepIndex(boundedStepIndex);
+			setProgressTransitionPhase("pulse-to-card-resetting");
+
+			progressTransitionTimerRefs.current.push(
+				window.setTimeout(() => {
+					commitStepNavigation(boundedStepIndex);
+					setPendingStepIndex(null);
+					setProgressTransitionPhase("pulse-to-card-activating");
+				}, PULSE_TO_CARD_PROGRESS_RESET_MS),
+			);
+			progressTransitionTimerRefs.current.push(
+				window.setTimeout(() => {
+					setProgressTransitionPhase("idle");
+					progressTransitionTimerRefs.current = [];
+				}, PULSE_TO_CARD_PROGRESS_RESET_MS +
+					PULSE_TO_CARD_PROGRESS_ACTIVATE_MS),
+			);
+			return;
+		}
+
+		clearProgressTransitionTimers();
+		setProgressTransitionPhase("idle");
+		commitStepNavigation(boundedStepIndex);
 	}
 
 	function playScaleAdvanceSequence() {
@@ -426,9 +518,6 @@ export function WrappedTeamCardOnboarding(
 						"mymind-wrapped-route",
 						"mymind-wrapped-route--onboarding",
 						`mymind-wrapped-route--step-${activeStep.id}`,
-						showPreviewControls && isModelStep
-							? "mymind-wrapped-route--debug-model-layout"
-							: undefined,
 						isScaleStep ? "mymind-wrapped-route--scale-rain" : undefined,
 					)}
 				>
@@ -450,6 +539,7 @@ export function WrappedTeamCardOnboarding(
 								isStepTransitioning={isStepTransitioning}
 								onBack={handleTopChromeBack}
 								onGoToStep={goToStep}
+								progressTransitionPhase={progressTransitionPhase}
 								rewardCardBackground={rewardCardBackground}
 							/>
 
@@ -468,26 +558,16 @@ export function WrappedTeamCardOnboarding(
 									/>
 								) : null}
 
-								<AnimatePresence custom={navigationDirection} mode="wait">
+								<AnimatePresence custom={stagePresenceContext} mode="wait">
 									<motion.div
 										key={activeStep.id}
 										layout
-										animate={{ opacity: 1, x: 0 }}
+										animate="animate"
 										className="mymind-wrapped-stage-slot"
-										custom={navigationDirection}
-										exit={{
-											opacity: 0,
-											x: reduceMotion
-												? 0
-												: resolveWrappedStageExitOffset(navigationDirection),
-										}}
-										initial={{
-											opacity: 0,
-											x: reduceMotion
-												? 0
-												: resolveWrappedStageEnterOffset(navigationDirection),
-										}}
-										transition={STAGE_TRANSITION}
+										custom={stagePresenceContext}
+										exit="exit"
+										initial="initial"
+										variants={WRAPPED_STAGE_PRESENCE_VARIANTS}
 									>
 										{activeStep.kind === "final" ? (
 											<div className="flex w-full flex-1">{finalStage}</div>
@@ -572,4 +652,143 @@ function resolveWrappedStageExitOffset(direction: -1 | 0 | 1) {
 	}
 
 	return -24;
+}
+
+const WRAPPED_STAGE_PRESENCE_VARIANTS = {
+	animate: (custom: WrappedStagePresenceContext) =>
+		resolveWrappedStagePresenceState("animate", custom),
+	exit: (custom: WrappedStagePresenceContext) =>
+		resolveWrappedStagePresenceState("exit", custom),
+	initial: (custom: WrappedStagePresenceContext) =>
+		resolveWrappedStagePresenceState("initial", custom),
+};
+
+function resolveWrappedStagePresenceContext(input: {
+	direction: -1 | 0 | 1;
+	reduceMotion: boolean;
+	transition: WrappedStageTransitionPair | null;
+}): WrappedStagePresenceContext {
+	const { direction, reduceMotion, transition } = input;
+
+	if (transition?.fromStepId === "pulse" && transition.toStepId === "card") {
+		return {
+			direction,
+			mode: "pulse-to-card",
+			reduceMotion,
+		};
+	}
+
+	if (transition?.fromStepId === "card" && transition.toStepId === "pulse") {
+		return {
+			direction,
+			mode: "card-to-pulse",
+			reduceMotion,
+		};
+	}
+
+	return {
+		direction,
+		mode: "default",
+		reduceMotion,
+	};
+}
+
+function resolveWrappedStagePresenceState(
+	phase: "animate" | "exit" | "initial",
+	custom: WrappedStagePresenceContext,
+) {
+	const transition = resolveWrappedStagePresenceTransition(custom);
+
+	if (phase === "animate") {
+		return {
+			filter: "blur(0px)",
+			opacity: 1,
+			scale: 1,
+			x: 0,
+			y: 0,
+			transition,
+		};
+	}
+
+	if (custom.reduceMotion) {
+		return {
+			opacity: 0,
+			scale: 1,
+			x: 0,
+			y: 0,
+			transition,
+		};
+	}
+
+	if (custom.mode === "pulse-to-card") {
+		return phase === "initial"
+			? {
+					filter: "blur(12px)",
+					opacity: 0,
+					scale: 0.986,
+					x: 0,
+					y: 24,
+					transition,
+				}
+			: {
+					filter: "blur(12px)",
+					opacity: 0,
+					scale: 0.972,
+					x: 0,
+					y: -22,
+					transition,
+				};
+	}
+
+	if (custom.mode === "card-to-pulse") {
+		return phase === "initial"
+			? {
+					filter: "blur(10px)",
+					opacity: 0,
+					scale: 0.98,
+					x: 0,
+					y: -18,
+					transition,
+				}
+			: {
+					filter: "blur(10px)",
+					opacity: 0,
+					scale: 0.984,
+					x: 0,
+					y: 22,
+					transition,
+				};
+	}
+
+	return phase === "initial"
+		? {
+				filter: "blur(10px)",
+				opacity: 0,
+				scale: 0.992,
+				x: resolveWrappedStageEnterOffset(custom.direction),
+				y: 0,
+				transition,
+			}
+		: {
+				filter: "blur(10px)",
+				opacity: 0,
+				scale: 0.992,
+				x: resolveWrappedStageExitOffset(custom.direction),
+				y: 0,
+				transition,
+			};
+}
+
+function resolveWrappedStagePresenceTransition(
+	custom: WrappedStagePresenceContext,
+) {
+	if (custom.reduceMotion) {
+		return REDUCED_STAGE_TRANSITION;
+	}
+
+	if (custom.mode === "default") {
+		return STAGE_TRANSITION;
+	}
+
+	return PULSE_REVEAL_STAGE_TRANSITION;
 }

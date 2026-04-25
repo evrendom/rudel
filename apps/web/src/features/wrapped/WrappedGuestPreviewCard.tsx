@@ -1,12 +1,17 @@
-import type { CSSProperties } from "react";
+import { useReducedMotion } from "motion/react";
+import { type CSSProperties, useEffect, useState } from "react";
 import type { TeamPageMemberRow } from "@/features/team/use-team-page-data";
 import { cn } from "@/lib/utils";
+import type { WrappedOnboardingMetrics } from "./onboarding/types";
 import { WRAPPED_ARCHETYPE_CARD_THEMES } from "./team-card/archetypes";
+import { buildWrappedTeamCardBackMetrics } from "./team-card/back-metrics";
 import {
 	WrappedTeamMemberCard,
 	type WrappedTeamMemberCardHeaderMetric,
 	type WrappedTeamMemberCardStatItem,
 } from "./team-card/card";
+import { WrappedTeamMemberCardBack } from "./team-card/card-back";
+import { useWrappedCardTilt } from "./team-card/tilt/use-card-tilt";
 import type { WrappedGuestPreviewProfile } from "./wrapped-guest-preview";
 
 const WRAPPED_GUEST_CARD_THEME =
@@ -17,6 +22,9 @@ const WRAPPED_GUEST_CARD_SHELL_STYLE = {
 	"--team-lineup-card-grain-opacity": "0",
 	"--team-lineup-card-grain-size": "40px",
 } as CSSProperties;
+
+const WRAPPED_GUEST_CARD_ISSUED_AT_LABEL = "04/25/2026";
+const WRAPPED_GUEST_CARD_FLIP_DURATION_MS = 680;
 
 const DEFAULT_WRAPPED_GUEST_CARD_ROW: TeamPageMemberRow = {
 	userId: "wrapped-guest-preview",
@@ -33,6 +41,48 @@ const DEFAULT_WRAPPED_GUEST_CARD_ROW: TeamPageMemberRow = {
 	totalTokens: 860_000,
 	lastActiveDate: "2026-04-18T00:00:00.000Z",
 	hasActivity: true,
+};
+
+const WRAPPED_GUEST_CARD_ONBOARDING_METRICS: WrappedOnboardingMetrics = {
+	activeDays: 46,
+	avgSessionMin: 24,
+	commitRate: 41,
+	commitSessions: 58,
+	daysSinceFirst: 180,
+	estimatedCostTokenBasis: 0,
+	estimatedCostUsd: 182,
+	favoriteModel: "claude-3-7-sonnet",
+	longestSessionMin: 88,
+	modelByMonth: [],
+	repoPulse: {
+		entries: [],
+		leadRepoName: "geneva",
+		totalRepos: 9,
+		totalSessions: 142,
+	},
+	skillsAdoptionRate: 62.16,
+	sourceSplit: [
+		{ session_count: 97, session_share_percent: 68, source: "claude_code" },
+		{ session_count: 45, session_share_percent: 32, source: "codex" },
+	],
+	subagentsAdoptionRate: 10.81,
+	successRate: 64,
+	topProjectName: "geneva",
+	topProjectSessions: 44,
+	topProjectTokens: 420_000,
+	topSkills: [
+		{ count: 14, name: "Refactor" },
+		{ count: 9, name: "Test" },
+	],
+	slashCommandsAdoptionRate: 29.73,
+	topSlashCommand: "Architect",
+	topSlashCommandCount: 11,
+	topSlashCommands: [{ count: 11, name: "Architect" }],
+	topSubagent: "Reviewer",
+	topSubagentCount: 4,
+	topSubagents: [{ count: 4, name: "Reviewer" }],
+	totalSessions: 142,
+	totalTokens: 860_000,
 };
 
 const WRAPPED_GUEST_CARD_HEADER_LEFT_METRIC: WrappedTeamMemberCardHeaderMetric =
@@ -94,6 +144,42 @@ interface WrappedGuestPreviewCardProps {
 export function WrappedGuestPreviewCard(props: WrappedGuestPreviewCardProps) {
 	const { profile, size = "hero" } = props;
 	const row = buildWrappedGuestCardRow(profile);
+	const shouldReduceMotion = useReducedMotion();
+	const reduceMotion = shouldReduceMotion ?? false;
+	const tiltController = useWrappedCardTilt();
+	const [isCardFlipAnimating, setIsCardFlipAnimating] = useState(false);
+	const [isCardFrontVisible, setIsCardFrontVisible] = useState(true);
+	const backMetrics = buildWrappedTeamCardBackMetrics({
+		onboardingMetrics: WRAPPED_GUEST_CARD_ONBOARDING_METRICS,
+		row,
+		shareCardCreatedAtLabel: WRAPPED_GUEST_CARD_ISSUED_AT_LABEL,
+	});
+
+	useEffect(() => {
+		if (!isCardFlipAnimating || reduceMotion) {
+			return;
+		}
+
+		const timeoutId = window.setTimeout(() => {
+			setIsCardFlipAnimating(false);
+		}, WRAPPED_GUEST_CARD_FLIP_DURATION_MS);
+
+		return () => {
+			window.clearTimeout(timeoutId);
+		};
+	}, [isCardFlipAnimating, reduceMotion]);
+
+	function handleCardFlipToggle() {
+		tiltController.handlePointerLeave();
+
+		if (reduceMotion) {
+			setIsCardFrontVisible((currentValue) => !currentValue);
+			return;
+		}
+
+		setIsCardFlipAnimating(true);
+		setIsCardFrontVisible((currentValue) => !currentValue);
+	}
 
 	return (
 		<section
@@ -104,30 +190,79 @@ export function WrappedGuestPreviewCard(props: WrappedGuestPreviewCardProps) {
 					? "mymind-wrapped-auth-card-preview--compact"
 					: "mymind-wrapped-auth-card-preview--hero",
 			)}
-		>
-			<div className="team-lineup-card-tilt-stage mymind-wrapped-auth-card-preview__tilt-stage">
-				<div
-					data-tilt-active="true"
-					className="team-lineup-card-tilt-shell mymind-wrapped-auth-card-preview__tilt"
-				>
-					<div className="grid justify-center">
-						<WrappedTeamMemberCard
-							headerLeftMetric={WRAPPED_GUEST_CARD_HEADER_LEFT_METRIC}
-							headerRightMetric={WRAPPED_GUEST_CARD_HEADER_RIGHT_METRIC}
-							hideHeaderLogo
-							layoutPreset="team-card-preview"
-							mediaPanelClassName="mx-auto"
-							row={row}
-							shellClassName={WRAPPED_GUEST_CARD_THEME.shellClassName}
-							shellStyle={WRAPPED_GUEST_CARD_SHELL_STYLE}
-							statItems={WRAPPED_GUEST_CARD_STAT_ITEMS}
-							statTileClassName=""
-							theme={WRAPPED_GUEST_CARD_THEME.theme}
-						/>
+			>
+				<div className="team-lineup-card-tilt-stage mymind-wrapped-auth-card-preview__tilt-stage">
+					<div
+						ref={tiltController.cardTiltRef}
+						className="team-lineup-card-tilt-shell mymind-wrapped-auth-card-preview__tilt mymind-wrapped-final-stage__tilt-shell"
+						data-flip-active={isCardFlipAnimating ? "true" : "false"}
+						onPointerMove={(event) => {
+							if (!isCardFlipAnimating) {
+								tiltController.handlePointerMove(event);
+							}
+						}}
+						onPointerLeave={tiltController.handlePointerLeave}
+						onPointerCancel={tiltController.handlePointerLeave}
+						style={
+							{
+								"--wrapped-card-flip-rotate-y": isCardFrontVisible
+									? "0deg"
+									: "180deg",
+							} as CSSProperties
+						}
+					>
+						<button
+							type="button"
+							aria-label={
+								isCardFrontVisible
+									? "Show back of card"
+									: "Reveal front of card"
+							}
+							aria-pressed={isCardFrontVisible}
+							className="mymind-wrapped-final-stage__flip-control"
+							data-card-face={isCardFrontVisible ? "front" : "back"}
+							onClick={handleCardFlipToggle}
+						>
+							<div className="mymind-wrapped-final-stage__flip-shell">
+								<div className="mymind-wrapped-final-stage__flip-rotator">
+									<div
+										aria-hidden={!isCardFrontVisible}
+										className="mymind-wrapped-final-stage__flip-face mymind-wrapped-final-stage__flip-face--front"
+									>
+										<div className="grid justify-center">
+											<WrappedTeamMemberCard
+												headerLeftMetric={WRAPPED_GUEST_CARD_HEADER_LEFT_METRIC}
+												headerRightMetric={WRAPPED_GUEST_CARD_HEADER_RIGHT_METRIC}
+												hideHeaderLogo
+												layoutPreset="team-card-preview"
+												mediaPanelClassName="mx-auto"
+												row={row}
+												shellClassName={WRAPPED_GUEST_CARD_THEME.shellClassName}
+												shellStyle={WRAPPED_GUEST_CARD_SHELL_STYLE}
+												statItems={WRAPPED_GUEST_CARD_STAT_ITEMS}
+												statTileClassName=""
+												theme={WRAPPED_GUEST_CARD_THEME.theme}
+											/>
+										</div>
+									</div>
+
+									<div
+										aria-hidden={isCardFrontVisible}
+										className="mymind-wrapped-final-stage__flip-face mymind-wrapped-final-stage__flip-face--back"
+									>
+										<WrappedTeamMemberCardBack
+											metrics={backMetrics}
+											shellClassName={WRAPPED_GUEST_CARD_THEME.shellClassName}
+											shellStyle={WRAPPED_GUEST_CARD_SHELL_STYLE}
+											theme={WRAPPED_GUEST_CARD_THEME.theme}
+										/>
+									</div>
+								</div>
+							</div>
+						</button>
 					</div>
 				</div>
-			</div>
-		</section>
+			</section>
 	);
 }
 

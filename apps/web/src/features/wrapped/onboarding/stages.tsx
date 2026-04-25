@@ -69,9 +69,10 @@ interface ScaleRainSimulationBall extends ScaleRainBall {
 }
 
 const SCALE_RAIN_FLOOR_OFFSET_PX = 0;
-const SCALE_RAIN_BASE_FLOW_DURATION_MS = 16_000;
+const SCALE_RAIN_TARGET_DURATION_PER_MILLION_TOKENS_MS = 7_000;
 const SCALE_RAIN_MIN_FLOW_DURATION_MS = 3_200;
-const SCALE_RAIN_MAX_FLOW_DURATION_MS = 15_000;
+const SCALE_RAIN_MAX_FLOW_DURATION_MS = 9_000;
+const SCALE_RAIN_TRAVEL_OVERHEAD_MS = 1_200;
 const SCALE_RAIN_RELEASE_VELOCITY_PX = 2.6;
 const SCALE_RAIN_SQUASH_DURATION_MS = 80;
 const SCALE_RAIN_EXIT_FADE_STEP = 0.045;
@@ -681,11 +682,20 @@ function resolveScaleRainReleaseIntervalMs(totalBallCount: number) {
 		return SCALE_RAIN_MAX_FLOW_DURATION_MS;
 	}
 
+	const tokenCount = totalBallCount * 1_000;
+	const targetTotalDurationMs = Math.min(
+		SCALE_RAIN_MAX_FLOW_DURATION_MS,
+		Math.max(
+			SCALE_RAIN_MIN_FLOW_DURATION_MS,
+			(tokenCount / 1_000_000) *
+				SCALE_RAIN_TARGET_DURATION_PER_MILLION_TOKENS_MS,
+		),
+	);
 	const flowDurationMs = Math.min(
 		SCALE_RAIN_MAX_FLOW_DURATION_MS,
 		Math.max(
 			SCALE_RAIN_MIN_FLOW_DURATION_MS,
-			(totalBallCount / 1_000) * SCALE_RAIN_BASE_FLOW_DURATION_MS,
+			targetTotalDurationMs - SCALE_RAIN_TRAVEL_OVERHEAD_MS,
 		),
 	);
 

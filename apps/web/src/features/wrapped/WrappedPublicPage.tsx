@@ -4,8 +4,8 @@ import { appRoutes } from "@/app/routes";
 import { buttonVariants } from "@/app/ui/button";
 import { useAnalyticsTracking } from "@/features/analytics/tracking/useAnalyticsTracking";
 import { getSessionUserId } from "@/features/auth/auth-route-utils";
-import { WrappedTeamMemberCard } from "@/features/wrapped/team-card/card";
 import { getWrappedShareSafeImageUrl } from "@/features/wrapped/team-card/share-media";
+import { WrappedTeamCardSharePreview } from "@/features/wrapped/team-card/share-preview";
 import { formatShareCardCreatedAt } from "@/features/wrapped/team-card/utils";
 import { useEffectOnceWhen } from "@/hooks/useEffectOnceWhen";
 import { useMountEffect } from "@/hooks/useMountEffect";
@@ -130,16 +130,16 @@ function PublicShareReadyState(props: {
 
 				<div className="team-lineup-surface-scope mt-8 w-full">
 					<div className="grid justify-center">
-						<WrappedTeamMemberCard
+						<WrappedTeamCardSharePreview
+							appearance={share.snapshot.appearance}
+							backMetrics={share.snapshot.backMetrics}
 							headerLeftMetric={share.snapshot.headerLeftMetric}
 							headerRightMetric={share.snapshot.headerRightMetric}
-							layoutPreset="team-card-preview"
-							mediaPanelClassName="mx-auto"
 							row={publicRow}
+							shareCardCreatedAtLabel={shareDateLabel}
 							shellClassName={share.snapshot.shellClassName}
 							shellStyle={PUBLIC_SHARE_CARD_SHELL_STYLE}
 							statItems={share.snapshot.statItems}
-							statTileClassName=""
 							theme={share.snapshot.theme}
 						/>
 					</div>

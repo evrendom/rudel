@@ -21,18 +21,26 @@ export function WrappedDesktopResumePromptStage(
 	return (
 		<MotionConfig reducedMotion="user">
 			<WrappedRouteStageShell
-				description={description}
+				description={
+					<>
+						{typeof description === "string" ? (
+							<p>{description}</p>
+						) : (
+							description
+						)}
+						{debugControls ? (
+							<WrappedDebugControlStack>
+								{debugControls}
+							</WrappedDebugControlStack>
+						) : null}
+					</>
+				}
 				entrancePreset="setup"
 				stageClassName="mymind-wrapped-entry-stage--mobile-handoff mymind-wrapped-entry-stage--desktop-resume-prompt"
 				progressStepId="desktop-ready"
 				stage={
 					<div className="mymind-wrapped-entry-card mymind-wrapped-entry-card--prompt-shellless">
 						<div className="mymind-wrapped-action-stack">
-							{debugControls ? (
-								<WrappedDebugControlStack>
-									{debugControls}
-								</WrappedDebugControlStack>
-							) : null}
 							{primaryAction}
 							{feedback}
 						</div>

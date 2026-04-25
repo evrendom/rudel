@@ -113,6 +113,8 @@ export function WrappedRouteStageShell(props: WrappedRouteStageShellProps) {
 		useReferenceTopChrome || progressView !== null;
 	const hasFooter = Boolean(footer) || Boolean(footerDebugControls);
 	const shouldAnimateSetupEntrance = entrancePreset === "setup";
+	const hasTextStatus =
+		typeof status === "string" || typeof status === "number";
 	const animatedCopy = (
 		<WrappedStageCopy
 			description={description}
@@ -134,7 +136,7 @@ export function WrappedRouteStageShell(props: WrappedRouteStageShellProps) {
 					? WRAPPED_SETUP_ENTRANCE.stageReduced.animate
 					: WRAPPED_SETUP_ENTRANCE.stage.animate
 			}
-			className="w-full"
+			className="grid w-full justify-items-center"
 			initial={
 				reduceMotion
 					? WRAPPED_SETUP_ENTRANCE.stageReduced.initial
@@ -236,7 +238,15 @@ export function WrappedRouteStageShell(props: WrappedRouteStageShellProps) {
 										}))}
 									/>
 								) : status ? (
-									<p className="mymind-wrapped-top-tray__status">{status}</p>
+									hasTextStatus ? (
+										<div className="mymind-wrapped-top-tray__status">
+											{status}
+										</div>
+									) : (
+										<div className="mymind-wrapped-top-tray__floating-control">
+											{status}
+										</div>
+									)
 								) : null}
 							</div>
 

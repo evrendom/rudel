@@ -161,11 +161,15 @@ export function WrappedOnboardingToolsStage(props: ToolsStageProps) {
 			copy={
 				showFinalScene ? (
 					<motion.div
-						animate={{ opacity: 1, scale: 1, y: 0 }}
+						animate={
+							reduceMotion
+								? { opacity: 1, scale: 1, y: 0 }
+								: { filter: "blur(0px)", opacity: 1, scale: 1, y: 0 }
+						}
 						initial={
 							reduceMotion
 								? { opacity: 1, scale: 1, y: 0 }
-								: { opacity: 0, scale: 0.99, y: 14 }
+								: { filter: "blur(10px)", opacity: 0, scale: 0.99, y: 14 }
 						}
 						transition={TOOLS_STAGE_COPY_TRANSITION}
 					>
@@ -178,8 +182,17 @@ export function WrappedOnboardingToolsStage(props: ToolsStageProps) {
 					<motion.div
 						animate={
 							scenePhase === "handoff"
-								? { opacity: 0, scale: 0.985, y: -18 }
-								: { opacity: 1, scale: 1, y: 0 }
+								? reduceMotion
+									? { opacity: 0, scale: 0.985, y: -18 }
+									: {
+											filter: "blur(8px)",
+											opacity: 0,
+											scale: 0.985,
+											y: -18,
+										}
+								: reduceMotion
+									? { opacity: 1, scale: 1, y: 0 }
+									: { filter: "blur(0px)", opacity: 1, scale: 1, y: 0 }
 						}
 						initial={false}
 						transition={TOOLS_STAGE_COPY_TRANSITION}

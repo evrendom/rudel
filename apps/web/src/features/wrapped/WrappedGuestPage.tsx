@@ -19,8 +19,12 @@ type WrappedGuestPageStep =
 	| "setup-preview"
 	| "mobile-preview";
 
-export function WrappedGuestPage(props: { debugControls?: ReactNode }) {
-	const { debugControls } = props;
+export function WrappedGuestPage(props: {
+	authFormCardScale?: number;
+	authIntroCardScale?: number;
+	debugControls?: ReactNode;
+}) {
+	const { authFormCardScale, authIntroCardScale, debugControls } = props;
 	const isMobile = useIsMobile();
 	const [initialSnapshot] = useState(() => readWrappedGuestPreviewSnapshot());
 	const [step, setStep] = useState<WrappedGuestPageStep>(
@@ -71,6 +75,8 @@ export function WrappedGuestPage(props: { debugControls?: ReactNode }) {
 	if (step === "auth") {
 		return (
 			<WrappedAuthFlow
+				authFormCardScale={authFormCardScale}
+				authIntroCardScale={authIntroCardScale}
 				debugControls={debugControls}
 				onEmailPasswordPreviewSubmit={handlePreviewEmailPasswordSubmit}
 				previewProfile={previewProfile}

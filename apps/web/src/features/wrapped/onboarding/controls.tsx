@@ -3,7 +3,10 @@ import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import type { ReactNode } from "react";
 import { appRoutes } from "@/app/routes";
 import { WrappedPrimaryAction } from "@/features/wrapped/actions";
-import { WrappedProgress } from "@/features/wrapped/WrappedProgress";
+import {
+	WrappedProgress,
+	type WrappedProgressTransitionPhase,
+} from "@/features/wrapped/WrappedProgress";
 import { getWrappedOnboardingProgressView } from "@/features/wrapped/wrapped-onboarding-progress";
 import { openChatwoot } from "@/lib/chatwoot";
 import { cn } from "@/lib/utils";
@@ -28,6 +31,7 @@ interface WrappedOnboardingHeaderProps {
 	isStepTransitioning: boolean;
 	onBack: () => void;
 	onGoToStep: (nextStepIndex: number) => void;
+	progressTransitionPhase: WrappedProgressTransitionPhase;
 	rewardCardBackground?: string;
 }
 
@@ -70,6 +74,7 @@ export function WrappedOnboardingHeader(props: WrappedOnboardingHeaderProps) {
 		isStepTransitioning,
 		onBack,
 		onGoToStep,
+		progressTransitionPhase,
 		rewardCardBackground,
 	} = props;
 	const progressView = getWrappedOnboardingProgressView(activeStep.id);
@@ -116,6 +121,7 @@ export function WrappedOnboardingHeader(props: WrappedOnboardingHeaderProps) {
 							};
 						})}
 						rewardCardBackground={rewardCardBackground}
+						transitionPhase={progressTransitionPhase}
 					/>
 				</div>
 
@@ -199,7 +205,7 @@ export function WrappedOnboardingFooter(props: WrappedOnboardingFooterProps) {
 	const shouldRenderFooterActionSlot =
 		isFooterActionVisible || shouldReserveActionSlot;
 	const continueLabel =
-		activeStep.id === "pulse" ? "Finally reveal my card!" : "Continue";
+		activeStep.id === "pulse" ? "Reveal my card" : "Continue";
 	const footerActionKey =
 		activeStep.kind === "final"
 			? "final"

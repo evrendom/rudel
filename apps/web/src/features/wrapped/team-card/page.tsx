@@ -1,4 +1,7 @@
-import { WRAPPED_SHARE_PAYLOAD_VERSION } from "@rudel/api-routes";
+import {
+	type WrappedShareAppearance,
+	WRAPPED_SHARE_PAYLOAD_VERSION,
+} from "@rudel/api-routes";
 import { useDialKit } from "dialkit";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import {
@@ -26,6 +29,7 @@ import {
 	getWrappedArchetypeCardBackgroundValue,
 	type WrappedArchetypeCardTheme,
 } from "./archetypes";
+import { buildWrappedTeamCardBackMetrics } from "./back-metrics";
 import type {
 	WrappedTeamMemberCardHeaderMetric,
 	WrappedTeamMemberCardStatItem,
@@ -37,6 +41,10 @@ import {
 	WrappedTeamCardShareStage,
 } from "./final-stages";
 import { createWrappedTeamCardShareActions } from "./share";
+import {
+	DEFAULT_WRAPPED_SHARE_APPEARANCE,
+	resolveWrappedShareAppearance,
+} from "./share-appearance";
 import { buildWrappedShareSafeRow } from "./share-media";
 import { buildWrappedShareSnapshot } from "./share-snapshot";
 import {
@@ -72,6 +80,9 @@ export function WrappedTeamCardPage(props: {
 	// The live flow still defaults to a single fallback theme. This index only
 	// exists so the dev footer can preview the full card set when needed.
 	const [activeArchetypeIndex, setActiveArchetypeIndex] = useState(0);
+	const [shareAppearance, setShareAppearance] = useState<WrappedShareAppearance>(
+		DEFAULT_WRAPPED_SHARE_APPEARANCE,
+	);
 	const [shareCardCreatedAt] = useState(() => new Date());
 	const shareCardCreatedAtLabel = formatShareCardCreatedAt(shareCardCreatedAt);
 	const dialValues = useDialKit("Wrapped Team Card", {
@@ -180,11 +191,13 @@ export function WrappedTeamCardPage(props: {
 			onboardingMetrics={onboardingMetrics}
 			onBackFromFirstStep={onBackFromFirstStep}
 			onContinueToDashboard={handleContinueToDashboard}
+			shareAppearance={resolveWrappedShareAppearance(shareAppearance)}
 			shareCardCreatedAtLabel={shareCardCreatedAtLabel}
 			shellStyle={TEAM_CARD_SHELL_STYLE}
 			statItems={statItems}
 			statLayerOpacities={statLayerOpacities}
 			setActiveArchetypeIndex={setActiveArchetypeIndex}
+			setShareAppearance={setShareAppearance}
 			tiltController={tiltController}
 			visibleTeamCardRow={visibleTeamCardRow}
 		/>
@@ -202,6 +215,12 @@ function WrappedTeamCardPageContent(props: {
 	setActiveArchetypeIndex: (
 		nextValue: number | ((currentValue: number) => number),
 	) => void;
+	setShareAppearance: (
+		nextValue:
+			| WrappedShareAppearance
+			| ((currentValue: WrappedShareAppearance) => WrappedShareAppearance),
+	) => void;
+	shareAppearance: WrappedShareAppearance;
 	shareCardCreatedAtLabel: string;
 	shellStyle: CSSProperties;
 	statItems: readonly WrappedTeamMemberCardStatItem[];
@@ -218,6 +237,8 @@ function WrappedTeamCardPageContent(props: {
 		onBackFromFirstStep,
 		onContinueToDashboard,
 		setActiveArchetypeIndex,
+		setShareAppearance,
+		shareAppearance,
 		shareCardCreatedAtLabel,
 		shellStyle,
 		statItems,
@@ -241,10 +262,21 @@ function WrappedTeamCardPageContent(props: {
 		() => buildWrappedShareSafeRow(visibleTeamCardRow),
 		[visibleTeamCardRow],
 	);
+	const shareBackMetrics = useMemo(
+		() =>
+			buildWrappedTeamCardBackMetrics({
+				onboardingMetrics,
+				row: sharePreviewRow,
+				shareCardCreatedAtLabel,
+			}),
+		[onboardingMetrics, shareCardCreatedAtLabel, sharePreviewRow],
+	);
 	const shareSnapshot = useMemo(
 		() =>
 			buildWrappedShareSnapshot({
+				appearance: shareAppearance,
 				archetypeLabel: activeArchetype.displayLabel,
+				backMetrics: shareBackMetrics,
 				headerLeftMetric,
 				headerRightMetric,
 				row: sharePreviewRow,
@@ -253,9 +285,11 @@ function WrappedTeamCardPageContent(props: {
 				theme: activeArchetype.theme,
 			}),
 		[
+			shareAppearance,
 			activeArchetype.displayLabel,
 			activeArchetype.shellClassName,
 			activeArchetype.theme,
+			shareBackMetrics,
 			headerLeftMetric,
 			headerRightMetric,
 			sharePreviewRow,
@@ -314,15 +348,14 @@ function WrappedTeamCardPageContent(props: {
 	});
 
 	function handlePreviewPost() {
-		// Previewing the share stage is the moment we want to create the public
-		// share record. That keeps sharing event-driven and avoids creating public
-		// share rows just because someone opened wrapped.
+		// Once the share stage has user-controlled appearance options, previewing is
+		// no longer a stable point to persist a public record. We only create the
+		// public share when an actual share action needs the final snapshot.
 		trackUtilityUsed({
 			sourceComponent: "wrapped_reveal_footer",
 			utilityName: "wrappedSharePreviewOpened",
 			utilityState: "sharePreview",
 		});
-		void ensureShare().catch(() => {});
 		startTransition(() => {
 			setFinalCardStage("share");
 		});
@@ -343,11 +376,18 @@ function WrappedTeamCardPageContent(props: {
 
 	const finalStage = showShareStage ? (
 		<WrappedTeamCardShareStage
+			appearance={shareAppearance}
+			backMetrics={shareBackMetrics}
 			headerLeftMetric={headerLeftMetric}
 			headerRightMetric={headerRightMetric}
 			onBack={() => {
 				startTransition(() => {
 					setFinalCardStage("reveal");
+				});
+			}}
+			onAppearanceChange={(nextAppearance) => {
+				startTransition(() => {
+					setShareAppearance(resolveWrappedShareAppearance(nextAppearance));
 				});
 			}}
 			onCopy={() => void shareActions.handleCopyPost()}
@@ -359,8 +399,6 @@ function WrappedTeamCardPageContent(props: {
 			row={sharePreviewRow}
 			shareCardCreatedAtLabel={shareCardCreatedAtLabel}
 			sharePostRef={sharePostRef}
-			shareUrl={shareActions.shareUrl}
-			shareUrlLabel={shareActions.shareUrlLabel}
 			shellClassName={activeArchetype.shellClassName}
 			shellStyle={shellStyle}
 			statItems={statItems}
@@ -422,9 +460,6 @@ function WrappedTeamCardPageContent(props: {
 					false
 				) : (
 					<WrappedTeamCardRevealFooter
-						onContinueToDashboard={() =>
-							handleContinueToDashboard("wrapped_reveal_footer")
-						}
 						onPreviewPost={handlePreviewPost}
 					/>
 				)

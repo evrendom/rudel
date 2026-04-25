@@ -25,8 +25,8 @@ vi.mock("@/features/analytics/tracking/useAnalyticsTracking", () => ({
 	}),
 }));
 
-vi.mock("@/features/wrapped/team-card/card", () => ({
-	WrappedTeamMemberCard: () => <div>Wrapped share card</div>,
+vi.mock("@/features/wrapped/team-card/share-preview", () => ({
+	WrappedTeamCardSharePreview: () => <div>Wrapped share card</div>,
 }));
 
 describe("WrappedPublicPage", () => {

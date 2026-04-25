@@ -28,10 +28,11 @@ export function WrappedOnboardingIntroStage(props: IntroStageProps) {
 					animate={
 						isExiting
 							? {
+									filter: "blur(10px)",
 									opacity: 0,
 									x: -INTRO_EXIT.distance,
 								}
-							: { opacity: 1, x: 0 }
+							: { filter: "blur(0px)", opacity: 1, x: 0 }
 					}
 					initial={false}
 					transition={

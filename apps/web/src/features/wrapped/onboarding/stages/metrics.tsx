@@ -263,10 +263,22 @@ function WrappedScaleStageSequenceTitle(props: {
 						? `advance:${estimatedSpendUsd}:${totalKebabs}:${kebabDropCount}`
 						: `${phase}:${displayName ?? ""}:${totalSessions}:${totalTokens}`
 				}
-				animate={{ opacity: 1, scale: 1, y: 0 }}
+				animate={
+					reduceMotion
+						? { opacity: 1, scale: 1, y: 0 }
+						: { filter: "blur(0px)", opacity: 1, scale: 1, y: 0 }
+				}
 				className="mymind-wrapped-scale-stage__title-shell"
-				exit={{ opacity: 0, scale: 0.985, y: -18 }}
-				initial={{ opacity: 0, scale: 0.985, y: 18 }}
+				exit={
+					reduceMotion
+						? { opacity: 0, scale: 0.985, y: -18 }
+						: { filter: "blur(8px)", opacity: 0, scale: 0.985, y: -18 }
+				}
+				initial={
+					reduceMotion
+						? { opacity: 0, scale: 0.985, y: 18 }
+						: { filter: "blur(12px)", opacity: 0, scale: 0.985, y: 18 }
+				}
 				transition={SCALE_STAGE_SEQUENCE_TRANSITION}
 			>
 				{isScaleAdvanceVisible ? (
