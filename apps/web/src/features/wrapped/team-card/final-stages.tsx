@@ -348,6 +348,8 @@ export function WrappedTeamCardRevealStage(
 		);
 	const [isCardDropped, setIsCardDropped] = useState(() => reduceMotion);
 	const [isCardFrontVisible, setIsCardFrontVisible] = useState(false);
+	const [hasCardFrontBeenRevealed, setHasCardFrontBeenRevealed] =
+		useState(false);
 	const [isCardFlipAnimating, setIsCardFlipAnimating] = useState(false);
 	const revealTimerRefs = useRef<number[]>([]);
 	const onRevealCompleteRef = useRef(onRevealComplete);
@@ -405,6 +407,7 @@ export function WrappedTeamCardRevealStage(
 			setSequencePhase("archetype");
 			setIsCardDropped(true);
 			setIsCardFrontVisible(false);
+			setHasCardFrontBeenRevealed(false);
 			setIsCardFlipAnimating(false);
 			notifyRevealComplete();
 			return;
@@ -413,6 +416,7 @@ export function WrappedTeamCardRevealStage(
 		setSequencePhase("sessions");
 		setIsCardDropped(false);
 		setIsCardFrontVisible(false);
+		setHasCardFrontBeenRevealed(false);
 		setIsCardFlipAnimating(false);
 		let elapsedMs = 0;
 		const timeoutIds = REVEAL_STAGE_SEQUENCE.map((step) => {
@@ -464,13 +468,27 @@ export function WrappedTeamCardRevealStage(
 
 		tiltController.handlePointerLeave();
 
+		const nextCardFrontVisible = !isCardFrontVisible;
+		if (nextCardFrontVisible) {
+			setHasCardFrontBeenRevealed(true);
+		}
+
 		if (reduceMotion) {
-			setIsCardFrontVisible((currentValue) => !currentValue);
+			setIsCardFrontVisible(nextCardFrontVisible);
 			return;
 		}
 
 		setIsCardFlipAnimating(true);
-		setIsCardFrontVisible((currentValue) => !currentValue);
+		setIsCardFrontVisible(nextCardFrontVisible);
+	}
+
+	function handleRevealFooterAction() {
+		if (!hasCardFrontBeenRevealed) {
+			handleCardFlipToggle();
+			return;
+		}
+
+		onPreviewPost();
 	}
 
 	return (
@@ -605,8 +623,10 @@ export function WrappedTeamCardRevealStage(
 			}
 			support={
 				<WrappedTeamCardRevealFooter
+					isDisabled={isCardFlipAnimating}
 					isVisible={isPreviewPostVisible}
-					onPreviewPost={onPreviewPost}
+					label={hasCardFrontBeenRevealed ? "Continue" : "Turn around"}
+					onAction={handleRevealFooterAction}
 				/>
 			}
 		/>
@@ -952,10 +972,12 @@ function getWrappedRevealCopy(archetype: WrappedArchetypeCardTheme): {
 }
 
 export function WrappedTeamCardRevealFooter(props: {
+	isDisabled?: boolean;
 	isVisible: boolean;
-	onPreviewPost: () => void;
+	label: string;
+	onAction: () => void;
 }) {
-	const { isVisible, onPreviewPost } = props;
+	const { isDisabled = false, isVisible, label, onAction } = props;
 
 	return (
 		<div
@@ -966,11 +988,11 @@ export function WrappedTeamCardRevealFooter(props: {
 			<WrappedPrimaryAction
 				kind="button"
 				className="text-[1.0625rem] font-semibold"
-				disabled={!isVisible}
+				disabled={!isVisible || isDisabled}
 				icon={<ChevronRight className="size-4" />}
-				onClick={onPreviewPost}
+				onClick={onAction}
 			>
-				Preview post
+				{label}
 			</WrappedPrimaryAction>
 		</div>
 	);

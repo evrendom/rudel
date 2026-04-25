@@ -270,4 +270,171 @@ describe("WrappedTeamCardRevealStage", () => {
 		).toHaveAttribute("data-card-face", "front");
 	});
 
+	it("uses the footer action to turn the card around before continuing", () => {
+		vi.useFakeTimers();
+		const onPreviewPost = vi.fn();
+
+		render(
+			<WrappedTeamCardRevealStage
+				activeArchetype={{
+					displayLabel: "Smooth Operator",
+					id: "npc",
+					kind: "taxonomy",
+					shellClassName: "bg-sky-200",
+					taxonomyLabel: "NPC",
+					theme: "light",
+				}}
+				headerLeftMetric={{
+					title: "$42 estimated spend",
+					value: "$42",
+				}}
+				headerRightMetric={{
+					title: "Smooth Operator",
+					value: "Smooth Operator",
+				}}
+				isPreviewPostVisible
+				onboardingMetrics={onboardingMetrics}
+				onPreviewPost={onPreviewPost}
+				onRevealComplete={vi.fn()}
+				row={row}
+				shellClassName="bg-sky-200"
+				shellStyle={{}}
+				shareCardCreatedAtLabel="04/24/2026"
+				statItems={[]}
+				statLayerOpacities={{
+					rainbowShineOpacity: 0.3,
+					textureOpacity: 1,
+					tileBorderOpacity: 1,
+					tileFillOpacity: 0.08,
+					tileInsetShadowOpacity: 0.5,
+					tileTopStrokeOpacity: 0.08,
+				}}
+				theme="light"
+				tiltController={tiltController}
+			/>,
+		);
+
+		act(() => {
+			vi.advanceTimersByTime(1_700 + 1_900 + 1_250 + 1_020);
+		});
+
+		const turnAroundButton = screen.getByRole("button", {
+			name: "Turn around",
+		});
+		fireEvent.click(turnAroundButton);
+
+		expect(onPreviewPost).not.toHaveBeenCalled();
+		expect(
+			screen.getByRole("button", {
+				name: "Show back of card",
+			}),
+		).toHaveAttribute("data-card-face", "front");
+
+		act(() => {
+			vi.advanceTimersByTime(680);
+		});
+
+		const continueButton = screen.getByRole("button", {
+			name: "Continue",
+		});
+		expect(continueButton).toBeEnabled();
+
+		fireEvent.click(continueButton);
+
+		expect(onPreviewPost).toHaveBeenCalledTimes(1);
+	});
+
+	it("keeps the footer action as continue after the user has revealed the front", () => {
+		vi.useFakeTimers();
+		const onPreviewPost = vi.fn();
+
+		render(
+			<WrappedTeamCardRevealStage
+				activeArchetype={{
+					displayLabel: "Smooth Operator",
+					id: "npc",
+					kind: "taxonomy",
+					shellClassName: "bg-sky-200",
+					taxonomyLabel: "NPC",
+					theme: "light",
+				}}
+				headerLeftMetric={{
+					title: "$42 estimated spend",
+					value: "$42",
+				}}
+				headerRightMetric={{
+					title: "Smooth Operator",
+					value: "Smooth Operator",
+				}}
+				isPreviewPostVisible
+				onboardingMetrics={onboardingMetrics}
+				onPreviewPost={onPreviewPost}
+				onRevealComplete={vi.fn()}
+				row={row}
+				shellClassName="bg-sky-200"
+				shellStyle={{}}
+				shareCardCreatedAtLabel="04/24/2026"
+				statItems={[]}
+				statLayerOpacities={{
+					rainbowShineOpacity: 0.3,
+					textureOpacity: 1,
+					tileBorderOpacity: 1,
+					tileFillOpacity: 0.08,
+					tileInsetShadowOpacity: 0.5,
+					tileTopStrokeOpacity: 0.08,
+				}}
+				theme="light"
+				tiltController={tiltController}
+			/>,
+		);
+
+		act(() => {
+			vi.advanceTimersByTime(1_700 + 1_900 + 1_250 + 1_020);
+		});
+
+		fireEvent.click(
+			screen.getByRole("button", {
+				name: "Reveal front of card",
+			}),
+		);
+
+		act(() => {
+			vi.advanceTimersByTime(680);
+		});
+
+		expect(
+			screen.getByRole("button", {
+				name: "Continue",
+			}),
+		).toBeEnabled();
+
+		fireEvent.click(
+			screen.getByRole("button", {
+				name: "Show back of card",
+			}),
+		);
+
+		act(() => {
+			vi.advanceTimersByTime(680);
+		});
+
+		expect(
+			screen.getByRole("button", {
+				name: "Continue",
+			}),
+		).toBeEnabled();
+		expect(
+			screen.queryByRole("button", {
+				name: "Turn around",
+			}),
+		).not.toBeInTheDocument();
+
+		fireEvent.click(
+			screen.getByRole("button", {
+				name: "Continue",
+			}),
+		);
+
+		expect(onPreviewPost).toHaveBeenCalledTimes(1);
+	});
 });
