@@ -123,6 +123,7 @@ export function WrappedTeamMemberCard(props: {
 	hideHeaderLogo?: boolean;
 	layoutPreset?: WrappedTeamMemberCardLayoutPreset;
 	mediaPanelClassName?: string;
+	mediaOverlayContent?: ReactNode;
 	mediaOverlayClassName?: string;
 	nameContent?: ReactNode;
 	row: TeamPageMemberRow;
@@ -140,6 +141,8 @@ export function WrappedTeamMemberCard(props: {
 		hideHeaderLogo = false,
 		layoutPreset = "default",
 		mediaPanelClassName,
+		mediaOverlayClassName,
+		mediaOverlayContent,
 		nameContent,
 		row,
 		shellClassName,
@@ -166,27 +169,36 @@ export function WrappedTeamMemberCard(props: {
 			bleedPx: STAT_SURFACE_BLEED_PX,
 			statItems,
 		});
-	const borderLayerOpacity = statLayerOpacities.tileBorderOpacity;
-	const statTextUsesMutedWhite = statLayerOpacities.textTone === "muted-white";
+	const resolvedStatLayerOpacities: WrappedTeamMemberCardStatLayerOpacities = {
+		...DEFAULT_STAT_LAYER_OPACITIES,
+		...statLayerOpacities,
+	};
+	const borderLayerOpacity = resolvedStatLayerOpacities.tileBorderOpacity;
+	const statTextUsesMutedWhite =
+		resolvedStatLayerOpacities.textTone === "muted-white";
 	const usesTeamCardPreviewLayout = layoutPreset === "team-card-preview";
 	const rudelLogoSrc =
 		isDarkTheme || isMutedTheme ? "/logo-light.svg" : "/logo-dark.svg";
 	const whiteMaskOpacity =
-		statLayerOpacities.whiteMaskOpacity ??
-		1 - statLayerOpacities.textureOpacity;
+		resolvedStatLayerOpacities.whiteMaskOpacity ??
+		1 - resolvedStatLayerOpacities.textureOpacity;
 	const maskRgb =
-		statLayerOpacities.maskTint === "black" ? "0 0 0" : "255 255 255";
+		resolvedStatLayerOpacities.maskTint === "black" ? "0 0 0" : "255 255 255";
 	const tileBaseRgb =
-		statLayerOpacities.tileBaseTint === "black" ? "0 0 0" : "255 255 255";
+		resolvedStatLayerOpacities.tileBaseTint === "black"
+			? "0 0 0"
+			: "255 255 255";
 	const tileFillRgb =
-		statLayerOpacities.tileFillTint === "black" ? "0 0 0" : "255 255 255";
+		resolvedStatLayerOpacities.tileFillTint === "black"
+			? "0 0 0"
+			: "255 255 255";
 	const cardOuterRadius = `var(--wrapped-team-card-outer-radius, ${scaleLength(18)})`;
 	const statTileBaseStyle: CSSProperties = {
-		backgroundColor: `rgb(${tileBaseRgb} / ${statLayerOpacities.tileBaseOpacity ?? 0})`,
+		backgroundColor: `rgb(${tileBaseRgb} / ${resolvedStatLayerOpacities.tileBaseOpacity ?? 0})`,
 	};
 	const statTileLayerStyle: CSSProperties = {
-		backgroundColor: `rgb(${tileFillRgb} / ${statLayerOpacities.tileFillOpacity})`,
-		boxShadow: `0 1px 0 rgb(255 255 255 / ${statLayerOpacities.tileTopStrokeOpacity * borderLayerOpacity}), inset 0 0.5px 0.5px rgb(0 0 0 / ${statLayerOpacities.tileInsetShadowOpacity * borderLayerOpacity})`,
+		backgroundColor: `rgb(${tileFillRgb} / ${resolvedStatLayerOpacities.tileFillOpacity})`,
+		boxShadow: `0 ${scaleLength(1)} 0 rgb(255 255 255 / ${resolvedStatLayerOpacities.tileTopStrokeOpacity * borderLayerOpacity}), inset 0 ${scaleLength(0.5)} ${scaleLength(0.5)} rgb(0 0 0 / ${resolvedStatLayerOpacities.tileInsetShadowOpacity * borderLayerOpacity})`,
 	};
 	const cardShellLayoutStyle: CSSProperties = {
 		borderRadius: cardOuterRadius,
@@ -233,12 +245,21 @@ export function WrappedTeamMemberCard(props: {
 		marginTop: scaleLength(12),
 		width: scaleLength(158),
 	};
-	const portraitPanelStyle: CSSProperties = {
-		borderRadius: scaleLength(10),
+	const portraitPanelRadius = scaleLength(10);
+	const portraitPanelStyle = {
+		"--wrapped-card-image-edit-inset": scaleLength(6),
+		"--wrapped-card-image-panel-radius": portraitPanelRadius,
+		borderRadius: portraitPanelRadius,
 		paddingBottom: scaleLength(10),
 		paddingLeft: scaleLength(12),
 		paddingRight: scaleLength(12),
 		paddingTop: scaleLength(10),
+	} as CSSProperties;
+	const mediaOverlayStyle: CSSProperties = {
+		position: "absolute",
+		right: "var(--wrapped-card-image-edit-inset)",
+		top: "var(--wrapped-card-image-edit-inset)",
+		zIndex: 20,
 	};
 	const portraitImageFrameStyle: CSSProperties = {
 		borderRadius: scaleLength(10),
@@ -444,6 +465,11 @@ export function WrappedTeamMemberCard(props: {
 								</div>
 							</>
 						)}
+						{mediaOverlayContent ? (
+							<div className={mediaOverlayClassName} style={mediaOverlayStyle}>
+								{mediaOverlayContent}
+							</div>
+						) : null}
 					</div>
 				</div>
 
@@ -497,7 +523,7 @@ export function WrappedTeamMemberCard(props: {
 										...statSurfaceStyles[stat.key],
 										backgroundImage: [
 											`linear-gradient(rgb(${maskRgb} / ${whiteMaskOpacity}), rgb(${maskRgb} / ${whiteMaskOpacity}))`,
-											...(statLayerOpacities.hideTextureImage
+											...(resolvedStatLayerOpacities.hideTextureImage
 												? []
 												: ["var(--wrapped-team-card-stat-surface-texture)"]),
 										].join(", "),
@@ -513,7 +539,7 @@ export function WrappedTeamMemberCard(props: {
 									className="absolute inset-0 rounded-[inherit]"
 									style={{
 										...statSurfaceStyles[stat.key],
-										backgroundImage: `linear-gradient(var(--wrapped-card-stat-gloss-angle, 118deg), rgba(255,255,255,0) 0%, rgba(255,107,156,${statLayerOpacities.rainbowShineOpacity}) 14%, rgba(255,199,0,${statLayerOpacities.rainbowShineOpacity}) 31%, rgba(102,255,191,${statLayerOpacities.rainbowShineOpacity}) 48%, rgba(72,198,255,${statLayerOpacities.rainbowShineOpacity}) 66%, rgba(173,127,255,${statLayerOpacities.rainbowShineOpacity}) 82%, rgba(255,255,255,0) 100%)`,
+										backgroundImage: `linear-gradient(var(--wrapped-card-stat-gloss-angle, 118deg), rgba(255,255,255,0) 0%, rgba(255,107,156,${resolvedStatLayerOpacities.rainbowShineOpacity}) 14%, rgba(255,199,0,${resolvedStatLayerOpacities.rainbowShineOpacity}) 31%, rgba(102,255,191,${resolvedStatLayerOpacities.rainbowShineOpacity}) 48%, rgba(72,198,255,${resolvedStatLayerOpacities.rainbowShineOpacity}) 66%, rgba(173,127,255,${resolvedStatLayerOpacities.rainbowShineOpacity}) 82%, rgba(255,255,255,0) 100%)`,
 										backgroundPosition:
 											"var(--wrapped-team-card-stat-surface-position)",
 										backgroundRepeat: "no-repeat",

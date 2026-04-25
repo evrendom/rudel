@@ -1,6 +1,6 @@
 import { join } from "node:path";
 import { getLogger, withContext } from "@logtape/logtape";
-import { onError } from "@orpc/server";
+import { onError, ORPCError } from "@orpc/server";
 import { RPCHandler } from "@orpc/server/fetch";
 import type { Session as AuthSession } from "./auth.js";
 import { createAuth } from "./auth.js";
@@ -8,7 +8,14 @@ import { db, sqlClient } from "./db.js";
 import { getResendConfigWarnings } from "./email.js";
 import { shutdownApiProductAnalytics } from "./lib/product-analytics.js";
 import { setupLogging } from "./logging.js";
+import { checkWrappedShareLookupRateLimit } from "./rate-limit.js";
 import { router } from "./router.js";
+import { renderWrappedShareCardPng } from "./services/wrapped-share-card-image.js";
+import {
+	buildWrappedSharePageMetadata,
+	injectWrappedSharePageMetadata,
+} from "./services/wrapped-share-page-metadata.js";
+import { getPublicWrappedShare } from "./services/wrapped-share.service.js";
 
 await setupLogging();
 
@@ -107,6 +114,10 @@ const STATIC_DIR = join(
 	"..",
 	process.env.STATIC_DIR ?? "public",
 );
+const WRAPPED_PUBLIC_PATH_PATTERN =
+	/^\/wrapped\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\/?$/iu;
+const WRAPPED_SHARE_CARD_IMAGE_PATH_PATTERN =
+	/^\/wrapped\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\/x-card\.png$/iu;
 
 function corsHeaders(origin: string | null): Record<string, string> {
 	if (!origin || !trustedOrigins.includes(origin)) return {};
@@ -244,6 +255,15 @@ async function handleRequest(
 	url: URL,
 	cors: Record<string, string>,
 ): Promise<Response> {
+	const wrappedShareCardImageId = getWrappedShareCardImageId(url.pathname);
+	if (wrappedShareCardImageId) {
+		return handleWrappedShareCardImageRequest({
+			cors,
+			method: request.method,
+			shareId: wrappedShareCardImageId,
+		});
+	}
+
 	// Defense in depth: block Better Auth's built-in org deletion route.
 	// Rudel has its own guarded deletion path via the RPC router.
 	if (url.pathname === "/api/auth/organization/delete") {
@@ -287,6 +307,18 @@ async function handleRequest(
 	// SPA fallback: serve index.html for non-API routes
 	const indexFile = Bun.file(join(STATIC_DIR, "index.html"));
 	if (await indexFile.exists()) {
+		const wrappedPublicShareId = getWrappedPublicShareId(url.pathname);
+		if (wrappedPublicShareId) {
+			return handleWrappedPublicPageRequest({
+				cors,
+				indexFile,
+				method: request.method,
+				publicOrigin: getPublicRequestOrigin(request, url),
+				requestPathname: url.pathname,
+				shareId: wrappedPublicShareId,
+			});
+		}
+
 		return new Response(indexFile);
 	}
 
@@ -300,6 +332,150 @@ async function handleRequest(
 	}
 
 	return new Response("Not found", { status: 404, headers: cors });
+}
+
+async function handleWrappedShareCardImageRequest(input: {
+	cors: Record<string, string>;
+	method: string;
+	shareId: string;
+}) {
+	const { cors, method, shareId } = input;
+	if (method !== "GET" && method !== "HEAD") {
+		return new Response("Method not allowed", {
+			headers: { ...cors, Allow: "GET, HEAD" },
+			status: 405,
+		});
+	}
+
+	try {
+		checkWrappedShareLookupRateLimit(shareId);
+		const share = await getPublicWrappedShare(shareId);
+
+		if (!share) {
+			return new Response("Not found", { headers: cors, status: 404 });
+		}
+
+		const image = renderWrappedShareCardPng(share.snapshot);
+		const headers = {
+			...cors,
+			"Cache-Control": "public, max-age=300, s-maxage=86400",
+			"Content-Length": image.byteLength.toString(),
+			"Content-Type": "image/png",
+		};
+
+		return new Response(method === "HEAD" ? null : image, {
+			headers,
+			status: 200,
+		});
+	} catch (error) {
+		if (isTooManyRequestsError(error)) {
+			return new Response("Too many requests", {
+				headers: cors,
+				status: 429,
+			});
+		}
+
+		logger.error("Failed to render wrapped share card image: {error}", {
+			error: String(error),
+		});
+		return new Response("Could not render image", {
+			headers: cors,
+			status: 500,
+		});
+	}
+}
+
+async function handleWrappedPublicPageRequest(input: {
+	cors: Record<string, string>;
+	indexFile: Bun.BunFile;
+	method: string;
+	publicOrigin: string;
+	requestPathname: string;
+	shareId: string;
+}) {
+	const { cors, indexFile, method, publicOrigin, requestPathname, shareId } =
+		input;
+
+	if (method !== "GET" && method !== "HEAD") {
+		return new Response("Method not allowed", {
+			headers: { ...cors, Allow: "GET, HEAD" },
+			status: 405,
+		});
+	}
+
+	const indexHtml = await indexFile.text();
+
+	try {
+		checkWrappedShareLookupRateLimit(shareId);
+		const share = await getPublicWrappedShare(shareId);
+
+		if (!share) {
+			return new Response(method === "HEAD" ? null : indexHtml, {
+				headers: { ...cors, "Content-Type": "text/html; charset=utf-8" },
+			});
+		}
+
+		const publicUrl = new URL(requestPathname, publicOrigin).toString();
+		const imageUrl = new URL(
+			`${requestPathname.replace(/\/$/u, "")}/x-card.png`,
+			publicOrigin,
+		).toString();
+		const html = injectWrappedSharePageMetadata(
+			indexHtml,
+			buildWrappedSharePageMetadata({
+				imageUrl,
+				publicUrl,
+				share,
+			}),
+		);
+
+		return new Response(method === "HEAD" ? null : html, {
+			headers: { ...cors, "Content-Type": "text/html; charset=utf-8" },
+		});
+	} catch (error) {
+		logger.error("Failed to inject wrapped share metadata: {error}", {
+			error: String(error),
+		});
+		return new Response(method === "HEAD" ? null : indexHtml, {
+			headers: { ...cors, "Content-Type": "text/html; charset=utf-8" },
+		});
+	}
+}
+
+function getWrappedPublicShareId(pathname: string) {
+	return getFirstPathMatch(pathname, WRAPPED_PUBLIC_PATH_PATTERN);
+}
+
+function getWrappedShareCardImageId(pathname: string) {
+	return getFirstPathMatch(pathname, WRAPPED_SHARE_CARD_IMAGE_PATH_PATTERN);
+}
+
+function getFirstPathMatch(pathname: string, pattern: RegExp) {
+	const match = pathname.match(pattern);
+	const shareId = match?.[1];
+
+	if (!shareId) {
+		return null;
+	}
+
+	return shareId;
+}
+
+function getPublicRequestOrigin(request: Request, url: URL) {
+	const forwardedProto = request.headers.get("x-forwarded-proto");
+	const forwardedHost = request.headers.get("x-forwarded-host");
+	const proto =
+		forwardedProto?.split(",")[0]?.trim() || url.protocol.slice(0, -1);
+	const host =
+		forwardedHost?.split(",")[0]?.trim() ||
+		request.headers.get("host") ||
+		url.host;
+
+	return `${proto}://${host}`;
+}
+
+function isTooManyRequestsError(error: unknown) {
+	return error instanceof ORPCError && error.code === "TOO_MANY_REQUESTS";
 }
 
 async function getContext(request: Request) {

@@ -1,6 +1,10 @@
+import type { WrappedSourceSplit } from "@rudel/api-routes";
+
 interface BuildWrappedXShareTextInput {
 	archetypeLabel: string;
 	displayName: string;
+	favoriteModel?: string | null;
+	sourceSplit?: readonly WrappedSourceSplit[];
 	totalSessions?: number | null;
 	totalTokens?: number | null;
 }
@@ -11,88 +15,79 @@ interface BuildWrappedXIntentUrlInput {
 }
 
 interface WrappedXShareCopy {
-	hook: string;
-	story: (input: { metrics: string; possessiveName: string }) => string;
+	traits: string;
 }
 
 const WRAPPED_X_INTENT_URL = "https://twitter.com/intent/tweet";
+export const WRAPPED_X_MAKE_YOURS_LABEL = "app.rudel.ai/wrapped";
+export const WRAPPED_X_MAKE_YOURS_URL = `https://${WRAPPED_X_MAKE_YOURS_LABEL}`;
 
 const WRAPPED_X_SHARE_COPY_BY_ARCHETYPE: Record<string, WrappedXShareCopy> = {
 	"adhd brain": {
-		hook: "One thread was never going to be enough.",
-		story: ({ metrics, possessiveName }) =>
-			`${possessiveName} Wrapped came back ADHD Brain: ${metrics}, tabs everywhere, somehow progress everywhere too.`,
+		traits:
+			"jumps between threads, keeps too many tabs warm, still turns chaos into progress",
 	},
 	cheapskate: {
-		hook: "Maximum output. Suspiciously efficient invoice.",
-		story: ({ metrics, possessiveName }) =>
-			`${possessiveName} Wrapped came back Cheapskate: ${metrics}, squeezing every token until it squeaked.`,
+		traits:
+			"watches token spend, stretches each prompt, gets the answer without lighting money on fire",
 	},
 	"company card": {
-		hook: "Finance may want a word.",
-		story: ({ metrics, possessiveName }) =>
-			`${possessiveName} Wrapped came back Company Card: ${metrics}, and the card did not tap itself.`,
+		traits:
+			"pushes usage hard, trusts the budget line, treats the meter like someone else's problem",
 	},
 	decimal: {
-		hook: "Precision is a personality trait.",
-		story: ({ metrics, possessiveName }) =>
-			`${possessiveName} Wrapped came back Decimal: ${metrics}, clean edges and expensive taste.`,
+		traits:
+			"cares about precision, trims the messy edges, does not tolerate fuzzy answers",
 	},
 	"hit and runner": {
-		hook: "Show up. Ship. Vanish.",
-		story: ({ metrics, possessiveName }) =>
-			`${possessiveName} Wrapped came back Hit and Runner: ${metrics}, quick commits and no lingering at the scene.`,
+		traits:
+			"drops in fast, gets the thing shipped, disappears before the meeting gets scheduled",
 	},
 	maniac: {
-		hook: "This is less a recap, more a wellness check.",
-		story: ({ metrics, possessiveName }) =>
-			`${possessiveName} Wrapped came back Maniac: ${metrics}, no chill detected.`,
+		traits: "high session count, heavy token burn, no visible off switch",
 	},
 	npc: {
-		hook: "Made chaos look scheduled.",
-		story: ({ metrics, possessiveName }) =>
-			`${possessiveName} Wrapped came back Smooth Operator: ${metrics}, calm hands on a loud machine.`,
+		traits:
+			"keeps sessions steady, follows the quest log, somehow makes repetition useful",
 	},
 	obsessed: {
-		hook: "Touched grass? Unclear. Shipped anyway.",
-		story: ({ metrics, possessiveName }) =>
-			`${possessiveName} Wrapped came back Obsessed: ${metrics}, and the repo probably filed a noise complaint.`,
+		traits:
+			"keeps coming back, keeps digging deeper, probably knows the repo's floor plan",
 	},
 	"papas credit card": {
-		hook: "Finance may want a word.",
-		story: ({ metrics, possessiveName }) =>
-			`${possessiveName} Wrapped came back Company Card: ${metrics}, and the card did not tap itself.`,
+		traits:
+			"pushes usage hard, trusts the budget line, treats the meter like someone else's problem",
 	},
 	roadrunner: {
-		hook: "Fast enough to need a speed limit.",
-		story: ({ metrics, possessiveName }) =>
-			`${possessiveName} Wrapped came back Roadrunner: ${metrics}, all gas and very little warm-up lap.`,
+		traits:
+			"moves quickly, keeps sessions short, ships before the dust settles",
 	},
 	"smooth operator": {
-		hook: "Made chaos look scheduled.",
-		story: ({ metrics, possessiveName }) =>
-			`${possessiveName} Wrapped came back Smooth Operator: ${metrics}, calm hands on a loud machine.`,
+		traits:
+			"stays consistent, keeps the output clean, makes noisy work look routine",
 	},
 	tourist: {
-		hook: "Visited every corner of the codebase.",
-		story: ({ metrics, possessiveName }) =>
-			`${possessiveName} Wrapped came back Tourist: ${metrics}, lots of stamps in the repo passport.`,
+		traits:
+			"wanders across repos, samples every corner, collects project stamps",
 	},
 	"window shopper": {
-		hook: "Maximum output. Suspiciously efficient invoice.",
-		story: ({ metrics, possessiveName }) =>
-			`${possessiveName} Wrapped came back Cheapskate: ${metrics}, squeezing every token until it squeaked.`,
+		traits:
+			"watches token spend, stretches each prompt, gets the answer without lighting money on fire",
 	},
 };
 
 const DEFAULT_WRAPPED_X_SHARE_COPY: WrappedXShareCopy = {
-	hook: "The receipts are in.",
-	story: ({ metrics, possessiveName }) =>
-		`${possessiveName} Claude Wrapped came back loud: ${metrics}, one card with a lot to explain.`,
+	traits: "left enough receipts behind for the card to make a call",
 };
 
 export function buildWrappedXShareText(input: BuildWrappedXShareTextInput) {
-	const { archetypeLabel, displayName, totalSessions, totalTokens } = input;
+	const {
+		archetypeLabel,
+		favoriteModel,
+		sourceSplit,
+		totalSessions,
+		totalTokens,
+	} = input;
 	const normalizedArchetypeLabel =
 		normalizeWrappedXArchetypeLabel(archetypeLabel);
 	const copy =
@@ -102,14 +97,16 @@ export function buildWrappedXShareText(input: BuildWrappedXShareTextInput) {
 		totalSessions,
 		totalTokens,
 	});
+	const archetypeIdentity = formatWrappedXArchetypeIdentity(archetypeLabel);
+	const usageSourceLabel = formatWrappedXUsageSourceLabel({
+		favoriteModel,
+		sourceSplit,
+	});
 
 	return [
-		copy.hook,
-		copy.story({
-			metrics,
-			possessiveName: formatWrappedXPossessiveName(displayName),
-		}),
-		"Make yours:",
+		`According to my ${usageSourceLabel} usage, I'm ${archetypeIdentity}.`,
+		`Traits: ${metrics}; ${copy.traits}.`,
+		`Make yours: ${WRAPPED_X_MAKE_YOURS_LABEL}`,
 	].join("\n\n");
 }
 
@@ -177,12 +174,80 @@ function roundWrappedXValueToSecondDigit(value: number) {
 	return Math.round(value / roundingScale) * roundingScale;
 }
 
-function formatWrappedXPossessiveName(displayName: string) {
-	const trimmedDisplayName = displayName.trim() || "Your";
+function formatWrappedXArchetypeIdentity(archetypeLabel: string) {
+	const trimmedArchetypeLabel = archetypeLabel.trim() || "Wrapped mystery";
+	const normalizedArchetypeLabel = normalizeWrappedXArchetypeLabel(
+		trimmedArchetypeLabel,
+	);
 
-	return trimmedDisplayName.endsWith("s")
-		? `${trimmedDisplayName}'`
-		: `${trimmedDisplayName}'s`;
+	if (normalizedArchetypeLabel === "obsessed") {
+		return trimmedArchetypeLabel;
+	}
+
+	return `${getWrappedXIndefiniteArticle(trimmedArchetypeLabel)} ${trimmedArchetypeLabel}`;
+}
+
+function getWrappedXIndefiniteArticle(value: string) {
+	return /^[aeiou]/iu.test(value) || /^adhd\b/iu.test(value) ? "an" : "a";
+}
+
+function formatWrappedXUsageSourceLabel(input: {
+	favoriteModel?: string | null;
+	sourceSplit?: readonly WrappedSourceSplit[];
+}) {
+	const sourceUsage = getWrappedXSourceUsage(input.sourceSplit ?? []);
+
+	if (sourceUsage.claude && !sourceUsage.codex) {
+		return "Claude";
+	}
+
+	if (sourceUsage.codex && !sourceUsage.claude) {
+		return "Codex";
+	}
+
+	if (sourceUsage.claude && sourceUsage.codex) {
+		return "Claude / Codex";
+	}
+
+	return getWrappedXUsageSourceLabelFromFavoriteModel(input.favoriteModel);
+}
+
+function getWrappedXSourceUsage(sourceSplit: readonly WrappedSourceSplit[]) {
+	let claude = false;
+	let codex = false;
+
+	for (const sourceEntry of sourceSplit) {
+		const hasUsage =
+			sourceEntry.session_count > 0 || sourceEntry.session_share_percent > 0;
+
+		if (sourceEntry.source === "claude_code") {
+			claude = claude || hasUsage;
+		} else {
+			codex = codex || hasUsage;
+		}
+	}
+
+	return { claude, codex };
+}
+
+function getWrappedXUsageSourceLabelFromFavoriteModel(
+	favoriteModel: string | null | undefined,
+) {
+	const normalizedFavoriteModel = favoriteModel?.trim().toLowerCase() ?? "";
+
+	if (normalizedFavoriteModel.includes("claude")) {
+		return "Claude";
+	}
+
+	if (
+		normalizedFavoriteModel.includes("codex") ||
+		normalizedFavoriteModel.includes("gpt") ||
+		normalizedFavoriteModel.includes("openai")
+	) {
+		return "Codex";
+	}
+
+	return "Claude / Codex";
 }
 
 function normalizeWrappedXArchetypeLabel(value: string) {

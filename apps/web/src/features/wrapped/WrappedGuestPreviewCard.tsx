@@ -1,172 +1,29 @@
 import { useReducedMotion } from "motion/react";
 import {
 	type CSSProperties,
+	type ReactNode,
 	// biome-ignore lint/style/noRestrictedImports: auto-select focuses the editable name input after React commits it.
 	useEffect,
 	useRef,
 	useState,
 } from "react";
-import type { TeamPageMemberRow } from "@/features/team/use-team-page-data";
 import { useMountEffect } from "@/hooks/useMountEffect";
 import { cn } from "@/lib/utils";
-import type { WrappedOnboardingMetrics } from "./onboarding/types";
-import { WRAPPED_ARCHETYPE_CARD_THEMES } from "./team-card/archetypes";
 import { buildWrappedTeamCardBackMetrics } from "./team-card/back-metrics";
-import {
-	WrappedTeamMemberCard,
-	type WrappedTeamMemberCardHeaderMetric,
-	type WrappedTeamMemberCardStatItem,
-} from "./team-card/card";
+import { WrappedTeamMemberCard } from "./team-card/card";
 import { WrappedTeamMemberCardBack } from "./team-card/card-back";
 import { WrappedPrintedCardFlip } from "./team-card/printed-card-flip";
 import { useWrappedCardTilt } from "./team-card/tilt/use-card-tilt";
+import {
+	buildRickPlaceholderGuestCardRow,
+	RICK_PLACEHOLDER_GUEST_CARD_PRESET,
+	UNKNOWN_GUEST_CARD_PRESET,
+} from "./wrapped-guest-card-presets";
 import type { WrappedGuestPreviewProfile } from "./wrapped-guest-preview";
-
-const RICK_PLACEHOLDER_THEME =
-	WRAPPED_ARCHETYPE_CARD_THEMES.find(({ id }) => id === "maniac") ??
-	WRAPPED_ARCHETYPE_CARD_THEMES[0];
-
-const WRAPPED_UNKNOWN_CARD_SHELL_CLASS_NAME =
-	"bg-[linear-gradient(180deg,_#FFFFFF_0%,_#FBFCFE_48%,_#EEF2F7_100%)]";
-
-const RICK_PLACEHOLDER_SHELL_STYLE = {
-	"--team-lineup-card-grain-opacity": "0",
-	"--team-lineup-card-grain-size": "40px",
-} as CSSProperties;
-
-const RICK_PLACEHOLDER_ISSUED_AT_LABEL = "04/25/2026";
-const RICK_PLACEHOLDER_FLIP_DURATION_MS = 680;
-
-const RICK_PLACEHOLDER_ROW: TeamPageMemberRow = {
-	userId: "RickPlaceholder",
-	displayName: "Jon Doe",
-	email: null,
-	role: "Wrapped preview",
-	imageUrl: null,
-	cost: 347,
-	favoriteModel: "claude-3-7-sonnet",
-	inputTokens: 1_180_000,
-	outputTokens: 740_000,
-	totalSessions: 219,
-	activeDays: 58,
-	totalTokens: 1_920_000,
-	lastActiveDate: "2026-04-24T00:00:00.000Z",
-	hasActivity: true,
-};
-
-const RICK_PLACEHOLDER_ONBOARDING_METRICS: WrappedOnboardingMetrics = {
-	activeDays: 58,
-	avgSessionMin: 37,
-	commitRate: 48,
-	commitSessions: 105,
-	daysSinceFirst: 214,
-	estimatedCostTokenBasis: 0,
-	estimatedCostUsd: 347,
-	favoriteModel: "claude-3-7-sonnet",
-	longestSessionMin: 143,
-	modelByMonth: [],
-	repoPulse: {
-		entries: [],
-		leadRepoName: "geneva",
-		totalRepos: 12,
-		totalSessions: 219,
-	},
-	skillsAdoptionRate: 71.23,
-	sourceSplit: [
-		{ session_count: 125, session_share_percent: 57, source: "claude_code" },
-		{ session_count: 94, session_share_percent: 43, source: "codex" },
-	],
-	subagentsAdoptionRate: 22.83,
-	successRate: 69,
-	topProjectName: "geneva",
-	topProjectSessions: 63,
-	topProjectTokens: 610_000,
-	topSkills: [
-		{ count: 18, name: "Refactor" },
-		{ count: 13, name: "Test" },
-	],
-	slashCommandsAdoptionRate: 46.12,
-	topSlashCommand: "Architect",
-	topSlashCommandCount: 24,
-	topSlashCommands: [{ count: 24, name: "Architect" }],
-	topSubagent: "Reviewer",
-	topSubagentCount: 11,
-	topSubagents: [{ count: 11, name: "Reviewer" }],
-	totalSessions: 219,
-	totalTokens: 1_920_000,
-};
-
-const RICK_PLACEHOLDER_HEADER_LEFT_METRIC: WrappedTeamMemberCardHeaderMetric = {
-	title: "$347 estimated spend",
-	value: "$347",
-};
-
-const WRAPPED_UNKNOWN_CARD_HEADER_LEFT_METRIC: WrappedTeamMemberCardHeaderMetric =
-	{
-		title: "Unknown estimated spend",
-		value: "???",
-	};
-
-const RICK_PLACEHOLDER_HEADER_RIGHT_METRIC: WrappedTeamMemberCardHeaderMetric =
-	{
-		title: "Maniac",
-		value: "Maniac",
-	};
-
-const WRAPPED_UNKNOWN_CARD_HEADER_RIGHT_METRIC: WrappedTeamMemberCardHeaderMetric =
-	{
-		title: "Unknown Archetype",
-		value: "Unknown Archetype",
-	};
-
-const RICK_PLACEHOLDER_STAT_ITEMS = [
-	{
-		key: "codex-share",
-		title: "43% of wrapped sessions came from Codex",
-		icon: "codex",
-		value: "43%",
-	},
-	{
-		key: "claude-share",
-		title: "57% of wrapped sessions came from Claude Code",
-		icon: "claude",
-		value: "57%",
-	},
-	{
-		key: "sessions",
-		label: "SESS",
-		title: "219 sessions",
-		value: "219",
-	},
-	{
-		key: "days",
-		label: "DAYS",
-		title: "58 active days",
-		value: "58",
-	},
-	{
-		key: "tokens",
-		label: "TOK",
-		title: "1,920,000 total tokens",
-		value: "1.9M",
-	},
-	{
-		key: "repos",
-		label: "REPOS",
-		title: "12 distinct tracked projects",
-		value: "12",
-	},
-] as const satisfies readonly WrappedTeamMemberCardStatItem[];
-
-const WRAPPED_UNKNOWN_CARD_STAT_ITEMS: readonly WrappedTeamMemberCardStatItem[] =
-	RICK_PLACEHOLDER_STAT_ITEMS.map((statItem) => ({
-		...statItem,
-		title: "Unknown card value",
-		value: "???",
-	}));
 
 interface WrappedGuestPreviewCardProps {
 	appearance?: "default" | "unknown";
+	disablePerspective?: boolean;
 	editableDisplayName?: {
 		autoSelect?: boolean;
 		onChange: (value: string) => void;
@@ -174,6 +31,7 @@ interface WrappedGuestPreviewCardProps {
 		placeholder?: string;
 		value: string;
 	};
+	mediaOverlayContent?: ReactNode;
 	profile: WrappedGuestPreviewProfile | null;
 	size?: "hero" | "compact" | "profile";
 }
@@ -181,12 +39,24 @@ interface WrappedGuestPreviewCardProps {
 export function WrappedGuestPreviewCard(props: WrappedGuestPreviewCardProps) {
 	const {
 		appearance = "default",
+		disablePerspective = false,
 		editableDisplayName,
+		mediaOverlayContent,
 		profile,
 		size = "hero",
 	} = props;
 	const isUnknownCard = appearance === "unknown";
-	const row = buildWrappedGuestCardRow(profile, editableDisplayName?.value);
+	const activePreset = isUnknownCard
+		? UNKNOWN_GUEST_CARD_PRESET
+		: RICK_PLACEHOLDER_GUEST_CARD_PRESET;
+	const hasInteractiveFrontControls = Boolean(
+		editableDisplayName || mediaOverlayContent,
+	);
+	const shouldRenderStaticFront = disablePerspective;
+	const row = buildRickPlaceholderGuestCardRow(
+		profile,
+		editableDisplayName?.value,
+	);
 	const shouldReduceMotion = useReducedMotion();
 	const reduceMotion = shouldReduceMotion ?? false;
 	const tiltController = useWrappedCardTilt();
@@ -194,23 +64,10 @@ export function WrappedGuestPreviewCard(props: WrappedGuestPreviewCardProps) {
 	const nameInputRef = useRef<HTMLInputElement | null>(null);
 	const [isCardFlipAnimating, setIsCardFlipAnimating] = useState(false);
 	const [isCardFrontVisible, setIsCardFrontVisible] = useState(true);
-	const cardTheme = isUnknownCard ? "light" : RICK_PLACEHOLDER_THEME.theme;
-	const cardShellClassName = isUnknownCard
-		? WRAPPED_UNKNOWN_CARD_SHELL_CLASS_NAME
-		: RICK_PLACEHOLDER_THEME.shellClassName;
-	const headerLeftMetric = isUnknownCard
-		? WRAPPED_UNKNOWN_CARD_HEADER_LEFT_METRIC
-		: RICK_PLACEHOLDER_HEADER_LEFT_METRIC;
-	const headerRightMetric = isUnknownCard
-		? WRAPPED_UNKNOWN_CARD_HEADER_RIGHT_METRIC
-		: RICK_PLACEHOLDER_HEADER_RIGHT_METRIC;
-	const statItems = isUnknownCard
-		? WRAPPED_UNKNOWN_CARD_STAT_ITEMS
-		: RICK_PLACEHOLDER_STAT_ITEMS;
 	const backMetrics = buildWrappedTeamCardBackMetrics({
-		onboardingMetrics: RICK_PLACEHOLDER_ONBOARDING_METRICS,
+		onboardingMetrics: activePreset.onboardingMetrics,
 		row,
-		shareCardCreatedAtLabel: RICK_PLACEHOLDER_ISSUED_AT_LABEL,
+		shareCardCreatedAtLabel: activePreset.backIssuedAtLabel,
 	});
 	const visibleBackMetrics = isUnknownCard
 		? backMetrics.map((metric) => ({ ...metric, value: "???" }))
@@ -262,12 +119,12 @@ export function WrappedGuestPreviewCard(props: WrappedGuestPreviewCardProps) {
 		row.userId,
 		row.displayName,
 		row.imageUrl ?? "",
-		cardTheme,
-		cardShellClassName,
-		headerLeftMetric.value,
-		headerRightMetric.value,
+		activePreset.theme,
+		activePreset.shellClassName,
+		activePreset.headerLeftMetric.value,
+		activePreset.headerRightMetric.value,
 		editableDisplayName?.value ?? "",
-		...statItems.map((item) => `${item.key}:${item.value}`),
+		...activePreset.statItems.map((item) => `${item.key}:${item.value}`),
 		...visibleBackMetrics.map((metric) => `${metric.label}:${metric.value}`),
 	].join("|");
 
@@ -304,7 +161,7 @@ export function WrappedGuestPreviewCard(props: WrappedGuestPreviewCardProps) {
 		flipAnimationTimeoutRef.current = window.setTimeout(() => {
 			setIsCardFlipAnimating(false);
 			flipAnimationTimeoutRef.current = null;
-		}, RICK_PLACEHOLDER_FLIP_DURATION_MS);
+		}, activePreset.flipDurationMs);
 	}
 
 	function clearFlipAnimationTimeout() {
@@ -325,36 +182,38 @@ export function WrappedGuestPreviewCard(props: WrappedGuestPreviewCardProps) {
 		editableDisplayName?.onSave?.();
 	}
 
+	const frontCardContent = (
+		<div className="grid justify-center">
+			<WrappedTeamMemberCard
+				disableOuterShadow
+				headerLeftMetric={activePreset.headerLeftMetric}
+				headerRightMetric={activePreset.headerRightMetric}
+				hideHeaderLogo
+				layoutPreset="team-card-preview"
+				mediaPanelClassName="mx-auto"
+				mediaOverlayContent={mediaOverlayContent}
+				nameContent={nameContent}
+				row={row}
+				shellClassName={activePreset.shellClassName}
+				shellStyle={activePreset.shellStyle}
+				statItems={activePreset.statItems}
+				statTileClassName=""
+				theme={activePreset.theme}
+			/>
+		</div>
+	);
 	const flipControlContent = (
 		<WrappedPrintedCardFlip
 			captureKey={printedCardCaptureKey}
-			front={
-				<div className="grid justify-center">
-					<WrappedTeamMemberCard
-						disableOuterShadow
-						headerLeftMetric={headerLeftMetric}
-						headerRightMetric={headerRightMetric}
-						hideHeaderLogo
-						layoutPreset="team-card-preview"
-						mediaPanelClassName="mx-auto"
-						nameContent={nameContent}
-						row={row}
-						shellClassName={cardShellClassName}
-						shellStyle={RICK_PLACEHOLDER_SHELL_STYLE}
-						statItems={statItems}
-						statTileClassName=""
-						theme={cardTheme}
-					/>
-				</div>
-			}
+			front={frontCardContent}
 			back={
 				<div className="grid justify-center">
 					<WrappedTeamMemberCardBack
 						disableOuterShadow
 						metrics={visibleBackMetrics}
-						shellClassName={cardShellClassName}
-						shellStyle={RICK_PLACEHOLDER_SHELL_STYLE}
-						theme={cardTheme}
+						shellClassName={activePreset.shellClassName}
+						shellStyle={activePreset.shellStyle}
+						theme={activePreset.theme}
 					/>
 				</div>
 			}
@@ -368,8 +227,11 @@ export function WrappedGuestPreviewCard(props: WrappedGuestPreviewCardProps) {
 			aria-label="Wrapped player card preview"
 			className={cn(
 				"mymind-wrapped-auth-card-preview team-lineup-surface-scope",
-				editableDisplayName
+				hasInteractiveFrontControls
 					? "mymind-wrapped-auth-card-preview--editable"
+					: null,
+				shouldRenderStaticFront
+					? "mymind-wrapped-auth-card-preview--static"
 					: null,
 				size === "compact"
 					? "mymind-wrapped-auth-card-preview--compact"
@@ -384,6 +246,10 @@ export function WrappedGuestPreviewCard(props: WrappedGuestPreviewCardProps) {
 					className="team-lineup-card-tilt-shell mymind-wrapped-auth-card-preview__tilt mymind-wrapped-final-stage__tilt-shell"
 					data-flip-active={isCardFlipAnimating ? "true" : "false"}
 					onPointerMove={(event) => {
+						if (shouldRenderStaticFront) {
+							return;
+						}
+
 						if (!isCardFlipAnimating) {
 							tiltController.handlePointerMove(event);
 						}
@@ -398,8 +264,12 @@ export function WrappedGuestPreviewCard(props: WrappedGuestPreviewCardProps) {
 						} as CSSProperties
 					}
 				>
-					{editableDisplayName ? (
-						// biome-ignore lint/a11y/useSemanticElements: The editable name input cannot be nested inside a button.
+					{shouldRenderStaticFront ? (
+						<div className="mymind-wrapped-auth-card-preview__static-front">
+							{frontCardContent}
+						</div>
+					) : hasInteractiveFrontControls ? (
+						// biome-ignore lint/a11y/useSemanticElements: The inline card controls cannot be nested inside a button.
 						<div
 							aria-label={
 								isCardFrontVisible
@@ -443,23 +313,4 @@ export function WrappedGuestPreviewCard(props: WrappedGuestPreviewCardProps) {
 			</div>
 		</section>
 	);
-}
-
-function buildWrappedGuestCardRow(
-	profile: WrappedGuestPreviewProfile | null,
-	displayNameOverride?: string,
-) {
-	if (!profile) {
-		return {
-			...RICK_PLACEHOLDER_ROW,
-			displayName: displayNameOverride ?? RICK_PLACEHOLDER_ROW.displayName,
-		};
-	}
-
-	return {
-		...RICK_PLACEHOLDER_ROW,
-		displayName: displayNameOverride ?? profile.displayName,
-		imageUrl: profile.imageUrl,
-		userId: `wrapped-guest:${profile.username}`,
-	};
 }

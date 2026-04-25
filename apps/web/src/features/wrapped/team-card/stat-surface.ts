@@ -43,6 +43,7 @@ export function useWrappedStatSurfaceStyles(
 		}
 
 		const updateStatSurfaceStyles = () => {
+			const renderScale = getWrappedCardRenderScale(statSectionNode);
 			const sectionWidth = statSectionNode.clientWidth;
 			const sectionHeight = statSectionNode.clientHeight;
 			const nextStyles: Record<string, WrappedStatSurfaceStyle> = {};
@@ -55,8 +56,20 @@ export function useWrappedStatSurfaceStyles(
 				}
 
 				nextStyles[stat.key] = {
-					"--wrapped-team-card-stat-surface-position": `-${statTileNode.offsetLeft + bleedPx}px -${statTileNode.offsetTop + bleedPx}px`,
-					"--wrapped-team-card-stat-surface-size": `${sectionWidth + bleedPx * 2}px ${sectionHeight + bleedPx * 2}px`,
+					"--wrapped-team-card-stat-surface-position": `${formatScaledStatSurfaceLength(
+						-(statTileNode.offsetLeft + bleedPx),
+						renderScale,
+					)} ${formatScaledStatSurfaceLength(
+						-(statTileNode.offsetTop + bleedPx),
+						renderScale,
+					)}`,
+					"--wrapped-team-card-stat-surface-size": `${formatScaledStatSurfaceLength(
+						sectionWidth + bleedPx * 2,
+						renderScale,
+					)} ${formatScaledStatSurfaceLength(
+						sectionHeight + bleedPx * 2,
+						renderScale,
+					)}`,
 				};
 			}
 
@@ -86,4 +99,32 @@ export function useWrappedStatSurfaceStyles(
 		statSurfaceStyles,
 		statTileRefs,
 	};
+}
+
+function getWrappedCardRenderScale(element: HTMLElement) {
+	const scaleOwner =
+		element.closest<HTMLElement>(".team-lineup-card-tilt-shell") ?? element;
+	const parsedScale = Number.parseFloat(
+		getComputedStyle(scaleOwner).getPropertyValue(
+			"--wrapped-card-render-scale",
+		),
+	);
+
+	if (!Number.isFinite(parsedScale) || parsedScale <= 0) {
+		return 1;
+	}
+
+	return parsedScale;
+}
+
+function formatScaledStatSurfaceLength(length: number, renderScale: number) {
+	const baseLength = length / renderScale;
+
+	return `calc(var(--wrapped-card-render-scale, 1) * ${formatCssNumber(
+		baseLength,
+	)}px)`;
+}
+
+function formatCssNumber(value: number) {
+	return value.toFixed(4).replace(/\.?0+$/, "");
 }

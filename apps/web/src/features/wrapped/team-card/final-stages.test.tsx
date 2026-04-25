@@ -3,7 +3,10 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { TeamPageMemberRow } from "@/features/team/use-team-page-data";
 import type { WrappedOnboardingMetrics } from "@/features/wrapped/onboarding/types";
 import { buildWrappedTeamCardBackMetrics } from "@/features/wrapped/team-card/back-metrics";
-import { WrappedTeamCardRevealStage } from "@/features/wrapped/team-card/final-stages";
+import {
+	WrappedTeamCardRevealStage,
+	WrappedTeamCardShareStage,
+} from "@/features/wrapped/team-card/final-stages";
 import { WrappedTeamCardSharePreview } from "@/features/wrapped/team-card/share-preview";
 import type { WrappedCardTiltController } from "@/features/wrapped/team-card/tilt/use-card-tilt";
 
@@ -235,6 +238,56 @@ describe("WrappedTeamCardSharePreview", () => {
 			"Smooth Operator",
 		);
 		expect(screen.getByText("Input/output tokens")).toBeInTheDocument();
+	});
+});
+
+describe("WrappedTeamCardShareStage", () => {
+	it("shows a spinner in the download button while export is pending", () => {
+		render(
+			<WrappedTeamCardShareStage
+				appearance={{ layoutMode: "front_back", showArchetypeLabel: true }}
+				backMetrics={buildWrappedTeamCardBackMetrics({
+					onboardingMetrics,
+					row,
+					shareCardCreatedAtLabel: "04/24/2026",
+				})}
+				headerLeftMetric={{ title: "$42 estimated spend", value: "$42" }}
+				headerRightMetric={{
+					title: "Smooth Operator",
+					value: "Smooth Operator",
+				}}
+				isDownloadPending
+				onAppearanceChange={vi.fn()}
+				onBack={vi.fn()}
+				onContinueToDashboard={vi.fn()}
+				onCopy={vi.fn()}
+				onDownload={vi.fn()}
+				onShare={vi.fn()}
+				row={row}
+				shareCardCreatedAtLabel="04/24/2026"
+				sharePostRef={{ current: null }}
+				shellClassName="bg-sky-200"
+				shellStyle={{}}
+				statItems={[]}
+				statLayerOpacities={{
+					rainbowShineOpacity: 0.3,
+					textureOpacity: 1,
+					tileBorderOpacity: 1,
+					tileFillOpacity: 0.08,
+					tileInsetShadowOpacity: 0.5,
+					tileTopStrokeOpacity: 0.08,
+				}}
+				theme="light"
+			/>,
+		);
+
+		const downloadButton = screen.getByRole("button", {
+			name: "Downloading PNG",
+		});
+
+		expect(downloadButton).toBeDisabled();
+		expect(downloadButton).toHaveAttribute("aria-busy", "true");
+		expect(downloadButton.querySelector(".animate-spin")).not.toBeNull();
 	});
 });
 

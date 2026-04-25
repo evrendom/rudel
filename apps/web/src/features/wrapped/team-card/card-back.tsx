@@ -52,7 +52,7 @@ export function WrappedTeamMemberCardBack(props: {
 	} as CSSProperties;
 	const outerShadowStyle = {
 		boxShadow: disableOuterShadow
-			? "inset 0 1px 0 rgb(255 255 255 / 0.16)"
+			? "inset 0 calc(var(--wrapped-card-render-scale, 1) * 1px) 0 rgb(255 255 255 / 0.16)"
 			: undefined,
 	} as CSSProperties;
 

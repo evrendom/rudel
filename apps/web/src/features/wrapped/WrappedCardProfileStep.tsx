@@ -1,6 +1,5 @@
-import { ArrowRight, ImagePlus, RotateCcw } from "lucide-react";
-import { type ChangeEvent, type ReactNode, useState } from "react";
-import { Button } from "@/app/ui/button";
+import { ArrowRight, ImagePlus } from "lucide-react";
+import { type ChangeEvent, type ReactNode, useRef, useState } from "react";
 import { WrappedPrimaryAction } from "./actions";
 import {
 	WrappedDebugControlStack,
@@ -41,6 +40,7 @@ export function WrappedCardProfileStep(props: WrappedCardProfileStepProps) {
 		onImageChange,
 		previewProfile,
 	} = props;
+	const imageInputRef = useRef<HTMLInputElement | null>(null);
 	const [isNameEditing, setIsNameEditing] = useState(true);
 
 	function handleImageUpload(event: ChangeEvent<HTMLInputElement>) {
@@ -68,6 +68,15 @@ export function WrappedCardProfileStep(props: WrappedCardProfileStepProps) {
 		setIsNameEditing(false);
 	}
 
+	const imageEditLabel = imageUrl
+		? "Change profile picture"
+		: "Add profile picture";
+	const canContinue = isComplete && !isNameEditing;
+
+	function handleOpenImagePicker() {
+		imageInputRef.current?.click();
+	}
+
 	return (
 		<WrappedRouteStageShell
 			backLabel="Back to auth"
@@ -89,38 +98,35 @@ export function WrappedCardProfileStep(props: WrappedCardProfileStepProps) {
 										}
 									: undefined
 							}
-							profile={previewProfile}
-							size="profile"
-						/>
-					</div>
-					<div className="mymind-wrapped-card-profile-step__body">
-						<div className="mymind-wrapped-auth-form mymind-wrapped-card-profile-step__form">
-							<div className="mymind-wrapped-card-profile-step__image-row">
-								<label className="mymind-wrapped-card-profile-step__image-action">
-									<ImagePlus className="mymind-wrapped-card-profile-step__image-icon" />
-									<span>{imageUrl ? "Change photo" : "Add photo"}</span>
+							disablePerspective
+							mediaOverlayContent={
+								<>
+									<button
+										type="button"
+										aria-label={imageEditLabel}
+										className="mymind-wrapped-card-profile-step__image-edit"
+										title={imageEditLabel}
+										onClick={(event) => {
+											event.stopPropagation();
+											handleOpenImagePicker();
+										}}
+										onPointerDown={(event) => event.stopPropagation()}
+									>
+										<ImagePlus className="mymind-wrapped-card-profile-step__image-edit-icon" />
+									</button>
 									<input
+										ref={imageInputRef}
 										aria-label="Profile picture"
 										type="file"
 										accept="image/*"
 										className="sr-only"
 										onChange={handleImageUpload}
 									/>
-								</label>
-								{imageUrl ? (
-									<Button
-										type="button"
-										variant="ghost"
-										size="sm"
-										className="mymind-wrapped-card-profile-step__reset"
-										onClick={() => onImageChange(null)}
-									>
-										<RotateCcw className="mymind-wrapped-card-profile-step__reset-icon" />
-										Remove
-									</Button>
-								) : null}
-							</div>
-						</div>
+								</>
+							}
+							profile={previewProfile}
+							size="profile"
+						/>
 					</div>
 					<div className="mymind-wrapped-auth-panel__footer">
 						{debugControls ? (
@@ -130,7 +136,7 @@ export function WrappedCardProfileStep(props: WrappedCardProfileStepProps) {
 						) : null}
 						<WrappedPrimaryAction
 							kind="button"
-							disabled={!isComplete}
+							disabled={!canContinue}
 							icon={<ArrowRight className="size-4" />}
 							onClick={onContinue}
 						>

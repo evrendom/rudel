@@ -1,5 +1,11 @@
 import type { WrappedShareAppearance } from "@rudel/api-routes";
-import { ChevronRight, Clipboard, Download, Share2 } from "lucide-react";
+import {
+	ChevronRight,
+	Clipboard,
+	Download,
+	Loader2,
+	Share2,
+} from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import {
 	type CSSProperties,
@@ -54,6 +60,7 @@ interface WrappedTeamCardShareStageProps extends WrappedTeamCardStageCardProps {
 	backMetrics: readonly WrappedTeamMemberCardBackMetric[];
 	frontCardHandoffRef?: RefObject<HTMLDivElement | null>;
 	isFrontCardHandoffHidden?: boolean;
+	isDownloadPending?: boolean;
 	onBack: () => void;
 	onCopy: () => void | Promise<void>;
 	onContinueToDashboard: () => void;
@@ -146,6 +153,7 @@ export function WrappedTeamCardShareStage(
 		frontCardHandoffRef,
 		headerLeftMetric,
 		headerRightMetric,
+		isDownloadPending = false,
 		isFrontCardHandoffHidden = false,
 		onBack,
 		onCopy,
@@ -245,11 +253,19 @@ export function WrappedTeamCardShareStage(
 									type="button"
 									size="icon-sm"
 									variant="outline"
-									aria-label="Download PNG"
+									aria-busy={isDownloadPending ? "true" : undefined}
+									aria-label={
+										isDownloadPending ? "Downloading PNG" : "Download PNG"
+									}
 									className="mymind-wrapped-share-toolbar__button"
+									disabled={isDownloadPending}
 									onClick={onDownload}
 								>
-									<Download className="size-4" />
+									{isDownloadPending ? (
+										<Loader2 className="size-4 animate-spin" />
+									) : (
+										<Download className="size-4" />
+									)}
 								</Button>
 							</div>
 						</motion.div>

@@ -34,6 +34,10 @@ export type WrappedGuestFlowStep = z.infer<typeof WrappedGuestFlowStepSchema>;
 export type WrappedGuestPreviewProfile = z.infer<
 	typeof WrappedGuestPreviewProfileSchema
 >;
+export interface WrappedGuestPreviewProfileUpdates {
+	displayName?: string;
+	imageUrl?: string | null;
+}
 
 export function normalizeWrappedGuestUsername(value: string) {
 	return value.trim().replace(/^@+/u, "");
@@ -64,6 +68,49 @@ export function buildLocalWrappedGuestPreviewProfile(
 	};
 }
 
+export function normalizeWrappedGuestPreviewProfile(
+	profile: WrappedGuestPreviewProfile,
+) {
+	const normalizedUsername = normalizeWrappedGuestUsername(profile.username);
+
+	return {
+		...profile,
+		displayName: profile.displayName.trim(),
+		username: WRAPPED_GUEST_USERNAME_PATTERN.test(normalizedUsername)
+			? normalizedUsername
+			: profile.username,
+	};
+}
+
+export function updateWrappedGuestPreviewProfile(input: {
+	currentProfile: WrappedGuestPreviewProfile | null;
+	fallbackValue?: string;
+	updates: WrappedGuestPreviewProfileUpdates;
+}) {
+	const { currentProfile, fallbackValue = "you", updates } = input;
+	const nextProfile =
+		currentProfile ?? buildLocalWrappedGuestPreviewProfile(fallbackValue);
+
+	if (!nextProfile) {
+		return null;
+	}
+
+	const mergedProfile = {
+		...nextProfile,
+		...updates,
+	};
+	const normalizedUsername = normalizeWrappedGuestUsername(
+		mergedProfile.username,
+	);
+
+	return {
+		...mergedProfile,
+		username: WRAPPED_GUEST_USERNAME_PATTERN.test(normalizedUsername)
+			? normalizedUsername
+			: mergedProfile.username,
+	};
+}
+
 export function readWrappedGuestPreviewSnapshot(): {
 	profile: WrappedGuestPreviewProfile;
 	step: WrappedGuestFlowStep;
@@ -81,7 +128,14 @@ export function readWrappedGuestPreviewSnapshot(): {
 			return null;
 		}
 
-		return WrappedGuestPreviewSnapshotSchema.parse(JSON.parse(rawValue));
+		const snapshot = WrappedGuestPreviewSnapshotSchema.parse(
+			JSON.parse(rawValue),
+		);
+
+		return {
+			...snapshot,
+			profile: normalizeWrappedGuestPreviewProfile(snapshot.profile),
+		};
 	} catch {
 		return null;
 	}
@@ -98,7 +152,10 @@ export function writeWrappedGuestPreviewSnapshot(input: {
 	try {
 		window.sessionStorage.setItem(
 			WRAPPED_GUEST_PREVIEW_STORAGE_KEY,
-			JSON.stringify(input),
+			JSON.stringify({
+				...input,
+				profile: normalizeWrappedGuestPreviewProfile(input.profile),
+			}),
 		);
 	} catch {}
 }

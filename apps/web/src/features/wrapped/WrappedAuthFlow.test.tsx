@@ -288,6 +288,8 @@ describe("WrappedGuestPage", () => {
 		).not.toBeInTheDocument();
 		expect(screen.queryByRole("button", { name: "Share card" })).toBeNull();
 		expect(screen.queryByRole("button", { name: "Download" })).toBeNull();
+		expect(screen.getByRole("button", { name: "Continue" })).toBeDisabled();
+		await user.click(screen.getByRole("button", { name: "Save name" }));
 		expect(screen.getByRole("button", { name: "Continue" })).toBeEnabled();
 		expect(screen.queryByText("Wrapped setup page")).not.toBeInTheDocument();
 	});
@@ -332,6 +334,8 @@ describe("WrappedGuestPage", () => {
 		expect(
 			screen.getByRole("heading", { name: "Make the card yours" }),
 		).toBeInTheDocument();
+		expect(screen.getByRole("button", { name: "Continue" })).toBeDisabled();
+		await user.click(screen.getByRole("button", { name: "Save name" }));
 		await user.click(screen.getByRole("button", { name: "Continue" }));
 
 		expect(

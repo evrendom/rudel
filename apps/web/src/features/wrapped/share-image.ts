@@ -21,6 +21,7 @@ interface WrappedImageShareMessages {
 	shareUrlError: string;
 	xShareCopiedSuccess: string;
 	xShareDownloadedSuccess: string;
+	xShareReadySuccess: string;
 }
 
 interface CreateWrappedImageShareActionsParams {
@@ -58,6 +59,7 @@ const DEFAULT_WRAPPED_IMAGE_SHARE_MESSAGES: WrappedImageShareMessages = {
 		"Image copied. X is open. Paste the image into the post.",
 	xShareDownloadedSuccess:
 		"Image downloaded. X is open. Attach the PNG from your downloads.",
+	xShareReadySuccess: "X is open with your wrapped card preview.",
 };
 
 export function createWrappedImageShareActions(
@@ -152,6 +154,30 @@ export function createWrappedImageShareActions(
 				url: shareUrl,
 			}),
 		);
+		const resolvedShareUrl = await getResolvedShareUrl({
+			messages,
+			resolveShareUrl,
+			shareUrl,
+		});
+
+		if (!resolvedShareUrl) {
+			await handleShareImageToXFallback(pendingXWindow);
+			return;
+		}
+
+		toast.success(messages.xShareReadySuccess, {
+			duration: 5000,
+		});
+		openXIntentWindow(
+			pendingXWindow,
+			buildWrappedXIntentUrl({
+				text: shareText,
+				url: resolvedShareUrl,
+			}),
+		);
+	}
+
+	async function handleShareImageToXFallback(pendingXWindow: Window | null) {
 		const imageBlob = await captureShareImage({
 			captureOptions,
 			imageRef,
@@ -163,11 +189,6 @@ export function createWrappedImageShareActions(
 			return;
 		}
 
-		const resolvedShareUrl = await getResolvedShareUrl({
-			messages,
-			resolveShareUrl,
-			shareUrl,
-		});
 		const copied = await copyToClipboard(imageBlob);
 
 		if (copied) {
@@ -185,7 +206,7 @@ export function createWrappedImageShareActions(
 			pendingXWindow,
 			buildWrappedXIntentUrl({
 				text: shareText,
-				url: resolvedShareUrl,
+				url: shareUrl,
 			}),
 		);
 	}

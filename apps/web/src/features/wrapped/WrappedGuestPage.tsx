@@ -6,10 +6,12 @@ import { WrappedCardProfileStep } from "./WrappedCardProfileStep";
 import { WrappedDesktopResumePreviewStage } from "./WrappedDesktopResumePreviewStage";
 import { WrappedSetupPage } from "./WrappedSetupPage";
 import {
-	buildLocalWrappedGuestPreviewProfile,
+	normalizeWrappedGuestPreviewProfile,
 	readWrappedGuestPreviewSnapshot,
+	updateWrappedGuestPreviewProfile,
 	type WrappedGuestFlowStep,
 	type WrappedGuestPreviewProfile,
+	type WrappedGuestPreviewProfileUpdates,
 	writeWrappedGuestPreviewSnapshot,
 } from "./wrapped-guest-preview";
 
@@ -36,9 +38,11 @@ export function WrappedGuestPage(props: {
 		);
 
 	function handlePreviewEmailPasswordSubmit(email: string) {
-		const nextProfile =
-			previewProfile ??
-			buildLocalWrappedGuestPreviewProfile(getEmailHandle(email));
+		const nextProfile = updateWrappedGuestPreviewProfile({
+			currentProfile: previewProfile,
+			fallbackValue: getEmailHandle(email),
+			updates: {},
+		});
 
 		if (nextProfile) {
 			setPreviewProfile(nextProfile);
@@ -72,10 +76,7 @@ export function WrappedGuestPage(props: {
 
 	function handleContinueFromProfile() {
 		const normalizedProfile = previewProfile
-			? {
-					...previewProfile,
-					displayName: previewProfile.displayName.trim(),
-				}
+			? normalizeWrappedGuestPreviewProfile(previewProfile)
 			: null;
 
 		if (!normalizedProfile?.displayName) {
@@ -90,28 +91,21 @@ export function WrappedGuestPage(props: {
 		setStep(isMobile ? "mobile-preview" : "setup-preview");
 	}
 
-	function updatePreviewProfile(
-		updates: Partial<
-			Pick<WrappedGuestPreviewProfile, "displayName" | "imageUrl">
-		>,
-	) {
-		const nextProfile =
-			previewProfile ?? buildLocalWrappedGuestPreviewProfile("you");
+	function updatePreviewProfile(updates: WrappedGuestPreviewProfileUpdates) {
+		const nextProfile = updateWrappedGuestPreviewProfile({
+			currentProfile: previewProfile,
+			updates,
+		});
 
 		if (!nextProfile) {
 			return;
 		}
 
-		const updatedProfile = {
-			...nextProfile,
-			...updates,
-		};
+		setPreviewProfile(nextProfile);
 
-		setPreviewProfile(updatedProfile);
-
-		if (updatedProfile.displayName.trim()) {
+		if (nextProfile.displayName.trim()) {
 			writeWrappedGuestPreviewSnapshot({
-				profile: updatedProfile,
+				profile: nextProfile,
 				step: "profile",
 			});
 		}

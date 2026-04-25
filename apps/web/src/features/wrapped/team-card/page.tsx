@@ -284,6 +284,7 @@ function WrappedTeamCardPageContent(props: {
 		useState<FinalCardFlight | null>(null);
 	const [isRevealSequenceComplete, setIsRevealSequenceComplete] =
 		useState(false);
+	const [isDownloadPending, setIsDownloadPending] = useState(false);
 	const finalCardHandoffTimerRef = useRef<number | null>(null);
 	const finalCardFlightTimerRef = useRef<number | null>(null);
 	const finalCardFlightMeasureRef = useRef<number | null>(null);
@@ -386,6 +387,7 @@ function WrappedTeamCardPageContent(props: {
 		shareUrl,
 		shareUrlLabel,
 		sharePostRef,
+		sourceSplit: onboardingMetrics.sourceSplit,
 	});
 
 	useMountEffect(() => () => {
@@ -479,6 +481,20 @@ function WrappedTeamCardPageContent(props: {
 		onContinueToDashboard();
 	}
 
+	async function handleDownloadPost() {
+		if (isDownloadPending) {
+			return;
+		}
+
+		setIsDownloadPending(true);
+
+		try {
+			await shareActions.handleDownloadPost();
+		} finally {
+			setIsDownloadPending(false);
+		}
+	}
+
 	const finalStage = (
 		<AnimatePresence initial={false} mode="popLayout">
 			{showShareStage ? (
@@ -497,6 +513,7 @@ function WrappedTeamCardPageContent(props: {
 						frontCardHandoffRef={shareCardHandoffRef}
 						headerLeftMetric={headerLeftMetric}
 						headerRightMetric={headerRightMetric}
+						isDownloadPending={isDownloadPending}
 						isFrontCardHandoffHidden={finalCardFlight !== null}
 						onBack={() => {
 							clearFinalCardHandoffTimer(finalCardHandoffTimerRef);
@@ -520,7 +537,7 @@ function WrappedTeamCardPageContent(props: {
 						onContinueToDashboard={() =>
 							handleContinueToDashboard("wrapped_share_footer")
 						}
-						onDownload={() => void shareActions.handleDownloadPost()}
+						onDownload={() => void handleDownloadPost()}
 						onShare={() => void shareActions.handleSharePost()}
 						row={sharePreviewRow}
 						shareCardCreatedAtLabel={shareCardCreatedAtLabel}

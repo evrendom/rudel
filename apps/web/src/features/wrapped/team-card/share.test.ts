@@ -2,18 +2,27 @@ import { toast } from "sonner";
 import { describe, expect, it, vi } from "vitest";
 import type { TeamPageMemberRow } from "@/features/team/use-team-page-data";
 import { createWrappedTeamCardShareActions } from "@/features/wrapped/team-card/share";
-import { captureElement, downloadAsImage } from "@/lib/screenshot";
+import {
+	captureElement,
+	copyToClipboard,
+	downloadAsImage,
+} from "@/lib/screenshot";
 
-const { mockCaptureElement, mockDownloadAsImage, mockToastSuccess } =
-	vi.hoisted(() => ({
-		mockCaptureElement: vi.fn(),
-		mockDownloadAsImage: vi.fn(),
-		mockToastSuccess: vi.fn(),
-	}));
+const {
+	mockCaptureElement,
+	mockCopyToClipboard,
+	mockDownloadAsImage,
+	mockToastSuccess,
+} = vi.hoisted(() => ({
+	mockCaptureElement: vi.fn(),
+	mockCopyToClipboard: vi.fn(),
+	mockDownloadAsImage: vi.fn(),
+	mockToastSuccess: vi.fn(),
+}));
 
 vi.mock("@/lib/screenshot", () => ({
 	captureElement: mockCaptureElement,
-	copyToClipboard: vi.fn(),
+	copyToClipboard: mockCopyToClipboard,
 	downloadAsImage: mockDownloadAsImage,
 }));
 
@@ -66,6 +75,8 @@ describe("createWrappedTeamCardShareActions", () => {
 		expect(captureElement).toHaveBeenCalledWith(sharePostRef.current, {
 			captureHeight: 6144,
 			captureWidth: 6144,
+			layoutHeight: 6144,
+			layoutWidth: 6144,
 			outputHeight: 4096,
 			outputWidth: 4096,
 			padding: 0,
@@ -74,6 +85,29 @@ describe("createWrappedTeamCardShareActions", () => {
 				border: "0",
 				borderRadius: "0",
 				boxShadow: "none",
+				height: "6144px",
+				maxWidth: "none",
+				width: "6144px",
+				"--wrapped-share-preview-body-padding-bottom": "0.56rem",
+				"--wrapped-share-preview-body-padding-left": "0.08rem",
+				"--wrapped-share-preview-body-padding-right": "0.08rem",
+				"--wrapped-share-preview-body-padding-top": "0.45rem",
+				"--wrapped-share-preview-card-glare-opacity": "0.2",
+				"--wrapped-share-preview-card-shadow-opacity": "0.16",
+				"--wrapped-share-preview-card-scale-base": "12.711724",
+				"--wrapped-share-preview-card-scale": "12.711724",
+				"--wrapped-share-preview-export-scale": "13.241379",
+				"--wrapped-share-preview-meta-font-size": "0.82rem",
+				"--wrapped-share-preview-shell-padding-bottom": "1rem",
+				"--wrapped-share-preview-shell-padding-left": "1.15rem",
+				"--wrapped-share-preview-shell-padding-right": "1.15rem",
+				"--wrapped-share-preview-shell-padding-top": "1.05rem",
+				"--wrapped-share-preview-spread-gap": "0.42rem",
+				"--wrapped-share-preview-spread-shadow-opacity": "0.14",
+				"--wrapped-share-preview-spread-scale-base": "9.533793",
+				"--wrapped-share-preview-spread-scale": "9.533793",
+				"--wrapped-share-preview-top-gap": "0.625rem",
+				"--wrapped-share-preview-top-logo-size": "1rem",
 			},
 		});
 		expect(downloadAsImage).toHaveBeenCalledWith(
@@ -81,5 +115,63 @@ describe("createWrappedTeamCardShareActions", () => {
 			"rudel-team-card-post.png",
 		);
 		expect(toast.success).toHaveBeenCalledWith("Post downloaded");
+	});
+
+	it("opens X with first-person copy and the wrapped landing URL", async () => {
+		vi.clearAllMocks();
+		const pendingXWindow = {
+			closed: false,
+			close: vi.fn(),
+			document: { title: "" },
+			location: { href: "" },
+			opener: null,
+		};
+		const open = vi.fn().mockReturnValue(pendingXWindow);
+		const resolveShareUrl = vi
+			.fn()
+			.mockResolvedValue("https://rudel.ai/wrapped/public-card");
+		const sharePostRef = { current: document.createElement("div") };
+		Object.defineProperty(window, "open", {
+			configurable: true,
+			value: open,
+		});
+
+		const actions = createWrappedTeamCardShareActions({
+			archetypeLabel: "Maniac",
+			displayName: "Jane Doe",
+			resolveShareUrl,
+			row: buildTeamPageMemberRow({
+				totalSessions: 219,
+				totalTokens: 1_920_000,
+			}),
+			sharePostRef,
+			shareUrlLabel: "rudel.ai/wrapped",
+			sourceSplit: [
+				{ session_count: 0, session_share_percent: 0, source: "claude_code" },
+				{ session_count: 219, session_share_percent: 100, source: "codex" },
+			],
+		});
+
+		await actions.handleSharePost();
+
+		expect(resolveShareUrl).toHaveBeenCalledTimes(1);
+		expect(captureElement).not.toHaveBeenCalled();
+		expect(copyToClipboard).not.toHaveBeenCalled();
+		expect(downloadAsImage).not.toHaveBeenCalled();
+		const intentUrl = new URL(pendingXWindow.location.href);
+		expect(intentUrl.searchParams.get("text")).toBe(
+			[
+				"According to my Codex usage, I'm a Maniac.",
+				"Traits: 1.9M tokens over 219 sessions; high session count, heavy token burn, no visible off switch.",
+				"Make yours: app.rudel.ai/wrapped",
+			].join("\n\n"),
+		);
+		expect(intentUrl.searchParams.get("url")).toBe(
+			"https://rudel.ai/wrapped/public-card",
+		);
+		expect(toast.success).toHaveBeenCalledWith(
+			"X is open with your Rudel Wrapped post preview.",
+			{ duration: 5000 },
+		);
 	});
 });

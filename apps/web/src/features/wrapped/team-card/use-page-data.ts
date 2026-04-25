@@ -6,6 +6,7 @@ import {
 } from "@/features/team/use-team-page-data";
 import type { WrappedOnboardingMetrics } from "@/features/wrapped/onboarding/types";
 import { useWrappedCardData } from "@/features/wrapped/use-card-data";
+import { readWrappedGuestPreviewSnapshot } from "@/features/wrapped/wrapped-guest-preview";
 import { MAX_ANALYTICS_DAYS } from "@/lib/analytics-date-range";
 import { authClient } from "@/lib/auth-client";
 import { orpc } from "@/lib/orpc";
@@ -38,7 +39,13 @@ export function useWrappedTeamCardPageData(): UseWrappedTeamCardPageDataResult {
 	const sessionUserId = getSessionUserId(session);
 	const sessionUserName = getSessionUserName(session);
 	const sessionUserEmail = getSessionUserEmail(session);
-	const debugProfileImageSrc = handover.preview.profile.avatarSrc;
+	const guestPreviewSnapshot = useMemo(
+		() => readWrappedGuestPreviewSnapshot(),
+		[],
+	);
+	const debugProfileImageSrc =
+		guestPreviewSnapshot?.profile.imageUrl ??
+		handover.preview.profile.avatarSrc;
 	const { data: activeMember } = authClient.useActiveMember();
 	const activeMemberUserId = getActiveMemberUserId(activeMember);
 	const resolvedUserId = sessionUserId ?? activeMemberUserId;

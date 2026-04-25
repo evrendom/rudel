@@ -97,7 +97,6 @@ export function WrappedTeamCardSharePreview(
 									>
 										<div className="grid justify-center">
 											<WrappedTeamMemberCard
-												disableOuterShadow
 												headerLeftMetric={headerLeftMetric}
 												headerRightMetric={headerRightMetric}
 												hideHeaderLogo
@@ -121,7 +120,6 @@ export function WrappedTeamCardSharePreview(
 									<div className="team-lineup-card-tilt-shell mymind-wrapped-share-preview__card-shell mymind-wrapped-share-preview__card-shell--spread">
 										<div className="grid justify-center">
 											<WrappedTeamMemberCardBack
-												disableOuterShadow
 												metrics={spreadBackMetrics}
 												shellClassName={shellClassName}
 												shellStyle={shellStyle}
@@ -141,7 +139,6 @@ export function WrappedTeamCardSharePreview(
 							>
 								<div className="grid justify-center">
 									<WrappedTeamMemberCard
-										disableOuterShadow
 										headerLeftMetric={headerLeftMetric}
 										headerRightMetric={headerRightMetric}
 										hideHeaderLogo

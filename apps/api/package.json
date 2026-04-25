@@ -19,6 +19,7 @@
 		"@logtape/file": "^2.0.4",
 		"@logtape/logtape": "^2.0.4",
 		"@orpc/server": "latest",
+		"@resvg/resvg-js": "^2.6.2",
 		"@rudel/agent-adapters": "workspace:*",
 		"@rudel/api-routes": "workspace:*",
 		"@rudel/ch-schema": "workspace:*",

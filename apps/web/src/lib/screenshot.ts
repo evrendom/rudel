@@ -6,14 +6,20 @@ const ASSET_READY_TIMEOUT_MS = 3000;
 const TRANSPARENT_IMAGE_PLACEHOLDER =
 	"data:image/gif;base64,R0lGODlhAQABAAAAACwAAAAAAQABAAA=";
 
+type CaptureElementStyle = Partial<CSSStyleDeclaration> & {
+	[customProperty: `--${string}`]: string | undefined;
+};
+
 export interface CaptureElementOptions {
 	captureHeight?: number;
 	captureWidth?: number;
+	layoutHeight?: number;
+	layoutWidth?: number;
 	outputHeight?: number;
 	outputWidth?: number;
 	padding?: number;
 	pixelRatio?: number;
-	style?: Partial<CSSStyleDeclaration>;
+	style?: CaptureElementStyle;
 }
 
 function resolveBackgroundColor(element: HTMLElement): string {
@@ -32,25 +38,40 @@ export async function captureElement(
 	element: HTMLElement,
 	options: CaptureElementOptions = {},
 ): Promise<Blob> {
-	await waitForElementAssets(element);
-
 	const bg = resolveBackgroundColor(element);
-	const captureCanvasSize = resolveCaptureCanvasSize(element, options);
+	const captureLayoutSize = resolveCaptureLayoutSize(options);
+	const captureTarget = prepareCaptureTarget(element, options.style);
+
+	await waitForElementAssets(captureTarget.element);
+
+	const captureCanvasSize = resolveCaptureCanvasSize(
+		captureTarget.element,
+		options,
+		captureLayoutSize,
+	);
 	const pixelRatio = options.pixelRatio ?? DEFAULT_PIXEL_RATIO;
-	const imageBlob = await toBlob(element, {
-		backgroundColor: bg,
-		canvasHeight: captureCanvasSize?.height,
-		canvasWidth: captureCanvasSize?.width,
-		// Official html-to-image options:
-		// - cacheBust avoids stale asset fetches during repeated share attempts
-		// - imagePlaceholder keeps capture from crashing when an image fetch fails
-		// - preferredFontFormat keeps font embedding small and deterministic
-		cacheBust: true,
-		imagePlaceholder: TRANSPARENT_IMAGE_PLACEHOLDER,
-		pixelRatio,
-		preferredFontFormat: "woff2",
-		style: options.style,
-	});
+
+	let imageBlob: Blob | null = null;
+
+	try {
+		imageBlob = await toBlob(captureTarget.element, {
+			backgroundColor: bg,
+			canvasHeight: captureCanvasSize?.height,
+			canvasWidth: captureCanvasSize?.width,
+			height: captureLayoutSize?.height,
+			// Official html-to-image options:
+			// - cacheBust avoids stale asset fetches during repeated share attempts
+			// - imagePlaceholder keeps capture from crashing when an image fetch fails
+			// - preferredFontFormat keeps font embedding small and deterministic
+			cacheBust: true,
+			imagePlaceholder: TRANSPARENT_IMAGE_PLACEHOLDER,
+			pixelRatio,
+			preferredFontFormat: "woff2",
+			width: captureLayoutSize?.width,
+		});
+	} finally {
+		captureTarget.dispose();
+	}
 
 	if (!imageBlob) {
 		throw new Error("Failed to capture element as image");
@@ -71,15 +92,87 @@ export async function captureElement(
 	});
 }
 
+function prepareCaptureTarget(
+	element: HTMLElement,
+	style: CaptureElementStyle | undefined,
+) {
+	if (!style) {
+		return {
+			dispose: () => undefined,
+			element,
+		};
+	}
+
+	const clonedNode = element.cloneNode(true);
+
+	if (!(clonedNode instanceof HTMLElement)) {
+		throw new Error("Failed to prepare element for capture");
+	}
+
+	applyCaptureStyle(clonedNode, style);
+
+	const wrapper = document.createElement("div");
+	wrapper.setAttribute("aria-hidden", "true");
+	wrapper.style.position = "fixed";
+	wrapper.style.top = "0";
+	wrapper.style.left = "-100000px";
+	wrapper.style.width = "0";
+	wrapper.style.height = "0";
+	wrapper.style.overflow = "visible";
+	wrapper.style.pointerEvents = "none";
+	wrapper.appendChild(clonedNode);
+	document.body.appendChild(wrapper);
+
+	return {
+		dispose: () => wrapper.remove(),
+		element: clonedNode,
+	};
+}
+
+function applyCaptureStyle(element: HTMLElement, style: CaptureElementStyle) {
+	for (const [propertyName, value] of Object.entries(style)) {
+		if (typeof value !== "string") {
+			continue;
+		}
+
+		if (propertyName === "cssText") {
+			element.style.cssText += `; ${value}`;
+			continue;
+		}
+
+		element.style.setProperty(formatCaptureStyleName(propertyName), value);
+	}
+}
+
+function formatCaptureStyleName(propertyName: string) {
+	return propertyName.replace(/[A-Z]/g, "-$&").toLowerCase();
+}
+
+function resolveCaptureLayoutSize(options: CaptureElementOptions) {
+	if (!options.layoutWidth && !options.layoutHeight) {
+		return null;
+	}
+
+	return {
+		height: options.layoutHeight,
+		width: options.layoutWidth,
+	};
+}
+
 function resolveCaptureCanvasSize(
 	element: HTMLElement,
 	options: CaptureElementOptions,
+	layoutSize: { height?: number; width?: number } | null,
 ) {
 	if (!options.captureWidth && !options.captureHeight) {
 		return null;
 	}
 
-	const elementSize = getElementSize(element);
+	const measuredSize = getElementSize(element);
+	const elementSize = {
+		height: layoutSize?.height ?? measuredSize.height ?? 0,
+		width: layoutSize?.width ?? measuredSize.width ?? 0,
+	};
 
 	if (options.captureWidth && options.captureHeight) {
 		return {
