@@ -37,7 +37,6 @@ import type {
 	WrappedTeamMemberCardStatLayerOpacities,
 } from "./card";
 import {
-	WrappedTeamCardRevealFooter,
 	WrappedTeamCardRevealStage,
 	WrappedTeamCardShareStage,
 } from "./final-stages";
@@ -422,7 +421,9 @@ function WrappedTeamCardPageContent(props: {
 			activeArchetype={activeArchetype}
 			headerLeftMetric={headerLeftMetric}
 			headerRightMetric={headerRightMetric}
+			isPreviewPostVisible={isRevealSequenceComplete}
 			onboardingMetrics={onboardingMetrics}
+			onPreviewPost={handlePreviewPost}
 			onRevealComplete={() => {
 				setIsRevealSequenceComplete(true);
 			}}
@@ -470,17 +471,7 @@ function WrappedTeamCardPageContent(props: {
 		<WrappedTeamCardOnboarding
 			displayName={visibleTeamCardRow.displayName}
 			footerDebugControls={footerDebugControls}
-			finalFooter={
-				showShareStage ? (
-					false
-				) : !isRevealSequenceComplete ? (
-					false
-				) : (
-					<WrappedTeamCardRevealFooter
-						onPreviewPost={handlePreviewPost}
-					/>
-				)
-			}
+			finalFooter={false}
 			finalStage={finalStage}
 			onboardingMetrics={onboardingMetrics}
 			onBackFromFirstStep={onBackFromFirstStep}

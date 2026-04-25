@@ -657,25 +657,6 @@ export function SignupForm(props: SignupFormProps) {
 								: renderWrappedCredentialsScene()}
 					</AnimatePresence>
 				</div>
-
-				{hideSwitchPrompt ? null : (
-					<p className="mymind-wrapped-auth-form__switch-copy">
-						Already have an account?{" "}
-						<button
-							type="button"
-							onClick={() => {
-								trackAuthenticationAction({
-									actionName: "open_login",
-									sourceComponent: "signup_form",
-								});
-								onSwitchToLogin();
-							}}
-							className="mymind-wrapped-auth-form__switch-link"
-						>
-							Sign in
-						</button>
-					</p>
-				)}
 			</div>
 		);
 	}

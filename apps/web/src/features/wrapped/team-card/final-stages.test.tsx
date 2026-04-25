@@ -165,7 +165,9 @@ describe("WrappedTeamCardRevealStage", () => {
 					title: "Smooth Operator",
 					value: "Smooth Operator",
 				}}
+				isPreviewPostVisible={false}
 				onboardingMetrics={onboardingMetrics}
+				onPreviewPost={vi.fn()}
 				onRevealComplete={onRevealComplete}
 				row={row}
 				shellClassName="bg-sky-200"

@@ -11,9 +11,7 @@ import {
 } from "react";
 import { Button } from "@/app/ui/button";
 import type { TeamPageMemberRow } from "@/features/team/use-team-page-data";
-import {
-	WrappedPrimaryAction,
-} from "@/features/wrapped/actions";
+import { WrappedPrimaryAction } from "@/features/wrapped/actions";
 import type { WrappedOnboardingMetrics } from "@/features/wrapped/onboarding/types";
 import { WrappedStageFrame } from "@/features/wrapped/stage-frame";
 import {
@@ -68,7 +66,9 @@ interface WrappedTeamCardRevealStageProps
 	extends WrappedTeamCardStageCardProps {
 	activeArchetype: WrappedArchetypeCardTheme;
 	onboardingMetrics: WrappedOnboardingMetrics;
+	onPreviewPost: () => void;
 	onRevealComplete?: () => void;
+	isPreviewPostVisible: boolean;
 	shareCardCreatedAtLabel: string;
 	tiltController: WrappedCardTiltController;
 }
@@ -93,7 +93,7 @@ const WRAPPED_SHARE_VARIANTS: ReadonlyArray<{
 			layoutMode: "front",
 			showArchetypeLabel: false,
 		},
-		description: "Front card without archetype text",
+		description: "Front card with archetype comment",
 		number: "2",
 	},
 	{
@@ -327,7 +327,9 @@ export function WrappedTeamCardRevealStage(
 		activeArchetype,
 		headerLeftMetric,
 		headerRightMetric,
+		isPreviewPostVisible,
 		onboardingMetrics,
+		onPreviewPost,
 		onRevealComplete,
 		row,
 		shellClassName,
@@ -425,11 +427,14 @@ export function WrappedTeamCardRevealStage(
 			}, elapsedMs + REVEAL_STAGE_CARD_DROP_DELAY_MS),
 		);
 		timeoutIds.push(
-			window.setTimeout(() => {
-				notifyRevealComplete();
-			}, elapsedMs +
-				REVEAL_STAGE_CARD_DROP_DELAY_MS +
-				REVEAL_STAGE_CARD_DROP_DURATION_MS),
+			window.setTimeout(
+				() => {
+					notifyRevealComplete();
+				},
+				elapsedMs +
+					REVEAL_STAGE_CARD_DROP_DELAY_MS +
+					REVEAL_STAGE_CARD_DROP_DURATION_MS,
+			),
 		);
 		revealTimerRefs.current = timeoutIds;
 
@@ -597,6 +602,12 @@ export function WrappedTeamCardRevealStage(
 						</div>
 					</motion.div>
 				</div>
+			}
+			support={
+				<WrappedTeamCardRevealFooter
+					isVisible={isPreviewPostVisible}
+					onPreviewPost={onPreviewPost}
+				/>
 			}
 		/>
 	);
@@ -941,15 +952,21 @@ function getWrappedRevealCopy(archetype: WrappedArchetypeCardTheme): {
 }
 
 export function WrappedTeamCardRevealFooter(props: {
+	isVisible: boolean;
 	onPreviewPost: () => void;
 }) {
-	const { onPreviewPost } = props;
+	const { isVisible, onPreviewPost } = props;
 
 	return (
-		<div className="mymind-wrapped-action-stack mymind-wrapped-action-stack--single-action">
+		<div
+			aria-hidden={isVisible ? undefined : true}
+			className="mymind-wrapped-action-stack mymind-wrapped-action-stack--single-action mymind-wrapped-reveal-footer"
+			data-visible={isVisible ? "true" : "false"}
+		>
 			<WrappedPrimaryAction
 				kind="button"
 				className="text-[1.0625rem] font-semibold"
+				disabled={!isVisible}
 				icon={<ChevronRight className="size-4" />}
 				onClick={onPreviewPost}
 			>
