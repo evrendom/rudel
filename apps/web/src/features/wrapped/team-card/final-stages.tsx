@@ -1,10 +1,10 @@
-import { ChevronRight, Clipboard, Download, Share2 } from "lucide-react";
 import type { WrappedShareAppearance } from "@rudel/api-routes";
+import { ChevronRight, Clipboard, Download, Share2 } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-// biome-ignore lint/style/noRestrictedImports: reveal-stage timers are an imperative storyboard bridge for this wrapped surface.
 import {
 	type CSSProperties,
 	type RefObject,
+	// biome-ignore lint/style/noRestrictedImports: reveal-stage timers are an imperative storyboard bridge for this wrapped surface.
 	useEffect,
 	useRef,
 	useState,
@@ -197,8 +197,7 @@ export function WrappedTeamCardShareStage(
 							})}
 							className="mymind-wrapped-share-surface__rail"
 						>
-							<div
-								role="group"
+							<fieldset
 								aria-label="Post variants"
 								className="mymind-wrapped-share-variant-picker"
 							>
@@ -225,7 +224,7 @@ export function WrappedTeamCardShareStage(
 										</Button>
 									);
 								})}
-							</div>
+							</fieldset>
 
 							<div
 								role="toolbar"
@@ -610,18 +609,18 @@ export function WrappedTeamCardRevealStage(
 							<div
 								ref={handoffCardRef}
 								className="mymind-wrapped-final-stage__card-morph-shell"
+								onPointerMove={(event) => {
+									if (!isCardFlipAnimating && !isPostHandoffPreparing) {
+										tiltController.handlePointerMove(event);
+									}
+								}}
+								onPointerLeave={tiltController.handlePointerLeave}
+								onPointerCancel={tiltController.handlePointerLeave}
 							>
 								<div
 									ref={tiltController.cardTiltRef}
 									className="team-lineup-card-tilt-shell mymind-wrapped-final-stage__tilt-shell [--wrapped-card-render-scale:1] min-[360px]:[--wrapped-card-render-scale:1.08] sm:[--wrapped-card-render-scale:1.42] lg:[--wrapped-card-render-scale:1.56]"
 									data-flip-active={isCardFlipAnimating ? "true" : "false"}
-									onPointerMove={(event) => {
-										if (!isCardFlipAnimating && !isPostHandoffPreparing) {
-											tiltController.handlePointerMove(event);
-										}
-									}}
-									onPointerLeave={tiltController.handlePointerLeave}
-									onPointerCancel={tiltController.handlePointerLeave}
 									style={
 										{
 											"--wrapped-card-flip-rotate-y": isCardFrontVisible
