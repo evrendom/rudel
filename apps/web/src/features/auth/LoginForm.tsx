@@ -375,6 +375,7 @@ export function LoginForm(props: LoginFormProps) {
 				transition={wrappedSceneShellMotion.transition}
 			>
 				<form
+					noValidate
 					onSubmit={(event) => {
 						if (!isPasswordStep) {
 							event.preventDefault();
