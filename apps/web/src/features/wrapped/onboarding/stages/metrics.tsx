@@ -1,6 +1,7 @@
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import type { CSSProperties } from "react";
 import { useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useMountEffect } from "@/hooks/useMountEffect";
 import { formatCompactWholeCurrency } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -52,7 +53,7 @@ interface ScaleKebabDrop {
 	initialVelocityXPx: number;
 	maxBounces: number;
 	sizePx: number;
-	sourceXPercent: number;
+	sourceXPx: number;
 	sourceYOffsetPx: number;
 	spawnJitterPx: number;
 	squashMultiplier: number;
@@ -78,6 +79,8 @@ const SCALE_STAGE_KEBAB_COST_USD = 8;
 const SCALE_STAGE_KEBAB_EMOJI = "🥙";
 const SCALE_STAGE_KEBAB_EXIT_VELOCITY_PX = 3.8;
 const SCALE_STAGE_KEBAB_SQUASH_DURATION_MS = 120;
+const SCALE_STAGE_KEBAB_MIN_VISUAL_DROPS = 96;
+const SCALE_STAGE_KEBAB_SOURCE_X_PERCENTS = [8, 24, 40, 56, 72, 88] as const;
 export const SCALE_STAGE_SPEND_LABEL_HOLD_MS = 500;
 export const SCALE_STAGE_SPEND_COUNT_DURATION_MS = 680;
 const SCALE_STAGE_SPEND_TO_KEBAB_DELAY_MS = 280;
@@ -534,11 +537,11 @@ function WrappedScaleKebabRain(props: {
 	totalDrops: number;
 }) {
 	const { onComplete, totalDrops } = props;
-	const drops = buildScaleKebabDrops(totalDrops);
+	const visualDropCount = resolveScaleKebabVisualDropCount(totalDrops);
 	const dropRefs = useRef<Array<HTMLSpanElement | null>>([]);
 
 	useMountEffect(() => {
-		if (drops.length === 0) {
+		if (visualDropCount <= 0) {
 			onComplete?.();
 			return;
 		}
@@ -550,16 +553,16 @@ function WrappedScaleKebabRain(props: {
 
 		const width = window.innerWidth;
 		const height = window.innerHeight;
-		const simulationDrops = drops.map((drop) =>
-			createScaleKebabSimulationDrop(drop),
-		);
+		const simulationDrops = buildScaleKebabDrops({
+			totalDrops: visualDropCount,
+			viewportWidthPx: width,
+		}).map((drop) => createScaleKebabSimulationDrop(drop));
 
 		for (const drop of simulationDrops) {
 			activateScaleKebabDrop(drop, width);
 		}
 
 		let frameId = 0;
-
 		const animate = (now: number) => {
 			let hasActiveDrop = false;
 
@@ -599,24 +602,23 @@ function WrappedScaleKebabRain(props: {
 		};
 	});
 
-	if (drops.length === 0) {
+	if (visualDropCount <= 0) {
 		return null;
 	}
 
-	return (
+	const kebabRain = (
 		<div aria-hidden="true" className="mymind-wrapped-scale-stage__kebab-rain">
-			{drops.map((drop, index) => (
+			{Array.from({ length: visualDropCount }, (_, index) => (
 				<span
-					key={drop.id}
+					key={`scale-kebab-drop-${visualDropCount}-${index}`}
 					ref={(node) => {
 						dropRefs.current[index] = node;
 					}}
 					className="mymind-wrapped-scale-stage__kebab-drop"
 					style={{
-						fontSize: `${drop.sizePx}px`,
 						left: "50%",
 						opacity: 0,
-						top: `${drop.sourceYOffsetPx}px`,
+						top: "0px",
 					}}
 				>
 					{SCALE_STAGE_KEBAB_EMOJI}
@@ -624,6 +626,20 @@ function WrappedScaleKebabRain(props: {
 			))}
 		</div>
 	);
+
+	if (typeof document === "undefined") {
+		return null;
+	}
+
+	return createPortal(kebabRain, document.body);
+}
+
+function resolveScaleKebabVisualDropCount(totalDrops: number) {
+	if (totalDrops <= 0) {
+		return 0;
+	}
+
+	return Math.max(totalDrops, SCALE_STAGE_KEBAB_MIN_VISUAL_DROPS);
 }
 
 function resolveScaleKebabCount(estimatedSpendUsd: number) {
@@ -637,28 +653,50 @@ function resolveScaleKebabCount(estimatedSpendUsd: number) {
 	);
 }
 
-function buildScaleKebabDrops(totalDrops: number): ScaleKebabDrop[] {
+function buildScaleKebabDrops(input: {
+	totalDrops: number;
+	viewportWidthPx: number;
+}): ScaleKebabDrop[] {
+	const { totalDrops, viewportWidthPx } = input;
+
 	if (totalDrops <= 0) {
 		return [];
 	}
 
 	const random = createScaleKebabSeededRandom(totalDrops * 97);
+	const laneCount = SCALE_STAGE_KEBAB_SOURCE_X_PERCENTS.length;
+	const rowGapPx = 20;
+	const sizeScale =
+		totalDrops >= 48
+			? 0.72
+			: totalDrops >= 28
+				? 0.82
+				: totalDrops >= 14
+					? 0.9
+					: 1;
 
 	return Array.from({ length: totalDrops }, (_, index) => {
-		const progress = totalDrops === 1 ? 0.5 : index / (totalDrops - 1);
+		const sizePx = Math.round((46 + random() * 14) * sizeScale);
+		const laneIndex = index % laneCount;
+		const rowIndex = Math.floor(index / laneCount);
+		const rowOffsetPx = rowIndex * rowGapPx;
+		const sourceXPercent = SCALE_STAGE_KEBAB_SOURCE_X_PERCENTS[laneIndex] ?? 50;
 
 		return {
-			bounceDamping: Number((0.56 + random() * 0.1).toFixed(2)),
+			bounceDamping: Number((0.66 + random() * 0.08).toFixed(2)),
 			floorThreshold: Number((1.4 + random() * 0.55).toFixed(2)),
 			friction: Number((0.989 + random() * 0.005).toFixed(3)),
 			gravityPx: Number((0.52 + random() * 0.08).toFixed(2)),
 			id: `scale-kebab-drop-${index}`,
-			initialVelocityXPx: Number(((random() - 0.5) * 1.3).toFixed(2)),
+			initialVelocityXPx: Number(((random() - 0.5) * 0.9).toFixed(2)),
 			maxBounces: 1,
-			sizePx: Math.round(46 + random() * 14),
-			sourceXPercent: 8 + progress * 84,
-			sourceYOffsetPx: Math.round(-110 - random() * 96),
-			spawnJitterPx: Math.round(8 + random() * 12),
+			sizePx,
+			sourceXPx:
+				(viewportWidthPx * sourceXPercent) / 100 + (random() - 0.5) * 8,
+			sourceYOffsetPx: Math.round(
+				-Math.max(32, sizePx * 0.9) - random() * 18 - rowOffsetPx,
+			),
+			spawnJitterPx: Math.round(3 + random() * 4),
 			squashMultiplier: Number((0.058 + random() * 0.02).toFixed(3)),
 		};
 	});
@@ -688,6 +726,12 @@ function createScaleKebabSimulationDrop(
 }
 
 function activateScaleKebabDrop(drop: ScaleKebabSimulationDrop, width: number) {
+	const sourceX = clampScaleKebabX(
+		drop.sourceXPx + (Math.random() - 0.5) * drop.spawnJitterPx,
+		drop.radius,
+		width,
+	);
+
 	drop.active = true;
 	drop.bounceCount = 0;
 	drop.exiting = false;
@@ -696,14 +740,9 @@ function activateScaleKebabDrop(drop: ScaleKebabSimulationDrop, width: number) {
 	drop.squashScaleX = 1;
 	drop.squashScaleY = 1;
 	drop.squashUntilMs = 0;
-	drop.vx = drop.initialVelocityXPx + (Math.random() - 0.5) * 0.28;
-	drop.vy = 0.35 + Math.random() * 0.7;
-	drop.x = clampScaleKebabX(
-		(width * drop.sourceXPercent) / 100 +
-			(Math.random() - 0.5) * drop.spawnJitterPx,
-		drop.radius,
-		width,
-	);
+	drop.vx = drop.initialVelocityXPx + (Math.random() - 0.5) * 0.24;
+	drop.vy = 0.28 + Math.random() * 0.42;
+	drop.x = sourceX;
 	drop.y = drop.sourceYOffsetPx;
 }
 
@@ -735,6 +774,7 @@ function renderScaleKebabSimulation(
 
 		const { scaleX, scaleY } = resolveScaleKebabScale(drop, now);
 
+		node.style.fontSize = `${drop.sizePx}px`;
 		node.style.width = `${drop.radius * 2}px`;
 		node.style.height = `${drop.radius * 2}px`;
 		node.style.left = `${drop.x - drop.radius}px`;
@@ -794,6 +834,7 @@ function resolveScaleKebabFloorCollision(
 		return;
 	}
 
+	applyScaleKebabImpact(drop, now, 1 + Math.abs(drop.vy) * 0.08);
 	drop.exiting = true;
 	drop.vy = Math.max(SCALE_STAGE_KEBAB_EXIT_VELOCITY_PX, Math.abs(drop.vy));
 	drop.y = floorY + 1;
