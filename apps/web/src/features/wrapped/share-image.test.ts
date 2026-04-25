@@ -112,6 +112,55 @@ describe("createWrappedImageShareActions", () => {
 		expect(downloadAsImage).not.toHaveBeenCalled();
 	});
 
+	it("opens an X intent with the share text and URL while preparing the image", async () => {
+		resetShareImageMocks();
+		const blob = new Blob(["png"], { type: "image/png" });
+		const imageRef = { current: document.createElement("div") };
+		const pendingXWindow = {
+			closed: false,
+			close: vi.fn(),
+			document: { title: "" },
+			location: { href: "" },
+			opener: null,
+		};
+		const open = vi.fn().mockReturnValue(pendingXWindow);
+		vi.mocked(captureElement).mockResolvedValue(blob);
+		vi.mocked(copyToClipboard).mockResolvedValue(true);
+		Object.defineProperty(window, "open", {
+			configurable: true,
+			value: open,
+		});
+
+		const actions = createWrappedImageShareActions({
+			fileName: "card.png",
+			imageRef,
+			shareTarget: "x",
+			shareText: "Share text",
+			shareTitle: "Share title",
+			shareUrl: "https://rudel.ai/wrapped",
+			shareUrlLabel: "rudel.ai/wrapped",
+		});
+
+		await actions.handleShareImage();
+
+		expect(open).toHaveBeenCalledWith(
+			expect.stringContaining("https://twitter.com/intent/tweet"),
+			"_blank",
+		);
+		expect(copyToClipboard).toHaveBeenCalledWith(blob);
+		expect(downloadAsImage).not.toHaveBeenCalled();
+		const intentUrl = new URL(pendingXWindow.location.href);
+		expect(`${intentUrl.origin}${intentUrl.pathname}`).toBe(
+			"https://twitter.com/intent/tweet",
+		);
+		expect(intentUrl.searchParams.get("text")).toBe("Share text");
+		expect(intentUrl.searchParams.get("url")).toBe("https://rudel.ai/wrapped");
+		expect(toast.success).toHaveBeenCalledWith(
+			"Image copied. X is open. Paste the image into the post.",
+			{ duration: 7000 },
+		);
+	});
+
 	it("falls back to clipboard copy when native file share is unavailable", async () => {
 		resetShareImageMocks();
 		const blob = new Blob(["png"], { type: "image/png" });

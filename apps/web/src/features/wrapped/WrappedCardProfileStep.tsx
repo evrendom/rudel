@@ -1,23 +1,12 @@
-import {
-	ArrowRight,
-	Download,
-	ImagePlus,
-	RotateCcw,
-	Share2,
-} from "lucide-react";
-import { type ChangeEvent, type ReactNode, useRef, useState } from "react";
+import { ArrowRight, ImagePlus, RotateCcw } from "lucide-react";
+import { type ChangeEvent, type ReactNode, useState } from "react";
 import { Button } from "@/app/ui/button";
-import { Input } from "@/app/ui/input";
 import { WrappedPrimaryAction } from "./actions";
 import {
 	WrappedDebugControlStack,
 	WrappedRouteStageShell,
 } from "./route-stage-shell";
-import { createWrappedImageShareActions } from "./share-image";
-import {
-	WrappedGuestPreviewCard,
-	WrappedGuestShareImagePreview,
-} from "./WrappedGuestPreviewCard";
+import { WrappedGuestPreviewCard } from "./WrappedGuestPreviewCard";
 import type { WrappedGuestPreviewProfile } from "./wrapped-guest-preview";
 
 const WRAPPED_CARD_PROFILE_TITLE = (
@@ -27,11 +16,6 @@ const WRAPPED_CARD_PROFILE_TITLE = (
 		</span>
 	</span>
 );
-const WRAPPED_PROFILE_SHARE_IMAGE_FILE_NAME = "rudel-wrapped-card.png";
-const WRAPPED_PROFILE_SHARE_IMAGE_CAPTURE_OPTIONS = {
-	padding: 0,
-	pixelRatio: 4,
-};
 
 interface WrappedCardProfileStepProps {
 	debugControls?: ReactNode;
@@ -57,30 +41,7 @@ export function WrappedCardProfileStep(props: WrappedCardProfileStepProps) {
 		onImageChange,
 		previewProfile,
 	} = props;
-	const sharePostRef = useRef<HTMLDivElement>(null);
-	const [pendingShareAction, setPendingShareAction] = useState<
-		"download" | "share" | null
-	>(null);
-	const shareDisplayName =
-		displayName.trim() || previewProfile?.displayName.trim() || "Your";
-	const shareActions = createWrappedImageShareActions({
-		captureOptions: WRAPPED_PROFILE_SHARE_IMAGE_CAPTURE_OPTIONS,
-		fileName: WRAPPED_PROFILE_SHARE_IMAGE_FILE_NAME,
-		imageRef: sharePostRef,
-		messages: {
-			captureError: "Could not prepare the 4K card image.",
-			copyFallbackSuccess:
-				"Card copied. Paste it into the app you want to share to.",
-			downloadSuccess: "4K card downloaded",
-			missingElementError: "Could not find the card image to share.",
-			shareDownloadSuccess:
-				"4K card downloaded. Share the PNG from your downloads.",
-		},
-		shareText: `${shareDisplayName}'s Rudel card, made with rudel.ai.`,
-		shareTitle: `${shareDisplayName}'s Rudel card`,
-		shareUrlLabel: "rudel.ai/wrapped",
-	});
-	const isShareActionPending = pendingShareAction !== null;
+	const [isNameEditing, setIsNameEditing] = useState(true);
 
 	function handleImageUpload(event: ChangeEvent<HTMLInputElement>) {
 		const file = event.currentTarget.files?.[0];
@@ -99,20 +60,12 @@ export function WrappedCardProfileStep(props: WrappedCardProfileStepProps) {
 		reader.readAsDataURL(file);
 	}
 
-	async function runProfileShareAction(
-		action: "download" | "share",
-		handler: () => Promise<void>,
-	) {
-		if (isShareActionPending) {
+	function handleSaveDisplayName() {
+		if (!displayName.trim()) {
 			return;
 		}
 
-		setPendingShareAction(action);
-		try {
-			await handler();
-		} finally {
-			setPendingShareAction(null);
-		}
+		setIsNameEditing(false);
 	}
 
 	return (
@@ -123,30 +76,25 @@ export function WrappedCardProfileStep(props: WrappedCardProfileStepProps) {
 			stage={
 				<div className="mymind-wrapped-auth-panel mymind-wrapped-auth-panel--profile">
 					<div className="mymind-wrapped-card-profile-step__card">
-						<WrappedGuestPreviewCard profile={previewProfile} size="profile" />
+						<WrappedGuestPreviewCard
+							appearance="unknown"
+							editableDisplayName={
+								isNameEditing
+									? {
+											autoSelect: true,
+											onChange: onDisplayNameChange,
+											onSave: handleSaveDisplayName,
+											placeholder: "Your name",
+											value: displayName,
+										}
+									: undefined
+							}
+							profile={previewProfile}
+							size="profile"
+						/>
 					</div>
 					<div className="mymind-wrapped-card-profile-step__body">
 						<div className="mymind-wrapped-auth-form mymind-wrapped-card-profile-step__form">
-							<div className="mymind-wrapped-auth-form__field">
-								<label
-									htmlFor="wrapped-profile-name"
-									className="mymind-wrapped-auth-form__label"
-								>
-									Name on card
-								</label>
-								<Input
-									aria-label="Name on card"
-									autoComplete="name"
-									id="wrapped-profile-name"
-									placeholder="Your name"
-									value={displayName}
-									onChange={(event) =>
-										onDisplayNameChange(event.currentTarget.value)
-									}
-									className="mymind-wrapped-auth-form__input"
-								/>
-							</div>
-
 							<div className="mymind-wrapped-card-profile-step__image-row">
 								<label className="mymind-wrapped-card-profile-step__image-action">
 									<ImagePlus className="mymind-wrapped-card-profile-step__image-icon" />
@@ -172,53 +120,7 @@ export function WrappedCardProfileStep(props: WrappedCardProfileStepProps) {
 									</Button>
 								) : null}
 							</div>
-							<fieldset
-								aria-label="Card image export actions"
-								className="mymind-wrapped-card-profile-step__export-row"
-							>
-								<Button
-									type="button"
-									variant="outline"
-									size="lg"
-									disabled={!isComplete || isShareActionPending}
-									className="mymind-wrapped-card-profile-step__export-action"
-									onClick={() =>
-										void runProfileShareAction(
-											"share",
-											shareActions.handleShareImage,
-										)
-									}
-								>
-									<Share2 className="size-4" />
-									{pendingShareAction === "share" ? "Preparing" : "Share card"}
-								</Button>
-								<Button
-									type="button"
-									variant="outline"
-									size="lg"
-									disabled={!isComplete || isShareActionPending}
-									className="mymind-wrapped-card-profile-step__export-action"
-									onClick={() =>
-										void runProfileShareAction(
-											"download",
-											shareActions.handleDownloadImage,
-										)
-									}
-								>
-									<Download className="size-4" />
-									{pendingShareAction === "download" ? "Preparing" : "Download"}
-								</Button>
-							</fieldset>
 						</div>
-					</div>
-					<div
-						aria-hidden="true"
-						className="mymind-wrapped-card-profile-step__export-source"
-					>
-						<WrappedGuestShareImagePreview
-							profile={previewProfile}
-							sharePostRef={sharePostRef}
-						/>
 					</div>
 					<div className="mymind-wrapped-auth-panel__footer">
 						{debugControls ? (

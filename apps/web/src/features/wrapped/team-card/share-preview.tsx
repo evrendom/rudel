@@ -1,5 +1,6 @@
 import type { WrappedShareAppearance } from "@rudel/api-routes";
-import type { CSSProperties, RefObject } from "react";
+import { motion, useReducedMotion } from "motion/react";
+import type { CSSProperties, ReactNode, RefObject } from "react";
 import type { TeamPageMemberRow } from "@/features/team/use-team-page-data";
 import {
 	WrappedTeamMemberCard,
@@ -22,6 +23,9 @@ interface WrappedTeamCardSharePreviewProps {
 	row: TeamPageMemberRow;
 	shareCardCreatedAtLabel: string;
 	sharePostRef?: RefObject<HTMLDivElement | null>;
+	frontCardHandoffRef?: RefObject<HTMLDivElement | null>;
+	isChromeEntranceAnimated?: boolean;
+	isFrontCardHandoffHidden?: boolean;
 	shellClassName: string;
 	shellStyle: CSSProperties;
 	statItems: readonly WrappedTeamMemberCardStatItem[];
@@ -37,6 +41,9 @@ export function WrappedTeamCardSharePreview(
 		backMetrics,
 		headerLeftMetric,
 		headerRightMetric,
+		frontCardHandoffRef,
+		isChromeEntranceAnimated = false,
+		isFrontCardHandoffHidden = false,
 		row,
 		shareCardCreatedAtLabel,
 		sharePostRef,
@@ -46,6 +53,8 @@ export function WrappedTeamCardSharePreview(
 		statLayerOpacities,
 		theme,
 	} = props;
+	const shouldReduceMotion = useReducedMotion();
+	const reduceMotion = shouldReduceMotion ?? false;
 	const resolvedAppearance = resolveWrappedShareAppearance(appearance);
 	const spreadBackMetrics =
 		resolvedAppearance.layoutMode === "front_back" ? (backMetrics ?? []) : [];
@@ -58,7 +67,13 @@ export function WrappedTeamCardSharePreview(
 			data-layout-mode={resolvedAppearance.layoutMode}
 		>
 			<div className="mymind-wrapped-share-preview__shell team-lineup-surface-scope">
-				<div className="mymind-wrapped-share-preview__top">
+				<WrappedSharePreviewChrome
+					className="mymind-wrapped-share-preview__top"
+					delay={0.28}
+					isAnimated={isChromeEntranceAnimated}
+					reduceMotion={reduceMotion}
+					y={-8}
+				>
 					<img
 						src="/assets/wordmark-dark-BeVDO32X.svg"
 						alt="rudel.ai"
@@ -68,14 +83,18 @@ export function WrappedTeamCardSharePreview(
 						<SharePreviewAnthropicLogo />
 						<SharePreviewCodexLogo />
 					</div>
-				</div>
+				</WrappedSharePreviewChrome>
 
 				<div className="mymind-wrapped-share-preview__body">
 					{shouldShowFrontBackSpread ? (
 						<div className="mymind-wrapped-share-preview__spread">
 							<div className="mymind-wrapped-share-preview__spread-card">
 								<div className="team-lineup-card-tilt-stage mymind-wrapped-share-preview__card-stage mymind-wrapped-share-preview__card-stage--spread">
-									<div className="team-lineup-card-tilt-shell mymind-wrapped-share-preview__card-shell mymind-wrapped-share-preview__card-shell--spread">
+									<WrappedSharePreviewCardShell
+										className="team-lineup-card-tilt-shell mymind-wrapped-share-preview__card-shell mymind-wrapped-share-preview__card-shell--spread"
+										handoffRef={frontCardHandoffRef}
+										isHandoffHidden={isFrontCardHandoffHidden}
+									>
 										<div className="grid justify-center">
 											<WrappedTeamMemberCard
 												disableOuterShadow
@@ -93,7 +112,7 @@ export function WrappedTeamCardSharePreview(
 												theme={theme}
 											/>
 										</div>
-									</div>
+									</WrappedSharePreviewCardShell>
 								</div>
 							</div>
 
@@ -115,7 +134,11 @@ export function WrappedTeamCardSharePreview(
 						</div>
 					) : (
 						<div className="team-lineup-card-tilt-stage mymind-wrapped-share-preview__card-stage">
-							<div className="team-lineup-card-tilt-shell mymind-wrapped-share-preview__card-shell">
+							<WrappedSharePreviewCardShell
+								className="team-lineup-card-tilt-shell mymind-wrapped-share-preview__card-shell"
+								handoffRef={frontCardHandoffRef}
+								isHandoffHidden={isFrontCardHandoffHidden}
+							>
 								<div className="grid justify-center">
 									<WrappedTeamMemberCard
 										disableOuterShadow
@@ -133,12 +156,18 @@ export function WrappedTeamCardSharePreview(
 										theme={theme}
 									/>
 								</div>
-							</div>
+							</WrappedSharePreviewCardShell>
 						</div>
 					)}
 				</div>
 
-				<div className="mymind-wrapped-share-preview__meta">
+				<WrappedSharePreviewChrome
+					className="mymind-wrapped-share-preview__meta"
+					delay={0.34}
+					isAnimated={isChromeEntranceAnimated}
+					reduceMotion={reduceMotion}
+					y={8}
+				>
 					<span className="mymind-wrapped-share-preview__timestamp">
 						{shareCardCreatedAtLabel}
 					</span>
@@ -148,11 +177,76 @@ export function WrappedTeamCardSharePreview(
 					>
 						rudel.ai/wrapped
 					</a>
-				</div>
+				</WrappedSharePreviewChrome>
 			</div>
 		</div>
 	);
 }
+
+function WrappedSharePreviewCardShell(props: {
+	children: ReactNode;
+	className: string;
+	handoffRef?: RefObject<HTMLDivElement | null>;
+	isHandoffHidden: boolean;
+}) {
+	const { children, className, handoffRef, isHandoffHidden } = props;
+
+	return (
+		<div
+			ref={handoffRef}
+			className="mymind-wrapped-share-preview__card-layout-bridge"
+			data-handoff-hidden={isHandoffHidden ? "true" : "false"}
+		>
+			<div className={className}>{children}</div>
+		</div>
+	);
+}
+
+function WrappedSharePreviewChrome(props: {
+	children: ReactNode;
+	className: string;
+	delay: number;
+	isAnimated: boolean;
+	reduceMotion: boolean;
+	y: number;
+}) {
+	const { children, className, delay, isAnimated, reduceMotion, y } = props;
+
+	if (!isAnimated) {
+		return <div className={className}>{children}</div>;
+	}
+
+	return (
+		<motion.div
+			animate={
+				reduceMotion
+					? { opacity: 1 }
+					: { filter: "blur(0px)", opacity: 1, y: 0 }
+			}
+			className={className}
+			initial={
+				reduceMotion ? { opacity: 0 } : { filter: "blur(8px)", opacity: 0, y }
+			}
+			transition={
+				reduceMotion
+					? {
+							delay: Math.min(delay, 0.08),
+							duration: 0.14,
+							ease: "linear",
+						}
+					: {
+							delay,
+							duration: 0.32,
+							ease: WRAPPED_SHARE_PREVIEW_CHROME_EASE,
+						}
+			}
+		>
+			{children}
+		</motion.div>
+	);
+}
+
+const WRAPPED_SHARE_PREVIEW_CHROME_EASE = [0.22, 1, 0.36, 1] as const;
 
 function SharePreviewAnthropicLogo() {
 	return (

@@ -1,15 +1,17 @@
 import {
-	type WrappedShareAppearance,
 	WRAPPED_SHARE_PAYLOAD_VERSION,
+	type WrappedShareAppearance,
 } from "@rudel/api-routes";
 import { useDialKit } from "dialkit";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import {
 	type CSSProperties,
 	cloneElement,
 	isValidElement,
 	type ReactNode,
 	startTransition,
+	// biome-ignore lint/style/noRestrictedImports: final-card handoff measurement is an imperative storyboard bridge for this wrapped surface.
 	useEffect,
 	useMemo,
 	useRef,
@@ -26,15 +28,17 @@ import type { WrappedOnboardingMetrics } from "@/features/wrapped/onboarding/typ
 import { useMountEffect } from "@/hooks/useMountEffect";
 import { formatCompactWholeCurrency } from "@/lib/format";
 import {
-	WRAPPED_ARCHETYPE_CARD_THEMES,
 	getWrappedArchetypeCardBackgroundValue,
+	WRAPPED_ARCHETYPE_CARD_THEMES,
 	type WrappedArchetypeCardTheme,
 } from "./archetypes";
 import { buildWrappedTeamCardBackMetrics } from "./back-metrics";
-import type {
-	WrappedTeamMemberCardHeaderMetric,
-	WrappedTeamMemberCardStatItem,
-	WrappedTeamMemberCardStatLayerOpacities,
+import {
+	WrappedTeamMemberCard,
+	type WrappedTeamMemberCardHeaderMetric,
+	type WrappedTeamMemberCardStatItem,
+	type WrappedTeamMemberCardStatLayerOpacities,
+	type WrappedTeamMemberCardTheme,
 } from "./card";
 import {
 	WrappedTeamCardRevealStage,
@@ -57,6 +61,30 @@ import { formatShareCardCreatedAt, getWrappedArchetypeIndex } from "./utils";
 import "@/features/wrapped/wrapped.css";
 
 type FinalCardStage = "reveal" | "share";
+type FinalCardHandoffPhase = "idle" | "preparing" | "shared";
+type FinalCardFlightRect = {
+	left: number;
+	scale: number;
+	top: number;
+};
+type FinalCardFlight = {
+	from: FinalCardFlightRect;
+	key: number;
+	to?: FinalCardFlightRect;
+};
+
+const FINAL_CARD_HANDOFF_PREPARE_MS = 96;
+const FINAL_CARD_FLIGHT_CARD_WIDTH = 233;
+const FINAL_CARD_FLIGHT_DURATION_MS = 720;
+const FINAL_CARD_FLIGHT_SETTLE_MS = 90;
+const FINAL_CARD_STAGE_PRESENCE_TRANSITION = {
+	duration: 0.22,
+	ease: [0.22, 1, 0.36, 1] as const,
+};
+const FINAL_CARD_FLIGHT_TRANSITION = {
+	duration: FINAL_CARD_FLIGHT_DURATION_MS / 1_000,
+	ease: [0.32, 0.72, 0, 1] as const,
+};
 
 const TEAM_CARD_SHELL_STYLE = {
 	// Temporary: hide the shell grain on the big wrapped card.
@@ -80,9 +108,8 @@ export function WrappedTeamCardPage(props: {
 	// The live flow still defaults to a single fallback theme. This index only
 	// exists so the dev footer can preview the full card set when needed.
 	const [activeArchetypeIndex, setActiveArchetypeIndex] = useState(0);
-	const [shareAppearance, setShareAppearance] = useState<WrappedShareAppearance>(
-		DEFAULT_WRAPPED_SHARE_APPEARANCE,
-	);
+	const [shareAppearance, setShareAppearance] =
+		useState<WrappedShareAppearance>(DEFAULT_WRAPPED_SHARE_APPEARANCE);
 	const [shareCardCreatedAt] = useState(() => new Date());
 	const shareCardCreatedAtLabel = formatShareCardCreatedAt(shareCardCreatedAt);
 	const dialValues = useDialKit("Wrapped Team Card", {
@@ -247,11 +274,22 @@ function WrappedTeamCardPageContent(props: {
 		visibleTeamCardRow,
 	} = props;
 	const sharePostRef = useRef<HTMLDivElement>(null);
+	const revealCardHandoffRef = useRef<HTMLDivElement>(null);
+	const shareCardHandoffRef = useRef<HTMLDivElement>(null);
 	const [finalCardStage, setFinalCardStage] =
 		useState<FinalCardStage>("reveal");
+	const [finalCardHandoffPhase, setFinalCardHandoffPhase] =
+		useState<FinalCardHandoffPhase>("idle");
+	const [finalCardFlight, setFinalCardFlight] =
+		useState<FinalCardFlight | null>(null);
 	const [isRevealSequenceComplete, setIsRevealSequenceComplete] =
 		useState(false);
+	const finalCardHandoffTimerRef = useRef<number | null>(null);
+	const finalCardFlightTimerRef = useRef<number | null>(null);
+	const finalCardFlightMeasureRef = useRef<number | null>(null);
 	const [searchParams] = useSearchParams();
+	const shouldReduceMotion = useReducedMotion();
+	const reduceMotion = shouldReduceMotion ?? false;
 	const { trackNavigation, trackUtilityUsed } = useAnalyticsTracking({
 		pageName: "wrapped_team_card",
 	});
@@ -344,18 +382,49 @@ function WrappedTeamCardPageContent(props: {
 				window.location.origin,
 			).toString();
 		},
+		row: visibleTeamCardRow,
 		shareUrl,
 		shareUrlLabel,
 		sharePostRef,
 	});
 
+	useMountEffect(() => () => {
+		clearFinalCardHandoffTimer(finalCardHandoffTimerRef);
+		clearFinalCardHandoffTimer(finalCardFlightTimerRef);
+		clearFinalCardHandoffAnimationFrame(finalCardFlightMeasureRef);
+	});
+
 	useEffect(() => {
-		if (showShareStage) {
+		if (!showShareStage || !finalCardFlight || finalCardFlight.to) {
 			return;
 		}
 
-		setIsRevealSequenceComplete(false);
-	}, [activeArchetype.id, showShareStage]);
+		clearFinalCardHandoffAnimationFrame(finalCardFlightMeasureRef);
+		finalCardFlightMeasureRef.current = window.requestAnimationFrame(() => {
+			const nextRect = getFinalCardFlightRect(shareCardHandoffRef.current);
+
+			if (!nextRect) {
+				setFinalCardFlight(null);
+				setFinalCardHandoffPhase("idle");
+				return;
+			}
+
+			setFinalCardFlight((currentFlight) =>
+				currentFlight?.key === finalCardFlight.key
+					? { ...currentFlight, to: nextRect }
+					: currentFlight,
+			);
+			clearFinalCardHandoffTimer(finalCardFlightTimerRef);
+			finalCardFlightTimerRef.current = window.setTimeout(() => {
+				setFinalCardFlight(null);
+				setFinalCardHandoffPhase("idle");
+			}, FINAL_CARD_FLIGHT_DURATION_MS + FINAL_CARD_FLIGHT_SETTLE_MS);
+		});
+
+		return () => {
+			clearFinalCardHandoffAnimationFrame(finalCardFlightMeasureRef);
+		};
+	}, [finalCardFlight, showShareStage]);
 
 	function handlePreviewPost() {
 		// Once the share stage has user-controlled appearance options, previewing is
@@ -366,9 +435,35 @@ function WrappedTeamCardPageContent(props: {
 			utilityName: "wrappedSharePreviewOpened",
 			utilityState: "sharePreview",
 		});
-		startTransition(() => {
-			setFinalCardStage("share");
-		});
+
+		clearFinalCardHandoffTimer(finalCardHandoffTimerRef);
+		clearFinalCardHandoffTimer(finalCardFlightTimerRef);
+		clearFinalCardHandoffAnimationFrame(finalCardFlightMeasureRef);
+
+		if (reduceMotion) {
+			startTransition(() => {
+				setFinalCardFlight(null);
+				setFinalCardHandoffPhase("idle");
+				setFinalCardStage("share");
+			});
+			return;
+		}
+
+		const handoffRect = getFinalCardFlightRect(revealCardHandoffRef.current);
+		if (handoffRect) {
+			setFinalCardFlight({
+				from: handoffRect,
+				key: Date.now(),
+			});
+		}
+
+		setFinalCardHandoffPhase("preparing");
+		finalCardHandoffTimerRef.current = window.setTimeout(() => {
+			startTransition(() => {
+				setFinalCardHandoffPhase("shared");
+				setFinalCardStage("share");
+			});
+		}, FINAL_CARD_HANDOFF_PREPARE_MS);
 	}
 
 	function handleContinueToDashboard(
@@ -384,58 +479,93 @@ function WrappedTeamCardPageContent(props: {
 		onContinueToDashboard();
 	}
 
-	const finalStage = showShareStage ? (
-		<WrappedTeamCardShareStage
-			appearance={shareAppearance}
-			backMetrics={shareBackMetrics}
-			headerLeftMetric={headerLeftMetric}
-			headerRightMetric={headerRightMetric}
-			onBack={() => {
-				startTransition(() => {
-					setIsRevealSequenceComplete(false);
-					setFinalCardStage("reveal");
-				});
-			}}
-			onAppearanceChange={(nextAppearance) => {
-				startTransition(() => {
-					setShareAppearance(resolveWrappedShareAppearance(nextAppearance));
-				});
-			}}
-			onCopy={() => void shareActions.handleCopyPost()}
-			onContinueToDashboard={() =>
-				handleContinueToDashboard("wrapped_share_footer")
-			}
-			onDownload={() => void shareActions.handleDownloadPost()}
-			onShare={() => void shareActions.handleSharePost()}
-			row={sharePreviewRow}
-			shareCardCreatedAtLabel={shareCardCreatedAtLabel}
-			sharePostRef={sharePostRef}
-			shellClassName={activeArchetype.shellClassName}
-			shellStyle={shellStyle}
-			statItems={statItems}
-			statLayerOpacities={statLayerOpacities}
-			theme={activeArchetype.theme}
-		/>
-	) : (
-		<WrappedTeamCardRevealStage
-			activeArchetype={activeArchetype}
-			headerLeftMetric={headerLeftMetric}
-			headerRightMetric={headerRightMetric}
-			isPreviewPostVisible={isRevealSequenceComplete}
-			onboardingMetrics={onboardingMetrics}
-			onPreviewPost={handlePreviewPost}
-			onRevealComplete={() => {
-				setIsRevealSequenceComplete(true);
-			}}
-			row={visibleTeamCardRow}
-			shellClassName={activeArchetype.shellClassName}
-			shellStyle={shellStyle}
-			shareCardCreatedAtLabel={shareCardCreatedAtLabel}
-			statItems={statItems}
-			statLayerOpacities={statLayerOpacities}
-			theme={activeArchetype.theme}
-			tiltController={tiltController}
-		/>
+	const finalStage = (
+		<AnimatePresence initial={false} mode="popLayout">
+			{showShareStage ? (
+				<motion.div
+					key="share"
+					layout
+					animate={{ opacity: 1 }}
+					className="mymind-wrapped-final-stage-presence"
+					exit={getWrappedFinalStagePresenceExit(reduceMotion)}
+					initial={false}
+					transition={FINAL_CARD_STAGE_PRESENCE_TRANSITION}
+				>
+					<WrappedTeamCardShareStage
+						appearance={shareAppearance}
+						backMetrics={shareBackMetrics}
+						frontCardHandoffRef={shareCardHandoffRef}
+						headerLeftMetric={headerLeftMetric}
+						headerRightMetric={headerRightMetric}
+						isFrontCardHandoffHidden={finalCardFlight !== null}
+						onBack={() => {
+							clearFinalCardHandoffTimer(finalCardHandoffTimerRef);
+							clearFinalCardHandoffTimer(finalCardFlightTimerRef);
+							clearFinalCardHandoffAnimationFrame(finalCardFlightMeasureRef);
+							startTransition(() => {
+								setFinalCardFlight(null);
+								setFinalCardHandoffPhase("idle");
+								setIsRevealSequenceComplete(false);
+								setFinalCardStage("reveal");
+							});
+						}}
+						onAppearanceChange={(nextAppearance) => {
+							startTransition(() => {
+								setShareAppearance(
+									resolveWrappedShareAppearance(nextAppearance),
+								);
+							});
+						}}
+						onCopy={() => void shareActions.handleCopyPost()}
+						onContinueToDashboard={() =>
+							handleContinueToDashboard("wrapped_share_footer")
+						}
+						onDownload={() => void shareActions.handleDownloadPost()}
+						onShare={() => void shareActions.handleSharePost()}
+						row={sharePreviewRow}
+						shareCardCreatedAtLabel={shareCardCreatedAtLabel}
+						sharePostRef={sharePostRef}
+						shellClassName={activeArchetype.shellClassName}
+						shellStyle={shellStyle}
+						statItems={statItems}
+						statLayerOpacities={statLayerOpacities}
+						theme={activeArchetype.theme}
+					/>
+				</motion.div>
+			) : (
+				<motion.div
+					key="reveal"
+					layout
+					animate={{ opacity: 1 }}
+					className="mymind-wrapped-final-stage-presence"
+					exit={getWrappedFinalStagePresenceExit(reduceMotion)}
+					initial={false}
+					transition={FINAL_CARD_STAGE_PRESENCE_TRANSITION}
+				>
+					<WrappedTeamCardRevealStage
+						activeArchetype={activeArchetype}
+						handoffCardRef={revealCardHandoffRef}
+						headerLeftMetric={headerLeftMetric}
+						headerRightMetric={headerRightMetric}
+						isPostHandoffPreparing={finalCardHandoffPhase === "preparing"}
+						isPreviewPostVisible={isRevealSequenceComplete}
+						onboardingMetrics={onboardingMetrics}
+						onPreviewPost={handlePreviewPost}
+						onRevealComplete={() => {
+							setIsRevealSequenceComplete(true);
+						}}
+						row={visibleTeamCardRow}
+						shellClassName={activeArchetype.shellClassName}
+						shellStyle={shellStyle}
+						shareCardCreatedAtLabel={shareCardCreatedAtLabel}
+						statItems={statItems}
+						statLayerOpacities={statLayerOpacities}
+						theme={activeArchetype.theme}
+						tiltController={tiltController}
+					/>
+				</motion.div>
+			)}
+		</AnimatePresence>
 	);
 	const footerDebugControls =
 		import.meta.env.DEV && isCardStep
@@ -444,6 +574,7 @@ function WrappedTeamCardPageContent(props: {
 					debugControls,
 					onNext: () => {
 						startTransition(() => {
+							setIsRevealSequenceComplete(false);
 							setActiveArchetypeIndex((currentIndex) =>
 								getWrappedArchetypeIndex(
 									currentIndex + 1,
@@ -454,6 +585,7 @@ function WrappedTeamCardPageContent(props: {
 					},
 					onPrevious: () => {
 						startTransition(() => {
+							setIsRevealSequenceComplete(false);
 							setActiveArchetypeIndex((currentIndex) =>
 								getWrappedArchetypeIndex(
 									currentIndex - 1,
@@ -468,16 +600,102 @@ function WrappedTeamCardPageContent(props: {
 		getWrappedArchetypeCardBackgroundValue(activeArchetype) ?? undefined;
 
 	return (
-		<WrappedTeamCardOnboarding
-			displayName={visibleTeamCardRow.displayName}
-			footerDebugControls={footerDebugControls}
-			finalFooter={false}
-			finalStage={finalStage}
-			onboardingMetrics={onboardingMetrics}
-			onBackFromFirstStep={onBackFromFirstStep}
-			rewardCardBackground={rewardCardBackground}
-			totalSessions={visibleTeamCardRow.totalSessions}
-		/>
+		<>
+			<WrappedTeamCardOnboarding
+				displayName={visibleTeamCardRow.displayName}
+				footerDebugControls={footerDebugControls}
+				finalFooter={false}
+				finalStage={finalStage}
+				onboardingMetrics={onboardingMetrics}
+				onBackFromFirstStep={onBackFromFirstStep}
+				rewardCardBackground={rewardCardBackground}
+				totalSessions={visibleTeamCardRow.totalSessions}
+			/>
+			<WrappedFinalCardFlightOverlay
+				flight={finalCardFlight}
+				headerLeftMetric={headerLeftMetric}
+				headerRightMetric={headerRightMetric}
+				row={sharePreviewRow}
+				shellClassName={activeArchetype.shellClassName}
+				shellStyle={shellStyle}
+				statItems={statItems}
+				statLayerOpacities={statLayerOpacities}
+				theme={activeArchetype.theme}
+			/>
+		</>
+	);
+}
+
+function WrappedFinalCardFlightOverlay(props: {
+	flight: FinalCardFlight | null;
+	headerLeftMetric: WrappedTeamMemberCardHeaderMetric;
+	headerRightMetric: WrappedTeamMemberCardHeaderMetric;
+	row: TeamPageMemberRow;
+	shellClassName: string;
+	shellStyle: CSSProperties;
+	statItems: readonly WrappedTeamMemberCardStatItem[];
+	statLayerOpacities: WrappedTeamMemberCardStatLayerOpacities;
+	theme: WrappedTeamMemberCardTheme;
+}) {
+	const {
+		flight,
+		headerLeftMetric,
+		headerRightMetric,
+		row,
+		shellClassName,
+		shellStyle,
+		statItems,
+		statLayerOpacities,
+		theme,
+	} = props;
+
+	if (!flight) {
+		return null;
+	}
+
+	const targetRect = flight.to ?? flight.from;
+
+	return (
+		<motion.div
+			key={flight.key}
+			aria-hidden="true"
+			animate={{
+				opacity: 1,
+				scale: targetRect.scale,
+				x: targetRect.left,
+				y: targetRect.top,
+			}}
+			className="mymind-wrapped-final-card-flight"
+			initial={{
+				opacity: 1,
+				scale: flight.from.scale,
+				x: flight.from.left,
+				y: flight.from.top,
+			}}
+			transition={FINAL_CARD_FLIGHT_TRANSITION}
+		>
+			<div className="team-lineup-card-tilt-stage">
+				<div className="team-lineup-card-tilt-shell mymind-wrapped-final-card-flight__card">
+					<div className="grid justify-center">
+						<WrappedTeamMemberCard
+							disableOuterShadow
+							headerLeftMetric={headerLeftMetric}
+							headerRightMetric={headerRightMetric}
+							hideHeaderLogo
+							layoutPreset="team-card-preview"
+							mediaPanelClassName="mx-auto"
+							row={row}
+							shellClassName={shellClassName}
+							shellStyle={shellStyle}
+							statItems={statItems}
+							statLayerOpacities={statLayerOpacities}
+							statTileClassName=""
+							theme={theme}
+						/>
+					</div>
+				</div>
+			</div>
+		</motion.div>
 	);
 }
 
@@ -518,6 +736,58 @@ function getWrappedTeamCardDebugControls(input: {
 			{themePicker}
 		</div>
 	);
+}
+
+function clearFinalCardHandoffTimer(timerRef: { current: number | null }) {
+	if (timerRef.current === null) {
+		return;
+	}
+
+	window.clearTimeout(timerRef.current);
+	timerRef.current = null;
+}
+
+function clearFinalCardHandoffAnimationFrame(timerRef: {
+	current: number | null;
+}) {
+	if (timerRef.current === null) {
+		return;
+	}
+
+	window.cancelAnimationFrame(timerRef.current);
+	timerRef.current = null;
+}
+
+function getFinalCardFlightRect(
+	node: HTMLDivElement | null,
+): FinalCardFlightRect | null {
+	if (!node) {
+		return null;
+	}
+
+	const rect = node.getBoundingClientRect();
+	if (rect.width <= 0 || rect.height <= 0) {
+		return null;
+	}
+
+	return {
+		left: rect.left,
+		scale: rect.width / FINAL_CARD_FLIGHT_CARD_WIDTH,
+		top: rect.top,
+	};
+}
+
+function getWrappedFinalStagePresenceExit(reduceMotion: boolean) {
+	if (reduceMotion) {
+		return { opacity: 0 };
+	}
+
+	return {
+		filter: "blur(8px)",
+		opacity: 0,
+		scale: 0.996,
+		y: -8,
+	};
 }
 
 function WrappedTeamCardThemeDebugControls(props: {

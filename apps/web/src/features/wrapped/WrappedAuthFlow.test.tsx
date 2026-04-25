@@ -90,7 +90,7 @@ Object.defineProperty(window, "matchMedia", {
 });
 
 const WRAPPED_UNKNOWN_CARD_CLASS_NAME =
-	"bg-[linear-gradient(180deg,_#F5F6F8_0%,_#D9DEE4_52%,_#B8C0CA_100%)]";
+	"bg-[linear-gradient(180deg,_#FFFFFF_0%,_#FBFCFE_48%,_#EEF2F7_100%)]";
 
 async function openWrappedLoginForm(user: ReturnType<typeof userEvent.setup>) {
 	await user.click(screen.getByRole("button", { name: "Log in" }));
@@ -233,7 +233,7 @@ describe("WrappedGuestPage", () => {
 		expect(screen.getByRole("button", { name: "Log in" })).toBeInTheDocument();
 	});
 
-	it("uses an unknown grey card while the user creates an account", async () => {
+	it("uses an unknown neutral card while the user creates an account", async () => {
 		const user = userEvent.setup();
 
 		render(
@@ -245,7 +245,8 @@ describe("WrappedGuestPage", () => {
 		await user.click(screen.getByRole("button", { name: "Create account" }));
 
 		expect(await screen.findByText("Wrapped signup form")).toBeInTheDocument();
-		expect(screen.getAllByText("Unknown").length).toBeGreaterThan(0);
+		expect(screen.getAllByText("Unknown Archetype").length).toBeGreaterThan(0);
+		expect(screen.getAllByText("???").length).toBeGreaterThan(0);
 		expect(
 			screen
 				.getByRole("region", { name: "Wrapped player card preview" })
@@ -270,18 +271,23 @@ describe("WrappedGuestPage", () => {
 		).toBeInTheDocument();
 		expect(screen.queryByText(/stays local/i)).not.toBeInTheDocument();
 		expect(screen.getByLabelText("Name on card")).toHaveValue("Preview");
+		await vi.waitFor(() => {
+			expect(screen.getByLabelText("Name on card")).toHaveFocus();
+		});
+		expect(screen.getByRole("button", { name: "Save name" })).toBeEnabled();
 		expect(readWrappedGuestPreviewSnapshot()?.profile.imageUrl).toBeNull();
-		expect(screen.getAllByText("Maniac").length).toBeGreaterThan(0);
+		expect(screen.getAllByText("Unknown Archetype").length).toBeGreaterThan(0);
+		expect(screen.getAllByText("???").length).toBeGreaterThan(0);
 		expect(
 			screen
 				.getByRole("region", { name: "Wrapped player card preview" })
 				.querySelector(".team-lineup-featured-card"),
-		).not.toHaveClass(WRAPPED_UNKNOWN_CARD_CLASS_NAME);
+		).toHaveClass(WRAPPED_UNKNOWN_CARD_CLASS_NAME);
 		expect(
-			screen.getByRole("group", { name: "Card image export actions" }),
-		).toBeInTheDocument();
-		expect(screen.getByRole("button", { name: "Share card" })).toBeEnabled();
-		expect(screen.getByRole("button", { name: "Download" })).toBeEnabled();
+			screen.queryByRole("group", { name: "Card image export actions" }),
+		).not.toBeInTheDocument();
+		expect(screen.queryByRole("button", { name: "Share card" })).toBeNull();
+		expect(screen.queryByRole("button", { name: "Download" })).toBeNull();
 		expect(screen.getByRole("button", { name: "Continue" })).toBeEnabled();
 		expect(screen.queryByText("Wrapped setup page")).not.toBeInTheDocument();
 	});
@@ -299,7 +305,10 @@ describe("WrappedGuestPage", () => {
 		await submitWrappedPreviewEmail(user);
 		await user.clear(screen.getByLabelText("Name on card"));
 		await user.type(screen.getByLabelText("Name on card"), "Ada Lovelace");
-		expect(screen.getAllByText("Ada Lovelace").length).toBeGreaterThan(0);
+		expect(screen.getByLabelText("Name on card")).toHaveValue("Ada Lovelace");
+		await user.click(screen.getByRole("button", { name: "Save name" }));
+		expect(screen.queryByLabelText("Name on card")).toBeNull();
+		expect(screen.getByText("Ada Lovelace")).toBeInTheDocument();
 		await user.click(screen.getByRole("button", { name: "Continue" }));
 
 		expect(screen.getByText("Wrapped setup page")).toBeInTheDocument();

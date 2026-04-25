@@ -1,5 +1,11 @@
 import { useReducedMotion } from "motion/react";
-import { type CSSProperties, type RefObject, useRef, useState } from "react";
+import {
+	type CSSProperties,
+	// biome-ignore lint/style/noRestrictedImports: auto-select focuses the editable name input after React commits it.
+	useEffect,
+	useRef,
+	useState,
+} from "react";
 import type { TeamPageMemberRow } from "@/features/team/use-team-page-data";
 import { useMountEffect } from "@/hooks/useMountEffect";
 import { cn } from "@/lib/utils";
@@ -13,9 +19,6 @@ import {
 } from "./team-card/card";
 import { WrappedTeamMemberCardBack } from "./team-card/card-back";
 import { WrappedPrintedCardFlip } from "./team-card/printed-card-flip";
-import { DEFAULT_WRAPPED_SHARE_APPEARANCE } from "./team-card/share-appearance";
-import { buildWrappedShareSafeRow } from "./team-card/share-media";
-import { WrappedTeamCardSharePreview } from "./team-card/share-preview";
 import { useWrappedCardTilt } from "./team-card/tilt/use-card-tilt";
 import type { WrappedGuestPreviewProfile } from "./wrapped-guest-preview";
 
@@ -24,7 +27,7 @@ const RICK_PLACEHOLDER_THEME =
 	WRAPPED_ARCHETYPE_CARD_THEMES[0];
 
 const WRAPPED_UNKNOWN_CARD_SHELL_CLASS_NAME =
-	"bg-[linear-gradient(180deg,_#F5F6F8_0%,_#D9DEE4_52%,_#B8C0CA_100%)]";
+	"bg-[linear-gradient(180deg,_#FFFFFF_0%,_#FBFCFE_48%,_#EEF2F7_100%)]";
 
 const RICK_PLACEHOLDER_SHELL_STYLE = {
 	"--team-lineup-card-grain-opacity": "0",
@@ -98,6 +101,12 @@ const RICK_PLACEHOLDER_HEADER_LEFT_METRIC: WrappedTeamMemberCardHeaderMetric = {
 	value: "$347",
 };
 
+const WRAPPED_UNKNOWN_CARD_HEADER_LEFT_METRIC: WrappedTeamMemberCardHeaderMetric =
+	{
+		title: "Unknown estimated spend",
+		value: "???",
+	};
+
 const RICK_PLACEHOLDER_HEADER_RIGHT_METRIC: WrappedTeamMemberCardHeaderMetric =
 	{
 		title: "Maniac",
@@ -106,8 +115,8 @@ const RICK_PLACEHOLDER_HEADER_RIGHT_METRIC: WrappedTeamMemberCardHeaderMetric =
 
 const WRAPPED_UNKNOWN_CARD_HEADER_RIGHT_METRIC: WrappedTeamMemberCardHeaderMetric =
 	{
-		title: "Unknown",
-		value: "Unknown",
+		title: "Unknown Archetype",
+		value: "Unknown Archetype",
 	};
 
 const RICK_PLACEHOLDER_STAT_ITEMS = [
@@ -149,48 +158,136 @@ const RICK_PLACEHOLDER_STAT_ITEMS = [
 	},
 ] as const satisfies readonly WrappedTeamMemberCardStatItem[];
 
+const WRAPPED_UNKNOWN_CARD_STAT_ITEMS: readonly WrappedTeamMemberCardStatItem[] =
+	RICK_PLACEHOLDER_STAT_ITEMS.map((statItem) => ({
+		...statItem,
+		title: "Unknown card value",
+		value: "???",
+	}));
+
 interface WrappedGuestPreviewCardProps {
 	appearance?: "default" | "unknown";
+	editableDisplayName?: {
+		autoSelect?: boolean;
+		onChange: (value: string) => void;
+		onSave?: () => void;
+		placeholder?: string;
+		value: string;
+	};
 	profile: WrappedGuestPreviewProfile | null;
 	size?: "hero" | "compact" | "profile";
 }
 
 export function WrappedGuestPreviewCard(props: WrappedGuestPreviewCardProps) {
-	const { appearance = "default", profile, size = "hero" } = props;
+	const {
+		appearance = "default",
+		editableDisplayName,
+		profile,
+		size = "hero",
+	} = props;
 	const isUnknownCard = appearance === "unknown";
-	const row = buildWrappedGuestCardRow(profile);
+	const row = buildWrappedGuestCardRow(profile, editableDisplayName?.value);
 	const shouldReduceMotion = useReducedMotion();
 	const reduceMotion = shouldReduceMotion ?? false;
 	const tiltController = useWrappedCardTilt();
 	const flipAnimationTimeoutRef = useRef<number | null>(null);
+	const nameInputRef = useRef<HTMLInputElement | null>(null);
 	const [isCardFlipAnimating, setIsCardFlipAnimating] = useState(false);
 	const [isCardFrontVisible, setIsCardFrontVisible] = useState(true);
 	const cardTheme = isUnknownCard ? "light" : RICK_PLACEHOLDER_THEME.theme;
 	const cardShellClassName = isUnknownCard
 		? WRAPPED_UNKNOWN_CARD_SHELL_CLASS_NAME
 		: RICK_PLACEHOLDER_THEME.shellClassName;
+	const headerLeftMetric = isUnknownCard
+		? WRAPPED_UNKNOWN_CARD_HEADER_LEFT_METRIC
+		: RICK_PLACEHOLDER_HEADER_LEFT_METRIC;
 	const headerRightMetric = isUnknownCard
 		? WRAPPED_UNKNOWN_CARD_HEADER_RIGHT_METRIC
 		: RICK_PLACEHOLDER_HEADER_RIGHT_METRIC;
+	const statItems = isUnknownCard
+		? WRAPPED_UNKNOWN_CARD_STAT_ITEMS
+		: RICK_PLACEHOLDER_STAT_ITEMS;
 	const backMetrics = buildWrappedTeamCardBackMetrics({
 		onboardingMetrics: RICK_PLACEHOLDER_ONBOARDING_METRICS,
 		row,
 		shareCardCreatedAtLabel: RICK_PLACEHOLDER_ISSUED_AT_LABEL,
 	});
+	const visibleBackMetrics = isUnknownCard
+		? backMetrics.map((metric) => ({ ...metric, value: "???" }))
+		: backMetrics;
+	const canSaveEditableName = Boolean(editableDisplayName?.value.trim());
+	const nameContent = editableDisplayName ? (
+		<span className="mymind-wrapped-card-profile-step__name-editor">
+			<input
+				ref={nameInputRef}
+				aria-label="Name on card"
+				autoComplete="name"
+				className="mymind-wrapped-card-profile-step__name-input"
+				placeholder={editableDisplayName.placeholder ?? "Your name"}
+				value={editableDisplayName.value}
+				onClick={(event) => event.stopPropagation()}
+				onChange={(event) =>
+					editableDisplayName.onChange(event.currentTarget.value)
+				}
+				onKeyDown={(event) => {
+					event.stopPropagation();
+
+					if (event.key !== "Enter") {
+						return;
+					}
+
+					event.preventDefault();
+					saveEditableName();
+				}}
+				onPointerDown={(event) => event.stopPropagation()}
+			/>
+			{editableDisplayName.onSave ? (
+				<button
+					type="button"
+					aria-label="Save name"
+					className="mymind-wrapped-card-profile-step__name-save"
+					disabled={!canSaveEditableName}
+					onClick={(event) => {
+						event.stopPropagation();
+						saveEditableName();
+					}}
+					onPointerDown={(event) => event.stopPropagation()}
+				>
+					Save
+				</button>
+			) : null}
+		</span>
+	) : null;
 	const printedCardCaptureKey = [
 		row.userId,
 		row.displayName,
 		row.imageUrl ?? "",
 		cardTheme,
 		cardShellClassName,
+		headerLeftMetric.value,
 		headerRightMetric.value,
-		...RICK_PLACEHOLDER_STAT_ITEMS.map((item) => `${item.key}:${item.value}`),
-		...backMetrics.map((metric) => `${metric.label}:${metric.value}`),
+		editableDisplayName?.value ?? "",
+		...statItems.map((item) => `${item.key}:${item.value}`),
+		...visibleBackMetrics.map((metric) => `${metric.label}:${metric.value}`),
 	].join("|");
 
 	useMountEffect(() => () => {
 		clearFlipAnimationTimeout();
 	});
+
+	useEffect(() => {
+		if (!editableDisplayName?.autoSelect) {
+			return;
+		}
+
+		const frameId = window.requestAnimationFrame(() => {
+			const input = nameInputRef.current;
+			input?.focus();
+			input?.select();
+		});
+
+		return () => window.cancelAnimationFrame(frameId);
+	}, [editableDisplayName?.autoSelect]);
 
 	function handleCardFlipToggle() {
 		tiltController.handlePointerLeave();
@@ -219,11 +316,61 @@ export function WrappedGuestPreviewCard(props: WrappedGuestPreviewCardProps) {
 		flipAnimationTimeoutRef.current = null;
 	}
 
+	function saveEditableName() {
+		if (!canSaveEditableName) {
+			nameInputRef.current?.focus();
+			return;
+		}
+
+		editableDisplayName?.onSave?.();
+	}
+
+	const flipControlContent = (
+		<WrappedPrintedCardFlip
+			captureKey={printedCardCaptureKey}
+			front={
+				<div className="grid justify-center">
+					<WrappedTeamMemberCard
+						disableOuterShadow
+						headerLeftMetric={headerLeftMetric}
+						headerRightMetric={headerRightMetric}
+						hideHeaderLogo
+						layoutPreset="team-card-preview"
+						mediaPanelClassName="mx-auto"
+						nameContent={nameContent}
+						row={row}
+						shellClassName={cardShellClassName}
+						shellStyle={RICK_PLACEHOLDER_SHELL_STYLE}
+						statItems={statItems}
+						statTileClassName=""
+						theme={cardTheme}
+					/>
+				</div>
+			}
+			back={
+				<div className="grid justify-center">
+					<WrappedTeamMemberCardBack
+						disableOuterShadow
+						metrics={visibleBackMetrics}
+						shellClassName={cardShellClassName}
+						shellStyle={RICK_PLACEHOLDER_SHELL_STYLE}
+						theme={cardTheme}
+					/>
+				</div>
+			}
+			isFrontVisible={isCardFrontVisible}
+			reduceMotion={reduceMotion}
+		/>
+	);
+
 	return (
 		<section
 			aria-label="Wrapped player card preview"
 			className={cn(
 				"mymind-wrapped-auth-card-preview team-lineup-surface-scope",
+				editableDisplayName
+					? "mymind-wrapped-auth-card-preview--editable"
+					: null,
 				size === "compact"
 					? "mymind-wrapped-auth-card-preview--compact"
 					: size === "profile"
@@ -251,94 +398,67 @@ export function WrappedGuestPreviewCard(props: WrappedGuestPreviewCardProps) {
 						} as CSSProperties
 					}
 				>
-					<button
-						type="button"
-						aria-label={
-							isCardFrontVisible ? "Show back of card" : "Reveal front of card"
-						}
-						aria-pressed={isCardFrontVisible}
-						className="mymind-wrapped-final-stage__flip-control"
-						data-card-face={isCardFrontVisible ? "front" : "back"}
-						onClick={handleCardFlipToggle}
-					>
-						<WrappedPrintedCardFlip
-							captureKey={printedCardCaptureKey}
-							front={
-								<div className="grid justify-center">
-									<WrappedTeamMemberCard
-										disableOuterShadow
-										headerLeftMetric={RICK_PLACEHOLDER_HEADER_LEFT_METRIC}
-										headerRightMetric={headerRightMetric}
-										hideHeaderLogo
-										layoutPreset="team-card-preview"
-										mediaPanelClassName="mx-auto"
-										row={row}
-										shellClassName={cardShellClassName}
-										shellStyle={RICK_PLACEHOLDER_SHELL_STYLE}
-										statItems={RICK_PLACEHOLDER_STAT_ITEMS}
-										statTileClassName=""
-										theme={cardTheme}
-									/>
-								</div>
+					{editableDisplayName ? (
+						// biome-ignore lint/a11y/useSemanticElements: The editable name input cannot be nested inside a button.
+						<div
+							aria-label={
+								isCardFrontVisible
+									? "Show back of card"
+									: "Reveal front of card"
 							}
-							back={
-								<div className="grid justify-center">
-									<WrappedTeamMemberCardBack
-										disableOuterShadow
-										metrics={backMetrics}
-										shellClassName={cardShellClassName}
-										shellStyle={RICK_PLACEHOLDER_SHELL_STYLE}
-										theme={cardTheme}
-									/>
-								</div>
+							aria-pressed={isCardFrontVisible}
+							className="mymind-wrapped-final-stage__flip-control"
+							data-card-face={isCardFrontVisible ? "front" : "back"}
+							role="button"
+							tabIndex={0}
+							onClick={handleCardFlipToggle}
+							onKeyDown={(event) => {
+								if (event.key !== "Enter" && event.key !== " ") {
+									return;
+								}
+
+								event.preventDefault();
+								handleCardFlipToggle();
+							}}
+						>
+							{flipControlContent}
+						</div>
+					) : (
+						<button
+							type="button"
+							aria-label={
+								isCardFrontVisible
+									? "Show back of card"
+									: "Reveal front of card"
 							}
-							isFrontVisible={isCardFrontVisible}
-							reduceMotion={reduceMotion}
-						/>
-					</button>
+							aria-pressed={isCardFrontVisible}
+							className="mymind-wrapped-final-stage__flip-control"
+							data-card-face={isCardFrontVisible ? "front" : "back"}
+							onClick={handleCardFlipToggle}
+						>
+							{flipControlContent}
+						</button>
+					)}
 				</div>
 			</div>
 		</section>
 	);
 }
 
-export function WrappedGuestShareImagePreview(props: {
-	profile: WrappedGuestPreviewProfile | null;
-	sharePostRef?: RefObject<HTMLDivElement | null>;
-}) {
-	const { profile, sharePostRef } = props;
-	const row = buildWrappedShareSafeRow(buildWrappedGuestCardRow(profile));
-	const backMetrics = buildWrappedTeamCardBackMetrics({
-		onboardingMetrics: RICK_PLACEHOLDER_ONBOARDING_METRICS,
-		row,
-		shareCardCreatedAtLabel: RICK_PLACEHOLDER_ISSUED_AT_LABEL,
-	});
-
-	return (
-		<WrappedTeamCardSharePreview
-			appearance={DEFAULT_WRAPPED_SHARE_APPEARANCE}
-			backMetrics={backMetrics}
-			headerLeftMetric={RICK_PLACEHOLDER_HEADER_LEFT_METRIC}
-			headerRightMetric={RICK_PLACEHOLDER_HEADER_RIGHT_METRIC}
-			row={row}
-			shareCardCreatedAtLabel={RICK_PLACEHOLDER_ISSUED_AT_LABEL}
-			sharePostRef={sharePostRef}
-			shellClassName={RICK_PLACEHOLDER_THEME.shellClassName}
-			shellStyle={RICK_PLACEHOLDER_SHELL_STYLE}
-			statItems={RICK_PLACEHOLDER_STAT_ITEMS}
-			theme={RICK_PLACEHOLDER_THEME.theme}
-		/>
-	);
-}
-
-function buildWrappedGuestCardRow(profile: WrappedGuestPreviewProfile | null) {
+function buildWrappedGuestCardRow(
+	profile: WrappedGuestPreviewProfile | null,
+	displayNameOverride?: string,
+) {
 	if (!profile) {
-		return RICK_PLACEHOLDER_ROW;
+		return {
+			...RICK_PLACEHOLDER_ROW,
+			displayName: displayNameOverride ?? RICK_PLACEHOLDER_ROW.displayName,
+		};
 	}
 
 	return {
 		...RICK_PLACEHOLDER_ROW,
-		displayName: profile.displayName,
+		displayName: displayNameOverride ?? profile.displayName,
 		imageUrl: profile.imageUrl,
 		userId: `wrapped-guest:${profile.username}`,
 	};

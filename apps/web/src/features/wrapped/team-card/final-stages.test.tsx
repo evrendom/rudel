@@ -20,6 +20,8 @@ vi.mock("motion/react", async () => {
 					children,
 					exit: _exit,
 					initial: _initial,
+					layout: _layout,
+					layoutId: _layoutId,
 					transition: _transition,
 					...props
 				},

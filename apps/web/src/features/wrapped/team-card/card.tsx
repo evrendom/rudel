@@ -1,4 +1,4 @@
-import { type CSSProperties, useState } from "react";
+import { type CSSProperties, type ReactNode, useState } from "react";
 import type { TeamCardTone } from "@/features/team/data/team-card-types";
 import type { TeamPageMemberRow } from "@/features/team/use-team-page-data";
 import statSectionTextureWebp from "@/features/wrapped/assets/team-card-stat-texture.webp";
@@ -65,8 +65,7 @@ const tonePortraitClassNames = {
 	slate: "bg-[linear-gradient(180deg,#e7edf2_0%,#bcc7d4_100%)] text-[#43515f]",
 } as const satisfies Record<TeamCardTone, string>;
 
-const portraitPlaceholderPanelClassName =
-	"bg-[#ebebeb] text-[#676767]";
+const portraitPlaceholderPanelClassName = "bg-[#ebebeb] text-[#676767]";
 
 export interface WrappedTeamMemberCardHeaderMetric {
 	label?: string;
@@ -125,6 +124,7 @@ export function WrappedTeamMemberCard(props: {
 	layoutPreset?: WrappedTeamMemberCardLayoutPreset;
 	mediaPanelClassName?: string;
 	mediaOverlayClassName?: string;
+	nameContent?: ReactNode;
 	row: TeamPageMemberRow;
 	shellClassName?: string;
 	shellStyle?: CSSProperties;
@@ -140,6 +140,7 @@ export function WrappedTeamMemberCard(props: {
 		hideHeaderLogo = false,
 		layoutPreset = "default",
 		mediaPanelClassName,
+		nameContent,
 		row,
 		shellClassName,
 		shellStyle,
@@ -458,7 +459,7 @@ export function WrappedTeamMemberCard(props: {
 						)}
 						style={nameStyle}
 					>
-						{row.displayName}
+						{nameContent ?? row.displayName}
 					</div>
 				</div>
 

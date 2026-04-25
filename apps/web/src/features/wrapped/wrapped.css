@@ -601,6 +601,38 @@ body.mymind-wrapped-body #cw-bubble-holder {
 	overscroll-behavior: none;
 }
 
+.mymind-wrapped-final-stage-presence {
+	display: flex;
+	flex: 1;
+	width: 100%;
+	min-width: 0;
+	min-height: 0;
+	transform-origin: center center;
+	will-change: transform, opacity, filter;
+}
+
+.mymind-wrapped-final-card-flight {
+	position: fixed;
+	top: 0;
+	left: 0;
+	z-index: 60;
+	width: 233px;
+	height: 358px;
+	pointer-events: none;
+	transform-origin: top left;
+	will-change: transform, opacity;
+}
+
+.mymind-wrapped-final-card-flight__card {
+	--wrapped-card-render-scale: 1;
+	display: grid;
+	width: 233px;
+	height: 358px;
+	place-items: center;
+	filter: drop-shadow(0 18px 28px rgb(15 23 42 / 0.12));
+	transform: translateZ(0);
+}
+
 .mymind-wrapped-intro-stage {
 	display: flex;
 	flex: 1;
@@ -5223,71 +5255,6 @@ body.mymind-wrapped-body #cw-bubble-holder {
 	min-height: 44px;
 }
 
-.mymind-wrapped-card-profile-step__export-row {
-	display: grid;
-	grid-template-columns: repeat(2, minmax(0, 1fr));
-	gap: 0.65rem;
-	width: 100%;
-	min-inline-size: 0;
-	margin: 0;
-	padding: 0;
-	border: 0;
-}
-
-.mymind-wrapped-card-profile-step__export-action {
-	min-height: 44px;
-	border-color: rgb(17 24 39 / 0.08);
-	border-radius: 999px;
-	background: rgb(255 255 255 / 0.84);
-	box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.72);
-	color: #282522;
-	font-family: var(--font-sans);
-	font-weight: 700;
-}
-
-.mymind-wrapped-card-profile-step__export-action:hover {
-	background: white;
-}
-
-.mymind-wrapped-card-profile-step__export-source {
-	position: fixed;
-	top: 0;
-	left: -12000px;
-	z-index: -1;
-	display: grid;
-	width: 1024px;
-	height: 1024px;
-	place-items: center;
-	overflow: clip;
-	background: #f5f1ea;
-	pointer-events: none;
-}
-
-.mymind-wrapped-card-profile-step__export-source .mymind-wrapped-share-preview {
-	--wrapped-share-preview-card-scale-base: 2.12;
-	--wrapped-share-preview-card-scale: var(--wrapped-share-preview-card-scale-base);
-	--wrapped-share-preview-spread-scale-base: 1.12;
-	--wrapped-share-preview-spread-scale: var(
-		--wrapped-share-preview-spread-scale-base
-	);
-	--wrapped-team-card-outer-radius: 0px;
-	width: 1024px;
-	max-width: none;
-	border: 0;
-	border-radius: 0;
-	box-shadow: none;
-}
-
-.mymind-wrapped-card-profile-step__export-source
-	.mymind-wrapped-share-preview__shell {
-	padding: 3rem 3.25rem 2.75rem;
-}
-
-.mymind-wrapped-card-profile-step__export-source
-	.mymind-wrapped-share-preview__body {
-	padding-block: 2rem 1.85rem;
-}
-
 .mymind-wrapped-card-profile-step__image-action,
 .mymind-wrapped-card-profile-step__reset {
 	display: inline-flex;
@@ -5332,6 +5299,86 @@ body.mymind-wrapped-body #cw-bubble-holder {
 	gap: 0.35rem;
 	color: #746d66;
 	font-size: 0.86rem;
+}
+
+.mymind-wrapped-card-profile-step__name-editor {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) auto;
+	align-items: center;
+	gap: calc(var(--wrapped-card-render-scale, 1) * 5px);
+	width: 100%;
+	padding: calc(var(--wrapped-card-render-scale, 1) * 3px);
+	border-radius: calc(var(--wrapped-card-render-scale, 1) * 10px);
+	background: rgb(255 255 255 / 0.88);
+	box-shadow:
+		inset 0 0 0 calc(var(--wrapped-card-render-scale, 1) * 1px)
+		rgb(15 23 42 / 0.1),
+		0 calc(var(--wrapped-card-render-scale, 1) * 5px)
+		calc(var(--wrapped-card-render-scale, 1) * 14px) rgb(15 23 42 / 0.08);
+}
+
+.mymind-wrapped-card-profile-step__name-input {
+	width: 100%;
+	min-width: 0;
+	height: calc(var(--wrapped-card-render-scale, 1) * 25px);
+	padding: 0 calc(var(--wrapped-card-render-scale, 1) * 7px);
+	border: calc(var(--wrapped-card-render-scale, 1) * 1px) solid
+		rgb(15 23 42 / 0.14);
+	border-radius: calc(var(--wrapped-card-render-scale, 1) * 7px);
+	background: rgb(255 255 255 / 0.96);
+	box-shadow: inset 0 calc(var(--wrapped-card-render-scale, 1) * 1px) 0
+		rgb(255 255 255 / 0.85);
+	color: inherit;
+	font: inherit;
+	font-size: calc(var(--wrapped-card-render-scale, 1) * 15px);
+	letter-spacing: inherit;
+	line-height: inherit;
+	text-align: center;
+	outline: none;
+	cursor: text;
+	appearance: none;
+}
+
+.mymind-wrapped-card-profile-step__name-input::placeholder {
+	color: rgb(37 34 32 / 0.42);
+}
+
+.mymind-wrapped-card-profile-step__name-input:focus-visible {
+	border-color: rgb(37 34 32 / 0.32);
+	box-shadow:
+		inset 0 calc(var(--wrapped-card-render-scale, 1) * 1px) 0
+		rgb(255 255 255 / 0.9),
+		0 0 0 calc(var(--wrapped-card-render-scale, 1) * 2px) rgb(37 34 32 / 0.12);
+}
+
+.mymind-wrapped-card-profile-step__name-save {
+	align-self: stretch;
+	min-width: calc(var(--wrapped-card-render-scale, 1) * 34px);
+	padding: 0 calc(var(--wrapped-card-render-scale, 1) * 7px);
+	border: 0;
+	border-radius: calc(var(--wrapped-card-render-scale, 1) * 7px);
+	background: #252220;
+	box-shadow: inset 0 calc(var(--wrapped-card-render-scale, 1) * 1px) 0
+		rgb(255 255 255 / 0.18);
+	color: #fffaf3;
+	font-family: var(--font-sans);
+	font-size: calc(var(--wrapped-card-render-scale, 1) * 8px);
+	font-weight: 800;
+	letter-spacing: -0.02em;
+	line-height: 1;
+	cursor: pointer;
+	transition:
+		opacity 140ms ease,
+		transform 140ms ease;
+}
+
+.mymind-wrapped-card-profile-step__name-save:hover:not(:disabled) {
+	transform: translateY(calc(var(--wrapped-card-render-scale, 1) * -1px));
+}
+
+.mymind-wrapped-card-profile-step__name-save:disabled {
+	opacity: 0.42;
+	cursor: not-allowed;
 }
 
 .mymind-wrapped-auth-form__switch-link {
@@ -6211,6 +6258,17 @@ body.mymind-wrapped-body #cw-bubble-holder {
 
 .mymind-wrapped-final-stage__card-visual-stage {
 	transform: translateY(clamp(-3.5rem, -5.8svh, -1.6rem));
+	transition: transform 240ms cubic-bezier(0.22, 1, 0.36, 1);
+	transform-origin: center center;
+}
+
+.mymind-wrapped-final-stage__card-morph-shell {
+	display: grid;
+	place-items: center;
+	border-radius: calc(var(--wrapped-card-render-scale, 1) * 18px);
+	transform-style: preserve-3d;
+	transform-origin: center center;
+	will-change: transform;
 }
 
 .mymind-wrapped-final-stage__flip-control {
@@ -6409,6 +6467,11 @@ body.mymind-wrapped-body #cw-bubble-holder {
 		translateZ(calc(var(--wrapped-card-flip-depth, 6px) * 0.5));
 }
 
+.mymind-wrapped-auth-card-preview--editable
+	.mymind-wrapped-printed-card-flip__plane--front {
+	pointer-events: auto;
+}
+
 .mymind-wrapped-printed-card-flip__image {
 	display: block;
 	width: 100%;
@@ -6465,6 +6528,33 @@ body.mymind-wrapped-body #cw-bubble-holder {
 		scale(var(--wrapped-card-tilt-scale));
 	transform-style: preserve-3d;
 	-webkit-backface-visibility: visible;
+}
+
+.mymind-wrapped-final-stage--handoff-preparing
+	.mymind-wrapped-final-stage__card-visual-stage {
+	transform: translateY(clamp(-2.6rem, -4.2svh, -1.1rem)) scale(0.985);
+}
+
+.mymind-wrapped-final-stage--handoff-preparing
+	.team-lineup-card-tilt-shell.mymind-wrapped-final-stage__tilt-shell {
+	--wrapped-card-base-rotate-x: 0deg;
+	--wrapped-card-base-rotate-y: 0deg;
+	pointer-events: none;
+	transition:
+		transform 240ms cubic-bezier(0.22, 1, 0.36, 1),
+		filter 240ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.mymind-wrapped-final-stage--handoff-preparing
+	.mymind-wrapped-final-stage__support {
+	opacity: 0;
+	pointer-events: none;
+	transform: translateY(0.5rem);
+	filter: blur(8px);
+	transition:
+		opacity 220ms cubic-bezier(0.22, 1, 0.36, 1),
+		transform 220ms cubic-bezier(0.22, 1, 0.36, 1),
+		filter 220ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .team-lineup-card-tilt-shell.mymind-wrapped-final-stage__tilt-shell::before {
@@ -6740,16 +6830,16 @@ body.mymind-wrapped-body #cw-bubble-holder {
 }
 
 .mymind-wrapped-share-variant-button {
-	min-width: 4.75rem;
+	min-width: 2rem;
 	min-height: 2rem;
-	padding-inline: 0.78rem;
+	padding-inline: 0;
 	border-color: rgb(17 24 39 / 0.08);
 	border-radius: 999px;
 	background: rgb(255 255 255 / 0.76);
 	box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.7);
 	color: #625d58;
-	font-size: 0.78rem;
-	font-weight: 650;
+	font-size: 0.82rem;
+	font-weight: 700;
 	line-height: 1;
 }
 
@@ -6804,8 +6894,10 @@ body.mymind-wrapped-body #cw-bubble-holder {
 
 .mymind-wrapped-share-preview {
 	--wrapped-share-preview-card-scale-base: 0.61;
-	--wrapped-share-preview-card-scale: var(--wrapped-share-preview-card-scale-base);
-	--wrapped-share-preview-spread-scale-base: 0.35;
+	--wrapped-share-preview-card-scale: var(
+		--wrapped-share-preview-card-scale-base
+	);
+	--wrapped-share-preview-spread-scale-base: 0.42;
 	--wrapped-share-preview-spread-scale: var(
 		--wrapped-share-preview-spread-scale-base
 	);
@@ -6864,7 +6956,7 @@ body.mymind-wrapped-body #cw-bubble-holder {
 	display: grid;
 	grid-template-columns: repeat(2, minmax(0, 1fr));
 	align-items: center;
-	gap: clamp(0.45rem, 2vw, 0.85rem);
+	gap: clamp(0.18rem, 0.8vw, 0.42rem);
 	width: 100%;
 }
 
@@ -6877,6 +6969,18 @@ body.mymind-wrapped-body #cw-bubble-holder {
 .mymind-wrapped-share-preview__card-stage--spread {
 	width: 100%;
 	max-width: none;
+}
+
+.mymind-wrapped-share-preview__card-layout-bridge {
+	display: grid;
+	place-items: center;
+	border-radius: calc(var(--wrapped-card-render-scale, 1) * 18px);
+	transform-origin: center center;
+	will-change: transform;
+}
+
+.mymind-wrapped-share-preview__card-layout-bridge[data-handoff-hidden="true"] {
+	opacity: 0;
 }
 
 .mymind-wrapped-share-preview__card-shell {
@@ -7022,7 +7126,7 @@ body.mymind-wrapped-body #cw-bubble-holder {
 
 	.mymind-wrapped-final-stage--share .mymind-wrapped-share-preview {
 		--wrapped-share-preview-card-scale-base: 0.56;
-		--wrapped-share-preview-spread-scale-base: 0.32;
+		--wrapped-share-preview-spread-scale-base: 0.38;
 	}
 
 	.mymind-wrapped-final-stage--share
@@ -7124,7 +7228,7 @@ body.mymind-wrapped-body #cw-bubble-holder {
 
 	.mymind-wrapped-share-preview {
 		--wrapped-share-preview-card-scale-base: 0.51;
-		--wrapped-share-preview-spread-scale-base: 0.29;
+		--wrapped-share-preview-spread-scale-base: 0.34;
 		width: min(100%, 18rem);
 	}
 
@@ -7233,7 +7337,7 @@ body.mymind-wrapped-body #cw-bubble-holder {
 
 	.mymind-wrapped-final-stage--share .mymind-wrapped-share-preview {
 		--wrapped-share-preview-card-scale-base: 0.9;
-		--wrapped-share-preview-spread-scale-base: 0.56;
+		--wrapped-share-preview-spread-scale-base: 0.66;
 	}
 
 	.mymind-wrapped-final-stage--share .mymind-wrapped-share-preview__shell {
@@ -7281,7 +7385,7 @@ body.mymind-wrapped-body #cw-bubble-holder {
 
 	.mymind-wrapped-final-stage--share .mymind-wrapped-share-preview {
 		--wrapped-share-preview-card-scale-base: 0.96;
-		--wrapped-share-preview-spread-scale-base: 0.6;
+		--wrapped-share-preview-spread-scale-base: 0.72;
 	}
 
 	.mymind-wrapped-final-stage--share .mymind-wrapped-share-preview__shell {

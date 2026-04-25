@@ -6,8 +6,10 @@ import {
 	copyToClipboard,
 	downloadAsImage,
 } from "@/lib/screenshot";
+import { buildWrappedXIntentUrl } from "./wrapped-x-share";
 
 type WrappedImageShareActionKind = "copy" | "download" | "share";
+type WrappedImageShareTarget = "system" | "x";
 
 interface WrappedImageShareMessages {
 	captureError: string;
@@ -17,6 +19,8 @@ interface WrappedImageShareMessages {
 	missingElementError: string;
 	shareDownloadSuccess: string;
 	shareUrlError: string;
+	xShareCopiedSuccess: string;
+	xShareDownloadedSuccess: string;
 }
 
 interface CreateWrappedImageShareActionsParams {
@@ -27,6 +31,7 @@ interface CreateWrappedImageShareActionsParams {
 	onShareActionTriggered?: (action: WrappedImageShareActionKind) => void;
 	resolveShareUrl?: () => Promise<string | undefined>;
 	shareText: string;
+	shareTarget?: WrappedImageShareTarget;
 	shareTitle: string;
 	shareUrl?: string;
 	shareUrlLabel: string;
@@ -49,6 +54,10 @@ const DEFAULT_WRAPPED_IMAGE_SHARE_MESSAGES: WrappedImageShareMessages = {
 	missingElementError: "Could not find the image to share.",
 	shareDownloadSuccess: "Image downloaded. Share the PNG from your downloads.",
 	shareUrlError: "Could not create a share link. Sharing the image without it.",
+	xShareCopiedSuccess:
+		"Image copied. X is open. Paste the image into the post.",
+	xShareDownloadedSuccess:
+		"Image downloaded. X is open. Attach the PNG from your downloads.",
 };
 
 export function createWrappedImageShareActions(
@@ -62,6 +71,7 @@ export function createWrappedImageShareActions(
 		onShareActionTriggered,
 		resolveShareUrl,
 		shareText,
+		shareTarget = "system",
 		shareTitle,
 		shareUrl,
 		shareUrlLabel,
@@ -81,6 +91,12 @@ export function createWrappedImageShareActions(
 
 	async function handleShareImage() {
 		onShareActionTriggered?.("share");
+
+		if (shareTarget === "x") {
+			await handleShareImageToX();
+			return;
+		}
+
 		const imageBlob = await captureShareImage({
 			captureOptions,
 			imageRef,
@@ -127,6 +143,51 @@ export function createWrappedImageShareActions(
 
 		downloadAsImage(imageBlob, fileName);
 		toast.success(messages.shareDownloadSuccess);
+	}
+
+	async function handleShareImageToX() {
+		const pendingXWindow = openPendingXWindow(
+			buildWrappedXIntentUrl({
+				text: shareText,
+				url: shareUrl,
+			}),
+		);
+		const imageBlob = await captureShareImage({
+			captureOptions,
+			imageRef,
+			messages,
+		});
+
+		if (!imageBlob) {
+			closePendingXWindow(pendingXWindow);
+			return;
+		}
+
+		const resolvedShareUrl = await getResolvedShareUrl({
+			messages,
+			resolveShareUrl,
+			shareUrl,
+		});
+		const copied = await copyToClipboard(imageBlob);
+
+		if (copied) {
+			toast.success(messages.xShareCopiedSuccess, {
+				duration: 7000,
+			});
+		} else {
+			downloadAsImage(imageBlob, fileName);
+			toast.success(messages.xShareDownloadedSuccess, {
+				duration: 7000,
+			});
+		}
+
+		openXIntentWindow(
+			pendingXWindow,
+			buildWrappedXIntentUrl({
+				text: shareText,
+				url: resolvedShareUrl,
+			}),
+		);
 	}
 
 	async function handleCopyImage() {
@@ -218,4 +279,41 @@ function canShareFiles(shareFile: File) {
 	} catch {
 		return false;
 	}
+}
+
+function openPendingXWindow(initialXIntentUrl: string) {
+	if (typeof window === "undefined") {
+		return null;
+	}
+
+	try {
+		const pendingXWindow = window.open(initialXIntentUrl, "_blank");
+
+		if (pendingXWindow) {
+			pendingXWindow.opener = null;
+		}
+
+		return pendingXWindow;
+	} catch {
+		return null;
+	}
+}
+
+function openXIntentWindow(pendingXWindow: Window | null, xIntentUrl: string) {
+	if (pendingXWindow && !pendingXWindow.closed) {
+		pendingXWindow.location.href = xIntentUrl;
+		return;
+	}
+
+	window.open(xIntentUrl, "_blank", "noopener,noreferrer");
+}
+
+function closePendingXWindow(pendingXWindow: Window | null) {
+	if (!pendingXWindow || pendingXWindow.closed) {
+		return;
+	}
+
+	try {
+		pendingXWindow.close();
+	} catch {}
 }

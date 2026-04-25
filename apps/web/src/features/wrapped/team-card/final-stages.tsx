@@ -52,6 +52,8 @@ interface WrappedTeamCardStageCardProps {
 interface WrappedTeamCardShareStageProps extends WrappedTeamCardStageCardProps {
 	appearance: WrappedShareAppearance;
 	backMetrics: readonly WrappedTeamMemberCardBackMetric[];
+	frontCardHandoffRef?: RefObject<HTMLDivElement | null>;
+	isFrontCardHandoffHidden?: boolean;
 	onBack: () => void;
 	onCopy: () => void | Promise<void>;
 	onContinueToDashboard: () => void;
@@ -65,6 +67,8 @@ interface WrappedTeamCardShareStageProps extends WrappedTeamCardStageCardProps {
 interface WrappedTeamCardRevealStageProps
 	extends WrappedTeamCardStageCardProps {
 	activeArchetype: WrappedArchetypeCardTheme;
+	handoffCardRef?: RefObject<HTMLDivElement | null>;
+	isPostHandoffPreparing?: boolean;
 	onboardingMetrics: WrappedOnboardingMetrics;
 	onPreviewPost: () => void;
 	onRevealComplete?: () => void;
@@ -78,7 +82,7 @@ type WrappedRevealSequencePhase = "sessions" | "tokens" | "archetype";
 const WRAPPED_SHARE_VARIANTS: ReadonlyArray<{
 	appearance: WrappedShareAppearance;
 	description: string;
-	label: "1 card" | "2 cards";
+	label: "1" | "2";
 }> = [
 	{
 		appearance: {
@@ -86,7 +90,7 @@ const WRAPPED_SHARE_VARIANTS: ReadonlyArray<{
 			showArchetypeLabel: true,
 		},
 		description: "One card",
-		label: "1 card",
+		label: "1",
 	},
 	{
 		appearance: {
@@ -94,7 +98,7 @@ const WRAPPED_SHARE_VARIANTS: ReadonlyArray<{
 			showArchetypeLabel: true,
 		},
 		description: "Two cards",
-		label: "2 cards",
+		label: "2",
 	},
 ];
 
@@ -131,6 +135,7 @@ const REVEAL_STAGE_CARD_DROP_DURATION_MS = Math.round(
 const REVEAL_STAGE_CARD_FLIP_DURATION_MS = Math.round(
 	REVEAL_STAGE_MOTION.duration.flip * 1_000,
 );
+const WRAPPED_FINAL_SHARE_CHROME_EASE = [0.22, 1, 0.36, 1] as const;
 
 export function WrappedTeamCardShareStage(
 	props: WrappedTeamCardShareStageProps,
@@ -138,8 +143,10 @@ export function WrappedTeamCardShareStage(
 	const {
 		appearance,
 		backMetrics,
+		frontCardHandoffRef,
 		headerLeftMetric,
 		headerRightMetric,
+		isFrontCardHandoffHidden = false,
 		onBack,
 		onCopy,
 		onContinueToDashboard,
@@ -155,6 +162,8 @@ export function WrappedTeamCardShareStage(
 		statLayerOpacities,
 		theme,
 	} = props;
+	const shouldReduceMotion = useReducedMotion();
+	const reduceMotion = shouldReduceMotion ?? false;
 	const resolvedAppearance = resolveWrappedShareAppearance(appearance);
 
 	return (
@@ -164,16 +173,30 @@ export function WrappedTeamCardShareStage(
 			objectClassName="mymind-wrapped-final-stage__object"
 			supportClassName="mymind-wrapped-final-stage__support"
 			copy={
-				<div className="mymind-wrapped-final-stage__share-copy-shell">
+				<motion.div
+					{...getWrappedShareChromeMotion({
+						delay: 0.12,
+						reduceMotion,
+						y: 10,
+					})}
+					className="mymind-wrapped-final-stage__share-copy-shell"
+				>
 					<h1 className="mymind-wrapped-stage-copy__headline mymind-wrapped-final-stage__headline">
 						Show this to world
 					</h1>
-				</div>
+				</motion.div>
 			}
 			object={
 				<div className="mymind-wrapped-final-stage__share-object-shell">
-					<div className="mymind-wrapped-share-surface">
-						<div className="mymind-wrapped-share-surface__rail">
+					<motion.div layout className="mymind-wrapped-share-surface">
+						<motion.div
+							{...getWrappedShareChromeMotion({
+								delay: 0.22,
+								reduceMotion,
+								y: -8,
+							})}
+							className="mymind-wrapped-share-surface__rail"
+						>
 							<div
 								role="group"
 								aria-label="Post variants"
@@ -230,14 +253,17 @@ export function WrappedTeamCardShareStage(
 									<Download className="size-4" />
 								</Button>
 							</div>
-						</div>
+						</motion.div>
 
 						<div className="mymind-wrapped-share-surface__preview">
 							<WrappedTeamCardSharePreview
 								appearance={resolvedAppearance}
 								backMetrics={backMetrics}
+								frontCardHandoffRef={frontCardHandoffRef}
 								headerLeftMetric={headerLeftMetric}
 								headerRightMetric={headerRightMetric}
+								isChromeEntranceAnimated
+								isFrontCardHandoffHidden={isFrontCardHandoffHidden}
 								row={row}
 								shareCardCreatedAtLabel={shareCardCreatedAtLabel}
 								sharePostRef={sharePostRef}
@@ -248,24 +274,39 @@ export function WrappedTeamCardShareStage(
 								theme={theme}
 							/>
 						</div>
-					</div>
+					</motion.div>
 				</div>
 			}
 			support={
 				<>
-					<nav className="mymind-wrapped-share-actions">
-						<Button
-							type="button"
-							size="lg"
-							className="mymind-wrapped-share-actions__primary"
-							onClick={onShare}
-						>
-							<Share2 className="size-4" />
-							Share post
-						</Button>
-					</nav>
+					<motion.div
+						{...getWrappedShareChromeMotion({
+							delay: 0.42,
+							reduceMotion,
+							y: 12,
+						})}
+					>
+						<nav className="mymind-wrapped-share-actions">
+							<Button
+								type="button"
+								size="lg"
+								className="mymind-wrapped-share-actions__primary"
+								onClick={onShare}
+							>
+								<Share2 className="size-4" />
+								Share to X
+							</Button>
+						</nav>
+					</motion.div>
 
-					<div className="mymind-wrapped-share-actions__meta-grid">
+					<motion.div
+						{...getWrappedShareChromeMotion({
+							delay: 0.48,
+							reduceMotion,
+							y: 12,
+						})}
+						className="mymind-wrapped-share-actions__meta-grid"
+					>
 						<Button
 							type="button"
 							size="lg"
@@ -285,7 +326,7 @@ export function WrappedTeamCardShareStage(
 						>
 							Continue
 						</Button>
-					</div>
+					</motion.div>
 				</>
 			}
 		/>
@@ -298,9 +339,37 @@ function isWrappedShareAppearanceActive(input: {
 }) {
 	const { currentValue, targetValue } = input;
 
-	return (
-		currentValue.layoutMode === targetValue.layoutMode
-	);
+	return currentValue.layoutMode === targetValue.layoutMode;
+}
+
+function getWrappedShareChromeMotion(input: {
+	delay: number;
+	reduceMotion: boolean;
+	y: number;
+}) {
+	const { delay, reduceMotion, y } = input;
+
+	if (reduceMotion) {
+		return {
+			animate: { opacity: 1 },
+			initial: { opacity: 0 },
+			transition: {
+				delay: Math.min(delay, 0.08),
+				duration: 0.14,
+				ease: "linear" as const,
+			},
+		};
+	}
+
+	return {
+		animate: { filter: "blur(0px)", opacity: 1, y: 0 },
+		initial: { filter: "blur(8px)", opacity: 0, y },
+		transition: {
+			delay,
+			duration: 0.32,
+			ease: WRAPPED_FINAL_SHARE_CHROME_EASE,
+		},
+	};
 }
 
 export function WrappedTeamCardRevealStage(
@@ -308,8 +377,10 @@ export function WrappedTeamCardRevealStage(
 ) {
 	const {
 		activeArchetype,
+		handoffCardRef,
 		headerLeftMetric,
 		headerRightMetric,
+		isPostHandoffPreparing = false,
 		isPreviewPostVisible,
 		onboardingMetrics,
 		onPreviewPost,
@@ -471,12 +542,17 @@ export function WrappedTeamCardRevealStage(
 			return;
 		}
 
+		tiltController.handlePointerLeave();
 		onPreviewPost();
 	}
 
 	return (
 		<WrappedStageFrame
-			className="mymind-wrapped-final-stage mymind-wrapped-final-stage--reveal"
+			className={`mymind-wrapped-final-stage mymind-wrapped-final-stage--reveal${
+				isPostHandoffPreparing
+					? " mymind-wrapped-final-stage--handoff-preparing"
+					: ""
+			}`}
 			objectClassName="mymind-wrapped-final-stage__object mymind-wrapped-final-stage__object--canvas"
 			supportClassName="mymind-wrapped-final-stage__support"
 			object={
@@ -532,73 +608,78 @@ export function WrappedTeamCardRevealStage(
 					>
 						<div className="team-lineup-card-tilt-stage mymind-wrapped-final-stage__card-visual-stage w-full max-w-[16rem] min-[360px]:max-w-[16.75rem] sm:max-w-none">
 							<div
-								ref={tiltController.cardTiltRef}
-								className="team-lineup-card-tilt-shell mymind-wrapped-final-stage__tilt-shell [--wrapped-card-render-scale:1] min-[360px]:[--wrapped-card-render-scale:1.08] sm:[--wrapped-card-render-scale:1.42] lg:[--wrapped-card-render-scale:1.56]"
-								data-flip-active={isCardFlipAnimating ? "true" : "false"}
-								onPointerMove={(event) => {
-									if (!isCardFlipAnimating) {
-										tiltController.handlePointerMove(event);
-									}
-								}}
-								onPointerLeave={tiltController.handlePointerLeave}
-								onPointerCancel={tiltController.handlePointerLeave}
-								style={
-									{
-										"--wrapped-card-flip-rotate-y": isCardFrontVisible
-											? "0deg"
-											: "180deg",
-									} as CSSProperties
-								}
+								ref={handoffCardRef}
+								className="mymind-wrapped-final-stage__card-morph-shell"
 							>
-								<button
-									aria-label={
-										isCardFrontVisible
-											? "Show back of card"
-											: "Reveal front of card"
+								<div
+									ref={tiltController.cardTiltRef}
+									className="team-lineup-card-tilt-shell mymind-wrapped-final-stage__tilt-shell [--wrapped-card-render-scale:1] min-[360px]:[--wrapped-card-render-scale:1.08] sm:[--wrapped-card-render-scale:1.42] lg:[--wrapped-card-render-scale:1.56]"
+									data-flip-active={isCardFlipAnimating ? "true" : "false"}
+									onPointerMove={(event) => {
+										if (!isCardFlipAnimating && !isPostHandoffPreparing) {
+											tiltController.handlePointerMove(event);
+										}
+									}}
+									onPointerLeave={tiltController.handlePointerLeave}
+									onPointerCancel={tiltController.handlePointerLeave}
+									style={
+										{
+											"--wrapped-card-flip-rotate-y": isCardFrontVisible
+												? "0deg"
+												: "180deg",
+										} as CSSProperties
 									}
-									aria-pressed={isCardFrontVisible}
-									className="mymind-wrapped-final-stage__flip-control"
-									data-card-face={isCardFrontVisible ? "front" : "back"}
-									disabled={!isCardDropped}
-									onClick={handleCardFlipToggle}
-									type="button"
 								>
-									<WrappedPrintedCardFlip
-										captureKey={printedCardCaptureKey}
-										front={
-											<div className="grid justify-center">
-												<WrappedTeamMemberCard
-													disableOuterShadow
-													headerLeftMetric={headerLeftMetric}
-													headerRightMetric={headerRightMetric}
-													hideHeaderLogo
-													layoutPreset="team-card-preview"
-													mediaPanelClassName="mx-auto"
-													row={row}
-													shellClassName={shellClassName}
-													shellStyle={shellStyle}
-													statItems={statItems}
-													statLayerOpacities={statLayerOpacities}
-													statTileClassName=""
-													theme={theme}
-												/>
-											</div>
+									<button
+										aria-label={
+											isCardFrontVisible
+												? "Show back of card"
+												: "Reveal front of card"
 										}
-										back={
-											<div className="grid justify-center">
-												<WrappedTeamMemberCardBack
-													disableOuterShadow
-													metrics={revealBackMetrics}
-													shellClassName={shellClassName}
-													shellStyle={shellStyle}
-													theme={theme}
-												/>
-											</div>
-										}
-										isFrontVisible={isCardFrontVisible}
-										reduceMotion={reduceMotion}
-									/>
-								</button>
+										aria-pressed={isCardFrontVisible}
+										className="mymind-wrapped-final-stage__flip-control"
+										data-card-face={isCardFrontVisible ? "front" : "back"}
+										disabled={!isCardDropped || isPostHandoffPreparing}
+										onClick={handleCardFlipToggle}
+										type="button"
+									>
+										<WrappedPrintedCardFlip
+											captureKey={printedCardCaptureKey}
+											front={
+												<div className="grid justify-center">
+													<WrappedTeamMemberCard
+														disableOuterShadow
+														headerLeftMetric={headerLeftMetric}
+														headerRightMetric={headerRightMetric}
+														hideHeaderLogo
+														layoutPreset="team-card-preview"
+														mediaPanelClassName="mx-auto"
+														row={row}
+														shellClassName={shellClassName}
+														shellStyle={shellStyle}
+														statItems={statItems}
+														statLayerOpacities={statLayerOpacities}
+														statTileClassName=""
+														theme={theme}
+													/>
+												</div>
+											}
+											back={
+												<div className="grid justify-center">
+													<WrappedTeamMemberCardBack
+														disableOuterShadow
+														metrics={revealBackMetrics}
+														shellClassName={shellClassName}
+														shellStyle={shellStyle}
+														theme={theme}
+													/>
+												</div>
+											}
+											isFrontVisible={isCardFrontVisible}
+											reduceMotion={reduceMotion}
+										/>
+									</button>
+								</div>
 							</div>
 						</div>
 					</motion.div>
@@ -606,7 +687,7 @@ export function WrappedTeamCardRevealStage(
 			}
 			support={
 				<WrappedTeamCardRevealFooter
-					isDisabled={isCardFlipAnimating}
+					isDisabled={isCardFlipAnimating || isPostHandoffPreparing}
 					isVisible={isPreviewPostVisible}
 					label="Continue"
 					onAction={handleRevealFooterAction}
