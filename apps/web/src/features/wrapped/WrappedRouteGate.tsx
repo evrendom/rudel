@@ -166,36 +166,28 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 		key: sessionUserId,
 	});
 
-	if (publicId) {
-		return <WrappedPublicPage publicId={publicId} />;
-	}
+	let content;
 
-	if (isPending) {
-		return (
+	if (publicId) {
+		content = <WrappedPublicPage publicId={publicId} />;
+	} else if (isPending) {
+		content = (
 			<WrappedRouteLoadingState body="Checking your account before loading wrapped..." />
 		);
-	}
-
-	if (!session) {
-		return <WrappedGuestPage />;
-	}
-
-	if (setupProgress.isLoading) {
-		return <WrappedSetupLoadingState />;
-	}
-
-	if (shouldForceDesktopReady) {
-		return <WrappedSetupPage />;
-	}
-
-	if (
+	} else if (!session) {
+		content = <WrappedGuestPage />;
+	} else if (setupProgress.isLoading) {
+		content = <WrappedSetupLoadingState />;
+	} else if (shouldForceDesktopReady) {
+		content = <WrappedSetupPage />;
+	} else if (
 		sessionUserId &&
 		(shouldForceSessionsLanded ||
 			(setupProgress.hasUploadedSessions &&
 				sessionUserId &&
 				!hasCompletedSetup))
 	) {
-		return (
+		content = (
 			<WrappedSetupCompletePage
 				onBack={() => setWrappedRouteFlowStage("desktop-ready")}
 				onContinue={handleSetupComplete}
@@ -203,26 +195,24 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 				userId={sessionUserId}
 			/>
 		);
-	}
-
-	if (shouldForceStory || setupProgress.hasUploadedSessions) {
-		return (
+	} else if (shouldForceStory || setupProgress.hasUploadedSessions) {
+		content = (
 			<WrappedTeamCardPage
 				onBackFromFirstStep={() => setWrappedRouteFlowStage("sessions-landed")}
 			/>
 		);
-	}
-
-	if (isMobile && sessionUserEmail) {
-		return (
+	} else if (isMobile && sessionUserEmail) {
+		content = (
 			<WrappedDesktopResumePromptPage
 				email={sessionUserEmail}
 				shareId={shareId}
 			/>
 		);
+	} else {
+		content = <WrappedSetupPage />;
 	}
 
-	return <WrappedSetupPage />;
+	return content;
 }
 
 function getWrappedRouteFlowStage(

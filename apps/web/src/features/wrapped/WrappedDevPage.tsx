@@ -91,8 +91,8 @@ export function WrappedDevPage() {
 	const dialValues = useDialKit("Wrapped Auth Flow", {
 		card: {
 			_collapsed: true,
-			formScale: [1.84, 0.72, 3, 0.01],
-			introScale: [2, 0.72, 3, 0.01],
+			formScale: [1, 0.88, 1.08, 0.01],
+			introScale: [1, 0.88, 1.08, 0.01],
 		},
 	});
 	const activeStage = getWrappedDevStage(searchParams.get("stage"));

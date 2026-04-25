@@ -1,6 +1,6 @@
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import type { CSSProperties } from "react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useMountEffect } from "@/hooks/useMountEffect";
 import { cn } from "@/lib/utils";
 import {
@@ -64,8 +64,11 @@ const TOOLS_STAGE_COPY_HANDOFF_MS = 520;
 const TOOLS_STAGE_SEQUENCE_HOLD_MS = [2_040, 2_160] as const;
 
 export function WrappedOnboardingToolsStage(props: ToolsStageProps) {
-	const { onboardingMetrics, onBaseModelSequenceComplete, previewState } =
-		props;
+	const {
+		onboardingMetrics,
+		onBaseModelSequenceComplete,
+		previewState,
+	} = props;
 	const shouldReduceMotion = useReducedMotion();
 	const reduceMotion = shouldReduceMotion ?? false;
 	const previewInput = resolveToolsPreviewInput(
@@ -112,11 +115,34 @@ export function WrappedOnboardingToolsStage(props: ToolsStageProps) {
 	const activeSequenceFrame =
 		sequenceFrames[sequenceIndex] ?? sequenceFrames.at(-1);
 	const showFinalScene = scenePhase === "final";
+	const sequenceTimerRefs = useRef<number[]>([]);
+	const hasCompletedSequenceRef = useRef(false);
+
+	function clearRegularSequenceTimers() {
+		for (const timeoutId of sequenceTimerRefs.current) {
+			window.clearTimeout(timeoutId);
+		}
+
+		sequenceTimerRefs.current = [];
+	}
+
+	function completeRegularSequence() {
+		if (hasCompletedSequenceRef.current) {
+			return;
+		}
+
+		hasCompletedSequenceRef.current = true;
+		onBaseModelSequenceComplete?.();
+	}
 
 	useMountEffect(() => {
+		clearRegularSequenceTimers();
+		hasCompletedSequenceRef.current = false;
+
 		if (reduceMotion) {
 			setSequenceIndex(sequenceFrames.length - 1);
 			setScenePhase("final");
+			completeRegularSequence();
 			return;
 		}
 
@@ -138,15 +164,15 @@ export function WrappedOnboardingToolsStage(props: ToolsStageProps) {
 		timeoutIds.push(
 			window.setTimeout(() => {
 				setScenePhase("final");
+				completeRegularSequence();
 			}, elapsedMs +
 				resolveToolsStageSequenceHoldMs(sequenceFrames.length - 1) +
 				TOOLS_STAGE_COPY_HANDOFF_MS),
 		);
+		sequenceTimerRefs.current = timeoutIds;
 
 		return () => {
-			for (const timeoutId of timeoutIds) {
-				window.clearTimeout(timeoutId);
-			}
+			clearRegularSequenceTimers();
 		};
 	});
 
@@ -369,17 +395,40 @@ function WrappedOnboardingToolsBaseModelStage(props: {
 		reduceMotion ? TOOLS_BASE_MODEL_LINES.length : 0,
 	);
 	const [isDocsVisible, setIsDocsVisible] = useState(reduceMotion);
+	const timerRefs = useRef<number[]>([]);
+	const hasCompletedSequenceRef = useRef(false);
+
+	function clearSequenceTimers() {
+		for (const timeoutId of timerRefs.current) {
+			window.clearTimeout(timeoutId);
+		}
+
+		timerRefs.current = [];
+	}
+
+	function completeSequence() {
+		if (hasCompletedSequenceRef.current) {
+			return;
+		}
+
+		hasCompletedSequenceRef.current = true;
+		onSequenceComplete?.();
+	}
 
 	useMountEffect(() => {
+		clearSequenceTimers();
+		hasCompletedSequenceRef.current = false;
+
 		if (reduceMotion) {
 			setVisibleLineCount(TOOLS_BASE_MODEL_LINES.length);
 			setIsDocsVisible(true);
 			const timeoutId = window.setTimeout(() => {
-				onSequenceComplete?.();
+				completeSequence();
 			}, TOOLS_BASE_MODEL_REDUCED_ADVANCE_MS);
+			timerRefs.current = [timeoutId];
 
 			return () => {
-				window.clearTimeout(timeoutId);
+				clearSequenceTimers();
 			};
 		}
 
@@ -395,20 +444,16 @@ function WrappedOnboardingToolsBaseModelStage(props: {
 		}, TOOLS_BASE_MODEL_LINES.length * TOOLS_BASE_MODEL_LINE_STAGGER_MS);
 		const completeTimerId = window.setTimeout(
 			() => {
-				onSequenceComplete?.();
+				completeSequence();
 			},
 			TOOLS_BASE_MODEL_LINES.length * TOOLS_BASE_MODEL_LINE_STAGGER_MS +
 				TOOLS_BASE_MODEL_DOCS_REVEAL_MS +
 				TOOLS_BASE_MODEL_ADVANCE_HOLD_MS,
 		);
+		timerRefs.current = [...timeoutIds, docsTimerId, completeTimerId];
 
 		return () => {
-			for (const timeoutId of timeoutIds) {
-				window.clearTimeout(timeoutId);
-			}
-
-			window.clearTimeout(docsTimerId);
-			window.clearTimeout(completeTimerId);
+			clearSequenceTimers();
 		};
 	});
 

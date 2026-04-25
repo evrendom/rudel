@@ -11,6 +11,7 @@ import {
 	type WrappedTeamMemberCardStatItem,
 } from "./team-card/card";
 import { WrappedTeamMemberCardBack } from "./team-card/card-back";
+import { WrappedPrintedCardFlip } from "./team-card/printed-card-flip";
 import { useWrappedCardTilt } from "./team-card/tilt/use-card-tilt";
 import type { WrappedGuestPreviewProfile } from "./wrapped-guest-preview";
 
@@ -154,6 +155,14 @@ export function WrappedGuestPreviewCard(props: WrappedGuestPreviewCardProps) {
 		row,
 		shareCardCreatedAtLabel: WRAPPED_GUEST_CARD_ISSUED_AT_LABEL,
 	});
+	const printedCardCaptureKey = [
+		row.userId,
+		row.displayName,
+		row.imageUrl ?? "",
+		WRAPPED_GUEST_CARD_THEME.theme,
+		...WRAPPED_GUEST_CARD_STAT_ITEMS.map((item) => `${item.key}:${item.value}`),
+		...backMetrics.map((metric) => `${metric.label}:${metric.value}`),
+	].join("|");
 
 	useEffect(() => {
 		if (!isCardFlipAnimating || reduceMotion) {
@@ -223,42 +232,40 @@ export function WrappedGuestPreviewCard(props: WrappedGuestPreviewCardProps) {
 							data-card-face={isCardFrontVisible ? "front" : "back"}
 							onClick={handleCardFlipToggle}
 						>
-							<div className="mymind-wrapped-final-stage__flip-shell">
-								<div className="mymind-wrapped-final-stage__flip-rotator">
-									<div
-										aria-hidden={!isCardFrontVisible}
-										className="mymind-wrapped-final-stage__flip-face mymind-wrapped-final-stage__flip-face--front"
-									>
-										<div className="grid justify-center">
-											<WrappedTeamMemberCard
-												headerLeftMetric={WRAPPED_GUEST_CARD_HEADER_LEFT_METRIC}
-												headerRightMetric={WRAPPED_GUEST_CARD_HEADER_RIGHT_METRIC}
-												hideHeaderLogo
-												layoutPreset="team-card-preview"
-												mediaPanelClassName="mx-auto"
-												row={row}
-												shellClassName={WRAPPED_GUEST_CARD_THEME.shellClassName}
-												shellStyle={WRAPPED_GUEST_CARD_SHELL_STYLE}
-												statItems={WRAPPED_GUEST_CARD_STAT_ITEMS}
-												statTileClassName=""
-												theme={WRAPPED_GUEST_CARD_THEME.theme}
-											/>
-										</div>
+							<WrappedPrintedCardFlip
+								captureKey={printedCardCaptureKey}
+								front={
+									<div className="grid justify-center">
+										<WrappedTeamMemberCard
+											disableOuterShadow
+											headerLeftMetric={WRAPPED_GUEST_CARD_HEADER_LEFT_METRIC}
+											headerRightMetric={WRAPPED_GUEST_CARD_HEADER_RIGHT_METRIC}
+											hideHeaderLogo
+											layoutPreset="team-card-preview"
+											mediaPanelClassName="mx-auto"
+											row={row}
+											shellClassName={WRAPPED_GUEST_CARD_THEME.shellClassName}
+											shellStyle={WRAPPED_GUEST_CARD_SHELL_STYLE}
+											statItems={WRAPPED_GUEST_CARD_STAT_ITEMS}
+											statTileClassName=""
+											theme={WRAPPED_GUEST_CARD_THEME.theme}
+										/>
 									</div>
-
-									<div
-										aria-hidden={isCardFrontVisible}
-										className="mymind-wrapped-final-stage__flip-face mymind-wrapped-final-stage__flip-face--back"
-									>
+								}
+								back={
+									<div className="grid justify-center">
 										<WrappedTeamMemberCardBack
+											disableOuterShadow
 											metrics={backMetrics}
 											shellClassName={WRAPPED_GUEST_CARD_THEME.shellClassName}
 											shellStyle={WRAPPED_GUEST_CARD_SHELL_STYLE}
 											theme={WRAPPED_GUEST_CARD_THEME.theme}
 										/>
 									</div>
-								</div>
-							</div>
+								}
+								isFrontVisible={isCardFrontVisible}
+								reduceMotion={reduceMotion}
+							/>
 						</button>
 					</div>
 				</div>

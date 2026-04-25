@@ -106,9 +106,11 @@ describe("WrappedOnboardingToolsStage", () => {
 
 	it("hands the regular tools sequence off to a separate final scene", () => {
 		vi.useFakeTimers();
+		const onBaseModelSequenceComplete = vi.fn();
 
 		render(
 			<WrappedOnboardingToolsStage
+				onBaseModelSequenceComplete={onBaseModelSequenceComplete}
 				onboardingMetrics={emptyToolsMetrics}
 				previewState="both"
 			/>,
@@ -142,5 +144,7 @@ describe("WrappedOnboardingToolsStage", () => {
 		expect(
 			screen.getByRole("button", { name: "/fix. 58% of sessions" }),
 		).toBeInTheDocument();
+		expect(onBaseModelSequenceComplete).toHaveBeenCalledTimes(1);
 	});
+
 });

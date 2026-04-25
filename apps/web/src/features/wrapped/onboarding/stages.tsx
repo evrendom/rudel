@@ -246,7 +246,11 @@ export function WrappedOnboardingStage(props: WrappedOnboardingStageProps) {
 export function WrappedOnboardingScaleRainBackdrop(
 	props: WrappedOnboardingScaleRainBackdropProps,
 ) {
-	const { onDisplayedTokensChange, reduceMotion, totalTokens } = props;
+	const {
+		onDisplayedTokensChange,
+		reduceMotion,
+		totalTokens,
+	} = props;
 	const balls = buildScaleRainBalls(totalTokens);
 	const logicalBallCount = resolveScaleRainBallCount(totalTokens);
 

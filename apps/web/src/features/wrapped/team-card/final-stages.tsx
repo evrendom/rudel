@@ -2,7 +2,13 @@ import { ChevronRight, Clipboard, Download, Share2 } from "lucide-react";
 import type { WrappedShareAppearance } from "@rudel/api-routes";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 // biome-ignore lint/style/noRestrictedImports: reveal-stage timers are an imperative storyboard bridge for this wrapped surface.
-import { type CSSProperties, type RefObject, useEffect, useState } from "react";
+import {
+	type CSSProperties,
+	type RefObject,
+	useEffect,
+	useRef,
+	useState,
+} from "react";
 import { Button } from "@/app/ui/button";
 import type { TeamPageMemberRow } from "@/features/team/use-team-page-data";
 import {
@@ -29,6 +35,7 @@ import {
 	WrappedTeamMemberCardBack,
 	type WrappedTeamMemberCardBackMetric,
 } from "./card-back";
+import { WrappedPrintedCardFlip } from "./printed-card-flip";
 import { resolveWrappedShareAppearance } from "./share-appearance";
 import { WrappedTeamCardSharePreview } from "./share-preview";
 import type { WrappedCardTiltController } from "./tilt/use-card-tilt";
@@ -61,6 +68,7 @@ interface WrappedTeamCardRevealStageProps
 	extends WrappedTeamCardStageCardProps {
 	activeArchetype: WrappedArchetypeCardTheme;
 	onboardingMetrics: WrappedOnboardingMetrics;
+	onRevealComplete?: () => void;
 	shareCardCreatedAtLabel: string;
 	tiltController: WrappedCardTiltController;
 }
@@ -133,6 +141,9 @@ const REVEAL_STAGE_SEQUENCE = [
 }>;
 
 const REVEAL_STAGE_CARD_DROP_DELAY_MS = 1_250;
+const REVEAL_STAGE_CARD_DROP_DURATION_MS = Math.round(
+	REVEAL_STAGE_MOTION.duration.card * 1_000,
+);
 const REVEAL_STAGE_CARD_FLIP_DURATION_MS = Math.round(
 	REVEAL_STAGE_MOTION.duration.flip * 1_000,
 );
@@ -317,6 +328,7 @@ export function WrappedTeamCardRevealStage(
 		headerLeftMetric,
 		headerRightMetric,
 		onboardingMetrics,
+		onRevealComplete,
 		row,
 		shellClassName,
 		shellStyle,
@@ -335,6 +347,8 @@ export function WrappedTeamCardRevealStage(
 	const [isCardDropped, setIsCardDropped] = useState(() => reduceMotion);
 	const [isCardFrontVisible, setIsCardFrontVisible] = useState(false);
 	const [isCardFlipAnimating, setIsCardFlipAnimating] = useState(false);
+	const revealTimerRefs = useRef<number[]>([]);
+	const onRevealCompleteRef = useRef(onRevealComplete);
 	const revealCopy = getWrappedRevealCopy(activeArchetype);
 	const revealStoryCopy = getWrappedRevealStoryCopy({
 		archetype: activeArchetype,
@@ -352,14 +366,45 @@ export function WrappedTeamCardRevealStage(
 			: sequencePhase === "tokens"
 				? revealStoryCopy.proof
 				: revealCopy.title;
+	const printedCardCaptureKey = [
+		activeArchetype.id,
+		row.userId,
+		row.displayName,
+		row.imageUrl ?? "",
+		theme,
+		shellClassName,
+		headerLeftMetric.value,
+		headerRightMetric.value,
+		...statItems.map((item) => `${item.key}:${item.value}`),
+		...revealBackMetrics.map((metric) => `${metric.label}:${metric.value}`),
+	].join("|");
+
+	useEffect(() => {
+		onRevealCompleteRef.current = onRevealComplete;
+	}, [onRevealComplete]);
+
+	function clearRevealTimers() {
+		for (const timeoutId of revealTimerRefs.current) {
+			window.clearTimeout(timeoutId);
+		}
+
+		revealTimerRefs.current = [];
+	}
+
+	function notifyRevealComplete() {
+		onRevealCompleteRef.current?.();
+	}
 
 	// biome-ignore lint/correctness/useExhaustiveDependencies: the reveal sequence should restart when the active archetype changes.
 	useEffect(() => {
+		clearRevealTimers();
+
 		if (reduceMotion) {
 			setSequencePhase("archetype");
 			setIsCardDropped(true);
 			setIsCardFrontVisible(false);
 			setIsCardFlipAnimating(false);
+			notifyRevealComplete();
 			return;
 		}
 
@@ -379,11 +424,17 @@ export function WrappedTeamCardRevealStage(
 				setIsCardDropped(true);
 			}, elapsedMs + REVEAL_STAGE_CARD_DROP_DELAY_MS),
 		);
+		timeoutIds.push(
+			window.setTimeout(() => {
+				notifyRevealComplete();
+			}, elapsedMs +
+				REVEAL_STAGE_CARD_DROP_DELAY_MS +
+				REVEAL_STAGE_CARD_DROP_DURATION_MS),
+		);
+		revealTimerRefs.current = timeoutIds;
 
 		return () => {
-			for (const timeoutId of timeoutIds) {
-				window.clearTimeout(timeoutId);
-			}
+			clearRevealTimers();
 		};
 	}, [activeArchetype.id, reduceMotion]);
 
@@ -506,43 +557,41 @@ export function WrappedTeamCardRevealStage(
 									onClick={handleCardFlipToggle}
 									type="button"
 								>
-									<div className="mymind-wrapped-final-stage__flip-shell">
-										<div className="mymind-wrapped-final-stage__flip-rotator">
-											<div
-												aria-hidden={!isCardFrontVisible}
-												className="mymind-wrapped-final-stage__flip-face mymind-wrapped-final-stage__flip-face--front"
-											>
-												<div className="grid justify-center">
-													<WrappedTeamMemberCard
-														headerLeftMetric={headerLeftMetric}
-														headerRightMetric={headerRightMetric}
-														hideHeaderLogo
-														layoutPreset="team-card-preview"
-														mediaPanelClassName="mx-auto"
-														row={row}
-														shellClassName={shellClassName}
-														shellStyle={shellStyle}
-														statItems={statItems}
-														statLayerOpacities={statLayerOpacities}
-														statTileClassName=""
-														theme={theme}
-													/>
-												</div>
+									<WrappedPrintedCardFlip
+										captureKey={printedCardCaptureKey}
+										front={
+											<div className="grid justify-center">
+												<WrappedTeamMemberCard
+													disableOuterShadow
+													headerLeftMetric={headerLeftMetric}
+													headerRightMetric={headerRightMetric}
+													hideHeaderLogo
+													layoutPreset="team-card-preview"
+													mediaPanelClassName="mx-auto"
+													row={row}
+													shellClassName={shellClassName}
+													shellStyle={shellStyle}
+													statItems={statItems}
+													statLayerOpacities={statLayerOpacities}
+													statTileClassName=""
+													theme={theme}
+												/>
 											</div>
-
-											<div
-												aria-hidden={isCardFrontVisible}
-												className="mymind-wrapped-final-stage__flip-face mymind-wrapped-final-stage__flip-face--back"
-											>
+										}
+										back={
+											<div className="grid justify-center">
 												<WrappedTeamMemberCardBack
+													disableOuterShadow
 													metrics={revealBackMetrics}
 													shellClassName={shellClassName}
 													shellStyle={shellStyle}
 													theme={theme}
 												/>
 											</div>
-										</div>
-									</div>
+										}
+										isFrontVisible={isCardFrontVisible}
+										reduceMotion={reduceMotion}
+									/>
 								</button>
 							</div>
 						</div>

@@ -10,6 +10,7 @@ import {
 	isValidElement,
 	type ReactNode,
 	startTransition,
+	useEffect,
 	useMemo,
 	useRef,
 	useState,
@@ -249,6 +250,8 @@ function WrappedTeamCardPageContent(props: {
 	const sharePostRef = useRef<HTMLDivElement>(null);
 	const [finalCardStage, setFinalCardStage] =
 		useState<FinalCardStage>("reveal");
+	const [isRevealSequenceComplete, setIsRevealSequenceComplete] =
+		useState(false);
 	const [searchParams] = useSearchParams();
 	const { trackNavigation, trackUtilityUsed } = useAnalyticsTracking({
 		pageName: "wrapped_team_card",
@@ -347,6 +350,14 @@ function WrappedTeamCardPageContent(props: {
 		sharePostRef,
 	});
 
+	useEffect(() => {
+		if (showShareStage) {
+			return;
+		}
+
+		setIsRevealSequenceComplete(false);
+	}, [activeArchetype.id, showShareStage]);
+
 	function handlePreviewPost() {
 		// Once the share stage has user-controlled appearance options, previewing is
 		// no longer a stable point to persist a public record. We only create the
@@ -382,6 +393,7 @@ function WrappedTeamCardPageContent(props: {
 			headerRightMetric={headerRightMetric}
 			onBack={() => {
 				startTransition(() => {
+					setIsRevealSequenceComplete(false);
 					setFinalCardStage("reveal");
 				});
 			}}
@@ -411,6 +423,9 @@ function WrappedTeamCardPageContent(props: {
 			headerLeftMetric={headerLeftMetric}
 			headerRightMetric={headerRightMetric}
 			onboardingMetrics={onboardingMetrics}
+			onRevealComplete={() => {
+				setIsRevealSequenceComplete(true);
+			}}
 			row={visibleTeamCardRow}
 			shellClassName={activeArchetype.shellClassName}
 			shellStyle={shellStyle}
@@ -457,6 +472,8 @@ function WrappedTeamCardPageContent(props: {
 			footerDebugControls={footerDebugControls}
 			finalFooter={
 				showShareStage ? (
+					false
+				) : !isRevealSequenceComplete ? (
 					false
 				) : (
 					<WrappedTeamCardRevealFooter

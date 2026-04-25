@@ -168,10 +168,19 @@ export function WrappedOnboardingModelStage(props: ModelStageProps) {
 	const [phase, setPhase] = useState<ModelStageSequencePhase>(() =>
 		!hasAnimatedData ? "history-bars" : reduceMotion ? "result" : "lead-in",
 	);
+	const sequenceTimerRefs = useRef<number[]>([]);
 	const isIntroCopyPhase = phase === "lead-in" || phase === "question";
 	const isSummarySceneVisible = !isIntroCopyPhase;
 	const resultKicker =
 		phase === "result" ? getModelStageResultKicker(leadingSource) : null;
+
+	function clearSequenceTimers() {
+		for (const timeoutId of sequenceTimerRefs.current) {
+			window.clearTimeout(timeoutId);
+		}
+
+		sequenceTimerRefs.current = [];
+	}
 
 	useMountEffect(() => {
 		if (!hasAnimatedData) {
@@ -208,11 +217,10 @@ export function WrappedOnboardingModelStage(props: ModelStageProps) {
 				onComparisonSequenceComplete?.();
 			}, elapsedMs + MODEL_STAGE_RESULT_SETTLE_MS),
 		);
+		sequenceTimerRefs.current = timeoutIds;
 
 		return () => {
-			for (const timeoutId of timeoutIds) {
-				window.clearTimeout(timeoutId);
-			}
+			clearSequenceTimers();
 		};
 	});
 
@@ -240,10 +248,13 @@ export function WrappedOnboardingModelStage(props: ModelStageProps) {
 			onHistoryRevealComplete?.();
 		}, MODEL_STAGE_HISTORY_PROMPT_HOLD_MS +
 			MODEL_STAGE_HISTORY_REVEAL_SETTLE_MS);
+		sequenceTimerRefs.current = [
+			showHistoryTimeoutId,
+			completeHistoryTimeoutId,
+		];
 
 		return () => {
-			window.clearTimeout(showHistoryTimeoutId);
-			window.clearTimeout(completeHistoryTimeoutId);
+			clearSequenceTimers();
 		};
 	}, [advanceState, hasAnimatedData, onHistoryRevealComplete, reduceMotion]);
 

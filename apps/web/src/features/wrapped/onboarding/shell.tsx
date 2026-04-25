@@ -27,7 +27,7 @@ import {
 	getStepPreviewStateParam,
 	resolveActiveStepIndex,
 } from "./helpers";
-import { resolveScalePreviewTokens, resolveToolsPreviewInput } from "./models";
+import { resolveScalePreviewTokens } from "./models";
 import {
 	WrappedOnboardingScaleRainBackdrop,
 	WrappedOnboardingStage,
@@ -38,7 +38,6 @@ import type {
 	WrappedOnboardingMetrics,
 	WrappedScaleAdvanceState,
 } from "./types";
-import type { WrappedProgressTransitionPhase } from "../WrappedProgress";
 
 /* ─────────────────────────────────────────────────────────
  * INTRO EXIT STORYBOARD
@@ -63,14 +62,6 @@ const STAGE_TRANSITION = {
 	ease: [0.22, 1, 0.36, 1] as const,
 };
 
-const PULSE_REVEAL_STAGE_TRANSITION = {
-	duration: 0.28,
-	ease: [0.22, 1, 0.36, 1] as const,
-};
-
-const PULSE_TO_CARD_PROGRESS_RESET_MS = 180;
-const PULSE_TO_CARD_PROGRESS_ACTIVATE_MS = 220;
-
 const REDUCED_STAGE_TRANSITION = {
 	duration: 0.14,
 	ease: "linear" as const,
@@ -80,16 +71,8 @@ const SCALE_ADVANCE_SEQUENCE = {
 	kebabRevealMs: SCALE_STAGE_KEBAB_REVEAL_MS,
 };
 
-type WrappedStageTransitionPair = {
-	fromStepId: WrappedStepId;
-	toStepId: WrappedStepId;
-};
-
-type WrappedStagePresenceMode = "default" | "pulse-to-card" | "card-to-pulse";
-
 type WrappedStagePresenceContext = {
 	direction: -1 | 0 | 1;
-	mode: WrappedStagePresenceMode;
 	reduceMotion: boolean;
 };
 
@@ -133,7 +116,6 @@ export function WrappedTeamCardOnboarding(
 	const shouldReduceMotion = useReducedMotion();
 	const reduceMotion = shouldReduceMotion ?? false;
 	const exitTimerRef = useRef<number | null>(null);
-	const progressTransitionTimerRefs = useRef<number[]>([]);
 	const scaleAdvanceTimerRefs = useRef<number[]>([]);
 	const [pendingStepIndex, setPendingStepIndex] = useState<number | null>(null);
 	const [scaleAdvanceState, setScaleAdvanceState] =
@@ -146,17 +128,10 @@ export function WrappedTeamCardOnboarding(
 		isModelComparisonSequenceComplete,
 		setIsModelComparisonSequenceComplete,
 	] = useState(false);
-	const [
-		isToolsBaseModelSequenceComplete,
-		setIsToolsBaseModelSequenceComplete,
-	] = useState(false);
+	const [isToolsSequenceComplete, setIsToolsSequenceComplete] = useState(false);
 	const [exitingStepId, setExitingStepId] = useState<WrappedStepId | null>(
 		null,
 	);
-	const [lastStageTransition, setLastStageTransition] =
-		useState<WrappedStageTransitionPair | null>(null);
-	const [progressTransitionPhase, setProgressTransitionPhase] =
-		useState<WrappedProgressTransitionPhase>("idle");
 	// Saturday launch intentionally runs a smaller story deck than the full
 	// preview surface. The visibility decision lives in config.ts so product,
 	// design, and engineering all point to the same ship list.
@@ -181,23 +156,6 @@ export function WrappedTeamCardOnboarding(
 	const isModelStep = activeStep.id === "model";
 	const isToolsStep = activeStep.id === "tools";
 	const isScaleStep = activeStep.id === "scale";
-	const toolsPreview = isToolsStep
-		? resolveToolsPreviewInput(
-				{
-					slashCommandsAdoptionRate:
-						onboardingMetrics.slashCommandsAdoptionRate,
-					subagentsAdoptionRate: onboardingMetrics.subagentsAdoptionRate,
-					topSlashCommand: onboardingMetrics.topSlashCommand,
-					topSlashCommands: onboardingMetrics.topSlashCommands,
-					topSlashCommandCount: onboardingMetrics.topSlashCommandCount,
-					topSubagent: onboardingMetrics.topSubagent,
-					topSubagents: onboardingMetrics.topSubagents,
-					topSubagentCount: onboardingMetrics.topSubagentCount,
-					totalSessions: onboardingMetrics.totalSessions,
-				},
-				activePreviewState,
-			)
-		: null;
 	const scaleStepTotalTokens = isScaleStep
 		? resolveScalePreviewTokens(
 				onboardingMetrics.totalTokens,
@@ -216,10 +174,6 @@ export function WrappedTeamCardOnboarding(
 		effectiveScaleAdvanceState === "spend" ||
 		effectiveScaleAdvanceState === "kebabs";
 	const isModelAdvancePending = isModelStep && modelAdvanceState === "history";
-	const isToolsBaseModelStep =
-		isToolsStep &&
-		toolsPreview?.topSlashCommand === null &&
-		toolsPreview?.topSubagent === null;
 	const isScaleStepContinueVisible =
 		!isScaleStep ||
 		(!isScaleAdvancePending &&
@@ -229,8 +183,7 @@ export function WrappedTeamCardOnboarding(
 		!isModelStep ||
 		modelAdvanceState === "complete" ||
 		(modelAdvanceState === "intro" && isModelComparisonSequenceComplete);
-	const isToolsStepContinueVisible =
-		!isToolsBaseModelStep || isToolsBaseModelSequenceComplete;
+	const isToolsStepContinueVisible = !isToolsStep || isToolsSequenceComplete;
 	const isContinueVisible = isScaleStep
 		? isScaleStepContinueVisible
 		: isToolsStepContinueVisible && isModelStepContinueVisible;
@@ -241,7 +194,6 @@ export function WrappedTeamCardOnboarding(
 	const stagePresenceContext = resolveWrappedStagePresenceContext({
 		direction: navigationDirection,
 		reduceMotion,
-		transition: lastStageTransition,
 	});
 
 	function clearScaleAdvanceTimers() {
@@ -252,21 +204,12 @@ export function WrappedTeamCardOnboarding(
 		scaleAdvanceTimerRefs.current = [];
 	}
 
-	function clearProgressTransitionTimers() {
-		for (const timeoutId of progressTransitionTimerRefs.current) {
-			window.clearTimeout(timeoutId);
-		}
-
-		progressTransitionTimerRefs.current = [];
-	}
-
 	useMountEffect(() => {
 		return () => {
 			if (exitTimerRef.current !== null) {
 				window.clearTimeout(exitTimerRef.current);
 			}
 
-			clearProgressTransitionTimers();
 			clearScaleAdvanceTimers();
 		};
 	});
@@ -282,12 +225,6 @@ export function WrappedTeamCardOnboarding(
 		}
 
 		const nextStep = WRAPPED_SATURDAY_STEPS[boundedStepIndex];
-		if (nextStep && boundedStepIndex !== activeStepIndex) {
-			setLastStageTransition({
-				fromStepId: activeStep.id,
-				toStepId: nextStep.id,
-			});
-		}
 
 		if (activeStep.id === "scale" || nextStep?.id === "scale") {
 			setIsScaleRainVisible(false);
@@ -305,7 +242,7 @@ export function WrappedTeamCardOnboarding(
 		}
 
 		if (activeStep.id === "tools" || nextStep?.id === "tools") {
-			setIsToolsBaseModelSequenceComplete(false);
+			setIsToolsSequenceComplete(false);
 		}
 
 		startTransition(() => {
@@ -335,42 +272,12 @@ export function WrappedTeamCardOnboarding(
 			0,
 			Math.min(nextStepIndex, WRAPPED_SATURDAY_STEPS.length - 1),
 		);
-		const nextStep = WRAPPED_SATURDAY_STEPS[boundedStepIndex];
-
-		if (
-			!reduceMotion &&
-			boundedStepIndex !== activeStepIndex &&
-			activeStep.id === "pulse" &&
-			nextStep?.id === "card"
-		) {
-			clearProgressTransitionTimers();
-			setPendingStepIndex(boundedStepIndex);
-			setProgressTransitionPhase("pulse-to-card-resetting");
-
-			progressTransitionTimerRefs.current.push(
-				window.setTimeout(() => {
-					commitStepNavigation(boundedStepIndex);
-					setPendingStepIndex(null);
-					setProgressTransitionPhase("pulse-to-card-activating");
-				}, PULSE_TO_CARD_PROGRESS_RESET_MS),
-			);
-			progressTransitionTimerRefs.current.push(
-				window.setTimeout(() => {
-					setProgressTransitionPhase("idle");
-					progressTransitionTimerRefs.current = [];
-				}, PULSE_TO_CARD_PROGRESS_RESET_MS +
-					PULSE_TO_CARD_PROGRESS_ACTIVATE_MS),
-			);
-			return;
-		}
-
-		clearProgressTransitionTimers();
-		setProgressTransitionPhase("idle");
 		commitStepNavigation(boundedStepIndex);
 	}
 
 	function playScaleAdvanceSequence() {
 		clearScaleAdvanceTimers();
+		setScaleDisplayedTokens(scaleStepTotalTokens);
 		setScaleAdvanceState("spend");
 
 		scaleAdvanceTimerRefs.current.push(
@@ -451,7 +358,7 @@ export function WrappedTeamCardOnboarding(
 		}
 
 		if (stepId === "tools") {
-			setIsToolsBaseModelSequenceComplete(false);
+			setIsToolsSequenceComplete(false);
 		}
 
 		startTransition(() => {
@@ -490,8 +397,8 @@ export function WrappedTeamCardOnboarding(
 		setModelAdvanceState("complete");
 	}
 
-	function handleToolsBaseModelSequenceComplete() {
-		setIsToolsBaseModelSequenceComplete(true);
+	function handleToolsSequenceComplete() {
+		setIsToolsSequenceComplete(true);
 	}
 
 	function handleTopChromeBack() {
@@ -512,7 +419,7 @@ export function WrappedTeamCardOnboarding(
 
 	return (
 		<MotionConfig reducedMotion="user">
-			<LayoutGroup id="wrapped-onboarding-shell">
+			<LayoutGroup>
 				<main
 					className={cn(
 						"mymind-wrapped-route",
@@ -539,7 +446,6 @@ export function WrappedTeamCardOnboarding(
 								isStepTransitioning={isStepTransitioning}
 								onBack={handleTopChromeBack}
 								onGoToStep={goToStep}
-								progressTransitionPhase={progressTransitionPhase}
 								rewardCardBackground={rewardCardBackground}
 							/>
 
@@ -589,7 +495,7 @@ export function WrappedTeamCardOnboarding(
 														handleScaleAdvanceSequenceComplete
 													}
 													onToolsBaseModelSequenceComplete={
-														handleToolsBaseModelSequenceComplete
+														handleToolsSequenceComplete
 													}
 													previewState={activePreviewState}
 													scaleAdvanceState={effectiveScaleAdvanceState}
@@ -666,29 +572,11 @@ const WRAPPED_STAGE_PRESENCE_VARIANTS = {
 function resolveWrappedStagePresenceContext(input: {
 	direction: -1 | 0 | 1;
 	reduceMotion: boolean;
-	transition: WrappedStageTransitionPair | null;
 }): WrappedStagePresenceContext {
-	const { direction, reduceMotion, transition } = input;
-
-	if (transition?.fromStepId === "pulse" && transition.toStepId === "card") {
-		return {
-			direction,
-			mode: "pulse-to-card",
-			reduceMotion,
-		};
-	}
-
-	if (transition?.fromStepId === "card" && transition.toStepId === "pulse") {
-		return {
-			direction,
-			mode: "card-to-pulse",
-			reduceMotion,
-		};
-	}
+	const { direction, reduceMotion } = input;
 
 	return {
 		direction,
-		mode: "default",
 		reduceMotion,
 	};
 }
@@ -720,46 +608,6 @@ function resolveWrappedStagePresenceState(
 		};
 	}
 
-	if (custom.mode === "pulse-to-card") {
-		return phase === "initial"
-			? {
-					filter: "blur(12px)",
-					opacity: 0,
-					scale: 0.986,
-					x: 0,
-					y: 24,
-					transition,
-				}
-			: {
-					filter: "blur(12px)",
-					opacity: 0,
-					scale: 0.972,
-					x: 0,
-					y: -22,
-					transition,
-				};
-	}
-
-	if (custom.mode === "card-to-pulse") {
-		return phase === "initial"
-			? {
-					filter: "blur(10px)",
-					opacity: 0,
-					scale: 0.98,
-					x: 0,
-					y: -18,
-					transition,
-				}
-			: {
-					filter: "blur(10px)",
-					opacity: 0,
-					scale: 0.984,
-					x: 0,
-					y: 22,
-					transition,
-				};
-	}
-
 	return phase === "initial"
 		? {
 				filter: "blur(10px)",
@@ -786,9 +634,5 @@ function resolveWrappedStagePresenceTransition(
 		return REDUCED_STAGE_TRANSITION;
 	}
 
-	if (custom.mode === "default") {
-		return STAGE_TRANSITION;
-	}
-
-	return PULSE_REVEAL_STAGE_TRANSITION;
+	return STAGE_TRANSITION;
 }

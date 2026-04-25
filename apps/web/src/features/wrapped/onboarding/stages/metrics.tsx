@@ -217,10 +217,18 @@ function WrappedScaleStageSequenceTitle(props: {
 	const reduceMotion = shouldReduceMotion ?? false;
 	const isScaleAdvanceVisible = scaleAdvanceState !== "idle";
 	const totalKebabs = resolveScaleKebabCount(estimatedSpendUsd);
-	const kebabDropCount = totalKebabs;
 	const [phase, setPhase] = useState<ScaleStageSequencePhase>(() =>
 		reduceMotion ? "total" : "greeting",
 	);
+	const sequenceTimerRefs = useRef<number[]>([]);
+
+	function clearSequenceTimers() {
+		for (const timeoutId of sequenceTimerRefs.current) {
+			window.clearTimeout(timeoutId);
+		}
+
+		sequenceTimerRefs.current = [];
+	}
 
 	useMountEffect(() => {
 		if (reduceMotion) {
@@ -249,11 +257,10 @@ function WrappedScaleStageSequenceTitle(props: {
 				onRevealChange?.(true);
 			}, elapsedMs),
 		);
+		sequenceTimerRefs.current = timeoutIds;
 
 		return () => {
-			for (const timeoutId of timeoutIds) {
-				window.clearTimeout(timeoutId);
-			}
+			clearSequenceTimers();
 		};
 	});
 
@@ -262,7 +269,7 @@ function WrappedScaleStageSequenceTitle(props: {
 			<motion.span
 				key={
 					isScaleAdvanceVisible
-						? `advance:${estimatedSpendUsd}:${totalKebabs}:${kebabDropCount}`
+						? `advance:${estimatedSpendUsd}:${totalKebabs}`
 						: `${phase}:${displayName ?? ""}:${totalSessions}:${totalTokens}`
 				}
 				animate={
@@ -291,7 +298,6 @@ function WrappedScaleStageSequenceTitle(props: {
 							scaleAdvanceState === "kebabs" || scaleAdvanceState === "complete"
 						}
 						totalKebabs={totalKebabs}
-						visibleKebabDrops={kebabDropCount}
 					/>
 				) : phase === "total" ? (
 					<WrappedScaleCountTitle
@@ -387,21 +393,29 @@ function WrappedScaleSpendTitle(props: {
 	onSequenceComplete?: () => void;
 	showKebabs: boolean;
 	totalKebabs: number;
-	visibleKebabDrops: number;
 }) {
-	const {
-		estimatedSpendUsd,
-		onSequenceComplete,
-		showKebabs,
-		totalKebabs,
-		visibleKebabDrops,
-	} = props;
+	const { estimatedSpendUsd, onSequenceComplete, showKebabs, totalKebabs } =
+		props;
 	const shouldReduceMotion = useReducedMotion();
 	const reduceMotion = shouldReduceMotion ?? false;
 	const [displaySpendUsd, setDisplaySpendUsd] = useState(() =>
 		reduceMotion ? estimatedSpendUsd : 0,
 	);
 	const [isSpendValueVisible, setIsSpendValueVisible] = useState(reduceMotion);
+	const revealTimerRef = useRef<number | null>(null);
+	const frameRef = useRef<number | null>(null);
+
+	function clearSpendTimers() {
+		if (revealTimerRef.current !== null) {
+			window.clearTimeout(revealTimerRef.current);
+			revealTimerRef.current = null;
+		}
+
+		if (frameRef.current !== null) {
+			window.cancelAnimationFrame(frameRef.current);
+			frameRef.current = null;
+		}
+	}
 
 	useMountEffect(() => {
 		if (reduceMotion) {
@@ -412,7 +426,6 @@ function WrappedScaleSpendTitle(props: {
 
 		setDisplaySpendUsd(0);
 		setIsSpendValueVisible(false);
-		let frameId = 0;
 		const revealTimerId = window.setTimeout(() => {
 			setIsSpendValueVisible(true);
 			const animationStart = window.performance.now();
@@ -429,16 +442,16 @@ function WrappedScaleSpendTitle(props: {
 				setDisplaySpendUsd(Math.round(estimatedSpendUsd * easedProgress));
 
 				if (progress < 1) {
-					frameId = window.requestAnimationFrame(animateValue);
+					frameRef.current = window.requestAnimationFrame(animateValue);
 				}
 			};
 
-			frameId = window.requestAnimationFrame(animateValue);
+			frameRef.current = window.requestAnimationFrame(animateValue);
 		}, SCALE_STAGE_SPEND_LABEL_HOLD_MS);
+		revealTimerRef.current = revealTimerId;
 
 		return () => {
-			window.clearTimeout(revealTimerId);
-			window.cancelAnimationFrame(frameId);
+			clearSpendTimers();
 		};
 	});
 
@@ -524,7 +537,7 @@ function WrappedScaleSpendTitle(props: {
 			{showKebabs && !reduceMotion ? (
 				<WrappedScaleKebabRain
 					onComplete={onSequenceComplete}
-					totalDrops={visibleKebabDrops}
+					totalDrops={totalKebabs}
 				/>
 			) : null}
 		</span>

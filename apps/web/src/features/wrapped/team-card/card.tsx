@@ -96,6 +96,7 @@ const DEFAULT_STAT_LAYER_OPACITIES: WrappedTeamMemberCardStatLayerOpacities = {
 };
 
 export function WrappedTeamMemberCard(props: {
+	disableOuterShadow?: boolean;
 	headerLeftMetric?: WrappedTeamMemberCardHeaderMetric;
 	headerRightMetric?: WrappedTeamMemberCardHeaderMetric;
 	hideHeaderLogo?: boolean;
@@ -111,6 +112,7 @@ export function WrappedTeamMemberCard(props: {
 	theme?: WrappedTeamMemberCardTheme;
 }) {
 	const {
+		disableOuterShadow = false,
 		headerLeftMetric,
 		headerRightMetric,
 		hideHeaderLogo = false,
@@ -157,7 +159,9 @@ export function WrappedTeamMemberCard(props: {
 	};
 	const cardShellLayoutStyle: CSSProperties = {
 		borderRadius: scaleLength(18),
-		boxShadow: `0 0 ${scaleLength(10.1)} rgba(0,0,0,0.08)`,
+		boxShadow: disableOuterShadow
+			? "none"
+			: `0 0 ${scaleLength(10.1)} rgba(0,0,0,0.08)`,
 		height: scaleLength(358),
 		paddingBottom: scaleLength(10),
 		paddingLeft: scaleLength(14),

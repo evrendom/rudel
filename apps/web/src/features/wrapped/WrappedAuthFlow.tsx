@@ -29,9 +29,11 @@ const WRAPPED_AUTH_EXIT_EASE = [0.4, 0, 0.2, 1] as const;
 const WRAPPED_AUTH_LAYOUT_EASE = [0.32, 0.72, 0, 1] as const;
 const WRAPPED_AUTH_FORM_TRANSITION_DURATION = 0.32;
 const WRAPPED_AUTH_LAYOUT_DURATION = 0.6;
-const WRAPPED_AUTH_FORM_CARD_SCALE = 1.84;
+const WRAPPED_AUTH_FORM_CARD_SCALE = 1;
 const WRAPPED_AUTH_INTRO_REDUCED_DURATION = 0.14;
-const WRAPPED_AUTH_INTRO_CARD_SCALE = 2;
+const WRAPPED_AUTH_INTRO_CARD_SCALE = 1;
+const WRAPPED_AUTH_CARD_SCALE_MAX = 1.08;
+const WRAPPED_AUTH_CARD_SCALE_MIN = 0.88;
 const WRAPPED_AUTH_INTRO_TOOL_ROTATION_MS = 3000;
 const WRAPPED_AUTH_TITLE_ENTER_DELAY = 0.16;
 const WRAPPED_AUTH_TITLE_ENTER_DURATION = 0.34;
@@ -68,9 +70,11 @@ function WrappedAuthStage(props: WrappedAuthStageProps) {
 	} = props;
 	const shouldReduceMotion = useReducedMotion() ?? false;
 	const isIntro = mode === null;
-	const activeCardScale = isIntro
-		? (authIntroCardScale ?? WRAPPED_AUTH_INTRO_CARD_SCALE)
-		: (authFormCardScale ?? WRAPPED_AUTH_FORM_CARD_SCALE);
+	const activeCardScale = clampWrappedAuthCardScale(
+		isIntro
+			? (authIntroCardScale ?? WRAPPED_AUTH_INTRO_CARD_SCALE)
+			: (authFormCardScale ?? WRAPPED_AUTH_FORM_CARD_SCALE),
+	);
 	const panelLayoutTransition = shouldReduceMotion
 		? {
 				duration: WRAPPED_AUTH_INTRO_REDUCED_DURATION,
@@ -208,6 +212,13 @@ function WrappedAuthStage(props: WrappedAuthStageProps) {
 				</AnimatePresence>
 			</div>
 		</LayoutGroup>
+	);
+}
+
+function clampWrappedAuthCardScale(scale: number) {
+	return Math.max(
+		WRAPPED_AUTH_CARD_SCALE_MIN,
+		Math.min(WRAPPED_AUTH_CARD_SCALE_MAX, scale),
 	);
 }
 

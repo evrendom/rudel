@@ -3,10 +3,7 @@ import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import type { ReactNode } from "react";
 import { appRoutes } from "@/app/routes";
 import { WrappedPrimaryAction } from "@/features/wrapped/actions";
-import {
-	WrappedProgress,
-	type WrappedProgressTransitionPhase,
-} from "@/features/wrapped/WrappedProgress";
+import { WrappedProgress } from "@/features/wrapped/WrappedProgress";
 import { getWrappedOnboardingProgressView } from "@/features/wrapped/wrapped-onboarding-progress";
 import { openChatwoot } from "@/lib/chatwoot";
 import { cn } from "@/lib/utils";
@@ -31,7 +28,6 @@ interface WrappedOnboardingHeaderProps {
 	isStepTransitioning: boolean;
 	onBack: () => void;
 	onGoToStep: (nextStepIndex: number) => void;
-	progressTransitionPhase: WrappedProgressTransitionPhase;
 	rewardCardBackground?: string;
 }
 
@@ -74,7 +70,6 @@ export function WrappedOnboardingHeader(props: WrappedOnboardingHeaderProps) {
 		isStepTransitioning,
 		onBack,
 		onGoToStep,
-		progressTransitionPhase,
 		rewardCardBackground,
 	} = props;
 	const progressView = getWrappedOnboardingProgressView(activeStep.id);
@@ -121,7 +116,6 @@ export function WrappedOnboardingHeader(props: WrappedOnboardingHeaderProps) {
 							};
 						})}
 						rewardCardBackground={rewardCardBackground}
-						transitionPhase={progressTransitionPhase}
 					/>
 				</div>
 
@@ -201,7 +195,7 @@ export function WrappedOnboardingFooter(props: WrappedOnboardingFooterProps) {
 	const shouldReserveActionSlot =
 		activeStep.kind !== "final" && activeStep.id === "model";
 	const isFooterActionVisible =
-		activeStep.kind === "final" || isContinueVisible;
+		activeStep.kind === "final" ? finalFooter !== false : isContinueVisible;
 	const shouldRenderFooterActionSlot =
 		isFooterActionVisible || shouldReserveActionSlot;
 	const continueLabel =
@@ -264,7 +258,7 @@ export function WrappedOnboardingFooter(props: WrappedOnboardingFooterProps) {
 								: {
 										duration: 0.26,
 										ease: WRAPPED_ONBOARDING_FOOTER_EASE,
-									}
+							}
 						}
 					>
 						{activeStep.kind === "final" ? (

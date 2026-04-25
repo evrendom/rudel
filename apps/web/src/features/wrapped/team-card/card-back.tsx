@@ -11,6 +11,7 @@ export interface WrappedTeamMemberCardBackMetric {
 export type WrappedTeamMemberCardBackVariant = "default" | "gradient-only";
 
 export function WrappedTeamMemberCardBack(props: {
+	disableOuterShadow?: boolean;
 	metrics: readonly WrappedTeamMemberCardBackMetric[];
 	shellClassName?: string;
 	shellStyle?: CSSProperties;
@@ -18,6 +19,7 @@ export function WrappedTeamMemberCardBack(props: {
 	variant?: WrappedTeamMemberCardBackVariant;
 }) {
 	const {
+		disableOuterShadow = false,
 		metrics,
 		shellClassName,
 		shellStyle,
@@ -48,6 +50,11 @@ export function WrappedTeamMemberCardBack(props: {
 			? "rgb(255 247 239 / 0.78)"
 			: "rgb(23 22 28 / 0.74)",
 	} as CSSProperties;
+	const outerShadowStyle = {
+		boxShadow: disableOuterShadow
+			? "inset 0 1px 0 rgb(255 255 255 / 0.16)"
+			: undefined,
+	} as CSSProperties;
 
 	return (
 		<article
@@ -59,7 +66,7 @@ export function WrappedTeamMemberCardBack(props: {
 				isDarkTheme ? "text-[#fff7ef]" : null,
 				isMutedTheme ? "text-[#f6efe4]" : null,
 			)}
-			style={{ ...cardBackStyle, ...shellStyle }}
+			style={{ ...cardBackStyle, ...shellStyle, ...outerShadowStyle }}
 		>
 			<div aria-hidden="true" className="mymind-wrapped-team-card-back__wash" />
 			{shouldRenderContent ? (

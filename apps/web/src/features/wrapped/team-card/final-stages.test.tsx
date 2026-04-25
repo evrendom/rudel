@@ -145,6 +145,7 @@ afterEach(() => {
 describe("WrappedTeamCardRevealStage", () => {
 	it("drops the back of the card first and flips to the front on click", () => {
 		vi.useFakeTimers();
+		const onRevealComplete = vi.fn();
 
 		render(
 			<WrappedTeamCardRevealStage
@@ -165,6 +166,7 @@ describe("WrappedTeamCardRevealStage", () => {
 					value: "Smooth Operator",
 				}}
 				onboardingMetrics={onboardingMetrics}
+				onRevealComplete={onRevealComplete}
 				row={row}
 				shellClassName="bg-sky-200"
 				shellStyle={{}}
@@ -214,10 +216,17 @@ describe("WrappedTeamCardRevealStage", () => {
 			vi.advanceTimersByTime(1_250);
 		});
 
-		expect(screen.getByText("Smooth by default.")).toBeInTheDocument();
+		expect(screen.queryByText("Smooth by default.")).toBeNull();
 		expect(
 			screen.getByTestId("wrapped-team-card").closest("[data-card-state]"),
 		).toHaveAttribute("data-card-state", "dropped");
+		expect(onRevealComplete).not.toHaveBeenCalled();
+
+		act(() => {
+			vi.advanceTimersByTime(1_020);
+		});
+
+		expect(onRevealComplete).toHaveBeenCalledTimes(1);
 		expect(
 			screen
 				.getByTestId("wrapped-team-card-back")
@@ -258,4 +267,5 @@ describe("WrappedTeamCardRevealStage", () => {
 			}),
 		).toHaveAttribute("data-card-face", "front");
 	});
+
 });
