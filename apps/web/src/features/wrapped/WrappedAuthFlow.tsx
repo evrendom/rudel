@@ -14,9 +14,7 @@ import {
 } from "@/features/wrapped/actions";
 import { useMountEffect } from "@/hooks/useMountEffect";
 import { cn } from "@/lib/utils";
-import {
-	WrappedRouteStageShell,
-} from "./route-stage-shell";
+import { WrappedRouteStageShell } from "./route-stage-shell";
 import { WrappedGuestPreviewCard } from "./WrappedGuestPreviewCard";
 import type { WrappedGuestPreviewProfile } from "./wrapped-guest-preview";
 

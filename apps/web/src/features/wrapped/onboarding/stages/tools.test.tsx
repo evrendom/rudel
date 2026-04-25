@@ -146,5 +146,4 @@ describe("WrappedOnboardingToolsStage", () => {
 		).toBeInTheDocument();
 		expect(onBaseModelSequenceComplete).toHaveBeenCalledTimes(1);
 	});
-
 });

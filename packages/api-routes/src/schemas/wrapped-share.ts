@@ -89,7 +89,9 @@ export const PublicWrappedShareSchema = WrappedShareRecordSchema.extend({
 });
 
 export type WrappedShareTheme = z.infer<typeof WrappedShareThemeSchema>;
-export type WrappedShareLayoutMode = z.infer<typeof WrappedShareLayoutModeSchema>;
+export type WrappedShareLayoutMode = z.infer<
+	typeof WrappedShareLayoutModeSchema
+>;
 export type WrappedShareHeaderMetric = z.infer<
 	typeof WrappedShareHeaderMetricSchema
 >;

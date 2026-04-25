@@ -5,7 +5,8 @@
 	"type": "module",
 	"exports": {
 		".": "./src/index.ts",
-		"./generated": "./src/generated/index.ts"
+		"./generated": "./src/generated/index.ts",
+		"./wrapped-archetype-constants": "./src/wrapped-archetype-constants.ts"
 	},
 	"scripts": {
 		"check-types": "tsc --noEmit",

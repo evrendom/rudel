@@ -110,13 +110,13 @@ export function WrappedOnboardingSkillsStage(props: SkillsStageProps) {
 	const dialValues = useDialKit(
 		"Wrapped Skills Stage",
 		{
-				animation: {
-					_collapsed: true,
-					deckBreatherMs: [640, 160, 2_000, 10],
-					introHoldMs: [1_400, 200, 2_400, 10],
-					dealStepMs: [210, 120, 480, 10],
-					deckSettleMs: [260, 120, 1000, 10],
-				},
+			animation: {
+				_collapsed: true,
+				deckBreatherMs: [640, 160, 2_000, 10],
+				introHoldMs: [1_400, 200, 2_400, 10],
+				dealStepMs: [210, 120, 480, 10],
+				deckSettleMs: [260, 120, 1000, 10],
+			},
 			fade: {
 				_collapsed: true,
 				bottomHeightRem: [3.8, 1.5, 10, 0.1],

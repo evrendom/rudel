@@ -2,8 +2,14 @@ import type {
 	MonthlyModelUsage,
 	WrappedSourceSplit,
 	WrappedV1,
+	WrappedV1Archetype,
 } from "@rudel/api-routes";
 import { ESTIMATED_PRICING_MODE } from "@rudel/api-routes";
+import {
+	WRAPPED_ARCHETYPE_CENTROID_VERSION,
+	WRAPPED_ARCHETYPE_PIPELINE_VERSION,
+	WRAPPED_ARCHETYPE_SCOPE,
+} from "@rudel/ch-schema/wrapped-archetype-constants";
 import { queryClickhouse } from "../clickhouse.js";
 import { buildEstimatedCostSql } from "./pricing.service.js";
 
@@ -46,17 +52,25 @@ interface MonthlyModelUsageRow {
 	session_count: number | string | null;
 }
 
+interface UserArchetypeRow {
+	key: string;
+	snapshotId: string;
+	computedAt: string;
+}
+
 export async function getWrappedV1Data(
 	orgId: string,
 	userId: string,
 ): Promise<WrappedV1> {
 	// These reads are independent, so we start them together and only join once.
 	// That keeps the endpoint simple and avoids an avoidable waterfall.
-	const [summaryRow, favoriteModel, modelByMonth] = await Promise.all([
-		getWrappedSummary(orgId, userId),
-		getFavoriteModel(orgId, userId),
-		getMonthlyModelUsage(orgId, userId),
-	]);
+	const [summaryRow, favoriteModel, modelByMonth, archetype] =
+		await Promise.all([
+			getWrappedSummary(orgId, userId),
+			getFavoriteModel(orgId, userId),
+			getMonthlyModelUsage(orgId, userId),
+			getUserArchetype(orgId, userId),
+		]);
 
 	const totalSessions = toNumber(summaryRow.total_sessions);
 	const claudeSessionCount = toNumber(summaryRow.claude_session_count);
@@ -86,6 +100,7 @@ export async function getWrappedV1Data(
 			],
 			model_by_month: modelByMonth,
 		},
+		archetype,
 	};
 }
 
@@ -189,6 +204,68 @@ async function getFavoriteModel(
 	});
 
 	return rows[0]?.favorite_model ?? null;
+}
+
+async function getUserArchetype(
+	orgId: string,
+	userId: string,
+): Promise<WrappedV1Archetype | null> {
+	// Snapshot read only. The rebuild script publishes into the runs table after
+	// the snapshot insert succeeds; gating on that row is what guarantees a
+	// partial rebuild can never be served. Filtering by scope + version pins the
+	// read to a known classifier, so a future test/staging run cannot silently
+	// become "latest". Fail open on any error so a missing migration or broken
+	// archetype path cannot 500 the whole wrapped endpoint.
+	try {
+		const rows = await queryClickhouse<UserArchetypeRow>({
+			query: `
+				WITH latest_run AS (
+					SELECT snapshot_id
+					FROM rudel.wrapped_user_archetype_runs_v1
+					WHERE scope = {scope:String}
+						AND pipeline_version = {pipelineVersion:String}
+						AND centroid_version = {centroidVersion:String}
+					ORDER BY snapshot_created_at DESC
+					LIMIT 1
+				)
+				SELECT
+					s.archetype_key AS key,
+					s.snapshot_id AS snapshotId,
+					formatDateTime(s.snapshot_created_at, '%Y-%m-%dT%H:%i:%SZ') AS computedAt
+				FROM latest_run AS r
+				INNER JOIN rudel.wrapped_user_archetype_snapshots_v1 AS s
+					ON s.snapshot_id = r.snapshot_id
+				WHERE s.scope = {scope:String}
+					AND s.organization_id = {orgId:String}
+					AND s.user_id = {userId:String}
+				LIMIT 1
+			`,
+			query_params: {
+				centroidVersion: WRAPPED_ARCHETYPE_CENTROID_VERSION,
+				orgId,
+				pipelineVersion: WRAPPED_ARCHETYPE_PIPELINE_VERSION,
+				scope: WRAPPED_ARCHETYPE_SCOPE,
+				userId,
+			},
+		});
+
+		const row = rows[0];
+		if (!row) {
+			return null;
+		}
+
+		return {
+			computedAt: row.computedAt,
+			key: row.key,
+			snapshotId: row.snapshotId,
+		};
+	} catch (error) {
+		console.warn(
+			"[wrapped.service] getUserArchetype failed, returning null",
+			error,
+		);
+		return null;
+	}
 }
 
 function buildSourceSplit(

@@ -210,15 +210,15 @@ export function WrappedCliSetupCommand(props: WrappedCliSetupCommandProps) {
 										}
 										transition={alternatePanelTransition}
 									>
-											<div className="mymind-wrapped-setup-command__alternate-panel-inner">
-												<WrappedSetupCommandSurface
-													caption={alternateCommandCaption}
-													className="mymind-wrapped-setup-command__alternate-surface"
-													command={alternateCommand}
-													forceShell={alternateCommandCaption === undefined}
-												/>
-											</div>
-										</motion.div>
+										<div className="mymind-wrapped-setup-command__alternate-panel-inner">
+											<WrappedSetupCommandSurface
+												caption={alternateCommandCaption}
+												className="mymind-wrapped-setup-command__alternate-surface"
+												command={alternateCommand}
+												forceShell={alternateCommandCaption === undefined}
+											/>
+										</div>
+									</motion.div>
 								) : null}
 							</AnimatePresence>
 						</div>

@@ -258,7 +258,7 @@ export function WrappedOnboardingFooter(props: WrappedOnboardingFooterProps) {
 								: {
 										duration: 0.26,
 										ease: WRAPPED_ONBOARDING_FOOTER_EASE,
-							}
+									}
 						}
 					>
 						{activeStep.kind === "final" ? (

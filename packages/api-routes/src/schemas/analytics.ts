@@ -671,6 +671,12 @@ export const WrappedV1MetricsSchema = z.object({
 	model_by_month: z.array(MonthlyModelUsageSchema),
 });
 
+export const WrappedV1ArchetypeSchema = z.object({
+	key: z.string(),
+	snapshotId: z.string(),
+	computedAt: z.string(),
+});
+
 export const WrappedV1Schema = z.object({
 	generated_at: z.string(),
 	organization_id: z.string(),
@@ -679,6 +685,7 @@ export const WrappedV1Schema = z.object({
 	user_id: z.string(),
 	verified_metric_count: z.literal(8),
 	metrics: WrappedV1MetricsSchema,
+	archetype: WrappedV1ArchetypeSchema.nullable(),
 });
 
 // ── Type exports ───────────────────────────────────────────────────
@@ -746,4 +753,5 @@ export type DimensionAnalysisInput = z.infer<
 export type WrappedSourceSplit = z.infer<typeof WrappedSourceSplitSchema>;
 export type MonthlyModelUsage = z.infer<typeof MonthlyModelUsageSchema>;
 export type WrappedV1Metrics = z.infer<typeof WrappedV1MetricsSchema>;
+export type WrappedV1Archetype = z.infer<typeof WrappedV1ArchetypeSchema>;
 export type WrappedV1 = z.infer<typeof WrappedV1Schema>;

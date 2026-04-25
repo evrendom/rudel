@@ -9,14 +9,6 @@ import {
 	writeWrappedGuestPreviewSnapshot,
 } from "@/features/wrapped/wrapped-guest-preview";
 
-const { mockUseIsMobile } = vi.hoisted(() => ({
-	mockUseIsMobile: vi.fn(),
-}));
-
-vi.mock("@/app/hooks/use-mobile", () => ({
-	useIsMobile: mockUseIsMobile,
-}));
-
 vi.mock("@/features/auth/LoginForm", () => ({
 	LoginForm: ({
 		onEmailPasswordPreviewSubmit,
@@ -65,16 +57,6 @@ vi.mock("@/features/auth/SignupForm", () => ({
 	),
 }));
 
-vi.mock("@/features/wrapped/WrappedDesktopResumePreviewStage", () => ({
-	WrappedDesktopResumePreviewStage: () => (
-		<div>Wrapped mobile handoff preview</div>
-	),
-}));
-
-vi.mock("@/features/wrapped/WrappedSetupPage", () => ({
-	WrappedSetupPage: () => <div>Wrapped setup page</div>,
-}));
-
 Object.defineProperty(window, "matchMedia", {
 	writable: true,
 	value: vi.fn().mockImplementation((query: string) => ({
@@ -108,8 +90,6 @@ async function submitWrappedPreviewEmail(
 describe("WrappedGuestPage", () => {
 	beforeEach(() => {
 		clearWrappedGuestPreviewSnapshot();
-		mockUseIsMobile.mockReset();
-		mockUseIsMobile.mockReturnValue(false);
 	});
 
 	it("starts on the auth intro step", () => {
@@ -171,6 +151,31 @@ describe("WrappedGuestPage", () => {
 				verified: false,
 			},
 			step: "auth",
+		});
+
+		render(
+			<MemoryRouter initialEntries={["/wrapped"]}>
+				<WrappedGuestPage />
+			</MemoryRouter>,
+		);
+
+		expect(
+			screen.getByRole("button", { name: "Create account" }),
+		).toBeInTheDocument();
+		expect(screen.getByText("Stored User")).toBeInTheDocument();
+	});
+
+	it("still restores the auth intro when an older snapshot was left on the profile step", () => {
+		writeWrappedGuestPreviewSnapshot({
+			profile: {
+				displayName: "Stored User",
+				followerCount: null,
+				imageUrl: null,
+				source: "local",
+				username: "storeduser",
+				verified: false,
+			},
+			step: "profile",
 		});
 
 		render(
@@ -254,7 +259,7 @@ describe("WrappedGuestPage", () => {
 		).toHaveClass(WRAPPED_UNKNOWN_CARD_CLASS_NAME);
 	});
 
-	it("opens card profile setup after wrapped email auth submits locally", async () => {
+	it("keeps wrapped auth in place when the preview-only submit callback is absent", async () => {
 		const user = userEvent.setup();
 
 		render(
@@ -266,80 +271,11 @@ describe("WrappedGuestPage", () => {
 		await openWrappedLoginForm(user);
 		await submitWrappedPreviewEmail(user);
 
+		expect(screen.getByText("Wrapped login form")).toBeInTheDocument();
 		expect(
-			screen.getByRole("heading", { name: "Make the card yours" }),
-		).toBeInTheDocument();
-		expect(screen.queryByText(/stays local/i)).not.toBeInTheDocument();
-		expect(screen.getByLabelText("Name on card")).toHaveValue("Preview");
-		await vi.waitFor(() => {
-			expect(screen.getByLabelText("Name on card")).toHaveFocus();
-		});
-		expect(screen.getByRole("button", { name: "Save name" })).toBeEnabled();
-		expect(readWrappedGuestPreviewSnapshot()?.profile.imageUrl).toBeNull();
-		expect(screen.getAllByText("Unknown Archetype").length).toBeGreaterThan(0);
-		expect(screen.getAllByText("???").length).toBeGreaterThan(0);
-		expect(
-			screen
-				.getByRole("region", { name: "Wrapped player card preview" })
-				.querySelector(".team-lineup-featured-card"),
-		).toHaveClass(WRAPPED_UNKNOWN_CARD_CLASS_NAME);
-		expect(
-			screen.queryByRole("group", { name: "Card image export actions" }),
-		).not.toBeInTheDocument();
-		expect(screen.queryByRole("button", { name: "Share card" })).toBeNull();
-		expect(screen.queryByRole("button", { name: "Download" })).toBeNull();
-		expect(screen.getByRole("button", { name: "Continue" })).toBeDisabled();
-		await user.click(screen.getByRole("button", { name: "Save name" }));
-		expect(screen.getByRole("button", { name: "Continue" })).toBeEnabled();
-		expect(screen.queryByText("Wrapped setup page")).not.toBeInTheDocument();
-	});
-
-	it("continues into the setup preview after card profile setup", async () => {
-		const user = userEvent.setup();
-
-		render(
-			<MemoryRouter initialEntries={["/wrapped"]}>
-				<WrappedGuestPage />
-			</MemoryRouter>,
-		);
-
-		await openWrappedLoginForm(user);
-		await submitWrappedPreviewEmail(user);
-		await user.clear(screen.getByLabelText("Name on card"));
-		await user.type(screen.getByLabelText("Name on card"), "Ada Lovelace");
-		expect(screen.getByLabelText("Name on card")).toHaveValue("Ada Lovelace");
-		await user.click(screen.getByRole("button", { name: "Save name" }));
-		expect(screen.queryByLabelText("Name on card")).toBeNull();
-		expect(screen.getByText("Ada Lovelace")).toBeInTheDocument();
-		await user.click(screen.getByRole("button", { name: "Continue" }));
-
-		expect(screen.getByText("Wrapped setup page")).toBeInTheDocument();
-		expect(readWrappedGuestPreviewSnapshot()?.profile.displayName).toBe(
-			"Ada Lovelace",
-		);
-	});
-
-	it("continues into the mobile handoff preview after card profile setup on mobile", async () => {
-		mockUseIsMobile.mockReturnValue(true);
-		const user = userEvent.setup();
-
-		render(
-			<MemoryRouter initialEntries={["/wrapped"]}>
-				<WrappedGuestPage />
-			</MemoryRouter>,
-		);
-
-		await openWrappedLoginForm(user);
-		await submitWrappedPreviewEmail(user);
-		expect(
-			screen.getByRole("heading", { name: "Make the card yours" }),
-		).toBeInTheDocument();
-		expect(screen.getByRole("button", { name: "Continue" })).toBeDisabled();
-		await user.click(screen.getByRole("button", { name: "Save name" }));
-		await user.click(screen.getByRole("button", { name: "Continue" }));
-
-		expect(
-			screen.getByText("Wrapped mobile handoff preview"),
-		).toBeInTheDocument();
+			screen.queryByRole("heading", { name: "Make the card yours" }),
+		).toBeNull();
+		expect(screen.queryByText("Wrapped setup page")).toBeNull();
+		expect(readWrappedGuestPreviewSnapshot()).toBeNull();
 	});
 });

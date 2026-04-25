@@ -1,4 +1,4 @@
-import { startTransition, useState } from "react";
+import { type ReactNode, startTransition, useState } from "react";
 import { useLocation, useSearchParams } from "react-router-dom";
 import { useIsMobile } from "@/app/hooks/use-mobile";
 import { getWrappedShareIdFromSearch } from "@/app/routes";
@@ -166,7 +166,7 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 		key: sessionUserId,
 	});
 
-	let content;
+	let content: ReactNode;
 
 	if (publicId) {
 		content = <WrappedPublicPage publicId={publicId} />;

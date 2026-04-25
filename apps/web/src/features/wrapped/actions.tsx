@@ -8,10 +8,7 @@ type WrappedPrimaryActionProps =
 			className?: string;
 			icon?: ReactNode;
 			kind: "button";
-	  } & Omit<
-			ButtonHTMLAttributes<HTMLButtonElement>,
-			"children" | "className"
-	  >)
+	  } & Omit<ButtonHTMLAttributes<HTMLButtonElement>, "children" | "className">)
 	| {
 			children: ReactNode;
 			className?: string;

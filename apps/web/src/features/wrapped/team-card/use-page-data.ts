@@ -10,13 +10,21 @@ import { readWrappedGuestPreviewSnapshot } from "@/features/wrapped/wrapped-gues
 import { MAX_ANALYTICS_DAYS } from "@/lib/analytics-date-range";
 import { authClient } from "@/lib/auth-client";
 import { orpc } from "@/lib/orpc";
+import {
+	WRAPPED_ARCHETYPE_CARD_THEMES,
+	type WrappedArchetypeCardTheme,
+} from "./archetypes";
 import type { WrappedTeamMemberCardStatItem } from "./card";
 import { buildWrappedOnboardingMetrics } from "./onboarding-metrics";
 import { buildResolvedTeamCardRow } from "./row";
 import { buildWrappedStatItems } from "./stat-items";
 
+const DEFAULT_LIVE_ARCHETYPE: WrappedArchetypeCardTheme =
+	WRAPPED_ARCHETYPE_CARD_THEMES[0];
+
 interface UseWrappedTeamCardPageDataResult {
 	completionUserId: string | null;
+	liveArchetype: WrappedArchetypeCardTheme;
 	onboardingMetrics: WrappedOnboardingMetrics;
 	statItems: readonly WrappedTeamMemberCardStatItem[];
 	visibleTeamCardRow: TeamPageMemberRow;
@@ -161,13 +169,31 @@ export function useWrappedTeamCardPageData(): UseWrappedTeamCardPageDataResult {
 			wrappedData?.metrics.source_split,
 		],
 	);
+	const liveArchetype = useMemo(
+		() => resolveLiveArchetype(wrappedData?.archetype?.key),
+		[wrappedData?.archetype?.key],
+	);
 
 	return {
 		completionUserId,
+		liveArchetype,
 		onboardingMetrics,
 		statItems,
 		visibleTeamCardRow,
 	};
+}
+
+function resolveLiveArchetype(
+	classifierKey: string | undefined,
+): WrappedArchetypeCardTheme {
+	if (!classifierKey) {
+		return DEFAULT_LIVE_ARCHETYPE;
+	}
+	const matched = WRAPPED_ARCHETYPE_CARD_THEMES.find(
+		(theme) =>
+			theme.kind === "taxonomy" && theme.classifierKey === classifierKey,
+	);
+	return matched ?? DEFAULT_LIVE_ARCHETYPE;
 }
 
 function getSessionUserId(

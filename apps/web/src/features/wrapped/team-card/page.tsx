@@ -102,12 +102,18 @@ export function WrappedTeamCardPage(props: {
 	const { trackUtilityUsed } = useAnalyticsTracking({
 		pageName: "wrapped_team_card",
 	});
-	const { completionUserId, onboardingMetrics, statItems, visibleTeamCardRow } =
-		useWrappedTeamCardPageData();
+	const {
+		completionUserId,
+		liveArchetype,
+		onboardingMetrics,
+		statItems,
+		visibleTeamCardRow,
+	} = useWrappedTeamCardPageData();
 	const tiltController = useWrappedCardTilt();
-	// The live flow still defaults to a single fallback theme. This index only
-	// exists so the dev footer can preview the full card set when needed.
-	const [activeArchetypeIndex, setActiveArchetypeIndex] = useState(0);
+	// liveArchetype reflects the snapshot-backed classifier output. The dev
+	// override is interaction-only state, gated by import.meta.env.DEV, used so
+	// QA can preview the full card set without altering the live flow.
+	const [devOverrideIndex, setDevOverrideIndex] = useState<number | null>(null);
 	const [shareAppearance, setShareAppearance] =
 		useState<WrappedShareAppearance>(DEFAULT_WRAPPED_SHARE_APPEARANCE);
 	const [shareCardCreatedAt] = useState(() => new Date());
@@ -126,8 +132,9 @@ export function WrappedTeamCardPage(props: {
 		},
 	});
 	const activeArchetype: WrappedArchetypeCardTheme =
-		WRAPPED_ARCHETYPE_CARD_THEMES[activeArchetypeIndex] ??
-		WRAPPED_ARCHETYPE_CARD_THEMES[0];
+		devOverrideIndex !== null
+			? (WRAPPED_ARCHETYPE_CARD_THEMES[devOverrideIndex] ?? liveArchetype)
+			: liveArchetype;
 
 	if (!activeArchetype) {
 		throw new Error("Wrapped archetype themes are missing.");
@@ -223,7 +230,7 @@ export function WrappedTeamCardPage(props: {
 			shellStyle={TEAM_CARD_SHELL_STYLE}
 			statItems={statItems}
 			statLayerOpacities={statLayerOpacities}
-			setActiveArchetypeIndex={setActiveArchetypeIndex}
+			setDevOverrideIndex={setDevOverrideIndex}
 			setShareAppearance={setShareAppearance}
 			tiltController={tiltController}
 			visibleTeamCardRow={visibleTeamCardRow}
@@ -239,8 +246,8 @@ function WrappedTeamCardPageContent(props: {
 	onboardingMetrics: WrappedOnboardingMetrics;
 	onBackFromFirstStep?: () => void;
 	onContinueToDashboard: () => void;
-	setActiveArchetypeIndex: (
-		nextValue: number | ((currentValue: number) => number),
+	setDevOverrideIndex: (
+		nextValue: number | null | ((currentValue: number | null) => number | null),
 	) => void;
 	setShareAppearance: (
 		nextValue:
@@ -263,7 +270,7 @@ function WrappedTeamCardPageContent(props: {
 		onboardingMetrics,
 		onBackFromFirstStep,
 		onContinueToDashboard,
-		setActiveArchetypeIndex,
+		setDevOverrideIndex,
 		setShareAppearance,
 		shareAppearance,
 		shareCardCreatedAtLabel,
@@ -296,6 +303,7 @@ function WrappedTeamCardPageContent(props: {
 	});
 	const isCardStep = searchParams.get("step") === "card";
 	const showShareStage = finalCardStage === "share";
+	const activeArchetypeIndex = getWrappedArchetypeThemeIndex(activeArchetype);
 	// The final exported post intentionally uses a stricter media policy than the
 	// live card. That keeps image export and public replay reliable without
 	// freezing future design changes for the live experience.
@@ -592,9 +600,9 @@ function WrappedTeamCardPageContent(props: {
 					onNext: () => {
 						startTransition(() => {
 							setIsRevealSequenceComplete(false);
-							setActiveArchetypeIndex((currentIndex) =>
+							setDevOverrideIndex((currentIndex) =>
 								getWrappedArchetypeIndex(
-									currentIndex + 1,
+									(currentIndex ?? activeArchetypeIndex) + 1,
 									WRAPPED_ARCHETYPE_CARD_THEMES.length,
 								),
 							);
@@ -603,9 +611,9 @@ function WrappedTeamCardPageContent(props: {
 					onPrevious: () => {
 						startTransition(() => {
 							setIsRevealSequenceComplete(false);
-							setActiveArchetypeIndex((currentIndex) =>
+							setDevOverrideIndex((currentIndex) =>
 								getWrappedArchetypeIndex(
-									currentIndex - 1,
+									(currentIndex ?? activeArchetypeIndex) - 1,
 									WRAPPED_ARCHETYPE_CARD_THEMES.length,
 								),
 							);
@@ -805,6 +813,20 @@ function getWrappedFinalStagePresenceExit(reduceMotion: boolean) {
 		scale: 0.996,
 		y: -8,
 	};
+}
+
+function getWrappedArchetypeThemeIndex(
+	archetype: WrappedArchetypeCardTheme,
+): number {
+	const index = WRAPPED_ARCHETYPE_CARD_THEMES.findIndex(
+		(theme) => theme.id === archetype.id,
+	);
+
+	if (index === -1) {
+		return 0;
+	}
+
+	return index;
 }
 
 function WrappedTeamCardThemeDebugControls(props: {

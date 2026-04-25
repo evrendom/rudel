@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { TeamPageMemberRow } from "@/features/team/use-team-page-data";
 import type { WrappedOnboardingMetrics } from "@/features/wrapped/onboarding/types";
+import { WRAPPED_ARCHETYPE_CARD_THEMES } from "@/features/wrapped/team-card/archetypes";
 import { buildWrappedTeamCardBackMetrics } from "@/features/wrapped/team-card/back-metrics";
 import {
 	WrappedTeamCardRevealStage,
@@ -184,6 +185,34 @@ describe("buildWrappedTeamCardBackMetrics", () => {
 });
 
 describe("WrappedTeamCardSharePreview", () => {
+	it("renders every archetype theme without crashing", () => {
+		for (const archetype of WRAPPED_ARCHETYPE_CARD_THEMES) {
+			const { unmount } = render(
+				<WrappedTeamCardSharePreview
+					appearance={{ layoutMode: "front", showArchetypeLabel: true }}
+					headerLeftMetric={{ title: "$42 estimated spend", value: "$42" }}
+					headerRightMetric={{
+						title: archetype.displayLabel,
+						value: archetype.displayLabel,
+					}}
+					row={row}
+					shareCardCreatedAtLabel="04/24/2026"
+					shellClassName={archetype.shellClassName}
+					shellStyle={{}}
+					statItems={[]}
+					theme={archetype.theme}
+				/>,
+			);
+
+			expect(screen.getByTestId("wrapped-team-card")).toHaveAttribute(
+				"data-header-right",
+				archetype.displayLabel,
+			);
+
+			unmount();
+		}
+	});
+
 	it("shows the archetype on the one-card variant without caption text", () => {
 		const { container } = render(
 			<WrappedTeamCardSharePreview
@@ -292,6 +321,49 @@ describe("WrappedTeamCardShareStage", () => {
 });
 
 describe("WrappedTeamCardRevealStage", () => {
+	it("renders every archetype theme in the reveal stage", () => {
+		for (const archetype of WRAPPED_ARCHETYPE_CARD_THEMES) {
+			const { unmount } = render(
+				<WrappedTeamCardRevealStage
+					activeArchetype={archetype}
+					headerLeftMetric={{
+						title: "$42 estimated spend",
+						value: "$42",
+					}}
+					headerRightMetric={{
+						title: archetype.displayLabel,
+						value: archetype.displayLabel,
+					}}
+					isPreviewPostVisible={false}
+					onboardingMetrics={onboardingMetrics}
+					onPreviewPost={vi.fn()}
+					onRevealComplete={vi.fn()}
+					row={row}
+					shellClassName={archetype.shellClassName}
+					shellStyle={{}}
+					shareCardCreatedAtLabel="04/24/2026"
+					statItems={[]}
+					statLayerOpacities={{
+						rainbowShineOpacity: 0.3,
+						textureOpacity: 1,
+						tileBorderOpacity: 1,
+						tileFillOpacity: 0.08,
+						tileInsetShadowOpacity: 0.5,
+						tileTopStrokeOpacity: 0.08,
+					}}
+					theme={archetype.theme}
+					tiltController={tiltController}
+				/>,
+			);
+
+			expect(
+				screen.getByTestId("wrapped-team-card").closest("[data-card-state]"),
+			).toHaveAttribute("data-card-state", "waiting");
+
+			unmount();
+		}
+	});
+
 	it("drops the back of the card first and flips to the front on click", () => {
 		vi.useFakeTimers();
 		const onRevealComplete = vi.fn();

@@ -17,6 +17,7 @@ import { SignupForm } from "./SignupForm";
 
 const {
 	mockNavigateToDestination,
+	mockRefreshAuthClientState,
 	mockSignInEmail,
 	mockSignInSocial,
 	mockSignUpEmail,
@@ -40,6 +41,7 @@ vi.mock("@/lib/auth-client", () => ({
 			email: mockSignUpEmail,
 		},
 	},
+	refreshAuthClientState: mockRefreshAuthClientState,
 }));
 
 vi.mock("./auth-navigation", () => ({
@@ -68,6 +70,7 @@ describe("auth state refresh", () => {
 		mockSignInSocial.mockReset();
 		mockSignUpEmail.mockReset();
 		mockNavigateToDestination.mockReset();
+		mockRefreshAuthClientState.mockReset();
 		mockTrackAuthenticationAction.mockReset();
 	});
 
@@ -359,6 +362,7 @@ describe("auth state refresh", () => {
 			expect(mockNavigateToDestination).toHaveBeenCalledWith("/");
 		});
 
+		expect(mockRefreshAuthClientState).toHaveBeenCalledTimes(1);
 		expect(window.location.search).toBe("");
 	});
 
@@ -377,6 +381,7 @@ describe("auth state refresh", () => {
 		await waitFor(() => {
 			expect(mockNavigateToDestination).toHaveBeenCalledWith("/wrapped");
 		});
+		expect(mockRefreshAuthClientState).toHaveBeenCalledTimes(1);
 	});
 
 	it("uses a local wrapped preview submit for email sign in when requested", async () => {

@@ -41,7 +41,7 @@ export function WrappedDesktopResumePromptPage(
 		debugControls,
 		email,
 		shareId,
-		shouldBypassEmailSendForMotionPreview = true,
+		shouldBypassEmailSendForMotionPreview = false,
 	} = props;
 	const [state, setState] = useState<ResumePromptState>({
 		status: "idle",

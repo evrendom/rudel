@@ -1,5 +1,10 @@
 import { useReducedMotion } from "motion/react";
-import { useEffect, useState, type CSSProperties } from "react";
+import {
+	type CSSProperties,
+	// biome-ignore lint/style/noRestrictedImports: progress marker animation bridges active-step changes after React commits them.
+	useEffect,
+	useState,
+} from "react";
 import { cn } from "@/lib/utils";
 
 export interface WrappedProgressItem {

@@ -49,15 +49,7 @@ const WrappedDesktopResumePage = lazy(() =>
 );
 
 function FullscreenRouteLoadingScreen() {
-	return (
-		<div
-			aria-busy="true"
-			aria-live="polite"
-			className="flex min-h-screen items-center justify-center bg-[#040b11] text-sm text-white/70"
-		>
-			Loading…
-		</div>
-	);
+	return <AppLoadingScreen />;
 }
 
 function App() {

@@ -1,6 +1,6 @@
 import { join } from "node:path";
 import { getLogger, withContext } from "@logtape/logtape";
-import { onError, ORPCError } from "@orpc/server";
+import { ORPCError, onError } from "@orpc/server";
 import { RPCHandler } from "@orpc/server/fetch";
 import type { Session as AuthSession } from "./auth.js";
 import { createAuth } from "./auth.js";
@@ -10,12 +10,12 @@ import { shutdownApiProductAnalytics } from "./lib/product-analytics.js";
 import { setupLogging } from "./logging.js";
 import { checkWrappedShareLookupRateLimit } from "./rate-limit.js";
 import { router } from "./router.js";
+import { getPublicWrappedShare } from "./services/wrapped-share.service.js";
 import { renderWrappedShareCardPng } from "./services/wrapped-share-card-image.js";
 import {
 	buildWrappedSharePageMetadata,
 	injectWrappedSharePageMetadata,
 } from "./services/wrapped-share-page-metadata.js";
-import { getPublicWrappedShare } from "./services/wrapped-share.service.js";
 
 await setupLogging();
 

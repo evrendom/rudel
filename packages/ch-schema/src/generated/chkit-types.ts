@@ -165,3 +165,121 @@ export const RudelSessionAnalyticsRowSchema = z.object({
 
 export type RudelSessionAnalyticsRowInput = z.input<typeof RudelSessionAnalyticsRowSchema>
 export type RudelSessionAnalyticsRowOutput = z.output<typeof RudelSessionAnalyticsRowSchema>
+
+export type RudelWrappedUserArchetypeRunsV1Row = {
+  snapshot_id: string
+  snapshot_created_at: string
+  pipeline_version: string
+  centroid_version: string
+  scope: string
+  user_scope_count: number
+  trigger_reason: string
+  trigger_source: string | null
+  trigger_session_id: string | null
+}
+
+export const RudelWrappedUserArchetypeRunsV1RowSchema = z.object({
+  snapshot_id: z.string(),
+  snapshot_created_at: z.string(),
+  pipeline_version: z.string(),
+  centroid_version: z.string(),
+  scope: z.string(),
+  user_scope_count: z.number(),
+  trigger_reason: z.string(),
+  trigger_source: z.string().nullable(),
+  trigger_session_id: z.string().nullable(),
+})
+
+export type RudelWrappedUserArchetypeRunsV1RowInput = z.input<typeof RudelWrappedUserArchetypeRunsV1RowSchema>
+export type RudelWrappedUserArchetypeRunsV1RowOutput = z.output<typeof RudelWrappedUserArchetypeRunsV1RowSchema>
+
+export type RudelWrappedUserArchetypeSnapshotsV1Row = {
+  snapshot_id: string
+  snapshot_created_at: string
+  pipeline_version: string
+  centroid_version: string
+  scope: string
+  organization_id: string
+  user_id: string
+  first_session_at: string
+  last_session_at: string
+  days_since_first_session: number
+  total_sessions: number
+  active_days: number
+  claude_session_count: number
+  codex_session_count: number
+  total_tokens: string
+  estimated_spend_usd: number
+  mean_session_min: number
+  longest_session_min: number
+  commit_sessions: number
+  distinct_repos: number | null
+  breadth_available: number
+  range_entropy: number
+  consistency_raw: number
+  intensity_raw: number
+  session_shape_raw: number
+  cost_intensity_raw: number
+  output_raw: number
+  breadth_raw: number | null
+  range_raw: number
+  consistency: number
+  intensity: number
+  session_shape: number
+  cost_intensity: number
+  output: number
+  breadth: number | null
+  range: number
+  archetype_id: number
+  archetype_key: string
+  archetype_name: string
+  archetype_distance: number
+  archetype_distance_ratio_to_max: number
+}
+
+export const RudelWrappedUserArchetypeSnapshotsV1RowSchema = z.object({
+  snapshot_id: z.string(),
+  snapshot_created_at: z.string(),
+  pipeline_version: z.string(),
+  centroid_version: z.string(),
+  scope: z.string(),
+  organization_id: z.string(),
+  user_id: z.string(),
+  first_session_at: z.string(),
+  last_session_at: z.string(),
+  days_since_first_session: z.number(),
+  total_sessions: z.number(),
+  active_days: z.number(),
+  claude_session_count: z.number(),
+  codex_session_count: z.number(),
+  total_tokens: z.string(),
+  estimated_spend_usd: z.number(),
+  mean_session_min: z.number(),
+  longest_session_min: z.number(),
+  commit_sessions: z.number(),
+  distinct_repos: z.number().nullable(),
+  breadth_available: z.number(),
+  range_entropy: z.number(),
+  consistency_raw: z.number(),
+  intensity_raw: z.number(),
+  session_shape_raw: z.number(),
+  cost_intensity_raw: z.number(),
+  output_raw: z.number(),
+  breadth_raw: z.number().nullable(),
+  range_raw: z.number(),
+  consistency: z.number(),
+  intensity: z.number(),
+  session_shape: z.number(),
+  cost_intensity: z.number(),
+  output: z.number(),
+  breadth: z.number().nullable(),
+  range: z.number(),
+  archetype_id: z.number(),
+  archetype_key: z.string(),
+  archetype_name: z.string(),
+  archetype_distance: z.number(),
+  archetype_distance_ratio_to_max: z.number(),
+})
+
+export type RudelWrappedUserArchetypeSnapshotsV1RowInput = z.input<typeof RudelWrappedUserArchetypeSnapshotsV1RowSchema>
+export type RudelWrappedUserArchetypeSnapshotsV1RowOutput = z.output<typeof RudelWrappedUserArchetypeSnapshotsV1RowSchema>

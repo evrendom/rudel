@@ -35,6 +35,8 @@ type ToolsStageSequenceFrame = {
 };
 
 type ToolsStageScenePhase = "sequence" | "handoff" | "final";
+type ToolsStagePreviewInput = ReturnType<typeof resolveToolsPreviewInput>;
+type ToolsStageModel = ReturnType<typeof resolveToolsStageModel>;
 
 const TOOLS_BASE_MODEL_LINES = [
 	"You used no slash commands.",
@@ -64,11 +66,8 @@ const TOOLS_STAGE_COPY_HANDOFF_MS = 520;
 const TOOLS_STAGE_SEQUENCE_HOLD_MS = [2_040, 2_160] as const;
 
 export function WrappedOnboardingToolsStage(props: ToolsStageProps) {
-	const {
-		onboardingMetrics,
-		onBaseModelSequenceComplete,
-		previewState,
-	} = props;
+	const { onboardingMetrics, onBaseModelSequenceComplete, previewState } =
+		props;
 	const shouldReduceMotion = useReducedMotion();
 	const reduceMotion = shouldReduceMotion ?? false;
 	const previewInput = resolveToolsPreviewInput(
@@ -98,6 +97,23 @@ export function WrappedOnboardingToolsStage(props: ToolsStageProps) {
 		);
 	}
 
+	return (
+		<WrappedOnboardingToolsRegularStage
+			model={model}
+			onSequenceComplete={onBaseModelSequenceComplete}
+			previewInput={previewInput}
+			reduceMotion={reduceMotion}
+		/>
+	);
+}
+
+function WrappedOnboardingToolsRegularStage(props: {
+	model: ToolsStageModel;
+	onSequenceComplete?: () => void;
+	previewInput: ToolsStagePreviewInput;
+	reduceMotion: boolean;
+}) {
+	const { model, onSequenceComplete, previewInput, reduceMotion } = props;
 	const sequenceFrames = resolveToolsStageSequenceFrames(
 		previewInput.topSlashCommand,
 		previewInput.topSubagent,
@@ -132,7 +148,7 @@ export function WrappedOnboardingToolsStage(props: ToolsStageProps) {
 		}
 
 		hasCompletedSequenceRef.current = true;
-		onBaseModelSequenceComplete?.();
+		onSequenceComplete?.();
 	}
 
 	useMountEffect(() => {
@@ -157,17 +173,23 @@ export function WrappedOnboardingToolsStage(props: ToolsStageProps) {
 			}, elapsedMs);
 		});
 		timeoutIds.push(
-			window.setTimeout(() => {
-				setScenePhase("handoff");
-			}, elapsedMs + resolveToolsStageSequenceHoldMs(sequenceFrames.length - 1)),
+			window.setTimeout(
+				() => {
+					setScenePhase("handoff");
+				},
+				elapsedMs + resolveToolsStageSequenceHoldMs(sequenceFrames.length - 1),
+			),
 		);
 		timeoutIds.push(
-			window.setTimeout(() => {
-				setScenePhase("final");
-				completeRegularSequence();
-			}, elapsedMs +
-				resolveToolsStageSequenceHoldMs(sequenceFrames.length - 1) +
-				TOOLS_STAGE_COPY_HANDOFF_MS),
+			window.setTimeout(
+				() => {
+					setScenePhase("final");
+					completeRegularSequence();
+				},
+				elapsedMs +
+					resolveToolsStageSequenceHoldMs(sequenceFrames.length - 1) +
+					TOOLS_STAGE_COPY_HANDOFF_MS,
+			),
 		);
 		sequenceTimerRefs.current = timeoutIds;
 

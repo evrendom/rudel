@@ -639,9 +639,9 @@ function WrappedScaleKebabRain(props: {
 			data-scale-kebab-count={dropCount}
 			ref={kebabRainRef}
 		>
-			{Array.from({ length: dropCount }, (_, index) => (
+			{buildScaleKebabDropSlotIds(dropCount).map((dropId, index) => (
 				<span
-					key={`scale-kebab-drop-${dropCount}-${index}`}
+					key={dropId}
 					ref={(node) => {
 						dropRefs.current[index] = node;
 					}}
@@ -663,6 +663,13 @@ function WrappedScaleKebabRain(props: {
 	}
 
 	return createPortal(kebabRain, document.body);
+}
+
+function buildScaleKebabDropSlotIds(dropCount: number) {
+	return Array.from(
+		{ length: dropCount },
+		(_item, dropIndex) => `scale-kebab-drop-${dropCount}-${dropIndex}`,
+	);
 }
 
 function resolveScaleKebabCount(estimatedSpendUsd: number) {

@@ -5,7 +5,7 @@ import { Input } from "@/app/ui/input";
 import { Label } from "@/app/ui/label";
 import { Separator } from "@/app/ui/separator";
 import { useAnalyticsTracking } from "@/features/analytics/tracking/useAnalyticsTracking";
-import { authClient } from "@/lib/auth-client";
+import { authClient, refreshAuthClientState } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
 import { navigateToDestination } from "./auth-navigation";
 import {
@@ -147,6 +147,7 @@ export function LoginForm(props: LoginFormProps) {
 			return;
 		}
 
+		refreshAuthClientState();
 		navigateToDestination(successDestination);
 	}
 

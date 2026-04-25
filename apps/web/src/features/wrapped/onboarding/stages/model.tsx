@@ -118,6 +118,14 @@ const MODEL_STAGE_HISTORY_PROMPT_HOLD_MS = 560;
 const MODEL_STAGE_HISTORY_REVEAL_SETTLE_MS = 1_120;
 const MODEL_STAGE_RESULT_SETTLE_MS = 1_900;
 const MODEL_STAGE_RESULT_DETAIL_DELAY_MS = 520;
+
+function clearModelStageSequenceTimers(timerRefs: { current: number[] }) {
+	for (const timeoutId of timerRefs.current) {
+		window.clearTimeout(timeoutId);
+	}
+
+	timerRefs.current = [];
+}
 const MODEL_STAGE_RESULT_LOGO_DELAY_MS = 760;
 const MODEL_STAGE_COMPARISON_COUNTER_DURATION_MS = 2_280;
 const MODEL_STAGE_RESULT_COUNTER_DURATION_MS = 1_680;
@@ -174,14 +182,6 @@ export function WrappedOnboardingModelStage(props: ModelStageProps) {
 	const resultKicker =
 		phase === "result" ? getModelStageResultKicker(leadingSource) : null;
 
-	function clearSequenceTimers() {
-		for (const timeoutId of sequenceTimerRefs.current) {
-			window.clearTimeout(timeoutId);
-		}
-
-		sequenceTimerRefs.current = [];
-	}
-
 	useMountEffect(() => {
 		if (!hasAnimatedData) {
 			onHistoryRevealComplete?.();
@@ -220,7 +220,7 @@ export function WrappedOnboardingModelStage(props: ModelStageProps) {
 		sequenceTimerRefs.current = timeoutIds;
 
 		return () => {
-			clearSequenceTimers();
+			clearModelStageSequenceTimers(sequenceTimerRefs);
 		};
 	});
 
@@ -254,7 +254,7 @@ export function WrappedOnboardingModelStage(props: ModelStageProps) {
 		];
 
 		return () => {
-			clearSequenceTimers();
+			clearModelStageSequenceTimers(sequenceTimerRefs);
 		};
 	}, [advanceState, hasAnimatedData, onHistoryRevealComplete, reduceMotion]);
 

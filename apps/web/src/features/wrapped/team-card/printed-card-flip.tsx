@@ -2,6 +2,7 @@ import { toPng } from "html-to-image";
 import {
 	type CSSProperties,
 	type ReactNode,
+	// biome-ignore lint/style/noRestrictedImports: card capture and flip animation are imperative storyboard bridges.
 	useEffect,
 	useRef,
 	useState,
@@ -22,7 +23,13 @@ interface WrappedPrintedCardFlipProps {
 }
 
 export function WrappedPrintedCardFlip(props: WrappedPrintedCardFlipProps) {
-	const { back, captureKey, front, isFrontVisible, reduceMotion = false } = props;
+	const {
+		back,
+		captureKey,
+		front,
+		isFrontVisible,
+		reduceMotion = false,
+	} = props;
 	const backSourceRef = useRef<HTMLDivElement | null>(null);
 	const animationFrameRef = useRef<number | null>(null);
 	const angleRef = useRef(isFrontVisible ? 0 : 180);
@@ -30,6 +37,7 @@ export function WrappedPrintedCardFlip(props: WrappedPrintedCardFlipProps) {
 	const [angle, setAngle] = useState(() => (isFrontVisible ? 0 : 180));
 	const visualState = resolvePrintedCardVisualState(angle);
 
+	// biome-ignore lint/correctness/useExhaustiveDependencies: captureKey intentionally invalidates the rendered back texture.
 	useEffect(() => {
 		let isCancelled = false;
 
@@ -88,8 +96,7 @@ export function WrappedPrintedCardFlip(props: WrappedPrintedCardFlipProps) {
 
 		function tick(now: number) {
 			const progress = Math.min((now - startTime) / FLIP_DURATION_MS, 1);
-			const nextAngle =
-				startAngle + deltaAngle * easeWrappedCardFlip(progress);
+			const nextAngle = startAngle + deltaAngle * easeWrappedCardFlip(progress);
 			angleRef.current = nextAngle;
 			setAngle(nextAngle);
 

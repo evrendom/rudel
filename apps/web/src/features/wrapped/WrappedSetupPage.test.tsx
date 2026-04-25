@@ -40,9 +40,7 @@ describe("WrappedSetupPage", () => {
 		expect(
 			screen.getByRole("navigation", { name: "Wrapped onboarding progress" }),
 		).toBeInTheDocument();
-		expect(
-			screen.queryByRole("button", { name: "Close wrapped" }),
-		).toBeNull();
+		expect(screen.queryByRole("button", { name: "Close wrapped" })).toBeNull();
 		expect(
 			screen.queryByRole("button", { name: "I installed and logged in" }),
 		).toBeNull();

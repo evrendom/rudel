@@ -10,8 +10,7 @@ export function resolveWrappedShareAppearance(
 ): WrappedShareAppearance {
 	return {
 		layoutMode:
-			appearance?.layoutMode ??
-			DEFAULT_WRAPPED_SHARE_APPEARANCE.layoutMode,
+			appearance?.layoutMode ?? DEFAULT_WRAPPED_SHARE_APPEARANCE.layoutMode,
 		showArchetypeLabel:
 			appearance?.showArchetypeLabel ??
 			DEFAULT_WRAPPED_SHARE_APPEARANCE.showArchetypeLabel,

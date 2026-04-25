@@ -1,11 +1,18 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { WrappedDesktopResumePromptPage } from "./WrappedDesktopResumePromptPage";
 
-const { mockTrackUtilityUsed } = vi.hoisted(() => ({
-	mockTrackUtilityUsed: vi.fn(),
+const { mockCopyTextToClipboardWithResult, mockTrackUtilityUsed } = vi.hoisted(
+	() => ({
+		mockCopyTextToClipboardWithResult: vi.fn(),
+		mockTrackUtilityUsed: vi.fn(),
+	}),
+);
+
+vi.mock("@/lib/clipboard", () => ({
+	copyTextToClipboardWithResult: mockCopyTextToClipboardWithResult,
 }));
 
 vi.mock("@/features/analytics/tracking/useAnalyticsTracking", () => ({
@@ -15,6 +22,12 @@ vi.mock("@/features/analytics/tracking/useAnalyticsTracking", () => ({
 }));
 
 describe("WrappedDesktopResumePromptPage", () => {
+	beforeEach(() => {
+		mockCopyTextToClipboardWithResult.mockReset();
+		mockCopyTextToClipboardWithResult.mockResolvedValue("copied");
+		mockTrackUtilityUsed.mockReset();
+	});
+
 	it("renders the shared mobile handoff layout", () => {
 		render(
 			<MemoryRouter>
@@ -43,7 +56,34 @@ describe("WrappedDesktopResumePromptPage", () => {
 		expect(screen.queryByText("ada@example.com")).toBeNull();
 	});
 
-	it("keeps the same layout while sending the desktop link", async () => {
+	it("copies the fallback wrapped URL before a resume link is ready", async () => {
+		const user = userEvent.setup();
+
+		render(
+			<MemoryRouter>
+				<WrappedDesktopResumePromptPage
+					email="ada@example.com"
+					shareId={null}
+					createResumeLink={vi.fn()}
+				/>
+			</MemoryRouter>,
+		);
+
+		await user.click(screen.getByRole("button", { name: "Copy" }));
+
+		expect(mockCopyTextToClipboardWithResult).toHaveBeenCalledWith(
+			"app.rudel.ai/wrapped",
+			expect.objectContaining({
+				allowPromptFallback: true,
+				preferSelectionCopy: true,
+			}),
+		);
+		expect(
+			await screen.findByRole("button", { name: "Copied" }),
+		).toBeInTheDocument();
+	});
+
+	it("still supports the motion-preview bypass when explicitly enabled", async () => {
 		const createResumeLink = vi.fn();
 		const user = userEvent.setup();
 
@@ -53,6 +93,7 @@ describe("WrappedDesktopResumePromptPage", () => {
 					email="ada@example.com"
 					shareId={null}
 					createResumeLink={createResumeLink}
+					shouldBypassEmailSendForMotionPreview={true}
 				/>
 			</MemoryRouter>,
 		);
@@ -113,6 +154,85 @@ describe("WrappedDesktopResumePromptPage", () => {
 			expect.objectContaining({
 				utilityName: "desktopLinkSent",
 				utilityState: "emailSent",
+			}),
+		);
+	});
+
+	it("copies the generated resume URL after the real email flow is ready", async () => {
+		const createResumeLink = vi.fn().mockResolvedValue({
+			email_sent: true,
+			expires_at: "2026-04-24T12:00:00.000Z",
+			resume_url: "https://app.rudel.ai/resume/test-token",
+		});
+		const user = userEvent.setup();
+
+		render(
+			<MemoryRouter>
+				<WrappedDesktopResumePromptPage
+					email="ada@example.com"
+					shareId={null}
+					createResumeLink={createResumeLink}
+				/>
+			</MemoryRouter>,
+		);
+
+		await user.click(
+			screen.getByRole("button", { name: "Send link to my mail" }),
+		);
+
+		expect(
+			await screen.findByText("We sent the desktop link to ada@example.com."),
+		).toBeInTheDocument();
+
+		await user.click(screen.getByRole("button", { name: "Copy" }));
+
+		expect(mockCopyTextToClipboardWithResult).toHaveBeenCalledWith(
+			"https://app.rudel.ai/resume/test-token",
+			expect.objectContaining({
+				allowPromptFallback: true,
+				preferSelectionCopy: true,
+			}),
+		);
+	});
+
+	it("keeps the generated copy link available when email delivery is unavailable", async () => {
+		const createResumeLink = vi.fn().mockResolvedValue({
+			email_sent: false,
+			expires_at: "2026-04-24T12:00:00.000Z",
+			resume_url: "https://app.rudel.ai/resume/test-token",
+		});
+		const user = userEvent.setup();
+
+		render(
+			<MemoryRouter>
+				<WrappedDesktopResumePromptPage
+					email="ada@example.com"
+					shareId={null}
+					createResumeLink={createResumeLink}
+				/>
+			</MemoryRouter>,
+		);
+
+		await user.click(
+			screen.getByRole("button", { name: "Send link to my mail" }),
+		);
+
+		expect(
+			await screen.findByText(
+				"Email sending is unavailable right now, so use Copy instead.",
+			),
+		).toBeInTheDocument();
+
+		await user.click(screen.getByRole("button", { name: "Copy" }));
+
+		expect(mockCopyTextToClipboardWithResult).toHaveBeenCalledWith(
+			"https://app.rudel.ai/resume/test-token",
+			expect.any(Object),
+		);
+		expect(mockTrackUtilityUsed).toHaveBeenCalledWith(
+			expect.objectContaining({
+				utilityName: "desktopLinkSent",
+				utilityState: "linkReady",
 			}),
 		);
 	});

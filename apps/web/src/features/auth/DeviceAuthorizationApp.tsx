@@ -9,15 +9,8 @@ import {
 	getSessionUserId,
 } from "@/features/auth/auth-route-utils";
 import { GuestApp } from "@/features/auth/GuestApp";
-import { useSetupProgress } from "@/features/get-started/use-setup-progress";
 
 function ApprovedDeviceSetupPage() {
-	const { hasUploadedSessions } = useSetupProgress({ enabled: true });
-
-	if (hasUploadedSessions) {
-		return <Navigate replace to={appRoutes.dashboard()} />;
-	}
-
 	return <Navigate replace to={appRoutes.wrappedTeamCard()} />;
 }
 
