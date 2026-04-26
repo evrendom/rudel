@@ -104,6 +104,75 @@ describe("WrappedOnboardingToolsStage", () => {
 		expect(onBaseModelSequenceComplete).toHaveBeenCalledTimes(1);
 	});
 
+	it("keeps tiny slash-command usage in the text-only recap", () => {
+		vi.useFakeTimers();
+		const onBaseModelSequenceComplete = vi.fn();
+
+		render(
+			<WrappedOnboardingToolsStage
+				onBaseModelSequenceComplete={onBaseModelSequenceComplete}
+				onboardingMetrics={{
+					...emptyToolsMetrics,
+					slashCommandsAdoptionRate: 5,
+					topSlashCommand: "/fix",
+					topSlashCommandCount: 1,
+					topSlashCommands: [{ count: 1, name: "/fix" }],
+					totalSessions: 20,
+				}}
+				previewState="live"
+			/>,
+		);
+
+		expect(
+			screen.getByRole("heading", { name: /almost no slash commands/i }),
+		).toBeInTheDocument();
+		expect(screen.getByText("No subagents.")).toBeInTheDocument();
+		expect(
+			screen.queryByRole("button", { name: "/fix. 5% of sessions" }),
+		).toBeNull();
+
+		act(() => {
+			vi.runAllTimers();
+		});
+
+		expect(onBaseModelSequenceComplete).toHaveBeenCalledTimes(1);
+	});
+
+	it("shows the zero slash-command recap before subagent-only copy", () => {
+		vi.useFakeTimers();
+		const onBaseModelSequenceComplete = vi.fn();
+
+		render(
+			<WrappedOnboardingToolsStage
+				onBaseModelSequenceComplete={onBaseModelSequenceComplete}
+				onboardingMetrics={{
+					...emptyToolsMetrics,
+					slashCommandsAdoptionRate: 0,
+					subagentsAdoptionRate: 20,
+					topSubagent: "Reviewer",
+					topSubagentCount: 4,
+					topSubagents: [{ count: 4, name: "Reviewer" }],
+					totalSessions: 20,
+				}}
+				previewState="live"
+			/>,
+		);
+
+		expect(
+			screen.getByRole("heading", { name: /you used no slash commands/i }),
+		).toBeInTheDocument();
+		expect(screen.getByText("Subagents did show up.")).toBeInTheDocument();
+		expect(
+			screen.queryByRole("button", { name: "Reviewer. 20% of sessions" }),
+		).toBeNull();
+
+		act(() => {
+			vi.runAllTimers();
+		});
+
+		expect(onBaseModelSequenceComplete).toHaveBeenCalledTimes(1);
+	});
+
 	it("hands the regular tools sequence off to a separate final scene", () => {
 		vi.useFakeTimers();
 		const onBaseModelSequenceComplete = vi.fn();

@@ -46,9 +46,7 @@ import {
 } from "./models/skills";
 import {
 	getToolsEntryStyle,
-	getToolsHeadline,
 	getToolsStackHeightRem,
-	getToolsSubline,
 	resolveToolsPreviewInput,
 	resolveToolsStageModel,
 } from "./models/tools";
@@ -148,21 +146,9 @@ export function buildStepContent(input: {
 				},
 				previewState,
 			);
+			const toolsStage = resolveToolsStageModel(toolsPreview);
 
-			return [
-				{
-					text: getToolsHeadline({
-						topSlashCommand: toolsPreview.topSlashCommand,
-						topSubagent: toolsPreview.topSubagent,
-					}),
-				},
-				{
-					text: getToolsSubline({
-						slashCommandsAdoptionRate: toolsPreview.slashCommandsAdoptionRate,
-						subagentsAdoptionRate: toolsPreview.subagentsAdoptionRate,
-					}),
-				},
-			];
+			return [{ text: toolsStage.headline }, { text: toolsStage.subline }];
 		}
 		case "lock-in": {
 			const lockInStage = resolveLockInStageModel(

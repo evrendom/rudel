@@ -35,11 +35,16 @@ type ToolsStageSequenceFrame = {
 };
 
 type ToolsStageScenePhase = "sequence" | "handoff" | "final";
-type ToolsStagePreviewInput = ReturnType<typeof resolveToolsPreviewInput>;
 type ToolsStageModel = ReturnType<typeof resolveToolsStageModel>;
+type ToolsTextOnlyMode = Exclude<ToolsStageModel["mode"], "regular">;
 
 const TOOLS_BASE_MODEL_LINES = [
 	"You used no slash commands.",
+	"No subagents.",
+	"Just vibes.",
+] as const;
+const TOOLS_THIN_SLASH_COMMAND_LINES = [
+	"Almost no slash commands.",
 	"No subagents.",
 	"Just vibes.",
 ] as const;
@@ -85,12 +90,13 @@ export function WrappedOnboardingToolsStage(props: ToolsStageProps) {
 		previewState,
 	);
 	const model = resolveToolsStageModel(previewInput);
-	const isBaseModelStage =
-		previewInput.topSlashCommand === null && previewInput.topSubagent === null;
+	const textOnlyMode = resolveToolsTextOnlyMode(model.mode);
 
-	if (isBaseModelStage) {
+	if (textOnlyMode !== null) {
 		return (
 			<WrappedOnboardingToolsBaseModelStage
+				hasSubagentSignal={model.topSubagent !== null}
+				mode={textOnlyMode}
 				onSequenceComplete={onBaseModelSequenceComplete}
 				reduceMotion={reduceMotion}
 			/>
@@ -101,7 +107,6 @@ export function WrappedOnboardingToolsStage(props: ToolsStageProps) {
 		<WrappedOnboardingToolsRegularStage
 			model={model}
 			onSequenceComplete={onBaseModelSequenceComplete}
-			previewInput={previewInput}
 			reduceMotion={reduceMotion}
 		/>
 	);
@@ -110,13 +115,12 @@ export function WrappedOnboardingToolsStage(props: ToolsStageProps) {
 function WrappedOnboardingToolsRegularStage(props: {
 	model: ToolsStageModel;
 	onSequenceComplete?: () => void;
-	previewInput: ToolsStagePreviewInput;
 	reduceMotion: boolean;
 }) {
-	const { model, onSequenceComplete, previewInput, reduceMotion } = props;
+	const { model, onSequenceComplete, reduceMotion } = props;
 	const sequenceFrames = resolveToolsStageSequenceFrames(
-		previewInput.topSlashCommand,
-		previewInput.topSubagent,
+		model.topSlashCommand,
+		model.topSubagent,
 	);
 	const [activeCardIndex, setActiveCardIndex] = useState(0);
 	const [sequenceIndex, setSequenceIndex] = useState(() =>
@@ -409,12 +413,15 @@ function WrappedOnboardingToolsRegularStage(props: {
 }
 
 function WrappedOnboardingToolsBaseModelStage(props: {
+	hasSubagentSignal: boolean;
+	mode: ToolsTextOnlyMode;
 	onSequenceComplete?: () => void;
 	reduceMotion: boolean;
 }) {
-	const { onSequenceComplete, reduceMotion } = props;
+	const { hasSubagentSignal, mode, onSequenceComplete, reduceMotion } = props;
+	const lines = resolveToolsTextOnlyLines(mode, hasSubagentSignal);
 	const [visibleLineCount, setVisibleLineCount] = useState(() =>
-		reduceMotion ? TOOLS_BASE_MODEL_LINES.length : 0,
+		reduceMotion ? lines.length : 0,
 	);
 	const [isDocsVisible, setIsDocsVisible] = useState(reduceMotion);
 	const timerRefs = useRef<number[]>([]);
@@ -442,7 +449,7 @@ function WrappedOnboardingToolsBaseModelStage(props: {
 		hasCompletedSequenceRef.current = false;
 
 		if (reduceMotion) {
-			setVisibleLineCount(TOOLS_BASE_MODEL_LINES.length);
+			setVisibleLineCount(lines.length);
 			setIsDocsVisible(true);
 			const timeoutId = window.setTimeout(() => {
 				completeSequence();
@@ -456,19 +463,19 @@ function WrappedOnboardingToolsBaseModelStage(props: {
 
 		setVisibleLineCount(0);
 		setIsDocsVisible(false);
-		const timeoutIds = TOOLS_BASE_MODEL_LINES.map((_line, lineIndex) =>
+		const timeoutIds = lines.map((_line, lineIndex) =>
 			window.setTimeout(() => {
 				setVisibleLineCount(lineIndex + 1);
 			}, lineIndex * TOOLS_BASE_MODEL_LINE_STAGGER_MS),
 		);
 		const docsTimerId = window.setTimeout(() => {
 			setIsDocsVisible(true);
-		}, TOOLS_BASE_MODEL_LINES.length * TOOLS_BASE_MODEL_LINE_STAGGER_MS);
+		}, lines.length * TOOLS_BASE_MODEL_LINE_STAGGER_MS);
 		const completeTimerId = window.setTimeout(
 			() => {
 				completeSequence();
 			},
-			TOOLS_BASE_MODEL_LINES.length * TOOLS_BASE_MODEL_LINE_STAGGER_MS +
+			lines.length * TOOLS_BASE_MODEL_LINE_STAGGER_MS +
 				TOOLS_BASE_MODEL_DOCS_REVEAL_MS +
 				TOOLS_BASE_MODEL_ADVANCE_HOLD_MS,
 		);
@@ -522,7 +529,7 @@ function WrappedOnboardingToolsBaseModelStage(props: {
 					descriptionClassName="mymind-wrapped-tools-stage__description-shell"
 					title={
 						<span className="mymind-wrapped-tools-stage__line-stack">
-							{TOOLS_BASE_MODEL_LINES.map((line, lineIndex) => {
+							{lines.map((line, lineIndex) => {
 								const isLineVisible = lineIndex < visibleLineCount;
 
 								return (
@@ -548,6 +555,35 @@ function WrappedOnboardingToolsBaseModelStage(props: {
 			}
 		/>
 	);
+}
+
+function resolveToolsTextOnlyLines(
+	mode: ToolsTextOnlyMode,
+	hasSubagentSignal: boolean,
+) {
+	if (mode === "zero-slash-command") {
+		return hasSubagentSignal
+			? ["You used no slash commands.", "Subagents did show up.", "Just vibes."]
+			: TOOLS_BASE_MODEL_LINES;
+	}
+
+	if (mode === "thin-slash-command") {
+		return hasSubagentSignal
+			? ["Almost no slash commands.", "Subagents did show up.", "Just vibes."]
+			: TOOLS_THIN_SLASH_COMMAND_LINES;
+	}
+
+	return TOOLS_BASE_MODEL_LINES;
+}
+
+function resolveToolsTextOnlyMode(
+	mode: ToolsStageModel["mode"],
+): ToolsTextOnlyMode | null {
+	if (mode === "regular") {
+		return null;
+	}
+
+	return mode;
 }
 
 function resolveToolsStageSequenceFrames(
