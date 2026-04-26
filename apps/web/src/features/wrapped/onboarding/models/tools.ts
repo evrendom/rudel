@@ -11,6 +11,14 @@ interface ToolsStageEntry {
 	usageRate: number | null;
 }
 
+type ToolsStageMode =
+	| "base-model"
+	| "regular"
+	| "thin-slash-command"
+	| "zero-slash-command";
+
+const MIN_RECAP_SLASH_COMMAND_COUNT = 3;
+
 export function resolveToolsStageModel(input: {
 	slashCommandsAdoptionRate: number | null;
 	subagentsAdoptionRate: number | null;
@@ -22,34 +30,69 @@ export function resolveToolsStageModel(input: {
 	topSubagentCount: number | null;
 	totalSessions: number;
 }) {
+	const topSlashCommand = resolveRecapSlashCommand(input);
+	const mode = resolveToolsStageMode(input, topSlashCommand);
 	const liveEntries = buildToolsStageEntries(input);
 
-	if (input.topSlashCommand === null && input.topSubagent === null) {
+	if (mode === "zero-slash-command") {
+		return {
+			entries: buildToolsPlaceholderEntries(),
+			footnote: "No slash commands made the recap.",
+			headline: "You used no slash commands.",
+			mode,
+			subline: "No slash commands made the recap.",
+			topSlashCommand,
+			topSubagent: input.topSubagent,
+		};
+	}
+
+	if (mode === "thin-slash-command") {
+		return {
+			entries: buildToolsPlaceholderEntries(),
+			footnote: "Almost no slash commands made the recap.",
+			headline: "Almost no slash commands.",
+			mode,
+			subline: "Almost no slash commands made the recap.",
+			topSlashCommand,
+			topSubagent: input.topSubagent,
+		};
+	}
+
+	if (topSlashCommand === null && input.topSubagent === null) {
 		return {
 			entries: buildToolsPlaceholderEntries(),
 			footnote: "You should try them out tho: slash commands and subagents.",
 			headline: "Just vibes.",
+			mode,
 			subline: "You should try them out tho: slash commands and subagents.",
+			topSlashCommand,
+			topSubagent: input.topSubagent,
 		};
 	}
 
-	if (input.topSlashCommand !== null && input.topSubagent !== null) {
+	if (topSlashCommand !== null && input.topSubagent !== null) {
 		return {
 			entries: liveEntries,
 			footnote:
 				"These are session-share numbers: how often that layer appeared in a session at least once.",
 			headline: getToolsHeadline(input),
+			mode,
 			subline: getToolsSubline(input),
+			topSlashCommand,
+			topSubagent: input.topSubagent,
 		};
 	}
 
-	if (input.topSlashCommand !== null) {
+	if (topSlashCommand !== null) {
 		return {
 			entries: liveEntries,
 			footnote:
 				"Session share is based on whether the layer appeared in the session, not how many times it fired.",
 			headline: getToolsHeadline(input),
+			mode,
 			subline: getToolsSubline(input),
+			topSlashCommand,
+			topSubagent: input.topSubagent,
 		};
 	}
 
@@ -58,7 +101,10 @@ export function resolveToolsStageModel(input: {
 		footnote:
 			"Session share is based on whether the layer appeared in the session, not how many times it fired.",
 		headline: getToolsHeadline(input),
+		mode,
 		subline: getToolsSubline(input),
+		topSlashCommand,
+		topSubagent: input.topSubagent,
 	};
 }
 
@@ -224,9 +270,12 @@ export function getToolsEntryStyle(
 
 export function getToolsHeadline(input: {
 	topSlashCommand: string | null;
+	topSlashCommandCount: number | null;
+	topSlashCommands: readonly WrappedSkillUsageItem[];
 	topSubagent: string | null;
 }) {
-	const { topSlashCommand, topSubagent } = input;
+	const topSlashCommand = resolveRecapSlashCommand(input);
+	const { topSubagent } = input;
 
 	if (topSlashCommand && topSubagent) {
 		return `${topSlashCommand} led. ${topSubagent} backed it up.`;
@@ -246,18 +295,31 @@ export function getToolsHeadline(input: {
 export function getToolsSubline(input: {
 	slashCommandsAdoptionRate: number | null;
 	subagentsAdoptionRate: number | null;
+	topSlashCommand: string | null;
+	topSlashCommandCount: number | null;
+	topSlashCommands: readonly WrappedSkillUsageItem[];
+	topSubagent: string | null;
 }) {
 	const { slashCommandsAdoptionRate, subagentsAdoptionRate } = input;
+	const topSlashCommand = resolveRecapSlashCommand(input);
+	const hasLowSlashCommandSignal = isThinSlashCommandSignal(input);
+	const hasSubagent = input.topSubagent !== null;
 
-	if (slashCommandsAdoptionRate === null && subagentsAdoptionRate === null) {
-		return "You should try them out tho: slash commands and subagents.";
+	if (topSlashCommand === null && !hasSubagent) {
+		return hasLowSlashCommandSignal
+			? "Almost no slash commands made the recap."
+			: "You should try them out tho: slash commands and subagents.";
 	}
 
-	if (slashCommandsAdoptionRate === null) {
-		return `${formatPercent(subagentsAdoptionRate)} of sessions used a subagent. No slash command ranked yet.`;
+	if (topSlashCommand === null) {
+		const slashCommandLine = hasLowSlashCommandSignal
+			? "Almost no slash commands landed."
+			: "No slash command ranked yet.";
+
+		return `${formatPercent(subagentsAdoptionRate)} of sessions used a subagent. ${slashCommandLine}`;
 	}
 
-	if (subagentsAdoptionRate === null) {
+	if (!hasSubagent) {
 		return `${formatPercent(slashCommandsAdoptionRate)} of sessions used a slash command. No subagent ranked yet.`;
 	}
 
@@ -269,16 +331,21 @@ function getToolsUsageLabel(rate: number) {
 }
 
 function buildToolsStageEntries(input: {
+	topSlashCommand: string | null;
+	topSlashCommandCount: number | null;
 	topSlashCommands: readonly WrappedSkillUsageItem[];
 	topSubagents: readonly WrappedSkillUsageItem[];
 	totalSessions: number;
 }): readonly ToolsStageEntry[] {
 	const totalSessions = Math.max(input.totalSessions, 0);
-	const slashEntries = input.topSlashCommands.map((item, index) => ({
-		count: item.count,
-		id: `slash-command-${index}`,
-		name: item.name,
-	}));
+	const slashEntries =
+		resolveRecapSlashCommand(input) === null
+			? []
+			: input.topSlashCommands.map((item, index) => ({
+					count: item.count,
+					id: `slash-command-${index}`,
+					name: item.name,
+				}));
 	const subagentEntries = input.topSubagents.map((item, index) => ({
 		count: item.count,
 		id: `subagent-${index}`,
@@ -318,4 +385,99 @@ function buildToolsPlaceholderEntries(): readonly ToolsStageEntry[] {
 			usageRate: null,
 		},
 	] as const;
+}
+
+function resolveToolsStageMode(
+	input: {
+		slashCommandsAdoptionRate: number | null;
+		topSlashCommand: string | null;
+		topSlashCommandCount: number | null;
+		topSlashCommands: readonly WrappedSkillUsageItem[];
+		topSubagent: string | null;
+	},
+	topSlashCommand: string | null,
+): ToolsStageMode {
+	if (topSlashCommand !== null) {
+		return "regular";
+	}
+
+	if (isZeroSlashCommandSignal(input)) {
+		return "zero-slash-command";
+	}
+
+	if (isThinSlashCommandSignal(input)) {
+		return "thin-slash-command";
+	}
+
+	if (input.topSubagent !== null) {
+		return "regular";
+	}
+
+	return "base-model";
+}
+
+function resolveRecapSlashCommand(input: {
+	topSlashCommand: string | null;
+	topSlashCommandCount: number | null;
+	topSlashCommands: readonly WrappedSkillUsageItem[];
+}) {
+	if (input.topSlashCommand === null) {
+		return null;
+	}
+
+	const slashCommandCount = resolveSlashCommandSignalCount(input);
+
+	if (
+		slashCommandCount !== null &&
+		slashCommandCount < MIN_RECAP_SLASH_COMMAND_COUNT
+	) {
+		return null;
+	}
+
+	return input.topSlashCommand;
+}
+
+function isThinSlashCommandSignal(input: {
+	topSlashCommand: string | null;
+	topSlashCommandCount: number | null;
+	topSlashCommands: readonly WrappedSkillUsageItem[];
+}) {
+	const slashCommandCount = resolveSlashCommandSignalCount(input);
+
+	return (
+		input.topSlashCommand !== null &&
+		slashCommandCount !== null &&
+		slashCommandCount > 0 &&
+		slashCommandCount < MIN_RECAP_SLASH_COMMAND_COUNT
+	);
+}
+
+function isZeroSlashCommandSignal(input: {
+	slashCommandsAdoptionRate: number | null;
+	topSlashCommand: string | null;
+}) {
+	return (
+		input.topSlashCommand === null && input.slashCommandsAdoptionRate === 0
+	);
+}
+
+function resolveSlashCommandSignalCount(input: {
+	topSlashCommand: string | null;
+	topSlashCommandCount: number | null;
+	topSlashCommands: readonly WrappedSkillUsageItem[];
+}) {
+	const rankedCommandCount = input.topSlashCommands.reduce(
+		(totalCount, item) => totalCount + Math.max(0, item.count),
+		0,
+	);
+
+	if (rankedCommandCount > 0) {
+		return rankedCommandCount;
+	}
+
+	if (input.topSlashCommandCount !== null) {
+		return Math.max(0, input.topSlashCommandCount);
+	}
+
+	return input.topSlashCommand === null ? 0 : null;
 }
