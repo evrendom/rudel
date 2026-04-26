@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { useMountEffect } from "@/hooks/useMountEffect";
 import { formatCompactWholeCurrency } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { shortenWrappedRepoLabelFromLeft } from "../../repo-label";
 import {
 	resolveLockInPreviewInput,
 	resolveLockInStageModel,
@@ -108,6 +109,8 @@ const REPO_PULSE_STAGE_TRANSITION = {
 		ease: [0.22, 1, 0.36, 1] as const,
 	},
 };
+
+const REPO_PULSE_STAGE_REPO_LABEL_MAX_LENGTH = 20;
 
 const REPO_PULSE_STAGE_ROW_VARIANTS = {
 	hidden: {
@@ -1243,8 +1246,14 @@ export function WrappedOnboardingRepoPulseStage(props: SharedStageProps) {
 								>
 									<section className="mymind-wrapped-repo-pulse-stage__row-copy">
 										<div className="mymind-wrapped-repo-pulse-stage__row-main">
-											<p className="mymind-wrapped-repo-pulse-stage__repo">
-												{entry.repoName}
+											<p
+												className="mymind-wrapped-repo-pulse-stage__repo"
+												title={entry.repoName}
+											>
+												{shortenWrappedRepoLabelFromLeft(
+													entry.repoName,
+													REPO_PULSE_STAGE_REPO_LABEL_MAX_LENGTH,
+												)}
 											</p>
 											<p className="mymind-wrapped-repo-pulse-stage__meta">
 												{entry.sessionCountLabel}

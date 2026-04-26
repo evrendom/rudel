@@ -14,6 +14,7 @@ import {
 	WrappedPrimaryAction,
 	WrappedSecondaryAction,
 } from "@/features/wrapped/actions";
+import { shortenWrappedRepoLabelFromLeft } from "@/features/wrapped/repo-label";
 import { useMountEffect } from "@/hooks/useMountEffect";
 import { MAX_ANALYTICS_DAYS } from "@/lib/analytics-date-range";
 import { orpc } from "@/lib/orpc";
@@ -32,6 +33,7 @@ const SESSIONS_LANDED_EASE = [0.22, 1, 0.36, 1] as const;
 const SESSIONS_LANDED_HANDOFF_MS = 1000;
 const SESSIONS_LANDED_REDUCED_DURATION = 0.14;
 const SESSIONS_LANDED_ROW_STAGGER = 0.035;
+const UPLOADED_REPO_LABEL_MAX_LENGTH = 26;
 
 export function WrappedSetupCompletePage(props: WrappedSetupCompletePageProps) {
 	const [isUploadMoreVisible, setIsUploadMoreVisible] = useState(false);
@@ -449,8 +451,14 @@ function WrappedUploadedReposStage(props: {
 										}
 							}
 						>
-							<span className="mymind-wrapped-uploaded-repos__name">
-								{repo.name}
+							<span
+								className="mymind-wrapped-uploaded-repos__name"
+								title={repo.name}
+							>
+								{shortenWrappedRepoLabelFromLeft(
+									repo.name,
+									UPLOADED_REPO_LABEL_MAX_LENGTH,
+								)}
 							</span>
 							<span className="mymind-wrapped-uploaded-repos__count">
 								{formatSessionCount(repo.sessions)}
