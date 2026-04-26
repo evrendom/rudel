@@ -7,7 +7,6 @@ import type { WrappedStepContentLine } from "./helpers";
 import {
 	buildScaleRainBalls,
 	buildStepContent,
-	resolveScaleRainBallCount,
 	resolveScaleRainDisplayedTokens,
 	type ScaleRainBall,
 } from "./models";
@@ -248,7 +247,7 @@ export function WrappedOnboardingScaleRainBackdrop(
 ) {
 	const { onDisplayedTokensChange, reduceMotion, totalTokens } = props;
 	const balls = buildScaleRainBalls(totalTokens);
-	const logicalBallCount = resolveScaleRainBallCount(totalTokens);
+	const animationBallCount = balls.length;
 
 	return (
 		<WrappedOnboardingScaleRainSimulation
@@ -257,7 +256,7 @@ export function WrappedOnboardingScaleRainBackdrop(
 			onDisplayedTokensChange={onDisplayedTokensChange}
 			reduceMotion={reduceMotion}
 			totalTokens={totalTokens}
-			totalBallCount={logicalBallCount}
+			totalBallCount={animationBallCount}
 		/>
 	);
 }
