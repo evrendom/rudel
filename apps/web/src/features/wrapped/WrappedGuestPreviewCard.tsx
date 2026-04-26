@@ -57,6 +57,9 @@ export function WrappedGuestPreviewCard(props: WrappedGuestPreviewCardProps) {
 	const appearanceOverlayClassName = enableAppearanceOverlay
 		? "mymind-wrapped-auth-card-preview__appearance-overlay"
 		: undefined;
+	const backAppearanceOverlayClassName = isUnknownCard
+		? undefined
+		: appearanceOverlayClassName;
 	const hasInteractiveFrontControls = Boolean(
 		editableDisplayName || mediaOverlayContent,
 	);
@@ -218,7 +221,7 @@ export function WrappedGuestPreviewCard(props: WrappedGuestPreviewCardProps) {
 			back={
 				<div className="grid justify-center">
 					<WrappedTeamMemberCardBack
-						backgroundOverlayClassName={appearanceOverlayClassName}
+						backgroundOverlayClassName={backAppearanceOverlayClassName}
 						disableOuterShadow
 						metrics={visibleBackMetrics}
 						shellClassName={activePreset.shellClassName}
@@ -246,6 +249,7 @@ export function WrappedGuestPreviewCard(props: WrappedGuestPreviewCardProps) {
 				enableAppearanceOverlay && isUnknownCard
 					? "mymind-wrapped-auth-card-preview--unknown-overlay"
 					: null,
+				isUnknownCard ? "mymind-wrapped-auth-card-preview--unknown" : null,
 				shouldRenderStaticFront
 					? "mymind-wrapped-auth-card-preview--static"
 					: null,

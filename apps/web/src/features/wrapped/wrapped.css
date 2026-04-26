@@ -4775,6 +4775,22 @@ body.mymind-wrapped-body #cw-bubble-holder {
 		var(--wrapped-auth-card-appearance-ease) both;
 }
 
+.mymind-wrapped-auth-card-preview--unknown .mymind-wrapped-team-card-back {
+	background: linear-gradient(180deg, #ffffff 0%, #fbfcfe 48%, #eef2f7 100%);
+}
+
+.mymind-wrapped-auth-card-preview--unknown
+	.mymind-wrapped-team-card-back__wash {
+	background: linear-gradient(
+		180deg,
+		rgb(255 255 255 / 0.18) 0%,
+		rgb(255 255 255 / 0) 54%,
+		rgb(148 163 184 / 0.08) 100%
+	);
+	mix-blend-mode: normal;
+	opacity: 1;
+}
+
 .mymind-wrapped-auth-card-preview__tilt-stage {
 	width: fit-content;
 	max-width: none;

@@ -37,7 +37,7 @@ type WrappedAuthCardFlight = {
 	appearance: WrappedAuthCardAppearance;
 	from: WrappedAuthCardFlightRect;
 	key: number;
-	targetMode: Exclude<WrappedAuthMode, null>;
+	targetMode: WrappedAuthMode;
 	to?: WrappedAuthCardFlightRect;
 };
 
@@ -391,29 +391,30 @@ export function WrappedAuthFlow(props: WrappedAuthFlowProps) {
 		clearWrappedAuthCardFlightAnimationFrame(authCardFlightMeasureRef);
 
 		const shouldAnimateCardFlight =
-			mode === null && nextMode !== null && !shouldReduceMotion;
+			mode !== nextMode &&
+			(mode === null || nextMode === null) &&
+			!shouldReduceMotion;
 		const cardFlightFrom = shouldAnimateCardFlight
 			? getWrappedAuthCardFlightRect(authCardHandoffRef.current)
 			: null;
-		const cardFlightTargetMode =
-			cardFlightFrom !== null && nextMode !== null ? nextMode : null;
+		const shouldUseCardFlight = cardFlightFrom !== null;
 		const appearanceDelayMs =
 			mode === null || nextMode === null
 				? WRAPPED_AUTH_LAYOUT_DURATION * 1000
 				: null;
 
-		if (cardFlightTargetMode) {
+		if (shouldUseCardFlight) {
 			clearCardAppearanceTimeout();
 		} else {
 			scheduleCardAppearanceForMode(nextMode, appearanceDelayMs);
 		}
 		setAuthCardFlight(
-			cardFlightFrom && cardFlightTargetMode
+			cardFlightFrom
 				? {
 						appearance: cardAppearance,
 						from: cardFlightFrom,
 						key: Date.now(),
-						targetMode: cardFlightTargetMode,
+						targetMode: nextMode,
 					}
 				: null,
 		);
