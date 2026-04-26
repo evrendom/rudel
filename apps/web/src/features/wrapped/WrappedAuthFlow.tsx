@@ -5,7 +5,7 @@ import {
 	useReducedMotion,
 } from "motion/react";
 import type { ReactNode } from "react";
-import { startTransition, useEffectEvent, useState } from "react";
+import { startTransition, useEffectEvent, useRef, useState } from "react";
 import { LoginForm } from "@/features/auth/LoginForm";
 import { SignupForm } from "@/features/auth/SignupForm";
 import {
@@ -19,6 +19,7 @@ import { WrappedGuestPreviewCard } from "./WrappedGuestPreviewCard";
 import type { WrappedGuestPreviewProfile } from "./wrapped-guest-preview";
 
 type WrappedAuthMode = "login" | "signup" | null;
+type WrappedAuthCardAppearance = "default" | "unknown";
 type WrappedAuthIntroTool = "Claude" | "Codex";
 
 const WRAPPED_AUTH_INTRO_TITLE_LABEL = "Your Claude Wrapped";
@@ -49,22 +50,22 @@ interface WrappedAuthFlowProps {
 interface WrappedAuthStageProps {
 	authFormCardScale?: number;
 	authIntroCardScale?: number;
+	cardAppearance: WrappedAuthCardAppearance;
 	mode: WrappedAuthMode;
 	onEmailPasswordPreviewSubmit?: (email: string) => void;
+	onModeChange: (mode: WrappedAuthMode) => void;
 	previewProfile: WrappedGuestPreviewProfile | null;
-	setIntroTool: (tool: WrappedAuthIntroTool) => void;
-	setMode: (mode: WrappedAuthMode) => void;
 }
 
 function WrappedAuthStage(props: WrappedAuthStageProps) {
 	const {
 		authFormCardScale,
 		authIntroCardScale,
+		cardAppearance,
 		mode,
 		onEmailPasswordPreviewSubmit,
+		onModeChange,
 		previewProfile,
-		setIntroTool,
-		setMode,
 	} = props;
 	const shouldReduceMotion = useReducedMotion() ?? false;
 	const isIntro = mode === null;
@@ -148,7 +149,7 @@ function WrappedAuthStage(props: WrappedAuthStageProps) {
 						transition={cardScaleTransition}
 					>
 						<WrappedGuestPreviewCard
-							appearance={mode === "signup" ? "unknown" : "default"}
+							appearance={cardAppearance}
 							profile={previewProfile}
 							size="hero"
 						/>
@@ -168,17 +169,11 @@ function WrappedAuthStage(props: WrappedAuthStageProps) {
 							<div className="mymind-wrapped-auth-panel__actions">
 								<WrappedPrimaryAction
 									kind="button"
-									onClick={() =>
-										transitionWrappedAuthMode(setMode, setIntroTool, "signup")
-									}
+									onClick={() => onModeChange("signup")}
 								>
 									Create account
 								</WrappedPrimaryAction>
-								<WrappedSecondaryAction
-									onClick={() =>
-										transitionWrappedAuthMode(setMode, setIntroTool, "login")
-									}
-								>
+								<WrappedSecondaryAction onClick={() => onModeChange("login")}>
 									Log in
 								</WrappedSecondaryAction>
 							</div>
@@ -196,17 +191,13 @@ function WrappedAuthStage(props: WrappedAuthStageProps) {
 								<LoginForm
 									onEmailPasswordPreviewSubmit={onEmailPasswordPreviewSubmit}
 									variant="wrapped-story"
-									onSwitchToSignup={() =>
-										transitionWrappedAuthMode(setMode, setIntroTool, "signup")
-									}
+									onSwitchToSignup={() => onModeChange("signup")}
 								/>
 							) : (
 								<SignupForm
 									onEmailPasswordPreviewSubmit={onEmailPasswordPreviewSubmit}
 									variant="wrapped-story"
-									onSwitchToLogin={() =>
-										transitionWrappedAuthMode(setMode, setIntroTool, "login")
-									}
+									onSwitchToLogin={() => onModeChange("login")}
 								/>
 							)}
 						</motion.div>
@@ -233,6 +224,9 @@ export function WrappedAuthFlow(props: WrappedAuthFlowProps) {
 		previewProfile,
 	} = props;
 	const [mode, setMode] = useState<WrappedAuthMode>(null);
+	const [cardAppearance, setCardAppearance] =
+		useState<WrappedAuthCardAppearance>("default");
+	const cardAppearanceTimeoutRef = useRef<number | null>(null);
 	const [introTool, setIntroTool] = useState<WrappedAuthIntroTool>("Claude");
 	const shouldReduceMotion = useReducedMotion() ?? false;
 	const hasDebugControls =
@@ -259,6 +253,54 @@ export function WrappedAuthFlow(props: WrappedAuthFlowProps) {
 		};
 	});
 
+	useMountEffect(() => () => {
+		clearCardAppearanceTimeout();
+	});
+
+	function clearCardAppearanceTimeout() {
+		if (cardAppearanceTimeoutRef.current === null) {
+			return;
+		}
+
+		window.clearTimeout(cardAppearanceTimeoutRef.current);
+		cardAppearanceTimeoutRef.current = null;
+	}
+
+	function scheduleCardAppearanceForMode(
+		nextMode: WrappedAuthMode,
+		shouldDelayAppearance: boolean,
+	) {
+		clearCardAppearanceTimeout();
+
+		const nextAppearance = getWrappedAuthCardAppearance(nextMode);
+
+		if (nextAppearance === cardAppearance) {
+			return;
+		}
+
+		if (shouldReduceMotion || !shouldDelayAppearance) {
+			setCardAppearance(nextAppearance);
+			return;
+		}
+
+		cardAppearanceTimeoutRef.current = window.setTimeout(() => {
+			cardAppearanceTimeoutRef.current = null;
+			startTransition(() => {
+				setCardAppearance(nextAppearance);
+			});
+		}, WRAPPED_AUTH_LAYOUT_DURATION * 1000);
+	}
+
+	function handleAuthModeChange(nextMode: WrappedAuthMode) {
+		const shouldDelayAppearance = mode === null || nextMode === null;
+
+		scheduleCardAppearanceForMode(nextMode, shouldDelayAppearance);
+		startTransition(() => {
+			setIntroTool("Claude");
+			setMode(nextMode);
+		});
+	}
+
 	return (
 		<WrappedRouteStageShell
 			backLabel="Go back"
@@ -272,10 +314,7 @@ export function WrappedAuthFlow(props: WrappedAuthFlowProps) {
 				mode === null
 					? undefined
 					: () => {
-							startTransition(() => {
-								setIntroTool("Claude");
-								setMode(null);
-							});
+							handleAuthModeChange(null);
 						}
 			}
 			status={hasDebugControls ? debugControls : undefined}
@@ -283,11 +322,11 @@ export function WrappedAuthFlow(props: WrappedAuthFlowProps) {
 				<WrappedAuthStage
 					authFormCardScale={authFormCardScale}
 					authIntroCardScale={authIntroCardScale}
+					cardAppearance={cardAppearance}
 					mode={mode}
 					onEmailPasswordPreviewSubmit={onEmailPasswordPreviewSubmit}
+					onModeChange={handleAuthModeChange}
 					previewProfile={previewProfile}
-					setIntroTool={setIntroTool}
-					setMode={setMode}
 				/>
 			}
 			stageClassName={cn("mymind-wrapped-entry-stage--auth")}
@@ -434,6 +473,12 @@ function getWrappedAuthTitleText(mode: WrappedAuthMode) {
 	return mode === "login" ? "Log in" : "Create account";
 }
 
+function getWrappedAuthCardAppearance(
+	mode: WrappedAuthMode,
+): WrappedAuthCardAppearance {
+	return mode === "signup" ? "unknown" : "default";
+}
+
 function WrappedAuthIntroTerms() {
 	return (
 		<p className="mymind-wrapped-auth-form__terms">
@@ -458,15 +503,4 @@ function WrappedAuthIntroTerms() {
 			.
 		</p>
 	);
-}
-
-function transitionWrappedAuthMode(
-	setMode: (mode: WrappedAuthMode) => void,
-	setIntroTool: (tool: WrappedAuthIntroTool) => void,
-	mode: Exclude<WrappedAuthMode, null>,
-) {
-	startTransition(() => {
-		setIntroTool("Claude");
-		setMode(mode);
-	});
 }
