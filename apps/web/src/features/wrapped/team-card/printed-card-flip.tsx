@@ -13,6 +13,9 @@ const TRANSPARENT_IMAGE_PLACEHOLDER =
 const FLIP_DURATION_MS = 680;
 const FACE_SWAP_START_DEG = 88;
 const FACE_SWAP_END_DEG = 92;
+const SHADOW_FADE_OUT_START_PROGRESS = 0.1;
+const SHADOW_FADE_EDGE_PROGRESS = 0.5;
+const SHADOW_FADE_IN_END_PROGRESS = 0.9;
 
 interface WrappedPrintedCardFlipProps {
 	back: ReactNode;
@@ -20,6 +23,14 @@ interface WrappedPrintedCardFlipProps {
 	front: ReactNode;
 	isFrontVisible: boolean;
 	reduceMotion?: boolean;
+}
+
+interface PrintedCardVisualStyle extends CSSProperties {
+	"--wrapped-card-back-opacity": number;
+	"--wrapped-card-edge-opacity": number;
+	"--wrapped-card-flip-rotate-y": string;
+	"--wrapped-card-front-opacity": number;
+	"--wrapped-card-shadow-opacity": number;
 }
 
 export function WrappedPrintedCardFlip(props: WrappedPrintedCardFlipProps) {
@@ -31,11 +42,15 @@ export function WrappedPrintedCardFlip(props: WrappedPrintedCardFlipProps) {
 		reduceMotion = false,
 	} = props;
 	const backSourceRef = useRef<HTMLDivElement | null>(null);
+	const flipShellRef = useRef<HTMLDivElement | null>(null);
 	const animationFrameRef = useRef<number | null>(null);
 	const angleRef = useRef(isFrontVisible ? 0 : 180);
+	const shadowVisibilityRef = useRef(1);
 	const [backUrl, setBackUrl] = useState<string | null>(null);
-	const [angle, setAngle] = useState(() => (isFrontVisible ? 0 : 180));
-	const visualState = resolvePrintedCardVisualState(angle);
+	const visualStyle = resolvePrintedCardVisualStyle(
+		angleRef.current,
+		shadowVisibilityRef.current,
+	);
 
 	// biome-ignore lint/correctness/useExhaustiveDependencies: captureKey intentionally invalidates the rendered back texture.
 	useEffect(() => {
@@ -80,7 +95,8 @@ export function WrappedPrintedCardFlip(props: WrappedPrintedCardFlipProps) {
 
 		if (reduceMotion) {
 			angleRef.current = targetAngle;
-			setAngle(targetAngle);
+			shadowVisibilityRef.current = 1;
+			applyPrintedCardVisualStyle(flipShellRef.current, targetAngle);
 			return;
 		}
 
@@ -88,7 +104,8 @@ export function WrappedPrintedCardFlip(props: WrappedPrintedCardFlipProps) {
 		const deltaAngle = targetAngle - startAngle;
 		if (Math.abs(deltaAngle) < 0.1) {
 			angleRef.current = targetAngle;
-			setAngle(targetAngle);
+			shadowVisibilityRef.current = 1;
+			applyPrintedCardVisualStyle(flipShellRef.current, targetAngle);
 			return;
 		}
 
@@ -97,8 +114,14 @@ export function WrappedPrintedCardFlip(props: WrappedPrintedCardFlipProps) {
 		function tick(now: number) {
 			const progress = Math.min((now - startTime) / FLIP_DURATION_MS, 1);
 			const nextAngle = startAngle + deltaAngle * easeWrappedCardFlip(progress);
+			const shadowVisibility = easeWrappedCardShadowVisibility(progress);
 			angleRef.current = nextAngle;
-			setAngle(nextAngle);
+			shadowVisibilityRef.current = shadowVisibility;
+			applyPrintedCardVisualStyle(
+				flipShellRef.current,
+				nextAngle,
+				shadowVisibility,
+			);
 
 			if (progress < 1) {
 				animationFrameRef.current = requestAnimationFrame(tick);
@@ -106,7 +129,8 @@ export function WrappedPrintedCardFlip(props: WrappedPrintedCardFlipProps) {
 			}
 
 			angleRef.current = targetAngle;
-			setAngle(targetAngle);
+			shadowVisibilityRef.current = 1;
+			applyPrintedCardVisualStyle(flipShellRef.current, targetAngle);
 			animationFrameRef.current = null;
 		}
 
@@ -136,19 +160,10 @@ export function WrappedPrintedCardFlip(props: WrappedPrintedCardFlipProps) {
 			</div>
 
 			<div
+				ref={flipShellRef}
 				className="mymind-wrapped-final-stage__flip-shell"
 				data-back-texture-ready={backUrl ? "true" : "false"}
-				style={
-					{
-						"--wrapped-card-back-opacity": visualState.backOpacity,
-						"--wrapped-card-dynamic-shadow": visualState.shadow,
-						"--wrapped-card-edge-opacity": visualState.edgeOpacity,
-						"--wrapped-card-flip-rotate-y": `${angle}deg`,
-						"--wrapped-card-front-opacity": visualState.frontOpacity,
-						"--wrapped-card-shadow-opacity": visualState.shadowOpacity,
-						"--wrapped-card-shadow-transform": visualState.shadowTransform,
-					} as CSSProperties
-				}
+				style={visualStyle}
 			>
 				<div className="mymind-wrapped-printed-card-flip__rotator">
 					<div className="mymind-wrapped-printed-card-flip__plane mymind-wrapped-printed-card-flip__plane--front">
@@ -177,11 +192,61 @@ export function WrappedPrintedCardFlip(props: WrappedPrintedCardFlipProps) {
 	);
 }
 
-function resolvePrintedCardVisualState(angle: number) {
+function resolvePrintedCardVisualStyle(
+	angle: number,
+	shadowVisibility = 1,
+): PrintedCardVisualStyle {
+	const visualState = resolvePrintedCardVisualState(angle, shadowVisibility);
+
+	return {
+		"--wrapped-card-back-opacity": visualState.backOpacity,
+		"--wrapped-card-edge-opacity": visualState.edgeOpacity,
+		"--wrapped-card-flip-rotate-y": `${angle}deg`,
+		"--wrapped-card-front-opacity": visualState.frontOpacity,
+		"--wrapped-card-shadow-opacity": visualState.shadowOpacity,
+	};
+}
+
+function applyPrintedCardVisualStyle(
+	element: HTMLElement | null,
+	angle: number,
+	shadowVisibility = 1,
+) {
+	if (!element) {
+		return;
+	}
+
+	const style = resolvePrintedCardVisualStyle(angle, shadowVisibility);
+
+	element.style.setProperty(
+		"--wrapped-card-back-opacity",
+		`${style["--wrapped-card-back-opacity"]}`,
+	);
+	element.style.setProperty(
+		"--wrapped-card-edge-opacity",
+		`${style["--wrapped-card-edge-opacity"]}`,
+	);
+	element.style.setProperty(
+		"--wrapped-card-flip-rotate-y",
+		style["--wrapped-card-flip-rotate-y"],
+	);
+	element.style.setProperty(
+		"--wrapped-card-front-opacity",
+		`${style["--wrapped-card-front-opacity"]}`,
+	);
+	element.style.setProperty(
+		"--wrapped-card-shadow-opacity",
+		`${style["--wrapped-card-shadow-opacity"]}`,
+	);
+}
+
+function resolvePrintedCardVisualState(
+	angle: number,
+	shadowVisibility: number,
+) {
 	const clampedAngle = Math.min(180, Math.max(0, angle));
 	const radians = (clampedAngle / 180) * Math.PI;
 	const edgeAmount = Math.sin(radians);
-	const faceAmount = Math.abs(Math.cos(radians));
 	const frontOpacity =
 		clampedAngle <= FACE_SWAP_START_DEG
 			? 1
@@ -196,25 +261,52 @@ function resolvePrintedCardVisualState(angle: number) {
 				? 0
 				: (clampedAngle - FACE_SWAP_START_DEG) /
 					(FACE_SWAP_END_DEG - FACE_SWAP_START_DEG);
-	const shadowX = (0.5 - clampedAngle / 180) * 18;
-	const shadowYOffset = 18 + edgeAmount * 14;
-	const shadowBlur = 34 + edgeAmount * 38;
-	const shadowSpread = -10 + edgeAmount * 3;
-	const shadow = [
-		`${shadowX.toFixed(2)}px ${shadowYOffset.toFixed(2)}px ${shadowBlur.toFixed(2)}px ${shadowSpread.toFixed(2)}px rgb(15 23 42 / ${(0.12 + edgeAmount * 0.08).toFixed(3)})`,
-		`${(shadowX * 0.45).toFixed(2)}px ${(shadowYOffset * 1.85).toFixed(2)}px ${(shadowBlur * 1.5).toFixed(2)}px ${shadowSpread.toFixed(2)}px rgb(15 23 42 / ${(0.14 + edgeAmount * 0.07).toFixed(3)})`,
-	].join(", ");
-	const shadowScale = 0.94 + edgeAmount * 0.045;
-	const shadowTransform = `translate3d(${shadowX.toFixed(2)}px, ${(edgeAmount * 1.5).toFixed(2)}px, calc(var(--wrapped-card-flip-depth, 6px) * -1.35)) scale(${shadowScale.toFixed(3)}, ${(0.94 - faceAmount * 0.018).toFixed(3)})`;
 
 	return {
 		backOpacity,
 		edgeOpacity: 0.02 + edgeAmount * 0.36,
 		frontOpacity,
-		shadow,
-		shadowOpacity: 0.46 + edgeAmount * 0.14,
-		shadowTransform,
+		shadowOpacity: (0.46 + edgeAmount * 0.14) * shadowVisibility,
 	};
+}
+
+function easeWrappedCardShadowVisibility(progress: number) {
+	if (progress < SHADOW_FADE_OUT_START_PROGRESS) {
+		return 1;
+	}
+
+	if (progress < SHADOW_FADE_EDGE_PROGRESS) {
+		return (
+			1 -
+			smoothStep(
+				normalizeProgress(
+					progress,
+					SHADOW_FADE_OUT_START_PROGRESS,
+					SHADOW_FADE_EDGE_PROGRESS,
+				),
+			)
+		);
+	}
+
+	if (progress < SHADOW_FADE_IN_END_PROGRESS) {
+		return smoothStep(
+			normalizeProgress(
+				progress,
+				SHADOW_FADE_EDGE_PROGRESS,
+				SHADOW_FADE_IN_END_PROGRESS,
+			),
+		);
+	}
+
+	return 1;
+}
+
+function normalizeProgress(progress: number, start: number, end: number) {
+	return Math.min(1, Math.max(0, (progress - start) / (end - start)));
+}
+
+function smoothStep(progress: number) {
+	return progress * progress * (3 - 2 * progress);
 }
 
 function easeWrappedCardFlip(progress: number) {
