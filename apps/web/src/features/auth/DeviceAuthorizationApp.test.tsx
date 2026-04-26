@@ -1,6 +1,6 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { appRoutes } from "@/app/routes";
 import { DeviceAuthorizationApp } from "./DeviceAuthorizationApp";
@@ -37,6 +37,12 @@ const session = {
 	},
 };
 
+function WrappedLocation() {
+	const location = useLocation();
+
+	return <div>Wrapped: {location.search}</div>;
+}
+
 describe("DeviceAuthorizationApp", () => {
 	beforeEach(() => {
 		vi.restoreAllMocks();
@@ -63,7 +69,7 @@ describe("DeviceAuthorizationApp", () => {
 					/>
 					<Route
 						path={appRoutes.wrappedTeamCard()}
-						element={<div>Wrapped</div>}
+						element={<WrappedLocation />}
 					/>
 				</Routes>
 			</MemoryRouter>,
@@ -72,7 +78,9 @@ describe("DeviceAuthorizationApp", () => {
 		await user.click(screen.getByRole("button", { name: "Approve" }));
 
 		await waitFor(() => {
-			expect(screen.getByText("Wrapped")).toBeInTheDocument();
+			expect(
+				screen.getByText("Wrapped: ?flow=sessions-landed"),
+			).toBeInTheDocument();
 		});
 
 		expect(fetchMock).toHaveBeenCalledWith("/api/auth/device/approve", {
@@ -105,7 +113,7 @@ describe("DeviceAuthorizationApp", () => {
 					/>
 					<Route
 						path={appRoutes.wrappedTeamCard()}
-						element={<div>Wrapped</div>}
+						element={<WrappedLocation />}
 					/>
 					<Route path={appRoutes.dashboard()} element={<div>Dashboard</div>} />
 				</Routes>
@@ -115,7 +123,9 @@ describe("DeviceAuthorizationApp", () => {
 		await user.click(screen.getByRole("button", { name: "Approve" }));
 
 		await waitFor(() => {
-			expect(screen.getByText("Wrapped")).toBeInTheDocument();
+			expect(
+				screen.getByText("Wrapped: ?flow=sessions-landed"),
+			).toBeInTheDocument();
 		});
 		expect(screen.queryByText("Dashboard")).toBeNull();
 	});

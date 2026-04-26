@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import { navigateToDestination } from "./auth-navigation";
 import {
 	clearPendingSignupRedirect,
+	getAuthCallbackURL,
 	getEmailLoginSuccessDestination,
 } from "./auth-route-utils";
 import {
@@ -33,24 +34,6 @@ interface LoginFormProps {
 	onEmailPasswordPreviewSubmit?: (email: string) => void;
 	onSwitchToSignup: () => void;
 	variant?: "default" | "wrapped-story";
-}
-
-function getCallbackURL(): string {
-	const params = new URLSearchParams(window.location.search);
-	const userCode = params.get("user_code");
-	if (userCode) {
-		return `/?user_code=${encodeURIComponent(userCode)}`;
-	}
-	const redirect = params.get("redirect");
-	if (redirect) {
-		return `/?redirect=${encodeURIComponent(redirect)}`;
-	}
-	const path = window.location.pathname;
-	const search = window.location.search;
-	if (path !== "/" && path !== "") {
-		return `/?redirect=${encodeURIComponent(`${path}${search}`)}`;
-	}
-	return "/";
 }
 
 export function LoginForm(props: LoginFormProps) {
@@ -199,7 +182,7 @@ export function LoginForm(props: LoginFormProps) {
 			sourceComponent: "login_form",
 			authMethod: provider,
 		});
-		const callbackURL = getCallbackURL();
+		const callbackURL = getAuthCallbackURL();
 		recordOAuthRedirectStart({
 			callbackURL,
 			provider,
