@@ -2,7 +2,6 @@ import {
 	AnimatePresence,
 	LayoutGroup,
 	motion,
-	useIsPresent,
 	useReducedMotion,
 } from "motion/react";
 import type { ReactNode } from "react";
@@ -29,8 +28,6 @@ const WRAPPED_AUTH_EXIT_EASE = [0.4, 0, 0.2, 1] as const;
 const WRAPPED_AUTH_LAYOUT_EASE = [0.32, 0.72, 0, 1] as const;
 const WRAPPED_AUTH_FORM_TRANSITION_DURATION = 0.32;
 const WRAPPED_AUTH_LAYOUT_DURATION = 0.6;
-const WRAPPED_AUTH_CARD_APPEARANCE_ENTER_DURATION = 0.3;
-const WRAPPED_AUTH_CARD_APPEARANCE_EXIT_DURATION = 0.22;
 const WRAPPED_AUTH_FORM_CARD_SCALE = 1;
 const WRAPPED_AUTH_INTRO_REDUCED_DURATION = 0.14;
 const WRAPPED_AUTH_INTRO_CARD_SCALE = 1;
@@ -130,30 +127,6 @@ function WrappedAuthStage(props: WrappedAuthStageProps) {
 				duration: WRAPPED_AUTH_FORM_TRANSITION_DURATION,
 				ease: WRAPPED_AUTH_INTRO_EASE,
 			};
-	const cardAppearanceEnterTransition = shouldReduceMotion
-		? {
-				duration: WRAPPED_AUTH_INTRO_REDUCED_DURATION,
-				ease: "linear" as const,
-			}
-		: {
-				duration: WRAPPED_AUTH_CARD_APPEARANCE_ENTER_DURATION,
-				ease: WRAPPED_AUTH_INTRO_EASE,
-			};
-	const cardAppearanceExit = shouldReduceMotion
-		? {
-				opacity: 0,
-				transition: {
-					duration: WRAPPED_AUTH_INTRO_REDUCED_DURATION,
-					ease: "linear" as const,
-				},
-			}
-		: {
-				opacity: 0,
-				transition: {
-					duration: WRAPPED_AUTH_CARD_APPEARANCE_EXIT_DURATION,
-					ease: WRAPPED_AUTH_EXIT_EASE,
-				},
-			};
 
 	return (
 		<LayoutGroup id="wrapped-auth-panel">
@@ -175,23 +148,12 @@ function WrappedAuthStage(props: WrappedAuthStageProps) {
 						className="mymind-wrapped-auth-panel__card-scale-shell"
 						transition={cardScaleTransition}
 					>
-						<div className="mymind-wrapped-auth-card-appearance-stack">
-							<AnimatePresence initial={false} mode="sync">
-								<motion.div
-									key={cardAppearance}
-									animate={{ opacity: 1 }}
-									className="mymind-wrapped-auth-card-appearance-stack__item"
-									exit={cardAppearanceExit}
-									initial={{ opacity: shouldReduceMotion ? 1 : 0 }}
-									transition={cardAppearanceEnterTransition}
-								>
-									<WrappedAuthCardAppearanceLayer
-										appearance={cardAppearance}
-										previewProfile={previewProfile}
-									/>
-								</motion.div>
-							</AnimatePresence>
-						</div>
+						<WrappedGuestPreviewCard
+							appearance={cardAppearance}
+							enableAppearanceOverlay
+							profile={previewProfile}
+							size="hero"
+						/>
 					</motion.div>
 				</motion.div>
 
@@ -244,32 +206,6 @@ function WrappedAuthStage(props: WrappedAuthStageProps) {
 				</AnimatePresence>
 			</div>
 		</LayoutGroup>
-	);
-}
-
-interface WrappedAuthCardAppearanceLayerProps {
-	appearance: WrappedAuthCardAppearance;
-	previewProfile: WrappedGuestPreviewProfile | null;
-}
-
-function WrappedAuthCardAppearanceLayer(
-	props: WrappedAuthCardAppearanceLayerProps,
-) {
-	const { appearance, previewProfile } = props;
-	const isPresent = useIsPresent();
-
-	return (
-		<div
-			aria-hidden={!isPresent}
-			className="mymind-wrapped-auth-card-appearance-stack__content"
-			style={{ pointerEvents: isPresent ? "auto" : "none" }}
-		>
-			<WrappedGuestPreviewCard
-				appearance={appearance}
-				profile={previewProfile}
-				size="hero"
-			/>
-		</div>
 	);
 }
 

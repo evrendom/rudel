@@ -117,6 +117,7 @@ const DEFAULT_STAT_LAYER_OPACITIES: WrappedTeamMemberCardStatLayerOpacities = {
 };
 
 export function WrappedTeamMemberCard(props: {
+	backgroundOverlayClassName?: string;
 	disableOuterShadow?: boolean;
 	headerLeftMetric?: WrappedTeamMemberCardHeaderMetric;
 	headerRightMetric?: WrappedTeamMemberCardHeaderMetric;
@@ -135,6 +136,7 @@ export function WrappedTeamMemberCard(props: {
 	theme?: WrappedTeamMemberCardTheme;
 }) {
 	const {
+		backgroundOverlayClassName,
 		disableOuterShadow = false,
 		headerLeftMetric,
 		headerRightMetric,
@@ -336,6 +338,9 @@ export function WrappedTeamMemberCard(props: {
 			)}
 			style={{ ...cardShellLayoutStyle, ...shellStyle }}
 		>
+			{backgroundOverlayClassName ? (
+				<div aria-hidden="true" className={backgroundOverlayClassName} />
+			) : null}
 			<div className="relative z-10 flex h-full flex-col">
 				<div
 					className={cn(

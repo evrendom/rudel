@@ -71,8 +71,8 @@ Object.defineProperty(window, "matchMedia", {
 	})),
 });
 
-const WRAPPED_UNKNOWN_CARD_CLASS_NAME =
-	"bg-[linear-gradient(180deg,_#FFFFFF_0%,_#FBFCFE_48%,_#EEF2F7_100%)]";
+const WRAPPED_UNKNOWN_CARD_OVERLAY_CLASS_NAME =
+	"mymind-wrapped-auth-card-preview--unknown-overlay";
 
 async function openWrappedLoginForm(user: ReturnType<typeof userEvent.setup>) {
 	await user.click(screen.getByRole("button", { name: "Log in" }));
@@ -257,10 +257,8 @@ describe("WrappedGuestPage", () => {
 		});
 		expect(screen.getAllByText("???").length).toBeGreaterThan(0);
 		expect(
-			screen
-				.getByRole("region", { name: "Wrapped player card preview" })
-				.querySelector(".team-lineup-featured-card"),
-		).toHaveClass(WRAPPED_UNKNOWN_CARD_CLASS_NAME);
+			screen.getByRole("region", { name: "Wrapped player card preview" }),
+		).toHaveClass(WRAPPED_UNKNOWN_CARD_OVERLAY_CLASS_NAME);
 	});
 
 	it("keeps wrapped auth in place when the preview-only submit callback is absent", async () => {

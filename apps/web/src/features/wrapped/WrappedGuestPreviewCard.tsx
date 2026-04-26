@@ -31,6 +31,7 @@ interface WrappedGuestPreviewCardProps {
 		placeholder?: string;
 		value: string;
 	};
+	enableAppearanceOverlay?: boolean;
 	mediaOverlayContent?: ReactNode;
 	profile: WrappedGuestPreviewProfile | null;
 	size?: "hero" | "compact" | "profile";
@@ -41,6 +42,7 @@ export function WrappedGuestPreviewCard(props: WrappedGuestPreviewCardProps) {
 		appearance = "default",
 		disablePerspective = false,
 		editableDisplayName,
+		enableAppearanceOverlay = false,
 		mediaOverlayContent,
 		profile,
 		size = "hero",
@@ -49,6 +51,9 @@ export function WrappedGuestPreviewCard(props: WrappedGuestPreviewCardProps) {
 	const activePreset = isUnknownCard
 		? UNKNOWN_GUEST_CARD_PRESET
 		: RICK_PLACEHOLDER_GUEST_CARD_PRESET;
+	const appearanceOverlayClassName = enableAppearanceOverlay
+		? "mymind-wrapped-auth-card-preview__appearance-overlay"
+		: undefined;
 	const hasInteractiveFrontControls = Boolean(
 		editableDisplayName || mediaOverlayContent,
 	);
@@ -185,6 +190,7 @@ export function WrappedGuestPreviewCard(props: WrappedGuestPreviewCardProps) {
 	const frontCardContent = (
 		<div className="grid justify-center">
 			<WrappedTeamMemberCard
+				backgroundOverlayClassName={appearanceOverlayClassName}
 				disableOuterShadow
 				headerLeftMetric={activePreset.headerLeftMetric}
 				headerRightMetric={activePreset.headerRightMetric}
@@ -209,6 +215,7 @@ export function WrappedGuestPreviewCard(props: WrappedGuestPreviewCardProps) {
 			back={
 				<div className="grid justify-center">
 					<WrappedTeamMemberCardBack
+						backgroundOverlayClassName={appearanceOverlayClassName}
 						disableOuterShadow
 						metrics={visibleBackMetrics}
 						shellClassName={activePreset.shellClassName}
@@ -229,6 +236,12 @@ export function WrappedGuestPreviewCard(props: WrappedGuestPreviewCardProps) {
 				"mymind-wrapped-auth-card-preview team-lineup-surface-scope",
 				hasInteractiveFrontControls
 					? "mymind-wrapped-auth-card-preview--editable"
+					: null,
+				enableAppearanceOverlay
+					? "mymind-wrapped-auth-card-preview--appearance-overlay"
+					: null,
+				enableAppearanceOverlay && isUnknownCard
+					? "mymind-wrapped-auth-card-preview--unknown-overlay"
 					: null,
 				shouldRenderStaticFront
 					? "mymind-wrapped-auth-card-preview--static"
