@@ -869,7 +869,7 @@ body.mymind-wrapped-body #cw-bubble-holder {
 	text-wrap: balance;
 }
 
-.mymind-wrapped-skills-stage__stack {
+.mymind-wrapped-skills-stage__stack-frame {
 	--skills-ease-out: cubic-bezier(0.23, 1, 0.32, 1);
 	--skills-ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
 	--skills-ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
@@ -878,13 +878,37 @@ body.mymind-wrapped-body #cw-bubble-holder {
 	max-width: 21rem;
 	height: 16.2rem;
 	margin: 1.75rem auto 0;
+	isolation: isolate;
+}
+
+.mymind-wrapped-skills-stage__stack {
+	position: relative;
+	width: 100%;
+	height: 100%;
 	perspective: 1400px;
 	transform-style: preserve-3d;
-	isolation: isolate;
 	overflow-x: visible;
 	overflow-y: visible;
 	padding-inline: 0.1rem;
 	pointer-events: none;
+}
+
+.mymind-wrapped-skills-stage__stack[data-stack-stage="deck-copy"] {
+	pointer-events: auto;
+}
+
+.mymind-wrapped-skills-stage__stack[data-stack-stage="deck-copy"][data-scrollable="true"] {
+	overflow-x: visible;
+	overflow-y: auto;
+	overscroll-behavior-y: contain;
+	scroll-padding-block-start: var(--skills-stack-focus-top, 4.65rem);
+	scroll-snap-type: y mandatory;
+	scrollbar-width: none;
+	-webkit-overflow-scrolling: touch;
+}
+
+.mymind-wrapped-skills-stage__stack[data-stack-stage="deck-copy"][data-scrollable="true"]::-webkit-scrollbar {
+	display: none;
 }
 
 .mymind-wrapped-skills-stage__stack[data-stack-stage="collapsed"],
@@ -961,15 +985,15 @@ body.mymind-wrapped-body #cw-bubble-holder {
 
 .mymind-wrapped-skills-stage__stack-track {
 	position: relative;
-	height: 100%;
+	height: var(--skills-stack-track-height, 100%);
 	min-height: 100%;
 	overflow-x: visible;
-	overflow-y: clip;
+	overflow-y: visible;
 	padding-bottom: 0;
 	pointer-events: none;
 }
 
-.mymind-wrapped-skills-stage__stack::before {
+.mymind-wrapped-skills-stage__stack-frame::before {
 	content: "";
 	position: absolute;
 	z-index: 55;
@@ -985,7 +1009,7 @@ body.mymind-wrapped-body #cw-bubble-holder {
 	transition: opacity 220ms var(--skills-ease-out);
 }
 
-.mymind-wrapped-skills-stage__stack::after {
+.mymind-wrapped-skills-stage__stack-frame::after {
 	content: "";
 	position: absolute;
 	z-index: 55;
@@ -1040,7 +1064,8 @@ body.mymind-wrapped-body #cw-bubble-holder {
 		rotate(var(--skills-card-spin, 0deg))
 		rotateX(var(--skills-card-rotate, 0deg)) scale(var(--skills-card-scale, 1));
 	pointer-events: auto;
-	touch-action: none;
+	scroll-snap-align: start;
+	touch-action: pan-y;
 	transition:
 		transform var(--skills-card-transform-duration, 260ms)
 		var(--skills-ease-drawer),
@@ -3820,7 +3845,7 @@ body.mymind-wrapped-body #cw-bubble-holder {
 }
 
 :is(
-		.mymind-wrapped-skills-stage__stack,
+		.mymind-wrapped-skills-stage__stack-frame,
 		.mymind-wrapped-tools-stage__object,
 		.mymind-wrapped-repo-pulse-stage__object,
 		.mymind-wrapped-model-stage__object,
