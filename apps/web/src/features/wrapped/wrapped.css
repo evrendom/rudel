@@ -7264,6 +7264,16 @@ body.mymind-wrapped-body #cw-bubble-holder {
 	}
 }
 
+@media (max-width: 47.999rem) and (min-height: 721px) and (max-height: 820px) {
+	.mymind-wrapped-auth-panel--form {
+		--wrapped-auth-form-overlap: clamp(0.9rem, 2.4svh, 1.25rem);
+	}
+
+	.mymind-wrapped-auth-panel--form .mymind-wrapped-auth-card-preview__tilt {
+		--wrapped-card-render-scale: 0.94;
+	}
+}
+
 @media (max-height: 720px) {
 	.mymind-wrapped-shell {
 		--wrapped-shell-top-inset: 20px;
