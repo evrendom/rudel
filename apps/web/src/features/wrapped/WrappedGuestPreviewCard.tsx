@@ -2,6 +2,7 @@ import { useReducedMotion } from "motion/react";
 import {
 	type CSSProperties,
 	type ReactNode,
+	type Ref,
 	// biome-ignore lint/style/noRestrictedImports: auto-select focuses the editable name input after React commits it.
 	useEffect,
 	useRef,
@@ -31,6 +32,7 @@ interface WrappedGuestPreviewCardProps {
 		placeholder?: string;
 		value: string;
 	};
+	cardStageRef?: Ref<HTMLDivElement>;
 	enableAppearanceOverlay?: boolean;
 	mediaOverlayContent?: ReactNode;
 	profile: WrappedGuestPreviewProfile | null;
@@ -40,6 +42,7 @@ interface WrappedGuestPreviewCardProps {
 export function WrappedGuestPreviewCard(props: WrappedGuestPreviewCardProps) {
 	const {
 		appearance = "default",
+		cardStageRef,
 		disablePerspective = false,
 		editableDisplayName,
 		enableAppearanceOverlay = false,
@@ -253,7 +256,10 @@ export function WrappedGuestPreviewCard(props: WrappedGuestPreviewCardProps) {
 						: "mymind-wrapped-auth-card-preview--hero",
 			)}
 		>
-			<div className="team-lineup-card-tilt-stage mymind-wrapped-auth-card-preview__tilt-stage">
+			<div
+				ref={cardStageRef}
+				className="team-lineup-card-tilt-stage mymind-wrapped-auth-card-preview__tilt-stage"
+			>
 				<div
 					ref={tiltController.cardTiltRef}
 					className="team-lineup-card-tilt-shell mymind-wrapped-auth-card-preview__tilt mymind-wrapped-final-stage__tilt-shell"

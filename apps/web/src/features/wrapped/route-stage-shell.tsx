@@ -27,6 +27,7 @@ interface WrappedRouteStageShellProps {
 	leadingControl?: ReactNode | null;
 	objectClassName?: string;
 	onBack?: () => void;
+	overlay?: ReactNode;
 	progressStepId?: WrappedOnboardingProgressStepId;
 	status?: ReactNode;
 	stageClassName?: string;
@@ -95,6 +96,7 @@ export function WrappedRouteStageShell(props: WrappedRouteStageShellProps) {
 		leadingControl,
 		objectClassName,
 		onBack,
+		overlay,
 		progressStepId,
 		stageClassName,
 		stage,
@@ -313,6 +315,7 @@ export function WrappedRouteStageShell(props: WrappedRouteStageShellProps) {
 					) : null}
 				</div>
 			</div>
+			{overlay}
 		</main>
 	);
 }

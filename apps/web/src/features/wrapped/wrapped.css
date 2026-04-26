@@ -633,6 +633,36 @@ body.mymind-wrapped-body #cw-bubble-holder {
 	transform: translateZ(0);
 }
 
+.mymind-wrapped-auth-card-flight {
+	position: fixed;
+	top: 0;
+	left: 0;
+	z-index: 60;
+	width: 233px;
+	height: 358px;
+	pointer-events: none;
+	transform-origin: top left;
+	will-change: transform, opacity;
+}
+
+.mymind-wrapped-auth-card-flight__card {
+	--wrapped-card-render-scale: 1;
+	--wrapped-short-card-scale: 1;
+	display: grid;
+	width: 233px;
+	height: 358px;
+	place-items: center;
+	filter: drop-shadow(0 18px 28px rgb(15 23 42 / 0.12));
+	transform: translateZ(0);
+}
+
+.mymind-wrapped-auth-card-flight .mymind-wrapped-auth-card-preview,
+.mymind-wrapped-auth-card-flight .mymind-wrapped-auth-card-preview__tilt-stage,
+.mymind-wrapped-auth-card-flight .mymind-wrapped-auth-card-preview__tilt {
+	width: 233px;
+	height: 358px;
+}
+
 .mymind-wrapped-intro-stage {
 	display: flex;
 	flex: 1;
@@ -4611,6 +4641,11 @@ body.mymind-wrapped-body #cw-bubble-holder {
 	will-change: transform;
 }
 
+.mymind-wrapped-auth-panel--card-flight-active
+	.mymind-wrapped-auth-panel__card-scale-shell {
+	opacity: 0;
+}
+
 .mymind-wrapped-auth-intro-title,
 .mymind-wrapped-auth-intro-title__line {
 	will-change: opacity, transform, filter;
@@ -4826,6 +4861,10 @@ body.mymind-wrapped-body #cw-bubble-holder {
 		.mymind-wrapped-auth-card-preview__tilt {
 		--wrapped-card-render-scale: 1.28;
 	}
+}
+
+.mymind-wrapped-auth-card-flight .mymind-wrapped-auth-card-preview__tilt {
+	--wrapped-card-render-scale: 1;
 }
 
 @keyframes wrapped-auth-intro-card-enter {
