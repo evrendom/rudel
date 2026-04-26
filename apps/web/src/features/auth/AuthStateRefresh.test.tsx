@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { appRoutes } from "@/app/routes";
 import {
 	clearPendingSignupRedirect,
+	getAuthCallbackURL,
 	getEmailLoginSuccessDestination,
 	getEmailSignupSuccessDestination,
 	getEmailSignupVerificationCallbackURL,
@@ -76,13 +77,13 @@ describe("auth state refresh", () => {
 
 	it("routes homepage email signups to the wrapped entry", () => {
 		expect(getEmailSignupSuccessDestination("/", "")).toBe(
-			appRoutes.wrappedTeamCard(),
+			appRoutes.wrappedSessionsLanded(),
 		);
 	});
 
 	it("uses the direct redirect destination for homepage email verification callbacks", () => {
 		expect(getEmailSignupVerificationCallbackURL("/", "")).toBe(
-			appRoutes.wrappedTeamCard(),
+			appRoutes.wrappedSessionsLanded(),
 		);
 	});
 
@@ -158,13 +159,32 @@ describe("auth state refresh", () => {
 	});
 
 	it("preserves direct wrapped destinations for email login", () => {
-		expect(getEmailLoginSuccessDestination("/wrapped", "")).toBe("/wrapped");
+		expect(getEmailLoginSuccessDestination("/wrapped", "")).toBe(
+			appRoutes.wrappedSessionsLanded(),
+		);
+	});
+
+	it("returns wrapped auth redirects to uploaded sessions with share attribution", () => {
+		expect(
+			getEmailLoginSuccessDestination(
+				"/wrapped",
+				"?share_id=share-123&flow=story",
+			),
+		).toBe("/wrapped?share_id=share-123&flow=sessions-landed");
+	});
+
+	it("builds social login callbacks that return wrapped auth to uploaded sessions", () => {
+		expect(getAuthCallbackURL("/wrapped", "?share_id=share-123")).toBe(
+			`/?redirect=${encodeURIComponent(
+				"/wrapped?share_id=share-123&flow=sessions-landed",
+			)}`,
+		);
 	});
 
 	it("uses a separate new-user social signup destination on the homepage", () => {
 		expect(getSocialSignupRedirectOptions("/", "")).toEqual({
 			callbackURL: "/",
-			newUserCallbackURL: appRoutes.wrappedTeamCard(),
+			newUserCallbackURL: appRoutes.wrappedSessionsLanded(),
 		});
 	});
 
@@ -204,7 +224,7 @@ describe("auth state refresh", () => {
 					name: "Ada Lovelace",
 					email: "ada@example.com",
 					password: "supersecure",
-					callbackURL: "/wrapped",
+					callbackURL: appRoutes.wrappedSessionsLanded(),
 					fetchOptions: expect.objectContaining({
 						disableSignal: true,
 						onSuccess: expect.any(Function),
@@ -214,11 +234,13 @@ describe("auth state refresh", () => {
 		});
 
 		await waitFor(() => {
-			expect(mockNavigateToDestination).toHaveBeenCalledWith("/wrapped");
+			expect(mockNavigateToDestination).toHaveBeenCalledWith(
+				appRoutes.wrappedSessionsLanded(),
+			);
 		});
 
 		expect(window.location.search).toBe(
-			`?signup_redirect=${encodeURIComponent(appRoutes.wrappedTeamCard())}`,
+			`?signup_redirect=${encodeURIComponent(appRoutes.wrappedSessionsLanded())}`,
 		);
 	});
 
@@ -303,7 +325,7 @@ describe("auth state refresh", () => {
 			expect(mockSignInSocial).toHaveBeenCalledWith({
 				provider: "google",
 				callbackURL: "/",
-				newUserCallbackURL: "/wrapped",
+				newUserCallbackURL: appRoutes.wrappedSessionsLanded(),
 			});
 		});
 	});
@@ -379,7 +401,9 @@ describe("auth state refresh", () => {
 		await user.click(screen.getByRole("button", { name: "Sign in" }));
 
 		await waitFor(() => {
-			expect(mockNavigateToDestination).toHaveBeenCalledWith("/wrapped");
+			expect(mockNavigateToDestination).toHaveBeenCalledWith(
+				appRoutes.wrappedSessionsLanded(),
+			);
 		});
 		expect(mockRefreshAuthClientState).toHaveBeenCalledTimes(1);
 	});

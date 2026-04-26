@@ -1,7 +1,11 @@
 import { type ReactNode, startTransition, useState } from "react";
 import { useLocation, useSearchParams } from "react-router-dom";
 import { useIsMobile } from "@/app/hooks/use-mobile";
-import { getWrappedShareIdFromSearch } from "@/app/routes";
+import {
+	getWrappedShareIdFromSearch,
+	WRAPPED_ROUTE_FLOW_QUERY_PARAM,
+	WRAPPED_ROUTE_SESSIONS_LANDED_FLOW,
+} from "@/app/routes";
 import { useAnalyticsTracking } from "@/features/analytics/tracking/useAnalyticsTracking";
 import {
 	type AppSession,
@@ -34,8 +38,6 @@ interface WrappedRouteGateProps {
 }
 
 type WrappedRouteFlowStage = "desktop-ready" | "sessions-landed" | "story";
-
-const WRAPPED_ROUTE_FLOW_QUERY_PARAM = "flow";
 
 export function WrappedRouteGate(props: WrappedRouteGateProps) {
 	const { isPending, publicId, session } = props;
@@ -219,7 +221,7 @@ function getWrappedRouteFlowStage(
 	flowStage: string | null,
 ): WrappedRouteFlowStage | null {
 	return flowStage === "desktop-ready" ||
-		flowStage === "sessions-landed" ||
+		flowStage === WRAPPED_ROUTE_SESSIONS_LANDED_FLOW ||
 		flowStage === "story"
 		? flowStage
 		: null;

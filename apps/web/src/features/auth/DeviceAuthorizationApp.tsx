@@ -11,7 +11,7 @@ import {
 import { GuestApp } from "@/features/auth/GuestApp";
 
 function ApprovedDeviceSetupPage() {
-	return <Navigate replace to={appRoutes.wrappedTeamCard()} />;
+	return <Navigate replace to={appRoutes.wrappedSessionsLanded()} />;
 }
 
 export function DeviceAuthorizationApp({

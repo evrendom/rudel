@@ -247,6 +247,29 @@ describe("WrappedRouteGate", () => {
 		expect(screen.getByText("Wrapped story")).toBeInTheDocument();
 	});
 
+	it("honors the sessions-landed flow even after setup completion was acknowledged", () => {
+		const storageKey = getWrappedSetupCompletionStorageKey(session.user.id);
+
+		if (storageKey === null) {
+			throw new Error("Expected wrapped setup completion storage key");
+		}
+
+		window.localStorage.setItem(storageKey, "true");
+		mockUseSetupProgress.mockReturnValue({
+			hasUploadedSessions: true,
+			isLoading: false,
+			totalSessionCount: 3,
+		});
+
+		render(
+			<MemoryRouter initialEntries={["/wrapped?flow=sessions-landed"]}>
+				<WrappedRouteGate isPending={false} publicId={null} session={session} />
+			</MemoryRouter>,
+		);
+
+		expect(screen.getByText("Wrapped setup complete page")).toBeInTheDocument();
+	});
+
 	it("returns from the first story page to the upload screen", async () => {
 		const user = userEvent.setup();
 		const storageKey = getWrappedSetupCompletionStorageKey(session.user.id);

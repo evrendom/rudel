@@ -13,6 +13,8 @@ const CARD_REFERENCE_PATH = "/card-reference";
 const WRAPPED_TEAM_CARD_PATH = "/wrapped";
 const DEV_WRAPPED_PATH = "/dev/wrapped";
 const WRAPPED_RESUME_PATH = "/resume";
+export const WRAPPED_ROUTE_FLOW_QUERY_PARAM = "flow";
+export const WRAPPED_ROUTE_SESSIONS_LANDED_FLOW = "sessions-landed";
 
 // These helpers are the canonical route surface for the Saturday wrapped loop.
 // We keep them centralized so design, auth, analytics, and public sharing all
@@ -29,6 +31,8 @@ export const appRoutes = {
 	presetBaseline: () => PRESET_BASELINE_PATH,
 	cardReference: () => CARD_REFERENCE_PATH,
 	wrappedTeamCard: () => WRAPPED_TEAM_CARD_PATH,
+	wrappedSessionsLanded: (search?: string) =>
+		getWrappedSessionsLandedPath(search),
 	devWrapped: () => DEV_WRAPPED_PATH,
 	wrappedPublic: (publicId: string) =>
 		`${WRAPPED_TEAM_CARD_PATH}/${encodeURIComponent(publicId)}`,
@@ -41,6 +45,16 @@ export const appRoutes = {
 	settingsAccount: () => SETTINGS_ACCOUNT_PATH,
 	settingsCreateWorkspace: () => SETTINGS_CREATE_WORKSPACE_PATH,
 };
+
+export function getWrappedSessionsLandedPath(search?: string) {
+	const searchParams = new URLSearchParams(search);
+	searchParams.set(
+		WRAPPED_ROUTE_FLOW_QUERY_PARAM,
+		WRAPPED_ROUTE_SESSIONS_LANDED_FLOW,
+	);
+
+	return `${WRAPPED_TEAM_CARD_PATH}?${searchParams.toString()}`;
+}
 
 // Public wrapped pages live at /wrapped/:id in this pass. The id is still the
 // existing UUID-backed share id even though the route shape is changing.

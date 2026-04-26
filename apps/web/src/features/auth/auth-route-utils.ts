@@ -3,6 +3,7 @@ import type { authClient } from "@/lib/auth-client";
 
 export type AppSession = ReturnType<typeof authClient.useSession>["data"];
 const PENDING_SIGNUP_REDIRECT_PARAM = "signup_redirect";
+const RELATIVE_URL_BASE = "https://rudel.local";
 
 function normalizeValidRedirect(redirect: string | null): string | null {
 	if (!redirect) {
@@ -13,7 +14,21 @@ function normalizeValidRedirect(redirect: string | null): string | null {
 		return null;
 	}
 
-	return redirect;
+	return normalizeWrappedAuthRedirect(redirect);
+}
+
+function normalizeWrappedAuthRedirect(redirect: string): string {
+	try {
+		const url = new URL(redirect, RELATIVE_URL_BASE);
+
+		if (url.pathname !== appRoutes.wrappedTeamCard()) {
+			return redirect;
+		}
+
+		return `${appRoutes.wrappedSessionsLanded(url.search)}${url.hash}`;
+	} catch {
+		return redirect;
+	}
 }
 
 export function getDeviceUserCode(search?: string): string | null {
@@ -57,7 +72,7 @@ function getDirectAuthDestination(
 	}
 
 	if (pathname !== "/" && pathname !== "") {
-		return `${pathname}${search}`;
+		return normalizeWrappedAuthRedirect(`${pathname}${search}`);
 	}
 
 	return null;
@@ -68,7 +83,8 @@ export function getEmailSignupSuccessDestination(
 	search = window.location.search,
 ): string {
 	return (
-		getDirectAuthDestination(pathname, search) ?? appRoutes.wrappedTeamCard()
+		getDirectAuthDestination(pathname, search) ??
+		appRoutes.wrappedSessionsLanded()
 	);
 }
 
@@ -77,6 +93,23 @@ export function getEmailLoginSuccessDestination(
 	search = window.location.search,
 ): string {
 	return getDirectAuthDestination(pathname, search) ?? "/";
+}
+
+export function getAuthCallbackURL(
+	pathname = window.location.pathname,
+	search = window.location.search,
+): string {
+	const directDestination = getDirectAuthDestination(pathname, search);
+
+	if (!directDestination) {
+		return "/";
+	}
+
+	if (directDestination.startsWith("/?user_code=")) {
+		return directDestination;
+	}
+
+	return `/?redirect=${encodeURIComponent(directDestination)}`;
 }
 
 export function getEmailSignupVerificationCallbackURL(
@@ -103,7 +136,7 @@ export function getSocialSignupRedirectOptions(
 
 	return {
 		callbackURL: "/",
-		newUserCallbackURL: appRoutes.wrappedTeamCard(),
+		newUserCallbackURL: appRoutes.wrappedSessionsLanded(),
 	};
 }
 
