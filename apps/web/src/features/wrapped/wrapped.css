@@ -4611,6 +4611,28 @@ body.mymind-wrapped-body #cw-bubble-holder {
 	will-change: transform;
 }
 
+.mymind-wrapped-auth-card-appearance-stack {
+	isolation: isolate;
+	display: grid;
+	justify-items: center;
+	width: 100%;
+}
+
+.mymind-wrapped-auth-card-appearance-stack__item {
+	grid-area: 1 / 1;
+	display: grid;
+	justify-items: center;
+	width: 100%;
+	pointer-events: none;
+	will-change: opacity;
+}
+
+.mymind-wrapped-auth-card-appearance-stack__content {
+	display: grid;
+	justify-items: center;
+	width: 100%;
+}
+
 .mymind-wrapped-auth-intro-title,
 .mymind-wrapped-auth-intro-title__line {
 	will-change: opacity, transform, filter;
