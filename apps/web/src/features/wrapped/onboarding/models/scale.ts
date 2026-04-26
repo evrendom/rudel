@@ -141,39 +141,15 @@ export function resolveScaleRainDisplayedTokens(
 		return 0;
 	}
 
+	const normalizedTotalTokens = Math.max(0, Math.round(totalTokens));
 	const clampedBallProgress = Math.max(
 		0,
 		Math.min(totalBallCount, displayedBallProgress),
 	);
 
-	if (totalBallCount === 1) {
-		return Math.min(
-			Math.max(0, Math.round(totalTokens)),
-			Math.round(totalTokens * clampedBallProgress),
-		);
-	}
-
-	const fullBallCount = Math.max(0, totalBallCount - 1);
-	const fullBallTokens = fullBallCount * SCALE_STAGE_TOKENS_PER_BALL;
-	const finalBallTokens = Math.max(0, totalTokens - fullBallTokens);
-
-	if (clampedBallProgress <= fullBallCount) {
-		return Math.min(
-			Math.max(0, Math.round(totalTokens)),
-			Math.round(clampedBallProgress * SCALE_STAGE_TOKENS_PER_BALL),
-		);
-	}
-
-	const finalBallProgress = Math.min(1, clampedBallProgress - fullBallCount);
 	return Math.min(
-		Math.max(0, Math.round(totalTokens)),
-		fullBallTokens +
-			Math.round(
-				finalBallProgress *
-					(finalBallTokens === 0
-						? SCALE_STAGE_TOKENS_PER_BALL
-						: finalBallTokens),
-			),
+		normalizedTotalTokens,
+		Math.round((clampedBallProgress / totalBallCount) * normalizedTotalTokens),
 	);
 }
 
