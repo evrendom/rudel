@@ -6485,6 +6485,64 @@ body.mymind-wrapped-body #cw-bubble-holder {
 		opacity 220ms cubic-bezier(0.22, 1, 0.36, 1),
 		box-shadow 220ms cubic-bezier(0.22, 1, 0.36, 1),
 		transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+	will-change: opacity, transform;
+}
+
+@supports (-webkit-hyphens: none) {
+	.mymind-wrapped-final-stage__flip-shell::before {
+		display: none;
+	}
+
+	.team-lineup-card-tilt-shell.mymind-wrapped-final-stage__tilt-shell:not(
+			[data-flip-active="true"]
+		)
+		.mymind-wrapped-final-stage__flip-control[data-card-face="back"]
+		.mymind-wrapped-final-stage__flip-shell {
+		transform: none;
+		transform-style: flat;
+		will-change: auto;
+	}
+
+	.team-lineup-card-tilt-shell.mymind-wrapped-final-stage__tilt-shell:not(
+			[data-flip-active="true"]
+		)
+		.mymind-wrapped-final-stage__flip-control[data-card-face="back"]
+		.mymind-wrapped-final-stage__flip-shell::after {
+		display: none;
+	}
+
+	.team-lineup-card-tilt-shell.mymind-wrapped-final-stage__tilt-shell:not(
+			[data-flip-active="true"]
+		)
+		.mymind-wrapped-final-stage__flip-control[data-card-face="back"]
+		.mymind-wrapped-printed-card-flip__rotator,
+	.team-lineup-card-tilt-shell.mymind-wrapped-final-stage__tilt-shell:not(
+			[data-flip-active="true"]
+		)
+		.mymind-wrapped-final-stage__flip-control[data-card-face="back"]
+		.mymind-wrapped-printed-card-flip__plane {
+		transform-style: flat;
+		-webkit-transform-style: flat;
+	}
+
+	.team-lineup-card-tilt-shell.mymind-wrapped-final-stage__tilt-shell:not(
+			[data-flip-active="true"]
+		)
+		.mymind-wrapped-final-stage__flip-control[data-card-face="back"]
+		.mymind-wrapped-printed-card-flip__plane--front {
+		display: none;
+	}
+
+	.team-lineup-card-tilt-shell.mymind-wrapped-final-stage__tilt-shell:not(
+			[data-flip-active="true"]
+		)
+		.mymind-wrapped-final-stage__flip-control[data-card-face="back"]
+		.mymind-wrapped-printed-card-flip__plane--back {
+		opacity: 1;
+		transform: none;
+		backface-visibility: hidden;
+		-webkit-backface-visibility: hidden;
+	}
 }
 
 .mymind-wrapped-final-stage__flip-shell::after {
@@ -6741,6 +6799,7 @@ body.mymind-wrapped-body #cw-bubble-holder {
 .team-lineup-card-tilt-shell.mymind-wrapped-final-stage__tilt-shell[data-flip-active="true"]
 	.mymind-wrapped-final-stage__flip-shell::before {
 	opacity: var(--wrapped-card-shadow-opacity, 0.82);
+	transition: none;
 }
 
 .team-lineup-card-tilt-shell .team-lineup-featured-card {
