@@ -7,6 +7,7 @@ import { WrappedProgress } from "@/features/wrapped/WrappedProgress";
 import { getWrappedOnboardingProgressView } from "@/features/wrapped/wrapped-onboarding-progress";
 import { openChatwoot } from "@/lib/chatwoot";
 import { cn } from "@/lib/utils";
+import { WrappedMobileChatwootBubbleController } from "../mobile-chatwoot-bubble-controller";
 import { WrappedDebugControlStack } from "../route-stage-shell";
 import type {
 	PreviewableWrappedStepId,
@@ -75,62 +76,65 @@ export function WrappedOnboardingHeader(props: WrappedOnboardingHeaderProps) {
 	const progressView = getWrappedOnboardingProgressView(activeStep.id);
 
 	return (
-		<header className="mymind-wrapped-top-tray">
-			<div className="mymind-wrapped-top-tray__row">
-				<div className="mymind-wrapped-top-tray__slot mymind-wrapped-top-tray__slot--start">
-					{activeStepIndex > 0 ? (
-						<button
-							type="button"
-							aria-label="Go back"
+		<>
+			<WrappedMobileChatwootBubbleController />
+			<header className="mymind-wrapped-top-tray">
+				<div className="mymind-wrapped-top-tray__row">
+					<div className="mymind-wrapped-top-tray__slot mymind-wrapped-top-tray__slot--start">
+						{activeStepIndex > 0 ? (
+							<button
+								type="button"
+								aria-label="Go back"
+								disabled={isStepTransitioning}
+								className="mymind-wrapped-top-tray__edge-control"
+								onClick={() => onGoToStep(activeStepIndex - 1)}
+							>
+								<ChevronLeft className="mymind-wrapped-top-tray__edge-icon mymind-wrapped-top-tray__edge-icon--back" />
+							</button>
+						) : (
+							<button
+								type="button"
+								aria-label="Go back"
+								className="mymind-wrapped-top-tray__edge-control"
+								onClick={onBack}
+							>
+								<ChevronLeft className="mymind-wrapped-top-tray__edge-icon mymind-wrapped-top-tray__edge-icon--back" />
+							</button>
+						)}
+					</div>
+
+					<div className="mymind-wrapped-top-tray__center">
+						<WrappedProgress
+							ariaLabel="Wrapped onboarding progress"
 							disabled={isStepTransitioning}
-							className="mymind-wrapped-top-tray__edge-control"
-							onClick={() => onGoToStep(activeStepIndex - 1)}
-						>
-							<ChevronLeft className="mymind-wrapped-top-tray__edge-icon mymind-wrapped-top-tray__edge-icon--back" />
-						</button>
-					) : (
+							items={progressView.items.map((item) => {
+								const routeIndex = getWrappedSaturdayRouteIndex(item.id);
+
+								return {
+									ariaLabel: `Go to onboarding step ${item.stepNumber}: ${item.label}`,
+									id: item.id,
+									isActive: item.isActive,
+									onSelect:
+										routeIndex >= 0 ? () => onGoToStep(routeIndex) : undefined,
+								};
+							})}
+							rewardCardBackground={rewardCardBackground}
+						/>
+					</div>
+
+					<div className="mymind-wrapped-top-tray__slot mymind-wrapped-top-tray__slot--end">
 						<button
 							type="button"
-							aria-label="Go back"
+							aria-label="Open support"
 							className="mymind-wrapped-top-tray__edge-control"
-							onClick={onBack}
+							onClick={() => void openChatwoot()}
 						>
-							<ChevronLeft className="mymind-wrapped-top-tray__edge-icon mymind-wrapped-top-tray__edge-icon--back" />
+							<HelpCircle className="mymind-wrapped-top-tray__edge-icon mymind-wrapped-top-tray__edge-icon--help" />
 						</button>
-					)}
+					</div>
 				</div>
-
-				<div className="mymind-wrapped-top-tray__center">
-					<WrappedProgress
-						ariaLabel="Wrapped onboarding progress"
-						disabled={isStepTransitioning}
-						items={progressView.items.map((item) => {
-							const routeIndex = getWrappedSaturdayRouteIndex(item.id);
-
-							return {
-								ariaLabel: `Go to onboarding step ${item.stepNumber}: ${item.label}`,
-								id: item.id,
-								isActive: item.isActive,
-								onSelect:
-									routeIndex >= 0 ? () => onGoToStep(routeIndex) : undefined,
-							};
-						})}
-						rewardCardBackground={rewardCardBackground}
-					/>
-				</div>
-
-				<div className="mymind-wrapped-top-tray__slot mymind-wrapped-top-tray__slot--end">
-					<button
-						type="button"
-						aria-label="Open support"
-						className="mymind-wrapped-top-tray__edge-control"
-						onClick={() => void openChatwoot()}
-					>
-						<HelpCircle className="mymind-wrapped-top-tray__edge-icon mymind-wrapped-top-tray__edge-icon--help" />
-					</button>
-				</div>
-			</div>
-		</header>
+			</header>
+		</>
 	);
 }
 

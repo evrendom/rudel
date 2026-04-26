@@ -14,10 +14,13 @@ type ChatwootUser = {
 type ChatwootAPI = {
 	hasLoaded?: boolean;
 	toggle: (state?: "open" | "close") => void;
+	toggleBubbleVisibility?: (visibility: ChatwootBubbleVisibility) => void;
 	setUser: (identifier: string | number, user: ChatwootUser) => void;
 	setLabel: (label: string) => void;
 	reset: () => void;
 };
+
+type ChatwootBubbleVisibility = "show" | "hide";
 
 type ChatwootConfig = {
 	baseUrl: string;
@@ -171,6 +174,17 @@ export async function openChatwoot() {
 		window.$chatwoot?.toggle("open");
 	} catch {
 		// Ignore widget load failures so the dashboard remains functional.
+	}
+}
+
+export async function setChatwootBubbleVisibility(
+	visibility: ChatwootBubbleVisibility,
+) {
+	try {
+		await ensureChatwootLoaded();
+		window.$chatwoot?.toggleBubbleVisibility?.(visibility);
+	} catch {
+		// Keep the dashboard usable even if Chatwoot is unavailable.
 	}
 }
 

@@ -25,6 +25,12 @@ body.mymind-wrapped-body #cw-bubble-holder {
 	display: none !important;
 }
 
+@media only screen and (max-width: 767px) {
+	body.mymind-wrapped-body .woot-widget-bubble {
+		display: none !important;
+	}
+}
+
 @media only screen and (min-width: 667px) {
 	body.mymind-wrapped-body .woot-widget-holder,
 	body.mymind-wrapped-body .woot-widget-holder.has-unread-view {

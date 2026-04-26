@@ -15,6 +15,7 @@ import {
 import { openChatwoot } from "@/lib/chatwoot";
 import { cn } from "@/lib/utils";
 import "@/features/wrapped/wrapped.css";
+import { WrappedMobileChatwootBubbleController } from "./mobile-chatwoot-bubble-controller";
 
 interface WrappedRouteStageShellProps {
 	backLabel?: string;
@@ -113,6 +114,8 @@ export function WrappedRouteStageShell(props: WrappedRouteStageShellProps) {
 		useReferenceTopChrome || progressView !== null;
 	const hasFooter = Boolean(footer) || Boolean(footerDebugControls);
 	const shouldAnimateSetupEntrance = entrancePreset === "setup";
+	const hasSupportButton =
+		!hideTopChromeControls && shouldUseReferenceTopChrome;
 	const hasTextStatus =
 		typeof status === "string" || typeof status === "number";
 	const animatedCopy = (
@@ -181,6 +184,7 @@ export function WrappedRouteStageShell(props: WrappedRouteStageShellProps) {
 
 	return (
 		<main className="mymind-wrapped-route mymind-wrapped-route--onboarding">
+			{hasSupportButton ? <WrappedMobileChatwootBubbleController /> : null}
 			<div
 				className={cn(
 					"mymind-wrapped-shell relative z-[1] mx-auto flex w-full flex-1 flex-col text-foreground",
