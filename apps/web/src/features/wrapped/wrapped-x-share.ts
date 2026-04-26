@@ -19,8 +19,6 @@ interface WrappedXShareCopy {
 }
 
 const WRAPPED_X_INTENT_URL = "https://twitter.com/intent/tweet";
-export const WRAPPED_X_MAKE_YOURS_LABEL = "app.rudel.ai/wrapped";
-export const WRAPPED_X_MAKE_YOURS_URL = `https://${WRAPPED_X_MAKE_YOURS_LABEL}`;
 
 const WRAPPED_X_SHARE_COPY_BY_ARCHETYPE: Record<string, WrappedXShareCopy> = {
 	"adhd brain": {
@@ -106,7 +104,7 @@ export function buildWrappedXShareText(input: BuildWrappedXShareTextInput) {
 	return [
 		`According to my ${usageSourceLabel} usage, I'm ${archetypeIdentity}.`,
 		`Traits: ${metrics}; ${copy.traits}.`,
-		`Make yours: ${WRAPPED_X_MAKE_YOURS_LABEL}`,
+		"Make yours from the card.",
 	].join("\n\n");
 }
 

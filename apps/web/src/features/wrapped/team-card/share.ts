@@ -2,10 +2,7 @@ import type { WrappedSourceSplit } from "@rudel/api-routes";
 import type { RefObject } from "react";
 import type { TeamPageMemberRow } from "@/features/team/use-team-page-data";
 import { createWrappedImageShareActions } from "@/features/wrapped/share-image";
-import {
-	buildWrappedXShareText,
-	WRAPPED_X_MAKE_YOURS_URL,
-} from "@/features/wrapped/wrapped-x-share";
+import { buildWrappedXShareText } from "@/features/wrapped/wrapped-x-share";
 
 const TEAM_CARD_SHARE_IMAGE_FILE_NAME = "rudel-team-card-post.png";
 const TEAM_CARD_SHARE_CAPTURE_SIZE = 6144;
@@ -138,7 +135,7 @@ export function createWrappedTeamCardShareActions(
 		shareText,
 		shareTarget: "x",
 		shareTitle,
-		shareUrl: shareUrl ?? WRAPPED_X_MAKE_YOURS_URL,
+		shareUrl,
 		shareUrlLabel,
 	});
 

@@ -17,7 +17,7 @@ describe("wrapped X share copy", () => {
 			[
 				"According to my Claude / Codex usage, I'm a Maniac.",
 				"Traits: 1.9M tokens over 219 sessions; high session count, heavy token burn, no visible off switch.",
-				"Make yours: app.rudel.ai/wrapped",
+				"Make yours from the card.",
 			].join("\n\n"),
 		);
 	});

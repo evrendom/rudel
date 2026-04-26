@@ -117,7 +117,7 @@ describe("createWrappedTeamCardShareActions", () => {
 		expect(toast.success).toHaveBeenCalledWith("Post downloaded");
 	});
 
-	it("opens X with first-person copy and the wrapped landing URL", async () => {
+	it("opens X with first-person copy and only the resolved public card URL", async () => {
 		vi.clearAllMocks();
 		const pendingXWindow = {
 			closed: false,
@@ -155,6 +155,8 @@ describe("createWrappedTeamCardShareActions", () => {
 		await actions.handleSharePost();
 
 		expect(resolveShareUrl).toHaveBeenCalledTimes(1);
+		const initialIntentUrl = new URL(open.mock.calls[0]?.[0] ?? "");
+		expect(initialIntentUrl.searchParams.get("url")).toBeNull();
 		expect(captureElement).not.toHaveBeenCalled();
 		expect(copyToClipboard).not.toHaveBeenCalled();
 		expect(downloadAsImage).not.toHaveBeenCalled();
@@ -163,7 +165,7 @@ describe("createWrappedTeamCardShareActions", () => {
 			[
 				"According to my Codex usage, I'm a Maniac.",
 				"Traits: 1.9M tokens over 219 sessions; high session count, heavy token burn, no visible off switch.",
-				"Make yours: app.rudel.ai/wrapped",
+				"Make yours from the card.",
 			].join("\n\n"),
 		);
 		expect(intentUrl.searchParams.get("url")).toBe(
