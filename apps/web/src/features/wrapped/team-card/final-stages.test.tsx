@@ -148,6 +148,7 @@ const tiltController: WrappedCardTiltController = {
 	enableGyroscope: vi.fn(async () => {}),
 	gyroscopeState: "idle",
 	gyroscopeStatusMessage: null,
+	handlePointerEnter: vi.fn(),
 	handlePointerLeave: vi.fn(),
 	handlePointerMove: vi.fn(),
 	isGyroscopePromptVisible: false,

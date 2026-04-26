@@ -27,6 +27,7 @@ export interface WrappedCardTiltController {
 	enableGyroscope: () => Promise<void>;
 	gyroscopeState: WrappedCardGyroscopeState;
 	gyroscopeStatusMessage: string | null;
+	handlePointerEnter: (event: ReactPointerEvent<HTMLDivElement>) => void;
 	handlePointerLeave: () => void;
 	handlePointerMove: (event: ReactPointerEvent<HTMLDivElement>) => void;
 	isGyroscopePromptVisible: boolean;

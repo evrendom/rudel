@@ -11,6 +11,7 @@ export interface WrappedTeamMemberCardBackMetric {
 export type WrappedTeamMemberCardBackVariant = "default" | "gradient-only";
 
 export function WrappedTeamMemberCardBack(props: {
+	backgroundOverlayClassName?: string;
 	disableOuterShadow?: boolean;
 	metrics: readonly WrappedTeamMemberCardBackMetric[];
 	shellClassName?: string;
@@ -19,6 +20,7 @@ export function WrappedTeamMemberCardBack(props: {
 	variant?: WrappedTeamMemberCardBackVariant;
 }) {
 	const {
+		backgroundOverlayClassName,
 		disableOuterShadow = false,
 		metrics,
 		shellClassName,
@@ -68,6 +70,9 @@ export function WrappedTeamMemberCardBack(props: {
 			)}
 			style={{ ...cardBackStyle, ...shellStyle, ...outerShadowStyle }}
 		>
+			{backgroundOverlayClassName ? (
+				<div aria-hidden="true" className={backgroundOverlayClassName} />
+			) : null}
 			<div aria-hidden="true" className="mymind-wrapped-team-card-back__wash" />
 			{shouldRenderContent ? (
 				<div className="mymind-wrapped-team-card-back__content">

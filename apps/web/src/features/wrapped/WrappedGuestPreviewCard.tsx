@@ -2,6 +2,7 @@ import { useReducedMotion } from "motion/react";
 import {
 	type CSSProperties,
 	type ReactNode,
+	type Ref,
 	// biome-ignore lint/style/noRestrictedImports: auto-select focuses the editable name input after React commits it.
 	useEffect,
 	useRef,
@@ -23,6 +24,7 @@ import type { WrappedGuestPreviewProfile } from "./wrapped-guest-preview";
 
 interface WrappedGuestPreviewCardProps {
 	appearance?: "default" | "unknown";
+	appearanceOverlay?: "default" | "unknown" | null;
 	disablePerspective?: boolean;
 	editableDisplayName?: {
 		autoSelect?: boolean;
@@ -31,6 +33,8 @@ interface WrappedGuestPreviewCardProps {
 		placeholder?: string;
 		value: string;
 	};
+	cardStageRef?: Ref<HTMLDivElement>;
+	enableAppearanceOverlay?: boolean;
 	mediaOverlayContent?: ReactNode;
 	profile: WrappedGuestPreviewProfile | null;
 	size?: "hero" | "compact" | "profile";
@@ -39,8 +43,11 @@ interface WrappedGuestPreviewCardProps {
 export function WrappedGuestPreviewCard(props: WrappedGuestPreviewCardProps) {
 	const {
 		appearance = "default",
+		appearanceOverlay,
+		cardStageRef,
 		disablePerspective = false,
 		editableDisplayName,
+		enableAppearanceOverlay = false,
 		mediaOverlayContent,
 		profile,
 		size = "hero",
@@ -49,6 +56,17 @@ export function WrappedGuestPreviewCard(props: WrappedGuestPreviewCardProps) {
 	const activePreset = isUnknownCard
 		? UNKNOWN_GUEST_CARD_PRESET
 		: RICK_PLACEHOLDER_GUEST_CARD_PRESET;
+	const resolvedAppearanceOverlay =
+		enableAppearanceOverlay && appearanceOverlay !== null
+			? (appearanceOverlay ?? (isUnknownCard ? "default" : null))
+			: null;
+	const appearanceOverlayClassName = resolvedAppearanceOverlay
+		? "mymind-wrapped-auth-card-preview__appearance-overlay"
+		: undefined;
+	const backAppearanceOverlayClassName =
+		isUnknownCard && resolvedAppearanceOverlay === "default"
+			? undefined
+			: appearanceOverlayClassName;
 	const hasInteractiveFrontControls = Boolean(
 		editableDisplayName || mediaOverlayContent,
 	);
@@ -185,6 +203,7 @@ export function WrappedGuestPreviewCard(props: WrappedGuestPreviewCardProps) {
 	const frontCardContent = (
 		<div className="grid justify-center">
 			<WrappedTeamMemberCard
+				backgroundOverlayClassName={appearanceOverlayClassName}
 				disableOuterShadow
 				headerLeftMetric={activePreset.headerLeftMetric}
 				headerRightMetric={activePreset.headerRightMetric}
@@ -209,6 +228,7 @@ export function WrappedGuestPreviewCard(props: WrappedGuestPreviewCardProps) {
 			back={
 				<div className="grid justify-center">
 					<WrappedTeamMemberCardBack
+						backgroundOverlayClassName={backAppearanceOverlayClassName}
 						disableOuterShadow
 						metrics={visibleBackMetrics}
 						shellClassName={activePreset.shellClassName}
@@ -230,6 +250,19 @@ export function WrappedGuestPreviewCard(props: WrappedGuestPreviewCardProps) {
 				hasInteractiveFrontControls
 					? "mymind-wrapped-auth-card-preview--editable"
 					: null,
+				enableAppearanceOverlay
+					? "mymind-wrapped-auth-card-preview--appearance-overlay"
+					: null,
+				resolvedAppearanceOverlay === "default" && isUnknownCard
+					? "mymind-wrapped-auth-card-preview--unknown-overlay"
+					: null,
+				resolvedAppearanceOverlay === "default"
+					? "mymind-wrapped-auth-card-preview--default-appearance-overlay"
+					: null,
+				resolvedAppearanceOverlay === "unknown"
+					? "mymind-wrapped-auth-card-preview--unknown-appearance-overlay"
+					: null,
+				isUnknownCard ? "mymind-wrapped-auth-card-preview--unknown" : null,
 				shouldRenderStaticFront
 					? "mymind-wrapped-auth-card-preview--static"
 					: null,
@@ -240,7 +273,10 @@ export function WrappedGuestPreviewCard(props: WrappedGuestPreviewCardProps) {
 						: "mymind-wrapped-auth-card-preview--hero",
 			)}
 		>
-			<div className="team-lineup-card-tilt-stage mymind-wrapped-auth-card-preview__tilt-stage">
+			<div
+				ref={cardStageRef}
+				className="team-lineup-card-tilt-stage mymind-wrapped-auth-card-preview__tilt-stage"
+			>
 				<div
 					ref={tiltController.cardTiltRef}
 					className="team-lineup-card-tilt-shell mymind-wrapped-auth-card-preview__tilt mymind-wrapped-final-stage__tilt-shell"
@@ -254,6 +290,7 @@ export function WrappedGuestPreviewCard(props: WrappedGuestPreviewCardProps) {
 							tiltController.handlePointerMove(event);
 						}
 					}}
+					onPointerEnter={tiltController.handlePointerEnter}
 					onPointerLeave={tiltController.handlePointerLeave}
 					onPointerCancel={tiltController.handlePointerLeave}
 					style={

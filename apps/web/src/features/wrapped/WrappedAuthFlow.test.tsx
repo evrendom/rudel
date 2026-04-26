@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -71,8 +71,12 @@ Object.defineProperty(window, "matchMedia", {
 	})),
 });
 
+const WRAPPED_UNKNOWN_CARD_OVERLAY_CLASS_NAME =
+	"mymind-wrapped-auth-card-preview--unknown-overlay";
+const WRAPPED_UNKNOWN_TO_DEFAULT_CARD_OVERLAY_CLASS_NAME =
+	"mymind-wrapped-auth-card-preview--unknown-appearance-overlay";
 const WRAPPED_UNKNOWN_CARD_CLASS_NAME =
-	"bg-[linear-gradient(180deg,_#FFFFFF_0%,_#FBFCFE_48%,_#EEF2F7_100%)]";
+	"mymind-wrapped-auth-card-preview--unknown";
 
 async function openWrappedLoginForm(user: ReturnType<typeof userEvent.setup>) {
 	await user.click(screen.getByRole("button", { name: "Log in" }));
@@ -238,7 +242,7 @@ describe("WrappedGuestPage", () => {
 		expect(screen.getByRole("button", { name: "Log in" })).toBeInTheDocument();
 	});
 
-	it("uses an unknown neutral card while the user creates an account", async () => {
+	it("uses an unknown neutral card after the signup card moves into place", async () => {
 		const user = userEvent.setup();
 
 		render(
@@ -250,13 +254,52 @@ describe("WrappedGuestPage", () => {
 		await user.click(screen.getByRole("button", { name: "Create account" }));
 
 		expect(await screen.findByText("Wrapped signup form")).toBeInTheDocument();
-		expect(screen.getAllByText("Unknown Archetype").length).toBeGreaterThan(0);
+		await waitFor(() => {
+			expect(screen.getAllByText("Unknown Archetype").length).toBeGreaterThan(
+				0,
+			);
+		});
 		expect(screen.getAllByText("???").length).toBeGreaterThan(0);
 		expect(
-			screen
-				.getByRole("region", { name: "Wrapped player card preview" })
-				.querySelector(".team-lineup-featured-card"),
+			screen.getByRole("region", { name: "Wrapped player card preview" }),
+		).toHaveClass(WRAPPED_UNKNOWN_CARD_OVERLAY_CLASS_NAME);
+		expect(
+			screen.getByRole("region", { name: "Wrapped player card preview" }),
 		).toHaveClass(WRAPPED_UNKNOWN_CARD_CLASS_NAME);
+	});
+
+	it("restores the default card after backing out of signup", async () => {
+		const user = userEvent.setup();
+
+		render(
+			<MemoryRouter initialEntries={["/wrapped"]}>
+				<WrappedGuestPage />
+			</MemoryRouter>,
+		);
+
+		await user.click(screen.getByRole("button", { name: "Create account" }));
+		expect(await screen.findByText("Wrapped signup form")).toBeInTheDocument();
+		await waitFor(() => {
+			expect(
+				screen.getByRole("region", { name: "Wrapped player card preview" }),
+			).toHaveClass(WRAPPED_UNKNOWN_CARD_CLASS_NAME);
+		});
+
+		await user.click(screen.getByLabelText("Go back"));
+		expect(
+			await screen.findByRole("button", { name: "Create account" }),
+		).toBeInTheDocument();
+		expect(screen.getByRole("button", { name: "Log in" })).toBeInTheDocument();
+		await waitFor(() => {
+			expect(
+				screen.getByRole("region", { name: "Wrapped player card preview" }),
+			).toHaveClass(WRAPPED_UNKNOWN_TO_DEFAULT_CARD_OVERLAY_CLASS_NAME);
+		});
+		await waitFor(() => {
+			expect(
+				screen.getByRole("region", { name: "Wrapped player card preview" }),
+			).not.toHaveClass(WRAPPED_UNKNOWN_CARD_CLASS_NAME);
+		});
 	});
 
 	it("keeps wrapped auth in place when the preview-only submit callback is absent", async () => {
