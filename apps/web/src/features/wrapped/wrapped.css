@@ -1575,6 +1575,7 @@ body.mymind-wrapped-body #cw-bubble-holder {
 .mymind-wrapped-repo-pulse-stage__repo {
 	margin: 0;
 	flex: 1 1 auto;
+	max-width: 100%;
 	min-width: 0;
 	color: #17161c;
 	font-size: 1.22rem;
@@ -1582,7 +1583,9 @@ body.mymind-wrapped-body #cw-bubble-holder {
 	font-weight: 800;
 	letter-spacing: -0.04em;
 	line-height: 1.08;
-	text-wrap: balance;
+	overflow: clip;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
 .mymind-wrapped-repo-pulse-stage__proof {
@@ -4483,8 +4486,12 @@ body.mymind-wrapped-body #cw-bubble-holder {
 }
 
 .mymind-wrapped-uploaded-repos__name {
+	flex: 1 1 auto;
+	max-width: 100%;
 	min-width: 0;
-	overflow-wrap: anywhere;
+	overflow: clip;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
 .mymind-wrapped-uploaded-repos__count {
