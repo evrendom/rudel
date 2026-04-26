@@ -6,14 +6,10 @@ export const SKILLS_STACK = {
 	cardHeightRem: 5.5,
 	columnInsetRem: 0.45,
 	focusTopRem: 4.65,
-	interactionLockMs: 220,
 	shadowBleedRem: 1,
 	stepRem: 2.95,
-	touchThresholdPx: 34,
 	viewportHeightRem: 16.2,
 	visibleCards: 3,
-	wheelResetMs: 140,
-	wheelThresholdPx: 36,
 } as const;
 
 interface SkillsDepthStyle {
@@ -227,6 +223,30 @@ export function getSkillsCardStyle(
 	cardIndex: number,
 	activeCardIndex: number,
 ): CSSProperties {
+	return getSkillsDeckCardStyle({
+		activeCardIndex,
+		cardIndex,
+		yRem: (cardIndex - activeCardIndex) * SKILLS_STACK.stepRem,
+	});
+}
+
+export function getSkillsScrollableCardStyle(
+	cardIndex: number,
+	activeCardIndex: number,
+): CSSProperties {
+	return getSkillsDeckCardStyle({
+		activeCardIndex,
+		cardIndex,
+		yRem: cardIndex * SKILLS_STACK.stepRem,
+	});
+}
+
+function getSkillsDeckCardStyle(input: {
+	activeCardIndex: number;
+	cardIndex: number;
+	yRem: number;
+}): CSSProperties {
+	const { activeCardIndex, cardIndex, yRem } = input;
 	const relativeDepth = cardIndex - activeCardIndex;
 	const isLeadingStack = activeCardIndex === 0;
 	const isVisibleDepth = isLeadingStack
@@ -247,7 +267,7 @@ export function getSkillsCardStyle(
 			: getSkillsDeckDepthStyle(relativeDepth);
 
 	return {
-		"--skills-card-y": `${relativeDepth * SKILLS_STACK.stepRem}rem`,
+		"--skills-card-y": `${yRem}rem`,
 		"--skills-card-scale": depthStyles.scale,
 		"--skills-card-rotate": `${depthStyles.rotateDeg}deg`,
 		"--skills-card-z": `${depthStyles.translateZ}px`,

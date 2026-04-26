@@ -1,15 +1,15 @@
 import { useDialKit } from "dialkit";
 import { Frown } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import type { CSSProperties, TouchEvent } from "react";
+import type { CSSProperties, UIEvent } from "react";
 // biome-ignore lint/style/noRestrictedImports: sequence timers are an imperative animation bridge for the preview storyboard.
-import { startTransition, useEffect, useRef, useState } from "react";
-import { useMountEffect } from "@/hooks/useMountEffect";
+import { startTransition, useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import {
 	clampSkillsCardIndex,
 	getSkillsCardStyle,
 	getSkillsDealCardStyle,
+	getSkillsScrollableCardStyle,
 	resolveSkillsPreviewInput,
 	resolveSkillsStageModel,
 	SKILLS_STACK,
@@ -28,6 +28,7 @@ interface SkillsStageProps {
 interface SkillsTrackStyle extends CSSProperties {
 	"--skills-stack-bottom-fade-height": string;
 	"--skills-stack-fade-inset": string;
+	"--skills-stack-focus-top": string;
 	"--skills-stack-track-height": string;
 	"--skills-stack-top-fade-height": string;
 }
@@ -86,12 +87,6 @@ export function WrappedOnboardingSkillsStage(props: SkillsStageProps) {
 	const shouldReduceMotion = useReducedMotion();
 	const reduceMotion = shouldReduceMotion ?? false;
 	const [replayNonce, setReplayNonce] = useState(0);
-	const stackRef = useRef<HTMLDivElement | null>(null);
-	const wheelAccumulationRef = useRef(0);
-	const wheelHandlerRef = useRef<(event: WheelEvent) => void>(() => {});
-	const lastWheelTimestampRef = useRef(0);
-	const lockedUntilTimestampRef = useRef(0);
-	const touchStartYRef = useRef<number | null>(null);
 	const model = resolveSkillsStageModel(
 		resolveSkillsPreviewInput(
 			{
@@ -153,114 +148,29 @@ export function WrappedOnboardingSkillsStage(props: SkillsStageProps) {
 	const frontDealCardIndex =
 		dealCardCount > 0 ? visibleDealCardCount - dealCardCount : null;
 
-	function setNextActiveCardIndex(direction: 1 | -1) {
-		setActiveCardIndex((previousIndex) =>
-			clampSkillsCardIndex(previousIndex + direction, model.cards.length),
+	function handleSkillsStackScroll(event: UIEvent<HTMLElement>) {
+		if (!model.isScrollable || !isStackInteractive) {
+			return;
+		}
+
+		const stackElement = event.currentTarget;
+		const stackFontSize = Number.parseFloat(
+			window.getComputedStyle(stackElement).fontSize,
 		);
-	}
-
-	function handleSkillsCardWheelDelta(deltaY: number) {
-		if (!model.isScrollable || !isStackInteractive || deltaY === 0) {
+		if (!Number.isFinite(stackFontSize) || stackFontSize <= 0) {
 			return;
 		}
 
-		const now = performance.now();
-		if (now < lockedUntilTimestampRef.current) {
-			return;
-		}
-
-		if (now - lastWheelTimestampRef.current > SKILLS_STACK.wheelResetMs) {
-			wheelAccumulationRef.current = 0;
-		}
-
-		lastWheelTimestampRef.current = now;
-		wheelAccumulationRef.current += deltaY;
-
-		if (
-			Math.abs(wheelAccumulationRef.current) < SKILLS_STACK.wheelThresholdPx
-		) {
-			return;
-		}
-
-		const direction = wheelAccumulationRef.current > 0 ? 1 : -1;
-		wheelAccumulationRef.current = 0;
-		lockedUntilTimestampRef.current = now + SKILLS_STACK.interactionLockMs;
-		setNextActiveCardIndex(direction);
-	}
-
-	wheelHandlerRef.current = (event: WheelEvent) => {
-		if (!model.isScrollable || !isStackInteractive) {
-			return;
-		}
-
-		const eventTarget = event.target;
-		if (!(eventTarget instanceof Element)) {
-			return;
-		}
-
-		const cardElement = eventTarget.closest(
-			".mymind-wrapped-skills-stage__card",
+		const nextActiveCardIndex = clampSkillsCardIndex(
+			Math.round(
+				stackElement.scrollTop / (SKILLS_STACK.stepRem * stackFontSize),
+			),
+			model.cards.length,
 		);
-		if (!cardElement || !stackRef.current?.contains(cardElement)) {
-			return;
-		}
 
-		event.preventDefault();
-		handleSkillsCardWheelDelta(event.deltaY);
-	};
-
-	useMountEffect(() => {
-		const stackElement = stackRef.current;
-		if (!stackElement) {
-			return;
-		}
-
-		function handleWheelEvent(event: WheelEvent) {
-			wheelHandlerRef.current(event);
-		}
-
-		stackElement.addEventListener("wheel", handleWheelEvent, {
-			passive: false,
-		});
-
-		return () => {
-			stackElement.removeEventListener("wheel", handleWheelEvent);
-		};
-	});
-
-	function handleSkillsCardTouchStart(event: TouchEvent<HTMLElement>) {
-		if (!model.isScrollable || !isStackInteractive) {
-			return;
-		}
-
-		touchStartYRef.current = event.touches[0]?.clientY ?? null;
-	}
-
-	function handleSkillsCardTouchEnd(event: TouchEvent<HTMLElement>) {
-		if (!model.isScrollable || !isStackInteractive) {
-			return;
-		}
-
-		const touchStartY = touchStartYRef.current;
-		const touchEndY = event.changedTouches[0]?.clientY ?? null;
-		touchStartYRef.current = null;
-
-		if (touchStartY === null || touchEndY === null) {
-			return;
-		}
-
-		const now = performance.now();
-		if (now < lockedUntilTimestampRef.current) {
-			return;
-		}
-
-		const deltaY = touchStartY - touchEndY;
-		if (Math.abs(deltaY) < SKILLS_STACK.touchThresholdPx) {
-			return;
-		}
-
-		lockedUntilTimestampRef.current = now + SKILLS_STACK.interactionLockMs;
-		setNextActiveCardIndex(deltaY > 0 ? 1 : -1);
+		setActiveCardIndex((currentIndex) =>
+			currentIndex === nextActiveCardIndex ? currentIndex : nextActiveCardIndex,
+		);
 	}
 
 	useEffect(() => {
@@ -372,6 +282,7 @@ export function WrappedOnboardingSkillsStage(props: SkillsStageProps) {
 	const stackStyle: SkillsTrackStyle = {
 		"--skills-stack-bottom-fade-height": `${dialValues.fade.bottomHeightRem}rem`,
 		"--skills-stack-fade-inset": `${dialValues.fade.insetRem}rem`,
+		"--skills-stack-focus-top": `${SKILLS_STACK.focusTopRem}rem`,
 		"--skills-stack-track-height": `${model.trackHeightRem}rem`,
 		"--skills-stack-top-fade-height": `${dialValues.fade.topHeightRem}rem`,
 	};
@@ -479,69 +390,83 @@ export function WrappedOnboardingSkillsStage(props: SkillsStageProps) {
 						transition={SKILLS_STAGE_OBJECT_TRANSITION}
 					>
 						<div
-							ref={stackRef}
-							className="mymind-wrapped-skills-stage__stack"
+							className="mymind-wrapped-skills-stage__stack-frame"
+							data-scrollable={model.isScrollable ? "true" : "false"}
 							data-stack-stage={skillsEntranceStage}
 						>
-							<div
-								className="mymind-wrapped-skills-stage__stack-track"
-								style={stackStyle}
+							<section
+								aria-label="Skill rankings"
+								className="mymind-wrapped-skills-stage__stack"
+								data-scrollable={model.isScrollable ? "true" : "false"}
+								data-stack-stage={skillsEntranceStage}
+								onScroll={handleSkillsStackScroll}
+								tabIndex={
+									model.isScrollable && isStackInteractive ? 0 : undefined
+								}
 							>
-								{model.cards.map((card, cardIndex) => {
-									const baseCardStyle =
-										skillsEntranceStage === "deal"
-											? getSkillsDealCardStyle(cardIndex, dealCardCount)
-											: getSkillsCardStyle(cardIndex, activeCardIndex);
-									const cardStyle: SkillsCardStyle = {
-										...baseCardStyle,
-										pointerEvents: isStackInteractive
-											? baseCardStyle.pointerEvents
-											: "none",
-										"--skills-card-transform-duration": `${dialValues.animation.deckSettleMs}ms`,
-										"--skills-card-visibility-duration": `${Math.max(
-											dialValues.animation.deckSettleMs - 140,
-											220,
-										)}ms`,
-									};
+								<div
+									className="mymind-wrapped-skills-stage__stack-track"
+									style={stackStyle}
+								>
+									{model.cards.map((card, cardIndex) => {
+										const baseCardStyle =
+											skillsEntranceStage === "deal"
+												? getSkillsDealCardStyle(cardIndex, dealCardCount)
+												: model.isScrollable && isStackInteractive
+													? getSkillsScrollableCardStyle(
+															cardIndex,
+															activeCardIndex,
+														)
+													: getSkillsCardStyle(cardIndex, activeCardIndex);
+										const cardStyle: SkillsCardStyle = {
+											...baseCardStyle,
+											pointerEvents: isStackInteractive
+												? baseCardStyle.pointerEvents
+												: "none",
+											"--skills-card-transform-duration": `${dialValues.animation.deckSettleMs}ms`,
+											"--skills-card-visibility-duration": `${Math.max(
+												dialValues.animation.deckSettleMs - 140,
+												220,
+											)}ms`,
+										};
 
-									return (
-										<article
-											key={card.id}
-											className={cn(
-												"mymind-wrapped-skills-stage__card",
-												((isDeckVisible && cardIndex === activeCardIndex) ||
-													(skillsEntranceStage === "deal" &&
-														frontDealCardIndex !== null &&
-														cardIndex === frontDealCardIndex)) &&
-													"is-front",
-											)}
-											data-card-stage={skillsEntranceStage}
-											onTouchEnd={handleSkillsCardTouchEnd}
-											onTouchStart={handleSkillsCardTouchStart}
-											style={cardStyle}
-										>
-											<div
+										return (
+											<article
+												key={card.id}
 												className={cn(
-													"mymind-wrapped-skills-stage__card-item",
-													card.item.isPlaceholder && "is-placeholder",
+													"mymind-wrapped-skills-stage__card",
+													((isDeckVisible && cardIndex === activeCardIndex) ||
+														(skillsEntranceStage === "deal" &&
+															frontDealCardIndex !== null &&
+															cardIndex === frontDealCardIndex)) &&
+														"is-front",
 												)}
+												data-card-stage={skillsEntranceStage}
+												style={cardStyle}
 											>
-												<span className="mymind-wrapped-skills-stage__item-rank">
-													{card.item.rank}
-												</span>
-												<div className="mymind-wrapped-skills-stage__item-copy">
-													<p className="mymind-wrapped-skills-stage__item-name">
-														{card.item.name}
-													</p>
-													<p className="mymind-wrapped-skills-stage__item-meta">
-														{card.item.meta}
-													</p>
+												<div
+													className={cn(
+														"mymind-wrapped-skills-stage__card-item",
+														card.item.isPlaceholder && "is-placeholder",
+													)}
+												>
+													<span className="mymind-wrapped-skills-stage__item-rank">
+														{card.item.rank}
+													</span>
+													<div className="mymind-wrapped-skills-stage__item-copy">
+														<p className="mymind-wrapped-skills-stage__item-name">
+															{card.item.name}
+														</p>
+														<p className="mymind-wrapped-skills-stage__item-meta">
+															{card.item.meta}
+														</p>
+													</div>
 												</div>
-											</div>
-										</article>
-									);
-								})}
-							</div>
+											</article>
+										);
+									})}
+								</div>
+							</section>
 						</div>
 					</motion.div>
 				)
