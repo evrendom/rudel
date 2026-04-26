@@ -38,7 +38,9 @@ type WrappedAuthCardFlight = {
 	from: WrappedAuthCardFlightRect;
 	key: number;
 	targetMode: WrappedAuthMode;
+	targetRect?: WrappedAuthCardFlightRect;
 	to?: WrappedAuthCardFlightRect;
+	transitionDurationMs: number;
 };
 
 const WRAPPED_AUTH_INTRO_TITLE_LABEL = "Your Claude Wrapped";
@@ -48,10 +50,14 @@ const WRAPPED_AUTH_LAYOUT_EASE = [0.32, 0.72, 0, 1] as const;
 const WRAPPED_AUTH_CARD_FLIGHT_CARD_WIDTH = 233;
 const WRAPPED_AUTH_CARD_FLIGHT_DURATION_MS = 720;
 const WRAPPED_AUTH_CARD_FLIGHT_SETTLE_MS = 90;
+const WRAPPED_AUTH_CARD_FLIGHT_RETARGET_DELAYS_MS = [120, 260, 420] as const;
+const WRAPPED_AUTH_CARD_FLIGHT_MIN_RETARGET_DURATION_MS = 180;
 const WRAPPED_AUTH_CARD_FLIGHT_TRANSITION = {
 	duration: WRAPPED_AUTH_CARD_FLIGHT_DURATION_MS / 1_000,
 	ease: WRAPPED_AUTH_LAYOUT_EASE,
 };
+const WRAPPED_AUTH_CARD_APPEARANCE_DURATION_MS = 480;
+const WRAPPED_AUTH_CARD_APPEARANCE_SETTLE_MS = 80;
 const WRAPPED_AUTH_FORM_TRANSITION_DURATION = 0.32;
 const WRAPPED_AUTH_LAYOUT_DURATION = 0.6;
 const WRAPPED_AUTH_FORM_CARD_SCALE = 1;
@@ -77,12 +83,14 @@ interface WrappedAuthStageProps {
 	authFormCardScale?: number;
 	authIntroCardScale?: number;
 	cardAppearance: WrappedAuthCardAppearance;
+	cardAppearanceOverlay: WrappedAuthCardAppearance | null;
 	cardStageRef: Ref<HTMLDivElement>;
 	isCardFlightActive: boolean;
 	mode: WrappedAuthMode;
 	onEmailPasswordPreviewSubmit?: (email: string) => void;
 	onModeChange: (mode: WrappedAuthMode) => void;
 	previewProfile: WrappedGuestPreviewProfile | null;
+	suppressIntroCardEnter: boolean;
 }
 
 function WrappedAuthStage(props: WrappedAuthStageProps) {
@@ -90,12 +98,14 @@ function WrappedAuthStage(props: WrappedAuthStageProps) {
 		authFormCardScale,
 		authIntroCardScale,
 		cardAppearance,
+		cardAppearanceOverlay,
 		cardStageRef,
 		isCardFlightActive,
 		mode,
 		onEmailPasswordPreviewSubmit,
 		onModeChange,
 		previewProfile,
+		suppressIntroCardEnter,
 	} = props;
 	const shouldReduceMotion = useReducedMotion() ?? false;
 	const isIntro = mode === null;
@@ -169,6 +179,9 @@ function WrappedAuthStage(props: WrappedAuthStageProps) {
 					isCardFlightActive
 						? "mymind-wrapped-auth-panel--card-flight-active"
 						: null,
+					suppressIntroCardEnter && isIntro
+						? "mymind-wrapped-auth-panel--suppress-intro-card-enter"
+						: null,
 				)}
 			>
 				<motion.div
@@ -191,6 +204,7 @@ function WrappedAuthStage(props: WrappedAuthStageProps) {
 					>
 						<WrappedGuestPreviewCard
 							appearance={cardAppearance}
+							appearanceOverlay={cardAppearanceOverlay}
 							cardStageRef={cardStageRef}
 							enableAppearanceOverlay
 							profile={previewProfile}
@@ -269,11 +283,19 @@ export function WrappedAuthFlow(props: WrappedAuthFlowProps) {
 	const [mode, setMode] = useState<WrappedAuthMode>(null);
 	const [cardAppearance, setCardAppearance] =
 		useState<WrappedAuthCardAppearance>("default");
+	const [cardAppearanceOverlay, setCardAppearanceOverlay] =
+		useState<WrappedAuthCardAppearance | null>(null);
 	const [authCardFlight, setAuthCardFlight] =
 		useState<WrappedAuthCardFlight | null>(null);
+	const [suppressIntroCardEnter, setSuppressIntroCardEnter] = useState(false);
 	const authCardHandoffRef = useRef<HTMLDivElement | null>(null);
+	const authIntroCardFlightRectRef = useRef<WrappedAuthCardFlightRect | null>(
+		null,
+	);
 	const cardAppearanceTimeoutRef = useRef<number | null>(null);
+	const cardAppearanceOverlayTimeoutRef = useRef<number | null>(null);
 	const authCardFlightMeasureRef = useRef<number | null>(null);
+	const authCardFlightRetargetTimersRef = useRef<readonly number[]>([]);
 	const authCardFlightTimerRef = useRef<number | null>(null);
 	const [introTool, setIntroTool] = useState<WrappedAuthIntroTool>("Claude");
 	const shouldReduceMotion = useReducedMotion() ?? false;
@@ -303,54 +325,132 @@ export function WrappedAuthFlow(props: WrappedAuthFlowProps) {
 
 	useMountEffect(() => () => {
 		clearCardAppearanceTimeout();
+		clearCardAppearanceOverlayTimeout();
 		clearWrappedAuthCardFlightAnimationFrame(authCardFlightMeasureRef);
+		clearWrappedAuthCardFlightRetargetTimers(authCardFlightRetargetTimersRef);
 		clearWrappedAuthCardFlightTimer(authCardFlightTimerRef);
 	});
 
+	const activeAuthCardFlightAppearance = authCardFlight?.appearance;
+	const activeAuthCardFlightKey = authCardFlight?.key ?? null;
+	const activeAuthCardFlightTargetRect = authCardFlight?.targetRect;
+	const activeAuthCardFlightTargetMode = authCardFlight?.targetMode;
+	const transitionCardAppearance = useEffectEvent(
+		(
+			nextAppearance: WrappedAuthCardAppearance,
+			previousAppearance: WrappedAuthCardAppearance,
+		) => {
+			clearCardAppearanceOverlayTimeout();
+			setCardAppearance(nextAppearance);
+
+			if (nextAppearance === previousAppearance || shouldReduceMotion) {
+				setCardAppearanceOverlay(null);
+				return;
+			}
+
+			setCardAppearanceOverlay(previousAppearance);
+			cardAppearanceOverlayTimeoutRef.current = window.setTimeout(() => {
+				cardAppearanceOverlayTimeoutRef.current = null;
+				startTransition(() => {
+					setCardAppearanceOverlay(null);
+				});
+			}, WRAPPED_AUTH_CARD_APPEARANCE_DURATION_MS +
+				WRAPPED_AUTH_CARD_APPEARANCE_SETTLE_MS);
+		},
+	);
+
 	useEffect(() => {
 		if (
-			!authCardFlight ||
-			authCardFlight.to ||
-			mode !== authCardFlight.targetMode
+			activeAuthCardFlightKey === null ||
+			activeAuthCardFlightAppearance === undefined ||
+			activeAuthCardFlightTargetMode === undefined ||
+			mode !== activeAuthCardFlightTargetMode
 		) {
 			return;
 		}
 
-		clearWrappedAuthCardFlightAnimationFrame(authCardFlightMeasureRef);
-		authCardFlightMeasureRef.current = window.requestAnimationFrame(() => {
-			const nextRect = getWrappedAuthCardFlightRect(authCardHandoffRef.current);
+		const flightAppearance = activeAuthCardFlightAppearance;
+		const flightKey = activeAuthCardFlightKey;
+		const flightTargetMode = activeAuthCardFlightTargetMode;
+		const measurementStartTime = performance.now();
+		const shouldRetargetFlight = activeAuthCardFlightTargetRect === undefined;
+		let hasScheduledCompletion = false;
+
+		function completeCardFlight() {
+			setAuthCardFlight(null);
+			startTransition(() => {
+				transitionCardAppearance(
+					getWrappedAuthCardAppearance(flightTargetMode),
+					flightAppearance,
+				);
+			});
+		}
+
+		function scheduleCardFlightCompletion() {
+			if (hasScheduledCompletion) {
+				return;
+			}
+
+			hasScheduledCompletion = true;
+			clearWrappedAuthCardFlightTimer(authCardFlightTimerRef);
+			authCardFlightTimerRef.current = window.setTimeout(() => {
+				authCardFlightTimerRef.current = null;
+				completeCardFlight();
+			}, WRAPPED_AUTH_CARD_FLIGHT_DURATION_MS +
+				WRAPPED_AUTH_CARD_FLIGHT_SETTLE_MS);
+		}
+
+		function getRetargetTransitionDuration() {
+			const elapsedMs = performance.now() - measurementStartTime;
+			return Math.max(
+				WRAPPED_AUTH_CARD_FLIGHT_MIN_RETARGET_DURATION_MS,
+				WRAPPED_AUTH_CARD_FLIGHT_DURATION_MS - elapsedMs,
+			);
+		}
+
+		function measureCardFlightTarget(transitionDurationMs: number) {
+			const measuredRect = getWrappedAuthCardFlightRect(
+				authCardHandoffRef.current,
+			);
+			const nextRect = activeAuthCardFlightTargetRect ?? measuredRect;
 
 			if (!nextRect) {
-				setAuthCardFlight(null);
-				startTransition(() => {
-					setCardAppearance(
-						getWrappedAuthCardAppearance(authCardFlight.targetMode),
-					);
-				});
+				completeCardFlight();
 				return;
 			}
 
 			setAuthCardFlight((currentFlight) =>
-				currentFlight?.key === authCardFlight.key
-					? { ...currentFlight, to: nextRect }
+				currentFlight?.key === flightKey
+					? { ...currentFlight, to: nextRect, transitionDurationMs }
 					: currentFlight,
 			);
-			clearWrappedAuthCardFlightTimer(authCardFlightTimerRef);
-			authCardFlightTimerRef.current = window.setTimeout(() => {
-				setAuthCardFlight(null);
-				startTransition(() => {
-					setCardAppearance(
-						getWrappedAuthCardAppearance(authCardFlight.targetMode),
-					);
-				});
-			}, WRAPPED_AUTH_CARD_FLIGHT_DURATION_MS +
-				WRAPPED_AUTH_CARD_FLIGHT_SETTLE_MS);
+			scheduleCardFlightCompletion();
+		}
+
+		clearWrappedAuthCardFlightAnimationFrame(authCardFlightMeasureRef);
+		authCardFlightMeasureRef.current = window.requestAnimationFrame(() => {
+			measureCardFlightTarget(WRAPPED_AUTH_CARD_FLIGHT_DURATION_MS);
 		});
+		clearWrappedAuthCardFlightRetargetTimers(authCardFlightRetargetTimersRef);
+		authCardFlightRetargetTimersRef.current = shouldRetargetFlight
+			? WRAPPED_AUTH_CARD_FLIGHT_RETARGET_DELAYS_MS.map((delayMs) =>
+					window.setTimeout(() => {
+						measureCardFlightTarget(getRetargetTransitionDuration());
+					}, delayMs),
+				)
+			: [];
 
 		return () => {
 			clearWrappedAuthCardFlightAnimationFrame(authCardFlightMeasureRef);
+			clearWrappedAuthCardFlightRetargetTimers(authCardFlightRetargetTimersRef);
 		};
-	}, [authCardFlight, mode]);
+	}, [
+		activeAuthCardFlightAppearance,
+		activeAuthCardFlightKey,
+		activeAuthCardFlightTargetMode,
+		activeAuthCardFlightTargetRect,
+		mode,
+	]);
 
 	function clearCardAppearanceTimeout() {
 		if (cardAppearanceTimeoutRef.current === null) {
@@ -359,6 +459,15 @@ export function WrappedAuthFlow(props: WrappedAuthFlowProps) {
 
 		window.clearTimeout(cardAppearanceTimeoutRef.current);
 		cardAppearanceTimeoutRef.current = null;
+	}
+
+	function clearCardAppearanceOverlayTimeout() {
+		if (cardAppearanceOverlayTimeoutRef.current === null) {
+			return;
+		}
+
+		window.clearTimeout(cardAppearanceOverlayTimeoutRef.current);
+		cardAppearanceOverlayTimeoutRef.current = null;
 	}
 
 	function scheduleCardAppearanceForMode(
@@ -370,18 +479,19 @@ export function WrappedAuthFlow(props: WrappedAuthFlowProps) {
 		const nextAppearance = getWrappedAuthCardAppearance(nextMode);
 
 		if (nextAppearance === cardAppearance) {
+			setCardAppearanceOverlay(null);
 			return;
 		}
 
 		if (shouldReduceMotion || appearanceDelayMs === null) {
-			setCardAppearance(nextAppearance);
+			transitionCardAppearance(nextAppearance, cardAppearance);
 			return;
 		}
 
 		cardAppearanceTimeoutRef.current = window.setTimeout(() => {
 			cardAppearanceTimeoutRef.current = null;
 			startTransition(() => {
-				setCardAppearance(nextAppearance);
+				transitionCardAppearance(nextAppearance, cardAppearance);
 			});
 		}, appearanceDelayMs);
 	}
@@ -389,6 +499,7 @@ export function WrappedAuthFlow(props: WrappedAuthFlowProps) {
 	function handleAuthModeChange(nextMode: WrappedAuthMode) {
 		clearWrappedAuthCardFlightTimer(authCardFlightTimerRef);
 		clearWrappedAuthCardFlightAnimationFrame(authCardFlightMeasureRef);
+		clearWrappedAuthCardFlightRetargetTimers(authCardFlightRetargetTimersRef);
 
 		const shouldAnimateCardFlight =
 			mode !== nextMode &&
@@ -398,10 +509,18 @@ export function WrappedAuthFlow(props: WrappedAuthFlowProps) {
 			? getWrappedAuthCardFlightRect(authCardHandoffRef.current)
 			: null;
 		const shouldUseCardFlight = cardFlightFrom !== null;
+		const cardFlightTargetRect =
+			shouldUseCardFlight && nextMode === null
+				? (authIntroCardFlightRectRef.current ?? undefined)
+				: undefined;
 		const appearanceDelayMs =
 			mode === null || nextMode === null
 				? WRAPPED_AUTH_LAYOUT_DURATION * 1000
 				: null;
+
+		if (mode === null && cardFlightFrom !== null) {
+			authIntroCardFlightRectRef.current = cardFlightFrom;
+		}
 
 		if (shouldUseCardFlight) {
 			clearCardAppearanceTimeout();
@@ -415,11 +534,14 @@ export function WrappedAuthFlow(props: WrappedAuthFlowProps) {
 						from: cardFlightFrom,
 						key: Date.now(),
 						targetMode: nextMode,
+						targetRect: cardFlightTargetRect,
+						transitionDurationMs: WRAPPED_AUTH_CARD_FLIGHT_DURATION_MS,
 					}
 				: null,
 		);
 		startTransition(() => {
 			setIntroTool("Claude");
+			setSuppressIntroCardEnter(nextMode === null);
 			setMode(nextMode);
 		});
 	}
@@ -446,12 +568,16 @@ export function WrappedAuthFlow(props: WrappedAuthFlowProps) {
 					authFormCardScale={authFormCardScale}
 					authIntroCardScale={authIntroCardScale}
 					cardAppearance={cardAppearance}
+					cardAppearanceOverlay={cardAppearanceOverlay}
 					cardStageRef={authCardHandoffRef}
 					isCardFlightActive={authCardFlight !== null}
 					mode={mode}
 					onEmailPasswordPreviewSubmit={onEmailPasswordPreviewSubmit}
 					onModeChange={handleAuthModeChange}
 					previewProfile={previewProfile}
+					suppressIntroCardEnter={
+						suppressIntroCardEnter || authCardFlight !== null
+					}
 				/>
 			}
 			overlay={
@@ -503,7 +629,10 @@ function WrappedAuthCardFlightOverlay(props: {
 				x: flight.from.left,
 				y: flight.from.top,
 			}}
-			transition={WRAPPED_AUTH_CARD_FLIGHT_TRANSITION}
+			transition={{
+				...WRAPPED_AUTH_CARD_FLIGHT_TRANSITION,
+				duration: flight.transitionDurationMs / 1_000,
+			}}
 		>
 			<div className="mymind-wrapped-auth-card-flight__card">
 				<WrappedGuestPreviewCard
@@ -536,6 +665,16 @@ function clearWrappedAuthCardFlightAnimationFrame(
 
 	window.cancelAnimationFrame(timerRef.current);
 	timerRef.current = null;
+}
+
+function clearWrappedAuthCardFlightRetargetTimers(
+	timerRef: MutableRefObject<readonly number[]>,
+) {
+	for (const timerId of timerRef.current) {
+		window.clearTimeout(timerId);
+	}
+
+	timerRef.current = [];
 }
 
 function getWrappedAuthCardFlightRect(

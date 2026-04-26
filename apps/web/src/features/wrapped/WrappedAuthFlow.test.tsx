@@ -73,6 +73,8 @@ Object.defineProperty(window, "matchMedia", {
 
 const WRAPPED_UNKNOWN_CARD_OVERLAY_CLASS_NAME =
 	"mymind-wrapped-auth-card-preview--unknown-overlay";
+const WRAPPED_UNKNOWN_TO_DEFAULT_CARD_OVERLAY_CLASS_NAME =
+	"mymind-wrapped-auth-card-preview--unknown-appearance-overlay";
 const WRAPPED_UNKNOWN_CARD_CLASS_NAME =
 	"mymind-wrapped-auth-card-preview--unknown";
 
@@ -288,6 +290,11 @@ describe("WrappedGuestPage", () => {
 			await screen.findByRole("button", { name: "Create account" }),
 		).toBeInTheDocument();
 		expect(screen.getByRole("button", { name: "Log in" })).toBeInTheDocument();
+		await waitFor(() => {
+			expect(
+				screen.getByRole("region", { name: "Wrapped player card preview" }),
+			).toHaveClass(WRAPPED_UNKNOWN_TO_DEFAULT_CARD_OVERLAY_CLASS_NAME);
+		});
 		await waitFor(() => {
 			expect(
 				screen.getByRole("region", { name: "Wrapped player card preview" }),

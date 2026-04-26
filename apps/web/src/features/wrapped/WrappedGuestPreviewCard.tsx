@@ -24,6 +24,7 @@ import type { WrappedGuestPreviewProfile } from "./wrapped-guest-preview";
 
 interface WrappedGuestPreviewCardProps {
 	appearance?: "default" | "unknown";
+	appearanceOverlay?: "default" | "unknown" | null;
 	disablePerspective?: boolean;
 	editableDisplayName?: {
 		autoSelect?: boolean;
@@ -42,6 +43,7 @@ interface WrappedGuestPreviewCardProps {
 export function WrappedGuestPreviewCard(props: WrappedGuestPreviewCardProps) {
 	const {
 		appearance = "default",
+		appearanceOverlay,
 		cardStageRef,
 		disablePerspective = false,
 		editableDisplayName,
@@ -54,12 +56,17 @@ export function WrappedGuestPreviewCard(props: WrappedGuestPreviewCardProps) {
 	const activePreset = isUnknownCard
 		? UNKNOWN_GUEST_CARD_PRESET
 		: RICK_PLACEHOLDER_GUEST_CARD_PRESET;
-	const appearanceOverlayClassName = enableAppearanceOverlay
+	const resolvedAppearanceOverlay =
+		enableAppearanceOverlay && appearanceOverlay !== null
+			? (appearanceOverlay ?? (isUnknownCard ? "default" : null))
+			: null;
+	const appearanceOverlayClassName = resolvedAppearanceOverlay
 		? "mymind-wrapped-auth-card-preview__appearance-overlay"
 		: undefined;
-	const backAppearanceOverlayClassName = isUnknownCard
-		? undefined
-		: appearanceOverlayClassName;
+	const backAppearanceOverlayClassName =
+		isUnknownCard && resolvedAppearanceOverlay === "default"
+			? undefined
+			: appearanceOverlayClassName;
 	const hasInteractiveFrontControls = Boolean(
 		editableDisplayName || mediaOverlayContent,
 	);
@@ -246,8 +253,14 @@ export function WrappedGuestPreviewCard(props: WrappedGuestPreviewCardProps) {
 				enableAppearanceOverlay
 					? "mymind-wrapped-auth-card-preview--appearance-overlay"
 					: null,
-				enableAppearanceOverlay && isUnknownCard
+				resolvedAppearanceOverlay === "default" && isUnknownCard
 					? "mymind-wrapped-auth-card-preview--unknown-overlay"
+					: null,
+				resolvedAppearanceOverlay === "default"
+					? "mymind-wrapped-auth-card-preview--default-appearance-overlay"
+					: null,
+				resolvedAppearanceOverlay === "unknown"
+					? "mymind-wrapped-auth-card-preview--unknown-appearance-overlay"
 					: null,
 				isUnknownCard ? "mymind-wrapped-auth-card-preview--unknown" : null,
 				shouldRenderStaticFront

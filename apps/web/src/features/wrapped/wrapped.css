@@ -4667,6 +4667,11 @@ body.mymind-wrapped-body #cw-bubble-holder {
 		both;
 }
 
+.mymind-wrapped-auth-panel--suppress-intro-card-enter.mymind-wrapped-auth-panel--intro
+	.mymind-wrapped-auth-panel__card {
+	animation: none;
+}
+
 .mymind-wrapped-auth-panel--form .mymind-wrapped-auth-panel__card {
 	padding-top: clamp(0.15rem, 1.6svh, 0.9rem);
 }
@@ -4753,6 +4758,13 @@ body.mymind-wrapped-body #cw-bubble-holder {
 		#f05267 50%,
 		#f8d558 100%
 	);
+	--wrapped-auth-card-unknown-background: linear-gradient(
+		180deg,
+		#ffffff 0%,
+		#fbfcfe 48%,
+		#eef2f7 100%
+	);
+	--wrapped-auth-card-appearance-overlay-background: transparent;
 	--wrapped-auth-card-appearance-duration: 480ms;
 	--wrapped-auth-card-appearance-ease: cubic-bezier(0.4, 0, 1, 1);
 }
@@ -4762,15 +4774,28 @@ body.mymind-wrapped-body #cw-bubble-holder {
 	inset: -1px;
 	z-index: 0;
 	border-radius: 0;
-	background: var(--wrapped-auth-card-default-background);
+	background: var(--wrapped-auth-card-appearance-overlay-background);
 	opacity: 0;
 	pointer-events: none;
 	will-change: opacity;
 }
 
-.mymind-wrapped-auth-card-preview--unknown-overlay
+.mymind-wrapped-auth-card-preview--default-appearance-overlay
 	.mymind-wrapped-auth-card-preview__appearance-overlay {
-	animation: wrapped-auth-card-default-overlay-exit
+	--wrapped-auth-card-appearance-overlay-background: var(
+		--wrapped-auth-card-default-background
+	);
+	animation: wrapped-auth-card-previous-overlay-exit
+		var(--wrapped-auth-card-appearance-duration)
+		var(--wrapped-auth-card-appearance-ease) both;
+}
+
+.mymind-wrapped-auth-card-preview--unknown-appearance-overlay
+	.mymind-wrapped-auth-card-preview__appearance-overlay {
+	--wrapped-auth-card-appearance-overlay-background: var(
+		--wrapped-auth-card-unknown-background
+	);
+	animation: wrapped-auth-card-previous-overlay-exit
 		var(--wrapped-auth-card-appearance-duration)
 		var(--wrapped-auth-card-appearance-ease) both;
 }
@@ -4900,7 +4925,7 @@ body.mymind-wrapped-body #cw-bubble-holder {
 	}
 }
 
-@keyframes wrapped-auth-card-default-overlay-exit {
+@keyframes wrapped-auth-card-previous-overlay-exit {
 	from {
 		opacity: 1;
 	}
