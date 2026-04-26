@@ -290,6 +290,7 @@ export function WrappedGuestPreviewCard(props: WrappedGuestPreviewCardProps) {
 							tiltController.handlePointerMove(event);
 						}
 					}}
+					onPointerEnter={tiltController.handlePointerEnter}
 					onPointerLeave={tiltController.handlePointerLeave}
 					onPointerCancel={tiltController.handlePointerLeave}
 					style={

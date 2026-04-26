@@ -630,6 +630,7 @@ export function WrappedTeamCardRevealStage(
 										tiltController.handlePointerMove(event);
 									}
 								}}
+								onPointerEnter={tiltController.handlePointerEnter}
 								onPointerLeave={tiltController.handlePointerLeave}
 								onPointerCancel={tiltController.handlePointerLeave}
 							>

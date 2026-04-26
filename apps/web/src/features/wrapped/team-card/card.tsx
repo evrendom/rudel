@@ -251,6 +251,9 @@ export function WrappedTeamMemberCard(props: {
 	const portraitPanelStyle = {
 		"--wrapped-card-image-edit-inset": scaleLength(6),
 		"--wrapped-card-image-panel-radius": portraitPanelRadius,
+		"--wrapped-card-portrait-shadow-opacity": shouldRenderPortraitImage
+			? undefined
+			: "0.48",
 		borderRadius: portraitPanelRadius,
 		paddingBottom: scaleLength(10),
 		paddingLeft: scaleLength(12),
