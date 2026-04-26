@@ -6331,6 +6331,63 @@ body.mymind-wrapped-body #cw-bubble-holder {
 	will-change: opacity, transform;
 }
 
+@supports (-webkit-hyphens: none) {
+	.mymind-wrapped-final-stage__flip-shell::before {
+		display: none;
+	}
+
+	.team-lineup-card-tilt-shell.mymind-wrapped-final-stage__tilt-shell:not(
+			[data-flip-active="true"]
+		)
+		.mymind-wrapped-final-stage__flip-control[data-card-face="back"]
+		.mymind-wrapped-final-stage__flip-shell {
+		transform: none;
+		transform-style: flat;
+		will-change: auto;
+	}
+
+	.team-lineup-card-tilt-shell.mymind-wrapped-final-stage__tilt-shell:not(
+			[data-flip-active="true"]
+		)
+		.mymind-wrapped-final-stage__flip-control[data-card-face="back"]
+		.mymind-wrapped-final-stage__flip-shell::after {
+		display: none;
+	}
+
+	.team-lineup-card-tilt-shell.mymind-wrapped-final-stage__tilt-shell:not(
+			[data-flip-active="true"]
+		)
+		.mymind-wrapped-final-stage__flip-control[data-card-face="back"]
+		.mymind-wrapped-printed-card-flip__rotator,
+	.team-lineup-card-tilt-shell.mymind-wrapped-final-stage__tilt-shell:not(
+			[data-flip-active="true"]
+		)
+		.mymind-wrapped-final-stage__flip-control[data-card-face="back"]
+		.mymind-wrapped-printed-card-flip__plane {
+		transform-style: flat;
+		-webkit-transform-style: flat;
+	}
+
+	.team-lineup-card-tilt-shell.mymind-wrapped-final-stage__tilt-shell:not(
+			[data-flip-active="true"]
+		)
+		.mymind-wrapped-final-stage__flip-control[data-card-face="back"]
+		.mymind-wrapped-printed-card-flip__plane--front {
+		display: none;
+	}
+
+	.team-lineup-card-tilt-shell.mymind-wrapped-final-stage__tilt-shell:not(
+			[data-flip-active="true"]
+		)
+		.mymind-wrapped-final-stage__flip-control[data-card-face="back"]
+		.mymind-wrapped-printed-card-flip__plane--back {
+		opacity: 1;
+		transform: none;
+		backface-visibility: hidden;
+		-webkit-backface-visibility: hidden;
+	}
+}
+
 .mymind-wrapped-final-stage__flip-shell::after {
 	content: "";
 	position: absolute;
