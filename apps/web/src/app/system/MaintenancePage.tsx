@@ -9,7 +9,7 @@ export function MaintenancePage() {
 					id="maintenance-message"
 					className="text-balance text-3xl font-semibold leading-tight tracking-tight sm:text-4xl"
 				>
-					We are experiencing techical difficulties. Sorry for that. We are
+					We are experiencing technical difficulties. Sorry for that. We are
 					working on it!
 				</h1>
 			</section>
