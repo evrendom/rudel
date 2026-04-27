@@ -3,7 +3,6 @@ import { formatPercent } from "../format";
 import type { WrappedSkillUsageItem } from "../types";
 
 interface ToolsStageEntry {
-	kindLabel: string;
 	id: string;
 	isPlaceholder: boolean;
 	name: string;
@@ -188,14 +187,14 @@ export function resolveToolsPreviewInput(
 
 export function getToolsStackHeightRem(entryCount: number) {
 	if (entryCount >= 3) {
-		return 17.4;
+		return 14.4;
 	}
 
 	if (entryCount === 2) {
-		return 11.4;
+		return 9.8;
 	}
 
-	return 6.9;
+	return 6.5;
 }
 
 export function getToolsEntryStyle(
@@ -232,7 +231,7 @@ export function getToolsEntryStyle(
 							rotate: "3deg",
 							scale: 0.985,
 							translateX: "-49.5%",
-							translateY: "4rem",
+							translateY: "3.55rem",
 							zIndex: 10,
 						}
 				: stackLayer === 0
@@ -248,14 +247,14 @@ export function getToolsEntryStyle(
 								rotate: "3deg",
 								scale: 0.988,
 								translateX: "-49.2%",
-								translateY: "4.2rem",
+								translateY: "3.65rem",
 								zIndex: 20,
 							}
 						: {
 								rotate: "-3.25deg",
 								scale: 0.976,
 								translateX: "-50.8%",
-								translateY: "8.2rem",
+								translateY: "7.1rem",
 								zIndex: 10,
 							};
 
@@ -361,9 +360,6 @@ function buildToolsStageEntries(input: {
 		)
 		.slice(0, 3)
 		.map((item) => ({
-			kindLabel: item.id.startsWith("slash-command-")
-				? "Slash command"
-				: "Subagent",
 			id: item.id,
 			isPlaceholder: false,
 			name: item.name,
@@ -377,7 +373,6 @@ function buildToolsStageEntries(input: {
 function buildToolsPlaceholderEntries(): readonly ToolsStageEntry[] {
 	return [
 		{
-			kindLabel: "Base model",
 			id: "tools-placeholder-1",
 			isPlaceholder: true,
 			name: "Solo mode",

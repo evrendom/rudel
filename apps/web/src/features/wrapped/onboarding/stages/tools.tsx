@@ -381,15 +381,12 @@ function WrappedOnboardingToolsRegularStage(props: {
 											type="button"
 										>
 											<span className="mymind-wrapped-tools-stage__entry-top">
-												<span className="mymind-wrapped-tools-stage__entry-kind">
-													{entry.kindLabel}
+												<span className="mymind-wrapped-tools-stage__entry-name">
+													{entry.name}
 												</span>
 												<span className="mymind-wrapped-tools-stage__entry-usage">
 													{entry.usageLabel}
 												</span>
-											</span>
-											<span className="mymind-wrapped-tools-stage__entry-name">
-												{entry.name}
 											</span>
 											<span
 												aria-hidden="true"
