@@ -6056,7 +6056,6 @@ body.mymind-wrapped-body #cw-bubble-holder {
 }
 
 @media (min-width: 768px) {
-	.mymind-wrapped-entry-stage--setup,
 	.mymind-wrapped-entry-stage--mobile-handoff {
 		grid-template-rows: auto auto;
 		align-content: center;
