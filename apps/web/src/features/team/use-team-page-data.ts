@@ -9,10 +9,7 @@ import {
 } from "@/dev/frontend-fixtures";
 import { useDateRange } from "@/features/analytics/date-range/useDateRange";
 import { useAnalyticsQuery } from "@/features/analytics/queries/useAnalyticsQuery";
-import {
-	buildTeamRosterPlayers,
-	type TeamRosterMemberSource,
-} from "@/features/team/data/team-roster-data";
+import type { TeamRosterMemberSource } from "@/features/team/data/team-roster-data";
 import { useOrganization } from "@/features/workspace/organization/useOrganization";
 import { MAX_ANALYTICS_DAYS } from "@/lib/analytics-date-range";
 import { authClient } from "@/lib/auth-client";
@@ -204,15 +201,11 @@ export function useTeamPageData() {
 	const teamCards = fixtureData?.teamCards ?? teamCardsQuery.data;
 	const developerSummaries =
 		fixtureData?.developerSummaries ?? developersQuery.data;
-	const teamPlayers = useMemo(
-		() => buildTeamRosterPlayers(teamCards, members),
-		[members, teamCards],
-	);
 	const teamMemberRows = useMemo(
 		() => buildTeamMemberRows(members, teamCards, developerSummaries),
 		[members, teamCards, developerSummaries],
 	);
-	const hasRosterData = teamMemberRows.length > 0 || teamPlayers.length > 0;
+	const hasRosterData = teamMemberRows.length > 0;
 	const diagnostics: TeamPageDiagnostics = {
 		endDate: dateRangeState.endDate,
 		endpoint: "analytics.developers.teamCards",
@@ -246,7 +239,6 @@ export function useTeamPageData() {
 				developersQuery.isPending ||
 				isOrganizationPending),
 		teamMemberRows,
-		teamPlayers,
 		requestedDays,
 		refetch: async () => {
 			await Promise.all([

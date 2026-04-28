@@ -9,7 +9,6 @@ import {
 } from "@/app/ui/card";
 import { Skeleton } from "@/app/ui/skeleton";
 import { TeamMembersCardGrid } from "@/features/team/components/TeamMembersCardGrid";
-import { TeamRosterGallery } from "@/features/team/components/TeamRosterGallery";
 import {
 	type TeamPageDiagnostics,
 	useTeamPageData,
@@ -233,11 +232,9 @@ export function TeamPage() {
 		isError,
 		isPending,
 		teamMemberRows,
-		teamPlayers,
 		refetch,
 		teamCards,
 	} = useTeamPageData();
-	const showUnreleasedLineupCards = false;
 
 	let content = <TeamMembersCardGrid rows={teamMemberRows} />;
 
@@ -255,33 +252,5 @@ export function TeamPage() {
 		content = <TeamPageEmpty />;
 	}
 
-	return (
-		<>
-			<div className="px-4 lg:px-6">{content}</div>
-
-			{/* Unreleased feature: keep the postponed lineup gallery in code only
-			until the team cards return to the roadmap. */}
-			{showUnreleasedLineupCards &&
-			!isPending &&
-			!isError &&
-			teamPlayers.length > 0 ? (
-				<div className="px-4 lg:px-6">
-					<details className="rounded-[1.25rem] border border-border/60 bg-muted/20 px-5 py-4">
-						<summary className="cursor-pointer text-sm font-semibold text-foreground">
-							Postponed lineup cards ({teamPlayers.length})
-						</summary>
-						<p className="pt-2 text-sm text-muted-foreground">
-							Kept below the member cards for reference while this feature stays
-							unreleased.
-						</p>
-						<div className="pt-5">
-							<div className="flex justify-center">
-								<TeamRosterGallery players={teamPlayers} />
-							</div>
-						</div>
-					</details>
-				</div>
-			) : null}
-		</>
-	);
+	return <div className="px-4 lg:px-6">{content}</div>;
 }
