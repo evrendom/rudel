@@ -67,6 +67,10 @@ export function WrappedCardProfileStep(props: WrappedCardProfileStepProps) {
 		setIsNameEditing(false);
 	}
 
+	function handleEditDisplayName() {
+		setIsNameEditing(true);
+	}
+
 	const imageEditLabel = imageUrl
 		? "Change profile picture"
 		: "Add profile picture";
@@ -130,19 +134,21 @@ export function WrappedCardProfileStep(props: WrappedCardProfileStepProps) {
 										ref={imageInputRef}
 										aria-label="Profile picture"
 										type="file"
+										name="wrapped-profile-picture"
 										accept="image/*"
 										className="sr-only"
 										onChange={handleImageUpload}
 									/>
 								</>
 							}
+							onDisplayNameEditStart={handleEditDisplayName}
 							profile={previewProfile}
 							size="profile"
 						/>
 					</div>
 				</div>
 			}
-			stageClassName="mymind-wrapped-entry-stage--auth"
+			stageClassName="mymind-wrapped-entry-stage--auth mymind-wrapped-entry-stage--auth-profile"
 			title={WRAPPED_CARD_PROFILE_TITLE}
 			titleClassName="mymind-wrapped-entry-stage__headline--auth-intro"
 			useReferenceTopChrome
