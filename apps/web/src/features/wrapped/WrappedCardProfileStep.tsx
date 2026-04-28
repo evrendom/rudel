@@ -1,10 +1,7 @@
 import { ArrowRight, ImagePlus } from "lucide-react";
 import { type ChangeEvent, type ReactNode, useRef, useState } from "react";
 import { WrappedPrimaryAction } from "./actions";
-import {
-	WrappedDebugControlStack,
-	WrappedRouteStageShell,
-} from "./route-stage-shell";
+import { WrappedRouteStageShell } from "./route-stage-shell";
 import { WrappedGuestPreviewCard } from "./WrappedGuestPreviewCard";
 import type { WrappedGuestPreviewProfile } from "./wrapped-guest-preview";
 
@@ -17,6 +14,7 @@ const WRAPPED_CARD_PROFILE_TITLE = (
 );
 
 interface WrappedCardProfileStepProps {
+	backLabel?: string;
 	debugControls?: ReactNode;
 	displayName: string;
 	imageUrl: string | null;
@@ -30,6 +28,7 @@ interface WrappedCardProfileStepProps {
 
 export function WrappedCardProfileStep(props: WrappedCardProfileStepProps) {
 	const {
+		backLabel = "Back to auth",
 		debugControls,
 		displayName,
 		imageUrl,
@@ -79,9 +78,22 @@ export function WrappedCardProfileStep(props: WrappedCardProfileStepProps) {
 
 	return (
 		<WrappedRouteStageShell
-			backLabel="Back to auth"
+			backLabel={backLabel}
+			footer={
+				<WrappedPrimaryAction
+					kind="button"
+					disabled={!canContinue}
+					icon={<ArrowRight className="size-4" />}
+					onClick={onContinue}
+				>
+					Continue
+				</WrappedPrimaryAction>
+			}
+			footerDebugControls={debugControls}
+			leadingControl={null}
 			objectClassName="mymind-wrapped-entry-stage__object--auth-profile"
 			onBack={onBack}
+			progressStepId="card-profile"
 			stage={
 				<div className="mymind-wrapped-auth-panel mymind-wrapped-auth-panel--profile">
 					<div className="mymind-wrapped-card-profile-step__card">
@@ -127,21 +139,6 @@ export function WrappedCardProfileStep(props: WrappedCardProfileStepProps) {
 							profile={previewProfile}
 							size="profile"
 						/>
-					</div>
-					<div className="mymind-wrapped-auth-panel__footer">
-						{debugControls ? (
-							<WrappedDebugControlStack>
-								{debugControls}
-							</WrappedDebugControlStack>
-						) : null}
-						<WrappedPrimaryAction
-							kind="button"
-							disabled={!canContinue}
-							icon={<ArrowRight className="size-4" />}
-							onClick={onContinue}
-						>
-							Continue
-						</WrappedPrimaryAction>
 					</div>
 				</div>
 			}

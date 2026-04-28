@@ -55,6 +55,7 @@ export function useWrappedTeamCardPageData(): UseWrappedTeamCardPageDataResult {
 	const debugProfileImageSrc =
 		guestPreviewSnapshot?.profile.imageUrl ??
 		handover.preview.profile.avatarSrc;
+	const guestPreviewDisplayName = guestPreviewSnapshot?.profile.displayName;
 	const { data: activeMember } = authClient.useActiveMember();
 	const activeMemberUserId = getActiveMemberUserId(activeMember);
 	const resolvedUserId = sessionUserId ?? activeMemberUserId;
@@ -121,6 +122,7 @@ export function useWrappedTeamCardPageData(): UseWrappedTeamCardPageDataResult {
 				accountLabel,
 				debugProfileImageSrc,
 				developerDetails: developerDetailsQuery.data,
+				guestPreviewDisplayName,
 				sessionUserEmail,
 				sessionUserId: resolvedUserId,
 				sessionUserName,
@@ -131,6 +133,7 @@ export function useWrappedTeamCardPageData(): UseWrappedTeamCardPageDataResult {
 			accountLabel,
 			debugProfileImageSrc,
 			developerDetailsQuery.data,
+			guestPreviewDisplayName,
 			sessionUserEmail,
 			resolvedUserId,
 			sessionUserName,

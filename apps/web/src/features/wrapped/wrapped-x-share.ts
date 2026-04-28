@@ -1,7 +1,11 @@
 import type { WrappedSourceSplit } from "@rudel/api-routes";
+import { formatCurrency } from "@/lib/format";
 
 interface BuildWrappedXShareTextInput {
+	activeDays?: number | null;
 	archetypeLabel: string;
+	cost?: number | null;
+	daysSinceFirst?: number | null;
 	displayName: string;
 	favoriteModel?: string | null;
 	sourceSplit?: readonly WrappedSourceSplit[];
@@ -68,7 +72,10 @@ const DEFAULT_WRAPPED_X_SHARE_COPY: WrappedXShareCopy = {
 
 export function buildWrappedXShareText(input: BuildWrappedXShareTextInput) {
 	const {
+		activeDays,
 		archetypeLabel,
+		cost,
+		daysSinceFirst,
 		favoriteModel,
 		sourceSplit,
 		totalSessions,
@@ -88,25 +95,63 @@ export function buildWrappedXShareText(input: BuildWrappedXShareTextInput) {
 		favoriteModel,
 		sourceSplit,
 	});
+	const openingLine = `My ${usageSourceLabel} usage says I'm ${archetypeIdentity}.`;
 
-	return [
-		`According to my ${usageSourceLabel} usage, I'm ${archetypeIdentity}.`,
-		`Traits: ${metrics}; ${copy.traits}.`,
-		"Make yours from the card.",
-	].join("\n\n");
+	if (normalizedArchetypeLabel === "roadrunner") {
+		return [
+			openingLine,
+			buildWrappedXRoadrunnerShareBody({
+				activeDays,
+				cost,
+				daysSinceFirst,
+				totalSessions,
+			}),
+		].join("\n\n");
+	}
+
+	return [openingLine, `Traits: ${metrics}; ${copy.traits}.`].join("\n\n");
 }
 
 export function buildWrappedXIntentUrl(input: BuildWrappedXIntentUrlInput) {
 	const intentUrl = new URL(WRAPPED_X_INTENT_URL);
 	const { text, url } = input;
+	const resolvedText = url ? appendWrappedXSharePublicLink(text, url) : text;
 
-	intentUrl.searchParams.set("text", text);
-
-	if (url) {
-		intentUrl.searchParams.set("url", url);
-	}
+	intentUrl.searchParams.set("text", resolvedText);
 
 	return intentUrl.toString();
+}
+
+function appendWrappedXSharePublicLink(text: string, url: string) {
+	return [
+		text,
+		`Check my profile out here ${url}`,
+		"[Your image is in your clipboard, pls paste and dont forget]",
+	].join("\n\n");
+}
+
+function buildWrappedXRoadrunnerShareBody(input: {
+	activeDays?: number | null;
+	cost?: number | null;
+	daysSinceFirst?: number | null;
+	totalSessions?: number | null;
+}) {
+	const activeDays = formatWrappedXWholeNumber(input.activeDays);
+	const daysSinceFirst = formatWrappedXWholeNumber(input.daysSinceFirst);
+	const costPerSession = formatCurrency(
+		input.cost && input.totalSessions && input.totalSessions > 0
+			? input.cost / input.totalSessions
+			: 0,
+	);
+
+	return [
+		"Meep meep.",
+		`Active ${activeDays} out of ${daysSinceFirst} days.`,
+		"Meep meep.",
+		`When back I'm spending ${costPerSession} a session.`,
+		"Meep meep.",
+		"Gone.",
+	].join("\n\n");
 }
 
 function formatWrappedXShareMetrics(input: {
@@ -142,6 +187,10 @@ function formatWrappedXCompactNumber(value: number) {
 	}
 
 	return integerValue.toString();
+}
+
+function formatWrappedXWholeNumber(value: number | null | undefined) {
+	return Math.round(Math.max(0, value ?? 0)).toLocaleString("en-US");
 }
 
 function formatWrappedXScaledNumber(value: number, scale: number) {
@@ -184,7 +233,7 @@ function formatWrappedXUsageSourceLabel(input: {
 	const sourceUsage = getWrappedXSourceUsage(input.sourceSplit ?? []);
 
 	if (sourceUsage.claude && !sourceUsage.codex) {
-		return "Claude";
+		return "Claude Code";
 	}
 
 	if (sourceUsage.codex && !sourceUsage.claude) {
@@ -192,7 +241,7 @@ function formatWrappedXUsageSourceLabel(input: {
 	}
 
 	if (sourceUsage.claude && sourceUsage.codex) {
-		return "Claude / Codex";
+		return "Claude Code and Codex";
 	}
 
 	return getWrappedXUsageSourceLabelFromFavoriteModel(input.favoriteModel);
@@ -222,7 +271,7 @@ function getWrappedXUsageSourceLabelFromFavoriteModel(
 	const normalizedFavoriteModel = favoriteModel?.trim().toLowerCase() ?? "";
 
 	if (normalizedFavoriteModel.includes("claude")) {
-		return "Claude";
+		return "Claude Code";
 	}
 
 	if (
@@ -233,7 +282,7 @@ function getWrappedXUsageSourceLabelFromFavoriteModel(
 		return "Codex";
 	}
 
-	return "Claude / Codex";
+	return "Claude Code and Codex";
 }
 
 function normalizeWrappedXArchetypeLabel(value: string) {

@@ -57,7 +57,7 @@ describe("WrappedSetupCompletePage", () => {
 			<MemoryRouter>
 				<WrappedSetupCompletePage
 					onContinue={onContinue}
-					totalSessionCount={11}
+					totalSessionCount={99}
 					userId="user-1"
 				/>
 			</MemoryRouter>,

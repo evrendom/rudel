@@ -25,6 +25,7 @@ type WrappedShareActionKind = "copy" | "download" | "share";
 
 interface CreateWrappedTeamCardShareActionsParams {
 	archetypeLabel: string;
+	daysSinceFirst?: number;
 	displayName: string;
 	onShareActionTriggered?: (action: WrappedShareActionKind) => void;
 	resolveShareUrl?: () => Promise<string | undefined>;
@@ -48,6 +49,7 @@ export function createWrappedTeamCardShareActions(
 ): WrappedTeamCardShareActions {
 	const {
 		archetypeLabel,
+		daysSinceFirst,
 		displayName,
 		onShareActionTriggered,
 		resolveShareUrl,
@@ -59,7 +61,10 @@ export function createWrappedTeamCardShareActions(
 	} = params;
 	const shareTitle = `${displayName}'s Rudel post`;
 	const shareText = buildWrappedXShareText({
+		activeDays: row.activeDays,
 		archetypeLabel,
+		cost: row.cost,
+		daysSinceFirst,
 		displayName,
 		favoriteModel: row.favoriteModel,
 		sourceSplit,

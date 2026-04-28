@@ -229,14 +229,13 @@ describe("createWrappedTeamCardShareActions", () => {
 		const intentUrl = new URL(open.mock.calls[0]?.[0] ?? "");
 		expect(intentUrl.searchParams.get("text")).toBe(
 			[
-				"According to my Codex usage, I'm a Maniac.",
+				"My Codex usage says I'm a Maniac.",
 				"Traits: 1.9M tokens over 219 sessions; high session count, heavy token burn, no visible off switch.",
-				"Make yours from the card.",
+				"Check my profile out here https://rudel.ai/wrapped/public-card",
+				"[Your image is in your clipboard, pls paste and dont forget]",
 			].join("\n\n"),
 		);
-		expect(intentUrl.searchParams.get("url")).toBe(
-			"https://rudel.ai/wrapped/public-card",
-		);
+		expect(intentUrl.searchParams.get("url")).toBeNull();
 		expect(toast.success).toHaveBeenCalledWith(
 			"Post copied. X is open. Paste the image into the post; your card link is included.",
 			{ duration: 7000 },

@@ -14,6 +14,8 @@ const WRAPPED_TEAM_CARD_PATH = "/wrapped";
 const DEV_WRAPPED_PATH = "/dev/wrapped";
 const WRAPPED_RESUME_PATH = "/resume";
 export const WRAPPED_ROUTE_FLOW_QUERY_PARAM = "flow";
+export const WRAPPED_ROUTE_CARD_PROFILE_FLOW = "card-profile";
+export const WRAPPED_ROUTE_DESKTOP_READY_FLOW = "desktop-ready";
 export const WRAPPED_ROUTE_SESSIONS_LANDED_FLOW = "sessions-landed";
 
 // These helpers are the canonical route surface for the Saturday wrapped loop.
@@ -31,6 +33,8 @@ export const appRoutes = {
 	presetBaseline: () => PRESET_BASELINE_PATH,
 	cardReference: () => CARD_REFERENCE_PATH,
 	wrappedTeamCard: () => WRAPPED_TEAM_CARD_PATH,
+	wrappedCardProfile: (search?: string) => getWrappedCardProfilePath(search),
+	wrappedDesktopReady: (search?: string) => getWrappedDesktopReadyPath(search),
 	wrappedSessionsLanded: (search?: string) =>
 		getWrappedSessionsLandedPath(search),
 	devWrapped: () => DEV_WRAPPED_PATH,
@@ -46,12 +50,21 @@ export const appRoutes = {
 	settingsCreateWorkspace: () => SETTINGS_CREATE_WORKSPACE_PATH,
 };
 
+export function getWrappedCardProfilePath(search?: string) {
+	return getWrappedFlowPath(WRAPPED_ROUTE_CARD_PROFILE_FLOW, search);
+}
+
+export function getWrappedDesktopReadyPath(search?: string) {
+	return getWrappedFlowPath(WRAPPED_ROUTE_DESKTOP_READY_FLOW, search);
+}
+
 export function getWrappedSessionsLandedPath(search?: string) {
+	return getWrappedFlowPath(WRAPPED_ROUTE_SESSIONS_LANDED_FLOW, search);
+}
+
+function getWrappedFlowPath(flow: string, search?: string) {
 	const searchParams = new URLSearchParams(search);
-	searchParams.set(
-		WRAPPED_ROUTE_FLOW_QUERY_PARAM,
-		WRAPPED_ROUTE_SESSIONS_LANDED_FLOW,
-	);
+	searchParams.set(WRAPPED_ROUTE_FLOW_QUERY_PARAM, flow);
 
 	return `${WRAPPED_TEAM_CARD_PATH}?${searchParams.toString()}`;
 }

@@ -21,6 +21,7 @@ import type { TeamPageMemberRow } from "@/features/team/use-team-page-data";
 import { WrappedPrimaryAction } from "@/features/wrapped/actions";
 import type { WrappedOnboardingMetrics } from "@/features/wrapped/onboarding/types";
 import { WrappedStageFrame } from "@/features/wrapped/stage-frame";
+import { formatCurrency } from "@/lib/format";
 import {
 	getWrappedArchetypeCardBackgroundValue,
 	type WrappedArchetypeCardTheme,
@@ -128,6 +129,13 @@ interface WrappedRevealArchetypeTitleStyle extends CSSProperties {
 	"--wrapped-reveal-archetype-accent": string;
 	"--wrapped-reveal-archetype-gt-direction": string;
 	"--wrapped-reveal-archetype-gt-gradient": string;
+}
+
+interface WrappedRevealCopyInput {
+	activeArchetype: WrappedArchetypeCardTheme;
+	audience?: "owner" | "public";
+	onboardingMetrics?: WrappedOnboardingMetrics;
+	row: TeamPageMemberRow;
 }
 
 type WrappedRevealIntroPhase = "name" | "line" | "accent" | "description";
@@ -741,7 +749,7 @@ function WrappedTeamCardFlipSurface(props: WrappedTeamCardFlipSurfaceProps) {
 		tiltShellClassName,
 	} = props;
 	const cardFace = isFrontVisible ? "front" : "back";
-	const cardVisualStageClassNames = `team-lineup-card-tilt-stage mymind-wrapped-final-stage__card-visual-stage w-full max-w-[16rem] min-[360px]:max-w-[16.75rem] sm:max-w-none${
+	const cardVisualStageClassNames = `team-lineup-card-tilt-stage mymind-wrapped-final-stage__card-visual-stage${
 		cardVisualStageClassName ? ` ${cardVisualStageClassName}` : ""
 	}`;
 	const cardScaleClassNames =
@@ -857,7 +865,11 @@ export function WrappedTeamCardPublicStage(
 	const reduceMotion = shouldReduceMotion ?? false;
 	const [isCardFrontVisible, setIsCardFrontVisible] = useState(true);
 	const [isCardFlipAnimating, setIsCardFlipAnimating] = useState(false);
-	const revealCopy = getWrappedRevealCopy(activeArchetype);
+	const revealCopy = getWrappedRevealCopy({
+		activeArchetype,
+		audience: "public",
+		row,
+	});
 	const printedCardCaptureKey = [
 		activeArchetype.id,
 		row.userId,
@@ -1047,7 +1059,11 @@ export function WrappedTeamCardRevealStage(
 	const [isRevealExitPending, setIsRevealExitPending] = useState(false);
 	const revealTimerRefs = useRef<number[]>([]);
 	const onRevealCompleteRef = useRef(onRevealComplete);
-	const revealCopy = getWrappedRevealCopy(activeArchetype);
+	const revealCopy = getWrappedRevealCopy({
+		activeArchetype,
+		onboardingMetrics,
+		row,
+	});
 	const revealBackMetrics = getWrappedRevealBackMetrics({
 		onboardingMetrics,
 		row,
@@ -1522,15 +1538,16 @@ function resolveWrappedRevealCardTransition(input: {
 	};
 }
 
-function getWrappedRevealCopy(archetype: WrappedArchetypeCardTheme): {
+function getWrappedRevealCopy(input: WrappedRevealCopyInput): {
 	description: string;
 	title: string;
 } {
-	switch (archetype.id) {
+	const { activeArchetype } = input;
+
+	switch (activeArchetype.id) {
 		case "roadrunner":
 			return {
-				description:
-					"For the one who clears the pass, ships the fix, and is already halfway into the next task.",
+				description: buildRoadrunnerRevealDescription(input),
 				title: "Roadrunner energy.",
 			};
 		case "hit_and_runner":
@@ -1591,9 +1608,30 @@ function getWrappedRevealCopy(archetype: WrappedArchetypeCardTheme): {
 			return {
 				description:
 					"For the kind of operator whose working style is strong enough to deserve its own card.",
-				title: `${archetype.displayLabel}, framed.`,
+				title: `${activeArchetype.displayLabel}, framed.`,
 			};
 	}
+}
+
+function buildRoadrunnerRevealDescription(input: WrappedRevealCopyInput) {
+	const { audience = "owner", onboardingMetrics, row } = input;
+	const activeDays = formatWrappedRevealInteger(row.activeDays);
+	const daysSinceFirst = formatWrappedRevealInteger(
+		onboardingMetrics?.daysSinceFirst ?? row.activeDays,
+	);
+	const costPerSession = formatCurrency(
+		row.totalSessions > 0 ? row.cost / row.totalSessions : 0,
+	);
+
+	if (audience === "public") {
+		return `${row.displayName} is here. Meep meep. ${row.displayName} is gone. Active ${activeDays} out of ${daysSinceFirst} days. When ${row.displayName} showed up, we noticed. ${costPerSession} a session. Meep Meep. Gone again. Where? Nobody knows`;
+	}
+
+	return `You're here. Meep meep. You're gone. Active ${activeDays} out of ${daysSinceFirst} days. When you showed up, we noticed. ${costPerSession} a session. Meep Meep. Gone again. Where? Nobody knows`;
+}
+
+function formatWrappedRevealInteger(value: number) {
+	return Math.max(0, Math.round(value)).toLocaleString("en-US");
 }
 
 export function WrappedTeamCardRevealFooter(props: {

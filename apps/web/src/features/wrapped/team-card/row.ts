@@ -5,6 +5,7 @@ interface BuildResolvedTeamCardRowParams {
 	accountLabel: string;
 	debugProfileImageSrc: string;
 	developerDetails: DeveloperDetails | undefined;
+	guestPreviewDisplayName: string | undefined;
 	sessionUserEmail: string | undefined;
 	sessionUserId: string | undefined;
 	sessionUserName: string | undefined;
@@ -19,6 +20,7 @@ export function buildResolvedTeamCardRow(
 		accountLabel,
 		debugProfileImageSrc,
 		developerDetails,
+		guestPreviewDisplayName,
 		sessionUserEmail,
 		sessionUserId,
 		sessionUserName,
@@ -33,6 +35,7 @@ export function buildResolvedTeamCardRow(
 	const { displayName } = resolveTeamCardDisplayName({
 		accountLabel,
 		currentUserRow,
+		guestPreviewDisplayName,
 		sessionUserEmail,
 		sessionUserName,
 	});
@@ -147,12 +150,28 @@ function findCurrentUserRow(input: {
 function resolveTeamCardDisplayName(input: {
 	accountLabel: string;
 	currentUserRow: TeamPageMemberRow | undefined;
+	guestPreviewDisplayName: string | undefined;
 	sessionUserEmail: string | undefined;
 	sessionUserName: string | undefined;
 }) {
-	const { accountLabel, currentUserRow, sessionUserEmail, sessionUserName } =
-		input;
+	const {
+		accountLabel,
+		currentUserRow,
+		guestPreviewDisplayName,
+		sessionUserEmail,
+		sessionUserName,
+	} = input;
+	const meaningfulGuestPreviewDisplayName = getMeaningfulDisplayName(
+		guestPreviewDisplayName,
+	);
 	const meaningfulSessionUserName = getMeaningfulDisplayName(sessionUserName);
+
+	if (meaningfulGuestPreviewDisplayName) {
+		return {
+			displayName: meaningfulGuestPreviewDisplayName,
+			source: "guestPreview.displayName",
+		} as const;
+	}
 
 	if (meaningfulSessionUserName) {
 		return {

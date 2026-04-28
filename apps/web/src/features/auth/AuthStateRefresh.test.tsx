@@ -75,15 +75,15 @@ describe("auth state refresh", () => {
 		mockTrackAuthenticationAction.mockReset();
 	});
 
-	it("routes homepage email signups to the wrapped entry", () => {
+	it("routes homepage email signups to the wrapped card profile flow", () => {
 		expect(getEmailSignupSuccessDestination("/", "")).toBe(
-			appRoutes.wrappedSessionsLanded(),
+			appRoutes.wrappedCardProfile(),
 		);
 	});
 
 	it("uses the direct redirect destination for homepage email verification callbacks", () => {
 		expect(getEmailSignupVerificationCallbackURL("/", "")).toBe(
-			appRoutes.wrappedSessionsLanded(),
+			appRoutes.wrappedCardProfile(),
 		);
 	});
 
@@ -136,6 +136,12 @@ describe("auth state refresh", () => {
 		).toBe("/dashboard/sessions");
 	});
 
+	it("routes explicit wrapped redirects for email signup to the card profile flow", () => {
+		expect(getEmailSignupSuccessDestination("/", "?redirect=%2Fwrapped")).toBe(
+			appRoutes.wrappedCardProfile(),
+		);
+	});
+
 	it("preserves device flow destinations for email signup", () => {
 		expect(getEmailSignupSuccessDestination("/", "?user_code=ABCD")).toBe(
 			"/?user_code=ABCD",
@@ -145,6 +151,12 @@ describe("auth state refresh", () => {
 	it("preserves direct non-root destinations for email signup", () => {
 		expect(getEmailSignupSuccessDestination("/invitation/123", "")).toBe(
 			"/invitation/123",
+		);
+	});
+
+	it("routes direct wrapped email signups to the card profile flow", () => {
+		expect(getEmailSignupSuccessDestination("/wrapped", "")).toBe(
+			appRoutes.wrappedCardProfile(),
 		);
 	});
 
@@ -181,10 +193,19 @@ describe("auth state refresh", () => {
 		);
 	});
 
+	it("uses card profile as the new-user destination for social signups from wrapped", () => {
+		expect(
+			getSocialSignupRedirectOptions("/wrapped", "?share_id=share-123"),
+		).toEqual({
+			callbackURL: "/wrapped?share_id=share-123&flow=sessions-landed",
+			newUserCallbackURL: "/wrapped?share_id=share-123&flow=card-profile",
+		});
+	});
+
 	it("uses a separate new-user social signup destination on the homepage", () => {
 		expect(getSocialSignupRedirectOptions("/", "")).toEqual({
 			callbackURL: "/",
-			newUserCallbackURL: appRoutes.wrappedSessionsLanded(),
+			newUserCallbackURL: appRoutes.wrappedCardProfile(),
 		});
 	});
 
@@ -224,7 +245,7 @@ describe("auth state refresh", () => {
 					name: "Ada Lovelace",
 					email: "ada.lovelace@example.com",
 					password: "supersecure",
-					callbackURL: appRoutes.wrappedSessionsLanded(),
+					callbackURL: appRoutes.wrappedCardProfile(),
 					fetchOptions: expect.objectContaining({
 						disableSignal: true,
 						onSuccess: expect.any(Function),
@@ -235,12 +256,12 @@ describe("auth state refresh", () => {
 
 		await waitFor(() => {
 			expect(mockNavigateToDestination).toHaveBeenCalledWith(
-				appRoutes.wrappedSessionsLanded(),
+				appRoutes.wrappedCardProfile(),
 			);
 		});
 
 		expect(window.location.search).toBe(
-			`?signup_redirect=${encodeURIComponent(appRoutes.wrappedSessionsLanded())}`,
+			`?signup_redirect=${encodeURIComponent(appRoutes.wrappedCardProfile())}`,
 		);
 	});
 
@@ -322,7 +343,7 @@ describe("auth state refresh", () => {
 			expect(mockSignInSocial).toHaveBeenCalledWith({
 				provider: "google",
 				callbackURL: "/",
-				newUserCallbackURL: appRoutes.wrappedSessionsLanded(),
+				newUserCallbackURL: appRoutes.wrappedCardProfile(),
 			});
 		});
 	});
@@ -345,6 +366,10 @@ describe("auth state refresh", () => {
 		await user.type(await screen.findByLabelText("Email"), "ada@example.com");
 		await user.click(screen.getByRole("button", { name: "Continue" }));
 		expect(await screen.findByLabelText("Password")).toBeInTheDocument();
+		expect(
+			screen.queryByText("Use at least 8 characters for the password."),
+		).not.toBeInTheDocument();
+		expect(handlePreviewSubmit).not.toHaveBeenCalled();
 		await user.type(screen.getByLabelText("Password"), "supersecure");
 		await user.click(screen.getByRole("button", { name: "Sign up" }));
 
@@ -405,6 +430,36 @@ describe("auth state refresh", () => {
 		expect(mockRefreshAuthClientState).toHaveBeenCalledTimes(1);
 	});
 
+	it("shows verbose dev details for email sign in failures", async () => {
+		mockSignInEmail.mockResolvedValue({
+			error: {
+				code: "INVALID_ORIGIN",
+				message: "Invalid origin",
+				status: 403,
+				statusText: "Forbidden",
+			},
+		});
+
+		const user = userEvent.setup();
+		render(<LoginForm onSwitchToSignup={vi.fn()} />);
+
+		await user.click(screen.getByRole("button", { name: "Log in with Email" }));
+		await user.type(screen.getByLabelText("Email"), "ada@example.com");
+		await user.type(screen.getByLabelText("Password"), "supersecure");
+		await user.click(screen.getByRole("button", { name: "Sign in" }));
+
+		const alert = await screen.findByRole("alert");
+		expect(alert).toHaveTextContent("Invalid origin");
+		expect(alert).toHaveTextContent("Dev auth details:");
+		expect(alert).toHaveTextContent("Operation: email password sign in");
+		expect(alert).toHaveTextContent("Request origin: http://localhost:4011");
+		expect(alert).toHaveTextContent("error.code: INVALID_ORIGIN");
+		expect(alert).toHaveTextContent(
+			"Likely fix: add the request origin to the API trusted origins",
+		);
+		expect(mockNavigateToDestination).not.toHaveBeenCalled();
+	});
+
 	it("uses a local wrapped preview submit for email sign in when requested", async () => {
 		const user = userEvent.setup();
 		const handlePreviewSubmit = vi.fn();
@@ -421,6 +476,10 @@ describe("auth state refresh", () => {
 		await user.type(await screen.findByLabelText("Email"), "ada@example.com");
 		await user.click(screen.getByRole("button", { name: "Continue" }));
 		expect(await screen.findByLabelText("Password")).toBeInTheDocument();
+		expect(
+			screen.queryByText("Enter a password to continue."),
+		).not.toBeInTheDocument();
+		expect(handlePreviewSubmit).not.toHaveBeenCalled();
 		await user.type(screen.getByLabelText("Password"), "supersecure");
 		await user.click(screen.getByRole("button", { name: "Sign in" }));
 

@@ -1,6 +1,12 @@
 import type { DeveloperSummary, DeveloperTeamCard } from "@rudel/api-routes";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
+import {
+	announceFrontendFixturesEnabled,
+	buildTeamAnalyticsFixtures,
+	type FrontendFixtureMember,
+	isFrontendFixturesEnabled,
+} from "@/dev/frontend-fixtures";
 import { useDateRange } from "@/features/analytics/date-range/useDateRange";
 import { useAnalyticsQuery } from "@/features/analytics/queries/useAnalyticsQuery";
 import {
@@ -131,6 +137,8 @@ function buildTeamMemberRows(
 export function useTeamPageData() {
 	const { state: dateRangeState, meta: dateRangeMeta } = useDateRange();
 	const { state: workspaceState } = useOrganization();
+	const useFixtures = isFrontendFixturesEnabled();
+	announceFrontendFixturesEnabled("team");
 	const selectedDays = dateRangeMeta.dayCount;
 	const requestedDays = MAX_ANALYTICS_DAYS;
 	const {
@@ -171,14 +179,31 @@ export function useTeamPageData() {
 		...orpc.analytics.developers.teamCards.queryOptions({
 			input: { days: requestedDays },
 		}),
+		enabled: !useFixtures,
 	});
 	const developersQuery = useAnalyticsQuery({
 		...orpc.analytics.developers.list.queryOptions({
 			input: { days: requestedDays },
 		}),
+		enabled: !useFixtures,
 	});
-	const teamCards = teamCardsQuery.data;
-	const developerSummaries = developersQuery.data;
+	const fixtureMembers = useMemo<FrontendFixtureMember[]>(
+		() =>
+			members.map((member) => ({
+				displayName: member.displayName,
+				email: member.email ?? null,
+				imageUrl: member.imageUrl ?? null,
+				userId: member.userId,
+			})),
+		[members],
+	);
+	const fixtureData = useMemo(
+		() => (useFixtures ? buildTeamAnalyticsFixtures(fixtureMembers) : null),
+		[fixtureMembers, useFixtures],
+	);
+	const teamCards = fixtureData?.teamCards ?? teamCardsQuery.data;
+	const developerSummaries =
+		fixtureData?.developerSummaries ?? developersQuery.data;
 	const teamPlayers = useMemo(
 		() => buildTeamRosterPlayers(teamCards, members),
 		[members, teamCards],
@@ -201,18 +226,21 @@ export function useTeamPageData() {
 
 	return {
 		diagnostics,
-		error:
-			teamCardsQuery.error ??
-			developersQuery.error ??
-			(isOrganizationError
-				? new Error("Failed to load workspace members.")
-				: null),
+		error: useFixtures
+			? null
+			: (teamCardsQuery.error ??
+				developersQuery.error ??
+				(isOrganizationError
+					? new Error("Failed to load workspace members.")
+					: null)),
 		isError:
+			!useFixtures &&
 			!hasRosterData &&
 			(teamCardsQuery.isError ||
 				developersQuery.isError ||
 				isOrganizationError),
 		isPending:
+			!useFixtures &&
 			!hasRosterData &&
 			(teamCardsQuery.isPending ||
 				developersQuery.isPending ||

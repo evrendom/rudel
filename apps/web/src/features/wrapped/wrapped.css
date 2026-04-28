@@ -6856,21 +6856,6 @@ body.mymind-wrapped-body #cw-bubble-holder {
 }
 
 .mymind-wrapped-final-stage--reveal
-	.mymind-wrapped-final-stage__card-visual-stage {
-	width: max-content;
-	max-width: none;
-	justify-self: center;
-}
-
-.mymind-wrapped-final-stage--reveal
-	.team-lineup-card-tilt-shell.mymind-wrapped-final-stage__tilt-shell {
-	--wrapped-card-tilt-rotate-x: 0deg;
-	--wrapped-card-tilt-rotate-y: 0deg;
-	--wrapped-card-tilt-scale: 1;
-	transform: rotateX(0deg) rotateY(0deg) scale(1);
-}
-
-.mymind-wrapped-final-stage--reveal
 	.team-lineup-card-tilt-shell.mymind-wrapped-final-stage__tilt-shell:not(
 		[data-flip-active="true"]
 	)
@@ -7952,6 +7937,8 @@ body.mymind-wrapped-body #cw-bubble-holder {
 }
 
 .mymind-wrapped-share-preview__link {
+	display: inline-block;
+	margin-left: auto;
 	color: inherit;
 	font-size: calc(
 		var(--wrapped-share-preview-export-scale, 1) *
@@ -7960,6 +7947,7 @@ body.mymind-wrapped-body #cw-bubble-holder {
 	font-family: var(--font-sans);
 	font-weight: 400;
 	letter-spacing: 0;
+	text-align: right;
 	text-decoration: none;
 	overflow-wrap: anywhere;
 }

@@ -157,8 +157,14 @@ describe("createWrappedImageShareActions", () => {
 		expect(`${intentUrl.origin}${intentUrl.pathname}`).toBe(
 			"https://twitter.com/intent/tweet",
 		);
-		expect(intentUrl.searchParams.get("text")).toBe("Share text");
-		expect(intentUrl.searchParams.get("url")).toBe("https://rudel.ai/wrapped");
+		expect(intentUrl.searchParams.get("text")).toBe(
+			[
+				"Share text",
+				"Check my profile out here https://rudel.ai/wrapped",
+				"[Your image is in your clipboard, pls paste and dont forget]",
+			].join("\n\n"),
+		);
+		expect(intentUrl.searchParams.get("url")).toBeNull();
 		expect(captureElement).toHaveBeenCalledWith(imageRef.current, undefined);
 		expect(copyPngToClipboardWhenReady).toHaveBeenCalledWith(
 			expect.any(Promise),

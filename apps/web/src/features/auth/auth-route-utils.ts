@@ -4,8 +4,14 @@ import type { authClient } from "@/lib/auth-client";
 export type AppSession = ReturnType<typeof authClient.useSession>["data"];
 const PENDING_SIGNUP_REDIRECT_PARAM = "signup_redirect";
 const RELATIVE_URL_BASE = "https://rudel.local";
+type WrappedAuthRedirectFlow =
+	| "card-profile"
+	| "desktop-ready"
+	| "sessions-landed";
 
-function normalizeValidRedirect(redirect: string | null): string | null {
+function normalizeValidRelativeRedirect(
+	redirect: string | null,
+): string | null {
 	if (!redirect) {
 		return null;
 	}
@@ -14,10 +20,13 @@ function normalizeValidRedirect(redirect: string | null): string | null {
 		return null;
 	}
 
-	return normalizeWrappedAuthRedirect(redirect);
+	return redirect;
 }
 
-function normalizeWrappedAuthRedirect(redirect: string): string {
+function normalizeWrappedAuthRedirect(
+	redirect: string,
+	flow: WrappedAuthRedirectFlow = "sessions-landed",
+): string {
 	try {
 		const url = new URL(redirect, RELATIVE_URL_BASE);
 
@@ -25,7 +34,9 @@ function normalizeWrappedAuthRedirect(redirect: string): string {
 			return redirect;
 		}
 
-		return `${appRoutes.wrappedSessionsLanded(url.search)}${url.hash}`;
+		const wrappedRoute = getWrappedAuthRedirectRoute(flow, url.search);
+
+		return `${wrappedRoute}${url.hash}`;
 	} catch {
 		return redirect;
 	}
@@ -47,32 +58,43 @@ export function isGetStartedPath(pathname = window.location.pathname): boolean {
 	);
 }
 
-export function getValidRedirect(search?: string): string | null {
+export function getValidRedirect(
+	search?: string,
+	wrappedFlow: WrappedAuthRedirectFlow = "sessions-landed",
+): string | null {
 	const params = new URLSearchParams(search ?? window.location.search);
-	return normalizeValidRedirect(params.get("redirect"));
+	const validRedirect = normalizeValidRelativeRedirect(params.get("redirect"));
+	if (!validRedirect) {
+		return null;
+	}
+
+	return normalizeWrappedAuthRedirect(validRedirect, wrappedFlow);
 }
 
 export function getPendingSignupRedirect(search?: string): string | null {
 	const params = new URLSearchParams(search ?? window.location.search);
-	return normalizeValidRedirect(params.get(PENDING_SIGNUP_REDIRECT_PARAM));
+	return normalizeValidRelativeRedirect(
+		params.get(PENDING_SIGNUP_REDIRECT_PARAM),
+	);
 }
 
 function getDirectAuthDestination(
 	pathname = window.location.pathname,
 	search = window.location.search,
+	wrappedFlow: WrappedAuthRedirectFlow = "sessions-landed",
 ): string | null {
 	const userCode = getDeviceUserCode(search);
 	if (userCode) {
 		return `/?user_code=${encodeURIComponent(userCode)}`;
 	}
 
-	const redirect = getValidRedirect(search);
+	const redirect = getValidRedirect(search, wrappedFlow);
 	if (redirect) {
 		return redirect;
 	}
 
 	if (pathname !== "/" && pathname !== "") {
-		return normalizeWrappedAuthRedirect(`${pathname}${search}`);
+		return normalizeWrappedAuthRedirect(`${pathname}${search}`, wrappedFlow);
 	}
 
 	return null;
@@ -83,8 +105,8 @@ export function getEmailSignupSuccessDestination(
 	search = window.location.search,
 ): string {
 	return (
-		getDirectAuthDestination(pathname, search) ??
-		appRoutes.wrappedSessionsLanded()
+		getDirectAuthDestination(pathname, search, "card-profile") ??
+		appRoutes.wrappedCardProfile()
 	);
 }
 
@@ -130,14 +152,31 @@ export function getSocialSignupRedirectOptions(
 	if (directDestination) {
 		return {
 			callbackURL: directDestination,
-			newUserCallbackURL: directDestination,
+			newUserCallbackURL:
+				getDirectAuthDestination(pathname, search, "card-profile") ??
+				directDestination,
 		};
 	}
 
 	return {
 		callbackURL: "/",
-		newUserCallbackURL: appRoutes.wrappedSessionsLanded(),
+		newUserCallbackURL: appRoutes.wrappedCardProfile(),
 	};
+}
+
+function getWrappedAuthRedirectRoute(
+	flow: WrappedAuthRedirectFlow,
+	search: string,
+) {
+	if (flow === "card-profile") {
+		return appRoutes.wrappedCardProfile(search);
+	}
+
+	if (flow === "desktop-ready") {
+		return appRoutes.wrappedDesktopReady(search);
+	}
+
+	return appRoutes.wrappedSessionsLanded(search);
 }
 
 export function primePendingSignupRedirect(
@@ -153,7 +192,7 @@ export function primePendingSignupRedirect(
 		return;
 	}
 
-	const redirect = normalizeValidRedirect(destination);
+	const redirect = normalizeValidRelativeRedirect(destination);
 	if (!redirect) {
 		return;
 	}

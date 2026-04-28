@@ -6,6 +6,7 @@ import { Label } from "@/app/ui/label";
 import { Separator } from "@/app/ui/separator";
 import { useAnalyticsTracking } from "@/features/analytics/tracking/useAnalyticsTracking";
 import { authClient, refreshAuthClientState } from "@/lib/auth-client";
+import { formatAuthErrorMessage } from "@/lib/auth-error-message";
 import { cn } from "@/lib/utils";
 import { navigateToDestination } from "./auth-navigation";
 import {
@@ -125,7 +126,11 @@ export function LoginForm(props: LoginFormProps) {
 		if (error) {
 			setFeedback({
 				kind: "error",
-				message: error.message ?? "Sign in failed",
+				message: formatAuthErrorMessage({
+					error,
+					fallbackMessage: "Sign in failed",
+					operation: "email password sign in",
+				}),
 			});
 			return;
 		}
@@ -164,7 +169,11 @@ export function LoginForm(props: LoginFormProps) {
 		if (error) {
 			setFeedback({
 				kind: "error",
-				message: error.message ?? "Could not send password reset email",
+				message: formatAuthErrorMessage({
+					error,
+					fallbackMessage: "Could not send password reset email",
+					operation: "password reset request",
+				}),
 			});
 			return;
 		}
@@ -200,7 +209,11 @@ export function LoginForm(props: LoginFormProps) {
 		if (error) {
 			setFeedback({
 				kind: "error",
-				message: error.message ?? `Sign in with ${provider} failed`,
+				message: formatAuthErrorMessage({
+					error,
+					fallbackMessage: `Sign in with ${provider} failed`,
+					operation: `${provider} social sign in`,
+				}),
 			});
 		}
 	}
@@ -465,8 +478,7 @@ export function LoginForm(props: LoginFormProps) {
 						transition={getWrappedSceneItemMotion(0.08).transition}
 					>
 						<Button
-							type={isPasswordStep ? "submit" : "button"}
-							onClick={isPasswordStep ? undefined : handleContinueWrappedEmail}
+							type="submit"
 							disabled={
 								isPasswordStep && !usesWrappedEmailPreview
 									? loading || requestingPasswordReset
@@ -558,6 +570,7 @@ export function LoginForm(props: LoginFormProps) {
 							feedback.kind === "error"
 								? "bg-destructive/5 text-destructive ring-destructive/15"
 								: "bg-muted/35 text-muted-foreground ring-border/60",
+							"whitespace-pre-line",
 						)}
 					>
 						{feedback.message}

@@ -13,8 +13,7 @@ import {
 	shouldDisableCliPersonProfile,
 } from "../lib/product-analytics.js";
 
-const DEFAULT_API_BASE = "https://app.rudel.ai";
-const DEFAULT_WEB_URL = "https://app.rudel.ai";
+const PRODUCTION_APP_URL = "https://app.rudel.ai";
 const DEVICE_CLIENT_ID = "rudel-cli";
 const POLL_SAFETY_TIMEOUT_MS = 120_000;
 
@@ -38,6 +37,10 @@ type ApiKeyCreateResponse = {
 	id: string;
 	key: string;
 };
+
+export function getDefaultApiBase() {
+	return process.env.RUDEL_API_BASE ?? PRODUCTION_APP_URL;
+}
 
 async function sleep(ms: number): Promise<void> {
 	await new Promise((resolve) => setTimeout(resolve, ms));
@@ -350,13 +353,13 @@ export const loginCommand = buildCommand({
 				kind: "parsed",
 				parse: String,
 				brief: "API server base URL",
-				default: DEFAULT_API_BASE,
+				default: getDefaultApiBase(),
 			},
 			webUrl: {
 				kind: "parsed",
 				parse: String,
 				brief: "Web app URL for authentication",
-				default: DEFAULT_WEB_URL,
+				default: getDefaultApiBase(),
 			},
 			noBrowser: {
 				kind: "boolean",

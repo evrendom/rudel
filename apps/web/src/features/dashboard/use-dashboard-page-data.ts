@@ -1,4 +1,10 @@
 import { useMemo } from "react";
+import {
+	announceFrontendFixturesEnabled,
+	buildDashboardFixtureData,
+	type FrontendFixtureMember,
+	isFrontendFixturesEnabled,
+} from "@/dev/frontend-fixtures";
 import { useDateRange } from "@/features/analytics/date-range/useDateRange";
 import { useAnalyticsQuery } from "@/features/analytics/queries/useAnalyticsQuery";
 import { buildDashboardPerformanceUsers } from "@/features/dashboard/data/dashboard-performance-adapter";
@@ -11,104 +17,144 @@ import { orpc } from "@/lib/orpc";
 export function useDashboardPageData() {
 	const { meta, state } = useDateRange();
 	const { state: workspaceState } = useOrganization();
+	const useFixtures = isFrontendFixturesEnabled();
+	announceFrontendFixturesEnabled("dashboard");
 	const { data: fullOrganization } = useFullOrganization(
 		workspaceState.activeOrg?.id,
 	);
-	const { data: overviewKpis, isPending: isOverviewKpisPending } =
-		useAnalyticsQuery(
-			orpc.analytics.overview.kpis.queryOptions({
-				input: {
-					startDate: state.startDate,
-					endDate: state.endDate,
-				},
-			}),
-		);
-	const { data: roiDashboard, isPending: isRoiDashboardPending } =
-		useAnalyticsQuery(
-			orpc.analytics.roi.dashboard.queryOptions({
-				input: {
-					startDate: state.startDate,
-					endDate: state.endDate,
-				},
-			}),
-		);
-	const { data: usersTokenUsage, isPending: isUsersTokenUsagePending } =
-		useAnalyticsQuery(
-			orpc.analytics.overview.usersTokenUsage.queryOptions({
-				input: {
-					startDate: state.startDate,
-					endDate: state.endDate,
-				},
-			}),
-		);
-	const { data: modelTokensTrend, isPending: isModelTokensTrendPending } =
-		useAnalyticsQuery(
-			orpc.analytics.overview.modelTokensTrend.queryOptions({
-				input: {
-					startDate: state.startDate,
-					endDate: state.endDate,
-				},
-			}),
-		);
-	const { data: usersDailyTrend, isPending: isUsersDailyTrendPending } =
-		useAnalyticsQuery(
-			orpc.analytics.overview.usersDailyTrend.queryOptions({
-				input: {
-					startDate: state.startDate,
-					endDate: state.endDate,
-				},
-			}),
-		);
-	const {
-		data: repositoriesDailyTrend,
-		isPending: isRepositoriesDailyTrendPending,
-	} = useAnalyticsQuery(
-		orpc.analytics.overview.repositoriesDailyTrend.queryOptions({
+	const fixtureMembers = useMemo<FrontendFixtureMember[]>(
+		() =>
+			(fullOrganization?.members ?? []).map((member) => ({
+				displayName:
+					member.user.name?.trim() ||
+					member.user.email?.trim() ||
+					member.userId,
+				email: member.user.email,
+				imageUrl: member.user.image,
+				userId: member.userId,
+			})),
+		[fullOrganization?.members],
+	);
+	const fixtureData = useMemo(
+		() =>
+			useFixtures
+				? buildDashboardFixtureData({
+						endDate: state.endDate,
+						members: fixtureMembers,
+						startDate: state.startDate,
+					})
+				: null,
+		[fixtureMembers, state.endDate, state.startDate, useFixtures],
+	);
+	const overviewKpisQuery = useAnalyticsQuery({
+		...orpc.analytics.overview.kpis.queryOptions({
 			input: {
 				startDate: state.startDate,
 				endDate: state.endDate,
 			},
 		}),
-	);
-	const { data: errorDashboard, isPending: isErrorDashboardPending } =
-		useAnalyticsQuery(
-			orpc.analytics.errors.dashboard.queryOptions({
-				input: {
-					startDate: state.startDate,
-					endDate: state.endDate,
-				},
-			}),
-		);
-	const { data: errorProjectTrend, isPending: isErrorProjectTrendPending } =
-		useAnalyticsQuery(
-			orpc.analytics.errors.trends.queryOptions({
-				input: {
-					startDate: state.startDate,
-					endDate: state.endDate,
-					splitBy: "project_path",
-				},
-			}),
-		);
-	const { data: errorDeveloperTrend, isPending: isErrorDeveloperTrendPending } =
-		useAnalyticsQuery(
-			orpc.analytics.errors.trends.queryOptions({
-				input: {
-					startDate: state.startDate,
-					endDate: state.endDate,
-					splitBy: "user_id",
-				},
-			}),
-		);
-	const {
-		data: sessionSummaryComparison,
-		isPending: isSessionSummaryComparisonPending,
-	} = useAnalyticsQuery(
-		orpc.analytics.sessions.summaryComparison.queryOptions({
+		enabled: !useFixtures,
+	});
+	const roiDashboardQuery = useAnalyticsQuery({
+		...orpc.analytics.roi.dashboard.queryOptions({
+			input: {
+				startDate: state.startDate,
+				endDate: state.endDate,
+			},
+		}),
+		enabled: !useFixtures,
+	});
+	const usersTokenUsageQuery = useAnalyticsQuery({
+		...orpc.analytics.overview.usersTokenUsage.queryOptions({
+			input: {
+				startDate: state.startDate,
+				endDate: state.endDate,
+			},
+		}),
+		enabled: !useFixtures,
+	});
+	const modelTokensTrendQuery = useAnalyticsQuery({
+		...orpc.analytics.overview.modelTokensTrend.queryOptions({
+			input: {
+				startDate: state.startDate,
+				endDate: state.endDate,
+			},
+		}),
+		enabled: !useFixtures,
+	});
+	const usersDailyTrendQuery = useAnalyticsQuery({
+		...orpc.analytics.overview.usersDailyTrend.queryOptions({
+			input: {
+				startDate: state.startDate,
+				endDate: state.endDate,
+			},
+		}),
+		enabled: !useFixtures,
+	});
+	const repositoriesDailyTrendQuery = useAnalyticsQuery({
+		...orpc.analytics.overview.repositoriesDailyTrend.queryOptions({
+			input: {
+				startDate: state.startDate,
+				endDate: state.endDate,
+			},
+		}),
+		enabled: !useFixtures,
+	});
+	const errorDashboardQuery = useAnalyticsQuery({
+		...orpc.analytics.errors.dashboard.queryOptions({
+			input: {
+				startDate: state.startDate,
+				endDate: state.endDate,
+			},
+		}),
+		enabled: !useFixtures,
+	});
+	const errorProjectTrendQuery = useAnalyticsQuery({
+		...orpc.analytics.errors.trends.queryOptions({
+			input: {
+				startDate: state.startDate,
+				endDate: state.endDate,
+				splitBy: "project_path",
+			},
+		}),
+		enabled: !useFixtures,
+	});
+	const errorDeveloperTrendQuery = useAnalyticsQuery({
+		...orpc.analytics.errors.trends.queryOptions({
+			input: {
+				startDate: state.startDate,
+				endDate: state.endDate,
+				splitBy: "user_id",
+			},
+		}),
+		enabled: !useFixtures,
+	});
+	const sessionSummaryComparisonQuery = useAnalyticsQuery({
+		...orpc.analytics.sessions.summaryComparison.queryOptions({
 			input: {
 				days: meta.dayCount,
 			},
 		}),
-	);
+		enabled: !useFixtures,
+	});
+	const overviewKpis = fixtureData?.overviewKpis ?? overviewKpisQuery.data;
+	const roiDashboard = fixtureData?.roiDashboard ?? roiDashboardQuery.data;
+	const usersTokenUsage =
+		fixtureData?.usersTokenUsage ?? usersTokenUsageQuery.data;
+	const modelTokensTrend =
+		fixtureData?.modelTokensTrend ?? modelTokensTrendQuery.data;
+	const usersDailyTrend =
+		fixtureData?.usersDailyTrend ?? usersDailyTrendQuery.data;
+	const repositoriesDailyTrend =
+		fixtureData?.repositoriesDailyTrend ?? repositoriesDailyTrendQuery.data;
+	const errorDashboard =
+		fixtureData?.errorDashboard ?? errorDashboardQuery.data;
+	const errorProjectTrend =
+		fixtureData?.errorProjectTrend ?? errorProjectTrendQuery.data;
+	const errorDeveloperTrend =
+		fixtureData?.errorDeveloperTrend ?? errorDeveloperTrendQuery.data;
+	const sessionSummaryComparison =
+		fixtureData?.sessionSummaryComparison ?? sessionSummaryComparisonQuery.data;
 	const userImageById = useMemo(
 		() =>
 			new Map(
@@ -157,20 +203,25 @@ export function useDashboardPageData() {
 
 	return {
 		endDate: state.endDate,
-		isDashboardSnapshotPending: isRoiDashboardPending,
+		isDashboardSnapshotPending: !useFixtures && roiDashboardQuery.isPending,
 		isPerformanceChartPending:
-			isUsersTokenUsagePending || isUsersDailyTrendPending,
-		isOverviewKpisPending,
+			!useFixtures &&
+			(usersTokenUsageQuery.isPending || usersDailyTrendQuery.isPending),
+		isOverviewKpisPending: !useFixtures && overviewKpisQuery.isPending,
 		isTokenChartPending:
-			isUsersTokenUsagePending ||
-			isUsersDailyTrendPending ||
-			isModelTokensTrendPending,
-		isSessionSnapshotPending: isSessionSummaryComparisonPending,
-		isRepositoryChartPending: isRepositoriesDailyTrendPending,
+			!useFixtures &&
+			(usersTokenUsageQuery.isPending ||
+				usersDailyTrendQuery.isPending ||
+				modelTokensTrendQuery.isPending),
+		isSessionSnapshotPending:
+			!useFixtures && sessionSummaryComparisonQuery.isPending,
+		isRepositoryChartPending:
+			!useFixtures && repositoriesDailyTrendQuery.isPending,
 		isErrorDashboardPending:
-			isErrorDashboardPending ||
-			isErrorProjectTrendPending ||
-			isErrorDeveloperTrendPending,
+			!useFixtures &&
+			(errorDashboardQuery.isPending ||
+				errorProjectTrendQuery.isPending ||
+				errorDeveloperTrendQuery.isPending),
 		errorDashboard,
 		errorProjectTrend,
 		errorDeveloperTrend,

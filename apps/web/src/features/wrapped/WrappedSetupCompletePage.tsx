@@ -60,6 +60,13 @@ export function WrappedSetupCompletePage(props: WrappedSetupCompletePageProps) {
 			})),
 		[projects, props.reposOverride],
 	);
+	const displayedTotalSessionCount = useMemo(() => {
+		const repoSessionCount = uploadedRepos.reduce(
+			(sum, repo) => sum + repo.sessions,
+			0,
+		);
+		return repoSessionCount > 0 ? repoSessionCount : props.totalSessionCount;
+	}, [props.totalSessionCount, uploadedRepos]);
 	const titleAnimate = isContinuingToStory
 		? reduceMotion
 			? { opacity: 0 }
@@ -246,7 +253,7 @@ export function WrappedSetupCompletePage(props: WrappedSetupCompletePageProps) {
 						isUploadMoreVisible={isUploadMoreVisible}
 						reduceMotion={reduceMotion}
 						repos={uploadedRepos}
-						totalSessionCount={props.totalSessionCount}
+						totalSessionCount={displayedTotalSessionCount}
 					/>
 				}
 				title={

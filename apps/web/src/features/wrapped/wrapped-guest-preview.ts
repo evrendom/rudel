@@ -26,6 +26,7 @@ const WrappedGuestPreviewProfileSchema = z.object({
 });
 
 const WrappedGuestPreviewSnapshotSchema = z.object({
+	cardProfileCompletedUserId: z.string().min(1).optional(),
 	profile: WrappedGuestPreviewProfileSchema,
 	step: WrappedGuestFlowStepSchema,
 });
@@ -34,6 +35,11 @@ export type WrappedGuestFlowStep = z.infer<typeof WrappedGuestFlowStepSchema>;
 export type WrappedGuestPreviewProfile = z.infer<
 	typeof WrappedGuestPreviewProfileSchema
 >;
+export interface WrappedGuestPreviewSnapshot {
+	cardProfileCompletedUserId?: string;
+	profile: WrappedGuestPreviewProfile;
+	step: WrappedGuestFlowStep;
+}
 export interface WrappedGuestPreviewProfileUpdates {
 	displayName?: string;
 	imageUrl?: string | null;
@@ -111,10 +117,7 @@ export function updateWrappedGuestPreviewProfile(input: {
 	};
 }
 
-export function readWrappedGuestPreviewSnapshot(): {
-	profile: WrappedGuestPreviewProfile;
-	step: WrappedGuestFlowStep;
-} | null {
+export function readWrappedGuestPreviewSnapshot(): WrappedGuestPreviewSnapshot | null {
 	if (typeof window === "undefined") {
 		return null;
 	}
@@ -141,10 +144,9 @@ export function readWrappedGuestPreviewSnapshot(): {
 	}
 }
 
-export function writeWrappedGuestPreviewSnapshot(input: {
-	profile: WrappedGuestPreviewProfile;
-	step: WrappedGuestFlowStep;
-}) {
+export function writeWrappedGuestPreviewSnapshot(
+	input: WrappedGuestPreviewSnapshot,
+) {
 	if (typeof window === "undefined") {
 		return;
 	}
@@ -168,6 +170,24 @@ export function clearWrappedGuestPreviewSnapshot() {
 	try {
 		window.sessionStorage.removeItem(WRAPPED_GUEST_PREVIEW_STORAGE_KEY);
 	} catch {}
+}
+
+export function isWrappedCardProfileCompletedForUser(
+	snapshot: WrappedGuestPreviewSnapshot | null,
+	userId: string | null,
+) {
+	return Boolean(userId && snapshot?.cardProfileCompletedUserId === userId);
+}
+
+export function buildWrappedCardProfileCompletedSnapshot(input: {
+	profile: WrappedGuestPreviewProfile;
+	userId: string;
+}): WrappedGuestPreviewSnapshot {
+	return {
+		cardProfileCompletedUserId: input.userId,
+		profile: input.profile,
+		step: "auth",
+	};
 }
 
 function formatWrappedGuestDisplayName(username: string) {

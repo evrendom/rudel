@@ -83,6 +83,11 @@ async function openWrappedLoginForm(user: ReturnType<typeof userEvent.setup>) {
 	expect(await screen.findByText("Wrapped login form")).toBeInTheDocument();
 }
 
+async function openWrappedSignupForm(user: ReturnType<typeof userEvent.setup>) {
+	await user.click(screen.getByRole("button", { name: "Create account" }));
+	expect(await screen.findByText("Wrapped signup form")).toBeInTheDocument();
+}
+
 async function submitWrappedPreviewEmail(
 	user: ReturnType<typeof userEvent.setup>,
 ) {
@@ -251,9 +256,7 @@ describe("WrappedGuestPage", () => {
 			</MemoryRouter>,
 		);
 
-		await user.click(screen.getByRole("button", { name: "Create account" }));
-
-		expect(await screen.findByText("Wrapped signup form")).toBeInTheDocument();
+		await openWrappedSignupForm(user);
 		await waitFor(() => {
 			expect(screen.getAllByText("Unknown Archetype").length).toBeGreaterThan(
 				0,
@@ -277,8 +280,7 @@ describe("WrappedGuestPage", () => {
 			</MemoryRouter>,
 		);
 
-		await user.click(screen.getByRole("button", { name: "Create account" }));
-		expect(await screen.findByText("Wrapped signup form")).toBeInTheDocument();
+		await openWrappedSignupForm(user);
 		await waitFor(() => {
 			expect(
 				screen.getByRole("region", { name: "Wrapped player card preview" }),
