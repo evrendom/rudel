@@ -9,7 +9,7 @@ export type { WrappedCardTiltController } from "./types";
 const POINTER_TILT_ACTIVATION_DISTANCE_PX = 2;
 
 export function useWrappedCardTilt(): WrappedCardTiltController {
-	const cardTiltRef = useRef<HTMLDivElement | null>(null);
+	const cardTiltRef = useRef<HTMLElement | null>(null);
 	const pointerActivationOriginRef = useRef<{
 		x: number;
 		y: number;
@@ -20,7 +20,7 @@ export function useWrappedCardTilt(): WrappedCardTiltController {
 		pointerActiveRef,
 	});
 
-	function handlePointerEnter(event: ReactPointerEvent<HTMLDivElement>) {
+	function handlePointerEnter(event: ReactPointerEvent<HTMLElement>) {
 		if (gyroscope.prefersReducedMotion || event.pointerType !== "mouse") {
 			return;
 		}
@@ -31,7 +31,7 @@ export function useWrappedCardTilt(): WrappedCardTiltController {
 		};
 	}
 
-	function handlePointerMove(event: ReactPointerEvent<HTMLDivElement>) {
+	function handlePointerMove(event: ReactPointerEvent<HTMLElement>) {
 		if (gyroscope.prefersReducedMotion || event.pointerType !== "mouse") {
 			return;
 		}

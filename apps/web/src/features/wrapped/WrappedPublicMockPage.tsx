@@ -1,28 +1,19 @@
-import { LayoutGroup, MotionConfig, motion } from "motion/react";
-import { type CSSProperties, type ReactNode, useState } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { appRoutes } from "@/app/routes";
 import type { TeamPageMemberRow } from "@/features/team/use-team-page-data";
-import {
-	type PreviewableWrappedStepId,
-	WRAPPED_SATURDAY_STEPS,
-} from "@/features/wrapped/onboarding/config";
-import {
-	WrappedOnboardingFooter,
-	WrappedOnboardingHeader,
-} from "@/features/wrapped/onboarding/controls";
 import type { WrappedOnboardingMetrics } from "@/features/wrapped/onboarding/types";
-import {
-	getWrappedArchetypeCardBackgroundValue,
-	WRAPPED_ARCHETYPE_CARD_THEMES,
-} from "@/features/wrapped/team-card/archetypes";
+import { WRAPPED_ARCHETYPE_CARD_THEMES } from "@/features/wrapped/team-card/archetypes";
+import { buildWrappedTeamCardBackMetrics } from "@/features/wrapped/team-card/back-metrics";
 import type {
 	WrappedTeamMemberCardHeaderMetric,
 	WrappedTeamMemberCardStatItem,
 	WrappedTeamMemberCardStatLayerOpacities,
 } from "@/features/wrapped/team-card/card";
-import { WrappedTeamCardRevealStage } from "@/features/wrapped/team-card/final-stages";
-import { useWrappedCardTilt } from "@/features/wrapped/team-card/tilt/use-card-tilt";
+import {
+	WrappedPublicCardAction,
+	WrappedPublicCardScreen,
+} from "@/features/wrapped/WrappedPublicCardScreen";
 import { useMountEffect } from "@/hooks/useMountEffect";
 import "@/features/wrapped/wrapped.css";
 
@@ -110,11 +101,6 @@ const MOCK_PUBLIC_SHARE_STAT_LAYER_OPACITIES = {
 	textureOpacity: 0.76,
 } satisfies WrappedTeamMemberCardStatLayerOpacities;
 
-const MOCK_PUBLIC_SHARE_SHELL_STYLE: WrappedPublicMockCardShellStyle = {
-	"--team-lineup-card-grain-opacity": "0.18",
-	"--team-lineup-card-grain-size": "38px",
-};
-
 const MOCK_PUBLIC_SHARE_ONBOARDING_METRICS = {
 	activeDays: 42,
 	avgSessionMin: 18,
@@ -186,19 +172,22 @@ const MOCK_PUBLIC_SHARE_ONBOARDING_METRICS = {
 	totalTokens: 5_068_300,
 } satisfies WrappedOnboardingMetrics;
 
+const MOCK_PUBLIC_SHARE_BACK_METRICS = buildWrappedTeamCardBackMetrics({
+	onboardingMetrics: MOCK_PUBLIC_SHARE_ONBOARDING_METRICS,
+	row: MOCK_PUBLIC_SHARE_ROW,
+	shareCardCreatedAtLabel: "Apr 28, 2026",
+});
+
+const MOCK_PUBLIC_SHARE_SHELL_STYLE: WrappedPublicMockCardShellStyle = {
+	"--team-lineup-card-grain-opacity": "0.18",
+	"--team-lineup-card-grain-size": "38px",
+};
+
 const MOCK_PUBLIC_SHARE_ARCHETYPE = getMockPublicShareArchetype();
-const MOCK_PUBLIC_SHARE_CARD_STEP = getMockPublicShareCardStep();
-const MOCK_PUBLIC_SHARE_CARD_STEP_INDEX = getMockPublicShareCardStepIndex();
-const MOCK_PUBLIC_SHARE_REWARD_CARD_BACKGROUND =
-	getWrappedArchetypeCardBackgroundValue(MOCK_PUBLIC_SHARE_ARCHETYPE) ??
-	undefined;
 
 export function WrappedPublicMockPage(props: WrappedPublicMockPageProps) {
 	const { debugControls } = props;
 	const navigate = useNavigate();
-	const tiltController = useWrappedCardTilt();
-	const [isRevealSequenceComplete, setIsRevealSequenceComplete] =
-		useState(false);
 
 	useMountEffect(() => {
 		document.body.classList.add("mymind-wrapped-body");
@@ -208,86 +197,32 @@ export function WrappedPublicMockPage(props: WrappedPublicMockPageProps) {
 		};
 	});
 
-	function handleGoToStep(nextStepIndex: number) {
-		const nextStep = WRAPPED_SATURDAY_STEPS[nextStepIndex];
-
-		if (!nextStep) {
-			return;
-		}
-
-		navigate(`/dev/wrapped?stage=story&step=${nextStep.id}`);
-	}
-
 	function handleMakeYours() {
 		navigate(appRoutes.wrappedTeamCard());
 	}
 
 	return (
-		<MotionConfig reducedMotion="user">
-			<LayoutGroup>
-				<main className="mymind-wrapped-route mymind-wrapped-route--onboarding mymind-wrapped-route--step-card">
-					<motion.div
-						layout
-						className="mymind-wrapped-shell mymind-wrapped-shell--reference-top-chrome relative z-[1] mx-auto flex w-full flex-1 flex-col text-foreground"
-					>
-						<motion.div layout className="mymind-wrapped-shell__frame">
-							<WrappedOnboardingHeader
-								activeStep={MOCK_PUBLIC_SHARE_CARD_STEP}
-								activeStepIndex={MOCK_PUBLIC_SHARE_CARD_STEP_INDEX}
-								isStepTransitioning={false}
-								onBack={() => navigate("/dev/wrapped?stage=story")}
-								onGoToStep={handleGoToStep}
-								rewardCardBackground={MOCK_PUBLIC_SHARE_REWARD_CARD_BACKGROUND}
-							/>
-
-							<div className="mymind-wrapped-stage-area">
-								<div className="mymind-wrapped-stage-slot">
-									<div className="flex w-full flex-1">
-										<WrappedTeamCardRevealStage
-											activeArchetype={MOCK_PUBLIC_SHARE_ARCHETYPE}
-											footerActionLabel="Reveal card"
-											headerLeftMetric={MOCK_PUBLIC_SHARE_HEADER_LEFT_METRIC}
-											headerRightMetric={MOCK_PUBLIC_SHARE_HEADER_RIGHT_METRIC}
-											isPreviewPostVisible={isRevealSequenceComplete}
-											onboardingMetrics={MOCK_PUBLIC_SHARE_ONBOARDING_METRICS}
-											onPreviewPost={handleMakeYours}
-											onRevealComplete={() => setIsRevealSequenceComplete(true)}
-											revealedFooterActionLabel="Make yours"
-											row={MOCK_PUBLIC_SHARE_ROW}
-											shareCardCreatedAtLabel="Apr 28, 2026"
-											shellClassName={
-												MOCK_PUBLIC_SHARE_ARCHETYPE.shellClassName
-											}
-											shellStyle={MOCK_PUBLIC_SHARE_SHELL_STYLE}
-											statItems={MOCK_PUBLIC_SHARE_STAT_ITEMS}
-											statLayerOpacities={
-												MOCK_PUBLIC_SHARE_STAT_LAYER_OPACITIES
-											}
-											theme={MOCK_PUBLIC_SHARE_ARCHETYPE.theme}
-											tiltController={tiltController}
-										/>
-									</div>
-								</div>
-							</div>
-
-							<WrappedOnboardingFooter
-								activePreviewOptions={null}
-								activePreviewState="auto"
-								activePreviewStepId={null}
-								activeStep={MOCK_PUBLIC_SHARE_CARD_STEP}
-								finalFooter={false}
-								generalDebugControls={debugControls}
-								isContinueVisible
-								isDebugControlsVisible={Boolean(debugControls)}
-								isStepTransitioning={false}
-								onContinue={handleMakeYours}
-								onPreviewStateChange={handleMockPreviewStateChange}
-							/>
-						</motion.div>
-					</motion.div>
-				</main>
-			</LayoutGroup>
-		</MotionConfig>
+		<WrappedPublicCardScreen
+			action={
+				<WrappedPublicCardAction
+					href={appRoutes.wrappedTeamCard()}
+					onClick={handleMakeYours}
+				>
+					Make yours
+				</WrappedPublicCardAction>
+			}
+			activeArchetype={MOCK_PUBLIC_SHARE_ARCHETYPE}
+			backMetrics={MOCK_PUBLIC_SHARE_BACK_METRICS}
+			debugControls={debugControls}
+			headerLeftMetric={MOCK_PUBLIC_SHARE_HEADER_LEFT_METRIC}
+			headerRightMetric={MOCK_PUBLIC_SHARE_HEADER_RIGHT_METRIC}
+			row={MOCK_PUBLIC_SHARE_ROW}
+			shellClassName={MOCK_PUBLIC_SHARE_ARCHETYPE.shellClassName}
+			shellStyle={MOCK_PUBLIC_SHARE_SHELL_STYLE}
+			statItems={MOCK_PUBLIC_SHARE_STAT_ITEMS}
+			statLayerOpacities={MOCK_PUBLIC_SHARE_STAT_LAYER_OPACITIES}
+			theme={MOCK_PUBLIC_SHARE_ARCHETYPE.theme}
+		/>
 	);
 }
 
@@ -302,32 +237,3 @@ function getMockPublicShareArchetype() {
 
 	return archetype;
 }
-
-function getMockPublicShareCardStep() {
-	const step = WRAPPED_SATURDAY_STEPS.find(
-		(candidate) => candidate.id === "card",
-	);
-
-	if (!step) {
-		throw new Error("Wrapped public mock card step is missing.");
-	}
-
-	return step;
-}
-
-function getMockPublicShareCardStepIndex() {
-	const stepIndex = WRAPPED_SATURDAY_STEPS.findIndex(
-		(candidate) => candidate.id === "card",
-	);
-
-	if (stepIndex < 0) {
-		throw new Error("Wrapped public mock card step index is missing.");
-	}
-
-	return stepIndex;
-}
-
-function handleMockPreviewStateChange(
-	_stepId: PreviewableWrappedStepId,
-	_value: string,
-) {}

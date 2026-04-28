@@ -8,7 +8,7 @@ import type {
 } from "./types";
 
 interface UseWrappedCardGyroscopeParams {
-	cardTiltRef: RefObject<HTMLDivElement | null>;
+	cardTiltRef: RefObject<HTMLElement | null>;
 	pointerActiveRef: MutableRefObject<boolean>;
 }
 
