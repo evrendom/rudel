@@ -25,6 +25,7 @@ interface WrappedModelShareMonth {
 }
 
 interface ModelStageModel {
+	hasSourceComparison: boolean;
 	headline: string;
 	months: readonly WrappedModelShareMonth[];
 	monthsLabel: string;
@@ -219,21 +220,24 @@ export function resolveModelStageModel(input: {
 	const subline =
 		summary.length === 0 && activeMonths.length === 0
 			? "We will chart Claude and Codex once enough history lands."
-			: activeMonths.length === 0
-				? "The full-run split is ready. The month-by-month view needs a little more history."
-				: sourceSplit.isBalanced
-					? "The all-time bar stayed close, and the monthly stacks kept both tools in rotation."
-					: earliestLeader && latestLeader && earliestLeader !== latestLeader
-						? `${earliestLeader} led early, then ${latestLeader} took the latest month.`
-						: overallLeader
-							? `The full-run bar and the monthly stacks both leaned ${overallLeader}.`
-							: "The top bar shows the full-run split. The six stacks show how it moved month to month.";
+			: !sourceSplit.hasSourceComparison && overallLeader
+				? `The full-run bar leaned ${overallLeader}. The month-by-month comparison unlocks once both Claude and Codex have sessions.`
+				: activeMonths.length === 0
+					? "The full-run split is ready. The month-by-month view needs a little more history."
+					: sourceSplit.isBalanced
+						? "The all-time bar stayed close, and the monthly stacks kept both tools in rotation."
+						: earliestLeader && latestLeader && earliestLeader !== latestLeader
+							? `${earliestLeader} led early, then ${latestLeader} took the latest month.`
+							: overallLeader
+								? `The full-run bar and the monthly stacks both leaned ${overallLeader}.`
+								: "The top bar shows the full-run split. The six stacks show how it moved month to month.";
 	const totalSessions = summary.reduce(
 		(sum, segment) => sum + segment.sessionCount,
 		0,
 	);
 
 	return {
+		hasSourceComparison: sourceSplit.hasSourceComparison,
 		headline,
 		months,
 		monthsLabel: `${activeMonths.length} active month${activeMonths.length === 1 ? "" : "s"}`,
@@ -254,6 +258,16 @@ export function formatModelStageSourceLabel(
 
 export function getModelStageTone(source: WrappedSourceSplit["source"]) {
 	return MODEL_STAGE_TONES[source];
+}
+
+export function hasModelStageSourceComparison(
+	sourceSplit: readonly WrappedSourceSplit[],
+) {
+	return MODEL_STAGE_SOURCE_ORDER.every(
+		(source) =>
+			(sourceSplit.find((sourceEntry) => sourceEntry.source === source)
+				?.session_count ?? 0) > 0,
+	);
 }
 
 function buildPreviewMonthlyModelUsage(
@@ -446,6 +460,11 @@ function summarizeModelSourceSplit(
 	return {
 		claudeShare,
 		codexShare,
+		hasSourceComparison: MODEL_STAGE_SOURCE_ORDER.every(
+			(source) =>
+				(summary.find((segment) => segment.source === source)?.sessionCount ??
+					0) > 0,
+		),
 		hasSignal: claudeShare > 0 || codexShare > 0,
 		isBalanced: Math.abs(claudeShare - codexShare) <= 8,
 		leadingLabel: rankedSegments[0]?.label ?? null,

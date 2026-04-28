@@ -12,6 +12,7 @@ import {
 import {
 	formatModelStageSourceLabel,
 	getModelStageTone,
+	hasModelStageSourceComparison,
 	resolveModelPreviewInput,
 	resolveModelStageModel,
 } from "./models/model-mix";
@@ -65,6 +66,7 @@ export {
 	getSkillsScrollableCardStyle,
 	getToolsEntryStyle,
 	getToolsStackHeightRem,
+	hasModelStageSourceComparison,
 	resolveLockInPreviewInput,
 	resolveLockInStageModel,
 	resolveModelPreviewInput,
