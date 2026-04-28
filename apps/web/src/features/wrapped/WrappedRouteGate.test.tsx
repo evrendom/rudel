@@ -86,16 +86,23 @@ vi.mock("@/features/wrapped/WrappedSetupPage", () => ({
 		completedStepIdsOverride,
 		currentStepIdOverride,
 		initialStepId,
+		onBack,
 	}: {
 		completedStepIdsOverride?: readonly CliSetupStepId[];
 		currentStepIdOverride?: CliSetupStepId | null;
 		initialStepId?: CliSetupStepId;
+		onBack?: () => void;
 	}) => {
 		const [searchParams] = useSearchParams();
 
 		return (
 			<div>
 				<div>Wrapped setup page</div>
+				{onBack ? (
+					<button type="button" onClick={onBack}>
+						Back to card setup
+					</button>
+				) : null}
 				<div>Setup flow: {searchParams.get("flow") ?? "none"}</div>
 				<div>Setup initial step: {initialStepId ?? "none"}</div>
 				<div>Setup current step: {currentStepIdOverride ?? "none"}</div>
@@ -272,6 +279,14 @@ describe("WrappedRouteGate", () => {
 
 		expect(screen.getByText("Wrapped setup page")).toBeInTheDocument();
 		expect(screen.getByText("Setup flow: desktop-ready")).toBeInTheDocument();
+		await user.click(
+			screen.getByRole("button", { name: "Back to card setup" }),
+		);
+
+		expect(screen.getByText("Wrapped card profile step")).toBeInTheDocument();
+
+		await user.click(screen.getByRole("button", { name: "Continue profile" }));
+		expect(screen.getByText("Wrapped setup page")).toBeInTheDocument();
 		expect(readWrappedGuestPreviewSnapshot()).toMatchObject({
 			cardProfileCompletedUserId: "user-1",
 			profile: {

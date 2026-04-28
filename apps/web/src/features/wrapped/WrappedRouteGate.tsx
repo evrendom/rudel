@@ -140,8 +140,10 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 		!!session &&
 		sessionUserId !== null &&
 		forcedFlowStage === WRAPPED_ROUTE_CARD_PROFILE_FLOW &&
-		!hasCompletedCardProfile &&
 		activeCardProfile !== null;
+	const shouldBacktrackToCardProfile =
+		forcedFlowStage === WRAPPED_ROUTE_DESKTOP_READY_FLOW &&
+		hasCompletedCardProfile;
 	const hasSeenUploadSetup =
 		sessionUserId === null
 			? false
@@ -351,10 +353,24 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 				hasCompletedCliLogin={
 					cliSetupStatus.hasCliLogin || setupProgress.hasUploadedSessions
 				}
+				onBackToCardProfile={
+					shouldBacktrackToCardProfile
+						? () => setWrappedRouteFlowStage(WRAPPED_ROUTE_CARD_PROFILE_FLOW)
+						: undefined
+				}
 			/>
 		);
 	} else if (shouldShowUploadCompletionStep) {
-		content = <WrappedUploadSetupPage isUploadComplete />;
+		content = (
+			<WrappedUploadSetupPage
+				isUploadComplete
+				onBackToCardProfile={
+					shouldBacktrackToCardProfile
+						? () => setWrappedRouteFlowStage(WRAPPED_ROUTE_CARD_PROFILE_FLOW)
+						: undefined
+				}
+			/>
+		);
 	} else if (
 		sessionUserId &&
 		(shouldForceSessionsLanded ||
@@ -387,6 +403,11 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 		content = (
 			<WrappedUploadSetupPage
 				hasCompletedCliLogin={cliSetupStatus.hasCliLogin}
+				onBackToCardProfile={
+					shouldBacktrackToCardProfile
+						? () => setWrappedRouteFlowStage(WRAPPED_ROUTE_CARD_PROFILE_FLOW)
+						: undefined
+				}
 			/>
 		);
 	}
@@ -471,6 +492,7 @@ function getWrappedSessionProfileUsername(input: {
 function WrappedUploadSetupPage(props: {
 	hasCompletedCliLogin?: boolean;
 	isUploadComplete?: boolean;
+	onBackToCardProfile?: () => void;
 }) {
 	const completedStepIdsOverride = props.isUploadComplete
 		? WRAPPED_SETUP_ALL_COMPLETED_STEP_IDS
@@ -485,8 +507,10 @@ function WrappedUploadSetupPage(props: {
 
 	return (
 		<WrappedSetupPage
+			backLabel="Back to card setup"
 			completedStepIdsOverride={completedStepIdsOverride}
 			currentStepIdOverride={currentStepIdOverride}
+			onBack={props.onBackToCardProfile}
 		/>
 	);
 }

@@ -36,6 +36,7 @@ interface WrappedGuestPreviewCardProps {
 	cardStageRef?: Ref<HTMLDivElement>;
 	enableAppearanceOverlay?: boolean;
 	mediaOverlayContent?: ReactNode;
+	onDisplayNameEditStart?: () => void;
 	profile: WrappedGuestPreviewProfile | null;
 	size?: "hero" | "compact" | "profile";
 }
@@ -49,6 +50,7 @@ export function WrappedGuestPreviewCard(props: WrappedGuestPreviewCardProps) {
 		editableDisplayName,
 		enableAppearanceOverlay = false,
 		mediaOverlayContent,
+		onDisplayNameEditStart,
 		profile,
 		size = "hero",
 	} = props;
@@ -98,6 +100,7 @@ export function WrappedGuestPreviewCard(props: WrappedGuestPreviewCardProps) {
 				aria-label="Name on card"
 				autoComplete="name"
 				className="mymind-wrapped-card-profile-step__name-input"
+				name="wrapped-card-display-name"
 				placeholder={editableDisplayName.placeholder ?? "Your name"}
 				value={editableDisplayName.value}
 				onClick={(event) => event.stopPropagation()}
@@ -132,6 +135,19 @@ export function WrappedGuestPreviewCard(props: WrappedGuestPreviewCardProps) {
 				</button>
 			) : null}
 		</span>
+	) : onDisplayNameEditStart ? (
+		<button
+			type="button"
+			aria-label="Edit name"
+			className="mymind-wrapped-card-profile-step__name-display"
+			onClick={(event) => {
+				event.stopPropagation();
+				onDisplayNameEditStart();
+			}}
+			onPointerDown={(event) => event.stopPropagation()}
+		>
+			{row.displayName}
+		</button>
 	) : null;
 	const printedCardCaptureKey = [
 		row.userId,

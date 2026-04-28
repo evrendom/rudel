@@ -18,18 +18,22 @@ const WRAPPED_SETUP_SUPPORT_PROMPT_STORAGE_KEY =
 	"wrapped:setup-support-prompt-shown";
 
 interface WrappedSetupPageProps {
+	backLabel?: string;
 	completedStepIdsOverride?: readonly CliSetupStepId[];
 	currentStepIdOverride?: CliSetupStepId | null;
 	debugControls?: ReactNode;
 	initialStepId?: CliSetupStepId;
+	onBack?: () => void;
 }
 
 export function WrappedSetupPage(props: WrappedSetupPageProps) {
 	const {
+		backLabel = "Go back",
 		completedStepIdsOverride,
 		currentStepIdOverride,
 		debugControls,
 		initialStepId,
+		onBack,
 	} = props;
 	const lastStepIndex = cliSetupCommands.length - 1;
 	const initialStepIndex = getInitialStepIndex(initialStepId, lastStepIndex);
@@ -54,6 +58,7 @@ export function WrappedSetupPage(props: WrappedSetupPageProps) {
 	return (
 		<MotionConfig reducedMotion="user">
 			<WrappedRouteStageShell
+				backLabel={backLabel}
 				description={
 					<>
 						<p>Start sending sessions to Rudel.</p>
@@ -65,7 +70,8 @@ export function WrappedSetupPage(props: WrappedSetupPageProps) {
 					</>
 				}
 				entrancePreset="setup"
-				leadingControl={null}
+				leadingControl={onBack ? undefined : null}
+				onBack={onBack}
 				progressStepId="desktop-ready"
 				stageClassName="mymind-wrapped-entry-stage--setup"
 				stage={
