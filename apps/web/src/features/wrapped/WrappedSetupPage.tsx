@@ -1,3 +1,4 @@
+import { ArrowRight } from "lucide-react";
 import { MotionConfig } from "motion/react";
 import type { ReactNode } from "react";
 import { useMemo, useState } from "react";
@@ -8,6 +9,7 @@ import {
 } from "@/components/analytics/CliSetupHint";
 import { useMountEffect } from "@/hooks/useMountEffect";
 import { openChatwoot } from "@/lib/chatwoot";
+import { WrappedPrimaryAction } from "./actions";
 import {
 	WrappedDebugControlStack,
 	WrappedRouteStageShell,
@@ -24,6 +26,7 @@ interface WrappedSetupPageProps {
 	debugControls?: ReactNode;
 	initialStepId?: CliSetupStepId;
 	onBack?: () => void;
+	onContinue?: () => void;
 }
 
 export function WrappedSetupPage(props: WrappedSetupPageProps) {
@@ -34,6 +37,7 @@ export function WrappedSetupPage(props: WrappedSetupPageProps) {
 		debugControls,
 		initialStepId,
 		onBack,
+		onContinue,
 	} = props;
 	const lastStepIndex = cliSetupCommands.length - 1;
 	const initialStepIndex = getInitialStepIndex(initialStepId, lastStepIndex);
@@ -53,6 +57,9 @@ export function WrappedSetupPage(props: WrappedSetupPageProps) {
 			? derivedCurrentStepId
 			: currentStepIdOverride;
 	const completedStepIds = completedStepIdsOverride ?? derivedCompletedStepIds;
+	const isSetupComplete = cliSetupCommands.every((step) =>
+		completedStepIds.includes(step.id),
+	);
 	const shouldOfferUploadSupport = currentStepId === "enable-auto-upload";
 
 	return (
@@ -86,6 +93,18 @@ export function WrappedSetupPage(props: WrappedSetupPageProps) {
 					</div>
 				}
 				title="Set up Rudel"
+				footer={
+					onContinue ? (
+						<WrappedPrimaryAction
+							kind="button"
+							disabled={!isSetupComplete}
+							icon={<ArrowRight className="size-4" />}
+							onClick={onContinue}
+						>
+							Continue
+						</WrappedPrimaryAction>
+					) : undefined
+				}
 			/>
 		</MotionConfig>
 	);

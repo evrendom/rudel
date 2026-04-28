@@ -1,4 +1,4 @@
-import { type ReactNode, startTransition, useRef, useState } from "react";
+import { type ReactNode, startTransition, useState } from "react";
 import { useLocation, useSearchParams } from "react-router-dom";
 import { useIsMobile } from "@/app/hooks/use-mobile";
 import {
@@ -67,7 +67,6 @@ const WRAPPED_SETUP_ALL_COMPLETED_STEP_IDS = [
 	WRAPPED_SETUP_AUTH_STEP_ID,
 	WRAPPED_SETUP_UPLOAD_STEP_ID,
 ] as const;
-const WRAPPED_SETUP_UPLOAD_COMPLETE_HOLD_MS = 900;
 
 export function WrappedRouteGate(props: WrappedRouteGateProps) {
 	const { isPending, publicId, session } = props;
@@ -100,25 +99,9 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 		useState<WrappedGuestPreviewProfile | null>(
 			() => guestPreviewSnapshot?.profile ?? null,
 		);
-	const [uploadCompletionShownUserIds, setUploadCompletionShownUserIds] =
-		useState<Record<string, true>>({});
-	const uploadSetupSeenUserIdsRef = useRef<Record<string, true>>({});
-	const uploadCompletionTimeoutRef = useRef<number | null>(null);
 	const forcedFlowStage = getWrappedRouteFlowStage(
 		searchParams.get(WRAPPED_ROUTE_FLOW_QUERY_PARAM),
 	);
-	const shouldRememberUploadSetupSeen =
-		!publicId &&
-		!isPending &&
-		sessionUserId !== null &&
-		!!session &&
-		!setupProgress.hasUploadedSessions &&
-		forcedFlowStage !== WRAPPED_ROUTE_CARD_PROFILE_FLOW &&
-		!(isMobile && sessionUserEmail);
-
-	if (shouldRememberUploadSetupSeen) {
-		uploadSetupSeenUserIdsRef.current[sessionUserId] = true;
-	}
 
 	const hasCompletedSetup =
 		sessionUserId === null
@@ -144,27 +127,10 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 	const shouldBacktrackToCardProfile =
 		forcedFlowStage === WRAPPED_ROUTE_DESKTOP_READY_FLOW &&
 		hasCompletedCardProfile;
-	const hasSeenUploadSetup =
-		sessionUserId === null
-			? false
-			: uploadSetupSeenUserIdsRef.current[sessionUserId] === true;
-	const hasShownUploadCompletion =
-		sessionUserId === null
-			? false
-			: uploadCompletionShownUserIds[sessionUserId] === true;
-	const shouldShowUploadCompletionStep =
-		sessionUserId !== null &&
-		setupProgress.hasUploadedSessions &&
-		!hasCompletedSetup &&
-		(hasSeenUploadSetup ||
-			forcedFlowStage === WRAPPED_ROUTE_DESKTOP_READY_FLOW) &&
-		!hasShownUploadCompletion &&
-		forcedFlowStage !== "story";
 	const shouldForceSessionsLanded =
 		forcedFlowStage === "sessions-landed" && setupProgress.hasUploadedSessions;
 	const shouldForceDesktopReady =
-		forcedFlowStage === WRAPPED_ROUTE_DESKTOP_READY_FLOW &&
-		setupProgress.hasUploadedSessions;
+		forcedFlowStage === WRAPPED_ROUTE_DESKTOP_READY_FLOW;
 	const shouldForceStory =
 		forcedFlowStage === "story" && setupProgress.hasUploadedSessions;
 
@@ -215,6 +181,14 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 		startWrappedStoryFromBeginning();
 	}
 
+	function handleSetupContinue() {
+		if (!setupProgress.hasUploadedSessions) {
+			return;
+		}
+
+		setWrappedRouteFlowStage("sessions-landed");
+	}
+
 	function updateEditableCardProfile(
 		updates: WrappedGuestPreviewProfileUpdates,
 	) {
@@ -249,33 +223,8 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 		document.body.classList.add("mymind-wrapped-body");
 
 		return () => {
-			if (uploadCompletionTimeoutRef.current !== null) {
-				window.clearTimeout(uploadCompletionTimeoutRef.current);
-			}
 			document.body.classList.remove("mymind-wrapped-body");
 		};
-	});
-
-	useEffectOnceWhen({
-		effect: () => {
-			if (!sessionUserId) {
-				return;
-			}
-
-			uploadCompletionTimeoutRef.current = window.setTimeout(() => {
-				uploadCompletionTimeoutRef.current = null;
-				setUploadCompletionShownUserIds((currentState) => ({
-					...currentState,
-					[sessionUserId]: true,
-				}));
-				setWrappedRouteFlowStage("sessions-landed");
-			}, WRAPPED_SETUP_UPLOAD_COMPLETE_HOLD_MS);
-		},
-		isReady: shouldShowUploadCompletionStep,
-		key:
-			sessionUserId === null
-				? null
-				: `${sessionUserId}:wrapped-upload-complete`,
 	});
 
 	useEffectOnceWhen({
@@ -299,24 +248,6 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 			!!shareId &&
 			!setupProgress.isLoading,
 		key: shareId,
-	});
-
-	useEffectOnceWhen({
-		effect: () => {
-			if (forcedFlowStage !== null) {
-				return;
-			}
-
-			setWrappedRouteFlowStage("sessions-landed");
-		},
-		isReady:
-			!publicId &&
-			!isPending &&
-			!!sessionUserId &&
-			setupProgress.hasUploadedSessions &&
-			!hasCompletedSetup &&
-			!shouldShowUploadCompletionStep,
-		key: sessionUserId,
 	});
 
 	let content: ReactNode;
@@ -353,31 +284,16 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 				hasCompletedCliLogin={
 					cliSetupStatus.hasCliLogin || setupProgress.hasUploadedSessions
 				}
+				isUploadComplete={setupProgress.hasUploadedSessions}
 				onBackToCardProfile={
 					shouldBacktrackToCardProfile
 						? () => setWrappedRouteFlowStage(WRAPPED_ROUTE_CARD_PROFILE_FLOW)
 						: undefined
 				}
+				onContinue={handleSetupContinue}
 			/>
 		);
-	} else if (shouldShowUploadCompletionStep) {
-		content = (
-			<WrappedUploadSetupPage
-				isUploadComplete
-				onBackToCardProfile={
-					shouldBacktrackToCardProfile
-						? () => setWrappedRouteFlowStage(WRAPPED_ROUTE_CARD_PROFILE_FLOW)
-						: undefined
-				}
-			/>
-		);
-	} else if (
-		sessionUserId &&
-		(shouldForceSessionsLanded ||
-			(setupProgress.hasUploadedSessions &&
-				sessionUserId &&
-				!hasCompletedSetup))
-	) {
+	} else if (sessionUserId && shouldForceSessionsLanded) {
 		content = (
 			<WrappedSetupCompletePage
 				onBack={() => setWrappedRouteFlowStage("desktop-ready")}
@@ -386,13 +302,20 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 				userId={sessionUserId}
 			/>
 		);
-	} else if (shouldForceStory || setupProgress.hasUploadedSessions) {
+	} else if (
+		shouldForceStory ||
+		(setupProgress.hasUploadedSessions && hasCompletedSetup)
+	) {
 		content = (
 			<WrappedTeamCardPage
 				onBackFromFirstStep={() => setWrappedRouteFlowStage("sessions-landed")}
 			/>
 		);
-	} else if (isMobile && sessionUserEmail) {
+	} else if (
+		isMobile &&
+		sessionUserEmail &&
+		!setupProgress.hasUploadedSessions
+	) {
 		content = (
 			<WrappedDesktopResumePromptPage
 				email={sessionUserEmail}
@@ -402,12 +325,16 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 	} else {
 		content = (
 			<WrappedUploadSetupPage
-				hasCompletedCliLogin={cliSetupStatus.hasCliLogin}
+				hasCompletedCliLogin={
+					cliSetupStatus.hasCliLogin || setupProgress.hasUploadedSessions
+				}
+				isUploadComplete={setupProgress.hasUploadedSessions}
 				onBackToCardProfile={
 					shouldBacktrackToCardProfile
 						? () => setWrappedRouteFlowStage(WRAPPED_ROUTE_CARD_PROFILE_FLOW)
 						: undefined
 				}
+				onContinue={handleSetupContinue}
 			/>
 		);
 	}
@@ -493,6 +420,7 @@ function WrappedUploadSetupPage(props: {
 	hasCompletedCliLogin?: boolean;
 	isUploadComplete?: boolean;
 	onBackToCardProfile?: () => void;
+	onContinue?: () => void;
 }) {
 	const completedStepIdsOverride = props.isUploadComplete
 		? WRAPPED_SETUP_ALL_COMPLETED_STEP_IDS
@@ -511,6 +439,7 @@ function WrappedUploadSetupPage(props: {
 			completedStepIdsOverride={completedStepIdsOverride}
 			currentStepIdOverride={currentStepIdOverride}
 			onBack={props.onBackToCardProfile}
+			onContinue={props.onContinue}
 		/>
 	);
 }

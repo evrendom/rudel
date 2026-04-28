@@ -229,6 +229,46 @@ describe("WrappedSetupPage", () => {
 		).toHaveLength(2);
 	});
 
+	it("keeps continue disabled until both setup steps are complete", async () => {
+		const user = userEvent.setup();
+		const handleContinue = vi.fn();
+
+		render(
+			<MemoryRouter>
+				<WrappedSetupPage onContinue={handleContinue} />
+			</MemoryRouter>,
+		);
+
+		const continueButton = screen.getByRole("button", { name: "Continue" });
+		expect(continueButton).toBeDisabled();
+
+		await user.click(continueButton);
+
+		expect(handleContinue).not.toHaveBeenCalled();
+	});
+
+	it("enables continue once both setup steps are complete", async () => {
+		const user = userEvent.setup();
+		const handleContinue = vi.fn();
+
+		render(
+			<MemoryRouter>
+				<WrappedSetupPage
+					completedStepIdsOverride={["install-and-login", "enable-auto-upload"]}
+					currentStepIdOverride={null}
+					onContinue={handleContinue}
+				/>
+			</MemoryRouter>,
+		);
+
+		const continueButton = screen.getByRole("button", { name: "Continue" });
+		expect(continueButton).toBeEnabled();
+
+		await user.click(continueButton);
+
+		expect(handleContinue).toHaveBeenCalledTimes(1);
+	});
+
 	it("reveals upload support after one minute and opens support chat", () => {
 		vi.useFakeTimers();
 
