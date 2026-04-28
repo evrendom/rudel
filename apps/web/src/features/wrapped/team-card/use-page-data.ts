@@ -43,7 +43,7 @@ interface UseWrappedTeamCardPageDataResult {
 // still marked "needs_truth_cleanup" or "needs_codex_feature_parity" in
 // onboarding/config.ts.
 export function useWrappedTeamCardPageData(): UseWrappedTeamCardPageDataResult {
-	const { accountLabel, handover, session, wrappedData } = useWrappedCardData();
+	const { accountLabel, session, wrappedData } = useWrappedCardData();
 	const { teamMemberRows } = useTeamPageData();
 	const sessionUserId = getSessionUserId(session);
 	const sessionUserName = getSessionUserName(session);
@@ -52,9 +52,9 @@ export function useWrappedTeamCardPageData(): UseWrappedTeamCardPageDataResult {
 		() => readWrappedGuestPreviewSnapshot(),
 		[],
 	);
-	const debugProfileImageSrc =
-		guestPreviewSnapshot?.profile.imageUrl ??
-		handover.preview.profile.avatarSrc;
+	const profileImageSrc = guestPreviewSnapshot
+		? guestPreviewSnapshot.profile.imageUrl
+		: getSessionUserImage(session);
 	const guestPreviewDisplayName = guestPreviewSnapshot?.profile.displayName;
 	const { data: activeMember } = authClient.useActiveMember();
 	const activeMemberUserId = getActiveMemberUserId(activeMember);
@@ -120,9 +120,9 @@ export function useWrappedTeamCardPageData(): UseWrappedTeamCardPageDataResult {
 		() =>
 			buildResolvedTeamCardRow({
 				accountLabel,
-				debugProfileImageSrc,
 				developerDetails: developerDetailsQuery.data,
 				guestPreviewDisplayName,
+				profileImageSrc,
 				sessionUserEmail,
 				sessionUserId: resolvedUserId,
 				sessionUserName,
@@ -131,9 +131,9 @@ export function useWrappedTeamCardPageData(): UseWrappedTeamCardPageDataResult {
 			}),
 		[
 			accountLabel,
-			debugProfileImageSrc,
 			developerDetailsQuery.data,
 			guestPreviewDisplayName,
+			profileImageSrc,
 			sessionUserEmail,
 			resolvedUserId,
 			sessionUserName,
@@ -235,5 +235,16 @@ function getSessionUserEmail(
 		"email" in session.user &&
 		typeof session.user.email === "string"
 		? session.user.email
+		: undefined;
+}
+
+function getSessionUserImage(
+	session: ReturnType<typeof useWrappedCardData>["session"],
+) {
+	return session?.user &&
+		"image" in session.user &&
+		typeof session.user.image === "string" &&
+		session.user.image.trim().length > 0
+		? session.user.image.trim()
 		: undefined;
 }

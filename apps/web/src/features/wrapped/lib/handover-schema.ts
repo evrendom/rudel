@@ -46,7 +46,7 @@ export const WrappedCanvasSchema = z.object({
 });
 
 export const WrappedProfileSchema = z.object({
-	avatarSrc: z.string().min(1),
+	avatarSrc: z.string().min(1).nullable(),
 	fallbackLabel: z.string().min(1),
 });
 
