@@ -1,10 +1,22 @@
 import { HelpCircle, X } from "lucide-react";
+import type { CSSProperties } from "react";
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { useMountEffect } from "@/hooks/useMountEffect";
-import { closeChatwoot, openChatwoot } from "@/lib/chatwoot";
+import {
+	CHATWOOT_CLOSED_EVENT,
+	CHATWOOT_OPENED_EVENT,
+	closeChatwoot,
+	openChatwoot,
+} from "@/lib/chatwoot";
 
-const CHATWOOT_OPENED_EVENT = "chatwoot:opened";
-const CHATWOOT_CLOSED_EVENT = "chatwoot:closed";
+const PERSISTENT_CLOSE_CONTROL_STYLE = {
+	position: "fixed",
+	top: "calc(env(safe-area-inset-top, 0px) + 24px)",
+	right:
+		"var(--wrapped-chatwoot-right-offset, calc(env(safe-area-inset-right, 0px) + 16px))",
+	zIndex: 2_147_483_647,
+} satisfies CSSProperties;
 
 export function WrappedSupportChatwootButton() {
 	const [isChatwootOpen, setIsChatwootOpen] = useState(false);
@@ -29,16 +41,14 @@ export function WrappedSupportChatwootButton() {
 
 	async function handleClick() {
 		if (isChatwootOpen) {
-			setIsChatwootOpen(false);
 			await closeChatwoot();
 			return;
 		}
 
-		setIsChatwootOpen(true);
 		await openChatwoot();
 	}
 
-	return (
+	const control = (
 		<button
 			type="button"
 			aria-label={isChatwootOpen ? "Close support" : "Open support"}
@@ -51,5 +61,32 @@ export function WrappedSupportChatwootButton() {
 				<HelpCircle className="mymind-wrapped-top-tray__edge-icon mymind-wrapped-top-tray__edge-icon--help" />
 			)}
 		</button>
+	);
+
+	if (!isChatwootOpen) {
+		return control;
+	}
+
+	return (
+		<>
+			<span
+				aria-hidden="true"
+				className="mymind-wrapped-top-tray__utility-placeholder"
+			/>
+			{typeof document === "undefined"
+				? null
+				: createPortal(
+						<button
+							type="button"
+							aria-label="Close support"
+							className="mymind-wrapped-top-tray__edge-control"
+							style={PERSISTENT_CLOSE_CONTROL_STYLE}
+							onClick={() => void handleClick()}
+						>
+							<X className="mymind-wrapped-top-tray__edge-icon mymind-wrapped-top-tray__edge-icon--help" />
+						</button>,
+						document.body,
+					)}
+		</>
 	);
 }

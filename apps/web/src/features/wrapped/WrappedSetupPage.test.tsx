@@ -1,8 +1,11 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { WrappedSetupPage } from "@/features/wrapped/WrappedSetupPage";
+
+const CHATWOOT_OPENED_EVENT = "chatwoot:opened";
+const CHATWOOT_CLOSED_EVENT = "chatwoot:closed";
 
 const { mockCloseChatwoot, mockOpenChatwoot, mockSetChatwootBubbleVisibility } =
 	vi.hoisted(() => ({
@@ -12,6 +15,8 @@ const { mockCloseChatwoot, mockOpenChatwoot, mockSetChatwootBubbleVisibility } =
 	}));
 
 vi.mock("@/lib/chatwoot", () => ({
+	CHATWOOT_CLOSED_EVENT: "chatwoot:closed",
+	CHATWOOT_OPENED_EVENT: "chatwoot:opened",
 	closeChatwoot: mockCloseChatwoot,
 	openChatwoot: mockOpenChatwoot,
 	setChatwootBubbleVisibility: mockSetChatwootBubbleVisibility,
@@ -31,12 +36,21 @@ Object.defineProperty(window, "matchMedia", {
 	})),
 });
 
+beforeEach(() => {
+	mockOpenChatwoot.mockImplementation(async () => {
+		window.dispatchEvent(new Event(CHATWOOT_OPENED_EVENT));
+	});
+	mockCloseChatwoot.mockImplementation(async () => {
+		window.dispatchEvent(new Event(CHATWOOT_CLOSED_EVENT));
+	});
+});
+
 afterEach(() => {
 	vi.useRealTimers();
 	window.sessionStorage.clear();
-	mockCloseChatwoot.mockClear();
-	mockOpenChatwoot.mockClear();
-	mockSetChatwootBubbleVisibility.mockClear();
+	mockCloseChatwoot.mockReset();
+	mockOpenChatwoot.mockReset();
+	mockSetChatwootBubbleVisibility.mockReset();
 });
 
 function hasExactTextContent(expectedText: string) {
