@@ -14,7 +14,7 @@ import {
 import type { WrappedCardTiltValues } from "./types";
 
 export function applyTilt(
-	node: HTMLDivElement | null,
+	node: HTMLElement | null,
 	values: WrappedCardTiltValues,
 ) {
 	if (!node) {
@@ -130,7 +130,7 @@ export function applyTilt(
 	);
 }
 
-export function resetTilt(node: HTMLDivElement | null) {
+export function resetTilt(node: HTMLElement | null) {
 	if (!node) {
 		return;
 	}
