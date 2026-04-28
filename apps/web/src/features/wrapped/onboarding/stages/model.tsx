@@ -155,6 +155,7 @@ export function WrappedOnboardingModelStage(props: ModelStageProps) {
 	const shouldReduceMotion = useReducedMotion();
 	const reduceMotion = shouldReduceMotion ?? false;
 	const hasAnimatedData = model.summary.length > 0;
+	const shouldShowHistorySequence = model.hasSourceComparison;
 	const leadingSource = getLeadingModelStageSource(model.summary);
 	const resultHeadline = getModelStageResultHeadline(leadingSource);
 	const splitCards = [
@@ -229,7 +230,7 @@ export function WrappedOnboardingModelStage(props: ModelStageProps) {
 			return;
 		}
 
-		if (!hasAnimatedData) {
+		if (!hasAnimatedData || !shouldShowHistorySequence) {
 			onHistoryRevealComplete?.();
 			return;
 		}
@@ -256,7 +257,13 @@ export function WrappedOnboardingModelStage(props: ModelStageProps) {
 		return () => {
 			clearModelStageSequenceTimers(sequenceTimerRefs);
 		};
-	}, [advanceState, hasAnimatedData, onHistoryRevealComplete, reduceMotion]);
+	}, [
+		advanceState,
+		hasAnimatedData,
+		onHistoryRevealComplete,
+		reduceMotion,
+		shouldShowHistorySequence,
+	]);
 
 	if (!hasAnimatedData) {
 		return (

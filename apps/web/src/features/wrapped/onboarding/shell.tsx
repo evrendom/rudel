@@ -6,7 +6,7 @@ import {
 	useReducedMotion,
 } from "motion/react";
 import type { ReactNode } from "react";
-import { startTransition, useRef, useState } from "react";
+import { startTransition, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useMountEffect } from "@/hooks/useMountEffect";
 import { cn } from "@/lib/utils";
@@ -27,7 +27,11 @@ import {
 	getStepPreviewStateParam,
 	resolveActiveStepIndex,
 } from "./helpers";
-import { resolveScalePreviewTokens } from "./models";
+import {
+	hasModelStageSourceComparison,
+	resolveModelPreviewInput,
+	resolveScalePreviewTokens,
+} from "./models";
 import {
 	WrappedOnboardingScaleRainBackdrop,
 	WrappedOnboardingStage,
@@ -169,6 +173,26 @@ export function WrappedTeamCardOnboarding(
 					activePreviewState,
 				)
 			: 0;
+	const shouldPlayModelHistorySequence = useMemo(() => {
+		if (!isModelStep) {
+			return false;
+		}
+
+		const modelPreviewInput = resolveModelPreviewInput(
+			{
+				modelByMonth: onboardingMetrics.modelByMonth,
+				sourceSplit: onboardingMetrics.sourceSplit,
+			},
+			activePreviewState,
+		);
+
+		return hasModelStageSourceComparison(modelPreviewInput.sourceSplit);
+	}, [
+		activePreviewState,
+		isModelStep,
+		onboardingMetrics.modelByMonth,
+		onboardingMetrics.sourceSplit,
+	]);
 	const effectiveScaleAdvanceState = isScaleStep ? scaleAdvanceState : "idle";
 	const isScaleAdvancePending =
 		effectiveScaleAdvanceState === "spend" ||
@@ -306,6 +330,11 @@ export function WrappedTeamCardOnboarding(
 			}
 
 			if (!isModelComparisonSequenceComplete) {
+				return;
+			}
+
+			if (!shouldPlayModelHistorySequence) {
+				goToStep(nextStepIndex);
 				return;
 			}
 
