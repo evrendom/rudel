@@ -19,11 +19,14 @@ const create = os.wrappedShare.create
 		// system before launch.
 		checkWrappedShareCreateRateLimit(context.user.id);
 
-		return createWrappedShare({
+		const shareOptions = {
 			organizationId: context.organizationId,
 			snapshot: input.snapshot,
 			userId: context.user.id,
-		});
+			...(input.username ? { username: input.username } : {}),
+		};
+
+		return createWrappedShare(shareOptions);
 	});
 
 // Public replay is intentionally anonymous. The only contract is the share id

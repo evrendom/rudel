@@ -18,7 +18,7 @@ export const wrappedHandoverData = WrappedHandoverSchema.parse({
 			cornerRadiusPx: 20,
 		},
 		profile: {
-			avatarSrc: null,
+			avatarSrc: "/logo-light.png",
 			fallbackLabel: "User",
 		},
 		callToActions: [
@@ -26,11 +26,6 @@ export const wrappedHandoverData = WrappedHandoverSchema.parse({
 				id: "share-x",
 				label: "Share on X",
 				kind: "share-x",
-			},
-			{
-				id: "share-linkedin",
-				label: "Share on LinkedIn",
-				kind: "share-linkedin",
 			},
 			{
 				id: "follow-x",

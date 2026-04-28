@@ -1,4 +1,4 @@
-import { HelpCircle, XCircle } from "lucide-react";
+import { HelpCircle, X } from "lucide-react";
 import type { CSSProperties } from "react";
 import { useState } from "react";
 import { createPortal } from "react-dom";
@@ -41,10 +41,12 @@ export function WrappedSupportChatwootButton() {
 
 	async function handleClick() {
 		if (isChatwootOpen) {
+			setIsChatwootOpen(false);
 			await closeChatwoot();
 			return;
 		}
 
+		setIsChatwootOpen(true);
 		await openChatwoot();
 	}
 
@@ -56,7 +58,7 @@ export function WrappedSupportChatwootButton() {
 			onClick={() => void handleClick()}
 		>
 			{isChatwootOpen ? (
-				<XCircle className="mymind-wrapped-top-tray__edge-icon mymind-wrapped-top-tray__edge-icon--help" />
+				<X className="mymind-wrapped-top-tray__edge-icon mymind-wrapped-top-tray__edge-icon--help" />
 			) : (
 				<HelpCircle className="mymind-wrapped-top-tray__edge-icon mymind-wrapped-top-tray__edge-icon--help" />
 			)}
@@ -83,7 +85,7 @@ export function WrappedSupportChatwootButton() {
 							style={PERSISTENT_CLOSE_CONTROL_STYLE}
 							onClick={() => void handleClick()}
 						>
-							<XCircle className="mymind-wrapped-top-tray__edge-icon mymind-wrapped-top-tray__edge-icon--help" />
+							<X className="mymind-wrapped-top-tray__edge-icon mymind-wrapped-top-tray__edge-icon--help" />
 						</button>,
 						document.body,
 					)}

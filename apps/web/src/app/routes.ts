@@ -69,8 +69,8 @@ function getWrappedFlowPath(flow: string, search?: string) {
 	return `${WRAPPED_TEAM_CARD_PATH}?${searchParams.toString()}`;
 }
 
-// Public wrapped pages live at /wrapped/:id in this pass. The id is still the
-// existing UUID-backed share id even though the route shape is changing.
+// Public wrapped pages live at /wrapped/:id. New links use username-style ids,
+// while older UUID ids still resolve because the backend key is plain text.
 export function getWrappedPublicIdFromPath(pathname: string) {
 	const routeMatch = pathname.match(/^\/wrapped\/([^/]+)\/?$/u);
 	const encodedPublicId = routeMatch?.[1];

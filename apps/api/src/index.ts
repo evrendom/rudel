@@ -122,10 +122,15 @@ const STATIC_DIR = join(
 	"..",
 	process.env.STATIC_DIR ?? "public",
 );
-const WRAPPED_PUBLIC_PATH_PATTERN =
-	/^\/wrapped\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\/?$/iu;
-const WRAPPED_SHARE_CARD_IMAGE_PATH_PATTERN =
-	/^\/wrapped\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\/x-card\.png$/iu;
+const WRAPPED_PUBLIC_SHARE_ID_SEGMENT = "([A-Za-z0-9_-]+)";
+const WRAPPED_PUBLIC_PATH_PATTERN = new RegExp(
+	`^/wrapped/${WRAPPED_PUBLIC_SHARE_ID_SEGMENT}/?$`,
+	"u",
+);
+const WRAPPED_SHARE_CARD_IMAGE_PATH_PATTERN = new RegExp(
+	`^/wrapped/${WRAPPED_PUBLIC_SHARE_ID_SEGMENT}/x-card\\.png$`,
+	"u",
+);
 
 function corsHeaders(origin: string | null): Record<string, string> {
 	if (!origin || !trustedOrigins.includes(origin)) return {};

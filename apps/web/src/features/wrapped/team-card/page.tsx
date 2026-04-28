@@ -106,6 +106,7 @@ export function WrappedTeamCardPage(props: {
 		completionUserId,
 		liveArchetype,
 		onboardingMetrics,
+		publicUsername,
 		statItems,
 		visibleTeamCardRow,
 	} = useWrappedTeamCardPageData();
@@ -223,6 +224,7 @@ export function WrappedTeamCardPage(props: {
 			onboardingMetrics={onboardingMetrics}
 			onBackFromFirstStep={onBackFromFirstStep}
 			onContinueToDashboard={handleContinueToDashboard}
+			publicUsername={publicUsername}
 			shareAppearance={resolveWrappedShareAppearance(shareAppearance)}
 			shareCardCreatedAtLabel={shareCardCreatedAtLabel}
 			shellStyle={TEAM_CARD_SHELL_STYLE}
@@ -244,6 +246,7 @@ function WrappedTeamCardPageContent(props: {
 	onboardingMetrics: WrappedOnboardingMetrics;
 	onBackFromFirstStep?: () => void;
 	onContinueToDashboard: () => void;
+	publicUsername: string | undefined;
 	setDevOverrideIndex: (
 		nextValue: number | null | ((currentValue: number | null) => number | null),
 	) => void;
@@ -268,6 +271,7 @@ function WrappedTeamCardPageContent(props: {
 		onboardingMetrics,
 		onBackFromFirstStep,
 		onContinueToDashboard,
+		publicUsername,
 		setDevOverrideIndex,
 		setShareAppearance,
 		shareAppearance,
@@ -364,6 +368,7 @@ function WrappedTeamCardPageContent(props: {
 					utilityName: "shareCreated",
 				});
 			},
+			username: publicUsername,
 		},
 	);
 	// The share action helpers stay presentational from the page's perspective.

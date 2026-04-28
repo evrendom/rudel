@@ -1,11 +1,7 @@
 import { WrappedV1Schema } from "@rudel/api-routes";
 import { z } from "zod";
 
-export const WrappedCallToActionKindSchema = z.enum([
-	"share-x",
-	"share-linkedin",
-	"follow-x",
-]);
+export const WrappedCallToActionKindSchema = z.enum(["share-x", "follow-x"]);
 
 export const WrappedCallToActionSchema = z.object({
 	id: z.string().min(1),
@@ -46,7 +42,7 @@ export const WrappedCanvasSchema = z.object({
 });
 
 export const WrappedProfileSchema = z.object({
-	avatarSrc: z.string().min(1).nullable(),
+	avatarSrc: z.string().min(1),
 	fallbackLabel: z.string().min(1),
 });
 

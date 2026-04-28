@@ -1,9 +1,10 @@
 import { z } from "zod";
+import { WrappedShareIdSchema } from "./wrapped-share.js";
 
 export const CreateWrappedResumeInputSchema = z.object({
 	// shareId is optional because mobile users can also need a desktop handoff
 	// from plain /wrapped, not only from a public wrapped page.
-	shareId: z.string().uuid().nullable().optional(),
+	shareId: WrappedShareIdSchema.nullable().optional(),
 });
 
 export const WrappedResumeRecordSchema = z.object({
@@ -19,7 +20,7 @@ export const ConsumeWrappedResumeInputSchema = z.object({
 
 export const WrappedResumeConsumeResultSchema = z.object({
 	redirect_to: z.string().min(1),
-	share_id: z.string().uuid().nullable(),
+	share_id: WrappedShareIdSchema.nullable(),
 });
 
 export type CreateWrappedResumeInput = z.infer<

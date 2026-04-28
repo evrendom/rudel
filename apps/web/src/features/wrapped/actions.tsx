@@ -38,18 +38,20 @@ export function WrappedPrimaryAction(props: WrappedPrimaryActionProps) {
 		);
 	}
 
+	const {
+		children,
+		className: _className,
+		icon,
+		kind: _kind,
+		type,
+		...buttonProps
+	} = props;
+
 	return (
-		<button
-			type={props.type ?? "button"}
-			disabled={props.disabled}
-			onClick={props.onClick}
-			className={className}
-		>
-			<span>{props.children}</span>
-			{props.icon ? (
-				<span className="mymind-wrapped-primary-action__icon">
-					{props.icon}
-				</span>
+		<button type={type ?? "button"} {...buttonProps} className={className}>
+			<span>{children}</span>
+			{icon ? (
+				<span className="mymind-wrapped-primary-action__icon">{icon}</span>
 			) : null}
 		</button>
 	);

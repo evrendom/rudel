@@ -553,6 +553,14 @@ describe("WrappedTeamCardRevealStage", () => {
 				name: "Avery Chen, you got the Company Card?",
 			}),
 		).toBeInTheDocument();
+		expect(
+			document.querySelector(".mymind-wrapped-final-stage__intro-accent")
+				?.childNodes[0]?.textContent,
+		).toBe("Company Card");
+		expect(
+			document.querySelector(".mymind-wrapped-final-stage__intro-accent")
+				?.nextElementSibling?.textContent,
+		).toBe("?");
 
 		act(() => {
 			vi.advanceTimersByTime(REVEAL_INTRO_READY_MS - 850);
@@ -965,7 +973,7 @@ describe("WrappedTeamCardRevealStage", () => {
 				name: "Avery Chen,",
 			}),
 		).toBeInTheDocument();
-		expect(screen.getByText("Smooth Operator.")).toHaveAttribute(
+		expect(screen.getByText("Smooth Operator")).toHaveAttribute(
 			"data-accent-state",
 			"waiting",
 		);
@@ -982,7 +990,7 @@ describe("WrappedTeamCardRevealStage", () => {
 				name: "Avery Chen, you're a Smooth Operator.",
 			}),
 		).toBeInTheDocument();
-		expect(screen.getByText("Smooth Operator.")).toHaveAttribute(
+		expect(screen.getByText("Smooth Operator")).toHaveAttribute(
 			"data-accent-state",
 			"waiting",
 		);
@@ -991,7 +999,7 @@ describe("WrappedTeamCardRevealStage", () => {
 			vi.advanceTimersByTime(670);
 		});
 
-		expect(screen.getByText("Smooth Operator.")).toHaveAttribute(
+		expect(screen.getByText("Smooth Operator")).toHaveAttribute(
 			"data-accent-state",
 			"active",
 		);
@@ -1202,7 +1210,7 @@ describe("WrappedTeamCardRevealStage", () => {
 		expect(onPreviewPost).toHaveBeenCalledTimes(1);
 	});
 
-	it("keeps the footer action as continue after the user has revealed the front", () => {
+	it("flips a user-turned back card to the front before sharing", () => {
 		vi.useFakeTimers();
 		const onPreviewPost = vi.fn();
 
@@ -1305,6 +1313,23 @@ describe("WrappedTeamCardRevealStage", () => {
 		);
 
 		expect(onPreviewPost).not.toHaveBeenCalled();
+		expect(
+			screen.getByRole("button", {
+				name: "Show back of card",
+			}),
+		).toHaveAttribute("data-card-face", "front");
+
+		act(() => {
+			vi.advanceTimersByTime(REVEAL_CARD_FLIP_DURATION_MS - 1);
+		});
+
+		expect(onPreviewPost).not.toHaveBeenCalled();
+
+		act(() => {
+			vi.advanceTimersByTime(1);
+		});
+
+		expect(onPreviewPost).not.toHaveBeenCalled();
 
 		act(() => {
 			vi.advanceTimersByTime(REVEAL_EXIT_TO_SHARE_MS);
@@ -1315,7 +1340,7 @@ describe("WrappedTeamCardRevealStage", () => {
 });
 
 describe("WrappedTeamCardPublicStage", () => {
-	it("starts on the public front and lets the viewer flip to the back", () => {
+	it("asks the viewer to turn around before showing the make yours action", () => {
 		vi.useFakeTimers();
 		const activeArchetype = {
 			displayLabel: "Smooth Operator",
@@ -1368,7 +1393,22 @@ describe("WrappedTeamCardPublicStage", () => {
 		});
 		expect(showBackButton).toHaveAttribute("data-card-face", "front");
 
-		fireEvent.click(showBackButton);
+		expect(
+			screen.getByRole("button", {
+				name: "Turn around",
+			}),
+		).toBeEnabled();
+		expect(
+			screen.queryByRole("button", {
+				name: "Make yours",
+			}),
+		).not.toBeInTheDocument();
+
+		fireEvent.click(
+			screen.getByRole("button", {
+				name: "Turn around",
+			}),
+		);
 
 		expect(tiltController.handlePointerLeave).toHaveBeenCalledTimes(1);
 		expect(
@@ -1376,6 +1416,11 @@ describe("WrappedTeamCardPublicStage", () => {
 				name: "Show front of card",
 			}),
 		).toHaveAttribute("data-card-face", "back");
+		expect(
+			screen.getByRole("button", {
+				name: "Turn around",
+			}),
+		).toBeDisabled();
 
 		act(() => {
 			vi.advanceTimersByTime(REVEAL_CARD_FLIP_DURATION_MS);
@@ -1384,6 +1429,38 @@ describe("WrappedTeamCardPublicStage", () => {
 		expect(
 			screen.getByRole("button", {
 				name: "Show front of card",
+			}),
+		).toBeEnabled();
+		expect(
+			screen.getByRole("button", {
+				name: "Make yours",
+			}),
+		).toBeEnabled();
+
+		fireEvent.click(
+			screen.getByRole("button", {
+				name: "Show front of card",
+			}),
+		);
+
+		expect(
+			screen.queryByRole("button", {
+				name: "Turn around",
+			}),
+		).not.toBeInTheDocument();
+		expect(
+			screen.getByRole("button", {
+				name: "Make yours",
+			}),
+		).toBeEnabled();
+
+		act(() => {
+			vi.advanceTimersByTime(REVEAL_CARD_FLIP_DURATION_MS);
+		});
+
+		expect(
+			screen.getByRole("button", {
+				name: "Make yours",
 			}),
 		).toBeEnabled();
 	});
