@@ -347,6 +347,54 @@ describe("WrappedTeamCardShareStage", () => {
 		expect(downloadButton).toHaveAttribute("aria-busy", "true");
 		expect(downloadButton.querySelector(".animate-spin")).not.toBeNull();
 	});
+
+	it("shows a spinner in the X share button while copy is pending", () => {
+		render(
+			<WrappedTeamCardShareStage
+				appearance={{ layoutMode: "front_back", showArchetypeLabel: true }}
+				backMetrics={buildWrappedTeamCardBackMetrics({
+					onboardingMetrics,
+					row,
+					shareCardCreatedAtLabel: "04/24/2026",
+				})}
+				headerLeftMetric={{ title: "$42 estimated spend", value: "$42" }}
+				headerRightMetric={{
+					title: "Smooth Operator",
+					value: "Smooth Operator",
+				}}
+				isSharePending
+				onAppearanceChange={vi.fn()}
+				onBack={vi.fn()}
+				onContinueToDashboard={vi.fn()}
+				onCopy={vi.fn()}
+				onDownload={vi.fn()}
+				onShare={vi.fn()}
+				row={row}
+				shareCardCreatedAtLabel="04/24/2026"
+				sharePostRef={{ current: null }}
+				shellClassName="bg-sky-200"
+				shellStyle={{}}
+				statItems={[]}
+				statLayerOpacities={{
+					rainbowShineOpacity: 0.3,
+					textureOpacity: 1,
+					tileBorderOpacity: 1,
+					tileFillOpacity: 0.08,
+					tileInsetShadowOpacity: 0.5,
+					tileTopStrokeOpacity: 0.08,
+				}}
+				theme="light"
+			/>,
+		);
+
+		const shareButton = screen.getByRole("button", {
+			name: "Copying image...",
+		});
+
+		expect(shareButton).toBeDisabled();
+		expect(shareButton).toHaveAttribute("aria-busy", "true");
+		expect(shareButton.querySelector(".animate-spin")).not.toBeNull();
+	});
 });
 
 describe("WrappedTeamCardRevealStage", () => {
@@ -587,6 +635,16 @@ describe("WrappedTeamCardRevealStage", () => {
 				name: "Show front of card",
 			}),
 		).toHaveAttribute("data-card-face", "back");
+		expect(
+			screen.getByRole("heading", {
+				name: "Avery Chen, you're a Smooth Operator",
+			}),
+		).toBeInTheDocument();
+		expect(
+			screen.getByText(
+				"For the steady hand who keeps the machine moving without asking for attention on every pass.",
+			),
+		).toBeInTheDocument();
 	});
 
 	it("uses the footer action to turn the card around before continuing", () => {
