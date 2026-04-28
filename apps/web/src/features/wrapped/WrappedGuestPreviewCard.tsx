@@ -278,7 +278,9 @@ export function WrappedGuestPreviewCard(props: WrappedGuestPreviewCardProps) {
 				className="team-lineup-card-tilt-stage mymind-wrapped-auth-card-preview__tilt-stage"
 			>
 				<div
-					ref={tiltController.cardTiltRef}
+					ref={(node) => {
+						tiltController.cardTiltRef.current = node;
+					}}
 					className="team-lineup-card-tilt-shell mymind-wrapped-auth-card-preview__tilt mymind-wrapped-final-stage__tilt-shell"
 					data-flip-active={isCardFlipAnimating ? "true" : "false"}
 					onPointerMove={(event) => {

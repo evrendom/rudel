@@ -5,6 +5,7 @@ import type { WrappedOnboardingMetrics } from "@/features/wrapped/onboarding/typ
 import { WRAPPED_ARCHETYPE_CARD_THEMES } from "@/features/wrapped/team-card/archetypes";
 import { buildWrappedTeamCardBackMetrics } from "@/features/wrapped/team-card/back-metrics";
 import {
+	WrappedTeamCardPublicStage,
 	WrappedTeamCardRevealStage,
 	WrappedTeamCardShareStage,
 } from "@/features/wrapped/team-card/final-stages";
@@ -182,6 +183,7 @@ function finishRevealCardDrop() {
 }
 
 afterEach(() => {
+	vi.clearAllMocks();
 	vi.clearAllTimers();
 	vi.useRealTimers();
 });
@@ -548,7 +550,7 @@ describe("WrappedTeamCardRevealStage", () => {
 
 		expect(tiltController.handlePointerLeave).toHaveBeenCalledTimes(1);
 		const revealedButton = screen.getByRole("button", {
-			name: "Card revealed",
+			name: "Show back of card",
 		});
 		expect(revealedButton).toHaveAttribute("data-card-face", "front");
 		expect(revealedButton).toBeDisabled();
@@ -557,6 +559,11 @@ describe("WrappedTeamCardRevealStage", () => {
 			vi.advanceTimersByTime(REVEAL_CARD_FLIP_DURATION_MS);
 		});
 
+		expect(
+			screen.getByRole("button", {
+				name: "Show back of card",
+			}),
+		).toBeEnabled();
 		expect(
 			screen.getByRole("heading", {
 				name: "Avery Chen, you're a Smooth Operator",
@@ -567,6 +574,19 @@ describe("WrappedTeamCardRevealStage", () => {
 				"For the steady hand who keeps the machine moving without asking for attention on every pass.",
 			),
 		).toBeInTheDocument();
+
+		fireEvent.click(
+			screen.getByRole("button", {
+				name: "Show back of card",
+			}),
+		);
+
+		expect(tiltController.handlePointerLeave).toHaveBeenCalledTimes(2);
+		expect(
+			screen.getByRole("button", {
+				name: "Show front of card",
+			}),
+		).toHaveAttribute("data-card-face", "back");
 	});
 
 	it("uses the footer action to turn the card around before continuing", () => {
@@ -625,7 +645,7 @@ describe("WrappedTeamCardRevealStage", () => {
 		expect(onPreviewPost).not.toHaveBeenCalled();
 		expect(
 			screen.getByRole("button", {
-				name: "Card revealed",
+				name: "Show back of card",
 			}),
 		).toHaveAttribute("data-card-face", "front");
 
@@ -715,14 +735,9 @@ describe("WrappedTeamCardRevealStage", () => {
 
 		expect(
 			screen.getByRole("button", {
-				name: "Card revealed",
-			}),
-		).toBeDisabled();
-		expect(
-			screen.queryByRole("button", {
 				name: "Show back of card",
 			}),
-		).not.toBeInTheDocument();
+		).toBeEnabled();
 		expect(
 			screen.getByRole("button", {
 				name: "Continue",
@@ -733,6 +748,22 @@ describe("WrappedTeamCardRevealStage", () => {
 				name: "Turn around",
 			}),
 		).not.toBeInTheDocument();
+
+		fireEvent.click(
+			screen.getByRole("button", {
+				name: "Show back of card",
+			}),
+		);
+
+		expect(
+			screen.getByRole("button", {
+				name: "Show front of card",
+			}),
+		).toHaveAttribute("data-card-face", "back");
+
+		act(() => {
+			vi.advanceTimersByTime(REVEAL_CARD_FLIP_DURATION_MS);
+		});
 
 		fireEvent.click(
 			screen.getByRole("button", {
@@ -747,5 +778,80 @@ describe("WrappedTeamCardRevealStage", () => {
 		});
 
 		expect(onPreviewPost).toHaveBeenCalledTimes(1);
+	});
+});
+
+describe("WrappedTeamCardPublicStage", () => {
+	it("starts on the public front and lets the viewer flip to the back", () => {
+		vi.useFakeTimers();
+		const activeArchetype = {
+			displayLabel: "Smooth Operator",
+			id: "smooth_operator",
+			kind: "taxonomy",
+			classifierKey: "smooth_operator",
+			shellClassName: "bg-sky-200",
+			theme: "light",
+		} as const;
+
+		render(
+			<WrappedTeamCardPublicStage
+				action={<button type="button">Make yours</button>}
+				activeArchetype={activeArchetype}
+				backMetrics={buildWrappedTeamCardBackMetrics({
+					onboardingMetrics,
+					row,
+					shareCardCreatedAtLabel: "04/24/2026",
+				})}
+				headerLeftMetric={{ title: "$42 estimated spend", value: "$42" }}
+				headerRightMetric={{
+					title: "Smooth Operator",
+					value: "Smooth Operator",
+				}}
+				row={row}
+				shellClassName="bg-sky-200"
+				shellStyle={{}}
+				statItems={[]}
+				statLayerOpacities={{
+					rainbowShineOpacity: 0.3,
+					textureOpacity: 1,
+					tileBorderOpacity: 1,
+					tileFillOpacity: 0.08,
+					tileInsetShadowOpacity: 0.5,
+					tileTopStrokeOpacity: 0.08,
+				}}
+				theme="light"
+				tiltController={tiltController}
+			/>,
+		);
+
+		expect(
+			screen.getByRole("heading", {
+				name: "Avery Chen is a Smooth Operator",
+			}),
+		).toBeInTheDocument();
+
+		const showBackButton = screen.getByRole("button", {
+			name: "Show back of card",
+		});
+		expect(showBackButton).toHaveAttribute("data-card-face", "front");
+
+		fireEvent.click(showBackButton);
+
+		expect(tiltController.handlePointerLeave).toHaveBeenCalledTimes(1);
+		expect(
+			screen.getByRole("button", {
+				name: "Show front of card",
+			}),
+		).toHaveAttribute("data-card-face", "back");
+
+		act(() => {
+			vi.advanceTimersByTime(REVEAL_CARD_FLIP_DURATION_MS);
+		});
+
+		expect(
+			screen.getByRole("button", {
+				name: "Show front of card",
+			}),
+		).toBeEnabled();
 	});
 });

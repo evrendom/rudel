@@ -4,9 +4,15 @@ import { appRoutes } from "@/app/routes";
 import { buttonVariants } from "@/app/ui/button";
 import { useAnalyticsTracking } from "@/features/analytics/tracking/useAnalyticsTracking";
 import { getSessionUserId } from "@/features/auth/auth-route-utils";
+import {
+	WRAPPED_ARCHETYPE_CARD_THEMES,
+	type WrappedArchetypeCardTheme,
+} from "@/features/wrapped/team-card/archetypes";
 import { getWrappedShareSafeImageUrl } from "@/features/wrapped/team-card/share-media";
-import { WrappedTeamCardSharePreview } from "@/features/wrapped/team-card/share-preview";
-import { formatShareCardCreatedAt } from "@/features/wrapped/team-card/utils";
+import {
+	WrappedPublicCardAction,
+	WrappedPublicCardScreen,
+} from "@/features/wrapped/WrappedPublicCardScreen";
 import { useEffectOnceWhen } from "@/hooks/useEffectOnceWhen";
 import { useMountEffect } from "@/hooks/useMountEffect";
 import { authClient } from "@/lib/auth-client";
@@ -111,58 +117,29 @@ function PublicShareReadyState(props: {
 	share: PublicWrappedShare;
 }) {
 	const { makeYoursHref, onMakeYoursClick, share } = props;
-	const shareDateLabel = formatShareDateLabel(share.created_at);
+	const activeArchetype = getPublicPageArchetype(share);
 	const publicRow = buildPublicPageRow(share.snapshot.row);
 
 	return (
-		<section className="min-h-screen bg-[#f8f4ef] text-[#22201f]">
-			<div className="mx-auto flex min-h-screen w-full max-w-[28rem] flex-col items-center justify-center px-6 py-10 text-center">
-				<p className="text-[0.72rem] font-semibold uppercase tracking-[0.28em] text-[#8f887f]">
-					Rudel Wrapped
-				</p>
-				<h1 className="mt-3 max-w-[12ch] text-balance font-[var(--app-font-heading)] text-[2.5rem] font-semibold tracking-[-0.07em] text-[#22201f]">
-					{share.snapshot.row.displayName}&apos;s card
-				</h1>
-				<p className="mt-3 max-w-[28ch] text-pretty text-sm leading-6 text-[#6c6761]">
-					{share.snapshot.archetypeLabel} is the theme they picked for this
-					card. Make your own from your uploaded Rudel history.
-				</p>
-
-				<div className="team-lineup-surface-scope mt-8 w-full">
-					<div className="grid justify-center">
-						<WrappedTeamCardSharePreview
-							appearance={share.snapshot.appearance}
-							backMetrics={share.snapshot.backMetrics}
-							headerLeftMetric={share.snapshot.headerLeftMetric}
-							headerRightMetric={share.snapshot.headerRightMetric}
-							row={publicRow}
-							shareCardCreatedAtLabel={shareDateLabel}
-							shellClassName={share.snapshot.shellClassName}
-							shellStyle={PUBLIC_SHARE_CARD_SHELL_STYLE}
-							statItems={share.snapshot.statItems}
-							theme={share.snapshot.theme}
-						/>
-					</div>
-				</div>
-
-				<p className="mt-5 text-[0.75rem] font-medium tracking-[-0.02em] text-[#7b746d]">
-					Shared {shareDateLabel}
-				</p>
-
-				<div className="mt-8 flex w-full flex-col gap-3">
-					<a
-						className={cn(
-							buttonVariants({ size: "lg" }),
-							"min-h-11 rounded-full bg-[#4f7cff] text-white shadow-[0_16px_28px_rgba(79,124,255,0.24)] hover:bg-[#4472f4]",
-						)}
-						href={makeYoursHref}
-						onClick={onMakeYoursClick}
-					>
-						Make yours
-					</a>
-				</div>
-			</div>
-		</section>
+		<WrappedPublicCardScreen
+			action={
+				<WrappedPublicCardAction
+					href={makeYoursHref}
+					onClick={onMakeYoursClick}
+				>
+					Make yours
+				</WrappedPublicCardAction>
+			}
+			activeArchetype={activeArchetype}
+			backMetrics={share.snapshot.backMetrics ?? []}
+			headerLeftMetric={share.snapshot.headerLeftMetric}
+			headerRightMetric={share.snapshot.headerRightMetric}
+			row={publicRow}
+			shellClassName={share.snapshot.shellClassName}
+			shellStyle={PUBLIC_SHARE_CARD_SHELL_STYLE}
+			statItems={share.snapshot.statItems}
+			theme={share.snapshot.theme}
+		/>
 	);
 }
 
@@ -232,14 +209,21 @@ function buildPublicPageRow(row: WrappedShareRow) {
 	};
 }
 
-// Shared cards store raw ISO timestamps. The public page formats them here so
-// the persistence layer stays neutral and UI-friendly wording lives at the edge.
-function formatShareDateLabel(createdAt: string) {
-	const parsedDate = new Date(createdAt);
+function getPublicPageArchetype(share: PublicWrappedShare) {
+	const existingArchetype = WRAPPED_ARCHETYPE_CARD_THEMES.find(
+		(candidate) => candidate.displayLabel === share.snapshot.archetypeLabel,
+	);
 
-	if (Number.isNaN(parsedDate.getTime())) {
-		return createdAt;
+	if (existingArchetype) {
+		return existingArchetype;
 	}
 
-	return formatShareCardCreatedAt(parsedDate);
+	return {
+		classifierKey: undefined,
+		displayLabel: share.snapshot.archetypeLabel,
+		id: "public-share-snapshot",
+		kind: "special_edition",
+		shellClassName: share.snapshot.shellClassName,
+		theme: share.snapshot.theme,
+	} satisfies WrappedArchetypeCardTheme;
 }

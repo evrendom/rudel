@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { WrappedPublicPage } from "@/features/wrapped/WrappedPublicPage";
 
@@ -25,8 +26,34 @@ vi.mock("@/features/analytics/tracking/useAnalyticsTracking", () => ({
 	}),
 }));
 
-vi.mock("@/features/wrapped/team-card/share-preview", () => ({
-	WrappedTeamCardSharePreview: () => <div>Wrapped share card</div>,
+vi.mock("@/features/wrapped/WrappedPublicCardScreen", () => ({
+	WrappedPublicCardAction: ({
+		children,
+		href,
+		onClick,
+	}: {
+		children: ReactNode;
+		href: string;
+		onClick?: () => void;
+	}) => (
+		<a href={href} onClick={onClick}>
+			{children}
+		</a>
+	),
+	WrappedPublicCardScreen: ({
+		action,
+		activeArchetype,
+		row,
+	}: {
+		action: ReactNode;
+		activeArchetype: { displayLabel: string };
+		row: { displayName: string };
+	}) => (
+		<div>
+			<h1>{`${row.displayName} is a ${activeArchetype.displayLabel}`}</h1>
+			{action}
+		</div>
+	),
 }));
 
 describe("WrappedPublicPage", () => {
@@ -43,6 +70,7 @@ describe("WrappedPublicPage", () => {
 				id: "11111111-1111-4111-8111-111111111111",
 				snapshot: {
 					archetypeLabel: "Calm operator",
+					backMetrics: [],
 					headerLeftMetric: { label: "Sessions", value: "12" },
 					headerRightMetric: { label: "Days", value: "6" },
 					row: {
@@ -72,7 +100,7 @@ describe("WrappedPublicPage", () => {
 	it("routes make yours into /wrapped with the share_id attribution", () => {
 		render(<WrappedPublicPage publicId="share-123" />);
 
-		expect(screen.getByText("Wrapped share card")).toBeInTheDocument();
+		expect(screen.getByText("Ada is a Calm operator")).toBeInTheDocument();
 		expect(screen.getByRole("link", { name: "Make yours" })).toHaveAttribute(
 			"href",
 			"/wrapped?share_id=share-123",
