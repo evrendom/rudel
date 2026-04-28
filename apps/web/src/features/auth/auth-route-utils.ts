@@ -164,6 +164,21 @@ export function getSocialSignupRedirectOptions(
 	};
 }
 
+export function getSocialLoginRedirectOptions(
+	pathname = window.location.pathname,
+	search = window.location.search,
+): {
+	callbackURL: string;
+	newUserCallbackURL?: string;
+} {
+	return {
+		callbackURL: getAuthCallbackURL(pathname, search),
+		newUserCallbackURL:
+			getDirectAuthDestination(pathname, search, "card-profile") ??
+			appRoutes.wrappedCardProfile(),
+	};
+}
+
 function getWrappedAuthRedirectRoute(
 	flow: WrappedAuthRedirectFlow,
 	search: string,

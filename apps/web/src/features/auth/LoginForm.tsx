@@ -11,8 +11,8 @@ import { cn } from "@/lib/utils";
 import { navigateToDestination } from "./auth-navigation";
 import {
 	clearPendingSignupRedirect,
-	getAuthCallbackURL,
 	getEmailLoginSuccessDestination,
+	getSocialLoginRedirectOptions,
 } from "./auth-route-utils";
 import {
 	recordOAuthRedirectResult,
@@ -191,15 +191,17 @@ export function LoginForm(props: LoginFormProps) {
 			sourceComponent: "login_form",
 			authMethod: provider,
 		});
-		const callbackURL = getAuthCallbackURL();
+		const { callbackURL, newUserCallbackURL } = getSocialLoginRedirectOptions();
 		recordOAuthRedirectStart({
 			callbackURL,
+			newUserCallbackURL,
 			provider,
 			source: "login_form",
 		});
 		const { error } = await authClient.signIn.social({
 			provider,
 			callbackURL,
+			newUserCallbackURL,
 		});
 		recordOAuthRedirectResult({
 			errorMessage: error?.message,
