@@ -1,7 +1,8 @@
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, useSearchParams } from "react-router-dom";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { CliSetupStepId } from "@/components/analytics/CliSetupHint";
 import type { AppSession } from "@/features/auth/auth-route-utils";
 import { WrappedRouteGate } from "@/features/wrapped/WrappedRouteGate";
 import { getWrappedSetupCompletionStorageKey } from "@/features/wrapped/wrapped-setup-state";
@@ -44,7 +45,24 @@ vi.mock("@/features/wrapped/WrappedDesktopResumePromptPage", () => ({
 }));
 
 vi.mock("@/features/wrapped/WrappedSetupPage", () => ({
-	WrappedSetupPage: () => <div>Wrapped setup page</div>,
+	WrappedSetupPage: ({
+		completedStepIdsOverride,
+		currentStepIdOverride,
+		initialStepId,
+	}: {
+		completedStepIdsOverride?: readonly CliSetupStepId[];
+		currentStepIdOverride?: CliSetupStepId | null;
+		initialStepId?: CliSetupStepId;
+	}) => (
+		<div>
+			<div>Wrapped setup page</div>
+			<div>Setup initial step: {initialStepId ?? "none"}</div>
+			<div>Setup current step: {currentStepIdOverride ?? "none"}</div>
+			<div>
+				Setup completed steps: {completedStepIdsOverride?.join(",") ?? "none"}
+			</div>
+		</div>
+	),
 }));
 
 vi.mock("@/features/wrapped/WrappedSetupCompletePage", () => ({
@@ -124,6 +142,10 @@ describe("WrappedRouteGate", () => {
 		});
 	});
 
+	afterEach(() => {
+		vi.useRealTimers();
+	});
+
 	it("renders the public page before auth branching when a public id exists", () => {
 		render(
 			<MemoryRouter initialEntries={["/wrapped/share-123"]}>
@@ -185,9 +207,15 @@ describe("WrappedRouteGate", () => {
 		);
 
 		expect(screen.getByText("Wrapped setup page")).toBeInTheDocument();
+		expect(
+			screen.getByText("Setup current step: enable-auto-upload"),
+		).toBeInTheDocument();
+		expect(
+			screen.getByText("Setup completed steps: install-and-login"),
+		).toBeInTheDocument();
 	});
 
-	it("shows a checking state while uploaded sessions are still being checked", () => {
+	it("keeps showing setup while uploaded sessions are still being checked", () => {
 		mockUseSetupProgress.mockReturnValue({
 			hasUploadedSessions: false,
 			isLoading: true,
@@ -200,11 +228,12 @@ describe("WrappedRouteGate", () => {
 			</MemoryRouter>,
 		);
 
-		expect(screen.getByText("Checking your sessions")).toBeInTheDocument();
+		expect(screen.getByText("Wrapped setup page")).toBeInTheDocument();
 		expect(
-			screen.getByText(
-				"Looking for uploaded sessions and any in-flight desktop handoff.",
-			),
+			screen.getByText("Setup current step: enable-auto-upload"),
+		).toBeInTheDocument();
+		expect(
+			screen.getByText("Setup completed steps: install-and-login"),
 		).toBeInTheDocument();
 	});
 
@@ -220,6 +249,55 @@ describe("WrappedRouteGate", () => {
 				<WrappedRouteGate isPending={false} publicId={null} session={session} />
 			</MemoryRouter>,
 		);
+
+		expect(screen.getByText("Wrapped setup complete page")).toBeInTheDocument();
+	});
+
+	it("briefly marks upload complete before showing uploaded sessions when sessions land during setup", async () => {
+		vi.useFakeTimers();
+		mockUseSetupProgress.mockReturnValue({
+			hasUploadedSessions: false,
+			isLoading: false,
+			totalSessionCount: 0,
+		});
+
+		const { rerender } = render(
+			<MemoryRouter initialEntries={["/wrapped?flow=sessions-landed"]}>
+				<WrappedRouteGate isPending={false} publicId={null} session={session} />
+			</MemoryRouter>,
+		);
+
+		expect(screen.getByText("Wrapped setup page")).toBeInTheDocument();
+		expect(
+			screen.getByText("Setup current step: enable-auto-upload"),
+		).toBeInTheDocument();
+		expect(
+			screen.getByText("Setup completed steps: install-and-login"),
+		).toBeInTheDocument();
+
+		mockUseSetupProgress.mockReturnValue({
+			hasUploadedSessions: true,
+			isLoading: false,
+			totalSessionCount: 1,
+		});
+
+		rerender(
+			<MemoryRouter initialEntries={["/wrapped?flow=sessions-landed"]}>
+				<WrappedRouteGate isPending={false} publicId={null} session={session} />
+			</MemoryRouter>,
+		);
+
+		expect(screen.getByText("Wrapped setup page")).toBeInTheDocument();
+		expect(screen.getByText("Setup current step: none")).toBeInTheDocument();
+		expect(
+			screen.getByText(
+				"Setup completed steps: install-and-login,enable-auto-upload",
+			),
+		).toBeInTheDocument();
+
+		await act(async () => {
+			vi.advanceTimersByTime(900);
+		});
 
 		expect(screen.getByText("Wrapped setup complete page")).toBeInTheDocument();
 	});
@@ -296,6 +374,12 @@ describe("WrappedRouteGate", () => {
 		expect(screen.getByText("Wrapped setup complete page")).toBeInTheDocument();
 		await user.click(screen.getByRole("button", { name: "Back to setup" }));
 		expect(screen.getByText("Wrapped setup page")).toBeInTheDocument();
+		expect(
+			screen.getByText("Setup current step: enable-auto-upload"),
+		).toBeInTheDocument();
+		expect(
+			screen.getByText("Setup completed steps: install-and-login"),
+		).toBeInTheDocument();
 	});
 
 	it("restarts the story from scale when continuing from sessions landed", async () => {

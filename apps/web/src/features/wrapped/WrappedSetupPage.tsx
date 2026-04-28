@@ -1,15 +1,21 @@
 import { MotionConfig } from "motion/react";
 import type { ReactNode } from "react";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
 	CliSetupHint,
 	type CliSetupStepId,
 	cliSetupCommands,
 } from "@/components/analytics/CliSetupHint";
+import { useMountEffect } from "@/hooks/useMountEffect";
+import { openChatwoot } from "@/lib/chatwoot";
 import {
 	WrappedDebugControlStack,
 	WrappedRouteStageShell,
 } from "./route-stage-shell";
+
+const WRAPPED_SETUP_SUPPORT_PROMPT_DELAY_MS = 60_000;
+const WRAPPED_SETUP_SUPPORT_PROMPT_STORAGE_KEY =
+	"wrapped:setup-support-prompt-shown";
 
 interface WrappedSetupPageProps {
 	completedStepIdsOverride?: readonly CliSetupStepId[];
@@ -43,6 +49,7 @@ export function WrappedSetupPage(props: WrappedSetupPageProps) {
 			? derivedCurrentStepId
 			: currentStepIdOverride;
 	const completedStepIds = completedStepIdsOverride ?? derivedCompletedStepIds;
+	const shouldOfferUploadSupport = currentStepId === "enable-auto-upload";
 
 	return (
 		<MotionConfig reducedMotion="user">
@@ -62,17 +69,82 @@ export function WrappedSetupPage(props: WrappedSetupPageProps) {
 				progressStepId="desktop-ready"
 				stageClassName="mymind-wrapped-entry-stage--setup"
 				stage={
-					<CliSetupHint
-						completedStepIds={completedStepIds}
-						currentStepId={currentStepId}
-						hideAlternateCommandCaption
-						variant="wrapped-story"
-					/>
+					<div className="mymind-wrapped-setup-guide">
+						{shouldOfferUploadSupport ? <WrappedSetupSupportPrompt /> : null}
+						<CliSetupHint
+							completedStepIds={completedStepIds}
+							currentStepId={currentStepId}
+							hideAlternateCommandCaption
+							variant="wrapped-story"
+						/>
+					</div>
 				}
 				title="Set up Rudel"
 			/>
 		</MotionConfig>
 	);
+}
+
+function WrappedSetupSupportPrompt() {
+	const [isVisible, setIsVisible] = useState(hasShownWrappedSetupSupportPrompt);
+
+	useMountEffect(() => {
+		if (isVisible) {
+			return;
+		}
+
+		const timeoutId = window.setTimeout(() => {
+			markWrappedSetupSupportPromptShown();
+			setIsVisible(true);
+		}, WRAPPED_SETUP_SUPPORT_PROMPT_DELAY_MS);
+
+		return () => {
+			window.clearTimeout(timeoutId);
+		};
+	});
+
+	if (!isVisible) {
+		return null;
+	}
+
+	return (
+		<button
+			type="button"
+			className="mymind-wrapped-setup-support-prompt"
+			onClick={() => void openChatwoot()}
+		>
+			Trouble uploading sessions?
+		</button>
+	);
+}
+
+function hasShownWrappedSetupSupportPrompt() {
+	if (typeof window === "undefined") {
+		return false;
+	}
+
+	try {
+		return (
+			window.sessionStorage.getItem(
+				WRAPPED_SETUP_SUPPORT_PROMPT_STORAGE_KEY,
+			) === "true"
+		);
+	} catch {
+		return false;
+	}
+}
+
+function markWrappedSetupSupportPromptShown() {
+	if (typeof window === "undefined") {
+		return;
+	}
+
+	try {
+		window.sessionStorage.setItem(
+			WRAPPED_SETUP_SUPPORT_PROMPT_STORAGE_KEY,
+			"true",
+		);
+	} catch {}
 }
 
 function getInitialStepIndex(
