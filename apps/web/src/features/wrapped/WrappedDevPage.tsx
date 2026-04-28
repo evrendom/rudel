@@ -277,10 +277,11 @@ export function WrappedDevPage() {
 
 function WrappedDevToolbar(props: {
 	activeStage: WrappedDevStage;
+	children?: ReactNode;
 	floating?: boolean;
 	onStageChange: (stage: WrappedDevStage) => void;
 }) {
-	const { activeStage, floating = false, onStageChange } = props;
+	const { activeStage, children, floating = false, onStageChange } = props;
 
 	return (
 		<div
@@ -304,6 +305,7 @@ function WrappedDevToolbar(props: {
 					</Button>
 				))}
 			</div>
+			{children}
 		</div>
 	);
 }

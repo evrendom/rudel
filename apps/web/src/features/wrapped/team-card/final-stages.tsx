@@ -1,11 +1,6 @@
 import type { WrappedShareAppearance } from "@rudel/api-routes";
-import {
-	ChevronRight,
-	Clipboard,
-	Download,
-	Loader2,
-	Share2,
-} from "lucide-react";
+import { IconBrandX } from "@tabler/icons-react";
+import { ChevronRight, Clipboard, Download, Loader2 } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import {
 	type CSSProperties,
@@ -257,7 +252,6 @@ export function WrappedTeamCardShareStage(
 		isDownloadPending = false,
 		isFrontCardHandoffHidden = false,
 		isSharePending = false,
-		onBack,
 		onCopy,
 		onContinueToDashboard,
 		onDownload,
@@ -293,7 +287,7 @@ export function WrappedTeamCardShareStage(
 					className="mymind-wrapped-final-stage__share-copy-shell"
 				>
 					<h1 className="mymind-wrapped-stage-copy__headline mymind-wrapped-final-stage__headline">
-						Show this to world
+						Share it with the world
 					</h1>
 				</motion.div>
 			}
@@ -399,62 +393,39 @@ export function WrappedTeamCardShareStage(
 				</div>
 			}
 			support={
-				<>
-					<motion.div
-						{...getWrappedShareChromeMotion({
-							delay: 0.42,
-							reduceMotion,
-							y: 12,
-						})}
+				<motion.div
+					{...getWrappedShareChromeMotion({
+						delay: 0.42,
+						reduceMotion,
+						y: 12,
+					})}
+					className="mymind-wrapped-action-stack mymind-wrapped-share-action-stack"
+				>
+					<WrappedPrimaryAction
+						kind="button"
+						aria-busy={isSharePending ? "true" : undefined}
+						className="mymind-wrapped-share-primary-action mymind-wrapped-share-primary-action--x"
+						disabled={isSharePending}
+						onClick={onShare}
 					>
-						<nav className="mymind-wrapped-share-actions">
-							<Button
-								type="button"
-								size="lg"
-								aria-busy={isSharePending ? "true" : undefined}
-								className="mymind-wrapped-share-actions__primary"
-								disabled={isSharePending}
-								onClick={onShare}
-							>
-								{isSharePending ? (
-									<Loader2 className="size-4 animate-spin" />
-								) : (
-									<Share2 className="size-4" />
-								)}
-								{isSharePending ? "Copying image..." : "Share to X"}
-							</Button>
-						</nav>
-					</motion.div>
-
-					<motion.div
-						{...getWrappedShareChromeMotion({
-							delay: 0.48,
-							reduceMotion,
-							y: 12,
-						})}
-						className="mymind-wrapped-share-actions__meta-grid"
+						<span className="mymind-wrapped-share-primary-action__label">
+							{isSharePending ? (
+								<Loader2 className="size-4 animate-spin" />
+							) : (
+								<IconBrandX className="size-4" />
+							)}
+							<span>{isSharePending ? "Copying image..." : "Share on X"}</span>
+						</span>
+					</WrappedPrimaryAction>
+					<WrappedPrimaryAction
+						kind="button"
+						aria-label="Continue to dashboard"
+						className="mymind-wrapped-share-primary-action mymind-wrapped-share-primary-action--text"
+						onClick={onContinueToDashboard}
 					>
-						<Button
-							type="button"
-							size="lg"
-							variant="outline"
-							className="mymind-wrapped-share-actions__secondary"
-							onClick={onBack}
-						>
-							Back to card
-						</Button>
-						<Button
-							type="button"
-							size="lg"
-							variant="outline"
-							aria-label="Continue to dashboard"
-							className="mymind-wrapped-share-actions__secondary"
-							onClick={onContinueToDashboard}
-						>
-							Continue
-						</Button>
-					</motion.div>
-				</>
+						Continue to dashboard
+					</WrappedPrimaryAction>
+				</motion.div>
 			}
 		/>
 	);
@@ -708,12 +679,25 @@ export function WrappedTeamCardPublicStage(
 	const reduceMotion = shouldReduceMotion ?? false;
 	const [isCardFrontVisible, setIsCardFrontVisible] = useState(true);
 	const [isCardFlipAnimating, setIsCardFlipAnimating] = useState(false);
+	const [hasPublicTurnAroundCompleted, setHasPublicTurnAroundCompleted] =
+		useState(false);
 	const revealCopy = getWrappedRevealCopy({
 		activeArchetype,
 		audience: "public",
 		row,
 		statItems,
 	});
+	const revealArchetypeHeadingLabel = getWrappedRevealArchetypeHeadingLabel({
+		activeArchetype,
+		audience: "public",
+		row,
+	});
+	const revealArchetypeLinePrefix = getWrappedRevealArchetypeLinePrefix({
+		activeArchetype,
+		audience: "public",
+	});
+	const revealArchetypeLineSuffix =
+		getWrappedRevealArchetypeLineSuffix(activeArchetype);
 	const printedCardCaptureKey = [
 		activeArchetype.id,
 		row.userId,
@@ -734,12 +718,15 @@ export function WrappedTeamCardPublicStage(
 
 		const timeoutId = window.setTimeout(() => {
 			setIsCardFlipAnimating(false);
+			if (!isCardFrontVisible) {
+				setHasPublicTurnAroundCompleted(true);
+			}
 		}, REVEAL_STAGE_CARD_FLIP_DURATION_MS);
 
 		return () => {
 			window.clearTimeout(timeoutId);
 		};
-	}, [isCardFlipAnimating, reduceMotion]);
+	}, [isCardFlipAnimating, isCardFrontVisible, reduceMotion]);
 
 	function handlePublicCardFlipToggle() {
 		if (isCardFlipAnimating) {
@@ -749,6 +736,9 @@ export function WrappedTeamCardPublicStage(
 		tiltController.handlePointerLeave();
 
 		if (reduceMotion) {
+			if (isCardFrontVisible) {
+				setHasPublicTurnAroundCompleted(true);
+			}
 			setIsCardFrontVisible((currentValue) => !currentValue);
 			return;
 		}
@@ -756,6 +746,20 @@ export function WrappedTeamCardPublicStage(
 		setIsCardFlipAnimating(true);
 		setIsCardFrontVisible((currentValue) => !currentValue);
 	}
+
+	const publicPrimaryAction = hasPublicTurnAroundCompleted ? (
+		action
+	) : (
+		<WrappedPrimaryAction
+			kind="button"
+			className="text-[1.0625rem] font-semibold"
+			disabled={isCardFlipAnimating}
+			icon={<ChevronRight className="size-4" />}
+			onClick={handlePublicCardFlipToggle}
+		>
+			Turn around
+		</WrappedPrimaryAction>
+	);
 
 	return (
 		<WrappedStageFrame
@@ -803,23 +807,21 @@ export function WrappedTeamCardPublicStage(
 							</div>
 
 							<aside className="mymind-wrapped-final-stage__archetype-copy mymind-wrapped-public-card-stage__copy">
-								<h1 className="mymind-wrapped-final-stage__archetype-title">
+								<h1
+									aria-label={revealArchetypeHeadingLabel}
+									className="mymind-wrapped-final-stage__archetype-title"
+								>
 									<span className="mymind-wrapped-final-stage__archetype-name">
 										{row.displayName}
 									</span>
 									<span className="mymind-wrapped-final-stage__archetype-line">
-										{getWrappedRevealArchetypeLinePrefix({
-											activeArchetype,
-											audience: "public",
-										})}
+										{revealArchetypeLinePrefix}
 										<WrappedArchetypeGradientText
 											activeArchetype={activeArchetype}
 											className="mymind-wrapped-final-stage__archetype-accent"
 											isHoverReplayEnabled
 											state="active"
-											suffix={getWrappedRevealArchetypeLineSuffix(
-												activeArchetype,
-											)}
+											suffix={revealArchetypeLineSuffix}
 										/>
 									</span>
 								</h1>
@@ -833,7 +835,7 @@ export function WrappedTeamCardPublicStage(
 			}
 			support={
 				<div className="mymind-wrapped-action-stack mymind-wrapped-action-stack--single-action mymind-wrapped-public-card-stage__action">
-					{action}
+					{publicPrimaryAction}
 				</div>
 			}
 		/>
@@ -906,6 +908,8 @@ export function WrappedTeamCardRevealStage(
 	const [hasInitialCardFlipSettled, setHasInitialCardFlipSettled] =
 		useState(false);
 	const [isCardFlipAnimating, setIsCardFlipAnimating] = useState(false);
+	const [isRevealExitQueuedAfterFlip, setIsRevealExitQueuedAfterFlip] =
+		useState(false);
 	const [isRevealExitPending, setIsRevealExitPending] = useState(false);
 	const revealTimerRefs = useRef<number[]>([]);
 	const onRevealCompleteRef = useRef(onRevealComplete);
@@ -934,6 +938,20 @@ export function WrappedTeamCardRevealStage(
 		hasCardFrontBeenRevealed &&
 		(hasInitialCardFlipSettled || !isCardFlipAnimating) &&
 		!isRevealExitPending;
+	const revealArchetypeHeadingLabel = getWrappedRevealArchetypeHeadingLabel({
+		activeArchetype,
+		audience: "owner",
+		row,
+	});
+	const revealIntroHeadingLabel = shouldShowRevealIntroLine
+		? revealArchetypeHeadingLabel
+		: undefined;
+	const revealArchetypeLinePrefix = getWrappedRevealArchetypeLinePrefix({
+		activeArchetype,
+		audience: "owner",
+	});
+	const revealArchetypeLineSuffix =
+		getWrappedRevealArchetypeLineSuffix(activeArchetype);
 	const revealCompanionState = shouldShowArchetypeCompanion
 		? "visible"
 		: isRevealExitPending
@@ -989,6 +1007,7 @@ export function WrappedTeamCardRevealStage(
 			setHasCardFrontBeenRevealed(false);
 			setHasInitialCardFlipSettled(false);
 			setIsCardFlipAnimating(false);
+			setIsRevealExitQueuedAfterFlip(false);
 			setIsRevealExitPending(false);
 			return;
 		}
@@ -999,6 +1018,7 @@ export function WrappedTeamCardRevealStage(
 		setHasCardFrontBeenRevealed(false);
 		setHasInitialCardFlipSettled(false);
 		setIsCardFlipAnimating(false);
+		setIsRevealExitQueuedAfterFlip(false);
 		setIsRevealExitPending(false);
 		const timeoutIds = [
 			window.setTimeout(() => {
@@ -1045,12 +1065,17 @@ export function WrappedTeamCardRevealStage(
 		const timeoutId = window.setTimeout(() => {
 			setIsCardFlipAnimating(false);
 			setHasInitialCardFlipSettled(true);
+
+			if (isRevealExitQueuedAfterFlip) {
+				setIsRevealExitQueuedAfterFlip(false);
+				setIsRevealExitPending(true);
+			}
 		}, REVEAL_STAGE_CARD_FLIP_DURATION_MS);
 
 		return () => {
 			window.clearTimeout(timeoutId);
 		};
-	}, [isCardFlipAnimating, reduceMotion]);
+	}, [isCardFlipAnimating, isRevealExitQueuedAfterFlip, reduceMotion]);
 
 	function startRevealCardDrop() {
 		clearRevealTimers();
@@ -1079,6 +1104,7 @@ export function WrappedTeamCardRevealStage(
 		}
 
 		tiltController.handlePointerLeave();
+		setIsRevealExitQueuedAfterFlip(false);
 		setHasCardFrontBeenRevealed(true);
 
 		if (reduceMotion) {
@@ -1091,7 +1117,26 @@ export function WrappedTeamCardRevealStage(
 		setIsCardFrontVisible((currentValue) => !currentValue);
 	}
 
+	function revealFrontBeforeShareHandoff() {
+		tiltController.handlePointerLeave();
+
+		if (reduceMotion) {
+			setIsCardFrontVisible(true);
+			setIsRevealExitQueuedAfterFlip(false);
+			setIsRevealExitPending(true);
+			return;
+		}
+
+		setIsRevealExitQueuedAfterFlip(true);
+		setIsCardFlipAnimating(true);
+		setIsCardFrontVisible(true);
+	}
+
 	function handleRevealFooterAction() {
+		if (isCardFlipAnimating || isRevealExitPending || isPostHandoffPreparing) {
+			return;
+		}
+
 		if (!isCardDropped) {
 			if (!shouldShowRevealIntroContinue) {
 				return;
@@ -1103,6 +1148,11 @@ export function WrappedTeamCardRevealStage(
 
 		if (!hasCardFrontBeenRevealed) {
 			handleCardFlipToggle();
+			return;
+		}
+
+		if (!isCardFrontVisible) {
+			revealFrontBeforeShareHandoff();
 			return;
 		}
 
@@ -1147,7 +1197,10 @@ export function WrappedTeamCardRevealStage(
 									className="mymind-wrapped-final-stage__canvas-copy-shell"
 									transition={REVEAL_INTRO_COPY.transition}
 								>
-									<h1 className="mymind-wrapped-final-stage__canvas-copy">
+									<h1
+										aria-label={revealIntroHeadingLabel}
+										className="mymind-wrapped-final-stage__canvas-copy"
+									>
 										<span className="mymind-wrapped-final-stage__canvas-copy-name">
 											{row.displayName},
 										</span>
@@ -1163,19 +1216,14 @@ export function WrappedTeamCardRevealStage(
 											initial={false}
 											transition={REVEAL_INTRO_COPY.lineTransition}
 										>
-											{getWrappedRevealArchetypeLinePrefix({
-												activeArchetype,
-												audience: "owner",
-											})}
+											{revealArchetypeLinePrefix}
 											<WrappedArchetypeGradientText
 												activeArchetype={activeArchetype}
 												className="mymind-wrapped-final-stage__intro-accent"
 												state={
 													shouldShowRevealIntroAccent ? "active" : "waiting"
 												}
-												suffix={getWrappedRevealArchetypeLineSuffix(
-													activeArchetype,
-												)}
+												suffix={revealArchetypeLineSuffix}
 											/>
 										</motion.span>
 									</h1>
@@ -1286,23 +1334,21 @@ export function WrappedTeamCardRevealStage(
 													}
 										}
 									>
-										<h2 className="mymind-wrapped-final-stage__archetype-title">
+										<h2
+											aria-label={revealArchetypeHeadingLabel}
+											className="mymind-wrapped-final-stage__archetype-title"
+										>
 											<span className="mymind-wrapped-final-stage__archetype-name">
 												{row.displayName},
 											</span>
 											<span className="mymind-wrapped-final-stage__archetype-line">
-												{getWrappedRevealArchetypeLinePrefix({
-													activeArchetype,
-													audience: "owner",
-												})}
+												{revealArchetypeLinePrefix}
 												<WrappedArchetypeGradientText
 													activeArchetype={activeArchetype}
 													className="mymind-wrapped-final-stage__archetype-accent"
 													isHoverReplayEnabled
 													state="active"
-													suffix={getWrappedRevealArchetypeLineSuffix(
-														activeArchetype,
-													)}
+													suffix={revealArchetypeLineSuffix}
 												/>
 											</span>
 										</h2>
@@ -1319,7 +1365,10 @@ export function WrappedTeamCardRevealStage(
 			support={
 				<WrappedTeamCardRevealFooter
 					isDisabled={
-						isCardFlipAnimating || isPostHandoffPreparing || isRevealExitPending
+						isCardFlipAnimating ||
+						isPostHandoffPreparing ||
+						isRevealExitPending ||
+						isRevealExitQueuedAfterFlip
 					}
 					isVisible={shouldShowRevealFooter}
 					label={revealFooterLabel}
@@ -1802,6 +1851,24 @@ function getWrappedRevealArchetypeLinePrefix(input: {
 	}
 
 	return archetypeId === "obsessed" ? "you're " : "you're a ";
+}
+
+function getWrappedRevealArchetypeLineText(input: {
+	activeArchetype: WrappedArchetypeCardTheme;
+	audience: "owner" | "public";
+}) {
+	return `${getWrappedRevealArchetypeLinePrefix(input)}${input.activeArchetype.displayLabel}${getWrappedRevealArchetypeLineSuffix(input.activeArchetype)}`;
+}
+
+function getWrappedRevealArchetypeHeadingLabel(input: {
+	activeArchetype: WrappedArchetypeCardTheme;
+	audience: "owner" | "public";
+	row: TeamPageMemberRow;
+}) {
+	const lineText = getWrappedRevealArchetypeLineText(input);
+	const nameSeparator = input.audience === "public" ? " " : ", ";
+
+	return `${input.row.displayName}${nameSeparator}${lineText}`;
 }
 
 function getWrappedRevealArchetypeLineSuffix(

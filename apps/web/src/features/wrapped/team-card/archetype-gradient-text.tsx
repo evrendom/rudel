@@ -1,4 +1,9 @@
-import type { CSSProperties } from "react";
+import {
+	type CSSProperties,
+	// biome-ignore lint/style/noRestrictedImports: this component needs a short client-side replay gate so the CSS sweep can restart when the archetype changes.
+	useEffect,
+	useState,
+} from "react";
 import {
 	getWrappedArchetypeCardBackgroundValue,
 	type WrappedArchetypeCardTheme,
@@ -14,12 +19,19 @@ export type WrappedArchetypeGradientTextState = "active" | "waiting";
 
 const WRAPPED_ARCHETYPE_GRADIENT_TEXT_DARK = "#17161c";
 const WRAPPED_ARCHETYPE_GRADIENT_COLOR_PATTERN = /#[\da-fA-F]{3,8}\b/g;
-const WRAPPED_ARCHETYPE_LINEAR_GRADIENT_PATTERN =
-	/^linear-gradient\(([^,]+),\s*(.+)\)$/;
+const WRAPPED_ARCHETYPE_GRADIENT_TEXT_DIRECTION = "161.01deg";
+const WRAPPED_OBSESSED_GRADIENT_TEXT_COLORS = [
+	"#141416",
+	"#323238",
+	"#0B0B0C",
+	"#3F3F45",
+	"#18181A",
+] as const;
 const WRAPPED_ARCHETYPE_GRADIENT_DARK_HOLD_STOP = 60;
 const WRAPPED_ARCHETYPE_GRADIENT_COLOR_RANGE_START = 68;
 const WRAPPED_ARCHETYPE_GRADIENT_COLOR_RANGE_END = 100;
 const WRAPPED_ARCHETYPE_GRADIENT_COLOR_INSET_STOP = 15;
+const WRAPPED_ARCHETYPE_HOVER_REPLAY_READY_DELAY_MS = 620;
 
 export interface WrappedArchetypeGradientTextValue {
 	accent: string;
@@ -42,6 +54,13 @@ export function WrappedArchetypeGradientText(props: {
 		suffix = "",
 	} = props;
 	const gradient = getWrappedArchetypeGradientTextValue(activeArchetype);
+	const shouldEnableHoverReplay = isHoverReplayEnabled && state === "active";
+	const hoverReplayKey = shouldEnableHoverReplay
+		? activeArchetype.id
+		: undefined;
+	const [hoverReplayState, setHoverReplayState] = useState<
+		"entering" | "ready" | undefined
+	>(() => (shouldEnableHoverReplay ? "entering" : undefined));
 	const style: WrappedArchetypeGradientTextStyle = {
 		"--wrapped-reveal-archetype-accent": gradient.accent,
 		"--wrapped-reveal-archetype-gt-direction": gradient.direction,
@@ -49,19 +68,36 @@ export function WrappedArchetypeGradientText(props: {
 	};
 	const classNames = `mymind-wrapped-final-stage__gradient-text ${className}`;
 
+	useEffect(() => {
+		if (!hoverReplayKey) {
+			setHoverReplayState(undefined);
+			return;
+		}
+
+		setHoverReplayState("entering");
+
+		const timeoutId = window.setTimeout(() => {
+			setHoverReplayState("ready");
+		}, WRAPPED_ARCHETYPE_HOVER_REPLAY_READY_DELAY_MS);
+
+		return () => {
+			window.clearTimeout(timeoutId);
+		};
+	}, [hoverReplayKey]);
+
 	return (
-		<span
-			className={classNames}
-			data-accent-state={state}
-			data-hover-replay={
-				isHoverReplayEnabled && state === "active" ? "ready" : undefined
-			}
-			data-label={activeArchetype.displayLabel}
-			style={style}
-		>
-			{activeArchetype.displayLabel}
-			{suffix}
-		</span>
+		<>
+			<span
+				className={classNames}
+				data-accent-state={state}
+				data-hover-replay={hoverReplayState}
+				data-label={activeArchetype.displayLabel}
+				style={style}
+			>
+				{activeArchetype.displayLabel}
+			</span>
+			{suffix ? <span aria-hidden="true">{suffix}</span> : null}
+		</>
 	);
 }
 
@@ -69,23 +105,33 @@ export function getWrappedArchetypeGradientTextValue(
 	theme: WrappedArchetypeCardTheme,
 ): WrappedArchetypeGradientTextValue {
 	const cardBackgroundValue = getWrappedArchetypeCardBackgroundValue(theme);
-	const gradientMatch = cardBackgroundValue?.match(
-		WRAPPED_ARCHETYPE_LINEAR_GRADIENT_PATTERN,
-	);
 	const colors = cardBackgroundValue?.match(
 		WRAPPED_ARCHETYPE_GRADIENT_COLOR_PATTERN,
 	);
-	const direction = gradientMatch?.[1]?.trim() ?? "184deg";
-	const gradientColors = colors ?? [];
+	const gradientColors = getWrappedArchetypeTextGradientColors({
+		colors: colors ?? [],
+		theme,
+	});
 
 	return {
 		accent: buildWrappedArchetypeTextAccentGradient({
 			colors: gradientColors,
-			direction,
+			direction: WRAPPED_ARCHETYPE_GRADIENT_TEXT_DIRECTION,
 		}),
-		direction,
+		direction: WRAPPED_ARCHETYPE_GRADIENT_TEXT_DIRECTION,
 		stops: buildWrappedArchetypeTextGradientStops(gradientColors),
 	};
+}
+
+function getWrappedArchetypeTextGradientColors(input: {
+	colors: readonly string[];
+	theme: WrappedArchetypeCardTheme;
+}) {
+	if (input.theme.id === "obsessed") {
+		return WRAPPED_OBSESSED_GRADIENT_TEXT_COLORS;
+	}
+
+	return input.colors;
 }
 
 function formatWrappedArchetypeGradientStopPosition(position: number) {

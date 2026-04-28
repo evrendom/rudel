@@ -1,11 +1,8 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { WrappedSetupPage } from "@/features/wrapped/WrappedSetupPage";
-
-const CHATWOOT_OPENED_EVENT = "chatwoot:opened";
-const CHATWOOT_CLOSED_EVENT = "chatwoot:closed";
 
 const { mockCloseChatwoot, mockOpenChatwoot, mockSetChatwootBubbleVisibility } =
 	vi.hoisted(() => ({
@@ -36,21 +33,12 @@ Object.defineProperty(window, "matchMedia", {
 	})),
 });
 
-beforeEach(() => {
-	mockOpenChatwoot.mockImplementation(async () => {
-		window.dispatchEvent(new Event(CHATWOOT_OPENED_EVENT));
-	});
-	mockCloseChatwoot.mockImplementation(async () => {
-		window.dispatchEvent(new Event(CHATWOOT_CLOSED_EVENT));
-	});
-});
-
 afterEach(() => {
 	vi.useRealTimers();
 	window.sessionStorage.clear();
-	mockCloseChatwoot.mockReset();
-	mockOpenChatwoot.mockReset();
-	mockSetChatwootBubbleVisibility.mockReset();
+	mockCloseChatwoot.mockClear();
+	mockOpenChatwoot.mockClear();
+	mockSetChatwootBubbleVisibility.mockClear();
 });
 
 function hasExactTextContent(expectedText: string) {

@@ -13,6 +13,7 @@ interface UseWrappedTeamCardShareOptions {
 	// We keep that callback optional so the hook stays reusable and does not own
 	// analytics directly.
 	onShareCreated?: (shareRecord: WrappedShareRecord) => void;
+	username?: string;
 }
 
 // This hook owns the "create a real share only when needed" behavior for the
@@ -32,9 +33,9 @@ export function useWrappedTeamCardShare(
 		{},
 	);
 	const [pendingShareKey, setPendingShareKey] = useState<string | null>(null);
-	const { onShareCreated } = options ?? {};
-	const snapshotKey = JSON.stringify(snapshot);
-	const activeShareRecord = shareRecordsByKey[snapshotKey] ?? null;
+	const { onShareCreated, username } = options ?? {};
+	const shareKey = JSON.stringify({ snapshot, username: username ?? null });
+	const activeShareRecord = shareRecordsByKey[shareKey] ?? null;
 	const shareUrl = activeShareRecord
 		? buildWrappedShareUrl(activeShareRecord.id)
 		: undefined;
@@ -47,44 +48,40 @@ export function useWrappedTeamCardShare(
 			return activeShareRecord;
 		}
 
-		const pendingShareRequest = shareRequestByKeyRef.current.get(snapshotKey);
+		const pendingShareRequest = shareRequestByKeyRef.current.get(shareKey);
 		if (pendingShareRequest) {
 			return pendingShareRequest;
 		}
 
-		setPendingShareKey(snapshotKey);
+		setPendingShareKey(shareKey);
 
+		const createShareInput = username ? { snapshot, username } : { snapshot };
 		const shareRequest = client.wrappedShare
-			.create({ snapshot })
+			.create(createShareInput)
 			.then((createdShare) => {
 				setShareRecordsByKey((currentRecords) => ({
 					...currentRecords,
-					[snapshotKey]: createdShare,
+					[shareKey]: createdShare,
 				}));
 				onShareCreated?.(createdShare);
 				return createdShare;
 			})
 			.finally(() => {
-				shareRequestByKeyRef.current.delete(snapshotKey);
+				shareRequestByKeyRef.current.delete(shareKey);
 				setPendingShareKey((currentPendingShareKey) =>
-					currentPendingShareKey === snapshotKey
-						? null
-						: currentPendingShareKey,
+					currentPendingShareKey === shareKey ? null : currentPendingShareKey,
 				);
 			});
 
-		shareRequestByKeyRef.current.set(snapshotKey, shareRequest);
+		shareRequestByKeyRef.current.set(shareKey, shareRequest);
 		return shareRequest;
 	}
 
 	return {
 		ensureShare,
-		isCreatingShare: pendingShareKey === snapshotKey,
+		isCreatingShare: pendingShareKey === shareKey,
 		shareUrl,
-		shareUrlLabel: formatShareUrlLabel(
-			shareUrl,
-			pendingShareKey === snapshotKey,
-		),
+		shareUrlLabel: formatShareUrlLabel(shareUrl, pendingShareKey === shareKey),
 	};
 }
 

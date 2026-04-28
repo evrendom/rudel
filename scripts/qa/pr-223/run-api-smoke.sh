@@ -141,6 +141,7 @@ create_wrapped_share() {
 	jq -n '
 		{
 			json: {
+				username: "qa-smoke",
 				snapshot: {
 					archetypeLabel: "Smooth Operator",
 					headerLeftMetric: {

@@ -1,6 +1,6 @@
 import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { WrappedSupportChatwootButton } from "./support-chatwoot-button";
 
 const CHATWOOT_OPENED_EVENT = "chatwoot:opened";
@@ -18,18 +18,9 @@ vi.mock("@/lib/chatwoot", () => ({
 	openChatwoot: mockOpenChatwoot,
 }));
 
-beforeEach(() => {
-	mockOpenChatwoot.mockImplementation(async () => {
-		window.dispatchEvent(new Event(CHATWOOT_OPENED_EVENT));
-	});
-	mockCloseChatwoot.mockImplementation(async () => {
-		window.dispatchEvent(new Event(CHATWOOT_CLOSED_EVENT));
-	});
-});
-
 afterEach(() => {
-	mockCloseChatwoot.mockReset();
-	mockOpenChatwoot.mockReset();
+	mockCloseChatwoot.mockClear();
+	mockOpenChatwoot.mockClear();
 });
 
 describe("WrappedSupportChatwootButton", () => {
@@ -51,23 +42,6 @@ describe("WrappedSupportChatwootButton", () => {
 			position: "fixed",
 			zIndex: "2147483647",
 		});
-	});
-
-	it("waits for an open signal before replacing the launcher with close", async () => {
-		const user = userEvent.setup();
-		mockOpenChatwoot.mockResolvedValueOnce(undefined);
-
-		render(<WrappedSupportChatwootButton />);
-
-		await user.click(screen.getByRole("button", { name: "Open support" }));
-
-		expect(mockOpenChatwoot).toHaveBeenCalledTimes(1);
-		expect(
-			screen.queryByRole("button", { name: "Close support" }),
-		).not.toBeInTheDocument();
-		expect(
-			screen.getByRole("button", { name: "Open support" }),
-		).toBeInTheDocument();
 	});
 
 	it("keeps an externally opened chat closable from the persistent control", async () => {

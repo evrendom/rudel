@@ -1,5 +1,5 @@
 import type { CSSProperties, ReactNode } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { appRoutes } from "@/app/routes";
 import type { TeamPageMemberRow } from "@/features/team/use-team-page-data";
 import type { WrappedOnboardingMetrics } from "@/features/wrapped/onboarding/types";
@@ -173,12 +173,6 @@ const MOCK_PUBLIC_SHARE_ONBOARDING_METRICS = {
 	totalTokens: 5_068_300,
 } satisfies WrappedOnboardingMetrics;
 
-const MOCK_PUBLIC_SHARE_BACK_METRICS = buildWrappedTeamCardBackMetrics({
-	onboardingMetrics: MOCK_PUBLIC_SHARE_ONBOARDING_METRICS,
-	row: MOCK_PUBLIC_SHARE_ROW,
-	shareCardCreatedAtLabel: "Apr 28, 2026",
-});
-
 const MOCK_PUBLIC_SHARE_SHELL_STYLE: WrappedPublicMockCardShellStyle = {
 	"--team-lineup-card-grain-opacity": "0.18",
 	"--team-lineup-card-grain-size": "38px",
@@ -189,6 +183,24 @@ const MOCK_PUBLIC_SHARE_ARCHETYPE = getMockPublicShareArchetype();
 export function WrappedPublicMockPage(props: WrappedPublicMockPageProps) {
 	const { debugControls } = props;
 	const navigate = useNavigate();
+	const [searchParams] = useSearchParams();
+	const onboardingMetrics = searchParams.has("longSkill")
+		? {
+				...MOCK_PUBLIC_SHARE_ONBOARDING_METRICS,
+				topSkills: [
+					{
+						count: 24,
+						name: "long-context-refactor-orchestration",
+					},
+					...MOCK_PUBLIC_SHARE_ONBOARDING_METRICS.topSkills.slice(1),
+				],
+			}
+		: MOCK_PUBLIC_SHARE_ONBOARDING_METRICS;
+	const backMetrics = buildWrappedTeamCardBackMetrics({
+		onboardingMetrics,
+		row: MOCK_PUBLIC_SHARE_ROW,
+		shareCardCreatedAtLabel: "Apr 28, 2026",
+	});
 
 	useMountEffect(() => {
 		document.body.classList.add("mymind-wrapped-body");
@@ -213,7 +225,7 @@ export function WrappedPublicMockPage(props: WrappedPublicMockPageProps) {
 				</WrappedPublicCardAction>
 			}
 			activeArchetype={MOCK_PUBLIC_SHARE_ARCHETYPE}
-			backMetrics={MOCK_PUBLIC_SHARE_BACK_METRICS}
+			backMetrics={backMetrics}
 			debugControls={debugControls}
 			headerLeftMetric={MOCK_PUBLIC_SHARE_HEADER_LEFT_METRIC}
 			headerRightMetric={MOCK_PUBLIC_SHARE_HEADER_RIGHT_METRIC}

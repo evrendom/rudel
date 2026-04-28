@@ -9,6 +9,18 @@ export const WRAPPED_SHARE_PAYLOAD_VERSION = 1 as const;
 // fields we are comfortable showing outside the authenticated product.
 export const WrappedShareThemeSchema = z.enum(["dark", "light", "muted"]);
 export const WrappedShareLayoutModeSchema = z.enum(["front", "front_back"]);
+export const WrappedShareIdSchema = z
+	.string()
+	.trim()
+	.min(1)
+	.max(128)
+	.regex(/^[A-Za-z0-9_-]+$/u);
+export const WrappedShareUsernameSchema = z
+	.string()
+	.trim()
+	.min(1)
+	.max(64)
+	.regex(/^[A-Za-z0-9_-]+$/u);
 
 export const WrappedShareHeaderMetricSchema = z.object({
 	label: z.string().optional(),
@@ -71,17 +83,18 @@ export const WrappedShareSnapshotSchema = z.object({
 
 export const CreateWrappedShareInputSchema = z.object({
 	snapshot: WrappedShareSnapshotSchema,
+	username: WrappedShareUsernameSchema.optional(),
 });
 
 export const GetPublicWrappedShareInputSchema = z.object({
-	// UUID keeps the lookup opaque and non-sequential.
-	shareId: z.string().uuid(),
+	// This accepts both new username-style share ids and older UUID rows.
+	shareId: WrappedShareIdSchema,
 });
 
 export const WrappedShareRecordSchema = z.object({
 	created_at: z.string(),
 	expires_at: z.string(),
-	id: z.string().uuid(),
+	id: WrappedShareIdSchema,
 });
 
 export const PublicWrappedShareSchema = WrappedShareRecordSchema.extend({

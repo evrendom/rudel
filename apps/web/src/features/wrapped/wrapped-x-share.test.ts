@@ -4,6 +4,12 @@ import {
 	buildWrappedXShareText,
 } from "@/features/wrapped/wrapped-x-share";
 
+const WRAPPED_X_SHARE_HASHTAG = "#RudelWrapped";
+
+function withWrappedHashtag(text: string) {
+	return [text, WRAPPED_X_SHARE_HASHTAG].join("\n\n");
+}
+
 describe("wrapped X share copy", () => {
 	it("builds Maniac copy with activity, repo, and session density metrics", () => {
 		expect(
@@ -17,10 +23,12 @@ describe("wrapped X share copy", () => {
 				totalTokens: 1_920_000,
 			}),
 		).toBe(
-			[
-				"My Claude Code and Codex usage says I'm a Maniac.",
-				"Active 12 out of 180 days, 6 repos, 18.3 sessions per active day. Yeah, you should be a little scared.",
-			].join(" "),
+			withWrappedHashtag(
+				[
+					"My Claude Code and Codex usage says I'm a Maniac.",
+					"Active 12 out of 180 days, 6 repos, 18.3 sessions per active day. Yeah, you should be a little scared.",
+				].join(" "),
+			),
 		);
 	});
 
@@ -48,15 +56,17 @@ describe("wrapped X share copy", () => {
 				totalTokens: 92_000,
 			}),
 		).toBe(
-			[
-				"My Claude Code and Codex usage says I'm a Roadrunner.",
-				"Meep meep.",
-				"Active 4 out of 21 days.",
-				"Meep meep.",
-				"When back I'm spending $5.50 a session.",
-				"Meep meep.",
-				"Gone.",
-			].join("\n\n"),
+			withWrappedHashtag(
+				[
+					"My Claude Code and Codex usage says I'm a Roadrunner.",
+					"Meep meep.",
+					"Active 4 out of 21 days.",
+					"Meep meep.",
+					"When back I'm spending $5.50 a session.",
+					"Meep meep.",
+					"Gone.",
+				].join("\n\n"),
+			),
 		);
 	});
 
@@ -83,7 +93,9 @@ describe("wrapped X share copy", () => {
 				],
 			}),
 		).toBe(
-			"My Claude Code and Codex usage says I'm Obsessed. 1 repo, 58 out of 214 days, 48% of sessions shipped something. Apparently I have nothing else in my life. I dare you to distract me.",
+			withWrappedHashtag(
+				"My Claude Code and Codex usage says I'm Obsessed. 1 repo, 58 out of 214 days, 48% of sessions shipped something. Apparently I have nothing else in my life. I dare you to distract me.",
+			),
 		);
 	});
 
@@ -109,7 +121,9 @@ describe("wrapped X share copy", () => {
 				totalSessions: 8,
 			}),
 		).toBe(
-			"My Claude Code and Codex usage says I got the Company Card... 8 sessions, 48% shipped something, $44 in total. Dario & Sam are probably happy to have me.",
+			withWrappedHashtag(
+				"My Claude Code and Codex usage says I got the Company Card... 8 sessions, 48% shipped something, $44 in total. Dario & Sam are probably happy to have me.",
+			),
 		);
 
 		expect(
@@ -128,7 +142,9 @@ describe("wrapped X share copy", () => {
 				totalSessions: 8,
 			}),
 		).toBe(
-			"My Claude Code usage says I got the Company Card... 8 sessions, 48% shipped something, $44 in total. Dario's probably happy to have me.",
+			withWrappedHashtag(
+				"My Claude Code usage says I got the Company Card... 8 sessions, 48% shipped something, $44 in total. Dario's probably happy to have me.",
+			),
 		);
 
 		expect(
@@ -147,7 +163,9 @@ describe("wrapped X share copy", () => {
 				totalSessions: 8,
 			}),
 		).toBe(
-			"My Codex usage says I got the Company Card... 8 sessions, 48% shipped something, $44 in total. Sam's probably happy to have me.",
+			withWrappedHashtag(
+				"My Codex usage says I got the Company Card... 8 sessions, 48% shipped something, $44 in total. Sam's probably happy to have me.",
+			),
 		);
 	});
 
@@ -163,7 +181,9 @@ describe("wrapped X share copy", () => {
 				totalSessions: 37,
 			}),
 		).toBe(
-			"My Codex usage says I'm a Smooooooth Operator. Active 12 out of 180 days, 24 minute average session, 3.1 a day. Haters gonna try to find something on me, but they can't because I'm a smooooth operator.",
+			withWrappedHashtag(
+				"My Codex usage says I'm a Smooooooth Operator. Active 12 out of 180 days, 24 minute average session, 3.1 a day. Haters gonna try to find something on me, but they can't because I'm a smooooth operator.",
+			),
 		);
 	});
 
@@ -190,7 +210,9 @@ describe("wrapped X share copy", () => {
 				],
 			}),
 		).toBe(
-			"My Claude Code and Codex usage says I'm an ADHD Brain. 12 out of 180 days, 6 repos, 48% shipped. DaVinci also had many projects! I'm his reincarnation.. i guess.",
+			withWrappedHashtag(
+				"My Claude Code and Codex usage says I'm an ADHD Brain. 12 out of 180 days, 6 repos, 48% shipped. DaVinci also had many projects! I'm his reincarnation.. i guess.",
+			),
 		);
 	});
 
@@ -211,7 +233,9 @@ describe("wrapped X share copy", () => {
 				],
 			}),
 		).toBe(
-			"My Codex usage says I'm a Hit and Runner. 24 minute sessions, 6 repos, 48% shipped. Veni, vidi, commit. In, out, no witnesses.",
+			withWrappedHashtag(
+				"My Codex usage says I'm a Hit and Runner. 24 minute sessions, 6 repos, 48% shipped. Veni, vidi, commit. In, out, no witnesses.",
+			),
 		);
 	});
 
@@ -232,7 +256,9 @@ describe("wrapped X share copy", () => {
 				totalSessions: 8,
 			}),
 		).toBe(
-			"My Codex usage says I'm a Cheapskate. $5.50 a session, 48% shipped. Mr. Krabs is very proud of me. Spent less, shipped more. Very efficient. Pls don't ask me to pay for dinner though.",
+			withWrappedHashtag(
+				"My Codex usage says I'm a Cheapskate. $5.50 a session, 48% shipped. Mr. Krabs is very proud of me. Spent less, shipped more. Very efficient. Pls don't ask me to pay for dinner though.",
+			),
 		);
 	});
 
@@ -253,7 +279,9 @@ describe("wrapped X share copy", () => {
 				totalSessions: 8,
 			}),
 		).toBe(
-			"My Codex usage says I'm a Tourist. 8 sessions, 48% shipped, $44 spent in total.. I'm definitely not the person who'll get prompt injected by this OpenClaw thing. I'll stick to ChatGPT",
+			withWrappedHashtag(
+				"My Codex usage says I'm a Tourist. 8 sessions, 48% shipped, $44 spent in total.. I'm definitely not the person who'll get prompt injected by this OpenClaw thing. I'll stick to ChatGPT",
+			),
 		);
 
 		expect(
@@ -277,7 +305,9 @@ describe("wrapped X share copy", () => {
 				totalSessions: 8,
 			}),
 		).toBe(
-			"My Claude Code and Codex usage says I'm a Tourist. 8 sessions, 48% shipped, $44 spent in total.. I'm definitely not the person who'll get prompt injected by this OpenClaw thing. I'll stick to Claude",
+			withWrappedHashtag(
+				"My Claude Code and Codex usage says I'm a Tourist. 8 sessions, 48% shipped, $44 spent in total.. I'm definitely not the person who'll get prompt injected by this OpenClaw thing. I'll stick to Claude",
+			),
 		);
 	});
 

@@ -26,6 +26,7 @@ interface WrappedXShareCopy {
 }
 
 const WRAPPED_X_INTENT_URL = "https://twitter.com/intent/tweet";
+const WRAPPED_X_SHARE_HASHTAG = "#RudelWrapped";
 
 const WRAPPED_X_SHARE_COPY_BY_ARCHETYPE: Record<string, WrappedXShareCopy> = {
 	decimal: {
@@ -73,114 +74,134 @@ export function buildWrappedXShareText(input: BuildWrappedXShareTextInput) {
 	const openingLine = `My ${usageSourceLabel} usage says I'm ${archetypeIdentity}.`;
 
 	if (normalizedArchetypeLabel === "roadrunner") {
-		return [
-			openingLine,
-			buildWrappedXRoadrunnerShareBody({
-				activeDays,
-				cost,
-				daysSinceFirst,
-				totalSessions,
-			}),
-		].join("\n\n");
+		return appendWrappedXShareHashtag(
+			[
+				openingLine,
+				buildWrappedXRoadrunnerShareBody({
+					activeDays,
+					cost,
+					daysSinceFirst,
+					totalSessions,
+				}),
+			].join("\n\n"),
+		);
 	}
 
 	if (normalizedArchetypeLabel === "company card") {
-		return [
-			`My ${usageSourceLabel} usage says I got the Company Card...`,
-			buildWrappedXCompanyCardShareBody({
-				commitRate,
-				cost,
-				favoriteModel,
-				sourceSplit,
-				totalSessions,
-			}),
-		].join(" ");
+		return appendWrappedXShareHashtag(
+			[
+				`My ${usageSourceLabel} usage says I got the Company Card...`,
+				buildWrappedXCompanyCardShareBody({
+					commitRate,
+					cost,
+					favoriteModel,
+					sourceSplit,
+					totalSessions,
+				}),
+			].join(" "),
+		);
 	}
 
 	if (normalizedArchetypeLabel === "adhd brain") {
-		return [
-			openingLine,
-			buildWrappedXAdhdBrainShareBody({
-				activeDays,
-				commitRate,
-				daysSinceFirst,
-				distinctProjectCount,
-			}),
-		].join(" ");
+		return appendWrappedXShareHashtag(
+			[
+				openingLine,
+				buildWrappedXAdhdBrainShareBody({
+					activeDays,
+					commitRate,
+					daysSinceFirst,
+					distinctProjectCount,
+				}),
+			].join(" "),
+		);
 	}
 
 	if (normalizedArchetypeLabel === "cheapskate") {
-		return [
-			openingLine,
-			buildWrappedXCheapskateShareBody({
-				commitRate,
-				cost,
-				totalSessions,
-			}),
-		].join(" ");
+		return appendWrappedXShareHashtag(
+			[
+				openingLine,
+				buildWrappedXCheapskateShareBody({
+					commitRate,
+					cost,
+					totalSessions,
+				}),
+			].join(" "),
+		);
 	}
 
 	if (normalizedArchetypeLabel === "hit and runner") {
-		return [
-			openingLine,
-			buildWrappedXHitAndRunnerShareBody({
-				avgSessionMin,
-				commitRate,
-				distinctProjectCount,
-			}),
-		].join(" ");
+		return appendWrappedXShareHashtag(
+			[
+				openingLine,
+				buildWrappedXHitAndRunnerShareBody({
+					avgSessionMin,
+					commitRate,
+					distinctProjectCount,
+				}),
+			].join(" "),
+		);
 	}
 
 	if (normalizedArchetypeLabel === "maniac") {
-		return [
-			openingLine,
-			buildWrappedXManiacShareBody({
-				activeDays,
-				daysSinceFirst,
-				distinctProjectCount,
-				totalSessions,
-			}),
-		].join(" ");
+		return appendWrappedXShareHashtag(
+			[
+				openingLine,
+				buildWrappedXManiacShareBody({
+					activeDays,
+					daysSinceFirst,
+					distinctProjectCount,
+					totalSessions,
+				}),
+			].join(" "),
+		);
 	}
 
 	if (normalizedArchetypeLabel === "obsessed") {
-		return [
-			openingLine,
-			buildWrappedXObsessedShareBody({
-				activeDays,
-				commitRate,
-				daysSinceFirst,
-				distinctProjectCount,
-			}),
-		].join(" ");
+		return appendWrappedXShareHashtag(
+			[
+				openingLine,
+				buildWrappedXObsessedShareBody({
+					activeDays,
+					commitRate,
+					daysSinceFirst,
+					distinctProjectCount,
+				}),
+			].join(" "),
+		);
 	}
 
 	if (normalizedArchetypeLabel === "smooth operator") {
-		return [
-			`My ${usageSourceLabel} usage says I'm a Smooooooth Operator.`,
-			buildWrappedXSmoothOperatorShareBody({
-				activeDays,
-				avgSessionMin,
-				daysSinceFirst,
-				totalSessions,
-			}),
-		].join(" ");
+		return appendWrappedXShareHashtag(
+			[
+				`My ${usageSourceLabel} usage says I'm a Smooooooth Operator.`,
+				buildWrappedXSmoothOperatorShareBody({
+					activeDays,
+					avgSessionMin,
+					daysSinceFirst,
+					totalSessions,
+				}),
+			].join(" "),
+		);
 	}
 
 	if (normalizedArchetypeLabel === "tourist") {
-		return [
-			openingLine,
-			buildWrappedXTouristShareBody({
-				commitRate,
-				cost,
-				favoriteModel,
-				sourceSplit,
-				totalSessions,
-			}),
-		].join(" ");
+		return appendWrappedXShareHashtag(
+			[
+				openingLine,
+				buildWrappedXTouristShareBody({
+					commitRate,
+					cost,
+					favoriteModel,
+					sourceSplit,
+					totalSessions,
+				}),
+			].join(" "),
+		);
 	}
 
-	return [openingLine, `Traits: ${metrics}; ${copy.traits}.`].join("\n\n");
+	return appendWrappedXShareHashtag(
+		[openingLine, `Traits: ${metrics}; ${copy.traits}.`].join("\n\n"),
+	);
 }
 
 export function buildWrappedXIntentUrl(input: BuildWrappedXIntentUrlInput) {
@@ -199,6 +220,10 @@ function appendWrappedXSharePublicLink(text: string, url: string) {
 		`Check my profile out here ${url}`,
 		"[Your image is in your clipboard, pls paste and dont forget]",
 	].join("\n\n");
+}
+
+function appendWrappedXShareHashtag(text: string) {
+	return [text, WRAPPED_X_SHARE_HASHTAG].join("\n\n");
 }
 
 function buildWrappedXRoadrunnerShareBody(input: {

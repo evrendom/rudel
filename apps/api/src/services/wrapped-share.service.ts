@@ -8,15 +8,21 @@ import {
 	WrappedShareSnapshotSchema,
 } from "@rudel/api-routes";
 import { sqlClient } from "../db.js";
+import {
+	buildWrappedShareIdBase,
+	getNextWrappedShareIdCandidate,
+} from "./wrapped-share-slug.js";
 
 interface CreateWrappedShareOptions {
 	organizationId: string;
 	snapshot: WrappedShareSnapshot;
 	userId: string;
+	username?: string;
 }
 
 const WRAPPED_SHARE_TTL_DAYS = 30;
 const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000;
+const WRAPPED_SHARE_ID_INSERT_ATTEMPTS = 20;
 
 // Persist a fully rendered public snapshot. We store the already-resolved card
 // data instead of rebuilding it later so the public share route stays simple and
@@ -24,39 +30,57 @@ const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000;
 export async function createWrappedShare(
 	options: CreateWrappedShareOptions,
 ): Promise<WrappedShareRecord> {
-	const { organizationId, snapshot, userId } = options;
-	const shareId = crypto.randomUUID();
+	const { organizationId, snapshot, userId, username } = options;
+	const shareIdBase = buildWrappedShareIdBase({
+		fallbackLabel: snapshot.row.displayName,
+		username,
+	});
 	const createdAt = new Date();
 	const expiresAt = createWrappedShareExpiry(createdAt);
 	const createdAtIso = createdAt.toISOString();
 	const expiresAtIso = expiresAt.toISOString();
 
-	await sqlClient`
-		INSERT INTO wrapped_share (
-			id,
-			organization_id,
-			payload_version,
-			snapshot_json,
-			user_id,
-			created_at,
-			expires_at
-		)
-		VALUES (
-			${shareId},
-			${organizationId},
-			${WRAPPED_SHARE_PAYLOAD_VERSION},
-			${JSON.stringify(snapshot)},
-			${userId},
-			${createdAtIso},
-			${expiresAtIso}
-		)
-	`;
+	for (
+		let attempt = 0;
+		attempt < WRAPPED_SHARE_ID_INSERT_ATTEMPTS;
+		attempt += 1
+	) {
+		const shareId = await buildAvailableWrappedShareId(shareIdBase);
+		const insertedRows = await sqlClient<Array<{ id: string }>>`
+			INSERT INTO wrapped_share (
+				id,
+				organization_id,
+				payload_version,
+				snapshot_json,
+				user_id,
+				created_at,
+				expires_at
+			)
+			VALUES (
+				${shareId},
+				${organizationId},
+				${WRAPPED_SHARE_PAYLOAD_VERSION},
+				${JSON.stringify(snapshot)},
+				${userId},
+				${createdAtIso},
+				${expiresAtIso}
+			)
+			ON CONFLICT (id) DO NOTHING
+			RETURNING id
+		`;
 
-	return {
-		created_at: createdAtIso,
-		expires_at: expiresAtIso,
-		id: shareId,
-	};
+		const insertedShareId = insertedRows[0]?.id;
+
+		if (insertedShareId) {
+			return {
+				created_at: createdAtIso,
+				expires_at: expiresAtIso,
+				id: insertedShareId,
+			};
+		}
+	}
+
+	throw new Error("Could not allocate a wrapped share id");
 }
 
 // Public share lookup deliberately returns only the persisted snapshot payload.
@@ -112,6 +136,27 @@ export async function getPublicWrappedShare(
 function parseWrappedShareSnapshot(snapshotJson: string): WrappedShareSnapshot {
 	const parsedSnapshot = JSON.parse(snapshotJson) as unknown;
 	return WrappedShareSnapshotSchema.parse(parsedSnapshot);
+}
+
+async function buildAvailableWrappedShareId(baseId: string) {
+	const existingIds = await getExistingWrappedShareIdsForBase(baseId);
+
+	return getNextWrappedShareIdCandidate({
+		baseId,
+		existingIds,
+	});
+}
+
+async function getExistingWrappedShareIdsForBase(baseId: string) {
+	const suffixPrefix = `${baseId}-`;
+	const rows = await sqlClient<Array<{ id: string }>>`
+		SELECT id
+		FROM wrapped_share
+		WHERE id = ${baseId}
+			OR left(id, ${suffixPrefix.length}) = ${suffixPrefix}
+	`;
+
+	return rows.map((row) => row.id);
 }
 
 // Shares are intentionally short-lived so stale public links do not become a
