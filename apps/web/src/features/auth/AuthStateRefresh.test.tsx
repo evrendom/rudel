@@ -213,8 +213,8 @@ describe("auth state refresh", () => {
 		await user.click(
 			screen.getByRole("button", { name: "Create account with Email" }),
 		);
-		await user.type(screen.getByLabelText("Name"), "Ada Lovelace");
-		await user.type(screen.getByLabelText("Email"), "ada@example.com");
+		expect(screen.queryByLabelText("Name")).not.toBeInTheDocument();
+		await user.type(screen.getByLabelText("Email"), "ada.lovelace@example.com");
 		await user.type(screen.getByLabelText("Password"), "supersecure");
 		await user.click(screen.getByRole("button", { name: "Sign up" }));
 
@@ -222,7 +222,7 @@ describe("auth state refresh", () => {
 			expect(mockSignUpEmail).toHaveBeenCalledWith(
 				expect.objectContaining({
 					name: "Ada Lovelace",
-					email: "ada@example.com",
+					email: "ada.lovelace@example.com",
 					password: "supersecure",
 					callbackURL: appRoutes.wrappedSessionsLanded(),
 					fetchOptions: expect.objectContaining({
@@ -254,7 +254,6 @@ describe("auth state refresh", () => {
 		await user.click(
 			screen.getByRole("button", { name: "Create account with Email" }),
 		);
-		await user.type(screen.getByLabelText("Name"), "Ada Lovelace");
 		await user.type(screen.getByLabelText("Email"), "ada@example.com");
 		await user.type(screen.getByLabelText("Password"), "supersecure");
 		await user.click(screen.getByRole("button", { name: "Sign up" }));
@@ -276,7 +275,6 @@ describe("auth state refresh", () => {
 		await user.click(
 			screen.getByRole("button", { name: "Create account with Email" }),
 		);
-		await user.type(screen.getByLabelText("Name"), "Ada Lovelace");
 		await user.type(screen.getByLabelText("Email"), "ada@example.com");
 		await user.type(screen.getByLabelText("Password"), "supersecure");
 		await user.click(screen.getByRole("button", { name: "Sign up" }));
@@ -299,7 +297,6 @@ describe("auth state refresh", () => {
 		await user.click(
 			screen.getByRole("button", { name: "Create account with Email" }),
 		);
-		await user.type(screen.getByLabelText("Name"), "Ada Lovelace");
 		await user.type(screen.getByLabelText("Email"), "ada@example.com");
 		await user.type(screen.getByLabelText("Password"), "supersecure");
 		await user.click(screen.getByRole("button", { name: "Sign up" }));

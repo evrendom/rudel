@@ -6,6 +6,7 @@ import { Label } from "@/app/ui/label";
 import { Separator } from "@/app/ui/separator";
 import { useAnalyticsTracking } from "@/features/analytics/tracking/useAnalyticsTracking";
 import { authClient } from "@/lib/auth-client";
+import { getInitialSignupName } from "@/lib/auth-signup-name";
 import {
 	captureSignUpFailed,
 	normalizeWebErrorCode,
@@ -71,7 +72,6 @@ export function SignupForm(props: SignupFormProps) {
 		onSwitchToLogin,
 		variant = "default",
 	} = props;
-	const [name, setName] = useState("");
 	const [email, setEmail] = useState("");
 	const [password, setPassword] = useState("");
 	const [error, setError] = useState("");
@@ -110,6 +110,7 @@ export function SignupForm(props: SignupFormProps) {
 	async function handleSubmit(e: React.FormEvent) {
 		e.preventDefault();
 		setError("");
+		const signupEmail = email.trim();
 
 		if (usesWrappedEmailPreview) {
 			if (!hasValidEmail) {
@@ -130,7 +131,7 @@ export function SignupForm(props: SignupFormProps) {
 				return;
 			}
 
-			onEmailPasswordPreviewSubmit(email.trim());
+			onEmailPasswordPreviewSubmit(signupEmail);
 			return;
 		}
 
@@ -154,8 +155,8 @@ export function SignupForm(props: SignupFormProps) {
 			entrypoint: signupContext.entryPoint,
 		});
 		const { error } = await authClient.signUp.email({
-			name,
-			email,
+			name: getInitialSignupName(signupEmail),
+			email: signupEmail,
 			password,
 			callbackURL: verificationCallbackURL,
 			fetchOptions: {
@@ -421,28 +422,9 @@ export function SignupForm(props: SignupFormProps) {
 									initial={wrappedSceneMotion.initial}
 									transition={wrappedSceneMotion.transition}
 								>
-									{usesWrappedEmailPreview ? null : (
-										<div className="mymind-wrapped-auth-form__field">
-											<Label
-												className="mymind-wrapped-auth-form__label"
-												htmlFor="name"
-											>
-												Name
-											</Label>
-											<Input
-												id="name"
-												type="text"
-												placeholder="Your name"
-												value={name}
-												onChange={(e) => setName(e.target.value)}
-												className="mymind-wrapped-auth-form__input"
-												required
-											/>
-										</div>
-									)}
 									<div className="mymind-wrapped-auth-form__field">
 										<Input
-											autoFocus={usesWrappedEmailPreview}
+											autoFocus
 											aria-label="Password"
 											id="password"
 											type="password"
@@ -556,17 +538,6 @@ export function SignupForm(props: SignupFormProps) {
 
 				{showEmailForm ? (
 					<form onSubmit={handleSubmit} className="flex flex-col gap-4">
-						<div className="flex flex-col gap-2">
-							<Label htmlFor="name">Name</Label>
-							<Input
-								id="name"
-								type="text"
-								placeholder="Your name"
-								value={name}
-								onChange={(e) => setName(e.target.value)}
-								required
-							/>
-						</div>
 						<div className="flex flex-col gap-2">
 							<Label htmlFor="email">Email</Label>
 							<Input

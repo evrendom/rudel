@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useAnalyticsTracking } from "../../hooks/useDashboardAnalytics";
 import { authClient } from "../../lib/auth-client";
+import { getInitialSignupName } from "../../lib/auth-signup-name";
 import {
 	captureSignUpFailed,
 	normalizeWebErrorCode,
@@ -67,7 +68,6 @@ export function SignupForm({
 }: {
 	onSwitchToLogin: () => void;
 }) {
-	const [name, setName] = useState("");
 	const [email, setEmail] = useState("");
 	const [password, setPassword] = useState("");
 	const [error, setError] = useState("");
@@ -80,6 +80,7 @@ export function SignupForm({
 		e.preventDefault();
 		setError("");
 		setLoading(true);
+		const signupEmail = email.trim();
 		const signupContext = getSignupContext();
 		trackAuthenticationAction({
 			actionName: "sign_up",
@@ -88,8 +89,8 @@ export function SignupForm({
 			entrypoint: signupContext.entryPoint,
 		});
 		const { error } = await authClient.signUp.email({
-			name,
-			email,
+			name: getInitialSignupName(signupEmail),
+			email: signupEmail,
 			password,
 		});
 		setLoading(false);
@@ -140,17 +141,6 @@ export function SignupForm({
 			</CardHeader>
 			<CardContent className="flex flex-col gap-4">
 				<form onSubmit={handleSubmit} className="flex flex-col gap-4">
-					<div className="flex flex-col gap-2">
-						<Label htmlFor="name">Name</Label>
-						<Input
-							id="name"
-							type="text"
-							placeholder="Your name"
-							value={name}
-							onChange={(e) => setName(e.target.value)}
-							required
-						/>
-					</div>
 					<div className="flex flex-col gap-2">
 						<Label htmlFor="email">Email</Label>
 						<Input
