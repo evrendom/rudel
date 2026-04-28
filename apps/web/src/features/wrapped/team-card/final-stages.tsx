@@ -59,6 +59,7 @@ interface WrappedTeamCardShareStageProps extends WrappedTeamCardStageCardProps {
 	frontCardHandoffRef?: RefObject<HTMLDivElement | null>;
 	isFrontCardHandoffHidden?: boolean;
 	isDownloadPending?: boolean;
+	isSharePending?: boolean;
 	onBack: () => void;
 	onCopy: () => void | Promise<void>;
 	onContinueToDashboard: () => void;
@@ -404,6 +405,7 @@ export function WrappedTeamCardShareStage(
 		headerRightMetric,
 		isDownloadPending = false,
 		isFrontCardHandoffHidden = false,
+		isSharePending = false,
 		onBack,
 		onCopy,
 		onContinueToDashboard,
@@ -558,11 +560,17 @@ export function WrappedTeamCardShareStage(
 							<Button
 								type="button"
 								size="lg"
+								aria-busy={isSharePending ? "true" : undefined}
 								className="mymind-wrapped-share-actions__primary"
+								disabled={isSharePending}
 								onClick={onShare}
 							>
-								<Share2 className="size-4" />
-								Share to X
+								{isSharePending ? (
+									<Loader2 className="size-4 animate-spin" />
+								) : (
+									<Share2 className="size-4" />
+								)}
+								{isSharePending ? "Copying image..." : "Share to X"}
 							</Button>
 						</nav>
 					</motion.div>
@@ -752,19 +760,19 @@ function WrappedTeamCardFlipSurface(props: WrappedTeamCardFlipSurfaceProps) {
 				data-card-face={cardFace}
 				disabled={isDisabled}
 				onClick={onFlip}
-				onPointerMove={(event) => {
-					if (isTiltEnabled && !isFlipAnimating) {
-						tiltController.handlePointerMove(event);
-					}
-				}}
-				onPointerEnter={tiltController.handlePointerEnter}
-				onPointerLeave={tiltController.handlePointerLeave}
-				onPointerCancel={tiltController.handlePointerLeave}
 				type="button"
 			>
 				<div
 					ref={morphShellRef}
 					className="mymind-wrapped-final-stage__card-morph-shell"
+					onPointerMove={(event) => {
+						if (isTiltEnabled && !isFlipAnimating) {
+							tiltController.handlePointerMove(event);
+						}
+					}}
+					onPointerEnter={tiltController.handlePointerEnter}
+					onPointerLeave={tiltController.handlePointerLeave}
+					onPointerCancel={tiltController.handlePointerLeave}
 				>
 					<div
 						ref={(node) => {
@@ -1033,6 +1041,8 @@ export function WrappedTeamCardRevealStage(
 	const [isCardFrontVisible, setIsCardFrontVisible] = useState(false);
 	const [hasCardFrontBeenRevealed, setHasCardFrontBeenRevealed] =
 		useState(false);
+	const [hasInitialCardFlipSettled, setHasInitialCardFlipSettled] =
+		useState(false);
 	const [isCardFlipAnimating, setIsCardFlipAnimating] = useState(false);
 	const [isRevealExitPending, setIsRevealExitPending] = useState(false);
 	const revealTimerRefs = useRef<number[]>([]);
@@ -1055,7 +1065,7 @@ export function WrappedTeamCardRevealStage(
 	const shouldShowArchetypeCompanion =
 		isCardDropped &&
 		hasCardFrontBeenRevealed &&
-		!isCardFlipAnimating &&
+		(hasInitialCardFlipSettled || !isCardFlipAnimating) &&
 		!isRevealExitPending;
 	const revealCompanionState = shouldShowArchetypeCompanion
 		? "visible"
@@ -1110,6 +1120,7 @@ export function WrappedTeamCardRevealStage(
 			setIsCardDropped(false);
 			setIsCardFrontVisible(false);
 			setHasCardFrontBeenRevealed(false);
+			setHasInitialCardFlipSettled(false);
 			setIsCardFlipAnimating(false);
 			setIsRevealExitPending(false);
 			return;
@@ -1119,6 +1130,7 @@ export function WrappedTeamCardRevealStage(
 		setIsCardDropped(false);
 		setIsCardFrontVisible(false);
 		setHasCardFrontBeenRevealed(false);
+		setHasInitialCardFlipSettled(false);
 		setIsCardFlipAnimating(false);
 		setIsRevealExitPending(false);
 		const timeoutIds = [
@@ -1165,6 +1177,7 @@ export function WrappedTeamCardRevealStage(
 
 		const timeoutId = window.setTimeout(() => {
 			setIsCardFlipAnimating(false);
+			setHasInitialCardFlipSettled(true);
 		}, REVEAL_STAGE_CARD_FLIP_DURATION_MS);
 
 		return () => {
@@ -1202,6 +1215,7 @@ export function WrappedTeamCardRevealStage(
 		setHasCardFrontBeenRevealed(true);
 
 		if (reduceMotion) {
+			setHasInitialCardFlipSettled(true);
 			setIsCardFrontVisible((currentValue) => !currentValue);
 			return;
 		}

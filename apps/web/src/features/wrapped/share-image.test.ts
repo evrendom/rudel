@@ -3,18 +3,21 @@ import { describe, expect, it, vi } from "vitest";
 import { createWrappedImageShareActions } from "@/features/wrapped/share-image";
 import {
 	captureElement,
+	copyPngToClipboardWhenReady,
 	copyToClipboard,
 	downloadAsImage,
 } from "@/lib/screenshot";
 
 const {
 	mockCaptureElement,
+	mockCopyPngToClipboardWhenReady,
 	mockCopyToClipboard,
 	mockDownloadAsImage,
 	mockToastError,
 	mockToastSuccess,
 } = vi.hoisted(() => ({
 	mockCaptureElement: vi.fn(),
+	mockCopyPngToClipboardWhenReady: vi.fn(),
 	mockCopyToClipboard: vi.fn(),
 	mockDownloadAsImage: vi.fn(),
 	mockToastError: vi.fn(),
@@ -23,6 +26,7 @@ const {
 
 vi.mock("@/lib/screenshot", () => ({
 	captureElement: mockCaptureElement,
+	copyPngToClipboardWhenReady: mockCopyPngToClipboardWhenReady,
 	copyToClipboard: mockCopyToClipboard,
 	downloadAsImage: mockDownloadAsImage,
 }));
@@ -114,19 +118,22 @@ describe("createWrappedImageShareActions", () => {
 
 	it("opens an X intent with the public share URL for card previews", async () => {
 		resetShareImageMocks();
+		const blob = new Blob(["png"], { type: "image/png" });
 		const imageRef = { current: document.createElement("div") };
-		const pendingXWindow = {
-			closed: false,
-			close: vi.fn(),
-			document: { title: "" },
-			location: { href: "" },
-			opener: null,
-		};
-		const open = vi.fn().mockReturnValue(pendingXWindow);
+		const open = vi.fn().mockReturnValue({ opener: null });
 		Object.defineProperty(window, "open", {
 			configurable: true,
 			value: open,
 		});
+		let copiedBlob: Blob | undefined;
+		vi.mocked(captureElement).mockResolvedValue(blob);
+		vi.mocked(copyPngToClipboardWhenReady).mockImplementation(
+			async (imageBlobPromise) => {
+				expect(open).not.toHaveBeenCalled();
+				copiedBlob = await imageBlobPromise;
+				return true;
+			},
+		);
 
 		const actions = createWrappedImageShareActions({
 			fileName: "card.png",
@@ -140,22 +147,60 @@ describe("createWrappedImageShareActions", () => {
 
 		await actions.handleShareImage();
 
+		expect(open).toHaveBeenCalledTimes(1);
 		expect(open).toHaveBeenCalledWith(
 			expect.stringContaining("https://twitter.com/intent/tweet"),
 			"_blank",
+			"noopener,noreferrer",
 		);
-		const intentUrl = new URL(pendingXWindow.location.href);
+		const intentUrl = new URL(open.mock.calls[0]?.[0] ?? "");
 		expect(`${intentUrl.origin}${intentUrl.pathname}`).toBe(
 			"https://twitter.com/intent/tweet",
 		);
 		expect(intentUrl.searchParams.get("text")).toBe("Share text");
 		expect(intentUrl.searchParams.get("url")).toBe("https://rudel.ai/wrapped");
-		expect(captureElement).not.toHaveBeenCalled();
+		expect(captureElement).toHaveBeenCalledWith(imageRef.current, undefined);
+		expect(copyPngToClipboardWhenReady).toHaveBeenCalledWith(
+			expect.any(Promise),
+		);
+		expect(copiedBlob).toBe(blob);
 		expect(copyToClipboard).not.toHaveBeenCalled();
 		expect(downloadAsImage).not.toHaveBeenCalled();
 		expect(toast.success).toHaveBeenCalledWith(
-			"X is open with your wrapped card preview.",
-			{ duration: 5000 },
+			"Image copied. X is open. Paste the image into the post; your card link is included.",
+			{ duration: 7000 },
+		);
+	});
+
+	it("does not open X when the image was not copied", async () => {
+		resetShareImageMocks();
+		const blob = new Blob(["png"], { type: "image/png" });
+		const imageRef = { current: document.createElement("div") };
+		const open = vi.fn().mockReturnValue({ opener: null });
+		Object.defineProperty(window, "open", {
+			configurable: true,
+			value: open,
+		});
+		vi.mocked(captureElement).mockResolvedValue(blob);
+		vi.mocked(copyPngToClipboardWhenReady).mockResolvedValue(false);
+
+		const actions = createWrappedImageShareActions({
+			fileName: "card.png",
+			imageRef,
+			shareTarget: "x",
+			shareText: "Share text",
+			shareTitle: "Share title",
+			shareUrl: "https://rudel.ai/wrapped",
+			shareUrlLabel: "rudel.ai/wrapped",
+		});
+
+		await actions.handleShareImage();
+
+		expect(open).not.toHaveBeenCalled();
+		expect(downloadAsImage).toHaveBeenCalledWith(blob, "card.png");
+		expect(toast.success).toHaveBeenCalledWith(
+			"Image downloaded. Share the PNG from your downloads.",
+			{ duration: 7000 },
 		);
 	});
 
