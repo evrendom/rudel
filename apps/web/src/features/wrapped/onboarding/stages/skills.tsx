@@ -82,10 +82,31 @@ const SKILLS_STAGE_INTRO_TOKENS =
 const SKILLS_STAGE_DEAL_FINAL_HOLD_MS = 280;
 const SKILLS_STAGE_INTRO_TOKEN_STAGGER_S = 0.055;
 
+function getSkillsDebugLayoutClassName() {
+	if (typeof window === "undefined") {
+		return null;
+	}
+
+	const debugValue = new URLSearchParams(window.location.search).get(
+		"debugSkillsLayout",
+	);
+
+	if (debugValue === "purple" || debugValue === "bottom-gradient") {
+		return "mymind-wrapped-skills-stage--debug-purple-gradient";
+	}
+
+	if (debugValue === "1" || debugValue === "true") {
+		return "mymind-wrapped-skills-stage--debug-layout";
+	}
+
+	return null;
+}
+
 export function WrappedOnboardingSkillsStage(props: SkillsStageProps) {
 	const { onboardingMetrics, previewState } = props;
 	const shouldReduceMotion = useReducedMotion();
 	const reduceMotion = shouldReduceMotion ?? false;
+	const debugLayoutClassName = getSkillsDebugLayoutClassName();
 	const [replayNonce, setReplayNonce] = useState(0);
 	const model = resolveSkillsStageModel(
 		resolveSkillsPreviewInput(
@@ -294,6 +315,7 @@ export function WrappedOnboardingSkillsStage(props: SkillsStageProps) {
 				isIntroCopyVisible && "mymind-wrapped-skills-stage--intro-copy",
 				isComponentOnly && "mymind-wrapped-skills-stage--component-only",
 				isOverlayCopyVisible && "mymind-wrapped-skills-stage--overlay-copy",
+				debugLayoutClassName,
 			)}
 			copy={
 				isEmptySkillsBoard ? (
@@ -318,6 +340,8 @@ export function WrappedOnboardingSkillsStage(props: SkillsStageProps) {
 							<motion.div
 								key="skills-intro-copy"
 								animate={{ filter: "blur(0px)", opacity: 1, scale: 1, y: 0 }}
+								className="mymind-wrapped-skills-stage__debug-copy-shell"
+								data-debug-label="intro copy motion"
 								exit={{ filter: "blur(6px)", opacity: 0, scale: 0.992, y: -8 }}
 								initial={false}
 								transition={SKILLS_STAGE_COPY_TRANSITION}
@@ -338,6 +362,8 @@ export function WrappedOnboardingSkillsStage(props: SkillsStageProps) {
 							scale: 1,
 							y: 0,
 						}}
+						className="mymind-wrapped-skills-stage__debug-copy-shell"
+						data-debug-label="overlay copy motion"
 						initial={{
 							filter: "blur(10px)",
 							opacity: 0,
@@ -355,10 +381,14 @@ export function WrappedOnboardingSkillsStage(props: SkillsStageProps) {
 			}
 			object={
 				isEmptySkillsBoard ? (
-					<div className="mymind-wrapped-skills-stage__empty-state">
+					<div
+						className="mymind-wrapped-skills-stage__empty-state"
+						data-debug-label="empty state"
+					>
 						<div
 							aria-hidden="true"
 							className="mymind-wrapped-skills-stage__empty-icon-shell"
+							data-debug-label="empty icon shell"
 						>
 							<span className="mymind-wrapped-skills-stage__empty-code">
 								404
@@ -386,17 +416,20 @@ export function WrappedOnboardingSkillsStage(props: SkillsStageProps) {
 					<motion.div
 						animate={{ filter: "blur(0px)", opacity: 1, y: 0 }}
 						className="mymind-wrapped-skills-stage__object-shell"
+						data-debug-label="object shell"
 						initial={{ filter: "blur(10px)", opacity: 0, y: 14 }}
 						transition={SKILLS_STAGE_OBJECT_TRANSITION}
 					>
 						<div
 							className="mymind-wrapped-skills-stage__stack-frame"
+							data-debug-label="stack frame"
 							data-scrollable={model.isScrollable ? "true" : "false"}
 							data-stack-stage={skillsEntranceStage}
 						>
 							<section
 								aria-label="Skill rankings"
 								className="mymind-wrapped-skills-stage__stack"
+								data-debug-label="scroll stack"
 								data-scrollable={model.isScrollable ? "true" : "false"}
 								data-stack-stage={skillsEntranceStage}
 								onScroll={handleSkillsStackScroll}
@@ -406,6 +439,7 @@ export function WrappedOnboardingSkillsStage(props: SkillsStageProps) {
 							>
 								<div
 									className="mymind-wrapped-skills-stage__stack-track"
+									data-debug-label="stack track"
 									style={stackStyle}
 								>
 									{model.cards.map((card, cardIndex) => {
@@ -441,6 +475,7 @@ export function WrappedOnboardingSkillsStage(props: SkillsStageProps) {
 															cardIndex === frontDealCardIndex)) &&
 														"is-front",
 												)}
+												data-debug-label={`card ${card.item.rank}`}
 												data-card-stage={skillsEntranceStage}
 												style={cardStyle}
 											>
@@ -449,15 +484,28 @@ export function WrappedOnboardingSkillsStage(props: SkillsStageProps) {
 														"mymind-wrapped-skills-stage__card-item",
 														card.item.isPlaceholder && "is-placeholder",
 													)}
+													data-debug-label={`card ${card.item.rank} item grid`}
 												>
-													<span className="mymind-wrapped-skills-stage__item-rank">
+													<span
+														className="mymind-wrapped-skills-stage__item-rank"
+														data-debug-label={`rank ${card.item.rank}`}
+													>
 														{card.item.rank}
 													</span>
-													<div className="mymind-wrapped-skills-stage__item-copy">
-														<p className="mymind-wrapped-skills-stage__item-name">
+													<div
+														className="mymind-wrapped-skills-stage__item-copy"
+														data-debug-label={`card ${card.item.rank} copy`}
+													>
+														<p
+															className="mymind-wrapped-skills-stage__item-name"
+															data-debug-label={`card ${card.item.rank} name`}
+														>
 															{card.item.name}
 														</p>
-														<p className="mymind-wrapped-skills-stage__item-meta">
+														<p
+															className="mymind-wrapped-skills-stage__item-meta"
+															data-debug-label={`card ${card.item.rank} meta`}
+														>
 															{card.item.meta}
 														</p>
 													</div>
@@ -479,7 +527,10 @@ function WrappedSkillsIntroLine(props: { reduceMotion: boolean }) {
 	const { reduceMotion } = props;
 
 	return (
-		<span className="mymind-wrapped-skills-stage__intro-line">
+		<span
+			className="mymind-wrapped-skills-stage__intro-line"
+			data-debug-label="intro line"
+		>
 			{SKILLS_STAGE_INTRO_TOKENS.map((token, tokenIndex) => (
 				<motion.span
 					key={token}
@@ -489,6 +540,7 @@ function WrappedSkillsIntroLine(props: { reduceMotion: boolean }) {
 							: { filter: "blur(0px)", opacity: 1, y: 0 }
 					}
 					className="mymind-wrapped-skills-stage__intro-token"
+					data-debug-label={`intro token: ${token}`}
 					initial={
 						reduceMotion
 							? { opacity: 0 }

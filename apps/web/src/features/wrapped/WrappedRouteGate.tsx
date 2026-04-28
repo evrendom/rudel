@@ -1,4 +1,4 @@
-import { type ReactNode, startTransition, useState } from "react";
+import { type ReactNode, startTransition, useRef, useState } from "react";
 import { useLocation, useSearchParams } from "react-router-dom";
 import { useIsMobile } from "@/app/hooks/use-mobile";
 import {
@@ -39,6 +39,14 @@ interface WrappedRouteGateProps {
 
 type WrappedRouteFlowStage = "desktop-ready" | "sessions-landed" | "story";
 
+const WRAPPED_SETUP_UPLOAD_STEP_ID = "enable-auto-upload";
+const WRAPPED_SETUP_AUTH_COMPLETED_STEP_IDS = ["install-and-login"] as const;
+const WRAPPED_SETUP_ALL_COMPLETED_STEP_IDS = [
+	"install-and-login",
+	"enable-auto-upload",
+] as const;
+const WRAPPED_SETUP_UPLOAD_COMPLETE_HOLD_MS = 900;
+
 export function WrappedRouteGate(props: WrappedRouteGateProps) {
 	const { isPending, publicId, session } = props;
 	const location = useLocation();
@@ -58,6 +66,12 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 	const [completedSetupUserIds, setCompletedSetupUserIds] = useState<
 		Record<string, true>
 	>({});
+	const [uploadSetupSeenUserIds, setUploadSetupSeenUserIds] = useState<
+		Record<string, true>
+	>({});
+	const [uploadCompletionShownUserIds, setUploadCompletionShownUserIds] =
+		useState<Record<string, true>>({});
+	const uploadCompletionTimeoutRef = useRef<number | null>(null);
 	const forcedFlowStage = getWrappedRouteFlowStage(
 		searchParams.get(WRAPPED_ROUTE_FLOW_QUERY_PARAM),
 	);
@@ -66,6 +80,21 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 			? false
 			: completedSetupUserIds[sessionUserId] === true ||
 				hasCompletedWrappedSetup(sessionUserId);
+	const hasSeenUploadSetup =
+		sessionUserId === null
+			? false
+			: uploadSetupSeenUserIds[sessionUserId] === true;
+	const hasShownUploadCompletion =
+		sessionUserId === null
+			? false
+			: uploadCompletionShownUserIds[sessionUserId] === true;
+	const shouldShowUploadCompletionStep =
+		sessionUserId !== null &&
+		setupProgress.hasUploadedSessions &&
+		!hasCompletedSetup &&
+		hasSeenUploadSetup &&
+		!hasShownUploadCompletion &&
+		forcedFlowStage !== "story";
 	const shouldForceSessionsLanded =
 		forcedFlowStage === "sessions-landed" && setupProgress.hasUploadedSessions;
 	const shouldForceDesktopReady =
@@ -124,8 +153,55 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 		document.body.classList.add("mymind-wrapped-body");
 
 		return () => {
+			if (uploadCompletionTimeoutRef.current !== null) {
+				window.clearTimeout(uploadCompletionTimeoutRef.current);
+			}
 			document.body.classList.remove("mymind-wrapped-body");
 		};
+	});
+
+	useEffectOnceWhen({
+		effect: () => {
+			if (!sessionUserId) {
+				return;
+			}
+
+			setUploadSetupSeenUserIds((currentState) => ({
+				...currentState,
+				[sessionUserId]: true,
+			}));
+		},
+		isReady:
+			!publicId &&
+			!isPending &&
+			!!sessionUserId &&
+			!!session &&
+			!setupProgress.isLoading &&
+			!setupProgress.hasUploadedSessions &&
+			!(isMobile && sessionUserEmail),
+		key: sessionUserId,
+	});
+
+	useEffectOnceWhen({
+		effect: () => {
+			if (!sessionUserId) {
+				return;
+			}
+
+			uploadCompletionTimeoutRef.current = window.setTimeout(() => {
+				uploadCompletionTimeoutRef.current = null;
+				setUploadCompletionShownUserIds((currentState) => ({
+					...currentState,
+					[sessionUserId]: true,
+				}));
+				setWrappedRouteFlowStage("sessions-landed");
+			}, WRAPPED_SETUP_UPLOAD_COMPLETE_HOLD_MS);
+		},
+		isReady: shouldShowUploadCompletionStep,
+		key:
+			sessionUserId === null
+				? null
+				: `${sessionUserId}:wrapped-upload-complete`,
 	});
 
 	useEffectOnceWhen({
@@ -164,7 +240,8 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 			!isPending &&
 			!!sessionUserId &&
 			setupProgress.hasUploadedSessions &&
-			!hasCompletedSetup,
+			!hasCompletedSetup &&
+			!shouldShowUploadCompletionStep,
 		key: sessionUserId,
 	});
 
@@ -178,10 +255,10 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 		);
 	} else if (!session) {
 		content = <WrappedGuestPage />;
-	} else if (setupProgress.isLoading) {
-		content = <WrappedSetupLoadingState />;
 	} else if (shouldForceDesktopReady) {
-		content = <WrappedSetupPage />;
+		content = <WrappedUploadSetupPage />;
+	} else if (shouldShowUploadCompletionStep) {
+		content = <WrappedUploadSetupPage isUploadComplete />;
 	} else if (
 		sessionUserId &&
 		(shouldForceSessionsLanded ||
@@ -211,10 +288,25 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 			/>
 		);
 	} else {
-		content = <WrappedSetupPage />;
+		content = <WrappedUploadSetupPage />;
 	}
 
 	return content;
+}
+
+function WrappedUploadSetupPage(props: { isUploadComplete?: boolean }) {
+	return (
+		<WrappedSetupPage
+			completedStepIdsOverride={
+				props.isUploadComplete
+					? WRAPPED_SETUP_ALL_COMPLETED_STEP_IDS
+					: WRAPPED_SETUP_AUTH_COMPLETED_STEP_IDS
+			}
+			currentStepIdOverride={
+				props.isUploadComplete ? null : WRAPPED_SETUP_UPLOAD_STEP_ID
+			}
+		/>
+	);
 }
 
 function getWrappedRouteFlowStage(
@@ -242,24 +334,6 @@ function WrappedRouteLoadingState(props: { body: string }) {
 				</div>
 			}
 			title="Loading wrapped"
-		/>
-	);
-}
-
-function WrappedSetupLoadingState() {
-	return (
-		<WrappedRouteStageShell
-			description="Checking whether your first Rudel sessions are already ready."
-			progressStepId="desktop-ready"
-			stage={
-				<div className="mymind-wrapped-entry-card mymind-wrapped-entry-card--status">
-					<div className="mymind-wrapped-entry-card__status-dot" />
-					<p className="mymind-wrapped-entry-card__status-copy">
-						Looking for uploaded sessions and any in-flight desktop handoff.
-					</p>
-				</div>
-			}
-			title="Checking your sessions"
 		/>
 	);
 }

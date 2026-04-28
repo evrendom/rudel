@@ -1,8 +1,20 @@
-import { render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { WrappedSetupPage } from "@/features/wrapped/WrappedSetupPage";
+
+const { mockOpenChatwoot, mockSetChatwootBubbleVisibility } = vi.hoisted(
+	() => ({
+		mockOpenChatwoot: vi.fn(),
+		mockSetChatwootBubbleVisibility: vi.fn(),
+	}),
+);
+
+vi.mock("@/lib/chatwoot", () => ({
+	openChatwoot: mockOpenChatwoot,
+	setChatwootBubbleVisibility: mockSetChatwootBubbleVisibility,
+}));
 
 Object.defineProperty(window, "matchMedia", {
 	writable: true,
@@ -16,6 +28,13 @@ Object.defineProperty(window, "matchMedia", {
 		removeEventListener: vi.fn(),
 		removeListener: vi.fn(),
 	})),
+});
+
+afterEach(() => {
+	vi.useRealTimers();
+	window.sessionStorage.clear();
+	mockOpenChatwoot.mockClear();
+	mockSetChatwootBubbleVisibility.mockClear();
 });
 
 function hasExactTextContent(expectedText: string) {
@@ -206,5 +225,76 @@ describe("WrappedSetupPage", () => {
 		expect(
 			screen.getAllByRole("button", { name: "Copy to clipboard" }),
 		).toHaveLength(2);
+	});
+
+	it("reveals upload support after one minute and opens support chat", () => {
+		vi.useFakeTimers();
+
+		render(
+			<MemoryRouter>
+				<WrappedSetupPage initialStepId="enable-auto-upload" />
+			</MemoryRouter>,
+		);
+
+		expect(
+			screen.queryByRole("button", {
+				name: "Trouble uploading sessions?",
+			}),
+		).toBeNull();
+
+		act(() => {
+			vi.advanceTimersByTime(59_999);
+		});
+
+		expect(
+			screen.queryByRole("button", {
+				name: "Trouble uploading sessions?",
+			}),
+		).toBeNull();
+
+		act(() => {
+			vi.advanceTimersByTime(1);
+		});
+
+		const supportButton = screen.getByRole("button", {
+			name: "Trouble uploading sessions?",
+		});
+		fireEvent.click(supportButton);
+
+		expect(mockOpenChatwoot).toHaveBeenCalledTimes(1);
+	});
+
+	it("keeps upload support visible after it has appeared once", () => {
+		vi.useFakeTimers();
+
+		const firstRender = render(
+			<MemoryRouter>
+				<WrappedSetupPage initialStepId="enable-auto-upload" />
+			</MemoryRouter>,
+		);
+
+		act(() => {
+			vi.advanceTimersByTime(60_000);
+		});
+
+		expect(
+			screen.getByRole("button", {
+				name: "Trouble uploading sessions?",
+			}),
+		).toBeInTheDocument();
+
+		firstRender.unmount();
+
+		render(
+			<MemoryRouter>
+				<WrappedSetupPage initialStepId="enable-auto-upload" />
+			</MemoryRouter>,
+		);
+
+		expect(
+			screen.getByRole("button", {
+				name: "Trouble uploading sessions?",
+			}),
+		).toBeInTheDocument();
 	});
 });
