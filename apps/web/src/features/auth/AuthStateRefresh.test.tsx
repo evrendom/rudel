@@ -9,6 +9,7 @@ import {
 	getEmailSignupSuccessDestination,
 	getEmailSignupVerificationCallbackURL,
 	getPendingSignupRedirect,
+	getSocialLoginRedirectOptions,
 	getSocialSignupRedirectOptions,
 	isGetStartedPath,
 	primePendingSignupRedirect,
@@ -191,6 +192,17 @@ describe("auth state refresh", () => {
 				"/wrapped?share_id=share-123&flow=sessions-landed",
 			)}`,
 		);
+	});
+
+	it("uses card profile as the new-user destination for social logins from wrapped", () => {
+		expect(
+			getSocialLoginRedirectOptions("/wrapped", "?share_id=share-123"),
+		).toEqual({
+			callbackURL: `/?redirect=${encodeURIComponent(
+				"/wrapped?share_id=share-123&flow=sessions-landed",
+			)}`,
+			newUserCallbackURL: "/wrapped?share_id=share-123&flow=card-profile",
+		});
 	});
 
 	it("uses card profile as the new-user destination for social signups from wrapped", () => {
@@ -428,6 +440,28 @@ describe("auth state refresh", () => {
 			);
 		});
 		expect(mockRefreshAuthClientState).toHaveBeenCalledTimes(1);
+	});
+
+	it("uses a card profile destination for new users created from social login", async () => {
+		window.history.replaceState({}, "", "/wrapped?share_id=share-123");
+		mockSignInSocial.mockResolvedValue({ error: null });
+
+		const user = userEvent.setup();
+		render(<LoginForm onSwitchToSignup={vi.fn()} />);
+
+		await user.click(
+			screen.getByRole("button", { name: "Log in with Google" }),
+		);
+
+		await waitFor(() => {
+			expect(mockSignInSocial).toHaveBeenCalledWith({
+				provider: "google",
+				callbackURL: `/?redirect=${encodeURIComponent(
+					"/wrapped?share_id=share-123&flow=sessions-landed",
+				)}`,
+				newUserCallbackURL: "/wrapped?share_id=share-123&flow=card-profile",
+			});
+		});
 	});
 
 	it("shows verbose dev details for email sign in failures", async () => {
