@@ -1787,7 +1787,6 @@ body.mymind-wrapped-body #cw-bubble-holder {
 	z-index: 1;
 	align-self: stretch;
 	margin-block-start: clamp(1.5rem, 4.5svh, 2.75rem);
-	margin-block-end: calc(-1 * (var(--wrapped-shell-stage-gap) + 2.75rem));
 }
 
 .mymind-wrapped-model-stage__subline {
@@ -8225,6 +8224,35 @@ body.mymind-wrapped-body #cw-bubble-holder {
 	.mymind-wrapped-auth-form[data-email-auth-stage="choice"]
 		.mymind-wrapped-auth-form__choice-footer {
 		margin-bottom: 0;
+	}
+}
+
+@media (max-height: 900px) {
+	.mymind-wrapped-route--step-model .mymind-wrapped-shell {
+		--wrapped-shell-bottom-inset: clamp(12px, calc(15.56svh - 100px), 40px);
+	}
+
+	.mymind-wrapped-model-stage--immersive
+		.mymind-wrapped-model-stage__summary-card {
+		padding-top: clamp(6.25rem, calc(65svh - 405px), 11.6rem);
+	}
+
+	.mymind-wrapped-model-stage__chart-shell,
+	.mymind-wrapped-model-stage__race-row {
+		min-height: clamp(17.5rem, calc(100svh - 22.5rem), 29rem);
+	}
+
+	.mymind-wrapped-model-stage__race-track-shell {
+		min-height: clamp(15.5rem, calc(100svh - 25.2rem), 27rem);
+	}
+
+	.mymind-wrapped-model-stage__scene-shell--comparison
+		.mymind-wrapped-model-stage__chart-shell,
+	.mymind-wrapped-model-stage__scene-shell--details:not(
+			.mymind-wrapped-model-stage__scene-shell--history
+		)
+		.mymind-wrapped-model-stage__chart-shell {
+		padding-bottom: clamp(3.3rem, calc(14rem - 19svh), 4.25rem);
 	}
 }
 
