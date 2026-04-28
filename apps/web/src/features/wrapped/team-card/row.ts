@@ -3,9 +3,9 @@ import type { TeamPageMemberRow } from "@/features/team/use-team-page-data";
 
 interface BuildResolvedTeamCardRowParams {
 	accountLabel: string;
-	debugProfileImageSrc: string;
 	developerDetails: DeveloperDetails | undefined;
 	guestPreviewDisplayName: string | undefined;
+	profileImageSrc: string | null | undefined;
 	sessionUserEmail: string | undefined;
 	sessionUserId: string | undefined;
 	sessionUserName: string | undefined;
@@ -18,9 +18,9 @@ export function buildResolvedTeamCardRow(
 ): TeamPageMemberRow {
 	const {
 		accountLabel,
-		debugProfileImageSrc,
 		developerDetails,
 		guestPreviewDisplayName,
+		profileImageSrc,
 		sessionUserEmail,
 		sessionUserId,
 		sessionUserName,
@@ -31,6 +31,10 @@ export function buildResolvedTeamCardRow(
 		sessionUserEmail,
 		sessionUserId,
 		teamMemberRows,
+	});
+	const imageUrl = resolveTeamCardImageUrl({
+		currentUserRow,
+		profileImageSrc,
 	});
 	const { displayName } = resolveTeamCardDisplayName({
 		accountLabel,
@@ -52,7 +56,7 @@ export function buildResolvedTeamCardRow(
 				developerDetails.total_sessions > 0 ||
 				developerDetails.active_days > 0 ||
 				developerDetails.total_tokens > 0,
-			imageUrl: debugProfileImageSrc,
+			imageUrl,
 			inputTokens: developerDetails.input_tokens,
 			lastActiveDate: developerDetails.last_active_date,
 			outputTokens: developerDetails.output_tokens,
@@ -67,7 +71,7 @@ export function buildResolvedTeamCardRow(
 		return {
 			...currentUserRow,
 			...getWrappedMetricFallbackFields(wrappedMetrics, currentUserRow),
-			imageUrl: debugProfileImageSrc,
+			imageUrl,
 		};
 	}
 
@@ -80,7 +84,7 @@ export function buildResolvedTeamCardRow(
 		email,
 		favoriteModel: wrappedFallbackFields.favoriteModel,
 		hasActivity: wrappedFallbackFields.hasActivity,
-		imageUrl: debugProfileImageSrc,
+		imageUrl,
 		inputTokens: 0,
 		lastActiveDate: wrappedMetrics?.last_session_at ?? null,
 		outputTokens: 0,
@@ -89,6 +93,17 @@ export function buildResolvedTeamCardRow(
 		totalTokens: wrappedFallbackFields.totalTokens,
 		userId: sessionUserId ?? "wrapped-preview",
 	};
+}
+
+function resolveTeamCardImageUrl(input: {
+	currentUserRow: TeamPageMemberRow | undefined;
+	profileImageSrc: string | null | undefined;
+}) {
+	if (input.profileImageSrc !== undefined) {
+		return input.profileImageSrc;
+	}
+
+	return input.currentUserRow?.imageUrl ?? null;
 }
 
 function getWrappedMetricFallbackFields(
