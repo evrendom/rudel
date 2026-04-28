@@ -38,6 +38,9 @@ declare global {
 const SCRIPT_ID = "rudel-chatwoot-sdk";
 const LOAD_TIMEOUT_MS = 5_000;
 
+export const CHATWOOT_OPENED_EVENT = "chatwoot:opened";
+export const CHATWOOT_CLOSED_EVENT = "chatwoot:closed";
+
 let loadPromise: Promise<void> | null = null;
 
 function getChatwootConfig(): ChatwootConfig | null {
@@ -87,6 +90,14 @@ function runChatwoot(config: ChatwootConfig) {
 		websiteToken: config.websiteToken,
 		baseUrl: config.baseUrl,
 	});
+}
+
+function dispatchChatwootStateEvent(eventName: string) {
+	if (typeof window === "undefined") {
+		return;
+	}
+
+	window.dispatchEvent(new Event(eventName));
 }
 
 export function isChatwootEnabled() {
@@ -171,7 +182,13 @@ export async function ensureChatwootLoaded(): Promise<void> {
 export async function openChatwoot() {
 	try {
 		await ensureChatwootLoaded();
-		window.$chatwoot?.toggle("open");
+		const api = window.$chatwoot;
+		if (!api) {
+			return;
+		}
+
+		api.toggle("open");
+		dispatchChatwootStateEvent(CHATWOOT_OPENED_EVENT);
 	} catch {
 		// Ignore widget load failures so the dashboard remains functional.
 	}
@@ -180,7 +197,13 @@ export async function openChatwoot() {
 export async function closeChatwoot() {
 	try {
 		await ensureChatwootLoaded();
-		window.$chatwoot?.toggle("close");
+		const api = window.$chatwoot;
+		if (!api) {
+			return;
+		}
+
+		api.toggle("close");
+		dispatchChatwootStateEvent(CHATWOOT_CLOSED_EVENT);
 	} catch {
 		// Ignore widget load failures so the dashboard remains functional.
 	}

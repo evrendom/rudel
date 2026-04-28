@@ -13,6 +13,8 @@ const { mockCloseChatwoot, mockOpenChatwoot, mockSetChatwootBubbleVisibility } =
 	}));
 
 vi.mock("@/lib/chatwoot", () => ({
+	CHATWOOT_CLOSED_EVENT: "chatwoot:closed",
+	CHATWOOT_OPENED_EVENT: "chatwoot:opened",
 	closeChatwoot: mockCloseChatwoot,
 	openChatwoot: mockOpenChatwoot,
 	setChatwootBubbleVisibility: mockSetChatwootBubbleVisibility,
