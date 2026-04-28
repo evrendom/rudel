@@ -23,6 +23,12 @@ import { useMountEffect } from "@/hooks/useMountEffect";
 import { cn } from "@/lib/utils";
 import { WrappedRouteStageShell } from "./route-stage-shell";
 import { WrappedGuestPreviewCard } from "./WrappedGuestPreviewCard";
+import {
+	getWrappedAuthFormCardOffsetY,
+	useWrappedAuthViewportSize,
+	WRAPPED_AUTH_FORM_CARD_Y_DEFAULTS,
+	type WrappedAuthFormCardYValues,
+} from "./wrapped-auth-card-position";
 import type { WrappedGuestPreviewProfile } from "./wrapped-guest-preview";
 
 type WrappedAuthMode = "login" | "signup" | null;
@@ -38,7 +44,6 @@ type WrappedAuthCardFlight = {
 	from: WrappedAuthCardFlightRect;
 	key: number;
 	targetMode: WrappedAuthMode;
-	targetRect?: WrappedAuthCardFlightRect;
 	to?: WrappedAuthCardFlightRect;
 	transitionDurationMs: number;
 };
@@ -73,6 +78,7 @@ const WRAPPED_AUTH_TITLE_MICRO_DURATION = 0.2;
 
 interface WrappedAuthFlowProps {
 	authFormCardScale?: number;
+	authFormCardYValues?: WrappedAuthFormCardYValues;
 	authIntroCardScale?: number;
 	debugControls?: ReactNode;
 	onEmailPasswordPreviewSubmit?: (email: string) => void;
@@ -81,6 +87,7 @@ interface WrappedAuthFlowProps {
 
 interface WrappedAuthStageProps {
 	authFormCardScale?: number;
+	authFormCardOffsetY?: number;
 	authIntroCardScale?: number;
 	cardAppearance: WrappedAuthCardAppearance;
 	cardAppearanceOverlay: WrappedAuthCardAppearance | null;
@@ -96,6 +103,7 @@ interface WrappedAuthStageProps {
 function WrappedAuthStage(props: WrappedAuthStageProps) {
 	const {
 		authFormCardScale,
+		authFormCardOffsetY = 0,
 		authIntroCardScale,
 		cardAppearance,
 		cardAppearanceOverlay,
@@ -114,6 +122,7 @@ function WrappedAuthStage(props: WrappedAuthStageProps) {
 			? (authIntroCardScale ?? WRAPPED_AUTH_INTRO_CARD_SCALE)
 			: (authFormCardScale ?? WRAPPED_AUTH_FORM_CARD_SCALE),
 	);
+	const activeCardOffsetY = isIntro ? 0 : authFormCardOffsetY;
 	const panelLayoutTransition = shouldReduceMotion
 		? {
 				duration: WRAPPED_AUTH_INTRO_REDUCED_DURATION,
@@ -192,7 +201,7 @@ function WrappedAuthStage(props: WrappedAuthStageProps) {
 					}
 				>
 					<motion.div
-						animate={{ scale: activeCardScale }}
+						animate={{ scale: activeCardScale, y: activeCardOffsetY }}
 						className="mymind-wrapped-auth-panel__card-scale-shell"
 						transition={
 							isCardFlightActive
@@ -274,6 +283,7 @@ function clampWrappedAuthCardScale(scale: number) {
 
 export function WrappedAuthFlow(props: WrappedAuthFlowProps) {
 	const {
+		authFormCardYValues,
 		authFormCardScale,
 		authIntroCardScale,
 		debugControls,
@@ -289,9 +299,6 @@ export function WrappedAuthFlow(props: WrappedAuthFlowProps) {
 		useState<WrappedAuthCardFlight | null>(null);
 	const [suppressIntroCardEnter, setSuppressIntroCardEnter] = useState(false);
 	const authCardHandoffRef = useRef<HTMLDivElement | null>(null);
-	const authIntroCardFlightRectRef = useRef<WrappedAuthCardFlightRect | null>(
-		null,
-	);
 	const cardAppearanceTimeoutRef = useRef<number | null>(null);
 	const cardAppearanceOverlayTimeoutRef = useRef<number | null>(null);
 	const authCardFlightMeasureRef = useRef<number | null>(null);
@@ -299,6 +306,11 @@ export function WrappedAuthFlow(props: WrappedAuthFlowProps) {
 	const authCardFlightTimerRef = useRef<number | null>(null);
 	const [introTool, setIntroTool] = useState<WrappedAuthIntroTool>("Claude");
 	const shouldReduceMotion = useReducedMotion() ?? false;
+	const authViewportSize = useWrappedAuthViewportSize();
+	const authFormCardOffsetY = getWrappedAuthFormCardOffsetY({
+		values: authFormCardYValues ?? WRAPPED_AUTH_FORM_CARD_Y_DEFAULTS,
+		viewportSize: authViewportSize,
+	});
 	const hasDebugControls =
 		debugControls !== undefined && debugControls !== null;
 	const rotateIntroTool = useEffectEvent(() => {
@@ -333,7 +345,6 @@ export function WrappedAuthFlow(props: WrappedAuthFlowProps) {
 
 	const activeAuthCardFlightAppearance = authCardFlight?.appearance;
 	const activeAuthCardFlightKey = authCardFlight?.key ?? null;
-	const activeAuthCardFlightTargetRect = authCardFlight?.targetRect;
 	const activeAuthCardFlightTargetMode = authCardFlight?.targetMode;
 	const transitionCardAppearance = useEffectEvent(
 		(
@@ -373,7 +384,6 @@ export function WrappedAuthFlow(props: WrappedAuthFlowProps) {
 		const flightKey = activeAuthCardFlightKey;
 		const flightTargetMode = activeAuthCardFlightTargetMode;
 		const measurementStartTime = performance.now();
-		const shouldRetargetFlight = activeAuthCardFlightTargetRect === undefined;
 		let hasScheduledCompletion = false;
 
 		function completeCardFlight() {
@@ -412,16 +422,15 @@ export function WrappedAuthFlow(props: WrappedAuthFlowProps) {
 			const measuredRect = getWrappedAuthCardFlightRect(
 				authCardHandoffRef.current,
 			);
-			const nextRect = activeAuthCardFlightTargetRect ?? measuredRect;
 
-			if (!nextRect) {
+			if (!measuredRect) {
 				completeCardFlight();
 				return;
 			}
 
 			setAuthCardFlight((currentFlight) =>
 				currentFlight?.key === flightKey
-					? { ...currentFlight, to: nextRect, transitionDurationMs }
+					? { ...currentFlight, to: measuredRect, transitionDurationMs }
 					: currentFlight,
 			);
 			scheduleCardFlightCompletion();
@@ -432,13 +441,12 @@ export function WrappedAuthFlow(props: WrappedAuthFlowProps) {
 			measureCardFlightTarget(WRAPPED_AUTH_CARD_FLIGHT_DURATION_MS);
 		});
 		clearWrappedAuthCardFlightRetargetTimers(authCardFlightRetargetTimersRef);
-		authCardFlightRetargetTimersRef.current = shouldRetargetFlight
-			? WRAPPED_AUTH_CARD_FLIGHT_RETARGET_DELAYS_MS.map((delayMs) =>
-					window.setTimeout(() => {
-						measureCardFlightTarget(getRetargetTransitionDuration());
-					}, delayMs),
-				)
-			: [];
+		authCardFlightRetargetTimersRef.current =
+			WRAPPED_AUTH_CARD_FLIGHT_RETARGET_DELAYS_MS.map((delayMs) =>
+				window.setTimeout(() => {
+					measureCardFlightTarget(getRetargetTransitionDuration());
+				}, delayMs),
+			);
 
 		return () => {
 			clearWrappedAuthCardFlightAnimationFrame(authCardFlightMeasureRef);
@@ -448,7 +456,6 @@ export function WrappedAuthFlow(props: WrappedAuthFlowProps) {
 		activeAuthCardFlightAppearance,
 		activeAuthCardFlightKey,
 		activeAuthCardFlightTargetMode,
-		activeAuthCardFlightTargetRect,
 		mode,
 	]);
 
@@ -509,18 +516,10 @@ export function WrappedAuthFlow(props: WrappedAuthFlowProps) {
 			? getWrappedAuthCardFlightRect(authCardHandoffRef.current)
 			: null;
 		const shouldUseCardFlight = cardFlightFrom !== null;
-		const cardFlightTargetRect =
-			shouldUseCardFlight && nextMode === null
-				? (authIntroCardFlightRectRef.current ?? undefined)
-				: undefined;
 		const appearanceDelayMs =
 			mode === null || nextMode === null
 				? WRAPPED_AUTH_LAYOUT_DURATION * 1000
 				: null;
-
-		if (mode === null && cardFlightFrom !== null) {
-			authIntroCardFlightRectRef.current = cardFlightFrom;
-		}
 
 		if (shouldUseCardFlight) {
 			clearCardAppearanceTimeout();
@@ -534,7 +533,6 @@ export function WrappedAuthFlow(props: WrappedAuthFlowProps) {
 						from: cardFlightFrom,
 						key: Date.now(),
 						targetMode: nextMode,
-						targetRect: cardFlightTargetRect,
 						transitionDurationMs: WRAPPED_AUTH_CARD_FLIGHT_DURATION_MS,
 					}
 				: null,
@@ -566,6 +564,7 @@ export function WrappedAuthFlow(props: WrappedAuthFlowProps) {
 			stage={
 				<WrappedAuthStage
 					authFormCardScale={authFormCardScale}
+					authFormCardOffsetY={authFormCardOffsetY}
 					authIntroCardScale={authIntroCardScale}
 					cardAppearance={cardAppearance}
 					cardAppearanceOverlay={cardAppearanceOverlay}
