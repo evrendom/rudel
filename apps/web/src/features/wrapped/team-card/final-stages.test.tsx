@@ -399,10 +399,10 @@ describe("WrappedTeamCardRevealStage", () => {
 			<WrappedTeamCardRevealStage
 				activeArchetype={{
 					displayLabel: "Smooth Operator",
-					id: "npc",
+					id: "smooth_operator",
 					kind: "taxonomy",
+					classifierKey: "smooth_operator",
 					shellClassName: "bg-sky-200",
-					taxonomyLabel: "NPC",
 					theme: "light",
 				}}
 				headerLeftMetric={{
@@ -577,10 +577,10 @@ describe("WrappedTeamCardRevealStage", () => {
 			<WrappedTeamCardRevealStage
 				activeArchetype={{
 					displayLabel: "Smooth Operator",
-					id: "npc",
+					id: "smooth_operator",
 					kind: "taxonomy",
+					classifierKey: "smooth_operator",
 					shellClassName: "bg-sky-200",
-					taxonomyLabel: "NPC",
 					theme: "light",
 				}}
 				headerLeftMetric={{
@@ -657,10 +657,10 @@ describe("WrappedTeamCardRevealStage", () => {
 			<WrappedTeamCardRevealStage
 				activeArchetype={{
 					displayLabel: "Smooth Operator",
-					id: "npc",
+					id: "smooth_operator",
 					kind: "taxonomy",
+					classifierKey: "smooth_operator",
 					shellClassName: "bg-sky-200",
-					taxonomyLabel: "NPC",
 					theme: "light",
 				}}
 				headerLeftMetric={{

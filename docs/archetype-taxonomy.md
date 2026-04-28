@@ -6,8 +6,8 @@ The product-facing label set is:
 
 - Roadrunner
 - Cheapskate
-- NPC
-- Papa's Credit Card
+- Smooth Operator
+- Company Card
 - Hit and Runner
 - ADHD Brain
 - Obsessed
@@ -50,7 +50,7 @@ Reads like:
 - experiments more than they commit
 - keeps the relationship light
 
-### NPC
+### Smooth Operator
 
 High consistency, high intensity, strong session shape, low cost intensity, and balanced breadth.
 
@@ -59,7 +59,7 @@ Reads like:
 - gets real work done
 - converts time into output without waste
 
-### Papa's Credit Card
+### Company Card
 
 Low consistency and low output, but a surprisingly high cost footprint relative to the amount of work completed.
 

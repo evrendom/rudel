@@ -157,9 +157,7 @@ export function WrappedTeamCardPage(props: {
 	);
 	const headerRightMetric = useMemo<WrappedTeamMemberCardHeaderMetric>(
 		() => ({
-			// The card shows product-facing labels here, not raw classifier names.
-			// Example: the taxonomy says "NPC", while the visible card says
-			// "Smooth Operator".
+			// The card shows only the current product-facing archetype label.
 			title: activeArchetype.displayLabel,
 			value: activeArchetype.displayLabel,
 		}),
