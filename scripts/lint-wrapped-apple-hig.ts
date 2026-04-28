@@ -38,6 +38,8 @@ function main() {
 	runProgressTargetRule(auditFiles, findings);
 	runFooterButtonTargetRule(auditFiles, findings);
 	runKeyboardOnlyHintRule(auditFiles, findings);
+	runModelFooterClearanceRule(auditFiles, findings);
+	runModelShortViewportRule(auditFiles, findings);
 	runOverflowRule(auditFiles, findings);
 
 	if (findings.length === 0) {
@@ -285,6 +287,59 @@ function runOverflowRule(
 			"`overflow: hidden` on the wrapped body or route can block large-text fallback scrolling. For Apple-style mobile resilience, allow the page or individual slides to scroll when content outgrows the viewport.",
 		pattern: /overflow:\s*hidden/g,
 		rule: "dynamic-type",
+	});
+}
+
+function runModelFooterClearanceRule(
+	auditFiles: readonly AuditFile[],
+	findings: Finding[],
+) {
+	const wrappedCssFile = getAuditFile(auditFiles, WRAPPED_CSS_PATH);
+	const modelStageObjectHasNegativeBottomMargin =
+		/\.mymind-wrapped-model-stage\.mymind-wrapped-stage--without-support\.mymind-wrapped-model-stage--immersive\s*\n\s*\.mymind-wrapped-stage__object\s*\{[^}]*margin-block-end:\s*calc\(-1\s*\*/s.test(
+			wrappedCssFile.content,
+		);
+
+	if (!modelStageObjectHasNegativeBottomMargin) {
+		return;
+	}
+
+	findings.push({
+		excerpt: "margin-block-end uses a negative value in the immersive model stage.",
+		line: getLineNumber(wrappedCssFile, /margin-block-end:\s*calc\(-1\s*\*/),
+		message:
+			"The model comparison chart must preserve the shell footer gap so tall bars do not crowd or overlap the Continue button on shorter viewports.",
+		relativePath: WRAPPED_CSS_PATH,
+		rule: "footer-clearance",
+	});
+}
+
+function runModelShortViewportRule(
+	auditFiles: readonly AuditFile[],
+	findings: Finding[],
+) {
+	const wrappedCssFile = getAuditFile(auditFiles, WRAPPED_CSS_PATH);
+	const hasShortViewportModelChartOverrides =
+		/@media\s*\(max-height:\s*900px\)\s*\{[\s\S]*mymind-wrapped-model-stage__chart-shell[\s\S]*mymind-wrapped-model-stage__race-row[\s\S]*mymind-wrapped-model-stage__race-track-shell/.test(
+			wrappedCssFile.content,
+		);
+	const hasShortViewportModelShellOverrides =
+		/@media\s*\(max-height:\s*900px\)\s*\{[\s\S]*mymind-wrapped-route--step-model\s+\.mymind-wrapped-shell[\s\S]*--wrapped-shell-bottom-inset/.test(
+			wrappedCssFile.content,
+		);
+
+	if (hasShortViewportModelChartOverrides && hasShortViewportModelShellOverrides) {
+		return;
+	}
+
+	findings.push({
+		excerpt:
+			"Missing model chart and shell overrides inside `@media (max-height: 900px)`.",
+		line: getLineNumber(wrappedCssFile, /mymind-wrapped-model-stage__chart-shell/),
+		message:
+			"The model comparison chart needs short-height sizing and shell inset overrides so its bar labels keep clear of the Continue button before the browser gets below 820px.",
+		relativePath: WRAPPED_CSS_PATH,
+		rule: "footer-clearance",
 	});
 }
 
