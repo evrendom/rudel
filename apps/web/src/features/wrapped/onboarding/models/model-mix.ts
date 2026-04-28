@@ -460,7 +460,15 @@ function resolveModelStageSource(
 		return null;
 	}
 
+	if (isSyntheticModelLabel(modelLabel)) {
+		return null;
+	}
+
 	return modelLabel.includes("claude") ? "claude_code" : "codex";
+}
+
+function isSyntheticModelLabel(modelLabel: string) {
+	return modelLabel.replaceAll(/[^a-z0-9]+/g, "").includes("synthetic");
 }
 
 function formatMonthTickLabel(month: string) {
