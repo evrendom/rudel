@@ -21,12 +21,9 @@ import { WrappedPrimaryAction } from "@/features/wrapped/actions";
 import type { WrappedOnboardingMetrics } from "@/features/wrapped/onboarding/types";
 import { WrappedStageFrame } from "@/features/wrapped/stage-frame";
 import {
-	formatCompactWholeCurrency,
-	formatCompactWholeNumber,
-	formatMinutes,
-	formatPercent,
-} from "@/lib/format";
-import type { WrappedArchetypeCardTheme } from "./archetypes";
+	getWrappedArchetypeCardBackgroundValue,
+	type WrappedArchetypeCardTheme,
+} from "./archetypes";
 import { buildWrappedTeamCardBackMetrics } from "./back-metrics";
 import {
 	WrappedTeamMemberCard,
@@ -74,17 +71,222 @@ interface WrappedTeamCardShareStageProps extends WrappedTeamCardStageCardProps {
 interface WrappedTeamCardRevealStageProps
 	extends WrappedTeamCardStageCardProps {
 	activeArchetype: WrappedArchetypeCardTheme;
+	footerActionLabel?: string;
 	handoffCardRef?: RefObject<HTMLDivElement | null>;
 	isPostHandoffPreparing?: boolean;
 	onboardingMetrics: WrappedOnboardingMetrics;
 	onPreviewPost: () => void;
 	onRevealComplete?: () => void;
+	revealedFooterActionLabel?: string;
 	isPreviewPostVisible: boolean;
 	shareCardCreatedAtLabel: string;
 	tiltController: WrappedCardTiltController;
 }
 
-type WrappedRevealSequencePhase = "sessions" | "tokens" | "archetype";
+interface WrappedRevealArchetypeTitleStyle extends CSSProperties {
+	"--wrapped-reveal-archetype-accent": string;
+	"--wrapped-reveal-archetype-gt-direction": string;
+	"--wrapped-reveal-archetype-gt-gradient": string;
+}
+
+type WrappedRevealIntroPhase = "name" | "line" | "accent" | "description";
+type WrappedRevealGradientTextState = "active" | "waiting";
+
+const WRAPPED_REVEAL_TEXT_DARK = "#17161c";
+const WRAPPED_REVEAL_GRADIENT_COLOR_PATTERN = /#[\da-fA-F]{3,8}\b/g;
+const WRAPPED_REVEAL_LINEAR_GRADIENT_PATTERN =
+	/^linear-gradient\(([^,]+),\s*(.+)\)$/;
+
+interface WrappedRevealTextGradient {
+	accent: string;
+	direction: string;
+	stops: string;
+}
+
+function formatWrappedRevealGradientStopPosition(position: number) {
+	return position.toFixed(2).replace(/\.?0+$/, "");
+}
+
+function buildWrappedRevealTextGradientStops(colors: readonly string[]) {
+	if (colors.length === 0) {
+		return `${WRAPPED_REVEAL_TEXT_DARK} 0%, ${WRAPPED_REVEAL_TEXT_DARK} 100%`;
+	}
+
+	if (colors.length === 1) {
+		return `${WRAPPED_REVEAL_TEXT_DARK} 0%, ${WRAPPED_REVEAL_TEXT_DARK} 40%, ${colors[0]} 48%, ${colors[0]} 100%`;
+	}
+
+	const colorRangeStart = 48;
+	const colorRangeEnd = 100;
+	const colorRange = colorRangeEnd - colorRangeStart;
+	const colorDenominator = Math.max(colors.length - 1, 1);
+	const colorStops = colors
+		.map((color, index) => {
+			const stopPosition =
+				colorRangeStart + (colorRange * index) / colorDenominator;
+
+			return `${color} ${formatWrappedRevealGradientStopPosition(stopPosition)}%`;
+		})
+		.join(", ");
+
+	return `${WRAPPED_REVEAL_TEXT_DARK} 0%, ${WRAPPED_REVEAL_TEXT_DARK} 40%, ${colorStops}`;
+}
+
+function buildWrappedRevealTextAccentGradient(input: {
+	colors: readonly string[];
+	direction: string;
+}) {
+	const { colors, direction } = input;
+
+	if (colors.length === 0) {
+		return WRAPPED_REVEAL_TEXT_DARK;
+	}
+
+	if (colors.length === 1) {
+		return colors[0];
+	}
+
+	const denominator = Math.max(colors.length - 1, 1);
+	const colorStops = colors
+		.map((color, index) => {
+			const stopPosition = (100 * index) / denominator;
+
+			return `${color} ${formatWrappedRevealGradientStopPosition(stopPosition)}%`;
+		})
+		.join(", ");
+
+	return `linear-gradient(${direction}, ${colorStops})`;
+}
+
+function getWrappedRevealTextGradientValue(
+	theme: WrappedArchetypeCardTheme,
+): WrappedRevealTextGradient {
+	const cardBackgroundValue = getWrappedArchetypeCardBackgroundValue(theme);
+	const gradientMatch = cardBackgroundValue?.match(
+		WRAPPED_REVEAL_LINEAR_GRADIENT_PATTERN,
+	);
+	const colors = cardBackgroundValue?.match(
+		WRAPPED_REVEAL_GRADIENT_COLOR_PATTERN,
+	);
+	const direction = gradientMatch?.[1]?.trim() ?? "184deg";
+	const gradientColors = colors ?? [];
+
+	return {
+		accent: buildWrappedRevealTextAccentGradient({
+			colors: gradientColors,
+			direction,
+		}),
+		direction,
+		stops: buildWrappedRevealTextGradientStops(gradientColors),
+	};
+}
+
+function WrappedArchetypeGradientText(props: {
+	activeArchetype: WrappedArchetypeCardTheme;
+	className: string;
+	isHoverReplayEnabled?: boolean;
+	state: WrappedRevealGradientTextState;
+}) {
+	const {
+		activeArchetype,
+		className,
+		isHoverReplayEnabled = false,
+		state,
+	} = props;
+	const gradient = getWrappedRevealTextGradientValue(activeArchetype);
+	const style: WrappedRevealArchetypeTitleStyle = {
+		"--wrapped-reveal-archetype-accent": gradient.accent,
+		"--wrapped-reveal-archetype-gt-direction": gradient.direction,
+		"--wrapped-reveal-archetype-gt-gradient": gradient.stops,
+	};
+	const classNames = `mymind-wrapped-final-stage__gradient-text ${className}${
+		activeArchetype.id === "needs_to_touch_grass" ? " is-obsession" : ""
+	}`;
+
+	return (
+		<span
+			className={classNames}
+			data-accent-state={state}
+			data-hover-replay={
+				isHoverReplayEnabled && state === "active" ? "ready" : undefined
+			}
+			data-label={activeArchetype.displayLabel}
+			style={style}
+		>
+			{activeArchetype.displayLabel}
+		</span>
+	);
+}
+
+/* ─────────────────────────────────────────────────────────
+ * REVEAL COMPANION STORYBOARD
+ *
+ * Read top-to-bottom. Each `at` value is ms after the flip trigger.
+ *
+ *    0ms   card flips 180deg → 0deg while staying centered
+ *  680ms   flipped card slides into the revealed composition
+ *  760ms   archetype copy resolves beside/above the card
+ *    0ms   on share trigger, copy exits and card recenters
+ *  580ms   share handoff measures the recentered card and begins
+ * ───────────────────────────────────────────────────────── */
+const REVEAL_COMPANION_TIMING = {
+	copyEnter: 0.08, // seconds after the card slide starts before copy resolves
+	exitToShareMs: 580, // ms before measuring the card for the share handoff
+} as const;
+
+const REVEAL_COMPANION_COPY = {
+	enterBlur: "14px",
+	exitBlur: "10px",
+	enterOffsetY: 16,
+	exitOffsetY: -10,
+	initialScale: 0.986,
+	finalScale: 1,
+	exitScale: 0.992,
+	transition: {
+		duration: 0.34,
+		ease: [0.22, 1, 0.36, 1] as const,
+	},
+};
+
+/* ─────────────────────────────────────────────────────────
+ * REVEAL INTRO STORYBOARD
+ *
+ * Read top-to-bottom. Each `at` value is ms after intro mount.
+ *
+ *    0ms   user name is visible, archetype line stays invisible
+ *  850ms   "you're a {archetype}" fades in as black text
+ * 1520ms   archetype word sweeps into the card colorway
+ * 2140ms   archetype description resolves and Continue becomes available
+ *  click   intro exits, card drops, normal reveal flow resumes
+ * ───────────────────────────────────────────────────────── */
+const REVEAL_INTRO_TIMING = {
+	accentRevealMs: 1_520, // ms after mount when the archetype color sweep starts
+	descriptionRevealMs: 2_140, // ms after mount when the description and gate appear
+	lineRevealMs: 850, // ms after mount when the second line fades in
+} as const;
+
+const REVEAL_INTRO_COPY = {
+	descriptionBlur: "10px",
+	descriptionOffsetY: 14,
+	enterBlur: "14px",
+	exitBlur: "8px",
+	lineOffsetY: 14,
+	initialScale: 0.986,
+	finalScale: 1,
+	exitScale: 1.012,
+	transition: {
+		duration: 0.32,
+		ease: [0.22, 1, 0.36, 1] as const,
+	},
+	lineTransition: {
+		duration: 0.42,
+		ease: [0.22, 1, 0.36, 1] as const,
+	},
+	descriptionTransition: {
+		duration: 0.44,
+		ease: [0.22, 1, 0.36, 1] as const,
+	},
+};
 
 const WRAPPED_SHARE_VARIANTS: ReadonlyArray<{
 	appearance: WrappedShareAppearance;
@@ -113,29 +315,13 @@ const REVEAL_STAGE_MOTION = {
 	duration: {
 		card: 1.02,
 		flip: 0.68,
-		text: 0.26,
 	},
 	easing: {
-		enter: [0.22, 1, 0.36, 1] as const,
 		drop: [0.16, 1, 0.22, 1] as const,
 		flip: [0.32, 0.72, 0, 1] as const,
 	},
 };
 
-const REVEAL_STAGE_TEXT_TRANSITION = {
-	duration: REVEAL_STAGE_MOTION.duration.text,
-	ease: REVEAL_STAGE_MOTION.easing.enter,
-};
-
-const REVEAL_STAGE_SEQUENCE = [
-	{ holdMs: 1_700, phase: "tokens" },
-	{ holdMs: 1_900, phase: "archetype" },
-] as const satisfies ReadonlyArray<{
-	holdMs: number;
-	phase: Exclude<WrappedRevealSequencePhase, "sessions">;
-}>;
-
-const REVEAL_STAGE_CARD_DROP_DELAY_MS = 1_250;
 const REVEAL_STAGE_CARD_DROP_DURATION_MS = Math.round(
 	REVEAL_STAGE_MOTION.duration.card * 1_000,
 );
@@ -173,6 +359,7 @@ export function WrappedTeamCardShareStage(
 	const shouldReduceMotion = useReducedMotion();
 	const reduceMotion = shouldReduceMotion ?? false;
 	const resolvedAppearance = resolveWrappedShareAppearance(appearance);
+	const shareObjectShellRef = useWrappedShareStageObjectSize();
 
 	return (
 		<WrappedStageFrame
@@ -195,7 +382,10 @@ export function WrappedTeamCardShareStage(
 				</motion.div>
 			}
 			object={
-				<div className="mymind-wrapped-final-stage__share-object-shell">
+				<div
+					ref={shareObjectShellRef}
+					className="mymind-wrapped-final-stage__share-object-shell"
+				>
 					<motion.div layout className="mymind-wrapped-share-surface">
 						<motion.div
 							{...getWrappedShareChromeMotion({
@@ -357,6 +547,104 @@ function isWrappedShareAppearanceActive(input: {
 	return currentValue.layoutMode === targetValue.layoutMode;
 }
 
+function useWrappedShareStageObjectSize() {
+	const shareObjectShellRef = useRef<HTMLDivElement | null>(null);
+
+	useEffect(() => {
+		if (typeof window === "undefined") {
+			return;
+		}
+
+		const shell = shareObjectShellRef.current;
+
+		if (!shell) {
+			return;
+		}
+
+		const shellElement = shell;
+		const objectFrame =
+			shellElement.closest<HTMLElement>(
+				".mymind-wrapped-final-stage__object",
+			) ?? shellElement.parentElement;
+		const rail = shellElement.querySelector<HTMLElement>(
+			".mymind-wrapped-share-surface__rail",
+		);
+		let animationFrameId: number | null = null;
+		let lastAppliedSize = "";
+
+		function updateShareObjectSize() {
+			animationFrameId = null;
+
+			const objectFrameRect = objectFrame?.getBoundingClientRect();
+			const railRect = rail?.getBoundingClientRect();
+			const availableWidth = objectFrameRect?.width ?? shellElement.clientWidth;
+			const availableHeight = objectFrameRect?.height ?? 0;
+			const railHeight = railRect?.height ?? 0;
+			const availablePreviewSize = Math.floor(
+				Math.max(0, Math.min(availableWidth, availableHeight - railHeight)),
+			);
+
+			if (availablePreviewSize <= 0) {
+				return;
+			}
+
+			const nextAppliedSize = `${availablePreviewSize}px`;
+
+			if (nextAppliedSize === lastAppliedSize) {
+				return;
+			}
+
+			lastAppliedSize = nextAppliedSize;
+			shellElement.style.setProperty(
+				"--wrapped-share-object-available-size",
+				nextAppliedSize,
+			);
+		}
+
+		function scheduleShareObjectSizeUpdate() {
+			if (animationFrameId !== null) {
+				return;
+			}
+
+			animationFrameId = window.requestAnimationFrame(updateShareObjectSize);
+		}
+
+		updateShareObjectSize();
+		window.addEventListener("resize", scheduleShareObjectSizeUpdate);
+
+		if (!window.ResizeObserver) {
+			return () => {
+				window.removeEventListener("resize", scheduleShareObjectSizeUpdate);
+				if (animationFrameId !== null) {
+					window.cancelAnimationFrame(animationFrameId);
+				}
+			};
+		}
+
+		const resizeObserver = new window.ResizeObserver(
+			scheduleShareObjectSizeUpdate,
+		);
+
+		resizeObserver.observe(shellElement);
+		if (objectFrame) {
+			resizeObserver.observe(objectFrame);
+		}
+		if (rail) {
+			resizeObserver.observe(rail);
+		}
+
+		return () => {
+			window.removeEventListener("resize", scheduleShareObjectSizeUpdate);
+			if (animationFrameId !== null) {
+				window.cancelAnimationFrame(animationFrameId);
+			}
+			resizeObserver.disconnect();
+		};
+	}, []);
+
+	return shareObjectShellRef;
+}
+
 function getWrappedShareChromeMotion(input: {
 	delay: number;
 	reduceMotion: boolean;
@@ -392,6 +680,7 @@ export function WrappedTeamCardRevealStage(
 ) {
 	const {
 		activeArchetype,
+		footerActionLabel = "Continue",
 		handoffCardRef,
 		headerLeftMetric,
 		headerRightMetric,
@@ -400,6 +689,7 @@ export function WrappedTeamCardRevealStage(
 		onboardingMetrics,
 		onPreviewPost,
 		onRevealComplete,
+		revealedFooterActionLabel,
 		row,
 		shellClassName,
 		shellStyle,
@@ -411,34 +701,48 @@ export function WrappedTeamCardRevealStage(
 	} = props;
 	const shouldReduceMotion = useReducedMotion();
 	const reduceMotion = shouldReduceMotion ?? false;
-	const [sequencePhase, setSequencePhase] =
-		useState<WrappedRevealSequencePhase>(() =>
-			reduceMotion ? "archetype" : "sessions",
-		);
+	const [introPhase, setIntroPhase] = useState<WrappedRevealIntroPhase>(() =>
+		reduceMotion ? "accent" : "name",
+	);
 	const [isCardDropped, setIsCardDropped] = useState(() => reduceMotion);
 	const [isCardFrontVisible, setIsCardFrontVisible] = useState(false);
 	const [hasCardFrontBeenRevealed, setHasCardFrontBeenRevealed] =
 		useState(false);
 	const [isCardFlipAnimating, setIsCardFlipAnimating] = useState(false);
+	const [isRevealExitPending, setIsRevealExitPending] = useState(false);
 	const revealTimerRefs = useRef<number[]>([]);
 	const onRevealCompleteRef = useRef(onRevealComplete);
 	const revealCopy = getWrappedRevealCopy(activeArchetype);
-	const revealStoryCopy = getWrappedRevealStoryCopy({
-		archetype: activeArchetype,
-		onboardingMetrics,
-		row,
-	});
 	const revealBackMetrics = getWrappedRevealBackMetrics({
 		onboardingMetrics,
 		row,
 		shareCardCreatedAtLabel,
 	});
-	const revealTextLine =
-		sequencePhase === "sessions"
-			? revealStoryCopy.claim
-			: sequencePhase === "tokens"
-				? revealStoryCopy.proof
-				: revealCopy.title;
+	const shouldShowRevealIntroLine =
+		introPhase === "line" ||
+		introPhase === "accent" ||
+		introPhase === "description";
+	const shouldShowRevealIntroAccent =
+		introPhase === "accent" || introPhase === "description";
+	const shouldShowRevealIntroDescription = introPhase === "description";
+	const shouldShowRevealIntroContinue =
+		!isCardDropped && shouldShowRevealIntroDescription;
+	const shouldShowArchetypeCompanion =
+		isCardDropped &&
+		isCardFrontVisible &&
+		hasCardFrontBeenRevealed &&
+		!isCardFlipAnimating &&
+		!isRevealExitPending;
+	const revealCompanionState = shouldShowArchetypeCompanion
+		? "visible"
+		: isRevealExitPending
+			? "exiting"
+			: "hidden";
+	const revealFooterLabel = shouldShowArchetypeCompanion
+		? (revealedFooterActionLabel ?? footerActionLabel)
+		: footerActionLabel;
+	const shouldShowRevealFooter =
+		shouldShowRevealIntroContinue || (isCardDropped && isPreviewPostVisible);
 	const printedCardCaptureKey = [
 		activeArchetype.id,
 		row.userId,
@@ -473,48 +777,57 @@ export function WrappedTeamCardRevealStage(
 		clearRevealTimers();
 
 		if (reduceMotion) {
-			setSequencePhase("archetype");
-			setIsCardDropped(true);
+			setIntroPhase("description");
+			setIsCardDropped(false);
 			setIsCardFrontVisible(false);
 			setHasCardFrontBeenRevealed(false);
 			setIsCardFlipAnimating(false);
-			notifyRevealComplete();
+			setIsRevealExitPending(false);
 			return;
 		}
 
-		setSequencePhase("sessions");
+		setIntroPhase("name");
 		setIsCardDropped(false);
 		setIsCardFrontVisible(false);
 		setHasCardFrontBeenRevealed(false);
 		setIsCardFlipAnimating(false);
-		let elapsedMs = 0;
-		const timeoutIds = REVEAL_STAGE_SEQUENCE.map((step) => {
-			elapsedMs += step.holdMs;
-			return window.setTimeout(() => {
-				setSequencePhase(step.phase);
-			}, elapsedMs);
-		});
-		timeoutIds.push(
+		setIsRevealExitPending(false);
+		const timeoutIds = [
 			window.setTimeout(() => {
-				setIsCardDropped(true);
-			}, elapsedMs + REVEAL_STAGE_CARD_DROP_DELAY_MS),
-		);
-		timeoutIds.push(
-			window.setTimeout(
-				() => {
-					notifyRevealComplete();
-				},
-				elapsedMs +
-					REVEAL_STAGE_CARD_DROP_DELAY_MS +
-					REVEAL_STAGE_CARD_DROP_DURATION_MS,
-			),
-		);
+				setIntroPhase("line");
+			}, REVEAL_INTRO_TIMING.lineRevealMs),
+			window.setTimeout(() => {
+				setIntroPhase("accent");
+			}, REVEAL_INTRO_TIMING.accentRevealMs),
+			window.setTimeout(() => {
+				setIntroPhase("description");
+			}, REVEAL_INTRO_TIMING.descriptionRevealMs),
+		];
 		revealTimerRefs.current = timeoutIds;
 
 		return () => {
 			clearRevealTimers();
 		};
 	}, [activeArchetype.id, reduceMotion]);
+
+	useEffect(() => {
+		if (!isRevealExitPending) {
+			return;
+		}
+
+		if (reduceMotion) {
+			onPreviewPost();
+			return;
+		}
+
+		const timeoutId = window.setTimeout(() => {
+			onPreviewPost();
+		}, REVEAL_COMPANION_TIMING.exitToShareMs);
+
+		return () => {
+			window.clearTimeout(timeoutId);
+		};
+	}, [isRevealExitPending, onPreviewPost, reduceMotion]);
 
 	useEffect(() => {
 		if (!isCardFlipAnimating || reduceMotion) {
@@ -530,35 +843,61 @@ export function WrappedTeamCardRevealStage(
 		};
 	}, [isCardFlipAnimating, reduceMotion]);
 
+	function startRevealCardDrop() {
+		clearRevealTimers();
+		setIsCardDropped(true);
+
+		if (reduceMotion) {
+			notifyRevealComplete();
+			return;
+		}
+
+		const timeoutId = window.setTimeout(() => {
+			notifyRevealComplete();
+		}, REVEAL_STAGE_CARD_DROP_DURATION_MS);
+
+		revealTimerRefs.current = [timeoutId];
+	}
+
 	function handleCardFlipToggle() {
-		if (!isCardDropped || isCardFlipAnimating) {
+		if (
+			!isCardDropped ||
+			isCardFlipAnimating ||
+			isRevealExitPending ||
+			hasCardFrontBeenRevealed
+		) {
 			return;
 		}
 
 		tiltController.handlePointerLeave();
-
-		const nextCardFrontVisible = !isCardFrontVisible;
-		if (nextCardFrontVisible) {
-			setHasCardFrontBeenRevealed(true);
-		}
+		setHasCardFrontBeenRevealed(true);
 
 		if (reduceMotion) {
-			setIsCardFrontVisible(nextCardFrontVisible);
+			setIsCardFrontVisible(true);
 			return;
 		}
 
 		setIsCardFlipAnimating(true);
-		setIsCardFrontVisible(nextCardFrontVisible);
+		setIsCardFrontVisible(true);
 	}
 
 	function handleRevealFooterAction() {
-		if (!hasCardFrontBeenRevealed) {
+		if (!isCardDropped) {
+			if (!shouldShowRevealIntroContinue) {
+				return;
+			}
+
+			startRevealCardDrop();
+			return;
+		}
+
+		if (!hasCardFrontBeenRevealed || !isCardFrontVisible) {
 			handleCardFlipToggle();
 			return;
 		}
 
 		tiltController.handlePointerLeave();
-		onPreviewPost();
+		setIsRevealExitPending(true);
 	}
 
 	return (
@@ -575,31 +914,73 @@ export function WrappedTeamCardRevealStage(
 					<div className="mymind-wrapped-final-stage__text-layer">
 						<AnimatePresence initial={false} mode="wait">
 							{!isCardDropped ? (
-								<motion.p
-									key={`${activeArchetype.id}:${sequencePhase}`}
+								<motion.div
+									key={`${activeArchetype.id}:intro`}
 									animate={{
 										filter: "blur(0px)",
 										opacity: 1,
-										scale: 1,
+										scale: REVEAL_INTRO_COPY.finalScale,
 										y: 0,
 									}}
-									className="mymind-wrapped-final-stage__canvas-copy"
 									exit={{
-										filter: "blur(8px)",
+										filter: `blur(${REVEAL_INTRO_COPY.exitBlur})`,
 										opacity: 0,
-										scale: 1.015,
+										scale: REVEAL_INTRO_COPY.exitScale,
 										y: -18,
 									}}
 									initial={{
-										filter: "blur(12px)",
+										filter: `blur(${REVEAL_INTRO_COPY.enterBlur})`,
 										opacity: 0,
-										scale: 0.986,
+										scale: REVEAL_INTRO_COPY.initialScale,
 										y: 18,
 									}}
-									transition={REVEAL_STAGE_TEXT_TRANSITION}
+									className="mymind-wrapped-final-stage__canvas-copy-shell"
+									transition={REVEAL_INTRO_COPY.transition}
 								>
-									{revealTextLine}
-								</motion.p>
+									<h1 className="mymind-wrapped-final-stage__canvas-copy">
+										<span className="mymind-wrapped-final-stage__canvas-copy-name">
+											{row.displayName},
+										</span>
+										<motion.span
+											animate={{
+												opacity: shouldShowRevealIntroLine ? 1 : 0,
+												y: shouldShowRevealIntroLine
+													? 0
+													: REVEAL_INTRO_COPY.lineOffsetY,
+											}}
+											aria-hidden={!shouldShowRevealIntroLine}
+											className="mymind-wrapped-final-stage__canvas-copy-line"
+											initial={false}
+											transition={REVEAL_INTRO_COPY.lineTransition}
+										>
+											you&apos;re a{" "}
+											<WrappedArchetypeGradientText
+												activeArchetype={activeArchetype}
+												className="mymind-wrapped-final-stage__intro-accent"
+												state={
+													shouldShowRevealIntroAccent ? "active" : "waiting"
+												}
+											/>
+										</motion.span>
+									</h1>
+									<motion.p
+										animate={{
+											filter: shouldShowRevealIntroDescription
+												? "blur(0px)"
+												: `blur(${REVEAL_INTRO_COPY.descriptionBlur})`,
+											opacity: shouldShowRevealIntroDescription ? 1 : 0,
+											y: shouldShowRevealIntroDescription
+												? 0
+												: REVEAL_INTRO_COPY.descriptionOffsetY,
+										}}
+										aria-hidden={!shouldShowRevealIntroDescription}
+										className="mymind-wrapped-final-stage__canvas-description"
+										initial={false}
+										transition={REVEAL_INTRO_COPY.descriptionTransition}
+									>
+										{revealCopy.description}
+									</motion.p>
+								</motion.div>
 							) : null}
 						</AnimatePresence>
 					</div>
@@ -621,262 +1002,168 @@ export function WrappedTeamCardRevealStage(
 							reduceMotion,
 						})}
 					>
-						<div className="team-lineup-card-tilt-stage mymind-wrapped-final-stage__card-visual-stage w-full max-w-[16rem] min-[360px]:max-w-[16.75rem] sm:max-w-none">
-							<div
-								ref={handoffCardRef}
-								className="mymind-wrapped-final-stage__card-morph-shell"
-								onPointerMove={(event) => {
-									if (!isCardFlipAnimating && !isPostHandoffPreparing) {
-										tiltController.handlePointerMove(event);
-									}
-								}}
-								onPointerEnter={tiltController.handlePointerEnter}
-								onPointerLeave={tiltController.handlePointerLeave}
-								onPointerCancel={tiltController.handlePointerLeave}
-							>
-								<div
-									ref={tiltController.cardTiltRef}
-									className="team-lineup-card-tilt-shell mymind-wrapped-final-stage__tilt-shell [--wrapped-card-render-scale:1] min-[360px]:[--wrapped-card-render-scale:1.08] sm:[--wrapped-card-render-scale:1.42] lg:[--wrapped-card-render-scale:1.56]"
-									data-flip-active={isCardFlipAnimating ? "true" : "false"}
-									style={
-										{
-											"--wrapped-card-flip-rotate-y": isCardFrontVisible
-												? "0deg"
-												: "180deg",
-										} as CSSProperties
-									}
-								>
-									<button
-										aria-label={
-											isCardFrontVisible
-												? "Show back of card"
-												: "Reveal front of card"
-										}
-										aria-pressed={isCardFrontVisible}
-										className="mymind-wrapped-final-stage__flip-control"
-										data-card-face={isCardFrontVisible ? "front" : "back"}
-										disabled={!isCardDropped || isPostHandoffPreparing}
-										onClick={handleCardFlipToggle}
-										type="button"
+						<div
+							className="mymind-wrapped-final-stage__reveal-stage"
+							data-companion-state={revealCompanionState}
+							data-motion={reduceMotion ? "reduced" : "standard"}
+						>
+							<div className="mymind-wrapped-final-stage__slide-card-slot">
+								<div className="team-lineup-card-tilt-stage mymind-wrapped-final-stage__card-visual-stage w-full max-w-[16rem] min-[360px]:max-w-[16.75rem] sm:max-w-none">
+									<div
+										ref={handoffCardRef}
+										className="mymind-wrapped-final-stage__card-morph-shell"
+										onPointerMove={(event) => {
+											if (
+												!isCardFlipAnimating &&
+												!isPostHandoffPreparing &&
+												!isRevealExitPending
+											) {
+												tiltController.handlePointerMove(event);
+											}
+										}}
+										onPointerEnter={tiltController.handlePointerEnter}
+										onPointerLeave={tiltController.handlePointerLeave}
+										onPointerCancel={tiltController.handlePointerLeave}
 									>
-										<WrappedPrintedCardFlip
-											captureKey={printedCardCaptureKey}
-											front={
-												<div className="grid justify-center">
-													<WrappedTeamMemberCard
-														disableOuterShadow
-														headerLeftMetric={headerLeftMetric}
-														headerRightMetric={headerRightMetric}
-														hideHeaderLogo
-														layoutPreset="team-card-preview"
-														mediaPanelClassName="mx-auto"
-														row={row}
-														shellClassName={shellClassName}
-														shellStyle={shellStyle}
-														statItems={statItems}
-														statLayerOpacities={statLayerOpacities}
-														statTileClassName=""
-														theme={theme}
-													/>
-												</div>
+										<div
+											ref={tiltController.cardTiltRef}
+											className="team-lineup-card-tilt-shell mymind-wrapped-final-stage__tilt-shell [--wrapped-card-render-scale:1] min-[360px]:[--wrapped-card-render-scale:1.08] sm:[--wrapped-card-render-scale:1.42] lg:[--wrapped-card-render-scale:1.56]"
+											data-flip-active={isCardFlipAnimating ? "true" : "false"}
+											style={
+												{
+													"--wrapped-card-flip-rotate-y": isCardFrontVisible
+														? "0deg"
+														: "180deg",
+												} as CSSProperties
 											}
-											back={
-												<div className="grid justify-center">
-													<WrappedTeamMemberCardBack
-														disableOuterShadow
-														metrics={revealBackMetrics}
-														shellClassName={shellClassName}
-														shellStyle={shellStyle}
-														theme={theme}
-													/>
-												</div>
-											}
-											isFrontVisible={isCardFrontVisible}
-											reduceMotion={reduceMotion}
-										/>
-									</button>
+										>
+											<button
+												aria-label={
+													isCardFrontVisible
+														? "Card revealed"
+														: "Reveal front of card"
+												}
+												aria-pressed={isCardFrontVisible}
+												className="mymind-wrapped-final-stage__flip-control"
+												data-card-face={isCardFrontVisible ? "front" : "back"}
+												disabled={
+													!isCardDropped ||
+													isCardFrontVisible ||
+													isPostHandoffPreparing ||
+													isRevealExitPending
+												}
+												onClick={handleCardFlipToggle}
+												type="button"
+											>
+												<WrappedPrintedCardFlip
+													captureKey={printedCardCaptureKey}
+													front={
+														<div className="grid justify-center">
+															<WrappedTeamMemberCard
+																disableOuterShadow
+																headerLeftMetric={headerLeftMetric}
+																headerRightMetric={headerRightMetric}
+																hideHeaderLogo
+																layoutPreset="team-card-preview"
+																mediaPanelClassName="mx-auto"
+																row={row}
+																shellClassName={shellClassName}
+																shellStyle={shellStyle}
+																statItems={statItems}
+																statLayerOpacities={statLayerOpacities}
+																statTileClassName=""
+																theme={theme}
+															/>
+														</div>
+													}
+													back={
+														<div className="grid justify-center">
+															<WrappedTeamMemberCardBack
+																disableOuterShadow
+																metrics={revealBackMetrics}
+																shellClassName={shellClassName}
+																shellStyle={shellStyle}
+																theme={theme}
+															/>
+														</div>
+													}
+													isFrontVisible={isCardFrontVisible}
+													reduceMotion={reduceMotion}
+												/>
+											</button>
+										</div>
+									</div>
 								</div>
 							</div>
+
+							<AnimatePresence>
+								{shouldShowArchetypeCompanion ? (
+									<motion.aside
+										key={activeArchetype.id}
+										animate={{
+											filter: "blur(0px)",
+											opacity: 1,
+											scale: REVEAL_COMPANION_COPY.finalScale,
+											y: 0,
+										}}
+										className="mymind-wrapped-final-stage__archetype-copy"
+										exit={{
+											filter: `blur(${REVEAL_COMPANION_COPY.exitBlur})`,
+											opacity: 0,
+											scale: REVEAL_COMPANION_COPY.exitScale,
+											y: REVEAL_COMPANION_COPY.exitOffsetY,
+										}}
+										initial={{
+											filter: `blur(${REVEAL_COMPANION_COPY.enterBlur})`,
+											opacity: 0,
+											scale: REVEAL_COMPANION_COPY.initialScale,
+											y: REVEAL_COMPANION_COPY.enterOffsetY,
+										}}
+										transition={
+											reduceMotion
+												? { duration: 0 }
+												: {
+														...REVEAL_COMPANION_COPY.transition,
+														delay: REVEAL_COMPANION_TIMING.copyEnter,
+													}
+										}
+									>
+										<h2 className="mymind-wrapped-final-stage__archetype-title">
+											<span className="mymind-wrapped-final-stage__archetype-name">
+												{row.displayName},
+											</span>
+											<span className="mymind-wrapped-final-stage__archetype-line">
+												you&apos;re a{" "}
+												<WrappedArchetypeGradientText
+													activeArchetype={activeArchetype}
+													className="mymind-wrapped-final-stage__archetype-accent"
+													isHoverReplayEnabled
+													state="active"
+												/>
+											</span>
+										</h2>
+										<p className="mymind-wrapped-final-stage__archetype-description">
+											{revealCopy.description}
+										</p>
+									</motion.aside>
+								) : null}
+							</AnimatePresence>
 						</div>
 					</motion.div>
 				</div>
 			}
 			support={
 				<WrappedTeamCardRevealFooter
-					isDisabled={isCardFlipAnimating || isPostHandoffPreparing}
-					isVisible={isPreviewPostVisible}
-					label="Continue"
+					isDisabled={
+						isCardFlipAnimating || isPostHandoffPreparing || isRevealExitPending
+					}
+					isVisible={shouldShowRevealFooter}
+					label={revealFooterLabel}
 					onAction={handleRevealFooterAction}
 				/>
 			}
 		/>
 	);
-}
-
-function getWrappedRevealStoryCopy(input: {
-	archetype: WrappedArchetypeCardTheme;
-	onboardingMetrics: WrappedOnboardingMetrics;
-	row: TeamPageMemberRow;
-}): {
-	claim: string;
-	proof: string;
-} {
-	const { archetype, onboardingMetrics, row } = input;
-	const firstName = getWrappedRevealFirstName(row.displayName);
-	const activeDays = Math.max(
-		0,
-		onboardingMetrics.activeDays || row.activeDays,
-	);
-	const avgSessionMin =
-		onboardingMetrics.avgSessionMin && onboardingMetrics.avgSessionMin > 0
-			? onboardingMetrics.avgSessionMin
-			: null;
-	const commitRate =
-		onboardingMetrics.commitRate && onboardingMetrics.commitRate > 0
-			? onboardingMetrics.commitRate
-			: null;
-	const longestSessionMin =
-		onboardingMetrics.longestSessionMin &&
-		onboardingMetrics.longestSessionMin > 0
-			? onboardingMetrics.longestSessionMin
-			: null;
-	const topProjectName = onboardingMetrics.topProjectName?.trim() || null;
-	const topProjectSessions = Math.max(0, onboardingMetrics.topProjectSessions);
-	const totalRepos = Math.max(0, onboardingMetrics.repoPulse.totalRepos);
-	const totalSessions = Math.max(0, row.totalSessions);
-	const totalTokens = Math.max(0, onboardingMetrics.totalTokens);
-	const estimatedSpend = Math.max(
-		0,
-		Math.round(Math.max(row.cost, onboardingMetrics.estimatedCostUsd)),
-	);
-	const sessionCountLabel = formatCompactWholeNumber(totalSessions);
-	const tokenCountLabel = formatCompactWholeNumber(totalTokens);
-	const activeDaysLabel = formatCompactWholeNumber(activeDays);
-	const repoCountLabel = formatCompactWholeNumber(totalRepos);
-	const spendLabel = formatCompactWholeCurrency(estimatedSpend);
-	const commitRateLabel =
-		commitRate !== null ? formatPercent(commitRate) : null;
-	const topProjectSessionLabel = formatCompactWholeNumber(topProjectSessions);
-
-	switch (archetype.id) {
-		case "roadrunner":
-			return {
-				claim: formatWrappedRevealClaim(
-					firstName,
-					"you were never in one place for long.",
-				),
-				proof:
-					totalRepos > 1
-						? `${tokenCountLabel} tokens across ${repoCountLabel} repos made the bursts obvious.`
-						: `${sessionCountLabel} sessions and ${tokenCountLabel} tokens made the pace obvious.`,
-			};
-		case "hit_and_runner":
-			return {
-				claim: formatWrappedRevealClaim(
-					firstName,
-					"you came in to land the move, not linger.",
-				),
-				proof:
-					commitRateLabel && avgSessionMin !== null
-						? `${commitRateLabel} ended in a commit. Average session: ${formatMinutes(avgSessionMin)}.`
-						: `${sessionCountLabel} sessions, sharp and direct.`,
-			};
-		case "adhd_brain":
-			return {
-				claim: formatWrappedRevealClaim(
-					firstName,
-					"one thread was never going to be enough.",
-				),
-				proof:
-					totalRepos > 1
-						? `${tokenCountLabel} tokens across ${repoCountLabel} repos kept the work split wide.`
-						: `${tokenCountLabel} tokens, and still no single lane held you.`,
-			};
-		case "window_shopper":
-			return {
-				claim: formatWrappedRevealClaim(
-					firstName,
-					"you stayed picky and still found what was worth using.",
-				),
-				proof:
-					estimatedSpend > 0
-						? `${spendLabel} total spend still turned into ${sessionCountLabel} sessions.`
-						: `${sessionCountLabel} sessions, with a very light footprint.`,
-			};
-		case "papas_credit_card":
-			return {
-				claim: formatWrappedRevealClaim(
-					firstName,
-					"when the work got bigger, so did your appetite for it.",
-				),
-				proof:
-					estimatedSpend > 0
-						? `${spendLabel} across ${sessionCountLabel} sessions made that pretty clear.`
-						: `${tokenCountLabel} tokens says you were not thinking small.`,
-			};
-		case "decimal":
-			return {
-				claim: formatWrappedRevealClaim(
-					firstName,
-					"you made heavy usage look considered.",
-				),
-				proof: `${tokenCountLabel} tokens. ${sessionCountLabel} sessions. Still composed.`,
-			};
-		case "tourist":
-			return {
-				claim: formatWrappedRevealClaim(
-					firstName,
-					"you passed through more than you ever settled into.",
-				),
-				proof:
-					totalRepos > 1
-						? `${sessionCountLabel} sessions across ${repoCountLabel} repos, without one real home base.`
-						: `${sessionCountLabel} sessions, always a little in motion.`,
-			};
-		case "npc":
-			return {
-				claim: formatWrappedRevealClaim(
-					firstName,
-					"you became the person the work could count on.",
-				),
-				proof:
-					commitRateLabel !== null
-						? `${sessionCountLabel} sessions over ${activeDaysLabel} active days. ${commitRateLabel} ended in a commit.`
-						: `${sessionCountLabel} sessions over ${activeDaysLabel} active days kept the pattern steady.`,
-			};
-		case "needs_to_touch_grass":
-			return {
-				claim: formatWrappedRevealClaim(
-					firstName,
-					"you kept coming back long after most people would have closed the tab.",
-				),
-				proof:
-					topProjectName && topProjectSessions > 0
-						? `${topProjectName} alone pulled ${topProjectSessionLabel} sessions out of you.`
-						: longestSessionMin !== null
-							? `Your longest session hit ${formatMinutes(longestSessionMin)}.`
-							: `${activeDaysLabel} active days and ${tokenCountLabel} tokens kept the thread alive.`,
-			};
-		case "maniac":
-			return {
-				claim: formatWrappedRevealClaim(
-					firstName,
-					"you did not ease off once the pace picked up.",
-				),
-				proof:
-					topProjectName && topProjectSessions > 0
-						? `${tokenCountLabel} tokens over ${activeDaysLabel} active days, with ${topProjectName} taking ${topProjectSessionLabel} sessions.`
-						: `${tokenCountLabel} tokens over ${activeDaysLabel} active days. No letup.`,
-			};
-		default:
-			return {
-				claim: formatWrappedRevealClaim(
-					firstName,
-					"your pattern was specific enough to feel unmistakably yours.",
-				),
-				proof: `${sessionCountLabel} sessions and ${tokenCountLabel} tokens made that easy to see.`,
-			};
-	}
 }
 
 function getWrappedRevealBackMetrics(input: {
@@ -885,33 +1172,6 @@ function getWrappedRevealBackMetrics(input: {
 	shareCardCreatedAtLabel: string;
 }) {
 	return buildWrappedTeamCardBackMetrics(input);
-}
-
-function getWrappedRevealFirstName(displayName: string) {
-	const trimmedName = displayName.trim();
-
-	if (
-		trimmedName.length === 0 ||
-		trimmedName.toLowerCase() === "unknown teammate"
-	) {
-		return null;
-	}
-
-	const firstToken = trimmedName.split(/\s+/)[0]?.replace(/[,:;.!?]+$/g, "");
-
-	if (!firstToken || firstToken.includes("@")) {
-		return null;
-	}
-
-	return firstToken;
-}
-
-function formatWrappedRevealClaim(firstName: string | null, claim: string) {
-	if (firstName) {
-		return `${firstName}, ${claim}`;
-	}
-
-	return `${claim.charAt(0).toUpperCase()}${claim.slice(1)}`;
 }
 
 function resolveWrappedRevealCardAnimate(input: {

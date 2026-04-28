@@ -1,7 +1,13 @@
 import type { WrappedShareAppearance } from "@rudel/api-routes";
 import { motion, useReducedMotion } from "motion/react";
-import type { CSSProperties, ReactNode, RefObject } from "react";
+import {
+	type CSSProperties,
+	type ReactNode,
+	type RefObject,
+	useRef,
+} from "react";
 import type { TeamPageMemberRow } from "@/features/team/use-team-page-data";
+import { useMountEffect } from "@/hooks/useMountEffect";
 import {
 	WrappedTeamMemberCard,
 	type WrappedTeamMemberCardHeaderMetric,
@@ -14,6 +20,8 @@ import {
 	type WrappedTeamMemberCardBackMetric,
 } from "./card-back";
 import { resolveWrappedShareAppearance } from "./share-appearance";
+
+const WRAPPED_SHARE_PREVIEW_REFERENCE_SIZE = 464;
 
 interface WrappedTeamCardSharePreviewProps {
 	appearance?: WrappedShareAppearance | null;
@@ -59,10 +67,11 @@ export function WrappedTeamCardSharePreview(
 	const spreadBackMetrics =
 		resolvedAppearance.layoutMode === "front_back" ? (backMetrics ?? []) : [];
 	const shouldShowFrontBackSpread = spreadBackMetrics.length > 0;
+	const resolvedSharePostRef = useWrappedSharePreviewScale(sharePostRef);
 
 	return (
 		<div
-			ref={sharePostRef}
+			ref={resolvedSharePostRef}
 			className="mymind-wrapped-share-preview"
 			data-layout-mode={resolvedAppearance.layoutMode}
 		>
@@ -178,6 +187,71 @@ export function WrappedTeamCardSharePreview(
 			</div>
 		</div>
 	);
+}
+
+function useWrappedSharePreviewScale(
+	sharePostRef: RefObject<HTMLDivElement | null> | undefined,
+) {
+	const localSharePostRef = useRef<HTMLDivElement | null>(null);
+
+	useMountEffect(() => {
+		if (typeof window === "undefined") {
+			return;
+		}
+
+		const sharePostElement = sharePostRef?.current ?? localSharePostRef.current;
+
+		if (!sharePostElement) {
+			return;
+		}
+
+		const measuredSharePostElement = sharePostElement;
+
+		function updateSharePreviewScale(width: number) {
+			if (width <= 0) {
+				return;
+			}
+
+			measuredSharePostElement.style.setProperty(
+				"--wrapped-share-preview-export-scale",
+				formatWrappedSharePreviewScale(
+					width / WRAPPED_SHARE_PREVIEW_REFERENCE_SIZE,
+				),
+			);
+		}
+
+		function updateSharePreviewScaleFromLayout() {
+			updateSharePreviewScale(
+				measuredSharePostElement.getBoundingClientRect().width,
+			);
+		}
+
+		updateSharePreviewScaleFromLayout();
+
+		if (!window.ResizeObserver) {
+			window.addEventListener("resize", updateSharePreviewScaleFromLayout);
+
+			return () => {
+				window.removeEventListener("resize", updateSharePreviewScaleFromLayout);
+			};
+		}
+
+		const resizeObserver = new window.ResizeObserver(
+			updateSharePreviewScaleFromLayout,
+		);
+
+		resizeObserver.observe(measuredSharePostElement);
+
+		return () => {
+			resizeObserver.disconnect();
+		};
+	});
+
+	return sharePostRef ?? localSharePostRef;
+}
+
+function formatWrappedSharePreviewScale(value: number) {
+	return value.toFixed(6).replace(/\.?0+$/, "");
 }
 
 function WrappedSharePreviewCardShell(props: {
