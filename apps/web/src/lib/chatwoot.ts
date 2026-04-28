@@ -177,6 +177,15 @@ export async function openChatwoot() {
 	}
 }
 
+export async function closeChatwoot() {
+	try {
+		await ensureChatwootLoaded();
+		window.$chatwoot?.toggle("close");
+	} catch {
+		// Ignore widget load failures so the dashboard remains functional.
+	}
+}
+
 export async function setChatwootBubbleVisibility(
 	visibility: ChatwootBubbleVisibility,
 ) {

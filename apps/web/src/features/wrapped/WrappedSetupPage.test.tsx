@@ -4,14 +4,15 @@ import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { WrappedSetupPage } from "@/features/wrapped/WrappedSetupPage";
 
-const { mockOpenChatwoot, mockSetChatwootBubbleVisibility } = vi.hoisted(
-	() => ({
+const { mockCloseChatwoot, mockOpenChatwoot, mockSetChatwootBubbleVisibility } =
+	vi.hoisted(() => ({
+		mockCloseChatwoot: vi.fn(),
 		mockOpenChatwoot: vi.fn(),
 		mockSetChatwootBubbleVisibility: vi.fn(),
-	}),
-);
+	}));
 
 vi.mock("@/lib/chatwoot", () => ({
+	closeChatwoot: mockCloseChatwoot,
 	openChatwoot: mockOpenChatwoot,
 	setChatwootBubbleVisibility: mockSetChatwootBubbleVisibility,
 }));
@@ -33,6 +34,7 @@ Object.defineProperty(window, "matchMedia", {
 afterEach(() => {
 	vi.useRealTimers();
 	window.sessionStorage.clear();
+	mockCloseChatwoot.mockClear();
 	mockOpenChatwoot.mockClear();
 	mockSetChatwootBubbleVisibility.mockClear();
 });
@@ -262,6 +264,30 @@ describe("WrappedSetupPage", () => {
 		fireEvent.click(supportButton);
 
 		expect(mockOpenChatwoot).toHaveBeenCalledTimes(1);
+	});
+
+	it("uses the top support control to open and close chat", async () => {
+		const user = userEvent.setup();
+
+		render(
+			<MemoryRouter>
+				<WrappedSetupPage />
+			</MemoryRouter>,
+		);
+
+		await user.click(screen.getByRole("button", { name: "Open support" }));
+
+		expect(mockOpenChatwoot).toHaveBeenCalledTimes(1);
+		expect(
+			screen.getByRole("button", { name: "Close support" }),
+		).toBeInTheDocument();
+
+		await user.click(screen.getByRole("button", { name: "Close support" }));
+
+		expect(mockCloseChatwoot).toHaveBeenCalledTimes(1);
+		expect(
+			screen.getByRole("button", { name: "Open support" }),
+		).toBeInTheDocument();
 	});
 
 	it("keeps upload support visible after it has appeared once", () => {

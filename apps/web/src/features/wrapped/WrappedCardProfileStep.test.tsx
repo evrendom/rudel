@@ -5,14 +5,15 @@ import { describe, expect, it, vi } from "vitest";
 import { WrappedCardProfileStep } from "@/features/wrapped/WrappedCardProfileStep";
 import type { WrappedGuestPreviewProfile } from "@/features/wrapped/wrapped-guest-preview";
 
-const { mockOpenChatwoot, mockSetChatwootBubbleVisibility } = vi.hoisted(
-	() => ({
+const { mockCloseChatwoot, mockOpenChatwoot, mockSetChatwootBubbleVisibility } =
+	vi.hoisted(() => ({
+		mockCloseChatwoot: vi.fn(),
 		mockOpenChatwoot: vi.fn(),
 		mockSetChatwootBubbleVisibility: vi.fn(),
-	}),
-);
+	}));
 
 vi.mock("@/lib/chatwoot", () => ({
+	closeChatwoot: mockCloseChatwoot,
 	openChatwoot: mockOpenChatwoot,
 	setChatwootBubbleVisibility: mockSetChatwootBubbleVisibility,
 }));
