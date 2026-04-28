@@ -113,8 +113,9 @@ export function buildWrappedTeamCardBackMetrics(input: {
 			value: formatWrappedBackInteger(skillSessionsUsed),
 		},
 		{
-			label: "Favorite skill",
+			label: "FAV SKILL",
 			value: onboardingMetrics.topSkills[0]?.name ?? "Skill issue",
+			valueTruncation: "start",
 		},
 		{
 			label: "Commands used",

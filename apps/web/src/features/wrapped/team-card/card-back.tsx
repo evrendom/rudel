@@ -7,6 +7,7 @@ export interface WrappedTeamMemberCardBackMetric {
 	label: string;
 	slot?: "body" | "footer";
 	value: string;
+	valueTruncation?: "start";
 }
 
 export type WrappedTeamMemberCardBackVariant = "default" | "gradient-only";
@@ -146,12 +147,22 @@ function WrappedTeamMemberCardBackMetricRow(props: {
 	const { metric } = props;
 
 	return (
-		<tr className="mymind-wrapped-team-card-back__metric-row">
+		<tr
+			className={cn(
+				"mymind-wrapped-team-card-back__metric-row",
+				metric.valueTruncation === "start"
+					? "mymind-wrapped-team-card-back__metric-row--value-truncate-start"
+					: null,
+			)}
+		>
 			<th scope="row" className="mymind-wrapped-team-card-back__metric-label">
 				{metric.label}
 			</th>
 			<td className="mymind-wrapped-team-card-back__metric-value">
-				<span className="mymind-wrapped-team-card-back__metric-value-text">
+				<span
+					className="mymind-wrapped-team-card-back__metric-value-text"
+					title={metric.valueTruncation === "start" ? metric.value : undefined}
+				>
 					{metric.value}
 				</span>
 			</td>
