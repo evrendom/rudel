@@ -1,14 +1,14 @@
-import { ChevronLeft, HelpCircle } from "lucide-react";
+import { ChevronLeft } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import type { ReactNode } from "react";
 import { appRoutes } from "@/app/routes";
 import { WrappedPrimaryAction } from "@/features/wrapped/actions";
 import { WrappedProgress } from "@/features/wrapped/WrappedProgress";
 import { getWrappedOnboardingProgressView } from "@/features/wrapped/wrapped-onboarding-progress";
-import { openChatwoot } from "@/lib/chatwoot";
 import { cn } from "@/lib/utils";
 import { WrappedMobileChatwootBubbleController } from "../mobile-chatwoot-bubble-controller";
 import { WrappedDebugControlStack } from "../route-stage-shell";
+import { WrappedSupportChatwootButton } from "../support-chatwoot-button";
 import type {
 	PreviewableWrappedStepId,
 	WrappedPreviewOption,
@@ -123,14 +123,7 @@ export function WrappedOnboardingHeader(props: WrappedOnboardingHeaderProps) {
 					</div>
 
 					<div className="mymind-wrapped-top-tray__slot mymind-wrapped-top-tray__slot--end">
-						<button
-							type="button"
-							aria-label="Open support"
-							className="mymind-wrapped-top-tray__edge-control"
-							onClick={() => void openChatwoot()}
-						>
-							<HelpCircle className="mymind-wrapped-top-tray__edge-icon mymind-wrapped-top-tray__edge-icon--help" />
-						</button>
+						<WrappedSupportChatwootButton />
 					</div>
 				</div>
 			</header>

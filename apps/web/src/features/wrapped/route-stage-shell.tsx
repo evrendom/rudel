@@ -1,4 +1,4 @@
-import { ChevronLeft, HelpCircle, X } from "lucide-react";
+import { ChevronLeft, X } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
 import type { ReactNode } from "react";
 import { Children, isValidElement } from "react";
@@ -12,10 +12,10 @@ import {
 	getWrappedOnboardingProgressView,
 	type WrappedOnboardingProgressStepId,
 } from "@/features/wrapped/wrapped-onboarding-progress";
-import { openChatwoot } from "@/lib/chatwoot";
 import { cn } from "@/lib/utils";
 import "@/features/wrapped/wrapped.css";
 import { WrappedMobileChatwootBubbleController } from "./mobile-chatwoot-bubble-controller";
+import { WrappedSupportChatwootButton } from "./support-chatwoot-button";
 
 interface WrappedRouteStageShellProps {
 	backLabel?: string;
@@ -263,14 +263,7 @@ export function WrappedRouteStageShell(props: WrappedRouteStageShellProps) {
 										className="mymind-wrapped-top-tray__utility-placeholder"
 									/>
 								) : shouldUseReferenceTopChrome ? (
-									<button
-										type="button"
-										aria-label="Open support"
-										className="mymind-wrapped-top-tray__edge-control"
-										onClick={() => void openChatwoot()}
-									>
-										<HelpCircle className="mymind-wrapped-top-tray__edge-icon mymind-wrapped-top-tray__edge-icon--help" />
-									</button>
+									<WrappedSupportChatwootButton />
 								) : (
 									<span
 										aria-hidden="true"
