@@ -4621,10 +4621,19 @@ body.mymind-wrapped-body #cw-bubble-holder {
 
 .mymind-wrapped-auth-panel--form {
 	--wrapped-auth-form-overlap: clamp(2.4rem, 7.5vw, 3.5rem);
-	grid-template-rows: auto minmax(0, 1fr);
+	--wrapped-auth-form-surplus-card-space: 0px;
+	grid-template-rows:
+		minmax(0, var(--wrapped-auth-form-surplus-card-space)) auto
+		minmax(0, 1fr);
 	align-content: stretch;
 	gap: 0;
 	min-height: 100%;
+}
+
+.mymind-wrapped-auth-panel--form::before {
+	content: "";
+	display: block;
+	min-height: 0;
 }
 
 .mymind-wrapped-auth-panel--profile {
@@ -4686,7 +4695,12 @@ body.mymind-wrapped-body #cw-bubble-holder {
 }
 
 .mymind-wrapped-auth-panel--form .mymind-wrapped-auth-panel__card {
+	grid-row: 2;
 	padding-top: clamp(0.15rem, 1.6svh, 0.9rem);
+}
+
+.mymind-wrapped-auth-panel--form .mymind-wrapped-auth-panel__body--form {
+	grid-row: 3;
 }
 
 .mymind-wrapped-auth-panel__card--compact {
@@ -4750,6 +4764,17 @@ body.mymind-wrapped-body #cw-bubble-holder {
 .mymind-wrapped-auth-panel--form .mymind-wrapped-auth-panel__body--form {
 	margin-top: 0;
 	padding-top: var(--wrapped-auth-form-overlap);
+}
+
+@media (min-width: 64rem) and (min-height: 64.0625rem) {
+	.mymind-wrapped-auth-panel--form {
+		/* Spend surplus height as real grid space so the card and form controls move together. */
+		--wrapped-auth-form-surplus-card-space: calc(
+			(100svh - 64.0625rem) *
+			0.5 +
+			min(6.75rem, (100svh - 64.0625rem) * 0.617142857)
+		);
+	}
 }
 
 .mymind-wrapped-auth-panel__footer {
@@ -4896,7 +4921,7 @@ body.mymind-wrapped-body #cw-bubble-holder {
 @media (min-width: 40rem) {
 	.mymind-wrapped-auth-card-preview--hero
 		.mymind-wrapped-auth-card-preview__tilt {
-		--wrapped-card-render-scale: 1.42;
+		--wrapped-card-render-scale: 1.2;
 	}
 
 	.mymind-wrapped-auth-card-preview--profile
@@ -4914,6 +4939,14 @@ body.mymind-wrapped-body #cw-bubble-holder {
 	.mymind-wrapped-auth-card-preview--profile
 		.mymind-wrapped-auth-card-preview__tilt {
 		--wrapped-card-render-scale: 1.28;
+	}
+}
+
+@media (max-width: 63.999rem) {
+	.mymind-wrapped-auth-form__scene--email,
+	.mymind-wrapped-auth-form__scene--credentials {
+		/* Keep the form steps within the clipped mobile/tablet auth viewport. */
+		padding-top: clamp(1rem, 4svh, 2rem);
 	}
 }
 
@@ -5242,8 +5275,9 @@ body.mymind-wrapped-body #cw-bubble-holder {
 		calc(env(safe-area-inset-bottom, 0px) + 1.1rem)
 	);
 	box-sizing: border-box;
-	justify-content: flex-end;
-	padding-top: clamp(0.6rem, 2.2svh, 1.25rem);
+	justify-content: flex-start;
+	/* Keep the password action inside short auth stages without moving the card. */
+	padding-top: clamp(1.4rem, 4.8svh, 2.35rem);
 	padding-bottom: var(--wrapped-auth-credentials-bottom-space);
 }
 
@@ -7480,6 +7514,12 @@ body.mymind-wrapped-body #cw-bubble-holder {
 		--wrapped-auth-form-overlap: clamp(0.9rem, 2.4svh, 1.25rem);
 	}
 
+	.mymind-wrapped-auth-panel--intro
+		.mymind-wrapped-auth-card-preview--hero
+		.mymind-wrapped-auth-card-preview__tilt {
+		--wrapped-card-render-scale: 1.04;
+	}
+
 	.mymind-wrapped-auth-panel--form .mymind-wrapped-auth-card-preview__tilt {
 		--wrapped-card-render-scale: 0.94;
 	}
@@ -7498,6 +7538,12 @@ body.mymind-wrapped-body #cw-bubble-holder {
 @media (min-height: 721px) and (max-height: 760px) {
 	.mymind-wrapped-auth-panel--form {
 		--wrapped-auth-form-overlap: clamp(0.75rem, 2.2svh, 1.2rem);
+	}
+
+	.mymind-wrapped-auth-panel--intro
+		.mymind-wrapped-auth-card-preview--hero
+		.mymind-wrapped-auth-card-preview__tilt {
+		--wrapped-card-render-scale: 1.04;
 	}
 
 	.mymind-wrapped-auth-panel--form .mymind-wrapped-auth-card-preview__tilt {
@@ -7544,6 +7590,12 @@ body.mymind-wrapped-body #cw-bubble-holder {
 		--wrapped-auth-form-overlap: clamp(0.45rem, 1.5svh, 0.75rem);
 	}
 
+	.mymind-wrapped-auth-panel--intro
+		.mymind-wrapped-auth-card-preview--hero
+		.mymind-wrapped-auth-card-preview__tilt {
+		--wrapped-card-render-scale: 1.04;
+	}
+
 	.mymind-wrapped-auth-card-preview__tilt {
 		--wrapped-card-render-scale: 0.84;
 	}
@@ -7562,7 +7614,7 @@ body.mymind-wrapped-body #cw-bubble-holder {
 			1.25rem,
 			calc(env(safe-area-inset-bottom, 0px) + 0.9rem)
 		);
-		padding-top: clamp(0.35rem, 1.4svh, 0.75rem);
+		padding-top: clamp(1.4rem, 4.8svh, 2.35rem);
 	}
 
 	.mymind-wrapped-auth-form .mymind-wrapped-auth-form__scene-action {
@@ -7573,19 +7625,6 @@ body.mymind-wrapped-body #cw-bubble-holder {
 	.mymind-wrapped-auth-form[data-email-auth-stage="choice"]
 		.mymind-wrapped-auth-form__choice-footer {
 		margin-bottom: 0;
-	}
-
-	.mymind-wrapped-auth-panel--form:has(
-			.mymind-wrapped-auth-form__scene--credentials
-		) {
-		--wrapped-auth-form-overlap: clamp(0.75rem, 2.2svh, 1.2rem);
-	}
-
-	.mymind-wrapped-auth-panel--form:has(
-			.mymind-wrapped-auth-form__scene--credentials
-		)
-		.mymind-wrapped-auth-card-preview__tilt {
-		--wrapped-card-render-scale: 0.82;
 	}
 
 	.mymind-wrapped-final-stage {

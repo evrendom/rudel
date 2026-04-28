@@ -14,6 +14,10 @@ import {
 	type WrappedUploadedRepoRow,
 } from "@/features/wrapped/WrappedSetupCompletePage";
 import { WrappedSetupPage } from "@/features/wrapped/WrappedSetupPage";
+import {
+	WRAPPED_AUTH_FORM_CARD_Y_DEFAULTS,
+	type WrappedAuthFormCardYValues,
+} from "@/features/wrapped/wrapped-auth-card-position";
 
 type WrappedDevStage = "auth" | "setup" | "mobile" | "story";
 type WrappedDevSetupView = "guide" | "uploaded";
@@ -92,6 +96,14 @@ export function WrappedDevPage() {
 		card: {
 			_collapsed: true,
 			formScale: [1, 0.88, 1.08, 0.01],
+			formCardY: {
+				_collapsed: false,
+				compact: [WRAPPED_AUTH_FORM_CARD_Y_DEFAULTS.compact, -120, 120, 1],
+				medium: [WRAPPED_AUTH_FORM_CARD_Y_DEFAULTS.medium, -120, 120, 1],
+				short: [WRAPPED_AUTH_FORM_CARD_Y_DEFAULTS.short, -120, 120, 1],
+				tall: [WRAPPED_AUTH_FORM_CARD_Y_DEFAULTS.tall, -120, 120, 1],
+				wideTall: [WRAPPED_AUTH_FORM_CARD_Y_DEFAULTS.wideTall, -120, 120, 1],
+			},
 			introScale: [1, 0.88, 1.08, 0.01],
 		},
 	});
@@ -165,6 +177,7 @@ export function WrappedDevPage() {
 		<>
 			{activeStage === "auth" ? (
 				<WrappedDevAuthStage
+					authFormCardYValues={dialValues.card.formCardY}
 					authFormCardScale={dialValues.card.formScale}
 					authIntroCardScale={dialValues.card.introScale}
 					debugControls={
@@ -284,12 +297,14 @@ function WrappedDevToolbar(props: {
 }
 
 function WrappedDevAuthStage(props: {
+	authFormCardYValues: WrappedAuthFormCardYValues;
 	authFormCardScale: number;
 	authIntroCardScale: number;
 	debugControls: ReactNode;
 }) {
 	return (
 		<WrappedGuestPage
+			authFormCardYValues={props.authFormCardYValues}
 			authFormCardScale={props.authFormCardScale}
 			authIntroCardScale={props.authIntroCardScale}
 			debugControls={props.debugControls}
