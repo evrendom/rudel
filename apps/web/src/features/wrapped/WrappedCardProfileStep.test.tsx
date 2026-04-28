@@ -44,6 +44,7 @@ describe("WrappedCardProfileStep", () => {
 	it("renders the shared onboarding progress for the card profile step", async () => {
 		const user = userEvent.setup();
 		const handleContinue = vi.fn();
+		const handleDisplayNameChange = vi.fn();
 
 		render(
 			<MemoryRouter>
@@ -53,7 +54,7 @@ describe("WrappedCardProfileStep", () => {
 					isComplete={true}
 					onBack={vi.fn()}
 					onContinue={handleContinue}
-					onDisplayNameChange={vi.fn()}
+					onDisplayNameChange={handleDisplayNameChange}
 					onImageChange={vi.fn()}
 					previewProfile={previewProfile}
 				/>
@@ -68,6 +69,24 @@ describe("WrappedCardProfileStep", () => {
 				name: "Onboarding step 2: Personalize card",
 			}),
 		).toHaveAttribute("aria-current", "step");
+
+		await user.click(screen.getByRole("button", { name: "Save name" }));
+		expect(
+			screen.getByRole("button", { name: "Edit name" }),
+		).toBeInTheDocument();
+
+		await user.click(screen.getByRole("button", { name: "Edit name" }));
+		expect(screen.getByRole("textbox", { name: "Name on card" })).toHaveValue(
+			"Ada Lovelace",
+		);
+
+		await user.clear(screen.getByRole("textbox", { name: "Name on card" }));
+		await user.type(
+			screen.getByRole("textbox", { name: "Name on card" }),
+			"Ada",
+		);
+
+		expect(handleDisplayNameChange).toHaveBeenCalled();
 
 		await user.click(screen.getByRole("button", { name: "Save name" }));
 		await user.click(screen.getByRole("button", { name: "Continue" }));

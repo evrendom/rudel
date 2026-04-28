@@ -4201,6 +4201,11 @@ body.mymind-wrapped-body #cw-bubble-holder {
 	min-height: 0;
 }
 
+.mymind-wrapped-entry-stage--auth-profile
+	.mymind-wrapped-entry-stage__object--auth-profile {
+	--wrapped-card-profile-card-offset-y: 0;
+}
+
 .mymind-wrapped-entry-card {
 	display: grid;
 	gap: 1rem;
@@ -5459,6 +5464,7 @@ body.mymind-wrapped-body #cw-bubble-holder {
 	display: grid;
 	justify-items: center;
 	width: 100%;
+	transform: translateY(var(--wrapped-card-profile-card-offset-y, 0));
 }
 
 .mymind-wrapped-card-profile-step__image-edit {
@@ -5519,6 +5525,28 @@ body.mymind-wrapped-body #cw-bubble-holder {
 		rgb(15 23 42 / 0.1),
 		0 calc(var(--wrapped-card-render-scale, 1) * 5px)
 		calc(var(--wrapped-card-render-scale, 1) * 14px) rgb(15 23 42 / 0.08);
+}
+
+.mymind-wrapped-card-profile-step__name-display {
+	display: block;
+	width: 100%;
+	border: 0;
+	padding: 0;
+	background: transparent;
+	color: inherit;
+	font: inherit;
+	letter-spacing: inherit;
+	line-height: inherit;
+	text-align: inherit;
+	cursor: text;
+	appearance: none;
+}
+
+.mymind-wrapped-card-profile-step__name-display:focus-visible {
+	border-radius: calc(var(--wrapped-card-render-scale, 1) * 7px);
+	outline: calc(var(--wrapped-card-render-scale, 1) * 2px) solid
+		rgb(37 34 32 / 0.18);
+	outline-offset: 0;
 }
 
 .mymind-wrapped-card-profile-step__name-input {
@@ -8094,6 +8122,11 @@ body.mymind-wrapped-body #cw-bubble-holder {
 }
 
 @media (min-height: 821px) and (max-height: 900px) {
+	.mymind-wrapped-entry-stage--auth-profile
+		.mymind-wrapped-entry-stage__object--auth-profile {
+		--wrapped-card-profile-card-offset-y: clamp(0.45rem, 2.4svh, 1.1rem);
+	}
+
 	.mymind-wrapped-auth-panel--form {
 		--wrapped-auth-form-overlap: clamp(1.15rem, 2.8svh, 1.55rem);
 	}
@@ -8114,6 +8147,11 @@ body.mymind-wrapped-body #cw-bubble-holder {
 }
 
 @media (min-height: 761px) and (max-height: 820px) {
+	.mymind-wrapped-entry-stage--auth-profile
+		.mymind-wrapped-entry-stage__object--auth-profile {
+		--wrapped-card-profile-card-offset-y: clamp(0.55rem, 2.8svh, 1.2rem);
+	}
+
 	.mymind-wrapped-auth-panel--form {
 		--wrapped-auth-form-overlap: clamp(0.9rem, 2.4svh, 1.25rem);
 	}
@@ -8140,6 +8178,11 @@ body.mymind-wrapped-body #cw-bubble-holder {
 }
 
 @media (min-height: 721px) and (max-height: 760px) {
+	.mymind-wrapped-entry-stage--auth-profile
+		.mymind-wrapped-entry-stage__object--auth-profile {
+		--wrapped-card-profile-card-offset-y: clamp(0.55rem, 2.6svh, 1rem);
+	}
+
 	.mymind-wrapped-auth-panel--form {
 		--wrapped-auth-form-overlap: clamp(0.75rem, 2.2svh, 1.2rem);
 	}
@@ -8166,6 +8209,11 @@ body.mymind-wrapped-body #cw-bubble-holder {
 }
 
 @media (max-height: 720px) {
+	.mymind-wrapped-entry-stage--auth-profile
+		.mymind-wrapped-entry-stage__object--auth-profile {
+		--wrapped-card-profile-card-offset-y: clamp(0.25rem, 1.6svh, 0.65rem);
+	}
+
 	.mymind-wrapped-shell {
 		--wrapped-shell-top-inset: 20px;
 		--wrapped-shell-inline-inset: 20px;
@@ -8207,6 +8255,7 @@ body.mymind-wrapped-body #cw-bubble-holder {
 	.mymind-wrapped-auth-card-preview--profile
 		.mymind-wrapped-auth-card-preview__tilt {
 		--wrapped-card-render-scale: 0.98;
+		--wrapped-short-card-scale: 0.94;
 	}
 
 	.mymind-wrapped-auth-form__scene--email {
@@ -8340,6 +8389,11 @@ body.mymind-wrapped-body #cw-bubble-holder {
 }
 
 @media (max-height: 600px) {
+	.mymind-wrapped-auth-card-preview--profile
+		.mymind-wrapped-auth-card-preview__tilt {
+		--wrapped-short-card-scale: 0.9;
+	}
+
 	.mymind-wrapped-entry-stage--auth {
 		gap: 0.45rem;
 	}
@@ -8350,6 +8404,13 @@ body.mymind-wrapped-body #cw-bubble-holder {
 
 	.mymind-wrapped-auth-panel--form .mymind-wrapped-auth-card-preview__tilt {
 		--wrapped-short-card-scale: 0.48;
+	}
+}
+
+@media (max-height: 520px) {
+	.mymind-wrapped-auth-card-preview--profile
+		.mymind-wrapped-auth-card-preview__tilt {
+		--wrapped-short-card-scale: 0.84;
 	}
 }
 
