@@ -9,6 +9,7 @@ import {
 import { WrappedTeamCardPage } from "@/features/wrapped/team-card/page";
 import { WrappedDesktopResumePreviewStage } from "@/features/wrapped/WrappedDesktopResumePreviewStage";
 import { WrappedGuestPage } from "@/features/wrapped/WrappedGuestPage";
+import { WrappedPublicMockPage } from "@/features/wrapped/WrappedPublicMockPage";
 import {
 	WrappedSetupCompletePage,
 	type WrappedUploadedRepoRow,
@@ -19,7 +20,7 @@ import {
 	type WrappedAuthFormCardYValues,
 } from "@/features/wrapped/wrapped-auth-card-position";
 
-type WrappedDevStage = "auth" | "setup" | "mobile" | "story";
+type WrappedDevStage = "auth" | "setup" | "mobile" | "story" | "public";
 type WrappedDevSetupView = "guide" | "uploaded";
 
 const DEFAULT_WRAPPED_DEV_STAGE: WrappedDevStage = "auth";
@@ -88,6 +89,7 @@ const WRAPPED_DEV_STAGES: Array<{
 	{ label: "Setup", value: "setup" },
 	{ label: "Mobile", value: "mobile" },
 	{ label: "Story", value: "story" },
+	{ label: "Public", value: "public" },
 ];
 
 export function WrappedDevPage() {
@@ -256,6 +258,16 @@ export function WrappedDevPage() {
 							setupStep: activeGuideStep,
 							setupView: "uploaded",
 						})
+					}
+				/>
+			) : null}
+			{activeStage === "public" ? (
+				<WrappedPublicMockPage
+					debugControls={
+						<WrappedDevToolbar
+							activeStage={activeStage}
+							onStageChange={setStage}
+						/>
 					}
 				/>
 			) : null}

@@ -103,7 +103,9 @@ export function useWrappedStatSurfaceStyles(
 
 function getWrappedCardRenderScale(element: HTMLElement) {
 	const scaleOwner =
-		element.closest<HTMLElement>(".team-lineup-card-tilt-shell") ?? element;
+		element.closest<HTMLElement>("[data-wrapped-team-card-artboard]") ??
+		element.closest<HTMLElement>(".team-lineup-card-tilt-shell") ??
+		element;
 	const parsedScale = Number.parseFloat(
 		getComputedStyle(scaleOwner).getPropertyValue(
 			"--wrapped-card-render-scale",

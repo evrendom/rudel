@@ -47,6 +47,7 @@ vi.mock("motion/react", async () => {
 			mode?: string;
 		}) => <>{children}</>,
 		motion: {
+			aside: createPrimitive("aside"),
 			div: createPrimitive("div"),
 			h1: createPrimitive("h1"),
 			h2: createPrimitive("h2"),
@@ -154,6 +155,31 @@ const tiltController: WrappedCardTiltController = {
 	isGyroscopePromptVisible: false,
 	isGyroscopeSupported: false,
 };
+
+const REVEAL_INTRO_READY_MS = 2_140;
+const REVEAL_CARD_DROP_DURATION_MS = 1_020;
+const REVEAL_CARD_FLIP_DURATION_MS = 680;
+const REVEAL_EXIT_TO_SHARE_MS = 580;
+
+function advanceRevealIntroToGate() {
+	act(() => {
+		vi.advanceTimersByTime(REVEAL_INTRO_READY_MS);
+	});
+}
+
+function continueFromRevealIntroGate() {
+	fireEvent.click(
+		screen.getByRole("button", {
+			name: "Continue",
+		}),
+	);
+}
+
+function finishRevealCardDrop() {
+	act(() => {
+		vi.advanceTimersByTime(REVEAL_CARD_DROP_DURATION_MS);
+	});
+}
 
 afterEach(() => {
 	vi.clearAllTimers();
@@ -409,46 +435,80 @@ describe("WrappedTeamCardRevealStage", () => {
 			/>,
 		);
 
-		expect(screen.queryByRole("heading")).toBeNull();
 		expect(
-			screen.getByText("Avery, you became the person the work could count on."),
+			screen.getByRole("heading", {
+				name: "Avery Chen,",
+			}),
 		).toBeInTheDocument();
+		expect(screen.getByText("Smooth Operator")).toHaveAttribute(
+			"data-accent-state",
+			"waiting",
+		);
 		expect(
 			screen.getByTestId("wrapped-team-card").closest("[data-card-state]"),
 		).toHaveAttribute("data-card-state", "waiting");
 
 		act(() => {
-			vi.advanceTimersByTime(1_700);
+			vi.advanceTimersByTime(850);
+		});
+
+		expect(
+			screen.getByRole("heading", {
+				name: "Avery Chen, you're a Smooth Operator",
+			}),
+		).toBeInTheDocument();
+		expect(screen.getByText("Smooth Operator")).toHaveAttribute(
+			"data-accent-state",
+			"waiting",
+		);
+
+		act(() => {
+			vi.advanceTimersByTime(670);
+		});
+
+		expect(screen.getByText("Smooth Operator")).toHaveAttribute(
+			"data-accent-state",
+			"active",
+		);
+		expect(
+			screen.getByTestId("wrapped-team-card").closest("[data-card-state]"),
+		).toHaveAttribute("data-card-state", "waiting");
+
+		act(() => {
+			vi.advanceTimersByTime(620);
 		});
 
 		expect(
 			screen.getByText(
-				"37 sessions over 12 active days. 41% ended in a commit.",
+				"For the steady hand who keeps the machine moving without asking for attention on every pass.",
 			),
 		).toBeInTheDocument();
-
-		act(() => {
-			vi.advanceTimersByTime(1_900);
-		});
-
-		expect(screen.getByText("Smooth by default.")).toBeInTheDocument();
+		expect(
+			screen.getByRole("button", {
+				name: "Continue",
+			}),
+		).toBeEnabled();
 		expect(
 			screen.getByTestId("wrapped-team-card").closest("[data-card-state]"),
 		).toHaveAttribute("data-card-state", "waiting");
+		expect(onRevealComplete).not.toHaveBeenCalled();
 
-		act(() => {
-			vi.advanceTimersByTime(1_250);
-		});
+		finishRevealCardDrop();
 
-		expect(screen.queryByText("Smooth by default.")).toBeNull();
+		expect(
+			screen.getByTestId("wrapped-team-card").closest("[data-card-state]"),
+		).toHaveAttribute("data-card-state", "waiting");
+		expect(onRevealComplete).not.toHaveBeenCalled();
+
+		continueFromRevealIntroGate();
+
+		expect(screen.queryByRole("heading")).toBeNull();
 		expect(
 			screen.getByTestId("wrapped-team-card").closest("[data-card-state]"),
 		).toHaveAttribute("data-card-state", "dropped");
 		expect(onRevealComplete).not.toHaveBeenCalled();
 
-		act(() => {
-			vi.advanceTimersByTime(1_020);
-		});
+		finishRevealCardDrop();
 
 		expect(onRevealComplete).toHaveBeenCalledTimes(1);
 		expect(
@@ -487,11 +547,26 @@ describe("WrappedTeamCardRevealStage", () => {
 		fireEvent.click(revealButton);
 
 		expect(tiltController.handlePointerLeave).toHaveBeenCalledTimes(1);
+		const revealedButton = screen.getByRole("button", {
+			name: "Card revealed",
+		});
+		expect(revealedButton).toHaveAttribute("data-card-face", "front");
+		expect(revealedButton).toBeDisabled();
+
+		act(() => {
+			vi.advanceTimersByTime(REVEAL_CARD_FLIP_DURATION_MS);
+		});
+
 		expect(
-			screen.getByRole("button", {
-				name: "Show back of card",
+			screen.getByRole("heading", {
+				name: "Avery Chen, you're a Smooth Operator",
 			}),
-		).toHaveAttribute("data-card-face", "front");
+		).toBeInTheDocument();
+		expect(
+			screen.getByText(
+				"For the steady hand who keeps the machine moving without asking for attention on every pass.",
+			),
+		).toBeInTheDocument();
 	});
 
 	it("uses the footer action to turn the card around before continuing", () => {
@@ -538,9 +613,9 @@ describe("WrappedTeamCardRevealStage", () => {
 			/>,
 		);
 
-		act(() => {
-			vi.advanceTimersByTime(1_700 + 1_900 + 1_250 + 1_020);
-		});
+		advanceRevealIntroToGate();
+		continueFromRevealIntroGate();
+		finishRevealCardDrop();
 
 		const turnAroundButton = screen.getByRole("button", {
 			name: "Continue",
@@ -550,12 +625,12 @@ describe("WrappedTeamCardRevealStage", () => {
 		expect(onPreviewPost).not.toHaveBeenCalled();
 		expect(
 			screen.getByRole("button", {
-				name: "Show back of card",
+				name: "Card revealed",
 			}),
 		).toHaveAttribute("data-card-face", "front");
 
 		act(() => {
-			vi.advanceTimersByTime(680);
+			vi.advanceTimersByTime(REVEAL_CARD_FLIP_DURATION_MS);
 		});
 
 		const continueButton = screen.getByRole("button", {
@@ -564,6 +639,12 @@ describe("WrappedTeamCardRevealStage", () => {
 		expect(continueButton).toBeEnabled();
 
 		fireEvent.click(continueButton);
+
+		expect(onPreviewPost).not.toHaveBeenCalled();
+
+		act(() => {
+			vi.advanceTimersByTime(REVEAL_EXIT_TO_SHARE_MS);
+		});
 
 		expect(onPreviewPost).toHaveBeenCalledTimes(1);
 	});
@@ -612,9 +693,9 @@ describe("WrappedTeamCardRevealStage", () => {
 			/>,
 		);
 
-		act(() => {
-			vi.advanceTimersByTime(1_700 + 1_900 + 1_250 + 1_020);
-		});
+		advanceRevealIntroToGate();
+		continueFromRevealIntroGate();
+		finishRevealCardDrop();
 
 		fireEvent.click(
 			screen.getByRole("button", {
@@ -623,7 +704,7 @@ describe("WrappedTeamCardRevealStage", () => {
 		);
 
 		act(() => {
-			vi.advanceTimersByTime(680);
+			vi.advanceTimersByTime(REVEAL_CARD_FLIP_DURATION_MS);
 		});
 
 		expect(
@@ -632,16 +713,16 @@ describe("WrappedTeamCardRevealStage", () => {
 			}),
 		).toBeEnabled();
 
-		fireEvent.click(
+		expect(
 			screen.getByRole("button", {
+				name: "Card revealed",
+			}),
+		).toBeDisabled();
+		expect(
+			screen.queryByRole("button", {
 				name: "Show back of card",
 			}),
-		);
-
-		act(() => {
-			vi.advanceTimersByTime(680);
-		});
-
+		).not.toBeInTheDocument();
 		expect(
 			screen.getByRole("button", {
 				name: "Continue",
@@ -658,6 +739,12 @@ describe("WrappedTeamCardRevealStage", () => {
 				name: "Continue",
 			}),
 		);
+
+		expect(onPreviewPost).not.toHaveBeenCalled();
+
+		act(() => {
+			vi.advanceTimersByTime(REVEAL_EXIT_TO_SHARE_MS);
+		});
 
 		expect(onPreviewPost).toHaveBeenCalledTimes(1);
 	});

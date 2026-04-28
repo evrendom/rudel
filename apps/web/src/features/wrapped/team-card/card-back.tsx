@@ -1,5 +1,6 @@
 import type { CSSProperties } from "react";
 import { cn } from "@/lib/utils";
+import { WrappedTeamCardArtboardFrame } from "./artboard-frame";
 import type { WrappedTeamMemberCardTheme } from "./card";
 
 export interface WrappedTeamMemberCardBackMetric {
@@ -59,51 +60,56 @@ export function WrappedTeamMemberCardBack(props: {
 	} as CSSProperties;
 
 	return (
-		<article
-			data-testid="wrapped-team-card-back"
-			className={cn(
-				"mymind-wrapped-team-card-back",
-				"relative isolate overflow-hidden",
-				shellClassName,
-				isDarkTheme ? "text-[#fff7ef]" : null,
-				isMutedTheme ? "text-[#f6efe4]" : null,
-			)}
-			style={{ ...cardBackStyle, ...shellStyle, ...outerShadowStyle }}
-		>
-			{backgroundOverlayClassName ? (
-				<div aria-hidden="true" className={backgroundOverlayClassName} />
-			) : null}
-			<div aria-hidden="true" className="mymind-wrapped-team-card-back__wash" />
-			{shouldRenderContent ? (
-				<div className="mymind-wrapped-team-card-back__content">
-					<div className="mymind-wrapped-team-card-back__logo-shell">
-						<WrappedTeamMemberCardBackLogo className="mymind-wrapped-team-card-back__logo" />
-					</div>
-
-					<div className="mymind-wrapped-team-card-back__metrics-shell">
-						<table className="mymind-wrapped-team-card-back__metrics-table">
-							<tbody>
-								{bodyMetrics.map((metric) => (
-									<WrappedTeamMemberCardBackMetricRow
-										key={metric.label}
-										metric={metric}
-									/>
-								))}
-							</tbody>
-						</table>
-					</div>
-					{footerMetric ? (
-						<div className="mymind-wrapped-team-card-back__metric-footer-shell">
-							<div className="mymind-wrapped-team-card-back__footer-lockup">
-								<span className="mymind-wrapped-team-card-back__footer-date">
-									{footerMetric.value}
-								</span>
-							</div>
+		<WrappedTeamCardArtboardFrame>
+			<article
+				data-testid="wrapped-team-card-back"
+				className={cn(
+					"mymind-wrapped-team-card-back",
+					"relative isolate overflow-hidden",
+					shellClassName,
+					isDarkTheme ? "text-[#fff7ef]" : null,
+					isMutedTheme ? "text-[#f6efe4]" : null,
+				)}
+				style={{ ...cardBackStyle, ...shellStyle, ...outerShadowStyle }}
+			>
+				{backgroundOverlayClassName ? (
+					<div aria-hidden="true" className={backgroundOverlayClassName} />
+				) : null}
+				<div
+					aria-hidden="true"
+					className="mymind-wrapped-team-card-back__wash"
+				/>
+				{shouldRenderContent ? (
+					<div className="mymind-wrapped-team-card-back__content">
+						<div className="mymind-wrapped-team-card-back__logo-shell">
+							<WrappedTeamMemberCardBackLogo className="mymind-wrapped-team-card-back__logo" />
 						</div>
-					) : null}
-				</div>
-			) : null}
-		</article>
+
+						<div className="mymind-wrapped-team-card-back__metrics-shell">
+							<table className="mymind-wrapped-team-card-back__metrics-table">
+								<tbody>
+									{bodyMetrics.map((metric) => (
+										<WrappedTeamMemberCardBackMetricRow
+											key={metric.label}
+											metric={metric}
+										/>
+									))}
+								</tbody>
+							</table>
+						</div>
+						{footerMetric ? (
+							<div className="mymind-wrapped-team-card-back__metric-footer-shell">
+								<div className="mymind-wrapped-team-card-back__footer-lockup">
+									<span className="mymind-wrapped-team-card-back__footer-date">
+										{footerMetric.value}
+									</span>
+								</div>
+							</div>
+						) : null}
+					</div>
+				) : null}
+			</article>
+		</WrappedTeamCardArtboardFrame>
 	);
 }
 
