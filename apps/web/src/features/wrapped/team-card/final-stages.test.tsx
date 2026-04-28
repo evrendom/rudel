@@ -579,7 +579,7 @@ describe("WrappedTeamCardRevealStage", () => {
 		expect(screen.getByText("120K")).toBeInTheDocument();
 		expect(screen.getByText("Skills used")).toBeInTheDocument();
 		expect(screen.getByText("23")).toBeInTheDocument();
-		expect(screen.getByText("Favorite skill")).toBeInTheDocument();
+		expect(screen.getByText("FAV SKILL")).toBeInTheDocument();
 		expect(screen.getByText("Refactor")).toBeInTheDocument();
 		expect(screen.getByText("Commands used")).toBeInTheDocument();
 		expect(screen.getAllByText("11")[0]).toBeInTheDocument();
