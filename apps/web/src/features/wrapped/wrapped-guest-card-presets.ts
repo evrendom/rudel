@@ -59,6 +59,7 @@ const RICK_PLACEHOLDER_ONBOARDING_METRICS: WrappedOnboardingMetrics = {
 	commitRate: 48,
 	commitSessions: 105,
 	daysSinceFirst: 214,
+	distinctProjectCount: 12,
 	estimatedCostTokenBasis: 0,
 	estimatedCostUsd: 347,
 	favoriteModel: "claude-3-7-sonnet",

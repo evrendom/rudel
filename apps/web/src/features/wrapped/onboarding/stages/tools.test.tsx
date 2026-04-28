@@ -23,6 +23,7 @@ const emptyToolsMetrics: WrappedOnboardingMetrics = {
 	commitRate: null,
 	commitSessions: 0,
 	daysSinceFirst: 0,
+	distinctProjectCount: 0,
 	estimatedCostTokenBasis: 0,
 	estimatedCostUsd: 0,
 	favoriteModel: null,

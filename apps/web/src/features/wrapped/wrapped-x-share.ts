@@ -4,8 +4,11 @@ import { formatCurrency } from "@/lib/format";
 interface BuildWrappedXShareTextInput {
 	activeDays?: number | null;
 	archetypeLabel: string;
+	avgSessionMin?: number | null;
+	commitRate?: number | null;
 	cost?: number | null;
 	daysSinceFirst?: number | null;
+	distinctProjectCount?: number | null;
 	displayName: string;
 	favoriteModel?: string | null;
 	sourceSplit?: readonly WrappedSourceSplit[];
@@ -25,44 +28,13 @@ interface WrappedXShareCopy {
 const WRAPPED_X_INTENT_URL = "https://twitter.com/intent/tweet";
 
 const WRAPPED_X_SHARE_COPY_BY_ARCHETYPE: Record<string, WrappedXShareCopy> = {
-	"adhd brain": {
-		traits:
-			"jumps between threads, keeps too many tabs warm, still turns chaos into progress",
-	},
-	cheapskate: {
-		traits:
-			"watches token spend, stretches each prompt, gets the answer without lighting money on fire",
-	},
-	"company card": {
-		traits:
-			"pushes usage hard, trusts the budget line, treats the meter like someone else's problem",
-	},
 	decimal: {
 		traits:
 			"cares about precision, trims the messy edges, does not tolerate fuzzy answers",
 	},
-	"hit and runner": {
-		traits:
-			"drops in fast, gets the thing shipped, disappears before the meeting gets scheduled",
-	},
-	maniac: {
-		traits: "high session count, heavy token burn, no visible off switch",
-	},
-	obsessed: {
-		traits:
-			"keeps coming back, keeps digging deeper, probably knows the repo's floor plan",
-	},
 	roadrunner: {
 		traits:
 			"moves quickly, keeps sessions short, ships before the dust settles",
-	},
-	"smooth operator": {
-		traits:
-			"stays consistent, keeps the output clean, makes noisy work look routine",
-	},
-	tourist: {
-		traits:
-			"wanders across repos, samples every corner, collects project stamps",
 	},
 };
 
@@ -74,8 +46,11 @@ export function buildWrappedXShareText(input: BuildWrappedXShareTextInput) {
 	const {
 		activeDays,
 		archetypeLabel,
+		avgSessionMin,
+		commitRate,
 		cost,
 		daysSinceFirst,
+		distinctProjectCount,
 		favoriteModel,
 		sourceSplit,
 		totalSessions,
@@ -107,6 +82,102 @@ export function buildWrappedXShareText(input: BuildWrappedXShareTextInput) {
 				totalSessions,
 			}),
 		].join("\n\n");
+	}
+
+	if (normalizedArchetypeLabel === "company card") {
+		return [
+			`My ${usageSourceLabel} usage says I got the Company Card...`,
+			buildWrappedXCompanyCardShareBody({
+				commitRate,
+				cost,
+				favoriteModel,
+				sourceSplit,
+				totalSessions,
+			}),
+		].join(" ");
+	}
+
+	if (normalizedArchetypeLabel === "adhd brain") {
+		return [
+			openingLine,
+			buildWrappedXAdhdBrainShareBody({
+				activeDays,
+				commitRate,
+				daysSinceFirst,
+				distinctProjectCount,
+			}),
+		].join(" ");
+	}
+
+	if (normalizedArchetypeLabel === "cheapskate") {
+		return [
+			openingLine,
+			buildWrappedXCheapskateShareBody({
+				commitRate,
+				cost,
+				totalSessions,
+			}),
+		].join(" ");
+	}
+
+	if (normalizedArchetypeLabel === "hit and runner") {
+		return [
+			openingLine,
+			buildWrappedXHitAndRunnerShareBody({
+				avgSessionMin,
+				commitRate,
+				distinctProjectCount,
+			}),
+		].join(" ");
+	}
+
+	if (normalizedArchetypeLabel === "maniac") {
+		return [
+			openingLine,
+			buildWrappedXManiacShareBody({
+				activeDays,
+				daysSinceFirst,
+				distinctProjectCount,
+				totalSessions,
+			}),
+		].join(" ");
+	}
+
+	if (normalizedArchetypeLabel === "obsessed") {
+		return [
+			openingLine,
+			buildWrappedXObsessedShareBody({
+				activeDays,
+				commitRate,
+				daysSinceFirst,
+				distinctProjectCount,
+			}),
+		].join(" ");
+	}
+
+	if (normalizedArchetypeLabel === "smooth operator") {
+		return [
+			`My ${usageSourceLabel} usage says I'm a Smooooooth Operator.`,
+			buildWrappedXSmoothOperatorShareBody({
+				activeDays,
+				avgSessionMin,
+				daysSinceFirst,
+				totalSessions,
+			}),
+		].join(" ");
+	}
+
+	if (normalizedArchetypeLabel === "tourist") {
+		return [
+			openingLine,
+			buildWrappedXTouristShareBody({
+				commitRate,
+				cost,
+				favoriteModel,
+				sourceSplit,
+				totalSessions,
+			}),
+		].join(" ");
 	}
 
 	return [openingLine, `Traits: ${metrics}; ${copy.traits}.`].join("\n\n");
@@ -154,6 +225,165 @@ function buildWrappedXRoadrunnerShareBody(input: {
 	].join("\n\n");
 }
 
+function buildWrappedXManiacShareBody(input: {
+	activeDays?: number | null;
+	daysSinceFirst?: number | null;
+	distinctProjectCount?: number | null;
+	totalSessions?: number | null;
+}) {
+	const activeDays = formatWrappedXWholeNumber(input.activeDays);
+	const daysSinceFirst = formatWrappedXWholeNumber(input.daysSinceFirst);
+	const distinctProjectCount = formatWrappedXWholeNumber(
+		input.distinctProjectCount,
+	);
+	const sessionsPerActiveDay = formatWrappedXSessionsPerActiveDay({
+		activeDays: input.activeDays,
+		totalSessions: input.totalSessions,
+	});
+
+	return `Active ${activeDays} out of ${daysSinceFirst} days, ${distinctProjectCount} repos, ${sessionsPerActiveDay} sessions per active day. Yeah, you should be a little scared.`;
+}
+
+function buildWrappedXCompanyCardShareBody(input: {
+	commitRate?: number | null;
+	cost?: number | null;
+	favoriteModel?: string | null;
+	sourceSplit?: readonly WrappedSourceSplit[];
+	totalSessions?: number | null;
+}) {
+	const totalSessions = formatWrappedXWholeNumber(input.totalSessions);
+	const commitRate = formatWrappedXWholeNumber(input.commitRate);
+	const totalCost = formatWrappedXWholeCurrency(input.cost);
+	const happyLine = formatWrappedXCompanyCardHappyLine({
+		favoriteModel: input.favoriteModel,
+		sourceSplit: input.sourceSplit,
+	});
+
+	return `${totalSessions} sessions, ${commitRate}% shipped something, ${totalCost} in total. ${happyLine}`;
+}
+
+function buildWrappedXAdhdBrainShareBody(input: {
+	activeDays?: number | null;
+	commitRate?: number | null;
+	daysSinceFirst?: number | null;
+	distinctProjectCount?: number | null;
+}) {
+	const activeDays = formatWrappedXWholeNumber(input.activeDays);
+	const daysSinceFirst = formatWrappedXWholeNumber(input.daysSinceFirst);
+	const distinctProjectCount = formatWrappedXWholeNumber(
+		input.distinctProjectCount,
+	);
+	const commitRate = formatWrappedXWholeNumber(input.commitRate);
+
+	return `${activeDays} out of ${daysSinceFirst} days, ${distinctProjectCount} repos, ${commitRate}% shipped. DaVinci also had many projects! I'm his reincarnation.. i guess.`;
+}
+
+function buildWrappedXHitAndRunnerShareBody(input: {
+	avgSessionMin?: number | null;
+	commitRate?: number | null;
+	distinctProjectCount?: number | null;
+}) {
+	const avgSessionMin = formatWrappedXWholeNumber(input.avgSessionMin);
+	const distinctProjectCount = formatWrappedXWholeNumber(
+		input.distinctProjectCount,
+	);
+	const commitRate = formatWrappedXWholeNumber(input.commitRate);
+
+	return `${avgSessionMin} minute sessions, ${distinctProjectCount} repos, ${commitRate}% shipped. Veni, vidi, commit. In, out, no witnesses.`;
+}
+
+function buildWrappedXCheapskateShareBody(input: {
+	commitRate?: number | null;
+	cost?: number | null;
+	totalSessions?: number | null;
+}) {
+	const commitRate = formatWrappedXWholeNumber(input.commitRate);
+	const costPerSession = formatCurrency(
+		input.cost && input.totalSessions && input.totalSessions > 0
+			? input.cost / input.totalSessions
+			: 0,
+	);
+
+	return `${costPerSession} a session, ${commitRate}% shipped. Mr. Krabs is very proud of me. Spent less, shipped more. Very efficient. Pls don't ask me to pay for dinner though.`;
+}
+
+function buildWrappedXObsessedShareBody(input: {
+	activeDays?: number | null;
+	commitRate?: number | null;
+	daysSinceFirst?: number | null;
+	distinctProjectCount?: number | null;
+}) {
+	const activeDays = formatWrappedXWholeNumber(input.activeDays);
+	const daysSinceFirst = formatWrappedXWholeNumber(input.daysSinceFirst);
+	const distinctProjectCount = formatWrappedXWholeNumber(
+		input.distinctProjectCount,
+	);
+	const commitRate = formatWrappedXWholeNumber(input.commitRate);
+
+	return `${distinctProjectCount} repo, ${activeDays} out of ${daysSinceFirst} days, ${commitRate}% of sessions shipped something. Apparently I have nothing else in my life. I dare you to distract me.`;
+}
+
+function buildWrappedXSmoothOperatorShareBody(input: {
+	activeDays?: number | null;
+	avgSessionMin?: number | null;
+	daysSinceFirst?: number | null;
+	totalSessions?: number | null;
+}) {
+	const activeDays = formatWrappedXWholeNumber(input.activeDays);
+	const daysSinceFirst = formatWrappedXWholeNumber(input.daysSinceFirst);
+	const avgSessionMin = formatWrappedXWholeNumber(input.avgSessionMin);
+	const sessionsPerActiveDay = formatWrappedXSessionsPerActiveDay({
+		activeDays: input.activeDays,
+		totalSessions: input.totalSessions,
+	});
+
+	return `Active ${activeDays} out of ${daysSinceFirst} days, ${avgSessionMin} minute average session, ${sessionsPerActiveDay} a day. Haters gonna try to find something on me, but they can't because I'm a smooooth operator.`;
+}
+
+function buildWrappedXTouristShareBody(input: {
+	commitRate?: number | null;
+	cost?: number | null;
+	favoriteModel?: string | null;
+	sourceSplit?: readonly WrappedSourceSplit[];
+	totalSessions?: number | null;
+}) {
+	const totalSessions = formatWrappedXWholeNumber(input.totalSessions);
+	const commitRate = formatWrappedXWholeNumber(input.commitRate);
+	const totalCost = formatWrappedXWholeCurrency(input.cost);
+	const fallbackProduct = formatWrappedXTouristFallbackProduct({
+		favoriteModel: input.favoriteModel,
+		sourceSplit: input.sourceSplit,
+	});
+
+	return `${totalSessions} sessions, ${commitRate}% shipped, ${totalCost} spent in total.. I'm definitely not the person who'll get prompt injected by this OpenClaw thing. I'll stick to ${fallbackProduct}`;
+}
+
+function formatWrappedXCompanyCardHappyLine(input: {
+	favoriteModel?: string | null;
+	sourceSplit?: readonly WrappedSourceSplit[];
+}) {
+	const usageSourceLabel = formatWrappedXUsageSourceLabel(input);
+
+	if (usageSourceLabel === "Claude Code") {
+		return "Dario's probably happy to have me.";
+	}
+
+	if (usageSourceLabel === "Codex") {
+		return "Sam's probably happy to have me.";
+	}
+
+	return "Dario & Sam are probably happy to have me.";
+}
+
+function formatWrappedXTouristFallbackProduct(input: {
+	favoriteModel?: string | null;
+	sourceSplit?: readonly WrappedSourceSplit[];
+}) {
+	const usageSourceLabel = formatWrappedXUsageSourceLabel(input);
+
+	return usageSourceLabel === "Codex" ? "ChatGPT" : "Claude";
+}
+
 function formatWrappedXShareMetrics(input: {
 	totalSessions?: number | null;
 	totalTokens?: number | null;
@@ -191,6 +421,23 @@ function formatWrappedXCompactNumber(value: number) {
 
 function formatWrappedXWholeNumber(value: number | null | undefined) {
 	return Math.round(Math.max(0, value ?? 0)).toLocaleString("en-US");
+}
+
+function formatWrappedXWholeCurrency(value: number | null | undefined) {
+	return `$${formatWrappedXWholeNumber(value)}`;
+}
+
+function formatWrappedXSessionsPerActiveDay(input: {
+	activeDays?: number | null;
+	totalSessions?: number | null;
+}) {
+	const activeDays = Math.max(0, input.activeDays ?? 0);
+	const totalSessions = Math.max(0, input.totalSessions ?? 0);
+	const sessionsPerActiveDay = activeDays > 0 ? totalSessions / activeDays : 0;
+
+	return sessionsPerActiveDay.toLocaleString("en-US", {
+		maximumFractionDigits: 1,
+	});
 }
 
 function formatWrappedXScaledNumber(value: number, scale: number) {

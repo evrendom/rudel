@@ -25,7 +25,10 @@ type WrappedShareActionKind = "copy" | "download" | "share";
 
 interface CreateWrappedTeamCardShareActionsParams {
 	archetypeLabel: string;
+	avgSessionMin?: number | null;
+	commitRate?: number | null;
 	daysSinceFirst?: number;
+	distinctProjectCount?: number;
 	displayName: string;
 	onShareActionTriggered?: (action: WrappedShareActionKind) => void;
 	resolveShareUrl?: () => Promise<string | undefined>;
@@ -49,7 +52,10 @@ export function createWrappedTeamCardShareActions(
 ): WrappedTeamCardShareActions {
 	const {
 		archetypeLabel,
+		avgSessionMin,
+		commitRate,
 		daysSinceFirst,
+		distinctProjectCount,
 		displayName,
 		onShareActionTriggered,
 		resolveShareUrl,
@@ -63,8 +69,11 @@ export function createWrappedTeamCardShareActions(
 	const shareText = buildWrappedXShareText({
 		activeDays: row.activeDays,
 		archetypeLabel,
+		avgSessionMin,
+		commitRate,
 		cost: row.cost,
 		daysSinceFirst,
+		distinctProjectCount,
 		displayName,
 		favoriteModel: row.favoriteModel,
 		sourceSplit,

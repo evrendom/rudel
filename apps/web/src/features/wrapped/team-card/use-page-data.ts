@@ -164,11 +164,11 @@ export function useWrappedTeamCardPageData(): UseWrappedTeamCardPageDataResult {
 		() =>
 			buildWrappedStatItems(
 				visibleTeamCardRow,
-				developerDetailsQuery.data?.distinct_projects ?? 0,
+				onboardingMetrics.distinctProjectCount,
 				wrappedData?.metrics.source_split ?? [],
 			),
 		[
-			developerDetailsQuery.data?.distinct_projects,
+			onboardingMetrics.distinctProjectCount,
 			visibleTeamCardRow,
 			wrappedData?.metrics.source_split,
 		],

@@ -92,6 +92,7 @@ const onboardingMetrics: WrappedOnboardingMetrics = {
 	commitRate: 41,
 	commitSessions: 15,
 	daysSinceFirst: 180,
+	distinctProjectCount: 6,
 	estimatedCostTokenBasis: 0,
 	estimatedCostUsd: 42,
 	favoriteModel: "claude-sonnet-4",
@@ -441,6 +442,480 @@ describe("WrappedTeamCardRevealStage", () => {
 		}
 	});
 
+	it("renders the Maniac reveal copy with activity, repo, and session density metrics", () => {
+		vi.useFakeTimers();
+
+		render(
+			<WrappedTeamCardRevealStage
+				activeArchetype={{
+					displayLabel: "Maniac",
+					id: "maniac",
+					kind: "taxonomy",
+					classifierKey: "maniac",
+					shellClassName: "bg-red-200",
+					theme: "light",
+				}}
+				headerLeftMetric={{
+					title: "$42 estimated spend",
+					value: "$42",
+				}}
+				headerRightMetric={{
+					title: "Maniac",
+					value: "Maniac",
+				}}
+				isPreviewPostVisible={false}
+				onboardingMetrics={onboardingMetrics}
+				onPreviewPost={vi.fn()}
+				onRevealComplete={vi.fn()}
+				row={row}
+				shellClassName="bg-red-200"
+				shellStyle={{}}
+				shareCardCreatedAtLabel="04/24/2026"
+				statItems={[]}
+				statLayerOpacities={{
+					rainbowShineOpacity: 0.3,
+					textureOpacity: 1,
+					tileBorderOpacity: 1,
+					tileFillOpacity: 0.08,
+					tileInsetShadowOpacity: 0.5,
+					tileTopStrokeOpacity: 0.08,
+				}}
+				theme="light"
+				tiltController={tiltController}
+			/>,
+		);
+
+		advanceRevealIntroToGate();
+
+		expect(
+			screen.getByText(
+				"12 out of 180 days. 6 repos. Most people are consistent. Some people are everywhere at once. You're both. Somehow. 3.1 sessions every time you're active. We're a little scared honestly. Pls don't hurt someone",
+			),
+		).toBeInTheDocument();
+	});
+
+	it("renders the Company Card title and reveal copy with spend metrics", () => {
+		vi.useFakeTimers();
+
+		render(
+			<WrappedTeamCardRevealStage
+				activeArchetype={{
+					displayLabel: "Company Card",
+					id: "company_card",
+					kind: "taxonomy",
+					classifierKey: "company_card",
+					shellClassName: "bg-yellow-200",
+					theme: "light",
+				}}
+				headerLeftMetric={{
+					title: "$44 estimated spend",
+					value: "$44",
+				}}
+				headerRightMetric={{
+					title: "Company Card",
+					value: "Company Card",
+				}}
+				isPreviewPostVisible={false}
+				onboardingMetrics={{
+					...onboardingMetrics,
+					commitRate: 48,
+				}}
+				onPreviewPost={vi.fn()}
+				onRevealComplete={vi.fn()}
+				row={{
+					...row,
+					cost: 44,
+					totalSessions: 8,
+				}}
+				shellClassName="bg-yellow-200"
+				shellStyle={{}}
+				shareCardCreatedAtLabel="04/24/2026"
+				statItems={[]}
+				statLayerOpacities={{
+					rainbowShineOpacity: 0.3,
+					textureOpacity: 1,
+					tileBorderOpacity: 1,
+					tileFillOpacity: 0.08,
+					tileInsetShadowOpacity: 0.5,
+					tileTopStrokeOpacity: 0.08,
+				}}
+				theme="light"
+				tiltController={tiltController}
+			/>,
+		);
+
+		act(() => {
+			vi.advanceTimersByTime(850);
+		});
+
+		expect(
+			screen.getByRole("heading", {
+				name: "Avery Chen, you got the Company Card?",
+			}),
+		).toBeInTheDocument();
+
+		act(() => {
+			vi.advanceTimersByTime(REVEAL_INTRO_READY_MS - 850);
+		});
+
+		expect(
+			screen.getByText(
+				"8 sessions. 48% of them shipped something. $5.50 a session. $44 in total. Not saying it's a problem. We don't judge. Spend as much as you want. Dario & Sam are happy to have you.",
+			),
+		).toBeInTheDocument();
+	});
+
+	it("renders the ADHD Brain title and reveal copy with repo and commit metrics", () => {
+		vi.useFakeTimers();
+
+		render(
+			<WrappedTeamCardRevealStage
+				activeArchetype={{
+					displayLabel: "ADHD Brain",
+					id: "adhd_brain",
+					kind: "taxonomy",
+					classifierKey: "adhd_brain",
+					shellClassName: "bg-fuchsia-200",
+					theme: "light",
+				}}
+				headerLeftMetric={{
+					title: "$42 estimated spend",
+					value: "$42",
+				}}
+				headerRightMetric={{
+					title: "ADHD Brain",
+					value: "ADHD Brain",
+				}}
+				isPreviewPostVisible={false}
+				onboardingMetrics={{
+					...onboardingMetrics,
+					commitRate: 48,
+					distinctProjectCount: 6,
+				}}
+				onPreviewPost={vi.fn()}
+				onRevealComplete={vi.fn()}
+				row={row}
+				shellClassName="bg-fuchsia-200"
+				shellStyle={{}}
+				shareCardCreatedAtLabel="04/24/2026"
+				statItems={[]}
+				statLayerOpacities={{
+					rainbowShineOpacity: 0.3,
+					textureOpacity: 1,
+					tileBorderOpacity: 1,
+					tileFillOpacity: 0.08,
+					tileInsetShadowOpacity: 0.5,
+					tileTopStrokeOpacity: 0.08,
+				}}
+				theme="light"
+				tiltController={tiltController}
+			/>,
+		);
+
+		act(() => {
+			vi.advanceTimersByTime(850);
+		});
+
+		expect(
+			screen.getByRole("heading", {
+				name: "Avery Chen, you're an ADHD Brain.",
+			}),
+		).toBeInTheDocument();
+
+		act(() => {
+			vi.advanceTimersByTime(REVEAL_INTRO_READY_MS - 850);
+		});
+
+		expect(
+			screen.getByText(
+				"12 out of 180 days. 6 repos. 48% of sessions shipped something. You'd call yourself a DaVinci. We're just worried about the 6 repos.",
+			),
+		).toBeInTheDocument();
+	});
+
+	it("renders the Hit and Runner title and reveal copy with session, repo, and commit metrics", () => {
+		vi.useFakeTimers();
+
+		render(
+			<WrappedTeamCardRevealStage
+				activeArchetype={{
+					displayLabel: "Hit and Runner",
+					id: "hit_and_runner",
+					kind: "taxonomy",
+					classifierKey: "hit_and_runner",
+					shellClassName: "bg-orange-200",
+					theme: "light",
+				}}
+				headerLeftMetric={{
+					title: "$42 estimated spend",
+					value: "$42",
+				}}
+				headerRightMetric={{
+					title: "Hit and Runner",
+					value: "Hit and Runner",
+				}}
+				isPreviewPostVisible={false}
+				onboardingMetrics={{
+					...onboardingMetrics,
+					avgSessionMin: 24,
+					commitRate: 48,
+					distinctProjectCount: 6,
+				}}
+				onPreviewPost={vi.fn()}
+				onRevealComplete={vi.fn()}
+				row={row}
+				shellClassName="bg-orange-200"
+				shellStyle={{}}
+				shareCardCreatedAtLabel="04/24/2026"
+				statItems={[]}
+				statLayerOpacities={{
+					rainbowShineOpacity: 0.3,
+					textureOpacity: 1,
+					tileBorderOpacity: 1,
+					tileFillOpacity: 0.08,
+					tileInsetShadowOpacity: 0.5,
+					tileTopStrokeOpacity: 0.08,
+				}}
+				theme="light"
+				tiltController={tiltController}
+			/>,
+		);
+
+		act(() => {
+			vi.advanceTimersByTime(850);
+		});
+
+		expect(
+			screen.getByRole("heading", {
+				name: "Avery Chen, you're a Hit and Runner.",
+			}),
+		).toBeInTheDocument();
+
+		act(() => {
+			vi.advanceTimersByTime(REVEAL_INTRO_READY_MS - 850);
+		});
+
+		expect(
+			screen.getByText(
+				"24 minutes average. 6 repos. 48% of sessions shipped something. Veni, vidi, commit. In at 24 minutes. Out before anyone noticed. You could be a hitman.",
+			),
+		).toBeInTheDocument();
+	});
+
+	it("renders the Cheapskate title and reveal copy with spend and commit metrics", () => {
+		vi.useFakeTimers();
+
+		render(
+			<WrappedTeamCardRevealStage
+				activeArchetype={{
+					displayLabel: "Cheapskate",
+					id: "cheapskate",
+					kind: "taxonomy",
+					classifierKey: "cheapskate",
+					shellClassName: "bg-lime-200",
+					theme: "light",
+				}}
+				headerLeftMetric={{
+					title: "$44 estimated spend",
+					value: "$44",
+				}}
+				headerRightMetric={{
+					title: "Cheapskate",
+					value: "Cheapskate",
+				}}
+				isPreviewPostVisible={false}
+				onboardingMetrics={{
+					...onboardingMetrics,
+					commitRate: 48,
+				}}
+				onPreviewPost={vi.fn()}
+				onRevealComplete={vi.fn()}
+				row={{
+					...row,
+					cost: 44,
+					totalSessions: 8,
+				}}
+				shellClassName="bg-lime-200"
+				shellStyle={{}}
+				shareCardCreatedAtLabel="04/24/2026"
+				statItems={[]}
+				statLayerOpacities={{
+					rainbowShineOpacity: 0.3,
+					textureOpacity: 1,
+					tileBorderOpacity: 1,
+					tileFillOpacity: 0.08,
+					tileInsetShadowOpacity: 0.5,
+					tileTopStrokeOpacity: 0.08,
+				}}
+				theme="light"
+				tiltController={tiltController}
+			/>,
+		);
+
+		act(() => {
+			vi.advanceTimersByTime(850);
+		});
+
+		expect(
+			screen.getByRole("heading", {
+				name: "Avery Chen, you're a Cheapskate.",
+			}),
+		).toBeInTheDocument();
+
+		act(() => {
+			vi.advanceTimersByTime(REVEAL_INTRO_READY_MS - 850);
+		});
+
+		expect(
+			screen.getByText(
+				"$5.50 a session. 48% of those shipped something. Mr. Krabs is very proud of you. But you've never once picked up the check.",
+			),
+		).toBeInTheDocument();
+	});
+
+	it("renders the Tourist title and reveal copy with sessions, commit, and spend metrics", () => {
+		vi.useFakeTimers();
+
+		render(
+			<WrappedTeamCardRevealStage
+				activeArchetype={{
+					displayLabel: "Tourist",
+					id: "tourist",
+					kind: "taxonomy",
+					classifierKey: "tourist",
+					shellClassName: "bg-emerald-200",
+					theme: "light",
+				}}
+				headerLeftMetric={{
+					title: "$44 estimated spend",
+					value: "$44",
+				}}
+				headerRightMetric={{
+					title: "Tourist",
+					value: "Tourist",
+				}}
+				isPreviewPostVisible={false}
+				onboardingMetrics={{
+					...onboardingMetrics,
+					commitRate: 48,
+				}}
+				onPreviewPost={vi.fn()}
+				onRevealComplete={vi.fn()}
+				row={{
+					...row,
+					cost: 44,
+					totalSessions: 8,
+				}}
+				shellClassName="bg-emerald-200"
+				shellStyle={{}}
+				shareCardCreatedAtLabel="04/24/2026"
+				statItems={[]}
+				statLayerOpacities={{
+					rainbowShineOpacity: 0.3,
+					textureOpacity: 1,
+					tileBorderOpacity: 1,
+					tileFillOpacity: 0.08,
+					tileInsetShadowOpacity: 0.5,
+					tileTopStrokeOpacity: 0.08,
+				}}
+				theme="light"
+				tiltController={tiltController}
+			/>,
+		);
+
+		act(() => {
+			vi.advanceTimersByTime(850);
+		});
+
+		expect(
+			screen.getByRole("heading", {
+				name: "Avery Chen, you're a Tourist.",
+			}),
+		).toBeInTheDocument();
+
+		act(() => {
+			vi.advanceTimersByTime(REVEAL_INTRO_READY_MS - 850);
+		});
+
+		expect(
+			screen.getByText(
+				"8 sessions. 48% shipped something. $5.50 a session. At least you tried it out! There's no prize for participation though",
+			),
+		).toBeInTheDocument();
+	});
+
+	it("renders the Obsessed title and reveal copy with repo, activity, commit, and cost metrics", () => {
+		vi.useFakeTimers();
+
+		render(
+			<WrappedTeamCardRevealStage
+				activeArchetype={{
+					displayLabel: "Obsessed",
+					id: "obsessed",
+					kind: "taxonomy",
+					classifierKey: "obsessed",
+					shellClassName: "bg-black",
+					theme: "dark",
+				}}
+				headerLeftMetric={{
+					title: "$44 estimated spend",
+					value: "$44",
+				}}
+				headerRightMetric={{
+					title: "Obsessed",
+					value: "Obsessed",
+				}}
+				isPreviewPostVisible={false}
+				onboardingMetrics={{
+					...onboardingMetrics,
+					commitRate: 48,
+					distinctProjectCount: 1,
+				}}
+				onPreviewPost={vi.fn()}
+				onRevealComplete={vi.fn()}
+				row={{
+					...row,
+					cost: 44,
+					totalSessions: 8,
+				}}
+				shellClassName="bg-black"
+				shellStyle={{}}
+				shareCardCreatedAtLabel="04/24/2026"
+				statItems={[]}
+				statLayerOpacities={{
+					rainbowShineOpacity: 0.3,
+					textureOpacity: 1,
+					tileBorderOpacity: 1,
+					tileFillOpacity: 0.08,
+					tileInsetShadowOpacity: 0.5,
+					tileTopStrokeOpacity: 0.08,
+				}}
+				theme="dark"
+				tiltController={tiltController}
+			/>,
+		);
+
+		act(() => {
+			vi.advanceTimersByTime(850);
+		});
+
+		expect(
+			screen.getByRole("heading", {
+				name: "Avery Chen, you're Obsessed.",
+			}),
+		).toBeInTheDocument();
+
+		act(() => {
+			vi.advanceTimersByTime(REVEAL_INTRO_READY_MS - 850);
+		});
+
+		expect(
+			screen.getByText(
+				"1 repo. That's it. 12 out of 180 days. All of it, same place. 48% of your sessions shipped something. At $5.50 a session. May god help anyone who tries to distract you.",
+			),
+		).toBeInTheDocument();
+	});
+
 	it("drops the back of the card first and flips to the front on click", () => {
 		vi.useFakeTimers();
 		const onRevealComplete = vi.fn();
@@ -490,7 +965,7 @@ describe("WrappedTeamCardRevealStage", () => {
 				name: "Avery Chen,",
 			}),
 		).toBeInTheDocument();
-		expect(screen.getByText("Smooth Operator")).toHaveAttribute(
+		expect(screen.getByText("Smooth Operator.")).toHaveAttribute(
 			"data-accent-state",
 			"waiting",
 		);
@@ -504,10 +979,10 @@ describe("WrappedTeamCardRevealStage", () => {
 
 		expect(
 			screen.getByRole("heading", {
-				name: "Avery Chen, you're a Smooth Operator",
+				name: "Avery Chen, you're a Smooth Operator.",
 			}),
 		).toBeInTheDocument();
-		expect(screen.getByText("Smooth Operator")).toHaveAttribute(
+		expect(screen.getByText("Smooth Operator.")).toHaveAttribute(
 			"data-accent-state",
 			"waiting",
 		);
@@ -516,7 +991,7 @@ describe("WrappedTeamCardRevealStage", () => {
 			vi.advanceTimersByTime(670);
 		});
 
-		expect(screen.getByText("Smooth Operator")).toHaveAttribute(
+		expect(screen.getByText("Smooth Operator.")).toHaveAttribute(
 			"data-accent-state",
 			"active",
 		);
@@ -530,7 +1005,7 @@ describe("WrappedTeamCardRevealStage", () => {
 
 		expect(
 			screen.getByText(
-				"For the steady hand who keeps the machine moving without asking for attention on every pass.",
+				"12 out of 180 days. 24 minutes average. 88 at your longest. You start. You build. You stop. 3.1 sessions a day, $1.14 a session, no chaos. A little to bit too smooth... bit suspicious.",
 			),
 		).toBeInTheDocument();
 		expect(
@@ -614,12 +1089,12 @@ describe("WrappedTeamCardRevealStage", () => {
 		).toBeEnabled();
 		expect(
 			screen.getByRole("heading", {
-				name: "Avery Chen, you're a Smooth Operator",
+				name: "Avery Chen, you're a Smooth Operator.",
 			}),
 		).toBeInTheDocument();
 		expect(
 			screen.getByText(
-				"For the steady hand who keeps the machine moving without asking for attention on every pass.",
+				"12 out of 180 days. 24 minutes average. 88 at your longest. You start. You build. You stop. 3.1 sessions a day, $1.14 a session, no chaos. A little to bit too smooth... bit suspicious.",
 			),
 		).toBeInTheDocument();
 
@@ -637,12 +1112,12 @@ describe("WrappedTeamCardRevealStage", () => {
 		).toHaveAttribute("data-card-face", "back");
 		expect(
 			screen.getByRole("heading", {
-				name: "Avery Chen, you're a Smooth Operator",
+				name: "Avery Chen, you're a Smooth Operator.",
 			}),
 		).toBeInTheDocument();
 		expect(
 			screen.getByText(
-				"For the steady hand who keeps the machine moving without asking for attention on every pass.",
+				"12 out of 180 days. 24 minutes average. 88 at your longest. You start. You build. You stop. 3.1 sessions a day, $1.14 a session, no chaos. A little to bit too smooth... bit suspicious.",
 			),
 		).toBeInTheDocument();
 	});
@@ -884,7 +1359,7 @@ describe("WrappedTeamCardPublicStage", () => {
 
 		expect(
 			screen.getByRole("heading", {
-				name: "Avery Chen is a Smooth Operator",
+				name: "Avery Chen is a Smooth Operator.",
 			}),
 		).toBeInTheDocument();
 
