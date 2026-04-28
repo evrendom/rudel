@@ -44,17 +44,9 @@ const WRAPPED_X_SHARE_COPY_BY_ARCHETYPE: Record<string, WrappedXShareCopy> = {
 	maniac: {
 		traits: "high session count, heavy token burn, no visible off switch",
 	},
-	npc: {
-		traits:
-			"keeps sessions steady, follows the quest log, somehow makes repetition useful",
-	},
 	obsessed: {
 		traits:
 			"keeps coming back, keeps digging deeper, probably knows the repo's floor plan",
-	},
-	"papas credit card": {
-		traits:
-			"pushes usage hard, trusts the budget line, treats the meter like someone else's problem",
 	},
 	roadrunner: {
 		traits:
@@ -67,10 +59,6 @@ const WRAPPED_X_SHARE_COPY_BY_ARCHETYPE: Record<string, WrappedXShareCopy> = {
 	tourist: {
 		traits:
 			"wanders across repos, samples every corner, collects project stamps",
-	},
-	"window shopper": {
-		traits:
-			"watches token spend, stretches each prompt, gets the answer without lighting money on fire",
 	},
 };
 

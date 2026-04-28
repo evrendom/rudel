@@ -19,8 +19,8 @@ The current label family is:
 
 - Roadrunner
 - Cheapskate
-- NPC
-- Papa's Credit Card
+- Smooth Operator
+- Company Card
 - Hit and Runner
 - ADHD Brain
 - Obsessed
@@ -352,7 +352,7 @@ Create:
 - `wrapped_user_archetype_snapshots_v1`
 - `wrapped_user_archetype_runs_v1`
 
-Seed the centroid table with the current empirical `k=9` centers for the active taxonomy above.
+Seed the centroid table with the current nine product archetype centers for the active taxonomy above.
 
 ### Phase 2: backfill the first snapshot
 

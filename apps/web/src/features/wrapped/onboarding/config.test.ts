@@ -39,7 +39,7 @@ describe("wrapped saturday story visibility", () => {
 
 	it("keeps decimal product-only by leaving the card beat as a theme picker", () => {
 		expect(WRAPPED_BEAT_CONTRACTS.card.whatWeShowNow).toContain(
-			"Decimal VIP special edition",
+			"VIP special-edition card theme",
 		);
 		expect(WRAPPED_BEAT_CONTRACTS.card.productNote).toContain("theme picker");
 	});

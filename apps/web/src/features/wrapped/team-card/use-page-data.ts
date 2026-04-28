@@ -11,6 +11,7 @@ import { MAX_ANALYTICS_DAYS } from "@/lib/analytics-date-range";
 import { authClient } from "@/lib/auth-client";
 import { orpc } from "@/lib/orpc";
 import {
+	resolveWrappedArchetypeCardThemeByClassifierKey,
 	WRAPPED_ARCHETYPE_CARD_THEMES,
 	type WrappedArchetypeCardTheme,
 } from "./archetypes";
@@ -189,10 +190,8 @@ function resolveLiveArchetype(
 	if (!classifierKey) {
 		return DEFAULT_LIVE_ARCHETYPE;
 	}
-	const matched = WRAPPED_ARCHETYPE_CARD_THEMES.find(
-		(theme) =>
-			theme.kind === "taxonomy" && theme.classifierKey === classifierKey,
-	);
+	const matched =
+		resolveWrappedArchetypeCardThemeByClassifierKey(classifierKey);
 	return matched ?? DEFAULT_LIVE_ARCHETYPE;
 }
 

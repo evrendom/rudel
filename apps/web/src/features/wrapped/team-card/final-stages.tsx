@@ -200,7 +200,7 @@ function WrappedArchetypeGradientText(props: {
 		"--wrapped-reveal-archetype-gt-gradient": gradient.stops,
 	};
 	const classNames = `mymind-wrapped-final-stage__gradient-text ${className}${
-		activeArchetype.id === "needs_to_touch_grass" ? " is-obsession" : ""
+		activeArchetype.id === "obsessed" ? " is-obsession" : ""
 	}`;
 
 	return (
@@ -1260,13 +1260,13 @@ function getWrappedRevealCopy(archetype: WrappedArchetypeCardTheme): {
 					"For the mind that keeps five tabs alive, three ideas moving, and the pace somehow intact.",
 				title: "Every tab had a job.",
 			};
-		case "window_shopper":
+		case "cheapskate":
 			return {
 				description:
 					"For the selective one who keeps the spend light and still finds the exact tool worth using.",
 				title: "Low spend, sharp eye.",
 			};
-		case "papas_credit_card":
+		case "company_card":
 			return {
 				description:
 					"For the teammate who never thinks small when the work calls for a heavier swing.",
@@ -1284,13 +1284,13 @@ function getWrappedRevealCopy(archetype: WrappedArchetypeCardTheme): {
 					"For the wanderer who touched every corner of the work and kept moving between scenes.",
 				title: "Every repo got a visit.",
 			};
-		case "npc":
+		case "smooth_operator":
 			return {
 				description:
 					"For the steady hand who keeps the machine moving without asking for attention on every pass.",
 				title: "Smooth by default.",
 			};
-		case "needs_to_touch_grass":
+		case "obsessed":
 			return {
 				description:
 					"For the one who locked in so hard the sessions started stacking on top of each other.",
