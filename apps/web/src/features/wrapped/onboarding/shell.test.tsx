@@ -148,6 +148,7 @@ function buildOnboardingMetrics(input: {
 		commitRate: null,
 		commitSessions: 0,
 		daysSinceFirst: 12,
+		distinctProjectCount: 0,
 		estimatedCostTokenBasis: 0,
 		estimatedCostUsd: 0,
 		favoriteModel: null,

@@ -26,6 +26,7 @@ export interface WrappedOnboardingMetrics {
 	commitRate: number | null;
 	commitSessions: number;
 	daysSinceFirst: number;
+	distinctProjectCount: number;
 	estimatedCostTokenBasis: number;
 	estimatedCostUsd: number;
 	favoriteModel: string | null;

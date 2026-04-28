@@ -22,10 +22,8 @@ import { WrappedPrimaryAction } from "@/features/wrapped/actions";
 import type { WrappedOnboardingMetrics } from "@/features/wrapped/onboarding/types";
 import { WrappedStageFrame } from "@/features/wrapped/stage-frame";
 import { formatCurrency } from "@/lib/format";
-import {
-	getWrappedArchetypeCardBackgroundValue,
-	type WrappedArchetypeCardTheme,
-} from "./archetypes";
+import { WrappedArchetypeGradientText } from "./archetype-gradient-text";
+import type { WrappedArchetypeCardTheme } from "./archetypes";
 import { buildWrappedTeamCardBackMetrics } from "./back-metrics";
 import {
 	WrappedTeamMemberCard,
@@ -125,170 +123,15 @@ interface WrappedTeamCardFlipSurfaceProps {
 	tiltShellClassName?: string;
 }
 
-interface WrappedRevealArchetypeTitleStyle extends CSSProperties {
-	"--wrapped-reveal-archetype-accent": string;
-	"--wrapped-reveal-archetype-gt-direction": string;
-	"--wrapped-reveal-archetype-gt-gradient": string;
-}
-
 interface WrappedRevealCopyInput {
 	activeArchetype: WrappedArchetypeCardTheme;
 	audience?: "owner" | "public";
 	onboardingMetrics?: WrappedOnboardingMetrics;
 	row: TeamPageMemberRow;
+	statItems?: readonly WrappedTeamMemberCardStatItem[];
 }
 
 type WrappedRevealIntroPhase = "name" | "line" | "accent" | "description";
-type WrappedRevealGradientTextState = "active" | "waiting";
-
-const WRAPPED_REVEAL_TEXT_DARK = "#17161c";
-const WRAPPED_REVEAL_GRADIENT_COLOR_PATTERN = /#[\da-fA-F]{3,8}\b/g;
-const WRAPPED_REVEAL_LINEAR_GRADIENT_PATTERN =
-	/^linear-gradient\(([^,]+),\s*(.+)\)$/;
-const WRAPPED_REVEAL_GRADIENT_DARK_HOLD_STOP = 60;
-const WRAPPED_REVEAL_GRADIENT_COLOR_RANGE_START = 68;
-const WRAPPED_REVEAL_GRADIENT_COLOR_RANGE_END = 100;
-const WRAPPED_REVEAL_GRADIENT_COLOR_INSET_STOP = 15;
-
-interface WrappedRevealTextGradient {
-	accent: string;
-	direction: string;
-	stops: string;
-}
-
-function formatWrappedRevealGradientStopPosition(position: number) {
-	return position.toFixed(2).replace(/\.?0+$/, "");
-}
-
-function resolveWrappedRevealGradientColorStop(position: number) {
-	const colorRange =
-		WRAPPED_REVEAL_GRADIENT_COLOR_RANGE_END -
-		WRAPPED_REVEAL_GRADIENT_COLOR_RANGE_START;
-
-	return (
-		WRAPPED_REVEAL_GRADIENT_COLOR_RANGE_START + (colorRange * position) / 100
-	);
-}
-
-function buildWrappedRevealTextGradientStops(colors: readonly string[]) {
-	if (colors.length === 0) {
-		return `${WRAPPED_REVEAL_TEXT_DARK} 0%, ${WRAPPED_REVEAL_TEXT_DARK} 100%`;
-	}
-
-	if (colors.length === 1) {
-		return `${WRAPPED_REVEAL_TEXT_DARK} 0%, ${WRAPPED_REVEAL_TEXT_DARK} ${WRAPPED_REVEAL_GRADIENT_DARK_HOLD_STOP}%, ${colors[0]} ${WRAPPED_REVEAL_GRADIENT_COLOR_RANGE_START}%, ${colors[0]} ${WRAPPED_REVEAL_GRADIENT_COLOR_RANGE_END}%`;
-	}
-
-	const firstColor = colors[0];
-	const lastColor = colors[colors.length - 1];
-	const interiorColors = colors.slice(1, -1);
-	const interiorDenominator = Math.max(interiorColors.length + 1, 1);
-	const interiorStops = interiorColors
-		.map((color, index) => {
-			const stopPosition =
-				WRAPPED_REVEAL_GRADIENT_COLOR_INSET_STOP +
-				((100 - WRAPPED_REVEAL_GRADIENT_COLOR_INSET_STOP * 2) * (index + 1)) /
-					interiorDenominator;
-
-			return `${color} ${formatWrappedRevealGradientStopPosition(resolveWrappedRevealGradientColorStop(stopPosition))}%`;
-		})
-		.join(", ");
-	const edgeStops = [
-		`${firstColor} ${formatWrappedRevealGradientStopPosition(resolveWrappedRevealGradientColorStop(0))}%`,
-		`${firstColor} ${formatWrappedRevealGradientStopPosition(resolveWrappedRevealGradientColorStop(WRAPPED_REVEAL_GRADIENT_COLOR_INSET_STOP))}%`,
-		interiorStops,
-		`${lastColor} ${formatWrappedRevealGradientStopPosition(resolveWrappedRevealGradientColorStop(100 - WRAPPED_REVEAL_GRADIENT_COLOR_INSET_STOP))}%`,
-		`${lastColor} ${formatWrappedRevealGradientStopPosition(resolveWrappedRevealGradientColorStop(100))}%`,
-	].filter(Boolean);
-
-	return `${WRAPPED_REVEAL_TEXT_DARK} 0%, ${WRAPPED_REVEAL_TEXT_DARK} ${WRAPPED_REVEAL_GRADIENT_DARK_HOLD_STOP}%, ${edgeStops.join(", ")}`;
-}
-
-function buildWrappedRevealTextAccentGradient(input: {
-	colors: readonly string[];
-	direction: string;
-}) {
-	const { colors, direction } = input;
-
-	if (colors.length === 0) {
-		return WRAPPED_REVEAL_TEXT_DARK;
-	}
-
-	if (colors.length === 1) {
-		return colors[0];
-	}
-
-	const denominator = Math.max(colors.length - 1, 1);
-	const colorStops = colors
-		.map((color, index) => {
-			const stopPosition = (100 * index) / denominator;
-
-			return `${color} ${formatWrappedRevealGradientStopPosition(stopPosition)}%`;
-		})
-		.join(", ");
-
-	return `linear-gradient(${direction}, ${colorStops})`;
-}
-
-function getWrappedRevealTextGradientValue(
-	theme: WrappedArchetypeCardTheme,
-): WrappedRevealTextGradient {
-	const cardBackgroundValue = getWrappedArchetypeCardBackgroundValue(theme);
-	const gradientMatch = cardBackgroundValue?.match(
-		WRAPPED_REVEAL_LINEAR_GRADIENT_PATTERN,
-	);
-	const colors = cardBackgroundValue?.match(
-		WRAPPED_REVEAL_GRADIENT_COLOR_PATTERN,
-	);
-	const direction = gradientMatch?.[1]?.trim() ?? "184deg";
-	const gradientColors = colors ?? [];
-
-	return {
-		accent: buildWrappedRevealTextAccentGradient({
-			colors: gradientColors,
-			direction,
-		}),
-		direction,
-		stops: buildWrappedRevealTextGradientStops(gradientColors),
-	};
-}
-
-function WrappedArchetypeGradientText(props: {
-	activeArchetype: WrappedArchetypeCardTheme;
-	className: string;
-	isHoverReplayEnabled?: boolean;
-	state: WrappedRevealGradientTextState;
-}) {
-	const {
-		activeArchetype,
-		className,
-		isHoverReplayEnabled = false,
-		state,
-	} = props;
-	const gradient = getWrappedRevealTextGradientValue(activeArchetype);
-	const style: WrappedRevealArchetypeTitleStyle = {
-		"--wrapped-reveal-archetype-accent": gradient.accent,
-		"--wrapped-reveal-archetype-gt-direction": gradient.direction,
-		"--wrapped-reveal-archetype-gt-gradient": gradient.stops,
-	};
-	const classNames = `mymind-wrapped-final-stage__gradient-text ${className}${
-		activeArchetype.id === "obsessed" ? " is-obsession" : ""
-	}`;
-
-	return (
-		<span
-			className={classNames}
-			data-accent-state={state}
-			data-hover-replay={
-				isHoverReplayEnabled && state === "active" ? "ready" : undefined
-			}
-			data-label={activeArchetype.displayLabel}
-			style={style}
-		>
-			{activeArchetype.displayLabel}
-		</span>
-	);
-}
 
 /* ─────────────────────────────────────────────────────────
  * REVEAL COMPANION STORYBOARD
@@ -869,6 +712,7 @@ export function WrappedTeamCardPublicStage(
 		activeArchetype,
 		audience: "public",
 		row,
+		statItems,
 	});
 	const printedCardCaptureKey = [
 		activeArchetype.id,
@@ -964,12 +808,18 @@ export function WrappedTeamCardPublicStage(
 										{row.displayName}
 									</span>
 									<span className="mymind-wrapped-final-stage__archetype-line">
-										is a{" "}
+										{getWrappedRevealArchetypeLinePrefix({
+											activeArchetype,
+											audience: "public",
+										})}
 										<WrappedArchetypeGradientText
 											activeArchetype={activeArchetype}
 											className="mymind-wrapped-final-stage__archetype-accent"
 											isHoverReplayEnabled
 											state="active"
+											suffix={getWrappedRevealArchetypeLineSuffix(
+												activeArchetype,
+											)}
 										/>
 									</span>
 								</h1>
@@ -1063,6 +913,7 @@ export function WrappedTeamCardRevealStage(
 		activeArchetype,
 		onboardingMetrics,
 		row,
+		statItems,
 	});
 	const revealBackMetrics = getWrappedRevealBackMetrics({
 		onboardingMetrics,
@@ -1312,13 +1163,19 @@ export function WrappedTeamCardRevealStage(
 											initial={false}
 											transition={REVEAL_INTRO_COPY.lineTransition}
 										>
-											you&apos;re a{" "}
+											{getWrappedRevealArchetypeLinePrefix({
+												activeArchetype,
+												audience: "owner",
+											})}
 											<WrappedArchetypeGradientText
 												activeArchetype={activeArchetype}
 												className="mymind-wrapped-final-stage__intro-accent"
 												state={
 													shouldShowRevealIntroAccent ? "active" : "waiting"
 												}
+												suffix={getWrappedRevealArchetypeLineSuffix(
+													activeArchetype,
+												)}
 											/>
 										</motion.span>
 									</h1>
@@ -1434,12 +1291,18 @@ export function WrappedTeamCardRevealStage(
 												{row.displayName},
 											</span>
 											<span className="mymind-wrapped-final-stage__archetype-line">
-												you&apos;re a{" "}
+												{getWrappedRevealArchetypeLinePrefix({
+													activeArchetype,
+													audience: "owner",
+												})}
 												<WrappedArchetypeGradientText
 													activeArchetype={activeArchetype}
 													className="mymind-wrapped-final-stage__archetype-accent"
 													isHoverReplayEnabled
 													state="active"
+													suffix={getWrappedRevealArchetypeLineSuffix(
+														activeArchetype,
+													)}
 												/>
 											</span>
 										</h2>
@@ -1552,26 +1415,22 @@ function getWrappedRevealCopy(input: WrappedRevealCopyInput): {
 			};
 		case "hit_and_runner":
 			return {
-				description:
-					"For the operator who gets in, lands the move, and disappears before the mess settles.",
+				description: buildHitAndRunnerRevealDescription(input),
 				title: "Hit. Run. Repeat.",
 			};
 		case "adhd_brain":
 			return {
-				description:
-					"For the mind that keeps five tabs alive, three ideas moving, and the pace somehow intact.",
+				description: buildAdhdBrainRevealDescription(input),
 				title: "Every tab had a job.",
 			};
 		case "cheapskate":
 			return {
-				description:
-					"For the selective one who keeps the spend light and still finds the exact tool worth using.",
+				description: buildCheapskateRevealDescription(input),
 				title: "Low spend, sharp eye.",
 			};
 		case "company_card":
 			return {
-				description:
-					"For the teammate who never thinks small when the work calls for a heavier swing.",
+				description: buildCompanyCardRevealDescription(input),
 				title: "Big-budget instincts.",
 			};
 		case "decimal":
@@ -1582,26 +1441,22 @@ function getWrappedRevealCopy(input: WrappedRevealCopyInput): {
 			};
 		case "tourist":
 			return {
-				description:
-					"For the wanderer who touched every corner of the work and kept moving between scenes.",
+				description: buildTouristRevealDescription(input),
 				title: "Every repo got a visit.",
 			};
 		case "smooth_operator":
 			return {
-				description:
-					"For the steady hand who keeps the machine moving without asking for attention on every pass.",
+				description: buildSmoothOperatorRevealDescription(input),
 				title: "Smooth by default.",
 			};
 		case "obsessed":
 			return {
-				description:
-					"For the one who locked in so hard the sessions started stacking on top of each other.",
+				description: buildObsessedRevealDescription(input),
 				title: "Fully, maybe too fully, locked in.",
 			};
 		case "maniac":
 			return {
-				description:
-					"For the all-gas operator who pushes the pace until the card feels barely contained.",
+				description: buildManiacRevealDescription(input),
 				title: "No chill. All velocity.",
 			};
 		default:
@@ -1630,8 +1485,340 @@ function buildRoadrunnerRevealDescription(input: WrappedRevealCopyInput) {
 	return `You're here. Meep meep. You're gone. Active ${activeDays} out of ${daysSinceFirst} days. When you showed up, we noticed. ${costPerSession} a session. Meep Meep. Gone again. Where? Nobody knows`;
 }
 
+function buildManiacRevealDescription(input: WrappedRevealCopyInput) {
+	const { onboardingMetrics, row, statItems } = input;
+	const activeDays = formatWrappedRevealInteger(row.activeDays);
+	const daysSinceFirst = formatWrappedRevealInteger(
+		onboardingMetrics?.daysSinceFirst ?? row.activeDays,
+	);
+	const distinctProjectCount = formatWrappedRevealInteger(
+		resolveWrappedRevealDistinctProjectCount({
+			onboardingMetrics,
+			statItems,
+		}),
+	);
+	const sessionsPerActiveDay = formatWrappedRevealSessionsPerActiveDay({
+		activeDays: row.activeDays,
+		totalSessions: row.totalSessions,
+	});
+
+	return [
+		`${activeDays} out of ${daysSinceFirst} days. ${distinctProjectCount} repos.`,
+		"Most people are consistent. Some people are everywhere at once.",
+		"You're both. Somehow.",
+		`${sessionsPerActiveDay} sessions every time you're active.`,
+		"We're a little scared honestly. Pls don't hurt someone",
+	].join(" ");
+}
+
+function buildCompanyCardRevealDescription(input: WrappedRevealCopyInput) {
+	const { onboardingMetrics, row } = input;
+	const totalSessions = formatWrappedRevealInteger(row.totalSessions);
+	const commitRate = formatWrappedRevealInteger(
+		onboardingMetrics?.commitRate ?? 0,
+	);
+	const costPerSession = formatCurrency(
+		row.totalSessions > 0 ? row.cost / row.totalSessions : 0,
+	);
+	const totalCost = formatWrappedRevealWholeCurrency(row.cost);
+	const happyLine = formatWrappedRevealCompanyCardHappyLine({
+		favoriteModel: row.favoriteModel,
+		onboardingMetrics,
+	});
+
+	return [
+		`${totalSessions} sessions. ${commitRate}% of them shipped something.`,
+		`${costPerSession} a session. ${totalCost} in total.`,
+		"Not saying it's a problem. We don't judge.",
+		"Spend as much as you want.",
+		happyLine,
+	].join(" ");
+}
+
+function buildAdhdBrainRevealDescription(input: WrappedRevealCopyInput) {
+	const { onboardingMetrics, row, statItems } = input;
+	const activeDays = formatWrappedRevealInteger(row.activeDays);
+	const daysSinceFirst = formatWrappedRevealInteger(
+		onboardingMetrics?.daysSinceFirst ?? row.activeDays,
+	);
+	const distinctProjectCount = formatWrappedRevealInteger(
+		resolveWrappedRevealDistinctProjectCount({
+			onboardingMetrics,
+			statItems,
+		}),
+	);
+	const commitRate = formatWrappedRevealInteger(
+		onboardingMetrics?.commitRate ?? 0,
+	);
+
+	return [
+		`${activeDays} out of ${daysSinceFirst} days. ${distinctProjectCount} repos. ${commitRate}% of sessions shipped something.`,
+		"You'd call yourself a DaVinci.",
+		`We're just worried about the ${distinctProjectCount} repos.`,
+	].join(" ");
+}
+
+function buildHitAndRunnerRevealDescription(input: WrappedRevealCopyInput) {
+	const { onboardingMetrics, statItems } = input;
+	const avgSessionMin = formatWrappedRevealInteger(
+		onboardingMetrics?.avgSessionMin ?? 0,
+	);
+	const distinctProjectCount = formatWrappedRevealInteger(
+		resolveWrappedRevealDistinctProjectCount({
+			onboardingMetrics,
+			statItems,
+		}),
+	);
+	const commitRate = formatWrappedRevealInteger(
+		onboardingMetrics?.commitRate ?? 0,
+	);
+
+	return [
+		`${avgSessionMin} minutes average. ${distinctProjectCount} repos. ${commitRate}% of sessions shipped something.`,
+		"Veni, vidi, commit.",
+		`In at ${avgSessionMin} minutes. Out before anyone noticed.`,
+		"You could be a hitman.",
+	].join(" ");
+}
+
+function buildCheapskateRevealDescription(input: WrappedRevealCopyInput) {
+	const { onboardingMetrics, row } = input;
+	const commitRate = formatWrappedRevealInteger(
+		onboardingMetrics?.commitRate ?? 0,
+	);
+	const costPerSession = formatCurrency(
+		row.totalSessions > 0 ? row.cost / row.totalSessions : 0,
+	);
+
+	return [
+		`${costPerSession} a session. ${commitRate}% of those shipped something.`,
+		"Mr. Krabs is very proud of you. But you've never once picked up the check.",
+	].join(" ");
+}
+
+function buildObsessedRevealDescription(input: WrappedRevealCopyInput) {
+	const { onboardingMetrics, row, statItems } = input;
+	const activeDays = formatWrappedRevealInteger(row.activeDays);
+	const daysSinceFirst = formatWrappedRevealInteger(
+		onboardingMetrics?.daysSinceFirst ?? row.activeDays,
+	);
+	const distinctProjectCount = formatWrappedRevealInteger(
+		resolveWrappedRevealDistinctProjectCount({
+			onboardingMetrics,
+			statItems,
+		}),
+	);
+	const commitRate = formatWrappedRevealInteger(
+		onboardingMetrics?.commitRate ?? 0,
+	);
+	const costPerSession = formatCurrency(
+		row.totalSessions > 0 ? row.cost / row.totalSessions : 0,
+	);
+
+	return [
+		`${distinctProjectCount} repo. That's it.`,
+		`${activeDays} out of ${daysSinceFirst} days. All of it, same place.`,
+		`${commitRate}% of your sessions shipped something. At ${costPerSession} a session.`,
+		"May god help anyone who tries to distract you.",
+	].join(" ");
+}
+
+function buildSmoothOperatorRevealDescription(input: WrappedRevealCopyInput) {
+	const { onboardingMetrics, row } = input;
+	const activeDays = formatWrappedRevealInteger(row.activeDays);
+	const daysSinceFirst = formatWrappedRevealInteger(
+		onboardingMetrics?.daysSinceFirst ?? row.activeDays,
+	);
+	const avgSessionMin = formatWrappedRevealInteger(
+		onboardingMetrics?.avgSessionMin ?? 0,
+	);
+	const longestSessionMin = formatWrappedRevealInteger(
+		onboardingMetrics?.longestSessionMin ?? 0,
+	);
+	const sessionsPerActiveDay = formatWrappedRevealSessionsPerActiveDay({
+		activeDays: row.activeDays,
+		totalSessions: row.totalSessions,
+	});
+	const costPerSession = formatCurrency(
+		row.totalSessions > 0 ? row.cost / row.totalSessions : 0,
+	);
+
+	return [
+		`${activeDays} out of ${daysSinceFirst} days.`,
+		`${avgSessionMin} minutes average. ${longestSessionMin} at your longest.`,
+		"You start. You build. You stop.",
+		`${sessionsPerActiveDay} sessions a day, ${costPerSession} a session, no chaos.`,
+		"A little to bit too smooth... bit suspicious.",
+	].join(" ");
+}
+
+function buildTouristRevealDescription(input: WrappedRevealCopyInput) {
+	const { onboardingMetrics, row } = input;
+	const totalSessions = formatWrappedRevealInteger(row.totalSessions);
+	const commitRate = formatWrappedRevealInteger(
+		onboardingMetrics?.commitRate ?? 0,
+	);
+	const costPerSession = formatCurrency(
+		row.totalSessions > 0 ? row.cost / row.totalSessions : 0,
+	);
+
+	return [
+		`${totalSessions} sessions. ${commitRate}% shipped something. ${costPerSession} a session.`,
+		"At least you tried it out! There's no prize for participation though",
+	].join(" ");
+}
+
 function formatWrappedRevealInteger(value: number) {
 	return Math.max(0, Math.round(value)).toLocaleString("en-US");
+}
+
+function formatWrappedRevealWholeCurrency(value: number) {
+	return `$${formatWrappedRevealInteger(value)}`;
+}
+
+function formatWrappedRevealSessionsPerActiveDay(input: {
+	activeDays: number;
+	totalSessions: number;
+}) {
+	const activeDays = Math.max(0, input.activeDays);
+	const totalSessions = Math.max(0, input.totalSessions);
+	const sessionsPerActiveDay = activeDays > 0 ? totalSessions / activeDays : 0;
+
+	return sessionsPerActiveDay.toLocaleString("en-US", {
+		maximumFractionDigits: 1,
+	});
+}
+
+function resolveWrappedRevealDistinctProjectCount(input: {
+	onboardingMetrics?: WrappedOnboardingMetrics;
+	statItems?: readonly WrappedTeamMemberCardStatItem[];
+}) {
+	const onboardingCount = input.onboardingMetrics?.distinctProjectCount;
+
+	if (onboardingCount !== undefined && onboardingCount > 0) {
+		return onboardingCount;
+	}
+
+	const statItemValue = input.statItems?.find(
+		(item) => item.key === "repos",
+	)?.value;
+	const parsedStatItemValue = statItemValue
+		? Number.parseInt(statItemValue.replaceAll(/\D/gu, ""), 10)
+		: Number.NaN;
+
+	if (Number.isFinite(parsedStatItemValue)) {
+		return parsedStatItemValue;
+	}
+
+	return input.onboardingMetrics?.repoPulse.totalRepos ?? 0;
+}
+
+function formatWrappedRevealCompanyCardHappyLine(input: {
+	favoriteModel: string | null;
+	onboardingMetrics?: WrappedOnboardingMetrics;
+}) {
+	const usageSource = getWrappedRevealCompanyCardUsageSource(input);
+
+	if (usageSource === "claude") {
+		return "Dario's happy to have you.";
+	}
+
+	if (usageSource === "codex") {
+		return "Sam's happy to have you.";
+	}
+
+	return "Dario & Sam are happy to have you.";
+}
+
+function getWrappedRevealCompanyCardUsageSource(input: {
+	favoriteModel: string | null;
+	onboardingMetrics?: WrappedOnboardingMetrics;
+}) {
+	const sourceSplit = input.onboardingMetrics?.sourceSplit ?? [];
+	const hasClaude = sourceSplit.some(
+		(entry) =>
+			entry.source === "claude_code" &&
+			(entry.session_count > 0 || entry.session_share_percent > 0),
+	);
+	const hasCodex = sourceSplit.some(
+		(entry) =>
+			entry.source === "codex" &&
+			(entry.session_count > 0 || entry.session_share_percent > 0),
+	);
+
+	if (hasClaude && !hasCodex) {
+		return "claude";
+	}
+
+	if (hasCodex && !hasClaude) {
+		return "codex";
+	}
+
+	if (hasClaude && hasCodex) {
+		return "both";
+	}
+
+	const normalizedFavoriteModel = input.favoriteModel?.toLowerCase() ?? "";
+
+	if (normalizedFavoriteModel.includes("claude")) {
+		return "claude";
+	}
+
+	if (
+		normalizedFavoriteModel.includes("codex") ||
+		normalizedFavoriteModel.includes("gpt") ||
+		normalizedFavoriteModel.includes("openai")
+	) {
+		return "codex";
+	}
+
+	return "both";
+}
+
+function getWrappedRevealArchetypeLinePrefix(input: {
+	activeArchetype: WrappedArchetypeCardTheme;
+	audience: "owner" | "public";
+}) {
+	const archetypeId = input.activeArchetype.id;
+
+	if (input.audience === "public") {
+		if (archetypeId === "company_card") {
+			return "got the ";
+		}
+
+		if (archetypeId === "adhd_brain") {
+			return "is an ";
+		}
+
+		return archetypeId === "obsessed" ? "is " : "is a ";
+	}
+
+	if (archetypeId === "company_card") {
+		return "you got the ";
+	}
+
+	if (archetypeId === "adhd_brain") {
+		return "you're an ";
+	}
+
+	return archetypeId === "obsessed" ? "you're " : "you're a ";
+}
+
+function getWrappedRevealArchetypeLineSuffix(
+	activeArchetype: WrappedArchetypeCardTheme,
+) {
+	if (activeArchetype.id === "company_card") {
+		return "?";
+	}
+
+	return activeArchetype.id === "obsessed" ||
+		activeArchetype.id === "adhd_brain" ||
+		activeArchetype.id === "cheapskate" ||
+		activeArchetype.id === "hit_and_runner" ||
+		activeArchetype.id === "smooth_operator" ||
+		activeArchetype.id === "tourist"
+		? "."
+		: "";
 }
 
 export function WrappedTeamCardRevealFooter(props: {

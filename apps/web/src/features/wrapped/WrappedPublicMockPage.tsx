@@ -107,6 +107,7 @@ const MOCK_PUBLIC_SHARE_ONBOARDING_METRICS = {
 	commitRate: 71,
 	commitSessions: 118,
 	daysSinceFirst: 94,
+	distinctProjectCount: 14,
 	estimatedCostTokenBasis: 5_068_300,
 	estimatedCostUsd: 687,
 	favoriteModel: "claude-sonnet-4.5",

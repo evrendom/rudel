@@ -371,7 +371,10 @@ function WrappedTeamCardPageContent(props: {
 	// download behavior inside the share module.
 	const shareActions = createWrappedTeamCardShareActions({
 		archetypeLabel: activeArchetype.displayLabel,
+		avgSessionMin: onboardingMetrics.avgSessionMin,
+		commitRate: onboardingMetrics.commitRate,
 		daysSinceFirst: onboardingMetrics.daysSinceFirst,
+		distinctProjectCount: onboardingMetrics.distinctProjectCount,
 		displayName: visibleTeamCardRow.displayName,
 		onShareActionTriggered: (action) => {
 			trackUtilityUsed({

@@ -68,6 +68,7 @@ const onboardingMetrics = {
 	commitRate: 50,
 	commitSessions: 4,
 	daysSinceFirst: 8,
+	distinctProjectCount: 1,
 	estimatedCostTokenBasis: 3000,
 	estimatedCostUsd: 4,
 	favoriteModel: "claude-sonnet-4.5",
