@@ -98,6 +98,10 @@ export const CliUserSchema = z.object({
 	name: z.string(),
 });
 
+export const CliSetupStatusSchema = z.object({
+	hasCliLogin: z.boolean(),
+});
+
 export const OrganizationSchema = z.object({
 	id: z.string(),
 	name: z.string(),
@@ -169,6 +173,7 @@ export const contract = {
 	cli: {
 		authStatus: oc.output(CliUserSchema),
 		revokeToken: oc.output(z.object({ success: z.literal(true) })),
+		setupStatus: oc.output(CliSetupStatusSchema),
 	},
 	listMyOrganizations: oc.output(z.array(OrganizationSchema)),
 	ingestSession: oc

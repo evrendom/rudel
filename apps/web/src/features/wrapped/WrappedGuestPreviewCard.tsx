@@ -276,23 +276,27 @@ export function WrappedGuestPreviewCard(props: WrappedGuestPreviewCardProps) {
 			<div
 				ref={cardStageRef}
 				className="team-lineup-card-tilt-stage mymind-wrapped-auth-card-preview__tilt-stage"
+				onPointerMove={(event) => {
+					if (shouldRenderStaticFront || isCardFlipAnimating) {
+						return;
+					}
+
+					tiltController.handlePointerMove(event);
+				}}
+				onPointerEnter={(event) => {
+					if (!shouldRenderStaticFront) {
+						tiltController.handlePointerEnter(event);
+					}
+				}}
+				onPointerLeave={tiltController.handlePointerLeave}
+				onPointerCancel={tiltController.handlePointerLeave}
 			>
 				<div
-					ref={tiltController.cardTiltRef}
+					ref={(node) => {
+						tiltController.cardTiltRef.current = node;
+					}}
 					className="team-lineup-card-tilt-shell mymind-wrapped-auth-card-preview__tilt mymind-wrapped-final-stage__tilt-shell"
 					data-flip-active={isCardFlipAnimating ? "true" : "false"}
-					onPointerMove={(event) => {
-						if (shouldRenderStaticFront) {
-							return;
-						}
-
-						if (!isCardFlipAnimating) {
-							tiltController.handlePointerMove(event);
-						}
-					}}
-					onPointerEnter={tiltController.handlePointerEnter}
-					onPointerLeave={tiltController.handlePointerLeave}
-					onPointerCancel={tiltController.handlePointerLeave}
 					style={
 						{
 							"--wrapped-card-flip-rotate-y": isCardFrontVisible

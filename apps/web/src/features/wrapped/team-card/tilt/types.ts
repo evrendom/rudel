@@ -23,13 +23,13 @@ export interface WrappedCardTiltValues {
 }
 
 export interface WrappedCardTiltController {
-	cardTiltRef: RefObject<HTMLDivElement | null>;
+	cardTiltRef: RefObject<HTMLElement | null>;
 	enableGyroscope: () => Promise<void>;
 	gyroscopeState: WrappedCardGyroscopeState;
 	gyroscopeStatusMessage: string | null;
-	handlePointerEnter: (event: ReactPointerEvent<HTMLDivElement>) => void;
+	handlePointerEnter: (event: ReactPointerEvent<HTMLElement>) => void;
 	handlePointerLeave: () => void;
-	handlePointerMove: (event: ReactPointerEvent<HTMLDivElement>) => void;
+	handlePointerMove: (event: ReactPointerEvent<HTMLElement>) => void;
 	isGyroscopePromptVisible: boolean;
 	isGyroscopeSupported: boolean;
 }

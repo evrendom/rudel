@@ -23,6 +23,7 @@ interface WrappedPrintedCardFlipProps {
 	front: ReactNode;
 	isFrontVisible: boolean;
 	reduceMotion?: boolean;
+	shouldCaptureBackSurface?: boolean;
 }
 
 interface PrintedCardVisualStyle extends CSSProperties {
@@ -40,6 +41,7 @@ export function WrappedPrintedCardFlip(props: WrappedPrintedCardFlipProps) {
 		front,
 		isFrontVisible,
 		reduceMotion = false,
+		shouldCaptureBackSurface = true,
 	} = props;
 	const backSourceRef = useRef<HTMLDivElement | null>(null);
 	const flipShellRef = useRef<HTMLDivElement | null>(null);
@@ -56,9 +58,13 @@ export function WrappedPrintedCardFlip(props: WrappedPrintedCardFlipProps) {
 	useEffect(() => {
 		let isCancelled = false;
 
-		async function captureBackSurface() {
-			setBackUrl(null);
+		setBackUrl(null);
 
+		if (!shouldCaptureBackSurface) {
+			return;
+		}
+
+		async function captureBackSurface() {
 			const backSource = backSourceRef.current;
 			if (!backSource) {
 				return;
@@ -83,7 +89,7 @@ export function WrappedPrintedCardFlip(props: WrappedPrintedCardFlipProps) {
 		return () => {
 			isCancelled = true;
 		};
-	}, [captureKey]);
+	}, [captureKey, shouldCaptureBackSurface]);
 
 	useEffect(() => {
 		const targetAngle = isFrontVisible ? 0 : 180;
@@ -146,18 +152,20 @@ export function WrappedPrintedCardFlip(props: WrappedPrintedCardFlipProps) {
 
 	return (
 		<>
-			<div
-				aria-hidden="true"
-				className="mymind-wrapped-printed-card-flip__source-stage"
-			>
+			{shouldCaptureBackSurface ? (
 				<div
-					ref={backSourceRef}
-					className="mymind-wrapped-printed-card-flip__source-side"
-					data-card-back-texture-source=""
+					aria-hidden="true"
+					className="mymind-wrapped-printed-card-flip__source-stage"
 				>
-					{back}
+					<div
+						ref={backSourceRef}
+						className="mymind-wrapped-printed-card-flip__source-side"
+						data-card-back-texture-source=""
+					>
+						{back}
+					</div>
 				</div>
-			</div>
+			) : null}
 
 			<div
 				ref={flipShellRef}
@@ -177,6 +185,10 @@ export function WrappedPrintedCardFlip(props: WrappedPrintedCardFlipProps) {
 								draggable={false}
 								src={backUrl}
 							/>
+						) : !shouldCaptureBackSurface ? (
+							<div className="mymind-wrapped-printed-card-flip__live-back">
+								{back}
+							</div>
 						) : (
 							<div
 								aria-label="Rudel"

@@ -1,7 +1,7 @@
 export const ACTIVE_GLARE_OPACITY = 0.9;
 export const ACTIVE_SCALE = 1.018;
 export const MAX_GYRO_TILT_DEGREES = 9;
-export const MAX_POINTER_TILT_DEGREES = 8;
+export const MAX_POINTER_TILT_DEGREES = 14;
 export const RESTING_PORTRAIT_HIGHLIGHT_BLUR = "4px";
 export const RESTING_PORTRAIT_HIGHLIGHT_OPACITY = "0.52";
 export const RESTING_PORTRAIT_HIGHLIGHT_X = "0px";

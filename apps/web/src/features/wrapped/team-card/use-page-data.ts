@@ -11,6 +11,7 @@ import { MAX_ANALYTICS_DAYS } from "@/lib/analytics-date-range";
 import { authClient } from "@/lib/auth-client";
 import { orpc } from "@/lib/orpc";
 import {
+	resolveWrappedArchetypeCardThemeByClassifierKey,
 	WRAPPED_ARCHETYPE_CARD_THEMES,
 	type WrappedArchetypeCardTheme,
 } from "./archetypes";
@@ -54,6 +55,7 @@ export function useWrappedTeamCardPageData(): UseWrappedTeamCardPageDataResult {
 	const debugProfileImageSrc =
 		guestPreviewSnapshot?.profile.imageUrl ??
 		handover.preview.profile.avatarSrc;
+	const guestPreviewDisplayName = guestPreviewSnapshot?.profile.displayName;
 	const { data: activeMember } = authClient.useActiveMember();
 	const activeMemberUserId = getActiveMemberUserId(activeMember);
 	const resolvedUserId = sessionUserId ?? activeMemberUserId;
@@ -120,6 +122,7 @@ export function useWrappedTeamCardPageData(): UseWrappedTeamCardPageDataResult {
 				accountLabel,
 				debugProfileImageSrc,
 				developerDetails: developerDetailsQuery.data,
+				guestPreviewDisplayName,
 				sessionUserEmail,
 				sessionUserId: resolvedUserId,
 				sessionUserName,
@@ -130,6 +133,7 @@ export function useWrappedTeamCardPageData(): UseWrappedTeamCardPageDataResult {
 			accountLabel,
 			debugProfileImageSrc,
 			developerDetailsQuery.data,
+			guestPreviewDisplayName,
 			sessionUserEmail,
 			resolvedUserId,
 			sessionUserName,
@@ -189,10 +193,8 @@ function resolveLiveArchetype(
 	if (!classifierKey) {
 		return DEFAULT_LIVE_ARCHETYPE;
 	}
-	const matched = WRAPPED_ARCHETYPE_CARD_THEMES.find(
-		(theme) =>
-			theme.kind === "taxonomy" && theme.classifierKey === classifierKey,
-	);
+	const matched =
+		resolveWrappedArchetypeCardThemeByClassifierKey(classifierKey);
 	return matched ?? DEFAULT_LIVE_ARCHETYPE;
 }
 

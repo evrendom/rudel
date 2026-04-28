@@ -3,6 +3,8 @@ import { useLocation, useSearchParams } from "react-router-dom";
 import { useIsMobile } from "@/app/hooks/use-mobile";
 import {
 	getWrappedShareIdFromSearch,
+	WRAPPED_ROUTE_CARD_PROFILE_FLOW,
+	WRAPPED_ROUTE_DESKTOP_READY_FLOW,
 	WRAPPED_ROUTE_FLOW_QUERY_PARAM,
 	WRAPPED_ROUTE_SESSIONS_LANDED_FLOW,
 } from "@/app/routes";
@@ -11,7 +13,9 @@ import {
 	type AppSession,
 	getSessionUserEmail,
 	getSessionUserId,
+	getSessionUserName,
 } from "@/features/auth/auth-route-utils";
+import { useCliSetupStatus } from "@/features/get-started/use-cli-setup-status";
 import { useSetupProgress } from "@/features/get-started/use-setup-progress";
 import {
 	STEP_PREVIEW_QUERY_PARAM_PREFIX,
@@ -19,11 +23,21 @@ import {
 } from "@/features/wrapped/onboarding/config";
 import { WrappedRouteStageShell } from "@/features/wrapped/route-stage-shell";
 import { WrappedTeamCardPage } from "@/features/wrapped/team-card/page";
+import { WrappedCardProfileStep } from "@/features/wrapped/WrappedCardProfileStep";
 import { WrappedDesktopResumePromptPage } from "@/features/wrapped/WrappedDesktopResumePromptPage";
 import { WrappedGuestPage } from "@/features/wrapped/WrappedGuestPage";
 import { WrappedPublicPage } from "@/features/wrapped/WrappedPublicPage";
 import { WrappedSetupCompletePage } from "@/features/wrapped/WrappedSetupCompletePage";
 import { WrappedSetupPage } from "@/features/wrapped/WrappedSetupPage";
+import {
+	buildWrappedCardProfileCompletedSnapshot,
+	isWrappedCardProfileCompletedForUser,
+	readWrappedGuestPreviewSnapshot,
+	updateWrappedGuestPreviewProfile,
+	type WrappedGuestPreviewProfile,
+	type WrappedGuestPreviewProfileUpdates,
+	writeWrappedGuestPreviewSnapshot,
+} from "@/features/wrapped/wrapped-guest-preview";
 import {
 	hasCompletedWrappedSetup,
 	markWrappedSetupCompleted,
@@ -37,13 +51,21 @@ interface WrappedRouteGateProps {
 	session: AppSession | null;
 }
 
-type WrappedRouteFlowStage = "desktop-ready" | "sessions-landed" | "story";
+type WrappedRouteFlowStage =
+	| "card-profile"
+	| "desktop-ready"
+	| "sessions-landed"
+	| "story";
 
+const WRAPPED_SETUP_AUTH_STEP_ID = "install-and-login";
 const WRAPPED_SETUP_UPLOAD_STEP_ID = "enable-auto-upload";
-const WRAPPED_SETUP_AUTH_COMPLETED_STEP_IDS = ["install-and-login"] as const;
+const WRAPPED_SETUP_NO_COMPLETED_STEP_IDS = [] as const;
+const WRAPPED_SETUP_AUTH_COMPLETED_STEP_IDS = [
+	WRAPPED_SETUP_AUTH_STEP_ID,
+] as const;
 const WRAPPED_SETUP_ALL_COMPLETED_STEP_IDS = [
-	"install-and-login",
-	"enable-auto-upload",
+	WRAPPED_SETUP_AUTH_STEP_ID,
+	WRAPPED_SETUP_UPLOAD_STEP_ID,
 ] as const;
 const WRAPPED_SETUP_UPLOAD_COMPLETE_HOLD_MS = 900;
 
@@ -63,27 +85,67 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 	const setupProgress = useSetupProgress({
 		enabled: !publicId && !!session,
 	});
+	const cliSetupStatus = useCliSetupStatus({
+		enabled: !publicId && !!session,
+	});
 	const [completedSetupUserIds, setCompletedSetupUserIds] = useState<
 		Record<string, true>
 	>({});
-	const [uploadSetupSeenUserIds, setUploadSetupSeenUserIds] = useState<
-		Record<string, true>
-	>({});
+	const [completedCardProfileUserIds, setCompletedCardProfileUserIds] =
+		useState<Record<string, true>>({});
+	const [guestPreviewSnapshot, setGuestPreviewSnapshot] = useState(() =>
+		readWrappedGuestPreviewSnapshot(),
+	);
+	const [editableCardProfile, setEditableCardProfile] =
+		useState<WrappedGuestPreviewProfile | null>(
+			() => guestPreviewSnapshot?.profile ?? null,
+		);
 	const [uploadCompletionShownUserIds, setUploadCompletionShownUserIds] =
 		useState<Record<string, true>>({});
+	const uploadSetupSeenUserIdsRef = useRef<Record<string, true>>({});
 	const uploadCompletionTimeoutRef = useRef<number | null>(null);
 	const forcedFlowStage = getWrappedRouteFlowStage(
 		searchParams.get(WRAPPED_ROUTE_FLOW_QUERY_PARAM),
 	);
+	const shouldRememberUploadSetupSeen =
+		!publicId &&
+		!isPending &&
+		sessionUserId !== null &&
+		!!session &&
+		!setupProgress.hasUploadedSessions &&
+		forcedFlowStage !== WRAPPED_ROUTE_CARD_PROFILE_FLOW &&
+		!(isMobile && sessionUserEmail);
+
+	if (shouldRememberUploadSetupSeen) {
+		uploadSetupSeenUserIdsRef.current[sessionUserId] = true;
+	}
+
 	const hasCompletedSetup =
 		sessionUserId === null
 			? false
 			: completedSetupUserIds[sessionUserId] === true ||
 				hasCompletedWrappedSetup(sessionUserId);
+	const hasCompletedCardProfile =
+		sessionUserId !== null &&
+		(completedCardProfileUserIds[sessionUserId] === true ||
+			isWrappedCardProfileCompletedForUser(
+				guestPreviewSnapshot,
+				sessionUserId,
+			));
+	const defaultCardProfile = buildWrappedSessionPreviewProfile(session);
+	const activeCardProfile = editableCardProfile ?? defaultCardProfile;
+	const shouldShowCardProfileStep =
+		!publicId &&
+		!isPending &&
+		!!session &&
+		sessionUserId !== null &&
+		forcedFlowStage === WRAPPED_ROUTE_CARD_PROFILE_FLOW &&
+		!hasCompletedCardProfile &&
+		activeCardProfile !== null;
 	const hasSeenUploadSetup =
 		sessionUserId === null
 			? false
-			: uploadSetupSeenUserIds[sessionUserId] === true;
+			: uploadSetupSeenUserIdsRef.current[sessionUserId] === true;
 	const hasShownUploadCompletion =
 		sessionUserId === null
 			? false
@@ -92,13 +154,15 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 		sessionUserId !== null &&
 		setupProgress.hasUploadedSessions &&
 		!hasCompletedSetup &&
-		hasSeenUploadSetup &&
+		(hasSeenUploadSetup ||
+			forcedFlowStage === WRAPPED_ROUTE_DESKTOP_READY_FLOW) &&
 		!hasShownUploadCompletion &&
 		forcedFlowStage !== "story";
 	const shouldForceSessionsLanded =
 		forcedFlowStage === "sessions-landed" && setupProgress.hasUploadedSessions;
 	const shouldForceDesktopReady =
-		forcedFlowStage === "desktop-ready" && setupProgress.hasUploadedSessions;
+		forcedFlowStage === WRAPPED_ROUTE_DESKTOP_READY_FLOW &&
+		setupProgress.hasUploadedSessions;
 	const shouldForceStory =
 		forcedFlowStage === "story" && setupProgress.hasUploadedSessions;
 
@@ -149,6 +213,36 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 		startWrappedStoryFromBeginning();
 	}
 
+	function updateEditableCardProfile(
+		updates: WrappedGuestPreviewProfileUpdates,
+	) {
+		setEditableCardProfile((currentProfile) =>
+			updateWrappedGuestPreviewProfile({
+				currentProfile: currentProfile ?? defaultCardProfile,
+				fallbackValue: "you",
+				updates,
+			}),
+		);
+	}
+
+	function completeCardProfile() {
+		if (!sessionUserId || !activeCardProfile) {
+			return;
+		}
+
+		const completedSnapshot = buildWrappedCardProfileCompletedSnapshot({
+			profile: activeCardProfile,
+			userId: sessionUserId,
+		});
+		writeWrappedGuestPreviewSnapshot(completedSnapshot);
+		setGuestPreviewSnapshot(completedSnapshot);
+		setCompletedCardProfileUserIds((currentState) => ({
+			...currentState,
+			[sessionUserId]: true,
+		}));
+		setWrappedRouteFlowStage(WRAPPED_ROUTE_DESKTOP_READY_FLOW);
+	}
+
 	useMountEffect(() => {
 		document.body.classList.add("mymind-wrapped-body");
 
@@ -158,28 +252,6 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 			}
 			document.body.classList.remove("mymind-wrapped-body");
 		};
-	});
-
-	useEffectOnceWhen({
-		effect: () => {
-			if (!sessionUserId) {
-				return;
-			}
-
-			setUploadSetupSeenUserIds((currentState) => ({
-				...currentState,
-				[sessionUserId]: true,
-			}));
-		},
-		isReady:
-			!publicId &&
-			!isPending &&
-			!!sessionUserId &&
-			!!session &&
-			!setupProgress.isLoading &&
-			!setupProgress.hasUploadedSessions &&
-			!(isMobile && sessionUserEmail),
-		key: sessionUserId,
 	});
 
 	useEffectOnceWhen({
@@ -255,8 +327,32 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 		);
 	} else if (!session) {
 		content = <WrappedGuestPage />;
+	} else if (shouldShowCardProfileStep) {
+		content = (
+			<WrappedCardProfileStep
+				backLabel="Back to setup"
+				displayName={activeCardProfile.displayName}
+				imageUrl={activeCardProfile.imageUrl}
+				isComplete={activeCardProfile.displayName.trim().length > 0}
+				onBack={() =>
+					setWrappedRouteFlowStage(WRAPPED_ROUTE_DESKTOP_READY_FLOW)
+				}
+				onContinue={completeCardProfile}
+				onDisplayNameChange={(displayName) =>
+					updateEditableCardProfile({ displayName })
+				}
+				onImageChange={(imageUrl) => updateEditableCardProfile({ imageUrl })}
+				previewProfile={activeCardProfile}
+			/>
+		);
 	} else if (shouldForceDesktopReady) {
-		content = <WrappedUploadSetupPage />;
+		content = (
+			<WrappedUploadSetupPage
+				hasCompletedCliLogin={
+					cliSetupStatus.hasCliLogin || setupProgress.hasUploadedSessions
+				}
+			/>
+		);
 	} else if (shouldShowUploadCompletionStep) {
 		content = <WrappedUploadSetupPage isUploadComplete />;
 	} else if (
@@ -288,23 +384,109 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 			/>
 		);
 	} else {
-		content = <WrappedUploadSetupPage />;
+		content = (
+			<WrappedUploadSetupPage
+				hasCompletedCliLogin={cliSetupStatus.hasCliLogin}
+			/>
+		);
 	}
 
 	return content;
 }
 
-function WrappedUploadSetupPage(props: { isUploadComplete?: boolean }) {
+function buildWrappedSessionPreviewProfile(
+	session: AppSession | null,
+): WrappedGuestPreviewProfile | null {
+	const displayName =
+		getMeaningfulSessionDisplayName(getSessionUserName(session)) ??
+		getEmailHandle(getSessionUserEmail(session)) ??
+		"you";
+	const username = getWrappedSessionProfileUsername({
+		email: getSessionUserEmail(session),
+		name: displayName,
+		userId: getSessionUserId(session),
+	});
+
+	if (!username) {
+		return null;
+	}
+
+	return {
+		displayName,
+		followerCount: null,
+		imageUrl: getSessionUserImage(session),
+		source: "local",
+		username,
+		verified: false,
+	};
+}
+
+function getSessionUserImage(session: AppSession | null | undefined) {
+	return session?.user &&
+		"image" in session.user &&
+		typeof session.user.image === "string" &&
+		session.user.image.trim().length > 0
+		? session.user.image.trim()
+		: null;
+}
+
+function getEmailHandle(email: string | undefined) {
+	if (!email) {
+		return undefined;
+	}
+
+	const [emailHandle] = email.split("@");
+	return emailHandle?.trim() || undefined;
+}
+
+function getMeaningfulSessionDisplayName(value: string | undefined) {
+	const trimmedValue = value?.trim();
+	return trimmedValue && trimmedValue.toLowerCase() !== "operator"
+		? trimmedValue
+		: undefined;
+}
+
+function getWrappedSessionProfileUsername(input: {
+	email: string | undefined;
+	name: string;
+	userId: string | null;
+}) {
+	const candidates = [
+		input.userId ?? "",
+		getEmailHandle(input.email) ?? "",
+		input.name,
+		"you",
+	];
+
+	for (const candidate of candidates) {
+		const username = candidate.replace(/[^A-Za-z0-9_]+/gu, "_").slice(0, 15);
+		if (/^[A-Za-z0-9_]{1,15}$/u.test(username)) {
+			return username;
+		}
+	}
+
+	return null;
+}
+
+function WrappedUploadSetupPage(props: {
+	hasCompletedCliLogin?: boolean;
+	isUploadComplete?: boolean;
+}) {
+	const completedStepIdsOverride = props.isUploadComplete
+		? WRAPPED_SETUP_ALL_COMPLETED_STEP_IDS
+		: props.hasCompletedCliLogin
+			? WRAPPED_SETUP_AUTH_COMPLETED_STEP_IDS
+			: WRAPPED_SETUP_NO_COMPLETED_STEP_IDS;
+	const currentStepIdOverride = props.isUploadComplete
+		? null
+		: props.hasCompletedCliLogin
+			? WRAPPED_SETUP_UPLOAD_STEP_ID
+			: WRAPPED_SETUP_AUTH_STEP_ID;
+
 	return (
 		<WrappedSetupPage
-			completedStepIdsOverride={
-				props.isUploadComplete
-					? WRAPPED_SETUP_ALL_COMPLETED_STEP_IDS
-					: WRAPPED_SETUP_AUTH_COMPLETED_STEP_IDS
-			}
-			currentStepIdOverride={
-				props.isUploadComplete ? null : WRAPPED_SETUP_UPLOAD_STEP_ID
-			}
+			completedStepIdsOverride={completedStepIdsOverride}
+			currentStepIdOverride={currentStepIdOverride}
 		/>
 	);
 }
@@ -312,7 +494,8 @@ function WrappedUploadSetupPage(props: { isUploadComplete?: boolean }) {
 function getWrappedRouteFlowStage(
 	flowStage: string | null,
 ): WrappedRouteFlowStage | null {
-	return flowStage === "desktop-ready" ||
+	return flowStage === WRAPPED_ROUTE_CARD_PROFILE_FLOW ||
+		flowStage === WRAPPED_ROUTE_DESKTOP_READY_FLOW ||
 		flowStage === WRAPPED_ROUTE_SESSIONS_LANDED_FLOW ||
 		flowStage === "story"
 		? flowStage

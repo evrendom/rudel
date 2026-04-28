@@ -79,7 +79,7 @@ describe("DeviceAuthorizationApp", () => {
 
 		await waitFor(() => {
 			expect(
-				screen.getByText("Wrapped: ?flow=sessions-landed"),
+				screen.getByText("Wrapped: ?flow=desktop-ready"),
 			).toBeInTheDocument();
 		});
 
@@ -124,7 +124,7 @@ describe("DeviceAuthorizationApp", () => {
 
 		await waitFor(() => {
 			expect(
-				screen.getByText("Wrapped: ?flow=sessions-landed"),
+				screen.getByText("Wrapped: ?flow=desktop-ready"),
 			).toBeInTheDocument();
 		});
 		expect(screen.queryByText("Dashboard")).toBeNull();

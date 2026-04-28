@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useAnalyticsTracking } from "../../hooks/useDashboardAnalytics";
 import { authClient } from "../../lib/auth-client";
+import { formatAuthErrorMessage } from "../../lib/auth-error-message";
 import { Button } from "../ui/button";
 import {
 	Card,
@@ -56,7 +57,13 @@ export function LoginForm({
 		const { error } = await authClient.signIn.email({ email, password });
 		setLoading(false);
 		if (error) {
-			setError(error.message ?? "Sign in failed");
+			setError(
+				formatAuthErrorMessage({
+					error,
+					fallbackMessage: "Sign in failed",
+					operation: "email password sign in",
+				}),
+			);
 		}
 	}
 
@@ -72,7 +79,13 @@ export function LoginForm({
 			callbackURL: getCallbackURL(),
 		});
 		if (error) {
-			setError(error.message ?? `Sign in with ${provider} failed`);
+			setError(
+				formatAuthErrorMessage({
+					error,
+					fallbackMessage: `Sign in with ${provider} failed`,
+					operation: `${provider} social sign in`,
+				}),
+			);
 		}
 	}
 
@@ -107,7 +120,11 @@ export function LoginForm({
 							required
 						/>
 					</div>
-					{error && <p className="text-sm text-destructive">{error}</p>}
+					{error && (
+						<p className="whitespace-pre-line text-sm text-destructive">
+							{error}
+						</p>
+					)}
 					<Button type="submit" disabled={loading}>
 						{loading ? "Signing in..." : "Sign in"}
 					</Button>

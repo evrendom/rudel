@@ -3,6 +3,7 @@ import { toBlob } from "html-to-image";
 const PADDING = 24;
 const DEFAULT_PIXEL_RATIO = 2;
 const ASSET_READY_TIMEOUT_MS = 3000;
+const PNG_MIME_TYPE = "image/png";
 const TRANSPARENT_IMAGE_PLACEHOLDER =
 	"data:image/gif;base64,R0lGODlhAQABAAAAACwAAAAAAQABAAA=";
 
@@ -339,15 +340,19 @@ function wait(timeoutMs: number) {
 }
 
 export async function copyToClipboard(blob: Blob): Promise<boolean> {
+	const clipboardBlob = normalizePngBlob(blob);
+
 	try {
-		await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })]);
+		await navigator.clipboard.write([
+			new ClipboardItem({ [clipboardBlob.type]: clipboardBlob }),
+		]);
 		return true;
 	} catch {
 		// Safari fallback: ClipboardItem may need a Promise
 		try {
 			await navigator.clipboard.write([
 				new ClipboardItem({
-					[blob.type]: Promise.resolve(blob),
+					[clipboardBlob.type]: Promise.resolve(clipboardBlob),
 				}),
 			]);
 			return true;
@@ -355,6 +360,33 @@ export async function copyToClipboard(blob: Blob): Promise<boolean> {
 			return false;
 		}
 	}
+}
+
+export async function copyPngToClipboardWhenReady(
+	blobPromise: Promise<Blob>,
+): Promise<boolean> {
+	const clipboardBlobPromise = blobPromise.then(normalizePngBlob);
+
+	try {
+		await navigator.clipboard.write([
+			new ClipboardItem({ [PNG_MIME_TYPE]: clipboardBlobPromise }),
+		]);
+		return true;
+	} catch {
+		try {
+			return await copyToClipboard(await clipboardBlobPromise);
+		} catch {
+			return false;
+		}
+	}
+}
+
+function normalizePngBlob(blob: Blob): Blob {
+	if (blob.type === PNG_MIME_TYPE) {
+		return blob;
+	}
+
+	return new Blob([blob], { type: PNG_MIME_TYPE });
 }
 
 export function downloadAsImage(blob: Blob, filename: string) {

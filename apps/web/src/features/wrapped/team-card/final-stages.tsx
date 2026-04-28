@@ -9,6 +9,7 @@ import {
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import {
 	type CSSProperties,
+	type ReactNode,
 	type RefObject,
 	// biome-ignore lint/style/noRestrictedImports: reveal-stage timers are an imperative storyboard bridge for this wrapped surface.
 	useEffect,
@@ -20,6 +21,7 @@ import type { TeamPageMemberRow } from "@/features/team/use-team-page-data";
 import { WrappedPrimaryAction } from "@/features/wrapped/actions";
 import type { WrappedOnboardingMetrics } from "@/features/wrapped/onboarding/types";
 import { WrappedStageFrame } from "@/features/wrapped/stage-frame";
+import { formatCurrency } from "@/lib/format";
 import {
 	getWrappedArchetypeCardBackgroundValue,
 	type WrappedArchetypeCardTheme,
@@ -58,6 +60,7 @@ interface WrappedTeamCardShareStageProps extends WrappedTeamCardStageCardProps {
 	frontCardHandoffRef?: RefObject<HTMLDivElement | null>;
 	isFrontCardHandoffHidden?: boolean;
 	isDownloadPending?: boolean;
+	isSharePending?: boolean;
 	onBack: () => void;
 	onCopy: () => void | Promise<void>;
 	onContinueToDashboard: () => void;
@@ -83,10 +86,56 @@ interface WrappedTeamCardRevealStageProps
 	tiltController: WrappedCardTiltController;
 }
 
+interface WrappedTeamCardPublicStageProps {
+	action: ReactNode;
+	activeArchetype: WrappedArchetypeCardTheme;
+	backMetrics?: readonly WrappedTeamMemberCardBackMetric[];
+	headerLeftMetric?: WrappedTeamMemberCardHeaderMetric;
+	headerRightMetric?: WrappedTeamMemberCardHeaderMetric;
+	row: TeamPageMemberRow;
+	shellClassName: string;
+	shellStyle: CSSProperties;
+	statItems: readonly WrappedTeamMemberCardStatItem[];
+	statLayerOpacities?: WrappedTeamMemberCardStatLayerOpacities;
+	theme: WrappedTeamMemberCardTheme;
+	tiltController: WrappedCardTiltController;
+}
+
+interface WrappedTeamCardFlipSurfaceProps {
+	backMetrics: readonly WrappedTeamMemberCardBackMetric[];
+	buttonLabel: string;
+	cardVisualStageClassName?: string;
+	headerLeftMetric?: WrappedTeamMemberCardHeaderMetric;
+	headerRightMetric?: WrappedTeamMemberCardHeaderMetric;
+	isDisabled: boolean;
+	isFlipAnimating: boolean;
+	isFrontVisible: boolean;
+	isTiltEnabled: boolean;
+	morphShellRef?: RefObject<HTMLDivElement | null>;
+	onFlip: () => void;
+	printedCardCaptureKey: string;
+	reduceMotion: boolean;
+	row: TeamPageMemberRow;
+	shellClassName: string;
+	shellStyle: CSSProperties;
+	statItems: readonly WrappedTeamMemberCardStatItem[];
+	statLayerOpacities?: WrappedTeamMemberCardStatLayerOpacities;
+	theme: WrappedTeamMemberCardTheme;
+	tiltController: WrappedCardTiltController;
+	tiltShellClassName?: string;
+}
+
 interface WrappedRevealArchetypeTitleStyle extends CSSProperties {
 	"--wrapped-reveal-archetype-accent": string;
 	"--wrapped-reveal-archetype-gt-direction": string;
 	"--wrapped-reveal-archetype-gt-gradient": string;
+}
+
+interface WrappedRevealCopyInput {
+	activeArchetype: WrappedArchetypeCardTheme;
+	audience?: "owner" | "public";
+	onboardingMetrics?: WrappedOnboardingMetrics;
+	row: TeamPageMemberRow;
 }
 
 type WrappedRevealIntroPhase = "name" | "line" | "accent" | "description";
@@ -96,6 +145,10 @@ const WRAPPED_REVEAL_TEXT_DARK = "#17161c";
 const WRAPPED_REVEAL_GRADIENT_COLOR_PATTERN = /#[\da-fA-F]{3,8}\b/g;
 const WRAPPED_REVEAL_LINEAR_GRADIENT_PATTERN =
 	/^linear-gradient\(([^,]+),\s*(.+)\)$/;
+const WRAPPED_REVEAL_GRADIENT_DARK_HOLD_STOP = 60;
+const WRAPPED_REVEAL_GRADIENT_COLOR_RANGE_START = 68;
+const WRAPPED_REVEAL_GRADIENT_COLOR_RANGE_END = 100;
+const WRAPPED_REVEAL_GRADIENT_COLOR_INSET_STOP = 15;
 
 interface WrappedRevealTextGradient {
 	accent: string;
@@ -107,29 +160,48 @@ function formatWrappedRevealGradientStopPosition(position: number) {
 	return position.toFixed(2).replace(/\.?0+$/, "");
 }
 
+function resolveWrappedRevealGradientColorStop(position: number) {
+	const colorRange =
+		WRAPPED_REVEAL_GRADIENT_COLOR_RANGE_END -
+		WRAPPED_REVEAL_GRADIENT_COLOR_RANGE_START;
+
+	return (
+		WRAPPED_REVEAL_GRADIENT_COLOR_RANGE_START + (colorRange * position) / 100
+	);
+}
+
 function buildWrappedRevealTextGradientStops(colors: readonly string[]) {
 	if (colors.length === 0) {
 		return `${WRAPPED_REVEAL_TEXT_DARK} 0%, ${WRAPPED_REVEAL_TEXT_DARK} 100%`;
 	}
 
 	if (colors.length === 1) {
-		return `${WRAPPED_REVEAL_TEXT_DARK} 0%, ${WRAPPED_REVEAL_TEXT_DARK} 40%, ${colors[0]} 48%, ${colors[0]} 100%`;
+		return `${WRAPPED_REVEAL_TEXT_DARK} 0%, ${WRAPPED_REVEAL_TEXT_DARK} ${WRAPPED_REVEAL_GRADIENT_DARK_HOLD_STOP}%, ${colors[0]} ${WRAPPED_REVEAL_GRADIENT_COLOR_RANGE_START}%, ${colors[0]} ${WRAPPED_REVEAL_GRADIENT_COLOR_RANGE_END}%`;
 	}
 
-	const colorRangeStart = 48;
-	const colorRangeEnd = 100;
-	const colorRange = colorRangeEnd - colorRangeStart;
-	const colorDenominator = Math.max(colors.length - 1, 1);
-	const colorStops = colors
+	const firstColor = colors[0];
+	const lastColor = colors[colors.length - 1];
+	const interiorColors = colors.slice(1, -1);
+	const interiorDenominator = Math.max(interiorColors.length + 1, 1);
+	const interiorStops = interiorColors
 		.map((color, index) => {
 			const stopPosition =
-				colorRangeStart + (colorRange * index) / colorDenominator;
+				WRAPPED_REVEAL_GRADIENT_COLOR_INSET_STOP +
+				((100 - WRAPPED_REVEAL_GRADIENT_COLOR_INSET_STOP * 2) * (index + 1)) /
+					interiorDenominator;
 
-			return `${color} ${formatWrappedRevealGradientStopPosition(stopPosition)}%`;
+			return `${color} ${formatWrappedRevealGradientStopPosition(resolveWrappedRevealGradientColorStop(stopPosition))}%`;
 		})
 		.join(", ");
+	const edgeStops = [
+		`${firstColor} ${formatWrappedRevealGradientStopPosition(resolveWrappedRevealGradientColorStop(0))}%`,
+		`${firstColor} ${formatWrappedRevealGradientStopPosition(resolveWrappedRevealGradientColorStop(WRAPPED_REVEAL_GRADIENT_COLOR_INSET_STOP))}%`,
+		interiorStops,
+		`${lastColor} ${formatWrappedRevealGradientStopPosition(resolveWrappedRevealGradientColorStop(100 - WRAPPED_REVEAL_GRADIENT_COLOR_INSET_STOP))}%`,
+		`${lastColor} ${formatWrappedRevealGradientStopPosition(resolveWrappedRevealGradientColorStop(100))}%`,
+	].filter(Boolean);
 
-	return `${WRAPPED_REVEAL_TEXT_DARK} 0%, ${WRAPPED_REVEAL_TEXT_DARK} 40%, ${colorStops}`;
+	return `${WRAPPED_REVEAL_TEXT_DARK} 0%, ${WRAPPED_REVEAL_TEXT_DARK} ${WRAPPED_REVEAL_GRADIENT_DARK_HOLD_STOP}%, ${edgeStops.join(", ")}`;
 }
 
 function buildWrappedRevealTextAccentGradient(input: {
@@ -200,7 +272,7 @@ function WrappedArchetypeGradientText(props: {
 		"--wrapped-reveal-archetype-gt-gradient": gradient.stops,
 	};
 	const classNames = `mymind-wrapped-final-stage__gradient-text ${className}${
-		activeArchetype.id === "needs_to_touch_grass" ? " is-obsession" : ""
+		activeArchetype.id === "obsessed" ? " is-obsession" : ""
 	}`;
 
 	return (
@@ -341,6 +413,7 @@ export function WrappedTeamCardShareStage(
 		headerRightMetric,
 		isDownloadPending = false,
 		isFrontCardHandoffHidden = false,
+		isSharePending = false,
 		onBack,
 		onCopy,
 		onContinueToDashboard,
@@ -495,11 +568,17 @@ export function WrappedTeamCardShareStage(
 							<Button
 								type="button"
 								size="lg"
+								aria-busy={isSharePending ? "true" : undefined}
 								className="mymind-wrapped-share-actions__primary"
+								disabled={isSharePending}
 								onClick={onShare}
 							>
-								<Share2 className="size-4" />
-								Share to X
+								{isSharePending ? (
+									<Loader2 className="size-4 animate-spin" />
+								) : (
+									<Share2 className="size-4" />
+								)}
+								{isSharePending ? "Copying image..." : "Share to X"}
 							</Button>
 						</nav>
 					</motion.div>
@@ -645,6 +724,272 @@ function useWrappedShareStageObjectSize() {
 	return shareObjectShellRef;
 }
 
+function WrappedTeamCardFlipSurface(props: WrappedTeamCardFlipSurfaceProps) {
+	const {
+		backMetrics,
+		buttonLabel,
+		cardVisualStageClassName,
+		headerLeftMetric,
+		headerRightMetric,
+		isDisabled,
+		isFlipAnimating,
+		isFrontVisible,
+		isTiltEnabled,
+		morphShellRef,
+		onFlip,
+		printedCardCaptureKey,
+		reduceMotion,
+		row,
+		shellClassName,
+		shellStyle,
+		statItems,
+		statLayerOpacities,
+		theme,
+		tiltController,
+		tiltShellClassName,
+	} = props;
+	const cardFace = isFrontVisible ? "front" : "back";
+	const cardVisualStageClassNames = `team-lineup-card-tilt-stage mymind-wrapped-final-stage__card-visual-stage${
+		cardVisualStageClassName ? ` ${cardVisualStageClassName}` : ""
+	}`;
+	const cardScaleClassNames =
+		"[--wrapped-card-render-scale:1] min-[360px]:[--wrapped-card-render-scale:1.08] sm:[--wrapped-card-render-scale:1.42] lg:[--wrapped-card-render-scale:1.56]";
+	const hitShellClassNames = `mymind-wrapped-final-stage__card-hit-shell ${cardScaleClassNames}`;
+	const tiltShellClassNames = `team-lineup-card-tilt-shell mymind-wrapped-final-stage__tilt-shell${
+		tiltShellClassName ? ` ${tiltShellClassName}` : ""
+	}`;
+
+	return (
+		<div className={cardVisualStageClassNames}>
+			<button
+				aria-label={buttonLabel}
+				aria-pressed={isFrontVisible}
+				className={hitShellClassNames}
+				data-card-face={cardFace}
+				disabled={isDisabled}
+				onClick={onFlip}
+				type="button"
+			>
+				<div
+					ref={morphShellRef}
+					className="mymind-wrapped-final-stage__card-morph-shell"
+					onPointerMove={(event) => {
+						if (isTiltEnabled && !isFlipAnimating) {
+							tiltController.handlePointerMove(event);
+						}
+					}}
+					onPointerEnter={tiltController.handlePointerEnter}
+					onPointerLeave={tiltController.handlePointerLeave}
+					onPointerCancel={tiltController.handlePointerLeave}
+				>
+					<div
+						ref={(node) => {
+							tiltController.cardTiltRef.current = node;
+						}}
+						className={tiltShellClassNames}
+						data-flip-active={isFlipAnimating ? "true" : "false"}
+						data-tilt-active="false"
+						style={
+							{
+								"--wrapped-card-flip-rotate-y": isFrontVisible
+									? "0deg"
+									: "180deg",
+							} as CSSProperties
+						}
+					>
+						<div
+							className="mymind-wrapped-final-stage__flip-control"
+							data-card-face={cardFace}
+						>
+							<WrappedPrintedCardFlip
+								captureKey={printedCardCaptureKey}
+								front={
+									<div className="grid justify-center">
+										<WrappedTeamMemberCard
+											disableOuterShadow
+											headerLeftMetric={headerLeftMetric}
+											headerRightMetric={headerRightMetric}
+											hideHeaderLogo
+											layoutPreset="team-card-preview"
+											mediaPanelClassName="mx-auto"
+											row={row}
+											shellClassName={shellClassName}
+											shellStyle={shellStyle}
+											statItems={statItems}
+											statLayerOpacities={statLayerOpacities}
+											statTileClassName=""
+											theme={theme}
+										/>
+									</div>
+								}
+								back={
+									<div className="grid justify-center">
+										<WrappedTeamMemberCardBack
+											disableOuterShadow
+											metrics={backMetrics}
+											shellClassName={shellClassName}
+											shellStyle={shellStyle}
+											theme={theme}
+										/>
+									</div>
+								}
+								isFrontVisible={isFrontVisible}
+								reduceMotion={reduceMotion}
+							/>
+						</div>
+					</div>
+				</div>
+			</button>
+		</div>
+	);
+}
+
+export function WrappedTeamCardPublicStage(
+	props: WrappedTeamCardPublicStageProps,
+) {
+	const {
+		action,
+		activeArchetype,
+		backMetrics = [],
+		headerLeftMetric,
+		headerRightMetric,
+		row,
+		shellClassName,
+		shellStyle,
+		statItems,
+		statLayerOpacities,
+		theme,
+		tiltController,
+	} = props;
+	const shouldReduceMotion = useReducedMotion();
+	const reduceMotion = shouldReduceMotion ?? false;
+	const [isCardFrontVisible, setIsCardFrontVisible] = useState(true);
+	const [isCardFlipAnimating, setIsCardFlipAnimating] = useState(false);
+	const revealCopy = getWrappedRevealCopy({
+		activeArchetype,
+		audience: "public",
+		row,
+	});
+	const printedCardCaptureKey = [
+		activeArchetype.id,
+		row.userId,
+		row.displayName,
+		row.imageUrl ?? "",
+		theme,
+		shellClassName,
+		headerLeftMetric?.value ?? "",
+		headerRightMetric?.value ?? "",
+		...statItems.map((item) => `${item.key}:${item.value}`),
+		...backMetrics.map((metric) => `${metric.label}:${metric.value}`),
+	].join("|");
+
+	useEffect(() => {
+		if (!isCardFlipAnimating || reduceMotion) {
+			return;
+		}
+
+		const timeoutId = window.setTimeout(() => {
+			setIsCardFlipAnimating(false);
+		}, REVEAL_STAGE_CARD_FLIP_DURATION_MS);
+
+		return () => {
+			window.clearTimeout(timeoutId);
+		};
+	}, [isCardFlipAnimating, reduceMotion]);
+
+	function handlePublicCardFlipToggle() {
+		if (isCardFlipAnimating) {
+			return;
+		}
+
+		tiltController.handlePointerLeave();
+
+		if (reduceMotion) {
+			setIsCardFrontVisible((currentValue) => !currentValue);
+			return;
+		}
+
+		setIsCardFlipAnimating(true);
+		setIsCardFrontVisible((currentValue) => !currentValue);
+	}
+
+	return (
+		<WrappedStageFrame
+			className="mymind-wrapped-final-stage mymind-wrapped-final-stage--reveal mymind-wrapped-final-stage--public-card"
+			objectClassName="mymind-wrapped-final-stage__object mymind-wrapped-final-stage__object--canvas"
+			supportClassName="mymind-wrapped-final-stage__support"
+			object={
+				<div className="mymind-wrapped-final-stage__canvas mymind-wrapped-public-card-stage__canvas">
+					<div
+						className="mymind-wrapped-final-stage__card-drop-layer mymind-wrapped-public-card-stage__card-layer"
+						data-card-state="dropped"
+					>
+						<div
+							className="mymind-wrapped-final-stage__reveal-stage mymind-wrapped-public-card-stage__composition"
+							data-companion-state="visible"
+							data-motion={reduceMotion ? "reduced" : "standard"}
+						>
+							<div className="mymind-wrapped-final-stage__slide-card-slot">
+								<WrappedTeamCardFlipSurface
+									backMetrics={backMetrics}
+									buttonLabel={
+										isCardFrontVisible
+											? "Show back of card"
+											: "Show front of card"
+									}
+									cardVisualStageClassName="mymind-wrapped-public-card-stage__card-visual-stage"
+									headerLeftMetric={headerLeftMetric}
+									headerRightMetric={headerRightMetric}
+									isDisabled={isCardFlipAnimating}
+									isFlipAnimating={isCardFlipAnimating}
+									isFrontVisible={isCardFrontVisible}
+									isTiltEnabled
+									onFlip={handlePublicCardFlipToggle}
+									printedCardCaptureKey={printedCardCaptureKey}
+									reduceMotion={reduceMotion}
+									row={row}
+									shellClassName={shellClassName}
+									shellStyle={shellStyle}
+									statItems={statItems}
+									statLayerOpacities={statLayerOpacities}
+									theme={theme}
+									tiltController={tiltController}
+									tiltShellClassName="mymind-wrapped-public-card-stage__tilt"
+								/>
+							</div>
+
+							<aside className="mymind-wrapped-final-stage__archetype-copy mymind-wrapped-public-card-stage__copy">
+								<h1 className="mymind-wrapped-final-stage__archetype-title">
+									<span className="mymind-wrapped-final-stage__archetype-name">
+										{row.displayName}
+									</span>
+									<span className="mymind-wrapped-final-stage__archetype-line">
+										is a{" "}
+										<WrappedArchetypeGradientText
+											activeArchetype={activeArchetype}
+											className="mymind-wrapped-final-stage__archetype-accent"
+											isHoverReplayEnabled
+											state="active"
+										/>
+									</span>
+								</h1>
+								<p className="mymind-wrapped-final-stage__archetype-description">
+									{revealCopy.description}
+								</p>
+							</aside>
+						</div>
+					</div>
+				</div>
+			}
+			support={
+				<div className="mymind-wrapped-action-stack mymind-wrapped-action-stack--single-action mymind-wrapped-public-card-stage__action">
+					{action}
+				</div>
+			}
+		/>
+	);
+}
+
 function getWrappedShareChromeMotion(input: {
 	delay: number;
 	reduceMotion: boolean;
@@ -708,11 +1053,17 @@ export function WrappedTeamCardRevealStage(
 	const [isCardFrontVisible, setIsCardFrontVisible] = useState(false);
 	const [hasCardFrontBeenRevealed, setHasCardFrontBeenRevealed] =
 		useState(false);
+	const [hasInitialCardFlipSettled, setHasInitialCardFlipSettled] =
+		useState(false);
 	const [isCardFlipAnimating, setIsCardFlipAnimating] = useState(false);
 	const [isRevealExitPending, setIsRevealExitPending] = useState(false);
 	const revealTimerRefs = useRef<number[]>([]);
 	const onRevealCompleteRef = useRef(onRevealComplete);
-	const revealCopy = getWrappedRevealCopy(activeArchetype);
+	const revealCopy = getWrappedRevealCopy({
+		activeArchetype,
+		onboardingMetrics,
+		row,
+	});
 	const revealBackMetrics = getWrappedRevealBackMetrics({
 		onboardingMetrics,
 		row,
@@ -729,18 +1080,22 @@ export function WrappedTeamCardRevealStage(
 		!isCardDropped && shouldShowRevealIntroDescription;
 	const shouldShowArchetypeCompanion =
 		isCardDropped &&
-		isCardFrontVisible &&
 		hasCardFrontBeenRevealed &&
-		!isCardFlipAnimating &&
+		(hasInitialCardFlipSettled || !isCardFlipAnimating) &&
 		!isRevealExitPending;
 	const revealCompanionState = shouldShowArchetypeCompanion
 		? "visible"
 		: isRevealExitPending
 			? "exiting"
 			: "hidden";
-	const revealFooterLabel = shouldShowArchetypeCompanion
+	const revealFooterLabel = hasCardFrontBeenRevealed
 		? (revealedFooterActionLabel ?? footerActionLabel)
 		: footerActionLabel;
+	const cardFlipButtonLabel = !hasCardFrontBeenRevealed
+		? "Reveal front of card"
+		: isCardFrontVisible
+			? "Show back of card"
+			: "Show front of card";
 	const shouldShowRevealFooter =
 		shouldShowRevealIntroContinue || (isCardDropped && isPreviewPostVisible);
 	const printedCardCaptureKey = [
@@ -781,6 +1136,7 @@ export function WrappedTeamCardRevealStage(
 			setIsCardDropped(false);
 			setIsCardFrontVisible(false);
 			setHasCardFrontBeenRevealed(false);
+			setHasInitialCardFlipSettled(false);
 			setIsCardFlipAnimating(false);
 			setIsRevealExitPending(false);
 			return;
@@ -790,6 +1146,7 @@ export function WrappedTeamCardRevealStage(
 		setIsCardDropped(false);
 		setIsCardFrontVisible(false);
 		setHasCardFrontBeenRevealed(false);
+		setHasInitialCardFlipSettled(false);
 		setIsCardFlipAnimating(false);
 		setIsRevealExitPending(false);
 		const timeoutIds = [
@@ -836,6 +1193,7 @@ export function WrappedTeamCardRevealStage(
 
 		const timeoutId = window.setTimeout(() => {
 			setIsCardFlipAnimating(false);
+			setHasInitialCardFlipSettled(true);
 		}, REVEAL_STAGE_CARD_FLIP_DURATION_MS);
 
 		return () => {
@@ -864,7 +1222,7 @@ export function WrappedTeamCardRevealStage(
 			!isCardDropped ||
 			isCardFlipAnimating ||
 			isRevealExitPending ||
-			hasCardFrontBeenRevealed
+			isPostHandoffPreparing
 		) {
 			return;
 		}
@@ -873,12 +1231,13 @@ export function WrappedTeamCardRevealStage(
 		setHasCardFrontBeenRevealed(true);
 
 		if (reduceMotion) {
-			setIsCardFrontVisible(true);
+			setHasInitialCardFlipSettled(true);
+			setIsCardFrontVisible((currentValue) => !currentValue);
 			return;
 		}
 
 		setIsCardFlipAnimating(true);
-		setIsCardFrontVisible(true);
+		setIsCardFrontVisible((currentValue) => !currentValue);
 	}
 
 	function handleRevealFooterAction() {
@@ -891,7 +1250,7 @@ export function WrappedTeamCardRevealStage(
 			return;
 		}
 
-		if (!hasCardFrontBeenRevealed || !isCardFrontVisible) {
+		if (!hasCardFrontBeenRevealed) {
 			handleCardFlipToggle();
 			return;
 		}
@@ -1008,92 +1367,34 @@ export function WrappedTeamCardRevealStage(
 							data-motion={reduceMotion ? "reduced" : "standard"}
 						>
 							<div className="mymind-wrapped-final-stage__slide-card-slot">
-								<div className="team-lineup-card-tilt-stage mymind-wrapped-final-stage__card-visual-stage w-full max-w-[16rem] min-[360px]:max-w-[16.75rem] sm:max-w-none">
-									<div
-										ref={handoffCardRef}
-										className="mymind-wrapped-final-stage__card-morph-shell"
-										onPointerMove={(event) => {
-											if (
-												!isCardFlipAnimating &&
-												!isPostHandoffPreparing &&
-												!isRevealExitPending
-											) {
-												tiltController.handlePointerMove(event);
-											}
-										}}
-										onPointerEnter={tiltController.handlePointerEnter}
-										onPointerLeave={tiltController.handlePointerLeave}
-										onPointerCancel={tiltController.handlePointerLeave}
-									>
-										<div
-											ref={tiltController.cardTiltRef}
-											className="team-lineup-card-tilt-shell mymind-wrapped-final-stage__tilt-shell [--wrapped-card-render-scale:1] min-[360px]:[--wrapped-card-render-scale:1.08] sm:[--wrapped-card-render-scale:1.42] lg:[--wrapped-card-render-scale:1.56]"
-											data-flip-active={isCardFlipAnimating ? "true" : "false"}
-											style={
-												{
-													"--wrapped-card-flip-rotate-y": isCardFrontVisible
-														? "0deg"
-														: "180deg",
-												} as CSSProperties
-											}
-										>
-											<button
-												aria-label={
-													isCardFrontVisible
-														? "Card revealed"
-														: "Reveal front of card"
-												}
-												aria-pressed={isCardFrontVisible}
-												className="mymind-wrapped-final-stage__flip-control"
-												data-card-face={isCardFrontVisible ? "front" : "back"}
-												disabled={
-													!isCardDropped ||
-													isCardFrontVisible ||
-													isPostHandoffPreparing ||
-													isRevealExitPending
-												}
-												onClick={handleCardFlipToggle}
-												type="button"
-											>
-												<WrappedPrintedCardFlip
-													captureKey={printedCardCaptureKey}
-													front={
-														<div className="grid justify-center">
-															<WrappedTeamMemberCard
-																disableOuterShadow
-																headerLeftMetric={headerLeftMetric}
-																headerRightMetric={headerRightMetric}
-																hideHeaderLogo
-																layoutPreset="team-card-preview"
-																mediaPanelClassName="mx-auto"
-																row={row}
-																shellClassName={shellClassName}
-																shellStyle={shellStyle}
-																statItems={statItems}
-																statLayerOpacities={statLayerOpacities}
-																statTileClassName=""
-																theme={theme}
-															/>
-														</div>
-													}
-													back={
-														<div className="grid justify-center">
-															<WrappedTeamMemberCardBack
-																disableOuterShadow
-																metrics={revealBackMetrics}
-																shellClassName={shellClassName}
-																shellStyle={shellStyle}
-																theme={theme}
-															/>
-														</div>
-													}
-													isFrontVisible={isCardFrontVisible}
-													reduceMotion={reduceMotion}
-												/>
-											</button>
-										</div>
-									</div>
-								</div>
+								<WrappedTeamCardFlipSurface
+									backMetrics={revealBackMetrics}
+									buttonLabel={cardFlipButtonLabel}
+									headerLeftMetric={headerLeftMetric}
+									headerRightMetric={headerRightMetric}
+									isDisabled={
+										!isCardDropped ||
+										isCardFlipAnimating ||
+										isPostHandoffPreparing ||
+										isRevealExitPending
+									}
+									isFlipAnimating={isCardFlipAnimating}
+									isFrontVisible={isCardFrontVisible}
+									isTiltEnabled={
+										!isPostHandoffPreparing && !isRevealExitPending
+									}
+									morphShellRef={handoffCardRef}
+									onFlip={handleCardFlipToggle}
+									printedCardCaptureKey={printedCardCaptureKey}
+									reduceMotion={reduceMotion}
+									row={row}
+									shellClassName={shellClassName}
+									shellStyle={shellStyle}
+									statItems={statItems}
+									statLayerOpacities={statLayerOpacities}
+									theme={theme}
+									tiltController={tiltController}
+								/>
 							</div>
 
 							<AnimatePresence>
@@ -1237,15 +1538,16 @@ function resolveWrappedRevealCardTransition(input: {
 	};
 }
 
-function getWrappedRevealCopy(archetype: WrappedArchetypeCardTheme): {
+function getWrappedRevealCopy(input: WrappedRevealCopyInput): {
 	description: string;
 	title: string;
 } {
-	switch (archetype.id) {
+	const { activeArchetype } = input;
+
+	switch (activeArchetype.id) {
 		case "roadrunner":
 			return {
-				description:
-					"For the one who clears the pass, ships the fix, and is already halfway into the next task.",
+				description: buildRoadrunnerRevealDescription(input),
 				title: "Roadrunner energy.",
 			};
 		case "hit_and_runner":
@@ -1260,13 +1562,13 @@ function getWrappedRevealCopy(archetype: WrappedArchetypeCardTheme): {
 					"For the mind that keeps five tabs alive, three ideas moving, and the pace somehow intact.",
 				title: "Every tab had a job.",
 			};
-		case "window_shopper":
+		case "cheapskate":
 			return {
 				description:
 					"For the selective one who keeps the spend light and still finds the exact tool worth using.",
 				title: "Low spend, sharp eye.",
 			};
-		case "papas_credit_card":
+		case "company_card":
 			return {
 				description:
 					"For the teammate who never thinks small when the work calls for a heavier swing.",
@@ -1284,13 +1586,13 @@ function getWrappedRevealCopy(archetype: WrappedArchetypeCardTheme): {
 					"For the wanderer who touched every corner of the work and kept moving between scenes.",
 				title: "Every repo got a visit.",
 			};
-		case "npc":
+		case "smooth_operator":
 			return {
 				description:
 					"For the steady hand who keeps the machine moving without asking for attention on every pass.",
 				title: "Smooth by default.",
 			};
-		case "needs_to_touch_grass":
+		case "obsessed":
 			return {
 				description:
 					"For the one who locked in so hard the sessions started stacking on top of each other.",
@@ -1306,9 +1608,30 @@ function getWrappedRevealCopy(archetype: WrappedArchetypeCardTheme): {
 			return {
 				description:
 					"For the kind of operator whose working style is strong enough to deserve its own card.",
-				title: `${archetype.displayLabel}, framed.`,
+				title: `${activeArchetype.displayLabel}, framed.`,
 			};
 	}
+}
+
+function buildRoadrunnerRevealDescription(input: WrappedRevealCopyInput) {
+	const { audience = "owner", onboardingMetrics, row } = input;
+	const activeDays = formatWrappedRevealInteger(row.activeDays);
+	const daysSinceFirst = formatWrappedRevealInteger(
+		onboardingMetrics?.daysSinceFirst ?? row.activeDays,
+	);
+	const costPerSession = formatCurrency(
+		row.totalSessions > 0 ? row.cost / row.totalSessions : 0,
+	);
+
+	if (audience === "public") {
+		return `${row.displayName} is here. Meep meep. ${row.displayName} is gone. Active ${activeDays} out of ${daysSinceFirst} days. When ${row.displayName} showed up, we noticed. ${costPerSession} a session. Meep Meep. Gone again. Where? Nobody knows`;
+	}
+
+	return `You're here. Meep meep. You're gone. Active ${activeDays} out of ${daysSinceFirst} days. When you showed up, we noticed. ${costPerSession} a session. Meep Meep. Gone again. Where? Nobody knows`;
+}
+
+function formatWrappedRevealInteger(value: number) {
+	return Math.max(0, Math.round(value)).toLocaleString("en-US");
 }
 
 export function WrappedTeamCardRevealFooter(props: {

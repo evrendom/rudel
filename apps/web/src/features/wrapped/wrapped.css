@@ -4651,7 +4651,6 @@ body.mymind-wrapped-body #cw-bubble-holder {
 
 .mymind-wrapped-auth-panel--profile {
 	align-content: center;
-	gap: clamp(0.8rem, 2.6svh, 1.25rem);
 	min-height: 100%;
 }
 
@@ -6518,6 +6517,10 @@ body.mymind-wrapped-body #cw-bubble-holder {
 .mymind-wrapped-final-stage__intro-accent,
 .mymind-wrapped-final-stage__archetype-accent {
 	display: inline-block;
+	padding: 0.07em 0.08em 0.08em;
+	font-weight: 800;
+	line-height: 1.08;
+	overflow: visible;
 }
 
 .mymind-wrapped-final-stage__gradient-text {
@@ -6673,7 +6676,7 @@ body.mymind-wrapped-body #cw-bubble-holder {
 			var(--wrapped-reveal-intro-gt-height);
 	}
 
-	99% {
+	100% {
 		background-color: var(--wrapped-reveal-intro-gt-color);
 		background-image: linear-gradient(
 			var(--wrapped-reveal-archetype-gt-direction, 184deg),
@@ -6683,14 +6686,6 @@ body.mymind-wrapped-body #cw-bubble-holder {
 		background-repeat: no-repeat;
 		background-size: var(--wrapped-reveal-intro-gt-width)
 			var(--wrapped-reveal-intro-gt-height);
-	}
-
-	100% {
-		background-color: transparent;
-		background-image: var(--wrapped-reveal-archetype-accent);
-		background-position: 0% 0%;
-		background-repeat: repeat;
-		background-size: auto;
 	}
 }
 
@@ -6762,6 +6757,45 @@ body.mymind-wrapped-body #cw-bubble-holder {
 	);
 }
 
+@media (max-width: 55.999rem) {
+	.mymind-wrapped-final-stage__reveal-stage[data-companion-state="visible"] {
+		align-content: center;
+		grid-template-areas:
+			"copy"
+			"card";
+		grid-template-rows: auto auto;
+		row-gap: clamp(1rem, 3svh, 1.5rem);
+	}
+
+	.mymind-wrapped-final-stage__reveal-stage[data-companion-state="visible"]
+		.mymind-wrapped-final-stage__archetype-copy {
+		position: relative;
+		grid-area: copy;
+		top: auto;
+		inset-inline: auto;
+		width: min(100%, 24rem);
+		margin-inline: auto;
+	}
+
+	.mymind-wrapped-final-stage__reveal-stage[data-companion-state="visible"]
+		.mymind-wrapped-final-stage__slide-card-slot {
+		grid-area: card;
+		width: auto;
+		transform: none;
+	}
+
+	.mymind-wrapped-final-stage__reveal-stage[data-companion-state="visible"]
+		.mymind-wrapped-final-stage__card-visual-stage {
+		transform: none;
+	}
+
+	.mymind-wrapped-final-stage__reveal-stage[data-companion-state="visible"]
+		.team-lineup-card-tilt-shell.mymind-wrapped-final-stage__tilt-shell {
+		--wrapped-card-base-rotate-x: 0deg;
+		--wrapped-card-base-rotate-y: 0deg;
+	}
+}
+
 .mymind-wrapped-final-stage__archetype-copy {
 	position: absolute;
 	z-index: 2;
@@ -6806,6 +6840,8 @@ body.mymind-wrapped-body #cw-bubble-holder {
 }
 
 .mymind-wrapped-final-stage__card-visual-stage {
+	display: grid;
+	justify-items: center;
 	transform: translateY(var(--wrapped-reveal-card-visual-y));
 	transform-origin: center center;
 }
@@ -6817,6 +6853,114 @@ body.mymind-wrapped-body #cw-bubble-holder {
 	transform-style: preserve-3d;
 	transform-origin: center center;
 	will-change: transform;
+}
+
+.mymind-wrapped-final-stage--reveal
+	.team-lineup-card-tilt-shell.mymind-wrapped-final-stage__tilt-shell:not(
+		[data-flip-active="true"]
+	)
+	.mymind-wrapped-final-stage__flip-control[data-card-face="back"]
+	.mymind-wrapped-final-stage__flip-shell {
+	transform: none;
+	transform-style: flat;
+	will-change: auto;
+}
+
+.mymind-wrapped-final-stage--reveal
+	.team-lineup-card-tilt-shell.mymind-wrapped-final-stage__tilt-shell:not(
+		[data-flip-active="true"]
+	)
+	.mymind-wrapped-final-stage__flip-control[data-card-face="back"]
+	.mymind-wrapped-final-stage__flip-shell::after {
+	display: none;
+}
+
+.mymind-wrapped-final-stage--reveal
+	.team-lineup-card-tilt-shell.mymind-wrapped-final-stage__tilt-shell:not(
+		[data-flip-active="true"]
+	)
+	.mymind-wrapped-final-stage__flip-control[data-card-face="back"]
+	.mymind-wrapped-printed-card-flip__rotator,
+.mymind-wrapped-final-stage--reveal
+	.team-lineup-card-tilt-shell.mymind-wrapped-final-stage__tilt-shell:not(
+		[data-flip-active="true"]
+	)
+	.mymind-wrapped-final-stage__flip-control[data-card-face="back"]
+	.mymind-wrapped-printed-card-flip__plane {
+	transform-style: flat;
+	-webkit-transform-style: flat;
+}
+
+.mymind-wrapped-final-stage--reveal
+	.team-lineup-card-tilt-shell.mymind-wrapped-final-stage__tilt-shell:not(
+		[data-flip-active="true"]
+	)
+	.mymind-wrapped-final-stage__flip-control[data-card-face="back"]
+	.mymind-wrapped-printed-card-flip__plane--front {
+	display: none;
+}
+
+.mymind-wrapped-final-stage--reveal
+	.team-lineup-card-tilt-shell.mymind-wrapped-final-stage__tilt-shell:not(
+		[data-flip-active="true"]
+	)
+	.mymind-wrapped-final-stage__flip-control[data-card-face="back"]
+	.mymind-wrapped-printed-card-flip__plane--back {
+	opacity: 1;
+	transform: none;
+	backface-visibility: hidden;
+	-webkit-backface-visibility: hidden;
+}
+
+.mymind-wrapped-final-stage__card-hit-shell {
+	position: relative;
+	display: grid;
+	width: calc(var(--wrapped-card-render-scale, 1) * 233px);
+	height: calc(var(--wrapped-card-render-scale, 1) * 358px);
+	place-items: center;
+	border: 0;
+	border-radius: calc(var(--wrapped-card-render-scale, 1) * 18px);
+	padding: 0;
+	overflow: visible;
+	background: transparent;
+	color: inherit;
+	cursor: pointer;
+	font: inherit;
+	opacity: 1;
+	text-align: inherit;
+	transform: none;
+	appearance: none;
+	touch-action: manipulation;
+	-webkit-appearance: none;
+}
+
+.mymind-wrapped-final-stage__card-hit-shell:disabled {
+	cursor: default;
+}
+
+.mymind-wrapped-public-card-header .mymind-wrapped-progress {
+	width: min(100%, 14rem);
+}
+
+.mymind-wrapped-final-stage--public-card {
+	width: 100%;
+}
+
+.mymind-wrapped-public-card-stage__canvas,
+.mymind-wrapped-public-card-stage__card-layer {
+	min-height: clamp(24rem, 58svh, 35rem);
+}
+
+.mymind-wrapped-public-card-stage__card-layer {
+	padding-top: clamp(2.2rem, 6svh, 3.8rem);
+}
+
+.mymind-wrapped-public-card-stage__copy {
+	pointer-events: none;
+}
+
+.mymind-wrapped-public-card-stage__action {
+	max-width: min(100%, 30rem);
 }
 
 @media (min-width: 360px) {
@@ -6978,6 +7122,8 @@ body.mymind-wrapped-body #cw-bubble-holder {
 		box-shadow 220ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
+.mymind-wrapped-final-stage__card-hit-shell:focus-visible,
+.team-lineup-card-tilt-shell.mymind-wrapped-final-stage__tilt-shell:focus-visible,
 .mymind-wrapped-final-stage__flip-control:focus-visible {
 	box-shadow:
 		inset 0 0 0 calc(var(--wrapped-card-render-scale, 1) * 2px)
@@ -7097,6 +7243,13 @@ body.mymind-wrapped-body #cw-bubble-holder {
 	-webkit-user-drag: none;
 }
 
+.mymind-wrapped-printed-card-flip__live-back {
+	display: grid;
+	width: 100%;
+	height: 100%;
+	place-items: center;
+}
+
 .mymind-wrapped-printed-card-flip__placeholder {
 	grid-area: 1 / 1;
 	width: 100%;
@@ -7121,11 +7274,18 @@ body.mymind-wrapped-body #cw-bubble-holder {
 	--wrapped-card-base-rotate-y: -11deg;
 	width: calc(var(--wrapped-card-render-scale, 1) * 233px);
 	height: calc(var(--wrapped-card-render-scale, 1) * 358px);
+	border: 0;
+	padding: 0;
 	overflow: visible;
+	background: transparent;
 	backface-visibility: visible;
 	box-shadow: none;
+	color: inherit;
+	cursor: pointer;
+	font: inherit;
 	perspective: calc(1120px + var(--wrapped-card-render-scale, 1) * 180px);
 	perspective-origin: center 44%;
+	text-align: inherit;
 	transform: rotateX(
 			calc(
 				var(--wrapped-card-base-rotate-x) +
@@ -7140,7 +7300,16 @@ body.mymind-wrapped-body #cw-bubble-holder {
 		)
 		scale(var(--wrapped-card-tilt-scale));
 	transform-style: preserve-3d;
+	appearance: none;
+	touch-action: manipulation;
 	-webkit-backface-visibility: visible;
+	-webkit-appearance: none;
+}
+
+.mymind-wrapped-final-stage--reveal
+	.team-lineup-card-tilt-shell.mymind-wrapped-final-stage__tilt-shell {
+	--wrapped-card-base-rotate-x: 0deg;
+	--wrapped-card-base-rotate-y: 0deg;
 }
 
 .mymind-wrapped-final-stage--handoff-preparing
@@ -7156,6 +7325,10 @@ body.mymind-wrapped-body #cw-bubble-holder {
 	transition:
 		transform 240ms cubic-bezier(0.22, 1, 0.36, 1),
 		filter 240ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.team-lineup-card-tilt-shell.mymind-wrapped-final-stage__tilt-shell:disabled {
+	cursor: default;
 }
 
 .mymind-wrapped-final-stage--handoff-preparing
@@ -7213,14 +7386,16 @@ body.mymind-wrapped-body #cw-bubble-holder {
 	z-index: 4;
 	box-shadow:
 		inset 0 0 0 calc(var(--wrapped-card-render-scale, 1) * 1px)
-		rgb(255 255 255 / 0.22),
+		rgb(255 255 255 / var(--wrapped-team-card-edge-outline-opacity, 0.22)),
 		inset 0 calc(var(--wrapped-card-render-scale, 1) * 1px) 0
-		rgb(255 255 255 / 0.28),
+		rgb(255 255 255 / var(--wrapped-team-card-edge-top-opacity, 0.28)),
 		inset 0 calc(var(--wrapped-card-render-scale, 1) * -1px) 0
-		rgb(15 23 42 / 0.08);
+		rgb(15 23 42 / var(--wrapped-team-card-edge-bottom-opacity, 0.08));
 }
 
 .team-lineup-card-tilt-shell.mymind-wrapped-final-stage__tilt-shell[data-tilt-active="true"] {
+	--wrapped-card-base-rotate-x: 0deg;
+	--wrapped-card-base-rotate-y: 0deg;
 	box-shadow: none;
 	transform: rotateX(
 			calc(
@@ -7682,7 +7857,8 @@ body.mymind-wrapped-body #cw-bubble-holder {
 	width: 100%;
 	max-width: none;
 	place-items: center;
-	perspective: none;
+	perspective: calc(var(--wrapped-share-preview-export-scale, 1) * 1320px);
+	perspective-origin: center 42%;
 }
 
 .mymind-wrapped-share-preview__spread {
@@ -7724,13 +7900,22 @@ body.mymind-wrapped-body #cw-bubble-holder {
 	--wrapped-card-tilt-glare-opacity: var(
 		--wrapped-share-preview-card-glare-opacity
 	);
+	--wrapped-card-tilt-glare-x: 34%;
+	--wrapped-card-tilt-glare-y: 20%;
+	--wrapped-card-tilt-rotate-x: 2deg;
+	--wrapped-card-tilt-rotate-y: -8deg;
+	--wrapped-card-tilt-scale: 1;
 	box-shadow: 0 calc(var(--wrapped-card-render-scale, 1) * 18px)
 		calc(var(--wrapped-card-render-scale, 1) * 28px)
 		rgb(15 23 42 / var(--wrapped-share-preview-card-shadow-opacity));
 	filter: none;
 	pointer-events: none;
 	user-select: none;
-	transform: translateZ(0);
+	transform: rotateX(var(--wrapped-card-tilt-rotate-x))
+		rotateY(var(--wrapped-card-tilt-rotate-y))
+		scale(var(--wrapped-card-tilt-scale));
+	transform-style: preserve-3d;
+	-webkit-transform-style: preserve-3d;
 }
 
 .mymind-wrapped-share-preview__card-shell--spread {
@@ -7738,7 +7923,6 @@ body.mymind-wrapped-body #cw-bubble-holder {
 	box-shadow: 0 calc(var(--wrapped-card-render-scale, 1) * 14px)
 		calc(var(--wrapped-card-render-scale, 1) * 22px)
 		rgb(15 23 42 / var(--wrapped-share-preview-spread-shadow-opacity));
-	transform: translateZ(0);
 }
 
 .mymind-wrapped-share-preview__meta {
@@ -7753,6 +7937,8 @@ body.mymind-wrapped-body #cw-bubble-holder {
 }
 
 .mymind-wrapped-share-preview__link {
+	display: inline-block;
+	margin-left: auto;
 	color: inherit;
 	font-size: calc(
 		var(--wrapped-share-preview-export-scale, 1) *
@@ -7761,6 +7947,7 @@ body.mymind-wrapped-body #cw-bubble-holder {
 	font-family: var(--font-sans);
 	font-weight: 400;
 	letter-spacing: 0;
+	text-align: right;
 	text-decoration: none;
 	overflow-wrap: anywhere;
 }
@@ -7843,7 +8030,7 @@ body.mymind-wrapped-body #cw-bubble-holder {
 
 @media (min-width: 56rem) {
 	.mymind-wrapped-final-stage__reveal-stage {
-		--wrapped-reveal-card-copy-gap: 32px;
+		--wrapped-reveal-card-copy-gap: clamp(3rem, 5vw, 4.75rem);
 	}
 
 	.mymind-wrapped-final-stage__reveal-stage[data-companion-state="visible"]
@@ -8321,23 +8508,23 @@ body.mymind-wrapped-body #cw-bubble-holder {
 	--wrapped-card-stat-mask-alpha-mid: 0.34;
 	--wrapped-card-stat-mask-alpha-far: 0.08;
 	--wrapped-card-portrait-highlight-x: 0px;
-	--wrapped-card-portrait-highlight-y: calc(
-		var(--wrapped-card-render-scale, 1) *
-		4px
+	--wrapped-card-portrait-highlight-y: var(
+		--wrapped-share-preview-portrait-highlight-y,
+		calc(var(--wrapped-card-render-scale, 1) * 4px)
 	);
-	--wrapped-card-portrait-highlight-blur: calc(
-		var(--wrapped-card-render-scale, 1) *
-		4px
+	--wrapped-card-portrait-highlight-blur: var(
+		--wrapped-share-preview-portrait-highlight-blur,
+		calc(var(--wrapped-card-render-scale, 1) * 4px)
 	);
 	--wrapped-card-portrait-highlight-opacity: 0.52;
 	--wrapped-card-portrait-shadow-x: 0px;
-	--wrapped-card-portrait-shadow-y: calc(
-		var(--wrapped-card-render-scale, 1) *
-		-4px
+	--wrapped-card-portrait-shadow-y: var(
+		--wrapped-share-preview-portrait-shadow-y,
+		calc(var(--wrapped-card-render-scale, 1) * -4px)
 	);
-	--wrapped-card-portrait-shadow-blur: calc(
-		var(--wrapped-card-render-scale, 1) *
-		4px
+	--wrapped-card-portrait-shadow-blur: var(
+		--wrapped-share-preview-portrait-shadow-blur,
+		calc(var(--wrapped-card-render-scale, 1) * 4px)
 	);
 	--wrapped-card-portrait-shadow-opacity: 0.63;
 	transition:

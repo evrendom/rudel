@@ -454,8 +454,7 @@ export function SignupForm(props: SignupFormProps) {
 						transition={getWrappedSceneItemMotion(0.08).transition}
 					>
 						<Button
-							type={isPasswordStep ? "submit" : "button"}
-							onClick={isPasswordStep ? undefined : handleContinueWrappedEmail}
+							type="submit"
 							disabled={isPasswordStep ? loading : false}
 							className="mymind-wrapped-entry-action mymind-wrapped-auth-form__scene-action h-11 rounded-full px-7 [font-family:var(--app-font-heading)] text-[1.0625rem] font-semibold"
 						>

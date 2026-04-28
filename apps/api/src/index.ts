@@ -26,7 +26,15 @@ const DEFAULT_DEV_API_ORIGIN = `http://localhost:${port}`;
 const DEFAULT_DEV_ORIGIN = "http://localhost:4011";
 const DEFAULT_DEV_ORIGINS = [
 	DEFAULT_DEV_ORIGIN,
+	"http://127.0.0.1:4011",
 	"http://localhost:4012",
+	"http://127.0.0.1:4012",
+	"http://localhost:4013",
+	"http://127.0.0.1:4013",
+	"http://localhost:4014",
+	"http://127.0.0.1:4014",
+	"http://localhost:4015",
+	"http://127.0.0.1:4015",
 ] as const;
 
 const socialProviders: Record<

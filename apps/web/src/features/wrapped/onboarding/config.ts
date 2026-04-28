@@ -244,8 +244,8 @@ export const WRAPPED_BEAT_CONTRACTS: Record<
 		saturdayStoryVisibility: "show_in_saturday_story",
 		whatWeShowNow: [
 			"User-picked theme carousel",
-			"Core k9 archetype set",
-			"Decimal VIP special edition",
+			"Core product archetype set",
+			"VIP special-edition card theme",
 		],
 		metricBasis:
 			"User-picked archetype theme. Classifier lands later; no automatic assignment yet.",
@@ -253,7 +253,7 @@ export const WRAPPED_BEAT_CONTRACTS: Record<
 		referenceClass: "User browses the full archetype set.",
 		eligibility: "Always shown.",
 		infraRequirement:
-			"Needs the snapshot-based archetype pipeline from docs/archetype-clickhouse-pipeline.md. Do not replace this with an incremental MV. Decimal stays product-only even after the classifier lands.",
+			"Needs the snapshot-based archetype pipeline from docs/archetype-clickhouse-pipeline.md. Do not replace this with an incremental MV. Special-edition card themes stay product-only even after the classifier lands.",
 		productNote:
 			"Today this is a theme picker, not a truth claim. The card can show Smooth Operator and other product labels, but only classifier-backed themes should ever be called computed archetypes.",
 	},

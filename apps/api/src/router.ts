@@ -85,6 +85,25 @@ const cliAuthStatus = os.cli.authStatus
 		};
 	});
 
+const cliSetupStatus = os.cli.setupStatus
+	.use(authMiddleware)
+	.handler(async ({ context }) => {
+		const [status] = await sqlClient<Array<{ has_cli_login: boolean }>>`
+			SELECT EXISTS (
+				SELECT 1
+				FROM apikey
+				WHERE reference_id = ${context.user.id}
+					AND name = 'rudel-cli-ingest'
+					AND enabled = true
+					AND (expires_at IS NULL OR expires_at > NOW())
+			) AS has_cli_login
+		`;
+
+		return {
+			hasCliLogin: status?.has_cli_login === true,
+		};
+	});
+
 const listMyOrganizations = os.listMyOrganizations
 	.use(authMiddleware)
 	.handler(async ({ context }) => {
@@ -340,6 +359,7 @@ export const router = os.router({
 	cli: {
 		authStatus: cliAuthStatus,
 		revokeToken: revokeCliToken,
+		setupStatus: cliSetupStatus,
 	},
 	listMyOrganizations,
 	ingestSession: ingestSessionHandler,

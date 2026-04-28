@@ -9,10 +9,12 @@ const OrganizationContext = createContext<WorkspaceContextValue | undefined>(
 
 function OrganizationAutoSelectMount({
 	onAttempted,
+	onSucceeded,
 	onSettled,
 	organizationId,
 }: {
 	onAttempted: (organizationId: string) => void;
+	onSucceeded: (organizationId: string) => void;
 	onSettled: () => void;
 	organizationId: string;
 }) {
@@ -20,13 +22,22 @@ function OrganizationAutoSelectMount({
 		let isCancelled = false;
 
 		onAttempted(organizationId);
-		void authClient.organization.setActive({ organizationId }).finally(() => {
-			if (isCancelled) {
-				return;
-			}
+		void authClient.organization
+			.setActive({ organizationId })
+			.then(() => {
+				if (isCancelled) {
+					return;
+				}
 
-			onSettled();
-		});
+				onSucceeded(organizationId);
+			})
+			.finally(() => {
+				if (isCancelled) {
+					return;
+				}
+
+				onSettled();
+			});
 
 		return () => {
 			isCancelled = true;
@@ -46,12 +57,19 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
 	const [attemptedAutoSelectOrgId, setAttemptedAutoSelectOrgId] = useState<
 		string | null
 	>(null);
+	const [optimisticActiveOrgId, setOptimisticActiveOrgId] = useState<
+		string | null
+	>(null);
 
 	const firstOrganizationId = orgs?.[0]?.id ?? null;
+	const optimisticActiveOrg =
+		orgs?.find((organization) => organization.id === optimisticActiveOrgId) ??
+		null;
+	const resolvedActiveOrg = activeOrg ?? optimisticActiveOrg;
 	const shouldAutoSelect =
 		!activeLoading &&
 		!listLoading &&
-		!activeOrg &&
+		!resolvedActiveOrg &&
 		!switching &&
 		firstOrganizationId !== null &&
 		attemptedAutoSelectOrgId !== firstOrganizationId;
@@ -60,6 +78,7 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
 		setSwitching(true);
 		try {
 			await authClient.organization.setActive({ organizationId: orgId });
+			setOptimisticActiveOrgId(orgId);
 		} finally {
 			setSwitching(false);
 		}
@@ -68,7 +87,7 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
 	const memberRole = activeMember?.role;
 	const contextValue: WorkspaceContextValue = {
 		state: {
-			activeOrg: activeOrg ?? null,
+			activeOrg: resolvedActiveOrg,
 			organizations: orgs ?? [],
 			isLoading: activeLoading || listLoading || switching,
 		},
@@ -91,6 +110,9 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
 						setAttemptedAutoSelectOrgId(organizationId);
 						setSwitching(true);
 					}}
+					onSucceeded={(organizationId) =>
+						setOptimisticActiveOrgId(organizationId)
+					}
 					onSettled={() => setSwitching(false)}
 				/>
 			) : null}

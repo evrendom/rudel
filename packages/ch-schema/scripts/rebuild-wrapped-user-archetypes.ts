@@ -39,7 +39,7 @@ const CENTROIDS: readonly Centroid[] = [
 	},
 	{
 		archetype_id: 1,
-		archetype_key: "window_shopper",
+		archetype_key: "cheapskate",
 		archetype_name: "Cheapskate",
 		consistency: 0.2693,
 		intensity: 0.1741,
@@ -51,8 +51,8 @@ const CENTROIDS: readonly Centroid[] = [
 	},
 	{
 		archetype_id: 2,
-		archetype_key: "npc",
-		archetype_name: "NPC",
+		archetype_key: "smooth_operator",
+		archetype_name: "Smooth Operator",
 		consistency: 0.62,
 		intensity: 0.7758,
 		session_shape: 0.8591,
@@ -63,8 +63,8 @@ const CENTROIDS: readonly Centroid[] = [
 	},
 	{
 		archetype_id: 3,
-		archetype_key: "papas_credit_card",
-		archetype_name: "Papa's Credit Card",
+		archetype_key: "company_card",
+		archetype_name: "Company Card",
 		consistency: 0.3061,
 		intensity: 0.1582,
 		session_shape: 0.1786,
@@ -99,7 +99,7 @@ const CENTROIDS: readonly Centroid[] = [
 	},
 	{
 		archetype_id: 6,
-		archetype_key: "needs_to_touch_grass",
+		archetype_key: "obsessed",
 		archetype_name: "Obsessed",
 		consistency: 0.5778,
 		intensity: 0.5037,

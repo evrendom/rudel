@@ -15,9 +15,44 @@ describe("wrapped X share copy", () => {
 			}),
 		).toBe(
 			[
-				"According to my Claude / Codex usage, I'm a Maniac.",
+				"My Claude Code and Codex usage says I'm a Maniac.",
 				"Traits: 1.9M tokens over 219 sessions; high session count, heavy token burn, no visible off switch.",
-				"Make yours from the card.",
+			].join("\n\n"),
+		);
+	});
+
+	it("builds Roadrunner copy with active days and cost per session", () => {
+		expect(
+			buildWrappedXShareText({
+				activeDays: 4,
+				archetypeLabel: "Roadrunner",
+				cost: 44,
+				daysSinceFirst: 21,
+				displayName: "Evren",
+				sourceSplit: [
+					{
+						session_count: 7,
+						session_share_percent: 50,
+						source: "claude_code",
+					},
+					{
+						session_count: 7,
+						session_share_percent: 50,
+						source: "codex",
+					},
+				],
+				totalSessions: 8,
+				totalTokens: 92_000,
+			}),
+		).toBe(
+			[
+				"My Claude Code and Codex usage says I'm a Roadrunner.",
+				"Meep meep.",
+				"Active 4 out of 21 days.",
+				"Meep meep.",
+				"When back I'm spending $5.50 a session.",
+				"Meep meep.",
+				"Gone.",
 			].join("\n\n"),
 		);
 	});
@@ -42,7 +77,7 @@ describe("wrapped X share copy", () => {
 				totalSessions: 42,
 				totalTokens: 92_000,
 			}),
-		).toContain("According to my Codex usage");
+		).toContain("My Codex usage says");
 
 		expect(
 			buildWrappedXShareText({
@@ -63,7 +98,7 @@ describe("wrapped X share copy", () => {
 				totalSessions: 27,
 				totalTokens: 64_000,
 			}),
-		).toContain("According to my Claude usage");
+		).toContain("My Claude Code usage says");
 	});
 
 	it("falls back to favorite model when source split is unavailable", () => {
@@ -75,7 +110,7 @@ describe("wrapped X share copy", () => {
 				totalSessions: 19,
 				totalTokens: 41_000,
 			}),
-		).toContain("According to my Codex usage");
+		).toContain("My Codex usage says");
 	});
 
 	it("builds an X intent URL with text and wrapped URL", () => {
@@ -89,7 +124,13 @@ describe("wrapped X share copy", () => {
 		expect(`${intentUrl.origin}${intentUrl.pathname}`).toBe(
 			"https://twitter.com/intent/tweet",
 		);
-		expect(intentUrl.searchParams.get("text")).toBe("Share text");
-		expect(intentUrl.searchParams.get("url")).toBe("https://rudel.ai/wrapped");
+		expect(intentUrl.searchParams.get("text")).toBe(
+			[
+				"Share text",
+				"Check my profile out here https://rudel.ai/wrapped",
+				"[Your image is in your clipboard, pls paste and dont forget]",
+			].join("\n\n"),
+		);
+		expect(intentUrl.searchParams.get("url")).toBeNull();
 	});
 });

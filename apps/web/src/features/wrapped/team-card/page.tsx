@@ -157,9 +157,7 @@ export function WrappedTeamCardPage(props: {
 	);
 	const headerRightMetric = useMemo<WrappedTeamMemberCardHeaderMetric>(
 		() => ({
-			// The card shows product-facing labels here, not raw classifier names.
-			// Example: the taxonomy says "NPC", while the visible card says
-			// "Smooth Operator".
+			// The card shows only the current product-facing archetype label.
 			title: activeArchetype.displayLabel,
 			value: activeArchetype.displayLabel,
 		}),
@@ -292,6 +290,7 @@ function WrappedTeamCardPageContent(props: {
 	const [isRevealSequenceComplete, setIsRevealSequenceComplete] =
 		useState(false);
 	const [isDownloadPending, setIsDownloadPending] = useState(false);
+	const [isSharePending, setIsSharePending] = useState(false);
 	const finalCardHandoffTimerRef = useRef<number | null>(null);
 	const finalCardFlightTimerRef = useRef<number | null>(null);
 	const finalCardFlightMeasureRef = useRef<number | null>(null);
@@ -372,6 +371,7 @@ function WrappedTeamCardPageContent(props: {
 	// download behavior inside the share module.
 	const shareActions = createWrappedTeamCardShareActions({
 		archetypeLabel: activeArchetype.displayLabel,
+		daysSinceFirst: onboardingMetrics.daysSinceFirst,
 		displayName: visibleTeamCardRow.displayName,
 		onShareActionTriggered: (action) => {
 			trackUtilityUsed({
@@ -503,6 +503,20 @@ function WrappedTeamCardPageContent(props: {
 		}
 	}
 
+	async function handleSharePost() {
+		if (isSharePending) {
+			return;
+		}
+
+		setIsSharePending(true);
+
+		try {
+			await shareActions.handleSharePost();
+		} finally {
+			setIsSharePending(false);
+		}
+	}
+
 	const finalStage = (
 		<AnimatePresence initial={false} mode="popLayout">
 			{showShareStage ? (
@@ -523,6 +537,7 @@ function WrappedTeamCardPageContent(props: {
 						headerRightMetric={headerRightMetric}
 						isDownloadPending={isDownloadPending}
 						isFrontCardHandoffHidden={finalCardFlight !== null}
+						isSharePending={isSharePending}
 						onBack={() => {
 							clearFinalCardHandoffTimer(finalCardHandoffTimerRef);
 							clearFinalCardHandoffTimer(finalCardFlightTimerRef);
@@ -535,18 +550,14 @@ function WrappedTeamCardPageContent(props: {
 							});
 						}}
 						onAppearanceChange={(nextAppearance) => {
-							startTransition(() => {
-								setShareAppearance(
-									resolveWrappedShareAppearance(nextAppearance),
-								);
-							});
+							setShareAppearance(resolveWrappedShareAppearance(nextAppearance));
 						}}
 						onCopy={() => void shareActions.handleCopyPost()}
 						onContinueToDashboard={() =>
 							handleContinueToDashboard("wrapped_share_footer")
 						}
 						onDownload={() => void handleDownloadPost()}
-						onShare={() => void shareActions.handleSharePost()}
+						onShare={() => void handleSharePost()}
 						row={sharePreviewRow}
 						shareCardCreatedAtLabel={shareCardCreatedAtLabel}
 						sharePostRef={sharePostRef}

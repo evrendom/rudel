@@ -3,6 +3,7 @@ import { toast } from "sonner";
 import {
 	type CaptureElementOptions,
 	captureElement,
+	copyPngToClipboardWhenReady,
 	copyToClipboard,
 	downloadAsImage,
 } from "@/lib/screenshot";
@@ -21,7 +22,6 @@ interface WrappedImageShareMessages {
 	shareUrlError: string;
 	xShareCopiedSuccess: string;
 	xShareDownloadedSuccess: string;
-	xShareReadySuccess: string;
 }
 
 interface CreateWrappedImageShareActionsParams {
@@ -31,6 +31,7 @@ interface CreateWrappedImageShareActionsParams {
 	messages?: Partial<WrappedImageShareMessages>;
 	onShareActionTriggered?: (action: WrappedImageShareActionKind) => void;
 	resolveShareUrl?: () => Promise<string | undefined>;
+	shareCaptureOptions?: CaptureElementOptions;
 	shareText: string;
 	shareTarget?: WrappedImageShareTarget;
 	shareTitle: string;
@@ -56,10 +57,9 @@ const DEFAULT_WRAPPED_IMAGE_SHARE_MESSAGES: WrappedImageShareMessages = {
 	shareDownloadSuccess: "Image downloaded. Share the PNG from your downloads.",
 	shareUrlError: "Could not create a share link. Sharing the image without it.",
 	xShareCopiedSuccess:
-		"Image copied. X is open. Paste the image into the post.",
+		"Image copied. X is open. Paste the image into the post; your card link is included.",
 	xShareDownloadedSuccess:
 		"Image downloaded. X is open. Attach the PNG from your downloads.",
-	xShareReadySuccess: "X is open with your wrapped card preview.",
 };
 
 export function createWrappedImageShareActions(
@@ -72,6 +72,7 @@ export function createWrappedImageShareActions(
 		messages: inputMessages,
 		onShareActionTriggered,
 		resolveShareUrl,
+		shareCaptureOptions,
 		shareText,
 		shareTarget = "system",
 		shareTitle,
@@ -100,7 +101,7 @@ export function createWrappedImageShareActions(
 		}
 
 		const imageBlob = await captureShareImage({
-			captureOptions,
+			captureOptions: shareCaptureOptions ?? captureOptions,
 			imageRef,
 			messages,
 		});
@@ -148,66 +149,47 @@ export function createWrappedImageShareActions(
 	}
 
 	async function handleShareImageToX() {
-		const pendingXWindow = openPendingXWindow(
-			buildWrappedXIntentUrl({
-				text: shareText,
-				url: shareUrl,
+		const imageBlobPromise = requireCapturedShareImage(
+			captureShareImage({
+				captureOptions: shareCaptureOptions ?? captureOptions,
+				imageRef,
+				messages,
 			}),
 		);
-		const resolvedShareUrl = await getResolvedShareUrl({
-			messages,
-			resolveShareUrl,
-			shareUrl,
-		});
-
-		if (!resolvedShareUrl) {
-			await handleShareImageToXFallback(pendingXWindow);
-			return;
-		}
-
-		toast.success(messages.xShareReadySuccess, {
-			duration: 5000,
-		});
-		openXIntentWindow(
-			pendingXWindow,
-			buildWrappedXIntentUrl({
-				text: shareText,
-				url: resolvedShareUrl,
+		const [imageBlob, copied, resolvedShareUrl] = await Promise.all([
+			imageBlobPromise.catch(() => null),
+			copyPngToClipboardWhenReady(imageBlobPromise),
+			getResolvedShareUrl({
+				messages,
+				resolveShareUrl,
+				shareUrl,
 			}),
-		);
-	}
-
-	async function handleShareImageToXFallback(pendingXWindow: Window | null) {
-		const imageBlob = await captureShareImage({
-			captureOptions,
-			imageRef,
-			messages,
-		});
+		]);
 
 		if (!imageBlob) {
-			closePendingXWindow(pendingXWindow);
 			return;
 		}
 
-		const copied = await copyToClipboard(imageBlob);
-
-		if (copied) {
-			toast.success(messages.xShareCopiedSuccess, {
-				duration: 7000,
-			});
-		} else {
+		if (!copied) {
 			downloadAsImage(imageBlob, fileName);
-			toast.success(messages.xShareDownloadedSuccess, {
+			toast.success(messages.shareDownloadSuccess, {
 				duration: 7000,
 			});
+			return;
 		}
 
-		openXIntentWindow(
-			pendingXWindow,
+		const didOpenX = openXIntentWindow(
 			buildWrappedXIntentUrl({
 				text: shareText,
-				url: shareUrl,
+				url: resolvedShareUrl ?? shareUrl,
 			}),
+		);
+
+		toast.success(
+			didOpenX ? messages.xShareCopiedSuccess : messages.copyFallbackSuccess,
+			{
+				duration: 7000,
+			},
 		);
 	}
 
@@ -250,6 +232,18 @@ export function createWrappedImageShareActions(
 	}
 }
 
+async function requireCapturedShareImage(
+	imageBlobPromise: Promise<Blob | null>,
+): Promise<Blob> {
+	const imageBlob = await imageBlobPromise;
+
+	if (!imageBlob) {
+		throw new Error("Missing share image");
+	}
+
+	return imageBlob;
+}
+
 async function getResolvedShareUrl(options: {
 	messages: WrappedImageShareMessages;
 	resolveShareUrl?: () => Promise<string | undefined>;
@@ -275,6 +269,8 @@ async function captureShareImage(options: {
 	messages: WrappedImageShareMessages;
 }): Promise<Blob | null> {
 	const { captureOptions, imageRef, messages } = options;
+	await waitForCurrentRender();
+
 	const imageElement = imageRef.current;
 
 	if (!imageElement) {
@@ -290,6 +286,18 @@ async function captureShareImage(options: {
 	}
 }
 
+function waitForCurrentRender() {
+	if (typeof window === "undefined" || !window.requestAnimationFrame) {
+		return Promise.resolve();
+	}
+
+	return new Promise<void>((resolve) => {
+		window.requestAnimationFrame(() => {
+			window.requestAnimationFrame(() => resolve());
+		});
+	});
+}
+
 function canShareFiles(shareFile: File) {
 	if (!navigator.canShare) {
 		return true;
@@ -302,39 +310,19 @@ function canShareFiles(shareFile: File) {
 	}
 }
 
-function openPendingXWindow(initialXIntentUrl: string) {
+function openXIntentWindow(xIntentUrl: string) {
 	if (typeof window === "undefined") {
-		return null;
+		return false;
 	}
 
 	try {
-		const pendingXWindow = window.open(initialXIntentUrl, "_blank");
+		const xWindow = window.open(xIntentUrl, "_blank", "noopener,noreferrer");
 
-		if (pendingXWindow) {
-			pendingXWindow.opener = null;
+		if (xWindow) {
+			xWindow.opener = null;
+			return true;
 		}
-
-		return pendingXWindow;
-	} catch {
-		return null;
-	}
-}
-
-function openXIntentWindow(pendingXWindow: Window | null, xIntentUrl: string) {
-	if (pendingXWindow && !pendingXWindow.closed) {
-		pendingXWindow.location.href = xIntentUrl;
-		return;
-	}
-
-	window.open(xIntentUrl, "_blank", "noopener,noreferrer");
-}
-
-function closePendingXWindow(pendingXWindow: Window | null) {
-	if (!pendingXWindow || pendingXWindow.closed) {
-		return;
-	}
-
-	try {
-		pendingXWindow.close();
 	} catch {}
+
+	return false;
 }
