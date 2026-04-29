@@ -7986,8 +7986,23 @@ body.mymind-wrapped-body .woot-widget-bubble {
 	color: #2a2725;
 }
 
+.mymind-wrapped-share-toolbar__button[data-copy-state] {
+	color: #17161c;
+}
+
+.mymind-wrapped-share-toolbar__button[data-copy-state="copied"] {
+	background: rgb(255 255 255 / 0.96);
+	color: #000;
+}
+
 .mymind-wrapped-share-toolbar__button:hover {
 	background: white;
+}
+
+.mymind-wrapped-share-toolbar__copy-icon {
+	width: 1.5rem;
+	height: 1.5rem;
+	overflow: visible;
 }
 
 .mymind-wrapped-final-stage__back {

@@ -576,7 +576,7 @@ function WrappedTeamCardPageContent(props: {
 						onAppearanceChange={(nextAppearance) => {
 							setShareAppearance(resolveWrappedShareAppearance(nextAppearance));
 						}}
-						onCopy={() => void shareActions.handleCopyPost()}
+						onCopy={() => shareActions.handleCopyPost()}
 						onCopyProfileUrl={() => void handleCopyProfileUrl()}
 						onContinueToDashboard={() =>
 							handleContinueToDashboard("wrapped_share_footer")
