@@ -55,20 +55,33 @@ vi.mock("@/features/wrapped/WrappedGuestPage", () => ({
 vi.mock("@/features/wrapped/WrappedCardProfileStep", () => ({
 	WrappedCardProfileStep: ({
 		displayName,
+		imageUrl,
+		isComplete,
 		onContinue,
 		onDisplayNameChange,
+		onImageChange,
 	}: {
 		displayName: string;
+		imageUrl: string | null;
+		isComplete: boolean;
 		onContinue: () => void;
 		onDisplayNameChange: (value: string) => void;
+		onImageChange: (value: string | null) => void;
 	}) => (
 		<div>
 			<div>Wrapped card profile step</div>
 			<div>Profile display name: {displayName}</div>
+			<div>Profile image: {imageUrl ? "set" : "fallback"}</div>
 			<button type="button" onClick={() => onDisplayNameChange("Grace Hopper")}>
 				Set profile name
 			</button>
-			<button type="button" onClick={onContinue}>
+			<button
+				type="button"
+				onClick={() => onImageChange("data:image/png;base64,abc")}
+			>
+				Set profile picture
+			</button>
+			<button type="button" disabled={!isComplete} onClick={onContinue}>
 				Continue profile
 			</button>
 		</div>
@@ -200,7 +213,7 @@ function markWrappedCardProfileComplete() {
 		profile: {
 			displayName: "Ada Lovelace",
 			followerCount: null,
-			imageUrl: null,
+			imageUrl: "data:image/png;base64,profile",
 			source: "local",
 			username: "ada",
 			verified: false,
@@ -312,8 +325,15 @@ describe("WrappedRouteGate", () => {
 		expect(
 			screen.getByText("Profile display name: Ada Lovelace"),
 		).toBeInTheDocument();
+		expect(screen.getByText("Profile image: fallback")).toBeInTheDocument();
+		expect(
+			screen.getByRole("button", { name: "Continue profile" }),
+		).toBeDisabled();
 
 		await user.click(screen.getByRole("button", { name: "Set profile name" }));
+		await user.click(
+			screen.getByRole("button", { name: "Set profile picture" }),
+		);
 		await user.click(screen.getByRole("button", { name: "Continue profile" }));
 
 		expect(screen.getByText("Wrapped setup page")).toBeInTheDocument();
@@ -323,6 +343,7 @@ describe("WrappedRouteGate", () => {
 		);
 
 		expect(screen.getByText("Wrapped card profile step")).toBeInTheDocument();
+		expect(screen.getByText("Profile image: set")).toBeInTheDocument();
 
 		await user.click(screen.getByRole("button", { name: "Continue profile" }));
 		expect(screen.getByText("Wrapped setup page")).toBeInTheDocument();
@@ -330,17 +351,54 @@ describe("WrappedRouteGate", () => {
 			cardProfileCompletedUserId: "user-1",
 			profile: {
 				displayName: "Grace Hopper",
+				imageUrl: "data:image/png;base64,abc",
 			},
 			step: "auth",
 		});
 	});
 
-	it("does not show card profile for signed-in viewers without the new-account flow", () => {
+	it("shows card profile for signed-in fallback-only viewers before setup", async () => {
+		const user = userEvent.setup();
 		clearWrappedGuestPreviewSnapshot();
 
 		render(
 			<MemoryRouter initialEntries={["/wrapped"]}>
 				<WrappedRouteGate isPending={false} publicId={null} session={session} />
+			</MemoryRouter>,
+		);
+
+		expect(screen.getByText("Wrapped card profile step")).toBeInTheDocument();
+		expect(screen.getByText("Profile image: fallback")).toBeInTheDocument();
+		expect(screen.queryByText("Wrapped setup page")).toBeNull();
+		expect(
+			screen.getByRole("button", { name: "Continue profile" }),
+		).toBeDisabled();
+
+		await user.click(
+			screen.getByRole("button", { name: "Set profile picture" }),
+		);
+		await user.click(screen.getByRole("button", { name: "Continue profile" }));
+
+		expect(screen.getByText("Wrapped setup page")).toBeInTheDocument();
+	});
+
+	it("does not show card profile for signed-in viewers with a profile picture", () => {
+		clearWrappedGuestPreviewSnapshot();
+		const sessionWithProfilePicture: NonNullable<AppSession> = {
+			...session,
+			user: {
+				...session.user,
+				image: "https://example.com/ada.png",
+			},
+		};
+
+		render(
+			<MemoryRouter initialEntries={["/wrapped"]}>
+				<WrappedRouteGate
+					isPending={false}
+					publicId={null}
+					session={sessionWithProfilePicture}
+				/>
 			</MemoryRouter>,
 		);
 
@@ -594,6 +652,66 @@ describe("WrappedRouteGate", () => {
 		await user.click(continueButton);
 
 		expect(screen.getByText("Wrapped setup complete page")).toBeInTheDocument();
+	});
+
+	it("shows card profile before story when completed setup still has only a fallback image", async () => {
+		const user = userEvent.setup();
+		const storageKey = getWrappedSetupCompletionStorageKey(session.user.id);
+
+		if (storageKey === null) {
+			throw new Error("Expected wrapped setup completion storage key");
+		}
+
+		window.localStorage.setItem(storageKey, "true");
+		writeWrappedGuestPreviewSnapshot({
+			cardProfileCompletedUserId: "user-1",
+			profile: {
+				displayName: "Ada Lovelace",
+				followerCount: null,
+				imageUrl: null,
+				source: "local",
+				username: "ada",
+				verified: false,
+			},
+			step: "auth",
+		});
+		mockUseSetupProgress.mockReturnValue({
+			hasUploadedSessions: true,
+			isLoading: false,
+			totalSessionCount: 3,
+		});
+
+		render(
+			<MemoryRouter initialEntries={["/wrapped"]}>
+				<WrappedRouteGate isPending={false} publicId={null} session={session} />
+			</MemoryRouter>,
+		);
+
+		expect(screen.getByText("Wrapped card profile step")).toBeInTheDocument();
+		expect(screen.getByText("Profile image: fallback")).toBeInTheDocument();
+		expect(screen.queryByText("Wrapped setup page")).toBeNull();
+		expect(screen.queryByText("Wrapped story")).toBeNull();
+		expect(
+			screen.getByRole("button", { name: "Continue profile" }),
+		).toBeDisabled();
+
+		await user.click(
+			screen.getByRole("button", { name: "Set profile picture" }),
+		);
+		await user.click(screen.getByRole("button", { name: "Continue profile" }));
+
+		expect(screen.getByText("Wrapped setup page")).toBeInTheDocument();
+		expect(
+			screen.getByText(
+				"Setup completed steps: install-and-login,enable-auto-upload",
+			),
+		).toBeInTheDocument();
+		expect(readWrappedGuestPreviewSnapshot()).toMatchObject({
+			cardProfileCompletedUserId: "user-1",
+			profile: {
+				imageUrl: "data:image/png;base64,abc",
+			},
+		});
 	});
 
 	it("renders the wrapped story when setup completion was already acknowledged", () => {
