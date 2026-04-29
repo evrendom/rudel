@@ -317,12 +317,14 @@ describe("WrappedSetupPage", () => {
 			</MemoryRouter>,
 		);
 
+		expect(mockSetChatwootBubbleVisibility).toHaveBeenCalledWith("hide");
+
 		await user.click(screen.getByRole("button", { name: "Open support" }));
 
 		expect(mockOpenChatwoot).toHaveBeenCalledTimes(1);
-		expect(
-			screen.getByRole("button", { name: "Close support" }),
-		).toBeInTheDocument();
+		const closeButton = screen.getByRole("button", { name: "Close support" });
+		expect(closeButton).toBeInTheDocument();
+		expect(closeButton.querySelector(".lucide-circle-x")).not.toBeNull();
 
 		await user.click(screen.getByRole("button", { name: "Close support" }));
 
