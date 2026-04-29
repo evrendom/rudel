@@ -1,5 +1,5 @@
 -- chkit-migration-format: v1
--- generated-at: 2026-04-25T18:15:26.155Z
+-- generated-at: 2026-04-29T16:16:10.057Z
 -- cli-version: 0.1.0-beta.16
 -- definition-count: 7
 -- operation-count: 3
@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS rudel.wrapped_user_archetype_runs_v1
   `scope` LowCardinality(String),
   `user_scope_count` UInt32,
   `trigger_reason` LowCardinality(String),
-  `trigger_source` Nullable(LowCardinality(String)),
+  `trigger_source` LowCardinality(Nullable(String)),
   `trigger_session_id` Nullable(String)
 ) ENGINE = MergeTree()
 PRIMARY KEY ()
