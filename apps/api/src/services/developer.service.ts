@@ -44,7 +44,8 @@ export interface DeveloperProjectTimeline {
 
 const PER_SESSION_COST_SQL = buildEstimatedCostSql({
 	modelExpr: "model_used",
-	inputExpr: "ifNull(input_tokens, 0)",
+	inputExpr:
+		"(ifNull(input_tokens, 0) - ifNull(cache_read_input_tokens, 0) - ifNull(cache_creation_input_tokens, 0))",
 	outputExpr: "ifNull(output_tokens, 0)",
 	cacheReadInputExpr: "ifNull(cache_read_input_tokens, 0)",
 	cacheCreationInputExpr: "ifNull(cache_creation_input_tokens, 0)",
@@ -179,8 +180,8 @@ export async function getDeveloperTeamCards(
       user_id,
       COUNT(*) as total_sessions,
       COUNT(DISTINCT toDate(session_date)) as active_days,
-      SUM(ifNull(input_tokens, 0)) as input_tokens,
-      SUM(ifNull(output_tokens, 0)) as output_tokens,
+      SUM(ifNull(input_tokens, 0)) as total_input_tokens,
+      SUM(ifNull(output_tokens, 0)) as total_output_tokens,
       SUM(ifNull(input_tokens, 0) + ifNull(output_tokens, 0)) as total_tokens,
       round(SUM(${PER_SESSION_COST_SQL}), 4) as cost,
       toString(max(session_date)) as last_active_date
@@ -210,8 +211,8 @@ export async function getDeveloperTeamCards(
 		user_id: string;
 		total_sessions: number;
 		active_days: number;
-		input_tokens: number;
-		output_tokens: number;
+		total_input_tokens: number;
+		total_output_tokens: number;
 		total_tokens: number;
 		cost: number;
 		last_active_date: string;
@@ -283,8 +284,8 @@ export async function getDeveloperTeamCards(
 				user_id: row.user_id,
 				display_name: displayName,
 				cost: Number(row.cost) || 0,
-				input_tokens: Number(row.input_tokens) || 0,
-				output_tokens: Number(row.output_tokens) || 0,
+				input_tokens: Number(row.total_input_tokens) || 0,
+				output_tokens: Number(row.total_output_tokens) || 0,
 				total_tokens: Number(row.total_tokens) || 0,
 				total_sessions: Number(row.total_sessions) || 0,
 				active_days: Number(row.active_days) || 0,
