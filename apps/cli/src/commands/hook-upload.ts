@@ -47,6 +47,7 @@ async function runHookUpload(): Promise<void> {
 
 		const request = await claudeCodeAdapter.buildUploadRequest(sessionFile, {
 			gitInfo,
+			uploadMode: "hook",
 		});
 
 		const tag = await classifySession(request.content);

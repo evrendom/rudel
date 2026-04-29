@@ -1,7 +1,5 @@
 import { getLogger } from "@logtape/logtape";
 import { ORPCError } from "@orpc/server";
-import type { ClickHouseStatement } from "./clickhouse.js";
-import { queryClickhouse } from "./clickhouse.js";
 
 const logger = getLogger(["rudel", "api", "rate-limit"]);
 
@@ -104,69 +102,102 @@ export function checkWrappedResumeCreateRateLimit(userId: string) {
 	});
 }
 
-export interface RateLimitConfig {
-	maxRequests: number;
-	windowSeconds: number;
-	countQuery: (userId: string, windowSeconds: number) => ClickHouseStatement;
+// Ingest caps split by upload mode. Both count distinct session_ids in
+// a rolling window — Codex's per-turn re-uploads of the same session
+// collapse into one slot in either bucket. Hook and manual buckets are
+// independent: a bulk historical import does not affect the live-hook
+// budget, and vice versa.
+
+interface SessionIngestEntry {
+	sessions: Map<string, number>;
 }
 
-const ingestCountQuery = (
-	userId: string,
-	windowSeconds: number,
-): ClickHouseStatement => ({
-	query:
-		`SELECT sum(c) AS count FROM (` +
-		`SELECT count() AS c FROM rudel.claude_sessions WHERE user_id = {userId:String} AND ingested_at >= now64(3) - INTERVAL {window:UInt32} SECOND ` +
-		`UNION ALL ` +
-		`SELECT count() AS c FROM rudel.codex_sessions WHERE user_id = {userId:String} AND ingested_at >= now64(3) - INTERVAL {window:UInt32} SECOND` +
-		`)`,
-	query_params: { userId, window: windowSeconds },
-});
+const hookIngestWindows = new Map<string, SessionIngestEntry>();
+const manualIngestWindows = new Map<string, SessionIngestEntry>();
 
-export const INGEST_RATE_LIMIT: RateLimitConfig = {
-	maxRequests: Number(process.env.RATE_LIMIT_INGEST_MAX ?? 500),
-	windowSeconds: Number(process.env.RATE_LIMIT_INGEST_WINDOW ?? 3600),
-	countQuery: ingestCountQuery,
-};
+const HOOK_INGEST_MAX = Number(process.env.RATE_LIMIT_INGEST_MAX ?? 500);
+const HOOK_INGEST_WINDOW_MS =
+	Number(process.env.RATE_LIMIT_INGEST_WINDOW ?? 3600) * 1000;
 
-/**
- * Checks if a user has exceeded their rate limit.
- * Returns the current count, or null if the check failed (ClickHouse down).
- */
-export async function checkIngestRateLimit(
-	userId: string,
-	config: RateLimitConfig = INGEST_RATE_LIMIT,
-): Promise<void> {
-	const { maxRequests, windowSeconds, countQuery } = config;
+const MANUAL_INGEST_MAX = Number(
+	process.env.RATE_LIMIT_INGEST_MANUAL_MAX ?? 10_000,
+);
+const MANUAL_INGEST_WINDOW_MS =
+	Number(process.env.RATE_LIMIT_INGEST_MANUAL_WINDOW ?? 3600) * 1000;
 
-	try {
-		const rows = await queryClickhouse<{ count: number }>(
-			countQuery(userId, windowSeconds),
+function checkSessionIngestRateLimit(input: {
+	windows: Map<string, SessionIngestEntry>;
+	max: number;
+	windowMs: number;
+	label: string;
+	userId: string;
+	sessionId: string;
+}): void {
+	const { windows, max, windowMs, label, userId, sessionId } = input;
+	const now = Date.now();
+	const cutoff = now - windowMs;
+
+	let entry = windows.get(userId);
+	if (!entry) {
+		entry = { sessions: new Map() };
+		windows.set(userId, entry);
+	}
+
+	for (const [sid, ts] of entry.sessions) {
+		if (ts <= cutoff) entry.sessions.delete(sid);
+	}
+
+	const isNew = !entry.sessions.has(sessionId);
+	if (isNew && entry.sessions.size >= max) {
+		logger.warn(
+			"{label} ingest rate limit exceeded for user {userId}: {count}/{max} unique sessions in {window}s",
+			{
+				label,
+				userId,
+				count: entry.sessions.size,
+				max,
+				window: windowMs / 1000,
+			},
 		);
-		const count = rows[0]?.count ?? 0;
-
-		if (count >= maxRequests) {
-			logger.warn(
-				"Rate limit exceeded for user {userId}: {count}/{maxRequests} in {windowSeconds}s",
-				{ userId, count, maxRequests, windowSeconds },
-			);
-			throw new ORPCError("TOO_MANY_REQUESTS", {
-				message: `Rate limit exceeded. Maximum ${maxRequests} sessions per ${Math.round(windowSeconds / 60)} minutes. Try again later.`,
-				data: {
-					limit: maxRequests,
-					windowSeconds,
-					current: count,
-				},
-			});
-		}
-	} catch (error) {
-		if (error instanceof ORPCError) throw error;
-		// If ClickHouse is down, log and allow the request through.
-		// Availability > rate limiting.
-		logger.error("Rate limit check failed, allowing request: {error}", {
-			error,
+		throw new ORPCError("TOO_MANY_REQUESTS", {
+			message: `Rate limit exceeded. Maximum ${max} sessions per ${Math.round(windowMs / 60_000)} minutes. Try again later.`,
+			data: {
+				limit: max,
+				windowSeconds: windowMs / 1000,
+				current: entry.sessions.size,
+			},
 		});
 	}
+
+	entry.sessions.set(sessionId, now);
+}
+
+export function checkHookIngestRateLimit(
+	userId: string,
+	sessionId: string,
+): void {
+	checkSessionIngestRateLimit({
+		windows: hookIngestWindows,
+		max: HOOK_INGEST_MAX,
+		windowMs: HOOK_INGEST_WINDOW_MS,
+		label: "Hook",
+		userId,
+		sessionId,
+	});
+}
+
+export function checkManualIngestRateLimit(
+	userId: string,
+	sessionId: string,
+): void {
+	checkSessionIngestRateLimit({
+		windows: manualIngestWindows,
+		max: MANUAL_INGEST_MAX,
+		windowMs: MANUAL_INGEST_WINDOW_MS,
+		label: "Manual",
+		userId,
+		sessionId,
+	});
 }
 
 function checkSlidingWindowRateLimit(input: {

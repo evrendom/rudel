@@ -56,6 +56,7 @@ async function runTurnComplete(): Promise<void> {
 		const request = await codexAdapter.buildUploadRequest(sessionFile, {
 			gitInfo,
 			organizationId,
+			uploadMode: "hook",
 		});
 
 		const apiBase = process.env.RUDEL_API_BASE ?? credentials.apiBaseUrl;

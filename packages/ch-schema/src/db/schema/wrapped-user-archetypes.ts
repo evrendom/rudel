@@ -64,7 +64,7 @@ const rudel_wrapped_user_archetype_runs_v1 = table({
 		{ name: "scope", type: "LowCardinality(String)" },
 		{ name: "user_scope_count", type: "UInt32" },
 		{ name: "trigger_reason", type: "LowCardinality(String)" },
-		{ name: "trigger_source", type: "LowCardinality(String)", nullable: true },
+		{ name: "trigger_source", type: "LowCardinality(Nullable(String))" },
 		{ name: "trigger_session_id", type: "String", nullable: true },
 	],
 	primaryKey: [],

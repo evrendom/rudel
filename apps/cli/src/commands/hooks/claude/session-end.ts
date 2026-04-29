@@ -55,6 +55,7 @@ async function runSessionEnd(): Promise<void> {
 		const request = await claudeCodeAdapter.buildUploadRequest(sessionFile, {
 			gitInfo,
 			organizationId,
+			uploadMode: "hook",
 		});
 
 		const apiBase = process.env.RUDEL_API_BASE ?? credentials.apiBaseUrl;

@@ -242,6 +242,7 @@ class ClaudeCodeAdapter implements AgentAdapter {
 			content,
 			subagents: subagents.length > 0 ? subagents : undefined,
 			organizationId: context.organizationId,
+			upload_mode: context.uploadMode,
 		};
 	}
 

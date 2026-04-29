@@ -245,6 +245,7 @@ async function runEnable(): Promise<void> {
 					const request = await adapter.buildUploadRequest(session, {
 						gitInfo,
 						organizationId: selectedOrgId,
+						uploadMode: "manual",
 					});
 					return uploadSession(request, {
 						endpoint,

@@ -154,11 +154,14 @@ const rudel_session_analytics_mv = materializedView({
       splitByChar('\\n', cs.content)
     ) AS _assistant_lines,
 
+    arrayMap(
+      x -> JSONExtractString(JSONExtractRaw(x, 'message'), 'id'),
+      _assistant_lines
+    ) AS _assistant_ids,
+
     arrayFilter(
-      (x, i) -> i = length(_assistant_lines) OR
-        JSONExtractString(JSONExtractRaw(x, 'message'), 'id') !=
-        JSONExtractString(JSONExtractRaw(
-          arrayElement(_assistant_lines, toUInt32(i + 1)), 'message'), 'id'),
+      (x, i) -> i = length(_assistant_ids) OR
+        _assistant_ids[i] != _assistant_ids[i + 1],
       _assistant_lines,
       arrayEnumerate(_assistant_lines)
     ) AS _deduped_assistant_lines,
