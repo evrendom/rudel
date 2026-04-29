@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
 	buildInvitationEmailContent,
 	buildInvitationLink,
+	buildWrappedDesktopResumeLink,
 	getResendConfigWarnings,
 	sendOrganizationInvitationEmail,
 	syncSignupContact,
@@ -20,6 +21,15 @@ describe("email helpers", () => {
 		expect(buildInvitationLink("https://app.rudel.ai/", "invite_123")).toBe(
 			"https://app.rudel.ai/invitation/invite_123",
 		);
+	});
+
+	test("buildWrappedDesktopResumeLink trims trailing slashes", () => {
+		expect(
+			buildWrappedDesktopResumeLink(
+				"https://app.rudel.ai/",
+				"123e4567-e89b-12d3-a456-426614174000",
+			),
+		).toBe("https://app.rudel.ai/resume/123e4567-e89b-12d3-a456-426614174000");
 	});
 
 	test("buildInvitationEmailContent escapes user-controlled HTML", () => {

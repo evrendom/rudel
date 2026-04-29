@@ -133,6 +133,7 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 		forcedFlowStage === WRAPPED_ROUTE_DESKTOP_READY_FLOW;
 	const shouldForceStory =
 		forcedFlowStage === "story" && setupProgress.hasUploadedSessions;
+	const signedInMobileHandoffEmail = isMobile ? sessionUserEmail : undefined;
 
 	function setWrappedRouteFlowStage(nextStage: WrappedRouteFlowStage) {
 		startTransition(() => {
@@ -260,6 +261,13 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 		);
 	} else if (!session) {
 		content = <WrappedGuestPage />;
+	} else if (signedInMobileHandoffEmail) {
+		content = (
+			<WrappedDesktopResumePromptPage
+				email={signedInMobileHandoffEmail}
+				shareId={shareId}
+			/>
+		);
 	} else if (shouldShowCardProfileStep) {
 		content = (
 			<WrappedCardProfileStep
@@ -309,17 +317,6 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 		content = (
 			<WrappedTeamCardPage
 				onBackFromFirstStep={() => setWrappedRouteFlowStage("sessions-landed")}
-			/>
-		);
-	} else if (
-		isMobile &&
-		sessionUserEmail &&
-		!setupProgress.hasUploadedSessions
-	) {
-		content = (
-			<WrappedDesktopResumePromptPage
-				email={sessionUserEmail}
-				shareId={shareId}
 			/>
 		);
 	} else {
