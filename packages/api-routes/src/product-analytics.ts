@@ -134,6 +134,7 @@ export const ProductAnalyticsWrappedGrowthLoopEntrySourceSchema = z.enum([
 
 export const ProductAnalyticsWrappedShareActionSchema = z.enum([
 	"copy",
+	"copy_profile_url",
 	"download",
 	"share",
 ]);

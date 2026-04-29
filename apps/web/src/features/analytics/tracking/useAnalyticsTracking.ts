@@ -47,7 +47,7 @@ type WrappedGrowthLoopEntrySource =
 	| "wrapped_team_card"
 	| "direct";
 
-type WrappedShareAction = "copy" | "download" | "share";
+type WrappedShareAction = "copy" | "copy_profile_url" | "download" | "share";
 type WrappedShareDestination = "clipboard" | "download" | "x";
 
 type AnalyticsOverrides = {

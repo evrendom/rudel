@@ -692,8 +692,10 @@ function WrappedTeamCardPageContent(props: {
 	);
 }
 
-function getWrappedShareDestination(action: "copy" | "download" | "share") {
-	if (action === "copy") {
+function getWrappedShareDestination(
+	action: "copy" | "copy_profile_url" | "download" | "share",
+) {
+	if (action === "copy" || action === "copy_profile_url") {
 		return "clipboard";
 	}
 
