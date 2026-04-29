@@ -16,7 +16,10 @@ import {
 	hashProjectPath,
 } from "./lib/product-analytics.js";
 import { authMiddleware, ingestAuthMiddleware, os } from "./middleware.js";
-import { checkIngestRateLimit } from "./rate-limit.js";
+import {
+	checkHookIngestRateLimit,
+	checkManualIngestRateLimit,
+} from "./rate-limit.js";
 import {
 	deleteOrgSessions,
 	getOrgSessionCount,
@@ -145,7 +148,11 @@ const ingestSessionHandler = os.ingestSession
 						.activeOrganizationId as string)
 				: null;
 
-		await checkIngestRateLimit(context.user.id);
+		if (input.upload_mode === "manual" || input.upload_mode === "retry") {
+			checkManualIngestRateLimit(context.user.id, input.sessionId);
+		} else {
+			checkHookIngestRateLimit(context.user.id, input.sessionId);
+		}
 
 		const orgId = input.organizationId ?? activeOrgId ?? context.user.id;
 

@@ -33,8 +33,6 @@ interface UploadFlags {
 	concurrency: number;
 }
 
-const RATE_LIMIT_WARNING_THRESHOLD = 480;
-
 async function runInteractiveUpload(flags: UploadFlags): Promise<void> {
 	const credentials = loadCredentials();
 	if (!credentials && !flags.dryRun) {
@@ -98,20 +96,6 @@ async function runInteractiveUpload(flags: UploadFlags): Promise<void> {
 		`Uploading ${totalSessions} session(s) from ${selected.length} project(s)`,
 	);
 
-	if (totalSessions > RATE_LIMIT_WARNING_THRESHOLD) {
-		p.log.warn(
-			`You're about to upload ${totalSessions} sessions. The server allows 500 sessions per hour — uploads beyond that limit will fail and can be retried later with \`rudel upload --retry\`.`,
-		);
-		const shouldContinue = await p.confirm({
-			message: "Continue?",
-			initialValue: true,
-		});
-		if (p.isCancel(shouldContinue) || !shouldContinue) {
-			p.cancel("Upload cancelled.");
-			return;
-		}
-	}
-
 	const uploadConfig: UploadConfig = {
 		endpoint: flags.endpoint,
 		token: credentials?.token ?? "",
@@ -164,6 +148,7 @@ async function runInteractiveUpload(flags: UploadFlags): Promise<void> {
 				tag: flags.tag,
 				gitInfo: item.gitInfo,
 				organizationId: item.organizationId,
+				uploadMode: "manual",
 			});
 
 			if (!flags.tag && flags.classify) {
@@ -256,6 +241,7 @@ async function runSingleUpload(
 		tag: flags.tag,
 		gitInfo,
 		organizationId,
+		uploadMode: "manual",
 	});
 
 	write(`Transcript: ${request.content.length} bytes`);
@@ -326,12 +312,6 @@ async function runRetryUpload(flags: UploadFlags): Promise<void> {
 		p.log.warn(`  ...and ${failures.length - 10} more`);
 	}
 
-	if (failures.length > RATE_LIMIT_WARNING_THRESHOLD) {
-		p.log.warn(
-			`You're about to retry ${failures.length} sessions. The server allows 500 sessions per hour — uploads beyond that limit will fail and can be retried again later.`,
-		);
-	}
-
 	const shouldRetry = await p.confirm({
 		message: `Retry all ${failures.length} failed upload(s)?`,
 		initialValue: true,
@@ -381,6 +361,7 @@ async function runRetryUpload(flags: UploadFlags): Promise<void> {
 				tag: flags.tag,
 				gitInfo,
 				organizationId,
+				uploadMode: "retry",
 			});
 
 			return uploadSession(request, {
