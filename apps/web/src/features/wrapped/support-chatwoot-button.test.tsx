@@ -37,6 +37,7 @@ describe("WrappedSupportChatwootButton", () => {
 			name: "Close support",
 		});
 		expect(closeButtons).toHaveLength(1);
+		expect(closeButtons[0].querySelector(".lucide-circle-x")).not.toBeNull();
 		expect(closeButtons[0].parentElement).toBe(document.body);
 		expect(closeButtons[0]).toHaveStyle({
 			position: "fixed",
