@@ -2,7 +2,6 @@ import type { WrappedShareAppearance } from "@rudel/api-routes";
 import { IconBrandX } from "@tabler/icons-react";
 import {
 	ChevronRight,
-	Clipboard,
 	Download,
 	Link as LinkIcon,
 	Loader2,
@@ -18,6 +17,10 @@ import {
 	useState,
 } from "react";
 import { Button } from "@/app/ui/button";
+import {
+	CopyFeedbackIcon,
+	type CopyFeedbackStage,
+} from "@/components/ui/copy-feedback-icon";
 import type { TeamPageMemberRow } from "@/features/team/use-team-page-data";
 import { WrappedPrimaryAction } from "@/features/wrapped/actions";
 import type { WrappedOnboardingMetrics } from "@/features/wrapped/onboarding/types";
@@ -62,7 +65,7 @@ interface WrappedTeamCardShareStageProps extends WrappedTeamCardStageCardProps {
 	isProfileUrlCopyPending?: boolean;
 	isSharePending?: boolean;
 	onBack: () => void;
-	onCopy: () => void | Promise<void>;
+	onCopy: () => WrappedShareCopyResult | Promise<WrappedShareCopyResult>;
 	onCopyProfileUrl: () => void | Promise<void>;
 	onContinueToDashboard: () => void;
 	onDownload: () => void | Promise<void>;
@@ -136,6 +139,7 @@ interface WrappedRevealCopyInput {
 }
 
 type WrappedRevealIntroPhase = "name" | "line" | "accent" | "description";
+type WrappedShareCopyResult = boolean | undefined;
 
 /* ─────────────────────────────────────────────────────────
  * REVEAL COMPANION STORYBOARD
@@ -248,6 +252,8 @@ const REVEAL_STAGE_CARD_FLIP_DURATION_MS = Math.round(
 	REVEAL_STAGE_MOTION.duration.flip * 1_000,
 );
 const WRAPPED_FINAL_SHARE_CHROME_EASE = [0.22, 1, 0.36, 1] as const;
+const WRAPPED_SHARE_COPY_HOLD_MS = 2000;
+const WRAPPED_SHARE_COPY_RESET_MS = 170;
 
 export function WrappedTeamCardShareStage(
 	props: WrappedTeamCardShareStageProps,
@@ -282,6 +288,52 @@ export function WrappedTeamCardShareStage(
 	const reduceMotion = shouldReduceMotion ?? false;
 	const resolvedAppearance = resolveWrappedShareAppearance(appearance);
 	const shareObjectShellRef = useWrappedShareStageObjectSize();
+	const [copyStage, setCopyStage] = useState<CopyFeedbackStage>("idle");
+	const copyHoldTimeoutRef = useRef<number | null>(null);
+	const copyResetTimeoutRef = useRef<number | null>(null);
+
+	useEffect(() => {
+		return () => {
+			if (copyHoldTimeoutRef.current !== null) {
+				window.clearTimeout(copyHoldTimeoutRef.current);
+			}
+
+			if (copyResetTimeoutRef.current !== null) {
+				window.clearTimeout(copyResetTimeoutRef.current);
+			}
+		};
+	}, []);
+
+	function clearCopyFeedbackTimers() {
+		if (copyHoldTimeoutRef.current !== null) {
+			window.clearTimeout(copyHoldTimeoutRef.current);
+			copyHoldTimeoutRef.current = null;
+		}
+
+		if (copyResetTimeoutRef.current !== null) {
+			window.clearTimeout(copyResetTimeoutRef.current);
+			copyResetTimeoutRef.current = null;
+		}
+	}
+
+	async function handleCopyClick() {
+		const copyResult = await onCopy();
+
+		if (copyResult === false) {
+			return;
+		}
+
+		clearCopyFeedbackTimers();
+		setCopyStage("copied");
+		copyHoldTimeoutRef.current = window.setTimeout(() => {
+			setCopyStage("resetting");
+			copyHoldTimeoutRef.current = null;
+			copyResetTimeoutRef.current = window.setTimeout(() => {
+				setCopyStage("idle");
+				copyResetTimeoutRef.current = null;
+			}, WRAPPED_SHARE_COPY_RESET_MS);
+		}, WRAPPED_SHARE_COPY_HOLD_MS);
+	}
 
 	return (
 		<WrappedStageFrame
@@ -355,11 +407,18 @@ export function WrappedTeamCardShareStage(
 									type="button"
 									size="icon-sm"
 									variant="outline"
-									aria-label="Copy image"
+									aria-label={
+										copyStage === "copied" ? "Copied image" : "Copy image"
+									}
 									className="mymind-wrapped-share-toolbar__button"
-									onClick={onCopy}
+									data-copy-state={copyStage}
+									onClick={() => void handleCopyClick()}
 								>
-									<Clipboard className="size-4" />
+									<CopyFeedbackIcon
+										className="mymind-wrapped-share-toolbar__copy-icon"
+										stage={copyStage}
+										reduceMotion={reduceMotion}
+									/>
 								</Button>
 								<Button
 									type="button"

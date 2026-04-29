@@ -40,7 +40,7 @@ interface CreateWrappedImageShareActionsParams {
 }
 
 interface WrappedImageShareActions {
-	handleCopyImage: () => Promise<void>;
+	handleCopyImage: () => Promise<boolean>;
 	handleDownloadImage: () => Promise<void>;
 	handleShareImage: () => Promise<void>;
 	shareUrl: string | undefined;
@@ -193,7 +193,7 @@ export function createWrappedImageShareActions(
 		);
 	}
 
-	async function handleCopyImage() {
+	async function handleCopyImage(): Promise<boolean> {
 		onShareActionTriggered?.("copy");
 		const imageBlob = await captureShareImage({
 			captureOptions,
@@ -202,17 +202,18 @@ export function createWrappedImageShareActions(
 		});
 
 		if (!imageBlob) {
-			return;
+			return false;
 		}
 
 		const copied = await copyToClipboard(imageBlob);
 
 		if (copied) {
 			toast.success(messages.copySuccess);
-			return;
+			return true;
 		}
 
 		toast.error("Could not copy the image. Try downloading it instead.");
+		return false;
 	}
 
 	async function handleDownloadImage() {

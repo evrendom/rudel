@@ -54,6 +54,8 @@ vi.mock("motion/react", async () => {
 			h1: createPrimitive("h1"),
 			h2: createPrimitive("h2"),
 			p: createPrimitive("p"),
+			path: createPrimitive("path"),
+			rect: createPrimitive("rect"),
 			span: createPrimitive("span"),
 		},
 		useReducedMotion: () => false,
@@ -351,6 +353,68 @@ describe("WrappedTeamCardShareStage", () => {
 			"true",
 		);
 		expect(screen.getByText("Input/output tokens")).toBeInTheDocument();
+	});
+
+	it("shows copied feedback on the copy image button after a successful copy", async () => {
+		vi.useFakeTimers();
+		const onCopy = vi.fn().mockResolvedValue(true);
+
+		render(
+			<WrappedTeamCardShareStage
+				appearance={{ layoutMode: "front_back", showArchetypeLabel: true }}
+				backMetrics={buildWrappedTeamCardBackMetrics({
+					onboardingMetrics,
+					row,
+					shareCardCreatedAtLabel: "04/24/2026",
+				})}
+				headerLeftMetric={{ title: "$42 estimated spend", value: "$42" }}
+				headerRightMetric={{
+					title: "Smooth Operator",
+					value: "Smooth Operator",
+				}}
+				onAppearanceChange={vi.fn()}
+				onBack={vi.fn()}
+				onContinueToDashboard={vi.fn()}
+				onCopy={onCopy}
+				onCopyProfileUrl={vi.fn()}
+				onDownload={vi.fn()}
+				onShare={vi.fn()}
+				profileUrlLabel="rudel.ai/wrapped/public-card"
+				row={row}
+				shareCardCreatedAtLabel="04/24/2026"
+				sharePostRef={{ current: null }}
+				shellClassName="bg-sky-200"
+				shellStyle={{}}
+				statItems={[]}
+				statLayerOpacities={{
+					rainbowShineOpacity: 0.3,
+					textureOpacity: 1,
+					tileBorderOpacity: 1,
+					tileFillOpacity: 0.08,
+					tileInsetShadowOpacity: 0.5,
+					tileTopStrokeOpacity: 0.08,
+				}}
+				theme="light"
+			/>,
+		);
+
+		await act(async () => {
+			fireEvent.click(screen.getByRole("button", { name: "Copy image" }));
+			await Promise.resolve();
+		});
+
+		const copiedButton = screen.getByRole("button", { name: "Copied image" });
+		expect(onCopy).toHaveBeenCalledTimes(1);
+		expect(copiedButton).toHaveAttribute("data-copy-state", "copied");
+
+		act(() => {
+			vi.advanceTimersByTime(2_170);
+		});
+
+		expect(screen.getByRole("button", { name: "Copy image" })).toHaveAttribute(
+			"data-copy-state",
+			"idle",
+		);
 	});
 
 	it("shows a spinner in the download button while export is pending", () => {

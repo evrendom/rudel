@@ -47,7 +47,7 @@ interface CreateWrappedTeamCardShareActionsParams {
 
 interface WrappedTeamCardShareActions {
 	handleCopyProfileUrl: () => Promise<boolean>;
-	handleCopyPost: () => Promise<void>;
+	handleCopyPost: () => Promise<boolean>;
 	handleDownloadPost: () => Promise<void>;
 	handleSharePost: () => Promise<void>;
 	shareUrl: string | undefined;
