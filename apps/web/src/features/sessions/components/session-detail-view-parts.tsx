@@ -199,7 +199,7 @@ export function SessionTranscriptSummaryTab({
 		{
 			id: "user",
 			count: userMessages,
-			className: "bg-[color:var(--dashboardy-success-foreground)]",
+			className: "bg-[color:var(--dashboardy-chat-user-segment)]",
 		},
 		{
 			id: "assistant",
