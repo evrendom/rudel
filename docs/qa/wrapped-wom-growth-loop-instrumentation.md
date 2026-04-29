@@ -38,6 +38,42 @@ flowchart TD
   H -. "user skips share" .-> M
 ```
 
+## Deep Testing Coverage
+
+This pass was tested at three levels:
+
+| Layer | What was verified |
+| --- | --- |
+| Contract | `WrappedGrowthLoopEventSchema` accepts the new referred-signup, acquisition, and share-destination properties. |
+| Component firing | Public share, route-gate, acquisition attribution, and team-card share tests assert that the expected capture helpers fire with the expected payloads. |
+| Full repo | `bun run verify` passed across lint, types, tests, and build. |
+
+This is not a live PostHog ingestion test. It proves the browser code calls the
+typed capture layer with the right event names and properties; production
+ingestion should still be spot-checked in PostHog after deploy.
+
+## Screen Trigger Table
+
+The red hotbox marks the screen area that resolves or triggers the event. For
+load-fired events, the hotbox marks the surface the user must land on; for click
+events, it marks the control the user acts on.
+
+| Step | Event | Screen | User action that fires or precedes the event | Hotbox meaning |
+| --- | --- | --- | --- | --- |
+| 1 | `Wrapped Share Viewed` | <img src="./assets/wrapped-wom/01-share-viewed.svg" width="170" alt="Public wrapped share view with card hotbox" /> | Open a public wrapped profile link. | The loaded public card snapshot. |
+| 2 | `Wrapped Share CTA Clicked` | <img src="./assets/wrapped-wom/02-share-cta-clicked.svg" width="170" alt="Public wrapped share CTA with Make yours hotbox" /> | Click `Make yours` from the public share. | The conversion CTA. |
+| 3 | `Wrapped Referred Signup Completed` | <img src="./assets/wrapped-wom/03-referred-signup.svg" width="170" alt="Wrapped signup screen with signup action hotbox" /> | Complete signup after entering from `share_id`. | The account creation action that produces the post-auth referred session. |
+| 4 | `Wrapped Onboarding Started` | <img src="./assets/wrapped-wom/05-onboarding-started.svg" width="170" alt="Wrapped setup screen with first setup command hotbox" /> | Land in `/wrapped` after auth/session resolution. | The setup surface that starts conversion work. |
+| 5 | `Wrapped Profile Completed` | <img src="./assets/wrapped-wom/04-profile-completed.svg" width="170" alt="Wrapped card profile screen with Continue hotbox" /> | Finish the card profile step and continue. | The profile completion CTA. |
+| 6 | `UI Utility Used: desktopLinkSent` | No separate screenshot in this pass. | On mobile without uploads, request the desktop continuation link. | The desktop handoff prompt is auxiliary, not core WOM. |
+| 7 | `Wrapped Activation Completed` | <img src="./assets/wrapped-wom/06-activation-completed.svg" width="170" alt="Wrapped sessions landed screen with continue hotbox" /> | Continue after uploaded sessions are detected. | The sessions-ready continuation CTA. |
+| 8 | `Wrapped Story Started` | <img src="./assets/wrapped-wom/07-story-started.svg" width="170" alt="Wrapped story start screen with story stage hotbox" /> | Enter the wrapped story after activation. | The story stage surface on mount. |
+| 9 | `UI Utility Used: wrappedStageViewed` | <img src="./assets/wrapped-wom/07-story-started.svg" width="170" alt="Wrapped story viewed screen with stage hotbox" /> | Same story entry as step 8. | Diagnostic stage-view surface. |
+| 10 | `UI Utility Used: wrappedSharePreviewOpened` | <img src="./assets/wrapped-wom/08-share-preview-opened.svg" width="170" alt="Wrapped reveal screen with share preview continue hotbox" /> | Continue from the final reveal into the share preview. | The reveal footer action. |
+| 11 | `Wrapped Share Action Triggered` | <img src="./assets/wrapped-wom/09-share-action-triggered.svg" width="170" alt="Wrapped share stage with Share on X hotbox" /> | Click `Share on X`, copy image, or download PNG. | A distribution action; screenshot shows X share. |
+| 12 | `Wrapped Share Created` | <img src="./assets/wrapped-wom/09-share-action-triggered.svg" width="170" alt="Wrapped share stage with share action hotbox" /> | Complete a share action that needs a public URL. | Same share action, but this event fires once a persistent child share exists. |
+| 13 | `Dashboard Navigation Clicked: wrappedContinueToDashboard` | <img src="./assets/wrapped-wom/10-dashboard-exit.svg" width="170" alt="Wrapped share stage with dashboard continue hotbox" /> | Click `Continue to dashboard`. | The wrapped exit CTA. |
+
 ## Event Contract
 
 ### Common Web Envelope
