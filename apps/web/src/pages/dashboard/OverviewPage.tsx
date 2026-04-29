@@ -19,14 +19,13 @@ import { UsageTrendChart } from "@/components/charts/UsageTrendChart";
 import { Spinner } from "@/components/ui/spinner";
 import { useDateRange } from "@/contexts/DateRangeContext";
 import { useAnalyticsQuery } from "@/hooks/useAnalyticsQuery";
-import { useDashboardAnalytics } from "@/hooks/useDashboardAnalytics";
+import { useAnalyticsTracking } from "@/hooks/useDashboardAnalytics";
 import {
 	type DashboardSection,
 	useTrackDashboardView,
 } from "@/hooks/useTrackDashboardView";
 import { orpc } from "@/lib/orpc";
 import {
-	captureDashboardLoadFailed,
 	getHttpStatusFromError,
 	normalizeWebErrorCode,
 } from "@/lib/product-analytics";
@@ -46,8 +45,13 @@ function deriveInsightKey(insight: {
 export function OverviewPage() {
 	const { startDate, endDate, setStartDate, setEndDate } = useDateRange();
 	const failedRangeKeyRef = useRef<string | null>(null);
-	const { organizationId, userId, pageName, dateRangeDays } =
-		useDashboardAnalytics();
+	const {
+		organizationId,
+		userId,
+		pageName,
+		dateRangeDays,
+		trackDashboardLoadFailed,
+	} = useAnalyticsTracking();
 
 	const {
 		data: kpis,
@@ -164,15 +168,12 @@ export function OverviewPage() {
 			}
 
 			failedRangeKeyRef.current = failedRangeKey;
-			captureDashboardLoadFailed({
-				organization_id: organizationId,
-				user_id: userId,
-				page_name: pageName,
-				query_name: "overview_kpis",
-				error_code: normalizeWebErrorCode(kpisQueryError),
-				date_range_days: dateRangeDays,
-				is_blocking: true,
-				http_status: getHttpStatusFromError(kpisQueryError),
+			trackDashboardLoadFailed({
+				queryName: "overview_kpis",
+				errorCode: normalizeWebErrorCode(kpisQueryError),
+				dateRangeDays,
+				isBlocking: true,
+				httpStatus: getHttpStatusFromError(kpisQueryError),
 			});
 		}
 	}, [
@@ -184,6 +185,7 @@ export function OverviewPage() {
 		organizationId,
 		pageName,
 		startDate,
+		trackDashboardLoadFailed,
 		userId,
 	]);
 

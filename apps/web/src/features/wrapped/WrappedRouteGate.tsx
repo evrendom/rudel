@@ -73,12 +73,18 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 	const location = useLocation();
 	const [searchParams, setSearchParams] = useSearchParams();
 	const isMobile = useIsMobile();
-	const { trackUtilityUsed } = useAnalyticsTracking({
+	const {
+		trackWrappedActivationCompleted,
+		trackWrappedOnboardingStarted,
+		trackWrappedProfileCompleted,
+		trackWrappedReferredSignupCompleted,
+	} = useAnalyticsTracking({
 		// The analytics contract still calls the public surface "wrapped_share".
 		// Keep that stable until the event schema is renamed on the backend too.
 		pageName: publicId ? "wrapped_share" : "wrapped_team_card",
 	});
 	const shareId = getWrappedShareIdFromSearch(location.search);
+	const wrappedLoopEntrySource = shareId ? "share_redirect" : "direct";
 	const sessionUserId = getSessionUserId(session);
 	const sessionUserEmail = getSessionUserEmail(session);
 	const setupProgress = useSetupProgress({
@@ -102,6 +108,8 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 	const forcedFlowStage = getWrappedRouteFlowStage(
 		searchParams.get(WRAPPED_ROUTE_FLOW_QUERY_PARAM),
 	);
+	const isWrappedNewUserFlow =
+		forcedFlowStage === WRAPPED_ROUTE_CARD_PROFILE_FLOW;
 
 	const hasCompletedSetup =
 		sessionUserId === null
@@ -115,6 +123,10 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 				guestPreviewSnapshot,
 				sessionUserId,
 			));
+	const isKnownWrappedNewUser =
+		isWrappedNewUserFlow ||
+		(sessionUserId !== null &&
+			completedCardProfileUserIds[sessionUserId] === true);
 	const hasCompletedCardProfileWithImage =
 		sessionUserId !== null &&
 		(completedCardProfileUserIds[sessionUserId] === true ||
@@ -199,6 +211,14 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 			...currentState,
 			[sessionUserId]: true,
 		}));
+		trackWrappedActivationCompleted({
+			activationState: "setup_completed",
+			entrySource: wrappedLoopEntrySource,
+			isNewUser: isKnownWrappedNewUser,
+			resolvedEntryRoute: location.pathname,
+			sourceComponent: "wrapped_route_gate",
+			sourceShareId: shareId ?? undefined,
+		});
 		startWrappedStoryFromBeginning();
 	}
 
@@ -237,6 +257,14 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 			...currentState,
 			[sessionUserId]: true,
 		}));
+		trackWrappedProfileCompleted({
+			activationState: "profile_completed",
+			entrySource: wrappedLoopEntrySource,
+			isNewUser: true,
+			resolvedEntryRoute: location.pathname,
+			sourceComponent: "wrapped_route_gate",
+			sourceShareId: shareId ?? undefined,
+		});
 		setWrappedRouteFlowStage(WRAPPED_ROUTE_DESKTOP_READY_FLOW);
 	}
 
@@ -250,25 +278,44 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 
 	useEffectOnceWhen({
 		effect: () => {
-			trackUtilityUsed({
+			if (!shareId) {
+				return;
+			}
+
+			trackWrappedReferredSignupCompleted({
+				activationState: "signup_completed",
 				entrySource: "share_redirect",
+				isNewUser: true,
 				resolvedEntryRoute: location.pathname,
-				shareId: shareId ?? undefined,
 				sourceComponent: "wrapped_route_gate",
-				targetId: shareId ?? undefined,
-				utilityName: "onboardingStartedFromShare",
-				utilityState: setupProgress.hasUploadedSessions
-					? "sessionsReady"
-					: "uploadRequired",
+				sourceShareId: shareId,
 			});
 		},
 		isReady:
 			!publicId &&
 			!isPending &&
 			!!session &&
-			!!shareId &&
-			!setupProgress.isLoading,
-		key: shareId,
+			sessionUserId !== null &&
+			shareId !== null &&
+			isWrappedNewUserFlow,
+		key: `${shareId ?? "none"}:${sessionUserId ?? "anonymous"}`,
+	});
+
+	useEffectOnceWhen({
+		effect: () => {
+			trackWrappedOnboardingStarted({
+				activationState: setupProgress.hasUploadedSessions
+					? "sessions_ready"
+					: "upload_required",
+				entrySource: wrappedLoopEntrySource,
+				isNewUser: isKnownWrappedNewUser,
+				resolvedEntryRoute: location.pathname,
+				sourceComponent: "wrapped_route_gate",
+				sourceShareId: shareId ?? undefined,
+			});
+		},
+		isReady: !publicId && !isPending && !!session && !setupProgress.isLoading,
+		key: shareId ?? sessionUserId,
 	});
 
 	let content: ReactNode;

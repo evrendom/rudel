@@ -1,5 +1,6 @@
 import type { PublicWrappedShare, WrappedShareRow } from "@rudel/api-routes";
 import type { CSSProperties } from "react";
+import { useLocation } from "react-router-dom";
 import { appRoutes } from "@/app/routes";
 import { buttonVariants } from "@/app/ui/button";
 import { useAnalyticsTracking } from "@/features/analytics/tracking/useAnalyticsTracking";
@@ -15,6 +16,7 @@ import {
 } from "@/features/wrapped/WrappedPublicCardScreen";
 import { useEffectOnceWhen } from "@/hooks/useEffectOnceWhen";
 import { useMountEffect } from "@/hooks/useMountEffect";
+import { getDocumentReferrerDomain } from "@/lib/acquisition-attribution";
 import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
 import { useWrappedPublicPage } from "./use-wrapped-public-page";
@@ -39,14 +41,20 @@ const PUBLIC_SHARE_CARD_SHELL_STYLE = {
 // depends on the viewer's private analytics/session queries.
 export function WrappedPublicPage(props: WrappedPublicPageProps) {
 	const { publicId } = props;
+	const location = useLocation();
 	const { data: session } = authClient.useSession();
-	const { trackUtilityUsed } = useAnalyticsTracking({
-		// The analytics contract still uses the older "wrapped_share" page name.
-		pageName: "wrapped_share",
-	});
+	const { trackWrappedShareCtaClicked, trackWrappedShareViewed } =
+		useAnalyticsTracking({
+			// The analytics contract still uses the older "wrapped_share" page name.
+			pageName: "wrapped_share",
+		});
 	const publicPageQuery = useWrappedPublicPage(publicId);
 	const sessionUserId = getSessionUserId(session);
-	const makeYoursHref = appRoutes.wrappedTeamCardFromShare(publicId);
+	const makeYoursHref = appRoutes.wrappedTeamCardFromShare(
+		publicId,
+		location.search,
+		getDocumentReferrerDomain(),
+	);
 
 	// The wrapped surface uses a route-scoped body class for full-screen styling.
 	// We keep that concern isolated to mount/unmount instead of threading layout
@@ -60,18 +68,17 @@ export function WrappedPublicPage(props: WrappedPublicPageProps) {
 	});
 
 	// Count the share view once the public payload has actually loaded. That keeps
-	// "shareViewed" tied to a real, resolvable share instead of every attempted
-	// route hit or loading state.
+	// the exposure event tied to a real, resolvable share instead of every
+	// attempted route hit or loading state.
 	useEffectOnceWhen({
 		effect: () => {
-			trackUtilityUsed({
+			trackWrappedShareViewed({
 				entrySource: "public_share",
 				isAuthenticatedViewer: sessionUserId !== null,
+				isNewUser: sessionUserId !== null ? false : undefined,
 				shareId: publicId,
 				sourceComponent: "wrapped_public_page",
-				targetId: publicId,
-				utilityName: "shareViewed",
-				utilityState: sessionUserId !== null ? "authenticated" : "anonymous",
+				activationState: sessionUserId !== null ? "authenticated" : "anonymous",
 			});
 		},
 		isReady: Boolean(publicPageQuery.data),
@@ -92,14 +99,13 @@ export function WrappedPublicPage(props: WrappedPublicPageProps) {
 		<PublicShareReadyState
 			makeYoursHref={makeYoursHref}
 			onMakeYoursClick={() => {
-				trackUtilityUsed({
+				trackWrappedShareCtaClicked({
 					entrySource: "public_share",
+					isNewUser: sessionUserId !== null ? false : undefined,
 					redirectTarget: makeYoursHref,
 					shareId: publicId,
 					sourceComponent: "wrapped_public_page",
-					targetId: publicId,
-					utilityName: "makeYoursClicked",
-					utilityState:
+					activationState:
 						sessionUserId !== null ? "authenticated" : "guest_redirect",
 				});
 			}}

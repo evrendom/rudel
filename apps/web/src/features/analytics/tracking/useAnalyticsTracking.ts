@@ -1,6 +1,7 @@
 import { useLocation } from "react-router-dom";
 import { useOptionalDateRange } from "@/features/analytics/date-range/useDateRange";
 import { useOptionalOrganization } from "@/features/workspace/organization/useOrganization";
+import { getWebAcquisitionAttribution } from "@/lib/acquisition-attribution";
 import { authClient } from "@/lib/auth-client";
 import {
 	type AppPageName,
@@ -8,18 +9,46 @@ import {
 	captureChartExportTriggered,
 	captureDashboardDrilldownOpened,
 	captureDashboardFilterChanged,
+	captureDashboardLoadFailed,
 	captureDashboardNavigationClicked,
 	captureOrganizationActionTriggered,
 	captureUiUtilityUsed,
+	captureWrappedActivationCompleted,
+	captureWrappedOnboardingStarted,
+	captureWrappedProfileCompleted,
+	captureWrappedReferredSignupCompleted,
+	captureWrappedShareActionTriggered,
+	captureWrappedShareCreated,
+	captureWrappedShareCtaClicked,
+	captureWrappedShareViewed,
+	captureWrappedStoryStarted,
 	type DashboardPageName,
 	getAnalyticsPageName,
 	isDashboardPageName,
 } from "@/lib/product-analytics";
 
-interface UseAnalyticsOptions {
+export interface UseAnalyticsOptions {
 	organizationId?: string | null;
 	pageName?: AppPageName | null;
 }
+
+type ProductAnalyticsActionResult = "started" | "succeeded" | "failed";
+
+type WrappedGrowthLoopPhase =
+	| "exposure"
+	| "conversion"
+	| "activation"
+	| "production"
+	| "distribution";
+
+type WrappedGrowthLoopEntrySource =
+	| "public_share"
+	| "share_redirect"
+	| "wrapped_team_card"
+	| "direct";
+
+type WrappedShareAction = "copy" | "copy_profile_url" | "download" | "share";
+type WrappedShareDestination = "clipboard" | "download" | "x";
 
 type AnalyticsOverrides = {
 	dateRangeDays?: number;
@@ -41,6 +70,55 @@ type DashboardAnalyticsPayload = AnalyticsPayload & {
 	organization_id: string;
 	user_id: string;
 };
+
+type WrappedGrowthLoopInput = {
+	sourceComponent: string;
+	entrySource: WrappedGrowthLoopEntrySource;
+	sourceShareId?: string;
+	shareId?: string;
+	redirectTarget?: string;
+	archetypeId?: string;
+	publicPayloadVersion?: number;
+	isAuthenticatedViewer?: boolean;
+	isNewUser?: boolean;
+	launchChannel?: string;
+	referrerDomain?: string;
+	resolvedEntryRoute?: string;
+	activationState?: string;
+	shareAction?: WrappedShareAction;
+	shareDestination?: WrappedShareDestination;
+	utmCampaign?: string;
+	utmContent?: string;
+	utmMedium?: string;
+	utmSource?: string;
+	utmTerm?: string;
+} & AnalyticsOverrides;
+
+type WrappedGrowthLoopPayload = AnalyticsPayload & {
+	growth_loop: "wrapped_profile_wom";
+	loop_phase: WrappedGrowthLoopPhase;
+	entry_source: WrappedGrowthLoopEntrySource;
+	source_share_id?: string;
+	share_id?: string;
+	redirect_target?: string;
+	archetype_id?: string;
+	public_payload_version?: number;
+	is_authenticated_viewer?: boolean;
+	is_new_user?: boolean;
+	launch_channel?: string;
+	referrer_domain?: string;
+	resolved_entry_route?: string;
+	activation_state?: string;
+	share_action?: WrappedShareAction;
+	share_destination?: WrappedShareDestination;
+	utm_campaign?: string;
+	utm_content?: string;
+	utm_medium?: string;
+	utm_source?: string;
+	utm_term?: string;
+};
+
+const WRAPPED_GROWTH_LOOP_NAME = "wrapped_profile_wom";
 
 function normalizeOptionalString(value: string | null | undefined) {
 	if (!value) {
@@ -71,6 +149,7 @@ export function useAnalyticsContext(options?: UseAnalyticsOptions) {
 		pageName,
 		dateRangeDays: dateRange?.meta.dayCount,
 		pathname: location.pathname,
+		wrappedAcquisition: getWebAcquisitionAttribution(location.search),
 	};
 }
 
@@ -122,6 +201,45 @@ export function useAnalyticsTracking(options?: UseAnalyticsOptions) {
 		};
 	}
 
+	function buildWrappedGrowthLoopPayload(
+		input: WrappedGrowthLoopInput,
+		loopPhase: WrappedGrowthLoopPhase,
+	): WrappedGrowthLoopPayload | null {
+		const payload = buildBasePayload(input);
+
+		if (!payload) {
+			return null;
+		}
+
+		return {
+			...payload,
+			growth_loop: WRAPPED_GROWTH_LOOP_NAME,
+			loop_phase: loopPhase,
+			entry_source: input.entrySource,
+			source_share_id: input.sourceShareId,
+			share_id: input.shareId,
+			redirect_target: input.redirectTarget,
+			archetype_id: input.archetypeId,
+			public_payload_version: input.publicPayloadVersion,
+			is_authenticated_viewer: input.isAuthenticatedViewer,
+			is_new_user: input.isNewUser,
+			launch_channel:
+				input.launchChannel ?? analytics.wrappedAcquisition.launch_channel,
+			referrer_domain:
+				input.referrerDomain ?? analytics.wrappedAcquisition.referrer_domain,
+			resolved_entry_route: input.resolvedEntryRoute,
+			activation_state: input.activationState,
+			share_action: input.shareAction,
+			share_destination: input.shareDestination,
+			utm_campaign:
+				input.utmCampaign ?? analytics.wrappedAcquisition.utm_campaign,
+			utm_content: input.utmContent ?? analytics.wrappedAcquisition.utm_content,
+			utm_medium: input.utmMedium ?? analytics.wrappedAcquisition.utm_medium,
+			utm_source: input.utmSource ?? analytics.wrappedAcquisition.utm_source,
+			utm_term: input.utmTerm ?? analytics.wrappedAcquisition.utm_term,
+		};
+	}
+
 	function trackNavigation(
 		input: {
 			navType: string;
@@ -147,6 +265,30 @@ export function useAnalyticsTracking(options?: UseAnalyticsOptions) {
 			target_id: input.targetId,
 			to_page_name: input.toPageName,
 			rank: input.rank,
+		});
+	}
+
+	function trackDashboardLoadFailed(
+		input: {
+			queryName: string;
+			errorCode: string;
+			isBlocking: boolean;
+			httpStatus?: number;
+		} & AnalyticsOverrides,
+	) {
+		const payload = buildDashboardPayload(input);
+
+		if (!payload || payload.date_range_days == null) {
+			return;
+		}
+
+		captureDashboardLoadFailed({
+			...payload,
+			query_name: input.queryName,
+			error_code: input.errorCode,
+			date_range_days: payload.date_range_days,
+			is_blocking: input.isBlocking,
+			http_status: input.httpStatus,
 		});
 	}
 
@@ -237,7 +379,7 @@ export function useAnalyticsTracking(options?: UseAnalyticsOptions) {
 			authMethod?: string;
 			entrypoint?: string;
 			targetId?: string;
-			result?: "succeeded" | "failed";
+			result?: ProductAnalyticsActionResult;
 			errorCode?: string;
 			httpStatus?: number;
 		} & AnalyticsOverrides,
@@ -268,7 +410,7 @@ export function useAnalyticsTracking(options?: UseAnalyticsOptions) {
 			targetId?: string;
 			targetRole?: string;
 			provider?: string;
-			result?: "succeeded" | "failed";
+			result?: ProductAnalyticsActionResult;
 			errorCode?: string;
 			httpStatus?: number;
 		} & AnalyticsOverrides,
@@ -292,6 +434,28 @@ export function useAnalyticsTracking(options?: UseAnalyticsOptions) {
 		});
 	}
 
+	function trackUtility(
+		input: {
+			utilityName: string;
+			componentId: string;
+			sourceComponent?: string;
+			utilityState?: string;
+		} & AnalyticsOverrides,
+	) {
+		const payload = buildBasePayload(input);
+
+		if (!payload) {
+			return;
+		}
+
+		captureUiUtilityUsed({
+			...payload,
+			utility_name: input.utilityName,
+			component_id: input.componentId,
+			utility_state: input.utilityState,
+		});
+	}
+
 	function trackUtilityUsed(
 		input: {
 			utilityName: string;
@@ -308,17 +472,12 @@ export function useAnalyticsTracking(options?: UseAnalyticsOptions) {
 			utilityState?: string;
 		} & AnalyticsOverrides,
 	) {
-		// UI utility events are our lowest-friction product instrumentation seam.
-		// We keep this helper small and generic so feature code can log concrete
-		// product actions without needing a new analytics wrapper every time.
 		const payload = buildBasePayload(input);
 
 		if (!payload) {
 			return;
 		}
 
-		// target_id is optional by design. Some actions only need a name and state,
-		// while wrapped share events need the share id for funnel attribution.
 		captureUiUtilityUsed({
 			...payload,
 			utility_name: input.utilityName,
@@ -336,14 +495,115 @@ export function useAnalyticsTracking(options?: UseAnalyticsOptions) {
 		});
 	}
 
+	function trackWrappedShareViewed(input: WrappedGrowthLoopInput) {
+		const payload = buildWrappedGrowthLoopPayload(input, "exposure");
+
+		if (!payload) {
+			return;
+		}
+
+		captureWrappedShareViewed(payload);
+	}
+
+	function trackWrappedShareCtaClicked(input: WrappedGrowthLoopInput) {
+		const payload = buildWrappedGrowthLoopPayload(input, "conversion");
+
+		if (!payload) {
+			return;
+		}
+
+		captureWrappedShareCtaClicked(payload);
+	}
+
+	function trackWrappedOnboardingStarted(input: WrappedGrowthLoopInput) {
+		const payload = buildWrappedGrowthLoopPayload(input, "conversion");
+
+		if (!payload) {
+			return;
+		}
+
+		captureWrappedOnboardingStarted(payload);
+	}
+
+	function trackWrappedReferredSignupCompleted(input: WrappedGrowthLoopInput) {
+		const payload = buildWrappedGrowthLoopPayload(input, "conversion");
+
+		if (!payload) {
+			return;
+		}
+
+		captureWrappedReferredSignupCompleted(payload);
+	}
+
+	function trackWrappedProfileCompleted(input: WrappedGrowthLoopInput) {
+		const payload = buildWrappedGrowthLoopPayload(input, "activation");
+
+		if (!payload) {
+			return;
+		}
+
+		captureWrappedProfileCompleted(payload);
+	}
+
+	function trackWrappedActivationCompleted(input: WrappedGrowthLoopInput) {
+		const payload = buildWrappedGrowthLoopPayload(input, "activation");
+
+		if (!payload) {
+			return;
+		}
+
+		captureWrappedActivationCompleted(payload);
+	}
+
+	function trackWrappedStoryStarted(input: WrappedGrowthLoopInput) {
+		const payload = buildWrappedGrowthLoopPayload(input, "production");
+
+		if (!payload) {
+			return;
+		}
+
+		captureWrappedStoryStarted(payload);
+	}
+
+	function trackWrappedShareCreated(input: WrappedGrowthLoopInput) {
+		const payload = buildWrappedGrowthLoopPayload(input, "production");
+
+		if (!payload) {
+			return;
+		}
+
+		captureWrappedShareCreated(payload);
+	}
+
+	function trackWrappedShareActionTriggered(input: WrappedGrowthLoopInput) {
+		const payload = buildWrappedGrowthLoopPayload(input, "distribution");
+
+		if (!payload) {
+			return;
+		}
+
+		captureWrappedShareActionTriggered(payload);
+	}
+
 	return {
 		...analytics,
 		trackAuthenticationAction,
 		trackChartExport,
+		trackDashboardLoadFailed,
 		trackDrilldown,
 		trackFilterChange,
 		trackNavigation,
 		trackOrganizationAction,
+		trackUtility,
 		trackUtilityUsed,
+		trackWrappedActivationCompleted,
+		trackWrappedOnboardingStarted,
+		trackWrappedProfileCompleted,
+		trackWrappedReferredSignupCompleted,
+		trackWrappedShareActionTriggered,
+		trackWrappedShareCreated,
+		trackWrappedShareCtaClicked,
+		trackWrappedShareViewed,
+		trackWrappedStoryStarted,
 	};
 }

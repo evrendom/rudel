@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, useSearchParams } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -13,12 +13,18 @@ import {
 import { getWrappedSetupCompletionStorageKey } from "@/features/wrapped/wrapped-setup-state";
 
 const {
-	mockTrackUtilityUsed,
+	mockTrackWrappedActivationCompleted,
+	mockTrackWrappedOnboardingStarted,
+	mockTrackWrappedProfileCompleted,
+	mockTrackWrappedReferredSignupCompleted,
 	mockUseCliSetupStatus,
 	mockUseIsMobile,
 	mockUseSetupProgress,
 } = vi.hoisted(() => ({
-	mockTrackUtilityUsed: vi.fn(),
+	mockTrackWrappedActivationCompleted: vi.fn(),
+	mockTrackWrappedOnboardingStarted: vi.fn(),
+	mockTrackWrappedProfileCompleted: vi.fn(),
+	mockTrackWrappedReferredSignupCompleted: vi.fn(),
 	mockUseCliSetupStatus: vi.fn(),
 	mockUseIsMobile: vi.fn(),
 	mockUseSetupProgress: vi.fn(),
@@ -30,7 +36,11 @@ vi.mock("@/app/hooks/use-mobile", () => ({
 
 vi.mock("@/features/analytics/tracking/useAnalyticsTracking", () => ({
 	useAnalyticsTracking: () => ({
-		trackUtilityUsed: mockTrackUtilityUsed,
+		trackWrappedActivationCompleted: mockTrackWrappedActivationCompleted,
+		trackWrappedOnboardingStarted: mockTrackWrappedOnboardingStarted,
+		trackWrappedProfileCompleted: mockTrackWrappedProfileCompleted,
+		trackWrappedReferredSignupCompleted:
+			mockTrackWrappedReferredSignupCompleted,
 	}),
 }));
 
@@ -224,7 +234,10 @@ function markWrappedCardProfileComplete() {
 
 describe("WrappedRouteGate", () => {
 	beforeEach(() => {
-		mockTrackUtilityUsed.mockReset();
+		mockTrackWrappedActivationCompleted.mockReset();
+		mockTrackWrappedOnboardingStarted.mockReset();
+		mockTrackWrappedProfileCompleted.mockReset();
+		mockTrackWrappedReferredSignupCompleted.mockReset();
 		mockUseIsMobile.mockReset();
 		mockUseCliSetupStatus.mockReset();
 		mockUseSetupProgress.mockReset();
@@ -533,6 +546,75 @@ describe("WrappedRouteGate", () => {
 		expect(screen.getByRole("button", { name: "Continue" })).toBeDisabled();
 	});
 
+	it("tracks onboarding start from a source share redirect", async () => {
+		render(
+			<MemoryRouter initialEntries={["/wrapped?share_id=source-share-1"]}>
+				<WrappedRouteGate isPending={false} publicId={null} session={session} />
+			</MemoryRouter>,
+		);
+
+		await waitFor(() => {
+			expect(mockTrackWrappedOnboardingStarted).toHaveBeenCalledWith({
+				activationState: "upload_required",
+				entrySource: "share_redirect",
+				isNewUser: false,
+				resolvedEntryRoute: "/wrapped",
+				sourceComponent: "wrapped_route_gate",
+				sourceShareId: "source-share-1",
+			});
+		});
+	});
+
+	it("tracks referred signup completion when a source share creates a new user", async () => {
+		clearWrappedGuestPreviewSnapshot();
+
+		render(
+			<MemoryRouter
+				initialEntries={["/wrapped?flow=card-profile&share_id=source-share-1"]}
+			>
+				<WrappedRouteGate isPending={false} publicId={null} session={session} />
+			</MemoryRouter>,
+		);
+
+		await waitFor(() => {
+			expect(mockTrackWrappedReferredSignupCompleted).toHaveBeenCalledWith({
+				activationState: "signup_completed",
+				entrySource: "share_redirect",
+				isNewUser: true,
+				resolvedEntryRoute: "/wrapped",
+				sourceComponent: "wrapped_route_gate",
+				sourceShareId: "source-share-1",
+			});
+		});
+	});
+
+	it("tracks profile completion with source share attribution", async () => {
+		const user = userEvent.setup();
+		clearWrappedGuestPreviewSnapshot();
+
+		render(
+			<MemoryRouter
+				initialEntries={["/wrapped?flow=card-profile&share_id=source-share-1"]}
+			>
+				<WrappedRouteGate isPending={false} publicId={null} session={session} />
+			</MemoryRouter>,
+		);
+
+		await user.click(
+			screen.getByRole("button", { name: "Set profile picture" }),
+		);
+		await user.click(screen.getByRole("button", { name: "Continue profile" }));
+
+		expect(mockTrackWrappedProfileCompleted).toHaveBeenCalledWith({
+			activationState: "profile_completed",
+			entrySource: "share_redirect",
+			isNewUser: true,
+			resolvedEntryRoute: "/wrapped",
+			sourceComponent: "wrapped_route_gate",
+			sourceShareId: "source-share-1",
+		});
+	});
+
 	it("renders upload setup when CLI login is complete but no sessions were uploaded", () => {
 		mockUseCliSetupStatus.mockReturnValue({
 			hasCliLogin: true,
@@ -818,5 +900,36 @@ describe("WrappedRouteGate", () => {
 		await user.click(screen.getByRole("button", { name: "Start story" }));
 		expect(screen.getByText("Wrapped story")).toBeInTheDocument();
 		expect(screen.getByText("Story step: none")).toBeInTheDocument();
+	});
+
+	it("tracks setup activation completion with source share attribution", async () => {
+		const user = userEvent.setup();
+
+		mockUseSetupProgress.mockReturnValue({
+			hasUploadedSessions: true,
+			isLoading: false,
+			totalSessionCount: 3,
+		});
+
+		render(
+			<MemoryRouter
+				initialEntries={[
+					"/wrapped?flow=sessions-landed&share_id=source-share-1",
+				]}
+			>
+				<WrappedRouteGate isPending={false} publicId={null} session={session} />
+			</MemoryRouter>,
+		);
+
+		await user.click(screen.getByRole("button", { name: "Start story" }));
+
+		expect(mockTrackWrappedActivationCompleted).toHaveBeenCalledWith({
+			activationState: "setup_completed",
+			entrySource: "share_redirect",
+			isNewUser: false,
+			resolvedEntryRoute: "/wrapped",
+			sourceComponent: "wrapped_route_gate",
+			sourceShareId: "source-share-1",
+		});
 	});
 });
