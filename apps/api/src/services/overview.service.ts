@@ -221,7 +221,7 @@ export async function getUsersTokenUsage(
       round(avg(sa.success_score), 2) as success_rate,
       length(arrayDistinct(arrayFilter(x -> x != '', arrayFlatten(groupArray(sa.skills))))) as distinct_skills,
       length(arrayDistinct(arrayFilter(x -> x != '', arrayFlatten(groupArray(sa.slash_commands))))) as distinct_slash_commands
-    FROM rudel.session_analytics FINAL AS sa
+    FROM rudel.session_analytics AS sa FINAL
     WHERE ${dateFilter}
       AND sa.organization_id = {orgId:String}
       AND sa.user_id != ''
