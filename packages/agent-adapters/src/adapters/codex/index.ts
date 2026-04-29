@@ -185,6 +185,7 @@ class CodexAdapter implements AgentAdapter {
 			tag: context.tag,
 			content,
 			organizationId: context.organizationId,
+			upload_mode: context.uploadMode,
 		};
 	}
 

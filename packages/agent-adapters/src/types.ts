@@ -29,6 +29,7 @@ export interface UploadContext {
 	tag?: IngestSessionInput["tag"];
 	organizationId?: string;
 	gitInfo: GitInfo;
+	uploadMode: IngestSessionInput["upload_mode"];
 }
 
 export interface IngestContext {

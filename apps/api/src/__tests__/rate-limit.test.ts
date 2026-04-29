@@ -1,6 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import { IngestSessionInputSchema } from "@rudel/api-routes";
-import { checkAnalyticsRateLimit } from "../rate-limit.js";
+import {
+	checkAnalyticsRateLimit,
+	checkHookIngestRateLimit,
+} from "../rate-limit.js";
 
 describe("IngestSessionInputSchema metadata field limits", () => {
 	const validBase = {
@@ -107,5 +110,73 @@ describe("checkAnalyticsRateLimit", () => {
 		}
 		// userA is exhausted, userB should still work
 		expect(() => checkAnalyticsRateLimit(userB)).not.toThrow();
+	});
+});
+
+describe("checkHookIngestRateLimit", () => {
+	test("allows requests under the limit", () => {
+		const userId = `test-hook-under-${Date.now()}`;
+		expect(() =>
+			checkHookIngestRateLimit(userId, "session-1"),
+		).not.toThrow();
+	});
+
+	test("repeated uploads of an existing session_id do not exhaust the cap", () => {
+		const userId = `test-hook-dedup-${Date.now()}`;
+		// Fill the limiter to the cap with distinct session_ids.
+		for (let i = 0; i < 500; i++) {
+			checkHookIngestRateLimit(userId, `session-${i}`);
+		}
+		// At cap. Hammering an existing id (Codex turn-complete pattern) must
+		// not throw — repeats don't claim new slots. If this regresses, every
+		// 501st turn would 429 even though it's the same session.
+		expect(() => {
+			for (let i = 0; i < 1000; i++) {
+				checkHookIngestRateLimit(userId, "session-1");
+			}
+		}).not.toThrow();
+	});
+
+	test("throws once distinct session_ids exceed the limit", () => {
+		const userId = `test-hook-over-${Date.now()}`;
+		// Default cap is 500 distinct sessions per hour.
+		for (let i = 0; i < 500; i++) {
+			checkHookIngestRateLimit(userId, `session-${i}`);
+		}
+		expect(() =>
+			checkHookIngestRateLimit(userId, "session-overflow"),
+		).toThrow("Rate limit exceeded");
+	});
+
+	test("different users have independent limits", () => {
+		const userA = `test-hook-a-${Date.now()}`;
+		const userB = `test-hook-b-${Date.now()}`;
+		for (let i = 0; i < 500; i++) {
+			checkHookIngestRateLimit(userA, `session-${i}`);
+		}
+		// userA is exhausted; userB starts fresh.
+		expect(() =>
+			checkHookIngestRateLimit(userB, "session-fresh"),
+		).not.toThrow();
+	});
+
+	test("entries past the window are evicted, freeing slots", () => {
+		const userId = `test-hook-evict-${Date.now()}`;
+		const realNow = Date.now;
+		let fakeTime = 1_700_000_000_000;
+		Date.now = () => fakeTime;
+		try {
+			for (let i = 0; i < 500; i++) {
+				checkHookIngestRateLimit(userId, `session-${i}`);
+			}
+			// Advance past the default 1h window. All seeded entries should
+			// be evicted on the next call, freeing the cap.
+			fakeTime += 3600 * 1000 + 1;
+			expect(() =>
+				checkHookIngestRateLimit(userId, "session-after-window"),
+			).not.toThrow();
+		} finally {
+			Date.now = realNow;
+		}
 	});
 });

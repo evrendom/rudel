@@ -1,7 +1,5 @@
 import { getLogger } from "@logtape/logtape";
 import { ORPCError } from "@orpc/server";
-import type { ClickHouseStatement } from "./clickhouse.js";
-import { queryClickhouse } from "./clickhouse.js";
 
 const logger = getLogger(["rudel", "api", "rate-limit"]);
 
@@ -104,69 +102,60 @@ export function checkWrappedResumeCreateRateLimit(userId: string) {
 	});
 }
 
-export interface RateLimitConfig {
-	maxRequests: number;
-	windowSeconds: number;
-	countQuery: (userId: string, windowSeconds: number) => ClickHouseStatement;
+// Hook-only ingest cap. Manual/retry uploads bypass this upstream in the
+// router, so historical bulk imports never affect the live-hook budget.
+// Counts distinct session_ids in the window — Codex's per-turn re-uploads
+// for the same session collapse to one slot.
+
+interface HookIngestEntry {
+	sessions: Map<string, number>;
 }
 
-const ingestCountQuery = (
+const hookIngestWindows = new Map<string, HookIngestEntry>();
+
+const HOOK_INGEST_MAX = Number(process.env.RATE_LIMIT_INGEST_MAX ?? 500);
+const HOOK_INGEST_WINDOW_MS =
+	Number(process.env.RATE_LIMIT_INGEST_WINDOW ?? 3600) * 1000;
+
+export function checkHookIngestRateLimit(
 	userId: string,
-	windowSeconds: number,
-): ClickHouseStatement => ({
-	query:
-		`SELECT sum(c) AS count FROM (` +
-		`SELECT count() AS c FROM rudel.claude_sessions WHERE user_id = {userId:String} AND ingested_at >= now64(3) - INTERVAL {window:UInt32} SECOND ` +
-		`UNION ALL ` +
-		`SELECT count() AS c FROM rudel.codex_sessions WHERE user_id = {userId:String} AND ingested_at >= now64(3) - INTERVAL {window:UInt32} SECOND` +
-		`)`,
-	query_params: { userId, window: windowSeconds },
-});
+	sessionId: string,
+): void {
+	const now = Date.now();
+	const cutoff = now - HOOK_INGEST_WINDOW_MS;
 
-export const INGEST_RATE_LIMIT: RateLimitConfig = {
-	maxRequests: Number(process.env.RATE_LIMIT_INGEST_MAX ?? 500),
-	windowSeconds: Number(process.env.RATE_LIMIT_INGEST_WINDOW ?? 3600),
-	countQuery: ingestCountQuery,
-};
+	let entry = hookIngestWindows.get(userId);
+	if (!entry) {
+		entry = { sessions: new Map() };
+		hookIngestWindows.set(userId, entry);
+	}
 
-/**
- * Checks if a user has exceeded their rate limit.
- * Returns the current count, or null if the check failed (ClickHouse down).
- */
-export async function checkIngestRateLimit(
-	userId: string,
-	config: RateLimitConfig = INGEST_RATE_LIMIT,
-): Promise<void> {
-	const { maxRequests, windowSeconds, countQuery } = config;
+	for (const [sid, ts] of entry.sessions) {
+		if (ts <= cutoff) entry.sessions.delete(sid);
+	}
 
-	try {
-		const rows = await queryClickhouse<{ count: number }>(
-			countQuery(userId, windowSeconds),
+	const isNew = !entry.sessions.has(sessionId);
+	if (isNew && entry.sessions.size >= HOOK_INGEST_MAX) {
+		logger.warn(
+			"Hook ingest rate limit exceeded for user {userId}: {count}/{max} unique sessions in {window}s",
+			{
+				userId,
+				count: entry.sessions.size,
+				max: HOOK_INGEST_MAX,
+				window: HOOK_INGEST_WINDOW_MS / 1000,
+			},
 		);
-		const count = rows[0]?.count ?? 0;
-
-		if (count >= maxRequests) {
-			logger.warn(
-				"Rate limit exceeded for user {userId}: {count}/{maxRequests} in {windowSeconds}s",
-				{ userId, count, maxRequests, windowSeconds },
-			);
-			throw new ORPCError("TOO_MANY_REQUESTS", {
-				message: `Rate limit exceeded. Maximum ${maxRequests} sessions per ${Math.round(windowSeconds / 60)} minutes. Try again later.`,
-				data: {
-					limit: maxRequests,
-					windowSeconds,
-					current: count,
-				},
-			});
-		}
-	} catch (error) {
-		if (error instanceof ORPCError) throw error;
-		// If ClickHouse is down, log and allow the request through.
-		// Availability > rate limiting.
-		logger.error("Rate limit check failed, allowing request: {error}", {
-			error,
+		throw new ORPCError("TOO_MANY_REQUESTS", {
+			message: `Rate limit exceeded. Maximum ${HOOK_INGEST_MAX} sessions per ${Math.round(HOOK_INGEST_WINDOW_MS / 60_000)} minutes. Try again later.`,
+			data: {
+				limit: HOOK_INGEST_MAX,
+				windowSeconds: HOOK_INGEST_WINDOW_MS / 1000,
+				current: entry.sessions.size,
+			},
 		});
 	}
+
+	entry.sessions.set(sessionId, now);
 }
 
 function checkSlidingWindowRateLimit(input: {
