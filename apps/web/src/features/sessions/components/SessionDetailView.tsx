@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Clock, GitCommitHorizontal, User } from "lucide-react";
+import { Skeleton } from "@/app/ui/skeleton";
 import { ConversationView } from "@/components/conversation/ConversationView";
 import { InfoTooltip } from "@/components/ui/InfoTooltip";
 import { DashboardModelBadges } from "@/features/dashboard/components/DashboardModelBadges";
@@ -30,12 +31,101 @@ type SessionDetailViewProps = {
 };
 
 const compactMetaBadgeClassName =
-	"dashboardy-inline-badge inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[0.75rem] font-medium";
+	"dashboardy-inline-badge inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-full border px-2.5 py-1 text-[0.75rem] font-medium";
 
-const compactMetaBadgeIconClassName = "h-3 w-3";
+const compactIconBadgeClassName =
+	"dashboardy-inline-badge inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-full border py-1 pr-2.5 pl-1.5 text-[0.75rem] font-medium";
+
+const compactMetaBadgeIconClassName = "size-3 shrink-0";
 
 const stickyMetadataRowClassName =
-	"flex min-w-0 flex-wrap items-center justify-end gap-2";
+	"flex min-w-0 flex-wrap items-center gap-2 lg:justify-end";
+
+const sessionSummaryPanelClassName =
+	"dashboardy-card grid min-w-0 gap-4 rounded-[1.4rem] border px-4 py-4 shadow-none";
+
+const metricStripClassName =
+	"flex min-w-0 w-full items-stretch overflow-hidden rounded-[1rem] border border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-surface)] [&>*+*]:border-l [&>*+*]:border-[color:var(--dashboardy-divider)]";
+
+const metricCellClassName = "min-w-0 flex-[6] px-2.5 py-3";
+
+const wideMetricCellClassName = "min-w-0 flex-[7] px-2.5 py-3";
+
+const activityBadgeClassName =
+	"dashboardy-inline-badge inline-flex min-w-0 max-w-full rounded-full border px-3 py-1.5 text-[0.8125rem] font-medium";
+
+function SessionDetailLoadingView() {
+	const metricSkeletons = [
+		"Duration",
+		"Interactions",
+		"Tokens",
+		"Cost",
+		"Score",
+		"Subagents",
+	];
+
+	return (
+		<div
+			aria-busy="true"
+			aria-live="polite"
+			className="dashboardy-page flex h-full min-h-0 flex-col bg-[color:var(--dashboardy-surface)] text-[color:var(--dashboardy-heading)]"
+		>
+			<div className="min-h-0 flex-1 overflow-hidden">
+				<div className="border-b border-[color:var(--dashboardy-divider)] bg-[color:var(--dashboardy-surface)]/95">
+					<div className="grid gap-3 px-6 py-4 lg:grid-cols-[minmax(0,auto)_minmax(0,1fr)] lg:items-center">
+						<div className="flex min-w-0 flex-wrap items-center gap-3">
+							<Skeleton className="h-7 w-36 rounded-full bg-[color:var(--dashboardy-subsurface-strong)]" />
+							<Skeleton className="h-6 w-20 rounded-full bg-[color:var(--dashboardy-subsurface-strong)]" />
+						</div>
+						<div className={stickyMetadataRowClassName}>
+							<Skeleton className="h-8 w-40 rounded-full bg-[color:var(--dashboardy-subsurface-strong)]" />
+							<Skeleton className="h-8 w-52 rounded-full bg-[color:var(--dashboardy-subsurface-strong)]" />
+							<Skeleton className="h-8 w-36 rounded-full bg-[color:var(--dashboardy-subsurface-strong)]" />
+						</div>
+					</div>
+				</div>
+
+				<div className="px-6 py-5">
+					<div className="grid gap-5">
+						<div className={sessionSummaryPanelClassName}>
+							<div className="grid gap-4 xl:grid-cols-[auto_minmax(0,1fr)] xl:items-start xl:gap-5">
+								<div className="flex min-w-0 flex-wrap items-center gap-2">
+									<Skeleton className="h-8 w-28 rounded-full bg-[color:var(--dashboardy-subsurface-strong)]" />
+									<Skeleton className="h-8 w-24 rounded-full bg-[color:var(--dashboardy-subsurface-strong)]" />
+									<Skeleton className="h-8 w-20 rounded-full bg-[color:var(--dashboardy-subsurface-strong)]" />
+									<Skeleton className="h-8 w-32 rounded-full bg-[color:var(--dashboardy-subsurface-strong)]" />
+								</div>
+
+								<div className={metricStripClassName}>
+									{metricSkeletons.map((label) => (
+										<div key={label} className={metricCellClassName}>
+											<Skeleton className="h-3 w-20 rounded-full bg-[color:var(--dashboardy-subsurface-strong)]" />
+											<Skeleton className="mt-2 h-5 max-w-full rounded-full bg-[color:var(--dashboardy-subsurface-strong)]" />
+										</div>
+									))}
+								</div>
+							</div>
+
+							<div className="border-t border-[color:var(--dashboardy-divider)] pt-4">
+								<div className="flex flex-wrap gap-2">
+									<Skeleton className="h-8 w-72 rounded-full bg-[color:var(--dashboardy-subsurface-strong)]" />
+									<Skeleton className="h-8 w-56 rounded-full bg-[color:var(--dashboardy-subsurface-strong)]" />
+									<Skeleton className="h-8 w-44 rounded-full bg-[color:var(--dashboardy-subsurface-strong)]" />
+								</div>
+							</div>
+						</div>
+
+						<div className="grid gap-3.5">
+							<Skeleton className="h-20 rounded-[1.2rem] bg-[color:var(--dashboardy-subsurface-strong)]" />
+							<Skeleton className="h-24 rounded-[1.2rem] bg-[color:var(--dashboardy-subsurface-strong)]" />
+							<Skeleton className="h-20 rounded-[1.2rem] bg-[color:var(--dashboardy-subsurface-strong)]" />
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	);
+}
 
 export function SessionDetailView({
 	sessionId,
@@ -60,21 +150,13 @@ export function SessionDetailView({
 	});
 
 	if (isLoading) {
-		return (
-			<div className="flex h-full items-center justify-center px-6 py-12">
-				<div className="w-full max-w-xl animate-pulse space-y-4 rounded-[1.5rem] border border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-subsurface)] p-6">
-					<div className="h-8 w-1/3 rounded-full bg-[color:var(--dashboardy-subsurface-strong)]" />
-					<div className="h-4 w-1/2 rounded-full bg-[color:var(--dashboardy-subsurface-strong)]" />
-					<div className="h-4 w-2/3 rounded-full bg-[color:var(--dashboardy-subsurface-strong)]" />
-				</div>
-			</div>
-		);
+		return <SessionDetailLoadingView />;
 	}
 
 	if (isForbiddenError(error)) {
 		return (
 			<div className="flex h-full items-center justify-center px-6 py-12">
-				<div className="rounded-[1.5rem] border border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-subsurface)] px-8 py-10 text-center">
+				<div className="dashboardy-card rounded-[1.5rem] border px-8 py-10 text-center shadow-none">
 					<p className="mb-2 text-lg font-semibold text-[color:var(--dashboardy-heading)]">
 						Access Denied
 					</p>
@@ -89,7 +171,7 @@ export function SessionDetailView({
 	if (!session) {
 		return (
 			<div className="flex h-full items-center justify-center px-6 py-12">
-				<div className="rounded-[1.5rem] border border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-subsurface)] px-8 py-10 text-center">
+				<div className="dashboardy-card rounded-[1.5rem] border px-8 py-10 text-center shadow-none">
 					<p className="mb-2 text-lg font-semibold text-[color:var(--dashboardy-heading)]">
 						Session Not Found
 					</p>
@@ -139,6 +221,12 @@ export function SessionDetailView({
 		? (sessionArchetypeStyles[safeSessionArchetype] ??
 			sessionArchetypeStyles.standard)
 		: null;
+	const tokenUsageLabel = `${safeInputTokens.toLocaleString()} / ${safeOutputTokens.toLocaleString()}`;
+	const costLabel = `$${calculateCost(
+		safeInputTokens,
+		safeOutputTokens,
+		safeModelUsed,
+	).toFixed(4)}`;
 	const hasActivityBadges =
 		safeSkills.length > 0 ||
 		safeSlashCommands.length > 0 ||
@@ -149,17 +237,17 @@ export function SessionDetailView({
 			<div className="dashboardy-page flex h-full min-h-0 flex-col bg-[color:var(--dashboardy-surface)] text-[color:var(--dashboardy-heading)]">
 				<div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain">
 					<div className="sticky top-0 z-20 border-b border-[color:var(--dashboardy-divider)] bg-[color:var(--dashboardy-surface)]/95 backdrop-blur supports-[backdrop-filter]:bg-[color:var(--dashboardy-surface)]/85">
-						<div className="flex flex-wrap items-center justify-between gap-3 px-6 py-4">
-							<div className="flex min-w-0 items-center gap-4">
+						<div className="grid gap-3 px-6 py-4 lg:grid-cols-[minmax(0,auto)_minmax(0,1fr)] lg:items-center">
+							<div className="flex min-w-0 flex-wrap items-center gap-3">
 								<h1 className="dashboardy-section-title text-lg/6 text-[color:var(--dashboardy-heading)] sm:text-xl/7">
 									Session details
 								</h1>
 								{sessionArchetypeStyle ? (
-									<span
+									<div
 										className={`inline-flex rounded-full px-2.5 py-1 text-[0.75rem] font-semibold ${sessionArchetypeStyle.bg} ${sessionArchetypeStyle.text}`}
 									>
 										{sessionArchetypeStyle.label}
-									</span>
+									</div>
 								) : null}
 							</div>
 
@@ -173,7 +261,7 @@ export function SessionDetailView({
 											text={item.tooltip}
 										>
 											<div
-												className={compactMetaBadgeClassName}
+												className={compactIconBadgeClassName}
 												title={item.label}
 											>
 												<Icon className={compactMetaBadgeIconClassName} />
@@ -185,7 +273,7 @@ export function SessionDetailView({
 									);
 								})}
 								{safeModelUsed ? (
-									<div className="flex items-center gap-2">
+									<div className="flex shrink-0 items-center">
 										<DashboardModelBadges models={[safeModelUsed]} size="md" />
 									</div>
 								) : null}
@@ -203,11 +291,11 @@ export function SessionDetailView({
 
 					<div className="px-6 py-5">
 						<div className="grid gap-5">
-							<div className="grid min-w-0 gap-4 rounded-[1.35rem] border border-[color:var(--dashboardy-border)] bg-[color:color-mix(in_srgb,var(--dashboardy-subsurface)_68%,white)] px-4 py-4">
+							<div className={sessionSummaryPanelClassName}>
 								<div className="grid gap-4 xl:grid-cols-[auto_minmax(0,1fr)] xl:items-start xl:gap-5">
 									<div className="flex min-w-0 flex-wrap items-center gap-2">
 										{safeGitSha ? (
-											<div className={compactMetaBadgeClassName}>
+											<div className={compactIconBadgeClassName}>
 												<GitCommitHorizontal
 													className={compactMetaBadgeIconClassName}
 												/>
@@ -234,9 +322,9 @@ export function SessionDetailView({
 										</div>
 									</div>
 
-									<div className="flex min-w-0 w-full items-stretch gap-0 overflow-x-auto rounded-[1rem] border border-[color:var(--dashboardy-divider)] bg-[color:var(--dashboardy-surface)] px-1.5 py-1.5 xl:justify-self-stretch">
+									<div className={metricStripClassName}>
 										<SessionDetailMetric
-											className="grid min-w-[6.5rem] flex-1 gap-1 px-3 py-2"
+											className={metricCellClassName}
 											label="Duration"
 											value={
 												safeDurationMin !== undefined
@@ -245,32 +333,30 @@ export function SessionDetailView({
 											}
 										/>
 										<SessionDetailMetric
-											className="grid min-w-[6.5rem] flex-1 gap-1 border-l border-[color:var(--dashboardy-divider)] px-3 py-2"
+											className={wideMetricCellClassName}
 											label="Interactions"
 											value={safeTotalInteractions ?? "—"}
 										/>
 										<SessionDetailMetric
-											className="grid min-w-[8rem] flex-[1.35] gap-1 border-l border-[color:var(--dashboardy-divider)] px-3 py-2"
+											className={wideMetricCellClassName}
 											label="Tokens"
-											value={`${safeInputTokens.toLocaleString()} / ${safeOutputTokens.toLocaleString()}`}
-											valueClassName="text-[0.95rem] font-semibold tabular-nums whitespace-nowrap text-[color:var(--dashboardy-heading)]"
+											value={tokenUsageLabel}
+											title={tokenUsageLabel}
+											valueClassName="dashboardy-mono truncate whitespace-nowrap"
 										/>
 										<SessionDetailMetric
-											className="grid min-w-[6.5rem] flex-1 gap-1 border-l border-[color:var(--dashboardy-divider)] px-3 py-2"
+											className={metricCellClassName}
 											label="Cost"
-											value={`$${calculateCost(
-												safeInputTokens,
-												safeOutputTokens,
-												safeModelUsed,
-											).toFixed(4)}`}
-											valueClassName="font-mono text-[0.95rem] font-semibold tabular-nums text-[color:var(--dashboardy-heading)]"
+											value={costLabel}
+											title={costLabel}
+											valueClassName="dashboardy-mono truncate"
 										/>
 										{safeSuccessScore !== undefined ? (
 											<SessionDetailMetric
-												className="grid min-w-[6rem] flex-1 gap-1 border-l border-[color:var(--dashboardy-divider)] px-3 py-2"
+												className={metricCellClassName}
 												label="Score"
 												value={
-													<span className="inline-flex items-center gap-1.5">
+													<span className="inline-flex min-w-0 items-center gap-1.5 whitespace-nowrap">
 														<span
 															className={
 																safeSuccessScore >= 70
@@ -289,7 +375,7 @@ export function SessionDetailView({
 										) : null}
 										{subagentNames.length > 0 ? (
 											<SessionDetailMetric
-												className="grid min-w-[6rem] flex-1 gap-1 border-l border-[color:var(--dashboardy-divider)] px-3 py-2"
+												className={metricCellClassName}
 												label="Subagents"
 												value={subagentNames.length}
 											/>
@@ -301,28 +387,31 @@ export function SessionDetailView({
 									<div className="border-t border-[color:var(--dashboardy-divider)] pt-4">
 										<div className="flex flex-wrap gap-2">
 											{[...new Set(safeSkills)].map((skill) => (
-												<span
+												<div
 													key={skill}
-													className="dashboardy-inline-badge inline-flex rounded-full border px-3 py-1.5 text-[0.8125rem] font-medium"
+													className={activityBadgeClassName}
+													title={`skill:${skill}`}
 												>
-													skill:{skill}
-												</span>
+													<span className="truncate">skill:{skill}</span>
+												</div>
 											))}
 											{[...new Set(safeSlashCommands)].map((command) => (
-												<span
+												<div
 													key={command}
-													className="dashboardy-inline-badge inline-flex rounded-full border px-3 py-1.5 text-[0.8125rem] font-medium"
+													className={activityBadgeClassName}
+													title={`/${command}`}
 												>
-													/{command}
-												</span>
+													<span className="truncate">/{command}</span>
+												</div>
 											))}
 											{subagentNames.map((agent) => (
-												<span
+												<div
 													key={agent}
-													className="dashboardy-inline-badge inline-flex rounded-full border px-3 py-1.5 text-[0.8125rem] font-medium"
+													className={activityBadgeClassName}
+													title={`agent:${agent}`}
 												>
-													agent:{agent}
-												</span>
+													<span className="truncate">agent:{agent}</span>
+												</div>
 											))}
 										</div>
 									</div>

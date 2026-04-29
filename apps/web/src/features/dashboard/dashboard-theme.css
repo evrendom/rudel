@@ -9,6 +9,7 @@
 	--dashboardy-muted: #667085;
 	--dashboardy-subtle: #98a2b3;
 	--dashboardy-accent: #2563eb;
+	--dashboardy-chat-user-segment: #25b6aa;
 	--dashboardy-card-shadow:
 		0 1px 2px rgba(15, 23, 42, 0.06), 0 22px 44px -34px rgba(15, 23, 42, 0.28);
 	--dashboardy-chip-surface: rgba(238, 242, 255, 0.95);
@@ -34,6 +35,7 @@
 	--dashboardy-muted: #cbd5e1;
 	--dashboardy-subtle: #94a3b8;
 	--dashboardy-accent: #93c5fd;
+	--dashboardy-chat-user-segment: #25b6aa;
 	--dashboardy-card-shadow:
 		0 1px 2px rgba(0, 0, 0, 0.14), 0 20px 44px -34px rgba(0, 0, 0, 0.48);
 	--dashboardy-chip-surface: rgba(30, 41, 59, 0.98);

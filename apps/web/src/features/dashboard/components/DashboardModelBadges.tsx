@@ -8,6 +8,7 @@ type DashboardModelBadgeSize = "sm" | "md";
 type ModelBadgeSizeClasses = {
 	badgeClassName: string;
 	iconClassName: string;
+	labelClassName: string;
 	paddingClassName: string;
 };
 
@@ -85,16 +86,20 @@ function getModelBadgeSizeClasses(
 	if (size === "md") {
 		return {
 			badgeClassName:
-				"gap-2 py-1.5 text-[0.8125rem] font-medium tracking-[-0.01em]",
+				"h-8 gap-2 text-[0.8125rem] font-medium tracking-[-0.01em]",
 			iconClassName: "size-3.5 shrink-0",
+			labelClassName:
+				"flex min-w-0 items-center leading-none [text-box-edge:cap_alphabetic] [text-box-trim:trim-both]",
 			paddingClassName: "px-3",
 		};
 	}
 
 	return {
 		badgeClassName:
-			"gap-1 py-0.5 text-[0.6875rem] font-semibold tracking-[-0.01em]",
+			"h-5 gap-1 text-[0.6875rem] font-semibold tracking-[-0.01em]",
 		iconClassName: "size-3 shrink-0",
+		labelClassName:
+			"flex min-w-0 items-center leading-none [text-box-edge:cap_alphabetic] [text-box-trim:trim-both]",
 		paddingClassName: "px-2",
 	};
 }
@@ -180,14 +185,16 @@ export function DashboardModelBadges({
 				return (
 					<span
 						key={model}
-						className={`inline-flex max-w-full items-center rounded-full border leading-none tabular-nums ${sizeClasses.badgeClassName} ${sizeClasses.paddingClassName} ${badgeTone.chipClassName}`}
+						className={`inline-flex max-w-full items-center justify-center rounded-full border leading-none tabular-nums ${sizeClasses.badgeClassName} ${sizeClasses.paddingClassName} ${badgeTone.chipClassName}`}
 					>
 						{badgeTone.icon === "claude" ? (
 							<ClaudeModelIcon className={sizeClasses.iconClassName} />
 						) : badgeTone.icon === "codex" ? (
 							<CodexModelIcon className={sizeClasses.iconClassName} />
 						) : null}
-						<span className="truncate">{modelLabel}</span>
+						<span className={sizeClasses.labelClassName}>
+							<span className="truncate">{modelLabel}</span>
+						</span>
 					</span>
 				);
 			})}
