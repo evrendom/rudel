@@ -7,6 +7,7 @@ import {
 import { Component, type ReactNode } from "react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/app/ui/tooltip";
 import { parseConversations } from "@/lib/conversation-schema";
+import { cn } from "@/lib/utils";
 
 export const sessionArchetypeStyles: Record<
 	string,
@@ -198,7 +199,7 @@ export function SessionTranscriptSummaryTab({
 		{
 			id: "user",
 			count: userMessages,
-			className: "bg-[#25B6AA]",
+			className: "bg-[color:var(--dashboardy-success-foreground)]",
 		},
 		{
 			id: "assistant",
@@ -235,23 +236,30 @@ export function SessionDetailMetric({
 	label,
 	value,
 	className,
+	title,
 	valueClassName,
 }: {
 	label: string;
 	value: ReactNode;
 	className?: string;
+	title?: string;
 	valueClassName?: string;
 }) {
+	const valueTitle =
+		title ??
+		(typeof value === "string" || typeof value === "number"
+			? String(value)
+			: undefined);
+
 	return (
-		<div className={className ?? "grid gap-1"}>
-			<p className="text-[0.8125rem] font-medium text-[color:var(--dashboardy-muted)]">
-				{label}
-			</p>
+		<div className={cn("grid min-w-0 gap-1", className)}>
+			<p className="dashboardy-label truncate">{label}</p>
 			<div
-				className={
-					valueClassName ??
-					"text-[0.95rem] font-semibold tabular-nums text-[color:var(--dashboardy-heading)]"
-				}
+				className={cn(
+					"min-w-0 text-[0.95rem]/6 font-semibold tabular-nums text-[color:var(--dashboardy-heading)]",
+					valueClassName ?? "truncate",
+				)}
+				title={valueTitle}
 			>
 				{value}
 			</div>
@@ -337,7 +345,7 @@ export class SessionDetailErrorBoundary extends Component<
 		if (this.state.hasError) {
 			return (
 				<div className="flex h-full items-center justify-center px-6 py-10">
-					<div className="max-w-md rounded-[1.5rem] border border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-subsurface)] px-6 py-5 text-center shadow-[0_18px_40px_rgba(15,23,42,0.06)]">
+					<div className="dashboardy-card max-w-md rounded-[1.5rem] border px-6 py-5 text-center shadow-none">
 						<p className="text-lg font-semibold text-[color:var(--dashboardy-heading)]">
 							Unable to render this session
 						</p>
