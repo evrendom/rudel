@@ -2,6 +2,7 @@ import { appRoutes } from "@/app/routes";
 
 export type SettingsRouteId =
 	| "workspace"
+	| "members"
 	| "invitations"
 	| "account"
 	| "create-workspace";
@@ -23,6 +24,12 @@ export const settingsRouteMap: Record<
 		segment: "workspace",
 		path: appRoutes.settingsWorkspace(),
 	},
+	members: {
+		id: "members",
+		label: "Members",
+		segment: "members",
+		path: appRoutes.settingsMembers(),
+	},
 	invitations: {
 		id: "invitations",
 		label: "Invitations",
@@ -31,7 +38,7 @@ export const settingsRouteMap: Record<
 	},
 	account: {
 		id: "account",
-		label: "Profile",
+		label: "Account",
 		segment: "account",
 		path: appRoutes.settingsAccount(),
 	},
@@ -45,10 +52,11 @@ export const settingsRouteMap: Record<
 
 const settingsRoutes = Object.values(settingsRouteMap);
 
-export type PrimarySettingsRouteId = "workspace" | "account";
+export type PrimarySettingsRouteId = "workspace" | "members" | "account";
 
 export const primarySettingsRoutes = [
 	settingsRouteMap.workspace,
+	settingsRouteMap.members,
 	settingsRouteMap.account,
 ] as const satisfies readonly SettingsRouteDefinition[];
 
@@ -61,12 +69,28 @@ export function getActiveSettingsRouteId(
 				pathname === route.path || pathname.startsWith(`${route.path}/`),
 		)?.id ?? "workspace";
 
-	return matchedRoute === "account" ? "account" : "workspace";
+	if (matchedRoute === "account" || matchedRoute === "invitations") {
+		return "account";
+	}
+
+	if (matchedRoute === "members") {
+		return "members";
+	}
+
+	return "workspace";
 }
 
 export function getSettingsPathFromLegacyTab(tab: string | null): string {
-	if (tab === "account") {
+	if (tab === "account" || tab === "profile") {
 		return settingsRouteMap.account.path;
+	}
+
+	if (tab === "members" || tab === "team") {
+		return settingsRouteMap.members.path;
+	}
+
+	if (tab === "invitations") {
+		return `${settingsRouteMap.account.path}#workspace-invitations`;
 	}
 
 	return settingsRouteMap.workspace.path;

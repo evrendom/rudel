@@ -93,7 +93,7 @@ export function UserRailButton({
 			<DropdownMenuContent className="min-w-48" side="right" align="end">
 				<DropdownMenuItem onClick={() => navigate(appRoutes.settingsAccount())}>
 					<Settings2Icon />
-					Profile settings
+					Account settings
 				</DropdownMenuItem>
 				<DropdownMenuSeparator />
 				<DropdownMenuItem
