@@ -360,6 +360,15 @@ export function captureWrappedOnboardingStarted(
 	captureEvent(PRODUCT_ANALYTICS_EVENTS.WRAPPED_ONBOARDING_STARTED, payload);
 }
 
+export function captureWrappedReferredSignupCompleted(
+	payload: WebCapturePayload<WrappedGrowthLoopEvent>,
+) {
+	captureEvent(
+		PRODUCT_ANALYTICS_EVENTS.WRAPPED_REFERRED_SIGNUP_COMPLETED,
+		payload,
+	);
+}
+
 export function captureWrappedProfileCompleted(
 	payload: WebCapturePayload<WrappedGrowthLoopEvent>,
 ) {

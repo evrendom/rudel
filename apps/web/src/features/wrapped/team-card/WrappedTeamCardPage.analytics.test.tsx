@@ -253,6 +253,7 @@ describe("WrappedTeamCardPage analytics", () => {
 				activationState: "share",
 				entrySource: "share_redirect",
 				shareAction: "share",
+				shareDestination: "x",
 				sourceComponent: "wrapped_share_actions",
 				sourceShareId: "source-share-1",
 			});

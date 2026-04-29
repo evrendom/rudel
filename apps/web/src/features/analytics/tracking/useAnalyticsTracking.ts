@@ -1,6 +1,7 @@
 import { useLocation } from "react-router-dom";
 import { useOptionalDateRange } from "@/features/analytics/date-range/useDateRange";
 import { useOptionalOrganization } from "@/features/workspace/organization/useOrganization";
+import { getWebAcquisitionAttribution } from "@/lib/acquisition-attribution";
 import { authClient } from "@/lib/auth-client";
 import {
 	type AppPageName,
@@ -15,6 +16,7 @@ import {
 	captureWrappedActivationCompleted,
 	captureWrappedOnboardingStarted,
 	captureWrappedProfileCompleted,
+	captureWrappedReferredSignupCompleted,
 	captureWrappedShareActionTriggered,
 	captureWrappedShareCreated,
 	captureWrappedShareCtaClicked,
@@ -46,6 +48,7 @@ type WrappedGrowthLoopEntrySource =
 	| "direct";
 
 type WrappedShareAction = "copy" | "download" | "share";
+type WrappedShareDestination = "clipboard" | "download" | "x";
 
 type AnalyticsOverrides = {
 	dateRangeDays?: number;
@@ -78,9 +81,17 @@ type WrappedGrowthLoopInput = {
 	publicPayloadVersion?: number;
 	isAuthenticatedViewer?: boolean;
 	isNewUser?: boolean;
+	launchChannel?: string;
+	referrerDomain?: string;
 	resolvedEntryRoute?: string;
 	activationState?: string;
 	shareAction?: WrappedShareAction;
+	shareDestination?: WrappedShareDestination;
+	utmCampaign?: string;
+	utmContent?: string;
+	utmMedium?: string;
+	utmSource?: string;
+	utmTerm?: string;
 } & AnalyticsOverrides;
 
 type WrappedGrowthLoopPayload = AnalyticsPayload & {
@@ -94,9 +105,17 @@ type WrappedGrowthLoopPayload = AnalyticsPayload & {
 	public_payload_version?: number;
 	is_authenticated_viewer?: boolean;
 	is_new_user?: boolean;
+	launch_channel?: string;
+	referrer_domain?: string;
 	resolved_entry_route?: string;
 	activation_state?: string;
 	share_action?: WrappedShareAction;
+	share_destination?: WrappedShareDestination;
+	utm_campaign?: string;
+	utm_content?: string;
+	utm_medium?: string;
+	utm_source?: string;
+	utm_term?: string;
 };
 
 const WRAPPED_GROWTH_LOOP_NAME = "wrapped_profile_wom";
@@ -130,6 +149,7 @@ export function useAnalyticsContext(options?: UseAnalyticsOptions) {
 		pageName,
 		dateRangeDays: dateRange?.meta.dayCount,
 		pathname: location.pathname,
+		wrappedAcquisition: getWebAcquisitionAttribution(location.search),
 	};
 }
 
@@ -203,9 +223,20 @@ export function useAnalyticsTracking(options?: UseAnalyticsOptions) {
 			public_payload_version: input.publicPayloadVersion,
 			is_authenticated_viewer: input.isAuthenticatedViewer,
 			is_new_user: input.isNewUser,
+			launch_channel:
+				input.launchChannel ?? analytics.wrappedAcquisition.launch_channel,
+			referrer_domain:
+				input.referrerDomain ?? analytics.wrappedAcquisition.referrer_domain,
 			resolved_entry_route: input.resolvedEntryRoute,
 			activation_state: input.activationState,
 			share_action: input.shareAction,
+			share_destination: input.shareDestination,
+			utm_campaign:
+				input.utmCampaign ?? analytics.wrappedAcquisition.utm_campaign,
+			utm_content: input.utmContent ?? analytics.wrappedAcquisition.utm_content,
+			utm_medium: input.utmMedium ?? analytics.wrappedAcquisition.utm_medium,
+			utm_source: input.utmSource ?? analytics.wrappedAcquisition.utm_source,
+			utm_term: input.utmTerm ?? analytics.wrappedAcquisition.utm_term,
 		};
 	}
 
@@ -494,6 +525,16 @@ export function useAnalyticsTracking(options?: UseAnalyticsOptions) {
 		captureWrappedOnboardingStarted(payload);
 	}
 
+	function trackWrappedReferredSignupCompleted(input: WrappedGrowthLoopInput) {
+		const payload = buildWrappedGrowthLoopPayload(input, "conversion");
+
+		if (!payload) {
+			return;
+		}
+
+		captureWrappedReferredSignupCompleted(payload);
+	}
+
 	function trackWrappedProfileCompleted(input: WrappedGrowthLoopInput) {
 		const payload = buildWrappedGrowthLoopPayload(input, "activation");
 
@@ -558,6 +599,7 @@ export function useAnalyticsTracking(options?: UseAnalyticsOptions) {
 		trackWrappedActivationCompleted,
 		trackWrappedOnboardingStarted,
 		trackWrappedProfileCompleted,
+		trackWrappedReferredSignupCompleted,
 		trackWrappedShareActionTriggered,
 		trackWrappedShareCreated,
 		trackWrappedShareCtaClicked,

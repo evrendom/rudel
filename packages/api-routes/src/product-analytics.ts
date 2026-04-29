@@ -138,6 +138,12 @@ export const ProductAnalyticsWrappedShareActionSchema = z.enum([
 	"share",
 ]);
 
+export const ProductAnalyticsWrappedShareDestinationSchema = z.enum([
+	"clipboard",
+	"download",
+	"x",
+]);
+
 export type ProductAnalyticsEnvironment = z.infer<
 	typeof ProductAnalyticsEnvironmentSchema
 >;
@@ -239,6 +245,7 @@ export const PRODUCT_ANALYTICS_EVENTS = {
 	WRAPPED_SHARE_VIEWED: "Wrapped Share Viewed",
 	WRAPPED_SHARE_CTA_CLICKED: "Wrapped Share CTA Clicked",
 	WRAPPED_ONBOARDING_STARTED: "Wrapped Onboarding Started",
+	WRAPPED_REFERRED_SIGNUP_COMPLETED: "Wrapped Referred Signup Completed",
 	WRAPPED_PROFILE_COMPLETED: "Wrapped Profile Completed",
 	WRAPPED_ACTIVATION_COMPLETED: "Wrapped Activation Completed",
 	WRAPPED_STORY_STARTED: "Wrapped Story Started",
@@ -479,9 +486,17 @@ export const WrappedGrowthLoopEventSchema = WebEventSchema.extend({
 	public_payload_version: z.number().int().positive().optional(),
 	is_authenticated_viewer: z.boolean().optional(),
 	is_new_user: z.boolean().optional(),
+	launch_channel: nonEmptyStringSchema.optional(),
+	referrer_domain: nonEmptyStringSchema.optional(),
 	resolved_entry_route: nonEmptyStringSchema.optional(),
 	activation_state: nonEmptyStringSchema.optional(),
 	share_action: ProductAnalyticsWrappedShareActionSchema.optional(),
+	share_destination: ProductAnalyticsWrappedShareDestinationSchema.optional(),
+	utm_campaign: nonEmptyStringSchema.optional(),
+	utm_content: nonEmptyStringSchema.optional(),
+	utm_medium: nonEmptyStringSchema.optional(),
+	utm_source: nonEmptyStringSchema.optional(),
+	utm_term: nonEmptyStringSchema.optional(),
 }).strict();
 
 export const ProductAnalyticsEventSchemas = {
@@ -516,6 +531,8 @@ export const ProductAnalyticsEventSchemas = {
 	[PRODUCT_ANALYTICS_EVENTS.WRAPPED_SHARE_CTA_CLICKED]:
 		WrappedGrowthLoopEventSchema,
 	[PRODUCT_ANALYTICS_EVENTS.WRAPPED_ONBOARDING_STARTED]:
+		WrappedGrowthLoopEventSchema,
+	[PRODUCT_ANALYTICS_EVENTS.WRAPPED_REFERRED_SIGNUP_COMPLETED]:
 		WrappedGrowthLoopEventSchema,
 	[PRODUCT_ANALYTICS_EVENTS.WRAPPED_PROFILE_COMPLETED]:
 		WrappedGrowthLoopEventSchema,
@@ -605,6 +622,7 @@ export interface ProductAnalyticsEventPayloadMap {
 	[PRODUCT_ANALYTICS_EVENTS.WRAPPED_SHARE_VIEWED]: WrappedGrowthLoopEvent;
 	[PRODUCT_ANALYTICS_EVENTS.WRAPPED_SHARE_CTA_CLICKED]: WrappedGrowthLoopEvent;
 	[PRODUCT_ANALYTICS_EVENTS.WRAPPED_ONBOARDING_STARTED]: WrappedGrowthLoopEvent;
+	[PRODUCT_ANALYTICS_EVENTS.WRAPPED_REFERRED_SIGNUP_COMPLETED]: WrappedGrowthLoopEvent;
 	[PRODUCT_ANALYTICS_EVENTS.WRAPPED_PROFILE_COMPLETED]: WrappedGrowthLoopEvent;
 	[PRODUCT_ANALYTICS_EVENTS.WRAPPED_ACTIVATION_COMPLETED]: WrappedGrowthLoopEvent;
 	[PRODUCT_ANALYTICS_EVENTS.WRAPPED_STORY_STARTED]: WrappedGrowthLoopEvent;

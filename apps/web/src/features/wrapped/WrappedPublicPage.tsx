@@ -1,5 +1,6 @@
 import type { PublicWrappedShare, WrappedShareRow } from "@rudel/api-routes";
 import type { CSSProperties } from "react";
+import { useLocation } from "react-router-dom";
 import { appRoutes } from "@/app/routes";
 import { buttonVariants } from "@/app/ui/button";
 import { useAnalyticsTracking } from "@/features/analytics/tracking/useAnalyticsTracking";
@@ -15,6 +16,7 @@ import {
 } from "@/features/wrapped/WrappedPublicCardScreen";
 import { useEffectOnceWhen } from "@/hooks/useEffectOnceWhen";
 import { useMountEffect } from "@/hooks/useMountEffect";
+import { getDocumentReferrerDomain } from "@/lib/acquisition-attribution";
 import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
 import { useWrappedPublicPage } from "./use-wrapped-public-page";
@@ -39,6 +41,7 @@ const PUBLIC_SHARE_CARD_SHELL_STYLE = {
 // depends on the viewer's private analytics/session queries.
 export function WrappedPublicPage(props: WrappedPublicPageProps) {
 	const { publicId } = props;
+	const location = useLocation();
 	const { data: session } = authClient.useSession();
 	const { trackWrappedShareCtaClicked, trackWrappedShareViewed } =
 		useAnalyticsTracking({
@@ -47,7 +50,11 @@ export function WrappedPublicPage(props: WrappedPublicPageProps) {
 		});
 	const publicPageQuery = useWrappedPublicPage(publicId);
 	const sessionUserId = getSessionUserId(session);
-	const makeYoursHref = appRoutes.wrappedTeamCardFromShare(publicId);
+	const makeYoursHref = appRoutes.wrappedTeamCardFromShare(
+		publicId,
+		location.search,
+		getDocumentReferrerDomain(),
+	);
 
 	// The wrapped surface uses a route-scoped body class for full-screen styling.
 	// We keep that concern isolated to mount/unmount instead of threading layout
@@ -68,6 +75,7 @@ export function WrappedPublicPage(props: WrappedPublicPageProps) {
 			trackWrappedShareViewed({
 				entrySource: "public_share",
 				isAuthenticatedViewer: sessionUserId !== null,
+				isNewUser: sessionUserId !== null ? false : undefined,
 				shareId: publicId,
 				sourceComponent: "wrapped_public_page",
 				activationState: sessionUserId !== null ? "authenticated" : "anonymous",
@@ -93,6 +101,7 @@ export function WrappedPublicPage(props: WrappedPublicPageProps) {
 			onMakeYoursClick={() => {
 				trackWrappedShareCtaClicked({
 					entrySource: "public_share",
+					isNewUser: sessionUserId !== null ? false : undefined,
 					redirectTarget: makeYoursHref,
 					shareId: publicId,
 					sourceComponent: "wrapped_public_page",

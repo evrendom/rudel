@@ -77,6 +77,7 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 		trackWrappedActivationCompleted,
 		trackWrappedOnboardingStarted,
 		trackWrappedProfileCompleted,
+		trackWrappedReferredSignupCompleted,
 	} = useAnalyticsTracking({
 		// The analytics contract still calls the public surface "wrapped_share".
 		// Keep that stable until the event schema is renamed on the backend too.
@@ -107,6 +108,8 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 	const forcedFlowStage = getWrappedRouteFlowStage(
 		searchParams.get(WRAPPED_ROUTE_FLOW_QUERY_PARAM),
 	);
+	const isWrappedNewUserFlow =
+		forcedFlowStage === WRAPPED_ROUTE_CARD_PROFILE_FLOW;
 
 	const hasCompletedSetup =
 		sessionUserId === null
@@ -120,6 +123,10 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 				guestPreviewSnapshot,
 				sessionUserId,
 			));
+	const isKnownWrappedNewUser =
+		isWrappedNewUserFlow ||
+		(sessionUserId !== null &&
+			completedCardProfileUserIds[sessionUserId] === true);
 	const defaultCardProfile = buildWrappedSessionPreviewProfile(session);
 	const activeCardProfile = editableCardProfile ?? defaultCardProfile;
 	const shouldShowCardProfileStep =
@@ -186,6 +193,7 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 		trackWrappedActivationCompleted({
 			activationState: "setup_completed",
 			entrySource: wrappedLoopEntrySource,
+			isNewUser: isKnownWrappedNewUser,
 			resolvedEntryRoute: location.pathname,
 			sourceComponent: "wrapped_route_gate",
 			sourceShareId: shareId ?? undefined,
@@ -231,6 +239,7 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 		trackWrappedProfileCompleted({
 			activationState: "profile_completed",
 			entrySource: wrappedLoopEntrySource,
+			isNewUser: true,
 			resolvedEntryRoute: location.pathname,
 			sourceComponent: "wrapped_route_gate",
 			sourceShareId: shareId ?? undefined,
@@ -248,11 +257,37 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 
 	useEffectOnceWhen({
 		effect: () => {
+			if (!shareId) {
+				return;
+			}
+
+			trackWrappedReferredSignupCompleted({
+				activationState: "signup_completed",
+				entrySource: "share_redirect",
+				isNewUser: true,
+				resolvedEntryRoute: location.pathname,
+				sourceComponent: "wrapped_route_gate",
+				sourceShareId: shareId,
+			});
+		},
+		isReady:
+			!publicId &&
+			!isPending &&
+			!!session &&
+			sessionUserId !== null &&
+			shareId !== null &&
+			isWrappedNewUserFlow,
+		key: `${shareId ?? "none"}:${sessionUserId ?? "anonymous"}`,
+	});
+
+	useEffectOnceWhen({
+		effect: () => {
 			trackWrappedOnboardingStarted({
 				activationState: setupProgress.hasUploadedSessions
 					? "sessions_ready"
 					: "upload_required",
 				entrySource: wrappedLoopEntrySource,
+				isNewUser: isKnownWrappedNewUser,
 				resolvedEntryRoute: location.pathname,
 				sourceComponent: "wrapped_route_gate",
 				sourceShareId: shareId ?? undefined,

@@ -405,6 +405,7 @@ function WrappedTeamCardPageContent(props: {
 				activationState: action,
 				entrySource: wrappedLoopEntrySource,
 				shareAction: action,
+				shareDestination: getWrappedShareDestination(action),
 				sourceComponent: "wrapped_share_actions",
 				sourceShareId,
 			});
@@ -689,6 +690,18 @@ function WrappedTeamCardPageContent(props: {
 			/>
 		</>
 	);
+}
+
+function getWrappedShareDestination(action: "copy" | "download" | "share") {
+	if (action === "copy") {
+		return "clipboard";
+	}
+
+	if (action === "download") {
+		return "download";
+	}
+
+	return "x";
 }
 
 function WrappedFinalCardFlightOverlay(props: {

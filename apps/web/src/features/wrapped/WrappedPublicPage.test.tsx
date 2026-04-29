@@ -1,6 +1,7 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
+import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { WrappedPublicPage } from "@/features/wrapped/WrappedPublicPage";
 
@@ -114,7 +115,11 @@ describe("WrappedPublicPage", () => {
 	it("tracks share exposure and routes make yours into /wrapped with attribution", async () => {
 		const user = userEvent.setup();
 
-		render(<WrappedPublicPage publicId="share-123" />);
+		render(
+			<MemoryRouter initialEntries={["/wrapped/share-123"]}>
+				<WrappedPublicPage publicId="share-123" />
+			</MemoryRouter>,
+		);
 
 		expect(screen.getByText("Ada is a Calm operator")).toBeInTheDocument();
 		const makeYoursLink = screen.getByRole("link", { name: "Make yours" });
@@ -127,6 +132,7 @@ describe("WrappedPublicPage", () => {
 				activationState: "anonymous",
 				entrySource: "public_share",
 				isAuthenticatedViewer: false,
+				isNewUser: undefined,
 				shareId: "share-123",
 				sourceComponent: "wrapped_public_page",
 			});
@@ -137,6 +143,7 @@ describe("WrappedPublicPage", () => {
 		expect(mockTrackWrappedShareCtaClicked).toHaveBeenCalledWith({
 			activationState: "guest_redirect",
 			entrySource: "public_share",
+			isNewUser: undefined,
 			redirectTarget: "/wrapped?share_id=share-123",
 			shareId: "share-123",
 			sourceComponent: "wrapped_public_page",
@@ -150,7 +157,11 @@ describe("WrappedPublicPage", () => {
 			isPending: false,
 		});
 
-		render(<WrappedPublicPage publicId="share-123" />);
+		render(
+			<MemoryRouter initialEntries={["/wrapped/share-123"]}>
+				<WrappedPublicPage publicId="share-123" />
+			</MemoryRouter>,
+		);
 
 		expect(
 			screen.getByText("This card link expired or never existed."),
@@ -160,5 +171,34 @@ describe("WrappedPublicPage", () => {
 			"/wrapped?share_id=share-123",
 		);
 		expect(mockTrackWrappedShareViewed).not.toHaveBeenCalled();
+	});
+
+	it("preserves launch attribution on the make yours redirect", async () => {
+		const user = userEvent.setup();
+
+		render(
+			<MemoryRouter
+				initialEntries={[
+					"/wrapped/share-123?utm_source=x&utm_medium=social&utm_campaign=launch&launch_channel=borrowed_loop",
+				]}
+			>
+				<WrappedPublicPage publicId="share-123" />
+			</MemoryRouter>,
+		);
+
+		const makeYoursLink = screen.getByRole("link", { name: "Make yours" });
+		expect(makeYoursLink).toHaveAttribute(
+			"href",
+			"/wrapped?share_id=share-123&utm_source=x&utm_medium=social&utm_campaign=launch&launch_channel=borrowed_loop",
+		);
+
+		await user.click(makeYoursLink);
+
+		expect(mockTrackWrappedShareCtaClicked).toHaveBeenCalledWith(
+			expect.objectContaining({
+				redirectTarget:
+					"/wrapped?share_id=share-123&utm_source=x&utm_medium=social&utm_campaign=launch&launch_channel=borrowed_loop",
+			}),
+		);
 	});
 });

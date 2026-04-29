@@ -1,3 +1,5 @@
+import { appendWebAcquisitionSearchParams } from "@/lib/acquisition-attribution";
+
 const DASHBOARD_PATH = "/dashboard";
 const DASHBOARD_SESSIONS_PATH = `${DASHBOARD_PATH}/sessions`;
 const DASHBOARD_GET_STARTED_LEGACY_PATH = `${DASHBOARD_PATH}/get-started`;
@@ -42,13 +44,28 @@ export const appRoutes = {
 		`${WRAPPED_TEAM_CARD_PATH}/${encodeURIComponent(publicId)}`,
 	wrappedResume: (token: string) =>
 		`${WRAPPED_RESUME_PATH}/${encodeURIComponent(token)}`,
-	wrappedTeamCardFromShare: (shareId: string) =>
-		`${WRAPPED_TEAM_CARD_PATH}?share_id=${encodeURIComponent(shareId)}`,
+	wrappedTeamCardFromShare: (
+		shareId: string,
+		sourceSearch?: string,
+		referrerDomain?: string | null,
+	) => getWrappedTeamCardFromSharePath(shareId, sourceSearch, referrerDomain),
 	settingsWorkspace: () => SETTINGS_WORKSPACE_PATH,
 	settingsInvitations: () => SETTINGS_INVITATIONS_PATH,
 	settingsAccount: () => SETTINGS_ACCOUNT_PATH,
 	settingsCreateWorkspace: () => SETTINGS_CREATE_WORKSPACE_PATH,
 };
+
+function getWrappedTeamCardFromSharePath(
+	shareId: string,
+	sourceSearch?: string,
+	referrerDomain?: string | null,
+) {
+	const searchParams = new URLSearchParams();
+	searchParams.set("share_id", shareId);
+	appendWebAcquisitionSearchParams(searchParams, sourceSearch, referrerDomain);
+
+	return `${WRAPPED_TEAM_CARD_PATH}?${searchParams.toString()}`;
+}
 
 export function getWrappedCardProfilePath(search?: string) {
 	return getWrappedFlowPath(WRAPPED_ROUTE_CARD_PROFILE_FLOW, search);
