@@ -102,32 +102,45 @@ export function checkWrappedResumeCreateRateLimit(userId: string) {
 	});
 }
 
-// Hook-only ingest cap. Manual/retry uploads bypass this upstream in the
-// router, so historical bulk imports never affect the live-hook budget.
-// Counts distinct session_ids in the window — Codex's per-turn re-uploads
-// for the same session collapse to one slot.
+// Ingest caps split by upload mode. Both count distinct session_ids in
+// a rolling window — Codex's per-turn re-uploads of the same session
+// collapse into one slot in either bucket. Hook and manual buckets are
+// independent: a bulk historical import does not affect the live-hook
+// budget, and vice versa.
 
-interface HookIngestEntry {
+interface SessionIngestEntry {
 	sessions: Map<string, number>;
 }
 
-const hookIngestWindows = new Map<string, HookIngestEntry>();
+const hookIngestWindows = new Map<string, SessionIngestEntry>();
+const manualIngestWindows = new Map<string, SessionIngestEntry>();
 
 const HOOK_INGEST_MAX = Number(process.env.RATE_LIMIT_INGEST_MAX ?? 500);
 const HOOK_INGEST_WINDOW_MS =
 	Number(process.env.RATE_LIMIT_INGEST_WINDOW ?? 3600) * 1000;
 
-export function checkHookIngestRateLimit(
-	userId: string,
-	sessionId: string,
-): void {
-	const now = Date.now();
-	const cutoff = now - HOOK_INGEST_WINDOW_MS;
+const MANUAL_INGEST_MAX = Number(
+	process.env.RATE_LIMIT_INGEST_MANUAL_MAX ?? 10_000,
+);
+const MANUAL_INGEST_WINDOW_MS =
+	Number(process.env.RATE_LIMIT_INGEST_MANUAL_WINDOW ?? 3600) * 1000;
 
-	let entry = hookIngestWindows.get(userId);
+function checkSessionIngestRateLimit(input: {
+	windows: Map<string, SessionIngestEntry>;
+	max: number;
+	windowMs: number;
+	label: string;
+	userId: string;
+	sessionId: string;
+}): void {
+	const { windows, max, windowMs, label, userId, sessionId } = input;
+	const now = Date.now();
+	const cutoff = now - windowMs;
+
+	let entry = windows.get(userId);
 	if (!entry) {
 		entry = { sessions: new Map() };
-		hookIngestWindows.set(userId, entry);
+		windows.set(userId, entry);
 	}
 
 	for (const [sid, ts] of entry.sessions) {
@@ -135,27 +148,56 @@ export function checkHookIngestRateLimit(
 	}
 
 	const isNew = !entry.sessions.has(sessionId);
-	if (isNew && entry.sessions.size >= HOOK_INGEST_MAX) {
+	if (isNew && entry.sessions.size >= max) {
 		logger.warn(
-			"Hook ingest rate limit exceeded for user {userId}: {count}/{max} unique sessions in {window}s",
+			"{label} ingest rate limit exceeded for user {userId}: {count}/{max} unique sessions in {window}s",
 			{
+				label,
 				userId,
 				count: entry.sessions.size,
-				max: HOOK_INGEST_MAX,
-				window: HOOK_INGEST_WINDOW_MS / 1000,
+				max,
+				window: windowMs / 1000,
 			},
 		);
 		throw new ORPCError("TOO_MANY_REQUESTS", {
-			message: `Rate limit exceeded. Maximum ${HOOK_INGEST_MAX} sessions per ${Math.round(HOOK_INGEST_WINDOW_MS / 60_000)} minutes. Try again later.`,
+			message: `Rate limit exceeded. Maximum ${max} sessions per ${Math.round(windowMs / 60_000)} minutes. Try again later.`,
 			data: {
-				limit: HOOK_INGEST_MAX,
-				windowSeconds: HOOK_INGEST_WINDOW_MS / 1000,
+				limit: max,
+				windowSeconds: windowMs / 1000,
 				current: entry.sessions.size,
 			},
 		});
 	}
 
 	entry.sessions.set(sessionId, now);
+}
+
+export function checkHookIngestRateLimit(
+	userId: string,
+	sessionId: string,
+): void {
+	checkSessionIngestRateLimit({
+		windows: hookIngestWindows,
+		max: HOOK_INGEST_MAX,
+		windowMs: HOOK_INGEST_WINDOW_MS,
+		label: "Hook",
+		userId,
+		sessionId,
+	});
+}
+
+export function checkManualIngestRateLimit(
+	userId: string,
+	sessionId: string,
+): void {
+	checkSessionIngestRateLimit({
+		windows: manualIngestWindows,
+		max: MANUAL_INGEST_MAX,
+		windowMs: MANUAL_INGEST_WINDOW_MS,
+		label: "Manual",
+		userId,
+		sessionId,
+	});
 }
 
 function checkSlidingWindowRateLimit(input: {

@@ -3,6 +3,7 @@ import { IngestSessionInputSchema } from "@rudel/api-routes";
 import {
 	checkAnalyticsRateLimit,
 	checkHookIngestRateLimit,
+	checkManualIngestRateLimit,
 } from "../rate-limit.js";
 
 describe("IngestSessionInputSchema metadata field limits", () => {
@@ -178,5 +179,28 @@ describe("checkHookIngestRateLimit", () => {
 		} finally {
 			Date.now = realNow;
 		}
+	});
+});
+
+describe("checkManualIngestRateLimit", () => {
+	test("allows requests under the cap", () => {
+		const userId = `test-manual-under-${Date.now()}`;
+		expect(() =>
+			checkManualIngestRateLimit(userId, "session-1"),
+		).not.toThrow();
+	});
+
+	test("manual and hook caps are independent buckets", () => {
+		const userId = `test-independent-${Date.now()}`;
+		// A session in the manual bucket must not consume hook budget.
+		checkManualIngestRateLimit(userId, "session-manual-1");
+		// Hook bucket should still allow its full 500 distinct sessions.
+		for (let i = 0; i < 500; i++) {
+			checkHookIngestRateLimit(userId, `session-hook-${i}`);
+		}
+		// 501st new hook session throws — confirms hook cap is intact.
+		expect(() =>
+			checkHookIngestRateLimit(userId, "session-hook-overflow"),
+		).toThrow("Rate limit exceeded");
 	});
 });
