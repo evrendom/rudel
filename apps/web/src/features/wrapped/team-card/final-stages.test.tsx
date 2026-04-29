@@ -9,6 +9,7 @@ import {
 	WrappedTeamCardRevealStage,
 	WrappedTeamCardShareStage,
 } from "@/features/wrapped/team-card/final-stages";
+import { DEFAULT_WRAPPED_SHARE_APPEARANCE } from "@/features/wrapped/team-card/share-appearance";
 import { WrappedTeamCardSharePreview } from "@/features/wrapped/team-card/share-preview";
 import type { WrappedCardTiltController } from "@/features/wrapped/team-card/tilt/use-card-tilt";
 
@@ -301,6 +302,57 @@ describe("WrappedTeamCardSharePreview", () => {
 });
 
 describe("WrappedTeamCardShareStage", () => {
+	it("selects the two-card post variant by default", () => {
+		render(
+			<WrappedTeamCardShareStage
+				appearance={DEFAULT_WRAPPED_SHARE_APPEARANCE}
+				backMetrics={buildWrappedTeamCardBackMetrics({
+					onboardingMetrics,
+					row,
+					shareCardCreatedAtLabel: "04/24/2026",
+				})}
+				headerLeftMetric={{ title: "$42 estimated spend", value: "$42" }}
+				headerRightMetric={{
+					title: "Smooth Operator",
+					value: "Smooth Operator",
+				}}
+				onAppearanceChange={vi.fn()}
+				onBack={vi.fn()}
+				onContinueToDashboard={vi.fn()}
+				onCopy={vi.fn()}
+				onCopyProfileUrl={vi.fn()}
+				onDownload={vi.fn()}
+				onShare={vi.fn()}
+				profileUrlLabel="rudel.ai/wrapped/public-card"
+				row={row}
+				shareCardCreatedAtLabel="04/24/2026"
+				sharePostRef={{ current: null }}
+				shellClassName="bg-sky-200"
+				shellStyle={{}}
+				statItems={[]}
+				statLayerOpacities={{
+					rainbowShineOpacity: 0.3,
+					textureOpacity: 1,
+					tileBorderOpacity: 1,
+					tileFillOpacity: 0.08,
+					tileInsetShadowOpacity: 0.5,
+					tileTopStrokeOpacity: 0.08,
+				}}
+				theme="light"
+			/>,
+		);
+
+		expect(screen.getByRole("button", { name: "One card" })).toHaveAttribute(
+			"aria-pressed",
+			"false",
+		);
+		expect(screen.getByRole("button", { name: "Two cards" })).toHaveAttribute(
+			"aria-pressed",
+			"true",
+		);
+		expect(screen.getByText("Input/output tokens")).toBeInTheDocument();
+	});
+
 	it("shows a spinner in the download button while export is pending", () => {
 		render(
 			<WrappedTeamCardShareStage

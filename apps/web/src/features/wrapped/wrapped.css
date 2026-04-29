@@ -8367,6 +8367,8 @@ body.mymind-wrapped-body #cw-bubble-holder {
 	background: transparent;
 	box-shadow: none;
 	color: #2a2725;
+	font-family: "Nunito", var(--font-sans);
+	font-weight: 400;
 }
 
 .mymind-wrapped-share-primary-action--text:hover {
