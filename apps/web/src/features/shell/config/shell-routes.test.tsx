@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
 	getCurrentShellRoute,
 	shellRouteMap,
+	shellRoutes,
 } from "@/features/shell/config/shell-routes";
 
 describe("getCurrentShellRoute", () => {
@@ -19,5 +20,15 @@ describe("getCurrentShellRoute", () => {
 		expect(getCurrentShellRoute("/dashboard/sessions/session-123")).toBe(
 			shellRouteMap.sessions,
 		);
+	});
+
+	it("uses history as the sessions shortcut", () => {
+		expect(shellRouteMap.sessions.shortcut).toBe("H");
+	});
+
+	it("keeps primary shell shortcuts unique", () => {
+		const shortcuts = shellRoutes.map((route) => route.shortcut);
+
+		expect(new Set(shortcuts).size).toBe(shortcuts.length);
 	});
 });

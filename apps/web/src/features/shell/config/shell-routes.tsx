@@ -10,7 +10,7 @@ export type ShellRouteDefinition = {
 	path: string;
 	title: string;
 	navLabel: string;
-	shortcut?: string;
+	shortcut: string;
 	icon: ShellRouteIcon;
 };
 
@@ -28,6 +28,7 @@ export const shellRoutes = [
 		path: appRoutes.dashboardSessions(),
 		title: "Sessions",
 		navLabel: "Sessions",
+		shortcut: "H",
 		icon: <Clock3Icon />,
 	},
 	{
