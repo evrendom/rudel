@@ -249,6 +249,30 @@ describe("WrappedRouteGate", () => {
 		expect(screen.getByText("Public page: share-123")).toBeInTheDocument();
 	});
 
+	it("renders the public page before mobile handoff when a signed-in mobile viewer opens a share", () => {
+		mockUseIsMobile.mockReturnValue(true);
+		mockUseSetupProgress.mockReturnValue({
+			hasUploadedSessions: true,
+			isLoading: false,
+			totalSessionCount: 3,
+		});
+
+		render(
+			<MemoryRouter initialEntries={["/wrapped/share-123"]}>
+				<WrappedRouteGate
+					isPending={false}
+					publicId="share-123"
+					session={session}
+				/>
+			</MemoryRouter>,
+		);
+
+		expect(screen.getByText("Public page: share-123")).toBeInTheDocument();
+		expect(
+			screen.queryByText("Wrapped mobile handoff: ada@example.com"),
+		).toBeNull();
+	});
+
 	it("renders a loading state while auth is pending", () => {
 		render(
 			<MemoryRouter initialEntries={["/wrapped"]}>
@@ -359,6 +383,81 @@ describe("WrappedRouteGate", () => {
 		expect(
 			screen.getByText("Wrapped mobile handoff: ada@example.com"),
 		).toBeInTheDocument();
+	});
+
+	it("renders mobile handoff for signed-in mobile viewers when uploaded sessions already exist", () => {
+		mockUseIsMobile.mockReturnValue(true);
+		mockUseSetupProgress.mockReturnValue({
+			hasUploadedSessions: true,
+			isLoading: false,
+			totalSessionCount: 3,
+		});
+
+		render(
+			<MemoryRouter initialEntries={["/wrapped"]}>
+				<WrappedRouteGate isPending={false} publicId={null} session={session} />
+			</MemoryRouter>,
+		);
+
+		expect(
+			screen.getByText("Wrapped mobile handoff: ada@example.com"),
+		).toBeInTheDocument();
+		expect(screen.queryByText("Wrapped setup page")).toBeNull();
+		expect(screen.queryByText("Wrapped story")).toBeNull();
+	});
+
+	it("keeps acknowledged signed-in mobile viewers on the mobile handoff", () => {
+		const storageKey = getWrappedSetupCompletionStorageKey(session.user.id);
+
+		if (storageKey === null) {
+			throw new Error("Expected wrapped setup completion storage key");
+		}
+
+		window.localStorage.setItem(storageKey, "true");
+		mockUseIsMobile.mockReturnValue(true);
+		mockUseSetupProgress.mockReturnValue({
+			hasUploadedSessions: true,
+			isLoading: false,
+			totalSessionCount: 3,
+		});
+
+		render(
+			<MemoryRouter initialEntries={["/wrapped"]}>
+				<WrappedRouteGate isPending={false} publicId={null} session={session} />
+			</MemoryRouter>,
+		);
+
+		expect(
+			screen.getByText("Wrapped mobile handoff: ada@example.com"),
+		).toBeInTheDocument();
+		expect(screen.queryByText("Wrapped story")).toBeNull();
+	});
+
+	it.each([
+		"card-profile",
+		"desktop-ready",
+		"sessions-landed",
+		"story",
+	] as const)("keeps signed-in mobile viewers on the handoff for forced %s flow", (flow) => {
+		mockUseIsMobile.mockReturnValue(true);
+		mockUseSetupProgress.mockReturnValue({
+			hasUploadedSessions: true,
+			isLoading: false,
+			totalSessionCount: 3,
+		});
+
+		render(
+			<MemoryRouter initialEntries={[`/wrapped?flow=${flow}`]}>
+				<WrappedRouteGate isPending={false} publicId={null} session={session} />
+			</MemoryRouter>,
+		);
+
+		expect(
+			screen.getByText("Wrapped mobile handoff: ada@example.com"),
+		).toBeInTheDocument();
+		expect(screen.queryByText("Wrapped setup page")).toBeNull();
+		expect(screen.queryByText("Wrapped setup complete page")).toBeNull();
+		expect(screen.queryByText("Wrapped story")).toBeNull();
 	});
 
 	it("renders setup for signed-in desktop viewers without uploads", () => {
