@@ -18,7 +18,7 @@ import {
 	useState,
 } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { appRoutes } from "@/app/routes";
+import { appRoutes, getWrappedShareIdFromSearch } from "@/app/routes";
 import { Button } from "@/app/ui/button";
 import { useAnalyticsTracking } from "@/features/analytics/tracking/useAnalyticsTracking";
 import type { TeamPageMemberRow } from "@/features/team/use-team-page-data";
@@ -99,9 +99,14 @@ export function WrappedTeamCardPage(props: {
 	const { debugControls, onBackFromFirstStep } = props;
 	const navigate = useNavigate();
 	const [searchParams] = useSearchParams();
-	const { trackUtilityUsed } = useAnalyticsTracking({
+	const { trackUtilityUsed, trackWrappedStoryStarted } = useAnalyticsTracking({
 		pageName: "wrapped_team_card",
 	});
+	const sourceShareId =
+		getWrappedShareIdFromSearch(`?${searchParams.toString()}`) ?? undefined;
+	const wrappedLoopEntrySource = sourceShareId
+		? "share_redirect"
+		: "wrapped_team_card";
 	const {
 		completionUserId,
 		liveArchetype,
@@ -208,6 +213,12 @@ export function WrappedTeamCardPage(props: {
 			utilityName: "wrappedStageViewed",
 			utilityState: activeStepParam === "card" ? "cardDirect" : "story",
 		});
+		trackWrappedStoryStarted({
+			activationState: activeStepParam === "card" ? "card_direct" : "story",
+			entrySource: wrappedLoopEntrySource,
+			sourceComponent: "wrapped_team_card_page",
+			sourceShareId,
+		});
 		document.body.classList.add("mymind-wrapped-body");
 
 		return () => {
@@ -301,10 +312,20 @@ function WrappedTeamCardPageContent(props: {
 	const [searchParams] = useSearchParams();
 	const shouldReduceMotion = useReducedMotion();
 	const reduceMotion = shouldReduceMotion ?? false;
-	const { trackNavigation, trackUtilityUsed } = useAnalyticsTracking({
+	const {
+		trackNavigation,
+		trackUtilityUsed,
+		trackWrappedShareActionTriggered,
+		trackWrappedShareCreated,
+	} = useAnalyticsTracking({
 		pageName: "wrapped_team_card",
 	});
 	const isCardStep = searchParams.get("step") === "card";
+	const sourceShareId =
+		getWrappedShareIdFromSearch(`?${searchParams.toString()}`) ?? undefined;
+	const wrappedLoopEntrySource = sourceShareId
+		? "share_redirect"
+		: "wrapped_team_card";
 	const showShareStage = finalCardStage === "share";
 	const activeArchetypeIndex = getWrappedArchetypeThemeIndex(activeArchetype);
 	// The final exported post intentionally uses a stricter media policy than the
@@ -354,18 +375,16 @@ function WrappedTeamCardPageContent(props: {
 	const { ensureShare, shareUrl, shareUrlLabel } = useWrappedTeamCardShare(
 		shareSnapshot,
 		{
-			// "shareCreated" is the moment a persistent public record exists, not the
-			// moment the user merely opened the share UI. That distinction matters for
-			// the Saturday growth funnel.
+			// This is the moment a persistent public record exists, not the moment
+			// the user merely opened the share UI.
 			onShareCreated: (shareRecord) => {
-				trackUtilityUsed({
+				trackWrappedShareCreated({
 					archetypeId: activeArchetype.id,
-					entrySource: "wrapped_team_card",
+					entrySource: wrappedLoopEntrySource,
 					publicPayloadVersion: WRAPPED_SHARE_PAYLOAD_VERSION,
 					shareId: shareRecord.id,
 					sourceComponent: "wrapped_team_card_page",
-					targetId: shareRecord.id,
-					utilityName: "shareCreated",
+					sourceShareId,
 				});
 			},
 			username: publicUsername,
@@ -382,10 +401,12 @@ function WrappedTeamCardPageContent(props: {
 		distinctProjectCount: onboardingMetrics.distinctProjectCount,
 		displayName: visibleTeamCardRow.displayName,
 		onShareActionTriggered: (action) => {
-			trackUtilityUsed({
+			trackWrappedShareActionTriggered({
+				activationState: action,
+				entrySource: wrappedLoopEntrySource,
+				shareAction: action,
 				sourceComponent: "wrapped_share_actions",
-				utilityName: "wrappedShareActionTriggered",
-				utilityState: action,
+				sourceShareId,
 			});
 		},
 		resolveShareUrl: async () => {

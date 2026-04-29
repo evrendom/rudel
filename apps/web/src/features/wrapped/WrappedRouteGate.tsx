@@ -73,12 +73,17 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 	const location = useLocation();
 	const [searchParams, setSearchParams] = useSearchParams();
 	const isMobile = useIsMobile();
-	const { trackUtilityUsed } = useAnalyticsTracking({
+	const {
+		trackWrappedActivationCompleted,
+		trackWrappedOnboardingStarted,
+		trackWrappedProfileCompleted,
+	} = useAnalyticsTracking({
 		// The analytics contract still calls the public surface "wrapped_share".
 		// Keep that stable until the event schema is renamed on the backend too.
 		pageName: publicId ? "wrapped_share" : "wrapped_team_card",
 	});
 	const shareId = getWrappedShareIdFromSearch(location.search);
+	const wrappedLoopEntrySource = shareId ? "share_redirect" : "direct";
 	const sessionUserId = getSessionUserId(session);
 	const sessionUserEmail = getSessionUserEmail(session);
 	const setupProgress = useSetupProgress({
@@ -178,6 +183,13 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 			...currentState,
 			[sessionUserId]: true,
 		}));
+		trackWrappedActivationCompleted({
+			activationState: "setup_completed",
+			entrySource: wrappedLoopEntrySource,
+			resolvedEntryRoute: location.pathname,
+			sourceComponent: "wrapped_route_gate",
+			sourceShareId: shareId ?? undefined,
+		});
 		startWrappedStoryFromBeginning();
 	}
 
@@ -216,6 +228,13 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 			...currentState,
 			[sessionUserId]: true,
 		}));
+		trackWrappedProfileCompleted({
+			activationState: "profile_completed",
+			entrySource: wrappedLoopEntrySource,
+			resolvedEntryRoute: location.pathname,
+			sourceComponent: "wrapped_route_gate",
+			sourceShareId: shareId ?? undefined,
+		});
 		setWrappedRouteFlowStage(WRAPPED_ROUTE_DESKTOP_READY_FLOW);
 	}
 
@@ -229,25 +248,18 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 
 	useEffectOnceWhen({
 		effect: () => {
-			trackUtilityUsed({
-				entrySource: "share_redirect",
+			trackWrappedOnboardingStarted({
+				activationState: setupProgress.hasUploadedSessions
+					? "sessions_ready"
+					: "upload_required",
+				entrySource: wrappedLoopEntrySource,
 				resolvedEntryRoute: location.pathname,
-				shareId: shareId ?? undefined,
 				sourceComponent: "wrapped_route_gate",
-				targetId: shareId ?? undefined,
-				utilityName: "onboardingStartedFromShare",
-				utilityState: setupProgress.hasUploadedSessions
-					? "sessionsReady"
-					: "uploadRequired",
+				sourceShareId: shareId ?? undefined,
 			});
 		},
-		isReady:
-			!publicId &&
-			!isPending &&
-			!!session &&
-			!!shareId &&
-			!setupProgress.isLoading,
-		key: shareId,
+		isReady: !publicId && !isPending && !!session && !setupProgress.isLoading,
+		key: shareId ?? sessionUserId,
 	});
 
 	let content: ReactNode;

@@ -17,6 +17,7 @@ import {
 	type ProductAnalyticsEventName,
 	type SignUpFailedEvent,
 	type UiUtilityUsedEvent,
+	type WrappedGrowthLoopEvent,
 } from "@rudel/api-routes";
 import { getWrappedPublicIdFromPath } from "@/app/routes";
 
@@ -339,6 +340,57 @@ export function captureUiUtilityUsed(
 	payload: WebCapturePayload<UiUtilityUsedEvent>,
 ) {
 	captureEvent(PRODUCT_ANALYTICS_EVENTS.UI_UTILITY_USED, payload);
+}
+
+export function captureWrappedShareViewed(
+	payload: WebCapturePayload<WrappedGrowthLoopEvent>,
+) {
+	captureEvent(PRODUCT_ANALYTICS_EVENTS.WRAPPED_SHARE_VIEWED, payload);
+}
+
+export function captureWrappedShareCtaClicked(
+	payload: WebCapturePayload<WrappedGrowthLoopEvent>,
+) {
+	captureEvent(PRODUCT_ANALYTICS_EVENTS.WRAPPED_SHARE_CTA_CLICKED, payload);
+}
+
+export function captureWrappedOnboardingStarted(
+	payload: WebCapturePayload<WrappedGrowthLoopEvent>,
+) {
+	captureEvent(PRODUCT_ANALYTICS_EVENTS.WRAPPED_ONBOARDING_STARTED, payload);
+}
+
+export function captureWrappedProfileCompleted(
+	payload: WebCapturePayload<WrappedGrowthLoopEvent>,
+) {
+	captureEvent(PRODUCT_ANALYTICS_EVENTS.WRAPPED_PROFILE_COMPLETED, payload);
+}
+
+export function captureWrappedActivationCompleted(
+	payload: WebCapturePayload<WrappedGrowthLoopEvent>,
+) {
+	captureEvent(PRODUCT_ANALYTICS_EVENTS.WRAPPED_ACTIVATION_COMPLETED, payload);
+}
+
+export function captureWrappedStoryStarted(
+	payload: WebCapturePayload<WrappedGrowthLoopEvent>,
+) {
+	captureEvent(PRODUCT_ANALYTICS_EVENTS.WRAPPED_STORY_STARTED, payload);
+}
+
+export function captureWrappedShareCreated(
+	payload: WebCapturePayload<WrappedGrowthLoopEvent>,
+) {
+	captureEvent(PRODUCT_ANALYTICS_EVENTS.WRAPPED_SHARE_CREATED, payload);
+}
+
+export function captureWrappedShareActionTriggered(
+	payload: WebCapturePayload<WrappedGrowthLoopEvent>,
+) {
+	captureEvent(
+		PRODUCT_ANALYTICS_EVENTS.WRAPPED_SHARE_ACTION_TRIGGERED,
+		payload,
+	);
 }
 
 const ANALYTICS_PAGE_MATCHERS: ReadonlyArray<{

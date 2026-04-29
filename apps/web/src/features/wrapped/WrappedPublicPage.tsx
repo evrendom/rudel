@@ -40,10 +40,11 @@ const PUBLIC_SHARE_CARD_SHELL_STYLE = {
 export function WrappedPublicPage(props: WrappedPublicPageProps) {
 	const { publicId } = props;
 	const { data: session } = authClient.useSession();
-	const { trackUtilityUsed } = useAnalyticsTracking({
-		// The analytics contract still uses the older "wrapped_share" page name.
-		pageName: "wrapped_share",
-	});
+	const { trackWrappedShareCtaClicked, trackWrappedShareViewed } =
+		useAnalyticsTracking({
+			// The analytics contract still uses the older "wrapped_share" page name.
+			pageName: "wrapped_share",
+		});
 	const publicPageQuery = useWrappedPublicPage(publicId);
 	const sessionUserId = getSessionUserId(session);
 	const makeYoursHref = appRoutes.wrappedTeamCardFromShare(publicId);
@@ -60,18 +61,16 @@ export function WrappedPublicPage(props: WrappedPublicPageProps) {
 	});
 
 	// Count the share view once the public payload has actually loaded. That keeps
-	// "shareViewed" tied to a real, resolvable share instead of every attempted
-	// route hit or loading state.
+	// the exposure event tied to a real, resolvable share instead of every
+	// attempted route hit or loading state.
 	useEffectOnceWhen({
 		effect: () => {
-			trackUtilityUsed({
+			trackWrappedShareViewed({
 				entrySource: "public_share",
 				isAuthenticatedViewer: sessionUserId !== null,
 				shareId: publicId,
 				sourceComponent: "wrapped_public_page",
-				targetId: publicId,
-				utilityName: "shareViewed",
-				utilityState: sessionUserId !== null ? "authenticated" : "anonymous",
+				activationState: sessionUserId !== null ? "authenticated" : "anonymous",
 			});
 		},
 		isReady: Boolean(publicPageQuery.data),
@@ -92,14 +91,12 @@ export function WrappedPublicPage(props: WrappedPublicPageProps) {
 		<PublicShareReadyState
 			makeYoursHref={makeYoursHref}
 			onMakeYoursClick={() => {
-				trackUtilityUsed({
+				trackWrappedShareCtaClicked({
 					entrySource: "public_share",
 					redirectTarget: makeYoursHref,
 					shareId: publicId,
 					sourceComponent: "wrapped_public_page",
-					targetId: publicId,
-					utilityName: "makeYoursClicked",
-					utilityState:
+					activationState:
 						sessionUserId !== null ? "authenticated" : "guest_redirect",
 				});
 			}}
