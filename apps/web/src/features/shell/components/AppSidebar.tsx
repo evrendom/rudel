@@ -1,6 +1,11 @@
 "use client";
 
-import { ArrowLeftIcon, Building2Icon, UserIcon } from "lucide-react";
+import {
+	ArrowLeftIcon,
+	Building2Icon,
+	UserIcon,
+	UsersIcon,
+} from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import * as React from "react";
 import { useLocation } from "react-router-dom";
@@ -43,7 +48,15 @@ const SIDEBAR_NEWS_VISIBILITY_TRANSITION = {
 };
 
 function getSettingsSidebarIcon(routeId: string) {
-	return routeId === "account" ? <UserIcon /> : <Building2Icon />;
+	if (routeId === "account") {
+		return <UserIcon />;
+	}
+
+	if (routeId === "members") {
+		return <UsersIcon />;
+	}
+
+	return <Building2Icon />;
 }
 
 function getSidebarSectionClassName(mode: SidebarDisplayMode) {

@@ -20,12 +20,15 @@ function formatDate(value: string | Date) {
 }
 
 export function WorkspaceIncomingInvitationsCard({
+	description = "Accept or decline invites from other workspaces without leaving settings.",
 	invitations,
 	isPending,
 	onAccept,
 	onDecline,
 	processingId,
+	title = "Pending invitations",
 }: {
+	description?: string;
 	invitations: readonly {
 		createdAt: string | Date;
 		id: string;
@@ -36,17 +39,15 @@ export function WorkspaceIncomingInvitationsCard({
 	onAccept: (invitationId: string) => void;
 	onDecline: (invitationId: string) => void;
 	processingId: string | null;
+	title?: string;
 }) {
 	const invitationCount = invitations.length;
 
 	return (
 		<Card size="sm" className="bg-card/95 shadow-none ring-1 ring-border/60">
 			<CardHeader>
-				<CardTitle>Pending invitations</CardTitle>
-				<CardDescription>
-					Accept or decline invites from other workspaces without leaving
-					settings.
-				</CardDescription>
+				<CardTitle>{title}</CardTitle>
+				<CardDescription>{description}</CardDescription>
 				<CardAction>
 					<Badge variant={invitationCount > 0 ? "secondary" : "outline"}>
 						{invitationCount} pending

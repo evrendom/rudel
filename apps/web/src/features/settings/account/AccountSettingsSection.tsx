@@ -4,18 +4,30 @@ import { toast } from "sonner";
 import { appRoutes } from "@/app/routes";
 import { Card, CardContent } from "@/app/ui/card";
 import { Skeleton } from "@/app/ui/skeleton";
-import { PageViewTrackingMount } from "@/features/analytics/tracking/PageViewTrackingMount";
+import {
+	type PageMetric,
+	type PageSection,
+	PageViewTrackingMount,
+} from "@/features/analytics/tracking/PageViewTrackingMount";
 import { useAnalyticsTracking } from "@/features/analytics/tracking/useAnalyticsTracking";
 import { ProfileLinkedAccountsCard } from "@/features/settings/account/components/ProfileLinkedAccountsCard";
 import { ProfileOverviewCard } from "@/features/settings/account/components/ProfileOverviewCard";
 import { useAccountSettingsData } from "@/features/settings/account/use-account-settings-data";
+import { useInvitationsSettingsData } from "@/features/settings/invitations/use-invitations-settings-data";
+import { WorkspaceIncomingInvitationsCard } from "@/features/settings/workspace/components/WorkspaceIncomingInvitationsCard";
+import { useOrganization } from "@/features/workspace/organization/useOrganization";
 import { authClient, signOut } from "@/lib/auth-client";
 
 export function AccountSettingsSection() {
 	const navigate = useNavigate();
 	const data = useAccountSettingsData();
+	const invitationsData = useInvitationsSettingsData();
+	const { actions } = useOrganization();
 	const { trackAuthenticationAction } = useAnalyticsTracking();
 	const [linkingProvider, setLinkingProvider] = useState<string | null>(null);
+	const [processingInvitationId, setProcessingInvitationId] = useState<
+		string | null
+	>(null);
 	const [isSigningOut, setIsSigningOut] = useState(false);
 
 	const handleLinkProvider = (provider: "google" | "github") => {
@@ -49,33 +61,103 @@ export function AccountSettingsSection() {
 			);
 		}
 	};
+	const handleAcceptInvitation = async (invitationId: string) => {
+		trackAuthenticationAction({
+			actionName: "accept_invitation",
+			sourceComponent: "account_settings_section",
+			authMethod: "invitation",
+			targetId: invitationId,
+		});
+		setProcessingInvitationId(invitationId);
+
+		try {
+			const response = await authClient.organization.acceptInvitation({
+				invitationId,
+			});
+			if (response.data) {
+				try {
+					await actions.switchOrganization(response.data.member.organizationId);
+				} catch (cause) {
+					toast.error(
+						cause instanceof Error
+							? cause.message
+							: "Invitation accepted but workspace switch failed",
+					);
+				}
+			}
+			invitationsData.invalidate();
+		} catch (cause) {
+			toast.error(
+				cause instanceof Error ? cause.message : "Failed to accept invitation",
+			);
+		} finally {
+			setProcessingInvitationId(null);
+		}
+	};
+
+	const handleDeclineInvitation = async (invitationId: string) => {
+		trackAuthenticationAction({
+			actionName: "decline_invitation",
+			sourceComponent: "account_settings_section",
+			authMethod: "invitation",
+			targetId: invitationId,
+		});
+		setProcessingInvitationId(invitationId);
+
+		try {
+			await authClient.organization.rejectInvitation({ invitationId });
+			invitationsData.invalidate();
+		} catch (cause) {
+			toast.error(
+				cause instanceof Error ? cause.message : "Failed to decline invitation",
+			);
+		} finally {
+			setProcessingInvitationId(null);
+		}
+	};
+
+	const trackingMetrics: PageMetric[] = [
+		{
+			id: "linked_accounts",
+			value: data.linkedProviders.size,
+		},
+		{
+			id: "pending_workspace_invitations",
+			value: invitationsData.count,
+		},
+	];
+	const trackingSections: PageSection[] = [
+		{
+			id: "profile_summary",
+			state: data.state.hasData ? "populated" : "empty",
+		},
+		{
+			id: "linked_accounts",
+			state: data.state.isPending
+				? "hidden"
+				: data.linkedProviders.size > 0
+					? "populated"
+					: "empty",
+			itemCount: data.linkedProviders.size,
+		},
+		{
+			id: "workspace_invitations",
+			state: invitationsData.state.isPending
+				? "hidden"
+				: invitationsData.state.hasData
+					? "populated"
+					: "empty",
+			itemCount: invitationsData.count,
+		},
+	];
 
 	return (
 		<>
 			<PageViewTrackingMount
-				isLoading={data.state.isPending}
+				isLoading={data.state.isPending || invitationsData.state.isPending}
 				hasData={data.state.hasData}
-				metrics={[
-					{
-						id: "linked_accounts",
-						value: data.linkedProviders.size,
-					},
-				]}
-				sections={[
-					{
-						id: "profile_summary",
-						state: data.state.hasData ? "populated" : "empty",
-					},
-					{
-						id: "linked_accounts",
-						state: data.state.isPending
-							? "hidden"
-							: data.linkedProviders.size > 0
-								? "populated"
-								: "empty",
-						itemCount: data.linkedProviders.size,
-					},
-				]}
+				metrics={trackingMetrics}
+				sections={trackingSections}
 			/>
 			{data.state.isPending ? (
 				<div className="grid gap-4 px-4 lg:px-6 xl:grid-cols-[1.05fr_1fr]">
@@ -129,6 +211,22 @@ export function AccountSettingsSection() {
 					/>
 				</div>
 			)}
+			<div
+				id="workspace-invitations"
+				className="mt-4 px-4 lg:px-6 scroll-mt-24"
+			>
+				<WorkspaceIncomingInvitationsCard
+					title="Workspace invitations"
+					description="Accept or decline workspace invites sent to your account."
+					invitations={invitationsData.invitations}
+					isPending={invitationsData.state.isPending}
+					processingId={processingInvitationId}
+					onAccept={(invitationId) => void handleAcceptInvitation(invitationId)}
+					onDecline={(invitationId) =>
+						void handleDeclineInvitation(invitationId)
+					}
+				/>
+			</div>
 		</>
 	);
 }

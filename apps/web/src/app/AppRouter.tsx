@@ -39,6 +39,10 @@ const WorkspaceSettingsPage = lazyNamed(
 	() => import("@/features/settings/workspace/WorkspaceSettingsPage"),
 	"WorkspaceSettingsPage",
 );
+const MembersSettingsPage = lazyNamed(
+	() => import("@/features/settings/members/MembersSettingsPage"),
+	"MembersSettingsPage",
+);
 const AccountSettingsPage = lazyNamed(
 	() => import("@/features/settings/account/AccountSettingsPage"),
 	"AccountSettingsPage",
@@ -93,6 +97,7 @@ export function AppRouter({
 }) {
 	const rootRedirect = rootRedirectTarget || shellRouteMap.dashboard.path;
 	const canonicalWorkspaceSettingsPath = settingsRouteMap.workspace.path;
+	const canonicalAccountSettingsPath = settingsRouteMap.account.path;
 
 	return (
 		<Routes>
@@ -136,11 +141,15 @@ export function AppRouter({
 						element={<LazyRoute Component={WorkspaceSettingsPage} />}
 					/>
 					<Route
+						path={settingsRouteMap.members.segment}
+						element={<LazyRoute Component={MembersSettingsPage} />}
+					/>
+					<Route
 						path={settingsRouteMap.invitations.segment}
 						element={
 							<Navigate
 								replace
-								to={`${canonicalWorkspaceSettingsPath}#incoming-invitations`}
+								to={`${canonicalAccountSettingsPath}#workspace-invitations`}
 							/>
 						}
 					/>
