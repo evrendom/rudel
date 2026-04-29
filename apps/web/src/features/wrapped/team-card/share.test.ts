@@ -2,6 +2,7 @@ import { toast } from "sonner";
 import { describe, expect, it, vi } from "vitest";
 import type { TeamPageMemberRow } from "@/features/team/use-team-page-data";
 import { createWrappedTeamCardShareActions } from "@/features/wrapped/team-card/share";
+import { copyTextToClipboardWithResult } from "@/lib/clipboard";
 import {
 	captureElement,
 	copyPngToClipboardWhenReady,
@@ -12,15 +13,21 @@ import {
 const {
 	mockCaptureElement,
 	mockCopyPngToClipboardWhenReady,
+	mockCopyTextToClipboardWithResult,
 	mockCopyToClipboard,
 	mockDownloadAsImage,
 	mockToastSuccess,
 } = vi.hoisted(() => ({
 	mockCaptureElement: vi.fn(),
 	mockCopyPngToClipboardWhenReady: vi.fn(),
+	mockCopyTextToClipboardWithResult: vi.fn(),
 	mockCopyToClipboard: vi.fn(),
 	mockDownloadAsImage: vi.fn(),
 	mockToastSuccess: vi.fn(),
+}));
+
+vi.mock("@/lib/clipboard", () => ({
+	copyTextToClipboardWithResult: mockCopyTextToClipboardWithResult,
 }));
 
 vi.mock("@/lib/screenshot", () => ({
@@ -127,6 +134,42 @@ describe("createWrappedTeamCardShareActions", () => {
 			"rudel-team-card-post.png",
 		);
 		expect(toast.success).toHaveBeenCalledWith("Post downloaded");
+	});
+
+	it("copies the resolved profile URL without capturing the post image", async () => {
+		vi.clearAllMocks();
+		const onShareActionTriggered = vi.fn();
+		const resolveShareUrl = vi
+			.fn()
+			.mockResolvedValue("https://rudel.ai/wrapped/public-card");
+		const sharePostRef = { current: document.createElement("div") };
+		vi.mocked(copyTextToClipboardWithResult).mockResolvedValue("copied");
+
+		const actions = createWrappedTeamCardShareActions({
+			archetypeLabel: "Maniac",
+			displayName: "Jane Doe",
+			onShareActionTriggered,
+			resolveShareUrl,
+			row: buildTeamPageMemberRow(),
+			sharePostRef,
+			shareUrlLabel: "rudel.ai/wrapped",
+		});
+
+		await expect(actions.handleCopyProfileUrl()).resolves.toBe(true);
+
+		expect(onShareActionTriggered).toHaveBeenCalledWith("copy_profile_url");
+		expect(resolveShareUrl).toHaveBeenCalledTimes(1);
+		expect(copyTextToClipboardWithResult).toHaveBeenCalledWith(
+			"https://rudel.ai/wrapped/public-card",
+			{
+				allowPromptFallback: true,
+				preferSelectionCopy: true,
+				promptMessage: "Copy profile URL: Cmd/Ctrl+C, Enter",
+			},
+		);
+		expect(captureElement).not.toHaveBeenCalled();
+		expect(downloadAsImage).not.toHaveBeenCalled();
+		expect(toast.success).toHaveBeenCalledWith("Profile URL copied");
 	});
 
 	it("opens X with first-person copy and only the resolved public card URL", async () => {

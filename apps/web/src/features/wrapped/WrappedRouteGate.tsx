@@ -127,14 +127,34 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 		isWrappedNewUserFlow ||
 		(sessionUserId !== null &&
 			completedCardProfileUserIds[sessionUserId] === true);
+	const hasCompletedCardProfileWithImage =
+		sessionUserId !== null &&
+		(completedCardProfileUserIds[sessionUserId] === true ||
+			(isWrappedCardProfileCompletedForUser(
+				guestPreviewSnapshot,
+				sessionUserId,
+			) &&
+				hasWrappedCardProfileImage(guestPreviewSnapshot?.profile ?? null)));
 	const defaultCardProfile = buildWrappedSessionPreviewProfile(session);
 	const activeCardProfile = editableCardProfile ?? defaultCardProfile;
+	const hasActiveCardProfileImage =
+		hasWrappedCardProfileImage(activeCardProfile);
+	const hasSessionUserImage = getSessionUserImage(session) !== null;
+	const needsCardProfileBeforeSetup =
+		!publicId &&
+		!isPending &&
+		!!session &&
+		sessionUserId !== null &&
+		activeCardProfile !== null &&
+		!hasSessionUserImage &&
+		!hasCompletedCardProfileWithImage;
 	const shouldShowCardProfileStep =
 		!publicId &&
 		!isPending &&
 		!!session &&
 		sessionUserId !== null &&
-		forcedFlowStage === WRAPPED_ROUTE_CARD_PROFILE_FLOW &&
+		(forcedFlowStage === WRAPPED_ROUTE_CARD_PROFILE_FLOW ||
+			needsCardProfileBeforeSetup) &&
 		activeCardProfile !== null;
 	const shouldBacktrackToCardProfile =
 		forcedFlowStage === WRAPPED_ROUTE_DESKTOP_READY_FLOW &&
@@ -145,6 +165,7 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 		forcedFlowStage === WRAPPED_ROUTE_DESKTOP_READY_FLOW;
 	const shouldForceStory =
 		forcedFlowStage === "story" && setupProgress.hasUploadedSessions;
+	const signedInMobileHandoffEmail = isMobile ? sessionUserEmail : undefined;
 
 	function setWrappedRouteFlowStage(nextStage: WrappedRouteFlowStage) {
 		startTransition(() => {
@@ -307,13 +328,23 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 		);
 	} else if (!session) {
 		content = <WrappedGuestPage />;
+	} else if (signedInMobileHandoffEmail) {
+		content = (
+			<WrappedDesktopResumePromptPage
+				email={signedInMobileHandoffEmail}
+				shareId={shareId}
+			/>
+		);
 	} else if (shouldShowCardProfileStep) {
 		content = (
 			<WrappedCardProfileStep
 				backLabel="Back to setup"
 				displayName={activeCardProfile.displayName}
 				imageUrl={activeCardProfile.imageUrl}
-				isComplete={activeCardProfile.displayName.trim().length > 0}
+				isComplete={
+					activeCardProfile.displayName.trim().length > 0 &&
+					(!needsCardProfileBeforeSetup || hasActiveCardProfileImage)
+				}
 				onBack={() =>
 					setWrappedRouteFlowStage(WRAPPED_ROUTE_DESKTOP_READY_FLOW)
 				}
@@ -356,17 +387,6 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 		content = (
 			<WrappedTeamCardPage
 				onBackFromFirstStep={() => setWrappedRouteFlowStage("sessions-landed")}
-			/>
-		);
-	} else if (
-		isMobile &&
-		sessionUserEmail &&
-		!setupProgress.hasUploadedSessions
-	) {
-		content = (
-			<WrappedDesktopResumePromptPage
-				email={sessionUserEmail}
-				shareId={shareId}
 			/>
 		);
 	} else {
@@ -423,6 +443,12 @@ function getSessionUserImage(session: AppSession | null | undefined) {
 		session.user.image.trim().length > 0
 		? session.user.image.trim()
 		: null;
+}
+
+function hasWrappedCardProfileImage(
+	profile: WrappedGuestPreviewProfile | null,
+) {
+	return typeof profile?.imageUrl === "string" && profile.imageUrl.length > 0;
 }
 
 function getEmailHandle(email: string | undefined) {

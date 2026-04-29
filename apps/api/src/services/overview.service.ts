@@ -23,7 +23,8 @@ export interface Insight {
 
 const USER_USAGE_PER_SESSION_COST_SQL = buildEstimatedCostSql({
 	modelExpr: "sa.model_used",
-	inputExpr: "ifNull(sa.input_tokens, 0)",
+	inputExpr:
+		"(ifNull(sa.input_tokens, 0) - ifNull(sa.cache_read_input_tokens, 0) - ifNull(sa.cache_creation_input_tokens, 0))",
 	outputExpr: "ifNull(sa.output_tokens, 0)",
 	cacheReadInputExpr: "ifNull(sa.cache_read_input_tokens, 0)",
 	cacheCreationInputExpr: "ifNull(sa.cache_creation_input_tokens, 0)",
@@ -221,7 +222,7 @@ export async function getUsersTokenUsage(
       round(avg(sa.success_score), 2) as success_rate,
       length(arrayDistinct(arrayFilter(x -> x != '', arrayFlatten(groupArray(sa.skills))))) as distinct_skills,
       length(arrayDistinct(arrayFilter(x -> x != '', arrayFlatten(groupArray(sa.slash_commands))))) as distinct_slash_commands
-    FROM rudel.session_analytics FINAL AS sa
+    FROM rudel.session_analytics AS sa FINAL
     WHERE ${dateFilter}
       AND sa.organization_id = {orgId:String}
       AND sa.user_id != ''

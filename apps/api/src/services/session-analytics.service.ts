@@ -159,7 +159,7 @@ export async function getSessionAnalytics(
       error_count,
       model_used,
       used_plan_mode
-    FROM rudel.session_analytics FINAL sa
+    FROM rudel.session_analytics AS sa FINAL
     WHERE ${buildDateFilter("days", "sa.session_date")}
       AND organization_id = {orgId:String}
       ${filters.length > 0 ? `AND ${filters.join("\n      AND ")}` : ""}
@@ -699,7 +699,7 @@ export async function getSessionDetail(
       total_interactions,
       session_archetype,
       model_used
-    FROM rudel.session_analytics FINAL sa
+    FROM rudel.session_analytics AS sa FINAL
     WHERE session_id = {sessionId:String}
       AND organization_id = {orgId:String}
     ORDER BY ingested_at DESC

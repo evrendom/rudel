@@ -1,7 +1,7 @@
 import type { WrappedShareAppearance } from "@rudel/api-routes";
 
 export const DEFAULT_WRAPPED_SHARE_APPEARANCE: WrappedShareAppearance = {
-	layoutMode: "front",
+	layoutMode: "front_back",
 	showArchetypeLabel: true,
 };
 

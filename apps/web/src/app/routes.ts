@@ -7,6 +7,7 @@ const GET_STARTED_PATH = "/get-started";
 const TEAM_PATH = "/team";
 const SETTINGS_ROOT_PATH = "/settings";
 const SETTINGS_WORKSPACE_PATH = `${SETTINGS_ROOT_PATH}/workspace`;
+const SETTINGS_MEMBERS_PATH = `${SETTINGS_ROOT_PATH}/members`;
 const SETTINGS_INVITATIONS_PATH = `${SETTINGS_ROOT_PATH}/invitations`;
 const SETTINGS_ACCOUNT_PATH = `${SETTINGS_ROOT_PATH}/account`;
 const SETTINGS_CREATE_WORKSPACE_PATH = `${SETTINGS_ROOT_PATH}/create-workspace`;
@@ -50,6 +51,7 @@ export const appRoutes = {
 		referrerDomain?: string | null,
 	) => getWrappedTeamCardFromSharePath(shareId, sourceSearch, referrerDomain),
 	settingsWorkspace: () => SETTINGS_WORKSPACE_PATH,
+	settingsMembers: () => SETTINGS_MEMBERS_PATH,
 	settingsInvitations: () => SETTINGS_INVITATIONS_PATH,
 	settingsAccount: () => SETTINGS_ACCOUNT_PATH,
 	settingsCreateWorkspace: () => SETTINGS_CREATE_WORKSPACE_PATH,

@@ -141,7 +141,7 @@ const CENTROIDS: readonly Centroid[] = [
 // need dollar-precise spend in the snapshot, swap this for the
 // `buildEstimatedCostSql` helper in @rudel/api-routes.
 const PER_SESSION_COST_SQL = `(
-  ifNull(input_tokens, 0) / 1000000.0 * 3.0
+  (ifNull(input_tokens, 0) - ifNull(cache_read_input_tokens, 0) - ifNull(cache_creation_input_tokens, 0)) / 1000000.0 * 3.0
   + ifNull(output_tokens, 0) / 1000000.0 * 15.0
   + ifNull(cache_read_input_tokens, 0) / 1000000.0 * 0.3
   + ifNull(cache_creation_input_tokens, 0) / 1000000.0 * 3.75
