@@ -204,7 +204,7 @@ export function buildDashboardPerformanceUsers(
 				totalSessions,
 				totalTokens,
 				userId: member.userId,
-				userLabel: usage?.user_label || getMemberDisplayLabel(member),
+				userLabel: getMemberDisplayLabel(member),
 			};
 		},
 	);

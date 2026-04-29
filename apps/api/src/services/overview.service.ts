@@ -240,11 +240,22 @@ export async function getUsersTokenUsage(
 		return [];
 	}
 
+	const userIds = rows.map((row) => row.user_id);
+	const users = await sqlClient.unsafe<
+		Array<{ id: string; name: string | null; email: string }>
+	>(`SELECT id, name, email FROM "user" WHERE id = ANY($1::text[])`, [userIds]);
+	const displayNameByUserId = new Map(
+		users.map(
+			(entry) =>
+				[entry.id, entry.name?.trim() || entry.email || entry.id] as const,
+		),
+	);
+
 	return rows.map((row) => ({
 		models_used: row.models_used ?? [],
 		repositories_touched: row.repositories_touched ?? [],
 		user_id: row.user_id,
-		user_label: row.user_id,
+		user_label: displayNameByUserId.get(row.user_id) || row.user_id,
 		total_commits: Number(row.total_commits),
 		total_tokens: Number(row.total_tokens),
 		input_tokens: Number(row.input_tokens),
