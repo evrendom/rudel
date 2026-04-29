@@ -9,6 +9,7 @@ import {
 	WrappedTeamCardRevealStage,
 	WrappedTeamCardShareStage,
 } from "@/features/wrapped/team-card/final-stages";
+import { DEFAULT_WRAPPED_SHARE_APPEARANCE } from "@/features/wrapped/team-card/share-appearance";
 import { WrappedTeamCardSharePreview } from "@/features/wrapped/team-card/share-preview";
 import type { WrappedCardTiltController } from "@/features/wrapped/team-card/tilt/use-card-tilt";
 
@@ -301,6 +302,57 @@ describe("WrappedTeamCardSharePreview", () => {
 });
 
 describe("WrappedTeamCardShareStage", () => {
+	it("selects the two-card post variant by default", () => {
+		render(
+			<WrappedTeamCardShareStage
+				appearance={DEFAULT_WRAPPED_SHARE_APPEARANCE}
+				backMetrics={buildWrappedTeamCardBackMetrics({
+					onboardingMetrics,
+					row,
+					shareCardCreatedAtLabel: "04/24/2026",
+				})}
+				headerLeftMetric={{ title: "$42 estimated spend", value: "$42" }}
+				headerRightMetric={{
+					title: "Smooth Operator",
+					value: "Smooth Operator",
+				}}
+				onAppearanceChange={vi.fn()}
+				onBack={vi.fn()}
+				onContinueToDashboard={vi.fn()}
+				onCopy={vi.fn()}
+				onCopyProfileUrl={vi.fn()}
+				onDownload={vi.fn()}
+				onShare={vi.fn()}
+				profileUrlLabel="rudel.ai/wrapped/public-card"
+				row={row}
+				shareCardCreatedAtLabel="04/24/2026"
+				sharePostRef={{ current: null }}
+				shellClassName="bg-sky-200"
+				shellStyle={{}}
+				statItems={[]}
+				statLayerOpacities={{
+					rainbowShineOpacity: 0.3,
+					textureOpacity: 1,
+					tileBorderOpacity: 1,
+					tileFillOpacity: 0.08,
+					tileInsetShadowOpacity: 0.5,
+					tileTopStrokeOpacity: 0.08,
+				}}
+				theme="light"
+			/>,
+		);
+
+		expect(screen.getByRole("button", { name: "One card" })).toHaveAttribute(
+			"aria-pressed",
+			"false",
+		);
+		expect(screen.getByRole("button", { name: "Two cards" })).toHaveAttribute(
+			"aria-pressed",
+			"true",
+		);
+		expect(screen.getByText("Input/output tokens")).toBeInTheDocument();
+	});
+
 	it("shows a spinner in the download button while export is pending", () => {
 		render(
 			<WrappedTeamCardShareStage
@@ -320,8 +372,10 @@ describe("WrappedTeamCardShareStage", () => {
 				onBack={vi.fn()}
 				onContinueToDashboard={vi.fn()}
 				onCopy={vi.fn()}
+				onCopyProfileUrl={vi.fn()}
 				onDownload={vi.fn()}
 				onShare={vi.fn()}
+				profileUrlLabel="rudel.ai/wrapped/public-card"
 				row={row}
 				shareCardCreatedAtLabel="04/24/2026"
 				sharePostRef={{ current: null }}
@@ -368,8 +422,10 @@ describe("WrappedTeamCardShareStage", () => {
 				onBack={vi.fn()}
 				onContinueToDashboard={vi.fn()}
 				onCopy={vi.fn()}
+				onCopyProfileUrl={vi.fn()}
 				onDownload={vi.fn()}
 				onShare={vi.fn()}
+				profileUrlLabel="rudel.ai/wrapped/public-card"
 				row={row}
 				shareCardCreatedAtLabel="04/24/2026"
 				sharePostRef={{ current: null }}
@@ -395,6 +451,122 @@ describe("WrappedTeamCardShareStage", () => {
 		expect(shareButton).toBeDisabled();
 		expect(shareButton).toHaveAttribute("aria-busy", "true");
 		expect(shareButton.querySelector(".animate-spin")).not.toBeNull();
+	});
+
+	it("shows a copy profile URL bar below the X share button", () => {
+		const onCopyProfileUrl = vi.fn();
+		render(
+			<WrappedTeamCardShareStage
+				appearance={{ layoutMode: "front_back", showArchetypeLabel: true }}
+				backMetrics={buildWrappedTeamCardBackMetrics({
+					onboardingMetrics,
+					row,
+					shareCardCreatedAtLabel: "04/24/2026",
+				})}
+				headerLeftMetric={{ title: "$42 estimated spend", value: "$42" }}
+				headerRightMetric={{
+					title: "Smooth Operator",
+					value: "Smooth Operator",
+				}}
+				onAppearanceChange={vi.fn()}
+				onBack={vi.fn()}
+				onContinueToDashboard={vi.fn()}
+				onCopy={vi.fn()}
+				onCopyProfileUrl={onCopyProfileUrl}
+				onDownload={vi.fn()}
+				onShare={vi.fn()}
+				profileUrlLabel="rudel.ai/wrapped/public-card"
+				row={row}
+				shareCardCreatedAtLabel="04/24/2026"
+				sharePostRef={{ current: null }}
+				shellClassName="bg-sky-200"
+				shellStyle={{}}
+				statItems={[]}
+				statLayerOpacities={{
+					rainbowShineOpacity: 0.3,
+					textureOpacity: 1,
+					tileBorderOpacity: 1,
+					tileFillOpacity: 0.08,
+					tileInsetShadowOpacity: 0.5,
+					tileTopStrokeOpacity: 0.08,
+				}}
+				theme="light"
+			/>,
+		);
+
+		const shareButton = screen.getByRole("button", { name: "Share on X" });
+		const profileUrlButton = screen.getByRole("button", {
+			name: "Copy profile URL",
+		});
+		const dashboardButton = screen.getByRole("button", {
+			name: "Continue to dashboard",
+		});
+
+		expect(
+			screen.getByText("rudel.ai/wrapped/public-card"),
+		).toBeInTheDocument();
+		expect(shareButton).toHaveTextContent(/^Share on$/);
+		expect(shareButton.querySelector("svg")).not.toBeNull();
+		expect(shareButton.compareDocumentPosition(profileUrlButton)).toBe(
+			Node.DOCUMENT_POSITION_FOLLOWING,
+		);
+		expect(profileUrlButton.compareDocumentPosition(dashboardButton)).toBe(
+			Node.DOCUMENT_POSITION_FOLLOWING,
+		);
+
+		fireEvent.click(profileUrlButton);
+
+		expect(onCopyProfileUrl).toHaveBeenCalledTimes(1);
+	});
+
+	it("shows a spinner in the profile URL copy button while copy is pending", () => {
+		render(
+			<WrappedTeamCardShareStage
+				appearance={{ layoutMode: "front_back", showArchetypeLabel: true }}
+				backMetrics={buildWrappedTeamCardBackMetrics({
+					onboardingMetrics,
+					row,
+					shareCardCreatedAtLabel: "04/24/2026",
+				})}
+				headerLeftMetric={{ title: "$42 estimated spend", value: "$42" }}
+				headerRightMetric={{
+					title: "Smooth Operator",
+					value: "Smooth Operator",
+				}}
+				isProfileUrlCopyPending
+				onAppearanceChange={vi.fn()}
+				onBack={vi.fn()}
+				onContinueToDashboard={vi.fn()}
+				onCopy={vi.fn()}
+				onCopyProfileUrl={vi.fn()}
+				onDownload={vi.fn()}
+				onShare={vi.fn()}
+				profileUrlLabel="Creating link..."
+				row={row}
+				shareCardCreatedAtLabel="04/24/2026"
+				sharePostRef={{ current: null }}
+				shellClassName="bg-sky-200"
+				shellStyle={{}}
+				statItems={[]}
+				statLayerOpacities={{
+					rainbowShineOpacity: 0.3,
+					textureOpacity: 1,
+					tileBorderOpacity: 1,
+					tileFillOpacity: 0.08,
+					tileInsetShadowOpacity: 0.5,
+					tileTopStrokeOpacity: 0.08,
+				}}
+				theme="light"
+			/>,
+		);
+
+		const profileUrlButton = screen.getByRole("button", {
+			name: "Copying URL...",
+		});
+
+		expect(profileUrlButton).toBeDisabled();
+		expect(profileUrlButton).toHaveAttribute("aria-busy", "true");
+		expect(profileUrlButton.querySelector(".animate-spin")).not.toBeNull();
 	});
 });
 

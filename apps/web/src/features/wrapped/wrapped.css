@@ -8336,11 +8336,34 @@ body.mymind-wrapped-body .woot-widget-bubble {
 	gap: 0.5rem;
 }
 
+.mymind-wrapped-share-profile-copy {
+	width: min(100%, 30rem);
+	background: rgb(255 255 255 / 0.94);
+}
+
+.mymind-wrapped-share-profile-copy__button {
+	flex: 0 0 clamp(9.5rem, 40%, 11rem);
+	width: auto;
+	min-width: clamp(9.5rem, 40%, 11rem);
+	gap: 0.4rem;
+	padding-inline: 0.88rem;
+	font-size: 0.78rem;
+	white-space: nowrap;
+}
+
+.mymind-wrapped-share-profile-copy__button:disabled {
+	cursor: wait;
+	opacity: 1;
+	transform: none;
+}
+
 .mymind-wrapped-share-primary-action--text {
 	border-color: transparent;
 	background: transparent;
 	box-shadow: none;
 	color: #2a2725;
+	font-family: "Nunito", var(--font-sans);
+	font-weight: 400;
 }
 
 .mymind-wrapped-share-primary-action--text:hover {

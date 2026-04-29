@@ -1,8 +1,10 @@
 import type { WrappedSourceSplit } from "@rudel/api-routes";
 import type { RefObject } from "react";
+import { toast } from "sonner";
 import type { TeamPageMemberRow } from "@/features/team/use-team-page-data";
 import { createWrappedImageShareActions } from "@/features/wrapped/share-image";
 import { buildWrappedXShareText } from "@/features/wrapped/wrapped-x-share";
+import { copyTextToClipboardWithResult } from "@/lib/clipboard";
 import type { CaptureElementOptions } from "@/lib/screenshot";
 
 const TEAM_CARD_SHARE_IMAGE_FILE_NAME = "rudel-team-card-post.png";
@@ -21,7 +23,11 @@ const TEAM_CARD_SHARE_IMAGE_CAPTURE_OPTIONS = buildTeamCardShareCaptureOptions({
 	outputSize: TEAM_CARD_SHARE_OUTPUT_SIZE,
 });
 
-type WrappedShareActionKind = "copy" | "download" | "share";
+type WrappedShareActionKind =
+	| "copy"
+	| "copy_profile_url"
+	| "download"
+	| "share";
 
 interface CreateWrappedTeamCardShareActionsParams {
 	archetypeLabel: string;
@@ -40,6 +46,7 @@ interface CreateWrappedTeamCardShareActionsParams {
 }
 
 interface WrappedTeamCardShareActions {
+	handleCopyProfileUrl: () => Promise<boolean>;
 	handleCopyPost: () => Promise<void>;
 	handleDownloadPost: () => Promise<void>;
 	handleSharePost: () => Promise<void>;
@@ -112,12 +119,46 @@ export function createWrappedTeamCardShareActions(
 	});
 
 	return {
+		handleCopyProfileUrl,
 		handleCopyPost: shareActions.handleCopyImage,
 		handleDownloadPost: shareActions.handleDownloadImage,
 		handleSharePost: shareActions.handleShareImage,
 		shareUrl: shareActions.shareUrl,
 		shareUrlLabel: shareActions.shareUrlLabel,
 	};
+
+	async function handleCopyProfileUrl() {
+		onShareActionTriggered?.("copy_profile_url");
+
+		let resolvedShareUrl = shareUrl;
+		if (!resolvedShareUrl && resolveShareUrl) {
+			try {
+				resolvedShareUrl = await resolveShareUrl();
+			} catch {
+				toast.error("Could not create your profile URL. Try again.");
+				return false;
+			}
+		}
+
+		if (!resolvedShareUrl) {
+			toast.error("Could not create your profile URL. Try again.");
+			return false;
+		}
+
+		const copyResult = await copyTextToClipboardWithResult(resolvedShareUrl, {
+			allowPromptFallback: true,
+			preferSelectionCopy: true,
+			promptMessage: "Copy profile URL: Cmd/Ctrl+C, Enter",
+		});
+
+		if (copyResult === "failed") {
+			toast.error("Could not copy your profile URL. Try again.");
+			return false;
+		}
+
+		toast.success("Profile URL copied");
+		return true;
+	}
 }
 
 function formatShareCaptureScale(value: number) {

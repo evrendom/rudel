@@ -294,6 +294,7 @@ function WrappedTeamCardPageContent(props: {
 	const [isRevealSequenceComplete, setIsRevealSequenceComplete] =
 		useState(false);
 	const [isDownloadPending, setIsDownloadPending] = useState(false);
+	const [isProfileUrlCopyPending, setIsProfileUrlCopyPending] = useState(false);
 	const [isSharePending, setIsSharePending] = useState(false);
 	const finalCardHandoffTimerRef = useRef<number | null>(null);
 	const finalCardFlightTimerRef = useRef<number | null>(null);
@@ -511,6 +512,20 @@ function WrappedTeamCardPageContent(props: {
 		}
 	}
 
+	async function handleCopyProfileUrl() {
+		if (isProfileUrlCopyPending) {
+			return;
+		}
+
+		setIsProfileUrlCopyPending(true);
+
+		try {
+			await shareActions.handleCopyProfileUrl();
+		} finally {
+			setIsProfileUrlCopyPending(false);
+		}
+	}
+
 	async function handleSharePost() {
 		if (isSharePending) {
 			return;
@@ -545,6 +560,7 @@ function WrappedTeamCardPageContent(props: {
 						headerRightMetric={headerRightMetric}
 						isDownloadPending={isDownloadPending}
 						isFrontCardHandoffHidden={finalCardFlight !== null}
+						isProfileUrlCopyPending={isProfileUrlCopyPending}
 						isSharePending={isSharePending}
 						onBack={() => {
 							clearFinalCardHandoffTimer(finalCardHandoffTimerRef);
@@ -561,11 +577,13 @@ function WrappedTeamCardPageContent(props: {
 							setShareAppearance(resolveWrappedShareAppearance(nextAppearance));
 						}}
 						onCopy={() => void shareActions.handleCopyPost()}
+						onCopyProfileUrl={() => void handleCopyProfileUrl()}
 						onContinueToDashboard={() =>
 							handleContinueToDashboard("wrapped_share_footer")
 						}
 						onDownload={() => void handleDownloadPost()}
 						onShare={() => void handleSharePost()}
+						profileUrlLabel={shareActions.shareUrlLabel}
 						row={sharePreviewRow}
 						shareCardCreatedAtLabel={shareCardCreatedAtLabel}
 						sharePostRef={sharePostRef}
