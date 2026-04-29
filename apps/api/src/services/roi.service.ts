@@ -27,7 +27,8 @@ const OUTPUT_PRICE_PER_MILLION = 15.0;
 const DEFAULT_DEV_HOURLY_RATE = 100;
 const PER_SESSION_COST_SQL = buildEstimatedCostSql({
 	modelExpr: "model_used",
-	inputExpr: "ifNull(input_tokens, 0)",
+	inputExpr:
+		"(ifNull(input_tokens, 0) - ifNull(cache_read_input_tokens, 0) - ifNull(cache_creation_input_tokens, 0))",
 	outputExpr: "ifNull(output_tokens, 0)",
 	cacheReadInputExpr: "ifNull(cache_read_input_tokens, 0)",
 	cacheCreationInputExpr: "ifNull(cache_creation_input_tokens, 0)",
