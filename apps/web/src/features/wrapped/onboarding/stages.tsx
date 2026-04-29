@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useMountEffect } from "@/hooks/useMountEffect";
 import { cn } from "@/lib/utils";
 import { WrappedStageCopy, WrappedStageFrame } from "../stage-frame";
@@ -10,6 +10,7 @@ import {
 	resolveScaleRainDisplayedTokens,
 	type ScaleRainBall,
 } from "./models";
+import { resolveWrappedMotionPerformanceProfile } from "./performance";
 import { WrappedOnboardingIntroStage } from "./stages/intro";
 import {
 	WrappedOnboardingLockInStage,
@@ -78,6 +79,7 @@ const SCALE_RAIN_EXIT_FADE_STEP = 0.045;
 const SCALE_RAIN_SWAY_CYCLE_MS = 2_800;
 const SCALE_RAIN_SWAY_EDGE_INSET_PX = 18;
 const SCALE_RAIN_SWAY_VELOCITY_FACTOR = 0.56;
+const SCALE_RAIN_TOKEN_REPORT_INTERVAL_MS = 50;
 
 export function WrappedOnboardingStage(props: WrappedOnboardingStageProps) {
 	const {
@@ -246,12 +248,18 @@ export function WrappedOnboardingScaleRainBackdrop(
 	props: WrappedOnboardingScaleRainBackdropProps,
 ) {
 	const { onDisplayedTokensChange, reduceMotion, totalTokens } = props;
-	const balls = buildScaleRainBalls(totalTokens);
+	const [motionPerformanceProfile] = useState(
+		resolveWrappedMotionPerformanceProfile,
+	);
+	const balls = useMemo(
+		() => buildScaleRainBalls(totalTokens, motionPerformanceProfile),
+		[motionPerformanceProfile, totalTokens],
+	);
 	const animationBallCount = balls.length;
 
 	return (
 		<WrappedOnboardingScaleRainSimulation
-			key={`scale-rain:${totalTokens}:${reduceMotion ? "reduce" : "full"}`}
+			key={`scale-rain:${totalTokens}:${reduceMotion ? "reduce" : "full"}:${motionPerformanceProfile}`}
 			balls={balls}
 			onDisplayedTokensChange={onDisplayedTokensChange}
 			reduceMotion={reduceMotion}
@@ -306,6 +314,7 @@ function WrappedOnboardingScaleRainSimulation(props: {
 		let emittedBallCount = 0;
 		let completedBallCount = 0;
 		let reportedTokens = 0;
+		let lastTokenReportAtMs = 0;
 		const releaseIntervalMs = resolveScaleRainReleaseIntervalMs(totalBallCount);
 		let nextReleaseAtMs = window.performance.now();
 		let releaseCursor = 0;
@@ -367,8 +376,13 @@ function WrappedOnboardingScaleRainSimulation(props: {
 				),
 				totalBallCount,
 			);
-			if (nextReportedTokens !== reportedTokens) {
+			if (
+				nextReportedTokens !== reportedTokens &&
+				(now - lastTokenReportAtMs >= SCALE_RAIN_TOKEN_REPORT_INTERVAL_MS ||
+					nextReportedTokens >= totalTokens)
+			) {
 				reportedTokens = nextReportedTokens;
+				lastTokenReportAtMs = now;
 				onDisplayedTokensChange?.(nextReportedTokens);
 			}
 
@@ -402,9 +416,10 @@ function WrappedOnboardingScaleRainSimulation(props: {
 					}}
 					className="mymind-wrapped-scale-rain__ball"
 					style={{
+						borderWidth: `${resolveScaleRainBorderWidth(ball)}px`,
 						height: `${ball.sizePx}px`,
 						opacity: reduceMotion ? 1 : 0,
-						top: `${-ball.sizePx}px`,
+						transform: `translate3d(0, ${-ball.sizePx}px, 0)`,
 						width: `${ball.sizePx}px`,
 					}}
 				/>
@@ -450,16 +465,15 @@ function renderScaleRainSimulation(
 		}
 
 		const { scaleX, scaleY } = resolveScaleRainScale(ball, now);
-		const borderWidth = Math.max(1, Math.min(3, ball.radius * 0.34));
-
-		node.style.width = `${ball.radius * 2}px`;
-		node.style.height = `${ball.radius * 2}px`;
-		node.style.borderWidth = `${borderWidth}px`;
-		node.style.left = `${ball.x - ball.radius}px`;
-		node.style.top = `${ball.y - ball.radius}px`;
 		node.style.opacity = `${ball.opacity}`;
-		node.style.transform = `scaleX(${scaleX}) scaleY(${scaleY})`;
+		node.style.transform = `translate3d(${ball.x - ball.radius}px, ${
+			ball.y - ball.radius
+		}px, 0) scaleX(${scaleX}) scaleY(${scaleY})`;
 	}
+}
+
+function resolveScaleRainBorderWidth(ball: ScaleRainBall) {
+	return Math.max(1, Math.min(3, (ball.sizePx / 2) * 0.34));
 }
 
 function resolveScaleRainWallCollision(

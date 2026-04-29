@@ -17,6 +17,10 @@ import {
 	resolveScalePreviewTokens,
 	resolveScaleStageModel,
 } from "../models";
+import {
+	resolveWrappedMotionParticleCount,
+	resolveWrappedMotionPerformanceProfile,
+} from "../performance";
 import type {
 	WrappedOnboardingMetrics,
 	WrappedScaleAdvanceState,
@@ -79,6 +83,7 @@ interface ScaleKebabSimulationDrop extends ScaleKebabDrop {
 const SCALE_STAGE_KEBAB_COST_USD = 8;
 const SCALE_STAGE_KEBAB_EMOJI = "🥙";
 const SCALE_STAGE_KEBAB_EXIT_VELOCITY_PX = 3.8;
+const SCALE_STAGE_MAX_KEBAB_DROP_COUNT = 180;
 const SCALE_STAGE_KEBAB_SQUASH_DURATION_MS = 120;
 const SCALE_STAGE_KEBAB_SOURCE_X_PERCENTS = [8, 24, 40, 56, 72, 88] as const;
 export const SCALE_STAGE_SPEND_LABEL_HOLD_MS = 500;
@@ -552,7 +557,14 @@ function WrappedScaleKebabRain(props: {
 	totalDrops: number;
 }) {
 	const { onComplete, totalDrops } = props;
-	const dropCount = Math.max(0, totalDrops);
+	const [motionPerformanceProfile] = useState(
+		resolveWrappedMotionPerformanceProfile,
+	);
+	const dropCount = resolveWrappedMotionParticleCount({
+		count: totalDrops,
+		maximumCount: SCALE_STAGE_MAX_KEBAB_DROP_COUNT,
+		performanceProfile: motionPerformanceProfile,
+	});
 	const kebabRainRef = useRef<HTMLDivElement | null>(null);
 	const dropRefs = useRef<Array<HTMLSpanElement | null>>([]);
 
@@ -586,6 +598,8 @@ function WrappedScaleKebabRain(props: {
 			totalDrops: dropCount,
 			viewportWidthPx: width,
 		}).map((drop) => createScaleKebabSimulationDrop(drop));
+
+		renderScaleKebabStaticStyles(nodes, simulationDrops);
 
 		for (const drop of simulationDrops) {
 			activateScaleKebabDrop(drop, width);
@@ -650,9 +664,8 @@ function WrappedScaleKebabRain(props: {
 					}}
 					className="mymind-wrapped-scale-stage__kebab-drop"
 					style={{
-						left: "50%",
 						opacity: 0,
-						top: "0px",
+						transform: "translate3d(0, 0, 0)",
 					}}
 				>
 					{SCALE_STAGE_KEBAB_EMOJI}
@@ -792,6 +805,24 @@ function deactivateScaleKebabDrop(drop: ScaleKebabSimulationDrop) {
 	drop.vy = 0;
 }
 
+function renderScaleKebabStaticStyles(
+	nodes: Array<HTMLSpanElement | null>,
+	drops: readonly ScaleKebabSimulationDrop[],
+) {
+	for (let index = 0; index < drops.length; index += 1) {
+		const node = nodes[index];
+		const drop = drops[index];
+
+		if (!node || !drop) {
+			continue;
+		}
+
+		node.style.fontSize = `${drop.sizePx}px`;
+		node.style.width = `${drop.radius * 2}px`;
+		node.style.height = `${drop.radius * 2}px`;
+	}
+}
+
 function renderScaleKebabSimulation(
 	nodes: Array<HTMLSpanElement | null>,
 	drops: readonly ScaleKebabSimulationDrop[],
@@ -807,13 +838,10 @@ function renderScaleKebabSimulation(
 
 		const { scaleX, scaleY } = resolveScaleKebabScale(drop, now);
 
-		node.style.fontSize = `${drop.sizePx}px`;
-		node.style.width = `${drop.radius * 2}px`;
-		node.style.height = `${drop.radius * 2}px`;
-		node.style.left = `${drop.x - drop.radius}px`;
-		node.style.top = `${drop.y - drop.radius}px`;
 		node.style.opacity = `${drop.opacity}`;
-		node.style.transform = `scaleX(${scaleX}) scaleY(${scaleY})`;
+		node.style.transform = `translate3d(${drop.x - drop.radius}px, ${
+			drop.y - drop.radius
+		}px, 0) scaleX(${scaleX}) scaleY(${scaleY})`;
 	}
 }
 
