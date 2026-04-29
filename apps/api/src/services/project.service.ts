@@ -293,7 +293,7 @@ export async function getProjectActivity(
       COUNT(*) as sessions,
       COUNT(DISTINCT s.user_id) as unique_users
     FROM project_key pk
-    INNER JOIN rudel.session_analytics FINAL s ON if(s.git_remote != '', s.git_remote, if(s.package_name != '', s.package_name, s.project_path)) = pk.pk
+    INNER JOIN rudel.session_analytics AS s FINAL ON if(s.git_remote != '', s.git_remote, if(s.package_name != '', s.package_name, s.project_path)) = pk.pk
     WHERE ${buildDateFilter("days", "s.session_date")}
       AND s.organization_id = {orgId:String}
     GROUP BY ${dateGrouping}, pk.project_path

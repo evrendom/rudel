@@ -213,7 +213,7 @@ export async function getErrorTrends(
         ${dimensionExpr} as dimension_value,
         sa.error_count,
         ${ERROR_PATTERN_SQL} as error_pattern
-      FROM rudel.session_analytics FINAL sa
+      FROM rudel.session_analytics AS sa FINAL
       WHERE ${buildInclusiveDateRangeFilter("startDate", "endDate", "sa.session_date")}
         AND sa.organization_id = {orgId:String}
         AND sa.error_count > 0
@@ -246,7 +246,7 @@ export async function getErrorTrends(
         ${dimensionExpr} as dimension_value,
         sa.error_count,
         ${ERROR_PATTERN_SQL} as error_pattern
-      FROM rudel.session_analytics FINAL sa
+      FROM rudel.session_analytics AS sa FINAL
       WHERE ${buildInclusiveDateRangeFilter("startDate", "endDate", "sa.session_date")}
         AND sa.organization_id = {orgId:String}
         AND sa.error_count > 0
