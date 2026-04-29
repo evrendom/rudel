@@ -1,6 +1,12 @@
 import type { WrappedShareAppearance } from "@rudel/api-routes";
 import { IconBrandX } from "@tabler/icons-react";
-import { ChevronRight, Clipboard, Download, Loader2 } from "lucide-react";
+import {
+	ChevronRight,
+	Clipboard,
+	Download,
+	Link as LinkIcon,
+	Loader2,
+} from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import {
 	type CSSProperties,
@@ -53,13 +59,16 @@ interface WrappedTeamCardShareStageProps extends WrappedTeamCardStageCardProps {
 	frontCardHandoffRef?: RefObject<HTMLDivElement | null>;
 	isFrontCardHandoffHidden?: boolean;
 	isDownloadPending?: boolean;
+	isProfileUrlCopyPending?: boolean;
 	isSharePending?: boolean;
 	onBack: () => void;
 	onCopy: () => void | Promise<void>;
+	onCopyProfileUrl: () => void | Promise<void>;
 	onContinueToDashboard: () => void;
 	onDownload: () => void | Promise<void>;
 	onAppearanceChange: (nextValue: WrappedShareAppearance) => void;
 	onShare: () => void | Promise<void>;
+	profileUrlLabel: string;
 	shareCardCreatedAtLabel: string;
 	sharePostRef: RefObject<HTMLDivElement | null>;
 }
@@ -251,12 +260,15 @@ export function WrappedTeamCardShareStage(
 		headerRightMetric,
 		isDownloadPending = false,
 		isFrontCardHandoffHidden = false,
+		isProfileUrlCopyPending = false,
 		isSharePending = false,
 		onCopy,
+		onCopyProfileUrl,
 		onContinueToDashboard,
 		onDownload,
 		onAppearanceChange,
 		onShare,
+		profileUrlLabel,
 		row,
 		shareCardCreatedAtLabel,
 		sharePostRef,
@@ -403,6 +415,7 @@ export function WrappedTeamCardShareStage(
 				>
 					<WrappedPrimaryAction
 						kind="button"
+						aria-label={isSharePending ? "Copying image..." : "Share on X"}
 						aria-busy={isSharePending ? "true" : undefined}
 						className="mymind-wrapped-share-primary-action mymind-wrapped-share-primary-action--x"
 						disabled={isSharePending}
@@ -412,11 +425,39 @@ export function WrappedTeamCardShareStage(
 							{isSharePending ? (
 								<Loader2 className="size-4 animate-spin" />
 							) : (
-								<IconBrandX className="size-4" />
+								<>
+									<span>Share on</span>
+									<IconBrandX aria-hidden="true" className="size-4" />
+								</>
 							)}
-							<span>{isSharePending ? "Copying image..." : "Share on X"}</span>
+							{isSharePending ? <span>Copying image...</span> : null}
 						</span>
 					</WrappedPrimaryAction>
+					<div className="mymind-wrapped-entry-card__desktop-copy-surface mymind-wrapped-entry-card__desktop-copy-surface--flat mymind-wrapped-share-profile-copy">
+						<LinkIcon
+							aria-hidden="true"
+							className="mymind-wrapped-entry-card__desktop-copy-icon"
+						/>
+						<span className="mymind-wrapped-entry-card__desktop-copy-text">
+							{profileUrlLabel}
+						</span>
+						<button
+							type="button"
+							aria-busy={isProfileUrlCopyPending ? "true" : undefined}
+							className="mymind-wrapped-entry-card__desktop-copy-button mymind-wrapped-share-profile-copy__button"
+							disabled={isProfileUrlCopyPending}
+							onClick={onCopyProfileUrl}
+						>
+							{isProfileUrlCopyPending ? (
+								<Loader2 className="size-4 animate-spin" />
+							) : null}
+							<span>
+								{isProfileUrlCopyPending
+									? "Copying URL..."
+									: "Copy profile URL"}
+							</span>
+						</button>
+					</div>
 					<WrappedPrimaryAction
 						kind="button"
 						aria-label="Continue to dashboard"
