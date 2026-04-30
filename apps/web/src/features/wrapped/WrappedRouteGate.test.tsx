@@ -395,6 +395,36 @@ describe("WrappedRouteGate", () => {
 		expect(screen.getByText("Wrapped setup page")).toBeInTheDocument();
 	});
 
+	it("shows card profile before mobile handoff for signed-in fallback-only viewers", async () => {
+		const user = userEvent.setup();
+		clearWrappedGuestPreviewSnapshot();
+		mockUseIsMobile.mockReturnValue(true);
+
+		render(
+			<MemoryRouter initialEntries={["/wrapped"]}>
+				<WrappedRouteGate isPending={false} publicId={null} session={session} />
+			</MemoryRouter>,
+		);
+
+		expect(screen.getByText("Wrapped card profile step")).toBeInTheDocument();
+		expect(screen.getByText("Profile image: fallback")).toBeInTheDocument();
+		expect(
+			screen.queryByText("Wrapped mobile handoff: ada@example.com"),
+		).toBeNull();
+		expect(
+			screen.getByRole("button", { name: "Continue profile" }),
+		).toBeDisabled();
+
+		await user.click(
+			screen.getByRole("button", { name: "Set profile picture" }),
+		);
+		await user.click(screen.getByRole("button", { name: "Continue profile" }));
+
+		expect(
+			screen.getByText("Wrapped mobile handoff: ada@example.com"),
+		).toBeInTheDocument();
+	});
+
 	it("does not show card profile for signed-in viewers with a profile picture", () => {
 		clearWrappedGuestPreviewSnapshot();
 		const sessionWithProfilePicture: NonNullable<AppSession> = {
@@ -442,6 +472,57 @@ describe("WrappedRouteGate", () => {
 		expect(screen.queryByText("Wrapped setup page")).toBeNull();
 	});
 
+	it("prefills stored card profile setup with the signed-in provider image", async () => {
+		const user = userEvent.setup();
+		const providerImageUrl = "https://example.com/provider-avatar.png";
+		const sessionWithProviderPicture: NonNullable<AppSession> = {
+			...session,
+			user: {
+				...session.user,
+				image: providerImageUrl,
+			},
+		};
+
+		writeWrappedGuestPreviewSnapshot({
+			profile: {
+				displayName: "Stored User",
+				followerCount: null,
+				imageUrl: null,
+				source: "local",
+				username: "storeduser",
+				verified: false,
+			},
+			step: "auth",
+		});
+
+		render(
+			<MemoryRouter initialEntries={["/wrapped?flow=card-profile"]}>
+				<WrappedRouteGate
+					isPending={false}
+					publicId={null}
+					session={sessionWithProviderPicture}
+				/>
+			</MemoryRouter>,
+		);
+
+		expect(screen.getByText("Wrapped card profile step")).toBeInTheDocument();
+		expect(
+			screen.getByText("Profile display name: Stored User"),
+		).toBeInTheDocument();
+		expect(screen.getByText("Profile image: set")).toBeInTheDocument();
+
+		await user.click(screen.getByRole("button", { name: "Continue profile" }));
+
+		expect(readWrappedGuestPreviewSnapshot()).toMatchObject({
+			cardProfileCompletedUserId: "user-1",
+			profile: {
+				displayName: "Stored User",
+				imageUrl: providerImageUrl,
+			},
+			step: "auth",
+		});
+	});
+
 	it("renders mobile handoff for signed-in mobile viewers without uploads", () => {
 		mockUseIsMobile.mockReturnValue(true);
 
@@ -477,6 +558,34 @@ describe("WrappedRouteGate", () => {
 		expect(screen.queryByText("Wrapped story")).toBeNull();
 	});
 
+	it("honors the card profile flow before signed-in mobile handoff", () => {
+		clearWrappedGuestPreviewSnapshot();
+		mockUseIsMobile.mockReturnValue(true);
+		const sessionWithProviderPicture: NonNullable<AppSession> = {
+			...session,
+			user: {
+				...session.user,
+				image: "https://example.com/provider-avatar.png",
+			},
+		};
+
+		render(
+			<MemoryRouter initialEntries={["/wrapped?flow=card-profile"]}>
+				<WrappedRouteGate
+					isPending={false}
+					publicId={null}
+					session={sessionWithProviderPicture}
+				/>
+			</MemoryRouter>,
+		);
+
+		expect(screen.getByText("Wrapped card profile step")).toBeInTheDocument();
+		expect(screen.getByText("Profile image: set")).toBeInTheDocument();
+		expect(
+			screen.queryByText("Wrapped mobile handoff: ada@example.com"),
+		).toBeNull();
+	});
+
 	it("keeps acknowledged signed-in mobile viewers on the mobile handoff", () => {
 		const storageKey = getWrappedSetupCompletionStorageKey(session.user.id);
 
@@ -505,7 +614,6 @@ describe("WrappedRouteGate", () => {
 	});
 
 	it.each([
-		"card-profile",
 		"desktop-ready",
 		"sessions-landed",
 		"story",
