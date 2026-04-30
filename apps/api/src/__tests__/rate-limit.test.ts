@@ -117,9 +117,7 @@ describe("checkAnalyticsRateLimit", () => {
 describe("checkHookIngestRateLimit", () => {
 	test("allows requests under the limit", () => {
 		const userId = `test-hook-under-${Date.now()}`;
-		expect(() =>
-			checkHookIngestRateLimit(userId, "session-1"),
-		).not.toThrow();
+		expect(() => checkHookIngestRateLimit(userId, "session-1")).not.toThrow();
 	});
 
 	test("repeated uploads of an existing session_id do not exhaust the cap", () => {
@@ -144,9 +142,9 @@ describe("checkHookIngestRateLimit", () => {
 		for (let i = 0; i < 500; i++) {
 			checkHookIngestRateLimit(userId, `session-${i}`);
 		}
-		expect(() =>
-			checkHookIngestRateLimit(userId, "session-overflow"),
-		).toThrow("Rate limit exceeded");
+		expect(() => checkHookIngestRateLimit(userId, "session-overflow")).toThrow(
+			"Rate limit exceeded",
+		);
 	});
 
 	test("different users have independent limits", () => {
@@ -185,9 +183,7 @@ describe("checkHookIngestRateLimit", () => {
 describe("checkManualIngestRateLimit", () => {
 	test("allows requests under the cap", () => {
 		const userId = `test-manual-under-${Date.now()}`;
-		expect(() =>
-			checkManualIngestRateLimit(userId, "session-1"),
-		).not.toThrow();
+		expect(() => checkManualIngestRateLimit(userId, "session-1")).not.toThrow();
 	});
 
 	test("manual and hook caps are independent buckets", () => {

@@ -328,13 +328,6 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 		);
 	} else if (!session) {
 		content = <WrappedGuestPage />;
-	} else if (signedInMobileHandoffEmail) {
-		content = (
-			<WrappedDesktopResumePromptPage
-				email={signedInMobileHandoffEmail}
-				shareId={shareId}
-			/>
-		);
 	} else if (shouldShowCardProfileStep) {
 		content = (
 			<WrappedCardProfileStep
@@ -354,6 +347,13 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 				}
 				onImageChange={(imageUrl) => updateEditableCardProfile({ imageUrl })}
 				previewProfile={activeCardProfile}
+			/>
+		);
+	} else if (signedInMobileHandoffEmail) {
+		content = (
+			<WrappedDesktopResumePromptPage
+				email={signedInMobileHandoffEmail}
+				shareId={shareId}
 			/>
 		);
 	} else if (shouldForceDesktopReady) {
