@@ -2,11 +2,13 @@ import type {
 	WrappedShareRecord,
 	WrappedShareSnapshot,
 } from "@rudel/api-routes";
-import { useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { appRoutes } from "@/app/routes";
 import { client } from "@/lib/orpc";
 
 type ShareRecordLookup = Record<string, WrappedShareRecord>;
+const SHARE_URL_LABEL_MAX_LENGTH = 30;
+const SHARE_URL_LABEL_PUBLIC_PATH_MARKER = "/wrapped/";
 
 interface UseWrappedTeamCardShareOptions {
 	// Product analytics wants to know when a share record is first materialized.
@@ -34,16 +36,20 @@ export function useWrappedTeamCardShare(
 	);
 	const [pendingShareKey, setPendingShareKey] = useState<string | null>(null);
 	const { onShareCreated, username } = options ?? {};
-	const shareKey = JSON.stringify({ snapshot, username: username ?? null });
+	const shareKey = useMemo(
+		() => JSON.stringify({ snapshot, username: username ?? null }),
+		[snapshot, username],
+	);
 	const activeShareRecord = shareRecordsByKey[shareKey] ?? null;
 	const shareUrl = activeShareRecord
 		? buildWrappedShareUrl(activeShareRecord.id)
 		: undefined;
+	const isCreatingShare = pendingShareKey === shareKey;
 
 	// ensureShare is the single entry point for "make sure this card has a real
 	// public URL". It first reuses cached data, then reuses any in-flight request,
 	// and only finally creates a new share if nothing exists yet.
-	async function ensureShare() {
+	const ensureShare = useCallback(async () => {
 		if (activeShareRecord) {
 			return activeShareRecord;
 		}
@@ -75,13 +81,13 @@ export function useWrappedTeamCardShare(
 
 		shareRequestByKeyRef.current.set(shareKey, shareRequest);
 		return shareRequest;
-	}
+	}, [activeShareRecord, onShareCreated, shareKey, snapshot, username]);
 
 	return {
 		ensureShare,
-		isCreatingShare: pendingShareKey === shareKey,
+		isCreatingShare,
 		shareUrl,
-		shareUrlLabel: formatShareUrlLabel(shareUrl, pendingShareKey === shareKey),
+		shareUrlLabel: formatShareUrlLabel(shareUrl, isCreatingShare),
 	};
 }
 
@@ -113,5 +119,25 @@ function formatShareUrlLabel(
 		return appRoutes.wrappedTeamCard();
 	}
 
-	return shareUrl.replace(/^https?:\/\//u, "");
+	return leftTruncateShareUrlLabel(
+		shareUrl.replace(/^https?:\/\//u, ""),
+		SHARE_URL_LABEL_MAX_LENGTH,
+	);
+}
+
+function leftTruncateShareUrlLabel(value: string, maxLength: number) {
+	if (value.length <= maxLength) {
+		return value;
+	}
+
+	const publicPathIndex = value.indexOf(SHARE_URL_LABEL_PUBLIC_PATH_MARKER);
+	if (publicPathIndex > 0) {
+		const publicPathLabel = `...${value.slice(publicPathIndex)}`;
+
+		if (publicPathLabel.length <= maxLength) {
+			return publicPathLabel;
+		}
+	}
+
+	return `...${value.slice(-(maxLength - 3))}`;
 }

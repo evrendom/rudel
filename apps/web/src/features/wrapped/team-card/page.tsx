@@ -373,11 +373,10 @@ function WrappedTeamCardPageContent(props: {
 	// Share creation lives behind a hook so the page can stay focused on stage
 	// orchestration. The hook owns caching/deduping, while this page only decides
 	// when the product has crossed the line from "previewing" to "real share made".
-	const { ensureShare, shareUrl, shareUrlLabel } = useWrappedTeamCardShare(
-		shareSnapshot,
-		{
-			// This is the moment a persistent public record exists, not the moment
-			// the user merely opened the share UI.
+	const { ensureShare, isCreatingShare, shareUrl, shareUrlLabel } =
+		useWrappedTeamCardShare(shareSnapshot, {
+			// This fires once a persistent public record exists. The share screen
+			// warms that record so the profile URL is visible before any copy action.
 			onShareCreated: (shareRecord) => {
 				trackWrappedShareCreated({
 					archetypeId: activeArchetype.id,
@@ -389,8 +388,7 @@ function WrappedTeamCardPageContent(props: {
 				});
 			},
 			username: publicUsername,
-		},
-	);
+		});
 	// The share action helpers stay presentational from the page's perspective.
 	// We pass analytics hooks in, but keep the details of clipboard/native share/
 	// download behavior inside the share module.
@@ -428,6 +426,14 @@ function WrappedTeamCardPageContent(props: {
 		sharePostRef,
 		sourceSplit: onboardingMetrics.sourceSplit,
 	});
+
+	useEffect(() => {
+		if (!showShareStage || shareUrl || isCreatingShare) {
+			return;
+		}
+
+		void ensureShare().catch(() => undefined);
+	}, [ensureShare, isCreatingShare, shareUrl, showShareStage]);
 
 	useMountEffect(() => () => {
 		clearFinalCardHandoffTimer(finalCardHandoffTimerRef);
@@ -468,9 +474,8 @@ function WrappedTeamCardPageContent(props: {
 	}, [finalCardFlight, showShareStage]);
 
 	function handlePreviewPost() {
-		// Once the share stage has user-controlled appearance options, previewing is
-		// no longer a stable point to persist a public record. We only create the
-		// public share when an actual share action needs the final snapshot.
+		// Opening the share stage now warms the public record so the profile URL can
+		// resolve before the user reaches for a copy or share action.
 		trackUtilityUsed({
 			sourceComponent: "wrapped_reveal_footer",
 			utilityName: "wrappedSharePreviewOpened",
