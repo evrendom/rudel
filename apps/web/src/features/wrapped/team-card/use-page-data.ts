@@ -49,14 +49,13 @@ export function useWrappedTeamCardPageData(): UseWrappedTeamCardPageDataResult {
 	const sessionUserId = getSessionUserId(session);
 	const sessionUserName = getSessionUserName(session);
 	const sessionUserEmail = getSessionUserEmail(session);
+	const sessionUserImage = getSessionUserImage(session);
 	const guestPreviewSnapshot = useMemo(
 		() => readWrappedGuestPreviewSnapshot(),
 		[],
 	);
-	const debugProfileImageSrc =
-		guestPreviewSnapshot?.profile.imageUrl ??
-		handover.preview.profile.avatarSrc;
 	const guestPreviewDisplayName = guestPreviewSnapshot?.profile.displayName;
+	const guestPreviewImageUrl = guestPreviewSnapshot?.profile.imageUrl;
 	const guestPreviewUsername = guestPreviewSnapshot?.profile.username;
 	const { data: activeMember } = authClient.useActiveMember();
 	const activeMemberUserId = getActiveMemberUserId(activeMember);
@@ -122,22 +121,26 @@ export function useWrappedTeamCardPageData(): UseWrappedTeamCardPageDataResult {
 		() =>
 			buildResolvedTeamCardRow({
 				accountLabel,
-				debugProfileImageSrc,
 				developerDetails: developerDetailsQuery.data,
 				guestPreviewDisplayName,
+				guestPreviewImageUrl,
+				profileImageFallbackSrc: handover.preview.profile.avatarSrc,
 				sessionUserEmail,
 				sessionUserId: resolvedUserId,
+				sessionUserImage,
 				sessionUserName,
 				teamMemberRows,
 				wrappedMetrics: wrappedData?.metrics,
 			}),
 		[
 			accountLabel,
-			debugProfileImageSrc,
 			developerDetailsQuery.data,
 			guestPreviewDisplayName,
+			guestPreviewImageUrl,
+			handover.preview.profile.avatarSrc,
 			sessionUserEmail,
 			resolvedUserId,
+			sessionUserImage,
 			sessionUserName,
 			teamMemberRows,
 			wrappedData?.metrics,
@@ -253,6 +256,17 @@ function getSessionUserEmail(
 		"email" in session.user &&
 		typeof session.user.email === "string"
 		? session.user.email
+		: undefined;
+}
+
+function getSessionUserImage(
+	session: ReturnType<typeof useWrappedCardData>["session"],
+) {
+	return session?.user &&
+		"image" in session.user &&
+		typeof session.user.image === "string" &&
+		session.user.image.trim().length > 0
+		? session.user.image.trim()
 		: undefined;
 }
 

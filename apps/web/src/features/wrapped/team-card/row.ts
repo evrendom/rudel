@@ -3,11 +3,13 @@ import type { TeamPageMemberRow } from "@/features/team/use-team-page-data";
 
 interface BuildResolvedTeamCardRowParams {
 	accountLabel: string;
-	debugProfileImageSrc: string;
 	developerDetails: DeveloperDetails | undefined;
 	guestPreviewDisplayName: string | undefined;
+	guestPreviewImageUrl: string | null | undefined;
+	profileImageFallbackSrc: string;
 	sessionUserEmail: string | undefined;
 	sessionUserId: string | undefined;
+	sessionUserImage: string | undefined;
 	sessionUserName: string | undefined;
 	teamMemberRows: readonly TeamPageMemberRow[];
 	wrappedMetrics: WrappedV1["metrics"] | undefined;
@@ -18,15 +20,22 @@ export function buildResolvedTeamCardRow(
 ): TeamPageMemberRow {
 	const {
 		accountLabel,
-		debugProfileImageSrc,
 		developerDetails,
 		guestPreviewDisplayName,
+		guestPreviewImageUrl,
+		profileImageFallbackSrc,
 		sessionUserEmail,
 		sessionUserId,
+		sessionUserImage,
 		sessionUserName,
 		teamMemberRows,
 		wrappedMetrics,
 	} = params;
+	const profileImageSrc = resolveTeamCardProfileImageSrc({
+		fallbackSrc: profileImageFallbackSrc,
+		guestPreviewImageUrl,
+		sessionUserImage,
+	});
 	const currentUserRow = findCurrentUserRow({
 		sessionUserEmail,
 		sessionUserId,
@@ -52,7 +61,7 @@ export function buildResolvedTeamCardRow(
 				developerDetails.total_sessions > 0 ||
 				developerDetails.active_days > 0 ||
 				developerDetails.total_tokens > 0,
-			imageUrl: debugProfileImageSrc,
+			imageUrl: profileImageSrc,
 			inputTokens: developerDetails.input_tokens,
 			lastActiveDate: developerDetails.last_active_date,
 			outputTokens: developerDetails.output_tokens,
@@ -67,7 +76,7 @@ export function buildResolvedTeamCardRow(
 		return {
 			...currentUserRow,
 			...getWrappedMetricFallbackFields(wrappedMetrics, currentUserRow),
-			imageUrl: debugProfileImageSrc,
+			imageUrl: profileImageSrc,
 		};
 	}
 
@@ -80,7 +89,7 @@ export function buildResolvedTeamCardRow(
 		email,
 		favoriteModel: wrappedFallbackFields.favoriteModel,
 		hasActivity: wrappedFallbackFields.hasActivity,
-		imageUrl: debugProfileImageSrc,
+		imageUrl: profileImageSrc,
 		inputTokens: 0,
 		lastActiveDate: wrappedMetrics?.last_session_at ?? null,
 		outputTokens: 0,
@@ -89,6 +98,28 @@ export function buildResolvedTeamCardRow(
 		totalTokens: wrappedFallbackFields.totalTokens,
 		userId: sessionUserId ?? "wrapped-preview",
 	};
+}
+
+export function resolveTeamCardProfileImageSrc(input: {
+	fallbackSrc: string;
+	guestPreviewImageUrl: string | null | undefined;
+	sessionUserImage: string | undefined;
+}) {
+	const guestPreviewImageUrl = getMeaningfulImageSrc(
+		input.guestPreviewImageUrl,
+	);
+
+	if (guestPreviewImageUrl) {
+		return guestPreviewImageUrl;
+	}
+
+	const sessionUserImage = getMeaningfulImageSrc(input.sessionUserImage);
+
+	if (sessionUserImage) {
+		return sessionUserImage;
+	}
+
+	return input.fallbackSrc;
 }
 
 function getWrappedMetricFallbackFields(
@@ -242,4 +273,8 @@ function getMeaningfulDisplayName(value: string | undefined) {
 	}
 
 	return normalizedValue;
+}
+
+function getMeaningfulImageSrc(value: string | null | undefined) {
+	return value?.trim() || undefined;
 }
