@@ -6,12 +6,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { WrappedTeamCardPage } from "@/features/wrapped/team-card/page";
 
 const {
+	mockEnsureShare,
 	mockTrackNavigation,
 	mockTrackUtilityUsed,
 	mockTrackWrappedShareActionTriggered,
 	mockTrackWrappedShareCreated,
 	mockTrackWrappedStoryStarted,
 } = vi.hoisted(() => ({
+	mockEnsureShare: vi.fn(),
 	mockTrackNavigation: vi.fn(),
 	mockTrackUtilityUsed: vi.fn(),
 	mockTrackWrappedShareActionTriggered: vi.fn(),
@@ -141,6 +143,7 @@ vi.mock("@/features/wrapped/team-card/use-share", () => ({
 	) => ({
 		ensureShare: async () => {
 			const shareRecord = { id: "created-share-1" };
+			mockEnsureShare();
 			options?.onShareCreated?.(shareRecord);
 			return shareRecord;
 		},
@@ -220,11 +223,37 @@ vi.mock("@/features/wrapped/team-card/use-page-data", () => ({
 
 describe("WrappedTeamCardPage analytics", () => {
 	beforeEach(() => {
+		mockEnsureShare.mockReset();
 		mockTrackNavigation.mockReset();
 		mockTrackUtilityUsed.mockReset();
 		mockTrackWrappedShareActionTriggered.mockReset();
 		mockTrackWrappedShareCreated.mockReset();
 		mockTrackWrappedStoryStarted.mockReset();
+	});
+
+	it("creates the profile URL when the share screen opens", async () => {
+		const user = userEvent.setup();
+
+		render(
+			<MemoryRouter initialEntries={["/wrapped"]}>
+				<WrappedTeamCardPage />
+			</MemoryRouter>,
+		);
+
+		await user.click(screen.getByRole("button", { name: "Preview post" }));
+
+		await waitFor(() => {
+			expect(mockEnsureShare).toHaveBeenCalledTimes(1);
+		});
+		expect(mockTrackWrappedShareActionTriggered).not.toHaveBeenCalled();
+		expect(mockTrackWrappedShareCreated).toHaveBeenCalledWith(
+			expect.objectContaining({
+				archetypeId: "roadrunner",
+				entrySource: "wrapped_team_card",
+				shareId: "created-share-1",
+				sourceComponent: "wrapped_team_card_page",
+			}),
+		);
 	});
 
 	it("tracks story start, share creation, and distribution from a source share", async () => {
