@@ -101,9 +101,13 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 	const [guestPreviewSnapshot, setGuestPreviewSnapshot] = useState(() =>
 		readWrappedGuestPreviewSnapshot(),
 	);
+	const defaultCardProfile = buildWrappedSessionPreviewProfile(session);
 	const [editableCardProfile, setEditableCardProfile] =
-		useState<WrappedGuestPreviewProfile | null>(
-			() => guestPreviewSnapshot?.profile ?? null,
+		useState<WrappedGuestPreviewProfile | null>(() =>
+			hydrateWrappedCardProfileFromSession(
+				guestPreviewSnapshot?.profile ?? null,
+				defaultCardProfile,
+			),
 		);
 	const forcedFlowStage = getWrappedRouteFlowStage(
 		searchParams.get(WRAPPED_ROUTE_FLOW_QUERY_PARAM),
@@ -135,8 +139,10 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 				sessionUserId,
 			) &&
 				hasWrappedCardProfileImage(guestPreviewSnapshot?.profile ?? null)));
-	const defaultCardProfile = buildWrappedSessionPreviewProfile(session);
-	const activeCardProfile = editableCardProfile ?? defaultCardProfile;
+	const activeCardProfile = hydrateWrappedCardProfileFromSession(
+		editableCardProfile,
+		defaultCardProfile,
+	);
 	const hasActiveCardProfileImage =
 		hasWrappedCardProfileImage(activeCardProfile);
 	const hasSessionUserImage = getSessionUserImage(session) !== null;
@@ -433,6 +439,24 @@ function buildWrappedSessionPreviewProfile(
 		source: "local",
 		username,
 		verified: false,
+	};
+}
+
+function hydrateWrappedCardProfileFromSession(
+	profile: WrappedGuestPreviewProfile | null,
+	defaultProfile: WrappedGuestPreviewProfile | null,
+): WrappedGuestPreviewProfile | null {
+	if (!profile) {
+		return defaultProfile;
+	}
+
+	if (!defaultProfile) {
+		return profile;
+	}
+
+	return {
+		...profile,
+		imageUrl: profile.imageUrl ?? defaultProfile.imageUrl,
 	};
 }
 

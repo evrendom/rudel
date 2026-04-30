@@ -472,6 +472,57 @@ describe("WrappedRouteGate", () => {
 		expect(screen.queryByText("Wrapped setup page")).toBeNull();
 	});
 
+	it("prefills stored card profile setup with the signed-in provider image", async () => {
+		const user = userEvent.setup();
+		const providerImageUrl = "https://example.com/provider-avatar.png";
+		const sessionWithProviderPicture: NonNullable<AppSession> = {
+			...session,
+			user: {
+				...session.user,
+				image: providerImageUrl,
+			},
+		};
+
+		writeWrappedGuestPreviewSnapshot({
+			profile: {
+				displayName: "Stored User",
+				followerCount: null,
+				imageUrl: null,
+				source: "local",
+				username: "storeduser",
+				verified: false,
+			},
+			step: "auth",
+		});
+
+		render(
+			<MemoryRouter initialEntries={["/wrapped?flow=card-profile"]}>
+				<WrappedRouteGate
+					isPending={false}
+					publicId={null}
+					session={sessionWithProviderPicture}
+				/>
+			</MemoryRouter>,
+		);
+
+		expect(screen.getByText("Wrapped card profile step")).toBeInTheDocument();
+		expect(
+			screen.getByText("Profile display name: Stored User"),
+		).toBeInTheDocument();
+		expect(screen.getByText("Profile image: set")).toBeInTheDocument();
+
+		await user.click(screen.getByRole("button", { name: "Continue profile" }));
+
+		expect(readWrappedGuestPreviewSnapshot()).toMatchObject({
+			cardProfileCompletedUserId: "user-1",
+			profile: {
+				displayName: "Stored User",
+				imageUrl: providerImageUrl,
+			},
+			step: "auth",
+		});
+	});
+
 	it("renders mobile handoff for signed-in mobile viewers without uploads", () => {
 		mockUseIsMobile.mockReturnValue(true);
 
