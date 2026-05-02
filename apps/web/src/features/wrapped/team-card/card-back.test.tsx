@@ -43,6 +43,39 @@ describe("WrappedTeamMemberCardBack", () => {
 			valueTruncation: "start",
 		});
 	});
+
+	it("hides low-signal skills and slash commands from the card back", () => {
+		const metrics = buildWrappedTeamCardBackMetrics({
+			onboardingMetrics: {
+				...onboardingMetrics,
+				skillsAdoptionRate: 19,
+				slashCommandsAdoptionRate: 19,
+				topSkills: [{ count: 38, name: "low-signal-skill" }],
+				topSlashCommand: "/low-signal",
+				topSlashCommandCount: 38,
+				topSlashCommands: [{ count: 38, name: "/low-signal" }],
+				totalSessions: 100,
+			},
+			row: {
+				...row,
+				totalSessions: 100,
+			},
+			shareCardCreatedAtLabel: "Apr 28, 2026",
+		});
+
+		expect(
+			metrics.find((metric) => metric.label === "Skills used")?.value,
+		).toBe("0");
+		expect(
+			metrics.find((metric) => metric.label === "FAV SKILL"),
+		).toMatchObject({
+			value: "Skill issue",
+			valueTruncation: "start",
+		});
+		expect(
+			metrics.find((metric) => metric.label === "Commands used")?.value,
+		).toBe("0");
+	});
 });
 
 const row = {

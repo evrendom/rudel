@@ -3952,6 +3952,14 @@ body.mymind-wrapped-body .woot-widget-bubble {
 	padding-bottom: 0.2rem;
 }
 
+.mymind-wrapped-entry-stage--route-loading {
+	grid-template-rows: minmax(0, 1fr);
+}
+
+.mymind-wrapped-entry-stage--route-loading .mymind-wrapped-stage__object {
+	align-self: stretch;
+}
+
 .mymind-wrapped-entry-stage__copy {
 	width: min(100%, 34rem);
 	margin: 0 auto;
@@ -4353,6 +4361,31 @@ body.mymind-wrapped-body .woot-widget-bubble {
 .mymind-wrapped-entry-card__desktop-copy-button:focus-visible {
 	outline: 2px solid rgb(34 32 31 / 0.28);
 	outline-offset: 2px;
+}
+
+.mymind-wrapped-route-loading {
+	display: grid;
+	justify-items: center;
+	gap: 1.15rem;
+	width: min(100%, 20rem);
+	margin: auto;
+	text-align: center;
+}
+
+.mymind-wrapped-route-loading__logo {
+	width: 2.65rem;
+	height: auto;
+}
+
+.mymind-wrapped-route-loading__copy {
+	margin: 0;
+	max-width: 28ch;
+	color: #6b655f;
+	font-size: 1rem;
+	font-family: var(--font-sans);
+	font-weight: 600;
+	line-height: 1.45;
+	text-wrap: pretty;
 }
 
 .mymind-wrapped-entry-card--status {
@@ -9213,7 +9246,7 @@ body.mymind-wrapped-body .woot-widget-bubble {
 			"copy"
 			"object"
 			"support";
-		align-items: start;
+		align-items: stretch;
 		justify-items: center;
 		max-width: 38rem;
 		margin-inline: auto;
@@ -9235,6 +9268,8 @@ body.mymind-wrapped-body .woot-widget-bubble {
 	}
 
 	.mymind-wrapped-final-stage--share .mymind-wrapped-final-stage__object {
+		align-self: stretch;
+		align-items: center;
 		justify-content: center;
 	}
 

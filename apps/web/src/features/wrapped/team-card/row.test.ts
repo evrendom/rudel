@@ -11,7 +11,7 @@ describe("buildResolvedTeamCardRow", () => {
 			developerDetails: undefined,
 			guestPreviewDisplayName: "Ada Lovelace",
 			guestPreviewImageUrl: "data:image/png;base64,abc",
-			profileImageFallbackSrc: "/logo-light.png",
+			profileImageFallbackSrc: "/favicon-dark.png",
 			sessionUserEmail: "session@example.com",
 			sessionUserId: "user_1",
 			sessionUserImage: undefined,
@@ -30,7 +30,7 @@ describe("buildResolvedTeamCardRow", () => {
 			developerDetails: undefined,
 			guestPreviewDisplayName: undefined,
 			guestPreviewImageUrl: undefined,
-			profileImageFallbackSrc: "/logo-light.png",
+			profileImageFallbackSrc: "/favicon-dark.png",
 			sessionUserEmail: "session@example.com",
 			sessionUserId: "user_1",
 			sessionUserImage: "https://avatars.githubusercontent.com/u/1?v=4",
@@ -46,7 +46,7 @@ describe("buildResolvedTeamCardRow", () => {
 	it("keeps edited profile images ahead of session profile images", () => {
 		expect(
 			resolveTeamCardProfileImageSrc({
-				fallbackSrc: "/logo-light.png",
+				fallbackSrc: "/favicon-dark.png",
 				guestPreviewImageUrl: "data:image/png;base64,abc",
 				sessionUserImage: "https://lh3.googleusercontent.com/avatar",
 			}),
@@ -56,10 +56,10 @@ describe("buildResolvedTeamCardRow", () => {
 	it("falls back to the handover avatar when no profile image exists", () => {
 		expect(
 			resolveTeamCardProfileImageSrc({
-				fallbackSrc: "/logo-light.png",
+				fallbackSrc: "/favicon-dark.png",
 				guestPreviewImageUrl: null,
 				sessionUserImage: undefined,
 			}),
-		).toBe("/logo-light.png");
+		).toBe("/favicon-dark.png");
 	});
 });

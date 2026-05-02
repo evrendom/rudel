@@ -400,17 +400,19 @@ export function WrappedOnboardingSkillsStage(props: SkillsStageProps) {
 								/>
 							</span>
 						</div>
-						<p className="mymind-wrapped-skills-stage__empty-caption">
-							you should try skills out,{" "}
-							<a
-								className="mymind-wrapped-skills-stage__footnote-link"
-								href={ANTHROPIC_SKILLS_DOCS_URL}
-								rel="noreferrer"
-								target="_blank"
-							>
-								see here
-							</a>
-						</p>
+						{model.emptyState === "no-signal" ? (
+							<p className="mymind-wrapped-skills-stage__empty-caption">
+								you should try skills out,{" "}
+								<a
+									className="mymind-wrapped-skills-stage__footnote-link"
+									href={ANTHROPIC_SKILLS_DOCS_URL}
+									rel="noreferrer"
+									target="_blank"
+								>
+									see here
+								</a>
+							</p>
+						) : null}
 					</div>
 				) : isIntroCopyVisible ? undefined : (
 					<motion.div
