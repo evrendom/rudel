@@ -44,7 +44,7 @@ const TOOLS_BASE_MODEL_LINES = [
 	"Just vibes.",
 ] as const;
 const TOOLS_THIN_SLASH_COMMAND_LINES = [
-	"Almost no slash commands.",
+	"You didn't use slash commands enough.",
 	"No subagents.",
 	"Just vibes.",
 ] as const;
@@ -502,25 +502,31 @@ function WrappedOnboardingToolsBaseModelStage(props: {
 							initial={false}
 							transition={TOOLS_STAGE_SEQUENCE_TRANSITION}
 						>
-							You should try them out tho:{" "}
-							<a
-								className="mymind-wrapped-tools-stage__footnote-link"
-								href={ANTHROPIC_COMMANDS_DOCS_URL}
-								rel="noreferrer"
-								target="_blank"
-							>
-								slash commands
-							</a>{" "}
-							and{" "}
-							<a
-								className="mymind-wrapped-tools-stage__footnote-link"
-								href={ANTHROPIC_SUBAGENTS_DOCS_URL}
-								rel="noreferrer"
-								target="_blank"
-							>
-								subagents
-							</a>
-							.
+							{mode === "thin-slash-command" ? (
+								"you didn't use slash commands enough for a recap yet"
+							) : (
+								<>
+									You should try them out tho:{" "}
+									<a
+										className="mymind-wrapped-tools-stage__footnote-link"
+										href={ANTHROPIC_COMMANDS_DOCS_URL}
+										rel="noreferrer"
+										target="_blank"
+									>
+										slash commands
+									</a>{" "}
+									and{" "}
+									<a
+										className="mymind-wrapped-tools-stage__footnote-link"
+										href={ANTHROPIC_SUBAGENTS_DOCS_URL}
+										rel="noreferrer"
+										target="_blank"
+									>
+										subagents
+									</a>
+									.
+								</>
+							)}
 						</motion.span>
 					}
 					descriptionClassName="mymind-wrapped-tools-stage__description-shell"
@@ -566,7 +572,11 @@ function resolveToolsTextOnlyLines(
 
 	if (mode === "thin-slash-command") {
 		return hasSubagentSignal
-			? ["Almost no slash commands.", "Subagents did show up.", "Just vibes."]
+			? [
+					"You didn't use slash commands enough.",
+					"Subagents did show up.",
+					"Just vibes.",
+				]
 			: TOOLS_THIN_SLASH_COMMAND_LINES;
 	}
 

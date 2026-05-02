@@ -1,6 +1,10 @@
 import type { CSSProperties } from "react";
 import { formatPercent } from "../format";
 import type { WrappedSkillUsageItem } from "../types";
+import {
+	hasWrappedLowFeatureUsageSignal,
+	hasWrappedRecapFeatureSignal,
+} from "./feature-signal";
 
 interface ToolsStageEntry {
 	id: string;
@@ -15,8 +19,6 @@ type ToolsStageMode =
 	| "regular"
 	| "thin-slash-command"
 	| "zero-slash-command";
-
-const MIN_RECAP_SLASH_COMMAND_COUNT = 3;
 
 export function resolveToolsStageModel(input: {
 	slashCommandsAdoptionRate: number | null;
@@ -48,10 +50,10 @@ export function resolveToolsStageModel(input: {
 	if (mode === "thin-slash-command") {
 		return {
 			entries: buildToolsPlaceholderEntries(),
-			footnote: "Almost no slash commands made the recap.",
-			headline: "Almost no slash commands.",
+			footnote: "Not enough sessions used slash commands to build a recap yet.",
+			headline: "You didn't use slash commands enough.",
 			mode,
-			subline: "Almost no slash commands made the recap.",
+			subline: "Not enough sessions used slash commands to build a recap yet.",
 			topSlashCommand,
 			topSubagent: input.topSubagent,
 		};
@@ -268,6 +270,7 @@ export function getToolsEntryStyle(
 }
 
 export function getToolsHeadline(input: {
+	slashCommandsAdoptionRate: number | null;
 	topSlashCommand: string | null;
 	topSlashCommandCount: number | null;
 	topSlashCommands: readonly WrappedSkillUsageItem[];
@@ -306,13 +309,13 @@ export function getToolsSubline(input: {
 
 	if (topSlashCommand === null && !hasSubagent) {
 		return hasLowSlashCommandSignal
-			? "Almost no slash commands made the recap."
+			? "You didn't use slash commands enough for a recap yet."
 			: "You should try them out tho: slash commands and subagents.";
 	}
 
 	if (topSlashCommand === null) {
 		const slashCommandLine = hasLowSlashCommandSignal
-			? "Almost no slash commands landed."
+			? "You didn't use slash commands enough for a recap yet."
 			: "No slash command ranked yet.";
 
 		return `${formatPercent(subagentsAdoptionRate)} of sessions used a subagent. ${slashCommandLine}`;
@@ -330,6 +333,7 @@ function getToolsUsageLabel(rate: number) {
 }
 
 function buildToolsStageEntries(input: {
+	slashCommandsAdoptionRate: number | null;
 	topSlashCommand: string | null;
 	topSlashCommandCount: number | null;
 	topSlashCommands: readonly WrappedSkillUsageItem[];
@@ -412,6 +416,7 @@ function resolveToolsStageMode(
 }
 
 function resolveRecapSlashCommand(input: {
+	slashCommandsAdoptionRate: number | null;
 	topSlashCommand: string | null;
 	topSlashCommandCount: number | null;
 	topSlashCommands: readonly WrappedSkillUsageItem[];
@@ -420,11 +425,11 @@ function resolveRecapSlashCommand(input: {
 		return null;
 	}
 
-	const slashCommandCount = resolveSlashCommandSignalCount(input);
-
 	if (
-		slashCommandCount !== null &&
-		slashCommandCount < MIN_RECAP_SLASH_COMMAND_COUNT
+		!hasWrappedRecapFeatureSignal({
+			adoptionRate: input.slashCommandsAdoptionRate,
+			topItemCount: resolveSlashCommandTopItemCount(input),
+		})
 	) {
 		return null;
 	}
@@ -433,17 +438,21 @@ function resolveRecapSlashCommand(input: {
 }
 
 function isThinSlashCommandSignal(input: {
+	slashCommandsAdoptionRate: number | null;
 	topSlashCommand: string | null;
 	topSlashCommandCount: number | null;
 	topSlashCommands: readonly WrappedSkillUsageItem[];
 }) {
-	const slashCommandCount = resolveSlashCommandSignalCount(input);
-
 	return (
 		input.topSlashCommand !== null &&
-		slashCommandCount !== null &&
-		slashCommandCount > 0 &&
-		slashCommandCount < MIN_RECAP_SLASH_COMMAND_COUNT
+		hasWrappedLowFeatureUsageSignal({
+			adoptionRate: input.slashCommandsAdoptionRate,
+			topItemCount: resolveSlashCommandTopItemCount(input),
+		}) &&
+		!hasWrappedRecapFeatureSignal({
+			adoptionRate: input.slashCommandsAdoptionRate,
+			topItemCount: resolveSlashCommandTopItemCount(input),
+		})
 	);
 }
 
@@ -456,22 +465,30 @@ function isZeroSlashCommandSignal(input: {
 	);
 }
 
-function resolveSlashCommandSignalCount(input: {
+function resolveSlashCommandTopItemCount(input: {
 	topSlashCommand: string | null;
 	topSlashCommandCount: number | null;
 	topSlashCommands: readonly WrappedSkillUsageItem[];
 }) {
-	const rankedCommandCount = input.topSlashCommands.reduce(
-		(totalCount, item) => totalCount + Math.max(0, item.count),
-		0,
-	);
+	const matchedTopCommand =
+		input.topSlashCommand === null
+			? null
+			: input.topSlashCommands.find(
+					(item) => item.name === input.topSlashCommand,
+				);
 
-	if (rankedCommandCount > 0) {
-		return rankedCommandCount;
+	if (matchedTopCommand !== null && matchedTopCommand !== undefined) {
+		return Math.max(0, matchedTopCommand.count);
 	}
 
 	if (input.topSlashCommandCount !== null) {
 		return Math.max(0, input.topSlashCommandCount);
+	}
+
+	const firstRankedCommand = input.topSlashCommands[0];
+
+	if (firstRankedCommand !== undefined) {
+		return Math.max(0, firstRankedCommand.count);
 	}
 
 	return input.topSlashCommand === null ? 0 : null;

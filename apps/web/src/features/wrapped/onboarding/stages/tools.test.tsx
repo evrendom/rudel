@@ -125,12 +125,18 @@ describe("WrappedOnboardingToolsStage", () => {
 		);
 
 		expect(
-			screen.getByRole("heading", { name: /almost no slash commands/i }),
+			screen.getByRole("heading", {
+				name: /you didn't use slash commands enough/i,
+			}),
 		).toBeInTheDocument();
 		expect(screen.getByText("No subagents.")).toBeInTheDocument();
 		expect(
+			screen.getByText("you didn't use slash commands enough for a recap yet"),
+		).toBeInTheDocument();
+		expect(
 			screen.queryByRole("button", { name: "/fix. 5% of sessions" }),
 		).toBeNull();
+		expect(screen.queryByRole("link", { name: "slash commands" })).toBeNull();
 
 		act(() => {
 			vi.runAllTimers();

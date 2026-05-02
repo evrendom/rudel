@@ -401,15 +401,21 @@ export function WrappedOnboardingSkillsStage(props: SkillsStageProps) {
 							</span>
 						</div>
 						<p className="mymind-wrapped-skills-stage__empty-caption">
-							you should try skills out,{" "}
-							<a
-								className="mymind-wrapped-skills-stage__footnote-link"
-								href={ANTHROPIC_SKILLS_DOCS_URL}
-								rel="noreferrer"
-								target="_blank"
-							>
-								see here
-							</a>
+							{model.emptyState === "low-signal" ? (
+								"you didn't use skills enough for a recap yet"
+							) : (
+								<>
+									you should try skills out,{" "}
+									<a
+										className="mymind-wrapped-skills-stage__footnote-link"
+										href={ANTHROPIC_SKILLS_DOCS_URL}
+										rel="noreferrer"
+										target="_blank"
+									>
+										see here
+									</a>
+								</>
+							)}
 						</p>
 					</div>
 				) : isIntroCopyVisible ? undefined : (

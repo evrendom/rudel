@@ -1,6 +1,7 @@
 import type { CSSProperties } from "react";
 import { formatPercent } from "../format";
 import type { WrappedSkillUsageItem } from "../types";
+import { hasWrappedRecapFeatureSignal } from "./feature-signal";
 
 export const SKILLS_STACK = {
 	cardHeightRem: 5.5,
@@ -129,9 +130,14 @@ export function resolveSkillsStageModel(input: {
 	skillsAdoptionRate: number | null;
 	topSkills: readonly WrappedSkillUsageItem[];
 }) {
-	const rankedSkills = input.topSkills.filter(
+	const signalSkills = input.topSkills.filter(
 		(skill) => skill.name.trim().length > 0 && skill.count > 0,
 	);
+	const hasSkillsSignal = hasWrappedRecapFeatureSignal({
+		adoptionRate: input.skillsAdoptionRate,
+		topItemCount: signalSkills[0]?.count ?? null,
+	});
+	const rankedSkills = hasSkillsSignal ? signalSkills : [];
 	const displayItems = rankedSkills.length > 0 ? [...rankedSkills] : [];
 
 	const minimumVisibleItems = 3;
@@ -166,13 +172,20 @@ export function resolveSkillsStageModel(input: {
 	const isScrollable = visibleSkillsCount > SKILLS_STACK.visibleCards;
 
 	if (rankedSkills.length === 0) {
+		const hasLowSkillUsage = signalSkills.length > 0;
+
 		return {
 			cards,
+			emptyState: hasLowSkillUsage ? "low-signal" : "no-signal",
 			footnote: "",
 			hasRankedSkills: false,
-			headline: "You've got a skill issue.",
+			headline: hasLowSkillUsage
+				? "You didn't use skills enough."
+				: "You've got a skill issue.",
 			isScrollable,
-			subline: "",
+			subline: hasLowSkillUsage
+				? "Not enough sessions pulled in skills to build a recap yet."
+				: "",
 			trackHeightRem,
 		};
 	}
@@ -180,6 +193,7 @@ export function resolveSkillsStageModel(input: {
 	if (rankedSkills.length === 1) {
 		return {
 			cards,
+			emptyState: null,
 			footnote:
 				input.skillsAdoptionRate === null
 					? "Only one skill has enough signal to make the board so far."
@@ -202,6 +216,7 @@ export function resolveSkillsStageModel(input: {
 
 	return {
 		cards,
+		emptyState: null,
 		footnote,
 		hasRankedSkills: true,
 		headline: `${leaderName} leads the board`,
