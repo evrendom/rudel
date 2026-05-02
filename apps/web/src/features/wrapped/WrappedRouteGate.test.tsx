@@ -17,7 +17,6 @@ const {
 	mockTrackWrappedOnboardingStarted,
 	mockTrackWrappedProfileCompleted,
 	mockTrackWrappedReferredSignupCompleted,
-	mockUseAnalyticsQuery,
 	mockUseCliSetupStatus,
 	mockUseIsMobile,
 	mockUseSetupProgress,
@@ -26,7 +25,6 @@ const {
 	mockTrackWrappedOnboardingStarted: vi.fn(),
 	mockTrackWrappedProfileCompleted: vi.fn(),
 	mockTrackWrappedReferredSignupCompleted: vi.fn(),
-	mockUseAnalyticsQuery: vi.fn(),
 	mockUseCliSetupStatus: vi.fn(),
 	mockUseIsMobile: vi.fn(),
 	mockUseSetupProgress: vi.fn(),
@@ -44,10 +42,6 @@ vi.mock("@/features/analytics/tracking/useAnalyticsTracking", () => ({
 		trackWrappedReferredSignupCompleted:
 			mockTrackWrappedReferredSignupCompleted,
 	}),
-}));
-
-vi.mock("@/features/analytics/queries/useAnalyticsQuery", () => ({
-	useAnalyticsQuery: mockUseAnalyticsQuery,
 }));
 
 vi.mock("@/features/get-started/use-setup-progress", () => ({
@@ -163,30 +157,18 @@ vi.mock("@/features/wrapped/WrappedSetupPage", () => ({
 
 vi.mock("@/features/wrapped/WrappedSetupCompletePage", () => ({
 	WrappedSetupCompletePage: ({
-		canContinueToStory = true,
-		defaultUploadMoreVisible = false,
 		onBack,
 		onContinue,
-		sessionReadinessState = "default",
-		totalSessionCount,
 	}: {
-		canContinueToStory?: boolean;
-		defaultUploadMoreVisible?: boolean;
 		onBack?: () => void;
 		onContinue: () => void;
-		sessionReadinessState?: string;
-		totalSessionCount?: number;
 	}) => (
 		<div>
 			<div>Wrapped setup complete page</div>
-			<div>Can continue: {canContinueToStory ? "yes" : "no"}</div>
-			<div>Upload more default: {defaultUploadMoreVisible ? "yes" : "no"}</div>
-			<div>Readiness: {sessionReadinessState}</div>
-			<div>Total sessions: {totalSessionCount ?? "none"}</div>
 			<button type="button" onClick={onBack}>
 				Back to setup
 			</button>
-			<button type="button" disabled={!canContinueToStory} onClick={onContinue}>
+			<button type="button" onClick={onContinue}>
 				Start story
 			</button>
 		</div>
@@ -256,7 +238,6 @@ describe("WrappedRouteGate", () => {
 		mockTrackWrappedOnboardingStarted.mockReset();
 		mockTrackWrappedProfileCompleted.mockReset();
 		mockTrackWrappedReferredSignupCompleted.mockReset();
-		mockUseAnalyticsQuery.mockReset();
 		mockUseIsMobile.mockReset();
 		mockUseCliSetupStatus.mockReset();
 		mockUseSetupProgress.mockReset();
@@ -271,14 +252,6 @@ describe("WrappedRouteGate", () => {
 			hasUploadedSessions: false,
 			isLoading: false,
 			totalSessionCount: 0,
-		});
-		mockUseAnalyticsQuery.mockReturnValue({
-			data: {
-				archetype_gate: {
-					is_eligible: true,
-				},
-			},
-			isLoading: false,
 		});
 		window.sessionStorage.clear();
 		markWrappedCardProfileComplete();
@@ -799,7 +772,9 @@ describe("WrappedRouteGate", () => {
 		expect(screen.getByText("Setup completed steps: none")).toBeInTheDocument();
 	});
 
-	it("routes under-threshold uploaded sessions to sessions landed", () => {
+	it("marks both setup steps complete when sessions already exist", async () => {
+		const user = userEvent.setup();
+
 		mockUseSetupProgress.mockReturnValue({
 			hasUploadedSessions: true,
 			isLoading: false,
@@ -812,37 +787,24 @@ describe("WrappedRouteGate", () => {
 			</MemoryRouter>,
 		);
 
-		expect(screen.getByText("Wrapped setup complete page")).toBeInTheDocument();
-		expect(screen.getByText("Can continue: no")).toBeInTheDocument();
-		expect(screen.getByText("Upload more default: yes")).toBeInTheDocument();
-		expect(screen.getByText("Readiness: missing")).toBeInTheDocument();
-		expect(screen.getByText("Total sessions: 3")).toBeInTheDocument();
-		expect(screen.getByRole("button", { name: "Start story" })).toBeDisabled();
-		expect(mockUseAnalyticsQuery).not.toHaveBeenCalled();
-	});
+		expect(screen.getByText("Wrapped setup page")).toBeInTheDocument();
+		expect(screen.getByText("Setup current step: none")).toBeInTheDocument();
+		expect(
+			screen.getByText(
+				"Setup completed steps: install-and-login,enable-auto-upload",
+			),
+		).toBeInTheDocument();
+		const continueButton = screen.getByRole("button", { name: "Continue" });
+		expect(continueButton).toBeEnabled();
 
-	it("does not let forced story bypass under-threshold sessions", () => {
-		mockUseSetupProgress.mockReturnValue({
-			hasUploadedSessions: true,
-			isLoading: false,
-			totalSessionCount: 99,
-		});
-
-		render(
-			<MemoryRouter initialEntries={["/wrapped?flow=story"]}>
-				<WrappedRouteGate isPending={false} publicId={null} session={session} />
-			</MemoryRouter>,
-		);
+		await user.click(continueButton);
 
 		expect(screen.getByText("Wrapped setup complete page")).toBeInTheDocument();
-		expect(screen.getByText("Can continue: no")).toBeInTheDocument();
-		expect(screen.getByText("Upload more default: yes")).toBeInTheDocument();
-		expect(screen.getByText("Readiness: missing")).toBeInTheDocument();
-		expect(screen.getByText("Total sessions: 99")).toBeInTheDocument();
-		expect(screen.queryByText("Wrapped story")).toBeNull();
 	});
 
 	it("enables setup continue when sessions land during setup", async () => {
+		const user = userEvent.setup();
+
 		mockUseSetupProgress.mockReturnValue({
 			hasUploadedSessions: false,
 			isLoading: false,
@@ -874,11 +836,19 @@ describe("WrappedRouteGate", () => {
 			</MemoryRouter>,
 		);
 
+		expect(screen.getByText("Wrapped setup page")).toBeInTheDocument();
+		expect(screen.getByText("Setup current step: none")).toBeInTheDocument();
+		expect(
+			screen.getByText(
+				"Setup completed steps: install-and-login,enable-auto-upload",
+			),
+		).toBeInTheDocument();
+		const continueButton = screen.getByRole("button", { name: "Continue" });
+		expect(continueButton).toBeEnabled();
+
+		await user.click(continueButton);
+
 		expect(screen.getByText("Wrapped setup complete page")).toBeInTheDocument();
-		expect(screen.getByText("Can continue: no")).toBeInTheDocument();
-		expect(screen.getByText("Upload more default: yes")).toBeInTheDocument();
-		expect(screen.getByText("Readiness: missing")).toBeInTheDocument();
-		expect(screen.getByText("Total sessions: 1")).toBeInTheDocument();
 	});
 
 	it("shows card profile before story when completed setup still has only a fallback image", async () => {
@@ -941,7 +911,7 @@ describe("WrappedRouteGate", () => {
 		});
 	});
 
-	it("renders the wrapped story when setup completion was already acknowledged and the gate is eligible", () => {
+	it("renders the wrapped story when setup completion was already acknowledged", () => {
 		const storageKey = getWrappedSetupCompletionStorageKey(session.user.id);
 
 		if (storageKey === null) {
@@ -952,7 +922,7 @@ describe("WrappedRouteGate", () => {
 		mockUseSetupProgress.mockReturnValue({
 			hasUploadedSessions: true,
 			isLoading: false,
-			totalSessionCount: 100,
+			totalSessionCount: 3,
 		});
 
 		render(
@@ -975,7 +945,7 @@ describe("WrappedRouteGate", () => {
 		mockUseSetupProgress.mockReturnValue({
 			hasUploadedSessions: true,
 			isLoading: false,
-			totalSessionCount: 100,
+			totalSessionCount: 3,
 		});
 
 		render(
@@ -999,7 +969,7 @@ describe("WrappedRouteGate", () => {
 		mockUseSetupProgress.mockReturnValue({
 			hasUploadedSessions: true,
 			isLoading: false,
-			totalSessionCount: 100,
+			totalSessionCount: 3,
 		});
 
 		render(
@@ -1028,7 +998,7 @@ describe("WrappedRouteGate", () => {
 		mockUseSetupProgress.mockReturnValue({
 			hasUploadedSessions: true,
 			isLoading: false,
-			totalSessionCount: 100,
+			totalSessionCount: 3,
 		});
 
 		render(
@@ -1053,7 +1023,7 @@ describe("WrappedRouteGate", () => {
 		mockUseSetupProgress.mockReturnValue({
 			hasUploadedSessions: true,
 			isLoading: false,
-			totalSessionCount: 100,
+			totalSessionCount: 3,
 		});
 
 		render(

@@ -81,7 +81,7 @@ describe("WrappedSetupCompletePage", () => {
 
 		await user.click(
 			screen.getByRole("button", {
-				name: "Upload more",
+				name: "Upload more for a better picture",
 			}),
 		);
 
