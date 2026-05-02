@@ -276,6 +276,19 @@ describe("WrappedRouteGate", () => {
 			data: {
 				archetype_gate: {
 					is_eligible: true,
+					reason: "eligible",
+					thresholds: {
+						max_distance_ratio_to_max: 0.25,
+						min_active_days: 14,
+						min_top_two_margin: 0.1,
+						min_total_sessions: 100,
+					},
+					values: {
+						active_days: 14,
+						archetype_distance_ratio_to_max: 0.1,
+						archetype_top_two_margin: 0.2,
+						total_sessions: 100,
+					},
 				},
 			},
 			isLoading: false,
@@ -580,7 +593,7 @@ describe("WrappedRouteGate", () => {
 		});
 
 		render(
-			<MemoryRouter initialEntries={["/wrapped"]}>
+			<MemoryRouter initialEntries={["/wrapped?flow=sessions-landed"]}>
 				<WrappedRouteGate isPending={false} publicId={null} session={session} />
 			</MemoryRouter>,
 		);
@@ -840,6 +853,127 @@ describe("WrappedRouteGate", () => {
 		expect(screen.getByText("Readiness: missing")).toBeInTheDocument();
 		expect(screen.getByText("Total sessions: 99")).toBeInTheDocument();
 		expect(screen.queryByText("Wrapped story")).toBeNull();
+	});
+
+	it("uses wrapped gate totals when setup progress overcounts uploaded sessions", () => {
+		mockUseSetupProgress.mockReturnValue({
+			hasUploadedSessions: true,
+			isLoading: false,
+			totalSessionCount: 100,
+		});
+		mockUseAnalyticsQuery.mockReturnValue({
+			data: {
+				archetype_gate: {
+					is_eligible: false,
+					reason: "needs_more_sessions",
+					thresholds: {
+						max_distance_ratio_to_max: 0.25,
+						min_active_days: 14,
+						min_top_two_margin: 0.1,
+						min_total_sessions: 100,
+					},
+					values: {
+						active_days: 20,
+						archetype_distance_ratio_to_max: 0.1,
+						archetype_top_two_margin: 0.2,
+						total_sessions: 38,
+					},
+				},
+			},
+			isLoading: false,
+		});
+
+		render(
+			<MemoryRouter initialEntries={["/wrapped"]}>
+				<WrappedRouteGate isPending={false} publicId={null} session={session} />
+			</MemoryRouter>,
+		);
+
+		expect(screen.getByText("Wrapped setup complete page")).toBeInTheDocument();
+		expect(screen.getByText("Can continue: no")).toBeInTheDocument();
+		expect(screen.getByText("Upload more default: yes")).toBeInTheDocument();
+		expect(screen.getByText("Readiness: missing")).toBeInTheDocument();
+		expect(screen.getByText("Total sessions: 38")).toBeInTheDocument();
+		expect(screen.getByRole("button", { name: "Start story" })).toBeDisabled();
+	});
+
+	it("treats a legacy non-session gate reason as ready after 100 sessions", () => {
+		mockUseSetupProgress.mockReturnValue({
+			hasUploadedSessions: true,
+			isLoading: false,
+			totalSessionCount: 100,
+		});
+		mockUseAnalyticsQuery.mockReturnValue({
+			data: {
+				archetype_gate: {
+					is_eligible: false,
+					reason: "low_confidence",
+					thresholds: {
+						max_distance_ratio_to_max: 0.25,
+						min_active_days: 14,
+						min_top_two_margin: 0.1,
+						min_total_sessions: 100,
+					},
+					values: {
+						active_days: 14,
+						archetype_distance_ratio_to_max: 0.4,
+						archetype_top_two_margin: 0.01,
+						total_sessions: 100,
+					},
+				},
+			},
+			isLoading: false,
+		});
+
+		render(
+			<MemoryRouter initialEntries={["/wrapped?flow=sessions-landed"]}>
+				<WrappedRouteGate isPending={false} publicId={null} session={session} />
+			</MemoryRouter>,
+		);
+
+		expect(screen.getByText("Wrapped setup complete page")).toBeInTheDocument();
+		expect(screen.getByText("Can continue: yes")).toBeInTheDocument();
+		expect(screen.getByText("Readiness: enough-landed")).toBeInTheDocument();
+		expect(screen.getByText("Total sessions: 100")).toBeInTheDocument();
+		expect(screen.getByRole("button", { name: "Start story" })).toBeEnabled();
+	});
+
+	it("keeps processing archetype users off the upload title screen", () => {
+		mockUseSetupProgress.mockReturnValue({
+			hasUploadedSessions: true,
+			isLoading: false,
+			totalSessionCount: 100,
+		});
+		mockUseAnalyticsQuery.mockReturnValue({
+			data: {
+				archetype_gate: {
+					is_eligible: false,
+					reason: "processing_archetype",
+					thresholds: {
+						max_distance_ratio_to_max: 0.25,
+						min_active_days: 14,
+						min_top_two_margin: 0.1,
+						min_total_sessions: 100,
+					},
+					values: {
+						active_days: 14,
+						archetype_distance_ratio_to_max: null,
+						archetype_top_two_margin: null,
+						total_sessions: 100,
+					},
+				},
+			},
+			isLoading: false,
+		});
+
+		render(
+			<MemoryRouter initialEntries={["/wrapped?flow=sessions-landed"]}>
+				<WrappedRouteGate isPending={false} publicId={null} session={session} />
+			</MemoryRouter>,
+		);
+
+		expect(screen.getByText("Preparing your wrapped...")).toBeInTheDocument();
+		expect(screen.queryByText("Wrapped setup complete page")).toBeNull();
 	});
 
 	it("enables setup continue when sessions land during setup", async () => {

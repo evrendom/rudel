@@ -32,7 +32,10 @@ import { WrappedCardProfileStep } from "@/features/wrapped/WrappedCardProfileSte
 import { WrappedDesktopResumePromptPage } from "@/features/wrapped/WrappedDesktopResumePromptPage";
 import { WrappedGuestPage } from "@/features/wrapped/WrappedGuestPage";
 import { WrappedPublicPage } from "@/features/wrapped/WrappedPublicPage";
-import { WrappedSetupCompletePage } from "@/features/wrapped/WrappedSetupCompletePage";
+import {
+	WrappedSetupCompletePage,
+	type WrappedSetupSessionReadinessState,
+} from "@/features/wrapped/WrappedSetupCompletePage";
 import { WrappedSetupPage } from "@/features/wrapped/WrappedSetupPage";
 import {
 	buildWrappedCardProfileCompletedSnapshot,
@@ -183,7 +186,7 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 		forcedFlowStage === "sessions-landed" && setupProgress.hasUploadedSessions;
 	const shouldForceDesktopReady =
 		forcedFlowStage === WRAPPED_ROUTE_DESKTOP_READY_FLOW;
-	const hasMinimumArchetypeSessionCount =
+	const hasMinimumSetupProgressSessionCount =
 		setupProgress.totalSessionCount >=
 		WRAPPED_ARCHETYPE_GATE_THRESHOLDS.min_total_sessions;
 	const hasSeenBelowMinimumSessions =
@@ -191,12 +194,8 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 		usersSeenBelowMinimumSessions[sessionUserId] === true;
 	const hasReachedMinimumAfterMissing =
 		setupProgress.hasUploadedSessions &&
-		hasMinimumArchetypeSessionCount &&
+		hasMinimumSetupProgressSessionCount &&
 		hasSeenBelowMinimumSessions;
-	const setupSessionReadinessState = getWrappedSetupSessionReadinessState({
-		hasMinimumArchetypeSessionCount,
-		hasReachedMinimumAfterMissing,
-	});
 	const signedInMobileHandoffEmail = isMobile ? sessionUserEmail : undefined;
 
 	function setWrappedRouteFlowStage(nextStage: WrappedRouteFlowStage) {
@@ -368,23 +367,29 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 		isReady:
 			sessionUserId !== null &&
 			setupProgress.hasUploadedSessions &&
-			!hasMinimumArchetypeSessionCount,
+			!hasMinimumSetupProgressSessionCount,
 		key: sessionUserId,
 	});
 
-	function renderRouteContent(archetypeGate: WrappedV1ArchetypeGate | null) {
-		const isWrappedArchetypeGateEligible =
-			hasMinimumArchetypeSessionCount && archetypeGate?.is_eligible === true;
-		const shouldHoldForArchetypeGate =
-			setupProgress.hasUploadedSessions && !isWrappedArchetypeGateEligible;
-		const shouldOpenUploadMoreByDefault =
+	function renderRouteContent(archetypeGateState: WrappedArchetypeGateState) {
+		const sessionGateState = getWrappedRouteSessionGateState({
+			archetypeGate: archetypeGateState.archetypeGate,
+			hasReachedMinimumAfterMissing,
+			isArchetypeGateLoading: archetypeGateState.isLoading,
+			setupProgressHasUploadedSessions: setupProgress.hasUploadedSessions,
+			setupProgressTotalSessionCount: setupProgress.totalSessionCount,
+		});
+		const canContinueToWrappedStory = sessionGateState.canContinueToStory;
+		const shouldWaitForWrappedStoryData =
 			setupProgress.hasUploadedSessions &&
-			(!hasMinimumArchetypeSessionCount ||
-				archetypeGate?.is_eligible === false);
+			sessionGateState.isWaitingForStoryData;
+		const shouldHoldForMinimumSessions =
+			setupProgress.hasUploadedSessions &&
+			!sessionGateState.hasMinimumSessionCount;
 		const shouldForceStory =
 			forcedFlowStage === "story" &&
 			setupProgress.hasUploadedSessions &&
-			isWrappedArchetypeGateEligible;
+			canContinueToWrappedStory;
 
 		let content: ReactNode;
 
@@ -439,48 +444,47 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 					onContinue={handleSetupContinue}
 				/>
 			);
+		} else if (shouldWaitForWrappedStoryData) {
+			content = <WrappedRouteLoadingState body="Preparing your wrapped..." />;
 		} else if (sessionUserId && shouldForceSessionsLanded) {
 			content = (
 				<WrappedSetupCompletePage
-					canContinueToStory={isWrappedArchetypeGateEligible}
-					defaultUploadMoreVisible={shouldOpenUploadMoreByDefault}
-					minimumSessionCount={
-						WRAPPED_ARCHETYPE_GATE_THRESHOLDS.min_total_sessions
-					}
+					canContinueToStory={canContinueToWrappedStory}
+					defaultUploadMoreVisible={sessionGateState.defaultUploadMoreVisible}
+					minimumSessionCount={sessionGateState.minimumSessionCount}
 					onBack={() => setWrappedRouteFlowStage("desktop-ready")}
-					onContinue={() => handleSetupComplete(isWrappedArchetypeGateEligible)}
-					sessionReadinessState={setupSessionReadinessState}
-					totalSessionCount={setupProgress.totalSessionCount}
+					onContinue={() => handleSetupComplete(canContinueToWrappedStory)}
+					sessionReadinessState={sessionGateState.sessionReadinessState}
+					totalSessionCount={sessionGateState.totalSessionCount}
 					userId={sessionUserId}
 				/>
 			);
-		} else if (sessionUserId && shouldHoldForArchetypeGate) {
+		} else if (sessionUserId && shouldHoldForMinimumSessions) {
 			content = (
 				<WrappedSetupCompletePage
-					canContinueToStory={isWrappedArchetypeGateEligible}
-					defaultUploadMoreVisible={shouldOpenUploadMoreByDefault}
-					minimumSessionCount={
-						WRAPPED_ARCHETYPE_GATE_THRESHOLDS.min_total_sessions
-					}
+					canContinueToStory={canContinueToWrappedStory}
+					defaultUploadMoreVisible={sessionGateState.defaultUploadMoreVisible}
+					minimumSessionCount={sessionGateState.minimumSessionCount}
 					onBack={() => setWrappedRouteFlowStage("desktop-ready")}
-					onContinue={() => handleSetupComplete(isWrappedArchetypeGateEligible)}
-					sessionReadinessState={setupSessionReadinessState}
-					totalSessionCount={setupProgress.totalSessionCount}
+					onContinue={() => handleSetupComplete(canContinueToWrappedStory)}
+					sessionReadinessState={sessionGateState.sessionReadinessState}
+					totalSessionCount={sessionGateState.totalSessionCount}
 					userId={sessionUserId}
 				/>
 			);
-		} else if (sessionUserId && hasReachedMinimumAfterMissing) {
+		} else if (
+			sessionUserId &&
+			sessionGateState.hasReachedMinimumAfterMissing
+		) {
 			content = (
 				<WrappedSetupCompletePage
-					canContinueToStory={isWrappedArchetypeGateEligible}
+					canContinueToStory={canContinueToWrappedStory}
 					defaultUploadMoreVisible={false}
-					minimumSessionCount={
-						WRAPPED_ARCHETYPE_GATE_THRESHOLDS.min_total_sessions
-					}
+					minimumSessionCount={sessionGateState.minimumSessionCount}
 					onBack={() => setWrappedRouteFlowStage("desktop-ready")}
-					onContinue={() => handleSetupComplete(isWrappedArchetypeGateEligible)}
-					sessionReadinessState={setupSessionReadinessState}
-					totalSessionCount={setupProgress.totalSessionCount}
+					onContinue={() => handleSetupComplete(canContinueToWrappedStory)}
+					sessionReadinessState={sessionGateState.sessionReadinessState}
+					totalSessionCount={sessionGateState.totalSessionCount}
 					userId={sessionUserId}
 				/>
 			);
@@ -488,7 +492,7 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 			shouldForceStory ||
 			(setupProgress.hasUploadedSessions &&
 				hasCompletedSetup &&
-				isWrappedArchetypeGateEligible)
+				canContinueToWrappedStory)
 		) {
 			content = (
 				<WrappedTeamCardPage
@@ -520,23 +524,31 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 	if (shouldQueryWrappedArchetypeGate) {
 		return (
 			<WrappedArchetypeGateQuery>
-				{(archetypeGate) => renderRouteContent(archetypeGate)}
+				{(archetypeGateState) => renderRouteContent(archetypeGateState)}
 			</WrappedArchetypeGateQuery>
 		);
 	}
 
-	return renderRouteContent(null);
+	return renderRouteContent({ archetypeGate: null, isLoading: false });
+}
+
+interface WrappedArchetypeGateState {
+	archetypeGate: WrappedV1ArchetypeGate | null;
+	isLoading: boolean;
 }
 
 function WrappedArchetypeGateQuery(props: {
-	children: (archetypeGate: WrappedV1ArchetypeGate | null) => ReactNode;
+	children: (state: WrappedArchetypeGateState) => ReactNode;
 }) {
 	const wrappedV1Query = useAnalyticsQuery({
 		...orpc.analytics.wrapped.v1.queryOptions({}),
 		enabled: true,
 	});
 
-	return props.children(wrappedV1Query.data?.archetype_gate ?? null);
+	return props.children({
+		archetypeGate: wrappedV1Query.data?.archetype_gate ?? null,
+		isLoading: wrappedV1Query.isLoading,
+	});
 }
 
 function buildWrappedSessionPreviewProfile(
@@ -676,10 +688,54 @@ function getWrappedRouteFlowStage(
 		: null;
 }
 
+function getWrappedRouteSessionGateState(input: {
+	archetypeGate: WrappedV1ArchetypeGate | null;
+	hasReachedMinimumAfterMissing: boolean;
+	isArchetypeGateLoading: boolean;
+	setupProgressHasUploadedSessions: boolean;
+	setupProgressTotalSessionCount: number;
+}) {
+	const minimumSessionCount =
+		input.archetypeGate?.thresholds.min_total_sessions ??
+		WRAPPED_ARCHETYPE_GATE_THRESHOLDS.min_total_sessions;
+	const totalSessionCount =
+		input.archetypeGate?.values.total_sessions ??
+		input.setupProgressTotalSessionCount;
+	const hasMinimumArchetypeSessionCount =
+		totalSessionCount >= minimumSessionCount;
+	const isWaitingForStoryData =
+		hasMinimumArchetypeSessionCount &&
+		(input.isArchetypeGateLoading ||
+			input.archetypeGate === null ||
+			input.archetypeGate.reason === "processing_archetype");
+	const canContinueToStory =
+		hasMinimumArchetypeSessionCount && !isWaitingForStoryData;
+
+	return {
+		canContinueToStory,
+		defaultUploadMoreVisible:
+			input.setupProgressHasUploadedSessions &&
+			!canContinueToStory &&
+			!isWaitingForStoryData &&
+			!hasMinimumArchetypeSessionCount,
+		hasReachedMinimumAfterMissing:
+			canContinueToStory && input.hasReachedMinimumAfterMissing,
+		hasMinimumSessionCount: hasMinimumArchetypeSessionCount,
+		isWaitingForStoryData,
+		minimumSessionCount,
+		sessionReadinessState: getWrappedSetupSessionReadinessState({
+			hasMinimumArchetypeSessionCount,
+			hasReachedMinimumAfterMissing:
+				canContinueToStory && input.hasReachedMinimumAfterMissing,
+		}),
+		totalSessionCount,
+	};
+}
+
 function getWrappedSetupSessionReadinessState(input: {
 	hasMinimumArchetypeSessionCount: boolean;
 	hasReachedMinimumAfterMissing: boolean;
-}) {
+}): WrappedSetupSessionReadinessState {
 	if (!input.hasMinimumArchetypeSessionCount) {
 		return "missing";
 	}

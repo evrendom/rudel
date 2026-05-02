@@ -38,20 +38,8 @@ function getWrappedArchetypeGateReason(
 		return "needs_more_sessions";
 	}
 
-	if (input.activeDays < WRAPPED_ARCHETYPE_GATE_THRESHOLDS.min_active_days) {
-		return "needs_more_active_days";
-	}
-
 	if (input.distanceRatioToMax === null || input.topTwoMargin === null) {
 		return "processing_archetype";
-	}
-
-	if (
-		input.distanceRatioToMax >
-			WRAPPED_ARCHETYPE_GATE_THRESHOLDS.max_distance_ratio_to_max ||
-		input.topTwoMargin < WRAPPED_ARCHETYPE_GATE_THRESHOLDS.min_top_two_margin
-	) {
-		return "low_confidence";
 	}
 
 	return "eligible";
