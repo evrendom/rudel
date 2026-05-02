@@ -1,3 +1,4 @@
+import { Frown } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import type { CSSProperties } from "react";
 import { useRef, useState } from "react";
@@ -36,15 +37,13 @@ type ToolsStageSequenceFrame = {
 
 type ToolsStageScenePhase = "sequence" | "handoff" | "final";
 type ToolsStageModel = ReturnType<typeof resolveToolsStageModel>;
-type ToolsTextOnlyMode = Exclude<ToolsStageModel["mode"], "regular">;
+type ToolsTextOnlyMode = Extract<
+	ToolsStageModel["mode"],
+	"base-model" | "zero-slash-command"
+>;
 
 const TOOLS_BASE_MODEL_LINES = [
 	"You used no slash commands.",
-	"No subagents.",
-	"Just vibes.",
-] as const;
-const TOOLS_THIN_SLASH_COMMAND_LINES = [
-	"Almost no slash commands.",
 	"No subagents.",
 	"Just vibes.",
 ] as const;
@@ -90,6 +89,16 @@ export function WrappedOnboardingToolsStage(props: ToolsStageProps) {
 		previewState,
 	);
 	const model = resolveToolsStageModel(previewInput);
+
+	if (model.mode === "thin-slash-command") {
+		return (
+			<WrappedOnboardingToolsLowSignalStage
+				model={model}
+				onSequenceComplete={onBaseModelSequenceComplete}
+			/>
+		);
+	}
+
 	const textOnlyMode = resolveToolsTextOnlyMode(model.mode);
 
 	if (textOnlyMode !== null) {
@@ -108,6 +117,53 @@ export function WrappedOnboardingToolsStage(props: ToolsStageProps) {
 			model={model}
 			onSequenceComplete={onBaseModelSequenceComplete}
 			reduceMotion={reduceMotion}
+		/>
+	);
+}
+
+function WrappedOnboardingToolsLowSignalStage(props: {
+	model: ToolsStageModel;
+	onSequenceComplete?: () => void;
+}) {
+	const { model, onSequenceComplete } = props;
+
+	useMountEffect(() => {
+		onSequenceComplete?.();
+		return undefined;
+	});
+
+	return (
+		<WrappedOnboardingStageFrame
+			className={cn(
+				"mymind-wrapped-tools-stage",
+				"mymind-wrapped-skills-stage",
+			)}
+			copy={
+				<WrappedOnboardingStageCopy
+					title={model.headline}
+					description={model.subline}
+				/>
+			}
+			object={
+				<div
+					className="mymind-wrapped-skills-stage__empty-state"
+					data-debug-label="empty state"
+				>
+					<div
+						aria-hidden="true"
+						className="mymind-wrapped-skills-stage__empty-icon-shell"
+						data-debug-label="empty icon shell"
+					>
+						<span className="mymind-wrapped-skills-stage__empty-code">404</span>
+						<span className="mymind-wrapped-skills-stage__empty-icon-badge">
+							<Frown
+								className="mymind-wrapped-skills-stage__empty-icon"
+								strokeWidth={1.9}
+							/>
+						</span>
+					</div>
+				</div>
+			}
 		/>
 	);
 }
@@ -564,23 +620,17 @@ function resolveToolsTextOnlyLines(
 			: TOOLS_BASE_MODEL_LINES;
 	}
 
-	if (mode === "thin-slash-command") {
-		return hasSubagentSignal
-			? ["Almost no slash commands.", "Subagents did show up.", "Just vibes."]
-			: TOOLS_THIN_SLASH_COMMAND_LINES;
-	}
-
 	return TOOLS_BASE_MODEL_LINES;
 }
 
 function resolveToolsTextOnlyMode(
 	mode: ToolsStageModel["mode"],
 ): ToolsTextOnlyMode | null {
-	if (mode === "regular") {
-		return null;
+	if (mode === "base-model" || mode === "zero-slash-command") {
+		return mode;
 	}
 
-	return mode;
+	return null;
 }
 
 function resolveToolsStageSequenceFrames(
