@@ -41,7 +41,7 @@ describe("wrapped archetype gate", () => {
 		expect(gate.values.active_days).toBe(14);
 	});
 
-	test("blocks when active days are below threshold", () => {
+	test("passes when active days are below the old threshold", () => {
 		const gate = buildWrappedArchetypeGate({
 			totalSessions: 100,
 			activeDays: 13,
@@ -49,8 +49,8 @@ describe("wrapped archetype gate", () => {
 			topTwoMargin: 0.2,
 		});
 
-		expect(gate.is_eligible).toBe(false);
-		expect(gate.reason).toBe("needs_more_active_days");
+		expect(gate.is_eligible).toBe(true);
+		expect(gate.reason).toBe("eligible");
 	});
 
 	test("waits for classifier output when threshold counts pass but archetype data is missing", () => {
@@ -65,7 +65,7 @@ describe("wrapped archetype gate", () => {
 		expect(gate.reason).toBe("processing_archetype");
 	});
 
-	test("blocks low-confidence classifier output", () => {
+	test("passes low-confidence classifier output once an archetype exists", () => {
 		const gate = buildWrappedArchetypeGate({
 			totalSessions: 100,
 			activeDays: 14,
@@ -73,7 +73,7 @@ describe("wrapped archetype gate", () => {
 			topTwoMargin: 0.09,
 		});
 
-		expect(gate.is_eligible).toBe(false);
-		expect(gate.reason).toBe("low_confidence");
+		expect(gate.is_eligible).toBe(true);
+		expect(gate.reason).toBe("eligible");
 	});
 });

@@ -255,6 +255,122 @@ describe("WrappedSetupCompletePage", () => {
 
 		expect(onContinue).not.toHaveBeenCalled();
 	});
+
+	it("renders the missing session title from the gating total", () => {
+		const onContinue = vi.fn();
+
+		mockUseAnalyticsQuery.mockReturnValue({
+			data: undefined,
+			isLoading: false,
+		});
+
+		render(
+			<MemoryRouter>
+				<WrappedSetupCompletePage
+					canContinueToStory={false}
+					minimumSessionCount={100}
+					onContinue={onContinue}
+					reposOverride={[
+						{
+							name: "geneva",
+							projectPath: "/Users/ada/geneva",
+							sessions: 38,
+						},
+					]}
+					sessionReadinessState="missing"
+					totalSessionCount={38}
+					userId="user-1"
+				/>
+			</MemoryRouter>,
+		);
+
+		expect(
+			screen.getByRole("heading", { name: "62 sessions missing" }),
+		).toBeInTheDocument();
+		expect(
+			screen.getByText("to create an accurate picture"),
+		).toBeInTheDocument();
+		expect(
+			screen.getByRole("button", { name: "Upload more to unlock" }),
+		).toBeDisabled();
+	});
+
+	it("uses the session threshold over a stale missing title state", () => {
+		const onContinue = vi.fn();
+
+		mockUseAnalyticsQuery.mockReturnValue({
+			data: undefined,
+			isLoading: false,
+		});
+
+		render(
+			<MemoryRouter>
+				<WrappedSetupCompletePage
+					minimumSessionCount={100}
+					onContinue={onContinue}
+					reposOverride={[
+						{
+							name: "geneva",
+							projectPath: "/Users/ada/geneva",
+							sessions: 100,
+						},
+					]}
+					sessionReadinessState="missing"
+					totalSessionCount={100}
+					userId="user-1"
+				/>
+			</MemoryRouter>,
+		);
+
+		expect(
+			screen.getByRole("heading", { name: "Enough sessions landed" }),
+		).toBeInTheDocument();
+		expect(
+			screen.queryByRole("heading", { name: "1 session missing" }),
+		).toBeNull();
+		expect(
+			screen.getByRole("button", { name: "See what it reveals about you" }),
+		).toBeEnabled();
+	});
+
+	it("disables continuation while under the session threshold", () => {
+		const onContinue = vi.fn();
+
+		mockUseAnalyticsQuery.mockReturnValue({
+			data: undefined,
+			isLoading: false,
+		});
+
+		render(
+			<MemoryRouter>
+				<WrappedSetupCompletePage
+					canContinueToStory={false}
+					minimumSessionCount={100}
+					onContinue={onContinue}
+					reposOverride={[
+						{
+							name: "geneva",
+							projectPath: "/Users/ada/geneva",
+							sessions: 99,
+						},
+					]}
+					sessionReadinessState="missing"
+					totalSessionCount={99}
+					userId="user-1"
+				/>
+			</MemoryRouter>,
+		);
+
+		expect(
+			screen.getByRole("heading", { name: "1 session missing" }),
+		).toBeInTheDocument();
+		expect(
+			screen.queryByRole("heading", { name: "Enough sessions landed" }),
+		).toBeNull();
+		expect(
+			screen.getByRole("button", { name: "Upload more to unlock" }),
+		).toBeDisabled();
+	});
 });
 
 function hasExactTextContent(expectedText: string) {

@@ -81,13 +81,18 @@ export function WrappedSetupCompletePage(props: WrappedSetupCompletePageProps) {
 		);
 		return repoSessionCount > 0 ? repoSessionCount : props.totalSessionCount;
 	}, [props.totalSessionCount, uploadedRepos]);
-	const titleCopy = getWrappedSetupCompleteTitle({
-		displayedTotalSessionCount,
+	const sessionReadinessState = getWrappedSetupCompleteResolvedReadinessState({
 		minimumSessionCount: props.minimumSessionCount,
 		state: props.sessionReadinessState ?? "default",
+		totalSessionCount: props.totalSessionCount,
+	});
+	const titleCopy = getWrappedSetupCompleteTitle({
+		minimumSessionCount: props.minimumSessionCount,
+		state: sessionReadinessState,
+		totalSessionCount: props.totalSessionCount,
 	});
 	const descriptionCopy = getWrappedSetupCompleteDescription(
-		props.sessionReadinessState ?? "default",
+		sessionReadinessState,
 	);
 	const titleAnimate = isContinuingToStory
 		? reduceMotion
@@ -557,15 +562,38 @@ function getWrappedSetupCompleteDescription(
 		: "Are you ready to see what the sessions tell about you?";
 }
 
-function getWrappedSetupCompleteTitle(input: {
-	displayedTotalSessionCount: number;
+function getWrappedSetupCompleteResolvedReadinessState(input: {
 	minimumSessionCount: number | undefined;
 	state: WrappedSetupSessionReadinessState;
+	totalSessionCount: number;
+}) {
+	if (
+		input.minimumSessionCount !== undefined &&
+		input.totalSessionCount < input.minimumSessionCount
+	) {
+		return "missing";
+	}
+
+	if (
+		input.minimumSessionCount !== undefined &&
+		input.state === "missing" &&
+		input.totalSessionCount >= input.minimumSessionCount
+	) {
+		return "enough-landed";
+	}
+
+	return input.state;
+}
+
+function getWrappedSetupCompleteTitle(input: {
+	minimumSessionCount: number | undefined;
+	state: WrappedSetupSessionReadinessState;
+	totalSessionCount: number;
 }) {
 	if (input.state === "missing") {
 		const missingSessionCount = Math.max(
 			1,
-			(input.minimumSessionCount ?? 0) - input.displayedTotalSessionCount,
+			(input.minimumSessionCount ?? 0) - input.totalSessionCount,
 		);
 		return `${formatSessionCount(missingSessionCount)} missing`;
 	}
