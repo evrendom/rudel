@@ -105,8 +105,7 @@ describe("WrappedOnboardingToolsStage", () => {
 		expect(onBaseModelSequenceComplete).toHaveBeenCalledTimes(1);
 	});
 
-	it("keeps tiny slash-command usage in the text-only recap", () => {
-		vi.useFakeTimers();
+	it("renders tiny slash-command usage as the empty recap", () => {
 		const onBaseModelSequenceComplete = vi.fn();
 
 		render(
@@ -129,19 +128,17 @@ describe("WrappedOnboardingToolsStage", () => {
 				name: /you didn't use slash commands enough/i,
 			}),
 		).toBeInTheDocument();
-		expect(screen.getByText("No subagents.")).toBeInTheDocument();
 		expect(
-			screen.getByText("you didn't use slash commands enough for a recap yet"),
+			screen.getByText(
+				"Not enough sessions used slash commands to build a recap yet.",
+			),
 		).toBeInTheDocument();
+		expect(screen.getByText("404")).toBeInTheDocument();
+		expect(screen.queryByText("No subagents.")).toBeNull();
 		expect(
 			screen.queryByRole("button", { name: "/fix. 5% of sessions" }),
 		).toBeNull();
 		expect(screen.queryByRole("link", { name: "slash commands" })).toBeNull();
-
-		act(() => {
-			vi.runAllTimers();
-		});
-
 		expect(onBaseModelSequenceComplete).toHaveBeenCalledTimes(1);
 	});
 
