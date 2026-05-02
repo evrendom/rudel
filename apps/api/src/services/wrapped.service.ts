@@ -1,10 +1,11 @@
-import type {
-	MonthlyModelUsage,
-	WrappedSourceSplit,
-	WrappedV1,
-	WrappedV1Archetype,
+import {
+	ESTIMATED_PRICING_MODE,
+	type MonthlyModelUsage,
+	type WrappedSourceSplit,
+	type WrappedV1,
+	type WrappedV1Archetype,
 } from "@rudel/api-routes";
-import { ESTIMATED_PRICING_MODE } from "@rudel/api-routes";
+import { WRAPPED_ARCHETYPE_CENTROIDS } from "@rudel/ch-schema/wrapped-archetype-centroids";
 import {
 	WRAPPED_ARCHETYPE_CENTROID_VERSION,
 	WRAPPED_ARCHETYPE_PIPELINE_VERSION,
@@ -12,6 +13,7 @@ import {
 } from "@rudel/ch-schema/wrapped-archetype-constants";
 import { queryClickhouse } from "../clickhouse.js";
 import { buildEstimatedCostSql } from "./pricing.service.js";
+import { buildWrappedArchetypeGate } from "./wrapped-archetype-gate.js";
 
 // The wrapped endpoint is intentionally the conservative, high-trust summary.
 // It should answer the broad "what is definitely true about this user's run?"
@@ -54,9 +56,16 @@ interface MonthlyModelUsageRow {
 }
 
 interface UserArchetypeRow {
+	computedAt: string;
+	distanceRatioToMax: number | string | null;
 	key: string;
 	snapshotId: string;
-	computedAt: string;
+	topTwoMargin: number | string | null;
+}
+
+interface UserArchetypeCandidate extends WrappedV1Archetype {
+	distanceRatioToMax: number | null;
+	topTwoMargin: number | null;
 }
 
 export async function getWrappedV1Data(
@@ -65,7 +74,7 @@ export async function getWrappedV1Data(
 ): Promise<WrappedV1> {
 	// These reads are independent, so we start them together and only join once.
 	// That keeps the endpoint simple and avoids an avoidable waterfall.
-	const [summaryRow, favoriteModel, modelByMonth, archetype] =
+	const [summaryRow, favoriteModel, modelByMonth, archetypeCandidate] =
 		await Promise.all([
 			getWrappedSummary(orgId, userId),
 			getFavoriteModel(orgId, userId),
@@ -74,9 +83,16 @@ export async function getWrappedV1Data(
 		]);
 
 	const totalSessions = toNumber(summaryRow.total_sessions);
+	const activeDays = toNumber(summaryRow.active_days);
 	const claudeSessionCount = toNumber(summaryRow.claude_session_count);
 	const codexSessionCount = toNumber(summaryRow.codex_session_count);
 	const firstSessionAt = summaryRow.first_session_at;
+	const archetypeGate = buildWrappedArchetypeGate({
+		totalSessions,
+		activeDays,
+		distanceRatioToMax: archetypeCandidate?.distanceRatioToMax ?? null,
+		topTwoMargin: archetypeCandidate?.topTwoMargin ?? null,
+	});
 
 	return {
 		generated_at: new Date().toISOString(),
@@ -90,7 +106,7 @@ export async function getWrappedV1Data(
 			last_session_at: summaryRow.last_session_at,
 			days_since_first_session: getDaysSinceTimestamp(firstSessionAt),
 			total_sessions: totalSessions,
-			active_days: toNumber(summaryRow.active_days),
+			active_days: activeDays,
 			favorite_model: favoriteModel,
 			total_tokens: toNumber(summaryRow.total_tokens),
 			estimated_spend_usd: roundCurrency(summaryRow.estimated_spend_usd),
@@ -101,7 +117,10 @@ export async function getWrappedV1Data(
 			],
 			model_by_month: modelByMonth,
 		},
-		archetype,
+		archetype: archetypeGate.is_eligible
+			? buildWrappedArchetype(archetypeCandidate)
+			: null,
+		archetype_gate: archetypeGate,
 	};
 }
 
@@ -210,7 +229,7 @@ async function getFavoriteModel(
 async function getUserArchetype(
 	orgId: string,
 	userId: string,
-): Promise<WrappedV1Archetype | null> {
+): Promise<UserArchetypeCandidate | null> {
 	// Snapshot read only. The rebuild script publishes into the runs table after
 	// the snapshot insert succeeds; gating on that row is what guarantees a
 	// partial rebuild can never be served. Filtering by scope + version pins the
@@ -228,17 +247,69 @@ async function getUserArchetype(
 						AND centroid_version = {centroidVersion:String}
 					ORDER BY snapshot_created_at DESC
 					LIMIT 1
+				),
+				current_centroids AS (${buildCentroidUnionAll()}),
+				user_snapshot AS (
+					SELECT
+						s.archetype_key AS key,
+						s.snapshot_id AS snapshotId,
+						formatDateTime(s.snapshot_created_at, '%Y-%m-%dT%H:%i:%SZ') AS computedAt,
+						s.archetype_distance_ratio_to_max AS distanceRatioToMax,
+						s.consistency AS consistency,
+						s.intensity AS intensity,
+						s.session_shape AS session_shape,
+						s.cost_intensity AS cost_intensity,
+						s.output AS output,
+						s.breadth AS breadth,
+						s.range AS range
+					FROM latest_run AS r
+					INNER JOIN rudel.wrapped_user_archetype_snapshots_v1 AS s
+						ON s.snapshot_id = r.snapshot_id
+					WHERE s.scope = {scope:String}
+						AND s.organization_id = {orgId:String}
+						AND s.user_id = {userId:String}
+					LIMIT 1
+				),
+				scored_centroids AS (
+					SELECT
+						c.archetype_id AS archetype_id,
+						sqrt(
+							pow(u.consistency - c.consistency, 2)
+							+ pow(u.intensity - c.intensity, 2)
+							+ pow(u.session_shape - c.session_shape, 2)
+							+ pow(u.cost_intensity - c.cost_intensity, 2)
+							+ pow(u.output - c.output, 2)
+							+ pow(u.breadth - c.breadth, 2)
+							+ pow(u.range - c.range, 2)
+						) AS distance
+					FROM user_snapshot AS u
+					CROSS JOIN current_centroids AS c
+				),
+				ranked_centroids AS (
+					SELECT
+						archetype_id,
+						distance,
+						row_number() OVER (ORDER BY distance ASC, archetype_id ASC) AS distance_rank
+					FROM scored_centroids
+				),
+				distance_summary AS (
+					SELECT
+						maxIf(distance, distance_rank = 1) AS closest_distance,
+						maxIf(distance, distance_rank = 2) AS second_distance
+					FROM ranked_centroids
 				)
 				SELECT
-					s.archetype_key AS key,
-					s.snapshot_id AS snapshotId,
-					formatDateTime(s.snapshot_created_at, '%Y-%m-%dT%H:%i:%SZ') AS computedAt
-				FROM latest_run AS r
-				INNER JOIN rudel.wrapped_user_archetype_snapshots_v1 AS s
-					ON s.snapshot_id = r.snapshot_id
-				WHERE s.scope = {scope:String}
-					AND s.organization_id = {orgId:String}
-					AND s.user_id = {userId:String}
+					u.key AS key,
+					u.snapshotId AS snapshotId,
+					u.computedAt AS computedAt,
+					u.distanceRatioToMax AS distanceRatioToMax,
+					if(
+						d.second_distance > 0,
+						round((d.second_distance - d.closest_distance) / d.second_distance, 6),
+						NULL
+					) AS topTwoMargin
+				FROM user_snapshot AS u
+				CROSS JOIN distance_summary AS d
 				LIMIT 1
 			`,
 			query_params: {
@@ -257,8 +328,10 @@ async function getUserArchetype(
 
 		return {
 			computedAt: row.computedAt,
+			distanceRatioToMax: toNullableNumber(row.distanceRatioToMax),
 			key: row.key,
 			snapshotId: row.snapshotId,
+			topTwoMargin: toNullableNumber(row.topTwoMargin),
 		};
 	} catch (error) {
 		console.warn(
@@ -267,6 +340,27 @@ async function getUserArchetype(
 		);
 		return null;
 	}
+}
+
+function buildWrappedArchetype(
+	candidate: UserArchetypeCandidate | null,
+): WrappedV1Archetype | null {
+	if (!candidate) {
+		return null;
+	}
+
+	return {
+		computedAt: candidate.computedAt,
+		key: candidate.key,
+		snapshotId: candidate.snapshotId,
+	};
+}
+
+function buildCentroidUnionAll(): string {
+	return WRAPPED_ARCHETYPE_CENTROIDS.map(
+		(centroid) =>
+			`SELECT ${centroid.archetype_id} AS archetype_id, '${centroid.archetype_key}' AS archetype_key, '${centroid.archetype_name.replace(/'/g, "''")}' AS archetype_name, ${centroid.consistency} AS consistency, ${centroid.intensity} AS intensity, ${centroid.session_shape} AS session_shape, ${centroid.cost_intensity} AS cost_intensity, ${centroid.output} AS output, ${centroid.breadth} AS breadth, ${centroid.range} AS range`,
+	).join(" UNION ALL ");
 }
 
 function buildSourceSplit(
@@ -336,4 +430,21 @@ function toNumber(value: number | string | null): number {
 	}
 
 	return 0;
+}
+
+function toNullableNumber(value: number | string | null): number | null {
+	if (value === null) {
+		return null;
+	}
+
+	if (typeof value === "number") {
+		return Number.isFinite(value) ? value : null;
+	}
+
+	if (value.trim().length === 0) {
+		return null;
+	}
+
+	const parsedValue = Number(value);
+	return Number.isFinite(parsedValue) ? parsedValue : null;
 }

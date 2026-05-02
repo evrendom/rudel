@@ -3939,7 +3939,17 @@ body.mymind-wrapped-body .woot-widget-bubble {
 
 .mymind-wrapped-entry-stage--setup-complete {
 	gap: 1rem;
+	min-height: 0;
 	padding-top: 0;
+}
+
+.mymind-wrapped-entry-stage--setup-complete
+	.mymind-wrapped-entry-stage__object {
+	align-items: center;
+	align-items: safe center;
+	overflow-y: auto;
+	overscroll-behavior: contain;
+	padding-bottom: 0.2rem;
 }
 
 .mymind-wrapped-entry-stage__copy {
@@ -4498,7 +4508,7 @@ body.mymind-wrapped-body .woot-widget-bubble {
 
 .mymind-wrapped-uploaded-repos[data-upload-more-visible="true"]
 	.mymind-wrapped-uploaded-repos__viewport {
-	max-height: clamp(7.5rem, 20svh, 10rem);
+	max-height: clamp(4.5rem, 13svh, 7rem);
 }
 
 .mymind-wrapped-uploaded-repos__list {
@@ -4516,7 +4526,7 @@ body.mymind-wrapped-body .woot-widget-bubble {
 	align-items: center;
 	justify-content: space-between;
 	gap: 1rem;
-	width: min(100%, 22rem);
+	width: min(calc(100% - 1rem), 22rem);
 	padding: 0.5rem 0;
 }
 
@@ -4562,7 +4572,7 @@ body.mymind-wrapped-body .woot-widget-bubble {
 	display: grid;
 	box-sizing: border-box;
 	overflow: clip;
-	width: min(100%, 25rem);
+	width: min(calc(100% - 1rem), 25rem);
 	margin-inline: auto;
 	margin-top: calc(var(--mymind-wrapped-upload-more-panel-overshoot) * -1);
 	padding: 0 var(--mymind-wrapped-upload-more-panel-padding)

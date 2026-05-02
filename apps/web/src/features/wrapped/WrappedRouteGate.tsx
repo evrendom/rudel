@@ -1,3 +1,4 @@
+import { WRAPPED_ARCHETYPE_GATE_THRESHOLDS } from "@rudel/api-routes";
 import { type ReactNode, startTransition, useState } from "react";
 import { useLocation, useSearchParams } from "react-router-dom";
 import { useIsMobile } from "@/app/hooks/use-mobile";
@@ -8,6 +9,7 @@ import {
 	WRAPPED_ROUTE_FLOW_QUERY_PARAM,
 	WRAPPED_ROUTE_SESSIONS_LANDED_FLOW,
 } from "@/app/routes";
+import { useAnalyticsQuery } from "@/features/analytics/queries/useAnalyticsQuery";
 import { useAnalyticsTracking } from "@/features/analytics/tracking/useAnalyticsTracking";
 import {
 	type AppSession,
@@ -44,6 +46,7 @@ import {
 } from "@/features/wrapped/wrapped-setup-state";
 import { useEffectOnceWhen } from "@/hooks/useEffectOnceWhen";
 import { useMountEffect } from "@/hooks/useMountEffect";
+import { orpc } from "@/lib/orpc";
 
 interface WrappedRouteGateProps {
 	isPending: boolean;
@@ -90,12 +93,24 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 	const setupProgress = useSetupProgress({
 		enabled: !publicId && !!session,
 	});
+	const shouldQueryWrappedArchetypeGate =
+		!publicId &&
+		!!session &&
+		setupProgress.hasUploadedSessions &&
+		setupProgress.totalSessionCount >=
+			WRAPPED_ARCHETYPE_GATE_THRESHOLDS.min_total_sessions;
+	const wrappedV1Query = useAnalyticsQuery({
+		...orpc.analytics.wrapped.v1.queryOptions({}),
+		enabled: shouldQueryWrappedArchetypeGate,
+	});
 	const cliSetupStatus = useCliSetupStatus({
 		enabled: !publicId && !!session,
 	});
 	const [completedSetupUserIds, setCompletedSetupUserIds] = useState<
 		Record<string, true>
 	>({});
+	const [usersSeenBelowMinimumSessions, setUsersSeenBelowMinimumSessions] =
+		useState<Record<string, true>>({});
 	const [completedCardProfileUserIds, setCompletedCardProfileUserIds] =
 		useState<Record<string, true>>({});
 	const [guestPreviewSnapshot, setGuestPreviewSnapshot] = useState(() =>
@@ -169,8 +184,32 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 		forcedFlowStage === "sessions-landed" && setupProgress.hasUploadedSessions;
 	const shouldForceDesktopReady =
 		forcedFlowStage === WRAPPED_ROUTE_DESKTOP_READY_FLOW;
+	const hasMinimumArchetypeSessionCount =
+		setupProgress.totalSessionCount >=
+		WRAPPED_ARCHETYPE_GATE_THRESHOLDS.min_total_sessions;
+	const hasSeenBelowMinimumSessions =
+		sessionUserId !== null &&
+		usersSeenBelowMinimumSessions[sessionUserId] === true;
+	const hasReachedMinimumAfterMissing =
+		setupProgress.hasUploadedSessions &&
+		hasMinimumArchetypeSessionCount &&
+		hasSeenBelowMinimumSessions;
+	const archetypeGate = wrappedV1Query.data?.archetype_gate ?? null;
+	const isWrappedArchetypeGateEligible =
+		hasMinimumArchetypeSessionCount && archetypeGate?.is_eligible === true;
+	const shouldHoldForArchetypeGate =
+		setupProgress.hasUploadedSessions && !isWrappedArchetypeGateEligible;
+	const shouldOpenUploadMoreByDefault =
+		setupProgress.hasUploadedSessions &&
+		(!hasMinimumArchetypeSessionCount || archetypeGate?.is_eligible === false);
 	const shouldForceStory =
-		forcedFlowStage === "story" && setupProgress.hasUploadedSessions;
+		forcedFlowStage === "story" &&
+		setupProgress.hasUploadedSessions &&
+		isWrappedArchetypeGateEligible;
+	const setupSessionReadinessState = getWrappedSetupSessionReadinessState({
+		hasMinimumArchetypeSessionCount,
+		hasReachedMinimumAfterMissing,
+	});
 	const signedInMobileHandoffEmail = isMobile ? sessionUserEmail : undefined;
 
 	function setWrappedRouteFlowStage(nextStage: WrappedRouteFlowStage) {
@@ -208,6 +247,10 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 	}
 
 	function handleSetupComplete() {
+		if (!isWrappedArchetypeGateEligible) {
+			return;
+		}
+
 		if (!sessionUserId) {
 			return;
 		}
@@ -324,6 +367,24 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 		key: shareId ?? sessionUserId,
 	});
 
+	useEffectOnceWhen({
+		effect: () => {
+			if (sessionUserId === null) {
+				return;
+			}
+
+			setUsersSeenBelowMinimumSessions((currentState) => ({
+				...currentState,
+				[sessionUserId]: true,
+			}));
+		},
+		isReady:
+			sessionUserId !== null &&
+			setupProgress.hasUploadedSessions &&
+			!hasMinimumArchetypeSessionCount,
+		key: sessionUserId,
+	});
+
 	let content: ReactNode;
 
 	if (publicId) {
@@ -380,15 +441,53 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 	} else if (sessionUserId && shouldForceSessionsLanded) {
 		content = (
 			<WrappedSetupCompletePage
+				canContinueToStory={isWrappedArchetypeGateEligible}
+				defaultUploadMoreVisible={shouldOpenUploadMoreByDefault}
+				minimumSessionCount={
+					WRAPPED_ARCHETYPE_GATE_THRESHOLDS.min_total_sessions
+				}
 				onBack={() => setWrappedRouteFlowStage("desktop-ready")}
 				onContinue={handleSetupComplete}
+				sessionReadinessState={setupSessionReadinessState}
+				totalSessionCount={setupProgress.totalSessionCount}
+				userId={sessionUserId}
+			/>
+		);
+	} else if (sessionUserId && shouldHoldForArchetypeGate) {
+		content = (
+			<WrappedSetupCompletePage
+				canContinueToStory={isWrappedArchetypeGateEligible}
+				defaultUploadMoreVisible={shouldOpenUploadMoreByDefault}
+				minimumSessionCount={
+					WRAPPED_ARCHETYPE_GATE_THRESHOLDS.min_total_sessions
+				}
+				onBack={() => setWrappedRouteFlowStage("desktop-ready")}
+				onContinue={handleSetupComplete}
+				sessionReadinessState={setupSessionReadinessState}
+				totalSessionCount={setupProgress.totalSessionCount}
+				userId={sessionUserId}
+			/>
+		);
+	} else if (sessionUserId && hasReachedMinimumAfterMissing) {
+		content = (
+			<WrappedSetupCompletePage
+				canContinueToStory={isWrappedArchetypeGateEligible}
+				defaultUploadMoreVisible={false}
+				minimumSessionCount={
+					WRAPPED_ARCHETYPE_GATE_THRESHOLDS.min_total_sessions
+				}
+				onBack={() => setWrappedRouteFlowStage("desktop-ready")}
+				onContinue={handleSetupComplete}
+				sessionReadinessState={setupSessionReadinessState}
 				totalSessionCount={setupProgress.totalSessionCount}
 				userId={sessionUserId}
 			/>
 		);
 	} else if (
 		shouldForceStory ||
-		(setupProgress.hasUploadedSessions && hasCompletedSetup)
+		(setupProgress.hasUploadedSessions &&
+			hasCompletedSetup &&
+			isWrappedArchetypeGateEligible)
 	) {
 		content = (
 			<WrappedTeamCardPage
@@ -550,6 +649,19 @@ function getWrappedRouteFlowStage(
 		flowStage === "story"
 		? flowStage
 		: null;
+}
+
+function getWrappedSetupSessionReadinessState(input: {
+	hasMinimumArchetypeSessionCount: boolean;
+	hasReachedMinimumAfterMissing: boolean;
+}) {
+	if (!input.hasMinimumArchetypeSessionCount) {
+		return "missing";
+	}
+
+	return input.hasReachedMinimumAfterMissing
+		? "enough-uploaded"
+		: "enough-landed";
 }
 
 function WrappedRouteLoadingState(props: { body: string }) {

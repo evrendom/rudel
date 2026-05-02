@@ -15,19 +15,30 @@ import {
 	WrappedSecondaryAction,
 } from "@/features/wrapped/actions";
 import { shortenWrappedRepoLabelFromLeft } from "@/features/wrapped/repo-label";
+import { useEffectOnceWhen } from "@/hooks/useEffectOnceWhen";
 import { useMountEffect } from "@/hooks/useMountEffect";
 import { MAX_ANALYTICS_DAYS } from "@/lib/analytics-date-range";
 import { orpc } from "@/lib/orpc";
 import { WrappedRouteStageShell } from "./route-stage-shell";
 
 interface WrappedSetupCompletePageProps {
+	canContinueToStory?: boolean;
 	debugControls?: ReactNode;
+	defaultUploadMoreVisible?: boolean;
+	minimumSessionCount?: number;
 	onBack?: () => void;
 	onContinue: () => void;
 	reposOverride?: WrappedUploadedRepoRow[];
+	sessionReadinessState?: WrappedSetupSessionReadinessState;
 	totalSessionCount: number;
 	userId: string;
 }
+
+export type WrappedSetupSessionReadinessState =
+	| "default"
+	| "enough-landed"
+	| "enough-uploaded"
+	| "missing";
 
 const SESSIONS_LANDED_EASE = [0.22, 1, 0.36, 1] as const;
 const SESSIONS_LANDED_HANDOFF_MS = 1000;
@@ -36,7 +47,10 @@ const SESSIONS_LANDED_ROW_STAGGER = 0.035;
 const UPLOADED_REPO_LABEL_MAX_LENGTH = 26;
 
 export function WrappedSetupCompletePage(props: WrappedSetupCompletePageProps) {
-	const [isUploadMoreVisible, setIsUploadMoreVisible] = useState(false);
+	const canContinueToStory = props.canContinueToStory ?? true;
+	const [isUploadMoreVisible, setIsUploadMoreVisible] = useState(
+		props.defaultUploadMoreVisible ?? false,
+	);
 	const [isContinuingToStory, setIsContinuingToStory] = useState(false);
 	const reduceMotion = useReducedMotion() ?? false;
 	const continueTimerRef = useRef<number | null>(null);
@@ -67,6 +81,14 @@ export function WrappedSetupCompletePage(props: WrappedSetupCompletePageProps) {
 		);
 		return repoSessionCount > 0 ? repoSessionCount : props.totalSessionCount;
 	}, [props.totalSessionCount, uploadedRepos]);
+	const titleCopy = getWrappedSetupCompleteTitle({
+		displayedTotalSessionCount,
+		minimumSessionCount: props.minimumSessionCount,
+		state: props.sessionReadinessState ?? "default",
+	});
+	const descriptionCopy = getWrappedSetupCompleteDescription(
+		props.sessionReadinessState ?? "default",
+	);
 	const titleAnimate = isContinuingToStory
 		? reduceMotion
 			? { opacity: 0 }
@@ -104,8 +126,17 @@ export function WrappedSetupCompletePage(props: WrappedSetupCompletePageProps) {
 		};
 	});
 
+	useEffectOnceWhen({
+		effect: () => setIsUploadMoreVisible(true),
+		isReady: props.defaultUploadMoreVisible === true,
+		key:
+			props.defaultUploadMoreVisible === true
+				? `upload-more-default:${props.userId}:${displayedTotalSessionCount}`
+				: null,
+	});
+
 	function handleContinue() {
-		if (isContinuingToStory) {
+		if (isContinuingToStory || !canContinueToStory) {
 			return;
 		}
 
@@ -155,7 +186,7 @@ export function WrappedSetupCompletePage(props: WrappedSetupCompletePageProps) {
 										}
 						}
 					>
-						Are you ready to see what the sessions tell about you?
+						{descriptionCopy}
 					</motion.span>
 				}
 				footerDebugControls={props.debugControls}
@@ -194,10 +225,12 @@ export function WrappedSetupCompletePage(props: WrappedSetupCompletePageProps) {
 						>
 							<WrappedPrimaryAction
 								kind="button"
-								disabled={isContinuingToStory}
+								disabled={isContinuingToStory || !canContinueToStory}
 								onClick={handleContinue}
 							>
-								See what it reveals about you
+								{canContinueToStory
+									? "See what it reveals about you"
+									: "Upload more to unlock"}
 							</WrappedPrimaryAction>
 						</motion.div>
 						<motion.div
@@ -238,7 +271,7 @@ export function WrappedSetupCompletePage(props: WrappedSetupCompletePageProps) {
 									setIsUploadMoreVisible((currentValue) => !currentValue)
 								}
 							>
-								Upload more for a better picture
+								Upload more
 							</WrappedSecondaryAction>
 						</motion.div>
 					</div>
@@ -288,7 +321,7 @@ export function WrappedSetupCompletePage(props: WrappedSetupCompletePageProps) {
 										}
 						}
 					>
-						Sessions landed
+						{titleCopy}
 					</motion.span>
 				}
 			/>
@@ -514,6 +547,38 @@ function formatRepoCount(count: number) {
 
 function formatSessionCount(count: number) {
 	return `${count.toLocaleString()} session${count === 1 ? "" : "s"}`;
+}
+
+function getWrappedSetupCompleteDescription(
+	state: WrappedSetupSessionReadinessState,
+) {
+	return state === "missing"
+		? "to create an accurate picture"
+		: "Are you ready to see what the sessions tell about you?";
+}
+
+function getWrappedSetupCompleteTitle(input: {
+	displayedTotalSessionCount: number;
+	minimumSessionCount: number | undefined;
+	state: WrappedSetupSessionReadinessState;
+}) {
+	if (input.state === "missing") {
+		const missingSessionCount = Math.max(
+			1,
+			(input.minimumSessionCount ?? 0) - input.displayedTotalSessionCount,
+		);
+		return `${formatSessionCount(missingSessionCount)} missing`;
+	}
+
+	if (input.state === "enough-landed") {
+		return "Enough sessions landed";
+	}
+
+	if (input.state === "enough-uploaded") {
+		return "Enough sessions uploaded";
+	}
+
+	return "Sessions landed";
 }
 
 function WrappedUploadMorePanel(props: { isVisible: boolean }) {
