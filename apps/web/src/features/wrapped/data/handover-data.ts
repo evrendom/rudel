@@ -18,7 +18,7 @@ export const wrappedHandoverData = WrappedHandoverSchema.parse({
 			cornerRadiusPx: 20,
 		},
 		profile: {
-			avatarSrc: "/logo-light.png",
+			avatarSrc: "/favicon-dark.png",
 			fallbackLabel: "User",
 		},
 		callToActions: [

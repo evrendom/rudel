@@ -50,20 +50,6 @@ vi.mock("@/features/analytics/queries/useAnalyticsQuery", () => ({
 	useAnalyticsQuery: mockUseAnalyticsQuery,
 }));
 
-vi.mock("@/lib/orpc", () => ({
-	orpc: {
-		analytics: {
-			wrapped: {
-				v1: {
-					queryOptions: () => ({
-						queryKey: ["analytics", "wrapped", "v1"],
-					}),
-				},
-			},
-		},
-	},
-}));
-
 vi.mock("@/features/get-started/use-setup-progress", () => ({
 	useSetupProgress: mockUseSetupProgress,
 }));
@@ -177,28 +163,30 @@ vi.mock("@/features/wrapped/WrappedSetupPage", () => ({
 
 vi.mock("@/features/wrapped/WrappedSetupCompletePage", () => ({
 	WrappedSetupCompletePage: ({
-		canContinueToStory,
-		defaultUploadMoreVisible,
+		canContinueToStory = true,
+		defaultUploadMoreVisible = false,
 		onBack,
 		onContinue,
+		sessionReadinessState = "default",
+		totalSessionCount,
 	}: {
 		canContinueToStory?: boolean;
 		defaultUploadMoreVisible?: boolean;
 		onBack?: () => void;
 		onContinue: () => void;
+		sessionReadinessState?: string;
+		totalSessionCount?: number;
 	}) => (
 		<div>
 			<div>Wrapped setup complete page</div>
-			<div>Can continue: {canContinueToStory === false ? "no" : "yes"}</div>
+			<div>Can continue: {canContinueToStory ? "yes" : "no"}</div>
 			<div>Upload more default: {defaultUploadMoreVisible ? "yes" : "no"}</div>
+			<div>Readiness: {sessionReadinessState}</div>
+			<div>Total sessions: {totalSessionCount ?? "none"}</div>
 			<button type="button" onClick={onBack}>
 				Back to setup
 			</button>
-			<button
-				type="button"
-				disabled={canContinueToStory === false}
-				onClick={onContinue}
-			>
+			<button type="button" disabled={!canContinueToStory} onClick={onContinue}>
 				Start story
 			</button>
 		</div>
@@ -262,31 +250,6 @@ function markWrappedCardProfileComplete() {
 	});
 }
 
-function mockWrappedArchetypeGateEligible() {
-	mockUseAnalyticsQuery.mockReturnValue({
-		data: {
-			archetype_gate: {
-				is_eligible: true,
-				reason: "eligible",
-				thresholds: {
-					min_total_sessions: 100,
-					min_active_days: 14,
-					max_distance_ratio_to_max: 0.25,
-					min_top_two_margin: 0.1,
-				},
-				values: {
-					total_sessions: 100,
-					active_days: 14,
-					archetype_distance_ratio_to_max: 0.25,
-					archetype_top_two_margin: 0.1,
-				},
-			},
-		},
-		isError: false,
-		isPending: false,
-	});
-}
-
 describe("WrappedRouteGate", () => {
 	beforeEach(() => {
 		mockTrackWrappedActivationCompleted.mockReset();
@@ -310,9 +273,12 @@ describe("WrappedRouteGate", () => {
 			totalSessionCount: 0,
 		});
 		mockUseAnalyticsQuery.mockReturnValue({
-			data: undefined,
-			isError: false,
-			isPending: false,
+			data: {
+				archetype_gate: {
+					is_eligible: true,
+				},
+			},
+			isLoading: false,
 		});
 		window.sessionStorage.clear();
 		markWrappedCardProfileComplete();
@@ -833,14 +799,11 @@ describe("WrappedRouteGate", () => {
 		expect(screen.getByText("Setup completed steps: none")).toBeInTheDocument();
 	});
 
-	it("marks both setup steps complete when sessions already exist", async () => {
-		const user = userEvent.setup();
-		mockWrappedArchetypeGateEligible();
-
+	it("routes under-threshold uploaded sessions to sessions landed", () => {
 		mockUseSetupProgress.mockReturnValue({
 			hasUploadedSessions: true,
 			isLoading: false,
-			totalSessionCount: 100,
+			totalSessionCount: 3,
 		});
 
 		render(
@@ -849,24 +812,37 @@ describe("WrappedRouteGate", () => {
 			</MemoryRouter>,
 		);
 
-		expect(screen.getByText("Wrapped setup page")).toBeInTheDocument();
-		expect(screen.getByText("Setup current step: none")).toBeInTheDocument();
-		expect(
-			screen.getByText(
-				"Setup completed steps: install-and-login,enable-auto-upload",
-			),
-		).toBeInTheDocument();
-		const continueButton = screen.getByRole("button", { name: "Continue" });
-		expect(continueButton).toBeEnabled();
+		expect(screen.getByText("Wrapped setup complete page")).toBeInTheDocument();
+		expect(screen.getByText("Can continue: no")).toBeInTheDocument();
+		expect(screen.getByText("Upload more default: yes")).toBeInTheDocument();
+		expect(screen.getByText("Readiness: missing")).toBeInTheDocument();
+		expect(screen.getByText("Total sessions: 3")).toBeInTheDocument();
+		expect(screen.getByRole("button", { name: "Start story" })).toBeDisabled();
+		expect(mockUseAnalyticsQuery).not.toHaveBeenCalled();
+	});
 
-		await user.click(continueButton);
+	it("does not let forced story bypass under-threshold sessions", () => {
+		mockUseSetupProgress.mockReturnValue({
+			hasUploadedSessions: true,
+			isLoading: false,
+			totalSessionCount: 99,
+		});
+
+		render(
+			<MemoryRouter initialEntries={["/wrapped?flow=story"]}>
+				<WrappedRouteGate isPending={false} publicId={null} session={session} />
+			</MemoryRouter>,
+		);
 
 		expect(screen.getByText("Wrapped setup complete page")).toBeInTheDocument();
+		expect(screen.getByText("Can continue: no")).toBeInTheDocument();
+		expect(screen.getByText("Upload more default: yes")).toBeInTheDocument();
+		expect(screen.getByText("Readiness: missing")).toBeInTheDocument();
+		expect(screen.getByText("Total sessions: 99")).toBeInTheDocument();
+		expect(screen.queryByText("Wrapped story")).toBeNull();
 	});
 
 	it("enables setup continue when sessions land during setup", async () => {
-		const user = userEvent.setup();
-
 		mockUseSetupProgress.mockReturnValue({
 			hasUploadedSessions: false,
 			isLoading: false,
@@ -889,39 +865,10 @@ describe("WrappedRouteGate", () => {
 		mockUseSetupProgress.mockReturnValue({
 			hasUploadedSessions: true,
 			isLoading: false,
-			totalSessionCount: 100,
+			totalSessionCount: 1,
 		});
-		mockWrappedArchetypeGateEligible();
 
 		rerender(
-			<MemoryRouter initialEntries={["/wrapped"]}>
-				<WrappedRouteGate isPending={false} publicId={null} session={session} />
-			</MemoryRouter>,
-		);
-
-		expect(screen.getByText("Wrapped setup page")).toBeInTheDocument();
-		expect(screen.getByText("Setup current step: none")).toBeInTheDocument();
-		expect(
-			screen.getByText(
-				"Setup completed steps: install-and-login,enable-auto-upload",
-			),
-		).toBeInTheDocument();
-		const continueButton = screen.getByRole("button", { name: "Continue" });
-		expect(continueButton).toBeEnabled();
-
-		await user.click(continueButton);
-
-		expect(screen.getByText("Wrapped setup complete page")).toBeInTheDocument();
-	});
-
-	it("keeps under-100 uploaded users on sessions landed with upload-more open", () => {
-		mockUseSetupProgress.mockReturnValue({
-			hasUploadedSessions: true,
-			isLoading: false,
-			totalSessionCount: 99,
-		});
-
-		render(
 			<MemoryRouter initialEntries={["/wrapped"]}>
 				<WrappedRouteGate isPending={false} publicId={null} session={session} />
 			</MemoryRouter>,
@@ -930,7 +877,8 @@ describe("WrappedRouteGate", () => {
 		expect(screen.getByText("Wrapped setup complete page")).toBeInTheDocument();
 		expect(screen.getByText("Can continue: no")).toBeInTheDocument();
 		expect(screen.getByText("Upload more default: yes")).toBeInTheDocument();
-		expect(screen.queryByText("Wrapped story")).toBeNull();
+		expect(screen.getByText("Readiness: missing")).toBeInTheDocument();
+		expect(screen.getByText("Total sessions: 1")).toBeInTheDocument();
 	});
 
 	it("shows card profile before story when completed setup still has only a fallback image", async () => {
@@ -993,7 +941,7 @@ describe("WrappedRouteGate", () => {
 		});
 	});
 
-	it("renders the wrapped story when setup completion was already acknowledged", () => {
+	it("renders the wrapped story when setup completion was already acknowledged and the gate is eligible", () => {
 		const storageKey = getWrappedSetupCompletionStorageKey(session.user.id);
 
 		if (storageKey === null) {
@@ -1001,7 +949,6 @@ describe("WrappedRouteGate", () => {
 		}
 
 		window.localStorage.setItem(storageKey, "true");
-		mockWrappedArchetypeGateEligible();
 		mockUseSetupProgress.mockReturnValue({
 			hasUploadedSessions: true,
 			isLoading: false,
@@ -1017,32 +964,6 @@ describe("WrappedRouteGate", () => {
 		expect(screen.getByText("Wrapped story")).toBeInTheDocument();
 	});
 
-	it("does not allow forced story flow to bypass the under-100 gate", () => {
-		const storageKey = getWrappedSetupCompletionStorageKey(session.user.id);
-
-		if (storageKey === null) {
-			throw new Error("Expected wrapped setup completion storage key");
-		}
-
-		window.localStorage.setItem(storageKey, "true");
-		mockUseSetupProgress.mockReturnValue({
-			hasUploadedSessions: true,
-			isLoading: false,
-			totalSessionCount: 99,
-		});
-
-		render(
-			<MemoryRouter initialEntries={["/wrapped?flow=story"]}>
-				<WrappedRouteGate isPending={false} publicId={null} session={session} />
-			</MemoryRouter>,
-		);
-
-		expect(screen.getByText("Wrapped setup complete page")).toBeInTheDocument();
-		expect(screen.getByText("Can continue: no")).toBeInTheDocument();
-		expect(screen.getByText("Upload more default: yes")).toBeInTheDocument();
-		expect(screen.queryByText("Wrapped story")).toBeNull();
-	});
-
 	it("honors the sessions-landed flow even after setup completion was acknowledged", () => {
 		const storageKey = getWrappedSetupCompletionStorageKey(session.user.id);
 
@@ -1051,7 +972,6 @@ describe("WrappedRouteGate", () => {
 		}
 
 		window.localStorage.setItem(storageKey, "true");
-		mockWrappedArchetypeGateEligible();
 		mockUseSetupProgress.mockReturnValue({
 			hasUploadedSessions: true,
 			isLoading: false,
@@ -1076,7 +996,6 @@ describe("WrappedRouteGate", () => {
 		}
 
 		window.localStorage.setItem(storageKey, "true");
-		mockWrappedArchetypeGateEligible();
 		mockUseSetupProgress.mockReturnValue({
 			hasUploadedSessions: true,
 			isLoading: false,
@@ -1105,7 +1024,6 @@ describe("WrappedRouteGate", () => {
 
 	it("restarts the story from scale when continuing from sessions landed", async () => {
 		const user = userEvent.setup();
-		mockWrappedArchetypeGateEligible();
 
 		mockUseSetupProgress.mockReturnValue({
 			hasUploadedSessions: true,
@@ -1131,7 +1049,6 @@ describe("WrappedRouteGate", () => {
 
 	it("tracks setup activation completion with source share attribution", async () => {
 		const user = userEvent.setup();
-		mockWrappedArchetypeGateEligible();
 
 		mockUseSetupProgress.mockReturnValue({
 			hasUploadedSessions: true,

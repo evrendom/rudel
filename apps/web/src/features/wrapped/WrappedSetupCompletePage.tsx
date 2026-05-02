@@ -25,12 +25,20 @@ interface WrappedSetupCompletePageProps {
 	canContinueToStory?: boolean;
 	debugControls?: ReactNode;
 	defaultUploadMoreVisible?: boolean;
+	minimumSessionCount?: number;
 	onBack?: () => void;
 	onContinue: () => void;
 	reposOverride?: WrappedUploadedRepoRow[];
+	sessionReadinessState?: WrappedSetupSessionReadinessState;
 	totalSessionCount: number;
 	userId: string;
 }
+
+export type WrappedSetupSessionReadinessState =
+	| "default"
+	| "enough-landed"
+	| "enough-uploaded"
+	| "missing";
 
 const SESSIONS_LANDED_EASE = [0.22, 1, 0.36, 1] as const;
 const SESSIONS_LANDED_HANDOFF_MS = 1000;
@@ -73,6 +81,14 @@ export function WrappedSetupCompletePage(props: WrappedSetupCompletePageProps) {
 		);
 		return repoSessionCount > 0 ? repoSessionCount : props.totalSessionCount;
 	}, [props.totalSessionCount, uploadedRepos]);
+	const titleCopy = getWrappedSetupCompleteTitle({
+		displayedTotalSessionCount,
+		minimumSessionCount: props.minimumSessionCount,
+		state: props.sessionReadinessState ?? "default",
+	});
+	const descriptionCopy = getWrappedSetupCompleteDescription(
+		props.sessionReadinessState ?? "default",
+	);
 	const titleAnimate = isContinuingToStory
 		? reduceMotion
 			? { opacity: 0 }
@@ -170,7 +186,7 @@ export function WrappedSetupCompletePage(props: WrappedSetupCompletePageProps) {
 										}
 						}
 					>
-						Are you ready to see what the sessions tell about you?
+						{descriptionCopy}
 					</motion.span>
 				}
 				footerDebugControls={props.debugControls}
@@ -305,7 +321,7 @@ export function WrappedSetupCompletePage(props: WrappedSetupCompletePageProps) {
 										}
 						}
 					>
-						Sessions landed
+						{titleCopy}
 					</motion.span>
 				}
 			/>
@@ -531,6 +547,38 @@ function formatRepoCount(count: number) {
 
 function formatSessionCount(count: number) {
 	return `${count.toLocaleString()} session${count === 1 ? "" : "s"}`;
+}
+
+function getWrappedSetupCompleteDescription(
+	state: WrappedSetupSessionReadinessState,
+) {
+	return state === "missing"
+		? "to create an accurate picture"
+		: "Are you ready to see what the sessions tell about you?";
+}
+
+function getWrappedSetupCompleteTitle(input: {
+	displayedTotalSessionCount: number;
+	minimumSessionCount: number | undefined;
+	state: WrappedSetupSessionReadinessState;
+}) {
+	if (input.state === "missing") {
+		const missingSessionCount = Math.max(
+			1,
+			(input.minimumSessionCount ?? 0) - input.displayedTotalSessionCount,
+		);
+		return `${formatSessionCount(missingSessionCount)} missing`;
+	}
+
+	if (input.state === "enough-landed") {
+		return "Enough sessions landed";
+	}
+
+	if (input.state === "enough-uploaded") {
+		return "Enough sessions uploaded";
+	}
+
+	return "Sessions landed";
 }
 
 function WrappedUploadMorePanel(props: { isVisible: boolean }) {
