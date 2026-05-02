@@ -6,7 +6,7 @@ import {
 	useReducedMotion,
 } from "motion/react";
 import type { ReactNode } from "react";
-import { startTransition, useMemo, useRef, useState } from "react";
+import { startTransition, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useMountEffect } from "@/hooks/useMountEffect";
 import { cn } from "@/lib/utils";
@@ -27,18 +27,13 @@ import {
 	getStepPreviewStateParam,
 	resolveActiveStepIndex,
 } from "./helpers";
-import {
-	hasModelStageSourceComparison,
-	resolveModelPreviewInput,
-	resolveScalePreviewTokens,
-} from "./models";
+import { resolveScalePreviewTokens } from "./models";
 import {
 	WrappedOnboardingScaleRainBackdrop,
 	WrappedOnboardingStage,
 } from "./stages";
 import { SCALE_STAGE_KEBAB_REVEAL_MS } from "./stages/metrics";
 import type {
-	WrappedModelAdvanceState,
 	WrappedOnboardingMetrics,
 	WrappedScaleAdvanceState,
 } from "./types";
@@ -126,8 +121,6 @@ export function WrappedTeamCardOnboarding(
 		useState<WrappedScaleAdvanceState>("idle");
 	const [scaleDisplayedTokens, setScaleDisplayedTokens] = useState(0);
 	const [isScaleRainVisible, setIsScaleRainVisible] = useState(false);
-	const [modelAdvanceState, setModelAdvanceState] =
-		useState<WrappedModelAdvanceState>("intro");
 	const [
 		isModelComparisonSequenceComplete,
 		setIsModelComparisonSequenceComplete,
@@ -173,46 +166,23 @@ export function WrappedTeamCardOnboarding(
 					activePreviewState,
 				)
 			: 0;
-	const shouldPlayModelHistorySequence = useMemo(() => {
-		if (!isModelStep) {
-			return false;
-		}
-
-		const modelPreviewInput = resolveModelPreviewInput(
-			{
-				modelByMonth: onboardingMetrics.modelByMonth,
-				sourceSplit: onboardingMetrics.sourceSplit,
-			},
-			activePreviewState,
-		);
-
-		return hasModelStageSourceComparison(modelPreviewInput.sourceSplit);
-	}, [
-		activePreviewState,
-		isModelStep,
-		onboardingMetrics.modelByMonth,
-		onboardingMetrics.sourceSplit,
-	]);
 	const effectiveScaleAdvanceState = isScaleStep ? scaleAdvanceState : "idle";
 	const isScaleAdvancePending =
 		effectiveScaleAdvanceState === "spend" ||
 		effectiveScaleAdvanceState === "kebabs";
-	const isModelAdvancePending = isModelStep && modelAdvanceState === "history";
 	const isScaleStepContinueVisible =
 		!isScaleStep ||
 		(!isScaleAdvancePending &&
 			(reduceMotion ||
 				(isScaleRainVisible && scaleDisplayedTokens >= scaleStepTotalTokens)));
 	const isModelStepContinueVisible =
-		!isModelStep ||
-		modelAdvanceState === "complete" ||
-		(modelAdvanceState === "intro" && isModelComparisonSequenceComplete);
+		!isModelStep || isModelComparisonSequenceComplete;
 	const isToolsStepContinueVisible = !isToolsStep || isToolsSequenceComplete;
 	const isContinueVisible = isScaleStep
 		? isScaleStepContinueVisible
 		: isToolsStepContinueVisible && isModelStepContinueVisible;
 	const isStepTransitioning =
-		pendingStepIndex !== null || isScaleAdvancePending || isModelAdvancePending;
+		pendingStepIndex !== null || isScaleAdvancePending;
 	const showPreviewControls = import.meta.env.DEV;
 	const areModelDebugControlsFloating = showPreviewControls && isModelStep;
 	const stagePresenceContext = resolveWrappedStagePresenceContext({
@@ -261,7 +231,6 @@ export function WrappedTeamCardOnboarding(
 		}
 
 		if (activeStep.id === "model" || nextStep?.id === "model") {
-			setModelAdvanceState("intro");
 			setIsModelComparisonSequenceComplete(false);
 		}
 
@@ -324,21 +293,11 @@ export function WrappedTeamCardOnboarding(
 		const nextStepIndex = activeStepIndex + 1;
 
 		if (activeStep.id === "model") {
-			if (modelAdvanceState === "complete") {
-				goToStep(nextStepIndex);
-				return;
-			}
-
 			if (!isModelComparisonSequenceComplete) {
 				return;
 			}
 
-			if (!shouldPlayModelHistorySequence) {
-				goToStep(nextStepIndex);
-				return;
-			}
-
-			setModelAdvanceState("history");
+			goToStep(nextStepIndex);
 			return;
 		}
 
@@ -382,7 +341,6 @@ export function WrappedTeamCardOnboarding(
 		}
 
 		if (stepId === "model") {
-			setModelAdvanceState("intro");
 			setIsModelComparisonSequenceComplete(false);
 		}
 
@@ -420,10 +378,6 @@ export function WrappedTeamCardOnboarding(
 
 	function handleModelComparisonSequenceComplete() {
 		setIsModelComparisonSequenceComplete(true);
-	}
-
-	function handleModelHistoryRevealComplete() {
-		setModelAdvanceState("complete");
 	}
 
 	function handleToolsSequenceComplete() {
@@ -511,13 +465,9 @@ export function WrappedTeamCardOnboarding(
 												<WrappedOnboardingStage
 													displayName={displayName}
 													isExiting={activeStep.id === exitingStepId}
-													modelAdvanceState={modelAdvanceState}
 													onboardingMetrics={onboardingMetrics}
 													onModelComparisonSequenceComplete={
 														handleModelComparisonSequenceComplete
-													}
-													onModelHistoryRevealComplete={
-														handleModelHistoryRevealComplete
 													}
 													onScaleRainRevealChange={handleScaleRainRevealChange}
 													onScaleAdvanceSequenceComplete={

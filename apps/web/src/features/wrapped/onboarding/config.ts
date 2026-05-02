@@ -153,19 +153,13 @@ export const WRAPPED_BEAT_CONTRACTS: Record<
 	model: {
 		currentStatus: "ship_now",
 		saturdayStoryVisibility: "show_in_saturday_story",
-		whatWeShowNow: [
-			"All-time Claude vs Codex session split",
-			"Monthly model usage trend",
-		],
-		metricBasis:
-			"Claude vs Codex session share across the full run, plus a month-by-month split for the latest 6 months.",
-		timeWindow:
-			"Top bar is all time. Monthly stacks cover the latest 6-month window.",
+		whatWeShowNow: ["All-time Claude vs Codex session split"],
+		metricBasis: "Claude vs Codex session share across the full run.",
+		timeWindow: "All time for the active organization scope.",
 		referenceClass: "User's own history.",
-		eligibility:
-			"At least one wrapped source_split row or one model_by_month row. Monthly share falls back gracefully when fewer than 6 months are present.",
+		eligibility: "At least one wrapped source_split row.",
 		infraRequirement:
-			"No MV required for the live view. If product wants a frozen campaign artifact later, snapshot this series into the wrapped payload.",
+			"No MV required for the live view. The existing model_by_month payload is retained only for launch compatibility.",
 		productNote:
 			"This beat is safe as long as we present it as usage mix, not as preference psychology.",
 	},
@@ -306,12 +300,12 @@ export const WRAPPED_STEP_PREVIEW_OPTIONS = {
 	model: [
 		{ value: "auto", label: "Auto (live data)" },
 		{ value: "codex-zero", label: "Codex zero" },
-		{ value: "favorite", label: "Clear favorite" },
-		{ value: "played-field", label: "No favorite" },
-		{ value: "single-switch", label: "One monthly switch" },
-		{ value: "exploring", label: "Constant exploration" },
-		{ value: "settled", label: "Explored, then settled" },
-		{ value: "rotation", label: "Mostly one, some rotation" },
+		{ value: "favorite", label: "Clear Claude favorite" },
+		{ value: "played-field", label: "Even split" },
+		{ value: "single-switch", label: "Codex leaning" },
+		{ value: "exploring", label: "Mixed usage" },
+		{ value: "settled", label: "Clear Codex favorite" },
+		{ value: "rotation", label: "Claude leaning" },
 	],
 	scale: [
 		{ value: "auto", label: "Auto (live data)" },

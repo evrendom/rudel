@@ -1,9 +1,6 @@
 import type { WrappedSourceSplit } from "@rudel/api-routes";
 import { describe, expect, it } from "vitest";
-import {
-	hasModelStageSourceComparison,
-	resolveModelStageModel,
-} from "./model-mix";
+import { resolveModelStageModel } from "./model-mix";
 
 const claudeOnlySourceSplit = [
 	{
@@ -45,117 +42,33 @@ const mixedSourceSplit = [
 ] satisfies readonly WrappedSourceSplit[];
 
 describe("resolveModelStageModel", () => {
-	it("does not enable the MoM comparison when Codex has no uploaded sessions", () => {
+	it("describes the all-time Claude split when Codex has no sessions", () => {
 		const model = resolveModelStageModel({
-			modelByMonth: [
-				{
-					model: "claude-opus-4-6",
-					month: "2026-04",
-					session_count: 7,
-				},
-			],
 			sourceSplit: claudeOnlySourceSplit,
 		});
 
-		expect(model.hasSourceComparison).toBe(false);
-		expect(hasModelStageSourceComparison(claudeOnlySourceSplit)).toBe(false);
-		expect(model.subline).toBe(
-			"The full-run bar leaned Claude. The month-by-month comparison unlocks once both Claude and Codex have sessions.",
-		);
+		expect(model.headline).toBe("Claude led the run");
+		expect(model.subline).toBe("The all-time bar leaned Claude.");
 	});
 
-	it("does not enable the MoM comparison when Claude has no uploaded sessions", () => {
+	it("describes the all-time Codex split when Claude has no sessions", () => {
 		const model = resolveModelStageModel({
-			modelByMonth: [
-				{
-					model: "gpt-5.4",
-					month: "2026-04",
-					session_count: 9,
-				},
-			],
 			sourceSplit: codexOnlySourceSplit,
 		});
 
-		expect(model.hasSourceComparison).toBe(false);
-		expect(hasModelStageSourceComparison(codexOnlySourceSplit)).toBe(false);
-		expect(model.subline).toBe(
-			"The full-run bar leaned Codex. The month-by-month comparison unlocks once both Claude and Codex have sessions.",
-		);
+		expect(model.headline).toBe("Codex led the run");
+		expect(model.subline).toBe("The all-time bar leaned Codex.");
 	});
 
-	it("enables the MoM comparison when both sources have uploaded sessions", () => {
+	it("describes mixed source usage without monthly trend copy", () => {
 		const model = resolveModelStageModel({
-			modelByMonth: [
-				{
-					model: "claude-opus-4-6",
-					month: "2026-04",
-					session_count: 7,
-				},
-				{
-					model: "gpt-5.4",
-					month: "2026-04",
-					session_count: 3,
-				},
-			],
 			sourceSplit: mixedSourceSplit,
 		});
 
-		expect(model.hasSourceComparison).toBe(true);
-		expect(hasModelStageSourceComparison(mixedSourceSplit)).toBe(true);
-	});
-
-	it("does not count synthetic model rows as Codex in the monthly chart", () => {
-		const model = resolveModelStageModel({
-			modelByMonth: [
-				{
-					model: "<synthetic>",
-					month: "2026-04",
-					session_count: 7,
-				},
-				{
-					model: "gpt-5.4",
-					month: "2026-04",
-					session_count: 3,
-				},
-				{
-					model: "claude-opus-4-6",
-					month: "2026-04",
-					session_count: 2,
-				},
-			],
-			sourceSplit: [
-				{
-					session_count: 9,
-					session_share_percent: 75,
-					source: "claude_code",
-				},
-				{
-					session_count: 3,
-					session_share_percent: 25,
-					source: "codex",
-				},
-			],
-		});
-		const aprilMonth = model.months.find(
-			(month) => month.id === "model-month-2026-04",
+		expect(model.headline).toBe("Claude led the run");
+		expect(model.subline).toBe(
+			"The all-time bar leaned Claude across the full run.",
 		);
-
-		expect(aprilMonth?.totalSessions).toBe(5);
-		expect(aprilMonth?.segments).toEqual([
-			{
-				id: "2026-04:claude_code",
-				label: "Claude",
-				sessionCount: 2,
-				share: 40,
-				source: "claude_code",
-			},
-			{
-				id: "2026-04:codex",
-				label: "Codex",
-				sessionCount: 3,
-				share: 60,
-				source: "codex",
-			},
-		]);
+		expect(model.subline).not.toContain("month");
 	});
 });

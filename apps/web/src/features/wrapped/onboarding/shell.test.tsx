@@ -23,16 +23,10 @@ afterEach(() => {
 });
 
 describe("WrappedTeamCardOnboarding model step", () => {
-	it("skips the MoM sequence and advances to the next step when only one source has sessions", async () => {
+	it("advances to the next step when only one source has sessions", async () => {
 		const { container } = renderWrappedTeamCardOnboarding(
 			buildOnboardingMetrics({
-				modelByMonth: [
-					{
-						model: "claude-opus-4-6",
-						month: "2026-04",
-						session_count: 12,
-					},
-				],
+				modelByMonth: [],
 				sourceSplit: [
 					{
 						session_count: 12,
@@ -65,24 +59,12 @@ describe("WrappedTeamCardOnboarding model step", () => {
 				name: "Go to onboarding step 9: Check repo pulse",
 			}),
 		).toHaveAttribute("aria-current", "step");
-		expect(screen.queryByText("Here's how it looked MoM")).toBeNull();
 	});
 
-	it("keeps the MoM sequence when both sources have sessions", async () => {
-		renderWrappedTeamCardOnboarding(
+	it("advances to the next step when both sources have sessions", async () => {
+		const { container } = renderWrappedTeamCardOnboarding(
 			buildOnboardingMetrics({
-				modelByMonth: [
-					{
-						model: "claude-opus-4-6",
-						month: "2026-04",
-						session_count: 12,
-					},
-					{
-						model: "gpt-5.4",
-						month: "2026-04",
-						session_count: 8,
-					},
-				],
+				modelByMonth: [],
 				sourceSplit: [
 					{
 						session_count: 12,
@@ -108,13 +90,13 @@ describe("WrappedTeamCardOnboarding model step", () => {
 		});
 
 		expect(
-			screen.getByRole("heading", { name: "Here's how it looked MoM" }),
-		).toBeInTheDocument();
+			container.querySelector(".mymind-wrapped-route--step-pulse"),
+		).not.toBeNull();
 		expect(
-			screen.queryByRole("heading", {
-				name: "Your repo pulse is still landing",
+			screen.getByRole("button", {
+				name: "Go to onboarding step 9: Check repo pulse",
 			}),
-		).toBeNull();
+		).toHaveAttribute("aria-current", "step");
 	});
 });
 

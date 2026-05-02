@@ -5,29 +5,16 @@ import { useEffect, useRef, useState } from "react";
 import { useMountEffect } from "@/hooks/useMountEffect";
 import { cn } from "@/lib/utils";
 import { resolveModelPreviewInput, resolveModelStageModel } from "../models";
-import type {
-	WrappedModelAdvanceState,
-	WrappedOnboardingMetrics,
-} from "../types";
+import type { WrappedOnboardingMetrics } from "../types";
 import {
 	WrappedOnboardingStageCopy,
 	WrappedOnboardingStageFrame,
 } from "./frame";
 
 interface ModelStageProps {
-	advanceState: WrappedModelAdvanceState;
 	onboardingMetrics: WrappedOnboardingMetrics;
 	onComparisonSequenceComplete?: () => void;
-	onHistoryRevealComplete?: () => void;
 	previewState: string;
-}
-
-interface ModelSegmentStyle extends CSSProperties {
-	"--model-stage-segment-background": string;
-	"--model-stage-segment-box-shadow"?: string;
-	"--model-stage-segment-highlight-opacity"?: string;
-	"--model-stage-segment-delay"?: string;
-	"--model-stage-segment-share": string;
 }
 
 interface ModelRaceRowStyle extends CSSProperties {
@@ -47,13 +34,7 @@ type WrappedModelStageSplitCard = {
 	source: "claude_code" | "codex";
 };
 
-type ModelStageSequencePhase =
-	| "lead-in"
-	| "question"
-	| "comparison"
-	| "result"
-	| "history-question"
-	| "history-bars";
+type ModelStageSequencePhase = "lead-in" | "question" | "comparison" | "result";
 
 /* ─────────────────────────────────────────────────────────
  * MODEL STAGE STORYBOARD
@@ -64,14 +45,11 @@ type ModelStageSequencePhase =
  * 1180ms   prompt swaps to "Claude or Codex?"
  * 2760ms   giant suspense bars start the race and hold near-even
  * 5360ms   title, real counts, logos, and labels finally reveal the winner
- * Continue  title swaps to the month-history question
- * +560ms    month bars expand upward and finish the beat
  * ───────────────────────────────────────────────────────── */
 
 const MODEL_STAGE_MOTION = {
 	distance: {
 		lift: 12,
-		nudge: 6,
 		slide: 28,
 	},
 	duration: {
@@ -114,8 +92,6 @@ const MODEL_STAGE_INTRO_SEQUENCE = [
 	>;
 }>;
 
-const MODEL_STAGE_HISTORY_PROMPT_HOLD_MS = 560;
-const MODEL_STAGE_HISTORY_REVEAL_SETTLE_MS = 1_120;
 const MODEL_STAGE_RESULT_SETTLE_MS = 1_900;
 const MODEL_STAGE_RESULT_DETAIL_DELAY_MS = 520;
 
@@ -129,24 +105,17 @@ function clearModelStageSequenceTimers(timerRefs: { current: number[] }) {
 const MODEL_STAGE_RESULT_LOGO_DELAY_MS = 760;
 const MODEL_STAGE_COMPARISON_COUNTER_DURATION_MS = 2_280;
 const MODEL_STAGE_RESULT_COUNTER_DURATION_MS = 1_680;
-const MODEL_STAGE_HISTORY_COUNTER_DURATION_MS = 880;
 const MODEL_STAGE_MIN_RESULT_FILL_SHARE = 16;
 const MODEL_STAGE_FLOATING_TEXT_RENDERED_SHARE_THRESHOLD = 28;
 const MODEL_STAGE_NEUTRAL_TONE = "#cfd5df";
 const MODEL_STAGE_SUSPENSE_TONE = "#17161c";
 
 export function WrappedOnboardingModelStage(props: ModelStageProps) {
-	const {
-		advanceState,
-		onboardingMetrics,
-		onComparisonSequenceComplete,
-		onHistoryRevealComplete,
-		previewState,
-	} = props;
+	const { onboardingMetrics, onComparisonSequenceComplete, previewState } =
+		props;
 	const model = resolveModelStageModel(
 		resolveModelPreviewInput(
 			{
-				modelByMonth: onboardingMetrics.modelByMonth,
 				sourceSplit: onboardingMetrics.sourceSplit,
 			},
 			previewState,
@@ -155,7 +124,6 @@ export function WrappedOnboardingModelStage(props: ModelStageProps) {
 	const shouldReduceMotion = useReducedMotion();
 	const reduceMotion = shouldReduceMotion ?? false;
 	const hasAnimatedData = model.summary.length > 0;
-	const shouldShowHistorySequence = model.hasSourceComparison;
 	const leadingSource = getLeadingModelStageSource(model.summary);
 	const resultHeadline = getModelStageResultHeadline(leadingSource);
 	const splitCards = [
@@ -175,7 +143,7 @@ export function WrappedOnboardingModelStage(props: ModelStageProps) {
 		},
 	] as const;
 	const [phase, setPhase] = useState<ModelStageSequencePhase>(() =>
-		!hasAnimatedData ? "history-bars" : reduceMotion ? "result" : "lead-in",
+		reduceMotion ? "result" : "lead-in",
 	);
 	const sequenceTimerRefs = useRef<number[]>([]);
 	const isIntroCopyPhase = phase === "lead-in" || phase === "question";
@@ -185,7 +153,7 @@ export function WrappedOnboardingModelStage(props: ModelStageProps) {
 
 	useMountEffect(() => {
 		if (!hasAnimatedData) {
-			onHistoryRevealComplete?.();
+			onComparisonSequenceComplete?.();
 			return;
 		}
 
@@ -225,46 +193,6 @@ export function WrappedOnboardingModelStage(props: ModelStageProps) {
 		};
 	});
 
-	useEffect(() => {
-		if (advanceState !== "history") {
-			return;
-		}
-
-		if (!hasAnimatedData || !shouldShowHistorySequence) {
-			onHistoryRevealComplete?.();
-			return;
-		}
-
-		if (reduceMotion) {
-			setPhase("history-bars");
-			onHistoryRevealComplete?.();
-			return;
-		}
-
-		setPhase("history-question");
-		const showHistoryTimeoutId = window.setTimeout(() => {
-			setPhase("history-bars");
-		}, MODEL_STAGE_HISTORY_PROMPT_HOLD_MS);
-		const completeHistoryTimeoutId = window.setTimeout(() => {
-			onHistoryRevealComplete?.();
-		}, MODEL_STAGE_HISTORY_PROMPT_HOLD_MS +
-			MODEL_STAGE_HISTORY_REVEAL_SETTLE_MS);
-		sequenceTimerRefs.current = [
-			showHistoryTimeoutId,
-			completeHistoryTimeoutId,
-		];
-
-		return () => {
-			clearModelStageSequenceTimers(sequenceTimerRefs);
-		};
-	}, [
-		advanceState,
-		hasAnimatedData,
-		onHistoryRevealComplete,
-		reduceMotion,
-		shouldShowHistorySequence,
-	]);
-
 	if (!hasAnimatedData) {
 		return (
 			<WrappedOnboardingStageFrame
@@ -281,8 +209,7 @@ export function WrappedOnboardingModelStage(props: ModelStageProps) {
 						<section className="mymind-wrapped-model-stage__summary-card">
 							<div className="mymind-wrapped-model-stage__chart-shell">
 								<p className="mymind-wrapped-model-stage__empty">
-									The all-time split and the month-by-month stacks show up once
-									session history lands.
+									The all-time split shows up once session history lands.
 								</p>
 							</div>
 						</section>
@@ -333,7 +260,6 @@ export function WrappedOnboardingModelStage(props: ModelStageProps) {
 				isSummarySceneVisible ? (
 					<WrappedModelStageBody
 						leadingSource={leadingSource}
-						model={model}
 						phase={phase}
 						splitCards={splitCards}
 					/>
@@ -356,9 +282,7 @@ function WrappedModelStageSequenceTitle(props: {
 				? "answer"
 				: phase === "result"
 					? "result"
-					: phase === "history-question" || phase === "history-bars"
-						? "history"
-						: "hidden";
+					: "hidden";
 	const title =
 		titleKey === "lead-in"
 			? "Now comes the question..."
@@ -366,9 +290,7 @@ function WrappedModelStageSequenceTitle(props: {
 				? "Claude or Codex?"
 				: titleKey === "result"
 					? resultHeadline
-					: titleKey === "history"
-						? "Here's how it looked MoM"
-						: null;
+					: null;
 
 	if (reduceMotion) {
 		return title;
@@ -383,7 +305,7 @@ function WrappedModelStageSequenceTitle(props: {
 					"mymind-wrapped-model-stage__sequence-title",
 					titleKey === "result" &&
 						"mymind-wrapped-model-stage__sequence-title--result",
-					(titleKey === "result" || titleKey === "history") &&
+					titleKey === "result" &&
 						"mymind-wrapped-model-stage__sequence-title--compact",
 				)}
 				exit={{
@@ -439,22 +361,16 @@ function WrappedModelStageResultKicker(props: {
 
 function WrappedModelStageBody(props: {
 	leadingSource: "claude_code" | "codex" | null;
-	model: WrappedModelStageResolvedModel;
 	phase: ModelStageSequencePhase;
 	splitCards: readonly WrappedModelStageSplitCard[];
 }) {
-	const { leadingSource, model, phase, splitCards } = props;
+	const { leadingSource, phase, splitCards } = props;
 	const shouldReduceMotion = useReducedMotion();
 	const reduceMotion = shouldReduceMotion ?? false;
-	const areDetailsVisible =
-		phase === "result" ||
-		phase === "history-question" ||
-		phase === "history-bars";
+	const areDetailsVisible = phase === "result";
 	const isComparisonPhase = phase === "comparison";
-	const isHistoryRevealPhase = phase === "history-bars";
 	const areCountersVisible = isComparisonPhase || areDetailsVisible;
 	const areSplitFillsVisible = isComparisonPhase || areDetailsVisible;
-	const areMonthsVisible = phase === "history-bars";
 	const totalSessionCount = splitCards.reduce(
 		(sum, splitCard) => sum + (splitCard.segment?.sessionCount ?? 0),
 		0,
@@ -462,7 +378,6 @@ function WrappedModelStageBody(props: {
 	const targetRaceShares = splitCards.map((splitCard) =>
 		resolveModelStageRaceCounterShare({
 			isComparisonPhase,
-			isHistoryPhase: phase === "history-question" || phase === "history-bars",
 			isLeading: leadingSource === splitCard.source,
 			leadingSource,
 			share: Math.round(splitCard.segment?.share ?? 0),
@@ -472,9 +387,6 @@ function WrappedModelStageBody(props: {
 	const raceShareRef = useRef(targetRaceShares);
 	const [raceDisplayShares, setRaceDisplayShares] = useState<number[]>(() =>
 		reduceMotion ? targetRaceShares : splitCards.map(() => 0),
-	);
-	const [areMonthBarsExpanded, setAreMonthBarsExpanded] = useState(() =>
-		reduceMotion ? areMonthsVisible : false,
 	);
 
 	useEffect(() => {
@@ -528,26 +440,6 @@ function WrappedModelStageBody(props: {
 		};
 	}, [phase, reduceMotion, targetRaceSharesKey]);
 
-	useEffect(() => {
-		if (reduceMotion) {
-			setAreMonthBarsExpanded(areMonthsVisible);
-			return;
-		}
-
-		if (!areMonthsVisible) {
-			setAreMonthBarsExpanded(false);
-			return;
-		}
-
-		const animationFrameId = window.requestAnimationFrame(() => {
-			setAreMonthBarsExpanded(true);
-		});
-
-		return () => {
-			window.cancelAnimationFrame(animationFrameId);
-		};
-	}, [areMonthsVisible, reduceMotion]);
-
 	return (
 		<motion.div
 			layout
@@ -556,8 +448,6 @@ function WrappedModelStageBody(props: {
 				isComparisonPhase &&
 					"mymind-wrapped-model-stage__scene-shell--comparison",
 				areDetailsVisible && "mymind-wrapped-model-stage__scene-shell--details",
-				isHistoryRevealPhase &&
-					"mymind-wrapped-model-stage__scene-shell--history",
 			)}
 			transition={{ layout: MODEL_STAGE_LAYOUT_TRANSITION }}
 		>
@@ -595,14 +485,10 @@ function WrappedModelStageBody(props: {
 				<motion.section
 					layout
 					animate={{
-						scale: areMonthsVisible ? 1 : areDetailsVisible ? 1.008 : 1,
-						y: areMonthsVisible ? 0 : areDetailsVisible ? -2 : 0,
+						scale: areDetailsVisible ? 1.008 : 1,
+						y: areDetailsVisible ? -2 : 0,
 					}}
-					className={cn(
-						"mymind-wrapped-model-stage__summary-card",
-						areMonthsVisible &&
-							"mymind-wrapped-model-stage__summary-card--history",
-					)}
+					className="mymind-wrapped-model-stage__summary-card"
 					initial={false}
 					transition={{
 						...MODEL_STAGE_SURFACE_TRANSITION,
@@ -617,12 +503,9 @@ function WrappedModelStageBody(props: {
 						<WrappedModelStageMorphChart
 							areCountersVisible={areCountersVisible}
 							areDetailsVisible={areDetailsVisible}
-							areMonthBarsExpanded={areMonthBarsExpanded}
-							areMonthsVisible={areMonthsVisible}
 							areSplitFillsVisible={areSplitFillsVisible}
 							isComparisonPhase={isComparisonPhase}
 							leadingSource={leadingSource}
-							model={model}
 							raceDisplayShares={raceDisplayShares}
 							reduceMotion={reduceMotion}
 							splitCards={splitCards}
@@ -638,12 +521,9 @@ function WrappedModelStageBody(props: {
 function WrappedModelStageMorphChart(props: {
 	areCountersVisible: boolean;
 	areDetailsVisible: boolean;
-	areMonthBarsExpanded: boolean;
-	areMonthsVisible: boolean;
 	areSplitFillsVisible: boolean;
 	isComparisonPhase: boolean;
 	leadingSource: "claude_code" | "codex" | null;
-	model: WrappedModelStageResolvedModel;
 	raceDisplayShares: number[];
 	reduceMotion: boolean;
 	splitCards: readonly WrappedModelStageSplitCard[];
@@ -652,63 +532,24 @@ function WrappedModelStageMorphChart(props: {
 	const {
 		areCountersVisible,
 		areDetailsVisible,
-		areMonthBarsExpanded,
-		areMonthsVisible,
 		areSplitFillsVisible,
 		isComparisonPhase,
 		leadingSource,
-		model,
 		raceDisplayShares,
 		reduceMotion,
 		splitCards,
 		totalSessionCount,
 	} = props;
-	const chartSlots = areMonthsVisible
-		? model.months.map((month, monthIndex) => ({
-				kind: "month" as const,
-				month,
-				monthIndex,
-				slotIndex: monthIndex,
-			}))
-		: splitCards.map((splitCard, splitCardIndex) => ({
-				kind: "race" as const,
-				splitCard,
-				splitCardIndex,
-				slotIndex: splitCardIndex,
-			}));
-
-	if (areMonthsVisible && chartSlots.length === 0) {
-		return (
-			<motion.div
-				layout
-				animate={{ filter: "blur(0px)", opacity: 1, scale: 1, y: 0 }}
-				className="mymind-wrapped-model-stage__chart-empty-state"
-				initial={
-					reduceMotion
-						? false
-						: {
-								filter: "blur(8px)",
-								opacity: 0,
-								scale: 0.97,
-								y: MODEL_STAGE_MOTION.distance.slide,
-							}
-				}
-				transition={MODEL_STAGE_SURFACE_TRANSITION}
-			>
-				<p className="mymind-wrapped-model-stage__empty">
-					The monthly stacks fill in once model history spans a few sessions.
-				</p>
-			</motion.div>
-		);
-	}
+	const chartSlots = splitCards.map((splitCard, splitCardIndex) => ({
+		splitCard,
+		splitCardIndex,
+		slotIndex: splitCardIndex,
+	}));
 
 	return (
 		<motion.div
 			layout
-			className={cn(
-				"mymind-wrapped-model-stage__chart-grid",
-				areMonthsVisible && "mymind-wrapped-model-stage__chart-grid--history",
-			)}
+			className="mymind-wrapped-model-stage__chart-grid"
 			transition={{ layout: MODEL_STAGE_LAYOUT_TRANSITION }}
 		>
 			{chartSlots.map((slot) => (
@@ -731,27 +572,18 @@ function WrappedModelStageMorphChart(props: {
 						layout: MODEL_STAGE_LAYOUT_TRANSITION,
 					}}
 				>
-					{slot.kind === "race" ? (
-						<WrappedModelStageRaceSlot
-							areCountersVisible={areCountersVisible}
-							areDetailsVisible={areDetailsVisible}
-							areSplitFillsVisible={areSplitFillsVisible}
-							isComparisonPhase={isComparisonPhase}
-							leadingSource={leadingSource}
-							raceDisplayShare={raceDisplayShares[slot.splitCardIndex] ?? 0}
-							reduceMotion={reduceMotion}
-							splitCard={slot.splitCard}
-							splitCardIndex={slot.splitCardIndex}
-							totalSessionCount={totalSessionCount}
-						/>
-					) : (
-						<WrappedModelStageMonthSlot
-							areMonthBarsExpanded={areMonthBarsExpanded}
-							month={slot.month}
-							monthIndex={slot.monthIndex}
-							reduceMotion={reduceMotion}
-						/>
-					)}
+					<WrappedModelStageRaceSlot
+						areCountersVisible={areCountersVisible}
+						areDetailsVisible={areDetailsVisible}
+						areSplitFillsVisible={areSplitFillsVisible}
+						isComparisonPhase={isComparisonPhase}
+						leadingSource={leadingSource}
+						raceDisplayShare={raceDisplayShares[slot.splitCardIndex] ?? 0}
+						reduceMotion={reduceMotion}
+						splitCard={slot.splitCard}
+						splitCardIndex={slot.splitCardIndex}
+						totalSessionCount={totalSessionCount}
+					/>
 				</motion.div>
 			))}
 		</motion.div>
@@ -1142,80 +974,6 @@ function WrappedModelStageRaceSlot(props: {
 	);
 }
 
-function WrappedModelStageMonthSlot(props: {
-	areMonthBarsExpanded: boolean;
-	month: WrappedModelStageResolvedModel["months"][number];
-	monthIndex: number;
-	reduceMotion: boolean;
-}) {
-	const { areMonthBarsExpanded, month, monthIndex, reduceMotion } = props;
-
-	return (
-		<motion.div
-			animate={{ filter: "blur(0px)", opacity: 1, scale: 1, y: 0 }}
-			className="mymind-wrapped-model-stage__month-column"
-			initial={
-				reduceMotion
-					? false
-					: {
-							filter: "blur(8px)",
-							opacity: 0,
-							scale: 0.96,
-							y: MODEL_STAGE_MOTION.distance.nudge,
-						}
-			}
-			title={
-				month.totalSessions > 0
-					? `${month.label}: ${month.leaderLabel} led with ${month.leaderShare}%`
-					: `${month.label}: no model activity`
-			}
-			transition={MODEL_STAGE_SURFACE_TRANSITION}
-		>
-			<div className="mymind-wrapped-model-stage__race-track-shell">
-				<div
-					aria-hidden="true"
-					className="mymind-wrapped-model-stage__race-track-grid"
-				/>
-				<div className="mymind-wrapped-model-stage__race-track">
-					<span
-						aria-hidden="true"
-						className={cn(
-							"mymind-wrapped-model-stage__month-track-stack",
-							month.totalSessions === 0 ? "is-empty" : null,
-						)}
-					>
-						{month.segments.map((segment, segmentIndex) => {
-							const revealFillStyle = getModelStageRevealFillStyle(
-								segment.source,
-							);
-							const segmentStyle: ModelSegmentStyle = {
-								"--model-stage-segment-background":
-									revealFillStyle.background ?? "#d9dee7",
-								"--model-stage-segment-box-shadow": revealFillStyle.boxShadow,
-								"--model-stage-segment-highlight-opacity":
-									revealFillStyle.highlightOpacity,
-								"--model-stage-segment-delay": `${0.08 * monthIndex + 0.04 * segmentIndex}s`,
-								"--model-stage-segment-share": areMonthBarsExpanded
-									? `${segment.share}%`
-									: "0%",
-							};
-
-							return (
-								<span
-									key={segment.id}
-									className="mymind-wrapped-model-stage__month-segment"
-									style={segmentStyle}
-								/>
-							);
-						})}
-					</span>
-				</div>
-			</div>
-			<p className="mymind-wrapped-model-stage__month-label">{month.label}</p>
-		</motion.div>
-	);
-}
-
 function getLeadingModelStageSource(
 	summary: ReturnType<typeof resolveModelStageModel>["summary"],
 ) {
@@ -1363,15 +1121,13 @@ function resolveModelStageRenderedFillShare(input: {
 
 function resolveModelStageRaceCounterShare(input: {
 	isComparisonPhase: boolean;
-	isHistoryPhase: boolean;
 	isLeading: boolean;
 	leadingSource: "claude_code" | "codex" | null;
 	share: number;
 }) {
-	const { isComparisonPhase, isHistoryPhase, isLeading, leadingSource, share } =
-		input;
+	const { isComparisonPhase, isLeading, leadingSource, share } = input;
 
-	if (isComparisonPhase && !isHistoryPhase) {
+	if (isComparisonPhase) {
 		if (leadingSource === null) {
 			return 50;
 		}
@@ -1393,14 +1149,8 @@ function resolveModelStageCounterDurationMs(phase: ModelStageSequencePhase) {
 		return MODEL_STAGE_COMPARISON_COUNTER_DURATION_MS;
 	}
 
-	if (
-		phase === "result" ||
-		phase === "history-question" ||
-		phase === "history-bars"
-	) {
-		return phase === "result"
-			? MODEL_STAGE_RESULT_COUNTER_DURATION_MS
-			: MODEL_STAGE_HISTORY_COUNTER_DURATION_MS;
+	if (phase === "result") {
+		return MODEL_STAGE_RESULT_COUNTER_DURATION_MS;
 	}
 
 	return 0;

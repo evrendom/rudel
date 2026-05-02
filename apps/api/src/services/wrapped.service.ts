@@ -99,6 +99,10 @@ export async function getWrappedV1Data(
 				buildSourceSplit("claude_code", claudeSessionCount, totalSessions),
 				buildSourceSplit("codex", codexSessionCount, totalSessions),
 			],
+			// RUD-149: The launch Wrapped story no longer renders this monthly
+			// model series. Keep it through launch for payload compatibility;
+			// remove model_by_month and getMonthlyModelUsage post-launch if no
+			// consumers remain.
 			model_by_month: modelByMonth,
 		},
 		archetype,
