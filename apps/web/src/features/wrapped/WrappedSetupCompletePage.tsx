@@ -15,13 +15,16 @@ import {
 	WrappedSecondaryAction,
 } from "@/features/wrapped/actions";
 import { shortenWrappedRepoLabelFromLeft } from "@/features/wrapped/repo-label";
+import { useEffectOnceWhen } from "@/hooks/useEffectOnceWhen";
 import { useMountEffect } from "@/hooks/useMountEffect";
 import { MAX_ANALYTICS_DAYS } from "@/lib/analytics-date-range";
 import { orpc } from "@/lib/orpc";
 import { WrappedRouteStageShell } from "./route-stage-shell";
 
 interface WrappedSetupCompletePageProps {
+	canContinueToStory?: boolean;
 	debugControls?: ReactNode;
+	defaultUploadMoreVisible?: boolean;
 	onBack?: () => void;
 	onContinue: () => void;
 	reposOverride?: WrappedUploadedRepoRow[];
@@ -36,7 +39,10 @@ const SESSIONS_LANDED_ROW_STAGGER = 0.035;
 const UPLOADED_REPO_LABEL_MAX_LENGTH = 26;
 
 export function WrappedSetupCompletePage(props: WrappedSetupCompletePageProps) {
-	const [isUploadMoreVisible, setIsUploadMoreVisible] = useState(false);
+	const canContinueToStory = props.canContinueToStory ?? true;
+	const [isUploadMoreVisible, setIsUploadMoreVisible] = useState(
+		props.defaultUploadMoreVisible ?? false,
+	);
 	const [isContinuingToStory, setIsContinuingToStory] = useState(false);
 	const reduceMotion = useReducedMotion() ?? false;
 	const continueTimerRef = useRef<number | null>(null);
@@ -104,8 +110,17 @@ export function WrappedSetupCompletePage(props: WrappedSetupCompletePageProps) {
 		};
 	});
 
+	useEffectOnceWhen({
+		effect: () => setIsUploadMoreVisible(true),
+		isReady: props.defaultUploadMoreVisible === true,
+		key:
+			props.defaultUploadMoreVisible === true
+				? `upload-more-default:${props.userId}:${displayedTotalSessionCount}`
+				: null,
+	});
+
 	function handleContinue() {
-		if (isContinuingToStory) {
+		if (isContinuingToStory || !canContinueToStory) {
 			return;
 		}
 
@@ -194,10 +209,12 @@ export function WrappedSetupCompletePage(props: WrappedSetupCompletePageProps) {
 						>
 							<WrappedPrimaryAction
 								kind="button"
-								disabled={isContinuingToStory}
+								disabled={isContinuingToStory || !canContinueToStory}
 								onClick={handleContinue}
 							>
-								See what it reveals about you
+								{canContinueToStory
+									? "See what it reveals about you"
+									: "Upload more to unlock"}
 							</WrappedPrimaryAction>
 						</motion.div>
 						<motion.div
@@ -238,7 +255,7 @@ export function WrappedSetupCompletePage(props: WrappedSetupCompletePageProps) {
 									setIsUploadMoreVisible((currentValue) => !currentValue)
 								}
 							>
-								Upload more for a better picture
+								Upload more
 							</WrappedSecondaryAction>
 						</motion.div>
 					</div>

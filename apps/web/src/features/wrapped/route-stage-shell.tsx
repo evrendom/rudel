@@ -33,7 +33,7 @@ interface WrappedRouteStageShellProps {
 	status?: ReactNode;
 	stageClassName?: string;
 	stage: ReactNode;
-	title: ReactNode;
+	title?: ReactNode;
 	titleClassName?: string;
 	useReferenceTopChrome?: boolean;
 }
@@ -120,20 +120,21 @@ export function WrappedRouteStageShell(props: WrappedRouteStageShellProps) {
 		!hideTopChromeControls && shouldUseReferenceTopChrome;
 	const hasTextStatus =
 		typeof status === "string" || typeof status === "number";
-	const animatedCopy = (
-		<WrappedStageCopy
-			description={description}
-			descriptionClassName="mymind-wrapped-entry-stage__subline"
-			entrancePreset={shouldAnimateSetupEntrance ? "setup" : "none"}
-			eyebrow={eyebrow}
-			eyebrowClassName="mymind-wrapped-entry-stage__eyebrow"
-			title={title}
-			titleClassName={cn(
-				"mymind-wrapped-entry-stage__headline",
-				titleClassName,
-			)}
-		/>
-	);
+	const animatedCopy =
+		title === undefined || title === null ? null : (
+			<WrappedStageCopy
+				description={description}
+				descriptionClassName="mymind-wrapped-entry-stage__subline"
+				entrancePreset={shouldAnimateSetupEntrance ? "setup" : "none"}
+				eyebrow={eyebrow}
+				eyebrowClassName="mymind-wrapped-entry-stage__eyebrow"
+				title={title}
+				titleClassName={cn(
+					"mymind-wrapped-entry-stage__headline",
+					titleClassName,
+				)}
+			/>
+		);
 	const animatedStage = shouldAnimateSetupEntrance ? (
 		<motion.div
 			animate={

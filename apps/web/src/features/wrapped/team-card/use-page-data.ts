@@ -12,7 +12,6 @@ import { authClient } from "@/lib/auth-client";
 import { orpc } from "@/lib/orpc";
 import {
 	resolveWrappedArchetypeCardThemeByClassifierKey,
-	WRAPPED_ARCHETYPE_CARD_THEMES,
 	type WrappedArchetypeCardTheme,
 } from "./archetypes";
 import type { WrappedTeamMemberCardStatItem } from "./card";
@@ -20,12 +19,9 @@ import { buildWrappedOnboardingMetrics } from "./onboarding-metrics";
 import { buildResolvedTeamCardRow } from "./row";
 import { buildWrappedStatItems } from "./stat-items";
 
-const DEFAULT_LIVE_ARCHETYPE: WrappedArchetypeCardTheme =
-	WRAPPED_ARCHETYPE_CARD_THEMES[0];
-
 interface UseWrappedTeamCardPageDataResult {
 	completionUserId: string | null;
-	liveArchetype: WrappedArchetypeCardTheme;
+	liveArchetype: WrappedArchetypeCardTheme | null;
 	onboardingMetrics: WrappedOnboardingMetrics;
 	publicUsername: string | undefined;
 	statItems: readonly WrappedTeamMemberCardStatItem[];
@@ -210,13 +206,12 @@ export function useWrappedTeamCardPageData(): UseWrappedTeamCardPageDataResult {
 
 function resolveLiveArchetype(
 	classifierKey: string | undefined,
-): WrappedArchetypeCardTheme {
+): WrappedArchetypeCardTheme | null {
 	if (!classifierKey) {
-		return DEFAULT_LIVE_ARCHETYPE;
+		return null;
 	}
-	const matched =
-		resolveWrappedArchetypeCardThemeByClassifierKey(classifierKey);
-	return matched ?? DEFAULT_LIVE_ARCHETYPE;
+
+	return resolveWrappedArchetypeCardThemeByClassifierKey(classifierKey) ?? null;
 }
 
 function getSessionUserId(

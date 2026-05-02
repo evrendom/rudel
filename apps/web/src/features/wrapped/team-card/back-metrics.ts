@@ -1,4 +1,5 @@
 import type { TeamPageMemberRow } from "@/features/team/use-team-page-data";
+import { hasWrappedRecapFeatureSignal } from "@/features/wrapped/onboarding/models/feature-signal";
 import type { WrappedOnboardingMetrics } from "@/features/wrapped/onboarding/types";
 import type { WrappedTeamMemberCardBackMetric } from "./card-back";
 
@@ -44,14 +45,26 @@ export function buildWrappedTeamCardBackMetrics(input: {
 		Math.round(Math.max(row.cost, onboardingMetrics.estimatedCostUsd)),
 	);
 	const reposTouched = Math.max(0, onboardingMetrics.repoPulse.totalRepos);
-	const skillSessionsUsed = getWrappedBackFeatureSessionCount(
-		totalSessions,
-		onboardingMetrics.skillsAdoptionRate,
-	);
-	const commandSessionsUsed = getWrappedBackFeatureSessionCount(
-		totalSessions,
-		onboardingMetrics.slashCommandsAdoptionRate,
-	);
+	const hasSkillRecapSignal = hasWrappedRecapFeatureSignal({
+		adoptionRate: onboardingMetrics.skillsAdoptionRate,
+		topItemCount: onboardingMetrics.topSkills[0]?.count ?? null,
+	});
+	const hasSlashCommandRecapSignal = hasWrappedRecapFeatureSignal({
+		adoptionRate: onboardingMetrics.slashCommandsAdoptionRate,
+		topItemCount: getWrappedBackTopSlashCommandCount(onboardingMetrics),
+	});
+	const skillSessionsUsed = hasSkillRecapSignal
+		? getWrappedBackFeatureSessionCount(
+				totalSessions,
+				onboardingMetrics.skillsAdoptionRate,
+			)
+		: 0;
+	const commandSessionsUsed = hasSlashCommandRecapSignal
+		? getWrappedBackFeatureSessionCount(
+				totalSessions,
+				onboardingMetrics.slashCommandsAdoptionRate,
+			)
+		: 0;
 	const subagentSessionsUsed = getWrappedBackFeatureSessionCount(
 		totalSessions,
 		onboardingMetrics.subagentsAdoptionRate,
@@ -114,7 +127,9 @@ export function buildWrappedTeamCardBackMetrics(input: {
 		},
 		{
 			label: "FAV SKILL",
-			value: onboardingMetrics.topSkills[0]?.name ?? "Skill issue",
+			value: hasSkillRecapSignal
+				? (onboardingMetrics.topSkills[0]?.name ?? "Skill issue")
+				: "Skill issue",
 			valueTruncation: "start",
 		},
 		{
@@ -143,6 +158,32 @@ export function buildWrappedTeamCardBackMetrics(input: {
 			value: issuedDateLabel,
 		},
 	];
+}
+
+function getWrappedBackTopSlashCommandCount(
+	onboardingMetrics: WrappedOnboardingMetrics,
+) {
+	if (onboardingMetrics.topSlashCommand !== null) {
+		const matchedTopCommand = onboardingMetrics.topSlashCommands.find(
+			(command) => command.name === onboardingMetrics.topSlashCommand,
+		);
+
+		if (matchedTopCommand !== undefined) {
+			return Math.max(0, matchedTopCommand.count);
+		}
+	}
+
+	if (onboardingMetrics.topSlashCommandCount !== null) {
+		return Math.max(0, onboardingMetrics.topSlashCommandCount);
+	}
+
+	const firstRankedCommand = onboardingMetrics.topSlashCommands[0];
+
+	if (firstRankedCommand !== undefined) {
+		return Math.max(0, firstRankedCommand.count);
+	}
+
+	return onboardingMetrics.topSlashCommand === null ? 0 : null;
 }
 
 function formatWrappedBackInteger(value: number | null) {

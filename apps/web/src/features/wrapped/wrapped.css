@@ -3939,7 +3939,24 @@ body.mymind-wrapped-body .woot-widget-bubble {
 
 .mymind-wrapped-entry-stage--setup-complete {
 	gap: 1rem;
+	min-height: 0;
 	padding-top: 0;
+}
+
+.mymind-wrapped-entry-stage--setup-complete
+	.mymind-wrapped-entry-stage__object {
+	align-items: flex-start;
+	overflow-y: auto;
+	overscroll-behavior: contain;
+	padding-bottom: 0.2rem;
+}
+
+.mymind-wrapped-entry-stage--route-loading {
+	grid-template-rows: minmax(0, 1fr);
+}
+
+.mymind-wrapped-entry-stage--route-loading .mymind-wrapped-stage__object {
+	align-self: stretch;
 }
 
 .mymind-wrapped-entry-stage__copy {
@@ -4345,6 +4362,31 @@ body.mymind-wrapped-body .woot-widget-bubble {
 	outline-offset: 2px;
 }
 
+.mymind-wrapped-route-loading {
+	display: grid;
+	justify-items: center;
+	gap: 0.85rem;
+	width: min(100%, 20rem);
+	margin: auto;
+	text-align: center;
+}
+
+.mymind-wrapped-route-loading__logo {
+	width: 3rem;
+	height: auto;
+}
+
+.mymind-wrapped-route-loading__copy {
+	margin: 0;
+	max-width: 28ch;
+	color: #6b655f;
+	font-size: 1rem;
+	font-family: var(--font-sans);
+	font-weight: 600;
+	line-height: 1.45;
+	text-wrap: pretty;
+}
+
 .mymind-wrapped-entry-card--status {
 	justify-items: center;
 	width: min(100%, 20rem);
@@ -4498,7 +4540,7 @@ body.mymind-wrapped-body .woot-widget-bubble {
 
 .mymind-wrapped-uploaded-repos[data-upload-more-visible="true"]
 	.mymind-wrapped-uploaded-repos__viewport {
-	max-height: clamp(7.5rem, 20svh, 10rem);
+	max-height: clamp(4.5rem, 13svh, 7rem);
 }
 
 .mymind-wrapped-uploaded-repos__list {
@@ -4516,7 +4558,7 @@ body.mymind-wrapped-body .woot-widget-bubble {
 	align-items: center;
 	justify-content: space-between;
 	gap: 1rem;
-	width: min(100%, 22rem);
+	width: min(calc(100% - 1rem), 22rem);
 	padding: 0.5rem 0;
 }
 
@@ -4562,7 +4604,7 @@ body.mymind-wrapped-body .woot-widget-bubble {
 	display: grid;
 	box-sizing: border-box;
 	overflow: clip;
-	width: min(100%, 25rem);
+	width: min(calc(100% - 1rem), 25rem);
 	margin-inline: auto;
 	margin-top: calc(var(--mymind-wrapped-upload-more-panel-overshoot) * -1);
 	padding: 0 var(--mymind-wrapped-upload-more-panel-padding)
@@ -5221,6 +5263,7 @@ body.mymind-wrapped-body .woot-widget-bubble {
 }
 
 .mymind-wrapped-auth-form {
+	--wrapped-auth-choice-action-bottom-offset: 0px;
 	display: flex;
 	flex: 1 1 auto;
 	flex-direction: column;
@@ -5264,15 +5307,49 @@ body.mymind-wrapped-body .woot-widget-bubble {
 	gap: 0.75rem;
 }
 
-.mymind-wrapped-auth-form__scene--credentials
+.mymind-wrapped-auth-form[data-email-auth-stage="email"]
 	.mymind-wrapped-auth-form__scene-form {
-	flex: 0 0 auto;
+	padding-bottom: var(--wrapped-auth-choice-action-bottom-offset);
+}
+
+.mymind-wrapped-auth-form[data-email-auth-stage="credentials"]
+	.mymind-wrapped-auth-form__scene-form {
 	gap: clamp(0.56rem, 1.4svh, 0.68rem);
+	padding-bottom: var(--wrapped-auth-choice-action-bottom-offset);
 }
 
 .mymind-wrapped-auth-form__scene-fields {
 	display: grid;
 	gap: 0.75rem;
+}
+
+.mymind-wrapped-auth-form__code-field {
+	gap: clamp(0.34rem, 1svh, 0.48rem);
+}
+
+.mymind-wrapped-auth-form__feedback.mymind-wrapped-auth-form__feedback--code-note {
+	width: 100%;
+	max-width: 100%;
+	margin: 0;
+	padding: 0;
+	border: 0;
+	background: transparent;
+	box-shadow: none;
+	color: #857e77;
+	font-size: clamp(0.76rem, 1.55svh, 0.84rem);
+	line-height: 1.25;
+	text-align: center;
+	white-space: nowrap;
+}
+
+.mymind-wrapped-auth-form__feedback.mymind-wrapped-auth-form__feedback--code-note.is-success {
+	border: 0;
+	background: transparent;
+	box-shadow: none;
+}
+
+.mymind-wrapped-auth-form__feedback.mymind-wrapped-auth-form__feedback--code-note.is-error {
+	color: #fe3c31;
 }
 
 .mymind-wrapped-auth-form__scene--credentials
@@ -5286,23 +5363,46 @@ body.mymind-wrapped-body .woot-widget-bubble {
 		calc(env(safe-area-inset-bottom, 0px) + 1.1rem)
 	);
 	box-sizing: border-box;
+	flex: 1 1 auto;
 	justify-content: flex-start;
-	/* Keep the password action inside short auth stages without moving the card. */
+	min-height: 100%;
+	/* Keep the credential action inside short auth stages without moving the card. */
 	padding-top: clamp(1.4rem, 4.8svh, 2.35rem);
-	padding-bottom: var(--wrapped-auth-credentials-bottom-space);
+	padding-bottom: 0;
 }
 
 .mymind-wrapped-auth-form__action-item {
 	width: 100%;
 }
 
+.mymind-wrapped-auth-form[data-email-auth-stage="email"]
+	.mymind-wrapped-auth-form__scene-form
+	> .mymind-wrapped-auth-form__action-item:not(
+		.mymind-wrapped-auth-form__action-item--primary
+	) {
+	order: 1;
+}
+
+.mymind-wrapped-auth-form[data-email-auth-stage="credentials"]
+	.mymind-wrapped-auth-form__scene-form
+	> .mymind-wrapped-auth-form__action-item:not(
+		.mymind-wrapped-auth-form__action-item--primary
+	) {
+	order: 1;
+}
+
 .mymind-wrapped-auth-form__action-item--primary {
 	margin-top: auto;
 }
 
-.mymind-wrapped-auth-form__scene--email
+.mymind-wrapped-auth-form[data-email-auth-stage="email"]
 	.mymind-wrapped-auth-form__action-item--primary {
-	margin-top: 0;
+	order: 2;
+}
+
+.mymind-wrapped-auth-form[data-email-auth-stage="credentials"]
+	.mymind-wrapped-auth-form__action-item--primary {
+	order: 2;
 }
 
 .mymind-wrapped-auth-form__scene-action {
@@ -5310,9 +5410,13 @@ body.mymind-wrapped-body .woot-widget-bubble {
 }
 
 @media (min-width: 48rem) {
+	.mymind-wrapped-auth-form {
+		--wrapped-auth-choice-action-bottom-offset: clamp(1.25rem, 3svh, 1.8rem);
+	}
+
 	.mymind-wrapped-auth-form .mymind-wrapped-auth-form__scene-action {
-		height: 52px;
-		min-height: 52px;
+		height: 44px;
+		min-height: 44px;
 	}
 
 	.mymind-wrapped-auth-form[data-email-auth-stage="choice"] {
@@ -5321,7 +5425,7 @@ body.mymind-wrapped-body .woot-widget-bubble {
 
 	.mymind-wrapped-auth-form[data-email-auth-stage="choice"]
 		.mymind-wrapped-auth-form__choice-footer {
-		margin-bottom: clamp(1.25rem, 3svh, 1.8rem);
+		margin-bottom: var(--wrapped-auth-choice-action-bottom-offset);
 	}
 }
 
@@ -8478,6 +8582,10 @@ body.mymind-wrapped-body .woot-widget-bubble {
 }
 
 @media (min-height: 821px) and (max-height: 900px) {
+	.mymind-wrapped-auth-form {
+		--wrapped-auth-choice-action-bottom-offset: 0px;
+	}
+
 	.mymind-wrapped-entry-stage--auth-profile
 		.mymind-wrapped-entry-stage__object--auth-profile {
 		--wrapped-card-profile-card-offset-y: clamp(0.45rem, 2.4svh, 1.1rem);
@@ -8492,8 +8600,8 @@ body.mymind-wrapped-body .woot-widget-bubble {
 	}
 
 	.mymind-wrapped-auth-form .mymind-wrapped-auth-form__scene-action {
-		height: 48px;
-		min-height: 48px;
+		height: 44px;
+		min-height: 44px;
 	}
 
 	.mymind-wrapped-auth-form[data-email-auth-stage="choice"]
@@ -8503,6 +8611,10 @@ body.mymind-wrapped-body .woot-widget-bubble {
 }
 
 @media (min-height: 761px) and (max-height: 820px) {
+	.mymind-wrapped-auth-form {
+		--wrapped-auth-choice-action-bottom-offset: 0px;
+	}
+
 	.mymind-wrapped-entry-stage--auth-profile
 		.mymind-wrapped-entry-stage__object--auth-profile {
 		--wrapped-card-profile-card-offset-y: clamp(0.55rem, 2.8svh, 1.2rem);
@@ -8534,6 +8646,10 @@ body.mymind-wrapped-body .woot-widget-bubble {
 }
 
 @media (min-height: 721px) and (max-height: 760px) {
+	.mymind-wrapped-auth-form {
+		--wrapped-auth-choice-action-bottom-offset: 0px;
+	}
+
 	.mymind-wrapped-entry-stage--auth-profile
 		.mymind-wrapped-entry-stage__object--auth-profile {
 		--wrapped-card-profile-card-offset-y: clamp(0.55rem, 2.6svh, 1rem);
@@ -8594,6 +8710,10 @@ body.mymind-wrapped-body .woot-widget-bubble {
 }
 
 @media (max-height: 720px) {
+	.mymind-wrapped-auth-form {
+		--wrapped-auth-choice-action-bottom-offset: 0px;
+	}
+
 	.mymind-wrapped-entry-stage--auth-profile
 		.mymind-wrapped-entry-stage__object--auth-profile {
 		--wrapped-card-profile-card-offset-y: clamp(0.25rem, 1.6svh, 0.65rem);
@@ -8790,12 +8910,47 @@ body.mymind-wrapped-body .woot-widget-bubble {
 	.mymind-wrapped-auth-panel--form .mymind-wrapped-auth-card-preview__tilt {
 		--wrapped-short-card-scale: 0.48;
 	}
+
+	.mymind-wrapped-auth-form__scene--credentials {
+		--wrapped-auth-credentials-bottom-space: 0px;
+		padding-top: 0;
+		padding-bottom: 0;
+	}
+
+	.mymind-wrapped-auth-form__scene--credentials
+		.mymind-wrapped-auth-form__scene-form {
+		gap: 0.36rem;
+	}
+
+	.mymind-wrapped-auth-form__code-field {
+		gap: 0.26rem;
+	}
+
+	.mymind-wrapped-auth-form__feedback.mymind-wrapped-auth-form__feedback--code-note {
+		font-size: 0.76rem;
+		line-height: 1.18;
+	}
+
+	.mymind-wrapped-auth-form__scene-link {
+		font-size: 0.8rem;
+		line-height: 1.2;
+	}
 }
 
 @media (max-height: 520px) {
 	.mymind-wrapped-auth-card-preview--profile
 		.mymind-wrapped-auth-card-preview__tilt {
 		--wrapped-short-card-scale: 0.84;
+	}
+}
+
+@media (max-height: 440px) {
+	.mymind-wrapped-auth-panel--form {
+		--wrapped-auth-form-overlap: 0px;
+	}
+
+	.mymind-wrapped-auth-panel--form .mymind-wrapped-auth-card-preview__tilt {
+		--wrapped-short-card-scale: 0.38;
 	}
 }
 
@@ -9203,7 +9358,7 @@ body.mymind-wrapped-body .woot-widget-bubble {
 			"copy"
 			"object"
 			"support";
-		align-items: start;
+		align-items: stretch;
 		justify-items: center;
 		max-width: 38rem;
 		margin-inline: auto;
@@ -9225,6 +9380,8 @@ body.mymind-wrapped-body .woot-widget-bubble {
 	}
 
 	.mymind-wrapped-final-stage--share .mymind-wrapped-final-stage__object {
+		align-self: stretch;
+		align-items: center;
 		justify-content: center;
 	}
 

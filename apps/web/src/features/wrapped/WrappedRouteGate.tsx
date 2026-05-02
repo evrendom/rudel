@@ -1,3 +1,4 @@
+import { WRAPPED_ARCHETYPE_GATE_THRESHOLDS } from "@rudel/api-routes";
 import { type ReactNode, startTransition, useState } from "react";
 import { useLocation, useSearchParams } from "react-router-dom";
 import { useIsMobile } from "@/app/hooks/use-mobile";
@@ -8,6 +9,7 @@ import {
 	WRAPPED_ROUTE_FLOW_QUERY_PARAM,
 	WRAPPED_ROUTE_SESSIONS_LANDED_FLOW,
 } from "@/app/routes";
+import { useAnalyticsQuery } from "@/features/analytics/queries/useAnalyticsQuery";
 import { useAnalyticsTracking } from "@/features/analytics/tracking/useAnalyticsTracking";
 import {
 	type AppSession,
@@ -44,6 +46,7 @@ import {
 } from "@/features/wrapped/wrapped-setup-state";
 import { useEffectOnceWhen } from "@/hooks/useEffectOnceWhen";
 import { useMountEffect } from "@/hooks/useMountEffect";
+import { orpc } from "@/lib/orpc";
 
 interface WrappedRouteGateProps {
 	isPending: boolean;
@@ -89,6 +92,16 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 	const sessionUserEmail = getSessionUserEmail(session);
 	const setupProgress = useSetupProgress({
 		enabled: !publicId && !!session,
+	});
+	const shouldQueryWrappedArchetypeGate =
+		!publicId &&
+		!!session &&
+		setupProgress.hasUploadedSessions &&
+		setupProgress.totalSessionCount >=
+			WRAPPED_ARCHETYPE_GATE_THRESHOLDS.min_total_sessions;
+	const wrappedV1Query = useAnalyticsQuery({
+		...orpc.analytics.wrapped.v1.queryOptions({}),
+		enabled: shouldQueryWrappedArchetypeGate,
 	});
 	const cliSetupStatus = useCliSetupStatus({
 		enabled: !publicId && !!session,
@@ -169,8 +182,21 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 		forcedFlowStage === "sessions-landed" && setupProgress.hasUploadedSessions;
 	const shouldForceDesktopReady =
 		forcedFlowStage === WRAPPED_ROUTE_DESKTOP_READY_FLOW;
+	const hasMinimumArchetypeSessionCount =
+		setupProgress.totalSessionCount >=
+		WRAPPED_ARCHETYPE_GATE_THRESHOLDS.min_total_sessions;
+	const archetypeGate = wrappedV1Query.data?.archetype_gate ?? null;
+	const isWrappedArchetypeGateEligible =
+		hasMinimumArchetypeSessionCount && archetypeGate?.is_eligible === true;
+	const shouldHoldForArchetypeGate =
+		setupProgress.hasUploadedSessions && !isWrappedArchetypeGateEligible;
+	const shouldOpenUploadMoreByDefault =
+		setupProgress.hasUploadedSessions &&
+		(!hasMinimumArchetypeSessionCount || archetypeGate?.is_eligible === false);
 	const shouldForceStory =
-		forcedFlowStage === "story" && setupProgress.hasUploadedSessions;
+		forcedFlowStage === "story" &&
+		setupProgress.hasUploadedSessions &&
+		isWrappedArchetypeGateEligible;
 	const signedInMobileHandoffEmail = isMobile ? sessionUserEmail : undefined;
 
 	function setWrappedRouteFlowStage(nextStage: WrappedRouteFlowStage) {
@@ -208,6 +234,10 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 	}
 
 	function handleSetupComplete() {
+		if (!isWrappedArchetypeGateEligible) {
+			return;
+		}
+
 		if (!sessionUserId) {
 			return;
 		}
@@ -380,6 +410,19 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 	} else if (sessionUserId && shouldForceSessionsLanded) {
 		content = (
 			<WrappedSetupCompletePage
+				canContinueToStory={isWrappedArchetypeGateEligible}
+				defaultUploadMoreVisible={shouldOpenUploadMoreByDefault}
+				onBack={() => setWrappedRouteFlowStage("desktop-ready")}
+				onContinue={handleSetupComplete}
+				totalSessionCount={setupProgress.totalSessionCount}
+				userId={sessionUserId}
+			/>
+		);
+	} else if (sessionUserId && shouldHoldForArchetypeGate) {
+		content = (
+			<WrappedSetupCompletePage
+				canContinueToStory={false}
+				defaultUploadMoreVisible={shouldOpenUploadMoreByDefault}
 				onBack={() => setWrappedRouteFlowStage("desktop-ready")}
 				onContinue={handleSetupComplete}
 				totalSessionCount={setupProgress.totalSessionCount}
@@ -388,7 +431,9 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 		);
 	} else if (
 		shouldForceStory ||
-		(setupProgress.hasUploadedSessions && hasCompletedSetup)
+		(setupProgress.hasUploadedSessions &&
+			hasCompletedSetup &&
+			isWrappedArchetypeGateEligible)
 	) {
 		content = (
 			<WrappedTeamCardPage
@@ -555,18 +600,23 @@ function getWrappedRouteFlowStage(
 function WrappedRouteLoadingState(props: { body: string }) {
 	return (
 		<WrappedRouteStageShell
-			description={props.body}
 			progressStepId="account-check"
+			stageClassName="mymind-wrapped-entry-stage--route-loading"
 			stage={
-				<div className="mymind-wrapped-entry-card mymind-wrapped-entry-card--status">
-					<div className="mymind-wrapped-entry-card__status-dot" />
-					<p className="mymind-wrapped-entry-card__status-copy">
-						Holding the route while auth, uploads, and share continuation are
-						resolved.
-					</p>
+				<div
+					aria-busy="true"
+					aria-live="polite"
+					className="mymind-wrapped-route-loading"
+				>
+					<h1 className="sr-only">Loading wrapped</h1>
+					<img
+						alt="Rudel"
+						className="mymind-wrapped-route-loading__logo"
+						src="/logo-dark.svg"
+					/>
+					<p className="mymind-wrapped-route-loading__copy">{props.body}</p>
 				</div>
 			}
-			title="Loading wrapped"
 		/>
 	);
 }

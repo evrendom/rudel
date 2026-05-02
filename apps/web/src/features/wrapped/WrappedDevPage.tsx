@@ -346,7 +346,9 @@ function WrappedDevSetupStage(props: {
 		<>
 			{isUploadedView ? (
 				<WrappedSetupCompletePage
+					canContinueToStory={false}
 					debugControls={debugControls}
+					defaultUploadMoreVisible
 					onBack={onBackToGuide}
 					onContinue={onContinueToStory}
 					reposOverride={WRAPPED_DEBUG_UPLOADED_REPOS}

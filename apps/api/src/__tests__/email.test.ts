@@ -1,9 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import {
+	buildEmailVerificationOtpEmailContent,
 	buildInvitationEmailContent,
 	buildInvitationLink,
 	buildWrappedDesktopResumeLink,
 	getResendConfigWarnings,
+	sendEmailVerificationOtpEmail,
 	sendOrganizationInvitationEmail,
 	syncSignupContact,
 } from "../email.js";
@@ -48,6 +50,18 @@ describe("email helpers", () => {
 		expect(message.html).not.toContain("<script>");
 	});
 
+	test("buildEmailVerificationOtpEmailContent escapes the verification code", () => {
+		const message = buildEmailVerificationOtpEmailContent({
+			otp: '123<45"',
+			type: "sign-in",
+		});
+
+		expect(message.subject).toBe("Your Rudel sign-in code");
+		expect(message.html).toContain("123&lt;45&quot;");
+		expect(message.html).not.toContain('123<45"');
+		expect(message.text).toContain('123<45"');
+	});
+
 	test("getResendConfigWarnings warns when sender is missing", () => {
 		expect(getResendConfigWarnings({ apiKey: "test-key" })).toEqual([
 			"Resend emails are disabled because RESEND_FROM_EMAIL is not set.",
@@ -67,6 +81,21 @@ describe("email helpers", () => {
 		await expect(
 			sendOrganizationInvitationEmail({ apiKey: "test-key" }, invitation),
 		).resolves.toBeUndefined();
+	});
+
+	test("sendEmailVerificationOtpEmail reports failure when config is incomplete", async () => {
+		await expect(
+			sendEmailVerificationOtpEmail(
+				{},
+				{ email: "person@example.com", otp: "123456", type: "sign-in" },
+			),
+		).resolves.toBe(false);
+		await expect(
+			sendEmailVerificationOtpEmail(
+				{ apiKey: "test-key" },
+				{ email: "person@example.com", otp: "123456", type: "sign-in" },
+			),
+		).resolves.toBe(false);
 	});
 
 	test("syncSignupContact returns early when config is incomplete", async () => {

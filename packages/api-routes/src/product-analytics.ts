@@ -32,6 +32,7 @@ export const ProductAnalyticsPlatformOsSchema = z.enum([
 ]);
 
 export const ProductAnalyticsSignupMethodSchema = z.enum([
+	"email_otp",
 	"email_password",
 	"google",
 	"github",
