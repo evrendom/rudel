@@ -9203,7 +9203,7 @@ body.mymind-wrapped-body .woot-widget-bubble {
 			"copy"
 			"object"
 			"support";
-		align-items: start;
+		align-items: stretch;
 		justify-items: center;
 		max-width: 38rem;
 		margin-inline: auto;
@@ -9225,6 +9225,8 @@ body.mymind-wrapped-body .woot-widget-bubble {
 	}
 
 	.mymind-wrapped-final-stage--share .mymind-wrapped-final-stage__object {
+		align-self: stretch;
+		align-items: center;
 		justify-content: center;
 	}
 
