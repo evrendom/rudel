@@ -4356,14 +4356,14 @@ body.mymind-wrapped-body .woot-widget-bubble {
 .mymind-wrapped-route-loading {
 	display: grid;
 	justify-items: center;
-	gap: 0.85rem;
+	gap: 1.15rem;
 	width: min(100%, 20rem);
 	margin: auto;
 	text-align: center;
 }
 
 .mymind-wrapped-route-loading__logo {
-	width: 3rem;
+	width: 2.65rem;
 	height: auto;
 }
 
