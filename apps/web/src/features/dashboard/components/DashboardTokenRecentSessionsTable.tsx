@@ -198,6 +198,7 @@ export function DashboardTokenRecentSessionsTable({
 	const hasChartHighlight =
 		highlightSource === "chart" && highlightedSessionId != null;
 	const hasHoveredSession = hoveredSessionId != null;
+	const canShowSessionHoverPreview = onSessionClick !== undefined;
 
 	function handleRowHoverChange(sessionId: string | null) {
 		setHoveredSessionId(sessionId);
@@ -237,7 +238,10 @@ export function DashboardTokenRecentSessionsTable({
 						header: "Time",
 						renderCell: (session) => (
 							<DashboardTokenRecentSessionsTimeCell
-								isHovered={hoveredSessionId === session.session_id}
+								isHovered={
+									canShowSessionHoverPreview &&
+									hoveredSessionId === session.session_id
+								}
 								sessionDate={session.session_date}
 							/>
 						),
@@ -326,7 +330,9 @@ export function DashboardTokenRecentSessionsTable({
 				rowKey={(session) => session.session_id}
 				gridTemplateColumns="120px minmax(180px,11fr) minmax(180px,9fr) minmax(180px,9fr) 140px minmax(180px,0.95fr) 120px"
 				minWidthClassName="min-w-[82rem]"
-				onRowHoverChange={handleRowHoverChange}
+				onRowHoverChange={
+					canShowSessionHoverPreview ? handleRowHoverChange : undefined
+				}
 				getHoverRowId={(session) => session.session_id}
 				onRowClick={onSessionClick}
 				isRowClickable={canOpenSession}
@@ -336,10 +342,12 @@ export function DashboardTokenRecentSessionsTable({
 						onSessionClick &&
 							(canOpenSession?.(session) ?? true) &&
 							"cursor-pointer",
-						hasHoveredSession &&
+						canShowSessionHoverPreview &&
+							hasHoveredSession &&
 							hoveredSessionId !== session.session_id &&
 							"opacity-40",
-						hoveredSessionId === session.session_id &&
+						canShowSessionHoverPreview &&
+							hoveredSessionId === session.session_id &&
 							"bg-[color:var(--dashboardy-subsurface-strong)] odd:bg-[color:var(--dashboardy-subsurface-strong)]",
 						hasTableHighlight &&
 							"bg-[color:var(--dashboardy-surface)] odd:bg-[color:var(--dashboardy-surface)]",
