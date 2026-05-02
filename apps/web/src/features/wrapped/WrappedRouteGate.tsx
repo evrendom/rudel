@@ -567,7 +567,7 @@ function WrappedRouteLoadingState(props: { body: string }) {
 					<img
 						alt="Rudel"
 						className="mymind-wrapped-route-loading__logo"
-						src="/logo-dark.svg"
+						src="/favicon-light.svg"
 					/>
 					<p className="mymind-wrapped-route-loading__copy">{props.body}</p>
 				</div>

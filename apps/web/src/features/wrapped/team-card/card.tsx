@@ -181,7 +181,7 @@ export function WrappedTeamMemberCard(props: {
 		resolvedStatLayerOpacities.textTone === "muted-white";
 	const usesTeamCardPreviewLayout = layoutPreset === "team-card-preview";
 	const rudelLogoSrc =
-		isDarkTheme || isMutedTheme ? "/logo-light.svg" : "/logo-dark.svg";
+		isDarkTheme || isMutedTheme ? "/favicon-dark.svg" : "/favicon-light.svg";
 	const whiteMaskOpacity =
 		resolvedStatLayerOpacities.whiteMaskOpacity ??
 		1 - resolvedStatLayerOpacities.textureOpacity;

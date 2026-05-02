@@ -179,7 +179,7 @@ export function Sidebar() {
 	console.log(isAdmin, ADMIN_ORGANIZATION_ID, organizations);
 
 	const logoSrc =
-		resolvedTheme === "dark" ? "/logo-light.svg" : "/logo-dark.svg";
+		resolvedTheme === "dark" ? "/favicon-dark.svg" : "/favicon-light.svg";
 
 	const trackSidebarNavigation = (
 		sourceComponent: string,

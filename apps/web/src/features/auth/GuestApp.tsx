@@ -19,7 +19,7 @@ export function GuestApp(props: GuestAppProps = {}) {
 	return (
 		<div className="flex min-h-screen flex-col items-center justify-center gap-6">
 			{showLogo ? (
-				<img src="/logo-dark.svg" alt="Rudel" className="h-10 w-10" />
+				<img src="/favicon-light.svg" alt="Rudel" className="h-10 w-10" />
 			) : null}
 			{eyebrow || title || description ? (
 				<div className="max-w-2xl space-y-3 px-4 text-center">
