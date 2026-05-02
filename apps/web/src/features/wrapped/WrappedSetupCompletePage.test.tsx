@@ -205,6 +205,56 @@ describe("WrappedSetupCompletePage", () => {
 			timeout: 2000,
 		});
 	});
+
+	it("opens upload-more by default and blocks story continuation while gated", async () => {
+		const user = userEvent.setup();
+		const onContinue = vi.fn();
+
+		mockUseAnalyticsQuery.mockReturnValue({
+			data: undefined,
+			isLoading: false,
+		});
+
+		render(
+			<MemoryRouter>
+				<WrappedSetupCompletePage
+					canContinueToStory={false}
+					defaultUploadMoreVisible
+					onContinue={onContinue}
+					reposOverride={[
+						{
+							name: "geneva",
+							projectPath: "/Users/ada/geneva",
+							sessions: 99,
+						},
+					]}
+					totalSessionCount={99}
+					userId="user-1"
+				/>
+			</MemoryRouter>,
+		);
+
+		expect(screen.getByText("99 sessions across 1 repo")).toBeInTheDocument();
+		expect(
+			screen.getByText(
+				"Auto upload future and historical sessions in the given repo",
+			),
+		).toBeInTheDocument();
+		expect(
+			screen.getByText(
+				"Manually select sessions in a given repo with no auto upload in the future",
+			),
+		).toBeInTheDocument();
+
+		const continueButton = screen.getByRole("button", {
+			name: "Upload more to unlock",
+		});
+		expect(continueButton).toBeDisabled();
+
+		await user.click(continueButton);
+
+		expect(onContinue).not.toHaveBeenCalled();
+	});
 });
 
 function hasExactTextContent(expectedText: string) {

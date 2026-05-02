@@ -22,7 +22,6 @@ import { WrappedOnboardingSkillsStage } from "./stages/skills";
 import { WrappedOnboardingToolsStage } from "./stages/tools";
 import { WrappedOnboardingUploadStage } from "./stages/upload";
 import type {
-	WrappedModelAdvanceState,
 	WrappedOnboardingMetrics,
 	WrappedScaleAdvanceState,
 } from "./types";
@@ -30,10 +29,8 @@ import type {
 interface WrappedOnboardingStageProps {
 	displayName: string;
 	isExiting: boolean;
-	modelAdvanceState?: WrappedModelAdvanceState;
 	onboardingMetrics: WrappedOnboardingMetrics;
 	onModelComparisonSequenceComplete?: () => void;
-	onModelHistoryRevealComplete?: () => void;
 	onScaleAdvanceSequenceComplete?: () => void;
 	onScaleRainRevealChange?: (isVisible: boolean) => void;
 	onToolsBaseModelSequenceComplete?: () => void;
@@ -83,10 +80,8 @@ export function WrappedOnboardingStage(props: WrappedOnboardingStageProps) {
 	const {
 		displayName,
 		isExiting,
-		modelAdvanceState,
 		onboardingMetrics,
 		onModelComparisonSequenceComplete,
-		onModelHistoryRevealComplete,
 		onScaleAdvanceSequenceComplete,
 		onScaleRainRevealChange,
 		onToolsBaseModelSequenceComplete,
@@ -134,16 +129,14 @@ export function WrappedOnboardingStage(props: WrappedOnboardingStageProps) {
 	if (step.id === "model") {
 		return (
 			<WrappedOnboardingModelStage
-				key={`model:${previewState}:${onboardingMetrics.totalSessions}:${onboardingMetrics.modelByMonth.length}:${onboardingMetrics.sourceSplit
+				key={`model:${previewState}:${onboardingMetrics.totalSessions}:${onboardingMetrics.sourceSplit
 					.map(
 						(sourceEntry) =>
 							`${sourceEntry.source}:${sourceEntry.session_count}`,
 					)
 					.join("|")}`}
-				advanceState={modelAdvanceState ?? "intro"}
 				onboardingMetrics={onboardingMetrics}
 				onComparisonSequenceComplete={onModelComparisonSequenceComplete}
-				onHistoryRevealComplete={onModelHistoryRevealComplete}
 				previewState={previewState}
 			/>
 		);

@@ -12,7 +12,6 @@ import {
 import {
 	formatModelStageSourceLabel,
 	getModelStageTone,
-	hasModelStageSourceComparison,
 	resolveModelPreviewInput,
 	resolveModelStageModel,
 } from "./models/model-mix";
@@ -66,7 +65,6 @@ export {
 	getSkillsScrollableCardStyle,
 	getToolsEntryStyle,
 	getToolsStackHeightRem,
-	hasModelStageSourceComparison,
 	resolveLockInPreviewInput,
 	resolveLockInStageModel,
 	resolveModelPreviewInput,
@@ -120,7 +118,6 @@ export function buildStepContent(input: {
 			const modelStage = resolveModelStageModel(
 				resolveModelPreviewInput(
 					{
-						modelByMonth: onboardingMetrics.modelByMonth,
 						sourceSplit: onboardingMetrics.sourceSplit,
 					},
 					previewState,

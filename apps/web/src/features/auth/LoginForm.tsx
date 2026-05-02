@@ -1,5 +1,4 @@
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { useEffect, useState } from "react";
+import { type FormEvent, useState } from "react";
 import { Button } from "@/app/ui/button";
 import { Input } from "@/app/ui/input";
 import { Label } from "@/app/ui/label";
@@ -15,20 +14,27 @@ import {
 	getSocialLoginRedirectOptions,
 } from "./auth-route-utils";
 import {
+	type EmailAuthFeedback,
+	type EmailCodeStage,
+	isValidAuthEmail,
+	isValidEmailCode,
+	normalizeAuthEmail,
+	sanitizeEmailCodeInput,
+} from "./email-code-auth";
+import {
 	recordOAuthRedirectResult,
 	recordOAuthRedirectStart,
 } from "./oauth-debug";
-import {
-	getWrappedAuthSceneItemMotion,
-	getWrappedAuthSceneMotion,
-	getWrappedAuthSceneShellMotion,
-	type WrappedAuthScene,
-} from "./wrapped-auth-motion";
+import type { WrappedAuthScene } from "./wrapped-auth-motion";
+import { WrappedEmailCodeAuth } from "./wrapped-email-code-auth";
 
-type FeedbackState = {
-	kind: "error" | "success";
-	message: string;
-} | null;
+const LOGIN_CODE_INPUT_ID = "login-code";
+const WRAPPED_LOGIN_EMAIL_INPUT_ID = "login-email";
+const WRAPPED_LOGIN_AUTH_LABELS = {
+	email: "Log in with Email",
+	github: "Log in with GitHub",
+	google: "Log in with Google",
+};
 
 interface LoginFormProps {
 	hideSwitchPrompt?: boolean;
@@ -45,10 +51,10 @@ export function LoginForm(props: LoginFormProps) {
 		variant = "default",
 	} = props;
 	const [email, setEmail] = useState("");
-	const [password, setPassword] = useState("");
-	const [feedback, setFeedback] = useState<FeedbackState>(null);
+	const [emailCode, setEmailCode] = useState("");
+	const [emailCodeStage, setEmailCodeStage] = useState<EmailCodeStage>("email");
+	const [feedback, setFeedback] = useState<EmailAuthFeedback>(null);
 	const [loading, setLoading] = useState(false);
-	const [requestingPasswordReset, setRequestingPasswordReset] = useState(false);
 	const [showEmailForm, setShowEmailForm] = useState(false);
 	const [wrappedScene, setWrappedScene] = useState<WrappedAuthScene>("choice");
 	const { trackAuthenticationAction } = useAnalyticsTracking({
@@ -57,36 +63,19 @@ export function LoginForm(props: LoginFormProps) {
 	const isWrappedStory = variant === "wrapped-story";
 	const usesWrappedEmailPreview =
 		isWrappedStory && onEmailPasswordPreviewSubmit !== undefined;
-	const hasValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
-	const shouldReduceMotion = useReducedMotion() ?? false;
-	const [hasMountedWrappedScene, setHasMountedWrappedScene] = useState(false);
-	const wrappedSceneShellMotion =
-		getWrappedAuthSceneShellMotion(shouldReduceMotion);
-	const wrappedSceneMotion = getWrappedAuthSceneMotion(shouldReduceMotion);
+	const hasValidEmail = isValidAuthEmail(email);
+	const hasValidEmailCode = isValidEmailCode(emailCode);
 
-	useEffect(() => {
-		if (!isWrappedStory) {
-			return;
-		}
-
-		setHasMountedWrappedScene(true);
-	}, [isWrappedStory]);
-
-	function getWrappedSceneItemMotion(delay = 0) {
-		return getWrappedAuthSceneItemMotion(shouldReduceMotion, delay);
-	}
-
-	function getWrappedSceneInitialState<T>(initial: T): T | false {
-		return hasMountedWrappedScene ? initial : false;
-	}
-
-	async function handleSubmit(e: React.FormEvent) {
+	async function handleSubmit(e: FormEvent) {
 		e.preventDefault();
 		setFeedback(null);
+		const loginEmail = normalizeAuthEmail(email);
 
 		if (usesWrappedEmailPreview) {
 			if (!hasValidEmail) {
-				const emailField = document.getElementById("login-email");
+				const emailField = document.getElementById(
+					WRAPPED_LOGIN_EMAIL_INPUT_ID,
+				);
 				if (emailField instanceof HTMLInputElement) {
 					emailField.focus();
 				}
@@ -97,19 +86,24 @@ export function LoginForm(props: LoginFormProps) {
 				return;
 			}
 
-			if (!password.trim()) {
-				const passwordField = document.getElementById("password");
-				if (passwordField instanceof HTMLInputElement) {
-					passwordField.focus();
-				}
-				setFeedback({
-					kind: "error",
-					message: "Enter a password to continue.",
-				});
-				return;
-			}
+			onEmailPasswordPreviewSubmit(loginEmail);
+			return;
+		}
 
-			onEmailPasswordPreviewSubmit(email.trim());
+		if (emailCodeStage === "email") {
+			await sendEmailCode();
+			return;
+		}
+
+		if (!hasValidEmailCode) {
+			const codeField = document.getElementById(LOGIN_CODE_INPUT_ID);
+			if (codeField instanceof HTMLInputElement) {
+				codeField.focus();
+			}
+			setFeedback({
+				kind: "error",
+				message: "Enter the 6-digit code from your email.",
+			});
 			return;
 		}
 
@@ -117,11 +111,14 @@ export function LoginForm(props: LoginFormProps) {
 		trackAuthenticationAction({
 			actionName: "sign_in",
 			sourceComponent: "login_form",
-			authMethod: "email_password",
+			authMethod: "email_otp",
 		});
 		clearPendingSignupRedirect();
 		setLoading(true);
-		const { error } = await authClient.signIn.email({ email, password });
+		const { error } = await authClient.signIn.emailOtp({
+			email: loginEmail,
+			otp: emailCode,
+		});
 		setLoading(false);
 		if (error) {
 			setFeedback({
@@ -129,7 +126,7 @@ export function LoginForm(props: LoginFormProps) {
 				message: formatAuthErrorMessage({
 					error,
 					fallbackMessage: "Sign in failed",
-					operation: "email password sign in",
+					operation: "email code sign in",
 				}),
 			});
 			return;
@@ -139,48 +136,55 @@ export function LoginForm(props: LoginFormProps) {
 		navigateToDestination(successDestination);
 	}
 
-	async function handleRequestPasswordReset() {
-		if (!email.trim()) {
-			const emailField = document.getElementById("email");
+	async function sendEmailCode() {
+		setFeedback(null);
+		const loginEmail = normalizeAuthEmail(email);
+
+		if (!hasValidEmail) {
+			const emailField = document.getElementById(
+				isWrappedStory ? WRAPPED_LOGIN_EMAIL_INPUT_ID : "email",
+			);
 			if (emailField instanceof HTMLInputElement) {
 				emailField.focus();
 			}
 			setFeedback({
 				kind: "error",
-				message:
-					"Enter your email first and we will send the reset link there.",
+				message: "Enter a valid email to continue.",
 			});
 			return;
 		}
 
 		trackAuthenticationAction({
-			actionName: "request_password_reset",
+			actionName: "request_email_code",
 			sourceComponent: "login_form",
-			authMethod: "email_password",
+			authMethod: "email_otp",
 		});
-		setFeedback(null);
-		setRequestingPasswordReset(true);
-		const { error } = await authClient.requestPasswordReset({
-			email,
-			redirectTo: `${window.location.origin}/reset-password`,
+		setLoading(true);
+		const { error } = await authClient.emailOtp.sendVerificationOtp({
+			email: loginEmail,
+			type: "sign-in",
 		});
-		setRequestingPasswordReset(false);
+		setLoading(false);
 
 		if (error) {
 			setFeedback({
 				kind: "error",
 				message: formatAuthErrorMessage({
 					error,
-					fallbackMessage: "Could not send password reset email",
-					operation: "password reset request",
+					fallbackMessage: "Could not send the email code",
+					operation: "email code request",
 				}),
 			});
 			return;
 		}
 
+		setEmail(loginEmail);
+		setEmailCode("");
+		setEmailCodeStage("code");
+		setWrappedScene("credentials");
 		setFeedback({
 			kind: "success",
-			message: `If an account exists for ${email.trim()}, a reset link is on its way.`,
+			message: `We sent a 6-digit code to ${loginEmail}.`,
 		});
 	}
 
@@ -220,35 +224,31 @@ export function LoginForm(props: LoginFormProps) {
 		}
 	}
 
-	function renderWrappedFeedback() {
-		if (!feedback) {
-			return null;
+	function handleEmailChange(value: string) {
+		setEmail(value);
+		if (feedback) {
+			setFeedback(null);
 		}
+	}
 
-		return (
-			<div
-				role={feedback.kind === "error" ? "alert" : "status"}
-				aria-live="polite"
-				className={cn(
-					"mymind-wrapped-auth-form__feedback",
-					feedback.kind === "error" ? "is-error" : "is-success",
-				)}
-			>
-				{feedback.message}
-			</div>
-		);
+	function handleEmailCodeChange(value: string) {
+		setEmailCode(sanitizeEmailCodeInput(value));
+		if (feedback?.kind === "error") {
+			setFeedback(null);
+		}
 	}
 
 	function handleOpenWrappedEmail() {
 		setFeedback(null);
-		setPassword("");
+		setEmailCode("");
+		setEmailCodeStage("email");
 		setWrappedScene("email");
 	}
 
 	function handleContinueWrappedEmail() {
 		setFeedback(null);
 		if (!hasValidEmail) {
-			const emailField = document.getElementById("login-email");
+			const emailField = document.getElementById(WRAPPED_LOGIN_EMAIL_INPUT_ID);
 			if (emailField instanceof HTMLInputElement) {
 				emailField.focus();
 			}
@@ -258,282 +258,41 @@ export function LoginForm(props: LoginFormProps) {
 			});
 			return;
 		}
-		setPassword("");
-		setWrappedScene("credentials");
+		if (usesWrappedEmailPreview) {
+			onEmailPasswordPreviewSubmit?.(normalizeAuthEmail(email));
+			return;
+		}
+		void sendEmailCode();
 	}
 
 	function handleReturnToWrappedChoice() {
 		setFeedback(null);
-		setPassword("");
+		setEmailCode("");
+		setEmailCodeStage("email");
 		setWrappedScene("choice");
-	}
-
-	function renderWrappedChoiceScene() {
-		return (
-			<motion.div
-				key="choice"
-				animate={wrappedSceneShellMotion.animate}
-				className="mymind-wrapped-auth-form__scene mymind-wrapped-auth-form__scene--choice"
-				exit={wrappedSceneShellMotion.exit}
-				initial={getWrappedSceneInitialState(wrappedSceneShellMotion.initial)}
-				transition={wrappedSceneShellMotion.transition}
-			>
-				<div className="mymind-wrapped-auth-form__choice-footer">
-					<div className="mymind-wrapped-auth-form__social">
-						<motion.div
-							animate={getWrappedSceneItemMotion().animate}
-							className="mymind-wrapped-auth-form__action-item"
-							exit={getWrappedSceneItemMotion().exit}
-							initial={getWrappedSceneInitialState(
-								getWrappedSceneItemMotion().initial,
-							)}
-							transition={getWrappedSceneItemMotion().transition}
-						>
-							<Button
-								type="button"
-								variant="outline"
-								className="mymind-wrapped-secondary-action rounded-full"
-								onClick={() => handleSocialSignIn("google")}
-							>
-								Log in with Google
-							</Button>
-						</motion.div>
-						<motion.div
-							animate={getWrappedSceneItemMotion(0.04).animate}
-							className="mymind-wrapped-auth-form__action-item"
-							exit={getWrappedSceneItemMotion(0.04).exit}
-							initial={getWrappedSceneInitialState(
-								getWrappedSceneItemMotion(0.04).initial,
-							)}
-							transition={getWrappedSceneItemMotion(0.04).transition}
-						>
-							<Button
-								type="button"
-								variant="outline"
-								className="mymind-wrapped-secondary-action rounded-full"
-								onClick={() => handleSocialSignIn("github")}
-							>
-								Log in with GitHub
-							</Button>
-						</motion.div>
-					</div>
-
-					<motion.div
-						animate={getWrappedSceneItemMotion(0.08).animate}
-						className="mymind-wrapped-auth-form__divider"
-						exit={getWrappedSceneItemMotion(0.08).exit}
-						initial={getWrappedSceneInitialState(
-							getWrappedSceneItemMotion(0.08).initial,
-						)}
-						transition={getWrappedSceneItemMotion(0.08).transition}
-					>
-						<Separator className="mymind-wrapped-auth-form__divider-line" />
-						<span className="mymind-wrapped-auth-form__divider-label">OR</span>
-						<Separator className="mymind-wrapped-auth-form__divider-line" />
-					</motion.div>
-
-					<motion.div
-						animate={getWrappedSceneItemMotion(0.12).animate}
-						className="mymind-wrapped-auth-form__action-item"
-						exit={getWrappedSceneItemMotion(0.12).exit}
-						initial={getWrappedSceneInitialState(
-							getWrappedSceneItemMotion(0.12).initial,
-						)}
-						transition={getWrappedSceneItemMotion(0.12).transition}
-					>
-						<Button
-							type="button"
-							onClick={handleOpenWrappedEmail}
-							className="mymind-wrapped-entry-action mymind-wrapped-auth-form__scene-action h-11 rounded-full px-7 [font-family:var(--app-font-heading)] text-[1.0625rem] font-semibold"
-						>
-							Log in with Email
-						</Button>
-					</motion.div>
-
-					{renderWrappedFeedback()}
-				</div>
-			</motion.div>
-		);
-	}
-
-	function renderWrappedEmailPasswordScene() {
-		const isPasswordStep = wrappedScene === "credentials";
-
-		return (
-			<motion.div
-				key="email-password"
-				animate={wrappedSceneShellMotion.animate}
-				className={cn(
-					"mymind-wrapped-auth-form__scene mymind-wrapped-auth-form__scene--email",
-					isPasswordStep
-						? "mymind-wrapped-auth-form__scene--credentials"
-						: null,
-				)}
-				exit={wrappedSceneShellMotion.exit}
-				initial={getWrappedSceneInitialState(wrappedSceneShellMotion.initial)}
-				transition={wrappedSceneShellMotion.transition}
-			>
-				<form
-					noValidate
-					onSubmit={(event) => {
-						if (!isPasswordStep) {
-							event.preventDefault();
-							handleContinueWrappedEmail();
-							return;
-						}
-
-						void handleSubmit(event);
-					}}
-					className="mymind-wrapped-auth-form__scene-form"
-				>
-					<motion.div
-						animate={wrappedSceneMotion.enter}
-						className="mymind-wrapped-auth-form__scene-fields"
-						exit={wrappedSceneMotion.exit}
-						initial={getWrappedSceneInitialState(wrappedSceneMotion.initial)}
-						transition={wrappedSceneMotion.transition}
-					>
-						<motion.div
-							layout="position"
-							className="mymind-wrapped-auth-form__field"
-							transition={wrappedSceneMotion.transition}
-						>
-							<Input
-								aria-label="Email"
-								autoComplete="email"
-								autoFocus={!isPasswordStep}
-								id="login-email"
-								name="email"
-								type="email"
-								placeholder="you@example.com"
-								value={email}
-								onChange={(e) => {
-									setEmail(e.target.value);
-									if (feedback) {
-										setFeedback(null);
-									}
-								}}
-								className="mymind-wrapped-auth-form__input"
-								required
-							/>
-						</motion.div>
-						<AnimatePresence initial={false}>
-							{isPasswordStep ? (
-								<motion.div
-									key="password"
-									animate={wrappedSceneMotion.enter}
-									className="mymind-wrapped-auth-form__field"
-									exit={wrappedSceneMotion.exit}
-									initial={wrappedSceneMotion.initial}
-									transition={wrappedSceneMotion.transition}
-								>
-									<Input
-										autoFocus
-										aria-label="Password"
-										id="password"
-										name="password"
-										type="password"
-										autoComplete="current-password"
-										placeholder="Password"
-										value={password}
-										onChange={(e) => {
-											setPassword(e.target.value);
-											if (feedback?.kind === "error") {
-												setFeedback(null);
-											}
-										}}
-										className="mymind-wrapped-auth-form__input"
-										required
-									/>
-									{usesWrappedEmailPreview ? null : (
-										<Button
-											type="button"
-											variant="ghost"
-											size="xs"
-											onClick={() => {
-												void handleRequestPasswordReset();
-											}}
-											disabled={requestingPasswordReset}
-											className="mymind-wrapped-auth-form__inline-action"
-										>
-											{requestingPasswordReset
-												? "Sending link..."
-												: feedback?.kind === "success"
-													? "Resend link"
-													: "Forgot password?"}
-										</Button>
-									)}
-								</motion.div>
-							) : null}
-						</AnimatePresence>
-					</motion.div>
-
-					{renderWrappedFeedback()}
-
-					<motion.div
-						animate={getWrappedSceneItemMotion(0.08).animate}
-						className="mymind-wrapped-auth-form__action-item mymind-wrapped-auth-form__action-item--primary"
-						exit={getWrappedSceneItemMotion(0.08).exit}
-						initial={getWrappedSceneInitialState(
-							getWrappedSceneItemMotion(0.08).initial,
-						)}
-						transition={getWrappedSceneItemMotion(0.08).transition}
-					>
-						<Button
-							type="submit"
-							disabled={
-								isPasswordStep && !usesWrappedEmailPreview
-									? loading || requestingPasswordReset
-									: false
-							}
-							className="mymind-wrapped-entry-action mymind-wrapped-auth-form__scene-action h-11 rounded-full px-7 [font-family:var(--app-font-heading)] text-[1.0625rem] font-semibold"
-						>
-							{isPasswordStep
-								? loading
-									? "Signing in..."
-									: "Sign in"
-								: "Continue"}
-						</Button>
-					</motion.div>
-
-					{isPasswordStep ? null : (
-						<motion.div
-							animate={getWrappedSceneItemMotion(0.1).animate}
-							className="mymind-wrapped-auth-form__action-item"
-							exit={getWrappedSceneItemMotion(0.1).exit}
-							initial={getWrappedSceneInitialState(
-								getWrappedSceneItemMotion(0.1).initial,
-							)}
-							transition={getWrappedSceneItemMotion(0.1).transition}
-						>
-							<button
-								type="button"
-								onClick={handleReturnToWrappedChoice}
-								className="mymind-wrapped-auth-form__scene-link"
-							>
-								Use another method
-							</button>
-						</motion.div>
-					)}
-				</form>
-			</motion.div>
-		);
 	}
 
 	if (isWrappedStory) {
 		return (
-			<div
-				className="mymind-wrapped-auth-form"
-				data-email-auth-stage={wrappedScene}
-			>
-				<div className="mymind-wrapped-auth-form__scene-shell">
-					<AnimatePresence initial={false} mode="wait">
-						{wrappedScene === "choice"
-							? renderWrappedChoiceScene()
-							: renderWrappedEmailPasswordScene()}
-					</AnimatePresence>
-				</div>
-			</div>
+			<WrappedEmailCodeAuth
+				codeInputId={LOGIN_CODE_INPUT_ID}
+				email={email}
+				emailCode={emailCode}
+				emailInputId={WRAPPED_LOGIN_EMAIL_INPUT_ID}
+				feedback={feedback}
+				labels={WRAPPED_LOGIN_AUTH_LABELS}
+				loading={loading}
+				onCodeChange={handleEmailCodeChange}
+				onContinueEmail={handleContinueWrappedEmail}
+				onEmailChange={handleEmailChange}
+				onOpenEmail={handleOpenWrappedEmail}
+				onReturnToChoice={handleReturnToWrappedChoice}
+				onSocialSignIn={handleSocialSignIn}
+				onSubmit={handleSubmit}
+				onUseDifferentEmail={handleOpenWrappedEmail}
+				scene={wrappedScene}
+				usesPreviewSubmit={usesWrappedEmailPreview}
+			/>
 		);
 	}
 
@@ -584,6 +343,7 @@ export function LoginForm(props: LoginFormProps) {
 						<div className="flex flex-col gap-2">
 							<Label htmlFor="email">Email</Label>
 							<Input
+								disabled={emailCodeStage === "code"}
 								id="email"
 								name="email"
 								type="email"
@@ -591,51 +351,50 @@ export function LoginForm(props: LoginFormProps) {
 								placeholder="you@example.com"
 								value={email}
 								onChange={(e) => {
-									setEmail(e.target.value);
-									if (feedback) {
-										setFeedback(null);
-									}
+									handleEmailChange(e.target.value);
 								}}
 								required
 							/>
 						</div>
-						<div className="flex flex-col gap-2">
-							<div className="flex items-center justify-between gap-3">
-								<Label htmlFor="password">Password</Label>
+						{emailCodeStage === "code" ? (
+							<div className="flex flex-col gap-2">
+								<Label htmlFor={LOGIN_CODE_INPUT_ID}>Email code</Label>
+								<Input
+									autoComplete="one-time-code"
+									id={LOGIN_CODE_INPUT_ID}
+									inputMode="numeric"
+									name="code"
+									pattern="[0-9]*"
+									placeholder="123456"
+									value={emailCode}
+									onChange={(e) => {
+										handleEmailCodeChange(e.target.value);
+									}}
+									required
+								/>
 								<Button
 									type="button"
 									variant="ghost"
 									size="xs"
 									onClick={() => {
-										void handleRequestPasswordReset();
+										setFeedback(null);
+										setEmailCode("");
+										setEmailCodeStage("email");
 									}}
-									disabled={requestingPasswordReset}
-									className="text-muted-foreground hover:text-foreground"
+									className="self-start px-0 text-muted-foreground hover:text-foreground"
 								>
-									{requestingPasswordReset
-										? "Sending link..."
-										: feedback?.kind === "success"
-											? "Resend link"
-											: "Forgot password?"}
+									Use a different email
 								</Button>
 							</div>
-							<Input
-								id="password"
-								name="password"
-								type="password"
-								autoComplete="current-password"
-								value={password}
-								onChange={(e) => {
-									setPassword(e.target.value);
-									if (feedback?.kind === "error") {
-										setFeedback(null);
-									}
-								}}
-								required
-							/>
-						</div>
-						<Button type="submit" disabled={loading || requestingPasswordReset}>
-							{loading ? "Signing in..." : "Sign in"}
+						) : null}
+						<Button type="submit" disabled={loading}>
+							{emailCodeStage === "code"
+								? loading
+									? "Verifying..."
+									: "Verify code"
+								: loading
+									? "Sending code..."
+									: "Send code"}
 						</Button>
 					</form>
 				) : (
@@ -643,6 +402,9 @@ export function LoginForm(props: LoginFormProps) {
 						type="button"
 						variant="outline"
 						onClick={() => {
+							setFeedback(null);
+							setEmailCode("");
+							setEmailCodeStage("email");
 							setShowEmailForm(true);
 						}}
 					>

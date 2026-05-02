@@ -30,6 +30,18 @@ export interface PasswordResetEmailContent {
 	text: string;
 }
 
+export type EmailVerificationOtpType =
+	| "change-email"
+	| "email-verification"
+	| "forget-password"
+	| "sign-in";
+
+export interface EmailVerificationOtpEmailContent {
+	subject: string;
+	html: string;
+	text: string;
+}
+
 export interface WrappedDesktopResumeEmailContent {
 	subject: string;
 	html: string;
@@ -119,6 +131,40 @@ export function buildPasswordResetEmailContent(
 <p>${escapeHtml(safeUrl)}</p>
 `,
 		text: `We received a request to reset your Rudel password.\n\nReset your password here: ${safeUrl}`,
+	};
+}
+
+function getEmailVerificationOtpSubject(type: EmailVerificationOtpType) {
+	if (type === "change-email") {
+		return "Verify your new Rudel email";
+	}
+
+	if (type === "forget-password") {
+		return "Reset your Rudel password";
+	}
+
+	if (type === "email-verification") {
+		return "Verify your Rudel email";
+	}
+
+	return "Your Rudel sign-in code";
+}
+
+export function buildEmailVerificationOtpEmailContent(data: {
+	otp: string;
+	type: EmailVerificationOtpType;
+}): EmailVerificationOtpEmailContent {
+	const safeOtp = normalizeText(data.otp);
+	const subject = getEmailVerificationOtpSubject(data.type);
+
+	return {
+		subject,
+		html: `
+<p>Your Rudel code is:</p>
+<p style="font-size:28px;letter-spacing:6px;font-weight:700;">${escapeHtml(safeOtp)}</p>
+<p>This code expires in 5 minutes. If you did not request it, you can ignore this email.</p>
+`,
+		text: `Your Rudel code is: ${safeOtp}\n\nThis code expires in 5 minutes. If you did not request it, you can ignore this email.`,
 	};
 }
 
@@ -237,6 +283,45 @@ export async function sendPasswordResetEmail(
 			email: data.email,
 			error: err,
 		});
+	}
+}
+
+export async function sendEmailVerificationOtpEmail(
+	config: ResendConfig,
+	data: {
+		email: string;
+		otp: string;
+		type: EmailVerificationOtpType;
+	},
+): Promise<boolean> {
+	if (!config.apiKey || !config.fromEmail) {
+		return false;
+	}
+
+	const message = buildEmailVerificationOtpEmailContent({
+		otp: data.otp,
+		type: data.type,
+	});
+
+	try {
+		const resend = new Resend(config.apiKey);
+		await resend.emails.send({
+			from: config.fromEmail,
+			to: data.email,
+			subject: message.subject,
+			html: message.html,
+			text: message.text,
+		});
+		logger.info("Email verification code sent to {email}", {
+			email: data.email,
+		});
+		return true;
+	} catch (err) {
+		logger.error("Failed to send email verification code to {email}: {error}", {
+			email: data.email,
+			error: err,
+		});
+		return false;
 	}
 }
 

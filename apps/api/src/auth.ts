@@ -4,9 +4,15 @@ import { PRODUCT_ANALYTICS_EVENTS } from "@rudel/api-routes";
 import * as schema from "@rudel/sql-schema";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { bearer, deviceAuthorization, organization } from "better-auth/plugins";
+import {
+	bearer,
+	deviceAuthorization,
+	emailOTP,
+	organization,
+} from "better-auth/plugins";
 import type { ResendConfig } from "./email.js";
 import {
+	sendEmailVerificationOtpEmail,
 	sendOrganizationInvitationEmail,
 	sendPasswordResetEmail,
 	syncSignupContact,
@@ -18,12 +24,16 @@ const logger = getLogger(["rudel", "api", "auth"]);
 
 function inferSignupMethod(
 	accounts: Array<{ providerId?: string | null }>,
-): "email_password" | "google" | "github" {
+	context?: { path?: string },
+): "email_otp" | "email_password" | "google" | "github" {
 	if (accounts.some((account) => account.providerId === "github")) {
 		return "github";
 	}
 	if (accounts.some((account) => account.providerId === "google")) {
 		return "google";
+	}
+	if (context?.path === "/sign-in/email-otp") {
+		return "email_otp";
 	}
 	return "email_password";
 }
@@ -131,6 +141,26 @@ export function createAuth(db: object, config: AuthConfig) {
 		},
 		socialProviders: config.socialProviders,
 		plugins: [
+			emailOTP({
+				allowedAttempts: 5,
+				expiresIn: 5 * 60,
+				otpLength: 6,
+				rateLimit: {
+					window: 60,
+					max: 5,
+				},
+				storeOTP: "hashed",
+				sendVerificationOTP: async ({ email, otp, type }) => {
+					const isSent = await sendEmailVerificationOtpEmail(resend, {
+						email,
+						otp,
+						type,
+					});
+					if (!isSent) {
+						throw new Error("Email verification code delivery is unavailable");
+					}
+				},
+			}),
 			bearer(),
 			apiKey({
 				keyExpiration: {
@@ -210,7 +240,7 @@ export function createAuth(db: object, config: AuthConfig) {
 							event: PRODUCT_ANALYTICS_EVENTS.ACCOUNT_SIGNED_UP,
 							payload: {
 								user_id: user.id,
-								signup_method: inferSignupMethod(accounts),
+								signup_method: inferSignupMethod(accounts, ctx ?? undefined),
 								is_default_organization_ready: isDefaultOrganizationReady,
 								organization_id: organizationId,
 							},
