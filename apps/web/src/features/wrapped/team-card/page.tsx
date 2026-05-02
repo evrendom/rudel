@@ -329,10 +329,11 @@ function WrappedTeamCardPageContent(props: {
 		: "wrapped_team_card";
 	const showShareStage = finalCardStage === "share";
 	const activeArchetypeIndex = getWrappedArchetypeThemeIndex(activeArchetype);
-	// The final exported post intentionally uses a stricter media policy than the
-	// live card. That keeps image export and public replay reliable without
-	// freezing future design changes for the live experience.
-	const sharePreviewRow = useMemo(
+	// The on-screen post preview should match the card the user just revealed,
+	// including session-hydrated profile images. The persisted public snapshot
+	// keeps the stricter media policy so public replay stays reliable.
+	const sharePreviewRow = visibleTeamCardRow;
+	const shareSnapshotRow = useMemo(
 		() => buildWrappedShareSafeRow(visibleTeamCardRow),
 		[visibleTeamCardRow],
 	);
@@ -353,7 +354,7 @@ function WrappedTeamCardPageContent(props: {
 				backMetrics: shareBackMetrics,
 				headerLeftMetric,
 				headerRightMetric,
-				row: sharePreviewRow,
+				row: shareSnapshotRow,
 				shellClassName: activeArchetype.shellClassName,
 				statItems,
 				theme: activeArchetype.theme,
@@ -366,7 +367,7 @@ function WrappedTeamCardPageContent(props: {
 			shareBackMetrics,
 			headerLeftMetric,
 			headerRightMetric,
-			sharePreviewRow,
+			shareSnapshotRow,
 			statItems,
 		],
 	);

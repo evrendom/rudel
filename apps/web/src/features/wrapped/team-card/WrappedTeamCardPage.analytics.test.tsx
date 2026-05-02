@@ -12,6 +12,8 @@ const {
 	mockTrackWrappedShareActionTriggered,
 	mockTrackWrappedShareCreated,
 	mockTrackWrappedStoryStarted,
+	mockUseWrappedTeamCardShare,
+	mockVisibleTeamCardImageUrl,
 } = vi.hoisted(() => ({
 	mockEnsureShare: vi.fn(),
 	mockTrackNavigation: vi.fn(),
@@ -19,6 +21,8 @@ const {
 	mockTrackWrappedShareActionTriggered: vi.fn(),
 	mockTrackWrappedShareCreated: vi.fn(),
 	mockTrackWrappedStoryStarted: vi.fn(),
+	mockUseWrappedTeamCardShare: vi.fn(),
+	mockVisibleTeamCardImageUrl: vi.fn<() => string | null>(() => null),
 }));
 
 vi.mock("dialkit", () => ({
@@ -89,12 +93,15 @@ vi.mock("@/features/wrapped/team-card/final-stages", () => ({
 		onCopy,
 		onDownload,
 		onShare,
+		row,
 	}: {
 		onCopy: () => void;
 		onDownload: () => void;
 		onShare: () => void;
+		row: { imageUrl: string | null };
 	}) => (
 		<div>
+			<span data-testid="share-stage-image">{row.imageUrl ?? "none"}</span>
 			<button type="button" onClick={onCopy}>
 				Copy post
 			</button>
@@ -136,11 +143,12 @@ vi.mock("@/features/wrapped/team-card/tilt/use-card-tilt", () => ({
 
 vi.mock("@/features/wrapped/team-card/use-share", () => ({
 	useWrappedTeamCardShare: (
-		_snapshot: unknown,
+		snapshot: unknown,
 		options?: {
 			onShareCreated?: (shareRecord: { id: string }) => void;
 		},
 	) => ({
+		...mockUseWrappedTeamCardShare(snapshot),
 		ensureShare: async () => {
 			const shareRecord = { id: "created-share-1" };
 			mockEnsureShare();
@@ -209,7 +217,7 @@ vi.mock("@/features/wrapped/team-card/use-page-data", () => ({
 			email: "ada@example.com",
 			favoriteModel: "o3",
 			hasActivity: true,
-			imageUrl: null,
+			imageUrl: mockVisibleTeamCardImageUrl(),
 			inputTokens: 120,
 			lastActiveDate: "2026-04-22",
 			outputTokens: 240,
@@ -229,6 +237,36 @@ describe("WrappedTeamCardPage analytics", () => {
 		mockTrackWrappedShareActionTriggered.mockReset();
 		mockTrackWrappedShareCreated.mockReset();
 		mockTrackWrappedStoryStarted.mockReset();
+		mockUseWrappedTeamCardShare.mockReset();
+		mockVisibleTeamCardImageUrl.mockReset();
+		mockVisibleTeamCardImageUrl.mockReturnValue(null);
+	});
+
+	it("uses the hydrated row in the post preview while keeping the public snapshot share-safe", async () => {
+		const providerImageUrl = "https://avatars.githubusercontent.com/u/1?v=4";
+		const user = userEvent.setup();
+		mockVisibleTeamCardImageUrl.mockReturnValue(providerImageUrl);
+
+		render(
+			<MemoryRouter initialEntries={["/wrapped"]}>
+				<WrappedTeamCardPage />
+			</MemoryRouter>,
+		);
+
+		expect(mockUseWrappedTeamCardShare).toHaveBeenCalled();
+		expect(mockUseWrappedTeamCardShare.mock.calls[0]?.[0]).toEqual(
+			expect.objectContaining({
+				row: expect.objectContaining({
+					imageUrl: null,
+				}),
+			}),
+		);
+
+		await user.click(screen.getByRole("button", { name: "Preview post" }));
+
+		expect(screen.getByTestId("share-stage-image")).toHaveTextContent(
+			providerImageUrl,
+		);
 	});
 
 	it("creates the profile URL when the share screen opens", async () => {
