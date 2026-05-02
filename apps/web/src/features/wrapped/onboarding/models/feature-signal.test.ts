@@ -24,9 +24,7 @@ describe("wrapped feature signal thresholds", () => {
 		expect(model.emptyState).toBe("low-signal");
 		expect(model.hasRankedSkills).toBe(false);
 		expect(model.headline).toBe("You didn't use skills enough.");
-		expect(model.subline).toBe(
-			"Use skills in at least 20% of sessions to create a skills recap.",
-		);
+		expect(model.subline).toBe("Use skills in 20%+ of sessions for a recap.");
 		expect(model.cards.some((card) => card.item.name === "Refactor")).toBe(
 			false,
 		);
@@ -57,7 +55,7 @@ describe("wrapped feature signal thresholds", () => {
 		expect(model.topSlashCommand).toBeNull();
 		expect(model.headline).toBe("You didn't use slash commands enough.");
 		expect(model.subline).toBe(
-			"Use slash commands in at least 20% of sessions to create a slash-command recap.",
+			"Use slash commands in 20%+ of sessions for a recap.",
 		);
 		expect(model.entries.some((entry) => entry.name === "/fix")).toBe(false);
 	});

@@ -129,9 +129,7 @@ describe("WrappedOnboardingToolsStage", () => {
 			}),
 		).toBeInTheDocument();
 		expect(
-			screen.getByText(
-				"Use slash commands in at least 20% of sessions to create a slash-command recap.",
-			),
+			screen.getByText("Use slash commands in 20%+ of sessions for a recap."),
 		).toBeInTheDocument();
 		expect(screen.getByText("404")).toBeInTheDocument();
 		expect(screen.queryByText("No subagents.")).toBeNull();
