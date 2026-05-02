@@ -1,5 +1,5 @@
 import { renderHook } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useSetupProgress } from "@/features/get-started/use-setup-progress";
 
 const {
@@ -103,6 +103,7 @@ let capturedSummaryQueryOptions: SummaryQueryOptions | null = null;
 let capturedRawQueryOptions: RawQueryOptions | null = null;
 let summaryQueryResult: QueryResult<SummaryQueryData>;
 let rawCountQueryResult: QueryResult<RawSessionCountData>;
+const keepPollingAfterUploadForMs = 10 * 60 * 1000;
 
 function getCapturedSummaryQueryOptions() {
 	if (capturedSummaryQueryOptions === null) {
@@ -157,6 +158,10 @@ describe("useSetupProgress", () => {
 		});
 	});
 
+	afterEach(() => {
+		vi.useRealTimers();
+	});
+
 	it("uses raw uploaded session count as the fastest landing signal", () => {
 		rawCountQueryResult = {
 			data: {
@@ -209,5 +214,51 @@ describe("useSetupProgress", () => {
 				},
 			}),
 		).toBe(false);
+	});
+
+	it("keeps raw polling after sessions are detected when requested", () => {
+		renderHook(() =>
+			useSetupProgress({
+				keepPollingAfterUploadForMs,
+			}),
+		);
+
+		const rawOptions = getCapturedRawQueryOptions();
+
+		expect(
+			rawOptions.refetchInterval?.({
+				state: {
+					data: {
+						count: 1,
+					},
+				},
+			}),
+		).toBe(1_000);
+	});
+
+	it("stops raw polling after the requested post-upload polling window", () => {
+		vi.useFakeTimers();
+		vi.setSystemTime(0);
+
+		renderHook(() =>
+			useSetupProgress({
+				keepPollingAfterUploadForMs,
+			}),
+		);
+
+		const rawOptions = getCapturedRawQueryOptions();
+		const uploadedQuery = {
+			state: {
+				data: {
+					count: 1,
+				},
+			},
+		};
+
+		expect(rawOptions.refetchInterval?.(uploadedQuery)).toBe(1_000);
+
+		vi.setSystemTime(keepPollingAfterUploadForMs);
+
+		expect(rawOptions.refetchInterval?.(uploadedQuery)).toBe(false);
 	});
 });

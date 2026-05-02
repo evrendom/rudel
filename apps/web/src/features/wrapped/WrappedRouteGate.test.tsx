@@ -214,6 +214,7 @@ vi.mock("@/features/wrapped/team-card/page", () => ({
 }));
 
 const now = new Date("2026-04-22T10:00:00.000Z");
+const wrappedSetupKeepPollingAfterUploadMs = 10 * 60 * 1000;
 
 const session: NonNullable<AppSession> = {
 	session: {
@@ -831,6 +832,10 @@ describe("WrappedRouteGate", () => {
 		expect(screen.getByText("Readiness: missing")).toBeInTheDocument();
 		expect(screen.getByText("Total sessions: 3")).toBeInTheDocument();
 		expect(screen.getByRole("button", { name: "Start story" })).toBeDisabled();
+		expect(mockUseSetupProgress).toHaveBeenLastCalledWith({
+			enabled: true,
+			keepPollingAfterUploadForMs: wrappedSetupKeepPollingAfterUploadMs,
+		});
 		expect(mockUseAnalyticsQuery).not.toHaveBeenCalled();
 	});
 
@@ -1096,6 +1101,10 @@ describe("WrappedRouteGate", () => {
 		);
 
 		expect(screen.getByText("Wrapped story")).toBeInTheDocument();
+		expect(mockUseSetupProgress).toHaveBeenLastCalledWith({
+			enabled: true,
+			keepPollingAfterUploadForMs: undefined,
+		});
 	});
 
 	it("honors the sessions-landed flow even after setup completion was acknowledged", () => {
@@ -1179,6 +1188,10 @@ describe("WrappedRouteGate", () => {
 		await user.click(screen.getByRole("button", { name: "Start story" }));
 		expect(screen.getByText("Wrapped story")).toBeInTheDocument();
 		expect(screen.getByText("Story step: none")).toBeInTheDocument();
+		expect(mockUseSetupProgress).toHaveBeenLastCalledWith({
+			enabled: true,
+			keepPollingAfterUploadForMs: undefined,
+		});
 	});
 
 	it("tracks setup activation completion with source share attribution", async () => {

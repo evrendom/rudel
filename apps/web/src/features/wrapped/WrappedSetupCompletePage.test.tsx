@@ -57,7 +57,7 @@ describe("WrappedSetupCompletePage", () => {
 			<MemoryRouter>
 				<WrappedSetupCompletePage
 					onContinue={onContinue}
-					totalSessionCount={99}
+					totalSessionCount={11}
 					userId="user-1"
 				/>
 			</MemoryRouter>,
@@ -115,6 +115,48 @@ describe("WrappedSetupCompletePage", () => {
 		await waitFor(() => expect(onContinue).toHaveBeenCalledTimes(1), {
 			timeout: 2000,
 		});
+	});
+
+	it("prefers the fresher raw session total over stale repo rows", () => {
+		const onContinue = vi.fn();
+
+		mockUseAnalyticsQuery.mockReturnValue({
+			data: [
+				{
+					first_session: "2026-04-22T10:00:00Z",
+					git_remote: "github.com/acme/geneva.git",
+					last_session: "2026-04-22T10:00:00Z",
+					package_name: "",
+					project_path: "/Users/ada/geneva",
+					sessions: 8,
+					total_duration_min: 90,
+					total_tokens: 1200,
+				},
+				{
+					first_session: "2026-04-22T10:00:00Z",
+					git_remote: "",
+					last_session: "2026-04-22T10:00:00Z",
+					package_name: "@acme/design-system",
+					project_path: "/Users/ada/design-system",
+					sessions: 3,
+					total_duration_min: 45,
+					total_tokens: 900,
+				},
+			],
+			isLoading: false,
+		});
+
+		render(
+			<MemoryRouter>
+				<WrappedSetupCompletePage
+					onContinue={onContinue}
+					totalSessionCount={99}
+					userId="user-1"
+				/>
+			</MemoryRouter>,
+		);
+
+		expect(screen.getByText("99 sessions across 2 repos")).toBeInTheDocument();
 	});
 
 	it("renders debug override repos without relying on analytics data", async () => {
