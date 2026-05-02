@@ -137,13 +137,15 @@ export function WrappedTeamCardPage(props: {
 			topStrokeOpacity: [0, 0, 1, 0.01],
 		},
 	});
-	const activeArchetype: WrappedArchetypeCardTheme =
+	const activeArchetype: WrappedArchetypeCardTheme | null =
 		devOverrideIndex !== null
 			? (WRAPPED_ARCHETYPE_CARD_THEMES[devOverrideIndex] ?? liveArchetype)
 			: liveArchetype;
 
 	if (!activeArchetype) {
-		throw new Error("Wrapped archetype themes are missing.");
+		throw new Error(
+			"Wrapped archetype gate blocked story without an archetype.",
+		);
 	}
 
 	const activeStepParam = searchParams.get("step");

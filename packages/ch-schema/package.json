@@ -6,6 +6,7 @@
 	"exports": {
 		".": "./src/index.ts",
 		"./generated": "./src/generated/index.ts",
+		"./wrapped-archetype-centroids": "./src/wrapped-archetype-centroids.ts",
 		"./wrapped-archetype-constants": "./src/wrapped-archetype-constants.ts"
 	},
 	"scripts": {

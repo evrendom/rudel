@@ -12,6 +12,7 @@ import { WrappedGuestPage } from "@/features/wrapped/WrappedGuestPage";
 import { WrappedPublicMockPage } from "@/features/wrapped/WrappedPublicMockPage";
 import {
 	WrappedSetupCompletePage,
+	type WrappedSetupSessionReadinessState,
 	type WrappedUploadedRepoRow,
 } from "@/features/wrapped/WrappedSetupCompletePage";
 import { WrappedSetupPage } from "@/features/wrapped/WrappedSetupPage";
@@ -21,7 +22,11 @@ import {
 } from "@/features/wrapped/wrapped-auth-card-position";
 
 type WrappedDevStage = "auth" | "setup" | "mobile" | "story" | "public";
-type WrappedDevSetupView = "guide" | "uploaded";
+type WrappedDevSetupView =
+	| "guide"
+	| "uploaded"
+	| "uploaded-enough"
+	| "uploaded-recovered";
 
 const DEFAULT_WRAPPED_DEV_STAGE: WrappedDevStage = "auth";
 const DEFAULT_WRAPPED_DEV_SETUP_VIEW: WrappedDevSetupView = "guide";
@@ -80,6 +85,12 @@ const WRAPPED_DEBUG_UPLOADED_REPOS: WrappedUploadedRepoRow[] = [
 		sessions: 1,
 	},
 ];
+const WRAPPED_DEBUG_ENOUGH_REPOS: WrappedUploadedRepoRow[] =
+	WRAPPED_DEBUG_UPLOADED_REPOS.map((repo) => ({
+		...repo,
+		sessions: 10,
+	}));
+const WRAPPED_MINIMUM_ARCHETYPE_SESSION_COUNT = 100;
 
 const WRAPPED_DEV_STAGES: Array<{
 	label: string;
@@ -340,17 +351,21 @@ function WrappedDevSetupStage(props: {
 		onBackToGuide,
 		onContinueToStory,
 	} = props;
-	const isUploadedView = activeView === "uploaded";
+	const setupPreviewState = getWrappedDevSetupPreviewState(activeView);
 
 	return (
 		<>
-			{isUploadedView ? (
+			{setupPreviewState ? (
 				<WrappedSetupCompletePage
+					canContinueToStory={setupPreviewState.canContinueToStory}
 					debugControls={debugControls}
+					defaultUploadMoreVisible={setupPreviewState.defaultUploadMoreVisible}
+					minimumSessionCount={WRAPPED_MINIMUM_ARCHETYPE_SESSION_COUNT}
 					onBack={onBackToGuide}
 					onContinue={onContinueToStory}
-					reposOverride={WRAPPED_DEBUG_UPLOADED_REPOS}
-					totalSessionCount={10}
+					reposOverride={setupPreviewState.repos}
+					sessionReadinessState={setupPreviewState.sessionReadinessState}
+					totalSessionCount={setupPreviewState.totalSessionCount}
 					userId="wrapped-dev-preview"
 				/>
 			) : (
@@ -363,6 +378,46 @@ function WrappedDevSetupStage(props: {
 	);
 }
 
+function getWrappedDevSetupPreviewState(activeView: WrappedDevSetupView): {
+	canContinueToStory: boolean;
+	defaultUploadMoreVisible: boolean;
+	repos: WrappedUploadedRepoRow[];
+	sessionReadinessState: WrappedSetupSessionReadinessState;
+	totalSessionCount: number;
+} | null {
+	if (activeView === "uploaded") {
+		return {
+			canContinueToStory: false,
+			defaultUploadMoreVisible: true,
+			repos: WRAPPED_DEBUG_UPLOADED_REPOS,
+			sessionReadinessState: "missing",
+			totalSessionCount: 10,
+		};
+	}
+
+	if (activeView === "uploaded-enough") {
+		return {
+			canContinueToStory: true,
+			defaultUploadMoreVisible: false,
+			repos: WRAPPED_DEBUG_ENOUGH_REPOS,
+			sessionReadinessState: "enough-landed",
+			totalSessionCount: WRAPPED_MINIMUM_ARCHETYPE_SESSION_COUNT,
+		};
+	}
+
+	if (activeView === "uploaded-recovered") {
+		return {
+			canContinueToStory: true,
+			defaultUploadMoreVisible: false,
+			repos: WRAPPED_DEBUG_ENOUGH_REPOS,
+			sessionReadinessState: "enough-uploaded",
+			totalSessionCount: WRAPPED_MINIMUM_ARCHETYPE_SESSION_COUNT,
+		};
+	}
+
+	return null;
+}
+
 function WrappedDevMobileStage(props: { debugControls: ReactNode }) {
 	return (
 		<WrappedDesktopResumePreviewStage
@@ -373,10 +428,10 @@ function WrappedDevMobileStage(props: { debugControls: ReactNode }) {
 }
 
 function WrappedDevSetupPreviewToggle(props: {
-	activeView: "guide" | "uploaded";
+	activeView: WrappedDevSetupView;
 	canAdvanceGuideStep: boolean;
 	onAdvanceGuideStep: () => void;
-	onViewChange: (nextView: "guide" | "uploaded") => void;
+	onViewChange: (nextView: WrappedDevSetupView) => void;
 }) {
 	const { activeView, canAdvanceGuideStep, onAdvanceGuideStep, onViewChange } =
 		props;
@@ -400,7 +455,25 @@ function WrappedDevSetupPreviewToggle(props: {
 					className="h-5 rounded-md px-1.5 text-[8px] leading-none"
 					onClick={() => onViewChange("uploaded")}
 				>
-					Uploaded
+					Low
+				</Button>
+				<Button
+					type="button"
+					size="xs"
+					variant={activeView === "uploaded-enough" ? "default" : "outline"}
+					className="h-5 rounded-md px-1.5 text-[8px] leading-none"
+					onClick={() => onViewChange("uploaded-enough")}
+				>
+					Enough
+				</Button>
+				<Button
+					type="button"
+					size="xs"
+					variant={activeView === "uploaded-recovered" ? "default" : "outline"}
+					className="h-5 rounded-md px-1.5 text-[8px] leading-none"
+					onClick={() => onViewChange("uploaded-recovered")}
+				>
+					Recovered
 				</Button>
 				{activeView === "guide" && canAdvanceGuideStep ? (
 					<Button
@@ -425,7 +498,11 @@ function getWrappedDevStage(stage: string | null): WrappedDevStage {
 }
 
 function getWrappedDevSetupView(setupView: string | null): WrappedDevSetupView {
-	return setupView === "uploaded" ? "uploaded" : DEFAULT_WRAPPED_DEV_SETUP_VIEW;
+	return setupView === "uploaded" ||
+		setupView === "uploaded-enough" ||
+		setupView === "uploaded-recovered"
+		? setupView
+		: DEFAULT_WRAPPED_DEV_SETUP_VIEW;
 }
 
 function getWrappedDevSetupStep(setupStep: string | null): CliSetupStepId {
