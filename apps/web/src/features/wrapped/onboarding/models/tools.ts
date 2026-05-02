@@ -49,7 +49,7 @@ export function resolveToolsStageModel(input: {
 	}
 
 	if (mode === "thin-slash-command") {
-		const thinSlashCommandSubline = `Use slash commands in ${MIN_WRAPPED_RECAP_FEATURE_ADOPTION_RATE}%+ of sessions for a recap.`;
+		const thinSlashCommandSubline = `Use slash commands in +${MIN_WRAPPED_RECAP_FEATURE_ADOPTION_RATE}% of sessions for a recap.`;
 
 		return {
 			entries: buildToolsPlaceholderEntries(),
@@ -312,13 +312,13 @@ export function getToolsSubline(input: {
 
 	if (topSlashCommand === null && !hasSubagent) {
 		return hasLowSlashCommandSignal
-			? `Use slash commands in ${MIN_WRAPPED_RECAP_FEATURE_ADOPTION_RATE}%+ of sessions for a recap.`
+			? `Use slash commands in +${MIN_WRAPPED_RECAP_FEATURE_ADOPTION_RATE}% of sessions for a recap.`
 			: "You should try them out tho: slash commands and subagents.";
 	}
 
 	if (topSlashCommand === null) {
 		const slashCommandLine = hasLowSlashCommandSignal
-			? `Use slash commands in ${MIN_WRAPPED_RECAP_FEATURE_ADOPTION_RATE}%+ of sessions for a recap.`
+			? `Use slash commands in +${MIN_WRAPPED_RECAP_FEATURE_ADOPTION_RATE}% of sessions for a recap.`
 			: "No slash command ranked yet.";
 
 		return `${formatPercent(subagentsAdoptionRate)} of sessions used a subagent. ${slashCommandLine}`;

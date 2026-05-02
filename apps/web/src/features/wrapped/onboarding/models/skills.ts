@@ -187,7 +187,7 @@ export function resolveSkillsStageModel(input: {
 				: "You've got a skill issue.",
 			isScrollable,
 			subline: hasLowSkillUsage
-				? `Use skills in ${MIN_WRAPPED_RECAP_FEATURE_ADOPTION_RATE}%+ of sessions for a recap.`
+				? `Use skills in +${MIN_WRAPPED_RECAP_FEATURE_ADOPTION_RATE}% of sessions for a recap.`
 				: "",
 			trackHeightRem,
 		};
