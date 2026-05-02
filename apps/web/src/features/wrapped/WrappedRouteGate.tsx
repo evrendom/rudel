@@ -1,4 +1,7 @@
-import { WRAPPED_ARCHETYPE_GATE_THRESHOLDS } from "@rudel/api-routes";
+import {
+	WRAPPED_ARCHETYPE_GATE_THRESHOLDS,
+	type WrappedV1ArchetypeGate,
+} from "@rudel/api-routes";
 import { type ReactNode, startTransition, useState } from "react";
 import { useLocation, useSearchParams } from "react-router-dom";
 import { useIsMobile } from "@/app/hooks/use-mobile";
@@ -99,10 +102,6 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 		setupProgress.hasUploadedSessions &&
 		setupProgress.totalSessionCount >=
 			WRAPPED_ARCHETYPE_GATE_THRESHOLDS.min_total_sessions;
-	const wrappedV1Query = useAnalyticsQuery({
-		...orpc.analytics.wrapped.v1.queryOptions({}),
-		enabled: shouldQueryWrappedArchetypeGate,
-	});
 	const cliSetupStatus = useCliSetupStatus({
 		enabled: !publicId && !!session,
 	});
@@ -194,18 +193,6 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 		setupProgress.hasUploadedSessions &&
 		hasMinimumArchetypeSessionCount &&
 		hasSeenBelowMinimumSessions;
-	const archetypeGate = wrappedV1Query.data?.archetype_gate ?? null;
-	const isWrappedArchetypeGateEligible =
-		hasMinimumArchetypeSessionCount && archetypeGate?.is_eligible === true;
-	const shouldHoldForArchetypeGate =
-		setupProgress.hasUploadedSessions && !isWrappedArchetypeGateEligible;
-	const shouldOpenUploadMoreByDefault =
-		setupProgress.hasUploadedSessions &&
-		(!hasMinimumArchetypeSessionCount || archetypeGate?.is_eligible === false);
-	const shouldForceStory =
-		forcedFlowStage === "story" &&
-		setupProgress.hasUploadedSessions &&
-		isWrappedArchetypeGateEligible;
 	const setupSessionReadinessState = getWrappedSetupSessionReadinessState({
 		hasMinimumArchetypeSessionCount,
 		hasReachedMinimumAfterMissing,
@@ -246,7 +233,7 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 		});
 	}
 
-	function handleSetupComplete() {
+	function handleSetupComplete(isWrappedArchetypeGateEligible: boolean) {
 		if (!isWrappedArchetypeGateEligible) {
 			return;
 		}
@@ -385,133 +372,171 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 		key: sessionUserId,
 	});
 
-	let content: ReactNode;
+	function renderRouteContent(archetypeGate: WrappedV1ArchetypeGate | null) {
+		const isWrappedArchetypeGateEligible =
+			hasMinimumArchetypeSessionCount && archetypeGate?.is_eligible === true;
+		const shouldHoldForArchetypeGate =
+			setupProgress.hasUploadedSessions && !isWrappedArchetypeGateEligible;
+		const shouldOpenUploadMoreByDefault =
+			setupProgress.hasUploadedSessions &&
+			(!hasMinimumArchetypeSessionCount ||
+				archetypeGate?.is_eligible === false);
+		const shouldForceStory =
+			forcedFlowStage === "story" &&
+			setupProgress.hasUploadedSessions &&
+			isWrappedArchetypeGateEligible;
 
-	if (publicId) {
-		content = <WrappedPublicPage publicId={publicId} />;
-	} else if (isPending) {
-		content = (
-			<WrappedRouteLoadingState body="Checking your account before loading wrapped..." />
-		);
-	} else if (!session) {
-		content = <WrappedGuestPage />;
-	} else if (shouldShowCardProfileStep) {
-		content = (
-			<WrappedCardProfileStep
-				backLabel="Back to setup"
-				displayName={activeCardProfile.displayName}
-				imageUrl={activeCardProfile.imageUrl}
-				isComplete={
-					activeCardProfile.displayName.trim().length > 0 &&
-					(!needsCardProfileBeforeSetup || hasActiveCardProfileImage)
-				}
-				onBack={() =>
-					setWrappedRouteFlowStage(WRAPPED_ROUTE_DESKTOP_READY_FLOW)
-				}
-				onContinue={completeCardProfile}
-				onDisplayNameChange={(displayName) =>
-					updateEditableCardProfile({ displayName })
-				}
-				onImageChange={(imageUrl) => updateEditableCardProfile({ imageUrl })}
-				previewProfile={activeCardProfile}
-			/>
-		);
-	} else if (signedInMobileHandoffEmail) {
-		content = (
-			<WrappedDesktopResumePromptPage
-				email={signedInMobileHandoffEmail}
-				shareId={shareId}
-			/>
-		);
-	} else if (shouldForceDesktopReady) {
-		content = (
-			<WrappedUploadSetupPage
-				hasCompletedCliLogin={
-					cliSetupStatus.hasCliLogin || setupProgress.hasUploadedSessions
-				}
-				isUploadComplete={setupProgress.hasUploadedSessions}
-				onBackToCardProfile={
-					shouldBacktrackToCardProfile
-						? () => setWrappedRouteFlowStage(WRAPPED_ROUTE_CARD_PROFILE_FLOW)
-						: undefined
-				}
-				onContinue={handleSetupContinue}
-			/>
-		);
-	} else if (sessionUserId && shouldForceSessionsLanded) {
-		content = (
-			<WrappedSetupCompletePage
-				canContinueToStory={isWrappedArchetypeGateEligible}
-				defaultUploadMoreVisible={shouldOpenUploadMoreByDefault}
-				minimumSessionCount={
-					WRAPPED_ARCHETYPE_GATE_THRESHOLDS.min_total_sessions
-				}
-				onBack={() => setWrappedRouteFlowStage("desktop-ready")}
-				onContinue={handleSetupComplete}
-				sessionReadinessState={setupSessionReadinessState}
-				totalSessionCount={setupProgress.totalSessionCount}
-				userId={sessionUserId}
-			/>
-		);
-	} else if (sessionUserId && shouldHoldForArchetypeGate) {
-		content = (
-			<WrappedSetupCompletePage
-				canContinueToStory={isWrappedArchetypeGateEligible}
-				defaultUploadMoreVisible={shouldOpenUploadMoreByDefault}
-				minimumSessionCount={
-					WRAPPED_ARCHETYPE_GATE_THRESHOLDS.min_total_sessions
-				}
-				onBack={() => setWrappedRouteFlowStage("desktop-ready")}
-				onContinue={handleSetupComplete}
-				sessionReadinessState={setupSessionReadinessState}
-				totalSessionCount={setupProgress.totalSessionCount}
-				userId={sessionUserId}
-			/>
-		);
-	} else if (sessionUserId && hasReachedMinimumAfterMissing) {
-		content = (
-			<WrappedSetupCompletePage
-				canContinueToStory={isWrappedArchetypeGateEligible}
-				defaultUploadMoreVisible={false}
-				minimumSessionCount={
-					WRAPPED_ARCHETYPE_GATE_THRESHOLDS.min_total_sessions
-				}
-				onBack={() => setWrappedRouteFlowStage("desktop-ready")}
-				onContinue={handleSetupComplete}
-				sessionReadinessState={setupSessionReadinessState}
-				totalSessionCount={setupProgress.totalSessionCount}
-				userId={sessionUserId}
-			/>
-		);
-	} else if (
-		shouldForceStory ||
-		(setupProgress.hasUploadedSessions &&
-			hasCompletedSetup &&
-			isWrappedArchetypeGateEligible)
-	) {
-		content = (
-			<WrappedTeamCardPage
-				onBackFromFirstStep={() => setWrappedRouteFlowStage("sessions-landed")}
-			/>
-		);
-	} else {
-		content = (
-			<WrappedUploadSetupPage
-				hasCompletedCliLogin={
-					cliSetupStatus.hasCliLogin || setupProgress.hasUploadedSessions
-				}
-				isUploadComplete={setupProgress.hasUploadedSessions}
-				onBackToCardProfile={
-					shouldBacktrackToCardProfile
-						? () => setWrappedRouteFlowStage(WRAPPED_ROUTE_CARD_PROFILE_FLOW)
-						: undefined
-				}
-				onContinue={handleSetupContinue}
-			/>
+		let content: ReactNode;
+
+		if (publicId) {
+			content = <WrappedPublicPage publicId={publicId} />;
+		} else if (isPending) {
+			content = (
+				<WrappedRouteLoadingState body="Checking your account before loading wrapped..." />
+			);
+		} else if (!session) {
+			content = <WrappedGuestPage />;
+		} else if (shouldShowCardProfileStep) {
+			content = (
+				<WrappedCardProfileStep
+					backLabel="Back to setup"
+					displayName={activeCardProfile.displayName}
+					imageUrl={activeCardProfile.imageUrl}
+					isComplete={
+						activeCardProfile.displayName.trim().length > 0 &&
+						(!needsCardProfileBeforeSetup || hasActiveCardProfileImage)
+					}
+					onBack={() =>
+						setWrappedRouteFlowStage(WRAPPED_ROUTE_DESKTOP_READY_FLOW)
+					}
+					onContinue={completeCardProfile}
+					onDisplayNameChange={(displayName) =>
+						updateEditableCardProfile({ displayName })
+					}
+					onImageChange={(imageUrl) => updateEditableCardProfile({ imageUrl })}
+					previewProfile={activeCardProfile}
+				/>
+			);
+		} else if (signedInMobileHandoffEmail) {
+			content = (
+				<WrappedDesktopResumePromptPage
+					email={signedInMobileHandoffEmail}
+					shareId={shareId}
+				/>
+			);
+		} else if (shouldForceDesktopReady) {
+			content = (
+				<WrappedUploadSetupPage
+					hasCompletedCliLogin={
+						cliSetupStatus.hasCliLogin || setupProgress.hasUploadedSessions
+					}
+					isUploadComplete={setupProgress.hasUploadedSessions}
+					onBackToCardProfile={
+						shouldBacktrackToCardProfile
+							? () => setWrappedRouteFlowStage(WRAPPED_ROUTE_CARD_PROFILE_FLOW)
+							: undefined
+					}
+					onContinue={handleSetupContinue}
+				/>
+			);
+		} else if (sessionUserId && shouldForceSessionsLanded) {
+			content = (
+				<WrappedSetupCompletePage
+					canContinueToStory={isWrappedArchetypeGateEligible}
+					defaultUploadMoreVisible={shouldOpenUploadMoreByDefault}
+					minimumSessionCount={
+						WRAPPED_ARCHETYPE_GATE_THRESHOLDS.min_total_sessions
+					}
+					onBack={() => setWrappedRouteFlowStage("desktop-ready")}
+					onContinue={() => handleSetupComplete(isWrappedArchetypeGateEligible)}
+					sessionReadinessState={setupSessionReadinessState}
+					totalSessionCount={setupProgress.totalSessionCount}
+					userId={sessionUserId}
+				/>
+			);
+		} else if (sessionUserId && shouldHoldForArchetypeGate) {
+			content = (
+				<WrappedSetupCompletePage
+					canContinueToStory={isWrappedArchetypeGateEligible}
+					defaultUploadMoreVisible={shouldOpenUploadMoreByDefault}
+					minimumSessionCount={
+						WRAPPED_ARCHETYPE_GATE_THRESHOLDS.min_total_sessions
+					}
+					onBack={() => setWrappedRouteFlowStage("desktop-ready")}
+					onContinue={() => handleSetupComplete(isWrappedArchetypeGateEligible)}
+					sessionReadinessState={setupSessionReadinessState}
+					totalSessionCount={setupProgress.totalSessionCount}
+					userId={sessionUserId}
+				/>
+			);
+		} else if (sessionUserId && hasReachedMinimumAfterMissing) {
+			content = (
+				<WrappedSetupCompletePage
+					canContinueToStory={isWrappedArchetypeGateEligible}
+					defaultUploadMoreVisible={false}
+					minimumSessionCount={
+						WRAPPED_ARCHETYPE_GATE_THRESHOLDS.min_total_sessions
+					}
+					onBack={() => setWrappedRouteFlowStage("desktop-ready")}
+					onContinue={() => handleSetupComplete(isWrappedArchetypeGateEligible)}
+					sessionReadinessState={setupSessionReadinessState}
+					totalSessionCount={setupProgress.totalSessionCount}
+					userId={sessionUserId}
+				/>
+			);
+		} else if (
+			shouldForceStory ||
+			(setupProgress.hasUploadedSessions &&
+				hasCompletedSetup &&
+				isWrappedArchetypeGateEligible)
+		) {
+			content = (
+				<WrappedTeamCardPage
+					onBackFromFirstStep={() =>
+						setWrappedRouteFlowStage("sessions-landed")
+					}
+				/>
+			);
+		} else {
+			content = (
+				<WrappedUploadSetupPage
+					hasCompletedCliLogin={
+						cliSetupStatus.hasCliLogin || setupProgress.hasUploadedSessions
+					}
+					isUploadComplete={setupProgress.hasUploadedSessions}
+					onBackToCardProfile={
+						shouldBacktrackToCardProfile
+							? () => setWrappedRouteFlowStage(WRAPPED_ROUTE_CARD_PROFILE_FLOW)
+							: undefined
+					}
+					onContinue={handleSetupContinue}
+				/>
+			);
+		}
+
+		return content;
+	}
+
+	if (shouldQueryWrappedArchetypeGate) {
+		return (
+			<WrappedArchetypeGateQuery>
+				{(archetypeGate) => renderRouteContent(archetypeGate)}
+			</WrappedArchetypeGateQuery>
 		);
 	}
 
-	return content;
+	return renderRouteContent(null);
+}
+
+function WrappedArchetypeGateQuery(props: {
+	children: (archetypeGate: WrappedV1ArchetypeGate | null) => ReactNode;
+}) {
+	const wrappedV1Query = useAnalyticsQuery({
+		...orpc.analytics.wrapped.v1.queryOptions({}),
+		enabled: true,
+	});
+
+	return props.children(wrappedV1Query.data?.archetype_gate ?? null);
 }
 
 function buildWrappedSessionPreviewProfile(

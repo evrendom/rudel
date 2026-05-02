@@ -71,11 +71,9 @@ describe("WrappedDevPage", () => {
 		await user.click(screen.getByRole("button", { name: "Setup" }));
 		expect(screen.getByText("Wrapped setup page")).toBeInTheDocument();
 		expect(screen.getByRole("button", { name: "Guide" })).toBeInTheDocument();
-		expect(
-			screen.getByRole("button", { name: "Uploaded" }),
-		).toBeInTheDocument();
+		expect(screen.getByRole("button", { name: "Low" })).toBeInTheDocument();
 
-		await user.click(screen.getByRole("button", { name: "Uploaded" }));
+		await user.click(screen.getByRole("button", { name: "Low" }));
 		expect(
 			await screen.findByText("Wrapped setup complete page"),
 		).toBeInTheDocument();
