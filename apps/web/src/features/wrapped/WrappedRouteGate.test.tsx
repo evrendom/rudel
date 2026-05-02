@@ -307,6 +307,13 @@ describe("WrappedRouteGate", () => {
 		);
 
 		expect(screen.getByText("Loading wrapped")).toBeInTheDocument();
+		expect(screen.getByRole("img", { name: "Rudel" })).toBeInTheDocument();
+		expect(
+			screen.getByText("Checking your account before loading wrapped..."),
+		).toBeInTheDocument();
+		expect(
+			screen.queryByText(/Holding the route while auth/u),
+		).not.toBeInTheDocument();
 		expect(
 			screen.getByRole("navigation", { name: "Wrapped onboarding progress" }),
 		).toBeInTheDocument();

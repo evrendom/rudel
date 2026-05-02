@@ -555,18 +555,23 @@ function getWrappedRouteFlowStage(
 function WrappedRouteLoadingState(props: { body: string }) {
 	return (
 		<WrappedRouteStageShell
-			description={props.body}
 			progressStepId="account-check"
+			stageClassName="mymind-wrapped-entry-stage--route-loading"
 			stage={
-				<div className="mymind-wrapped-entry-card mymind-wrapped-entry-card--status">
-					<div className="mymind-wrapped-entry-card__status-dot" />
-					<p className="mymind-wrapped-entry-card__status-copy">
-						Holding the route while auth, uploads, and share continuation are
-						resolved.
-					</p>
+				<div
+					aria-busy="true"
+					aria-live="polite"
+					className="mymind-wrapped-route-loading"
+				>
+					<h1 className="sr-only">Loading wrapped</h1>
+					<img
+						alt="Rudel"
+						className="mymind-wrapped-route-loading__logo"
+						src="/logo-dark.svg"
+					/>
+					<p className="mymind-wrapped-route-loading__copy">{props.body}</p>
 				</div>
 			}
-			title="Loading wrapped"
 		/>
 	);
 }
