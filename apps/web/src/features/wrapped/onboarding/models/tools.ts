@@ -4,6 +4,7 @@ import type { WrappedSkillUsageItem } from "../types";
 import {
 	hasWrappedLowFeatureUsageSignal,
 	hasWrappedRecapFeatureSignal,
+	MIN_WRAPPED_RECAP_FEATURE_ADOPTION_RATE,
 } from "./feature-signal";
 
 interface ToolsStageEntry {
@@ -48,12 +49,14 @@ export function resolveToolsStageModel(input: {
 	}
 
 	if (mode === "thin-slash-command") {
+		const thinSlashCommandSubline = `Use slash commands in at least ${MIN_WRAPPED_RECAP_FEATURE_ADOPTION_RATE}% of sessions to create a slash-command recap.`;
+
 		return {
 			entries: buildToolsPlaceholderEntries(),
-			footnote: "Not enough sessions used slash commands to build a recap yet.",
+			footnote: thinSlashCommandSubline,
 			headline: "You didn't use slash commands enough.",
 			mode,
-			subline: "Not enough sessions used slash commands to build a recap yet.",
+			subline: thinSlashCommandSubline,
 			topSlashCommand,
 			topSubagent: input.topSubagent,
 		};
@@ -309,13 +312,13 @@ export function getToolsSubline(input: {
 
 	if (topSlashCommand === null && !hasSubagent) {
 		return hasLowSlashCommandSignal
-			? "You didn't use slash commands enough for a recap yet."
+			? `Use slash commands in at least ${MIN_WRAPPED_RECAP_FEATURE_ADOPTION_RATE}% of sessions to create a slash-command recap.`
 			: "You should try them out tho: slash commands and subagents.";
 	}
 
 	if (topSlashCommand === null) {
 		const slashCommandLine = hasLowSlashCommandSignal
-			? "You didn't use slash commands enough for a recap yet."
+			? `Use slash commands in at least ${MIN_WRAPPED_RECAP_FEATURE_ADOPTION_RATE}% of sessions to create a slash-command recap.`
 			: "No slash command ranked yet.";
 
 		return `${formatPercent(subagentsAdoptionRate)} of sessions used a subagent. ${slashCommandLine}`;

@@ -130,7 +130,7 @@ describe("WrappedOnboardingToolsStage", () => {
 		).toBeInTheDocument();
 		expect(
 			screen.getByText(
-				"Not enough sessions used slash commands to build a recap yet.",
+				"Use slash commands in at least 20% of sessions to create a slash-command recap.",
 			),
 		).toBeInTheDocument();
 		expect(screen.getByText("404")).toBeInTheDocument();

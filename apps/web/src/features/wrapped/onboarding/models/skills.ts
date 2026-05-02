@@ -1,7 +1,10 @@
 import type { CSSProperties } from "react";
 import { formatPercent } from "../format";
 import type { WrappedSkillUsageItem } from "../types";
-import { hasWrappedRecapFeatureSignal } from "./feature-signal";
+import {
+	hasWrappedRecapFeatureSignal,
+	MIN_WRAPPED_RECAP_FEATURE_ADOPTION_RATE,
+} from "./feature-signal";
 
 export const SKILLS_STACK = {
 	cardHeightRem: 5.5,
@@ -184,7 +187,7 @@ export function resolveSkillsStageModel(input: {
 				: "You've got a skill issue.",
 			isScrollable,
 			subline: hasLowSkillUsage
-				? "Not enough sessions pulled in skills to build a recap yet."
+				? `Use skills in at least ${MIN_WRAPPED_RECAP_FEATURE_ADOPTION_RATE}% of sessions to create a skills recap.`
 				: "",
 			trackHeightRem,
 		};
