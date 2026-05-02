@@ -9,6 +9,7 @@ import {
 	getBaseCliEventPayload,
 	shutdownCliProductAnalytics,
 } from "../lib/product-analytics.js";
+import { getCliUpdateNotice } from "../lib/update-check.js";
 
 function getTopLevelCommandName(args: string[]) {
 	const commandName = args.find((arg) => !arg.startsWith("-"));
@@ -29,6 +30,7 @@ function getTopLevelCommandName(args: string[]) {
 }
 
 const commandName = getTopLevelCommandName(process.argv.slice(2));
+const updateNoticePromise = getCliUpdateNotice({ commandName });
 const { cliInstallationId, shouldTrack } = consumeCliFirstRun();
 
 if (shouldTrack) {
@@ -49,5 +51,9 @@ if (shouldTrack) {
 try {
 	await run(app, process.argv.slice(2), { process });
 } finally {
+	const updateNotice = await updateNoticePromise;
+	if (updateNotice !== null) {
+		process.stderr.write(`\n${updateNotice}\n`);
+	}
 	await shutdownCliProductAnalytics();
 }
