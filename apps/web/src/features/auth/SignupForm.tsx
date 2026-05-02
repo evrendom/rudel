@@ -1,14 +1,9 @@
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { useEffect, useState } from "react";
+import { type FormEvent, useState } from "react";
 import { Button } from "@/app/ui/button";
 import { Input } from "@/app/ui/input";
 import { Label } from "@/app/ui/label";
 import { Separator } from "@/app/ui/separator";
 import { useAnalyticsTracking } from "@/features/analytics/tracking/useAnalyticsTracking";
-import {
-	WrappedPrimaryAction,
-	WrappedSecondaryAction,
-} from "@/features/wrapped/actions";
 import { authClient, refreshAuthClientState } from "@/lib/auth-client";
 import { getInitialSignupName } from "@/lib/auth-signup-name";
 import {
@@ -24,6 +19,7 @@ import {
 	primePendingSignupRedirect,
 } from "./auth-route-utils";
 import {
+	type EmailAuthFeedback,
 	type EmailCodeStage,
 	isValidAuthEmail,
 	isValidEmailCode,
@@ -34,17 +30,16 @@ import {
 	recordOAuthRedirectResult,
 	recordOAuthRedirectStart,
 } from "./oauth-debug";
-import {
-	getWrappedAuthSceneItemMotion,
-	getWrappedAuthSceneMotion,
-	getWrappedAuthSceneShellMotion,
-	type WrappedAuthScene,
-} from "./wrapped-auth-motion";
+import type { WrappedAuthScene } from "./wrapped-auth-motion";
+import { WrappedEmailCodeAuth } from "./wrapped-email-code-auth";
 
-type FeedbackState = {
-	kind: "error" | "success";
-	message: string;
-} | null;
+const SIGNUP_CODE_INPUT_ID = "signup-code";
+const WRAPPED_SIGNUP_EMAIL_INPUT_ID = "signup-email";
+const WRAPPED_SIGNUP_AUTH_LABELS = {
+	email: "Create account with Email",
+	github: "Create account with GitHub",
+	google: "Create account with Google",
+};
 
 function getSignupContext() {
 	const params = new URLSearchParams(window.location.search);
@@ -90,7 +85,7 @@ export function SignupForm(props: SignupFormProps) {
 	const [email, setEmail] = useState("");
 	const [emailCode, setEmailCode] = useState("");
 	const [emailCodeStage, setEmailCodeStage] = useState<EmailCodeStage>("email");
-	const [feedback, setFeedback] = useState<FeedbackState>(null);
+	const [feedback, setFeedback] = useState<EmailAuthFeedback>(null);
 	const [loading, setLoading] = useState(false);
 	const [showEmailForm, setShowEmailForm] = useState(false);
 	const [wrappedScene, setWrappedScene] = useState<WrappedAuthScene>("choice");
@@ -102,36 +97,17 @@ export function SignupForm(props: SignupFormProps) {
 		isWrappedStory && onEmailPasswordPreviewSubmit !== undefined;
 	const hasValidEmail = isValidAuthEmail(email);
 	const hasValidEmailCode = isValidEmailCode(emailCode);
-	const shouldReduceMotion = useReducedMotion() ?? false;
-	const [hasMountedWrappedScene, setHasMountedWrappedScene] = useState(false);
-	const wrappedSceneShellMotion =
-		getWrappedAuthSceneShellMotion(shouldReduceMotion);
-	const wrappedSceneMotion = getWrappedAuthSceneMotion(shouldReduceMotion);
 
-	useEffect(() => {
-		if (!isWrappedStory) {
-			return;
-		}
-
-		setHasMountedWrappedScene(true);
-	}, [isWrappedStory]);
-
-	function getWrappedSceneItemMotion(delay = 0) {
-		return getWrappedAuthSceneItemMotion(shouldReduceMotion, delay);
-	}
-
-	function getWrappedSceneInitialState<T>(initial: T): T | false {
-		return hasMountedWrappedScene ? initial : false;
-	}
-
-	async function handleSubmit(e: React.FormEvent) {
+	async function handleSubmit(e: FormEvent) {
 		e.preventDefault();
 		setFeedback(null);
 		const signupEmail = normalizeAuthEmail(email);
 
 		if (usesWrappedEmailPreview) {
 			if (!hasValidEmail) {
-				const emailField = document.getElementById("signup-email");
+				const emailField = document.getElementById(
+					WRAPPED_SIGNUP_EMAIL_INPUT_ID,
+				);
 				if (emailField instanceof HTMLInputElement) {
 					emailField.focus();
 				}
@@ -152,7 +128,7 @@ export function SignupForm(props: SignupFormProps) {
 		}
 
 		if (!hasValidEmailCode) {
-			const codeField = document.getElementById("signup-code");
+			const codeField = document.getElementById(SIGNUP_CODE_INPUT_ID);
 			if (codeField instanceof HTMLInputElement) {
 				codeField.focus();
 			}
@@ -204,7 +180,7 @@ export function SignupForm(props: SignupFormProps) {
 
 		if (!hasValidEmail) {
 			const emailField = document.getElementById(
-				isWrappedStory ? "signup-email" : "email",
+				isWrappedStory ? WRAPPED_SIGNUP_EMAIL_INPUT_ID : "email",
 			);
 			if (emailField instanceof HTMLInputElement) {
 				emailField.focus();
@@ -300,24 +276,18 @@ export function SignupForm(props: SignupFormProps) {
 		}
 	}
 
-	function renderWrappedFeedback(extraClassName?: string) {
-		if (!feedback) {
-			return null;
+	function handleEmailChange(value: string) {
+		setEmail(value);
+		if (feedback) {
+			setFeedback(null);
 		}
+	}
 
-		return (
-			<div
-				role={feedback.kind === "error" ? "alert" : "status"}
-				aria-live="polite"
-				className={cn(
-					"mymind-wrapped-auth-form__feedback",
-					extraClassName,
-					feedback.kind === "error" ? "is-error" : "is-success",
-				)}
-			>
-				{feedback.message}
-			</div>
-		);
+	function handleEmailCodeChange(value: string) {
+		setEmailCode(sanitizeEmailCodeInput(value));
+		if (feedback?.kind === "error") {
+			setFeedback(null);
+		}
 	}
 
 	function handleOpenWrappedEmail() {
@@ -330,7 +300,7 @@ export function SignupForm(props: SignupFormProps) {
 	function handleContinueWrappedEmail() {
 		setFeedback(null);
 		if (!hasValidEmail) {
-			const emailField = document.getElementById("signup-email");
+			const emailField = document.getElementById(WRAPPED_SIGNUP_EMAIL_INPUT_ID);
 			if (emailField instanceof HTMLInputElement) {
 				emailField.focus();
 			}
@@ -354,272 +324,27 @@ export function SignupForm(props: SignupFormProps) {
 		setWrappedScene("choice");
 	}
 
-	function renderWrappedChoiceScene() {
-		return (
-			<motion.div
-				key="choice"
-				animate={wrappedSceneShellMotion.animate}
-				className="mymind-wrapped-auth-form__scene mymind-wrapped-auth-form__scene--choice"
-				exit={wrappedSceneShellMotion.exit}
-				initial={getWrappedSceneInitialState(wrappedSceneShellMotion.initial)}
-				transition={wrappedSceneShellMotion.transition}
-			>
-				<div className="mymind-wrapped-auth-form__choice-footer">
-					<div className="mymind-wrapped-auth-form__social">
-						<motion.div
-							animate={getWrappedSceneItemMotion().animate}
-							className="mymind-wrapped-auth-form__action-item"
-							exit={getWrappedSceneItemMotion().exit}
-							initial={getWrappedSceneInitialState(
-								getWrappedSceneItemMotion().initial,
-							)}
-							transition={getWrappedSceneItemMotion().transition}
-						>
-							<WrappedSecondaryAction
-								onClick={() => handleSocialSignIn("google")}
-							>
-								Create account with Google
-							</WrappedSecondaryAction>
-						</motion.div>
-						<motion.div
-							animate={getWrappedSceneItemMotion(0.04).animate}
-							className="mymind-wrapped-auth-form__action-item"
-							exit={getWrappedSceneItemMotion(0.04).exit}
-							initial={getWrappedSceneInitialState(
-								getWrappedSceneItemMotion(0.04).initial,
-							)}
-							transition={getWrappedSceneItemMotion(0.04).transition}
-						>
-							<WrappedSecondaryAction
-								onClick={() => handleSocialSignIn("github")}
-							>
-								Create account with GitHub
-							</WrappedSecondaryAction>
-						</motion.div>
-					</div>
-
-					<motion.div
-						animate={getWrappedSceneItemMotion(0.08).animate}
-						className="mymind-wrapped-auth-form__divider"
-						exit={getWrappedSceneItemMotion(0.08).exit}
-						initial={getWrappedSceneInitialState(
-							getWrappedSceneItemMotion(0.08).initial,
-						)}
-						transition={getWrappedSceneItemMotion(0.08).transition}
-					>
-						<Separator className="mymind-wrapped-auth-form__divider-line" />
-						<span className="mymind-wrapped-auth-form__divider-label">OR</span>
-						<Separator className="mymind-wrapped-auth-form__divider-line" />
-					</motion.div>
-
-					<motion.div
-						animate={getWrappedSceneItemMotion(0.12).animate}
-						className="mymind-wrapped-auth-form__action-item"
-						exit={getWrappedSceneItemMotion(0.12).exit}
-						initial={getWrappedSceneInitialState(
-							getWrappedSceneItemMotion(0.12).initial,
-						)}
-						transition={getWrappedSceneItemMotion(0.12).transition}
-					>
-						<WrappedPrimaryAction
-							kind="button"
-							onClick={handleOpenWrappedEmail}
-							className="mymind-wrapped-auth-form__scene-action"
-						>
-							Create account with Email
-						</WrappedPrimaryAction>
-					</motion.div>
-
-					{renderWrappedFeedback()}
-				</div>
-			</motion.div>
-		);
-	}
-
-	function renderWrappedEmailCodeScene() {
-		const isCodeStep = wrappedScene === "credentials";
-
-		return (
-			<motion.div
-				key="email-code"
-				animate={wrappedSceneShellMotion.animate}
-				className={cn(
-					"mymind-wrapped-auth-form__scene mymind-wrapped-auth-form__scene--email",
-					isCodeStep ? "mymind-wrapped-auth-form__scene--credentials" : null,
-				)}
-				exit={wrappedSceneShellMotion.exit}
-				initial={getWrappedSceneInitialState(wrappedSceneShellMotion.initial)}
-				transition={wrappedSceneShellMotion.transition}
-			>
-				<form
-					noValidate
-					onSubmit={(event) => {
-						if (!isCodeStep) {
-							event.preventDefault();
-							handleContinueWrappedEmail();
-							return;
-						}
-
-						void handleSubmit(event);
-					}}
-					className="mymind-wrapped-auth-form__scene-form"
-				>
-					<motion.div
-						animate={wrappedSceneMotion.enter}
-						className="mymind-wrapped-auth-form__scene-fields"
-						exit={wrappedSceneMotion.exit}
-						initial={getWrappedSceneInitialState(wrappedSceneMotion.initial)}
-						transition={wrappedSceneMotion.transition}
-					>
-						{isCodeStep ? null : (
-							<motion.div
-								layout="position"
-								className="mymind-wrapped-auth-form__field"
-								transition={wrappedSceneMotion.transition}
-							>
-								<Input
-									aria-label="Email"
-									autoComplete="email"
-									autoFocus
-									id="signup-email"
-									type="email"
-									placeholder="you@example.com"
-									value={email}
-									onChange={(e) => {
-										setEmail(e.target.value);
-										if (feedback) {
-											setFeedback(null);
-										}
-									}}
-									className="mymind-wrapped-auth-form__input"
-									required
-								/>
-							</motion.div>
-						)}
-						<AnimatePresence initial={false}>
-							{isCodeStep ? (
-								<motion.div
-									key="email-code"
-									animate={wrappedSceneMotion.enter}
-									className="mymind-wrapped-auth-form__field mymind-wrapped-auth-form__code-field"
-									exit={wrappedSceneMotion.exit}
-									initial={wrappedSceneMotion.initial}
-									transition={wrappedSceneMotion.transition}
-								>
-									<Input
-										autoFocus
-										aria-label="Email code"
-										autoComplete="one-time-code"
-										id="signup-code"
-										inputMode="numeric"
-										pattern="[0-9]*"
-										placeholder="123456"
-										value={emailCode}
-										onChange={(e) => {
-											setEmailCode(sanitizeEmailCodeInput(e.target.value));
-											if (feedback?.kind === "error") {
-												setFeedback(null);
-											}
-										}}
-										className="mymind-wrapped-auth-form__input mymind-wrapped-auth-step__otp-input"
-										required
-									/>
-									{renderWrappedFeedback(
-										"mymind-wrapped-auth-form__feedback--code-note",
-									)}
-								</motion.div>
-							) : null}
-						</AnimatePresence>
-					</motion.div>
-
-					{isCodeStep ? null : renderWrappedFeedback()}
-
-					<motion.div
-						animate={getWrappedSceneItemMotion(0.08).animate}
-						className="mymind-wrapped-auth-form__action-item mymind-wrapped-auth-form__action-item--primary"
-						exit={getWrappedSceneItemMotion(0.08).exit}
-						initial={getWrappedSceneInitialState(
-							getWrappedSceneItemMotion(0.08).initial,
-						)}
-						transition={getWrappedSceneItemMotion(0.08).transition}
-					>
-						<WrappedPrimaryAction
-							kind="button"
-							type="submit"
-							disabled={
-								isCodeStep && !usesWrappedEmailPreview ? loading : false
-							}
-							className="mymind-wrapped-auth-form__scene-action"
-						>
-							{isCodeStep
-								? loading
-									? "Verifying..."
-									: "Verify code"
-								: "Continue"}
-						</WrappedPrimaryAction>
-					</motion.div>
-
-					{isCodeStep ? (
-						<motion.div
-							animate={getWrappedSceneItemMotion(0.1).animate}
-							className="mymind-wrapped-auth-form__action-item"
-							exit={getWrappedSceneItemMotion(0.1).exit}
-							initial={getWrappedSceneInitialState(
-								getWrappedSceneItemMotion(0.1).initial,
-							)}
-							transition={getWrappedSceneItemMotion(0.1).transition}
-						>
-							<button
-								type="button"
-								onClick={() => {
-									setFeedback(null);
-									setEmailCode("");
-									setEmailCodeStage("email");
-									setWrappedScene("email");
-								}}
-								className="mymind-wrapped-auth-form__scene-link"
-							>
-								Use a different email
-							</button>
-						</motion.div>
-					) : (
-						<motion.div
-							animate={getWrappedSceneItemMotion(0.1).animate}
-							className="mymind-wrapped-auth-form__action-item"
-							exit={getWrappedSceneItemMotion(0.1).exit}
-							initial={getWrappedSceneInitialState(
-								getWrappedSceneItemMotion(0.1).initial,
-							)}
-							transition={getWrappedSceneItemMotion(0.1).transition}
-						>
-							<button
-								type="button"
-								onClick={handleReturnToWrappedChoice}
-								className="mymind-wrapped-auth-form__scene-link"
-							>
-								Use another method
-							</button>
-						</motion.div>
-					)}
-				</form>
-			</motion.div>
-		);
-	}
-
 	if (isWrappedStory) {
 		return (
-			<div
-				className="mymind-wrapped-auth-form"
-				data-email-auth-stage={wrappedScene}
-			>
-				<div className="mymind-wrapped-auth-form__scene-shell">
-					<AnimatePresence initial={false} mode="wait">
-						{wrappedScene === "choice"
-							? renderWrappedChoiceScene()
-							: renderWrappedEmailCodeScene()}
-					</AnimatePresence>
-				</div>
-			</div>
+			<WrappedEmailCodeAuth
+				codeInputId={SIGNUP_CODE_INPUT_ID}
+				email={email}
+				emailCode={emailCode}
+				emailInputId={WRAPPED_SIGNUP_EMAIL_INPUT_ID}
+				feedback={feedback}
+				labels={WRAPPED_SIGNUP_AUTH_LABELS}
+				loading={loading}
+				onCodeChange={handleEmailCodeChange}
+				onContinueEmail={handleContinueWrappedEmail}
+				onEmailChange={handleEmailChange}
+				onOpenEmail={handleOpenWrappedEmail}
+				onReturnToChoice={handleReturnToWrappedChoice}
+				onSocialSignIn={handleSocialSignIn}
+				onSubmit={handleSubmit}
+				onUseDifferentEmail={handleOpenWrappedEmail}
+				scene={wrappedScene}
+				usesPreviewSubmit={usesWrappedEmailPreview}
+			/>
 		);
 	}
 
@@ -672,33 +397,29 @@ export function SignupForm(props: SignupFormProps) {
 								autoComplete="email"
 								disabled={emailCodeStage === "code"}
 								id="email"
+								name="email"
 								type="email"
 								placeholder="you@example.com"
 								value={email}
 								onChange={(e) => {
-									setEmail(e.target.value);
-									if (feedback) {
-										setFeedback(null);
-									}
+									handleEmailChange(e.target.value);
 								}}
 								required
 							/>
 						</div>
 						{emailCodeStage === "code" ? (
 							<div className="flex flex-col gap-2">
-								<Label htmlFor="signup-code">Email code</Label>
+								<Label htmlFor={SIGNUP_CODE_INPUT_ID}>Email code</Label>
 								<Input
 									autoComplete="one-time-code"
-									id="signup-code"
+									id={SIGNUP_CODE_INPUT_ID}
 									inputMode="numeric"
+									name="code"
 									pattern="[0-9]*"
 									placeholder="123456"
 									value={emailCode}
 									onChange={(e) => {
-										setEmailCode(sanitizeEmailCodeInput(e.target.value));
-										if (feedback?.kind === "error") {
-											setFeedback(null);
-										}
+										handleEmailCodeChange(e.target.value);
 									}}
 									required
 								/>

@@ -2,6 +2,11 @@ export const EMAIL_CODE_LENGTH = 6;
 
 export type EmailCodeStage = "email" | "code";
 
+export type EmailAuthFeedback = {
+	kind: "error" | "success";
+	message: string;
+} | null;
+
 export function normalizeAuthEmail(email: string) {
 	return email.trim();
 }
