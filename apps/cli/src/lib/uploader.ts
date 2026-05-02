@@ -15,6 +15,15 @@ const RETRYABLE_STATUS_CODES = new Set([502, 503]);
 const MAX_ATTEMPTS = 3;
 const BASE_DELAY_MS = 1_000;
 
+interface ErrorData {
+	readonly authMessage: string | null;
+	readonly code: string | null;
+	readonly limit: number | null;
+	readonly reason: string | null;
+	readonly tryAgainIn: number | null;
+	readonly windowSeconds: number | null;
+}
+
 function isRetryable(error: unknown): boolean {
 	if (error instanceof ORPCError) {
 		return RETRYABLE_STATUS_CODES.has(error.status);
@@ -25,16 +34,36 @@ function isRetryable(error: unknown): boolean {
 	return false;
 }
 
-function isRateLimited(error: unknown): boolean {
+function isRateLimited(error: unknown): error is ORPCError<string, unknown> {
 	return error instanceof ORPCError && error.status === 429;
 }
 
-function formatError(error: unknown): string {
+function isApiKeyRateLimited(
+	error: unknown,
+): error is ORPCError<string, unknown> {
+	if (!(error instanceof ORPCError)) {
+		return false;
+	}
+
+	const data = getErrorData(error);
+	return (
+		data.reason === "api_key_rate_limited" ||
+		data.code === "RATE_LIMITED" ||
+		(error.status === 429 && data.authMessage !== null)
+	);
+}
+
+export function formatUploadError(error: unknown): string {
+	if (isApiKeyRateLimited(error)) {
+		const data = getErrorData(error);
+		const wait = data.tryAgainIn
+			? ` Wait about ${formatWait(data.tryAgainIn)} before retrying, or run \`rudel login\` to create a fresh ingest key.`
+			: " Run `rudel login` to create a fresh ingest key, or wait for the key's rate-limit window to reset.";
+		return `API key rate limit reached.${wait}`;
+	}
+
 	if (isRateLimited(error)) {
-		const data = (error as { data?: unknown }).data as {
-			limit?: number;
-			windowSeconds?: number;
-		} | null;
+		const data = getErrorData(error);
 		const windowMin = data?.windowSeconds
 			? Math.round(data.windowSeconds / 60)
 			: 60;
@@ -48,6 +77,47 @@ function formatError(error: unknown): string {
 		return error.message;
 	}
 	return String(error);
+}
+
+function getErrorData(error: ORPCError<string, unknown>): ErrorData {
+	const data = isRecord(error.data) ? error.data : null;
+	return {
+		authMessage: getStringField(data, "authMessage"),
+		code: getStringField(data, "code"),
+		limit: getNumberField(data, "limit"),
+		reason: getStringField(data, "reason"),
+		tryAgainIn: getNumberField(data, "tryAgainIn"),
+		windowSeconds: getNumberField(data, "windowSeconds"),
+	};
+}
+
+function getStringField(record: Record<string, unknown> | null, key: string) {
+	const value = record?.[key];
+	return typeof value === "string" && value.length > 0 ? value : null;
+}
+
+function getNumberField(record: Record<string, unknown> | null, key: string) {
+	const value = record?.[key];
+	return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null;
+}
+
+function formatWait(milliseconds: number) {
+	const seconds = Math.ceil(milliseconds / 1000);
+	if (seconds < 60) {
+		return `${seconds}s`;
+	}
+
+	const minutes = Math.ceil(seconds / 60);
+	if (minutes < 60) {
+		return `${minutes} min`;
+	}
+
+	const hours = Math.ceil(minutes / 60);
+	return `${hours} hr`;
 }
 
 /**
@@ -74,9 +144,9 @@ export async function uploadSession(
 			await client.ingestSession(request);
 			return { success: true, status: 200, attempts: attempt };
 		} catch (error) {
-			const errorMessage = formatError(error);
+			const errorMessage = formatUploadError(error);
 
-			if (isRateLimited(error)) {
+			if (isRateLimited(error) || isApiKeyRateLimited(error)) {
 				return {
 					success: false,
 					error: errorMessage,

@@ -8,6 +8,7 @@ import { db, sqlClient } from "./db.js";
 import { getResendConfigWarnings } from "./email.js";
 import { shutdownApiProductAnalytics } from "./lib/product-analytics.js";
 import { setupLogging } from "./logging.js";
+import type { ApiKeyAuthFailure } from "./middleware.js";
 import { checkWrappedShareLookupRateLimit } from "./rate-limit.js";
 import { router } from "./router.js";
 import { getPublicWrappedShare } from "./services/wrapped-share.service.js";
@@ -497,6 +498,7 @@ async function getContext(request: Request) {
 	});
 
 	let apiKeyId: string | null = null;
+	let authFailure: ApiKeyAuthFailure | null = null;
 	const apiKey =
 		request.headers.get("x-api-key") ??
 		request.headers.get("X-API-Key") ??
@@ -549,9 +551,19 @@ async function getContext(request: Request) {
 					} satisfies AuthUser;
 					apiKeyId = verification.key.id;
 				}
+			} else {
+				authFailure = getApiKeyAuthFailure(verification);
+				logger.warn("API key verification failed: {code} {message}", {
+					code: authFailure.code ?? "unknown",
+					message: authFailure.message,
+				});
 			}
-		} catch {
-			// Invalid API key is treated as unauthenticated for key-based auth.
+		} catch (error) {
+			authFailure = getApiKeyAuthFailure(error);
+			logger.warn("API key verification threw: {code} {message}", {
+				code: authFailure.code ?? "unknown",
+				message: authFailure.message,
+			});
 		}
 	}
 
@@ -559,7 +571,44 @@ async function getContext(request: Request) {
 		user: session?.user ?? apiKeyUser ?? null,
 		session: session?.session ?? null,
 		apiKeyId,
+		authFailure,
 	};
+}
+
+function getApiKeyAuthFailure(input: unknown): ApiKeyAuthFailure {
+	const error = getErrorRecord(input);
+	const code = getStringProperty(error, "code");
+	const message =
+		getStringProperty(error, "message") ??
+		(code === "RATE_LIMITED"
+			? "API key rate limit exceeded"
+			: "API key verification failed");
+
+	return { code, message };
+}
+
+function getErrorRecord(input: unknown): Record<string, unknown> | null {
+	if (isRecord(input) && isRecord(input.error)) {
+		return input.error;
+	}
+
+	if (isRecord(input) && isRecord(input.body)) {
+		return input.body;
+	}
+
+	return isRecord(input) ? input : null;
+}
+
+function getStringProperty(
+	record: Record<string, unknown> | null,
+	key: string,
+) {
+	const value = record?.[key];
+	return typeof value === "string" && value.length > 0 ? value : null;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null;
 }
 
 logger.info("API server listening on http://localhost:{port}", {
