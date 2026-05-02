@@ -3946,7 +3946,6 @@ body.mymind-wrapped-body .woot-widget-bubble {
 .mymind-wrapped-entry-stage--setup-complete
 	.mymind-wrapped-entry-stage__object {
 	align-items: center;
-	align-items: safe center;
 	overflow-y: auto;
 	overscroll-behavior: contain;
 	padding-bottom: 0.2rem;
