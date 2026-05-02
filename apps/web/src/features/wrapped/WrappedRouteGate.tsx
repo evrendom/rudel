@@ -76,6 +76,7 @@ const WRAPPED_SETUP_ALL_COMPLETED_STEP_IDS = [
 	WRAPPED_SETUP_AUTH_STEP_ID,
 	WRAPPED_SETUP_UPLOAD_STEP_ID,
 ] as const;
+const WRAPPED_SETUP_KEEP_POLLING_AFTER_UPLOAD_MS = 10 * 60 * 1000;
 
 export function WrappedRouteGate(props: WrappedRouteGateProps) {
 	const { isPending, publicId, session } = props;
@@ -96,15 +97,6 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 	const wrappedLoopEntrySource = shareId ? "share_redirect" : "direct";
 	const sessionUserId = getSessionUserId(session);
 	const sessionUserEmail = getSessionUserEmail(session);
-	const setupProgress = useSetupProgress({
-		enabled: !publicId && !!session,
-	});
-	const shouldQueryWrappedArchetypeGate =
-		!publicId &&
-		!!session &&
-		setupProgress.hasUploadedSessions &&
-		setupProgress.totalSessionCount >=
-			WRAPPED_ARCHETYPE_GATE_THRESHOLDS.min_total_sessions;
 	const cliSetupStatus = useCliSetupStatus({
 		enabled: !publicId && !!session,
 	});
@@ -137,6 +129,18 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 			? false
 			: completedSetupUserIds[sessionUserId] === true ||
 				hasCompletedWrappedSetup(sessionUserId);
+	const setupProgress = useSetupProgress({
+		enabled: !publicId && !!session,
+		keepPollingAfterUploadForMs: hasCompletedSetup
+			? undefined
+			: WRAPPED_SETUP_KEEP_POLLING_AFTER_UPLOAD_MS,
+	});
+	const shouldQueryWrappedArchetypeGate =
+		!publicId &&
+		!!session &&
+		setupProgress.hasUploadedSessions &&
+		setupProgress.totalSessionCount >=
+			WRAPPED_ARCHETYPE_GATE_THRESHOLDS.min_total_sessions;
 	const hasCompletedCardProfile =
 		sessionUserId !== null &&
 		(completedCardProfileUserIds[sessionUserId] === true ||

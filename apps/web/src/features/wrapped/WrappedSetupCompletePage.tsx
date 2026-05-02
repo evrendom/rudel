@@ -79,7 +79,7 @@ export function WrappedSetupCompletePage(props: WrappedSetupCompletePageProps) {
 			(sum, repo) => sum + repo.sessions,
 			0,
 		);
-		return repoSessionCount > 0 ? repoSessionCount : props.totalSessionCount;
+		return Math.max(repoSessionCount, props.totalSessionCount);
 	}, [props.totalSessionCount, uploadedRepos]);
 	const sessionReadinessState = getWrappedSetupCompleteResolvedReadinessState({
 		minimumSessionCount: props.minimumSessionCount,
