@@ -47,20 +47,36 @@ export function WrappedPrintedCardFlip(props: WrappedPrintedCardFlipProps) {
 	const flipShellRef = useRef<HTMLDivElement | null>(null);
 	const animationFrameRef = useRef<number | null>(null);
 	const angleRef = useRef(isFrontVisible ? 0 : 180);
+	const captureKeyRef = useRef(captureKey);
 	const shadowVisibilityRef = useRef(1);
 	const [backUrl, setBackUrl] = useState<string | null>(null);
+	const [usesWebKitBackTextureOnly] = useState(isAppleWebKitBrowser);
 	const visualStyle = resolvePrintedCardVisualStyle(
 		angleRef.current,
 		shadowVisibilityRef.current,
 	);
+	const shouldRenderBackSource =
+		shouldCaptureBackSurface &&
+		(!usesWebKitBackTextureOnly || backUrl === null);
 
-	// biome-ignore lint/correctness/useExhaustiveDependencies: captureKey intentionally invalidates the rendered back texture.
 	useEffect(() => {
 		let isCancelled = false;
 
-		setBackUrl(null);
-
 		if (!shouldCaptureBackSurface) {
+			setBackUrl(null);
+			return;
+		}
+
+		if (captureKeyRef.current !== captureKey) {
+			captureKeyRef.current = captureKey;
+
+			if (backUrl !== null) {
+				setBackUrl(null);
+				return;
+			}
+		}
+
+		if (backUrl !== null) {
 			return;
 		}
 
@@ -89,7 +105,7 @@ export function WrappedPrintedCardFlip(props: WrappedPrintedCardFlipProps) {
 		return () => {
 			isCancelled = true;
 		};
-	}, [captureKey, shouldCaptureBackSurface]);
+	}, [backUrl, captureKey, shouldCaptureBackSurface]);
 
 	useEffect(() => {
 		const targetAngle = isFrontVisible ? 0 : 180;
@@ -152,7 +168,7 @@ export function WrappedPrintedCardFlip(props: WrappedPrintedCardFlipProps) {
 
 	return (
 		<>
-			{shouldCaptureBackSurface ? (
+			{shouldRenderBackSource ? (
 				<div
 					aria-hidden="true"
 					className="mymind-wrapped-printed-card-flip__source-stage"
@@ -171,6 +187,9 @@ export function WrappedPrintedCardFlip(props: WrappedPrintedCardFlipProps) {
 				ref={flipShellRef}
 				className="mymind-wrapped-final-stage__flip-shell"
 				data-back-texture-ready={backUrl ? "true" : "false"}
+				data-back-texture-strategy={
+					usesWebKitBackTextureOnly ? "webkit-png-only" : "standard"
+				}
 				style={visualStyle}
 			>
 				<div className="mymind-wrapped-printed-card-flip__rotator">
@@ -202,6 +221,19 @@ export function WrappedPrintedCardFlip(props: WrappedPrintedCardFlipProps) {
 			</div>
 		</>
 	);
+}
+
+function isAppleWebKitBrowser() {
+	if (typeof navigator === "undefined") {
+		return false;
+	}
+
+	const { userAgent, vendor } = navigator;
+	const isAppleVendor = vendor.includes("Apple");
+	const isWebKit = userAgent.includes("AppleWebKit");
+	const isDesktopChromium = /\b(?:Chrome|Chromium|Edg|OPR)\//u.test(userAgent);
+
+	return isAppleVendor && isWebKit && !isDesktopChromium;
 }
 
 function resolvePrintedCardVisualStyle(
