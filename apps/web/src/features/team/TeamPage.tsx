@@ -8,6 +8,7 @@ import {
 	CardTitle,
 } from "@/app/ui/card";
 import { Skeleton } from "@/app/ui/skeleton";
+import { useUploadAnalyticsRefresh } from "@/features/analytics/queries/use-upload-analytics-refresh";
 import { TeamMembersCardGrid } from "@/features/team/components/TeamMembersCardGrid";
 import {
 	type TeamPageDiagnostics,
@@ -226,6 +227,7 @@ function TeamPageEmpty() {
 }
 
 export function TeamPage() {
+	useUploadAnalyticsRefresh({ keepPollingAfterUpload: true });
 	const {
 		diagnostics,
 		error,
