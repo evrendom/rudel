@@ -60,11 +60,12 @@ export function useUploadAnalyticsRefresh({
 
 		const previousRawSessionCount = previousRawSessionCountRef.current;
 		previousRawSessionCountRef.current = rawSessionCount;
+		const hasFreshUploads =
+			previousRawSessionCount === null
+				? keepPollingAfterUpload && rawSessionCount > 0
+				: rawSessionCount > previousRawSessionCount;
 
-		if (
-			previousRawSessionCount === null ||
-			rawSessionCount <= previousRawSessionCount
-		) {
+		if (!hasFreshUploads) {
 			return;
 		}
 
@@ -77,11 +78,17 @@ export function useUploadAnalyticsRefresh({
 			queryKey: analyticsQueryKey,
 			type: "inactive",
 		});
-		void queryClient.resetQueries({
+		void queryClient.invalidateQueries({
 			queryKey: analyticsQueryKey,
-			type: "active",
+			refetchType: "active",
 		});
-	}, [activeOrganizationId, enabled, queryClient, rawSessionCount]);
+	}, [
+		activeOrganizationId,
+		enabled,
+		keepPollingAfterUpload,
+		queryClient,
+		rawSessionCount,
+	]);
 
 	return {
 		rawSessionCount,

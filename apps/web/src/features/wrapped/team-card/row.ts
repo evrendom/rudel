@@ -131,10 +131,11 @@ function getWrappedMetricFallbackFields(
 	wrappedMetrics: WrappedV1["metrics"] | undefined,
 	currentRow?: TeamPageMemberRow,
 ) {
-	const totalSessions = Math.max(
-		currentRow?.totalSessions ?? 0,
-		wrappedMetrics?.total_sessions ?? 0,
-	);
+	const wrappedTotalSessions = wrappedMetrics?.total_sessions ?? 0;
+	const currentTotalSessions = currentRow?.totalSessions ?? 0;
+	const shouldUseWrappedFavoriteModel =
+		wrappedTotalSessions > currentTotalSessions;
+	const totalSessions = Math.max(currentTotalSessions, wrappedTotalSessions);
 	const activeDays = Math.max(
 		currentRow?.activeDays ?? 0,
 		wrappedMetrics?.active_days ?? 0,
@@ -151,8 +152,9 @@ function getWrappedMetricFallbackFields(
 	return {
 		activeDays,
 		cost,
-		favoriteModel:
-			wrappedMetrics?.favorite_model ?? currentRow?.favoriteModel ?? null,
+		favoriteModel: shouldUseWrappedFavoriteModel
+			? (wrappedMetrics?.favorite_model ?? currentRow?.favoriteModel ?? null)
+			: (currentRow?.favoriteModel ?? wrappedMetrics?.favorite_model ?? null),
 		hasActivity:
 			Boolean(currentRow?.hasActivity) ||
 			totalSessions > 0 ||
