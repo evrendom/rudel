@@ -37,4 +37,43 @@ describe("formatUploadError", () => {
 
 		expect(formatUploadError(error)).toBe("401 Unauthorized");
 	});
+
+	test("explains oversized upload requests", () => {
+		const error = new ORPCError("PAYLOAD_TOO_LARGE", {
+			status: 413,
+			data: {
+				body: {
+					error: "Request body too large. Maximum size is 500 MB.",
+				},
+			},
+		});
+
+		expect(formatUploadError(error)).toBe(
+			"Upload request is too large (413 Payload Too Large). Request body too large. Maximum size is 500 MB. This is a request-size limit, not an auth or proxy issue. This session will keep failing until its transcript/subagent payload is smaller; other failed sessions can still be retried with: rudel upload --retry",
+		);
+	});
+
+	test("explains transient gateway errors", () => {
+		const error = new ORPCError("BAD_GATEWAY");
+
+		expect(formatUploadError(error)).toBe(
+			"Temporary Rudel server/proxy error (502 Bad Gateway). The CLI retries these automatically; retry remaining failed uploads with: rudel upload --retry",
+		);
+	});
+
+	test("explains non-retryable server errors", () => {
+		const error = new ORPCError("INTERNAL_SERVER_ERROR");
+
+		expect(formatUploadError(error)).toBe(
+			"Rudel server error (500 Internal Server Error). This is not an auth problem. Retry later with: rudel upload --retry; if it repeats, share this status with the Rudel team.",
+		);
+	});
+
+	test("explains network errors", () => {
+		const error = new TypeError("fetch failed");
+
+		expect(formatUploadError(error)).toBe(
+			"Network error while contacting Rudel API: fetch failed. Check your connection and retry with: rudel upload --retry",
+		);
+	});
 });
