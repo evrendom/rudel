@@ -214,8 +214,6 @@ vi.mock("@/features/wrapped/team-card/page", () => ({
 }));
 
 const now = new Date("2026-04-22T10:00:00.000Z");
-const wrappedSetupKeepPollingAfterUploadMs = 10 * 60 * 1000;
-
 const session: NonNullable<AppSession> = {
 	session: {
 		id: "session-1",
@@ -834,7 +832,7 @@ describe("WrappedRouteGate", () => {
 		expect(screen.getByRole("button", { name: "Start story" })).toBeDisabled();
 		expect(mockUseSetupProgress).toHaveBeenLastCalledWith({
 			enabled: true,
-			keepPollingAfterUploadForMs: wrappedSetupKeepPollingAfterUploadMs,
+			keepPollingAfterUpload: true,
 		});
 		expect(mockUseAnalyticsQuery).not.toHaveBeenCalled();
 	});
@@ -900,6 +898,64 @@ describe("WrappedRouteGate", () => {
 		expect(screen.getByText("Readiness: missing")).toBeInTheDocument();
 		expect(screen.getByText("Total sessions: 38")).toBeInTheDocument();
 		expect(screen.getByRole("button", { name: "Start story" })).toBeDisabled();
+	});
+
+	it("waits when fresh uploads outrun cached wrapped gate data", async () => {
+		mockUseSetupProgress.mockReturnValue({
+			hasUploadedSessions: true,
+			isLoading: false,
+			totalSessionCount: 72,
+		});
+
+		const { rerender } = render(
+			<MemoryRouter initialEntries={["/wrapped?flow=sessions-landed"]}>
+				<WrappedRouteGate isPending={false} publicId={null} session={session} />
+			</MemoryRouter>,
+		);
+
+		expect(screen.getByText("Wrapped setup complete page")).toBeInTheDocument();
+		expect(screen.getByText("Total sessions: 72")).toBeInTheDocument();
+
+		await waitFor(() => {
+			expect(screen.getByText("Can continue: no")).toBeInTheDocument();
+		});
+
+		mockUseSetupProgress.mockReturnValue({
+			hasUploadedSessions: true,
+			isLoading: false,
+			totalSessionCount: 132,
+		});
+		mockUseAnalyticsQuery.mockReturnValue({
+			data: {
+				archetype_gate: {
+					is_eligible: true,
+					reason: "eligible",
+					thresholds: {
+						max_distance_ratio_to_max: 0.25,
+						min_active_days: 14,
+						min_top_two_margin: 0.1,
+						min_total_sessions: 100,
+					},
+					values: {
+						active_days: 14,
+						archetype_distance_ratio_to_max: 0.1,
+						archetype_top_two_margin: 0.2,
+						total_sessions: 72,
+					},
+				},
+			},
+			isLoading: false,
+		});
+
+		rerender(
+			<MemoryRouter initialEntries={["/wrapped?flow=sessions-landed"]}>
+				<WrappedRouteGate isPending={false} publicId={null} session={session} />
+			</MemoryRouter>,
+		);
+
+		expect(screen.getByText("Preparing your wrapped...")).toBeInTheDocument();
+		expect(screen.queryByText("Wrapped story")).toBeNull();
+		expect(screen.queryByText("Wrapped setup complete page")).toBeNull();
 	});
 
 	it("treats a legacy non-session gate reason as ready after 100 sessions", () => {
@@ -1103,7 +1159,7 @@ describe("WrappedRouteGate", () => {
 		expect(screen.getByText("Wrapped story")).toBeInTheDocument();
 		expect(mockUseSetupProgress).toHaveBeenLastCalledWith({
 			enabled: true,
-			keepPollingAfterUploadForMs: undefined,
+			keepPollingAfterUpload: false,
 		});
 	});
 
@@ -1128,6 +1184,10 @@ describe("WrappedRouteGate", () => {
 		);
 
 		expect(screen.getByText("Wrapped setup complete page")).toBeInTheDocument();
+		expect(mockUseSetupProgress).toHaveBeenLastCalledWith({
+			enabled: true,
+			keepPollingAfterUpload: true,
+		});
 	});
 
 	it("returns from the first story page to the upload screen", async () => {
@@ -1163,6 +1223,10 @@ describe("WrappedRouteGate", () => {
 			),
 		).toBeInTheDocument();
 		expect(screen.getByRole("button", { name: "Continue" })).toBeEnabled();
+		expect(mockUseSetupProgress).toHaveBeenLastCalledWith({
+			enabled: true,
+			keepPollingAfterUpload: true,
+		});
 	});
 
 	it("restarts the story from scale when continuing from sessions landed", async () => {
@@ -1190,7 +1254,7 @@ describe("WrappedRouteGate", () => {
 		expect(screen.getByText("Story step: none")).toBeInTheDocument();
 		expect(mockUseSetupProgress).toHaveBeenLastCalledWith({
 			enabled: true,
-			keepPollingAfterUploadForMs: undefined,
+			keepPollingAfterUpload: false,
 		});
 	});
 
