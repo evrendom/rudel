@@ -26,12 +26,18 @@ export interface TeamPageDiagnostics {
 	requestedDays: number;
 }
 
+export interface TeamPageMemberArchetype {
+	key: string;
+	name: string;
+}
+
 export interface TeamPageMemberRow {
 	userId: string;
 	displayName: string;
 	email: string | null;
 	role: string;
 	imageUrl?: string | null;
+	archetype?: TeamPageMemberArchetype | null;
 	cost: number;
 	favoriteModel: string | null;
 	inputTokens: number;
@@ -110,6 +116,7 @@ function buildTeamMemberRows(
 					? formatMemberRole(member.role)
 					: "Tracked collaborator",
 				imageUrl: member?.imageUrl,
+				archetype: teamCard?.archetype ?? null,
 				cost,
 				favoriteModel:
 					teamCard?.favorite_model ?? developerSummary?.favorite_model ?? null,

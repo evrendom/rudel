@@ -1,6 +1,7 @@
 import { LinkIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { TeamPageMemberRow } from "@/features/team/use-team-page-data";
+import { resolveWrappedArchetypeCardThemeByClassifierKey } from "@/features/wrapped/team-card/archetypes";
 import { WrappedTeamCardArtboardFrame } from "@/features/wrapped/team-card/artboard-frame";
 import {
 	WrappedTeamMemberCard,
@@ -11,7 +12,7 @@ import { UNKNOWN_GUEST_CARD_PRESET } from "@/features/wrapped/wrapped-guest-card
 import { copyTextToClipboardWithResult } from "@/lib/clipboard";
 import "@/features/wrapped/wrapped.css";
 
-const TEAM_CARD_PENDING_ARCHETYPE_LABEL = "To be revealed";
+const TEAM_CARD_UNCLASSIFIED_ARCHETYPE_LABEL = "Unclassified";
 const TEAM_LINK_COPY_RESET_MS = 1800;
 
 const compactCurrencyFormatter = new Intl.NumberFormat("en-US", {
@@ -37,11 +38,6 @@ const shortDateFormatter = new Intl.DateTimeFormat("en-US", {
 	month: "short",
 });
 
-const pendingArchetypeMetric = {
-	title: TEAM_CARD_PENDING_ARCHETYPE_LABEL,
-	value: TEAM_CARD_PENDING_ARCHETYPE_LABEL,
-} satisfies WrappedTeamMemberCardHeaderMetric;
-
 function buildHeaderLeftMetric(row: TeamPageMemberRow) {
 	const formattedSpend = formatSpendValue(row.cost);
 
@@ -49,6 +45,31 @@ function buildHeaderLeftMetric(row: TeamPageMemberRow) {
 		title: `${currencyFormatter.format(row.cost)} estimated spend`,
 		value: formattedSpend,
 	} satisfies WrappedTeamMemberCardHeaderMetric;
+}
+
+function buildHeaderRightMetric(label: string) {
+	return {
+		title: label,
+		value: label,
+	} satisfies WrappedTeamMemberCardHeaderMetric;
+}
+
+function resolveTeamCardPresentation(row: TeamPageMemberRow) {
+	const archetypeTheme = resolveWrappedArchetypeCardThemeByClassifierKey(
+		row.archetype?.key,
+	);
+	const archetypeLabel =
+		archetypeTheme?.displayLabel ??
+		row.archetype?.name ??
+		TEAM_CARD_UNCLASSIFIED_ARCHETYPE_LABEL;
+
+	return {
+		archetypeLabel,
+		shellClassName:
+			archetypeTheme?.shellClassName ??
+			UNKNOWN_GUEST_CARD_PRESET.shellClassName,
+		theme: archetypeTheme?.theme ?? UNKNOWN_GUEST_CARD_PRESET.theme,
+	};
 }
 
 function buildTeamCardStats(
@@ -270,24 +291,30 @@ export function TeamMembersCardGrid({
 						/>
 					</li>
 				) : null}
-				{rows.map((row) => (
-					<li key={row.userId} className="list-none">
-						<WrappedTeamMemberCard
-							disableOuterShadow={false}
-							headerLeftMetric={buildHeaderLeftMetric(row)}
-							headerRightMetric={pendingArchetypeMetric}
-							hideHeaderLogo
-							layoutPreset="team-card-preview"
-							mediaPanelClassName="mx-auto"
-							row={row}
-							shellClassName={UNKNOWN_GUEST_CARD_PRESET.shellClassName}
-							shellStyle={UNKNOWN_GUEST_CARD_PRESET.shellStyle}
-							statItems={buildTeamCardStats(row)}
-							statTileClassName=""
-							theme={UNKNOWN_GUEST_CARD_PRESET.theme}
-						/>
-					</li>
-				))}
+				{rows.map((row) => {
+					const teamCardPresentation = resolveTeamCardPresentation(row);
+
+					return (
+						<li key={row.userId} className="list-none">
+							<WrappedTeamMemberCard
+								disableOuterShadow={false}
+								headerLeftMetric={buildHeaderLeftMetric(row)}
+								headerRightMetric={buildHeaderRightMetric(
+									teamCardPresentation.archetypeLabel,
+								)}
+								hideHeaderLogo
+								layoutPreset="team-card-preview"
+								mediaPanelClassName="mx-auto"
+								row={row}
+								shellClassName={teamCardPresentation.shellClassName}
+								shellStyle={UNKNOWN_GUEST_CARD_PRESET.shellStyle}
+								statItems={buildTeamCardStats(row)}
+								statTileClassName=""
+								theme={teamCardPresentation.theme}
+							/>
+						</li>
+					);
+				})}
 			</ul>
 		</div>
 	);

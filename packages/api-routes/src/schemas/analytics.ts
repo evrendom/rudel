@@ -157,6 +157,12 @@ export const DeveloperSummarySchema = z.object({
 export const DeveloperTeamCardSchema = z.object({
 	user_id: z.string(),
 	display_name: z.string(),
+	archetype: z
+		.object({
+			key: z.string(),
+			name: z.string(),
+		})
+		.nullable(),
 	cost: z.number(),
 	input_tokens: z.number(),
 	output_tokens: z.number(),

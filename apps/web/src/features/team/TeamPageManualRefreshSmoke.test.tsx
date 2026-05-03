@@ -51,6 +51,7 @@ function buildDeveloperSummary() {
 function buildTeamCard() {
 	return {
 		active_days: 4,
+		archetype: { key: "smooth_operator", name: "Smooth Operator" },
 		cost: 18,
 		display_name: "Ada Lovelace",
 		favorite_model: "claude-sonnet-4-5",
