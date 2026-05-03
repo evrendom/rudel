@@ -33,6 +33,9 @@ export function buildWrappedOnboardingMetrics(
 		developerDetails?.total_sessions ?? 0,
 		wrappedMetrics?.total_sessions ?? 0,
 	);
+	const shouldUseWrappedModel =
+		(wrappedMetrics?.total_sessions ?? 0) >
+		(developerDetails?.total_sessions ?? 0);
 	const commitSessions = findBooleanDimensionCount(commitBreakdown, true);
 	const topProject = findTopProject(developerProjects);
 	const estimatedCostTokenBasis = Math.max(
@@ -66,9 +69,13 @@ export function buildWrappedOnboardingMetrics(
 		estimatedCostTokenBasis,
 		estimatedCostUsd,
 		favoriteModel: formatWrappedLabel(
-			wrappedMetrics?.favorite_model ??
-				developerDetails?.favorite_model ??
-				undefined,
+			shouldUseWrappedModel
+				? (wrappedMetrics?.favorite_model ??
+						developerDetails?.favorite_model ??
+						undefined)
+				: (developerDetails?.favorite_model ??
+						wrappedMetrics?.favorite_model ??
+						undefined),
 		),
 		longestSessionMin: wrappedMetrics?.longest_session_min ?? null,
 		modelByMonth: wrappedMetrics?.model_by_month ?? [],

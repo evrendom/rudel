@@ -112,7 +112,7 @@ function buildTeamMemberRows(
 				imageUrl: member?.imageUrl,
 				cost,
 				favoriteModel:
-					teamCard?.favorite_model ?? developerSummary?.favorite_model ?? null,
+					developerSummary?.favorite_model ?? teamCard?.favorite_model ?? null,
 				inputTokens,
 				outputTokens,
 				totalSessions,
