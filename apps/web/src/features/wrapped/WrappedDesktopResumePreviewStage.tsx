@@ -10,6 +10,7 @@ import { WrappedDesktopResumePromptStage } from "./WrappedDesktopResumePromptSta
 const DEFAULT_WRAPPED_DESKTOP_SETUP_URL = "app.rudel.ai/wrapped";
 const DEFAULT_WRAPPED_DESKTOP_SETUP_DESCRIPTION =
 	"The next step will be to enable Rudel within the terminal on your desktop.";
+const COPY_FEEDBACK_DURATION_MS = 1800;
 const PRIMARY_BUTTON_LAUNCH_HOLD_MS = 180;
 const PREVIEW_PRIMARY_ACTION_DURATION_MS = 820;
 
@@ -96,6 +97,7 @@ export function WrappedDesktopResumePreviewStage(
 	const [copyPulseKey, setCopyPulseKey] = useState(0);
 	const [isPrimaryLaunching, setIsPrimaryLaunching] = useState(false);
 	const [primaryPulseKey, setPrimaryPulseKey] = useState(0);
+	const copyResetTimeoutRef = useRef<number | null>(null);
 	const primaryLaunchTimeoutRef = useRef<number | null>(null);
 	const previewPrimaryActionTimeoutRef = useRef<number | null>(null);
 	const [previewPrimaryActionState, setPreviewPrimaryActionState] = useState<
@@ -131,6 +133,10 @@ export function WrappedDesktopResumePreviewStage(
 
 	useMountEffect(() => {
 		return () => {
+			if (copyResetTimeoutRef.current !== null) {
+				window.clearTimeout(copyResetTimeoutRef.current);
+			}
+
 			if (primaryLaunchTimeoutRef.current !== null) {
 				window.clearTimeout(primaryLaunchTimeoutRef.current);
 			}
@@ -155,9 +161,14 @@ export function WrappedDesktopResumePreviewStage(
 		setCopyPulseKey((currentValue) => currentValue + 1);
 		setCopied(true);
 
-		window.setTimeout(() => {
+		if (copyResetTimeoutRef.current !== null) {
+			window.clearTimeout(copyResetTimeoutRef.current);
+		}
+
+		copyResetTimeoutRef.current = window.setTimeout(() => {
 			setCopied(false);
-		}, 1800);
+			copyResetTimeoutRef.current = null;
+		}, COPY_FEEDBACK_DURATION_MS);
 	}
 
 	function handlePrimaryActionClick() {
