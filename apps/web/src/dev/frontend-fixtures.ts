@@ -17,6 +17,12 @@ const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const MAX_FIXTURE_DAYS = 14;
 const FIXTURE_MODELS = ["claude-sonnet-4.5", "gpt-5.1-codex"];
 const FIXTURE_REPOSITORIES = ["rudel/web", "rudel/api"];
+const FIXTURE_TEAM_CARD_ARCHETYPES = [
+	{ key: "maniac", name: "Maniac" },
+	{ key: "smooth_operator", name: "Smooth Operator" },
+	{ key: "roadrunner", name: "Roadrunner" },
+	{ key: "obsessed", name: "Obsessed" },
+];
 
 export interface FrontendFixtureMember {
 	userId: string;
@@ -458,6 +464,8 @@ function buildDeveloperTeamCard(
 
 	return {
 		active_days: 8 - Math.min(index, 4),
+		archetype:
+			FIXTURE_TEAM_CARD_ARCHETYPES[index % FIXTURE_TEAM_CARD_ARCHETYPES.length],
 		cost: Number((inputTokens * 0.000003 + outputTokens * 0.000015).toFixed(2)),
 		display_name: member.displayName,
 		favorite_model: FIXTURE_MODELS[index % FIXTURE_MODELS.length],
