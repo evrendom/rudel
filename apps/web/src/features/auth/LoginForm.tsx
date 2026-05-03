@@ -184,7 +184,7 @@ export function LoginForm(props: LoginFormProps) {
 		setWrappedScene("credentials");
 		setFeedback({
 			kind: "success",
-			message: `We sent a 6-digit code to ${loginEmail}.`,
+			message: `Code sent to ${loginEmail}.`,
 		});
 	}
 

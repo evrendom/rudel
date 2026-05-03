@@ -230,7 +230,7 @@ export function SignupForm(props: SignupFormProps) {
 		setWrappedScene("credentials");
 		setFeedback({
 			kind: "success",
-			message: `We sent a 6-digit code to ${signupEmail}.`,
+			message: `Code sent to ${signupEmail}.`,
 		});
 	}
 
