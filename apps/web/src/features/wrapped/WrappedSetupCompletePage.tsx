@@ -86,6 +86,10 @@ export function WrappedSetupCompletePage(props: WrappedSetupCompletePageProps) {
 		state: props.sessionReadinessState ?? "default",
 		totalSessionCount: props.totalSessionCount,
 	});
+	const primaryActionLabel = getWrappedSetupCompletePrimaryActionLabel({
+		canContinueToStory,
+		sessionReadinessState,
+	});
 	const titleCopy = getWrappedSetupCompleteTitle({
 		minimumSessionCount: props.minimumSessionCount,
 		state: sessionReadinessState,
@@ -233,9 +237,7 @@ export function WrappedSetupCompletePage(props: WrappedSetupCompletePageProps) {
 								disabled={isContinuingToStory || !canContinueToStory}
 								onClick={handleContinue}
 							>
-								{canContinueToStory
-									? "See what it reveals about you"
-									: "Upload more to unlock"}
+								{primaryActionLabel}
 							</WrappedPrimaryAction>
 						</motion.div>
 						<motion.div
@@ -560,6 +562,20 @@ function getWrappedSetupCompleteDescription(
 	return state === "missing"
 		? "to create an accurate picture"
 		: "Are you ready to see what the sessions tell about you?";
+}
+
+function getWrappedSetupCompletePrimaryActionLabel(input: {
+	canContinueToStory: boolean;
+	sessionReadinessState: WrappedSetupSessionReadinessState;
+}) {
+	if (input.canContinueToStory) {
+		return "See what it reveals about you";
+	}
+
+	return input.sessionReadinessState === "enough-landed" ||
+		input.sessionReadinessState === "enough-uploaded"
+		? "Preparing your wrapped..."
+		: "Upload more to unlock";
 }
 
 function getWrappedSetupCompleteResolvedReadinessState(input: {
