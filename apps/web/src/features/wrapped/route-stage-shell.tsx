@@ -120,6 +120,16 @@ export function WrappedRouteStageShell(props: WrappedRouteStageShellProps) {
 		!hideTopChromeControls && shouldUseReferenceTopChrome;
 	const hasTextStatus =
 		typeof status === "string" || typeof status === "number";
+	const hasDefaultLeadingControl =
+		leadingControl === undefined && !hideTopChromeControls;
+	const hasCustomLeadingControl =
+		leadingControl !== undefined && leadingControl !== null;
+	const hasTopTrayContent =
+		hasDefaultLeadingControl ||
+		hasCustomLeadingControl ||
+		shouldUseReferenceTopChrome ||
+		progressView !== null ||
+		status !== undefined;
 	const animatedCopy =
 		title === undefined || title === null ? null : (
 			<WrappedStageCopy
@@ -200,9 +210,17 @@ export function WrappedRouteStageShell(props: WrappedRouteStageShellProps) {
 					className={cn(
 						"mymind-wrapped-shell__frame",
 						!hasFooter ? "mymind-wrapped-shell__frame--no-footer" : null,
+						!hasTopTrayContent
+							? "mymind-wrapped-shell__frame--empty-top-tray"
+							: null,
 					)}
 				>
-					<header className="mymind-wrapped-top-tray">
+					<header
+						className={cn(
+							"mymind-wrapped-top-tray",
+							!hasTopTrayContent ? "mymind-wrapped-top-tray--empty" : null,
+						)}
+					>
 						{/* Keep the top chrome static on setup: the back button, progress bar,
 						    and help button should anchor the screen instead of joining the entrance motion. */}
 						<div className="mymind-wrapped-top-tray__row">
