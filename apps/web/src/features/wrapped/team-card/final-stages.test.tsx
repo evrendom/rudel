@@ -162,6 +162,65 @@ const tiltController: WrappedCardTiltController = {
 	isGyroscopeSupported: false,
 };
 
+const PUBLIC_VIEWER_COPY_PATTERN =
+	/\b(?:you|your|yours|yourself|they|them|their|theirs|themselves)\b/iu;
+
+const PUBLIC_ARCHETYPE_DESCRIPTION_EXPECTATIONS = [
+	{
+		archetypeId: "roadrunner",
+		description:
+			"Avery Chen is here. Meep meep. Avery Chen is gone. Active 12 out of 180 days. When Avery Chen showed up, we noticed. $1.14 a session. Meep Meep. Gone again. Where? Nobody knows",
+	},
+	{
+		archetypeId: "hit_and_runner",
+		description:
+			"24 minutes average. 6 repos. 41% of sessions shipped something. Veni, vidi, commit. In at 24 minutes. Out before anyone noticed. Avery Chen could be a hitman.",
+	},
+	{
+		archetypeId: "adhd_brain",
+		description:
+			"12 out of 180 days. 6 repos. 41% of sessions shipped something. Avery Chen would call this a DaVinci. We're just worried about the 6 repos.",
+	},
+	{
+		archetypeId: "cheapskate",
+		description:
+			"$1.14 a session. 41% of those shipped something. Mr. Krabs is very proud of Avery Chen. But Avery Chen has never once picked up the check.",
+	},
+	{
+		archetypeId: "company_card",
+		description:
+			"37 sessions. 41% of sessions shipped something. $1.14 a session. $42 in total. Not saying it's a problem. We don't judge. Avery Chen spends as much as Avery Chen wants. Dario's happy to have Avery Chen.",
+	},
+	{
+		archetypeId: "decimal",
+		description:
+			"For the rare edition energy: polished, expensive-looking, and very aware of the room.",
+	},
+	{
+		archetypeId: "tourist",
+		description:
+			"37 sessions. 41% shipped something. $1.14 a session. At least Avery Chen tried it out! There's no prize for participation though",
+	},
+	{
+		archetypeId: "smooth_operator",
+		description:
+			"12 out of 180 days. 24 minutes average. 88 at Avery Chen's longest. Avery Chen starts. Avery Chen builds. Avery Chen stops. 3.1 sessions a day, $1.14 a session, no chaos. A little to bit too smooth... bit suspicious.",
+	},
+	{
+		archetypeId: "obsessed",
+		description:
+			"6 repo. That's it. 12 out of 180 days. All of it, same place. 41% of Avery Chen's sessions shipped something. At $1.14 a session. May god help anyone who tries to distract Avery Chen.",
+	},
+	{
+		archetypeId: "maniac",
+		description:
+			"12 out of 180 days. 6 repos. Most people are consistent. Some people are everywhere at once. Avery Chen is both. Somehow. 3.1 sessions every time Avery Chen is active. We're a little scared honestly. Pls don't hurt someone",
+	},
+] satisfies readonly {
+	archetypeId: (typeof WRAPPED_ARCHETYPE_CARD_THEMES)[number]["id"];
+	description: string;
+}[];
+
 const REVEAL_INTRO_READY_MS = 2_140;
 const REVEAL_CARD_DROP_DURATION_MS = 1_020;
 const REVEAL_CARD_FLIP_DURATION_MS = 680;
@@ -1577,6 +1636,62 @@ describe("WrappedTeamCardRevealStage", () => {
 });
 
 describe("WrappedTeamCardPublicStage", () => {
+	it("renders every public archetype description in third person", () => {
+		for (const expectation of PUBLIC_ARCHETYPE_DESCRIPTION_EXPECTATIONS) {
+			const activeArchetype = WRAPPED_ARCHETYPE_CARD_THEMES.find(
+				(archetype) => archetype.id === expectation.archetypeId,
+			);
+			assert(activeArchetype);
+
+			const { container, unmount } = render(
+				<WrappedTeamCardPublicStage
+					action={<button type="button">Make yours</button>}
+					activeArchetype={activeArchetype}
+					backMetrics={buildWrappedTeamCardBackMetrics({
+						onboardingMetrics,
+						row,
+						shareCardCreatedAtLabel: "04/24/2026",
+					})}
+					headerLeftMetric={{ title: "$42 estimated spend", value: "$42" }}
+					headerRightMetric={{
+						title: activeArchetype.displayLabel,
+						value: activeArchetype.displayLabel,
+					}}
+					revealMetrics={{
+						avgSessionMin: 24,
+						commitRate: 41,
+						daysSinceFirst: 180,
+						distinctProjectCount: 6,
+						longestSessionMin: 88,
+					}}
+					row={row}
+					shellClassName={activeArchetype.shellClassName}
+					shellStyle={{}}
+					statItems={[]}
+					statLayerOpacities={{
+						rainbowShineOpacity: 0.3,
+						textureOpacity: 1,
+						tileBorderOpacity: 1,
+						tileFillOpacity: 0.08,
+						tileInsetShadowOpacity: 0.5,
+						tileTopStrokeOpacity: 0.08,
+					}}
+					theme={activeArchetype.theme}
+					tiltController={tiltController}
+				/>,
+			);
+			const description = container.querySelector(
+				".mymind-wrapped-final-stage__archetype-description",
+			);
+			assert(description);
+
+			expect(description.textContent).toBe(expectation.description);
+			expect(description.textContent).not.toMatch(PUBLIC_VIEWER_COPY_PATTERN);
+
+			unmount();
+		}
+	});
+
 	it("renders public ADHD copy from saved reveal metrics", () => {
 		const activeArchetype = WRAPPED_ARCHETYPE_CARD_THEMES.find(
 			(archetype) => archetype.id === "adhd_brain",
@@ -1631,7 +1746,7 @@ describe("WrappedTeamCardPublicStage", () => {
 		).toBeInTheDocument();
 		expect(
 			screen.getByText(
-				"12 out of 180 days. 6 repos. 48% of sessions shipped something. You'd call yourself a DaVinci. We're just worried about the 6 repos.",
+				"12 out of 180 days. 6 repos. 48% of sessions shipped something. Avery Chen would call this a DaVinci. We're just worried about the 6 repos.",
 			),
 		).toBeInTheDocument();
 	});
@@ -1685,7 +1800,7 @@ describe("WrappedTeamCardPublicStage", () => {
 
 		expect(
 			screen.getByText(
-				"12 out of 12 days. 6 repos. 48% of sessions shipped something. You'd call yourself a DaVinci. We're just worried about the 6 repos.",
+				"12 out of 12 days. 6 repos. 48% of sessions shipped something. Avery Chen would call this a DaVinci. We're just worried about the 6 repos.",
 			),
 		).toBeInTheDocument();
 	});
@@ -1732,7 +1847,7 @@ describe("WrappedTeamCardPublicStage", () => {
 		);
 
 		expect(
-			screen.getByText(/24 minutes average\. 88 at your longest\./u),
+			screen.getByText(/24 minutes average\. 88 at Avery Chen's longest\./u),
 		).toBeInTheDocument();
 	});
 
