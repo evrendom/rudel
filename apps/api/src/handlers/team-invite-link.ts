@@ -24,7 +24,6 @@ const get = os.teamInviteLink.get
 			invite_url: buildTeamInviteUrl(link.token),
 			organization_id: link.organizationId,
 			organization_name: link.organizationName,
-			token: link.token,
 		};
 	});
 

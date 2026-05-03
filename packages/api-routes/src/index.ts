@@ -113,7 +113,6 @@ export const TeamInviteLinkSchema = z.object({
 	invite_url: z.string().url(),
 	organization_id: z.string(),
 	organization_name: z.string(),
-	token: z.string(),
 });
 
 export const TeamInviteAcceptResultSchema = z.object({

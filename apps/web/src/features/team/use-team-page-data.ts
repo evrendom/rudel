@@ -1,7 +1,6 @@
 import type { DeveloperSummary, DeveloperTeamCard } from "@rudel/api-routes";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
-import { appRoutes } from "@/app/routes";
 import {
 	announceFrontendFixturesEnabled,
 	buildTeamAnalyticsFixtures,
@@ -132,16 +131,6 @@ function buildTeamMemberRows(
 		);
 }
 
-function buildTeamInviteUrl(token: string) {
-	const invitePath = appRoutes.teamInvite(token);
-
-	if (typeof window === "undefined") {
-		return invitePath;
-	}
-
-	return `${window.location.origin}${invitePath}`;
-}
-
 export function useTeamPageData() {
 	const { state: dateRangeState, meta: dateRangeMeta } = useDateRange();
 	const { meta: workspaceMeta, state: workspaceState } = useOrganization();
@@ -261,9 +250,7 @@ export function useTeamPageData() {
 		teamMemberRows,
 		canInviteTeamMembers,
 		isInviteLinkPending: teamInviteLinkQuery.isPending,
-		teamInviteLink: teamInviteLinkQuery.data
-			? buildTeamInviteUrl(teamInviteLinkQuery.data.token)
-			: null,
+		teamInviteLink: teamInviteLinkQuery.data?.invite_url ?? null,
 		requestedDays,
 		refetch: async () => {
 			await Promise.all([
