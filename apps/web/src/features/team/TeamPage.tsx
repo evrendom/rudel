@@ -229,16 +229,26 @@ function TeamPageEmpty() {
 export function TeamPage() {
 	useUploadAnalyticsRefresh({ keepPollingAfterUpload: true });
 	const {
+		canInviteTeamMembers,
 		diagnostics,
 		error,
+		isInviteLinkPending,
 		isError,
 		isPending,
 		teamMemberRows,
 		refetch,
+		teamInviteLink,
 		teamCards,
 	} = useTeamPageData();
 
-	let content = <TeamMembersCardGrid rows={teamMemberRows} />;
+	let content = (
+		<TeamMembersCardGrid
+			canInviteTeamMembers={canInviteTeamMembers}
+			isInviteLinkPending={isInviteLinkPending}
+			rows={teamMemberRows}
+			teamInviteLink={teamInviteLink}
+		/>
+	);
 
 	if (isPending) {
 		content = <TeamPageSkeleton />;
@@ -250,7 +260,11 @@ export function TeamPage() {
 				onRetry={refetch}
 			/>
 		);
-	} else if (teamMemberRows.length === 0 && (teamCards?.length ?? 0) === 0) {
+	} else if (
+		!canInviteTeamMembers &&
+		teamMemberRows.length === 0 &&
+		(teamCards?.length ?? 0) === 0
+	) {
 		content = <TeamPageEmpty />;
 	}
 

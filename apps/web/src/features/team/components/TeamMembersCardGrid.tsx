@@ -1,13 +1,18 @@
+import { LinkIcon } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import type { TeamPageMemberRow } from "@/features/team/use-team-page-data";
+import { WrappedTeamCardArtboardFrame } from "@/features/wrapped/team-card/artboard-frame";
 import {
 	WrappedTeamMemberCard,
 	type WrappedTeamMemberCardHeaderMetric,
 	type WrappedTeamMemberCardStatItem,
 } from "@/features/wrapped/team-card/card";
 import { UNKNOWN_GUEST_CARD_PRESET } from "@/features/wrapped/wrapped-guest-card-presets";
+import { copyTextToClipboardWithResult } from "@/lib/clipboard";
 import "@/features/wrapped/wrapped.css";
 
 const TEAM_CARD_PENDING_ARCHETYPE_LABEL = "To be revealed";
+const TEAM_LINK_COPY_RESET_MS = 1800;
 
 const compactCurrencyFormatter = new Intl.NumberFormat("en-US", {
 	currency: "USD",
@@ -126,10 +131,145 @@ function formatSpendValue(cost: number) {
 	return currencyFormatter.format(cost);
 }
 
-export function TeamMembersCardGrid({ rows }: { rows: TeamPageMemberRow[] }) {
+function TeamCardShapePlaceholder({
+	isInviteLinkPending,
+	teamInviteLink,
+}: {
+	isInviteLinkPending: boolean;
+	teamInviteLink: string | null;
+}) {
+	return (
+		<WrappedTeamCardArtboardFrame>
+			<article
+				aria-label="Add more members"
+				className="relative isolate grid h-[358px] w-[233px] place-items-center overflow-hidden rounded-[18px] bg-muted/45 p-6 text-card-foreground shadow-none"
+			>
+				<svg
+					aria-hidden="true"
+					className="absolute inset-0 size-full text-muted-foreground/35"
+					fill="none"
+					viewBox="0 0 233 358"
+				>
+					<rect
+						x="4"
+						y="4"
+						width="225"
+						height="350"
+						rx="15"
+						stroke="currentColor"
+						strokeDasharray="18 12"
+						strokeLinecap="round"
+						strokeWidth="6"
+					/>
+				</svg>
+				<div className="relative z-10 flex w-full flex-col items-center gap-3">
+					<p className="max-w-[19ch] text-center text-sm font-medium text-pretty text-muted-foreground">
+						Add more members to your team with this link
+					</p>
+					<TeamLinkCopySurface
+						isInviteLinkPending={isInviteLinkPending}
+						teamInviteLink={teamInviteLink}
+					/>
+				</div>
+			</article>
+		</WrappedTeamCardArtboardFrame>
+	);
+}
+
+function TeamLinkCopySurface({
+	isInviteLinkPending,
+	teamInviteLink,
+}: {
+	isInviteLinkPending: boolean;
+	teamInviteLink: string | null;
+}) {
+	const [copied, setCopied] = useState(false);
+	const resetTimeoutRef = useRef<number | null>(null);
+	const visibleTeamLink =
+		teamInviteLink ??
+		(isInviteLinkPending ? "Loading link..." : "Link unavailable");
+
+	useEffect(() => {
+		return () => {
+			if (resetTimeoutRef.current !== null) {
+				window.clearTimeout(resetTimeoutRef.current);
+			}
+		};
+	}, []);
+
+	async function handleCopyTeamLink() {
+		if (!teamInviteLink) {
+			return;
+		}
+
+		const result = await copyTextToClipboardWithResult(teamInviteLink, {
+			preferSelectionCopy: true,
+			allowPromptFallback: true,
+			promptMessage: "Copy team link: Cmd/Ctrl+C, Enter",
+		});
+
+		if (result !== "copied") {
+			return;
+		}
+
+		if (resetTimeoutRef.current !== null) {
+			window.clearTimeout(resetTimeoutRef.current);
+		}
+
+		setCopied(true);
+		resetTimeoutRef.current = window.setTimeout(() => {
+			setCopied(false);
+			resetTimeoutRef.current = null;
+		}, TEAM_LINK_COPY_RESET_MS);
+	}
+
+	return (
+		<div className="grid h-11 w-full min-w-0 grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-1 rounded-full border border-border/60 bg-background p-1">
+			<LinkIcon
+				aria-hidden="true"
+				className="mx-auto size-4 shrink-0 text-muted-foreground"
+			/>
+			<div
+				className="min-w-0 truncate [font-family:var(--font-mono)] text-[0.82rem] font-medium text-[#22201f]"
+				title={visibleTeamLink}
+			>
+				{visibleTeamLink}
+			</div>
+			<button
+				aria-label={copied ? "Copied team link" : "Copy team link"}
+				className="flex h-full min-w-18 items-center justify-center rounded-full bg-[#22201f] px-4 [font-family:var(--font-sans)] text-[0.86rem] font-bold text-[#fffaf5] transition-colors hover:bg-[#151312] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#22201f]/30 disabled:cursor-not-allowed disabled:bg-muted-foreground/40 disabled:text-background"
+				disabled={isInviteLinkPending || teamInviteLink === null}
+				onClick={() => void handleCopyTeamLink()}
+				type="button"
+			>
+				{copied ? "Copied" : "Copy"}
+			</button>
+		</div>
+	);
+}
+
+export function TeamMembersCardGrid({
+	canInviteTeamMembers,
+	isInviteLinkPending,
+	rows,
+	teamInviteLink,
+}: {
+	canInviteTeamMembers: boolean;
+	isInviteLinkPending: boolean;
+	rows: TeamPageMemberRow[];
+	teamInviteLink: string | null;
+}) {
 	return (
 		<div className="team-lineup-surface-scope">
 			<ul className="grid justify-center gap-[10px] [grid-template-columns:repeat(auto-fit,minmax(233px,233px))]">
+				{canInviteTeamMembers ? (
+					<li className="list-none">
+						<TeamCardShapePlaceholder
+							isInviteLinkPending={isInviteLinkPending}
+							teamInviteLink={teamInviteLink}
+						/>
+					</li>
+				) : null}
 				{rows.map((row) => (
 					<li key={row.userId} className="list-none">
 						<WrappedTeamMemberCard

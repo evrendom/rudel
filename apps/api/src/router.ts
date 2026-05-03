@@ -8,6 +8,7 @@ import { getClickhouse } from "./clickhouse.js";
 import { sqlClient } from "./db.js";
 import { adminRouter } from "./handlers/admin/index.js";
 import { analyticsRouter } from "./handlers/analytics/index.js";
+import { teamInviteLinkRouter } from "./handlers/team-invite-link.js";
 import { wrappedResumeRouter } from "./handlers/wrapped-resume.js";
 import { wrappedShareRouter } from "./handlers/wrapped-share.js";
 import {
@@ -372,6 +373,7 @@ export const router = os.router({
 	ingestSession: ingestSessionHandler,
 	getOrganizationSessionCount,
 	deleteOrganization,
+	teamInviteLink: teamInviteLinkRouter,
 	wrappedResume: wrappedResumeRouter,
 	wrappedShare: wrappedShareRouter,
 	admin: adminRouter,

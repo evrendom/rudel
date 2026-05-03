@@ -1,6 +1,7 @@
 import type { DeveloperSummary, DeveloperTeamCard } from "@rudel/api-routes";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
+import { appRoutes } from "@/app/routes";
 import {
 	announceFrontendFixturesEnabled,
 	buildTeamAnalyticsFixtures,
@@ -131,23 +132,36 @@ function buildTeamMemberRows(
 		);
 }
 
+function buildTeamInviteUrl(token: string) {
+	const invitePath = appRoutes.teamInvite(token);
+
+	if (typeof window === "undefined") {
+		return invitePath;
+	}
+
+	return `${window.location.origin}${invitePath}`;
+}
+
 export function useTeamPageData() {
 	const { state: dateRangeState, meta: dateRangeMeta } = useDateRange();
-	const { state: workspaceState } = useOrganization();
+	const { meta: workspaceMeta, state: workspaceState } = useOrganization();
 	const useFixtures = isFrontendFixturesEnabled();
 	announceFrontendFixturesEnabled("team");
 	const selectedDays = dateRangeMeta.dayCount;
 	const requestedDays = MAX_ANALYTICS_DAYS;
+	const activeOrganizationId = workspaceState.activeOrg?.id ?? null;
+	const canInviteTeamMembers =
+		activeOrganizationId !== null && workspaceMeta.isOrgAdmin;
 	const {
 		data: members = [],
 		isLoading: isOrganizationPending,
 		isError: isOrganizationError,
 		refetch: refetchMembers,
 	} = useQuery<readonly TeamRosterMemberSource[]>({
-		queryKey: ["team-page-members", workspaceState.activeOrg?.id],
+		queryKey: ["team-page-members", activeOrganizationId],
 		queryFn: async () => {
 			const response = await authClient.organization.getFullOrganization({
-				query: { organizationId: workspaceState.activeOrg?.id ?? "" },
+				query: { organizationId: activeOrganizationId ?? "" },
 			});
 			const fullOrganization =
 				(response.data as {
@@ -170,7 +184,13 @@ export function useTeamPageData() {
 				userId: member.userId,
 			}));
 		},
-		enabled: Boolean(workspaceState.activeOrg?.id),
+		enabled: activeOrganizationId !== null,
+	});
+	const teamInviteLinkQuery = useQuery({
+		...orpc.teamInviteLink.get.queryOptions({
+			input: { organizationId: activeOrganizationId ?? "" },
+		}),
+		enabled: canInviteTeamMembers,
 	});
 	const teamCardsQuery = useAnalyticsQuery({
 		...orpc.analytics.developers.teamCards.queryOptions({
@@ -211,7 +231,7 @@ export function useTeamPageData() {
 		endpoint: "analytics.developers.teamCards",
 		maxDays: MAX_ANALYTICS_DAYS,
 		startDate: dateRangeState.startDate,
-		organizationId: workspaceState.activeOrg?.id ?? null,
+		organizationId: activeOrganizationId,
 		organizationName: workspaceState.activeOrg?.name ?? null,
 		days: selectedDays,
 		requestedDays,
@@ -239,12 +259,18 @@ export function useTeamPageData() {
 				developersQuery.isPending ||
 				isOrganizationPending),
 		teamMemberRows,
+		canInviteTeamMembers,
+		isInviteLinkPending: teamInviteLinkQuery.isPending,
+		teamInviteLink: teamInviteLinkQuery.data
+			? buildTeamInviteUrl(teamInviteLinkQuery.data.token)
+			: null,
 		requestedDays,
 		refetch: async () => {
 			await Promise.all([
 				teamCardsQuery.refetch(),
 				developersQuery.refetch(),
 				refetchMembers(),
+				canInviteTeamMembers ? teamInviteLinkQuery.refetch() : null,
 			]);
 		},
 		teamCards,
