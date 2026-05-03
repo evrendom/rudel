@@ -140,6 +140,7 @@ function PublicShareReadyState(props: {
 			backMetrics={share.snapshot.backMetrics ?? []}
 			headerLeftMetric={share.snapshot.headerLeftMetric}
 			headerRightMetric={share.snapshot.headerRightMetric}
+			revealMetrics={share.snapshot.revealMetrics}
 			row={publicRow}
 			shellClassName={share.snapshot.shellClassName}
 			shellStyle={PUBLIC_SHARE_CARD_SHELL_STYLE}

@@ -1,3 +1,4 @@
+import type { WrappedShareRevealMetrics } from "@rudel/api-routes";
 import { ChevronRight } from "lucide-react";
 import type { CSSProperties, ReactNode } from "react";
 import type { TeamPageMemberRow } from "@/features/team/use-team-page-data";
@@ -30,6 +31,7 @@ interface WrappedPublicCardScreenProps {
 	debugControls?: ReactNode;
 	headerLeftMetric?: WrappedTeamMemberCardHeaderMetric;
 	headerRightMetric?: WrappedTeamMemberCardHeaderMetric;
+	revealMetrics?: WrappedShareRevealMetrics;
 	row: TeamPageMemberRow;
 	shellClassName: string;
 	shellStyle: CSSProperties;
@@ -46,6 +48,7 @@ export function WrappedPublicCardScreen(props: WrappedPublicCardScreenProps) {
 		debugControls,
 		headerLeftMetric,
 		headerRightMetric,
+		revealMetrics,
 		row,
 		shellClassName,
 		shellStyle,
@@ -81,6 +84,7 @@ export function WrappedPublicCardScreen(props: WrappedPublicCardScreenProps) {
 									backMetrics={backMetrics}
 									headerLeftMetric={headerLeftMetric}
 									headerRightMetric={headerRightMetric}
+									revealMetrics={revealMetrics}
 									row={row}
 									shellClassName={shellClassName}
 									shellStyle={shellStyle}

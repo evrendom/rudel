@@ -1,3 +1,4 @@
+import assert from "node:assert/strict";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { TeamPageMemberRow } from "@/features/team/use-team-page-data";
@@ -1576,6 +1577,165 @@ describe("WrappedTeamCardRevealStage", () => {
 });
 
 describe("WrappedTeamCardPublicStage", () => {
+	it("renders public ADHD copy from saved reveal metrics", () => {
+		const activeArchetype = WRAPPED_ARCHETYPE_CARD_THEMES.find(
+			(archetype) => archetype.id === "adhd_brain",
+		);
+		assert(activeArchetype);
+
+		render(
+			<WrappedTeamCardPublicStage
+				action={<button type="button">Make yours</button>}
+				activeArchetype={activeArchetype}
+				backMetrics={buildWrappedTeamCardBackMetrics({
+					onboardingMetrics: {
+						...onboardingMetrics,
+						commitRate: 0,
+					},
+					row,
+					shareCardCreatedAtLabel: "04/24/2026",
+				})}
+				headerLeftMetric={{ title: "$42 estimated spend", value: "$42" }}
+				headerRightMetric={{
+					title: "ADHD Brain",
+					value: "ADHD Brain",
+				}}
+				revealMetrics={{
+					avgSessionMin: 24,
+					commitRate: 48,
+					daysSinceFirst: 180,
+					distinctProjectCount: 6,
+					longestSessionMin: 88,
+				}}
+				row={row}
+				shellClassName="bg-fuchsia-200"
+				shellStyle={{}}
+				statItems={[]}
+				statLayerOpacities={{
+					rainbowShineOpacity: 0.3,
+					textureOpacity: 1,
+					tileBorderOpacity: 1,
+					tileFillOpacity: 0.08,
+					tileInsetShadowOpacity: 0.5,
+					tileTopStrokeOpacity: 0.08,
+				}}
+				theme="light"
+				tiltController={tiltController}
+			/>,
+		);
+
+		expect(
+			screen.getByRole("heading", {
+				name: "Avery Chen is an ADHD Brain.",
+			}),
+		).toBeInTheDocument();
+		expect(
+			screen.getByText(
+				"12 out of 180 days. 6 repos. 48% of sessions shipped something. You'd call yourself a DaVinci. We're just worried about the 6 repos.",
+			),
+		).toBeInTheDocument();
+	});
+
+	it("falls back to public back metrics for older ADHD shares", () => {
+		const activeArchetype = WRAPPED_ARCHETYPE_CARD_THEMES.find(
+			(archetype) => archetype.id === "adhd_brain",
+		);
+		assert(activeArchetype);
+
+		render(
+			<WrappedTeamCardPublicStage
+				action={<button type="button">Make yours</button>}
+				activeArchetype={activeArchetype}
+				backMetrics={buildWrappedTeamCardBackMetrics({
+					onboardingMetrics: {
+						...onboardingMetrics,
+						commitRate: 48,
+					},
+					row,
+					shareCardCreatedAtLabel: "04/24/2026",
+				})}
+				headerLeftMetric={{ title: "$42 estimated spend", value: "$42" }}
+				headerRightMetric={{
+					title: "ADHD Brain",
+					value: "ADHD Brain",
+				}}
+				row={row}
+				shellClassName="bg-fuchsia-200"
+				shellStyle={{}}
+				statItems={[
+					{
+						key: "repos",
+						label: "REPOS",
+						title: "6 distinct tracked projects",
+						value: "6",
+					},
+				]}
+				statLayerOpacities={{
+					rainbowShineOpacity: 0.3,
+					textureOpacity: 1,
+					tileBorderOpacity: 1,
+					tileFillOpacity: 0.08,
+					tileInsetShadowOpacity: 0.5,
+					tileTopStrokeOpacity: 0.08,
+				}}
+				theme="light"
+				tiltController={tiltController}
+			/>,
+		);
+
+		expect(
+			screen.getByText(
+				"12 out of 12 days. 6 repos. 48% of sessions shipped something. You'd call yourself a DaVinci. We're just worried about the 6 repos.",
+			),
+		).toBeInTheDocument();
+	});
+
+	it("falls back to public back metrics for older Smooth Operator shares", () => {
+		const activeArchetype = WRAPPED_ARCHETYPE_CARD_THEMES.find(
+			(archetype) => archetype.id === "smooth_operator",
+		);
+		assert(activeArchetype);
+
+		render(
+			<WrappedTeamCardPublicStage
+				action={<button type="button">Make yours</button>}
+				activeArchetype={activeArchetype}
+				backMetrics={buildWrappedTeamCardBackMetrics({
+					onboardingMetrics: {
+						...onboardingMetrics,
+						avgSessionMin: 24,
+						longestSessionMin: 88,
+					},
+					row,
+					shareCardCreatedAtLabel: "04/24/2026",
+				})}
+				headerLeftMetric={{ title: "$42 estimated spend", value: "$42" }}
+				headerRightMetric={{
+					title: "Smooth Operator",
+					value: "Smooth Operator",
+				}}
+				row={row}
+				shellClassName="bg-sky-200"
+				shellStyle={{}}
+				statItems={[]}
+				statLayerOpacities={{
+					rainbowShineOpacity: 0.3,
+					textureOpacity: 1,
+					tileBorderOpacity: 1,
+					tileFillOpacity: 0.08,
+					tileInsetShadowOpacity: 0.5,
+					tileTopStrokeOpacity: 0.08,
+				}}
+				theme="light"
+				tiltController={tiltController}
+			/>,
+		);
+
+		expect(
+			screen.getByText(/24 minutes average\. 88 at your longest\./u),
+		).toBeInTheDocument();
+	});
+
 	it("asks the viewer to turn around before showing the make yours action", () => {
 		vi.useFakeTimers();
 		const activeArchetype = {
