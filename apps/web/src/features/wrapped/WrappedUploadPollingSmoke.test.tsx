@@ -9,6 +9,7 @@ import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AppSession } from "@/features/auth/auth-route-utils";
 import { WrappedRouteGate } from "@/features/wrapped/WrappedRouteGate";
+import { getWrappedSetupCompletionStorageKey } from "@/features/wrapped/wrapped-setup-state";
 
 const {
 	mockGetOrganizationSessionCount,
@@ -132,11 +133,11 @@ const session: NonNullable<AppSession> = {
 	},
 };
 
-function createWrapper(queryClient: QueryClient) {
+function createWrapper(queryClient: QueryClient, initialEntry = "/wrapped") {
 	return function WrappedPollingSmokeWrapper(props: { children: ReactNode }) {
 		return (
 			<QueryClientProvider client={queryClient}>
-				<MemoryRouter initialEntries={["/wrapped"]}>
+				<MemoryRouter initialEntries={[initialEntry]}>
 					{props.children}
 				</MemoryRouter>
 			</QueryClientProvider>
@@ -186,6 +187,16 @@ describe("Wrapped upload polling smoke", () => {
 		vi.useRealTimers();
 	});
 
+	function markSetupCompleted() {
+		const storageKey = getWrappedSetupCompletionStorageKey(session.user.id);
+
+		if (storageKey === null) {
+			throw new Error("Expected wrapped setup completion storage key");
+		}
+
+		window.localStorage.setItem(storageKey, "true");
+	}
+
 	it("updates the missing session count on the next poll after a second upload", async () => {
 		const queryClient = new QueryClient(queryClientConfig);
 
@@ -193,6 +204,38 @@ describe("Wrapped upload polling smoke", () => {
 			<WrappedRouteGate isPending={false} publicId={null} session={session} />,
 			{
 				wrapper: createWrapper(queryClient),
+			},
+		);
+
+		expect(
+			await screen.findByRole("heading", { name: "55 sessions missing" }),
+		).toBeInTheDocument();
+		expect(screen.getByText("45 sessions across 1 repo")).toBeInTheDocument();
+
+		rawSessionCount = 63;
+
+		await waitFor(
+			() => {
+				expect(
+					screen.getByRole("heading", { name: "37 sessions missing" }),
+				).toBeInTheDocument();
+			},
+			{ timeout: 1_500 },
+		);
+		expect(screen.getByText("63 sessions across 1 repo")).toBeInTheDocument();
+		expect(mockGetOrganizationSessionCount).toHaveBeenCalledTimes(2);
+
+		queryClient.clear();
+	});
+
+	it("keeps polling after reloading the repos screen from a completed setup", async () => {
+		const queryClient = new QueryClient(queryClientConfig);
+		markSetupCompleted();
+
+		render(
+			<WrappedRouteGate isPending={false} publicId={null} session={session} />,
+			{
+				wrapper: createWrapper(queryClient, "/wrapped?flow=sessions-landed"),
 			},
 		);
 

@@ -1,15 +1,19 @@
-import { renderHook } from "@testing-library/react";
+import { renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useSetupProgress } from "@/features/get-started/use-setup-progress";
 
 const {
 	mockGetOrganizationSessionCount,
+	mockRemoveQueries,
+	mockResetQueries,
 	mockSummaryQueryOptions,
 	mockUseAnalyticsQuery,
 	mockUseOrganization,
 	mockUseQuery,
 } = vi.hoisted(() => ({
 	mockGetOrganizationSessionCount: vi.fn(),
+	mockRemoveQueries: vi.fn(),
+	mockResetQueries: vi.fn(),
 	mockSummaryQueryOptions: vi.fn(),
 	mockUseAnalyticsQuery: vi.fn(),
 	mockUseOrganization: vi.fn(),
@@ -18,6 +22,10 @@ const {
 
 vi.mock("@tanstack/react-query", () => ({
 	useQuery: mockUseQuery,
+	useQueryClient: () => ({
+		removeQueries: mockRemoveQueries,
+		resetQueries: mockResetQueries,
+	}),
 }));
 
 vi.mock("@/features/analytics/queries/useAnalyticsQuery", () => ({
@@ -103,7 +111,6 @@ let capturedSummaryQueryOptions: SummaryQueryOptions | null = null;
 let capturedRawQueryOptions: RawQueryOptions | null = null;
 let summaryQueryResult: QueryResult<SummaryQueryData>;
 let rawCountQueryResult: QueryResult<RawSessionCountData>;
-const keepPollingAfterUploadForMs = 10 * 60 * 1000;
 
 function getCapturedSummaryQueryOptions() {
 	if (capturedSummaryQueryOptions === null) {
@@ -129,6 +136,8 @@ describe("useSetupProgress", () => {
 		rawCountQueryResult = defaultRawCountQueryResult;
 
 		mockGetOrganizationSessionCount.mockReset();
+		mockRemoveQueries.mockReset();
+		mockResetQueries.mockReset();
 		mockSummaryQueryOptions.mockReset();
 		mockUseAnalyticsQuery.mockReset();
 		mockUseOrganization.mockReset();
@@ -156,6 +165,7 @@ describe("useSetupProgress", () => {
 			capturedRawQueryOptions = options;
 			return rawCountQueryResult;
 		});
+		mockResetQueries.mockResolvedValue(undefined);
 	});
 
 	afterEach(() => {
@@ -219,7 +229,7 @@ describe("useSetupProgress", () => {
 	it("keeps raw polling after sessions are detected when requested", () => {
 		renderHook(() =>
 			useSetupProgress({
-				keepPollingAfterUploadForMs,
+				keepPollingAfterUpload: true,
 			}),
 		);
 
@@ -236,13 +246,13 @@ describe("useSetupProgress", () => {
 		).toBe(1_000);
 	});
 
-	it("stops raw polling after the requested post-upload polling window", () => {
+	it("keeps raw polling after ten minutes when requested", () => {
 		vi.useFakeTimers();
 		vi.setSystemTime(0);
 
 		renderHook(() =>
 			useSetupProgress({
-				keepPollingAfterUploadForMs,
+				keepPollingAfterUpload: true,
 			}),
 		);
 
@@ -257,8 +267,43 @@ describe("useSetupProgress", () => {
 
 		expect(rawOptions.refetchInterval?.(uploadedQuery)).toBe(1_000);
 
-		vi.setSystemTime(keepPollingAfterUploadForMs);
+		vi.setSystemTime(10 * 60 * 1000);
 
-		expect(rawOptions.refetchInterval?.(uploadedQuery)).toBe(false);
+		expect(rawOptions.refetchInterval?.(uploadedQuery)).toBe(1_000);
+	});
+
+	it("refreshes cached analytics when the uploaded session count increases", async () => {
+		rawCountQueryResult = {
+			data: {
+				count: 72,
+			},
+			isFetched: true,
+			isPending: false,
+		};
+
+		const { rerender } = renderHook(() => useSetupProgress());
+
+		expect(mockRemoveQueries).not.toHaveBeenCalled();
+		expect(mockResetQueries).not.toHaveBeenCalled();
+
+		rawCountQueryResult = {
+			data: {
+				count: 132,
+			},
+			isFetched: true,
+			isPending: false,
+		};
+		rerender();
+
+		await waitFor(() => {
+			expect(mockRemoveQueries).toHaveBeenCalledWith({
+				queryKey: ["org", "org-1", "analytics"],
+				type: "inactive",
+			});
+		});
+		expect(mockResetQueries).toHaveBeenCalledWith({
+			queryKey: ["org", "org-1", "analytics"],
+			type: "active",
+		});
 	});
 });

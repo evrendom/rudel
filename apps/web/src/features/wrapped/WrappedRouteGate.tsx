@@ -76,7 +76,6 @@ const WRAPPED_SETUP_ALL_COMPLETED_STEP_IDS = [
 	WRAPPED_SETUP_AUTH_STEP_ID,
 	WRAPPED_SETUP_UPLOAD_STEP_ID,
 ] as const;
-const WRAPPED_SETUP_KEEP_POLLING_AFTER_UPLOAD_MS = 10 * 60 * 1000;
 
 export function WrappedRouteGate(props: WrappedRouteGateProps) {
 	const { isPending, publicId, session } = props;
@@ -129,11 +128,13 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 			? false
 			: completedSetupUserIds[sessionUserId] === true ||
 				hasCompletedWrappedSetup(sessionUserId);
+	const shouldKeepPollingAfterUpload =
+		!hasCompletedSetup ||
+		forcedFlowStage === WRAPPED_ROUTE_DESKTOP_READY_FLOW ||
+		forcedFlowStage === WRAPPED_ROUTE_SESSIONS_LANDED_FLOW;
 	const setupProgress = useSetupProgress({
 		enabled: !publicId && !!session,
-		keepPollingAfterUploadForMs: hasCompletedSetup
-			? undefined
-			: WRAPPED_SETUP_KEEP_POLLING_AFTER_UPLOAD_MS,
+		keepPollingAfterUpload: shouldKeepPollingAfterUpload,
 	});
 	const shouldQueryWrappedArchetypeGate =
 		!publicId &&
@@ -702,14 +703,22 @@ function getWrappedRouteSessionGateState(input: {
 	const minimumSessionCount =
 		input.archetypeGate?.thresholds.min_total_sessions ??
 		WRAPPED_ARCHETYPE_GATE_THRESHOLDS.min_total_sessions;
+	const archetypeGateSessionCount =
+		input.archetypeGate?.values.total_sessions ?? null;
+	const isWaitingForFreshWrappedData =
+		input.hasReachedMinimumAfterMissing &&
+		archetypeGateSessionCount !== null &&
+		archetypeGateSessionCount < input.setupProgressTotalSessionCount;
 	const totalSessionCount =
-		input.archetypeGate?.values.total_sessions ??
-		input.setupProgressTotalSessionCount;
+		isWaitingForFreshWrappedData || archetypeGateSessionCount === null
+			? input.setupProgressTotalSessionCount
+			: archetypeGateSessionCount;
 	const hasMinimumArchetypeSessionCount =
 		totalSessionCount >= minimumSessionCount;
 	const isWaitingForStoryData =
 		hasMinimumArchetypeSessionCount &&
 		(input.isArchetypeGateLoading ||
+			isWaitingForFreshWrappedData ||
 			input.archetypeGate === null ||
 			input.archetypeGate.reason === "processing_archetype");
 	const canContinueToStory =
