@@ -29,17 +29,21 @@ export function buildWrappedOnboardingMetrics(
 		developerSessions,
 		wrappedMetrics,
 	} = input;
-	const totalSessions =
-		developerDetails?.total_sessions ?? wrappedMetrics?.total_sessions ?? 0;
+	const totalSessions = Math.max(
+		developerDetails?.total_sessions ?? 0,
+		wrappedMetrics?.total_sessions ?? 0,
+	);
 	const commitSessions = findBooleanDimensionCount(commitBreakdown, true);
 	const topProject = findTopProject(developerProjects);
 	const estimatedCostTokenBasis = Math.max(
 		0,
-		developerDetails?.total_tokens ?? wrappedMetrics?.total_tokens ?? 0,
+		developerDetails?.total_tokens ?? 0,
+		wrappedMetrics?.total_tokens ?? 0,
 	);
 	const estimatedCostUsdRaw = Math.max(
 		0,
-		developerDetails?.cost ?? wrappedMetrics?.estimated_spend_usd ?? 0,
+		developerDetails?.cost ?? 0,
+		wrappedMetrics?.estimated_spend_usd ?? 0,
 	);
 	const estimatedCostUsd = Math.round(estimatedCostUsdRaw);
 	const repoPulse = buildRepoPulse(developerSessions, {
@@ -48,8 +52,10 @@ export function buildWrappedOnboardingMetrics(
 	});
 
 	return {
-		activeDays:
-			wrappedMetrics?.active_days ?? developerDetails?.active_days ?? 0,
+		activeDays: Math.max(
+			developerDetails?.active_days ?? 0,
+			wrappedMetrics?.active_days ?? 0,
+		),
 		avgSessionMin: developerDetails?.avg_session_duration_min ?? null,
 		commitRate:
 			totalSessions > 0 ? (commitSessions / totalSessions) * 100 : null,
@@ -126,8 +132,10 @@ export function buildWrappedOnboardingMetrics(
 				) ?? [],
 		topSubagentCount: developerFeatures?.top_subagents[0]?.count ?? null,
 		totalSessions,
-		totalTokens:
-			wrappedMetrics?.total_tokens ?? developerDetails?.total_tokens ?? 0,
+		totalTokens: Math.max(
+			developerDetails?.total_tokens ?? 0,
+			wrappedMetrics?.total_tokens ?? 0,
+		),
 	};
 }
 

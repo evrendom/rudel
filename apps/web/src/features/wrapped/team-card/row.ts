@@ -51,7 +51,7 @@ export function buildResolvedTeamCardRow(
 	const email = currentUserRow?.email ?? sessionUserEmail ?? null;
 
 	if (developerDetails && sessionUserId) {
-		return {
+		const developerRow = {
 			activeDays: developerDetails.active_days,
 			cost: developerDetails.cost,
 			displayName,
@@ -69,6 +69,11 @@ export function buildResolvedTeamCardRow(
 			totalSessions: developerDetails.total_sessions,
 			totalTokens: developerDetails.total_tokens,
 			userId: sessionUserId,
+		};
+
+		return {
+			...developerRow,
+			...getWrappedMetricFallbackFields(wrappedMetrics, developerRow),
 		};
 	}
 
@@ -147,7 +152,7 @@ function getWrappedMetricFallbackFields(
 		activeDays,
 		cost,
 		favoriteModel:
-			currentRow?.favoriteModel ?? wrappedMetrics?.favorite_model ?? null,
+			wrappedMetrics?.favorite_model ?? currentRow?.favoriteModel ?? null,
 		hasActivity:
 			Boolean(currentRow?.hasActivity) ||
 			totalSessions > 0 ||

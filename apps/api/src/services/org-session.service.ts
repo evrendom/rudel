@@ -1,15 +1,20 @@
 import { getAllAdapters } from "@rudel/agent-adapters";
 import { getClickhouse, getSafeClickHouseTable } from "../clickhouse.js";
 
-export async function getOrgSessionCount(orgId: string): Promise<number> {
+export async function getOrgSessionCount(
+	orgId: string,
+	userId?: string,
+): Promise<number> {
 	const ch = getClickhouse();
 	const tables = getAllAdapters().map((a) => a.rawTableName);
+	const userFilter = userId ? " AND user_id = {userId:String}" : "";
 	const results = await Promise.all(
 		tables.map((table) =>
 			ch.query<{ count: string }>({
-				query: `SELECT count() as count FROM ${getSafeClickHouseTable(table)} WHERE organization_id = {orgId:String}`,
+				query: `SELECT count() as count FROM ${getSafeClickHouseTable(table)} WHERE organization_id = {orgId:String}${userFilter}`,
 				query_params: {
 					orgId,
+					...(userId ? { userId } : {}),
 				},
 			}),
 		),

@@ -1,4 +1,5 @@
-import { AlertCircleIcon } from "lucide-react";
+import { AlertCircleIcon, RefreshCwIcon } from "lucide-react";
+import { useState } from "react";
 import { Button } from "@/app/ui/button";
 import {
 	Card,
@@ -8,7 +9,6 @@ import {
 	CardTitle,
 } from "@/app/ui/card";
 import { Skeleton } from "@/app/ui/skeleton";
-import { useUploadAnalyticsRefresh } from "@/features/analytics/queries/use-upload-analytics-refresh";
 import { TeamMembersCardGrid } from "@/features/team/components/TeamMembersCardGrid";
 import {
 	type TeamPageDiagnostics,
@@ -226,8 +226,32 @@ function TeamPageEmpty() {
 	);
 }
 
+function TeamPageRefreshButton({
+	isRefreshing,
+	onRefresh,
+}: {
+	isRefreshing: boolean;
+	onRefresh: () => void;
+}) {
+	return (
+		<div className="mb-4 flex justify-end">
+			<Button
+				size="sm"
+				variant="outline"
+				disabled={isRefreshing}
+				onClick={onRefresh}
+			>
+				<RefreshCwIcon
+					data-icon="inline-start"
+					className={isRefreshing ? "animate-spin" : undefined}
+				/>
+				{isRefreshing ? "Refreshing" : "Refresh"}
+			</Button>
+		</div>
+	);
+}
+
 export function TeamPage() {
-	useUploadAnalyticsRefresh({ keepPollingAfterUpload: true });
 	const {
 		canInviteTeamMembers,
 		diagnostics,
@@ -240,6 +264,22 @@ export function TeamPage() {
 		teamInviteLink,
 		teamCards,
 	} = useTeamPageData();
+	const [isRefreshing, setIsRefreshing] = useState(false);
+
+	async function handleRefresh() {
+		if (isRefreshing) {
+			return;
+		}
+
+		setIsRefreshing(true);
+		try {
+			await refetch();
+		} catch {
+			// The query state renders the error panel; keep the button usable.
+		} finally {
+			setIsRefreshing(false);
+		}
+	}
 
 	let content = (
 		<TeamMembersCardGrid
@@ -268,5 +308,15 @@ export function TeamPage() {
 		content = <TeamPageEmpty />;
 	}
 
-	return <div className="px-4 lg:px-6">{content}</div>;
+	return (
+		<div className="px-4 lg:px-6">
+			<TeamPageRefreshButton
+				isRefreshing={isRefreshing}
+				onRefresh={() => {
+					void handleRefresh();
+				}}
+			/>
+			{content}
+		</div>
+	);
 }

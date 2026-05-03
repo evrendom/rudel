@@ -240,7 +240,13 @@ const getOrganizationSessionCount = os.getOrganizationSessionCount
 			});
 		}
 
-		const count = await getOrgSessionCount(input.organizationId);
+		if (input.userId && input.userId !== context.user.id) {
+			throw new ORPCError("FORBIDDEN", {
+				message: "Cannot read another user's raw session count",
+			});
+		}
+
+		const count = await getOrgSessionCount(input.organizationId, input.userId);
 		return { count };
 	});
 

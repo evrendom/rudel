@@ -8,11 +8,13 @@ const UPLOAD_ANALYTICS_REFRESH_INTERVAL_MS = 1_000;
 interface UseUploadAnalyticsRefreshOptions {
 	enabled?: boolean;
 	keepPollingAfterUpload?: boolean;
+	userId?: string | null;
 }
 
 export function useUploadAnalyticsRefresh({
 	enabled = true,
 	keepPollingAfterUpload = false,
+	userId = null,
 }: UseUploadAnalyticsRefreshOptions = {}) {
 	const { state } = useOrganization();
 	const activeOrganizationId = state.activeOrg?.id;
@@ -23,6 +25,7 @@ export function useUploadAnalyticsRefresh({
 			"upload-analytics-refresh",
 			"raw-session-count",
 			activeOrganizationId,
+			userId,
 		],
 		queryFn: async () => {
 			if (!activeOrganizationId) {
@@ -31,6 +34,7 @@ export function useUploadAnalyticsRefresh({
 
 			return client.getOrganizationSessionCount({
 				organizationId: activeOrganizationId,
+				...(userId ? { userId } : {}),
 			});
 		},
 		enabled: enabled && !!activeOrganizationId,

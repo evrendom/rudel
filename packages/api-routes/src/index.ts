@@ -192,7 +192,9 @@ export const contract = {
 		.input(IngestSessionInputSchema)
 		.output(IngestSessionOutputSchema),
 	getOrganizationSessionCount: oc
-		.input(z.object({ organizationId: z.string() }))
+		.input(
+			z.object({ organizationId: z.string(), userId: z.string().optional() }),
+		)
 		.output(z.object({ count: z.number() })),
 	deleteOrganization: oc
 		.input(z.object({ organizationId: z.string() }))
