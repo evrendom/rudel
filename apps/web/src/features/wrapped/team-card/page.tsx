@@ -111,7 +111,6 @@ export function WrappedTeamCardPage(props: {
 		completionUserId,
 		liveArchetype,
 		onboardingMetrics,
-		publicUsername,
 		statItems,
 		visibleTeamCardRow,
 	} = useWrappedTeamCardPageData();
@@ -237,7 +236,6 @@ export function WrappedTeamCardPage(props: {
 			onboardingMetrics={onboardingMetrics}
 			onBackFromFirstStep={onBackFromFirstStep}
 			onContinueToDashboard={handleContinueToDashboard}
-			publicUsername={publicUsername}
 			shareAppearance={resolveWrappedShareAppearance(shareAppearance)}
 			shareCardCreatedAtLabel={shareCardCreatedAtLabel}
 			shellStyle={TEAM_CARD_SHELL_STYLE}
@@ -259,7 +257,6 @@ function WrappedTeamCardPageContent(props: {
 	onboardingMetrics: WrappedOnboardingMetrics;
 	onBackFromFirstStep?: () => void;
 	onContinueToDashboard: () => void;
-	publicUsername: string | undefined;
 	setDevOverrideIndex: (
 		nextValue: number | null | ((currentValue: number | null) => number | null),
 	) => void;
@@ -284,7 +281,6 @@ function WrappedTeamCardPageContent(props: {
 		onboardingMetrics,
 		onBackFromFirstStep,
 		onContinueToDashboard,
-		publicUsername,
 		setDevOverrideIndex,
 		setShareAppearance,
 		shareAppearance,
@@ -376,22 +372,26 @@ function WrappedTeamCardPageContent(props: {
 	// Share creation lives behind a hook so the page can stay focused on stage
 	// orchestration. The hook owns caching/deduping, while this page only decides
 	// when the product has crossed the line from "previewing" to "real share made".
-	const { ensureShare, isCreatingShare, shareUrl, shareUrlLabel } =
-		useWrappedTeamCardShare(shareSnapshot, {
-			// This fires once a persistent public record exists. The share screen
-			// warms that record so the profile URL is visible before any copy action.
-			onShareCreated: (shareRecord) => {
-				trackWrappedShareCreated({
-					archetypeId: activeArchetype.id,
-					entrySource: wrappedLoopEntrySource,
-					publicPayloadVersion: WRAPPED_SHARE_PAYLOAD_VERSION,
-					shareId: shareRecord.id,
-					sourceComponent: "wrapped_team_card_page",
-					sourceShareId,
-				});
-			},
-			username: publicUsername,
-		});
+	const {
+		ensureShare,
+		hasShareError,
+		isCreatingShare,
+		shareUrl,
+		shareUrlLabel,
+	} = useWrappedTeamCardShare(shareSnapshot, {
+		// This fires once a persistent public record exists. The share screen
+		// warms that record so the profile URL is visible before any copy action.
+		onShareCreated: (shareRecord) => {
+			trackWrappedShareCreated({
+				archetypeId: activeArchetype.id,
+				entrySource: wrappedLoopEntrySource,
+				publicPayloadVersion: WRAPPED_SHARE_PAYLOAD_VERSION,
+				shareId: shareRecord.id,
+				sourceComponent: "wrapped_team_card_page",
+				sourceShareId,
+			});
+		},
+	});
 	// The share action helpers stay presentational from the page's perspective.
 	// We pass analytics hooks in, but keep the details of clipboard/native share/
 	// download behavior inside the share module.
@@ -431,12 +431,12 @@ function WrappedTeamCardPageContent(props: {
 	});
 
 	useEffect(() => {
-		if (!showShareStage || shareUrl || isCreatingShare) {
+		if (!showShareStage || shareUrl || isCreatingShare || hasShareError) {
 			return;
 		}
 
 		void ensureShare().catch(() => undefined);
-	}, [ensureShare, isCreatingShare, shareUrl, showShareStage]);
+	}, [ensureShare, hasShareError, isCreatingShare, shareUrl, showShareStage]);
 
 	useMountEffect(() => () => {
 		clearFinalCardHandoffTimer(finalCardHandoffTimerRef);

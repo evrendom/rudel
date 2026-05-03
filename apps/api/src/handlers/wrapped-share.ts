@@ -23,7 +23,6 @@ const create = os.wrappedShare.create
 			organizationId: context.organizationId,
 			snapshot: input.snapshot,
 			userId: context.user.id,
-			...(input.username ? { username: input.username } : {}),
 		};
 
 		return createWrappedShare(shareOptions);

@@ -208,7 +208,6 @@ vi.mock("@/features/wrapped/team-card/use-page-data", () => ({
 			totalSessions: 12,
 			totalTokens: 360,
 		},
-		publicUsername: "ada",
 		statItems: [],
 		visibleTeamCardRow: {
 			activeDays: 6,

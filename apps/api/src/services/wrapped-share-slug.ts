@@ -1,28 +1,60 @@
 interface BuildWrappedShareIdBaseInput {
-	fallbackLabel: string;
-	username?: string;
+	displayName: string;
 }
 
 const WRAPPED_SHARE_FALLBACK_ID_BASE = "wrapped";
 const WRAPPED_SHARE_FALLBACK_ID_BASE_MAX_LENGTH = 64;
-const WRAPPED_SHARE_ROUTE_SEGMENT_PATTERN = /^[A-Za-z0-9_-]+$/u;
+const WRAPPED_SHARE_DUPLICATE_ADJECTIVES = [
+	"atomic",
+	"brilliant",
+	"clever",
+	"cosmic",
+	"electric",
+	"fearless",
+	"golden",
+	"kinetic",
+	"legendary",
+	"luminous",
+	"magnetic",
+	"moonlit",
+	"mythic",
+	"neon",
+	"nova",
+	"prime",
+	"radiant",
+	"sapphire",
+	"solar",
+	"stellar",
+	"turbo",
+	"velvet",
+	"vivid",
+	"wild",
+] as const;
 
 export function buildWrappedShareIdBase(input: BuildWrappedShareIdBaseInput) {
-	const username = input.username?.trim().replace(/^@+/u, "");
+	return (
+		slugifyWrappedShareDisplayName(input.displayName) ??
+		WRAPPED_SHARE_FALLBACK_ID_BASE
+	);
+}
 
-	if (username && WRAPPED_SHARE_ROUTE_SEGMENT_PATTERN.test(username)) {
-		return username;
-	}
+export function isWrappedShareIdAlignedWithBase(input: {
+	baseId: string;
+	shareId: string;
+}) {
+	const { baseId, shareId } = input;
 
 	return (
-		slugifyWrappedShareFallbackLabel(input.fallbackLabel) ??
-		WRAPPED_SHARE_FALLBACK_ID_BASE
+		shareId === baseId ||
+		shareId.endsWith(`-${baseId}`) ||
+		shareId.includes(`-${baseId}-`)
 	);
 }
 
 export function getNextWrappedShareIdCandidate(input: {
 	baseId: string;
 	existingIds: readonly string[];
+	randomValue?: number;
 }) {
 	const { baseId, existingIds } = input;
 	const existingIdSet = new Set(existingIds);
@@ -31,18 +63,41 @@ export function getNextWrappedShareIdCandidate(input: {
 		return baseId;
 	}
 
-	let suffix = 1;
-	let candidateId = `${baseId}-${suffix}`;
+	const availableAdjectives = WRAPPED_SHARE_DUPLICATE_ADJECTIVES.filter(
+		(adjective) => !existingIdSet.has(`${adjective}-${baseId}`),
+	);
 
-	while (existingIdSet.has(candidateId)) {
-		suffix += 1;
-		candidateId = `${baseId}-${suffix}`;
+	if (availableAdjectives.length > 0) {
+		const randomValue = input.randomValue ?? Math.random();
+		const normalizedRandomValue = Number.isFinite(randomValue)
+			? Math.abs(randomValue % 1)
+			: 0;
+		const adjectiveIndex = Math.floor(
+			normalizedRandomValue * availableAdjectives.length,
+		);
+		const adjective = availableAdjectives[adjectiveIndex];
+
+		if (adjective) {
+			return `${adjective}-${baseId}`;
+		}
 	}
 
-	return candidateId;
+	let suffix = 2;
+
+	while (true) {
+		for (const adjective of WRAPPED_SHARE_DUPLICATE_ADJECTIVES) {
+			const candidateId = `${adjective}-${baseId}-${suffix}`;
+
+			if (!existingIdSet.has(candidateId)) {
+				return candidateId;
+			}
+		}
+
+		suffix += 1;
+	}
 }
 
-function slugifyWrappedShareFallbackLabel(value: string) {
+function slugifyWrappedShareDisplayName(value: string) {
 	const slug = value
 		.trim()
 		.toLowerCase()

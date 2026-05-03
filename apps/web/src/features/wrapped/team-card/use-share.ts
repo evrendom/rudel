@@ -2,11 +2,10 @@ import type {
 	WrappedShareRecord,
 	WrappedShareSnapshot,
 } from "@rudel/api-routes";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { appRoutes } from "@/app/routes";
 import { client } from "@/lib/orpc";
 
-type ShareRecordLookup = Record<string, WrappedShareRecord>;
 const SHARE_URL_LABEL_MAX_LENGTH = 30;
 const SHARE_URL_LABEL_PUBLIC_PATH_MARKER = "/wrapped/";
 
@@ -15,7 +14,6 @@ interface UseWrappedTeamCardShareOptions {
 	// We keep that callback optional so the hook stays reusable and does not own
 	// analytics directly.
 	onShareCreated?: (shareRecord: WrappedShareRecord) => void;
-	username?: string;
 }
 
 // This hook owns the "create a real share only when needed" behavior for the
@@ -27,67 +25,63 @@ export function useWrappedTeamCardShare(
 ) {
 	// Multiple buttons can ask for a share at roughly the same time. We keep the
 	// in-flight promise in a ref so copy/share/download all collapse onto one
-	// request per snapshot instead of creating duplicate share records.
-	const shareRequestByKeyRef = useRef(
-		new Map<string, Promise<WrappedShareRecord>>(),
+	// request for the user's stable public link instead of creating duplicates.
+	const shareRequestRef = useRef<Promise<WrappedShareRecord> | null>(null);
+	const [shareRecord, setShareRecord] = useState<WrappedShareRecord | null>(
+		null,
 	);
-	const [shareRecordsByKey, setShareRecordsByKey] = useState<ShareRecordLookup>(
-		{},
-	);
-	const [pendingShareKey, setPendingShareKey] = useState<string | null>(null);
-	const { onShareCreated, username } = options ?? {};
-	const shareKey = useMemo(
-		() => JSON.stringify({ snapshot, username: username ?? null }),
-		[snapshot, username],
-	);
-	const activeShareRecord = shareRecordsByKey[shareKey] ?? null;
-	const shareUrl = activeShareRecord
-		? buildWrappedShareUrl(activeShareRecord.id)
+	const [isCreatingShare, setIsCreatingShare] = useState(false);
+	const [hasShareError, setHasShareError] = useState(false);
+	const { onShareCreated } = options ?? {};
+	const shareUrl = shareRecord
+		? buildWrappedShareUrl(shareRecord.id)
 		: undefined;
-	const isCreatingShare = pendingShareKey === shareKey;
 
 	// ensureShare is the single entry point for "make sure this card has a real
 	// public URL". It first reuses cached data, then reuses any in-flight request,
 	// and only finally creates a new share if nothing exists yet.
 	const ensureShare = useCallback(async () => {
-		if (activeShareRecord) {
-			return activeShareRecord;
+		if (shareRecord) {
+			return shareRecord;
 		}
 
-		const pendingShareRequest = shareRequestByKeyRef.current.get(shareKey);
-		if (pendingShareRequest) {
-			return pendingShareRequest;
+		if (shareRequestRef.current) {
+			return shareRequestRef.current;
 		}
 
-		setPendingShareKey(shareKey);
+		setIsCreatingShare(true);
+		setHasShareError(false);
 
-		const createShareInput = username ? { snapshot, username } : { snapshot };
 		const shareRequest = client.wrappedShare
-			.create(createShareInput)
+			.create({ snapshot })
 			.then((createdShare) => {
-				setShareRecordsByKey((currentRecords) => ({
-					...currentRecords,
-					[shareKey]: createdShare,
-				}));
+				setShareRecord(createdShare);
 				onShareCreated?.(createdShare);
 				return createdShare;
 			})
+			.catch((error: unknown) => {
+				setHasShareError(true);
+				throw error;
+			})
 			.finally(() => {
-				shareRequestByKeyRef.current.delete(shareKey);
-				setPendingShareKey((currentPendingShareKey) =>
-					currentPendingShareKey === shareKey ? null : currentPendingShareKey,
-				);
+				shareRequestRef.current = null;
+				setIsCreatingShare(false);
 			});
 
-		shareRequestByKeyRef.current.set(shareKey, shareRequest);
+		shareRequestRef.current = shareRequest;
 		return shareRequest;
-	}, [activeShareRecord, onShareCreated, shareKey, snapshot, username]);
+	}, [onShareCreated, shareRecord, snapshot]);
 
 	return {
 		ensureShare,
+		hasShareError,
 		isCreatingShare,
 		shareUrl,
-		shareUrlLabel: formatShareUrlLabel(shareUrl, isCreatingShare),
+		shareUrlLabel: formatShareUrlLabel(
+			shareUrl,
+			isCreatingShare,
+			hasShareError,
+		),
 	};
 }
 
@@ -110,9 +104,14 @@ function buildWrappedShareUrl(shareId: string) {
 function formatShareUrlLabel(
 	shareUrl: string | undefined,
 	isCreatingShare: boolean,
+	hasShareError: boolean,
 ) {
 	if (isCreatingShare) {
 		return "Creating link...";
+	}
+
+	if (hasShareError) {
+		return appRoutes.wrappedTeamCard();
 	}
 
 	if (!shareUrl) {

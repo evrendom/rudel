@@ -15,12 +15,6 @@ export const WrappedShareIdSchema = z
 	.min(1)
 	.max(128)
 	.regex(/^[A-Za-z0-9_-]+$/u);
-export const WrappedShareUsernameSchema = z
-	.string()
-	.trim()
-	.min(1)
-	.max(64)
-	.regex(/^[A-Za-z0-9_-]+$/u);
 
 export const WrappedShareHeaderMetricSchema = z.object({
 	label: z.string().optional(),
@@ -83,11 +77,10 @@ export const WrappedShareSnapshotSchema = z.object({
 
 export const CreateWrappedShareInputSchema = z.object({
 	snapshot: WrappedShareSnapshotSchema,
-	username: WrappedShareUsernameSchema.optional(),
 });
 
 export const GetPublicWrappedShareInputSchema = z.object({
-	// This accepts both new username-style share ids and older UUID rows.
+	// This accepts both current display-name share ids and older UUID rows.
 	shareId: WrappedShareIdSchema,
 });
 
