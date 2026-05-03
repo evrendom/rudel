@@ -140,7 +140,7 @@ export function useTeamPageData() {
 	const requestedDays = MAX_ANALYTICS_DAYS;
 	const activeOrganizationId = workspaceState.activeOrg?.id ?? null;
 	const canInviteTeamMembers =
-		activeOrganizationId !== null && workspaceMeta.isOrgAdmin;
+		activeOrganizationId !== null && workspaceMeta?.isOrgAdmin === true;
 	const {
 		data: members = [],
 		isLoading: isOrganizationPending,
@@ -176,9 +176,14 @@ export function useTeamPageData() {
 		enabled: activeOrganizationId !== null,
 	});
 	const teamInviteLinkQuery = useQuery({
-		...orpc.teamInviteLink.get.queryOptions({
-			input: { organizationId: activeOrganizationId ?? "" },
-		}),
+		...(canInviteTeamMembers
+			? orpc.teamInviteLink.get.queryOptions({
+					input: { organizationId: activeOrganizationId ?? "" },
+				})
+			: {
+					queryFn: async () => null,
+					queryKey: ["team-invite-link", activeOrganizationId],
+				}),
 		enabled: canInviteTeamMembers,
 	});
 	const teamCardsQuery = useAnalyticsQuery({
