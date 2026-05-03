@@ -1,3 +1,4 @@
+import { ORPCError } from "@orpc/client";
 import { createApiClient } from "./api-client.js";
 import {
 	type Credentials,
@@ -13,7 +14,7 @@ type AuthSuccess = {
 
 type AuthFailure = {
 	authenticated: false;
-	reason: "no_credentials" | "token_expired" | "network_error";
+	reason: "no_credentials" | "token_expired" | "network_error" | "rate_limited";
 	message: string;
 };
 
@@ -37,6 +38,15 @@ export async function verifyAuth(): Promise<AuthResult> {
 				: await client.me();
 		return { authenticated: true, credentials, user };
 	} catch (error) {
+		if (error instanceof ORPCError && error.status === 429) {
+			return {
+				authenticated: false,
+				reason: "rate_limited",
+				message:
+					"API key rate limit reached. Run `rudel login` to create a fresh ingest key, or wait for the key's rate-limit window to reset.",
+			};
+		}
+
 		const message = String(error);
 		const isAuthError =
 			message.includes("401") ||

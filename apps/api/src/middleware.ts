@@ -8,6 +8,12 @@ export interface AppContext {
 	user: Session["user"] | null;
 	session: Session["session"] | null;
 	apiKeyId: string | null;
+	authFailure: ApiKeyAuthFailure | null;
+}
+
+export interface ApiKeyAuthFailure {
+	code: string | null;
+	message: string;
 }
 
 export const os = implement(contract).$context<AppContext>();
@@ -21,6 +27,7 @@ export const authMiddleware = os.middleware(async ({ context, next }) => {
 			user: context.user,
 			session: context.session,
 			apiKeyId: context.apiKeyId,
+			authFailure: context.authFailure,
 		},
 	});
 });
@@ -66,6 +73,7 @@ export const orgMiddleware = os.middleware(async ({ context, next }) => {
 			organizationId,
 			userRole,
 			isOrgAdmin,
+			authFailure: context.authFailure,
 		},
 	});
 });
@@ -102,12 +110,35 @@ export const adminMiddleware = os.middleware(async ({ context, next }) => {
 			user: context.user,
 			session: context.session,
 			apiKeyId: context.apiKeyId,
+			authFailure: context.authFailure,
 		},
 	});
 });
 
 export const ingestAuthMiddleware = os.middleware(async ({ context, next }) => {
 	if (!context.user) {
+		if (context.authFailure?.code === "RATE_LIMITED") {
+			throw new ORPCError("TOO_MANY_REQUESTS", {
+				message:
+					"API key rate limit exceeded. Log in again to create a fresh ingest key or wait for the key's rate-limit window to reset.",
+				data: {
+					reason: "api_key_rate_limited",
+					code: context.authFailure.code,
+					authMessage: context.authFailure.message,
+				},
+			});
+		}
+
+		if (context.authFailure) {
+			throw new ORPCError("UNAUTHORIZED", {
+				message: context.authFailure.message,
+				data: {
+					reason: "api_key_verification_failed",
+					code: context.authFailure.code,
+				},
+			});
+		}
+
 		throw new ORPCError("UNAUTHORIZED");
 	}
 
@@ -120,6 +151,7 @@ export const ingestAuthMiddleware = os.middleware(async ({ context, next }) => {
 			user: context.user,
 			session: context.session,
 			apiKeyId: context.apiKeyId,
+			authFailure: context.authFailure,
 		},
 	});
 });
