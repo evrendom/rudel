@@ -9,16 +9,20 @@ const SETUP_PROGRESS_REFETCH_INTERVAL_MS = 3_000;
 interface UseSetupProgressOptions {
 	enabled?: boolean;
 	keepPollingAfterUpload?: boolean;
+	userId?: string | null;
 }
 
 export function useSetupProgress({
 	enabled = true,
 	keepPollingAfterUpload = false,
+	userId = null,
 }: UseSetupProgressOptions = {}) {
 	const { state } = useOrganization();
+	const shouldUseOrganizationSummary = !userId;
 	const { rawSessionCount, rawSessionCountQuery } = useUploadAnalyticsRefresh({
 		enabled,
 		keepPollingAfterUpload,
+		userId,
 	});
 
 	const summaryQuery = useAnalyticsQuery({
@@ -28,10 +32,14 @@ export function useSetupProgress({
 		refetchIntervalInBackground: true,
 		refetchOnReconnect: "always",
 		refetchOnWindowFocus: "always",
-		enabled,
+		enabled: enabled && shouldUseOrganizationSummary,
 		refetchInterval: (query) => {
 			const totalSessions = query.state.data?.total_sessions ?? 0;
-			if (!enabled || (totalSessions > 0 && !keepPollingAfterUpload)) {
+			if (
+				!enabled ||
+				!shouldUseOrganizationSummary ||
+				(totalSessions > 0 && !keepPollingAfterUpload)
+			) {
 				return false;
 			}
 
@@ -40,16 +48,19 @@ export function useSetupProgress({
 	});
 
 	const totalSessionCount = Math.max(
-		summaryQuery.data?.total_sessions ?? 0,
+		shouldUseOrganizationSummary ? (summaryQuery.data?.total_sessions ?? 0) : 0,
 		rawSessionCount,
 	);
+	const hasFetchedSetupProgress =
+		rawSessionCountQuery.isFetched &&
+		(!shouldUseOrganizationSummary || summaryQuery.isFetched);
+	const hasPendingSetupProgress =
+		rawSessionCountQuery.isPending ||
+		(shouldUseOrganizationSummary && summaryQuery.isPending);
 	const isInitialLoading =
 		enabled &&
-		!summaryQuery.isFetched &&
-		!rawSessionCountQuery.isFetched &&
-		(state.isLoading ||
-			summaryQuery.isPending ||
-			rawSessionCountQuery.isPending);
+		!hasFetchedSetupProgress &&
+		(state.isLoading || hasPendingSetupProgress);
 
 	return {
 		hasUploadedSessions: totalSessionCount > 0,

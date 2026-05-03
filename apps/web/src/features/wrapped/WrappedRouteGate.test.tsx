@@ -833,6 +833,7 @@ describe("WrappedRouteGate", () => {
 		expect(mockUseSetupProgress).toHaveBeenLastCalledWith({
 			enabled: true,
 			keepPollingAfterUpload: true,
+			userId: "user-1",
 		});
 		expect(mockUseAnalyticsQuery).not.toHaveBeenCalled();
 	});
@@ -858,7 +859,7 @@ describe("WrappedRouteGate", () => {
 		expect(screen.queryByText("Wrapped story")).toBeNull();
 	});
 
-	it("uses wrapped gate totals when setup progress overcounts uploaded sessions", () => {
+	it("waits when user-scoped raw uploads outrun cached wrapped gate data", () => {
 		mockUseSetupProgress.mockReturnValue({
 			hasUploadedSessions: true,
 			isLoading: false,
@@ -892,12 +893,9 @@ describe("WrappedRouteGate", () => {
 			</MemoryRouter>,
 		);
 
-		expect(screen.getByText("Wrapped setup complete page")).toBeInTheDocument();
-		expect(screen.getByText("Can continue: no")).toBeInTheDocument();
-		expect(screen.getByText("Upload more default: yes")).toBeInTheDocument();
-		expect(screen.getByText("Readiness: missing")).toBeInTheDocument();
-		expect(screen.getByText("Total sessions: 38")).toBeInTheDocument();
-		expect(screen.getByRole("button", { name: "Start story" })).toBeDisabled();
+		expect(screen.getByText("Preparing your wrapped...")).toBeInTheDocument();
+		expect(screen.queryByText("Wrapped story")).toBeNull();
+		expect(screen.queryByText("Wrapped setup complete page")).toBeNull();
 	});
 
 	it("waits when fresh uploads outrun cached wrapped gate data", async () => {
@@ -1160,6 +1158,7 @@ describe("WrappedRouteGate", () => {
 		expect(mockUseSetupProgress).toHaveBeenLastCalledWith({
 			enabled: true,
 			keepPollingAfterUpload: true,
+			userId: "user-1",
 		});
 	});
 
@@ -1187,6 +1186,7 @@ describe("WrappedRouteGate", () => {
 		expect(mockUseSetupProgress).toHaveBeenLastCalledWith({
 			enabled: true,
 			keepPollingAfterUpload: true,
+			userId: "user-1",
 		});
 	});
 
@@ -1226,6 +1226,7 @@ describe("WrappedRouteGate", () => {
 		expect(mockUseSetupProgress).toHaveBeenLastCalledWith({
 			enabled: true,
 			keepPollingAfterUpload: true,
+			userId: "user-1",
 		});
 	});
 
@@ -1255,6 +1256,7 @@ describe("WrappedRouteGate", () => {
 		expect(mockUseSetupProgress).toHaveBeenLastCalledWith({
 			enabled: true,
 			keepPollingAfterUpload: true,
+			userId: "user-1",
 		});
 	});
 

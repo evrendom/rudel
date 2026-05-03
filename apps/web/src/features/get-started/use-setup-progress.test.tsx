@@ -210,6 +210,49 @@ describe("useSetupProgress", () => {
 		).toBe(1_000);
 	});
 
+	it("scopes raw uploaded session counts to the current wrapped user", async () => {
+		renderHook(() =>
+			useSetupProgress({
+				userId: "user-1",
+			}),
+		);
+
+		const rawOptions = getCapturedRawQueryOptions();
+
+		await rawOptions.queryFn?.();
+
+		expect(mockGetOrganizationSessionCount).toHaveBeenCalledWith({
+			organizationId: "org-1",
+			userId: "user-1",
+		});
+	});
+
+	it("ignores the organization summary count when reading wrapped user progress", () => {
+		summaryQueryResult = {
+			data: {
+				total_sessions: 135,
+			},
+			isFetched: true,
+			isPending: false,
+		};
+		rawCountQueryResult = {
+			data: {
+				count: 73,
+			},
+			isFetched: true,
+			isPending: false,
+		};
+
+		const { result } = renderHook(() =>
+			useSetupProgress({
+				userId: "user-1",
+			}),
+		);
+
+		expect(result.current.totalSessionCount).toBe(73);
+		expect(getCapturedSummaryQueryOptions().enabled).toBe(false);
+	});
+
 	it("stops raw polling after sessions are detected", () => {
 		renderHook(() => useSetupProgress());
 
