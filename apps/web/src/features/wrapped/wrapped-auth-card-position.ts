@@ -58,9 +58,18 @@ export function useWrappedAuthViewportSize() {
 		function updateViewportSize() {
 			const metrics = getWrappedAuthViewportMetrics();
 
-			setViewportSize({
-				height: metrics.height,
-				width: metrics.width,
+			setViewportSize((currentViewportSize) => {
+				if (
+					currentViewportSize.height === metrics.height &&
+					currentViewportSize.width === metrics.width
+				) {
+					return currentViewportSize;
+				}
+
+				return {
+					height: metrics.height,
+					width: metrics.width,
+				};
 			});
 			applyWrappedAuthViewportMetrics(metrics);
 
