@@ -7,10 +7,12 @@ import {
 	setDefaultTimeout,
 	test,
 } from "bun:test";
+import assert from "node:assert/strict";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { IngestSessionInput } from "@rudel/api-routes";
+import { createApiClient } from "../lib/api-client.js";
 import { uploadSession } from "../lib/uploader.js";
 import {
 	signUpTestUser,
@@ -23,6 +25,11 @@ setDefaultTimeout(60_000);
 let server: TestServer;
 let bearerToken: string;
 let tempDir: string;
+
+interface ApiKeyCreateResponse {
+	id: string;
+	key: string;
+}
 
 beforeAll(async () => {
 	tempDir = await mkdtemp(join(tmpdir(), "rudel-api-test-"));
@@ -192,4 +199,54 @@ describe("CLI upload to local API", () => {
 
 		expect(result.success).toBe(false);
 	});
+
+	test("does not cap CLI API key auth at Better Auth's default request limit", async () => {
+		const apiKey = await createIngestApiKey(server.baseUrl, bearerToken);
+		const client = createApiClient({
+			apiBaseUrl: server.baseUrl,
+			token: apiKey.key,
+			authType: "api-key",
+		});
+
+		const results = [];
+		for (let index = 0; index < 12; index += 1) {
+			results.push(await client.cli.authStatus());
+		}
+
+		expect(results).toHaveLength(12);
+		for (const user of results) {
+			expect(user.name).toBe("Test User");
+			expect(user.email).toContain("test-");
+		}
+	});
 });
+
+async function createIngestApiKey(apiBase: string, accessToken: string) {
+	const response = await fetch(`${apiBase}/api/auth/api-key/create`, {
+		method: "POST",
+		headers: {
+			"Content-Type": "application/json",
+			Authorization: `Bearer ${accessToken}`,
+		},
+		body: JSON.stringify({
+			name: "rudel-cli-ingest",
+			expiresIn: null,
+		}),
+	});
+
+	expect(response.ok).toBe(true);
+	const body: unknown = await response.json();
+	assert(isApiKeyCreateResponse(body));
+	return body;
+}
+
+function isApiKeyCreateResponse(value: unknown): value is ApiKeyCreateResponse {
+	return (
+		typeof value === "object" &&
+		value !== null &&
+		"id" in value &&
+		"key" in value &&
+		typeof value.id === "string" &&
+		typeof value.key === "string"
+	);
+}
