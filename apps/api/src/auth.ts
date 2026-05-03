@@ -166,6 +166,9 @@ export function createAuth(db: object, config: AuthConfig) {
 				keyExpiration: {
 					defaultExpiresIn: null,
 				},
+				rateLimit: {
+					enabled: false,
+				},
 				permissions: {
 					defaultPermissions: {
 						ingest: ["write"],
