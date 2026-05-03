@@ -23,7 +23,6 @@ interface UseWrappedTeamCardPageDataResult {
 	completionUserId: string | null;
 	liveArchetype: WrappedArchetypeCardTheme | null;
 	onboardingMetrics: WrappedOnboardingMetrics;
-	publicUsername: string | undefined;
 	statItems: readonly WrappedTeamMemberCardStatItem[];
 	visibleTeamCardRow: TeamPageMemberRow;
 }
@@ -52,7 +51,6 @@ export function useWrappedTeamCardPageData(): UseWrappedTeamCardPageDataResult {
 	);
 	const guestPreviewDisplayName = guestPreviewSnapshot?.profile.displayName;
 	const guestPreviewImageUrl = guestPreviewSnapshot?.profile.imageUrl;
-	const guestPreviewUsername = guestPreviewSnapshot?.profile.username;
 	const { data: activeMember } = authClient.useActiveMember();
 	const activeMemberUserId = getActiveMemberUserId(activeMember);
 	const resolvedUserId = sessionUserId ?? activeMemberUserId;
@@ -178,27 +176,10 @@ export function useWrappedTeamCardPageData(): UseWrappedTeamCardPageDataResult {
 		() => resolveLiveArchetype(wrappedData?.archetype?.key),
 		[wrappedData?.archetype?.key],
 	);
-	const publicUsername = useMemo(
-		() =>
-			resolveWrappedPublicUsername({
-				fallbackDisplayName: visibleTeamCardRow.displayName,
-				guestPreviewUsername,
-				sessionUserEmail,
-				sessionUserName,
-			}),
-		[
-			guestPreviewUsername,
-			sessionUserEmail,
-			sessionUserName,
-			visibleTeamCardRow.displayName,
-		],
-	);
-
 	return {
 		completionUserId,
 		liveArchetype,
 		onboardingMetrics,
-		publicUsername,
 		statItems,
 		visibleTeamCardRow,
 	};
@@ -263,59 +244,4 @@ function getSessionUserImage(
 		session.user.image.trim().length > 0
 		? session.user.image.trim()
 		: undefined;
-}
-
-function getEmailHandle(email: string | undefined) {
-	if (!email) {
-		return undefined;
-	}
-
-	const [emailHandle] = email.split("@");
-	return emailHandle?.trim() || undefined;
-}
-
-function resolveWrappedPublicUsername(input: {
-	fallbackDisplayName: string;
-	guestPreviewUsername: string | undefined;
-	sessionUserEmail: string | undefined;
-	sessionUserName: string | undefined;
-}) {
-	const guestPreviewUsername = input.guestPreviewUsername?.trim();
-
-	if (guestPreviewUsername && isWrappedPublicUsername(guestPreviewUsername)) {
-		return guestPreviewUsername;
-	}
-
-	const candidates = [
-		getEmailHandle(input.sessionUserEmail),
-		input.sessionUserName,
-		input.fallbackDisplayName,
-	];
-
-	for (const candidate of candidates) {
-		const username = normalizeWrappedPublicUsernameCandidate(candidate);
-
-		if (username) {
-			return username;
-		}
-	}
-
-	return undefined;
-}
-
-function normalizeWrappedPublicUsernameCandidate(value: string | undefined) {
-	const username = value
-		?.trim()
-		.replace(/^@+/u, "")
-		.replace(/[^A-Za-z0-9_-]+/gu, "-")
-		.replace(/-+/gu, "-")
-		.replace(/^-|-$/gu, "")
-		.slice(0, 64)
-		.replace(/-$/u, "");
-
-	return username && isWrappedPublicUsername(username) ? username : undefined;
-}
-
-function isWrappedPublicUsername(value: string) {
-	return /^[A-Za-z0-9_-]{1,64}$/u.test(value);
 }

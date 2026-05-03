@@ -1,4 +1,10 @@
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import {
+	act,
+	fireEvent,
+	render,
+	screen,
+	waitFor,
+} from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { WrappedTeamCardOnboarding } from "@/features/wrapped/onboarding/shell";
@@ -45,10 +51,10 @@ describe("WrappedTeamCardOnboarding model step", () => {
 		expect(
 			await screen.findByRole("heading", { name: "Claude pilled." }),
 		).toBeInTheDocument();
-		expect(screen.getByRole("button", { name: "Continue" })).not.toBeDisabled();
+		const continueButton = await findEnabledContinueButton();
 
 		act(() => {
-			fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+			fireEvent.click(continueButton);
 		});
 
 		expect(
@@ -83,10 +89,10 @@ describe("WrappedTeamCardOnboarding model step", () => {
 		expect(
 			await screen.findByRole("heading", { name: "Claude pilled." }),
 		).toBeInTheDocument();
-		expect(screen.getByRole("button", { name: "Continue" })).not.toBeDisabled();
+		const continueButton = await findEnabledContinueButton();
 
 		act(() => {
-			fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+			fireEvent.click(continueButton);
 		});
 
 		expect(
@@ -99,6 +105,16 @@ describe("WrappedTeamCardOnboarding model step", () => {
 		).toHaveAttribute("aria-current", "step");
 	});
 });
+
+async function findEnabledContinueButton() {
+	const continueButton = screen.getByRole("button", { name: "Continue" });
+
+	await waitFor(() => {
+		expect(continueButton).not.toBeDisabled();
+	});
+
+	return continueButton;
+}
 
 function renderWrappedTeamCardOnboarding(
 	onboardingMetrics: WrappedOnboardingMetrics,

@@ -11,13 +11,13 @@ import { sqlClient } from "../db.js";
 import {
 	buildWrappedShareIdBase,
 	getNextWrappedShareIdCandidate,
+	isWrappedShareIdAlignedWithBase,
 } from "./wrapped-share-slug.js";
 
 interface CreateWrappedShareOptions {
 	organizationId: string;
 	snapshot: WrappedShareSnapshot;
 	userId: string;
-	username?: string;
 }
 
 const WRAPPED_SHARE_TTL_DAYS = 30;
@@ -30,15 +30,42 @@ const WRAPPED_SHARE_ID_INSERT_ATTEMPTS = 20;
 export async function createWrappedShare(
 	options: CreateWrappedShareOptions,
 ): Promise<WrappedShareRecord> {
-	const { organizationId, snapshot, userId, username } = options;
+	const { organizationId, snapshot, userId } = options;
+	const existingShare = await getWrappedShareForUser(userId);
 	const shareIdBase = buildWrappedShareIdBase({
-		fallbackLabel: snapshot.row.displayName,
-		username,
+		displayName: snapshot.row.displayName,
 	});
 	const createdAt = new Date();
 	const expiresAt = createWrappedShareExpiry(createdAt);
-	const createdAtIso = createdAt.toISOString();
 	const expiresAtIso = expiresAt.toISOString();
+
+	if (existingShare) {
+		if (
+			!isWrappedShareIdAlignedWithBase({
+				baseId: shareIdBase,
+				shareId: existingShare.id,
+			})
+		) {
+			return renameWrappedShareAndUpdateSnapshot({
+				expiresAtIso,
+				organizationId,
+				share: existingShare,
+				shareIdBase,
+				snapshot,
+				userId,
+			});
+		}
+
+		return updateWrappedShareSnapshot({
+			expiresAtIso,
+			organizationId,
+			share: existingShare,
+			snapshot,
+			userId,
+		});
+	}
+
+	const createdAtIso = createdAt.toISOString();
 
 	for (
 		let attempt = 0;
@@ -65,7 +92,7 @@ export async function createWrappedShare(
 				${createdAtIso},
 				${expiresAtIso}
 			)
-			ON CONFLICT (id) DO NOTHING
+			ON CONFLICT DO NOTHING
 			RETURNING id
 		`;
 
@@ -78,9 +105,127 @@ export async function createWrappedShare(
 				id: insertedShareId,
 			};
 		}
+
+		const concurrentlyCreatedShare = await getWrappedShareForUser(userId);
+
+		if (concurrentlyCreatedShare) {
+			return updateWrappedShareSnapshot({
+				expiresAtIso,
+				organizationId,
+				share: concurrentlyCreatedShare,
+				snapshot,
+				userId,
+			});
+		}
 	}
 
 	throw new Error("Could not allocate a wrapped share id");
+}
+
+async function updateWrappedShareSnapshot(input: {
+	expiresAtIso: string;
+	organizationId: string;
+	share: { createdAt: Date; id: string };
+	snapshot: WrappedShareSnapshot;
+	userId: string;
+}) {
+	const { expiresAtIso, organizationId, share, snapshot, userId } = input;
+	const updatedRows = await sqlClient<Array<{ id: string }>>`
+		UPDATE wrapped_share
+		SET
+			organization_id = ${organizationId},
+			payload_version = ${WRAPPED_SHARE_PAYLOAD_VERSION},
+			snapshot_json = ${JSON.stringify(snapshot)},
+			expires_at = ${expiresAtIso}
+		WHERE id = ${share.id}
+			AND user_id = ${userId}
+		RETURNING id
+	`;
+	const updatedShareId = updatedRows[0]?.id;
+
+	if (!updatedShareId) {
+		throw new Error("Could not update wrapped share");
+	}
+
+	return {
+		created_at: share.createdAt.toISOString(),
+		expires_at: expiresAtIso,
+		id: updatedShareId,
+	};
+}
+
+async function renameWrappedShareAndUpdateSnapshot(input: {
+	expiresAtIso: string;
+	organizationId: string;
+	share: { createdAt: Date; id: string };
+	shareIdBase: string;
+	snapshot: WrappedShareSnapshot;
+	userId: string;
+}) {
+	const { expiresAtIso, organizationId, share, shareIdBase, snapshot, userId } =
+		input;
+
+	for (
+		let attempt = 0;
+		attempt < WRAPPED_SHARE_ID_INSERT_ATTEMPTS;
+		attempt += 1
+	) {
+		const shareId = await buildAvailableWrappedShareId(shareIdBase, share.id);
+		const updatedRows = await sqlClient<Array<{ id: string }>>`
+			UPDATE wrapped_share
+			SET
+				id = ${shareId},
+				organization_id = ${organizationId},
+				payload_version = ${WRAPPED_SHARE_PAYLOAD_VERSION},
+				snapshot_json = ${JSON.stringify(snapshot)},
+				expires_at = ${expiresAtIso}
+			WHERE id = ${share.id}
+				AND user_id = ${userId}
+				AND NOT EXISTS (
+					SELECT 1
+					FROM wrapped_share
+					WHERE id = ${shareId}
+				)
+			RETURNING id
+		`;
+		const updatedShareId = updatedRows[0]?.id;
+
+		if (updatedShareId) {
+			return {
+				created_at: share.createdAt.toISOString(),
+				expires_at: expiresAtIso,
+				id: updatedShareId,
+			};
+		}
+	}
+
+	throw new Error("Could not rename wrapped share");
+}
+
+async function getWrappedShareForUser(userId: string) {
+	const [row] = await sqlClient<
+		Array<{
+			createdAt: Date | string;
+			id: string;
+		}>
+	>`
+		SELECT
+			id,
+			created_at AS "createdAt"
+		FROM wrapped_share
+		WHERE user_id = ${userId}
+		ORDER BY created_at ASC
+		LIMIT 1
+	`;
+
+	if (!row) {
+		return null;
+	}
+
+	return {
+		createdAt: toDate(row.createdAt),
+		id: row.id,
+	};
 }
 
 // Public share lookup deliberately returns only the persisted snapshot payload.
@@ -138,8 +283,14 @@ function parseWrappedShareSnapshot(snapshotJson: string): WrappedShareSnapshot {
 	return WrappedShareSnapshotSchema.parse(parsedSnapshot);
 }
 
-async function buildAvailableWrappedShareId(baseId: string) {
-	const existingIds = await getExistingWrappedShareIdsForBase(baseId);
+async function buildAvailableWrappedShareId(
+	baseId: string,
+	excludedId?: string,
+) {
+	const existingIds = await getExistingWrappedShareIdsForBase(
+		baseId,
+		excludedId,
+	);
 
 	return getNextWrappedShareIdCandidate({
 		baseId,
@@ -147,14 +298,28 @@ async function buildAvailableWrappedShareId(baseId: string) {
 	});
 }
 
-async function getExistingWrappedShareIdsForBase(baseId: string) {
-	const suffixPrefix = `${baseId}-`;
-	const rows = await sqlClient<Array<{ id: string }>>`
-		SELECT id
-		FROM wrapped_share
-		WHERE id = ${baseId}
-			OR left(id, ${suffixPrefix.length}) = ${suffixPrefix}
-	`;
+async function getExistingWrappedShareIdsForBase(
+	baseId: string,
+	excludedId?: string,
+) {
+	const prefixSuffix = `-${baseId}`;
+	const prefixSuffixWithNumber = `-${baseId}-`;
+	const rows = excludedId
+		? await sqlClient<Array<{ id: string }>>`
+			SELECT id
+			FROM wrapped_share
+			WHERE (id = ${baseId}
+				OR right(id, ${prefixSuffix.length}) = ${prefixSuffix}
+				OR position(${prefixSuffixWithNumber} IN id) > 0)
+				AND id != ${excludedId}
+		`
+		: await sqlClient<Array<{ id: string }>>`
+			SELECT id
+			FROM wrapped_share
+			WHERE id = ${baseId}
+				OR right(id, ${prefixSuffix.length}) = ${prefixSuffix}
+				OR position(${prefixSuffixWithNumber} IN id) > 0
+		`;
 
 	return rows.map((row) => row.id);
 }
