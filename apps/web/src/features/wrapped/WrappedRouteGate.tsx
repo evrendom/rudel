@@ -392,6 +392,13 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 			forcedFlowStage === "story" &&
 			setupProgress.hasUploadedSessions &&
 			canContinueToWrappedStory;
+		const shouldShowSessionsLanded =
+			sessionUserId !== null &&
+			setupProgress.hasUploadedSessions &&
+			(shouldForceSessionsLanded ||
+				shouldHoldForMinimumSessions ||
+				shouldWaitForWrappedStoryData ||
+				sessionGateState.hasReachedMinimumAfterMissing);
 
 		let content: ReactNode;
 
@@ -446,42 +453,11 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 					onContinue={handleSetupContinue}
 				/>
 			);
-		} else if (shouldWaitForWrappedStoryData) {
-			content = <WrappedRouteLoadingState body="Preparing your wrapped..." />;
-		} else if (sessionUserId && shouldForceSessionsLanded) {
+		} else if (shouldShowSessionsLanded) {
 			content = (
 				<WrappedSetupCompletePage
 					canContinueToStory={canContinueToWrappedStory}
 					defaultUploadMoreVisible={sessionGateState.defaultUploadMoreVisible}
-					minimumSessionCount={sessionGateState.minimumSessionCount}
-					onBack={() => setWrappedRouteFlowStage("desktop-ready")}
-					onContinue={() => handleSetupComplete(canContinueToWrappedStory)}
-					sessionReadinessState={sessionGateState.sessionReadinessState}
-					totalSessionCount={sessionGateState.totalSessionCount}
-					userId={sessionUserId}
-				/>
-			);
-		} else if (sessionUserId && shouldHoldForMinimumSessions) {
-			content = (
-				<WrappedSetupCompletePage
-					canContinueToStory={canContinueToWrappedStory}
-					defaultUploadMoreVisible={sessionGateState.defaultUploadMoreVisible}
-					minimumSessionCount={sessionGateState.minimumSessionCount}
-					onBack={() => setWrappedRouteFlowStage("desktop-ready")}
-					onContinue={() => handleSetupComplete(canContinueToWrappedStory)}
-					sessionReadinessState={sessionGateState.sessionReadinessState}
-					totalSessionCount={sessionGateState.totalSessionCount}
-					userId={sessionUserId}
-				/>
-			);
-		} else if (
-			sessionUserId &&
-			sessionGateState.hasReachedMinimumAfterMissing
-		) {
-			content = (
-				<WrappedSetupCompletePage
-					canContinueToStory={canContinueToWrappedStory}
-					defaultUploadMoreVisible={false}
 					minimumSessionCount={sessionGateState.minimumSessionCount}
 					onBack={() => setWrappedRouteFlowStage("desktop-ready")}
 					onContinue={() => handleSetupComplete(canContinueToWrappedStory)}
@@ -703,6 +679,7 @@ function getWrappedRouteSessionGateState(input: {
 	const archetypeGateSessionCount =
 		input.archetypeGate?.values.total_sessions ?? null;
 	const isWaitingForFreshWrappedData =
+		input.hasReachedMinimumAfterMissing &&
 		archetypeGateSessionCount !== null &&
 		archetypeGateSessionCount < input.setupProgressTotalSessionCount;
 	const totalSessionCount =

@@ -859,7 +859,7 @@ describe("WrappedRouteGate", () => {
 		expect(screen.queryByText("Wrapped story")).toBeNull();
 	});
 
-	it("waits when user-scoped raw uploads outrun cached wrapped gate data", () => {
+	it("uses wrapped gate count when raw uploads already outrun wrapped data on entry", () => {
 		mockUseSetupProgress.mockReturnValue({
 			hasUploadedSessions: true,
 			isLoading: false,
@@ -893,12 +893,15 @@ describe("WrappedRouteGate", () => {
 			</MemoryRouter>,
 		);
 
-		expect(screen.getByText("Preparing your wrapped...")).toBeInTheDocument();
+		expect(screen.getByText("Wrapped setup complete page")).toBeInTheDocument();
+		expect(screen.getByText("Can continue: no")).toBeInTheDocument();
+		expect(screen.getByText("Readiness: missing")).toBeInTheDocument();
+		expect(screen.getByText("Total sessions: 38")).toBeInTheDocument();
+		expect(screen.queryByText("Preparing your wrapped...")).toBeNull();
 		expect(screen.queryByText("Wrapped story")).toBeNull();
-		expect(screen.queryByText("Wrapped setup complete page")).toBeNull();
 	});
 
-	it("waits when fresh uploads outrun cached wrapped gate data", async () => {
+	it("shows repos while fresh uploads outrun cached wrapped gate data", async () => {
 		mockUseSetupProgress.mockReturnValue({
 			hasUploadedSessions: true,
 			isLoading: false,
@@ -951,9 +954,12 @@ describe("WrappedRouteGate", () => {
 			</MemoryRouter>,
 		);
 
-		expect(screen.getByText("Preparing your wrapped...")).toBeInTheDocument();
+		expect(screen.getByText("Wrapped setup complete page")).toBeInTheDocument();
+		expect(screen.getByText("Can continue: no")).toBeInTheDocument();
+		expect(screen.getByText("Readiness: enough-landed")).toBeInTheDocument();
+		expect(screen.getByText("Total sessions: 132")).toBeInTheDocument();
+		expect(screen.queryByText("Preparing your wrapped...")).toBeNull();
 		expect(screen.queryByText("Wrapped story")).toBeNull();
-		expect(screen.queryByText("Wrapped setup complete page")).toBeNull();
 	});
 
 	it("treats a legacy non-session gate reason as ready after 100 sessions", () => {
@@ -997,7 +1003,7 @@ describe("WrappedRouteGate", () => {
 		expect(screen.getByRole("button", { name: "Start story" })).toBeEnabled();
 	});
 
-	it("keeps processing archetype users off the upload title screen", () => {
+	it("keeps processing archetype users on the repos screen with story locked", () => {
 		mockUseSetupProgress.mockReturnValue({
 			hasUploadedSessions: true,
 			isLoading: false,
@@ -1031,8 +1037,11 @@ describe("WrappedRouteGate", () => {
 			</MemoryRouter>,
 		);
 
-		expect(screen.getByText("Preparing your wrapped...")).toBeInTheDocument();
-		expect(screen.queryByText("Wrapped setup complete page")).toBeNull();
+		expect(screen.getByText("Wrapped setup complete page")).toBeInTheDocument();
+		expect(screen.getByText("Can continue: no")).toBeInTheDocument();
+		expect(screen.getByText("Readiness: enough-landed")).toBeInTheDocument();
+		expect(screen.getByText("Total sessions: 100")).toBeInTheDocument();
+		expect(screen.queryByText("Preparing your wrapped...")).toBeNull();
 	});
 
 	it("enables setup continue when sessions land during setup", async () => {
