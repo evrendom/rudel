@@ -132,6 +132,7 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 	const setupProgress = useSetupProgress({
 		enabled: shouldReadPrivateWrappedData,
 		keepPollingAfterUpload: shouldReadPrivateWrappedData,
+		userId: sessionUserId,
 	});
 	const shouldQueryWrappedArchetypeGate =
 		shouldReadPrivateWrappedData &&
@@ -702,7 +703,6 @@ function getWrappedRouteSessionGateState(input: {
 	const archetypeGateSessionCount =
 		input.archetypeGate?.values.total_sessions ?? null;
 	const isWaitingForFreshWrappedData =
-		input.hasReachedMinimumAfterMissing &&
 		archetypeGateSessionCount !== null &&
 		archetypeGateSessionCount < input.setupProgressTotalSessionCount;
 	const totalSessionCount =
