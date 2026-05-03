@@ -155,7 +155,7 @@ async function getWrappedSummary(
 				ifNull(maxOrNull(actual_duration_min), 0) AS longest_session_min,
 				countIf(source = 'claude_code') AS claude_session_count,
 				countIf(source = 'codex') AS codex_session_count
-			FROM rudel.session_analytics
+			FROM rudel.session_analytics FINAL
 			WHERE organization_id = {orgId:String}
 				AND user_id = {userId:String}
 		`,
@@ -178,7 +178,7 @@ async function getMonthlyModelUsage(
 				formatDateTime(toStartOfMonth(session_date), '%Y-%m') AS month,
 				model_used AS model,
 				count() AS session_count
-			FROM rudel.session_analytics
+			FROM rudel.session_analytics FINAL
 			WHERE organization_id = {orgId:String}
 				AND user_id = {userId:String}
 				AND model_used != ''
@@ -211,7 +211,7 @@ async function getFavoriteModel(
 					model_used AS favorite_model,
 					count() AS session_count,
 					sum(ifNull(input_tokens, 0) + ifNull(output_tokens, 0)) AS total_tokens
-				FROM rudel.session_analytics
+				FROM rudel.session_analytics FINAL
 				WHERE organization_id = {orgId:String}
 					AND user_id = {userId:String}
 					AND model_used != ''
