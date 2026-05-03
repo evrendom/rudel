@@ -4186,7 +4186,7 @@ body.mymind-wrapped-body .woot-widget-bubble {
 
 .mymind-wrapped-auth-intro-title__word.is-claude {
 	background: #da7757;
-	color: #fffaf5;
+	color: #fff;
 }
 
 .mymind-wrapped-auth-intro-title__word.is-codex {
@@ -4204,10 +4204,31 @@ body.mymind-wrapped-body .woot-widget-bubble {
 	flex: 0 0 auto;
 }
 
+.mymind-wrapped-auth-intro-title__word.is-claude
+	.mymind-wrapped-auth-intro-title__word-icon {
+	color: #fff;
+	fill: #fff;
+}
+
 .mymind-wrapped-auth-intro-title__word-label {
+	position: relative;
 	display: inline-flex;
 	align-items: center;
+	justify-content: center;
 	min-width: 0;
+}
+
+.mymind-wrapped-auth-intro-title__word-sublabel {
+	position: absolute;
+	top: calc(100% + 0.08em);
+	right: 0;
+	color: #fff;
+	font-size: 0.32em;
+	font-weight: 700;
+	letter-spacing: 0;
+	line-height: 1;
+	pointer-events: none;
+	white-space: nowrap;
 }
 
 .mymind-wrapped-auth-launch-links {

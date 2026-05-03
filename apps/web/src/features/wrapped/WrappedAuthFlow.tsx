@@ -840,6 +840,14 @@ function WrappedAuthTitle(props: WrappedAuthTitleProps) {
 										)}
 										<span className="mymind-wrapped-auth-intro-title__word-label">
 											{introTool}
+											{introTool === "Claude" ? (
+												<span
+													aria-hidden="true"
+													className="mymind-wrapped-auth-intro-title__word-sublabel"
+												>
+													Code
+												</span>
+											) : null}
 										</span>
 									</motion.span>
 								</AnimatePresence>

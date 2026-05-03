@@ -2,15 +2,9 @@ import type { WrappedShareRevealMetrics } from "@rudel/api-routes";
 import { ChevronRight } from "lucide-react";
 import type { CSSProperties, ReactNode } from "react";
 import type { TeamPageMemberRow } from "@/features/team/use-team-page-data";
-import {
-	WRAPPED_SATURDAY_STEPS,
-	type WrappedPrimaryStep,
-} from "@/features/wrapped/onboarding/config";
+import { WRAPPED_SATURDAY_STEPS } from "@/features/wrapped/onboarding/config";
 import { WrappedOnboardingFooter } from "@/features/wrapped/onboarding/controls";
-import {
-	getWrappedArchetypeCardBackgroundValue,
-	type WrappedArchetypeCardTheme,
-} from "@/features/wrapped/team-card/archetypes";
+import type { WrappedArchetypeCardTheme } from "@/features/wrapped/team-card/archetypes";
 import type {
 	WrappedTeamMemberCardHeaderMetric,
 	WrappedTeamMemberCardStatItem,
@@ -20,8 +14,6 @@ import type {
 import type { WrappedTeamMemberCardBackMetric } from "@/features/wrapped/team-card/card-back";
 import { WrappedTeamCardPublicStage } from "@/features/wrapped/team-card/final-stages";
 import { useWrappedCardTilt } from "@/features/wrapped/team-card/tilt/use-card-tilt";
-import { WrappedProgress } from "@/features/wrapped/WrappedProgress";
-import { getWrappedOnboardingProgressView } from "@/features/wrapped/wrapped-onboarding-progress";
 import { cn } from "@/lib/utils";
 
 interface WrappedPublicCardScreenProps {
@@ -57,8 +49,6 @@ export function WrappedPublicCardScreen(props: WrappedPublicCardScreenProps) {
 		theme,
 	} = props;
 	const cardStep = getWrappedPublicCardStep();
-	const rewardCardBackground =
-		getWrappedArchetypeCardBackgroundValue(activeArchetype) ?? undefined;
 	const tiltController = useWrappedCardTilt();
 
 	return (
@@ -70,10 +60,7 @@ export function WrappedPublicCardScreen(props: WrappedPublicCardScreenProps) {
 						debugControls ? null : "mymind-wrapped-shell__frame--no-footer",
 					)}
 				>
-					<WrappedPublicCardHeader
-						activeStep={cardStep}
-						rewardCardBackground={rewardCardBackground}
-					/>
+					<WrappedPublicCardTopTraySpacer />
 
 					<div className="mymind-wrapped-stage-area">
 						<div className="mymind-wrapped-stage-slot">
@@ -143,36 +130,12 @@ export function WrappedPublicCardAction(props: {
 	);
 }
 
-function WrappedPublicCardHeader(props: {
-	activeStep: WrappedPrimaryStep;
-	rewardCardBackground?: string;
-}) {
-	const { activeStep, rewardCardBackground } = props;
-	const progressView = getWrappedOnboardingProgressView(activeStep.id);
-
+function WrappedPublicCardTopTraySpacer() {
 	return (
-		<header className="mymind-wrapped-top-tray mymind-wrapped-public-card-header">
-			<div className="mymind-wrapped-top-tray__row">
-				<div className="mymind-wrapped-top-tray__slot mymind-wrapped-top-tray__slot--start">
-					<span className="mymind-wrapped-top-tray__utility-placeholder" />
-				</div>
-				<div className="mymind-wrapped-top-tray__center">
-					<WrappedProgress
-						ariaLabel="Wrapped public card progress"
-						disabled
-						items={progressView.items.map((item) => ({
-							ariaLabel: `Wrapped step ${item.stepNumber}: ${item.label}`,
-							id: item.id,
-							isActive: item.isActive,
-						}))}
-						rewardCardBackground={rewardCardBackground}
-					/>
-				</div>
-				<div className="mymind-wrapped-top-tray__slot mymind-wrapped-top-tray__slot--end">
-					<span className="mymind-wrapped-top-tray__utility-placeholder" />
-				</div>
-			</div>
-		</header>
+		<div
+			aria-hidden="true"
+			className="mymind-wrapped-top-tray mymind-wrapped-top-tray--empty"
+		/>
 	);
 }
 

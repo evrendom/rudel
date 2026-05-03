@@ -1644,7 +1644,13 @@ function buildRoadrunnerRevealDescription(input: WrappedRevealCopyInput) {
 }
 
 function buildManiacRevealDescription(input: WrappedRevealCopyInput) {
-	const { onboardingMetrics, revealMetrics, row, statItems } = input;
+	const {
+		audience = "owner",
+		onboardingMetrics,
+		revealMetrics,
+		row,
+		statItems,
+	} = input;
 	const activeDays = formatWrappedRevealInteger(row.activeDays);
 	const daysSinceFirst = formatWrappedRevealInteger(
 		resolveWrappedRevealDaysSinceFirst(input),
@@ -1660,18 +1666,23 @@ function buildManiacRevealDescription(input: WrappedRevealCopyInput) {
 		activeDays: row.activeDays,
 		totalSessions: row.totalSessions,
 	});
+	const publicName = row.displayName;
 
 	return [
 		`${activeDays} out of ${daysSinceFirst} days. ${distinctProjectCount} repos.`,
 		"Most people are consistent. Some people are everywhere at once.",
-		"You're both. Somehow.",
-		`${sessionsPerActiveDay} sessions every time you're active.`,
+		audience === "public"
+			? `${publicName} is both. Somehow.`
+			: "You're both. Somehow.",
+		`${sessionsPerActiveDay} sessions every time ${
+			audience === "public" ? `${publicName} is` : "you're"
+		} active.`,
 		"We're a little scared honestly. Pls don't hurt someone",
 	].join(" ");
 }
 
 function buildCompanyCardRevealDescription(input: WrappedRevealCopyInput) {
-	const { onboardingMetrics, row } = input;
+	const { audience = "owner", onboardingMetrics, row } = input;
 	const totalSessions = formatWrappedRevealInteger(row.totalSessions);
 	const commitRate = formatWrappedRevealInteger(
 		resolveWrappedRevealCommitRate(input),
@@ -1681,21 +1692,33 @@ function buildCompanyCardRevealDescription(input: WrappedRevealCopyInput) {
 	);
 	const totalCost = formatWrappedRevealWholeCurrency(row.cost);
 	const happyLine = formatWrappedRevealCompanyCardHappyLine({
+		audience,
 		favoriteModel: row.favoriteModel,
 		onboardingMetrics,
+		rowDisplayName: row.displayName,
 	});
 
 	return [
-		`${totalSessions} sessions. ${commitRate}% of them shipped something.`,
+		audience === "public"
+			? `${totalSessions} sessions. ${commitRate}% of sessions shipped something.`
+			: `${totalSessions} sessions. ${commitRate}% of them shipped something.`,
 		`${costPerSession} a session. ${totalCost} in total.`,
 		"Not saying it's a problem. We don't judge.",
-		"Spend as much as you want.",
+		audience === "public"
+			? `${row.displayName} spends as much as ${row.displayName} wants.`
+			: "Spend as much as you want.",
 		happyLine,
 	].join(" ");
 }
 
 function buildAdhdBrainRevealDescription(input: WrappedRevealCopyInput) {
-	const { onboardingMetrics, revealMetrics, row, statItems } = input;
+	const {
+		audience = "owner",
+		onboardingMetrics,
+		revealMetrics,
+		row,
+		statItems,
+	} = input;
 	const activeDays = formatWrappedRevealInteger(row.activeDays);
 	const daysSinceFirst = formatWrappedRevealInteger(
 		resolveWrappedRevealDaysSinceFirst(input),
@@ -1713,13 +1736,21 @@ function buildAdhdBrainRevealDescription(input: WrappedRevealCopyInput) {
 
 	return [
 		`${activeDays} out of ${daysSinceFirst} days. ${distinctProjectCount} repos. ${commitRate}% of sessions shipped something.`,
-		"You'd call yourself a DaVinci.",
+		audience === "public"
+			? `${row.displayName} would call this a DaVinci.`
+			: "You'd call yourself a DaVinci.",
 		`We're just worried about the ${distinctProjectCount} repos.`,
 	].join(" ");
 }
 
 function buildHitAndRunnerRevealDescription(input: WrappedRevealCopyInput) {
-	const { onboardingMetrics, revealMetrics, statItems } = input;
+	const {
+		audience = "owner",
+		onboardingMetrics,
+		revealMetrics,
+		row,
+		statItems,
+	} = input;
 	const avgSessionMin = formatWrappedRevealInteger(
 		resolveWrappedRevealAvgSessionMin(input),
 	);
@@ -1738,12 +1769,14 @@ function buildHitAndRunnerRevealDescription(input: WrappedRevealCopyInput) {
 		`${avgSessionMin} minutes average. ${distinctProjectCount} repos. ${commitRate}% of sessions shipped something.`,
 		"Veni, vidi, commit.",
 		`In at ${avgSessionMin} minutes. Out before anyone noticed.`,
-		"You could be a hitman.",
+		audience === "public"
+			? `${row.displayName} could be a hitman.`
+			: "You could be a hitman.",
 	].join(" ");
 }
 
 function buildCheapskateRevealDescription(input: WrappedRevealCopyInput) {
-	const { row } = input;
+	const { audience = "owner", row } = input;
 	const commitRate = formatWrappedRevealInteger(
 		resolveWrappedRevealCommitRate(input),
 	);
@@ -1753,12 +1786,20 @@ function buildCheapskateRevealDescription(input: WrappedRevealCopyInput) {
 
 	return [
 		`${costPerSession} a session. ${commitRate}% of those shipped something.`,
-		"Mr. Krabs is very proud of you. But you've never once picked up the check.",
+		audience === "public"
+			? `Mr. Krabs is very proud of ${row.displayName}. But ${row.displayName} has never once picked up the check.`
+			: "Mr. Krabs is very proud of you. But you've never once picked up the check.",
 	].join(" ");
 }
 
 function buildObsessedRevealDescription(input: WrappedRevealCopyInput) {
-	const { onboardingMetrics, revealMetrics, row, statItems } = input;
+	const {
+		audience = "owner",
+		onboardingMetrics,
+		revealMetrics,
+		row,
+		statItems,
+	} = input;
 	const activeDays = formatWrappedRevealInteger(row.activeDays);
 	const daysSinceFirst = formatWrappedRevealInteger(
 		resolveWrappedRevealDaysSinceFirst(input),
@@ -1776,17 +1817,24 @@ function buildObsessedRevealDescription(input: WrappedRevealCopyInput) {
 	const costPerSession = formatCurrency(
 		row.totalSessions > 0 ? row.cost / row.totalSessions : 0,
 	);
+	const publicPossessiveName = formatWrappedPublicPossessiveName(
+		row.displayName,
+	);
 
 	return [
 		`${distinctProjectCount} repo. That's it.`,
 		`${activeDays} out of ${daysSinceFirst} days. All of it, same place.`,
-		`${commitRate}% of your sessions shipped something. At ${costPerSession} a session.`,
-		"May god help anyone who tries to distract you.",
+		`${commitRate}% of ${
+			audience === "public" ? publicPossessiveName : "your"
+		} sessions shipped something. At ${costPerSession} a session.`,
+		audience === "public"
+			? `May god help anyone who tries to distract ${row.displayName}.`
+			: "May god help anyone who tries to distract you.",
 	].join(" ");
 }
 
 function buildSmoothOperatorRevealDescription(input: WrappedRevealCopyInput) {
-	const { row } = input;
+	const { audience = "owner", row } = input;
 	const activeDays = formatWrappedRevealInteger(row.activeDays);
 	const daysSinceFirst = formatWrappedRevealInteger(
 		resolveWrappedRevealDaysSinceFirst(input),
@@ -1804,18 +1852,25 @@ function buildSmoothOperatorRevealDescription(input: WrappedRevealCopyInput) {
 	const costPerSession = formatCurrency(
 		row.totalSessions > 0 ? row.cost / row.totalSessions : 0,
 	);
+	const publicPossessiveName = formatWrappedPublicPossessiveName(
+		row.displayName,
+	);
 
 	return [
 		`${activeDays} out of ${daysSinceFirst} days.`,
-		`${avgSessionMin} minutes average. ${longestSessionMin} at your longest.`,
-		"You start. You build. You stop.",
+		`${avgSessionMin} minutes average. ${longestSessionMin} at ${
+			audience === "public" ? publicPossessiveName : "your"
+		} longest.`,
+		audience === "public"
+			? `${row.displayName} starts. ${row.displayName} builds. ${row.displayName} stops.`
+			: "You start. You build. You stop.",
 		`${sessionsPerActiveDay} sessions a day, ${costPerSession} a session, no chaos.`,
 		"A little to bit too smooth... bit suspicious.",
 	].join(" ");
 }
 
 function buildTouristRevealDescription(input: WrappedRevealCopyInput) {
-	const { row } = input;
+	const { audience = "owner", row } = input;
 	const totalSessions = formatWrappedRevealInteger(row.totalSessions);
 	const commitRate = formatWrappedRevealInteger(
 		resolveWrappedRevealCommitRate(input),
@@ -1826,8 +1881,14 @@ function buildTouristRevealDescription(input: WrappedRevealCopyInput) {
 
 	return [
 		`${totalSessions} sessions. ${commitRate}% shipped something. ${costPerSession} a session.`,
-		"At least you tried it out! There's no prize for participation though",
+		audience === "public"
+			? `At least ${row.displayName} tried it out! There's no prize for participation though`
+			: "At least you tried it out! There's no prize for participation though",
 	].join(" ");
+}
+
+function formatWrappedPublicPossessiveName(displayName: string) {
+	return displayName.endsWith("s") ? `${displayName}'` : `${displayName}'s`;
 }
 
 function formatWrappedRevealInteger(value: number) {
@@ -1941,20 +2002,26 @@ function resolveWrappedRevealBackMetricNumber(
 }
 
 function formatWrappedRevealCompanyCardHappyLine(input: {
+	audience?: "owner" | "public";
 	favoriteModel: string | null;
 	onboardingMetrics?: WrappedOnboardingMetrics;
+	rowDisplayName?: string;
 }) {
+	const objectLabel =
+		input.audience === "public"
+			? (input.rowDisplayName ?? "this person")
+			: "you";
 	const usageSource = getWrappedRevealCompanyCardUsageSource(input);
 
 	if (usageSource === "claude") {
-		return "Dario's happy to have you.";
+		return `Dario's happy to have ${objectLabel}.`;
 	}
 
 	if (usageSource === "codex") {
-		return "Sam's happy to have you.";
+		return `Sam's happy to have ${objectLabel}.`;
 	}
 
-	return "Dario & Sam are happy to have you.";
+	return `Dario & Sam are happy to have ${objectLabel}.`;
 }
 
 function getWrappedRevealCompanyCardUsageSource(input: {
