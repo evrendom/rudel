@@ -5,43 +5,47 @@ import {
 } from "./share-media";
 
 describe("wrapped share media policy", () => {
-	it("keeps same-origin images for export and public replay", () => {
+	it("keeps the relative avatar path so the share page resolves it at render time", () => {
 		expect(
 			getWrappedShareSafeImageUrl(
-				"https://rudel.ai/uploads/avatar.png",
-				"https://rudel.ai",
+				"/api/avatar/12345678-1234-1234-1234-123456789abc",
 			),
-		).toBe("https://rudel.ai/uploads/avatar.png");
+		).toBe("/api/avatar/12345678-1234-1234-1234-123456789abc");
 	});
 
-	it("keeps relative images for export and public replay", () => {
-		expect(
-			getWrappedShareSafeImageUrl("/uploads/avatar.png", "https://rudel.ai"),
-		).toBe("https://rudel.ai/uploads/avatar.png");
+	it("rejects relative paths that are not avatar urls", () => {
+		expect(getWrappedShareSafeImageUrl("/foo")).toBeNull();
+		expect(getWrappedShareSafeImageUrl("/uploads/avatar.png")).toBeNull();
+		expect(getWrappedShareSafeImageUrl("/api/avatar/not-a-uuid")).toBeNull();
 	});
 
-	it("drops third-party images from the share-safe surface", () => {
+	it("keeps HTTPS provider images for public replay", () => {
 		expect(
 			getWrappedShareSafeImageUrl(
 				"https://avatars.githubusercontent.com/u/1?v=4",
-				"https://rudel.ai",
 			),
+		).toBe("https://avatars.githubusercontent.com/u/1?v=4");
+	});
+
+	it("drops insecure third-party images from the share-safe surface", () => {
+		expect(
+			getWrappedShareSafeImageUrl("http://avatars.example.com/u/1.png"),
 		).toBeNull();
 	});
 
 	it("keeps data and blob urls for designer-controlled local media", () => {
-		expect(
-			getWrappedShareSafeImageUrl(
-				"data:image/png;base64,abc",
-				"https://rudel.ai",
-			),
-		).toBe("data:image/png;base64,abc");
-		expect(
-			getWrappedShareSafeImageUrl(
-				"blob:https://rudel.ai/1234",
-				"https://rudel.ai",
-			),
-		).toBe("blob:https://rudel.ai/1234");
+		expect(getWrappedShareSafeImageUrl("data:image/png;base64,abc")).toBe(
+			"data:image/png;base64,abc",
+		);
+		expect(getWrappedShareSafeImageUrl("blob:https://rudel.ai/1234")).toBe(
+			"blob:https://rudel.ai/1234",
+		);
+	});
+
+	it("rejects empty/null/whitespace input", () => {
+		expect(getWrappedShareSafeImageUrl(null)).toBeNull();
+		expect(getWrappedShareSafeImageUrl(undefined)).toBeNull();
+		expect(getWrappedShareSafeImageUrl("")).toBeNull();
 	});
 
 	it("builds a share-safe row without mutating unrelated card fields", () => {
@@ -64,7 +68,7 @@ describe("wrapped share media policy", () => {
 
 		expect(buildWrappedShareSafeRow(row)).toEqual({
 			...row,
-			imageUrl: null,
+			imageUrl: "https://avatars.githubusercontent.com/u/1?v=4",
 		});
 	});
 });

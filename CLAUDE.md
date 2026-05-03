@@ -22,7 +22,7 @@ A platform for ingesting, storing, and analyzing Claude Code / Codex session tra
 |---------|-------------|
 | `packages/api-routes` (`@rudel/api-routes`) | Shared RPC contract (`@orpc/contract` + Zod schemas). Single source of truth for the API interface. |
 | `packages/ch-schema` (`@rudel/ch-schema`) | ClickHouse table schema (`rudel.claude_sessions`, `rudel.session_analytics`), generated TypeScript types, and ingest functions via `chkit`. Has two entry points: `@rudel/ch-schema` (full — includes schema definitions that pull in `@chkit/core` and `@clickhouse/client`) and `@rudel/ch-schema/generated` (lightweight — only generated types and ingest functions). **Use `@rudel/ch-schema/generated`** for runtime imports to avoid loading heavy ClickHouse dependencies. |
-| `packages/sql-schema` (`@rudel/sql-schema`) | Drizzle ORM schema for Postgres auth tables (`user`, `session`, `account`, `verification`). |
+| `packages/sql-schema` (`@rudel/sql-schema`) | Drizzle ORM schema for Postgres auth tables (`user`, `session`, `account`, `verification`, `user_avatar`). |
 | `packages/typescript-config` (`@rudel/typescript-config`) | Shared `tsconfig` base files (`base.json`, `node.json`, `react-library.json`). |
 
 ### Dependency Graph
@@ -122,6 +122,18 @@ bun run --cwd apps/api dev:env
 ```
 
 This runs `doppler run --project rudel --config prd_local -- bun --watch src/index.ts`.
+
+## Wrapped card avatars
+
+Wrapped card profile avatars persist to Postgres in the `user_avatar` sidecar table (one row per user, keyed by `user_id`, with a stable `public_id` UUID and the raw bytes in `image_data` bytea). `user.image` stores a relative URL `/api/avatar/<public_id>`; never absolutize it at write time so production shares don't capture localhost from `prd_local` dev.
+
+- `GET /api/avatar/<publicId>` is public, no auth, served by Bun with `Cache-Control: public, max-age=300` and `ETag` for 304 revalidation. Re-uploading bytes keeps the same `public_id` so the URL stays stable.
+- `POST /api/profile/avatar` accepts a single multipart `file` field (PNG, JPEG, or WEBP), enforces a 2 MB cap, sniffs magic bytes (rejects spoofed types), and atomically upserts the sidecar row + updates `user.image`.
+- `profile.updateMine` (oRPC) accepts `name` + `image`. Image must be `null`, the caller's own `/api/avatar/<id>`, or HTTPS from a trusted OAuth host (`lh3.googleusercontent.com`, `avatars.githubusercontent.com`). Non-avatar images drop the sidecar bytes inside the same transaction.
+- The wrapped public share hydrator rewrites stale `/api/avatar/<old-id>` snapshot URLs to follow the user's current `user.image`. Non-avatar third-party URLs in old snapshots stay frozen.
+- The OG PNG card (`x-card.png`) only embeds `data:` images, so uploaded avatars and Google avatars both render as initials there. Fix is a separate follow-up.
+
+Shared avatar constants (size caps, MIME allowlist, regex patterns) live in `packages/api-routes/src/avatar.ts` and are imported on both API and web.
 
 ## Self-Hosting
 

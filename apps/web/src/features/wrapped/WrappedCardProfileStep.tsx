@@ -1,5 +1,10 @@
+import {
+	AVATAR_ACCEPTED_MIME_TYPES,
+	type AvatarMimeType,
+} from "@rudel/api-routes";
 import { ArrowRight, ImagePlus } from "lucide-react";
 import { type ChangeEvent, type ReactNode, useRef, useState } from "react";
+import { useMountEffect } from "@/hooks/useMountEffect";
 import { WrappedPrimaryAction } from "./actions";
 import { WrappedRouteStageShell } from "./route-stage-shell";
 import { WrappedGuestPreviewCard } from "./WrappedGuestPreviewCard";
@@ -13,6 +18,13 @@ const WRAPPED_CARD_PROFILE_TITLE = (
 	</span>
 );
 
+// Allow file picker to be permissive (accept="image/*"), then enforce the
+// real allowlist after the user selects a file.
+const PRE_RESIZE_MAX_BYTES = 5 * 1024 * 1024;
+const RESIZE_LONG_EDGE_PX = 768;
+const ENCODED_TYPE: AvatarMimeType = "image/webp";
+const ENCODED_FALLBACK_TYPE: AvatarMimeType = "image/jpeg";
+
 interface WrappedCardProfileStepProps {
 	backLabel?: string;
 	debugControls?: ReactNode;
@@ -23,6 +35,7 @@ interface WrappedCardProfileStepProps {
 	onContinue: () => void;
 	onDisplayNameChange: (value: string) => void;
 	onImageChange: (imageUrl: string | null) => void;
+	onUploadingChange?: (isUploading: boolean) => void;
 	previewProfile: WrappedGuestPreviewProfile | null;
 }
 
@@ -37,12 +50,31 @@ export function WrappedCardProfileStep(props: WrappedCardProfileStepProps) {
 		onContinue,
 		onDisplayNameChange,
 		onImageChange,
+		onUploadingChange,
 		previewProfile,
 	} = props;
 	const imageInputRef = useRef<HTMLInputElement | null>(null);
 	const [isNameEditing, setIsNameEditing] = useState(true);
+	const [previewBlobUrl, setPreviewBlobUrl] = useState<string | null>(null);
+	const previewBlobUrlRef = useRef<string | null>(null);
+	previewBlobUrlRef.current = previewBlobUrl;
+	const [isUploading, setIsUploading] = useState(false);
+	const [uploadError, setUploadError] = useState<string | null>(null);
 
-	function handleImageUpload(event: ChangeEvent<HTMLInputElement>) {
+	// Revoke any in-flight preview blob URL when the component unmounts so we
+	// don't leak object URLs if the user navigates away mid-upload.
+	useMountEffect(() => () => {
+		if (previewBlobUrlRef.current) {
+			URL.revokeObjectURL(previewBlobUrlRef.current);
+		}
+	});
+
+	function setUploadingState(next: boolean) {
+		setIsUploading(next);
+		onUploadingChange?.(next);
+	}
+
+	async function handleImageUpload(event: ChangeEvent<HTMLInputElement>) {
 		const file = event.currentTarget.files?.[0];
 		event.currentTarget.value = "";
 
@@ -50,13 +82,62 @@ export function WrappedCardProfileStep(props: WrappedCardProfileStepProps) {
 			return;
 		}
 
-		const reader = new FileReader();
-		reader.addEventListener("load", () => {
-			if (typeof reader.result === "string") {
-				onImageChange(reader.result);
+		if (isUploading) {
+			return;
+		}
+
+		if (
+			!(AVATAR_ACCEPTED_MIME_TYPES as readonly string[]).includes(file.type)
+		) {
+			setUploadError("Pick a PNG, JPEG, or WEBP image for your card.");
+			return;
+		}
+
+		if (file.size > PRE_RESIZE_MAX_BYTES) {
+			setUploadError("Image is too large. Maximum size is 5 MB.");
+			return;
+		}
+
+		setUploadError(null);
+		setUploadingState(true);
+
+		try {
+			const resized = await resizeImage(file);
+			const localPreviewUrl = URL.createObjectURL(resized);
+			if (previewBlobUrl) {
+				URL.revokeObjectURL(previewBlobUrl);
 			}
-		});
-		reader.readAsDataURL(file);
+			setPreviewBlobUrl(localPreviewUrl);
+
+			const formData = new FormData();
+			formData.append("file", resized, "avatar.webp");
+			const response = await fetch("/api/profile/avatar", {
+				method: "POST",
+				body: formData,
+				credentials: "include",
+			});
+
+			if (!response.ok) {
+				throw new Error(`Avatar upload failed: ${response.status}`);
+			}
+
+			const payload = (await response.json()) as {
+				user?: { image?: string | null };
+			};
+			const persistedImageUrl = payload.user?.image ?? null;
+
+			URL.revokeObjectURL(localPreviewUrl);
+			setPreviewBlobUrl(null);
+			onImageChange(persistedImageUrl);
+		} catch {
+			if (previewBlobUrl) {
+				URL.revokeObjectURL(previewBlobUrl);
+			}
+			setPreviewBlobUrl(null);
+			setUploadError("We could not upload your image. Try again.");
+		} finally {
+			setUploadingState(false);
+		}
 	}
 
 	function handleSaveDisplayName() {
@@ -71,10 +152,15 @@ export function WrappedCardProfileStep(props: WrappedCardProfileStepProps) {
 		setIsNameEditing(true);
 	}
 
-	const imageEditLabel = imageUrl
+	const renderedImageUrl = previewBlobUrl ?? imageUrl;
+	const renderedPreviewProfile: WrappedGuestPreviewProfile | null =
+		previewProfile && previewBlobUrl
+			? { ...previewProfile, imageUrl: previewBlobUrl }
+			: previewProfile;
+	const imageEditLabel = renderedImageUrl
 		? "Change profile picture"
 		: "Add profile picture";
-	const canContinue = isComplete && !isNameEditing;
+	const canContinue = isComplete && !isNameEditing && !isUploading;
 
 	function handleOpenImagePicker() {
 		imageInputRef.current?.click();
@@ -142,9 +228,17 @@ export function WrappedCardProfileStep(props: WrappedCardProfileStepProps) {
 								</>
 							}
 							onDisplayNameEditStart={handleEditDisplayName}
-							profile={previewProfile}
+							profile={renderedPreviewProfile}
 							size="profile"
 						/>
+						{uploadError ? (
+							<p
+								role="alert"
+								className="mymind-wrapped-card-profile-step__error"
+							>
+								{uploadError}
+							</p>
+						) : null}
 					</div>
 				</div>
 			}
@@ -154,4 +248,78 @@ export function WrappedCardProfileStep(props: WrappedCardProfileStepProps) {
 			useReferenceTopChrome
 		/>
 	);
+}
+
+async function resizeImage(file: File): Promise<Blob> {
+	const bitmap = await loadImageBitmap(file);
+	const longEdge = Math.max(bitmap.width, bitmap.height);
+	const scale =
+		longEdge > RESIZE_LONG_EDGE_PX ? RESIZE_LONG_EDGE_PX / longEdge : 1;
+	const targetWidth = Math.max(1, Math.round(bitmap.width * scale));
+	const targetHeight = Math.max(1, Math.round(bitmap.height * scale));
+
+	const canvas = createOffscreenLikeCanvas(targetWidth, targetHeight);
+	const context = canvas.getContext("2d");
+	if (!context) {
+		throw new Error("Canvas 2D context unavailable");
+	}
+	context.drawImage(bitmap, 0, 0, targetWidth, targetHeight);
+	if ("close" in bitmap && typeof bitmap.close === "function") {
+		bitmap.close();
+	}
+
+	const blob = await canvasToBlob(canvas, ENCODED_TYPE, 0.85);
+	if (blob) {
+		return blob;
+	}
+
+	const fallback = await canvasToBlob(canvas, ENCODED_FALLBACK_TYPE, 0.85);
+	if (!fallback) {
+		throw new Error("Could not encode image");
+	}
+	return fallback;
+}
+
+async function loadImageBitmap(
+	file: File,
+): Promise<ImageBitmap | HTMLImageElement> {
+	if (typeof createImageBitmap === "function") {
+		return createImageBitmap(file, {
+			imageOrientation: "from-image",
+		});
+	}
+
+	const image = new Image();
+	const objectUrl = URL.createObjectURL(file);
+	const loaded = new Promise<HTMLImageElement>((resolve, reject) => {
+		image.addEventListener("load", () => resolve(image), { once: true });
+		image.addEventListener(
+			"error",
+			() => reject(new Error("Image load failed")),
+			{ once: true },
+		);
+	});
+	image.src = objectUrl;
+	try {
+		return await loaded;
+	} finally {
+		URL.revokeObjectURL(objectUrl);
+	}
+}
+
+function createOffscreenLikeCanvas(width: number, height: number) {
+	const canvas = document.createElement("canvas");
+	canvas.width = width;
+	canvas.height = height;
+	return canvas;
+}
+
+function canvasToBlob(
+	canvas: HTMLCanvasElement,
+	type: string,
+	quality: number,
+): Promise<Blob | null> {
+	return new Promise((resolve) => {
+		canvas.toBlob((blob) => resolve(blob), type, quality);
+	});
 }

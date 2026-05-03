@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, mock, test } from "bun:test";
+import assert from "node:assert";
 import type { WrappedShareSnapshot } from "@rudel/api-routes";
 
 interface SqlQuery {
@@ -34,7 +35,7 @@ mock.module("../db.js", () => ({
 	sqlClient,
 }));
 
-const { createWrappedShare } = await import(
+const { createWrappedShare, getPublicWrappedShare } = await import(
 	"../services/wrapped-share.service.js"
 );
 
@@ -113,9 +114,242 @@ describe("wrapped share service", () => {
 		expect(getSqlQuery(2).values[5]).toBe(legacyShareId);
 		expect(getSqlQuery(2).values[6]).toBe("user-1");
 	});
+
+	test("hydrates an older public share without an image from the account profile", async () => {
+		selectRows = [
+			{
+				createdAt: "2026-04-22T10:00:00.000Z",
+				expiresAt: new Date(Date.now() + 60_000).toISOString(),
+				id: "evren",
+				payloadVersion: 1,
+				snapshotJson: JSON.stringify(
+					createSnapshot({ displayName: "Evren", imageUrl: null }),
+				),
+				userImage: "https://avatars.githubusercontent.com/u/1?v=4",
+			},
+		];
+
+		const share = await getPublicWrappedShare("evren");
+
+		assert(share);
+		expect(share.snapshot.row.imageUrl).toBe(
+			"https://avatars.githubusercontent.com/u/1?v=4",
+		);
+		expect(getSqlQuery(0).sql).toContain('LEFT JOIN "user"');
+	});
+
+	test("keeps a saved share image ahead of the account profile fallback", async () => {
+		selectRows = [
+			{
+				createdAt: "2026-04-22T10:00:00.000Z",
+				expiresAt: new Date(Date.now() + 60_000).toISOString(),
+				id: "evren",
+				payloadVersion: 1,
+				snapshotJson: JSON.stringify(
+					createSnapshot({
+						displayName: "Evren",
+						imageUrl: "data:image/png;base64,saved",
+					}),
+				),
+				userImage: "https://avatars.githubusercontent.com/u/1?v=4",
+			},
+		];
+
+		const share = await getPublicWrappedShare("evren");
+
+		assert(share);
+		expect(share.snapshot.row.imageUrl).toBe("data:image/png;base64,saved");
+	});
+
+	test("does not hydrate public shares from unsafe account profile images", async () => {
+		selectRows = [
+			{
+				createdAt: "2026-04-22T10:00:00.000Z",
+				expiresAt: new Date(Date.now() + 60_000).toISOString(),
+				id: "evren",
+				payloadVersion: 1,
+				snapshotJson: JSON.stringify(
+					createSnapshot({ displayName: "Evren", imageUrl: null }),
+				),
+				userImage: "http://avatars.example.com/u/1.png",
+			},
+		];
+
+		const share = await getPublicWrappedShare("evren");
+
+		assert(share);
+		expect(share.snapshot.row.imageUrl).toBeNull();
+	});
+
+	test("hydrates a missing snapshot image with the user's relative avatar path", async () => {
+		const avatarPath = "/api/avatar/12345678-1234-1234-1234-123456789abc";
+		selectRows = [
+			{
+				createdAt: "2026-04-22T10:00:00.000Z",
+				expiresAt: new Date(Date.now() + 60_000).toISOString(),
+				id: "evren",
+				payloadVersion: 1,
+				snapshotJson: JSON.stringify(
+					createSnapshot({ displayName: "Evren", imageUrl: null }),
+				),
+				userImage: avatarPath,
+			},
+		];
+
+		const share = await getPublicWrappedShare("evren");
+
+		assert(share);
+		expect(share.snapshot.row.imageUrl).toBe(avatarPath);
+	});
+
+	test("clears a non-avatar relative path from the user profile", async () => {
+		selectRows = [
+			{
+				createdAt: "2026-04-22T10:00:00.000Z",
+				expiresAt: new Date(Date.now() + 60_000).toISOString(),
+				id: "evren",
+				payloadVersion: 1,
+				snapshotJson: JSON.stringify(
+					createSnapshot({ displayName: "Evren", imageUrl: null }),
+				),
+				userImage: "/foo",
+			},
+		];
+
+		const share = await getPublicWrappedShare("evren");
+
+		assert(share);
+		expect(share.snapshot.row.imageUrl).toBeNull();
+	});
+
+	test("rewrites a stale avatar snapshot path to the user's current avatar", async () => {
+		const oldAvatarPath = "/api/avatar/11111111-1111-1111-1111-111111111111";
+		const newAvatarPath = "/api/avatar/22222222-2222-2222-2222-222222222222";
+		selectRows = [
+			{
+				createdAt: "2026-04-22T10:00:00.000Z",
+				expiresAt: new Date(Date.now() + 60_000).toISOString(),
+				id: "evren",
+				payloadVersion: 1,
+				snapshotJson: JSON.stringify(
+					createSnapshot({
+						displayName: "Evren",
+						imageUrl: oldAvatarPath,
+					}),
+				),
+				userImage: newAvatarPath,
+			},
+		];
+
+		const share = await getPublicWrappedShare("evren");
+
+		assert(share);
+		expect(share.snapshot.row.imageUrl).toBe(newAvatarPath);
+	});
+
+	test("clears a stale avatar snapshot path when the user has cleared their avatar", async () => {
+		const oldAvatarPath = "/api/avatar/11111111-1111-1111-1111-111111111111";
+		selectRows = [
+			{
+				createdAt: "2026-04-22T10:00:00.000Z",
+				expiresAt: new Date(Date.now() + 60_000).toISOString(),
+				id: "evren",
+				payloadVersion: 1,
+				snapshotJson: JSON.stringify(
+					createSnapshot({
+						displayName: "Evren",
+						imageUrl: oldAvatarPath,
+					}),
+				),
+				userImage: null,
+			},
+		];
+
+		const share = await getPublicWrappedShare("evren");
+
+		assert(share);
+		expect(share.snapshot.row.imageUrl).toBeNull();
+	});
+
+	test("rewrites a stale avatar snapshot path when the user switched to a Google avatar", async () => {
+		const oldAvatarPath = "/api/avatar/11111111-1111-1111-1111-111111111111";
+		const googleUrl = "https://lh3.googleusercontent.com/abc";
+		selectRows = [
+			{
+				createdAt: "2026-04-22T10:00:00.000Z",
+				expiresAt: new Date(Date.now() + 60_000).toISOString(),
+				id: "evren",
+				payloadVersion: 1,
+				snapshotJson: JSON.stringify(
+					createSnapshot({
+						displayName: "Evren",
+						imageUrl: oldAvatarPath,
+					}),
+				),
+				userImage: googleUrl,
+			},
+		];
+
+		const share = await getPublicWrappedShare("evren");
+
+		assert(share);
+		expect(share.snapshot.row.imageUrl).toBe(googleUrl);
+	});
+
+	test("preserves a snapshot that pins the user's current avatar path", async () => {
+		const avatarPath = "/api/avatar/12345678-1234-1234-1234-123456789abc";
+		selectRows = [
+			{
+				createdAt: "2026-04-22T10:00:00.000Z",
+				expiresAt: new Date(Date.now() + 60_000).toISOString(),
+				id: "evren",
+				payloadVersion: 1,
+				snapshotJson: JSON.stringify(
+					createSnapshot({
+						displayName: "Evren",
+						imageUrl: avatarPath,
+					}),
+				),
+				userImage: avatarPath,
+			},
+		];
+
+		const share = await getPublicWrappedShare("evren");
+
+		assert(share);
+		expect(share.snapshot.row.imageUrl).toBe(avatarPath);
+	});
+
+	test("freezes a non-avatar snapshot url even when the user profile changes", async () => {
+		selectRows = [
+			{
+				createdAt: "2026-04-22T10:00:00.000Z",
+				expiresAt: new Date(Date.now() + 60_000).toISOString(),
+				id: "evren",
+				payloadVersion: 1,
+				snapshotJson: JSON.stringify(
+					createSnapshot({
+						displayName: "Evren",
+						imageUrl: "https://lh3.googleusercontent.com/old",
+					}),
+				),
+				userImage: "https://lh3.googleusercontent.com/new",
+			},
+		];
+
+		const share = await getPublicWrappedShare("evren");
+
+		assert(share);
+		expect(share.snapshot.row.imageUrl).toBe(
+			"https://lh3.googleusercontent.com/old",
+		);
+	});
 });
 
-function createSnapshot(input: { displayName: string }): WrappedShareSnapshot {
+function createSnapshot(input: {
+	displayName: string;
+	imageUrl?: string | null;
+}): WrappedShareSnapshot {
 	return {
 		archetypeLabel: "Builder",
 		backMetrics: [],
@@ -127,7 +361,7 @@ function createSnapshot(input: { displayName: string }): WrappedShareSnapshot {
 			displayName: input.displayName,
 			favoriteModel: "o3",
 			hasActivity: true,
-			imageUrl: null,
+			imageUrl: input.imageUrl ?? null,
 			inputTokens: 120,
 			lastActiveDate: "2026-04-22",
 			outputTokens: 240,

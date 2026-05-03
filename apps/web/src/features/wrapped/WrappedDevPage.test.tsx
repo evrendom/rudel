@@ -135,7 +135,11 @@ describe("WrappedDevPage", () => {
 		);
 
 		expect(
-			await screen.findByRole("button", { name: "Email sent!" }),
+			await screen.findByRole(
+				"button",
+				{ name: "Email sent!" },
+				{ timeout: 2000 },
+			),
 		).toBeInTheDocument();
 
 		const dock = container.querySelector(".mymind-wrapped-dock");

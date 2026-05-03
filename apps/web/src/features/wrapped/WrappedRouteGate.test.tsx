@@ -13,6 +13,8 @@ import {
 import { getWrappedSetupCompletionStorageKey } from "@/features/wrapped/wrapped-setup-state";
 
 const {
+	mockProfileUpdateMine,
+	mockRefreshAuthClientState,
 	mockTrackWrappedActivationCompleted,
 	mockTrackWrappedOnboardingStarted,
 	mockTrackWrappedProfileCompleted,
@@ -22,6 +24,8 @@ const {
 	mockUseIsMobile,
 	mockUseSetupProgress,
 } = vi.hoisted(() => ({
+	mockProfileUpdateMine: vi.fn(),
+	mockRefreshAuthClientState: vi.fn(),
 	mockTrackWrappedActivationCompleted: vi.fn(),
 	mockTrackWrappedOnboardingStarted: vi.fn(),
 	mockTrackWrappedProfileCompleted: vi.fn(),
@@ -30,6 +34,26 @@ const {
 	mockUseCliSetupStatus: vi.fn(),
 	mockUseIsMobile: vi.fn(),
 	mockUseSetupProgress: vi.fn(),
+}));
+const TEST_AVATAR_URL = "/api/avatar/123e4567-e89b-12d3-a456-426614174000";
+
+vi.mock("@/lib/orpc", () => ({
+	client: {
+		profile: { updateMine: mockProfileUpdateMine },
+	},
+	orpc: {
+		analytics: {
+			wrapped: {
+				v1: {
+					queryOptions: () => ({ queryKey: ["wrapped", "v1"] }),
+				},
+			},
+		},
+	},
+}));
+
+vi.mock("@/lib/auth-client", () => ({
+	refreshAuthClientState: mockRefreshAuthClientState,
 }));
 
 vi.mock("@/app/hooks/use-mobile", () => ({
@@ -91,10 +115,7 @@ vi.mock("@/features/wrapped/WrappedCardProfileStep", () => ({
 			<button type="button" onClick={() => onDisplayNameChange("Grace Hopper")}>
 				Set profile name
 			</button>
-			<button
-				type="button"
-				onClick={() => onImageChange("data:image/png;base64,abc")}
-			>
+			<button type="button" onClick={() => onImageChange(TEST_AVATAR_URL)}>
 				Set profile picture
 			</button>
 			<button type="button" disabled={!isComplete} onClick={onContinue}>
@@ -251,6 +272,15 @@ function markWrappedCardProfileComplete() {
 
 describe("WrappedRouteGate", () => {
 	beforeEach(() => {
+		mockProfileUpdateMine.mockReset();
+		mockProfileUpdateMine.mockResolvedValue({
+			id: "user-1",
+			email: "ada@example.com",
+			name: "Ada Lovelace",
+			image: null,
+			activeOrganizationId: null,
+		});
+		mockRefreshAuthClientState.mockReset();
 		mockTrackWrappedActivationCompleted.mockReset();
 		mockTrackWrappedOnboardingStarted.mockReset();
 		mockTrackWrappedProfileCompleted.mockReset();
@@ -395,7 +425,7 @@ describe("WrappedRouteGate", () => {
 		);
 		await user.click(screen.getByRole("button", { name: "Continue profile" }));
 
-		expect(screen.getByText("Wrapped setup page")).toBeInTheDocument();
+		expect(await screen.findByText("Wrapped setup page")).toBeInTheDocument();
 		expect(screen.getByText("Setup flow: desktop-ready")).toBeInTheDocument();
 		await user.click(
 			screen.getByRole("button", { name: "Back to card setup" }),
@@ -405,12 +435,12 @@ describe("WrappedRouteGate", () => {
 		expect(screen.getByText("Profile image: set")).toBeInTheDocument();
 
 		await user.click(screen.getByRole("button", { name: "Continue profile" }));
-		expect(screen.getByText("Wrapped setup page")).toBeInTheDocument();
+		expect(await screen.findByText("Wrapped setup page")).toBeInTheDocument();
 		expect(readWrappedGuestPreviewSnapshot()).toMatchObject({
 			cardProfileCompletedUserId: "user-1",
 			profile: {
 				displayName: "Grace Hopper",
-				imageUrl: "data:image/png;base64,abc",
+				imageUrl: TEST_AVATAR_URL,
 			},
 			step: "auth",
 		});
@@ -1138,7 +1168,7 @@ describe("WrappedRouteGate", () => {
 		expect(readWrappedGuestPreviewSnapshot()).toMatchObject({
 			cardProfileCompletedUserId: "user-1",
 			profile: {
-				imageUrl: "data:image/png;base64,abc",
+				imageUrl: TEST_AVATAR_URL,
 			},
 		});
 	});
@@ -1267,6 +1297,53 @@ describe("WrappedRouteGate", () => {
 			keepPollingAfterUpload: true,
 			userId: "user-1",
 		});
+	});
+
+	it("calls profile.updateMine and refreshes auth state when completing the card profile", async () => {
+		const user = userEvent.setup();
+		clearWrappedGuestPreviewSnapshot();
+
+		render(
+			<MemoryRouter initialEntries={["/wrapped?flow=card-profile"]}>
+				<WrappedRouteGate isPending={false} publicId={null} session={session} />
+			</MemoryRouter>,
+		);
+
+		await user.click(
+			screen.getByRole("button", { name: "Set profile picture" }),
+		);
+		await user.click(screen.getByRole("button", { name: "Continue profile" }));
+
+		await waitFor(() => {
+			expect(mockProfileUpdateMine).toHaveBeenCalledWith({
+				name: "Ada Lovelace",
+				image: TEST_AVATAR_URL,
+			});
+		});
+		expect(mockRefreshAuthClientState).toHaveBeenCalled();
+		expect(screen.getByText("Wrapped setup page")).toBeInTheDocument();
+	});
+
+	it("still advances when profile.updateMine fails so the user is not blocked", async () => {
+		const user = userEvent.setup();
+		clearWrappedGuestPreviewSnapshot();
+		mockProfileUpdateMine.mockRejectedValueOnce(new Error("network"));
+
+		render(
+			<MemoryRouter initialEntries={["/wrapped?flow=card-profile"]}>
+				<WrappedRouteGate isPending={false} publicId={null} session={session} />
+			</MemoryRouter>,
+		);
+
+		await user.click(
+			screen.getByRole("button", { name: "Set profile picture" }),
+		);
+		await user.click(screen.getByRole("button", { name: "Continue profile" }));
+
+		await waitFor(() => {
+			expect(screen.getByText("Wrapped setup page")).toBeInTheDocument();
+		});
+		expect(mockRefreshAuthClientState).not.toHaveBeenCalled();
 	});
 
 	it("tracks setup activation completion with source share attribution", async () => {

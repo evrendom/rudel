@@ -71,6 +71,13 @@
 			"when": 1777816100000,
 			"tag": "0009_wrapped_share_user_unique",
 			"breakpoints": true
+		},
+		{
+			"idx": 10,
+			"version": "7",
+			"when": 1777824484305,
+			"tag": "0010_add_user_avatar",
+			"breakpoints": true
 		}
 	]
 }

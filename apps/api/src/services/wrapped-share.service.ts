@@ -4,6 +4,7 @@ import type {
 	WrappedShareSnapshot,
 } from "@rudel/api-routes";
 import {
+	AVATAR_URL_PATH_REGEX,
 	WRAPPED_SHARE_PAYLOAD_VERSION,
 	WrappedShareSnapshotSchema,
 } from "@rudel/api-routes";
@@ -240,16 +241,19 @@ export async function getPublicWrappedShare(
 			id: string;
 			payloadVersion: number;
 			snapshotJson: string;
+			userImage: string | null;
 		}>
 	>`
 		SELECT
-			id,
-			created_at AS "createdAt",
-			expires_at AS "expiresAt",
-			payload_version AS "payloadVersion",
-			snapshot_json AS "snapshotJson"
+			wrapped_share.id,
+			wrapped_share.created_at AS "createdAt",
+			wrapped_share.expires_at AS "expiresAt",
+			wrapped_share.payload_version AS "payloadVersion",
+			wrapped_share.snapshot_json AS "snapshotJson",
+			"user".image AS "userImage"
 		FROM wrapped_share
-		WHERE id = ${shareId}
+		LEFT JOIN "user" ON "user".id = wrapped_share.user_id
+		WHERE wrapped_share.id = ${shareId}
 		LIMIT 1
 	`;
 
@@ -272,7 +276,10 @@ export async function getPublicWrappedShare(
 		created_at: createdAt.toISOString(),
 		expires_at: expiresAt.toISOString(),
 		id: row.id,
-		snapshot: parseWrappedShareSnapshot(row.snapshotJson),
+		snapshot: hydrateWrappedShareSnapshotProfile({
+			profileImageUrl: row.userImage,
+			snapshot: parseWrappedShareSnapshot(row.snapshotJson),
+		}),
 	};
 }
 
@@ -281,6 +288,70 @@ export async function getPublicWrappedShare(
 function parseWrappedShareSnapshot(snapshotJson: string): WrappedShareSnapshot {
 	const parsedSnapshot = JSON.parse(snapshotJson) as unknown;
 	return WrappedShareSnapshotSchema.parse(parsedSnapshot);
+}
+
+function hydrateWrappedShareSnapshotProfile(input: {
+	profileImageUrl: string | null;
+	snapshot: WrappedShareSnapshot;
+}) {
+	const { profileImageUrl, snapshot } = input;
+	const snapshotImageUrl = snapshot.row.imageUrl;
+	const safeProfileImageUrl = getSafePublicProfileImageUrl(profileImageUrl);
+
+	const snapshotPointsAtUploadedAvatar =
+		typeof snapshotImageUrl === "string" &&
+		AVATAR_URL_PATH_REGEX.test(snapshotImageUrl);
+
+	// Snapshot pinned an /api/avatar/<id> URL but the user has since replaced
+	// or cleared their avatar — follow the live profile so the share tracks the
+	// "card image is user profile" identity. Bytes for an old publicId are gone
+	// and would 404 on every public render otherwise.
+	if (snapshotPointsAtUploadedAvatar && snapshotImageUrl !== profileImageUrl) {
+		return {
+			...snapshot,
+			row: { ...snapshot.row, imageUrl: safeProfileImageUrl },
+		};
+	}
+
+	if (snapshotImageUrl) {
+		return snapshot;
+	}
+
+	if (!safeProfileImageUrl) {
+		return snapshot;
+	}
+
+	return {
+		...snapshot,
+		row: {
+			...snapshot.row,
+			imageUrl: safeProfileImageUrl,
+		},
+	};
+}
+
+function getSafePublicProfileImageUrl(imageUrl: string | null) {
+	const trimmedImageUrl = imageUrl?.trim();
+
+	if (!trimmedImageUrl) {
+		return null;
+	}
+
+	if (AVATAR_URL_PATH_REGEX.test(trimmedImageUrl)) {
+		return trimmedImageUrl;
+	}
+
+	try {
+		const parsedImageUrl = new URL(trimmedImageUrl);
+
+		if (parsedImageUrl.protocol !== "https:") {
+			return null;
+		}
+
+		return parsedImageUrl.toString();
+	} catch {
+		return null;
+	}
 }
 
 async function buildAvailableWrappedShareId(

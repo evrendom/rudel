@@ -61,10 +61,11 @@ vi.mock("@/features/wrapped/WrappedPublicCardScreen", () => ({
 	}: {
 		action: ReactNode;
 		activeArchetype: { displayLabel: string };
-		row: { displayName: string };
+		row: { displayName: string; imageUrl: string | null };
 	}) => (
 		<div>
 			<h1>{`${row.displayName} is a ${activeArchetype.displayLabel}`}</h1>
+			{row.imageUrl ? <img alt={row.displayName} src={row.imageUrl} /> : null}
 			{action}
 		</div>
 	),
@@ -148,6 +149,52 @@ describe("WrappedPublicPage", () => {
 			shareId: "share-123",
 			sourceComponent: "wrapped_public_page",
 		});
+	});
+
+	it("keeps HTTPS account avatars on the public card row", () => {
+		mockUseWrappedPublicPage.mockReturnValue({
+			data: {
+				created_at: "2026-04-22T10:00:00.000Z",
+				expires_at: "2026-05-22T10:00:00.000Z",
+				id: "evren",
+				snapshot: {
+					archetypeLabel: "Calm operator",
+					backMetrics: [],
+					headerLeftMetric: { label: "Sessions", value: "12" },
+					headerRightMetric: { label: "Days", value: "6" },
+					row: {
+						activeDays: 6,
+						cost: 0,
+						displayName: "Evren",
+						favoriteModel: "o3",
+						hasActivity: true,
+						imageUrl: "https://avatars.githubusercontent.com/u/1?v=4",
+						inputTokens: 120,
+						lastActiveDate: "2026-04-22",
+						outputTokens: 240,
+						role: "Builder",
+						totalSessions: 12,
+						totalTokens: 360,
+					},
+					shellClassName: "team-lineup-shell",
+					statItems: [],
+					theme: "light",
+				},
+			},
+			isError: false,
+			isPending: false,
+		});
+
+		render(
+			<MemoryRouter initialEntries={["/wrapped/evren"]}>
+				<WrappedPublicPage publicId="evren" />
+			</MemoryRouter>,
+		);
+
+		expect(screen.getByRole("img", { name: "Evren" })).toHaveAttribute(
+			"src",
+			"https://avatars.githubusercontent.com/u/1?v=4",
+		);
 	});
 
 	it("keeps the same wrapped CTA when the public share is missing", () => {

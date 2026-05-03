@@ -1,3 +1,4 @@
+import { AVATAR_URL_PATH_REGEX } from "@rudel/api-routes";
 import { z } from "zod";
 
 const WRAPPED_GUEST_PREVIEW_STORAGE_KEY = "wrapped:guest-preview:v1";
@@ -6,6 +7,7 @@ const WRAPPED_GUEST_USERNAME_PATTERN = /^[A-Za-z0-9_]{1,15}$/;
 const WrappedGuestFlowStepSchema = z.enum(["x-handle", "auth", "profile"]);
 const WrappedGuestPreviewImageUrlSchema = z
 	.union([
+		z.string().regex(AVATAR_URL_PATH_REGEX),
 		z.string().url(),
 		z.string().regex(/^data:image\/[a-z0-9.+-]+;base64,/iu),
 	])

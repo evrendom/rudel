@@ -52,7 +52,8 @@ import {
 } from "@/features/wrapped/wrapped-setup-state";
 import { useEffectOnceWhen } from "@/hooks/useEffectOnceWhen";
 import { useMountEffect } from "@/hooks/useMountEffect";
-import { orpc } from "@/lib/orpc";
+import { refreshAuthClientState } from "@/lib/auth-client";
+import { client, orpc } from "@/lib/orpc";
 
 interface WrappedRouteGateProps {
 	isPending: boolean;
@@ -109,6 +110,8 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 	const [guestPreviewSnapshot, setGuestPreviewSnapshot] = useState(() =>
 		readWrappedGuestPreviewSnapshot(),
 	);
+	const [isAvatarUploading, setIsAvatarUploading] = useState(false);
+	const [isSavingProfile, setIsSavingProfile] = useState(false);
 	const defaultCardProfile = buildWrappedSessionPreviewProfile(session);
 	const [editableCardProfile, setEditableCardProfile] =
 		useState<WrappedGuestPreviewProfile | null>(() =>
@@ -279,9 +282,27 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 		);
 	}
 
-	function completeCardProfile() {
+	async function completeCardProfile() {
 		if (!sessionUserId || !activeCardProfile) {
 			return;
+		}
+
+		if (isAvatarUploading || isSavingProfile) {
+			return;
+		}
+
+		setIsSavingProfile(true);
+		try {
+			await client.profile.updateMine({
+				name: activeCardProfile.displayName,
+				image: activeCardProfile.imageUrl ?? null,
+			});
+			refreshAuthClientState();
+		} catch {
+			// Fall through: still persist the local snapshot so the user can keep
+			// moving through onboarding even if the API write transiently failed.
+		} finally {
+			setIsSavingProfile(false);
 		}
 
 		const completedSnapshot = buildWrappedCardProfileCompletedSnapshot({
@@ -418,16 +439,21 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 					imageUrl={activeCardProfile.imageUrl}
 					isComplete={
 						activeCardProfile.displayName.trim().length > 0 &&
+						!isAvatarUploading &&
+						!isSavingProfile &&
 						(!needsCardProfileBeforeSetup || hasActiveCardProfileImage)
 					}
 					onBack={() =>
 						setWrappedRouteFlowStage(WRAPPED_ROUTE_DESKTOP_READY_FLOW)
 					}
-					onContinue={completeCardProfile}
+					onContinue={() => {
+						void completeCardProfile();
+					}}
 					onDisplayNameChange={(displayName) =>
 						updateEditableCardProfile({ displayName })
 					}
 					onImageChange={(imageUrl) => updateEditableCardProfile({ imageUrl })}
+					onUploadingChange={setIsAvatarUploading}
 					previewProfile={activeCardProfile}
 				/>
 			);
