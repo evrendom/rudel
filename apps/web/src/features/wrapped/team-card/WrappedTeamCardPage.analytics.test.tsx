@@ -256,7 +256,7 @@ describe("WrappedTeamCardPage analytics", () => {
 		expect(mockUseWrappedTeamCardShare.mock.calls[0]?.[0]).toEqual(
 			expect.objectContaining({
 				row: expect.objectContaining({
-					imageUrl: null,
+					imageUrl: providerImageUrl,
 				}),
 			}),
 		);

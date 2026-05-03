@@ -8,6 +8,7 @@ import { getClickhouse } from "./clickhouse.js";
 import { sqlClient } from "./db.js";
 import { adminRouter } from "./handlers/admin/index.js";
 import { analyticsRouter } from "./handlers/analytics/index.js";
+import { profileRouter } from "./handlers/profile.js";
 import { teamInviteLinkRouter } from "./handlers/team-invite-link.js";
 import { wrappedResumeRouter } from "./handlers/wrapped-resume.js";
 import { wrappedShareRouter } from "./handlers/wrapped-share.js";
@@ -370,6 +371,7 @@ const deleteOrganization = os.deleteOrganization
 export const router = os.router({
 	health,
 	me,
+	profile: profileRouter,
 	cli: {
 		authStatus: cliAuthStatus,
 		revokeToken: revokeCliToken,

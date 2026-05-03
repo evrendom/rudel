@@ -73,6 +73,7 @@ import {
 	WrappedShareRecordSchema,
 } from "./schemas/wrapped-share.js";
 
+export * from "./avatar.js";
 export * from "./model-pricing.js";
 export * from "./product-analytics.js";
 export * from "./schemas/analytics.js";
@@ -179,9 +180,19 @@ export const AdminUserSchema = z.object({
 	organizationCount: z.number(),
 });
 
+export const UpdateProfileInputSchema = z.object({
+	name: z.string().trim().min(1).max(100),
+	image: z.string().nullable(),
+});
+
+export type UpdateProfileInput = z.infer<typeof UpdateProfileInputSchema>;
+
 export const contract = {
 	health: oc.output(HealthSchema),
 	me: oc.output(UserSchema),
+	profile: {
+		updateMine: oc.input(UpdateProfileInputSchema).output(UserSchema),
+	},
 	cli: {
 		authStatus: oc.output(CliUserSchema),
 		revokeToken: oc.output(z.object({ success: z.literal(true) })),

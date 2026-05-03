@@ -6,6 +6,10 @@ import type { Session as AuthSession } from "./auth.js";
 import { createAuth } from "./auth.js";
 import { db, sqlClient } from "./db.js";
 import { getResendConfigWarnings } from "./email.js";
+import {
+	handleAvatarGetRequest,
+	handleAvatarUploadRequest,
+} from "./handlers/avatar-http.js";
 import { shutdownApiProductAnalytics } from "./lib/product-analytics.js";
 import { setupLogging } from "./logging.js";
 import type { ApiKeyAuthFailure } from "./middleware.js";
@@ -289,6 +293,35 @@ async function handleRequest(
 			response.headers.set(key, value);
 		}
 		return response;
+	}
+
+	if (url.pathname.startsWith("/api/avatar/")) {
+		if (request.method !== "GET" && request.method !== "HEAD") {
+			return new Response("Method Not Allowed", {
+				headers: { ...cors, Allow: "GET, HEAD" },
+				status: 405,
+			});
+		}
+		return handleAvatarGetRequest({
+			cors,
+			ifNoneMatch: request.headers.get("If-None-Match"),
+			method: request.method,
+			pathname: url.pathname,
+		});
+	}
+
+	if (url.pathname === "/api/profile/avatar") {
+		if (request.method !== "POST") {
+			return new Response("Method Not Allowed", {
+				headers: { ...cors, Allow: "POST" },
+				status: 405,
+			});
+		}
+		return handleAvatarUploadRequest({
+			cors,
+			getSession: (req) => auth.api.getSession({ headers: req.headers }),
+			request,
+		});
 	}
 
 	const { matched, response } = await rpcHandler.handle(request, {
