@@ -109,6 +109,18 @@ export const OrganizationSchema = z.object({
 	logo: z.string().nullable(),
 });
 
+export const TeamInviteLinkSchema = z.object({
+	invite_url: z.string().url(),
+	organization_id: z.string(),
+	organization_name: z.string(),
+});
+
+export const TeamInviteAcceptResultSchema = z.object({
+	organization_id: z.string(),
+	organization_name: z.string(),
+	status: z.enum(["already_member", "joined"]),
+});
+
 export const SessionTagSchema = z.enum([
 	"research",
 	"new_feature",
@@ -185,6 +197,14 @@ export const contract = {
 	deleteOrganization: oc
 		.input(z.object({ organizationId: z.string() }))
 		.output(z.object({ success: z.literal(true) })),
+	teamInviteLink: {
+		get: oc
+			.input(z.object({ organizationId: z.string() }))
+			.output(TeamInviteLinkSchema),
+		accept: oc
+			.input(z.object({ token: z.string().min(1) }))
+			.output(TeamInviteAcceptResultSchema),
+	},
 	wrappedShare: {
 		create: oc
 			.input(CreateWrappedShareInputSchema)

@@ -5,6 +5,7 @@ const DASHBOARD_SESSIONS_PATH = `${DASHBOARD_PATH}/sessions`;
 const DASHBOARD_GET_STARTED_LEGACY_PATH = `${DASHBOARD_PATH}/get-started`;
 const GET_STARTED_PATH = "/get-started";
 const TEAM_PATH = "/team";
+const TEAM_INVITE_PATH = `${TEAM_PATH}/invite`;
 const SETTINGS_ROOT_PATH = "/settings";
 const SETTINGS_WORKSPACE_PATH = `${SETTINGS_ROOT_PATH}/workspace`;
 const SETTINGS_MEMBERS_PATH = `${SETTINGS_ROOT_PATH}/members`;
@@ -31,6 +32,8 @@ export const appRoutes = {
 	getStarted: () => GET_STARTED_PATH,
 	dashboardGetStartedLegacy: () => DASHBOARD_GET_STARTED_LEGACY_PATH,
 	team: () => TEAM_PATH,
+	teamInvite: (token: string) =>
+		`${TEAM_INVITE_PATH}/${encodeURIComponent(token)}`,
 	settings: () => SETTINGS_ROOT_PATH,
 	settingsRoot: () => SETTINGS_ROOT_PATH,
 	presetBaseline: () => PRESET_BASELINE_PATH,

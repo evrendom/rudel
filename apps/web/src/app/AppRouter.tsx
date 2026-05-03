@@ -51,6 +51,10 @@ const TeamPage = lazyNamed(
 	() => import("@/features/team/TeamPage"),
 	"TeamPage",
 );
+const TeamInviteAcceptPage = lazyNamed(
+	() => import("@/features/team/TeamInviteAcceptPage"),
+	"TeamInviteAcceptPage",
+);
 const PresetBaselinePage = lazyNamed(
 	() => import("@/app/system/PresetBaselinePage"),
 	"PresetBaselinePage",
@@ -105,6 +109,10 @@ export function AppRouter({
 			<Route
 				path="/invitation/:invitationId"
 				element={<AcceptInvitationPage />}
+			/>
+			<Route
+				path="/team/invite/:token"
+				element={<LazyRoute Component={TeamInviteAcceptPage} />}
 			/>
 			<Route
 				path="/__preset-baseline"
