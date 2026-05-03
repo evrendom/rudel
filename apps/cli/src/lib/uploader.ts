@@ -11,7 +11,7 @@ export interface UploadConfig {
 	onRetry?: (attempt: number, maxAttempts: number, error: string) => void;
 }
 
-const RETRYABLE_STATUS_CODES = new Set([502, 503]);
+const RETRYABLE_STATUS_CODES = new Set([502, 503, 504]);
 const MAX_ATTEMPTS = 3;
 const BASE_DELAY_MS = 1_000;
 
@@ -36,6 +36,18 @@ function isRetryable(error: unknown): boolean {
 
 function isRateLimited(error: unknown): error is ORPCError<string, unknown> {
 	return error instanceof ORPCError && error.status === 429;
+}
+
+function isPayloadTooLarge(
+	error: unknown,
+): error is ORPCError<string, unknown> {
+	return error instanceof ORPCError && error.status === 413;
+}
+
+function isServerError(error: unknown): error is ORPCError<string, unknown> {
+	return (
+		error instanceof ORPCError && error.status >= 500 && error.status <= 599
+	);
 }
 
 function isApiKeyRateLimited(
@@ -70,13 +82,47 @@ export function formatUploadError(error: unknown): string {
 		const limit = data?.limit ?? "unknown";
 		return `Rate limit reached (${limit} sessions per ${windowMin} min). Wait and retry with: rudel upload --retry`;
 	}
+	if (isPayloadTooLarge(error)) {
+		return formatPayloadTooLargeError(error);
+	}
+	if (isServerError(error)) {
+		return formatServerUploadError(error);
+	}
 	if (error instanceof ORPCError) {
 		return `${error.status} ${error.message}`;
+	}
+	if (error instanceof TypeError) {
+		return `Network error while contacting Rudel API: ${error.message}. Check your connection and retry with: rudel upload --retry`;
 	}
 	if (error instanceof Error) {
 		return error.message;
 	}
 	return String(error);
+}
+
+function formatPayloadTooLargeError(error: ORPCError<string, unknown>): string {
+	const status = `${error.status} ${error.message}`;
+	const detail = getPayloadTooLargeDetail(error);
+	const detailText = detail ? ` ${detail}` : "";
+	return `Upload request is too large (${status}).${detailText} This is a request-size limit, not an auth or proxy issue. This session will keep failing until its transcript/subagent payload is smaller; other failed sessions can still be retried with: rudel upload --retry`;
+}
+
+function formatServerUploadError(error: ORPCError<string, unknown>): string {
+	const status = `${error.status} ${error.message}`;
+	if (RETRYABLE_STATUS_CODES.has(error.status)) {
+		return `Temporary Rudel server/proxy error (${status}). The CLI retries these automatically; retry remaining failed uploads with: rudel upload --retry`;
+	}
+
+	return `Rudel server error (${status}). This is not an auth problem. Retry later with: rudel upload --retry; if it repeats, share this status with the Rudel team.`;
+}
+
+function getPayloadTooLargeDetail(
+	error: ORPCError<string, unknown>,
+): string | null {
+	const data = isRecord(error.data) ? error.data : null;
+	const bodyValue = data?.body;
+	const body = isRecord(bodyValue) ? bodyValue : null;
+	return getStringField(body, "error") ?? getStringField(data, "error");
 }
 
 function getErrorData(error: ORPCError<string, unknown>): ErrorData {
@@ -122,7 +168,7 @@ function formatWait(milliseconds: number) {
 
 /**
  * Upload a session transcript to the backend via oRPC.
- * Retries on transient errors (502, 503) with exponential backoff.
+ * Retries on transient errors (502, 503, 504) with exponential backoff.
  * Rate limit errors (429) are not retried — the window is too long.
  */
 export async function uploadSession(
