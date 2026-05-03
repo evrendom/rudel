@@ -38,6 +38,14 @@ export const WrappedShareBackMetricSchema = z.object({
 	value: z.string().min(1),
 });
 
+export const WrappedShareRevealMetricsSchema = z.object({
+	avgSessionMin: z.number().nonnegative().nullable(),
+	commitRate: z.number().min(0).max(100).nullable(),
+	daysSinceFirst: z.number().nonnegative(),
+	distinctProjectCount: z.number().nonnegative(),
+	longestSessionMin: z.number().nonnegative().nullable(),
+});
+
 export const WrappedShareAppearanceSchema = z.object({
 	layoutMode: WrappedShareLayoutModeSchema,
 	showArchetypeLabel: z.boolean(),
@@ -69,6 +77,7 @@ export const WrappedShareSnapshotSchema = z.object({
 	backMetrics: z.array(WrappedShareBackMetricSchema).optional(),
 	headerLeftMetric: WrappedShareHeaderMetricSchema.optional(),
 	headerRightMetric: WrappedShareHeaderMetricSchema.optional(),
+	revealMetrics: WrappedShareRevealMetricsSchema.optional(),
 	row: WrappedShareRowSchema,
 	shellClassName: z.string().min(1),
 	statItems: z.array(WrappedShareStatItemSchema),
@@ -104,6 +113,9 @@ export type WrappedShareHeaderMetric = z.infer<
 export type WrappedShareStatItem = z.infer<typeof WrappedShareStatItemSchema>;
 export type WrappedShareBackMetric = z.infer<
 	typeof WrappedShareBackMetricSchema
+>;
+export type WrappedShareRevealMetrics = z.infer<
+	typeof WrappedShareRevealMetricsSchema
 >;
 export type WrappedShareAppearance = z.infer<
 	typeof WrappedShareAppearanceSchema

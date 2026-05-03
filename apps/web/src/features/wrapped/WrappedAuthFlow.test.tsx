@@ -114,6 +114,21 @@ describe("WrappedGuestPage", () => {
 			}),
 		).toBeInTheDocument();
 		expect(
+			screen.getByRole("navigation", { name: "Rudel launch links" }),
+		).toBeInTheDocument();
+		expect(
+			screen.getByRole("link", { name: "View Rudel on GitHub" }),
+		).toHaveAttribute("href", "https://github.com/obsessiondb/rudel");
+		expect(
+			screen.getByRole("link", { name: "View Rudel on Hacker News" }),
+		).toHaveAttribute("href", "https://news.ycombinator.com/item?id=47350416");
+		expect(
+			screen.getByRole("link", { name: "View Rudel on Product Hunt" }),
+		).toHaveAttribute(
+			"href",
+			"https://www.producthunt.com/products/rudel?embed=true&utm_source=badge-featured&utm_medium=badge&utm_campaign=badge-rudel",
+		);
+		expect(
 			screen.getByRole("region", {
 				name: "Wrapped player card preview",
 			}),

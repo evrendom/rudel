@@ -1,4 +1,7 @@
-import type { WrappedShareAppearance } from "@rudel/api-routes";
+import type {
+	WrappedShareAppearance,
+	WrappedShareRevealMetrics,
+} from "@rudel/api-routes";
 import { IconBrandX } from "@tabler/icons-react";
 import {
 	ChevronRight,
@@ -97,6 +100,7 @@ interface WrappedTeamCardPublicStageProps {
 	backMetrics?: readonly WrappedTeamMemberCardBackMetric[];
 	headerLeftMetric?: WrappedTeamMemberCardHeaderMetric;
 	headerRightMetric?: WrappedTeamMemberCardHeaderMetric;
+	revealMetrics?: WrappedShareRevealMetrics;
 	row: TeamPageMemberRow;
 	shellClassName: string;
 	shellStyle: CSSProperties;
@@ -133,7 +137,9 @@ interface WrappedTeamCardFlipSurfaceProps {
 interface WrappedRevealCopyInput {
 	activeArchetype: WrappedArchetypeCardTheme;
 	audience?: "owner" | "public";
+	backMetrics?: readonly WrappedTeamMemberCardBackMetric[];
 	onboardingMetrics?: WrappedOnboardingMetrics;
+	revealMetrics?: WrappedShareRevealMetrics;
 	row: TeamPageMemberRow;
 	statItems?: readonly WrappedTeamMemberCardStatItem[];
 }
@@ -767,6 +773,7 @@ export function WrappedTeamCardPublicStage(
 		backMetrics = [],
 		headerLeftMetric,
 		headerRightMetric,
+		revealMetrics,
 		row,
 		shellClassName,
 		shellStyle,
@@ -784,6 +791,8 @@ export function WrappedTeamCardPublicStage(
 	const revealCopy = getWrappedRevealCopy({
 		activeArchetype,
 		audience: "public",
+		backMetrics,
+		revealMetrics,
 		row,
 		statItems,
 	});
@@ -1618,10 +1627,10 @@ function getWrappedRevealCopy(input: WrappedRevealCopyInput): {
 }
 
 function buildRoadrunnerRevealDescription(input: WrappedRevealCopyInput) {
-	const { audience = "owner", onboardingMetrics, row } = input;
+	const { audience = "owner", row } = input;
 	const activeDays = formatWrappedRevealInteger(row.activeDays);
 	const daysSinceFirst = formatWrappedRevealInteger(
-		onboardingMetrics?.daysSinceFirst ?? row.activeDays,
+		resolveWrappedRevealDaysSinceFirst(input),
 	);
 	const costPerSession = formatCurrency(
 		row.totalSessions > 0 ? row.cost / row.totalSessions : 0,
@@ -1635,14 +1644,15 @@ function buildRoadrunnerRevealDescription(input: WrappedRevealCopyInput) {
 }
 
 function buildManiacRevealDescription(input: WrappedRevealCopyInput) {
-	const { onboardingMetrics, row, statItems } = input;
+	const { onboardingMetrics, revealMetrics, row, statItems } = input;
 	const activeDays = formatWrappedRevealInteger(row.activeDays);
 	const daysSinceFirst = formatWrappedRevealInteger(
-		onboardingMetrics?.daysSinceFirst ?? row.activeDays,
+		resolveWrappedRevealDaysSinceFirst(input),
 	);
 	const distinctProjectCount = formatWrappedRevealInteger(
 		resolveWrappedRevealDistinctProjectCount({
 			onboardingMetrics,
+			revealMetrics,
 			statItems,
 		}),
 	);
@@ -1664,7 +1674,7 @@ function buildCompanyCardRevealDescription(input: WrappedRevealCopyInput) {
 	const { onboardingMetrics, row } = input;
 	const totalSessions = formatWrappedRevealInteger(row.totalSessions);
 	const commitRate = formatWrappedRevealInteger(
-		onboardingMetrics?.commitRate ?? 0,
+		resolveWrappedRevealCommitRate(input),
 	);
 	const costPerSession = formatCurrency(
 		row.totalSessions > 0 ? row.cost / row.totalSessions : 0,
@@ -1685,19 +1695,20 @@ function buildCompanyCardRevealDescription(input: WrappedRevealCopyInput) {
 }
 
 function buildAdhdBrainRevealDescription(input: WrappedRevealCopyInput) {
-	const { onboardingMetrics, row, statItems } = input;
+	const { onboardingMetrics, revealMetrics, row, statItems } = input;
 	const activeDays = formatWrappedRevealInteger(row.activeDays);
 	const daysSinceFirst = formatWrappedRevealInteger(
-		onboardingMetrics?.daysSinceFirst ?? row.activeDays,
+		resolveWrappedRevealDaysSinceFirst(input),
 	);
 	const distinctProjectCount = formatWrappedRevealInteger(
 		resolveWrappedRevealDistinctProjectCount({
 			onboardingMetrics,
+			revealMetrics,
 			statItems,
 		}),
 	);
 	const commitRate = formatWrappedRevealInteger(
-		onboardingMetrics?.commitRate ?? 0,
+		resolveWrappedRevealCommitRate(input),
 	);
 
 	return [
@@ -1708,18 +1719,19 @@ function buildAdhdBrainRevealDescription(input: WrappedRevealCopyInput) {
 }
 
 function buildHitAndRunnerRevealDescription(input: WrappedRevealCopyInput) {
-	const { onboardingMetrics, statItems } = input;
+	const { onboardingMetrics, revealMetrics, statItems } = input;
 	const avgSessionMin = formatWrappedRevealInteger(
-		onboardingMetrics?.avgSessionMin ?? 0,
+		resolveWrappedRevealAvgSessionMin(input),
 	);
 	const distinctProjectCount = formatWrappedRevealInteger(
 		resolveWrappedRevealDistinctProjectCount({
 			onboardingMetrics,
+			revealMetrics,
 			statItems,
 		}),
 	);
 	const commitRate = formatWrappedRevealInteger(
-		onboardingMetrics?.commitRate ?? 0,
+		resolveWrappedRevealCommitRate(input),
 	);
 
 	return [
@@ -1731,9 +1743,9 @@ function buildHitAndRunnerRevealDescription(input: WrappedRevealCopyInput) {
 }
 
 function buildCheapskateRevealDescription(input: WrappedRevealCopyInput) {
-	const { onboardingMetrics, row } = input;
+	const { row } = input;
 	const commitRate = formatWrappedRevealInteger(
-		onboardingMetrics?.commitRate ?? 0,
+		resolveWrappedRevealCommitRate(input),
 	);
 	const costPerSession = formatCurrency(
 		row.totalSessions > 0 ? row.cost / row.totalSessions : 0,
@@ -1746,19 +1758,20 @@ function buildCheapskateRevealDescription(input: WrappedRevealCopyInput) {
 }
 
 function buildObsessedRevealDescription(input: WrappedRevealCopyInput) {
-	const { onboardingMetrics, row, statItems } = input;
+	const { onboardingMetrics, revealMetrics, row, statItems } = input;
 	const activeDays = formatWrappedRevealInteger(row.activeDays);
 	const daysSinceFirst = formatWrappedRevealInteger(
-		onboardingMetrics?.daysSinceFirst ?? row.activeDays,
+		resolveWrappedRevealDaysSinceFirst(input),
 	);
 	const distinctProjectCount = formatWrappedRevealInteger(
 		resolveWrappedRevealDistinctProjectCount({
 			onboardingMetrics,
+			revealMetrics,
 			statItems,
 		}),
 	);
 	const commitRate = formatWrappedRevealInteger(
-		onboardingMetrics?.commitRate ?? 0,
+		resolveWrappedRevealCommitRate(input),
 	);
 	const costPerSession = formatCurrency(
 		row.totalSessions > 0 ? row.cost / row.totalSessions : 0,
@@ -1773,16 +1786,16 @@ function buildObsessedRevealDescription(input: WrappedRevealCopyInput) {
 }
 
 function buildSmoothOperatorRevealDescription(input: WrappedRevealCopyInput) {
-	const { onboardingMetrics, row } = input;
+	const { row } = input;
 	const activeDays = formatWrappedRevealInteger(row.activeDays);
 	const daysSinceFirst = formatWrappedRevealInteger(
-		onboardingMetrics?.daysSinceFirst ?? row.activeDays,
+		resolveWrappedRevealDaysSinceFirst(input),
 	);
 	const avgSessionMin = formatWrappedRevealInteger(
-		onboardingMetrics?.avgSessionMin ?? 0,
+		resolveWrappedRevealAvgSessionMin(input),
 	);
 	const longestSessionMin = formatWrappedRevealInteger(
-		onboardingMetrics?.longestSessionMin ?? 0,
+		resolveWrappedRevealLongestSessionMin(input),
 	);
 	const sessionsPerActiveDay = formatWrappedRevealSessionsPerActiveDay({
 		activeDays: row.activeDays,
@@ -1802,10 +1815,10 @@ function buildSmoothOperatorRevealDescription(input: WrappedRevealCopyInput) {
 }
 
 function buildTouristRevealDescription(input: WrappedRevealCopyInput) {
-	const { onboardingMetrics, row } = input;
+	const { row } = input;
 	const totalSessions = formatWrappedRevealInteger(row.totalSessions);
 	const commitRate = formatWrappedRevealInteger(
-		onboardingMetrics?.commitRate ?? 0,
+		resolveWrappedRevealCommitRate(input),
 	);
 	const costPerSession = formatCurrency(
 		row.totalSessions > 0 ? row.cost / row.totalSessions : 0,
@@ -1840,12 +1853,19 @@ function formatWrappedRevealSessionsPerActiveDay(input: {
 
 function resolveWrappedRevealDistinctProjectCount(input: {
 	onboardingMetrics?: WrappedOnboardingMetrics;
+	revealMetrics?: WrappedShareRevealMetrics;
 	statItems?: readonly WrappedTeamMemberCardStatItem[];
 }) {
 	const onboardingCount = input.onboardingMetrics?.distinctProjectCount;
 
 	if (onboardingCount !== undefined && onboardingCount > 0) {
 		return onboardingCount;
+	}
+
+	const revealCount = input.revealMetrics?.distinctProjectCount;
+
+	if (revealCount !== undefined && revealCount > 0) {
+		return revealCount;
 	}
 
 	const statItemValue = input.statItems?.find(
@@ -1860,6 +1880,64 @@ function resolveWrappedRevealDistinctProjectCount(input: {
 	}
 
 	return input.onboardingMetrics?.repoPulse.totalRepos ?? 0;
+}
+
+function resolveWrappedRevealAvgSessionMin(input: WrappedRevealCopyInput) {
+	return (
+		input.onboardingMetrics?.avgSessionMin ??
+		input.revealMetrics?.avgSessionMin ??
+		resolveWrappedRevealBackMetricNumber(
+			input.backMetrics,
+			"Avg session min",
+		) ??
+		0
+	);
+}
+
+function resolveWrappedRevealCommitRate(input: WrappedRevealCopyInput) {
+	return (
+		input.onboardingMetrics?.commitRate ??
+		input.revealMetrics?.commitRate ??
+		resolveWrappedRevealBackMetricNumber(input.backMetrics, "Commit rate %") ??
+		0
+	);
+}
+
+function resolveWrappedRevealDaysSinceFirst(input: WrappedRevealCopyInput) {
+	return (
+		input.onboardingMetrics?.daysSinceFirst ??
+		input.revealMetrics?.daysSinceFirst ??
+		input.row.activeDays
+	);
+}
+
+function resolveWrappedRevealLongestSessionMin(input: WrappedRevealCopyInput) {
+	return (
+		input.onboardingMetrics?.longestSessionMin ??
+		input.revealMetrics?.longestSessionMin ??
+		resolveWrappedRevealBackMetricNumber(
+			input.backMetrics,
+			"Longest session min",
+		) ??
+		0
+	);
+}
+
+function resolveWrappedRevealBackMetricNumber(
+	backMetrics: readonly WrappedTeamMemberCardBackMetric[] | undefined,
+	label: string,
+) {
+	const metricValue = backMetrics?.find(
+		(metric) => metric.label === label,
+	)?.value;
+
+	if (!metricValue) {
+		return null;
+	}
+
+	const parsedMetricValue = Number(metricValue.replace(/[,%$]/gu, "").trim());
+
+	return Number.isFinite(parsedMetricValue) ? parsedMetricValue : null;
 }
 
 function formatWrappedRevealCompanyCardHappyLine(input: {

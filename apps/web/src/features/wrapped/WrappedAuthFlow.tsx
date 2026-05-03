@@ -16,6 +16,10 @@ import {
 import { LoginForm } from "@/features/auth/LoginForm";
 import { SignupForm } from "@/features/auth/SignupForm";
 import {
+	ClaudeModelIcon,
+	CodexModelIcon,
+} from "@/features/dashboard/components/DashboardModelBadges";
+import {
 	WrappedPrimaryAction,
 	WrappedSecondaryAction,
 } from "@/features/wrapped/actions";
@@ -49,6 +53,13 @@ type WrappedAuthCardFlight = {
 };
 
 const WRAPPED_AUTH_INTRO_TITLE_LABEL = "Your Claude Wrapped";
+const WRAPPED_AUTH_GITHUB_URL = "https://github.com/obsessiondb/rudel";
+const WRAPPED_AUTH_HACKER_NEWS_URL =
+	"https://news.ycombinator.com/item?id=47350416";
+const WRAPPED_AUTH_PRODUCT_HUNT_URL =
+	"https://www.producthunt.com/products/rudel?embed=true&utm_source=badge-featured&utm_medium=badge&utm_campaign=badge-rudel";
+const WRAPPED_AUTH_PRODUCT_HUNT_BADGE_SRC =
+	"https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1119500&theme=light&t=1775717814244";
 const WRAPPED_AUTH_INTRO_EASE = [0.22, 1, 0.36, 1] as const;
 const WRAPPED_AUTH_EXIT_EASE = [0.4, 0, 0.2, 1] as const;
 const WRAPPED_AUTH_LAYOUT_EASE = [0.32, 0.72, 0, 1] as const;
@@ -560,7 +571,13 @@ export function WrappedAuthFlow(props: WrappedAuthFlowProps) {
 							handleAuthModeChange(null);
 						}
 			}
-			status={hasDebugControls ? debugControls : undefined}
+			status={
+				mode === null ? (
+					<WrappedAuthIntroLaunchLinks />
+				) : hasDebugControls ? (
+					debugControls
+				) : undefined
+			}
 			stage={
 				<WrappedAuthStage
 					authFormCardScale={authFormCardScale}
@@ -737,6 +754,7 @@ function WrappedAuthTitle(props: WrappedAuthTitleProps) {
 				duration: WRAPPED_AUTH_TITLE_ENTER_DURATION,
 				ease: WRAPPED_AUTH_INTRO_EASE,
 			};
+	const introToolRotateDegrees = introTool === "Claude" ? -2.5 : 2.5;
 
 	return (
 		<span className="mymind-wrapped-auth-title-handoff">
@@ -760,14 +778,23 @@ function WrappedAuthTitle(props: WrappedAuthTitleProps) {
 										key={introTool}
 										animate={
 											shouldReduceMotion
-												? { opacity: 1 }
-												: { filter: "blur(0px)", opacity: 1, y: 0 }
+												? { opacity: 1, rotate: introToolRotateDegrees }
+												: {
+														filter: "blur(0px)",
+														opacity: 1,
+														rotate: introToolRotateDegrees,
+														y: 0,
+													}
 										}
-										className="mymind-wrapped-auth-intro-title__word"
+										className={cn(
+											"mymind-wrapped-auth-intro-title__word",
+											introTool === "Claude" ? "is-claude" : "is-codex",
+										)}
 										exit={
 											shouldReduceMotion
 												? {
 														opacity: 0,
+														rotate: introToolRotateDegrees,
 														transition: {
 															duration: WRAPPED_AUTH_INTRO_REDUCED_DURATION,
 															ease: "linear" as const,
@@ -776,6 +803,7 @@ function WrappedAuthTitle(props: WrappedAuthTitleProps) {
 												: {
 														filter: "blur(6px)",
 														opacity: 0,
+														rotate: introToolRotateDegrees,
 														y: -4,
 														transition: {
 															duration: WRAPPED_AUTH_TITLE_MICRO_DURATION,
@@ -785,8 +813,13 @@ function WrappedAuthTitle(props: WrappedAuthTitleProps) {
 										}
 										initial={
 											shouldReduceMotion
-												? { opacity: 0 }
-												: { filter: "blur(6px)", opacity: 0, y: 4 }
+												? { opacity: 0, rotate: introToolRotateDegrees }
+												: {
+														filter: "blur(6px)",
+														opacity: 0,
+														rotate: introToolRotateDegrees,
+														y: 4,
+													}
 										}
 										transition={
 											shouldReduceMotion
@@ -800,7 +833,14 @@ function WrappedAuthTitle(props: WrappedAuthTitleProps) {
 													}
 										}
 									>
-										{introTool}
+										{introTool === "Claude" ? (
+											<ClaudeModelIcon className="mymind-wrapped-auth-intro-title__word-icon" />
+										) : (
+											<CodexModelIcon className="mymind-wrapped-auth-intro-title__word-icon" />
+										)}
+										<span className="mymind-wrapped-auth-intro-title__word-label">
+											{introTool}
+										</span>
 									</motion.span>
 								</AnimatePresence>
 							</span>
@@ -823,6 +863,67 @@ function getWrappedAuthTitleText(mode: WrappedAuthMode) {
 	}
 
 	return mode === "login" ? "Log in" : "Create account";
+}
+
+function WrappedAuthIntroLaunchLinks() {
+	return (
+		<nav
+			aria-label="Rudel launch links"
+			className="mymind-wrapped-auth-launch-links"
+		>
+			<a
+				aria-label="View Rudel on GitHub"
+				className="mymind-wrapped-auth-launch-link mymind-wrapped-auth-launch-link--github"
+				href={WRAPPED_AUTH_GITHUB_URL}
+				target="_blank"
+				rel="noopener noreferrer"
+			>
+				<span className="mymind-wrapped-auth-launch-link__badge mymind-wrapped-auth-launch-link__badge--github">
+					<svg
+						aria-hidden="true"
+						className="mymind-wrapped-auth-launch-link__github-icon"
+						viewBox="0 0 16 16"
+					>
+						<path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z" />
+					</svg>
+					<span className="mymind-wrapped-auth-launch-link__github-count">
+						262
+					</span>
+				</span>
+			</a>
+			<a
+				aria-label="View Rudel on Hacker News"
+				className="mymind-wrapped-auth-launch-link mymind-wrapped-auth-launch-link--hacker-news"
+				href={WRAPPED_AUTH_HACKER_NEWS_URL}
+				target="_blank"
+				rel="noopener noreferrer"
+			>
+				<span className="mymind-wrapped-auth-launch-link__badge mymind-wrapped-auth-launch-link__badge--hacker-news">
+					<span className="mymind-wrapped-auth-launch-link__hn-mark">Y</span>
+					<span className="mymind-wrapped-auth-launch-link__hn-score">
+						<span
+							aria-hidden="true"
+							className="mymind-wrapped-auth-launch-link__hn-arrow"
+						/>
+						144
+					</span>
+				</span>
+			</a>
+			<a
+				aria-label="View Rudel on Product Hunt"
+				className="mymind-wrapped-auth-launch-link mymind-wrapped-auth-launch-link--product-hunt"
+				href={WRAPPED_AUTH_PRODUCT_HUNT_URL}
+				target="_blank"
+				rel="noopener noreferrer"
+			>
+				<img
+					alt=""
+					className="mymind-wrapped-auth-launch-link__product-hunt-badge"
+					src={WRAPPED_AUTH_PRODUCT_HUNT_BADGE_SRC}
+				/>
+			</a>
+		</nav>
+	);
 }
 
 function getWrappedAuthCardAppearance(

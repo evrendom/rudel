@@ -1,8 +1,10 @@
 import type {
 	WrappedShareAppearance,
+	WrappedShareRevealMetrics,
 	WrappedShareSnapshot,
 } from "@rudel/api-routes";
 import type { TeamPageMemberRow } from "@/features/team/use-team-page-data";
+import type { WrappedOnboardingMetrics } from "@/features/wrapped/onboarding/types";
 import type {
 	WrappedTeamMemberCardHeaderMetric,
 	WrappedTeamMemberCardStatItem,
@@ -17,6 +19,7 @@ interface BuildWrappedShareSnapshotParams {
 	backMetrics: readonly WrappedTeamMemberCardBackMetric[];
 	headerLeftMetric?: WrappedTeamMemberCardHeaderMetric;
 	headerRightMetric?: WrappedTeamMemberCardHeaderMetric;
+	onboardingMetrics: WrappedOnboardingMetrics;
 	row: TeamPageMemberRow;
 	shellClassName: string;
 	statItems: readonly WrappedTeamMemberCardStatItem[];
@@ -35,6 +38,7 @@ export function buildWrappedShareSnapshot(
 		backMetrics,
 		headerLeftMetric,
 		headerRightMetric,
+		onboardingMetrics,
 		row,
 		shellClassName,
 		statItems,
@@ -51,6 +55,7 @@ export function buildWrappedShareSnapshot(
 		})),
 		headerLeftMetric,
 		headerRightMetric,
+		revealMetrics: buildWrappedShareRevealMetrics(onboardingMetrics),
 		// Copy only the public card fields needed for replay. This keeps the public
 		// share payload honest, portable, and easy to reason about.
 		row: {
@@ -81,5 +86,17 @@ export function buildWrappedShareSnapshot(
 			value: statItem.value,
 		})),
 		theme,
+	};
+}
+
+function buildWrappedShareRevealMetrics(
+	onboardingMetrics: WrappedOnboardingMetrics,
+): WrappedShareRevealMetrics {
+	return {
+		avgSessionMin: onboardingMetrics.avgSessionMin,
+		commitRate: onboardingMetrics.commitRate,
+		daysSinceFirst: onboardingMetrics.daysSinceFirst,
+		distinctProjectCount: onboardingMetrics.distinctProjectCount,
+		longestSessionMin: onboardingMetrics.longestSessionMin,
 	};
 }
