@@ -1,20 +1,16 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { TeamPage } from "@/features/team/TeamPage";
 
-const {
-	mockGetFullOrganization,
-	mockGetOrganizationSessionCount,
-	mockUseDateRange,
-	mockUseOrganization,
-} = vi.hoisted(() => ({
-	mockGetFullOrganization: vi.fn(),
-	mockGetOrganizationSessionCount: vi.fn(),
-	mockUseDateRange: vi.fn(),
-	mockUseOrganization: vi.fn(),
-}));
+const { mockGetFullOrganization, mockUseDateRange, mockUseOrganization } =
+	vi.hoisted(() => ({
+		mockGetFullOrganization: vi.fn(),
+		mockUseDateRange: vi.fn(),
+		mockUseOrganization: vi.fn(),
+	}));
 
 vi.mock("@/features/analytics/date-range/useDateRange", () => ({
 	useDateRange: mockUseDateRange,
@@ -69,9 +65,6 @@ function buildTeamCard() {
 }
 
 vi.mock("@/lib/orpc", () => ({
-	client: {
-		getOrganizationSessionCount: mockGetOrganizationSessionCount,
-	},
 	orpc: {
 		analytics: {
 			developers: {
@@ -93,7 +86,7 @@ vi.mock("@/lib/orpc", () => ({
 }));
 
 function createWrapper(queryClient: QueryClient) {
-	return function TeamPageUploadFreshnessSmokeWrapper(props: {
+	return function TeamPageManualRefreshSmokeWrapper(props: {
 		children: ReactNode;
 	}) {
 		return (
@@ -104,11 +97,10 @@ function createWrapper(queryClient: QueryClient) {
 	};
 }
 
-describe("TeamPage upload freshness smoke", () => {
+describe("TeamPage manual refresh smoke", () => {
 	beforeEach(() => {
 		rawSessionCount = 12;
 		mockGetFullOrganization.mockReset();
-		mockGetOrganizationSessionCount.mockReset();
 		mockUseDateRange.mockReset();
 		mockUseOrganization.mockReset();
 
@@ -127,9 +119,6 @@ describe("TeamPage upload freshness smoke", () => {
 				],
 			},
 		});
-		mockGetOrganizationSessionCount.mockImplementation(async () => ({
-			count: rawSessionCount,
-		}));
 		mockUseDateRange.mockReturnValue({
 			actions: {
 				setDateRange: vi.fn(),
@@ -158,11 +147,8 @@ describe("TeamPage upload freshness smoke", () => {
 		});
 	});
 
-	afterEach(() => {
-		vi.useRealTimers();
-	});
-
-	it("updates the visible team card stats on the next poll after new uploads land", async () => {
+	it("updates the visible team card stats when the user refreshes after new uploads land", async () => {
+		const user = userEvent.setup();
 		const queryClient = new QueryClient({
 			defaultOptions: {
 				queries: {
@@ -181,15 +167,14 @@ describe("TeamPage upload freshness smoke", () => {
 		expect(screen.getByTitle("12 sessions")).toBeInTheDocument();
 
 		rawSessionCount = 63;
+		expect(screen.getByTitle("12 sessions")).toBeInTheDocument();
 
-		await waitFor(
-			() => {
-				expect(screen.getByTitle("63 sessions")).toBeInTheDocument();
-			},
-			{ timeout: 1_500 },
-		);
+		await user.click(screen.getByRole("button", { name: "Refresh" }));
+
+		await waitFor(() => {
+			expect(screen.getByTitle("63 sessions")).toBeInTheDocument();
+		});
 		expect(screen.queryByTitle("12 sessions")).not.toBeInTheDocument();
-		expect(mockGetOrganizationSessionCount).toHaveBeenCalledTimes(2);
 
 		queryClient.clear();
 	});

@@ -1,16 +1,11 @@
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { TeamPage } from "@/features/team/TeamPage";
 
-const { mockUseTeamPageData, mockUseUploadAnalyticsRefresh } = vi.hoisted(
-	() => ({
-		mockUseTeamPageData: vi.fn(),
-		mockUseUploadAnalyticsRefresh: vi.fn(),
-	}),
-);
-
-vi.mock("@/features/analytics/queries/use-upload-analytics-refresh", () => ({
-	useUploadAnalyticsRefresh: mockUseUploadAnalyticsRefresh,
+const { mockRefetch, mockUseTeamPageData } = vi.hoisted(() => ({
+	mockRefetch: vi.fn(),
+	mockUseTeamPageData: vi.fn(),
 }));
 
 vi.mock("@/features/team/components/TeamMembersCardGrid", () => ({
@@ -25,8 +20,9 @@ vi.mock("@/features/team/use-team-page-data", () => ({
 
 describe("TeamPage", () => {
 	beforeEach(() => {
+		mockRefetch.mockReset();
+		mockRefetch.mockResolvedValue(undefined);
 		mockUseTeamPageData.mockReset();
-		mockUseUploadAnalyticsRefresh.mockReset();
 		mockUseTeamPageData.mockReturnValue({
 			diagnostics: {
 				days: 365,
@@ -41,7 +37,7 @@ describe("TeamPage", () => {
 			error: null,
 			isError: false,
 			isPending: false,
-			refetch: vi.fn(),
+			refetch: mockRefetch,
 			teamCards: [],
 			teamMemberRows: [
 				{
@@ -64,12 +60,14 @@ describe("TeamPage", () => {
 		});
 	});
 
-	it("keeps team cards fresh when new uploads arrive", () => {
+	it("refreshes team cards when the user asks for fresh data", async () => {
+		const user = userEvent.setup();
+
 		render(<TeamPage />);
 
 		expect(screen.getByText("Team card grid: 1")).toBeInTheDocument();
-		expect(mockUseUploadAnalyticsRefresh).toHaveBeenCalledWith({
-			keepPollingAfterUpload: true,
-		});
+		await user.click(screen.getByRole("button", { name: "Refresh" }));
+
+		expect(mockRefetch).toHaveBeenCalledTimes(1);
 	});
 });
