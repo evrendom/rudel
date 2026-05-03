@@ -1159,7 +1159,7 @@ describe("WrappedRouteGate", () => {
 		expect(screen.getByText("Wrapped story")).toBeInTheDocument();
 		expect(mockUseSetupProgress).toHaveBeenLastCalledWith({
 			enabled: true,
-			keepPollingAfterUpload: false,
+			keepPollingAfterUpload: true,
 		});
 	});
 
@@ -1254,7 +1254,7 @@ describe("WrappedRouteGate", () => {
 		expect(screen.getByText("Story step: none")).toBeInTheDocument();
 		expect(mockUseSetupProgress).toHaveBeenLastCalledWith({
 			enabled: true,
-			keepPollingAfterUpload: false,
+			keepPollingAfterUpload: true,
 		});
 	});
 

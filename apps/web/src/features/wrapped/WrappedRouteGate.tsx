@@ -128,17 +128,13 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 			? false
 			: completedSetupUserIds[sessionUserId] === true ||
 				hasCompletedWrappedSetup(sessionUserId);
-	const shouldKeepPollingAfterUpload =
-		!hasCompletedSetup ||
-		forcedFlowStage === WRAPPED_ROUTE_DESKTOP_READY_FLOW ||
-		forcedFlowStage === WRAPPED_ROUTE_SESSIONS_LANDED_FLOW;
+	const shouldReadPrivateWrappedData = !publicId && !!session;
 	const setupProgress = useSetupProgress({
-		enabled: !publicId && !!session,
-		keepPollingAfterUpload: shouldKeepPollingAfterUpload,
+		enabled: shouldReadPrivateWrappedData,
+		keepPollingAfterUpload: shouldReadPrivateWrappedData,
 	});
 	const shouldQueryWrappedArchetypeGate =
-		!publicId &&
-		!!session &&
+		shouldReadPrivateWrappedData &&
 		setupProgress.hasUploadedSessions &&
 		setupProgress.totalSessionCount >=
 			WRAPPED_ARCHETYPE_GATE_THRESHOLDS.min_total_sessions;
