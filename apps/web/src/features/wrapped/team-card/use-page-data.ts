@@ -166,12 +166,12 @@ export function useWrappedTeamCardPageData(): UseWrappedTeamCardPageDataResult {
 			buildWrappedStatItems(
 				visibleTeamCardRow,
 				onboardingMetrics.distinctProjectCount,
-				wrappedData?.metrics.source_split ?? [],
+				onboardingMetrics.sourceSplit,
 			),
 		[
 			onboardingMetrics.distinctProjectCount,
+			onboardingMetrics.sourceSplit,
 			visibleTeamCardRow,
-			wrappedData?.metrics.source_split,
 		],
 	);
 	const liveArchetype = useMemo(

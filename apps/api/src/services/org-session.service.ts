@@ -11,7 +11,7 @@ export async function getOrgSessionCount(
 	const results = await Promise.all(
 		tables.map((table) =>
 			ch.query<{ count: string }>({
-				query: `SELECT count() as count FROM ${getSafeClickHouseTable(table)} WHERE organization_id = {orgId:String}${userFilter}`,
+				query: `SELECT uniqExact(session_id) as count FROM ${getSafeClickHouseTable(table)} WHERE organization_id = {orgId:String}${userFilter}`,
 				query_params: {
 					orgId,
 					...(userId ? { userId } : {}),

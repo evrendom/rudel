@@ -951,9 +951,40 @@ describe("WrappedRouteGate", () => {
 			</MemoryRouter>,
 		);
 
-		expect(screen.getByText("Preparing your wrapped...")).toBeInTheDocument();
+		expect(screen.getByText("Wrapped setup complete page")).toBeInTheDocument();
+		expect(screen.getByText("Total sessions: 132")).toBeInTheDocument();
+		expect(screen.getByText("Can continue: no")).toBeInTheDocument();
+		expect(screen.getByText("Readiness: enough-landed")).toBeInTheDocument();
 		expect(screen.queryByText("Wrapped story")).toBeNull();
-		expect(screen.queryByText("Wrapped setup complete page")).toBeNull();
+		expect(screen.queryByText("Preparing your wrapped...")).toBeNull();
+
+		const wrappedQueryOptions = mockUseAnalyticsQuery.mock.calls.at(-1)?.[0];
+		expect(
+			wrappedQueryOptions.refetchInterval({
+				state: {
+					data: {
+						archetype_gate: {
+							values: {
+								total_sessions: 72,
+							},
+						},
+					},
+				},
+			}),
+		).toBe(1_000);
+		expect(
+			wrappedQueryOptions.refetchInterval({
+				state: {
+					data: {
+						archetype_gate: {
+							values: {
+								total_sessions: 132,
+							},
+						},
+					},
+				},
+			}),
+		).toBe(false);
 	});
 
 	it("treats a legacy non-session gate reason as ready after 100 sessions", () => {
@@ -1031,8 +1062,10 @@ describe("WrappedRouteGate", () => {
 			</MemoryRouter>,
 		);
 
-		expect(screen.getByText("Preparing your wrapped...")).toBeInTheDocument();
-		expect(screen.queryByText("Wrapped setup complete page")).toBeNull();
+		expect(screen.getByText("Wrapped setup complete page")).toBeInTheDocument();
+		expect(screen.getByText("Can continue: no")).toBeInTheDocument();
+		expect(screen.getByText("Readiness: enough-landed")).toBeInTheDocument();
+		expect(screen.queryByText("Preparing your wrapped...")).toBeNull();
 	});
 
 	it("enables setup continue when sessions land during setup", async () => {

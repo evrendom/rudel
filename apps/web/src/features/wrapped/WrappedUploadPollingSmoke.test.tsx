@@ -42,6 +42,8 @@ vi.mock("@/features/workspace/organization/useOrganization", () => ({
 }));
 
 let rawSessionCount = 45;
+let wrappedGateSessionCount = 45;
+let wrappedV1QueryCallCount = 0;
 
 vi.mock("@/lib/orpc", () => ({
 	client: {
@@ -81,18 +83,31 @@ vi.mock("@/lib/orpc", () => ({
 			wrapped: {
 				v1: {
 					queryOptions: () => ({
-						queryFn: async () => ({
-							archetype_gate: {
-								is_eligible: false,
-								reason: "session_threshold",
-								thresholds: {
-									min_total_sessions: 100,
+						queryFn: async () => {
+							wrappedV1QueryCallCount += 1;
+
+							return {
+								archetype_gate: {
+									is_eligible: wrappedGateSessionCount >= 100,
+									reason:
+										wrappedGateSessionCount >= 100
+											? "eligible"
+											: "needs_more_sessions",
+									thresholds: {
+										max_distance_ratio_to_max: 0.25,
+										min_active_days: 14,
+										min_top_two_margin: 0.1,
+										min_total_sessions: 100,
+									},
+									values: {
+										active_days: 14,
+										archetype_distance_ratio_to_max: 0.1,
+										archetype_top_two_margin: 0.2,
+										total_sessions: wrappedGateSessionCount,
+									},
 								},
-								values: {
-									total_sessions: rawSessionCount,
-								},
-							},
-						}),
+							};
+						},
 						queryKey: ["analytics", "wrapped", "v1"],
 					}),
 				},
@@ -148,6 +163,8 @@ function createWrapper(queryClient: QueryClient, initialEntry = "/wrapped") {
 describe("Wrapped upload polling smoke", () => {
 	beforeEach(() => {
 		rawSessionCount = 45;
+		wrappedGateSessionCount = 45;
+		wrappedV1QueryCallCount = 0;
 		mockGetOrganizationSessionCount.mockReset();
 		mockUseAnalyticsTracking.mockReset();
 		mockUseCliSetupStatus.mockReset();
@@ -256,6 +273,43 @@ describe("Wrapped upload polling smoke", () => {
 		);
 		expect(screen.getByText("63 sessions across 1 repo")).toBeInTheDocument();
 		expect(mockGetOrganizationSessionCount).toHaveBeenCalledTimes(2);
+
+		queryClient.clear();
+	});
+
+	it("refetches wrapped v1 every second until the wrapped gate catches uploaded sessions", async () => {
+		const queryClient = new QueryClient(queryClientConfig);
+		rawSessionCount = 132;
+		wrappedGateSessionCount = 72;
+		markSetupCompleted();
+
+		render(
+			<WrappedRouteGate isPending={false} publicId={null} session={session} />,
+			{
+				wrapper: createWrapper(queryClient, "/wrapped?flow=sessions-landed"),
+			},
+		);
+
+		expect(
+			await screen.findByRole("button", { name: "Upload more to unlock" }),
+		).toBeDisabled();
+		expect(screen.queryByText("Preparing your wrapped...")).toBeNull();
+
+		wrappedGateSessionCount = 132;
+
+		await waitFor(
+			() => {
+				expect(wrappedV1QueryCallCount).toBeGreaterThanOrEqual(2);
+			},
+			{ timeout: 1_500 },
+		);
+		await waitFor(() => {
+			expect(
+				screen.getByRole("button", {
+					name: "See what it reveals about you",
+				}),
+			).toBeEnabled();
+		});
 
 		queryClient.clear();
 	});

@@ -446,8 +446,6 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 					onContinue={handleSetupContinue}
 				/>
 			);
-		} else if (shouldWaitForWrappedStoryData) {
-			content = <WrappedRouteLoadingState body="Preparing your wrapped..." />;
 		} else if (sessionUserId && shouldForceSessionsLanded) {
 			content = (
 				<WrappedSetupCompletePage
@@ -461,6 +459,8 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 					userId={sessionUserId}
 				/>
 			);
+		} else if (shouldWaitForWrappedStoryData) {
+			content = <WrappedRouteLoadingState body="Preparing your wrapped..." />;
 		} else if (sessionUserId && shouldHoldForMinimumSessions) {
 			content = (
 				<WrappedSetupCompletePage
@@ -525,7 +525,9 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 
 	if (shouldQueryWrappedArchetypeGate) {
 		return (
-			<WrappedArchetypeGateQuery>
+			<WrappedArchetypeGateQuery
+				setupProgressTotalSessionCount={setupProgress.totalSessionCount}
+			>
 				{(archetypeGateState) => renderRouteContent(archetypeGateState)}
 			</WrappedArchetypeGateQuery>
 		);
@@ -541,10 +543,27 @@ interface WrappedArchetypeGateState {
 
 function WrappedArchetypeGateQuery(props: {
 	children: (state: WrappedArchetypeGateState) => ReactNode;
+	setupProgressTotalSessionCount: number;
 }) {
 	const wrappedV1Query = useAnalyticsQuery({
 		...orpc.analytics.wrapped.v1.queryOptions({}),
 		enabled: true,
+		refetchInterval: (query) => {
+			const wrappedSessionCount =
+				query.state.data?.archetype_gate.values.total_sessions ?? null;
+
+			if (
+				wrappedSessionCount === null ||
+				wrappedSessionCount < props.setupProgressTotalSessionCount
+			) {
+				return 1_000;
+			}
+
+			return false;
+		},
+		refetchIntervalInBackground: true,
+		refetchOnReconnect: "always",
+		refetchOnWindowFocus: "always",
 	});
 
 	return props.children({

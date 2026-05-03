@@ -4,16 +4,16 @@ import { useSetupProgress } from "@/features/get-started/use-setup-progress";
 
 const {
 	mockGetOrganizationSessionCount,
+	mockInvalidateQueries,
 	mockRemoveQueries,
-	mockResetQueries,
 	mockSummaryQueryOptions,
 	mockUseAnalyticsQuery,
 	mockUseOrganization,
 	mockUseQuery,
 } = vi.hoisted(() => ({
 	mockGetOrganizationSessionCount: vi.fn(),
+	mockInvalidateQueries: vi.fn(),
 	mockRemoveQueries: vi.fn(),
-	mockResetQueries: vi.fn(),
 	mockSummaryQueryOptions: vi.fn(),
 	mockUseAnalyticsQuery: vi.fn(),
 	mockUseOrganization: vi.fn(),
@@ -23,8 +23,8 @@ const {
 vi.mock("@tanstack/react-query", () => ({
 	useQuery: mockUseQuery,
 	useQueryClient: () => ({
+		invalidateQueries: mockInvalidateQueries,
 		removeQueries: mockRemoveQueries,
-		resetQueries: mockResetQueries,
 	}),
 }));
 
@@ -136,8 +136,8 @@ describe("useSetupProgress", () => {
 		rawCountQueryResult = defaultRawCountQueryResult;
 
 		mockGetOrganizationSessionCount.mockReset();
+		mockInvalidateQueries.mockReset();
 		mockRemoveQueries.mockReset();
-		mockResetQueries.mockReset();
 		mockSummaryQueryOptions.mockReset();
 		mockUseAnalyticsQuery.mockReset();
 		mockUseOrganization.mockReset();
@@ -165,7 +165,7 @@ describe("useSetupProgress", () => {
 			capturedRawQueryOptions = options;
 			return rawCountQueryResult;
 		});
-		mockResetQueries.mockResolvedValue(undefined);
+		mockInvalidateQueries.mockResolvedValue(undefined);
 	});
 
 	afterEach(() => {
@@ -327,7 +327,7 @@ describe("useSetupProgress", () => {
 		const { rerender } = renderHook(() => useSetupProgress());
 
 		expect(mockRemoveQueries).not.toHaveBeenCalled();
-		expect(mockResetQueries).not.toHaveBeenCalled();
+		expect(mockInvalidateQueries).not.toHaveBeenCalled();
 
 		rawCountQueryResult = {
 			data: {
@@ -344,9 +344,9 @@ describe("useSetupProgress", () => {
 				type: "inactive",
 			});
 		});
-		expect(mockResetQueries).toHaveBeenCalledWith({
+		expect(mockInvalidateQueries).toHaveBeenCalledWith({
 			queryKey: ["org", "org-1", "analytics"],
-			type: "active",
+			refetchType: "active",
 		});
 	});
 });
