@@ -9,6 +9,10 @@ let summaryActiveDays = 0;
 let archetypeRows: unknown[] = [];
 
 const queryClickhouse = mock((input: QueryClickhouseInput) => {
+	expect(input.query).not.toMatch(
+		/FROM\s+rudel\.session_analytics(?!\s+FINAL\b)/u,
+	);
+
 	if (input.query.includes("count() AS total_sessions")) {
 		return Promise.resolve([
 			{
