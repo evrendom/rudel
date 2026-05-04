@@ -3,6 +3,7 @@ import assert from "node:assert";
 import { betterAuth } from "better-auth";
 import { memoryAdapter } from "better-auth/adapters/memory";
 import { hashPassword } from "better-auth/crypto";
+import { organization } from "better-auth/plugins";
 import {
 	createYcLoginPlugin,
 	getYcLoginConfigFromEnv,
@@ -10,7 +11,8 @@ import {
 } from "../auth.js";
 
 const TARGET_EMAIL = "evren@example.com";
-const TARGET_PASSWORD = "target-password";
+const TARGET_ORG_ID = "target-org-id";
+const TARGET_USER_ID = "target-user-id";
 const YC_PASSWORD = "yc-password";
 
 describe("YC login config", () => {
@@ -56,6 +58,7 @@ describe("YC login endpoint", () => {
 		});
 		assert(session);
 		expect(isYcReviewSessionRecord(session.session)).toBe(true);
+		expect(getActiveOrganizationId(session.session)).toBe(TARGET_ORG_ID);
 
 		const body: unknown = await response.json();
 		assert(isYcLoginResponse(body));
@@ -77,6 +80,38 @@ describe("YC login endpoint", () => {
 		);
 
 		expect(response.status).toBe(200);
+	});
+
+	test("allows YC review sessions to set active organization", async () => {
+		const auth = await createTestAuth();
+		const signInResponse = await auth.handler(
+			new Request("http://localhost/api/auth/yc/sign-in", {
+				body: JSON.stringify({
+					email: "applicant@ycombinator.com",
+					password: YC_PASSWORD,
+				}),
+				headers: { "Content-Type": "application/json" },
+				method: "POST",
+			}),
+		);
+		const sessionCookie = getSessionCookie(signInResponse);
+
+		const response = await auth.handler(
+			new Request("http://localhost/api/auth/organization/set-active", {
+				body: JSON.stringify({ organizationId: TARGET_ORG_ID }),
+				headers: {
+					"Content-Type": "application/json",
+					cookie: sessionCookie,
+					Origin: "http://localhost",
+				},
+				method: "POST",
+			}),
+		);
+
+		expect(response.status).toBe(200);
+		const body: unknown = await response.json();
+		assert(isOrganizationResponse(body));
+		expect(body.id).toBe(TARGET_ORG_ID);
 	});
 
 	test("rejects emails outside the configured allowlist", async () => {
@@ -170,22 +205,41 @@ async function createTestAuth({
 		baseURL: "http://localhost",
 		database: memoryAdapter({
 			account: [],
+			invitation: [],
+			member: [
+				{
+					createdAt: new Date("2026-01-01T00:00:00.000Z"),
+					id: "target-member-id",
+					organizationId: TARGET_ORG_ID,
+					role: "owner",
+					userId: TARGET_USER_ID,
+				},
+			],
+			organization: [
+				{
+					createdAt: new Date("2026-01-01T00:00:00.000Z"),
+					id: TARGET_ORG_ID,
+					name: "Evren's Workspace",
+					slug: "evren-workspace",
+				},
+			],
 			session: [],
-			user: [],
+			user: [
+				{
+					createdAt: new Date("2026-01-01T00:00:00.000Z"),
+					email: TARGET_EMAIL,
+					emailVerified: true,
+					id: TARGET_USER_ID,
+					image: null,
+					name: "Evren",
+					updatedAt: new Date("2026-01-01T00:00:00.000Z"),
+				},
+			],
 			verification: [],
 		}),
 		emailAndPassword: { enabled: true },
-		plugins: [ycLoginPlugin],
+		plugins: [organization(), ycLoginPlugin],
 		secret: "test-secret-that-is-long-enough-for-auth",
-	});
-
-	await auth.api.signUpEmail({
-		body: {
-			email: TARGET_EMAIL,
-			name: "Evren",
-			password: TARGET_PASSWORD,
-		},
-		headers: new Headers(),
 	});
 
 	return auth;
@@ -199,6 +253,18 @@ function isYcLoginResponse(
 		isRecord(value.user) &&
 		typeof value.user.email === "string"
 	);
+}
+
+function getActiveOrganizationId(value: unknown) {
+	assert(isRecord(value));
+	const { activeOrganizationId } = value;
+	assert(typeof activeOrganizationId === "string");
+
+	return activeOrganizationId;
+}
+
+function isOrganizationResponse(value: unknown): value is { id: string } {
+	return isRecord(value) && typeof value.id === "string";
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
