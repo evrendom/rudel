@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { WrappedArchetypeCardTheme } from "@/features/wrapped/team-card/archetypes";
 import { WrappedTeamCardPage } from "@/features/wrapped/team-card/page";
 
 const {
@@ -12,6 +13,7 @@ const {
 	mockTrackWrappedShareActionTriggered,
 	mockTrackWrappedShareCreated,
 	mockTrackWrappedStoryStarted,
+	mockLiveArchetype,
 	mockUseWrappedTeamCardShare,
 	mockVisibleTeamCardImageUrl,
 } = vi.hoisted(() => ({
@@ -21,6 +23,14 @@ const {
 	mockTrackWrappedShareActionTriggered: vi.fn(),
 	mockTrackWrappedShareCreated: vi.fn(),
 	mockTrackWrappedStoryStarted: vi.fn(),
+	mockLiveArchetype: vi.fn<() => WrappedArchetypeCardTheme | null>(() => ({
+		classifierKey: "roadrunner",
+		displayLabel: "Roadrunner",
+		id: "roadrunner",
+		kind: "taxonomy",
+		shellClassName: "team-lineup-shell",
+		theme: "light",
+	})),
 	mockUseWrappedTeamCardShare: vi.fn(),
 	mockVisibleTeamCardImageUrl: vi.fn<() => string | null>(() => null),
 }));
@@ -81,13 +91,21 @@ vi.mock("@/features/wrapped/team-card/card", () => ({
 
 vi.mock("@/features/wrapped/team-card/final-stages", () => ({
 	WrappedTeamCardRevealStage: ({
+		activeArchetype,
+		edition,
 		onPreviewPost,
 	}: {
+		activeArchetype: { displayLabel: string };
+		edition?: string;
 		onPreviewPost: () => void;
 	}) => (
-		<button type="button" onClick={onPreviewPost}>
-			Preview post
-		</button>
+		<div>
+			<div data-testid="reveal-archetype">{activeArchetype.displayLabel}</div>
+			<div data-testid="reveal-edition">{edition ?? "none"}</div>
+			<button type="button" onClick={onPreviewPost}>
+				Preview post
+			</button>
+		</div>
 	),
 	WrappedTeamCardShareStage: ({
 		onCopy,
@@ -148,7 +166,7 @@ vi.mock("@/features/wrapped/team-card/use-share", () => ({
 			onShareCreated?: (shareRecord: { id: string }) => void;
 		},
 	) => ({
-		...mockUseWrappedTeamCardShare(snapshot),
+		...mockUseWrappedTeamCardShare(snapshot, options),
 		ensureShare: async () => {
 			const shareRecord = { id: "created-share-1" };
 			mockEnsureShare();
@@ -164,14 +182,7 @@ vi.mock("@/features/wrapped/team-card/use-share", () => ({
 vi.mock("@/features/wrapped/team-card/use-page-data", () => ({
 	useWrappedTeamCardPageData: () => ({
 		completionUserId: "user-1",
-		liveArchetype: {
-			classifierKey: "roadrunner",
-			displayLabel: "Roadrunner",
-			id: "roadrunner",
-			kind: "taxonomy",
-			shellClassName: "team-lineup-shell",
-			theme: "light",
-		},
+		liveArchetype: mockLiveArchetype(),
 		onboardingMetrics: {
 			activeDays: 6,
 			avgSessionMin: 12,
@@ -236,6 +247,15 @@ describe("WrappedTeamCardPage analytics", () => {
 		mockTrackWrappedShareActionTriggered.mockReset();
 		mockTrackWrappedShareCreated.mockReset();
 		mockTrackWrappedStoryStarted.mockReset();
+		mockLiveArchetype.mockReset();
+		mockLiveArchetype.mockReturnValue({
+			classifierKey: "roadrunner",
+			displayLabel: "Roadrunner",
+			id: "roadrunner",
+			kind: "taxonomy",
+			shellClassName: "team-lineup-shell",
+			theme: "light",
+		});
 		mockUseWrappedTeamCardShare.mockReset();
 		mockVisibleTeamCardImageUrl.mockReset();
 		mockVisibleTeamCardImageUrl.mockReturnValue(null);
@@ -266,6 +286,81 @@ describe("WrappedTeamCardPage analytics", () => {
 		expect(screen.getByTestId("share-stage-image")).toHaveTextContent(
 			providerImageUrl,
 		);
+	});
+
+	it("keeps Decimal edition on the user's archetype snapshot", () => {
+		render(
+			<MemoryRouter initialEntries={["/wrapped?variant=decimal"]}>
+				<WrappedTeamCardPage isDecimalEntitled variant="decimal" />
+			</MemoryRouter>,
+		);
+
+		expect(screen.getByTestId("reveal-archetype")).toHaveTextContent(
+			"Roadrunner",
+		);
+		expect(screen.getByTestId("reveal-edition")).toHaveTextContent("decimal");
+		expect(mockUseWrappedTeamCardShare.mock.calls[0]?.[0]).toEqual(
+			expect.objectContaining({
+				archetypeLabel: "Roadrunner",
+				shellClassName: "team-lineup-shell",
+				theme: "light",
+			}),
+		);
+		expect(mockUseWrappedTeamCardShare.mock.calls[0]?.[1]).toEqual(
+			expect.objectContaining({
+				variant: "decimal",
+			}),
+		);
+	});
+
+	it("uses a dev preview archetype when the auth bypass has no live classifier", () => {
+		mockLiveArchetype.mockReturnValue(null);
+
+		render(
+			<MemoryRouter
+				initialEntries={["/dev/wrapped?stage=story&variant=decimal"]}
+			>
+				<WrappedTeamCardPage
+					devPreviewArchetype={{
+						classifierKey: "smooth_operator",
+						displayLabel: "Smooth Operator",
+						id: "smooth_operator",
+						kind: "taxonomy",
+						shellClassName: "bg-sky-200",
+						theme: "light",
+					}}
+					isDecimalEntitled
+					variant="decimal"
+				/>
+			</MemoryRouter>,
+		);
+
+		expect(screen.getByTestId("reveal-archetype")).toHaveTextContent(
+			"Smooth Operator",
+		);
+		expect(screen.getByTestId("reveal-edition")).toHaveTextContent("decimal");
+	});
+
+	it("falls back to a dev preview archetype while Evren's live classifier loads", () => {
+		mockLiveArchetype.mockReturnValue(null);
+
+		render(
+			<MemoryRouter
+				initialEntries={["/dev/wrapped?stage=story&variant=decimal"]}
+			>
+				<WrappedTeamCardPage
+					devPreviewPublicId="evren"
+					devPreviewUserId="evren"
+					isDecimalEntitled
+					variant="decimal"
+				/>
+			</MemoryRouter>,
+		);
+
+		expect(screen.getByTestId("reveal-archetype")).toHaveTextContent(
+			"Smooth Operator",
+		);
+		expect(screen.getByTestId("reveal-edition")).toHaveTextContent("decimal");
 	});
 
 	it("creates the profile URL when the share screen opens", async () => {

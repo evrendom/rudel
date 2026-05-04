@@ -790,6 +790,62 @@ describe("WrappedTeamCardRevealStage", () => {
 		).toBeInTheDocument();
 	});
 
+	it("keeps Decimal edition on the user's archetype reveal story", () => {
+		vi.useFakeTimers();
+
+		render(
+			<WrappedTeamCardRevealStage
+				activeArchetype={{
+					displayLabel: "Smooth Operator",
+					id: "smooth_operator",
+					kind: "taxonomy",
+					classifierKey: "smooth_operator",
+					shellClassName: "bg-sky-200",
+					theme: "light",
+				}}
+				edition="decimal"
+				headerLeftMetric={{
+					title: "$42 estimated spend",
+					value: "$42",
+				}}
+				headerRightMetric={{
+					title: "Smooth Operator",
+					value: "Smooth Operator",
+				}}
+				isPreviewPostVisible={false}
+				onboardingMetrics={onboardingMetrics}
+				onPreviewPost={vi.fn()}
+				onRevealComplete={vi.fn()}
+				row={row}
+				shellClassName="bg-sky-200"
+				shellStyle={{}}
+				shareCardCreatedAtLabel="04/24/2026"
+				statItems={[]}
+				statLayerOpacities={{
+					rainbowShineOpacity: 0.3,
+					textureOpacity: 1,
+					tileBorderOpacity: 1,
+					tileFillOpacity: 0.08,
+					tileInsetShadowOpacity: 0.5,
+					tileTopStrokeOpacity: 0.08,
+				}}
+				theme="light"
+				tiltController={tiltController}
+			/>,
+		);
+
+		expect(screen.getByText("MEMBER OF")).toBeInTheDocument();
+
+		advanceRevealIntroToGate();
+
+		expect(
+			screen.getByRole("heading", {
+				name: "Avery Chen, you're a Smooth Operator.",
+			}),
+		).toBeInTheDocument();
+		expect(screen.queryByText("Decimal treatment.")).toBeNull();
+	});
+
 	it("renders the Company Card title and reveal copy with spend metrics", () => {
 		vi.useFakeTimers();
 

@@ -29,6 +29,14 @@ describe("WrappedTeamMemberCardBack", () => {
 		).toHaveAttribute("title", "extremely-long-favorite-skill-name");
 	});
 
+	it("replaces the Rudel logo with the Decimal edition lockup", () => {
+		render(<WrappedTeamMemberCardBack edition="decimal" metrics={[]} />);
+
+		expect(screen.getByText("MEMBER OF")).toBeInTheDocument();
+		expect(screen.getByText("Decimals")).toHaveClass("sr-only");
+		expect(screen.queryByLabelText("Rudel")).toBeNull();
+	});
+
 	it("marks the favorite skill metric for start truncation", () => {
 		const metrics = buildWrappedTeamCardBackMetrics({
 			onboardingMetrics,
