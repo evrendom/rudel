@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -235,8 +235,21 @@ describe("WrappedCardProfileStep", () => {
 		).toBeInTheDocument();
 	});
 
-	it("keeps the previous image and shows an error when upload fails", async () => {
-		const fetchMock = vi.fn(async () => new Response("nope", { status: 500 }));
+	it("keeps the previous image and shows the mapped server message when upload fails", async () => {
+		const fetchMock = vi.fn(
+			async () =>
+				new Response(
+					JSON.stringify({
+						error: "server_error",
+						message: "Something broke on our side. Try again in a moment.",
+						requestId: "req-123",
+					}),
+					{
+						status: 500,
+						headers: { "Content-Type": "application/json" },
+					},
+				),
+		);
 		globalThis.fetch = fetchMock as unknown as typeof fetch;
 		const onImageChange = vi.fn();
 		const onUploadingChange = vi.fn();
@@ -264,10 +277,179 @@ describe("WrappedCardProfileStep", () => {
 
 		await waitFor(() => {
 			expect(
-				screen.getByText("We could not upload your image. Try again."),
+				screen.getByText(/Something broke on our side/i),
 			).toBeInTheDocument();
 		});
 		expect(onImageChange).not.toHaveBeenCalled();
 		expect(onUploadingChange).toHaveBeenLastCalledWith(false);
+	});
+
+	it("maps unsupported_image_type errors to a specific message", async () => {
+		const fetchMock = vi.fn(
+			async () =>
+				new Response(
+					JSON.stringify({
+						error: "unsupported_image_type",
+						message:
+							"We could not read that image. Save it as PNG or JPEG and try again.",
+					}),
+					{
+						status: 415,
+						headers: { "Content-Type": "application/json" },
+					},
+				),
+		);
+		globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+		render(
+			<MemoryRouter>
+				<WrappedCardProfileStep
+					displayName="Ada"
+					imageUrl={null}
+					isComplete={true}
+					onBack={vi.fn()}
+					onContinue={vi.fn()}
+					onDisplayNameChange={vi.fn()}
+					onImageChange={vi.fn()}
+					previewProfile={previewProfile}
+				/>
+			</MemoryRouter>,
+		);
+
+		const input = screen.getByLabelText("Profile picture") as HTMLInputElement;
+		const file = new File(["png"], "avatar.png", { type: "image/png" });
+		const user = userEvent.setup();
+		await user.upload(input, file);
+
+		await waitFor(() => {
+			expect(screen.getByText(/Save it as PNG or JPEG/i)).toBeInTheDocument();
+		});
+	});
+
+	it("maps unauthorized errors to a session-expired message", async () => {
+		const fetchMock = vi.fn(
+			async () =>
+				new Response(
+					JSON.stringify({
+						error: "unauthorized",
+						message:
+							"Your session expired. Refresh the page and sign in again.",
+					}),
+					{
+						status: 401,
+						headers: { "Content-Type": "application/json" },
+					},
+				),
+		);
+		globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+		render(
+			<MemoryRouter>
+				<WrappedCardProfileStep
+					displayName="Ada"
+					imageUrl={null}
+					isComplete={true}
+					onBack={vi.fn()}
+					onContinue={vi.fn()}
+					onDisplayNameChange={vi.fn()}
+					onImageChange={vi.fn()}
+					previewProfile={previewProfile}
+				/>
+			</MemoryRouter>,
+		);
+
+		const input = screen.getByLabelText("Profile picture") as HTMLInputElement;
+		const file = new File(["png"], "avatar.png", { type: "image/png" });
+		const user = userEvent.setup();
+		await user.upload(input, file);
+
+		await waitFor(() => {
+			expect(screen.getByText(/session expired/i)).toBeInTheDocument();
+		});
+	});
+
+	it("rejects HEIC files with a dedicated message and never fires fetch", async () => {
+		const fetchMock = vi.fn();
+		globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+		render(
+			<MemoryRouter>
+				<WrappedCardProfileStep
+					displayName="Ada"
+					imageUrl={null}
+					isComplete={true}
+					onBack={vi.fn()}
+					onContinue={vi.fn()}
+					onDisplayNameChange={vi.fn()}
+					onImageChange={vi.fn()}
+					previewProfile={previewProfile}
+				/>
+			</MemoryRouter>,
+		);
+
+		const input = screen.getByLabelText("Profile picture") as HTMLInputElement;
+		const file = new File(["heic"], "photo.heic", { type: "image/heic" });
+		const user = userEvent.setup();
+		await user.upload(input, file);
+
+		expect(fetchMock).not.toHaveBeenCalled();
+		expect(
+			screen.getByText(/HEIC photos aren't supported/i),
+		).toBeInTheDocument();
+	});
+
+	it("does not pre-reject files with empty file.type — lets the server decide", async () => {
+		const fetchMock = vi.fn(
+			async () =>
+				new Response(
+					JSON.stringify({
+						user: {
+							id: "user-1",
+							email: "ada@example.com",
+							name: "Ada Lovelace",
+							image: "/api/avatar/12345678-1234-1234-1234-123456789abc",
+							activeOrganizationId: null,
+						},
+					}),
+					{ status: 200 },
+				),
+		);
+		globalThis.fetch = fetchMock as unknown as typeof fetch;
+		const onImageChange = vi.fn();
+
+		render(
+			<MemoryRouter>
+				<WrappedCardProfileStep
+					displayName="Ada"
+					imageUrl={null}
+					isComplete={true}
+					onBack={vi.fn()}
+					onContinue={vi.fn()}
+					onDisplayNameChange={vi.fn()}
+					onImageChange={onImageChange}
+					previewProfile={previewProfile}
+				/>
+			</MemoryRouter>,
+		);
+
+		const input = screen.getByLabelText("Profile picture") as HTMLInputElement;
+		const file = new File(["png-bytes"], "avatar", { type: "" });
+		// Bypass userEvent.upload — even with applyAccept: false it will not
+		// dispatch a change event for a file with empty type. Real browsers
+		// can produce empty-type files (drag-and-drop, certain download
+		// paths), so the production handler accepts them; we just need a
+		// path past the testing-library filter to verify that.
+		Object.defineProperty(input, "files", {
+			configurable: true,
+			value: [file],
+		});
+		fireEvent.change(input);
+
+		await waitFor(() => {
+			expect(onImageChange).toHaveBeenCalledWith(
+				"/api/avatar/12345678-1234-1234-1234-123456789abc",
+			);
+		});
+		expect(fetchMock).toHaveBeenCalledTimes(1);
 	});
 });

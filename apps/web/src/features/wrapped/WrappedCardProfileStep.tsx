@@ -1,6 +1,8 @@
 import {
 	AVATAR_ACCEPTED_MIME_TYPES,
 	type AvatarMimeType,
+	type AvatarUploadErrorBody,
+	isAvatarUploadErrorCode,
 } from "@rudel/api-routes";
 import { ArrowRight, ImagePlus } from "lucide-react";
 import { type ChangeEvent, type ReactNode, useRef, useState } from "react";
@@ -24,6 +26,36 @@ const PRE_RESIZE_MAX_BYTES = 5 * 1024 * 1024;
 const RESIZE_LONG_EDGE_PX = 768;
 const ENCODED_TYPE: AvatarMimeType = "image/webp";
 const ENCODED_FALLBACK_TYPE: AvatarMimeType = "image/jpeg";
+
+// iPhones save photos as HEIC/HEIF by default. Browsers know the MIME, but
+// neither <canvas> decoding nor our server's magic-byte sniff handles them.
+// Detect early so we can give a specific message instead of the generic one.
+const HEIC_MIME_TYPES = new Set(["image/heic", "image/heif"]);
+
+const ERROR_MESSAGES = {
+	heic: "iPhone HEIC photos aren't supported. In your iPhone, open Settings → Camera → Formats and pick 'Most Compatible', or share the photo as JPEG and try again.",
+	wrongType: "Pick a PNG, JPEG, or WEBP image for your card.",
+	tooLargePreResize: "Image is too large. Pick something under 5 MB.",
+	resizeFailed:
+		"We couldn't read that image. Try a different file or save it as PNG or JPEG first.",
+	network: "Couldn't reach the server. Check your connection and try again.",
+	generic: "We could not upload your image. Try again.",
+} as const;
+
+const SERVER_ERROR_MESSAGES: Record<AvatarUploadErrorBody["error"], string> = {
+	unauthorized:
+		"Your session expired. Refresh the page and sign in, then try again.",
+	length_required: "Couldn't read the upload — try selecting the file again.",
+	request_too_large:
+		"Image was too large to upload. Try a smaller picture (under 2 MB after resize).",
+	invalid_multipart: "Couldn't read the upload — try selecting the file again.",
+	missing_file: "No file was attached. Try selecting it again.",
+	file_too_large:
+		"Image must be under 2 MB after we resize it. Try a smaller picture.",
+	unsupported_image_type:
+		"We couldn't read that image. Save it as PNG or JPEG and try again.",
+	server_error: "Something broke on our side. Try again in a moment.",
+};
 
 interface WrappedCardProfileStepProps {
 	backLabel?: string;
@@ -86,29 +118,56 @@ export function WrappedCardProfileStep(props: WrappedCardProfileStepProps) {
 			return;
 		}
 
+		// HEIC/HEIF first: iPhone default. The generic "pick PNG/JPEG/WEBP"
+		// message doesn't help users who don't know their iPhone is saving HEIC.
+		if (HEIC_MIME_TYPES.has(file.type)) {
+			setUploadError(ERROR_MESSAGES.heic);
+			return;
+		}
+
+		// Reject only when the browser KNOWS the type and it's outside our
+		// allowlist. An empty file.type happens on drag-and-drop and certain
+		// download paths — let resize + server sniff decide for those, since
+		// the bytes may still be a valid PNG/JPEG/WEBP.
+		const declaredType = file.type;
 		if (
-			!(AVATAR_ACCEPTED_MIME_TYPES as readonly string[]).includes(file.type)
+			declaredType !== "" &&
+			!(AVATAR_ACCEPTED_MIME_TYPES as readonly string[]).includes(declaredType)
 		) {
-			setUploadError("Pick a PNG, JPEG, or WEBP image for your card.");
+			setUploadError(ERROR_MESSAGES.wrongType);
 			return;
 		}
 
 		if (file.size > PRE_RESIZE_MAX_BYTES) {
-			setUploadError("Image is too large. Maximum size is 5 MB.");
+			setUploadError(ERROR_MESSAGES.tooLargePreResize);
 			return;
 		}
 
 		setUploadError(null);
 		setUploadingState(true);
 
+		// Resize separately so a decoder/encoder failure produces a different
+		// message than an upload failure.
+		let resized: Blob;
 		try {
-			const resized = await resizeImage(file);
-			const localPreviewUrl = URL.createObjectURL(resized);
-			if (previewBlobUrl) {
-				URL.revokeObjectURL(previewBlobUrl);
-			}
-			setPreviewBlobUrl(localPreviewUrl);
+			resized = await resizeImage(file);
+		} catch {
+			setPreviewBlobUrl((current) => {
+				if (current) URL.revokeObjectURL(current);
+				return null;
+			});
+			setUploadError(ERROR_MESSAGES.resizeFailed);
+			setUploadingState(false);
+			return;
+		}
 
+		const localPreviewUrl = URL.createObjectURL(resized);
+		setPreviewBlobUrl((current) => {
+			if (current) URL.revokeObjectURL(current);
+			return localPreviewUrl;
+		});
+
+		try {
 			const formData = new FormData();
 			formData.append("file", resized, "avatar.webp");
 			const response = await fetch("/api/profile/avatar", {
@@ -118,7 +177,11 @@ export function WrappedCardProfileStep(props: WrappedCardProfileStepProps) {
 			});
 
 			if (!response.ok) {
-				throw new Error(`Avatar upload failed: ${response.status}`);
+				const message = await readUploadErrorMessage(response);
+				URL.revokeObjectURL(localPreviewUrl);
+				setPreviewBlobUrl(null);
+				setUploadError(message);
+				return;
 			}
 
 			const payload = (await response.json()) as {
@@ -130,11 +193,10 @@ export function WrappedCardProfileStep(props: WrappedCardProfileStepProps) {
 			setPreviewBlobUrl(null);
 			onImageChange(persistedImageUrl);
 		} catch {
-			if (previewBlobUrl) {
-				URL.revokeObjectURL(previewBlobUrl);
-			}
+			// fetch() rejection — network failure, CORS issue, server unreachable.
+			URL.revokeObjectURL(localPreviewUrl);
 			setPreviewBlobUrl(null);
-			setUploadError("We could not upload your image. Try again.");
+			setUploadError(ERROR_MESSAGES.network);
 		} finally {
 			setUploadingState(false);
 		}
@@ -248,6 +310,26 @@ export function WrappedCardProfileStep(props: WrappedCardProfileStepProps) {
 			useReferenceTopChrome
 		/>
 	);
+}
+
+async function readUploadErrorMessage(response: Response): Promise<string> {
+	let body: unknown = null;
+	try {
+		body = await response.json();
+	} catch {
+		return ERROR_MESSAGES.generic;
+	}
+
+	if (!body || typeof body !== "object") {
+		return ERROR_MESSAGES.generic;
+	}
+
+	const errorCode = (body as { error?: unknown }).error;
+	if (!isAvatarUploadErrorCode(errorCode)) {
+		return ERROR_MESSAGES.generic;
+	}
+
+	return SERVER_ERROR_MESSAGES[errorCode];
 }
 
 async function resizeImage(file: File): Promise<Blob> {

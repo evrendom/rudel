@@ -5,6 +5,8 @@ import {
 	AVATAR_MAX_BYTES,
 	AVATAR_MAX_MULTIPART_BYTES,
 	AVATAR_PUBLIC_ID_REGEX,
+	type AvatarUploadErrorBody,
+	type AvatarUploadErrorCode,
 } from "@rudel/api-routes";
 import type { Sql } from "postgres";
 import type { Session as AuthSession } from "../auth.js";
@@ -58,60 +60,172 @@ export async function handleAvatarGetRequest(input: {
 	});
 }
 
+interface AvatarUploadFailure {
+	code: AvatarUploadErrorCode;
+	message: string;
+	status: number;
+	limit?: number;
+}
+
+const FAILURES = {
+	unauthorized: {
+		code: "unauthorized",
+		message: "Your session expired. Refresh the page and sign in again.",
+		status: 401,
+	},
+	length_required: {
+		code: "length_required",
+		message: "Upload was missing a Content-Length header.",
+		status: 411,
+	},
+	request_too_large: {
+		code: "request_too_large",
+		message: "Upload was larger than the request limit.",
+		status: 413,
+		limit: AVATAR_MAX_MULTIPART_BYTES,
+	},
+	invalid_multipart: {
+		code: "invalid_multipart",
+		message: "We could not read the upload. Try selecting the file again.",
+		status: 400,
+	},
+	missing_file: {
+		code: "missing_file",
+		message: "No file was attached to the upload.",
+		status: 400,
+	},
+	file_too_large: {
+		code: "file_too_large",
+		message: "Image must be 2 MB or smaller after we resize it.",
+		status: 413,
+		limit: AVATAR_MAX_BYTES,
+	},
+	unsupported_image_type: {
+		code: "unsupported_image_type",
+		message:
+			"We could not read that image. Save it as PNG or JPEG and try again.",
+		status: 415,
+	},
+	server_error: {
+		code: "server_error",
+		message: "Something broke on our side. Try again in a moment.",
+		status: 500,
+	},
+} as const satisfies Record<AvatarUploadErrorCode, AvatarUploadFailure>;
+
+function buildErrorResponse(
+	failure: AvatarUploadFailure,
+	cors: Record<string, string>,
+	requestId: string | null,
+): Response {
+	const body: AvatarUploadErrorBody = {
+		error: failure.code,
+		message: failure.message,
+	};
+	if (failure.limit !== undefined) {
+		body.limit = failure.limit;
+	}
+	if (requestId) {
+		body.requestId = requestId;
+	}
+	return new Response(JSON.stringify(body), {
+		status: failure.status,
+		headers: {
+			...cors,
+			"Content-Type": "application/json",
+		},
+	});
+}
+
 export async function handleAvatarUploadRequest(input: {
 	cors: Record<string, string>;
 	getSession: SessionResolver;
 	request: Request;
+	requestId: string | null;
 }): Promise<Response> {
-	const { cors, getSession, request } = input;
+	const { cors, getSession, request, requestId } = input;
+	const respond = (failure: AvatarUploadFailure) =>
+		buildErrorResponse(failure, cors, requestId);
 
 	const session = await getSession(request);
 	if (!session?.user || !session?.session) {
-		return new Response("Unauthorized", { status: 401, headers: cors });
+		logger.warn("Avatar upload rejected: unauthorized");
+		return respond(FAILURES.unauthorized);
 	}
 
+	const userId = session.user.id;
 	const contentLengthHeader = request.headers.get("Content-Length");
 	if (contentLengthHeader === null) {
-		return new Response("Length Required", { status: 411, headers: cors });
+		logger.warn(
+			"Avatar upload rejected: missing Content-Length (user_id={userId})",
+			{ userId },
+		);
+		return respond(FAILURES.length_required);
 	}
 	const contentLengthValue = Number(contentLengthHeader);
 	if (
 		!Number.isFinite(contentLengthValue) ||
 		contentLengthValue > AVATAR_MAX_MULTIPART_BYTES
 	) {
-		return new Response("Payload Too Large", { status: 413, headers: cors });
+		logger.warn(
+			"Avatar upload rejected: request too large (user_id={userId} content_length={contentLength} limit={limit})",
+			{
+				contentLength: contentLengthHeader,
+				limit: AVATAR_MAX_MULTIPART_BYTES,
+				userId,
+			},
+		);
+		return respond(FAILURES.request_too_large);
 	}
 
 	let file: unknown;
 	try {
 		const formData = await request.formData();
 		file = formData.get("file");
-	} catch {
-		return new Response("Invalid multipart body", {
-			status: 400,
-			headers: cors,
-		});
+	} catch (error) {
+		logger.warn(
+			"Avatar upload rejected: invalid multipart body (user_id={userId} error={error})",
+			{ error: String(error), userId },
+		);
+		return respond(FAILURES.invalid_multipart);
 	}
 
 	if (!(file instanceof File)) {
-		return new Response("Missing file field", { status: 400, headers: cors });
+		logger.warn(
+			"Avatar upload rejected: missing file field (user_id={userId})",
+			{ userId },
+		);
+		return respond(FAILURES.missing_file);
 	}
 
 	if (file.size > AVATAR_MAX_BYTES) {
-		return new Response("Payload Too Large", { status: 413, headers: cors });
+		logger.warn(
+			"Avatar upload rejected: file too large (user_id={userId} file_size={fileSize} limit={limit} content_type={contentType})",
+			{
+				contentType: file.type,
+				fileSize: file.size,
+				limit: AVATAR_MAX_BYTES,
+				userId,
+			},
+		);
+		return respond(FAILURES.file_too_large);
 	}
 
 	const bytes = Buffer.from(await file.arrayBuffer());
 	const contentType = sniffImageMimeType(bytes);
 	if (!contentType) {
-		return new Response("Unsupported Media Type", {
-			status: 415,
-			headers: cors,
-		});
+		logger.warn(
+			"Avatar upload rejected: unsupported image type (user_id={userId} declared_content_type={declaredContentType} file_size={fileSize})",
+			{
+				declaredContentType: file.type || "unknown",
+				fileSize: file.size,
+				userId,
+			},
+		);
+		return respond(FAILURES.unsupported_image_type);
 	}
 
 	const imageHash = createHash("sha256").update(bytes).digest("hex");
-	const userId = session.user.id;
 
 	let publicId: string;
 	try {
@@ -134,11 +248,11 @@ export async function handleAvatarUploadRequest(input: {
 		});
 		publicId = result;
 	} catch (error) {
-		logger.error("Avatar upload failed: {error}", { error: String(error) });
-		return new Response("Internal Server Error", {
-			status: 500,
-			headers: cors,
-		});
+		logger.error(
+			"Avatar upload failed: server error (user_id={userId} error={error})",
+			{ error: String(error), userId },
+		);
+		return respond(FAILURES.server_error);
 	}
 
 	const [row] = await sqlClient<
@@ -151,7 +265,11 @@ export async function handleAvatarUploadRequest(input: {
 	`;
 
 	if (!row) {
-		return new Response("Not Found", { status: 404, headers: cors });
+		logger.error(
+			"Avatar upload succeeded but user row missing (user_id={userId})",
+			{ userId },
+		);
+		return respond(FAILURES.server_error);
 	}
 
 	const activeOrganizationId =
