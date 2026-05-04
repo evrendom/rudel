@@ -50,6 +50,10 @@ vi.mock("@/features/auth/ResetPasswordApp", () => ({
 	ResetPasswordApp: () => <div>Reset Password App</div>,
 }));
 
+vi.mock("@/features/auth/YcPasswordLoginPage", () => ({
+	YcPasswordLoginPage: () => <div>YC Password Login Page</div>,
+}));
+
 describe("App wrapped routing", () => {
 	beforeEach(() => {
 		mockUseSession.mockReset();
@@ -150,5 +154,35 @@ describe("App wrapped routing", () => {
 
 		expect(await screen.findByText("Wrapped Route Gate")).toBeInTheDocument();
 		expect(screen.getByText("Public id: share-123")).toBeInTheDocument();
+	});
+
+	it("routes /yc to the dedicated password login page without the desktop-only overlay", async () => {
+		render(
+			<MemoryRouter initialEntries={["/yc"]}>
+				<App />
+			</MemoryRouter>,
+		);
+
+		expect(
+			await screen.findByText("YC Password Login Page"),
+		).toBeInTheDocument();
+		expect(screen.queryByText("Guest App")).toBeNull();
+		expect(screen.queryByText("Desktop only")).toBeNull();
+	});
+
+	it("sends authenticated /yc visitors into the normal app", async () => {
+		mockUseSession.mockReturnValue({
+			data: { session: { userId: "user-1" }, user: { id: "user-1" } },
+			isPending: false,
+		});
+
+		render(
+			<MemoryRouter initialEntries={["/yc"]}>
+				<App />
+			</MemoryRouter>,
+		);
+
+		expect(await screen.findByText("Authenticated App")).toBeInTheDocument();
+		expect(screen.queryByText("YC Password Login Page")).toBeNull();
 	});
 });

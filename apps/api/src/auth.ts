@@ -2,8 +2,11 @@ import { apiKey } from "@better-auth/api-key";
 import { getLogger } from "@logtape/logtape";
 import { PRODUCT_ANALYTICS_EVENTS } from "@rudel/api-routes";
 import * as schema from "@rudel/sql-schema";
+import type { BetterAuthPlugin } from "better-auth";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
+import { APIError, createAuthEndpoint } from "better-auth/api";
+import { setSessionCookie } from "better-auth/cookies";
 import {
 	bearer,
 	deviceAuthorization,
@@ -84,6 +87,25 @@ export interface AuthConfig {
 	trustedOrigins?: string[];
 	cliDeviceVerificationUrl?: string;
 	slackWebhookUrl?: string;
+	ycLogin?: YcLoginConfig;
+}
+
+export interface YcLoginConfig {
+	allowedEmails?: readonly string[];
+	passwordHash?: string;
+	targetEmail?: string;
+}
+
+interface NormalizedYcLoginConfig {
+	allowedEmails: readonly string[];
+	passwordHash: string;
+	targetEmail: string;
+}
+
+interface YcLoginRequestBody {
+	email: string;
+	password: string;
+	rememberMe: boolean | undefined;
 }
 
 function createOrganizationPlugin(config: AuthConfig) {
@@ -105,10 +127,165 @@ function createOrganizationPlugin(config: AuthConfig) {
 	});
 }
 
+export function getYcLoginConfigFromEnv(
+	env: Record<string, string | undefined> = process.env,
+): YcLoginConfig {
+	return {
+		allowedEmails: parseCommaSeparatedEmails(env.YC_LOGIN_ALLOWED_EMAILS),
+		passwordHash: env.YC_LOGIN_PASSWORD_HASH?.trim(),
+		targetEmail: normalizeEmail(env.YC_LOGIN_TARGET_EMAIL ?? ""),
+	};
+}
+
+export function createYcLoginPlugin(
+	config: YcLoginConfig,
+): BetterAuthPlugin | null {
+	const normalizedConfig = normalizeYcLoginConfig(config);
+	if (!normalizedConfig) {
+		return null;
+	}
+
+	return {
+		id: "rudel-yc-login",
+		endpoints: {
+			ycSignIn: createAuthEndpoint(
+				"/yc/sign-in",
+				{
+					allowedMediaTypes: ["application/json"],
+					method: "POST",
+				},
+				async (ctx) => {
+					const body = parseYcLoginRequestBody(ctx.body);
+					if (!body) {
+						throw invalidYcLoginError();
+					}
+
+					const email = normalizeEmail(body.email);
+					if (!normalizedConfig.allowedEmails.includes(email)) {
+						await ctx.context.password.hash(body.password);
+						throw invalidYcLoginError();
+					}
+
+					const isPasswordValid = await ctx.context.password
+						.verify({
+							hash: normalizedConfig.passwordHash,
+							password: body.password,
+						})
+						.catch(() => false);
+					if (!isPasswordValid) {
+						throw invalidYcLoginError();
+					}
+
+					const user = await ctx.context.internalAdapter.findUserByEmail(
+						normalizedConfig.targetEmail,
+					);
+					if (!user) {
+						ctx.context.logger.error("YC login target user not found");
+						throw invalidYcLoginError();
+					}
+
+					const session = await ctx.context.internalAdapter.createSession(
+						user.user.id,
+						body.rememberMe === false,
+					);
+					if (!session) {
+						ctx.context.logger.error("Failed to create YC login session");
+						throw invalidYcLoginError();
+					}
+
+					await setSessionCookie(
+						ctx,
+						{
+							session,
+							user: user.user,
+						},
+						body.rememberMe === false,
+					);
+
+					return ctx.json({
+						redirect: false,
+						token: session.token,
+						url: null,
+						user: user.user,
+					});
+				},
+			),
+		},
+	};
+}
+
+function normalizeYcLoginConfig(
+	config: YcLoginConfig,
+): NormalizedYcLoginConfig | null {
+	const allowedEmails = [...new Set(config.allowedEmails?.map(normalizeEmail))]
+		.filter(isValidEmail)
+		.sort();
+	const targetEmail = normalizeEmail(config.targetEmail ?? "");
+	const passwordHash = config.passwordHash?.trim();
+
+	if (
+		allowedEmails.length === 0 ||
+		!isValidEmail(targetEmail) ||
+		!passwordHash
+	) {
+		return null;
+	}
+
+	return {
+		allowedEmails,
+		passwordHash,
+		targetEmail,
+	};
+}
+
+function parseYcLoginRequestBody(value: unknown): YcLoginRequestBody | null {
+	if (!isRecord(value)) {
+		return null;
+	}
+
+	const { email, password, rememberMe } = value;
+	if (typeof email !== "string" || typeof password !== "string") {
+		return null;
+	}
+
+	return {
+		email,
+		password,
+		rememberMe: typeof rememberMe === "boolean" ? rememberMe : undefined,
+	};
+}
+
+function invalidYcLoginError() {
+	return new APIError("UNAUTHORIZED", {
+		message: "Invalid email or password",
+	});
+}
+
+function parseCommaSeparatedEmails(value: string | undefined) {
+	if (!value) {
+		return [];
+	}
+
+	return value.split(",").map(normalizeEmail).filter(isValidEmail);
+}
+
+function normalizeEmail(value: string) {
+	return value.trim().toLowerCase();
+}
+
+function isValidEmail(value: string) {
+	return /^[^\s@]+@[^\s@]+\.[^\s@]+$/u.test(value);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- drizzleAdapter accepts { [key: string]: any }
 export function createAuth(db: object, config: AuthConfig) {
 	const trustedOrigins = config.trustedOrigins ?? [];
 	const resend = config.resend ?? {};
+	const ycLoginPlugin = createYcLoginPlugin(config.ycLogin ?? {});
 	if (!trustedOrigins.includes(config.appURL)) {
 		trustedOrigins.push(config.appURL);
 	}
@@ -180,6 +357,7 @@ export function createAuth(db: object, config: AuthConfig) {
 				verificationUri: config.cliDeviceVerificationUrl,
 			}),
 			createOrganizationPlugin(config),
+			...(ycLoginPlugin ? [ycLoginPlugin] : []),
 		],
 		session: {
 			expiresIn: 60 * 60 * 24 * 365,

@@ -48,6 +48,12 @@ const WrappedDesktopResumePage = lazy(() =>
 	})),
 );
 
+const YcPasswordLoginPage = lazy(() =>
+	import("@/features/auth/YcPasswordLoginPage").then((module) => ({
+		default: module.YcPasswordLoginPage,
+	})),
+);
+
 function FullscreenRouteLoadingScreen() {
 	return <AppLoadingScreen />;
 }
@@ -60,6 +66,7 @@ function App() {
 	const cardReferencePath = appRoutes.cardReference();
 	const wrappedDevPath = appRoutes.devWrapped();
 	const wrappedTeamCardPath = appRoutes.wrappedTeamCard();
+	const ycLoginPath = appRoutes.ycLogin();
 	const wrappedPublicId = getWrappedPublicIdFromPath(location.pathname);
 	const legacyWrappedPublicId = getLegacyWrappedPublicIdFromPath(
 		location.pathname,
@@ -74,6 +81,9 @@ function App() {
 		location.pathname.startsWith(`${wrappedDevPath}/`);
 	const isWrappedTeamCardPath =
 		location.pathname === wrappedTeamCardPath || wrappedPublicId !== null;
+	const isYcLoginPath =
+		location.pathname === ycLoginPath ||
+		location.pathname === `${ycLoginPath}/`;
 	const rootRedirectTarget =
 		getValidRedirect(location.search) ??
 		(location.pathname === "/"
@@ -84,6 +94,7 @@ function App() {
 		!isCardReferencePath &&
 		!isWrappedDevPath &&
 		!isWrappedTeamCardPath &&
+		!isYcLoginPath &&
 		!isLegacyWrappedSharePath &&
 		!isGetStartedPath(location.pathname) &&
 		!wrappedResumeToken;
@@ -161,6 +172,23 @@ function App() {
 					/>
 				</Suspense>
 				{showDesktopOnlyOverlay ? <DesktopOnlyOverlay /> : null}
+			</>
+		);
+	}
+
+	if (isYcLoginPath) {
+		return (
+			<>
+				<ProductAnalyticsSessionSync session={session} />
+				{isPending ? (
+					<AppLoadingScreen />
+				) : session ? (
+					<Navigate replace to={appRoutes.dashboard()} />
+				) : (
+					<Suspense fallback={<FullscreenRouteLoadingScreen />}>
+						<YcPasswordLoginPage />
+					</Suspense>
+				)}
 			</>
 		);
 	}
