@@ -834,7 +834,13 @@ describe("WrappedTeamCardRevealStage", () => {
 			/>,
 		);
 
-		expect(screen.getByText("MEMBER OF")).toBeInTheDocument();
+		expect(screen.getByText("MEMBER")).toBeInTheDocument();
+		const decimalsText = screen.getByText("Decimals");
+		const badge = decimalsText.closest(
+			".mymind-wrapped-team-card-edition-badge",
+		);
+		expect(decimalsText).toHaveClass("sr-only");
+		expect(badge).not.toHaveTextContent("MEMBER");
 
 		advanceRevealIntroToGate();
 
