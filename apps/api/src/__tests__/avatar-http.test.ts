@@ -241,9 +241,15 @@ describe("avatar upload handler", () => {
 			cors: {},
 			getSession: async () => null,
 			request,
+			requestId: "test-request-id",
 		});
 
 		expect(response.status).toBe(401);
+		expect(response.headers.get("Content-Type")).toBe("application/json");
+		const body = (await response.json()) as Record<string, unknown>;
+		expect(body.error).toBe("unauthorized");
+		expect(typeof body.message).toBe("string");
+		expect(body.requestId).toBe("test-request-id");
 		expect(sqlQueries).toHaveLength(0);
 		expect(txQueries).toHaveLength(0);
 	});
@@ -262,9 +268,12 @@ describe("avatar upload handler", () => {
 			cors: {},
 			getSession: async () => session,
 			request: stripped,
+			requestId: "test-request-id",
 		});
 
 		expect(response.status).toBe(411);
+		const body = (await response.json()) as Record<string, unknown>;
+		expect(body.error).toBe("length_required");
 		expect(txQueries).toHaveLength(0);
 	});
 
@@ -280,9 +289,13 @@ describe("avatar upload handler", () => {
 			cors: {},
 			getSession: async () => session,
 			request,
+			requestId: "test-request-id",
 		});
 
 		expect(response.status).toBe(413);
+		const body = (await response.json()) as Record<string, unknown>;
+		expect(body.error).toBe("request_too_large");
+		expect(typeof body.limit).toBe("number");
 		expect(txQueries).toHaveLength(0);
 	});
 
@@ -295,9 +308,12 @@ describe("avatar upload handler", () => {
 			cors: {},
 			getSession: async () => session,
 			request,
+			requestId: "test-request-id",
 		});
 
 		expect(response.status).toBe(400);
+		const body = (await response.json()) as Record<string, unknown>;
+		expect(body.error).toBe("missing_file");
 	});
 
 	test("rejects spoofed PNG content (script body) with 415", async () => {
@@ -316,9 +332,12 @@ describe("avatar upload handler", () => {
 			cors: {},
 			getSession: async () => session,
 			request,
+			requestId: "test-request-id",
 		});
 
 		expect(response.status).toBe(415);
+		const body = (await response.json()) as Record<string, unknown>;
+		expect(body.error).toBe("unsupported_image_type");
 		expect(txQueries).toHaveLength(0);
 	});
 
@@ -348,6 +367,7 @@ describe("avatar upload handler", () => {
 			cors: {},
 			getSession: async () => session,
 			request,
+			requestId: "test-request-id",
 		});
 
 		expect(response.status).toBe(200);

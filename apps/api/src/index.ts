@@ -187,7 +187,7 @@ const server = Bun.serve({
 		return withContext(
 			{ requestId, method: request.method, path: url.pathname },
 			async () => {
-				const response = await handleRequest(request, url, cors);
+				const response = await handleRequest(request, url, cors, requestId);
 				const duration = Math.round(performance.now() - start);
 				logger.info("{method} {path} {status} {duration}ms", {
 					method: request.method,
@@ -272,6 +272,7 @@ async function handleRequest(
 	request: Request,
 	url: URL,
 	cors: Record<string, string>,
+	requestId: string,
 ): Promise<Response> {
 	const wrappedShareCardImageId = getWrappedShareCardImageId(url.pathname);
 	if (wrappedShareCardImageId) {
@@ -321,6 +322,7 @@ async function handleRequest(
 			cors,
 			getSession: (req) => auth.api.getSession({ headers: req.headers }),
 			request,
+			requestId,
 		});
 	}
 
