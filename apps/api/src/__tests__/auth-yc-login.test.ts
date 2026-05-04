@@ -3,7 +3,11 @@ import assert from "node:assert";
 import { betterAuth } from "better-auth";
 import { memoryAdapter } from "better-auth/adapters/memory";
 import { hashPassword } from "better-auth/crypto";
-import { createYcLoginPlugin, getYcLoginConfigFromEnv } from "../auth.js";
+import {
+	createYcLoginPlugin,
+	getYcLoginConfigFromEnv,
+	isYcReviewSessionRecord,
+} from "../auth.js";
 
 const TARGET_EMAIL = "evren@example.com";
 const TARGET_PASSWORD = "target-password";
@@ -46,6 +50,13 @@ describe("YC login endpoint", () => {
 		expect(response.headers.get("Set-Cookie")).toContain(
 			"better-auth.session_token",
 		);
+		const sessionCookie = getSessionCookie(response);
+		const session = await auth.api.getSession({
+			headers: new Headers({ cookie: sessionCookie }),
+		});
+		assert(session);
+		expect(isYcReviewSessionRecord(session.session)).toBe(true);
+
 		const body: unknown = await response.json();
 		assert(isYcLoginResponse(body));
 		expect(body.user.email).toBe(TARGET_EMAIL);
@@ -86,7 +97,44 @@ describe("YC login endpoint", () => {
 		expect(response.status).toBe(401);
 		expect(response.headers.get("Set-Cookie")).toBeNull();
 	});
+
+	test("blocks account settings endpoints for YC review sessions", async () => {
+		const auth = await createTestAuth();
+		const signInResponse = await auth.handler(
+			new Request("http://localhost/api/auth/yc/sign-in", {
+				body: JSON.stringify({
+					email: "applicant@ycombinator.com",
+					password: YC_PASSWORD,
+				}),
+				headers: { "Content-Type": "application/json" },
+				method: "POST",
+			}),
+		);
+		const sessionCookie = getSessionCookie(signInResponse);
+
+		const response = await auth.handler(
+			new Request("http://localhost/api/auth/update-user", {
+				body: JSON.stringify({ name: "Changed Name" }),
+				headers: {
+					"Content-Type": "application/json",
+					cookie: sessionCookie,
+				},
+				method: "POST",
+			}),
+		);
+
+		expect(response.status).toBe(403);
+	});
 });
+
+function getSessionCookie(response: Response) {
+	const setCookie = response.headers.get("Set-Cookie");
+	assert(setCookie);
+	const sessionCookie = setCookie.split(";")[0];
+	assert(sessionCookie);
+
+	return sessionCookie;
+}
 
 async function createTestAuth() {
 	const passwordHash = await hashPassword(YC_PASSWORD);

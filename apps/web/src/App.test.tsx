@@ -26,7 +26,16 @@ vi.mock("@/features/auth/DeviceAuthorizationApp", () => ({
 }));
 
 vi.mock("@/features/auth/AuthenticatedApp", () => ({
-	AuthenticatedApp: () => <div>Authenticated App</div>,
+	AuthenticatedApp: ({
+		rootRedirectTarget,
+	}: {
+		rootRedirectTarget: string | null;
+	}) => (
+		<div>
+			<div>Authenticated App</div>
+			<div>Root redirect: {rootRedirectTarget ?? "none"}</div>
+		</div>
+	),
 }));
 
 vi.mock("@/features/wrapped/WrappedRouteGate", () => ({
@@ -170,7 +179,7 @@ describe("App wrapped routing", () => {
 		expect(screen.queryByText("Desktop only")).toBeNull();
 	});
 
-	it("sends authenticated /yc visitors into the normal app", async () => {
+	it("sends authenticated /yc visitors into wrapped", async () => {
 		mockUseSession.mockReturnValue({
 			data: { session: { userId: "user-1" }, user: { id: "user-1" } },
 			isPending: false,
@@ -182,7 +191,27 @@ describe("App wrapped routing", () => {
 			</MemoryRouter>,
 		);
 
-		expect(await screen.findByText("Authenticated App")).toBeInTheDocument();
+		expect(await screen.findByText("Wrapped Route Gate")).toBeInTheDocument();
+		expect(screen.getByText("Public id: none")).toBeInTheDocument();
 		expect(screen.queryByText("YC Password Login Page")).toBeNull();
+	});
+
+	it("routes YC review session root visits into wrapped first", async () => {
+		mockUseSession.mockReturnValue({
+			data: {
+				session: { userId: "user-1", ycReview: true },
+				user: { id: "user-1" },
+			},
+			isPending: false,
+		});
+
+		render(
+			<MemoryRouter initialEntries={["/"]}>
+				<App />
+			</MemoryRouter>,
+		);
+
+		expect(await screen.findByText("Authenticated App")).toBeInTheDocument();
+		expect(screen.getByText("Root redirect: /wrapped")).toBeInTheDocument();
 	});
 });

@@ -119,7 +119,7 @@ function YcPasswordLoginForm() {
 		}
 
 		refreshAuthClientState();
-		navigateToDestination(appRoutes.dashboard());
+		navigateToDestination(appRoutes.wrappedTeamCard());
 	}
 
 	return (
