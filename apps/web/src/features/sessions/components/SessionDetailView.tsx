@@ -88,26 +88,21 @@ function SessionDetailLoadingView() {
 				<div className="px-6 py-5">
 					<div className="grid gap-5">
 						<div className={sessionSummaryPanelClassName}>
-							<div className="grid gap-4 xl:grid-cols-[auto_minmax(0,1fr)] xl:items-start xl:gap-5">
-								<div className="flex min-w-0 flex-wrap items-center gap-2">
-									<Skeleton className="h-8 w-28 rounded-full bg-[color:var(--dashboardy-subsurface-strong)]" />
-									<Skeleton className="h-8 w-24 rounded-full bg-[color:var(--dashboardy-subsurface-strong)]" />
-									<Skeleton className="h-8 w-20 rounded-full bg-[color:var(--dashboardy-subsurface-strong)]" />
-									<Skeleton className="h-8 w-32 rounded-full bg-[color:var(--dashboardy-subsurface-strong)]" />
-								</div>
-
-								<div className={metricStripClassName}>
-									{metricSkeletons.map((label) => (
-										<div key={label} className={metricCellClassName}>
-											<Skeleton className="h-3 w-20 rounded-full bg-[color:var(--dashboardy-subsurface-strong)]" />
-											<Skeleton className="mt-2 h-5 max-w-full rounded-full bg-[color:var(--dashboardy-subsurface-strong)]" />
-										</div>
-									))}
-								</div>
+							<div className={metricStripClassName}>
+								{metricSkeletons.map((label) => (
+									<div key={label} className={metricCellClassName}>
+										<Skeleton className="h-3 w-20 rounded-full bg-[color:var(--dashboardy-subsurface-strong)]" />
+										<Skeleton className="mt-2 h-5 max-w-full rounded-full bg-[color:var(--dashboardy-subsurface-strong)]" />
+									</div>
+								))}
 							</div>
 
 							<div className="border-t border-[color:var(--dashboardy-divider)] pt-4">
 								<div className="flex flex-wrap gap-2">
+									<Skeleton className="h-8 w-28 rounded-full bg-[color:var(--dashboardy-subsurface-strong)]" />
+									<Skeleton className="h-8 w-24 rounded-full bg-[color:var(--dashboardy-subsurface-strong)]" />
+									<Skeleton className="h-8 w-20 rounded-full bg-[color:var(--dashboardy-subsurface-strong)]" />
+									<Skeleton className="h-8 w-32 rounded-full bg-[color:var(--dashboardy-subsurface-strong)]" />
 									<Skeleton className="h-8 w-72 rounded-full bg-[color:var(--dashboardy-subsurface-strong)]" />
 									<Skeleton className="h-8 w-56 rounded-full bg-[color:var(--dashboardy-subsurface-strong)]" />
 									<Skeleton className="h-8 w-44 rounded-full bg-[color:var(--dashboardy-subsurface-strong)]" />
@@ -227,11 +222,6 @@ export function SessionDetailView({
 		safeOutputTokens,
 		safeModelUsed,
 	).toFixed(4)}`;
-	const hasActivityBadges =
-		safeSkills.length > 0 ||
-		safeSlashCommands.length > 0 ||
-		subagentNames.length > 0;
-
 	return (
 		<SessionDetailErrorBoundary>
 			<div className="dashboardy-page flex h-full min-h-0 flex-col bg-[color:var(--dashboardy-surface)] text-[color:var(--dashboardy-heading)]">
@@ -292,8 +282,68 @@ export function SessionDetailView({
 					<div className="px-6 py-5">
 						<div className="grid gap-5">
 							<div className={sessionSummaryPanelClassName}>
-								<div className="grid gap-4 xl:grid-cols-[auto_minmax(0,1fr)] xl:items-start xl:gap-5">
-									<div className="flex min-w-0 flex-wrap items-center gap-2">
+								<div className={metricStripClassName}>
+									<SessionDetailMetric
+										className={metricCellClassName}
+										label="Duration"
+										value={
+											safeDurationMin !== undefined
+												? `${safeDurationMin} min`
+												: "—"
+										}
+									/>
+									<SessionDetailMetric
+										className={wideMetricCellClassName}
+										label="Interactions"
+										value={safeTotalInteractions ?? "—"}
+									/>
+									<SessionDetailMetric
+										className={wideMetricCellClassName}
+										label="Tokens"
+										value={tokenUsageLabel}
+										title={tokenUsageLabel}
+										valueClassName="dashboardy-mono truncate whitespace-nowrap"
+									/>
+									<SessionDetailMetric
+										className={metricCellClassName}
+										label="Cost"
+										value={costLabel}
+										title={costLabel}
+										valueClassName="dashboardy-mono truncate"
+									/>
+									{safeSuccessScore !== undefined ? (
+										<SessionDetailMetric
+											className={metricCellClassName}
+											label="Score"
+											value={
+												<span className="inline-flex min-w-0 items-center gap-1.5 whitespace-nowrap">
+													<span
+														className={
+															safeSuccessScore >= 70
+																? "font-semibold text-status-success-icon"
+																: safeSuccessScore >= 40
+																	? "font-semibold text-status-warning-icon"
+																	: "font-semibold text-status-error-icon"
+														}
+													>
+														{safeSuccessScore.toFixed(0)}/100
+													</span>
+													<InfoTooltip text="Session quality score (0–100): earns points for a git commit (+20), high output ratio (+15), and skills used (+5 each, max 3); loses points for errors (−2 each) and abandoned sessions." />
+												</span>
+											}
+										/>
+									) : null}
+									{subagentNames.length > 0 ? (
+										<SessionDetailMetric
+											className={metricCellClassName}
+											label="Subagents"
+											value={subagentNames.length}
+										/>
+									) : null}
+								</div>
+
+								<div className="border-t border-[color:var(--dashboardy-divider)] pt-4">
+									<div className="flex flex-wrap gap-2">
 										{safeGitSha ? (
 											<div className={compactIconBadgeClassName}>
 												<GitCommitHorizontal
@@ -320,102 +370,35 @@ export function SessionDetailView({
 											<User className={compactMetaBadgeIconClassName} />
 											{safeUserDisplayName}
 										</div>
-									</div>
-
-									<div className={metricStripClassName}>
-										<SessionDetailMetric
-											className={metricCellClassName}
-											label="Duration"
-											value={
-												safeDurationMin !== undefined
-													? `${safeDurationMin} min`
-													: "—"
-											}
-										/>
-										<SessionDetailMetric
-											className={wideMetricCellClassName}
-											label="Interactions"
-											value={safeTotalInteractions ?? "—"}
-										/>
-										<SessionDetailMetric
-											className={wideMetricCellClassName}
-											label="Tokens"
-											value={tokenUsageLabel}
-											title={tokenUsageLabel}
-											valueClassName="dashboardy-mono truncate whitespace-nowrap"
-										/>
-										<SessionDetailMetric
-											className={metricCellClassName}
-											label="Cost"
-											value={costLabel}
-											title={costLabel}
-											valueClassName="dashboardy-mono truncate"
-										/>
-										{safeSuccessScore !== undefined ? (
-											<SessionDetailMetric
-												className={metricCellClassName}
-												label="Score"
-												value={
-													<span className="inline-flex min-w-0 items-center gap-1.5 whitespace-nowrap">
-														<span
-															className={
-																safeSuccessScore >= 70
-																	? "font-semibold text-status-success-icon"
-																	: safeSuccessScore >= 40
-																		? "font-semibold text-status-warning-icon"
-																		: "font-semibold text-status-error-icon"
-															}
-														>
-															{safeSuccessScore.toFixed(0)}/100
-														</span>
-														<InfoTooltip text="Session quality score (0–100): earns points for a git commit (+20), high output ratio (+15), and skills used (+5 each, max 3); loses points for errors (−2 each) and abandoned sessions." />
-													</span>
-												}
-											/>
-										) : null}
-										{subagentNames.length > 0 ? (
-											<SessionDetailMetric
-												className={metricCellClassName}
-												label="Subagents"
-												value={subagentNames.length}
-											/>
-										) : null}
+										{[...new Set(safeSkills)].map((skill) => (
+											<div
+												key={skill}
+												className={activityBadgeClassName}
+												title={`skill:${skill}`}
+											>
+												<span className="truncate">skill:{skill}</span>
+											</div>
+										))}
+										{[...new Set(safeSlashCommands)].map((command) => (
+											<div
+												key={command}
+												className={activityBadgeClassName}
+												title={`/${command}`}
+											>
+												<span className="truncate">/{command}</span>
+											</div>
+										))}
+										{subagentNames.map((agent) => (
+											<div
+												key={agent}
+												className={activityBadgeClassName}
+												title={`agent:${agent}`}
+											>
+												<span className="truncate">agent:{agent}</span>
+											</div>
+										))}
 									</div>
 								</div>
-
-								{hasActivityBadges ? (
-									<div className="border-t border-[color:var(--dashboardy-divider)] pt-4">
-										<div className="flex flex-wrap gap-2">
-											{[...new Set(safeSkills)].map((skill) => (
-												<div
-													key={skill}
-													className={activityBadgeClassName}
-													title={`skill:${skill}`}
-												>
-													<span className="truncate">skill:{skill}</span>
-												</div>
-											))}
-											{[...new Set(safeSlashCommands)].map((command) => (
-												<div
-													key={command}
-													className={activityBadgeClassName}
-													title={`/${command}`}
-												>
-													<span className="truncate">/{command}</span>
-												</div>
-											))}
-											{subagentNames.map((agent) => (
-												<div
-													key={agent}
-													className={activityBadgeClassName}
-													title={`agent:${agent}`}
-												>
-													<span className="truncate">agent:{agent}</span>
-												</div>
-											))}
-										</div>
-									</div>
-								) : null}
 							</div>
 
 							<ConversationView content={safeContent} showHeader={false} />
