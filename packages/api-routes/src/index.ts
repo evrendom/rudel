@@ -61,6 +61,11 @@ import {
 	WrappedV1Schema,
 } from "./schemas/analytics.js";
 import {
+	RedeemWrappedDecimalClaimInputSchema,
+	RedeemWrappedDecimalClaimResultSchema,
+	WrappedDecimalClaimEntitlementSchema,
+} from "./schemas/wrapped-decimal-claim.js";
+import {
 	ConsumeWrappedResumeInputSchema,
 	CreateWrappedResumeInputSchema,
 	WrappedResumeConsumeResultSchema,
@@ -77,6 +82,7 @@ export * from "./avatar.js";
 export * from "./model-pricing.js";
 export * from "./product-analytics.js";
 export * from "./schemas/analytics.js";
+export * from "./schemas/wrapped-decimal-claim.js";
 export * from "./schemas/wrapped-resume.js";
 export * from "./schemas/wrapped-share.js";
 
@@ -233,6 +239,12 @@ export const contract = {
 		consume: oc
 			.input(ConsumeWrappedResumeInputSchema)
 			.output(WrappedResumeConsumeResultSchema),
+	},
+	wrappedDecimalClaim: {
+		redeem: oc
+			.input(RedeemWrappedDecimalClaimInputSchema)
+			.output(RedeemWrappedDecimalClaimResultSchema),
+		getMine: oc.output(WrappedDecimalClaimEntitlementSchema),
 	},
 	admin: {
 		listUsers: oc

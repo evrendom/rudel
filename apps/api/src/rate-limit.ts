@@ -13,6 +13,7 @@ const analyticsWindows = new Map<string, SlidingWindowEntry>();
 const wrappedShareCreateWindows = new Map<string, SlidingWindowEntry>();
 const wrappedShareLookupWindows = new Map<string, SlidingWindowEntry>();
 const wrappedResumeCreateWindows = new Map<string, SlidingWindowEntry>();
+const wrappedDecimalClaimRedeemWindows = new Map<string, SlidingWindowEntry>();
 
 const ANALYTICS_MAX_REQUESTS = Number(
 	process.env.RATE_LIMIT_ANALYTICS_MAX ?? 90,
@@ -34,6 +35,12 @@ const WRAPPED_RESUME_CREATE_MAX_REQUESTS = Number(
 );
 const WRAPPED_RESUME_CREATE_WINDOW_MS =
 	Number(process.env.RATE_LIMIT_WRAPPED_RESUME_CREATE_WINDOW ?? 1800) * 1000;
+const WRAPPED_DECIMAL_CLAIM_REDEEM_MAX_REQUESTS = Number(
+	process.env.RATE_LIMIT_WRAPPED_DECIMAL_CLAIM_REDEEM_MAX ?? 10,
+);
+const WRAPPED_DECIMAL_CLAIM_REDEEM_WINDOW_MS =
+	Number(process.env.RATE_LIMIT_WRAPPED_DECIMAL_CLAIM_REDEEM_WINDOW ?? 60) *
+	1000;
 
 export function checkAnalyticsRateLimit(userId: string): void {
 	const now = Date.now();
@@ -99,6 +106,20 @@ export function checkWrappedResumeCreateRateLimit(userId: string) {
 		map: wrappedResumeCreateWindows,
 		operationName: "wrapped desktop resume creation",
 		windowMs: WRAPPED_RESUME_CREATE_WINDOW_MS,
+	});
+}
+
+// Per-user redemption limit. Tokens are 256 bits so brute force is impossible;
+// this is a thin guardrail to keep a single account from hammering the redeem
+// endpoint by accident or otherwise.
+export function checkWrappedDecimalClaimRedeemRateLimit(userId: string) {
+	checkSlidingWindowRateLimit({
+		entityId: userId,
+		errorMessage: `Decimal claim redemption is temporarily rate limited. Maximum ${WRAPPED_DECIMAL_CLAIM_REDEEM_MAX_REQUESTS} requests per ${Math.round(WRAPPED_DECIMAL_CLAIM_REDEEM_WINDOW_MS / 1000)} seconds.`,
+		maxRequests: WRAPPED_DECIMAL_CLAIM_REDEEM_MAX_REQUESTS,
+		map: wrappedDecimalClaimRedeemWindows,
+		operationName: "wrapped decimal claim redemption",
+		windowMs: WRAPPED_DECIMAL_CLAIM_REDEEM_WINDOW_MS,
 	});
 }
 
