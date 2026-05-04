@@ -8,6 +8,10 @@ export const WRAPPED_SHARE_PAYLOAD_VERSION = 1 as const;
 // narrower than the private wrapped page data so public replay only exposes the
 // fields we are comfortable showing outside the authenticated product.
 export const WrappedShareThemeSchema = z.enum(["dark", "light", "muted"]);
+// Variant gates which card a share renders. Decimal write is server-gated by
+// wrapped_decimal_claim entitlement; the public route trusts the persisted
+// variant and renders from the snapshot alone.
+export const WrappedShareVariantSchema = z.enum(["normal", "decimal"]);
 export const WrappedShareLayoutModeSchema = z.enum(["front", "front_back"]);
 export const WrappedShareIdSchema = z
 	.string()
@@ -86,6 +90,7 @@ export const WrappedShareSnapshotSchema = z.object({
 
 export const CreateWrappedShareInputSchema = z.object({
 	snapshot: WrappedShareSnapshotSchema,
+	variant: WrappedShareVariantSchema.default("normal"),
 });
 
 export const GetPublicWrappedShareInputSchema = z.object({
@@ -97,6 +102,7 @@ export const WrappedShareRecordSchema = z.object({
 	created_at: z.string(),
 	expires_at: z.string(),
 	id: WrappedShareIdSchema,
+	variant: WrappedShareVariantSchema,
 });
 
 export const PublicWrappedShareSchema = WrappedShareRecordSchema.extend({
@@ -104,6 +110,7 @@ export const PublicWrappedShareSchema = WrappedShareRecordSchema.extend({
 });
 
 export type WrappedShareTheme = z.infer<typeof WrappedShareThemeSchema>;
+export type WrappedShareVariant = z.infer<typeof WrappedShareVariantSchema>;
 export type WrappedShareLayoutMode = z.infer<
 	typeof WrappedShareLayoutModeSchema
 >;

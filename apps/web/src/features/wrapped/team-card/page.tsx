@@ -1,6 +1,7 @@
 import {
 	WRAPPED_SHARE_PAYLOAD_VERSION,
 	type WrappedShareAppearance,
+	type WrappedShareVariant,
 } from "@rudel/api-routes";
 import { useDialKit } from "dialkit";
 import { ChevronLeft, ChevronRight } from "lucide-react";
@@ -18,7 +19,14 @@ import {
 	useState,
 } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { appRoutes, getWrappedShareIdFromSearch } from "@/app/routes";
+import {
+	appRoutes,
+	getWrappedShareIdFromSearch,
+	WRAPPED_VARIANT_DECIMAL,
+	WRAPPED_VARIANT_NORMAL,
+	WRAPPED_VARIANT_QUERY_PARAM,
+	type WrappedVariant,
+} from "@/app/routes";
 import { Button } from "@/app/ui/button";
 import { useAnalyticsTracking } from "@/features/analytics/tracking/useAnalyticsTracking";
 import type { TeamPageMemberRow } from "@/features/team/use-team-page-data";
@@ -29,12 +37,14 @@ import { useMountEffect } from "@/hooks/useMountEffect";
 import { formatCompactWholeCurrency } from "@/lib/format";
 import {
 	getWrappedArchetypeCardBackgroundValue,
+	getWrappedArchetypeStatLayerOverrides,
 	WRAPPED_ARCHETYPE_CARD_THEMES,
 	type WrappedArchetypeCardTheme,
 } from "./archetypes";
 import { buildWrappedTeamCardBackMetrics } from "./back-metrics";
 import {
 	WrappedTeamMemberCard,
+	type WrappedTeamMemberCardEdition,
 	type WrappedTeamMemberCardHeaderMetric,
 	type WrappedTeamMemberCardStatItem,
 	type WrappedTeamMemberCardStatLayerOpacities,
@@ -94,11 +104,26 @@ const TEAM_CARD_SHELL_STYLE = {
 
 export function WrappedTeamCardPage(props: {
 	debugControls?: ReactNode;
+	devPreviewArchetype?: WrappedArchetypeCardTheme;
+	devPreviewPublicId?: string;
+	devPreviewUserEmail?: string;
+	devPreviewUserId?: string;
+	isDecimalEntitled?: boolean;
 	onBackFromFirstStep?: () => void;
+	variant?: WrappedVariant;
 }) {
-	const { debugControls, onBackFromFirstStep } = props;
+	const {
+		debugControls,
+		devPreviewArchetype,
+		devPreviewPublicId,
+		devPreviewUserEmail,
+		devPreviewUserId,
+		isDecimalEntitled = false,
+		onBackFromFirstStep,
+		variant = WRAPPED_VARIANT_NORMAL,
+	} = props;
 	const navigate = useNavigate();
-	const [searchParams] = useSearchParams();
+	const [searchParams, setSearchParams] = useSearchParams();
 	const { trackUtilityUsed, trackWrappedStoryStarted } = useAnalyticsTracking({
 		pageName: "wrapped_team_card",
 	});
@@ -113,7 +138,11 @@ export function WrappedTeamCardPage(props: {
 		onboardingMetrics,
 		statItems,
 		visibleTeamCardRow,
-	} = useWrappedTeamCardPageData();
+	} = useWrappedTeamCardPageData({
+		devPreviewPublicId,
+		devPreviewUserEmail,
+		devPreviewUserId,
+	});
 	const tiltController = useWrappedCardTilt();
 	// liveArchetype reflects the snapshot-backed classifier output. The dev
 	// override is interaction-only state, gated by import.meta.env.DEV, used so
@@ -139,11 +168,52 @@ export function WrappedTeamCardPage(props: {
 	const activeArchetype: WrappedArchetypeCardTheme | null =
 		devOverrideIndex !== null
 			? (WRAPPED_ARCHETYPE_CARD_THEMES[devOverrideIndex] ?? liveArchetype)
-			: liveArchetype;
+			: (liveArchetype ??
+				getWrappedDevPreviewArchetype({
+					archetype: devPreviewArchetype,
+					publicId: devPreviewPublicId,
+					userEmail: devPreviewUserEmail,
+					userId: devPreviewUserId,
+				}));
 
 	if (!activeArchetype) {
 		throw new Error(
 			"Wrapped archetype gate blocked story without an archetype.",
+		);
+	}
+
+	const shareVariant: WrappedShareVariant =
+		variant === WRAPPED_VARIANT_DECIMAL ? "decimal" : "normal";
+	const cardEdition: WrappedTeamMemberCardEdition | undefined =
+		shareVariant === "decimal" ? "decimal" : undefined;
+
+	function setWrappedVariant(nextVariant: WrappedVariant) {
+		setSearchParams(
+			(previousSearchParams) => {
+				const nextSearchParams = new URLSearchParams(previousSearchParams);
+				if (nextVariant === WRAPPED_VARIANT_DECIMAL) {
+					nextSearchParams.set(
+						WRAPPED_VARIANT_QUERY_PARAM,
+						WRAPPED_VARIANT_DECIMAL,
+					);
+				} else if (
+					import.meta.env.DEV &&
+					hasWrappedDevPreviewTarget({
+						devPreviewPublicId,
+						devPreviewUserEmail,
+						devPreviewUserId,
+					})
+				) {
+					nextSearchParams.set(
+						WRAPPED_VARIANT_QUERY_PARAM,
+						WRAPPED_VARIANT_NORMAL,
+					);
+				} else {
+					nextSearchParams.delete(WRAPPED_VARIANT_QUERY_PARAM);
+				}
+				return nextSearchParams;
+			},
+			{ replace: true },
 		);
 	}
 
@@ -180,27 +250,22 @@ export function WrappedTeamCardPage(props: {
 				tileTopStrokeOpacity: dialValues.statLayers.topStrokeOpacity,
 				textureOpacity: dialValues.statLayers.textureOpacity,
 			};
+			// The legacy Decimal dev theme keeps its own stat treatment. The Decimal
+			// edition flow itself keeps the user's classifier archetype and layers
+			// edition chrome separately.
+			const archetypeOverrides =
+				getWrappedArchetypeStatLayerOverrides(activeArchetype);
 
-			if (activeArchetype.id !== "decimal") {
+			if (!archetypeOverrides) {
 				return baseStatLayerOpacities;
 			}
 
-			// Decimal is a VIP special edition, not part of the classifier-backed
-			// taxonomy. It keeps its own visual treatment on purpose.
 			return {
 				...baseStatLayerOpacities,
-				hideTextureImage: true,
-				maskTint: "black",
-				rainbowShineOpacity: 0,
-				textTone: "muted-white",
-				tileBaseOpacity: 0,
-				tileFillOpacity: 0.05,
-				tileFillTint: "black",
-				textureOpacity: 0,
-				whiteMaskOpacity: 0.05,
+				...archetypeOverrides,
 			};
 		}, [
-			activeArchetype.id,
+			activeArchetype,
 			dialValues.statLayers.borderOpacity,
 			dialValues.statLayers.fillOpacity,
 			dialValues.statLayers.insetShadowOpacity,
@@ -228,35 +293,78 @@ export function WrappedTeamCardPage(props: {
 	});
 	return (
 		<WrappedTeamCardPageContent
-			key={activeStepParam === "card" ? "card" : "not-card"}
+			// Re-mount on variant change so per-variant share state (in-flight
+			// requests, cached share record) does not bleed across switches.
+			key={`${activeStepParam === "card" ? "card" : "not-card"}:${variant}`}
 			activeArchetype={activeArchetype}
 			debugControls={debugControls}
+			edition={cardEdition}
 			headerLeftMetric={headerLeftMetric}
 			headerRightMetric={headerRightMetric}
+			isDecimalEntitled={isDecimalEntitled}
 			onboardingMetrics={onboardingMetrics}
 			onBackFromFirstStep={onBackFromFirstStep}
 			onContinueToDashboard={handleContinueToDashboard}
+			onSelectVariant={setWrappedVariant}
 			shareAppearance={resolveWrappedShareAppearance(shareAppearance)}
 			shareCardCreatedAtLabel={shareCardCreatedAtLabel}
+			shareVariant={shareVariant}
 			shellStyle={TEAM_CARD_SHELL_STYLE}
 			statItems={statItems}
 			statLayerOpacities={statLayerOpacities}
 			setDevOverrideIndex={setDevOverrideIndex}
 			setShareAppearance={setShareAppearance}
 			tiltController={tiltController}
+			variant={variant}
 			visibleTeamCardRow={visibleTeamCardRow}
 		/>
+	);
+}
+
+function getWrappedDevPreviewArchetype(input: {
+	archetype: WrappedArchetypeCardTheme | undefined;
+	publicId: string | undefined;
+	userEmail: string | undefined;
+	userId: string | undefined;
+}) {
+	if (input.archetype) {
+		return input.archetype;
+	}
+
+	if (
+		!hasWrappedDevPreviewTarget({
+			devPreviewPublicId: input.publicId,
+			devPreviewUserEmail: input.userEmail,
+			devPreviewUserId: input.userId,
+		})
+	) {
+		return null;
+	}
+
+	return getWrappedDefaultDevPreviewArchetype();
+}
+
+function getWrappedDefaultDevPreviewArchetype() {
+	return (
+		WRAPPED_ARCHETYPE_CARD_THEMES.find(
+			(theme) => theme.id === "smooth_operator",
+		) ??
+		WRAPPED_ARCHETYPE_CARD_THEMES.find((theme) => theme.kind === "taxonomy") ??
+		null
 	);
 }
 
 function WrappedTeamCardPageContent(props: {
 	activeArchetype: WrappedArchetypeCardTheme;
 	debugControls?: ReactNode;
+	edition?: WrappedTeamMemberCardEdition;
 	headerLeftMetric: WrappedTeamMemberCardHeaderMetric;
 	headerRightMetric: WrappedTeamMemberCardHeaderMetric;
+	isDecimalEntitled: boolean;
 	onboardingMetrics: WrappedOnboardingMetrics;
 	onBackFromFirstStep?: () => void;
 	onContinueToDashboard: () => void;
+	onSelectVariant: (variant: WrappedVariant) => void;
 	setDevOverrideIndex: (
 		nextValue: number | null | ((currentValue: number | null) => number | null),
 	) => void;
@@ -267,28 +375,35 @@ function WrappedTeamCardPageContent(props: {
 	) => void;
 	shareAppearance: WrappedShareAppearance;
 	shareCardCreatedAtLabel: string;
+	shareVariant: WrappedShareVariant;
 	shellStyle: CSSProperties;
 	statItems: readonly WrappedTeamMemberCardStatItem[];
 	statLayerOpacities: WrappedTeamMemberCardStatLayerOpacities;
 	tiltController: WrappedCardTiltController;
+	variant: WrappedVariant;
 	visibleTeamCardRow: TeamPageMemberRow;
 }) {
 	const {
 		activeArchetype,
 		debugControls,
+		edition,
 		headerLeftMetric,
 		headerRightMetric,
+		isDecimalEntitled,
 		onboardingMetrics,
 		onBackFromFirstStep,
 		onContinueToDashboard,
+		onSelectVariant,
 		setDevOverrideIndex,
 		setShareAppearance,
 		shareAppearance,
 		shareCardCreatedAtLabel,
+		shareVariant,
 		shellStyle,
 		statItems,
 		statLayerOpacities,
 		tiltController,
+		variant,
 		visibleTeamCardRow,
 	} = props;
 	const sharePostRef = useRef<HTMLDivElement>(null);
@@ -393,6 +508,7 @@ function WrappedTeamCardPageContent(props: {
 				sourceShareId,
 			});
 		},
+		variant: shareVariant,
 	});
 	// The share action helpers stay presentational from the page's perspective.
 	// We pass analytics hooks in, but keep the details of clipboard/native share/
@@ -587,6 +703,7 @@ function WrappedTeamCardPageContent(props: {
 					<WrappedTeamCardShareStage
 						appearance={shareAppearance}
 						backMetrics={shareBackMetrics}
+						edition={edition}
 						frontCardHandoffRef={shareCardHandoffRef}
 						headerLeftMetric={headerLeftMetric}
 						headerRightMetric={headerRightMetric}
@@ -638,6 +755,7 @@ function WrappedTeamCardPageContent(props: {
 				>
 					<WrappedTeamCardRevealStage
 						activeArchetype={activeArchetype}
+						edition={edition}
 						handoffCardRef={revealCardHandoffRef}
 						headerLeftMetric={headerLeftMetric}
 						headerRightMetric={headerRightMetric}
@@ -716,7 +834,39 @@ function WrappedTeamCardPageContent(props: {
 				statLayerOpacities={statLayerOpacities}
 				theme={activeArchetype.theme}
 			/>
+			{isDecimalEntitled ? (
+				<WrappedVariantSwitcher
+					onSelectVariant={onSelectVariant}
+					variant={variant}
+				/>
+			) : null}
 		</>
+	);
+}
+
+function WrappedVariantSwitcher(props: {
+	onSelectVariant: (variant: WrappedVariant) => void;
+	variant: WrappedVariant;
+}) {
+	const { onSelectVariant, variant } = props;
+	const isOnDecimal = variant === WRAPPED_VARIANT_DECIMAL;
+	const nextVariant: WrappedVariant = isOnDecimal
+		? WRAPPED_VARIANT_NORMAL
+		: WRAPPED_VARIANT_DECIMAL;
+	const label = isOnDecimal ? "View normal card" : "View Decimal card";
+
+	return (
+		<div className="fixed top-3 right-3 z-50">
+			<Button
+				type="button"
+				size="sm"
+				variant="outline"
+				className="bg-black/60 text-white border-white/20 backdrop-blur-md hover:bg-black/80"
+				onClick={() => onSelectVariant(nextVariant)}
+			>
+				{label}
+			</Button>
+		</div>
 	);
 }
 
@@ -910,6 +1060,18 @@ function getWrappedArchetypeThemeIndex(
 	}
 
 	return index;
+}
+
+function hasWrappedDevPreviewTarget(input: {
+	devPreviewPublicId: string | undefined;
+	devPreviewUserEmail: string | undefined;
+	devPreviewUserId: string | undefined;
+}) {
+	return Boolean(
+		input.devPreviewPublicId ||
+			input.devPreviewUserEmail ||
+			input.devPreviewUserId,
+	);
 }
 
 function WrappedTeamCardThemeDebugControls(props: {

@@ -1,4 +1,7 @@
-import type { WrappedTeamMemberCardTheme } from "./card";
+import type {
+	WrappedTeamMemberCardStatLayerOpacities,
+	WrappedTeamMemberCardTheme,
+} from "./card";
 
 export type WrappedProductArchetypeId =
 	| "roadrunner"
@@ -159,4 +162,34 @@ function isWrappedProductArchetypeCardTheme(
 	theme: WrappedArchetypeCardTheme,
 ): theme is WrappedProductArchetypeCardTheme {
 	return theme.kind === "taxonomy";
+}
+
+// Decimal is a special-edition card whose stat tiles deliberately drop the
+// rainbow shine and white texture in favor of a dark, hushed treatment that
+// reads against the gold gradient. These overrides are pure identity (no live
+// data), so both the authenticated wrapped page and the public share route
+// can resolve the same final stat treatment from `archetype.id` alone.
+export const WRAPPED_DECIMAL_STAT_LAYER_OVERRIDES = {
+	hideTextureImage: true,
+	maskTint: "black",
+	rainbowShineOpacity: 0,
+	textTone: "muted-white",
+	tileBaseOpacity: 0,
+	tileFillOpacity: 0.05,
+	tileFillTint: "black",
+	textureOpacity: 0,
+	whiteMaskOpacity: 0.05,
+} as const satisfies Partial<WrappedTeamMemberCardStatLayerOpacities>;
+
+// Returns archetype-driven stat layer overrides only — base values still come
+// from the caller (dialkit on the private page, defaults on the public route).
+// Returning undefined for non-Decimal keeps the existing call sites unchanged.
+export function getWrappedArchetypeStatLayerOverrides(
+	archetype: WrappedArchetypeCardTheme,
+): Partial<WrappedTeamMemberCardStatLayerOpacities> | undefined {
+	if (archetype.id === "decimal") {
+		return WRAPPED_DECIMAL_STAT_LAYER_OVERRIDES;
+	}
+
+	return undefined;
 }

@@ -46,8 +46,19 @@ let rawSessionCount = 45;
 vi.mock("@/lib/orpc", () => ({
 	client: {
 		getOrganizationSessionCount: mockGetOrganizationSessionCount,
+		wrappedDecimalClaim: {
+			redeem: vi.fn(),
+		},
 	},
 	orpc: {
+		wrappedDecimalClaim: {
+			getMine: {
+				queryOptions: () => ({
+					queryFn: async () => ({ entitled: false }),
+					queryKey: ["wrappedDecimalClaim", "getMine"],
+				}),
+			},
+		},
 		analytics: {
 			developers: {
 				projects: {

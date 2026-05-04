@@ -19,6 +19,8 @@ export type {
 	UserSelect,
 	VerificationInsert,
 	VerificationSelect,
+	WrappedDecimalClaimInsert,
+	WrappedDecimalClaimSelect,
 	WrappedResumeInsert,
 	WrappedResumeSelect,
 	WrappedShareInsert,
@@ -35,6 +37,7 @@ export {
 	user,
 	userAvatar,
 	verification,
+	wrappedDecimalClaim,
 	wrappedResume,
 	wrappedShare,
 } from "./schema.js";

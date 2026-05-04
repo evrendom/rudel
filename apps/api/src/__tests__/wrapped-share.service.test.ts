@@ -9,6 +9,7 @@ interface SqlQuery {
 
 const sqlQueries: SqlQuery[] = [];
 let selectRows: unknown[] = [];
+let selectRouter: ((sql: string, values: unknown[]) => unknown[]) | null = null;
 let insertRows: unknown[] = [];
 let updateRows: unknown[] = [];
 
@@ -17,6 +18,9 @@ function sqlClient(strings: TemplateStringsArray, ...values: unknown[]) {
 	sqlQueries.push({ sql, values });
 
 	if (sql.startsWith("SELECT")) {
+		if (selectRouter) {
+			return selectRouter(sql, values);
+		}
 		return selectRows;
 	}
 
@@ -43,6 +47,7 @@ describe("wrapped share service", () => {
 	beforeEach(() => {
 		sqlQueries.length = 0;
 		selectRows = [];
+		selectRouter = null;
 		insertRows = [];
 		updateRows = [];
 	});
@@ -54,6 +59,7 @@ describe("wrapped share service", () => {
 			organizationId: "org-1",
 			snapshot: createSnapshot({ displayName: "Evren" }),
 			userId: "user-1",
+			variant: "normal",
 		});
 
 		expect(record.id).toBe("evren");
@@ -77,6 +83,7 @@ describe("wrapped share service", () => {
 			organizationId: "org-1",
 			snapshot: createSnapshot({ displayName: "Evren" }),
 			userId: "user-1",
+			variant: "normal",
 		});
 
 		expect(record.id).toBe("evren");
@@ -97,6 +104,7 @@ describe("wrapped share service", () => {
 			organizationId: "org-1",
 			snapshot: createSnapshot({ displayName: "Evren" }),
 			userId: "user-1",
+			variant: "normal",
 		});
 
 		expect(record.id).toBe("evren");
@@ -318,6 +326,105 @@ describe("wrapped share service", () => {
 
 		assert(share);
 		expect(share.snapshot.row.imageUrl).toBe(avatarPath);
+	});
+
+	test("rejects decimal share creation when the user has no claim row", async () => {
+		selectRouter = (sql) => {
+			if (sql.includes("FROM wrapped_decimal_claim")) {
+				return [];
+			}
+			throw new Error(`unexpected select before entitlement gate: ${sql}`);
+		};
+
+		await expect(
+			createWrappedShare({
+				organizationId: "org-1",
+				snapshot: createSnapshot({ displayName: "Evren" }),
+				userId: "user-1",
+				variant: "decimal",
+			}),
+		).rejects.toThrow(/Decimal wrapped is not available/);
+		expect(getSqlQuery(0).sql).toContain("FROM wrapped_decimal_claim");
+		expect(getSqlQuery(0).values).toEqual(["user-1"]);
+	});
+
+	test("creates a decimal slug when the user has an entitlement row", async () => {
+		selectRouter = (sql) => {
+			if (sql.includes("FROM wrapped_decimal_claim")) {
+				return [{ exists: 1 }];
+			}
+			return [];
+		};
+		insertRows = [{ id: "evren-decimal" }];
+
+		const record = await createWrappedShare({
+			organizationId: "org-1",
+			snapshot: createSnapshot({ displayName: "Evren" }),
+			userId: "user-1",
+			variant: "decimal",
+		});
+
+		expect(record.id).toBe("evren-decimal");
+		expect(record.variant).toBe("decimal");
+		const insertQuery = sqlQueries.find((q) =>
+			q.sql.startsWith("INSERT INTO wrapped_share"),
+		);
+		assert(insertQuery);
+		expect(insertQuery.values[0]).toBe("evren-decimal");
+		expect(insertQuery.values).toContain("decimal");
+	});
+
+	test("scopes the per-user share lookup by variant so normal and decimal rows coexist", async () => {
+		selectRouter = (sql) => {
+			if (sql.includes("FROM wrapped_decimal_claim")) {
+				return [{ exists: 1 }];
+			}
+			if (
+				sql.includes("FROM wrapped_share") &&
+				sql.includes("user_id =") &&
+				sql.includes("variant =")
+			) {
+				return [];
+			}
+			return [];
+		};
+		insertRows = [{ id: "evren-decimal" }];
+
+		await createWrappedShare({
+			organizationId: "org-1",
+			snapshot: createSnapshot({ displayName: "Evren" }),
+			userId: "user-1",
+			variant: "decimal",
+		});
+
+		const userShareLookup = sqlQueries.find(
+			(q) =>
+				q.sql.startsWith("SELECT id, created_at") &&
+				q.sql.includes("variant ="),
+		);
+		assert(userShareLookup);
+		expect(userShareLookup.values).toEqual(["user-1", "decimal"]);
+	});
+
+	test("returns variant on the public share response", async () => {
+		selectRows = [
+			{
+				createdAt: "2026-04-22T10:00:00.000Z",
+				expiresAt: new Date(Date.now() + 60_000).toISOString(),
+				id: "evren-decimal",
+				payloadVersion: 1,
+				snapshotJson: JSON.stringify(
+					createSnapshot({ displayName: "Evren", imageUrl: null }),
+				),
+				userImage: null,
+				variant: "decimal",
+			},
+		];
+
+		const share = await getPublicWrappedShare("evren-decimal");
+
+		assert(share);
+		expect(share.variant).toBe("decimal");
 	});
 
 	test("freezes a non-avatar snapshot url even when the user profile changes", async () => {

@@ -1,11 +1,18 @@
 import { useDialKit } from "dialkit";
 import { type ReactNode, startTransition } from "react";
 import { useSearchParams } from "react-router-dom";
+import {
+	WRAPPED_VARIANT_DECIMAL,
+	WRAPPED_VARIANT_NORMAL,
+	WRAPPED_VARIANT_QUERY_PARAM,
+	type WrappedVariant,
+} from "@/app/routes";
 import { Button } from "@/app/ui/button";
 import {
 	type CliSetupStepId,
 	cliSetupCommands,
 } from "@/components/analytics/CliSetupHint";
+import { WRAPPED_ARCHETYPE_CARD_THEMES } from "@/features/wrapped/team-card/archetypes";
 import { WrappedTeamCardPage } from "@/features/wrapped/team-card/page";
 import { WrappedDesktopResumePreviewStage } from "@/features/wrapped/WrappedDesktopResumePreviewStage";
 import { WrappedGuestPage } from "@/features/wrapped/WrappedGuestPage";
@@ -33,6 +40,9 @@ const DEFAULT_WRAPPED_DEV_SETUP_VIEW: WrappedDevSetupView = "guide";
 const WRAPPED_DEV_SETUP_VIEW_QUERY_PARAM = "setup-view";
 const WRAPPED_DEV_SETUP_STEP_QUERY_PARAM = "setup-step";
 const WRAPPED_DESKTOP_SETUP_URL = "app.rudel.ai/wrapped";
+const WRAPPED_DEV_STORY_USER_EMAIL = "e.k.dombak@gmail.com";
+const WRAPPED_DEV_STORY_USER_ID = "evren";
+const WRAPPED_DEV_STORY_PUBLIC_ID = "evren";
 const WRAPPED_DEBUG_UPLOADED_REPOS: WrappedUploadedRepoRow[] = [
 	{
 		name: "geneva",
@@ -91,6 +101,7 @@ const WRAPPED_DEBUG_ENOUGH_REPOS: WrappedUploadedRepoRow[] =
 		sessions: 10,
 	}));
 const WRAPPED_MINIMUM_ARCHETYPE_SESSION_COUNT = 100;
+const WRAPPED_DEV_STORY_ARCHETYPE = getWrappedDevStoryArchetype();
 
 const WRAPPED_DEV_STAGES: Array<{
 	label: string;
@@ -121,6 +132,9 @@ export function WrappedDevPage() {
 		},
 	});
 	const activeStage = getWrappedDevStage(searchParams.get("stage"));
+	const activeVariant = getWrappedDevVariant(
+		searchParams.get(WRAPPED_VARIANT_QUERY_PARAM),
+	);
 	const activeSetupView = getWrappedDevSetupView(
 		searchParams.get(WRAPPED_DEV_SETUP_VIEW_QUERY_PARAM),
 	);
@@ -263,6 +277,11 @@ export function WrappedDevPage() {
 							onStageChange={setStage}
 						/>
 					}
+					devPreviewArchetype={WRAPPED_DEV_STORY_ARCHETYPE}
+					devPreviewPublicId={WRAPPED_DEV_STORY_PUBLIC_ID}
+					devPreviewUserEmail={WRAPPED_DEV_STORY_USER_EMAIL}
+					devPreviewUserId={WRAPPED_DEV_STORY_USER_ID}
+					isDecimalEntitled
 					onBackFromFirstStep={() =>
 						updateWrappedDevSearchParams({
 							stage: "setup",
@@ -270,6 +289,7 @@ export function WrappedDevPage() {
 							setupView: "uploaded",
 						})
 					}
+					variant={activeVariant}
 				/>
 			) : null}
 			{activeStage === "public" ? (
@@ -509,4 +529,23 @@ function getWrappedDevSetupStep(setupStep: string | null): CliSetupStepId {
 	return cliSetupCommands.some((step) => step.id === setupStep)
 		? (setupStep as CliSetupStepId)
 		: "install-and-login";
+}
+
+function getWrappedDevVariant(variant: string | null): WrappedVariant {
+	return variant === WRAPPED_VARIANT_NORMAL
+		? WRAPPED_VARIANT_NORMAL
+		: WRAPPED_VARIANT_DECIMAL;
+}
+
+function getWrappedDevStoryArchetype() {
+	const archetype =
+		WRAPPED_ARCHETYPE_CARD_THEMES.find(
+			(theme) => theme.id === "smooth_operator",
+		) ?? WRAPPED_ARCHETYPE_CARD_THEMES[0];
+
+	if (!archetype) {
+		throw new Error("Wrapped dev story preview is missing an archetype.");
+	}
+
+	return archetype;
 }

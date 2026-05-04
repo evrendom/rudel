@@ -1,4 +1,6 @@
+import { sql } from "drizzle-orm";
 import {
+	check,
 	integer,
 	pgTable,
 	text,
@@ -25,6 +27,10 @@ export const wrappedShare = pgTable(
 		userId: text("user_id")
 			.notNull()
 			.references(() => user.id, { onDelete: "cascade" }),
+		// variant lets a single user have both a normal public card and a Decimal
+		// public card without one clobbering the other. Decimal writes are gated by
+		// wrapped_decimal_claim entitlement at the service layer.
+		variant: text("variant").notNull().default("normal"),
 		createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
 			.defaultNow()
 			.notNull(),
@@ -35,7 +41,16 @@ export const wrappedShare = pgTable(
 			mode: "date",
 		}).notNull(),
 	},
-	(table) => [uniqueIndex("wrapped_share_user_id_unique").on(table.userId)],
+	(table) => [
+		uniqueIndex("wrapped_share_user_id_variant_unique").on(
+			table.userId,
+			table.variant,
+		),
+		check(
+			"wrapped_share_variant_check",
+			sql`${table.variant} IN ('normal', 'decimal')`,
+		),
+	],
 );
 
 export type WrappedShareSelect = typeof wrappedShare.$inferSelect;

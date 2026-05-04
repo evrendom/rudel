@@ -6,9 +6,15 @@ import { buttonVariants } from "@/app/ui/button";
 import { useAnalyticsTracking } from "@/features/analytics/tracking/useAnalyticsTracking";
 import { getSessionUserId } from "@/features/auth/auth-route-utils";
 import {
+	getWrappedArchetypeStatLayerOverrides,
 	WRAPPED_ARCHETYPE_CARD_THEMES,
 	type WrappedArchetypeCardTheme,
 } from "@/features/wrapped/team-card/archetypes";
+import {
+	DEFAULT_STAT_LAYER_OPACITIES,
+	type WrappedTeamMemberCardEdition,
+	type WrappedTeamMemberCardStatLayerOpacities,
+} from "@/features/wrapped/team-card/card";
 import { getWrappedShareSafeImageUrl } from "@/features/wrapped/team-card/share-media";
 import {
 	WrappedPublicCardAction,
@@ -124,7 +130,9 @@ function PublicShareReadyState(props: {
 }) {
 	const { makeYoursHref, onMakeYoursClick, share } = props;
 	const activeArchetype = getPublicPageArchetype(share);
+	const edition = getPublicPageEdition(share);
 	const publicRow = buildPublicPageRow(share.snapshot.row);
+	const statLayerOpacities = getPublicPageStatLayerOpacities(activeArchetype);
 
 	return (
 		<WrappedPublicCardScreen
@@ -138,6 +146,7 @@ function PublicShareReadyState(props: {
 			}
 			activeArchetype={activeArchetype}
 			backMetrics={share.snapshot.backMetrics ?? []}
+			edition={edition}
 			headerLeftMetric={share.snapshot.headerLeftMetric}
 			headerRightMetric={share.snapshot.headerRightMetric}
 			revealMetrics={share.snapshot.revealMetrics}
@@ -145,9 +154,34 @@ function PublicShareReadyState(props: {
 			shellClassName={share.snapshot.shellClassName}
 			shellStyle={PUBLIC_SHARE_CARD_SHELL_STYLE}
 			statItems={share.snapshot.statItems}
+			statLayerOpacities={statLayerOpacities}
 			theme={share.snapshot.theme}
 		/>
 	);
+}
+
+function getPublicPageEdition(
+	share: PublicWrappedShare,
+): WrappedTeamMemberCardEdition | undefined {
+	return share.variant === "decimal" ? "decimal" : undefined;
+}
+
+// The legacy Decimal archetype keeps its own stat tile treatment. Decimal
+// edition shares now persist the user's classifier archetype and use only the
+// edition prop for the stamp/back copy.
+function getPublicPageStatLayerOpacities(
+	archetype: WrappedArchetypeCardTheme,
+): WrappedTeamMemberCardStatLayerOpacities | undefined {
+	const overrides = getWrappedArchetypeStatLayerOverrides(archetype);
+
+	if (!overrides) {
+		return undefined;
+	}
+
+	return {
+		...DEFAULT_STAT_LAYER_OPACITIES,
+		...overrides,
+	};
 }
 
 // Loading stays simple on purpose. The only job here is to hold the screen while

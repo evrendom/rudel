@@ -57,14 +57,17 @@ vi.mock("@/features/wrapped/WrappedPublicCardScreen", () => ({
 	WrappedPublicCardScreen: ({
 		action,
 		activeArchetype,
+		edition,
 		row,
 	}: {
 		action: ReactNode;
 		activeArchetype: { displayLabel: string };
+		edition?: string;
 		row: { displayName: string; imageUrl: string | null };
 	}) => (
 		<div>
 			<h1>{`${row.displayName} is a ${activeArchetype.displayLabel}`}</h1>
+			{edition ? <div>Edition: {edition}</div> : null}
 			{row.imageUrl ? <img alt={row.displayName} src={row.imageUrl} /> : null}
 			{action}
 		</div>
@@ -84,6 +87,7 @@ describe("WrappedPublicPage", () => {
 				created_at: "2026-04-22T10:00:00.000Z",
 				expires_at: "2026-05-22T10:00:00.000Z",
 				id: "11111111-1111-4111-8111-111111111111",
+				variant: "normal",
 				snapshot: {
 					archetypeLabel: "Calm operator",
 					backMetrics: [],
@@ -157,6 +161,7 @@ describe("WrappedPublicPage", () => {
 				created_at: "2026-04-22T10:00:00.000Z",
 				expires_at: "2026-05-22T10:00:00.000Z",
 				id: "evren",
+				variant: "normal",
 				snapshot: {
 					archetypeLabel: "Calm operator",
 					backMetrics: [],
@@ -195,6 +200,51 @@ describe("WrappedPublicPage", () => {
 			"src",
 			"https://avatars.githubusercontent.com/u/1?v=4",
 		);
+	});
+
+	it("renders Decimal shares as an edition on the persisted archetype", () => {
+		mockUseWrappedPublicPage.mockReturnValue({
+			data: {
+				created_at: "2026-04-22T10:00:00.000Z",
+				expires_at: "2026-05-22T10:00:00.000Z",
+				id: "ada-decimal",
+				variant: "decimal",
+				snapshot: {
+					archetypeLabel: "Roadrunner",
+					backMetrics: [],
+					headerLeftMetric: { label: "Sessions", value: "12" },
+					headerRightMetric: { label: "Archetype", value: "Roadrunner" },
+					row: {
+						activeDays: 6,
+						cost: 0,
+						displayName: "Ada",
+						favoriteModel: "o3",
+						hasActivity: true,
+						imageUrl: null,
+						inputTokens: 120,
+						lastActiveDate: "2026-04-22",
+						outputTokens: 240,
+						role: "Builder",
+						totalSessions: 12,
+						totalTokens: 360,
+					},
+					shellClassName: "team-lineup-shell",
+					statItems: [],
+					theme: "light",
+				},
+			},
+			isError: false,
+			isPending: false,
+		});
+
+		render(
+			<MemoryRouter initialEntries={["/wrapped/ada-decimal"]}>
+				<WrappedPublicPage publicId="ada-decimal" />
+			</MemoryRouter>,
+		);
+
+		expect(screen.getByText("Ada is a Roadrunner")).toBeInTheDocument();
+		expect(screen.getByText("Edition: decimal")).toBeInTheDocument();
 	});
 
 	it("keeps the same wrapped CTA when the public share is missing", () => {

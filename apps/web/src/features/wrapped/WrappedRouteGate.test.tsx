@@ -40,6 +40,9 @@ const TEST_AVATAR_URL = "/api/avatar/123e4567-e89b-12d3-a456-426614174000";
 vi.mock("@/lib/orpc", () => ({
 	client: {
 		profile: { updateMine: mockProfileUpdateMine },
+		wrappedDecimalClaim: {
+			redeem: vi.fn(),
+		},
 	},
 	orpc: {
 		analytics: {
@@ -49,7 +52,23 @@ vi.mock("@/lib/orpc", () => ({
 				},
 			},
 		},
+		wrappedDecimalClaim: {
+			getMine: {
+				queryOptions: () => ({ queryKey: ["wrappedDecimalClaim", "getMine"] }),
+			},
+		},
 	},
+}));
+
+// The Decimal claim hook owns its own redeem + entitlement-gate side effects.
+// These tests cover unrelated route-gate behavior, so we stub the hook to a
+// non-entitled, no-op result instead of standing up a QueryClientProvider.
+vi.mock("@/features/wrapped/use-wrapped-decimal-access", () => ({
+	useWrappedDecimalAccess: () => ({
+		variant: "normal" as const,
+		isDecimalEntitled: false,
+		isEntitlementLoading: false,
+	}),
 }));
 
 vi.mock("@/lib/auth-client", () => ({
@@ -1159,7 +1178,9 @@ describe("WrappedRouteGate", () => {
 		);
 		await user.click(screen.getByRole("button", { name: "Continue profile" }));
 
-		expect(screen.getByText("Wrapped setup page")).toBeInTheDocument();
+		await waitFor(() => {
+			expect(screen.getByText("Wrapped setup page")).toBeInTheDocument();
+		});
 		expect(
 			screen.getByText(
 				"Setup completed steps: install-and-login,enable-auto-upload",

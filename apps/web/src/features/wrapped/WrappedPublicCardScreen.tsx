@@ -6,6 +6,7 @@ import { WRAPPED_SATURDAY_STEPS } from "@/features/wrapped/onboarding/config";
 import { WrappedOnboardingFooter } from "@/features/wrapped/onboarding/controls";
 import type { WrappedArchetypeCardTheme } from "@/features/wrapped/team-card/archetypes";
 import type {
+	WrappedTeamMemberCardEdition,
 	WrappedTeamMemberCardHeaderMetric,
 	WrappedTeamMemberCardStatItem,
 	WrappedTeamMemberCardStatLayerOpacities,
@@ -21,6 +22,7 @@ interface WrappedPublicCardScreenProps {
 	activeArchetype: WrappedArchetypeCardTheme;
 	backMetrics?: readonly WrappedTeamMemberCardBackMetric[];
 	debugControls?: ReactNode;
+	edition?: WrappedTeamMemberCardEdition;
 	headerLeftMetric?: WrappedTeamMemberCardHeaderMetric;
 	headerRightMetric?: WrappedTeamMemberCardHeaderMetric;
 	revealMetrics?: WrappedShareRevealMetrics;
@@ -38,6 +40,7 @@ export function WrappedPublicCardScreen(props: WrappedPublicCardScreenProps) {
 		activeArchetype,
 		backMetrics,
 		debugControls,
+		edition,
 		headerLeftMetric,
 		headerRightMetric,
 		revealMetrics,
@@ -69,6 +72,7 @@ export function WrappedPublicCardScreen(props: WrappedPublicCardScreenProps) {
 									action={action}
 									activeArchetype={activeArchetype}
 									backMetrics={backMetrics}
+									edition={edition}
 									headerLeftMetric={headerLeftMetric}
 									headerRightMetric={headerRightMetric}
 									revealMetrics={revealMetrics}
