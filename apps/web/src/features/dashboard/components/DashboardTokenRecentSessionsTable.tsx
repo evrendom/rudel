@@ -166,6 +166,7 @@ export function DashboardTokenRecentSessionsTable({
 	onHighlightSessionChange,
 	onSessionClick,
 	sessions,
+	sessionDetailDisabledNote,
 	showHeader = true,
 	totalSessionCount,
 }: {
@@ -176,6 +177,7 @@ export function DashboardTokenRecentSessionsTable({
 	onHighlightSessionChange?: (sessionId: string | null) => void;
 	onSessionClick?: (session: SessionAnalytics) => void;
 	sessions: SessionAnalytics[] | undefined;
+	sessionDetailDisabledNote?: string;
 	showHeader?: boolean;
 	totalSessionCount: number;
 }) {
@@ -230,6 +232,11 @@ export function DashboardTokenRecentSessionsTable({
 						Showing {visibleSessions.length} of {recentSessions.length} sessions
 					</p>
 				</div>
+			) : null}
+			{sessionDetailDisabledNote ? (
+				<p className="px-1 text-[13px] font-medium text-[color:var(--dashboardy-muted)]">
+					{sessionDetailDisabledNote}
+				</p>
 			) : null}
 			<DashboardGridTable
 				columns={[

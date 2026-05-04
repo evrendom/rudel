@@ -1,4 +1,5 @@
 import { useOrganization } from "@/contexts/OrganizationContext";
+import { isYcReviewSession } from "@/features/auth/auth-route-utils";
 import { authClient } from "@/lib/auth-client";
 
 /**
@@ -9,8 +10,10 @@ export function useCanViewSession() {
 	const { isOrgAdmin } = useOrganization();
 	const { data: session } = authClient.useSession();
 	const currentUserId = session?.user.id;
+	const isYcReview = isYcReviewSession(session);
 
 	return (sessionUserId: string) => {
+		if (isYcReview) return false;
 		if (isOrgAdmin) return true;
 		return currentUserId === sessionUserId;
 	};

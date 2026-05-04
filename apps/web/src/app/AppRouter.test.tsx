@@ -7,6 +7,10 @@ vi.mock("@/features/invitations/AcceptInvitationPage", () => ({
 	AcceptInvitationPage: () => <div>Invitation Page</div>,
 }));
 
+vi.mock("@/features/shell/AppShellLayout", () => ({
+	AppShellLayout: () => <div>App shell</div>,
+}));
+
 describe("AppRouter", () => {
 	it("preserves explicit authenticated root redirects", async () => {
 		render(
@@ -33,6 +37,24 @@ describe("AppRouter", () => {
 
 		await waitFor(() => {
 			expect(screen.getByText("Current path: /wrapped")).toBeInTheDocument();
+		});
+	});
+
+	it("redirects YC review sessions away from session details", async () => {
+		render(
+			<MemoryRouter initialEntries={["/dashboard/sessions/session-123"]}>
+				<AppRouter
+					rootRedirectTarget={null}
+					session={{ session: { ycReview: true } }}
+				/>
+				<LocationProbe />
+			</MemoryRouter>,
+		);
+
+		await waitFor(() => {
+			expect(
+				screen.getByText("Current path: /dashboard/sessions"),
+			).toBeInTheDocument();
 		});
 	});
 });

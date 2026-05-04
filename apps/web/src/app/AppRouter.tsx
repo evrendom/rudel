@@ -108,13 +108,21 @@ export function AppRouter({
 	const canonicalWorkspaceSettingsPath = settingsRouteMap.workspace.path;
 	const canonicalAccountSettingsPath = settingsRouteMap.account.path;
 	const settingsPath = shellRouteMap.settings.path;
+	const sessionDetailPath = `${appRoutes.dashboardSessions()}/`;
+	const isYcReview = isYcReviewSession(session);
 	const isYcSettingsPath =
-		isYcReviewSession(session) &&
+		isYcReview &&
 		(location.pathname === settingsPath ||
 			location.pathname.startsWith(`${settingsPath}/`));
+	const isYcSessionDetailPath =
+		isYcReview && location.pathname.startsWith(sessionDetailPath);
 
 	if (isYcSettingsPath) {
 		return <Navigate replace to={appRoutes.wrappedTeamCard()} />;
+	}
+
+	if (isYcSessionDetailPath) {
+		return <Navigate replace to={appRoutes.dashboardSessions()} />;
 	}
 
 	return (
