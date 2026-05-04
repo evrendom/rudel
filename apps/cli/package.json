@@ -1,6 +1,6 @@
 {
 	"name": "rudel",
-	"version": "0.1.13",
+	"version": "0.1.14",
 	"type": "module",
 	"description": "CLI for the Coding Agent Analytics Platform rudel.ai",
 	"license": "MIT",
@@ -33,6 +33,7 @@
 		"dev": "bun run src/bin/cli.ts",
 		"check-types": "tsc --noEmit",
 		"build": "bun build src/bin/cli.ts --outdir dist --target node",
+		"prepack": "bun run build",
 		"test": "bun test"
 	},
 	"dependencies": {
