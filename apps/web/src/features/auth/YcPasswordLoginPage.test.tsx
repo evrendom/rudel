@@ -5,6 +5,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { appRoutes } from "@/app/routes";
 import { YcPasswordLoginPage } from "./YcPasswordLoginPage";
 
+const YC_PASSWORD_LOGIN_DRAFT_STORAGE_KEY = "rudel:yc-password-login-draft";
+
 const {
 	mockNavigateToDestination,
 	mockRefreshAuthClientState,
@@ -41,6 +43,7 @@ describe("YcPasswordLoginPage", () => {
 		mockRefreshAuthClientState.mockReset();
 		mockTrackAuthenticationAction.mockReset();
 		vi.unstubAllGlobals();
+		window.sessionStorage.clear();
 	});
 
 	it("renders only the email and password auth option", () => {
@@ -69,7 +72,35 @@ describe("YcPasswordLoginPage", () => {
 		).not.toBeInTheDocument();
 	});
 
-	it("signs in with email and password and lands in the dashboard", async () => {
+	it("restores typed credentials after a brief remount", async () => {
+		const user = userEvent.setup();
+		const view = render(
+			<MemoryRouter initialEntries={["/yc"]}>
+				<YcPasswordLoginPage />
+			</MemoryRouter>,
+		);
+
+		await user.type(
+			screen.getByLabelText("Email"),
+			"applicant@ycombinator.com",
+		);
+		await user.type(screen.getByLabelText("Password"), "secret-password");
+
+		view.unmount();
+
+		render(
+			<MemoryRouter initialEntries={["/yc"]}>
+				<YcPasswordLoginPage />
+			</MemoryRouter>,
+		);
+
+		expect(screen.getByLabelText("Email")).toHaveValue(
+			"applicant@ycombinator.com",
+		);
+		expect(screen.getByLabelText("Password")).toHaveValue("secret-password");
+	});
+
+	it("signs in with email and password and lands in wrapped", async () => {
 		const fetchMock = vi.fn().mockResolvedValue(
 			new Response(JSON.stringify({ token: "session-token" }), {
 				headers: { "Content-Type": "application/json" },
@@ -112,7 +143,10 @@ describe("YcPasswordLoginPage", () => {
 		});
 		expect(mockRefreshAuthClientState).toHaveBeenCalledTimes(1);
 		expect(mockNavigateToDestination).toHaveBeenCalledWith(
-			appRoutes.dashboard(),
+			appRoutes.wrappedTeamCard(),
 		);
+		expect(
+			window.sessionStorage.getItem(YC_PASSWORD_LOGIN_DRAFT_STORAGE_KEY),
+		).toBeNull();
 	});
 });

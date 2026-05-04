@@ -146,13 +146,18 @@ function SidebarEdgeHotspot({
 function SidebarNavigation({
 	mode,
 	navigationMode,
+	restrictSettings,
 }: {
 	mode: SidebarDisplayMode;
 	navigationMode: SidebarNavigationMode;
+	restrictSettings: boolean;
 }) {
 	const currentShellRoute = useCurrentShellRoute();
 	const location = useLocation();
 	const activeSettingsRouteId = getActiveSettingsRouteId(location.pathname);
+	const visibleShellRoutes = restrictSettings
+		? shellRoutes.filter((route) => route.id !== "settings")
+		: shellRoutes;
 
 	if (navigationMode === "settings") {
 		return (
@@ -177,7 +182,7 @@ function SidebarNavigation({
 	return (
 		<nav aria-label="Primary">
 			<ul className="flex flex-col gap-1">
-				{shellRoutes.map((route) => (
+				{visibleShellRoutes.map((route) => (
 					<RailLink
 						key={route.id}
 						to={route.path}
@@ -196,8 +201,10 @@ function SidebarNavigation({
 
 export function AppSidebar({
 	navigationMode = "app",
+	restrictSettings = false,
 }: {
 	navigationMode?: SidebarNavigationMode;
+	restrictSettings?: boolean;
 }) {
 	const { state, isMobile, openMobile, toggleSidebar } = useSidebar();
 	const isSidebarExpanded = isMobile ? openMobile : state === "expanded";
@@ -288,6 +295,7 @@ export function AppSidebar({
 						<SidebarNavigation
 							mode={displayMode}
 							navigationMode={navigationMode}
+							restrictSettings={restrictSettings}
 						/>
 					</div>
 				</div>

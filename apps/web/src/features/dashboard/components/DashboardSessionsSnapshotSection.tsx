@@ -252,6 +252,7 @@ export function DashboardSessionsSnapshotSection({
 	metrics,
 	onSessionClick,
 	sessions,
+	sessionDetailDisabledNote,
 	showDelta = false,
 	startDate,
 	totalSessionCount,
@@ -266,6 +267,7 @@ export function DashboardSessionsSnapshotSection({
 	metrics: DashboardHeadlineMetric[];
 	onSessionClick?: (session: SessionAnalytics) => void;
 	sessions: SessionAnalytics[] | undefined;
+	sessionDetailDisabledNote?: string;
 	showDelta?: boolean;
 	startDate: string;
 	totalSessionCount: number;
@@ -313,6 +315,7 @@ export function DashboardSessionsSnapshotSection({
 					isLoading={isSessionsPending}
 					onSessionClick={onSessionClick}
 					sessions={latestSessions}
+					sessionDetailDisabledNote={sessionDetailDisabledNote}
 					showHeader={false}
 					totalSessionCount={
 						useRolling24Hours ? snapshotSessions.length : totalSessionCount

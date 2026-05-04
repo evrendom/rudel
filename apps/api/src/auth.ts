@@ -5,7 +5,12 @@ import * as schema from "@rudel/sql-schema";
 import type { BetterAuthPlugin } from "better-auth";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { APIError, createAuthEndpoint } from "better-auth/api";
+import {
+	APIError,
+	createAuthEndpoint,
+	createAuthMiddleware,
+	getSessionFromCtx,
+} from "better-auth/api";
 import { setSessionCookie } from "better-auth/cookies";
 import {
 	bearer,
@@ -24,6 +29,28 @@ import { captureApiProductAnalyticsEvent } from "./lib/product-analytics.js";
 import { fetchGitHubHandle, notifySignup } from "./slack.js";
 
 const logger = getLogger(["rudel", "api", "auth"]);
+const YC_REVIEW_SESSION_FORBIDDEN_MESSAGE =
+	"YC review sessions cannot access settings";
+const YC_REVIEW_RESTRICTED_AUTH_PATHS = [
+	"/change-email",
+	"/change-password",
+	"/delete-user",
+	"/link-social",
+	"/organization/accept-invitation",
+	"/organization/cancel-invitation",
+	"/organization/create",
+	"/organization/delete",
+	"/organization/invite-member",
+	"/organization/leave",
+	"/organization/reject-invitation",
+	"/organization/remove-member",
+	"/organization/set-active",
+	"/organization/update",
+	"/organization/update-member-role",
+	"/set-password",
+	"/unlink-account",
+	"/update-user",
+] as const;
 
 function inferSignupMethod(
 	accounts: Array<{ providerId?: string | null }>,
@@ -147,6 +174,18 @@ export function createYcLoginPlugin(
 
 	return {
 		id: "rudel-yc-login",
+		schema: {
+			session: {
+				fields: {
+					ycReview: {
+						type: "boolean",
+						required: false,
+						input: false,
+						defaultValue: false,
+					},
+				},
+			},
+		},
 		endpoints: {
 			ycSignIn: createAuthEndpoint(
 				"/yc/sign-in",
@@ -187,6 +226,8 @@ export function createYcLoginPlugin(
 					const session = await ctx.context.internalAdapter.createSession(
 						user.user.id,
 						body.rememberMe === false,
+						{ ycReview: true },
+						true,
 					);
 					if (!session) {
 						ctx.context.logger.error("Failed to create YC login session");
@@ -211,7 +252,33 @@ export function createYcLoginPlugin(
 				},
 			),
 		},
+		hooks: {
+			before: [
+				{
+					matcher(context) {
+						return (
+							typeof context.path === "string" &&
+							isYcReviewRestrictedAuthPath(context.path)
+						);
+					},
+					handler: createAuthMiddleware(async (ctx) => {
+						const session = await getSessionFromCtx(ctx).catch(() => null);
+						if (!isYcReviewSessionRecord(session?.session)) {
+							return;
+						}
+
+						throw new APIError("FORBIDDEN", {
+							message: YC_REVIEW_SESSION_FORBIDDEN_MESSAGE,
+						});
+					}),
+				},
+			],
+		},
 	};
+}
+
+export function isYcReviewSessionRecord(value: unknown) {
+	return isRecord(value) && value.ycReview === true;
 }
 
 function normalizeYcLoginConfig(
@@ -279,6 +346,21 @@ function isValidEmail(value: string) {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isYcReviewRestrictedAuthPath(path: string) {
+	const authEndpointPath =
+		path === "/api/auth"
+			? "/"
+			: path.startsWith("/api/auth/")
+				? path.slice("/api/auth".length)
+				: path;
+
+	return YC_REVIEW_RESTRICTED_AUTH_PATHS.some(
+		(restrictedPath) =>
+			authEndpointPath === restrictedPath ||
+			authEndpointPath.startsWith(`${restrictedPath}/`),
+	);
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- drizzleAdapter accepts { [key: string]: any }

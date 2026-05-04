@@ -1,6 +1,8 @@
 import { type ComponentType, lazy, type ReactNode, Suspense } from "react";
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation } from "react-router-dom";
+import { appRoutes } from "@/app/routes";
 import { NotFoundPage } from "@/app/system/NotFoundPage";
+import { isYcReviewSession } from "@/features/auth/auth-route-utils";
 import { AcceptInvitationPage } from "@/features/invitations/AcceptInvitationPage";
 import { settingsRouteMap } from "@/features/settings/config/settings-routes";
 import { SettingsIndexRedirect } from "@/features/settings/SettingsIndexRedirect";
@@ -96,12 +98,32 @@ function LazyRoute({
 
 export function AppRouter({
 	rootRedirectTarget,
+	session,
 }: {
 	rootRedirectTarget: string | null;
+	session: unknown;
 }) {
+	const location = useLocation();
 	const rootRedirect = rootRedirectTarget || shellRouteMap.dashboard.path;
 	const canonicalWorkspaceSettingsPath = settingsRouteMap.workspace.path;
 	const canonicalAccountSettingsPath = settingsRouteMap.account.path;
+	const settingsPath = shellRouteMap.settings.path;
+	const sessionDetailPath = `${appRoutes.dashboardSessions()}/`;
+	const isYcReview = isYcReviewSession(session);
+	const isYcSettingsPath =
+		isYcReview &&
+		(location.pathname === settingsPath ||
+			location.pathname.startsWith(`${settingsPath}/`));
+	const isYcSessionDetailPath =
+		isYcReview && location.pathname.startsWith(sessionDetailPath);
+
+	if (isYcSettingsPath) {
+		return <Navigate replace to={appRoutes.wrappedTeamCard()} />;
+	}
+
+	if (isYcSessionDetailPath) {
+		return <Navigate replace to={appRoutes.dashboardSessions()} />;
+	}
 
 	return (
 		<Routes>

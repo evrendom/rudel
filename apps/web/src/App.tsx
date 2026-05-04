@@ -16,6 +16,7 @@ import {
 	getValidRedirect,
 	isGetStartedPath,
 	isResetPasswordPath,
+	isYcReviewSession,
 } from "@/features/auth/auth-route-utils";
 import { DeviceAuthorizationApp } from "@/features/auth/DeviceAuthorizationApp";
 import { GuestApp } from "@/features/auth/GuestApp";
@@ -183,7 +184,7 @@ function App() {
 				{isPending ? (
 					<AppLoadingScreen />
 				) : session ? (
-					<Navigate replace to={appRoutes.dashboard()} />
+					<Navigate replace to={appRoutes.wrappedTeamCard()} />
 				) : (
 					<Suspense fallback={<FullscreenRouteLoadingScreen />}>
 						<YcPasswordLoginPage />
@@ -219,7 +220,14 @@ function App() {
 		return (
 			<>
 				<ProductAnalyticsSessionSync session={session} />
-				<AuthenticatedApp rootRedirectTarget={rootRedirectTarget} />
+				<AuthenticatedApp
+					rootRedirectTarget={
+						isYcReviewSession(session)
+							? appRoutes.wrappedTeamCard()
+							: rootRedirectTarget
+					}
+					session={session}
+				/>
 				{showDesktopOnlyOverlay ? <DesktopOnlyOverlay /> : null}
 			</>
 		);

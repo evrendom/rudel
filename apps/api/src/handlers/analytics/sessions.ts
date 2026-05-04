@@ -7,6 +7,7 @@ import {
 	getSessionDetail,
 	getSessionDimensionAnalysis,
 } from "../../services/session-analytics.service.js";
+import { assertSessionDetailAccessEnabled } from "./session-detail-access.js";
 
 const sortByMap: Record<string, "date" | "duration" | "interactions"> = {
 	session_date: "date",
@@ -63,6 +64,8 @@ const dimensionAnalysis = os.analytics.sessions.dimensionAnalysis
 const detail = os.analytics.sessions.detail
 	.use(orgMiddleware)
 	.handler(async ({ input, context }) => {
+		assertSessionDetailAccessEnabled(context.session);
+
 		const result = await getSessionDetail(
 			context.organizationId,
 			input.sessionId,
