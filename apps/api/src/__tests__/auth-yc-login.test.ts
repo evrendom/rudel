@@ -62,6 +62,23 @@ describe("YC login endpoint", () => {
 		expect(body.user.email).toBe(TARGET_EMAIL);
 	});
 
+	test("accepts a raw backend password secret", async () => {
+		const auth = await createTestAuth({ passwordSecret: YC_PASSWORD });
+
+		const response = await auth.handler(
+			new Request("http://localhost/api/auth/yc/sign-in", {
+				body: JSON.stringify({
+					email: "applicant@ycombinator.com",
+					password: YC_PASSWORD,
+				}),
+				headers: { "Content-Type": "application/json" },
+				method: "POST",
+			}),
+		);
+
+		expect(response.status).toBe(200);
+	});
+
 	test("rejects emails outside the configured allowlist", async () => {
 		const auth = await createTestAuth();
 
@@ -136,8 +153,12 @@ function getSessionCookie(response: Response) {
 	return sessionCookie;
 }
 
-async function createTestAuth() {
-	const passwordHash = await hashPassword(YC_PASSWORD);
+async function createTestAuth({
+	passwordSecret,
+}: {
+	passwordSecret?: string;
+} = {}) {
+	const passwordHash = passwordSecret ?? (await hashPassword(YC_PASSWORD));
 	const ycLoginPlugin = createYcLoginPlugin({
 		allowedEmails: ["applicant@ycombinator.com", "partner@ycombinator.com"],
 		passwordHash,

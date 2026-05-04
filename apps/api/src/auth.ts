@@ -29,6 +29,7 @@ import { captureApiProductAnalyticsEvent } from "./lib/product-analytics.js";
 import { fetchGitHubHandle, notifySignup } from "./slack.js";
 
 const logger = getLogger(["rudel", "api", "auth"]);
+const BETTER_AUTH_PASSWORD_HASH_PATTERN = /^[a-f0-9]+:[a-f0-9]+$/i;
 const YC_REVIEW_SESSION_FORBIDDEN_MESSAGE =
 	"YC review sessions cannot access settings";
 const YC_REVIEW_RESTRICTED_AUTH_PATHS = [
@@ -205,12 +206,11 @@ export function createYcLoginPlugin(
 						throw invalidYcLoginError();
 					}
 
-					const isPasswordValid = await ctx.context.password
-						.verify({
-							hash: normalizedConfig.passwordHash,
-							password: body.password,
-						})
-						.catch(() => false);
+					const isPasswordValid = await verifyYcLoginPassword({
+						candidatePassword: body.password,
+						configuredPassword: normalizedConfig.passwordHash,
+						passwordVerifier: ctx.context.password,
+					});
 					if (!isPasswordValid) {
 						throw invalidYcLoginError();
 					}
@@ -320,6 +320,29 @@ function parseYcLoginRequestBody(value: unknown): YcLoginRequestBody | null {
 		password,
 		rememberMe: typeof rememberMe === "boolean" ? rememberMe : undefined,
 	};
+}
+
+async function verifyYcLoginPassword({
+	candidatePassword,
+	configuredPassword,
+	passwordVerifier,
+}: {
+	candidatePassword: string;
+	configuredPassword: string;
+	passwordVerifier: {
+		verify(input: { hash: string; password: string }): Promise<boolean>;
+	};
+}) {
+	if (!BETTER_AUTH_PASSWORD_HASH_PATTERN.test(configuredPassword)) {
+		return configuredPassword === candidatePassword;
+	}
+
+	return passwordVerifier
+		.verify({
+			hash: configuredPassword,
+			password: candidatePassword,
+		})
+		.catch(() => false);
 }
 
 function invalidYcLoginError() {
