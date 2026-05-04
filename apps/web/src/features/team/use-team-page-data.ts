@@ -49,6 +49,26 @@ export interface TeamPageMemberRow {
 	hasActivity: boolean;
 }
 
+function getSessionUserId(
+	session: ReturnType<typeof authClient.useSession>["data"],
+) {
+	return session?.user &&
+		"id" in session.user &&
+		typeof session.user.id === "string"
+		? session.user.id
+		: null;
+}
+
+function getActiveMemberUserId(
+	activeMember: ReturnType<typeof authClient.useActiveMember>["data"],
+) {
+	return activeMember &&
+		"userId" in activeMember &&
+		typeof activeMember.userId === "string"
+		? activeMember.userId
+		: null;
+}
+
 function formatMemberRole(role: string | null | undefined) {
 	if (!role) {
 		return "Member";
@@ -139,6 +159,8 @@ function buildTeamMemberRows(
 }
 
 export function useTeamPageData() {
+	const { data: session } = authClient.useSession();
+	const { data: activeMember } = authClient.useActiveMember();
 	const { state: dateRangeState, meta: dateRangeMeta } = useDateRange();
 	const { meta: workspaceMeta, state: workspaceState } = useOrganization();
 	const useFixtures = isFrontendFixturesEnabled();
@@ -146,6 +168,8 @@ export function useTeamPageData() {
 	const selectedDays = dateRangeMeta.dayCount;
 	const requestedDays = MAX_ANALYTICS_DAYS;
 	const activeOrganizationId = workspaceState.activeOrg?.id ?? null;
+	const currentUserId =
+		getSessionUserId(session) ?? getActiveMemberUserId(activeMember);
 	const canInviteTeamMembers =
 		activeOrganizationId !== null && workspaceMeta?.isOrgAdmin === true;
 	const {
@@ -261,6 +285,7 @@ export function useTeamPageData() {
 				isOrganizationPending),
 		teamMemberRows,
 		canInviteTeamMembers,
+		currentUserId,
 		isInviteLinkPending: teamInviteLinkQuery.isPending,
 		teamInviteLink: teamInviteLinkQuery.data?.invite_url ?? null,
 		requestedDays,
