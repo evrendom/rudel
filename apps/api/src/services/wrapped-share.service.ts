@@ -1,7 +1,9 @@
+import { ORPCError } from "@orpc/server";
 import type {
 	PublicWrappedShare,
 	WrappedShareRecord,
 	WrappedShareSnapshot,
+	WrappedShareVariant,
 } from "@rudel/api-routes";
 import {
 	AVATAR_URL_PATH_REGEX,
@@ -19,6 +21,7 @@ interface CreateWrappedShareOptions {
 	organizationId: string;
 	snapshot: WrappedShareSnapshot;
 	userId: string;
+	variant: WrappedShareVariant;
 }
 
 const WRAPPED_SHARE_TTL_DAYS = 30;
@@ -31,10 +34,16 @@ const WRAPPED_SHARE_ID_INSERT_ATTEMPTS = 20;
 export async function createWrappedShare(
 	options: CreateWrappedShareOptions,
 ): Promise<WrappedShareRecord> {
-	const { organizationId, snapshot, userId } = options;
-	const existingShare = await getWrappedShareForUser(userId);
+	const { organizationId, snapshot, userId, variant } = options;
+
+	if (variant === "decimal") {
+		await assertDecimalEntitled(userId);
+	}
+
+	const existingShare = await getWrappedShareForUser(userId, variant);
 	const shareIdBase = buildWrappedShareIdBase({
 		displayName: snapshot.row.displayName,
+		variant,
 	});
 	const createdAt = new Date();
 	const expiresAt = createWrappedShareExpiry(createdAt);
@@ -54,6 +63,7 @@ export async function createWrappedShare(
 				shareIdBase,
 				snapshot,
 				userId,
+				variant,
 			});
 		}
 
@@ -63,6 +73,7 @@ export async function createWrappedShare(
 			share: existingShare,
 			snapshot,
 			userId,
+			variant,
 		});
 	}
 
@@ -81,6 +92,7 @@ export async function createWrappedShare(
 				payload_version,
 				snapshot_json,
 				user_id,
+				variant,
 				created_at,
 				expires_at
 			)
@@ -90,6 +102,7 @@ export async function createWrappedShare(
 				${WRAPPED_SHARE_PAYLOAD_VERSION},
 				${JSON.stringify(snapshot)},
 				${userId},
+				${variant},
 				${createdAtIso},
 				${expiresAtIso}
 			)
@@ -104,10 +117,14 @@ export async function createWrappedShare(
 				created_at: createdAtIso,
 				expires_at: expiresAtIso,
 				id: insertedShareId,
+				variant,
 			};
 		}
 
-		const concurrentlyCreatedShare = await getWrappedShareForUser(userId);
+		const concurrentlyCreatedShare = await getWrappedShareForUser(
+			userId,
+			variant,
+		);
 
 		if (concurrentlyCreatedShare) {
 			return updateWrappedShareSnapshot({
@@ -116,11 +133,30 @@ export async function createWrappedShare(
 				share: concurrentlyCreatedShare,
 				snapshot,
 				userId,
+				variant,
 			});
 		}
 	}
 
 	throw new Error("Could not allocate a wrapped share id");
+}
+
+// Decimal share creation is server-gated: the only authoritative source of
+// entitlement is a claimed row in wrapped_decimal_claim. Frontend checks are UX
+// only — a non-entitled caller cannot mint a Decimal share by editing the body.
+async function assertDecimalEntitled(userId: string): Promise<void> {
+	const rows = await sqlClient<Array<{ exists: number }>>`
+		SELECT 1 AS "exists"
+		FROM wrapped_decimal_claim
+		WHERE claimed_by_user_id = ${userId}
+		LIMIT 1
+	`;
+
+	if (rows.length === 0) {
+		throw new ORPCError("FORBIDDEN", {
+			message: "Decimal wrapped is not available for this account",
+		});
+	}
 }
 
 async function updateWrappedShareSnapshot(input: {
@@ -129,8 +165,10 @@ async function updateWrappedShareSnapshot(input: {
 	share: { createdAt: Date; id: string };
 	snapshot: WrappedShareSnapshot;
 	userId: string;
+	variant: WrappedShareVariant;
 }) {
-	const { expiresAtIso, organizationId, share, snapshot, userId } = input;
+	const { expiresAtIso, organizationId, share, snapshot, userId, variant } =
+		input;
 	const updatedRows = await sqlClient<Array<{ id: string }>>`
 		UPDATE wrapped_share
 		SET
@@ -140,6 +178,7 @@ async function updateWrappedShareSnapshot(input: {
 			expires_at = ${expiresAtIso}
 		WHERE id = ${share.id}
 			AND user_id = ${userId}
+			AND variant = ${variant}
 		RETURNING id
 	`;
 	const updatedShareId = updatedRows[0]?.id;
@@ -152,6 +191,7 @@ async function updateWrappedShareSnapshot(input: {
 		created_at: share.createdAt.toISOString(),
 		expires_at: expiresAtIso,
 		id: updatedShareId,
+		variant,
 	};
 }
 
@@ -162,9 +202,17 @@ async function renameWrappedShareAndUpdateSnapshot(input: {
 	shareIdBase: string;
 	snapshot: WrappedShareSnapshot;
 	userId: string;
+	variant: WrappedShareVariant;
 }) {
-	const { expiresAtIso, organizationId, share, shareIdBase, snapshot, userId } =
-		input;
+	const {
+		expiresAtIso,
+		organizationId,
+		share,
+		shareIdBase,
+		snapshot,
+		userId,
+		variant,
+	} = input;
 
 	for (
 		let attempt = 0;
@@ -182,6 +230,7 @@ async function renameWrappedShareAndUpdateSnapshot(input: {
 				expires_at = ${expiresAtIso}
 			WHERE id = ${share.id}
 				AND user_id = ${userId}
+				AND variant = ${variant}
 				AND NOT EXISTS (
 					SELECT 1
 					FROM wrapped_share
@@ -196,6 +245,7 @@ async function renameWrappedShareAndUpdateSnapshot(input: {
 				created_at: share.createdAt.toISOString(),
 				expires_at: expiresAtIso,
 				id: updatedShareId,
+				variant,
 			};
 		}
 	}
@@ -203,7 +253,10 @@ async function renameWrappedShareAndUpdateSnapshot(input: {
 	throw new Error("Could not rename wrapped share");
 }
 
-async function getWrappedShareForUser(userId: string) {
+async function getWrappedShareForUser(
+	userId: string,
+	variant: WrappedShareVariant,
+) {
 	const [row] = await sqlClient<
 		Array<{
 			createdAt: Date | string;
@@ -215,6 +268,7 @@ async function getWrappedShareForUser(userId: string) {
 			created_at AS "createdAt"
 		FROM wrapped_share
 		WHERE user_id = ${userId}
+			AND variant = ${variant}
 		ORDER BY created_at ASC
 		LIMIT 1
 	`;
@@ -242,6 +296,7 @@ export async function getPublicWrappedShare(
 			payloadVersion: number;
 			snapshotJson: string;
 			userImage: string | null;
+			variant: WrappedShareVariant | null;
 		}>
 	>`
 		SELECT
@@ -250,6 +305,7 @@ export async function getPublicWrappedShare(
 			wrapped_share.expires_at AS "expiresAt",
 			wrapped_share.payload_version AS "payloadVersion",
 			wrapped_share.snapshot_json AS "snapshotJson",
+			wrapped_share.variant AS "variant",
 			"user".image AS "userImage"
 		FROM wrapped_share
 		LEFT JOIN "user" ON "user".id = wrapped_share.user_id
@@ -280,6 +336,7 @@ export async function getPublicWrappedShare(
 			profileImageUrl: row.userImage,
 			snapshot: parseWrappedShareSnapshot(row.snapshotJson),
 		}),
+		variant: row.variant ?? "normal",
 	};
 }
 

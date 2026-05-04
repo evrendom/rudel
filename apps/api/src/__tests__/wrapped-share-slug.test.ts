@@ -22,6 +22,24 @@ describe("wrapped share slugs", () => {
 		).toBe("wrapped");
 	});
 
+	test("appends the decimal suffix for decimal variant slugs", () => {
+		expect(
+			buildWrappedShareIdBase({
+				displayName: "Evren Dombak",
+				variant: "decimal",
+			}),
+		).toBe("evren-dombak-decimal");
+	});
+
+	test("falls back to wrapped-decimal when the display name cannot become a slug", () => {
+		expect(
+			buildWrappedShareIdBase({
+				displayName: "!!!",
+				variant: "decimal",
+			}),
+		).toBe("wrapped-decimal");
+	});
+
 	test("uses the bare card name when it is available", () => {
 		expect(
 			getNextWrappedShareIdCandidate({

@@ -1,9 +1,15 @@
+import type { WrappedShareVariant } from "@rudel/api-routes";
+
 interface BuildWrappedShareIdBaseInput {
 	displayName: string;
+	variant?: WrappedShareVariant;
 }
 
 const WRAPPED_SHARE_FALLBACK_ID_BASE = "wrapped";
 const WRAPPED_SHARE_FALLBACK_ID_BASE_MAX_LENGTH = 64;
+// Decimal slugs get a stable suffix so support and analytics can recognize a
+// Decimal share at a glance from the URL alone. Lookup is still by global id.
+const WRAPPED_SHARE_DECIMAL_SUFFIX = "-decimal";
 const WRAPPED_SHARE_DUPLICATE_ADJECTIVES = [
 	"atomic",
 	"brilliant",
@@ -32,10 +38,15 @@ const WRAPPED_SHARE_DUPLICATE_ADJECTIVES = [
 ] as const;
 
 export function buildWrappedShareIdBase(input: BuildWrappedShareIdBaseInput) {
-	return (
+	const namePart =
 		slugifyWrappedShareDisplayName(input.displayName) ??
-		WRAPPED_SHARE_FALLBACK_ID_BASE
-	);
+		WRAPPED_SHARE_FALLBACK_ID_BASE;
+
+	if (input.variant === "decimal") {
+		return `${namePart}${WRAPPED_SHARE_DECIMAL_SUFFIX}`;
+	}
+
+	return namePart;
 }
 
 export function isWrappedShareIdAlignedWithBase(input: {

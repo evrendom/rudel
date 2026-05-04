@@ -52,6 +52,7 @@ const sampleShare: PublicWrappedShare = {
 	expires_at: "2026-05-25T10:00:00.000Z",
 	id: "11111111-1111-4111-8111-111111111111",
 	snapshot: sampleSnapshot,
+	variant: "normal",
 };
 
 describe("wrapped share card image", () => {
