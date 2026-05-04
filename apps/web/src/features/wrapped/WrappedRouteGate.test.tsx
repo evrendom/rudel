@@ -274,6 +274,16 @@ const session: NonNullable<AppSession> = {
 	},
 };
 
+function buildYcReviewSession() {
+	return {
+		...session,
+		session: {
+			...session.session,
+			ycReview: true,
+		},
+	};
+}
+
 function markWrappedCardProfileComplete() {
 	writeWrappedGuestPreviewSnapshot({
 		cardProfileCompletedUserId: "user-1",
@@ -705,6 +715,63 @@ describe("WrappedRouteGate", () => {
 		expect(
 			screen.getByText("Wrapped mobile handoff: ada@example.com"),
 		).toBeInTheDocument();
+		expect(screen.queryByText("Wrapped story")).toBeNull();
+	});
+
+	it.each([
+		"/wrapped",
+		"/wrapped?flow=card-profile",
+		"/wrapped?flow=desktop-ready",
+		"/wrapped?flow=sessions-landed",
+	] as const)("routes YC review sessions directly to story from %s without prep screens", (initialEntry) => {
+		clearWrappedGuestPreviewSnapshot();
+		mockUseIsMobile.mockReturnValue(true);
+		mockUseSetupProgress.mockReturnValue({
+			hasUploadedSessions: true,
+			isLoading: false,
+			totalSessionCount: 100,
+		});
+
+		render(
+			<MemoryRouter initialEntries={[initialEntry]}>
+				<WrappedRouteGate
+					isPending={false}
+					publicId={null}
+					session={buildYcReviewSession()}
+				/>
+			</MemoryRouter>,
+		);
+
+		expect(screen.getByText("Wrapped story")).toBeInTheDocument();
+		expect(screen.queryByText("Wrapped card profile step")).toBeNull();
+		expect(
+			screen.queryByText("Wrapped mobile handoff: ada@example.com"),
+		).toBeNull();
+		expect(screen.queryByText("Wrapped setup page")).toBeNull();
+		expect(screen.queryByText("Wrapped setup complete page")).toBeNull();
+	});
+
+	it("keeps YC review sessions out of story until wrapped data is eligible", () => {
+		clearWrappedGuestPreviewSnapshot();
+		mockUseSetupProgress.mockReturnValue({
+			hasUploadedSessions: true,
+			isLoading: false,
+			totalSessionCount: 99,
+		});
+
+		render(
+			<MemoryRouter initialEntries={["/wrapped"]}>
+				<WrappedRouteGate
+					isPending={false}
+					publicId={null}
+					session={buildYcReviewSession()}
+				/>
+			</MemoryRouter>,
+		);
+
+		expect(screen.getByText("Wrapped setup complete page")).toBeInTheDocument();
+		expect(screen.getByText("Can continue: no")).toBeInTheDocument();
+		expect(screen.queryByText("Wrapped card profile step")).toBeNull();
 		expect(screen.queryByText("Wrapped story")).toBeNull();
 	});
 

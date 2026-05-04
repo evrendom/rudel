@@ -36,7 +36,9 @@ describe("AppRouter", () => {
 		);
 
 		await waitFor(() => {
-			expect(screen.getByText("Current path: /wrapped")).toBeInTheDocument();
+			expect(
+				screen.getByText("Current path: /wrapped?flow=story"),
+			).toBeInTheDocument();
 		});
 	});
 
@@ -62,5 +64,10 @@ describe("AppRouter", () => {
 function LocationProbe() {
 	const location = useLocation();
 
-	return <div>Current path: {location.pathname}</div>;
+	return (
+		<div>
+			Current path: {location.pathname}
+			{location.search}
+		</div>
+	);
 }

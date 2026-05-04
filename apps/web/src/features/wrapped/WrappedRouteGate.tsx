@@ -11,6 +11,7 @@ import {
 	WRAPPED_ROUTE_DESKTOP_READY_FLOW,
 	WRAPPED_ROUTE_FLOW_QUERY_PARAM,
 	WRAPPED_ROUTE_SESSIONS_LANDED_FLOW,
+	WRAPPED_ROUTE_STORY_FLOW,
 } from "@/app/routes";
 import { useAnalyticsQuery } from "@/features/analytics/queries/useAnalyticsQuery";
 import { useAnalyticsTracking } from "@/features/analytics/tracking/useAnalyticsTracking";
@@ -19,6 +20,7 @@ import {
 	getSessionUserEmail,
 	getSessionUserId,
 	getSessionUserName,
+	isYcReviewSession,
 } from "@/features/auth/auth-route-utils";
 import { useCliSetupStatus } from "@/features/get-started/use-cli-setup-status";
 import { useSetupProgress } from "@/features/get-started/use-setup-progress";
@@ -66,7 +68,7 @@ type WrappedRouteFlowStage =
 	| "card-profile"
 	| "desktop-ready"
 	| "sessions-landed"
-	| "story";
+	| typeof WRAPPED_ROUTE_STORY_FLOW;
 
 const WRAPPED_SETUP_AUTH_STEP_ID = "install-and-login";
 const WRAPPED_SETUP_UPLOAD_STEP_ID = "enable-auto-upload";
@@ -99,6 +101,7 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 	const wrappedLoopEntrySource = shareId ? "share_redirect" : "direct";
 	const sessionUserId = getSessionUserId(session);
 	const sessionUserEmail = getSessionUserEmail(session);
+	const isYcReview = isYcReviewSession(session);
 	// Drives Decimal claim redemption + variant gating. Public share routes
 	// (publicId !== null) intentionally don't pass a userId here so the
 	// entitlement query stays disabled and the public flow is untouched.
@@ -131,6 +134,9 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 	const forcedFlowStage = getWrappedRouteFlowStage(
 		searchParams.get(WRAPPED_ROUTE_FLOW_QUERY_PARAM),
 	);
+	const shouldSkipYcReviewPrep = isYcReview && !publicId;
+	const isForcedStoryFlow =
+		forcedFlowStage === WRAPPED_ROUTE_STORY_FLOW || shouldSkipYcReviewPrep;
 	const isWrappedNewUserFlow =
 		forcedFlowStage === WRAPPED_ROUTE_CARD_PROFILE_FLOW;
 
@@ -186,6 +192,7 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 		!hasCompletedCardProfileWithImage;
 	const shouldShowCardProfileStep =
 		!publicId &&
+		!shouldSkipYcReviewPrep &&
 		!isPending &&
 		!!session &&
 		sessionUserId !== null &&
@@ -196,8 +203,11 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 		forcedFlowStage === WRAPPED_ROUTE_DESKTOP_READY_FLOW &&
 		hasCompletedCardProfile;
 	const shouldForceSessionsLanded =
-		forcedFlowStage === "sessions-landed" && setupProgress.hasUploadedSessions;
+		!shouldSkipYcReviewPrep &&
+		forcedFlowStage === WRAPPED_ROUTE_SESSIONS_LANDED_FLOW &&
+		setupProgress.hasUploadedSessions;
 	const shouldForceDesktopReady =
+		!shouldSkipYcReviewPrep &&
 		forcedFlowStage === WRAPPED_ROUTE_DESKTOP_READY_FLOW;
 	const hasMinimumSetupProgressSessionCount =
 		setupProgress.totalSessionCount >=
@@ -209,7 +219,8 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 		setupProgress.hasUploadedSessions &&
 		hasMinimumSetupProgressSessionCount &&
 		hasSeenBelowMinimumSessions;
-	const signedInMobileHandoffEmail = isMobile ? sessionUserEmail : undefined;
+	const signedInMobileHandoffEmail =
+		isMobile && !shouldSkipYcReviewPrep ? sessionUserEmail : undefined;
 
 	function setWrappedRouteFlowStage(nextStage: WrappedRouteFlowStage) {
 		startTransition(() => {
@@ -229,7 +240,10 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 			setSearchParams(
 				(previousSearchParams) => {
 					const nextSearchParams = new URLSearchParams(previousSearchParams);
-					nextSearchParams.set(WRAPPED_ROUTE_FLOW_QUERY_PARAM, "story");
+					nextSearchParams.set(
+						WRAPPED_ROUTE_FLOW_QUERY_PARAM,
+						WRAPPED_ROUTE_STORY_FLOW,
+					);
 					nextSearchParams.delete(STEP_QUERY_PARAM);
 
 					for (const key of Array.from(nextSearchParams.keys())) {
@@ -418,7 +432,7 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 			setupProgress.hasUploadedSessions &&
 			!sessionGateState.hasMinimumSessionCount;
 		const shouldForceStory =
-			forcedFlowStage === "story" &&
+			isForcedStoryFlow &&
 			setupProgress.hasUploadedSessions &&
 			canContinueToWrappedStory;
 		const shouldShowSessionsLanded =
@@ -509,8 +523,10 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 			content = (
 				<WrappedTeamCardPage
 					isDecimalEntitled={decimalAccess.isDecimalEntitled}
-					onBackFromFirstStep={() =>
-						setWrappedRouteFlowStage("sessions-landed")
+					onBackFromFirstStep={
+						shouldSkipYcReviewPrep
+							? () => undefined
+							: () => setWrappedRouteFlowStage("sessions-landed")
 					}
 					variant={decimalAccess.variant}
 				/>
@@ -715,7 +731,7 @@ function getWrappedRouteFlowStage(
 	return flowStage === WRAPPED_ROUTE_CARD_PROFILE_FLOW ||
 		flowStage === WRAPPED_ROUTE_DESKTOP_READY_FLOW ||
 		flowStage === WRAPPED_ROUTE_SESSIONS_LANDED_FLOW ||
-		flowStage === "story"
+		flowStage === WRAPPED_ROUTE_STORY_FLOW
 		? flowStage
 		: null;
 }
