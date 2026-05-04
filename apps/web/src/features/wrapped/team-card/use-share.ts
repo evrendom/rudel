@@ -1,6 +1,7 @@
 import type {
 	WrappedShareRecord,
 	WrappedShareSnapshot,
+	WrappedShareVariant,
 } from "@rudel/api-routes";
 import { useCallback, useRef, useState } from "react";
 import { appRoutes } from "@/app/routes";
@@ -14,6 +15,10 @@ interface UseWrappedTeamCardShareOptions {
 	// We keep that callback optional so the hook stays reusable and does not own
 	// analytics directly.
 	onShareCreated?: (shareRecord: WrappedShareRecord) => void;
+	// Selects which public card variant the server should persist. Decimal
+	// shares are gated server-side on entitlement; the frontend default keeps
+	// normal share behavior unchanged for everyone else.
+	variant?: WrappedShareVariant;
 }
 
 // This hook owns the "create a real share only when needed" behavior for the
@@ -23,6 +28,7 @@ export function useWrappedTeamCardShare(
 	snapshot: WrappedShareSnapshot,
 	options?: UseWrappedTeamCardShareOptions,
 ) {
+	const variant: WrappedShareVariant = options?.variant ?? "normal";
 	// Multiple buttons can ask for a share at roughly the same time. We keep the
 	// in-flight promise in a ref so copy/share/download all collapse onto one
 	// request for the user's stable public link instead of creating duplicates.
@@ -53,7 +59,7 @@ export function useWrappedTeamCardShare(
 		setHasShareError(false);
 
 		const shareRequest = client.wrappedShare
-			.create({ snapshot })
+			.create({ snapshot, variant })
 			.then((createdShare) => {
 				setShareRecord(createdShare);
 				onShareCreated?.(createdShare);
@@ -70,7 +76,7 @@ export function useWrappedTeamCardShare(
 
 		shareRequestRef.current = shareRequest;
 		return shareRequest;
-	}, [onShareCreated, shareRecord, snapshot]);
+	}, [onShareCreated, shareRecord, snapshot, variant]);
 
 	return {
 		ensureShare,

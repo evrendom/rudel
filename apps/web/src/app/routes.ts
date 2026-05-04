@@ -21,6 +21,18 @@ export const WRAPPED_ROUTE_FLOW_QUERY_PARAM = "flow";
 export const WRAPPED_ROUTE_CARD_PROFILE_FLOW = "card-profile";
 export const WRAPPED_ROUTE_DESKTOP_READY_FLOW = "desktop-ready";
 export const WRAPPED_ROUTE_SESSIONS_LANDED_FLOW = "sessions-landed";
+// Decimal claim links arrive as ?claim=<token> on /wrapped. The token redeems
+// for server-side entitlement; the URL itself is not the permission.
+export const WRAPPED_DECIMAL_CLAIM_QUERY_PARAM = "claim";
+// /wrapped?variant=decimal selects the Decimal card for entitled users. The
+// default (param absent or "normal") keeps the normal card for everyone, even
+// for users who hold Decimal entitlement.
+export const WRAPPED_VARIANT_QUERY_PARAM = "variant";
+export const WRAPPED_VARIANT_NORMAL = "normal" as const;
+export const WRAPPED_VARIANT_DECIMAL = "decimal" as const;
+export type WrappedVariant =
+	| typeof WRAPPED_VARIANT_NORMAL
+	| typeof WRAPPED_VARIANT_DECIMAL;
 
 // These helpers are the canonical route surface for the Saturday wrapped loop.
 // We keep them centralized so design, auth, analytics, and public sharing all
@@ -138,6 +150,33 @@ export function getWrappedShareIdFromSearch(search: string) {
 	}
 
 	return shareId;
+}
+
+export function getWrappedDecimalClaimTokenFromSearch(
+	search: string | URLSearchParams,
+): string | null {
+	const searchParams =
+		search instanceof URLSearchParams ? search : new URLSearchParams(search);
+	const token = searchParams.get(WRAPPED_DECIMAL_CLAIM_QUERY_PARAM);
+
+	if (typeof token !== "string") {
+		return null;
+	}
+
+	const trimmed = token.trim();
+	return trimmed.length > 0 ? trimmed : null;
+}
+
+export function getWrappedVariantFromSearch(
+	search: string | URLSearchParams,
+): WrappedVariant {
+	const searchParams =
+		search instanceof URLSearchParams ? search : new URLSearchParams(search);
+	const raw = searchParams.get(WRAPPED_VARIANT_QUERY_PARAM);
+
+	return raw === WRAPPED_VARIANT_DECIMAL
+		? WRAPPED_VARIANT_DECIMAL
+		: WRAPPED_VARIANT_NORMAL;
 }
 
 // Resume links stay outside /wrapped because they are not a replay surface.

@@ -28,6 +28,7 @@ import {
 } from "@/features/wrapped/onboarding/config";
 import { WrappedRouteStageShell } from "@/features/wrapped/route-stage-shell";
 import { WrappedTeamCardPage } from "@/features/wrapped/team-card/page";
+import { useWrappedDecimalAccess } from "@/features/wrapped/use-wrapped-decimal-access";
 import { WrappedCardProfileStep } from "@/features/wrapped/WrappedCardProfileStep";
 import { WrappedDesktopResumePromptPage } from "@/features/wrapped/WrappedDesktopResumePromptPage";
 import { WrappedGuestPage } from "@/features/wrapped/WrappedGuestPage";
@@ -97,6 +98,12 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 	const wrappedLoopEntrySource = shareId ? "share_redirect" : "direct";
 	const sessionUserId = getSessionUserId(session);
 	const sessionUserEmail = getSessionUserEmail(session);
+	// Drives Decimal claim redemption + variant gating. Public share routes
+	// (publicId !== null) intentionally don't pass a userId here so the
+	// entitlement query stays disabled and the public flow is untouched.
+	const decimalAccess = useWrappedDecimalAccess({
+		userId: publicId ? null : sessionUserId,
+	});
 	const cliSetupStatus = useCliSetupStatus({
 		enabled: !publicId && !!session,
 	});
@@ -500,9 +507,11 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 		) {
 			content = (
 				<WrappedTeamCardPage
+					isDecimalEntitled={decimalAccess.isDecimalEntitled}
 					onBackFromFirstStep={() =>
 						setWrappedRouteFlowStage("sessions-landed")
 					}
+					variant={decimalAccess.variant}
 				/>
 			);
 		} else {
