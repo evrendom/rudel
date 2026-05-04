@@ -162,6 +162,24 @@ function App() {
 	}
 
 	if (isWrappedTeamCardPath) {
+		const ycWrappedStoryPath = appRoutes.wrappedStory(location.search);
+		const shouldRouteYcWrappedToStory =
+			!isPending &&
+			wrappedPublicId === null &&
+			session &&
+			isYcReviewSession(session) &&
+			`${location.pathname}${location.search}` !== ycWrappedStoryPath;
+
+		if (shouldRouteYcWrappedToStory) {
+			return (
+				<>
+					<ProductAnalyticsSessionSync session={session} />
+					<Navigate replace to={ycWrappedStoryPath} />
+					{showDesktopOnlyOverlay ? <DesktopOnlyOverlay /> : null}
+				</>
+			);
+		}
+
 		return (
 			<>
 				<ProductAnalyticsSessionSync session={session} />
@@ -178,13 +196,18 @@ function App() {
 	}
 
 	if (isYcLoginPath) {
+		const authenticatedYcLoginDestination =
+			session && isYcReviewSession(session)
+				? appRoutes.wrappedStory()
+				: appRoutes.wrappedTeamCard();
+
 		return (
 			<>
 				<ProductAnalyticsSessionSync session={session} />
 				{isPending ? (
 					<AppLoadingScreen />
 				) : session ? (
-					<Navigate replace to={appRoutes.wrappedTeamCard()} />
+					<Navigate replace to={authenticatedYcLoginDestination} />
 				) : (
 					<Suspense fallback={<FullscreenRouteLoadingScreen />}>
 						<YcPasswordLoginPage />
@@ -223,7 +246,7 @@ function App() {
 				<AuthenticatedApp
 					rootRedirectTarget={
 						isYcReviewSession(session)
-							? appRoutes.wrappedTeamCard()
+							? appRoutes.wrappedStory()
 							: rootRedirectTarget
 					}
 					session={session}

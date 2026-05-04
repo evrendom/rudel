@@ -127,7 +127,7 @@ function YcPasswordLoginForm() {
 
 		refreshAuthClientState();
 		clearYcPasswordLoginDraft();
-		navigateToDestination(appRoutes.wrappedTeamCard());
+		navigateToDestination(appRoutes.wrappedStory());
 	}
 
 	function handleDraftChange(nextDraft: YcPasswordLoginDraft) {

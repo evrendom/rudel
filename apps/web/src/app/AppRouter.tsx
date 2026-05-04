@@ -118,7 +118,7 @@ export function AppRouter({
 		isYcReview && location.pathname.startsWith(sessionDetailPath);
 
 	if (isYcSettingsPath) {
-		return <Navigate replace to={appRoutes.wrappedTeamCard()} />;
+		return <Navigate replace to={appRoutes.wrappedStory()} />;
 	}
 
 	if (isYcSessionDetailPath) {

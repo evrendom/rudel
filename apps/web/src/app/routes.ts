@@ -22,6 +22,7 @@ export const WRAPPED_ROUTE_FLOW_QUERY_PARAM = "flow";
 export const WRAPPED_ROUTE_CARD_PROFILE_FLOW = "card-profile";
 export const WRAPPED_ROUTE_DESKTOP_READY_FLOW = "desktop-ready";
 export const WRAPPED_ROUTE_SESSIONS_LANDED_FLOW = "sessions-landed";
+export const WRAPPED_ROUTE_STORY_FLOW = "story";
 // Decimal claim links arrive as ?claim=<token> on /wrapped. The token redeems
 // for server-side entitlement; the URL itself is not the permission.
 export const WRAPPED_DECIMAL_CLAIM_QUERY_PARAM = "claim";
@@ -57,6 +58,7 @@ export const appRoutes = {
 	wrappedDesktopReady: (search?: string) => getWrappedDesktopReadyPath(search),
 	wrappedSessionsLanded: (search?: string) =>
 		getWrappedSessionsLandedPath(search),
+	wrappedStory: (search?: string) => getWrappedStoryPath(search),
 	devWrapped: () => DEV_WRAPPED_PATH,
 	wrappedPublic: (publicId: string) =>
 		`${WRAPPED_TEAM_CARD_PATH}/${encodeURIComponent(publicId)}`,
@@ -96,6 +98,10 @@ export function getWrappedDesktopReadyPath(search?: string) {
 
 export function getWrappedSessionsLandedPath(search?: string) {
 	return getWrappedFlowPath(WRAPPED_ROUTE_SESSIONS_LANDED_FLOW, search);
+}
+
+export function getWrappedStoryPath(search?: string) {
+	return getWrappedFlowPath(WRAPPED_ROUTE_STORY_FLOW, search);
 }
 
 function getWrappedFlowPath(flow: string, search?: string) {

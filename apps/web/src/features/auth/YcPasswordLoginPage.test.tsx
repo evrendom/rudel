@@ -100,7 +100,7 @@ describe("YcPasswordLoginPage", () => {
 		expect(screen.getByLabelText("Password")).toHaveValue("secret-password");
 	});
 
-	it("signs in with email and password and lands in wrapped", async () => {
+	it("signs in with email and password and lands in the wrapped story", async () => {
 		const fetchMock = vi.fn().mockResolvedValue(
 			new Response(JSON.stringify({ token: "session-token" }), {
 				headers: { "Content-Type": "application/json" },
@@ -143,7 +143,7 @@ describe("YcPasswordLoginPage", () => {
 		});
 		expect(mockRefreshAuthClientState).toHaveBeenCalledTimes(1);
 		expect(mockNavigateToDestination).toHaveBeenCalledWith(
-			appRoutes.wrappedTeamCard(),
+			appRoutes.wrappedStory(),
 		);
 		expect(
 			window.sessionStorage.getItem(YC_PASSWORD_LOGIN_DRAFT_STORAGE_KEY),
