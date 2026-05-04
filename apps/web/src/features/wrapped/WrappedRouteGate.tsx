@@ -78,6 +78,7 @@ const WRAPPED_SETUP_ALL_COMPLETED_STEP_IDS = [
 	WRAPPED_SETUP_AUTH_STEP_ID,
 	WRAPPED_SETUP_UPLOAD_STEP_ID,
 ] as const;
+const WRAPPED_ARCHETYPE_GATE_REFETCH_INTERVAL_MS = 1_000;
 
 export function WrappedRouteGate(props: WrappedRouteGateProps) {
 	const { isPending, publicId, session } = props;
@@ -536,7 +537,9 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 
 	if (shouldQueryWrappedArchetypeGate) {
 		return (
-			<WrappedArchetypeGateQuery>
+			<WrappedArchetypeGateQuery
+				expectedSessionCount={setupProgress.totalSessionCount}
+			>
 				{(archetypeGateState) => renderRouteContent(archetypeGateState)}
 			</WrappedArchetypeGateQuery>
 		);
@@ -552,10 +555,26 @@ interface WrappedArchetypeGateState {
 
 function WrappedArchetypeGateQuery(props: {
 	children: (state: WrappedArchetypeGateState) => ReactNode;
+	expectedSessionCount: number;
 }) {
 	const wrappedV1Query = useAnalyticsQuery({
 		...orpc.analytics.wrapped.v1.queryOptions({}),
 		enabled: true,
+		refetchInterval: (query) => {
+			const archetypeGate = query.state.data?.archetype_gate;
+			if (
+				archetypeGate === undefined ||
+				archetypeGate.reason === "processing_archetype" ||
+				archetypeGate.values.total_sessions < props.expectedSessionCount
+			) {
+				return WRAPPED_ARCHETYPE_GATE_REFETCH_INTERVAL_MS;
+			}
+
+			return false;
+		},
+		refetchIntervalInBackground: true,
+		refetchOnReconnect: "always",
+		refetchOnWindowFocus: "always",
 	});
 
 	return props.children({

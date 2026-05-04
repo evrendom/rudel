@@ -3,7 +3,7 @@ import {
 	type QueryClientConfig,
 	QueryClientProvider,
 } from "@tanstack/react-query";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -42,6 +42,12 @@ vi.mock("@/features/workspace/organization/useOrganization", () => ({
 }));
 
 let rawSessionCount = 45;
+let wrappedGateQueryCount = 0;
+let wrappedGateReason:
+	| "eligible"
+	| "needs_more_sessions"
+	| "processing_archetype" = "needs_more_sessions";
+let wrappedGateSessionCount = 45;
 
 vi.mock("@/lib/orpc", () => ({
 	client: {
@@ -92,18 +98,29 @@ vi.mock("@/lib/orpc", () => ({
 			wrapped: {
 				v1: {
 					queryOptions: () => ({
-						queryFn: async () => ({
-							archetype_gate: {
-								is_eligible: false,
-								reason: "session_threshold",
-								thresholds: {
-									min_total_sessions: 100,
+						queryFn: async () => {
+							wrappedGateQueryCount += 1;
+							return {
+								archetype_gate: {
+									is_eligible: wrappedGateReason === "eligible",
+									reason: wrappedGateReason,
+									thresholds: {
+										max_distance_ratio_to_max: 0.25,
+										min_active_days: 14,
+										min_top_two_margin: 0.1,
+										min_total_sessions: 100,
+									},
+									values: {
+										active_days: 14,
+										archetype_distance_ratio_to_max:
+											wrappedGateReason === "processing_archetype" ? null : 0.1,
+										archetype_top_two_margin:
+											wrappedGateReason === "processing_archetype" ? null : 0.2,
+										total_sessions: wrappedGateSessionCount,
+									},
 								},
-								values: {
-									total_sessions: rawSessionCount,
-								},
-							},
-						}),
+							};
+						},
 						queryKey: ["analytics", "wrapped", "v1"],
 					}),
 				},
@@ -159,6 +176,9 @@ function createWrapper(queryClient: QueryClient, initialEntry = "/wrapped") {
 describe("Wrapped upload polling smoke", () => {
 	beforeEach(() => {
 		rawSessionCount = 45;
+		wrappedGateQueryCount = 0;
+		wrappedGateReason = "needs_more_sessions";
+		wrappedGateSessionCount = 45;
 		mockGetOrganizationSessionCount.mockReset();
 		mockUseAnalyticsTracking.mockReset();
 		mockUseCliSetupStatus.mockReset();
@@ -267,6 +287,54 @@ describe("Wrapped upload polling smoke", () => {
 		);
 		expect(screen.getByText("63 sessions across 1 repo")).toBeInTheDocument();
 		expect(mockGetOrganizationSessionCount).toHaveBeenCalledTimes(2);
+
+		queryClient.clear();
+	});
+
+	it("enables setup continuation after the processing archetype gate refetches", async () => {
+		const queryClient = new QueryClient(queryClientConfig);
+		rawSessionCount = 100;
+		wrappedGateSessionCount = 100;
+		wrappedGateReason = "processing_archetype";
+
+		render(
+			<WrappedRouteGate isPending={false} publicId={null} session={session} />,
+			{
+				wrapper: createWrapper(queryClient),
+			},
+		);
+
+		expect(
+			await screen.findByRole("button", {
+				name: "Preparing your wrapped...",
+			}),
+		).toBeDisabled();
+
+		wrappedGateReason = "eligible";
+
+		await waitFor(
+			() => {
+				expect(
+					screen.getByRole("button", {
+						name: "Continue",
+					}),
+				).toBeEnabled();
+			},
+			{ timeout: 1_500 },
+		);
+		expect(wrappedGateQueryCount).toBeGreaterThan(1);
+
+		fireEvent.click(
+			screen.getByRole("button", {
+				name: "Continue",
+			}),
+		);
+
+		expect(
+			await screen.findByRole("button", {
+				name: "See what it reveals about you",
+			}),
+		).toBeEnabled();
 
 		queryClient.clear();
 	});
