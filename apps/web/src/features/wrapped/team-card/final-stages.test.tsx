@@ -361,6 +361,39 @@ describe("WrappedTeamCardSharePreview", () => {
 		);
 		expect(screen.getByText("Input/output tokens")).toBeInTheDocument();
 	});
+
+	it("renders the Decimal badge on the back card in the two-card share preview", () => {
+		render(
+			<WrappedTeamCardSharePreview
+				appearance={{ layoutMode: "front_back", showArchetypeLabel: true }}
+				backMetrics={buildWrappedTeamCardBackMetrics({
+					onboardingMetrics,
+					row,
+					shareCardCreatedAtLabel: "04/24/2026",
+				})}
+				edition="decimal"
+				headerLeftMetric={{ title: "$42 estimated spend", value: "$42" }}
+				headerRightMetric={{
+					title: "Smooth Operator",
+					value: "Smooth Operator",
+				}}
+				row={row}
+				shareCardCreatedAtLabel="04/24/2026"
+				shellClassName="bg-sky-200"
+				shellStyle={{}}
+				statItems={[]}
+				theme="light"
+			/>,
+		);
+
+		expect(screen.getByText("MEMBER")).toBeInTheDocument();
+		const decimalsText = screen.getByText("Decimals");
+		const badge = decimalsText.closest(
+			".mymind-wrapped-team-card-edition-badge",
+		);
+		expect(decimalsText).toHaveClass("sr-only");
+		expect(badge).not.toHaveTextContent("MEMBER");
+	});
 });
 
 describe("WrappedTeamCardShareStage", () => {
@@ -834,7 +867,13 @@ describe("WrappedTeamCardRevealStage", () => {
 			/>,
 		);
 
-		expect(screen.getByText("MEMBER OF")).toBeInTheDocument();
+		expect(screen.getByText("MEMBER")).toBeInTheDocument();
+		const decimalsText = screen.getByText("Decimals");
+		const badge = decimalsText.closest(
+			".mymind-wrapped-team-card-edition-badge",
+		);
+		expect(decimalsText).toHaveClass("sr-only");
+		expect(badge).not.toHaveTextContent("MEMBER");
 
 		advanceRevealIntroToGate();
 

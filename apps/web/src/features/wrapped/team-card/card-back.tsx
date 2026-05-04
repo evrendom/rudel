@@ -139,21 +139,21 @@ function WrappedTeamMemberCardBackEditionLockup() {
 					src={decimalEditionStampPng}
 					width={512}
 				/>
-				<span className="mymind-wrapped-team-card-edition-badge__label">
-					<span>MEMBER OF</span>
-					<span className="sr-only">Decimals</span>
-					<img
-						alt=""
-						aria-hidden="true"
-						className="mymind-wrapped-team-card-edition-badge__wordmark"
-						decoding="sync"
-						draggable={false}
-						height={18.576}
-						src={decimalWordmarkSvg}
-						width={212.62}
-					/>
-				</span>
+				<img
+					alt=""
+					aria-hidden="true"
+					className="mymind-wrapped-team-card-edition-badge__wordmark"
+					decoding="sync"
+					draggable={false}
+					height={18.576}
+					src={decimalWordmarkSvg}
+					width={212.62}
+				/>
+				<span className="sr-only">Decimals</span>
 			</div>
+			<span className="mymind-wrapped-team-card-back__edition-caption">
+				MEMBER
+			</span>
 		</div>
 	);
 }
