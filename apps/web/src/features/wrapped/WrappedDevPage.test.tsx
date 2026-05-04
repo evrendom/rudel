@@ -43,12 +43,32 @@ vi.mock("@/features/wrapped/WrappedSetupCompletePage", () => ({
 
 vi.mock("@/features/wrapped/team-card/page", () => ({
 	WrappedTeamCardPage: ({
+		devPreviewArchetype,
+		devPreviewPublicId,
+		devPreviewUserEmail,
+		devPreviewUserId,
+		isDecimalEntitled,
 		onBackFromFirstStep,
+		variant,
 	}: {
+		devPreviewArchetype?: { displayLabel: string };
+		devPreviewPublicId?: string;
+		devPreviewUserEmail?: string;
+		devPreviewUserId?: string;
+		isDecimalEntitled?: boolean;
 		onBackFromFirstStep?: () => void;
+		variant?: string;
 	}) => (
 		<div>
 			<div>Wrapped story</div>
+			<div>
+				Dev preview archetype: {devPreviewArchetype?.displayLabel ?? "none"}
+			</div>
+			<div>Dev preview public id: {devPreviewPublicId ?? "none"}</div>
+			<div>Dev preview email: {devPreviewUserEmail ?? "none"}</div>
+			<div>Dev preview user id: {devPreviewUserId ?? "none"}</div>
+			<div>Story variant: {variant ?? "normal"}</div>
+			<div>Decimal entitled: {isDecimalEntitled ? "yes" : "no"}</div>
 			<button type="button" onClick={onBackFromFirstStep}>
 				Back to upload
 			</button>
@@ -144,5 +164,27 @@ describe("WrappedDevPage", () => {
 
 		const dock = container.querySelector(".mymind-wrapped-dock");
 		expect(dock).toBeNull();
+	});
+
+	it("defaults the dev story route to Evren's Decimal preview without auth", () => {
+		render(
+			<MemoryRouter initialEntries={["/dev/wrapped?stage=story"]}>
+				<WrappedDevPage />
+			</MemoryRouter>,
+		);
+
+		expect(screen.getByText("Wrapped story")).toBeInTheDocument();
+		expect(
+			screen.getByText("Dev preview archetype: Smooth Operator"),
+		).toBeInTheDocument();
+		expect(
+			screen.getByText("Dev preview email: e.k.dombak@gmail.com"),
+		).toBeInTheDocument();
+		expect(
+			screen.getByText("Dev preview public id: evren"),
+		).toBeInTheDocument();
+		expect(screen.getByText("Dev preview user id: evren")).toBeInTheDocument();
+		expect(screen.getByText("Story variant: decimal")).toBeInTheDocument();
+		expect(screen.getByText("Decimal entitled: yes")).toBeInTheDocument();
 	});
 });

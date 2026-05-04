@@ -914,7 +914,7 @@ body.mymind-wrapped-body .woot-widget-bubble {
 	color: #17161c;
 	font-size: clamp(2.15rem, 6vw, 2.85rem);
 	font-family: "Nunito", var(--font-sans);
-	font-weight: 800;
+	font-weight: 700;
 	letter-spacing: -0.05em;
 	line-height: 0.96;
 	text-wrap: balance;
@@ -3303,7 +3303,7 @@ body.mymind-wrapped-body .woot-widget-bubble {
 }
 
 .mymind-wrapped-scale-stage__spend-label {
-	color: rgb(23 22 28 / 0.66);
+	color: rgb(23 22 28 / 0.78);
 	font-size: 1rem;
 }
 
@@ -8327,6 +8327,68 @@ body.mymind-wrapped-body[data-wrapped-bottom-occluded="true"]
 	--wrapped-card-render-scale: 1;
 }
 
+.mymind-wrapped-team-card-edition-badge {
+	position: absolute;
+	right: calc(var(--wrapped-card-render-scale, 1) * 7px);
+	bottom: calc(var(--wrapped-card-render-scale, 1) * 7px);
+	left: calc(var(--wrapped-card-render-scale, 1) * 7px);
+	z-index: 18;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: calc(var(--wrapped-card-render-scale, 1) * 3.5px);
+	min-height: calc(var(--wrapped-card-render-scale, 1) * 18px);
+	padding: calc(var(--wrapped-card-render-scale, 1) * 2.25px)
+		calc(var(--wrapped-card-render-scale, 1) * 5.5px)
+		calc(var(--wrapped-card-render-scale, 1) * 2.25px)
+		calc(var(--wrapped-card-render-scale, 1) * 4px);
+	border-radius: calc(var(--wrapped-card-render-scale, 1) * 4px);
+	background: linear-gradient(180deg, #e0c659 0%, #b1923a 100%);
+	box-shadow:
+		0 calc(var(--wrapped-card-render-scale, 1) * 1px) 0 rgb(255 255 255 / 0.24),
+		inset 0 calc(var(--wrapped-card-render-scale, 1) * 0.5px)
+		calc(var(--wrapped-card-render-scale, 1) * 0.5px) rgb(0 0 0 / 0.18);
+	overflow: clip;
+	color: rgb(23 22 28 / 0.9);
+	font-family: "Geist Mono", ui-monospace, monospace;
+	font-size: calc(var(--wrapped-card-render-scale, 1) * 7.2px);
+	font-weight: 500;
+	letter-spacing: 0;
+	line-height: 1;
+	text-transform: none;
+}
+
+.mymind-wrapped-team-card-edition-badge__stamp {
+	position: relative;
+	z-index: 1;
+	display: block;
+	width: calc(var(--wrapped-card-render-scale, 1) * 10px);
+	height: calc(var(--wrapped-card-render-scale, 1) * 10px);
+	backface-visibility: hidden;
+	image-rendering: auto;
+	object-fit: contain;
+	transform: translateZ(0);
+}
+
+.mymind-wrapped-team-card-edition-badge__wordmark {
+	position: relative;
+	z-index: 1;
+	display: block;
+	width: calc(var(--wrapped-card-render-scale, 1) * 58px);
+	height: auto;
+	flex-shrink: 0;
+	opacity: 0.9;
+}
+
+.mymind-wrapped-team-card-edition-badge--back {
+	position: relative;
+	right: auto;
+	bottom: auto;
+	left: auto;
+	width: fit-content;
+	max-width: 100%;
+}
+
 .mymind-wrapped-team-card-back {
 	position: relative;
 	display: grid;
@@ -8400,6 +8462,25 @@ body.mymind-wrapped-body[data-wrapped-bottom-occluded="true"]
 	width: calc(var(--wrapped-card-render-scale, 1) * 15px);
 	height: calc(var(--wrapped-card-render-scale, 1) * 15px);
 	color: var(--wrapped-team-card-back-muted);
+}
+
+.mymind-wrapped-team-card-back__edition-lockup {
+	display: grid;
+	place-items: center;
+	gap: calc(var(--wrapped-card-render-scale, 1) * 2.75px);
+	min-height: calc(var(--wrapped-card-render-scale, 1) * 31px);
+	padding-top: calc(var(--wrapped-card-render-scale, 1) * 1px);
+}
+
+.mymind-wrapped-team-card-back__edition-caption {
+	display: block;
+	color: var(--wrapped-team-card-back-muted);
+	font-family: "Geist Mono", ui-monospace, monospace;
+	font-size: calc(var(--wrapped-card-render-scale, 1) * 6.6px);
+	font-weight: 500;
+	letter-spacing: 0.015em;
+	line-height: 1;
+	text-transform: none;
 }
 
 .mymind-wrapped-team-card-back__metrics-shell {

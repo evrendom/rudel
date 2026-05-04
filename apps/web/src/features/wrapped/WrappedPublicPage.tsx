@@ -12,6 +12,7 @@ import {
 } from "@/features/wrapped/team-card/archetypes";
 import {
 	DEFAULT_STAT_LAYER_OPACITIES,
+	type WrappedTeamMemberCardEdition,
 	type WrappedTeamMemberCardStatLayerOpacities,
 } from "@/features/wrapped/team-card/card";
 import { getWrappedShareSafeImageUrl } from "@/features/wrapped/team-card/share-media";
@@ -129,6 +130,7 @@ function PublicShareReadyState(props: {
 }) {
 	const { makeYoursHref, onMakeYoursClick, share } = props;
 	const activeArchetype = getPublicPageArchetype(share);
+	const edition = getPublicPageEdition(share);
 	const publicRow = buildPublicPageRow(share.snapshot.row);
 	const statLayerOpacities = getPublicPageStatLayerOpacities(activeArchetype);
 
@@ -144,6 +146,7 @@ function PublicShareReadyState(props: {
 			}
 			activeArchetype={activeArchetype}
 			backMetrics={share.snapshot.backMetrics ?? []}
+			edition={edition}
 			headerLeftMetric={share.snapshot.headerLeftMetric}
 			headerRightMetric={share.snapshot.headerRightMetric}
 			revealMetrics={share.snapshot.revealMetrics}
@@ -157,10 +160,15 @@ function PublicShareReadyState(props: {
 	);
 }
 
-// Decimal's stat tiles need a different treatment than the classifier-backed
-// archetypes. We resolve it from archetype.id (derived above from the snapshot's
-// archetypeLabel) so the public render matches the authenticated render without
-// having to widen the persisted payload with raw layer opacities.
+function getPublicPageEdition(
+	share: PublicWrappedShare,
+): WrappedTeamMemberCardEdition | undefined {
+	return share.variant === "decimal" ? "decimal" : undefined;
+}
+
+// The legacy Decimal archetype keeps its own stat tile treatment. Decimal
+// edition shares now persist the user's classifier archetype and use only the
+// edition prop for the stamp/back copy.
 function getPublicPageStatLayerOpacities(
 	archetype: WrappedArchetypeCardTheme,
 ): WrappedTeamMemberCardStatLayerOpacities | undefined {

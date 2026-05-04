@@ -29,6 +29,20 @@ describe("WrappedTeamMemberCardBack", () => {
 		).toHaveAttribute("title", "extremely-long-favorite-skill-name");
 	});
 
+	it("replaces the Rudel logo with the Decimal edition lockup", () => {
+		render(<WrappedTeamMemberCardBack edition="decimal" metrics={[]} />);
+
+		expect(screen.getByText("Member of")).toBeInTheDocument();
+		const decimalsText = screen.getByText("Decimals");
+		const badge = decimalsText.closest(
+			".mymind-wrapped-team-card-edition-badge",
+		);
+		expect(decimalsText).toHaveClass("sr-only");
+		expect(badge).not.toHaveTextContent("Member of");
+		expect(badge?.querySelectorAll("img")).toHaveLength(2);
+		expect(screen.queryByLabelText("Rudel")).toBeNull();
+	});
+
 	it("marks the favorite skill metric for start truncation", () => {
 		const metrics = buildWrappedTeamCardBackMetrics({
 			onboardingMetrics,

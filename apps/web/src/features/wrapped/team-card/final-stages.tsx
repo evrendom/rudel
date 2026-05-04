@@ -34,6 +34,7 @@ import type { WrappedArchetypeCardTheme } from "./archetypes";
 import { buildWrappedTeamCardBackMetrics } from "./back-metrics";
 import {
 	WrappedTeamMemberCard,
+	type WrappedTeamMemberCardEdition,
 	type WrappedTeamMemberCardHeaderMetric,
 	type WrappedTeamMemberCardStatItem,
 	type WrappedTeamMemberCardStatLayerOpacities,
@@ -49,6 +50,7 @@ import { WrappedTeamCardSharePreview } from "./share-preview";
 import type { WrappedCardTiltController } from "./tilt/use-card-tilt";
 
 interface WrappedTeamCardStageCardProps {
+	edition?: WrappedTeamMemberCardEdition;
 	headerLeftMetric: WrappedTeamMemberCardHeaderMetric;
 	headerRightMetric: WrappedTeamMemberCardHeaderMetric;
 	row: TeamPageMemberRow;
@@ -98,6 +100,7 @@ interface WrappedTeamCardPublicStageProps {
 	action: ReactNode;
 	activeArchetype: WrappedArchetypeCardTheme;
 	backMetrics?: readonly WrappedTeamMemberCardBackMetric[];
+	edition?: WrappedTeamMemberCardEdition;
 	headerLeftMetric?: WrappedTeamMemberCardHeaderMetric;
 	headerRightMetric?: WrappedTeamMemberCardHeaderMetric;
 	revealMetrics?: WrappedShareRevealMetrics;
@@ -114,6 +117,7 @@ interface WrappedTeamCardFlipSurfaceProps {
 	backMetrics: readonly WrappedTeamMemberCardBackMetric[];
 	buttonLabel: string;
 	cardVisualStageClassName?: string;
+	edition?: WrappedTeamMemberCardEdition;
 	headerLeftMetric?: WrappedTeamMemberCardHeaderMetric;
 	headerRightMetric?: WrappedTeamMemberCardHeaderMetric;
 	isDisabled: boolean;
@@ -267,6 +271,7 @@ export function WrappedTeamCardShareStage(
 	const {
 		appearance,
 		backMetrics,
+		edition,
 		frontCardHandoffRef,
 		headerLeftMetric,
 		headerRightMetric,
@@ -451,6 +456,7 @@ export function WrappedTeamCardShareStage(
 							<WrappedTeamCardSharePreview
 								appearance={resolvedAppearance}
 								backMetrics={backMetrics}
+								edition={edition}
 								frontCardHandoffRef={frontCardHandoffRef}
 								headerLeftMetric={headerLeftMetric}
 								headerRightMetric={headerRightMetric}
@@ -649,6 +655,7 @@ function WrappedTeamCardFlipSurface(props: WrappedTeamCardFlipSurfaceProps) {
 		backMetrics,
 		buttonLabel,
 		cardVisualStageClassName,
+		edition,
 		headerLeftMetric,
 		headerRightMetric,
 		isDisabled,
@@ -746,6 +753,7 @@ function WrappedTeamCardFlipSurface(props: WrappedTeamCardFlipSurfaceProps) {
 									<div className="grid justify-center">
 										<WrappedTeamMemberCardBack
 											disableOuterShadow
+											edition={edition}
 											metrics={backMetrics}
 											shellClassName={shellClassName}
 											shellStyle={shellStyle}
@@ -771,6 +779,7 @@ export function WrappedTeamCardPublicStage(
 		action,
 		activeArchetype,
 		backMetrics = [],
+		edition,
 		headerLeftMetric,
 		headerRightMetric,
 		revealMetrics,
@@ -812,6 +821,7 @@ export function WrappedTeamCardPublicStage(
 		row.userId,
 		row.displayName,
 		row.imageUrl ?? "",
+		edition ?? "",
 		theme,
 		shellClassName,
 		headerLeftMetric?.value ?? "",
@@ -895,6 +905,7 @@ export function WrappedTeamCardPublicStage(
 											: "Show front of card"
 									}
 									cardVisualStageClassName="mymind-wrapped-public-card-stage__card-visual-stage"
+									edition={edition}
 									headerLeftMetric={headerLeftMetric}
 									headerRightMetric={headerRightMetric}
 									isDisabled={isCardFlipAnimating}
@@ -986,6 +997,7 @@ export function WrappedTeamCardRevealStage(
 ) {
 	const {
 		activeArchetype,
+		edition,
 		footerActionLabel = "Continue",
 		handoffCardRef,
 		headerLeftMetric,
@@ -1081,6 +1093,7 @@ export function WrappedTeamCardRevealStage(
 		row.userId,
 		row.displayName,
 		row.imageUrl ?? "",
+		edition ?? "",
 		theme,
 		shellClassName,
 		headerLeftMetric.value,
@@ -1384,6 +1397,7 @@ export function WrappedTeamCardRevealStage(
 								<WrappedTeamCardFlipSurface
 									backMetrics={revealBackMetrics}
 									buttonLabel={cardFlipButtonLabel}
+									edition={edition}
 									headerLeftMetric={headerLeftMetric}
 									headerRightMetric={headerRightMetric}
 									isDisabled={

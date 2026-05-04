@@ -16,6 +16,7 @@ const FACE_SWAP_END_DEG = 92;
 const SHADOW_FADE_OUT_START_PROGRESS = 0.1;
 const SHADOW_FADE_EDGE_PROGRESS = 0.5;
 const SHADOW_FADE_IN_END_PROGRESS = 0.9;
+const PRINTED_CARD_SURFACE_CAPTURE_PIXEL_RATIO = 4;
 
 interface WrappedPrintedCardFlipProps {
 	back: ReactNode;
@@ -373,7 +374,7 @@ async function capturePrintedCardSurface(
 		backgroundColor: "transparent",
 		cacheBust: true,
 		imagePlaceholder: TRANSPARENT_IMAGE_PLACEHOLDER,
-		pixelRatio: 2,
+		pixelRatio: PRINTED_CARD_SURFACE_CAPTURE_PIXEL_RATIO,
 		preferredFontFormat: "woff2",
 	});
 }

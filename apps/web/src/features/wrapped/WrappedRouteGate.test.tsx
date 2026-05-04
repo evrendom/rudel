@@ -1178,7 +1178,9 @@ describe("WrappedRouteGate", () => {
 		);
 		await user.click(screen.getByRole("button", { name: "Continue profile" }));
 
-		expect(screen.getByText("Wrapped setup page")).toBeInTheDocument();
+		await waitFor(() => {
+			expect(screen.getByText("Wrapped setup page")).toBeInTheDocument();
+		});
 		expect(
 			screen.getByText(
 				"Setup completed steps: install-and-login,enable-auto-upload",

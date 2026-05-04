@@ -83,9 +83,9 @@ async function main(): Promise<void> {
 			organizationId: orgId,
 			snapshot: snapshot({
 				displayName: "Test Decimal",
-				archetypeLabel: "Decimal",
+				archetypeLabel: "Roadrunner",
 				shellClassName:
-					"bg-[linear-gradient(180deg,_#F7E08B_0%,_#D4AF37_42%,_#9C7415_100%)]",
+					"bg-[linear-gradient(161.01deg,_#28D0FF_4.98%,_#FFCA0D_99.99%)]",
 			}),
 			userId,
 			variant: "decimal",
@@ -123,9 +123,9 @@ async function main(): Promise<void> {
 		organizationId: orgId,
 		snapshot: snapshot({
 			displayName: "E2E Decimal",
-			archetypeLabel: "Decimal",
+			archetypeLabel: "Roadrunner",
 			shellClassName:
-				"bg-[linear-gradient(180deg,_#F7E08B_0%,_#D4AF37_42%,_#9C7415_100%)]",
+				"bg-[linear-gradient(161.01deg,_#28D0FF_4.98%,_#FFCA0D_99.99%)]",
 		}),
 		userId,
 		variant: "decimal",
@@ -165,14 +165,14 @@ async function main(): Promise<void> {
 			`Public decimal variant should be 'decimal', got ${publicDecimal.variant}`,
 		);
 	}
-	if (publicDecimal.snapshot.archetypeLabel !== "Decimal") {
+	if (publicDecimal.snapshot.archetypeLabel !== "Roadrunner") {
 		fail(
-			`Public decimal archetypeLabel should be 'Decimal', got '${publicDecimal.snapshot.archetypeLabel}'`,
+			`Public decimal archetypeLabel should preserve the user archetype 'Roadrunner', got '${publicDecimal.snapshot.archetypeLabel}'`,
 		);
 	}
-	if (!publicDecimal.snapshot.shellClassName.includes("D4AF37")) {
+	if (!publicDecimal.snapshot.shellClassName.includes("28D0FF")) {
 		fail(
-			"Public decimal shellClassName should contain the gold gradient '#D4AF37'",
+			"Public decimal shellClassName should preserve the user archetype gradient '#28D0FF'",
 		);
 	}
 	if (publicNormal.snapshot.archetypeLabel !== "Roadrunner") {
@@ -181,7 +181,7 @@ async function main(): Promise<void> {
 		);
 	}
 	console.log(
-		"✓ Public Decimal snapshot carries gold shellClassName and 'Decimal' archetype label",
+		"✓ Public Decimal snapshot preserves the classifier archetype while the variant carries the edition",
 	);
 	console.log(
 		"✓ Public normal snapshot is unchanged (carries the classifier archetype)",

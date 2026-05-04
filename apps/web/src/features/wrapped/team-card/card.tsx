@@ -76,6 +76,7 @@ export interface WrappedTeamMemberCardHeaderMetric {
 
 export type WrappedTeamMemberCardTheme = "dark" | "light" | "muted";
 export type WrappedTeamMemberCardLayoutPreset = "default" | "team-card-preview";
+export type WrappedTeamMemberCardEdition = "decimal";
 
 export interface WrappedTeamMemberCardStatItem {
 	icon?: "claude" | "codex";

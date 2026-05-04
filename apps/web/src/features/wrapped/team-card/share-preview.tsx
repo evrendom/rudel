@@ -10,6 +10,7 @@ import type { TeamPageMemberRow } from "@/features/team/use-team-page-data";
 import { useMountEffect } from "@/hooks/useMountEffect";
 import {
 	WrappedTeamMemberCard,
+	type WrappedTeamMemberCardEdition,
 	type WrappedTeamMemberCardHeaderMetric,
 	type WrappedTeamMemberCardStatItem,
 	type WrappedTeamMemberCardStatLayerOpacities,
@@ -26,6 +27,7 @@ const WRAPPED_SHARE_PREVIEW_REFERENCE_SIZE = 464;
 interface WrappedTeamCardSharePreviewProps {
 	appearance?: WrappedShareAppearance | null;
 	backMetrics?: readonly WrappedTeamMemberCardBackMetric[];
+	edition?: WrappedTeamMemberCardEdition;
 	headerLeftMetric?: WrappedTeamMemberCardHeaderMetric;
 	headerRightMetric?: WrappedTeamMemberCardHeaderMetric;
 	row: TeamPageMemberRow;
@@ -47,6 +49,7 @@ export function WrappedTeamCardSharePreview(
 	const {
 		appearance,
 		backMetrics,
+		edition,
 		headerLeftMetric,
 		headerRightMetric,
 		frontCardHandoffRef,
@@ -129,6 +132,7 @@ export function WrappedTeamCardSharePreview(
 									<div className="team-lineup-card-tilt-shell mymind-wrapped-share-preview__card-shell mymind-wrapped-share-preview__card-shell--spread">
 										<div className="grid justify-center">
 											<WrappedTeamMemberCardBack
+												edition={edition}
 												metrics={spreadBackMetrics}
 												shellClassName={shellClassName}
 												shellStyle={shellStyle}

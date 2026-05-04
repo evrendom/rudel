@@ -1,7 +1,12 @@
 import type { CSSProperties } from "react";
+import decimalEditionStampPng from "@/features/wrapped/assets/decimal-edition-stamp.png";
+import decimalWordmarkSvg from "@/features/wrapped/assets/decimal-wordmark.svg";
 import { cn } from "@/lib/utils";
 import { WrappedTeamCardArtboardFrame } from "./artboard-frame";
-import type { WrappedTeamMemberCardTheme } from "./card";
+import type {
+	WrappedTeamMemberCardEdition,
+	WrappedTeamMemberCardTheme,
+} from "./card";
 
 export interface WrappedTeamMemberCardBackMetric {
 	label: string;
@@ -15,6 +20,7 @@ export type WrappedTeamMemberCardBackVariant = "default" | "gradient-only";
 export function WrappedTeamMemberCardBack(props: {
 	backgroundOverlayClassName?: string;
 	disableOuterShadow?: boolean;
+	edition?: WrappedTeamMemberCardEdition;
 	metrics: readonly WrappedTeamMemberCardBackMetric[];
 	shellClassName?: string;
 	shellStyle?: CSSProperties;
@@ -24,6 +30,7 @@ export function WrappedTeamMemberCardBack(props: {
 	const {
 		backgroundOverlayClassName,
 		disableOuterShadow = false,
+		edition,
 		metrics,
 		shellClassName,
 		shellStyle,
@@ -82,9 +89,13 @@ export function WrappedTeamMemberCardBack(props: {
 				/>
 				{shouldRenderContent ? (
 					<div className="mymind-wrapped-team-card-back__content">
-						<div className="mymind-wrapped-team-card-back__logo-shell">
-							<WrappedTeamMemberCardBackLogo className="mymind-wrapped-team-card-back__logo" />
-						</div>
+						{edition === "decimal" ? (
+							<WrappedTeamMemberCardBackEditionLockup />
+						) : (
+							<div className="mymind-wrapped-team-card-back__logo-shell">
+								<WrappedTeamMemberCardBackLogo className="mymind-wrapped-team-card-back__logo" />
+							</div>
+						)}
 
 						<div className="mymind-wrapped-team-card-back__metrics-shell">
 							<table className="mymind-wrapped-team-card-back__metrics-table">
@@ -111,6 +122,39 @@ export function WrappedTeamMemberCardBack(props: {
 				) : null}
 			</article>
 		</WrappedTeamCardArtboardFrame>
+	);
+}
+
+function WrappedTeamMemberCardBackEditionLockup() {
+	return (
+		<div className="mymind-wrapped-team-card-back__edition-lockup">
+			<span className="mymind-wrapped-team-card-back__edition-caption">
+				Member of
+			</span>
+			<div className="mymind-wrapped-team-card-edition-badge mymind-wrapped-team-card-edition-badge--back">
+				<img
+					alt=""
+					aria-hidden="true"
+					className="mymind-wrapped-team-card-edition-badge__stamp"
+					decoding="sync"
+					draggable={false}
+					height={512}
+					src={decimalEditionStampPng}
+					width={512}
+				/>
+				<img
+					alt=""
+					aria-hidden="true"
+					className="mymind-wrapped-team-card-edition-badge__wordmark"
+					decoding="sync"
+					draggable={false}
+					height={18.576}
+					src={decimalWordmarkSvg}
+					width={212.62}
+				/>
+				<span className="sr-only">Decimals</span>
+			</div>
+		</div>
 	);
 }
 
