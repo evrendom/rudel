@@ -126,7 +126,15 @@ describe("WrappedGuestPage", () => {
 			screen.getByRole("link", { name: "View Rudel on Product Hunt" }),
 		).toHaveAttribute(
 			"href",
-			"https://www.producthunt.com/products/rudel?embed=true&utm_source=badge-featured&utm_medium=badge&utm_campaign=badge-rudel",
+			"https://www.producthunt.com/products/rudel?embed=true&utm_source=badge-featured&utm_medium=badge&utm_campaign=badge-claude-code-codex-usage-trading-cards-by-rudel",
+		);
+		expect(
+			screen.getByAltText(
+				"Claude Code & Codex Usage Trading Cards by Rudel - Get your trading card based on your CC & codex usage | Product Hunt",
+			),
+		).toHaveAttribute(
+			"src",
+			"https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1135782&theme=light&t=1777898459345",
 		);
 		expect(
 			screen.getByRole("region", {

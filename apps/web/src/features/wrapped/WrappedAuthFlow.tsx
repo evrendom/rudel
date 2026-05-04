@@ -57,9 +57,11 @@ const WRAPPED_AUTH_GITHUB_URL = "https://github.com/obsessiondb/rudel";
 const WRAPPED_AUTH_HACKER_NEWS_URL =
 	"https://news.ycombinator.com/item?id=47350416";
 const WRAPPED_AUTH_PRODUCT_HUNT_URL =
-	"https://www.producthunt.com/products/rudel?embed=true&utm_source=badge-featured&utm_medium=badge&utm_campaign=badge-rudel";
+	"https://www.producthunt.com/products/rudel?embed=true&utm_source=badge-featured&utm_medium=badge&utm_campaign=badge-claude-code-codex-usage-trading-cards-by-rudel";
 const WRAPPED_AUTH_PRODUCT_HUNT_BADGE_SRC =
-	"https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1119500&theme=light&t=1775717814244";
+	"https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1135782&theme=light&t=1777898459345";
+const WRAPPED_AUTH_PRODUCT_HUNT_BADGE_ALT =
+	"Claude Code & Codex Usage Trading Cards by Rudel - Get your trading card based on your CC & codex usage | Product Hunt";
 const WRAPPED_AUTH_INTRO_EASE = [0.22, 1, 0.36, 1] as const;
 const WRAPPED_AUTH_EXIT_EASE = [0.4, 0, 0.2, 1] as const;
 const WRAPPED_AUTH_LAYOUT_EASE = [0.32, 0.72, 0, 1] as const;
@@ -925,9 +927,11 @@ function WrappedAuthIntroLaunchLinks() {
 				rel="noopener noreferrer"
 			>
 				<img
-					alt=""
+					alt={WRAPPED_AUTH_PRODUCT_HUNT_BADGE_ALT}
 					className="mymind-wrapped-auth-launch-link__product-hunt-badge"
+					height={54}
 					src={WRAPPED_AUTH_PRODUCT_HUNT_BADGE_SRC}
+					width={250}
 				/>
 			</a>
 		</nav>
