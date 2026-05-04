@@ -10,6 +10,7 @@ import {
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from "@/app/ui/dropdown-menu";
+import { isYcReviewSession } from "@/features/auth/auth-route-utils";
 import {
 	getInitials,
 	getUtilityRailItemClassName,
@@ -26,6 +27,7 @@ export function UserRailButton({
 }) {
 	const navigate = useNavigate();
 	const { data: session } = authClient.useSession();
+	const isYcReview = isYcReviewSession(session);
 
 	const name =
 		session?.user &&
@@ -91,11 +93,17 @@ export function UserRailButton({
 				</span>
 			</DropdownMenuTrigger>
 			<DropdownMenuContent className="min-w-48" side="right" align="end">
-				<DropdownMenuItem onClick={() => navigate(appRoutes.settingsAccount())}>
-					<Settings2Icon />
-					Account settings
-				</DropdownMenuItem>
-				<DropdownMenuSeparator />
+				{isYcReview ? null : (
+					<>
+						<DropdownMenuItem
+							onClick={() => navigate(appRoutes.settingsAccount())}
+						>
+							<Settings2Icon />
+							Account settings
+						</DropdownMenuItem>
+						<DropdownMenuSeparator />
+					</>
+				)}
 				<DropdownMenuItem
 					onClick={async () => {
 						await signOut();

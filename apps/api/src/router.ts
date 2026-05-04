@@ -18,7 +18,12 @@ import {
 	captureApiProductAnalyticsEvent,
 	hashProjectPath,
 } from "./lib/product-analytics.js";
-import { authMiddleware, ingestAuthMiddleware, os } from "./middleware.js";
+import {
+	authMiddleware,
+	ingestAuthMiddleware,
+	os,
+	settingsMutationMiddleware,
+} from "./middleware.js";
 import {
 	checkHookIngestRateLimit,
 	checkManualIngestRateLimit,
@@ -254,6 +259,7 @@ const getOrganizationSessionCount = os.getOrganizationSessionCount
 
 const deleteOrganization = os.deleteOrganization
 	.use(authMiddleware)
+	.use(settingsMutationMiddleware)
 	.handler(async ({ input, context }) => {
 		const orgId = input.organizationId;
 		const userId = context.user.id;

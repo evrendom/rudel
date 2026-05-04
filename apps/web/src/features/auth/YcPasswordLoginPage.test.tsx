@@ -69,7 +69,7 @@ describe("YcPasswordLoginPage", () => {
 		).not.toBeInTheDocument();
 	});
 
-	it("signs in with email and password and lands in the dashboard", async () => {
+	it("signs in with email and password and lands in wrapped", async () => {
 		const fetchMock = vi.fn().mockResolvedValue(
 			new Response(JSON.stringify({ token: "session-token" }), {
 				headers: { "Content-Type": "application/json" },
@@ -112,7 +112,7 @@ describe("YcPasswordLoginPage", () => {
 		});
 		expect(mockRefreshAuthClientState).toHaveBeenCalledTimes(1);
 		expect(mockNavigateToDestination).toHaveBeenCalledWith(
-			appRoutes.dashboard(),
+			appRoutes.wrappedTeamCard(),
 		);
 	});
 });

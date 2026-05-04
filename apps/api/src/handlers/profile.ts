@@ -5,7 +5,11 @@ import {
 } from "@rudel/api-routes";
 import type { Sql } from "postgres";
 import { sqlClient } from "../db.js";
-import { authMiddleware, os } from "../middleware.js";
+import {
+	authMiddleware,
+	os,
+	settingsMutationMiddleware,
+} from "../middleware.js";
 import {
 	deleteUserAvatarInTx,
 	getUserAvatarOwnerByPublicId,
@@ -13,6 +17,7 @@ import {
 
 const updateMine = os.profile.updateMine
 	.use(authMiddleware)
+	.use(settingsMutationMiddleware)
 	.handler(async ({ context, input }) => {
 		const trimmedName = input.name.trim();
 		const validatedImage = await validateProfileImage({

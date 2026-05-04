@@ -6,6 +6,7 @@ import { AppToaster } from "@/app/ui/AppToaster";
 import "@/app/app-surface.css";
 import { SidebarInset, SidebarProvider } from "@/app/ui/sidebar";
 import { TooltipProvider } from "@/app/ui/tooltip";
+import { isYcReviewSession } from "@/features/auth/auth-route-utils";
 import "@/features/dashboard/dashboard-theme.css";
 import { AppSidebar } from "@/features/shell/components/AppSidebar";
 import { SiteHeader } from "@/features/shell/components/SiteHeader";
@@ -15,6 +16,7 @@ import {
 } from "@/features/shell/config/shell-routes";
 import { SHOW_SIDEBAR_NEWS_MODE } from "@/features/shell/config/sidebar-news";
 import { getDefaultSidebarShellTuningState } from "@/features/shell/config/sidebar-shell-debug";
+import { authClient } from "@/lib/auth-client";
 
 const defaultDashboardChromeValues = {
 	turbulence: {
@@ -94,6 +96,8 @@ function isEditableTarget(target: EventTarget | null) {
 export function AppShellLayout() {
 	const navigate = useNavigate();
 	const location = useLocation();
+	const { data: session } = authClient.useSession();
+	const isYcReview = isYcReviewSession(session);
 	const isSidebarNewsModeEnabled = SHOW_SIDEBAR_NEWS_MODE;
 	const isSettingsShellRoute =
 		location.pathname === shellRouteMap.settings.path ||
@@ -115,6 +119,9 @@ export function AppShellLayout() {
 
 			const nextPath = shellShortcutRouteByKey[event.key.toLowerCase()];
 			if (!nextPath || location.pathname === nextPath) {
+				return;
+			}
+			if (isYcReview && nextPath === shellRouteMap.settings.path) {
 				return;
 			}
 
@@ -181,6 +188,7 @@ export function AppShellLayout() {
 				>
 					<AppSidebar
 						navigationMode={isSettingsShellRoute ? "settings" : "app"}
+						restrictSettings={isYcReview}
 					/>
 					<SidebarInset className="dashboard-01-window min-h-0 overflow-hidden overscroll-none bg-[var(--dashboard-01-content-background)] md:m-2 md:ml-0 md:rounded-[12px] md:shadow-[0_3px_6px_-2px_rgba(0,0,0,0.02),0_1px_1px_0_rgba(0,0,0,0.04)]">
 						<SiteHeader />
