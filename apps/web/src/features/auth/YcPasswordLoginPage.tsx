@@ -23,6 +23,8 @@ import {
 
 const YC_PASSWORD_LOGIN_EMAIL_INPUT_ID = "yc-password-login-email";
 const YC_PASSWORD_LOGIN_PASSWORD_INPUT_ID = "yc-password-login-password";
+const YC_PASSWORD_LOGIN_DRAFT_STORAGE_KEY = "rudel:yc-password-login-draft";
+const YC_PASSWORD_LOGIN_DRAFT_MAX_AGE_MS = 10 * 60 * 1000;
 const YC_WRAPPED_PREVIEW_PROFILE = {
 	displayName: "Evren",
 	followerCount: null,
@@ -31,6 +33,11 @@ const YC_WRAPPED_PREVIEW_PROFILE = {
 	username: "evren",
 	verified: false,
 } satisfies WrappedGuestPreviewProfile;
+
+interface YcPasswordLoginDraft {
+	email: string;
+	password: string;
+}
 
 export function YcPasswordLoginPage() {
 	return (
@@ -64,10 +71,10 @@ function YcPasswordLoginStage() {
 }
 
 function YcPasswordLoginForm() {
-	const [email, setEmail] = useState("");
-	const [password, setPassword] = useState("");
+	const [draft, setDraft] = useState(readYcPasswordLoginDraft);
 	const [feedback, setFeedback] = useState<EmailAuthFeedback>(null);
 	const [loading, setLoading] = useState(false);
+	const { email, password } = draft;
 	const motionState = useWrappedPasswordAuthMotion();
 	const shellMotion = motionState.shellMotion;
 	const fieldMotion = motionState.sceneMotion;
@@ -119,7 +126,13 @@ function YcPasswordLoginForm() {
 		}
 
 		refreshAuthClientState();
+		clearYcPasswordLoginDraft();
 		navigateToDestination(appRoutes.wrappedTeamCard());
+	}
+
+	function handleDraftChange(nextDraft: YcPasswordLoginDraft) {
+		setDraft(nextDraft);
+		writeYcPasswordLoginDraft(nextDraft);
 	}
 
 	return (
@@ -161,7 +174,10 @@ function YcPasswordLoginForm() {
 									placeholder="you@example.com"
 									value={email}
 									onChange={(event) => {
-										setEmail(event.target.value);
+										handleDraftChange({
+											...draft,
+											email: event.target.value,
+										});
 										if (feedback) {
 											setFeedback(null);
 										}
@@ -183,7 +199,10 @@ function YcPasswordLoginForm() {
 									placeholder="Password"
 									value={password}
 									onChange={(event) => {
-										setPassword(event.target.value);
+										handleDraftChange({
+											...draft,
+											password: event.target.value,
+										});
 										if (feedback?.kind === "error") {
 											setFeedback(null);
 										}
@@ -263,6 +282,90 @@ async function readYcLoginErrorMessage(
 
 function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function readYcPasswordLoginDraft(): YcPasswordLoginDraft {
+	if (typeof window === "undefined") {
+		return { email: "", password: "" };
+	}
+
+	const rawDraft = window.sessionStorage.getItem(
+		YC_PASSWORD_LOGIN_DRAFT_STORAGE_KEY,
+	);
+	if (!rawDraft) {
+		return { email: "", password: "" };
+	}
+
+	try {
+		const parsed: unknown = JSON.parse(rawDraft);
+		if (!isStoredYcPasswordLoginDraft(parsed)) {
+			clearYcPasswordLoginDraft();
+			return { email: "", password: "" };
+		}
+
+		const isExpired =
+			Date.now() - parsed.updatedAt > YC_PASSWORD_LOGIN_DRAFT_MAX_AGE_MS;
+		if (isExpired) {
+			clearYcPasswordLoginDraft();
+			return { email: "", password: "" };
+		}
+
+		return {
+			email: parsed.email,
+			password: parsed.password,
+		};
+	} catch {
+		clearYcPasswordLoginDraft();
+		return { email: "", password: "" };
+	}
+}
+
+function writeYcPasswordLoginDraft(draft: YcPasswordLoginDraft) {
+	if (typeof window === "undefined") {
+		return;
+	}
+
+	if (!draft.email && !draft.password) {
+		clearYcPasswordLoginDraft();
+		return;
+	}
+
+	try {
+		window.sessionStorage.setItem(
+			YC_PASSWORD_LOGIN_DRAFT_STORAGE_KEY,
+			JSON.stringify({
+				...draft,
+				updatedAt: Date.now(),
+			}),
+		);
+	} catch {
+		// Best effort only: the controlled inputs still retain state in memory.
+	}
+}
+
+function clearYcPasswordLoginDraft() {
+	if (typeof window === "undefined") {
+		return;
+	}
+
+	try {
+		window.sessionStorage.removeItem(YC_PASSWORD_LOGIN_DRAFT_STORAGE_KEY);
+	} catch {
+		// Ignore blocked storage.
+	}
+}
+
+function isStoredYcPasswordLoginDraft(
+	value: unknown,
+): value is YcPasswordLoginDraft & {
+	updatedAt: number;
+} {
+	return (
+		isRecord(value) &&
+		typeof value.email === "string" &&
+		typeof value.password === "string" &&
+		typeof value.updatedAt === "number"
+	);
 }
 
 interface WrappedPasswordAuthMotionState {
