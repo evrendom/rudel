@@ -45,7 +45,6 @@ const YC_REVIEW_RESTRICTED_AUTH_PATHS = [
 	"/organization/leave",
 	"/organization/reject-invitation",
 	"/organization/remove-member",
-	"/organization/set-active",
 	"/organization/update",
 	"/organization/update-member-role",
 	"/set-password",
@@ -136,6 +135,13 @@ interface YcLoginRequestBody {
 	rememberMe: boolean | undefined;
 }
 
+interface YcLoginAdapter {
+	findMany(args: {
+		model: string;
+		where: Array<{ field: string; value: string }>;
+	}): Promise<readonly unknown[]>;
+}
+
 function createOrganizationPlugin(config: AuthConfig) {
 	const resend = config.resend ?? {};
 
@@ -223,10 +229,16 @@ export function createYcLoginPlugin(
 						throw invalidYcLoginError();
 					}
 
+					const activeOrganizationId = await findYcTargetActiveOrganizationId(
+						ctx.context.adapter,
+						user.user.id,
+					);
 					const session = await ctx.context.internalAdapter.createSession(
 						user.user.id,
 						body.rememberMe === false,
-						{ ycReview: true },
+						activeOrganizationId
+							? { activeOrganizationId, ycReview: true }
+							: { ycReview: true },
 						true,
 					);
 					if (!session) {
@@ -279,6 +291,37 @@ export function createYcLoginPlugin(
 
 export function isYcReviewSessionRecord(value: unknown) {
 	return isRecord(value) && value.ycReview === true;
+}
+
+async function findYcTargetActiveOrganizationId(
+	adapter: unknown,
+	userId: string,
+) {
+	if (!isYcLoginAdapter(adapter)) {
+		return null;
+	}
+
+	const memberships = await adapter.findMany({
+		model: "member",
+		where: [{ field: "userId", value: userId }],
+	});
+	const membership = memberships.find(isOrganizationMembershipRecord);
+
+	return membership?.organizationId ?? null;
+}
+
+function isYcLoginAdapter(value: unknown): value is YcLoginAdapter {
+	return isRecord(value) && typeof value.findMany === "function";
+}
+
+function isOrganizationMembershipRecord(
+	value: unknown,
+): value is { organizationId: string } {
+	return (
+		isRecord(value) &&
+		typeof value.organizationId === "string" &&
+		value.organizationId.length > 0
+	);
 }
 
 function normalizeYcLoginConfig(
