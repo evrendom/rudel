@@ -101,21 +101,22 @@ export interface WrappedTeamMemberCardStatLayerOpacities {
 	whiteMaskOpacity?: number;
 }
 
-const DEFAULT_STAT_LAYER_OPACITIES: WrappedTeamMemberCardStatLayerOpacities = {
-	hideTextureImage: false,
-	maskTint: "white",
-	rainbowShineOpacity: 0.38,
-	tileBaseOpacity: 0.74,
-	tileBaseTint: "white",
-	textTone: "default",
-	tileBorderOpacity: 1,
-	tileFillOpacity: 0.04,
-	tileFillTint: "white",
-	tileInsetShadowOpacity: 0.53,
-	tileTopStrokeOpacity: 0.1,
-	textureOpacity: 1,
-	whiteMaskOpacity: undefined,
-};
+export const DEFAULT_STAT_LAYER_OPACITIES: WrappedTeamMemberCardStatLayerOpacities =
+	{
+		hideTextureImage: false,
+		maskTint: "white",
+		rainbowShineOpacity: 0.38,
+		tileBaseOpacity: 0.74,
+		tileBaseTint: "white",
+		textTone: "default",
+		tileBorderOpacity: 1,
+		tileFillOpacity: 0.04,
+		tileFillTint: "white",
+		tileInsetShadowOpacity: 0.53,
+		tileTopStrokeOpacity: 0.1,
+		textureOpacity: 1,
+		whiteMaskOpacity: undefined,
+	};
 
 export function WrappedTeamMemberCard(props: {
 	backgroundOverlayClassName?: string;

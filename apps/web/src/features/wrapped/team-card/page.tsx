@@ -37,6 +37,7 @@ import { useMountEffect } from "@/hooks/useMountEffect";
 import { formatCompactWholeCurrency } from "@/lib/format";
 import {
 	getWrappedArchetypeCardBackgroundValue,
+	getWrappedArchetypeStatLayerOverrides,
 	WRAPPED_ARCHETYPE_CARD_THEMES,
 	type WrappedArchetypeCardTheme,
 } from "./archetypes";
@@ -224,27 +225,23 @@ export function WrappedTeamCardPage(props: {
 				tileTopStrokeOpacity: dialValues.statLayers.topStrokeOpacity,
 				textureOpacity: dialValues.statLayers.textureOpacity,
 			};
+			// Decimal is a VIP special edition, not part of the classifier-backed
+			// taxonomy. It keeps its own visual treatment on purpose. The override is
+			// pure identity (depends only on archetype.id) so the public share route
+			// can resolve the same final values from the persisted snapshot.
+			const archetypeOverrides =
+				getWrappedArchetypeStatLayerOverrides(activeArchetype);
 
-			if (activeArchetype.id !== "decimal") {
+			if (!archetypeOverrides) {
 				return baseStatLayerOpacities;
 			}
 
-			// Decimal is a VIP special edition, not part of the classifier-backed
-			// taxonomy. It keeps its own visual treatment on purpose.
 			return {
 				...baseStatLayerOpacities,
-				hideTextureImage: true,
-				maskTint: "black",
-				rainbowShineOpacity: 0,
-				textTone: "muted-white",
-				tileBaseOpacity: 0,
-				tileFillOpacity: 0.05,
-				tileFillTint: "black",
-				textureOpacity: 0,
-				whiteMaskOpacity: 0.05,
+				...archetypeOverrides,
 			};
 		}, [
-			activeArchetype.id,
+			activeArchetype,
 			dialValues.statLayers.borderOpacity,
 			dialValues.statLayers.fillOpacity,
 			dialValues.statLayers.insetShadowOpacity,

@@ -6,9 +6,14 @@ import { buttonVariants } from "@/app/ui/button";
 import { useAnalyticsTracking } from "@/features/analytics/tracking/useAnalyticsTracking";
 import { getSessionUserId } from "@/features/auth/auth-route-utils";
 import {
+	getWrappedArchetypeStatLayerOverrides,
 	WRAPPED_ARCHETYPE_CARD_THEMES,
 	type WrappedArchetypeCardTheme,
 } from "@/features/wrapped/team-card/archetypes";
+import {
+	DEFAULT_STAT_LAYER_OPACITIES,
+	type WrappedTeamMemberCardStatLayerOpacities,
+} from "@/features/wrapped/team-card/card";
 import { getWrappedShareSafeImageUrl } from "@/features/wrapped/team-card/share-media";
 import {
 	WrappedPublicCardAction,
@@ -125,6 +130,7 @@ function PublicShareReadyState(props: {
 	const { makeYoursHref, onMakeYoursClick, share } = props;
 	const activeArchetype = getPublicPageArchetype(share);
 	const publicRow = buildPublicPageRow(share.snapshot.row);
+	const statLayerOpacities = getPublicPageStatLayerOpacities(activeArchetype);
 
 	return (
 		<WrappedPublicCardScreen
@@ -145,9 +151,29 @@ function PublicShareReadyState(props: {
 			shellClassName={share.snapshot.shellClassName}
 			shellStyle={PUBLIC_SHARE_CARD_SHELL_STYLE}
 			statItems={share.snapshot.statItems}
+			statLayerOpacities={statLayerOpacities}
 			theme={share.snapshot.theme}
 		/>
 	);
+}
+
+// Decimal's stat tiles need a different treatment than the classifier-backed
+// archetypes. We resolve it from archetype.id (derived above from the snapshot's
+// archetypeLabel) so the public render matches the authenticated render without
+// having to widen the persisted payload with raw layer opacities.
+function getPublicPageStatLayerOpacities(
+	archetype: WrappedArchetypeCardTheme,
+): WrappedTeamMemberCardStatLayerOpacities | undefined {
+	const overrides = getWrappedArchetypeStatLayerOverrides(archetype);
+
+	if (!overrides) {
+		return undefined;
+	}
+
+	return {
+		...DEFAULT_STAT_LAYER_OPACITIES,
+		...overrides,
+	};
 }
 
 // Loading stays simple on purpose. The only job here is to hold the screen while
