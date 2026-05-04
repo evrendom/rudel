@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.1.12](https://github.com/obsessiondb/rudel/compare/rudel@0.1.11...rudel@0.1.12) (2026-05-04)
+
+
+### Features
+
+* **api-cli:** track lifecycle analytics events ([#161](https://github.com/obsessiondb/rudel/issues/161)) ([4b1940b](https://github.com/obsessiondb/rudel/commit/4b1940baba46a9a997163e6cca614f114c3d81f8))
+* exempt manual/retry uploads from ingest rate limit ([572b816](https://github.com/obsessiondb/rudel/commit/572b81615558c6b8a665341d69373fe329bea4e2))
+* ship first Rudel Wrapped version ([#252](https://github.com/obsessiondb/rudel/issues/252)) ([a56d36f](https://github.com/obsessiondb/rudel/commit/a56d36fc7ee8715d7d5f452dbc4a61bb66ed2fe4))
+
+
+### Bug Fixes
+
+* align Claude Code and Codex copy ([#189](https://github.com/obsessiondb/rudel/issues/189)) ([a68d6aa](https://github.com/obsessiondb/rudel/commit/a68d6aa0ad88b573eca550df803e38b23cde94ad))
+* clarify CLI upload server errors ([#295](https://github.com/obsessiondb/rudel/issues/295)) ([50eebf0](https://github.com/obsessiondb/rudel/commit/50eebf008f7f58080ae4bfd261bbc52cfaf86869))
+* disable CLI API key rate limit ([#294](https://github.com/obsessiondb/rudel/issues/294)) ([35211d9](https://github.com/obsessiondb/rudel/commit/35211d99381c6d7fbcba4056867faea5c04d1e4a))
+* improve ingestion rate limit handling in CLI and API ([#156](https://github.com/obsessiondb/rudel/issues/156)) ([726370d](https://github.com/obsessiondb/rudel/commit/726370dcfbeb63b6255953da590617903a6ef516))
+* surface CLI API key rate limits ([#292](https://github.com/obsessiondb/rudel/issues/292)) ([78c50a8](https://github.com/obsessiondb/rudel/commit/78c50a88169c352f3bbca7329095f7b411c6c587))
+
 ## [0.1.9](https://github.com/obsessiondb/rudel/compare/rudel@0.1.8...rudel@0.1.9) (2026-03-11)
 
 
