@@ -10,6 +10,15 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { WrappedTeamCardOnboarding } from "@/features/wrapped/onboarding/shell";
 import type { WrappedOnboardingMetrics } from "@/features/wrapped/onboarding/types";
 
+vi.mock("motion/react", async (importOriginal) => {
+	const actual = await importOriginal<typeof import("motion/react")>();
+
+	return {
+		...actual,
+		useReducedMotion: () => true,
+	};
+});
+
 Object.defineProperty(window, "matchMedia", {
 	writable: true,
 	value: vi.fn().mockImplementation((query: string) => ({
