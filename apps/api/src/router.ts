@@ -33,6 +33,7 @@ import {
 	getOrgSessionCount,
 	hasOrgUploadsInLastDays,
 } from "./services/org-session.service.js";
+import { enqueueWrappedArchetypeSnapshotRebuild } from "./services/wrapped-archetype-rebuild.service.js";
 
 function getSessionUploadCompletedPayload(
 	input: IngestSessionInput,
@@ -185,6 +186,11 @@ const ingestSessionHandler = os.ingestSession
 		await adapter.ingest(getClickhouse(), input, {
 			userId: context.user.id,
 			organizationId: orgId,
+		});
+		enqueueWrappedArchetypeSnapshotRebuild({
+			triggerReason: "session_upload",
+			triggerSessionId: input.sessionId,
+			triggerSource: input.source,
 		});
 
 		const response = {

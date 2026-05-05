@@ -5,15 +5,16 @@ import {
 	type WrappedV1,
 	type WrappedV1Archetype,
 } from "@rudel/api-routes";
-import { WRAPPED_ARCHETYPE_CENTROIDS } from "@rudel/ch-schema/wrapped-archetype-centroids";
 import {
 	WRAPPED_ARCHETYPE_CENTROID_VERSION,
 	WRAPPED_ARCHETYPE_PIPELINE_VERSION,
 	WRAPPED_ARCHETYPE_SCOPE,
 } from "@rudel/ch-schema/wrapped-archetype-constants";
+import { buildWrappedArchetypeCentroidUnionAll } from "@rudel/ch-schema/wrapped-archetype-rebuild";
 import { queryClickhouse } from "../clickhouse.js";
 import { buildEstimatedCostSql } from "./pricing.service.js";
 import { buildWrappedArchetypeGate } from "./wrapped-archetype-gate.js";
+import { enqueueWrappedArchetypeSnapshotRebuild } from "./wrapped-archetype-rebuild.service.js";
 
 // The wrapped endpoint is intentionally the conservative, high-trust summary.
 // It should answer the broad "what is definitely true about this user's run?"
@@ -93,6 +94,13 @@ export async function getWrappedV1Data(
 		distanceRatioToMax: archetypeCandidate?.distanceRatioToMax ?? null,
 		topTwoMargin: archetypeCandidate?.topTwoMargin ?? null,
 	});
+	if (archetypeGate.reason === "processing_archetype") {
+		enqueueWrappedArchetypeSnapshotRebuild({
+			triggerReason: "wrapped_processing_gate",
+			triggerSessionId: null,
+			triggerSource: "wrapped_v1",
+		});
+	}
 
 	return {
 		generated_at: new Date().toISOString(),
@@ -252,7 +260,7 @@ async function getUserArchetype(
 					ORDER BY snapshot_created_at DESC
 					LIMIT 1
 				),
-				current_centroids AS (${buildCentroidUnionAll()}),
+				current_centroids AS (${buildWrappedArchetypeCentroidUnionAll()}),
 				user_snapshot AS (
 					SELECT
 						s.archetype_key AS key,
@@ -358,13 +366,6 @@ function buildWrappedArchetype(
 		key: candidate.key,
 		snapshotId: candidate.snapshotId,
 	};
-}
-
-function buildCentroidUnionAll(): string {
-	return WRAPPED_ARCHETYPE_CENTROIDS.map(
-		(centroid) =>
-			`SELECT ${centroid.archetype_id} AS archetype_id, '${centroid.archetype_key}' AS archetype_key, '${centroid.archetype_name.replace(/'/g, "''")}' AS archetype_name, ${centroid.consistency} AS consistency, ${centroid.intensity} AS intensity, ${centroid.session_shape} AS session_shape, ${centroid.cost_intensity} AS cost_intensity, ${centroid.output} AS output, ${centroid.breadth} AS breadth, ${centroid.range} AS range`,
-	).join(" UNION ALL ");
 }
 
 function buildSourceSplit(
