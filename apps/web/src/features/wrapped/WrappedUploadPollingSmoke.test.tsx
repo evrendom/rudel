@@ -43,10 +43,12 @@ vi.mock("@/features/workspace/organization/useOrganization", () => ({
 
 let rawSessionCount = 45;
 let wrappedGateQueryCount = 0;
-let wrappedGateReason:
+type WrappedGateReason =
 	| "eligible"
 	| "needs_more_sessions"
-	| "processing_archetype" = "needs_more_sessions";
+	| "processing_archetype";
+
+let wrappedGateReason: WrappedGateReason = "needs_more_sessions";
 let wrappedGateSessionCount = 45;
 
 vi.mock("@/lib/orpc", () => ({
@@ -173,6 +175,120 @@ function createWrapper(queryClient: QueryClient, initialEntry = "/wrapped") {
 	};
 }
 
+interface WrappedReadinessScenario {
+	expectedPrimaryLabel: string;
+	expectedPrimaryState: "disabled" | "enabled";
+	expectedSummary: string;
+	expectedTitle: string;
+	name: string;
+	setupProgressSessionCount: number;
+	wrappedGateReason: WrappedGateReason;
+	wrappedGateSessionCount: number;
+}
+
+const wrappedReadinessScenarios: readonly WrappedReadinessScenario[] = [
+	{
+		expectedPrimaryLabel: "Upload more to unlock",
+		expectedPrimaryState: "disabled",
+		expectedSummary: "45 sessions across 1 repo",
+		expectedTitle: "55 sessions missing",
+		name: "keeps a 45-session user in missing state before the threshold",
+		setupProgressSessionCount: 45,
+		wrappedGateReason: "needs_more_sessions",
+		wrappedGateSessionCount: 45,
+	},
+	{
+		expectedPrimaryLabel: "Upload more to unlock",
+		expectedPrimaryState: "disabled",
+		expectedSummary: "99 sessions across 1 repo",
+		expectedTitle: "1 session missing",
+		name: "keeps a 99-session user one session short",
+		setupProgressSessionCount: 99,
+		wrappedGateReason: "needs_more_sessions",
+		wrappedGateSessionCount: 99,
+	},
+	{
+		expectedPrimaryLabel: "Upload more to unlock",
+		expectedPrimaryState: "disabled",
+		expectedSummary: "96 sessions across 1 repo",
+		expectedTitle: "4 sessions missing",
+		name: "uses wrapped readiness when setup reaches 100 but wrapped has 96",
+		setupProgressSessionCount: 100,
+		wrappedGateReason: "needs_more_sessions",
+		wrappedGateSessionCount: 96,
+	},
+	{
+		expectedPrimaryLabel: "Upload more to unlock",
+		expectedPrimaryState: "disabled",
+		expectedSummary: "96 sessions across 1 repo",
+		expectedTitle: "4 sessions missing",
+		name: "uses wrapped readiness when setup outruns wrapped by many sessions",
+		setupProgressSessionCount: 150,
+		wrappedGateReason: "needs_more_sessions",
+		wrappedGateSessionCount: 96,
+	},
+	{
+		expectedPrimaryLabel: "Upload more to unlock",
+		expectedPrimaryState: "disabled",
+		expectedSummary: "99 sessions across 1 repo",
+		expectedTitle: "1 session missing",
+		name: "keeps wrapped at 99 missing even after setup reaches 100",
+		setupProgressSessionCount: 100,
+		wrappedGateReason: "needs_more_sessions",
+		wrappedGateSessionCount: 99,
+	},
+	{
+		expectedPrimaryLabel: "Preparing your wrapped...",
+		expectedPrimaryState: "disabled",
+		expectedSummary: "100 sessions across 1 repo",
+		expectedTitle: "Enough sessions landed",
+		name: "waits while archetype processing starts at exactly 100 sessions",
+		setupProgressSessionCount: 100,
+		wrappedGateReason: "processing_archetype",
+		wrappedGateSessionCount: 100,
+	},
+	{
+		expectedPrimaryLabel: "Preparing your wrapped...",
+		expectedPrimaryState: "disabled",
+		expectedSummary: "100 sessions across 1 repo",
+		expectedTitle: "Enough sessions landed",
+		name: "waits while archetype processing continues after more uploads",
+		setupProgressSessionCount: 150,
+		wrappedGateReason: "processing_archetype",
+		wrappedGateSessionCount: 100,
+	},
+	{
+		expectedPrimaryLabel: "See what it reveals about you",
+		expectedPrimaryState: "enabled",
+		expectedSummary: "100 sessions across 1 repo",
+		expectedTitle: "Enough sessions landed",
+		name: "enables continuation when wrapped is eligible at 100 sessions",
+		setupProgressSessionCount: 100,
+		wrappedGateReason: "eligible",
+		wrappedGateSessionCount: 100,
+	},
+	{
+		expectedPrimaryLabel: "See what it reveals about you",
+		expectedPrimaryState: "enabled",
+		expectedSummary: "101 sessions across 1 repo",
+		expectedTitle: "Enough sessions landed",
+		name: "enables continuation when wrapped is eligible just above threshold",
+		setupProgressSessionCount: 101,
+		wrappedGateReason: "eligible",
+		wrappedGateSessionCount: 101,
+	},
+	{
+		expectedPrimaryLabel: "See what it reveals about you",
+		expectedPrimaryState: "enabled",
+		expectedSummary: "120 sessions across 1 repo",
+		expectedTitle: "Enough sessions landed",
+		name: "enables continuation using the eligible wrapped count when setup is higher",
+		setupProgressSessionCount: 150,
+		wrappedGateReason: "eligible",
+		wrappedGateSessionCount: 120,
+	},
+];
+
 describe("Wrapped upload polling smoke", () => {
 	beforeEach(() => {
 		rawSessionCount = 45;
@@ -226,6 +342,51 @@ describe("Wrapped upload polling smoke", () => {
 		}
 
 		window.localStorage.setItem(storageKey, "true");
+	}
+
+	for (const scenario of wrappedReadinessScenarios) {
+		it(`renders the upload screen correctly when ${scenario.name}`, async () => {
+			const queryClient = new QueryClient(queryClientConfig);
+			rawSessionCount = scenario.setupProgressSessionCount;
+			wrappedGateReason = scenario.wrappedGateReason;
+			wrappedGateSessionCount = scenario.wrappedGateSessionCount;
+
+			render(
+				<WrappedRouteGate
+					isPending={false}
+					publicId={null}
+					session={session}
+				/>,
+				{
+					wrapper: createWrapper(queryClient, "/wrapped?flow=sessions-landed"),
+				},
+			);
+
+			expect(
+				await screen.findByRole("heading", { name: scenario.expectedTitle }),
+			).toBeInTheDocument();
+			expect(screen.getByText(scenario.expectedSummary)).toBeInTheDocument();
+
+			const primaryButton = screen.getByRole("button", {
+				name: scenario.expectedPrimaryLabel,
+			});
+
+			if (scenario.expectedPrimaryState === "enabled") {
+				expect(primaryButton).toBeEnabled();
+			} else {
+				expect(primaryButton).toBeDisabled();
+			}
+
+			if (scenario.expectedPrimaryLabel !== "Preparing your wrapped...") {
+				expect(
+					screen.queryByRole("button", {
+						name: "Preparing your wrapped...",
+					}),
+				).toBeNull();
+			}
+
+			queryClient.clear();
+		});
 	}
 
 	it("updates the missing session count on the next poll after a second upload", async () => {
@@ -291,7 +452,7 @@ describe("Wrapped upload polling smoke", () => {
 		queryClient.clear();
 	});
 
-	it("does not show preparing when wrapped still needs sessions after raw uploads hit the threshold", async () => {
+	it("does not show preparing when wrapped still needs sessions after setup progress hits the threshold", async () => {
 		const queryClient = new QueryClient(queryClientConfig);
 		rawSessionCount = 99;
 		wrappedGateSessionCount = 96;
