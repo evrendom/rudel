@@ -12,6 +12,7 @@ import {
 	WRAPPED_ROUTE_FLOW_QUERY_PARAM,
 	WRAPPED_ROUTE_SESSIONS_LANDED_FLOW,
 	WRAPPED_ROUTE_STORY_FLOW,
+	WRAPPED_VARIANT_NORMAL,
 } from "@/app/routes";
 import { useAnalyticsQuery } from "@/features/analytics/queries/useAnalyticsQuery";
 import { useAnalyticsTracking } from "@/features/analytics/tracking/useAnalyticsTracking";
@@ -104,10 +105,17 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 	const isYcReview = isYcReviewSession(session);
 	// Drives Decimal claim redemption + variant gating. Public share routes
 	// (publicId !== null) intentionally don't pass a userId here so the
-	// entitlement query stays disabled and the public flow is untouched.
+	// entitlement query stays disabled and the public flow is untouched. YC
+	// review sessions also stay on the normal card even though they simulate the
+	// target account.
 	const decimalAccess = useWrappedDecimalAccess({
-		userId: publicId ? null : sessionUserId,
+		userId: publicId || isYcReview ? null : sessionUserId,
 	});
+	const wrappedStoryVariant = isYcReview
+		? WRAPPED_VARIANT_NORMAL
+		: decimalAccess.variant;
+	const isWrappedStoryDecimalEntitled =
+		!isYcReview && decimalAccess.isDecimalEntitled;
 	const cliSetupStatus = useCliSetupStatus({
 		enabled: !publicId && !!session,
 	});
@@ -522,13 +530,13 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 		) {
 			content = (
 				<WrappedTeamCardPage
-					isDecimalEntitled={decimalAccess.isDecimalEntitled}
+					isDecimalEntitled={isWrappedStoryDecimalEntitled}
 					onBackFromFirstStep={
 						shouldSkipYcReviewPrep
 							? () => undefined
 							: () => setWrappedRouteFlowStage("sessions-landed")
 					}
-					variant={decimalAccess.variant}
+					variant={wrappedStoryVariant}
 				/>
 			);
 		} else {
