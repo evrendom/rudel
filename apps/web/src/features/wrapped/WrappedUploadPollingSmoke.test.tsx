@@ -43,10 +43,12 @@ vi.mock("@/features/workspace/organization/useOrganization", () => ({
 
 let rawSessionCount = 45;
 let wrappedGateQueryCount = 0;
-let wrappedGateReason:
+type WrappedGateReason =
 	| "eligible"
 	| "needs_more_sessions"
-	| "processing_archetype" = "needs_more_sessions";
+	| "processing_archetype";
+
+let wrappedGateReason: WrappedGateReason = "needs_more_sessions";
 let wrappedGateSessionCount = 45;
 
 vi.mock("@/lib/orpc", () => ({
@@ -287,6 +289,47 @@ describe("Wrapped upload polling smoke", () => {
 		);
 		expect(screen.getByText("63 sessions across 1 repo")).toBeInTheDocument();
 		expect(mockGetOrganizationSessionCount).toHaveBeenCalledTimes(2);
+
+		queryClient.clear();
+	});
+
+	it("does not show preparing when wrapped still needs sessions after setup progress hits the threshold", async () => {
+		const queryClient = new QueryClient(queryClientConfig);
+		rawSessionCount = 99;
+		wrappedGateSessionCount = 96;
+		wrappedGateReason = "needs_more_sessions";
+
+		render(
+			<WrappedRouteGate isPending={false} publicId={null} session={session} />,
+			{
+				wrapper: createWrapper(queryClient),
+			},
+		);
+
+		expect(
+			await screen.findByRole("heading", { name: "1 session missing" }),
+		).toBeInTheDocument();
+
+		rawSessionCount = 100;
+
+		await waitFor(
+			() => {
+				expect(
+					screen.getByRole("heading", { name: "4 sessions missing" }),
+				).toBeInTheDocument();
+			},
+			{ timeout: 1_500 },
+		);
+		expect(
+			screen.queryByRole("button", {
+				name: "Preparing your wrapped...",
+			}),
+		).toBeNull();
+		expect(
+			screen.getByRole("button", {
+				name: "Upload more to unlock",
+			}),
+		).toBeDisabled();
 
 		queryClient.clear();
 	});

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, mock, test } from "bun:test";
+import { beforeEach, describe, expect, mock, spyOn, test } from "bun:test";
 
 interface QueryClickhouseInput {
 	query: string;
@@ -109,10 +109,20 @@ mock.module("../clickhouse.js", () => ({
 	addOptionalStringInFilter,
 	buildAbsoluteDateFilter,
 	buildDateFilter,
+	getClickhouse: () => ({
+		execute: mock(() => Promise.resolve()),
+		insert: mock(() => Promise.resolve()),
+		query: mock(() => Promise.resolve([])),
+	}),
 	getSafeClickHouseTable,
 	queryClickhouse,
 }));
 
+const rebuildService = await import("./wrapped-archetype-rebuild.service.js");
+const enqueueWrappedArchetypeSnapshotRebuild = spyOn(
+	rebuildService,
+	"enqueueWrappedArchetypeSnapshotRebuild",
+).mockImplementation(() => {});
 const { getWrappedV1Data } = await import("./wrapped.service.js");
 
 describe("wrapped service archetype gate", () => {
@@ -120,6 +130,7 @@ describe("wrapped service archetype gate", () => {
 		queryClickhouse.mockClear();
 		summaryTotalSessions = 0;
 		summaryActiveDays = 0;
+		enqueueWrappedArchetypeSnapshotRebuild.mockClear();
 		archetypeRows = [
 			{
 				computedAt: "2026-04-29T19:25:56Z",
@@ -142,6 +153,7 @@ describe("wrapped service archetype gate", () => {
 		expect(wrapped.archetype_gate.reason).toBe("needs_more_sessions");
 		expect(wrapped.archetype_gate.thresholds.min_total_sessions).toBe(100);
 		expect(wrapped.archetype_gate.values.total_sessions).toBe(38);
+		expect(enqueueWrappedArchetypeSnapshotRebuild).not.toHaveBeenCalled();
 	});
 
 	test("returns a null archetype for a 99-session user", async () => {
@@ -154,6 +166,24 @@ describe("wrapped service archetype gate", () => {
 		expect(wrapped.archetype_gate.is_eligible).toBe(false);
 		expect(wrapped.archetype_gate.reason).toBe("needs_more_sessions");
 		expect(wrapped.archetype_gate.values.total_sessions).toBe(99);
+		expect(enqueueWrappedArchetypeSnapshotRebuild).not.toHaveBeenCalled();
+	});
+
+	test("queues an archetype rebuild for a 100-session user without a snapshot row", async () => {
+		summaryTotalSessions = 100;
+		summaryActiveDays = 14;
+		archetypeRows = [];
+
+		const wrapped = await getWrappedV1Data("org-1", "user-1");
+
+		expect(wrapped.archetype).toBeNull();
+		expect(wrapped.archetype_gate.is_eligible).toBe(false);
+		expect(wrapped.archetype_gate.reason).toBe("processing_archetype");
+		expect(enqueueWrappedArchetypeSnapshotRebuild).toHaveBeenCalledWith({
+			triggerReason: "wrapped_processing_gate",
+			triggerSessionId: null,
+			triggerSource: "wrapped_v1",
+		});
 	});
 
 	test("returns the archetype for a 100-session active confident user", async () => {
@@ -170,5 +200,6 @@ describe("wrapped service archetype gate", () => {
 		expect(wrapped.archetype_gate.is_eligible).toBe(true);
 		expect(wrapped.archetype_gate.reason).toBe("eligible");
 		expect(wrapped.archetype_gate.values.active_days).toBe(14);
+		expect(enqueueWrappedArchetypeSnapshotRebuild).not.toHaveBeenCalled();
 	});
 });

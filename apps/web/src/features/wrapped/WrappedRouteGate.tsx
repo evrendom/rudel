@@ -756,7 +756,10 @@ function getWrappedRouteSessionGateState(input: {
 		WRAPPED_ARCHETYPE_GATE_THRESHOLDS.min_total_sessions;
 	const archetypeGateSessionCount =
 		input.archetypeGate?.values.total_sessions ?? null;
+	const isWrappedGateMissingSessions =
+		input.archetypeGate?.reason === "needs_more_sessions";
 	const isWaitingForFreshWrappedData =
+		!isWrappedGateMissingSessions &&
 		input.hasReachedMinimumAfterMissing &&
 		archetypeGateSessionCount !== null &&
 		archetypeGateSessionCount < input.setupProgressTotalSessionCount;
