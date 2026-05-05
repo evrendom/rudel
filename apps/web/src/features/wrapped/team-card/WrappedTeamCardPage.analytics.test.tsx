@@ -313,6 +313,28 @@ describe("WrappedTeamCardPage analytics", () => {
 		);
 	});
 
+	it("shows the Decimal switcher only when the user is entitled", () => {
+		const { rerender } = render(
+			<MemoryRouter initialEntries={["/wrapped"]}>
+				<WrappedTeamCardPage isDecimalEntitled variant="normal" />
+			</MemoryRouter>,
+		);
+
+		expect(
+			screen.getByRole("button", { name: "View Decimal card" }),
+		).toBeInTheDocument();
+
+		rerender(
+			<MemoryRouter initialEntries={["/wrapped"]}>
+				<WrappedTeamCardPage isDecimalEntitled={false} variant="normal" />
+			</MemoryRouter>,
+		);
+
+		expect(
+			screen.queryByRole("button", { name: "View Decimal card" }),
+		).toBeNull();
+	});
+
 	it("uses a dev preview archetype when the auth bypass has no live classifier", () => {
 		mockLiveArchetype.mockReturnValue(null);
 
