@@ -21,6 +21,7 @@ const {
 	mockTrackWrappedReferredSignupCompleted,
 	mockUseAnalyticsQuery,
 	mockUseCliSetupStatus,
+	mockUseWrappedDecimalAccess,
 	mockUseIsMobile,
 	mockUseSetupProgress,
 } = vi.hoisted(() => ({
@@ -32,6 +33,7 @@ const {
 	mockTrackWrappedReferredSignupCompleted: vi.fn(),
 	mockUseAnalyticsQuery: vi.fn(),
 	mockUseCliSetupStatus: vi.fn(),
+	mockUseWrappedDecimalAccess: vi.fn(),
 	mockUseIsMobile: vi.fn(),
 	mockUseSetupProgress: vi.fn(),
 }));
@@ -64,11 +66,7 @@ vi.mock("@/lib/orpc", () => ({
 // These tests cover unrelated route-gate behavior, so we stub the hook to a
 // non-entitled, no-op result instead of standing up a QueryClientProvider.
 vi.mock("@/features/wrapped/use-wrapped-decimal-access", () => ({
-	useWrappedDecimalAccess: () => ({
-		variant: "normal" as const,
-		isDecimalEntitled: false,
-		isEntitlementLoading: false,
-	}),
+	useWrappedDecimalAccess: mockUseWrappedDecimalAccess,
 }));
 
 vi.mock("@/lib/auth-client", () => ({
@@ -235,9 +233,13 @@ vi.mock("@/features/wrapped/WrappedSetupCompletePage", () => ({
 
 vi.mock("@/features/wrapped/team-card/page", () => ({
 	WrappedTeamCardPage: ({
+		isDecimalEntitled,
 		onBackFromFirstStep,
+		variant,
 	}: {
+		isDecimalEntitled?: boolean;
 		onBackFromFirstStep?: () => void;
+		variant?: "normal" | "decimal";
 	}) => {
 		const [searchParams] = useSearchParams();
 
@@ -245,6 +247,8 @@ vi.mock("@/features/wrapped/team-card/page", () => ({
 			<div>
 				<div>Wrapped story</div>
 				<div>Story step: {searchParams.get("step") ?? "none"}</div>
+				<div>Story variant: {variant ?? "none"}</div>
+				<div>Story Decimal entitled: {isDecimalEntitled ? "yes" : "no"}</div>
 				<button type="button" onClick={onBackFromFirstStep}>
 					Back to upload
 				</button>
@@ -317,6 +321,7 @@ describe("WrappedRouteGate", () => {
 		mockUseAnalyticsQuery.mockReset();
 		mockUseIsMobile.mockReset();
 		mockUseCliSetupStatus.mockReset();
+		mockUseWrappedDecimalAccess.mockReset();
 		mockUseSetupProgress.mockReset();
 		window.localStorage.clear();
 
@@ -329,6 +334,11 @@ describe("WrappedRouteGate", () => {
 			hasUploadedSessions: false,
 			isLoading: false,
 			totalSessionCount: 0,
+		});
+		mockUseWrappedDecimalAccess.mockReturnValue({
+			isDecimalEntitled: false,
+			isEntitlementLoading: false,
+			variant: "normal",
 		});
 		mockUseAnalyticsQuery.mockReturnValue({
 			data: {
@@ -749,6 +759,62 @@ describe("WrappedRouteGate", () => {
 		).toBeNull();
 		expect(screen.queryByText("Wrapped setup page")).toBeNull();
 		expect(screen.queryByText("Wrapped setup complete page")).toBeNull();
+	});
+
+	it("keeps YC review sessions on the normal wrapped card even when the target account has Decimal", () => {
+		mockUseWrappedDecimalAccess.mockReturnValue({
+			isDecimalEntitled: true,
+			isEntitlementLoading: false,
+			variant: "decimal",
+		});
+		mockUseSetupProgress.mockReturnValue({
+			hasUploadedSessions: true,
+			isLoading: false,
+			totalSessionCount: 100,
+		});
+
+		render(
+			<MemoryRouter initialEntries={["/wrapped?flow=story&variant=decimal"]}>
+				<WrappedRouteGate
+					isPending={false}
+					publicId={null}
+					session={buildYcReviewSession()}
+				/>
+			</MemoryRouter>,
+		);
+
+		expect(screen.getByText("Wrapped story")).toBeInTheDocument();
+		expect(screen.getByText("Story variant: normal")).toBeInTheDocument();
+		expect(screen.getByText("Story Decimal entitled: no")).toBeInTheDocument();
+		expect(mockUseWrappedDecimalAccess).toHaveBeenCalledWith({
+			userId: null,
+		});
+	});
+
+	it("keeps Decimal available for normal entitled wrapped sessions", () => {
+		mockUseWrappedDecimalAccess.mockReturnValue({
+			isDecimalEntitled: true,
+			isEntitlementLoading: false,
+			variant: "decimal",
+		});
+		mockUseSetupProgress.mockReturnValue({
+			hasUploadedSessions: true,
+			isLoading: false,
+			totalSessionCount: 100,
+		});
+
+		render(
+			<MemoryRouter initialEntries={["/wrapped?flow=story&variant=decimal"]}>
+				<WrappedRouteGate isPending={false} publicId={null} session={session} />
+			</MemoryRouter>,
+		);
+
+		expect(screen.getByText("Wrapped story")).toBeInTheDocument();
+		expect(screen.getByText("Story variant: decimal")).toBeInTheDocument();
+		expect(screen.getByText("Story Decimal entitled: yes")).toBeInTheDocument();
+		expect(mockUseWrappedDecimalAccess).toHaveBeenCalledWith({
+			userId: "user-1",
+		});
 	});
 
 	it("keeps YC review sessions out of story until wrapped data is eligible", () => {
