@@ -109,6 +109,11 @@ mock.module("../clickhouse.js", () => ({
 	addOptionalStringInFilter,
 	buildAbsoluteDateFilter,
 	buildDateFilter,
+	getClickhouse: () => ({
+		execute: mock(() => Promise.resolve()),
+		insert: mock(() => Promise.resolve()),
+		query: mock(() => Promise.resolve([])),
+	}),
 	getSafeClickHouseTable,
 	queryClickhouse,
 }));
