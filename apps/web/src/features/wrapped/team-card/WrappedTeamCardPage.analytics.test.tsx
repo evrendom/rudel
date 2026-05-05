@@ -299,6 +299,12 @@ describe("WrappedTeamCardPage analytics", () => {
 			"Roadrunner",
 		);
 		expect(screen.getByTestId("reveal-edition")).toHaveTextContent("decimal");
+		expect(
+			screen.queryByRole("button", { name: "View Decimal card" }),
+		).not.toBeInTheDocument();
+		expect(
+			screen.queryByRole("button", { name: "View normal card" }),
+		).not.toBeInTheDocument();
 		expect(mockUseWrappedTeamCardShare.mock.calls[0]?.[0]).toEqual(
 			expect.objectContaining({
 				archetypeLabel: "Roadrunner",
@@ -313,26 +319,19 @@ describe("WrappedTeamCardPage analytics", () => {
 		);
 	});
 
-	it("shows the Decimal switcher only when the user is entitled", () => {
-		const { rerender } = render(
+	it("does not show a Decimal variant switcher to entitled users", () => {
+		render(
 			<MemoryRouter initialEntries={["/wrapped"]}>
 				<WrappedTeamCardPage isDecimalEntitled variant="normal" />
 			</MemoryRouter>,
 		);
 
 		expect(
-			screen.getByRole("button", { name: "View Decimal card" }),
-		).toBeInTheDocument();
-
-		rerender(
-			<MemoryRouter initialEntries={["/wrapped"]}>
-				<WrappedTeamCardPage isDecimalEntitled={false} variant="normal" />
-			</MemoryRouter>,
-		);
-
-		expect(
 			screen.queryByRole("button", { name: "View Decimal card" }),
-		).toBeNull();
+		).not.toBeInTheDocument();
+		expect(
+			screen.queryByRole("button", { name: "View normal card" }),
+		).not.toBeInTheDocument();
 	});
 
 	it("uses a dev preview archetype when the auth bypass has no live classifier", () => {
