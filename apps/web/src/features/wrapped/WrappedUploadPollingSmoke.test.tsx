@@ -493,6 +493,43 @@ describe("Wrapped upload polling smoke", () => {
 		queryClient.clear();
 	});
 
+	it("uses wrapped readiness when a large upload jump crosses the threshold", async () => {
+		const queryClient = new QueryClient(queryClientConfig);
+		rawSessionCount = 45;
+		wrappedGateSessionCount = 96;
+		wrappedGateReason = "needs_more_sessions";
+
+		render(
+			<WrappedRouteGate isPending={false} publicId={null} session={session} />,
+			{
+				wrapper: createWrapper(queryClient),
+			},
+		);
+
+		expect(
+			await screen.findByRole("heading", { name: "55 sessions missing" }),
+		).toBeInTheDocument();
+
+		rawSessionCount = 150;
+
+		await waitFor(
+			() => {
+				expect(
+					screen.getByRole("heading", { name: "4 sessions missing" }),
+				).toBeInTheDocument();
+			},
+			{ timeout: 1_500 },
+		);
+		expect(screen.getByText("96 sessions across 1 repo")).toBeInTheDocument();
+		expect(
+			screen.queryByRole("button", {
+				name: "Preparing your wrapped...",
+			}),
+		).toBeNull();
+
+		queryClient.clear();
+	});
+
 	it("enables setup continuation after the processing archetype gate refetches", async () => {
 		const queryClient = new QueryClient(queryClientConfig);
 		rawSessionCount = 100;
