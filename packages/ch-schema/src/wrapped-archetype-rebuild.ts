@@ -7,7 +7,6 @@ import {
 
 export type WrappedArchetypeRebuildTriggerReason =
 	| "manual_rebuild"
-	| "session_upload"
 	| "wrapped_processing_gate";
 
 export interface WrappedArchetypeSnapshotInsertSqlInput {
