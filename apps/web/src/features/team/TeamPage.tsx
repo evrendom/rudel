@@ -254,6 +254,7 @@ function TeamPageRefreshButton({
 export function TeamPage() {
 	const {
 		canInviteTeamMembers,
+		currentUserId,
 		diagnostics,
 		error,
 		isInviteLinkPending,
@@ -284,6 +285,7 @@ export function TeamPage() {
 	let content = (
 		<TeamMembersCardGrid
 			canInviteTeamMembers={canInviteTeamMembers}
+			currentUserId={currentUserId}
 			isInviteLinkPending={isInviteLinkPending}
 			rows={teamMemberRows}
 			teamInviteLink={teamInviteLink}

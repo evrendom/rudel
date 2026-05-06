@@ -1,5 +1,9 @@
-import { LinkIcon } from "lucide-react";
+import { ArrowUpRightIcon, LinkIcon } from "lucide-react";
+import type { ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
+import { Link } from "react-router-dom";
+import { appRoutes } from "@/app/routes";
+import { buttonVariants } from "@/app/ui/button";
 import type { TeamPageMemberRow } from "@/features/team/use-team-page-data";
 import { resolveWrappedArchetypeCardThemeByClassifierKey } from "@/features/wrapped/team-card/archetypes";
 import { WrappedTeamCardArtboardFrame } from "@/features/wrapped/team-card/artboard-frame";
@@ -152,6 +156,35 @@ function formatSpendValue(cost: number) {
 	return currencyFormatter.format(cost);
 }
 
+function isCurrentUserTeamCard(
+	row: TeamPageMemberRow,
+	currentUserId: string | null,
+) {
+	return currentUserId !== null && row.userId === currentUserId;
+}
+
+function TeamMemberShareCardShell({ children }: { children: ReactNode }) {
+	return (
+		<div className="group/team-share-card relative h-[358px] w-[233px]">
+			{children}
+			<Link
+				className={buttonVariants({
+					className:
+						"pointer-events-none absolute right-2 bottom-2 left-2 z-20 h-10 translate-y-1 rounded-[10px] px-3 text-sm font-semibold opacity-0 shadow-none transition-[opacity,transform] duration-150 [transition-timing-function:cubic-bezier(0.23,1,0.32,1)] active:scale-[0.98] group-hover/team-share-card:pointer-events-auto group-hover/team-share-card:translate-y-0 group-hover/team-share-card:opacity-100 group-focus-within/team-share-card:pointer-events-auto group-focus-within/team-share-card:translate-y-0 group-focus-within/team-share-card:opacity-100 focus-visible:pointer-events-auto focus-visible:translate-y-0 focus-visible:opacity-100",
+					size: "sm",
+					variant: "secondary",
+				})}
+				rel="noreferrer"
+				target="_blank"
+				to={appRoutes.wrappedTeamCardShare()}
+			>
+				<span>View sharing page</span>
+				<ArrowUpRightIcon aria-hidden="true" className="size-4" />
+			</Link>
+		</div>
+	);
+}
+
 function TeamCardShapePlaceholder({
 	isInviteLinkPending,
 	teamInviteLink,
@@ -271,11 +304,13 @@ function TeamLinkCopySurface({
 
 export function TeamMembersCardGrid({
 	canInviteTeamMembers,
+	currentUserId,
 	isInviteLinkPending,
 	rows,
 	teamInviteLink,
 }: {
 	canInviteTeamMembers: boolean;
+	currentUserId: string | null;
 	isInviteLinkPending: boolean;
 	rows: TeamPageMemberRow[];
 	teamInviteLink: string | null;
@@ -284,7 +319,7 @@ export function TeamMembersCardGrid({
 		<div className="team-lineup-surface-scope">
 			<ul className="grid justify-center gap-[10px] [grid-template-columns:repeat(auto-fit,minmax(233px,233px))]">
 				{canInviteTeamMembers ? (
-					<li className="list-none">
+					<li className="flex justify-center list-none">
 						<TeamCardShapePlaceholder
 							isInviteLinkPending={isInviteLinkPending}
 							teamInviteLink={teamInviteLink}
@@ -292,26 +327,34 @@ export function TeamMembersCardGrid({
 					</li>
 				) : null}
 				{rows.map((row) => {
+					const isCurrentUserCard = isCurrentUserTeamCard(row, currentUserId);
 					const teamCardPresentation = resolveTeamCardPresentation(row);
+					const card = (
+						<WrappedTeamMemberCard
+							disableOuterShadow={false}
+							headerLeftMetric={buildHeaderLeftMetric(row)}
+							headerRightMetric={buildHeaderRightMetric(
+								teamCardPresentation.archetypeLabel,
+							)}
+							hideHeaderLogo
+							layoutPreset="team-card-preview"
+							mediaPanelClassName="mx-auto"
+							row={row}
+							shellClassName={teamCardPresentation.shellClassName}
+							shellStyle={UNKNOWN_GUEST_CARD_PRESET.shellStyle}
+							statItems={buildTeamCardStats(row)}
+							statTileClassName=""
+							theme={teamCardPresentation.theme}
+						/>
+					);
 
 					return (
-						<li key={row.userId} className="list-none">
-							<WrappedTeamMemberCard
-								disableOuterShadow={false}
-								headerLeftMetric={buildHeaderLeftMetric(row)}
-								headerRightMetric={buildHeaderRightMetric(
-									teamCardPresentation.archetypeLabel,
-								)}
-								hideHeaderLogo
-								layoutPreset="team-card-preview"
-								mediaPanelClassName="mx-auto"
-								row={row}
-								shellClassName={teamCardPresentation.shellClassName}
-								shellStyle={UNKNOWN_GUEST_CARD_PRESET.shellStyle}
-								statItems={buildTeamCardStats(row)}
-								statTileClassName=""
-								theme={teamCardPresentation.theme}
-							/>
+						<li key={row.userId} className="flex justify-center list-none">
+							{isCurrentUserCard ? (
+								<TeamMemberShareCardShell>{card}</TeamMemberShareCardShell>
+							) : (
+								card
+							)}
 						</li>
 					);
 				})}

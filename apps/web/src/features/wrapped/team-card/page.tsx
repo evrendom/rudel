@@ -22,6 +22,8 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import {
 	appRoutes,
 	getWrappedShareIdFromSearch,
+	WRAPPED_TEAM_CARD_SHARE_STAGE,
+	WRAPPED_TEAM_CARD_STAGE_QUERY_PARAM,
 	WRAPPED_VARIANT_DECIMAL,
 	WRAPPED_VARIANT_NORMAL,
 	type WrappedVariant,
@@ -186,6 +188,18 @@ export function WrappedTeamCardPage(props: {
 		shareVariant === "decimal" ? "decimal" : undefined;
 
 	const activeStepParam = searchParams.get("step");
+	const activeFinalCardStage =
+		activeStepParam === "card"
+			? getRequestedFinalCardStage(searchParams)
+			: "reveal";
+	const wrappedActivationState = getWrappedTeamCardActivationState({
+		activeFinalCardStage,
+		activeStepParam,
+	});
+	const wrappedStageViewedState = getWrappedTeamCardStageViewedState({
+		activeFinalCardStage,
+		activeStepParam,
+	});
 	const estimatedSpendValue = formatCompactWholeCurrency(
 		visibleTeamCardRow.cost,
 	);
@@ -245,10 +259,10 @@ export function WrappedTeamCardPage(props: {
 		trackUtilityUsed({
 			sourceComponent: "wrapped_team_card_page",
 			utilityName: "wrappedStageViewed",
-			utilityState: activeStepParam === "card" ? "cardDirect" : "story",
+			utilityState: wrappedStageViewedState,
 		});
 		trackWrappedStoryStarted({
-			activationState: activeStepParam === "card" ? "card_direct" : "story",
+			activationState: wrappedActivationState,
 			entrySource: wrappedLoopEntrySource,
 			sourceComponent: "wrapped_team_card_page",
 			sourceShareId,
@@ -263,8 +277,9 @@ export function WrappedTeamCardPage(props: {
 		<WrappedTeamCardPageContent
 			// Re-mount on variant change so per-variant share state (in-flight
 			// requests, cached share record) does not bleed across switches.
-			key={`${activeStepParam === "card" ? "card" : "not-card"}:${variant}`}
+			key={`${activeStepParam === "card" ? activeFinalCardStage : "not-card"}:${variant}`}
 			activeArchetype={activeArchetype}
+			activeFinalCardStage={activeFinalCardStage}
 			debugControls={debugControls}
 			edition={cardEdition}
 			headerLeftMetric={headerLeftMetric}
@@ -319,8 +334,42 @@ function getWrappedDefaultDevPreviewArchetype() {
 	);
 }
 
+function getRequestedFinalCardStage(
+	searchParams: URLSearchParams,
+): FinalCardStage {
+	return searchParams.get(WRAPPED_TEAM_CARD_STAGE_QUERY_PARAM) ===
+		WRAPPED_TEAM_CARD_SHARE_STAGE
+		? "share"
+		: "reveal";
+}
+
+function getWrappedTeamCardActivationState(input: {
+	activeFinalCardStage: FinalCardStage;
+	activeStepParam: string | null;
+}) {
+	if (input.activeStepParam !== "card") {
+		return "story";
+	}
+
+	return input.activeFinalCardStage === "share"
+		? "share_direct"
+		: "card_direct";
+}
+
+function getWrappedTeamCardStageViewedState(input: {
+	activeFinalCardStage: FinalCardStage;
+	activeStepParam: string | null;
+}) {
+	if (input.activeStepParam !== "card") {
+		return "story";
+	}
+
+	return input.activeFinalCardStage === "share" ? "shareDirect" : "cardDirect";
+}
+
 function WrappedTeamCardPageContent(props: {
 	activeArchetype: WrappedArchetypeCardTheme;
+	activeFinalCardStage: FinalCardStage;
 	debugControls?: ReactNode;
 	edition?: WrappedTeamMemberCardEdition;
 	headerLeftMetric: WrappedTeamMemberCardHeaderMetric;
@@ -347,6 +396,7 @@ function WrappedTeamCardPageContent(props: {
 }) {
 	const {
 		activeArchetype,
+		activeFinalCardStage,
 		debugControls,
 		edition,
 		headerLeftMetric,
@@ -369,13 +419,14 @@ function WrappedTeamCardPageContent(props: {
 	const revealCardHandoffRef = useRef<HTMLDivElement>(null);
 	const shareCardHandoffRef = useRef<HTMLDivElement>(null);
 	const [finalCardStage, setFinalCardStage] =
-		useState<FinalCardStage>("reveal");
+		useState<FinalCardStage>(activeFinalCardStage);
 	const [finalCardHandoffPhase, setFinalCardHandoffPhase] =
 		useState<FinalCardHandoffPhase>("idle");
 	const [finalCardFlight, setFinalCardFlight] =
 		useState<FinalCardFlight | null>(null);
-	const [isRevealSequenceComplete, setIsRevealSequenceComplete] =
-		useState(false);
+	const [isRevealSequenceComplete, setIsRevealSequenceComplete] = useState(
+		activeFinalCardStage === "share",
+	);
 	const [isDownloadPending, setIsDownloadPending] = useState(false);
 	const [isProfileUrlCopyPending, setIsProfileUrlCopyPending] = useState(false);
 	const [isSharePending, setIsSharePending] = useState(false);

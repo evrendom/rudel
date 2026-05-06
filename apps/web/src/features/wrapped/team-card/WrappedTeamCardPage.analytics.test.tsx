@@ -409,6 +409,33 @@ describe("WrappedTeamCardPage analytics", () => {
 		);
 	});
 
+	it("opens the final share screen directly from the team stats link", async () => {
+		render(
+			<MemoryRouter
+				initialEntries={["/wrapped?flow=story&step=card&stage=share"]}
+			>
+				<WrappedTeamCardPage />
+			</MemoryRouter>,
+		);
+
+		expect(
+			screen.queryByRole("button", { name: "Preview post" }),
+		).not.toBeInTheDocument();
+		expect(
+			screen.getByRole("button", { name: "Share post" }),
+		).toBeInTheDocument();
+
+		await waitFor(() => {
+			expect(mockEnsureShare).toHaveBeenCalledTimes(1);
+		});
+		expect(mockTrackWrappedStoryStarted).toHaveBeenCalledWith({
+			activationState: "share_direct",
+			entrySource: "wrapped_team_card",
+			sourceComponent: "wrapped_team_card_page",
+			sourceShareId: undefined,
+		});
+	});
+
 	it("tracks story start, share creation, and distribution from a source share", async () => {
 		const user = userEvent.setup();
 

@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it } from "vitest";
 import type { TeamPageMemberRow } from "@/features/team/use-team-page-data";
 import { TeamMembersCardGrid } from "./TeamMembersCardGrid";
@@ -31,6 +32,7 @@ describe("TeamMembersCardGrid", () => {
 		render(
 			<TeamMembersCardGrid
 				canInviteTeamMembers={false}
+				currentUserId={null}
 				isInviteLinkPending={false}
 				rows={[buildTeamMemberRow()]}
 				teamInviteLink={null}
@@ -51,6 +53,7 @@ describe("TeamMembersCardGrid", () => {
 		render(
 			<TeamMembersCardGrid
 				canInviteTeamMembers={false}
+				currentUserId={null}
 				isInviteLinkPending={false}
 				rows={[
 					buildTeamMemberRow({
@@ -67,5 +70,41 @@ describe("TeamMembersCardGrid", () => {
 
 		expect(screen.getByTitle("Smooth Operator")).toBeInTheDocument();
 		expect(screen.queryByText("To be revealed")).not.toBeInTheDocument();
+	});
+
+	it("wraps the current user's card with a hover-revealed secondary sharing page link", () => {
+		render(
+			<MemoryRouter>
+				<TeamMembersCardGrid
+					canInviteTeamMembers={false}
+					currentUserId="user-1"
+					isInviteLinkPending={false}
+					rows={[buildTeamMemberRow()]}
+					teamInviteLink={null}
+				/>
+			</MemoryRouter>,
+		);
+
+		const shareLink = screen.getByRole("link", {
+			name: "View sharing page",
+		});
+		expect(shareLink).toHaveAttribute(
+			"href",
+			"/wrapped?flow=story&step=card&stage=share",
+		);
+		expect(shareLink).toHaveAttribute("target", "_blank");
+		expect(shareLink).toHaveAttribute("rel", "noreferrer");
+		const shareLinkClassName = shareLink.getAttribute("class");
+		expect(shareLinkClassName).toContain("bg-secondary");
+		expect(shareLinkClassName).toContain("opacity-0");
+		expect(shareLinkClassName).toContain("absolute");
+		expect(shareLinkClassName).toContain("bottom-2");
+		expect(shareLinkClassName).toContain("rounded-[10px]");
+		expect(shareLinkClassName).toContain(
+			"group-hover/team-share-card:opacity-100",
+		);
+		expect(shareLink.parentElement?.getAttribute("class")).toContain(
+			"h-[358px] w-[233px]",
+		);
 	});
 });

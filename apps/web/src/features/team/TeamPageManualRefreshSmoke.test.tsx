@@ -2,15 +2,23 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
+import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { TeamPage } from "@/features/team/TeamPage";
 
-const { mockGetFullOrganization, mockUseDateRange, mockUseOrganization } =
-	vi.hoisted(() => ({
-		mockGetFullOrganization: vi.fn(),
-		mockUseDateRange: vi.fn(),
-		mockUseOrganization: vi.fn(),
-	}));
+const {
+	mockGetFullOrganization,
+	mockUseActiveMember,
+	mockUseDateRange,
+	mockUseOrganization,
+	mockUseSession,
+} = vi.hoisted(() => ({
+	mockGetFullOrganization: vi.fn(),
+	mockUseActiveMember: vi.fn(),
+	mockUseDateRange: vi.fn(),
+	mockUseOrganization: vi.fn(),
+	mockUseSession: vi.fn(),
+}));
 
 vi.mock("@/features/analytics/date-range/useDateRange", () => ({
 	useDateRange: mockUseDateRange,
@@ -25,6 +33,8 @@ vi.mock("@/lib/auth-client", () => ({
 		organization: {
 			getFullOrganization: mockGetFullOrganization,
 		},
+		useActiveMember: mockUseActiveMember,
+		useSession: mockUseSession,
 	},
 }));
 
@@ -92,7 +102,7 @@ function createWrapper(queryClient: QueryClient) {
 	}) {
 		return (
 			<QueryClientProvider client={queryClient}>
-				{props.children}
+				<MemoryRouter>{props.children}</MemoryRouter>
 			</QueryClientProvider>
 		);
 	};
@@ -102,8 +112,10 @@ describe("TeamPage manual refresh smoke", () => {
 	beforeEach(() => {
 		rawSessionCount = 12;
 		mockGetFullOrganization.mockReset();
+		mockUseActiveMember.mockReset();
 		mockUseDateRange.mockReset();
 		mockUseOrganization.mockReset();
+		mockUseSession.mockReset();
 
 		mockGetFullOrganization.mockResolvedValue({
 			data: {
@@ -118,6 +130,16 @@ describe("TeamPage manual refresh smoke", () => {
 						userId: "user-1",
 					},
 				],
+			},
+		});
+		mockUseActiveMember.mockReturnValue({
+			data: null,
+		});
+		mockUseSession.mockReturnValue({
+			data: {
+				user: {
+					id: "user-1",
+				},
 			},
 		});
 		mockUseDateRange.mockReturnValue({

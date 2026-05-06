@@ -18,6 +18,10 @@ const YC_LOGIN_PATH = "/yc";
 const WRAPPED_TEAM_CARD_PATH = "/wrapped";
 const DEV_WRAPPED_PATH = "/dev/wrapped";
 const WRAPPED_RESUME_PATH = "/resume";
+const WRAPPED_TEAM_CARD_STEP_QUERY_PARAM = "step";
+const WRAPPED_TEAM_CARD_FINAL_STEP = "card";
+export const WRAPPED_TEAM_CARD_STAGE_QUERY_PARAM = "stage";
+export const WRAPPED_TEAM_CARD_SHARE_STAGE = "share";
 export const WRAPPED_ROUTE_FLOW_QUERY_PARAM = "flow";
 export const WRAPPED_ROUTE_CARD_PROFILE_FLOW = "card-profile";
 export const WRAPPED_ROUTE_DESKTOP_READY_FLOW = "desktop-ready";
@@ -54,6 +58,7 @@ export const appRoutes = {
 	cardReference: () => CARD_REFERENCE_PATH,
 	ycLogin: () => YC_LOGIN_PATH,
 	wrappedTeamCard: () => WRAPPED_TEAM_CARD_PATH,
+	wrappedTeamCardShare: () => getWrappedTeamCardSharePath(),
 	wrappedCardProfile: (search?: string) => getWrappedCardProfilePath(search),
 	wrappedDesktopReady: (search?: string) => getWrappedDesktopReadyPath(search),
 	wrappedSessionsLanded: (search?: string) =>
@@ -107,6 +112,21 @@ export function getWrappedStoryPath(search?: string) {
 function getWrappedFlowPath(flow: string, search?: string) {
 	const searchParams = new URLSearchParams(search);
 	searchParams.set(WRAPPED_ROUTE_FLOW_QUERY_PARAM, flow);
+
+	return `${WRAPPED_TEAM_CARD_PATH}?${searchParams.toString()}`;
+}
+
+function getWrappedTeamCardSharePath() {
+	const searchParams = new URLSearchParams();
+	searchParams.set(WRAPPED_ROUTE_FLOW_QUERY_PARAM, "story");
+	searchParams.set(
+		WRAPPED_TEAM_CARD_STEP_QUERY_PARAM,
+		WRAPPED_TEAM_CARD_FINAL_STEP,
+	);
+	searchParams.set(
+		WRAPPED_TEAM_CARD_STAGE_QUERY_PARAM,
+		WRAPPED_TEAM_CARD_SHARE_STAGE,
+	);
 
 	return `${WRAPPED_TEAM_CARD_PATH}?${searchParams.toString()}`;
 }
