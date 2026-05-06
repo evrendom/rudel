@@ -146,7 +146,7 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 	const shouldSkipYcReviewPrep = isYcReview && !publicId;
 	const isForcedStoryFlow =
 		forcedFlowStage === WRAPPED_ROUTE_STORY_FLOW || shouldSkipYcReviewPrep;
-	const shouldRespectShareTarget = isWrappedTeamCardShareTarget(searchParams);
+	const isShareTargetRequested = isWrappedTeamCardShareTarget(searchParams);
 	const isWrappedNewUserFlow =
 		forcedFlowStage === WRAPPED_ROUTE_CARD_PROFILE_FLOW;
 
@@ -442,7 +442,7 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 			setupProgress.hasUploadedSessions &&
 			!sessionGateState.hasMinimumSessionCount;
 		const shouldOpenWrappedStoryDirectly =
-			(isForcedStoryFlow || shouldRespectShareTarget) &&
+			(isForcedStoryFlow || isShareTargetRequested) &&
 			setupProgress.hasUploadedSessions &&
 			canContinueToWrappedStory;
 		const shouldShowSessionsLanded =
