@@ -159,7 +159,8 @@ function buildTeamMemberRows(
 }
 
 export function useTeamPageData() {
-	const { data: session } = authClient.useSession();
+	const { data: session, isPending: isSessionPending } =
+		authClient.useSession();
 	const { data: activeMember } = authClient.useActiveMember();
 	const { state: dateRangeState, meta: dateRangeMeta } = useDateRange();
 	const { meta: workspaceMeta, state: workspaceState } = useOrganization();
@@ -251,6 +252,14 @@ export function useTeamPageData() {
 		[members, teamCards, developerSummaries],
 	);
 	const hasRosterData = teamMemberRows.length > 0;
+	const isInitialTeamDataPending =
+		!useFixtures &&
+		(workspaceState.isLoading ||
+			(activeOrganizationId !== null &&
+				(teamCardsQuery.isPending ||
+					developersQuery.isPending ||
+					isOrganizationPending)) ||
+			isSessionPending);
 	const diagnostics: TeamPageDiagnostics = {
 		endDate: dateRangeState.endDate,
 		endpoint: "analytics.developers.teamCards",
@@ -277,12 +286,7 @@ export function useTeamPageData() {
 			(teamCardsQuery.isError ||
 				developersQuery.isError ||
 				isOrganizationError),
-		isPending:
-			!useFixtures &&
-			!hasRosterData &&
-			(teamCardsQuery.isPending ||
-				developersQuery.isPending ||
-				isOrganizationPending),
+		isPending: isInitialTeamDataPending,
 		teamMemberRows,
 		canInviteTeamMembers,
 		currentUserId,
