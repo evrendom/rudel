@@ -131,6 +131,18 @@ function getWrappedTeamCardSharePath() {
 	return `${WRAPPED_TEAM_CARD_PATH}?${searchParams.toString()}`;
 }
 
+export function isWrappedTeamCardShareTarget(search: string | URLSearchParams) {
+	const searchParams =
+		search instanceof URLSearchParams ? search : new URLSearchParams(search);
+
+	return (
+		searchParams.get(WRAPPED_TEAM_CARD_STEP_QUERY_PARAM) ===
+			WRAPPED_TEAM_CARD_FINAL_STEP &&
+		searchParams.get(WRAPPED_TEAM_CARD_STAGE_QUERY_PARAM) ===
+			WRAPPED_TEAM_CARD_SHARE_STAGE
+	);
+}
+
 // Public wrapped pages live at /wrapped/:id. New links use username-style ids,
 // while older UUID ids still resolve because the backend key is plain text.
 export function getWrappedPublicIdFromPath(pathname: string) {

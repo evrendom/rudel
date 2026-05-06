@@ -22,8 +22,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import {
 	appRoutes,
 	getWrappedShareIdFromSearch,
-	WRAPPED_TEAM_CARD_SHARE_STAGE,
-	WRAPPED_TEAM_CARD_STAGE_QUERY_PARAM,
+	isWrappedTeamCardShareTarget,
 	WRAPPED_VARIANT_DECIMAL,
 	WRAPPED_VARIANT_NORMAL,
 	type WrappedVariant,
@@ -337,10 +336,7 @@ function getWrappedDefaultDevPreviewArchetype() {
 function getRequestedFinalCardStage(
 	searchParams: URLSearchParams,
 ): FinalCardStage {
-	return searchParams.get(WRAPPED_TEAM_CARD_STAGE_QUERY_PARAM) ===
-		WRAPPED_TEAM_CARD_SHARE_STAGE
-		? "share"
-		: "reveal";
+	return isWrappedTeamCardShareTarget(searchParams) ? "share" : "reveal";
 }
 
 function getWrappedTeamCardActivationState(input: {
