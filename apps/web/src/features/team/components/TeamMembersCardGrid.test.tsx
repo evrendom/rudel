@@ -103,8 +103,11 @@ describe("TeamMembersCardGrid", () => {
 		expect(shareLinkClassName).toContain(
 			"group-hover/team-share-card:opacity-100",
 		);
-		expect(shareLink.parentElement?.getAttribute("class")).toContain(
-			"h-[358px] w-[233px]",
+		expect(shareLinkClassName).not.toContain(
+			"group-focus-within/team-share-card:opacity-100",
 		);
+		const cardShell = shareLink.parentElement;
+		expect(cardShell?.getAttribute("class")).toContain("h-[358px] w-[233px]");
+		expect(cardShell?.getAttribute("class")).toContain("group/team-share-card");
 	});
 });

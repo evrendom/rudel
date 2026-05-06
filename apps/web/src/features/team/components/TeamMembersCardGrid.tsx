@@ -163,24 +163,32 @@ function isCurrentUserTeamCard(
 	return currentUserId !== null && row.userId === currentUserId;
 }
 
-function TeamMemberShareCardShell({ children }: { children: ReactNode }) {
+function TeamMemberShareCardShell({
+	children,
+	isCurrentUserCard,
+}: {
+	children: ReactNode;
+	isCurrentUserCard: boolean;
+}) {
 	return (
 		<div className="group/team-share-card relative h-[358px] w-[233px]">
 			{children}
-			<Link
-				className={buttonVariants({
-					className:
-						"pointer-events-none absolute right-2 bottom-2 left-2 z-20 h-10 translate-y-1 rounded-[10px] px-3 text-sm font-semibold opacity-0 shadow-none transition-[opacity,transform] duration-150 [transition-timing-function:cubic-bezier(0.23,1,0.32,1)] active:scale-[0.98] group-hover/team-share-card:pointer-events-auto group-hover/team-share-card:translate-y-0 group-hover/team-share-card:opacity-100 group-focus-within/team-share-card:pointer-events-auto group-focus-within/team-share-card:translate-y-0 group-focus-within/team-share-card:opacity-100 focus-visible:pointer-events-auto focus-visible:translate-y-0 focus-visible:opacity-100",
-					size: "sm",
-					variant: "secondary",
-				})}
-				rel="noreferrer"
-				target="_blank"
-				to={appRoutes.wrappedTeamCardShare()}
-			>
-				<span>View sharing page</span>
-				<ArrowUpRightIcon aria-hidden="true" className="size-4" />
-			</Link>
+			{isCurrentUserCard ? (
+				<Link
+					className={buttonVariants({
+						className:
+							"pointer-events-none absolute right-2 bottom-2 left-2 z-20 h-10 translate-y-1 rounded-[10px] px-3 text-sm font-semibold opacity-0 shadow-none transition-[opacity,transform] duration-150 [transition-timing-function:cubic-bezier(0.23,1,0.32,1)] active:scale-[0.98] group-hover/team-share-card:pointer-events-auto group-hover/team-share-card:translate-y-0 group-hover/team-share-card:opacity-100 focus-visible:pointer-events-auto focus-visible:translate-y-0 focus-visible:opacity-100",
+						size: "sm",
+						variant: "secondary",
+					})}
+					rel="noreferrer"
+					target="_blank"
+					to={appRoutes.wrappedTeamCardShare()}
+				>
+					<span>View sharing page</span>
+					<ArrowUpRightIcon aria-hidden="true" className="size-4" />
+				</Link>
+			) : null}
 		</div>
 	);
 }
@@ -350,11 +358,9 @@ export function TeamMembersCardGrid({
 
 					return (
 						<li key={row.userId} className="flex justify-center list-none">
-							{isCurrentUserCard ? (
-								<TeamMemberShareCardShell>{card}</TeamMemberShareCardShell>
-							) : (
-								card
-							)}
+							<TeamMemberShareCardShell isCurrentUserCard={isCurrentUserCard}>
+								{card}
+							</TeamMemberShareCardShell>
 						</li>
 					);
 				})}
