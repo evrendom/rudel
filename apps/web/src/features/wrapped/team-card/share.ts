@@ -5,15 +5,23 @@ import type { TeamPageMemberRow } from "@/features/team/use-team-page-data";
 import { createWrappedImageShareActions } from "@/features/wrapped/share-image";
 import { buildWrappedXShareText } from "@/features/wrapped/wrapped-x-share";
 import { copyTextToClipboardWithResult } from "@/lib/clipboard";
-import type { CaptureElementOptions } from "@/lib/screenshot";
+import { type CaptureElementOptions, captureElement } from "@/lib/screenshot";
 
 const TEAM_CARD_SHARE_IMAGE_FILE_NAME = "rudel-team-card-post.png";
 const TEAM_CARD_SHARE_CAPTURE_SIZE = 6144;
 const TEAM_CARD_SHARE_CLIPBOARD_CAPTURE_SIZE = 3000;
 const TEAM_CARD_SHARE_OUTPUT_SIZE = 4096;
+const TEAM_CARD_SHARE_SOCIAL_IMAGE_CAPTURE_WIDTH = 2400;
+const TEAM_CARD_SHARE_SOCIAL_IMAGE_CAPTURE_HEIGHT = 1260;
+const TEAM_CARD_SHARE_SOCIAL_IMAGE_OUTPUT_WIDTH = 2400;
+const TEAM_CARD_SHARE_SOCIAL_IMAGE_OUTPUT_HEIGHT = 1260;
+const TEAM_CARD_SHARE_SOCIAL_IMAGE_FALLBACK_OUTPUT_WIDTH = 1200;
+const TEAM_CARD_SHARE_SOCIAL_IMAGE_FALLBACK_OUTPUT_HEIGHT = 630;
+const TEAM_CARD_SHARE_SOCIAL_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
 const TEAM_CARD_SHARE_REFERENCE_SIZE = 464;
 const TEAM_CARD_SHARE_FRONT_CARD_SCALE = 0.96;
 const TEAM_CARD_SHARE_SPREAD_CARD_SCALE = 0.72;
+const TEAM_CARD_SHARE_SOCIAL_IMAGE_SPREAD_CARD_SCALE = 0.46;
 const TEAM_CARD_SHARE_VISIBLE_CAPTURE_OPTIONS =
 	buildTeamCardShareCaptureOptions({
 		captureSize: TEAM_CARD_SHARE_CLIPBOARD_CAPTURE_SIZE,
@@ -22,6 +30,20 @@ const TEAM_CARD_SHARE_IMAGE_CAPTURE_OPTIONS = buildTeamCardShareCaptureOptions({
 	captureSize: TEAM_CARD_SHARE_CAPTURE_SIZE,
 	outputSize: TEAM_CARD_SHARE_OUTPUT_SIZE,
 });
+const TEAM_CARD_SHARE_SOCIAL_IMAGE_CAPTURE_OPTIONS =
+	buildTeamCardShareLandscapeCaptureOptions({
+		captureHeight: TEAM_CARD_SHARE_SOCIAL_IMAGE_CAPTURE_HEIGHT,
+		captureWidth: TEAM_CARD_SHARE_SOCIAL_IMAGE_CAPTURE_WIDTH,
+		outputHeight: TEAM_CARD_SHARE_SOCIAL_IMAGE_OUTPUT_HEIGHT,
+		outputWidth: TEAM_CARD_SHARE_SOCIAL_IMAGE_OUTPUT_WIDTH,
+	});
+const TEAM_CARD_SHARE_SOCIAL_IMAGE_FALLBACK_CAPTURE_OPTIONS =
+	buildTeamCardShareLandscapeCaptureOptions({
+		captureHeight: TEAM_CARD_SHARE_SOCIAL_IMAGE_CAPTURE_HEIGHT,
+		captureWidth: TEAM_CARD_SHARE_SOCIAL_IMAGE_CAPTURE_WIDTH,
+		outputHeight: TEAM_CARD_SHARE_SOCIAL_IMAGE_FALLBACK_OUTPUT_HEIGHT,
+		outputWidth: TEAM_CARD_SHARE_SOCIAL_IMAGE_FALLBACK_OUTPUT_WIDTH,
+	});
 
 type WrappedShareActionKind =
 	| "copy"
@@ -161,6 +183,32 @@ export function createWrappedTeamCardShareActions(
 	}
 }
 
+export async function captureWrappedTeamCardSocialImageDataUrl(
+	sharePostRef: RefObject<HTMLDivElement | null>,
+): Promise<string | undefined> {
+	await waitForTeamCardSharePreviewRender();
+
+	const sharePostElement = sharePostRef.current;
+
+	if (!sharePostElement || typeof FileReader === "undefined") {
+		return undefined;
+	}
+
+	let imageBlob = await captureElement(
+		sharePostElement,
+		TEAM_CARD_SHARE_SOCIAL_IMAGE_CAPTURE_OPTIONS,
+	);
+
+	if (imageBlob.size > TEAM_CARD_SHARE_SOCIAL_IMAGE_MAX_BYTES) {
+		imageBlob = await captureElement(
+			sharePostElement,
+			TEAM_CARD_SHARE_SOCIAL_IMAGE_FALLBACK_CAPTURE_OPTIONS,
+		);
+	}
+
+	return blobToDataUrl(imageBlob);
+}
+
 function formatShareCaptureScale(value: number) {
 	return value.toFixed(6).replace(/\.?0+$/, "");
 }
@@ -185,6 +233,30 @@ function buildTeamCardShareCaptureOptions(options: {
 		padding: 0,
 		pixelRatio: 1,
 		style: buildTeamCardShareCaptureStyle(captureSize),
+	};
+}
+
+function buildTeamCardShareLandscapeCaptureOptions(options: {
+	captureHeight: number;
+	captureWidth: number;
+	outputHeight: number;
+	outputWidth: number;
+}): CaptureElementOptions {
+	const { captureHeight, captureWidth, outputHeight, outputWidth } = options;
+
+	return {
+		captureHeight,
+		captureWidth,
+		layoutHeight: captureHeight,
+		layoutWidth: captureWidth,
+		outputHeight,
+		outputWidth,
+		padding: 0,
+		pixelRatio: 1,
+		style: buildTeamCardShareLandscapeCaptureStyle({
+			captureHeight,
+			captureWidth,
+		}),
 	};
 }
 
@@ -231,4 +303,70 @@ function buildTeamCardShareCaptureStyle(captureSize: number) {
 		"--wrapped-team-card-edge-outline-opacity": "0",
 		"--wrapped-team-card-edge-top-opacity": "0",
 	};
+}
+
+function buildTeamCardShareLandscapeCaptureStyle(options: {
+	captureHeight: number;
+	captureWidth: number;
+}) {
+	const { captureHeight, captureWidth } = options;
+
+	return {
+		...buildTeamCardShareCaptureStyle(captureHeight),
+		aspectRatio: "40 / 21",
+		background: "#fff",
+		height: `${captureHeight}px`,
+		width: `${captureWidth}px`,
+		"--wrapped-share-preview-body-padding-bottom": "0.36rem",
+		"--wrapped-share-preview-body-padding-left": "0.08rem",
+		"--wrapped-share-preview-body-padding-right": "0.08rem",
+		"--wrapped-share-preview-body-padding-top": "0.28rem",
+		"--wrapped-share-preview-card-scale-base": "1",
+		"--wrapped-share-preview-export-scale": formatShareCaptureScale(
+			captureHeight / TEAM_CARD_SHARE_REFERENCE_SIZE,
+		),
+		"--wrapped-share-preview-meta-font-size": "0.72rem",
+		"--wrapped-share-preview-shell-padding-bottom": "0.72rem",
+		"--wrapped-share-preview-shell-padding-left": "1.35rem",
+		"--wrapped-share-preview-shell-padding-right": "1.35rem",
+		"--wrapped-share-preview-shell-padding-top": "0.82rem",
+		"--wrapped-share-preview-spread-gap": "0.7rem",
+		"--wrapped-share-preview-spread-scale-base": formatShareCaptureScale(
+			TEAM_CARD_SHARE_SOCIAL_IMAGE_SPREAD_CARD_SCALE,
+		),
+		"--wrapped-share-preview-spread-width": "60%",
+		"--wrapped-share-preview-top-gap": "0.45rem",
+		"--wrapped-share-preview-top-logo-size": "0.92rem",
+	};
+}
+
+function blobToDataUrl(blob: Blob) {
+	return new Promise<string>((resolve, reject) => {
+		const reader = new FileReader();
+
+		reader.onerror = () => {
+			reject(reader.error ?? new Error("Failed to read share image"));
+		};
+		reader.onload = () => {
+			if (typeof reader.result !== "string") {
+				reject(new Error("Failed to read share image"));
+				return;
+			}
+
+			resolve(reader.result);
+		};
+		reader.readAsDataURL(blob);
+	});
+}
+
+function waitForTeamCardSharePreviewRender() {
+	if (typeof window === "undefined" || !window.requestAnimationFrame) {
+		return Promise.resolve();
+	}
+
+	return new Promise<void>((resolve) => {
+		window.requestAnimationFrame(() => {
+			window.requestAnimationFrame(() => resolve());
+		});
+	});
 }
