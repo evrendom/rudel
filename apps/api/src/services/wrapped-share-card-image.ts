@@ -5,6 +5,13 @@ const CARD_WIDTH = 1200;
 const CARD_HEIGHT = 630;
 const SVG_XMLNS = "http://www.w3.org/2000/svg";
 const DATA_IMAGE_PREFIX = "data:image/";
+const SOCIAL_IMAGE_DATA_URL_PREFIX = "data:image/png;base64,";
+const BASE64_DATA_REGEX = /^[A-Za-z0-9+/]+={0,2}$/u;
+const PNG_SIGNATURE = [137, 80, 78, 71, 13, 10, 26, 10] as const;
+const PNG_IHDR_WIDTH_OFFSET = 16;
+const PNG_IHDR_HEIGHT_OFFSET = 20;
+const PNG_IHDR_MIN_BYTE_LENGTH = 24;
+const WRAPPED_SHARE_SOCIAL_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
 
 interface WrappedShareCardPalette {
 	accent: string;
@@ -53,6 +60,52 @@ const WRAPPED_SHARE_CARD_PALETTES: Record<
 	},
 };
 
+export function getWrappedShareCardImagePng(snapshot: WrappedShareSnapshot) {
+	return (
+		getWrappedShareSocialImagePng(snapshot) ??
+		renderWrappedShareCardPng(snapshot)
+	);
+}
+
+export function getWrappedShareCardImageMetadata(
+	snapshot: WrappedShareSnapshot,
+) {
+	const image = getWrappedShareSocialImagePng(snapshot);
+	const size = image ? getPngImageSize(image) : null;
+
+	return {
+		height: size?.height ?? CARD_HEIGHT,
+		type: "image/png",
+		width: size?.width ?? CARD_WIDTH,
+	};
+}
+
+export function getWrappedShareSocialImagePng(snapshot: WrappedShareSnapshot) {
+	const dataUrl = snapshot.socialImageDataUrl;
+
+	if (!dataUrl?.startsWith(SOCIAL_IMAGE_DATA_URL_PREFIX)) {
+		return null;
+	}
+
+	const base64Data = dataUrl.slice(SOCIAL_IMAGE_DATA_URL_PREFIX.length);
+
+	if (!base64Data || !BASE64_DATA_REGEX.test(base64Data)) {
+		return null;
+	}
+
+	const image = Buffer.from(base64Data, "base64");
+
+	if (image.byteLength > WRAPPED_SHARE_SOCIAL_IMAGE_MAX_BYTES) {
+		return null;
+	}
+
+	if (!isPngImage(image)) {
+		return null;
+	}
+
+	return image;
+}
+
 export function renderWrappedShareCardPng(snapshot: WrappedShareSnapshot) {
 	const svg = buildWrappedShareCardSvg(snapshot);
 	const renderedImage = new Resvg(svg, {
@@ -69,6 +122,30 @@ export function renderWrappedShareCardPng(snapshot: WrappedShareSnapshot) {
 	}).render();
 
 	return renderedImage.asPng();
+}
+
+function isPngImage(bytes: Uint8Array) {
+	if (bytes.byteLength < PNG_SIGNATURE.length) {
+		return false;
+	}
+
+	return PNG_SIGNATURE.every((byte, index) => bytes[index] === byte);
+}
+
+function getPngImageSize(bytes: Uint8Array) {
+	if (!isPngImage(bytes) || bytes.byteLength < PNG_IHDR_MIN_BYTE_LENGTH) {
+		return null;
+	}
+
+	const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+	const width = view.getUint32(PNG_IHDR_WIDTH_OFFSET);
+	const height = view.getUint32(PNG_IHDR_HEIGHT_OFFSET);
+
+	if (width <= 0 || height <= 0) {
+		return null;
+	}
+
+	return { height, width };
 }
 
 export function buildWrappedShareCardSvg(snapshot: WrappedShareSnapshot) {

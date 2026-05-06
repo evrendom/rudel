@@ -54,6 +54,10 @@ export const WrappedShareAppearanceSchema = z.object({
 	layoutMode: WrappedShareLayoutModeSchema,
 	showArchetypeLabel: z.boolean(),
 });
+const WrappedShareSocialImageDataUrlSchema = z
+	.string()
+	.max(7_000_000)
+	.regex(/^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/u);
 
 export const WrappedShareRowSchema = z.object({
 	// These are the card-safe fields needed to faithfully replay the selected card
@@ -84,9 +88,16 @@ export const WrappedShareSnapshotSchema = z.object({
 	revealMetrics: WrappedShareRevealMetricsSchema.optional(),
 	row: WrappedShareRowSchema,
 	shellClassName: z.string().min(1),
+	socialImageDataUrl: WrappedShareSocialImageDataUrlSchema.optional(),
 	statItems: z.array(WrappedShareStatItemSchema),
 	theme: WrappedShareThemeSchema,
 });
+
+export const PublicWrappedShareSnapshotSchema = WrappedShareSnapshotSchema.omit(
+	{
+		socialImageDataUrl: true,
+	},
+);
 
 export const CreateWrappedShareInputSchema = z.object({
 	snapshot: WrappedShareSnapshotSchema,
@@ -106,7 +117,7 @@ export const WrappedShareRecordSchema = z.object({
 });
 
 export const PublicWrappedShareSchema = WrappedShareRecordSchema.extend({
-	snapshot: WrappedShareSnapshotSchema,
+	snapshot: PublicWrappedShareSnapshotSchema,
 });
 
 export type WrappedShareTheme = z.infer<typeof WrappedShareThemeSchema>;
@@ -129,6 +140,9 @@ export type WrappedShareAppearance = z.infer<
 >;
 export type WrappedShareRow = z.infer<typeof WrappedShareRowSchema>;
 export type WrappedShareSnapshot = z.infer<typeof WrappedShareSnapshotSchema>;
+export type PublicWrappedShareSnapshot = z.infer<
+	typeof PublicWrappedShareSnapshotSchema
+>;
 export type CreateWrappedShareInput = z.infer<
 	typeof CreateWrappedShareInputSchema
 >;

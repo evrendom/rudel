@@ -15,6 +15,7 @@ interface UseWrappedTeamCardShareOptions {
 	// We keep that callback optional so the hook stays reusable and does not own
 	// analytics directly.
 	onShareCreated?: (shareRecord: WrappedShareRecord) => void;
+	resolveSocialImageDataUrl?: () => Promise<string | undefined>;
 	// Selects which public card variant the server should persist. Decimal
 	// shares are gated server-side on entitlement; the frontend default keeps
 	// normal share behavior unchanged for everyone else.
@@ -38,7 +39,7 @@ export function useWrappedTeamCardShare(
 	);
 	const [isCreatingShare, setIsCreatingShare] = useState(false);
 	const [hasShareError, setHasShareError] = useState(false);
-	const { onShareCreated } = options ?? {};
+	const { onShareCreated, resolveSocialImageDataUrl } = options ?? {};
 	const shareUrl = shareRecord
 		? buildWrappedShareUrl(shareRecord.id)
 		: undefined;
@@ -58,8 +59,16 @@ export function useWrappedTeamCardShare(
 		setIsCreatingShare(true);
 		setHasShareError(false);
 
-		const shareRequest = client.wrappedShare
-			.create({ snapshot, variant })
+		const shareRequest = resolveWrappedShareSnapshotWithSocialImage({
+			resolveSocialImageDataUrl,
+			snapshot,
+		})
+			.then((snapshotWithSocialImage) =>
+				client.wrappedShare.create({
+					snapshot: snapshotWithSocialImage,
+					variant,
+				}),
+			)
 			.then((createdShare) => {
 				setShareRecord(createdShare);
 				onShareCreated?.(createdShare);
@@ -76,7 +85,13 @@ export function useWrappedTeamCardShare(
 
 		shareRequestRef.current = shareRequest;
 		return shareRequest;
-	}, [onShareCreated, shareRecord, snapshot, variant]);
+	}, [
+		onShareCreated,
+		resolveSocialImageDataUrl,
+		shareRecord,
+		snapshot,
+		variant,
+	]);
 
 	return {
 		ensureShare,
@@ -88,6 +103,30 @@ export function useWrappedTeamCardShare(
 			isCreatingShare,
 			hasShareError,
 		),
+	};
+}
+
+async function resolveWrappedShareSnapshotWithSocialImage(input: {
+	resolveSocialImageDataUrl: (() => Promise<string | undefined>) | undefined;
+	snapshot: WrappedShareSnapshot;
+}) {
+	const { resolveSocialImageDataUrl, snapshot } = input;
+
+	if (!resolveSocialImageDataUrl) {
+		return snapshot;
+	}
+
+	const socialImageDataUrl = await resolveSocialImageDataUrl().catch(
+		() => undefined,
+	);
+
+	if (!socialImageDataUrl) {
+		return snapshot;
+	}
+
+	return {
+		...snapshot,
+		socialImageDataUrl,
 	};
 }
 

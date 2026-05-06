@@ -12,6 +12,7 @@ import {
 	isValidElement,
 	type ReactNode,
 	startTransition,
+	useCallback,
 	// biome-ignore lint/style/noRestrictedImports: final-card handoff measurement is an imperative storyboard bridge for this wrapped surface.
 	useEffect,
 	useMemo,
@@ -54,7 +55,10 @@ import {
 	WrappedTeamCardRevealStage,
 	WrappedTeamCardShareStage,
 } from "./final-stages";
-import { createWrappedTeamCardShareActions } from "./share";
+import {
+	captureWrappedTeamCardSocialImageDataUrl,
+	createWrappedTeamCardShareActions,
+} from "./share";
 import {
 	DEFAULT_WRAPPED_SHARE_APPEARANCE,
 	resolveWrappedShareAppearance,
@@ -492,6 +496,10 @@ function WrappedTeamCardPageContent(props: {
 			statItems,
 		],
 	);
+	const resolveSocialImageDataUrl = useCallback(
+		() => captureWrappedTeamCardSocialImageDataUrl(sharePostRef),
+		[],
+	);
 	// Share creation lives behind a hook so the page can stay focused on stage
 	// orchestration. The hook owns caching/deduping, while this page only decides
 	// when the product has crossed the line from "previewing" to "real share made".
@@ -514,6 +522,7 @@ function WrappedTeamCardPageContent(props: {
 				sourceShareId,
 			});
 		},
+		resolveSocialImageDataUrl,
 		variant: shareVariant,
 	});
 	// The share action helpers stay presentational from the page's perspective.

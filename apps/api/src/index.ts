@@ -15,8 +15,11 @@ import { setupLogging } from "./logging.js";
 import type { ApiKeyAuthFailure } from "./middleware.js";
 import { checkWrappedShareLookupRateLimit } from "./rate-limit.js";
 import { router } from "./router.js";
-import { getPublicWrappedShare } from "./services/wrapped-share.service.js";
-import { renderWrappedShareCardPng } from "./services/wrapped-share-card-image.js";
+import { getPublicWrappedShareWithSocialImage } from "./services/wrapped-share.service.js";
+import {
+	getWrappedShareCardImageMetadata,
+	getWrappedShareCardImagePng,
+} from "./services/wrapped-share-card-image.js";
 import {
 	buildWrappedSharePageMetadata,
 	injectWrappedSharePageMetadata,
@@ -399,13 +402,13 @@ async function handleWrappedShareCardImageRequest(input: {
 
 	try {
 		checkWrappedShareLookupRateLimit(shareId);
-		const share = await getPublicWrappedShare(shareId);
+		const share = await getPublicWrappedShareWithSocialImage(shareId);
 
 		if (!share) {
 			return new Response("Not found", { headers: cors, status: 404 });
 		}
 
-		const image = renderWrappedShareCardPng(share.snapshot);
+		const image = getWrappedShareCardImagePng(share.snapshot);
 		const headers = {
 			...cors,
 			"Cache-Control": "public, max-age=300, s-maxage=86400",
@@ -457,7 +460,7 @@ async function handleWrappedPublicPageRequest(input: {
 
 	try {
 		checkWrappedShareLookupRateLimit(shareId);
-		const share = await getPublicWrappedShare(shareId);
+		const share = await getPublicWrappedShareWithSocialImage(shareId);
 
 		if (!share) {
 			return new Response(method === "HEAD" ? null : indexHtml, {
@@ -466,14 +469,19 @@ async function handleWrappedPublicPageRequest(input: {
 		}
 
 		const publicUrl = new URL(requestPathname, publicOrigin).toString();
-		const imageUrl = new URL(
-			`${requestPathname.replace(/\/$/u, "")}/x-card.png`,
+		const imageUrl = buildWrappedShareCardImageUrl({
 			publicOrigin,
-		).toString();
+			requestPathname,
+			share,
+		});
+		const imageMetadata = getWrappedShareCardImageMetadata(share.snapshot);
 		const html = injectWrappedSharePageMetadata(
 			indexHtml,
 			buildWrappedSharePageMetadata({
+				imageHeight: imageMetadata.height,
+				imageType: imageMetadata.type,
 				imageUrl,
+				imageWidth: imageMetadata.width,
 				publicUrl,
 				share,
 			}),
@@ -490,6 +498,35 @@ async function handleWrappedPublicPageRequest(input: {
 			headers: { ...cors, "Content-Type": "text/html; charset=utf-8" },
 		});
 	}
+}
+
+function buildWrappedShareCardImageUrl(input: {
+	publicOrigin: string;
+	requestPathname: string;
+	share: { expires_at: string };
+}) {
+	const { publicOrigin, requestPathname, share } = input;
+	const imageUrl = new URL(
+		`${requestPathname.replace(/\/$/u, "")}/x-card.png`,
+		publicOrigin,
+	);
+	const imageVersion = getWrappedShareImageVersion(share.expires_at);
+
+	if (imageVersion) {
+		imageUrl.searchParams.set("v", imageVersion);
+	}
+
+	return imageUrl.toString();
+}
+
+function getWrappedShareImageVersion(expiresAt: string) {
+	const timestamp = Date.parse(expiresAt);
+
+	if (!Number.isFinite(timestamp)) {
+		return undefined;
+	}
+
+	return Math.floor(timestamp / 1000).toString(36);
 }
 
 function getWrappedPublicShareId(pathname: string) {

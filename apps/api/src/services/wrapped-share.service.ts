@@ -24,6 +24,11 @@ interface CreateWrappedShareOptions {
 	variant: WrappedShareVariant;
 }
 
+interface PublicWrappedShareWithSocialImage
+	extends Omit<PublicWrappedShare, "snapshot"> {
+	snapshot: WrappedShareSnapshot;
+}
+
 const WRAPPED_SHARE_TTL_DAYS = 30;
 const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000;
 const WRAPPED_SHARE_ID_INSERT_ATTEMPTS = 20;
@@ -288,6 +293,27 @@ async function getWrappedShareForUser(
 export async function getPublicWrappedShare(
 	shareId: string,
 ): Promise<PublicWrappedShare | null> {
+	const share = await getPublicWrappedShareById(shareId);
+
+	if (!share) {
+		return null;
+	}
+
+	return {
+		...share,
+		snapshot: stripWrappedShareSocialImage(share.snapshot),
+	};
+}
+
+export async function getPublicWrappedShareWithSocialImage(
+	shareId: string,
+): Promise<PublicWrappedShareWithSocialImage | null> {
+	return getPublicWrappedShareById(shareId);
+}
+
+async function getPublicWrappedShareById(
+	shareId: string,
+): Promise<PublicWrappedShareWithSocialImage | null> {
 	const [row] = await sqlClient<
 		Array<{
 			createdAt: Date | string;
@@ -338,6 +364,14 @@ export async function getPublicWrappedShare(
 		}),
 		variant: row.variant ?? "normal",
 	};
+}
+
+function stripWrappedShareSocialImage(
+	snapshot: WrappedShareSnapshot,
+): PublicWrappedShare["snapshot"] {
+	const { socialImageDataUrl, ...publicSnapshot } = snapshot;
+	void socialImageDataUrl;
+	return publicSnapshot;
 }
 
 // Validate the stored JSON on the way out so corrupt or stale payloads fail

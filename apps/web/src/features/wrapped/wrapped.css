@@ -8863,7 +8863,7 @@ body.mymind-wrapped-body[data-wrapped-bottom-occluded="true"]
 		var(--wrapped-share-preview-export-scale, 1) *
 		var(--wrapped-share-preview-spread-gap)
 	);
-	width: 100%;
+	width: var(--wrapped-share-preview-spread-width, 100%);
 }
 
 .mymind-wrapped-share-preview__spread-card {

@@ -3,26 +3,39 @@ import type { PublicWrappedShare } from "@rudel/api-routes";
 interface WrappedSharePageMetadata {
 	description: string;
 	imageAlt: string;
+	imageHeight: number;
+	imageSecureUrl?: string;
+	imageType: string;
 	imageUrl: string;
+	imageWidth: number;
 	publicUrl: string;
 	title: string;
 }
 
 export function buildWrappedSharePageMetadata(input: {
+	imageHeight: number;
+	imageType: string;
 	imageUrl: string;
+	imageWidth: number;
 	publicUrl: string;
 	share: PublicWrappedShare;
 }): WrappedSharePageMetadata {
-	const { imageUrl, publicUrl, share } = input;
+	const { imageHeight, imageType, imageUrl, imageWidth, publicUrl, share } =
+		input;
 	const { snapshot } = share;
 	const displayName = snapshot.row.displayName;
 	const title = `${displayName}'s Rudel Wrapped`;
 	const description = `${displayName} is a ${snapshot.archetypeLabel}. ${formatCompactMetric(snapshot.row.totalTokens)} tokens across ${formatCompactMetric(snapshot.row.totalSessions)} sessions. Make yours.`;
+	const imageSecureUrl = getSecureImageUrl(imageUrl);
 
 	return {
 		description,
 		imageAlt: `${displayName}'s Rudel Wrapped card`,
+		imageHeight,
+		imageSecureUrl,
+		imageType,
 		imageUrl,
+		imageWidth,
 		publicUrl,
 		title,
 	};
@@ -53,14 +66,30 @@ function buildWrappedShareMetadataTags(metadata: WrappedSharePageMetadata) {
 	const description = escapeHtmlAttribute(metadata.description);
 	const publicUrl = escapeHtmlAttribute(metadata.publicUrl);
 	const imageUrl = escapeHtmlAttribute(metadata.imageUrl);
+	const imageSecureUrl = metadata.imageSecureUrl
+		? escapeHtmlAttribute(metadata.imageSecureUrl)
+		: null;
 	const imageAlt = escapeHtmlAttribute(metadata.imageAlt);
+	const imageHeight = Math.round(metadata.imageHeight).toString();
+	const imageWidth = Math.round(metadata.imageWidth).toString();
 
 	return [
 		`    <meta property="og:type" content="website" />`,
+		`    <meta property="og:site_name" content="Rudel" />`,
+		`    <meta property="og:locale" content="en_US" />`,
 		`    <meta property="og:title" content="${title}" />`,
 		`    <meta property="og:description" content="${description}" />`,
 		`    <meta property="og:url" content="${publicUrl}" />`,
 		`    <meta property="og:image" content="${imageUrl}" />`,
+		`    <meta property="og:image:url" content="${imageUrl}" />`,
+		...(imageSecureUrl
+			? [
+					`    <meta property="og:image:secure_url" content="${imageSecureUrl}" />`,
+				]
+			: []),
+		`    <meta property="og:image:type" content="${escapeHtmlAttribute(metadata.imageType)}" />`,
+		`    <meta property="og:image:width" content="${imageWidth}" />`,
+		`    <meta property="og:image:height" content="${imageHeight}" />`,
 		`    <meta property="og:image:alt" content="${imageAlt}" />`,
 		`    <meta name="twitter:card" content="summary_large_image" />`,
 		`    <meta name="twitter:title" content="${title}" />`,
@@ -68,6 +97,20 @@ function buildWrappedShareMetadataTags(metadata: WrappedSharePageMetadata) {
 		`    <meta name="twitter:image" content="${imageUrl}" />`,
 		`    <meta name="twitter:image:alt" content="${imageAlt}" />`,
 	].join("\n");
+}
+
+function getSecureImageUrl(imageUrl: string) {
+	try {
+		const parsedUrl = new URL(imageUrl);
+
+		if (parsedUrl.protocol !== "https:") {
+			return undefined;
+		}
+
+		return parsedUrl.toString();
+	} catch {
+		return undefined;
+	}
 }
 
 function formatCompactMetric(value: number) {
