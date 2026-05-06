@@ -247,6 +247,7 @@ vi.mock("@/features/wrapped/team-card/page", () => ({
 			<div>
 				<div>Wrapped story</div>
 				<div>Story step: {searchParams.get("step") ?? "none"}</div>
+				<div>Story stage: {searchParams.get("stage") ?? "none"}</div>
 				<div>Story variant: {variant ?? "none"}</div>
 				<div>Story Decimal entitled: {isDecimalEntitled ? "yes" : "no"}</div>
 				<button type="button" onClick={onBackFromFirstStep}>
@@ -1039,6 +1040,27 @@ describe("WrappedRouteGate", () => {
 		expect(screen.getByText("Readiness: missing")).toBeInTheDocument();
 		expect(screen.getByText("Total sessions: 99")).toBeInTheDocument();
 		expect(screen.queryByText("Wrapped story")).toBeNull();
+	});
+
+	it("opens an auth-normalized share-card deep link at the final share page when eligible", () => {
+		mockUseSetupProgress.mockReturnValue({
+			hasUploadedSessions: true,
+			isLoading: false,
+			totalSessionCount: 100,
+		});
+
+		render(
+			<MemoryRouter
+				initialEntries={["/wrapped?flow=sessions-landed&step=card&stage=share"]}
+			>
+				<WrappedRouteGate isPending={false} publicId={null} session={session} />
+			</MemoryRouter>,
+		);
+
+		expect(screen.getByText("Wrapped story")).toBeInTheDocument();
+		expect(screen.getByText("Story step: card")).toBeInTheDocument();
+		expect(screen.getByText("Story stage: share")).toBeInTheDocument();
+		expect(screen.queryByText("Wrapped setup complete page")).toBeNull();
 	});
 
 	it("uses wrapped gate count when raw uploads already outrun wrapped data on entry", () => {

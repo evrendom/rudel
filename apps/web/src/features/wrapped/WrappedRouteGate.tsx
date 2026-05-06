@@ -7,6 +7,7 @@ import { useLocation, useSearchParams } from "react-router-dom";
 import { useIsMobile } from "@/app/hooks/use-mobile";
 import {
 	getWrappedShareIdFromSearch,
+	isWrappedTeamCardShareTarget,
 	WRAPPED_ROUTE_CARD_PROFILE_FLOW,
 	WRAPPED_ROUTE_DESKTOP_READY_FLOW,
 	WRAPPED_ROUTE_FLOW_QUERY_PARAM,
@@ -145,6 +146,7 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 	const shouldSkipYcReviewPrep = isYcReview && !publicId;
 	const isForcedStoryFlow =
 		forcedFlowStage === WRAPPED_ROUTE_STORY_FLOW || shouldSkipYcReviewPrep;
+	const shouldRespectShareTarget = isWrappedTeamCardShareTarget(searchParams);
 	const isWrappedNewUserFlow =
 		forcedFlowStage === WRAPPED_ROUTE_CARD_PROFILE_FLOW;
 
@@ -439,13 +441,14 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 		const shouldHoldForMinimumSessions =
 			setupProgress.hasUploadedSessions &&
 			!sessionGateState.hasMinimumSessionCount;
-		const shouldForceStory =
-			isForcedStoryFlow &&
+		const shouldOpenWrappedStoryDirectly =
+			(isForcedStoryFlow || shouldRespectShareTarget) &&
 			setupProgress.hasUploadedSessions &&
 			canContinueToWrappedStory;
 		const shouldShowSessionsLanded =
 			sessionUserId !== null &&
 			setupProgress.hasUploadedSessions &&
+			!shouldOpenWrappedStoryDirectly &&
 			(shouldForceSessionsLanded ||
 				shouldHoldForMinimumSessions ||
 				shouldWaitForWrappedStoryData ||
@@ -523,7 +526,7 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 				/>
 			);
 		} else if (
-			shouldForceStory ||
+			shouldOpenWrappedStoryDirectly ||
 			(setupProgress.hasUploadedSessions &&
 				hasCompletedSetup &&
 				canContinueToWrappedStory)
