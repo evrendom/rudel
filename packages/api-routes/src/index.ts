@@ -198,6 +198,7 @@ export const contract = {
 	me: oc.output(UserSchema),
 	profile: {
 		updateMine: oc.input(UpdateProfileInputSchema).output(UserSchema),
+		deleteMine: oc.output(z.object({ success: z.literal(true) })),
 	},
 	cli: {
 		authStatus: oc.output(CliUserSchema),

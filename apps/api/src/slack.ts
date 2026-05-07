@@ -47,3 +47,36 @@ export async function notifySignup(
 		});
 	}
 }
+
+export async function notifyAccountDeletion(
+	webhookUrl: string,
+	user: { id: string; name: string; email: string },
+	deletedOrganizationIds: string[],
+): Promise<void> {
+	try {
+		const orgList =
+			deletedOrganizationIds.length > 0
+				? deletedOrganizationIds.map((id) => `\`${id}\``).join(", ")
+				: "_(none — user had no sole-member orgs)_";
+
+		const lines = [
+			`*Account deleted* — user self-deleted via settings`,
+			`*User ID:* \`${user.id}\``,
+			`*Name:* ${user.name}`,
+			`*Email:* ${user.email}`,
+			`*Deleted org IDs:* ${orgList}`,
+			`_ClickHouse session data keyed by these IDs may still exist and require manual cleanup._`,
+		];
+
+		await fetch(webhookUrl, {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ text: lines.join("\n") }),
+		});
+	} catch (err) {
+		logger.error(
+			"Failed to send Slack account deletion notification: {error}",
+			{ error: err },
+		);
+	}
+}
