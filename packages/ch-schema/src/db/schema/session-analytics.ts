@@ -114,6 +114,8 @@ const rudel_session_analytics_mv = materializedView({
 	name: "session_analytics_mv",
 	to: { database: "rudel", name: "session_analytics" },
 	as: `
+  SELECT * EXCEPT (_dedupe_rank)
+  FROM (
   WITH
     arrayFilter(
       x -> JSONExtractString(x, 'type') IN ('user', 'assistant'),
@@ -262,11 +264,13 @@ const rudel_session_analytics_mv = materializedView({
           length(extractAll(cs.content, '"isApiErrorMessage":true'))
           + length(extractAll(cs.content, '"is_error":true'))
         ), 10) * 2)
-    )) as success_score
+    )) as success_score,
+    ROW_NUMBER() OVER (PARTITION BY cs.session_id ORDER BY cs.ingested_at DESC) AS _dedupe_rank
 
   FROM rudel.claude_sessions AS cs
   WHERE length(_timestamps) > 0
-  QUALIFY ROW_NUMBER() OVER (PARTITION BY cs.session_id ORDER BY cs.ingested_at DESC) = 1`,
+  )
+  WHERE _dedupe_rank = 1`,
 });
 
 export default schema(rudel_session_analytics, rudel_session_analytics_mv);

@@ -5,6 +5,8 @@ import type {
 } from "@rudel/api-routes";
 import {
 	buildWrappedShareCardSvg,
+	getWrappedShareCardImageMetadata,
+	getWrappedShareCardImagePng,
 	renderWrappedShareCardPng,
 } from "../services/wrapped-share-card-image.js";
 import {
@@ -14,6 +16,8 @@ import {
 
 const SAMPLE_DATA_IMAGE =
 	"data:image/gif;base64,R0lGODlhAQABAAAAACwAAAAAAQABAAA=";
+const SAMPLE_SOCIAL_IMAGE_DATA_URL =
+	"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=";
 
 const sampleSnapshot: WrappedShareSnapshot = {
 	appearance: {
@@ -70,6 +74,29 @@ describe("wrapped share card image", () => {
 		expect(svg).toContain("Evren &lt;Dombak&gt;");
 		expect(svg).toContain("Maniac");
 	});
+
+	test("serves only the browser-captured social image for OG cards", () => {
+		const snapshot = {
+			...sampleSnapshot,
+			socialImageDataUrl: SAMPLE_SOCIAL_IMAGE_DATA_URL,
+		};
+		const png = getWrappedShareCardImagePng(snapshot);
+
+		expect(png).not.toBeNull();
+		expect([...(png ?? new Uint8Array()).subarray(0, 8)]).toEqual([
+			137, 80, 78, 71, 13, 10, 26, 10,
+		]);
+		expect(getWrappedShareCardImageMetadata(snapshot)).toEqual({
+			height: 1,
+			type: "image/png",
+			width: 1,
+		});
+	});
+
+	test("does not fall back to the server SVG card for OG images", () => {
+		expect(getWrappedShareCardImagePng(sampleSnapshot)).toBeNull();
+		expect(getWrappedShareCardImageMetadata(sampleSnapshot)).toBeNull();
+	});
 });
 
 describe("wrapped share page metadata", () => {
@@ -102,5 +129,29 @@ describe("wrapped share page metadata", () => {
 			'name="twitter:image" content="https://app.rudel.ai/wrapped/11111111-1111-4111-8111-111111111111/x-card.png"',
 		);
 		expect(html).toContain("Evren &lt;Dombak&gt; is a Maniac.");
+	});
+
+	test("omits social image tags when no captured share image exists", () => {
+		const metadata = buildWrappedSharePageMetadata({
+			publicUrl:
+				"https://app.rudel.ai/wrapped/11111111-1111-4111-8111-111111111111",
+			share: sampleShare,
+		});
+		const html = injectWrappedSharePageMetadata(
+			[
+				"<html>",
+				"<head>",
+				'<meta name="description" content="generic" />',
+				"<title>Rudel</title>",
+				"</head>",
+				"<body></body>",
+				"</html>",
+			].join(""),
+			metadata,
+		);
+
+		expect(html).toContain('property="og:title"');
+		expect(html).not.toContain("og:image");
+		expect(html).not.toContain("twitter:image");
 	});
 });

@@ -81,6 +81,8 @@ ORDER BY (`organization_id`, `session_date`, `session_id`)
 SETTINGS index_granularity = 8192;
 
 CREATE MATERIALIZED VIEW IF NOT EXISTS rudel.session_analytics_mv TO rudel.session_analytics AS
+SELECT * EXCEPT (_dedupe_rank)
+FROM (
 WITH
   arrayFilter(x -> JSONExtractString(x, 'type') IN ('user', 'assistant'), splitByChar('\n', cs.content)) AS _interaction_lines,
   arrayFilter(x -> JSONHas(x, 'timestamp'), _interaction_lines) AS _ts_lines,
@@ -119,7 +121,9 @@ SELECT *,
     - (if(cs.total_tokens > 1500000 AND (cs.git_sha IS NULL OR cs.git_sha = ''), 20, 0))
     - (if(dateDiff('minute', cs.session_date, cs.last_interaction_date) < 2 AND cs.output_tokens < 200, 30, 0))
     - (least(toUInt32(length(extractAll(cs.content, '"isApiErrorMessage":true')) + length(extractAll(cs.content, '"is_error":true'))), 10) * 2)
-  )) as success_score
+  )) as success_score,
+  ROW_NUMBER() OVER (PARTITION BY cs.session_id ORDER BY cs.ingested_at DESC) AS _dedupe_rank
 FROM rudel.claude_sessions AS cs
 WHERE length(_timestamps) > 0
-QUALIFY ROW_NUMBER() OVER (PARTITION BY cs.session_id ORDER BY cs.ingested_at DESC) = 1;
+)
+WHERE _dedupe_rank = 1;
