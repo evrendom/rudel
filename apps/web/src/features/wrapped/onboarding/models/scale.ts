@@ -1,4 +1,8 @@
 import type { WrappedStepContentLine } from "../helpers";
+import {
+	resolveWrappedMotionParticleCount,
+	type WrappedMotionPerformanceProfile,
+} from "../performance";
 
 const SCALE_STAGE_TOKENS_PER_BALL = 1_000;
 const SCALE_STAGE_MIN_BALL_COUNT = 1;
@@ -78,16 +82,20 @@ export function resolveScaleEstimatedSpendUsd(input: {
 	return Math.max(0, Math.round(normalizedTotalTokens * usdPerToken));
 }
 
-export function buildScaleRainBalls(totalTokens: number): ScaleRainBall[] {
+export function buildScaleRainBalls(
+	totalTokens: number,
+	performanceProfile: WrappedMotionPerformanceProfile = "full",
+): ScaleRainBall[] {
 	const logicalBallCount = resolveScaleRainBallCount(totalTokens);
 	if (logicalBallCount <= 0) {
 		return [];
 	}
 
-	const visibleBallCount = Math.min(
-		logicalBallCount,
-		SCALE_STAGE_MAX_ACTIVE_BALL_COUNT,
-	);
+	const visibleBallCount = resolveWrappedMotionParticleCount({
+		count: logicalBallCount,
+		maximumCount: SCALE_STAGE_MAX_ACTIVE_BALL_COUNT,
+		performanceProfile,
+	});
 	const random = createScaleRainSeededRandom(
 		Math.max(1, Math.floor(totalTokens)),
 	);

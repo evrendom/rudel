@@ -3326,6 +3326,7 @@ body.mymind-wrapped-body .woot-widget-bubble {
 	pointer-events: none;
 	position: fixed;
 	inset: 0;
+	contain: layout paint style;
 	height: 100svh;
 	width: 100vw;
 }
@@ -3335,10 +3336,11 @@ body.mymind-wrapped-body .woot-widget-bubble {
 	display: flex;
 	align-items: center;
 	justify-content: center;
+	left: 0;
 	top: 0;
 	line-height: 1;
 	transform-origin: center bottom;
-	will-change: left, top, opacity, transform;
+	will-change: opacity, transform;
 }
 
 :is(
@@ -3419,6 +3421,7 @@ body.mymind-wrapped-body .woot-widget-bubble {
 .mymind-wrapped-scale-rain {
 	position: absolute;
 	inset: 0;
+	contain: layout paint style;
 	overflow: clip;
 	pointer-events: none;
 }
@@ -3426,13 +3429,14 @@ body.mymind-wrapped-body .woot-widget-bubble {
 .mymind-wrapped-scale-rain__ball {
 	position: absolute;
 	box-sizing: border-box;
-	will-change: left, top, opacity, transform;
+	left: 0;
+	top: 0;
+	will-change: opacity, transform;
 	border-radius: 999px;
 	background: #1bb8ff;
 	border: 3px solid #fff;
 	box-shadow: none;
 	transform-origin: center bottom;
-	transition: transform 0.08s ease-out;
 }
 
 .mymind-wrapped-scale-rain.is-reduced-motion .mymind-wrapped-scale-rain__ball {
