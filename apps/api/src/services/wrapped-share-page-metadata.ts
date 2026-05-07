@@ -7,12 +7,12 @@ const WRAPPED_SHARE_IMAGE_WIDTH = 1200;
 
 interface WrappedSharePageMetadata {
 	description: string;
-	imageAlt: string;
-	imageHeight: number;
+	imageAlt?: string;
+	imageHeight?: number;
 	imageSecureUrl?: string;
-	imageType: string;
-	imageUrl: string;
-	imageWidth: number;
+	imageType?: string;
+	imageUrl?: string;
+	imageWidth?: number;
 	publicUrl: string;
 	title: string;
 }
@@ -20,7 +20,7 @@ interface WrappedSharePageMetadata {
 export function buildWrappedSharePageMetadata(input: {
 	imageHeight?: number;
 	imageType?: string;
-	imageUrl: string;
+	imageUrl?: string;
 	imageWidth?: number;
 	publicUrl: string;
 	share: PublicWrappedShare;
@@ -37,18 +37,26 @@ export function buildWrappedSharePageMetadata(input: {
 	const displayName = snapshot.row.displayName;
 	const title = `${displayName}'s Rudel Wrapped`;
 	const description = `${displayName} is a ${snapshot.archetypeLabel}. ${formatCompactMetric(snapshot.row.totalTokens)} tokens across ${formatCompactMetric(snapshot.row.totalSessions)} sessions. Make yours.`;
+	const baseMetadata = {
+		description,
+		publicUrl,
+		title,
+	};
+
+	if (!imageUrl) {
+		return baseMetadata;
+	}
+
 	const imageSecureUrl = getSecureImageUrl(imageUrl);
 
 	return {
-		description,
+		...baseMetadata,
 		imageAlt: `${displayName}'s Rudel Wrapped card`,
 		imageHeight,
-		imageSecureUrl,
 		imageType: imageType || WRAPPED_SHARE_IMAGE_TYPE,
 		imageUrl,
 		imageWidth,
-		publicUrl,
-		title,
+		...(imageSecureUrl ? { imageSecureUrl } : {}),
 	};
 }
 
@@ -110,21 +118,33 @@ function buildWrappedShareMetadataTags(metadata: WrappedSharePageMetadata) {
 	const title = escapeHtmlAttribute(metadata.title);
 	const description = escapeHtmlAttribute(metadata.description);
 	const publicUrl = escapeHtmlAttribute(metadata.publicUrl);
-	const imageUrl = escapeHtmlAttribute(metadata.imageUrl);
-	const imageSecureUrl = metadata.imageSecureUrl
-		? escapeHtmlAttribute(metadata.imageSecureUrl)
-		: null;
-	const imageAlt = escapeHtmlAttribute(metadata.imageAlt);
-	const imageHeight = Math.round(metadata.imageHeight).toString();
-	const imageWidth = Math.round(metadata.imageWidth).toString();
-
-	return [
+	const baseTags = [
 		`    <meta property="og:type" content="website" />`,
 		`    <meta property="og:site_name" content="Rudel" />`,
 		`    <meta property="og:locale" content="en_US" />`,
 		`    <meta property="og:title" content="${title}" />`,
 		`    <meta property="og:description" content="${description}" />`,
 		`    <meta property="og:url" content="${publicUrl}" />`,
+	];
+
+	if (!metadata.imageUrl) {
+		return baseTags.join("\n");
+	}
+
+	const imageUrl = escapeHtmlAttribute(metadata.imageUrl);
+	const imageSecureUrl = metadata.imageSecureUrl
+		? escapeHtmlAttribute(metadata.imageSecureUrl)
+		: null;
+	const imageAlt = escapeHtmlAttribute(metadata.imageAlt ?? metadata.title);
+	const imageHeight = Math.round(
+		metadata.imageHeight ?? WRAPPED_SHARE_IMAGE_HEIGHT,
+	).toString();
+	const imageWidth = Math.round(
+		metadata.imageWidth ?? WRAPPED_SHARE_IMAGE_WIDTH,
+	).toString();
+
+	return [
+		...baseTags,
 		`    <meta property="og:image" content="${imageUrl}" />`,
 		`    <meta property="og:image:url" content="${imageUrl}" />`,
 		...(imageSecureUrl
@@ -132,7 +152,7 @@ function buildWrappedShareMetadataTags(metadata: WrappedSharePageMetadata) {
 					`    <meta property="og:image:secure_url" content="${imageSecureUrl}" />`,
 				]
 			: []),
-		`    <meta property="og:image:type" content="${escapeHtmlAttribute(metadata.imageType)}" />`,
+		`    <meta property="og:image:type" content="${escapeHtmlAttribute(metadata.imageType ?? WRAPPED_SHARE_IMAGE_TYPE)}" />`,
 		`    <meta property="og:image:width" content="${imageWidth}" />`,
 		`    <meta property="og:image:height" content="${imageHeight}" />`,
 		`    <meta property="og:image:alt" content="${imageAlt}" />`,

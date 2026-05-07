@@ -409,6 +409,10 @@ async function handleWrappedShareCardImageRequest(input: {
 		}
 
 		const image = getWrappedShareCardImagePng(share.snapshot);
+		if (!image) {
+			return new Response("Not found", { headers: cors, status: 404 });
+		}
+
 		const headers = {
 			...cors,
 			"Cache-Control": "public, max-age=300, s-maxage=86400",
@@ -469,19 +473,22 @@ async function handleWrappedPublicPageRequest(input: {
 		}
 
 		const publicUrl = new URL(requestPathname, publicOrigin).toString();
-		const imageUrl = buildWrappedShareCardImageUrl({
-			publicOrigin,
-			requestPathname,
-			share,
-		});
 		const imageMetadata = getWrappedShareCardImageMetadata(share.snapshot);
 		const html = injectWrappedSharePageMetadata(
 			indexHtml,
 			buildWrappedSharePageMetadata({
-				imageHeight: imageMetadata.height,
-				imageType: imageMetadata.type,
-				imageUrl,
-				imageWidth: imageMetadata.width,
+				...(imageMetadata
+					? {
+							imageHeight: imageMetadata.height,
+							imageType: imageMetadata.type,
+							imageUrl: buildWrappedShareCardImageUrl({
+								publicOrigin,
+								requestPathname,
+								share,
+							}),
+							imageWidth: imageMetadata.width,
+						}
+					: {}),
 				publicUrl,
 				share,
 			}),
