@@ -10,6 +10,7 @@ import {
 	PageViewTrackingMount,
 } from "@/features/analytics/tracking/PageViewTrackingMount";
 import { useAnalyticsTracking } from "@/features/analytics/tracking/useAnalyticsTracking";
+import { AccountDangerZoneCard } from "@/features/settings/account/components/AccountDangerZoneCard";
 import { ProfileLinkedAccountsCard } from "@/features/settings/account/components/ProfileLinkedAccountsCard";
 import { ProfileOverviewCard } from "@/features/settings/account/components/ProfileOverviewCard";
 import { useAccountSettingsData } from "@/features/settings/account/use-account-settings-data";
@@ -95,6 +96,16 @@ export function AccountSettingsSection() {
 		}
 	};
 
+	const handleAccountDeleted = async () => {
+		try {
+			await signOut();
+		} catch (error) {
+			void error;
+		}
+		navigate("/");
+		toast.success("Account deleted");
+	};
+
 	const handleDeclineInvitation = async (invitationId: string) => {
 		trackAuthenticationAction({
 			actionName: "decline_invitation",
@@ -148,6 +159,10 @@ export function AccountSettingsSection() {
 					? "populated"
 					: "empty",
 			itemCount: invitationsData.count,
+		},
+		{
+			id: "account_deletion",
+			state: data.state.hasData ? "populated" : "hidden",
 		},
 	];
 
@@ -227,6 +242,14 @@ export function AccountSettingsSection() {
 					}
 				/>
 			</div>
+			{data.state.hasData ? (
+				<div id="delete-account" className="mt-4 px-4 lg:px-6 scroll-mt-24">
+					<AccountDangerZoneCard
+						user={{ email: data.user.email, name: data.user.name }}
+						onDeleted={handleAccountDeleted}
+					/>
+				</div>
+			) : null}
 		</>
 	);
 }
