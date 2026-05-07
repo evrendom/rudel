@@ -61,10 +61,7 @@ const WRAPPED_SHARE_CARD_PALETTES: Record<
 };
 
 export function getWrappedShareCardImagePng(snapshot: WrappedShareSnapshot) {
-	return (
-		getWrappedShareSocialImagePng(snapshot) ??
-		renderWrappedShareCardPng(snapshot)
-	);
+	return getWrappedShareSocialImagePng(snapshot);
 }
 
 export function getWrappedShareCardImageMetadata(
@@ -73,10 +70,14 @@ export function getWrappedShareCardImageMetadata(
 	const image = getWrappedShareSocialImagePng(snapshot);
 	const size = image ? getPngImageSize(image) : null;
 
+	if (!size) {
+		return null;
+	}
+
 	return {
-		height: size?.height ?? CARD_HEIGHT,
+		height: size.height,
 		type: "image/png",
-		width: size?.width ?? CARD_WIDTH,
+		width: size.width,
 	};
 }
 
