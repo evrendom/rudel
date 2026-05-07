@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, mock, test } from "bun:test";
 import type { ClickHouseStatement } from "../clickhouse.js";
 
+const clickhouseModule = await import("../clickhouse.js");
+
 const executeCalls: ClickHouseStatement[] = [];
 const execute = mock((statement: ClickHouseStatement) => {
 	executeCalls.push(statement);
@@ -8,6 +10,7 @@ const execute = mock((statement: ClickHouseStatement) => {
 });
 
 mock.module("../clickhouse.js", () => ({
+	...clickhouseModule,
 	getClickhouse: () => ({
 		execute,
 		insert: mock(() => Promise.resolve()),
