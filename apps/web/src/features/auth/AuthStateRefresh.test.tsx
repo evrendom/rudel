@@ -14,7 +14,10 @@ import {
 	isGetStartedPath,
 	primePendingSignupRedirect,
 } from "./auth-route-utils";
-import { readPendingEmailLoginCodeDraft } from "./email-code-auth";
+import {
+	readPendingEmailLoginCodeDraft,
+	readPendingEmailSignupCodeDraft,
+} from "./email-code-auth";
 import { LoginForm } from "./LoginForm";
 import { SignupForm } from "./SignupForm";
 
@@ -75,6 +78,7 @@ describe("auth state refresh", () => {
 		mockNavigateToDestination.mockReset();
 		mockRefreshAuthClientState.mockReset();
 		mockTrackAuthenticationAction.mockReset();
+		window.localStorage.clear();
 		window.sessionStorage.clear();
 	});
 
@@ -352,6 +356,56 @@ describe("auth state refresh", () => {
 		expect(mockNavigateToDestination).not.toHaveBeenCalled();
 	});
 
+	it("restores a pending default email sign up code after remounting", async () => {
+		mockSendVerificationOtp.mockResolvedValue({ error: null });
+		mockSignInEmailOtp.mockResolvedValue({ error: null });
+
+		const user = userEvent.setup();
+		const view = render(<SignupForm onSwitchToLogin={vi.fn()} />);
+
+		await user.click(
+			screen.getByRole("button", { name: "Create account with Email" }),
+		);
+		await user.type(screen.getByLabelText("Email"), "ada.lovelace@example.com");
+		await user.click(screen.getByRole("button", { name: "Send code" }));
+
+		await waitFor(() => {
+			expect(mockSendVerificationOtp).toHaveBeenCalledWith({
+				email: "ada.lovelace@example.com",
+				type: "sign-in",
+			});
+		});
+
+		expect(readPendingEmailSignupCodeDraft()).toEqual({
+			email: "ada.lovelace@example.com",
+			mode: "signup",
+		});
+
+		window.sessionStorage.clear();
+		view.unmount();
+		render(<SignupForm onSwitchToLogin={vi.fn()} />);
+
+		expect(screen.getByLabelText("Email")).toHaveValue(
+			"ada.lovelace@example.com",
+		);
+		expect(screen.getByLabelText("Email code")).toHaveValue("");
+		expect(
+			screen.getByRole("button", { name: "Verify code" }),
+		).toBeInTheDocument();
+
+		await user.type(screen.getByLabelText("Email code"), "123456");
+		await user.click(screen.getByRole("button", { name: "Verify code" }));
+
+		await waitFor(() => {
+			expect(mockSignInEmailOtp).toHaveBeenCalledWith({
+				name: "Ada Lovelace",
+				email: "ada.lovelace@example.com",
+				otp: "123456",
+			});
+		});
+		expect(readPendingEmailSignupCodeDraft()).toBeNull();
+	});
+
 	it("uses separate existing-user and new-user destinations for homepage social sign up", async () => {
 		mockSignInSocial.mockResolvedValue({ error: null });
 
@@ -454,6 +508,7 @@ describe("auth state refresh", () => {
 			});
 		});
 
+		window.sessionStorage.clear();
 		view.unmount();
 		render(<LoginForm onSwitchToSignup={vi.fn()} />);
 

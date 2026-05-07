@@ -1,6 +1,9 @@
 import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { writePendingEmailLoginCodeDraft } from "./email-code-auth";
+import {
+	writePendingEmailLoginCodeDraft,
+	writePendingEmailSignupCodeDraft,
+} from "./email-code-auth";
 import { GuestApp } from "./GuestApp";
 
 vi.mock("./LoginForm", () => ({
@@ -13,6 +16,7 @@ vi.mock("./SignupForm", () => ({
 
 describe("GuestApp", () => {
 	beforeEach(() => {
+		window.localStorage.clear();
 		window.sessionStorage.clear();
 	});
 
@@ -30,5 +34,14 @@ describe("GuestApp", () => {
 
 		expect(screen.getByText("Login form")).toBeInTheDocument();
 		expect(screen.queryByText("Signup form")).not.toBeInTheDocument();
+	});
+
+	it("keeps signup first when an email signup code is pending", () => {
+		writePendingEmailSignupCodeDraft("ada@example.com");
+
+		render(<GuestApp />);
+
+		expect(screen.getByText("Signup form")).toBeInTheDocument();
+		expect(screen.queryByText("Login form")).not.toBeInTheDocument();
 	});
 });

@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { useState } from "react";
-import { hasPendingEmailLoginCodeDraft } from "@/features/auth/email-code-auth";
+import { readPendingEmailCodeDraft } from "@/features/auth/email-code-auth";
 import { LoginForm } from "@/features/auth/LoginForm";
 import { SignupForm } from "@/features/auth/SignupForm";
 
@@ -15,8 +15,8 @@ interface GuestAppProps {
 
 export function GuestApp(props: GuestAppProps = {}) {
 	const { description, eyebrow, showLogo = true, title } = props;
-	const [page, setPage] = useState<Page>(() =>
-		hasPendingEmailLoginCodeDraft() ? "login" : "signup",
+	const [page, setPage] = useState<Page>(
+		() => readPendingEmailCodeDraft()?.mode ?? "signup",
 	);
 
 	return (
