@@ -1,5 +1,10 @@
 import type { PublicWrappedShare } from "@rudel/api-routes";
 
+const OPEN_GRAPH_HTML_PREFIX = "og: https://ogp.me/ns#";
+const WRAPPED_SHARE_IMAGE_HEIGHT = 630;
+const WRAPPED_SHARE_IMAGE_TYPE = "image/png";
+const WRAPPED_SHARE_IMAGE_WIDTH = 1200;
+
 interface WrappedSharePageMetadata {
 	description: string;
 	imageAlt: string;
@@ -13,15 +18,21 @@ interface WrappedSharePageMetadata {
 }
 
 export function buildWrappedSharePageMetadata(input: {
-	imageHeight: number;
-	imageType: string;
+	imageHeight?: number;
+	imageType?: string;
 	imageUrl: string;
-	imageWidth: number;
+	imageWidth?: number;
 	publicUrl: string;
 	share: PublicWrappedShare;
 }): WrappedSharePageMetadata {
-	const { imageHeight, imageType, imageUrl, imageWidth, publicUrl, share } =
-		input;
+	const {
+		imageHeight = WRAPPED_SHARE_IMAGE_HEIGHT,
+		imageType = WRAPPED_SHARE_IMAGE_TYPE,
+		imageUrl,
+		imageWidth = WRAPPED_SHARE_IMAGE_WIDTH,
+		publicUrl,
+		share,
+	} = input;
 	const { snapshot } = share;
 	const displayName = snapshot.row.displayName;
 	const title = `${displayName}'s Rudel Wrapped`;
@@ -33,7 +44,7 @@ export function buildWrappedSharePageMetadata(input: {
 		imageAlt: `${displayName}'s Rudel Wrapped card`,
 		imageHeight,
 		imageSecureUrl,
-		imageType,
+		imageType: imageType || WRAPPED_SHARE_IMAGE_TYPE,
 		imageUrl,
 		imageWidth,
 		publicUrl,
@@ -45,7 +56,7 @@ export function injectWrappedSharePageMetadata(
 	indexHtml: string,
 	metadata: WrappedSharePageMetadata,
 ) {
-	const htmlWithTitle = indexHtml
+	const htmlWithTitle = removeSocialPreviewMetadata(indexHtml)
 		.replace(
 			/<title>.*?<\/title>/iu,
 			`<title>${escapeHtml(metadata.title)}</title>`,
@@ -54,11 +65,45 @@ export function injectWrappedSharePageMetadata(
 			/<meta\s+name=["']description["'][^>]*>\s*/iu,
 			`<meta name="description" content="${escapeHtmlAttribute(metadata.description)}" />\n    `,
 		);
+	const htmlWithOpenGraphPrefix = addOpenGraphHtmlPrefix(htmlWithTitle);
 
-	return htmlWithTitle.replace(
-		"</head>",
-		`${buildWrappedShareMetadataTags(metadata)}\n  </head>`,
+	return htmlWithOpenGraphPrefix.replace(
+		/<head\b([^>]*)>/iu,
+		(headTag) => `${headTag}\n${buildWrappedShareMetadataTags(metadata)}`,
 	);
+}
+
+function removeSocialPreviewMetadata(indexHtml: string) {
+	return indexHtml.replace(
+		/[ \t]*<meta\s+(?:property|name)=["'](?:og:[^"']+|twitter:[^"']+)["'][^>]*>\s*/giu,
+		"",
+	);
+}
+
+function addOpenGraphHtmlPrefix(indexHtml: string) {
+	return indexHtml.replace(/<html\b([^>]*)>/iu, (htmlTag, attributes) => {
+		const prefixMatch = /\sprefix=(["'])(.*?)\1/iu.exec(attributes);
+
+		if (!prefixMatch) {
+			return `<html${attributes} prefix="${OPEN_GRAPH_HTML_PREFIX}">`;
+		}
+
+		const prefixAttribute = prefixMatch[0];
+		const quote = prefixMatch[1] ?? '"';
+		const prefixValue = prefixMatch[2] ?? "";
+
+		if (prefixValue.includes(OPEN_GRAPH_HTML_PREFIX)) {
+			return htmlTag;
+		}
+
+		const nextPrefixValue =
+			`${prefixValue.trim()} ${OPEN_GRAPH_HTML_PREFIX}`.trim();
+
+		return htmlTag.replace(
+			prefixAttribute,
+			` prefix=${quote}${nextPrefixValue}${quote}`,
+		);
+	});
 }
 
 function buildWrappedShareMetadataTags(metadata: WrappedSharePageMetadata) {

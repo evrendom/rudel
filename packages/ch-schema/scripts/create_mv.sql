@@ -1,4 +1,6 @@
 CREATE MATERIALIZED VIEW rudel.session_analytics_mv TO rudel.session_analytics AS
+SELECT * EXCEPT (_dedupe_rank)
+FROM (
 WITH
   arrayFilter(
     x -> JSONExtractString(x, 'type') IN ('user', 'assistant'),
@@ -104,8 +106,10 @@ SELECT
         length(extractAll(cs.content, '"isApiErrorMessage":true'))
         + length(extractAll(cs.content, '"is_error":true'))
       ), 10) * 2)
-  )) as success_score
+  )) as success_score,
+  ROW_NUMBER() OVER (PARTITION BY cs.session_id ORDER BY cs.ingested_at DESC) AS _dedupe_rank
 
 FROM rudel.claude_sessions AS cs
 WHERE length(_timestamps) > 0
-QUALIFY ROW_NUMBER() OVER (PARTITION BY cs.session_id ORDER BY cs.ingested_at DESC) = 1
+)
+WHERE _dedupe_rank = 1
