@@ -70,6 +70,8 @@ afterAll(() => {
 // new SQL logic without requiring a ClickHouse migration first.
 function buildMvQuery(sessionId: string) {
 	return `
+  SELECT * EXCEPT (_dedupe_rank)
+  FROM (
   WITH
     arrayFilter(
       x -> x != '',
@@ -206,12 +208,14 @@ function buildMvQuery(sessionId: string) {
     )) as success_score,
     cs.git_remote,
     cs.package_name,
-    cs.package_type
+    cs.package_type,
+    ROW_NUMBER() OVER (PARTITION BY cs.session_id ORDER BY cs.ingested_at DESC) AS _dedupe_rank
 
   FROM rudel.codex_sessions AS cs
   WHERE cs.session_id = '${sessionId}'
     AND length(_timestamps) > 0
-  QUALIFY ROW_NUMBER() OVER (PARTITION BY cs.session_id ORDER BY cs.ingested_at DESC) = 1
+  )
+  WHERE _dedupe_rank = 1
 `;
 }
 

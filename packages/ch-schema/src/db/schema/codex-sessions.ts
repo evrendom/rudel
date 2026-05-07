@@ -14,6 +14,8 @@ const codex_session_analytics_mv = materializedView({
 	name: "codex_session_analytics_mv",
 	to: { database: "rudel", name: "session_analytics" },
 	as: `
+  SELECT * EXCEPT (_dedupe_rank)
+  FROM (
   WITH
     arrayFilter(
       x -> x != '',
@@ -170,11 +172,13 @@ const codex_session_analytics_mv = materializedView({
               _tool_output_lines
             )
         ), 10) * 2)
-    )) as success_score
+    )) as success_score,
+    ROW_NUMBER() OVER (PARTITION BY cs.session_id ORDER BY cs.ingested_at DESC) AS _dedupe_rank
 
   FROM rudel.codex_sessions AS cs
   WHERE length(_timestamps) > 0
-  QUALIFY ROW_NUMBER() OVER (PARTITION BY cs.session_id ORDER BY cs.ingested_at DESC) = 1`,
+  )
+  WHERE _dedupe_rank = 1`,
 });
 
 export default schema(rudel_codex_sessions, codex_session_analytics_mv);
