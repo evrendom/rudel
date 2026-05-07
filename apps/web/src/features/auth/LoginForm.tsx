@@ -14,12 +14,15 @@ import {
 	getSocialLoginRedirectOptions,
 } from "./auth-route-utils";
 import {
+	clearPendingEmailLoginCodeDraft,
 	type EmailAuthFeedback,
 	type EmailCodeStage,
 	isValidAuthEmail,
 	isValidEmailCode,
 	normalizeAuthEmail,
+	readPendingEmailLoginCodeDraft,
 	sanitizeEmailCodeInput,
+	writePendingEmailLoginCodeDraft,
 } from "./email-code-auth";
 import {
 	recordOAuthRedirectResult,
@@ -50,13 +53,27 @@ export function LoginForm(props: LoginFormProps) {
 		onSwitchToSignup,
 		variant = "default",
 	} = props;
-	const [email, setEmail] = useState("");
+	const [initialLoginDraft] = useState(readPendingEmailLoginCodeDraft);
+	const [email, setEmail] = useState(() => initialLoginDraft?.email ?? "");
 	const [emailCode, setEmailCode] = useState("");
-	const [emailCodeStage, setEmailCodeStage] = useState<EmailCodeStage>("email");
-	const [feedback, setFeedback] = useState<EmailAuthFeedback>(null);
+	const [emailCodeStage, setEmailCodeStage] = useState<EmailCodeStage>(() =>
+		initialLoginDraft ? "code" : "email",
+	);
+	const [feedback, setFeedback] = useState<EmailAuthFeedback>(() =>
+		initialLoginDraft
+			? {
+					kind: "success",
+					message: `Code sent to ${initialLoginDraft.email}.`,
+				}
+			: null,
+	);
 	const [loading, setLoading] = useState(false);
-	const [showEmailForm, setShowEmailForm] = useState(false);
-	const [wrappedScene, setWrappedScene] = useState<WrappedAuthScene>("choice");
+	const [showEmailForm, setShowEmailForm] = useState(
+		() => initialLoginDraft !== null,
+	);
+	const [wrappedScene, setWrappedScene] = useState<WrappedAuthScene>(() =>
+		initialLoginDraft ? "credentials" : "choice",
+	);
 	const { trackAuthenticationAction } = useAnalyticsTracking({
 		pageName: "login",
 	});
@@ -132,6 +149,7 @@ export function LoginForm(props: LoginFormProps) {
 			return;
 		}
 
+		clearPendingEmailLoginCodeDraft();
 		refreshAuthClientState();
 		navigateToDestination(successDestination);
 	}
@@ -182,6 +200,7 @@ export function LoginForm(props: LoginFormProps) {
 		setEmailCode("");
 		setEmailCodeStage("code");
 		setWrappedScene("credentials");
+		writePendingEmailLoginCodeDraft(loginEmail);
 		setFeedback({
 			kind: "success",
 			message: `Code sent to ${loginEmail}.`,
@@ -189,6 +208,7 @@ export function LoginForm(props: LoginFormProps) {
 	}
 
 	async function handleSocialSignIn(provider: "google" | "github") {
+		clearPendingEmailLoginCodeDraft();
 		setFeedback(null);
 		trackAuthenticationAction({
 			actionName: "sign_in",
@@ -239,6 +259,7 @@ export function LoginForm(props: LoginFormProps) {
 	}
 
 	function handleOpenWrappedEmail() {
+		clearPendingEmailLoginCodeDraft();
 		setFeedback(null);
 		setEmailCode("");
 		setEmailCodeStage("email");
@@ -266,6 +287,7 @@ export function LoginForm(props: LoginFormProps) {
 	}
 
 	function handleReturnToWrappedChoice() {
+		clearPendingEmailLoginCodeDraft();
 		setFeedback(null);
 		setEmailCode("");
 		setEmailCodeStage("email");
@@ -377,6 +399,7 @@ export function LoginForm(props: LoginFormProps) {
 									variant="ghost"
 									size="xs"
 									onClick={() => {
+										clearPendingEmailLoginCodeDraft();
 										setFeedback(null);
 										setEmailCode("");
 										setEmailCodeStage("email");
@@ -439,6 +462,7 @@ export function LoginForm(props: LoginFormProps) {
 						<button
 							type="button"
 							onClick={() => {
+								clearPendingEmailLoginCodeDraft();
 								trackAuthenticationAction({
 									actionName: "open_signup",
 									sourceComponent: "login_form",

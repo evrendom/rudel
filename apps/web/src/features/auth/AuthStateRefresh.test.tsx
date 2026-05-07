@@ -14,6 +14,7 @@ import {
 	isGetStartedPath,
 	primePendingSignupRedirect,
 } from "./auth-route-utils";
+import { readPendingEmailLoginCodeDraft } from "./email-code-auth";
 import { LoginForm } from "./LoginForm";
 import { SignupForm } from "./SignupForm";
 
@@ -74,6 +75,7 @@ describe("auth state refresh", () => {
 		mockNavigateToDestination.mockReset();
 		mockRefreshAuthClientState.mockReset();
 		mockTrackAuthenticationAction.mockReset();
+		window.sessionStorage.clear();
 	});
 
 	it("routes homepage email signups to the wrapped card profile flow", () => {
@@ -432,6 +434,45 @@ describe("auth state refresh", () => {
 
 		expect(mockRefreshAuthClientState).toHaveBeenCalledTimes(1);
 		expect(window.location.search).toBe("");
+	});
+
+	it("restores a pending email sign in code after remounting", async () => {
+		mockSendVerificationOtp.mockResolvedValue({ error: null });
+		mockSignInEmailOtp.mockResolvedValue({ error: null });
+
+		const user = userEvent.setup();
+		const view = render(<LoginForm onSwitchToSignup={vi.fn()} />);
+
+		await user.click(screen.getByRole("button", { name: "Log in with Email" }));
+		await user.type(screen.getByLabelText("Email"), "ada@example.com");
+		await user.click(screen.getByRole("button", { name: "Send code" }));
+
+		await waitFor(() => {
+			expect(mockSendVerificationOtp).toHaveBeenCalledWith({
+				email: "ada@example.com",
+				type: "sign-in",
+			});
+		});
+
+		view.unmount();
+		render(<LoginForm onSwitchToSignup={vi.fn()} />);
+
+		expect(screen.getByLabelText("Email")).toHaveValue("ada@example.com");
+		expect(screen.getByLabelText("Email code")).toHaveValue("");
+		expect(
+			screen.getByRole("button", { name: "Verify code" }),
+		).toBeInTheDocument();
+
+		await user.type(screen.getByLabelText("Email code"), "123456");
+		await user.click(screen.getByRole("button", { name: "Verify code" }));
+
+		await waitFor(() => {
+			expect(mockSignInEmailOtp).toHaveBeenCalledWith({
+				email: "ada@example.com",
+				otp: "123456",
+			});
+		});
+		expect(readPendingEmailLoginCodeDraft()).toBeNull();
 	});
 
 	it("hard-navigates wrapped logins back into wrapped", async () => {
