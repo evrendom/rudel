@@ -700,9 +700,8 @@ export async function getSessionDetail(
       session_archetype,
       model_used
     FROM rudel.session_analytics AS sa FINAL
-    WHERE session_id = {sessionId:String}
-      AND organization_id = {orgId:String}
-    ORDER BY ingested_at DESC
+    PREWHERE session_id = {sessionId:String}
+    WHERE organization_id = {orgId:String}
     LIMIT 1
   `;
 

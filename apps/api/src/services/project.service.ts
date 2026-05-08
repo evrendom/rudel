@@ -22,6 +22,7 @@ const PROJECT_DISPLAY_EXPR = `if(git_remote != '', arrayElement(splitByChar('/',
 function buildProjectDisplaySubquery(
 	orgParamName: string,
 	projectParamName: string,
+	daysParamName: string,
 ): string {
 	return `(
     SELECT
@@ -36,6 +37,8 @@ function buildProjectDisplaySubquery(
       ) as project_display
     FROM rudel.session_analytics FINAL
     WHERE organization_id = {${orgParamName}:String}
+      AND session_date >= now64(3) - toIntervalDay({${daysParamName}:UInt32})
+      AND session_date <= now64(3)
       AND (
         project_path = {${projectParamName}:String}
         OR git_remote = {${projectParamName}:String}
@@ -370,6 +373,7 @@ export async function getProjectDetails(
 	const projectDisplaySubquery = buildProjectDisplaySubquery(
 		"orgId",
 		"projectPath",
+		"days",
 	);
 	const query_params = {
 		days: d,
@@ -449,6 +453,7 @@ export async function getProjectContributors(
 	const projectDisplaySubquery = buildProjectDisplaySubquery(
 		"orgId",
 		"projectPath",
+		"days",
 	);
 	const query_params = {
 		days: d,
@@ -500,6 +505,7 @@ export async function getProjectFeatureUsage(
 	const projectDisplaySubquery = buildProjectDisplaySubquery(
 		"orgId",
 		"projectPath",
+		"days",
 	);
 	const query_params = {
 		days: d,
@@ -530,7 +536,7 @@ export async function getProjectFeatureUsage(
       AND (git_remote != '' OR package_name != '' OR project_path != '')
       AND val != ''
     GROUP BY val
-    ORDER BY count DESC
+    ORDER BY count DESC, val ASC
     LIMIT 10
   `;
 
@@ -544,7 +550,7 @@ export async function getProjectFeatureUsage(
       AND (git_remote != '' OR package_name != '' OR project_path != '')
       AND val != ''
     GROUP BY val
-    ORDER BY count DESC
+    ORDER BY count DESC, val ASC
     LIMIT 10
   `;
 
@@ -558,7 +564,7 @@ export async function getProjectFeatureUsage(
       AND (git_remote != '' OR package_name != '' OR project_path != '')
       AND val != ''
     GROUP BY val
-    ORDER BY count DESC
+    ORDER BY count DESC, val ASC
     LIMIT 10
   `;
 
@@ -639,6 +645,7 @@ export async function getProjectErrors(
 	const projectDisplaySubquery = buildProjectDisplaySubquery(
 		"orgId",
 		"projectPath",
+		"days",
 	);
 
 	const query = `
