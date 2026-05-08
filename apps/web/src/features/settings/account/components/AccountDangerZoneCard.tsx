@@ -28,11 +28,7 @@ export function AccountDangerZoneCard({
 						database. This cannot be undone.
 					</CardDescription>
 				</CardHeader>
-				<CardContent className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-					<p className="text-sm text-muted-foreground">
-						Removes your profile, API keys, sessions, linked logins, workspace
-						memberships, and any sole-member workspaces.
-					</p>
+				<CardContent className="flex justify-end">
 					<Button
 						type="button"
 						variant="destructive"
