@@ -45,68 +45,44 @@ export async function getOverviewKPIs(
 		orgId,
 	};
 
-	const [mainResult, subagentsResult, skillsResult, slashResult, totalResult] =
-		await Promise.all([
-			queryClickhouse<{
-				distinct_users: number;
-				distinct_sessions: number;
-				distinct_projects: number;
-			}>({
-				query: `
+	// One date-filtered scan computes all six KPIs together; one extra scan
+	// preserves the lifetime org session count (no date filter, can't merge).
+	// Folding the four ARRAY JOIN scans into the main scan also guarantees the
+	// six date-filtered KPIs are read from a single MergeTree-FINAL snapshot.
+	const [consolidatedResult, totalResult] = await Promise.all([
+		queryClickhouse<{
+			distinct_users: number;
+			distinct_sessions: number;
+			distinct_projects: number;
+			distinct_subagents: number;
+			distinct_skills: number;
+			distinct_slash_commands: number;
+		}>({
+			query: `
         SELECT
           uniq(user_id) as distinct_users,
           count() as distinct_sessions,
-          uniq(if(git_remote != '', git_remote, if(package_name != '', package_name, project_path))) as distinct_projects
+          uniq(if(git_remote != '', git_remote, if(package_name != '', package_name, project_path))) as distinct_projects,
+          length(arrayFilter(x -> x != '', arrayDistinct(arrayFlatten(groupArray(subagent_types))))) as distinct_subagents,
+          length(arrayFilter(x -> x != '', arrayDistinct(arrayFlatten(groupArray(skills))))) as distinct_skills,
+          length(arrayFilter(x -> x != '', arrayDistinct(arrayFlatten(groupArray(slash_commands))))) as distinct_slash_commands
         FROM rudel.session_analytics FINAL
         WHERE ${dateFilter}
           AND organization_id = {orgId:String}
       `,
-				query_params,
-			}),
-			queryClickhouse<{ count: number }>({
-				query: `
-        SELECT uniqExact(val) as count
-        FROM rudel.session_analytics FINAL
-        ARRAY JOIN subagent_types as val
-        WHERE ${dateFilter}
-          AND organization_id = {orgId:String}
-          AND val != ''
-      `,
-				query_params,
-			}),
-			queryClickhouse<{ count: number }>({
-				query: `
-        SELECT uniqExact(val) as count
-        FROM rudel.session_analytics FINAL
-        ARRAY JOIN skills as val
-        WHERE ${dateFilter}
-          AND organization_id = {orgId:String}
-          AND val != ''
-      `,
-				query_params,
-			}),
-			queryClickhouse<{ count: number }>({
-				query: `
-        SELECT uniqExact(val) as count
-        FROM rudel.session_analytics FINAL
-        ARRAY JOIN slash_commands as val
-        WHERE ${dateFilter}
-          AND organization_id = {orgId:String}
-          AND val != ''
-      `,
-				query_params,
-			}),
-			queryClickhouse<{ count: number }>({
-				query: `
+			query_params,
+		}),
+		queryClickhouse<{ count: number }>({
+			query: `
         SELECT count() as count
         FROM rudel.session_analytics FINAL
         WHERE organization_id = {orgId:String}
       `,
-				query_params,
-			}),
-		]);
+			query_params,
+		}),
+	]);
 
-	const row = mainResult[0];
+	const row = consolidatedResult[0];
 	if (!row) {
 		return {
 			distinct_users: 0,
@@ -118,14 +94,13 @@ export async function getOverviewKPIs(
 			total_sessions: 0,
 		};
 	}
-	// ClickHouse returns UInt64 as strings when output_format_json_quote_64bit_integers is true (the default)
 	return {
 		distinct_users: Number(row.distinct_users),
 		distinct_sessions: Number(row.distinct_sessions),
 		distinct_projects: Number(row.distinct_projects),
-		distinct_subagents: Number(subagentsResult[0]?.count ?? 0),
-		distinct_skills: Number(skillsResult[0]?.count ?? 0),
-		distinct_slash_commands: Number(slashResult[0]?.count ?? 0),
+		distinct_subagents: Number(row.distinct_subagents),
+		distinct_skills: Number(row.distinct_skills),
+		distinct_slash_commands: Number(row.distinct_slash_commands),
 		total_sessions: Number(totalResult[0]?.count ?? 0),
 	};
 }

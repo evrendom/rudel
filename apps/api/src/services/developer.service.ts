@@ -735,69 +735,62 @@ export async function getDeveloperFeatureUsage(
       AND organization_id = {orgId:String}
   `;
 
-	const topSubagentsQuery = `
-    SELECT val as name, count() as count
-    FROM rudel.session_analytics FINAL
-    ARRAY JOIN subagent_types as val
-    WHERE user_id = {userId:String}
-      AND ${buildDateFilter("days")}
-      AND organization_id = {orgId:String}
-      AND val != ''
-    GROUP BY val
-    ORDER BY count DESC
-    LIMIT 10
+	// One scan ARRAY JOINs over a tagged union of all three feature dim arrays;
+	// LIMIT 10 BY dim returns all three top-N lists from the same scan.
+	// `, val ASC` keeps the cut deterministic when many entries are tied at
+	// the limit count — without it the FE list flickers between page loads.
+	const topConsolidatedQuery = `
+    SELECT dim, val AS name, count() AS count
+    FROM (
+      SELECT
+        tupleElement(pair, 1) AS dim,
+        tupleElement(pair, 2) AS val
+      FROM rudel.session_analytics FINAL
+      ARRAY JOIN arrayConcat(
+        arrayMap(x -> tuple('subagent', x), arrayFilter(s -> s != '', subagent_types)),
+        arrayMap(x -> tuple('skill', x), arrayFilter(s -> s != '', skills)),
+        arrayMap(x -> tuple('slash', x), arrayFilter(s -> s != '', slash_commands))
+      ) AS pair
+      WHERE user_id = {userId:String}
+        AND ${buildDateFilter("days")}
+        AND organization_id = {orgId:String}
+    )
+    GROUP BY dim, val
+    ORDER BY dim ASC, count DESC, val ASC
+    LIMIT 10 BY dim
   `;
 
-	const topSkillsQuery = `
-    SELECT val as name, count() as count
-    FROM rudel.session_analytics FINAL
-    ARRAY JOIN skills as val
-    WHERE user_id = {userId:String}
-      AND ${buildDateFilter("days")}
-      AND organization_id = {orgId:String}
-      AND val != ''
-    GROUP BY val
-    ORDER BY count DESC
-    LIMIT 10
-  `;
+	interface TopConsolidatedRow {
+		dim: "subagent" | "skill" | "slash";
+		name: string;
+		count: number;
+	}
 
-	const topSlashCommandsQuery = `
-    SELECT val as name, count() as count
-    FROM rudel.session_analytics FINAL
-    ARRAY JOIN slash_commands as val
-    WHERE user_id = {userId:String}
-      AND ${buildDateFilter("days")}
-      AND organization_id = {orgId:String}
-      AND val != ''
-    GROUP BY val
-    ORDER BY count DESC
-    LIMIT 10
-  `;
+	const [adoptionResults, topConsolidated] = await Promise.all([
+		queryClickhouse<{
+			total_sessions: number;
+			subagents_sessions: number;
+			skills_sessions: number;
+			slash_commands_sessions: number;
+		}>({
+			query: adoptionQuery,
+			query_params,
+		}),
+		queryClickhouse<TopConsolidatedRow>({
+			query: topConsolidatedQuery,
+			query_params,
+		}),
+	]);
 
-	const [adoptionResults, topSubagents, topSkills, topSlashCommands] =
-		await Promise.all([
-			queryClickhouse<{
-				total_sessions: number;
-				subagents_sessions: number;
-				skills_sessions: number;
-				slash_commands_sessions: number;
-			}>({
-				query: adoptionQuery,
-				query_params,
-			}),
-			queryClickhouse<{ name: string; count: number }>({
-				query: topSubagentsQuery,
-				query_params,
-			}),
-			queryClickhouse<{ name: string; count: number }>({
-				query: topSkillsQuery,
-				query_params,
-			}),
-			queryClickhouse<{ name: string; count: number }>({
-				query: topSlashCommandsQuery,
-				query_params,
-			}),
-		]);
+	const topSubagents = topConsolidated
+		.filter((r) => r.dim === "subagent")
+		.map((r) => ({ name: r.name, count: r.count }));
+	const topSkills = topConsolidated
+		.filter((r) => r.dim === "skill")
+		.map((r) => ({ name: r.name, count: r.count }));
+	const topSlashCommands = topConsolidated
+		.filter((r) => r.dim === "slash")
+		.map((r) => ({ name: r.name, count: r.count }));
 
 	if (adoptionResults.length === 0) {
 		return {
