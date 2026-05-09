@@ -1,68 +1,42 @@
 import { expect, test } from "bun:test";
 import { renderToStaticMarkup } from "react-dom/server";
-import type { LocalEngine } from "./ports/local-engine.js";
+import type { RudelDesktopAppProps } from "./RudelDesktopApp.js";
 import { RudelDesktopApp } from "./RudelDesktopApp.js";
 
-test("RudelDesktopApp renders the desktop shell navigation", () => {
+test("RudelDesktopApp renders only the repository gallery surface", () => {
 	const markup = renderToStaticMarkup(
-		<RudelDesktopApp localEngine={localEngine} />,
+		<RudelDesktopApp
+			localEngine={localEngine}
+			pickWorkspaceRoots={async () => []}
+		/>,
 	);
 
-	expect(markup).toContain("Repositories");
-	expect(markup).toContain("Inventory");
-	expect(markup).toContain("TypeScript Standards");
-	expect(markup).toContain("Drift");
-	expect(markup).toContain("Write Planner");
-	expect(markup).toContain(
-		"TypeScript owns drift classification. Rust owns local mechanics.",
-	);
+	expect(markup).toContain("Repository Gallery");
+	expect(markup).toContain("Code repos on this machine");
+	expect(markup).toContain("Scan repos");
+	expect(markup).toContain("Choose folder");
+	expect(markup).toContain("Choose roots to scan");
+	expect(markup).not.toContain("Inventory");
+	expect(markup).not.toContain("TypeScript Standards");
+	expect(markup).not.toContain("Drift");
+	expect(markup).not.toContain("Write Planner");
+	expect(markup).not.toContain("Agent skill folders");
+	expect(markup).not.toContain("Selected files");
 });
 
-const localEngine: LocalEngine = {
+const localEngine: RudelDesktopAppProps["localEngine"] = {
+	async suggestScanRoots() {
+		return { suggestions: [] };
+	},
 	async scanMachine() {
 		return {
 			roots: [],
 			repos: [],
+			candidates: [],
 			artifacts: [],
 			warnings: [],
 			skippedDirectoryCount: 0,
 			scannedAt: "unix:1",
 		};
-	},
-	async scanWorkspace(input) {
-		return {
-			rootPath: input.rootPath,
-			roots: [],
-			repos: [],
-			artifacts: [],
-			warnings: [],
-			skippedDirectoryCount: 0,
-			scannedAt: "unix:1",
-		};
-	},
-	async readLockfiles() {
-		return { repos: [] };
-	},
-	async hashFiles() {
-		return { files: [] };
-	},
-	async normalizeGitRemotes() {
-		return { repos: [] };
-	},
-	async createWritePlan(input) {
-		return {
-			id: "plan",
-			repoId: input.repoId,
-			blueprintId: "typescript-standards",
-			files: [],
-			undoAvailable: false,
-			warnings: [],
-		};
-	},
-	async applyWritePlan() {
-		return { operationId: "operation", applied: true };
-	},
-	async getGitDiff(input) {
-		return { repoPath: input.repoPath, diff: "" };
 	},
 };

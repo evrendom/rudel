@@ -1,14 +1,20 @@
+use globset::{Glob, GlobSet, GlobSetBuilder};
+use ignore::{DirEntry, WalkBuilder};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fs;
 use std::path::{Component, Path, PathBuf};
 use std::process::Command;
+use std::sync::{
+    atomic::{AtomicUsize, Ordering},
+    Arc,
+};
 use std::time::{SystemTime, UNIX_EPOCH};
-use walkdir::{DirEntry, WalkDir};
 
 pub const PRODUCT_RULE: &str = "Desktop edits skills. Rust writes files. Cloud syncs teams.";
 pub const LOCKFILE_PATH: &str = ".rudel/skills.lock.json";
+pub const MAX_SCANNED_FILE_BYTES: u64 = 1_048_576;
 
 const SKIP_DIRS: &[&str] = &[
     ".git",
@@ -31,7 +37,24 @@ pub struct ScanWorkspaceInput {
 #[serde(rename_all = "camelCase")]
 pub struct ScanMachineInput {
     pub roots: Vec<String>,
-    pub include_global_agent_folders: bool,
+    pub selection: ScanSelection,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ScanSelection {
+    pub profiles: ScanSelectionProfiles,
+    pub include_globs: Vec<String>,
+    pub excluded_paths: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ScanSelectionProfiles {
+    pub agent_skills: bool,
+    pub cursor_rules: bool,
+    pub repo_context: bool,
+    pub global_agent_roots: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -39,6 +62,7 @@ pub struct ScanMachineInput {
 pub struct MachineScanResult {
     pub roots: Vec<ScannedRoot>,
     pub repos: Vec<CodeRepo>,
+    pub candidates: Vec<ScanFileCandidate>,
     pub artifacts: Vec<SkillArtifact>,
     pub warnings: Vec<ScanWarning>,
     pub skipped_directory_count: usize,
@@ -68,6 +92,11 @@ pub struct CodeRepo {
     pub repo_root_path: String,
     pub repo_key: RepoKey,
     pub source_root: String,
+    pub git_common_dir: Option<String>,
+    pub branch_name: Option<String>,
+    pub head_sha: Option<String>,
+    pub is_dirty: bool,
+    pub is_worktree: bool,
     pub is_nested: bool,
     pub has_rudel_lockfile: bool,
 }
@@ -77,6 +106,51 @@ pub struct CodeRepo {
 pub struct ScanWarning {
     pub root: String,
     pub message: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ScanFileCandidate {
+    pub path: String,
+    pub repo_root_path: Option<String>,
+    pub source_scope: SourceScope,
+    pub matched_by: ScanFileMatchedBy,
+    pub selected: bool,
+    pub size_bytes: u64,
+    pub skipped_reason: Option<ScanFileSkippedReason>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ScanFileMatchedBy {
+    AgentSkills,
+    CursorRules,
+    RepoContext,
+    GlobalAgentRoots,
+    IncludeGlob,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ScanFileSkippedReason {
+    Excluded,
+    Binary,
+    TooLarge,
+    InvalidGlob,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ScanRootSuggestion {
+    pub label: String,
+    pub path: String,
+    pub normalized_path: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ScanRootSuggestionsResult {
+    pub suggestions: Vec<ScanRootSuggestion>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -306,16 +380,57 @@ pub fn shell_boundary() -> &'static str {
 pub fn scan_workspace(input: ScanWorkspaceInput) -> MachineScanResult {
     scan_machine(ScanMachineInput {
         roots: vec![input.root_path],
-        include_global_agent_folders: false,
+        selection: default_scan_selection(),
     })
 }
 
+pub fn suggest_scan_roots() -> ScanRootSuggestionsResult {
+    let Some(home) = home_dir() else {
+        return ScanRootSuggestionsResult {
+            suggestions: Vec::new(),
+        };
+    };
+    let candidates = [
+        ("Code", "Code"),
+        ("Developer", "Developer"),
+        ("Projects", "Projects"),
+        ("GitHub", "Documents/GitHub"),
+        ("Conductor workspaces", "conductor/workspaces"),
+    ];
+    let mut suggestions = candidates
+        .iter()
+        .filter_map(|(label, relative_path)| {
+            let path = home.join(relative_path);
+            if !path.is_dir() {
+                return None;
+            }
+            let normalized = fs::canonicalize(&path).ok()?;
+            Some(ScanRootSuggestion {
+                label: (*label).to_string(),
+                path: format!("~/{}", relative_path),
+                normalized_path: normalize_absolute_path(&normalized),
+            })
+        })
+        .collect::<Vec<_>>();
+    suggestions.sort_by(|left, right| left.normalized_path.cmp(&right.normalized_path));
+
+    ScanRootSuggestionsResult { suggestions }
+}
+
 pub fn scan_machine(input: ScanMachineInput) -> MachineScanResult {
-    let (roots, mut warnings) = prepare_scan_roots(input);
+    let scan_plan = build_scan_plan(input);
+    let (roots, mut warnings) = prepare_scan_roots(&scan_plan);
     let mut artifacts = Vec::new();
+    let mut candidates = Vec::new();
     let mut repos_by_path = HashMap::new();
     let mut seen_paths = HashSet::new();
-    let mut skipped_directory_count = 0;
+    let skipped_directory_count = Arc::new(AtomicUsize::new(0));
+    for invalid_glob in &scan_plan.invalid_globs {
+        warnings.push(ScanWarning {
+            root: "includeGlobs".to_string(),
+            message: format!("Invalid include glob ignored: {}", invalid_glob),
+        });
+    }
 
     for root in roots
         .iter()
@@ -325,19 +440,26 @@ pub fn scan_machine(input: ScanMachineInput) -> MachineScanResult {
             continue;
         };
         let source_root = normalized_path.to_string();
-        let walker = WalkDir::new(normalized_path)
+        let skipped_directory_count_for_filter = Arc::clone(&skipped_directory_count);
+        let mut walker_builder = WalkBuilder::new(normalized_path);
+        walker_builder
             .follow_links(false)
-            .into_iter()
-            .filter_entry(|entry| {
+            .hidden(false)
+            .parents(false)
+            .ignore(false)
+            .git_ignore(false)
+            .git_global(false)
+            .git_exclude(false)
+            .filter_entry(move |entry| {
                 if should_skip_dir(entry) {
-                    skipped_directory_count += 1;
+                    skipped_directory_count_for_filter.fetch_add(1, Ordering::Relaxed);
                     false
                 } else {
                     true
                 }
             });
 
-        for entry_result in walker {
+        for entry_result in walker_builder.build() {
             let entry = match entry_result {
                 Ok(entry) => entry,
                 Err(error) => {
@@ -349,25 +471,37 @@ pub fn scan_machine(input: ScanMachineInput) -> MachineScanResult {
                 }
             };
 
-            if entry.file_type().is_dir() {
+            let Some(file_type) = entry.file_type() else {
+                continue;
+            };
+
+            if file_type.is_dir() {
                 if is_git_repo_root(entry.path()) {
                     record_repo(entry.path(), &source_root, &mut repos_by_path);
                 }
                 continue;
             }
 
-            if !entry.file_type().is_file() {
+            if !file_type.is_file() {
                 continue;
             }
-            if let Some(artifact) = scan_file(&entry) {
-                if seen_paths.insert(artifact.path.clone()) {
+            let Some(candidate) = scan_candidate(&entry, &scan_plan) else {
+                continue;
+            };
+            if !seen_paths.insert(candidate.path.clone()) {
+                continue;
+            }
+            if candidate.selected {
+                if let Some(artifact) = scan_file(&entry, candidate.source_scope.clone()) {
                     artifacts.push(artifact);
                 }
             }
+            candidates.push(candidate);
         }
     }
 
     artifacts.sort_by(|left, right| left.path.cmp(&right.path));
+    candidates.sort_by(|left, right| left.path.cmp(&right.path));
     let mut repos: Vec<CodeRepo> = repos_by_path.into_values().collect();
     repos.sort_by(|left, right| left.repo_root_path.cmp(&right.repo_root_path));
     warnings.sort_by(|left, right| {
@@ -379,9 +513,10 @@ pub fn scan_machine(input: ScanMachineInput) -> MachineScanResult {
     MachineScanResult {
         roots,
         repos,
+        candidates,
         artifacts,
         warnings,
-        skipped_directory_count,
+        skipped_directory_count: skipped_directory_count.load(Ordering::Relaxed),
         scanned_at: current_scan_timestamp(),
     }
 }
@@ -568,8 +703,89 @@ pub fn write_lockfile(repo_root: &Path, lockfile: &SkillLockfile) -> std::io::Re
     write_file_atomically(&path, &content)
 }
 
-fn prepare_scan_roots(input: ScanMachineInput) -> (Vec<ScannedRoot>, Vec<ScanWarning>) {
-    let root_inputs = expand_root_inputs(input);
+struct ScanPlan {
+    roots: Vec<String>,
+    selection: ScanSelection,
+    include_glob_set: GlobSet,
+    invalid_globs: Vec<String>,
+    excluded_paths: HashSet<String>,
+}
+
+fn default_scan_selection() -> ScanSelection {
+    ScanSelection {
+        profiles: ScanSelectionProfiles {
+            agent_skills: true,
+            cursor_rules: true,
+            repo_context: true,
+            global_agent_roots: false,
+        },
+        include_globs: Vec::new(),
+        excluded_paths: Vec::new(),
+    }
+}
+
+fn build_scan_plan(input: ScanMachineInput) -> ScanPlan {
+    let (include_glob_set, invalid_globs) = compile_include_globs(&input.selection.include_globs);
+    let mut roots = input.roots;
+    if input.selection.profiles.global_agent_roots {
+        roots.extend(global_agent_root_inputs());
+    }
+    let mut seen_roots = HashSet::new();
+    roots.retain(|root| seen_roots.insert(root.trim().to_string()));
+    let excluded_paths = input
+        .selection
+        .excluded_paths
+        .iter()
+        .filter_map(|path| expand_input_path(path))
+        .map(|path| fs::canonicalize(&path).unwrap_or(path))
+        .map(|path| normalize_absolute_path(&path))
+        .collect();
+
+    ScanPlan {
+        roots,
+        selection: input.selection,
+        include_glob_set,
+        invalid_globs,
+        excluded_paths,
+    }
+}
+
+fn compile_include_globs(globs: &[String]) -> (GlobSet, Vec<String>) {
+    let mut builder = GlobSetBuilder::new();
+    let mut invalid_globs = Vec::new();
+    for glob in globs {
+        let trimmed = glob.trim();
+        if trimmed.is_empty()
+            || Path::new(trimmed).is_absolute()
+            || trimmed.split(['/', '\\']).any(|part| part == "..")
+        {
+            invalid_globs.push(glob.clone());
+            continue;
+        }
+
+        let patterns = if trimmed.starts_with("**/") {
+            vec![trimmed.to_string()]
+        } else {
+            vec![trimmed.to_string(), format!("**/{trimmed}")]
+        };
+        for pattern in patterns {
+            match Glob::new(&pattern) {
+                Ok(compiled) => {
+                    builder.add(compiled);
+                }
+                Err(_) => invalid_globs.push(glob.clone()),
+            }
+        }
+    }
+
+    let glob_set = builder
+        .build()
+        .unwrap_or_else(|_| GlobSetBuilder::new().build().expect("empty globset"));
+    (glob_set, invalid_globs)
+}
+
+fn prepare_scan_roots(scan_plan: &ScanPlan) -> (Vec<ScannedRoot>, Vec<ScanWarning>) {
+    let root_inputs = scan_plan.roots.clone();
     let mut roots = Vec::new();
     let mut warnings = Vec::new();
     let mut seen_scanned_roots = HashSet::new();
@@ -600,16 +816,6 @@ fn prepare_scan_roots(input: ScanMachineInput) -> (Vec<ScannedRoot>, Vec<ScanWar
     });
 
     (roots, warnings)
-}
-
-fn expand_root_inputs(input: ScanMachineInput) -> Vec<String> {
-    let mut roots = input.roots;
-    if input.include_global_agent_folders {
-        roots.extend(global_agent_root_inputs());
-    }
-    let mut seen = HashSet::new();
-    roots.retain(|root| seen.insert(root.trim().to_string()));
-    roots
 }
 
 fn scanned_root_for_input(input: String) -> (ScannedRoot, Option<ScanWarning>) {
@@ -756,7 +962,10 @@ fn current_scan_timestamp() -> String {
 }
 
 fn should_skip_dir(entry: &DirEntry) -> bool {
-    if !entry.file_type().is_dir() {
+    let Some(file_type) = entry.file_type() else {
+        return false;
+    };
+    if !file_type.is_dir() {
         return false;
     }
     let name = entry.file_name().to_string_lossy();
@@ -774,17 +983,109 @@ fn record_repo(repo_root: &Path, source_root: &str, repos_by_path: &mut HashMap<
     repos_by_path
         .entry(repo_root_path.clone())
         .or_insert_with(|| CodeRepo {
-            repo_root_path,
+            repo_root_path: repo_root_path.clone(),
             repo_key: repo_key_for_root(&canonical_repo_root),
             source_root: source_root.to_string(),
+            git_common_dir: git_common_dir(&canonical_repo_root),
+            branch_name: git_branch_name(&canonical_repo_root),
+            head_sha: git_head_sha(&canonical_repo_root),
+            is_dirty: git_is_dirty(&canonical_repo_root),
+            is_worktree: git_config_path(&canonical_repo_root)
+                .map(|path| !path.starts_with(canonical_repo_root.join(".git")))
+                .unwrap_or(false),
             is_nested: find_repo_root_above(&canonical_repo_root).is_some(),
             has_rudel_lockfile: canonical_repo_root.join(LOCKFILE_PATH).exists(),
         });
 }
 
-fn scan_file(entry: &DirEntry) -> Option<SkillArtifact> {
+fn scan_candidate(entry: &DirEntry, scan_plan: &ScanPlan) -> Option<ScanFileCandidate> {
     let path = entry.path();
-    let artifact_target = detect_artifact_target(path)?;
+    let canonical_path = fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
+    let normalized_canonical_path = normalize_absolute_path(&canonical_path);
+    let matched_by = detect_candidate_match(path, scan_plan)?;
+    let repo_root = find_repo_root(path);
+    let source_scope = source_scope_for(path, repo_root.as_deref(), entry);
+    let metadata = fs::metadata(path).ok()?;
+    let skipped_reason =
+        skipped_reason_for_candidate(path, &normalized_canonical_path, scan_plan, metadata.len());
+
+    Some(ScanFileCandidate {
+        path: normalized_canonical_path,
+        repo_root_path: repo_root.as_deref().map(normalize_absolute_path),
+        source_scope,
+        matched_by,
+        selected: skipped_reason.is_none(),
+        size_bytes: metadata.len(),
+        skipped_reason,
+    })
+}
+
+fn skipped_reason_for_candidate(
+    path: &Path,
+    normalized_canonical_path: &str,
+    scan_plan: &ScanPlan,
+    size_bytes: u64,
+) -> Option<ScanFileSkippedReason> {
+    if scan_plan.excluded_paths.contains(normalized_canonical_path) {
+        return Some(ScanFileSkippedReason::Excluded);
+    }
+    if size_bytes > MAX_SCANNED_FILE_BYTES {
+        return Some(ScanFileSkippedReason::TooLarge);
+    }
+    if is_probably_binary(path) {
+        return Some(ScanFileSkippedReason::Binary);
+    }
+    None
+}
+
+fn detect_candidate_match(path: &Path, scan_plan: &ScanPlan) -> Option<ScanFileMatchedBy> {
+    let normalized = normalize_repo_relative_path(path);
+    let file_name = path.file_name()?.to_string_lossy();
+    if scan_plan.selection.profiles.repo_context
+        && (file_name == "AGENTS.md" || file_name == "CLAUDE.md")
+    {
+        return Some(ScanFileMatchedBy::RepoContext);
+    }
+    if scan_plan.selection.profiles.cursor_rules
+        && normalized.contains("/.cursor/rules/")
+        && normalized.ends_with(".mdc")
+    {
+        return Some(ScanFileMatchedBy::CursorRules);
+    }
+    if file_name == "SKILL.md" {
+        if scan_plan.selection.profiles.agent_skills
+            && (normalized.contains("/.claude/skills/")
+                || normalized.contains("/.agents/skills/")
+                || normalized.contains("/.codex/skills/")
+                || normalized.contains("/.cursor/skills/"))
+        {
+            return Some(ScanFileMatchedBy::AgentSkills);
+        }
+        if scan_plan.selection.profiles.global_agent_roots
+            && (normalized.contains("/.claude/")
+                || normalized.contains("/.agents/")
+                || normalized.contains("/.codex/")
+                || normalized.contains("/.cursor/"))
+        {
+            return Some(ScanFileMatchedBy::GlobalAgentRoots);
+        }
+    }
+    if scan_plan.include_glob_set.is_match(&normalized) {
+        return Some(ScanFileMatchedBy::IncludeGlob);
+    }
+    None
+}
+
+fn is_probably_binary(path: &Path) -> bool {
+    let Ok(bytes) = fs::read(path) else {
+        return false;
+    };
+    bytes.iter().take(1024).any(|byte| *byte == 0)
+}
+
+fn scan_file(entry: &DirEntry, source_scope: SourceScope) -> Option<SkillArtifact> {
+    let path = entry.path();
+    let artifact_target = detect_artifact_target(path).unwrap_or(ArtifactTarget::Unknown);
     let content = fs::read_to_string(path).ok()?;
     let canonical_path = fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
     let normalized_canonical_path = normalize_absolute_path(&canonical_path);
@@ -798,7 +1099,6 @@ fn scan_file(entry: &DirEntry) -> Option<SkillArtifact> {
         .and_then(read_lockfile)
         .and_then(|lockfile| find_lockfile_entry(&lockfile, repo_relative_path.as_deref()));
     let (name, description) = parse_frontmatter(&content);
-    let source_scope = source_scope_for(path, repo_root.as_deref(), entry);
 
     Some(SkillArtifact {
         id: hash_string(&normalized_canonical_path),
@@ -903,10 +1203,62 @@ fn find_repo_root_above(repo_root: &Path) -> Option<PathBuf> {
 }
 
 fn repo_key_for_root(repo_root: &Path) -> RepoKey {
-    read_origin_remote(repo_root)
+    git_origin_remote(repo_root)
+        .or_else(|| read_origin_remote(repo_root))
         .and_then(|remote| normalize_git_remote_url(&remote))
         .map(RepoKey::Github)
-        .unwrap_or_else(|| RepoKey::Local(hash_string(&normalize_absolute_path(repo_root))))
+        .unwrap_or_else(|| {
+            let local_identity_path =
+                git_common_dir(repo_root).unwrap_or_else(|| normalize_absolute_path(repo_root));
+            RepoKey::Local(hash_string(&local_identity_path))
+        })
+}
+
+fn git_origin_remote(repo_root: &Path) -> Option<String> {
+    run_git_command(repo_root, &["config", "--get", "remote.origin.url"])
+}
+
+fn git_common_dir(repo_root: &Path) -> Option<String> {
+    let output = run_git_command(
+        repo_root,
+        &["rev-parse", "--path-format=absolute", "--git-common-dir"],
+    )
+    .or_else(|| run_git_command(repo_root, &["rev-parse", "--git-common-dir"]))?;
+    let path = PathBuf::from(output);
+    let resolved = if path.is_absolute() {
+        path
+    } else {
+        repo_root.join(path)
+    };
+    Some(normalize_absolute_path(&resolved))
+}
+
+fn git_branch_name(repo_root: &Path) -> Option<String> {
+    run_git_command(repo_root, &["branch", "--show-current"])
+        .filter(|branch| !branch.trim().is_empty())
+}
+
+fn git_head_sha(repo_root: &Path) -> Option<String> {
+    run_git_command(repo_root, &["rev-parse", "HEAD"])
+}
+
+fn git_is_dirty(repo_root: &Path) -> bool {
+    run_git_command(repo_root, &["status", "--porcelain"])
+        .map(|status| !status.is_empty())
+        .unwrap_or(false)
+}
+
+fn run_git_command(repo_root: &Path, args: &[&str]) -> Option<String> {
+    let output = Command::new("git")
+        .arg("-C")
+        .arg(repo_root)
+        .args(args)
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    Some(String::from_utf8_lossy(&output.stdout).trim().to_string())
 }
 
 fn read_origin_remote(repo_root: &Path) -> Option<String> {
@@ -1170,8 +1522,9 @@ mod tests {
     use super::{
         apply_write_plan, create_write_plan, hash_normalized_content, normalize_absolute_path,
         normalize_git_remote_url, read_lockfile, scan_machine, ApplyWritePlanInput, ArtifactTarget,
-        CreateWritePlanInput, GeneratedArtifact, LockfileStatus, RepoKey, ScanMachineInput,
-        ScannedRootStatus, SkillLockfileEntry, SourceScope, WritePlanAction,
+        CreateWritePlanInput, GeneratedArtifact, LockfileStatus, RepoKey, ScanFileSkippedReason,
+        ScanMachineInput, ScanSelection, ScanSelectionProfiles, ScannedRootStatus,
+        SkillLockfileEntry, SourceScope, WritePlanAction,
     };
     use std::fs;
     use tempfile::tempdir;
@@ -1195,10 +1548,7 @@ mod tests {
         .expect("write skill");
         fs::write(repo.join("AGENTS.md"), "# Repo Instructions\n").expect("write agents");
 
-        let result = scan_machine(ScanMachineInput {
-            roots: vec![temp.path().to_string_lossy().to_string()],
-            include_global_agent_folders: false,
-        });
+        let result = scan_machine(scan_input(vec![temp.path().to_string_lossy().to_string()]));
 
         assert_eq!(result.roots.len(), 1);
         assert_eq!(result.roots[0].status, ScannedRootStatus::Scanned);
@@ -1242,10 +1592,7 @@ mod tests {
         )
         .expect("write skill");
 
-        let result = scan_machine(ScanMachineInput {
-            roots: vec![parent.to_string_lossy().to_string()],
-            include_global_agent_folders: false,
-        });
+        let result = scan_machine(scan_input(vec![parent.to_string_lossy().to_string()]));
 
         let skill = result
             .artifacts
@@ -1267,10 +1614,7 @@ mod tests {
         let repo = temp.path().join("empty");
         fs::create_dir_all(repo.join(".git")).expect("create git dir");
 
-        let result = scan_machine(ScanMachineInput {
-            roots: vec![temp.path().to_string_lossy().to_string()],
-            include_global_agent_folders: false,
-        });
+        let result = scan_machine(scan_input(vec![temp.path().to_string_lossy().to_string()]));
 
         assert!(result.artifacts.is_empty());
         assert_eq!(result.repos.len(), 1);
@@ -1295,10 +1639,7 @@ mod tests {
         )
         .expect("write git config");
 
-        let result = scan_machine(ScanMachineInput {
-            roots: vec![temp.path().to_string_lossy().to_string()],
-            include_global_agent_folders: false,
-        });
+        let result = scan_machine(scan_input(vec![temp.path().to_string_lossy().to_string()]));
 
         assert_eq!(result.repos.len(), 1);
         assert_eq!(
@@ -1312,10 +1653,7 @@ mod tests {
         let temp = tempdir().expect("temp dir");
         let missing = temp.path().join("missing");
 
-        let result = scan_machine(ScanMachineInput {
-            roots: vec![missing.to_string_lossy().to_string()],
-            include_global_agent_folders: false,
-        });
+        let result = scan_machine(scan_input(vec![missing.to_string_lossy().to_string()]));
 
         assert_eq!(result.roots.len(), 1);
         assert_eq!(result.roots[0].status, ScannedRootStatus::Missing);
@@ -1336,13 +1674,10 @@ mod tests {
         )
         .expect("write skill");
 
-        let result = scan_machine(ScanMachineInput {
-            roots: vec![
-                temp.path().to_string_lossy().to_string(),
-                repo.to_string_lossy().to_string(),
-            ],
-            include_global_agent_folders: false,
-        });
+        let result = scan_machine(scan_input(vec![
+            temp.path().to_string_lossy().to_string(),
+            repo.to_string_lossy().to_string(),
+        ]));
 
         assert_eq!(result.repos.len(), 1);
         assert_eq!(result.artifacts.len(), 1);
@@ -1360,15 +1695,85 @@ mod tests {
         )
         .expect("write global skill");
 
-        let result = scan_machine(ScanMachineInput {
-            roots: vec![temp.path().to_string_lossy().to_string()],
-            include_global_agent_folders: false,
-        });
+        let result = scan_machine(scan_input(vec![temp.path().to_string_lossy().to_string()]));
 
         assert!(result.repos.is_empty());
         assert_eq!(result.artifacts.len(), 1);
         assert_eq!(result.artifacts[0].source_scope, SourceScope::GlobalUser);
         assert!(result.artifacts[0].repo_root_path.is_none());
+    }
+
+    #[test]
+    fn scan_machine_respects_profiles_and_custom_include_globs() {
+        let temp = tempdir().expect("temp dir");
+        let repo = temp.path().join("repo");
+        fs::create_dir_all(repo.join(".git")).expect("create git dir");
+        fs::create_dir_all(repo.join(".claude/skills/typescript-standards"))
+            .expect("create claude skill dir");
+        fs::create_dir_all(repo.join(".opencode/skills/company")).expect("create custom skill dir");
+        fs::write(repo.join("AGENTS.md"), "# Repo Rules\n").expect("write agents");
+        fs::write(
+            repo.join(".claude/skills/typescript-standards/SKILL.md"),
+            "---\nname: typescript-standards\n---\n# TypeScript Standards\n",
+        )
+        .expect("write claude skill");
+        fs::write(
+            repo.join(".opencode/skills/company/SKILL.md"),
+            "---\nname: company-skill\n---\n# Company Skill\n",
+        )
+        .expect("write custom skill");
+
+        let mut input = scan_input(vec![repo.to_string_lossy().to_string()]);
+        input.selection.profiles.agent_skills = false;
+        input.selection.include_globs = vec![".opencode/skills/**/SKILL.md".to_string()];
+
+        let result = scan_machine(input);
+
+        assert_eq!(result.candidates.len(), 2);
+        assert!(result
+            .artifacts
+            .iter()
+            .any(|artifact| artifact.name.as_deref() == Some("company-skill")));
+        assert!(!result
+            .artifacts
+            .iter()
+            .any(|artifact| artifact.name.as_deref() == Some("typescript-standards")));
+    }
+
+    #[test]
+    fn scan_machine_keeps_excluded_candidates_metadata_only() {
+        let temp = tempdir().expect("temp dir");
+        let repo = temp.path().join("repo");
+        fs::create_dir_all(repo.join(".git")).expect("create git dir");
+        let agents = repo.join("AGENTS.md");
+        fs::write(&agents, "# Repo Rules\n").expect("write agents");
+
+        let mut input = scan_input(vec![repo.to_string_lossy().to_string()]);
+        input.selection.excluded_paths = vec![agents.to_string_lossy().to_string()];
+
+        let result = scan_machine(input);
+
+        assert_eq!(result.candidates.len(), 1);
+        assert!(!result.candidates[0].selected);
+        assert_eq!(
+            result.candidates[0].skipped_reason,
+            Some(ScanFileSkippedReason::Excluded),
+        );
+        assert!(result.artifacts.is_empty());
+    }
+
+    #[test]
+    fn scan_machine_warns_on_invalid_include_globs() {
+        let temp = tempdir().expect("temp dir");
+        let mut input = scan_input(vec![temp.path().to_string_lossy().to_string()]);
+        input.selection.include_globs = vec!["../outside/**".to_string()];
+
+        let result = scan_machine(input);
+
+        assert_eq!(result.warnings.len(), 1);
+        assert!(result.warnings[0]
+            .message
+            .contains("Invalid include glob ignored"));
     }
 
     #[test]
@@ -1555,5 +1960,21 @@ mod tests {
 
     fn canonical_test_path(path: &std::path::Path) -> String {
         normalize_absolute_path(&fs::canonicalize(path).expect("canonical test path"))
+    }
+
+    fn scan_input(roots: Vec<String>) -> ScanMachineInput {
+        ScanMachineInput {
+            roots,
+            selection: ScanSelection {
+                profiles: ScanSelectionProfiles {
+                    agent_skills: true,
+                    cursor_rules: true,
+                    repo_context: true,
+                    global_agent_roots: false,
+                },
+                include_globs: Vec::new(),
+                excluded_paths: Vec::new(),
+            },
+        }
     }
 }

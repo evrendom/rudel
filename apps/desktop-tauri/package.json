@@ -14,6 +14,7 @@
 		"@rudel/desktop-ui": "workspace:*",
 		"@rudel/skill-schema": "workspace:*",
 		"@tauri-apps/api": "^2.9.0",
+		"@tauri-apps/plugin-dialog": "^2.7.1",
 		"react": "19.2.5",
 		"react-dom": "19.2.5"
 	},

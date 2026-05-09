@@ -1,12 +1,4 @@
-import type {
-	CodeRepo,
-	MachineScanResult,
-	SkillArtifact,
-} from "@rudel/skill-schema";
-import {
-	isManagedArtifact,
-	matchesTypescriptStandards,
-} from "../local-skill-semantics/index.js";
+import type { CodeRepo, MachineScanResult } from "@rudel/skill-schema";
 
 export const repositoriesOverviewFeature = {
 	id: "repositories-overview",
@@ -14,32 +6,31 @@ export const repositoriesOverviewFeature = {
 } as const;
 
 export type RepoOverviewRow = {
+	id: string;
+	rowKind: "group" | "worktree";
 	repoRootPath: string;
 	displayName: string;
 	identity: string;
-	skillContextCount: number;
-	managedCount: number;
-	typescriptStandardsCount: number;
-	hasRudelLockfile: boolean;
+	worktreeCount: number;
+	branchName: string;
+	state: "clean" | "dirty";
 };
 
 export type RepositoriesOverview = {
 	rows: RepoOverviewRow[];
 	repoCount: number;
-	skillContextCount: number;
-	managedCount: number;
-	typescriptStandardsCount: number;
-	globalArtifactCount: number;
+	worktreeCount: number;
+	dirtyCount: number;
 	warningCount: number;
 };
 
 export function buildRepositoriesOverview(
 	scanResult: MachineScanResult | undefined,
 ): RepositoriesOverview {
-	const artifacts = scanResult?.artifacts ?? [];
-	const artifactsByRepoRoot = groupArtifactsByRepoRoot(artifacts);
-	const rows = (scanResult?.repos ?? [])
-		.map((repo) => buildRepoOverviewRow(repo, artifactsByRepoRoot))
+	const repos = scanResult?.repos ?? [];
+	const repoGroups = groupReposByKey(repos);
+	const rows = repoGroups
+		.flatMap(buildRepoOverviewRows)
 		.sort(
 			(left, right) =>
 				left.displayName.localeCompare(right.displayName) ||
@@ -48,47 +39,83 @@ export function buildRepositoriesOverview(
 
 	return {
 		rows,
-		repoCount: rows.length,
-		skillContextCount: artifacts.length,
-		managedCount: artifacts.filter(isManagedArtifact).length,
-		typescriptStandardsCount: artifacts.filter(matchesTypescriptStandards)
-			.length,
-		globalArtifactCount: artifacts.filter(
-			(artifact) => artifact.sourceScope === "global_user",
-		).length,
+		repoCount: repoGroups.length,
+		worktreeCount: repos.length,
+		dirtyCount: repos.filter((repo) => repo.isDirty).length,
 		warningCount: scanResult?.warnings.length ?? 0,
 	};
 }
 
+function buildRepoOverviewRows(repos: readonly CodeRepo[]): RepoOverviewRow[] {
+	const defaultRepo = chooseDefaultRepo(repos);
+	const groupRow = buildRepoOverviewRow(defaultRepo, repos.length, "group");
+	const breakoutRows = repos
+		.filter((repo) => shouldBreakOutWorktree(repo, defaultRepo))
+		.map((repo) => buildRepoOverviewRow(repo, 1, "worktree"));
+	return [groupRow, ...breakoutRows];
+}
+
 function buildRepoOverviewRow(
 	repo: CodeRepo,
-	artifactsByRepoRoot: ReadonlyMap<string, readonly SkillArtifact[]>,
+	worktreeCount: number,
+	rowKind: RepoOverviewRow["rowKind"],
 ): RepoOverviewRow {
-	const artifacts = artifactsByRepoRoot.get(repo.repoRootPath) ?? [];
 	return {
+		id: `${repoKeyLabel(repo.repoKey)}:${rowKind}:${repo.repoRootPath}`,
+		rowKind,
 		repoRootPath: repo.repoRootPath,
 		displayName: displayNameForRepo(repo),
 		identity: identityForRepo(repo),
-		skillContextCount: artifacts.length,
-		managedCount: artifacts.filter(isManagedArtifact).length,
-		typescriptStandardsCount: artifacts.filter(matchesTypescriptStandards)
-			.length,
-		hasRudelLockfile: repo.hasRudelLockfile,
+		worktreeCount,
+		branchName: repo.branchName ?? repo.headSha?.slice(0, 7) ?? "unknown",
+		state: repo.isDirty ? "dirty" : "clean",
 	};
 }
 
-function groupArtifactsByRepoRoot(
-	artifacts: readonly SkillArtifact[],
-): ReadonlyMap<string, readonly SkillArtifact[]> {
-	const groups = new Map<string, SkillArtifact[]>();
-	for (const artifact of artifacts) {
-		if (!artifact.repoRootPath) continue;
-		groups.set(artifact.repoRootPath, [
-			...(groups.get(artifact.repoRootPath) ?? []),
-			artifact,
-		]);
+function groupReposByKey(
+	repos: readonly CodeRepo[],
+): readonly (readonly CodeRepo[])[] {
+	const groups = new Map<string, CodeRepo[]>();
+	for (const repo of repos) {
+		const key = repoKeyLabel(repo.repoKey);
+		groups.set(key, [...(groups.get(key) ?? []), repo]);
 	}
-	return groups;
+	return [...groups.values()];
+}
+
+function chooseDefaultRepo(repos: readonly CodeRepo[]): CodeRepo {
+	const sorted = [...repos].sort((left, right) => {
+		const leftScore = defaultRepoScore(left);
+		const rightScore = defaultRepoScore(right);
+		return (
+			leftScore - rightScore ||
+			left.repoRootPath.localeCompare(right.repoRootPath)
+		);
+	});
+	const first = sorted[0];
+	if (!first) {
+		throw new Error("Repository group must contain at least one repo.");
+	}
+	return first;
+}
+
+function defaultRepoScore(repo: CodeRepo): number {
+	if (!repo.isDirty && repo.branchName === "main") return 0;
+	if (!repo.isDirty && repo.branchName === "master") return 1;
+	if (!repo.isDirty) return 2;
+	return 3;
+}
+
+function shouldBreakOutWorktree(
+	repo: CodeRepo,
+	defaultRepo: CodeRepo,
+): boolean {
+	if (repo.repoRootPath === defaultRepo.repoRootPath) return false;
+	return (
+		repo.isDirty ||
+		repo.branchName !== defaultRepo.branchName ||
+		repo.headSha !== defaultRepo.headSha
+	);
 }
 
 function displayNameForRepo(repo: CodeRepo): string {
@@ -104,6 +131,10 @@ function identityForRepo(repo: CodeRepo): string {
 		return repo.repoKey.value;
 	}
 	return "local-only";
+}
+
+function repoKeyLabel(repoKey: CodeRepo["repoKey"]): string {
+	return `${repoKey.kind}:${repoKey.value}`;
 }
 
 function pathBasename(path: string): string {

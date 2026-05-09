@@ -7,10 +7,11 @@ edition = "2021"
 path = "src/lib.rs"
 
 [dependencies]
+globset = "0.4.18"
+ignore = "0.4.25"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 sha2 = "0.10"
-walkdir = "2"
 
 [dev-dependencies]
 tempfile = "3"

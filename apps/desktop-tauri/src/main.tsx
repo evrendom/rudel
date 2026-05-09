@@ -1,4 +1,5 @@
 import { RudelDesktopApp } from "@rudel/desktop-ui";
+import { open } from "@tauri-apps/plugin-dialog";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { tauriLocalEngine } from "./tauri-local-engine.js";
@@ -17,6 +18,27 @@ if (!rootElement) {
 
 createRoot(rootElement).render(
 	<StrictMode>
-		<RudelDesktopApp localEngine={tauriLocalEngine} />
+		<RudelDesktopApp
+			localEngine={tauriLocalEngine}
+			pickWorkspaceRoots={pickWorkspaceRoots}
+		/>
 	</StrictMode>,
 );
+
+async function pickWorkspaceRoots(): Promise<readonly string[]> {
+	const selected = await open({
+		directory: true,
+		multiple: true,
+	});
+	if (Array.isArray(selected)) {
+		return selected.filter(isString);
+	}
+	if (typeof selected === "string") {
+		return [selected];
+	}
+	return [];
+}
+
+function isString(value: unknown): value is string {
+	return typeof value === "string";
+}

@@ -3,11 +3,16 @@ use rudel_local::{
     get_git_diff as get_git_diff_local, hash_files as hash_files_local,
     normalize_git_remotes as normalize_git_remotes_local, read_lockfiles as read_lockfiles_local,
     scan_machine as scan_machine_local, scan_workspace as scan_workspace_local,
-    ApplyWritePlanInput, ApplyWritePlanResult, CreateWritePlanInput, GitDiffInput, GitDiffResult,
-    HashFilesInput, HashFilesResult, LockfileReadResult, MachineScanResult,
-    NormalizeGitRemotesInput, ReadLockfilesInput, RepoIdentityResult, ScanMachineInput,
-    ScanWorkspaceInput, WritePlan,
+    suggest_scan_roots as suggest_scan_roots_local, ApplyWritePlanInput, ApplyWritePlanResult,
+    CreateWritePlanInput, GitDiffInput, GitDiffResult, HashFilesInput, HashFilesResult,
+    LockfileReadResult, MachineScanResult, NormalizeGitRemotesInput, ReadLockfilesInput,
+    RepoIdentityResult, ScanMachineInput, ScanRootSuggestionsResult, ScanWorkspaceInput, WritePlan,
 };
+
+#[tauri::command]
+pub async fn suggest_scan_roots() -> Result<ScanRootSuggestionsResult, String> {
+    run_blocking(move || Ok(suggest_scan_roots_local())).await
+}
 
 #[tauri::command]
 pub async fn scan_machine(input: ScanMachineInput) -> Result<MachineScanResult, String> {

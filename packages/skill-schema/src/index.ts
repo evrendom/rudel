@@ -10,6 +10,19 @@ export const artifactTargetSchema = z.enum([
 
 export type ArtifactTarget = z.infer<typeof artifactTargetSchema>;
 
+export const observedArtifactTargetSchema = z.enum([
+	"claude_code",
+	"codex",
+	"cursor",
+	"agents_md",
+	"claude_md",
+	"unknown",
+]);
+
+export type ObservedArtifactTarget = z.infer<
+	typeof observedArtifactTargetSchema
+>;
+
 export const agentTargetSchema = artifactTargetSchema;
 
 export type AgentTarget = z.infer<typeof agentTargetSchema>;
@@ -223,7 +236,7 @@ export type SourceScope = z.infer<typeof sourceScopeSchema>;
 export const skillArtifactSchema = z.object({
 	id: z.string().min(1),
 	sourceScope: sourceScopeSchema,
-	artifactTarget: artifactTargetSchema,
+	artifactTarget: observedArtifactTargetSchema,
 	absolutePathHash: z.string().min(1),
 	path: z.string().min(1),
 	repoRootPath: z.string().optional(),
@@ -261,11 +274,47 @@ export const codeRepoSchema = z.object({
 	repoRootPath: z.string().min(1),
 	repoKey: repoKeySchema,
 	sourceRoot: z.string().min(1),
+	gitCommonDir: z.string().optional(),
+	branchName: z.string().optional(),
+	headSha: z.string().optional(),
+	isDirty: z.boolean(),
+	isWorktree: z.boolean(),
 	isNested: z.boolean(),
 	hasRudelLockfile: z.boolean(),
 });
 
 export type CodeRepo = z.infer<typeof codeRepoSchema>;
+
+export const scanFileMatchedBySchema = z.enum([
+	"agent_skills",
+	"cursor_rules",
+	"repo_context",
+	"global_agent_roots",
+	"include_glob",
+]);
+
+export type ScanFileMatchedBy = z.infer<typeof scanFileMatchedBySchema>;
+
+export const scanFileSkippedReasonSchema = z.enum([
+	"excluded",
+	"binary",
+	"too_large",
+	"invalid_glob",
+]);
+
+export type ScanFileSkippedReason = z.infer<typeof scanFileSkippedReasonSchema>;
+
+export const scanFileCandidateSchema = z.object({
+	path: z.string().min(1),
+	repoRootPath: z.string().optional(),
+	sourceScope: sourceScopeSchema,
+	matchedBy: scanFileMatchedBySchema,
+	selected: z.boolean(),
+	sizeBytes: z.number().int().nonnegative(),
+	skippedReason: scanFileSkippedReasonSchema.optional(),
+});
+
+export type ScanFileCandidate = z.infer<typeof scanFileCandidateSchema>;
 
 export const scanWarningSchema = z.object({
 	root: z.string(),
@@ -274,9 +323,26 @@ export const scanWarningSchema = z.object({
 
 export type ScanWarning = z.infer<typeof scanWarningSchema>;
 
+export const scanRootSuggestionSchema = z.object({
+	label: z.string().min(1),
+	path: z.string().min(1),
+	normalizedPath: z.string().min(1),
+});
+
+export type ScanRootSuggestion = z.infer<typeof scanRootSuggestionSchema>;
+
+export const scanRootSuggestionsResultSchema = z.object({
+	suggestions: z.array(scanRootSuggestionSchema),
+});
+
+export type ScanRootSuggestionsResult = z.infer<
+	typeof scanRootSuggestionsResultSchema
+>;
+
 export const machineScanResultSchema = z.object({
 	roots: z.array(scannedRootSchema),
 	repos: z.array(codeRepoSchema),
+	candidates: z.array(scanFileCandidateSchema),
 	artifacts: z.array(skillArtifactSchema),
 	warnings: z.array(scanWarningSchema),
 	skippedDirectoryCount: z.number().int().nonnegative(),

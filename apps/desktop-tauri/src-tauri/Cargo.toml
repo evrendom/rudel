@@ -14,3 +14,4 @@ tauri-build = { version = "2", features = [] }
 rudel-local = { path = "../../../crates/rudel-local" }
 serde = { version = "1", features = ["derive"] }
 tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2.7.1"
