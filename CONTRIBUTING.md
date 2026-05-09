@@ -1,78 +1,62 @@
 # Contributing to Rudel
 
-Thanks for your interest in contributing! This guide covers setup, workflow, and expectations.
+This repo is in a private desktop-first transition. The old hosted dashboard is archived in `_archive/web` and is not an active app.
 
 ## Prerequisites
 
-- [Bun](https://bun.sh) (v1.3+)
-- [Docker](https://docker.com) (or [OrbStack](https://orbstack.dev))
+- [Bun](https://bun.sh) 1.3+
+- Access to the required API/database environment variables for API work
 
 ## Setup
 
 ```bash
-git clone https://github.com/obsessiondb/rudel.git
-cd rudel
 bun install
-bun run dev:local
 ```
 
-This starts local Postgres + ClickHouse via Docker Compose, runs migrations, and launches:
+Run the API directly when working on active backend code:
 
-- **API** at `http://localhost:4010`
-- **Web app** at `http://localhost:4011`
-
-Sign up with email/password to create a local account. Social login (Google/GitHub) is not available in local mode.
+```bash
+bun run --cwd apps/api dev
+```
 
 ## Development Commands
 
 ```bash
-bun run dev:local     # Start everything (infra + API + web)
-bun run infra:up      # Start database containers only
-bun run infra:down    # Stop database containers
-bun run lint          # Run Biome linter
-bun run lint:fix      # Auto-fix lint issues
+bun run lint          # Run Biome checks
+bun run lint:fix      # Auto-fix Biome issues
 bun run format        # Format code with Biome
 bun run check-types   # TypeScript type checking
 bun run test          # Run tests
+bun run build         # Build active workspaces
 ```
 
 ## Before Submitting a PR
 
-Run the full verification suite:
+Run the relevant checks for the files you changed. For broad changes, run:
 
 ```bash
-bun run verify
+bun run lint
+bun run check-types
+bun run test
+bun run build
 ```
-
-This runs linting, type checking, tests, and builds across the entire monorepo. Do not open a PR if `verify` fails.
-
-## Pull Request Guidelines
-
-- **PR titles must use [conventional commit](https://www.conventionalcommits.org/) format**. This is enforced by CI. Use one of:
-  `feat:` | `fix:` | `docs:` | `style:` | `refactor:` | `perf:` | `test:` | `build:` | `ci:` | `chore:` | `revert:`
-- Keep PRs focused — one logical change per PR.
-- Include a description of what changed and why.
-- If your change affects the CLI, test it locally with `bun run --cwd apps/cli dev`.
 
 ## Project Structure
 
-```
+```txt
 apps/
-  api/          HTTP API server (Bun)
-  cli/          CLI tool (published to npm as `rudel`)
-  web/          React SPA (Vite + Tailwind + shadcn)
+  api/          HTTP API server
+  cli/          Temporary internal CLI/reference tooling
 
 packages/
-  api-routes/   Shared RPC contract
-  ch-schema/    ClickHouse schemas, migrations, codegen
-  sql-schema/   Drizzle ORM schema for Postgres
-  typescript-config/  Shared tsconfig bases
+  agent-adapters/      Agent transcript adapters
+  api-routes/          Shared RPC contract
+  ch-schema/           ClickHouse schemas, migrations, codegen
+  sql-schema/          Drizzle ORM schema for Postgres
+  typescript-config/   Shared tsconfig bases
+
+_archive/
+  web/          Archived hosted dashboard and wrapped route reference
 ```
 
-## Reporting Bugs
-
-Open an issue at [github.com/obsessiondb/rudel/issues](https://github.com/obsessiondb/rudel/issues) with steps to reproduce.
-
-## Security Issues
-
-Please report security vulnerabilities privately. See [SECURITY.md](SECURITY.md) for details.
+Do not import from `_archive/web` in active code. Extract reusable pieces into packages first.

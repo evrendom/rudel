@@ -1,75 +1,45 @@
 # Rudel
 
-**Try the hosted version for free at [rudel.ai](https://rudel.ai)**
+Rudel is being reshaped into a private desktop-first product for Skill Blueprints: one canonical source of truth for team agent skills, repo-specific overlays, compiled local outputs, and drift detection.
 
-Analytics for Claude Code and Codex. Rudel gives you a dashboard with insights on your coding sessions — token usage, session duration, activity patterns, model usage, and more.
+The old hosted web dashboard has been archived under `_archive/web` for reference only. It is no longer part of the active Bun workspace, build, Docker image, or CI path.
 
-## Prerequisites
+## Active Workspace
 
-- [Bun](https://bun.sh) runtime installed
+```txt
+apps/
+  api/      Bun API server
+  cli/      Temporary internal CLI/reference tooling
 
-## Getting Started
-
-1. Create an account at [app.rudel.ai](https://app.rudel.ai)
-2. Install the CLI and connect it to your account:
-
-```bash
-npm install -g rudel
-
-rudel login     # authenticate via your browser
-rudel enable    # auto-upload sessions when Claude Code / Codex exits
+packages/
+  api-routes/
+  agent-adapters/
+  ch-schema/
+  sql-schema/
+  typescript-config/
 ```
-
-3. Invite teammates (optional): go to **Settings → Organization** in the dashboard, enter their email, and share the generated invite link with them.
-
-That's it. Your Claude Code / Codex sessions will now be uploaded automatically.
-
-Already have past sessions? Upload them in one go:
-
-```bash
-rudel upload    # interactive picker for batch upload
-```
-
-See the [CLI documentation](apps/cli/README.md) for all available commands.
-
-## How It Works
-
-1. You install the CLI and run `rudel enable`
-2. This registers Claude Code / Codex hooks that run when a session ends
-3. The hook uploads the session transcript to Rudel
-4. Transcripts are stored in ClickHouse and processed into analytics
-
-## What Data Is Collected
-
-Each uploaded session includes:
-
-- Session ID & timestamps (start, last interaction)
-- User ID & organization ID
-- Project path & package name
-- Git context (repository, branch, SHA, remote)
-- Session transcript (full prompt & response content)
-- Sub-agent usage
-
-## Security & Privacy Disclaimer
-
-Rudel is designed to ingest full coding-agent session data for analytics. That means uploaded transcripts and related metadata may contain sensitive material, including source code, prompts, tool output, file contents, command output, URLs, and secrets that appeared during a session.
-
-Only enable Rudel on projects and environments where you are comfortable uploading that data. If you use the hosted service at `app.rudel.ai`, we do not have access to personal data contained in uploaded transcripts and cannot read that data. Review the [Rudel Privacy Policy](https://rudel.ai/privacy-policy) before enabling uploads for yourself or your team.
-
-We also use limited product analytics on the hosted service to understand whether core workflows work, diagnose failures, and improve the product. This is explicit event tracking for account and authentication flows, CLI login and enable flows, session upload outcomes, dashboard views and interactions, organization management actions, and a small set of utility interactions such as theme toggle or sidebar collapse.
-
-This product analytics layer is intentionally limited. It does not enable blanket click autocapture, session replay, or surveys by default. It is designed to capture product events and operational context like page name, action name, date range, normalized error codes, and organization or user identifiers where needed. It should not include raw transcript content, source code, prompts, tool output, command output, or file contents from your sessions. By using the hosted app, you agree to this limited analytics processing as part of the service.
 
 ## Development
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for local setup, development commands, and PR guidelines.
+Install dependencies:
 
-For self-hosting your own instance, see [docs/self-hosting.md](docs/self-hosting.md).
+```bash
+bun install
+```
 
-## Security
+Run the active API:
 
-To report a vulnerability, see [SECURITY.md](SECURITY.md). Do not open public issues for security concerns.
+```bash
+bun run --cwd apps/api dev
+```
 
-## License
+Run checks:
 
-[MIT](LICENSE)
+```bash
+bun run lint
+bun run check-types
+bun run test
+bun run build
+```
+
+The archived web app should not be imported from active code. Future desktop work should extract reusable pieces into packages before use.

@@ -1,49 +1,8 @@
-# Wrapped Layout Rules
+# Workspace Instructions
 
-These instructions apply only to the `apps/web/src/features/wrapped/*` route and supporting files that shape its layout.
+The old wrapped web route has been archived under `_archive/web` and is not part of the active product surface.
 
-This document is intentionally limited to layout. It does not define copy, motion, analytics, or visual tone.
-
-## Scope
-
-- Apply these rules only when editing the wrapped story deck layout.
-- Do not treat these rules as global guidance for auth, dashboard, or non-wrapped routes.
-
-## Core Layout Model
-
-- Design the wrapped route as a full-screen mobile story first.
-- Size the route with safe viewport units like `100svh`; do not use `100vh` or `min-h-screen` for the primary wrapped shell.
-- Respect safe areas with `env(safe-area-inset-top/right/bottom/left)` padding on the route shell.
-- Keep the story as a single focused stage on phone. Do not center a desktop card inside a phone viewport.
-- Prefer one screen per step before allowing internal scrolling.
-- Keep primary navigation reachable near the bottom safe area on phone-sized layouts.
-
-## Phone Layout
-
-- Use width-based gutters instead of edge-to-edge content.
-- Treat `16px` horizontal inset and `12px` vertical inset as the minimum baseline before safe-area adjustments.
-- Keep narrative copy in a readable measure; avoid full-width paragraphs.
-- Keep all interactive controls at `44px` minimum hit area, including progress indicators.
-- If the visible progress marker is smaller than `44px`, wrap it in a larger tap target.
-- Avoid splitting essential navigation between distant top and bottom regions unless both areas remain comfortably reachable.
-
-## Tablet Layout
-
-- Treat tablet as `iPadOS`, not as a scaled phone.
-- Adapt by available width, not by device name. The layout must still work in split view and other constrained window sizes.
-- Allow a richer stage on larger widths, but keep story content centered and readable.
-- Do not let long-form text or metric rows stretch across the full tablet width.
-- Expand composition only when the container width supports it; collapse cleanly back to a single-column story stage when space narrows.
-
-## Structure Rules
-
-- Keep the wrapped route resilient to narrow, tall, and resized viewports.
-- Avoid `overflow: hidden` on the overall route when it would block fallback scrolling for larger text.
-- Prefer container-based layout decisions over screen-class assumptions.
-- Keep the number of visible page indicators manageable; if the deck grows too long, split it into chapters or reduce visible steps.
-
-## Verification
-
-- Run `bun run lint:wrapped:hig` after layout changes.
-- End every wrapped layout task by running `bun run lint:wrapped:hig`.
-- A layout change is not complete until the wrapped route passes the Apple HIG audit.
+- Do not import from `_archive/web` in active code.
+- Treat `_archive/web` as reference material only.
+- If a future task needs reusable web primitives, extract them into active packages first.
+- The previous wrapped layout rules apply only when intentionally inspecting or restoring archived wrapped code.

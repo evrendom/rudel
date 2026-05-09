@@ -5,7 +5,6 @@ WORKDIR /app
 COPY package.json bun.lock ./
 COPY apps/api/package.json apps/api/package.json
 COPY apps/cli/package.json apps/cli/package.json
-COPY apps/web/package.json apps/web/package.json
 COPY packages/agent-adapters/package.json packages/agent-adapters/package.json
 COPY packages/api-routes/package.json packages/api-routes/package.json
 COPY packages/ch-schema/package.json packages/ch-schema/package.json
@@ -17,19 +16,6 @@ RUN bun install --frozen-lockfile
 COPY apps/ apps/
 COPY packages/ packages/
 COPY turbo.json turbo.json
-
-# Chatwoot config is baked into the frontend at build time via Vite
-ARG VITE_CHATWOOT_BASE_URL=""
-ARG VITE_CHATWOOT_WEBSITE_TOKEN=""
-ARG VITE_CHATWOOT_ENABLED="true"
-ARG VITE_POSTHOG_KEY=""
-ARG VITE_POSTHOG_HOST="https://us.i.posthog.com"
-ARG VITE_POSTHOG_ENABLED="false"
-ARG VITE_ADMIN_ORGANIZATION_ID=""
-
-# Build web app and place output where the API serves static files
-RUN bun run --cwd apps/web build
-RUN cp -r apps/web/dist/ apps/api/public/
 
 EXPOSE 3000
 ENV PORT=3000
