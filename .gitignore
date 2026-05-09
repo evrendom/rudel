@@ -8,6 +8,8 @@ dist/
 build/
 out/
 .next/
+target/
+apps/desktop-tauri/src-tauri/gen/
 
 # Environment variables
 .env
