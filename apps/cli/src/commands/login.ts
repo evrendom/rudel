@@ -13,7 +13,7 @@ import {
 	shouldDisableCliPersonProfile,
 } from "../lib/product-analytics.js";
 
-const PRODUCTION_APP_URL = "https://app.rudel.ai";
+const DEFAULT_APP_URL = "http://localhost:4010";
 const DEVICE_CLIENT_ID = "rudel-cli";
 const POLL_SAFETY_TIMEOUT_MS = 120_000;
 
@@ -39,7 +39,7 @@ type ApiKeyCreateResponse = {
 };
 
 export function getDefaultApiBase() {
-	return process.env.RUDEL_API_BASE ?? PRODUCTION_APP_URL;
+	return process.env.RUDEL_API_BASE ?? DEFAULT_APP_URL;
 }
 
 async function sleep(ms: number): Promise<void> {

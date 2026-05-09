@@ -31,7 +31,7 @@ async function runSetOrg(): Promise<void> {
 
 	if (orgs.length === 0) {
 		p.log.error("No organizations found.");
-		p.outro("Create one at app.rudel.ai first.");
+		p.outro("Create one in the desktop app first.");
 		process.exitCode = 1;
 		return;
 	}

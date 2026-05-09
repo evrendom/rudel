@@ -173,7 +173,7 @@ function parseArray<T>(
 
 // ── Constants ───────────────────────────────────────────────────────
 
-const TEST_EMAIL = "analytics-test@rudel.ai";
+const TEST_EMAIL = "analytics-test@rudel.local";
 const TEST_PASSWORD = "analytics-test-password-42";
 const START_DATE = "2026-02-01";
 const END_DATE = "2026-03-15";

@@ -1,6 +1,5 @@
 {
 	"name": "@rudel/typescript-config",
 	"version": "0.0.0",
-	"private": true,
-	"license": "MIT"
+	"private": true
 }

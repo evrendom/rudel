@@ -6,6 +6,6 @@ export const devRouteMap = buildRouteMap({
 		"list-sessions": listSessionsCommand,
 	},
 	docs: {
-		brief: "Development utilities (not available in published builds)",
+		brief: "Development utilities for internal CLI work",
 	},
 });

@@ -32,26 +32,18 @@ jobs:
 
 Secrets must exist in repository settings → Secrets → Actions first.
 
-### 3. Frontend `VITE_*` Variables (Dockerfile + CI Deploy)
+### 3. Client `VITE_*` Variables
 
-Frontend variables prefixed with `VITE_` are baked into the web app at build time by Vite. They must be declared in **two places**:
-
-**A) `Dockerfile`** — Add an `ARG` declaration so Docker receives the value:
-
-```dockerfile
-ARG VITE_ADMIN_ORGANIZATION_ID=""
-```
-
-**B) `.github/workflows/ci.yml` deploy step** — Pass the value as a `--build-arg`:
+Client variables prefixed with `VITE_` are baked into the app at build time by Vite. They must be present in the CI job that runs the build:
 
 ```yaml
-- name: Deploy
-  run: |
-    flyctl deploy --remote-only \
-      --build-arg "VITE_ADMIN_ORGANIZATION_ID=${{ secrets.VITE_ADMIN_ORGANIZATION_ID }}"
+jobs:
+  verify:
+    env:
+      VITE_ADMIN_ORGANIZATION_ID: ${{ secrets.VITE_ADMIN_ORGANIZATION_ID }}
 ```
 
-If either is missing, the variable will be empty in the deployed frontend.
+If the value is missing from the build environment, Vite will bake an empty value into the app.
 
 ### 4. Package-Specific turbo.json
 
@@ -73,7 +65,7 @@ If either is missing, the variable will be empty in the deployed frontend.
 - [ ] Add to Doppler for all environments
 - [ ] Add to GitHub Secrets (if used in CI)
 - [ ] Add to `.github/workflows/ci.yml` (if used in CI)
-- [ ] If `VITE_*`: Add `ARG` in `Dockerfile` and `--build-arg` in CI deploy step
+- [ ] If `VITE_*`: Add it to the CI job that runs the Vite build
 - [ ] Add to package-specific `turbo.json` → `passThroughEnv`
 - [ ] Validate tests pass locally and in CI
 
@@ -88,4 +80,4 @@ Check in order:
 ## Common Mistakes
 
 ❌ Adding to root `turbo.json` instead of package-specific
-❌ Adding a `VITE_*` var to CI deploy `--build-arg` but not as `ARG` in Dockerfile (or vice versa)
+❌ Adding a `VITE_*` var to local Doppler only and forgetting the CI build job

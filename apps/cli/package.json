@@ -4,25 +4,10 @@
 	"private": true,
 	"type": "module",
 	"description": "Dormant internal CLI tooling for Rudel Desktop.",
-	"license": "UNLICENSED",
-	"keywords": [
-		"rudel",
-		"skills",
-		"blueprints",
-		"internal"
-	],
-	"bin": {
-		"rudel": "./dist/cli.js"
-	},
-	"files": [
-		"dist",
-		"README.md"
-	],
 	"scripts": {
 		"dev": "bun run src/bin/cli.ts",
 		"check-types": "tsc --noEmit",
 		"build": "bun build src/bin/cli.ts --outdir dist --target node",
-		"prepack": "bun run build",
 		"test": "bun test"
 	},
 	"dependencies": {

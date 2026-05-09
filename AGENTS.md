@@ -21,7 +21,7 @@ Build the product around:
 - lockfile-backed drift detection
 - safe update plans with diffs and undo
 
-Keep company brain, marketplace, observability, and session intelligence work outside the MLP until explicitly requested.
+Keep company brain, skill catalog, observability, and session intelligence work outside the MLP until explicitly requested.
 
 ## Active Architecture
 
@@ -192,14 +192,14 @@ Preserve modified local files unless the user explicitly approves an overwrite.
 
 Keep these outside the MLP until explicitly requested:
 
-- hosted web product
+- hosted product
 - self-hosting
-- public docs
+- external docs
 - generic company brain
 - Slack/meeting ingestion
 - session intelligence
 - ClickHouse ingestion
-- marketplace
+- skill catalog
 - full visual canvas editor
 - complex enterprise admin
 - user-facing CLI as primary UX

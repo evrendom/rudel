@@ -1,7 +1,6 @@
 {
 	"name": "rudel-desktop",
 	"private": true,
-	"license": "UNLICENSED",
 	"scripts": {
 		"build": "turbo run build",
 		"build:desktop": "turbo run build --filter=@rudel/desktop-tauri",

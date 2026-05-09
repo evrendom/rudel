@@ -103,9 +103,9 @@ describe("wrapped share page metadata", () => {
 	test("injects crawler-visible X and OG card tags into index HTML", () => {
 		const metadata = buildWrappedSharePageMetadata({
 			imageUrl:
-				"https://app.rudel.ai/wrapped/11111111-1111-4111-8111-111111111111/x-card.png",
+				"http://localhost:5173/wrapped/11111111-1111-4111-8111-111111111111/x-card.png",
 			publicUrl:
-				"https://app.rudel.ai/wrapped/11111111-1111-4111-8111-111111111111",
+				"http://localhost:5173/wrapped/11111111-1111-4111-8111-111111111111",
 			share: sampleShare,
 		});
 		const html = injectWrappedSharePageMetadata(
@@ -126,7 +126,7 @@ describe("wrapped share page metadata", () => {
 		);
 		expect(html).toContain('name="twitter:card" content="summary_large_image"');
 		expect(html).toContain(
-			'name="twitter:image" content="https://app.rudel.ai/wrapped/11111111-1111-4111-8111-111111111111/x-card.png"',
+			'name="twitter:image" content="http://localhost:5173/wrapped/11111111-1111-4111-8111-111111111111/x-card.png"',
 		);
 		expect(html).toContain("Evren &lt;Dombak&gt; is a Maniac.");
 	});
@@ -134,7 +134,7 @@ describe("wrapped share page metadata", () => {
 	test("omits social image tags when no captured share image exists", () => {
 		const metadata = buildWrappedSharePageMetadata({
 			publicUrl:
-				"https://app.rudel.ai/wrapped/11111111-1111-4111-8111-111111111111",
+				"http://localhost:5173/wrapped/11111111-1111-4111-8111-111111111111",
 			share: sampleShare,
 		});
 		const html = injectWrappedSharePageMetadata(

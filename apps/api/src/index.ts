@@ -180,7 +180,7 @@ const server = Bun.serve({
 
 		const url = new URL(request.url);
 
-		// Health check for Fly.io (must be GET-accessible)
+		// Health check for local and private runtime probes.
 		if (url.pathname === "/health") {
 			return Response.json({ status: "ok", timestamp: Date.now() });
 		}

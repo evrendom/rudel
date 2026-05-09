@@ -12,10 +12,10 @@ afterEach(() => {
 });
 
 describe("login environment defaults", () => {
-	test("defaults to production when no local override is configured", () => {
+	test("defaults to the local API when no override is configured", () => {
 		delete process.env.RUDEL_API_BASE;
 
-		expect(getDefaultApiBase()).toBe("https://app.rudel.ai");
+		expect(getDefaultApiBase()).toBe("http://localhost:4010");
 	});
 
 	test("uses RUDEL_API_BASE for local device login", () => {

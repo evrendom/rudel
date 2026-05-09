@@ -21,7 +21,7 @@ Working on adding Codex session support (NUM-6870). After writing the MV integra
 
 ## Analysis
 
-Two contributing factors:
+Two causes:
 
 1. **The chkit skill doesn't instruct agents to run `chkit status` before reasoning about migration state.** The skill documents `chkit status` as a command but doesn't include guidance like "always check migration status via the CLI before advising on deployment steps" — it's just listed as a reference. The agent defaulted to reading local files (journal.json, migration directory) which give an incomplete picture.
 

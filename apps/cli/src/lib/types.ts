@@ -25,4 +25,4 @@ export interface UploadResult {
 	rateLimited?: boolean;
 }
 
-export const DEFAULT_ENDPOINT = "https://app.rudel.ai/rpc";
+export const DEFAULT_ENDPOINT = "http://localhost:4010/rpc";

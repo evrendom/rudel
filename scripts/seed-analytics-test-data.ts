@@ -6,7 +6,7 @@
  *
  * This script:
  * 1. Starts an API server (uses CI Postgres + ClickHouse from env)
- * 2. Signs up a dedicated test user (analytics-test@rudel.ai)
+ * 2. Signs up a dedicated test user (analytics-test@rudel.local)
  * 3. Reads 5 local session .jsonl files
  * 4. POSTs each to /rpc/ingestSession with a bearer token
  * 5. Polls session_analytics until all 5 rows are visible
@@ -16,7 +16,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { homedir } from "node:os";
 
-const TEST_EMAIL = "analytics-test@rudel.ai";
+const TEST_EMAIL = "analytics-test@rudel.local";
 const TEST_PASSWORD = "analytics-test-password-42";
 
 const SESSION_FILES = [

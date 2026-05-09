@@ -15,13 +15,13 @@ observed-workflows:
 
 Two distinct issues:
 
-1. A new `VITE_ADMIN_ORGANIZATION_ID` env var was added but not propagated to `.github/workflows/ci.yml`. The deploy job passes `VITE_*` vars as `--build-arg` to `flyctl deploy` — the new var needs to be added there too, or the production build won't have it.
+1. A new `VITE_ADMIN_ORGANIZATION_ID` env var was added but not propagated to `.github/workflows/ci.yml`. The deploy job passed `VITE_*` vars as build-time arguments, so the new var needed to be added there too.
 
 2. The `environment-variables` skill is listed as available and explicitly says "CRITICAL use when adding new environment variables" — but it was never invoked during this conversation despite adding a new env var. The skill likely contains guidance about updating CI workflows when adding env vars, which would have caught this.
 
 ## Context
 
-Building admin panel for Rudel (NUM-6934). After consolidating to a single `VITE_ADMIN_ORGANIZATION_ID` env var, the agent updated Doppler, the API middleware, and the frontend code — but did not check or update the CI/CD workflow file that passes VITE_ variables as build args to the Fly.io deployment.
+Building admin panel for Rudel (NUM-6934). After consolidating to a single `VITE_ADMIN_ORGANIZATION_ID` env var, the agent updated Doppler, the API middleware, and the frontend code, but did not check or update the CI workflow file that passed VITE_ variables as build args.
 
 ## Analysis
 
@@ -31,4 +31,4 @@ This is a `missing-check` issue. When adding a new environment variable — espe
 2. Checked `.github/workflows/ci.yml` to see how existing `VITE_*` vars are handled
 3. Added the new var to the deploy job's `--build-arg` list
 
-The CI workflow has a clear pattern: all `VITE_*` vars are passed as `--build-arg` flags to `flyctl deploy`. The agent never inspected this file despite adding a build-time env var. The environment-variables skill exists precisely to prevent this class of oversight.
+The CI workflow had a clear pattern: all `VITE_*` vars were passed as build-time arguments. The agent never inspected this file despite adding a build-time env var. The environment-variables skill exists precisely to prevent this class of oversight.

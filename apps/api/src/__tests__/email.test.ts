@@ -11,7 +11,7 @@ import {
 } from "../email.js";
 
 const invitation = {
-	frontendURL: "https://app.rudel.ai/",
+	frontendURL: "http://localhost:5173/",
 	invitationId: "invite_123",
 	inviteeEmail: "person@example.com",
 	inviterName: 'Alice <script>alert("x")</script>\nDoe',
@@ -20,25 +20,25 @@ const invitation = {
 
 describe("email helpers", () => {
 	test("buildInvitationLink trims trailing slashes", () => {
-		expect(buildInvitationLink("https://app.rudel.ai/", "invite_123")).toBe(
-			"https://app.rudel.ai/invitation/invite_123",
+		expect(buildInvitationLink("http://localhost:5173/", "invite_123")).toBe(
+			"http://localhost:5173/invitation/invite_123",
 		);
 	});
 
 	test("buildWrappedDesktopResumeLink trims trailing slashes", () => {
 		expect(
 			buildWrappedDesktopResumeLink(
-				"https://app.rudel.ai/",
+				"http://localhost:5173/",
 				"123e4567-e89b-12d3-a456-426614174000",
 			),
-		).toBe("https://app.rudel.ai/resume/123e4567-e89b-12d3-a456-426614174000");
+		).toBe("http://localhost:5173/resume/123e4567-e89b-12d3-a456-426614174000");
 	});
 
 	test("buildInvitationEmailContent escapes user-controlled HTML", () => {
 		const message = buildInvitationEmailContent(invitation);
 
 		expect(message.inviteLink).toBe(
-			"https://app.rudel.ai/invitation/invite_123",
+			"http://localhost:5173/invitation/invite_123",
 		);
 		expect(message.subject).toBe(
 			'Alice <script>alert("x")</script> Doe invited you to Team & "Co" on Rudel',
