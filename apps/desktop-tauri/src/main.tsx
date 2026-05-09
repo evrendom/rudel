@@ -1,4 +1,6 @@
 import { RudelDesktopApp } from "@rudel/desktop-ui";
+import { StrictMode } from "react";
+import { createRoot } from "react-dom/client";
 import { tauriLocalEngine } from "./tauri-local-engine.js";
 
 export const desktopShellScope = {
@@ -7,9 +9,14 @@ export const desktopShellScope = {
 	rule: "Tauri is the first shell, not the architecture.",
 } as const;
 
-if (import.meta.main) {
-	const app = RudelDesktopApp({ localEngine: tauriLocalEngine });
-	console.log("Rudel Tauri shell scaffold ready.");
-	console.log(desktopShellScope.rule);
-	console.log(app.product);
+const rootElement = document.getElementById("root");
+
+if (!rootElement) {
+	throw new Error("Rudel Desktop root element was not found.");
 }
+
+createRoot(rootElement).render(
+	<StrictMode>
+		<RudelDesktopApp localEngine={tauriLocalEngine} />
+	</StrictMode>,
+);

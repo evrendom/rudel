@@ -4,11 +4,20 @@
 		<meta charset="UTF-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 		<title>Rudel Desktop</title>
+		<style>
+			html,
+			body,
+			#root {
+				min-height: 100%;
+			}
+
+			body {
+				margin: 0;
+			}
+		</style>
 	</head>
 	<body>
-		<main>
-			<h1>Rudel Desktop</h1>
-			<p>Local engine bridge ready.</p>
-		</main>
+		<div id="root"></div>
+		<script type="module" src="/assets/main.js"></script>
 	</body>
 </html>

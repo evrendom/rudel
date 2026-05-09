@@ -12,10 +12,14 @@
 		"test": "bun test"
 	},
 	"dependencies": {
-		"@rudel/skill-schema": "workspace:*"
+		"@rudel/skill-schema": "workspace:*",
+		"react": "19.2.5",
+		"react-dom": "19.2.5"
 	},
 	"devDependencies": {
 		"@rudel/typescript-config": "workspace:*",
+		"@types/react": "19.2.14",
+		"@types/react-dom": "19.2.3",
 		"bun-types": "latest",
 		"typescript": "5.9.2"
 	}

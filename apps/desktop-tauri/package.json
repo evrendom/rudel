@@ -4,18 +4,22 @@
 	"private": true,
 	"type": "module",
 	"scripts": {
-		"dev": "bun run src/main.tsx",
-		"build": "bun build src/main.tsx --outdir dist --target bun",
+		"dev": "bun run src/dev-server.ts",
+		"build": "bun run src/build.ts",
 		"check-types": "tsc --noEmit"
 	},
 	"dependencies": {
 		"@rudel/desktop-ui": "workspace:*",
 		"@rudel/skill-schema": "workspace:*",
-		"@tauri-apps/api": "^2.9.0"
+		"@tauri-apps/api": "^2.9.0",
+		"react": "19.2.5",
+		"react-dom": "19.2.5"
 	},
 	"devDependencies": {
-		"@tauri-apps/cli": "^2.9.0",
 		"@rudel/typescript-config": "workspace:*",
+		"@tauri-apps/cli": "^2.9.0",
+		"@types/react": "19.2.14",
+		"@types/react-dom": "19.2.3",
 		"bun-types": "latest",
 		"typescript": "5.9.2"
 	}

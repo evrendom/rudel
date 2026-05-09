@@ -4,7 +4,7 @@
 	"version": "0.0.0",
 	"identifier": "com.rudel.desktop",
 	"build": {
-		"frontendDist": "../static"
+		"frontendDist": "../dist"
 	},
 	"app": {
 		"windows": [
