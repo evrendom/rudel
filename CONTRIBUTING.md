@@ -16,7 +16,6 @@ Rudel Desktop is a desktop-first product for keeping agent skills componentized,
 ## Parked for later
 
 - ClickHouse
-- Docker Compose
 - self-hosting
 - hosted web app
 - public CLI install

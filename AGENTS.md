@@ -194,7 +194,6 @@ Keep these outside the MLP until explicitly requested:
 
 - hosted web product
 - self-hosting
-- Docker local infra
 - public docs
 - generic company brain
 - Slack/meeting ingestion

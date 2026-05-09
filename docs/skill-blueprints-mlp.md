@@ -48,7 +48,6 @@ Tauri is the first shell, not the architecture. Product UI receives a `LocalEngi
 
 - hosted web product
 - self-hosting
-- Docker local infra
 - public marketplace
 - generic company brain
 - Slack/meeting ingestion
