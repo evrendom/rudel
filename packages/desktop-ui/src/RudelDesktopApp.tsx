@@ -416,7 +416,6 @@ function RepositoryCard(props: RepositoryCardProps): ReactElement {
 					<div style={styles.repoTitle}>{row.displayName}</div>
 					<div style={styles.repoIdentity}>{row.identity}</div>
 				</div>
-				<span style={statePillStyle(row.state)}>{row.state}</span>
 			</div>
 
 			<dl style={styles.repoFacts}>
@@ -460,11 +459,6 @@ function repositoryMetrics(
 			label: "Worktrees",
 			value: overview.worktreeCount.toString(),
 			tone: "neutral",
-		},
-		{
-			label: "Dirty",
-			value: overview.dirtyCount.toString(),
-			tone: overview.dirtyCount > 0 ? "warn" : "neutral",
 		},
 		{
 			label: "Warnings",
@@ -589,13 +583,6 @@ function metricValueStyle(tone: GalleryMetric["tone"]): CSSProperties {
 	return {
 		...styles.metricValue,
 		...palette[tone],
-	};
-}
-
-function statePillStyle(state: RepoOverviewRow["state"]): CSSProperties {
-	return {
-		...styles.statePill,
-		...(state === "dirty" ? styles.stateDirty : styles.stateClean),
 	};
 }
 
@@ -883,24 +870,6 @@ const styles = {
 		overflow: "hidden",
 		textOverflow: "ellipsis",
 		whiteSpace: "nowrap",
-	} satisfies CSSProperties,
-	statePill: {
-		minHeight: 26,
-		borderRadius: 8,
-		display: "inline-flex",
-		alignItems: "center",
-		padding: "0 8px",
-		fontSize: 11,
-		fontWeight: 750,
-		flex: "0 0 auto",
-	} satisfies CSSProperties,
-	stateClean: {
-		background: "#e4f3e7",
-		color: "#1d6630",
-	} satisfies CSSProperties,
-	stateDirty: {
-		background: "#fff1c4",
-		color: "#7a5200",
 	} satisfies CSSProperties,
 	repoFacts: {
 		margin: 0,

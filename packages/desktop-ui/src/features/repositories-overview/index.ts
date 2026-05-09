@@ -13,14 +13,12 @@ export type RepoOverviewRow = {
 	identity: string;
 	worktreeCount: number;
 	branchName: string;
-	state: "clean" | "dirty";
 };
 
 export type RepositoriesOverview = {
 	rows: RepoOverviewRow[];
 	repoCount: number;
 	worktreeCount: number;
-	dirtyCount: number;
 	warningCount: number;
 };
 
@@ -41,7 +39,6 @@ export function buildRepositoriesOverview(
 		rows,
 		repoCount: repoGroups.length,
 		worktreeCount: repos.length,
-		dirtyCount: repos.filter((repo) => repo.isDirty).length,
 		warningCount: scanResult?.warnings.length ?? 0,
 	};
 }
@@ -68,7 +65,6 @@ function buildRepoOverviewRow(
 		identity: identityForRepo(repo),
 		worktreeCount,
 		branchName: repo.branchName ?? repo.headSha?.slice(0, 7) ?? "unknown",
-		state: repo.isDirty ? "dirty" : "clean",
 	};
 }
 
@@ -100,10 +96,9 @@ function chooseDefaultRepo(repos: readonly CodeRepo[]): CodeRepo {
 }
 
 function defaultRepoScore(repo: CodeRepo): number {
-	if (!repo.isDirty && repo.branchName === "main") return 0;
-	if (!repo.isDirty && repo.branchName === "master") return 1;
-	if (!repo.isDirty) return 2;
-	return 3;
+	if (repo.branchName === "main") return 0;
+	if (repo.branchName === "master") return 1;
+	return 2;
 }
 
 function shouldBreakOutWorktree(
@@ -112,7 +107,6 @@ function shouldBreakOutWorktree(
 ): boolean {
 	if (repo.repoRootPath === defaultRepo.repoRootPath) return false;
 	return (
-		repo.isDirty ||
 		repo.branchName !== defaultRepo.branchName ||
 		repo.headSha !== defaultRepo.headSha
 	);

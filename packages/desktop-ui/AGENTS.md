@@ -4,7 +4,14 @@ This package owns Rudel's product UI and product UI state.
 
 TypeScript owns drift classification; Rust owns local mechanics.
 
-It owns:
+Current UI owns:
+
+- repo gallery
+- scan-root selection
+- repository overview grouping and presentation
+- local scan status
+
+Later UI hydration owns:
 
 - blueprint library
 - blueprint editor
