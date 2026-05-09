@@ -1,34 +1,32 @@
 # Security Policy
 
-## Supported Versions
+## Supported Version
 
-| Version | Supported |
-|---------|-----------|
-| Latest  | Yes       |
-
-Only the latest released version receives security updates.
+This is a private product repository. The active `main` branch is the supported version.
 
 ## Reporting a Vulnerability
 
-**Do not open a public GitHub issue for security vulnerabilities.**
+Do not open a public issue for security vulnerabilities.
 
-Instead, please report vulnerabilities privately via [GitHub Security Advisories](https://github.com/obsessiondb/rudel/security/advisories/new).
+Report vulnerabilities privately through GitHub Security Advisories for the private repository:
+
+https://github.com/evrendom/nua/security/advisories/new
 
 Include:
 
-- Description of the vulnerability
-- Steps to reproduce
-- Potential impact
-- Suggested fix (if any)
-
-## Response
-
-We aim to acknowledge reports within 48 hours and provide a fix or mitigation plan within 7 days for confirmed vulnerabilities.
+- description of the vulnerability
+- steps to reproduce
+- potential impact
+- suggested fix, if known
 
 ## Scope
 
-This policy covers the Rudel platform:
+This policy covers the active Rudel Desktop Skill Blueprint product:
 
-- API server (`apps/api`)
-- CLI tool (`apps/cli`, published as `rudel` on npm)
-- Web application (`apps/web`)
+- `apps/desktop`
+- `apps/api`
+- `packages/skill-schema`
+- `packages/skill-compiler`
+- Rust local authority crates under `crates/`
+
+Dormant ClickHouse, CLI, and transcript/session code remains in scope for security if touched, but it is not part of the v1 MLP runtime.

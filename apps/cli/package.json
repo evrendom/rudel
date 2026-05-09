@@ -1,27 +1,16 @@
 {
 	"name": "rudel",
-	"version": "0.1.14",
+	"version": "0.0.0",
+	"private": true,
 	"type": "module",
-	"description": "CLI for the Coding Agent Analytics Platform rudel.ai",
-	"license": "MIT",
-	"homepage": "https://app.rudel.ai",
-	"repository": {
-		"type": "git",
-		"url": "https://github.com/obsessiondb/rudel.git",
-		"directory": "apps/cli"
-	},
-	"bugs": {
-		"url": "https://github.com/obsessiondb/rudel/issues"
-	},
+	"description": "Dormant internal CLI tooling for Rudel Desktop.",
+	"license": "UNLICENSED",
 	"keywords": [
-		"claude",
-		"claude-code",
-		"analytics",
-		"session",
-		"transcript",
-		"coding-agent"
+		"rudel",
+		"skills",
+		"blueprints",
+		"internal"
 	],
-	"author": "ObsessionDB",
 	"bin": {
 		"rudel": "./dist/cli.js"
 	},

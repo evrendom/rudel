@@ -3,10 +3,10 @@
 	"ui": "tui",
 	"globalPassThroughEnv": [
 		"PG_CONNECTION_STRING",
-		"CLICKHOUSE_URL",
-		"CLICKHOUSE_USERNAME",
-		"CLICKHOUSE_PASSWORD",
-		"CLICKHOUSE_DB"
+		"BETTER_AUTH_SECRET",
+		"APP_URL",
+		"ALLOWED_ORIGIN",
+		"TRUSTED_ORIGINS"
 	],
 	"tasks": {
 		"build": {

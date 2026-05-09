@@ -1,45 +1,48 @@
-# Rudel
+# Rudel Desktop
 
-Rudel is being reshaped into a private desktop-first product for Skill Blueprints: one canonical source of truth for team agent skills, repo-specific overlays, compiled local outputs, and drift detection.
+Rudel Desktop is a private desktop-first product for managing team agent skills as canonical blueprints.
 
-The old hosted web dashboard has been archived under `_archive/web` for reference only. It is no longer part of the active Bun workspace, build, Docker image, or CI path.
+The current product focus is Skill Blueprints:
 
-## Active Workspace
+> One source of truth for a skill. Many repo/agent-specific outputs. No drift.
 
-```txt
-apps/
-  api/      Bun API server
-  cli/      Temporary internal CLI/reference tooling
+## Current MLP
 
-packages/
-  api-routes/
-  agent-adapters/
-  ch-schema/
-  sql-schema/
-  typescript-config/
-```
+Rudel helps teams solve:
 
-## Development
+- componentized skills
+- inheritance through blueprints and overlays
+- composition through reusable modules
+- Claude / Codex / Cursor output sync
+- repo/toolchain-specific skill variants
+- skill drift across repos
+- safe local file updates with diffs and undo
 
-Install dependencies:
+## Active architecture
 
-```bash
-bun install
-```
+- `apps/desktop`: Tauri + React desktop app
+- `apps/api`: Bun API for team blueprints and sync
+- `packages/api-routes`: typed cloud API contracts
+- `packages/sql-schema`: Postgres schema
+- `packages/skill-schema`: shared skill blueprint schema
+- `packages/skill-compiler`: deterministic agent-output compiler
+- `crates/rudel-local`: local scan, drift, write planning, and sync
+- `crates/rudel-fs`: safe filesystem operations
+- `crates/rudel-git`: git status and diff helpers
 
-Run the active API:
+## Dormant future infrastructure
 
-```bash
-bun run --cwd apps/api dev
-```
+- `packages/ch-schema`: future ClickHouse transcript/session pipeline
+- `apps/cli`: future automation / CI / hook helper reference
+- `packages/agent-adapters`: future transcript adapter reference
 
-Run checks:
+## Reference only
 
-```bash
-bun run lint
-bun run check-types
-bun run test
-bun run build
-```
+- `_archive/web`: old web dashboard reference. Do not import from it.
 
-The archived web app should not be imported from active code. Future desktop work should extract reusable pieces into packages before use.
+## Product rule
+
+Desktop edits skills.
+Rust writes files.
+Cloud syncs teams.
+ClickHouse understands paid sessions later.

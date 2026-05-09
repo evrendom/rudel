@@ -1,62 +1,47 @@
-# Contributing to Rudel
+# Contributing
 
-This repo is in a private desktop-first transition. The old hosted dashboard is archived in `_archive/web` and is not an active app.
+This is a private repo for Rudel Desktop: Skill Blueprints.
 
-## Prerequisites
+## Active product
 
-- [Bun](https://bun.sh) 1.3+
-- Access to the required API/database environment variables for API work
+Rudel Desktop is a desktop-first product for keeping agent skills componentized, inherited, composed, compiled, and synced across repos and coding agents.
 
-## Setup
+## Required for v1 development
+
+- Bun
+- Rust
+- Tauri prerequisites
+- Postgres connection for API development
+
+## Not required for v1
+
+- ClickHouse
+- Docker Compose
+- self-hosting
+- hosted web app
+- public CLI install
+
+## Common commands
 
 ```bash
 bun install
+bun run dev:desktop
+bun run dev:api
+bun run verify:mlp
 ```
 
-Run the API directly when working on active backend code:
+## Architecture rule
 
-```bash
-bun run --cwd apps/api dev
-```
+Desktop edits skills.
+Rust writes files.
+Cloud syncs teams.
+ClickHouse understands paid sessions later.
 
-## Development Commands
+## Pull request rules
 
-```bash
-bun run lint          # Run Biome checks
-bun run lint:fix      # Auto-fix Biome issues
-bun run format        # Format code with Biome
-bun run check-types   # TypeScript type checking
-bun run test          # Run tests
-bun run build         # Build active workspaces
-```
-
-## Before Submitting a PR
-
-Run the relevant checks for the files you changed. For broad changes, run:
-
-```bash
-bun run lint
-bun run check-types
-bun run test
-bun run build
-```
-
-## Project Structure
-
-```txt
-apps/
-  api/          HTTP API server
-  cli/          Temporary internal CLI/reference tooling
-
-packages/
-  agent-adapters/      Agent transcript adapters
-  api-routes/          Shared RPC contract
-  ch-schema/           ClickHouse schemas, migrations, codegen
-  sql-schema/          Drizzle ORM schema for Postgres
-  typescript-config/   Shared tsconfig bases
-
-_archive/
-  web/          Archived hosted dashboard and wrapped route reference
-```
-
-Do not import from `_archive/web` in active code. Extract reusable pieces into packages first.
+- Do not import from `_archive/web`
+- Do not require ClickHouse env vars for v1
+- Do not initialize ClickHouse in API startup
+- Do not add local session processing
+- Do not make CLI the primary product UX
+- Managed local file writes must go through Rust write plans

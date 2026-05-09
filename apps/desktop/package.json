@@ -1,0 +1,16 @@
+{
+	"name": "@rudel/desktop",
+	"version": "0.0.0",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"dev": "bun run src/scaffold.ts",
+		"build": "bun build src/scaffold.ts --outdir dist --target bun",
+		"check-types": "tsc --noEmit"
+	},
+	"devDependencies": {
+		"@rudel/typescript-config": "workspace:*",
+		"bun-types": "latest",
+		"typescript": "5.9.2"
+	}
+}
