@@ -1,6 +1,6 @@
-# Rust Crates Scope
+# Rust Scope
 
-Rust owns local authority.
+`crates/rudel-local` owns local authority for the MLP.
 
 Rust responsibilities:
 
@@ -14,7 +14,10 @@ Rust responsibilities:
 - atomic writes
 - undo records
 - git status/diff
+- local SQLite
 
 Keep product semantics, visual editor logic, and skill compiler semantics in TypeScript unless a specific task moves that boundary.
 
 TypeScript decides what generated artifacts should be produced. Rust decides whether and how they are safely written.
+
+Keep this as one crate until implementation pressure makes a smaller boundary useful.

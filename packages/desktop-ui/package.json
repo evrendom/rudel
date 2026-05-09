@@ -1,12 +1,17 @@
 {
-	"name": "@rudel/desktop",
+	"name": "@rudel/desktop-ui",
 	"version": "0.0.0",
 	"private": true,
 	"type": "module",
+	"exports": {
+		".": "./src/index.ts"
+	},
 	"scripts": {
-		"dev": "bun run src/scaffold.ts",
-		"build": "bun build src/scaffold.ts --outdir dist --target bun",
+		"build": "tsc --noEmit",
 		"check-types": "tsc --noEmit"
+	},
+	"dependencies": {
+		"@rudel/skill-schema": "workspace:*"
 	},
 	"devDependencies": {
 		"@rudel/typescript-config": "workspace:*",

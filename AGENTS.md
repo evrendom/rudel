@@ -27,17 +27,14 @@ Keep company brain, marketplace, observability, and session intelligence work ou
 
 Active product surfaces:
 
-- `apps/desktop`: Tauri + React desktop app
+- `apps/desktop-tauri`: thin Tauri shell, bootstrap, command bridge, and invoke adapter
+- `packages/desktop-ui`: product UI, product screens, and local engine port
 - `apps/api`: Bun API for auth, teams, blueprints, modules, overlays, installs
 - `packages/api-routes`: typed cloud API contracts
 - `packages/sql-schema`: Postgres schema
 - `packages/skill-schema`: shared TypeScript/Zod schema for skill objects
 - `packages/skill-compiler`: pure compiler from blueprint + overlay + target to generated files
-- `packages/skill-renderer`: optional review/preview rendering
-- `crates/rudel-local`: local scan, drift, lockfile, write planning
-- `crates/rudel-fs`: atomic writes, watchers, undo, path safety
-- `crates/rudel-git`: git status and diff helpers
-- `crates/rudel-adapters`: local agent skill path discovery and target knowledge
+- `crates/rudel-local`: local scan, watch, hash, drift, lockfile, write plan, git diff, SQLite, safe writes, undo
 
 ## Parked Infrastructure
 
@@ -48,13 +45,13 @@ These areas stay in the repo as parked infrastructure for later paid surfaces:
 - `apps/cli`: future CI/automation/tooling reference
 - session ingestion code
 
-For the MLP, route runtime work through desktop, Rust local crates, Postgres, skill schema, and skill compiler packages.
+For the MLP, route runtime work through `apps/desktop-tauri`, `packages/desktop-ui`, `crates/rudel-local`, Postgres, skill schema, and skill compiler packages.
 
 ## Reference Library
 
 `_archive/web` is an archived dashboard reference library.
 
-Use it only as reviewed reference material. Extract useful UI pieces into active packages such as `packages/ui` before using them in product code.
+Use it only as reviewed reference material. Extract useful UI pieces into `packages/desktop-ui` or `packages/ui` before using them in product code.
 
 Build desktop UX from the Skill Blueprint workflow, local write planning, and drift management model.
 
@@ -70,6 +67,7 @@ ClickHouse understands paid sessions later.
 TypeScript owns:
 
 - visual editor
+- product UI shell-agnostic screens
 - skill schema
 - blueprint/module/overlay semantics
 - agent output compiler
@@ -81,6 +79,7 @@ Rust owns:
 - folder permissions
 - filesystem scanning
 - file watching
+- local SQLite
 - lockfile reads/writes
 - hashing and drift detection
 - install/update write plans
@@ -88,7 +87,21 @@ Rust owns:
 - undo records
 - git status/diff
 
-Route managed filesystem writes through Rust commands and write plans.
+Route managed filesystem writes through `crates/rudel-local` and Tauri commands.
+
+## Shell Boundary
+
+Tauri is the first shell, not the architecture.
+
+`apps/desktop-tauri` mounts:
+
+```tsx
+<RudelDesktopApp localEngine={tauriLocalEngine} />
+```
+
+Keep product UI and product logic in `packages/desktop-ui`.
+Keep local machine authority in `crates/rudel-local`.
+Keep Tauri-specific code in `apps/desktop-tauri`.
 
 ## Core Domain Model
 

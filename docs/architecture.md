@@ -13,16 +13,14 @@ ClickHouse understands paid sessions later.
 
 ## Active Surfaces
 
-- `apps/desktop`: Tauri + React desktop product UX
+- `apps/desktop-tauri`: thin Tauri shell, bootstrap, command bridge, and invoke adapter
+- `packages/desktop-ui`: product UI, product screens, and local engine port
 - `apps/api`: Bun API for auth, teams, blueprints, modules, overlays, installs, and sync
 - `packages/api-routes`: typed cloud API contracts
 - `packages/sql-schema`: Postgres schema
 - `packages/skill-schema`: shared TypeScript/Zod skill domain model
 - `packages/skill-compiler`: deterministic compiler from blueprint + overlay + target to generated artifacts
-- `crates/rudel-local`: local scan, drift, lockfile, write planning, and sync
-- `crates/rudel-fs`: path safety, atomic writes, undo, and watchers
-- `crates/rudel-git`: git status and diff helpers
-- `crates/rudel-adapters`: local agent skill path discovery and target knowledge
+- `crates/rudel-local`: scan, watch, hash, drift, lockfile, write plan, git diff, SQLite, safe writes, and undo
 
 ## Parked Infrastructure
 
@@ -30,17 +28,28 @@ ClickHouse understands paid sessions later.
 - `packages/agent-adapters`: transcript/session adapter reference
 - `apps/cli`: future internal automation and CI tooling
 
-These packages stay in the repo as parked infrastructure. The v1 runtime centers on desktop, API, skill schema, skill compiler, and Rust local authority.
+These packages stay in the repo as parked infrastructure. The v1 runtime centers on the Tauri shell, desktop UI package, API, skill schema, skill compiler, and one Rust local authority crate.
 
 ## Reference Library
 
-`_archive/web` contains an archived dashboard reference library. Use it for review and extraction decisions, then move useful pieces into active desktop or package code.
+`_archive/web` contains an archived dashboard reference library. Use it for review and extraction decisions, then move useful pieces into `packages/desktop-ui` or `packages/ui`.
+
+## Shell Boundary
+
+Tauri is the first shell, not the architecture.
+
+`apps/desktop-tauri` owns Tauri bootstrap, window config, Tauri commands, and the invoke adapter. It passes a local engine implementation into `packages/desktop-ui`.
+
+`packages/desktop-ui` owns the product UI. It receives local functions through the `LocalEngine` port and keeps product screens outside the shell.
+
+`crates/rudel-local` owns local authority and stays shell-agnostic.
 
 ## TypeScript Responsibilities
 
 TypeScript owns:
 
 - visual editor
+- product UI
 - skill schema
 - blueprint/module/overlay semantics
 - agent-target compiler

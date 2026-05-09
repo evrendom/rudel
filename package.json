@@ -4,10 +4,10 @@
 	"license": "UNLICENSED",
 	"scripts": {
 		"build": "turbo run build",
-		"build:desktop": "turbo run build --filter=@rudel/desktop",
+		"build:desktop": "turbo run build --filter=@rudel/desktop-tauri",
 		"build:api": "turbo run build --filter=@rudel/api",
-		"dev": "turbo run dev --filter=@rudel/desktop --filter=@rudel/api",
-		"dev:desktop": "turbo run dev --filter=@rudel/desktop",
+		"dev": "turbo run dev --filter=@rudel/desktop-tauri --filter=@rudel/api",
+		"dev:desktop": "turbo run dev --filter=@rudel/desktop-tauri",
 		"dev:api": "turbo run dev --filter=@rudel/api",
 		"lint": "biome check .",
 		"lint:fix": "biome check --write .",
@@ -15,7 +15,7 @@
 		"check-types": "turbo run check-types",
 		"test": "turbo run test",
 		"verify": "turbo run lint check-types test build",
-		"verify:mlp": "turbo run lint check-types test build --filter=@rudel/desktop --filter=@rudel/api --filter=@rudel/skill-schema --filter=@rudel/skill-compiler",
+		"verify:mlp": "turbo run lint check-types test build --filter=@rudel/desktop-tauri --filter=@rudel/desktop-ui --filter=@rudel/api --filter=@rudel/skill-schema --filter=@rudel/skill-compiler",
 		"chkit:link": "bun scripts/chkit-link.ts link",
 		"chkit:unlink": "bun scripts/chkit-link.ts unlink"
 	},

@@ -20,15 +20,14 @@ Rudel helps teams solve:
 
 ## Active architecture
 
-- `apps/desktop`: Tauri + React desktop app
+- `apps/desktop-tauri`: thin Tauri shell and invoke adapter
+- `packages/desktop-ui`: product UI, product screens, and local engine port
 - `apps/api`: Bun API for team blueprints and sync
 - `packages/api-routes`: typed cloud API contracts
 - `packages/sql-schema`: Postgres schema
 - `packages/skill-schema`: shared skill blueprint schema
 - `packages/skill-compiler`: deterministic agent-output compiler
-- `crates/rudel-local`: local scan, drift, write planning, and sync
-- `crates/rudel-fs`: safe filesystem operations
-- `crates/rudel-git`: git status and diff helpers
+- `crates/rudel-local`: local scan, drift, lockfile, write planning, safe writes, git diff, SQLite, and undo
 
 ## Parked Infrastructure
 
@@ -38,7 +37,7 @@ Rudel helps teams solve:
 
 ## Reference Library
 
-- `_archive/web`: archived dashboard reference. Extract reviewed pieces into active packages before product use.
+- `_archive/web`: archived dashboard reference. Extract reviewed pieces into `packages/desktop-ui` or `packages/ui` before product use.
 
 ## Product rule
 

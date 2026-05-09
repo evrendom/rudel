@@ -19,6 +19,17 @@ The MLP solves one customer pain:
 - drift detection
 - safe install/update planner
 
+## KISS Shell Structure
+
+- `apps/desktop-tauri`: thin shell
+- `packages/desktop-ui`: product UI and product logic
+- `crates/rudel-local`: one Rust local engine crate
+- `packages/skill-schema`: one skill schema
+- `packages/skill-compiler`: one compiler
+- `apps/api`: team sync API
+
+Tauri is the first shell, not the architecture. Product UI receives a `LocalEngine` through props/context, and shell-specific code stays in `apps/desktop-tauri`.
+
 ## Parked Infrastructure
 
 - ClickHouse session/transcript pipeline

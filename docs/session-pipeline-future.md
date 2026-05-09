@@ -7,7 +7,7 @@ For v1:
 - ClickHouse code may remain present
 - Keep ClickHouse runtime outside the default path
 - Keep ClickHouse env vars optional
-- Route new MLP work through desktop, API, skill schema, skill compiler, and Rust local crates
+- Route new MLP work through `apps/desktop-tauri`, `packages/desktop-ui`, API, skill schema, skill compiler, and `crates/rudel-local`
 - Keep ClickHouse tests/scripts outside default MLP verification
 
 Keep the session infrastructure simple until it returns to scope: ClickHouse code present, ClickHouse runtime parked.

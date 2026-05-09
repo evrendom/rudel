@@ -1,6 +1,7 @@
 {
 	"extends": "@rudel/typescript-config/base.json",
 	"compilerOptions": {
+		"jsx": "react-jsx",
 		"outDir": "./dist",
 		"rootDir": "./src",
 		"types": ["bun-types"]
