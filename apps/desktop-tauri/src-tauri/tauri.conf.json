@@ -4,6 +4,9 @@
 	"version": "0.0.0",
 	"identifier": "com.rudel.desktop",
 	"build": {
+		"beforeDevCommand": "bun run dev:web",
+		"beforeBuildCommand": "bun run build",
+		"devUrl": "http://localhost:1420",
 		"frontendDist": "../dist"
 	},
 	"app": {

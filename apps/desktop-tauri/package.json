@@ -4,8 +4,10 @@
 	"private": true,
 	"type": "module",
 	"scripts": {
-		"dev": "bun run src/dev-server.ts",
+		"dev": "tauri dev",
+		"dev:web": "bun run src/dev-server.ts",
 		"build": "bun run src/build.ts",
+		"tauri:build": "tauri build",
 		"check-types": "tsc --noEmit"
 	},
 	"dependencies": {
