@@ -4,6 +4,7 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fs;
 use std::path::{Component, Path, PathBuf};
 use std::process::Command;
+use std::time::{SystemTime, UNIX_EPOCH};
 use walkdir::{DirEntry, WalkDir};
 
 pub const PRODUCT_RULE: &str = "Desktop edits skills. Rust writes files. Cloud syncs teams.";
@@ -36,8 +37,46 @@ pub struct ScanMachineInput {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MachineScanResult {
-    pub roots: Vec<String>,
+    pub roots: Vec<ScannedRoot>,
+    pub repos: Vec<CodeRepo>,
     pub artifacts: Vec<SkillArtifact>,
+    pub warnings: Vec<ScanWarning>,
+    pub skipped_directory_count: usize,
+    pub scanned_at: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ScannedRoot {
+    pub input: String,
+    pub normalized_path: Option<String>,
+    pub status: ScannedRootStatus,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ScannedRootStatus {
+    Scanned,
+    Missing,
+    Unreadable,
+    Invalid,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CodeRepo {
+    pub repo_root_path: String,
+    pub repo_key: RepoKey,
+    pub source_root: String,
+    pub is_nested: bool,
+    pub has_rudel_lockfile: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ScanWarning {
+    pub root: String,
+    pub message: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -272,17 +311,51 @@ pub fn scan_workspace(input: ScanWorkspaceInput) -> MachineScanResult {
 }
 
 pub fn scan_machine(input: ScanMachineInput) -> MachineScanResult {
-    let roots = expand_roots(input);
+    let (roots, mut warnings) = prepare_scan_roots(input);
     let mut artifacts = Vec::new();
+    let mut repos_by_path = HashMap::new();
     let mut seen_paths = HashSet::new();
+    let mut skipped_directory_count = 0;
 
-    for root in &roots {
-        for entry in WalkDir::new(root)
+    for root in roots
+        .iter()
+        .filter(|root| root.status == ScannedRootStatus::Scanned)
+    {
+        let Some(normalized_path) = root.normalized_path.as_deref() else {
+            continue;
+        };
+        let source_root = normalized_path.to_string();
+        let walker = WalkDir::new(normalized_path)
             .follow_links(false)
             .into_iter()
-            .filter_entry(should_descend)
-            .filter_map(Result::ok)
-        {
+            .filter_entry(|entry| {
+                if should_skip_dir(entry) {
+                    skipped_directory_count += 1;
+                    false
+                } else {
+                    true
+                }
+            });
+
+        for entry_result in walker {
+            let entry = match entry_result {
+                Ok(entry) => entry,
+                Err(error) => {
+                    warnings.push(ScanWarning {
+                        root: source_root.clone(),
+                        message: error.to_string(),
+                    });
+                    continue;
+                }
+            };
+
+            if entry.file_type().is_dir() {
+                if is_git_repo_root(entry.path()) {
+                    record_repo(entry.path(), &source_root, &mut repos_by_path);
+                }
+                continue;
+            }
+
             if !entry.file_type().is_file() {
                 continue;
             }
@@ -295,8 +368,22 @@ pub fn scan_machine(input: ScanMachineInput) -> MachineScanResult {
     }
 
     artifacts.sort_by(|left, right| left.path.cmp(&right.path));
+    let mut repos: Vec<CodeRepo> = repos_by_path.into_values().collect();
+    repos.sort_by(|left, right| left.repo_root_path.cmp(&right.repo_root_path));
+    warnings.sort_by(|left, right| {
+        left.root
+            .cmp(&right.root)
+            .then_with(|| left.message.cmp(&right.message))
+    });
 
-    MachineScanResult { roots, artifacts }
+    MachineScanResult {
+        roots,
+        repos,
+        artifacts,
+        warnings,
+        skipped_directory_count,
+        scanned_at: current_scan_timestamp(),
+    }
 }
 
 pub fn read_lockfiles(input: ReadLockfilesInput) -> LockfileReadResult {
@@ -401,7 +488,11 @@ pub fn apply_write_plan(input: ApplyWritePlanInput) -> std::io::Result<ApplyWrit
 
 pub fn get_git_diff(input: GitDiffInput) -> GitDiffResult {
     let mut command = Command::new("git");
-    command.arg("-C").arg(&input.repo_path).arg("diff").arg("--");
+    command
+        .arg("-C")
+        .arg(&input.repo_path)
+        .arg("diff")
+        .arg("--");
     for path in &input.paths {
         command.arg(path);
     }
@@ -477,34 +568,218 @@ pub fn write_lockfile(repo_root: &Path, lockfile: &SkillLockfile) -> std::io::Re
     write_file_atomically(&path, &content)
 }
 
-fn expand_roots(input: ScanMachineInput) -> Vec<String> {
+fn prepare_scan_roots(input: ScanMachineInput) -> (Vec<ScannedRoot>, Vec<ScanWarning>) {
+    let root_inputs = expand_root_inputs(input);
+    let mut roots = Vec::new();
+    let mut warnings = Vec::new();
+    let mut seen_scanned_roots = HashSet::new();
+
+    for root_input in root_inputs {
+        let (root, warning) = scanned_root_for_input(root_input);
+        if let Some(normalized_path) = root.normalized_path.as_deref() {
+            if !seen_scanned_roots.insert(normalized_path.to_string()) {
+                continue;
+            }
+        }
+        if let Some(warning) = warning {
+            warnings.push(warning);
+        }
+        roots.push(root);
+    }
+
+    roots.sort_by(|left, right| {
+        let left_key = left
+            .normalized_path
+            .as_deref()
+            .unwrap_or(left.input.as_str());
+        let right_key = right
+            .normalized_path
+            .as_deref()
+            .unwrap_or(right.input.as_str());
+        left_key.cmp(right_key)
+    });
+
+    (roots, warnings)
+}
+
+fn expand_root_inputs(input: ScanMachineInput) -> Vec<String> {
     let mut roots = input.roots;
     if input.include_global_agent_folders {
-        roots.extend(global_agent_roots());
+        roots.extend(global_agent_root_inputs());
     }
-    roots.sort();
-    roots.dedup();
+    let mut seen = HashSet::new();
+    roots.retain(|root| seen.insert(root.trim().to_string()));
     roots
 }
 
-fn global_agent_roots() -> Vec<String> {
-    let Some(home) = std::env::var_os("HOME").or_else(|| std::env::var_os("USERPROFILE")) else {
+fn scanned_root_for_input(input: String) -> (ScannedRoot, Option<ScanWarning>) {
+    let Some(expanded_path) = expand_input_path(&input) else {
+        return (
+            ScannedRoot {
+                input: input.clone(),
+                normalized_path: None,
+                status: ScannedRootStatus::Invalid,
+            },
+            Some(ScanWarning {
+                root: input,
+                message: "Root path is empty.".to_string(),
+            }),
+        );
+    };
+
+    if !expanded_path.exists() {
+        return (
+            ScannedRoot {
+                input: input.clone(),
+                normalized_path: None,
+                status: ScannedRootStatus::Missing,
+            },
+            Some(ScanWarning {
+                root: input,
+                message: "Root path does not exist.".to_string(),
+            }),
+        );
+    }
+
+    if !expanded_path.is_dir() {
+        return (
+            ScannedRoot {
+                input: input.clone(),
+                normalized_path: None,
+                status: ScannedRootStatus::Invalid,
+            },
+            Some(ScanWarning {
+                root: input,
+                message: "Root path is not a directory.".to_string(),
+            }),
+        );
+    }
+
+    if let Err(error) = fs::read_dir(&expanded_path) {
+        return (
+            ScannedRoot {
+                input: input.clone(),
+                normalized_path: None,
+                status: ScannedRootStatus::Unreadable,
+            },
+            Some(ScanWarning {
+                root: input,
+                message: error.to_string(),
+            }),
+        );
+    }
+
+    match fs::canonicalize(&expanded_path) {
+        Ok(path) => (
+            ScannedRoot {
+                input,
+                normalized_path: Some(normalize_absolute_path(&path)),
+                status: ScannedRootStatus::Scanned,
+            },
+            None,
+        ),
+        Err(error) => (
+            ScannedRoot {
+                input: input.clone(),
+                normalized_path: None,
+                status: ScannedRootStatus::Unreadable,
+            },
+            Some(ScanWarning {
+                root: input,
+                message: error.to_string(),
+            }),
+        ),
+    }
+}
+
+fn expand_input_path(input: &str) -> Option<PathBuf> {
+    let trimmed = input.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+
+    if trimmed == "~" || trimmed.starts_with("~/") || trimmed.starts_with("~\\") {
+        let home = home_dir()?;
+        let suffix = trimmed
+            .strip_prefix("~")
+            .unwrap_or_default()
+            .trim_start_matches(['/', '\\']);
+        return Some(if suffix.is_empty() {
+            home
+        } else {
+            home.join(suffix)
+        });
+    }
+
+    let user_profile_prefix = "%USERPROFILE%";
+    if trimmed
+        .to_ascii_uppercase()
+        .starts_with(&user_profile_prefix.to_ascii_uppercase())
+    {
+        let home = home_dir()?;
+        let suffix = trimmed[user_profile_prefix.len()..].trim_start_matches(['/', '\\']);
+        return Some(if suffix.is_empty() {
+            home
+        } else {
+            home.join(suffix)
+        });
+    }
+
+    Some(PathBuf::from(trimmed))
+}
+
+fn global_agent_root_inputs() -> Vec<String> {
+    let Some(home_path) = home_dir() else {
         return Vec::new();
     };
-    let home_path = PathBuf::from(home);
     [".claude", ".agents", ".codex", ".cursor"]
         .iter()
-        .map(|folder| home_path.join(folder).to_string_lossy().to_string())
-        .filter(|path| Path::new(path).exists())
+        .map(|folder| home_path.join(folder))
+        .filter(|path| path.exists())
+        .map(|path| path.to_string_lossy().to_string())
         .collect()
 }
 
-fn should_descend(entry: &DirEntry) -> bool {
+fn home_dir() -> Option<PathBuf> {
+    let Some(home) = std::env::var_os("HOME").or_else(|| std::env::var_os("USERPROFILE")) else {
+        return None;
+    };
+    Some(PathBuf::from(home))
+}
+
+fn current_scan_timestamp() -> String {
+    let seconds = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_secs())
+        .unwrap_or_default();
+    format!("unix:{seconds}")
+}
+
+fn should_skip_dir(entry: &DirEntry) -> bool {
     if !entry.file_type().is_dir() {
-        return true;
+        return false;
     }
     let name = entry.file_name().to_string_lossy();
-    !SKIP_DIRS.contains(&name.as_ref())
+    SKIP_DIRS.contains(&name.as_ref())
+}
+
+fn is_git_repo_root(path: &Path) -> bool {
+    path.join(".git").exists()
+}
+
+fn record_repo(repo_root: &Path, source_root: &str, repos_by_path: &mut HashMap<String, CodeRepo>) {
+    let canonical_repo_root =
+        fs::canonicalize(repo_root).unwrap_or_else(|_| repo_root.to_path_buf());
+    let repo_root_path = normalize_absolute_path(&canonical_repo_root);
+    repos_by_path
+        .entry(repo_root_path.clone())
+        .or_insert_with(|| CodeRepo {
+            repo_root_path,
+            repo_key: repo_key_for_root(&canonical_repo_root),
+            source_root: source_root.to_string(),
+            is_nested: find_repo_root_above(&canonical_repo_root).is_some(),
+            has_rudel_lockfile: canonical_repo_root.join(LOCKFILE_PATH).exists(),
+        });
 }
 
 fn scan_file(entry: &DirEntry) -> Option<SkillArtifact> {
@@ -635,7 +910,7 @@ fn repo_key_for_root(repo_root: &Path) -> RepoKey {
 }
 
 fn read_origin_remote(repo_root: &Path) -> Option<String> {
-    let config = fs::read_to_string(repo_root.join(".git/config")).ok()?;
+    let config = fs::read_to_string(git_config_path(repo_root)?).ok()?;
     let mut in_origin = false;
     for line in config.lines() {
         let trimmed = line.trim();
@@ -650,6 +925,29 @@ fn read_origin_remote(repo_root: &Path) -> Option<String> {
         }
     }
     None
+}
+
+fn git_config_path(repo_root: &Path) -> Option<PathBuf> {
+    let git_path = repo_root.join(".git");
+    if git_path.is_dir() {
+        return Some(git_path.join("config"));
+    }
+    if !git_path.is_file() {
+        return None;
+    }
+
+    let content = fs::read_to_string(git_path).ok()?;
+    let git_dir = content
+        .lines()
+        .find_map(|line| line.trim().strip_prefix("gitdir:"))
+        .map(str::trim)?;
+    let git_dir_path = PathBuf::from(git_dir);
+    let resolved_git_dir = if git_dir_path.is_absolute() {
+        git_dir_path
+    } else {
+        repo_root.join(git_dir_path)
+    };
+    Some(resolved_git_dir.join("config"))
 }
 
 fn parse_frontmatter(content: &str) -> (Option<String>, Option<String>) {
@@ -721,9 +1019,8 @@ fn planned_file_content(current: Option<&str>, artifact: &GeneratedArtifact) -> 
     };
     let slug = managed_slug_for_artifact(artifact);
     if let Some((start, end)) = managed_section_bounds(current_content, &slug) {
-        let mut output = String::with_capacity(
-            current_content.len() - (end - start) + artifact.content.len(),
-        );
+        let mut output =
+            String::with_capacity(current_content.len() - (end - start) + artifact.content.len());
         output.push_str(&current_content[..start]);
         output.push_str(&artifact.content);
         output.push_str(&current_content[end..]);
@@ -831,11 +1128,8 @@ fn write_file_atomically(path: &Path, content: &str) -> std::io::Result<()> {
         .file_name()
         .map(|value| value.to_string_lossy().to_string())
         .unwrap_or_else(|| "rudel-file".to_string());
-    let temp_path = path.with_file_name(format!(
-        ".{}.rudel-tmp-{}",
-        file_name,
-        hash_string(content)
-    ));
+    let temp_path =
+        path.with_file_name(format!(".{}.rudel-tmp-{}", file_name, hash_string(content)));
     fs::write(&temp_path, content)?;
     match fs::rename(&temp_path, path) {
         Ok(()) => Ok(()),
@@ -874,10 +1168,10 @@ fn _stable_map_for_future_json(values: BTreeMap<String, String>) -> BTreeMap<Str
 #[cfg(test)]
 mod tests {
     use super::{
-        apply_write_plan, create_write_plan, hash_normalized_content,
-        normalize_git_remote_url, read_lockfile, scan_machine,
-        ApplyWritePlanInput, ArtifactTarget, CreateWritePlanInput, GeneratedArtifact,
-        LockfileStatus, RepoKey, ScanMachineInput, SkillLockfileEntry, SourceScope, WritePlanAction,
+        apply_write_plan, create_write_plan, hash_normalized_content, normalize_absolute_path,
+        normalize_git_remote_url, read_lockfile, scan_machine, ApplyWritePlanInput, ArtifactTarget,
+        CreateWritePlanInput, GeneratedArtifact, LockfileStatus, RepoKey, ScanMachineInput,
+        ScannedRootStatus, SkillLockfileEntry, SourceScope, WritePlanAction,
     };
     use std::fs;
     use tempfile::tempdir;
@@ -906,6 +1200,13 @@ mod tests {
             include_global_agent_folders: false,
         });
 
+        assert_eq!(result.roots.len(), 1);
+        assert_eq!(result.roots[0].status, ScannedRootStatus::Scanned);
+        assert_eq!(result.repos.len(), 1);
+        assert_eq!(
+            result.repos[0].repo_key,
+            RepoKey::Github("github.com/company/api".to_string()),
+        );
         assert_eq!(result.artifacts.len(), 2);
         let skill = result
             .artifacts
@@ -915,11 +1216,11 @@ mod tests {
         assert_eq!(skill.artifact_target, ArtifactTarget::ClaudeCode);
         assert_eq!(
             skill.repo_root_path.as_deref(),
-            Some(repo.to_string_lossy().as_ref()),
+            Some(canonical_test_path(&repo).as_str()),
         );
-        assert!(skill.path.ends_with(
-            "/api/.claude/skills/typescript-standards/SKILL.md"
-        ));
+        assert!(skill
+            .path
+            .ends_with("/api/.claude/skills/typescript-standards/SKILL.md"));
         assert_eq!(
             skill.repo_key,
             Some(RepoKey::Github("github.com/company/api".to_string())),
@@ -952,8 +1253,122 @@ mod tests {
             .find(|artifact| artifact.repo_relative_path.as_deref().is_some())
             .expect("nested skill artifact");
         assert_eq!(skill.name.as_deref(), Some("typescript-standards"));
+        assert_eq!(
+            skill.repo_root_path.as_deref(),
+            Some(canonical_test_path(&nested).as_str()),
+        );
         assert_eq!(skill.source_scope, SourceScope::NestedRepo);
         assert_eq!(skill.artifact_target, ArtifactTarget::Codex);
+    }
+
+    #[test]
+    fn scan_machine_returns_git_repos_without_skill_files() {
+        let temp = tempdir().expect("temp dir");
+        let repo = temp.path().join("empty");
+        fs::create_dir_all(repo.join(".git")).expect("create git dir");
+
+        let result = scan_machine(ScanMachineInput {
+            roots: vec![temp.path().to_string_lossy().to_string()],
+            include_global_agent_folders: false,
+        });
+
+        assert!(result.artifacts.is_empty());
+        assert_eq!(result.repos.len(), 1);
+        assert_eq!(result.repos[0].repo_root_path, canonical_test_path(&repo),);
+    }
+
+    #[test]
+    fn scan_machine_handles_git_file_worktrees() {
+        let temp = tempdir().expect("temp dir");
+        let repo = temp.path().join("worktree");
+        let git_dir = temp.path().join("gitdirs/worktree");
+        fs::create_dir_all(&repo).expect("create repo");
+        fs::create_dir_all(&git_dir).expect("create git dir");
+        fs::write(
+            repo.join(".git"),
+            format!("gitdir: {}\n", git_dir.display()),
+        )
+        .expect("write git file");
+        fs::write(
+            git_dir.join("config"),
+            "[remote \"origin\"]\n  url = https://github.com/company/worktree.git\n",
+        )
+        .expect("write git config");
+
+        let result = scan_machine(ScanMachineInput {
+            roots: vec![temp.path().to_string_lossy().to_string()],
+            include_global_agent_folders: false,
+        });
+
+        assert_eq!(result.repos.len(), 1);
+        assert_eq!(
+            result.repos[0].repo_key,
+            RepoKey::Github("github.com/company/worktree".to_string()),
+        );
+    }
+
+    #[test]
+    fn scan_machine_reports_missing_roots() {
+        let temp = tempdir().expect("temp dir");
+        let missing = temp.path().join("missing");
+
+        let result = scan_machine(ScanMachineInput {
+            roots: vec![missing.to_string_lossy().to_string()],
+            include_global_agent_folders: false,
+        });
+
+        assert_eq!(result.roots.len(), 1);
+        assert_eq!(result.roots[0].status, ScannedRootStatus::Missing);
+        assert_eq!(result.warnings.len(), 1);
+        assert!(result.repos.is_empty());
+    }
+
+    #[test]
+    fn scan_machine_dedupes_overlapping_roots() {
+        let temp = tempdir().expect("temp dir");
+        let repo = temp.path().join("api");
+        fs::create_dir_all(repo.join(".git")).expect("create git dir");
+        fs::create_dir_all(repo.join(".agents/skills/typescript-standards"))
+            .expect("create skill dir");
+        fs::write(
+            repo.join(".agents/skills/typescript-standards/SKILL.md"),
+            "---\nname: typescript-standards\n---\n# TypeScript Standards\n",
+        )
+        .expect("write skill");
+
+        let result = scan_machine(ScanMachineInput {
+            roots: vec![
+                temp.path().to_string_lossy().to_string(),
+                repo.to_string_lossy().to_string(),
+            ],
+            include_global_agent_folders: false,
+        });
+
+        assert_eq!(result.repos.len(), 1);
+        assert_eq!(result.artifacts.len(), 1);
+    }
+
+    #[test]
+    fn scan_machine_keeps_global_user_artifacts_out_of_repo_assignment() {
+        let temp = tempdir().expect("temp dir");
+        fs::create_dir_all(temp.path().join(".claude/skills/typescript-standards"))
+            .expect("create global skill dir");
+        fs::write(
+            temp.path()
+                .join(".claude/skills/typescript-standards/SKILL.md"),
+            "---\nname: typescript-standards\n---\n# TypeScript Standards\n",
+        )
+        .expect("write global skill");
+
+        let result = scan_machine(ScanMachineInput {
+            roots: vec![temp.path().to_string_lossy().to_string()],
+            include_global_agent_folders: false,
+        });
+
+        assert!(result.repos.is_empty());
+        assert_eq!(result.artifacts.len(), 1);
+        assert_eq!(result.artifacts[0].source_scope, SourceScope::GlobalUser);
+        assert!(result.artifacts[0].repo_root_path.is_none());
     }
 
     #[test]
@@ -1058,11 +1473,9 @@ mod tests {
         });
 
         assert_eq!(plan.files[0].action, WritePlanAction::Modify);
-        assert!(
-            plan.files[0]
-                .generated_content
-                .contains("# Repo Rules\n\n<!-- rudel:typescript-standards:start -->")
-        );
+        assert!(plan.files[0]
+            .generated_content
+            .contains("# Repo Rules\n\n<!-- rudel:typescript-standards:start -->"));
         assert_eq!(plan.files[0].warnings.len(), 1);
     }
 
@@ -1138,5 +1551,9 @@ mod tests {
             schema_version: "1".to_string(),
             compiler_version: "1".to_string(),
         }
+    }
+
+    fn canonical_test_path(path: &std::path::Path) -> String {
+        normalize_absolute_path(&fs::canonicalize(path).expect("canonical test path"))
     }
 }

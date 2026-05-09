@@ -240,9 +240,47 @@ export type SkillArtifact = z.infer<typeof skillArtifactSchema>;
 export const observedArtifactSchema = skillArtifactSchema;
 export type ObservedArtifact = SkillArtifact;
 
+export const scannedRootStatusSchema = z.enum([
+	"scanned",
+	"missing",
+	"unreadable",
+	"invalid",
+]);
+
+export type ScannedRootStatus = z.infer<typeof scannedRootStatusSchema>;
+
+export const scannedRootSchema = z.object({
+	input: z.string(),
+	normalizedPath: z.string().optional(),
+	status: scannedRootStatusSchema,
+});
+
+export type ScannedRoot = z.infer<typeof scannedRootSchema>;
+
+export const codeRepoSchema = z.object({
+	repoRootPath: z.string().min(1),
+	repoKey: repoKeySchema,
+	sourceRoot: z.string().min(1),
+	isNested: z.boolean(),
+	hasRudelLockfile: z.boolean(),
+});
+
+export type CodeRepo = z.infer<typeof codeRepoSchema>;
+
+export const scanWarningSchema = z.object({
+	root: z.string(),
+	message: z.string().min(1),
+});
+
+export type ScanWarning = z.infer<typeof scanWarningSchema>;
+
 export const machineScanResultSchema = z.object({
-	roots: z.array(z.string()),
+	roots: z.array(scannedRootSchema),
+	repos: z.array(codeRepoSchema),
 	artifacts: z.array(skillArtifactSchema),
+	warnings: z.array(scanWarningSchema),
+	skippedDirectoryCount: z.number().int().nonnegative(),
+	scannedAt: z.string(),
 });
 
 export type MachineScanResult = z.infer<typeof machineScanResultSchema>;

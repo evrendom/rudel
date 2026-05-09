@@ -10,6 +10,12 @@ export {
 	isManagedArtifact,
 	matchesTypescriptStandards,
 } from "./features/local-skill-semantics/index.js";
+export {
+	buildRepositoriesOverview,
+	type RepoOverviewRow,
+	type RepositoriesOverview,
+	repositoriesOverviewFeature,
+} from "./features/repositories-overview/index.js";
 export { getTypescriptStandardsArtifacts } from "./features/typescript-standards-focus/index.js";
 export type {
 	AllSkillsInventoryItem,

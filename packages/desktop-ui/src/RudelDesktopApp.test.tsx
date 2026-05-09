@@ -8,7 +8,7 @@ test("RudelDesktopApp renders the desktop shell navigation", () => {
 		<RudelDesktopApp localEngine={localEngine} />,
 	);
 
-	expect(markup).toContain("Onboarding");
+	expect(markup).toContain("Repositories");
 	expect(markup).toContain("Inventory");
 	expect(markup).toContain("TypeScript Standards");
 	expect(markup).toContain("Drift");
@@ -20,10 +20,25 @@ test("RudelDesktopApp renders the desktop shell navigation", () => {
 
 const localEngine: LocalEngine = {
 	async scanMachine() {
-		return { roots: [], artifacts: [] };
+		return {
+			roots: [],
+			repos: [],
+			artifacts: [],
+			warnings: [],
+			skippedDirectoryCount: 0,
+			scannedAt: "unix:1",
+		};
 	},
 	async scanWorkspace(input) {
-		return { rootPath: input.rootPath, roots: [], artifacts: [] };
+		return {
+			rootPath: input.rootPath,
+			roots: [],
+			repos: [],
+			artifacts: [],
+			warnings: [],
+			skippedDirectoryCount: 0,
+			scannedAt: "unix:1",
+		};
 	},
 	async readLockfiles() {
 		return { repos: [] };
