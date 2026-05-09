@@ -2,6 +2,8 @@
 
 `crates/rudel-local` owns local authority for the MLP.
 
+TypeScript owns drift classification; Rust owns local mechanics.
+
 Rust responsibilities:
 
 - folder permissions

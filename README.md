@@ -27,7 +27,9 @@ Rudel helps teams solve:
 - `packages/sql-schema`: Postgres schema
 - `packages/skill-schema`: shared skill blueprint schema
 - `packages/skill-compiler`: deterministic agent-output compiler
-- `crates/rudel-local`: local scan, drift, lockfile, write planning, safe writes, git diff, SQLite, and undo
+- `crates/rudel-local`: local scan, lockfile, write planning, safe writes, git diff, SQLite, and undo
+
+TypeScript owns drift classification; Rust owns local mechanics.
 
 ## Parked Infrastructure
 
@@ -45,3 +47,5 @@ Desktop edits skills.
 Rust writes files.
 Cloud syncs teams.
 ClickHouse understands paid sessions later.
+
+TypeScript owns drift classification; Rust owns local mechanics.

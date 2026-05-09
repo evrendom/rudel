@@ -16,7 +16,7 @@ The MLP solves one customer pain:
 - repo overlays
 - agent target compilers
 - lockfile
-- drift detection
+- TypeScript-owned drift classification
 - safe write planner
 
 ## KISS Shell Structure
@@ -27,6 +27,8 @@ The MLP solves one customer pain:
 - `packages/skill-schema`: one skill schema
 - `packages/skill-compiler`: one compiler
 - `apps/api`: team sync API
+
+TypeScript owns drift classification; Rust owns local mechanics.
 
 Tauri is the first shell, not the architecture. Product UI receives a `LocalEngine` through props/context, and shell-specific code stays in `apps/desktop-tauri`.
 
@@ -117,5 +119,5 @@ Pilot flow:
 8. Install into 2-3 repos.
 9. Show `.rudel/skills.lock.json`.
 10. Manually edit one generated skill.
-11. Show drift detection.
+11. Show TypeScript-classified drift.
 12. Resolve with update, fork, or ignore.

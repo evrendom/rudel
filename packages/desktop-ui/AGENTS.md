@@ -2,6 +2,8 @@
 
 This package owns Rudel's product UI and product UI state.
 
+TypeScript owns drift classification; Rust owns local mechanics.
+
 It owns:
 
 - blueprint library

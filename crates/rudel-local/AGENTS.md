@@ -2,12 +2,13 @@
 
 This is the one active Rust local engine crate for the MLP.
 
+TypeScript owns drift classification; Rust owns local mechanics.
+
 It owns:
 
 - scan
 - watch
 - hash
-- drift
 - lockfile
 - write plan
 - git diff

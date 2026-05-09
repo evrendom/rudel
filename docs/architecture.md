@@ -11,6 +11,8 @@ Rust writes files.
 Cloud syncs teams.
 ClickHouse understands paid sessions later.
 
+TypeScript owns drift classification; Rust owns local mechanics.
+
 ## Active Surfaces
 
 - `apps/desktop-tauri`: thin Tauri shell, bootstrap, command bridge, and invoke adapter
@@ -20,7 +22,7 @@ ClickHouse understands paid sessions later.
 - `packages/sql-schema`: Postgres schema
 - `packages/skill-schema`: shared TypeScript/Zod skill domain model
 - `packages/skill-compiler`: deterministic compiler from blueprint + overlay + target to generated artifacts
-- `crates/rudel-local`: scan, watch, hash, drift, lockfile, write plan, git diff, SQLite, safe writes, and undo
+- `crates/rudel-local`: scan, watch, hash, lockfile, write plan, git diff, SQLite, safe writes, and undo
 
 ## Parked Infrastructure
 
@@ -45,6 +47,8 @@ Tauri is the first shell, not the architecture.
 `crates/rudel-local` owns local authority and stays shell-agnostic.
 
 ## TypeScript Responsibilities
+
+TypeScript owns drift classification; Rust owns local mechanics.
 
 TypeScript owns:
 
@@ -78,7 +82,7 @@ TypeScript decides what generated artifacts should be produced. Rust decides whe
 
 ## Data Stores
 
-Local SQLite is used by desktop for approved roots, repo inventory, local skill artifacts, cached team blueprints, compiled outputs, installations, lockfile snapshots, drift findings, write plans, write operations, undo records, and sync queues.
+Local SQLite is used by desktop for approved roots, repo inventory, local skill artifacts, cached team blueprints, compiled outputs, installations, lockfile snapshots, TypeScript-classified drift findings, write plans, write operations, undo records, and sync queues.
 
 Postgres is used by the API for users, organizations, memberships, teams, skill blueprints, blueprint versions, modules, repo overlays, repo registry, and team install records.
 

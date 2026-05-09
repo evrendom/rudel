@@ -18,7 +18,7 @@ Build the product around:
 - repo/toolchain-specific skill variants
 - Claude / Codex / Cursor output sync
 - local installs into real repo files
-- lockfile-backed drift detection
+- lockfile-backed TypeScript drift classification
 - safe update plans with diffs and undo
 
 Keep company brain, skill catalog, observability, and session intelligence work outside the MLP until explicitly requested.
@@ -62,7 +62,11 @@ Rust writes files.
 Cloud syncs teams.
 ClickHouse understands paid sessions later.
 
+TypeScript owns drift classification; Rust owns local mechanics.
+
 ## TypeScript And Rust Ownership
+
+TypeScript owns drift classification; Rust owns local mechanics.
 
 TypeScript owns:
 
