@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import type {
-	AgentTarget,
+	ArtifactTarget,
 	GeneratedArtifact,
 	RepoOverlay,
 	SkillBlock,
@@ -8,11 +8,16 @@ import type {
 	SkillModule,
 } from "@rudel/skill-schema";
 
+export const SKILL_SCHEMA_VERSION = "1";
+export const SKILL_COMPILER_VERSION = "1";
+
 export type CompileBlueprintInput = {
 	blueprint: SkillBlueprint;
+	blueprintVersionId?: string;
 	modules?: SkillModule[];
 	overlay?: RepoOverlay;
-	targets?: AgentTarget[];
+	overlayHash?: string;
+	targets?: ArtifactTarget[];
 };
 
 export function compileSkillBlueprint(
@@ -22,38 +27,69 @@ export function compileSkillBlueprint(
 		input.targets && input.targets.length > 0
 			? input.targets
 			: input.blueprint.targets;
+	const overlayHash =
+		input.overlayHash ?? hashStableJson(input.overlay ?? null);
+	const blueprintVersionId =
+		input.blueprintVersionId ?? input.blueprint.version;
 
-	return targets.map((agentTarget) => {
-		const content = renderSkillMarkdown(input, agentTarget);
+	return targets.map((artifactTarget) => {
+		const content = renderSkillArtifact(input, artifactTarget);
 		return {
-			agentTarget,
-			targetPath: getTargetPath(input.blueprint.slug, agentTarget),
+			artifactTarget,
+			targetPath: getTargetPath(input.blueprint.slug, artifactTarget),
 			content,
 			contentHash: hashContent(content),
+			blueprintId: input.blueprint.id,
+			blueprintVersionId,
+			overlayHash,
+			schemaVersion: SKILL_SCHEMA_VERSION,
+			compilerVersion: SKILL_COMPILER_VERSION,
 		};
 	});
 }
 
-export function getTargetPath(slug: string, agentTarget: AgentTarget): string {
-	switch (agentTarget) {
+export function getTargetPath(
+	slug: string,
+	artifactTarget: ArtifactTarget,
+): string {
+	switch (artifactTarget) {
 		case "claude_code":
 			return `.claude/skills/${slug}/SKILL.md`;
 		case "codex":
 			return `.agents/skills/${slug}/SKILL.md`;
 		case "cursor":
-			return `.cursor/skills/${slug}/SKILL.md`;
+			return `.cursor/rules/${slug}.mdc`;
 		case "agents_md":
 			return "AGENTS.md";
+		case "claude_md":
+			return "CLAUDE.md";
 	}
 }
 
 export function hashContent(content: string): string {
-	return createHash("sha256").update(content).digest("hex");
+	return createHash("sha256").update(normalizeContent(content)).digest("hex");
+}
+
+export function hashStableJson(value: unknown): string {
+	return hashContent(stableStringify(value));
+}
+
+function renderSkillArtifact(
+	input: CompileBlueprintInput,
+	artifactTarget: ArtifactTarget,
+): string {
+	if (artifactTarget === "cursor") {
+		return renderCursorRule(input);
+	}
+	if (artifactTarget === "agents_md" || artifactTarget === "claude_md") {
+		return renderManagedSection(input, artifactTarget);
+	}
+	return renderSkillMarkdown(input, artifactTarget);
 }
 
 function renderSkillMarkdown(
 	input: CompileBlueprintInput,
-	agentTarget: AgentTarget,
+	artifactTarget: ArtifactTarget,
 ): string {
 	const variables = buildVariables(input);
 	const moduleBlocks = selectModules(input).flatMap((module) => module.blocks);
@@ -64,13 +100,10 @@ function renderSkillMarkdown(
 	];
 
 	const sections = blocks.map((block) => renderBlock(block, variables));
-	const header =
-		agentTarget === "agents_md"
-			? `## ${input.blueprint.name}`
-			: `# ${input.blueprint.name}`;
+	const frontmatter = frontmatterForTarget(input.blueprint, artifactTarget);
 
-	return [
-		header,
+	const content = [
+		`# ${input.blueprint.name}`,
 		"",
 		replaceVariables(input.blueprint.description, variables),
 		"",
@@ -83,6 +116,58 @@ function renderSkillMarkdown(
 		.join("\n")
 		.trimEnd()
 		.concat("\n");
+
+	return frontmatter ? `${frontmatter}${content}` : content;
+}
+
+function renderCursorRule(input: CompileBlueprintInput): string {
+	const body = renderSkillMarkdown(input, "cursor");
+	return [
+		"---",
+		`description: ${input.blueprint.description}`,
+		"globs: **/*.ts,**/*.tsx",
+		"alwaysApply: false",
+		"---",
+		"",
+		body,
+	]
+		.join("\n")
+		.trimEnd()
+		.concat("\n");
+}
+
+function renderManagedSection(
+	input: CompileBlueprintInput,
+	artifactTarget: "agents_md" | "claude_md",
+): string {
+	const body = renderSkillMarkdown(input, artifactTarget)
+		.trimEnd()
+		.replace(/^# /, "## ");
+
+	return [
+		`<!-- rudel:${input.blueprint.slug}:start -->`,
+		body,
+		`<!-- rudel:${input.blueprint.slug}:end -->`,
+		"",
+	].join("\n");
+}
+
+function frontmatterForTarget(
+	blueprint: SkillBlueprint,
+	artifactTarget: ArtifactTarget,
+): string {
+	if (artifactTarget !== "claude_code" && artifactTarget !== "codex") {
+		return "";
+	}
+
+	return [
+		"---",
+		`name: ${blueprint.slug}`,
+		`description: ${blueprint.description}`,
+		"allowed-tools: [Read, Edit, Grep, Glob]",
+		"---",
+		"",
+	].join("\n");
 }
 
 function selectModules(input: CompileBlueprintInput): SkillModule[] {
@@ -135,3 +220,26 @@ function replaceVariables(
 		return variables[name] ?? "";
 	});
 }
+
+function normalizeContent(content: string): string {
+	return content.replace(/\r\n/g, "\n");
+}
+
+function stableStringify(value: unknown): string {
+	if (value === null || typeof value !== "object") {
+		return JSON.stringify(value);
+	}
+	if (Array.isArray(value)) {
+		return `[${value.map((item) => stableStringify(item)).join(",")}]`;
+	}
+
+	return `{${Object.entries(value)
+		.sort(([left], [right]) => left.localeCompare(right))
+		.map(([key, entry]) => `${JSON.stringify(key)}:${stableStringify(entry)}`)
+		.join(",")}}`;
+}
+
+export {
+	typescriptStandardsBlueprint,
+	typescriptStandardsModules,
+} from "./typescript-standards.js";

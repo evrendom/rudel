@@ -61,6 +61,19 @@ import {
 	WrappedV1Schema,
 } from "./schemas/analytics.js";
 import {
+	BlueprintSlugInputSchema,
+	GetRepoOverlayInputSchema,
+	ListSkillInstallsByBlueprintInputSchema,
+	PublishSkillBlueprintDraftInputSchema,
+	RepoOverlayInputSchema,
+	RepoOverlayRecordSchema,
+	SaveSkillBlueprintDraftInputSchema,
+	SkillBlueprintVersionRecordSchema,
+	SkillBlueprintWithLatestSchema,
+	SkillInstallReportBulkInputSchema,
+	SkillInstallReportRecordSchema,
+} from "./schemas/skill-blueprints.js";
+import {
 	RedeemWrappedDecimalClaimInputSchema,
 	RedeemWrappedDecimalClaimResultSchema,
 	WrappedDecimalClaimEntitlementSchema,
@@ -82,6 +95,7 @@ export * from "./avatar.js";
 export * from "./model-pricing.js";
 export * from "./product-analytics.js";
 export * from "./schemas/analytics.js";
+export * from "./schemas/skill-blueprints.js";
 export * from "./schemas/wrapped-decimal-claim.js";
 export * from "./schemas/wrapped-resume.js";
 export * from "./schemas/wrapped-share.js";
@@ -224,6 +238,32 @@ export const contract = {
 		accept: oc
 			.input(z.object({ token: z.string().min(1) }))
 			.output(TeamInviteAcceptResultSchema),
+	},
+	skillBlueprints: {
+		list: oc.output(z.array(SkillBlueprintWithLatestSchema)),
+		getBySlug: oc
+			.input(BlueprintSlugInputSchema)
+			.output(SkillBlueprintWithLatestSchema.nullable()),
+		saveDraft: oc
+			.input(SaveSkillBlueprintDraftInputSchema)
+			.output(SkillBlueprintVersionRecordSchema),
+		publishDraft: oc
+			.input(PublishSkillBlueprintDraftInputSchema)
+			.output(SkillBlueprintVersionRecordSchema),
+	},
+	repoOverlays: {
+		get: oc
+			.input(GetRepoOverlayInputSchema)
+			.output(RepoOverlayRecordSchema.nullable()),
+		upsert: oc.input(RepoOverlayInputSchema).output(RepoOverlayRecordSchema),
+	},
+	skillInstalls: {
+		reportBulk: oc
+			.input(SkillInstallReportBulkInputSchema)
+			.output(z.array(SkillInstallReportRecordSchema)),
+		listByBlueprint: oc
+			.input(ListSkillInstallsByBlueprintInputSchema)
+			.output(z.array(SkillInstallReportRecordSchema)),
 	},
 	wrappedShare: {
 		create: oc

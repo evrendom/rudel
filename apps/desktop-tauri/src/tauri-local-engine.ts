@@ -1,17 +1,27 @@
 import type { LocalEngine } from "@rudel/desktop-ui";
 
 export const tauriLocalEngine: LocalEngine = {
+	async scanMachine(input) {
+		return {
+			roots: input.roots,
+			artifacts: [],
+		};
+	},
 	async scanWorkspace(input) {
 		return {
+			roots: [input.rootPath],
 			rootPath: input.rootPath,
-			repos: [],
-			skills: [],
+			artifacts: [],
 		};
 	},
 	async createInstallPlan(input) {
+		void input.repoPath;
 		return {
-			planId: `plan:${input.repoId}:${input.blueprintId}`,
+			id: `plan:${input.repoId}:${input.blueprintRef.blueprintId}`,
+			repoId: input.repoId,
+			blueprintId: input.blueprintRef.blueprintId,
 			files: [],
+			undoAvailable: true,
 			warnings: [],
 		};
 	},
@@ -22,9 +32,15 @@ export const tauriLocalEngine: LocalEngine = {
 		};
 	},
 	async detectDrift(input) {
+		void input;
+		return [];
+	},
+	async getDriftDetail(input) {
 		return {
 			repoId: input.repoId,
-			findings: [],
+			targetPath: input.targetPath,
+			status: "missing",
+			expectedContent: input.expectedArtifact.content,
 		};
 	},
 };

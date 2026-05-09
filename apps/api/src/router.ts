@@ -9,6 +9,11 @@ import { sqlClient } from "./db.js";
 import { adminRouter } from "./handlers/admin/index.js";
 import { analyticsRouter } from "./handlers/analytics/index.js";
 import { profileRouter } from "./handlers/profile.js";
+import {
+	repoOverlaysRouter,
+	skillBlueprintsRouter,
+	skillInstallsRouter,
+} from "./handlers/skill-blueprints.js";
 import { teamInviteLinkRouter } from "./handlers/team-invite-link.js";
 import { wrappedDecimalClaimRouter } from "./handlers/wrapped-decimal-claim.js";
 import { wrappedResumeRouter } from "./handlers/wrapped-resume.js";
@@ -389,6 +394,9 @@ export const router = os.router({
 	getOrganizationSessionCount,
 	deleteOrganization,
 	teamInviteLink: teamInviteLinkRouter,
+	skillBlueprints: skillBlueprintsRouter,
+	repoOverlays: repoOverlaysRouter,
+	skillInstalls: skillInstallsRouter,
 	wrappedDecimalClaim: wrappedDecimalClaimRouter,
 	wrappedResume: wrappedResumeRouter,
 	wrappedShare: wrappedShareRouter,

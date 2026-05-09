@@ -8,6 +8,7 @@
 	},
 	"dependencies": {
 		"@orpc/contract": "latest",
+		"@rudel/skill-schema": "workspace:*",
 		"zod": "^3.24.0"
 	},
 	"devDependencies": {

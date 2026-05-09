@@ -7,11 +7,13 @@ export type RudelDesktopAppProps = {
 export function RudelDesktopApp(props: RudelDesktopAppProps) {
 	return {
 		product: "Rudel Desktop",
-		focus: "Skill Blueprints",
+		focus: "Machine-Wide Skill Inventory",
 		localEngine: props.localEngine,
+		managedBlueprintSlug: "typescript-standards",
 		primaryScreens: [
-			"blueprint-library",
-			"blueprint-editor",
+			"onboarding",
+			"all-skills-inventory",
+			"typescript-standards-focus",
 			"repo-matrix",
 			"drift-inbox",
 			"install-planner",

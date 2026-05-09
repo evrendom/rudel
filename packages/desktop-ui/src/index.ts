@@ -1,13 +1,16 @@
+export { buildAllSkillsInventory } from "./features/all-skills-inventory/index.js";
+export { getTypescriptStandardsArtifacts } from "./features/typescript-standards-focus/index.js";
 export type {
+	AllSkillsInventoryItem,
 	ApplyInstallPlanInput,
-	ApplyInstallPlanOutput,
+	ApplyInstallPlanResult,
 	CreateInstallPlanInput,
-	CreateInstallPlanOutput,
 	DetectDriftInput,
-	DetectDriftOutput,
+	GetDriftDetailInput,
 	LocalEngine,
+	ScanMachineInput,
 	ScanWorkspaceInput,
-	ScanWorkspaceOutput,
+	WorkspaceScanResult,
 } from "./ports/local-engine.js";
 export type { RudelDesktopAppProps } from "./RudelDesktopApp.js";
 export { RudelDesktopApp } from "./RudelDesktopApp.js";

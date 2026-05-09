@@ -24,6 +24,8 @@
 		"@rudel/agent-adapters": "workspace:*",
 		"@rudel/api-routes": "workspace:*",
 		"@rudel/ch-schema": "workspace:*",
+		"@rudel/skill-compiler": "workspace:*",
+		"@rudel/skill-schema": "workspace:*",
 		"@rudel/sql-schema": "workspace:*",
 		"better-auth": "^1.5.4",
 		"drizzle-orm": "0.45.1",

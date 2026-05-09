@@ -1,69 +1,74 @@
 import type {
-	AgentTarget,
+	DriftDetail,
 	DriftFinding,
-	InstallPlanFile,
+	ExpectedInstallation,
+	GeneratedArtifact,
+	InstallPlan,
+	MachineScanResult,
+	RepoKey,
+	SkillArtifact,
 } from "@rudel/skill-schema";
+
+export type ScanMachineInput = {
+	roots: string[];
+	includeGlobalAgentFolders: boolean;
+};
 
 export type ScanWorkspaceInput = {
 	rootPath: string;
 };
 
-export type LocalRepoSummary = {
-	id: string;
-	name: string;
-	path: string;
-};
-
-export type LocalSkillArtifact = {
-	repoId: string;
-	targetPath: string;
-	agentTarget: AgentTarget;
-	managed: boolean;
-};
-
-export type ScanWorkspaceOutput = {
+export type WorkspaceScanResult = MachineScanResult & {
 	rootPath: string;
-	repos: LocalRepoSummary[];
-	skills: LocalSkillArtifact[];
 };
 
 export type CreateInstallPlanInput = {
-	blueprintId: string;
 	repoId: string;
-	targets: AgentTarget[];
-};
-
-export type CreateInstallPlanOutput = {
-	planId: string;
-	files: InstallPlanFile[];
-	warnings: string[];
+	repoPath: string;
+	artifacts: GeneratedArtifact[];
+	blueprintRef: {
+		blueprintId: string;
+		blueprintVersionId: string;
+		slug: string;
+	};
+	overlayHash: string;
 };
 
 export type ApplyInstallPlanInput = {
 	planId: string;
 };
 
-export type ApplyInstallPlanOutput = {
+export type ApplyInstallPlanResult = {
 	operationId: string;
 	applied: boolean;
 };
 
-export type DetectDriftInput = {
-	repoId: string;
+export type GetDriftDetailInput = {
+	artifactId?: string;
+	repoId?: string;
+	targetPath: string;
+	expectedArtifact: GeneratedArtifact;
 };
 
-export type DetectDriftOutput = {
-	repoId: string;
-	findings: DriftFinding[];
+export type DetectDriftInput = {
+	expectedInstallations: ExpectedInstallation[];
+};
+
+export type AllSkillsInventoryItem = {
+	detectedSlug: string;
+	artifacts: SkillArtifact[];
+	managedCount: number;
+	unmanagedCount: number;
+	repoKeys: RepoKey[];
 };
 
 export type LocalEngine = {
-	scanWorkspace(input: ScanWorkspaceInput): Promise<ScanWorkspaceOutput>;
-	createInstallPlan(
-		input: CreateInstallPlanInput,
-	): Promise<CreateInstallPlanOutput>;
+	scanMachine(input: ScanMachineInput): Promise<MachineScanResult>;
+	scanWorkspace(input: ScanWorkspaceInput): Promise<WorkspaceScanResult>;
+	detectDrift(input: DetectDriftInput): Promise<DriftFinding[]>;
+	createInstallPlan(input: CreateInstallPlanInput): Promise<InstallPlan>;
 	applyInstallPlan(
 		input: ApplyInstallPlanInput,
-	): Promise<ApplyInstallPlanOutput>;
-	detectDrift(input: DetectDriftInput): Promise<DetectDriftOutput>;
+	): Promise<ApplyInstallPlanResult>;
+	getDriftDetail(input: GetDriftDetailInput): Promise<DriftDetail>;
 };
