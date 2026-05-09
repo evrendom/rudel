@@ -55,6 +55,7 @@ TypeScript owns:
 - agent-target compiler
 - generated Markdown
 - review rendering
+- grouping, matching, and drift classification
 - cloud API client
 - desktop UI state
 
@@ -67,8 +68,7 @@ Rust owns:
 - file watching
 - hashing
 - lockfile read/write
-- drift detection
-- write planning
+- safe write planning
 - atomic writes
 - undo
 - git diff/status

@@ -1,13 +1,12 @@
 use rudel_local::{
-    apply_install_plan as apply_install_plan_local,
-    create_install_plan as create_install_plan_local,
-    detect_drift_from_input as detect_drift_local,
-    get_drift_detail as get_drift_detail_local,
-    scan_machine as scan_machine_local,
-    scan_workspace as scan_workspace_local,
-    ApplyInstallPlanInput, ApplyInstallPlanResult, CreateInstallPlanInput, DetectDriftInput,
-    DriftDetail, DriftFinding, GetDriftDetailInput, InstallPlan, MachineScanResult,
-    ScanMachineInput, ScanWorkspaceInput,
+    apply_write_plan as apply_write_plan_local, create_write_plan as create_write_plan_local,
+    get_git_diff as get_git_diff_local, hash_files as hash_files_local,
+    normalize_git_remotes as normalize_git_remotes_local, read_lockfiles as read_lockfiles_local,
+    scan_machine as scan_machine_local, scan_workspace as scan_workspace_local,
+    ApplyWritePlanInput, ApplyWritePlanResult, CreateWritePlanInput, GitDiffInput, GitDiffResult,
+    HashFilesInput, HashFilesResult, LockfileReadResult, MachineScanResult,
+    NormalizeGitRemotesInput, ReadLockfilesInput, RepoIdentityResult, ScanMachineInput,
+    ScanWorkspaceInput, WritePlan,
 };
 
 #[tauri::command]
@@ -21,25 +20,35 @@ pub async fn scan_workspace(input: ScanWorkspaceInput) -> Result<MachineScanResu
 }
 
 #[tauri::command]
-pub async fn detect_drift(input: DetectDriftInput) -> Result<Vec<DriftFinding>, String> {
-    run_blocking(move || Ok(detect_drift_local(input))).await
+pub async fn read_lockfiles(input: ReadLockfilesInput) -> Result<LockfileReadResult, String> {
+    run_blocking(move || Ok(read_lockfiles_local(input))).await
 }
 
 #[tauri::command]
-pub async fn create_install_plan(input: CreateInstallPlanInput) -> Result<InstallPlan, String> {
-    run_blocking(move || Ok(create_install_plan_local(input))).await
+pub async fn hash_files(input: HashFilesInput) -> Result<HashFilesResult, String> {
+    run_blocking(move || Ok(hash_files_local(input))).await
 }
 
 #[tauri::command]
-pub async fn apply_install_plan(
-    input: ApplyInstallPlanInput,
-) -> Result<ApplyInstallPlanResult, String> {
-    run_blocking(move || apply_install_plan_local(input).map_err(|error| error.to_string())).await
+pub async fn normalize_git_remotes(
+    input: NormalizeGitRemotesInput,
+) -> Result<RepoIdentityResult, String> {
+    run_blocking(move || Ok(normalize_git_remotes_local(input))).await
 }
 
 #[tauri::command]
-pub async fn get_drift_detail(input: GetDriftDetailInput) -> Result<DriftDetail, String> {
-    run_blocking(move || Ok(get_drift_detail_local(input))).await
+pub async fn create_write_plan(input: CreateWritePlanInput) -> Result<WritePlan, String> {
+    run_blocking(move || Ok(create_write_plan_local(input))).await
+}
+
+#[tauri::command]
+pub async fn apply_write_plan(input: ApplyWritePlanInput) -> Result<ApplyWritePlanResult, String> {
+    run_blocking(move || apply_write_plan_local(input).map_err(|error| error.to_string())).await
+}
+
+#[tauri::command]
+pub async fn get_git_diff(input: GitDiffInput) -> Result<GitDiffResult, String> {
+    run_blocking(move || Ok(get_git_diff_local(input))).await
 }
 
 async fn run_blocking<T, TWork>(work: TWork) -> Result<T, String>

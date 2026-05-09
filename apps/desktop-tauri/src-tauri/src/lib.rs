@@ -6,10 +6,12 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::scan_machine,
             commands::scan_workspace,
-            commands::detect_drift,
-            commands::create_install_plan,
-            commands::apply_install_plan,
-            commands::get_drift_detail
+            commands::read_lockfiles,
+            commands::hash_files,
+            commands::normalize_git_remotes,
+            commands::create_write_plan,
+            commands::apply_write_plan,
+            commands::get_git_diff
         ])
         .run(tauri::generate_context!())
         .expect("error while running Rudel desktop");

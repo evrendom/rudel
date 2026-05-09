@@ -16,7 +16,7 @@ export function RudelDesktopApp(props: RudelDesktopAppProps) {
 			"typescript-standards-focus",
 			"repo-matrix",
 			"drift-inbox",
-			"install-planner",
+			"write-planner",
 		],
 	};
 }

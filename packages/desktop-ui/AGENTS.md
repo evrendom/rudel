@@ -8,7 +8,7 @@ It owns:
 - blueprint editor
 - repo x agent matrix
 - drift inbox
-- install/update planner
+- write planner
 - diff preview
 - local/team sync status
 

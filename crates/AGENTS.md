@@ -9,14 +9,13 @@ Rust responsibilities:
 - file watching
 - lockfile reads/writes
 - hashing
-- drift detection
-- install/update write plans
+- safe write plans
 - atomic writes
 - undo records
 - git status/diff
 - local SQLite
 
-Keep product semantics, visual editor logic, and skill compiler semantics in TypeScript unless a specific task moves that boundary.
+Keep product semantics, grouping, matching, drift classification, visual editor logic, and skill compiler semantics in TypeScript unless a specific task moves that boundary.
 
 TypeScript decides what generated artifacts should be produced. Rust decides whether and how they are safely written.
 

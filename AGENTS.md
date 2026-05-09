@@ -34,7 +34,7 @@ Active product surfaces:
 - `packages/sql-schema`: Postgres schema
 - `packages/skill-schema`: shared TypeScript/Zod schema for skill objects
 - `packages/skill-compiler`: pure compiler from blueprint + overlay + target to generated files
-- `crates/rudel-local`: local scan, watch, hash, drift, lockfile, write plan, git diff, SQLite, safe writes, undo
+- `crates/rudel-local`: local scan, watch, hash, lockfile, write plan, git diff, SQLite, safe writes, undo
 
 ## Parked Infrastructure
 
@@ -70,6 +70,8 @@ TypeScript owns:
 - product UI shell-agnostic screens
 - skill schema
 - blueprint/module/overlay semantics
+- skill grouping and matcher semantics
+- drift classification
 - agent output compiler
 - generated Markdown/review rendering
 - cloud API client
@@ -81,8 +83,8 @@ Rust owns:
 - file watching
 - local SQLite
 - lockfile reads/writes
-- hashing and drift detection
-- install/update write plans
+- hashing
+- safe write plans
 - atomic writes
 - undo records
 - git status/diff
@@ -114,7 +116,7 @@ The main product objects are:
 - `SkillInstallation`
 - `SkillLockfile`
 - `DriftFinding`
-- `InstallPlan`
+- `WritePlan`
 
 Use blueprints + modules + overlays as the inheritance model.
 
@@ -215,7 +217,7 @@ Build the paid-customer MLP in this order:
 5. skill compiler
 6. blueprint editor
 7. repo overlays
-8. install planner
+8. write planner
 9. lockfile
 10. drift matrix
 11. team sync

@@ -3,6 +3,7 @@ use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fs;
 use std::path::{Component, Path, PathBuf};
+use std::process::Command;
 use walkdir::{DirEntry, WalkDir};
 
 pub const PRODUCT_RULE: &str = "Desktop edits skills. Rust writes files. Cloud syncs teams.";
@@ -47,16 +48,14 @@ pub struct SkillArtifact {
     pub artifact_target: ArtifactTarget,
     pub absolute_path_hash: String,
     pub path: String,
+    pub repo_root_path: Option<String>,
     pub repo_relative_path: Option<String>,
     pub repo_key: Option<RepoKey>,
     pub name: Option<String>,
     pub description: Option<String>,
-    pub detected_slug: Option<String>,
     pub content_hash: String,
     pub normalized_content_hash: String,
-    pub is_managed: bool,
-    pub matched_blueprint_id: Option<String>,
-    pub lockfile_status: Option<LockfileStatus>,
+    pub lockfile_entry: Option<SkillLockfileEntry>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -137,66 +136,87 @@ pub struct GeneratedArtifact {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct ExpectedInstallation {
-    pub repo_id: String,
+pub struct ReadLockfilesInput {
+    pub repo_paths: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LockfileReadResult {
+    pub repos: Vec<LockfileReadRepo>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LockfileReadRepo {
+    pub repo_path: String,
+    pub lockfile: Option<SkillLockfile>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HashFilesInput {
+    pub files: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HashFilesResult {
+    pub files: Vec<FileHashResult>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FileHashResult {
+    pub path: String,
+    pub normalized_content_hash: Option<String>,
+    pub error: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NormalizeGitRemotesInput {
+    pub repo_paths: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RepoIdentityResult {
+    pub repos: Vec<RepoIdentity>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RepoIdentity {
     pub repo_path: String,
     pub repo_key: Option<RepoKey>,
-    pub artifact: GeneratedArtifact,
-    pub current_blueprint_version_id: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct DetectDriftInput {
-    pub expected_installations: Vec<ExpectedInstallation>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct DriftFinding {
-    pub id: String,
-    pub repo_id: String,
-    pub blueprint_id: Option<String>,
-    pub artifact_target: Option<ArtifactTarget>,
-    pub target_path: String,
-    pub status: LockfileStatus,
-    pub message: String,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct CreateInstallPlanInput {
+pub struct CreateWritePlanInput {
     pub repo_id: String,
     pub repo_path: String,
     pub artifacts: Vec<GeneratedArtifact>,
-    pub blueprint_ref: BlueprintRef,
-    pub overlay_hash: String,
+    pub lockfile_updates: Vec<SkillLockfileEntry>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct BlueprintRef {
-    pub blueprint_id: String,
-    pub blueprint_version_id: String,
-    pub slug: String,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct InstallPlan {
+pub struct WritePlan {
     pub id: String,
     pub repo_id: String,
     pub blueprint_id: String,
-    pub files: Vec<InstallPlanFile>,
+    pub files: Vec<WritePlanFile>,
     pub undo_available: bool,
     pub warnings: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct InstallPlanFile {
+pub struct WritePlanFile {
     pub target_path: String,
-    pub action: InstallPlanAction,
+    pub action: WritePlanAction,
     pub generated_content: String,
     pub diff: Option<String>,
     pub warnings: Vec<String>,
@@ -204,7 +224,7 @@ pub struct InstallPlanFile {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum InstallPlanAction {
+pub enum WritePlanAction {
     Create,
     Modify,
     Skip,
@@ -212,38 +232,32 @@ pub enum InstallPlanAction {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct ApplyInstallPlanInput {
+pub struct ApplyWritePlanInput {
     pub repo_path: String,
-    pub plan: InstallPlan,
-    pub artifacts: Vec<GeneratedArtifact>,
+    pub plan: WritePlan,
+    pub lockfile_updates: Vec<SkillLockfileEntry>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct ApplyInstallPlanResult {
+pub struct ApplyWritePlanResult {
     pub operation_id: String,
     pub applied: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct GetDriftDetailInput {
-    pub artifact_id: Option<String>,
-    pub repo_id: Option<String>,
+pub struct GitDiffInput {
     pub repo_path: String,
-    pub target_path: String,
-    pub expected_artifact: GeneratedArtifact,
+    pub paths: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct DriftDetail {
-    pub repo_id: Option<String>,
-    pub target_path: String,
-    pub status: LockfileStatus,
-    pub expected_content: String,
-    pub current_content: Option<String>,
-    pub diff: Option<String>,
+pub struct GitDiffResult {
+    pub repo_path: String,
+    pub diff: String,
+    pub error: Option<String>,
 }
 
 pub fn shell_boundary() -> &'static str {
@@ -285,82 +299,82 @@ pub fn scan_machine(input: ScanMachineInput) -> MachineScanResult {
     MachineScanResult { roots, artifacts }
 }
 
-pub fn detect_drift(expected_installations: &[ExpectedInstallation]) -> Vec<DriftFinding> {
-    expected_installations
-        .iter()
-        .map(detect_expected_installation_drift)
-        .collect()
+pub fn read_lockfiles(input: ReadLockfilesInput) -> LockfileReadResult {
+    LockfileReadResult {
+        repos: input
+            .repo_paths
+            .iter()
+            .map(|repo_path| LockfileReadRepo {
+                repo_path: repo_path.clone(),
+                lockfile: read_lockfile(Path::new(repo_path)),
+            })
+            .collect(),
+    }
 }
 
-pub fn detect_drift_from_input(input: DetectDriftInput) -> Vec<DriftFinding> {
-    detect_drift(&input.expected_installations)
+pub fn hash_files(input: HashFilesInput) -> HashFilesResult {
+    HashFilesResult {
+        files: input
+            .files
+            .iter()
+            .map(|path| match fs::read_to_string(path) {
+                Ok(content) => FileHashResult {
+                    path: path.clone(),
+                    normalized_content_hash: Some(hash_normalized_content(&content)),
+                    error: None,
+                },
+                Err(error) => FileHashResult {
+                    path: path.clone(),
+                    normalized_content_hash: None,
+                    error: Some(error.to_string()),
+                },
+            })
+            .collect(),
+    }
 }
 
-pub fn create_install_plan(input: CreateInstallPlanInput) -> InstallPlan {
+pub fn normalize_git_remotes(input: NormalizeGitRemotesInput) -> RepoIdentityResult {
+    RepoIdentityResult {
+        repos: input
+            .repo_paths
+            .iter()
+            .map(|repo_path| {
+                let root = Path::new(repo_path);
+                RepoIdentity {
+                    repo_path: repo_path.clone(),
+                    repo_key: root.join(".git").exists().then(|| repo_key_for_root(root)),
+                }
+            })
+            .collect(),
+    }
+}
+
+pub fn create_write_plan(input: CreateWritePlanInput) -> WritePlan {
     let repo_path = PathBuf::from(&input.repo_path);
-    let files = input
+    let files: Vec<WritePlanFile> = input
         .artifacts
         .iter()
         .map(|artifact| plan_file(&repo_path, artifact))
         .collect();
 
-    InstallPlan {
-        id: format!(
-            "plan:{}:{}:{}",
-            input.repo_id, input.blueprint_ref.blueprint_id, input.overlay_hash
-        ),
+    WritePlan {
+        id: format!("plan:{}:{}", input.repo_id, hash_plan_files(&files)),
         repo_id: input.repo_id,
-        blueprint_id: input.blueprint_ref.blueprint_id,
+        blueprint_id: common_blueprint_id(&input.lockfile_updates),
         files,
         undo_available: true,
         warnings: Vec::new(),
     }
 }
 
-pub fn get_drift_detail(input: GetDriftDetailInput) -> DriftDetail {
-    let target_path = PathBuf::from(&input.repo_path).join(&input.target_path);
-    let current_content = fs::read_to_string(&target_path).ok();
-    let expected_content =
-        planned_file_content(current_content.as_deref(), &input.expected_artifact);
-    let status = match current_content.as_deref() {
-        None => LockfileStatus::Missing,
-        Some(content)
-            if owned_content_hash(content, &input.expected_artifact)
-                == input.expected_artifact.content_hash =>
-        {
-            LockfileStatus::Current
-        }
-        Some(_) => LockfileStatus::Modified,
-    };
-    let diff = current_content.as_deref().and_then(|content| {
-        if status == LockfileStatus::Current {
-            None
-        } else {
-            Some(simple_diff(content, &expected_content))
-        }
-    });
-
-    DriftDetail {
-        repo_id: input.repo_id,
-        target_path: input.target_path,
-        status,
-        expected_content,
-        current_content,
-        diff,
-    }
-}
-
-pub fn apply_install_plan(input: ApplyInstallPlanInput) -> std::io::Result<ApplyInstallPlanResult> {
+pub fn apply_write_plan(input: ApplyWritePlanInput) -> std::io::Result<ApplyWritePlanResult> {
     let repo_path = PathBuf::from(&input.repo_path);
     for file in &input.plan.files {
-        if file.action == InstallPlanAction::Skip {
+        if file.action == WritePlanAction::Skip {
             continue;
         }
         let target_path = repo_path.join(&file.target_path);
-        if let Some(parent) = target_path.parent() {
-            fs::create_dir_all(parent)?;
-        }
-        fs::write(target_path, &file.generated_content)?;
+        write_file_atomically(&target_path, &file.generated_content)?;
     }
 
     let mut lockfile = read_lockfile(&repo_path).unwrap_or(SkillLockfile {
@@ -368,36 +382,47 @@ pub fn apply_install_plan(input: ApplyInstallPlanInput) -> std::io::Result<Apply
         entries: Vec::new(),
     });
     let managed_targets: HashSet<String> = input
-        .artifacts
+        .lockfile_updates
         .iter()
-        .map(|artifact| artifact.target_path.clone())
+        .map(|entry| entry.target_path.clone())
         .collect();
     lockfile
         .entries
         .retain(|entry| !managed_targets.contains(&entry.target_path));
 
-    for artifact in &input.artifacts {
-        let target_path = repo_path.join(&artifact.target_path);
-        let written_content = fs::read_to_string(&target_path).unwrap_or_default();
-        lockfile.entries.push(SkillLockfileEntry {
-            blueprint_id: artifact.blueprint_id.clone(),
-            blueprint_version: artifact.blueprint_version_id.clone(),
-            repo_overlay_hash: artifact.overlay_hash.clone(),
-            generated_hash: artifact.content_hash.clone(),
-            current_file_hash: Some(owned_content_hash(&written_content, artifact)),
-            artifact_target: artifact.artifact_target.clone(),
-            target_path: artifact.target_path.clone(),
-            schema_version: artifact.schema_version.clone(),
-            compiler_version: artifact.compiler_version.clone(),
-            status: LockfileStatus::Current,
-        });
-    }
+    lockfile.entries.extend(input.lockfile_updates);
     write_lockfile(&repo_path, &lockfile)?;
 
-    Ok(ApplyInstallPlanResult {
+    Ok(ApplyWritePlanResult {
         operation_id: format!("operation:{}", input.plan.id),
         applied: true,
     })
+}
+
+pub fn get_git_diff(input: GitDiffInput) -> GitDiffResult {
+    let mut command = Command::new("git");
+    command.arg("-C").arg(&input.repo_path).arg("diff").arg("--");
+    for path in &input.paths {
+        command.arg(path);
+    }
+
+    match command.output() {
+        Ok(output) if output.status.success() => GitDiffResult {
+            repo_path: input.repo_path,
+            diff: String::from_utf8_lossy(&output.stdout).to_string(),
+            error: None,
+        },
+        Ok(output) => GitDiffResult {
+            repo_path: input.repo_path,
+            diff: String::from_utf8_lossy(&output.stdout).to_string(),
+            error: Some(String::from_utf8_lossy(&output.stderr).to_string()),
+        },
+        Err(error) => GitDiffResult {
+            repo_path: input.repo_path,
+            diff: String::new(),
+            error: Some(error.to_string()),
+        },
+    }
 }
 
 pub fn normalize_git_remote_url(raw: &str) -> Option<String> {
@@ -428,6 +453,10 @@ pub fn normalize_repo_relative_path(path: &Path) -> String {
         .join("/")
 }
 
+pub fn normalize_absolute_path(path: &Path) -> String {
+    path.to_string_lossy().replace('\\', "/")
+}
+
 pub fn read_lockfile(repo_root: &Path) -> Option<SkillLockfile> {
     let path = repo_root.join(LOCKFILE_PATH);
     let content = fs::read_to_string(path).ok()?;
@@ -436,9 +465,6 @@ pub fn read_lockfile(repo_root: &Path) -> Option<SkillLockfile> {
 
 pub fn write_lockfile(repo_root: &Path, lockfile: &SkillLockfile) -> std::io::Result<()> {
     let path = repo_root.join(LOCKFILE_PATH);
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent)?;
-    }
     let mut entries = lockfile.entries.clone();
     entries.sort_by(|left, right| left.target_path.cmp(&right.target_path));
     let normalized = SkillLockfile {
@@ -448,7 +474,7 @@ pub fn write_lockfile(repo_root: &Path, lockfile: &SkillLockfile) -> std::io::Re
     let content = serde_json::to_string_pretty(&normalized)
         .map_err(|error| std::io::Error::new(std::io::ErrorKind::InvalidData, error))?
         + "\n";
-    fs::write(path, content)
+    write_file_atomically(&path, &content)
 }
 
 fn expand_roots(input: ScanMachineInput) -> Vec<String> {
@@ -486,6 +512,7 @@ fn scan_file(entry: &DirEntry) -> Option<SkillArtifact> {
     let artifact_target = detect_artifact_target(path)?;
     let content = fs::read_to_string(path).ok()?;
     let canonical_path = fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
+    let normalized_canonical_path = normalize_absolute_path(&canonical_path);
     let repo_root = find_repo_root(path);
     let repo_relative_path = repo_root
         .as_deref()
@@ -496,30 +523,22 @@ fn scan_file(entry: &DirEntry) -> Option<SkillArtifact> {
         .and_then(read_lockfile)
         .and_then(|lockfile| find_lockfile_entry(&lockfile, repo_relative_path.as_deref()));
     let (name, description) = parse_frontmatter(&content);
-    let detected_slug = detect_slug(path, name.as_deref(), &content);
-    let matched_blueprint_id = if matches_typescript_standards(&content) {
-        Some("typescript-standards".to_string())
-    } else {
-        None
-    };
     let source_scope = source_scope_for(path, repo_root.as_deref(), entry);
 
     Some(SkillArtifact {
-        id: hash_string(&canonical_path.to_string_lossy()),
+        id: hash_string(&normalized_canonical_path),
         source_scope,
         artifact_target,
-        absolute_path_hash: hash_string(&canonical_path.to_string_lossy()),
-        path: normalize_repo_relative_path(&canonical_path),
+        absolute_path_hash: hash_string(&normalized_canonical_path),
+        path: normalized_canonical_path,
+        repo_root_path: repo_root.as_deref().map(normalize_absolute_path),
         repo_relative_path,
         repo_key: repo_root.as_deref().map(repo_key_for_root),
         name,
         description,
-        detected_slug,
         content_hash: hash_string(&content),
         normalized_content_hash: hash_normalized_content(&content),
-        is_managed: lockfile_entry.is_some(),
-        matched_blueprint_id,
-        lockfile_status: lockfile_entry.map(|entry| entry.status),
+        lockfile_entry,
     })
 }
 
@@ -612,7 +631,7 @@ fn repo_key_for_root(repo_root: &Path) -> RepoKey {
     read_origin_remote(repo_root)
         .and_then(|remote| normalize_git_remote_url(&remote))
         .map(RepoKey::Github)
-        .unwrap_or_else(|| RepoKey::Local(hash_string(&normalize_repo_relative_path(repo_root))))
+        .unwrap_or_else(|| RepoKey::Local(hash_string(&normalize_absolute_path(repo_root))))
 }
 
 fn read_origin_remote(repo_root: &Path) -> Option<String> {
@@ -654,79 +673,7 @@ fn parse_frontmatter(content: &str) -> (Option<String>, Option<String>) {
     )
 }
 
-fn detect_slug(path: &Path, frontmatter_name: Option<&str>, content: &str) -> Option<String> {
-    if let Some(name) = frontmatter_name {
-        return Some(slugify(name));
-    }
-    if path
-        .file_name()
-        .is_some_and(|name| name.to_string_lossy() == "SKILL.md")
-    {
-        return path
-            .parent()
-            .and_then(Path::file_name)
-            .map(|name| slugify(&name.to_string_lossy()));
-    }
-    if matches_typescript_standards(content) {
-        return Some("typescript-standards".to_string());
-    }
-    path.file_stem()
-        .map(|stem| slugify(&stem.to_string_lossy()))
-}
-
-fn matches_typescript_standards(content: &str) -> bool {
-    content.contains("rudel:typescript-standards:")
-        || content.contains("typescript-standards")
-        || content.contains("TypeScript Standards")
-}
-
-fn detect_expected_installation_drift(expected: &ExpectedInstallation) -> DriftFinding {
-    let repo_root = PathBuf::from(&expected.repo_path);
-    let target_path = repo_root.join(&expected.artifact.target_path);
-    let lockfile_entry = read_lockfile(&repo_root).and_then(|lockfile| {
-        lockfile
-            .entries
-            .into_iter()
-            .find(|entry| entry.target_path == expected.artifact.target_path)
-    });
-
-    let status = match (target_path.exists(), lockfile_entry) {
-        (false, _) => LockfileStatus::Missing,
-        (true, Some(entry)) if entry.status == LockfileStatus::Forked => LockfileStatus::Forked,
-        (true, Some(entry)) => {
-            let current_hash = fs::read_to_string(&target_path)
-                .map(|content| owned_content_hash(&content, &expected.artifact))
-                .unwrap_or_default();
-            if entry.blueprint_version != expected.current_blueprint_version_id
-                && current_hash != entry.generated_hash
-            {
-                LockfileStatus::Conflict
-            } else if entry.blueprint_version != expected.current_blueprint_version_id {
-                LockfileStatus::Behind
-            } else if current_hash == expected.artifact.content_hash {
-                LockfileStatus::Current
-            } else {
-                LockfileStatus::Modified
-            }
-        }
-        (true, None) => LockfileStatus::Unmanaged,
-    };
-
-    DriftFinding {
-        id: hash_string(&format!(
-            "{}:{}",
-            expected.repo_id, expected.artifact.target_path
-        )),
-        repo_id: expected.repo_id.clone(),
-        blueprint_id: Some(expected.artifact.blueprint_id.clone()),
-        artifact_target: Some(expected.artifact.artifact_target.clone()),
-        target_path: expected.artifact.target_path.clone(),
-        message: drift_message(&status),
-        status,
-    }
-}
-
-fn plan_file(repo_path: &Path, artifact: &GeneratedArtifact) -> InstallPlanFile {
+fn plan_file(repo_path: &Path, artifact: &GeneratedArtifact) -> WritePlanFile {
     let target_path = repo_path.join(&artifact.target_path);
     let current = fs::read_to_string(&target_path).ok();
     let generated_content = planned_file_content(current.as_deref(), artifact);
@@ -734,11 +681,11 @@ fn plan_file(repo_path: &Path, artifact: &GeneratedArtifact) -> InstallPlanFile 
         .as_deref()
         .map(|content| owned_content_hash(content, artifact));
     let action = match current.as_deref() {
-        None => InstallPlanAction::Create,
+        None => WritePlanAction::Create,
         Some(_) if current_owned_hash.as_deref() == Some(artifact.content_hash.as_str()) => {
-            InstallPlanAction::Skip
+            WritePlanAction::Skip
         }
-        Some(_) => InstallPlanAction::Modify,
+        Some(_) => WritePlanAction::Modify,
     };
     let diff = current.as_deref().and_then(|content| {
         if current_owned_hash.as_deref() == Some(artifact.content_hash.as_str()) {
@@ -755,7 +702,7 @@ fn plan_file(repo_path: &Path, artifact: &GeneratedArtifact) -> InstallPlanFile 
         warnings.push("No managed section exists; plan appends one.".to_string());
     }
 
-    InstallPlanFile {
+    WritePlanFile {
         target_path: artifact.target_path.clone(),
         action,
         generated_content,
@@ -852,19 +799,51 @@ fn simple_diff(current: &str, expected: &str) -> String {
     )
 }
 
-fn drift_message(status: &LockfileStatus) -> String {
-    match status {
-        LockfileStatus::Current => "File matches the expected generated output.",
-        LockfileStatus::Missing => "Lockfile expects this file, but it is missing.",
-        LockfileStatus::Modified => "Local file differs from the generated output.",
-        LockfileStatus::Behind => "A newer published blueprint version is available.",
-        LockfileStatus::Conflict => {
-            "Local file is modified and a newer blueprint version is available."
-        }
-        LockfileStatus::Forked => "This file is intentionally forked from managed updates.",
-        LockfileStatus::Unmanaged => "A similar skill exists without a lockfile entry.",
+fn common_blueprint_id(entries: &[SkillLockfileEntry]) -> String {
+    entries
+        .first()
+        .map(|entry| entry.blueprint_id.clone())
+        .unwrap_or_else(|| "unmanaged".to_string())
+}
+
+fn hash_plan_files(files: &[WritePlanFile]) -> String {
+    let digest_input = files
+        .iter()
+        .map(|file| {
+            format!(
+                "{}|{:?}|{}",
+                file.target_path,
+                file.action,
+                hash_normalized_content(&file.generated_content)
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
+    hash_string(&digest_input)
+}
+
+fn write_file_atomically(path: &Path, content: &str) -> std::io::Result<()> {
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)?;
     }
-    .to_string()
+
+    let file_name = path
+        .file_name()
+        .map(|value| value.to_string_lossy().to_string())
+        .unwrap_or_else(|| "rudel-file".to_string());
+    let temp_path = path.with_file_name(format!(
+        ".{}.rudel-tmp-{}",
+        file_name,
+        hash_string(content)
+    ));
+    fs::write(&temp_path, content)?;
+    match fs::rename(&temp_path, path) {
+        Ok(()) => Ok(()),
+        Err(error) => {
+            let _ = fs::remove_file(&temp_path);
+            Err(error)
+        }
+    }
 }
 
 fn normalize_content(content: &str) -> String {
@@ -875,21 +854,6 @@ fn hash_string(value: &str) -> String {
     let mut hasher = Sha256::new();
     hasher.update(value.as_bytes());
     format!("{:x}", hasher.finalize())
-}
-
-fn slugify(value: &str) -> String {
-    let mut slug = String::new();
-    let mut previous_dash = false;
-    for character in value.chars() {
-        if character.is_ascii_alphanumeric() {
-            slug.push(character.to_ascii_lowercase());
-            previous_dash = false;
-        } else if !previous_dash {
-            slug.push('-');
-            previous_dash = true;
-        }
-    }
-    slug.trim_matches('-').to_string()
 }
 
 fn component_to_string(component: Component<'_>) -> Option<String> {
@@ -910,11 +874,10 @@ fn _stable_map_for_future_json(values: BTreeMap<String, String>) -> BTreeMap<Str
 #[cfg(test)]
 mod tests {
     use super::{
-        apply_install_plan, create_install_plan, detect_drift, hash_normalized_content,
-        normalize_git_remote_url, read_lockfile, scan_machine, write_lockfile,
-        ApplyInstallPlanInput, ArtifactTarget, BlueprintRef, CreateInstallPlanInput,
-        ExpectedInstallation, GeneratedArtifact, InstallPlanAction, LockfileStatus, RepoKey,
-        ScanMachineInput, SkillLockfile, SkillLockfileEntry, SourceScope,
+        apply_write_plan, create_write_plan, hash_normalized_content,
+        normalize_git_remote_url, read_lockfile, scan_machine,
+        ApplyWritePlanInput, ArtifactTarget, CreateWritePlanInput, GeneratedArtifact,
+        LockfileStatus, RepoKey, ScanMachineInput, SkillLockfileEntry, SourceScope, WritePlanAction,
     };
     use std::fs;
     use tempfile::tempdir;
@@ -947,9 +910,16 @@ mod tests {
         let skill = result
             .artifacts
             .iter()
-            .find(|artifact| artifact.detected_slug.as_deref() == Some("typescript-standards"))
+            .find(|artifact| artifact.name.as_deref() == Some("typescript-standards"))
             .expect("typescript standards artifact");
         assert_eq!(skill.artifact_target, ArtifactTarget::ClaudeCode);
+        assert_eq!(
+            skill.repo_root_path.as_deref(),
+            Some(repo.to_string_lossy().as_ref()),
+        );
+        assert!(skill.path.ends_with(
+            "/api/.claude/skills/typescript-standards/SKILL.md"
+        ));
         assert_eq!(
             skill.repo_key,
             Some(RepoKey::Github("github.com/company/api".to_string())),
@@ -1011,102 +981,7 @@ mod tests {
     }
 
     #[test]
-    fn detect_drift_reports_current_missing_modified_behind_and_conflict() {
-        let temp = tempdir().expect("temp dir");
-        let repo = temp.path().join("repo");
-        fs::create_dir_all(&repo).expect("create repo");
-        let artifact = generated_artifact("current content\n", "v1");
-        fs::create_dir_all(repo.join(".claude/skills/typescript-standards"))
-            .expect("create skill dir");
-        fs::write(
-            repo.join(".claude/skills/typescript-standards/SKILL.md"),
-            "current content\r\n",
-        )
-        .expect("write current");
-        write_lockfile(
-            &repo,
-            &SkillLockfile {
-                version: 1,
-                entries: vec![SkillLockfileEntry {
-                    blueprint_id: "typescript-standards".to_string(),
-                    blueprint_version: "v1".to_string(),
-                    repo_overlay_hash: "overlay".to_string(),
-                    generated_hash: artifact.content_hash.clone(),
-                    current_file_hash: Some(artifact.content_hash.clone()),
-                    artifact_target: ArtifactTarget::ClaudeCode,
-                    target_path: artifact.target_path.clone(),
-                    schema_version: "1".to_string(),
-                    compiler_version: "1".to_string(),
-                    status: LockfileStatus::Current,
-                }],
-            },
-        )
-        .expect("write lockfile");
-
-        let current = detect_drift(&[ExpectedInstallation {
-            repo_id: "repo".to_string(),
-            repo_path: repo.to_string_lossy().to_string(),
-            repo_key: None,
-            artifact: artifact.clone(),
-            current_blueprint_version_id: "v1".to_string(),
-        }]);
-        assert_eq!(current[0].status, LockfileStatus::Current);
-
-        let missing_artifact = generated_artifact("missing\n", "v1");
-        let missing = detect_drift(&[ExpectedInstallation {
-            repo_id: "repo".to_string(),
-            repo_path: repo.to_string_lossy().to_string(),
-            repo_key: None,
-            artifact: missing_artifact,
-            current_blueprint_version_id: "v1".to_string(),
-        }]);
-        assert_eq!(missing[0].status, LockfileStatus::Missing);
-
-        fs::write(
-            repo.join(".claude/skills/typescript-standards/SKILL.md"),
-            "local edit\n",
-        )
-        .expect("write edit");
-        let modified = detect_drift(&[ExpectedInstallation {
-            repo_id: "repo".to_string(),
-            repo_path: repo.to_string_lossy().to_string(),
-            repo_key: None,
-            artifact: artifact.clone(),
-            current_blueprint_version_id: "v1".to_string(),
-        }]);
-        assert_eq!(modified[0].status, LockfileStatus::Modified);
-
-        fs::write(
-            repo.join(".claude/skills/typescript-standards/SKILL.md"),
-            "current content\n",
-        )
-        .expect("restore");
-        let behind = detect_drift(&[ExpectedInstallation {
-            repo_id: "repo".to_string(),
-            repo_path: repo.to_string_lossy().to_string(),
-            repo_key: None,
-            artifact: artifact.clone(),
-            current_blueprint_version_id: "v2".to_string(),
-        }]);
-        assert_eq!(behind[0].status, LockfileStatus::Behind);
-
-        fs::write(
-            repo.join(".claude/skills/typescript-standards/SKILL.md"),
-            "local edit\n",
-        )
-        .expect("edit again");
-        let conflict = detect_drift(&[ExpectedInstallation {
-            repo_id: "repo".to_string(),
-            repo_path: repo.to_string_lossy().to_string(),
-            repo_key: None,
-            artifact,
-            current_blueprint_version_id: "v2".to_string(),
-        }]);
-        assert_eq!(conflict[0].status, LockfileStatus::Conflict);
-    }
-
-    #[test]
-    fn create_install_plan_skips_current_and_modifies_drifted_files() {
+    fn create_write_plan_skips_current_and_modifies_drifted_files() {
         let temp = tempdir().expect("temp dir");
         let repo = temp.path().join("repo");
         fs::create_dir_all(repo.join(".agents/skills/typescript-standards"))
@@ -1118,20 +993,16 @@ mod tests {
         )
         .err();
 
-        let plan = create_install_plan(CreateInstallPlanInput {
+        let lockfile_update = lockfile_entry_for_artifact(&artifact);
+        let plan = create_write_plan(CreateWritePlanInput {
             repo_id: "repo".to_string(),
             repo_path: repo.to_string_lossy().to_string(),
             artifacts: vec![artifact],
-            blueprint_ref: BlueprintRef {
-                blueprint_id: "typescript-standards".to_string(),
-                blueprint_version_id: "v1".to_string(),
-                slug: "typescript-standards".to_string(),
-            },
-            overlay_hash: "overlay".to_string(),
+            lockfile_updates: vec![lockfile_update],
         });
 
         assert_eq!(plan.files.len(), 1);
-        assert_eq!(plan.files[0].action, InstallPlanAction::Create);
+        assert_eq!(plan.files[0].action, WritePlanAction::Create);
         assert!(plan.undo_available);
     }
 
@@ -1150,19 +1021,15 @@ mod tests {
             "<!-- rudel:typescript-standards:start -->\nnew\n<!-- rudel:typescript-standards:end -->\n",
         );
 
-        let plan = create_install_plan(CreateInstallPlanInput {
+        let lockfile_update = lockfile_entry_for_artifact(&artifact);
+        let plan = create_write_plan(CreateWritePlanInput {
             repo_id: "repo".to_string(),
             repo_path: repo.to_string_lossy().to_string(),
             artifacts: vec![artifact],
-            blueprint_ref: BlueprintRef {
-                blueprint_id: "typescript-standards".to_string(),
-                blueprint_version_id: "v1".to_string(),
-                slug: "typescript-standards".to_string(),
-            },
-            overlay_hash: "overlay".to_string(),
+            lockfile_updates: vec![lockfile_update],
         });
 
-        assert_eq!(plan.files[0].action, InstallPlanAction::Modify);
+        assert_eq!(plan.files[0].action, WritePlanAction::Modify);
         assert!(plan.files[0].generated_content.contains("# Repo Rules"));
         assert!(plan.files[0].generated_content.contains("new"));
         assert!(plan.files[0].generated_content.contains("Keep this."));
@@ -1182,19 +1049,15 @@ mod tests {
         );
         artifact.artifact_target = ArtifactTarget::ClaudeMd;
 
-        let plan = create_install_plan(CreateInstallPlanInput {
+        let lockfile_update = lockfile_entry_for_artifact(&artifact);
+        let plan = create_write_plan(CreateWritePlanInput {
             repo_id: "repo".to_string(),
             repo_path: repo.to_string_lossy().to_string(),
             artifacts: vec![artifact],
-            blueprint_ref: BlueprintRef {
-                blueprint_id: "typescript-standards".to_string(),
-                blueprint_version_id: "v1".to_string(),
-                slug: "typescript-standards".to_string(),
-            },
-            overlay_hash: "overlay".to_string(),
+            lockfile_updates: vec![lockfile_update],
         });
 
-        assert_eq!(plan.files[0].action, InstallPlanAction::Modify);
+        assert_eq!(plan.files[0].action, WritePlanAction::Modify);
         assert!(
             plan.files[0]
                 .generated_content
@@ -1204,27 +1067,23 @@ mod tests {
     }
 
     #[test]
-    fn apply_install_plan_writes_files_and_lockfile() {
+    fn apply_write_plan_writes_files_and_lockfile() {
         let temp = tempdir().expect("temp dir");
         let repo = temp.path().join("repo");
         fs::create_dir_all(&repo).expect("create repo");
         let artifact = generated_artifact("expected\n", "v1");
-        let plan = create_install_plan(CreateInstallPlanInput {
+        let lockfile_update = lockfile_entry_for_artifact(&artifact);
+        let plan = create_write_plan(CreateWritePlanInput {
             repo_id: "repo".to_string(),
             repo_path: repo.to_string_lossy().to_string(),
             artifacts: vec![artifact.clone()],
-            blueprint_ref: BlueprintRef {
-                blueprint_id: "typescript-standards".to_string(),
-                blueprint_version_id: "v1".to_string(),
-                slug: "typescript-standards".to_string(),
-            },
-            overlay_hash: "overlay".to_string(),
+            lockfile_updates: vec![lockfile_update.clone()],
         });
 
-        let result = apply_install_plan(ApplyInstallPlanInput {
+        let result = apply_write_plan(ApplyWritePlanInput {
             repo_path: repo.to_string_lossy().to_string(),
             plan,
-            artifacts: vec![artifact.clone()],
+            lockfile_updates: vec![lockfile_update],
         })
         .expect("apply plan");
 
@@ -1249,6 +1108,21 @@ mod tests {
             overlay_hash: "overlay".to_string(),
             schema_version: "1".to_string(),
             compiler_version: "1".to_string(),
+        }
+    }
+
+    fn lockfile_entry_for_artifact(artifact: &GeneratedArtifact) -> SkillLockfileEntry {
+        SkillLockfileEntry {
+            blueprint_id: artifact.blueprint_id.clone(),
+            blueprint_version: artifact.blueprint_version_id.clone(),
+            repo_overlay_hash: artifact.overlay_hash.clone(),
+            generated_hash: artifact.content_hash.clone(),
+            current_file_hash: Some(artifact.content_hash.clone()),
+            artifact_target: artifact.artifact_target.clone(),
+            target_path: artifact.target_path.clone(),
+            schema_version: artifact.schema_version.clone(),
+            compiler_version: artifact.compiler_version.clone(),
+            status: LockfileStatus::Current,
         }
     }
 

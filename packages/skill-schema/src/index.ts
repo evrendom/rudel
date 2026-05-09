@@ -147,7 +147,7 @@ export const skillLockfileEntrySchema = z.object({
 	blueprintVersion: z.string().min(1),
 	repoOverlayHash: z.string().min(1),
 	generatedHash: z.string().min(1),
-	currentFileHash: z.string().optional(),
+	currentFileHash: z.string().nullable().optional(),
 	artifactTarget: artifactTargetSchema,
 	targetPath: z.string().min(1),
 	schemaVersion: z.string().min(1),
@@ -176,7 +176,7 @@ export const driftFindingSchema = z.object({
 
 export type DriftFinding = z.infer<typeof driftFindingSchema>;
 
-export const installPlanFileSchema = z.object({
+export const writePlanFileSchema = z.object({
 	targetPath: z.string().min(1),
 	action: z.enum(["create", "modify", "skip"]),
 	generatedContent: z.string(),
@@ -184,18 +184,18 @@ export const installPlanFileSchema = z.object({
 	warnings: z.array(z.string()).default([]),
 });
 
-export type InstallPlanFile = z.infer<typeof installPlanFileSchema>;
+export type WritePlanFile = z.infer<typeof writePlanFileSchema>;
 
-export const installPlanSchema = z.object({
+export const writePlanSchema = z.object({
 	id: z.string().min(1),
 	repoId: z.string().min(1),
 	blueprintId: z.string().min(1),
-	files: z.array(installPlanFileSchema),
+	files: z.array(writePlanFileSchema),
 	undoAvailable: z.boolean(),
 	warnings: z.array(z.string()).default([]),
 });
 
-export type InstallPlan = z.infer<typeof installPlanSchema>;
+export type WritePlan = z.infer<typeof writePlanSchema>;
 
 export const repoKeySchema = z.discriminatedUnion("kind", [
 	z.object({
@@ -226,19 +226,19 @@ export const skillArtifactSchema = z.object({
 	artifactTarget: artifactTargetSchema,
 	absolutePathHash: z.string().min(1),
 	path: z.string().min(1),
+	repoRootPath: z.string().optional(),
 	repoRelativePath: z.string().optional(),
 	repoKey: repoKeySchema.optional(),
 	name: z.string().optional(),
 	description: z.string().optional(),
-	detectedSlug: z.string().optional(),
 	contentHash: z.string().min(1),
 	normalizedContentHash: z.string().min(1),
-	isManaged: z.boolean(),
-	matchedBlueprintId: z.string().optional(),
-	lockfileStatus: lockfileStatusSchema.optional(),
+	lockfileEntry: skillLockfileEntrySchema.optional(),
 });
 
 export type SkillArtifact = z.infer<typeof skillArtifactSchema>;
+export const observedArtifactSchema = skillArtifactSchema;
+export type ObservedArtifact = SkillArtifact;
 
 export const machineScanResultSchema = z.object({
 	roots: z.array(z.string()),
@@ -247,23 +247,44 @@ export const machineScanResultSchema = z.object({
 
 export type MachineScanResult = z.infer<typeof machineScanResultSchema>;
 
-export const expectedInstallationSchema = z.object({
-	repoId: z.string().min(1),
+export const lockfileReadResultSchema = z.object({
+	repos: z.array(
+		z.object({
+			repoPath: z.string().min(1),
+			lockfile: skillLockfileSchema.optional(),
+		}),
+	),
+});
+
+export type LockfileReadResult = z.infer<typeof lockfileReadResultSchema>;
+
+export const hashFilesResultSchema = z.object({
+	files: z.array(
+		z.object({
+			path: z.string().min(1),
+			normalizedContentHash: z.string().optional(),
+			error: z.string().optional(),
+		}),
+	),
+});
+
+export type HashFilesResult = z.infer<typeof hashFilesResultSchema>;
+
+export const repoIdentityResultSchema = z.object({
+	repos: z.array(
+		z.object({
+			repoPath: z.string().min(1),
+			repoKey: repoKeySchema.optional(),
+		}),
+	),
+});
+
+export type RepoIdentityResult = z.infer<typeof repoIdentityResultSchema>;
+
+export const gitDiffResultSchema = z.object({
 	repoPath: z.string().min(1),
-	repoKey: repoKeySchema.optional(),
-	artifact: generatedArtifactSchema,
-	currentBlueprintVersionId: z.string().min(1),
+	diff: z.string(),
+	error: z.string().optional(),
 });
 
-export type ExpectedInstallation = z.infer<typeof expectedInstallationSchema>;
-
-export const driftDetailSchema = z.object({
-	repoId: z.string().optional(),
-	targetPath: z.string().min(1),
-	status: lockfileStatusSchema,
-	expectedContent: z.string(),
-	currentContent: z.string().optional(),
-	diff: z.string().optional(),
-});
-
-export type DriftDetail = z.infer<typeof driftDetailSchema>;
+export type GitDiffResult = z.infer<typeof gitDiffResultSchema>;

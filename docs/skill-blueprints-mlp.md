@@ -17,7 +17,7 @@ The MLP solves one customer pain:
 - agent target compilers
 - lockfile
 - drift detection
-- safe install/update planner
+- safe write planner
 
 ## KISS Shell Structure
 
@@ -65,7 +65,7 @@ Tauri is the first shell, not the architecture. Product UI receives a `LocalEngi
 - `SkillInstallation`: a managed local install
 - `SkillLockfile`: `.rudel/skills.lock.json`
 - `DriftFinding`: detected local/team mismatch
-- `InstallPlan`: safe write plan with diffs, warnings, and undo availability
+- `WritePlan`: safe write plan with diffs, warnings, and undo availability
 
 Use blueprint + modules + repo overlays. Keep arbitrary inheritance trees outside the skill model.
 
@@ -83,7 +83,7 @@ Use blueprint + modules + repo overlays. Keep arbitrary inheritance trees outsid
 2. Team Blueprint Library
 3. Blueprint Editor
 4. Repo x Agent Matrix
-5. Install / Update Planner
+5. Write Planner
 6. Drift Inbox
 
 ## Build Order
@@ -95,7 +95,7 @@ Use blueprint + modules + repo overlays. Keep arbitrary inheritance trees outsid
 5. skill compiler
 6. blueprint editor
 7. repo overlays
-8. install planner
+8. write planner
 9. lockfile
 10. drift matrix
 11. team sync

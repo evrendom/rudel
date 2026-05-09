@@ -1,4 +1,5 @@
 import type { SkillArtifact } from "@rudel/skill-schema";
+import { matchesTypescriptStandards } from "../local-skill-semantics/index.js";
 
 export const typescriptStandardsFocusFeature = {
 	id: "typescript-standards-focus",
@@ -8,9 +9,5 @@ export const typescriptStandardsFocusFeature = {
 export function getTypescriptStandardsArtifacts(
 	artifacts: readonly SkillArtifact[],
 ): SkillArtifact[] {
-	return artifacts.filter(
-		(artifact) =>
-			artifact.detectedSlug === "typescript-standards" ||
-			artifact.matchedBlueprintId === "typescript-standards",
-	);
+	return artifacts.filter(matchesTypescriptStandards);
 }
