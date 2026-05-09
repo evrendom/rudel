@@ -7,13 +7,19 @@ TypeScript owns drift classification; Rust owns local mechanics.
 It owns:
 
 - scan
-- watch
-- hash
+- path normalization
+- git remote normalization
+- hash primitives
 - lockfile
 - write plan
+- managed section writes
 - git diff
-- SQLite
 - safe writes
-- undo
+
+Planned, not implemented:
+
+- local SQLite persistence
+- watcher
+- persistent undo
 
 Split this crate only when real implementation pressure makes a smaller crate boundary useful.

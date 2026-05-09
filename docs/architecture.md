@@ -22,7 +22,7 @@ TypeScript owns drift classification; Rust owns local mechanics.
 - `packages/sql-schema`: Postgres schema
 - `packages/skill-schema`: shared TypeScript/Zod skill domain model
 - `packages/skill-compiler`: deterministic compiler from blueprint + overlay + target to generated artifacts
-- `crates/rudel-local`: scan, watch, hash, lockfile, write plan, git diff, SQLite, safe writes, and undo
+- `crates/rudel-local`: implemented local mechanics for scan, path normalization, git remote normalization, hashes, lockfiles, write plans, managed section writes, and git diff
 
 ## Parked Infrastructure
 
@@ -56,10 +56,14 @@ TypeScript owns:
 - product UI
 - skill schema
 - blueprint/module/overlay semantics
+- slug inference
+- blueprint matching
+- inventory grouping
+- drift classification
+- lockfile entry creation from generated artifacts
 - agent-target compiler
 - generated Markdown
 - review rendering
-- grouping, matching, and drift classification
 - cloud API client
 - desktop UI state
 
@@ -68,21 +72,28 @@ TypeScript owns:
 Rust owns:
 
 - folder permissions
-- workspace scan
-- file watching
-- hashing
+- scan
+- path normalization
+- git remote normalization
+- hash primitives
 - lockfile read/write
-- safe write planning
+- write plans
+- managed section writes
 - atomic writes
-- undo
-- git diff/status
-- local SQLite
+- git diff
 
 TypeScript decides what generated artifacts should be produced. Rust decides whether and how those artifacts are safely written.
 
+## Planned, Not Implemented
+
+- local SQLite persistence
+- watcher
+- persistent undo
+- real GitHub identity linking UI
+
 ## Data Stores
 
-Local SQLite is used by desktop for approved roots, repo inventory, local skill artifacts, cached team blueprints, compiled outputs, installations, lockfile snapshots, TypeScript-classified drift findings, write plans, write operations, undo records, and sync queues.
+Local SQLite is planned for approved roots, repo inventory, local skill artifacts, cached team blueprints, compiled outputs, installations, lockfile snapshots, TypeScript-classified drift findings, write plans, write operations, undo records, and sync queues. It is not implemented yet.
 
 Postgres is used by the API for users, organizations, memberships, teams, skill blueprints, blueprint versions, modules, repo overlays, repo registry, and team install records.
 

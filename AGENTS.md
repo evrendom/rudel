@@ -19,7 +19,7 @@ Build the product around:
 - Claude / Codex / Cursor output sync
 - local installs into real repo files
 - lockfile-backed TypeScript drift classification
-- safe update plans with diffs and undo
+- safe update plans with diffs
 
 Keep company brain, skill catalog, observability, and session intelligence work outside the MLP until explicitly requested.
 
@@ -34,7 +34,7 @@ Active product surfaces:
 - `packages/sql-schema`: Postgres schema
 - `packages/skill-schema`: shared TypeScript/Zod schema for skill objects
 - `packages/skill-compiler`: pure compiler from blueprint + overlay + target to generated files
-- `crates/rudel-local`: local scan, watch, hash, lockfile, write plan, git diff, SQLite, safe writes, undo
+- `crates/rudel-local`: implemented local mechanics for scan, path normalization, git remote normalization, hashes, lockfiles, write plans, managed section writes, and git diff
 
 ## Parked Infrastructure
 
@@ -74,8 +74,11 @@ TypeScript owns:
 - product UI shell-agnostic screens
 - skill schema
 - blueprint/module/overlay semantics
-- skill grouping and matcher semantics
+- slug inference
+- blueprint matching
+- inventory grouping
 - drift classification
+- lockfile entry creation from generated artifacts
 - agent output compiler
 - generated Markdown/review rendering
 - cloud API client
@@ -83,15 +86,22 @@ TypeScript owns:
 Rust owns:
 
 - folder permissions
-- filesystem scanning
-- file watching
-- local SQLite
-- lockfile reads/writes
-- hashing
-- safe write plans
+- scan
+- path normalization
+- git remote normalization
+- hash primitives
+- lockfile read/write
+- write plans
+- managed section writes
 - atomic writes
-- undo records
-- git status/diff
+- git diff
+
+## Planned, Not Implemented
+
+- local SQLite persistence
+- watcher
+- persistent undo
+- real GitHub identity linking UI
 
 Route managed filesystem writes through `crates/rudel-local` and Tauri commands.
 
@@ -190,7 +200,6 @@ A write plan shows:
 - generated content
 - git diff
 - warnings
-- undo availability
 
 Preserve modified local files unless the user explicitly approves an overwrite.
 
@@ -216,13 +225,13 @@ Build the paid-customer MLP in this order:
 
 1. Tauri desktop shell
 2. Rust local scanner
-3. local SQLite cache
-4. skill schema
-5. skill compiler
-6. blueprint editor
-7. repo overlays
-8. write planner
-9. lockfile
-10. drift matrix
-11. team sync
-12. pilot on one real customer skill
+3. skill schema
+4. skill compiler
+5. interactive desktop shell
+6. onboarding roots and scan
+7. all-skills inventory
+8. TypeScript Standards focus view
+9. compile selected repo/targets
+10. write planner
+11. drift detail
+12. team sync

@@ -16,7 +16,7 @@ Rudel helps teams solve:
 - Claude / Codex / Cursor output sync
 - repo/toolchain-specific skill variants
 - skill drift across repos
-- safe local file updates with diffs and undo
+- safe local file updates with diff previews
 
 ## Active architecture
 
@@ -27,9 +27,13 @@ Rudel helps teams solve:
 - `packages/sql-schema`: Postgres schema
 - `packages/skill-schema`: shared skill blueprint schema
 - `packages/skill-compiler`: deterministic agent-output compiler
-- `crates/rudel-local`: local scan, lockfile, write planning, safe writes, git diff, SQLite, and undo
+- `crates/rudel-local`: implemented local mechanics for scan, path normalization, git remote normalization, hashes, lockfiles, write plans, managed section writes, and git diff
 
 TypeScript owns drift classification; Rust owns local mechanics.
+
+Implemented TypeScript product semantics include slug inference, blueprint matching, inventory grouping, drift classification, and lockfile entry creation from generated artifacts.
+
+Planned, not implemented yet: local SQLite persistence, watcher, persistent undo, and real GitHub identity linking UI.
 
 ## Parked Infrastructure
 

@@ -7,15 +7,21 @@ TypeScript owns drift classification; Rust owns local mechanics.
 Rust responsibilities:
 
 - folder permissions
-- scanning
-- file watching
+- scan
+- path normalization
+- git remote normalization
 - lockfile reads/writes
-- hashing
+- hash primitives
 - safe write plans
+- managed section writes
 - atomic writes
-- undo records
-- git status/diff
-- local SQLite
+- git diff
+
+Planned, not implemented:
+
+- local SQLite persistence
+- watcher
+- persistent undo
 
 Keep product semantics, grouping, matching, drift classification, visual editor logic, and skill compiler semantics in TypeScript unless a specific task moves that boundary.
 

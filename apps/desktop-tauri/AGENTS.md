@@ -2,6 +2,8 @@
 
 This app is the first desktop shell for Rudel.
 
+TypeScript owns drift classification; Rust owns local mechanics.
+
 It owns:
 
 - Tauri bootstrap
@@ -16,3 +18,4 @@ It mounts the product UI from `packages/desktop-ui`:
 ```
 
 Keep product screens, product state, and Skill Blueprint workflows in `packages/desktop-ui`.
+Keep local mechanics behind Tauri commands backed by `crates/rudel-local`.

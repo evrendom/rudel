@@ -10,6 +10,11 @@ It owns:
 - blueprint editor
 - repo x agent matrix
 - drift inbox
+- slug inference
+- blueprint matching
+- inventory grouping
+- drift classification
+- lockfile entry creation from generated artifacts
 - write planner
 - diff preview
 - local/team sync status
