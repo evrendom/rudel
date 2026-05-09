@@ -19,21 +19,21 @@ The MLP solves one customer pain:
 - drift detection
 - safe install/update planner
 
-## Keep Dormant
+## Parked Infrastructure
 
 - ClickHouse session/transcript pipeline
 - CLI / CI tooling
 - session intelligence
 - transcript upload helper
 
-## Reference Only
+## Reference Library
 
 - `_archive/web`
-- old dashboard UI
-- old session analytics views
-- old OSS/self-host docs
+- archived dashboard UI
+- archived session analytics views
+- archived self-host docs
 
-## Do Not Build Now
+## Later Scope
 
 - hosted web product
 - self-hosting
@@ -57,7 +57,7 @@ The MLP solves one customer pain:
 - `DriftFinding`: detected local/team mismatch
 - `InstallPlan`: safe write plan with diffs, warnings, and undo availability
 
-Use blueprint + modules + repo overlays. Do not implement arbitrary inheritance trees.
+Use blueprint + modules + repo overlays. Keep arbitrary inheritance trees outside the skill model.
 
 ## P0 Generated Outputs
 

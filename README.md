@@ -30,15 +30,15 @@ Rudel helps teams solve:
 - `crates/rudel-fs`: safe filesystem operations
 - `crates/rudel-git`: git status and diff helpers
 
-## Dormant future infrastructure
+## Parked Infrastructure
 
-- `packages/ch-schema`: future ClickHouse transcript/session pipeline
+- `packages/ch-schema`: ClickHouse transcript/session pipeline for later paid session intelligence
 - `apps/cli`: future automation / CI / hook helper reference
-- `packages/agent-adapters`: future transcript adapter reference
+- `packages/agent-adapters`: transcript adapter reference for later paid session infrastructure
 
-## Reference only
+## Reference Library
 
-- `_archive/web`: old web dashboard reference. Do not import from it.
+- `_archive/web`: archived dashboard reference. Extract reviewed pieces into active packages before product use.
 
 ## Product rule
 

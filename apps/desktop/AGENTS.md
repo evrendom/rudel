@@ -12,6 +12,6 @@ The desktop app owns:
 - diff preview
 - local/team sync status
 
-Do not import from `_archive/web`.
+Use active packages and desktop components for product code.
 
-Managed file writes must go through Rust commands and write plans. Do not write local skill files directly from React.
+Managed file writes must go through Rust commands and write plans. React asks Rust to scan, plan, write, and undo.

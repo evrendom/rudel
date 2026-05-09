@@ -13,7 +13,7 @@ Rudel Desktop is a desktop-first product for keeping agent skills componentized,
 - Tauri prerequisites
 - Postgres connection for API development
 
-## Not required for v1
+## Parked for later
 
 - ClickHouse
 - Docker Compose
@@ -39,9 +39,9 @@ ClickHouse understands paid sessions later.
 
 ## Pull request rules
 
-- Do not import from `_archive/web`
-- Do not require ClickHouse env vars for v1
-- Do not initialize ClickHouse in API startup
-- Do not add local session processing
-- Do not make CLI the primary product UX
+- Use active packages instead of importing from `_archive/web`
+- Keep ClickHouse env vars optional for v1
+- Keep ClickHouse startup outside the default API path
+- Keep local session processing outside the MLP
+- Keep desktop as the primary product UX
 - Managed local file writes must go through Rust write plans

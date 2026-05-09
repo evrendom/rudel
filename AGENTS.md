@@ -1,10 +1,8 @@
 # Rudel Agent Instructions
 
-## Product identity
+## Product Identity
 
-This repo is no longer the old open-source Rudel web/CLI session analytics tool.
-
-It is now a private, closed-source, desktop-first Skill Blueprint product.
+Rudel is a private, desktop-first Skill Blueprint product.
 
 The current MLP solves one customer pain:
 
@@ -12,7 +10,7 @@ The current MLP solves one customer pain:
 
 ## Current MLP
 
-The MLP solves:
+Build the product around:
 
 - componentized skills
 - skill inheritance through blueprints and overlays
@@ -23,9 +21,9 @@ The MLP solves:
 - lockfile-backed drift detection
 - safe update plans with diffs and undo
 
-Do not expand the product into company brain, marketplace, observability, or session intelligence unless explicitly asked.
+Keep company brain, marketplace, observability, and session intelligence work outside the MLP until explicitly requested.
 
-## Active architecture
+## Active Architecture
 
 Active product surfaces:
 
@@ -41,39 +39,33 @@ Active product surfaces:
 - `crates/rudel-git`: git status and diff helpers
 - `crates/rudel-adapters`: local agent skill path discovery and target knowledge
 
-## Dormant future infrastructure
+## Parked Infrastructure
 
-These exist for the future but are not part of the v1 MLP runtime:
+These areas stay in the repo as parked infrastructure for later paid surfaces:
 
 - `packages/ch-schema`: ClickHouse session/transcript analytics schema
-- `packages/agent-adapters`: old transcript/session adapters
+- `packages/agent-adapters`: transcript/session adapter reference
 - `apps/cli`: future CI/automation/tooling reference
-- old session ingestion code
+- session ingestion code
 
-Do not wire ClickHouse, transcript ingestion, session intelligence, or CLI flows unless explicitly asked.
+For the MLP, route runtime work through desktop, Rust local crates, Postgres, skill schema, and skill compiler packages.
 
-## Reference-only code
+## Reference Library
 
-`_archive/web` is the old web dashboard. It is reference-only.
+`_archive/web` is an archived dashboard reference library.
 
-Do not:
+Use it only as reviewed reference material. Extract useful UI pieces into active packages such as `packages/ui` before using them in product code.
 
-- import from `_archive/web`
-- rebuild the web app
-- wrap the old web app in Tauri
-- copy old web routes into desktop
-- let old dashboard/session analytics assumptions guide desktop UX
+Build desktop UX from the Skill Blueprint workflow, local write planning, and drift management model.
 
-Useful UI pieces may be manually extracted into `packages/ui` after review.
-
-## Product rule
+## Product Rule
 
 Desktop edits skills.
 Rust writes files.
 Cloud syncs teams.
 ClickHouse understands paid sessions later.
 
-## TypeScript vs Rust responsibilities
+## TypeScript And Rust Ownership
 
 TypeScript owns:
 
@@ -96,9 +88,9 @@ Rust owns:
 - undo records
 - git status/diff
 
-The UI must not directly perform managed filesystem writes. Use Rust commands and write plans.
+Route managed filesystem writes through Rust commands and write plans.
 
-## Core domain model
+## Core Domain Model
 
 The main product objects are:
 
@@ -111,18 +103,18 @@ The main product objects are:
 - `DriftFinding`
 - `InstallPlan`
 
-Use blueprints + modules + overlays instead of arbitrary inheritance trees.
+Use blueprints + modules + overlays as the inheritance model.
 
-Inheritance should mean:
+Inheritance means:
 
 base blueprint
 + reusable modules
 + repo-specific variables
 + optional appended blocks
 
-Do not implement complex class-style inheritance for skills.
+Keep class-style inheritance out of the skill model.
 
-## Agent targets
+## Agent Targets
 
 P0 targets:
 
@@ -166,11 +158,11 @@ Statuses:
 - `forked`
 - `unmanaged`
 
-## Write safety
+## Write Safety
 
-Every managed local file write must go through a write plan.
+Every managed local file write goes through a write plan.
 
-A write plan should show:
+A write plan shows:
 
 - files to create
 - files to modify
@@ -181,16 +173,16 @@ A write plan should show:
 - warnings
 - undo availability
 
-Never silently overwrite modified local files.
+Preserve modified local files unless the user explicitly approves an overwrite.
 
-## V1 non-goals
+## V1 Boundaries
 
-Do not build these unless explicitly requested:
+Keep these outside the MLP until explicitly requested:
 
 - hosted web product
 - self-hosting
 - Docker local infra
-- public OSS docs
+- public docs
 - generic company brain
 - Slack/meeting ingestion
 - session intelligence
@@ -200,7 +192,7 @@ Do not build these unless explicitly requested:
 - complex enterprise admin
 - user-facing CLI as primary UX
 
-## Current priority
+## Current Priority
 
 Build the paid-customer MLP in this order:
 

@@ -24,17 +24,17 @@ ClickHouse understands paid sessions later.
 - `crates/rudel-git`: git status and diff helpers
 - `crates/rudel-adapters`: local agent skill path discovery and target knowledge
 
-## Dormant Future Infrastructure
+## Parked Infrastructure
 
-- `packages/ch-schema`: ClickHouse session/transcript analytics schema
-- `packages/agent-adapters`: old transcript/session adapter reference
+- `packages/ch-schema`: ClickHouse session/transcript analytics schema for later paid session intelligence
+- `packages/agent-adapters`: transcript/session adapter reference
 - `apps/cli`: future internal automation and CI tooling
 
-These packages stay in the repo, but they are not part of the v1 MLP runtime.
+These packages stay in the repo as parked infrastructure. The v1 runtime centers on desktop, API, skill schema, skill compiler, and Rust local authority.
 
-## Reference Only
+## Reference Library
 
-`_archive/web` contains the old hosted dashboard and wrapped product surface. It is reference-only. Do not import from it, wrap it in Tauri, or let old dashboard/session analytics assumptions drive the desktop MLP.
+`_archive/web` contains an archived dashboard reference library. Use it for review and extraction decisions, then move useful pieces into active desktop or package code.
 
 ## TypeScript Responsibilities
 
@@ -73,6 +73,6 @@ Local SQLite is used by desktop for approved roots, repo inventory, local skill 
 
 Postgres is used by the API for users, organizations, memberships, teams, skill blueprints, blueprint versions, modules, repo overlays, repo registry, and team install records.
 
-ClickHouse is future-only for paid session transcripts, session events, repo/git metadata, skill intelligence events, and usage analytics.
+ClickHouse is parked paid infrastructure for session transcripts, session events, repo/git metadata, skill intelligence events, and usage analytics.
 
-For v1, do not call ClickHouse.
+For v1, keep ClickHouse outside the default runtime path.

@@ -6,8 +6,6 @@ This is a private product repository. The active `main` branch is the supported 
 
 ## Reporting a Vulnerability
 
-Do not open a public issue for security vulnerabilities.
-
 Report vulnerabilities privately through GitHub Security Advisories for the private repository:
 
 https://github.com/evrendom/nua/security/advisories/new
@@ -29,4 +27,4 @@ This policy covers the active Rudel Desktop Skill Blueprint product:
 - `packages/skill-compiler`
 - Rust local authority crates under `crates/`
 
-Dormant ClickHouse, CLI, and transcript/session code remains in scope for security if touched, but it is not part of the v1 MLP runtime.
+Parked ClickHouse, CLI, and transcript/session code remains in scope for security when touched. The v1 runtime centers on desktop, API, skill schema, skill compiler, and local Rust authority.

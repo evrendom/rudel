@@ -1,16 +1,16 @@
 # ClickHouse Schema Scope
 
-This package is dormant future infrastructure for paid session ingestion and analytics.
+This package is parked future infrastructure for paid session ingestion and analytics.
 
 Keep it in the repo.
 
-Do not wire it into the v1 Skill Blueprint MLP unless explicitly asked.
+Wire it into runtime code when paid session ingestion returns to scope.
 
 For v1:
 
-- do not require ClickHouse env vars
-- do not initialize ClickHouse at API startup
-- do not include ClickHouse tests in default verification
-- do not register transcript ingestion routes
+- keep ClickHouse env vars optional
+- keep ClickHouse startup outside the default API path
+- keep ClickHouse tests outside default MLP verification
+- route transcript ingestion work to later paid session infrastructure
 
 When session ingestion is re-enabled later, this package should be used for ClickHouse schema, migrations, generated types, and analytics tables.

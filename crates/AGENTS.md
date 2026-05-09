@@ -15,6 +15,6 @@ Rust responsibilities:
 - undo records
 - git status/diff
 
-Do not move product semantics, visual editor logic, or skill compiler semantics into Rust unless explicitly requested.
+Keep product semantics, visual editor logic, and skill compiler semantics in TypeScript unless a specific task moves that boundary.
 
 TypeScript decides what generated artifacts should be produced. Rust decides whether and how they are safely written.

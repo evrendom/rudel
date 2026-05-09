@@ -9,4 +9,4 @@ Compiler output should be pure and repeatable:
 - content hash
 - warnings when needed
 
-Do not perform filesystem writes here. Rust write plans own local file safety.
+Return generated artifacts here. Rust write plans own local file safety.

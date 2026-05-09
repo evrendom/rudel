@@ -2,6 +2,6 @@
 
 This package owns the shared TypeScript/Zod domain model for Skill Blueprints.
 
-Keep blueprint, module, overlay, target, installation, lockfile, drift, and install-plan shapes here so desktop, API, and compiler code do not duplicate type definitions.
+Keep blueprint, module, overlay, target, installation, lockfile, drift, and install-plan shapes here so desktop, API, and compiler code share one type source.
 
-Do not put rendering, local filesystem writes, or API transport concerns in this package.
+Put rendering, local filesystem writes, and API transport concerns in their owning packages.

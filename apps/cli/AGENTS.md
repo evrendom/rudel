@@ -1,8 +1,8 @@
 # CLI Scope
 
-The CLI is dormant/future tooling.
+The CLI is parked future tooling.
 
-The v1 product is desktop-first and should not require users to install or run the CLI.
+The v1 product is desktop-first. Users work through the desktop app.
 
 Future CLI use cases:
 
@@ -11,4 +11,4 @@ Future CLI use cases:
 - hook/helper inspiration
 - automation for teams
 
-Do not add user-facing CLI flows unless explicitly requested.
+Add user-facing CLI flows only when the desktop MLP explicitly needs them.

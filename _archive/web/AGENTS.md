@@ -1,9 +1,7 @@
-# Archived Web App
+# Archived Web Reference
 
-This directory is reference-only.
+This directory is an archived dashboard reference library.
 
-Do not import from this directory.
-Do not update it as active product code.
-Do not make Tauri depend on it.
+Use it for review and extraction decisions.
 
-Useful pieces may be manually extracted into `packages/ui` or new desktop components after review.
+Move useful pieces into `packages/ui` or new desktop components before product use.
