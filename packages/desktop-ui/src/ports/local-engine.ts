@@ -35,7 +35,9 @@ export type CreateInstallPlanInput = {
 };
 
 export type ApplyInstallPlanInput = {
-	planId: string;
+	repoPath: string;
+	plan: InstallPlan;
+	artifacts: GeneratedArtifact[];
 };
 
 export type ApplyInstallPlanResult = {
@@ -46,6 +48,7 @@ export type ApplyInstallPlanResult = {
 export type GetDriftDetailInput = {
 	artifactId?: string;
 	repoId?: string;
+	repoPath: string;
 	targetPath: string;
 	expectedArtifact: GeneratedArtifact;
 };

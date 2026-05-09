@@ -19,12 +19,14 @@ const SKIP_DIRS: &[&str] = &[
     "coverage",
 ];
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ScanWorkspaceInput {
     pub root_path: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ScanMachineInput {
     pub roots: Vec<String>,
     pub include_global_agent_folders: bool,
@@ -138,8 +140,15 @@ pub struct GeneratedArtifact {
 pub struct ExpectedInstallation {
     pub repo_id: String,
     pub repo_path: String,
+    pub repo_key: Option<RepoKey>,
     pub artifact: GeneratedArtifact,
     pub current_blueprint_version_id: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DetectDriftInput {
+    pub expected_installations: Vec<ExpectedInstallation>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -216,6 +225,27 @@ pub struct ApplyInstallPlanResult {
     pub applied: bool,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GetDriftDetailInput {
+    pub artifact_id: Option<String>,
+    pub repo_id: Option<String>,
+    pub repo_path: String,
+    pub target_path: String,
+    pub expected_artifact: GeneratedArtifact,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DriftDetail {
+    pub repo_id: Option<String>,
+    pub target_path: String,
+    pub status: LockfileStatus,
+    pub expected_content: String,
+    pub current_content: Option<String>,
+    pub diff: Option<String>,
+}
+
 pub fn shell_boundary() -> &'static str {
     "Tauri is the first shell, not the architecture."
 }
@@ -262,6 +292,10 @@ pub fn detect_drift(expected_installations: &[ExpectedInstallation]) -> Vec<Drif
         .collect()
 }
 
+pub fn detect_drift_from_input(input: DetectDriftInput) -> Vec<DriftFinding> {
+    detect_drift(&input.expected_installations)
+}
+
 pub fn create_install_plan(input: CreateInstallPlanInput) -> InstallPlan {
     let repo_path = PathBuf::from(&input.repo_path);
     let files = input
@@ -280,6 +314,39 @@ pub fn create_install_plan(input: CreateInstallPlanInput) -> InstallPlan {
         files,
         undo_available: true,
         warnings: Vec::new(),
+    }
+}
+
+pub fn get_drift_detail(input: GetDriftDetailInput) -> DriftDetail {
+    let target_path = PathBuf::from(&input.repo_path).join(&input.target_path);
+    let current_content = fs::read_to_string(&target_path).ok();
+    let expected_content =
+        planned_file_content(current_content.as_deref(), &input.expected_artifact);
+    let status = match current_content.as_deref() {
+        None => LockfileStatus::Missing,
+        Some(content)
+            if owned_content_hash(content, &input.expected_artifact)
+                == input.expected_artifact.content_hash =>
+        {
+            LockfileStatus::Current
+        }
+        Some(_) => LockfileStatus::Modified,
+    };
+    let diff = current_content.as_deref().and_then(|content| {
+        if status == LockfileStatus::Current {
+            None
+        } else {
+            Some(simple_diff(content, &expected_content))
+        }
+    });
+
+    DriftDetail {
+        repo_id: input.repo_id,
+        target_path: input.target_path,
+        status,
+        expected_content,
+        current_content,
+        diff,
     }
 }
 
@@ -430,10 +497,11 @@ fn scan_file(entry: &DirEntry) -> Option<SkillArtifact> {
         .and_then(|lockfile| find_lockfile_entry(&lockfile, repo_relative_path.as_deref()));
     let (name, description) = parse_frontmatter(&content);
     let detected_slug = detect_slug(path, name.as_deref(), &content);
-    let matched_blueprint_id = detected_slug
-        .as_deref()
-        .filter(|slug| *slug == "typescript-standards")
-        .map(str::to_string);
+    let matched_blueprint_id = if matches_typescript_standards(&content) {
+        Some("typescript-standards".to_string())
+    } else {
+        None
+    };
     let source_scope = source_scope_for(path, repo_root.as_deref(), entry);
 
     Some(SkillArtifact {
@@ -512,7 +580,10 @@ fn source_scope_for(path: &Path, repo_root: Option<&Path>, entry: &DirEntry) -> 
     if entry.path_is_symlink() {
         return SourceScope::Symlink;
     }
-    if repo_root.is_some() {
+    if let Some(root) = repo_root {
+        if find_repo_root_above(root).is_some() {
+            return SourceScope::NestedRepo;
+        }
         return SourceScope::Repo;
     }
     let normalized = normalize_repo_relative_path(path);
@@ -524,6 +595,17 @@ fn source_scope_for(path: &Path, repo_root: Option<&Path>, entry: &DirEntry) -> 
         return SourceScope::GlobalUser;
     }
     SourceScope::Unknown
+}
+
+fn find_repo_root_above(repo_root: &Path) -> Option<PathBuf> {
+    let mut current = repo_root.parent();
+    while let Some(candidate) = current {
+        if candidate.join(".git").exists() {
+            return Some(candidate.to_path_buf());
+        }
+        current = candidate.parent();
+    }
+    None
 }
 
 fn repo_key_for_root(repo_root: &Path) -> RepoKey {
@@ -552,13 +634,14 @@ fn read_origin_remote(repo_root: &Path) -> Option<String> {
 }
 
 fn parse_frontmatter(content: &str) -> (Option<String>, Option<String>) {
-    if !content.starts_with("---\n") {
+    let normalized = normalize_content(content);
+    if !normalized.starts_with("---\n") {
         return (None, None);
     }
-    let Some(end) = content[4..].find("\n---") else {
+    let Some(end) = normalized[4..].find("\n---") else {
         return (None, None);
     };
-    let frontmatter = &content[4..4 + end];
+    let frontmatter = &normalized[4..4 + end];
     let mut fields = HashMap::new();
     for line in frontmatter.lines() {
         if let Some((key, value)) = line.split_once(':') {
@@ -572,9 +655,6 @@ fn parse_frontmatter(content: &str) -> (Option<String>, Option<String>) {
 }
 
 fn detect_slug(path: &Path, frontmatter_name: Option<&str>, content: &str) -> Option<String> {
-    if content.contains("typescript-standards") || content.contains("TypeScript Standards") {
-        return Some("typescript-standards".to_string());
-    }
     if let Some(name) = frontmatter_name {
         return Some(slugify(name));
     }
@@ -587,8 +667,17 @@ fn detect_slug(path: &Path, frontmatter_name: Option<&str>, content: &str) -> Op
             .and_then(Path::file_name)
             .map(|name| slugify(&name.to_string_lossy()));
     }
+    if matches_typescript_standards(content) {
+        return Some("typescript-standards".to_string());
+    }
     path.file_stem()
         .map(|stem| slugify(&stem.to_string_lossy()))
+}
+
+fn matches_typescript_standards(content: &str) -> bool {
+    content.contains("rudel:typescript-standards:")
+        || content.contains("typescript-standards")
+        || content.contains("TypeScript Standards")
 }
 
 fn detect_expected_installation_drift(expected: &ExpectedInstallation) -> DriftFinding {
@@ -825,7 +914,7 @@ mod tests {
         normalize_git_remote_url, read_lockfile, scan_machine, write_lockfile,
         ApplyInstallPlanInput, ArtifactTarget, BlueprintRef, CreateInstallPlanInput,
         ExpectedInstallation, GeneratedArtifact, InstallPlanAction, LockfileStatus, RepoKey,
-        ScanMachineInput, SkillLockfile, SkillLockfileEntry,
+        ScanMachineInput, SkillLockfile, SkillLockfileEntry, SourceScope,
     };
     use std::fs;
     use tempfile::tempdir;
@@ -865,6 +954,36 @@ mod tests {
             skill.repo_key,
             Some(RepoKey::Github("github.com/company/api".to_string())),
         );
+    }
+
+    #[test]
+    fn scan_machine_handles_crlf_frontmatter_and_nested_repos() {
+        let temp = tempdir().expect("temp dir");
+        let parent = temp.path().join("parent");
+        let nested = parent.join("nested");
+        fs::create_dir_all(parent.join(".git")).expect("create parent git");
+        fs::create_dir_all(nested.join(".git")).expect("create nested git");
+        fs::create_dir_all(nested.join(".agents/skills/typescript-standards"))
+            .expect("create skill dir");
+        fs::write(
+            nested.join(".agents/skills/typescript-standards/SKILL.md"),
+            "---\r\nname: typescript-standards\r\ndescription: TS rules\r\n---\r\n# TypeScript Standards\r\n",
+        )
+        .expect("write skill");
+
+        let result = scan_machine(ScanMachineInput {
+            roots: vec![parent.to_string_lossy().to_string()],
+            include_global_agent_folders: false,
+        });
+
+        let skill = result
+            .artifacts
+            .iter()
+            .find(|artifact| artifact.repo_relative_path.as_deref().is_some())
+            .expect("nested skill artifact");
+        assert_eq!(skill.name.as_deref(), Some("typescript-standards"));
+        assert_eq!(skill.source_scope, SourceScope::NestedRepo);
+        assert_eq!(skill.artifact_target, ArtifactTarget::Codex);
     }
 
     #[test]
@@ -927,6 +1046,7 @@ mod tests {
         let current = detect_drift(&[ExpectedInstallation {
             repo_id: "repo".to_string(),
             repo_path: repo.to_string_lossy().to_string(),
+            repo_key: None,
             artifact: artifact.clone(),
             current_blueprint_version_id: "v1".to_string(),
         }]);
@@ -936,6 +1056,7 @@ mod tests {
         let missing = detect_drift(&[ExpectedInstallation {
             repo_id: "repo".to_string(),
             repo_path: repo.to_string_lossy().to_string(),
+            repo_key: None,
             artifact: missing_artifact,
             current_blueprint_version_id: "v1".to_string(),
         }]);
@@ -949,6 +1070,7 @@ mod tests {
         let modified = detect_drift(&[ExpectedInstallation {
             repo_id: "repo".to_string(),
             repo_path: repo.to_string_lossy().to_string(),
+            repo_key: None,
             artifact: artifact.clone(),
             current_blueprint_version_id: "v1".to_string(),
         }]);
@@ -962,6 +1084,7 @@ mod tests {
         let behind = detect_drift(&[ExpectedInstallation {
             repo_id: "repo".to_string(),
             repo_path: repo.to_string_lossy().to_string(),
+            repo_key: None,
             artifact: artifact.clone(),
             current_blueprint_version_id: "v2".to_string(),
         }]);
@@ -975,6 +1098,7 @@ mod tests {
         let conflict = detect_drift(&[ExpectedInstallation {
             repo_id: "repo".to_string(),
             repo_path: repo.to_string_lossy().to_string(),
+            repo_key: None,
             artifact,
             current_blueprint_version_id: "v2".to_string(),
         }]);

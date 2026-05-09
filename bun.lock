@@ -70,9 +70,12 @@
       "version": "0.0.0",
       "dependencies": {
         "@rudel/desktop-ui": "workspace:*",
+        "@rudel/skill-schema": "workspace:*",
+        "@tauri-apps/api": "^2.9.0",
       },
       "devDependencies": {
         "@rudel/typescript-config": "workspace:*",
+        "@tauri-apps/cli": "^2.9.0",
         "bun-types": "latest",
         "typescript": "5.9.2",
       },
@@ -524,6 +527,32 @@
     "@standard-schema/spec": ["@standard-schema/spec@1.1.0", "", {}, "sha512-l2aFy5jALhniG5HgqrD6jXLi/rUWrKvqN/qJx6yoJsgKhblVd+iqqU4RCXavm/jPityDo5TCvKMnpjKnOriy0w=="],
 
     "@stricli/core": ["@stricli/core@1.2.6", "", {}, "sha512-j5fa1wyOLrP9WJqqLFEJeQviqb3cK46K+FXTuISEkG/H5C820YfKDoVQ3CDVdM5WLhEx1ARdpiW6+hU4tYHjCQ=="],
+
+    "@tauri-apps/api": ["@tauri-apps/api@2.11.0", "", {}, "sha512-7CinYODhky9lmO23xHnUFv0Xt43fbtWMyxZcLcRBlFkcgXKuEirBvHpmtJ89YMhyeGcq20Wuc47Fa4XjyniywA=="],
+
+    "@tauri-apps/cli": ["@tauri-apps/cli@2.11.0", "", { "optionalDependencies": { "@tauri-apps/cli-darwin-arm64": "2.11.0", "@tauri-apps/cli-darwin-x64": "2.11.0", "@tauri-apps/cli-linux-arm-gnueabihf": "2.11.0", "@tauri-apps/cli-linux-arm64-gnu": "2.11.0", "@tauri-apps/cli-linux-arm64-musl": "2.11.0", "@tauri-apps/cli-linux-riscv64-gnu": "2.11.0", "@tauri-apps/cli-linux-x64-gnu": "2.11.0", "@tauri-apps/cli-linux-x64-musl": "2.11.0", "@tauri-apps/cli-win32-arm64-msvc": "2.11.0", "@tauri-apps/cli-win32-ia32-msvc": "2.11.0", "@tauri-apps/cli-win32-x64-msvc": "2.11.0" }, "bin": { "tauri": "tauri.js" } }, "sha512-W5Wbuqsb2pHFPTj4TaRNKTj5rwXhDShPiLSY9T18y4ouSR/NNCptAEFxFsBtyNRgL6Vs1a/q9LzfqqYzEwC+Jw=="],
+
+    "@tauri-apps/cli-darwin-arm64": ["@tauri-apps/cli-darwin-arm64@2.11.0", "", { "os": "darwin", "cpu": "arm64" }, "sha512-UfMeDNlgIP252rm/KSTuu8yHatPua5TjtUEUf+jyIzVwBNcIl7Ywkdpfj+e5jVVg3EfCTp+4gwuL1dNpgF8clg=="],
+
+    "@tauri-apps/cli-darwin-x64": ["@tauri-apps/cli-darwin-x64@2.11.0", "", { "os": "darwin", "cpu": "x64" }, "sha512-lY1+aPlgyMN7vgjtCdQ3+WODfZkebAcxnrCrO0HjqDpKSXieDkrJbimqeaoM4RwhTSrCLRHfVYiYrfE5E131tg=="],
+
+    "@tauri-apps/cli-linux-arm-gnueabihf": ["@tauri-apps/cli-linux-arm-gnueabihf@2.11.0", "", { "os": "linux", "cpu": "arm" }, "sha512-5uCP0AusgN3NrKC8EpkuJwjek1k8pEffBdugJSpXPey/QGbPEb8vZ542n/giJ2mZPjMSllDkdhG2QIDpBY4PpQ=="],
+
+    "@tauri-apps/cli-linux-arm64-gnu": ["@tauri-apps/cli-linux-arm64-gnu@2.11.0", "", { "os": "linux", "cpu": "arm64" }, "sha512-loDPqtRHMSbIcrH2VBd4GgHoQlF7jJnrZj7MxA2lj1cixS/jEgMAPFqj83U6Wvjete4HfYplbE/gCpSFifA9jw=="],
+
+    "@tauri-apps/cli-linux-arm64-musl": ["@tauri-apps/cli-linux-arm64-musl@2.11.0", "", { "os": "linux", "cpu": "arm64" }, "sha512-DtSE8ZBlB9H+L+eHkfZ3myt00EVEyAB3e41juEHoE2qT88fgVlJvyrwa9SZYc/xTwCS9TnmK+R84tpg+ZsAg7Q=="],
+
+    "@tauri-apps/cli-linux-riscv64-gnu": ["@tauri-apps/cli-linux-riscv64-gnu@2.11.0", "", { "os": "linux", "cpu": "none" }, "sha512-5QdgS4LD+kntClI1aj2JmwjW38LosNXxwCe8viIHEwqYIWuMPdNEIau6/cLogI38Yzx9DnfCPRfEWLyI+5li8Q=="],
+
+    "@tauri-apps/cli-linux-x64-gnu": ["@tauri-apps/cli-linux-x64-gnu@2.11.0", "", { "os": "linux", "cpu": "x64" }, "sha512-5UynPXo3Zq9khjVdAbD+YogeLltdVUeOah2ioSIM3tu6H7wY9vMy6rgGJhv9r5R8ZXmk9GttMippdqYJWrnLnA=="],
+
+    "@tauri-apps/cli-linux-x64-musl": ["@tauri-apps/cli-linux-x64-musl@2.11.0", "", { "os": "linux", "cpu": "x64" }, "sha512-CNz7fHbApz1Zyhhq73jtGn9JqgNEV/lIWnTnUo6h6ujw+mHsTmkLszvJSM8W6JBaDjNpTTFr/RSNoVL5FMwcTg=="],
+
+    "@tauri-apps/cli-win32-arm64-msvc": ["@tauri-apps/cli-win32-arm64-msvc@2.11.0", "", { "os": "win32", "cpu": "arm64" }, "sha512-K+br+VXZ+Xx0n/9FdWohpW5Ugq+2FQUpJScqcPl1hTxXfh3fgjYgt4qA2NgrjlJo+zZPNrmUMl+NLvm0ufEqBQ=="],
+
+    "@tauri-apps/cli-win32-ia32-msvc": ["@tauri-apps/cli-win32-ia32-msvc@2.11.0", "", { "os": "win32", "cpu": "ia32" }, "sha512-OFV+s3MLZnd75zl0ZAFU5riMpGK4waUEA8ZDuijDsnkU0btz/gHhqh5jVlOn8thyvgdtT3Xyoxqo099MMifH3g=="],
+
+    "@tauri-apps/cli-win32-x64-msvc": ["@tauri-apps/cli-win32-x64-msvc@2.11.0", "", { "os": "win32", "cpu": "x64" }, "sha512-AeDTWBd2cOZ6TX133BWsoo+LutG9o0JRcgjMsIfLE13ZugpgCMv/2dJbUiBGeRvbPOGin5A3aYmsArPVV6ZSHQ=="],
 
     "@types/chai": ["@types/chai@5.2.3", "", { "dependencies": { "@types/deep-eql": "*", "assertion-error": "^2.0.1" } }, "sha512-Mw558oeA9fFbv65/y4mHtXDs9bPnFMZAL/jxdPFUpOHHIXX91mcgEHbS5Lahr+pwZFR8A7GQleRWeI6cGFC2UA=="],
 

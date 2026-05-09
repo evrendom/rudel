@@ -1,5 +1,3 @@
-mod commands;
-
 fn main() {
-    println!("Rudel Desktop Tauri shell");
+    rudel_desktop_tauri_lib::run();
 }

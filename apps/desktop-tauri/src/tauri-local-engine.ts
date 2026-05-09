@@ -1,46 +1,33 @@
-import type { LocalEngine } from "@rudel/desktop-ui";
+import type { LocalEngine, WorkspaceScanResult } from "@rudel/desktop-ui";
+import type {
+	DriftDetail,
+	DriftFinding,
+	InstallPlan,
+	MachineScanResult,
+} from "@rudel/skill-schema";
+import { invoke } from "@tauri-apps/api/core";
 
 export const tauriLocalEngine: LocalEngine = {
 	async scanMachine(input) {
-		return {
-			roots: input.roots,
-			artifacts: [],
-		};
+		return invoke<MachineScanResult>("scan_machine", { input });
 	},
 	async scanWorkspace(input) {
+		const result = await invoke<MachineScanResult>("scan_workspace", { input });
 		return {
-			roots: [input.rootPath],
+			...result,
 			rootPath: input.rootPath,
-			artifacts: [],
-		};
+		} satisfies WorkspaceScanResult;
 	},
 	async createInstallPlan(input) {
-		void input.repoPath;
-		return {
-			id: `plan:${input.repoId}:${input.blueprintRef.blueprintId}`,
-			repoId: input.repoId,
-			blueprintId: input.blueprintRef.blueprintId,
-			files: [],
-			undoAvailable: true,
-			warnings: [],
-		};
+		return invoke<InstallPlan>("create_install_plan", { input });
 	},
 	async applyInstallPlan(input) {
-		return {
-			operationId: `operation:${input.planId}`,
-			applied: true,
-		};
+		return invoke("apply_install_plan", { input });
 	},
 	async detectDrift(input) {
-		void input;
-		return [];
+		return invoke<DriftFinding[]>("detect_drift", { input });
 	},
 	async getDriftDetail(input) {
-		return {
-			repoId: input.repoId,
-			targetPath: input.targetPath,
-			status: "missing",
-			expectedContent: input.expectedArtifact.content,
-		};
+		return invoke<DriftDetail>("get_drift_detail", { input });
 	},
 };

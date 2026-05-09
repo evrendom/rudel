@@ -9,9 +9,12 @@
 		"check-types": "tsc --noEmit"
 	},
 	"dependencies": {
-		"@rudel/desktop-ui": "workspace:*"
+		"@rudel/desktop-ui": "workspace:*",
+		"@rudel/skill-schema": "workspace:*",
+		"@tauri-apps/api": "^2.9.0"
 	},
 	"devDependencies": {
+		"@tauri-apps/cli": "^2.9.0",
 		"@rudel/typescript-config": "workspace:*",
 		"bun-types": "latest",
 		"typescript": "5.9.2"
