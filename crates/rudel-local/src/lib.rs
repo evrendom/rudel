@@ -169,6 +169,8 @@ pub struct SkillArtifact {
     pub repo_key: Option<RepoKey>,
     pub name: Option<String>,
     pub description: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub symlink_kind: Option<SymlinkKind>,
     pub content: String,
     pub content_hash: String,
     pub normalized_content_hash: String,
@@ -183,6 +185,15 @@ pub enum SourceScope {
     NestedRepo,
     Symlink,
     Unknown,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SymlinkKind {
+    File,
+    SkillFolder,
+    AgentRoot,
+    AncestorFolder,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -481,7 +492,7 @@ where
         let skipped_directory_count_for_filter = Arc::clone(&skipped_directory_count);
         let mut walker_builder = WalkBuilder::new(normalized_path);
         walker_builder
-            .follow_links(false)
+            .follow_links(true)
             .hidden(false)
             .parents(false)
             .ignore(false)
@@ -1290,6 +1301,7 @@ fn scan_file(entry: &DirEntry, source_scope: SourceScope) -> Option<SkillArtifac
     let (name, description) = parse_frontmatter(&content);
     let content_hash = hash_string(&content);
     let normalized_content_hash = hash_normalized_content(&content);
+    let symlink_kind = symlink_kind_for(path, repo_root.as_deref());
 
     Some(SkillArtifact {
         id: hash_string(&normalized_canonical_path),
@@ -1302,6 +1314,7 @@ fn scan_file(entry: &DirEntry, source_scope: SourceScope) -> Option<SkillArtifac
         repo_key: repo_root.as_deref().map(repo_key_for_root),
         name,
         description,
+        symlink_kind,
         content,
         content_hash,
         normalized_content_hash,
@@ -1363,7 +1376,7 @@ fn find_lockfile_entry(
 }
 
 fn source_scope_for(path: &Path, repo_root: Option<&Path>, entry: &DirEntry) -> SourceScope {
-    if entry.path_is_symlink() {
+    if entry.path_is_symlink() || symlink_kind_for(path, repo_root).is_some() {
         return SourceScope::Symlink;
     }
     if let Some(root) = repo_root {
@@ -1381,6 +1394,60 @@ fn source_scope_for(path: &Path, repo_root: Option<&Path>, entry: &DirEntry) -> 
         return SourceScope::GlobalUser;
     }
     SourceScope::Unknown
+}
+
+fn symlink_kind_for(path: &Path, stop_at: Option<&Path>) -> Option<SymlinkKind> {
+    let skill_folder = skill_folder_path_for(path);
+    let mut current = Some(path);
+    while let Some(candidate) = current {
+        if stop_at.is_some_and(|root| candidate == root) {
+            break;
+        }
+        if fs::symlink_metadata(candidate)
+            .map(|metadata| metadata.file_type().is_symlink())
+            .unwrap_or(false)
+        {
+            return Some(symlink_kind_for_component(
+                path,
+                candidate,
+                skill_folder.as_deref(),
+            ));
+        }
+        current = candidate.parent();
+    }
+    None
+}
+
+fn symlink_kind_for_component(
+    path: &Path,
+    component: &Path,
+    skill_folder: Option<&Path>,
+) -> SymlinkKind {
+    if component == path {
+        return SymlinkKind::File;
+    }
+    if skill_folder.is_some_and(|folder| component == folder) {
+        return SymlinkKind::SkillFolder;
+    }
+    if is_agent_root_path(component) {
+        return SymlinkKind::AgentRoot;
+    }
+    SymlinkKind::AncestorFolder
+}
+
+fn skill_folder_path_for(path: &Path) -> Option<PathBuf> {
+    let file_name = path.file_name()?.to_string_lossy();
+    if file_name == "SKILL.md" {
+        return path.parent().map(Path::to_path_buf);
+    }
+    None
+}
+
+fn is_agent_root_path(path: &Path) -> bool {
+    let Some(file_name) = path.file_name().and_then(|name| name.to_str()) else {
+        return false;
+    };
+    matches!(file_name, ".agents" | ".claude" | ".codex" | ".cursor")
 }
 
 fn find_repo_root_above(repo_root: &Path) -> Option<PathBuf> {
@@ -1810,7 +1877,8 @@ mod tests {
         normalize_git_remote_url, read_lockfile, scan_machine, scan_machine_streaming,
         ApplyWritePlanInput, ArtifactTarget, CreateWritePlanInput, GeneratedArtifact,
         LockfileStatus, RepoKey, ScanFileSkippedReason, ScanMachineInput, ScanSelection,
-        ScanSelectionProfiles, ScannedRootStatus, SkillLockfileEntry, SourceScope, WritePlanAction,
+        ScanSelectionProfiles, ScannedRootStatus, SkillLockfileEntry, SourceScope, SymlinkKind,
+        WritePlanAction,
     };
     use std::{fs, path::Path, process::Command};
     use tempfile::tempdir;
@@ -1861,6 +1929,80 @@ mod tests {
             skill.repo_key,
             Some(RepoKey::Github("github.com/company/api".to_string())),
         );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn scan_machine_marks_symlinked_skill_directories() {
+        use std::os::unix::fs::symlink;
+
+        let temp = tempdir().expect("temp dir");
+        let repo = temp.path().join("api");
+        let shared_skill = temp.path().join("shared/typescript-standards");
+        let shared_file = temp.path().join("shared/file-link-skill.md");
+        let shared_agent_root = temp.path().join("shared/agent-root");
+        fs::create_dir_all(repo.join(".git")).expect("create git dir");
+        fs::create_dir_all(repo.join(".agents/skills")).expect("create skills dir");
+        fs::create_dir_all(&shared_skill).expect("create shared skill dir");
+        fs::create_dir_all(shared_agent_root.join("skills/agent-root-skill"))
+            .expect("create shared agent root skill dir");
+        fs::write(
+            shared_skill.join("SKILL.md"),
+            "---\nname: typescript-standards\n---\n# TypeScript Standards\n",
+        )
+        .expect("write shared skill");
+        fs::write(
+            shared_agent_root.join("skills/agent-root-skill/SKILL.md"),
+            "---\nname: agent-root-skill\n---\n# Agent Root Skill\n",
+        )
+        .expect("write shared agent root skill");
+        symlink(
+            &shared_skill,
+            repo.join(".agents/skills/typescript-standards"),
+        )
+        .expect("symlink skill dir");
+        symlink(&shared_agent_root, repo.join(".codex")).expect("symlink agent root");
+        fs::write(
+            &shared_file,
+            "---\nname: file-link-skill\n---\n# File Link Skill\n",
+        )
+        .expect("write shared skill file");
+        fs::create_dir_all(repo.join(".claude/skills/file-link-skill"))
+            .expect("create file link skill dir");
+        symlink(
+            &shared_file,
+            repo.join(".claude/skills/file-link-skill/SKILL.md"),
+        )
+        .expect("symlink skill file");
+
+        let result = scan_machine(scan_input(vec![temp.path().to_string_lossy().to_string()]));
+
+        let skill = result
+            .artifacts
+            .iter()
+            .find(|artifact| artifact.name.as_deref() == Some("typescript-standards"))
+            .expect("typescript standards artifact");
+        assert_eq!(skill.source_scope, SourceScope::Symlink);
+        assert_eq!(skill.symlink_kind, Some(SymlinkKind::SkillFolder));
+        assert_eq!(skill.artifact_target, ArtifactTarget::Codex);
+        assert_eq!(
+            skill.repo_relative_path.as_deref(),
+            Some(".agents/skills/typescript-standards/SKILL.md"),
+        );
+        let file_link_skill = result
+            .artifacts
+            .iter()
+            .find(|artifact| artifact.name.as_deref() == Some("file-link-skill"))
+            .expect("file link skill artifact");
+        assert_eq!(file_link_skill.source_scope, SourceScope::Symlink);
+        assert_eq!(file_link_skill.symlink_kind, Some(SymlinkKind::File));
+        let agent_root_skill = result
+            .artifacts
+            .iter()
+            .find(|artifact| artifact.name.as_deref() == Some("agent-root-skill"))
+            .expect("agent root skill artifact");
+        assert_eq!(agent_root_skill.source_scope, SourceScope::Symlink);
+        assert_eq!(agent_root_skill.symlink_kind, Some(SymlinkKind::AgentRoot));
     }
 
     #[test]

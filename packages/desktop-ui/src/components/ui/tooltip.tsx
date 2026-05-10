@@ -4,12 +4,12 @@ import type { CSSProperties, ReactElement } from "react";
 export function TooltipProvider(
 	props: TooltipPrimitive.Provider.Props,
 ): ReactElement {
-	const { children, closeDelay = 80, delay = 220, ...providerProps } = props;
+	const { children, delay = 0, ...providerProps } = props;
 
 	return (
 		<TooltipPrimitive.Provider
 			{...providerProps}
-			closeDelay={closeDelay}
+			data-slot="tooltip-provider"
 			delay={delay}
 		>
 			{children}
@@ -18,7 +18,7 @@ export function TooltipProvider(
 }
 
 export function Tooltip(props: TooltipPrimitive.Root.Props): ReactElement {
-	return <TooltipPrimitive.Root {...props} />;
+	return <TooltipPrimitive.Root data-slot="tooltip" {...props} />;
 }
 
 export function TooltipTrigger(
@@ -41,16 +41,17 @@ export function TooltipTrigger(
 type TooltipContentProps = TooltipPrimitive.Popup.Props &
 	Pick<
 		TooltipPrimitive.Positioner.Props,
-		"align" | "collisionPadding" | "side" | "sideOffset"
+		"align" | "alignOffset" | "collisionPadding" | "side" | "sideOffset"
 	>;
 
 export function TooltipContent(props: TooltipContentProps): ReactElement {
 	const {
 		align = "center",
+		alignOffset = 0,
 		children,
 		collisionPadding = 8,
 		side = "top",
-		sideOffset = 8,
+		sideOffset = 4,
 		style,
 		...popupProps
 	} = props;
@@ -59,6 +60,7 @@ export function TooltipContent(props: TooltipContentProps): ReactElement {
 		<TooltipPrimitive.Portal>
 			<TooltipPrimitive.Positioner
 				align={align}
+				alignOffset={alignOffset}
 				collisionPadding={collisionPadding}
 				side={side}
 				sideOffset={sideOffset}
@@ -70,31 +72,88 @@ export function TooltipContent(props: TooltipContentProps): ReactElement {
 					style={{ ...styles.content, ...style }}
 				>
 					{children}
+					<TooltipPrimitive.Arrow style={tooltipArrowStyle} />
 				</TooltipPrimitive.Popup>
 			</TooltipPrimitive.Positioner>
 		</TooltipPrimitive.Portal>
 	);
 }
 
+function tooltipArrowStyle(state: TooltipPrimitive.Arrow.State): CSSProperties {
+	const commonStyle = styles.arrow;
+
+	switch (state.side) {
+		case "bottom":
+			return {
+				...commonStyle,
+				top: 4,
+				transform: "translateY(calc(-50% - 2px)) rotate(45deg)",
+			};
+		case "left":
+			return {
+				...commonStyle,
+				right: -4,
+				transform: "translateX(-1.5px) rotate(45deg)",
+			};
+		case "right":
+			return {
+				...commonStyle,
+				left: -4,
+				transform: "translateX(1.5px) rotate(45deg)",
+			};
+		case "inline-start":
+			return {
+				...commonStyle,
+				right: -4,
+				transform: "translateX(-1.5px) rotate(45deg)",
+			};
+		case "inline-end":
+			return {
+				...commonStyle,
+				left: -4,
+				transform: "translateX(1.5px) rotate(45deg)",
+			};
+		default:
+			return {
+				...commonStyle,
+				bottom: -10,
+				transform: "translateY(calc(-50% - 2px)) rotate(45deg)",
+			};
+	}
+}
+
 const styles = {
 	positioner: {
-		zIndex: 1_000,
+		isolation: "isolate",
+		zIndex: 50,
 	} satisfies CSSProperties,
 	content: {
-		maxWidth: 220,
-		border: "1px solid rgba(5, 5, 5, 0.12)",
-		borderRadius: 8,
+		width: "fit-content",
+		maxWidth: 320,
+		border: 0,
+		borderRadius: 12,
 		background: "#050505",
-		boxShadow: "0 8px 24px rgba(5, 5, 5, 0.16)",
 		color: "#ffffff",
+		display: "inline-flex",
+		alignItems: "center",
+		gap: 6,
 		fontFamily:
 			'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
 		fontFeatureSettings: '"cv02", "cv03", "cv04", "cv11", "ss01"',
-		padding: "7px 9px",
+		padding: "6px 12px",
 		fontSize: 12,
-		fontWeight: 550,
+		fontWeight: 400,
 		letterSpacing: 0,
-		lineHeight: 1.35,
-		zIndex: 1_000,
+		lineHeight: "16px",
+		textWrap: "balance",
+		zIndex: 50,
+	} satisfies CSSProperties,
+	arrow: {
+		width: 10,
+		height: 10,
+		borderRadius: 2,
+		background: "#050505",
+		fill: "#050505",
+		zIndex: 50,
 	} satisfies CSSProperties,
 } satisfies Record<string, CSSProperties>;

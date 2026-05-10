@@ -7,7 +7,6 @@ type ButtonVariant =
 	| "outline"
 	| "ghost"
 	| "destructive"
-	| "hardcoded"
 	| "link";
 type ButtonSize = "default" | "xs" | "sm" | "lg" | "icon";
 
@@ -102,11 +101,6 @@ const variantStyles = {
 	destructive: {
 		background: "#ffe8ef",
 		color: "#9f1239",
-	} satisfies CSSProperties,
-	hardcoded: {
-		borderColor: "#123a73",
-		background: "#e8f1ff",
-		color: "#123a73",
 	} satisfies CSSProperties,
 	link: {
 		background: "transparent",

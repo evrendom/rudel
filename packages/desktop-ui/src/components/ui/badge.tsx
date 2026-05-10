@@ -6,9 +6,7 @@ type BadgeVariant =
 	| "outline"
 	| "success"
 	| "warning"
-	| "danger"
-	| "hardcoded"
-	| "info";
+	| "danger";
 
 export interface BadgeProps extends HTMLAttributes<HTMLSpanElement> {
 	variant?: BadgeVariant;
@@ -72,14 +70,5 @@ const styles = {
 	danger: {
 		background: "#ffe8ef",
 		color: "#9f1239",
-	} satisfies CSSProperties,
-	hardcoded: {
-		borderColor: "#123a73",
-		background: "#e8f1ff",
-		color: "#123a73",
-	} satisfies CSSProperties,
-	info: {
-		background: "#e8f1ff",
-		color: "#225ea8",
 	} satisfies CSSProperties,
 } satisfies Record<"base" | BadgeVariant, CSSProperties>;

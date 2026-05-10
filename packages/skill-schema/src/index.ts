@@ -233,6 +233,15 @@ export const sourceScopeSchema = z.enum([
 
 export type SourceScope = z.infer<typeof sourceScopeSchema>;
 
+export const symlinkKindSchema = z.enum([
+	"file",
+	"skill_folder",
+	"agent_root",
+	"ancestor_folder",
+]);
+
+export type SymlinkKind = z.infer<typeof symlinkKindSchema>;
+
 export const skillArtifactSchema = z.object({
 	id: z.string().min(1),
 	sourceScope: sourceScopeSchema,
@@ -244,6 +253,7 @@ export const skillArtifactSchema = z.object({
 	repoKey: repoKeySchema.optional(),
 	name: z.string().optional(),
 	description: z.string().optional(),
+	symlinkKind: symlinkKindSchema.optional(),
 	content: z.string(),
 	contentHash: z.string().min(1),
 	normalizedContentHash: z.string().min(1),
