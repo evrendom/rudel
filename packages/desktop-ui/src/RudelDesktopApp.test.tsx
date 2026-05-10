@@ -6,6 +6,8 @@ import type { RudelDesktopAppProps } from "./RudelDesktopApp.js";
 import {
 	buildDetectedSkillRows,
 	buildRepoSkillIconItems,
+	buildRepoSkillInventoryRows,
+	buildSkillRolloutRows,
 	RudelDesktopApp,
 } from "./RudelDesktopApp.js";
 
@@ -131,6 +133,210 @@ test("buildRepoSkillIconItems collapses nested skills to the mother skill", () =
 	expect(items.map((item) => item.name)).toEqual([
 		"gstack",
 		"typescript-standards",
+	]);
+});
+
+test("buildRepoSkillInventoryRows groups repo skill state by source", () => {
+	const artifacts: MachineScanResult["artifacts"] = [
+		{
+			id: "global",
+			sourceScope: "global_user",
+			artifactTarget: "claude_code",
+			absolutePathHash: "hash-global",
+			path: "/Users/test/.claude/skills/typescript-standards/SKILL.md",
+			name: "typescript-standards",
+			content: "# TypeScript Standards",
+			contentHash: "content-global",
+			normalizedContentHash: "normalized-global",
+		},
+		{
+			id: "managed",
+			sourceScope: "repo",
+			artifactTarget: "codex",
+			absolutePathHash: "hash-managed",
+			path: "/repo/.agents/skills/typescript-standards/SKILL.md",
+			repoRootPath: "/repo",
+			repoRelativePath: ".agents/skills/typescript-standards/SKILL.md",
+			name: "typescript-standards",
+			content: "# TypeScript Standards",
+			contentHash: "content-managed",
+			normalizedContentHash: "normalized-managed",
+			lockfileEntry: {
+				blueprintId: "typescript-standards",
+				blueprintVersion: "v1",
+				repoOverlayHash: "overlay-hash",
+				generatedHash: "generated-hash",
+				currentFileHash: "current-hash",
+				artifactTarget: "codex",
+				targetPath: ".agents/skills/typescript-standards/SKILL.md",
+				schemaVersion: "1",
+				compilerVersion: "1",
+				status: "modified",
+			},
+		},
+		{
+			id: "local",
+			sourceScope: "repo",
+			artifactTarget: "claude_code",
+			absolutePathHash: "hash-local",
+			path: "/repo/.claude/skills/workflow-note/SKILL.md",
+			repoRootPath: "/repo",
+			repoRelativePath: ".claude/skills/workflow-note/SKILL.md",
+			name: "workflow-note",
+			content: "# Workflow Note",
+			contentHash: "content-local",
+			normalizedContentHash: "normalized-local",
+		},
+		{
+			id: "agents",
+			sourceScope: "repo",
+			artifactTarget: "agents_md",
+			absolutePathHash: "hash-agents",
+			path: "/repo/AGENTS.md",
+			repoRootPath: "/repo",
+			repoRelativePath: "AGENTS.md",
+			content: "# Instructions",
+			contentHash: "content-agents",
+			normalizedContentHash: "normalized-agents",
+		},
+	];
+	const skillRows = buildDetectedSkillRows({
+		roots: [],
+		repos: [],
+		candidates: [],
+		artifacts,
+		warnings: [],
+		skippedDirectoryCount: 0,
+		scannedAt: "unix:1",
+	});
+	const rows = buildRepoSkillInventoryRows(
+		repoOverviewRow,
+		artifacts,
+		skillRows,
+	);
+
+	expect(
+		rows.map((row) => ({
+			name: row.name,
+			status: row.status,
+			sourceLabel: row.sourceLabel,
+			action: row.action,
+			targetLabels: row.targetLabels,
+			hasOverlay: row.hasOverlay,
+		})),
+	).toEqual([
+		{
+			name: "typescript-standards",
+			status: "modified",
+			sourceLabel: "Team blueprint v1",
+			action: "review_drift",
+			targetLabels: ["Codex"],
+			hasOverlay: true,
+		},
+		{
+			name: "workflow-note",
+			status: "unmanaged",
+			sourceLabel: "Local skill",
+			action: "adopt_ignore",
+			targetLabels: ["Claude"],
+			hasOverlay: false,
+		},
+		{
+			name: "AGENTS.md",
+			status: "detected_only",
+			sourceLabel: "Managed section",
+			action: "none",
+			targetLabels: ["AGENTS.md"],
+			hasOverlay: false,
+		},
+	]);
+});
+
+test("buildSkillRolloutRows groups a selected skill by repo", () => {
+	const artifacts: MachineScanResult["artifacts"] = [
+		{
+			id: "global",
+			sourceScope: "global_user",
+			artifactTarget: "claude_code",
+			absolutePathHash: "hash-global",
+			path: "/Users/test/.claude/skills/typescript-standards/SKILL.md",
+			name: "typescript-standards",
+			content: "# TypeScript Standards",
+			contentHash: "content-global",
+			normalizedContentHash: "normalized-global",
+		},
+		{
+			id: "managed",
+			sourceScope: "repo",
+			artifactTarget: "codex",
+			absolutePathHash: "hash-managed",
+			path: "/repo/.agents/skills/typescript-standards/SKILL.md",
+			repoRootPath: "/repo",
+			repoRelativePath: ".agents/skills/typescript-standards/SKILL.md",
+			name: "typescript-standards",
+			content: "# TypeScript Standards",
+			contentHash: "content-managed",
+			normalizedContentHash: "normalized-managed",
+			lockfileEntry: {
+				blueprintId: "typescript-standards",
+				blueprintVersion: "v1",
+				repoOverlayHash: "overlay-hash",
+				generatedHash: "generated-hash",
+				currentFileHash: "current-hash",
+				artifactTarget: "codex",
+				targetPath: ".agents/skills/typescript-standards/SKILL.md",
+				schemaVersion: "1",
+				compilerVersion: "1",
+				status: "modified",
+			},
+		},
+		{
+			id: "other",
+			sourceScope: "repo",
+			artifactTarget: "claude_code",
+			absolutePathHash: "hash-other",
+			path: "/repo/.claude/skills/workflow-note/SKILL.md",
+			repoRootPath: "/repo",
+			repoRelativePath: ".claude/skills/workflow-note/SKILL.md",
+			name: "workflow-note",
+			content: "# Workflow Note",
+			contentHash: "content-other",
+			normalizedContentHash: "normalized-other",
+		},
+	];
+	const skillRows = buildDetectedSkillRows({
+		roots: [],
+		repos: [],
+		candidates: [],
+		artifacts,
+		warnings: [],
+		skippedDirectoryCount: 0,
+		scannedAt: "unix:1",
+	});
+	const skill = skillRows.find((row) => row.id === "typescript-standards");
+	if (!skill) {
+		throw new Error("Expected typescript-standards skill row.");
+	}
+	expect(
+		buildSkillRolloutRows(skill, [repoOverviewRow], artifacts).map((row) => ({
+			repoName: row.repoName,
+			repoIdentity: row.repoIdentity,
+			status: row.status,
+			targetLabel: row.targetLabel,
+			overlayLabel: row.overlayLabel,
+			copyCount: row.copyCount,
+			action: row.action,
+		})),
+	).toEqual([
+		{
+			repoName: "repo",
+			repoIdentity: "local-only",
+			status: "modified",
+			targetLabel: "Codex only",
+			overlayLabel: "1 active",
+			copyCount: 1,
+			action: "review_drift",
+		},
 	]);
 });
 
