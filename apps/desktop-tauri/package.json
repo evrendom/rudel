@@ -1,6 +1,6 @@
 {
 	"name": "@rudel/desktop-tauri",
-	"version": "0.0.0",
+	"version": "0.1.0",
 	"private": true,
 	"type": "module",
 	"scripts": {
@@ -15,6 +15,8 @@
 		"@rudel/skill-schema": "workspace:*",
 		"@tauri-apps/api": "^2.9.0",
 		"@tauri-apps/plugin-dialog": "^2.7.1",
+		"@tauri-apps/plugin-process": "^2.3.1",
+		"@tauri-apps/plugin-updater": "^2.10.1",
 		"react": "19.2.5",
 		"react-dom": "19.2.5"
 	},

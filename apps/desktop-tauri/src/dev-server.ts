@@ -68,7 +68,7 @@ const server = Bun.serve({
 });
 
 watchFrontendSources();
-console.log(`Rudel Desktop dev server: http://localhost:${server.port}`);
+console.log(`Nua desktop dev server: http://localhost:${server.port}`);
 
 function contentTypeFor(path: string): string {
 	const extension = path.slice(path.lastIndexOf("."));

@@ -1,0 +1,83 @@
+name: Release Desktop
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    name: Build ${{ matrix.label }}
+    runs-on: ${{ matrix.platform }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: macOS Apple Silicon
+            platform: macos-latest
+            args: --target aarch64-apple-darwin
+          - label: macOS Intel
+            platform: macos-latest
+            args: --target x86_64-apple-darwin
+          - label: Windows
+            platform: windows-latest
+            args: ""
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: ./.github/actions/setup
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+
+      - name: Cache Rust
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: . -> target
+
+      - name: Setup Doppler
+        uses: dopplerhq/cli-action@v3
+
+      - name: Load release token from Doppler
+        env:
+          DOPPLER_TOKEN: ${{ secrets.DOPPLER_TOKEN }}
+        shell: bash
+        run: |
+          token="$(doppler secrets get NUA_RELEASES_GITHUB_TOKEN --project rudel --config ci --plain 2>/dev/null || true)"
+          if [ -z "$token" ]; then
+            echo "NUA_RELEASES_GITHUB_TOKEN is missing in Doppler project rudel config ci."
+            echo "Add a fine-grained GitHub token scoped only to evrendom/nua-releases with Contents: Read and write."
+            exit 1
+          fi
+          echo "::add-mask::$token"
+          echo "GITHUB_TOKEN=$token" >> "$GITHUB_ENV"
+
+      - name: Build and publish desktop release
+        uses: tauri-apps/tauri-action@v1
+        env:
+          DOPPLER_TOKEN: ${{ secrets.DOPPLER_TOKEN }}
+        with:
+          projectPath: apps/desktop-tauri
+          tauriScript: doppler run --project rudel --config ci -- bun tauri
+          owner: evrendom
+          repo: nua-releases
+          releaseCommitish: main
+          tagName: desktop-v__VERSION__
+          releaseName: Nua v__VERSION__
+          releaseBody: |
+            Internal Nua desktop build.
+
+            macOS builds are unsigned/notarized only by ad-hoc signing for this fast feedback release.
+            Windows builds are unsigned and may show SmartScreen warnings.
+          releaseDraft: false
+          prerelease: false
+          retryAttempts: 2
+          uploadUpdaterJson: true
+          updaterJsonPreferNsis: true
+          args: ${{ matrix.args }}

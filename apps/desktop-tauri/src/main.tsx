@@ -4,10 +4,11 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { open } from "@tauri-apps/plugin-dialog";
 import { type ReactElement, StrictMode, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
+import { scheduleDesktopUpdateCheck } from "./app-updater.js";
 import { tauriLocalEngine } from "./tauri-local-engine.js";
 
 export const desktopShellScope = {
-	product: "Rudel Desktop",
+	product: "Nua",
 	shell: "Tauri",
 	rule: "Tauri is the first shell, not the architecture.",
 } as const;
@@ -15,7 +16,7 @@ export const desktopShellScope = {
 const rootElement = document.getElementById("root");
 
 if (!rootElement) {
-	throw new Error("Rudel Desktop root element was not found.");
+	throw new Error("Nua root element was not found.");
 }
 
 const mainWindow = getCurrentWindow();
@@ -28,6 +29,10 @@ createRoot(rootElement).render(
 
 function TauriDesktopRoot(): ReactElement {
 	const [isFullscreen, setIsFullscreen] = useState(false);
+
+	useEffect(() => {
+		scheduleDesktopUpdateCheck();
+	}, []);
 
 	useEffect(() => {
 		let isActive = true;
