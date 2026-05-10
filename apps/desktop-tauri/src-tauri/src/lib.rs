@@ -7,6 +7,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::suggest_scan_roots,
             commands::scan_machine,
+            commands::stream_skill_inventory,
             commands::scan_workspace,
             commands::read_lockfiles,
             commands::hash_files,

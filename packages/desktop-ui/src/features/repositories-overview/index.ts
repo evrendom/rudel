@@ -7,12 +7,28 @@ export const repositoriesOverviewFeature = {
 
 export type RepoOverviewRow = {
 	id: string;
-	rowKind: "group" | "worktree";
 	repoRootPath: string;
+	repoRootPaths: readonly string[];
 	displayName: string;
 	identity: string;
+	linkLabel: string;
+	linkHref: string | undefined;
 	worktreeCount: number;
+	branchCount: number;
+	activityCount: number;
 	branchName: string;
+	isDirty: boolean;
+	skillFileCount: number;
+	dirtyWorktreeCount: number;
+	dirtySkillFileCount: number;
+	dirtyWorktrees: readonly RepoOverviewDirtyWorktree[];
+};
+
+export type RepoOverviewDirtyWorktree = {
+	repoRootPath: string;
+	displayName: string;
+	branchName: string;
+	dirtySkillFileCount: number;
 };
 
 export type RepositoriesOverview = {
@@ -28,9 +44,10 @@ export function buildRepositoriesOverview(
 	const repos = scanResult?.repos ?? [];
 	const repoGroups = groupReposByKey(repos);
 	const rows = repoGroups
-		.flatMap(buildRepoOverviewRows)
+		.map(buildRepoOverviewRow)
 		.sort(
 			(left, right) =>
+				right.activityCount - left.activityCount ||
 				left.displayName.localeCompare(right.displayName) ||
 				left.repoRootPath.localeCompare(right.repoRootPath),
 		);
@@ -43,28 +60,56 @@ export function buildRepositoriesOverview(
 	};
 }
 
-function buildRepoOverviewRows(repos: readonly CodeRepo[]): RepoOverviewRow[] {
+function buildRepoOverviewRow(repos: readonly CodeRepo[]): RepoOverviewRow {
 	const defaultRepo = chooseDefaultRepo(repos);
-	const groupRow = buildRepoOverviewRow(defaultRepo, repos.length, "group");
-	const breakoutRows = repos
-		.filter((repo) => shouldBreakOutWorktree(repo, defaultRepo))
-		.map((repo) => buildRepoOverviewRow(repo, 1, "worktree"));
-	return [groupRow, ...breakoutRows];
-}
+	const branchCount = Math.max(
+		...repos.map((repo) => repo.localBranchCount),
+		0,
+	);
+	const worktreeCount = repos.length;
+	const repoRootPaths = repos
+		.map((repo) => repo.repoRootPath)
+		.sort((left, right) => left.localeCompare(right));
+	const dirtyWorktrees = repos
+		.filter((repo) => repo.isDirty)
+		.map((repo) => ({
+			repoRootPath: repo.repoRootPath,
+			displayName: displayNameForRepo(repo),
+			branchName: branchLabelForRepo(repo),
+			dirtySkillFileCount: repo.dirtySkillFileCount,
+		}))
+		.sort(
+			(left, right) =>
+				left.displayName.localeCompare(right.displayName) ||
+				left.repoRootPath.localeCompare(right.repoRootPath),
+		);
+	const dirtySkillFileCount = dirtyWorktrees.reduce(
+		(total, worktree) => total + worktree.dirtySkillFileCount,
+		0,
+	);
+	const skillFileCount = Math.max(
+		...repos.map((repo) => repo.skillFileCount),
+		dirtySkillFileCount,
+		0,
+	);
 
-function buildRepoOverviewRow(
-	repo: CodeRepo,
-	worktreeCount: number,
-	rowKind: RepoOverviewRow["rowKind"],
-): RepoOverviewRow {
 	return {
-		id: `${repoKeyLabel(repo.repoKey)}:${rowKind}:${repo.repoRootPath}`,
-		rowKind,
-		repoRootPath: repo.repoRootPath,
-		displayName: displayNameForRepo(repo),
-		identity: identityForRepo(repo),
+		id: repoKeyLabel(defaultRepo.repoKey),
+		repoRootPath: defaultRepo.repoRootPath,
+		repoRootPaths,
+		displayName: displayNameForRepo(defaultRepo),
+		identity: identityForRepo(defaultRepo),
+		linkLabel: linkLabelForRepo(defaultRepo),
+		linkHref: linkHrefForRepo(defaultRepo),
 		worktreeCount,
-		branchName: repo.branchName ?? repo.headSha?.slice(0, 7) ?? "unknown",
+		branchCount,
+		activityCount: Math.max(worktreeCount, branchCount),
+		branchName: branchLabelForRepo(defaultRepo),
+		isDirty: defaultRepo.isDirty,
+		skillFileCount,
+		dirtyWorktreeCount: dirtyWorktrees.length,
+		dirtySkillFileCount,
+		dirtyWorktrees,
 	};
 }
 
@@ -101,17 +146,6 @@ function defaultRepoScore(repo: CodeRepo): number {
 	return 2;
 }
 
-function shouldBreakOutWorktree(
-	repo: CodeRepo,
-	defaultRepo: CodeRepo,
-): boolean {
-	if (repo.repoRootPath === defaultRepo.repoRootPath) return false;
-	return (
-		repo.branchName !== defaultRepo.branchName ||
-		repo.headSha !== defaultRepo.headSha
-	);
-}
-
 function displayNameForRepo(repo: CodeRepo): string {
 	if (repo.repoKey.kind === "github") {
 		const segments = repo.repoKey.value.split("/").filter(Boolean);
@@ -120,11 +154,29 @@ function displayNameForRepo(repo: CodeRepo): string {
 	return pathBasename(repo.repoRootPath);
 }
 
+function branchLabelForRepo(repo: CodeRepo): string {
+	return repo.branchName ?? repo.headSha?.slice(0, 7) ?? "unknown";
+}
+
 function identityForRepo(repo: CodeRepo): string {
 	if (repo.repoKey.kind === "github") {
 		return repo.repoKey.value;
 	}
 	return "local-only";
+}
+
+function linkLabelForRepo(repo: CodeRepo): string {
+	if (repo.repoKey.kind === "github") {
+		return repo.repoKey.value;
+	}
+	return repo.repoRootPath;
+}
+
+function linkHrefForRepo(repo: CodeRepo): string | undefined {
+	if (repo.repoKey.kind === "github") {
+		return `https://${repo.repoKey.value}`;
+	}
+	return undefined;
 }
 
 function repoKeyLabel(repoKey: CodeRepo["repoKey"]): string {

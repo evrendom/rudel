@@ -13,7 +13,9 @@
 		"windows": [
 			{
 				"label": "main",
-				"title": "Rudel Desktop",
+				"title": "Main",
+				"hiddenTitle": true,
+				"titleBarStyle": "Overlay",
 				"width": 1200,
 				"height": 820
 			}

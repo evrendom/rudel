@@ -4,6 +4,14 @@ This package owns Rudel's product UI and product UI state.
 
 TypeScript owns drift classification; Rust owns local mechanics.
 
+## UI Component Rule
+
+Use shadcn components as the only component source for product UI.
+
+Do not introduce non-shadcn UI component libraries or bespoke reusable UI components. If a needed component does not exist yet, add or adapt it through the shadcn component layer first.
+
+Plain semantic HTML is allowed only for structural wrappers, text, and one-off layout glue.
+
 Current UI owns:
 
 - repo gallery

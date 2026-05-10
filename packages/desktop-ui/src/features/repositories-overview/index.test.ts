@@ -11,8 +11,11 @@ test("buildRepositoriesOverview groups GitHub and local repositories", () => {
 				repoKey: { kind: "github", value: "github.com/acme/api" },
 				sourceRoot: "/work",
 				branchName: "main",
+				localBranchCount: 1,
 				headSha: "abc",
 				isDirty: false,
+				skillFileCount: 2,
+				dirtySkillFileCount: 0,
 				isWorktree: false,
 				isNested: false,
 				hasRudelLockfile: true,
@@ -35,18 +38,33 @@ test("buildRepositoriesOverview groups GitHub and local repositories", () => {
 	expect(overview.rows[0]).toMatchObject({
 		displayName: "api",
 		identity: "github.com/acme/api",
+		linkLabel: "github.com/acme/api",
+		linkHref: "https://github.com/acme/api",
 		worktreeCount: 1,
+		branchCount: 1,
+		activityCount: 1,
 		branchName: "main",
+		isDirty: false,
+		skillFileCount: 2,
+		dirtyWorktreeCount: 0,
+		dirtySkillFileCount: 0,
 	});
 	expect(overview.rows[1]).toMatchObject({
 		displayName: "local",
 		identity: "local-only",
+		linkLabel: "/work/local",
+		linkHref: undefined,
 		worktreeCount: 1,
+		branchCount: 1,
+		activityCount: 1,
 		branchName: "main",
+		isDirty: false,
+		dirtyWorktreeCount: 0,
+		dirtySkillFileCount: 0,
 	});
 });
 
-test("buildRepositoriesOverview breaks out unique branch worktrees", () => {
+test("buildRepositoriesOverview sorts by worktree count and nests dirty worktrees", () => {
 	const scanResult: MachineScanResult = {
 		roots: [],
 		repos: [
@@ -54,7 +72,16 @@ test("buildRepositoriesOverview breaks out unique branch worktrees", () => {
 			{
 				...localRepo("/work/api-feature"),
 				branchName: "feature-x",
+				repoRootPath: "/work/api-feature",
 				isWorktree: true,
+				isDirty: true,
+				skillFileCount: 4,
+				dirtySkillFileCount: 3,
+			},
+			{
+				...localRepo("/work/side-project"),
+				repoKey: { kind: "local", value: "side-project" },
+				localBranchCount: 4,
 			},
 		],
 		candidates: [],
@@ -65,23 +92,31 @@ test("buildRepositoriesOverview breaks out unique branch worktrees", () => {
 	};
 
 	const overview = buildRepositoriesOverview(scanResult);
-	const groupRow = overview.rows.find((row) => row.rowKind === "group");
-	const featureWorktree = overview.rows.find(
-		(row) => row.rowKind === "worktree" && row.branchName === "feature-x",
-	);
 
-	expect(overview.repoCount).toBe(1);
-	expect(overview.worktreeCount).toBe(2);
+	expect(overview.repoCount).toBe(2);
+	expect(overview.worktreeCount).toBe(3);
 	expect(overview.rows).toHaveLength(2);
-	expect(groupRow).toMatchObject({
+	expect(overview.rows[0]).toMatchObject({
+		displayName: "side-project",
+		worktreeCount: 1,
+		branchCount: 4,
+		activityCount: 4,
+		dirtyWorktreeCount: 0,
+	});
+	expect(overview.rows[1]).toMatchObject({
 		displayName: "api-main",
 		worktreeCount: 2,
+		branchCount: 1,
+		activityCount: 2,
 		branchName: "main",
+		skillFileCount: 4,
+		dirtyWorktreeCount: 1,
+		dirtySkillFileCount: 3,
 	});
-	expect(featureWorktree).toMatchObject({
+	expect(overview.rows[1]?.dirtyWorktrees[0]).toMatchObject({
 		displayName: "api-feature",
-		worktreeCount: 1,
 		branchName: "feature-x",
+		dirtySkillFileCount: 3,
 	});
 });
 
@@ -91,8 +126,11 @@ function localRepo(repoRootPath: string): CodeRepo {
 		repoKey: { kind: "local", value: "local-hash" },
 		sourceRoot: "/work",
 		branchName: "main",
+		localBranchCount: 1,
 		headSha: "abc",
 		isDirty: false,
+		skillFileCount: 0,
+		dirtySkillFileCount: 0,
 		isWorktree: false,
 		isNested: false,
 		hasRudelLockfile: false,

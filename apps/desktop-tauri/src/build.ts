@@ -8,7 +8,7 @@ const assetsDir = join(distDir, "assets");
 const entryPoint = fileURLToPath(new URL("./main.tsx", import.meta.url));
 const staticIndex = join(appRoot, "static", "index.html");
 
-export async function buildDesktopFrontend(): Promise<void> {
+export async function buildDesktopFrontend(): Promise<boolean> {
 	await rm(distDir, { recursive: true, force: true });
 	await mkdir(assetsDir, { recursive: true });
 
@@ -23,13 +23,16 @@ export async function buildDesktopFrontend(): Promise<void> {
 		for (const log of build.logs) {
 			console.error(log);
 		}
-		process.exitCode = 1;
-		return;
+		return false;
 	}
 
 	await copyFile(staticIndex, join(distDir, "index.html"));
+	return true;
 }
 
 if (import.meta.main) {
-	await buildDesktopFrontend();
+	const success = await buildDesktopFrontend();
+	if (!success) {
+		process.exitCode = 1;
+	}
 }

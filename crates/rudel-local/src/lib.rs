@@ -94,8 +94,11 @@ pub struct CodeRepo {
     pub source_root: String,
     pub git_common_dir: Option<String>,
     pub branch_name: Option<String>,
+    pub local_branch_count: usize,
     pub head_sha: Option<String>,
     pub is_dirty: bool,
+    pub skill_file_count: usize,
+    pub dirty_skill_file_count: usize,
     pub is_worktree: bool,
     pub is_nested: bool,
     pub has_rudel_lockfile: bool,
@@ -166,6 +169,7 @@ pub struct SkillArtifact {
     pub repo_key: Option<RepoKey>,
     pub name: Option<String>,
     pub description: Option<String>,
+    pub content: String,
     pub content_hash: String,
     pub normalized_content_hash: String,
     pub lockfile_entry: Option<SkillLockfileEntry>,
@@ -418,6 +422,23 @@ pub fn suggest_scan_roots() -> ScanRootSuggestionsResult {
 }
 
 pub fn scan_machine(input: ScanMachineInput) -> MachineScanResult {
+    scan_machine_with_artifact_callback(input, |_| {})
+}
+
+pub fn scan_machine_streaming<F>(input: ScanMachineInput, on_artifact: F) -> MachineScanResult
+where
+    F: FnMut(&SkillArtifact),
+{
+    scan_machine_with_artifact_callback(input, on_artifact)
+}
+
+fn scan_machine_with_artifact_callback<F>(
+    input: ScanMachineInput,
+    mut on_artifact: F,
+) -> MachineScanResult
+where
+    F: FnMut(&SkillArtifact),
+{
     let scan_plan = build_scan_plan(input);
     let (roots, mut warnings) = prepare_scan_roots(&scan_plan);
     for invalid_glob in &scan_plan.invalid_globs {
@@ -428,17 +449,21 @@ pub fn scan_machine(input: ScanMachineInput) -> MachineScanResult {
     }
 
     if scan_plan.requires_file_scan() {
-        return scan_machine_with_files(&scan_plan, roots, warnings);
+        return scan_machine_with_files(&scan_plan, roots, warnings, &mut on_artifact);
     }
 
     scan_machine_repositories_only(roots, warnings)
 }
 
-fn scan_machine_with_files(
+fn scan_machine_with_files<F>(
     scan_plan: &ScanPlan,
     roots: Vec<ScannedRoot>,
     mut warnings: Vec<ScanWarning>,
-) -> MachineScanResult {
+    on_artifact: &mut F,
+) -> MachineScanResult
+where
+    F: FnMut(&SkillArtifact),
+{
     let mut artifacts = Vec::new();
     let mut candidates = Vec::new();
     let mut repos_by_path = HashMap::new();
@@ -511,6 +536,7 @@ fn scan_machine_with_files(
             }
             if candidate.selected {
                 if let Some(artifact) = scan_file(&entry, candidate.source_scope) {
+                    on_artifact(&artifact);
                     artifacts.push(artifact);
                 }
             }
@@ -792,7 +818,6 @@ impl ScanPlan {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum RepoScanDetail {
-    Fast,
     Full,
 }
 
@@ -1074,7 +1099,7 @@ fn scan_repository_directories(
 
     while let Some(directory) = pending.pop() {
         if is_git_repo_root(&directory) {
-            record_repo(&directory, source_root, RepoScanDetail::Fast, repos_by_path);
+            record_repo(&directory, source_root, RepoScanDetail::Full, repos_by_path);
             continue;
         }
 
@@ -1131,19 +1156,34 @@ fn record_repo(
     let repo_root_path = normalize_absolute_path(&canonical_repo_root);
     repos_by_path
         .entry(repo_root_path.clone())
-        .or_insert_with(|| CodeRepo {
-            repo_root_path: repo_root_path.clone(),
-            repo_key: repo_key_for_root(&canonical_repo_root),
-            source_root: source_root.to_string(),
-            git_common_dir: git_common_dir(&canonical_repo_root),
-            branch_name: git_branch_name(&canonical_repo_root),
-            head_sha: git_head_sha(&canonical_repo_root),
-            is_dirty: detail == RepoScanDetail::Full && git_is_dirty(&canonical_repo_root),
-            is_worktree: git_config_path(&canonical_repo_root)
-                .map(|path| !path.starts_with(canonical_repo_root.join(".git")))
-                .unwrap_or(false),
-            is_nested: find_repo_root_above(&canonical_repo_root).is_some(),
-            has_rudel_lockfile: canonical_repo_root.join(LOCKFILE_PATH).exists(),
+        .or_insert_with(|| {
+            let git_status = match detail {
+                RepoScanDetail::Full => git_status_porcelain(&canonical_repo_root),
+            };
+
+            CodeRepo {
+                repo_root_path: repo_root_path.clone(),
+                repo_key: repo_key_for_root(&canonical_repo_root),
+                source_root: source_root.to_string(),
+                git_common_dir: git_common_dir(&canonical_repo_root),
+                branch_name: git_branch_name(&canonical_repo_root),
+                local_branch_count: git_local_branch_count(&canonical_repo_root),
+                head_sha: git_head_sha(&canonical_repo_root),
+                is_dirty: git_status
+                    .as_deref()
+                    .map(|status| !status.is_empty())
+                    .unwrap_or(false),
+                skill_file_count: count_known_skill_files(&canonical_repo_root),
+                dirty_skill_file_count: git_status
+                    .as_deref()
+                    .map(count_dirty_skill_files)
+                    .unwrap_or_default(),
+                is_worktree: git_config_path(&canonical_repo_root)
+                    .map(|path| !path.starts_with(canonical_repo_root.join(".git")))
+                    .unwrap_or(false),
+                is_nested: find_repo_root_above(&canonical_repo_root).is_some(),
+                has_rudel_lockfile: canonical_repo_root.join(LOCKFILE_PATH).exists(),
+            }
         });
 }
 
@@ -1248,6 +1288,8 @@ fn scan_file(entry: &DirEntry, source_scope: SourceScope) -> Option<SkillArtifac
         .and_then(read_lockfile)
         .and_then(|lockfile| find_lockfile_entry(&lockfile, repo_relative_path.as_deref()));
     let (name, description) = parse_frontmatter(&content);
+    let content_hash = hash_string(&content);
+    let normalized_content_hash = hash_normalized_content(&content);
 
     Some(SkillArtifact {
         id: hash_string(&normalized_canonical_path),
@@ -1260,8 +1302,9 @@ fn scan_file(entry: &DirEntry, source_scope: SourceScope) -> Option<SkillArtifac
         repo_key: repo_root.as_deref().map(repo_key_for_root),
         name,
         description,
-        content_hash: hash_string(&content),
-        normalized_content_hash: hash_normalized_content(&content),
+        content,
+        content_hash,
+        normalized_content_hash,
         lockfile_entry,
     })
 }
@@ -1387,14 +1430,108 @@ fn git_branch_name(repo_root: &Path) -> Option<String> {
         .filter(|branch| !branch.trim().is_empty())
 }
 
+fn git_local_branch_count(repo_root: &Path) -> usize {
+    run_git_command(repo_root, &["branch", "--format=%(refname:short)"])
+        .map(|branches| {
+            branches
+                .lines()
+                .filter(|branch| !branch.trim().is_empty())
+                .count()
+        })
+        .unwrap_or_default()
+}
+
 fn git_head_sha(repo_root: &Path) -> Option<String> {
     run_git_command(repo_root, &["rev-parse", "HEAD"])
 }
 
-fn git_is_dirty(repo_root: &Path) -> bool {
-    run_git_command(repo_root, &["status", "--porcelain"])
-        .map(|status| !status.is_empty())
-        .unwrap_or(false)
+fn git_status_porcelain(repo_root: &Path) -> Option<String> {
+    run_git_command(
+        repo_root,
+        &["status", "--porcelain", "--untracked-files=all"],
+    )
+}
+
+fn count_dirty_skill_files(status: &str) -> usize {
+    status
+        .lines()
+        .map(git_status_path)
+        .filter(|path| is_known_skill_or_context_path(path))
+        .count()
+}
+
+fn count_known_skill_files(repo_root: &Path) -> usize {
+    let context_file_count = ["AGENTS.md", "CLAUDE.md"]
+        .iter()
+        .filter(|relative_path| repo_root.join(relative_path).is_file())
+        .count();
+
+    context_file_count
+        + count_files_named(&repo_root.join(".claude/skills"), "SKILL.md")
+        + count_files_named(&repo_root.join(".agents/skills"), "SKILL.md")
+        + count_files_named(&repo_root.join(".codex/skills"), "SKILL.md")
+        + count_files_named(&repo_root.join(".cursor/skills"), "SKILL.md")
+        + count_files_with_extension(&repo_root.join(".cursor/rules"), "mdc")
+}
+
+fn count_files_named(root: &Path, expected_file_name: &str) -> usize {
+    count_matching_files(root, &|path| {
+        path.file_name().and_then(|file_name| file_name.to_str()) == Some(expected_file_name)
+    })
+}
+
+fn count_files_with_extension(root: &Path, expected_extension: &str) -> usize {
+    count_matching_files(root, &|path| {
+        path.extension().and_then(|extension| extension.to_str()) == Some(expected_extension)
+    })
+}
+
+fn count_matching_files(root: &Path, matches_file: &impl Fn(&Path) -> bool) -> usize {
+    if !root.is_dir() {
+        return 0;
+    }
+
+    let mut count = 0;
+    let mut pending = vec![root.to_path_buf()];
+    while let Some(directory) = pending.pop() {
+        let Ok(entries) = fs::read_dir(&directory) else {
+            continue;
+        };
+        for entry in entries.filter_map(Result::ok) {
+            let Ok(file_type) = entry.file_type() else {
+                continue;
+            };
+            if file_type.is_dir() {
+                pending.push(entry.path());
+            } else if file_type.is_file() && matches_file(&entry.path()) {
+                count += 1;
+            }
+        }
+    }
+    count
+}
+
+fn git_status_path(line: &str) -> &str {
+    line.get(3..).unwrap_or(line).trim().trim_matches('"')
+}
+
+fn is_known_skill_or_context_path(path: &str) -> bool {
+    let normalized = path.replace('\\', "/");
+    if normalized == "AGENTS.md" || normalized == "CLAUDE.md" {
+        return true;
+    }
+    if normalized.starts_with(".cursor/rules/") && normalized.ends_with(".mdc") {
+        return true;
+    }
+    is_known_agent_skill_path(&normalized)
+}
+
+fn is_known_agent_skill_path(path: &str) -> bool {
+    path.ends_with("/SKILL.md")
+        && (path.starts_with(".claude/skills/")
+            || path.starts_with(".agents/skills/")
+            || path.starts_with(".codex/skills/")
+            || path.starts_with(".cursor/skills/"))
 }
 
 fn run_git_command(repo_root: &Path, args: &[&str]) -> Option<String> {
@@ -1670,12 +1807,12 @@ fn _stable_map_for_future_json(values: BTreeMap<String, String>) -> BTreeMap<Str
 mod tests {
     use super::{
         apply_write_plan, create_write_plan, hash_normalized_content, normalize_absolute_path,
-        normalize_git_remote_url, read_lockfile, scan_machine, ApplyWritePlanInput, ArtifactTarget,
-        CreateWritePlanInput, GeneratedArtifact, LockfileStatus, RepoKey, ScanFileSkippedReason,
-        ScanMachineInput, ScanSelection, ScanSelectionProfiles, ScannedRootStatus,
-        SkillLockfileEntry, SourceScope, WritePlanAction,
+        normalize_git_remote_url, read_lockfile, scan_machine, scan_machine_streaming,
+        ApplyWritePlanInput, ArtifactTarget, CreateWritePlanInput, GeneratedArtifact,
+        LockfileStatus, RepoKey, ScanFileSkippedReason, ScanMachineInput, ScanSelection,
+        ScanSelectionProfiles, ScannedRootStatus, SkillLockfileEntry, SourceScope, WritePlanAction,
     };
-    use std::fs;
+    use std::{fs, path::Path, process::Command};
     use tempfile::tempdir;
 
     #[test]
@@ -1724,6 +1861,33 @@ mod tests {
             skill.repo_key,
             Some(RepoKey::Github("github.com/company/api".to_string())),
         );
+    }
+
+    #[test]
+    fn scan_machine_counts_dirty_skill_files_in_repositories() {
+        let temp = tempdir().expect("temp dir");
+        let repo = temp.path().join("api");
+        fs::create_dir_all(repo.join(".claude/skills/typescript-standards"))
+            .expect("create skill dir");
+        fs::create_dir_all(repo.join("src")).expect("create src dir");
+        init_git_repo(&repo);
+        fs::write(
+            repo.join(".claude/skills/typescript-standards/SKILL.md"),
+            "# TypeScript Standards\n",
+        )
+        .expect("write skill");
+        fs::write(repo.join("AGENTS.md"), "# Repo Instructions\n").expect("write agents");
+        fs::write(repo.join("src/main.ts"), "export const value = 1;\n").expect("write source");
+
+        let result = scan_machine(repo_scan_input(vec![temp
+            .path()
+            .to_string_lossy()
+            .to_string()]));
+
+        assert_eq!(result.repos.len(), 1);
+        assert!(result.repos[0].is_dirty);
+        assert_eq!(result.repos[0].skill_file_count, 2);
+        assert_eq!(result.repos[0].dirty_skill_file_count, 2);
     }
 
     #[test]
@@ -1876,6 +2040,29 @@ mod tests {
         assert_eq!(result.artifacts.len(), 1);
         assert_eq!(result.artifacts[0].source_scope, SourceScope::GlobalUser);
         assert!(result.artifacts[0].repo_root_path.is_none());
+    }
+
+    #[test]
+    fn scan_machine_streaming_reports_artifacts_as_they_are_found() {
+        let temp = tempdir().expect("temp dir");
+        let repo = temp.path().join("repo");
+        fs::create_dir_all(repo.join(".git")).expect("create git dir");
+        fs::create_dir_all(repo.join(".claude/skills/typescript-standards"))
+            .expect("create skill dir");
+        fs::write(
+            repo.join(".claude/skills/typescript-standards/SKILL.md"),
+            "---\nname: typescript-standards\n---\n# TypeScript Standards\n",
+        )
+        .expect("write skill");
+
+        let mut streamed_paths = Vec::new();
+        let result = scan_machine_streaming(
+            scan_input(vec![temp.path().to_string_lossy().to_string()]),
+            |artifact| streamed_paths.push(artifact.path.clone()),
+        );
+
+        assert_eq!(result.artifacts.len(), 1);
+        assert_eq!(streamed_paths, vec![result.artifacts[0].path.clone()]);
     }
 
     #[test]
@@ -2135,6 +2322,21 @@ mod tests {
 
     fn canonical_test_path(path: &std::path::Path) -> String {
         normalize_absolute_path(&fs::canonicalize(path).expect("canonical test path"))
+    }
+
+    fn init_git_repo(repo: &Path) {
+        fs::create_dir_all(repo).expect("create git repo dir");
+        let output = Command::new("git")
+            .arg("-C")
+            .arg(repo)
+            .arg("init")
+            .output()
+            .expect("run git init");
+        assert!(
+            output.status.success(),
+            "git init failed: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
     }
 
     fn scan_input(roots: Vec<String>) -> ScanMachineInput {

@@ -12,6 +12,7 @@
 		"test": "bun test"
 	},
 	"dependencies": {
+		"@base-ui/react": "^1.4.1",
 		"@rudel/skill-schema": "workspace:*",
 		"react": "19.2.5",
 		"react-dom": "19.2.5"
