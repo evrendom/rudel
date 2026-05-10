@@ -62,6 +62,7 @@ export function TooltipContent(props: TooltipContentProps): ReactElement {
 				collisionPadding={collisionPadding}
 				side={side}
 				sideOffset={sideOffset}
+				style={styles.positioner}
 			>
 				<TooltipPrimitive.Popup
 					{...popupProps}
@@ -76,6 +77,9 @@ export function TooltipContent(props: TooltipContentProps): ReactElement {
 }
 
 const styles = {
+	positioner: {
+		zIndex: 1_000,
+	} satisfies CSSProperties,
 	content: {
 		maxWidth: 220,
 		border: "1px solid rgba(5, 5, 5, 0.12)",
@@ -83,10 +87,14 @@ const styles = {
 		background: "#050505",
 		boxShadow: "0 8px 24px rgba(5, 5, 5, 0.16)",
 		color: "#ffffff",
+		fontFamily:
+			'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+		fontFeatureSettings: '"cv02", "cv03", "cv04", "cv11", "ss01"',
 		padding: "7px 9px",
 		fontSize: 12,
-		fontWeight: 500,
+		fontWeight: 550,
+		letterSpacing: 0,
 		lineHeight: 1.35,
-		zIndex: 50,
+		zIndex: 1_000,
 	} satisfies CSSProperties,
 } satisfies Record<string, CSSProperties>;

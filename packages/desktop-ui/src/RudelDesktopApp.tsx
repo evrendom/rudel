@@ -75,10 +75,9 @@ type DetectedSkillSource = {
 	priority: number;
 };
 
-type RepoSkillIconItem = {
+export type RepoSkillIconItem = {
 	id: string;
 	name: string;
-	targetLabel: string;
 	emoji: string;
 	background: string;
 };
@@ -555,32 +554,38 @@ function DashboardReposTable(props: DashboardReposTableProps): ReactElement {
 
 	return (
 		<TooltipProvider>
-			<Table aria-label="Repositories" style={styles.dashboardTable}>
+			<Table aria-label="Repositories" style={styles.dashboardRepoTable}>
 				<TableBody>
 					{props.repoRows.map((row) => {
 						const visual = repoVisualForRow(row);
-						const skillIcons = skillIconItemsForRepoRow(
+						const skillIcons = buildRepoSkillIconItems(
 							row,
 							props.skillArtifacts,
 						);
+						const displaySkillCount =
+							props.skillArtifacts.length === 0
+								? row.skillFileCount
+								: skillIcons.length;
 						return (
 							<TableRow key={row.id}>
 								<TableCell>
-									<div style={styles.dashboardRepoCell}>
-										<div style={styles.dashboardRepoLine}>
-											<span
-												style={repoEmojiStyle(visual.background)}
-												aria-hidden="true"
-											>
-												{visual.emoji}
+									<div style={styles.dashboardRepoLine}>
+										<span
+											style={repoEmojiStyle(visual.background)}
+											aria-hidden="true"
+										>
+											{visual.emoji}
+										</span>
+										<div style={styles.dashboardRepoText}>
+											<RepoTitleLink row={row} />
+											<span style={styles.repoInlineMeta}>
+												{repoSkillCountsLabel(row, displaySkillCount)}
 											</span>
-											<div style={styles.dashboardRepoText}>
-												<RepoTitleLink row={row} />
-												<span style={styles.repoInlineMeta}>
-													{repoSkillCountsLabel(row)}
-												</span>
-											</div>
 										</div>
+									</div>
+								</TableCell>
+								<TableCell style={styles.dashboardSkillIconCell}>
+									<div style={styles.dashboardSkillIconAligner}>
 										<SkillIconStack skills={skillIcons} />
 									</div>
 								</TableCell>
@@ -611,22 +616,19 @@ function SkillIconStack(props: SkillIconStackProps): ReactElement | null {
 	return (
 		<fieldset style={styles.skillIconStack} aria-label="Repo skills">
 			{props.skills.map((skill, index) => (
-				<Tooltip key={skill.id}>
+				<Tooltip key={skill.id} open={activeSkillId === skill.id}>
 					<TooltipTrigger
 						aria-label={skill.name}
 						delay={80}
 						onBlur={() => setActiveSkillId(undefined)}
 						onFocus={() => setActiveSkillId(skill.id)}
-						onMouseEnter={() => setActiveSkillId(skill.id)}
-						onMouseLeave={() => setActiveSkillId(undefined)}
+						onPointerEnter={() => setActiveSkillId(skill.id)}
+						onPointerLeave={() => setActiveSkillId(undefined)}
 						style={skillStackIconStyle(skill, index, activeIndex)}
 					>
 						{skill.emoji}
 					</TooltipTrigger>
-					<TooltipContent>
-						<div style={styles.skillIconTooltipTitle}>{skill.name}</div>
-						<div style={styles.skillIconTooltipMeta}>{skill.targetLabel}</div>
-					</TooltipContent>
+					<TooltipContent>{skill.name}</TooltipContent>
 				</Tooltip>
 			))}
 		</fieldset>
@@ -911,7 +913,7 @@ function RepositorySelection(props: RepositorySelectionProps): ReactElement {
 											<div style={styles.dashboardRepoLine}>
 												<RepoTitleLink row={row} />
 												<span style={styles.repoInlineMeta}>
-													{repoSkillCountsLabel(row)}
+													{repoSkillCountsLabel(row, row.skillFileCount)}
 												</span>
 											</div>
 										</div>
@@ -1200,41 +1202,44 @@ function sourceLabelForRow(sources: readonly DetectedSkillSource[]): string {
 	return primarySource;
 }
 
-function repoSkillCountsLabel(row: RepoOverviewRow): string {
-	return `${formatCount(row.skillFileCount, "skill")} · ${row.dirtySkillFileCount} dirty`;
+function repoSkillCountsLabel(
+	row: RepoOverviewRow,
+	skillCount: number,
+): string {
+	return `${formatCount(skillCount, "skill")} · ${row.dirtySkillFileCount} dirty`;
 }
 
 function formatCount(count: number, singularLabel: string): string {
 	return `${count} ${singularLabel}${count === 1 ? "" : "s"}`;
 }
 
-function skillIconItemsForRepoRow(
+export function buildRepoSkillIconItems(
 	row: RepoOverviewRow,
 	artifacts: readonly SkillArtifact[],
 ): readonly RepoSkillIconItem[] {
 	const repoRootPaths = new Set(row.repoRootPaths);
-	return artifacts
-		.filter((artifact) => {
-			if (!artifact.repoRootPath) {
-				return false;
-			}
-			return repoRootPaths.has(artifact.repoRootPath);
-		})
-		.map(skillIconItemForArtifact)
-		.sort(
-			(left, right) =>
-				left.name.localeCompare(right.name) ||
-				left.targetLabel.localeCompare(right.targetLabel),
-		);
+	const itemsByName = new Map<string, RepoSkillIconItem>();
+	for (const artifact of artifacts) {
+		if (!artifact.repoRootPath || !repoRootPaths.has(artifact.repoRootPath)) {
+			continue;
+		}
+		const item = skillIconItemForArtifact(artifact);
+		const itemKey = item.name.trim().toLocaleLowerCase();
+		if (!itemsByName.has(itemKey)) {
+			itemsByName.set(itemKey, item);
+		}
+	}
+	return [...itemsByName.values()].sort((left, right) =>
+		left.name.localeCompare(right.name),
+	);
 }
 
 function skillIconItemForArtifact(artifact: SkillArtifact): RepoSkillIconItem {
-	const name = skillDisplayNameForArtifact(artifact);
+	const name = motherSkillDisplayNameForArtifact(artifact);
 	const visual = skillVisualForName(name);
 	return {
 		id: skillArtifactKey(artifact),
 		name,
-		targetLabel: artifactTargetLabel(artifact.artifactTarget),
 		emoji: visual.emoji,
 		background: visual.background,
 	};
@@ -1244,11 +1249,14 @@ function skillArtifactKey(artifact: SkillArtifact): string {
 	return artifact.repoRelativePath ?? artifact.path;
 }
 
-function skillDisplayNameForArtifact(artifact: SkillArtifact): string {
-	if (artifact.name) {
-		return artifact.name;
-	}
+function motherSkillDisplayNameForArtifact(artifact: SkillArtifact): string {
 	const relativePath = artifact.repoRelativePath ?? artifact.path;
+	const outerSkillFolderName = skillRootFolderName(relativePath);
+	const innerSkillFolderName = skillFolderName(relativePath);
+	if (outerSkillFolderName && outerSkillFolderName !== innerSkillFolderName) {
+		return outerSkillFolderName;
+	}
+
 	const fileName = pathBaseName(relativePath);
 	if (fileName === "AGENTS.md" || fileName === "CLAUDE.md") {
 		return fileName;
@@ -1256,26 +1264,28 @@ function skillDisplayNameForArtifact(artifact: SkillArtifact): string {
 	if (fileName?.endsWith(".mdc")) {
 		return fileName.replace(/\.mdc$/, "");
 	}
-	return skillFolderName(relativePath) ?? fileName ?? "Skill";
+
+	return (
+		artifact.name ??
+		outerSkillFolderName ??
+		innerSkillFolderName ??
+		fileName ??
+		"Skill"
+	);
 }
 
-function artifactTargetLabel(
-	artifactTarget: SkillArtifact["artifactTarget"],
-): string {
-	switch (artifactTarget) {
-		case "agents_md":
-			return "AGENTS.md";
-		case "claude_code":
-			return "Claude Code";
-		case "claude_md":
-			return "CLAUDE.md";
-		case "codex":
-			return "Codex";
-		case "cursor":
-			return "Cursor";
-		case "unknown":
-			return "Skill file";
+function skillRootFolderName(path: string): string | undefined {
+	const parts = path.split(/[\\/]/).filter((part) => part.length > 0);
+	for (let index = 0; index < parts.length - 1; index += 1) {
+		if (parts[index] !== "skills") {
+			continue;
+		}
+		const folderName = parts[index + 1];
+		if (folderName && folderName !== "SKILL.md") {
+			return folderName;
+		}
 	}
+	return undefined;
 }
 
 function repoVisualForRow(row: RepoOverviewRow): {
@@ -1513,18 +1523,23 @@ const styles = {
 	dashboardTable: {
 		tableLayout: "fixed",
 	} satisfies CSSProperties,
+	dashboardRepoTable: {
+		tableLayout: "auto",
+	} satisfies CSSProperties,
 	dashboardTableRight: {
 		width: 140,
 		color: "#737373",
 		textAlign: "right",
 	} satisfies CSSProperties,
-	dashboardRepoCell: {
-		width: "100%",
+	dashboardSkillIconCell: {
+		width: "1%",
+		paddingLeft: 18,
+		textAlign: "right",
+	} satisfies CSSProperties,
+	dashboardSkillIconAligner: {
 		minWidth: 0,
 		display: "flex",
-		alignItems: "center",
-		justifyContent: "space-between",
-		gap: 18,
+		justifyContent: "flex-end",
 	} satisfies CSSProperties,
 	dashboardTabsBar: {
 		position: "sticky",
@@ -1561,14 +1576,15 @@ const styles = {
 		whiteSpace: "nowrap",
 	} satisfies CSSProperties,
 	skillIconStack: {
-		minWidth: 0,
+		minWidth: "max-content",
+		minInlineSize: 0,
 		flex: "0 0 auto",
 		border: 0,
 		margin: "0 0 0 auto",
 		display: "flex",
 		alignItems: "center",
 		justifyContent: "flex-end",
-		padding: "0 0 0 10px",
+		padding: 0,
 	} satisfies CSSProperties,
 	skillStackIcon: {
 		position: "relative",
@@ -1590,19 +1606,6 @@ const styles = {
 		placeItems: "center",
 		transition:
 			"transform 140ms ease, box-shadow 140ms ease, border-color 140ms ease",
-	} satisfies CSSProperties,
-	skillIconTooltipTitle: {
-		color: "#ffffff",
-		fontSize: 12,
-		fontWeight: 650,
-		lineHeight: 1.35,
-	} satisfies CSSProperties,
-	skillIconTooltipMeta: {
-		marginTop: 2,
-		color: "rgba(255, 255, 255, 0.68)",
-		fontSize: 11,
-		fontWeight: 500,
-		lineHeight: 1.35,
 	} satisfies CSSProperties,
 	dashboardMessage: {
 		color: "#737373",
