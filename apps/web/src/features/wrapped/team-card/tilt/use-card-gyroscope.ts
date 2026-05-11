@@ -1,5 +1,5 @@
 import { type MutableRefObject, type RefObject, useRef, useState } from "react";
-import { useMountEffect } from "@/hooks/useMountEffect";
+import { useMountEffect } from "@/app/hooks/useMountEffect";
 import { applyTilt, resetTilt } from "./dom";
 import { buildGyroscopeTiltValues } from "./math";
 import type {

@@ -2,7 +2,7 @@ import { Frown } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import type { CSSProperties } from "react";
 import { useRef, useState } from "react";
-import { useMountEffect } from "@/hooks/useMountEffect";
+import { useMountEffect } from "@/app/hooks/useMountEffect";
 import { cn } from "@/lib/utils";
 import {
 	getToolsEntryStyle,

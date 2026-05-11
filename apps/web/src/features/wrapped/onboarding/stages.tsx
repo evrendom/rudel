@@ -1,5 +1,5 @@
 import { useRef } from "react";
-import { useMountEffect } from "@/hooks/useMountEffect";
+import { useMountEffect } from "@/app/hooks/useMountEffect";
 import { cn } from "@/lib/utils";
 import { WrappedStageCopy, WrappedStageFrame } from "../stage-frame";
 import type { WrappedStep } from "./config";

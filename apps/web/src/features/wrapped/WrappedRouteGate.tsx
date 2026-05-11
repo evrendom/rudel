@@ -5,6 +5,8 @@ import {
 import { type ReactNode, startTransition, useState } from "react";
 import { useLocation, useSearchParams } from "react-router-dom";
 import { useIsMobile } from "@/app/hooks/use-mobile";
+import { useEffectOnceWhen } from "@/app/hooks/useEffectOnceWhen";
+import { useMountEffect } from "@/app/hooks/useMountEffect";
 import {
 	getWrappedShareIdFromSearch,
 	isWrappedTeamCardShareTarget,
@@ -55,8 +57,6 @@ import {
 	hasCompletedWrappedSetup,
 	markWrappedSetupCompleted,
 } from "@/features/wrapped/wrapped-setup-state";
-import { useEffectOnceWhen } from "@/hooks/useEffectOnceWhen";
-import { useMountEffect } from "@/hooks/useMountEffect";
 import { refreshAuthClientState } from "@/lib/auth-client";
 import { client, orpc } from "@/lib/orpc";
 

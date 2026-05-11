@@ -6,7 +6,7 @@ import {
 } from "@rudel/api-routes";
 import { ArrowRight, ImagePlus } from "lucide-react";
 import { type ChangeEvent, type ReactNode, useRef, useState } from "react";
-import { useMountEffect } from "@/hooks/useMountEffect";
+import { useMountEffect } from "@/app/hooks/useMountEffect";
 import { WrappedPrimaryAction } from "./actions";
 import { WrappedRouteStageShell } from "./route-stage-shell";
 import { WrappedGuestPreviewCard } from "./WrappedGuestPreviewCard";

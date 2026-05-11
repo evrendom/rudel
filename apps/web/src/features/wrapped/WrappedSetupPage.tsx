@@ -2,12 +2,12 @@ import { ArrowRight } from "lucide-react";
 import { MotionConfig } from "motion/react";
 import type { ReactNode } from "react";
 import { useMemo, useState } from "react";
+import { useMountEffect } from "@/app/hooks/useMountEffect";
 import {
 	CliSetupHint,
 	type CliSetupStepId,
 	cliSetupCommands,
 } from "@/components/analytics/CliSetupHint";
-import { useMountEffect } from "@/hooks/useMountEffect";
 import { openChatwoot } from "@/lib/chatwoot";
 import { WrappedPrimaryAction } from "./actions";
 import {

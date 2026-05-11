@@ -2,7 +2,7 @@ import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import type { CSSProperties } from "react";
 import { useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { useMountEffect } from "@/hooks/useMountEffect";
+import { useMountEffect } from "@/app/hooks/useMountEffect";
 import { formatCompactWholeCurrency } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { shortenWrappedRepoLabelFromLeft } from "../../repo-label";

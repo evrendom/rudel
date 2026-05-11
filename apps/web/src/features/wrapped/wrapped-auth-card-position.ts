@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useMountEffect } from "@/hooks/useMountEffect";
+import { useMountEffect } from "@/app/hooks/useMountEffect";
 
 export interface WrappedAuthViewportSize {
 	height: number;

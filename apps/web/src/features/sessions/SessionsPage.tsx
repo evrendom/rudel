@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useDateRange } from "@/features/analytics/date-range/useDateRange";
 import { useAnalyticsQuery } from "@/features/analytics/queries/useAnalyticsQuery";
 import { useAnalyticsTracking } from "@/features/analytics/tracking/useAnalyticsTracking";
+import { useTrackDashboardView } from "@/features/analytics/tracking/useTrackDashboardView";
 import { isYcReviewSession } from "@/features/auth/auth-route-utils";
 import { DashboardSessionsSnapshotSection } from "@/features/dashboard/components/DashboardSessionsSnapshotSection";
 import { buildDashboardSessionTabMetrics } from "@/features/dashboard/data/dashboard-tab-adapters";
@@ -9,7 +10,6 @@ import { SessionDetailSheet } from "@/features/sessions/components/SessionDetail
 import { SessionsDateRangeControls } from "@/features/sessions/components/SessionsDateRangeControls";
 import { resolveActiveSessionDateRangeOptionId } from "@/features/sessions/session-date-ranges";
 import { useCanViewSession } from "@/features/workspace/hooks/useCanViewSession";
-import { useTrackDashboardView } from "@/hooks/useTrackDashboardView";
 import { authClient } from "@/lib/auth-client";
 import { orpc } from "@/lib/orpc";
 import { getSessionDetailPath } from "@/lib/session-paths";
