@@ -25,12 +25,6 @@ import { ResetPasswordApp } from "@/features/auth/ResetPasswordApp";
 import { GetStartedRouteGate } from "@/features/get-started/GetStartedRouteGate";
 import { authClient } from "./lib/auth-client";
 
-const CardReferencePage = lazy(() =>
-	import("@/features/wrapped/card-reference/page").then((module) => ({
-		default: module.CardReferencePage,
-	})),
-);
-
 const WrappedRouteGate = lazy(() =>
 	import("@/features/wrapped/WrappedRouteGate").then((module) => ({
 		default: module.WrappedRouteGate,
@@ -64,7 +58,6 @@ function App() {
 	const { data: session, isPending } = authClient.useSession();
 	useOAuthDebugAutoDump(session);
 	const deviceUserCode = getDeviceUserCode(location.search);
-	const cardReferencePath = appRoutes.cardReference();
 	const wrappedDevPath = appRoutes.devWrapped();
 	const wrappedTeamCardPath = appRoutes.wrappedTeamCard();
 	const ycLoginPath = appRoutes.ycLogin();
@@ -74,9 +67,6 @@ function App() {
 	);
 	const wrappedResumeToken = getWrappedResumeTokenFromPath(location.pathname);
 	const isLegacyWrappedSharePath = legacyWrappedPublicId !== null;
-	const isCardReferencePath =
-		location.pathname === cardReferencePath ||
-		location.pathname.startsWith(`${cardReferencePath}/`);
 	const isWrappedDevPath =
 		location.pathname === wrappedDevPath ||
 		location.pathname.startsWith(`${wrappedDevPath}/`);
@@ -92,7 +82,6 @@ function App() {
 			: null);
 	const showDesktopOnlyOverlay =
 		!deviceUserCode &&
-		!isCardReferencePath &&
 		!isWrappedDevPath &&
 		!isWrappedTeamCardPath &&
 		!isYcLoginPath &&
@@ -213,18 +202,6 @@ function App() {
 						<YcPasswordLoginPage />
 					</Suspense>
 				)}
-			</>
-		);
-	}
-
-	if (isCardReferencePath) {
-		return (
-			<>
-				<ProductAnalyticsSessionSync session={session} />
-				<Suspense fallback={<FullscreenRouteLoadingScreen />}>
-					<CardReferencePage />
-				</Suspense>
-				{showDesktopOnlyOverlay ? <DesktopOnlyOverlay /> : null}
 			</>
 		);
 	}
