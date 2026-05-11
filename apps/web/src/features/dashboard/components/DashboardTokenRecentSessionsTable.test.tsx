@@ -3,7 +3,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { DashboardTokenRecentSessionsTable } from "./DashboardTokenRecentSessionsTable";
 
-vi.mock("@/hooks/useUserMap", () => ({
+vi.mock("@/features/workspace/hooks/useUserMap", () => ({
 	useUserMap: () => ({
 		userMap: { "user-1": "Evren" },
 		isLoading: false,

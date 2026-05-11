@@ -25,7 +25,7 @@ import {
 	TableHeader,
 	TableRow,
 } from "@/components/ui/table";
-import { useAnalyticsTracking } from "@/hooks/useDashboardAnalytics";
+import { useAnalyticsTracking } from "@/features/analytics/tracking/useAnalyticsTracking";
 
 interface DataTableProps<TData, TValue> {
 	columns: ColumnDef<TData, TValue>[];

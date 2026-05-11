@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useAnalyticsTracking } from "../../hooks/useDashboardAnalytics";
+import { useAnalyticsTracking } from "../../features/analytics/tracking/useAnalyticsTracking";
 import { authClient } from "../../lib/auth-client";
 import { formatAuthErrorMessage } from "../../lib/auth-error-message";
 import { Button } from "../ui/button";
