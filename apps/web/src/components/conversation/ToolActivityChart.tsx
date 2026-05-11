@@ -1,6 +1,6 @@
 import { useMemo } from "react";
-import { useObservedWidth } from "@/features/conversation-internal/hooks/useObservedWidth";
 import { cn } from "@/lib/utils";
+import { useObservedWidth } from "./use-observed-width";
 
 export interface ToolActivityPoint {
 	messageIndex: number;
