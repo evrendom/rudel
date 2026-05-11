@@ -6,8 +6,8 @@ import {
 	type RefObject,
 	useRef,
 } from "react";
+import { useMountEffect } from "@/app/hooks/useMountEffect";
 import type { TeamPageMemberRow } from "@/features/team/use-team-page-data";
-import { useMountEffect } from "@/hooks/useMountEffect";
 import {
 	WrappedTeamMemberCard,
 	type WrappedTeamMemberCardEdition,

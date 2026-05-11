@@ -13,6 +13,7 @@ import {
 	useRef,
 	useState,
 } from "react";
+import { useMountEffect } from "@/app/hooks/useMountEffect";
 import { LoginForm } from "@/features/auth/LoginForm";
 import { SignupForm } from "@/features/auth/SignupForm";
 import {
@@ -23,7 +24,6 @@ import {
 	WrappedPrimaryAction,
 	WrappedSecondaryAction,
 } from "@/features/wrapped/actions";
-import { useMountEffect } from "@/hooks/useMountEffect";
 import { cn } from "@/lib/utils";
 import { WrappedRouteStageShell } from "./route-stage-shell";
 import { WrappedGuestPreviewCard } from "./WrappedGuestPreviewCard";

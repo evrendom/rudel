@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Navigate, useNavigate, useParams } from "react-router-dom";
+import { useEffectOnceWhen } from "@/app/hooks/useEffectOnceWhen";
 import { appRoutes } from "@/app/routes";
-import { useEffectOnceWhen } from "@/hooks/useEffectOnceWhen";
 import { authClient } from "@/lib/auth-client";
 import { client } from "@/lib/orpc";
 

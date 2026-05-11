@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { useRef, useState } from "react";
+import { useMountEffect } from "@/app/hooks/useMountEffect";
 import { useAnalyticsTracking } from "@/features/analytics/tracking/useAnalyticsTracking";
-import { useMountEffect } from "@/hooks/useMountEffect";
 import { client } from "@/lib/orpc";
 import { WrappedDesktopResumePreviewStage } from "./WrappedDesktopResumePreviewStage";
 

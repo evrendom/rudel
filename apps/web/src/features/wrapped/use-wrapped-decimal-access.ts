@@ -5,6 +5,7 @@ import {
 } from "react";
 import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
+import { useEffectOnceWhen } from "@/app/hooks/useEffectOnceWhen";
 import {
 	getWrappedDecimalClaimTokenFromSearch,
 	getWrappedVariantFromSearch,
@@ -14,7 +15,6 @@ import {
 	WRAPPED_VARIANT_QUERY_PARAM,
 	type WrappedVariant,
 } from "@/app/routes";
-import { useEffectOnceWhen } from "@/hooks/useEffectOnceWhen";
 import { client, orpc } from "@/lib/orpc";
 
 interface UseWrappedDecimalAccessInput {

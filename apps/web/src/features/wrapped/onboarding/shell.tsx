@@ -8,7 +8,7 @@ import {
 import type { ReactNode } from "react";
 import { startTransition, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { useMountEffect } from "@/hooks/useMountEffect";
+import { useMountEffect } from "@/app/hooks/useMountEffect";
 import { cn } from "@/lib/utils";
 import {
 	type PreviewableWrappedStepId,

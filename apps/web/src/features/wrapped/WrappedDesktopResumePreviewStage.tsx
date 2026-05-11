@@ -2,8 +2,8 @@ import { Link as LinkIcon, Loader2, Mail } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import type { ReactNode } from "react";
 import { useRef, useState } from "react";
+import { useMountEffect } from "@/app/hooks/useMountEffect";
 import { Button } from "@/app/ui/button";
-import { useMountEffect } from "@/hooks/useMountEffect";
 import { copyTextToClipboardWithResult } from "@/lib/clipboard";
 import { WrappedDesktopResumePromptStage } from "./WrappedDesktopResumePromptStage";
 

@@ -7,6 +7,8 @@ import {
 } from "motion/react";
 import type { ReactNode } from "react";
 import { useMemo, useRef, useState } from "react";
+import { useEffectOnceWhen } from "@/app/hooks/useEffectOnceWhen";
+import { useMountEffect } from "@/app/hooks/useMountEffect";
 import { WrappedSetupCommandSurface } from "@/components/analytics/CliSetupCommandSurface";
 import { cliSetupCommands } from "@/components/analytics/CliSetupHint";
 import { useAnalyticsQuery } from "@/features/analytics/queries/useAnalyticsQuery";
@@ -15,8 +17,6 @@ import {
 	WrappedSecondaryAction,
 } from "@/features/wrapped/actions";
 import { shortenWrappedRepoLabelFromLeft } from "@/features/wrapped/repo-label";
-import { useEffectOnceWhen } from "@/hooks/useEffectOnceWhen";
-import { useMountEffect } from "@/hooks/useMountEffect";
 import { MAX_ANALYTICS_DAYS } from "@/lib/analytics-date-range";
 import { orpc } from "@/lib/orpc";
 import { WrappedRouteStageShell } from "./route-stage-shell";

@@ -20,6 +20,7 @@ import {
 	useState,
 } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { useMountEffect } from "@/app/hooks/useMountEffect";
 import {
 	appRoutes,
 	getWrappedShareIdFromSearch,
@@ -34,7 +35,6 @@ import type { TeamPageMemberRow } from "@/features/team/use-team-page-data";
 import { markWrappedCompleted } from "@/features/wrapped/entry";
 import { WrappedTeamCardOnboarding } from "@/features/wrapped/onboarding/shell";
 import type { WrappedOnboardingMetrics } from "@/features/wrapped/onboarding/types";
-import { useMountEffect } from "@/hooks/useMountEffect";
 import { formatCompactWholeCurrency } from "@/lib/format";
 import {
 	getWrappedArchetypeCardBackgroundValue,

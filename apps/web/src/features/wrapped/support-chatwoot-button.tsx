@@ -2,7 +2,7 @@ import { HelpCircle, XCircle } from "lucide-react";
 import type { CSSProperties } from "react";
 import { useState } from "react";
 import { createPortal } from "react-dom";
-import { useMountEffect } from "@/hooks/useMountEffect";
+import { useMountEffect } from "@/app/hooks/useMountEffect";
 import {
 	CHATWOOT_CLOSED_EVENT,
 	CHATWOOT_OPENED_EVENT,

@@ -1,5 +1,6 @@
 import type { CSSProperties, ReactNode } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { useMountEffect } from "@/app/hooks/useMountEffect";
 import { appRoutes } from "@/app/routes";
 import type { TeamPageMemberRow } from "@/features/team/use-team-page-data";
 import type { WrappedOnboardingMetrics } from "@/features/wrapped/onboarding/types";
@@ -14,7 +15,6 @@ import {
 	WrappedPublicCardAction,
 	WrappedPublicCardScreen,
 } from "@/features/wrapped/WrappedPublicCardScreen";
-import { useMountEffect } from "@/hooks/useMountEffect";
 import "@/features/wrapped/wrapped.css";
 
 interface WrappedPublicMockPageProps {

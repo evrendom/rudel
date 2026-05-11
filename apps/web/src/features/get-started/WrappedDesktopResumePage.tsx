@@ -1,12 +1,12 @@
 import { useState } from "react";
 import { Navigate } from "react-router-dom";
+import { useEffectOnceWhen } from "@/app/hooks/useEffectOnceWhen";
 import { appRoutes } from "@/app/routes";
 import { useAnalyticsTracking } from "@/features/analytics/tracking/useAnalyticsTracking";
 import {
 	type AppSession,
 	getSessionUserEmail,
 } from "@/features/auth/auth-route-utils";
-import { useEffectOnceWhen } from "@/hooks/useEffectOnceWhen";
 import { authClient } from "@/lib/auth-client";
 import { client } from "@/lib/orpc";
 

@@ -2,7 +2,7 @@ import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import type { CSSProperties, ReactNode } from "react";
 // biome-ignore lint/style/noRestrictedImports: sequence timers and count-up animation are imperative storyboard bridges for this stage.
 import { useEffect, useRef, useState } from "react";
-import { useMountEffect } from "@/hooks/useMountEffect";
+import { useMountEffect } from "@/app/hooks/useMountEffect";
 import { cn } from "@/lib/utils";
 import { resolveModelPreviewInput, resolveModelStageModel } from "../models";
 import type { WrappedOnboardingMetrics } from "../types";

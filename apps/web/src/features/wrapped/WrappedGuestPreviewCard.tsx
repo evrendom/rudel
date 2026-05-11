@@ -8,7 +8,7 @@ import {
 	useRef,
 	useState,
 } from "react";
-import { useMountEffect } from "@/hooks/useMountEffect";
+import { useMountEffect } from "@/app/hooks/useMountEffect";
 import { cn } from "@/lib/utils";
 import { buildWrappedTeamCardBackMetrics } from "./team-card/back-metrics";
 import { WrappedTeamMemberCard } from "./team-card/card";
