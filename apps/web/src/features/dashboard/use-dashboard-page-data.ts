@@ -10,8 +10,8 @@ import { useAnalyticsQuery } from "@/features/analytics/queries/useAnalyticsQuer
 import { buildDashboardPerformanceUsers } from "@/features/dashboard/data/dashboard-performance-adapter";
 import { mergeDashboardSnapshotWithRoi } from "@/features/dashboard/data/dashboard-roi-adapter";
 import { createDashboardOutputSnapshot } from "@/features/dashboard/data/dashboard-static-data";
+import { useFullOrganization } from "@/features/workspace/hooks/useFullOrganization";
 import { useOrganization } from "@/features/workspace/organization/useOrganization";
-import { useFullOrganization } from "@/hooks/useFullOrganization";
 import { orpc } from "@/lib/orpc";
 
 export function useDashboardPageData() {

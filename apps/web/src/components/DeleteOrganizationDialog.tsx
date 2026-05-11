@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { AlertTriangle, Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { useAnalyticsTracking } from "@/hooks/useDashboardAnalytics";
+import { useAnalyticsTracking } from "@/features/analytics/tracking/useAnalyticsTracking";
 import { client } from "../lib/orpc";
 import { Button } from "./ui/button";
 import {

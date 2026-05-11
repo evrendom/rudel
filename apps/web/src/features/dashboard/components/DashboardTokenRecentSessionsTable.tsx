@@ -10,7 +10,7 @@ import {
 } from "@/features/dashboard/components/DashboardGridTable";
 import { DashboardModelBadges } from "@/features/dashboard/components/DashboardModelBadges";
 import { DashboardTokenCostCell } from "@/features/dashboard/components/DashboardTokenCostCell";
-import { useUserMap } from "@/hooks/useUserMap";
+import { useUserMap } from "@/features/workspace/hooks/useUserMap";
 import {
 	formatCompactNumber,
 	formatMinutes,
