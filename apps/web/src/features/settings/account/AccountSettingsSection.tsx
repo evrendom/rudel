@@ -5,16 +5,13 @@ import { appRoutes } from "@/app/routes";
 import { Card, CardContent } from "@/app/ui/card";
 import { Skeleton } from "@/app/ui/skeleton";
 import { useAnalyticsTracking } from "@/features/analytics/tracking/useAnalyticsTracking";
-import {
-	type PageViewMetric,
-	type PageViewSection,
-	useTrackProductPageView,
-} from "@/features/analytics/tracking/useTrackProductPageView";
+import { useTrackProductPageView } from "@/features/analytics/tracking/useTrackProductPageView";
 import { AccountDangerZoneCard } from "@/features/settings/account/components/AccountDangerZoneCard";
 import { ProfileLinkedAccountsCard } from "@/features/settings/account/components/ProfileLinkedAccountsCard";
 import { ProfileOverviewCard } from "@/features/settings/account/components/ProfileOverviewCard";
 import { useAccountSettingsData } from "@/features/settings/account/use-account-settings-data";
 import { useInvitationsSettingsData } from "@/features/settings/invitations/use-invitations-settings-data";
+import { buildAccountSettingsTracking } from "@/features/settings/settings-page-tracking";
 import { WorkspaceIncomingInvitationsCard } from "@/features/settings/workspace/components/WorkspaceIncomingInvitationsCard";
 import { useOrganization } from "@/features/workspace/organization/useOrganization";
 import { authClient, signOut } from "@/lib/auth-client";
@@ -127,51 +124,16 @@ export function AccountSettingsSection() {
 		}
 	};
 
-	const trackingMetrics: PageViewMetric[] = [
-		{
-			id: "linked_accounts",
-			value: data.linkedProviders.size,
-		},
-		{
-			id: "pending_workspace_invitations",
-			value: invitationsData.count,
-		},
-	];
-	const trackingSections: PageViewSection[] = [
-		{
-			id: "profile_summary",
-			state: data.state.hasData ? "populated" : "empty",
-		},
-		{
-			id: "linked_accounts",
-			state: data.state.isPending
-				? "hidden"
-				: data.linkedProviders.size > 0
-					? "populated"
-					: "empty",
-			itemCount: data.linkedProviders.size,
-		},
-		{
-			id: "workspace_invitations",
-			state: invitationsData.state.isPending
-				? "hidden"
-				: invitationsData.state.hasData
-					? "populated"
-					: "empty",
-			itemCount: invitationsData.count,
-		},
-		{
-			id: "account_deletion",
-			state: data.state.hasData ? "populated" : "hidden",
-		},
-	];
-
-	useTrackProductPageView({
-		isLoading: data.state.isPending || invitationsData.state.isPending,
-		hasData: data.state.hasData,
-		metrics: trackingMetrics,
-		sections: trackingSections,
-	});
+	useTrackProductPageView(
+		buildAccountSettingsTracking({
+			isAccountPending: data.state.isPending,
+			hasAccountData: data.state.hasData,
+			linkedProviderCount: data.linkedProviders.size,
+			isInvitationsPending: invitationsData.state.isPending,
+			hasInvitationsData: invitationsData.state.hasData,
+			invitationCount: invitationsData.count,
+		}),
+	);
 
 	return (
 		<>

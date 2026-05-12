@@ -1,10 +1,7 @@
 import { Card, CardContent } from "@/app/ui/card";
 import { Skeleton } from "@/app/ui/skeleton";
-import {
-	type PageViewMetric,
-	type PageViewSection,
-	useTrackProductPageView,
-} from "@/features/analytics/tracking/useTrackProductPageView";
+import { useTrackProductPageView } from "@/features/analytics/tracking/useTrackProductPageView";
+import { buildMembersSettingsTracking } from "@/features/settings/settings-page-tracking";
 import { CreateWorkspaceCard } from "@/features/settings/workspace/components/CreateWorkspaceCard";
 import { WorkspaceEmptyStateCard } from "@/features/settings/workspace/components/WorkspaceEmptyStateCard";
 import { WorkspaceInviteMemberCard } from "@/features/settings/workspace/components/WorkspaceInviteMemberCard";
@@ -16,52 +13,18 @@ export function MembersSettingsSection() {
 	const data = useWorkspaceSettingsData();
 	const memberCount = data.fullOrg?.members.length ?? 0;
 	const pendingOutgoingInvitationCount = data.pendingInvitations.length;
-	const trackingMetrics: PageViewMetric[] = [
-		{
-			id: "members",
-			value: memberCount,
-		},
-		{
-			id: "pending_outgoing_invitations",
-			value: pendingOutgoingInvitationCount,
-		},
-	];
-	const trackingSections: PageViewSection[] = [
-		{
-			id: "organization_members",
-			state: data.state.isPending
-				? "hidden"
-				: memberCount > 0
-					? "populated"
-					: "empty",
-			itemCount: memberCount,
-		},
-		{
-			id: "invite_member",
-			state: data.state.isPending
-				? "hidden"
-				: data.canManage
-					? "populated"
-					: "empty",
-		},
-		{
-			id: "organization_outgoing_invitations",
-			state: data.state.isPending
-				? "hidden"
-				: pendingOutgoingInvitationCount > 0
-					? "populated"
-					: "empty",
-			itemCount: pendingOutgoingInvitationCount,
-		},
-	];
 
-	useTrackProductPageView({
-		isLoading: data.state.isPending,
-		isError: data.state.isError,
-		hasData: data.state.hasOrganization ? data.state.hasData : false,
-		metrics: trackingMetrics,
-		sections: trackingSections,
-	});
+	useTrackProductPageView(
+		buildMembersSettingsTracking({
+			hasOrganization: data.state.hasOrganization,
+			hasWorkspaceData: data.state.hasData,
+			isPending: data.state.isPending,
+			isError: data.state.isError,
+			memberCount,
+			pendingOutgoingInvitationCount,
+			canManage: data.canManage,
+		}),
+	);
 
 	if (!data.state.hasOrganization) {
 		return (
