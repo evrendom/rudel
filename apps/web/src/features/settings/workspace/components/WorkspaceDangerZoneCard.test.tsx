@@ -1,47 +1,141 @@
-import { render, screen } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { WorkspaceDangerZoneCard } from "./WorkspaceDangerZoneCard";
 
-const { mockOpenChatwoot } = vi.hoisted(() => ({
-	mockOpenChatwoot: vi.fn(),
+const {
+	mockClientDeleteOrganization,
+	mockGetOrganizationSessionCount,
+	mockRefreshAuthClientState,
+	mockSwitchOrganization,
+	mockToastSuccess,
+} = vi.hoisted(() => ({
+	mockClientDeleteOrganization: vi.fn(
+		async (_: { organizationId: string }) => ({ success: true as const }),
+	),
+	mockGetOrganizationSessionCount: vi.fn(
+		async (_: { organizationId: string }) => ({ count: 0 }),
+	),
+	mockRefreshAuthClientState: vi.fn(),
+	mockSwitchOrganization: vi.fn(async (_: string) => {}),
+	mockToastSuccess: vi.fn(),
 }));
 
-vi.mock("@/lib/chatwoot", () => ({
-	openChatwoot: mockOpenChatwoot,
+const mockUseOrganizationState = {
+	state: {
+		activeOrg: { id: "org-1", name: "Workspace One", slug: "workspace-one" },
+		organizations: [
+			{ id: "org-1", name: "Workspace One", slug: "workspace-one" },
+			{ id: "org-2", name: "Workspace Two", slug: "workspace-two" },
+		],
+		isLoading: false,
+	},
+	actions: { switchOrganization: mockSwitchOrganization },
+	meta: { isOrgAdmin: true },
+};
+
+vi.mock("@/features/workspace/organization/useOrganization", () => ({
+	useOrganization: () => mockUseOrganizationState,
 }));
+
+vi.mock("@/lib/orpc", () => ({
+	client: {
+		deleteOrganization: mockClientDeleteOrganization,
+		getOrganizationSessionCount: mockGetOrganizationSessionCount,
+	},
+}));
+
+vi.mock("@/lib/auth-client", () => ({
+	refreshAuthClientState: mockRefreshAuthClientState,
+}));
+
+vi.mock("sonner", () => ({
+	toast: { success: mockToastSuccess },
+}));
+
+vi.mock("@/features/analytics/tracking/useAnalyticsTracking", () => ({
+	useAnalyticsTracking: () => ({
+		trackOrganizationAction: vi.fn(),
+	}),
+}));
+
+function renderCard(
+	props: Partial<React.ComponentProps<typeof WorkspaceDangerZoneCard>> = {},
+) {
+	const queryClient = new QueryClient({
+		defaultOptions: { queries: { retry: false } },
+	});
+	return render(
+		<QueryClientProvider client={queryClient}>
+			<WorkspaceDangerZoneCard
+				canManage={true}
+				organization={{ id: "org-1", name: "Workspace One" }}
+				{...props}
+			/>
+		</QueryClientProvider>,
+	);
+}
 
 describe("WorkspaceDangerZoneCard", () => {
-	it("renders support guidance instead of a delete action", () => {
-		render(<WorkspaceDangerZoneCard />);
+	it("renders a destructive delete button for managers", () => {
+		renderCard();
 
-		expect(screen.getByText("Delete workspace")).toHaveClass(
-			"text-destructive",
-		);
-		expect(
-			screen.getByText(
-				"Workspace deletion is handled by support. Contact us if you'd like this workspace and its data removed.",
-			),
-		).toBeInTheDocument();
-		expect(
-			screen.queryByRole("button", { name: "Delete workspace" }),
-		).not.toBeInTheDocument();
-
-		const supportLink = screen.getByRole("link", { name: "support chat" });
-		expect(supportLink).toHaveAttribute("href", "https://app.chatwoot.com");
-
-		const emailLink = screen.getByRole("link", { name: "evren@rudel.ai" });
-		expect(emailLink).toHaveAttribute("href", "mailto:evren@rudel.ai");
+		const button = screen.getByRole("button", { name: /delete workspace/i });
+		expect(button).not.toBeDisabled();
 	});
 
-	it("opens support chat when the support link is clicked", async () => {
-		mockOpenChatwoot.mockClear();
+	it("disables the delete button when the caller cannot manage", () => {
+		renderCard({ canManage: false });
+
+		const button = screen.getByRole("button", { name: /delete workspace/i });
+		expect(button).toBeDisabled();
+	});
+
+	it("opens the confirmation dialog when the delete button is clicked", async () => {
 		const user = userEvent.setup();
+		renderCard();
 
-		render(<WorkspaceDangerZoneCard />);
+		await user.click(screen.getByRole("button", { name: /delete workspace/i }));
 
-		await user.click(screen.getByRole("link", { name: "support chat" }));
+		expect(
+			await screen.findByText(/this permanently deletes/i),
+		).toBeInTheDocument();
+	});
 
-		expect(mockOpenChatwoot).toHaveBeenCalledTimes(1);
+	it("switches to a remaining workspace, refreshes auth, and toasts on successful delete", async () => {
+		const user = userEvent.setup();
+		mockClientDeleteOrganization.mockClear();
+		mockSwitchOrganization.mockClear();
+		mockRefreshAuthClientState.mockClear();
+		mockToastSuccess.mockClear();
+
+		renderCard();
+
+		await user.click(screen.getByRole("button", { name: /delete workspace/i }));
+
+		const confirmInput = await screen.findByLabelText(
+			/type workspace one to confirm/i,
+		);
+		await user.type(confirmInput, "Workspace One");
+
+		const confirmButton = screen.getAllByRole("button", {
+			name: /delete workspace/i,
+		});
+		// The second button is the dialog's confirm CTA (first is the card trigger).
+		await user.click(confirmButton[confirmButton.length - 1]);
+
+		await waitFor(() => {
+			expect(mockClientDeleteOrganization).toHaveBeenCalledWith({
+				organizationId: "org-1",
+			});
+		});
+		await waitFor(() => {
+			expect(mockSwitchOrganization).toHaveBeenCalledWith("org-2");
+		});
+		expect(mockRefreshAuthClientState).toHaveBeenCalled();
+		expect(mockToastSuccess).toHaveBeenCalledWith(
+			'Workspace "Workspace One" deleted',
+		);
 	});
 });

@@ -2,6 +2,7 @@ import { getLogger } from "@logtape/logtape";
 import { ORPCError } from "@orpc/server";
 import { sqlClient } from "../../db.js";
 import { adminMiddleware, os } from "../../middleware.js";
+import { deleteUserSessions } from "../../services/org-session.service.js";
 
 const logger = getLogger(["rudel", "api", "admin"]);
 
@@ -35,11 +36,7 @@ export const deleteUser = os.admin.deleteUser
 			adminId: context.user.id,
 		});
 
-		// TODO: Delete ClickHouse data for this user
-		// ClickHouse deletes don't currently work reliably.
-		// When implementing, delete from all adapter tables + session_analytics
-		// where user_id = userId (across all organizations the user belongs to).
-		// See deleteOrgSessions() in services/org-session.service.ts for reference.
+		await deleteUserSessions(userId);
 
 		await sqlClient.begin(async (sql) => {
 			// Find organizations where this user is the sole member

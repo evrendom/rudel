@@ -208,6 +208,7 @@ describe("deleteUserPostgresData", () => {
 		selectRows = [{ organizationId: "org-before-delete" }];
 
 		const result = await deleteUserWithAccountDeletionNotification({
+			deleteSessions: async () => {},
 			notify: notifyAccountDeletion,
 			slackWebhookUrl: "https://hooks.slack.com/services/test",
 			user: {

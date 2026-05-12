@@ -15,6 +15,7 @@ import {
 	deleteUserAvatarInTx,
 	getUserAvatarOwnerByPublicId,
 } from "../services/avatar-upload.service.js";
+import { deleteUserSessions } from "../services/org-session.service.js";
 import { notifyAccountDeletion } from "../slack.js";
 
 const logger = getLogger(["rudel", "api", "profile"]);
@@ -170,6 +171,7 @@ export async function deleteUserPostgresData(
 }
 
 export async function deleteUserWithAccountDeletionNotification(input: {
+	deleteSessions?: typeof deleteUserSessions;
 	notify?: typeof notifyAccountDeletion;
 	slackWebhookUrl: string | undefined;
 	user: DeletedUser;
@@ -177,6 +179,8 @@ export async function deleteUserWithAccountDeletionNotification(input: {
 	const deletedOrganizationIds = await getDeletedOrganizationIdsForUser(
 		input.user.id,
 	);
+
+	await (input.deleteSessions ?? deleteUserSessions)(input.user.id);
 
 	if (input.slackWebhookUrl) {
 		await (input.notify ?? notifyAccountDeletion)(

@@ -35,7 +35,7 @@ afterEach(() => {
 });
 
 describe("notifyAccountDeletion", () => {
-	test("posts user id, org ids, and audit hint to webhook", async () => {
+	test("posts user id and org ids to webhook", async () => {
 		await notifyAccountDeletion(
 			"https://hooks.slack.com/services/test",
 			{ id: "user-abc", name: "Sample User", email: "sample@example.com" },
@@ -51,7 +51,7 @@ describe("notifyAccountDeletion", () => {
 		expect(text).toContain("sample@example.com");
 		expect(text).toContain("`org-1`");
 		expect(text).toContain("`org-2`");
-		expect(text).toContain("ClickHouse session data");
+		expect(text).not.toContain("manual cleanup");
 	});
 
 	test("renders empty org list with explicit placeholder", async () => {
