@@ -1,10 +1,11 @@
-import { afterAll, describe, expect, mock, test } from "bun:test";
+import { afterAll, describe, expect, test } from "bun:test";
 import { getAdapter } from "@rudel/agent-adapters";
 import type { IngestSessionInput } from "@rudel/api-routes";
+import { getClickhouse, getSafeClickHouseTable } from "../clickhouse.js";
 import {
-	createClickHouseExecutor,
-	getSafeClickHouseTable,
-} from "../clickhouse.js";
+	deleteOrgSessions,
+	deleteUserSessions,
+} from "../services/org-session.service.js";
 
 const testRunId = `del_test_${Date.now()}_${Math.random()
 	.toString(36)
@@ -16,30 +17,14 @@ const sessionByOrgId = `${testRunId}_by_org`;
 const sessionByUserAlpha = `${testRunId}_by_user_alpha`;
 const sessionByUserBeta = `${testRunId}_by_user_beta`;
 
-const executor = createClickHouseExecutor({
-	url: process.env.CLICKHOUSE_URL || "http://localhost:8123",
-	username:
-		process.env.CLICKHOUSE_USERNAME || process.env.CLICKHOUSE_USER || "default",
-	password: process.env.CLICKHOUSE_PASSWORD || "",
-	database: "default",
-});
-
-mock.module("../clickhouse.js", () => ({
-	createClickHouseExecutor,
-	getSafeClickHouseTable,
-	getClickhouse: () => executor,
-}));
-
-const { deleteOrgSessions, deleteUserSessions } = await import(
-	"../services/org-session.service.js"
-);
+const ch = getClickhouse();
 
 interface CountRow {
 	count: string;
 }
 
 async function countByOrg(targetOrgId: string): Promise<number> {
-	const rows = await executor.query<CountRow>({
+	const rows = await ch.query<CountRow>({
 		query: `SELECT count() AS count FROM ${getSafeClickHouseTable("rudel.claude_sessions")} WHERE organization_id = {orgId:String}`,
 		query_params: { orgId: targetOrgId },
 	});
@@ -47,7 +32,7 @@ async function countByOrg(targetOrgId: string): Promise<number> {
 }
 
 async function countByUser(targetUserId: string): Promise<number> {
-	const rows = await executor.query<CountRow>({
+	const rows = await ch.query<CountRow>({
 		query: `SELECT count() AS count FROM ${getSafeClickHouseTable("rudel.claude_sessions")} WHERE user_id = {userId:String}`,
 		query_params: { userId: targetUserId },
 	});
@@ -70,7 +55,7 @@ async function ingestSession(
 		subagents: [],
 	};
 	const adapter = getAdapter(input.source);
-	await adapter.ingest(executor, input, {
+	await adapter.ingest(ch, input, {
 		userId,
 		organizationId: targetOrgId,
 	});
@@ -90,7 +75,7 @@ async function waitFor(
 }
 
 afterAll(async () => {
-	await executor
+	await ch
 		.execute({
 			query: `DELETE FROM ${getSafeClickHouseTable("rudel.claude_sessions")} WHERE organization_id = {orgId:String} OR user_id IN ({u1:String}, {u2:String})`,
 			query_params: {
