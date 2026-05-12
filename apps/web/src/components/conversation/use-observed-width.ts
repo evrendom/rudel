@@ -1,8 +1,8 @@
 import { useRef, useState } from "react";
 import { useMountEffect } from "@/app/hooks/useMountEffect";
 
-export function useObservedWidth<T extends HTMLElement>() {
-	const elementRef = useRef<T>(null);
+export function useObservedWidth<TElement extends HTMLElement>() {
+	const elementRef = useRef<TElement>(null);
 	const [width, setWidth] = useState(400);
 
 	useMountEffect(() => {
