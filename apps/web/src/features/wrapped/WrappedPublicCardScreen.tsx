@@ -56,7 +56,7 @@ export function WrappedPublicCardScreen(props: WrappedPublicCardScreenProps) {
 
 	return (
 		<main className="rudel-wrapped-route rudel-wrapped-route--onboarding rudel-wrapped-route--step-card rudel-wrapped-route--public-card">
-			<div className="rudel-wrapped-shell rudel-wrapped-shell--reference-top-chrome relative z-[1] mx-auto flex w-full flex-1 flex-col text-foreground">
+			<div className="rudel-wrapped-shell rudel-wrapped-shell--aligned-top-chrome relative z-[1] mx-auto flex w-full flex-1 flex-col text-foreground">
 				<div
 					className={cn(
 						"rudel-wrapped-shell__frame",

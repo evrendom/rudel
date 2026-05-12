@@ -420,7 +420,7 @@ export function WrappedTeamCardOnboarding(
 					) : null}
 					<motion.div
 						layout
-						className="rudel-wrapped-shell rudel-wrapped-shell--reference-top-chrome relative z-[1] mx-auto flex w-full flex-1 flex-col text-foreground"
+						className="rudel-wrapped-shell rudel-wrapped-shell--aligned-top-chrome relative z-[1] mx-auto flex w-full flex-1 flex-col text-foreground"
 					>
 						<motion.div layout className="rudel-wrapped-shell__frame">
 							<WrappedOnboardingHeader
