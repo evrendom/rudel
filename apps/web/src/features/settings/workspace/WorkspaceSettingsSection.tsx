@@ -1,10 +1,7 @@
 import { Card, CardContent } from "@/app/ui/card";
 import { Skeleton } from "@/app/ui/skeleton";
-import {
-	type PageViewMetric,
-	type PageViewSection,
-	useTrackProductPageView,
-} from "@/features/analytics/tracking/useTrackProductPageView";
+import { useTrackProductPageView } from "@/features/analytics/tracking/useTrackProductPageView";
+import { buildWorkspaceSettingsTracking } from "@/features/settings/settings-page-tracking";
 import { CreateWorkspaceCard } from "@/features/settings/workspace/components/CreateWorkspaceCard";
 import { WorkspaceDangerZoneCard } from "@/features/settings/workspace/components/WorkspaceDangerZoneCard";
 import { WorkspaceEmptyStateCard } from "@/features/settings/workspace/components/WorkspaceEmptyStateCard";
@@ -16,38 +13,16 @@ export function WorkspaceSettingsSection() {
 	const data = useWorkspaceSettingsData();
 	const memberCount = data.fullOrg?.members.length ?? 0;
 	const pendingOutgoingInvitationCount = data.pendingInvitations.length;
-	const trackingMetrics: PageViewMetric[] = [
-		{
-			id: "members",
-			value: memberCount,
-		},
-		{
-			id: "pending_outgoing_invitations",
-			value: pendingOutgoingInvitationCount,
-		},
-	];
-	const trackingSections: PageViewSection[] = [
-		{
-			id: "organization_identity",
-			state: data.state.hasOrganization ? "populated" : "empty",
-		},
-		{
-			id: "workspace_creation",
-			state: "populated",
-		},
-		{
-			id: "workspace_deletion",
-			state: data.state.hasOrganization ? "populated" : "hidden",
-		},
-	];
 
-	useTrackProductPageView({
-		isLoading: data.state.isPending,
-		isError: data.state.isError,
-		hasData: data.state.hasOrganization,
-		metrics: trackingMetrics,
-		sections: trackingSections,
-	});
+	useTrackProductPageView(
+		buildWorkspaceSettingsTracking({
+			hasOrganization: data.state.hasOrganization,
+			isPending: data.state.isPending,
+			isError: data.state.isError,
+			memberCount,
+			pendingOutgoingInvitationCount,
+		}),
+	);
 
 	if (!data.state.hasOrganization) {
 		return (
