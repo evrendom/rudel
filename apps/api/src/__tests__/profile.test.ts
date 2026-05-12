@@ -24,15 +24,6 @@ mock.module("../db.js", () => ({
 	sqlClient,
 }));
 
-let deleteUserSessionsImpl: (userId: string) => Promise<void> = async () => {
-	executionEvents.push("clickhouse");
-};
-const deleteUserSessionsCalls: string[] = [];
-const deleteUserSessions = mock(async (userId: string) => {
-	deleteUserSessionsCalls.push(userId);
-	return deleteUserSessionsImpl(userId);
-});
-
 interface NotifyCall {
 	deletedOrganizationIds: string[];
 	user: { email: string; id: string; name: string };
@@ -162,11 +153,6 @@ describe("deleteUserPostgresData", () => {
 		executionEvents.length = 0;
 		notifyCalls.length = 0;
 		notifyAccountDeletion.mockClear();
-		deleteUserSessions.mockClear();
-		deleteUserSessionsCalls.length = 0;
-		deleteUserSessionsImpl = async () => {
-			executionEvents.push("clickhouse");
-		};
 		selectRows = [];
 	});
 
@@ -218,11 +204,11 @@ describe("deleteUserPostgresData", () => {
 		expect(result).toEqual({ deletedOrganizationIds: [] });
 	});
 
-	test("cleans ClickHouse before Slack, both before Postgres deletes", async () => {
+	test("sends Slack audit before deleting Postgres rows", async () => {
 		selectRows = [{ organizationId: "org-before-delete" }];
 
 		const result = await deleteUserWithAccountDeletionNotification({
-			deleteSessions: deleteUserSessions,
+			deleteSessions: async () => {},
 			notify: notifyAccountDeletion,
 			slackWebhookUrl: "https://hooks.slack.com/services/test",
 			user: {
@@ -232,7 +218,6 @@ describe("deleteUserPostgresData", () => {
 			},
 		});
 
-		expect(deleteUserSessionsCalls).toEqual(["user-before-delete"]);
 		expect(notifyCalls).toEqual([
 			{
 				webhookUrl: "https://hooks.slack.com/services/test",
@@ -244,16 +229,12 @@ describe("deleteUserPostgresData", () => {
 				deletedOrganizationIds: ["org-before-delete"],
 			},
 		]);
-
-		const clickhouseIndex = executionEvents.indexOf("clickhouse");
 		const slackIndex = executionEvents.indexOf("slack");
 		const firstDeleteIndex = executionEvents.findIndex((event) =>
 			event.startsWith("DELETE"),
 		);
-		expect(clickhouseIndex).toBeGreaterThan(-1);
-		expect(slackIndex).toBeGreaterThan(clickhouseIndex);
+		expect(slackIndex).toBeGreaterThan(-1);
 		expect(firstDeleteIndex).toBeGreaterThan(slackIndex);
-
 		expect(sqlQueries).toHaveLength(4);
 		expect(sqlQueries[0]?.sql).toContain("SELECT organization_id");
 		expect(sqlQueries[1]?.sql).toBe(
@@ -266,32 +247,5 @@ describe("deleteUserPostgresData", () => {
 		expect(result).toEqual({
 			deletedOrganizationIds: ["org-before-delete"],
 		});
-	});
-
-	test("aborts before Slack or Postgres when ClickHouse cleanup fails", async () => {
-		selectRows = [{ organizationId: "org-failing" }];
-		deleteUserSessionsImpl = async () => {
-			executionEvents.push("clickhouse");
-			throw new Error("clickhouse down");
-		};
-
-		await expect(
-			deleteUserWithAccountDeletionNotification({
-				deleteSessions: deleteUserSessions,
-				notify: notifyAccountDeletion,
-				slackWebhookUrl: "https://hooks.slack.com/services/test",
-				user: {
-					id: "user-failing",
-					name: "Failing",
-					email: "failing@example.com",
-				},
-			}),
-		).rejects.toThrow("clickhouse down");
-
-		expect(notifyCalls).toHaveLength(0);
-		const deleteCount = sqlQueries.filter((q) =>
-			q.sql.startsWith("DELETE"),
-		).length;
-		expect(deleteCount).toBe(0);
 	});
 });

@@ -12,7 +12,8 @@
 		"test:clickhouse": "bun test src/__tests__/clickhouse.integration.ts",
 		"test:integration": "bun test src/__tests__/ingest-clickhouse.integration.ts",
 		"test:analytics": "bun test src/__tests__/analytics.integration.ts",
-		"test:migrate": "bun test src/__tests__/migrate-sessions.integration.ts"
+		"test:migrate": "bun test src/__tests__/migrate-sessions.integration.ts",
+		"test:delete-sessions": "bun test src/__tests__/delete-sessions.integration.ts"
 	},
 	"dependencies": {
 		"@better-auth/api-key": "^1.5.4",
