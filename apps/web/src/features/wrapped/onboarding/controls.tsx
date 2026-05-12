@@ -78,32 +78,32 @@ export function WrappedOnboardingHeader(props: WrappedOnboardingHeaderProps) {
 	return (
 		<>
 			<WrappedMobileChatwootBubbleController />
-			<header className="mymind-wrapped-top-tray">
-				<div className="mymind-wrapped-top-tray__row">
-					<div className="mymind-wrapped-top-tray__slot mymind-wrapped-top-tray__slot--start">
+			<header className="rudel-wrapped-top-tray">
+				<div className="rudel-wrapped-top-tray__row">
+					<div className="rudel-wrapped-top-tray__slot rudel-wrapped-top-tray__slot--start">
 						{activeStepIndex > 0 ? (
 							<button
 								type="button"
 								aria-label="Go back"
 								disabled={isStepTransitioning}
-								className="mymind-wrapped-top-tray__edge-control"
+								className="rudel-wrapped-top-tray__edge-control"
 								onClick={() => onGoToStep(activeStepIndex - 1)}
 							>
-								<ChevronLeft className="mymind-wrapped-top-tray__edge-icon mymind-wrapped-top-tray__edge-icon--back" />
+								<ChevronLeft className="rudel-wrapped-top-tray__edge-icon rudel-wrapped-top-tray__edge-icon--back" />
 							</button>
 						) : (
 							<button
 								type="button"
 								aria-label="Go back"
-								className="mymind-wrapped-top-tray__edge-control"
+								className="rudel-wrapped-top-tray__edge-control"
 								onClick={onBack}
 							>
-								<ChevronLeft className="mymind-wrapped-top-tray__edge-icon mymind-wrapped-top-tray__edge-icon--back" />
+								<ChevronLeft className="rudel-wrapped-top-tray__edge-icon rudel-wrapped-top-tray__edge-icon--back" />
 							</button>
 						)}
 					</div>
 
-					<div className="mymind-wrapped-top-tray__center">
+					<div className="rudel-wrapped-top-tray__center">
 						<WrappedProgress
 							ariaLabel="Wrapped onboarding progress"
 							disabled={isStepTransitioning}
@@ -122,7 +122,7 @@ export function WrappedOnboardingHeader(props: WrappedOnboardingHeaderProps) {
 						/>
 					</div>
 
-					<div className="mymind-wrapped-top-tray__slot mymind-wrapped-top-tray__slot--end">
+					<div className="rudel-wrapped-top-tray__slot rudel-wrapped-top-tray__slot--end">
 						<WrappedSupportChatwootButton />
 					</div>
 				</div>
@@ -203,7 +203,7 @@ export function WrappedOnboardingFooter(props: WrappedOnboardingFooterProps) {
 			: `${activeStep.id}:${isContinueVisible ? "visible" : "hidden"}`;
 
 	return (
-		<footer className="mymind-wrapped-dock">
+		<footer className="rudel-wrapped-dock">
 			<WrappedOnboardingDebugControls
 				activePreviewOptions={activePreviewOptions}
 				activePreviewState={activePreviewState}
@@ -231,7 +231,7 @@ export function WrappedOnboardingFooter(props: WrappedOnboardingFooterProps) {
 						className={cn(
 							"w-full",
 							shouldReserveActionSlot && !isFooterActionVisible
-								? "mymind-wrapped-dock__action-slot--hidden"
+								? "rudel-wrapped-dock__action-slot--hidden"
 								: null,
 						)}
 						exit={
@@ -304,9 +304,9 @@ function WrappedOnboardingDebugTray(props: {
 	} = props;
 
 	return (
-		<div className="mymind-wrapped-debug-tray">
-			<div className="mymind-wrapped-debug-tray__scroller">
-				<fieldset className="mymind-wrapped-debug-tray__options">
+		<div className="rudel-wrapped-debug-tray">
+			<div className="rudel-wrapped-debug-tray__scroller">
+				<fieldset className="rudel-wrapped-debug-tray__options">
 					<legend className="sr-only">{`${activeStep.label} preview states`}</legend>
 					{activePreviewOptions.map((option) => {
 						const isSelected = option.value === activePreviewState;
@@ -324,13 +324,13 @@ function WrappedOnboardingDebugTray(props: {
 									onPreviewStateChange(activePreviewStepId, option.value)
 								}
 								className={cn(
-									"mymind-wrapped-debug-tray__option",
+									"rudel-wrapped-debug-tray__option",
 									isSelected
-										? "mymind-wrapped-debug-tray__option--active"
-										: "mymind-wrapped-debug-tray__option--inactive",
+										? "rudel-wrapped-debug-tray__option--active"
+										: "rudel-wrapped-debug-tray__option--inactive",
 								)}
 							>
-								<span className="mymind-wrapped-debug-tray__option-label">
+								<span className="rudel-wrapped-debug-tray__option-label">
 									<span>{primaryLine}</span>
 									{secondaryLine ? <span>{secondaryLine}</span> : null}
 								</span>

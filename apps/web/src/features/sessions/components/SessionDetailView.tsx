@@ -3,7 +3,7 @@ import { Clock, GitCommitHorizontal, User } from "lucide-react";
 import { Skeleton } from "@/app/ui/skeleton";
 import { ConversationView } from "@/components/conversation/ConversationView";
 import { InfoTooltip } from "@/components/ui/InfoTooltip";
-import { useTrackDashboardView } from "@/features/analytics/tracking/useTrackDashboardView";
+import { useTrackProductPageView } from "@/features/analytics/tracking/useTrackProductPageView";
 import { DashboardModelBadges } from "@/features/dashboard/components/DashboardModelBadges";
 import { useUserMap } from "@/features/workspace/hooks/useUserMap";
 import { calculateCost, formatUsername } from "@/lib/format";
@@ -138,7 +138,7 @@ export function SessionDetailView({
 		enabled: sessionId.length > 0,
 	});
 
-	useTrackDashboardView({
+	useTrackProductPageView({
 		isLoading: trackView ? isLoading : true,
 		isError: trackView ? Boolean(error) : false,
 		hasData: Boolean(session),

@@ -270,10 +270,10 @@ export function WrappedTeamCardPage(props: {
 			sourceComponent: "wrapped_team_card_page",
 			sourceShareId,
 		});
-		document.body.classList.add("mymind-wrapped-body");
+		document.body.classList.add("rudel-wrapped-body");
 
 		return () => {
-			document.body.classList.remove("mymind-wrapped-body");
+			document.body.classList.remove("rudel-wrapped-body");
 		};
 	});
 	return (
@@ -710,7 +710,7 @@ function WrappedTeamCardPageContent(props: {
 					key="share"
 					layout
 					animate={{ opacity: 1 }}
-					className="mymind-wrapped-final-stage-presence"
+					className="rudel-wrapped-final-stage-presence"
 					exit={getWrappedFinalStagePresenceExit(reduceMotion)}
 					initial={false}
 					transition={FINAL_CARD_STAGE_PRESENCE_TRANSITION}
@@ -763,7 +763,7 @@ function WrappedTeamCardPageContent(props: {
 					key="reveal"
 					layout
 					animate={{ opacity: 1 }}
-					className="mymind-wrapped-final-stage-presence"
+					className="rudel-wrapped-final-stage-presence"
 					exit={getWrappedFinalStagePresenceExit(reduceMotion)}
 					initial={false}
 					transition={FINAL_CARD_STAGE_PRESENCE_TRANSITION}
@@ -906,7 +906,7 @@ function WrappedFinalCardFlightOverlay(props: {
 				x: targetRect.left,
 				y: targetRect.top,
 			}}
-			className="mymind-wrapped-final-card-flight"
+			className="rudel-wrapped-final-card-flight"
 			initial={{
 				opacity: 1,
 				scale: flight.from.scale,
@@ -916,7 +916,7 @@ function WrappedFinalCardFlightOverlay(props: {
 			transition={FINAL_CARD_FLIGHT_TRANSITION}
 		>
 			<div className="team-lineup-card-tilt-stage">
-				<div className="team-lineup-card-tilt-shell mymind-wrapped-final-card-flight__card">
+				<div className="team-lineup-card-tilt-shell rudel-wrapped-final-card-flight__card">
 					<div className="grid justify-center">
 						<WrappedTeamMemberCard
 							disableOuterShadow
@@ -947,7 +947,7 @@ function getWrappedTeamCardDebugControls(input: {
 	onPrevious: () => void;
 }) {
 	const themePicker = (
-		<div className="mymind-wrapped-card-debug-switcher-slot">
+		<div className="rudel-wrapped-card-debug-switcher-slot">
 			<WrappedTeamCardThemeDebugControls
 				activeArchetypeLabel={input.activeArchetypeLabel}
 				onNext={input.onNext}
@@ -972,7 +972,7 @@ function getWrappedTeamCardDebugControls(input: {
 	}
 
 	return (
-		<div className="mymind-wrapped-card-debug-combined-bar">
+		<div className="rudel-wrapped-card-debug-combined-bar">
 			{input.debugControls}
 			{themePicker}
 		</div>
@@ -1065,22 +1065,22 @@ function WrappedTeamCardThemeDebugControls(props: {
 	const { activeArchetypeLabel, onNext, onPrevious } = props;
 
 	return (
-		<div className="mymind-wrapped-card-debug-switcher">
+		<div className="rudel-wrapped-card-debug-switcher">
 			<Button
 				type="button"
 				size="icon-xs"
 				variant="outline"
 				aria-label="Show previous card"
-				className="mymind-wrapped-card-debug-switcher__button"
+				className="rudel-wrapped-card-debug-switcher__button"
 				onClick={onPrevious}
 			>
 				<ChevronLeft className="size-3" />
 			</Button>
-			<div className="mymind-wrapped-card-debug-switcher__copy">
-				<div className="mymind-wrapped-card-debug-switcher__label">
+			<div className="rudel-wrapped-card-debug-switcher__copy">
+				<div className="rudel-wrapped-card-debug-switcher__label">
 					Card theme
 				</div>
-				<div className="mymind-wrapped-card-debug-switcher__value">
+				<div className="rudel-wrapped-card-debug-switcher__value">
 					{activeArchetypeLabel}
 				</div>
 			</div>
@@ -1089,7 +1089,7 @@ function WrappedTeamCardThemeDebugControls(props: {
 				size="icon-xs"
 				variant="outline"
 				aria-label="Show next card"
-				className="mymind-wrapped-card-debug-switcher__button"
+				className="rudel-wrapped-card-debug-switcher__button"
 				onClick={onNext}
 			>
 				<ChevronRight className="size-3" />

@@ -134,13 +134,13 @@ export function WrappedRouteStageShell(props: WrappedRouteStageShellProps) {
 		title === undefined || title === null ? null : (
 			<WrappedStageCopy
 				description={description}
-				descriptionClassName="mymind-wrapped-entry-stage__subline"
+				descriptionClassName="rudel-wrapped-entry-stage__subline"
 				entrancePreset={shouldAnimateSetupEntrance ? "setup" : "none"}
 				eyebrow={eyebrow}
-				eyebrowClassName="mymind-wrapped-entry-stage__eyebrow"
+				eyebrowClassName="rudel-wrapped-entry-stage__eyebrow"
 				title={title}
 				titleClassName={cn(
-					"mymind-wrapped-entry-stage__headline",
+					"rudel-wrapped-entry-stage__headline",
 					titleClassName,
 				)}
 			/>
@@ -171,14 +171,11 @@ export function WrappedRouteStageShell(props: WrappedRouteStageShellProps) {
 	);
 	const stageFrame = (
 		<WrappedStageFrame
-			className={cn("mymind-wrapped-entry-stage", stageClassName)}
+			className={cn("rudel-wrapped-entry-stage", stageClassName)}
 			copy={animatedCopy}
-			copyClassName="mymind-wrapped-entry-stage__copy"
+			copyClassName="rudel-wrapped-entry-stage__copy"
 			object={animatedStage}
-			objectClassName={cn(
-				"mymind-wrapped-entry-stage__object",
-				objectClassName,
-			)}
+			objectClassName={cn("rudel-wrapped-entry-stage__object", objectClassName)}
 		/>
 	);
 
@@ -196,39 +193,39 @@ export function WrappedRouteStageShell(props: WrappedRouteStageShellProps) {
 	const handleBack = onBack ?? handleDefaultBack;
 
 	return (
-		<main className="mymind-wrapped-route mymind-wrapped-route--onboarding">
+		<main className="rudel-wrapped-route rudel-wrapped-route--onboarding">
 			{hasSupportButton ? <WrappedMobileChatwootBubbleController /> : null}
 			<div
 				className={cn(
-					"mymind-wrapped-shell relative z-[1] mx-auto flex w-full flex-1 flex-col text-foreground",
+					"rudel-wrapped-shell relative z-[1] mx-auto flex w-full flex-1 flex-col text-foreground",
 					shouldUseReferenceTopChrome
-						? "mymind-wrapped-shell--reference-top-chrome"
+						? "rudel-wrapped-shell--reference-top-chrome"
 						: null,
 				)}
 			>
 				<div
 					className={cn(
-						"mymind-wrapped-shell__frame",
-						!hasFooter ? "mymind-wrapped-shell__frame--no-footer" : null,
+						"rudel-wrapped-shell__frame",
+						!hasFooter ? "rudel-wrapped-shell__frame--no-footer" : null,
 						!hasTopTrayContent
-							? "mymind-wrapped-shell__frame--empty-top-tray"
+							? "rudel-wrapped-shell__frame--empty-top-tray"
 							: null,
 					)}
 				>
 					<header
 						className={cn(
-							"mymind-wrapped-top-tray",
-							!hasTopTrayContent ? "mymind-wrapped-top-tray--empty" : null,
+							"rudel-wrapped-top-tray",
+							!hasTopTrayContent ? "rudel-wrapped-top-tray--empty" : null,
 						)}
 					>
 						{/* Keep the top chrome static on setup: the back button, progress bar,
 						    and help button should anchor the screen instead of joining the entrance motion. */}
-						<div className="mymind-wrapped-top-tray__row">
-							<div className="mymind-wrapped-top-tray__slot mymind-wrapped-top-tray__slot--start">
+						<div className="rudel-wrapped-top-tray__row">
+							<div className="rudel-wrapped-top-tray__slot rudel-wrapped-top-tray__slot--start">
 								{hideTopChromeControls ? (
 									<span
 										aria-hidden="true"
-										className="mymind-wrapped-top-tray__utility-placeholder"
+										className="rudel-wrapped-top-tray__utility-placeholder"
 									/>
 								) : leadingControl !== undefined ? (
 									leadingControl
@@ -238,13 +235,13 @@ export function WrappedRouteStageShell(props: WrappedRouteStageShellProps) {
 										aria-label={backLabel}
 										className={cn(
 											shouldUseReferenceTopChrome
-												? "mymind-wrapped-top-tray__edge-control"
-												: "mymind-wrapped-back-button rounded-full transition-colors",
+												? "rudel-wrapped-top-tray__edge-control"
+												: "rudel-wrapped-back-button rounded-full transition-colors",
 										)}
 										onClick={handleBack}
 									>
 										{shouldUseReferenceTopChrome ? (
-											<ChevronLeft className="mymind-wrapped-top-tray__edge-icon mymind-wrapped-top-tray__edge-icon--back" />
+											<ChevronLeft className="rudel-wrapped-top-tray__edge-icon rudel-wrapped-top-tray__edge-icon--back" />
 										) : (
 											<X className="size-4" />
 										)}
@@ -252,7 +249,7 @@ export function WrappedRouteStageShell(props: WrappedRouteStageShellProps) {
 								)}
 							</div>
 
-							<div className="mymind-wrapped-top-tray__center">
+							<div className="rudel-wrapped-top-tray__center">
 								{hideTopChromeControls ? null : progressView ? (
 									<WrappedProgress
 										ariaLabel="Wrapped onboarding progress"
@@ -264,37 +261,37 @@ export function WrappedRouteStageShell(props: WrappedRouteStageShellProps) {
 									/>
 								) : status ? (
 									hasTextStatus ? (
-										<div className="mymind-wrapped-top-tray__status">
+										<div className="rudel-wrapped-top-tray__status">
 											{status}
 										</div>
 									) : (
-										<div className="mymind-wrapped-top-tray__floating-control">
+										<div className="rudel-wrapped-top-tray__floating-control">
 											{status}
 										</div>
 									)
 								) : null}
 							</div>
 
-							<div className="mymind-wrapped-top-tray__slot mymind-wrapped-top-tray__slot--end">
+							<div className="rudel-wrapped-top-tray__slot rudel-wrapped-top-tray__slot--end">
 								{hideTopChromeControls ? (
 									<span
 										aria-hidden="true"
-										className="mymind-wrapped-top-tray__utility-placeholder"
+										className="rudel-wrapped-top-tray__utility-placeholder"
 									/>
 								) : shouldUseReferenceTopChrome ? (
 									<WrappedSupportChatwootButton />
 								) : (
 									<span
 										aria-hidden="true"
-										className="mymind-wrapped-top-tray__utility-placeholder"
+										className="rudel-wrapped-top-tray__utility-placeholder"
 									/>
 								)}
 							</div>
 						</div>
 					</header>
 
-					<div className="mymind-wrapped-stage-area">
-						<div className="mymind-wrapped-stage-slot">{stageFrame}</div>
+					<div className="rudel-wrapped-stage-area">
+						<div className="rudel-wrapped-stage-slot">{stageFrame}</div>
 					</div>
 
 					{hasFooter ? (
@@ -307,7 +304,7 @@ export function WrappedRouteStageShell(props: WrappedRouteStageShellProps) {
 										: WRAPPED_SETUP_ENTRANCE.footer.animate
 									: undefined
 							}
-							className="mymind-wrapped-dock"
+							className="rudel-wrapped-dock"
 							initial={
 								shouldAnimateSetupEntrance
 									? reduceMotion
@@ -346,7 +343,7 @@ export function WrappedDebugControlStack(props: { children: ReactNode }) {
 	const keyCounts = new Map<string, number>();
 
 	return (
-		<div className="mymind-wrapped-dock__debug-stack">
+		<div className="rudel-wrapped-dock__debug-stack">
 			{controls.map((control) => {
 				const baseKey = resolveWrappedDebugControlBaseKey(control);
 				const seenCount = keyCounts.get(baseKey) ?? 0;
@@ -355,7 +352,7 @@ export function WrappedDebugControlStack(props: { children: ReactNode }) {
 					seenCount === 0 ? baseKey : `${baseKey}:${seenCount}`;
 
 				return (
-					<div key={controlKey} className="mymind-wrapped-dock__debug-control">
+					<div key={controlKey} className="rudel-wrapped-dock__debug-control">
 						{control}
 					</div>
 				);

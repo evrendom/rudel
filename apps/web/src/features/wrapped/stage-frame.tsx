@@ -47,25 +47,25 @@ export function WrappedStageFrame(props: WrappedStageFrameProps) {
 	return (
 		<section
 			className={cn(
-				"mymind-wrapped-stage",
+				"rudel-wrapped-stage",
 				hasSupport
-					? "mymind-wrapped-stage--with-support"
-					: "mymind-wrapped-stage--without-support",
+					? "rudel-wrapped-stage--with-support"
+					: "rudel-wrapped-stage--without-support",
 				className,
 			)}
 		>
 			{hasCopy ? (
-				<div className={cn("mymind-wrapped-stage__copy", copyClassName)}>
+				<div className={cn("rudel-wrapped-stage__copy", copyClassName)}>
 					{copy}
 				</div>
 			) : null}
 			{hasObject ? (
-				<div className={cn("mymind-wrapped-stage__object", objectClassName)}>
+				<div className={cn("rudel-wrapped-stage__object", objectClassName)}>
 					{object}
 				</div>
 			) : null}
 			{hasSupport ? (
-				<div className={cn("mymind-wrapped-stage__support", supportClassName)}>
+				<div className={cn("rudel-wrapped-stage__support", supportClassName)}>
 					{support}
 				</div>
 			) : null}
@@ -113,13 +113,13 @@ export function WrappedStageCopy(props: WrappedStageCopyProps) {
 		: { filter: "blur(0px)", opacity: 1, y: 0 };
 
 	return (
-		<div className={cn("mymind-wrapped-stage-copy", className)}>
+		<div className={cn("rudel-wrapped-stage-copy", className)}>
 			{eyebrow ? (
 				shouldAnimateEntrance ? (
 					<motion.p
 						animate={reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0 }}
 						className={cn(
-							"mymind-wrapped-stage-copy__eyebrow",
+							"rudel-wrapped-stage-copy__eyebrow",
 							eyebrowClassName,
 						)}
 						initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 8 }}
@@ -144,7 +144,7 @@ export function WrappedStageCopy(props: WrappedStageCopyProps) {
 				) : (
 					<p
 						className={cn(
-							"mymind-wrapped-stage-copy__eyebrow",
+							"rudel-wrapped-stage-copy__eyebrow",
 							eyebrowClassName,
 						)}
 					>
@@ -155,7 +155,7 @@ export function WrappedStageCopy(props: WrappedStageCopyProps) {
 			{shouldAnimateEntrance ? (
 				<MotionTitleTag
 					animate={reduceMotion ? { opacity: 1 } : titleAnimate}
-					className={cn("mymind-wrapped-stage-copy__headline", titleClassName)}
+					className={cn("rudel-wrapped-stage-copy__headline", titleClassName)}
 					initial={reduceMotion ? { opacity: 0 } : titleInitial}
 					transition={
 						reduceMotion
@@ -177,7 +177,7 @@ export function WrappedStageCopy(props: WrappedStageCopyProps) {
 				</MotionTitleTag>
 			) : (
 				<TitleTag
-					className={cn("mymind-wrapped-stage-copy__headline", titleClassName)}
+					className={cn("rudel-wrapped-stage-copy__headline", titleClassName)}
 				>
 					{title}
 				</TitleTag>
@@ -187,7 +187,7 @@ export function WrappedStageCopy(props: WrappedStageCopyProps) {
 					<motion.div
 						animate={reduceMotion ? { opacity: 1 } : descriptionAnimate}
 						className={cn(
-							"mymind-wrapped-stage-copy__description",
+							"rudel-wrapped-stage-copy__description",
 							descriptionClassName,
 						)}
 						initial={reduceMotion ? { opacity: 0 } : descriptionInitial}
@@ -212,7 +212,7 @@ export function WrappedStageCopy(props: WrappedStageCopyProps) {
 				) : (
 					<div
 						className={cn(
-							"mymind-wrapped-stage-copy__description",
+							"rudel-wrapped-stage-copy__description",
 							descriptionClassName,
 						)}
 					>

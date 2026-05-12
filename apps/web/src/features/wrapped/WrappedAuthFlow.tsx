@@ -194,28 +194,28 @@ function WrappedAuthStage(props: WrappedAuthStageProps) {
 		<LayoutGroup id="wrapped-auth-panel">
 			<div
 				className={cn(
-					"mymind-wrapped-auth-panel",
+					"rudel-wrapped-auth-panel",
 					isIntro
-						? "mymind-wrapped-auth-panel--intro"
-						: "mymind-wrapped-auth-panel--form",
+						? "rudel-wrapped-auth-panel--intro"
+						: "rudel-wrapped-auth-panel--form",
 					isCardFlightActive
-						? "mymind-wrapped-auth-panel--card-flight-active"
+						? "rudel-wrapped-auth-panel--card-flight-active"
 						: null,
 					suppressIntroCardEnter && isIntro
-						? "mymind-wrapped-auth-panel--suppress-intro-card-enter"
+						? "rudel-wrapped-auth-panel--suppress-intro-card-enter"
 						: null,
 				)}
 			>
 				<motion.div
 					layout={isCardFlightActive ? false : "position"}
-					className="mymind-wrapped-auth-panel__card"
+					className="rudel-wrapped-auth-panel__card"
 					transition={
 						isCardFlightActive ? undefined : { layout: panelLayoutTransition }
 					}
 				>
 					<motion.div
 						animate={{ scale: activeCardScale, y: activeCardOffsetY }}
-						className="mymind-wrapped-auth-panel__card-scale-shell"
+						className="rudel-wrapped-auth-panel__card-scale-shell"
 						transition={
 							isCardFlightActive
 								? {
@@ -240,12 +240,12 @@ function WrappedAuthStage(props: WrappedAuthStageProps) {
 						<motion.div
 							key="intent"
 							layout
-							className="mymind-wrapped-auth-panel__cta-region"
+							className="rudel-wrapped-auth-panel__cta-region"
 							exit={intentExit}
 							transition={formContentTransition}
 						>
 							<WrappedAuthIntroTerms />
-							<div className="mymind-wrapped-auth-panel__actions">
+							<div className="rudel-wrapped-auth-panel__actions">
 								<WrappedPrimaryAction
 									kind="button"
 									onClick={() => onModeChange("signup")}
@@ -261,7 +261,7 @@ function WrappedAuthStage(props: WrappedAuthStageProps) {
 						<motion.div
 							key={mode}
 							animate={formEnter}
-							className="mymind-wrapped-auth-panel__body mymind-wrapped-auth-panel__body--form"
+							className="rudel-wrapped-auth-panel__body rudel-wrapped-auth-panel__body--form"
 							exit={formExit}
 							initial={formInitial}
 							transition={formContentTransition}
@@ -563,8 +563,8 @@ export function WrappedAuthFlow(props: WrappedAuthFlowProps) {
 			leadingControl={mode === null ? null : undefined}
 			objectClassName={
 				mode
-					? "mymind-wrapped-entry-stage__object--auth-form"
-					: "mymind-wrapped-entry-stage__object--auth-intro"
+					? "rudel-wrapped-entry-stage__object--auth-form"
+					: "rudel-wrapped-entry-stage__object--auth-intro"
 			}
 			onBack={
 				mode === null
@@ -604,7 +604,7 @@ export function WrappedAuthFlow(props: WrappedAuthFlowProps) {
 					previewProfile={previewProfile}
 				/>
 			}
-			stageClassName={cn("mymind-wrapped-entry-stage--auth")}
+			stageClassName={cn("rudel-wrapped-entry-stage--auth")}
 			title={
 				<WrappedAuthTitle
 					introTool={introTool}
@@ -612,7 +612,7 @@ export function WrappedAuthFlow(props: WrappedAuthFlowProps) {
 					shouldReduceMotion={shouldReduceMotion}
 				/>
 			}
-			titleClassName="mymind-wrapped-entry-stage__headline--auth"
+			titleClassName="rudel-wrapped-entry-stage__headline--auth"
 			useReferenceTopChrome={mode !== null}
 		/>
 	);
@@ -640,7 +640,7 @@ function WrappedAuthCardFlightOverlay(props: {
 				x: targetRect.left,
 				y: targetRect.top,
 			}}
-			className="mymind-wrapped-auth-card-flight"
+			className="rudel-wrapped-auth-card-flight"
 			initial={{
 				opacity: 1,
 				scale: flight.from.scale,
@@ -652,7 +652,7 @@ function WrappedAuthCardFlightOverlay(props: {
 				duration: flight.transitionDurationMs / 1_000,
 			}}
 		>
-			<div className="mymind-wrapped-auth-card-flight__card">
+			<div className="rudel-wrapped-auth-card-flight__card">
 				<WrappedGuestPreviewCard
 					appearance={flight.appearance}
 					profile={previewProfile}
@@ -759,22 +759,22 @@ function WrappedAuthTitle(props: WrappedAuthTitleProps) {
 	const introToolRotateDegrees = introTool === "Claude" ? -2.5 : 2.5;
 
 	return (
-		<span className="mymind-wrapped-auth-title-handoff">
+		<span className="rudel-wrapped-auth-title-handoff">
 			<AnimatePresence initial={false} mode="sync">
 				<motion.span
 					key={mode ?? "intro"}
 					animate={titleAnimate}
-					className="mymind-wrapped-auth-stage-title mymind-wrapped-auth-title-handoff__item"
+					className="rudel-wrapped-auth-stage-title rudel-wrapped-auth-title-handoff__item"
 					exit={titleExit}
 					initial={titleInitial}
 					transition={titleTransition}
 				>
 					{mode === null ? (
-						<span className="mymind-wrapped-auth-intro-title">
-							<span className="mymind-wrapped-auth-intro-title__label">
+						<span className="rudel-wrapped-auth-intro-title">
+							<span className="rudel-wrapped-auth-intro-title__label">
 								Your
 							</span>
-							<span className="mymind-wrapped-auth-intro-title__word-slot">
+							<span className="rudel-wrapped-auth-intro-title__word-slot">
 								<AnimatePresence initial={false} mode="wait">
 									<motion.span
 										key={introTool}
@@ -789,7 +789,7 @@ function WrappedAuthTitle(props: WrappedAuthTitleProps) {
 													}
 										}
 										className={cn(
-											"mymind-wrapped-auth-intro-title__word",
+											"rudel-wrapped-auth-intro-title__word",
 											introTool === "Claude" ? "is-claude" : "is-codex",
 										)}
 										exit={
@@ -836,16 +836,16 @@ function WrappedAuthTitle(props: WrappedAuthTitleProps) {
 										}
 									>
 										{introTool === "Claude" ? (
-											<ClaudeModelIcon className="mymind-wrapped-auth-intro-title__word-icon" />
+											<ClaudeModelIcon className="rudel-wrapped-auth-intro-title__word-icon" />
 										) : (
-											<CodexModelIcon className="mymind-wrapped-auth-intro-title__word-icon" />
+											<CodexModelIcon className="rudel-wrapped-auth-intro-title__word-icon" />
 										)}
-										<span className="mymind-wrapped-auth-intro-title__word-label">
+										<span className="rudel-wrapped-auth-intro-title__word-label">
 											{introTool}
 											{introTool === "Claude" ? (
 												<span
 													aria-hidden="true"
-													className="mymind-wrapped-auth-intro-title__word-sublabel"
+													className="rudel-wrapped-auth-intro-title__word-sublabel"
 												>
 													Code
 												</span>
@@ -854,7 +854,7 @@ function WrappedAuthTitle(props: WrappedAuthTitleProps) {
 									</motion.span>
 								</AnimatePresence>
 							</span>
-							<span className="mymind-wrapped-auth-intro-title__label">
+							<span className="rudel-wrapped-auth-intro-title__label">
 								Wrapped
 							</span>
 						</span>
@@ -879,41 +879,41 @@ function WrappedAuthIntroLaunchLinks() {
 	return (
 		<nav
 			aria-label="Rudel launch links"
-			className="mymind-wrapped-auth-launch-links"
+			className="rudel-wrapped-auth-launch-links"
 		>
 			<a
 				aria-label="View Rudel on GitHub"
-				className="mymind-wrapped-auth-launch-link mymind-wrapped-auth-launch-link--github"
+				className="rudel-wrapped-auth-launch-link rudel-wrapped-auth-launch-link--github"
 				href={WRAPPED_AUTH_GITHUB_URL}
 				target="_blank"
 				rel="noopener noreferrer"
 			>
-				<span className="mymind-wrapped-auth-launch-link__badge mymind-wrapped-auth-launch-link__badge--github">
+				<span className="rudel-wrapped-auth-launch-link__badge rudel-wrapped-auth-launch-link__badge--github">
 					<svg
 						aria-hidden="true"
-						className="mymind-wrapped-auth-launch-link__github-icon"
+						className="rudel-wrapped-auth-launch-link__github-icon"
 						viewBox="0 0 16 16"
 					>
 						<path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z" />
 					</svg>
-					<span className="mymind-wrapped-auth-launch-link__github-count">
+					<span className="rudel-wrapped-auth-launch-link__github-count">
 						262
 					</span>
 				</span>
 			</a>
 			<a
 				aria-label="View Rudel on Hacker News"
-				className="mymind-wrapped-auth-launch-link mymind-wrapped-auth-launch-link--hacker-news"
+				className="rudel-wrapped-auth-launch-link rudel-wrapped-auth-launch-link--hacker-news"
 				href={WRAPPED_AUTH_HACKER_NEWS_URL}
 				target="_blank"
 				rel="noopener noreferrer"
 			>
-				<span className="mymind-wrapped-auth-launch-link__badge mymind-wrapped-auth-launch-link__badge--hacker-news">
-					<span className="mymind-wrapped-auth-launch-link__hn-mark">Y</span>
-					<span className="mymind-wrapped-auth-launch-link__hn-score">
+				<span className="rudel-wrapped-auth-launch-link__badge rudel-wrapped-auth-launch-link__badge--hacker-news">
+					<span className="rudel-wrapped-auth-launch-link__hn-mark">Y</span>
+					<span className="rudel-wrapped-auth-launch-link__hn-score">
 						<span
 							aria-hidden="true"
-							className="mymind-wrapped-auth-launch-link__hn-arrow"
+							className="rudel-wrapped-auth-launch-link__hn-arrow"
 						/>
 						144
 					</span>
@@ -921,14 +921,14 @@ function WrappedAuthIntroLaunchLinks() {
 			</a>
 			<a
 				aria-label="View Rudel on Product Hunt"
-				className="mymind-wrapped-auth-launch-link mymind-wrapped-auth-launch-link--product-hunt"
+				className="rudel-wrapped-auth-launch-link rudel-wrapped-auth-launch-link--product-hunt"
 				href={WRAPPED_AUTH_PRODUCT_HUNT_URL}
 				target="_blank"
 				rel="noopener noreferrer"
 			>
 				<img
 					alt={WRAPPED_AUTH_PRODUCT_HUNT_BADGE_ALT}
-					className="mymind-wrapped-auth-launch-link__product-hunt-badge"
+					className="rudel-wrapped-auth-launch-link__product-hunt-badge"
 					height={54}
 					src={WRAPPED_AUTH_PRODUCT_HUNT_BADGE_SRC}
 					width={250}
@@ -946,13 +946,13 @@ function getWrappedAuthCardAppearance(
 
 function WrappedAuthIntroTerms() {
 	return (
-		<p className="mymind-wrapped-auth-form__terms">
+		<p className="rudel-wrapped-auth-form__terms">
 			By continuing, you agree to our{" "}
 			<a
 				href="https://rudel.ai/terms"
 				target="_blank"
 				rel="noopener noreferrer"
-				className="mymind-wrapped-auth-form__terms-link"
+				className="rudel-wrapped-auth-form__terms-link"
 			>
 				Terms of Service
 			</a>{" "}
@@ -961,7 +961,7 @@ function WrappedAuthIntroTerms() {
 				href="https://obsessiondb.com/privacy"
 				target="_blank"
 				rel="noopener noreferrer"
-				className="mymind-wrapped-auth-form__terms-link"
+				className="rudel-wrapped-auth-form__terms-link"
 			>
 				Privacy Policy
 			</a>

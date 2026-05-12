@@ -63,7 +63,7 @@ export function WrappedGuestPreviewCard(props: WrappedGuestPreviewCardProps) {
 			? (appearanceOverlay ?? (isUnknownCard ? "default" : null))
 			: null;
 	const appearanceOverlayClassName = resolvedAppearanceOverlay
-		? "mymind-wrapped-auth-card-preview__appearance-overlay"
+		? "rudel-wrapped-auth-card-preview__appearance-overlay"
 		: undefined;
 	const backAppearanceOverlayClassName =
 		isUnknownCard && resolvedAppearanceOverlay === "default"
@@ -94,12 +94,12 @@ export function WrappedGuestPreviewCard(props: WrappedGuestPreviewCardProps) {
 		: backMetrics;
 	const canSaveEditableName = Boolean(editableDisplayName?.value.trim());
 	const nameContent = editableDisplayName ? (
-		<span className="mymind-wrapped-card-profile-step__name-editor">
+		<span className="rudel-wrapped-card-profile-step__name-editor">
 			<input
 				ref={nameInputRef}
 				aria-label="Name on card"
 				autoComplete="name"
-				className="mymind-wrapped-card-profile-step__name-input"
+				className="rudel-wrapped-card-profile-step__name-input"
 				name="wrapped-card-display-name"
 				placeholder={editableDisplayName.placeholder ?? "Your name"}
 				value={editableDisplayName.value}
@@ -123,7 +123,7 @@ export function WrappedGuestPreviewCard(props: WrappedGuestPreviewCardProps) {
 				<button
 					type="button"
 					aria-label="Save name"
-					className="mymind-wrapped-card-profile-step__name-save"
+					className="rudel-wrapped-card-profile-step__name-save"
 					disabled={!canSaveEditableName}
 					onClick={(event) => {
 						event.stopPropagation();
@@ -139,7 +139,7 @@ export function WrappedGuestPreviewCard(props: WrappedGuestPreviewCardProps) {
 		<button
 			type="button"
 			aria-label="Edit name"
-			className="mymind-wrapped-card-profile-step__name-display"
+			className="rudel-wrapped-card-profile-step__name-display"
 			onClick={(event) => {
 				event.stopPropagation();
 				onDisplayNameEditStart();
@@ -262,36 +262,36 @@ export function WrappedGuestPreviewCard(props: WrappedGuestPreviewCardProps) {
 		<section
 			aria-label="Wrapped player card preview"
 			className={cn(
-				"mymind-wrapped-auth-card-preview team-lineup-surface-scope",
+				"rudel-wrapped-auth-card-preview team-lineup-surface-scope",
 				hasInteractiveFrontControls
-					? "mymind-wrapped-auth-card-preview--editable"
+					? "rudel-wrapped-auth-card-preview--editable"
 					: null,
 				enableAppearanceOverlay
-					? "mymind-wrapped-auth-card-preview--appearance-overlay"
+					? "rudel-wrapped-auth-card-preview--appearance-overlay"
 					: null,
 				resolvedAppearanceOverlay === "default" && isUnknownCard
-					? "mymind-wrapped-auth-card-preview--unknown-overlay"
+					? "rudel-wrapped-auth-card-preview--unknown-overlay"
 					: null,
 				resolvedAppearanceOverlay === "default"
-					? "mymind-wrapped-auth-card-preview--default-appearance-overlay"
+					? "rudel-wrapped-auth-card-preview--default-appearance-overlay"
 					: null,
 				resolvedAppearanceOverlay === "unknown"
-					? "mymind-wrapped-auth-card-preview--unknown-appearance-overlay"
+					? "rudel-wrapped-auth-card-preview--unknown-appearance-overlay"
 					: null,
-				isUnknownCard ? "mymind-wrapped-auth-card-preview--unknown" : null,
+				isUnknownCard ? "rudel-wrapped-auth-card-preview--unknown" : null,
 				shouldRenderStaticFront
-					? "mymind-wrapped-auth-card-preview--static"
+					? "rudel-wrapped-auth-card-preview--static"
 					: null,
 				size === "compact"
-					? "mymind-wrapped-auth-card-preview--compact"
+					? "rudel-wrapped-auth-card-preview--compact"
 					: size === "profile"
-						? "mymind-wrapped-auth-card-preview--profile"
-						: "mymind-wrapped-auth-card-preview--hero",
+						? "rudel-wrapped-auth-card-preview--profile"
+						: "rudel-wrapped-auth-card-preview--hero",
 			)}
 		>
 			<div
 				ref={cardStageRef}
-				className="team-lineup-card-tilt-stage mymind-wrapped-auth-card-preview__tilt-stage"
+				className="team-lineup-card-tilt-stage rudel-wrapped-auth-card-preview__tilt-stage"
 				onPointerMove={(event) => {
 					if (shouldRenderStaticFront || isCardFlipAnimating) {
 						return;
@@ -311,7 +311,7 @@ export function WrappedGuestPreviewCard(props: WrappedGuestPreviewCardProps) {
 					ref={(node) => {
 						tiltController.cardTiltRef.current = node;
 					}}
-					className="team-lineup-card-tilt-shell mymind-wrapped-auth-card-preview__tilt mymind-wrapped-final-stage__tilt-shell"
+					className="team-lineup-card-tilt-shell rudel-wrapped-auth-card-preview__tilt rudel-wrapped-final-stage__tilt-shell"
 					data-flip-active={isCardFlipAnimating ? "true" : "false"}
 					style={
 						{
@@ -322,7 +322,7 @@ export function WrappedGuestPreviewCard(props: WrappedGuestPreviewCardProps) {
 					}
 				>
 					{shouldRenderStaticFront ? (
-						<div className="mymind-wrapped-auth-card-preview__static-front">
+						<div className="rudel-wrapped-auth-card-preview__static-front">
 							{frontCardContent}
 						</div>
 					) : hasInteractiveFrontControls ? (
@@ -334,7 +334,7 @@ export function WrappedGuestPreviewCard(props: WrappedGuestPreviewCardProps) {
 									: "Reveal front of card"
 							}
 							aria-pressed={isCardFrontVisible}
-							className="mymind-wrapped-final-stage__flip-control"
+							className="rudel-wrapped-final-stage__flip-control"
 							data-card-face={isCardFrontVisible ? "front" : "back"}
 							role="button"
 							tabIndex={0}
@@ -359,7 +359,7 @@ export function WrappedGuestPreviewCard(props: WrappedGuestPreviewCardProps) {
 									: "Reveal front of card"
 							}
 							aria-pressed={isCardFrontVisible}
-							className="mymind-wrapped-final-stage__flip-control"
+							className="rudel-wrapped-final-stage__flip-control"
 							data-card-face={isCardFrontVisible ? "front" : "back"}
 							onClick={handleCardFlipToggle}
 						>

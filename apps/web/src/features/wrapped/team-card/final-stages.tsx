@@ -348,10 +348,10 @@ export function WrappedTeamCardShareStage(
 
 	return (
 		<WrappedStageFrame
-			className="mymind-wrapped-final-stage mymind-wrapped-final-stage--share"
-			copyClassName="mymind-wrapped-final-stage__copy"
-			objectClassName="mymind-wrapped-final-stage__object"
-			supportClassName="mymind-wrapped-final-stage__support"
+			className="rudel-wrapped-final-stage rudel-wrapped-final-stage--share"
+			copyClassName="rudel-wrapped-final-stage__copy"
+			objectClassName="rudel-wrapped-final-stage__object"
+			supportClassName="rudel-wrapped-final-stage__support"
 			copy={
 				<motion.div
 					{...getWrappedShareChromeMotion({
@@ -359,9 +359,9 @@ export function WrappedTeamCardShareStage(
 						reduceMotion,
 						y: 10,
 					})}
-					className="mymind-wrapped-final-stage__share-copy-shell"
+					className="rudel-wrapped-final-stage__share-copy-shell"
 				>
-					<h1 className="mymind-wrapped-stage-copy__headline mymind-wrapped-final-stage__headline">
+					<h1 className="rudel-wrapped-stage-copy__headline rudel-wrapped-final-stage__headline">
 						Share it with the world
 					</h1>
 				</motion.div>
@@ -369,20 +369,20 @@ export function WrappedTeamCardShareStage(
 			object={
 				<div
 					ref={shareObjectShellRef}
-					className="mymind-wrapped-final-stage__share-object-shell"
+					className="rudel-wrapped-final-stage__share-object-shell"
 				>
-					<motion.div layout className="mymind-wrapped-share-surface">
+					<motion.div layout className="rudel-wrapped-share-surface">
 						<motion.div
 							{...getWrappedShareChromeMotion({
 								delay: 0.22,
 								reduceMotion,
 								y: -8,
 							})}
-							className="mymind-wrapped-share-surface__rail"
+							className="rudel-wrapped-share-surface__rail"
 						>
 							<fieldset
 								aria-label="Post variants"
-								className="mymind-wrapped-share-variant-picker"
+								className="rudel-wrapped-share-variant-picker"
 							>
 								{WRAPPED_SHARE_VARIANTS.map((variant) => {
 									const isActive = isWrappedShareAppearanceActive({
@@ -399,7 +399,7 @@ export function WrappedTeamCardShareStage(
 											aria-label={variant.description}
 											aria-pressed={isActive}
 											title={variant.description}
-											className="mymind-wrapped-share-variant-button"
+											className="rudel-wrapped-share-variant-button"
 											data-active={isActive ? "true" : "false"}
 											onClick={() => onAppearanceChange(variant.appearance)}
 										>
@@ -412,7 +412,7 @@ export function WrappedTeamCardShareStage(
 							<div
 								role="toolbar"
 								aria-label="Share card actions"
-								className="mymind-wrapped-share-toolbar"
+								className="rudel-wrapped-share-toolbar"
 							>
 								<Button
 									type="button"
@@ -421,12 +421,12 @@ export function WrappedTeamCardShareStage(
 									aria-label={
 										copyStage === "copied" ? "Copied image" : "Copy image"
 									}
-									className="mymind-wrapped-share-toolbar__button"
+									className="rudel-wrapped-share-toolbar__button"
 									data-copy-state={copyStage}
 									onClick={() => void handleCopyClick()}
 								>
 									<CopyFeedbackIcon
-										className="mymind-wrapped-share-toolbar__copy-icon"
+										className="rudel-wrapped-share-toolbar__copy-icon"
 										stage={copyStage}
 										reduceMotion={reduceMotion}
 									/>
@@ -439,7 +439,7 @@ export function WrappedTeamCardShareStage(
 									aria-label={
 										isDownloadPending ? "Downloading PNG" : "Download PNG"
 									}
-									className="mymind-wrapped-share-toolbar__button"
+									className="rudel-wrapped-share-toolbar__button"
 									disabled={isDownloadPending}
 									onClick={onDownload}
 								>
@@ -452,7 +452,7 @@ export function WrappedTeamCardShareStage(
 							</div>
 						</motion.div>
 
-						<div className="mymind-wrapped-share-surface__preview">
+						<div className="rudel-wrapped-share-surface__preview">
 							<WrappedTeamCardSharePreview
 								appearance={resolvedAppearance}
 								backMetrics={backMetrics}
@@ -482,17 +482,17 @@ export function WrappedTeamCardShareStage(
 						reduceMotion,
 						y: 12,
 					})}
-					className="mymind-wrapped-action-stack mymind-wrapped-share-action-stack"
+					className="rudel-wrapped-action-stack rudel-wrapped-share-action-stack"
 				>
 					<WrappedPrimaryAction
 						kind="button"
 						aria-label={isSharePending ? "Copying image..." : "Share on X"}
 						aria-busy={isSharePending ? "true" : undefined}
-						className="mymind-wrapped-share-primary-action mymind-wrapped-share-primary-action--x"
+						className="rudel-wrapped-share-primary-action rudel-wrapped-share-primary-action--x"
 						disabled={isSharePending}
 						onClick={onShare}
 					>
-						<span className="mymind-wrapped-share-primary-action__label">
+						<span className="rudel-wrapped-share-primary-action__label">
 							{isSharePending ? (
 								<Loader2 className="size-4 animate-spin" />
 							) : (
@@ -504,18 +504,18 @@ export function WrappedTeamCardShareStage(
 							{isSharePending ? <span>Copying image...</span> : null}
 						</span>
 					</WrappedPrimaryAction>
-					<div className="mymind-wrapped-entry-card__desktop-copy-surface mymind-wrapped-entry-card__desktop-copy-surface--flat mymind-wrapped-share-profile-copy">
+					<div className="rudel-wrapped-entry-card__desktop-copy-surface rudel-wrapped-entry-card__desktop-copy-surface--flat rudel-wrapped-share-profile-copy">
 						<LinkIcon
 							aria-hidden="true"
-							className="mymind-wrapped-entry-card__desktop-copy-icon"
+							className="rudel-wrapped-entry-card__desktop-copy-icon"
 						/>
-						<span className="mymind-wrapped-entry-card__desktop-copy-text">
+						<span className="rudel-wrapped-entry-card__desktop-copy-text">
 							{profileUrlLabel}
 						</span>
 						<button
 							type="button"
 							aria-busy={isProfileUrlCopyPending ? "true" : undefined}
-							className="mymind-wrapped-entry-card__desktop-copy-button mymind-wrapped-share-profile-copy__button"
+							className="rudel-wrapped-entry-card__desktop-copy-button rudel-wrapped-share-profile-copy__button"
 							disabled={isProfileUrlCopyPending}
 							onClick={onCopyProfileUrl}
 						>
@@ -532,7 +532,7 @@ export function WrappedTeamCardShareStage(
 					<WrappedPrimaryAction
 						kind="button"
 						aria-label="Continue to dashboard"
-						className="mymind-wrapped-share-primary-action mymind-wrapped-share-primary-action--text"
+						className="rudel-wrapped-share-primary-action rudel-wrapped-share-primary-action--text"
 						onClick={onContinueToDashboard}
 					>
 						Continue to dashboard
@@ -568,11 +568,10 @@ function useWrappedShareStageObjectSize() {
 
 		const shellElement = shell;
 		const objectFrame =
-			shellElement.closest<HTMLElement>(
-				".mymind-wrapped-final-stage__object",
-			) ?? shellElement.parentElement;
+			shellElement.closest<HTMLElement>(".rudel-wrapped-final-stage__object") ??
+			shellElement.parentElement;
 		const rail = shellElement.querySelector<HTMLElement>(
-			".mymind-wrapped-share-surface__rail",
+			".rudel-wrapped-share-surface__rail",
 		);
 		let animationFrameId: number | null = null;
 		let lastAppliedSize = "";
@@ -676,13 +675,13 @@ function WrappedTeamCardFlipSurface(props: WrappedTeamCardFlipSurfaceProps) {
 		tiltShellClassName,
 	} = props;
 	const cardFace = isFrontVisible ? "front" : "back";
-	const cardVisualStageClassNames = `team-lineup-card-tilt-stage mymind-wrapped-final-stage__card-visual-stage${
+	const cardVisualStageClassNames = `team-lineup-card-tilt-stage rudel-wrapped-final-stage__card-visual-stage${
 		cardVisualStageClassName ? ` ${cardVisualStageClassName}` : ""
 	}`;
 	const cardScaleClassNames =
 		"[--wrapped-card-render-scale:1] min-[360px]:[--wrapped-card-render-scale:1.08] sm:[--wrapped-card-render-scale:1.42] lg:[--wrapped-card-render-scale:1.56]";
-	const hitShellClassNames = `mymind-wrapped-final-stage__card-hit-shell ${cardScaleClassNames}`;
-	const tiltShellClassNames = `team-lineup-card-tilt-shell mymind-wrapped-final-stage__tilt-shell${
+	const hitShellClassNames = `rudel-wrapped-final-stage__card-hit-shell ${cardScaleClassNames}`;
+	const tiltShellClassNames = `team-lineup-card-tilt-shell rudel-wrapped-final-stage__tilt-shell${
 		tiltShellClassName ? ` ${tiltShellClassName}` : ""
 	}`;
 
@@ -699,7 +698,7 @@ function WrappedTeamCardFlipSurface(props: WrappedTeamCardFlipSurfaceProps) {
 			>
 				<div
 					ref={morphShellRef}
-					className="mymind-wrapped-final-stage__card-morph-shell"
+					className="rudel-wrapped-final-stage__card-morph-shell"
 					onPointerMove={(event) => {
 						if (isTiltEnabled && !isFlipAnimating) {
 							tiltController.handlePointerMove(event);
@@ -725,7 +724,7 @@ function WrappedTeamCardFlipSurface(props: WrappedTeamCardFlipSurfaceProps) {
 						}
 					>
 						<div
-							className="mymind-wrapped-final-stage__flip-control"
+							className="rudel-wrapped-final-stage__flip-control"
 							data-card-face={cardFace}
 						>
 							<WrappedPrintedCardFlip
@@ -882,21 +881,21 @@ export function WrappedTeamCardPublicStage(
 
 	return (
 		<WrappedStageFrame
-			className="mymind-wrapped-final-stage mymind-wrapped-final-stage--reveal mymind-wrapped-final-stage--public-card"
-			objectClassName="mymind-wrapped-final-stage__object mymind-wrapped-final-stage__object--canvas"
-			supportClassName="mymind-wrapped-final-stage__support"
+			className="rudel-wrapped-final-stage rudel-wrapped-final-stage--reveal rudel-wrapped-final-stage--public-card"
+			objectClassName="rudel-wrapped-final-stage__object rudel-wrapped-final-stage__object--canvas"
+			supportClassName="rudel-wrapped-final-stage__support"
 			object={
-				<div className="mymind-wrapped-final-stage__canvas mymind-wrapped-public-card-stage__canvas">
+				<div className="rudel-wrapped-final-stage__canvas rudel-wrapped-public-card-stage__canvas">
 					<div
-						className="mymind-wrapped-final-stage__card-drop-layer mymind-wrapped-public-card-stage__card-layer"
+						className="rudel-wrapped-final-stage__card-drop-layer rudel-wrapped-public-card-stage__card-layer"
 						data-card-state="dropped"
 					>
 						<div
-							className="mymind-wrapped-final-stage__reveal-stage mymind-wrapped-public-card-stage__composition"
+							className="rudel-wrapped-final-stage__reveal-stage rudel-wrapped-public-card-stage__composition"
 							data-companion-state="visible"
 							data-motion={reduceMotion ? "reduced" : "standard"}
 						>
-							<div className="mymind-wrapped-final-stage__slide-card-slot">
+							<div className="rudel-wrapped-final-stage__slide-card-slot">
 								<WrappedTeamCardFlipSurface
 									backMetrics={backMetrics}
 									buttonLabel={
@@ -904,7 +903,7 @@ export function WrappedTeamCardPublicStage(
 											? "Show back of card"
 											: "Show front of card"
 									}
-									cardVisualStageClassName="mymind-wrapped-public-card-stage__card-visual-stage"
+									cardVisualStageClassName="rudel-wrapped-public-card-stage__card-visual-stage"
 									edition={edition}
 									headerLeftMetric={headerLeftMetric}
 									headerRightMetric={headerRightMetric}
@@ -922,30 +921,30 @@ export function WrappedTeamCardPublicStage(
 									statLayerOpacities={statLayerOpacities}
 									theme={theme}
 									tiltController={tiltController}
-									tiltShellClassName="mymind-wrapped-public-card-stage__tilt"
+									tiltShellClassName="rudel-wrapped-public-card-stage__tilt"
 								/>
 							</div>
 
-							<aside className="mymind-wrapped-final-stage__archetype-copy mymind-wrapped-public-card-stage__copy">
+							<aside className="rudel-wrapped-final-stage__archetype-copy rudel-wrapped-public-card-stage__copy">
 								<h1
 									aria-label={revealArchetypeHeadingLabel}
-									className="mymind-wrapped-final-stage__archetype-title"
+									className="rudel-wrapped-final-stage__archetype-title"
 								>
-									<span className="mymind-wrapped-final-stage__archetype-name">
+									<span className="rudel-wrapped-final-stage__archetype-name">
 										{row.displayName}
 									</span>
-									<span className="mymind-wrapped-final-stage__archetype-line">
+									<span className="rudel-wrapped-final-stage__archetype-line">
 										{revealArchetypeLinePrefix}
 										<WrappedArchetypeGradientText
 											activeArchetype={activeArchetype}
-											className="mymind-wrapped-final-stage__archetype-accent"
+											className="rudel-wrapped-final-stage__archetype-accent"
 											isHoverReplayEnabled
 											state="active"
 											suffix={revealArchetypeLineSuffix}
 										/>
 									</span>
 								</h1>
-								<p className="mymind-wrapped-final-stage__archetype-description">
+								<p className="rudel-wrapped-final-stage__archetype-description">
 									{revealCopy.description}
 								</p>
 							</aside>
@@ -954,7 +953,7 @@ export function WrappedTeamCardPublicStage(
 				</div>
 			}
 			support={
-				<div className="mymind-wrapped-action-stack mymind-wrapped-action-stack--single-action mymind-wrapped-public-card-stage__action">
+				<div className="rudel-wrapped-action-stack rudel-wrapped-action-stack--single-action rudel-wrapped-public-card-stage__action">
 					{publicPrimaryAction}
 				</div>
 			}
@@ -1284,16 +1283,16 @@ export function WrappedTeamCardRevealStage(
 
 	return (
 		<WrappedStageFrame
-			className={`mymind-wrapped-final-stage mymind-wrapped-final-stage--reveal${
+			className={`rudel-wrapped-final-stage rudel-wrapped-final-stage--reveal${
 				isPostHandoffPreparing
-					? " mymind-wrapped-final-stage--handoff-preparing"
+					? " rudel-wrapped-final-stage--handoff-preparing"
 					: ""
 			}`}
-			objectClassName="mymind-wrapped-final-stage__object mymind-wrapped-final-stage__object--canvas"
-			supportClassName="mymind-wrapped-final-stage__support"
+			objectClassName="rudel-wrapped-final-stage__object rudel-wrapped-final-stage__object--canvas"
+			supportClassName="rudel-wrapped-final-stage__support"
 			object={
-				<div className="mymind-wrapped-final-stage__canvas">
-					<div className="mymind-wrapped-final-stage__text-layer">
+				<div className="rudel-wrapped-final-stage__canvas">
+					<div className="rudel-wrapped-final-stage__text-layer">
 						<AnimatePresence initial={false} mode="wait">
 							{!isCardDropped ? (
 								<motion.div
@@ -1316,14 +1315,14 @@ export function WrappedTeamCardRevealStage(
 										scale: REVEAL_INTRO_COPY.initialScale,
 										y: 18,
 									}}
-									className="mymind-wrapped-final-stage__canvas-copy-shell"
+									className="rudel-wrapped-final-stage__canvas-copy-shell"
 									transition={REVEAL_INTRO_COPY.transition}
 								>
 									<h1
 										aria-label={revealIntroHeadingLabel}
-										className="mymind-wrapped-final-stage__canvas-copy"
+										className="rudel-wrapped-final-stage__canvas-copy"
 									>
-										<span className="mymind-wrapped-final-stage__canvas-copy-name">
+										<span className="rudel-wrapped-final-stage__canvas-copy-name">
 											{row.displayName},
 										</span>
 										<motion.span
@@ -1334,14 +1333,14 @@ export function WrappedTeamCardRevealStage(
 													: REVEAL_INTRO_COPY.lineOffsetY,
 											}}
 											aria-hidden={!shouldShowRevealIntroLine}
-											className="mymind-wrapped-final-stage__canvas-copy-line"
+											className="rudel-wrapped-final-stage__canvas-copy-line"
 											initial={false}
 											transition={REVEAL_INTRO_COPY.lineTransition}
 										>
 											{revealArchetypeLinePrefix}
 											<WrappedArchetypeGradientText
 												activeArchetype={activeArchetype}
-												className="mymind-wrapped-final-stage__intro-accent"
+												className="rudel-wrapped-final-stage__intro-accent"
 												state={
 													shouldShowRevealIntroAccent ? "active" : "waiting"
 												}
@@ -1360,7 +1359,7 @@ export function WrappedTeamCardRevealStage(
 												: REVEAL_INTRO_COPY.descriptionOffsetY,
 										}}
 										aria-hidden={!shouldShowRevealIntroDescription}
-										className="mymind-wrapped-final-stage__canvas-description"
+										className="rudel-wrapped-final-stage__canvas-description"
 										initial={false}
 										transition={REVEAL_INTRO_COPY.descriptionTransition}
 									>
@@ -1375,7 +1374,7 @@ export function WrappedTeamCardRevealStage(
 							isCardDropped,
 							reduceMotion,
 						})}
-						className="mymind-wrapped-final-stage__card-drop-layer"
+						className="rudel-wrapped-final-stage__card-drop-layer"
 						data-card-state={isCardDropped ? "dropped" : "waiting"}
 						initial={false}
 						style={{
@@ -1389,11 +1388,11 @@ export function WrappedTeamCardRevealStage(
 						})}
 					>
 						<div
-							className="mymind-wrapped-final-stage__reveal-stage"
+							className="rudel-wrapped-final-stage__reveal-stage"
 							data-companion-state={revealCompanionState}
 							data-motion={reduceMotion ? "reduced" : "standard"}
 						>
-							<div className="mymind-wrapped-final-stage__slide-card-slot">
+							<div className="rudel-wrapped-final-stage__slide-card-slot">
 								<WrappedTeamCardFlipSurface
 									backMetrics={revealBackMetrics}
 									buttonLabel={cardFlipButtonLabel}
@@ -1435,7 +1434,7 @@ export function WrappedTeamCardRevealStage(
 											scale: REVEAL_COMPANION_COPY.finalScale,
 											y: 0,
 										}}
-										className="mymind-wrapped-final-stage__archetype-copy"
+										className="rudel-wrapped-final-stage__archetype-copy"
 										exit={{
 											filter: `blur(${REVEAL_COMPANION_COPY.exitBlur})`,
 											opacity: 0,
@@ -1459,23 +1458,23 @@ export function WrappedTeamCardRevealStage(
 									>
 										<h2
 											aria-label={revealArchetypeHeadingLabel}
-											className="mymind-wrapped-final-stage__archetype-title"
+											className="rudel-wrapped-final-stage__archetype-title"
 										>
-											<span className="mymind-wrapped-final-stage__archetype-name">
+											<span className="rudel-wrapped-final-stage__archetype-name">
 												{row.displayName},
 											</span>
-											<span className="mymind-wrapped-final-stage__archetype-line">
+											<span className="rudel-wrapped-final-stage__archetype-line">
 												{revealArchetypeLinePrefix}
 												<WrappedArchetypeGradientText
 													activeArchetype={activeArchetype}
-													className="mymind-wrapped-final-stage__archetype-accent"
+													className="rudel-wrapped-final-stage__archetype-accent"
 													isHoverReplayEnabled
 													state="active"
 													suffix={revealArchetypeLineSuffix}
 												/>
 											</span>
 										</h2>
-										<p className="mymind-wrapped-final-stage__archetype-description">
+										<p className="rudel-wrapped-final-stage__archetype-description">
 											{revealCopy.description}
 										</p>
 									</motion.aside>
@@ -2158,7 +2157,7 @@ export function WrappedTeamCardRevealFooter(props: {
 	return (
 		<div
 			aria-hidden={isVisible ? undefined : true}
-			className="mymind-wrapped-action-stack mymind-wrapped-action-stack--single-action mymind-wrapped-reveal-footer"
+			className="rudel-wrapped-action-stack rudel-wrapped-action-stack--single-action rudel-wrapped-reveal-footer"
 			data-visible={isVisible ? "true" : "false"}
 		>
 			<WrappedPrimaryAction

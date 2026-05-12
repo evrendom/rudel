@@ -86,7 +86,7 @@ export function WrappedCliSetupCommand(props: WrappedCliSetupCommandProps) {
 					reduceMotion,
 					visualState,
 				})}
-				className="mymind-wrapped-setup-command"
+				className="rudel-wrapped-setup-command"
 				data-step-state={visualState}
 				data-overlay-expanded={
 					shouldOverlayAlternateCommand && isAlternateCommandVisible
@@ -99,21 +99,21 @@ export function WrappedCliSetupCommand(props: WrappedCliSetupCommandProps) {
 					ease: WRAPPED_SETUP_MOTION.ease,
 				}}
 			>
-				<div className="mymind-wrapped-setup-command__meta">
-					<div className="mymind-wrapped-setup-command__heading">
-						<span className="mymind-wrapped-setup-command__index">
+				<div className="rudel-wrapped-setup-command__meta">
+					<div className="rudel-wrapped-setup-command__heading">
+						<span className="rudel-wrapped-setup-command__index">
 							{String(index + 1).padStart(2, "0")}
 						</span>
-						<div className="mymind-wrapped-setup-command__label-row">
-							<p className="mymind-wrapped-setup-command__label">{label}</p>
+						<div className="rudel-wrapped-setup-command__label-row">
+							<p className="rudel-wrapped-setup-command__label">{label}</p>
 							{isComplete ? (
 								<span
 									aria-hidden="true"
-									className="mymind-wrapped-setup-command__check-badge"
+									className="rudel-wrapped-setup-command__check-badge"
 								>
 									<Check
 										strokeWidth={3}
-										className="mymind-wrapped-setup-command__check"
+										className="rudel-wrapped-setup-command__check"
 									/>
 								</span>
 							) : null}
@@ -121,30 +121,30 @@ export function WrappedCliSetupCommand(props: WrappedCliSetupCommandProps) {
 					</div>
 				</div>
 				{description ? (
-					<p className="mymind-wrapped-setup-command__description">
+					<p className="rudel-wrapped-setup-command__description">
 						{description}
 					</p>
 				) : null}
-				<div className="mymind-wrapped-setup-command__actions">
+				<div className="rudel-wrapped-setup-command__actions">
 					<WrappedSetupCommandSurface
 						caption={commandCaption}
 						command={command}
 					/>
 					{shouldShowAlternateCommand ? (
 						<div
-							className="mymind-wrapped-setup-command__alternate-region"
+							className="rudel-wrapped-setup-command__alternate-region"
 							data-overlay={shouldOverlayAlternateCommand ? "true" : "false"}
 						>
 							<button
 								type="button"
-								className="mymind-wrapped-setup-command__alternate-toggle"
+								className="rudel-wrapped-setup-command__alternate-toggle"
 								aria-expanded={isAlternateCommandVisible}
 								onClick={() =>
 									setIsAlternateCommandVisible((currentValue) => !currentValue)
 								}
 							>
 								<span
-									className="mymind-wrapped-setup-command__alternate-toggle-arrow"
+									className="rudel-wrapped-setup-command__alternate-toggle-arrow"
 									aria-hidden="true"
 									data-expanded={isAlternateCommandVisible ? "true" : "false"}
 								>
@@ -175,7 +175,7 @@ export function WrappedCliSetupCommand(props: WrappedCliSetupCommandProps) {
 														}
 													: { opacity: 1, scale: 1, y: 0 }
 										}
-										className="mymind-wrapped-setup-command__alternate-panel"
+										className="rudel-wrapped-setup-command__alternate-panel"
 										exit={
 											reduceMotion
 												? { opacity: 0 }
@@ -210,10 +210,10 @@ export function WrappedCliSetupCommand(props: WrappedCliSetupCommandProps) {
 										}
 										transition={alternatePanelTransition}
 									>
-										<div className="mymind-wrapped-setup-command__alternate-panel-inner">
+										<div className="rudel-wrapped-setup-command__alternate-panel-inner">
 											<WrappedSetupCommandSurface
 												caption={alternateCommandCaption}
-												className="mymind-wrapped-setup-command__alternate-surface"
+												className="rudel-wrapped-setup-command__alternate-surface"
 												command={alternateCommand}
 												forceShell={alternateCommandCaption === undefined}
 											/>

@@ -318,8 +318,8 @@ function WrappedDevToolbar(props: {
 		<div
 			className={
 				floating
-					? "mymind-wrapped-dev-toolbar flex w-fit max-w-full rounded-xl border border-border/80 bg-background/95 p-1 shadow-md backdrop-blur"
-					: "mymind-wrapped-dev-toolbar flex w-full rounded-xl border border-border/80 bg-background/95 p-1 shadow-md backdrop-blur"
+					? "rudel-wrapped-dev-toolbar flex w-fit max-w-full rounded-xl border border-border/80 bg-background/95 p-1 shadow-md backdrop-blur"
+					: "rudel-wrapped-dev-toolbar flex w-full rounded-xl border border-border/80 bg-background/95 p-1 shadow-md backdrop-blur"
 			}
 		>
 			<div className="flex flex-wrap items-center gap-1">

@@ -34,7 +34,7 @@ const WRAPPED_AUTH_KEYBOARD_SAFE_MAX_WIDTH =
 const WRAPPED_AUTH_BOTTOM_OCCLUSION_THRESHOLD = 80;
 const WRAPPED_AUTH_KEYBOARD_SCROLL_DELAYS_MS = [0, 120, 320] as const;
 const WRAPPED_AUTH_FOCUSED_INPUT_SELECTOR =
-	".mymind-wrapped-auth-form__input, .mymind-wrapped-auth-form input, .mymind-wrapped-auth-form textarea, .mymind-wrapped-auth-form select";
+	".rudel-wrapped-auth-form__input, .rudel-wrapped-auth-form input, .rudel-wrapped-auth-form textarea, .rudel-wrapped-auth-form select";
 
 const WRAPPED_AUTH_DEFAULT_VIEWPORT_SIZE: WrappedAuthViewportSize = {
 	height: WRAPPED_AUTH_MEDIUM_MAX_HEIGHT,
@@ -230,6 +230,10 @@ function queueWrappedAuthFocusedInputReveal() {
 }
 
 function revealWrappedAuthFocusedInput() {
+	if (typeof window === "undefined" || typeof document === "undefined") {
+		return;
+	}
+
 	if (!isWrappedAuthKeyboardSafeViewport(getWrappedAuthVisualViewportWidth())) {
 		return;
 	}
@@ -255,7 +259,7 @@ function isWrappedAuthInputFocused(
 	}
 
 	return (
-		element.closest(".mymind-wrapped-route") !== null &&
+		element.closest(".rudel-wrapped-route") !== null &&
 		element.matches(WRAPPED_AUTH_FOCUSED_INPUT_SELECTOR)
 	);
 }

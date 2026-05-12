@@ -80,9 +80,9 @@ export function WrappedSetupPage(props: WrappedSetupPageProps) {
 				leadingControl={onBack ? undefined : null}
 				onBack={onBack}
 				progressStepId="desktop-ready"
-				stageClassName="mymind-wrapped-entry-stage--setup"
+				stageClassName="rudel-wrapped-entry-stage--setup"
 				stage={
-					<div className="mymind-wrapped-setup-guide">
+					<div className="rudel-wrapped-setup-guide">
 						{shouldOfferUploadSupport ? <WrappedSetupSupportPrompt /> : null}
 						<CliSetupHint
 							completedStepIds={completedStepIds}
@@ -135,7 +135,7 @@ function WrappedSetupSupportPrompt() {
 	return (
 		<button
 			type="button"
-			className="mymind-wrapped-setup-support-prompt"
+			className="rudel-wrapped-setup-support-prompt"
 			onClick={() => void openChatwoot()}
 		>
 			Trouble uploading sessions?

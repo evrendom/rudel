@@ -75,12 +75,12 @@ export function WrappedTeamCardSharePreview(
 	return (
 		<div
 			ref={resolvedSharePostRef}
-			className="mymind-wrapped-share-preview"
+			className="rudel-wrapped-share-preview"
 			data-layout-mode={resolvedAppearance.layoutMode}
 		>
-			<div className="mymind-wrapped-share-preview__shell team-lineup-surface-scope">
+			<div className="rudel-wrapped-share-preview__shell team-lineup-surface-scope">
 				<WrappedSharePreviewChrome
-					className="mymind-wrapped-share-preview__top"
+					className="rudel-wrapped-share-preview__top"
 					delay={0.28}
 					isAnimated={isChromeEntranceAnimated}
 					reduceMotion={reduceMotion}
@@ -97,13 +97,13 @@ export function WrappedTeamCardSharePreview(
 					</div>
 				</WrappedSharePreviewChrome>
 
-				<div className="mymind-wrapped-share-preview__body">
+				<div className="rudel-wrapped-share-preview__body">
 					{shouldShowFrontBackSpread ? (
-						<div className="mymind-wrapped-share-preview__spread">
-							<div className="mymind-wrapped-share-preview__spread-card">
-								<div className="team-lineup-card-tilt-stage mymind-wrapped-share-preview__card-stage mymind-wrapped-share-preview__card-stage--spread">
+						<div className="rudel-wrapped-share-preview__spread">
+							<div className="rudel-wrapped-share-preview__spread-card">
+								<div className="team-lineup-card-tilt-stage rudel-wrapped-share-preview__card-stage rudel-wrapped-share-preview__card-stage--spread">
 									<WrappedSharePreviewCardShell
-										className="team-lineup-card-tilt-shell mymind-wrapped-share-preview__card-shell mymind-wrapped-share-preview__card-shell--spread"
+										className="team-lineup-card-tilt-shell rudel-wrapped-share-preview__card-shell rudel-wrapped-share-preview__card-shell--spread"
 										handoffRef={frontCardHandoffRef}
 										isHandoffHidden={isFrontCardHandoffHidden}
 									>
@@ -127,9 +127,9 @@ export function WrappedTeamCardSharePreview(
 								</div>
 							</div>
 
-							<div className="mymind-wrapped-share-preview__spread-card">
-								<div className="team-lineup-card-tilt-stage mymind-wrapped-share-preview__card-stage mymind-wrapped-share-preview__card-stage--spread">
-									<div className="team-lineup-card-tilt-shell mymind-wrapped-share-preview__card-shell mymind-wrapped-share-preview__card-shell--spread">
+							<div className="rudel-wrapped-share-preview__spread-card">
+								<div className="team-lineup-card-tilt-stage rudel-wrapped-share-preview__card-stage rudel-wrapped-share-preview__card-stage--spread">
+									<div className="team-lineup-card-tilt-shell rudel-wrapped-share-preview__card-shell rudel-wrapped-share-preview__card-shell--spread">
 										<div className="grid justify-center">
 											<WrappedTeamMemberCardBack
 												edition={edition}
@@ -144,9 +144,9 @@ export function WrappedTeamCardSharePreview(
 							</div>
 						</div>
 					) : (
-						<div className="team-lineup-card-tilt-stage mymind-wrapped-share-preview__card-stage">
+						<div className="team-lineup-card-tilt-stage rudel-wrapped-share-preview__card-stage">
 							<WrappedSharePreviewCardShell
-								className="team-lineup-card-tilt-shell mymind-wrapped-share-preview__card-shell"
+								className="team-lineup-card-tilt-shell rudel-wrapped-share-preview__card-shell"
 								handoffRef={frontCardHandoffRef}
 								isHandoffHidden={isFrontCardHandoffHidden}
 							>
@@ -172,18 +172,18 @@ export function WrappedTeamCardSharePreview(
 				</div>
 
 				<WrappedSharePreviewChrome
-					className="mymind-wrapped-share-preview__meta"
+					className="rudel-wrapped-share-preview__meta"
 					delay={0.34}
 					isAnimated={isChromeEntranceAnimated}
 					reduceMotion={reduceMotion}
 					y={8}
 				>
-					<span className="mymind-wrapped-share-preview__timestamp">
+					<span className="rudel-wrapped-share-preview__timestamp">
 						{shareCardCreatedAtLabel}
 					</span>
 					<a
 						href="https://rudel.ai/wrapped"
-						className="mymind-wrapped-share-preview__link"
+						className="rudel-wrapped-share-preview__link"
 					>
 						rudel.ai/wrapped
 					</a>
@@ -269,7 +269,7 @@ function WrappedSharePreviewCardShell(props: {
 	return (
 		<div
 			ref={handoffRef}
-			className="mymind-wrapped-share-preview__card-layout-bridge"
+			className="rudel-wrapped-share-preview__card-layout-bridge"
 			data-handoff-hidden={isHandoffHidden ? "true" : "false"}
 		>
 			<div className={className}>{children}</div>

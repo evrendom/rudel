@@ -837,7 +837,7 @@ describe("WrappedTeamCardRevealStage", () => {
 		expect(screen.getByText("MEMBER")).toBeInTheDocument();
 		const decimalsText = screen.getByText("Decimals");
 		const badge = decimalsText.closest(
-			".mymind-wrapped-team-card-edition-badge",
+			".rudel-wrapped-team-card-edition-badge",
 		);
 		expect(decimalsText).toHaveClass("sr-only");
 		expect(badge).not.toHaveTextContent("MEMBER");
@@ -912,11 +912,11 @@ describe("WrappedTeamCardRevealStage", () => {
 			}),
 		).toBeInTheDocument();
 		expect(
-			document.querySelector(".mymind-wrapped-final-stage__intro-accent")
+			document.querySelector(".rudel-wrapped-final-stage__intro-accent")
 				?.childNodes[0]?.textContent,
 		).toBe("Company Card");
 		expect(
-			document.querySelector(".mymind-wrapped-final-stage__intro-accent")
+			document.querySelector(".rudel-wrapped-final-stage__intro-accent")
 				?.nextElementSibling?.textContent,
 		).toBe("?");
 
@@ -1405,7 +1405,7 @@ describe("WrappedTeamCardRevealStage", () => {
 		expect(
 			screen
 				.getByTestId("wrapped-team-card-back")
-				.querySelector(".mymind-wrapped-team-card-back__content"),
+				.querySelector(".rudel-wrapped-team-card-back__content"),
 		).not.toBeNull();
 		expect(screen.getByRole("img", { name: "Rudel" })).toBeInTheDocument();
 		expect(screen.queryByText("Last 365 days")).toBeNull();
@@ -1743,7 +1743,7 @@ describe("WrappedTeamCardPublicStage", () => {
 				/>,
 			);
 			const description = container.querySelector(
-				".mymind-wrapped-final-stage__archetype-description",
+				".rudel-wrapped-final-stage__archetype-description",
 			);
 			assert(description);
 

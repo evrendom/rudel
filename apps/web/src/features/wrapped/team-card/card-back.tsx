@@ -72,7 +72,7 @@ export function WrappedTeamMemberCardBack(props: {
 			<article
 				data-testid="wrapped-team-card-back"
 				className={cn(
-					"mymind-wrapped-team-card-back",
+					"rudel-wrapped-team-card-back",
 					"relative isolate overflow-hidden",
 					shellClassName,
 					isDarkTheme ? "text-[#fff7ef]" : null,
@@ -85,20 +85,20 @@ export function WrappedTeamMemberCardBack(props: {
 				) : null}
 				<div
 					aria-hidden="true"
-					className="mymind-wrapped-team-card-back__wash"
+					className="rudel-wrapped-team-card-back__wash"
 				/>
 				{shouldRenderContent ? (
-					<div className="mymind-wrapped-team-card-back__content">
+					<div className="rudel-wrapped-team-card-back__content">
 						{edition === "decimal" ? (
 							<WrappedTeamMemberCardBackEditionLockup />
 						) : (
-							<div className="mymind-wrapped-team-card-back__logo-shell">
-								<WrappedTeamMemberCardBackLogo className="mymind-wrapped-team-card-back__logo" />
+							<div className="rudel-wrapped-team-card-back__logo-shell">
+								<WrappedTeamMemberCardBackLogo className="rudel-wrapped-team-card-back__logo" />
 							</div>
 						)}
 
-						<div className="mymind-wrapped-team-card-back__metrics-shell">
-							<table className="mymind-wrapped-team-card-back__metrics-table">
+						<div className="rudel-wrapped-team-card-back__metrics-shell">
+							<table className="rudel-wrapped-team-card-back__metrics-table">
 								<tbody>
 									{bodyMetrics.map((metric) => (
 										<WrappedTeamMemberCardBackMetricRow
@@ -110,9 +110,9 @@ export function WrappedTeamMemberCardBack(props: {
 							</table>
 						</div>
 						{footerMetric ? (
-							<div className="mymind-wrapped-team-card-back__metric-footer-shell">
-								<div className="mymind-wrapped-team-card-back__footer-lockup">
-									<span className="mymind-wrapped-team-card-back__footer-date">
+							<div className="rudel-wrapped-team-card-back__metric-footer-shell">
+								<div className="rudel-wrapped-team-card-back__footer-lockup">
+									<span className="rudel-wrapped-team-card-back__footer-date">
 										{footerMetric.value}
 									</span>
 								</div>
@@ -127,12 +127,12 @@ export function WrappedTeamMemberCardBack(props: {
 
 function WrappedTeamMemberCardBackEditionLockup() {
 	return (
-		<div className="mymind-wrapped-team-card-back__edition-lockup">
-			<div className="mymind-wrapped-team-card-edition-badge mymind-wrapped-team-card-edition-badge--back">
+		<div className="rudel-wrapped-team-card-back__edition-lockup">
+			<div className="rudel-wrapped-team-card-edition-badge rudel-wrapped-team-card-edition-badge--back">
 				<img
 					alt=""
 					aria-hidden="true"
-					className="mymind-wrapped-team-card-edition-badge__stamp"
+					className="rudel-wrapped-team-card-edition-badge__stamp"
 					decoding="sync"
 					draggable={false}
 					height={512}
@@ -142,7 +142,7 @@ function WrappedTeamMemberCardBackEditionLockup() {
 				<img
 					alt=""
 					aria-hidden="true"
-					className="mymind-wrapped-team-card-edition-badge__wordmark"
+					className="rudel-wrapped-team-card-edition-badge__wordmark"
 					decoding="sync"
 					draggable={false}
 					height={18.576}
@@ -151,7 +151,7 @@ function WrappedTeamMemberCardBackEditionLockup() {
 				/>
 				<span className="sr-only">Decimals</span>
 			</div>
-			<span className="mymind-wrapped-team-card-back__edition-caption">
+			<span className="rudel-wrapped-team-card-back__edition-caption">
 				MEMBER
 			</span>
 		</div>
@@ -193,18 +193,18 @@ function WrappedTeamMemberCardBackMetricRow(props: {
 	return (
 		<tr
 			className={cn(
-				"mymind-wrapped-team-card-back__metric-row",
+				"rudel-wrapped-team-card-back__metric-row",
 				metric.valueTruncation === "start"
-					? "mymind-wrapped-team-card-back__metric-row--value-truncate-start"
+					? "rudel-wrapped-team-card-back__metric-row--value-truncate-start"
 					: null,
 			)}
 		>
-			<th scope="row" className="mymind-wrapped-team-card-back__metric-label">
+			<th scope="row" className="rudel-wrapped-team-card-back__metric-label">
 				{metric.label}
 			</th>
-			<td className="mymind-wrapped-team-card-back__metric-value">
+			<td className="rudel-wrapped-team-card-back__metric-value">
 				<span
-					className="mymind-wrapped-team-card-back__metric-value-text"
+					className="rudel-wrapped-team-card-back__metric-value-text"
 					title={metric.valueTruncation === "start" ? metric.value : undefined}
 				>
 					{metric.value}

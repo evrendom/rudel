@@ -67,7 +67,7 @@ describe("WrappedTeamCardOnboarding model step", () => {
 		});
 
 		expect(
-			container.querySelector(".mymind-wrapped-route--step-pulse"),
+			container.querySelector(".rudel-wrapped-route--step-pulse"),
 		).not.toBeNull();
 		expect(
 			screen.getByRole("button", {
@@ -105,7 +105,7 @@ describe("WrappedTeamCardOnboarding model step", () => {
 		});
 
 		expect(
-			container.querySelector(".mymind-wrapped-route--step-pulse"),
+			container.querySelector(".rudel-wrapped-route--step-pulse"),
 		).not.toBeNull();
 		expect(
 			screen.getByRole("button", {

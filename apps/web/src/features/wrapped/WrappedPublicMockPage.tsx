@@ -203,10 +203,10 @@ export function WrappedPublicMockPage(props: WrappedPublicMockPageProps) {
 	});
 
 	useMountEffect(() => {
-		document.body.classList.add("mymind-wrapped-body");
+		document.body.classList.add("rudel-wrapped-body");
 
 		return () => {
-			document.body.classList.remove("mymind-wrapped-body");
+			document.body.classList.remove("rudel-wrapped-body");
 		};
 	});
 

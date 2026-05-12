@@ -359,10 +359,10 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 	}
 
 	useMountEffect(() => {
-		document.body.classList.add("mymind-wrapped-body");
+		document.body.classList.add("rudel-wrapped-body");
 
 		return () => {
-			document.body.classList.remove("mymind-wrapped-body");
+			document.body.classList.remove("rudel-wrapped-body");
 		};
 	});
 
@@ -819,20 +819,20 @@ function WrappedRouteLoadingState(props: { body: string }) {
 	return (
 		<WrappedRouteStageShell
 			progressStepId="account-check"
-			stageClassName="mymind-wrapped-entry-stage--route-loading"
+			stageClassName="rudel-wrapped-entry-stage--route-loading"
 			stage={
 				<div
 					aria-busy="true"
 					aria-live="polite"
-					className="mymind-wrapped-route-loading"
+					className="rudel-wrapped-route-loading"
 				>
 					<h1 className="sr-only">Loading wrapped</h1>
 					<img
 						alt="Rudel"
-						className="mymind-wrapped-route-loading__logo"
+						className="rudel-wrapped-route-loading__logo"
 						src="/favicon-light.svg"
 					/>
-					<p className="mymind-wrapped-route-loading__copy">{props.body}</p>
+					<p className="rudel-wrapped-route-loading__copy">{props.body}</p>
 				</div>
 			}
 		/>

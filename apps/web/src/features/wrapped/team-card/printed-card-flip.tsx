@@ -172,11 +172,11 @@ export function WrappedPrintedCardFlip(props: WrappedPrintedCardFlipProps) {
 			{shouldRenderBackSource ? (
 				<div
 					aria-hidden="true"
-					className="mymind-wrapped-printed-card-flip__source-stage"
+					className="rudel-wrapped-printed-card-flip__source-stage"
 				>
 					<div
 						ref={backSourceRef}
-						className="mymind-wrapped-printed-card-flip__source-side"
+						className="rudel-wrapped-printed-card-flip__source-side"
 						data-card-back-texture-source=""
 					>
 						{back}
@@ -186,33 +186,33 @@ export function WrappedPrintedCardFlip(props: WrappedPrintedCardFlipProps) {
 
 			<div
 				ref={flipShellRef}
-				className="mymind-wrapped-final-stage__flip-shell"
+				className="rudel-wrapped-final-stage__flip-shell"
 				data-back-texture-ready={backUrl ? "true" : "false"}
 				data-back-texture-strategy={
 					usesWebKitBackTextureOnly ? "webkit-png-only" : "standard"
 				}
 				style={visualStyle}
 			>
-				<div className="mymind-wrapped-printed-card-flip__rotator">
-					<div className="mymind-wrapped-printed-card-flip__plane mymind-wrapped-printed-card-flip__plane--front">
+				<div className="rudel-wrapped-printed-card-flip__rotator">
+					<div className="rudel-wrapped-printed-card-flip__plane rudel-wrapped-printed-card-flip__plane--front">
 						{front}
 					</div>
-					<div className="mymind-wrapped-printed-card-flip__plane mymind-wrapped-printed-card-flip__plane--back">
+					<div className="rudel-wrapped-printed-card-flip__plane rudel-wrapped-printed-card-flip__plane--back">
 						{backUrl ? (
 							<img
 								alt="Rudel"
-								className="mymind-wrapped-printed-card-flip__image"
+								className="rudel-wrapped-printed-card-flip__image"
 								draggable={false}
 								src={backUrl}
 							/>
 						) : !shouldCaptureBackSurface ? (
-							<div className="mymind-wrapped-printed-card-flip__live-back">
+							<div className="rudel-wrapped-printed-card-flip__live-back">
 								{back}
 							</div>
 						) : (
 							<div
 								aria-label="Rudel"
-								className="mymind-wrapped-printed-card-flip__placeholder"
+								className="rudel-wrapped-printed-card-flip__placeholder"
 								data-card-face="back"
 								role="img"
 							/>

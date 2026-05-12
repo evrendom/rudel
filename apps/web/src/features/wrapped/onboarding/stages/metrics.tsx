@@ -153,7 +153,7 @@ export function WrappedOnboardingScaleStage(props: SharedStageProps) {
 
 	return (
 		<WrappedOnboardingStageFrame
-			className="mymind-wrapped-scale-stage"
+			className="rudel-wrapped-scale-stage"
 			copy={
 				<WrappedOnboardingStageCopy
 					title={
@@ -169,9 +169,9 @@ export function WrappedOnboardingScaleStage(props: SharedStageProps) {
 						/>
 					}
 					titleClassName={cn(
-						"mymind-wrapped-scale-stage__headline",
+						"rudel-wrapped-scale-stage__headline",
 						model.totalTokens > 0
-							? "mymind-wrapped-scale-stage__headline--sequenced"
+							? "rudel-wrapped-scale-stage__headline--sequenced"
 							: undefined,
 					)}
 				/>
@@ -280,7 +280,7 @@ function WrappedScaleStageSequenceTitle(props: {
 						? { opacity: 1, scale: 1, y: 0 }
 						: { filter: "blur(0px)", opacity: 1, scale: 1, y: 0 }
 				}
-				className="mymind-wrapped-scale-stage__title-shell"
+				className="rudel-wrapped-scale-stage__title-shell"
 				exit={
 					reduceMotion
 						? { opacity: 0, scale: 0.985, y: -18 }
@@ -346,8 +346,8 @@ function WrappedScaleCountTitle(props: {
 	const hasFinishedCounting = reduceMotion || visibleTokens >= totalTokens;
 
 	return (
-		<span className="mymind-wrapped-scale-stage__count-shell">
-			<span className="mymind-wrapped-scale-stage__count-value">
+		<span className="rudel-wrapped-scale-stage__count-shell">
+			<span className="rudel-wrapped-scale-stage__count-value">
 				{visibleTokens.toLocaleString("en-US")}
 			</span>
 			<AnimatePresence initial={false}>
@@ -359,7 +359,7 @@ function WrappedScaleCountTitle(props: {
 								? { opacity: 1 }
 								: { filter: "blur(0px)", opacity: 1, y: 0 }
 						}
-						className="mymind-wrapped-scale-stage__count-unit"
+						className="rudel-wrapped-scale-stage__count-unit"
 						initial={
 							reduceMotion
 								? { opacity: 0 }
@@ -459,8 +459,8 @@ function WrappedScaleSpendTitle(props: {
 	});
 
 	return (
-		<span className="mymind-wrapped-scale-stage__spend-shell">
-			<span className="mymind-wrapped-scale-stage__spend-label">
+		<span className="rudel-wrapped-scale-stage__spend-shell">
+			<span className="rudel-wrapped-scale-stage__spend-label">
 				This equals to
 			</span>
 			<AnimatePresence initial={false}>
@@ -472,7 +472,7 @@ function WrappedScaleSpendTitle(props: {
 								? { opacity: 1 }
 								: { filter: "blur(0px)", opacity: 1, y: 0 }
 						}
-						className="mymind-wrapped-scale-stage__spend-value-shell"
+						className="rudel-wrapped-scale-stage__spend-value-shell"
 						initial={
 							reduceMotion
 								? { opacity: 0 }
@@ -495,7 +495,7 @@ function WrappedScaleSpendTitle(props: {
 									}
 						}
 					>
-						<span className="mymind-wrapped-scale-stage__spend-value">
+						<span className="rudel-wrapped-scale-stage__spend-value">
 							{formatCompactWholeCurrency(displaySpendUsd)}
 						</span>
 					</motion.span>
@@ -510,7 +510,7 @@ function WrappedScaleSpendTitle(props: {
 								? { opacity: 1 }
 								: { filter: "blur(0px)", opacity: 1, y: 0 }
 						}
-						className="mymind-wrapped-scale-stage__spend-kebab-line"
+						className="rudel-wrapped-scale-stage__spend-kebab-line"
 						initial={
 							reduceMotion
 								? { opacity: 0 }
@@ -568,7 +568,7 @@ function WrappedScaleKebabRain(props: {
 		}
 
 		for (const staleRainNode of document.querySelectorAll(
-			".mymind-wrapped-scale-stage__kebab-rain",
+			".rudel-wrapped-scale-stage__kebab-rain",
 		)) {
 			if (staleRainNode !== kebabRainNode) {
 				staleRainNode.remove();
@@ -638,7 +638,7 @@ function WrappedScaleKebabRain(props: {
 	const kebabRain = (
 		<div
 			aria-hidden="true"
-			className="mymind-wrapped-scale-stage__kebab-rain"
+			className="rudel-wrapped-scale-stage__kebab-rain"
 			data-scale-kebab-count={dropCount}
 			ref={kebabRainRef}
 		>
@@ -648,7 +648,7 @@ function WrappedScaleKebabRain(props: {
 					ref={(node) => {
 						dropRefs.current[index] = node;
 					}}
-					className="mymind-wrapped-scale-stage__kebab-drop"
+					className="rudel-wrapped-scale-stage__kebab-drop"
 					style={{
 						left: "50%",
 						opacity: 0,
@@ -943,8 +943,8 @@ export function WrappedOnboardingLockInStage(props: SharedStageProps) {
 
 	return (
 		<WrappedOnboardingStageFrame
-			className="mymind-wrapped-lock-in-stage"
-			objectClassName="mymind-wrapped-lock-in-stage__object"
+			className="rudel-wrapped-lock-in-stage"
+			objectClassName="rudel-wrapped-lock-in-stage__object"
 			copy={
 				<WrappedOnboardingStageCopy
 					entrancePreset="story"
@@ -955,74 +955,74 @@ export function WrappedOnboardingLockInStage(props: SharedStageProps) {
 			object={
 				<article
 					className={cn(
-						"mymind-wrapped-lock-in-stage__card",
+						"rudel-wrapped-lock-in-stage__card",
 						`is-${model.state}`,
 					)}
 				>
-					<ul className="mymind-wrapped-lock-in-stage__stats">
-						<li className="mymind-wrapped-lock-in-stage__stat">
-							<p className="mymind-wrapped-lock-in-stage__stat-label">
+					<ul className="rudel-wrapped-lock-in-stage__stats">
+						<li className="rudel-wrapped-lock-in-stage__stat">
+							<p className="rudel-wrapped-lock-in-stage__stat-label">
 								Longest recorded
 							</p>
-							<p className="mymind-wrapped-lock-in-stage__stat-value">
+							<p className="rudel-wrapped-lock-in-stage__stat-value">
 								{model.longestDurationLabel}
 							</p>
 						</li>
-						<li className="mymind-wrapped-lock-in-stage__stat">
-							<p className="mymind-wrapped-lock-in-stage__stat-label">
+						<li className="rudel-wrapped-lock-in-stage__stat">
+							<p className="rudel-wrapped-lock-in-stage__stat-label">
 								Usual session
 							</p>
-							<p className="mymind-wrapped-lock-in-stage__stat-value">
+							<p className="rudel-wrapped-lock-in-stage__stat-value">
 								{model.averageDurationLabel}
 							</p>
 						</li>
 					</ul>
 
-					<ul className="mymind-wrapped-lock-in-stage__chips">
-						<li className="mymind-wrapped-lock-in-stage__chip is-state">
+					<ul className="rudel-wrapped-lock-in-stage__chips">
+						<li className="rudel-wrapped-lock-in-stage__chip is-state">
 							{model.stateLabel}
 						</li>
-						<li className="mymind-wrapped-lock-in-stage__chip">
+						<li className="rudel-wrapped-lock-in-stage__chip">
 							{model.comparisonLabel}
 						</li>
 					</ul>
 
-					<ul className="mymind-wrapped-lock-in-stage__compare">
-						<li className="mymind-wrapped-lock-in-stage__row">
-							<header className="mymind-wrapped-lock-in-stage__row-head">
-								<p className="mymind-wrapped-lock-in-stage__row-label">
+					<ul className="rudel-wrapped-lock-in-stage__compare">
+						<li className="rudel-wrapped-lock-in-stage__row">
+							<header className="rudel-wrapped-lock-in-stage__row-head">
+								<p className="rudel-wrapped-lock-in-stage__row-label">
 									Usual session
 								</p>
-								<p className="mymind-wrapped-lock-in-stage__row-value">
+								<p className="rudel-wrapped-lock-in-stage__row-value">
 									{model.averageDurationLabel}
 								</p>
 							</header>
 							<span
 								aria-hidden="true"
-								className="mymind-wrapped-lock-in-stage__track"
+								className="rudel-wrapped-lock-in-stage__track"
 							>
 								<span
-									className="mymind-wrapped-lock-in-stage__fill is-average"
+									className="rudel-wrapped-lock-in-stage__fill is-average"
 									style={averageStyle}
 								/>
 							</span>
 						</li>
 
-						<li className="mymind-wrapped-lock-in-stage__row">
-							<header className="mymind-wrapped-lock-in-stage__row-head">
-								<p className="mymind-wrapped-lock-in-stage__row-label">
+						<li className="rudel-wrapped-lock-in-stage__row">
+							<header className="rudel-wrapped-lock-in-stage__row-head">
+								<p className="rudel-wrapped-lock-in-stage__row-label">
 									Longest recorded
 								</p>
-								<p className="mymind-wrapped-lock-in-stage__row-value">
+								<p className="rudel-wrapped-lock-in-stage__row-value">
 									{model.longestDurationLabel}
 								</p>
 							</header>
 							<span
 								aria-hidden="true"
-								className="mymind-wrapped-lock-in-stage__track"
+								className="rudel-wrapped-lock-in-stage__track"
 							>
 								<span
-									className="mymind-wrapped-lock-in-stage__fill is-longest"
+									className="rudel-wrapped-lock-in-stage__fill is-longest"
 									style={longestStyle}
 								/>
 							</span>
@@ -1031,7 +1031,7 @@ export function WrappedOnboardingLockInStage(props: SharedStageProps) {
 				</article>
 			}
 			support={
-				<p className="mymind-wrapped-lock-in-stage__footnote">
+				<p className="rudel-wrapped-lock-in-stage__footnote">
 					{model.footnote}
 				</p>
 			}
@@ -1059,8 +1059,8 @@ export function WrappedOnboardingQualityStage(props: SharedStageProps) {
 
 	return (
 		<WrappedOnboardingStageFrame
-			className="mymind-wrapped-quality-stage"
-			objectClassName="mymind-wrapped-quality-stage__object"
+			className="rudel-wrapped-quality-stage"
+			objectClassName="rudel-wrapped-quality-stage__object"
 			copy={
 				<WrappedOnboardingStageCopy
 					entrancePreset="story"
@@ -1071,59 +1071,59 @@ export function WrappedOnboardingQualityStage(props: SharedStageProps) {
 			object={
 				<article
 					className={cn(
-						"mymind-wrapped-quality-stage__card",
+						"rudel-wrapped-quality-stage__card",
 						`is-${model.state}`,
 					)}
 				>
-					<ul className="mymind-wrapped-quality-stage__stats">
-						<li className="mymind-wrapped-quality-stage__stat">
-							<p className="mymind-wrapped-quality-stage__stat-label">
+					<ul className="rudel-wrapped-quality-stage__stats">
+						<li className="rudel-wrapped-quality-stage__stat">
+							<p className="rudel-wrapped-quality-stage__stat-label">
 								Commit rate
 							</p>
-							<p className="mymind-wrapped-quality-stage__stat-value">
+							<p className="rudel-wrapped-quality-stage__stat-value">
 								{model.commitRateLabel}
 							</p>
 						</li>
-						<li className="mymind-wrapped-quality-stage__stat">
-							<p className="mymind-wrapped-quality-stage__stat-label">
+						<li className="rudel-wrapped-quality-stage__stat">
+							<p className="rudel-wrapped-quality-stage__stat-label">
 								Success rate
 							</p>
-							<p className="mymind-wrapped-quality-stage__stat-value">
+							<p className="rudel-wrapped-quality-stage__stat-value">
 								{model.successRateLabel}
 							</p>
 						</li>
 					</ul>
 
-					<ul className="mymind-wrapped-quality-stage__chips">
-						<li className="mymind-wrapped-quality-stage__chip is-state">
+					<ul className="rudel-wrapped-quality-stage__chips">
+						<li className="rudel-wrapped-quality-stage__chip is-state">
 							{model.stateLabel}
 						</li>
-						<li className="mymind-wrapped-quality-stage__chip">
+						<li className="rudel-wrapped-quality-stage__chip">
 							{model.comparisonLabel}
 						</li>
 					</ul>
 
-					<ul className="mymind-wrapped-quality-stage__compare">
+					<ul className="rudel-wrapped-quality-stage__compare">
 						<li
 							className={cn(
-								"mymind-wrapped-quality-stage__row",
+								"rudel-wrapped-quality-stage__row",
 								!model.hasCommitRate ? "is-pending" : undefined,
 							)}
 						>
-							<header className="mymind-wrapped-quality-stage__row-head">
-								<p className="mymind-wrapped-quality-stage__row-label">
+							<header className="rudel-wrapped-quality-stage__row-head">
+								<p className="rudel-wrapped-quality-stage__row-label">
 									Sessions with commits
 								</p>
-								<p className="mymind-wrapped-quality-stage__row-value">
+								<p className="rudel-wrapped-quality-stage__row-value">
 									{model.commitRateLabel}
 								</p>
 							</header>
 							<span
 								aria-hidden="true"
-								className="mymind-wrapped-quality-stage__track"
+								className="rudel-wrapped-quality-stage__track"
 							>
 								<span
-									className="mymind-wrapped-quality-stage__fill is-commit"
+									className="rudel-wrapped-quality-stage__fill is-commit"
 									style={commitStyle}
 								/>
 							</span>
@@ -1131,24 +1131,24 @@ export function WrappedOnboardingQualityStage(props: SharedStageProps) {
 
 						<li
 							className={cn(
-								"mymind-wrapped-quality-stage__row",
+								"rudel-wrapped-quality-stage__row",
 								!model.hasSuccessRate ? "is-pending" : undefined,
 							)}
 						>
-							<header className="mymind-wrapped-quality-stage__row-head">
-								<p className="mymind-wrapped-quality-stage__row-label">
+							<header className="rudel-wrapped-quality-stage__row-head">
+								<p className="rudel-wrapped-quality-stage__row-label">
 									Successful sessions
 								</p>
-								<p className="mymind-wrapped-quality-stage__row-value">
+								<p className="rudel-wrapped-quality-stage__row-value">
 									{model.successRateLabel}
 								</p>
 							</header>
 							<span
 								aria-hidden="true"
-								className="mymind-wrapped-quality-stage__track"
+								className="rudel-wrapped-quality-stage__track"
 							>
 								<span
-									className="mymind-wrapped-quality-stage__fill is-success"
+									className="rudel-wrapped-quality-stage__fill is-success"
 									style={successStyle}
 								/>
 							</span>
@@ -1157,7 +1157,7 @@ export function WrappedOnboardingQualityStage(props: SharedStageProps) {
 				</article>
 			}
 			support={
-				<p className="mymind-wrapped-quality-stage__footnote">
+				<p className="rudel-wrapped-quality-stage__footnote">
 					{model.footnote}
 				</p>
 			}
@@ -1181,8 +1181,8 @@ export function WrappedOnboardingRepoPulseStage(props: SharedStageProps) {
 
 	return (
 		<WrappedOnboardingStageFrame
-			className="mymind-wrapped-repo-pulse-stage"
-			objectClassName="mymind-wrapped-repo-pulse-stage__object"
+			className="rudel-wrapped-repo-pulse-stage"
+			objectClassName="rudel-wrapped-repo-pulse-stage__object"
 			copy={
 				<WrappedOnboardingStageCopy
 					entrancePreset="story"
@@ -1198,7 +1198,7 @@ export function WrappedOnboardingRepoPulseStage(props: SharedStageProps) {
 						scale: 1,
 						y: 0,
 					}}
-					className="mymind-wrapped-repo-pulse-stage__scene"
+					className="rudel-wrapped-repo-pulse-stage__scene"
 					initial={
 						reduceMotion
 							? false
@@ -1224,12 +1224,12 @@ export function WrappedOnboardingRepoPulseStage(props: SharedStageProps) {
 										y: [0, -4, 0],
 									}
 						}
-						className="mymind-wrapped-repo-pulse-stage__card"
+						className="rudel-wrapped-repo-pulse-stage__card"
 						transition={REPO_PULSE_STAGE_TRANSITION.idle}
 					>
 						<motion.ul
 							animate="visible"
-							className="mymind-wrapped-repo-pulse-stage__stack"
+							className="rudel-wrapped-repo-pulse-stage__stack"
 							initial={reduceMotion ? "visible" : "hidden"}
 							variants={{
 								hidden: {},
@@ -1241,13 +1241,13 @@ export function WrappedOnboardingRepoPulseStage(props: SharedStageProps) {
 							{model.entries.map((entry) => (
 								<motion.li
 									key={entry.id}
-									className="mymind-wrapped-repo-pulse-stage__row"
+									className="rudel-wrapped-repo-pulse-stage__row"
 									variants={REPO_PULSE_STAGE_ROW_VARIANTS}
 								>
-									<section className="mymind-wrapped-repo-pulse-stage__row-copy">
-										<div className="mymind-wrapped-repo-pulse-stage__row-main">
+									<section className="rudel-wrapped-repo-pulse-stage__row-copy">
+										<div className="rudel-wrapped-repo-pulse-stage__row-main">
 											<p
-												className="mymind-wrapped-repo-pulse-stage__repo"
+												className="rudel-wrapped-repo-pulse-stage__repo"
 												title={entry.repoName}
 											>
 												{shortenWrappedRepoLabelFromLeft(
@@ -1255,11 +1255,11 @@ export function WrappedOnboardingRepoPulseStage(props: SharedStageProps) {
 													REPO_PULSE_STAGE_REPO_LABEL_MAX_LENGTH,
 												)}
 											</p>
-											<p className="mymind-wrapped-repo-pulse-stage__meta">
+											<p className="rudel-wrapped-repo-pulse-stage__meta">
 												{entry.sessionCountLabel}
 											</p>
 										</div>
-										<p className="mymind-wrapped-repo-pulse-stage__proof">
+										<p className="rudel-wrapped-repo-pulse-stage__proof">
 											{entry.totalHoursLabel} · {entry.totalSpendLabel}
 										</p>
 									</section>
@@ -1268,7 +1268,7 @@ export function WrappedOnboardingRepoPulseStage(props: SharedStageProps) {
 
 							{model.hiddenRepoCount > 0 ? (
 								<motion.li
-									className="mymind-wrapped-repo-pulse-stage__overflow"
+									className="rudel-wrapped-repo-pulse-stage__overflow"
 									variants={REPO_PULSE_STAGE_ROW_VARIANTS}
 								>
 									+{model.hiddenRepoCount} more
@@ -1277,7 +1277,7 @@ export function WrappedOnboardingRepoPulseStage(props: SharedStageProps) {
 
 							{model.entries.length === 0 ? (
 								<motion.li
-									className="mymind-wrapped-repo-pulse-stage__empty"
+									className="rudel-wrapped-repo-pulse-stage__empty"
 									variants={REPO_PULSE_STAGE_ROW_VARIANTS}
 								>
 									Repo stats show up once a few project sessions land.

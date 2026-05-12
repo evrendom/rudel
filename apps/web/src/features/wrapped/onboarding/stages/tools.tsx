@@ -134,10 +134,7 @@ function WrappedOnboardingToolsLowSignalStage(props: {
 
 	return (
 		<WrappedOnboardingStageFrame
-			className={cn(
-				"mymind-wrapped-tools-stage",
-				"mymind-wrapped-skills-stage",
-			)}
+			className={cn("rudel-wrapped-tools-stage", "rudel-wrapped-skills-stage")}
 			copy={
 				<WrappedOnboardingStageCopy
 					title={model.headline}
@@ -146,18 +143,18 @@ function WrappedOnboardingToolsLowSignalStage(props: {
 			}
 			object={
 				<div
-					className="mymind-wrapped-skills-stage__empty-state"
+					className="rudel-wrapped-skills-stage__empty-state"
 					data-debug-label="empty state"
 				>
 					<div
 						aria-hidden="true"
-						className="mymind-wrapped-skills-stage__empty-icon-shell"
+						className="rudel-wrapped-skills-stage__empty-icon-shell"
 						data-debug-label="empty icon shell"
 					>
-						<span className="mymind-wrapped-skills-stage__empty-code">404</span>
-						<span className="mymind-wrapped-skills-stage__empty-icon-badge">
+						<span className="rudel-wrapped-skills-stage__empty-code">404</span>
+						<span className="rudel-wrapped-skills-stage__empty-icon-badge">
 							<Frown
-								className="mymind-wrapped-skills-stage__empty-icon"
+								className="rudel-wrapped-skills-stage__empty-icon"
 								strokeWidth={1.9}
 							/>
 						</span>
@@ -261,11 +258,11 @@ function WrappedOnboardingToolsRegularStage(props: {
 	return (
 		<WrappedOnboardingStageFrame
 			className={cn(
-				"mymind-wrapped-tools-stage",
-				scenePhase !== "final" && "mymind-wrapped-tools-stage--intro-copy",
-				showFinalScene && "mymind-wrapped-tools-stage--overlay-copy",
+				"rudel-wrapped-tools-stage",
+				scenePhase !== "final" && "rudel-wrapped-tools-stage--intro-copy",
+				showFinalScene && "rudel-wrapped-tools-stage--overlay-copy",
 			)}
-			objectClassName="mymind-wrapped-tools-stage__object"
+			objectClassName="rudel-wrapped-tools-stage__object"
 			copy={
 				showFinalScene ? (
 					<motion.div
@@ -283,7 +280,7 @@ function WrappedOnboardingToolsRegularStage(props: {
 					>
 						<WrappedOnboardingStageCopy
 							title={model.headline}
-							titleClassName="mymind-wrapped-tools-stage__headline"
+							titleClassName="rudel-wrapped-tools-stage__headline"
 						/>
 					</motion.div>
 				) : (
@@ -317,7 +314,7 @@ function WrappedOnboardingToolsRegularStage(props: {
 											scale: 1,
 											y: 0,
 										}}
-										className="mymind-wrapped-tools-stage__title-shell"
+										className="rudel-wrapped-tools-stage__title-shell"
 										exit={{
 											filter: "blur(8px)",
 											opacity: 0,
@@ -339,9 +336,9 @@ function WrappedOnboardingToolsRegularStage(props: {
 								</AnimatePresence>
 							}
 							titleClassName={cn(
-								"mymind-wrapped-stage-copy__headline--intro",
-								"mymind-wrapped-tools-stage__headline",
-								"mymind-wrapped-tools-stage__headline--sequence",
+								"rudel-wrapped-stage-copy__headline--intro",
+								"rudel-wrapped-tools-stage__headline",
+								"rudel-wrapped-tools-stage__headline--sequence",
 							)}
 						/>
 					</motion.div>
@@ -361,11 +358,11 @@ function WrappedOnboardingToolsRegularStage(props: {
 										y: 14,
 									}
 						}
-						className="mymind-wrapped-tools-stage__card"
+						className="rudel-wrapped-tools-stage__card"
 						style={cardStyle}
 						transition={TOOLS_STAGE_SEQUENCE_TRANSITION}
 					>
-						<ul className="mymind-wrapped-tools-stage__list">
+						<ul className="rudel-wrapped-tools-stage__list">
 							{model.entries.map((entry, entryIndex) => {
 								const meterStyle: ToolsMeterStyle = {
 									"--tools-stage-meter-value": `${entry.usageRate ?? 0}%`,
@@ -388,7 +385,7 @@ function WrappedOnboardingToolsRegularStage(props: {
 											x: 0,
 											y: 0,
 										}}
-										className="mymind-wrapped-tools-stage__entry-shell"
+										className="rudel-wrapped-tools-stage__entry-shell"
 										initial={
 											reduceMotion
 												? {
@@ -427,7 +424,7 @@ function WrappedOnboardingToolsRegularStage(props: {
 											aria-label={`${entry.name}. ${entry.usageLabel}`}
 											aria-pressed={entryIndex === activeCardIndex}
 											className={cn(
-												"mymind-wrapped-tools-stage__entry",
+												"rudel-wrapped-tools-stage__entry",
 												entryIndex === activeCardIndex && "is-front",
 												entry.isPlaceholder && "is-placeholder",
 											)}
@@ -436,20 +433,20 @@ function WrappedOnboardingToolsRegularStage(props: {
 											style={entryStyle}
 											type="button"
 										>
-											<span className="mymind-wrapped-tools-stage__entry-top">
-												<span className="mymind-wrapped-tools-stage__entry-name">
+											<span className="rudel-wrapped-tools-stage__entry-top">
+												<span className="rudel-wrapped-tools-stage__entry-name">
 													{entry.name}
 												</span>
-												<span className="mymind-wrapped-tools-stage__entry-usage">
+												<span className="rudel-wrapped-tools-stage__entry-usage">
 													{entry.usageLabel}
 												</span>
 											</span>
 											<span
 												aria-hidden="true"
-												className="mymind-wrapped-tools-stage__meter"
+												className="rudel-wrapped-tools-stage__meter"
 											>
 												<span
-													className="mymind-wrapped-tools-stage__meter-fill"
+													className="rudel-wrapped-tools-stage__meter-fill"
 													style={meterStyle}
 												/>
 											</span>
@@ -542,8 +539,8 @@ function WrappedOnboardingToolsBaseModelStage(props: {
 	return (
 		<WrappedOnboardingStageFrame
 			className={cn(
-				"mymind-wrapped-tools-stage",
-				"mymind-wrapped-tools-stage--text-only",
+				"rudel-wrapped-tools-stage",
+				"rudel-wrapped-tools-stage--text-only",
 			)}
 			copy={
 				<WrappedOnboardingStageCopy
@@ -554,13 +551,13 @@ function WrappedOnboardingToolsBaseModelStage(props: {
 									? { filter: "blur(0px)", opacity: 1, y: 0 }
 									: { filter: "blur(8px)", opacity: 0, y: 10 }
 							}
-							className="mymind-wrapped-tools-stage__docs"
+							className="rudel-wrapped-tools-stage__docs"
 							initial={false}
 							transition={TOOLS_STAGE_SEQUENCE_TRANSITION}
 						>
 							You should try them out tho:{" "}
 							<a
-								className="mymind-wrapped-tools-stage__footnote-link"
+								className="rudel-wrapped-tools-stage__footnote-link"
 								href={ANTHROPIC_COMMANDS_DOCS_URL}
 								rel="noreferrer"
 								target="_blank"
@@ -569,7 +566,7 @@ function WrappedOnboardingToolsBaseModelStage(props: {
 							</a>{" "}
 							and{" "}
 							<a
-								className="mymind-wrapped-tools-stage__footnote-link"
+								className="rudel-wrapped-tools-stage__footnote-link"
 								href={ANTHROPIC_SUBAGENTS_DOCS_URL}
 								rel="noreferrer"
 								target="_blank"
@@ -579,9 +576,9 @@ function WrappedOnboardingToolsBaseModelStage(props: {
 							.
 						</motion.span>
 					}
-					descriptionClassName="mymind-wrapped-tools-stage__description-shell"
+					descriptionClassName="rudel-wrapped-tools-stage__description-shell"
 					title={
-						<span className="mymind-wrapped-tools-stage__line-stack">
+						<span className="rudel-wrapped-tools-stage__line-stack">
 							{lines.map((line, lineIndex) => {
 								const isLineVisible = lineIndex < visibleLineCount;
 
@@ -593,7 +590,7 @@ function WrappedOnboardingToolsBaseModelStage(props: {
 												? { filter: "blur(0px)", opacity: 1, y: 0 }
 												: { filter: "blur(8px)", opacity: 0, y: 10 }
 										}
-										className="mymind-wrapped-tools-stage__line"
+										className="rudel-wrapped-tools-stage__line"
 										initial={false}
 										transition={TOOLS_STAGE_SEQUENCE_TRANSITION}
 									>
@@ -603,7 +600,7 @@ function WrappedOnboardingToolsBaseModelStage(props: {
 							})}
 						</span>
 					}
-					titleClassName="mymind-wrapped-tools-stage__headline mymind-wrapped-tools-stage__headline--text-only"
+					titleClassName="rudel-wrapped-tools-stage__headline rudel-wrapped-tools-stage__headline--text-only"
 				/>
 			}
 		/>

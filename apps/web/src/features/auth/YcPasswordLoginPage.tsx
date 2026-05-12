@@ -43,27 +43,27 @@ export function YcPasswordLoginPage() {
 	return (
 		<WrappedRouteStageShell
 			hideTopChromeControls
-			objectClassName="mymind-wrapped-entry-stage__object--auth-form"
+			objectClassName="rudel-wrapped-entry-stage__object--auth-form"
 			stage={<YcPasswordLoginStage />}
-			stageClassName="mymind-wrapped-entry-stage--auth"
+			stageClassName="rudel-wrapped-entry-stage--auth"
 			title="YC Log in"
-			titleClassName="mymind-wrapped-entry-stage__headline--auth"
+			titleClassName="rudel-wrapped-entry-stage__headline--auth"
 		/>
 	);
 }
 
 function YcPasswordLoginStage() {
 	return (
-		<div className="mymind-wrapped-auth-panel mymind-wrapped-auth-panel--form">
-			<div className="mymind-wrapped-auth-panel__card">
-				<div className="mymind-wrapped-auth-panel__card-scale-shell">
+		<div className="rudel-wrapped-auth-panel rudel-wrapped-auth-panel--form">
+			<div className="rudel-wrapped-auth-panel__card">
+				<div className="rudel-wrapped-auth-panel__card-scale-shell">
 					<WrappedGuestPreviewCard
 						profile={YC_WRAPPED_PREVIEW_PROFILE}
 						size="hero"
 					/>
 				</div>
 			</div>
-			<div className="mymind-wrapped-auth-panel__body mymind-wrapped-auth-panel__body--form">
+			<div className="rudel-wrapped-auth-panel__body rudel-wrapped-auth-panel__body--form">
 				<YcPasswordLoginForm />
 			</div>
 		</div>
@@ -137,13 +137,13 @@ function YcPasswordLoginForm() {
 
 	return (
 		<div
-			className="mymind-wrapped-auth-form"
+			className="rudel-wrapped-auth-form"
 			data-email-auth-stage="credentials"
 		>
-			<div className="mymind-wrapped-auth-form__scene-shell">
+			<div className="rudel-wrapped-auth-form__scene-shell">
 				<motion.div
 					animate={shellMotion.animate}
-					className="mymind-wrapped-auth-form__scene mymind-wrapped-auth-form__scene--email mymind-wrapped-auth-form__scene--credentials"
+					className="rudel-wrapped-auth-form__scene rudel-wrapped-auth-form__scene--email rudel-wrapped-auth-form__scene--credentials"
 					exit={shellMotion.exit}
 					initial={motionState.getInitialState(shellMotion.initial)}
 					transition={shellMotion.transition}
@@ -151,17 +151,17 @@ function YcPasswordLoginForm() {
 					<form
 						noValidate
 						onSubmit={handleSubmit}
-						className="mymind-wrapped-auth-form__scene-form"
+						className="rudel-wrapped-auth-form__scene-form"
 					>
 						<motion.div
 							animate={fieldMotion.enter}
-							className="mymind-wrapped-auth-form__scene-fields"
+							className="rudel-wrapped-auth-form__scene-fields"
 							exit={fieldMotion.exit}
 							initial={motionState.getInitialState(fieldMotion.initial)}
 							transition={fieldMotion.transition}
 						>
 							<motion.div
-								className="mymind-wrapped-auth-form__field"
+								className="rudel-wrapped-auth-form__field"
 								transition={fieldMotion.transition}
 							>
 								<Input
@@ -182,12 +182,12 @@ function YcPasswordLoginForm() {
 											setFeedback(null);
 										}
 									}}
-									className="mymind-wrapped-auth-form__input"
+									className="rudel-wrapped-auth-form__input"
 									required
 								/>
 							</motion.div>
 							<motion.div
-								className="mymind-wrapped-auth-form__field"
+								className="rudel-wrapped-auth-form__field"
 								transition={fieldMotion.transition}
 							>
 								<Input
@@ -207,7 +207,7 @@ function YcPasswordLoginForm() {
 											setFeedback(null);
 										}
 									}}
-									className="mymind-wrapped-auth-form__input"
+									className="rudel-wrapped-auth-form__input"
 									required
 								/>
 							</motion.div>
@@ -216,7 +216,7 @@ function YcPasswordLoginForm() {
 						<YcPasswordLoginFeedback feedback={feedback} />
 
 						<YcPasswordLoginMotionItem
-							className="mymind-wrapped-auth-form__action-item mymind-wrapped-auth-form__action-item--primary"
+							className="rudel-wrapped-auth-form__action-item rudel-wrapped-auth-form__action-item--primary"
 							delay={0.08}
 							motionState={motionState}
 						>
@@ -224,7 +224,7 @@ function YcPasswordLoginForm() {
 								kind="button"
 								type="submit"
 								disabled={loading}
-								className="mymind-wrapped-auth-form__scene-action"
+								className="rudel-wrapped-auth-form__scene-action"
 							>
 								{loading ? "Signing in..." : "Log in"}
 							</WrappedPrimaryAction>
@@ -428,7 +428,7 @@ function YcPasswordLoginFeedback(props: { feedback: EmailAuthFeedback }) {
 			role={props.feedback.kind === "error" ? "alert" : "status"}
 			aria-live="polite"
 			className={cn(
-				"mymind-wrapped-auth-form__feedback",
+				"rudel-wrapped-auth-form__feedback",
 				props.feedback.kind === "error" ? "is-error" : "is-success",
 			)}
 		>

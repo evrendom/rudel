@@ -72,11 +72,11 @@ Object.defineProperty(window, "matchMedia", {
 });
 
 const WRAPPED_UNKNOWN_CARD_OVERLAY_CLASS_NAME =
-	"mymind-wrapped-auth-card-preview--unknown-overlay";
+	"rudel-wrapped-auth-card-preview--unknown-overlay";
 const WRAPPED_UNKNOWN_TO_DEFAULT_CARD_OVERLAY_CLASS_NAME =
-	"mymind-wrapped-auth-card-preview--unknown-appearance-overlay";
+	"rudel-wrapped-auth-card-preview--unknown-appearance-overlay";
 const WRAPPED_UNKNOWN_CARD_CLASS_NAME =
-	"mymind-wrapped-auth-card-preview--unknown";
+	"rudel-wrapped-auth-card-preview--unknown";
 
 async function openWrappedLoginForm(user: ReturnType<typeof userEvent.setup>) {
 	await user.click(screen.getByRole("button", { name: "Log in" }));

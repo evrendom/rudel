@@ -67,17 +67,17 @@ export function WrappedDesktopResumePromptPage(
 		: isSubmitting || state.status === "ready";
 	const extraFeedback = isPreviewBypassEnabled ? undefined : state.status ===
 		"error" ? (
-		<p className="mymind-wrapped-entry-card__feedback is-error">
+		<p className="rudel-wrapped-entry-card__feedback is-error">
 			{state.message}
 		</p>
 	) : state.status === "ready" ? (
-		<div className="mymind-wrapped-entry-card__feedback is-success">
-			<p className="mymind-wrapped-entry-card__feedback-copy">
+		<div className="rudel-wrapped-entry-card__feedback is-success">
+			<p className="rudel-wrapped-entry-card__feedback-copy">
 				{state.emailSent
 					? `We sent the desktop link to ${email}.`
 					: "Email sending is unavailable right now, so use Copy instead."}
 			</p>
-			<p className="mymind-wrapped-entry-card__feedback-copy">
+			<p className="rudel-wrapped-entry-card__feedback-copy">
 				This link expires {formatResumeExpiry(state.expiresAt)}.
 			</p>
 		</div>

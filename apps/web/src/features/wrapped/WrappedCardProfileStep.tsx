@@ -13,8 +13,8 @@ import { WrappedGuestPreviewCard } from "./WrappedGuestPreviewCard";
 import type { WrappedGuestPreviewProfile } from "./wrapped-guest-preview";
 
 const WRAPPED_CARD_PROFILE_TITLE = (
-	<span className="mymind-wrapped-auth-intro-title">
-		<span className="mymind-wrapped-auth-intro-title__line">
+	<span className="rudel-wrapped-auth-intro-title">
+		<span className="rudel-wrapped-auth-intro-title__line">
 			Make the card yours
 		</span>
 	</span>
@@ -243,12 +243,12 @@ export function WrappedCardProfileStep(props: WrappedCardProfileStepProps) {
 			}
 			footerDebugControls={debugControls}
 			leadingControl={null}
-			objectClassName="mymind-wrapped-entry-stage__object--auth-profile"
+			objectClassName="rudel-wrapped-entry-stage__object--auth-profile"
 			onBack={onBack}
 			progressStepId="card-profile"
 			stage={
-				<div className="mymind-wrapped-auth-panel mymind-wrapped-auth-panel--profile">
-					<div className="mymind-wrapped-card-profile-step__card">
+				<div className="rudel-wrapped-auth-panel rudel-wrapped-auth-panel--profile">
+					<div className="rudel-wrapped-card-profile-step__card">
 						<WrappedGuestPreviewCard
 							appearance="unknown"
 							editableDisplayName={
@@ -268,7 +268,7 @@ export function WrappedCardProfileStep(props: WrappedCardProfileStepProps) {
 									<button
 										type="button"
 										aria-label={imageEditLabel}
-										className="mymind-wrapped-card-profile-step__image-edit"
+										className="rudel-wrapped-card-profile-step__image-edit"
 										title={imageEditLabel}
 										onClick={(event) => {
 											event.stopPropagation();
@@ -276,7 +276,7 @@ export function WrappedCardProfileStep(props: WrappedCardProfileStepProps) {
 										}}
 										onPointerDown={(event) => event.stopPropagation()}
 									>
-										<ImagePlus className="mymind-wrapped-card-profile-step__image-edit-icon" />
+										<ImagePlus className="rudel-wrapped-card-profile-step__image-edit-icon" />
 									</button>
 									<input
 										ref={imageInputRef}
@@ -296,7 +296,7 @@ export function WrappedCardProfileStep(props: WrappedCardProfileStepProps) {
 						{uploadError ? (
 							<p
 								role="alert"
-								className="mymind-wrapped-card-profile-step__error"
+								className="rudel-wrapped-card-profile-step__error"
 							>
 								{uploadError}
 							</p>
@@ -304,9 +304,9 @@ export function WrappedCardProfileStep(props: WrappedCardProfileStepProps) {
 					</div>
 				</div>
 			}
-			stageClassName="mymind-wrapped-entry-stage--auth mymind-wrapped-entry-stage--auth-profile"
+			stageClassName="rudel-wrapped-entry-stage--auth rudel-wrapped-entry-stage--auth-profile"
 			title={WRAPPED_CARD_PROFILE_TITLE}
-			titleClassName="mymind-wrapped-entry-stage__headline--auth-intro"
+			titleClassName="rudel-wrapped-entry-stage__headline--auth-intro"
 			useReferenceTopChrome
 		/>
 	);

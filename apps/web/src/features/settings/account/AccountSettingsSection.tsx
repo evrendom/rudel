@@ -4,12 +4,12 @@ import { toast } from "sonner";
 import { appRoutes } from "@/app/routes";
 import { Card, CardContent } from "@/app/ui/card";
 import { Skeleton } from "@/app/ui/skeleton";
-import {
-	type PageMetric,
-	type PageSection,
-	PageViewTrackingMount,
-} from "@/features/analytics/tracking/PageViewTrackingMount";
 import { useAnalyticsTracking } from "@/features/analytics/tracking/useAnalyticsTracking";
+import {
+	type PageViewMetric,
+	type PageViewSection,
+	useTrackProductPageView,
+} from "@/features/analytics/tracking/useTrackProductPageView";
 import { AccountDangerZoneCard } from "@/features/settings/account/components/AccountDangerZoneCard";
 import { ProfileLinkedAccountsCard } from "@/features/settings/account/components/ProfileLinkedAccountsCard";
 import { ProfileOverviewCard } from "@/features/settings/account/components/ProfileOverviewCard";
@@ -127,7 +127,7 @@ export function AccountSettingsSection() {
 		}
 	};
 
-	const trackingMetrics: PageMetric[] = [
+	const trackingMetrics: PageViewMetric[] = [
 		{
 			id: "linked_accounts",
 			value: data.linkedProviders.size,
@@ -137,7 +137,7 @@ export function AccountSettingsSection() {
 			value: invitationsData.count,
 		},
 	];
-	const trackingSections: PageSection[] = [
+	const trackingSections: PageViewSection[] = [
 		{
 			id: "profile_summary",
 			state: data.state.hasData ? "populated" : "empty",
@@ -166,14 +166,15 @@ export function AccountSettingsSection() {
 		},
 	];
 
+	useTrackProductPageView({
+		isLoading: data.state.isPending || invitationsData.state.isPending,
+		hasData: data.state.hasData,
+		metrics: trackingMetrics,
+		sections: trackingSections,
+	});
+
 	return (
 		<>
-			<PageViewTrackingMount
-				isLoading={data.state.isPending || invitationsData.state.isPending}
-				hasData={data.state.hasData}
-				metrics={trackingMetrics}
-				sections={trackingSections}
-			/>
 			{data.state.isPending ? (
 				<div className="grid gap-4 px-4 lg:px-6 xl:grid-cols-[1.05fr_1fr]">
 					<Card

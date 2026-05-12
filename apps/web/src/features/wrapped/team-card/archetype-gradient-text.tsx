@@ -66,7 +66,7 @@ export function WrappedArchetypeGradientText(props: {
 		"--wrapped-reveal-archetype-gt-direction": gradient.direction,
 		"--wrapped-reveal-archetype-gt-gradient": gradient.stops,
 	};
-	const classNames = `mymind-wrapped-final-stage__gradient-text ${className}`;
+	const classNames = `rudel-wrapped-final-stage__gradient-text ${className}`;
 
 	useEffect(() => {
 		if (!hoverReplayKey) {

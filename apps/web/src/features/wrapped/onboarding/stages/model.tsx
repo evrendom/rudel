@@ -196,8 +196,8 @@ export function WrappedOnboardingModelStage(props: ModelStageProps) {
 	if (!hasAnimatedData) {
 		return (
 			<WrappedOnboardingStageFrame
-				className="mymind-wrapped-model-stage"
-				objectClassName="mymind-wrapped-model-stage__object"
+				className="rudel-wrapped-model-stage"
+				objectClassName="rudel-wrapped-model-stage__object"
 				copy={
 					<WrappedOnboardingStageCopy
 						title={model.headline}
@@ -205,10 +205,10 @@ export function WrappedOnboardingModelStage(props: ModelStageProps) {
 					/>
 				}
 				object={
-					<article className="mymind-wrapped-model-stage__card">
-						<section className="mymind-wrapped-model-stage__summary-card">
-							<div className="mymind-wrapped-model-stage__chart-shell">
-								<p className="mymind-wrapped-model-stage__empty">
+					<article className="rudel-wrapped-model-stage__card">
+						<section className="rudel-wrapped-model-stage__summary-card">
+							<div className="rudel-wrapped-model-stage__chart-shell">
+								<p className="rudel-wrapped-model-stage__empty">
 									The all-time split shows up once session history lands.
 								</p>
 							</div>
@@ -222,17 +222,17 @@ export function WrappedOnboardingModelStage(props: ModelStageProps) {
 	return (
 		<WrappedOnboardingStageFrame
 			className={cn(
-				"mymind-wrapped-model-stage",
-				isIntroCopyPhase ? "mymind-wrapped-model-stage--intro-copy" : undefined,
+				"rudel-wrapped-model-stage",
+				isIntroCopyPhase ? "rudel-wrapped-model-stage--intro-copy" : undefined,
 				isSummarySceneVisible
-					? "mymind-wrapped-model-stage--immersive"
+					? "rudel-wrapped-model-stage--immersive"
 					: undefined,
 			)}
-			objectClassName="mymind-wrapped-model-stage__object"
+			objectClassName="rudel-wrapped-model-stage__object"
 			copy={
 				<motion.div
 					layout="position"
-					className="mymind-wrapped-model-stage__copy-shell"
+					className="rudel-wrapped-model-stage__copy-shell"
 					transition={MODEL_STAGE_LAYOUT_TRANSITION}
 				>
 					<WrappedOnboardingStageCopy
@@ -244,7 +244,7 @@ export function WrappedOnboardingModelStage(props: ModelStageProps) {
 								/>
 							) : undefined
 						}
-						descriptionClassName="mymind-wrapped-model-stage__result-kicker-shell"
+						descriptionClassName="rudel-wrapped-model-stage__result-kicker-shell"
 						title={
 							<WrappedModelStageSequenceTitle
 								phase={phase}
@@ -252,7 +252,7 @@ export function WrappedOnboardingModelStage(props: ModelStageProps) {
 								resultHeadline={resultHeadline}
 							/>
 						}
-						titleClassName="mymind-wrapped-model-stage__headline mymind-wrapped-model-stage__headline--sequenced"
+						titleClassName="rudel-wrapped-model-stage__headline rudel-wrapped-model-stage__headline--sequenced"
 					/>
 				</motion.div>
 			}
@@ -302,11 +302,11 @@ function WrappedModelStageSequenceTitle(props: {
 				key={titleKey}
 				animate={{ filter: "blur(0px)", opacity: 1, scale: 1, y: 0 }}
 				className={cn(
-					"mymind-wrapped-model-stage__sequence-title",
+					"rudel-wrapped-model-stage__sequence-title",
 					titleKey === "result" &&
-						"mymind-wrapped-model-stage__sequence-title--result",
+						"rudel-wrapped-model-stage__sequence-title--result",
 					titleKey === "result" &&
-						"mymind-wrapped-model-stage__sequence-title--compact",
+						"rudel-wrapped-model-stage__sequence-title--compact",
 				)}
 				exit={{
 					filter: "blur(4px)",
@@ -338,15 +338,13 @@ function WrappedModelStageResultKicker(props: {
 	const { kicker, reduceMotion } = props;
 
 	if (reduceMotion) {
-		return (
-			<p className="mymind-wrapped-model-stage__result-kicker">{kicker}</p>
-		);
+		return <p className="rudel-wrapped-model-stage__result-kicker">{kicker}</p>;
 	}
 
 	return (
 		<motion.p
 			animate={{ filter: "blur(0px)", opacity: 1, scale: 1, y: 0 }}
-			className="mymind-wrapped-model-stage__result-kicker"
+			className="rudel-wrapped-model-stage__result-kicker"
 			initial={{ filter: "blur(8px)", opacity: 0, scale: 0.985, y: 8 }}
 			transition={{
 				delay: MODEL_STAGE_RESULT_DETAIL_DELAY_MS / 1_000,
@@ -444,10 +442,10 @@ function WrappedModelStageBody(props: {
 		<motion.div
 			layout
 			className={cn(
-				"mymind-wrapped-model-stage__scene-shell",
+				"rudel-wrapped-model-stage__scene-shell",
 				isComparisonPhase &&
-					"mymind-wrapped-model-stage__scene-shell--comparison",
-				areDetailsVisible && "mymind-wrapped-model-stage__scene-shell--details",
+					"rudel-wrapped-model-stage__scene-shell--comparison",
+				areDetailsVisible && "rudel-wrapped-model-stage__scene-shell--details",
 			)}
 			transition={{ layout: MODEL_STAGE_LAYOUT_TRANSITION }}
 		>
@@ -459,7 +457,7 @@ function WrappedModelStageBody(props: {
 					scale: isComparisonPhase ? 1.012 : 1,
 					y: isComparisonPhase ? 2 : 0,
 				}}
-				className="mymind-wrapped-model-stage__card"
+				className="rudel-wrapped-model-stage__card"
 				initial={
 					reduceMotion
 						? false
@@ -488,7 +486,7 @@ function WrappedModelStageBody(props: {
 						scale: areDetailsVisible ? 1.008 : 1,
 						y: areDetailsVisible ? -2 : 0,
 					}}
-					className="mymind-wrapped-model-stage__summary-card"
+					className="rudel-wrapped-model-stage__summary-card"
 					initial={false}
 					transition={{
 						...MODEL_STAGE_SURFACE_TRANSITION,
@@ -497,7 +495,7 @@ function WrappedModelStageBody(props: {
 				>
 					<motion.div
 						layout
-						className="mymind-wrapped-model-stage__chart-shell"
+						className="rudel-wrapped-model-stage__chart-shell"
 						transition={{ layout: MODEL_STAGE_LAYOUT_TRANSITION }}
 					>
 						<WrappedModelStageMorphChart
@@ -549,7 +547,7 @@ function WrappedModelStageMorphChart(props: {
 	return (
 		<motion.div
 			layout
-			className="mymind-wrapped-model-stage__chart-grid"
+			className="rudel-wrapped-model-stage__chart-grid"
 			transition={{ layout: MODEL_STAGE_LAYOUT_TRANSITION }}
 		>
 			{chartSlots.map((slot) => (
@@ -557,7 +555,7 @@ function WrappedModelStageMorphChart(props: {
 					key={`slot-${slot.slotIndex}`}
 					layout
 					animate={{ opacity: 1, scale: 1, y: 0 }}
-					className="mymind-wrapped-model-stage__chart-slot"
+					className="rudel-wrapped-model-stage__chart-slot"
 					initial={
 						reduceMotion || slot.slotIndex < splitCards.length
 							? false
@@ -687,7 +685,7 @@ function WrappedModelStageRaceSlot(props: {
 		<motion.div
 			animate={{ filter: "blur(0px)", opacity: 1, scale: 1, y: 0 }}
 			className={cn(
-				"mymind-wrapped-model-stage__race-row",
+				"rudel-wrapped-model-stage__race-row",
 				isLeading && "is-leading",
 			)}
 			initial={
@@ -732,17 +730,17 @@ function WrappedModelStageRaceSlot(props: {
 						},
 			}}
 		>
-			<div className="mymind-wrapped-model-stage__race-track-shell">
+			<div className="rudel-wrapped-model-stage__race-track-shell">
 				<div
 					aria-hidden="true"
-					className="mymind-wrapped-model-stage__race-track-grid"
+					className="rudel-wrapped-model-stage__race-track-grid"
 				/>
-				<div className="mymind-wrapped-model-stage__race-track">
+				<div className="rudel-wrapped-model-stage__race-track">
 					<motion.div
 						animate={{
 							opacity: areSplitFillsVisible ? 1 : 0,
 						}}
-						className="mymind-wrapped-model-stage__race-fill"
+						className="rudel-wrapped-model-stage__race-fill"
 						initial={false}
 						style={{
 							height: areSplitFillsVisible ? `${renderedFillShare}%` : "0%",
@@ -750,14 +748,14 @@ function WrappedModelStageRaceSlot(props: {
 						transition={fillTransition}
 					>
 						{shouldFloatBarText ? null : (
-							<div className="mymind-wrapped-model-stage__race-value-anchor">
+							<div className="rudel-wrapped-model-stage__race-value-anchor">
 								<motion.p
 									animate={{
 										opacity: areCountersVisible ? 1 : 0,
 										scale: areCountersVisible ? 1 : 0.92,
 										y: areCountersVisible ? 0 : 12,
 									}}
-									className="mymind-wrapped-model-stage__race-value"
+									className="rudel-wrapped-model-stage__race-value"
 									initial={false}
 									transition={{
 										opacity: {
@@ -793,7 +791,7 @@ function WrappedModelStageRaceSlot(props: {
 										scale: areCountersVisible ? 1 : 0.96,
 										y: areCountersVisible ? 0 : 10,
 									}}
-									className="mymind-wrapped-model-stage__race-session-count"
+									className="rudel-wrapped-model-stage__race-session-count"
 									initial={false}
 									transition={{
 										opacity: {
@@ -833,11 +831,11 @@ function WrappedModelStageRaceSlot(props: {
 							}}
 							aria-hidden="true"
 							className={cn(
-								"mymind-wrapped-model-stage__split-logo",
-								"mymind-wrapped-model-stage__split-logo--in-bar",
+								"rudel-wrapped-model-stage__split-logo",
+								"rudel-wrapped-model-stage__split-logo--in-bar",
 								areDetailsVisible &&
 									share === 0 &&
-									"mymind-wrapped-model-stage__split-logo--zero-result",
+									"rudel-wrapped-model-stage__split-logo--zero-result",
 							)}
 							initial={false}
 							transition={{
@@ -878,7 +876,7 @@ function WrappedModelStageRaceSlot(props: {
 				</div>
 				{shouldFloatBarText ? (
 					<div
-						className="mymind-wrapped-model-stage__race-value-anchor-shell"
+						className="rudel-wrapped-model-stage__race-value-anchor-shell"
 						style={{
 							bottom: `calc(${floatingTextBottomShare}% + clamp(0.55rem, 1.8svh, 0.85rem))`,
 						}}
@@ -889,7 +887,7 @@ function WrappedModelStageRaceSlot(props: {
 								scale: areDetailsVisible ? 1 : 0.84,
 								y: areDetailsVisible ? 0 : 14,
 							}}
-							className="mymind-wrapped-model-stage__race-value-anchor mymind-wrapped-model-stage__race-value-anchor--outside"
+							className="rudel-wrapped-model-stage__race-value-anchor rudel-wrapped-model-stage__race-value-anchor--outside"
 							initial={false}
 							transition={{
 								opacity: {
@@ -917,10 +915,10 @@ function WrappedModelStageRaceSlot(props: {
 										},
 							}}
 						>
-							<p className="mymind-wrapped-model-stage__race-value">
+							<p className="rudel-wrapped-model-stage__race-value">
 								{displayedShare}%
 							</p>
-							<p className="mymind-wrapped-model-stage__race-session-count">
+							<p className="rudel-wrapped-model-stage__race-session-count">
 								{sessionLabel}
 							</p>
 						</motion.div>
@@ -934,7 +932,7 @@ function WrappedModelStageRaceSlot(props: {
 					y: areDetailsVisible ? 0 : 8,
 				}}
 				aria-hidden={!areDetailsVisible}
-				className="mymind-wrapped-model-stage__month-label"
+				className="rudel-wrapped-model-stage__month-label"
 				initial={false}
 				transition={{
 					opacity: {
@@ -1176,7 +1174,7 @@ function ClaudeModelStageLogo() {
 		<svg
 			viewBox="0 0 1200 1200"
 			aria-hidden="true"
-			className="mymind-wrapped-model-stage__brand-icon"
+			className="rudel-wrapped-model-stage__brand-icon"
 		>
 			<path
 				fill="currentColor"
@@ -1191,7 +1189,7 @@ function CodexModelStageLogo() {
 		<svg
 			viewBox="0 0 320 320"
 			aria-hidden="true"
-			className="mymind-wrapped-model-stage__brand-icon"
+			className="rudel-wrapped-model-stage__brand-icon"
 		>
 			<path
 				fill="currentColor"

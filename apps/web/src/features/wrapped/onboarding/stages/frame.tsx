@@ -32,14 +32,14 @@ export function WrappedOnboardingStageFrame(
 	return (
 		<WrappedStageFrame
 			{...props}
-			className={cn("mymind-wrapped-onboarding-stage", props.className)}
-			copyClassName="mymind-wrapped-onboarding-stage__copy"
+			className={cn("rudel-wrapped-onboarding-stage", props.className)}
+			copyClassName="rudel-wrapped-onboarding-stage__copy"
 			objectClassName={cn(
-				"mymind-wrapped-onboarding-stage__object",
+				"rudel-wrapped-onboarding-stage__object",
 				props.objectClassName,
 			)}
 			supportClassName={cn(
-				"mymind-wrapped-onboarding-stage__support",
+				"rudel-wrapped-onboarding-stage__support",
 				props.supportClassName,
 			)}
 		/>

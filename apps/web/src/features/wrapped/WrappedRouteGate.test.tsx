@@ -1496,8 +1496,10 @@ describe("WrappedRouteGate", () => {
 				image: TEST_AVATAR_URL,
 			});
 		});
-		expect(mockRefreshAuthClientState).toHaveBeenCalled();
-		expect(screen.getByText("Wrapped setup page")).toBeInTheDocument();
+		await waitFor(() => {
+			expect(mockRefreshAuthClientState).toHaveBeenCalled();
+			expect(screen.getByText("Wrapped setup page")).toBeInTheDocument();
+		});
 	});
 
 	it("still advances when profile.updateMine fails so the user is not blocked", async () => {
