@@ -73,10 +73,10 @@ export async function hasOrgUploadsInLastDays(
 	return results.some((rows) => Number(rows[0]?.count ?? 0) > 0);
 }
 
-export function deleteOrgSessions(orgId: string): void {
+export async function deleteOrgSessions(orgId: string): Promise<void> {
 	const ch = getClickhouse();
 	const tables = getAllAdapters().map((a) => a.rawTableName);
-	Promise.all([
+	await Promise.all([
 		...tables.map((table) =>
 			ch.execute({
 				query: `DELETE FROM ${getSafeClickHouseTable(table)} WHERE organization_id = {orgId:String}`,
@@ -91,10 +91,26 @@ export function deleteOrgSessions(orgId: string): void {
 				orgId,
 			},
 		}),
-	]).catch((error) => {
-		console.error(
-			`[deleteOrgSessions] async ClickHouse deletion failed for org=${orgId}:`,
-			error,
-		);
-	});
+	]);
+}
+
+export async function deleteUserSessions(userId: string): Promise<void> {
+	const ch = getClickhouse();
+	const tables = getAllAdapters().map((a) => a.rawTableName);
+	await Promise.all([
+		...tables.map((table) =>
+			ch.execute({
+				query: `DELETE FROM ${getSafeClickHouseTable(table)} WHERE user_id = {userId:String}`,
+				query_params: {
+					userId,
+				},
+			}),
+		),
+		ch.execute({
+			query: `DELETE FROM ${getSafeClickHouseTable("rudel.session_analytics")} WHERE user_id = {userId:String}`,
+			query_params: {
+				userId,
+			},
+		}),
+	]);
 }

@@ -1,6 +1,28 @@
 import { beforeEach, describe, expect, mock, test } from "bun:test";
 import type { ClickHouseStatement } from "../clickhouse.js";
-import { getOrgSessionCount } from "../services/org-session.service.js";
+
+const clickhouseModule = await import("../clickhouse.js");
+
+const executeCalls: ClickHouseStatement[] = [];
+let executeImpl: (statement: ClickHouseStatement) => Promise<void> = () =>
+	Promise.resolve();
+const execute = mock((statement: ClickHouseStatement) => {
+	executeCalls.push(statement);
+	return executeImpl(statement);
+});
+
+mock.module("../clickhouse.js", () => ({
+	...clickhouseModule,
+	getClickhouse: () => ({
+		execute,
+		insert: mock(() => Promise.resolve()),
+		query: mock(() => Promise.resolve([])),
+	}),
+}));
+
+const orgSessionService = await import("../services/org-session.service.js");
+const { getOrgSessionCount, deleteOrgSessions, deleteUserSessions } =
+	orgSessionService;
 
 const queryCalls: ClickHouseStatement[] = [];
 let rawTableCounts = new Map<string, string>();
@@ -62,5 +84,69 @@ describe("getOrgSessionCount", () => {
 		expect(queryCalls[1]?.query).toContain("FROM rudel.codex_sessions");
 		expect(queryCalls[0]?.query).not.toContain("user_id = {userId:String}");
 		expect(queryCalls[1]?.query).not.toContain("user_id = {userId:String}");
+	});
+});
+
+describe("deleteOrgSessions", () => {
+	beforeEach(() => {
+		executeCalls.length = 0;
+		execute.mockClear();
+		executeImpl = () => Promise.resolve();
+	});
+
+	test("issues DELETE on every adapter table and session_analytics by organization_id", async () => {
+		await deleteOrgSessions("org-1");
+
+		expect(executeCalls.length).toBeGreaterThanOrEqual(2);
+		for (const call of executeCalls) {
+			expect(call.query).toMatch(/^DELETE FROM /);
+			expect(call.query).toContain("WHERE organization_id = {orgId:String}");
+			expect(call.query_params).toEqual({ orgId: "org-1" });
+		}
+		expect(
+			executeCalls.some((c) => c.query.includes("rudel.claude_sessions")),
+		).toBe(true);
+		expect(
+			executeCalls.some((c) => c.query.includes("rudel.session_analytics")),
+		).toBe(true);
+	});
+
+	test("rejects when ClickHouse fails so the caller can abort Postgres delete", async () => {
+		executeImpl = () => Promise.reject(new Error("clickhouse down"));
+
+		await expect(deleteOrgSessions("org-1")).rejects.toThrow("clickhouse down");
+	});
+});
+
+describe("deleteUserSessions", () => {
+	beforeEach(() => {
+		executeCalls.length = 0;
+		execute.mockClear();
+		executeImpl = () => Promise.resolve();
+	});
+
+	test("issues DELETE on every adapter table and session_analytics by user_id", async () => {
+		await deleteUserSessions("user-1");
+
+		expect(executeCalls.length).toBeGreaterThanOrEqual(2);
+		for (const call of executeCalls) {
+			expect(call.query).toMatch(/^DELETE FROM /);
+			expect(call.query).toContain("WHERE user_id = {userId:String}");
+			expect(call.query_params).toEqual({ userId: "user-1" });
+		}
+		expect(
+			executeCalls.some((c) => c.query.includes("rudel.claude_sessions")),
+		).toBe(true);
+		expect(
+			executeCalls.some((c) => c.query.includes("rudel.session_analytics")),
+		).toBe(true);
+	});
+
+	test("rejects when ClickHouse fails so the caller can abort Postgres delete", async () => {
+		executeImpl = () => Promise.reject(new Error("clickhouse down"));
+
+		await expect(deleteUserSessions("user-1")).rejects.toThrow(
+			"clickhouse down",
+		);
 	});
 });

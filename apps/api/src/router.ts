@@ -326,8 +326,7 @@ const deleteOrganization = os.deleteOrganization
 				);
 			}
 
-			// Fire-and-forget: ClickHouse mutations are slow, don't block on them
-			deleteOrgSessions(orgId);
+			await deleteOrgSessions(orgId);
 
 			// Delete the organization from Postgres (cascade handles member + invitation)
 			console.log(`[deleteOrganization] deleting org=${orgId} from Postgres`);

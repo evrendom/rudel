@@ -95,7 +95,10 @@ export function WorkspaceSettingsSection() {
 					</div>
 
 					<div className="mt-4 px-4 lg:px-6">
-						<WorkspaceDangerZoneCard />
+						<WorkspaceDangerZoneCard
+							organization={data.activeOrg}
+							canManage={data.canManage}
+						/>
 					</div>
 				</>
 			) : null}

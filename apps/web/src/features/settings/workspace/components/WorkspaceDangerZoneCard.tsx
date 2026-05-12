@@ -1,3 +1,7 @@
+import { AlertTriangleIcon } from "lucide-react";
+import { useState } from "react";
+import { toast } from "sonner";
+import { Button } from "@/app/ui/button";
 import {
 	Card,
 	CardContent,
@@ -5,44 +9,56 @@ import {
 	CardHeader,
 	CardTitle,
 } from "@/app/ui/card";
-import { openChatwoot } from "@/lib/chatwoot";
+import { DeleteWorkspaceDialog } from "@/features/settings/workspace/components/DeleteWorkspaceDialog";
+import { useOrganization } from "@/features/workspace/organization/useOrganization";
+import { refreshAuthClientState } from "@/lib/auth-client";
 
-export function WorkspaceDangerZoneCard() {
-	const supportLink = (
-		import.meta.env.VITE_CHATWOOT_BASE_URL ?? "https://app.chatwoot.com"
-	).trim();
-	const inlineLinkClassName = "underline underline-offset-4 hover:text-primary";
+export function WorkspaceDangerZoneCard({
+	canManage,
+	organization,
+}: {
+	canManage: boolean;
+	organization: { id: string; name: string };
+}) {
+	const { state, actions } = useOrganization();
+	const [open, setOpen] = useState(false);
+
+	const handleDeleted = async () => {
+		const nextOrg = state.organizations.find((o) => o.id !== organization.id);
+		if (nextOrg) {
+			await actions.switchOrganization(nextOrg.id);
+		}
+		refreshAuthClientState();
+		setOpen(false);
+		toast.success(`Workspace "${organization.name}" deleted`);
+	};
 
 	return (
 		<Card size="sm" className="bg-card/95 shadow-none ring-1 ring-border/60">
 			<CardHeader>
 				<CardTitle className="text-destructive">Delete workspace</CardTitle>
 				<CardDescription>
-					Workspace deletion is handled by support. Contact us if you&apos;d
-					like this workspace and its data removed.
+					Permanently delete this workspace and remove access for every member.
+					Session data is removed too. This cannot be undone.
 				</CardDescription>
 			</CardHeader>
 			<CardContent>
-				<p className="text-sm text-muted-foreground">
-					Shoot us a message via the{" "}
-					<a
-						href={supportLink}
-						className={inlineLinkClassName}
-						onClick={(event) => {
-							event.preventDefault();
-							void openChatwoot();
-						}}
-					>
-						support chat
-					</a>
-					. (you&apos;ll write with someone out of the team, not some AI bot).
-					Or email{" "}
-					<a href="mailto:evren@rudel.ai" className={inlineLinkClassName}>
-						evren@rudel.ai
-					</a>
-					.
-				</p>
+				<Button
+					type="button"
+					variant="destructive"
+					onClick={() => setOpen(true)}
+					disabled={!canManage}
+				>
+					<AlertTriangleIcon data-icon="inline-start" />
+					Delete workspace
+				</Button>
 			</CardContent>
+			<DeleteWorkspaceDialog
+				open={open}
+				onOpenChange={setOpen}
+				organization={organization}
+				onDeleted={handleDeleted}
+			/>
 		</Card>
 	);
 }

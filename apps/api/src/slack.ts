@@ -65,7 +65,6 @@ export async function notifyAccountDeletion(
 			`*Name:* ${user.name}`,
 			`*Email:* ${user.email}`,
 			`*Deleted org IDs:* ${orgList}`,
-			`_ClickHouse session data keyed by these IDs may still exist and require manual cleanup._`,
 		];
 
 		await fetch(webhookUrl, {
