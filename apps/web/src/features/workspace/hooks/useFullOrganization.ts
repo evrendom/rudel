@@ -2,7 +2,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback } from "react";
 import { authClient } from "@/lib/auth-client";
 
-interface FullOrg {
+export interface FullOrganization {
 	id: string;
 	name: string;
 	slug: string;
@@ -31,13 +31,13 @@ export function useFullOrganization(orgId: string | undefined) {
 			const res = await authClient.organization.getFullOrganization({
 				query: { organizationId: orgId as string },
 			});
-			return (res.data as unknown as FullOrg) ?? null;
+			return (res.data as unknown as FullOrganization) ?? null;
 		},
 		enabled: !!orgId,
 	});
 
 	const invalidate = useCallback(() => {
-		queryClient.invalidateQueries({ queryKey });
+		return queryClient.invalidateQueries({ queryKey });
 	}, [queryClient, queryKey]);
 
 	return { data: data ?? null, isLoading, isError, invalidate };
