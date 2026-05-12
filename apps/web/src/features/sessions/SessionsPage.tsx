@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { useDateRange } from "@/features/analytics/date-range/useDateRange";
 import { useAnalyticsQuery } from "@/features/analytics/queries/useAnalyticsQuery";
 import { useAnalyticsTracking } from "@/features/analytics/tracking/useAnalyticsTracking";
-import { useTrackDashboardView } from "@/features/analytics/tracking/useTrackDashboardView";
+import { useTrackProductPageView } from "@/features/analytics/tracking/useTrackProductPageView";
 import { isYcReviewSession } from "@/features/auth/auth-route-utils";
 import { DashboardSessionsSnapshotSection } from "@/features/dashboard/components/DashboardSessionsSnapshotSection";
 import { buildDashboardSessionTabMetrics } from "@/features/dashboard/data/dashboard-tab-adapters";
@@ -84,7 +84,7 @@ export function SessionsPage() {
 		],
 	);
 
-	useTrackDashboardView({
+	useTrackProductPageView({
 		isLoading: isSummaryPending || isSnapshotSessionsPending,
 		isError: isSummaryError || isSnapshotSessionsError,
 		hasData: (snapshotSessionsData?.length ?? 0) > 0,

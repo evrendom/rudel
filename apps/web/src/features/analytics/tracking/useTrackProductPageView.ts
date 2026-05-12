@@ -6,24 +6,24 @@ import {
 	isDashboardPageName,
 } from "@/lib/product-analytics";
 
-export type DashboardSectionState = "populated" | "empty" | "error" | "hidden";
+export type PageViewSectionState = "populated" | "empty" | "error" | "hidden";
 
-export type DashboardSection = {
+export type PageViewSection = {
 	id: string;
-	state: DashboardSectionState;
+	state: PageViewSectionState;
 	itemCount?: number | null;
 };
 
-export type DashboardMetric = {
+export type PageViewMetric = {
 	id: string;
 	value: number | null | undefined;
 };
 
-type DashboardSnapshot = {
+type PageViewSnapshot = {
 	metrics: Record<string, number | null>;
 };
 
-type DashboardPayloadValue = string | number | boolean | null | undefined;
+type PageViewPayloadValue = string | number | boolean | null | undefined;
 
 const SNAPSHOT_STORAGE_PREFIX = "product_analytics.dashboard_view";
 
@@ -47,8 +47,8 @@ function normalizeMetricValue(value: number | null | undefined) {
 }
 
 function buildSectionPayload(
-	sections: DashboardSection[],
-): Record<string, DashboardPayloadValue> {
+	sections: PageViewSection[],
+): Record<string, PageViewPayloadValue> {
 	if (sections.length === 0) {
 		return {};
 	}
@@ -58,7 +58,7 @@ function buildSectionPayload(
 	let errorCount = 0;
 	let hiddenCount = 0;
 
-	const payload: Record<string, DashboardPayloadValue> = {};
+	const payload: Record<string, PageViewPayloadValue> = {};
 
 	for (const section of sections) {
 		const sectionKey = toAnalyticsKey(section.id);
@@ -95,7 +95,7 @@ function buildSectionPayload(
 	return payload;
 }
 
-function buildMetricMap(metrics: DashboardMetric[]) {
+function buildMetricMap(metrics: PageViewMetric[]) {
 	const metricMap: Record<string, number | null> = {};
 
 	for (const metric of metrics) {
@@ -107,14 +107,14 @@ function buildMetricMap(metrics: DashboardMetric[]) {
 
 function buildMetricPayload(
 	metrics: Record<string, number | null>,
-	previousSnapshot: DashboardSnapshot | null,
-): Record<string, DashboardPayloadValue> {
+	previousSnapshot: PageViewSnapshot | null,
+): Record<string, PageViewPayloadValue> {
 	const metricEntries = Object.entries(metrics);
 	if (metricEntries.length === 0) {
 		return {};
 	}
 
-	const payload: Record<string, DashboardPayloadValue> = {
+	const payload: Record<string, PageViewPayloadValue> = {
 		comparison_status: previousSnapshot ? "comparable" : "no_previous_view",
 	};
 
@@ -167,7 +167,7 @@ function getSnapshotStorageKey(input: {
 	].join(":");
 }
 
-function readSnapshot(storageKey: string): DashboardSnapshot | null {
+function readSnapshot(storageKey: string): PageViewSnapshot | null {
 	if (typeof window === "undefined") {
 		return null;
 	}
@@ -178,7 +178,7 @@ function readSnapshot(storageKey: string): DashboardSnapshot | null {
 	}
 
 	try {
-		const parsed = JSON.parse(rawValue) as DashboardSnapshot;
+		const parsed = JSON.parse(rawValue) as PageViewSnapshot;
 		if (
 			typeof parsed !== "object" ||
 			parsed === null ||
@@ -208,20 +208,20 @@ function writeSnapshot(
 			storageKey,
 			JSON.stringify({
 				metrics,
-			} satisfies DashboardSnapshot),
+			} satisfies PageViewSnapshot),
 		);
 	} catch {
 		// Analytics snapshots are best-effort only.
 	}
 }
 
-export function useTrackDashboardView(options: {
+export function useTrackProductPageView(options: {
 	isLoading: boolean;
 	isError?: boolean;
 	hasData: boolean;
 	insightCount?: number;
-	sections?: DashboardSection[];
-	metrics?: DashboardMetric[];
+	sections?: PageViewSection[];
+	metrics?: PageViewMetric[];
 }) {
 	const { meta, state } = useDateRange();
 	const { organizationId, userId, pageName } = useAnalyticsContext();

@@ -1,10 +1,10 @@
 import { Card, CardContent } from "@/app/ui/card";
 import { Skeleton } from "@/app/ui/skeleton";
 import {
-	type PageMetric,
-	type PageSection,
-	PageViewTrackingMount,
-} from "@/features/analytics/tracking/PageViewTrackingMount";
+	type PageViewMetric,
+	type PageViewSection,
+	useTrackProductPageView,
+} from "@/features/analytics/tracking/useTrackProductPageView";
 import { CreateWorkspaceCard } from "@/features/settings/workspace/components/CreateWorkspaceCard";
 import { WorkspaceEmptyStateCard } from "@/features/settings/workspace/components/WorkspaceEmptyStateCard";
 import { WorkspaceInviteMemberCard } from "@/features/settings/workspace/components/WorkspaceInviteMemberCard";
@@ -16,7 +16,7 @@ export function MembersSettingsSection() {
 	const data = useWorkspaceSettingsData();
 	const memberCount = data.fullOrg?.members.length ?? 0;
 	const pendingOutgoingInvitationCount = data.pendingInvitations.length;
-	const trackingMetrics: PageMetric[] = [
+	const trackingMetrics: PageViewMetric[] = [
 		{
 			id: "members",
 			value: memberCount,
@@ -26,7 +26,7 @@ export function MembersSettingsSection() {
 			value: pendingOutgoingInvitationCount,
 		},
 	];
-	const trackingSections: PageSection[] = [
+	const trackingSections: PageViewSection[] = [
 		{
 			id: "organization_members",
 			state: data.state.isPending
@@ -55,39 +55,30 @@ export function MembersSettingsSection() {
 		},
 	];
 
+	useTrackProductPageView({
+		isLoading: data.state.isPending,
+		isError: data.state.isError,
+		hasData: data.state.hasOrganization ? data.state.hasData : false,
+		metrics: trackingMetrics,
+		sections: trackingSections,
+	});
+
 	if (!data.state.hasOrganization) {
 		return (
-			<>
-				<PageViewTrackingMount
-					isLoading={data.state.isPending}
-					isError={data.state.isError}
-					hasData={data.state.hasOrganization}
-					metrics={trackingMetrics}
-					sections={trackingSections}
-				/>
-				<div className="grid gap-4 px-4 lg:px-6 xl:grid-cols-[19fr_21fr]">
-					<WorkspaceEmptyStateCard />
-					<div id="new-workspace" className="scroll-mt-24">
-						<CreateWorkspaceCard
-							title="Create your first workspace"
-							description="Start a workspace before inviting members."
-						/>
-					</div>
+			<div className="grid gap-4 px-4 lg:px-6 xl:grid-cols-[19fr_21fr]">
+				<WorkspaceEmptyStateCard />
+				<div id="new-workspace" className="scroll-mt-24">
+					<CreateWorkspaceCard
+						title="Create your first workspace"
+						description="Start a workspace before inviting members."
+					/>
 				</div>
-			</>
+			</div>
 		);
 	}
 
 	return (
 		<>
-			<PageViewTrackingMount
-				isLoading={data.state.isPending}
-				isError={data.state.isError}
-				hasData={data.state.hasData}
-				metrics={trackingMetrics}
-				sections={trackingSections}
-			/>
-
 			{data.state.isPending ? (
 				<div className="grid gap-4 px-4 lg:px-6 xl:grid-cols-[3fr_2fr]">
 					{["members-loading", "invite-loading"].map((key) => (
