@@ -24,7 +24,7 @@ export function CliSetupHint({
 			: cliSetupCommands.findIndex((step) => step.id === currentStepId);
 	const containerClassName = cn(
 		isWrappedStory
-			? "mymind-wrapped-setup-steps"
+			? "rudel-wrapped-setup-steps"
 			: "mt-4 mx-auto grid w-full max-w-xl gap-3",
 	);
 

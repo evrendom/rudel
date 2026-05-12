@@ -48,25 +48,25 @@ export function WrappedOnboardingUploadStage(props: UploadStageProps) {
 
 	return (
 		<WrappedOnboardingStageFrame
-			className="mymind-wrapped-upload-stage"
+			className="rudel-wrapped-upload-stage"
 			copy={
 				<WrappedOnboardingStageCopy
 					entrancePreset="story"
 					title={model.headline}
 					description={
 						<>
-							<p className="mymind-wrapped-upload-stage__detail">
+							<p className="rudel-wrapped-upload-stage__detail">
 								{model.cardBody}
 							</p>
-							<p className="mymind-wrapped-upload-stage__body">{model.body}</p>
+							<p className="rudel-wrapped-upload-stage__body">{model.body}</p>
 						</>
 					}
-					titleClassName="mymind-wrapped-upload-stage__headline"
-					descriptionClassName="mymind-wrapped-upload-stage__description"
+					titleClassName="rudel-wrapped-upload-stage__headline"
+					descriptionClassName="rudel-wrapped-upload-stage__description"
 				/>
 			}
 			object={
-				<div className="mymind-wrapped-upload-card">
+				<div className="rudel-wrapped-upload-card">
 					<UploadStageReel
 						isUploading={model.isUploading}
 						items={model.rollItems}
@@ -76,7 +76,7 @@ export function WrappedOnboardingUploadStage(props: UploadStageProps) {
 			support={
 				<div
 					className={cn(
-						"mymind-wrapped-upload-card__tag",
+						"rudel-wrapped-upload-card__tag",
 						model.isUploading ? "is-uploading" : "is-ready",
 					)}
 				>
@@ -156,10 +156,10 @@ function UploadStageReelContent(props: UploadStageReelContentProps) {
 	}
 
 	return (
-		<div className="mymind-wrapped-upload-reel">
+		<div className="rudel-wrapped-upload-reel">
 			<div
 				ref={viewportRef}
-				className="mymind-wrapped-upload-reel__viewport"
+				className="rudel-wrapped-upload-reel__viewport"
 				onScroll={(event) => {
 					handleUploadReelScroll({
 						event,
@@ -168,7 +168,7 @@ function UploadStageReelContent(props: UploadStageReelContentProps) {
 					});
 				}}
 			>
-				<div className="mymind-wrapped-upload-reel__list">
+				<div className="rudel-wrapped-upload-reel__list">
 					{items.map((item, index) => {
 						const relativePosition = getUploadReelRelativePosition({
 							activeIndex,
@@ -181,15 +181,13 @@ function UploadStageReelContent(props: UploadStageReelContentProps) {
 							<motion.div
 								key={item.id}
 								animate={motionState}
-								className="mymind-wrapped-upload-reel__item"
+								className="rudel-wrapped-upload-reel__item"
 								data-active={relativePosition === 0 ? "true" : "false"}
 								initial={false}
 								transition={UPLOAD_REEL.spring}
 							>
-								<p className="mymind-wrapped-upload-reel__label">
-									{item.label}
-								</p>
-								<p className="mymind-wrapped-upload-reel__meta">{item.meta}</p>
+								<p className="rudel-wrapped-upload-reel__label">{item.label}</p>
+								<p className="rudel-wrapped-upload-reel__meta">{item.meta}</p>
 							</motion.div>
 						);
 					})}

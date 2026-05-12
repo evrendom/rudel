@@ -99,10 +99,10 @@ export function WrappedEmailCodeAuth(props: WrappedEmailCodeAuthProps) {
 
 	return (
 		<div
-			className="mymind-wrapped-auth-form"
+			className="rudel-wrapped-auth-form"
 			data-email-auth-stage={props.scene}
 		>
-			<div className="mymind-wrapped-auth-form__scene-shell">
+			<div className="rudel-wrapped-auth-form__scene-shell">
 				<AnimatePresence initial={false} mode="wait">
 					{props.scene === "choice" ? (
 						<WrappedAuthChoiceScene
@@ -144,15 +144,15 @@ function WrappedAuthChoiceScene(props: WrappedAuthChoiceSceneProps) {
 		<motion.div
 			key="choice"
 			animate={shellMotion.animate}
-			className="mymind-wrapped-auth-form__scene mymind-wrapped-auth-form__scene--choice"
+			className="rudel-wrapped-auth-form__scene rudel-wrapped-auth-form__scene--choice"
 			exit={shellMotion.exit}
 			initial={props.motionState.getInitialState(shellMotion.initial)}
 			transition={shellMotion.transition}
 		>
-			<div className="mymind-wrapped-auth-form__choice-footer">
-				<div className="mymind-wrapped-auth-form__social">
+			<div className="rudel-wrapped-auth-form__choice-footer">
+				<div className="rudel-wrapped-auth-form__social">
 					<WrappedMotionItem
-						className="mymind-wrapped-auth-form__action-item"
+						className="rudel-wrapped-auth-form__action-item"
 						motionState={props.motionState}
 					>
 						<WrappedSecondaryAction
@@ -162,7 +162,7 @@ function WrappedAuthChoiceScene(props: WrappedAuthChoiceSceneProps) {
 						</WrappedSecondaryAction>
 					</WrappedMotionItem>
 					<WrappedMotionItem
-						className="mymind-wrapped-auth-form__action-item"
+						className="rudel-wrapped-auth-form__action-item"
 						delay={0.04}
 						motionState={props.motionState}
 					>
@@ -175,24 +175,24 @@ function WrappedAuthChoiceScene(props: WrappedAuthChoiceSceneProps) {
 				</div>
 
 				<WrappedMotionItem
-					className="mymind-wrapped-auth-form__divider"
+					className="rudel-wrapped-auth-form__divider"
 					delay={0.08}
 					motionState={props.motionState}
 				>
-					<Separator className="mymind-wrapped-auth-form__divider-line" />
-					<span className="mymind-wrapped-auth-form__divider-label">OR</span>
-					<Separator className="mymind-wrapped-auth-form__divider-line" />
+					<Separator className="rudel-wrapped-auth-form__divider-line" />
+					<span className="rudel-wrapped-auth-form__divider-label">OR</span>
+					<Separator className="rudel-wrapped-auth-form__divider-line" />
 				</WrappedMotionItem>
 
 				<WrappedMotionItem
-					className="mymind-wrapped-auth-form__action-item"
+					className="rudel-wrapped-auth-form__action-item"
 					delay={0.12}
 					motionState={props.motionState}
 				>
 					<WrappedPrimaryAction
 						kind="button"
 						onClick={props.onOpenEmail}
-						className="mymind-wrapped-auth-form__scene-action"
+						className="rudel-wrapped-auth-form__scene-action"
 					>
 						{props.labels.email}
 					</WrappedPrimaryAction>
@@ -214,8 +214,8 @@ function WrappedEmailCodeScene(props: WrappedEmailCodeSceneProps) {
 			key="email-code"
 			animate={shellMotion.animate}
 			className={cn(
-				"mymind-wrapped-auth-form__scene mymind-wrapped-auth-form__scene--email",
-				isCodeStep ? "mymind-wrapped-auth-form__scene--credentials" : null,
+				"rudel-wrapped-auth-form__scene rudel-wrapped-auth-form__scene--email",
+				isCodeStep ? "rudel-wrapped-auth-form__scene--credentials" : null,
 			)}
 			exit={shellMotion.exit}
 			initial={props.motionState.getInitialState(shellMotion.initial)}
@@ -232,11 +232,11 @@ function WrappedEmailCodeScene(props: WrappedEmailCodeSceneProps) {
 
 					void props.onSubmit(event);
 				}}
-				className="mymind-wrapped-auth-form__scene-form"
+				className="rudel-wrapped-auth-form__scene-form"
 			>
 				<motion.div
 					animate={fieldMotion.enter}
-					className="mymind-wrapped-auth-form__scene-fields"
+					className="rudel-wrapped-auth-form__scene-fields"
 					exit={fieldMotion.exit}
 					initial={props.motionState.getInitialState(fieldMotion.initial)}
 					transition={fieldMotion.transition}
@@ -244,7 +244,7 @@ function WrappedEmailCodeScene(props: WrappedEmailCodeSceneProps) {
 					{isCodeStep ? null : (
 						<motion.div
 							layout="position"
-							className="mymind-wrapped-auth-form__field"
+							className="rudel-wrapped-auth-form__field"
 							transition={fieldMotion.transition}
 						>
 							<Input
@@ -257,7 +257,7 @@ function WrappedEmailCodeScene(props: WrappedEmailCodeSceneProps) {
 								placeholder="you@example.com"
 								value={props.email}
 								onChange={getInputChangeHandler(props.onEmailChange)}
-								className="mymind-wrapped-auth-form__input"
+								className="rudel-wrapped-auth-form__input"
 								required
 							/>
 						</motion.div>
@@ -267,7 +267,7 @@ function WrappedEmailCodeScene(props: WrappedEmailCodeSceneProps) {
 							<motion.div
 								key="email-code"
 								animate={fieldMotion.enter}
-								className="mymind-wrapped-auth-form__field mymind-wrapped-auth-form__code-field"
+								className="rudel-wrapped-auth-form__field rudel-wrapped-auth-form__code-field"
 								exit={fieldMotion.exit}
 								initial={fieldMotion.initial}
 								transition={fieldMotion.transition}
@@ -283,12 +283,12 @@ function WrappedEmailCodeScene(props: WrappedEmailCodeSceneProps) {
 									placeholder="123456"
 									value={props.emailCode}
 									onChange={getInputChangeHandler(props.onCodeChange)}
-									className="mymind-wrapped-auth-form__input mymind-wrapped-auth-step__otp-input"
+									className="rudel-wrapped-auth-form__input rudel-wrapped-auth-step__otp-input"
 									required
 								/>
 								<WrappedAuthFeedback
 									feedback={props.feedback}
-									className="mymind-wrapped-auth-form__feedback--code-note"
+									className="rudel-wrapped-auth-form__feedback--code-note"
 								/>
 							</motion.div>
 						) : null}
@@ -298,7 +298,7 @@ function WrappedEmailCodeScene(props: WrappedEmailCodeSceneProps) {
 				{isCodeStep ? null : <WrappedAuthFeedback feedback={props.feedback} />}
 
 				<WrappedMotionItem
-					className="mymind-wrapped-auth-form__action-item mymind-wrapped-auth-form__action-item--primary"
+					className="rudel-wrapped-auth-form__action-item rudel-wrapped-auth-form__action-item--primary"
 					delay={0.08}
 					motionState={props.motionState}
 				>
@@ -308,7 +308,7 @@ function WrappedEmailCodeScene(props: WrappedEmailCodeSceneProps) {
 						disabled={
 							isCodeStep && !props.usesPreviewSubmit ? props.loading : false
 						}
-						className="mymind-wrapped-auth-form__scene-action"
+						className="rudel-wrapped-auth-form__scene-action"
 					>
 						{isCodeStep
 							? props.loading
@@ -319,7 +319,7 @@ function WrappedEmailCodeScene(props: WrappedEmailCodeSceneProps) {
 				</WrappedMotionItem>
 
 				<WrappedMotionItem
-					className="mymind-wrapped-auth-form__action-item"
+					className="rudel-wrapped-auth-form__action-item"
 					delay={0.1}
 					motionState={props.motionState}
 				>
@@ -328,7 +328,7 @@ function WrappedEmailCodeScene(props: WrappedEmailCodeSceneProps) {
 						onClick={
 							isCodeStep ? props.onUseDifferentEmail : props.onReturnToChoice
 						}
-						className="mymind-wrapped-auth-form__scene-link"
+						className="rudel-wrapped-auth-form__scene-link"
 					>
 						{isCodeStep ? "Use a different email" : "Use another method"}
 					</button>
@@ -364,7 +364,7 @@ function WrappedAuthFeedback(props: WrappedAuthFeedbackProps) {
 			role={props.feedback.kind === "error" ? "alert" : "status"}
 			aria-live="polite"
 			className={cn(
-				"mymind-wrapped-auth-form__feedback",
+				"rudel-wrapped-auth-form__feedback",
 				props.className,
 				props.feedback.kind === "error" ? "is-error" : "is-success",
 			)}

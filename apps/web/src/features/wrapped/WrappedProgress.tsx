@@ -57,7 +57,7 @@ export function WrappedProgress(props: WrappedProgressProps) {
 	}, [currentActiveId, items, reduceMotion]);
 
 	return (
-		<nav className="mymind-wrapped-progress" aria-label={ariaLabel}>
+		<nav className="rudel-wrapped-progress" aria-label={ariaLabel}>
 			{items.map((item) => {
 				const isInteractive = !disabled && typeof item.onSelect === "function";
 				const isRewardCard = item.id === "card";
@@ -87,11 +87,11 @@ export function WrappedProgress(props: WrappedProgressProps) {
 									: 0.78,
 						}}
 						className={cn(
-							"mymind-wrapped-progress__button",
-							isRewardCard ? "mymind-wrapped-progress__button--reward" : null,
+							"rudel-wrapped-progress__button",
+							isRewardCard ? "rudel-wrapped-progress__button--reward" : null,
 							isVisuallyActive
-								? "mymind-wrapped-progress__button--active"
-								: "mymind-wrapped-progress__button--inactive",
+								? "rudel-wrapped-progress__button--active"
+								: "rudel-wrapped-progress__button--inactive",
 						)}
 						onClick={item.onSelect}
 					>
@@ -100,27 +100,27 @@ export function WrappedProgress(props: WrappedProgressProps) {
 								aria-hidden="true"
 								style={rewardCardStyle}
 								className={cn(
-									"mymind-wrapped-progress__reward-card",
+									"rudel-wrapped-progress__reward-card",
 									isVisuallyActive
-										? "mymind-wrapped-progress__reward-card--active"
-										: "mymind-wrapped-progress__reward-card--inactive",
+										? "rudel-wrapped-progress__reward-card--active"
+										: "rudel-wrapped-progress__reward-card--inactive",
 									reduceMotion
-										? "mymind-wrapped-progress__reward-card--reduced-motion"
+										? "rudel-wrapped-progress__reward-card--reduced-motion"
 										: null,
 								)}
 							>
 								<span
 									aria-hidden="true"
-									className="mymind-wrapped-progress__reward-card-surface mymind-wrapped-progress__reward-card-surface--dark"
+									className="rudel-wrapped-progress__reward-card-surface rudel-wrapped-progress__reward-card-surface--dark"
 								/>
 								<span
 									aria-hidden="true"
 									className={cn(
-										"mymind-wrapped-progress__reward-card-surface",
-										"mymind-wrapped-progress__reward-card-surface--active",
+										"rudel-wrapped-progress__reward-card-surface",
+										"rudel-wrapped-progress__reward-card-surface--active",
 										isVisuallyActive
-											? "mymind-wrapped-progress__reward-card-surface--visible"
-											: "mymind-wrapped-progress__reward-card-surface--hidden",
+											? "rudel-wrapped-progress__reward-card-surface--visible"
+											: "rudel-wrapped-progress__reward-card-surface--hidden",
 									)}
 								/>
 							</span>
@@ -128,10 +128,10 @@ export function WrappedProgress(props: WrappedProgressProps) {
 							<span
 								aria-hidden="true"
 								className={cn(
-									"mymind-wrapped-progress__segment",
+									"rudel-wrapped-progress__segment",
 									isVisuallyActive
-										? "mymind-wrapped-progress__segment--active"
-										: "mymind-wrapped-progress__segment--inactive",
+										? "rudel-wrapped-progress__segment--active"
+										: "rudel-wrapped-progress__segment--inactive",
 								)}
 							/>
 						)}

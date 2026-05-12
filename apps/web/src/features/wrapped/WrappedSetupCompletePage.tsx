@@ -200,7 +200,7 @@ export function WrappedSetupCompletePage(props: WrappedSetupCompletePageProps) {
 				}
 				footerDebugControls={props.debugControls}
 				footer={
-					<div className="mymind-wrapped-action-stack">
+					<div className="rudel-wrapped-action-stack">
 						<motion.div
 							animate={footerPrimaryAnimate}
 							initial={
@@ -284,7 +284,7 @@ export function WrappedSetupCompletePage(props: WrappedSetupCompletePageProps) {
 					</div>
 				}
 				onBack={isContinuingToStory ? () => {} : props.onBack}
-				stageClassName="mymind-wrapped-entry-stage--setup-complete"
+				stageClassName="rudel-wrapped-entry-stage--setup-complete"
 				progressStepId="sessions-landed"
 				stage={
 					<WrappedUploadedReposStage
@@ -393,12 +393,12 @@ function WrappedUploadedReposStage(props: {
 		return (
 			<motion.div
 				animate={cardAnimate}
-				className="mymind-wrapped-entry-card mymind-wrapped-entry-card--status"
+				className="rudel-wrapped-entry-card rudel-wrapped-entry-card--status"
 				initial={cardInitial}
 				transition={cardTransition}
 			>
-				<div className="mymind-wrapped-entry-card__status-dot" />
-				<p className="mymind-wrapped-entry-card__status-copy">
+				<div className="rudel-wrapped-entry-card__status-dot" />
+				<p className="rudel-wrapped-entry-card__status-copy">
 					Loading the repos that already sent sessions to Rudel.
 				</p>
 			</motion.div>
@@ -409,11 +409,11 @@ function WrappedUploadedReposStage(props: {
 		return (
 			<motion.div
 				animate={cardAnimate}
-				className="mymind-wrapped-entry-card mymind-wrapped-entry-card--flat"
+				className="rudel-wrapped-entry-card rudel-wrapped-entry-card--flat"
 				initial={cardInitial}
 				transition={cardTransition}
 			>
-				<p className="mymind-wrapped-entry-card__body">
+				<p className="rudel-wrapped-entry-card__body">
 					{formatSessionCount(props.totalSessionCount)} uploaded. Repo names are
 					still being resolved.
 				</p>
@@ -424,14 +424,14 @@ function WrappedUploadedReposStage(props: {
 	return (
 		<motion.div
 			animate={cardAnimate}
-			className="mymind-wrapped-entry-card mymind-wrapped-entry-card--flat mymind-wrapped-uploaded-repos"
+			className="rudel-wrapped-entry-card rudel-wrapped-entry-card--flat rudel-wrapped-uploaded-repos"
 			data-upload-more-visible={props.isUploadMoreVisible ? "true" : "false"}
 			initial={cardInitial}
 			transition={cardTransition}
 		>
 			<motion.div
 				animate={{ opacity: 1, y: 0 }}
-				className="mymind-wrapped-uploaded-repos__summary"
+				className="rudel-wrapped-uploaded-repos__summary"
 				initial={props.reduceMotion ? { opacity: 0 } : { opacity: 0, y: 10 }}
 				transition={
 					props.reduceMotion
@@ -447,7 +447,7 @@ function WrappedUploadedReposStage(props: {
 							}
 				}
 			>
-				<p className="mymind-wrapped-uploaded-repos__summary-copy">
+				<p className="rudel-wrapped-uploaded-repos__summary-copy">
 					{formatSessionCount(props.totalSessionCount)} across{" "}
 					{formatRepoCount(props.repos.length)}
 				</p>
@@ -455,7 +455,7 @@ function WrappedUploadedReposStage(props: {
 
 			<motion.div
 				animate={{ opacity: 1, y: 0 }}
-				className="mymind-wrapped-uploaded-repos__viewport"
+				className="rudel-wrapped-uploaded-repos__viewport"
 				initial={props.reduceMotion ? { opacity: 0 } : { opacity: 0, y: 14 }}
 				transition={
 					props.reduceMotion
@@ -473,13 +473,13 @@ function WrappedUploadedReposStage(props: {
 			>
 				<ul
 					aria-label="Uploaded repos"
-					className="mymind-wrapped-uploaded-repos__list"
+					className="rudel-wrapped-uploaded-repos__list"
 				>
 					{props.repos.map((repo, index) => (
 						<motion.li
 							animate={{ opacity: 1, y: 0 }}
 							key={repo.projectPath}
-							className="mymind-wrapped-uploaded-repos__item"
+							className="rudel-wrapped-uploaded-repos__item"
 							initial={
 								props.reduceMotion ? { opacity: 0 } : { opacity: 0, y: 12 }
 							}
@@ -499,7 +499,7 @@ function WrappedUploadedReposStage(props: {
 							}
 						>
 							<span
-								className="mymind-wrapped-uploaded-repos__name"
+								className="rudel-wrapped-uploaded-repos__name"
 								title={repo.name}
 							>
 								{shortenWrappedRepoLabelFromLeft(
@@ -507,7 +507,7 @@ function WrappedUploadedReposStage(props: {
 									UPLOADED_REPO_LABEL_MAX_LENGTH,
 								)}
 							</span>
-							<span className="mymind-wrapped-uploaded-repos__count">
+							<span className="rudel-wrapped-uploaded-repos__count">
 								{formatSessionCount(repo.sessions)}
 							</span>
 						</motion.li>
@@ -635,7 +635,7 @@ function WrappedUploadMorePanel(props: { isVisible: boolean }) {
 				<motion.div
 					key="upload-more-panel"
 					animate={{ opacity: 1, height: "auto", y: 0 }}
-					className="mymind-wrapped-upload-more-panel"
+					className="rudel-wrapped-upload-more-panel"
 					exit={
 						reduceMotion
 							? { opacity: 0, height: 0 }
@@ -651,22 +651,22 @@ function WrappedUploadMorePanel(props: { isVisible: boolean }) {
 						ease: [0.22, 1, 0.36, 1],
 					}}
 				>
-					<div className="mymind-wrapped-upload-more-panel__content">
-						<div className="mymind-wrapped-upload-more-panel__commands">
+					<div className="rudel-wrapped-upload-more-panel__content">
+						<div className="rudel-wrapped-upload-more-panel__commands">
 							<WrappedSetupCommandSurface
 								caption={UPLOAD_MORE_COMMANDS.primary.caption}
-								className="mymind-wrapped-upload-more-panel__surface"
+								className="rudel-wrapped-upload-more-panel__surface"
 								command={UPLOAD_MORE_COMMANDS.primary.command}
 							/>
 							<div
 								aria-hidden="true"
-								className="mymind-wrapped-upload-more-panel__or"
+								className="rudel-wrapped-upload-more-panel__or"
 							>
 								or
 							</div>
 							<WrappedSetupCommandSurface
 								caption={UPLOAD_MORE_COMMANDS.secondary.caption}
-								className="mymind-wrapped-upload-more-panel__surface"
+								className="rudel-wrapped-upload-more-panel__surface"
 								command={UPLOAD_MORE_COMMANDS.secondary.command}
 							/>
 						</div>

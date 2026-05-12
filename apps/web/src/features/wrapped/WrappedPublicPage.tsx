@@ -66,10 +66,10 @@ export function WrappedPublicPage(props: WrappedPublicPageProps) {
 	// We keep that concern isolated to mount/unmount instead of threading layout
 	// props through the whole public page tree.
 	useMountEffect(() => {
-		document.body.classList.add("mymind-wrapped-body");
+		document.body.classList.add("rudel-wrapped-body");
 
 		return () => {
-			document.body.classList.remove("mymind-wrapped-body");
+			document.body.classList.remove("rudel-wrapped-body");
 		};
 	});
 

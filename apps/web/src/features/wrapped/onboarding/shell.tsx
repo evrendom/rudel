@@ -405,10 +405,10 @@ export function WrappedTeamCardOnboarding(
 			<LayoutGroup>
 				<main
 					className={cn(
-						"mymind-wrapped-route",
-						"mymind-wrapped-route--onboarding",
-						`mymind-wrapped-route--step-${activeStep.id}`,
-						isScaleStep ? "mymind-wrapped-route--scale-rain" : undefined,
+						"rudel-wrapped-route",
+						"rudel-wrapped-route--onboarding",
+						`rudel-wrapped-route--step-${activeStep.id}`,
+						isScaleStep ? "rudel-wrapped-route--scale-rain" : undefined,
 					)}
 				>
 					{isScaleStep ? (
@@ -420,9 +420,9 @@ export function WrappedTeamCardOnboarding(
 					) : null}
 					<motion.div
 						layout
-						className="mymind-wrapped-shell mymind-wrapped-shell--reference-top-chrome relative z-[1] mx-auto flex w-full flex-1 flex-col text-foreground"
+						className="rudel-wrapped-shell rudel-wrapped-shell--reference-top-chrome relative z-[1] mx-auto flex w-full flex-1 flex-col text-foreground"
 					>
-						<motion.div layout className="mymind-wrapped-shell__frame">
+						<motion.div layout className="rudel-wrapped-shell__frame">
 							<WrappedOnboardingHeader
 								activeStep={activeStep}
 								activeStepIndex={activeStepIndex}
@@ -432,14 +432,14 @@ export function WrappedTeamCardOnboarding(
 								rewardCardBackground={rewardCardBackground}
 							/>
 
-							<div className="mymind-wrapped-stage-area">
+							<div className="rudel-wrapped-stage-area">
 								{areModelDebugControlsFloating ? (
 									<WrappedOnboardingDebugControls
 										activePreviewOptions={activePreviewOptions}
 										activePreviewState={activePreviewState}
 										activePreviewStepId={activePreviewStepId}
 										activeStep={activeStep}
-										className="mymind-wrapped-onboarding-debug-controls mymind-wrapped-onboarding-debug-controls--floating"
+										className="rudel-wrapped-onboarding-debug-controls rudel-wrapped-onboarding-debug-controls--floating"
 										generalDebugControls={footerDebugControls}
 										isDebugControlsVisible={showPreviewControls}
 										isStepTransitioning={isStepTransitioning}
@@ -452,7 +452,7 @@ export function WrappedTeamCardOnboarding(
 										key={activeStep.id}
 										layout
 										animate="animate"
-										className="mymind-wrapped-stage-slot"
+										className="rudel-wrapped-stage-slot"
 										custom={stagePresenceContext}
 										exit="exit"
 										initial="initial"

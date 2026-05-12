@@ -92,11 +92,11 @@ function getSkillsDebugLayoutClassName() {
 	);
 
 	if (debugValue === "purple" || debugValue === "bottom-gradient") {
-		return "mymind-wrapped-skills-stage--debug-purple-gradient";
+		return "rudel-wrapped-skills-stage--debug-purple-gradient";
 	}
 
 	if (debugValue === "1" || debugValue === "true") {
-		return "mymind-wrapped-skills-stage--debug-layout";
+		return "rudel-wrapped-skills-stage--debug-layout";
 	}
 
 	return null;
@@ -311,10 +311,10 @@ export function WrappedOnboardingSkillsStage(props: SkillsStageProps) {
 	return (
 		<WrappedOnboardingStageFrame
 			className={cn(
-				"mymind-wrapped-skills-stage",
-				isIntroCopyVisible && "mymind-wrapped-skills-stage--intro-copy",
-				isComponentOnly && "mymind-wrapped-skills-stage--component-only",
-				isOverlayCopyVisible && "mymind-wrapped-skills-stage--overlay-copy",
+				"rudel-wrapped-skills-stage",
+				isIntroCopyVisible && "rudel-wrapped-skills-stage--intro-copy",
+				isComponentOnly && "rudel-wrapped-skills-stage--component-only",
+				isOverlayCopyVisible && "rudel-wrapped-skills-stage--overlay-copy",
 				debugLayoutClassName,
 			)}
 			copy={
@@ -340,7 +340,7 @@ export function WrappedOnboardingSkillsStage(props: SkillsStageProps) {
 							<motion.div
 								key="skills-intro-copy"
 								animate={{ filter: "blur(0px)", opacity: 1, scale: 1, y: 0 }}
-								className="mymind-wrapped-skills-stage__debug-copy-shell"
+								className="rudel-wrapped-skills-stage__debug-copy-shell"
 								data-debug-label="intro copy motion"
 								exit={{ filter: "blur(6px)", opacity: 0, scale: 0.992, y: -8 }}
 								initial={false}
@@ -348,7 +348,7 @@ export function WrappedOnboardingSkillsStage(props: SkillsStageProps) {
 							>
 								<WrappedOnboardingStageCopy
 									title={<WrappedSkillsIntroLine reduceMotion={reduceMotion} />}
-									titleClassName="mymind-wrapped-stage-copy__headline--intro"
+									titleClassName="rudel-wrapped-stage-copy__headline--intro"
 								/>
 							</motion.div>
 						) : null}
@@ -362,7 +362,7 @@ export function WrappedOnboardingSkillsStage(props: SkillsStageProps) {
 							scale: 1,
 							y: 0,
 						}}
-						className="mymind-wrapped-skills-stage__debug-copy-shell"
+						className="rudel-wrapped-skills-stage__debug-copy-shell"
 						data-debug-label="overlay copy motion"
 						initial={{
 							filter: "blur(10px)",
@@ -382,29 +382,29 @@ export function WrappedOnboardingSkillsStage(props: SkillsStageProps) {
 			object={
 				isEmptySkillsBoard ? (
 					<div
-						className="mymind-wrapped-skills-stage__empty-state"
+						className="rudel-wrapped-skills-stage__empty-state"
 						data-debug-label="empty state"
 					>
 						<div
 							aria-hidden="true"
-							className="mymind-wrapped-skills-stage__empty-icon-shell"
+							className="rudel-wrapped-skills-stage__empty-icon-shell"
 							data-debug-label="empty icon shell"
 						>
-							<span className="mymind-wrapped-skills-stage__empty-code">
+							<span className="rudel-wrapped-skills-stage__empty-code">
 								404
 							</span>
-							<span className="mymind-wrapped-skills-stage__empty-icon-badge">
+							<span className="rudel-wrapped-skills-stage__empty-icon-badge">
 								<Frown
-									className="mymind-wrapped-skills-stage__empty-icon"
+									className="rudel-wrapped-skills-stage__empty-icon"
 									strokeWidth={1.9}
 								/>
 							</span>
 						</div>
 						{model.emptyState === "no-signal" ? (
-							<p className="mymind-wrapped-skills-stage__empty-caption">
+							<p className="rudel-wrapped-skills-stage__empty-caption">
 								you should try skills out,{" "}
 								<a
-									className="mymind-wrapped-skills-stage__footnote-link"
+									className="rudel-wrapped-skills-stage__footnote-link"
 									href={ANTHROPIC_SKILLS_DOCS_URL}
 									rel="noreferrer"
 									target="_blank"
@@ -417,20 +417,20 @@ export function WrappedOnboardingSkillsStage(props: SkillsStageProps) {
 				) : isIntroCopyVisible ? undefined : (
 					<motion.div
 						animate={{ filter: "blur(0px)", opacity: 1, y: 0 }}
-						className="mymind-wrapped-skills-stage__object-shell"
+						className="rudel-wrapped-skills-stage__object-shell"
 						data-debug-label="object shell"
 						initial={{ filter: "blur(10px)", opacity: 0, y: 14 }}
 						transition={SKILLS_STAGE_OBJECT_TRANSITION}
 					>
 						<div
-							className="mymind-wrapped-skills-stage__stack-frame"
+							className="rudel-wrapped-skills-stage__stack-frame"
 							data-debug-label="stack frame"
 							data-scrollable={model.isScrollable ? "true" : "false"}
 							data-stack-stage={skillsEntranceStage}
 						>
 							<section
 								aria-label="Skill rankings"
-								className="mymind-wrapped-skills-stage__stack"
+								className="rudel-wrapped-skills-stage__stack"
 								data-debug-label="scroll stack"
 								data-scrollable={model.isScrollable ? "true" : "false"}
 								data-stack-stage={skillsEntranceStage}
@@ -440,7 +440,7 @@ export function WrappedOnboardingSkillsStage(props: SkillsStageProps) {
 								}
 							>
 								<div
-									className="mymind-wrapped-skills-stage__stack-track"
+									className="rudel-wrapped-skills-stage__stack-track"
 									data-debug-label="stack track"
 									style={stackStyle}
 								>
@@ -470,7 +470,7 @@ export function WrappedOnboardingSkillsStage(props: SkillsStageProps) {
 											<article
 												key={card.id}
 												className={cn(
-													"mymind-wrapped-skills-stage__card",
+													"rudel-wrapped-skills-stage__card",
 													((isDeckVisible && cardIndex === activeCardIndex) ||
 														(skillsEntranceStage === "deal" &&
 															frontDealCardIndex !== null &&
@@ -483,29 +483,29 @@ export function WrappedOnboardingSkillsStage(props: SkillsStageProps) {
 											>
 												<div
 													className={cn(
-														"mymind-wrapped-skills-stage__card-item",
+														"rudel-wrapped-skills-stage__card-item",
 														card.item.isPlaceholder && "is-placeholder",
 													)}
 													data-debug-label={`card ${card.item.rank} item grid`}
 												>
 													<span
-														className="mymind-wrapped-skills-stage__item-rank"
+														className="rudel-wrapped-skills-stage__item-rank"
 														data-debug-label={`rank ${card.item.rank}`}
 													>
 														{card.item.rank}
 													</span>
 													<div
-														className="mymind-wrapped-skills-stage__item-copy"
+														className="rudel-wrapped-skills-stage__item-copy"
 														data-debug-label={`card ${card.item.rank} copy`}
 													>
 														<p
-															className="mymind-wrapped-skills-stage__item-name"
+															className="rudel-wrapped-skills-stage__item-name"
 															data-debug-label={`card ${card.item.rank} name`}
 														>
 															{card.item.name}
 														</p>
 														<p
-															className="mymind-wrapped-skills-stage__item-meta"
+															className="rudel-wrapped-skills-stage__item-meta"
 															data-debug-label={`card ${card.item.rank} meta`}
 														>
 															{card.item.meta}
@@ -530,7 +530,7 @@ function WrappedSkillsIntroLine(props: { reduceMotion: boolean }) {
 
 	return (
 		<span
-			className="mymind-wrapped-skills-stage__intro-line"
+			className="rudel-wrapped-skills-stage__intro-line"
 			data-debug-label="intro line"
 		>
 			{SKILLS_STAGE_INTRO_TOKENS.map((token, tokenIndex) => (
@@ -541,7 +541,7 @@ function WrappedSkillsIntroLine(props: { reduceMotion: boolean }) {
 							? { opacity: 1 }
 							: { filter: "blur(0px)", opacity: 1, y: 0 }
 					}
-					className="mymind-wrapped-skills-stage__intro-token"
+					className="rudel-wrapped-skills-stage__intro-token"
 					data-debug-label={`intro token: ${token}`}
 					initial={
 						reduceMotion

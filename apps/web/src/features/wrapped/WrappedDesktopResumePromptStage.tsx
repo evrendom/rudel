@@ -36,28 +36,28 @@ export function WrappedDesktopResumePromptStage(
 					</>
 				}
 				entrancePreset="setup"
-				stageClassName="mymind-wrapped-entry-stage--mobile-handoff mymind-wrapped-entry-stage--desktop-resume-prompt"
+				stageClassName="rudel-wrapped-entry-stage--mobile-handoff rudel-wrapped-entry-stage--desktop-resume-prompt"
 				progressStepId="desktop-ready"
 				stage={
-					<div className="mymind-wrapped-entry-card mymind-wrapped-entry-card--prompt-shellless">
-						<div className="mymind-wrapped-action-stack">
+					<div className="rudel-wrapped-entry-card rudel-wrapped-entry-card--prompt-shellless">
+						<div className="rudel-wrapped-action-stack">
 							{primaryAction}
 							{feedback}
 						</div>
 					</div>
 				}
 				title={
-					<span className="mymind-wrapped-mobile-handoff-title">
+					<span className="rudel-wrapped-mobile-handoff-title">
 						<Monitor
 							aria-hidden="true"
-							className="mymind-wrapped-mobile-handoff-title__icon"
+							className="rudel-wrapped-mobile-handoff-title__icon"
 						/>
-						<span className="mymind-wrapped-mobile-handoff-title__label">
+						<span className="rudel-wrapped-mobile-handoff-title__label">
 							Continue setup on desktop
 						</span>
 					</span>
 				}
-				titleClassName="mymind-wrapped-entry-stage__headline--desktop-handoff"
+				titleClassName="rudel-wrapped-entry-stage__headline--desktop-handoff"
 			/>
 		</MotionConfig>
 	);

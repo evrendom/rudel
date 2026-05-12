@@ -215,19 +215,19 @@ export function WrappedDesktopResumePreviewStage(
 						initial={WRAPPED_DESKTOP_HANDOFF_ENTRANCE.fallback.initial}
 						transition={WRAPPED_DESKTOP_HANDOFF_ENTRANCE.fallback.transition}
 					>
-						<div className="mymind-wrapped-entry-card__or-row">
+						<div className="rudel-wrapped-entry-card__or-row">
 							<span>OR</span>
 						</div>
-						<div className="mymind-wrapped-entry-card__desktop-copy-surface mymind-wrapped-entry-card__desktop-copy-surface--flat">
+						<div className="rudel-wrapped-entry-card__desktop-copy-surface rudel-wrapped-entry-card__desktop-copy-surface--flat">
 							<LinkIcon
 								aria-hidden="true"
-								className="mymind-wrapped-entry-card__desktop-copy-icon"
+								className="rudel-wrapped-entry-card__desktop-copy-icon"
 							/>
-							<div className="mymind-wrapped-entry-card__desktop-copy-text">
+							<div className="rudel-wrapped-entry-card__desktop-copy-text">
 								{copyLabel}
 							</div>
 							<button
-								className="mymind-wrapped-entry-card__desktop-copy-button"
+								className="rudel-wrapped-entry-card__desktop-copy-button"
 								onClick={() => void handleCopyDesktopLink()}
 								type="button"
 							>
@@ -236,7 +236,7 @@ export function WrappedDesktopResumePreviewStage(
 										<motion.span
 											key={`copy-sheen-${copyPulseKey}`}
 											aria-hidden="true"
-											className="mymind-wrapped-button-motion-sheen"
+											className="rudel-wrapped-button-motion-sheen"
 											animate={
 												reduceMotion
 													? { opacity: [0, 0.18, 0] }
@@ -261,14 +261,14 @@ export function WrappedDesktopResumePreviewStage(
 										/>
 									) : null}
 								</AnimatePresence>
-								<span className="mymind-wrapped-button-motion-shell">
+								<span className="rudel-wrapped-button-motion-shell">
 									<AnimatePresence initial={false} mode="wait">
 										<motion.span
 											key={copyButtonState}
 											animate={
 												WRAPPED_DESKTOP_HANDOFF_ENTRANCE.buttonContent.animate
 											}
-											className="mymind-wrapped-button-motion-content mymind-wrapped-button-motion-content--copy"
+											className="rudel-wrapped-button-motion-content rudel-wrapped-button-motion-content--copy"
 											exit={WRAPPED_DESKTOP_HANDOFF_ENTRANCE.buttonContent.exit}
 											initial={
 												WRAPPED_DESKTOP_HANDOFF_ENTRANCE.buttonContent.initial
@@ -278,7 +278,7 @@ export function WrappedDesktopResumePreviewStage(
 													.transition
 											}
 										>
-											<span className="mymind-wrapped-button-motion-label">
+											<span className="rudel-wrapped-button-motion-label">
 												{copied ? "Copied" : "Copy"}
 											</span>
 										</motion.span>
@@ -312,7 +312,7 @@ export function WrappedDesktopResumePreviewStage(
 				>
 					<Button
 						type="button"
-						className="mymind-wrapped-entry-action mymind-wrapped-mobile-handoff-action h-11 rounded-full px-7 [font-family:var(--app-font-heading)] text-[1.0625rem] font-semibold"
+						className="rudel-wrapped-entry-action rudel-wrapped-mobile-handoff-action h-11 rounded-full px-7 [font-family:var(--app-font-heading)] text-[1.0625rem] font-semibold"
 						data-motion-state={primaryVisualState}
 						aria-label={primaryActionAccessibilityLabel}
 						disabled={isPrimaryActionDisabled}
@@ -323,7 +323,7 @@ export function WrappedDesktopResumePreviewStage(
 								<motion.span
 									key="primary-fill"
 									aria-hidden="true"
-									className="mymind-wrapped-button-motion-fill"
+									className="rudel-wrapped-button-motion-fill"
 									animate={
 										reduceMotion
 											? { opacity: [0.16, 0] }
@@ -347,7 +347,7 @@ export function WrappedDesktopResumePreviewStage(
 								<motion.span
 									key={`primary-sheen-${primaryPulseKey}`}
 									aria-hidden="true"
-									className="mymind-wrapped-button-motion-sheen mymind-wrapped-button-motion-sheen--primary"
+									className="rudel-wrapped-button-motion-sheen rudel-wrapped-button-motion-sheen--primary"
 									animate={
 										reduceMotion
 											? { opacity: [0, 0.24, 0] }
@@ -370,7 +370,7 @@ export function WrappedDesktopResumePreviewStage(
 								/>
 							) : null}
 						</AnimatePresence>
-						<span className="mymind-wrapped-button-motion-shell">
+						<span className="rudel-wrapped-button-motion-shell">
 							<span className="relative inline-flex min-w-0 items-center justify-center overflow-hidden">
 								<AnimatePresence initial={false} mode="wait">
 									<motion.span
@@ -378,7 +378,7 @@ export function WrappedDesktopResumePreviewStage(
 										animate={
 											WRAPPED_DESKTOP_HANDOFF_ENTRANCE.buttonContent.animate
 										}
-										className="mymind-wrapped-button-motion-content"
+										className="rudel-wrapped-button-motion-content"
 										exit={WRAPPED_DESKTOP_HANDOFF_ENTRANCE.buttonContent.exit}
 										initial={
 											WRAPPED_DESKTOP_HANDOFF_ENTRANCE.buttonContent.initial
@@ -393,25 +393,25 @@ export function WrappedDesktopResumePreviewStage(
 													aria-hidden="true"
 													className={
 														reduceMotion
-															? "mymind-wrapped-mobile-handoff-action__icon mymind-wrapped-mobile-handoff-action__icon--centered"
-															: "mymind-wrapped-mobile-handoff-action__icon mymind-wrapped-mobile-handoff-action__icon--centered animate-spin"
+															? "rudel-wrapped-mobile-handoff-action__icon rudel-wrapped-mobile-handoff-action__icon--centered"
+															: "rudel-wrapped-mobile-handoff-action__icon rudel-wrapped-mobile-handoff-action__icon--centered animate-spin"
 													}
 												/>
 												<span className="sr-only">Sending link...</span>
 											</>
 										) : primaryVisualState === "success" ? (
-											<span className="mymind-wrapped-button-motion-label">
+											<span className="rudel-wrapped-button-motion-label">
 												{resolvedPrimaryActionLabel}
 											</span>
 										) : (
 											<>
-												<span className="mymind-wrapped-button-motion-icon">
+												<span className="rudel-wrapped-button-motion-icon">
 													<Mail
 														aria-hidden="true"
-														className="mymind-wrapped-mobile-handoff-action__icon"
+														className="rudel-wrapped-mobile-handoff-action__icon"
 													/>
 												</span>
-												<span className="mymind-wrapped-button-motion-label">
+												<span className="rudel-wrapped-button-motion-label">
 													{resolvedPrimaryActionLabel}
 												</span>
 											</>

@@ -22,7 +22,7 @@ describe("WrappedTeamMemberCardBack", () => {
 
 		const metricRow = screen.getByText("FAV SKILL").closest("tr");
 		expect(metricRow).toHaveClass(
-			"mymind-wrapped-team-card-back__metric-row--value-truncate-start",
+			"rudel-wrapped-team-card-back__metric-row--value-truncate-start",
 		);
 		expect(
 			screen.getByText("extremely-long-favorite-skill-name"),
@@ -35,7 +35,7 @@ describe("WrappedTeamMemberCardBack", () => {
 		expect(screen.getByText("MEMBER")).toBeInTheDocument();
 		const decimalsText = screen.getByText("Decimals");
 		const badge = decimalsText.closest(
-			".mymind-wrapped-team-card-edition-badge",
+			".rudel-wrapped-team-card-edition-badge",
 		);
 		expect(decimalsText).toHaveClass("sr-only");
 		expect(badge).not.toHaveTextContent("MEMBER");

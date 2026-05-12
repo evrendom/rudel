@@ -20,10 +20,10 @@ export function WrappedSetupCommandSurface(props: {
 
 	return (
 		<div
-			className={cn("mymind-wrapped-setup-command__surface-shell", className)}
+			className={cn("rudel-wrapped-setup-command__surface-shell", className)}
 		>
 			{caption ? (
-				<p className="mymind-wrapped-setup-command__surface-caption">
+				<p className="rudel-wrapped-setup-command__surface-caption">
 					{caption}
 				</p>
 			) : null}
@@ -80,21 +80,21 @@ function CopyableCommandSurface(props: { command: string }) {
 
 	return (
 		<div
-			className="mymind-wrapped-setup-command-surface"
+			className="rudel-wrapped-setup-command-surface"
 			data-copy-state={copyStage}
 		>
-			<figure className="mymind-wrapped-setup-command-surface__figure">
-				<pre className="mymind-wrapped-setup-command-surface__pre">
-					<code className="mymind-wrapped-setup-command-surface__code-line">
+			<figure className="rudel-wrapped-setup-command-surface__figure">
+				<pre className="rudel-wrapped-setup-command-surface__pre">
+					<code className="rudel-wrapped-setup-command-surface__code-line">
 						<span
-							className="mymind-wrapped-setup-command-surface__line"
+							className="rudel-wrapped-setup-command-surface__line"
 							data-line=""
 						>
-							<span className="mymind-wrapped-setup-command-surface__token mymind-wrapped-setup-command-surface__token--command">
+							<span className="rudel-wrapped-setup-command-surface__token rudel-wrapped-setup-command-surface__token--command">
 								{leadingToken}
 							</span>
 							{trailingTokens ? (
-								<span className="mymind-wrapped-setup-command-surface__token mymind-wrapped-setup-command-surface__token--args">
+								<span className="rudel-wrapped-setup-command-surface__token rudel-wrapped-setup-command-surface__token--args">
 									{trailingTokens}
 								</span>
 							) : null}
@@ -104,7 +104,7 @@ function CopyableCommandSurface(props: { command: string }) {
 			</figure>
 			<button
 				type="button"
-				className="mymind-wrapped-setup-command-surface__copy-button"
+				className="rudel-wrapped-setup-command-surface__copy-button"
 				aria-label={copyStage === "copied" ? "Copied" : "Copy to clipboard"}
 				data-copy-state={copyStage}
 				onClick={() => void handleCopy()}
@@ -150,7 +150,7 @@ function CommandCopyIcon(props: {
 			xmlns="http://www.w3.org/2000/svg"
 			fill="none"
 			aria-hidden="true"
-			className="mymind-wrapped-setup-command-surface__copy-icon"
+			className="rudel-wrapped-setup-command-surface__copy-icon"
 		>
 			<motion.rect
 				x="4.75"

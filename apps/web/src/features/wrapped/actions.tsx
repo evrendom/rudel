@@ -26,7 +26,7 @@ type WrappedSecondaryActionProps = {
 
 export function WrappedPrimaryAction(props: WrappedPrimaryActionProps) {
 	const className = cn(
-		"mymind-wrapped-primary-action h-11 rounded-full px-7 [font-family:var(--app-font-heading)] text-[1.0625rem] font-semibold",
+		"rudel-wrapped-primary-action h-11 rounded-full px-7 [font-family:var(--app-font-heading)] text-[1.0625rem] font-semibold",
 		props.className,
 	);
 
@@ -51,7 +51,7 @@ export function WrappedPrimaryAction(props: WrappedPrimaryActionProps) {
 		<button type={type ?? "button"} {...buttonProps} className={className}>
 			<span>{children}</span>
 			{icon ? (
-				<span className="mymind-wrapped-primary-action__icon">{icon}</span>
+				<span className="rudel-wrapped-primary-action__icon">{icon}</span>
 			) : null}
 		</button>
 	);
@@ -64,7 +64,7 @@ export function WrappedSecondaryAction(props: WrappedSecondaryActionProps) {
 			disabled={props.disabled}
 			onClick={props.onClick}
 			className={cn(
-				"mymind-wrapped-secondary-action rounded-full [font-family:var(--app-font-heading)] text-[1.0625rem] font-semibold",
+				"rudel-wrapped-secondary-action rounded-full [font-family:var(--app-font-heading)] text-[1.0625rem] font-semibold",
 				props.className,
 			)}
 		>

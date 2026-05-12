@@ -55,18 +55,18 @@ export function WrappedPublicCardScreen(props: WrappedPublicCardScreenProps) {
 	const tiltController = useWrappedCardTilt();
 
 	return (
-		<main className="mymind-wrapped-route mymind-wrapped-route--onboarding mymind-wrapped-route--step-card mymind-wrapped-route--public-card">
-			<div className="mymind-wrapped-shell mymind-wrapped-shell--reference-top-chrome relative z-[1] mx-auto flex w-full flex-1 flex-col text-foreground">
+		<main className="rudel-wrapped-route rudel-wrapped-route--onboarding rudel-wrapped-route--step-card rudel-wrapped-route--public-card">
+			<div className="rudel-wrapped-shell rudel-wrapped-shell--reference-top-chrome relative z-[1] mx-auto flex w-full flex-1 flex-col text-foreground">
 				<div
 					className={cn(
-						"mymind-wrapped-shell__frame",
-						debugControls ? null : "mymind-wrapped-shell__frame--no-footer",
+						"rudel-wrapped-shell__frame",
+						debugControls ? null : "rudel-wrapped-shell__frame--no-footer",
 					)}
 				>
 					<WrappedPublicCardTopTraySpacer />
 
-					<div className="mymind-wrapped-stage-area">
-						<div className="mymind-wrapped-stage-slot">
+					<div className="rudel-wrapped-stage-area">
+						<div className="rudel-wrapped-stage-slot">
 							<div className="flex w-full flex-1">
 								<WrappedTeamCardPublicStage
 									action={action}
@@ -120,14 +120,14 @@ export function WrappedPublicCardAction(props: {
 	return (
 		<a
 			className={cn(
-				"mymind-wrapped-primary-action h-11 rounded-full px-7 [font-family:var(--app-font-heading)] text-[1.0625rem] font-semibold",
+				"rudel-wrapped-primary-action h-11 rounded-full px-7 [font-family:var(--app-font-heading)] text-[1.0625rem] font-semibold",
 				className,
 			)}
 			href={href}
 			onClick={onClick}
 		>
 			<span>{children}</span>
-			<span className="mymind-wrapped-primary-action__icon">
+			<span className="rudel-wrapped-primary-action__icon">
 				<ChevronRight className="size-4" />
 			</span>
 		</a>
@@ -138,7 +138,7 @@ function WrappedPublicCardTopTraySpacer() {
 	return (
 		<div
 			aria-hidden="true"
-			className="mymind-wrapped-top-tray mymind-wrapped-top-tray--empty"
+			className="rudel-wrapped-top-tray rudel-wrapped-top-tray--empty"
 		/>
 	);
 }

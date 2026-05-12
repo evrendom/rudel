@@ -296,7 +296,7 @@ function runModelFooterClearanceRule(
 ) {
 	const wrappedCssFile = getAuditFile(auditFiles, WRAPPED_CSS_PATH);
 	const modelStageObjectHasNegativeBottomMargin =
-		/\.mymind-wrapped-model-stage\.mymind-wrapped-stage--without-support\.mymind-wrapped-model-stage--immersive\s*\n\s*\.mymind-wrapped-stage__object\s*\{[^}]*margin-block-end:\s*calc\(-1\s*\*/s.test(
+		/\.rudel-wrapped-model-stage\.rudel-wrapped-stage--without-support\.rudel-wrapped-model-stage--immersive\s*\n\s*\.rudel-wrapped-stage__object\s*\{[^}]*margin-block-end:\s*calc\(-1\s*\*/s.test(
 			wrappedCssFile.content,
 		);
 
@@ -320,11 +320,11 @@ function runModelShortViewportRule(
 ) {
 	const wrappedCssFile = getAuditFile(auditFiles, WRAPPED_CSS_PATH);
 	const hasShortViewportModelChartOverrides =
-		/@media\s*\(max-height:\s*900px\)\s*\{[\s\S]*mymind-wrapped-model-stage__chart-shell[\s\S]*mymind-wrapped-model-stage__race-row[\s\S]*mymind-wrapped-model-stage__race-track-shell/.test(
+		/@media\s*\(max-height:\s*900px\)\s*\{[\s\S]*rudel-wrapped-model-stage__chart-shell[\s\S]*rudel-wrapped-model-stage__race-row[\s\S]*rudel-wrapped-model-stage__race-track-shell/.test(
 			wrappedCssFile.content,
 		);
 	const hasShortViewportModelShellOverrides =
-		/@media\s*\(max-height:\s*900px\)\s*\{[\s\S]*mymind-wrapped-route--step-model\s+\.mymind-wrapped-shell[\s\S]*--wrapped-shell-bottom-inset/.test(
+		/@media\s*\(max-height:\s*900px\)\s*\{[\s\S]*rudel-wrapped-route--step-model\s+\.rudel-wrapped-shell[\s\S]*--wrapped-shell-bottom-inset/.test(
 			wrappedCssFile.content,
 		);
 
@@ -335,7 +335,7 @@ function runModelShortViewportRule(
 	findings.push({
 		excerpt:
 			"Missing model chart and shell overrides inside `@media (max-height: 900px)`.",
-		line: getLineNumber(wrappedCssFile, /mymind-wrapped-model-stage__chart-shell/),
+		line: getLineNumber(wrappedCssFile, /rudel-wrapped-model-stage__chart-shell/),
 		message:
 			"The model comparison chart needs short-height sizing and shell inset overrides so its bar labels keep clear of the Continue button before the browser gets below 820px.",
 		relativePath: WRAPPED_CSS_PATH,

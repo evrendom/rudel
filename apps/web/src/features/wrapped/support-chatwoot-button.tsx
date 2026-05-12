@@ -54,13 +54,13 @@ export function WrappedSupportChatwootButton() {
 		<button
 			type="button"
 			aria-label={isChatwootOpen ? "Close support" : "Open support"}
-			className="mymind-wrapped-top-tray__edge-control"
+			className="rudel-wrapped-top-tray__edge-control"
 			onClick={() => void handleClick()}
 		>
 			{isChatwootOpen ? (
-				<XCircle className="mymind-wrapped-top-tray__edge-icon mymind-wrapped-top-tray__edge-icon--help" />
+				<XCircle className="rudel-wrapped-top-tray__edge-icon rudel-wrapped-top-tray__edge-icon--help" />
 			) : (
-				<HelpCircle className="mymind-wrapped-top-tray__edge-icon mymind-wrapped-top-tray__edge-icon--help" />
+				<HelpCircle className="rudel-wrapped-top-tray__edge-icon rudel-wrapped-top-tray__edge-icon--help" />
 			)}
 		</button>
 	);
@@ -73,7 +73,7 @@ export function WrappedSupportChatwootButton() {
 		<>
 			<span
 				aria-hidden="true"
-				className="mymind-wrapped-top-tray__utility-placeholder"
+				className="rudel-wrapped-top-tray__utility-placeholder"
 			/>
 			{typeof document === "undefined"
 				? null
@@ -81,11 +81,11 @@ export function WrappedSupportChatwootButton() {
 						<button
 							type="button"
 							aria-label="Close support"
-							className="mymind-wrapped-top-tray__edge-control"
+							className="rudel-wrapped-top-tray__edge-control"
 							style={PERSISTENT_CLOSE_CONTROL_STYLE}
 							onClick={() => void handleClick()}
 						>
-							<XCircle className="mymind-wrapped-top-tray__edge-icon mymind-wrapped-top-tray__edge-icon--help" />
+							<XCircle className="rudel-wrapped-top-tray__edge-icon rudel-wrapped-top-tray__edge-icon--help" />
 						</button>,
 						document.body,
 					)}

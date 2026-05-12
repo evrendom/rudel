@@ -22,7 +22,7 @@ export function WrappedOnboardingIntroStage(props: IntroStageProps) {
 
 	return (
 		<WrappedOnboardingStageFrame
-			className="mymind-wrapped-intro-stage"
+			className="rudel-wrapped-intro-stage"
 			copy={
 				<motion.div
 					animate={
@@ -48,7 +48,7 @@ export function WrappedOnboardingIntroStage(props: IntroStageProps) {
 						entrancePreset="story"
 						eyebrow={greetingName}
 						title="Ready to see what your sessions say about you?"
-						titleClassName="mymind-wrapped-stage-copy__headline--intro"
+						titleClassName="rudel-wrapped-stage-copy__headline--intro"
 						description="Claude Code and Codex, pulled into one story."
 					/>
 				</motion.div>

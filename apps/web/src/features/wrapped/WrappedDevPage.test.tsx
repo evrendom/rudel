@@ -120,7 +120,7 @@ describe("WrappedDevPage", () => {
 			screen.getByRole("heading", { name: "Continue setup on desktop" }),
 		).toBeInTheDocument();
 		expect(
-			container.querySelector(".mymind-wrapped-top-tray__status"),
+			container.querySelector(".rudel-wrapped-top-tray__status"),
 		).toBeNull();
 		expect(
 			screen.getByRole("navigation", { name: "Wrapped onboarding progress" }),
@@ -137,10 +137,10 @@ describe("WrappedDevPage", () => {
 		expect(screen.queryByText("Email sent")).toBeNull();
 
 		const stageObject = container.querySelector(
-			".mymind-wrapped-entry-stage__object",
+			".rudel-wrapped-entry-stage__object",
 		);
 		expect(
-			stageObject?.querySelector(".mymind-wrapped-entry-card"),
+			stageObject?.querySelector(".rudel-wrapped-entry-card"),
 		).not.toBeNull();
 		expect(stageObject?.querySelector("ol")).toBeNull();
 		expect(stageObject?.querySelectorAll("svg")).toHaveLength(2);
@@ -162,7 +162,7 @@ describe("WrappedDevPage", () => {
 			),
 		).toBeInTheDocument();
 
-		const dock = container.querySelector(".mymind-wrapped-dock");
+		const dock = container.querySelector(".rudel-wrapped-dock");
 		expect(dock).toBeNull();
 	});
 
