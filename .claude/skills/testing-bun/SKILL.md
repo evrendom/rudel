@@ -12,6 +12,11 @@ allowed-tools: [Read, Edit, Grep, Glob, Bash]
 - Do not introduce Vitest or Jest in this repo
 - For local e2e/integration runs that need env vars, use Doppler (`bun run test:env`)
 
+## Test Strategy
+- **Default to API integration tests against real infrastructure** (real Postgres, real ClickHouse). Call a real endpoint, let data flow through the API into the DB, then verify by calling another endpoint. This is "e2e" from the API perspective only — frontend is out of scope here.
+- **Never mock services, DB clients, or external APIs.** If a test would need a mock, write the integration test instead.
+- **Unit tests are reserved for pure logical utilities** (parsers, formatters, pure functions). A service that "needs" a unit test is a smell — prefer the integration path above.
+
 ## Critical Rules
 
 ### 1. No Try/Catch in Positive Tests
