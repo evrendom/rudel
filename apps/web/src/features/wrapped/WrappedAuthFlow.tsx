@@ -613,7 +613,7 @@ export function WrappedAuthFlow(props: WrappedAuthFlowProps) {
 				/>
 			}
 			titleClassName="rudel-wrapped-entry-stage__headline--auth"
-			useReferenceTopChrome={mode !== null}
+			useAlignedTopChrome={mode !== null}
 		/>
 	);
 }

@@ -119,12 +119,12 @@ body.rudel-wrapped-body .woot-widget-bubble {
 	overscroll-behavior: none;
 }
 
-.rudel-wrapped-shell--reference-top-chrome {
+.rudel-wrapped-shell--aligned-top-chrome {
 	--wrapped-shell-top-inset: 24px;
-	--wrapped-reference-top-chrome-edge-inset: calc(27px - ((44px - 23px) / 2));
+	--wrapped-aligned-top-chrome-edge-inset: calc(27px - ((44px - 23px) / 2));
 }
 
-.rudel-wrapped-route--step-card .rudel-wrapped-shell--reference-top-chrome {
+.rudel-wrapped-route--step-card .rudel-wrapped-shell--aligned-top-chrome {
 	--wrapped-shell-bottom-inset: 20px;
 	--wrapped-shell-stage-gap: 0.85rem;
 }
@@ -170,12 +170,12 @@ body.rudel-wrapped-body .woot-widget-bubble {
 	overflow: visible;
 }
 
-.rudel-wrapped-shell--reference-top-chrome .rudel-wrapped-top-tray__row {
+.rudel-wrapped-shell--aligned-top-chrome .rudel-wrapped-top-tray__row {
 	margin-inline: calc(
 		-1 *
 		(
 			var(--wrapped-shell-inline-inset) -
-			var(--wrapped-reference-top-chrome-edge-inset)
+			var(--wrapped-aligned-top-chrome-edge-inset)
 		)
 	);
 }
@@ -7551,7 +7551,7 @@ body.rudel-wrapped-body[data-wrapped-bottom-occluded="true"]
 }
 
 @media (max-height: 61.25rem) {
-	.rudel-wrapped-route--public-card .rudel-wrapped-shell--reference-top-chrome {
+	.rudel-wrapped-route--public-card .rudel-wrapped-shell--aligned-top-chrome {
 		--wrapped-shell-top-inset: 16px;
 		--wrapped-shell-bottom-inset: 14px;
 		--wrapped-shell-stage-gap: 0.55rem;
@@ -9083,7 +9083,7 @@ body.rudel-wrapped-body[data-wrapped-bottom-occluded="true"]
 		--wrapped-shell-bottom-inset: 40px;
 	}
 
-	.rudel-wrapped-shell--reference-top-chrome {
+	.rudel-wrapped-shell--aligned-top-chrome {
 		--wrapped-shell-top-inset: 24px;
 	}
 
@@ -9295,11 +9295,11 @@ body.rudel-wrapped-body[data-wrapped-bottom-occluded="true"]
 		--wrapped-shell-stage-gap: 0.8rem;
 	}
 
-	.rudel-wrapped-shell--reference-top-chrome {
+	.rudel-wrapped-shell--aligned-top-chrome {
 		--wrapped-shell-top-inset: 24px;
 	}
 
-	.rudel-wrapped-route--step-card .rudel-wrapped-shell--reference-top-chrome {
+	.rudel-wrapped-route--step-card .rudel-wrapped-shell--aligned-top-chrome {
 		--wrapped-shell-bottom-inset: 14px;
 		--wrapped-shell-stage-gap: 0.65rem;
 	}
@@ -9590,7 +9590,7 @@ body.rudel-wrapped-body[data-wrapped-bottom-occluded="true"]
 		line-height: 1.3;
 	}
 
-	.rudel-wrapped-route--public-card .rudel-wrapped-shell--reference-top-chrome {
+	.rudel-wrapped-route--public-card .rudel-wrapped-shell--aligned-top-chrome {
 		--wrapped-shell-top-inset: 12px;
 		--wrapped-shell-bottom-inset: 10px;
 		--wrapped-shell-stage-gap: 0.45rem;

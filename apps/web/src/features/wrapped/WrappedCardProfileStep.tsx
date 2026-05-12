@@ -307,7 +307,7 @@ export function WrappedCardProfileStep(props: WrappedCardProfileStepProps) {
 			stageClassName="rudel-wrapped-entry-stage--auth rudel-wrapped-entry-stage--auth-profile"
 			title={WRAPPED_CARD_PROFILE_TITLE}
 			titleClassName="rudel-wrapped-entry-stage__headline--auth-intro"
-			useReferenceTopChrome
+			useAlignedTopChrome
 		/>
 	);
 }

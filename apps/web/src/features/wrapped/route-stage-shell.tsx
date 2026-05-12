@@ -35,7 +35,7 @@ interface WrappedRouteStageShellProps {
 	stage: ReactNode;
 	title?: ReactNode;
 	titleClassName?: string;
-	useReferenceTopChrome?: boolean;
+	useAlignedTopChrome?: boolean;
 }
 
 const WRAPPED_SETUP_ENTRANCE_EASE = [0.22, 1, 0.36, 1] as const;
@@ -104,7 +104,7 @@ export function WrappedRouteStageShell(props: WrappedRouteStageShellProps) {
 		status,
 		title,
 		titleClassName,
-		useReferenceTopChrome = false,
+		useAlignedTopChrome = false,
 	} = props;
 	const navigate = useNavigate();
 	const shouldReduceMotion = useReducedMotion();
@@ -112,12 +112,11 @@ export function WrappedRouteStageShell(props: WrappedRouteStageShellProps) {
 	const progressView = progressStepId
 		? getWrappedOnboardingProgressView(progressStepId)
 		: null;
-	const shouldUseReferenceTopChrome =
-		useReferenceTopChrome || progressView !== null;
+	const shouldUseAlignedTopChrome =
+		useAlignedTopChrome || progressView !== null;
 	const hasFooter = Boolean(footer) || Boolean(footerDebugControls);
 	const shouldAnimateSetupEntrance = entrancePreset === "setup";
-	const hasSupportButton =
-		!hideTopChromeControls && shouldUseReferenceTopChrome;
+	const hasSupportButton = !hideTopChromeControls && shouldUseAlignedTopChrome;
 	const hasTextStatus =
 		typeof status === "string" || typeof status === "number";
 	const hasDefaultLeadingControl =
@@ -127,7 +126,7 @@ export function WrappedRouteStageShell(props: WrappedRouteStageShellProps) {
 	const hasTopTrayContent =
 		hasDefaultLeadingControl ||
 		hasCustomLeadingControl ||
-		shouldUseReferenceTopChrome ||
+		shouldUseAlignedTopChrome ||
 		progressView !== null ||
 		status !== undefined;
 	const animatedCopy =
@@ -198,8 +197,8 @@ export function WrappedRouteStageShell(props: WrappedRouteStageShellProps) {
 			<div
 				className={cn(
 					"rudel-wrapped-shell relative z-[1] mx-auto flex w-full flex-1 flex-col text-foreground",
-					shouldUseReferenceTopChrome
-						? "rudel-wrapped-shell--reference-top-chrome"
+					shouldUseAlignedTopChrome
+						? "rudel-wrapped-shell--aligned-top-chrome"
 						: null,
 				)}
 			>
@@ -234,13 +233,13 @@ export function WrappedRouteStageShell(props: WrappedRouteStageShellProps) {
 										type="button"
 										aria-label={backLabel}
 										className={cn(
-											shouldUseReferenceTopChrome
+											shouldUseAlignedTopChrome
 												? "rudel-wrapped-top-tray__edge-control"
 												: "rudel-wrapped-back-button rounded-full transition-colors",
 										)}
 										onClick={handleBack}
 									>
-										{shouldUseReferenceTopChrome ? (
+										{shouldUseAlignedTopChrome ? (
 											<ChevronLeft className="rudel-wrapped-top-tray__edge-icon rudel-wrapped-top-tray__edge-icon--back" />
 										) : (
 											<X className="size-4" />
@@ -278,7 +277,7 @@ export function WrappedRouteStageShell(props: WrappedRouteStageShellProps) {
 										aria-hidden="true"
 										className="rudel-wrapped-top-tray__utility-placeholder"
 									/>
-								) : shouldUseReferenceTopChrome ? (
+								) : shouldUseAlignedTopChrome ? (
 									<WrappedSupportChatwootButton />
 								) : (
 									<span

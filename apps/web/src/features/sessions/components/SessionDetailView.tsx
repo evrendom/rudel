@@ -6,23 +6,16 @@ import { InfoTooltip } from "@/components/ui/InfoTooltip";
 import { useTrackProductPageView } from "@/features/analytics/tracking/useTrackProductPageView";
 import { DashboardModelBadges } from "@/features/dashboard/components/DashboardModelBadges";
 import { useUserMap } from "@/features/workspace/hooks/useUserMap";
-import { calculateCost, formatUsername } from "@/lib/format";
 import { orpc } from "@/lib/orpc";
 import { formatRelativeTime } from "@/lib/time-utils";
+import { buildSessionDetailViewModel } from "./session-detail-view-model";
 import {
-	createSessionMetadataBadges,
-	getConversationSummary,
 	isForbiddenError,
 	SessionDetailErrorBoundary,
 	SessionDetailHoverTooltip,
 	SessionDetailMetric,
 	SessionTranscriptSummaryTab,
 	sessionArchetypeStyles,
-	toContentString,
-	toNumber,
-	toOptionalString,
-	toStringArray,
-	toSubagentMap,
 } from "./session-detail-view-parts";
 
 type SessionDetailViewProps = {
@@ -175,53 +168,29 @@ export function SessionDetailView({
 		);
 	}
 
-	const safeSessionId = session.session_id || "unknown-session";
-	const safeSessionDate = toOptionalString(session.session_date) ?? "";
-	const safeUserId = toOptionalString(session.user_id) ?? "unknown-user";
-	const safeUserDisplayName =
-		safeUserId === "unknown-user"
-			? "User"
-			: formatUsername(safeUserId, userMap);
-	const safeInputTokens = toNumber(session.input_tokens);
-	const safeOutputTokens = toNumber(session.output_tokens);
-	const safeDurationMin =
-		session.duration_min === undefined
-			? undefined
-			: toNumber(session.duration_min);
-	const safeTotalInteractions =
-		session.total_interactions === undefined
-			? undefined
-			: toNumber(session.total_interactions);
-	const safeSuccessScore =
-		session.success_score === undefined
-			? undefined
-			: toNumber(session.success_score);
-	const safeSkills = toStringArray(session.skills);
-	const safeSlashCommands = toStringArray(session.slash_commands);
-	const safeSubagents = toSubagentMap(session.subagents);
-	const safeRepository = toOptionalString(session.repository);
-	const safeGitBranch = toOptionalString(session.git_branch);
-	const safeGitSha = toOptionalString(session.git_sha);
-	const safeModelUsed = toOptionalString(session.model_used) ?? undefined;
-	const safeSessionArchetype =
-		toOptionalString(session.session_archetype) ?? undefined;
-	const safeContent = toContentString(session.content);
-	const metadataBadges = createSessionMetadataBadges({
-		gitBranch: safeGitBranch,
-		repository: safeRepository,
-	});
-	const conversationSummary = getConversationSummary(safeContent);
-	const subagentNames = Object.keys(safeSubagents);
+	const {
+		conversationSummary,
+		costLabel,
+		metadataBadges,
+		safeContent,
+		safeDurationMin,
+		safeGitSha,
+		safeModelUsed,
+		safeSessionArchetype,
+		safeSessionDate,
+		safeSessionId,
+		safeSkills,
+		safeSlashCommands,
+		safeSuccessScore,
+		safeTotalInteractions,
+		safeUserDisplayName,
+		subagentNames,
+		tokenUsageLabel,
+	} = buildSessionDetailViewModel(session, userMap);
 	const sessionArchetypeStyle = safeSessionArchetype
 		? (sessionArchetypeStyles[safeSessionArchetype] ??
 			sessionArchetypeStyles.standard)
 		: null;
-	const tokenUsageLabel = `${safeInputTokens.toLocaleString()} / ${safeOutputTokens.toLocaleString()}`;
-	const costLabel = `$${calculateCost(
-		safeInputTokens,
-		safeOutputTokens,
-		safeModelUsed,
-	).toFixed(4)}`;
 	return (
 		<SessionDetailErrorBoundary>
 			<div className="dashboardy-page flex h-full min-h-0 flex-col bg-[color:var(--dashboardy-surface)] text-[color:var(--dashboardy-heading)]">

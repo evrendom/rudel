@@ -10,6 +10,10 @@ import {
 import { useDateRange } from "@/features/analytics/date-range/useDateRange";
 import { useAnalyticsQuery } from "@/features/analytics/queries/useAnalyticsQuery";
 import type { TeamRosterMemberSource } from "@/features/team/data/team-roster-data";
+import {
+	type FullOrganization,
+	useFullOrganization,
+} from "@/features/workspace/hooks/useFullOrganization";
 import { useOrganization } from "@/features/workspace/organization/useOrganization";
 import { MAX_ANALYTICS_DAYS } from "@/lib/analytics-date-range";
 import { authClient } from "@/lib/auth-client";
@@ -158,6 +162,18 @@ function buildTeamMemberRows(
 		);
 }
 
+function buildTeamRosterMembers(
+	members: FullOrganization["members"] | undefined,
+) {
+	return (members ?? []).map((member) => ({
+		displayName: member.user.name,
+		email: member.user.email,
+		imageUrl: member.user.image,
+		role: member.role,
+		userId: member.userId,
+	}));
+}
+
 export function useTeamPageData() {
 	const { data: session, isPending: isSessionPending } =
 		authClient.useSession();
@@ -174,39 +190,15 @@ export function useTeamPageData() {
 	const canInviteTeamMembers =
 		activeOrganizationId !== null && workspaceMeta?.isOrgAdmin === true;
 	const {
-		data: members = [],
+		data: fullOrganization,
 		isLoading: isOrganizationPending,
 		isError: isOrganizationError,
-		refetch: refetchMembers,
-	} = useQuery<readonly TeamRosterMemberSource[]>({
-		queryKey: ["team-page-members", activeOrganizationId],
-		queryFn: async () => {
-			const response = await authClient.organization.getFullOrganization({
-				query: { organizationId: activeOrganizationId ?? "" },
-			});
-			const fullOrganization =
-				(response.data as {
-					members?: Array<{
-						userId: string;
-						role: string;
-						user: {
-							image: string | null;
-							name: string;
-							email: string;
-						};
-					}>;
-				} | null) ?? null;
-
-			return (fullOrganization?.members ?? []).map((member) => ({
-				displayName: member.user.name,
-				email: member.user.email,
-				imageUrl: member.user.image,
-				role: member.role,
-				userId: member.userId,
-			}));
-		},
-		enabled: activeOrganizationId !== null,
-	});
+		invalidate: invalidateFullOrganization,
+	} = useFullOrganization(activeOrganizationId ?? undefined);
+	const members = useMemo<readonly TeamRosterMemberSource[]>(
+		() => buildTeamRosterMembers(fullOrganization?.members),
+		[fullOrganization?.members],
+	);
 	const teamInviteLinkQuery = useQuery({
 		...(canInviteTeamMembers
 			? orpc.teamInviteLink.get.queryOptions({
@@ -297,7 +289,7 @@ export function useTeamPageData() {
 			await Promise.all([
 				teamCardsQuery.refetch(),
 				developersQuery.refetch(),
-				refetchMembers(),
+				activeOrganizationId ? invalidateFullOrganization() : null,
 				canInviteTeamMembers ? teamInviteLinkQuery.refetch() : null,
 			]);
 		},
