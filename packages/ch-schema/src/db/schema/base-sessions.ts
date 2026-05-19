@@ -30,7 +30,7 @@ export const baseSessionColumns: ColumnDefinition[] = [
 ];
 
 export const baseSessionTableConfig = {
-	primaryKey: [] as string[],
+	primaryKey: ["organization_id", "session_date", "session_id"],
 	orderBy: ["organization_id", "session_date", "session_id"],
 	partitionBy: "toYYYYMM(toDate(session_date))",
 	ttl: "toDate(session_date) + toIntervalDay(365)",
