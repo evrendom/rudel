@@ -64,7 +64,7 @@ const rudel_session_analytics = table({
 		{ name: "inference_duration_sec", type: "UInt32", default: "fn:0" },
 		{ name: "human_duration_sec", type: "UInt32", default: "fn:0" },
 	],
-	primaryKey: [],
+	primaryKey: ["organization_id", "session_date", "session_id"],
 	orderBy: ["organization_id", "session_date", "session_id"],
 	partitionBy: "toYYYYMM(toDate(session_date))",
 	settings: {
