@@ -11,6 +11,7 @@ import {
 	getPendingSignupRedirect,
 	getSocialLoginRedirectOptions,
 	getSocialSignupRedirectOptions,
+	getValidRedirect,
 	isGetStartedPath,
 	primePendingSignupRedirect,
 } from "./auth-route-utils";
@@ -175,6 +176,18 @@ describe("auth state refresh", () => {
 		expect(
 			getEmailLoginSuccessDestination("/", "?redirect=%2Fdashboard%2Fsessions"),
 		).toBe("/dashboard/sessions");
+	});
+
+	it.each([
+		["a scheme-relative URL", "?redirect=%2F%2Fattacker.example"],
+		["a raw backslash", "?redirect=%2F%5Cattacker.example"],
+		["an encoded backslash", "?redirect=%2F%255Cattacker.example"],
+		["an encoded slash", "?redirect=%2F%252Fattacker.example"],
+		["a raw control character", "?redirect=%2F%00attacker.example"],
+		["an encoded control character", "?redirect=%2F%250Aattacker.example"],
+	])("rejects %s as a post-auth redirect", (_label, search) => {
+		expect(getValidRedirect(search)).toBeNull();
+		expect(getEmailLoginSuccessDestination("/", search)).toBe("/");
 	});
 
 	it("preserves direct wrapped destinations for email login", () => {

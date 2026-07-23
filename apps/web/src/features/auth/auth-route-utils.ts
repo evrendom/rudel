@@ -4,10 +4,24 @@ import type { authClient } from "@/lib/auth-client";
 export type AppSession = ReturnType<typeof authClient.useSession>["data"];
 const PENDING_SIGNUP_REDIRECT_PARAM = "signup_redirect";
 const RELATIVE_URL_BASE = "https://rudel.local";
+const RELATIVE_URL_ORIGIN = new URL(RELATIVE_URL_BASE).origin;
+const REDIRECT_ENCODED_AMBIGUOUS_CHARACTER_PATTERN =
+	/%(?:2f|5c|[01][0-9a-f]|7f)/i;
 type WrappedAuthRedirectFlow =
 	| "card-profile"
 	| "desktop-ready"
 	| "sessions-landed";
+
+function containsControlCharacter(value: string): boolean {
+	for (const character of value) {
+		const characterCode = character.charCodeAt(0);
+		if (characterCode <= 31 || characterCode === 127) {
+			return true;
+		}
+	}
+
+	return false;
+}
 
 function normalizeValidRelativeRedirect(
 	redirect: string | null,
@@ -17,6 +31,23 @@ function normalizeValidRelativeRedirect(
 	}
 
 	if (!redirect.startsWith("/") || redirect.startsWith("//")) {
+		return null;
+	}
+
+	if (
+		redirect.includes("\\") ||
+		containsControlCharacter(redirect) ||
+		REDIRECT_ENCODED_AMBIGUOUS_CHARACTER_PATTERN.test(redirect)
+	) {
+		return null;
+	}
+
+	try {
+		const resolvedRedirect = new URL(redirect, RELATIVE_URL_BASE);
+		if (resolvedRedirect.origin !== RELATIVE_URL_ORIGIN) {
+			return null;
+		}
+	} catch {
 		return null;
 	}
 
