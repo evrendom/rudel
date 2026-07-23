@@ -10,7 +10,6 @@ import { orpc } from "@/lib/orpc";
 import { formatRelativeTime } from "@/lib/time-utils";
 import { buildSessionDetailViewModel } from "./session-detail-view-model";
 import {
-	isForbiddenError,
 	SessionDetailErrorBoundary,
 	SessionDetailHoverTooltip,
 	SessionDetailMetric,
@@ -139,21 +138,6 @@ export function SessionDetailView({
 
 	if (isLoading) {
 		return <SessionDetailLoadingView />;
-	}
-
-	if (isForbiddenError(error)) {
-		return (
-			<div className="flex h-full items-center justify-center px-6 py-12">
-				<div className="dashboardy-card rounded-[1.5rem] border px-8 py-10 text-center shadow-none">
-					<p className="mb-2 text-lg font-semibold text-[color:var(--dashboardy-heading)]">
-						Access Denied
-					</p>
-					<p className="text-sm text-[color:var(--dashboardy-muted)]">
-						You can only view your own session transcripts.
-					</p>
-				</div>
-			</div>
-		);
 	}
 
 	if (!session) {

@@ -34,6 +34,7 @@ import {
 	getCachedOrgSessionCount,
 	hasOrgUploadsInLastDays,
 } from "./services/org-session.service.js";
+import { assertSessionIngestOwnership } from "./services/session-ownership.service.js";
 
 function getSessionUploadCompletedPayload(
 	input: IngestSessionInput,
@@ -181,6 +182,8 @@ const ingestSessionHandler = os.ingestSession
 				});
 			}
 		}
+
+		await assertSessionIngestOwnership(orgId, input.sessionId, context.user.id);
 
 		const adapter = getAdapter(input.source);
 		await adapter.ingest(getClickhouse(), input, {

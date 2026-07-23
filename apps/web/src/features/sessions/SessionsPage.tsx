@@ -8,7 +8,6 @@ import { buildDashboardSessionTabMetrics } from "@/features/dashboard/data/dashb
 import { SessionDetailSheet } from "@/features/sessions/components/SessionDetailSheet";
 import { SessionsDateRangeControls } from "@/features/sessions/components/SessionsDateRangeControls";
 import { resolveActiveSessionDateRangeOptionId } from "@/features/sessions/session-date-ranges";
-import { useCanViewSession } from "@/features/workspace/hooks/useCanViewSession";
 import { orpc } from "@/lib/orpc";
 import { getSessionDetailPath } from "@/lib/session-paths";
 
@@ -17,7 +16,6 @@ export function SessionsPage() {
 		meta,
 		state: { endDate, startDate },
 	} = useDateRange();
-	const canViewSession = useCanViewSession();
 	const { trackDrilldown } = useAnalyticsTracking();
 	const [selectedSessionId, setSelectedSessionId] = useState<string | null>(
 		null,
@@ -107,14 +105,7 @@ export function SessionsPage() {
 		}
 	}
 
-	function handleSessionClick(session: {
-		session_id: string;
-		user_id: string;
-	}) {
-		if (!canViewSession(session.user_id)) {
-			return;
-		}
-
+	function handleSessionClick(session: { session_id: string }) {
 		trackDrilldown({
 			drilldownMethod: "table_row",
 			sourceComponent: "sessions_snapshot_table",
@@ -139,7 +130,6 @@ export function SessionsPage() {
 							</div>
 						) : (
 							<DashboardSessionsSnapshotSection
-								canOpenSession={(session) => canViewSession(session.user_id)}
 								endDate={endDate}
 								dateRangeDays={meta.dayCount}
 								hideMetrics
