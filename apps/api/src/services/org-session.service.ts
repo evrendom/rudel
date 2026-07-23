@@ -16,6 +16,58 @@ interface GetOrgSessionCountOptions {
 	rawTableNames?: readonly string[];
 }
 
+interface OrgSessionCountCacheEntry {
+	expiresAt: number;
+	pendingCount: Promise<number>;
+}
+
+interface OrgSessionCountCacheOptions {
+	load: (organizationId: string, userId?: string) => Promise<number>;
+	now?: () => number;
+	ttlMs?: number;
+}
+
+const ORG_SESSION_COUNT_CACHE_TTL_MS = 2_000;
+
+export function createOrgSessionCountCache(
+	options: OrgSessionCountCacheOptions,
+): (organizationId: string, userId?: string) => Promise<number> {
+	const entries = new Map<string, OrgSessionCountCacheEntry>();
+	const now = options.now ?? Date.now;
+	const ttlMs = options.ttlMs ?? ORG_SESSION_COUNT_CACHE_TTL_MS;
+
+	return (organizationId: string, userId?: string) => {
+		const currentTime = now();
+		const cacheKey = JSON.stringify([organizationId, userId ?? null]);
+		const cachedEntry = entries.get(cacheKey);
+
+		if (cachedEntry && cachedEntry.expiresAt > currentTime) {
+			return cachedEntry.pendingCount;
+		}
+
+		for (const [key, entry] of entries) {
+			if (entry.expiresAt <= currentTime) {
+				entries.delete(key);
+			}
+		}
+
+		const pendingCount = options.load(organizationId, userId);
+		const entry = {
+			expiresAt: currentTime + ttlMs,
+			pendingCount,
+		};
+		entries.set(cacheKey, entry);
+
+		void pendingCount.catch(() => {
+			if (entries.get(cacheKey) === entry) {
+				entries.delete(cacheKey);
+			}
+		});
+
+		return pendingCount;
+	};
+}
+
 export async function getOrgSessionCount(
 	orgId: string,
 	userId?: string,
@@ -52,6 +104,10 @@ export async function getOrgSessionCount(
 	);
 	return results.reduce((sum, rows) => sum + Number(rows[0]?.count ?? 0), 0);
 }
+
+export const getCachedOrgSessionCount = createOrgSessionCountCache({
+	load: getOrgSessionCount,
+});
 
 export async function hasOrgUploadsInLastDays(
 	orgId: string,

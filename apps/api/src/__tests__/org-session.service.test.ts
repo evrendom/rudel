@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, mock, test } from "bun:test";
 import type { ClickHouseStatement } from "../clickhouse.js";
-import { getOrgSessionCount } from "../services/org-session.service.js";
+import {
+	createOrgSessionCountCache,
+	getOrgSessionCount,
+} from "../services/org-session.service.js";
 
 const queryCalls: ClickHouseStatement[] = [];
 let rawTableCounts = new Map<string, string>();
@@ -62,5 +65,78 @@ describe("getOrgSessionCount", () => {
 		expect(queryCalls[1]?.query).toContain("FROM rudel.codex_sessions");
 		expect(queryCalls[0]?.query).not.toContain("user_id = {userId:String}");
 		expect(queryCalls[1]?.query).not.toContain("user_id = {userId:String}");
+	});
+});
+
+describe("createOrgSessionCountCache", () => {
+	test("coalesces simultaneous reads for the same count", async () => {
+		const load = mock(() => Promise.resolve(96));
+		const getCachedCount = createOrgSessionCountCache({
+			load,
+			ttlMs: 2_000,
+		});
+
+		const counts = await Promise.all([
+			getCachedCount("org-1", "user-1"),
+			getCachedCount("org-1", "user-1"),
+			getCachedCount("org-1", "user-1"),
+		]);
+
+		expect(counts).toEqual([96, 96, 96]);
+		expect(load).toHaveBeenCalledTimes(1);
+	});
+
+	test("refreshes the count after the short cache window", async () => {
+		let now = 1_000;
+		let currentCount = 40;
+		const load = mock(() => Promise.resolve(currentCount));
+		const getCachedCount = createOrgSessionCountCache({
+			load,
+			now: () => now,
+			ttlMs: 2_000,
+		});
+
+		expect(await getCachedCount("org-1")).toBe(40);
+		currentCount = 41;
+		now += 1_999;
+		expect(await getCachedCount("org-1")).toBe(40);
+		now += 2;
+		expect(await getCachedCount("org-1")).toBe(41);
+		expect(load).toHaveBeenCalledTimes(2);
+	});
+
+	test("keeps organization-wide and user-specific counts separate", async () => {
+		let nextCount = 1;
+		const load = mock(() => Promise.resolve(nextCount++));
+		const getCachedCount = createOrgSessionCountCache({
+			load,
+			ttlMs: 2_000,
+		});
+
+		expect(await getCachedCount("org-1")).toBe(1);
+		expect(await getCachedCount("org-1", "user-1")).toBe(2);
+		expect(await getCachedCount("org-2")).toBe(3);
+		expect(load).toHaveBeenCalledTimes(3);
+	});
+
+	test("retries after a count read fails", async () => {
+		let shouldFail = true;
+		const load = mock(() => {
+			if (shouldFail) {
+				return Promise.reject(new Error("Temporary count failure"));
+			}
+			return Promise.resolve(12);
+		});
+		const getCachedCount = createOrgSessionCountCache({
+			load,
+			ttlMs: 2_000,
+		});
+
+		await expect(getCachedCount("org-1")).rejects.toThrow(
+			"Temporary count failure",
+		);
+		shouldFail = false;
+		await expect(getCachedCount("org-1")).resolves.toBe(12);
+		expect(load).toHaveBeenCalledTimes(2);
 	});
 });

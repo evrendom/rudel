@@ -10,6 +10,7 @@ interface SlidingWindowEntry {
 }
 
 const analyticsWindows = new Map<string, SlidingWindowEntry>();
+const organizationSessionCountWindows = new Map<string, SlidingWindowEntry>();
 const wrappedShareCreateWindows = new Map<string, SlidingWindowEntry>();
 const wrappedShareLookupWindows = new Map<string, SlidingWindowEntry>();
 const wrappedResumeCreateWindows = new Map<string, SlidingWindowEntry>();
@@ -20,6 +21,8 @@ const ANALYTICS_MAX_REQUESTS = Number(
 );
 const ANALYTICS_WINDOW_MS =
 	Number(process.env.RATE_LIMIT_ANALYTICS_WINDOW ?? 60) * 1000;
+const ORGANIZATION_SESSION_COUNT_MAX_REQUESTS = 300;
+const ORGANIZATION_SESSION_COUNT_WINDOW_MS = 60_000;
 const WRAPPED_SHARE_CREATE_MAX_REQUESTS = Number(
 	process.env.RATE_LIMIT_WRAPPED_SHARE_CREATE_MAX ?? 12,
 );
@@ -71,6 +74,21 @@ export function checkAnalyticsRateLimit(userId: string): void {
 	}
 
 	entry.timestamps.push(now);
+}
+
+export function checkOrganizationSessionCountRateLimit(
+	userId: string,
+	organizationId: string,
+): void {
+	checkSlidingWindowRateLimit({
+		entityId: JSON.stringify([userId, organizationId]),
+		errorMessage:
+			"Session count refresh is temporarily limited. Please wait a moment and try again.",
+		maxRequests: ORGANIZATION_SESSION_COUNT_MAX_REQUESTS,
+		map: organizationSessionCountWindows,
+		operationName: "organization session count refresh",
+		windowMs: ORGANIZATION_SESSION_COUNT_WINDOW_MS,
+	});
 }
 
 // Saturday share abuse protection stays intentionally small and auditable.
