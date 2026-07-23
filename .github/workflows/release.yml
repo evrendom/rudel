@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   release-please:
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-24.04
     steps:
       - name: Run Release Please
         id: release
