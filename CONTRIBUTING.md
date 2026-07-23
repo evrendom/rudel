@@ -54,6 +54,21 @@ This runs linting, type checking, tests, and builds across the entire monorepo. 
 - Include a description of what changed and why.
 - If your change affects the CLI, test it locally with `bun run --cwd apps/cli dev`.
 
+### Release Versioning
+
+The published `rudel` CLI follows [Semantic Versioning](https://semver.org/).
+Release Please derives the next version from the squash-merged PR title:
+
+- `fix:` increments the patch version for a backward-compatible bug fix.
+- `feat:` increments the minor version for backward-compatible functionality.
+- A `!` before the colon, such as `feat(cli)!:`, increments the major version
+  for an incompatible change.
+- Other PR types do not trigger a version bump unless they declare a breaking
+  change.
+
+Choose the type by compatibility impact, not by the size or importance of the
+change. Describe migration requirements for every breaking change in the PR.
+
 ## Project Structure
 
 ```
