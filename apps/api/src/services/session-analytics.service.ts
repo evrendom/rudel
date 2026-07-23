@@ -700,7 +700,7 @@ export async function getSessionDetail(
       total_interactions,
       session_archetype,
       model_used
-    FROM rudel.session_analytics AS sa FINAL
+    FROM rudel.session_analytics AS sa
     PREWHERE organization_id = {orgId:String}
       AND session_id = {sessionId:String}
     WHERE user_id = {ownerId:String}

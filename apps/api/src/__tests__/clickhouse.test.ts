@@ -115,4 +115,37 @@ describe("analytics service guardrails", () => {
 		expect(sessionAnalyticsSource).not.toContain("|| dimension");
 		expect(sessionAnalyticsSource).not.toContain("|| split_by");
 	});
+
+	test("keeps ownership reads duplicate-safe and backfill scans bounded", async () => {
+		const sessionAnalyticsSource = await readFile(
+			resolve(
+				import.meta.dir,
+				"..",
+				"services",
+				"session-analytics.service.ts",
+			),
+			"utf8",
+		);
+		const backfillSource = await readFile(
+			resolve(
+				import.meta.dir,
+				"..",
+				"services",
+				"session-ownership-backfill.service.ts",
+			),
+			"utf8",
+		);
+		const sessionDetailStart = sessionAnalyticsSource.indexOf(
+			"export async function getSessionDetail",
+		);
+		expect(sessionDetailStart).toBeGreaterThan(-1);
+		expect(sessionAnalyticsSource.slice(sessionDetailStart)).not.toContain(
+			"FINAL",
+		);
+		expect(backfillSource).toContain("max_bytes_to_read");
+		expect(backfillSource).toContain("max_execution_time");
+		expect(
+			backfillSource.match(/clickhouse_settings: BACKFILL_QUERY_SETTINGS/g),
+		).toHaveLength(2);
+	});
 });

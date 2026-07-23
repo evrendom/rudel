@@ -1,3 +1,4 @@
+import type { ClickHouseSettings } from "@clickhouse/client-web";
 import { getAllAdapters } from "@rudel/agent-adapters";
 import type postgres from "postgres";
 import { getClickhouse, getSafeClickHouseTable } from "../clickhouse.js";
@@ -6,6 +7,10 @@ import { sqlClient } from "../db.js";
 const BACKFILL_KEY = "session_ownership_v1";
 const BACKFILL_LOCK_ID = 941_821_301;
 const INSERT_BATCH_SIZE = 500;
+const BACKFILL_QUERY_SETTINGS = {
+	max_bytes_to_read: "10000000000",
+	max_execution_time: 90,
+} satisfies ClickHouseSettings;
 
 interface BackfillCandidate {
 	organizationId: string;
@@ -167,6 +172,7 @@ async function getLegacyOwnershipCandidates(): Promise<BackfillCandidate[]> {
 
 	for (const adapter of getAllAdapters()) {
 		const rows = await clickhouse.query<LegacyOwnershipRow>({
+			clickhouse_settings: BACKFILL_QUERY_SETTINGS,
 			// Keep historical versions visible so a duplicate uploader is a conflict.
 			query: `
 				SELECT
@@ -205,6 +211,7 @@ async function getLegacyOwnerIds(
 
 	for (const adapter of getAllAdapters()) {
 		const [row] = await clickhouse.query<{ user_ids: string[] }>({
+			clickhouse_settings: BACKFILL_QUERY_SETTINGS,
 			query: `
 				SELECT groupUniqArray(2)(user_id) AS user_ids
 				FROM ${getSafeClickHouseTable(adapter.rawTableName)}

@@ -1,4 +1,4 @@
-import { createClient } from "@clickhouse/client-web";
+import { type ClickHouseSettings, createClient } from "@clickhouse/client-web";
 import { getLogger } from "@logtape/logtape";
 
 const logger = getLogger(["rudel", "api", "clickhouse"]);
@@ -10,6 +10,7 @@ const ALLOWED_CLICKHOUSE_TABLES = new Set([
 ]);
 
 export interface ClickHouseStatement {
+	clickhouse_settings?: ClickHouseSettings;
 	query: string;
 	query_params?: Record<string, unknown>;
 	format?: "JSONEachRow";
@@ -48,12 +49,14 @@ export function createClickHouseExecutor(config: {
 	return {
 		async execute(statement: ClickHouseStatement) {
 			await client.command({
+				clickhouse_settings: statement.clickhouse_settings,
 				query: statement.query,
 				query_params: statement.query_params,
 			});
 		},
 		async query<T>(statement: ClickHouseStatement): Promise<T[]> {
 			const result = await client.query({
+				clickhouse_settings: statement.clickhouse_settings,
 				query: statement.query,
 				query_params: statement.query_params,
 				format: statement.format ?? "JSONEachRow",
