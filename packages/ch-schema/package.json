@@ -13,6 +13,7 @@
 	"scripts": {
 		"check-types": "tsc --noEmit",
 		"test": "bun test",
+		"test:integration": "bun test ./src/__tests__/codex-mv.integration.ts",
 		"ch:generate": "doppler run --project rudel --config ci -- bun --bun chkit generate",
 		"ch:generate:dryrun": "doppler run --project rudel --config ci -- bun --bun chkit generate --dryrun",
 		"ch:migrate": "doppler run --project rudel --config ci -- bash -c 'CLICKHOUSE_DB=default bun --bun chkit migrate --apply'",

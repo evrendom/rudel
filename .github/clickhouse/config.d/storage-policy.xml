@@ -1,0 +1,13 @@
+<clickhouse>
+	<storage_configuration>
+		<policies>
+      <s3>
+        <volumes>
+          <default>
+            <disk>default</disk>
+          </default>
+        </volumes>
+      </s3>
+		</policies>
+	</storage_configuration>
+</clickhouse>
