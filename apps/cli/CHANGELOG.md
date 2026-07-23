@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.15](https://github.com/evrendom/rudel/compare/rudel@0.1.14...rudel@0.1.15) (2026-07-23)
+
+
+### Performance Improvements
+
+* fix load times ([57dfa68](https://github.com/evrendom/rudel/commit/57dfa68df8da009e9b3a71caffe9acf1d9f7fd61))
+
 ## [0.1.12](https://github.com/obsessiondb/rudel/compare/rudel@0.1.11...rudel@0.1.12) (2026-05-04)
 
 
