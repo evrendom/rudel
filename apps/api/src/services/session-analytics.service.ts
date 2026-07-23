@@ -676,6 +676,7 @@ export async function getSessionDimensionAnalysis(
 export async function getSessionDetail(
 	orgId: string,
 	sessionId: string,
+	ownerId: string,
 ): Promise<SessionDetail | null> {
 	const query = `
     SELECT
@@ -699,9 +700,11 @@ export async function getSessionDetail(
       total_interactions,
       session_archetype,
       model_used
-    FROM rudel.session_analytics AS sa FINAL
-    PREWHERE session_id = {sessionId:String}
-    WHERE organization_id = {orgId:String}
+    FROM rudel.session_analytics AS sa
+    PREWHERE organization_id = {orgId:String}
+      AND session_id = {sessionId:String}
+    WHERE user_id = {ownerId:String}
+    ORDER BY ingested_at DESC
     LIMIT 1
   `;
 
@@ -709,6 +712,7 @@ export async function getSessionDetail(
 		query,
 		query_params: {
 			orgId,
+			ownerId,
 			sessionId,
 		},
 	});

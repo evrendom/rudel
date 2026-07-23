@@ -1,7 +1,11 @@
 import { createORPCClient, ORPCError } from "@orpc/client";
 import { RPCLink } from "@orpc/client/fetch";
 import type { ContractRouterClient } from "@orpc/contract";
-import type { contract, IngestSessionInput } from "@rudel/api-routes";
+import {
+	type contract,
+	type IngestSessionInput,
+	SESSION_OWNERSHIP_CONFLICT_CODE,
+} from "@rudel/api-routes";
 import type { UploadResult } from "./types.js";
 
 export interface UploadConfig {
@@ -81,6 +85,12 @@ export function formatUploadError(error: unknown): string {
 			: 60;
 		const limit = data?.limit ?? "unknown";
 		return `Rate limit reached (${limit} sessions per ${windowMin} min). Wait and retry with: rudel upload --retry`;
+	}
+	if (
+		error instanceof ORPCError &&
+		error.code === SESSION_OWNERSHIP_CONFLICT_CODE
+	) {
+		return "This session ID is already owned by another organization member. Upload it from the original member account or use a different session ID.";
 	}
 	if (isPayloadTooLarge(error)) {
 		return formatPayloadTooLargeError(error);

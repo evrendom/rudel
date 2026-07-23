@@ -3,6 +3,7 @@ import { getAdapter } from "@rudel/agent-adapters";
 import {
 	type IngestSessionInput,
 	PRODUCT_ANALYTICS_EVENTS,
+	SESSION_OWNERSHIP_CONFLICT_CODE,
 } from "@rudel/api-routes";
 import { getClickhouse } from "./clickhouse.js";
 import { sqlClient } from "./db.js";
@@ -34,6 +35,7 @@ import {
 	getCachedOrgSessionCount,
 	hasOrgUploadsInLastDays,
 } from "./services/org-session.service.js";
+import { claimSessionIngestOwnership } from "./services/session-ownership.service.js";
 
 function getSessionUploadCompletedPayload(
 	input: IngestSessionInput,
@@ -148,7 +150,7 @@ const listMyOrganizations = os.listMyOrganizations
 
 const ingestSessionHandler = os.ingestSession
 	.use(ingestAuthMiddleware)
-	.handler(async ({ input, context }) => {
+	.handler(async ({ input, context, errors }) => {
 		const activeOrgId =
 			context.session &&
 			typeof (context.session as Record<string, unknown>)
@@ -180,6 +182,15 @@ const ingestSessionHandler = os.ingestSession
 					message: "Not a member of the specified organization",
 				});
 			}
+		}
+
+		const ownership = await claimSessionIngestOwnership(
+			orgId,
+			input.sessionId,
+			context.user.id,
+		);
+		if (!ownership.owned) {
+			throw errors[SESSION_OWNERSHIP_CONFLICT_CODE]();
 		}
 
 		const adapter = getAdapter(input.source);

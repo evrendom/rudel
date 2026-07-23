@@ -7,6 +7,7 @@ import {
 	getSessionDetail,
 	getSessionDimensionAnalysis,
 } from "../../services/session-analytics.service.js";
+import { getSessionOwner } from "../../services/session-ownership.service.js";
 
 const sortByMap: Record<string, "date" | "duration" | "interactions"> = {
 	session_date: "date",
@@ -63,19 +64,27 @@ const dimensionAnalysis = os.analytics.sessions.dimensionAnalysis
 const detail = os.analytics.sessions.detail
 	.use(orgMiddleware)
 	.handler(async ({ input, context }) => {
-		const result = await getSessionDetail(
+		const ownerId = await getSessionOwner(
 			context.organizationId,
 			input.sessionId,
 		);
-		if (!result) {
+		if (!ownerId) {
 			throw new ORPCError("NOT_FOUND");
 		}
 
-		// Non-admin members can only view their own sessions
-		if (!context.isOrgAdmin && result.user_id !== context.user.id) {
+		if (!context.isOrgAdmin && ownerId !== context.user.id) {
 			throw new ORPCError("FORBIDDEN", {
 				message: "You can only view your own sessions",
 			});
+		}
+
+		const result = await getSessionDetail(
+			context.organizationId,
+			input.sessionId,
+			ownerId,
+		);
+		if (!result) {
+			throw new ORPCError("NOT_FOUND");
 		}
 
 		return result;
