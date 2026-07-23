@@ -10,9 +10,14 @@ env:
   TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
   TURBO_TEAM: ${{ secrets.TURBO_TEAM }}
 
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   verify:
     runs-on: ubuntu-24.04
+    timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -24,18 +29,77 @@ jobs:
         run: bun scripts/check-overrides.ts
 
       - name: Verify
-        run: bunx turbo run lint check-types test build
+        run: bun run turbo run lint check-types test build
+
+  integration:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:17.10-alpine
         env:
-          PG_CONNECTION_STRING: ${{ secrets.PG_CONNECTION_STRING }}
-          CLICKHOUSE_URL: ${{ secrets.CLICKHOUSE_URL }}
-          CLICKHOUSE_USERNAME: ${{ secrets.CLICKHOUSE_USERNAME }}
-          CLICKHOUSE_PASSWORD: ${{ secrets.CLICKHOUSE_PASSWORD }}
-          CLICKHOUSE_DB: ${{ secrets.CLICKHOUSE_DB }}
+          POSTGRES_DB: rudel
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready --username postgres --dbname rudel"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      PG_CONNECTION_STRING: postgres://postgres:postgres@localhost:5432/rudel
+      CLICKHOUSE_URL: http://localhost:8123
+      CLICKHOUSE_USER: rudel
+      CLICKHOUSE_USERNAME: rudel
+      CLICKHOUSE_PASSWORD: rudel-ci
+      CLICKHOUSE_DB: default
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: ./.github/actions/setup
+
+      - name: Start ClickHouse
+        run: |
+          docker run --detach \
+            --name rudel-ci-clickhouse \
+            --publish 8123:8123 \
+            --env CLICKHOUSE_DB=default \
+            --env CLICKHOUSE_USER=rudel \
+            --env CLICKHOUSE_PASSWORD=rudel-ci \
+            --env CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=1 \
+            --volume "${GITHUB_WORKSPACE}/.github/clickhouse/config.d/storage-policy.xml:/etc/clickhouse-server/config.d/storage-policy.xml:ro" \
+            clickhouse/clickhouse-server:26.3.17.56
+
+      - name: Wait for ClickHouse
+        run: |
+          for attempt in {1..60}; do
+            if curl --fail --silent --user rudel:rudel-ci http://localhost:8123/ping | grep --quiet Ok; then
+              exit 0
+            fi
+            sleep 1
+          done
+          docker logs rudel-ci-clickhouse
+          exit 1
+
+      - name: Run Postgres migrations
+        run: bun run --cwd packages/sql-schema migrate
+
+      - name: Run ClickHouse migrations
+        working-directory: packages/ch-schema
+        run: bun --bun chkit migrate --apply --allow-destructive
+
+      - name: Run integration tests
+        run: bun run turbo run test:integration
 
   deploy:
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     needs: verify
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@v4

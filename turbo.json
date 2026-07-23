@@ -1,13 +1,6 @@
 {
 	"$schema": "https://turborepo.dev/schema.json",
 	"ui": "tui",
-	"globalPassThroughEnv": [
-		"PG_CONNECTION_STRING",
-		"CLICKHOUSE_URL",
-		"CLICKHOUSE_USERNAME",
-		"CLICKHOUSE_PASSWORD",
-		"CLICKHOUSE_DB"
-	],
 	"tasks": {
 		"build": {
 			"dependsOn": ["^build"],
@@ -19,9 +12,18 @@
 		},
 		"//#lint": {},
 		"test": {},
+		"test:integration": {},
 		"dev": {
 			"cache": false,
-			"persistent": true
+			"persistent": true,
+			"passThroughEnv": [
+				"PG_CONNECTION_STRING",
+				"CLICKHOUSE_URL",
+				"CLICKHOUSE_USER",
+				"CLICKHOUSE_USERNAME",
+				"CLICKHOUSE_PASSWORD",
+				"CLICKHOUSE_DB"
+			]
 		}
 	}
 }

@@ -34,7 +34,8 @@
 		"check-types": "tsc --noEmit",
 		"build": "bun build src/bin/cli.ts --outdir dist --target node",
 		"prepack": "bun run build",
-		"test": "bun test"
+		"test": "bun test",
+		"test:integration": "bun test ./src/__tests__/api-upload.integration.ts ./src/__tests__/auth-verify.integration.ts ./src/__tests__/auth.e2e.integration.ts"
 	},
 	"dependencies": {
 		"@clack/prompts": "^1.0.1",
