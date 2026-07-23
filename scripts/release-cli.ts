@@ -1,208 +1,96 @@
 #!/usr/bin/env bun
 /**
- * Release script for the `rudel` CLI package.
+ * Publish the Release Please-managed `rudel` CLI version to npm.
  *
- * Handles the full release lifecycle:
- *   1. Prerequisite checks (tools, branch, npm auth)
- *   2. Bumps the version (patch or minor)
- *   3. Runs quality gates (typecheck, lint, test, build)
- *   4. Publishes via `bun publish`
- *   5. Commits version changes, tags, and pushes
+ * Release Please owns version changes, changelog updates, Git tags, and
+ * GitHub releases. This script only validates the release tag and publishes
+ * the matching package version.
  *
- * Usage: bun run ./scripts/release-cli.ts [patch|minor] [--dry-run]
+ * Usage: bun run ./scripts/release-cli.ts [--dry-run]
  */
 import { spawnSync } from "node:child_process";
-import { readFileSync, writeFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import process, { stdin, stdout } from "node:process";
 import { createInterface } from "node:readline/promises";
 
-type ReleaseArgs = {
-	bump: "patch" | "minor";
+interface ReleaseArgs {
 	dryRun: boolean;
-};
+}
 
-type CommandResult = {
+interface CommandResult {
 	stdout: string;
 	stderr: string;
-};
+}
 
-type PackageJson = {
+interface PackageJson {
 	name: string;
 	version: string;
-};
+}
 
 const CLI_DIR = resolve("apps/cli");
 const CLI_PKG_PATH = resolve(CLI_DIR, "package.json");
-const RELEASE_PLEASE_MANIFEST = resolve(".release-please-manifest.json");
 
 export async function main(): Promise<void> {
-	const args = parseArgs(process.argv.slice(2));
+	const args = parseReleaseArgs(process.argv.slice(2));
 
-	// 1. Prerequisites
-	logLine("Checking prerequisites...");
+	logLine("Checking publish prerequisites...");
 	ensureRequiredTools();
-	ensureOnMainBranch();
 	ensureCleanWorkingTree();
-	ensureNpmAuth();
 
-	// 2. Determine version to publish
 	const pkg = readCliPackageJson();
-	const currentVersion = pkg.version;
-	const alreadyPublished = isVersionPublished(pkg.name, currentVersion);
+	const releaseTag = validateReleaseTagAtHead(
+		pkg.version,
+		getReleaseTagsAtHead(),
+	);
+	ensureVersionIsUnpublished(pkg);
 
-	let publishVersion: string;
-	if (alreadyPublished) {
-		// Current version is published — bump to next
-		publishVersion = bumpVersion(currentVersion, args.bump);
-		logLine(
-			`Version: ${currentVersion} -> ${publishVersion} (${args.bump})`,
-		);
-	} else {
-		// Current version not yet published (e.g. Release Please bumped it)
-		publishVersion = currentVersion;
-		logLine(`Version: ${publishVersion} (not yet published, skipping bump)`);
-	}
+	logLine(`Release tag: ${releaseTag}`);
+	logLine(`Package: ${pkg.name}@${pkg.version}`);
 
 	if (args.dryRun) {
-		logLine("Dry-run: would update version and publish. Stopping here.");
+		logLine("Dry-run: release is ready to publish. No changes were made.");
 		return;
 	}
 
-	if (alreadyPublished) {
-		writeCliVersion(publishVersion);
-	}
-
-	// 3. Quality gates
+	ensureNpmAuth();
 	runQualityGates();
 
-	// 4. Publish
 	const otp = await promptForOtp();
-	publishCli(otp);
+	publishCli(pkg, otp);
 
-	// 5. Tag and push
-	tagAndPush(publishVersion, alreadyPublished);
-
-	logLine(`Released rudel@${publishVersion}`);
+	logLine(`Published ${pkg.name}@${pkg.version}`);
 }
 
-// ---------------------------------------------------------------------------
-// Version management
-// ---------------------------------------------------------------------------
-
-function readCliPackageJson(): PackageJson {
-	return JSON.parse(readFileSync(CLI_PKG_PATH, "utf8")) as PackageJson;
-}
-
-function bumpVersion(current: string, bump: "patch" | "minor"): string {
-	const parts = current.split(".").map(Number);
-	if (parts.length !== 3 || parts.some(Number.isNaN)) {
-		fail(`Invalid version format: ${current}`);
-	}
-	const [major, minor, patch] = parts;
-
-	if (bump === "minor") {
-		return `${major}.${minor + 1}.0`;
-	}
-	return `${major}.${minor}.${patch + 1}`;
-}
-
-function writeCliVersion(version: string): void {
-	const pkg = JSON.parse(readFileSync(CLI_PKG_PATH, "utf8"));
-	pkg.version = version;
-	writeFileSync(CLI_PKG_PATH, `${JSON.stringify(pkg, null, "\t")}\n`);
-
-	const manifest = JSON.parse(
-		readFileSync(RELEASE_PLEASE_MANIFEST, "utf8"),
-	);
-	manifest["apps/cli"] = version;
-	writeFileSync(
-		RELEASE_PLEASE_MANIFEST,
-		`${JSON.stringify(manifest, null, "\t")}\n`,
-	);
-
-	logLine(`Updated version to ${version} in package.json and release-please manifest`);
-}
-
-// ---------------------------------------------------------------------------
-// Publishing
-// ---------------------------------------------------------------------------
-
-function publishCli(otp: string): void {
-	const pkg = readCliPackageJson();
-
-	if (isVersionPublished(pkg.name, pkg.version)) {
-		fail(`${pkg.name}@${pkg.version} is already published on npm.`);
-	}
-
-	logLine(`Publishing ${pkg.name}@${pkg.version}...`);
-	runCommand("bun", ["publish", "--access", "public", "--otp", otp], {
-		cwd: CLI_DIR,
-	});
-}
-
-function isVersionPublished(name: string, version: string): boolean {
-	const result = spawnSync("npm", ["view", `${name}@${version}`, "version"], {
-		encoding: "utf8",
-		env: process.env,
-	});
-	return result.status === 0 && result.stdout.trim() === version;
-}
-
-// ---------------------------------------------------------------------------
-// Git
-// ---------------------------------------------------------------------------
-
-function tagExists(tag: string): boolean {
-	const result = spawnSync("git", ["tag", "-l", tag], {
-		encoding: "utf8",
-		env: process.env,
-	});
-	return result.status === 0 && result.stdout.trim() === tag;
-}
-
-function tagAndPush(version: string, commitVersionBump: boolean): void {
-	const tag = `rudel@${version}`;
-
-	if (commitVersionBump) {
-		logLine("Committing version changes...");
-		runCommand("git", ["add", CLI_PKG_PATH, RELEASE_PLEASE_MANIFEST]);
-		runCommand("git", ["commit", "-m", `chore: release rudel@${version}`]);
-	}
-
-	if (tagExists(tag)) {
-		logLine(`Tag ${tag} already exists, skipping.`);
-	} else {
-		runCommand("git", ["tag", tag]);
-	}
-
-	runCommand("git", ["push", "origin", "main"]);
-	runCommand("git", ["push", "origin", tag]);
-
-	logLine(`Tagged ${tag} and pushed to origin/main`);
-}
-
-// ---------------------------------------------------------------------------
-// Preconditions
-// ---------------------------------------------------------------------------
-
-function parseArgs(argv: string[]): ReleaseArgs {
-	let bump: "patch" | "minor" = "patch";
+export function parseReleaseArgs(argv: readonly string[]): ReleaseArgs {
 	let dryRun = false;
 
 	for (const arg of argv) {
-		if (arg === "patch" || arg === "minor") {
-			bump = arg;
-			continue;
-		}
 		if (arg === "--dry-run") {
 			dryRun = true;
 			continue;
 		}
-		fail(`Unknown argument: ${arg}. Usage: release-cli.ts [patch|minor] [--dry-run]`);
+		throw new Error(
+			`Unknown argument: ${arg}. Usage: release-cli.ts [--dry-run]`,
+		);
 	}
 
-	return { bump, dryRun };
+	return { dryRun };
+}
+
+export function validateReleaseTagAtHead(
+	version: string,
+	tagsAtHead: readonly string[],
+): string {
+	const expectedTag = `rudel@${version}`;
+	if (tagsAtHead.includes(expectedTag)) {
+		return expectedTag;
+	}
+
+	const foundTags = tagsAtHead.length > 0 ? tagsAtHead.join(", ") : "none";
+	throw new Error(
+		`Release tag mismatch. Expected ${expectedTag} at HEAD; found: ${foundTags}.`,
+	);
 }
 
 function ensureRequiredTools(): void {
@@ -211,18 +99,75 @@ function ensureRequiredTools(): void {
 	runCommand("npm", ["--version"]);
 }
 
-function ensureOnMainBranch(): void {
-	const result = runCommand("git", ["rev-parse", "--abbrev-ref", "HEAD"]);
-	const branch = result.stdout.trim();
-	if (branch !== "main") {
-		fail(`Release must run on main. Current branch: ${branch}`);
-	}
-}
-
 function ensureCleanWorkingTree(): void {
 	const result = runCommand("git", ["status", "--porcelain"]);
 	if (result.stdout.trim().length > 0) {
-		fail("Working tree is not clean. Commit or stash changes first.");
+		throw new Error("Working tree is not clean. Commit or stash changes first.");
+	}
+}
+
+function readCliPackageJson(): PackageJson {
+	const value: unknown = JSON.parse(readFileSync(CLI_PKG_PATH, "utf8"));
+	if (!isPackageJson(value)) {
+		throw new Error(`${CLI_PKG_PATH} must contain string name and version fields.`);
+	}
+	return value;
+}
+
+function isPackageJson(value: unknown): value is PackageJson {
+	return (
+		typeof value === "object" &&
+		value !== null &&
+		"name" in value &&
+		typeof value.name === "string" &&
+		"version" in value &&
+		typeof value.version === "string"
+	);
+}
+
+function getReleaseTagsAtHead(): string[] {
+	const result = runCommand("git", [
+		"tag",
+		"--points-at",
+		"HEAD",
+		"--list",
+		"rudel@*",
+	]);
+	return result.stdout
+		.split(/\r?\n/)
+		.map((tag) => tag.trim())
+		.filter((tag) => tag.length > 0);
+}
+
+function ensureVersionIsUnpublished(pkg: PackageJson): void {
+	const result = spawnSync(
+		"npm",
+		["view", `${pkg.name}@${pkg.version}`, "version"],
+		{
+			encoding: "utf8",
+			env: process.env,
+		},
+	);
+
+	if (result.error) {
+		throw result.error;
+	}
+
+	const publishedVersion = result.stdout?.trim() ?? "";
+	if (result.status === 0) {
+		if (publishedVersion !== pkg.version) {
+			throw new Error(
+				`Unexpected npm response for ${pkg.name}@${pkg.version}: ${publishedVersion}`,
+			);
+		}
+		throw new Error(`${pkg.name}@${pkg.version} is already published on npm.`);
+	}
+
+	const stderrText = result.stderr ?? "";
+	if (!stderrText.includes("E404")) {
+		throw new Error(
+			`Could not check npm for ${pkg.name}@${pkg.version}: ${stderrText.trim()}`,
+		);
 	}
 }
 
@@ -235,9 +180,10 @@ function runQualityGates(): void {
 	runCommand("bun", ["run", "verify"]);
 }
 
-// ---------------------------------------------------------------------------
-// Utilities
-// ---------------------------------------------------------------------------
+function publishCli(pkg: PackageJson, otp: string): void {
+	logLine(`Publishing ${pkg.name}@${pkg.version}...`);
+	runCommand("bun", ["publish", "--access", "public", "--otp", otp], CLI_DIR);
+}
 
 async function promptForOtp(): Promise<string> {
 	const rl = createInterface({ input: stdin, output: stdout });
@@ -245,7 +191,7 @@ async function promptForOtp(): Promise<string> {
 		const otp = await rl.question("Enter npm OTP to publish: ");
 		const trimmed = otp.trim();
 		if (trimmed.length === 0) {
-			fail("No OTP provided. Publish cancelled.");
+			throw new Error("No OTP provided. Publish cancelled.");
 		}
 		return trimmed;
 	} finally {
@@ -255,17 +201,21 @@ async function promptForOtp(): Promise<string> {
 
 function runCommand(
 	command: string,
-	args: string[],
-	options?: { cwd?: string },
+	args: readonly string[],
+	cwd = process.cwd(),
 ): CommandResult {
 	const rendered = `${command} ${args.map(shellQuote).join(" ")}`;
 	logLine(`$ ${rendered}`);
 
 	const result = spawnSync(command, args, {
-		cwd: options?.cwd ?? process.cwd(),
+		cwd,
 		encoding: "utf8",
 		env: process.env,
 	});
+
+	if (result.error) {
+		throw result.error;
+	}
 
 	const stdoutText = result.stdout ?? "";
 	const stderrText = result.stderr ?? "";
@@ -278,14 +228,14 @@ function runCommand(
 	}
 
 	if (result.status !== 0) {
-		fail(`Command failed (${result.status}): ${rendered}`);
+		throw new Error(`Command failed (${result.status}): ${rendered}`);
 	}
 
 	return { stdout: stdoutText, stderr: stderrText };
 }
 
 function shellQuote(value: string): string {
-	if (/^[A-Za-z0-9_./:-]+$/.test(value)) {
+	if (/^[A-Za-z0-9_./:@*-]+$/.test(value)) {
 		return value;
 	}
 	return `'${value.replaceAll("'", "'\\''")}'`;
@@ -295,9 +245,16 @@ function logLine(message: string): void {
 	process.stdout.write(`${message}\n`);
 }
 
-function fail(message: string): never {
+function reportError(error: unknown): void {
+	const message = error instanceof Error ? error.message : String(error);
 	logLine(`ERROR: ${message}`);
-	process.exit(1);
 }
 
-await main();
+if (import.meta.main) {
+	try {
+		await main();
+	} catch (error) {
+		reportError(error);
+		process.exitCode = 1;
+	}
+}
