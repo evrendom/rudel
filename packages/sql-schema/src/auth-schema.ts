@@ -41,7 +41,6 @@ export const session = pgTable("session", {
 		.notNull()
 		.references(() => user.id, { onDelete: "cascade" }),
 	activeOrganizationId: text("active_organization_id"),
-	ycReview: boolean("yc_review").default(false).notNull(),
 });
 
 export const account = pgTable("account", {

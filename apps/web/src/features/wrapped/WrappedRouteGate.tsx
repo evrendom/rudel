@@ -15,7 +15,6 @@ import {
 	WRAPPED_ROUTE_FLOW_QUERY_PARAM,
 	WRAPPED_ROUTE_SESSIONS_LANDED_FLOW,
 	WRAPPED_ROUTE_STORY_FLOW,
-	WRAPPED_VARIANT_NORMAL,
 } from "@/app/routes";
 import { useAnalyticsQuery } from "@/features/analytics/queries/useAnalyticsQuery";
 import { useAnalyticsTracking } from "@/features/analytics/tracking/useAnalyticsTracking";
@@ -24,7 +23,6 @@ import {
 	getSessionUserEmail,
 	getSessionUserId,
 	getSessionUserName,
-	isYcReviewSession,
 } from "@/features/auth/auth-route-utils";
 import { useCliSetupStatus } from "@/features/get-started/use-cli-setup-status";
 import { useSetupProgress } from "@/features/get-started/use-setup-progress";
@@ -103,20 +101,12 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 	const wrappedLoopEntrySource = shareId ? "share_redirect" : "direct";
 	const sessionUserId = getSessionUserId(session);
 	const sessionUserEmail = getSessionUserEmail(session);
-	const isYcReview = isYcReviewSession(session);
 	// Drives Decimal claim redemption + variant gating. Public share routes
 	// (publicId !== null) intentionally don't pass a userId here so the
-	// entitlement query stays disabled and the public flow is untouched. YC
-	// review sessions also stay on the normal card even though they simulate the
-	// target account.
+	// entitlement query stays disabled and the public flow is untouched.
 	const decimalAccess = useWrappedDecimalAccess({
-		userId: publicId || isYcReview ? null : sessionUserId,
+		userId: publicId ? null : sessionUserId,
 	});
-	const wrappedStoryVariant = isYcReview
-		? WRAPPED_VARIANT_NORMAL
-		: decimalAccess.variant;
-	const isWrappedStoryDecimalEntitled =
-		!isYcReview && decimalAccess.isDecimalEntitled;
 	const cliSetupStatus = useCliSetupStatus({
 		enabled: !publicId && !!session,
 	});
@@ -143,9 +133,7 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 	const forcedFlowStage = getWrappedRouteFlowStage(
 		searchParams.get(WRAPPED_ROUTE_FLOW_QUERY_PARAM),
 	);
-	const shouldSkipYcReviewPrep = isYcReview && !publicId;
-	const isForcedStoryFlow =
-		forcedFlowStage === WRAPPED_ROUTE_STORY_FLOW || shouldSkipYcReviewPrep;
+	const isForcedStoryFlow = forcedFlowStage === WRAPPED_ROUTE_STORY_FLOW;
 	const isShareTargetRequested = isWrappedTeamCardShareTarget(searchParams);
 	const isWrappedNewUserFlow =
 		forcedFlowStage === WRAPPED_ROUTE_CARD_PROFILE_FLOW;
@@ -202,7 +190,6 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 		!hasCompletedCardProfileWithImage;
 	const shouldShowCardProfileStep =
 		!publicId &&
-		!shouldSkipYcReviewPrep &&
 		!isPending &&
 		!!session &&
 		sessionUserId !== null &&
@@ -213,11 +200,9 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 		forcedFlowStage === WRAPPED_ROUTE_DESKTOP_READY_FLOW &&
 		hasCompletedCardProfile;
 	const shouldForceSessionsLanded =
-		!shouldSkipYcReviewPrep &&
 		forcedFlowStage === WRAPPED_ROUTE_SESSIONS_LANDED_FLOW &&
 		setupProgress.hasUploadedSessions;
 	const shouldForceDesktopReady =
-		!shouldSkipYcReviewPrep &&
 		forcedFlowStage === WRAPPED_ROUTE_DESKTOP_READY_FLOW;
 	const hasMinimumSetupProgressSessionCount =
 		setupProgress.totalSessionCount >=
@@ -229,8 +214,7 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 		setupProgress.hasUploadedSessions &&
 		hasMinimumSetupProgressSessionCount &&
 		hasSeenBelowMinimumSessions;
-	const signedInMobileHandoffEmail =
-		isMobile && !shouldSkipYcReviewPrep ? sessionUserEmail : undefined;
+	const signedInMobileHandoffEmail = isMobile ? sessionUserEmail : undefined;
 
 	function setWrappedRouteFlowStage(nextStage: WrappedRouteFlowStage) {
 		startTransition(() => {
@@ -533,13 +517,11 @@ export function WrappedRouteGate(props: WrappedRouteGateProps) {
 		) {
 			content = (
 				<WrappedTeamCardPage
-					isDecimalEntitled={isWrappedStoryDecimalEntitled}
-					onBackFromFirstStep={
-						shouldSkipYcReviewPrep
-							? () => undefined
-							: () => setWrappedRouteFlowStage("sessions-landed")
+					isDecimalEntitled={decimalAccess.isDecimalEntitled}
+					onBackFromFirstStep={() =>
+						setWrappedRouteFlowStage("sessions-landed")
 					}
-					variant={wrappedStoryVariant}
+					variant={decimalAccess.variant}
 				/>
 			);
 		} else {

@@ -11,7 +11,7 @@ const { version } = JSON.parse(
 
 async function getLatestGitHubVersion() {
 	const response = await fetch(
-		"https://api.github.com/repos/obsessiondb/rudel/releases/latest",
+		"https://api.github.com/repos/evrendom/rudel/releases/latest",
 		{
 			headers: {
 				Accept: "application/vnd.github+json",

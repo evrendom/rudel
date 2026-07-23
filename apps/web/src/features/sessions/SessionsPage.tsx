@@ -3,14 +3,12 @@ import { useDateRange } from "@/features/analytics/date-range/useDateRange";
 import { useAnalyticsQuery } from "@/features/analytics/queries/useAnalyticsQuery";
 import { useAnalyticsTracking } from "@/features/analytics/tracking/useAnalyticsTracking";
 import { useTrackProductPageView } from "@/features/analytics/tracking/useTrackProductPageView";
-import { isYcReviewSession } from "@/features/auth/auth-route-utils";
 import { DashboardSessionsSnapshotSection } from "@/features/dashboard/components/DashboardSessionsSnapshotSection";
 import { buildDashboardSessionTabMetrics } from "@/features/dashboard/data/dashboard-tab-adapters";
 import { SessionDetailSheet } from "@/features/sessions/components/SessionDetailSheet";
 import { SessionsDateRangeControls } from "@/features/sessions/components/SessionsDateRangeControls";
 import { resolveActiveSessionDateRangeOptionId } from "@/features/sessions/session-date-ranges";
 import { useCanViewSession } from "@/features/workspace/hooks/useCanViewSession";
-import { authClient } from "@/lib/auth-client";
 import { orpc } from "@/lib/orpc";
 import { getSessionDetailPath } from "@/lib/session-paths";
 
@@ -20,8 +18,6 @@ export function SessionsPage() {
 		state: { endDate, startDate },
 	} = useDateRange();
 	const canViewSession = useCanViewSession();
-	const { data: session } = authClient.useSession();
-	const isYcReview = isYcReviewSession(session);
 	const { trackDrilldown } = useAnalyticsTracking();
 	const [selectedSessionId, setSelectedSessionId] = useState<string | null>(
 		null,
@@ -115,7 +111,7 @@ export function SessionsPage() {
 		session_id: string;
 		user_id: string;
 	}) {
-		if (isYcReview || !canViewSession(session.user_id)) {
+		if (!canViewSession(session.user_id)) {
 			return;
 		}
 
@@ -152,9 +148,6 @@ export function SessionsPage() {
 								metrics={headlineMetrics}
 								onSessionClick={handleSessionClick}
 								sessions={snapshotSessionsData}
-								sessionDetailDisabledNote={
-									isYcReview ? "Session detail disabled for demo." : undefined
-								}
 								showDelta
 								startDate={startDate}
 								totalSessionCount={

@@ -10,14 +10,12 @@ import {
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from "@/app/ui/dropdown-menu";
-import { isYcReviewSession } from "@/features/auth/auth-route-utils";
 import {
 	getUtilityRailItemClassName,
 	getUtilityRailLabelClassName,
 	type SidebarRowMode,
 } from "@/features/shell/components/shell-rail";
 import { useOrganization } from "@/features/workspace/organization/useOrganization";
-import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
 
 function WorkspaceMark({ className }: { className?: string }) {
@@ -52,10 +50,8 @@ export function WorkspaceMenuButton({
 	mode?: SidebarRowMode;
 }) {
 	const navigate = useNavigate();
-	const { data: session } = authClient.useSession();
 	const { state, actions } = useOrganization();
 	const workspaceName = state.activeOrg?.name ?? "Workspace";
-	const isYcReview = isYcReviewSession(session);
 
 	return (
 		<DropdownMenu>
@@ -104,25 +100,21 @@ export function WorkspaceMenuButton({
 				) : (
 					<DropdownMenuItem disabled>No workspaces yet</DropdownMenuItem>
 				)}
-				{isYcReview ? null : (
-					<>
-						<DropdownMenuSeparator />
-						<DropdownMenuItem
-							onClick={() => navigate(appRoutes.settingsWorkspace())}
-						>
-							<Settings2Icon />
-							Workspace settings
-						</DropdownMenuItem>
-						<DropdownMenuItem
-							onClick={() =>
-								navigate(`${appRoutes.settingsWorkspace()}#new-workspace`)
-							}
-						>
-							<CommandIcon />
-							Create workspace
-						</DropdownMenuItem>
-					</>
-				)}
+				<DropdownMenuSeparator />
+				<DropdownMenuItem
+					onClick={() => navigate(appRoutes.settingsWorkspace())}
+				>
+					<Settings2Icon />
+					Workspace settings
+				</DropdownMenuItem>
+				<DropdownMenuItem
+					onClick={() =>
+						navigate(`${appRoutes.settingsWorkspace()}#new-workspace`)
+					}
+				>
+					<CommandIcon />
+					Create workspace
+				</DropdownMenuItem>
 			</DropdownMenuContent>
 		</DropdownMenu>
 	);

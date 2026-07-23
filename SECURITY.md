@@ -12,7 +12,7 @@ Only the latest released version receives security updates.
 
 **Do not open a public GitHub issue for security vulnerabilities.**
 
-Instead, please report vulnerabilities privately via [GitHub Security Advisories](https://github.com/obsessiondb/rudel/security/advisories/new).
+Instead, please report vulnerabilities privately via [GitHub Security Advisories](https://github.com/evrendom/rudel/security/advisories/new).
 
 Include:
 
