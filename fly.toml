@@ -3,6 +3,9 @@ primary_region = "fra"
 
 [build]
 
+[deploy]
+  release_command = "bun run --cwd apps/api backfill:session-ownership"
+
 [http_service]
   internal_port = 3000
   force_https = true

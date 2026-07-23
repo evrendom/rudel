@@ -1,7 +1,5 @@
 import { getLogger } from "@logtape/logtape";
 import { ORPCError } from "@orpc/server";
-import { getAllAdapters } from "@rudel/agent-adapters";
-import { getClickhouse, getSafeClickHouseTable } from "../clickhouse.js";
 import { sqlClient } from "../db.js";
 
 const logger = getLogger(["rudel", "api", "session-ownership"]);
@@ -13,39 +11,21 @@ export async function assertSessionIngestOwnership(
 	sessionId: string,
 	userId: string,
 ): Promise<void> {
-	const registeredOwner = await getRegisteredOwner(organizationId, sessionId);
+	const registeredOwner = await getSessionOwner(organizationId, sessionId);
 	if (registeredOwner) {
 		assertCallerOwnsSession(registeredOwner, organizationId, sessionId, userId);
 		return;
 	}
 
-	const existingOwners = await getExistingClickHouseOwners(
-		organizationId,
-		sessionId,
-	);
-	if (existingOwners.length > 1) {
-		logger.warn(
-			"Session ingest rejected because existing ownership is ambiguous (organization_id={organizationId} session_id={sessionId} user_id={userId} owner_count={ownerCount})",
-			{
-				organizationId,
-				ownerCount: existingOwners.length,
-				sessionId,
-				userId,
-			},
-		);
-		throwOwnershipConflict();
-	}
-
-	const candidateOwner = existingOwners[0] ?? userId;
 	const reservedOwner = await reserveSessionOwner(
 		organizationId,
 		sessionId,
-		candidateOwner,
+		userId,
 	);
 	assertCallerOwnsSession(reservedOwner, organizationId, sessionId, userId);
 }
 
-async function getRegisteredOwner(
+export async function getSessionOwner(
 	organizationId: string,
 	sessionId: string,
 ): Promise<string | null> {
@@ -57,36 +37,6 @@ async function getRegisteredOwner(
 		LIMIT 1
 	`;
 	return row?.user_id ?? null;
-}
-
-async function getExistingClickHouseOwners(
-	organizationId: string,
-	sessionId: string,
-): Promise<string[]> {
-	const clickhouse = getClickhouse();
-	const ownerRows = await Promise.all(
-		getAllAdapters().map((adapter) =>
-			clickhouse.query<{ user_id: string }>({
-				query: `
-					SELECT DISTINCT user_id
-					FROM ${getSafeClickHouseTable(adapter.rawTableName)} FINAL
-					WHERE organization_id = {organizationId:String}
-						AND session_id = {sessionId:String}
-					LIMIT 2
-				`,
-				query_params: { organizationId, sessionId },
-			}),
-		),
-	);
-
-	return [
-		...new Set(
-			ownerRows
-				.flat()
-				.map((row) => row.user_id)
-				.filter((ownerId) => ownerId.length > 0),
-		),
-	];
 }
 
 async function reserveSessionOwner(

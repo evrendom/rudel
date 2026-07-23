@@ -30,5 +30,22 @@ export const sessionOwnership = pgTable(
 	],
 );
 
+export const sessionOwnershipBackfillState = pgTable(
+	"session_ownership_backfill_state",
+	{
+		backfillKey: text("backfill_key").primaryKey(),
+		completedAt: timestamp("completed_at", {
+			withTimezone: true,
+			mode: "date",
+		})
+			.defaultNow()
+			.notNull(),
+	},
+);
+
 export type SessionOwnershipSelect = typeof sessionOwnership.$inferSelect;
 export type SessionOwnershipInsert = typeof sessionOwnership.$inferInsert;
+export type SessionOwnershipBackfillStateSelect =
+	typeof sessionOwnershipBackfillState.$inferSelect;
+export type SessionOwnershipBackfillStateInsert =
+	typeof sessionOwnershipBackfillState.$inferInsert;

@@ -111,6 +111,15 @@ export function toSubagentMap(value: unknown): Record<string, string> {
 	);
 }
 
+export function isForbiddenError(value: unknown) {
+	return (
+		typeof value === "object" &&
+		value !== null &&
+		"code" in value &&
+		value.code === "FORBIDDEN"
+	);
+}
+
 export function getConversationSummary(content: string) {
 	if (content.trim() === "") {
 		return null;

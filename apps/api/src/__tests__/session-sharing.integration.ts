@@ -12,6 +12,10 @@ import type { IngestSessionInput } from "@rudel/api-routes";
 import { getClickhouse, getSafeClickHouseTable } from "../clickhouse.js";
 import { sqlClient } from "../db.js";
 import {
+	backfillSessionOwnership,
+	resolveSessionOwnershipConflict,
+} from "../services/session-ownership-backfill.service.js";
+import {
 	type ApiTestServer,
 	startApiTestServer,
 } from "./helpers/api-test-server.js";
@@ -23,8 +27,11 @@ const TEST_PASSWORD = "session-sharing-test-password-42";
 const SHARED_SESSION_ID = `${TEST_RUN_ID}_existing`;
 const CONCURRENT_SESSION_ID = `${TEST_RUN_ID}_concurrent`;
 const LEGACY_SESSION_ID = `${TEST_RUN_ID}_legacy`;
+const AMBIGUOUS_LEGACY_SESSION_ID = `${TEST_RUN_ID}_ambiguous_legacy`;
+const LEGACY_SHADOW_SESSION_ID = `${TEST_RUN_ID}_legacy_shadow`;
 const CROSS_ORG_SESSION_ID = `${TEST_RUN_ID}_cross_org`;
 const UNAUTHORIZED_SESSION_ID = `${TEST_RUN_ID}_unauthorized`;
+const CASCADE_SESSION_ID = `${TEST_RUN_ID}_cascade`;
 
 setDefaultTimeout(60_000);
 
@@ -44,6 +51,10 @@ let member: TestIdentity;
 let organizationId: string;
 
 beforeAll(async () => {
+	await sqlClient`
+		DELETE FROM session_ownership_backfill_state
+		WHERE backfill_key = 'session_ownership_v1'
+	`;
 	server = await startApiTestServer();
 	owner = await createTestIdentity(OWNER_EMAIL, "Session Owner");
 	member = await createTestIdentity(MEMBER_EMAIL, "Organization Member");
@@ -88,7 +99,7 @@ afterAll(async () => {
 			"rudel.session_analytics",
 		].map((table) =>
 			clickhouse.execute({
-				query: `DELETE FROM ${getSafeClickHouseTable(table)} WHERE organization_id IN ({organizationIdOne:String}, {organizationIdTwo:String}) AND session_id IN ({sessionIdOne:String}, {sessionIdTwo:String}, {sessionIdThree:String}, {sessionIdFour:String}, {sessionIdFive:String})`,
+				query: `DELETE FROM ${getSafeClickHouseTable(table)} WHERE organization_id IN ({organizationIdOne:String}, {organizationIdTwo:String}) AND session_id IN ({sessionIdOne:String}, {sessionIdTwo:String}, {sessionIdThree:String}, {sessionIdFour:String}, {sessionIdFive:String}, {sessionIdSix:String}, {sessionIdSeven:String}, {sessionIdEight:String})`,
 				query_params: {
 					organizationIdOne: owner.userId,
 					organizationIdTwo: member.userId,
@@ -97,11 +108,18 @@ afterAll(async () => {
 					sessionIdThree: LEGACY_SESSION_ID,
 					sessionIdFour: CROSS_ORG_SESSION_ID,
 					sessionIdFive: UNAUTHORIZED_SESSION_ID,
+					sessionIdSix: LEGACY_SHADOW_SESSION_ID,
+					sessionIdSeven: CASCADE_SESSION_ID,
+					sessionIdEight: AMBIGUOUS_LEGACY_SESSION_ID,
 				},
 			}),
 		),
 	);
 
+	await sqlClient`
+		DELETE FROM session_ownership_backfill_state
+		WHERE backfill_key = 'session_ownership_v1'
+	`;
 	await sqlClient`
 		DELETE FROM organization
 		WHERE id IN (${owner.userId}, ${member.userId})
@@ -112,8 +130,8 @@ afterAll(async () => {
 	`;
 });
 
-describe("organization session sharing", () => {
-	test("lets a member read a teammate session but not replace it", async () => {
+describe("organization session ownership", () => {
+	test("keeps teammate transcripts private and prevents replacement", async () => {
 		const ownerUpload = await callRpc(
 			owner.token,
 			"ingestSession",
@@ -128,11 +146,10 @@ describe("organization session sharing", () => {
 			"analytics/sessions/detail",
 			{ sessionId: SHARED_SESSION_ID },
 		);
-		expect(memberRead.status).toBe(200);
-		expect(readRpcJsonProperty(memberRead.body, "session_id")).toBe(
-			SHARED_SESSION_ID,
+		expect(memberRead.status).toBe(403);
+		expect(JSON.stringify(memberRead.body)).toContain(
+			"You can only view your own sessions",
 		);
-		expect(readRpcJsonProperty(memberRead.body, "user_id")).toBe(owner.userId);
 
 		const replacementAttempt = await callRpc(
 			member.token,
@@ -191,7 +208,7 @@ describe("organization session sharing", () => {
 		expect(ownership?.user_id).toBe(winner.userId);
 	}, 60_000);
 
-	test("protects a session that predates the ownership registry", async () => {
+	test("backfills a legacy owner once and protects the session", async () => {
 		const legacyInput = createSessionInput(
 			LEGACY_SESSION_ID,
 			"legacy-owner",
@@ -201,6 +218,69 @@ describe("organization session sharing", () => {
 		await getAdapter(legacyInput.source).ingest(getClickhouse(), legacyInput, {
 			organizationId,
 			userId: owner.userId,
+		});
+
+		const ambiguousOwnerInput = createSessionInput(
+			AMBIGUOUS_LEGACY_SESSION_ID,
+			"ambiguous-owner",
+			organizationId,
+			"codex",
+			"2026-07-21",
+		);
+		await getAdapter(ambiguousOwnerInput.source).ingest(
+			getClickhouse(),
+			ambiguousOwnerInput,
+			{
+				organizationId,
+				userId: owner.userId,
+			},
+		);
+		const ambiguousMemberInput = createSessionInput(
+			AMBIGUOUS_LEGACY_SESSION_ID,
+			"ambiguous-member",
+			organizationId,
+			"codex",
+			"2026-07-22",
+		);
+		await getAdapter(ambiguousMemberInput.source).ingest(
+			getClickhouse(),
+			ambiguousMemberInput,
+			{
+				organizationId,
+				userId: member.userId,
+			},
+		);
+
+		await expect(backfillSessionOwnership()).rejects.toThrow(
+			"conflicting session IDs",
+		);
+		const legacyBeforeResolution = await sqlClient<Array<{ user_id: string }>>`
+			SELECT user_id
+			FROM session_ownership
+			WHERE organization_id = ${organizationId}
+				AND session_id = ${LEGACY_SESSION_ID}
+		`;
+		expect(legacyBeforeResolution).toHaveLength(0);
+
+		await expect(
+			resolveSessionOwnershipConflict({
+				organizationId,
+				sessionId: AMBIGUOUS_LEGACY_SESSION_ID,
+				userId: crypto.randomUUID(),
+			}),
+		).rejects.toThrow("does not exist in this session's legacy upload history");
+		await resolveSessionOwnershipConflict({
+			organizationId,
+			sessionId: AMBIGUOUS_LEGACY_SESSION_ID,
+			userId: owner.userId,
+		});
+		const firstBackfill = await backfillSessionOwnership();
+		expect(firstBackfill.status).toBe("completed");
+
+		const secondBackfill = await backfillSessionOwnership();
+		expect(secondBackfill).toEqual({
+			insertedCount: 0,
+			status: "already_completed",
 		});
 
 		const replacementAttempt = await callRpc(
@@ -217,6 +297,69 @@ describe("organization session sharing", () => {
 			organizationId,
 			LEGACY_SESSION_ID,
 			owner.userId,
+		);
+	}, 60_000);
+
+	test("reads the registered owner's content for a shadowed legacy ID", async () => {
+		const memberInput = createSessionInput(
+			LEGACY_SHADOW_SESSION_ID,
+			"legacy-member-owner",
+			organizationId,
+			"claude_code",
+			"2026-07-22",
+		);
+		await getAdapter(memberInput.source).ingest(getClickhouse(), memberInput, {
+			organizationId,
+			userId: member.userId,
+		});
+		await sqlClient`
+			INSERT INTO session_ownership (
+				organization_id,
+				session_id,
+				user_id
+			)
+			VALUES (
+				${organizationId},
+				${LEGACY_SHADOW_SESSION_ID},
+				${member.userId}
+			)
+		`;
+
+		const attackerInput = createSessionInput(
+			LEGACY_SHADOW_SESSION_ID,
+			"newer-attacker",
+			organizationId,
+			"claude_code",
+			"2026-07-23",
+		);
+		await getAdapter(attackerInput.source).ingest(
+			getClickhouse(),
+			attackerInput,
+			{
+				organizationId,
+				userId: owner.userId,
+			},
+		);
+		await waitForAnalyticsOwners(LEGACY_SHADOW_SESSION_ID, 2);
+
+		const memberRead = await callRpc(
+			member.token,
+			"analytics/sessions/detail",
+			{ sessionId: LEGACY_SHADOW_SESSION_ID },
+		);
+		expect(memberRead.status).toBe(200);
+		expect(readRpcJsonProperty(memberRead.body, "user_id")).toBe(member.userId);
+		expect(readRpcJsonProperty(memberRead.body, "content")).toContain(
+			"legacy-member-owner",
+		);
+
+		const adminRead = await callRpc(owner.token, "analytics/sessions/detail", {
+			sessionId: LEGACY_SHADOW_SESSION_ID,
+		});
+		expect(adminRead.status).toBe(200);
+		expect(readRpcJsonProperty(adminRead.body, "user_id")).toBe(member.userId);
+		expect(readRpcJsonProperty(adminRead.body, "content")).toContain(
+			"legacy-member-owner",
 		);
 	}, 60_000);
 
@@ -279,6 +422,33 @@ describe("organization session sharing", () => {
 		>`SELECT user_id FROM session_ownership WHERE organization_id = ${member.userId} AND session_id = ${UNAUTHORIZED_SESSION_ID}`;
 		expect(ownership?.user_id).toBe(member.userId);
 	}, 60_000);
+
+	test("releases ownership when its organization is deleted", async () => {
+		await sqlClient`
+			INSERT INTO session_ownership (
+				organization_id,
+				session_id,
+				user_id
+			)
+			VALUES (
+				${member.userId},
+				${CASCADE_SESSION_ID},
+				${member.userId}
+			)
+		`;
+		await sqlClient`
+			DELETE FROM organization
+			WHERE id = ${member.userId}
+		`;
+
+		const ownership = await sqlClient<Array<{ user_id: string }>>`
+			SELECT user_id
+			FROM session_ownership
+			WHERE organization_id = ${member.userId}
+				AND session_id = ${CASCADE_SESSION_ID}
+		`;
+		expect(ownership).toHaveLength(0);
+	}, 60_000);
 });
 
 async function createTestIdentity(
@@ -333,6 +503,7 @@ function createSessionInput(
 	contentMarker: string,
 	targetOrganizationId = organizationId,
 	source: IngestSessionInput["source"] = "claude_code",
+	sessionDate = "2026-07-23",
 ): IngestSessionInput {
 	return {
 		content: [
@@ -341,7 +512,7 @@ function createSessionInput(
 					content: `Session content from ${contentMarker}`,
 					role: "user",
 				},
-				timestamp: "2026-07-23T10:00:00.000Z",
+				timestamp: `${sessionDate}T10:00:00.000Z`,
 				type: "user",
 			}),
 			JSON.stringify({
@@ -350,7 +521,7 @@ function createSessionInput(
 					role: "assistant",
 					usage: { input_tokens: 2, output_tokens: 1 },
 				},
-				timestamp: "2026-07-23T10:00:01.000Z",
+				timestamp: `${sessionDate}T10:00:01.000Z`,
 				type: "assistant",
 			}),
 		].join("\n"),
@@ -394,6 +565,27 @@ async function waitForAnalyticsSession(sessionId: string): Promise<void> {
 	throw new Error(`Session ${sessionId} did not reach session analytics`);
 }
 
+async function waitForAnalyticsOwners(
+	sessionId: string,
+	expectedOwnerCount: number,
+): Promise<void> {
+	const clickhouse = getClickhouse();
+	const deadline = Date.now() + 30_000;
+
+	while (Date.now() < deadline) {
+		const [row] = await clickhouse.query<{ owner_count: number }>({
+			query: `SELECT uniqExact(user_id) AS owner_count FROM ${getSafeClickHouseTable("rudel.session_analytics")} FINAL WHERE organization_id = {organizationId:String} AND session_id = {sessionId:String}`,
+			query_params: { organizationId, sessionId },
+		});
+		if (Number(row?.owner_count ?? 0) === expectedOwnerCount) return;
+		await Bun.sleep(250);
+	}
+
+	throw new Error(
+		`Session ${sessionId} did not reach ${expectedOwnerCount} analytics owners`,
+	);
+}
+
 function readAuthToken(value: unknown): string {
 	if (
 		typeof value === "object" &&
@@ -419,7 +611,7 @@ function readAuthToken(value: unknown): string {
 
 function readRpcJsonProperty(
 	value: unknown,
-	property: "id" | "session_id" | "user_id",
+	property: "content" | "id" | "session_id" | "user_id",
 ): string {
 	if (
 		typeof value !== "object" ||
@@ -431,6 +623,13 @@ function readRpcJsonProperty(
 		throw new Error(`RPC response did not include json.${property}`);
 	}
 
+	if (
+		property === "content" &&
+		"content" in value.json &&
+		typeof value.json.content === "string"
+	) {
+		return value.json.content;
+	}
 	if (
 		property === "id" &&
 		"id" in value.json &&
