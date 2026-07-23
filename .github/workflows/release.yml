@@ -7,20 +7,27 @@ on:
     types:
       - completed
   workflow_dispatch:
+    inputs:
+      publish_tag:
+        description: Existing rudel@* tag to publish after a failed release attempt
+        required: false
+        type: string
 
 permissions:
-  contents: write
-  issues: write
-  pull-requests: write
+  contents: read
 
 concurrency:
   group: release
   cancel-in-progress: false
 
 jobs:
-  release-please:
+  release_please:
+    name: Release Please
     if: >-
-      github.event_name == 'workflow_dispatch' ||
+      (
+        github.event_name == 'workflow_dispatch' &&
+        inputs.publish_tag == ''
+      ) ||
       (
         github.event.workflow_run.conclusion == 'success' &&
         github.event.workflow_run.head_branch == 'main'
@@ -28,9 +35,102 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     environment: release
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+    outputs:
+      cli_release_created: ${{ steps.release.outputs['apps/cli--release_created'] }}
+      cli_tag_name: ${{ steps.release.outputs['apps/cli--tag_name'] }}
+      cli_sha: ${{ steps.release.outputs['apps/cli--sha'] }}
     steps:
       - name: Run Release Please
         id: release
         uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
         with:
           token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+
+  publish:
+    if: >-
+      always() &&
+      (
+        needs.release_please.outputs.cli_release_created == 'true' ||
+        (
+          github.event_name == 'workflow_dispatch' &&
+          inputs.publish_tag != ''
+        )
+      )
+    needs: release_please
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    environment: npm-publish
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout released commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          ref: ${{ needs.release_please.outputs.cli_sha || inputs.publish_tag }}
+
+      - name: Authorize release source
+        env:
+          EXPECTED_RELEASE_SHA: ${{ needs.release_please.outputs.cli_sha }}
+          RELEASE_TAG: ${{ needs.release_please.outputs.cli_tag_name || inputs.publish_tag }}
+        run: |
+          if [[ -z "${RELEASE_TAG}" || "${RELEASE_TAG}" != rudel@* ]]; then
+            echo "Release tag must match rudel@*."
+            exit 1
+          fi
+
+          git fetch --force --no-tags origin main:refs/remotes/origin/main
+          git fetch --force --no-tags origin \
+            "refs/tags/${RELEASE_TAG}:refs/tags/${RELEASE_TAG}"
+
+          checked_out_sha="$(git rev-parse HEAD)"
+          tag_sha="$(git rev-parse "refs/tags/${RELEASE_TAG}^{commit}")"
+
+          if [[ "${checked_out_sha}" != "${tag_sha}" ]]; then
+            echo "Release tag and checked-out commit do not agree."
+            exit 1
+          fi
+
+          if [[ -n "${EXPECTED_RELEASE_SHA}" && "${tag_sha}" != "${EXPECTED_RELEASE_SHA}" ]]; then
+            echo "Release tag does not match the commit reported by Release Please."
+            exit 1
+          fi
+
+          if ! git merge-base --is-ancestor "${tag_sha}" refs/remotes/origin/main; then
+            echo "Release commit ${tag_sha} is not reachable from protected main."
+            exit 1
+          fi
+
+      - name: Setup Node.js
+        uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
+        with:
+          node-version: 24
+          package-manager-cache: false
+          registry-url: https://registry.npmjs.org
+
+      - name: Setup Bun
+        uses: ./.github/actions/setup
+
+      - name: Validate package version
+        env:
+          RELEASE_TAG: ${{ needs.release_please.outputs.cli_tag_name || inputs.publish_tag }}
+        run: |
+          package_version="$(node -p "require('./apps/cli/package.json').version")"
+          expected_tag="rudel@${package_version}"
+
+          if [[ "${RELEASE_TAG}" != "${expected_tag}" ]]; then
+            echo "Expected tag ${expected_tag}, received ${RELEASE_TAG}."
+            exit 1
+          fi
+
+      - name: Verify
+        run: bun run verify
+
+      - name: Publish with provenance
+        working-directory: apps/cli
+        run: npm publish --access public --provenance
