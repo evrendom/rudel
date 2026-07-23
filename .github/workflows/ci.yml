@@ -20,7 +20,7 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
 
       - name: Setup Bun
         uses: ./.github/actions/setup
@@ -57,7 +57,7 @@ jobs:
       CLICKHOUSE_DB: default
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
 
       - name: Setup Bun
         uses: ./.github/actions/setup
@@ -106,7 +106,7 @@ jobs:
       cancel-in-progress: false
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
 
       - name: Setup Bun
         uses: ./.github/actions/setup
@@ -117,7 +117,7 @@ jobs:
           PG_CONNECTION_STRING: ${{ secrets.PG_CONNECTION_STRING }}
 
       - name: Setup Fly.io
-        uses: superfly/flyctl-actions/setup-flyctl@master
+        uses: superfly/flyctl-actions/setup-flyctl@ed8efb33836e8b2096c7fd3ba1c8afe303ebbff1 # 1.6
 
       - name: Deploy
         run: |
