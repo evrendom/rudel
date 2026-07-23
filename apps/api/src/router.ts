@@ -27,10 +27,11 @@ import {
 import {
 	checkHookIngestRateLimit,
 	checkManualIngestRateLimit,
+	checkOrganizationSessionCountRateLimit,
 } from "./rate-limit.js";
 import {
 	deleteOrgSessions,
-	getOrgSessionCount,
+	getCachedOrgSessionCount,
 	hasOrgUploadsInLastDays,
 } from "./services/org-session.service.js";
 
@@ -233,6 +234,17 @@ const revokeCliToken = os.cli.revokeToken
 const getOrganizationSessionCount = os.getOrganizationSessionCount
 	.use(authMiddleware)
 	.handler(async ({ input, context }) => {
+		if (input.userId && input.userId !== context.user.id) {
+			throw new ORPCError("FORBIDDEN", {
+				message: "Cannot read another user's raw session count",
+			});
+		}
+
+		checkOrganizationSessionCountRateLimit(
+			context.user.id,
+			input.organizationId,
+		);
+
 		const membership = await sqlClient<Array<{ id: string }>>`
 			SELECT id
 			FROM member
@@ -247,13 +259,10 @@ const getOrganizationSessionCount = os.getOrganizationSessionCount
 			});
 		}
 
-		if (input.userId && input.userId !== context.user.id) {
-			throw new ORPCError("FORBIDDEN", {
-				message: "Cannot read another user's raw session count",
-			});
-		}
-
-		const count = await getOrgSessionCount(input.organizationId, input.userId);
+		const count = await getCachedOrgSessionCount(
+			input.organizationId,
+			input.userId,
+		);
 		return { count };
 	});
 

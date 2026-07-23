@@ -4,6 +4,7 @@ import {
 	checkAnalyticsRateLimit,
 	checkHookIngestRateLimit,
 	checkManualIngestRateLimit,
+	checkOrganizationSessionCountRateLimit,
 } from "../rate-limit.js";
 
 describe("IngestSessionInputSchema metadata field limits", () => {
@@ -111,6 +112,44 @@ describe("checkAnalyticsRateLimit", () => {
 		}
 		// userA is exhausted, userB should still work
 		expect(() => checkAnalyticsRateLimit(userB)).not.toThrow();
+	});
+});
+
+describe("checkOrganizationSessionCountRateLimit", () => {
+	test("allows five one-second pollers for one minute", () => {
+		const userId = `test-session-count-polling-${Date.now()}`;
+		const organizationId = "org-polling";
+
+		expect(() => {
+			for (let i = 0; i < 300; i++) {
+				checkOrganizationSessionCountRateLimit(userId, organizationId);
+			}
+		}).not.toThrow();
+	});
+
+	test("blocks sustained traffic above the refresh limit", () => {
+		const userId = `test-session-count-over-${Date.now()}`;
+		const organizationId = "org-over";
+
+		for (let i = 0; i < 300; i++) {
+			checkOrganizationSessionCountRateLimit(userId, organizationId);
+		}
+
+		expect(() =>
+			checkOrganizationSessionCountRateLimit(userId, organizationId),
+		).toThrow("Session count refresh is temporarily limited");
+	});
+
+	test("keeps organization limits independent", () => {
+		const userId = `test-session-count-orgs-${Date.now()}`;
+
+		for (let i = 0; i < 300; i++) {
+			checkOrganizationSessionCountRateLimit(userId, "org-at-limit");
+		}
+
+		expect(() =>
+			checkOrganizationSessionCountRateLimit(userId, "org-fresh"),
+		).not.toThrow();
 	});
 });
 
