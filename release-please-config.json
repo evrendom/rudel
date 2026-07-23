@@ -3,8 +3,6 @@
 	"include-v-in-tag": false,
 	"tag-separator": "@",
 	"bootstrap-sha": "29e6a903b20c9eb7af342eed9e1cc87860bdcadf",
-	"bump-minor-pre-major": true,
-	"bump-patch-for-minor-pre-major": true,
 	"packages": {
 		"apps/cli": {
 			"release-type": "node",
