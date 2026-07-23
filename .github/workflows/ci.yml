@@ -6,6 +6,10 @@ on:
     branches:
       - main
 
+permissions:
+  contents: read
+  pull-requests: read
+
 env:
   TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
   TURBO_TEAM: ${{ vars.TURBO_TEAM }}
@@ -15,6 +19,33 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  changes:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      cli: ${{ steps.filter.outputs.cli }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 20
+
+      - name: Detect CLI changes
+        id: filter
+        uses: dorny/paths-filter@7b450fff21473bca461d4b92ce414b9d0420d706 # v4.0.2
+        with:
+          base: main
+          filters: |
+            cli:
+              - "apps/cli/**"
+              - "packages/agent-adapters/**"
+              - "packages/api-routes/**"
+              - "packages/typescript-config/**"
+              - "package.json"
+              - "bun.lock"
+              - ".github/actions/setup/**"
+              - ".github/workflows/ci.yml"
+
   verify:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
@@ -94,6 +125,69 @@ jobs:
 
       - name: Run integration tests
         run: bun run turbo run test:integration
+
+  cli-smoke:
+    if: needs.changes.outputs.cli == 'true'
+    needs: changes
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-24.04
+          - macos-15
+          - windows-2025
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
+        with:
+          node-version: 24
+          package-manager-cache: false
+
+      - name: Setup Bun
+        uses: ./.github/actions/setup
+
+      - name: Pack and run the installed CLI
+        shell: bash
+        run: |
+          rm -rf .tmp/cli-smoke
+          mkdir -p .tmp/cli-smoke/package
+          npm pack ./apps/cli --pack-destination .tmp/cli-smoke/package
+          npm install \
+            --prefix .tmp/cli-smoke/install \
+            --ignore-scripts \
+            --no-audit \
+            --no-fund \
+            .tmp/cli-smoke/package/rudel-*.tgz
+          node .tmp/cli-smoke/install/node_modules/rudel/dist/cli.js --help
+
+  cli-smoke-required:
+    if: always()
+    needs:
+      - changes
+      - cli-smoke
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Require successful CLI smoke tests when applicable
+        env:
+          CHANGES_RESULT: ${{ needs.changes.result }}
+          CLI_CHANGED: ${{ needs.changes.outputs.cli }}
+          CLI_SMOKE_RESULT: ${{ needs.cli-smoke.result }}
+        run: |
+          if [[ "${CHANGES_RESULT}" != "success" ]]; then
+            echo "CLI change detection failed."
+            exit 1
+          fi
+
+          if [[ "${CLI_CHANGED}" == "true" && "${CLI_SMOKE_RESULT}" != "success" ]]; then
+            echo "CLI smoke tests did not succeed: ${CLI_SMOKE_RESULT}"
+            exit 1
+          fi
 
   deploy:
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
