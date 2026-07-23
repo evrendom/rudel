@@ -1,6 +1,6 @@
 import { implement, ORPCError } from "@orpc/server";
 import { contract } from "@rudel/api-routes";
-import { isYcReviewSessionRecord, type Session } from "./auth.js";
+import type { Session } from "./auth.js";
 import { sqlClient } from "./db.js";
 import { checkAnalyticsRateLimit } from "./rate-limit.js";
 
@@ -36,12 +36,6 @@ export const settingsMutationMiddleware = os.middleware(
 	async ({ context, next }) => {
 		if (!context.user || !context.session) {
 			throw new ORPCError("UNAUTHORIZED");
-		}
-
-		if (isYcReviewSessionRecord(context.session)) {
-			throw new ORPCError("FORBIDDEN", {
-				message: "YC review sessions cannot access settings",
-			});
 		}
 
 		return next({

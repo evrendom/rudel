@@ -51,18 +51,6 @@ jobs:
       - name: Setup Fly.io
         uses: superfly/flyctl-actions/setup-flyctl@master
 
-      - name: Stage Fly runtime secrets
-        run: |
-          flyctl secrets set --stage \
-            YC_LOGIN_ALLOWED_EMAILS="${YC_LOGIN_ALLOWED_EMAILS}" \
-            YC_LOGIN_PASSWORD_HASH="${YC_LOGIN_PASSWORD_HASH}" \
-            YC_LOGIN_TARGET_EMAIL="${YC_LOGIN_TARGET_EMAIL}"
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-          YC_LOGIN_ALLOWED_EMAILS: ${{ secrets.YC_LOGIN_ALLOWED_EMAILS }}
-          YC_LOGIN_PASSWORD_HASH: ${{ secrets.YC_LOGIN_PASSWORD_HASH }}
-          YC_LOGIN_TARGET_EMAIL: ${{ secrets.YC_LOGIN_TARGET_EMAIL }}
-
       - name: Deploy
         run: |
           flyctl deploy --remote-only \

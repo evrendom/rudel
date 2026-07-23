@@ -118,7 +118,7 @@ describe("WrappedGuestPage", () => {
 		).toBeInTheDocument();
 		expect(
 			screen.getByRole("link", { name: "View Rudel on GitHub" }),
-		).toHaveAttribute("href", "https://github.com/obsessiondb/rudel");
+		).toHaveAttribute("href", "https://github.com/evrendom/rudel");
 		expect(
 			screen.getByRole("link", { name: "View Rudel on Hacker News" }),
 		).toHaveAttribute("href", "https://news.ycombinator.com/item?id=47350416");

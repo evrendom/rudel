@@ -3,7 +3,7 @@ import { getLogger, withContext } from "@logtape/logtape";
 import { ORPCError, onError } from "@orpc/server";
 import { RPCHandler } from "@orpc/server/fetch";
 import type { Session as AuthSession } from "./auth.js";
-import { createAuth, getYcLoginConfigFromEnv } from "./auth.js";
+import { createAuth } from "./auth.js";
 import { db, sqlClient } from "./db.js";
 import { getResendConfigWarnings } from "./email.js";
 import {
@@ -112,7 +112,6 @@ const auth = createAuth(db, {
 		process.env.CLI_DEVICE_VERIFICATION_URL ??
 		`${preferredFrontendOrigin}/device`,
 	slackWebhookUrl: process.env.SLACK_WEBHOOK_URL,
-	ycLogin: getYcLoginConfigFromEnv(),
 });
 
 const rpcHandler = new RPCHandler(router, {

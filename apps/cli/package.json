@@ -7,11 +7,11 @@
 	"homepage": "https://app.rudel.ai",
 	"repository": {
 		"type": "git",
-		"url": "https://github.com/obsessiondb/rudel.git",
+		"url": "https://github.com/evrendom/rudel.git",
 		"directory": "apps/cli"
 	},
 	"bugs": {
-		"url": "https://github.com/obsessiondb/rudel/issues"
+		"url": "https://github.com/evrendom/rudel/issues"
 	},
 	"keywords": [
 		"claude",

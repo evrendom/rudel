@@ -83,4 +83,4 @@ Each uploaded session includes:
 ## Links
 
 - **Web App**: [app.rudel.ai](https://app.rudel.ai)
-- **Issues**: [GitHub Issues](https://github.com/obsessiondb/rudel/issues)
+- **Issues**: [GitHub Issues](https://github.com/evrendom/rudel/issues)

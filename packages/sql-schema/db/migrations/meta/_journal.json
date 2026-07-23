@@ -92,6 +92,13 @@
 			"when": 1777929079000,
 			"tag": "0012_yc_review_sessions",
 			"breakpoints": true
+		},
+		{
+			"idx": 13,
+			"version": "7",
+			"when": 1784808255000,
+			"tag": "0013_remove_yc_review_sessions",
+			"breakpoints": true
 		}
 	]
 }

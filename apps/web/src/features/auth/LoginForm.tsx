@@ -447,7 +447,7 @@ export function LoginForm(props: LoginFormProps) {
 					</a>{" "}
 					and{" "}
 					<a
-						href="https://obsessiondb.com/privacy"
+						href="https://rudel.ai/privacy"
 						target="_blank"
 						rel="noopener noreferrer"
 						className="underline underline-offset-4 hover:text-primary"

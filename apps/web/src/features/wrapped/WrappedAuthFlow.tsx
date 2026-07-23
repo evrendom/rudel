@@ -53,7 +53,7 @@ type WrappedAuthCardFlight = {
 };
 
 const WRAPPED_AUTH_INTRO_TITLE_LABEL = "Your Claude Wrapped";
-const WRAPPED_AUTH_GITHUB_URL = "https://github.com/obsessiondb/rudel";
+const WRAPPED_AUTH_GITHUB_URL = "https://github.com/evrendom/rudel";
 const WRAPPED_AUTH_HACKER_NEWS_URL =
 	"https://news.ycombinator.com/item?id=47350416";
 const WRAPPED_AUTH_PRODUCT_HUNT_URL =

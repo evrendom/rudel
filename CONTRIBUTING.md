@@ -10,7 +10,7 @@ Thanks for your interest in contributing! This guide covers setup, workflow, and
 ## Setup
 
 ```bash
-git clone https://github.com/obsessiondb/rudel.git
+git clone https://github.com/evrendom/rudel.git
 cd rudel
 bun install
 bun run dev:local
@@ -71,7 +71,7 @@ packages/
 
 ## Reporting Bugs
 
-Open an issue at [github.com/obsessiondb/rudel/issues](https://github.com/obsessiondb/rudel/issues) with steps to reproduce.
+Open an issue at [github.com/evrendom/rudel/issues](https://github.com/evrendom/rudel/issues) with steps to reproduce.
 
 ## Security Issues
 

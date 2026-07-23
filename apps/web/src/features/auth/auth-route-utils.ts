@@ -264,15 +264,3 @@ export function getSessionUserName(
 		? session.user.name
 		: undefined;
 }
-
-export function isYcReviewSession(session: unknown): boolean {
-	if (!isRecord(session) || !isRecord(session.session)) {
-		return false;
-	}
-
-	return "ycReview" in session.session && session.session.ycReview === true;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-	return typeof value === "object" && value !== null && !Array.isArray(value);
-}
