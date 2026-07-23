@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { ORPCError } from "@orpc/client";
+import { SESSION_OWNERSHIP_CONFLICT_CODE } from "@rudel/api-routes";
 import { formatUploadError } from "../lib/uploader.js";
 
 describe("formatUploadError", () => {
@@ -36,6 +37,16 @@ describe("formatUploadError", () => {
 		const error = new ORPCError("UNAUTHORIZED");
 
 		expect(formatUploadError(error)).toBe("401 Unauthorized");
+	});
+
+	test("explains session ownership conflicts", () => {
+		const error = new ORPCError(SESSION_OWNERSHIP_CONFLICT_CODE, {
+			status: 409,
+		});
+
+		expect(formatUploadError(error)).toBe(
+			"This session ID is already owned by another organization member. Upload it from the original member account or use a different session ID.",
+		);
 	});
 
 	test("explains oversized upload requests", () => {

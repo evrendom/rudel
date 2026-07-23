@@ -175,6 +175,10 @@ export const IngestSessionOutputSchema = z.object({
 	sessionId: z.string(),
 });
 
+export const SESSION_OWNERSHIP_CONFLICT_CODE = "SESSION_OWNERSHIP_CONFLICT";
+export const SESSION_OWNERSHIP_CONFLICT_MESSAGE =
+	"This session belongs to another organization member and cannot be replaced.";
+
 export type IngestSessionInput = z.infer<typeof IngestSessionInputSchema>;
 
 export const AdminUserSchema = z.object({
@@ -208,7 +212,13 @@ export const contract = {
 	listMyOrganizations: oc.output(z.array(OrganizationSchema)),
 	ingestSession: oc
 		.input(IngestSessionInputSchema)
-		.output(IngestSessionOutputSchema),
+		.output(IngestSessionOutputSchema)
+		.errors({
+			[SESSION_OWNERSHIP_CONFLICT_CODE]: {
+				status: 409,
+				message: SESSION_OWNERSHIP_CONFLICT_MESSAGE,
+			},
+		}),
 	getOrganizationSessionCount: oc
 		.input(
 			z.object({ organizationId: z.string(), userId: z.string().optional() }),

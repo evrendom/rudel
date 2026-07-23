@@ -8,7 +8,10 @@ import {
 } from "bun:test";
 import assert from "node:assert/strict";
 import { getAdapter } from "@rudel/agent-adapters";
-import type { IngestSessionInput } from "@rudel/api-routes";
+import {
+	type IngestSessionInput,
+	SESSION_OWNERSHIP_CONFLICT_CODE,
+} from "@rudel/api-routes";
 import { getClickhouse, getSafeClickHouseTable } from "../clickhouse.js";
 import { sqlClient } from "../db.js";
 import {
@@ -157,6 +160,9 @@ describe("organization session ownership", () => {
 			createSessionInput(SHARED_SESSION_ID, "member"),
 		);
 		expect(replacementAttempt.status).toBe(409);
+		expect(readRpcErrorCode(replacementAttempt.body)).toBe(
+			SESSION_OWNERSHIP_CONFLICT_CODE,
+		);
 		expect(JSON.stringify(replacementAttempt.body)).toContain(
 			"This session belongs to another organization member",
 		);
@@ -187,6 +193,9 @@ describe("organization session ownership", () => {
 		]);
 		const rejection = uploads.find((response) => response.status === 409);
 		assert(rejection);
+		expect(readRpcErrorCode(rejection.body)).toBe(
+			SESSION_OWNERSHIP_CONFLICT_CODE,
+		);
 		expect(JSON.stringify(rejection.body)).toContain(
 			"This session belongs to another organization member",
 		);
@@ -283,12 +292,29 @@ describe("organization session ownership", () => {
 			status: "already_completed",
 		});
 
+		await waitForAnalyticsOwners(AMBIGUOUS_LEGACY_SESSION_ID, 2);
+		const resolvedLegacyRead = await callRpc(
+			owner.token,
+			"analytics/sessions/detail",
+			{ sessionId: AMBIGUOUS_LEGACY_SESSION_ID },
+		);
+		expect(resolvedLegacyRead.status).toBe(200);
+		expect(readRpcJsonProperty(resolvedLegacyRead.body, "user_id")).toBe(
+			owner.userId,
+		);
+		expect(readRpcJsonProperty(resolvedLegacyRead.body, "content")).toContain(
+			"ambiguous-owner",
+		);
+
 		const replacementAttempt = await callRpc(
 			member.token,
 			"ingestSession",
 			createSessionInput(LEGACY_SESSION_ID, "legacy-member"),
 		);
 		expect(replacementAttempt.status).toBe(409);
+		expect(readRpcErrorCode(replacementAttempt.body)).toBe(
+			SESSION_OWNERSHIP_CONFLICT_CODE,
+		);
 		expect(JSON.stringify(replacementAttempt.body)).toContain(
 			"This session belongs to another organization member",
 		);
@@ -607,6 +633,22 @@ function readAuthToken(value: unknown): string {
 		return value.session.token;
 	}
 	throw new Error("Sign-up response did not include a bearer token");
+}
+
+function readRpcErrorCode(value: unknown): string {
+	if (
+		typeof value === "object" &&
+		value !== null &&
+		"json" in value &&
+		typeof value.json === "object" &&
+		value.json !== null &&
+		"code" in value.json &&
+		typeof value.json.code === "string"
+	) {
+		return value.json.code;
+	}
+
+	throw new Error("RPC response did not include json.code");
 }
 
 function readRpcJsonProperty(
