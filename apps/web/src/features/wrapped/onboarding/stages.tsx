@@ -65,9 +65,14 @@ interface ScaleRainSimulationBall extends ScaleRainBall {
 }
 
 const SCALE_RAIN_FLOOR_OFFSET_PX = 0;
+const SCALE_RAIN_TOKENS_PER_BALL = 1_000;
+const SCALE_RAIN_TOKENS_PER_MILLION = 1_000_000;
 const SCALE_RAIN_TARGET_DURATION_PER_MILLION_TOKENS_MS = 7_000;
+const SCALE_RAIN_SUBSEQUENT_MILLION_DURATION_MULTIPLIER = 0.5;
 const SCALE_RAIN_MIN_FLOW_DURATION_MS = 3_200;
-const SCALE_RAIN_MAX_FLOW_DURATION_MS = 9_000;
+const SCALE_RAIN_MAX_TARGET_DURATION_MS =
+	SCALE_RAIN_TARGET_DURATION_PER_MILLION_TOKENS_MS /
+	(1 - SCALE_RAIN_SUBSEQUENT_MILLION_DURATION_MULTIPLIER);
 const SCALE_RAIN_TRAVEL_OVERHEAD_MS = 1_200;
 const SCALE_RAIN_RELEASE_VELOCITY_PX = 2.6;
 const SCALE_RAIN_SQUASH_DURATION_MS = 80;
@@ -669,29 +674,49 @@ function activateNextScaleRainBall(
 	};
 }
 
-function resolveScaleRainReleaseIntervalMs(totalBallCount: number) {
+export function resolveScaleRainReleaseIntervalMs(totalBallCount: number) {
 	if (totalBallCount <= 0) {
-		return SCALE_RAIN_MAX_FLOW_DURATION_MS;
+		return SCALE_RAIN_MAX_TARGET_DURATION_MS;
 	}
 
-	const tokenCount = totalBallCount * 1_000;
-	const targetTotalDurationMs = Math.min(
-		SCALE_RAIN_MAX_FLOW_DURATION_MS,
-		Math.max(
-			SCALE_RAIN_MIN_FLOW_DURATION_MS,
-			(tokenCount / 1_000_000) *
-				SCALE_RAIN_TARGET_DURATION_PER_MILLION_TOKENS_MS,
-		),
-	);
-	const flowDurationMs = Math.min(
-		SCALE_RAIN_MAX_FLOW_DURATION_MS,
-		Math.max(
-			SCALE_RAIN_MIN_FLOW_DURATION_MS,
-			targetTotalDurationMs - SCALE_RAIN_TRAVEL_OVERHEAD_MS,
-		),
+	const tokenCount = totalBallCount * SCALE_RAIN_TOKENS_PER_BALL;
+	const targetTotalDurationMs = resolveScaleRainTargetDurationMs(tokenCount);
+	const flowDurationMs = Math.max(
+		SCALE_RAIN_MIN_FLOW_DURATION_MS,
+		targetTotalDurationMs - SCALE_RAIN_TRAVEL_OVERHEAD_MS,
 	);
 
 	return flowDurationMs / totalBallCount;
+}
+
+function resolveScaleRainTargetDurationMs(tokenCount: number) {
+	const millionCount = Math.max(0, tokenCount / SCALE_RAIN_TOKENS_PER_MILLION);
+	const firstMillionShare = Math.min(1, millionCount);
+	const subsequentMillions = Math.max(0, millionCount - 1);
+	const fullSubsequentMillions = Math.floor(subsequentMillions);
+	const partialSubsequentMillion = subsequentMillions - fullSubsequentMillions;
+	const subsequentDecay = SCALE_RAIN_SUBSEQUENT_MILLION_DURATION_MULTIPLIER;
+	const firstSubsequentMillionDurationMs =
+		SCALE_RAIN_TARGET_DURATION_PER_MILLION_TOKENS_MS * subsequentDecay;
+	const fullSubsequentDurationMs =
+		fullSubsequentMillions > 0
+			? firstSubsequentMillionDurationMs *
+				((1 - subsequentDecay ** fullSubsequentMillions) /
+					(1 - subsequentDecay))
+			: 0;
+	const partialSubsequentDurationMs =
+		partialSubsequentMillion *
+		SCALE_RAIN_TARGET_DURATION_PER_MILLION_TOKENS_MS *
+		subsequentDecay ** (fullSubsequentMillions + 1);
+	const targetDurationMs =
+		firstMillionShare * SCALE_RAIN_TARGET_DURATION_PER_MILLION_TOKENS_MS +
+		fullSubsequentDurationMs +
+		partialSubsequentDurationMs;
+
+	return Math.min(
+		SCALE_RAIN_MAX_TARGET_DURATION_MS,
+		Math.max(SCALE_RAIN_MIN_FLOW_DURATION_MS, targetDurationMs),
+	);
 }
 
 function clampScaleRainX(x: number, radius: number, width: number) {
