@@ -2,16 +2,14 @@ import * as p from "@clack/prompts";
 import { buildCommand } from "@stricli/core";
 import { verifyAuth } from "../lib/auth.js";
 
-async function runWhoami(): Promise<void> {
+async function runWhoami(): Promise<undefined | Error> {
 	const result = await verifyAuth();
 	if (!result.authenticated) {
 		if (result.reason === "no_credentials") {
 			p.log.info("Not logged in. Run `rudel login` to authenticate.");
-		} else {
-			p.log.error(result.message);
-			process.exitCode = 1;
+			return;
 		}
-		return;
+		return new Error(result.message);
 	}
 
 	p.log.info(`Logged in as ${result.user.name} (${result.user.email})`);

@@ -183,7 +183,7 @@ async function runLogin(flags: {
 	apiBase: string;
 	webUrl: string;
 	noBrowser: boolean;
-}): Promise<void> {
+}): Promise<undefined | Error> {
 	const openedBrowser = !flags.noBrowser;
 	const attemptNumber = getNextCliLoginAttemptNumber();
 	const captureLoginFailure = (
@@ -225,9 +225,7 @@ async function runLogin(flags: {
 		deviceCode = await requestDeviceCode(flags.apiBase);
 	} catch (error) {
 		captureLoginFailure("device_code_request", error);
-		p.log.error(error instanceof Error ? error.message : String(error));
-		process.exitCode = 1;
-		return;
+		return error instanceof Error ? error : new Error(String(error));
 	}
 	const verifyUrl =
 		deviceCode.verification_uri_complete ??
@@ -268,9 +266,7 @@ async function runLogin(flags: {
 			error,
 		);
 		spin.stop("Authentication failed");
-		p.log.error(error instanceof Error ? error.message : String(error));
-		process.exitCode = 1;
-		return;
+		return error instanceof Error ? error : new Error(String(error));
 	}
 
 	spin.message("Creating ingest token...");
@@ -280,9 +276,7 @@ async function runLogin(flags: {
 	} catch (error) {
 		captureLoginFailure("api_key_create", error);
 		spin.stop("Authentication failed");
-		p.log.error(error instanceof Error ? error.message : String(error));
-		process.exitCode = 1;
-		return;
+		return error instanceof Error ? error : new Error(String(error));
 	}
 
 	const client = createApiClient({
@@ -307,9 +301,7 @@ async function runLogin(flags: {
 	} catch (error) {
 		captureLoginFailure("account_fetch", error);
 		spin.stop("Authentication failed");
-		p.log.error("Login failed: unable to fetch account details");
-		process.exitCode = 1;
-		return;
+		return new Error("Login failed: unable to fetch account details");
 	}
 
 	try {
@@ -324,9 +316,7 @@ async function runLogin(flags: {
 	} catch (error) {
 		captureLoginFailure("account_fetch", error);
 		spin.stop("Authentication failed");
-		p.log.error("Login failed: unable to persist credentials");
-		process.exitCode = 1;
-		return;
+		return new Error("Login failed: unable to persist credentials");
 	}
 
 	captureCliProductAnalyticsEvent({

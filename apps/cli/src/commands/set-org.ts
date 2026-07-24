@@ -4,15 +4,13 @@ import { createApiClient } from "../lib/api-client.js";
 import { loadCredentials } from "../lib/credentials.js";
 import { getProjectOrgId, setProjectOrgId } from "../lib/project-config.js";
 
-async function runSetOrg(): Promise<void> {
+async function runSetOrg(): Promise<undefined | Error> {
 	p.intro("rudel set-org");
 
 	const credentials = loadCredentials();
 	if (!credentials) {
-		p.log.error("Not authenticated.");
 		p.outro("Run `rudel login` first.");
-		process.exitCode = 1;
-		return;
+		return new Error("Not authenticated.");
 	}
 
 	let orgs: { id: string; name: string; slug: string }[];
@@ -23,17 +21,13 @@ async function runSetOrg(): Promise<void> {
 		try {
 			orgs = await client.listMyOrganizations();
 		} catch {
-			p.log.error("Failed to fetch organizations. Check your connection.");
-			process.exitCode = 1;
-			return;
+			return new Error("Failed to fetch organizations. Check your connection.");
 		}
 	}
 
 	if (orgs.length === 0) {
-		p.log.error("No organizations found.");
 		p.outro("Create one at app.rudel.ai first.");
-		process.exitCode = 1;
-		return;
+		return new Error("No organizations found.");
 	}
 
 	const cwd = process.cwd();
