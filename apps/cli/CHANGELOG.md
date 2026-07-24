@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.16](https://github.com/evrendom/rudel/compare/rudel@0.1.15...rudel@0.1.16) (2026-07-24)
+
+
+### Bug Fixes
+
+* **cli:** return nonzero failures and revoke logout tokens ([#375](https://github.com/evrendom/rudel/issues/375)) ([aa20186](https://github.com/evrendom/rudel/commit/aa201860ca28f0bda672124112adf027cb43882a))
+
 ## [0.1.15](https://github.com/evrendom/rudel/compare/rudel@0.1.14...rudel@0.1.15) (2026-07-23)
 
 
