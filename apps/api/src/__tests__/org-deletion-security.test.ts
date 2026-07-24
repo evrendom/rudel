@@ -7,7 +7,7 @@ describe("organization deletion security", () => {
 		const auth = createAuth(mockDb, {
 			appURL: "http://localhost:4010",
 			frontendURL: "http://localhost:4011",
-			secret: "test-secret",
+			secret: "test-secret-that-is-at-least-32-chars",
 		});
 
 		// The organization plugin should have disableOrganizationDeletion set.

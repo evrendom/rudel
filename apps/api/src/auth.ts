@@ -78,7 +78,7 @@ function toTrackedOrganizationRole(
 export interface AuthConfig {
 	appURL: string;
 	frontendURL: string;
-	secret?: string;
+	secret: string;
 	resend?: ResendConfig;
 	socialProviders?: Record<string, { clientId: string; clientSecret: string }>;
 	trustedOrigins?: string[];
