@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.15](https://github.com/evrendom/rudel/compare/rudel@0.1.14...rudel@0.1.15) (2026-07-23)
+
+
+### Bug Fixes
+
+* preserve organization session ownership ([#366](https://github.com/evrendom/rudel/issues/366)) ([10d0cef](https://github.com/evrendom/rudel/commit/10d0ceff406cf3f561eeb0c8287882ece1771fa5))
+
 ## [0.1.12](https://github.com/obsessiondb/rudel/compare/rudel@0.1.11...rudel@0.1.12) (2026-05-04)
 
 
