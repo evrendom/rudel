@@ -13,14 +13,19 @@ interface SlidingWindowEntry {
 
 type WeightedSample = { ts: number; weight: number };
 
+interface WeightedWindowEntry {
+	samples: WeightedSample[];
+	total: number;
+}
+
 const analyticsWindows = new Map<string, SlidingWindowEntry>();
 const organizationSessionCountWindows = new Map<string, SlidingWindowEntry>();
 const wrappedShareCreateWindows = new Map<string, SlidingWindowEntry>();
 const wrappedShareLookupWindows = new Map<string, SlidingWindowEntry>();
 const wrappedResumeCreateWindows = new Map<string, SlidingWindowEntry>();
 const wrappedDecimalClaimRedeemWindows = new Map<string, SlidingWindowEntry>();
-const ingestRequestWindows = new Map<string, WeightedSample[]>();
-const ingestByteWindows = new Map<string, WeightedSample[]>();
+const ingestRequestWindows = new Map<string, WeightedWindowEntry>();
+const ingestByteWindows = new Map<string, WeightedWindowEntry>();
 
 const ANALYTICS_MAX_REQUESTS = Number(
 	process.env.RATE_LIMIT_ANALYTICS_MAX ?? 90,
@@ -207,13 +212,29 @@ function checkIngestRateLimit(
 		: INGEST_LIMIT_REASONS.byteLimit;
 	const windows = isRequestLimit ? ingestRequestWindows : ingestByteWindows;
 	const now = Date.now();
-	const samples = (windows.get(userId) ?? []).filter(
-		(sample) => sample.ts > now - windowMs,
-	);
-	windows.set(userId, samples);
+	const cutoff = now - windowMs;
+	let entry = windows.get(userId);
+	if (!entry) {
+		entry = { samples: [], total: 0 };
+		windows.set(userId, entry);
+	}
 
-	const current =
-		samples.reduce((total, sample) => total + sample.weight, 0) + weight;
+	let expiredCount = 0;
+	let expiredWeight = 0;
+	while (expiredCount < entry.samples.length) {
+		const sample = entry.samples[expiredCount];
+		if (!sample || sample.ts > cutoff) {
+			break;
+		}
+		expiredWeight += sample.weight;
+		expiredCount += 1;
+	}
+	if (expiredCount > 0) {
+		entry.samples.splice(0, expiredCount);
+		entry.total -= expiredWeight;
+	}
+
+	const current = entry.total + weight;
 	if (current > maxTotal) {
 		logger.warn("Ingest rate limit exceeded for user {userId}", {
 			current,
@@ -232,7 +253,8 @@ function checkIngestRateLimit(
 		});
 	}
 
-	samples.push({ ts: now, weight });
+	entry.samples.push({ ts: now, weight });
+	entry.total = current;
 }
 
 function checkSessionIngestRateLimit(input: {
