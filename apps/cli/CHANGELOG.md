@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.17](https://github.com/evrendom/rudel/compare/rudel@0.1.16...rudel@0.1.17) (2026-07-24)
+
+
+### Bug Fixes
+
+* **api:** bound ingest abuse and duplicate work ([#377](https://github.com/evrendom/rudel/issues/377)) ([06d45f5](https://github.com/evrendom/rudel/commit/06d45f57f68e0a586a0d5feb3ee244aa6f997809))
+
 ## [0.1.16](https://github.com/evrendom/rudel/compare/rudel@0.1.15...rudel@0.1.16) (2026-07-24)
 
 
