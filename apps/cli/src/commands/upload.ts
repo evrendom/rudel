@@ -33,12 +33,12 @@ interface UploadFlags {
 	concurrency: number;
 }
 
-async function runInteractiveUpload(flags: UploadFlags): Promise<void> {
+async function runInteractiveUpload(
+	flags: UploadFlags,
+): Promise<undefined | Error> {
 	const credentials = loadCredentials();
 	if (!credentials && !flags.dryRun) {
-		p.log.error("Not authenticated. Run `rudel login` first.");
-		process.exitCode = 1;
-		return;
+		return new Error("Not authenticated. Run `rudel login` first.");
 	}
 
 	p.intro("rudel upload");
@@ -175,7 +175,7 @@ async function runInteractiveUpload(flags: UploadFlags): Promise<void> {
 	}
 
 	if (summary.failed > 0) {
-		process.exitCode = 1;
+		return new Error(`${summary.failed} upload(s) failed.`);
 	}
 }
 
@@ -190,19 +190,14 @@ function sessionCountHint(count: number): string {
 async function runSingleUpload(
 	flags: UploadFlags,
 	session: string,
-): Promise<void> {
+): Promise<undefined | Error> {
 	const write = (msg: string) => {
 		process.stdout.write(`${msg}\n`);
-	};
-	const writeError = (msg: string) => {
-		process.stderr.write(`${msg}\n`);
 	};
 
 	const credentials = loadCredentials();
 	if (!credentials && !flags.dryRun) {
-		writeError("Error: Not authenticated. Run `rudel login` first.");
-		process.exitCode = 1;
-		return;
+		return new Error("Not authenticated. Run `rudel login` first.");
 	}
 
 	write(`Resolving session: ${session}`);
@@ -210,11 +205,7 @@ async function runSingleUpload(
 	try {
 		sessionInfo = await resolveSession(session);
 	} catch (error) {
-		writeError(
-			`Error: ${error instanceof Error ? error.message : String(error)}`,
-		);
-		process.exitCode = 1;
-		return;
+		return error instanceof Error ? error : new Error(String(error));
 	}
 	write(`Found session at: ${sessionInfo.transcriptPath}`);
 
@@ -283,17 +274,14 @@ async function runSingleUpload(
 	if (result.success) {
 		write("Upload successful!");
 	} else {
-		writeError(`Upload failed: ${result.error}`);
-		process.exitCode = 1;
+		return new Error(`Upload failed: ${result.error}`);
 	}
 }
 
-async function runRetryUpload(flags: UploadFlags): Promise<void> {
+async function runRetryUpload(flags: UploadFlags): Promise<undefined | Error> {
 	const credentials = loadCredentials();
 	if (!credentials) {
-		p.log.error("Not authenticated. Run `rudel login` first.");
-		process.exitCode = 1;
-		return;
+		return new Error("Not authenticated. Run `rudel login` first.");
 	}
 
 	p.intro("rudel upload --retry");
@@ -378,14 +366,14 @@ async function runRetryUpload(flags: UploadFlags): Promise<void> {
 	p.outro("Done!");
 
 	if (summary.failed > 0) {
-		process.exitCode = 1;
+		return new Error(`${summary.failed} upload(s) failed.`);
 	}
 }
 
 async function runUpload(
 	flags: UploadFlags,
 	...sessions: string[]
-): Promise<void> {
+): Promise<undefined | Error> {
 	if (flags.retry) {
 		return runRetryUpload(flags);
 	}

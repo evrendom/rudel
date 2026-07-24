@@ -184,6 +184,62 @@ describe("CLI upload to local API", () => {
 		expect(lastExitCode).toBe(0);
 	}, 90_000);
 
+	test("full CLI upload exits nonzero when the API rejects the request", async () => {
+		const projectDir = join(tempDir, "cli-rejected-upload-test");
+		const credDir = join(tempDir, "cli-rejected-upload-creds");
+		await Promise.all([
+			mkdir(projectDir, { recursive: true }),
+			mkdir(credDir, { recursive: true }),
+		]);
+
+		await writeFile(
+			join(credDir, "credentials.json"),
+			JSON.stringify({
+				token: "invalid-api-key",
+				apiBaseUrl: server.baseUrl,
+				authType: "api-key",
+			}),
+		);
+
+		const sessionFile = join(projectDir, "rejected-session.jsonl");
+		await writeFile(
+			sessionFile,
+			[
+				JSON.stringify({
+					type: "summary",
+					sessionId: "rejected-session",
+				}),
+				JSON.stringify({
+					type: "message",
+					role: "human",
+					content: "test",
+				}),
+			].join("\n"),
+		);
+
+		const cliPath = join(import.meta.dir, "..", "bin", "cli.ts");
+		const proc = Bun.spawn(
+			["bun", cliPath, "upload", sessionFile, "--endpoint", server.rpcUrl],
+			{
+				stdin: "ignore",
+				stdout: "pipe",
+				stderr: "pipe",
+				env: {
+					...process.env,
+					RUDEL_CONFIG_DIR: credDir,
+				},
+			},
+		);
+
+		const [exitCode, stderr] = await Promise.all([
+			proc.exited,
+			new Response(proc.stderr).text(),
+		]);
+
+		expect(exitCode).toBe(1);
+		expect(stderr).toContain("Upload failed:");
+	}, 90_000);
+
 	test("rejects unauthenticated requests", async () => {
 		const request: IngestSessionInput = {
 			source: "claude_code",

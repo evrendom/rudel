@@ -6,12 +6,14 @@ import {
 	setDefaultTimeout,
 	test,
 } from "bun:test";
+import assert from "node:assert/strict";
 
 setDefaultTimeout(60_000);
 
 import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { createApiClient } from "../lib/api-client.js";
 import {
 	signUpTestUser,
 	startTestServer,
@@ -156,6 +158,106 @@ describe("auth e2e", () => {
 		expect(credentials).toBeNull();
 	});
 
+	test("logout: revokes API-key credentials and clears them", async () => {
+		const apiKey = await createIngestApiKey(server.baseUrl, sessionToken);
+		saveCredentialsToDir(
+			configDir,
+			apiKey.key,
+			server.baseUrl,
+			"api-key",
+			apiKey.id,
+		);
+
+		const cliPath = join(import.meta.dir, "..", "bin", "cli.ts");
+		const proc = Bun.spawn(["bun", cliPath, "logout"], {
+			env: {
+				...process.env,
+				RUDEL_CONFIG_DIR: configDir,
+			},
+			stdout: "pipe",
+			stderr: "pipe",
+		});
+
+		const [exitCode, stdout, stderr] = await Promise.all([
+			proc.exited,
+			new Response(proc.stdout).text(),
+			new Response(proc.stderr).text(),
+		]);
+
+		expect(exitCode).toBe(0);
+		expect(stdout).toContain("Logged out successfully");
+		expect(stderr).toBe("");
+		expect(loadCredentialsFromDir(configDir)).toBeNull();
+
+		const revokedClient = createApiClient({
+			apiBaseUrl: server.baseUrl,
+			token: apiKey.key,
+			authType: "api-key",
+		});
+		await expect(revokedClient.cli.authStatus()).rejects.toThrow();
+	});
+
+	test("logout: keeps credentials when server revocation fails", async () => {
+		saveCredentialsToDir(
+			configDir,
+			"invalid-api-key",
+			server.baseUrl,
+			"api-key",
+			"invalid-api-key-id",
+		);
+
+		const cliPath = join(import.meta.dir, "..", "bin", "cli.ts");
+		const proc = Bun.spawn(["bun", cliPath, "logout"], {
+			env: {
+				...process.env,
+				RUDEL_CONFIG_DIR: configDir,
+			},
+			stdout: "pipe",
+			stderr: "pipe",
+		});
+
+		const [exitCode, stderr] = await Promise.all([
+			proc.exited,
+			new Response(proc.stderr).text(),
+		]);
+
+		expect(exitCode).toBe(1);
+		expect(stderr).toContain("Failed to revoke token on server");
+		expect(stderr).toContain("Credentials were kept");
+		expect(loadCredentialsFromDir(configDir)).not.toBeNull();
+	});
+
+	test("logout --local-only clears credentials without server revocation", async () => {
+		saveCredentialsToDir(
+			configDir,
+			"invalid-api-key",
+			server.baseUrl,
+			"api-key",
+			"invalid-api-key-id",
+		);
+
+		const cliPath = join(import.meta.dir, "..", "bin", "cli.ts");
+		const proc = Bun.spawn(["bun", cliPath, "logout", "--local-only"], {
+			env: {
+				...process.env,
+				RUDEL_CONFIG_DIR: configDir,
+			},
+			stdout: "pipe",
+			stderr: "pipe",
+		});
+
+		const [exitCode, stdout, stderr] = await Promise.all([
+			proc.exited,
+			new Response(proc.stdout).text(),
+			new Response(proc.stderr).text(),
+		]);
+
+		expect(exitCode).toBe(0);
+		expect(stdout).toContain("Logged out locally");
+		expect(stderr).toBe("");
+		expect(loadCredentialsFromDir(configDir)).toBeNull();
+	});
+
 	test("whoami: shows not logged in after logout", async () => {
 		// Ensure no credentials
 		clearCredentialsFromDir(configDir);
@@ -183,11 +285,13 @@ function saveCredentialsToDir(
 	dir: string,
 	token: string,
 	apiBaseUrl: string,
+	authType: "bearer" | "api-key" = "bearer",
+	apiKeyId?: string,
 ): void {
 	const { writeFileSync } = require("node:fs");
 	writeFileSync(
 		join(dir, "credentials.json"),
-		JSON.stringify({ token, apiBaseUrl, authType: "bearer" }, null, 2),
+		JSON.stringify({ token, apiBaseUrl, authType, apiKeyId }, null, 2),
 		{ mode: 0o600 },
 	);
 }
@@ -216,4 +320,42 @@ function clearCredentialsFromDir(dir: string): void {
 	} catch {
 		// already gone
 	}
+}
+
+interface ApiKeyCreateResponse {
+	id: string;
+	key: string;
+}
+
+async function createIngestApiKey(
+	apiBase: string,
+	accessToken: string,
+): Promise<ApiKeyCreateResponse> {
+	const response = await fetch(`${apiBase}/api/auth/api-key/create`, {
+		method: "POST",
+		headers: {
+			"Content-Type": "application/json",
+			Authorization: `Bearer ${accessToken}`,
+		},
+		body: JSON.stringify({
+			name: "rudel-cli-ingest",
+			expiresIn: null,
+		}),
+	});
+
+	expect(response.ok).toBe(true);
+	const body: unknown = await response.json();
+	assert(isApiKeyCreateResponse(body));
+	return body;
+}
+
+function isApiKeyCreateResponse(value: unknown): value is ApiKeyCreateResponse {
+	return (
+		typeof value === "object" &&
+		value !== null &&
+		"id" in value &&
+		"key" in value &&
+		typeof value.id === "string" &&
+		typeof value.key === "string"
+	);
 }

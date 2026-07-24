@@ -234,7 +234,7 @@ const revokeCliToken = os.cli.revokeToken
 
 		await sqlClient`
 			UPDATE apikey
-			SET enabled = false, updated_at = ${new Date()}
+			SET enabled = false, updated_at = NOW()
 			WHERE id = ${context.apiKeyId}
 				AND reference_id = ${context.user.id}
 		`;

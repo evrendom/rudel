@@ -18,7 +18,7 @@ import {
 import { getProjectOrgId, setProjectOrgId } from "../lib/project-config.js";
 import { uploadSession } from "../lib/uploader.js";
 
-async function runEnable(): Promise<void> {
+async function runEnable(): Promise<undefined | Error> {
 	p.intro("rudel enable");
 
 	const captureEnableFailure = (options: {
@@ -55,10 +55,8 @@ async function runEnable(): Promise<void> {
 			failureStage: "auth_verify",
 			error: auth.reason,
 		});
-		p.log.error(auth.message);
 		p.outro("Run `rudel login` to authenticate.");
-		process.exitCode = 1;
-		return;
+		return new Error(auth.message);
 	}
 
 	const { credentials } = auth;
@@ -78,9 +76,7 @@ async function runEnable(): Promise<void> {
 				error,
 				userId: auth.user.id,
 			});
-			p.log.error("Failed to fetch organizations. Check your connection.");
-			process.exitCode = 1;
-			return;
+			return new Error("Failed to fetch organizations. Check your connection.");
 		}
 	}
 
@@ -91,10 +87,8 @@ async function runEnable(): Promise<void> {
 			error: new Error("No organizations found"),
 			userId: auth.user.id,
 		});
-		p.log.error("No organizations found.");
 		p.outro("Create one at app.rudel.ai first.");
-		process.exitCode = 1;
-		return;
+		return new Error("No organizations found.");
 	}
 
 	// Check if already configured for this project
@@ -273,7 +267,9 @@ async function runEnable(): Promise<void> {
 	p.outro("Done!");
 
 	if (totalFailed > 0 || hookInstallFailures > 0) {
-		process.exitCode = 1;
+		return new Error(
+			`Enable completed with ${hookInstallFailures} hook installation failure(s) and ${totalFailed} upload failure(s).`,
+		);
 	}
 }
 
