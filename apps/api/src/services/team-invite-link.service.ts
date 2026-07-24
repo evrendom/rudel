@@ -1,6 +1,7 @@
 import { Buffer } from "node:buffer";
 import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 import { sqlClient } from "../db.js";
+import { readBetterAuthSecret } from "../lib/env.js";
 
 export type TeamInviteAcceptResult =
 	| {
@@ -19,7 +20,6 @@ export interface TeamInviteLink {
 }
 
 const TEAM_INVITE_TOKEN_VERSION = "v1";
-const LOCAL_TEAM_INVITE_SECRET = "rudel-local-team-invite-secret";
 
 export async function getTeamInviteLink(input: {
 	organizationId: string;
@@ -114,7 +114,7 @@ function signTeamInvitePayload(payload: string) {
 }
 
 function getTeamInviteSecret() {
-	return process.env.BETTER_AUTH_SECRET ?? LOCAL_TEAM_INVITE_SECRET;
+	return readBetterAuthSecret();
 }
 
 function safeEqual(left: string, right: string) {

@@ -10,7 +10,7 @@ import {
 	handleAvatarGetRequest,
 	handleAvatarUploadRequest,
 } from "./handlers/avatar-http.js";
-import { readPositiveSafeIntegerEnv } from "./lib/env.js";
+import { readBetterAuthSecret, readPositiveSafeIntegerEnv } from "./lib/env.js";
 import { shutdownApiProductAnalytics } from "./lib/product-analytics.js";
 import { setupLogging } from "./logging.js";
 import type { ApiKeyAuthFailure } from "./middleware.js";
@@ -30,6 +30,7 @@ await setupLogging();
 
 const logger = getLogger(["rudel", "api", "http"]);
 type AuthUser = AuthSession["user"];
+const betterAuthSecret = readBetterAuthSecret();
 const port = process.env.PORT ?? "4010";
 const DEFAULT_DEV_API_ORIGIN = `http://localhost:${port}`;
 const DEFAULT_DEV_ORIGIN = "http://localhost:4011";
@@ -105,7 +106,7 @@ for (const warning of getResendConfigWarnings(resend)) {
 const auth = createAuth(db, {
 	appURL,
 	frontendURL: preferredFrontendOrigin,
-	secret: process.env.BETTER_AUTH_SECRET,
+	secret: betterAuthSecret,
 	resend,
 	socialProviders,
 	trustedOrigins,
