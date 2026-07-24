@@ -10,6 +10,7 @@ import {
 	handleAvatarGetRequest,
 	handleAvatarUploadRequest,
 } from "./handlers/avatar-http.js";
+import { readPositiveSafeIntegerEnv } from "./lib/env.js";
 import { shutdownApiProductAnalytics } from "./lib/product-analytics.js";
 import { setupLogging } from "./logging.js";
 import type { ApiKeyAuthFailure } from "./middleware.js";
@@ -150,11 +151,13 @@ function corsHeaders(origin: string | null): Record<string, string> {
 	};
 }
 
-const MAX_REQUEST_BODY_BYTES = Number(
-	process.env.MAX_REQUEST_BODY_BYTES ?? 500 * 1024 * 1024, // 500 MB
+const MAX_REQUEST_BODY_BYTES = readPositiveSafeIntegerEnv(
+	"MAX_REQUEST_BODY_BYTES",
+	160 * 1024 * 1024,
 );
 
 const server = Bun.serve({
+	maxRequestBodySize: MAX_REQUEST_BODY_BYTES,
 	port,
 	async fetch(request) {
 		const origin = request.headers.get("Origin");

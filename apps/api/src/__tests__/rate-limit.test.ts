@@ -1,10 +1,17 @@
-import { describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, test } from "bun:test";
 import { IngestSessionInputSchema } from "@rudel/api-routes";
+import { readPositiveSafeIntegerEnv } from "../lib/env.js";
 import {
 	checkAnalyticsRateLimit,
 	checkHookIngestRateLimit,
+	checkIngestByteRateLimit,
+	checkIngestRequestRateLimit,
 	checkManualIngestRateLimit,
 	checkOrganizationSessionCountRateLimit,
+	INGEST_BYTES_MAX,
+	INGEST_BYTES_WINDOW_MS,
+	INGEST_REQUESTS_MAX,
+	INGEST_REQUESTS_WINDOW_MS,
 } from "../rate-limit.js";
 
 describe("IngestSessionInputSchema metadata field limits", () => {
@@ -70,20 +77,67 @@ describe("IngestSessionInputSchema metadata field limits", () => {
 		expect(result.success).toBe(false);
 	});
 
-	test("does not limit content field length", () => {
+	test("rejects more than 512 subagents", () => {
 		const result = IngestSessionInputSchema.safeParse({
 			...validBase,
-			content: "x".repeat(10_000_000),
+			subagents: Array.from({ length: 513 }, (_, index) => ({
+				agentId: `agent-${index}`,
+				content: "content",
+			})),
 		});
-		expect(result.success).toBe(true);
+		expect(result.success).toBe(false);
 	});
 
-	test("does not limit subagent content field length", () => {
+	test("rejects subagent agentId over 200 chars", () => {
 		const result = IngestSessionInputSchema.safeParse({
 			...validBase,
-			subagents: [{ agentId: "agent-1", content: "y".repeat(1_000_000) }],
+			subagents: [{ agentId: "a".repeat(201), content: "content" }],
 		});
-		expect(result.success).toBe(true);
+		expect(result.success).toBe(false);
+	});
+
+	test("rejects duplicate subagent agentId values", () => {
+		const result = IngestSessionInputSchema.safeParse({
+			...validBase,
+			subagents: [
+				{ agentId: "agent-1", content: "first" },
+				{ agentId: "agent-1", content: "second" },
+			],
+		});
+		expect(result.success).toBe(false);
+	});
+});
+
+describe("readPositiveSafeIntegerEnv", () => {
+	afterEach(() => {
+		delete process.env.TEST_LIMIT;
+	});
+
+	test("uses the default when the variable is absent", () => {
+		delete process.env.TEST_LIMIT;
+		expect(readPositiveSafeIntegerEnv("TEST_LIMIT", 42)).toBe(42);
+	});
+
+	test("accepts a positive safe integer", () => {
+		process.env.TEST_LIMIT = "123";
+		expect(readPositiveSafeIntegerEnv("TEST_LIMIT", 42)).toBe(123);
+	});
+
+	test("fails closed for invalid values", () => {
+		for (const invalidValue of [
+			"",
+			"0",
+			"-1",
+			"1.5",
+			"abc",
+			"Infinity",
+			"9007199254740992",
+		]) {
+			process.env.TEST_LIMIT = invalidValue;
+			expect(() => readPositiveSafeIntegerEnv("TEST_LIMIT", 42)).toThrow(
+				"TEST_LIMIT must be a positive safe integer",
+			);
+		}
 	});
 });
 
@@ -150,6 +204,83 @@ describe("checkOrganizationSessionCountRateLimit", () => {
 		expect(() =>
 			checkOrganizationSessionCountRateLimit(userId, "org-fresh"),
 		).not.toThrow();
+	});
+});
+
+describe("checkIngestRequestRateLimit", () => {
+	test("allows requests through the cap, then throws", () => {
+		const userId = `test-ingest-requests-cap-${Date.now()}`;
+		for (let index = 0; index < INGEST_REQUESTS_MAX; index += 1) {
+			checkIngestRequestRateLimit(userId);
+		}
+		expect(() => checkIngestRequestRateLimit(userId)).toThrow(
+			"Rate limit exceeded",
+		);
+	});
+
+	test("keeps per-user request limits independent", () => {
+		const userA = `test-ingest-requests-a-${Date.now()}`;
+		const userB = `test-ingest-requests-b-${Date.now()}`;
+		for (let index = 0; index < INGEST_REQUESTS_MAX; index += 1) {
+			checkIngestRequestRateLimit(userA);
+		}
+		expect(() => checkIngestRequestRateLimit(userB)).not.toThrow();
+	});
+
+	test("evicts request entries after the window", () => {
+		const userId = `test-ingest-requests-evict-${Date.now()}`;
+		const realNow = Date.now;
+		let fakeTime = 1_700_000_000_000;
+		Date.now = () => fakeTime;
+		try {
+			for (let index = 0; index < INGEST_REQUESTS_MAX; index += 1) {
+				checkIngestRequestRateLimit(userId);
+			}
+			fakeTime += INGEST_REQUESTS_WINDOW_MS + 1;
+			expect(() => checkIngestRequestRateLimit(userId)).not.toThrow();
+		} finally {
+			Date.now = realNow;
+		}
+	});
+});
+
+describe("checkIngestByteRateLimit", () => {
+	test("allows weighted bytes through the cap, then throws", () => {
+		const userId = `test-ingest-bytes-cap-${Date.now()}`;
+		const firstWeight = Math.floor(INGEST_BYTES_MAX / 2);
+		checkIngestByteRateLimit(userId, firstWeight);
+		checkIngestByteRateLimit(userId, INGEST_BYTES_MAX - firstWeight);
+		expect(() => checkIngestByteRateLimit(userId, 1)).toThrow(
+			"Rate limit exceeded",
+		);
+	});
+
+	test("keeps per-user byte limits independent", () => {
+		const userA = `test-ingest-bytes-a-${Date.now()}`;
+		const userB = `test-ingest-bytes-b-${Date.now()}`;
+		checkIngestByteRateLimit(userA, INGEST_BYTES_MAX);
+		expect(() => checkIngestByteRateLimit(userB, 1)).not.toThrow();
+	});
+
+	test("rejects one weight over the full cap", () => {
+		const userId = `test-ingest-bytes-single-${Date.now()}`;
+		expect(() =>
+			checkIngestByteRateLimit(userId, INGEST_BYTES_MAX + 1),
+		).toThrow("Rate limit exceeded");
+	});
+
+	test("evicts byte samples after the window", () => {
+		const userId = `test-ingest-bytes-evict-${Date.now()}`;
+		const realNow = Date.now;
+		let fakeTime = 1_700_000_000_000;
+		Date.now = () => fakeTime;
+		try {
+			checkIngestByteRateLimit(userId, INGEST_BYTES_MAX);
+			fakeTime += INGEST_BYTES_WINDOW_MS + 1;
+			expect(() => checkIngestByteRateLimit(userId, 1)).not.toThrow();
+		} finally {
+			Date.now = realNow;
+		}
 	});
 });
 

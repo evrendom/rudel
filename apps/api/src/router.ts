@@ -1,6 +1,8 @@
+import { getLogger } from "@logtape/logtape";
 import { ORPCError } from "@orpc/server";
 import { getAdapter } from "@rudel/agent-adapters";
 import {
+	INGEST_AGGREGATE_CONTENT_MAX_BYTES,
 	type IngestSessionInput,
 	PRODUCT_ANALYTICS_EVENTS,
 	SESSION_OWNERSHIP_CONFLICT_CODE,
@@ -14,6 +16,8 @@ import { teamInviteLinkRouter } from "./handlers/team-invite-link.js";
 import { wrappedDecimalClaimRouter } from "./handlers/wrapped-decimal-claim.js";
 import { wrappedResumeRouter } from "./handlers/wrapped-resume.js";
 import { wrappedShareRouter } from "./handlers/wrapped-share.js";
+import { computeIngestContentHash } from "./lib/ingest-content-hash.js";
+import { enforceIngestAggregateSize } from "./lib/ingest-size.js";
 import {
 	bucketContentSize,
 	captureApiProductAnalyticsEvent,
@@ -27,6 +31,8 @@ import {
 } from "./middleware.js";
 import {
 	checkHookIngestRateLimit,
+	checkIngestByteRateLimit,
+	checkIngestRequestRateLimit,
 	checkManualIngestRateLimit,
 	checkOrganizationSessionCountRateLimit,
 } from "./rate-limit.js";
@@ -35,7 +41,12 @@ import {
 	getCachedOrgSessionCount,
 	hasOrgUploadsInLastDays,
 } from "./services/org-session.service.js";
-import { claimSessionIngestOwnership } from "./services/session-ownership.service.js";
+import {
+	claimSessionIngestOwnership,
+	recordSessionIngestContent,
+} from "./services/session-ownership.service.js";
+
+const logger = getLogger(["rudel", "api", "router"]);
 
 function getSessionUploadCompletedPayload(
 	input: IngestSessionInput,
@@ -151,6 +162,13 @@ const listMyOrganizations = os.listMyOrganizations
 const ingestSessionHandler = os.ingestSession
 	.use(ingestAuthMiddleware)
 	.handler(async ({ input, context, errors }) => {
+		checkIngestRequestRateLimit(context.user.id);
+		const aggregateBytes = enforceIngestAggregateSize(
+			input,
+			INGEST_AGGREGATE_CONTENT_MAX_BYTES,
+		);
+		checkIngestByteRateLimit(context.user.id, aggregateBytes);
+
 		const activeOrgId =
 			context.session &&
 			typeof (context.session as Record<string, unknown>)
@@ -193,16 +211,48 @@ const ingestSessionHandler = os.ingestSession
 			throw errors[SESSION_OWNERSHIP_CONFLICT_CODE]();
 		}
 
-		const adapter = getAdapter(input.source);
-		await adapter.ingest(getClickhouse(), input, {
-			userId: context.user.id,
-			organizationId: orgId,
-		});
-
+		const contentHash = computeIngestContentHash(input);
 		const response = {
 			success: true as const,
 			sessionId: input.sessionId,
 		};
+
+		// This is a best-effort cost optimization, not a cross-instance
+		// security control. Concurrent identical requests can both reach the
+		// ClickHouse insert before either records its successful hash.
+		if (ownership.lastContentSha256 === contentHash) {
+			logger.info(
+				"Skipping duplicate session ingest (organization_id={organizationId} session_id={sessionId})",
+				{ organizationId: orgId, sessionId: input.sessionId },
+			);
+			return response;
+		}
+
+		const ingestedAt = new Date();
+		const adapter = getAdapter(input.source);
+		await adapter.ingest(getClickhouse(), input, {
+			ingestedAt,
+			userId: context.user.id,
+			organizationId: orgId,
+		});
+
+		try {
+			await recordSessionIngestContent(
+				orgId,
+				input.sessionId,
+				contentHash,
+				ingestedAt,
+			);
+		} catch (error) {
+			logger.warn(
+				"Session ingest succeeded but content hash bookkeeping failed (organization_id={organizationId} session_id={sessionId} error={error})",
+				{
+					error: String(error),
+					organizationId: orgId,
+					sessionId: input.sessionId,
+				},
+			);
+		}
 
 		const uploadCompletedPayload = getSessionUploadCompletedPayload(
 			input,

@@ -229,7 +229,7 @@ class CodexAdapter implements AgentAdapter {
 		input: IngestSessionInput,
 		context: IngestContext,
 	): RudelCodexSessionsRow {
-		const now = new Date().toISOString().replace("Z", "");
+		const now = context.ingestedAt.toISOString().replace("Z", "");
 
 		const timestamps = this.extractTimestamps(input.content);
 

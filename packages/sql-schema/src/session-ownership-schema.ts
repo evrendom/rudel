@@ -17,6 +17,11 @@ export const sessionOwnership = pgTable(
 		userId: text("user_id")
 			.notNull()
 			.references(() => user.id, { onDelete: "cascade" }),
+		lastContentSha256: text("last_content_sha256"),
+		lastIngestedAt: timestamp("last_ingested_at", {
+			withTimezone: true,
+			mode: "date",
+		}),
 		createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
 			.defaultNow()
 			.notNull(),
