@@ -9,6 +9,11 @@ const ALLOWED_CLICKHOUSE_TABLES = new Set([
 	"rudel.session_analytics",
 ]);
 
+const INSERT_SETTINGS = [
+	"async_insert=0",
+	"allow_experimental_analyzer=1",
+].join(", ");
+
 export interface ClickHouseStatement {
 	clickhouse_settings?: ClickHouseSettings;
 	query: string;
@@ -27,6 +32,15 @@ export function getSafeClickHouseTable(table: string): string {
 		throw new Error(`Unsupported ClickHouse table: ${table}`);
 	}
 	return table;
+}
+
+export function buildClickHouseInsertQuery(
+	table: string,
+	values: object[],
+): string {
+	const safeTable = getSafeClickHouseTable(table);
+	const rows = values.map((r) => JSON.stringify(r)).join("\n");
+	return `INSERT INTO ${safeTable} SETTINGS ${INSERT_SETTINGS} FORMAT JSONEachRow ${rows}`;
 }
 
 export function createClickHouseExecutor(config: {
@@ -64,12 +78,10 @@ export function createClickHouseExecutor(config: {
 			return result.json();
 		},
 		async insert(params) {
-			const table = getSafeClickHouseTable(params.table);
 			// Use command() with FORMAT JSONEachRow instead of client.insert()
 			// because ClickHouse Cloud's @clickhouse/client insert() silently drops data.
-			const rows = params.values.map((r) => JSON.stringify(r)).join("\n");
 			await client.command({
-				query: `INSERT INTO ${table} SETTINGS async_insert=0 FORMAT JSONEachRow ${rows}`,
+				query: buildClickHouseInsertQuery(params.table, params.values),
 			});
 		},
 	};
