@@ -46,6 +46,11 @@ A platform for ingesting, storing, and analyzing Claude Code / Codex session tra
 | `CLICKHOUSE_DB` | No | ClickHouse database name |
 | `APP_URL` | No | API base URL (default: `http://localhost:4010`) |
 | `ALLOWED_ORIGIN` | No | CORS origin (default: `http://localhost:4011`) |
+| `MAX_REQUEST_BODY_BYTES` | No | Positive integer HTTP request-body ceiling in bytes (default: 160 MiB) |
+| `RATE_LIMIT_INGEST_REQUESTS_MAX` | No | Positive integer per-user ingest request cap per API process (default: 15,000) |
+| `RATE_LIMIT_INGEST_REQUESTS_WINDOW` | No | Positive integer ingest request window in seconds (default: 3,600) |
+| `RATE_LIMIT_INGEST_BYTES_MAX` | No | Positive integer per-user ingest byte cap per API process (default: 10 GiB) |
+| `RATE_LIMIT_INGEST_BYTES_WINDOW` | No | Positive integer ingest byte window in seconds (default: 3,600) |
 | `RESEND_API_KEY` | No | Resend API key for email integration |
 | `RESEND_FROM_EMAIL` | No | Sender address for organization invitation emails |
 | `RESEND_AUDIENCE_ID` | No | Resend audience ID for signup contact sync |

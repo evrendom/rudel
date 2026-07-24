@@ -1,5 +1,7 @@
 import { getLogger } from "@logtape/logtape";
 import { ORPCError } from "@orpc/server";
+import { INGEST_LIMIT_REASONS } from "@rudel/api-routes";
+import { readPositiveSafeIntegerEnv } from "./lib/env.js";
 
 const logger = getLogger(["rudel", "api", "rate-limit"]);
 
@@ -9,12 +11,21 @@ interface SlidingWindowEntry {
 	timestamps: number[];
 }
 
+type WeightedSample = { ts: number; weight: number };
+
+interface WeightedWindowEntry {
+	samples: WeightedSample[];
+	total: number;
+}
+
 const analyticsWindows = new Map<string, SlidingWindowEntry>();
 const organizationSessionCountWindows = new Map<string, SlidingWindowEntry>();
 const wrappedShareCreateWindows = new Map<string, SlidingWindowEntry>();
 const wrappedShareLookupWindows = new Map<string, SlidingWindowEntry>();
 const wrappedResumeCreateWindows = new Map<string, SlidingWindowEntry>();
 const wrappedDecimalClaimRedeemWindows = new Map<string, SlidingWindowEntry>();
+const ingestRequestWindows = new Map<string, WeightedWindowEntry>();
+const ingestByteWindows = new Map<string, WeightedWindowEntry>();
 
 const ANALYTICS_MAX_REQUESTS = Number(
 	process.env.RATE_LIMIT_ANALYTICS_MAX ?? 90,
@@ -44,6 +55,18 @@ const WRAPPED_DECIMAL_CLAIM_REDEEM_MAX_REQUESTS = Number(
 const WRAPPED_DECIMAL_CLAIM_REDEEM_WINDOW_MS =
 	Number(process.env.RATE_LIMIT_WRAPPED_DECIMAL_CLAIM_REDEEM_WINDOW ?? 60) *
 	1000;
+export const INGEST_REQUESTS_MAX = readPositiveSafeIntegerEnv(
+	"RATE_LIMIT_INGEST_REQUESTS_MAX",
+	15_000,
+);
+export const INGEST_REQUESTS_WINDOW_MS =
+	readPositiveSafeIntegerEnv("RATE_LIMIT_INGEST_REQUESTS_WINDOW", 3600) * 1000;
+export const INGEST_BYTES_MAX = readPositiveSafeIntegerEnv(
+	"RATE_LIMIT_INGEST_BYTES_MAX",
+	10 * 1024 * 1024 * 1024,
+);
+export const INGEST_BYTES_WINDOW_MS =
+	readPositiveSafeIntegerEnv("RATE_LIMIT_INGEST_BYTES_WINDOW", 3600) * 1000;
 
 export function checkAnalyticsRateLimit(userId: string): void {
 	const now = Date.now();
@@ -164,6 +187,76 @@ const MANUAL_INGEST_MAX = Number(
 const MANUAL_INGEST_WINDOW_MS =
 	Number(process.env.RATE_LIMIT_INGEST_MANUAL_WINDOW ?? 3600) * 1000;
 
+// These caps are per user/process: the global ceiling scales with active
+// instances, and limiter state resets whenever an instance restarts or deploys.
+export function checkIngestRequestRateLimit(userId: string): void {
+	checkIngestRateLimit(userId, 1, "requests");
+}
+
+export function checkIngestByteRateLimit(userId: string, bytes: number): void {
+	checkIngestRateLimit(userId, bytes, "bytes");
+}
+
+function checkIngestRateLimit(
+	userId: string,
+	weight: number,
+	unit: "requests" | "bytes",
+): void {
+	const isRequestLimit = unit === "requests";
+	const maxTotal = isRequestLimit ? INGEST_REQUESTS_MAX : INGEST_BYTES_MAX;
+	const windowMs = isRequestLimit
+		? INGEST_REQUESTS_WINDOW_MS
+		: INGEST_BYTES_WINDOW_MS;
+	const reason = isRequestLimit
+		? INGEST_LIMIT_REASONS.requestLimit
+		: INGEST_LIMIT_REASONS.byteLimit;
+	const windows = isRequestLimit ? ingestRequestWindows : ingestByteWindows;
+	const now = Date.now();
+	const cutoff = now - windowMs;
+	let entry = windows.get(userId);
+	if (!entry) {
+		entry = { samples: [], total: 0 };
+		windows.set(userId, entry);
+	}
+
+	let expiredCount = 0;
+	let expiredWeight = 0;
+	while (expiredCount < entry.samples.length) {
+		const sample = entry.samples[expiredCount];
+		if (!sample || sample.ts > cutoff) {
+			break;
+		}
+		expiredWeight += sample.weight;
+		expiredCount += 1;
+	}
+	if (expiredCount > 0) {
+		entry.samples.splice(0, expiredCount);
+		entry.total -= expiredWeight;
+	}
+
+	const current = entry.total + weight;
+	if (current > maxTotal) {
+		logger.warn("Ingest rate limit exceeded for user {userId}", {
+			current,
+			limit: maxTotal,
+			reason,
+			userId,
+		});
+		throw new ORPCError("TOO_MANY_REQUESTS", {
+			data: {
+				current,
+				limit: maxTotal,
+				reason,
+				windowSeconds: windowMs / 1000,
+			},
+			message: `Rate limit exceeded. Maximum ${maxTotal} ingest ${unit} per ${Math.round(windowMs / 60_000)} minutes. Try again later.`,
+		});
+	}
+
+	entry.samples.push({ ts: now, weight });
+	entry.total = current;
+}
+
 function checkSessionIngestRateLimit(input: {
 	windows: Map<string, SessionIngestEntry>;
 	max: number;
@@ -201,6 +294,7 @@ function checkSessionIngestRateLimit(input: {
 		throw new ORPCError("TOO_MANY_REQUESTS", {
 			message: `Rate limit exceeded. Maximum ${max} sessions per ${Math.round(windowMs / 60_000)} minutes. Try again later.`,
 			data: {
+				reason: INGEST_LIMIT_REASONS.sessionLimit,
 				limit: max,
 				windowSeconds: windowMs / 1000,
 				current: entry.sessions.size,

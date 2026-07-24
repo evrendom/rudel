@@ -3,6 +3,8 @@ import { RPCLink } from "@orpc/client/fetch";
 import type { ContractRouterClient } from "@orpc/contract";
 import {
 	type contract,
+	INGEST_AGGREGATE_CONTENT_MAX_BYTES,
+	INGEST_LIMIT_REASONS,
 	type IngestSessionInput,
 	SESSION_OWNERSHIP_CONFLICT_CODE,
 } from "@rudel/api-routes";
@@ -12,6 +14,7 @@ export interface UploadConfig {
 	endpoint: string;
 	token: string;
 	authType?: "bearer" | "api-key";
+	maxAggregateBytes?: number;
 	onRetry?: (attempt: number, maxAttempts: number, error: string) => void;
 }
 
@@ -21,8 +24,10 @@ const BASE_DELAY_MS = 1_000;
 
 interface ErrorData {
 	readonly authMessage: string | null;
+	readonly actualBytes: number | null;
 	readonly code: string | null;
 	readonly limit: number | null;
+	readonly maxBytes: number | null;
 	readonly reason: string | null;
 	readonly tryAgainIn: number | null;
 	readonly windowSeconds: number | null;
@@ -80,6 +85,21 @@ export function formatUploadError(error: unknown): string {
 
 	if (isRateLimited(error)) {
 		const data = getErrorData(error);
+		const isRequestLimit = data.reason === INGEST_LIMIT_REASONS.requestLimit;
+		if (isRequestLimit || data.reason === INGEST_LIMIT_REASONS.byteLimit) {
+			const limit =
+				data.limit === null
+					? null
+					: isRequestLimit
+						? `${data.limit} requests`
+						: `${formatMebibytes(data.limit)} MiB`;
+			const detail =
+				limit && data.windowSeconds
+					? ` (${limit} per ${Math.round(data.windowSeconds / 60)} min)`
+					: "";
+			const kind = isRequestLimit ? "request" : "byte";
+			return `Ingest ${kind} limit reached${detail}. Wait and retry with: rudel upload --retry`;
+		}
 		const windowMin = data?.windowSeconds
 			? Math.round(data.windowSeconds / 60)
 			: 60;
@@ -93,6 +113,10 @@ export function formatUploadError(error: unknown): string {
 		return "This session ID is already owned by another organization member. Upload it from the original member account or use a different session ID.";
 	}
 	if (isPayloadTooLarge(error)) {
+		const data = getErrorData(error);
+		if (data.reason === INGEST_LIMIT_REASONS.transcriptTooLarge) {
+			return formatTranscriptTooLargeError(data.actualBytes, data.maxBytes);
+		}
 		return formatPayloadTooLargeError(error);
 	}
 	if (isServerError(error)) {
@@ -139,8 +163,10 @@ function getErrorData(error: ORPCError<string, unknown>): ErrorData {
 	const data = isRecord(error.data) ? error.data : null;
 	return {
 		authMessage: getStringField(data, "authMessage"),
+		actualBytes: getNumberField(data, "actualBytes"),
 		code: getStringField(data, "code"),
 		limit: getNumberField(data, "limit"),
+		maxBytes: getNumberField(data, "maxBytes"),
 		reason: getStringField(data, "reason"),
 		tryAgainIn: getNumberField(data, "tryAgainIn"),
 		windowSeconds: getNumberField(data, "windowSeconds"),
@@ -185,6 +211,17 @@ export async function uploadSession(
 	request: IngestSessionInput,
 	config: UploadConfig,
 ): Promise<UploadResult> {
+	const maxAggregateBytes =
+		config.maxAggregateBytes ?? INGEST_AGGREGATE_CONTENT_MAX_BYTES;
+	const aggregateBytes = getUploadAggregateBytes(request);
+	if (aggregateBytes > maxAggregateBytes) {
+		return {
+			success: false,
+			error: formatTranscriptTooLargeError(aggregateBytes, maxAggregateBytes),
+			attempts: 0,
+		};
+	}
+
 	const link = new RPCLink({
 		url: config.endpoint,
 		headers:
@@ -231,4 +268,31 @@ export async function uploadSession(
 		error: "Max retries exceeded",
 		attempts: MAX_ATTEMPTS,
 	};
+}
+
+function getUploadAggregateBytes(request: IngestSessionInput): number {
+	return (
+		Buffer.byteLength(request.content, "utf8") +
+		(request.subagents ?? []).reduce(
+			(total, subagent) => total + Buffer.byteLength(subagent.content, "utf8"),
+			0,
+		)
+	);
+}
+
+function formatTranscriptTooLargeError(
+	actualBytes: number | null,
+	maxBytes: number | null,
+): string {
+	if (actualBytes === null || maxBytes === null) {
+		return "Session transcript payload exceeds the per-session limit. Reduce the transcript/subagent payload before retrying.";
+	}
+
+	const actualText = `${formatMebibytes(actualBytes)} MiB`;
+	const limitText = `the ${formatMebibytes(maxBytes)} MiB per-session limit`;
+	return `Session transcript payload is ${actualText}, above ${limitText}. Reduce the transcript/subagent payload before retrying.`;
+}
+
+function formatMebibytes(bytes: number): string {
+	return (bytes / (1024 * 1024)).toFixed(2);
 }

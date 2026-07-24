@@ -143,9 +143,22 @@ export { SourceSchema } from "./schemas/source.js";
 
 import { SourceSchema } from "./schemas/source.js";
 
+export const INGEST_AGGREGATE_CONTENT_MAX_BYTES = 128 * 1024 * 1024;
+export const INGEST_MAX_SUBAGENT_COUNT = 512;
+export const INGEST_LIMIT_REASONS = {
+	requestLimit: "request_limit",
+	byteLimit: "byte_limit",
+	sessionLimit: "session_limit",
+	transcriptTooLarge: "transcript_too_large",
+} as const;
+export type IngestLimitReason =
+	(typeof INGEST_LIMIT_REASONS)[keyof typeof INGEST_LIMIT_REASONS];
+
+const INGEST_CONTENT_MAX_CODE_UNITS = 160 * 1024 * 1024;
+
 export const SubagentFileSchema = z.object({
-	agentId: z.string(),
-	content: z.string(),
+	agentId: z.string().max(200),
+	content: z.string().max(INGEST_CONTENT_MAX_CODE_UNITS),
 });
 
 export const IngestSessionInputSchema = z.object({
@@ -161,8 +174,17 @@ export const IngestSessionInputSchema = z.object({
 	gitBranch: z.string().max(200).optional(),
 	gitSha: z.string().max(200).optional(),
 	tag: SessionTagSchema.optional(),
-	content: z.string(),
-	subagents: z.array(SubagentFileSchema).optional(),
+	content: z.string().max(INGEST_CONTENT_MAX_CODE_UNITS),
+	subagents: z
+		.array(SubagentFileSchema)
+		.max(INGEST_MAX_SUBAGENT_COUNT)
+		.refine(
+			(subagents) =>
+				new Set(subagents.map((subagent) => subagent.agentId)).size ===
+				subagents.length,
+			{ message: "Subagent agentId values must be unique" },
+		)
+		.optional(),
 	organizationId: z.string().max(200).optional(),
 	client_surface: ProductAnalyticsClientSurfaceSchema.optional(),
 	upload_mode: ProductAnalyticsUploadModeSchema.optional(),

@@ -35,6 +35,7 @@ export interface UploadContext {
 export interface IngestContext {
 	userId: string;
 	organizationId: string;
+	ingestedAt: Date;
 }
 
 export interface AgentAdapter {

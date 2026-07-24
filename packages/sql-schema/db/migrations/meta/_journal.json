@@ -120,6 +120,13 @@
 			"when": 1784832000000,
 			"tag": "0016_session_ownership_backfill_state",
 			"breakpoints": true
+		},
+		{
+			"idx": 17,
+			"version": "7",
+			"when": 1784901786000,
+			"tag": "0017_session_ownership_content_hash",
+			"breakpoints": true
 		}
 	]
 }

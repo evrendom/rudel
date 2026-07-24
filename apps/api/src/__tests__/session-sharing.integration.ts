@@ -225,6 +225,7 @@ describe("organization session ownership", () => {
 			"codex",
 		);
 		await getAdapter(legacyInput.source).ingest(getClickhouse(), legacyInput, {
+			ingestedAt: new Date(),
 			organizationId,
 			userId: owner.userId,
 		});
@@ -240,6 +241,7 @@ describe("organization session ownership", () => {
 			getClickhouse(),
 			ambiguousOwnerInput,
 			{
+				ingestedAt: new Date(),
 				organizationId,
 				userId: owner.userId,
 			},
@@ -255,6 +257,7 @@ describe("organization session ownership", () => {
 			getClickhouse(),
 			ambiguousMemberInput,
 			{
+				ingestedAt: new Date(),
 				organizationId,
 				userId: member.userId,
 			},
@@ -335,6 +338,7 @@ describe("organization session ownership", () => {
 			"2026-07-22",
 		);
 		await getAdapter(memberInput.source).ingest(getClickhouse(), memberInput, {
+			ingestedAt: new Date(),
 			organizationId,
 			userId: member.userId,
 		});
@@ -362,6 +366,7 @@ describe("organization session ownership", () => {
 			getClickhouse(),
 			attackerInput,
 			{
+				ingestedAt: new Date(),
 				organizationId,
 				userId: owner.userId,
 			},

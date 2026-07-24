@@ -12,6 +12,11 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { IngestSessionInput } from "@rudel/api-routes";
+import {
+	getClickhouse,
+	getSafeClickHouseTable,
+} from "../../../api/src/clickhouse.js";
+import { sqlClient } from "../../../api/src/db.js";
 import { createApiClient } from "../lib/api-client.js";
 import { uploadSession } from "../lib/uploader.js";
 import {
@@ -23,8 +28,11 @@ import {
 setDefaultTimeout(60_000);
 
 let server: TestServer;
+let limitedServer: TestServer;
 let bearerToken: string;
+let limitedBearerToken: string;
 let tempDir: string;
+let userId: string;
 
 interface ApiKeyCreateResponse {
 	id: string;
@@ -35,10 +43,21 @@ beforeAll(async () => {
 	tempDir = await mkdtemp(join(tmpdir(), "rudel-api-test-"));
 	server = await startTestServer();
 	bearerToken = await signUpTestUser(server.baseUrl);
+	const currentUser = await createApiClient({
+		apiBaseUrl: server.baseUrl,
+		token: bearerToken,
+	}).me();
+	userId = currentUser.id;
+
+	limitedServer = await startTestServer({
+		RATE_LIMIT_INGEST_BYTES_MAX: "1000000",
+		RATE_LIMIT_INGEST_REQUESTS_MAX: "2",
+	});
+	limitedBearerToken = await signUpTestUser(limitedServer.baseUrl);
 });
 
 afterAll(async () => {
-	await server?.stop();
+	await Promise.all([server?.stop(), limitedServer?.stop()]);
 	if (tempDir) {
 		await rm(tempDir, { recursive: true, force: true }).catch(() => {});
 	}
@@ -48,7 +67,7 @@ describe("CLI upload to local API", () => {
 	// Bun's test runner may kill the server as a "dangling process" between
 	// beforeAll and the first test, or between tests. Restart it if needed.
 	beforeEach(async () => {
-		await server.ensureAlive();
+		await Promise.all([server.ensureAlive(), limitedServer.ensureAlive()]);
 	});
 
 	test("uploads a session via uploadSession to the local API", async () => {
@@ -275,6 +294,112 @@ describe("CLI upload to local API", () => {
 			expect(user.email).toContain("test-");
 		}
 	});
+
+	test("short-circuits a sequential duplicate, then ingests appended content", async () => {
+		const sessionId = `cli_dedup_${crypto.randomUUID()}`;
+		const sessionDate = "2026-07-24 13:00:00.000";
+		const request = createDedupeInput(sessionId, "initial");
+
+		const firstUpload = await uploadSession(request, {
+			endpoint: server.rpcUrl,
+			token: bearerToken,
+		});
+		expect(firstUpload.success).toBe(true);
+		const firstPhysicalCount = await getPhysicalSessionCount(
+			userId,
+			sessionDate,
+			sessionId,
+		);
+		expect(firstPhysicalCount).toBe(1);
+		const firstHash = await getStoredContentHash(userId, sessionId);
+		expect(firstHash).toHaveLength(64);
+
+		const duplicateUpload = await uploadSession(request, {
+			endpoint: server.rpcUrl,
+			token: bearerToken,
+		});
+		expect(duplicateUpload.success).toBe(true);
+		expect(await getPhysicalSessionCount(userId, sessionDate, sessionId)).toBe(
+			firstPhysicalCount,
+		);
+
+		const appendedUpload = await uploadSession(
+			{
+				...request,
+				content: `${request.content}\n${JSON.stringify({
+					message: {
+						content: "Appended response",
+						role: "assistant",
+						usage: { input_tokens: 1, output_tokens: 1 },
+					},
+					timestamp: "2026-07-24T13:00:01.000Z",
+					type: "assistant",
+				})}`,
+			},
+			{
+				endpoint: server.rpcUrl,
+				token: bearerToken,
+			},
+		);
+		expect(appendedUpload.success).toBe(true);
+		expect(await getPhysicalSessionCount(userId, sessionDate, sessionId)).toBe(
+			firstPhysicalCount + 1,
+		);
+		expect(await getStoredContentHash(userId, sessionId)).not.toBe(firstHash);
+	}, 60_000);
+
+	test("allows concurrent identical ingests with best-effort deduplication", async () => {
+		const sessionId = `cli_concurrent_dedup_${crypto.randomUUID()}`;
+		const sessionDate = "2026-07-24 14:00:00.000";
+		const request = createDedupeInput(sessionId, "concurrent", "14:00:00");
+
+		const results = await Promise.all([
+			uploadSession(request, {
+				endpoint: server.rpcUrl,
+				token: bearerToken,
+			}),
+			uploadSession(request, {
+				endpoint: server.rpcUrl,
+				token: bearerToken,
+			}),
+		]);
+
+		expect(results.every((result) => result.success)).toBe(true);
+		expect(
+			await getPhysicalSessionCount(userId, sessionDate, sessionId),
+		).toBeGreaterThanOrEqual(1);
+	}, 60_000);
+
+	test("charges duplicate requests to the request limiter", async () => {
+		const request = createDedupeInput(
+			`cli_limited_dedup_${crypto.randomUUID()}`,
+			"limited",
+			"15:00:00",
+		);
+
+		const firstUpload = await uploadSession(request, {
+			endpoint: limitedServer.rpcUrl,
+			token: limitedBearerToken,
+		});
+		const duplicateUpload = await uploadSession(request, {
+			endpoint: limitedServer.rpcUrl,
+			token: limitedBearerToken,
+		});
+		const limitedUpload = await uploadSession(request, {
+			endpoint: limitedServer.rpcUrl,
+			token: limitedBearerToken,
+		});
+
+		expect(firstUpload.success).toBe(true);
+		expect(duplicateUpload.success).toBe(true);
+		expect(limitedUpload).toEqual({
+			success: false,
+			error:
+				"Ingest request limit reached (2 requests per 60 min). Wait and retry with: rudel upload --retry",
+			attempts: 1,
+			rateLimited: true,
+		});
+	}, 60_000);
 });
 
 async function createIngestApiKey(apiBase: string, accessToken: string) {
@@ -305,4 +430,54 @@ function isApiKeyCreateResponse(value: unknown): value is ApiKeyCreateResponse {
 		typeof value.id === "string" &&
 		typeof value.key === "string"
 	);
+}
+
+function createDedupeInput(
+	sessionId: string,
+	contentMarker: string,
+	time = "13:00:00",
+): IngestSessionInput {
+	return {
+		content: JSON.stringify({
+			message: {
+				content: `Session content from ${contentMarker}`,
+				role: "user",
+			},
+			timestamp: `2026-07-24T${time}.000Z`,
+			type: "user",
+		}),
+		projectPath: "/test/cli-dedup",
+		sessionId,
+		source: "claude_code",
+		upload_mode: "manual",
+	};
+}
+
+async function getPhysicalSessionCount(
+	organizationId: string,
+	sessionDate: string,
+	sessionId: string,
+): Promise<number> {
+	const [row] = await getClickhouse().query<{ row_count: number }>({
+		query: `SELECT count() AS row_count FROM ${getSafeClickHouseTable("rudel.claude_sessions")} WHERE organization_id = {organizationId:String} AND session_date = {sessionDate:DateTime64(3)} AND session_id = {sessionId:String}`,
+		query_params: {
+			organizationId,
+			sessionDate,
+			sessionId,
+		},
+	});
+	return Number(row?.row_count ?? 0);
+}
+
+async function getStoredContentHash(
+	organizationId: string,
+	sessionId: string,
+): Promise<string | null> {
+	const [row] = await sqlClient<Array<{ last_content_sha256: string | null }>>`
+		SELECT last_content_sha256
+		FROM session_ownership
+		WHERE organization_id = ${organizationId}
+			AND session_id = ${sessionId}
+	`;
+	return row?.last_content_sha256 ?? null;
 }

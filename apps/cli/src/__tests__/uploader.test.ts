@@ -1,7 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import { ORPCError } from "@orpc/client";
-import { SESSION_OWNERSHIP_CONFLICT_CODE } from "@rudel/api-routes";
-import { formatUploadError } from "../lib/uploader.js";
+import {
+	INGEST_LIMIT_REASONS,
+	SESSION_OWNERSHIP_CONFLICT_CODE,
+} from "@rudel/api-routes";
+import { formatUploadError, uploadSession } from "../lib/uploader.js";
 
 describe("formatUploadError", () => {
 	test("explains API key rate limits from ingest auth", () => {
@@ -30,6 +33,34 @@ describe("formatUploadError", () => {
 
 		expect(formatUploadError(error)).toBe(
 			"Rate limit reached (500 sessions per 60 min). Wait and retry with: rudel upload --retry",
+		);
+	});
+
+	test("explains ingest request limits", () => {
+		const error = new ORPCError("TOO_MANY_REQUESTS", {
+			data: {
+				limit: 15_000,
+				reason: INGEST_LIMIT_REASONS.requestLimit,
+				windowSeconds: 3600,
+			},
+		});
+
+		expect(formatUploadError(error)).toBe(
+			"Ingest request limit reached (15000 requests per 60 min). Wait and retry with: rudel upload --retry",
+		);
+	});
+
+	test("explains ingest byte limits", () => {
+		const error = new ORPCError("TOO_MANY_REQUESTS", {
+			data: {
+				limit: 10 * 1024 * 1024 * 1024,
+				reason: INGEST_LIMIT_REASONS.byteLimit,
+				windowSeconds: 3600,
+			},
+		});
+
+		expect(formatUploadError(error)).toBe(
+			"Ingest byte limit reached (10240.00 MiB per 60 min). Wait and retry with: rudel upload --retry",
 		);
 	});
 
@@ -64,6 +95,20 @@ describe("formatUploadError", () => {
 		);
 	});
 
+	test("explains the per-session transcript limit", () => {
+		const error = new ORPCError("PAYLOAD_TOO_LARGE", {
+			data: {
+				actualBytes: 5 * 1024 * 1024,
+				maxBytes: 4 * 1024 * 1024,
+				reason: INGEST_LIMIT_REASONS.transcriptTooLarge,
+			},
+		});
+
+		expect(formatUploadError(error)).toBe(
+			"Session transcript payload is 5.00 MiB, above the 4.00 MiB per-session limit. Reduce the transcript/subagent payload before retrying.",
+		);
+	});
+
 	test("explains transient gateway errors", () => {
 		const error = new ORPCError("BAD_GATEWAY");
 
@@ -86,5 +131,31 @@ describe("formatUploadError", () => {
 		expect(formatUploadError(error)).toBe(
 			"Network error while contacting Rudel API: fetch failed. Check your connection and retry with: rudel upload --retry",
 		);
+	});
+});
+
+describe("uploadSession aggregate size guard", () => {
+	test("rejects an oversized aggregate before making a network attempt", async () => {
+		const result = await uploadSession(
+			{
+				source: "claude_code",
+				sessionId: "oversized-test",
+				projectPath: "/test/project",
+				content: "a".repeat(1024 * 1024),
+				subagents: [{ agentId: "subagent", content: "b".repeat(1024 * 1024) }],
+			},
+			{
+				endpoint: "http://127.0.0.1:1/rpc",
+				maxAggregateBytes: 1024 * 1024,
+				token: "unused",
+			},
+		);
+
+		expect(result).toEqual({
+			success: false,
+			error:
+				"Session transcript payload is 2.00 MiB, above the 1.00 MiB per-session limit. Reduce the transcript/subagent payload before retrying.",
+			attempts: 0,
+		});
 	});
 });

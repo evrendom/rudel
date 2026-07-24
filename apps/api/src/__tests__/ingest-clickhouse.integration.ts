@@ -86,6 +86,7 @@ describe("ingestSession", () => {
 			try {
 				const adapter = getAdapter(input.source);
 				await adapter.ingest(executor, input, {
+					ingestedAt: new Date(),
 					userId: "test_user",
 					organizationId: "test_org",
 				});

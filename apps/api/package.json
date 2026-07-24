@@ -12,7 +12,7 @@
 		"check-types": "tsc --noEmit",
 		"test": "bun test",
 		"test:clickhouse": "bun test src/__tests__/clickhouse.integration.ts",
-		"test:integration": "bun test ./src/__tests__/ingest-clickhouse.integration.ts ./src/__tests__/clickhouse.integration.ts ./src/__tests__/delete-sessions.integration.ts ./src/__tests__/session-sharing.integration.ts",
+		"test:integration": "bun test ./src/__tests__/ingest-clickhouse.integration.ts ./src/__tests__/ingest-rate-limit.integration.ts ./src/__tests__/session-ingest-content.integration.ts ./src/__tests__/clickhouse.integration.ts ./src/__tests__/delete-sessions.integration.ts ./src/__tests__/session-sharing.integration.ts",
 		"test:analytics": "bun test src/__tests__/analytics.integration.ts",
 		"test:migrate": "bun test src/__tests__/migrate-sessions.integration.ts",
 		"test:delete-sessions": "bun test src/__tests__/delete-sessions.integration.ts"

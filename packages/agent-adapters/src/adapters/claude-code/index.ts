@@ -289,7 +289,7 @@ class ClaudeCodeAdapter implements AgentAdapter {
 		input: IngestSessionInput,
 		context: IngestContext,
 	): RudelClaudeSessionsRow {
-		const now = new Date().toISOString().replace("Z", "");
+		const now = context.ingestedAt.toISOString().replace("Z", "");
 
 		const subagents: Record<string, string> = {};
 		if (input.subagents) {

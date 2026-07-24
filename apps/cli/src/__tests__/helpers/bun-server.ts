@@ -15,13 +15,16 @@ export interface TestServer {
  * Spawn the Bun API server with PORT=0 so the OS picks a free port.
  * Migrations run automatically at startup.
  */
-export async function startTestServer(): Promise<TestServer> {
+export async function startTestServer(
+	environmentOverrides: Record<string, string | undefined> = {},
+): Promise<TestServer> {
 	const env = {
 		...process.env,
 		PORT: "0",
 		APP_URL: "http://localhost",
 		BETTER_AUTH_SECRET: "test-secret-for-integration-tests",
 		ALLOWED_ORIGIN: "http://localhost",
+		...environmentOverrides,
 	};
 
 	let proc = spawnServer(env);

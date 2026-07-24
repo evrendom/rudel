@@ -7,13 +7,16 @@ export interface ApiTestServer {
 	stop: () => Promise<void>;
 }
 
-export async function startApiTestServer(): Promise<ApiTestServer> {
+export async function startApiTestServer(
+	environmentOverrides: Record<string, string | undefined> = {},
+): Promise<ApiTestServer> {
 	const environment = {
 		...process.env,
 		ALLOWED_ORIGIN: "http://localhost",
 		APP_URL: "http://localhost",
 		BETTER_AUTH_SECRET: "test-secret-for-integration-tests",
 		PORT: "0",
+		...environmentOverrides,
 	};
 	const processHandle = Bun.spawn(["bun", "apps/api/src/index.ts"], {
 		cwd: MONOREPO_ROOT,
