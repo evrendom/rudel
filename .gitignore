@@ -50,6 +50,25 @@ coverage/
 skills-lock.json
 .agents/skills/posthog-debugger/
 .agents/skills/vercel-react-best-practices/
-.claude/skills/
 .codex/skills/
 .windsurf/
+
+# Agent skills: ignore locally-installed ones, keep the project's own.
+# This replaces a blanket `.claude/skills/` rule that contradicted the eight
+# skills actually committed here.
+.claude/skills/*
+!.claude/skills/api-testing/
+!.claude/skills/clickhouse-query/
+!.claude/skills/code-architecture/
+!.claude/skills/environment-variables/
+!.claude/skills/library-docs/
+!.claude/skills/pr-creation/
+!.claude/skills/testing-bun/
+!.claude/skills/typescript-standards/
+
+# Private overlay files that belong in the core team's ops repo, never here.
+# `rudel hooks claude install` writes to .claude/settings.json, which is tracked —
+# so personal hook installs must land in settings.local.json instead.
+CLAUDE.local.md
+.claude/settings.local.json
+.claude/learnings/
