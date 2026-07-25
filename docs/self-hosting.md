@@ -33,7 +33,9 @@ CLICKHOUSE_DB=default \
 
 The migration creates the `rudel` database, the `claude_sessions` and `session_analytics` tables, and a materialized view that computes analytics on insert. The cloud migration uses `SharedReplacingMergeTree` for `claude_sessions`.
 
-> **Note**: `CLICKHOUSE_DB` must be set to `default` for the migration because the `rudel` database doesn't exist yet — the migration creates it. Use `CLICKHOUSE_USERNAME` throughout; `CLICKHOUSE_USER` is still accepted as a fallback.
+> **Note**: `CLICKHOUSE_DB` must be set to `default` for the migration because the `rudel` database doesn't exist yet — the migration creates it. Use `CLICKHOUSE_USERNAME` throughout; `CLICKHOUSE_USER` is accepted as a legacy fallback, and setting both to different values is an error.
+>
+> `CLICKHOUSE_USERNAME` is **required** for a hosted endpoint. The migration tool assumes the `default` superuser only when the URL is local (`localhost`/loopback), so a missing username against a remote host fails loudly instead of quietly connecting as `default`.
 
 ## 2. Provision Postgres (Neon)
 
