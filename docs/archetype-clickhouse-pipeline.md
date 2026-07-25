@@ -46,7 +46,6 @@ At the current production size, a full rebuild is cheap enough to prefer correct
 
 Observed in production on April 19, 2026:
 
-- ClickHouse version: `25.12.1.1`
 - Raw tables:
   - `rudel.claude_sessions` -> `SharedMergeTree`
   - `rudel.codex_sessions` -> `SharedReplacingMergeTree(ingested_at)` with 365-day TTL
@@ -113,11 +112,11 @@ ClickHouse documents `ReplacingMergeTree` deduplication as asynchronous. Correct
 
 That makes `session_analytics` a fine intermediate store, but a bad direct source for Wrapped reads.
 
-### 5. Current ClickHouse version is before the async-insert-plus-MV dedupe fix
+### 5. Async inserts need a measured verification pass, not a version upgrade
 
-ClickHouse 26.1 added reliable deduplication for asynchronous inserts with dependent materialized views.
+ClickHouse 26.1 added reliable deduplication for asynchronous inserts with dependent materialized views. The cluster has since been upgraded past that release, so the **version** constraint that originally forced `async_insert=0` no longer applies.
 
-Production is `25.12.1.1`, so the current decision to keep `async_insert=0` is correct for this pipeline. Do not switch this archetype flow to async inserts until the cluster is upgraded and the end-to-end behavior is verified.
+The setting is still `async_insert=0`, and it should stay that way until someone measures this pipeline specifically. Async inserts help frequent small client inserts; they do not help bulk `INSERT ... SELECT`. So the remaining question is whether they help *this* flow at all, which is an empirical one — not something the version number answers.
 
 ### 6. There is prod/schema drift already
 
@@ -405,7 +404,7 @@ Useful checks:
 - Do not use `project_path` in breadth.
 - Do not rely on `ReplacingMergeTree` merges for product correctness.
 - Do not use `FINAL` in Wrapped request paths as the steady-state design.
-- Do not turn on async inserts for this pipeline before a ClickHouse upgrade past the 26.1 materialized-view dedupe fix and a dedicated verification pass.
+- Do not turn on async inserts for this pipeline on the strength of the ClickHouse version alone. The version constraint (the 26.1 materialized-view dedupe fix) has been lifted; a dedicated verification pass on this pipeline has not happened.
 - Do not hardcode centroid values in multiple places. Keep one versioned centroid table.
 
 ## When to Revisit This Design
