@@ -16,6 +16,7 @@ import {
 	getUserAvatarOwnerByPublicId,
 } from "../services/avatar-upload.service.js";
 import { deleteUserSessions } from "../services/org-session.service.js";
+import { deleteUserPostgresData } from "../services/user-deletion.service.js";
 import { notifyAccountDeletion } from "../slack.js";
 
 const logger = getLogger(["rudel", "api", "profile"]);
@@ -119,80 +120,6 @@ export async function validateProfileImage(input: {
 	return parsed.toString();
 }
 
-export interface DeletedUserPostgresData {
-	deletedOrganizationIds: string[];
-}
-
-export interface DeletedUser {
-	email: string;
-	id: string;
-	name: string;
-}
-
-export async function getDeletedOrganizationIdsForUser(
-	userId: string,
-): Promise<string[]> {
-	const orphanedOrgs = await sqlClient<Array<{ organizationId: string }>>`
-		SELECT organization_id AS "organizationId"
-		FROM member
-		WHERE organization_id IN (
-			SELECT organization_id
-			FROM member
-			WHERE user_id = ${userId}
-		)
-		GROUP BY organization_id
-		HAVING COUNT(*) = 1
-	`;
-
-	return orphanedOrgs.map((org) => org.organizationId);
-}
-
-export async function deleteUserPostgresData(
-	userId: string,
-	deletedOrganizationIds?: readonly string[],
-): Promise<DeletedUserPostgresData> {
-	const orphanedOrgIds = deletedOrganizationIds
-		? [...deletedOrganizationIds]
-		: await getDeletedOrganizationIdsForUser(userId);
-
-	await sqlClient.begin(async (rawTx) => {
-		const tx = rawTx as unknown as Sql;
-
-		await tx`DELETE FROM apikey WHERE reference_id = ${userId}`;
-
-		if (orphanedOrgIds.length > 0) {
-			await tx`DELETE FROM organization WHERE id = ANY(${orphanedOrgIds}::text[])`;
-		}
-
-		await tx`DELETE FROM "user" WHERE id = ${userId}`;
-	});
-
-	return { deletedOrganizationIds: orphanedOrgIds };
-}
-
-export async function deleteUserWithAccountDeletionNotification(input: {
-	deleteSessions?: typeof deleteUserSessions;
-	notify?: typeof notifyAccountDeletion;
-	slackWebhookUrl: string | undefined;
-	user: DeletedUser;
-}): Promise<DeletedUserPostgresData> {
-	const deletedOrganizationIds = await getDeletedOrganizationIdsForUser(
-		input.user.id,
-	);
-
-	await (input.deleteSessions ?? deleteUserSessions)(input.user.id);
-
-	if (input.slackWebhookUrl) {
-		await (input.notify ?? notifyAccountDeletion)(
-			input.slackWebhookUrl,
-			input.user,
-			deletedOrganizationIds,
-		);
-	}
-
-	return deleteUserPostgresData(input.user.id, deletedOrganizationIds);
-}
-
 const deleteMine = os.profile.deleteMine
 	.use(authMiddleware)
 	.use(settingsMutationMiddleware)
@@ -206,11 +133,22 @@ const deleteMine = os.profile.deleteMine
 			email: userEmail,
 		});
 
-		const { deletedOrganizationIds } =
-			await deleteUserWithAccountDeletionNotification({
-				slackWebhookUrl: process.env.SLACK_WEBHOOK_URL,
-				user: { id: userId, name: userName, email: userEmail },
-			});
+		const { deletedOrganizationIds } = await deleteUserPostgresData(userId, {
+			sqlClient,
+		});
+		const slackWebhookUrl = process.env.SLACK_WEBHOOK_URL;
+		const slackNotification = slackWebhookUrl
+			? notifyAccountDeletion(
+					slackWebhookUrl,
+					{ id: userId, name: userName, email: userEmail },
+					deletedOrganizationIds,
+				)
+			: Promise.resolve();
+
+		// The committed owner deletion revokes access through current API reads.
+		// ClickHouse lightweight deletes are best-effort query-level masking;
+		// physical removal happens later during background merges.
+		await Promise.all([deleteUserSessions(userId), slackNotification]);
 
 		logger.info(
 			"User {userId} self-delete completed; deletedOrganizationIds={deletedOrganizationIds}",

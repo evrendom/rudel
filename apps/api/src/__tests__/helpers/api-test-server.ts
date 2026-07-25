@@ -4,6 +4,7 @@ const MONOREPO_ROOT = resolve(import.meta.dir, "..", "..", "..", "..", "..");
 
 export interface ApiTestServer {
 	baseUrl: string;
+	readOutput: () => string;
 	stop: () => Promise<void>;
 }
 
@@ -27,11 +28,19 @@ export async function startApiTestServer(
 	processHandle.unref();
 
 	const port = await readReadyPort(processHandle);
-	drainProcessStream(processHandle.stderr);
+	let processOutput = "";
+	const appendOutput = (output: string) => {
+		processOutput += output;
+	};
+	drainProcessStream(processHandle.stdout, appendOutput);
+	drainProcessStream(processHandle.stderr, appendOutput);
 	await waitForHealth(port);
 
 	return {
 		baseUrl: `http://localhost:${port}`,
+		readOutput() {
+			return processOutput;
+		},
 		async stop() {
 			processHandle.kill();
 			await processHandle.exited;
@@ -41,9 +50,22 @@ export async function startApiTestServer(
 
 function drainProcessStream(
 	stream: ReadableStream<Uint8Array> | number | null,
+	onOutput: (output: string) => void,
 ) {
 	if (stream instanceof ReadableStream) {
-		stream.pipeTo(new WritableStream()).catch(() => {});
+		const decoder = new TextDecoder();
+		stream
+			.pipeTo(
+				new WritableStream({
+					close() {
+						onOutput(decoder.decode());
+					},
+					write(chunk) {
+						onOutput(decoder.decode(chunk, { stream: true }));
+					},
+				}),
+			)
+			.catch(() => {});
 	}
 }
 

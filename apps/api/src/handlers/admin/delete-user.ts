@@ -3,6 +3,7 @@ import { ORPCError } from "@orpc/server";
 import { sqlClient } from "../../db.js";
 import { adminMiddleware, os } from "../../middleware.js";
 import { deleteUserSessions } from "../../services/org-session.service.js";
+import { deleteUserPostgresData } from "../../services/user-deletion.service.js";
 
 const logger = getLogger(["rudel", "api", "admin"]);
 
@@ -36,43 +37,17 @@ export const deleteUser = os.admin.deleteUser
 			adminId: context.user.id,
 		});
 
+		const { deletedOrganizationIds } = await deleteUserPostgresData(userId, {
+			sqlClient,
+		});
+		// Postgres has already revoked API access. ClickHouse cleanup is
+		// best-effort query-level masking, not confirmed physical erasure.
 		await deleteUserSessions(userId);
 
-		await sqlClient.begin(async (sql) => {
-			// Find organizations where this user is the sole member
-			const orphanedOrgs = await sql.unsafe<Array<{ organizationId: string }>>(
-				`
-					SELECT organization_id AS "organizationId"
-					FROM member
-					WHERE organization_id IN (
-						SELECT organization_id
-						FROM member
-						WHERE user_id = $1
-					)
-					GROUP BY organization_id
-					HAVING COUNT(*) = 1
-				`,
-				[userId],
-			);
-
-			const orphanedOrgIds = orphanedOrgs.map((org) => org.organizationId);
-
-			// Delete API keys (no FK cascade from user)
-			await sql.unsafe(`DELETE FROM apikey WHERE reference_id = $1`, [userId]);
-
-			// Delete orphaned organizations (cascades invitation + member rows for those orgs)
-			if (orphanedOrgIds.length > 0) {
-				await sql.unsafe(
-					`DELETE FROM organization WHERE id = ANY($1::text[])`,
-					[orphanedOrgIds],
-				);
-			}
-
-			// Delete user (cascades session, account, member, invitation, deviceCode)
-			await sql.unsafe(`DELETE FROM "user" WHERE id = $1`, [userId]);
-		});
-
-		logger.info("Successfully deleted user {userId}", { userId });
+		logger.info(
+			"Successfully deleted user {userId}; deletedOrganizationIds={deletedOrganizationIds}",
+			{ deletedOrganizationIds, userId },
+		);
 
 		return { success: true };
 	});

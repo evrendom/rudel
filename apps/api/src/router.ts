@@ -333,49 +333,23 @@ const deleteOrganization = os.deleteOrganization
 	.handler(async ({ input, context }) => {
 		const orgId = input.organizationId;
 		const userId = context.user.id;
-		console.log(`[deleteOrganization] user=${userId} org=${orgId}`);
-
-		// Check user has more than one org
-		const [membershipSummary] = await sqlClient<Array<{ count: number }>>`
-			SELECT COUNT(*)::int AS count
-			FROM member
-			WHERE user_id = ${userId}
-		`;
-		const membershipCount = membershipSummary?.count ?? 0;
-
-		if (membershipCount <= 1) {
-			console.log(
-				`[deleteOrganization] rejected: user=${userId} has only ${membershipCount} org(s)`,
-			);
-			throw new ORPCError("BAD_REQUEST", {
-				message: "Cannot delete your only organization",
-			});
-		}
-
-		// Verify user is owner of the target org
-		const ownership = await sqlClient<Array<{ id: string }>>`
-			SELECT id
-			FROM member
-			WHERE organization_id = ${orgId}
-				AND user_id = ${userId}
-				AND role = 'owner'
-			LIMIT 1
-		`;
-
-		if (ownership.length === 0) {
-			console.log(
-				`[deleteOrganization] rejected: user=${userId} is not owner of org=${orgId}`,
-			);
-			throw new ORPCError("FORBIDDEN", {
-				message: "Only the organization owner can delete it",
-			});
-		}
+		logger.info(
+			"Deleting organization (user_id={userId} organization_id={organizationId})",
+			{ organizationId: orgId, userId },
+		);
 
 		try {
+			// These analytics pre-reads must stay before the transaction because the
+			// post-commit ClickHouse purge destroys the source rows they inspect.
 			const [targetOrganization] = await sqlClient<
-				Array<{ createdAt: Date; id: string }>
+				Array<{ ageDays: number; id: string }>
 			>`
-				SELECT id, created_at AS "createdAt"
+				SELECT
+					id,
+					GREATEST(
+						0,
+						FLOOR(EXTRACT(EPOCH FROM (NOW() - created_at)) / 86400)
+					)::int AS "ageDays"
 				FROM organization
 				WHERE id = ${orgId}
 				LIMIT 1
@@ -390,30 +364,90 @@ const deleteOrganization = os.deleteOrganization
 			try {
 				hadUploadsLast30d = await hasOrgUploadsInLastDays(orgId, 30);
 			} catch (analyticsError) {
-				console.error(
-					`[deleteOrganization] failed to inspect uploads for org=${orgId}:`,
-					analyticsError,
+				logger.error(
+					"Failed to inspect uploads before organization deletion (organization_id={organizationId} error={error})",
+					{
+						error: String(analyticsError),
+						organizationId: orgId,
+					},
 				);
 			}
 
+			await sqlClient.begin(async (transaction) => {
+				await transaction.unsafe(
+					`
+						SELECT id
+						FROM "user"
+						WHERE id = $1
+						FOR UPDATE
+					`,
+					[userId],
+				);
+
+				const [membershipSummary] = await transaction.unsafe<
+					Array<{ count: number }>
+				>(
+					`
+						SELECT COUNT(*)::int AS count
+						FROM member
+						WHERE user_id = $1
+					`,
+					[userId],
+				);
+				const membershipCount = membershipSummary?.count ?? 0;
+
+				if (membershipCount <= 1) {
+					logger.info(
+						"Rejected organization deletion because it is the user's only organization (user_id={userId} organization_id={organizationId} membership_count={membershipCount})",
+						{
+							membershipCount,
+							organizationId: orgId,
+							userId,
+						},
+					);
+					throw new ORPCError("BAD_REQUEST", {
+						message: "Cannot delete your only organization",
+					});
+				}
+
+				const ownership = await transaction.unsafe<Array<{ id: string }>>(
+					`
+						SELECT id
+						FROM member
+						WHERE organization_id = $1
+							AND user_id = $2
+							AND role = 'owner'
+						LIMIT 1
+					`,
+					[orgId, userId],
+				);
+
+				if (ownership.length === 0) {
+					logger.info(
+						"Rejected organization deletion because the user is not its owner (user_id={userId} organization_id={organizationId})",
+						{ organizationId: orgId, userId },
+					);
+					throw new ORPCError("FORBIDDEN", {
+						message: "Only the organization owner can delete it",
+					});
+				}
+
+				await transaction.unsafe("DELETE FROM organization WHERE id = $1", [
+					orgId,
+				]);
+				await transaction.unsafe(
+					`
+						UPDATE session
+						SET active_organization_id = NULL
+						WHERE active_organization_id = $1
+					`,
+					[orgId],
+				);
+			});
+
+			// Postgres has already revoked API access. ClickHouse cleanup is
+			// best-effort query-level masking, not confirmed physical erasure.
 			await deleteOrgSessions(orgId);
-
-			// Delete the organization from Postgres (cascade handles member + invitation)
-			console.log(`[deleteOrganization] deleting org=${orgId} from Postgres`);
-			await sqlClient`
-				DELETE FROM organization
-				WHERE id = ${orgId}
-			`;
-
-			// Clear activeOrganizationId on user sessions that reference the deleted org
-			console.log(
-				`[deleteOrganization] clearing activeOrganizationId references for org=${orgId}`,
-			);
-			await sqlClient`
-				UPDATE session
-				SET active_organization_id = NULL
-				WHERE active_organization_id = ${orgId}
-			`;
 
 			captureApiProductAnalyticsEvent({
 				distinctId: userId,
@@ -421,25 +455,23 @@ const deleteOrganization = os.deleteOrganization
 				payload: {
 					organization_id: orgId,
 					deleter_user_id: userId,
-					organization_age_days: targetOrganization
-						? Math.max(
-								0,
-								Math.floor(
-									(Date.now() - targetOrganization.createdAt.getTime()) /
-										(1000 * 60 * 60 * 24),
-								),
-							)
-						: 0,
+					organization_age_days: targetOrganization?.ageDays ?? 0,
 					organization_member_count: memberCount,
 					had_uploads_last_30d: hadUploadsLast30d,
 				},
 			});
 
-			console.log(`[deleteOrganization] success for org=${orgId}`);
+			logger.info(
+				"Organization deletion completed (user_id={userId} organization_id={organizationId})",
+				{ organizationId: orgId, userId },
+			);
 			return { success: true as const };
 		} catch (error) {
 			if (error instanceof ORPCError) throw error;
-			console.error(`[deleteOrganization] failed for org=${orgId}:`, error);
+			logger.error(
+				"Organization deletion failed (user_id={userId} organization_id={organizationId} error={error})",
+				{ error: String(error), organizationId: orgId, userId },
+			);
 			throw error;
 		}
 	});
