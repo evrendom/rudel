@@ -25,7 +25,7 @@ This guide walks through deploying Rudel using **ObsessionDB** (ClickHouse), **N
 ```bash
 # From the repo root — set the env vars that chkit reads
 CLICKHOUSE_URL=https://your-instance.obsessiondb.com \
-CLICKHOUSE_USER=your-username \
+CLICKHOUSE_USERNAME=your-username \
 CLICKHOUSE_PASSWORD=your-password \
 CLICKHOUSE_DB=default \
   bun --bun --cwd packages/ch-schema chkit migrate --apply
@@ -33,7 +33,7 @@ CLICKHOUSE_DB=default \
 
 The migration creates the `rudel` database, the `claude_sessions` and `session_analytics` tables, and a materialized view that computes analytics on insert. The cloud migration uses `SharedReplacingMergeTree` for `claude_sessions`.
 
-> **Note**: `CLICKHOUSE_DB` must be set to `default` for the migration because the `rudel` database doesn't exist yet — the migration creates it. `CLICKHOUSE_USER` (not `CLICKHOUSE_USERNAME`) is the env var name that the migration tool expects.
+> **Note**: `CLICKHOUSE_DB` must be set to `default` for the migration because the `rudel` database doesn't exist yet — the migration creates it. Use `CLICKHOUSE_USERNAME` throughout; `CLICKHOUSE_USER` is still accepted as a fallback.
 
 ## 2. Provision Postgres (Neon)
 
@@ -59,7 +59,7 @@ This creates the auth tables (users, sessions, accounts, verification tokens) us
 fly launch --name your-app-name --no-deploy
 ```
 
-4. Set secrets (the API reads `CLICKHOUSE_USERNAME`, not `CLICKHOUSE_USER`):
+4. Set secrets:
 
 ```bash
 fly secrets set \
