@@ -7,6 +7,7 @@ const ALLOWED_CLICKHOUSE_TABLES = new Set([
 	"rudel.claude_sessions",
 	"rudel.codex_sessions",
 	"rudel.session_analytics",
+	"rudel.wrapped_user_archetype_snapshots_v1",
 ]);
 
 export interface ClickHouseStatement {
