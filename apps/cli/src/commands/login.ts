@@ -1,7 +1,12 @@
-import { spawn } from "node:child_process";
 import * as p from "@clack/prompts";
+import {
+	type ProductAnalyticsLoginFailureStage,
+	parseSafeBrowserUrl,
+	sanitizeForTerminalDisplay,
+} from "@rudel/api-routes";
 import { buildCommand } from "@stricli/core";
 import { createApiClient } from "../lib/api-client.js";
+import { openUrl } from "../lib/browser-opener.js";
 import { loadCredentials, saveCredentials } from "../lib/credentials.js";
 import {
 	CliProductAnalyticsEvents,
@@ -46,22 +51,37 @@ async function sleep(ms: number): Promise<void> {
 	await new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function openUrl(url: string): void {
-	if (process.platform === "win32") {
-		const child = spawn("cmd", ["/c", "start", "", url], {
-			detached: true,
-			stdio: "ignore",
-		});
-		child.unref();
-		return;
+/**
+ * Build the URL the user must visit to approve the device authorization.
+ *
+ * Uses `searchParams.set` rather than `?`-concatenation because the server's
+ * `verification_uri` may already carry a query string (it is configurable via
+ * `CLI_DEVICE_VERIFICATION_URL`), which naive concatenation would corrupt into a
+ * malformed URL with two `?` separators.
+ *
+ * The result is untrusted — it comes from whatever server `--api-base` points at
+ * — and must be passed through `parseSafeBrowserUrl` before being printed or
+ * opened.
+ */
+export function buildVerificationUrl(
+	device: Pick<
+		DeviceCodeResponse,
+		"verification_uri" | "verification_uri_complete" | "user_code"
+	>,
+): string {
+	if (device.verification_uri_complete) {
+		return device.verification_uri_complete;
 	}
 
-	const opener = process.platform === "darwin" ? "open" : "xdg-open";
-	const child = spawn(opener, [url], {
-		detached: true,
-		stdio: "ignore",
-	});
-	child.unref();
+	try {
+		const url = new URL(device.verification_uri);
+		url.searchParams.set("user_code", device.user_code);
+		return url.toString();
+	} catch {
+		// Return it unchanged and let the validator produce the user-facing
+		// rejection, so there is a single place that reports a bad URL.
+		return device.verification_uri;
+	}
 }
 
 async function requestDeviceCode(apiBase: string): Promise<DeviceCodeResponse> {
@@ -181,18 +201,12 @@ async function createIngestApiKey(
 
 async function runLogin(flags: {
 	apiBase: string;
-	webUrl: string;
 	noBrowser: boolean;
 }): Promise<undefined | Error> {
 	const openedBrowser = !flags.noBrowser;
 	const attemptNumber = getNextCliLoginAttemptNumber();
 	const captureLoginFailure = (
-		failureStage:
-			| "device_code_request"
-			| "browser_approval_timeout"
-			| "token_exchange"
-			| "api_key_create"
-			| "account_fetch",
+		failureStage: ProductAnalyticsLoginFailureStage,
 		error: unknown,
 	) => {
 		captureCliProductAnalyticsEvent({
@@ -227,9 +241,19 @@ async function runLogin(flags: {
 		captureLoginFailure("device_code_request", error);
 		return error instanceof Error ? error : new Error(String(error));
 	}
-	const verifyUrl =
-		deviceCode.verification_uri_complete ??
-		`${deviceCode.verification_uri}?user_code=${encodeURIComponent(deviceCode.user_code)}`;
+	// The verification URL is server-controlled. Validate it before it reaches the
+	// terminal or a platform opener, and use the reserialized form so control
+	// characters stay percent-encoded (RUD-203).
+	const rawVerifyUrl = buildVerificationUrl(deviceCode);
+	const verifyUrlResult = parseSafeBrowserUrl(rawVerifyUrl);
+	if (!verifyUrlResult.ok) {
+		const error = new Error(
+			`Refusing the verification URL returned by ${sanitizeForTerminalDisplay(flags.apiBase)}: ${verifyUrlResult.detail}. Received: ${sanitizeForTerminalDisplay(rawVerifyUrl)}`,
+		);
+		captureLoginFailure("verification_url_rejected", error);
+		return error;
+	}
+	const verifyUrl = verifyUrlResult.url;
 
 	captureCliProductAnalyticsEvent({
 		distinctId: getCliDistinctId(),
@@ -343,12 +367,6 @@ export const loginCommand = buildCommand({
 				kind: "parsed",
 				parse: String,
 				brief: "API server base URL",
-				default: getDefaultApiBase(),
-			},
-			webUrl: {
-				kind: "parsed",
-				parse: String,
-				brief: "Web app URL for authentication",
 				default: getDefaultApiBase(),
 			},
 			noBrowser: {

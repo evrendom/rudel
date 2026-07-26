@@ -81,6 +81,7 @@ import {
 export * from "./avatar.js";
 export * from "./model-pricing.js";
 export * from "./product-analytics.js";
+export * from "./safe-url.js";
 export * from "./schemas/analytics.js";
 export * from "./schemas/wrapped-decimal-claim.js";
 export * from "./schemas/wrapped-resume.js";

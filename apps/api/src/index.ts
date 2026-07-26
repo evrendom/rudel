@@ -10,7 +10,11 @@ import {
 	handleAvatarGetRequest,
 	handleAvatarUploadRequest,
 } from "./handlers/avatar-http.js";
-import { readBetterAuthSecret, readPositiveSafeIntegerEnv } from "./lib/env.js";
+import {
+	readBetterAuthSecret,
+	readCliDeviceVerificationUrl,
+	readPositiveSafeIntegerEnv,
+} from "./lib/env.js";
 import { shutdownApiProductAnalytics } from "./lib/product-analytics.js";
 import { setupLogging } from "./logging.js";
 import type { ApiKeyAuthFailure } from "./middleware.js";
@@ -110,9 +114,9 @@ const auth = createAuth(db, {
 	resend,
 	socialProviders,
 	trustedOrigins,
-	cliDeviceVerificationUrl:
-		process.env.CLI_DEVICE_VERIFICATION_URL ??
-		`${preferredFrontendOrigin}/device`,
+	cliDeviceVerificationUrl: readCliDeviceVerificationUrl(
+		preferredFrontendOrigin,
+	),
 	slackWebhookUrl: process.env.SLACK_WEBHOOK_URL,
 });
 
