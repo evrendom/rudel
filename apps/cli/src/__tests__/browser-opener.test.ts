@@ -27,12 +27,15 @@ describe("resolveBrowserOpener", () => {
 		// opener ShellExecutes through Start-Process with the URL in an env var.
 		// Plain -Command text, never the EDR-flagged -EncodedCommand pattern.
 		const url = "https://app.rudel.ai/device?user_code=X&calc";
-		const { command, args, env } = resolveBrowserOpener("win32", url);
+		const { command, args, detach, env } = resolveBrowserOpener("win32", url);
 
 		expect(command).toBe("powershell.exe");
 		expect(args.at(-1)).toBe("Start-Process -FilePath $env:RUDEL_OPEN_URL");
 		expect(args).not.toContain("-EncodedCommand");
 		expect(env).toEqual({ RUDEL_OPEN_URL: url });
+		// DETACHED_PROCESS makes Start-Process report success while the browser
+		// launch silently dies (bisected on windows-2025 CI).
+		expect(detach).toBe(false);
 	});
 
 	test.each([
@@ -41,10 +44,11 @@ describe("resolveBrowserOpener", () => {
 		["freebsd", "xdg-open"],
 	])("uses %p opener %p", (platform, expected) => {
 		const url = "https://app.rudel.ai/device?user_code=X";
-		const { command, args, env } = resolveBrowserOpener(platform, url);
+		const { command, args, detach, env } = resolveBrowserOpener(platform, url);
 
 		expect(command).toBe(expected);
 		expect(args).toEqual([url]);
+		expect(detach).toBe(true);
 		expect(env).toBeUndefined();
 	});
 });

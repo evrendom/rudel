@@ -32,7 +32,7 @@ function waitWithTimeout<T>(
 }
 
 test(
-	"explorer.exe opens the complete verification URL without shell parsing",
+	"the Windows opener delivers the complete verification URL to the default browser",
 	async () => {
 		expect(process.platform).toBe("win32");
 
@@ -54,7 +54,7 @@ test(
 
 		try {
 			// Under the vulnerable `cmd /c start` implementation, `&ver` was parsed as
-			// a second command and never reached the browser. explorer.exe must deliver
+			// a second command and never reached the browser. The opener must deliver
 			// it to the loopback server as part of the URL.
 			const result = parseSafeBrowserUrl(
 				`http://127.0.0.1:${server.port}/device?user_code=X&ver`,

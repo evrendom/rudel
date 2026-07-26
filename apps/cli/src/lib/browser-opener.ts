@@ -4,6 +4,14 @@ export interface BrowserOpenerCommand {
 	command: string;
 	args: string[];
 	/**
+	 * Whether to spawn the opener detached. Must be false on Windows:
+	 * DETACHED_PROCESS makes Start-Process report success while the browser
+	 * launch silently dies (bisected empirically on windows-2025 CI). The CLI
+	 * outlives the ~1s opener anyway, and Windows does not kill children on
+	 * parent exit. POSIX stays detached because xdg-open can outlive the login.
+	 */
+	detach: boolean;
+	/**
 	 * Extra environment for the spawned process. On Windows the URL travels here
 	 * rather than in `args`, so its bytes never cross a command-line parser.
 	 */
@@ -44,13 +52,14 @@ export function resolveBrowserOpener(
 				"-Command",
 				"Start-Process -FilePath $env:RUDEL_OPEN_URL",
 			],
+			detach: false,
 			env: { RUDEL_OPEN_URL: url },
 		};
 	}
 	if (platform === "darwin") {
-		return { command: "open", args: [url] };
+		return { command: "open", args: [url], detach: true };
 	}
-	return { command: "xdg-open", args: [url] };
+	return { command: "xdg-open", args: [url], detach: true };
 }
 
 /**
@@ -62,9 +71,12 @@ export function resolveBrowserOpener(
  * what protects those platforms.
  */
 export function openUrl(url: string): void {
-	const { command, args, env } = resolveBrowserOpener(process.platform, url);
+	const { command, args, detach, env } = resolveBrowserOpener(
+		process.platform,
+		url,
+	);
 	const child = spawn(command, args, {
-		detached: true,
+		detached: detach,
 		stdio: "ignore",
 		windowsHide: true,
 		env: env ? { ...process.env, ...env } : process.env,
