@@ -186,10 +186,49 @@ jobs:
           $listener = [System.Net.HttpListener]::new()
           $listener.Prefixes.Add('http://127.0.0.1:47653/')
           $listener.Start()
-          Write-Host "$(Get-Date -Format o) firing probes"
-          Start-Process 'http://127.0.0.1:47653/shellexecute?user_code=X&ver'
-          explorer.exe 'http://127.0.0.1:47653/explorer?user_code=X&ver'
-          $deadline = (Get-Date).AddSeconds(90)
+
+          Write-Host "$(Get-Date -Format o) probe ps51: powershell.exe 5.1 invoked directly"
+          $env:RUDEL_OPEN_URL = 'http://127.0.0.1:47653/ps51?user_code=X&ver'
+          powershell.exe -NoProfile -NonInteractive -WindowStyle Hidden -Command 'Start-Process -FilePath $env:RUDEL_OPEN_URL'
+          Write-Host "ps51 exit code: $LASTEXITCODE"
+
+          $js = @'
+          const { spawn } = require("node:child_process");
+          const child = spawn(
+            "powershell.exe",
+            [
+              "-NoProfile", "-NonInteractive", "-WindowStyle", "Hidden",
+              "-Command", "Start-Process -FilePath $env:RUDEL_OPEN_URL",
+            ],
+            {
+              detached: process.env.PROBE_DETACHED === "1",
+              stdio: process.env.PROBE_STDIO === "inherit" ? "inherit" : "ignore",
+              windowsHide: process.env.PROBE_HIDE === "1",
+              env: { ...process.env, RUDEL_OPEN_URL: process.env.PROBE_URL },
+            },
+          );
+          child.on("error", (e) => console.log("spawn error:", e.message));
+          child.on("exit", (code) => console.log("child exit code:", code));
+          setTimeout(() => process.exit(0), 8000);
+          '@
+          Set-Content -Path probe.cjs -Value $js
+
+          Write-Host "$(Get-Date -Format o) probe bun-exact: bun spawn, detached + windowsHide, stdio ignore"
+          $env:PROBE_URL = 'http://127.0.0.1:47653/bun-exact?user_code=X&ver'
+          $env:PROBE_DETACHED = '1'; $env:PROBE_HIDE = '1'; $env:PROBE_STDIO = 'ignore'
+          bun probe.cjs
+
+          Write-Host "$(Get-Date -Format o) probe bun-plain: bun spawn, no detach, no hide, stdio inherit"
+          $env:PROBE_URL = 'http://127.0.0.1:47653/bun-plain?user_code=X&ver'
+          $env:PROBE_DETACHED = '0'; $env:PROBE_HIDE = '0'; $env:PROBE_STDIO = 'inherit'
+          bun probe.cjs
+
+          Write-Host "$(Get-Date -Format o) probe node-exact: node spawn, detached + windowsHide, stdio ignore"
+          $env:PROBE_URL = 'http://127.0.0.1:47653/node-exact?user_code=X&ver'
+          $env:PROBE_DETACHED = '1'; $env:PROBE_HIDE = '1'; $env:PROBE_STDIO = 'ignore'
+          node probe.cjs
+
+          $deadline = (Get-Date).AddSeconds(60)
           $pending = $listener.BeginGetContext($null, $null)
           while ((Get-Date) -lt $deadline) {
             if ($pending.AsyncWaitHandle.WaitOne(1000)) {
