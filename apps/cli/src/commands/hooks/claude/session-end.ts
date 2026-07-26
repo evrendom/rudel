@@ -2,13 +2,11 @@ import { getLogger } from "@logtape/logtape";
 import { claudeCodeAdapter, type SessionFile } from "@rudel/agent-adapters";
 import { buildCommand } from "@stricli/core";
 import { loadCredentials } from "../../../lib/credentials.js";
-import {
-	recordFailedUpload,
-	removeFailedUpload,
-} from "../../../lib/failed-uploads.js";
+import { removeFailedUpload } from "../../../lib/failed-uploads.js";
 import { getGitInfo } from "../../../lib/git-info.js";
+import { reportHookUploadFailure } from "../../../lib/hook-upload-failure.js";
 import { getProjectOrgId } from "../../../lib/project-config.js";
-import { allowsInsecureEndpoint } from "../../../lib/upload-endpoint.js";
+import { allowsInsecureEndpointFromEnv } from "../../../lib/upload-endpoint.js";
 import { uploadSession } from "../../../lib/uploader.js";
 import { disposeLogging, setupHookLogging } from "../../../logging.js";
 
@@ -64,7 +62,7 @@ async function runSessionEnd(): Promise<undefined | Error> {
 		const result = await uploadSession(request, {
 			endpoint,
 			token: credentials.token,
-			allowInsecureEndpoint: allowsInsecureEndpoint(false),
+			allowInsecureEndpoint: allowsInsecureEndpointFromEnv(),
 			authType: credentials.authType,
 			onRetry: (attempt, maxAttempts, error) => {
 				logger.warn(
@@ -81,27 +79,14 @@ async function runSessionEnd(): Promise<undefined | Error> {
 			);
 			await removeFailedUpload(input.session_id);
 		} else {
-			const uploadError = result.error ?? "Unknown error";
-			logger.error("Upload failed for session {sessionId}: {error}", {
-				sessionId: input.session_id,
-				error: uploadError,
-			});
-			if (result.endpointRejected) {
-				process.stderr.write(
-					`Rudel hook upload refused for session ${input.session_id}: ${uploadError}\n`,
-				);
-			}
-			await recordFailedUpload({
+			const hookError = await reportHookUploadFailure(logger, result, {
 				sessionId: input.session_id,
 				transcriptPath: input.transcript_path,
 				projectPath: input.cwd,
 				source: claudeCodeAdapter.source,
 				organizationId,
-				error: uploadError,
 			});
-			if (result.endpointRejected) {
-				return new Error(uploadError);
-			}
+			return hookError;
 		}
 	} catch (error) {
 		logger.error("Session end hook failed: {error}", { error });

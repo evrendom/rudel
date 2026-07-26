@@ -180,7 +180,7 @@ describe("uploadSession endpoint safety", () => {
 		expect(result).toEqual({
 			success: false,
 			error:
-				'Upload endpoint refused: refusing to send credentials over plaintext http: to "evil.example". Pass --allow-insecure-endpoint (or set RUDEL_ALLOW_INSECURE_ENDPOINT=1) if this upload destination really is plaintext.',
+				'Upload endpoint refused: refusing to send credentials over plaintext http: to "evil.example". Pass --allow-insecure-endpoint (or set RUDEL_ALLOW_INSECURE_ENDPOINT=1) if this upload destination really is plaintext. This does not opt login or other API-base traffic into --allow-insecure-api-base.',
 			attempts: 0,
 			endpointRejected: true,
 		});

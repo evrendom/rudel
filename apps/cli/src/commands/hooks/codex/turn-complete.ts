@@ -6,13 +6,11 @@ import {
 } from "@rudel/agent-adapters";
 import { buildCommand } from "@stricli/core";
 import { loadCredentials } from "../../../lib/credentials.js";
-import {
-	recordFailedUpload,
-	removeFailedUpload,
-} from "../../../lib/failed-uploads.js";
+import { removeFailedUpload } from "../../../lib/failed-uploads.js";
 import { getGitInfo } from "../../../lib/git-info.js";
+import { reportHookUploadFailure } from "../../../lib/hook-upload-failure.js";
 import { getProjectOrgId } from "../../../lib/project-config.js";
-import { allowsInsecureEndpoint } from "../../../lib/upload-endpoint.js";
+import { allowsInsecureEndpointFromEnv } from "../../../lib/upload-endpoint.js";
 import { uploadSession } from "../../../lib/uploader.js";
 import { disposeLogging, setupHookLogging } from "../../../logging.js";
 
@@ -70,34 +68,21 @@ async function runTurnComplete(): Promise<undefined | Error> {
 		const result = await uploadSession(request, {
 			endpoint,
 			token: credentials.token,
-			allowInsecureEndpoint: allowsInsecureEndpoint(false),
+			allowInsecureEndpoint: allowsInsecureEndpointFromEnv(),
 			authType: credentials.authType,
 		});
 
 		if (result.success) {
 			await removeFailedUpload(input.thread_id);
 		} else {
-			const uploadError = result.error ?? "Unknown error";
-			logger.error("Upload failed for session {sessionId}: {error}", {
-				sessionId: input.thread_id,
-				error: uploadError,
-			});
-			if (result.endpointRejected) {
-				process.stderr.write(
-					`Rudel hook upload refused for session ${input.thread_id}: ${uploadError}\n`,
-				);
-			}
-			await recordFailedUpload({
+			const hookError = await reportHookUploadFailure(logger, result, {
 				sessionId: input.thread_id,
 				transcriptPath,
 				projectPath: input.cwd,
 				source: codexAdapter.source,
 				organizationId,
-				error: uploadError,
 			});
-			if (result.endpointRejected) {
-				return new Error(uploadError);
-			}
+			return hookError;
 		}
 	} catch (error) {
 		logger.error("Codex turn-complete hook failed: {error}", { error });

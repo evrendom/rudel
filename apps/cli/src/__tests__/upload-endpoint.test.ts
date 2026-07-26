@@ -75,6 +75,9 @@ describe("describeUploadEndpointRejection", () => {
 		expect(describeUploadEndpointRejection(result)).toContain(
 			"RUDEL_ALLOW_INSECURE_ENDPOINT=1",
 		);
+		expect(describeUploadEndpointRejection(result)).toContain(
+			"--allow-insecure-api-base",
+		);
 	});
 
 	test.each([

@@ -224,20 +224,12 @@ export function parseSafeApiBase(
 	input: string,
 	options: { allowPlaintext: boolean },
 ): SafeUrlResult {
-	const result = validateCommon(input);
+	const result = parseSafeApiEndpoint(input, options);
 	if (!result.ok) {
 		return result;
 	}
 
 	const parsed = new URL(result.url);
-	if (isPlaintextNonLoopback(parsed) && !options.allowPlaintext) {
-		return {
-			ok: false,
-			reason: "plaintext_non_loopback",
-			detail: `refusing to send credentials over plaintext http: to "${parsed.hostname}"`,
-		};
-	}
-
 	// Callers template `${base}/api/...` onto this, which a query string or
 	// fragment silently swallows: `https://host?a=1` would yield
 	// `https://host/?a=1/api/auth/device/code`. Reject rather than guess.
