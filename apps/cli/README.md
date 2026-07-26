@@ -71,6 +71,22 @@ rudel upload --dry-run
 rudel upload --classify
 ```
 
+Upload endpoints must use HTTPS, except that loopback HTTP endpoints such as
+`http://localhost:4010/rpc` are allowed for local development. Plaintext HTTP
+to any other host is refused unless the upload-specific
+`--allow-insecure-endpoint` flag is passed or
+`RUDEL_ALLOW_INSECURE_ENDPOINT=1` is set. This opt-in is intentionally separate
+from `--allow-insecure-api-base`: it permits the ingest API key and full
+transcript to cross the network unencrypted and should only be used on a
+trusted network. Non-HTTP URLs, malformed URLs, and URLs with embedded
+credentials are always refused.
+
+Automatic Claude Code and Codex uploads use the environment form because hooks
+run unattended. If `RUDEL_API_BASE` names an unsafe destination, the hook
+refuses the upload, reports the reason in stderr and
+`~/.rudel/logs/hook-upload.log`, and adds the session to the failed-upload queue
+for `rudel upload --retry`; it does not fall back to the saved API base.
+
 When run without arguments, `rudel upload` scans `~/.claude/projects/` for all projects with session transcripts and presents an interactive picker. The current project (matched from your working directory) and its subfolders are pre-selected. Use arrow keys to navigate, space to toggle, and enter to confirm.
 
 ### `rudel whoami`

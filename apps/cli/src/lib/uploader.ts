@@ -6,6 +6,7 @@ import {
 	INGEST_AGGREGATE_CONTENT_MAX_BYTES,
 	INGEST_LIMIT_REASONS,
 	type IngestSessionInput,
+	parseSafeApiEndpoint,
 	SESSION_OWNERSHIP_CONFLICT_CODE,
 } from "@rudel/api-routes";
 import {
@@ -16,10 +17,12 @@ import {
 	type RedactionCounts,
 } from "@rudel/secret-filter";
 import type { UploadResult } from "./types.js";
+import { describeUploadEndpointRejection } from "./upload-endpoint.js";
 
 export interface UploadConfig {
 	endpoint: string;
 	token: string;
+	allowInsecureEndpoint: boolean;
 	authType?: "bearer" | "api-key";
 	maxAggregateBytes?: number;
 	onRetry?: (attempt: number, maxAttempts: number, error: string) => void;
@@ -239,8 +242,20 @@ export async function uploadSession(
 		};
 	}
 
+	const endpoint = parseSafeApiEndpoint(config.endpoint, {
+		allowPlaintext: config.allowInsecureEndpoint,
+	});
+	if (!endpoint.ok) {
+		return {
+			success: false,
+			error: `Upload endpoint refused: ${describeUploadEndpointRejection(endpoint)}`,
+			attempts: 0,
+			endpointRejected: true,
+		};
+	}
+
 	const link = new RPCLink({
-		url: config.endpoint,
+		url: endpoint.url,
 		headers:
 			config.authType === "api-key"
 				? { "x-api-key": config.token }
@@ -256,7 +271,10 @@ export async function uploadSession(
 				success: true,
 				status: 200,
 				attempts: attempt,
-				redacted: mergeRedactionCounts(filteredText.counts, response.redacted),
+				redacted: mergeRedactionCounts(
+					filteredText.counts,
+					response.redacted ?? {},
+				),
 			};
 		} catch (error) {
 			const errorMessage = formatUploadError(error);

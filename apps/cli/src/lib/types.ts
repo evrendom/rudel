@@ -26,6 +26,7 @@ export interface UploadResult {
 	attempts?: number;
 	rateLimited?: boolean;
 	redacted?: RedactionCounts;
+	endpointRejected?: boolean;
 }
 
 export const DEFAULT_ENDPOINT = "https://app.rudel.ai/rpc";
