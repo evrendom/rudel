@@ -3,11 +3,19 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { createClickHouseExecutor } from "@chkit/clickhouse";
 import { ingestRudelCodexSessions } from "../generated/chkit-ingest.js";
-import type { RudelCodexSessionsRow } from "../generated/chkit-types.js";
+import type {
+	RudelCodexSessionsRow,
+	RudelSessionAnalyticsRow,
+} from "../generated/chkit-types.js";
+import { CODEX_SESSION_ANALYTICS_MV_SQL } from "../mv-sql/codex-session-analytics.js";
+import { withSessionFilter } from "./mv-session-filter.js";
 
 const testPrefix = `codex_mv_test_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 const testId = `${testPrefix}_clean`;
 const errorTestId = `${testPrefix}_errors`;
+const skillTestId = `${testPrefix}_skills`;
+// Unique per run. All fixtures share it, so afterAll can clean by organization.
+const orgId = `org_${testPrefix}`;
 
 const baseExecutor = createClickHouseExecutor({
 	url: process.env.CLICKHOUSE_URL || "http://localhost:8123",
@@ -57,196 +65,37 @@ async function waitForQuery<T>(
 	return [];
 }
 
-afterAll(() => {
-	executor
-		.execute(
-			`DELETE FROM rudel.codex_sessions WHERE session_id IN ('${testId}', '${errorTestId}')`,
-		)
-		.catch(() => {});
+afterAll(async () => {
+	// The incremental MV writes a separate target row on insert; deleting its source
+	// row does not propagate. Clean both tables so persistent environments used by
+	// `test:env` do not accumulate fixtures.
+	// The executor reuses one ClickHouse session, so commands must be sequential;
+	// concurrent deletes fail with SESSION_IS_LOCKED.
+	for (const table of ["rudel.codex_sessions", "rudel.session_analytics"]) {
+		await executor.execute(
+			`DELETE FROM ${table} WHERE organization_id = '${orgId}'`,
+		);
+	}
 });
 
-// The MV SELECT query extracted from codex-sessions.ts schema definition.
-// We run this directly against the inserted row so the test validates the
-// new SQL logic without requiring a ClickHouse migration first.
-function buildMvQuery(sessionId: string) {
-	return `
-  SELECT * EXCEPT (_dedupe_rank)
-  FROM (
-  WITH
-    arrayFilter(
-      x -> x != '',
-      splitByChar('\\n', cs.content)
-    ) AS _all_lines,
-
-    arrayFilter(x -> JSONHas(x, 'timestamp'), _all_lines) AS _ts_lines,
-
-    arrayMap(
-      x -> parseDateTime64BestEffort(JSONExtractString(x, 'timestamp')),
-      _ts_lines
-    ) AS _timestamps,
-
-    if(length(_timestamps) > 1,
-      arrayMap(i -> dateDiff('second', _timestamps[i], _timestamps[i+1]), range(1, length(_timestamps))),
-      []
-    ) AS _prompt_periods_sec,
-
-    if(length(_timestamps) > 1,
-      arrayMap(i -> if(i < length(_timestamps),
-        dateDiff('second', _timestamps[i], _timestamps[i+1]), 0), range(1, length(_timestamps))),
-      []
-    ) AS _inference_gaps,
-
-    arrayFilter(
-      x -> JSONExtractString(x, 'type') = 'response_item' OR JSONExtractString(x, 'type') = 'event_msg',
-      _all_lines
-    ) AS _interaction_lines,
-
-    arrayFilter(
-      x -> JSONExtractString(x, 'type') = 'response_item'
-        AND JSONExtractString(JSONExtractRaw(x, 'payload'), 'type') = 'function_call_output',
-      _all_lines
-    ) AS _tool_output_lines,
-
-    arrayFilter(
-      x -> JSONExtractString(x, 'type') = 'event_msg'
-        AND JSONExtractString(JSONExtractRaw(x, 'payload'), 'type') = 'token_count',
-      _all_lines
-    ) AS _token_count_lines,
-
-    if(length(_token_count_lines) > 0,
-      JSONExtractRaw(JSONExtractRaw(JSONExtractRaw(arrayElement(_token_count_lines, -1), 'payload'), 'info'), 'total_token_usage'),
-      '{}'
-    ) AS _final_usage,
-
-    toUInt64OrZero(JSONExtractRaw(_final_usage, 'input_tokens')) AS _input_tokens,
-    toUInt64OrZero(JSONExtractRaw(_final_usage, 'output_tokens')) AS _output_tokens,
-    toUInt64OrZero(JSONExtractRaw(_final_usage, 'cached_input_tokens')) AS _cache_read_input_tokens,
-
-    arrayMin(_timestamps) AS _session_date,
-    arrayMax(_timestamps) AS _last_interaction_date,
-    dateDiff('minute', _session_date, _last_interaction_date) AS _duration_min,
-
-    arrayFilter(x -> JSONExtractString(x, 'type') = 'session_meta', _all_lines) AS _meta_lines,
-
-    JSONExtractString(
-      JSONExtractRaw(arrayElement(_meta_lines, 1), 'payload'),
-      'model_provider'
-    ) AS _model_provider,
-
-    arrayFilter(
-      x -> JSONExtractString(x, 'type') = 'turn_context',
-      _all_lines
-    ) AS _turn_context_lines,
-
-    if(length(_turn_context_lines) > 0,
-      JSONExtractString(JSONExtractRaw(arrayElement(_turn_context_lines, 1), 'payload'), 'model'),
-      ''
-    ) AS _model_from_turn_context
-
-  SELECT
-    cs.session_id,
-    'codex' as source,
-    _input_tokens as input_tokens,
-    _output_tokens as output_tokens,
-    _cache_read_input_tokens as cache_read_input_tokens,
-    toUInt64(0) as cache_creation_input_tokens,
-    _input_tokens + _output_tokens as total_tokens,
-    toUInt32(length(_interaction_lines)) as total_interactions,
-    toUInt32(_duration_min) as actual_duration_min,
-    if(length(_prompt_periods_sec) > 0, round(arrayAvg(_prompt_periods_sec), 2), 0) as avg_period_sec,
-    toUInt32(arrayCount(x -> x < 5, _prompt_periods_sec)) as quick_responses,
-    toUInt32(arrayCount(x -> x >= 5 AND x <= 60, _prompt_periods_sec)) as normal_responses,
-    toUInt32(arrayCount(x -> x > 300, _prompt_periods_sec)) as long_pauses,
-    toUInt32(
-      length(extractAll(cs.content, '\\\\\\\\"exit_code\\\\\\\\":[1-9][0-9]*'))
-      + arrayCount(
-          x -> x ILIKE '%Error:%' OR x ILIKE '%Exception:%',
-          _tool_output_lines
-        )
-    ) as error_count,
-    multiIf(
-      _model_from_turn_context != '', _model_from_turn_context,
-      _model_provider != '', _model_provider,
-      'unknown'
-    ) as model_used,
-    toUInt8(if(cs.git_sha IS NOT NULL AND cs.git_sha != '', 1, 0)) as has_commit,
-    toUInt8(0) as used_plan_mode,
-    toUInt32(arraySum(_inference_gaps)) as inference_duration_sec,
-    toUInt32(0) as human_duration_sec,
-    CASE
-      WHEN _duration_min <= 10
-          AND (_input_tokens + _output_tokens) < 500000
-          AND _output_tokens > 1000
-      THEN 'quick_win'
-      WHEN _duration_min > 30
-          AND _output_tokens > 50000
-          AND cs.git_sha IS NOT NULL AND cs.git_sha != ''
-      THEN 'deep_work'
-      WHEN (_input_tokens + _output_tokens) > 1000000
-          AND (_output_tokens / nullif(_input_tokens, 0)) < 0.3
-          AND _duration_min > 20
-      THEN 'struggle'
-      WHEN _duration_min < 3
-          AND _output_tokens < 500
-      THEN 'abandoned'
-      ELSE 'standard'
-    END as session_archetype,
-    toUInt8(round(
-      50
-      + (if(cs.git_sha IS NOT NULL AND cs.git_sha != '', 20, 0))
-      + (if((_output_tokens / nullif(_input_tokens, 0)) > 0.5, 15, 0))
-      - (if((_input_tokens + _output_tokens) > 1500000 AND (cs.git_sha IS NULL OR cs.git_sha = ''), 20, 0))
-      - (if(_duration_min < 2 AND _output_tokens < 200, 30, 0))
-      - (least(toUInt32(
-          length(extractAll(cs.content, '\\\\\\\\"exit_code\\\\\\\\":[1-9][0-9]*'))
-          + arrayCount(
-              x -> JSONExtractString(JSONExtractRaw(x, 'payload'), 'output') LIKE '%Error:%'
-                OR JSONExtractString(JSONExtractRaw(x, 'payload'), 'output') LIKE '%Exception:%',
-              _tool_output_lines
-            )
-        ), 10) * 2)
-    )) as success_score,
-    cs.git_remote,
-    cs.package_name,
-    cs.package_type,
-    ROW_NUMBER() OVER (PARTITION BY cs.session_id ORDER BY cs.ingested_at DESC) AS _dedupe_rank
-
-  FROM rudel.codex_sessions AS cs
-  WHERE cs.session_id = '${sessionId}'
-    AND length(_timestamps) > 0
-  )
-  WHERE _dedupe_rank = 1
-`;
-}
-
-const MV_QUERY = buildMvQuery(testId);
-
-interface AnalyticsRow {
-	session_id: string;
-	source: string;
-	input_tokens: string;
-	output_tokens: string;
-	cache_read_input_tokens: string;
-	cache_creation_input_tokens: string;
-	total_tokens: string;
-	model_used: string;
-	total_interactions: number;
-	actual_duration_min: number;
-	has_commit: number;
-	used_plan_mode: number;
-	human_duration_sec: number;
-	session_archetype: string;
-	success_score: number;
-	error_count: number;
-	git_remote: string;
-	package_name: string;
-	package_type: string;
-	avg_period_sec: number;
-	quick_responses: number;
-	normal_responses: number;
-	long_pauses: number;
-	inference_duration_sec: number;
-}
+// Runs the deployed MV SELECT directly against the inserted row.
+//
+// The SQL is imported from the same constant `codex-sessions.ts` passes to
+// `materializedView({ as })`, so this test cannot drift from what is deployed. It
+// previously held a hand-copied duplicate that had silently diverged five ways
+// (LIKE vs ILIKE, no _skills CTE, no exploration archetype branch, no skills term in
+// success_score, no `info IS NOT NULL` guard) — it was asserting against SQL that was
+// not running anywhere.
+//
+// Scope: this exercises the MV's *query*, not its wiring. The insert trigger, the
+// `TO rudel.session_analytics` target, and ReplacingMergeTree collapse are covered by
+// apps/api/src/__tests__/session-analytics-values.integration.ts (real adapter → MV →
+// FINAL) and apps/cli/src/__tests__/api-upload.integration.ts (CLI → API → ClickHouse
+// with auth).
+const MV_QUERY = withSessionFilter(CODEX_SESSION_ANALYTICS_MV_SQL, {
+	organizationId: orgId,
+	sessionId: testId,
+});
 
 describe("codex_session_analytics_mv", () => {
 	test("derives correct token counts from Codex token_count events", async () => {
@@ -261,7 +110,7 @@ describe("codex_session_analytics_mv", () => {
 			session_date: now,
 			last_interaction_date: now,
 			session_id: testId,
-			organization_id: "org_test",
+			organization_id: orgId,
 			project_path: "/Users/testuser/projects/myapp",
 			git_remote: "github.com/testorg/testproject",
 			package_name: "myapp",
@@ -277,10 +126,11 @@ describe("codex_session_analytics_mv", () => {
 		await ingestRudelCodexSessions(executor, [row]);
 
 		// Run the MV query directly against the inserted row
-		const results = await waitForQuery<AnalyticsRow>(MV_QUERY);
+		const results = await waitForQuery<RudelSessionAnalyticsRow>(MV_QUERY);
 
 		expect(results).toHaveLength(1);
-		const a = results[0] as AnalyticsRow;
+		const a = results[0];
+		if (!a) throw new Error("no clean analytics row produced");
 
 		// Source
 		expect(a.source).toBe("codex");
@@ -315,14 +165,30 @@ describe("codex_session_analytics_mv", () => {
 		// Session duration is ~127 minutes (04:29 to 06:36)
 		expect(a.actual_duration_min).toBeGreaterThan(100);
 
-		// Session archetype: 55k tokens, >30 min, has commit -> standard (not enough output for deep_work)
-		expect(a.session_archetype).toBeTruthy();
+		// The codex skills regex looks for "name":"exec_command" ... skills/<x>/SKILL.
+		// This fixture invokes no skill, so the array is empty — which is also why
+		// success_score gets no skills bonus and the exploration branch cannot fire.
+		expect(a.skills).toEqual([]);
 
 		// Clean session has no tool errors
 		expect(a.error_count).toBe(0);
 
-		// Success score should be reasonable (50 base + 20 for commit)
-		expect(a.success_score).toBeGreaterThanOrEqual(50);
+		// 127 min with only 428 output tokens matches no special branch:
+		//   quick_win   needs duration <= 10
+		//   deep_work   needs output > 50000
+		//   struggle    needs input + output > 1000000  (here 55459)
+		//   exploration needs >= 3 skills
+		//   abandoned   needs duration < 3
+		expect(a.session_archetype).toBe("standard");
+
+		// 50 base
+		//   + 20  git_sha is set
+		//   +  0  output/input = 428/55031 = 0.008, not > 0.5
+		//   +  0  no skills
+		//   -  0  55459 tokens is under the 1500000 penalty threshold
+		//   -  0  127 min is not < 2
+		//   -  0  no errors
+		expect(a.success_score).toBe(70);
 	}, 120_000);
 
 	test("counts errors from non-zero exit codes and error text in tool output", async () => {
@@ -337,7 +203,7 @@ describe("codex_session_analytics_mv", () => {
 			session_date: now,
 			last_interaction_date: now,
 			session_id: errorTestId,
-			organization_id: "org_test",
+			organization_id: orgId,
 			project_path: "/Users/testuser/projects/myapp",
 			git_remote: "github.com/testorg/testproject",
 			package_name: "myapp",
@@ -352,10 +218,16 @@ describe("codex_session_analytics_mv", () => {
 
 		await ingestRudelCodexSessions(executor, [row]);
 
-		const results = await waitForQuery<AnalyticsRow>(buildMvQuery(errorTestId));
+		const results = await waitForQuery<RudelSessionAnalyticsRow>(
+			withSessionFilter(CODEX_SESSION_ANALYTICS_MV_SQL, {
+				organizationId: orgId,
+				sessionId: errorTestId,
+			}),
+		);
 
 		expect(results).toHaveLength(1);
-		const a = results[0] as AnalyticsRow;
+		const a = results[0];
+		if (!a) throw new Error("no error analytics row produced");
 
 		// Fixture has 3 function_call_output items:
 		// 1. exit_code:1 with "error TS2345" text -> counts as 1 (non-zero exit code)
@@ -365,8 +237,61 @@ describe("codex_session_analytics_mv", () => {
 		// Total: 2 errors
 		expect(a.error_count).toBe(2);
 
-		// Success score should be penalized by errors (least(2, 10) * 2 = 4 points)
-		// Base: 50 + 20 (has commit) = 70, minus 4 = 66
-		expect(a.success_score).toBeLessThan(70);
+		// 50 base + 20 (git_sha) - least(2, 10) * 2 = 66.
+		// The <2min / <200-output penalty does not apply: duration rounds to 0 min,
+		// but output is 800, so the second half of that condition fails.
+		expect(a.success_score).toBe(66);
+
+		// quick_win needs output > 1000 and this fixture has 800, so it falls through
+		// to standard like the clean one.
+		expect(a.session_archetype).toBe("standard");
+	}, 120_000);
+
+	test("detects real skill invocations without duplicates or decoys", async () => {
+		const fixtureContent = await readFile(
+			resolve(import.meta.dir, "fixtures", "codex-session-with-skills.jsonl"),
+			"utf-8",
+		);
+
+		const now = new Date().toISOString().replace("Z", "");
+		const row: RudelCodexSessionsRow = {
+			session_date: now,
+			last_interaction_date: now,
+			session_id: skillTestId,
+			organization_id: orgId,
+			project_path: "/Users/testuser/projects/myapp",
+			git_remote: "github.com/testorg/testproject",
+			package_name: "myapp",
+			package_type: "package.json",
+			content: fixtureContent,
+			ingested_at: now,
+			user_id: "user_test",
+			git_branch: "main",
+			git_sha: "cccccccccccccccccccccccccccccccccccccccc",
+			tag: "codex-mv-skill-test",
+		};
+
+		await ingestRudelCodexSessions(executor, [row]);
+
+		const results = await waitForQuery<RudelSessionAnalyticsRow>(
+			withSessionFilter(CODEX_SESSION_ANALYTICS_MV_SQL, {
+				organizationId: orgId,
+				sessionId: skillTestId,
+			}),
+		);
+
+		expect(results).toHaveLength(1);
+		const analytics = results[0];
+		if (!analytics) throw new Error("no skill analytics row produced");
+
+		// The fixture invokes testing-bun twice and clickhouse-query once through
+		// exec_command. Paths in a read_file call and assistant prose are decoys.
+		expect(analytics.skills).toEqual(["testing-bun", "clickhouse-query"]);
+
+		// 50 base + 20 for git_sha + (2 distinct skills * 5). The token ratio is
+		// exactly 0.5, so the strict > 0.5 output-ratio bonus does not apply.
+		// Duration is 1 minute, but output is 500, so the <200 short-session
+		// penalty does not apply either.
+		expect(analytics.success_score).toBe(80);
 	}, 120_000);
 });
