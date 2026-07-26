@@ -168,7 +168,7 @@ jobs:
       - name: Verify explorer.exe opens the complete URL
         if: runner.os == 'Windows'
         shell: bash
-        run: bun test apps/cli/src/__tests__/browser-opener.windows.integration.ts
+        run: bun test ./apps/cli/src/__tests__/browser-opener.windows.integration.ts
 
   cli-smoke-required:
     if: always()
