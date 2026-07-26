@@ -100,6 +100,7 @@ describe("CLI upload to local API", () => {
 				uploadSession(request, {
 					endpoint: server.rpcUrl,
 					token: bearerToken,
+					allowInsecureEndpoint: false,
 				}),
 				Bun.sleep(25_000).then(
 					() =>
@@ -270,6 +271,7 @@ describe("CLI upload to local API", () => {
 		const result = await uploadSession(request, {
 			endpoint: server.rpcUrl,
 			token: "invalid-token",
+			allowInsecureEndpoint: false,
 		});
 
 		expect(result.success).toBe(false);
@@ -303,6 +305,7 @@ describe("CLI upload to local API", () => {
 		const firstUpload = await uploadSession(request, {
 			endpoint: server.rpcUrl,
 			token: bearerToken,
+			allowInsecureEndpoint: false,
 		});
 		expect(firstUpload.success).toBe(true);
 		const firstPhysicalCount = await getPhysicalSessionCount(
@@ -317,6 +320,7 @@ describe("CLI upload to local API", () => {
 		const duplicateUpload = await uploadSession(request, {
 			endpoint: server.rpcUrl,
 			token: bearerToken,
+			allowInsecureEndpoint: false,
 		});
 		expect(duplicateUpload.success).toBe(true);
 		expect(await getPhysicalSessionCount(userId, sessionDate, sessionId)).toBe(
@@ -339,6 +343,7 @@ describe("CLI upload to local API", () => {
 			{
 				endpoint: server.rpcUrl,
 				token: bearerToken,
+				allowInsecureEndpoint: false,
 			},
 		);
 		expect(appendedUpload.success).toBe(true);
@@ -357,10 +362,12 @@ describe("CLI upload to local API", () => {
 			uploadSession(request, {
 				endpoint: server.rpcUrl,
 				token: bearerToken,
+				allowInsecureEndpoint: false,
 			}),
 			uploadSession(request, {
 				endpoint: server.rpcUrl,
 				token: bearerToken,
+				allowInsecureEndpoint: false,
 			}),
 		]);
 
@@ -380,14 +387,17 @@ describe("CLI upload to local API", () => {
 		const firstUpload = await uploadSession(request, {
 			endpoint: limitedServer.rpcUrl,
 			token: limitedBearerToken,
+			allowInsecureEndpoint: false,
 		});
 		const duplicateUpload = await uploadSession(request, {
 			endpoint: limitedServer.rpcUrl,
 			token: limitedBearerToken,
+			allowInsecureEndpoint: false,
 		});
 		const limitedUpload = await uploadSession(request, {
 			endpoint: limitedServer.rpcUrl,
 			token: limitedBearerToken,
+			allowInsecureEndpoint: false,
 		});
 
 		expect(firstUpload.success).toBe(true);
