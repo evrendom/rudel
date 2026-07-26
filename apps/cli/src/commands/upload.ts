@@ -7,6 +7,7 @@ import {
 } from "@rudel/agent-adapters";
 import type { Source } from "@rudel/api-routes";
 import { buildCommand } from "@stricli/core";
+import { describeStoredApiBaseRisk } from "../lib/api-base.js";
 import type { BatchUploadItem } from "../lib/batch-upload.js";
 import { renderBatchSummary, runBatchUpload } from "../lib/batch-upload-ui.js";
 import { classifySession } from "../lib/classifier.js";
@@ -42,6 +43,13 @@ async function runInteractiveUpload(
 	}
 
 	p.intro("rudel upload");
+
+	if (credentials) {
+		const storedApiBaseRisk = describeStoredApiBaseRisk(credentials.apiBaseUrl);
+		if (storedApiBaseRisk) {
+			p.log.warn(storedApiBaseRisk);
+		}
+	}
 
 	const spin = p.spinner();
 	spin.start("Scanning projects...");

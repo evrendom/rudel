@@ -30,6 +30,16 @@ rudel enable
 
 Authenticate with Rudel. Opens your browser to [app.rudel.ai](https://app.rudel.ai) where you sign in, then the CLI receives a token automatically.
 
+Flags:
+
+| Flag | Description |
+|---|---|
+| `--api-base <url>` | API server to authenticate against. Defaults to `RUDEL_API_BASE`, else `https://app.rudel.ai`. Must be `https://`, or `http://` on a loopback host. |
+| `--allow-insecure-api-base` | Permit a plaintext `http://` API base on a non-loopback host. Your access token and ingest API key are then sent unencrypted, so only use this for a trusted network. Also settable as `RUDEL_ALLOW_INSECURE_API_BASE=1`. |
+| `--no-browser` | Print the verification URL instead of opening a browser. |
+
+Self-hosting over plain HTTP therefore needs `--allow-insecure-api-base`; serving your deployment over HTTPS is strongly preferred.
+
 ### `rudel enable`
 
 Registers the available Claude Code / Codex hooks so your session transcript uploads automatically when a session ends. This is the recommended way to use Rudel -- set it and forget it.

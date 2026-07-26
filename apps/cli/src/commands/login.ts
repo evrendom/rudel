@@ -5,6 +5,7 @@ import {
 	sanitizeForTerminalDisplay,
 } from "@rudel/api-routes";
 import { buildCommand } from "@stricli/core";
+import { describeApiBaseRejection, resolveApiBase } from "../lib/api-base.js";
 import { createApiClient } from "../lib/api-client.js";
 import { openUrl } from "../lib/browser-opener.js";
 import { loadCredentials, saveCredentials } from "../lib/credentials.js";
@@ -201,6 +202,7 @@ async function createIngestApiKey(
 
 async function runLogin(flags: {
 	apiBase: string;
+	allowInsecureApiBase: boolean;
 	noBrowser: boolean;
 }): Promise<undefined | Error> {
 	const openedBrowser = !flags.noBrowser;
@@ -234,9 +236,24 @@ async function runLogin(flags: {
 		return;
 	}
 
+	// Validate before any network call: this base receives the device code, the
+	// access token and the minted ingest API key (RUD-237).
+	const apiBaseResult = resolveApiBase(
+		flags.apiBase,
+		flags.allowInsecureApiBase,
+	);
+	if (!apiBaseResult.ok) {
+		const error = new Error(
+			`Refusing to use --api-base ${sanitizeForTerminalDisplay(flags.apiBase)}: ${describeApiBaseRejection(apiBaseResult)}`,
+		);
+		captureLoginFailure("api_base_rejected", error);
+		return error;
+	}
+	const apiBase = apiBaseResult.url;
+
 	let deviceCode: DeviceCodeResponse;
 	try {
-		deviceCode = await requestDeviceCode(flags.apiBase);
+		deviceCode = await requestDeviceCode(apiBase);
 	} catch (error) {
 		captureLoginFailure("device_code_request", error);
 		return error instanceof Error ? error : new Error(String(error));
@@ -248,7 +265,7 @@ async function runLogin(flags: {
 	const verifyUrlResult = parseSafeBrowserUrl(rawVerifyUrl);
 	if (!verifyUrlResult.ok) {
 		const error = new Error(
-			`Refusing the verification URL returned by ${sanitizeForTerminalDisplay(flags.apiBase)}: ${verifyUrlResult.detail}. Received: ${sanitizeForTerminalDisplay(rawVerifyUrl)}`,
+			`Refusing the verification URL returned by ${sanitizeForTerminalDisplay(apiBase)}: ${verifyUrlResult.detail}. Received: ${sanitizeForTerminalDisplay(rawVerifyUrl)}`,
 		);
 		captureLoginFailure("verification_url_rejected", error);
 		return error;
@@ -280,7 +297,7 @@ async function runLogin(flags: {
 
 	let accessToken: string;
 	try {
-		accessToken = await pollForAccessToken(flags.apiBase, deviceCode);
+		accessToken = await pollForAccessToken(apiBase, deviceCode);
 	} catch (error) {
 		const failureReason = normalizeFailureReason(error);
 		captureLoginFailure(
@@ -296,7 +313,7 @@ async function runLogin(flags: {
 	spin.message("Creating ingest token...");
 	let ingestKey: ApiKeyCreateResponse;
 	try {
-		ingestKey = await createIngestApiKey(flags.apiBase, accessToken);
+		ingestKey = await createIngestApiKey(apiBase, accessToken);
 	} catch (error) {
 		captureLoginFailure("api_key_create", error);
 		spin.stop("Authentication failed");
@@ -304,7 +321,7 @@ async function runLogin(flags: {
 	}
 
 	const client = createApiClient({
-		apiBaseUrl: flags.apiBase,
+		apiBaseUrl: apiBase,
 		token: accessToken,
 		authType: "bearer",
 	});
@@ -331,7 +348,7 @@ async function runLogin(flags: {
 	try {
 		saveCredentials({
 			token: ingestKey.key,
-			apiBaseUrl: flags.apiBase,
+			apiBaseUrl: apiBase,
 			authType: "api-key",
 			apiKeyId: ingestKey.id,
 			user,
@@ -368,6 +385,12 @@ export const loginCommand = buildCommand({
 				parse: String,
 				brief: "API server base URL",
 				default: getDefaultApiBase(),
+			},
+			allowInsecureApiBase: {
+				kind: "boolean",
+				brief:
+					"Allow a plaintext http:// API base on a non-loopback host (sends credentials unencrypted)",
+				default: false,
 			},
 			noBrowser: {
 				kind: "boolean",
