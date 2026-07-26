@@ -17,6 +17,7 @@ import {
 	shouldDisableCliPersonProfile,
 } from "../lib/product-analytics.js";
 import { getProjectOrgId, setProjectOrgId } from "../lib/project-config.js";
+import { allowsInsecureEndpoint } from "../lib/upload-endpoint.js";
 import { uploadSession } from "../lib/uploader.js";
 
 async function runEnable(): Promise<undefined | Error> {
@@ -210,6 +211,7 @@ async function runEnable(): Promise<undefined | Error> {
 
 	// Check for existing sessions to upload from all enabled agents
 	const endpoint = `${credentials.apiBaseUrl}/rpc`;
+	const allowPlaintextEndpoint = allowsInsecureEndpoint(false);
 	let totalFailed = 0;
 
 	for (const adapter of adaptersToEnable) {
@@ -251,6 +253,7 @@ async function runEnable(): Promise<undefined | Error> {
 					return uploadSession(request, {
 						endpoint,
 						token: credentials.token,
+						allowInsecureEndpoint: allowPlaintextEndpoint,
 						authType: credentials.authType,
 						onRetry,
 					});

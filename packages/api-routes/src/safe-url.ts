@@ -182,6 +182,35 @@ export function parseSafeBrowserUrl(
 }
 
 /**
+ * Validate a full API endpoint that will receive credentials and request data.
+ *
+ * Unlike an API base, an endpoint may intentionally carry a path, query string,
+ * fragment, or trailing slash. It therefore shares the common scheme,
+ * credential, control-character, and plaintext checks without applying base
+ * normalization.
+ */
+export function parseSafeApiEndpoint(
+	input: string,
+	options: { allowPlaintext: boolean },
+): SafeUrlResult {
+	const result = validateCommon(input);
+	if (!result.ok) {
+		return result;
+	}
+
+	const parsed = new URL(result.url);
+	if (isPlaintextNonLoopback(parsed) && !options.allowPlaintext) {
+		return {
+			ok: false,
+			reason: "plaintext_non_loopback",
+			detail: `refusing to send credentials over plaintext http: to "${parsed.hostname}"`,
+		};
+	}
+
+	return result;
+}
+
+/**
  * Validate an API base URL that will receive the device code, the access token
  * and the minted ingest API key (RUD-237).
  *

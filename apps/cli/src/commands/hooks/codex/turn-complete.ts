@@ -1,3 +1,4 @@
+import { getLogger } from "@logtape/logtape";
 import {
 	codexAdapter,
 	findActiveRolloutFile,
@@ -11,7 +12,9 @@ import {
 } from "../../../lib/failed-uploads.js";
 import { getGitInfo } from "../../../lib/git-info.js";
 import { getProjectOrgId } from "../../../lib/project-config.js";
+import { allowsInsecureEndpoint } from "../../../lib/upload-endpoint.js";
 import { uploadSession } from "../../../lib/uploader.js";
+import { disposeLogging, setupHookLogging } from "../../../logging.js";
 
 interface CodexNotifyInput {
 	type: string;
@@ -29,7 +32,10 @@ async function readStdin(): Promise<string> {
 	return chunks.join("");
 }
 
-async function runTurnComplete(): Promise<void> {
+async function runTurnComplete(): Promise<undefined | Error> {
+	await setupHookLogging();
+	const logger = getLogger(["rudel", "cli", "hook"]);
+
 	try {
 		const raw = await readStdin();
 		if (!raw.trim()) return;
@@ -64,23 +70,39 @@ async function runTurnComplete(): Promise<void> {
 		const result = await uploadSession(request, {
 			endpoint,
 			token: credentials.token,
+			allowInsecureEndpoint: allowsInsecureEndpoint(false),
 			authType: credentials.authType,
 		});
 
 		if (result.success) {
 			await removeFailedUpload(input.thread_id);
 		} else {
+			const uploadError = result.error ?? "Unknown error";
+			logger.error("Upload failed for session {sessionId}: {error}", {
+				sessionId: input.thread_id,
+				error: uploadError,
+			});
+			if (result.endpointRejected) {
+				process.stderr.write(
+					`Rudel hook upload refused for session ${input.thread_id}: ${uploadError}\n`,
+				);
+			}
 			await recordFailedUpload({
 				sessionId: input.thread_id,
 				transcriptPath,
 				projectPath: input.cwd,
 				source: codexAdapter.source,
 				organizationId,
-				error: result.error ?? "Unknown error",
+				error: uploadError,
 			});
+			if (result.endpointRejected) {
+				return new Error(uploadError);
+			}
 		}
-	} catch {
-		// Swallow all errors — this runs async in the background
+	} catch (error) {
+		logger.error("Codex turn-complete hook failed: {error}", { error });
+	} finally {
+		await disposeLogging();
 	}
 }
 

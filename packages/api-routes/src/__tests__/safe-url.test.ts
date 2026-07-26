@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
 	isLoopbackHostname,
 	parseSafeApiBase,
+	parseSafeApiEndpoint,
 	parseSafeBrowserUrl,
 	type SafeUrlRejectionReason,
 	type SafeUrlResult,
@@ -215,6 +216,73 @@ describe("parseSafeApiBase", () => {
 				}),
 			),
 		).toBe("embedded_credentials");
+	});
+});
+
+describe("parseSafeApiEndpoint", () => {
+	const alwaysRejectedEndpoints: ReadonlyArray<
+		readonly [string, SafeUrlRejectionReason]
+	> = [
+		["file:///etc/passwd", "disallowed_scheme"],
+		["http://user:pass@evil.example/rpc", "embedded_credentials"],
+	];
+
+	test("refuses plaintext to a non-loopback host by default", () => {
+		expect(
+			rejectionReason(
+				parseSafeApiEndpoint("http://evil.example/rpc", {
+					allowPlaintext: false,
+				}),
+			),
+		).toBe("plaintext_non_loopback");
+	});
+
+	test("allows plaintext to a non-loopback host behind the explicit opt-in", () => {
+		const input = "http://evil.example/rpc";
+		expect(
+			acceptedUrl(
+				parseSafeApiEndpoint(input, {
+					allowPlaintext: true,
+				}),
+			),
+		).toBe(input);
+	});
+
+	test("allows a plaintext loopback endpoint without an opt-in", () => {
+		const input = "http://localhost:4010/rpc";
+		expect(
+			acceptedUrl(
+				parseSafeApiEndpoint(input, {
+					allowPlaintext: false,
+				}),
+			),
+		).toBe(input);
+	});
+
+	test.each(
+		alwaysRejectedEndpoints,
+	)("refuses %p as %p even with the opt-in", (input, expected) => {
+		expect(
+			rejectionReason(
+				parseSafeApiEndpoint(input, {
+					allowPlaintext: true,
+				}),
+			),
+		).toBe(expected);
+	});
+
+	test.each([
+		"https://app.rudel.ai/rpc/",
+		"https://app.rudel.ai/rpc?tenant=acme",
+		"https://app.rudel.ai/rpc#fragment",
+	])("preserves full endpoint semantics for %p", (input) => {
+		expect(
+			acceptedUrl(
+				parseSafeApiEndpoint(input, {
+					allowPlaintext: false,
+				}),
+			),
+		).toBe(input);
 	});
 });
 

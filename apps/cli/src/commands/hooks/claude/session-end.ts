@@ -8,6 +8,7 @@ import {
 } from "../../../lib/failed-uploads.js";
 import { getGitInfo } from "../../../lib/git-info.js";
 import { getProjectOrgId } from "../../../lib/project-config.js";
+import { allowsInsecureEndpoint } from "../../../lib/upload-endpoint.js";
 import { uploadSession } from "../../../lib/uploader.js";
 import { disposeLogging, setupHookLogging } from "../../../logging.js";
 
@@ -25,7 +26,7 @@ async function readStdin(): Promise<string> {
 	return chunks.join("");
 }
 
-async function runSessionEnd(): Promise<void> {
+async function runSessionEnd(): Promise<undefined | Error> {
 	await setupHookLogging();
 	const logger = getLogger(["rudel", "cli", "hook"]);
 
@@ -63,6 +64,7 @@ async function runSessionEnd(): Promise<void> {
 		const result = await uploadSession(request, {
 			endpoint,
 			token: credentials.token,
+			allowInsecureEndpoint: allowsInsecureEndpoint(false),
 			authType: credentials.authType,
 			onRetry: (attempt, maxAttempts, error) => {
 				logger.warn(
@@ -79,18 +81,27 @@ async function runSessionEnd(): Promise<void> {
 			);
 			await removeFailedUpload(input.session_id);
 		} else {
+			const uploadError = result.error ?? "Unknown error";
 			logger.error("Upload failed for session {sessionId}: {error}", {
 				sessionId: input.session_id,
-				error: result.error,
+				error: uploadError,
 			});
+			if (result.endpointRejected) {
+				process.stderr.write(
+					`Rudel hook upload refused for session ${input.session_id}: ${uploadError}\n`,
+				);
+			}
 			await recordFailedUpload({
 				sessionId: input.session_id,
 				transcriptPath: input.transcript_path,
 				projectPath: input.cwd,
 				source: claudeCodeAdapter.source,
 				organizationId,
-				error: result.error ?? "Unknown error",
+				error: uploadError,
 			});
+			if (result.endpointRejected) {
+				return new Error(uploadError);
+			}
 		}
 	} catch (error) {
 		logger.error("Session end hook failed: {error}", { error });

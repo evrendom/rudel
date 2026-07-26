@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { ORPCError } from "@orpc/client";
 import {
 	INGEST_LIMIT_REASONS,
+	type IngestSessionInput,
 	SESSION_OWNERSHIP_CONFLICT_CODE,
 } from "@rudel/api-routes";
 import { formatUploadError, uploadSession } from "../lib/uploader.js";
@@ -146,6 +147,7 @@ describe("uploadSession aggregate size guard", () => {
 			},
 			{
 				endpoint: "http://127.0.0.1:1/rpc",
+				allowInsecureEndpoint: false,
 				maxAggregateBytes: 1024 * 1024,
 				token: "unused",
 			},
@@ -157,5 +159,49 @@ describe("uploadSession aggregate size guard", () => {
 				"Session transcript payload is 2.00 MiB, above the 1.00 MiB per-session limit. Reduce the transcript/subagent payload before retrying.",
 			attempts: 0,
 		});
+	});
+});
+
+describe("uploadSession endpoint safety", () => {
+	const request: IngestSessionInput = {
+		source: "claude_code",
+		sessionId: "endpoint-safety-test",
+		projectPath: "/test/project",
+		content: "sensitive transcript",
+	};
+
+	test("refuses a plaintext non-loopback endpoint before a network attempt", async () => {
+		const result = await uploadSession(request, {
+			endpoint: "http://evil.example/rpc",
+			token: "must-not-leak",
+			allowInsecureEndpoint: false,
+		});
+
+		expect(result).toEqual({
+			success: false,
+			error:
+				'Upload endpoint refused: refusing to send credentials over plaintext http: to "evil.example". Pass --allow-insecure-endpoint (or set RUDEL_ALLOW_INSECURE_ENDPOINT=1) if this upload destination really is plaintext.',
+			attempts: 0,
+			endpointRejected: true,
+		});
+		expect(result.error).not.toContain("must-not-leak");
+	});
+
+	test.each([
+		["file:///etc/passwd", "scheme"],
+		["http://user:pass@evil.example/rpc", "embedded credentials"],
+		["not a url", "valid absolute URL"],
+	])("always refuses %p despite the opt-in", async (endpoint, detail) => {
+		const result = await uploadSession(request, {
+			endpoint,
+			token: "must-not-leak",
+			allowInsecureEndpoint: true,
+		});
+
+		expect(result.success).toBe(false);
+		expect(result.endpointRejected).toBe(true);
+		expect(result.error).toContain(detail);
+		expect(result.error).not.toContain("must-not-leak");
+		expect(result.error).not.toContain("--allow-insecure-endpoint");
 	});
 });

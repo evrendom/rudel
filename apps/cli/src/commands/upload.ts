@@ -21,11 +21,13 @@ import {
 	SESSION_TAGS,
 	type SessionTag,
 } from "../lib/types.js";
+import { allowsInsecureEndpoint } from "../lib/upload-endpoint.js";
 import { type UploadConfig, uploadSession } from "../lib/uploader.js";
 
 interface UploadFlags {
 	tag?: SessionTag;
 	endpoint: string;
+	allowInsecureEndpoint: boolean;
 	classify: boolean;
 	dryRun: boolean;
 	org?: string;
@@ -35,6 +37,7 @@ interface UploadFlags {
 
 async function runInteractiveUpload(
 	flags: UploadFlags,
+	allowPlaintextEndpoint: boolean,
 ): Promise<undefined | Error> {
 	const credentials = loadCredentials();
 	if (!credentials && !flags.dryRun) {
@@ -99,6 +102,7 @@ async function runInteractiveUpload(
 	const uploadConfig: UploadConfig = {
 		endpoint: flags.endpoint,
 		token: credentials?.token ?? "",
+		allowInsecureEndpoint: allowPlaintextEndpoint,
 		authType: credentials?.authType,
 	};
 
@@ -190,6 +194,7 @@ function sessionCountHint(count: number): string {
 async function runSingleUpload(
 	flags: UploadFlags,
 	session: string,
+	allowPlaintextEndpoint: boolean,
 ): Promise<undefined | Error> {
 	const write = (msg: string) => {
 		process.stdout.write(`${msg}\n`);
@@ -268,6 +273,7 @@ async function runSingleUpload(
 		endpoint: flags.endpoint,
 		// biome-ignore lint/style/noNonNullAssertion: validated above with early return
 		token: credentials!.token,
+		allowInsecureEndpoint: allowPlaintextEndpoint,
 		authType: credentials?.authType,
 	});
 
@@ -278,7 +284,10 @@ async function runSingleUpload(
 	}
 }
 
-async function runRetryUpload(flags: UploadFlags): Promise<undefined | Error> {
+async function runRetryUpload(
+	flags: UploadFlags,
+	allowPlaintextEndpoint: boolean,
+): Promise<undefined | Error> {
 	const credentials = loadCredentials();
 	if (!credentials) {
 		return new Error("Not authenticated. Run `rudel login` first.");
@@ -355,6 +364,7 @@ async function runRetryUpload(flags: UploadFlags): Promise<undefined | Error> {
 			return uploadSession(request, {
 				endpoint,
 				token: credentials.token,
+				allowInsecureEndpoint: allowPlaintextEndpoint,
 				authType: credentials.authType,
 				onRetry,
 			});
@@ -374,13 +384,16 @@ async function runUpload(
 	flags: UploadFlags,
 	...sessions: string[]
 ): Promise<undefined | Error> {
+	const allowPlaintextEndpoint = allowsInsecureEndpoint(
+		flags.allowInsecureEndpoint,
+	);
 	if (flags.retry) {
-		return runRetryUpload(flags);
+		return runRetryUpload(flags, allowPlaintextEndpoint);
 	}
 	if (sessions.length === 0) {
-		return runInteractiveUpload(flags);
+		return runInteractiveUpload(flags, allowPlaintextEndpoint);
 	}
-	return runSingleUpload(flags, sessions[0] as string);
+	return runSingleUpload(flags, sessions[0] as string, allowPlaintextEndpoint);
 }
 
 export const uploadCommand = buildCommand({
@@ -406,6 +419,11 @@ export const uploadCommand = buildCommand({
 				parse: String,
 				brief: "Override the upload endpoint URL",
 				default: DEFAULT_ENDPOINT,
+			},
+			allowInsecureEndpoint: {
+				kind: "boolean",
+				brief: "Allow plaintext uploads to a non-loopback endpoint",
+				default: false,
 			},
 			classify: {
 				kind: "boolean",
