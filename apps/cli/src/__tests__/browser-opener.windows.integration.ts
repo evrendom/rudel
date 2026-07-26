@@ -72,4 +72,6 @@ test("explorer.exe opens the complete verification URL without shell parsing", a
 	} finally {
 		await server.stop(true);
 	}
-});
+	// Above Bun's 5s default so the browser wait inside the test expires first,
+	// producing its descriptive error instead of a generic test timeout.
+}, BROWSER_REQUEST_TIMEOUT_MS + 15_000);
