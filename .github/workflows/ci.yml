@@ -170,6 +170,41 @@ jobs:
         shell: bash
         run: bun test ./apps/cli/src/__tests__/browser-opener.windows.integration.ts
 
+      # Temporary: distinguishes an explorer.exe dispatch failure from a runner
+      # that cannot launch a browser at all. Remove once the test above is green.
+      - name: Diagnose Windows browser dispatch
+        if: failure() && runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Continue'
+          $progId = (Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\Shell\Associations\UrlAssociations\http\UserChoice' -ErrorAction SilentlyContinue).ProgId
+          Write-Host "http UserChoice ProgId: $progId"
+          if ($progId) {
+            $handler = (Get-ItemProperty "Registry::HKEY_CLASSES_ROOT\$progId\shell\open\command" -ErrorAction SilentlyContinue).'(default)'
+            Write-Host "handler command: $handler"
+          }
+          $listener = [System.Net.HttpListener]::new()
+          $listener.Prefixes.Add('http://127.0.0.1:47653/')
+          $listener.Start()
+          Write-Host "$(Get-Date -Format o) firing probes"
+          Start-Process 'http://127.0.0.1:47653/shellexecute?user_code=X&ver'
+          explorer.exe 'http://127.0.0.1:47653/explorer?user_code=X&ver'
+          $deadline = (Get-Date).AddSeconds(90)
+          $pending = $listener.BeginGetContext($null, $null)
+          while ((Get-Date) -lt $deadline) {
+            if ($pending.AsyncWaitHandle.WaitOne(1000)) {
+              $ctx = $listener.EndGetContext($pending)
+              Write-Host "$(Get-Date -Format o) HIT: $($ctx.Request.RawUrl)"
+              $ctx.Response.Close()
+              $pending = $listener.BeginGetContext($null, $null)
+            }
+          }
+          $listener.Stop()
+          Write-Host "$(Get-Date -Format o) probe window closed"
+          Get-Process | Where-Object { $_.Name -match 'msedge|chrome|firefox' } |
+            Select-Object Name, Id, StartTime | Format-Table | Out-String | Write-Host
+          exit 0
+
   cli-smoke-required:
     if: always()
     needs:
