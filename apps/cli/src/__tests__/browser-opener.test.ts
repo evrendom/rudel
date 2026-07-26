@@ -3,29 +3,36 @@ import { buildVerificationUrl } from "../commands/login.js";
 import { resolveBrowserOpener } from "../lib/browser-opener.js";
 
 describe("resolveBrowserOpener", () => {
-	test("never routes through a shell on Windows", () => {
+	test("keeps every URL byte off the parsed command line on Windows", () => {
 		// The RUD-203 vulnerability was `spawn("cmd", ["/c", "start", "", url])`.
 		// cmd.exe re-parses its command line, so `&` in a server-supplied URL became
-		// a command separator. Any opener that re-parses is unacceptable here.
-		const { command, args } = resolveBrowserOpener(
-			"win32",
-			"https://app.rudel.ai/device?user_code=X&calc",
-		);
-
-		expect(command).not.toBe("cmd");
-		expect(command).not.toBe("cmd.exe");
-		expect(command).not.toContain("powershell");
-		expect(command).not.toContain("rundll32");
-		expect(args).not.toContain("/c");
-		expect(args).not.toContain("start");
-	});
-
-	test("passes the URL as a single unmodified argument on Windows", () => {
+		// a command separator. The invariant is that no fragment of the URL appears
+		// in the command or its arguments — it may only travel via the environment,
+		// which nothing parses.
 		const url = "https://app.rudel.ai/device?user_code=X&calc";
 		const { command, args } = resolveBrowserOpener("win32", url);
 
-		expect(command).toBe("explorer.exe");
-		expect(args).toEqual([url]);
+		expect(command).not.toBe("cmd");
+		expect(command).not.toBe("cmd.exe");
+		expect(command).not.toContain("rundll32");
+		for (const arg of args) {
+			expect(arg).not.toContain("app.rudel.ai");
+			expect(arg).not.toContain("user_code");
+			expect(arg).not.toContain("&");
+		}
+	});
+
+	test("ShellExecutes via a constant Start-Process command on Windows", () => {
+		// explorer.exe silently ignores http URLs with a query string, so the
+		// opener ShellExecutes through Start-Process with the URL in an env var.
+		// Plain -Command text, never the EDR-flagged -EncodedCommand pattern.
+		const url = "https://app.rudel.ai/device?user_code=X&calc";
+		const { command, args, env } = resolveBrowserOpener("win32", url);
+
+		expect(command).toBe("powershell.exe");
+		expect(args.at(-1)).toBe("Start-Process -FilePath $env:RUDEL_OPEN_URL");
+		expect(args).not.toContain("-EncodedCommand");
+		expect(env).toEqual({ RUDEL_OPEN_URL: url });
 	});
 
 	test.each([
@@ -34,10 +41,11 @@ describe("resolveBrowserOpener", () => {
 		["freebsd", "xdg-open"],
 	])("uses %p opener %p", (platform, expected) => {
 		const url = "https://app.rudel.ai/device?user_code=X";
-		const { command, args } = resolveBrowserOpener(platform, url);
+		const { command, args, env } = resolveBrowserOpener(platform, url);
 
 		expect(command).toBe(expected);
 		expect(args).toEqual([url]);
+		expect(env).toBeUndefined();
 	});
 });
 
