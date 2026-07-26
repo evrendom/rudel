@@ -213,20 +213,25 @@ jobs:
           '@
           Set-Content -Path probe.cjs -Value $js
 
-          Write-Host "$(Get-Date -Format o) probe bun-exact: bun spawn, detached + windowsHide, stdio ignore"
-          $env:PROBE_URL = 'http://127.0.0.1:47653/bun-exact?user_code=X&ver'
-          $env:PROBE_DETACHED = '1'; $env:PROBE_HIDE = '1'; $env:PROBE_STDIO = 'ignore'
+          Write-Host "$(Get-Date -Format o) probe only-detached: bun spawn, detached, no hide, stdio inherit"
+          $env:PROBE_URL = 'http://127.0.0.1:47653/only-detached?user_code=X&ver'
+          $env:PROBE_DETACHED = '1'; $env:PROBE_HIDE = '0'; $env:PROBE_STDIO = 'inherit'
           bun probe.cjs
 
-          Write-Host "$(Get-Date -Format o) probe bun-plain: bun spawn, no detach, no hide, stdio inherit"
-          $env:PROBE_URL = 'http://127.0.0.1:47653/bun-plain?user_code=X&ver'
-          $env:PROBE_DETACHED = '0'; $env:PROBE_HIDE = '0'; $env:PROBE_STDIO = 'inherit'
+          Write-Host "$(Get-Date -Format o) probe only-hide: bun spawn, no detach, windowsHide, stdio inherit"
+          $env:PROBE_URL = 'http://127.0.0.1:47653/only-hide?user_code=X&ver'
+          $env:PROBE_DETACHED = '0'; $env:PROBE_HIDE = '1'; $env:PROBE_STDIO = 'inherit'
           bun probe.cjs
 
-          Write-Host "$(Get-Date -Format o) probe node-exact: node spawn, detached + windowsHide, stdio ignore"
-          $env:PROBE_URL = 'http://127.0.0.1:47653/node-exact?user_code=X&ver'
-          $env:PROBE_DETACHED = '1'; $env:PROBE_HIDE = '1'; $env:PROBE_STDIO = 'ignore'
-          node probe.cjs
+          Write-Host "$(Get-Date -Format o) probe only-ignore: bun spawn, no detach, no hide, stdio ignore"
+          $env:PROBE_URL = 'http://127.0.0.1:47653/only-ignore?user_code=X&ver'
+          $env:PROBE_DETACHED = '0'; $env:PROBE_HIDE = '0'; $env:PROBE_STDIO = 'ignore'
+          bun probe.cjs
+
+          Write-Host "$(Get-Date -Format o) probe prod-candidate: bun spawn, detached, no hide, stdio ignore"
+          $env:PROBE_URL = 'http://127.0.0.1:47653/prod-candidate?user_code=X&ver'
+          $env:PROBE_DETACHED = '1'; $env:PROBE_HIDE = '0'; $env:PROBE_STDIO = 'ignore'
+          bun probe.cjs
 
           $deadline = (Get-Date).AddSeconds(60)
           $pending = $listener.BeginGetContext($null, $null)
