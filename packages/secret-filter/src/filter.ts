@@ -7,6 +7,14 @@ import type {
 	SessionTextFilterResult,
 } from "./types.js";
 
+export interface CompiledSecretRule {
+	readonly definition: SecretRule;
+	readonly matcher: RegExp;
+	readonly allowlistMatchers: readonly RegExp[];
+}
+
+const COMPILED_SECRET_RULES = GENERATED_SECRET_RULES.map(compileSecretRule);
+
 export const FILTER_VERSION = 1;
 export const FILTERED_TRANSCRIPT_PATHS: readonly string[] = [
 	"content",
@@ -17,8 +25,8 @@ export function filterKnownSecrets(text: string): SecretFilterResult {
 	let filteredText = text;
 	let counts: RedactionCounts = {};
 
-	for (const rule of GENERATED_SECRET_RULES) {
-		const result = applyRule(filteredText, rule);
+	for (const rule of COMPILED_SECRET_RULES) {
+		const result = applyCompiledSecretRule(filteredText, rule);
 		filteredText = result.text;
 		counts = mergeRedactionCounts(counts, result.counts);
 	}
@@ -63,28 +71,42 @@ export function getRedactionCount(counts: RedactionCounts): number {
 	return Object.values(counts).reduce((total, count) => total + count, 0);
 }
 
-function applyRule(text: string, rule: SecretRule): SecretFilterResult {
-	const flags = rule.caseInsensitive ? "giu" : "gu";
-	const regex = new RegExp(rule.regexSource, flags);
+export function compileSecretRule(rule: SecretRule): CompiledSecretRule {
+	const matcherFlags = rule.caseInsensitive ? "dgiu" : "dgu";
+	const allowlistFlags = rule.caseInsensitive ? "iu" : "u";
+	return {
+		definition: rule,
+		matcher: new RegExp(rule.regexSource, matcherFlags),
+		allowlistMatchers: rule.allowlistRegexSources.map(
+			(source) => new RegExp(source, allowlistFlags),
+		),
+	};
+}
+
+export function applyCompiledSecretRule(
+	text: string,
+	rule: CompiledSecretRule,
+): SecretFilterResult {
 	const pieces: string[] = [];
 	let count = 0;
 	let cursor = 0;
 
-	for (const match of text.matchAll(regex)) {
-		const fullMatch = match[0];
-		const secret = match[rule.secretGroup];
-		if (match.index === undefined || secret === undefined) {
+	for (const match of text.matchAll(rule.matcher)) {
+		const secret = match[rule.definition.secretGroup];
+		const secretSpan = match.indices?.[rule.definition.secretGroup];
+		if (secret === undefined || secretSpan === undefined) {
 			continue;
 		}
 
-		const secretOffset = rule.secretGroup === 0 ? 0 : fullMatch.indexOf(secret);
-		if (secretOffset < 0 || isAllowlisted(secret, rule)) {
+		if (isAllowlisted(secret, rule)) {
 			continue;
 		}
 
-		const secretStart = match.index + secretOffset;
-		const secretEnd = secretStart + secret.length;
-		pieces.push(text.slice(cursor, secretStart), `[REDACTED:${rule.id}]`);
+		const [secretStart, secretEnd] = secretSpan;
+		pieces.push(
+			text.slice(cursor, secretStart),
+			`[REDACTED:${rule.definition.id}]`,
+		);
 		cursor = secretEnd;
 		count += 1;
 	}
@@ -94,12 +116,12 @@ function applyRule(text: string, rule: SecretRule): SecretFilterResult {
 	}
 
 	pieces.push(text.slice(cursor));
-	return { text: pieces.join(""), counts: { [rule.id]: count } };
+	return {
+		text: pieces.join(""),
+		counts: { [rule.definition.id]: count },
+	};
 }
 
-function isAllowlisted(secret: string, rule: SecretRule): boolean {
-	const flags = rule.caseInsensitive ? "iu" : "u";
-	return rule.allowlistRegexSources.some((source) =>
-		new RegExp(source, flags).test(secret),
-	);
+function isAllowlisted(secret: string, rule: CompiledSecretRule): boolean {
+	return rule.allowlistMatchers.some((matcher) => matcher.test(secret));
 }

@@ -1,9 +1,12 @@
 import { describe, expect, test } from "bun:test";
+import { applyCompiledSecretRule, compileSecretRule } from "../filter.js";
+import { GENERATED_SECRET_RULES } from "../generated-rules.js";
 import {
 	filterKnownSecrets,
 	filterSessionTextFields,
 	getRedactionCount,
 } from "../index.js";
+import type { SecretRule } from "../types.js";
 
 interface PositiveCase {
 	readonly ruleId: string;
@@ -120,6 +123,29 @@ const POSITIVE_CASES: readonly PositiveCase[] = [
 		input: `TWILIO_API_KEY=SK${"CA".repeat(16)}`,
 	},
 ];
+
+test("generated rules avoid unsupported inline pattern modifiers", () => {
+	for (const rule of GENERATED_SECRET_RULES) {
+		for (const source of [rule.regexSource, ...rule.allowlistRegexSources]) {
+			expect(source).not.toMatch(/\(\?[ims](?::|\))/u);
+		}
+	}
+});
+
+test("uses capture indices when the full match repeats the secret", () => {
+	const rule: SecretRule = {
+		id: "capture-span-regression",
+		sourceId: "capture-span-regression",
+		regexSource: "(secret) then (secret)",
+		caseInsensitive: false,
+		secretGroup: 2,
+		allowlistRegexSources: [],
+	};
+
+	expect(
+		applyCompiledSecretRule("secret then secret", compileSecretRule(rule)).text,
+	).toBe("secret then [REDACTED:capture-span-regression]");
+});
 
 describe("filterKnownSecrets", () => {
 	for (const positiveCase of POSITIVE_CASES) {

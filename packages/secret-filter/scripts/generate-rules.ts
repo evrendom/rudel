@@ -108,68 +108,101 @@ function normalizeRegex(regex: string): {
 	readonly source: string;
 	readonly caseInsensitive: boolean;
 } {
-	if (regex.includes("(?-i")) {
-		throw new Error("Selected rule uses unsupported case-sensitive modifiers");
-	}
-
 	const caseInsensitiveIndex = regex.indexOf("(?i)");
 	if (caseInsensitiveIndex < 0) {
+		rejectUnsupportedModifiers(regex);
 		return { source: regex, caseInsensitive: false };
 	}
 	if (regex.lastIndexOf("(?i)") !== caseInsensitiveIndex) {
 		throw new Error("Selected rule uses multiple case-insensitive modifiers");
 	}
 	if (caseInsensitiveIndex > 0) {
-		const scopeEnd = findInlineModifierScopeEnd(
-			regex,
-			caseInsensitiveIndex + 4,
+		const inlineSource = regex.slice(caseInsensitiveIndex);
+		const inlineClassMatch = inlineSource.match(
+			/^\(\?i\)(\[(?:\\.|[^\]\\])+\])((?:\{\d+(?:,\d*)?\}|[+*?])?)(?=\))/u,
 		);
+		const characterClass = inlineClassMatch?.[1];
+		if (!inlineClassMatch || !characterClass) {
+			throw new Error(
+				"Selected rule uses an unsupported mid-pattern case-insensitive modifier",
+			);
+		}
+		const expandedClass =
+			expandAsciiCaseInsensitiveCharacterClass(characterClass);
+		const source = `${regex.slice(0, caseInsensitiveIndex)}${expandedClass}${inlineClassMatch[2] ?? ""}${inlineSource.slice(inlineClassMatch[0].length)}`;
+		rejectUnsupportedModifiers(source);
 		return {
-			source: `${regex.slice(0, caseInsensitiveIndex)}(?i:${regex.slice(caseInsensitiveIndex + 4, scopeEnd)})${regex.slice(scopeEnd)}`,
+			source,
 			caseInsensitive: false,
 		};
 	}
 
+	const source = regex.slice(4);
+	rejectUnsupportedModifiers(source);
 	return {
-		source: regex.slice(4),
+		source,
 		caseInsensitive: true,
 	};
 }
 
-function findInlineModifierScopeEnd(regex: string, start: number): number {
-	let nestedGroupDepth = 0;
-	let inCharacterClass = false;
+function expandAsciiCaseInsensitiveCharacterClass(source: string): string {
+	const body = source.slice(1, -1);
+	let expanded = "";
 
-	for (let index = start; index < regex.length; index += 1) {
-		const character = regex[index];
+	for (let index = 0; index < body.length; index += 1) {
+		const character = body[index];
 		if (character === "\\") {
+			const escaped = body[index + 1];
+			if (!escaped || /[A-Za-z]/u.test(escaped)) {
+				throw new Error(
+					"Case-insensitive character class contains an unsupported escape",
+				);
+			}
+			expanded += `${character}${escaped}`;
 			index += 1;
 			continue;
 		}
-		if (character === "[") {
-			inCharacterClass = true;
+		const range = body.slice(index, index + 3);
+		if (range === "a-z" || range === "A-Z") {
+			expanded += "a-zA-Z";
+			index += 2;
 			continue;
 		}
-		if (character === "]") {
-			inCharacterClass = false;
+		if (range === "0-9") {
+			expanded += range;
+			index += 2;
 			continue;
 		}
-		if (inCharacterClass) {
+		if (
+			character === "-" ||
+			(body[index + 1] === "-" && body[index + 2] !== undefined)
+		) {
+			throw new Error(
+				"Case-insensitive character class contains an unsupported range",
+			);
+		}
+		if (character && /[A-Za-z]/u.test(character)) {
+			expanded += `${character.toLowerCase()}${character.toUpperCase()}`;
 			continue;
 		}
-		if (character === "(") {
-			nestedGroupDepth += 1;
-			continue;
+		const codePoint = character?.codePointAt(0);
+		if (codePoint === undefined || codePoint > 0x7f) {
+			throw new Error(
+				"Case-insensitive character class must contain ASCII characters",
+			);
 		}
-		if (character === ")") {
-			if (nestedGroupDepth === 0) {
-				return index;
-			}
-			nestedGroupDepth -= 1;
-		}
+		expanded += character;
 	}
 
-	return regex.length;
+	return `[${expanded}]`;
+}
+
+function rejectUnsupportedModifiers(regex: string): void {
+	if (/\(\?[ims-]/u.test(regex)) {
+		throw new Error(
+			"Selected rule uses unsupported regular expression modifiers",
+		);
+	}
 }
 
 function renderModule(rules: readonly GeneratedRule[]): string {

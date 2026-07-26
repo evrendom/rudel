@@ -4,6 +4,9 @@
 	"type": "module",
 	"description": "CLI for the Coding Agent Analytics Platform rudel.ai",
 	"license": "MIT",
+	"engines": {
+		"node": ">=20"
+	},
 	"homepage": "https://app.rudel.ai",
 	"repository": {
 		"type": "git",

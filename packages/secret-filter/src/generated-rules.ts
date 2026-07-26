@@ -127,7 +127,7 @@ export const GENERATED_SECRET_RULES: readonly SecretRule[] = [
 		id: "sendgrid-api-token",
 		sourceId: "sendgrid-api-token",
 		regexSource:
-			"\\b(SG\\.(?i:[a-z0-9=_\\-\\.]{66}))(?:[\\x60'\"\\s;]|\\\\[nr]|$)",
+			"\\b(SG\\.[a-zA-Z0-9=_\\-\\.]{66})(?:[\\x60'\"\\s;]|\\\\[nr]|$)",
 		caseInsensitive: false,
 		secretGroup: 1,
 		allowlistRegexSources: [],
