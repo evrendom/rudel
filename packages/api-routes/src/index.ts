@@ -192,11 +192,13 @@ export const IngestSessionInputSchema = z.object({
 	upload_mode: ProductAnalyticsUploadModeSchema.optional(),
 	cli_version: z.string().max(200).optional(),
 	platform_os: ProductAnalyticsPlatformOsSchema.optional(),
+	filter_version: z.number().int().min(0).max(65_535).optional(),
 });
 
 export const IngestSessionOutputSchema = z.object({
 	success: z.literal(true),
 	sessionId: z.string(),
+	redacted: z.record(z.string(), z.number().int().nonnegative()).default({}),
 });
 
 export const SESSION_OWNERSHIP_CONFLICT_CODE = "SESSION_OWNERSHIP_CONFLICT";

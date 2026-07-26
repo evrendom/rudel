@@ -18,6 +18,7 @@ export const baseSessionColumns: ColumnDefinition[] = [
 	{ name: "package_name", type: "String", default: "''" },
 	{ name: "package_type", type: "String", default: "''" },
 	{ name: "content", type: "String" },
+	{ name: "filter_version", type: "UInt16", default: "fn:0" },
 	{
 		name: "ingested_at",
 		type: "DateTime64(3, 'UTC')",

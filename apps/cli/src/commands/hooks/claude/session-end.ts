@@ -8,7 +8,10 @@ import {
 } from "../../../lib/failed-uploads.js";
 import { getGitInfo } from "../../../lib/git-info.js";
 import { getProjectOrgId } from "../../../lib/project-config.js";
-import { uploadSession } from "../../../lib/uploader.js";
+import {
+	formatRedactionSummary,
+	uploadSession,
+} from "../../../lib/uploader.js";
 import { disposeLogging, setupHookLogging } from "../../../logging.js";
 
 interface HookInput {
@@ -77,6 +80,10 @@ async function runSessionEnd(): Promise<void> {
 				"Upload successful for session {sessionId} (attempts: {attempts})",
 				{ sessionId: input.session_id, attempts: result.attempts },
 			);
+			const redactionSummary = formatRedactionSummary(result.redacted);
+			if (redactionSummary) {
+				logger.info("{redactionSummary}", { redactionSummary });
+			}
 			await removeFailedUpload(input.session_id);
 		} else {
 			logger.error("Upload failed for session {sessionId}: {error}", {

@@ -4,7 +4,11 @@ import {
 	INGEST_LIMIT_REASONS,
 	SESSION_OWNERSHIP_CONFLICT_CODE,
 } from "@rudel/api-routes";
-import { formatUploadError, uploadSession } from "../lib/uploader.js";
+import {
+	formatRedactionSummary,
+	formatUploadError,
+	uploadSession,
+} from "../lib/uploader.js";
 
 describe("formatUploadError", () => {
 	test("explains API key rate limits from ingest auth", () => {
@@ -157,5 +161,23 @@ describe("uploadSession aggregate size guard", () => {
 				"Session transcript payload is 2.00 MiB, above the 1.00 MiB per-session limit. Reduce the transcript/subagent payload before retrying.",
 			attempts: 0,
 		});
+	});
+});
+
+describe("formatRedactionSummary", () => {
+	test("summarizes counts without including matched values", () => {
+		expect(
+			formatRedactionSummary({
+				"aws-access-key-id": 1,
+				"openai-api-key": 2,
+			}),
+		).toBe(
+			"3 values matching known secret patterns were redacted (aws-access-key-id ×1, openai-api-key ×2).",
+		);
+	});
+
+	test("omits a summary when nothing was redacted", () => {
+		expect(formatRedactionSummary({})).toBeNull();
+		expect(formatRedactionSummary(undefined)).toBeNull();
 	});
 });

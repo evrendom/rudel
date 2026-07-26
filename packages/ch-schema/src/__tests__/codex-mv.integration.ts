@@ -1,4 +1,4 @@
-import { afterAll, describe, expect, test } from "bun:test";
+import { afterAll, describe, expect, setDefaultTimeout, test } from "bun:test";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { createClickHouseExecutor } from "@chkit/clickhouse";
@@ -9,6 +9,8 @@ import type {
 } from "../generated/chkit-types.js";
 import { CODEX_SESSION_ANALYTICS_MV_SQL } from "../mv-sql/codex-session-analytics.js";
 import { withSessionFilter } from "./mv-session-filter.js";
+
+setDefaultTimeout(30_000);
 
 const testPrefix = `codex_mv_test_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 const testId = `${testPrefix}_clean`;
@@ -73,7 +75,7 @@ afterAll(async () => {
 	// concurrent deletes fail with SESSION_IS_LOCKED.
 	for (const table of ["rudel.codex_sessions", "rudel.session_analytics"]) {
 		await executor.execute(
-			`DELETE FROM ${table} WHERE organization_id = '${orgId}'`,
+			`DELETE FROM ${table} WHERE organization_id = '${orgId}' SETTINGS mutations_sync = 0`,
 		);
 	}
 });
@@ -116,6 +118,7 @@ describe("codex_session_analytics_mv", () => {
 			package_name: "myapp",
 			package_type: "package.json",
 			content: fixtureContent,
+			filter_version: 0,
 			ingested_at: now,
 			user_id: "user_test",
 			git_branch: "main",
@@ -209,6 +212,7 @@ describe("codex_session_analytics_mv", () => {
 			package_name: "myapp",
 			package_type: "package.json",
 			content: fixtureContent,
+			filter_version: 0,
 			ingested_at: now,
 			user_id: "user_test",
 			git_branch: "main",
@@ -264,6 +268,7 @@ describe("codex_session_analytics_mv", () => {
 			package_name: "myapp",
 			package_type: "package.json",
 			content: fixtureContent,
+			filter_version: 0,
 			ingested_at: now,
 			user_id: "user_test",
 			git_branch: "main",

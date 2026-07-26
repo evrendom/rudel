@@ -7,6 +7,7 @@ import {
 	PRODUCT_ANALYTICS_EVENTS,
 	SESSION_OWNERSHIP_CONFLICT_CODE,
 } from "@rudel/api-routes";
+import { FILTER_VERSION, filterSessionTextFields } from "@rudel/secret-filter";
 import { getClickhouse } from "./clickhouse.js";
 import { sqlClient } from "./db.js";
 import { adminRouter } from "./handlers/admin/index.js";
@@ -168,6 +169,18 @@ const ingestSessionHandler = os.ingestSession
 			INGEST_AGGREGATE_CONTENT_MAX_BYTES,
 		);
 		checkIngestByteRateLimit(context.user.id, aggregateBytes);
+		const filteredText = filterSessionTextFields({
+			content: input.content,
+			subagents: input.subagents,
+		});
+		const filteredInput: IngestSessionInput = {
+			...input,
+			content: filteredText.content,
+			subagents: filteredText.subagents
+				? [...filteredText.subagents]
+				: undefined,
+			filter_version: FILTER_VERSION,
+		};
 
 		const activeOrgId =
 			context.session &&
@@ -211,10 +224,14 @@ const ingestSessionHandler = os.ingestSession
 			throw errors[SESSION_OWNERSHIP_CONFLICT_CODE]();
 		}
 
-		const contentHash = computeIngestContentHash(input);
+		// Hash the exact bytes and filter version stored by the server. This makes
+		// an old unfiltered CLI upload and a current pre-filtered CLI upload
+		// converge after server filtering instead of creating duplicate rows.
+		const contentHash = computeIngestContentHash(filteredInput);
 		const response = {
 			success: true as const,
 			sessionId: input.sessionId,
+			redacted: filteredText.counts,
 		};
 
 		// This is a best-effort cost optimization, not a cross-instance
@@ -229,8 +246,8 @@ const ingestSessionHandler = os.ingestSession
 		}
 
 		const ingestedAt = new Date();
-		const adapter = getAdapter(input.source);
-		await adapter.ingest(getClickhouse(), input, {
+		const adapter = getAdapter(filteredInput.source);
+		await adapter.ingest(getClickhouse(), filteredInput, {
 			ingestedAt,
 			userId: context.user.id,
 			organizationId: orgId,
@@ -255,7 +272,7 @@ const ingestSessionHandler = os.ingestSession
 		}
 
 		const uploadCompletedPayload = getSessionUploadCompletedPayload(
-			input,
+			filteredInput,
 			orgId,
 			context.user.id,
 		);

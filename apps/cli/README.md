@@ -92,6 +92,12 @@ Each uploaded session includes:
 - Session transcript (full prompt & response content)
 - Sub-agent usage
 
+## Known-secret Redaction
+
+Before upload, the CLI redacts known secret patterns in both the main transcript and every sub-agent transcript. The Rudel API reapplies the same deterministic filter before storage and reports counts by pattern; matched values are never included in the summary.
+
+This substantially reduces exposure, but it does not catch `DB_PASSWORD=hunter2`, bare custom tokens without a distinguishing prefix, secrets split across lines, base64-encoded or paraphrased secrets, or credentials in screenshots. Keep secrets out of coding-agent sessions whenever possible.
+
 ## Links
 
 - **Web App**: [app.rudel.ai](https://app.rudel.ai)

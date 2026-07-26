@@ -94,6 +94,7 @@ describe("ingestRudelClaudeSessions", () => {
 		package_name: "",
 		package_type: "",
 		content: "test session content",
+		filter_version: 0,
 		subagents: {},
 		ingested_at: now,
 		user_id: "user_test",

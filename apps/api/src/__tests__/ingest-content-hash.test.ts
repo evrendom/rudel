@@ -97,7 +97,7 @@ describe("computeIngestContentHash", () => {
 			new URL("../router.ts", import.meta.url),
 		).text();
 		expect(
-			routerSource.match(/computeIngestContentHash\(input\)/gu),
+			routerSource.match(/computeIngestContentHash\(filteredInput\)/gu),
 		).toHaveLength(1);
 		expect(routerSource).toContain(
 			"ownership.lastContentSha256 === contentHash",

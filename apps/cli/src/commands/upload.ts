@@ -21,7 +21,11 @@ import {
 	SESSION_TAGS,
 	type SessionTag,
 } from "../lib/types.js";
-import { type UploadConfig, uploadSession } from "../lib/uploader.js";
+import {
+	formatRedactionSummary,
+	type UploadConfig,
+	uploadSession,
+} from "../lib/uploader.js";
 
 interface UploadFlags {
 	tag?: SessionTag;
@@ -273,6 +277,10 @@ async function runSingleUpload(
 
 	if (result.success) {
 		write("Upload successful!");
+		const redactionSummary = formatRedactionSummary(result.redacted);
+		if (redactionSummary) {
+			write(redactionSummary);
+		}
 	} else {
 		return new Error(`Upload failed: ${result.error}`);
 	}

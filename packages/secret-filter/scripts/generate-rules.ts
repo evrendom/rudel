@@ -1,0 +1,206 @@
+import {
+	GITLEAKS_VERSION,
+	SELECTED_RULES,
+	type SelectedRule,
+} from "./ruleset-config.js";
+
+const VENDOR_PATH = new URL("../vendor/gitleaks.toml", import.meta.url);
+const OUTPUT_PATH = new URL("../src/generated-rules.ts", import.meta.url);
+
+interface ParsedGitleaksRule {
+	readonly id: string;
+	readonly regex: string;
+	readonly allowlists: readonly ParsedAllowlist[];
+}
+
+interface ParsedAllowlist {
+	readonly regexes: readonly string[];
+}
+
+interface GeneratedRule {
+	readonly id: string;
+	readonly sourceId: string;
+	readonly regexSource: string;
+	readonly caseInsensitive: boolean;
+	readonly secretGroup: number;
+	readonly allowlistRegexSources: readonly string[];
+}
+
+async function main(): Promise<void> {
+	const source = await Bun.file(VENDOR_PATH).text();
+	const parsed: unknown = Bun.TOML.parse(source);
+	const rules = parseRules(parsed);
+	const generatedRules = SELECTED_RULES.map((selection) =>
+		buildGeneratedRule(selection, rules),
+	);
+	await Bun.write(OUTPUT_PATH, renderModule(generatedRules));
+}
+
+function parseRules(value: unknown): readonly ParsedGitleaksRule[] {
+	if (!isRecord(value) || !Array.isArray(value.rules)) {
+		throw new Error("Vendored Gitleaks TOML does not contain a rules array");
+	}
+
+	return value.rules.map((rule) => {
+		if (
+			!isRecord(rule) ||
+			typeof rule.id !== "string" ||
+			typeof rule.regex !== "string"
+		) {
+			throw new Error("Vendored Gitleaks TOML contains an invalid rule");
+		}
+
+		return {
+			id: rule.id,
+			regex: rule.regex,
+			allowlists: parseAllowlists(rule.allowlists),
+		};
+	});
+}
+
+function parseAllowlists(value: unknown): readonly ParsedAllowlist[] {
+	if (value === undefined) {
+		return [];
+	}
+	if (!Array.isArray(value)) {
+		throw new Error("Gitleaks rule allowlists must be an array");
+	}
+
+	return value.map((allowlist) => {
+		if (!isRecord(allowlist) || allowlist.regexes === undefined) {
+			return { regexes: [] };
+		}
+		if (
+			!Array.isArray(allowlist.regexes) ||
+			!allowlist.regexes.every((regex) => typeof regex === "string")
+		) {
+			throw new Error("Gitleaks allowlist regexes must be strings");
+		}
+		return { regexes: allowlist.regexes };
+	});
+}
+
+function buildGeneratedRule(
+	selection: SelectedRule,
+	rules: readonly ParsedGitleaksRule[],
+): GeneratedRule {
+	const sourceRule = rules.find((rule) => rule.id === selection.sourceId);
+	if (!sourceRule) {
+		throw new Error(`Vendored Gitleaks rule is missing: ${selection.sourceId}`);
+	}
+
+	const normalized = normalizeRegex(sourceRule.regex);
+	const allowlistRegexSources = sourceRule.allowlists.flatMap((allowlist) =>
+		allowlist.regexes.map((regex) => normalizeRegex(regex).source),
+	);
+
+	return {
+		id: selection.ruleId,
+		sourceId: selection.sourceId,
+		regexSource: normalized.source,
+		caseInsensitive: normalized.caseInsensitive,
+		secretGroup: selection.secretGroup,
+		allowlistRegexSources,
+	};
+}
+
+function normalizeRegex(regex: string): {
+	readonly source: string;
+	readonly caseInsensitive: boolean;
+} {
+	if (regex.includes("(?-i")) {
+		throw new Error("Selected rule uses unsupported case-sensitive modifiers");
+	}
+
+	const caseInsensitiveIndex = regex.indexOf("(?i)");
+	if (caseInsensitiveIndex < 0) {
+		return { source: regex, caseInsensitive: false };
+	}
+	if (regex.lastIndexOf("(?i)") !== caseInsensitiveIndex) {
+		throw new Error("Selected rule uses multiple case-insensitive modifiers");
+	}
+	if (caseInsensitiveIndex > 0) {
+		const scopeEnd = findInlineModifierScopeEnd(
+			regex,
+			caseInsensitiveIndex + 4,
+		);
+		return {
+			source: `${regex.slice(0, caseInsensitiveIndex)}(?i:${regex.slice(caseInsensitiveIndex + 4, scopeEnd)})${regex.slice(scopeEnd)}`,
+			caseInsensitive: false,
+		};
+	}
+
+	return {
+		source: regex.slice(4),
+		caseInsensitive: true,
+	};
+}
+
+function findInlineModifierScopeEnd(regex: string, start: number): number {
+	let nestedGroupDepth = 0;
+	let inCharacterClass = false;
+
+	for (let index = start; index < regex.length; index += 1) {
+		const character = regex[index];
+		if (character === "\\") {
+			index += 1;
+			continue;
+		}
+		if (character === "[") {
+			inCharacterClass = true;
+			continue;
+		}
+		if (character === "]") {
+			inCharacterClass = false;
+			continue;
+		}
+		if (inCharacterClass) {
+			continue;
+		}
+		if (character === "(") {
+			nestedGroupDepth += 1;
+			continue;
+		}
+		if (character === ")") {
+			if (nestedGroupDepth === 0) {
+				return index;
+			}
+			nestedGroupDepth -= 1;
+		}
+	}
+
+	return regex.length;
+}
+
+function renderModule(rules: readonly GeneratedRule[]): string {
+	const entries = rules
+		.map(
+			(rule) => `\t{
+\t\tid: ${JSON.stringify(rule.id)},
+\t\tsourceId: ${JSON.stringify(rule.sourceId)},
+\t\tregexSource: ${JSON.stringify(rule.regexSource)},
+\t\tcaseInsensitive: ${rule.caseInsensitive},
+\t\tsecretGroup: ${rule.secretGroup},
+\t\tallowlistRegexSources: ${JSON.stringify(rule.allowlistRegexSources)},
+\t},`,
+		)
+		.join("\n");
+
+	return `// Generated by scripts/generate-rules.ts. Do not edit by hand.
+// Source: Gitleaks ${GITLEAKS_VERSION} config/gitleaks.toml.
+
+import type { SecretRule } from "./types.js";
+
+export const GITLEAKS_VERSION = ${JSON.stringify(GITLEAKS_VERSION)};
+
+export const GENERATED_SECRET_RULES: readonly SecretRule[] = [
+${entries}
+];
+`;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null;
+}
+
+await main();

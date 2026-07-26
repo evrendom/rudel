@@ -348,6 +348,67 @@ describe("CLI upload to local API", () => {
 		expect(await getStoredContentHash(userId, sessionId)).not.toBe(firstHash);
 	}, 60_000);
 
+	test("redacts known patterns in all transcript fields and dedupes old and new clients", async () => {
+		const sessionId = `cli_redaction_${crypto.randomUUID()}`;
+		const sessionDate = "2026-07-24 16:00:00.000";
+		const openAiCanary = `sk-${"CANARY".padEnd(20, "A")}T3BlbkFJ${"CANARY".padEnd(20, "B")}`;
+		const awsCanary = "AKIACANARY234567ABCD";
+		const request: IngestSessionInput = {
+			content: JSON.stringify({
+				message: {
+					content: `Use ${openAiCanary}`,
+					role: "user",
+				},
+				timestamp: "2026-07-24T16:00:00.000Z",
+				type: "user",
+			}),
+			projectPath: "/test/cli-redaction",
+			sessionId,
+			source: "claude_code",
+			subagents: [
+				{
+					agentId: "agent-canary",
+					content: `AWS_ACCESS_KEY_ID=${awsCanary}`,
+				},
+			],
+			upload_mode: "manual",
+		};
+
+		const oldClientResponse = await createApiClient({
+			apiBaseUrl: server.baseUrl,
+			token: bearerToken,
+		}).ingestSession(request);
+		expect(oldClientResponse.redacted).toEqual({
+			"aws-access-key-id": 1,
+			"openai-api-key": 1,
+		});
+
+		const storedRow = await getStoredFilteredSession(userId, sessionId);
+		assert(storedRow);
+		expect(storedRow.content.includes(openAiCanary)).toBe(false);
+		expect(
+			storedRow.subagents["agent-canary"]?.includes(awsCanary) ?? false,
+		).toBe(false);
+		expect(storedRow.content).toContain("[REDACTED:openai-api-key]");
+		expect(storedRow.subagents["agent-canary"]).toContain(
+			"[REDACTED:aws-access-key-id]",
+		);
+		expect(storedRow.filter_version).toBe(1);
+
+		const newClientResponse = await uploadSession(request, {
+			endpoint: server.rpcUrl,
+			token: bearerToken,
+		});
+		expect(newClientResponse.success).toBe(true);
+		expect(newClientResponse.redacted).toEqual({
+			"aws-access-key-id": 1,
+			"openai-api-key": 1,
+		});
+		expect(await getPhysicalSessionCount(userId, sessionDate, sessionId)).toBe(
+			1,
+		);
+	}, 90_000);
+
 	test("allows concurrent identical ingests with best-effort deduplication", async () => {
 		const sessionId = `cli_concurrent_dedup_${crypto.randomUUID()}`;
 		const sessionDate = "2026-07-24 14:00:00.000";
@@ -480,4 +541,26 @@ async function getStoredContentHash(
 			AND session_id = ${sessionId}
 	`;
 	return row?.last_content_sha256 ?? null;
+}
+
+async function getStoredFilteredSession(
+	organizationId: string,
+	sessionId: string,
+): Promise<{
+	content: string;
+	filter_version: number;
+	subagents: Record<string, string>;
+} | null> {
+	const [row] = await getClickhouse().query<{
+		content: string;
+		filter_version: number;
+		subagents: Record<string, string>;
+	}>({
+		query: `SELECT content, filter_version, subagents FROM ${getSafeClickHouseTable("rudel.claude_sessions")} WHERE organization_id = {organizationId:String} AND session_id = {sessionId:String} ORDER BY ingested_at DESC LIMIT 1`,
+		query_params: {
+			organizationId,
+			sessionId,
+		},
+	});
+	return row ?? null;
 }

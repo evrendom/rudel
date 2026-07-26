@@ -1,4 +1,8 @@
 import type { Source } from "@rudel/api-routes";
+import {
+	mergeRedactionCounts,
+	type RedactionCounts,
+} from "@rudel/secret-filter";
 import pMap from "p-map";
 import { recordFailedUpload, removeFailedUpload } from "./failed-uploads.js";
 import type { UploadResult } from "./types.js";
@@ -33,6 +37,7 @@ export interface BatchUploadSummary {
 	failed: number;
 	total: number;
 	errors: Array<{ label: string; error: string }>;
+	redacted: RedactionCounts;
 }
 
 export async function batchUpload<T extends BatchUploadItem>(
@@ -46,6 +51,7 @@ export async function batchUpload<T extends BatchUploadItem>(
 	let completed = 0;
 	let rateLimited = false;
 	const errors: Array<{ label: string; error: string }> = [];
+	let redacted: RedactionCounts = {};
 
 	await pMap(
 		items,
@@ -79,6 +85,7 @@ export async function batchUpload<T extends BatchUploadItem>(
 				const result = await upload(item, itemOnRetry);
 				if (result.success) {
 					succeeded++;
+					redacted = mergeRedactionCounts(redacted, result.redacted ?? {});
 					await removeFailedUpload(item.sessionId);
 				} else {
 					failed++;
@@ -124,5 +131,5 @@ export async function batchUpload<T extends BatchUploadItem>(
 		failed += skipped;
 	}
 
-	return { succeeded, failed, total, errors };
+	return { succeeded, failed, total, errors, redacted };
 }

@@ -50,6 +50,7 @@
 	"devDependencies": {
 		"@rudel/agent-adapters": "workspace:*",
 		"@rudel/api-routes": "workspace:*",
+		"@rudel/secret-filter": "workspace:*",
 		"@rudel/typescript-config": "workspace:*",
 		"@types/node": "^22",
 		"bun-types": "latest",

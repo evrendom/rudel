@@ -36,7 +36,7 @@ See the [CLI documentation](apps/cli/README.md) for all available commands.
 
 1. You install the CLI and run `rudel enable`
 2. This registers Claude Code / Codex hooks that run when a session ends
-3. The hook uploads the session transcript to Rudel
+3. The hook redacts known secret patterns and uploads the session transcript to Rudel
 4. Transcripts are stored in ClickHouse and processed into analytics
 
 ## What Data Is Collected
@@ -53,6 +53,8 @@ Each uploaded session includes:
 ## Security & Privacy Disclaimer
 
 Rudel is designed to ingest full coding-agent session data for analytics. That means uploaded transcripts and related metadata may contain sensitive material, including source code, prompts, tool output, file contents, command output, URLs, and secrets that appeared during a session.
+
+The current CLI redacts known secret patterns from the main transcript and sub-agent transcripts before upload, and the API reapplies the same deterministic filter before storage. This reduces exposure but does not catch `DB_PASSWORD=hunter2`, bare custom tokens without a distinguishing prefix, secrets split across lines, base64-encoded or paraphrased secrets, or credentials in screenshots. Do not treat the filter as a substitute for keeping secrets out of coding-agent sessions.
 
 Only enable Rudel on projects and environments where you are comfortable uploading that data. If you use the hosted service at `app.rudel.ai`, we do not have access to personal data contained in uploaded transcripts and cannot read that data. Review the [Rudel Privacy Policy](https://rudel.ai/privacy) before enabling uploads for yourself or your team.
 

@@ -14,6 +14,7 @@ export function computeIngestContentHash(input: IngestSessionInput): string {
 	updateNamedNullableField(hash, "gitSha", input.gitSha);
 	updateNamedNullableField(hash, "tag", input.tag);
 	updateNamedField(hash, "content", input.content);
+	updateNamedField(hash, "filterVersion", String(input.filter_version ?? 0));
 
 	if (input.source === "claude_code") {
 		const subagents = [...(input.subagents ?? [])].sort((left, right) =>

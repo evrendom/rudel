@@ -8,6 +8,13 @@ import {
 	type IngestSessionInput,
 	SESSION_OWNERSHIP_CONFLICT_CODE,
 } from "@rudel/api-routes";
+import {
+	FILTER_VERSION,
+	filterSessionTextFields,
+	getRedactionCount,
+	mergeRedactionCounts,
+	type RedactionCounts,
+} from "@rudel/secret-filter";
 import type { UploadResult } from "./types.js";
 
 export interface UploadConfig {
@@ -211,9 +218,19 @@ export async function uploadSession(
 	request: IngestSessionInput,
 	config: UploadConfig,
 ): Promise<UploadResult> {
+	const filteredText = filterSessionTextFields({
+		content: request.content,
+		subagents: request.subagents,
+	});
+	const filteredRequest: IngestSessionInput = {
+		...request,
+		content: filteredText.content,
+		subagents: filteredText.subagents ? [...filteredText.subagents] : undefined,
+		filter_version: FILTER_VERSION,
+	};
 	const maxAggregateBytes =
 		config.maxAggregateBytes ?? INGEST_AGGREGATE_CONTENT_MAX_BYTES;
-	const aggregateBytes = getUploadAggregateBytes(request);
+	const aggregateBytes = getUploadAggregateBytes(filteredRequest);
 	if (aggregateBytes > maxAggregateBytes) {
 		return {
 			success: false,
@@ -234,8 +251,13 @@ export async function uploadSession(
 
 	for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
 		try {
-			await client.ingestSession(request);
-			return { success: true, status: 200, attempts: attempt };
+			const response = await client.ingestSession(filteredRequest);
+			return {
+				success: true,
+				status: 200,
+				attempts: attempt,
+				redacted: mergeRedactionCounts(filteredText.counts, response.redacted),
+			};
 		} catch (error) {
 			const errorMessage = formatUploadError(error);
 
@@ -268,6 +290,28 @@ export async function uploadSession(
 		error: "Max retries exceeded",
 		attempts: MAX_ATTEMPTS,
 	};
+}
+
+export function formatRedactionSummary(
+	counts: RedactionCounts | undefined,
+): string | null {
+	if (!counts) {
+		return null;
+	}
+
+	const total = getRedactionCount(counts);
+	if (total === 0) {
+		return null;
+	}
+
+	const details = Object.entries(counts)
+		.filter(([, count]) => count > 0)
+		.sort(([left], [right]) => left.localeCompare(right))
+		.map(([ruleId, count]) => `${ruleId} ×${count}`)
+		.join(", ");
+	const subject = total === 1 ? "value" : "values";
+	const verb = total === 1 ? "was" : "were";
+	return `${total} ${subject} matching known secret patterns ${verb} redacted (${details}).`;
 }
 
 function getUploadAggregateBytes(request: IngestSessionInput): number {

@@ -6,7 +6,7 @@ import { readConfig } from "../lib/config.js";
 import { getGitInfo } from "../lib/git-info.js";
 import { parseStdinInput, readStdin } from "../lib/stdin.js";
 import { DEFAULT_ENDPOINT } from "../lib/types.js";
-import { uploadSession } from "../lib/uploader.js";
+import { formatRedactionSummary, uploadSession } from "../lib/uploader.js";
 import { disposeLogging, setupHookLogging } from "../logging.js";
 
 async function runHookUpload(): Promise<void> {
@@ -80,6 +80,10 @@ async function runHookUpload(): Promise<void> {
 			logger.info("Upload successful for session {sessionId}", {
 				sessionId: request.sessionId,
 			});
+			const redactionSummary = formatRedactionSummary(result.redacted);
+			if (redactionSummary) {
+				logger.info("{redactionSummary}", { redactionSummary });
+			}
 		} else {
 			logger.error("Upload failed: {error}", { error: result.error });
 		}
