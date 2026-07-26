@@ -52,7 +52,7 @@ describe("auth e2e", () => {
 			[
 				"bash",
 				"-c",
-				`set -o pipefail; bun "${cliPath}" login --api-base="${server.baseUrl}" --web-url=http://localhost:9999 --no-browser 2>&1 | tee "${stdoutLogPath}"`,
+				`set -o pipefail; bun "${cliPath}" login --api-base="${server.baseUrl}" --no-browser 2>&1 | tee "${stdoutLogPath}"`,
 			],
 			{
 				env: {

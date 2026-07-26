@@ -2,6 +2,7 @@ import * as p from "@clack/prompts";
 import { type AgentAdapter, getAvailableAdapters } from "@rudel/agent-adapters";
 import type { Source } from "@rudel/api-routes";
 import { buildCommand } from "@stricli/core";
+import { describeSavedCredentialsApiBaseRisk } from "../lib/api-base.js";
 import { createApiClient } from "../lib/api-client.js";
 import { verifyAuth } from "../lib/auth.js";
 import type { BatchUploadItem } from "../lib/batch-upload.js";
@@ -47,6 +48,12 @@ async function runEnable(): Promise<undefined | Error> {
 			},
 		});
 	};
+
+	// Before verifyAuth, which sends the stored token to the stored base.
+	const storedApiBaseRisk = describeSavedCredentialsApiBaseRisk();
+	if (storedApiBaseRisk) {
+		p.log.warn(storedApiBaseRisk);
+	}
 
 	// Verify auth (loads credentials + pings API)
 	const auth = await verifyAuth();

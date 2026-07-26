@@ -163,12 +163,20 @@ export type ProductAnalyticsPlatformOs = z.infer<
 >;
 
 export const ProductAnalyticsLoginFailureStageSchema = z.enum([
+	// The configured --api-base was refused before any network call (RUD-237).
+	"api_base_rejected",
 	"device_code_request",
+	// The server returned a verification URL the CLI refused to open (RUD-203).
+	"verification_url_rejected",
 	"browser_approval_timeout",
 	"token_exchange",
 	"api_key_create",
 	"account_fetch",
 ]);
+
+export type ProductAnalyticsLoginFailureStage = z.infer<
+	typeof ProductAnalyticsLoginFailureStageSchema
+>;
 
 export const ProductAnalyticsEnableFailureStageSchema = z.enum([
 	"auth_verify",

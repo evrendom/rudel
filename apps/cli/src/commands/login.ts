@@ -1,7 +1,23 @@
-import { spawn } from "node:child_process";
 import * as p from "@clack/prompts";
+import {
+	type CliApiKeyCreateResponse,
+	CliApiKeyCreateResponseSchema,
+	type DeviceCodeResponse,
+	DeviceCodeResponseSchema,
+	DeviceFlowErrorResponseSchema,
+	DeviceTokenResponseSchema,
+	type ProductAnalyticsLoginFailureStage,
+	parseSafeBrowserUrl,
+	sanitizeForTerminalDisplay,
+} from "@rudel/api-routes";
 import { buildCommand } from "@stricli/core";
+import {
+	allowsPlaintext,
+	describeApiBaseRejection,
+	resolveApiBase,
+} from "../lib/api-base.js";
 import { createApiClient } from "../lib/api-client.js";
+import { openUrl } from "../lib/browser-opener.js";
 import { loadCredentials, saveCredentials } from "../lib/credentials.js";
 import {
 	CliProductAnalyticsEvents,
@@ -17,26 +33,21 @@ const PRODUCTION_APP_URL = "https://app.rudel.ai";
 const DEVICE_CLIENT_ID = "rudel-cli";
 const POLL_SAFETY_TIMEOUT_MS = 120_000;
 
-type DeviceCodeResponse = {
-	device_code: string;
-	user_code: string;
-	verification_uri: string;
-	verification_uri_complete?: string;
-	expires_in: number;
-	interval: number;
-};
+/**
+ * Human-readable failure drawn from an untrusted error payload.
+ *
+ * Server-supplied strings are sanitized because this message is printed to the
+ * terminal, exactly like `user_code` is.
+ */
+function describeDeviceFlowFailure(body: unknown, fallback: string): string {
+	const parsed = DeviceFlowErrorResponseSchema.safeParse(body);
+	if (!parsed.success) {
+		return fallback;
+	}
 
-type DeviceTokenResponse = {
-	access_token: string;
-	token_type: string;
-	expires_in: number;
-	scope: string;
-};
-
-type ApiKeyCreateResponse = {
-	id: string;
-	key: string;
-};
+	const supplied = parsed.data.error_description || parsed.data.message;
+	return supplied ? sanitizeForTerminalDisplay(supplied) : fallback;
+}
 
 export function getDefaultApiBase() {
 	return process.env.RUDEL_API_BASE ?? PRODUCTION_APP_URL;
@@ -46,22 +57,37 @@ async function sleep(ms: number): Promise<void> {
 	await new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function openUrl(url: string): void {
-	if (process.platform === "win32") {
-		const child = spawn("cmd", ["/c", "start", "", url], {
-			detached: true,
-			stdio: "ignore",
-		});
-		child.unref();
-		return;
+/**
+ * Build the URL the user must visit to approve the device authorization.
+ *
+ * Uses `searchParams.set` rather than `?`-concatenation because the server's
+ * `verification_uri` may already carry a query string (it is configurable via
+ * `CLI_DEVICE_VERIFICATION_URL`), which naive concatenation would corrupt into a
+ * malformed URL with two `?` separators.
+ *
+ * The result is untrusted — it comes from whatever server `--api-base` points at
+ * — and must be passed through `parseSafeBrowserUrl` before being printed or
+ * opened.
+ */
+export function buildVerificationUrl(
+	device: Pick<
+		DeviceCodeResponse,
+		"verification_uri" | "verification_uri_complete" | "user_code"
+	>,
+): string {
+	if (device.verification_uri_complete) {
+		return device.verification_uri_complete;
 	}
 
-	const opener = process.platform === "darwin" ? "open" : "xdg-open";
-	const child = spawn(opener, [url], {
-		detached: true,
-		stdio: "ignore",
-	});
-	child.unref();
+	try {
+		const url = new URL(device.verification_uri);
+		url.searchParams.set("user_code", device.user_code);
+		return url.toString();
+	} catch {
+		// Return it unchanged and let the validator produce the user-facing
+		// rejection, so there is a single place that reports a bad URL.
+		return device.verification_uri;
+	}
 }
 
 async function requestDeviceCode(apiBase: string): Promise<DeviceCodeResponse> {
@@ -74,20 +100,18 @@ async function requestDeviceCode(apiBase: string): Promise<DeviceCodeResponse> {
 		}),
 	});
 
-	const body = (await response.json().catch(() => null)) as
-		| DeviceCodeResponse
-		| { error_description?: string; message?: string }
-		| null;
-
-	if (!response.ok || !body || !("device_code" in body)) {
+	const body = await response.json().catch(() => null);
+	const parsed = DeviceCodeResponseSchema.safeParse(body);
+	if (!response.ok || !parsed.success) {
 		throw new Error(
-			(body && "error_description" in body && body.error_description) ||
-				(body && "message" in body && body.message) ||
+			describeDeviceFlowFailure(
+				body,
 				`Failed to start device authorization (${response.status})`,
+			),
 		);
 	}
 
-	return body;
+	return parsed.data;
 }
 
 async function pollForAccessToken(
@@ -110,25 +134,16 @@ async function pollForAccessToken(
 			}),
 		});
 
-		const body = (await response.json().catch(() => null)) as
-			| DeviceTokenResponse
-			| { error?: string; error_description?: string }
-			| null;
-
-		if (response.ok && body && "access_token" in body) {
-			return body.access_token;
+		const body = await response.json().catch(() => null);
+		const parsed = DeviceTokenResponseSchema.safeParse(body);
+		if (response.ok && parsed.success) {
+			return parsed.data.access_token;
 		}
 
-		const errorCode =
-			body && "error" in body && typeof body.error === "string"
-				? body.error
-				: "";
-		const errorDescription =
-			body &&
-			"error_description" in body &&
-			typeof body.error_description === "string"
-				? body.error_description
-				: "Device authorization failed";
+		const errorPayload = DeviceFlowErrorResponseSchema.safeParse(body);
+		const errorCode = errorPayload.success
+			? (errorPayload.data.error ?? "")
+			: "";
 
 		if (errorCode === "authorization_pending") {
 			await sleep(intervalMs);
@@ -141,7 +156,9 @@ async function pollForAccessToken(
 			continue;
 		}
 
-		throw new Error(errorDescription);
+		throw new Error(
+			describeDeviceFlowFailure(body, "Device authorization failed"),
+		);
 	}
 
 	throw new Error("Device authorization timed out");
@@ -150,7 +167,7 @@ async function pollForAccessToken(
 async function createIngestApiKey(
 	apiBase: string,
 	accessToken: string,
-): Promise<ApiKeyCreateResponse> {
+): Promise<CliApiKeyCreateResponse> {
 	const response = await fetch(`${apiBase}/api/auth/api-key/create`, {
 		method: "POST",
 		headers: {
@@ -163,36 +180,29 @@ async function createIngestApiKey(
 		}),
 	});
 
-	const body = (await response.json().catch(() => null)) as
-		| ApiKeyCreateResponse
-		| { error_description?: string; message?: string }
-		| null;
-
-	if (!response.ok || !body || !("key" in body) || !("id" in body)) {
+	const body = await response.json().catch(() => null);
+	const parsed = CliApiKeyCreateResponseSchema.safeParse(body);
+	if (!response.ok || !parsed.success) {
 		throw new Error(
-			(body && "error_description" in body && body.error_description) ||
-				(body && "message" in body && body.message) ||
+			describeDeviceFlowFailure(
+				body,
 				`Failed to create CLI API key (${response.status})`,
+			),
 		);
 	}
 
-	return body;
+	return parsed.data;
 }
 
 async function runLogin(flags: {
 	apiBase: string;
-	webUrl: string;
+	allowInsecureApiBase: boolean;
 	noBrowser: boolean;
 }): Promise<undefined | Error> {
 	const openedBrowser = !flags.noBrowser;
 	const attemptNumber = getNextCliLoginAttemptNumber();
 	const captureLoginFailure = (
-		failureStage:
-			| "device_code_request"
-			| "browser_approval_timeout"
-			| "token_exchange"
-			| "api_key_create"
-			| "account_fetch",
+		failureStage: ProductAnalyticsLoginFailureStage,
 		error: unknown,
 	) => {
 		captureCliProductAnalyticsEvent({
@@ -220,16 +230,42 @@ async function runLogin(flags: {
 		return;
 	}
 
+	// Resolved once and threaded through both URL checks below, so a plaintext
+	// self-hosted deployment cannot pass one gate and fail the other.
+	const allowPlaintext = allowsPlaintext(flags.allowInsecureApiBase);
+
+	// Validate before any network call: this base receives the device code, the
+	// access token and the minted ingest API key (RUD-237).
+	const apiBaseResult = resolveApiBase(flags.apiBase, allowPlaintext);
+	if (!apiBaseResult.ok) {
+		const error = new Error(
+			`Refusing to use --api-base ${sanitizeForTerminalDisplay(flags.apiBase)}: ${describeApiBaseRejection(apiBaseResult)}`,
+		);
+		captureLoginFailure("api_base_rejected", error);
+		return error;
+	}
+	const apiBase = apiBaseResult.url;
+
 	let deviceCode: DeviceCodeResponse;
 	try {
-		deviceCode = await requestDeviceCode(flags.apiBase);
+		deviceCode = await requestDeviceCode(apiBase);
 	} catch (error) {
 		captureLoginFailure("device_code_request", error);
 		return error instanceof Error ? error : new Error(String(error));
 	}
-	const verifyUrl =
-		deviceCode.verification_uri_complete ??
-		`${deviceCode.verification_uri}?user_code=${encodeURIComponent(deviceCode.user_code)}`;
+	// The verification URL is server-controlled. Validate it before it reaches the
+	// terminal or a platform opener, and use the reserialized form so control
+	// characters stay percent-encoded (RUD-203).
+	const rawVerifyUrl = buildVerificationUrl(deviceCode);
+	const verifyUrlResult = parseSafeBrowserUrl(rawVerifyUrl, { allowPlaintext });
+	if (!verifyUrlResult.ok) {
+		const error = new Error(
+			`Refusing the verification URL returned by ${sanitizeForTerminalDisplay(apiBase)}: ${verifyUrlResult.detail}. Received: ${sanitizeForTerminalDisplay(rawVerifyUrl)}`,
+		);
+		captureLoginFailure("verification_url_rejected", error);
+		return error;
+	}
+	const verifyUrl = verifyUrlResult.url;
 
 	captureCliProductAnalyticsEvent({
 		distinctId: getCliDistinctId(),
@@ -245,7 +281,9 @@ async function runLogin(flags: {
 	});
 
 	p.log.info(`If the browser doesn't open, visit:\n${verifyUrl}`);
-	p.log.info(`User code: ${deviceCode.user_code}`);
+	// `user_code` is server-controlled and printed raw to the terminal, so it is
+	// an ANSI/OSC injection vector even though the URL beside it is safe.
+	p.log.info(`User code: ${sanitizeForTerminalDisplay(deviceCode.user_code)}`);
 
 	if (!flags.noBrowser) {
 		openUrl(verifyUrl);
@@ -256,7 +294,7 @@ async function runLogin(flags: {
 
 	let accessToken: string;
 	try {
-		accessToken = await pollForAccessToken(flags.apiBase, deviceCode);
+		accessToken = await pollForAccessToken(apiBase, deviceCode);
 	} catch (error) {
 		const failureReason = normalizeFailureReason(error);
 		captureLoginFailure(
@@ -270,9 +308,9 @@ async function runLogin(flags: {
 	}
 
 	spin.message("Creating ingest token...");
-	let ingestKey: ApiKeyCreateResponse;
+	let ingestKey: CliApiKeyCreateResponse;
 	try {
-		ingestKey = await createIngestApiKey(flags.apiBase, accessToken);
+		ingestKey = await createIngestApiKey(apiBase, accessToken);
 	} catch (error) {
 		captureLoginFailure("api_key_create", error);
 		spin.stop("Authentication failed");
@@ -280,7 +318,7 @@ async function runLogin(flags: {
 	}
 
 	const client = createApiClient({
-		apiBaseUrl: flags.apiBase,
+		apiBaseUrl: apiBase,
 		token: accessToken,
 		authType: "bearer",
 	});
@@ -307,7 +345,7 @@ async function runLogin(flags: {
 	try {
 		saveCredentials({
 			token: ingestKey.key,
-			apiBaseUrl: flags.apiBase,
+			apiBaseUrl: apiBase,
 			authType: "api-key",
 			apiKeyId: ingestKey.id,
 			user,
@@ -345,11 +383,11 @@ export const loginCommand = buildCommand({
 				brief: "API server base URL",
 				default: getDefaultApiBase(),
 			},
-			webUrl: {
-				kind: "parsed",
-				parse: String,
-				brief: "Web app URL for authentication",
-				default: getDefaultApiBase(),
+			allowInsecureApiBase: {
+				kind: "boolean",
+				brief:
+					"Allow a plaintext http:// API base on a non-loopback host (sends credentials unencrypted)",
+				default: false,
 			},
 			noBrowser: {
 				kind: "boolean",

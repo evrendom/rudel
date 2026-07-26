@@ -1,5 +1,6 @@
 import * as p from "@clack/prompts";
 import { buildCommand } from "@stricli/core";
+import { describeLogoutApiBaseRisk } from "../lib/api-base.js";
 import { createApiClient } from "../lib/api-client.js";
 import { clearCredentials, loadCredentials } from "../lib/credentials.js";
 
@@ -13,6 +14,12 @@ async function runLogout(flags: {
 	}
 
 	if (credentials.authType === "api-key" && !flags.localOnly) {
+		// Before createApiClient, which sends the key to the stored base.
+		const storedApiBaseRisk = describeLogoutApiBaseRisk(credentials.apiBaseUrl);
+		if (storedApiBaseRisk) {
+			p.log.warn(storedApiBaseRisk);
+		}
+
 		try {
 			const client = createApiClient(credentials);
 			await client.cli.revokeToken();
