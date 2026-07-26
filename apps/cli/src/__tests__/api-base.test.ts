@@ -4,6 +4,7 @@ import {
 	allowsInsecureApiBaseFromEnv,
 	allowsPlaintext,
 	describeApiBaseRejection,
+	describeLogoutApiBaseRisk,
 	describeStoredApiBaseRisk,
 	resolveApiBase,
 } from "../lib/api-base.js";
@@ -149,6 +150,31 @@ describe("describeApiBaseRejection", () => {
 		);
 
 		expect(message).not.toContain("--allow-insecure-api-base");
+	});
+});
+
+describe("describeLogoutApiBaseRisk", () => {
+	test("warns without telling the user to log out again", () => {
+		const warning = describeLogoutApiBaseRisk("http://internal.example");
+
+		expect(warning).toContain("plaintext");
+		expect(warning).not.toContain("rudel logout");
+		expect(warning).not.toContain("rudel login");
+	});
+
+	test("never steers the user toward --local-only", () => {
+		// Leaving a live key valid on the server is strictly worse than revoking it
+		// over the same plaintext connection the key already traversed.
+		expect(describeLogoutApiBaseRisk("http://internal.example")).not.toContain(
+			"--local-only",
+		);
+	});
+
+	test.each([
+		"https://app.rudel.ai",
+		"http://localhost:4010",
+	])("stays silent for %p", (storedApiBase) => {
+		expect(describeLogoutApiBaseRisk(storedApiBase)).toBeUndefined();
 	});
 });
 

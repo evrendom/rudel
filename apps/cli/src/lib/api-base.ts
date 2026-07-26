@@ -71,14 +71,15 @@ export function describeSavedCredentialsApiBaseRisk(): string | undefined {
 }
 
 /**
- * Warning for a credentials file written before the login-time check existed.
+ * Shared body of the stored-plaintext warning, with a caller-supplied
+ * remediation sentence. Returns undefined when the stored base is fine.
  *
  * Deliberately a warning rather than a refusal: someone who logged in over
- * plaintext http: should not be silently locked out of uploading by an upgrade.
- * Returns undefined when the stored base is fine.
+ * plaintext http: should not be silently locked out by an upgrade.
  */
-export function describeStoredApiBaseRisk(
+function describePlaintextStoredBase(
 	storedApiBase: string,
+	remediation: string,
 ): string | undefined {
 	// `allowPlaintext: false` so the risk is reported regardless of the opt-in;
 	// this describes what was already persisted, not what is being chosen now.
@@ -86,5 +87,31 @@ export function describeStoredApiBaseRisk(
 	if (result.ok || result.reason !== "plaintext_non_loopback") {
 		return undefined;
 	}
-	return `Saved credentials use a plaintext API base (${storedApiBase}). Uploads and your API key are sent unencrypted. Run \`rudel logout\` then \`rudel login\` against an https:// base to fix this.`;
+	return `Saved credentials use a plaintext API base (${storedApiBase}), so the stored API key crosses the network unencrypted. ${remediation}`;
+}
+
+/** Warning for commands that will keep using the stored base. */
+export function describeStoredApiBaseRisk(
+	storedApiBase: string,
+): string | undefined {
+	return describePlaintextStoredBase(
+		storedApiBase,
+		"Run `rudel logout` then `rudel login` against an https:// base to fix this.",
+	);
+}
+
+/**
+ * Warning for `logout`, where "log out and log back in" is nonsense advice.
+ *
+ * Deliberately does not mention `--local-only`: leaving a live key valid on the
+ * server is strictly worse than revoking it over the same plaintext connection
+ * the key has already traversed.
+ */
+export function describeLogoutApiBaseRisk(
+	storedApiBase: string,
+): string | undefined {
+	return describePlaintextStoredBase(
+		storedApiBase,
+		"Revoking it now reuses that plaintext connection, which is still better than leaving the key valid on the server.",
+	);
 }

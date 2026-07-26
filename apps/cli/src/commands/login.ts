@@ -1,5 +1,11 @@
 import * as p from "@clack/prompts";
 import {
+	type CliApiKeyCreateResponse,
+	CliApiKeyCreateResponseSchema,
+	type DeviceCodeResponse,
+	DeviceCodeResponseSchema,
+	DeviceFlowErrorResponseSchema,
+	DeviceTokenResponseSchema,
 	type ProductAnalyticsLoginFailureStage,
 	parseSafeBrowserUrl,
 	sanitizeForTerminalDisplay,
@@ -27,26 +33,21 @@ const PRODUCTION_APP_URL = "https://app.rudel.ai";
 const DEVICE_CLIENT_ID = "rudel-cli";
 const POLL_SAFETY_TIMEOUT_MS = 120_000;
 
-type DeviceCodeResponse = {
-	device_code: string;
-	user_code: string;
-	verification_uri: string;
-	verification_uri_complete?: string;
-	expires_in: number;
-	interval: number;
-};
+/**
+ * Human-readable failure drawn from an untrusted error payload.
+ *
+ * Server-supplied strings are sanitized because this message is printed to the
+ * terminal, exactly like `user_code` is.
+ */
+function describeDeviceFlowFailure(body: unknown, fallback: string): string {
+	const parsed = DeviceFlowErrorResponseSchema.safeParse(body);
+	if (!parsed.success) {
+		return fallback;
+	}
 
-type DeviceTokenResponse = {
-	access_token: string;
-	token_type: string;
-	expires_in: number;
-	scope: string;
-};
-
-type ApiKeyCreateResponse = {
-	id: string;
-	key: string;
-};
+	const supplied = parsed.data.error_description || parsed.data.message;
+	return supplied ? sanitizeForTerminalDisplay(supplied) : fallback;
+}
 
 export function getDefaultApiBase() {
 	return process.env.RUDEL_API_BASE ?? PRODUCTION_APP_URL;
@@ -99,20 +100,18 @@ async function requestDeviceCode(apiBase: string): Promise<DeviceCodeResponse> {
 		}),
 	});
 
-	const body = (await response.json().catch(() => null)) as
-		| DeviceCodeResponse
-		| { error_description?: string; message?: string }
-		| null;
-
-	if (!response.ok || !body || !("device_code" in body)) {
+	const body = await response.json().catch(() => null);
+	const parsed = DeviceCodeResponseSchema.safeParse(body);
+	if (!response.ok || !parsed.success) {
 		throw new Error(
-			(body && "error_description" in body && body.error_description) ||
-				(body && "message" in body && body.message) ||
+			describeDeviceFlowFailure(
+				body,
 				`Failed to start device authorization (${response.status})`,
+			),
 		);
 	}
 
-	return body;
+	return parsed.data;
 }
 
 async function pollForAccessToken(
@@ -135,25 +134,16 @@ async function pollForAccessToken(
 			}),
 		});
 
-		const body = (await response.json().catch(() => null)) as
-			| DeviceTokenResponse
-			| { error?: string; error_description?: string }
-			| null;
-
-		if (response.ok && body && "access_token" in body) {
-			return body.access_token;
+		const body = await response.json().catch(() => null);
+		const parsed = DeviceTokenResponseSchema.safeParse(body);
+		if (response.ok && parsed.success) {
+			return parsed.data.access_token;
 		}
 
-		const errorCode =
-			body && "error" in body && typeof body.error === "string"
-				? body.error
-				: "";
-		const errorDescription =
-			body &&
-			"error_description" in body &&
-			typeof body.error_description === "string"
-				? body.error_description
-				: "Device authorization failed";
+		const errorPayload = DeviceFlowErrorResponseSchema.safeParse(body);
+		const errorCode = errorPayload.success
+			? (errorPayload.data.error ?? "")
+			: "";
 
 		if (errorCode === "authorization_pending") {
 			await sleep(intervalMs);
@@ -166,7 +156,9 @@ async function pollForAccessToken(
 			continue;
 		}
 
-		throw new Error(errorDescription);
+		throw new Error(
+			describeDeviceFlowFailure(body, "Device authorization failed"),
+		);
 	}
 
 	throw new Error("Device authorization timed out");
@@ -175,7 +167,7 @@ async function pollForAccessToken(
 async function createIngestApiKey(
 	apiBase: string,
 	accessToken: string,
-): Promise<ApiKeyCreateResponse> {
+): Promise<CliApiKeyCreateResponse> {
 	const response = await fetch(`${apiBase}/api/auth/api-key/create`, {
 		method: "POST",
 		headers: {
@@ -188,20 +180,18 @@ async function createIngestApiKey(
 		}),
 	});
 
-	const body = (await response.json().catch(() => null)) as
-		| ApiKeyCreateResponse
-		| { error_description?: string; message?: string }
-		| null;
-
-	if (!response.ok || !body || !("key" in body) || !("id" in body)) {
+	const body = await response.json().catch(() => null);
+	const parsed = CliApiKeyCreateResponseSchema.safeParse(body);
+	if (!response.ok || !parsed.success) {
 		throw new Error(
-			(body && "error_description" in body && body.error_description) ||
-				(body && "message" in body && body.message) ||
+			describeDeviceFlowFailure(
+				body,
 				`Failed to create CLI API key (${response.status})`,
+			),
 		);
 	}
 
-	return body;
+	return parsed.data;
 }
 
 async function runLogin(flags: {
@@ -318,7 +308,7 @@ async function runLogin(flags: {
 	}
 
 	spin.message("Creating ingest token...");
-	let ingestKey: ApiKeyCreateResponse;
+	let ingestKey: CliApiKeyCreateResponse;
 	try {
 		ingestKey = await createIngestApiKey(apiBase, accessToken);
 	} catch (error) {
