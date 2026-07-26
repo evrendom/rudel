@@ -165,6 +165,11 @@ jobs:
             .tmp/cli-smoke/package/rudel-*.tgz
           node .tmp/cli-smoke/install/node_modules/rudel/dist/cli.js --help
 
+      - name: Verify explorer.exe opens the complete URL
+        if: runner.os == 'Windows'
+        shell: bash
+        run: bun test apps/cli/src/__tests__/browser-opener.windows.integration.ts
+
   cli-smoke-required:
     if: always()
     needs:
