@@ -2,6 +2,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import type { SafeUrlResult } from "@rudel/api-routes";
 import {
 	allowsInsecureApiBaseFromEnv,
+	allowsPlaintext,
 	describeApiBaseRejection,
 	describeStoredApiBaseRisk,
 	resolveApiBase,
@@ -38,25 +39,30 @@ describe("resolveApiBase", () => {
 	test("refuses plaintext to a non-loopback host by default", () => {
 		delete process.env[ENV_VAR];
 
-		expect(rejection(resolveApiBase("http://evil.example", false)).reason).toBe(
-			"plaintext_non_loopback",
-		);
+		expect(
+			rejection(resolveApiBase("http://evil.example", allowsPlaintext(false)))
+				.reason,
+		).toBe("plaintext_non_loopback");
 	});
 
 	test("allows plaintext when the flag is passed", () => {
 		delete process.env[ENV_VAR];
 
-		expect(acceptedUrl(resolveApiBase("http://internal.example", true))).toBe(
-			"http://internal.example",
-		);
+		expect(
+			acceptedUrl(
+				resolveApiBase("http://internal.example", allowsPlaintext(true)),
+			),
+		).toBe("http://internal.example");
 	});
 
 	test("allows plaintext when the env var is set", () => {
 		process.env[ENV_VAR] = "1";
 
-		expect(acceptedUrl(resolveApiBase("http://internal.example", false))).toBe(
-			"http://internal.example",
-		);
+		expect(
+			acceptedUrl(
+				resolveApiBase("http://internal.example", allowsPlaintext(false)),
+			),
+		).toBe("http://internal.example");
 	});
 
 	test.each([
@@ -65,24 +71,29 @@ describe("resolveApiBase", () => {
 	])("accepts %p with neither the flag nor the env var", (input) => {
 		delete process.env[ENV_VAR];
 
-		expect(acceptedUrl(resolveApiBase(input, false))).toBe(input);
+		expect(acceptedUrl(resolveApiBase(input, allowsPlaintext(false)))).toBe(
+			input,
+		);
 	});
 
 	test("normalizes away a trailing slash", () => {
 		delete process.env[ENV_VAR];
 
 		// Otherwise `${apiBase}/api/auth/device/code` gains a doubled slash.
-		expect(acceptedUrl(resolveApiBase("https://app.rudel.ai/", false))).toBe(
-			"https://app.rudel.ai",
-		);
+		expect(
+			acceptedUrl(
+				resolveApiBase("https://app.rudel.ai/", allowsPlaintext(false)),
+			),
+		).toBe("https://app.rudel.ai");
 	});
 
 	test("still refuses a non-http scheme when the override is set", () => {
 		process.env[ENV_VAR] = "1";
 
-		expect(rejection(resolveApiBase("file:///etc/passwd", true)).reason).toBe(
-			"disallowed_scheme",
-		);
+		expect(
+			rejection(resolveApiBase("file:///etc/passwd", allowsPlaintext(true)))
+				.reason,
+		).toBe("disallowed_scheme");
 	});
 });
 
@@ -122,7 +133,7 @@ describe("describeApiBaseRejection", () => {
 	test("offers the override only when overriding would help", () => {
 		delete process.env[ENV_VAR];
 		const message = describeApiBaseRejection(
-			rejection(resolveApiBase("http://evil.example", false)),
+			rejection(resolveApiBase("http://evil.example", allowsPlaintext(false))),
 		);
 
 		expect(message).toContain("--allow-insecure-api-base");
@@ -134,7 +145,7 @@ describe("describeApiBaseRejection", () => {
 	])("does not offer a useless override for %p", (input) => {
 		process.env[ENV_VAR] = "1";
 		const message = describeApiBaseRejection(
-			rejection(resolveApiBase(input, true)),
+			rejection(resolveApiBase(input, allowsPlaintext(true))),
 		);
 
 		expect(message).not.toContain("--allow-insecure-api-base");

@@ -5,7 +5,11 @@ import {
 	sanitizeForTerminalDisplay,
 } from "@rudel/api-routes";
 import { buildCommand } from "@stricli/core";
-import { describeApiBaseRejection, resolveApiBase } from "../lib/api-base.js";
+import {
+	allowsPlaintext,
+	describeApiBaseRejection,
+	resolveApiBase,
+} from "../lib/api-base.js";
 import { createApiClient } from "../lib/api-client.js";
 import { openUrl } from "../lib/browser-opener.js";
 import { loadCredentials, saveCredentials } from "../lib/credentials.js";
@@ -236,12 +240,13 @@ async function runLogin(flags: {
 		return;
 	}
 
+	// Resolved once and threaded through both URL checks below, so a plaintext
+	// self-hosted deployment cannot pass one gate and fail the other.
+	const allowPlaintext = allowsPlaintext(flags.allowInsecureApiBase);
+
 	// Validate before any network call: this base receives the device code, the
 	// access token and the minted ingest API key (RUD-237).
-	const apiBaseResult = resolveApiBase(
-		flags.apiBase,
-		flags.allowInsecureApiBase,
-	);
+	const apiBaseResult = resolveApiBase(flags.apiBase, allowPlaintext);
 	if (!apiBaseResult.ok) {
 		const error = new Error(
 			`Refusing to use --api-base ${sanitizeForTerminalDisplay(flags.apiBase)}: ${describeApiBaseRejection(apiBaseResult)}`,
@@ -262,7 +267,7 @@ async function runLogin(flags: {
 	// terminal or a platform opener, and use the reserialized form so control
 	// characters stay percent-encoded (RUD-203).
 	const rawVerifyUrl = buildVerificationUrl(deviceCode);
-	const verifyUrlResult = parseSafeBrowserUrl(rawVerifyUrl);
+	const verifyUrlResult = parseSafeBrowserUrl(rawVerifyUrl, { allowPlaintext });
 	if (!verifyUrlResult.ok) {
 		const error = new Error(
 			`Refusing the verification URL returned by ${sanitizeForTerminalDisplay(apiBase)}: ${verifyUrlResult.detail}. Received: ${sanitizeForTerminalDisplay(rawVerifyUrl)}`,
@@ -286,7 +291,9 @@ async function runLogin(flags: {
 	});
 
 	p.log.info(`If the browser doesn't open, visit:\n${verifyUrl}`);
-	p.log.info(`User code: ${deviceCode.user_code}`);
+	// `user_code` is server-controlled and printed raw to the terminal, so it is
+	// an ANSI/OSC injection vector even though the URL beside it is safe.
+	p.log.info(`User code: ${sanitizeForTerminalDisplay(deviceCode.user_code)}`);
 
 	if (!flags.noBrowser) {
 		openUrl(verifyUrl);

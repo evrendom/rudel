@@ -43,14 +43,18 @@ describe("parseSafeBrowserUrl: rejects unsafe input", () => {
 		["https://app.rudel.ai@evil.example/device", "embedded_credentials"],
 		["https://user:pass@app.rudel.ai/device", "embedded_credentials"],
 	] as const)("rejects %p as %p", (input, expected) => {
-		expect(rejectionReason(parseSafeBrowserUrl(input))).toBe(expected);
+		expect(
+			rejectionReason(parseSafeBrowserUrl(input, { allowPlaintext: false })),
+		).toBe(expected);
 	});
 });
 
 describe("parseSafeBrowserUrl: accepts legitimate input", () => {
 	test("accepts the production verification URL unchanged", () => {
 		const input = "https://app.rudel.ai/device?user_code=ABCD1234";
-		expect(acceptedUrl(parseSafeBrowserUrl(input))).toBe(input);
+		expect(
+			acceptedUrl(parseSafeBrowserUrl(input, { allowPlaintext: false })),
+		).toBe(input);
 	});
 
 	test.each([
@@ -59,20 +63,26 @@ describe("parseSafeBrowserUrl: accepts legitimate input", () => {
 		"http://127.0.0.1:4011/device?user_code=X",
 		"http://[::1]:4010/device?user_code=X",
 	])("accepts loopback plaintext %p", (input) => {
-		expect(acceptedUrl(parseSafeBrowserUrl(input))).toBe(input);
+		expect(
+			acceptedUrl(parseSafeBrowserUrl(input, { allowPlaintext: false })),
+		).toBe(input);
 	});
 
 	test("accepts a multi-parameter URL unchanged", () => {
 		// Guards against a future `&` blocklist breaking valid URLs. A metacharacter
 		// blocklist cannot reject `&`, because it is the query separator.
 		const input = "https://app.rudel.ai/device?a=1&b=2&user_code=X";
-		expect(acceptedUrl(parseSafeBrowserUrl(input))).toBe(input);
+		expect(
+			acceptedUrl(parseSafeBrowserUrl(input, { allowPlaintext: false })),
+		).toBe(input);
 	});
 
 	test("percent-encodes an ANSI escape instead of passing it through", () => {
 		// The URL is printed to the terminal, so an unescaped ESC could repaint it.
 		const input = `https://app.rudel.ai/device?user_code=${ESCAPE}]0;pwned${BELL}`;
-		const accepted = acceptedUrl(parseSafeBrowserUrl(input));
+		const accepted = acceptedUrl(
+			parseSafeBrowserUrl(input, { allowPlaintext: false }),
+		);
 
 		expect(accepted).toContain("%1B");
 		expect(accepted).not.toContain(ESCAPE);
@@ -88,7 +98,9 @@ describe("parseSafeBrowserUrl: documents what validation does NOT fix", () => {
 		// If this test ever starts failing, the shell-free opener is what protects
 		// Windows; do not "fix" it by blocklisting `&`.
 		const input = "https://app.rudel.ai/device?user_code=ABCD1234&calc";
-		expect(acceptedUrl(parseSafeBrowserUrl(input))).toBe(input);
+		expect(
+			acceptedUrl(parseSafeBrowserUrl(input, { allowPlaintext: false })),
+		).toBe(input);
 	});
 
 	test.each([
@@ -99,11 +111,56 @@ describe("parseSafeBrowserUrl: documents what validation does NOT fix", () => {
 		"!",
 	])("preserves %p through reserialization", (character) => {
 		const input = `https://app.rudel.ai/device?user_code=X${character}y`;
-		expect(acceptedUrl(parseSafeBrowserUrl(input))).toContain(character);
+		expect(
+			acceptedUrl(parseSafeBrowserUrl(input, { allowPlaintext: false })),
+		).toContain(character);
+	});
+});
+
+describe("parseSafeBrowserUrl: plaintext opt-in", () => {
+	test("accepts a plaintext non-loopback URL when the operator opted in", () => {
+		// A self-hosted plaintext deployment serves its verification frontend over
+		// http: too, so this must agree with the API-base decision or the opt-in is
+		// useless — which it was, until this was fixed.
+		const input = "http://rudel.internal/device?user_code=X";
+
+		expect(
+			acceptedUrl(parseSafeBrowserUrl(input, { allowPlaintext: true })),
+		).toBe(input);
+	});
+
+	test("still refuses a non-http scheme when the operator opted in", () => {
+		expect(
+			rejectionReason(
+				parseSafeBrowserUrl("javascript:alert(1)//", { allowPlaintext: true }),
+			),
+		).toBe("disallowed_scheme");
+	});
+
+	test("still refuses embedded credentials when the operator opted in", () => {
+		expect(
+			rejectionReason(
+				parseSafeBrowserUrl("http://app.rudel.ai@evil.example/device", {
+					allowPlaintext: true,
+				}),
+			),
+		).toBe("embedded_credentials");
 	});
 });
 
 describe("parseSafeApiBase", () => {
+	test.each([
+		"https://app.rudel.ai?tenant=acme",
+		"https://app.rudel.ai/prefix?a=1",
+		"https://app.rudel.ai#frag",
+	])("rejects %p, which would corrupt the appended route", (input) => {
+		// `${base}/api/auth/device/code` on `https://host/?a=1` yields
+		// `https://host/?a=1/api/auth/device/code` — a silently wrong endpoint.
+		expect(
+			rejectionReason(parseSafeApiBase(input, { allowPlaintext: false })),
+		).toBe("unexpected_query_or_fragment");
+	});
+
 	test("rejects plaintext non-loopback by default", () => {
 		expect(
 			rejectionReason(

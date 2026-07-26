@@ -1,8 +1,15 @@
 import * as p from "@clack/prompts";
 import { buildCommand } from "@stricli/core";
+import { describeSavedCredentialsApiBaseRisk } from "../lib/api-base.js";
 import { verifyAuth } from "../lib/auth.js";
 
 async function runWhoami(): Promise<undefined | Error> {
+	// Before verifyAuth, which sends the stored token to the stored base.
+	const storedApiBaseRisk = describeSavedCredentialsApiBaseRisk();
+	if (storedApiBaseRisk) {
+		p.log.warn(storedApiBaseRisk);
+	}
+
 	const result = await verifyAuth();
 	if (!result.authenticated) {
 		if (result.reason === "no_credentials") {

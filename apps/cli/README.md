@@ -35,10 +35,12 @@ Flags:
 | Flag | Description |
 |---|---|
 | `--api-base <url>` | API server to authenticate against. Defaults to `RUDEL_API_BASE`, else `https://app.rudel.ai`. Must be `https://`, or `http://` on a loopback host. |
-| `--allow-insecure-api-base` | Permit a plaintext `http://` API base on a non-loopback host. Your access token and ingest API key are then sent unencrypted, so only use this for a trusted network. Also settable as `RUDEL_ALLOW_INSECURE_API_BASE=1`. |
+| `--allow-insecure-api-base` | Permit plaintext `http://` on a non-loopback host, for **both** the API base and the browser verification URL it returns. Your access token and ingest API key are then sent unencrypted, so only use this on a trusted network. Also settable as `RUDEL_ALLOW_INSECURE_API_BASE=1`. |
 | `--no-browser` | Print the verification URL instead of opening a browser. |
 
-Self-hosting over plain HTTP therefore needs `--allow-insecure-api-base`; serving your deployment over HTTPS is strongly preferred.
+The API base must not carry a query string or fragment — `https://host?tenant=acme` is rejected, because the CLI appends paths such as `/api/auth/device/code` to it.
+
+Self-hosting over plain HTTP therefore needs `--allow-insecure-api-base` on every `rudel login`. The server also logs a warning at startup when its own verification origin is plaintext. Serving your deployment over HTTPS is strongly preferred; plaintext exposes the login token, the ingest API key, and every uploaded transcript to anyone on the network path.
 
 ### `rudel enable`
 

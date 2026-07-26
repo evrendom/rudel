@@ -39,6 +39,7 @@ export type SafeUrlRejectionReason =
 	| "disallowed_scheme"
 	| "plaintext_non_loopback"
 	| "embedded_credentials"
+	| "unexpected_query_or_fragment"
 	| "control_characters";
 
 export type SafeUrlResult =
@@ -140,23 +141,36 @@ function validateCommon(input: string): SafeUrlResult {
 	return { ok: true, url: serialized };
 }
 
+/** True when `parsed` is plaintext http: to a host that leaves the machine. */
+function isPlaintextNonLoopback(parsed: URL): boolean {
+	return parsed.protocol === "http:" && !isLoopbackHostname(parsed.hostname);
+}
+
 /**
  * Validate a URL that will be opened in the user's browser and printed to the
- * terminal. Requires https:, except on loopback hosts where local development
- * legitimately serves plaintext http:.
+ * terminal. Requires https:, except on loopback hosts, or when `allowPlaintext`
+ * records that the operator has explicitly accepted a plaintext deployment.
+ *
+ * `allowPlaintext` must be threaded from the same opt-in that governs the API
+ * base: a self-hosted plaintext deployment serves its verification frontend over
+ * http: too, so refusing it here while accepting the API base would make the
+ * opt-in useless (it did, until this was fixed).
  *
  * Returns the reserialized URL — callers MUST use the returned value rather
  * than their original input, otherwise the percent-encoding of control
  * characters, `<`, `>` and spaces is discarded.
  */
-export function parseSafeBrowserUrl(input: string): SafeUrlResult {
+export function parseSafeBrowserUrl(
+	input: string,
+	options: { allowPlaintext: boolean },
+): SafeUrlResult {
 	const result = validateCommon(input);
 	if (!result.ok) {
 		return result;
 	}
 
 	const parsed = new URL(result.url);
-	if (parsed.protocol === "http:" && !isLoopbackHostname(parsed.hostname)) {
+	if (isPlaintextNonLoopback(parsed) && !options.allowPlaintext) {
 		return {
 			ok: false,
 			reason: "plaintext_non_loopback",
@@ -187,15 +201,22 @@ export function parseSafeApiBase(
 	}
 
 	const parsed = new URL(result.url);
-	if (
-		parsed.protocol === "http:" &&
-		!isLoopbackHostname(parsed.hostname) &&
-		!options.allowPlaintext
-	) {
+	if (isPlaintextNonLoopback(parsed) && !options.allowPlaintext) {
 		return {
 			ok: false,
 			reason: "plaintext_non_loopback",
 			detail: `refusing to send credentials over plaintext http: to "${parsed.hostname}"`,
+		};
+	}
+
+	// Callers template `${base}/api/...` onto this, which a query string or
+	// fragment silently swallows: `https://host?a=1` would yield
+	// `https://host/?a=1/api/auth/device/code`. Reject rather than guess.
+	if (parsed.search !== "" || parsed.hash !== "") {
+		return {
+			ok: false,
+			reason: "unexpected_query_or_fragment",
+			detail: "API base must not contain a query string or fragment",
 		};
 	}
 
