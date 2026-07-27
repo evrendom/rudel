@@ -24,6 +24,7 @@ interface GeneratedRule {
 	readonly caseInsensitive: boolean;
 	readonly secretGroup: number;
 	readonly allowlistRegexSources: readonly string[];
+	readonly hasRegexOverride: boolean;
 }
 
 async function main(): Promise<void> {
@@ -89,7 +90,9 @@ function buildGeneratedRule(
 		throw new Error(`Vendored Gitleaks rule is missing: ${selection.sourceId}`);
 	}
 
-	const normalized = normalizeRegex(sourceRule.regex);
+	const normalized = normalizeRegex(
+		selection.regexOverride ?? sourceRule.regex,
+	);
 	const allowlistRegexSources = sourceRule.allowlists.flatMap((allowlist) =>
 		allowlist.regexes.map((regex) => normalizeRegex(regex).source),
 	);
@@ -101,6 +104,7 @@ function buildGeneratedRule(
 		caseInsensitive: normalized.caseInsensitive,
 		secretGroup: selection.secretGroup,
 		allowlistRegexSources,
+		hasRegexOverride: selection.regexOverride !== undefined,
 	};
 }
 
@@ -208,7 +212,9 @@ function rejectUnsupportedModifiers(regex: string): void {
 function renderModule(rules: readonly GeneratedRule[]): string {
 	const entries = rules
 		.map(
-			(rule) => `\t{
+			(
+				rule,
+			) => `${rule.hasRegexOverride ? "\t// Local regex override applied from scripts/ruleset-config.ts.\n" : ""}\t{
 \t\tid: ${JSON.stringify(rule.id)},
 \t\tsourceId: ${JSON.stringify(rule.sourceId)},
 \t\tregexSource: ${JSON.stringify(rule.regexSource)},

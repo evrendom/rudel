@@ -4,7 +4,11 @@ import { GENERATED_SECRET_RULES } from "../generated-rules.js";
 import {
 	filterKnownSecrets,
 	filterSessionTextFields,
+	getRedactionBudgetAnomaly,
 	getRedactionCount,
+	getUtf8ByteLength,
+	MAX_REDACTION_SPAN_BYTES,
+	OVERLONG_REDACTION_RULE_ID,
 } from "../index.js";
 import type { SecretRule } from "../types.js";
 
@@ -155,6 +159,7 @@ describe("filterKnownSecrets", () => {
 			expect(result.text.includes(positiveCase.secret)).toBe(false);
 			expect(result.text).toContain(`[REDACTED:${positiveCase.ruleId}]`);
 			expect(result.counts).toEqual({ [positiveCase.ruleId]: 1 });
+			expect(result.redactedBytes).toBe(getUtf8ByteLength(positiveCase.secret));
 		});
 	}
 
@@ -172,7 +177,11 @@ describe("filterKnownSecrets", () => {
 
 	test("preserves UUIDs byte-identically", () => {
 		const input = "550e8400-e29b-41d4-a716-446655440000";
-		expect(filterKnownSecrets(input)).toEqual({ text: input, counts: {} });
+		expect(filterKnownSecrets(input)).toEqual({
+			text: input,
+			counts: {},
+			redactedBytes: 0,
+		});
 	});
 
 	test("preserves git SHAs and content hashes byte-identically", () => {
@@ -180,22 +189,38 @@ describe("filterKnownSecrets", () => {
 			"0123456789abcdef0123456789abcdef01234567",
 			"0123456789abcdef".repeat(4),
 		].join("\n");
-		expect(filterKnownSecrets(input)).toEqual({ text: input, counts: {} });
+		expect(filterKnownSecrets(input)).toEqual({
+			text: input,
+			counts: {},
+			redactedBytes: 0,
+		});
 	});
 
 	test("preserves base64 assets byte-identically", () => {
 		const input = `data:image/png;base64,${"aGVsbG8td29ybGQ=".repeat(64)}`;
-		expect(filterKnownSecrets(input)).toEqual({ text: input, counts: {} });
+		expect(filterKnownSecrets(input)).toEqual({
+			text: input,
+			counts: {},
+			redactedBytes: 0,
+		});
 	});
 
 	test("preserves minified JavaScript byte-identically", () => {
 		const input = `(()=>{const e="0123456789abcdef",t={a:1,b:2};return\`\${e}:\${JSON.stringify(t)}\`})();`;
-		expect(filterKnownSecrets(input)).toEqual({ text: input, counts: {} });
+		expect(filterKnownSecrets(input)).toEqual({
+			text: input,
+			counts: {},
+			redactedBytes: 0,
+		});
 	});
 
 	test("preserves the SendGrid rule's case-sensitive prefix", () => {
 		const input = `sg.${"a".repeat(66)}`;
-		expect(filterKnownSecrets(input)).toEqual({ text: input, counts: {} });
+		expect(filterKnownSecrets(input)).toEqual({
+			text: input,
+			counts: {},
+			redactedBytes: 0,
+		});
 	});
 
 	test("preserves text after a scoped case-insensitive match", () => {
@@ -211,6 +236,103 @@ describe("filterKnownSecrets", () => {
 			'{"key":"[REDACTED:aws-access-key-id]","next":true}',
 		);
 	});
+
+	test("preserves the 390-byte PEM prose repro byte-identically", () => {
+		const falseMention = [
+			"my cert tool prints -----BEGIN PRIVATE KEY----- as a header",
+			"then emits ordinary prose, punctuation, and a code block:",
+			"```ts",
+			'console.log("this is documentation, not key material");',
+			"```",
+			"and the footer is -----END PRIVATE KEY-----, right?",
+		]
+			.join("\n")
+			.padEnd(390, "x");
+		const genuineKey = [
+			"-----BEGIN PRIVATE KEY-----",
+			"CANARY".padEnd(128, "A"),
+			"-----END PRIVATE KEY-----",
+		].join("\n");
+		const input = `${falseMention}\n\nActual fixture:\n${genuineKey}`;
+		const result = filterKnownSecrets(input);
+
+		expect(getUtf8ByteLength(falseMention)).toBe(390);
+		expect(result.text).toBe(
+			`${falseMention}\n\nActual fixture:\n[REDACTED:private-key]`,
+		);
+		expect(result.counts).toEqual({ "private-key": 1 });
+		expect(result.redactedBytes).toBe(getUtf8ByteLength(genuineKey));
+	});
+});
+
+test("caps an overlong span and resumes scanning at the truncation boundary", () => {
+	const rule: SecretRule = {
+		id: "synthetic-overlong",
+		sourceId: "synthetic-overlong",
+		regexSource: "(?:RUN|SECRET)([A-Z]+)",
+		caseInsensitive: false,
+		secretGroup: 1,
+		allowlistRegexSources: [],
+	};
+	const preservedTail = "A".repeat(9000 - MAX_REDACTION_SPAN_BYTES);
+	const result = applyCompiledSecretRule(
+		`RUN${"A".repeat(9000)}SECRETTAIL`,
+		compileSecretRule(rule),
+	);
+
+	expect(result.text).toBe(
+		`RUN[REDACTED:synthetic-overlong]${preservedTail}SECRET[REDACTED:synthetic-overlong]`,
+	);
+	expect(result.counts).toEqual({
+		[OVERLONG_REDACTION_RULE_ID]: 1,
+		"synthetic-overlong": 2,
+	});
+	expect(result.redactedBytes).toBe(MAX_REDACTION_SPAN_BYTES + 4);
+});
+
+test("flags only redaction totals above the aggregate 20 percent budget", () => {
+	const counts = { "private-key": 1 };
+
+	expect(getRedactionBudgetAnomaly(20, 100, counts)).toBeNull();
+	expect(getRedactionBudgetAnomaly(21, 100, counts)).toEqual({
+		inputBytes: 100,
+		redactedBytes: 21,
+		ruleIds: ["private-key"],
+	});
+});
+
+test("engine-bounds worst-case generated rule redactions", () => {
+	const worstCases = new Map(
+		POSITIVE_CASES.map((positiveCase) => [
+			positiveCase.ruleId,
+			positiveCase.input,
+		]),
+	);
+	worstCases.set(
+		"private-key",
+		[
+			"-----BEGIN PRIVATE KEY-----",
+			"A".repeat(6900),
+			"-----END PRIVATE KEY-----",
+		].join("\n"),
+	);
+	worstCases.set(
+		"slack-bot-token",
+		`xoxb-1234567890-1234567890-${"A".repeat(MAX_REDACTION_SPAN_BYTES * 2)}`,
+	);
+
+	expect([...worstCases.keys()].sort()).toEqual(
+		GENERATED_SECRET_RULES.map((rule) => rule.id).sort(),
+	);
+	for (const rule of GENERATED_SECRET_RULES) {
+		const input = worstCases.get(rule.id);
+		expect(input).toBeDefined();
+		const result = applyCompiledSecretRule(
+			input ?? "",
+			compileSecretRule(rule),
+		);
+		expect(result.redactedBytes).toBeLessThanOrEqual(MAX_REDACTION_SPAN_BYTES);
+	}
 });
 
 describe("filterSessionTextFields", () => {
@@ -236,5 +358,8 @@ describe("filterSessionTextFields", () => {
 			"aws-access-key-id": 1,
 			"openai-api-key": 1,
 		});
+		expect(result.redactedBytes).toBe(
+			getUtf8ByteLength(OPENAI_CANARY) + getUtf8ByteLength(AWS_CANARY),
+		);
 	});
 });

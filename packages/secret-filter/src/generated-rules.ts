@@ -114,11 +114,12 @@ export const GENERATED_SECRET_RULES: readonly SecretRule[] = [
 		secretGroup: 1,
 		allowlistRegexSources: [],
 	},
+	// Local regex override applied from scripts/ruleset-config.ts.
 	{
 		id: "private-key",
 		sourceId: "private-key",
 		regexSource:
-			"-----BEGIN[ A-Z0-9_-]{0,100}PRIVATE KEY(?: BLOCK)?-----[\\s\\S-]{64,}?KEY(?: BLOCK)?-----",
+			"-----BEGIN[ A-Z0-9_-]{0,100}PRIVATE KEY(?: BLOCK)?-----[A-Za-z0-9+/=\\s-]{64,7000}?KEY(?: BLOCK)?-----",
 		caseInsensitive: true,
 		secretGroup: 0,
 		allowlistRegexSources: [],

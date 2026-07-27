@@ -199,8 +199,12 @@ export const IngestSessionOutputSchema = z.object({
 	success: z.literal(true),
 	sessionId: z.string(),
 	redacted: z.record(z.string(), z.number().int().nonnegative()).default({}),
+	redactedBytes: z.number().int().nonnegative().optional(),
 });
 
+export const REDACTION_BUDGET_EXCEEDED_CODE = "REDACTION_BUDGET_EXCEEDED";
+export const REDACTION_BUDGET_EXCEEDED_MESSAGE =
+	"Known-pattern redaction exceeded the transcript safety budget.";
 export const SESSION_OWNERSHIP_CONFLICT_CODE = "SESSION_OWNERSHIP_CONFLICT";
 export const SESSION_OWNERSHIP_CONFLICT_MESSAGE =
 	"This session belongs to another organization member and cannot be replaced.";
@@ -240,6 +244,15 @@ export const contract = {
 		.input(IngestSessionInputSchema)
 		.output(IngestSessionOutputSchema)
 		.errors({
+			[REDACTION_BUDGET_EXCEEDED_CODE]: {
+				status: 422,
+				message: REDACTION_BUDGET_EXCEEDED_MESSAGE,
+				data: z.object({
+					inputBytes: z.number().int().nonnegative(),
+					redactedBytes: z.number().int().nonnegative(),
+					ruleIds: z.array(z.string()),
+				}),
+			},
 			[SESSION_OWNERSHIP_CONFLICT_CODE]: {
 				status: 409,
 				message: SESSION_OWNERSHIP_CONFLICT_MESSAGE,

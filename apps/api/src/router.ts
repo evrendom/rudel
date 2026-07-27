@@ -5,9 +5,14 @@ import {
 	INGEST_AGGREGATE_CONTENT_MAX_BYTES,
 	type IngestSessionInput,
 	PRODUCT_ANALYTICS_EVENTS,
+	REDACTION_BUDGET_EXCEEDED_CODE,
 	SESSION_OWNERSHIP_CONFLICT_CODE,
 } from "@rudel/api-routes";
-import { FILTER_VERSION, filterSessionTextFields } from "@rudel/secret-filter";
+import {
+	FILTER_VERSION,
+	filterSessionTextFields,
+	getRedactionBudgetAnomaly,
+} from "@rudel/secret-filter";
 import { getClickhouse } from "./clickhouse.js";
 import { sqlClient } from "./db.js";
 import { adminRouter } from "./handlers/admin/index.js";
@@ -173,6 +178,19 @@ const ingestSessionHandler = os.ingestSession
 			content: input.content,
 			subagents: input.subagents,
 		});
+		const redactionBudgetAnomaly = getRedactionBudgetAnomaly(
+			filteredText.redactedBytes,
+			aggregateBytes,
+			filteredText.counts,
+		);
+		if (redactionBudgetAnomaly) {
+			throw errors[REDACTION_BUDGET_EXCEEDED_CODE]({
+				data: {
+					...redactionBudgetAnomaly,
+					ruleIds: [...redactionBudgetAnomaly.ruleIds],
+				},
+			});
+		}
 		const filteredInput: IngestSessionInput = {
 			...input,
 			content: filteredText.content,
@@ -232,6 +250,7 @@ const ingestSessionHandler = os.ingestSession
 			success: true as const,
 			sessionId: input.sessionId,
 			redacted: filteredText.counts,
+			redactedBytes: filteredText.redactedBytes,
 		};
 
 		// This is a best-effort cost optimization, not a cross-instance

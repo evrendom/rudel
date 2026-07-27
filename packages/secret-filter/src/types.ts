@@ -12,6 +12,7 @@ export interface SecretRule {
 export interface SecretFilterResult {
 	readonly text: string;
 	readonly counts: RedactionCounts;
+	readonly redactedBytes: number;
 }
 
 export interface FilterableSubagent {
@@ -24,4 +25,11 @@ export interface SessionTextFilterResult<TSubagent extends FilterableSubagent> {
 		| ReadonlyArray<TSubagent & { content: string }>
 		| undefined;
 	readonly counts: RedactionCounts;
+	readonly redactedBytes: number;
+}
+
+export interface RedactionBudgetAnomaly {
+	readonly inputBytes: number;
+	readonly redactedBytes: number;
+	readonly ruleIds: readonly string[];
 }

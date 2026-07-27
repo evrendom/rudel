@@ -283,7 +283,10 @@ async function runSingleUpload(
 
 	if (result.success) {
 		write("Upload successful!");
-		const redactionSummary = formatRedactionSummary(result.redacted);
+		const redactionSummary = formatRedactionSummary(
+			result.redacted,
+			result.redactedBytes,
+		);
 		if (redactionSummary) {
 			write(redactionSummary);
 		}

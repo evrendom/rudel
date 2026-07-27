@@ -169,18 +169,47 @@ describe("uploadSession aggregate size guard", () => {
 describe("formatRedactionSummary", () => {
 	test("summarizes counts without including matched values", () => {
 		expect(
-			formatRedactionSummary({
-				"aws-access-key-id": 1,
-				"openai-api-key": 2,
-			}),
+			formatRedactionSummary(
+				{
+					"aws-access-key-id": 1,
+					"openai-api-key": 2,
+				},
+				2048,
+			),
 		).toBe(
-			"3 values matching known secret patterns were redacted (aws-access-key-id ×1, openai-api-key ×2).",
+			"3 values matching known secret patterns were redacted (aws-access-key-id ×1, openai-api-key ×2, 2.0 KB).",
 		);
 	});
 
 	test("omits a summary when nothing was redacted", () => {
-		expect(formatRedactionSummary({})).toBeNull();
-		expect(formatRedactionSummary(undefined)).toBeNull();
+		expect(formatRedactionSummary({}, 0)).toBeNull();
+		expect(formatRedactionSummary(undefined, undefined)).toBeNull();
+	});
+});
+
+describe("uploadSession redaction safety budget", () => {
+	test("aborts before transport when redaction exceeds 20 percent", async () => {
+		const result = await uploadSession(
+			{
+				source: "claude_code",
+				sessionId: "redaction-budget-test",
+				projectPath: "/test/project",
+				content: "AKIACANARY234567ABCD",
+			},
+			{
+				endpoint: "http://127.0.0.1:1/rpc",
+				allowInsecureEndpoint: false,
+				token: "unused",
+			},
+		);
+
+		expect(result).toEqual({
+			success: false,
+			error:
+				"Redaction safety check stopped upload: known-pattern redaction would replace 20 B of 20 B (100.0%), above the 20% transcript budget (aws-access-key-id). The unfiltered transcript was not uploaded.",
+			attempts: 0,
+			redactionBudgetExceeded: true,
+		});
 	});
 });
 

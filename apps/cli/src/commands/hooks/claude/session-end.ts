@@ -80,7 +80,10 @@ async function runSessionEnd(): Promise<undefined | Error> {
 				"Upload successful for session {sessionId} (attempts: {attempts})",
 				{ sessionId: input.session_id, attempts: result.attempts },
 			);
-			const redactionSummary = formatRedactionSummary(result.redacted);
+			const redactionSummary = formatRedactionSummary(
+				result.redacted,
+				result.redactedBytes,
+			);
 			if (redactionSummary) {
 				logger.info("{redactionSummary}", { redactionSummary });
 			}

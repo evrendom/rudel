@@ -38,6 +38,7 @@ export interface BatchUploadSummary {
 	total: number;
 	errors: Array<{ label: string; error: string }>;
 	redacted: RedactionCounts;
+	redactedBytes: number;
 }
 
 export async function batchUpload<T extends BatchUploadItem>(
@@ -52,6 +53,7 @@ export async function batchUpload<T extends BatchUploadItem>(
 	let rateLimited = false;
 	const errors: Array<{ label: string; error: string }> = [];
 	let redacted: RedactionCounts = {};
+	let redactedBytes = 0;
 
 	await pMap(
 		items,
@@ -86,6 +88,7 @@ export async function batchUpload<T extends BatchUploadItem>(
 				if (result.success) {
 					succeeded++;
 					redacted = mergeRedactionCounts(redacted, result.redacted ?? {});
+					redactedBytes += result.redactedBytes ?? 0;
 					await removeFailedUpload(item.sessionId);
 				} else {
 					failed++;
@@ -131,5 +134,5 @@ export async function batchUpload<T extends BatchUploadItem>(
 		failed += skipped;
 	}
 
-	return { succeeded, failed, total, errors, redacted };
+	return { succeeded, failed, total, errors, redacted, redactedBytes };
 }

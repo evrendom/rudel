@@ -26,6 +26,8 @@ export interface UploadResult {
 	attempts?: number;
 	rateLimited?: boolean;
 	redacted?: RedactionCounts;
+	redactedBytes?: number;
+	redactionBudgetExceeded?: boolean;
 	endpointRejected?: boolean;
 }
 

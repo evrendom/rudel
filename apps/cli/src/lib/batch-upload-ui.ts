@@ -62,7 +62,10 @@ export function renderBatchSummary(
 	if (summary.succeeded > 0) {
 		lines.push(`${prefix}${summary.succeeded} session(s) uploaded`);
 	}
-	const redactionSummary = formatRedactionSummary(summary.redacted);
+	const redactionSummary = formatRedactionSummary(
+		summary.redacted,
+		summary.redactedBytes,
+	);
 	if (redactionSummary) {
 		lines.push(`${prefix}${redactionSummary}`);
 	}

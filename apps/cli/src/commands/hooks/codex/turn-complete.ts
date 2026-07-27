@@ -76,7 +76,10 @@ async function runTurnComplete(): Promise<undefined | Error> {
 		});
 
 		if (result.success) {
-			const redactionSummary = formatRedactionSummary(result.redacted);
+			const redactionSummary = formatRedactionSummary(
+				result.redacted,
+				result.redactedBytes,
+			);
 			if (redactionSummary) {
 				logger.info("{redactionSummary}", { redactionSummary });
 			}

@@ -7,13 +7,16 @@ import {
 	INGEST_LIMIT_REASONS,
 	type IngestSessionInput,
 	parseSafeApiEndpoint,
+	REDACTION_BUDGET_EXCEEDED_CODE,
 	SESSION_OWNERSHIP_CONFLICT_CODE,
 } from "@rudel/api-routes";
 import {
 	FILTER_VERSION,
 	filterSessionTextFields,
+	getRedactionBudgetAnomaly,
 	getRedactionCount,
 	mergeRedactionCounts,
+	type RedactionBudgetAnomaly,
 	type RedactionCounts,
 } from "@rudel/secret-filter";
 import type { UploadResult } from "./types.js";
@@ -122,6 +125,15 @@ export function formatUploadError(error: unknown): string {
 	) {
 		return "This session ID is already owned by another organization member. Upload it from the original member account or use a different session ID.";
 	}
+	if (
+		error instanceof ORPCError &&
+		error.code === REDACTION_BUDGET_EXCEEDED_CODE
+	) {
+		const data = getRedactionBudgetErrorData(error);
+		return data
+			? formatRedactionBudgetError(data)
+			: "Redaction safety check stopped upload because known-pattern redaction exceeded the 20% transcript budget. The unfiltered transcript was not uploaded.";
+	}
 	if (isPayloadTooLarge(error)) {
 		const data = getErrorData(error);
 		if (data.reason === INGEST_LIMIT_REASONS.transcriptTooLarge) {
@@ -183,6 +195,24 @@ function getErrorData(error: ORPCError<string, unknown>): ErrorData {
 	};
 }
 
+function getRedactionBudgetErrorData(
+	error: ORPCError<string, unknown>,
+): RedactionBudgetAnomaly | null {
+	const data = isRecord(error.data) ? error.data : null;
+	const inputBytes = getNumberField(data, "inputBytes");
+	const redactedBytes = getNumberField(data, "redactedBytes");
+	const ruleIdsValue = data?.ruleIds;
+	if (
+		inputBytes === null ||
+		redactedBytes === null ||
+		!Array.isArray(ruleIdsValue) ||
+		!ruleIdsValue.every((ruleId) => typeof ruleId === "string")
+	) {
+		return null;
+	}
+	return { inputBytes, redactedBytes, ruleIds: ruleIdsValue };
+}
+
 function getStringField(record: Record<string, unknown> | null, key: string) {
 	const value = record?.[key];
 	return typeof value === "string" && value.length > 0 ? value : null;
@@ -221,10 +251,24 @@ export async function uploadSession(
 	request: IngestSessionInput,
 	config: UploadConfig,
 ): Promise<UploadResult> {
+	const inputBytes = getUploadAggregateBytes(request);
 	const filteredText = filterSessionTextFields({
 		content: request.content,
 		subagents: request.subagents,
 	});
+	const redactionBudgetAnomaly = getRedactionBudgetAnomaly(
+		filteredText.redactedBytes,
+		inputBytes,
+		filteredText.counts,
+	);
+	if (redactionBudgetAnomaly) {
+		return {
+			success: false,
+			error: formatRedactionBudgetError(redactionBudgetAnomaly),
+			attempts: 0,
+			redactionBudgetExceeded: true,
+		};
+	}
 	const filteredRequest: IngestSessionInput = {
 		...request,
 		content: filteredText.content,
@@ -275,6 +319,8 @@ export async function uploadSession(
 					filteredText.counts,
 					response.redacted ?? {},
 				),
+				redactedBytes:
+					filteredText.redactedBytes + (response.redactedBytes ?? 0),
 			};
 		} catch (error) {
 			const errorMessage = formatUploadError(error);
@@ -312,6 +358,7 @@ export async function uploadSession(
 
 export function formatRedactionSummary(
 	counts: RedactionCounts | undefined,
+	redactedBytes: number | undefined,
 ): string | null {
 	if (!counts) {
 		return null;
@@ -329,7 +376,17 @@ export function formatRedactionSummary(
 		.join(", ");
 	const subject = total === 1 ? "value" : "values";
 	const verb = total === 1 ? "was" : "were";
-	return `${total} ${subject} matching known secret patterns ${verb} redacted (${details}).`;
+	const byteDetail =
+		redactedBytes === undefined ? "" : `, ${formatBytes(redactedBytes)}`;
+	return `${total} ${subject} matching known secret patterns ${verb} redacted (${details}${byteDetail}).`;
+}
+
+export function formatRedactionBudgetError(
+	anomaly: RedactionBudgetAnomaly,
+): string {
+	const ratio = ((anomaly.redactedBytes / anomaly.inputBytes) * 100).toFixed(1);
+	const rules = anomaly.ruleIds.join(", ");
+	return `Redaction safety check stopped upload: known-pattern redaction would replace ${formatBytes(anomaly.redactedBytes)} of ${formatBytes(anomaly.inputBytes)} (${ratio}%), above the 20% transcript budget (${rules}). The unfiltered transcript was not uploaded.`;
 }
 
 function getUploadAggregateBytes(request: IngestSessionInput): number {
@@ -357,4 +414,14 @@ function formatTranscriptTooLargeError(
 
 function formatMebibytes(bytes: number): string {
 	return (bytes / (1024 * 1024)).toFixed(2);
+}
+
+function formatBytes(bytes: number): string {
+	if (bytes < 1024) {
+		return `${bytes} B`;
+	}
+	if (bytes < 1024 * 1024) {
+		return `${(bytes / 1024).toFixed(1)} KB`;
+	}
+	return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
