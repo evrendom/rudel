@@ -5,14 +5,19 @@ import {
 	SheetHeader,
 	SheetTitle,
 } from "@/app/ui/sheet";
-import { SessionDetailView } from "@/features/sessions/components/SessionDetailView";
+import {
+	type SessionDetailNavigation,
+	SessionDetailView,
+} from "@/features/sessions/components/SessionDetailView";
 
 export function SessionDetailSheet({
 	sessionId,
 	onOpenChange,
+	navigation,
 }: {
 	sessionId: string | null;
 	onOpenChange: (open: boolean) => void;
+	navigation?: SessionDetailNavigation;
 }) {
 	return (
 		<Sheet open={sessionId !== null} onOpenChange={onOpenChange}>
@@ -28,7 +33,11 @@ export function SessionDetailSheet({
 					</SheetDescription>
 				</SheetHeader>
 				{sessionId ? (
-					<SessionDetailView sessionId={sessionId} trackView={false} />
+					<SessionDetailView
+						sessionId={sessionId}
+						trackView={false}
+						navigation={navigation}
+					/>
 				) : null}
 			</SheetContent>
 		</Sheet>

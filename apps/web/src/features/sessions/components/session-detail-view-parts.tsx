@@ -1,49 +1,17 @@
 import {
+	Bot,
 	FolderGit2,
 	GitBranch,
 	type LucideIcon,
-	MessageSquare,
+	User,
 } from "lucide-react";
 import { Component, type ReactNode } from "react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/app/ui/tooltip";
+import {
+	formatModelDisplayLabel,
+	getModelIconComponent,
+} from "@/features/dashboard/components/DashboardModelBadges";
 import { parseConversations } from "@/lib/conversation-schema";
-import { cn } from "@/lib/utils";
-
-export const sessionArchetypeStyles: Record<
-	string,
-	{ bg: string; text: string; label: string }
-> = {
-	quick_win: {
-		bg: "bg-[color:var(--dashboardy-success-surface)]",
-		text: "text-[color:var(--dashboardy-success-foreground)]",
-		label: "Quick Win",
-	},
-	deep_work: {
-		bg: "bg-[color:var(--dashboardy-chip-surface)]",
-		text: "text-[color:var(--dashboardy-chip-foreground)]",
-		label: "Deep Work",
-	},
-	struggle: {
-		bg: "bg-[color:var(--dashboardy-danger-surface)]",
-		text: "text-[color:var(--dashboardy-danger-foreground)]",
-		label: "Struggle",
-	},
-	exploration: {
-		bg: "bg-[color:var(--dashboardy-subsurface-strong)]",
-		text: "text-[color:var(--dashboardy-heading)]",
-		label: "Exploration",
-	},
-	abandoned: {
-		bg: "bg-[color:var(--dashboardy-subsurface)]",
-		text: "text-[color:var(--dashboardy-muted)]",
-		label: "Abandoned",
-	},
-	standard: {
-		bg: "bg-[color:var(--dashboardy-subsurface-strong)]",
-		text: "text-[color:var(--dashboardy-muted)]",
-		label: "Standard",
-	},
-};
 
 export function toNumber(value: unknown, fallback = 0): number {
 	if (typeof value === "number" && Number.isFinite(value)) {
@@ -184,84 +152,51 @@ export function shortenLabelFromLeft(label: string, maxLength: number) {
 	return `...${label.slice(-(maxLength - 3))}`;
 }
 
+/**
+ * Who did how much of the talking — the person on one side, the model on the
+ * other — so the split is readable without counting rows in the transcript.
+ */
 export function SessionTranscriptSummaryTab({
-	totalMessages,
 	userMessages,
 	assistantMessages,
-	systemMessages,
+	userDisplayName,
+	userImageUrl,
+	model,
 }: {
-	totalMessages: number;
 	userMessages: number;
 	assistantMessages: number;
-	systemMessages: number;
+	userDisplayName: string;
+	userImageUrl: string | undefined;
+	model: string | undefined;
 }) {
-	const segments = [
-		{
-			id: "user",
-			count: userMessages,
-			className: "bg-[color:var(--dashboardy-chat-user-segment)]",
-		},
-		{
-			id: "assistant",
-			count: assistantMessages,
-			className: "bg-[color:var(--dashboardy-accent)]",
-		},
-		{
-			id: "system",
-			count: systemMessages,
-			className: "bg-[color:var(--dashboardy-warning-foreground)]",
-		},
-	].filter((segment) => segment.count > 0);
+	const ModelIcon = getModelIconComponent(model) ?? Bot;
+	const modelLabel = model ? formatModelDisplayLabel(model) : "Agent";
 
 	return (
-		<div className="dashboardy-meter-badge inline-flex max-w-full items-center gap-2 rounded-full border px-2.5 py-1.5">
-			<MessageSquare className="size-4 shrink-0 text-[color:var(--dashboardy-heading)]" />
-			<div className="text-[0.8125rem] font-medium tabular-nums text-[color:var(--dashboardy-heading)]">
-				{totalMessages}
-			</div>
-			<div className="flex h-1.5 w-16 overflow-hidden rounded-full bg-[color:var(--dashboardy-divider)]/55">
-				{segments.map((segment) => (
-					<div
-						key={segment.id}
-						className={segment.className}
-						style={{ flexGrow: segment.count }}
-					/>
-				))}
-			</div>
-		</div>
-	);
-}
-
-export function SessionDetailMetric({
-	label,
-	value,
-	className,
-	title,
-	valueClassName,
-}: {
-	label: string;
-	value: ReactNode;
-	className?: string;
-	title?: string;
-	valueClassName?: string;
-}) {
-	const valueTitle =
-		title ??
-		(typeof value === "string" || typeof value === "number"
-			? String(value)
-			: undefined);
-
-	return (
-		<div className={cn("grid min-w-0 gap-1", className)}>
-			<p className="dashboardy-label truncate">{label}</p>
+		<div className="flex shrink-0 items-center gap-2 pr-2.5 pl-[calc(var(--session-stats-avatar-inset)-var(--session-stats-padding)-1px)] text-[0.75rem] font-medium text-[color:var(--dashboardy-heading)]">
 			<div
-				className={cn(
-					"min-w-0 text-[0.95rem]/6 font-semibold tabular-nums text-[color:var(--dashboardy-heading)]",
-					valueClassName ?? "truncate",
-				)}
-				title={valueTitle}
+				className="flex items-center gap-1.5"
+				title={`${userDisplayName} sent ${userMessages} messages`}
 			>
-				{value}
+				{userImageUrl ? (
+					<img
+						src={userImageUrl}
+						alt=""
+						className="size-[calc(var(--session-stats-size)-var(--session-stats-avatar-inset)-var(--session-stats-avatar-inset))] shrink-0 rounded-full object-cover outline-1 -outline-offset-1 outline-black/5"
+					/>
+				) : (
+					<span className="flex size-[calc(var(--session-stats-size)-var(--session-stats-avatar-inset)-var(--session-stats-avatar-inset))] shrink-0 items-center justify-center rounded-full bg-[color:var(--dashboardy-subsurface-strong)] outline-1 -outline-offset-1 outline-black/5">
+						<User className="size-3" />
+					</span>
+				)}
+				<span className="tabular-nums">{userMessages}</span>
+			</div>
+			<div
+				className="flex items-center gap-1.5"
+				title={`${modelLabel} sent ${assistantMessages} messages`}
+			>
+				<ModelIcon className="size-4 shrink-0" />
+				<span className="tabular-nums">{assistantMessages}</span>
 			</div>
 		</div>
 	);
@@ -303,7 +238,7 @@ export function createSessionMetadataBadges({
 			displayLabel: shortenLabelFromLeft(repository, 30),
 			icon: FolderGit2,
 			label: repository,
-			tooltip: "Worktree",
+			tooltip: "Repository",
 		});
 	}
 

@@ -1,62 +1,204 @@
 import { useQuery } from "@tanstack/react-query";
-import { Clock, GitCommitHorizontal, User } from "lucide-react";
+import { ArrowDown, ArrowUp, Info, User } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/app/ui/popover";
 import { Skeleton } from "@/app/ui/skeleton";
 import { ConversationView } from "@/components/conversation/ConversationView";
-import { InfoTooltip } from "@/components/ui/InfoTooltip";
 import { useTrackProductPageView } from "@/features/analytics/tracking/useTrackProductPageView";
-import { DashboardModelBadges } from "@/features/dashboard/components/DashboardModelBadges";
+import {
+	DashboardModelIdentity,
+	formatModelDisplayLabel,
+} from "@/features/dashboard/components/DashboardModelBadges";
 import { useUserMap } from "@/features/workspace/hooks/useUserMap";
 import { orpc } from "@/lib/orpc";
-import { formatRelativeTime } from "@/lib/time-utils";
+import { formatExactDateTime } from "@/lib/time-utils";
+import { cn } from "@/lib/utils";
 import { buildSessionDetailViewModel } from "./session-detail-view-model";
 import {
 	isForbiddenError,
 	SessionDetailErrorBoundary,
-	SessionDetailHoverTooltip,
-	SessionDetailMetric,
 	SessionTranscriptSummaryTab,
-	sessionArchetypeStyles,
 } from "./session-detail-view-parts";
+
+export type SessionDetailNavigation = {
+	onPreviousSession: () => void;
+	onNextSession: () => void;
+	hasPreviousSession: boolean;
+	hasNextSession: boolean;
+};
 
 type SessionDetailViewProps = {
 	sessionId: string;
 	trackView?: boolean;
+	navigation?: SessionDetailNavigation;
 };
 
-const compactMetaBadgeClassName =
-	"dashboardy-inline-badge inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-full border px-2.5 py-1 text-[0.75rem] font-medium";
+const sessionNavButtonClassName =
+	"dashboardy-action-button relative inline-flex size-8 shrink-0 items-center justify-center rounded-full border border-[color:var(--dashboardy-border)] bg-transparent text-[color:var(--dashboardy-heading)] shadow-none hover:bg-[color:var(--dashboardy-subsurface-strong)] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent";
 
-const compactIconBadgeClassName =
-	"dashboardy-inline-badge inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-full border py-1 pr-2.5 pl-1.5 text-[0.75rem] font-medium";
+const sessionNavTouchTargetClassName =
+	"absolute top-1/2 left-1/2 size-[max(100%,3rem)] -translate-1/2 pointer-fine:hidden";
 
-const compactMetaBadgeIconClassName = "size-3 shrink-0";
+/**
+ * Steps through the session list behind the sheet, in the order the table
+ * renders it: up is the newer neighbour, down the older one.
+ */
+function SessionDetailNavButtons({
+	navigation,
+}: {
+	navigation: SessionDetailNavigation | undefined;
+}) {
+	if (!navigation) {
+		return null;
+	}
 
-const stickyMetadataRowClassName =
-	"flex min-w-0 flex-wrap items-center gap-2 lg:justify-end";
+	return (
+		<div className="flex shrink-0 items-center gap-1.5">
+			<button
+				type="button"
+				aria-label="Previous session"
+				className={sessionNavButtonClassName}
+				disabled={!navigation.hasPreviousSession}
+				onClick={navigation.onPreviousSession}
+			>
+				<ArrowUp className="size-4" />
+				<span className={sessionNavTouchTargetClassName} aria-hidden="true" />
+			</button>
+			<button
+				type="button"
+				aria-label="Next session"
+				className={sessionNavButtonClassName}
+				disabled={!navigation.hasNextSession}
+				onClick={navigation.onNextSession}
+			>
+				<ArrowDown className="size-4" />
+				<span className={sessionNavTouchTargetClassName} aria-hidden="true" />
+			</button>
+		</div>
+	);
+}
 
-const sessionSummaryPanelClassName =
-	"dashboardy-card grid min-w-0 gap-4 rounded-[1.4rem] border px-4 py-4 shadow-none";
-
-const metricStripClassName =
-	"flex min-w-0 w-full items-stretch overflow-hidden rounded-[1rem] border border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-surface)] [&>*+*]:border-l [&>*+*]:border-[color:var(--dashboardy-divider)]";
-
-const metricCellClassName = "min-w-0 flex-[6] px-2.5 py-3";
-
-const wideMetricCellClassName = "min-w-0 flex-[7] px-2.5 py-3";
-
-const activityBadgeClassName =
-	"dashboardy-inline-badge inline-flex min-w-0 max-w-full rounded-full border px-3 py-1.5 text-[0.8125rem] font-medium";
-
-function SessionDetailLoadingView() {
-	const metricSkeletons = [
-		"Duration",
-		"Interactions",
-		"Tokens",
-		"Cost",
-		"Score",
-		"Subagents",
+function SessionInfoPopover({
+	gitSha,
+	metadataBadges,
+	sessionId,
+}: {
+	gitSha: string | null;
+	metadataBadges: ReturnType<
+		typeof buildSessionDetailViewModel
+	>["metadataBadges"];
+	sessionId: string;
+}) {
+	const informationRows = [
+		...metadataBadges.map((item) => ({
+			label: item.tooltip,
+			value: item.label,
+		})),
+		...(gitSha ? [{ label: "Commit", value: gitSha }] : []),
+		{ label: "Session ID", value: sessionId },
 	];
 
+	return (
+		<Popover>
+			<PopoverTrigger
+				type="button"
+				aria-label="Session information"
+				className={sessionNavButtonClassName}
+			>
+				<Info className="size-4" />
+				<span className={sessionNavTouchTargetClassName} aria-hidden="true" />
+			</PopoverTrigger>
+			<PopoverContent
+				align="start"
+				side="bottom"
+				sideOffset={8}
+				className="w-[32rem] max-w-[calc(100vw-2rem)] gap-0 overflow-hidden rounded-2xl p-0"
+			>
+				<dl className="divide-y divide-border/60 px-4 py-1">
+					{informationRows.map((row) => (
+						<div
+							key={row.label}
+							className="grid grid-cols-[5.5rem_minmax(0,1fr)] items-start gap-3 py-2.5"
+						>
+							<dt className="text-sm font-medium text-foreground">
+								{row.label}
+							</dt>
+							<dd className="min-w-0 break-words font-mono text-sm text-muted-foreground">
+								{row.value}
+							</dd>
+						</div>
+					))}
+				</dl>
+			</PopoverContent>
+		</Popover>
+	);
+}
+
+function SessionUserIdentity({
+	displayName,
+	imageUrl,
+}: {
+	displayName: string;
+	imageUrl: string | undefined;
+}) {
+	return (
+		<div className="flex min-w-0 items-center gap-2 text-[0.875rem] font-semibold tracking-[-0.015em] text-[color:var(--dashboardy-heading)]">
+			{imageUrl ? (
+				<img
+					src={imageUrl}
+					alt=""
+					className="size-5 shrink-0 rounded-full object-cover outline-1 -outline-offset-1 outline-black/5 dark:outline-white/10"
+				/>
+			) : (
+				<span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-[color:var(--dashboardy-subsurface-strong)] outline-1 -outline-offset-1 outline-black/5 dark:outline-white/10">
+					<User className="size-3" />
+				</span>
+			)}
+			<div className="min-w-0 truncate">{displayName}</div>
+		</div>
+	);
+}
+
+const stickyStatsGroupClassName =
+	"flex h-8 w-full min-w-0 items-stretch divide-x divide-[color:var(--dashboardy-divider)] overflow-x-auto rounded-(--session-stats-radius) border border-[color:var(--dashboardy-border-strong)] bg-transparent p-(--session-stats-padding) [--session-stats-avatar-inset:0.375rem] [--session-stats-padding:--spacing(0.5)] [--session-stats-radius:1rem] [--session-stats-size:2rem] lg:w-auto lg:justify-self-end";
+
+const sessionStatSegmentClassName =
+	"flex min-w-0 shrink-0 items-center gap-1.5 px-2.5 text-[0.75rem] font-medium";
+
+const activityMetadataItemClassName =
+	"flex min-w-0 max-w-full items-center gap-2 text-[0.75rem] font-medium text-[color:var(--dashboardy-muted)]";
+
+/**
+ * A compact fact inside the segmented stats group.
+ */
+function SessionFactSegment({
+	label,
+	value,
+	mono = false,
+}: {
+	label: string;
+	value: string | number;
+	mono?: boolean;
+}) {
+	return (
+		<div className={sessionStatSegmentClassName} title={`${label}: ${value}`}>
+			<span className="sr-only">{label}: </span>
+			<div
+				className={cn(
+					"min-w-0 truncate text-[color:var(--dashboardy-heading)]",
+					mono && "font-mono tabular-nums",
+				)}
+			>
+				{value}
+			</div>
+		</div>
+	);
+}
+
+function SessionDetailLoadingView({
+	navigation,
+}: {
+	navigation?: SessionDetailNavigation;
+}) {
 	return (
 		<div
 			aria-busy="true"
@@ -65,42 +207,56 @@ function SessionDetailLoadingView() {
 		>
 			<div className="min-h-0 flex-1 overflow-hidden">
 				<div className="border-b border-[color:var(--dashboardy-divider)] bg-[color:var(--dashboardy-surface)]/95">
-					<div className="grid gap-3 px-6 py-4 lg:grid-cols-[minmax(0,auto)_minmax(0,1fr)] lg:items-center">
+					<div className="grid gap-3 px-6 py-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
 						<div className="flex min-w-0 flex-wrap items-center gap-3">
-							<Skeleton className="h-7 w-36 rounded-full bg-[color:var(--dashboardy-subsurface-strong)]" />
-							<Skeleton className="h-6 w-20 rounded-full bg-[color:var(--dashboardy-subsurface-strong)]" />
+							<div className="flex shrink-0 items-center gap-1.5">
+								<SessionDetailNavButtons navigation={navigation} />
+								<Skeleton className="size-8 rounded-full bg-[color:var(--dashboardy-subsurface-strong)]" />
+							</div>
+							<div className="flex items-center gap-2">
+								<Skeleton className="size-4 rounded-full bg-[color:var(--dashboardy-subsurface-strong)]" />
+								<Skeleton className="h-4 w-28 rounded-full bg-[color:var(--dashboardy-subsurface-strong)]" />
+							</div>
+							<div className="flex items-center gap-2">
+								<Skeleton className="size-5 rounded-full bg-[color:var(--dashboardy-subsurface-strong)]" />
+								<Skeleton className="h-4 w-24 rounded-full bg-[color:var(--dashboardy-subsurface-strong)]" />
+							</div>
+							<Skeleton className="h-4 w-32 rounded-full bg-[color:var(--dashboardy-subsurface-strong)]" />
 						</div>
-						<div className={stickyMetadataRowClassName}>
-							<Skeleton className="h-8 w-40 rounded-full bg-[color:var(--dashboardy-subsurface-strong)]" />
-							<Skeleton className="h-8 w-52 rounded-full bg-[color:var(--dashboardy-subsurface-strong)]" />
-							<Skeleton className="h-8 w-36 rounded-full bg-[color:var(--dashboardy-subsurface-strong)]" />
+						<div className={stickyStatsGroupClassName}>
+							<div className={sessionStatSegmentClassName}>
+								<Skeleton className="h-4 w-16 rounded-full bg-[color:var(--dashboardy-subsurface-strong)]" />
+							</div>
+							<div className={sessionStatSegmentClassName}>
+								<Skeleton className="h-4 w-20 rounded-full bg-[color:var(--dashboardy-subsurface-strong)]" />
+							</div>
+							<div className={sessionStatSegmentClassName}>
+								<Skeleton className="h-4 w-24 rounded-full bg-[color:var(--dashboardy-subsurface-strong)]" />
+							</div>
+							<div className={sessionStatSegmentClassName}>
+								<Skeleton className="h-4 w-16 rounded-full bg-[color:var(--dashboardy-subsurface-strong)]" />
+							</div>
+							<div className={sessionStatSegmentClassName}>
+								<Skeleton className="h-4 w-32 rounded-full bg-[color:var(--dashboardy-subsurface-strong)]" />
+							</div>
 						</div>
 					</div>
 				</div>
 
 				<div className="px-6 py-5">
 					<div className="grid gap-5">
-						<div className={sessionSummaryPanelClassName}>
-							<div className={metricStripClassName}>
-								{metricSkeletons.map((label) => (
-									<div key={label} className={metricCellClassName}>
-										<Skeleton className="h-3 w-20 rounded-full bg-[color:var(--dashboardy-subsurface-strong)]" />
-										<Skeleton className="mt-2 h-5 max-w-full rounded-full bg-[color:var(--dashboardy-subsurface-strong)]" />
-									</div>
-								))}
-							</div>
-
-							<div className="border-t border-[color:var(--dashboardy-divider)] pt-4">
-								<div className="flex flex-wrap gap-2">
-									<Skeleton className="h-8 w-28 rounded-full bg-[color:var(--dashboardy-subsurface-strong)]" />
-									<Skeleton className="h-8 w-24 rounded-full bg-[color:var(--dashboardy-subsurface-strong)]" />
-									<Skeleton className="h-8 w-20 rounded-full bg-[color:var(--dashboardy-subsurface-strong)]" />
-									<Skeleton className="h-8 w-32 rounded-full bg-[color:var(--dashboardy-subsurface-strong)]" />
-									<Skeleton className="h-8 w-72 rounded-full bg-[color:var(--dashboardy-subsurface-strong)]" />
-									<Skeleton className="h-8 w-56 rounded-full bg-[color:var(--dashboardy-subsurface-strong)]" />
-									<Skeleton className="h-8 w-44 rounded-full bg-[color:var(--dashboardy-subsurface-strong)]" />
-								</div>
-							</div>
+						<div className="flex flex-wrap items-center gap-3">
+							<Skeleton className="h-3 w-28 rounded-sm bg-[color:var(--dashboardy-subsurface-strong)]" />
+							<span
+								aria-hidden="true"
+								className="size-1 rounded-full bg-[color:var(--dashboardy-divider)]"
+							/>
+							<Skeleton className="h-3 w-24 rounded-sm bg-[color:var(--dashboardy-subsurface-strong)]" />
+							<span
+								aria-hidden="true"
+								className="size-1 rounded-full bg-[color:var(--dashboardy-divider)]"
+							/>
+							<Skeleton className="h-3 w-20 rounded-sm bg-[color:var(--dashboardy-subsurface-strong)]" />
 						</div>
 
 						<div className="grid gap-3.5">
@@ -118,8 +274,9 @@ function SessionDetailLoadingView() {
 export function SessionDetailView({
 	sessionId,
 	trackView = true,
+	navigation,
 }: SessionDetailViewProps) {
-	const { userMap } = useUserMap();
+	const { userMap, avatarMap } = useUserMap();
 	const {
 		data: session,
 		error,
@@ -138,7 +295,7 @@ export function SessionDetailView({
 	});
 
 	if (isLoading) {
-		return <SessionDetailLoadingView />;
+		return <SessionDetailLoadingView navigation={navigation} />;
 	}
 
 	if (isForbiddenError(error)) {
@@ -176,201 +333,126 @@ export function SessionDetailView({
 		safeDurationMin,
 		safeGitSha,
 		safeModelUsed,
-		safeSessionArchetype,
 		safeSessionDate,
 		safeSessionId,
 		safeSkills,
 		safeSlashCommands,
-		safeSuccessScore,
-		safeTotalInteractions,
 		safeUserDisplayName,
+		safeUserId,
 		subagentNames,
 		tokenUsageLabel,
 	} = buildSessionDetailViewModel(session, userMap);
-	const sessionArchetypeStyle = safeSessionArchetype
-		? (sessionArchetypeStyles[safeSessionArchetype] ??
-			sessionArchetypeStyles.standard)
-		: null;
+	const activityItems = [
+		...[...new Set(safeSkills)].map((skill) => ({
+			id: `skill:${skill}`,
+			label: `skill:${skill}`,
+		})),
+		...[...new Set(safeSlashCommands)].map((command) => ({
+			id: `command:${command}`,
+			label: `/${command}`,
+		})),
+	];
+
 	return (
 		<SessionDetailErrorBoundary>
 			<div className="dashboardy-page flex h-full min-h-0 flex-col bg-[color:var(--dashboardy-surface)] text-[color:var(--dashboardy-heading)]">
 				<div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain">
 					<div className="sticky top-0 z-20 border-b border-[color:var(--dashboardy-divider)] bg-[color:var(--dashboardy-surface)]/95 backdrop-blur supports-[backdrop-filter]:bg-[color:var(--dashboardy-surface)]/85">
-						<div className="grid gap-3 px-6 py-4 lg:grid-cols-[minmax(0,auto)_minmax(0,1fr)] lg:items-center">
+						<div className="grid gap-3 px-6 py-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
 							<div className="flex min-w-0 flex-wrap items-center gap-3">
-								<h1 className="dashboardy-section-title text-lg/6 text-[color:var(--dashboardy-heading)] sm:text-xl/7">
-									Session details
-								</h1>
-								{sessionArchetypeStyle ? (
-									<div
-										className={`inline-flex rounded-full px-2.5 py-1 text-[0.75rem] font-semibold ${sessionArchetypeStyle.bg} ${sessionArchetypeStyle.text}`}
-									>
-										{sessionArchetypeStyle.label}
-									</div>
-								) : null}
+								<div className="flex shrink-0 items-center gap-1.5">
+									<SessionDetailNavButtons navigation={navigation} />
+									<SessionInfoPopover
+										gitSha={safeGitSha}
+										metadataBadges={metadataBadges}
+										sessionId={safeSessionId}
+									/>
+								</div>
+								<div className="flex min-w-0 flex-wrap items-end gap-3">
+									{safeModelUsed ? (
+										<DashboardModelIdentity model={safeModelUsed} />
+									) : null}
+									<SessionUserIdentity
+										displayName={safeUserDisplayName}
+										imageUrl={avatarMap[safeUserId]}
+									/>
+								</div>
 							</div>
 
-							<div className={stickyMetadataRowClassName}>
-								{metadataBadges.map((item) => {
-									const Icon = item.icon;
-
-									return (
-										<SessionDetailHoverTooltip
-											key={item.label}
-											text={item.tooltip}
-										>
-											<div
-												className={compactIconBadgeClassName}
-												title={item.label}
-											>
-												<Icon className={compactMetaBadgeIconClassName} />
-												<div className="min-w-0 max-w-[12rem] overflow-hidden text-ellipsis whitespace-nowrap sm:max-w-[14rem] xl:max-w-[18rem]">
-													{item.displayLabel}
-												</div>
-											</div>
-										</SessionDetailHoverTooltip>
-									);
-								})}
-								{safeModelUsed ? (
-									<div className="flex shrink-0 items-center">
-										<DashboardModelBadges models={[safeModelUsed]} size="md" />
-									</div>
-								) : null}
+							<div className={stickyStatsGroupClassName}>
 								{conversationSummary ? (
 									<SessionTranscriptSummaryTab
-										totalMessages={conversationSummary.totalMessages}
 										userMessages={conversationSummary.userMessages}
 										assistantMessages={conversationSummary.assistantMessages}
-										systemMessages={conversationSummary.systemMessages}
+										userDisplayName={safeUserDisplayName}
+										userImageUrl={avatarMap[safeUserId]}
+										model={safeModelUsed}
 									/>
 								) : null}
+								<SessionFactSegment
+									label="Duration"
+									value={
+										safeDurationMin !== undefined
+											? `${safeDurationMin} min`
+											: "—"
+									}
+								/>
+								<SessionFactSegment
+									label="Tokens"
+									value={tokenUsageLabel}
+									mono
+								/>
+								<SessionFactSegment label="Cost" value={costLabel} mono />
+								{subagentNames.length > 0 ? (
+									<SessionFactSegment
+										label="Subagents"
+										value={`${subagentNames.length} ${
+											subagentNames.length === 1 ? "subagent" : "subagents"
+										}`}
+									/>
+								) : null}
+								<SessionFactSegment
+									label="Date"
+									value={formatExactDateTime(safeSessionDate)}
+								/>
 							</div>
 						</div>
 					</div>
 
 					<div className="px-6 py-5">
 						<div className="grid gap-5">
-							<div className={sessionSummaryPanelClassName}>
-								<div className={metricStripClassName}>
-									<SessionDetailMetric
-										className={metricCellClassName}
-										label="Duration"
-										value={
-											safeDurationMin !== undefined
-												? `${safeDurationMin} min`
-												: "—"
-										}
-									/>
-									<SessionDetailMetric
-										className={wideMetricCellClassName}
-										label="Interactions"
-										value={safeTotalInteractions ?? "—"}
-									/>
-									<SessionDetailMetric
-										className={wideMetricCellClassName}
-										label="Tokens"
-										value={tokenUsageLabel}
-										title={tokenUsageLabel}
-										valueClassName="dashboardy-mono truncate whitespace-nowrap"
-									/>
-									<SessionDetailMetric
-										className={metricCellClassName}
-										label="Cost"
-										value={costLabel}
-										title={costLabel}
-										valueClassName="dashboardy-mono truncate"
-									/>
-									{safeSuccessScore !== undefined ? (
-										<SessionDetailMetric
-											className={metricCellClassName}
-											label="Score"
-											value={
-												<span className="inline-flex min-w-0 items-center gap-1.5 whitespace-nowrap">
-													<span
-														className={
-															safeSuccessScore >= 70
-																? "font-semibold text-status-success-icon"
-																: safeSuccessScore >= 40
-																	? "font-semibold text-status-warning-icon"
-																	: "font-semibold text-status-error-icon"
-														}
-													>
-														{safeSuccessScore.toFixed(0)}/100
-													</span>
-													<InfoTooltip text="Session quality score (0–100): earns points for a git commit (+20), high output ratio (+15), and skills used (+5 each, max 3); loses points for errors (−2 each) and abandoned sessions." />
-												</span>
-											}
-										/>
-									) : null}
-									{subagentNames.length > 0 ? (
-										<SessionDetailMetric
-											className={metricCellClassName}
-											label="Subagents"
-											value={subagentNames.length}
-										/>
-									) : null}
-								</div>
-
-								<div className="border-t border-[color:var(--dashboardy-divider)] pt-4">
-									<div className="flex flex-wrap gap-2">
-										{safeGitSha ? (
-											<div className={compactIconBadgeClassName}>
-												<GitCommitHorizontal
-													className={compactMetaBadgeIconClassName}
+							{activityItems.length > 0 ? (
+								<ul className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5">
+									{activityItems.map((item, index) => (
+										<li
+											key={item.id}
+											className={activityMetadataItemClassName}
+											title={item.label}
+										>
+											{index > 0 ? (
+												<span
+													aria-hidden="true"
+													className="size-1 shrink-0 rounded-full bg-[color:var(--dashboardy-divider)]"
 												/>
-												<div className="font-mono tabular-nums">
-													{safeGitSha.slice(0, 8)}...
-												</div>
-											</div>
-										) : null}
-										<div className={compactMetaBadgeClassName}>
-											<span className="text-[color:var(--dashboardy-muted)]">
-												ID
+											) : null}
+											<span className="min-w-0 truncate font-mono">
+												{item.label}
 											</span>
-											<div className="font-mono tabular-nums">
-												{safeSessionId.slice(0, 8)}...
-											</div>
-										</div>
-										<div className={compactMetaBadgeClassName}>
-											<Clock className={compactMetaBadgeIconClassName} />
-											{formatRelativeTime(safeSessionDate)}
-										</div>
-										<div className={compactMetaBadgeClassName}>
-											<User className={compactMetaBadgeIconClassName} />
-											{safeUserDisplayName}
-										</div>
-										{[...new Set(safeSkills)].map((skill) => (
-											<div
-												key={skill}
-												className={activityBadgeClassName}
-												title={`skill:${skill}`}
-											>
-												<span className="truncate">skill:{skill}</span>
-											</div>
-										))}
-										{[...new Set(safeSlashCommands)].map((command) => (
-											<div
-												key={command}
-												className={activityBadgeClassName}
-												title={`/${command}`}
-											>
-												<span className="truncate">/{command}</span>
-											</div>
-										))}
-										{subagentNames.map((agent) => (
-											<div
-												key={agent}
-												className={activityBadgeClassName}
-												title={`agent:${agent}`}
-											>
-												<span className="truncate">agent:{agent}</span>
-											</div>
-										))}
-									</div>
-								</div>
-							</div>
+										</li>
+									))}
+								</ul>
+							) : null}
 
-							<ConversationView content={safeContent} showHeader={false} />
+							<ConversationView
+								content={safeContent}
+								userLabel={safeUserDisplayName}
+								agentLabel={
+									safeModelUsed
+										? formatModelDisplayLabel(safeModelUsed)
+										: undefined
+								}
+								agentModel={safeModelUsed}
+							/>
 						</div>
 					</div>
 				</div>

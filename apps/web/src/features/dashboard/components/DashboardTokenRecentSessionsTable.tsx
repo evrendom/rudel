@@ -29,6 +29,14 @@ const SKELETON_ROW_IDS = [
 ] as const;
 const INITIAL_VISIBLE_ROWS = 10;
 const VISIBLE_ROW_INCREMENT = 10;
+// Every column except Repository is sized to its widest realistic value so the
+// table fits the dashboard content box without horizontal scrolling. Repository
+// absorbs the leftover width because it holds the longest, most variable label;
+// Developer and Repository both truncate once their track runs out.
+const SESSIONS_GRID_TEMPLATE_COLUMNS =
+	"120px 160px minmax(0,1fr) 116px 104px 120px 76px";
+const SESSIONS_MIN_WIDTH_CLASS_NAME = "min-w-[58rem]";
+const SESSIONS_COLUMN_GAP_CLASS_NAME = "gap-4";
 
 function formatSessionTimestamp(value: string) {
 	const normalizedValue = value.endsWith("Z") ? value : `${value}Z`;
@@ -123,8 +131,11 @@ function DashboardTokenRecentSessionsTableSkeleton({
 				</div>
 			) : null}
 			<div className="overflow-x-auto">
-				<div className="flex min-w-[78rem] flex-col gap-1">
-					<div className="grid grid-cols-[120px_minmax(180px,11fr)_minmax(180px,9fr)_minmax(180px,9fr)_140px_minmax(180px,0.95fr)_120px] gap-6 px-3.5 text-[13px] font-semibold text-[color:var(--dashboardy-muted)]">
+				<div className={`flex flex-col gap-1 ${SESSIONS_MIN_WIDTH_CLASS_NAME}`}>
+					<div
+						className={`grid px-3.5 text-[13px] font-semibold text-[color:var(--dashboardy-muted)] ${SESSIONS_COLUMN_GAP_CLASS_NAME}`}
+						style={{ gridTemplateColumns: SESSIONS_GRID_TEMPLATE_COLUMNS }}
+					>
 						<p>Time</p>
 						<p>Developer</p>
 						<p>Repository</p>
@@ -137,7 +148,8 @@ function DashboardTokenRecentSessionsTableSkeleton({
 						{SKELETON_ROW_IDS.slice(0, SKELETON_ROWS).map((rowId) => (
 							<div
 								key={rowId}
-								className="grid min-h-12 grid-cols-[120px_minmax(180px,11fr)_minmax(180px,9fr)_minmax(180px,9fr)_140px_minmax(180px,0.95fr)_120px] items-center gap-6 rounded-lg px-3.5 py-2 odd:bg-[color:var(--dashboardy-subsurface-strong)]"
+								className={`grid min-h-12 items-center rounded-lg px-3.5 py-2 odd:bg-[color:var(--dashboardy-subsurface-strong)] ${SESSIONS_COLUMN_GAP_CLASS_NAME}`}
+								style={{ gridTemplateColumns: SESSIONS_GRID_TEMPLATE_COLUMNS }}
 							>
 								<Skeleton className="h-4 w-16 rounded-full" />
 								<Skeleton className="h-4 w-28 rounded-full" />
@@ -256,11 +268,18 @@ export function DashboardTokenRecentSessionsTable({
 					{
 						id: "developer",
 						header: "Developer",
-						renderCell: (session) => (
-							<p className="truncate font-semibold text-[color:var(--dashboardy-heading)]">
-								{formatUsername(session.user_id, userMap)}
-							</p>
-						),
+						renderCell: (session) => {
+							const developerLabel = formatUsername(session.user_id, userMap);
+
+							return (
+								<p
+									className="truncate font-semibold text-[color:var(--dashboardy-heading)]"
+									title={developerLabel}
+								>
+									{developerLabel}
+								</p>
+							);
+						},
 					},
 					{
 						id: "repository",
@@ -335,8 +354,9 @@ export function DashboardTokenRecentSessionsTable({
 				]}
 				rows={visibleSessions}
 				rowKey={(session) => session.session_id}
-				gridTemplateColumns="120px minmax(180px,11fr) minmax(180px,9fr) minmax(180px,9fr) 140px minmax(180px,0.95fr) 120px"
-				minWidthClassName="min-w-[82rem]"
+				gridTemplateColumns={SESSIONS_GRID_TEMPLATE_COLUMNS}
+				minWidthClassName={SESSIONS_MIN_WIDTH_CLASS_NAME}
+				columnGapClassName={SESSIONS_COLUMN_GAP_CLASS_NAME}
 				onRowHoverChange={
 					canShowSessionHoverPreview ? handleRowHoverChange : undefined
 				}

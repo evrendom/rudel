@@ -18,13 +18,11 @@ export interface SessionDetailViewModelSource {
 	model_used?: unknown;
 	output_tokens?: unknown;
 	repository?: unknown;
-	session_archetype?: unknown;
 	session_date?: unknown;
 	session_id?: unknown;
 	skills?: unknown;
 	slash_commands?: unknown;
 	subagents?: unknown;
-	success_score?: unknown;
 	total_interactions?: unknown;
 	user_id?: unknown;
 }
@@ -51,10 +49,6 @@ export function buildSessionDetailViewModel(
 		session.total_interactions === undefined
 			? undefined
 			: toNumber(session.total_interactions);
-	const safeSuccessScore =
-		session.success_score === undefined
-			? undefined
-			: toNumber(session.success_score);
 	const safeSkills = toStringArray(session.skills);
 	const safeSlashCommands = toStringArray(session.slash_commands);
 	const safeSubagents = toSubagentMap(session.subagents);
@@ -62,8 +56,6 @@ export function buildSessionDetailViewModel(
 	const safeGitBranch = toOptionalString(session.git_branch);
 	const safeGitSha = toOptionalString(session.git_sha);
 	const safeModelUsed = toOptionalString(session.model_used) ?? undefined;
-	const safeSessionArchetype =
-		toOptionalString(session.session_archetype) ?? undefined;
 	const safeContent = toContentString(session.content);
 	const metadataBadges = createSessionMetadataBadges({
 		gitBranch: safeGitBranch,
@@ -88,15 +80,14 @@ export function buildSessionDetailViewModel(
 		safeInputTokens,
 		safeModelUsed,
 		safeOutputTokens,
-		safeSessionArchetype,
 		safeSessionDate,
 		safeSessionId,
 		safeSkills,
 		safeSlashCommands,
 		safeSubagents,
-		safeSuccessScore,
 		safeTotalInteractions,
 		safeUserDisplayName,
+		safeUserId,
 		subagentNames,
 		tokenUsageLabel,
 	};

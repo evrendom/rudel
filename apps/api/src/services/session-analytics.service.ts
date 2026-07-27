@@ -7,6 +7,7 @@ import type {
 import {
 	addOptionalStringEqFilter,
 	buildDateFilter,
+	buildInclusiveDateRangeFilter,
 	queryClickhouse,
 } from "../clickhouse.js";
 
@@ -47,7 +48,6 @@ export interface SessionAnalyticsRaw {
 	slash_commands: string[];
 
 	// Success metrics
-	session_archetype: string;
 	success_score: number;
 
 	// Effectiveness correlation factors
@@ -71,6 +71,8 @@ export async function getSessionAnalytics(
 	orgId: string,
 	params: {
 		days?: number;
+		start_date?: string;
+		end_date?: string;
 		user_id?: string;
 		project_path?: string;
 		repository?: string;
@@ -82,6 +84,8 @@ export async function getSessionAnalytics(
 ): Promise<SessionAnalytics[]> {
 	const {
 		days = 30,
+		start_date,
+		end_date,
 		user_id,
 		project_path,
 		repository,
@@ -98,6 +102,18 @@ export async function getSessionAnalytics(
 		offset: Number(offset),
 		orgId,
 	};
+	// An explicit window wins over the rolling `days` lookback so a range that
+	// does not end today returns that window rather than the last N days.
+	const hasAbsoluteRange = Boolean(start_date && end_date);
+
+	if (hasAbsoluteRange) {
+		query_params.startDate = start_date;
+		query_params.endDate = end_date;
+	}
+
+	const dateFilter = hasAbsoluteRange
+		? buildInclusiveDateRangeFilter("startDate", "endDate", "sa.session_date")
+		: buildDateFilter("days", "sa.session_date");
 	const filters: string[] = [];
 	addOptionalStringEqFilter(
 		filters,
@@ -154,13 +170,12 @@ export async function getSessionAnalytics(
       subagent_types,
       skills,
       slash_commands,
-      session_archetype,
       success_score,
       error_count,
       model_used,
       used_plan_mode
     FROM rudel.session_analytics AS sa FINAL
-    WHERE ${buildDateFilter("days", "sa.session_date")}
+    WHERE ${dateFilter}
       AND organization_id = {orgId:String}
       ${filters.length > 0 ? `AND ${filters.join("\n      AND ")}` : ""}
     ORDER BY ${sortColumn} ${sortDirection}
@@ -193,7 +208,6 @@ export async function getSessionAnalytics(
 			skills: row.skills,
 			slash_commands: row.slash_commands,
 			has_commit: row.has_commit > 0,
-			session_archetype: row.session_archetype,
 			model_used: row.model_used,
 			used_plan_mode: row.used_plan_mode > 0,
 		}),
@@ -531,7 +545,6 @@ const DIMENSION_EXPRESSIONS: Record<
 	project_path: "arrayElement(splitByChar('/', project_path), -1)",
 	repository:
 		"if(git_remote != '', git_remote, if(package_name != '', package_name, project_path))",
-	session_archetype: "session_archetype",
 	model_used: "model_used",
 	has_commit: "has_commit",
 	used_plan_mode: "used_plan_mode",
@@ -698,7 +711,6 @@ export async function getSessionDetail(
       success_score,
       actual_duration_min as duration_min,
       total_interactions,
-      session_archetype,
       model_used
     FROM rudel.session_analytics AS sa
     PREWHERE organization_id = {orgId:String}

@@ -24,11 +24,10 @@ import {
 import { DashboardTokenRecentSessionsTable } from "@/features/dashboard/components/DashboardTokenRecentSessionsTable";
 import { DashboardTopChartSection } from "@/features/dashboard/components/DashboardTopChartSection";
 import type { DashboardHeadlineMetric } from "@/features/dashboard/data/dashboard-static-data";
-
-function getSessionTimestamp(value: string) {
-	const normalizedValue = value.endsWith("Z") ? value : `${value}Z`;
-	return new Date(normalizedValue);
-}
+import {
+	getSessionTimestamp,
+	orderSessionsForDisplay,
+} from "@/features/sessions/session-ordering";
 
 function getGranularity(
 	dateRangeDays: number,
@@ -280,22 +279,10 @@ export function DashboardSessionsSnapshotSection({
 		dateRangeDays,
 		useRolling24Hours,
 	});
-	const rollingWindowStart = subHours(new Date(), 24);
-	const snapshotSessions = (sessions ?? []).filter((session) => {
-		if (!useRolling24Hours) {
-			return true;
-		}
-
-		return isAfter(
-			getSessionTimestamp(session.session_date),
-			rollingWindowStart,
-		);
+	const latestSessions = orderSessionsForDisplay({
+		sessions,
+		useRolling24Hours,
 	});
-	const latestSessions = [...snapshotSessions].sort(
-		(leftSession, rightSession) =>
-			getSessionTimestamp(rightSession.session_date).getTime() -
-			getSessionTimestamp(leftSession.session_date).getTime(),
-	);
 	const sessionsTableKey = `${latestSessions.length}:${latestSessions[0]?.session_id ?? ""}:${latestSessions.at(-1)?.session_id ?? ""}`;
 
 	return (
@@ -318,7 +305,7 @@ export function DashboardSessionsSnapshotSection({
 					sessionDetailDisabledNote={sessionDetailDisabledNote}
 					showHeader={false}
 					totalSessionCount={
-						useRolling24Hours ? snapshotSessions.length : totalSessionCount
+						useRolling24Hours ? latestSessions.length : totalSessionCount
 					}
 				/>
 			}

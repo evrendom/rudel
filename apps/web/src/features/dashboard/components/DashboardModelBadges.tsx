@@ -1,6 +1,9 @@
+import type { ComponentType } from "react";
+
 type ModelBadgeTone = {
 	chipClassName: string;
 	icon: "claude" | "codex" | null;
+	identityIconClassName: string;
 };
 
 type DashboardModelBadgeSize = "sm" | "md";
@@ -32,7 +35,7 @@ function formatFallbackModelLabel(model: string) {
 		.replaceAll(/\b\w/g, (char) => char.toUpperCase());
 }
 
-function formatModelDisplayLabel(model: string) {
+export function formatModelDisplayLabel(model: string) {
 	const normalizedModel = model.trim().toLowerCase();
 	const claudeFamilyMatch = normalizedModel.match(/(opus|sonnet|haiku)/);
 
@@ -134,6 +137,7 @@ function getModelBadgeTone(model: string): ModelBadgeTone {
 			chipClassName:
 				"border-transparent bg-[#CC7D5E] text-[#F9F9F7] shadow-none",
 			icon: "claude",
+			identityIconClassName: "fill-[#CC7D5E]",
 		};
 	}
 
@@ -141,6 +145,7 @@ function getModelBadgeTone(model: string): ModelBadgeTone {
 		return {
 			chipClassName: "border-black/10 bg-[#FFFFFF] text-[#111111] shadow-none",
 			icon: "codex",
+			identityIconClassName: "fill-[color:var(--dashboardy-heading)]",
 		};
 	}
 
@@ -148,6 +153,7 @@ function getModelBadgeTone(model: string): ModelBadgeTone {
 		return {
 			chipClassName: "border-black/10 bg-[#FFFFFF] text-[#111111] shadow-none",
 			icon: "codex",
+			identityIconClassName: "fill-[color:var(--dashboardy-heading)]",
 		};
 	}
 
@@ -155,7 +161,52 @@ function getModelBadgeTone(model: string): ModelBadgeTone {
 		chipClassName:
 			"border-[color:var(--dashboardy-chip-border)] bg-[color:var(--dashboardy-chip-surface)] text-[color:var(--dashboardy-chip-foreground)]",
 		icon: null,
+		identityIconClassName: "",
 	};
+}
+
+/**
+ * The vendor mark for a raw model id, for places that name a model outside a
+ * badge. Null when the vendor is unrecognized, so callers can pick a fallback.
+ */
+export function getModelIconComponent(
+	model: string | undefined,
+): ComponentType<{ className?: string }> | null {
+	if (!model) {
+		return null;
+	}
+
+	const { icon } = getModelBadgeTone(model);
+
+	if (icon === "claude") {
+		return ClaudeModelIcon;
+	}
+
+	if (icon === "codex") {
+		return CodexModelIcon;
+	}
+
+	return null;
+}
+
+export function DashboardModelIdentity({ model }: { model: string }) {
+	if (shouldHideModelBadge(model)) {
+		return null;
+	}
+
+	const badgeTone = getModelBadgeTone(model);
+	const ModelIcon = getModelIconComponent(model);
+
+	return (
+		<div className="flex min-w-0 items-center gap-2 text-[0.875rem] font-semibold tracking-[-0.015em] text-[color:var(--dashboardy-heading)]">
+			{ModelIcon ? (
+				<ModelIcon
+					className={`size-4 shrink-0 ${badgeTone.identityIconClassName}`}
+				/>
+			) : null}
+			<div className="min-w-0 truncate">{formatModelDisplayLabel(model)}</div>
+		</div>
+	);
 }
 
 export function DashboardModelBadges({

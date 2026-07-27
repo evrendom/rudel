@@ -12,7 +12,10 @@ import { DashboardRepositoryPanel } from "@/features/dashboard/components/Dashbo
 import { DashboardSessionsSnapshotSection } from "@/features/dashboard/components/DashboardSessionsSnapshotSection";
 import type { DashboardRankedOutputRow } from "@/features/dashboard/data/dashboard-static-data";
 import { buildDashboardSessionTabMetrics } from "@/features/dashboard/data/dashboard-tab-adapters";
-import { resolveActiveSessionDateRangeOptionId } from "@/features/sessions/session-date-ranges";
+import {
+	buildSessionListDateInput,
+	resolveActiveSessionDateRangeOptionId,
+} from "@/features/sessions/session-date-ranges";
 import { orpc } from "@/lib/orpc";
 
 export function DashboardSessionsView({
@@ -44,7 +47,11 @@ export function DashboardSessionsView({
 		useAnalyticsQuery(
 			orpc.analytics.sessions.list.queryOptions({
 				input: {
-					days: activeDateRangeOptionId === "24-hours" ? 2 : meta.dayCount,
+					...buildSessionListDateInput({
+						dayCount: meta.dayCount,
+						endDate,
+						startDate,
+					}),
 					limit: 1000,
 					sortBy: "session_date",
 					sortOrder: "desc",

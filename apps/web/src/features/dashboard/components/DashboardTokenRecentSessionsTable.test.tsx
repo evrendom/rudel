@@ -27,7 +27,6 @@ const session: SessionAnalytics = {
 	skills: [],
 	slash_commands: [],
 	has_commit: true,
-	session_archetype: "builder",
 	model_used: "gpt-5",
 	used_plan_mode: false,
 };

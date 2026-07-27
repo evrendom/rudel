@@ -4,7 +4,13 @@ import { AnalyticsDateRangePicker } from "@/features/analytics/date-range/compon
 import { useDateRange } from "@/features/analytics/date-range/useDateRange";
 import { cn } from "@/lib/utils";
 
-export function DashboardDateControls({ className }: { className?: string }) {
+export function DashboardDateControls({
+	className,
+	sourceComponent = "dashboard_date_picker",
+}: {
+	className?: string;
+	sourceComponent?: string;
+}) {
 	const { state, actions } = useDateRange();
 
 	return (
@@ -13,7 +19,7 @@ export function DashboardDateControls({ className }: { className?: string }) {
 			endDate={state.endDate}
 			onDateRangeApply={actions.setDateRange}
 			align="end"
-			sourceComponent="dashboard_date_picker"
+			sourceComponent={sourceComponent}
 			triggerClassName={cn(
 				"dashboardy-action-button h-8 px-2.5 text-[13px] sm:h-8",
 				className,
