@@ -6,11 +6,13 @@ import {
 	type IngestSessionInput,
 	PRODUCT_ANALYTICS_EVENTS,
 	REDACTION_BUDGET_EXCEEDED_CODE,
+	REDACTION_DID_NOT_CONVERGE_CODE,
 	SESSION_OWNERSHIP_CONFLICT_CODE,
 } from "@rudel/api-routes";
 import {
 	FILTER_VERSION,
 	getRedactionBudgetAnomaly,
+	SecretFilterConvergenceError,
 } from "@rudel/secret-filter";
 import { getClickhouse } from "./clickhouse.js";
 import { sqlClient } from "./db.js";
@@ -178,6 +180,13 @@ const ingestSessionHandler = os.ingestSession
 		const filteredText = await filterSessionTextFieldsOffThread({
 			content: input.content,
 			subagents: input.subagents,
+		}).catch((error: unknown) => {
+			if (error instanceof SecretFilterConvergenceError) {
+				throw errors[REDACTION_DID_NOT_CONVERGE_CODE]({
+					data: { maxPasses: error.maxPasses },
+				});
+			}
+			throw error;
 		});
 		const redactionBudgetAnomaly = getRedactionBudgetAnomaly(
 			filteredText.redactedBytes,

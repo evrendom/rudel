@@ -12,3 +12,9 @@ module.
 
 This filter intentionally does not use entropy or generic-token heuristics to
 mutate transcripts. It favors precision over recall.
+
+Matched values are removed in full, including matches larger than 8 KiB. Those
+large matches receive an `overlong-match` diagnostic, and their complete UTF-8
+size counts toward the upload's 20% redaction safety budget. Filtering is
+bounded to four changing passes plus a clean confirmation; an upload is
+rejected if the filter cannot establish a fixpoint without another change.

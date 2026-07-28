@@ -1,4 +1,7 @@
-import { filterSessionTextFields } from "@rudel/secret-filter";
+import {
+	filterSessionTextFields,
+	SecretFilterConvergenceError,
+} from "@rudel/secret-filter";
 import type {
 	IngestFilterWorkerRequest,
 	IngestFilterWorkerResponse,
@@ -30,9 +33,18 @@ function filterIngestText(
 			result: filterSessionTextFields(request.fields),
 		};
 	} catch (error) {
+		if (error instanceof SecretFilterConvergenceError) {
+			return {
+				status: "error",
+				requestId: request.requestId,
+				reason: "did-not-converge",
+				maxPasses: error.maxPasses,
+			};
+		}
 		return {
 			status: "error",
 			requestId: request.requestId,
+			reason: "worker-error",
 			message:
 				error instanceof Error
 					? error.message

@@ -6,7 +6,7 @@ import {
 	filterSessionTextFields,
 	getRedactionCount,
 	getUtf8ByteLength,
-	MAX_REDACTION_SPAN_BYTES,
+	OVERLONG_MATCH_THRESHOLD_BYTES,
 	OVERLONG_REDACTION_RULE_ID,
 } from "../index.js";
 import type { SecretRule } from "../types.js";
@@ -116,7 +116,7 @@ describe("filterKnownSecrets", () => {
 	});
 });
 
-test("caps an overlong span and resumes scanning at the truncation boundary", () => {
+test("fully redacts an overlong span and resumes after the matched secret", () => {
 	const rule: SecretRule = {
 		id: "synthetic-overlong",
 		sourceId: "synthetic-overlong",
@@ -125,23 +125,20 @@ test("caps an overlong span and resumes scanning at the truncation boundary", ()
 		secretGroup: 1,
 		allowlistRegexSources: [],
 	};
-	const preservedTail = "A".repeat(9000 - MAX_REDACTION_SPAN_BYTES);
 	const result = applyCompiledSecretRule(
 		`RUN${"A".repeat(9000)}SECRETTAIL`,
 		compileSecretRule(rule),
 	);
 
-	expect(result.text).toBe(
-		`RUN[REDACTED:synthetic-overlong]${preservedTail}SECRET[REDACTED:synthetic-overlong]`,
-	);
+	expect(result.text).toBe("RUN[REDACTED:synthetic-overlong]");
 	expect(result.counts).toEqual({
 		[OVERLONG_REDACTION_RULE_ID]: 1,
-		"synthetic-overlong": 2,
+		"synthetic-overlong": 1,
 	});
-	expect(result.redactedBytes).toBe(MAX_REDACTION_SPAN_BYTES + 4);
+	expect(result.redactedBytes).toBe(9010);
 });
 
-test("engine-bounds worst-case generated rule redactions", () => {
+test("engine counts the full matched span for every generated rule", () => {
 	const worstCases = new Map(
 		CANONICAL_SECRETS.map((positiveCase) => [
 			positiveCase.ruleId,
@@ -158,7 +155,7 @@ test("engine-bounds worst-case generated rule redactions", () => {
 	);
 	worstCases.set(
 		"slack-bot-token",
-		`xoxb-1234567890-1234567890-${"A".repeat(MAX_REDACTION_SPAN_BYTES * 2)}`,
+		`xoxb-1234567890-1234567890-${"A".repeat(OVERLONG_MATCH_THRESHOLD_BYTES * 2)}`,
 	);
 
 	expect([...worstCases.keys()].sort()).toEqual(
@@ -171,7 +168,12 @@ test("engine-bounds worst-case generated rule redactions", () => {
 			input ?? "",
 			compileSecretRule(rule),
 		);
-		expect(result.redactedBytes).toBeLessThanOrEqual(MAX_REDACTION_SPAN_BYTES);
+		expect(result.redactedBytes).toBeLessThanOrEqual(
+			getUtf8ByteLength(input ?? ""),
+		);
+		if (getUtf8ByteLength(input ?? "") > OVERLONG_MATCH_THRESHOLD_BYTES) {
+			expect(result.counts[OVERLONG_REDACTION_RULE_ID]).toBe(1);
+		}
 	}
 });
 

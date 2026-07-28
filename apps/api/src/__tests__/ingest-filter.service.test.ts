@@ -1,4 +1,8 @@
 import { describe, expect, test } from "bun:test";
+import {
+	MAX_FILTER_PASSES,
+	SecretFilterConvergenceError,
+} from "@rudel/secret-filter";
 import { filterSessionTextFieldsOffThread } from "../services/ingest-filter.service.js";
 
 const PRIVATE_KEY = [
@@ -50,4 +54,20 @@ describe("filterSessionTextFieldsOffThread", () => {
 		expect(result.content).toBe(content);
 		expect(result.counts).toEqual({});
 	}, 20_000);
+
+	test("preserves a structured convergence failure across the worker boundary", async () => {
+		const githubPat = `github_pat_${"CANARY".padEnd(82, "A")}`;
+		const input = [githubPat, AWS_KEY, AWS_KEY, AWS_KEY, AWS_KEY].join("😀");
+		const filtering = filterSessionTextFieldsOffThread({
+			content: input,
+			subagents: undefined,
+		});
+
+		await expect(filtering).rejects.toBeInstanceOf(
+			SecretFilterConvergenceError,
+		);
+		await expect(filtering).rejects.toMatchObject({
+			maxPasses: MAX_FILTER_PASSES,
+		});
+	});
 });

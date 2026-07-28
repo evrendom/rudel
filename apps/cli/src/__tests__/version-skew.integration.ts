@@ -125,7 +125,7 @@ describe("published rudel@0.1.17 against the current API", () => {
 		// Every stored-row assertion in this file uses FILTER_VERSION. Pin the
 		// literal in exactly one place so a future filter bump fails loudly here
 		// and forces a deliberate re-run of the skew matrix.
-		expect(FILTER_VERSION).toBe(4);
+		expect(FILTER_VERSION).toBe(5);
 
 		const workspace = await createSkewWorkspace("version-guard");
 		const result = await runOldCli(["--version"], workspace);

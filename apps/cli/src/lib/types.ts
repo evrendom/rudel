@@ -28,6 +28,7 @@ export interface UploadResult {
 	redacted?: RedactionCounts;
 	redactedBytes?: number;
 	redactionBudgetExceeded?: boolean;
+	redactionConvergenceExceeded?: boolean;
 	endpointRejected?: boolean;
 }
 

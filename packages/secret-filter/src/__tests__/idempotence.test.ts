@@ -7,8 +7,9 @@ import {
 	getRedactionCount,
 	getUtf8ByteLength,
 	MAX_FILTER_PASSES,
-	MAX_REDACTION_SPAN_BYTES,
+	OVERLONG_MATCH_THRESHOLD_BYTES,
 	OVERLONG_REDACTION_RULE_ID,
+	SecretFilterConvergenceError,
 } from "../index.js";
 import {
 	CANONICAL_SECRETS,
@@ -304,20 +305,49 @@ describe("termination", () => {
 		expect(MAX_FILTER_PASSES).toBeGreaterThanOrEqual(4);
 	});
 
-	test("overlong private keys truncate at the byte cap and remain stable", () => {
+	test("four changing passes succeed only after a clean confirmation", () => {
+		const githubPat = getCanary("github-fine-grained-pat");
+		const aws = getCanary("aws-access-key-id");
+		const input = [githubPat, aws, aws, aws].join("😀");
+		const result = filterKnownSecrets(input);
+
+		expect(result.text).not.toContain(githubPat);
+		expect(result.text).not.toContain(aws);
+		expect(result.counts).toEqual({
+			"aws-access-key-id": 3,
+			"github-fine-grained-pat": 1,
+		});
+		expect(filterKnownSecrets(result.text).counts).toEqual({});
+	});
+
+	test("rejects output that still changes after four redacting passes", () => {
+		const githubPat = getCanary("github-fine-grained-pat");
+		const aws = getCanary("aws-access-key-id");
+		const input = [githubPat, aws, aws, aws, aws].join("😀");
+
+		expect(() => filterKnownSecrets(input)).toThrow(
+			SecretFilterConvergenceError,
+		);
+		expect(() => filterKnownSecrets(input)).toThrow(
+			"Known-pattern redaction did not converge within the safety limit.",
+		);
+	});
+
+	test("overlong private keys fully redact and remain stable", () => {
 		const input = `-----BEGIN PRIVATE KEY-----\n${"A".repeat(
-			MAX_REDACTION_SPAN_BYTES * 2,
+			OVERLONG_MATCH_THRESHOLD_BYTES * 2,
 		)}\n-----END PRIVATE KEY-----`;
 		const first = filterKnownSecrets(input);
 
 		expect(first.text).not.toBe(input);
 		expect(first.text).toContain("[REDACTED:private-key]");
 		expect(first.text).not.toContain("-----BEGIN PRIVATE KEY-----");
+		expect(first.text).not.toContain("-----END PRIVATE KEY-----");
 		expect(first.counts).toEqual({
 			"private-key": 1,
 			[OVERLONG_REDACTION_RULE_ID]: 1,
 		});
-		expect(first.redactedBytes).toBe(MAX_REDACTION_SPAN_BYTES);
+		expect(first.redactedBytes).toBe(getUtf8ByteLength(input));
 		expect(filterKnownSecrets(first.text)).toEqual({
 			text: first.text,
 			counts: {},
@@ -470,7 +500,7 @@ describe("fuzz", () => {
 			for (const marker of text.matchAll(/\[REDACTED:([a-z0-9-]*)\]/gu)) {
 				const ruleId = marker[1] as string;
 				const known =
-					ruleId === "overlong-truncated" ||
+					ruleId === OVERLONG_REDACTION_RULE_ID ||
 					GENERATED_SECRET_RULES.some((rule) => rule.id === ruleId);
 
 				expect(known).toBe(true);
@@ -555,7 +585,7 @@ describe("filter provenance", () => {
 	 * this constant.
 	 */
 	const OUTPUT_FINGERPRINT =
-		"5bd8b6daeaddd8599eaa178b93f4953e384051cc6bd2eb5a9df225cbf42da2d0";
+		"65e401d93304a6614b1614a7b7170e94984e86cb21cf2e3b1d2aaf7adf9230bb";
 
 	test("output fingerprint matches the declared FILTER_VERSION", () => {
 		const corpus = [
@@ -565,6 +595,9 @@ describe("filter provenance", () => {
 			),
 			...CANARY_IDS.map((id) => `k="${getCanary(id)}", next=1`),
 			JSON.stringify({ key: getCanary("private-key") }),
+			`xoxb-1234567890-1234567890-${"A".repeat(
+				OVERLONG_MATCH_THRESHOLD_BYTES,
+			)}`,
 			...PRESERVED_CORPUS.map(([, text]) => text),
 		];
 		const digest = new Bun.CryptoHasher("sha256");
@@ -575,7 +608,7 @@ describe("filter provenance", () => {
 			);
 		}
 
-		expect(FILTER_VERSION).toBe(4);
+		expect(FILTER_VERSION).toBe(5);
 		expect(digest.digest("hex")).toBe(OUTPUT_FINGERPRINT);
 	});
 });

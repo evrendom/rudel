@@ -14,6 +14,7 @@ import { join } from "node:path";
 import {
 	type IngestSessionInput,
 	REDACTION_BUDGET_EXCEEDED_CODE,
+	REDACTION_DID_NOT_CONVERGE_CODE,
 } from "@rudel/api-routes";
 import { FILTER_VERSION } from "@rudel/secret-filter";
 import {
@@ -494,6 +495,112 @@ describe("CLI upload to local API", () => {
 		});
 		expect(await getStoredFilteredSession(userId, sessionId)).toBeNull();
 		expect(await getStoredContentHash(userId, sessionId)).toBeNull();
+	}, 60_000);
+
+	test("API rejects a non-converging filter result before hashing or storage", async () => {
+		const sessionId = `api_redaction_convergence_${crypto.randomUUID()}`;
+		const githubPat = `github_pat_${"CANARY".padEnd(82, "A")}`;
+		const awsKey = "AKIACANARY234567ABCD";
+		const content = [githubPat, awsKey, awsKey, awsKey, awsKey].join("😀");
+		const request = createApiClient({
+			apiBaseUrl: server.baseUrl,
+			token: bearerToken,
+		}).ingestSession({
+			content,
+			projectPath: "/test/api-redaction-convergence",
+			sessionId,
+			source: "claude_code",
+			upload_mode: "manual",
+		});
+
+		await expect(request).rejects.toMatchObject({
+			code: REDACTION_DID_NOT_CONVERGE_CODE,
+			data: { maxPasses: 4 },
+		});
+		expect(await getStoredFilteredSession(userId, sessionId)).toBeNull();
+		expect(await getStoredContentHash(userId, sessionId)).toBeNull();
+		expect(
+			await getStoredAnalyticsSession(userId, sessionId, "claude_code"),
+		).toBeNull();
+	}, 60_000);
+
+	test("API fully redacts an overlong under-budget match", async () => {
+		const sessionId = `api_overlong_redaction_${crypto.randomUUID()}`;
+		const slackPrefix = "xoxb-1234567890-1234567890-";
+		const slackToken = `${slackPrefix}${"A".repeat(8193 - slackPrefix.length)}`;
+		const ingestRequest: IngestSessionInput = {
+			content: JSON.stringify({
+				message: {
+					content: `${slackToken}${".".repeat(slackToken.length * 4)}`,
+					role: "user",
+				},
+				timestamp: "2026-07-28T12:00:00.000Z",
+				type: "user",
+			}),
+			projectPath: "/test/api-overlong-redaction",
+			sessionId,
+			source: "claude_code",
+			upload_mode: "manual",
+		};
+		const response = await createApiClient({
+			apiBaseUrl: server.baseUrl,
+			token: bearerToken,
+		}).ingestSession(ingestRequest);
+
+		expect(response.redacted).toEqual({
+			"overlong-match": 1,
+			"slack-bot-token": 1,
+		});
+		expect(response.redactedBytes).toBe(8193);
+		const stored = await getStoredFilteredSession(userId, sessionId);
+		assert(stored);
+		expect(stored.content).toContain("[REDACTED:slack-bot-token]");
+		expect(stored.content).not.toContain(slackToken);
+		expect(stored.content).not.toContain("A".repeat(256));
+
+		const cliResult = await uploadSession(ingestRequest, {
+			endpoint: server.rpcUrl,
+			token: bearerToken,
+		});
+		expect(cliResult.success).toBe(true);
+		expect(cliResult.redacted).toEqual({
+			"overlong-match": 1,
+			"slack-bot-token": 1,
+		});
+		expect(cliResult.redactedBytes).toBe(8193);
+	}, 60_000);
+
+	test("API rejects an overlong over-budget match without storing it", async () => {
+		const sessionId = `api_overlong_budget_${crypto.randomUUID()}`;
+		const slackPrefix = "xoxb-1234567890-1234567890-";
+		const slackToken = `${slackPrefix}${"A".repeat(8193 - slackPrefix.length)}`;
+		const request = createApiClient({
+			apiBaseUrl: server.baseUrl,
+			token: bearerToken,
+		}).ingestSession({
+			content: JSON.stringify({
+				message: { content: slackToken, role: "user" },
+				timestamp: "2026-07-28T12:01:00.000Z",
+				type: "user",
+			}),
+			projectPath: "/test/api-overlong-budget",
+			sessionId,
+			source: "claude_code",
+			upload_mode: "manual",
+		});
+
+		await expect(request).rejects.toMatchObject({
+			code: REDACTION_BUDGET_EXCEEDED_CODE,
+			data: {
+				redactedBytes: 8193,
+				ruleIds: ["overlong-match", "slack-bot-token"],
+			},
+		});
+		expect(await getStoredFilteredSession(userId, sessionId)).toBeNull();
+		expect(await getStoredContentHash(userId, sessionId)).toBeNull();
+		expect(
+			await getStoredAnalyticsSession(userId, sessionId, "claude_code"),
+		).toBeNull();
 	}, 60_000);
 
 	test("SessionEnd hook queues an over-budget transcript without transport", async () => {

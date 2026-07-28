@@ -20,7 +20,7 @@ setDefaultTimeout(120_000);
 // Mirrors FILTER_VERSION in packages/secret-filter/src/filter.ts. Hardcoded
 // because @rudel/ch-schema does not depend on @rudel/secret-filter and this
 // rehearsal must not add that edge; bump both together.
-const CURRENT_FILTER_VERSION = 4;
+const CURRENT_FILTER_VERSION = 5;
 
 const MIGRATION_PATHS = [
 	"20260726090648_auto.sql",

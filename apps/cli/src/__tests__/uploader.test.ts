@@ -3,6 +3,7 @@ import { ORPCError } from "@orpc/client";
 import {
 	INGEST_LIMIT_REASONS,
 	type IngestSessionInput,
+	REDACTION_DID_NOT_CONVERGE_CODE,
 	SESSION_OWNERSHIP_CONFLICT_CODE,
 } from "@rudel/api-routes";
 import {
@@ -82,6 +83,17 @@ describe("formatUploadError", () => {
 
 		expect(formatUploadError(error)).toBe(
 			"This session ID is already owned by another organization member. Upload it from the original member account or use a different session ID.",
+		);
+	});
+
+	test("explains server-side convergence rejection without exposing content", () => {
+		const error = new ORPCError(REDACTION_DID_NOT_CONVERGE_CODE, {
+			status: 422,
+			data: { maxPasses: 4 },
+		});
+
+		expect(formatUploadError(error)).toBe(
+			"Redaction safety check stopped upload because known-pattern filtering did not converge. The unfiltered transcript was not uploaded.",
 		);
 	});
 
@@ -241,6 +253,62 @@ describe("uploadSession redaction safety budget", () => {
 		expect(result.endpointRejected).toBeUndefined();
 		expect(result.error).not.toContain("Redaction safety check");
 		expect(result.error).toContain("per-session limit");
+	});
+
+	test("counts a complete overlong match and aborts before transport", async () => {
+		const slackPrefix = "xoxb-1234567890-1234567890-";
+		const slackToken = `${slackPrefix}${"A".repeat(8193 - slackPrefix.length)}`;
+		const result = await uploadSession(
+			{
+				source: "claude_code",
+				sessionId: "overlong-redaction-budget-test",
+				projectPath: "/test/project",
+				content: `${slackToken}${".".repeat(100)}`,
+			},
+			{
+				endpoint: "http://127.0.0.1:1/rpc",
+				allowInsecureEndpoint: false,
+				token: "unused",
+			},
+		);
+
+		expect(result.success).toBe(false);
+		expect(result.attempts).toBe(0);
+		expect(result.redactionBudgetExceeded).toBe(true);
+		expect(result.error).toContain("8.0 KB of 8.1 KB");
+		expect(result.error).toContain("overlong-match, slack-bot-token");
+		expect(result.error).not.toContain(slackToken);
+	});
+});
+
+describe("uploadSession redaction convergence", () => {
+	test("aborts before transport when filtering cannot prove a fixpoint", async () => {
+		const githubPat = `github_pat_${"CANARY".padEnd(82, "A")}`;
+		const awsKey = "AKIACANARY234567ABCD";
+		const content = [githubPat, awsKey, awsKey, awsKey, awsKey].join("😀");
+		const result = await uploadSession(
+			{
+				source: "claude_code",
+				sessionId: "redaction-convergence-test",
+				projectPath: "/test/project",
+				content,
+			},
+			{
+				endpoint: "http://127.0.0.1:1/rpc",
+				allowInsecureEndpoint: false,
+				token: "unused",
+			},
+		);
+
+		expect(result).toEqual({
+			success: false,
+			error:
+				"Redaction safety check stopped upload because known-pattern filtering did not converge. The unfiltered transcript was not uploaded.",
+			attempts: 0,
+			redactionConvergenceExceeded: true,
+		});
+		expect(result.error).not.toContain(githubPat);
+		expect(result.error).not.toContain(awsKey);
 	});
 });
 

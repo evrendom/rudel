@@ -24,5 +24,12 @@ export type IngestFilterWorkerResponse =
 	| {
 			readonly status: "error";
 			readonly requestId: number;
+			readonly reason: "did-not-converge";
+			readonly maxPasses: number;
+	  }
+	| {
+			readonly status: "error";
+			readonly requestId: number;
+			readonly reason: "worker-error";
 			readonly message: string;
 	  };

@@ -17,15 +17,27 @@ export interface CompiledSecretRule {
 const COMPILED_SECRET_RULES = GENERATED_SECRET_RULES.map(compileSecretRule);
 const UTF8_ENCODER = new TextEncoder();
 
-export const FILTER_VERSION = 4;
+export const FILTER_VERSION = 5;
 export const MAX_FILTER_PASSES = 4;
-export const MAX_REDACTION_SPAN_BYTES = 8192;
+export const OVERLONG_MATCH_THRESHOLD_BYTES = 8192;
 export const MAX_REDACTION_RATIO = 0.2;
-export const OVERLONG_REDACTION_RULE_ID = "overlong-truncated";
+export const OVERLONG_REDACTION_RULE_ID = "overlong-match";
+export const SECRET_FILTER_CONVERGENCE_MESSAGE =
+	"Known-pattern redaction did not converge within the safety limit.";
 export const FILTERED_TRANSCRIPT_PATHS: readonly string[] = [
 	"content",
 	"subagents[].content",
 ];
+
+export class SecretFilterConvergenceError extends Error {
+	readonly maxPasses: number;
+
+	constructor(maxPasses = MAX_FILTER_PASSES) {
+		super(SECRET_FILTER_CONVERGENCE_MESSAGE);
+		this.name = "SecretFilterConvergenceError";
+		this.maxPasses = maxPasses;
+	}
+}
 
 export function filterKnownSecrets(text: string): SecretFilterResult {
 	let filteredText = text;
@@ -45,26 +57,26 @@ export function filterKnownSecrets(text: string): SecretFilterResult {
 	// again, but an older CLI uploads raw text and gets exactly one server-side
 	// pass. Without this loop those two paths store different bytes.
 	for (let pass = 0; pass < MAX_FILTER_PASSES; pass += 1) {
-		let passCounts: RedactionCounts = {};
-		let passBytes = 0;
-
-		for (const rule of COMPILED_SECRET_RULES) {
-			const result = applyCompiledSecretRule(filteredText, rule);
-			filteredText = result.text;
-			passCounts = mergeRedactionCounts(passCounts, result.counts);
-			passBytes += result.redactedBytes;
-		}
-
+		const passResult = applyCompiledSecretRules(filteredText);
 		// A clean pass means the text is a fixpoint; nothing was rewritten, so
 		// there is nothing to merge.
-		if (getRedactionCount(passCounts) === 0) {
-			break;
+		if (getRedactionCount(passResult.counts) === 0) {
+			return { text: filteredText, counts, redactedBytes };
 		}
 
 		// Markers never re-match, so each pass redacts a disjoint set of the
 		// original bytes and these totals cannot double-count.
-		counts = mergeRedactionCounts(counts, passCounts);
-		redactedBytes += passBytes;
+		filteredText = passResult.text;
+		counts = mergeRedactionCounts(counts, passResult.counts);
+		redactedBytes += passResult.redactedBytes;
+	}
+
+	// Four changing passes are allowed, but their output is not trusted until a
+	// clean pass confirms that it is a fixpoint. Never return partially filtered
+	// text when the bounded loop cannot establish that invariant.
+	const confirmation = applyCompiledSecretRules(filteredText);
+	if (getRedactionCount(confirmation.counts) > 0) {
+		throw new SecretFilterConvergenceError();
 	}
 
 	return { text: filteredText, counts, redactedBytes };
@@ -155,7 +167,7 @@ export function applyCompiledSecretRule(
 ): SecretFilterResult {
 	const pieces: string[] = [];
 	let count = 0;
-	let truncationCount = 0;
+	let overlongCount = 0;
 	let redactedBytes = 0;
 	let cursor = 0;
 
@@ -177,22 +189,23 @@ export function applyCompiledSecretRule(
 		}
 
 		const [secretStart, secretEnd] = secretSpan;
-		const boundedSpan = getBoundedRedactionSpan(text, secretStart, secretEnd);
+		const secretBytes = getUtf8ByteLength(secret);
 		pieces.push(
 			text.slice(cursor, secretStart),
 			`[REDACTED:${rule.definition.id}]`,
 		);
-		cursor = boundedSpan.end;
+		cursor = secretEnd;
 		count += 1;
-		redactedBytes += boundedSpan.bytes;
+		redactedBytes += secretBytes;
 
-		if (boundedSpan.truncated) {
-			truncationCount += 1;
+		if (secretBytes > OVERLONG_MATCH_THRESHOLD_BYTES) {
+			overlongCount += 1;
 		}
 
-		// Resume from the bytes actually redacted. Resuming from match[0]'s end
-		// would skip any real secret inside the preserved tail of an overlong match.
-		rule.matcher.lastIndex = boundedSpan.end;
+		// Resume at the end of the secret group rather than match[0] so a
+		// delimiter consumed by the surrounding regex remains available to later
+		// rules while every byte in the matched secret stays removed.
+		rule.matcher.lastIndex = secretEnd;
 		match = rule.matcher.exec(text);
 	}
 	rule.matcher.lastIndex = 0;
@@ -205,8 +218,8 @@ export function applyCompiledSecretRule(
 	const counts: Record<string, number> = {
 		[rule.definition.id]: count,
 	};
-	if (truncationCount > 0) {
-		counts[OVERLONG_REDACTION_RULE_ID] = truncationCount;
+	if (overlongCount > 0) {
+		counts[OVERLONG_REDACTION_RULE_ID] = overlongCount;
 	}
 	return {
 		text: pieces.join(""),
@@ -215,39 +228,25 @@ export function applyCompiledSecretRule(
 	};
 }
 
+function applyCompiledSecretRules(text: string): SecretFilterResult {
+	let filteredText = text;
+	let counts: RedactionCounts = {};
+	let redactedBytes = 0;
+
+	for (const rule of COMPILED_SECRET_RULES) {
+		const result = applyCompiledSecretRule(filteredText, rule);
+		filteredText = result.text;
+		counts = mergeRedactionCounts(counts, result.counts);
+		redactedBytes += result.redactedBytes;
+	}
+
+	return { text: filteredText, counts, redactedBytes };
+}
+
 function advanceAfterMatch(matcher: RegExp, match: RegExpExecArray): void {
 	if (matcher.lastIndex === match.index) {
 		matcher.lastIndex += 1;
 	}
-}
-
-function getBoundedRedactionSpan(
-	text: string,
-	start: number,
-	end: number,
-): {
-	readonly bytes: number;
-	readonly end: number;
-	readonly truncated: boolean;
-} {
-	const secret = text.slice(start, end);
-	const secretBytes = getUtf8ByteLength(secret);
-	if (secretBytes <= MAX_REDACTION_SPAN_BYTES) {
-		return { bytes: secretBytes, end, truncated: false };
-	}
-
-	let bytes = 0;
-	let boundedEnd = start;
-	for (const character of secret) {
-		const characterBytes = getUtf8ByteLength(character);
-		if (bytes + characterBytes > MAX_REDACTION_SPAN_BYTES) {
-			break;
-		}
-		bytes += characterBytes;
-		boundedEnd += character.length;
-	}
-
-	return { bytes, end: boundedEnd, truncated: true };
 }
 
 function isAllowlisted(secret: string, rule: CompiledSecretRule): boolean {

@@ -8,6 +8,7 @@ import {
 	type IngestSessionInput,
 	parseSafeApiEndpoint,
 	REDACTION_BUDGET_EXCEEDED_CODE,
+	REDACTION_DID_NOT_CONVERGE_CODE,
 	SESSION_OWNERSHIP_CONFLICT_CODE,
 } from "@rudel/api-routes";
 import {
@@ -18,6 +19,8 @@ import {
 	mergeRedactionCounts,
 	type RedactionBudgetAnomaly,
 	type RedactionCounts,
+	SecretFilterConvergenceError,
+	type SessionTextFilterResult,
 } from "@rudel/secret-filter";
 import type { UploadResult } from "./types.js";
 import { describeUploadEndpointRejection } from "./upload-endpoint.js";
@@ -45,6 +48,8 @@ interface ErrorData {
 	readonly tryAgainIn: number | null;
 	readonly windowSeconds: number | null;
 }
+
+type UploadSubagent = NonNullable<IngestSessionInput["subagents"]>[number];
 
 function isRetryable(error: unknown): boolean {
 	if (error instanceof ORPCError) {
@@ -133,6 +138,12 @@ export function formatUploadError(error: unknown): string {
 		return data
 			? formatRedactionBudgetError(data)
 			: "Redaction safety check stopped upload because known-pattern redaction exceeded the 20% transcript budget. The unfiltered transcript was not uploaded.";
+	}
+	if (
+		error instanceof ORPCError &&
+		error.code === REDACTION_DID_NOT_CONVERGE_CODE
+	) {
+		return "Redaction safety check stopped upload because known-pattern filtering did not converge. The unfiltered transcript was not uploaded.";
 	}
 	if (isPayloadTooLarge(error)) {
 		const data = getErrorData(error);
@@ -252,10 +263,24 @@ export async function uploadSession(
 	config: UploadConfig,
 ): Promise<UploadResult> {
 	const inputBytes = getUploadAggregateBytes(request);
-	const filteredText = filterSessionTextFields({
-		content: request.content,
-		subagents: request.subagents,
-	});
+	let filteredText: SessionTextFilterResult<UploadSubagent>;
+	try {
+		filteredText = filterSessionTextFields({
+			content: request.content,
+			subagents: request.subagents,
+		});
+	} catch (error) {
+		if (error instanceof SecretFilterConvergenceError) {
+			return {
+				success: false,
+				error:
+					"Redaction safety check stopped upload because known-pattern filtering did not converge. The unfiltered transcript was not uploaded.",
+				attempts: 0,
+				redactionConvergenceExceeded: true,
+			};
+		}
+		throw error;
+	}
 	const redactionBudgetAnomaly = getRedactionBudgetAnomaly(
 		filteredText.redactedBytes,
 		inputBytes,
