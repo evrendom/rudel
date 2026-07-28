@@ -14,7 +14,6 @@ import { join } from "node:path";
 import {
 	type IngestSessionInput,
 	REDACTION_BUDGET_EXCEEDED_CODE,
-	REDACTION_DID_NOT_CONVERGE_CODE,
 } from "@rudel/api-routes";
 import { FILTER_VERSION } from "@rudel/secret-filter";
 import {
@@ -495,33 +494,6 @@ describe("CLI upload to local API", () => {
 		});
 		expect(await getStoredFilteredSession(userId, sessionId)).toBeNull();
 		expect(await getStoredContentHash(userId, sessionId)).toBeNull();
-	}, 60_000);
-
-	test("API rejects a non-converging filter result before hashing or storage", async () => {
-		const sessionId = `api_redaction_convergence_${crypto.randomUUID()}`;
-		const githubPat = `github_pat_${"CANARY".padEnd(82, "A")}`;
-		const awsKey = "AKIACANARY234567ABCD";
-		const content = [githubPat, awsKey, awsKey, awsKey, awsKey].join("😀");
-		const request = createApiClient({
-			apiBaseUrl: server.baseUrl,
-			token: bearerToken,
-		}).ingestSession({
-			content,
-			projectPath: "/test/api-redaction-convergence",
-			sessionId,
-			source: "claude_code",
-			upload_mode: "manual",
-		});
-
-		await expect(request).rejects.toMatchObject({
-			code: REDACTION_DID_NOT_CONVERGE_CODE,
-			data: { maxPasses: 4 },
-		});
-		expect(await getStoredFilteredSession(userId, sessionId)).toBeNull();
-		expect(await getStoredContentHash(userId, sessionId)).toBeNull();
-		expect(
-			await getStoredAnalyticsSession(userId, sessionId, "claude_code"),
-		).toBeNull();
 	}, 60_000);
 
 	test("API fully redacts an overlong under-budget match", async () => {

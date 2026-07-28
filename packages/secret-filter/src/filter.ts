@@ -40,6 +40,13 @@ export class SecretFilterConvergenceError extends Error {
 }
 
 export function filterKnownSecrets(text: string): SecretFilterResult {
+	return filterKnownSecretsWithCompiledRules(text, COMPILED_SECRET_RULES);
+}
+
+export function filterKnownSecretsWithCompiledRules(
+	text: string,
+	rules: readonly CompiledSecretRule[],
+): SecretFilterResult {
 	let filteredText = text;
 	let counts: RedactionCounts = {};
 	let redactedBytes = 0;
@@ -57,7 +64,7 @@ export function filterKnownSecrets(text: string): SecretFilterResult {
 	// again, but an older CLI uploads raw text and gets exactly one server-side
 	// pass. Without this loop those two paths store different bytes.
 	for (let pass = 0; pass < MAX_FILTER_PASSES; pass += 1) {
-		const passResult = applyCompiledSecretRules(filteredText);
+		const passResult = applyCompiledSecretRules(filteredText, rules);
 		// A clean pass means the text is a fixpoint; nothing was rewritten, so
 		// there is nothing to merge.
 		if (getRedactionCount(passResult.counts) === 0) {
@@ -74,7 +81,7 @@ export function filterKnownSecrets(text: string): SecretFilterResult {
 	// Four changing passes are allowed, but their output is not trusted until a
 	// clean pass confirms that it is a fixpoint. Never return partially filtered
 	// text when the bounded loop cannot establish that invariant.
-	const confirmation = applyCompiledSecretRules(filteredText);
+	const confirmation = applyCompiledSecretRules(filteredText, rules);
 	if (getRedactionCount(confirmation.counts) > 0) {
 		throw new SecretFilterConvergenceError();
 	}
@@ -228,12 +235,15 @@ export function applyCompiledSecretRule(
 	};
 }
 
-function applyCompiledSecretRules(text: string): SecretFilterResult {
+function applyCompiledSecretRules(
+	text: string,
+	rules: readonly CompiledSecretRule[],
+): SecretFilterResult {
 	let filteredText = text;
 	let counts: RedactionCounts = {};
 	let redactedBytes = 0;
 
-	for (const rule of COMPILED_SECRET_RULES) {
+	for (const rule of rules) {
 		const result = applyCompiledSecretRule(filteredText, rule);
 		filteredText = result.text;
 		counts = mergeRedactionCounts(counts, result.counts);

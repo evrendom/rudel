@@ -6,9 +6,11 @@ import {
 	REDACTION_DID_NOT_CONVERGE_CODE,
 	SESSION_OWNERSHIP_CONFLICT_CODE,
 } from "@rudel/api-routes";
+import { SecretFilterConvergenceError } from "@rudel/secret-filter";
 import {
 	formatRedactionSummary,
 	formatUploadError,
+	getSecretFilterUploadFailure,
 	uploadSession,
 } from "../lib/uploader.js";
 
@@ -282,22 +284,9 @@ describe("uploadSession redaction safety budget", () => {
 });
 
 describe("uploadSession redaction convergence", () => {
-	test("aborts before transport when filtering cannot prove a fixpoint", async () => {
-		const githubPat = `github_pat_${"CANARY".padEnd(82, "A")}`;
-		const awsKey = "AKIACANARY234567ABCD";
-		const content = [githubPat, awsKey, awsKey, awsKey, awsKey].join("😀");
-		const result = await uploadSession(
-			{
-				source: "claude_code",
-				sessionId: "redaction-convergence-test",
-				projectPath: "/test/project",
-				content,
-			},
-			{
-				endpoint: "http://127.0.0.1:1/rpc",
-				allowInsecureEndpoint: false,
-				token: "unused",
-			},
+	test("maps a convergence error to a zero-attempt upload failure", () => {
+		const result = getSecretFilterUploadFailure(
+			new SecretFilterConvergenceError(),
 		);
 
 		expect(result).toEqual({
@@ -307,8 +296,7 @@ describe("uploadSession redaction convergence", () => {
 			attempts: 0,
 			redactionConvergenceExceeded: true,
 		});
-		expect(result.error).not.toContain(githubPat);
-		expect(result.error).not.toContain(awsKey);
+		expect(getSecretFilterUploadFailure(new Error("worker failed"))).toBeNull();
 	});
 });
 

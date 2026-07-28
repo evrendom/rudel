@@ -1,7 +1,5 @@
-import {
-	filterSessionTextFields,
-	SecretFilterConvergenceError,
-} from "@rudel/secret-filter";
+import { filterSessionTextFields } from "@rudel/secret-filter";
+import { createIngestFilterWorkerError } from "./ingest-filter.error.js";
 import type {
 	IngestFilterWorkerRequest,
 	IngestFilterWorkerResponse,
@@ -33,22 +31,6 @@ function filterIngestText(
 			result: filterSessionTextFields(request.fields),
 		};
 	} catch (error) {
-		if (error instanceof SecretFilterConvergenceError) {
-			return {
-				status: "error",
-				requestId: request.requestId,
-				reason: "did-not-converge",
-				maxPasses: error.maxPasses,
-			};
-		}
-		return {
-			status: "error",
-			requestId: request.requestId,
-			reason: "worker-error",
-			message:
-				error instanceof Error
-					? error.message
-					: "Transcript filtering failed in the worker",
-		};
+		return createIngestFilterWorkerError(request.requestId, error);
 	}
 }

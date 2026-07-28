@@ -92,6 +92,21 @@ function isApiKeyRateLimited(
 	);
 }
 
+export function getSecretFilterUploadFailure(
+	error: unknown,
+): UploadResult | null {
+	if (!(error instanceof SecretFilterConvergenceError)) {
+		return null;
+	}
+	return {
+		success: false,
+		error:
+			"Redaction safety check stopped upload because known-pattern filtering did not converge. The unfiltered transcript was not uploaded.",
+		attempts: 0,
+		redactionConvergenceExceeded: true,
+	};
+}
+
 export function formatUploadError(error: unknown): string {
 	if (isApiKeyRateLimited(error)) {
 		const data = getErrorData(error);
@@ -270,14 +285,9 @@ export async function uploadSession(
 			subagents: request.subagents,
 		});
 	} catch (error) {
-		if (error instanceof SecretFilterConvergenceError) {
-			return {
-				success: false,
-				error:
-					"Redaction safety check stopped upload because known-pattern filtering did not converge. The unfiltered transcript was not uploaded.",
-				attempts: 0,
-				redactionConvergenceExceeded: true,
-			};
+		const filterFailure = getSecretFilterUploadFailure(error);
+		if (filterFailure) {
+			return filterFailure;
 		}
 		throw error;
 	}

@@ -1,4 +1,8 @@
 import { describe, expect, test } from "bun:test";
+import {
+	compileSecretRule,
+	filterKnownSecretsWithCompiledRules,
+} from "../filter.js";
 import { GENERATED_SECRET_RULES } from "../generated-rules.js";
 import {
 	FILTER_VERSION,
@@ -34,6 +38,29 @@ const getCanary = (ruleId: string): string => {
 	}
 	return secret;
 };
+
+const CASCADE_LABELS = ["ONE", "TWO", "THREE", "FOUR", "FIVE"] as const;
+
+function buildConvergenceCascade(ruleCount: number) {
+	const labels = CASCADE_LABELS.slice(0, ruleCount);
+	const rules = labels.map((label, index) => {
+		const nextRuleId = `cascade-${index + 2}`;
+		const lookahead =
+			index === labels.length - 1 ? "" : `(?=\\[REDACTED:${nextRuleId}\\])`;
+		return compileSecretRule({
+			id: `cascade-${index + 1}`,
+			sourceId: `cascade-${index + 1}`,
+			regexSource: `(${label})${lookahead}`,
+			caseInsensitive: false,
+			secretGroup: 1,
+			allowlistRegexSources: [],
+		});
+	});
+	return {
+		input: labels.join(""),
+		rules,
+	};
+}
 
 const refilter = (text: string) =>
 	filterKnownSecrets(filterKnownSecrets(text).text);
@@ -306,29 +333,32 @@ describe("termination", () => {
 	});
 
 	test("four changing passes succeed only after a clean confirmation", () => {
-		const githubPat = getCanary("github-fine-grained-pat");
-		const aws = getCanary("aws-access-key-id");
-		const input = [githubPat, aws, aws, aws].join("😀");
-		const result = filterKnownSecrets(input);
+		const cascade = buildConvergenceCascade(MAX_FILTER_PASSES);
+		const result = filterKnownSecretsWithCompiledRules(
+			cascade.input,
+			cascade.rules,
+		);
 
-		expect(result.text).not.toContain(githubPat);
-		expect(result.text).not.toContain(aws);
 		expect(result.counts).toEqual({
-			"aws-access-key-id": 3,
-			"github-fine-grained-pat": 1,
+			"cascade-1": 1,
+			"cascade-2": 1,
+			"cascade-3": 1,
+			"cascade-4": 1,
 		});
-		expect(filterKnownSecrets(result.text).counts).toEqual({});
+		expect(
+			filterKnownSecretsWithCompiledRules(result.text, cascade.rules).counts,
+		).toEqual({});
 	});
 
 	test("rejects output that still changes after four redacting passes", () => {
-		const githubPat = getCanary("github-fine-grained-pat");
-		const aws = getCanary("aws-access-key-id");
-		const input = [githubPat, aws, aws, aws, aws].join("😀");
+		const cascade = buildConvergenceCascade(MAX_FILTER_PASSES + 1);
 
-		expect(() => filterKnownSecrets(input)).toThrow(
-			SecretFilterConvergenceError,
-		);
-		expect(() => filterKnownSecrets(input)).toThrow(
+		expect(() =>
+			filterKnownSecretsWithCompiledRules(cascade.input, cascade.rules),
+		).toThrow(SecretFilterConvergenceError);
+		expect(() =>
+			filterKnownSecretsWithCompiledRules(cascade.input, cascade.rules),
+		).toThrow(
 			"Known-pattern redaction did not converge within the safety limit.",
 		);
 	});

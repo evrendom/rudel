@@ -1,4 +1,4 @@
-import { SecretFilterConvergenceError } from "@rudel/secret-filter";
+import { getIngestFilterWorkerError } from "./ingest-filter.error.js";
 import type {
 	IngestFilterFields,
 	IngestFilterResult,
@@ -66,11 +66,7 @@ function handleFilterWorkerMessage(response: IngestFilterWorkerResponse): void {
 
 	pendingRequests.delete(response.requestId);
 	if (response.status === "error") {
-		if (response.reason === "did-not-converge") {
-			pending.reject(new SecretFilterConvergenceError(response.maxPasses));
-			return;
-		}
-		pending.reject(new Error(response.message));
+		pending.reject(getIngestFilterWorkerError(response));
 		return;
 	}
 	pending.resolve(response.result);

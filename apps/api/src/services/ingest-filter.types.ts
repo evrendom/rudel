@@ -15,12 +15,7 @@ export interface IngestFilterWorkerRequest {
 	readonly fields: IngestFilterFields;
 }
 
-export type IngestFilterWorkerResponse =
-	| {
-			readonly status: "success";
-			readonly requestId: number;
-			readonly result: IngestFilterResult;
-	  }
+export type IngestFilterWorkerErrorResponse =
 	| {
 			readonly status: "error";
 			readonly requestId: number;
@@ -33,3 +28,11 @@ export type IngestFilterWorkerResponse =
 			readonly reason: "worker-error";
 			readonly message: string;
 	  };
+
+export type IngestFilterWorkerResponse =
+	| {
+			readonly status: "success";
+			readonly requestId: number;
+			readonly result: IngestFilterResult;
+	  }
+	| IngestFilterWorkerErrorResponse;
