@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.2.0](https://github.com/evrendom/rudel/compare/rudel@0.1.17...rudel@0.2.0) (2026-07-28)
+
+
+### Features
+
+* redact known secrets before transcript upload ([#391](https://github.com/evrendom/rudel/issues/391)) ([166abae](https://github.com/evrendom/rudel/commit/166abae54463ac12ef1328f0b98e72be54f7537c))
+
+
+### Bug Fixes
+
+* **cli:** harden login flow against hostile servers and plaintext API bases ([#388](https://github.com/evrendom/rudel/issues/388)) ([b0aac05](https://github.com/evrendom/rudel/commit/b0aac055de72070e0a68d30dc4a02b4e5765d8c6))
+* **cli:** validate credential-bearing upload destinations ([#390](https://github.com/evrendom/rudel/issues/390)) ([b4086a5](https://github.com/evrendom/rudel/commit/b4086a5c6a9ffa44dc6381c3357dc99251842459))
+
 ## [0.1.17](https://github.com/evrendom/rudel/compare/rudel@0.1.16...rudel@0.1.17) (2026-07-24)
 
 
