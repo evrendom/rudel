@@ -44,13 +44,13 @@ describe("computeIngestContentHash", () => {
 		// row. If it stopped feeding the hash, an old-CLI reupload of an already
 		// stored session would dedupe against the leaky-filter row instead of
 		// writing a corrected one.
-		const versionTwo = computeIngestContentHash({
+		const versionThree = computeIngestContentHash({
 			...baseInput,
-			filter_version: 2,
+			filter_version: 3,
 		});
 		expect(
-			computeIngestContentHash({ ...baseInput, filter_version: 3 }),
-		).not.toBe(versionTwo);
+			computeIngestContentHash({ ...baseInput, filter_version: 4 }),
+		).not.toBe(versionThree);
 	});
 
 	test("treats absent filter_version as version 0", () => {
@@ -123,5 +123,7 @@ describe("computeIngestContentHash", () => {
 			"ownership.lastContentSha256 === contentHash",
 		);
 		expect(routerSource).toContain("contentHash,\n\t\t\t\tingestedAt,");
+		expect(routerSource).toContain("await filterSessionTextFieldsOffThread({");
+		expect(routerSource).not.toContain("filterSessionTextFields({");
 	});
 });

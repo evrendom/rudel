@@ -59,7 +59,7 @@ function assertFilteredWireBody(
 	for (const secret of secrets) {
 		expect(wireBody).toContain(`[REDACTED:${secret.ruleId}]`);
 	}
-	expect(wireBody).toContain('"filter_version":3');
+	expect(wireBody).toContain(`"filter_version":${FILTER_VERSION}`);
 	const parsed = JSON.parse(wireBody) as {
 		json?: { filter_version?: unknown };
 	};
@@ -95,7 +95,7 @@ test("--version matches the workspace package.json version", async () => {
 	}
 }, 60_000);
 
-test("clean upload succeeds and stamps filter_version 3 on the wire", async () => {
+test("clean upload succeeds and stamps the current filter_version on the wire", async () => {
 	const packedCliPath = requirePackedCliPath();
 	const stub = startIngestStub();
 	const fixture = await createCliFixture("claude_code");
@@ -122,7 +122,7 @@ test("clean upload succeeds and stamps filter_version 3 on the wire", async () =
 			{ apiKey: INGEST_STUB_TEST_TOKEN, pathname: "/rpc/ingestSession" },
 		]);
 		const wireBody = stub.bodies[0] ?? "";
-		expect(wireBody).toContain('"filter_version":3');
+		expect(wireBody).toContain(`"filter_version":${FILTER_VERSION}`);
 		const parsed = JSON.parse(wireBody) as {
 			json?: { filter_version?: unknown };
 		};

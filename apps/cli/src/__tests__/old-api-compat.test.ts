@@ -104,7 +104,7 @@ describe("uploadSession against an old-API ingest stub", () => {
 		}
 	});
 
-	test("wire request body stamps filter_version 3", async () => {
+	test("wire request body stamps the current filter_version", async () => {
 		const stub = startIngestStub();
 		try {
 			const result = await uploadSession(
@@ -115,7 +115,7 @@ describe("uploadSession against an old-API ingest stub", () => {
 			expect(result.success).toBe(true);
 			const wireBody = stub.bodies[0] ?? "";
 			expect(wireBody.length).toBeGreaterThan(0);
-			expect(wireBody).toContain('"filter_version":3');
+			expect(wireBody).toContain(`"filter_version":${FILTER_VERSION}`);
 			const parsed = JSON.parse(wireBody) as {
 				json?: { filter_version?: unknown };
 			};
@@ -280,7 +280,7 @@ describe("built CLI against an old-API ingest stub", () => {
 			]);
 			const wireBody = stub.bodies[0] ?? "";
 			expect(containsAnyCanary(wireBody, CLAUDE_SECRETS)).toBe(false);
-			expect(wireBody).toContain('"filter_version":3');
+			expect(wireBody).toContain(`"filter_version":${FILTER_VERSION}`);
 		} finally {
 			await stub.server.stop(true);
 			await rm(home, { recursive: true, force: true });

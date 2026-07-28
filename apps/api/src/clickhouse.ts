@@ -43,9 +43,6 @@ export function createClickHouseExecutor(config: {
 		database: config.database,
 		request_timeout: 120_000,
 		clickhouse_settings: {
-			// Cloud tables use SharedMergeTree. Wait for active replicas so account
-			// deletion is visible cluster-wide without hanging on inactive replicas.
-			lightweight_deletes_sync: "3",
 			wait_end_of_query: 1,
 			output_format_json_quote_64bit_integers: 0,
 		},
@@ -96,6 +93,10 @@ export function getClickhouse(): ClickHouseExecutor {
 		_clickhouse = {
 			...executor,
 			async insert(params) {
+				// Retries reuse the byte-identical rows (including ingested_at), so
+				// duplicate attempts converge under ReplacingMergeTree. Do not enable
+				// async_insert_deduplicate here: these inserts feed dependent materialized
+				// views, whose deduplication behavior varies by ClickHouse version.
 				for (let attempt = 0; attempt < maxRetries; attempt++) {
 					try {
 						return await executor.insert(params);

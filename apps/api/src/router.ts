@@ -10,7 +10,6 @@ import {
 } from "@rudel/api-routes";
 import {
 	FILTER_VERSION,
-	filterSessionTextFields,
 	getRedactionBudgetAnomaly,
 } from "@rudel/secret-filter";
 import { getClickhouse } from "./clickhouse.js";
@@ -42,6 +41,7 @@ import {
 	checkManualIngestRateLimit,
 	checkOrganizationSessionCountRateLimit,
 } from "./rate-limit.js";
+import { filterSessionTextFieldsOffThread } from "./services/ingest-filter.service.js";
 import { getNextIngestedAt } from "./services/ingest-timestamp.service.js";
 import {
 	deleteOrgSessions,
@@ -175,7 +175,7 @@ const ingestSessionHandler = os.ingestSession
 			INGEST_AGGREGATE_CONTENT_MAX_BYTES,
 		);
 		checkIngestByteRateLimit(context.user.id, aggregateBytes);
-		const filteredText = filterSessionTextFields({
+		const filteredText = await filterSessionTextFieldsOffThread({
 			content: input.content,
 			subagents: input.subagents,
 		});

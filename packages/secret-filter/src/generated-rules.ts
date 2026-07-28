@@ -119,7 +119,7 @@ export const GENERATED_SECRET_RULES: readonly SecretRule[] = [
 		id: "private-key",
 		sourceId: "private-key",
 		regexSource:
-			"-----BEGIN[ A-Z0-9_-]{0,100}PRIVATE KEY(?: BLOCK)?-----[A-Za-z0-9+/=\\s-]{64,}?KEY(?: BLOCK)?-----",
+			"-----BEGIN[ A-Z0-9_-]{0,100}PRIVATE KEY(?: BLOCK)?-----(?:[A-Za-z0-9+/=\\s-]|\\\\[nr]){64,}?KEY(?: BLOCK)?-----",
 		caseInsensitive: true,
 		secretGroup: 0,
 		allowlistRegexSources: [],

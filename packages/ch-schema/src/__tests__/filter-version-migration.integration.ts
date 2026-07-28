@@ -20,7 +20,7 @@ setDefaultTimeout(120_000);
 // Mirrors FILTER_VERSION in packages/secret-filter/src/filter.ts. Hardcoded
 // because @rudel/ch-schema does not depend on @rudel/secret-filter and this
 // rehearsal must not add that edge; bump both together.
-const CURRENT_FILTER_VERSION = 3;
+const CURRENT_FILTER_VERSION = 4;
 
 const MIGRATION_PATHS = [
 	"20260726090648_auto.sql",
@@ -367,7 +367,7 @@ describe("filter_version migration rehearsal", () => {
 		expect(rows[0]?.source).toBe("claude_code");
 	}, 120_000);
 
-	test("claude MV propagates an explicit filter_version 3 source insert into session_analytics", async () => {
+	test("claude MV propagates the current filter_version source insert into session_analytics", async () => {
 		const sessionId = `${testPrefix}_claude_mv_fv3`;
 		await ingestRudelClaudeSessions(executor, [
 			buildClaudeRow(sessionId, { filter_version: CURRENT_FILTER_VERSION }),
@@ -392,7 +392,7 @@ describe("filter_version migration rehearsal", () => {
 		expect(rows[0]?.total_interactions).toBe(3);
 	}, 120_000);
 
-	test("codex MV propagates an explicit filter_version 3 source insert into session_analytics", async () => {
+	test("codex MV propagates the current filter_version source insert into session_analytics", async () => {
 		const sessionId = `${testPrefix}_codex_mv_fv3`;
 		const fixtureContent = await readFile(
 			resolve(import.meta.dir, "fixtures", "codex-session.jsonl"),
@@ -437,7 +437,7 @@ describe("filter_version migration rehearsal", () => {
 		expect(rows[0]?.filter_version).toBe(0);
 	}, 120_000);
 
-	test("ReplacingMergeTree(ingested_at): a later filter_version 3 row supersedes the 0 row under FINAL", async () => {
+	test("ReplacingMergeTree(ingested_at): a later current-version row supersedes the 0 row under FINAL", async () => {
 		const sessionId = `${testPrefix}_rmt_upgrade`;
 		// session_analytics orders by (organization_id, session_date, session_id)
 		// and session_date is content-derived, so a re-filtered upload of the same

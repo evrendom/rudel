@@ -15,6 +15,7 @@ import {
 	type IngestSessionInput,
 	REDACTION_BUDGET_EXCEEDED_CODE,
 } from "@rudel/api-routes";
+import { FILTER_VERSION } from "@rudel/secret-filter";
 import {
 	getClickhouse,
 	getSafeClickHouseTable,
@@ -449,7 +450,7 @@ describe("CLI upload to local API", () => {
 		expect(storedRow.subagents["agent-canary"]).toContain(
 			"[REDACTED:aws-access-key-id]",
 		);
-		expect(storedRow.filter_version).toBe(3);
+		expect(storedRow.filter_version).toBe(FILTER_VERSION);
 
 		const newClientResponse = await uploadSession(request, {
 			endpoint: server.rpcUrl,
@@ -655,7 +656,7 @@ describe("CLI upload to local API", () => {
 		expect(containsAnyCanary(storedSubagent, secrets)).toBe(false);
 		expect(hashText(storedRow.content)).toBe(hashText(expectedContent));
 		expect(hashText(storedSubagent)).toBe(hashText(expectedSubagent));
-		expect(storedRow.filter_version).toBe(3);
+		expect(storedRow.filter_version).toBe(FILTER_VERSION);
 		expect(hasRealisticClaudeShape(parseJsonl(storedRow.content))).toBe(true);
 		expect(hasRealisticClaudeSubagentShape(parseJsonl(storedSubagent))).toBe(
 			true,
@@ -673,7 +674,7 @@ describe("CLI upload to local API", () => {
 		expect(containsAnyCanary(analyticsSubagent, secrets)).toBe(false);
 		expect(hashText(analytics.content)).toBe(hashText(expectedContent));
 		expect(hashText(analyticsSubagent)).toBe(hashText(expectedSubagent));
-		expect(analytics.filter_version).toBe(3);
+		expect(analytics.filter_version).toBe(FILTER_VERSION);
 	}, 120_000);
 
 	test("built CLI redacts a realistic Claude transcript through the SessionEnd hook", async () => {
@@ -766,7 +767,7 @@ describe("CLI upload to local API", () => {
 		expect(containsAnyCanary(storedSubagent, secrets)).toBe(false);
 		expect(hashText(storedRow.content)).toBe(hashText(expectedContent));
 		expect(hashText(storedSubagent)).toBe(hashText(expectedSubagent));
-		expect(storedRow.filter_version).toBe(3);
+		expect(storedRow.filter_version).toBe(FILTER_VERSION);
 	}, 120_000);
 
 	test("built CLI redacts a realistic Codex rollout through the hook path", async () => {
@@ -844,7 +845,7 @@ describe("CLI upload to local API", () => {
 		assert(storedRow);
 		expect(containsAnyCanary(storedRow.content, secrets)).toBe(false);
 		expect(hashText(storedRow.content)).toBe(hashText(expectedContent));
-		expect(storedRow.filter_version).toBe(3);
+		expect(storedRow.filter_version).toBe(FILTER_VERSION);
 		expect(hasRealisticCodexShape(parseJsonl(storedRow.content))).toBe(true);
 
 		const analytics = await getStoredAnalyticsSession(
@@ -855,7 +856,7 @@ describe("CLI upload to local API", () => {
 		assert(analytics);
 		expect(containsAnyCanary(analytics.content, secrets)).toBe(false);
 		expect(hashText(analytics.content)).toBe(hashText(expectedContent));
-		expect(analytics.filter_version).toBe(3);
+		expect(analytics.filter_version).toBe(FILTER_VERSION);
 	}, 120_000);
 
 	test("allows concurrent identical ingests with best-effort deduplication", async () => {

@@ -555,7 +555,7 @@ describe("filter provenance", () => {
 	 * this constant.
 	 */
 	const OUTPUT_FINGERPRINT =
-		"7d83ab52e8ff5b3d077fe845df2f7b77a71b6a44408f846bcd6fb8d6f0e2f323";
+		"5bd8b6daeaddd8599eaa178b93f4953e384051cc6bd2eb5a9df225cbf42da2d0";
 
 	test("output fingerprint matches the declared FILTER_VERSION", () => {
 		const corpus = [
@@ -564,6 +564,7 @@ describe("filter provenance", () => {
 				(id) => `${getCanary(id)}${getCanary("twilio-api-key")}`,
 			),
 			...CANARY_IDS.map((id) => `k="${getCanary(id)}", next=1`),
+			JSON.stringify({ key: getCanary("private-key") }),
 			...PRESERVED_CORPUS.map(([, text]) => text),
 		];
 		const digest = new Bun.CryptoHasher("sha256");
@@ -574,7 +575,7 @@ describe("filter provenance", () => {
 			);
 		}
 
-		expect(FILTER_VERSION).toBe(3);
+		expect(FILTER_VERSION).toBe(4);
 		expect(digest.digest("hex")).toBe(OUTPUT_FINGERPRINT);
 	});
 });

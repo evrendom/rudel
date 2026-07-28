@@ -291,10 +291,7 @@ export function isSupportedTrailingText(afterSecret: string): boolean {
 	);
 }
 
-export type CorpusOutcome =
-	| "redacted"
-	| "delimiter-anchor-gap"
-	| "escaped-newline-gap";
+export type CorpusOutcome = "redacted" | "delimiter-anchor-gap";
 
 /**
  * Expected filter outcome for one (rule, context) pair.
@@ -302,19 +299,12 @@ export type CorpusOutcome =
  * - "delimiter-anchor-gap": the rule requires a trailing delimiter and the
  *   context's next character is outside the group, so the secret survives
  *   today. Pinned, accepted; closing it needs a ruleset change.
- * - "escaped-newline-gap": JSON escaping rewrites the secret's real newlines
- *   into literal \n sequences, and backslash is outside the private-key body
- *   charset, so the escaped key no longer matches. Only multi-line secrets
- *   (private-key) are affected.
  */
 export function getExpectedCorpusOutcome(
 	ruleId: string,
 	context: DelimiterContext,
-	secret: string,
+	_secret: string,
 ): CorpusOutcome {
-	if (context.escapesSecret && escapeForJsonString(secret) !== secret) {
-		return "escaped-newline-gap";
-	}
 	if (
 		DELIMITER_ANCHORED_RULE_IDS.includes(ruleId) &&
 		!isSupportedTrailingText(context.suffix)

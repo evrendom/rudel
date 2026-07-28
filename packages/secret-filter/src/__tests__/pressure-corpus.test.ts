@@ -16,6 +16,7 @@ interface GeneratedCase {
 	readonly ruleId: string;
 	readonly contextId: string;
 	readonly secret: string;
+	readonly embedded: string;
 	readonly input: string;
 	readonly expectedText: string;
 	readonly outcome: CorpusOutcome;
@@ -29,12 +30,13 @@ for (const canonical of CANONICAL_SECRETS) {
 			context,
 			canonical.secret,
 		);
-		const { input } = embedSecretInContext(context, canonical.secret);
+		const { input, embedded } = embedSecretInContext(context, canonical.secret);
 		generatedCases.push({
 			title: `${canonical.ruleId} (${canonical.secret.slice(0, 8)}…) in ${context.id}`,
 			ruleId: canonical.ruleId,
 			contextId: context.id,
 			secret: canonical.secret,
+			embedded,
 			input,
 			expectedText:
 				outcome === "redacted"
@@ -49,8 +51,10 @@ const redactedCases = generatedCases.filter((c) => c.outcome === "redacted");
 const delimiterGapCases = generatedCases.filter(
 	(c) => c.outcome === "delimiter-anchor-gap",
 );
-const escapedNewlineGapCases = generatedCases.filter(
-	(c) => c.outcome === "escaped-newline-gap",
+const jsonEscapedPrivateKeyCases = generatedCases.filter(
+	(c) =>
+		c.ruleId === "private-key" &&
+		["json-value", "jsonl-transcript-line"].includes(c.contextId),
 );
 
 describe("every rule in every delimiter context", () => {
@@ -60,7 +64,7 @@ describe("every rule in every delimiter context", () => {
 
 			expect(result.text).toBe(generated.expectedText);
 			expect(result.counts).toEqual({ [generated.ruleId]: 1 });
-			expect(result.redactedBytes).toBe(getUtf8ByteLength(generated.secret));
+			expect(result.redactedBytes).toBe(getUtf8ByteLength(generated.embedded));
 		});
 	}
 });
@@ -106,26 +110,19 @@ describe("known delimiter-anchor gap", () => {
 	}
 });
 
-describe("known gap: JSON-escaped multi-line private key", () => {
-	/**
-	 * Inside a JSON string the key's newlines are the two-character sequence
-	 * \n, and backslash is outside the private-key body charset
-	 * [A-Za-z0-9+/=\s-], so the escaped key never matches. This is how a
-	 * private key sits in a raw .jsonl transcript line. Pinned as a distinct
-	 * finding from the trailing-delimiter gap.
-	 */
-	test("only the private key changes under JSON escaping", () => {
-		for (const generated of escapedNewlineGapCases) {
-			expect(generated.ruleId).toBe("private-key");
-		}
+describe("JSON-escaped multi-line private keys", () => {
+	test("the corpus covers JSON values and raw JSONL transcript lines", () => {
+		expect(
+			jsonEscapedPrivateKeyCases.map((generated) => generated.contextId),
+		).toEqual(["json-value", "jsonl-transcript-line"]);
 	});
 
-	for (const generated of escapedNewlineGapCases) {
-		test(`${generated.title} passes through unredacted (pinned gap)`, () => {
+	for (const generated of jsonEscapedPrivateKeyCases) {
+		test(`${generated.title} redacts the escaped key byte-exactly`, () => {
 			expect(filterKnownSecrets(generated.input)).toEqual({
-				text: generated.input,
-				counts: {},
-				redactedBytes: 0,
+				text: generated.expectedText,
+				counts: { "private-key": 1 },
+				redactedBytes: getUtf8ByteLength(generated.embedded),
 			});
 		});
 	}

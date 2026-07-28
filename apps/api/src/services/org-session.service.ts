@@ -150,6 +150,9 @@ export async function deleteOrgSessions(orgId: string): Promise<void> {
 			table,
 			promise: Promise.resolve().then(() =>
 				getClickhouse().execute({
+					// Cloud tables use SharedMergeTree. Wait for active replicas so
+					// account deletion is visible cluster-wide.
+					clickhouse_settings: { lightweight_deletes_sync: "3" },
 					// organization_id leads the raw/session analytics sort keys. The
 					// wrapped snapshot predicate is a deliberate low-frequency full-scan
 					// field exception because its key starts with snapshot_id.
@@ -174,6 +177,9 @@ export async function deleteUserSessions(userId: string): Promise<void> {
 			table,
 			promise: Promise.resolve().then(() =>
 				getClickhouse().execute({
+					// Cloud tables use SharedMergeTree. Wait for active replicas so
+					// account deletion is visible cluster-wide.
+					clickhouse_settings: { lightweight_deletes_sync: "3" },
 					// Deliberate schema-pk-filter-on-orderby field exception: user_id is
 					// not a leading sort-key column in these tables. A complete,
 					// low-frequency account purge must still cover historical rows for

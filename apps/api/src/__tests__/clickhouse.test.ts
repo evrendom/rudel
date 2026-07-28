@@ -98,6 +98,10 @@ describe("analytics service guardrails", () => {
 			resolve(import.meta.dir, "..", "clickhouse.ts"),
 			"utf8",
 		);
+		const orgSessionSource = await readFile(
+			resolve(import.meta.dir, "..", "services", "org-session.service.ts"),
+			"utf8",
+		);
 		const sessionAnalyticsSource = await readFile(
 			resolve(
 				import.meta.dir,
@@ -115,6 +119,10 @@ describe("analytics service guardrails", () => {
 		expect(clickhouseSource).toContain(
 			"async_insert=1, wait_for_async_insert=1",
 		);
+		expect(clickhouseSource).not.toContain("lightweight_deletes_sync");
+		expect(
+			orgSessionSource.match(/lightweight_deletes_sync: "3"/gu),
+		).toHaveLength(2);
 		expect(sessionAnalyticsSource).not.toContain("{table:Identifier}");
 		expect(sessionAnalyticsSource).not.toContain("|| dimension");
 		expect(sessionAnalyticsSource).not.toContain("|| split_by");
