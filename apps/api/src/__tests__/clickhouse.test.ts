@@ -5,6 +5,7 @@ import {
 	addOptionalStringEqFilter,
 	addOptionalStringInFilter,
 	buildAbsoluteDateFilter,
+	buildClickHouseInsertQuery,
 	buildDateFilter,
 	getSafeClickHouseTable,
 } from "../clickhouse.js";
@@ -67,6 +68,22 @@ describe("clickhouse helpers", () => {
 		expect(() => getSafeClickHouseTable("rudel.unknown_table")).toThrow(
 			"Unsupported ClickHouse table",
 		);
+	});
+
+	test("enables the analyzer for inserts that fan out through materialized views", () => {
+		const query = buildClickHouseInsertQuery("rudel.claude_sessions", [
+			{
+				session_id: "session-1",
+				content: "line1\nline2",
+			},
+		]);
+
+		expect(
+			query.startsWith(
+				"INSERT INTO rudel.claude_sessions SETTINGS async_insert=0, allow_experimental_analyzer=1 FORMAT JSONEachRow ",
+			),
+		).toBe(true);
+		expect(query).toContain('"session_id":"session-1"');
 	});
 });
 
