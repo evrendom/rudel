@@ -337,20 +337,19 @@ doppler run --project rudel --config ci -- bun run verify
 
 ## Releasing
 
-The CLI (`rudel` on npm) uses Release Please for automated versioning and changelogs, with manual npm publishing (OTP required).
+The CLI (`rudel` on npm) uses Release Please for automated versioning and changelogs, with automated npm publishing via OIDC trusted publishing (no OTP).
 
 **How it works:**
 
 1. PRs must have conventional commit titles (`feat:`, `fix:`, `chore:`, etc.) — enforced by `.github/workflows/pr-title.yml`
 2. When PRs merge to `main`, Release Please creates/updates a Release PR that accumulates changelog entries and version bumps
-3. Merging the Release PR creates a GitHub Release + tag, and bumps `package.json` + `src/app.ts` versions
-4. After the Release PR merges, publish to npm manually: `bun run --cwd apps/cli build && cd apps/cli && npm publish` (requires OTP)
+3. Merging the Release PR creates a GitHub Release + tag, and bumps the `package.json` version (`apps/cli/src/app.ts` reads the version from `package.json` at build time)
+4. The release workflow (`.github/workflows/release.yml`) then publishes to npm automatically with `npm publish --provenance` (OIDC `id-token: write`, no manual OTP step)
 
 **Configuration files:**
 
 - `release-please-config.json` — Release Please manifest config (only `apps/cli` is releasable)
 - `.release-please-manifest.json` — tracks current version
-- `apps/cli/src/app.ts` has a `// x-release-please-version` annotation so the hardcoded version stays in sync
 
 **Manual release script:** `scripts/release-cli.ts` can also be used for releases outside the Release Please flow.
 
