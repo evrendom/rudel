@@ -6,6 +6,7 @@ export {
 	getRedactionBudgetAnomaly,
 	getRedactionCount,
 	getUtf8ByteLength,
+	MAX_FILTER_PASSES,
 	MAX_REDACTION_RATIO,
 	MAX_REDACTION_SPAN_BYTES,
 	mergeRedactionCounts,

@@ -71,7 +71,7 @@ export const SELECTED_RULES: readonly SelectedRule[] = [
 		ruleId: "private-key",
 		secretGroup: 0,
 		regexOverride:
-			"(?i)-----BEGIN[ A-Z0-9_-]{0,100}PRIVATE KEY(?: BLOCK)?-----[A-Za-z0-9+/=\\s-]{64,7000}?KEY(?: BLOCK)?-----",
+			"(?i)-----BEGIN[ A-Z0-9_-]{0,100}PRIVATE KEY(?: BLOCK)?-----[A-Za-z0-9+/=\\s-]{64,}?KEY(?: BLOCK)?-----",
 	},
 	{
 		sourceId: "sendgrid-api-token",

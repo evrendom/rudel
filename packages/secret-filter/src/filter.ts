@@ -17,7 +17,8 @@ export interface CompiledSecretRule {
 const COMPILED_SECRET_RULES = GENERATED_SECRET_RULES.map(compileSecretRule);
 const UTF8_ENCODER = new TextEncoder();
 
-export const FILTER_VERSION = 2;
+export const FILTER_VERSION = 3;
+export const MAX_FILTER_PASSES = 4;
 export const MAX_REDACTION_SPAN_BYTES = 8192;
 export const MAX_REDACTION_RATIO = 0.2;
 export const OVERLONG_REDACTION_RULE_ID = "overlong-truncated";
@@ -31,11 +32,39 @@ export function filterKnownSecrets(text: string): SecretFilterResult {
 	let counts: RedactionCounts = {};
 	let redactedBytes = 0;
 
-	for (const rule of COMPILED_SECRET_RULES) {
-		const result = applyCompiledSecretRule(filteredText, rule);
-		filteredText = result.text;
-		counts = mergeRedactionCounts(counts, result.counts);
-		redactedBytes += result.redactedBytes;
+	// Redacting one secret can expose another. Rules are folded in array order
+	// over already-filtered text, and eight of them are anchored on a leading
+	// \b. When two secrets are concatenated with no delimiter, the leading one
+	// has no word boundary to match against -- until a later rule replaces its
+	// neighbour with a marker whose brackets supply that boundary. By then the
+	// earlier rule has already run.
+	//
+	// Re-running until a pass redacts nothing makes one call equivalent to
+	// repeated calls. That matters because the number of passes a transcript
+	// gets is not fixed: a current CLI filters client-side and the API filters
+	// again, but an older CLI uploads raw text and gets exactly one server-side
+	// pass. Without this loop those two paths store different bytes.
+	for (let pass = 0; pass < MAX_FILTER_PASSES; pass += 1) {
+		let passCounts: RedactionCounts = {};
+		let passBytes = 0;
+
+		for (const rule of COMPILED_SECRET_RULES) {
+			const result = applyCompiledSecretRule(filteredText, rule);
+			filteredText = result.text;
+			passCounts = mergeRedactionCounts(passCounts, result.counts);
+			passBytes += result.redactedBytes;
+		}
+
+		// A clean pass means the text is a fixpoint; nothing was rewritten, so
+		// there is nothing to merge.
+		if (getRedactionCount(passCounts) === 0) {
+			break;
+		}
+
+		// Markers never re-match, so each pass redacts a disjoint set of the
+		// original bytes and these totals cannot double-count.
+		counts = mergeRedactionCounts(counts, passCounts);
+		redactedBytes += passBytes;
 	}
 
 	return { text: filteredText, counts, redactedBytes };
