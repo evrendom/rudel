@@ -39,6 +39,26 @@ describe("computeIngestContentHash", () => {
 		);
 	});
 
+	test("distinguishes filter versions so remediation can target old rows", () => {
+		// filter_version is the only way to tell which filter produced a stored
+		// row. If it stopped feeding the hash, an old-CLI reupload of an already
+		// stored session would dedupe against the leaky-filter row instead of
+		// writing a corrected one.
+		const versionTwo = computeIngestContentHash({
+			...baseInput,
+			filter_version: 2,
+		});
+		expect(
+			computeIngestContentHash({ ...baseInput, filter_version: 3 }),
+		).not.toBe(versionTwo);
+	});
+
+	test("treats absent filter_version as version 0", () => {
+		expect(computeIngestContentHash(baseInput)).toBe(
+			computeIngestContentHash({ ...baseInput, filter_version: 0 }),
+		);
+	});
+
 	test("includes Claude Code subagent content", () => {
 		expect(computeIngestContentHash(baseInput)).not.toBe(
 			computeIngestContentHash({

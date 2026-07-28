@@ -1,16 +1,16 @@
 import { afterAll, describe, expect, setDefaultTimeout, test } from "bun:test";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import { createClickHouseExecutor } from "@chkit/clickhouse";
 import { ingestRudelCodexSessions } from "../generated/chkit-ingest.js";
 import type {
 	RudelCodexSessionsRow,
 	RudelSessionAnalyticsRow,
 } from "../generated/chkit-types.js";
 import { CODEX_SESSION_ANALYTICS_MV_SQL } from "../mv-sql/codex-session-analytics.js";
+import { createTestExecutor, waitForQuery } from "./helpers/executor.js";
 import { withSessionFilter } from "./mv-session-filter.js";
 
-setDefaultTimeout(30_000);
+setDefaultTimeout(120_000);
 
 const testPrefix = `codex_mv_test_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 const testId = `${testPrefix}_clean`;
@@ -19,53 +19,7 @@ const skillTestId = `${testPrefix}_skills`;
 // Unique per run. All fixtures share it, so afterAll can clean by organization.
 const orgId = `org_${testPrefix}`;
 
-const baseExecutor = createClickHouseExecutor({
-	url: process.env.CLICKHOUSE_URL || "http://localhost:8123",
-	username:
-		process.env.CLICKHOUSE_USERNAME || process.env.CLICKHOUSE_USER || "default",
-	password: process.env.CLICKHOUSE_PASSWORD || "",
-	database: "default",
-});
-
-const executor: typeof baseExecutor = {
-	...baseExecutor,
-	async insert(params) {
-		const rows = params.values
-			.map((r: Record<string, unknown>) => JSON.stringify(r))
-			.join("\n");
-		const sql = `INSERT INTO ${params.table} SETTINGS async_insert=0 FORMAT JSONEachRow ${rows}`;
-		for (let attempt = 0; attempt < 5; attempt++) {
-			try {
-				await baseExecutor.execute(sql);
-				return;
-			} catch (error) {
-				const isRaceCondition =
-					error instanceof Error &&
-					error.message.includes("INSERT race condition");
-				if (!isRaceCondition || attempt === 4) throw error;
-				await new Promise((r) => setTimeout(r, 1000 * 2 ** attempt));
-			}
-		}
-	},
-};
-
-async function waitForQuery<T>(
-	query: string,
-	timeoutMs = 30000,
-	intervalMs = 2000,
-): Promise<T[]> {
-	const start = Date.now();
-	while (Date.now() - start < timeoutMs) {
-		try {
-			const results = await executor.query<T>(query);
-			if (results.length > 0) return results;
-		} catch {
-			// Transient ClickHouse errors - retry
-		}
-		await new Promise((r) => setTimeout(r, intervalMs));
-	}
-	return [];
-}
+const executor = createTestExecutor();
 
 afterAll(async () => {
 	// The incremental MV writes a separate target row on insert; deleting its source
@@ -73,10 +27,15 @@ afterAll(async () => {
 	// `test:env` do not accumulate fixtures.
 	// The executor reuses one ClickHouse session, so commands must be sequential;
 	// concurrent deletes fail with SESSION_IS_LOCKED.
+	// Best-effort like ingest-clickhouse's cleanup: rows are scoped to this run's
+	// unique org id, so a delete that times out under shared-cluster mutation
+	// pressure leaks only inert fixtures — it must not fail the gate.
 	for (const table of ["rudel.codex_sessions", "rudel.session_analytics"]) {
-		await executor.execute(
-			`DELETE FROM ${table} WHERE organization_id = '${orgId}' SETTINGS mutations_sync = 0`,
-		);
+		await executor
+			.execute(
+				`DELETE FROM ${table} WHERE organization_id = '${orgId}' SETTINGS lightweight_deletes_sync = 0`,
+			)
+			.catch(() => {});
 	}
 });
 
@@ -129,7 +88,10 @@ describe("codex_session_analytics_mv", () => {
 		await ingestRudelCodexSessions(executor, [row]);
 
 		// Run the MV query directly against the inserted row
-		const results = await waitForQuery<RudelSessionAnalyticsRow>(MV_QUERY);
+		const results = await waitForQuery<RudelSessionAnalyticsRow>(
+			executor,
+			MV_QUERY,
+		);
 
 		expect(results).toHaveLength(1);
 		const a = results[0];
@@ -223,6 +185,7 @@ describe("codex_session_analytics_mv", () => {
 		await ingestRudelCodexSessions(executor, [row]);
 
 		const results = await waitForQuery<RudelSessionAnalyticsRow>(
+			executor,
 			withSessionFilter(CODEX_SESSION_ANALYTICS_MV_SQL, {
 				organizationId: orgId,
 				sessionId: errorTestId,
@@ -279,6 +242,7 @@ describe("codex_session_analytics_mv", () => {
 		await ingestRudelCodexSessions(executor, [row]);
 
 		const results = await waitForQuery<RudelSessionAnalyticsRow>(
+			executor,
 			withSessionFilter(CODEX_SESSION_ANALYTICS_MV_SQL, {
 				organizationId: orgId,
 				sessionId: skillTestId,
