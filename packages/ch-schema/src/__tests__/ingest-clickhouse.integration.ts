@@ -1,60 +1,20 @@
-import { afterAll, describe, expect, it, test } from "bun:test";
-import { createClickHouseExecutor } from "@chkit/clickhouse";
+import {
+	afterAll,
+	describe,
+	expect,
+	it,
+	setDefaultTimeout,
+	test,
+} from "bun:test";
 import { ingestRudelClaudeSessions } from "../generated/chkit-ingest.js";
 import type { RudelClaudeSessionsRow } from "../generated/chkit-types.js";
+import { createTestExecutor, waitForQuery } from "./helpers/executor.js";
 
 const testId = `test_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
-const baseExecutor = createClickHouseExecutor({
-	url: process.env.CLICKHOUSE_URL || "http://localhost:8123",
-	username:
-		process.env.CLICKHOUSE_USERNAME || process.env.CLICKHOUSE_USER || "default",
-	password: process.env.CLICKHOUSE_PASSWORD || "",
-	database: "default",
-});
+const executor = createTestExecutor();
 
-// ClickHouse Cloud's @clickhouse/client insert() silently drops data.
-// Wrap the executor to use execute() with FORMAT JSONEachRow instead.
-// async_insert=0 forces synchronous insert so data is immediately queryable.
-const executor: typeof baseExecutor = {
-	...baseExecutor,
-	async insert(params) {
-		const rows = params.values
-			.map((r: Record<string, unknown>) => JSON.stringify(r))
-			.join("\n");
-		const sql = `INSERT INTO ${params.table} SETTINGS async_insert=0 FORMAT JSONEachRow ${rows}`;
-		for (let attempt = 0; attempt < 5; attempt++) {
-			try {
-				await baseExecutor.execute(sql);
-				return;
-			} catch (error) {
-				const isRaceCondition =
-					error instanceof Error &&
-					error.message.includes("INSERT race condition");
-				if (!isRaceCondition || attempt === 4) throw error;
-				await new Promise((r) => setTimeout(r, 1000 * 2 ** attempt));
-			}
-		}
-	},
-};
-
-async function waitForQuery<T>(
-	query: string,
-	timeoutMs = 30000,
-	intervalMs = 2000,
-): Promise<T[]> {
-	const start = Date.now();
-	while (Date.now() - start < timeoutMs) {
-		try {
-			const results = await executor.query<T>(query);
-			if (results.length > 0) return results;
-		} catch {
-			// Transient ClickHouse errors (e.g. S3 storage) - retry
-		}
-		await new Promise((r) => setTimeout(r, intervalMs));
-	}
-	return [];
-}
+setDefaultTimeout(120_000);
 
 async function insertWithRetry(
 	fn: () => Promise<void>,
@@ -76,9 +36,11 @@ async function insertWithRetry(
 	return [];
 }
 
-afterAll(() => {
-	executor
-		.execute(`DELETE FROM rudel.claude_sessions WHERE session_id = '${testId}'`)
+afterAll(async () => {
+	await executor
+		.execute(
+			`DELETE FROM rudel.claude_sessions WHERE session_id = '${testId}' SETTINGS lightweight_deletes_sync = 0`,
+		)
 		.catch(() => {});
 });
 
@@ -94,6 +56,7 @@ describe("ingestRudelClaudeSessions", () => {
 		package_name: "",
 		package_type: "",
 		content: "test session content",
+		filter_version: 0,
 		subagents: {},
 		ingested_at: now,
 		user_id: "user_test",
@@ -107,6 +70,7 @@ describe("ingestRudelClaudeSessions", () => {
 			() => ingestRudelClaudeSessions(executor, [row]),
 			() =>
 				waitForQuery<{ session_id: string; tag: string }>(
+					executor,
 					`SELECT session_id, tag FROM rudel.claude_sessions WHERE session_id = '${testId}' LIMIT 1`,
 				),
 		)) as Array<{ session_id: string; tag: string }>;

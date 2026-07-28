@@ -39,6 +39,26 @@ describe("computeIngestContentHash", () => {
 		);
 	});
 
+	test("distinguishes filter versions so remediation can target old rows", () => {
+		// filter_version is the only way to tell which filter produced a stored
+		// row. If it stopped feeding the hash, an old-CLI reupload of an already
+		// stored session would dedupe against the leaky-filter row instead of
+		// writing a corrected one.
+		const versionThree = computeIngestContentHash({
+			...baseInput,
+			filter_version: 3,
+		});
+		expect(
+			computeIngestContentHash({ ...baseInput, filter_version: 4 }),
+		).not.toBe(versionThree);
+	});
+
+	test("treats absent filter_version as version 0", () => {
+		expect(computeIngestContentHash(baseInput)).toBe(
+			computeIngestContentHash({ ...baseInput, filter_version: 0 }),
+		);
+	});
+
 	test("includes Claude Code subagent content", () => {
 		expect(computeIngestContentHash(baseInput)).not.toBe(
 			computeIngestContentHash({
@@ -97,11 +117,13 @@ describe("computeIngestContentHash", () => {
 			new URL("../router.ts", import.meta.url),
 		).text();
 		expect(
-			routerSource.match(/computeIngestContentHash\(input\)/gu),
+			routerSource.match(/computeIngestContentHash\(filteredInput\)/gu),
 		).toHaveLength(1);
 		expect(routerSource).toContain(
 			"ownership.lastContentSha256 === contentHash",
 		);
 		expect(routerSource).toContain("contentHash,\n\t\t\t\tingestedAt,");
+		expect(routerSource).toContain("await filterSessionTextFieldsOffThread({");
+		expect(routerSource).not.toContain("filterSessionTextFields({");
 	});
 });

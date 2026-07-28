@@ -70,7 +70,7 @@ export function createClickHouseExecutor(config: {
 			// because ClickHouse Cloud's @clickhouse/client insert() silently drops data.
 			const rows = params.values.map((r) => JSON.stringify(r)).join("\n");
 			await client.command({
-				query: `INSERT INTO ${table} SETTINGS async_insert=0 FORMAT JSONEachRow ${rows}`,
+				query: `INSERT INTO ${table} SETTINGS async_insert=1, wait_for_async_insert=1 FORMAT JSONEachRow ${rows}`,
 			});
 		},
 	};
@@ -93,6 +93,10 @@ export function getClickhouse(): ClickHouseExecutor {
 		_clickhouse = {
 			...executor,
 			async insert(params) {
+				// Retries reuse the byte-identical rows (including ingested_at), so
+				// duplicate attempts converge under ReplacingMergeTree. Do not enable
+				// async_insert_deduplicate here: these inserts feed dependent materialized
+				// views, whose deduplication behavior varies by ClickHouse version.
 				for (let attempt = 0; attempt < maxRetries; attempt++) {
 					try {
 						return await executor.insert(params);

@@ -7,7 +7,10 @@ import { getGitInfo } from "../../../lib/git-info.js";
 import { reportHookUploadFailure } from "../../../lib/hook-upload-failure.js";
 import { getProjectOrgId } from "../../../lib/project-config.js";
 import { allowsInsecureEndpointFromEnv } from "../../../lib/upload-endpoint.js";
-import { uploadSession } from "../../../lib/uploader.js";
+import {
+	formatRedactionSummary,
+	uploadSession,
+} from "../../../lib/uploader.js";
 import { disposeLogging, setupHookLogging } from "../../../logging.js";
 
 interface HookInput {
@@ -77,6 +80,13 @@ async function runSessionEnd(): Promise<undefined | Error> {
 				"Upload successful for session {sessionId} (attempts: {attempts})",
 				{ sessionId: input.session_id, attempts: result.attempts },
 			);
+			const redactionSummary = formatRedactionSummary(
+				result.redacted,
+				result.redactedBytes,
+			);
+			if (redactionSummary) {
+				logger.info("{redactionSummary}", { redactionSummary });
+			}
 			await removeFailedUpload(input.session_id);
 		} else {
 			const hookError = await reportHookUploadFailure(logger, result, {

@@ -6,11 +6,16 @@
 	"exports": {
 		".": "./src/index.ts"
 	},
+	"scripts": {
+		"check-types": "tsc --noEmit",
+		"test": "bun test"
+	},
 	"dependencies": {
 		"@orpc/contract": "latest",
 		"zod": "^3.24.0"
 	},
 	"devDependencies": {
+		"@rudel/secret-filter": "workspace:*",
 		"@rudel/typescript-config": "workspace:*",
 		"bun-types": "latest",
 		"typescript": "5.9.2"

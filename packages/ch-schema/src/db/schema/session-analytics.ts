@@ -24,6 +24,7 @@ const rudel_session_analytics = table({
 		{ name: "package_name", type: "String", default: "''" },
 		{ name: "package_type", type: "String", default: "''" },
 		{ name: "content", type: "String" },
+		{ name: "filter_version", type: "UInt8", default: "fn:0" },
 		{ name: "subagents", type: "Map(String, String)", default: "fn:map()" },
 		{ name: "skills", type: "Array(String)", default: "fn:[]" },
 		{ name: "slash_commands", type: "Array(String)", default: "fn:[]" },

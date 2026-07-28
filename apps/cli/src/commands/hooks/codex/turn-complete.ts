@@ -11,7 +11,10 @@ import { getGitInfo } from "../../../lib/git-info.js";
 import { reportHookUploadFailure } from "../../../lib/hook-upload-failure.js";
 import { getProjectOrgId } from "../../../lib/project-config.js";
 import { allowsInsecureEndpointFromEnv } from "../../../lib/upload-endpoint.js";
-import { uploadSession } from "../../../lib/uploader.js";
+import {
+	formatRedactionSummary,
+	uploadSession,
+} from "../../../lib/uploader.js";
 import { disposeLogging, setupHookLogging } from "../../../logging.js";
 
 interface CodexNotifyInput {
@@ -73,6 +76,13 @@ async function runTurnComplete(): Promise<undefined | Error> {
 		});
 
 		if (result.success) {
+			const redactionSummary = formatRedactionSummary(
+				result.redacted,
+				result.redactedBytes,
+			);
+			if (redactionSummary) {
+				logger.info("{redactionSummary}", { redactionSummary });
+			}
 			await removeFailedUpload(input.thread_id);
 		} else {
 			const hookError = await reportHookUploadFailure(logger, result, {

@@ -64,6 +64,7 @@ afterAll(() => {
 		[...insertedSessionIds].map((sessionId) =>
 			exec
 				.execute({
+					clickhouse_settings: { lightweight_deletes_sync: "0" },
 					query: `DELETE FROM ${liveTable} WHERE session_id = {sessionId:String}`,
 					query_params: { sessionId },
 				})
@@ -126,6 +127,7 @@ describe("clickhouse executor integration", () => {
 		expect(row?.content).toBe(content);
 
 		await executor.execute({
+			clickhouse_settings: { lightweight_deletes_sync: "0" },
 			query: `DELETE FROM ${liveTable} WHERE session_id = {sessionId:String}`,
 			query_params: {
 				sessionId,

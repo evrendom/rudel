@@ -247,6 +247,7 @@ class CodexAdapter implements AgentAdapter {
 			package_name: input.packageName ?? "",
 			package_type: input.packageType ?? "",
 			content: input.content,
+			filter_version: input.filter_version ?? 0,
 			ingested_at: now,
 			user_id: context.userId,
 			git_branch: input.gitBranch ?? null,

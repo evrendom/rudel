@@ -36,7 +36,7 @@ See the [CLI documentation](apps/cli/README.md) for all available commands.
 
 1. You install the CLI and run `rudel enable`
 2. This registers Claude Code / Codex hooks that run when a session ends
-3. The hook uploads the session transcript to Rudel
+3. The hook redacts known secret patterns and uploads the session transcript to Rudel
 4. Transcripts are stored in ClickHouse and processed into analytics
 
 ## What Data Is Collected
@@ -54,7 +54,9 @@ Each uploaded session includes:
 
 Rudel is designed to ingest full coding-agent session data for analytics. That means uploaded transcripts and related metadata may contain sensitive material, including source code, prompts, tool output, file contents, command output, URLs, and secrets that appeared during a session.
 
-Only enable Rudel on projects and environments where you are comfortable uploading that data. If you use the hosted service at `app.rudel.ai`, we do not have access to personal data contained in uploaded transcripts and cannot read that data. Review the [Rudel Privacy Policy](https://rudel.ai/privacy) before enabling uploads for yourself or your team.
+The current CLI redacts known secret patterns from the main transcript and sub-agent transcripts before upload, and the API reapplies the same deterministic filter before storage. Matched values are removed in full; uploads are stopped if known-pattern redaction exceeds 20% of the transcript or the bounded filter cannot establish a stable result. This reduces exposure but does not catch `DB_PASSWORD=hunter2`, bare custom tokens without a distinguishing prefix, secrets split across lines, base64-encoded or paraphrased secrets, credentials in screenshots, or double-escaped JSON embedded inside another JSON string. Seven of the 18 selected rules also require a restricted trailing delimiter, so ordinary punctuation immediately after a secret can prevent a match. Do not treat the filter as a substitute for keeping secrets out of coding-agent sessions.
+
+Only enable Rudel on projects and environments where you are comfortable uploading that data. Review the [Rudel Privacy Policy](https://rudel.ai/privacy) before enabling uploads for yourself or your team.
 
 We also use limited product analytics on the hosted service to understand whether core workflows work, diagnose failures, and improve the product. This is explicit event tracking for account and authentication flows, CLI login and enable flows, session upload outcomes, dashboard views and interactions, organization management actions, and a small set of utility interactions such as theme toggle or sidebar collapse.
 

@@ -32,8 +32,9 @@ export async function recordSessionIngestContent(
 	ingestedAt: Date,
 ): Promise<void> {
 	// This guard orders bookkeeping for successful writes with distinct
-	// ingested_at values. Different ClickHouse session_date sorting keys,
-	// equal-millisecond versions, and failed bookkeeping remain best-effort.
+	// ingested_at values. The API allocator prevents same-process millisecond
+	// ties; different ClickHouse sorting keys, cross-instance ties, and failed
+	// bookkeeping remain best-effort.
 	const ingestedAtIso = ingestedAt.toISOString();
 	await sqlClient`
 		UPDATE session_ownership
