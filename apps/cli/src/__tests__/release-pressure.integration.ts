@@ -995,8 +995,8 @@ describe("release pressure: E2E integration", () => {
 		// Two observations here are racy and warrant a reroll with a fresh
 		// session id rather than a hard assertion:
 		//  - recordSessionIngestContent only orders bookkeeping for DISTINCT
-		//    ingested_at values (equal-millisecond versions are documented
-		//    best-effort in session-ownership.service.ts);
+		//    ingested_at values (the API allocator prevents same-process ties,
+		//    while cross-instance ties remain best-effort);
 		//  - both rows share one sorting key by design, so a background
 		//    ReplacingMergeTree merge (or delayed row visibility on the shared
 		//    cluster) can leave fewer than 2 physical rows in the poll window.

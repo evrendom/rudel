@@ -42,6 +42,7 @@ import {
 	checkManualIngestRateLimit,
 	checkOrganizationSessionCountRateLimit,
 } from "./rate-limit.js";
+import { getNextIngestedAt } from "./services/ingest-timestamp.service.js";
 import {
 	deleteOrgSessions,
 	getCachedOrgSessionCount,
@@ -264,7 +265,10 @@ const ingestSessionHandler = os.ingestSession
 			return response;
 		}
 
-		const ingestedAt = new Date();
+		// Acknowledged async inserts can batch concurrent requests into one part.
+		// Give each request a distinct millisecond RMT version even when the
+		// process clock has not advanced, so FINAL and hash bookkeeping agree.
+		const ingestedAt = getNextIngestedAt();
 		const adapter = getAdapter(filteredInput.source);
 		await adapter.ingest(getClickhouse(), filteredInput, {
 			ingestedAt,
