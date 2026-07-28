@@ -22,23 +22,30 @@ setDefaultTimeout(120_000);
 // rehearsal must not add that edge; bump both together.
 const CURRENT_FILTER_VERSION = 3;
 
-const MIGRATION_PATH = resolve(
-	import.meta.dir,
-	"..",
-	"..",
-	"chx",
-	"migrations",
+const MIGRATION_PATHS = [
 	"20260726090648_auto.sql",
+	"20260728093204_auto.sql",
+].map((migration) =>
+	resolve(import.meta.dir, "..", "..", "chx", "migrations", migration),
 );
 
 const testPrefix = `fv_mig_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 // Unique per run. Every inserted row carries it, so afterAll can clean by
 // organization without touching anything else in the shared CI database.
 const orgId = `org_${testPrefix}`;
+const migrationTableNames = {
+	claude_sessions: `_${testPrefix}_claude_sessions`,
+	codex_sessions: `_${testPrefix}_codex_sessions`,
+	session_analytics: `_${testPrefix}_session_analytics`,
+} as const;
 
 const executor = createTestExecutor();
 
 afterAll(async () => {
+	for (const table of Object.values(migrationTableNames)) {
+		await executor.execute(`DROP TABLE IF EXISTS rudel.${table} SYNC`);
+	}
+
 	// The incremental MVs write separate target rows on insert; deleting a source
 	// row does not propagate, so session_analytics is cleaned explicitly.
 	// The executor reuses one ClickHouse session, so commands must be sequential;
@@ -219,8 +226,14 @@ async function insertWithoutFilterVersion(
 }
 
 describe("filter_version migration rehearsal", () => {
-	test("the 20260726090648 migration applies twice statement-by-statement (ADD COLUMN IF NOT EXISTS idempotence)", async () => {
-		const migrationSql = await readFile(MIGRATION_PATH, "utf-8");
+	test("the filter_version migration chain preserves values and finishes at UInt8", async () => {
+		const migrationSql = (
+			await Promise.all(
+				MIGRATION_PATHS.map((migrationPath) =>
+					readFile(migrationPath, "utf-8"),
+				),
+			)
+		).join("\n");
 		const statements = migrationSql
 			.split("\n")
 			.filter((line) => !line.trimStart().startsWith("--"))
@@ -229,32 +242,74 @@ describe("filter_version migration rehearsal", () => {
 			.map((statement) => statement.trim())
 			.filter((statement) => statement.length > 0);
 
-		expect(statements).toHaveLength(3);
-		for (const statement of statements) {
+		expect(statements).toHaveLength(6);
+		for (const statement of statements.slice(0, 3)) {
 			expect(statement).toMatch(
 				/^ALTER TABLE rudel\.(session_analytics|claude_sessions|codex_sessions) ADD COLUMN IF NOT EXISTS `filter_version` UInt16 DEFAULT 0$/,
 			);
 		}
-
-		// The columns already exist in this database — that is exactly the point:
-		// both passes must no-op cleanly instead of failing with DUPLICATE_COLUMN.
-		for (let pass = 0; pass < 2; pass++) {
-			for (const statement of statements) {
-				await executor.execute(statement);
-			}
+		for (const statement of statements.slice(3)) {
+			expect(statement).toMatch(
+				/^ALTER TABLE rudel\.(session_analytics|claude_sessions|codex_sessions) MODIFY COLUMN `filter_version` UInt8 DEFAULT 0$/,
+			);
 		}
 
-		const columns = await executor.query<{ table: string; type: string }>(
+		// Never replay a type-changing migration against the shared, long-lived CI
+		// tables: MODIFY COLUMN schedules a mutation over every historical part.
+		// Isolated tables exercise the exact generated statements without queuing
+		// rewrites that can block unrelated integration-test cleanup.
+		for (const table of Object.values(migrationTableNames)) {
+			await executor.execute(
+				`CREATE TABLE rudel.${table} (id UInt8) ENGINE = MergeTree ORDER BY id`,
+			);
+		}
+
+		const isolatedStatements = statements.map((statement) => {
+			let isolatedStatement = statement;
+			for (const [productionTable, isolatedTable] of Object.entries(
+				migrationTableNames,
+			)) {
+				isolatedStatement = isolatedStatement.replace(
+					`rudel.${productionTable}`,
+					`rudel.${isolatedTable}`,
+				);
+			}
+			return isolatedStatement;
+		});
+
+		for (const statement of isolatedStatements.slice(0, 3)) {
+			await executor.execute(statement);
+		}
+		for (const table of Object.values(migrationTableNames)) {
+			await executor.insert({
+				table: `rudel.${table}`,
+				values: [{ id: 1, filter_version: 3 }],
+			});
+		}
+		for (const statement of isolatedStatements.slice(3)) {
+			await executor.execute(statement);
+		}
+
+		const columns = await executor.query<{
+			table: string;
+			type: string;
+		}>(
 			`SELECT table, type FROM system.columns
 			 WHERE database = 'rudel' AND name = 'filter_version'
-			   AND table IN ('claude_sessions', 'codex_sessions', 'session_analytics')
+			   AND table IN (${Object.values(migrationTableNames)
+						.map((table) => `'${table}'`)
+						.join(", ")})
 			 ORDER BY table`,
 		);
-		expect(columns).toEqual([
-			{ table: "claude_sessions", type: "UInt16" },
-			{ table: "codex_sessions", type: "UInt16" },
-			{ table: "session_analytics", type: "UInt16" },
-		]);
+		expect(columns).toHaveLength(3);
+		expect(columns.every(({ type }) => type === "UInt8")).toBe(true);
+
+		for (const table of Object.values(migrationTableNames)) {
+			const rows = await executor.query<{ filter_version: number }>(
+				`SELECT filter_version FROM rudel.${table} WHERE id = 1`,
+			);
+			expect(rows).toEqual([{ filter_version: 3 }]);
+		}
 	}, 120_000);
 
 	test("mid-deploy window: claude_sessions insert without filter_version succeeds and reads back 0", async () => {

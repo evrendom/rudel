@@ -1,6 +1,6 @@
 {
 	"version": 1,
-	"generatedAt": "2026-07-26T09:06:48.063Z",
+	"generatedAt": "2026-07-28T09:32:04.316Z",
 	"definitions": [
 		{
 			"database": "rudel",
@@ -50,7 +50,7 @@
 				},
 				{
 					"name": "filter_version",
-					"type": "UInt16",
+					"type": "UInt8",
 					"default": "fn:0"
 				},
 				{
@@ -141,7 +141,7 @@
 				},
 				{
 					"name": "filter_version",
-					"type": "UInt16",
+					"type": "UInt8",
 					"default": "fn:0"
 				},
 				{
@@ -227,7 +227,7 @@
 				},
 				{
 					"name": "filter_version",
-					"type": "UInt16",
+					"type": "UInt8",
 					"default": "fn:0"
 				},
 				{
