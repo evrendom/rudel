@@ -36,6 +36,7 @@ interface UploadFlags {
 	dryRun: boolean;
 	org?: string;
 	retry: boolean;
+	yes: boolean;
 	concurrency: number;
 }
 
@@ -320,14 +321,16 @@ async function runRetryUpload(
 		p.log.warn(`  ...and ${failures.length - 10} more`);
 	}
 
-	const shouldRetry = await p.confirm({
-		message: `Retry all ${failures.length} failed upload(s)?`,
-		initialValue: true,
-	});
+	if (!flags.yes) {
+		const shouldRetry = await p.confirm({
+			message: `Retry all ${failures.length} failed upload(s)?`,
+			initialValue: true,
+		});
 
-	if (p.isCancel(shouldRetry) || !shouldRetry) {
-		p.cancel("Retry cancelled.");
-		return;
+		if (p.isCancel(shouldRetry) || !shouldRetry) {
+			p.cancel("Retry cancelled.");
+			return;
+		}
 	}
 
 	const endpoint = flags.endpoint;
@@ -457,6 +460,11 @@ export const uploadCommand = buildCommand({
 				brief: "Retry previously failed uploads",
 				default: false,
 			},
+			yes: {
+				kind: "boolean",
+				brief: "Skip the confirmation prompt for --retry",
+				default: false,
+			},
 			concurrency: {
 				kind: "parsed",
 				parse: Number,
@@ -470,6 +478,7 @@ export const uploadCommand = buildCommand({
 			n: "dryRun",
 			o: "org",
 			r: "retry",
+			y: "yes",
 			j: "concurrency",
 		},
 	},
