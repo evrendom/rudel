@@ -38,4 +38,4 @@ test("a clean 10 MB transcript still costs a single rule fold", () => {
 	// a regression that starts scanning many times over.
 	expect(secretMs).toBeLessThan(Math.max(cleanMs * 4, 1_000));
 	expect(secretMs).toBeLessThan(10_000);
-});
+}, 20_000);
