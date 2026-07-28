@@ -310,7 +310,17 @@ export async function uploadSession(
 
 	for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
 		try {
-			const response = await client.ingestSession(filteredRequest);
+			const response: unknown = await client.ingestSession(filteredRequest);
+			// A proxy or SSO gateway can answer 200 with an HTML page or arbitrary
+			// JSON. oRPC deserializes those to strings/undefined rather than
+			// throwing, so without this guard a dropped upload reports success.
+			if (!isIngestSessionResponse(response)) {
+				return {
+					success: false,
+					error: formatUnrecognizedResponseError(),
+					attempts: attempt,
+				};
+			}
 			return {
 				success: true,
 				status: 200,
@@ -387,6 +397,37 @@ export function formatRedactionBudgetError(
 	const ratio = ((anomaly.redactedBytes / anomaly.inputBytes) * 100).toFixed(1);
 	const rules = anomaly.ruleIds.join(", ");
 	return `Redaction safety check stopped upload: known-pattern redaction would replace ${formatBytes(anomaly.redactedBytes)} of ${formatBytes(anomaly.inputBytes)} (${ratio}%), above the 20% transcript budget (${rules}). The unfiltered transcript was not uploaded.`;
+}
+
+interface IngestSessionResponse {
+	readonly success: true;
+	readonly sessionId: string;
+	readonly redacted?: RedactionCounts;
+	readonly redactedBytes?: number;
+}
+
+// success + sessionId is the floor every deployed API version returns; redacted
+// and redactedBytes only exist on filtering servers, so their absence must not
+// fail a response from an older API.
+function isIngestSessionResponse(
+	value: unknown,
+): value is IngestSessionResponse {
+	if (!isRecord(value) || value.success !== true) {
+		return false;
+	}
+	if (typeof value.sessionId !== "string") {
+		return false;
+	}
+	if (value.redacted !== undefined && !isRecord(value.redacted)) {
+		return false;
+	}
+	return (
+		value.redactedBytes === undefined || typeof value.redactedBytes === "number"
+	);
+}
+
+function formatUnrecognizedResponseError(): string {
+	return "Rudel API returned an unrecognized response instead of an ingest confirmation, so this upload cannot be verified and was treated as failed. This usually means a proxy, SSO gateway, or wrong endpoint URL answered instead of the Rudel API. Check the endpoint and retry with: rudel upload --retry";
 }
 
 function getUploadAggregateBytes(request: IngestSessionInput): number {

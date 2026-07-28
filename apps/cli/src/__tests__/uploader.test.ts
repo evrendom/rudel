@@ -188,13 +188,15 @@ describe("formatRedactionSummary", () => {
 });
 
 describe("uploadSession redaction safety budget", () => {
-	test("aborts before transport when redaction exceeds 20 percent", async () => {
+	test("aborts before transport one secret byte over 20 percent", async () => {
+		const secret = `sk_live_${"a".repeat(13)}`;
+		const content = `${secret}\n${"x".repeat(78)}`;
 		const result = await uploadSession(
 			{
 				source: "claude_code",
 				sessionId: "redaction-budget-test",
 				projectPath: "/test/project",
-				content: "AKIACANARY234567ABCD",
+				content,
 			},
 			{
 				endpoint: "http://127.0.0.1:1/rpc",
@@ -206,10 +208,39 @@ describe("uploadSession redaction safety budget", () => {
 		expect(result).toEqual({
 			success: false,
 			error:
-				"Redaction safety check stopped upload: known-pattern redaction would replace 20 B of 20 B (100.0%), above the 20% transcript budget (aws-access-key-id). The unfiltered transcript was not uploaded.",
+				"Redaction safety check stopped upload: known-pattern redaction would replace 21 B of 100 B (21.0%), above the 20% transcript budget (stripe-access-token). The unfiltered transcript was not uploaded.",
 			attempts: 0,
 			redactionBudgetExceeded: true,
 		});
+	});
+
+	test("proceeds past the budget check at exactly 20 percent redaction", async () => {
+		// A 20-byte flexible-length stripe secret plus newline plus 79 filler
+		// bytes: 20 redacted of 100 input bytes, 20% on the nose. The budget
+		// check must let this through to the next pre-flight guard.
+		const secret = `sk_live_${"a".repeat(12)}`;
+		const content = `${secret}\n${"x".repeat(79)}`;
+		const result = await uploadSession(
+			{
+				source: "claude_code",
+				sessionId: "redaction-budget-boundary-pass",
+				projectPath: "/test/project",
+				content,
+			},
+			{
+				endpoint: "http://127.0.0.1:1/rpc",
+				allowInsecureEndpoint: false,
+				maxAggregateBytes: 16,
+				token: "unused",
+			},
+		);
+
+		expect(result.success).toBe(false);
+		expect(result.attempts).toBe(0);
+		expect(result.redactionBudgetExceeded).toBeUndefined();
+		expect(result.endpointRejected).toBeUndefined();
+		expect(result.error).not.toContain("Redaction safety check");
+		expect(result.error).toContain("per-session limit");
 	});
 });
 
