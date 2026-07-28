@@ -14,7 +14,7 @@
 		"qa:pr223:static": "bash ./scripts/qa/pr-223/run-static.sh",
 		"check-types": "turbo run check-types",
 		"test": "turbo run test",
-		"test:integration": "turbo run test:integration",
+		"test:integration": "turbo run test:integration --concurrency=1",
 		"test:env": "doppler run --project rudel --config ci -- bun run test:integration",
 		"verify": "turbo run lint check-types test build",
 		"release:cli": "bun run ./scripts/release-cli.ts",
