@@ -111,6 +111,10 @@ describe("analytics service guardrails", () => {
 		expect(clickhouseSource).not.toContain("string | ClickHouseStatement");
 		expect(clickhouseSource).not.toContain("normalizeStatement(");
 		expect(clickhouseSource).not.toContain("{table:Identifier}");
+		expect(clickhouseSource).not.toContain("async_insert=0");
+		expect(clickhouseSource).toContain(
+			"async_insert=1, wait_for_async_insert=1",
+		);
 		expect(sessionAnalyticsSource).not.toContain("{table:Identifier}");
 		expect(sessionAnalyticsSource).not.toContain("|| dimension");
 		expect(sessionAnalyticsSource).not.toContain("|| split_by");

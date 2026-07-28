@@ -73,7 +73,7 @@ export function createClickHouseExecutor(config: {
 			// because ClickHouse Cloud's @clickhouse/client insert() silently drops data.
 			const rows = params.values.map((r) => JSON.stringify(r)).join("\n");
 			await client.command({
-				query: `INSERT INTO ${table} SETTINGS async_insert=0 FORMAT JSONEachRow ${rows}`,
+				query: `INSERT INTO ${table} SETTINGS async_insert=1, wait_for_async_insert=1 FORMAT JSONEachRow ${rows}`,
 			});
 		},
 	};

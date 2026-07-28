@@ -6,8 +6,9 @@ import { createClickHouseExecutor } from "@chkit/clickhouse";
  *
  * ClickHouse Cloud's @clickhouse/client insert() silently drops data, so
  * insert() is rewritten to execute() with FORMAT JSONEachRow and
- * async_insert=0, which makes rows immediately queryable. INSERT race
- * conditions are retried with exponential backoff.
+ * acknowledged async inserts. wait_for_async_insert=1 keeps rows immediately
+ * queryable when insert() resolves. INSERT race conditions are retried with
+ * exponential backoff.
  */
 
 export type TestExecutor = ReturnType<typeof createClickHouseExecutor>;
@@ -29,7 +30,7 @@ export function createTestExecutor(): TestExecutor {
 			const rows = params.values
 				.map((row: Record<string, unknown>) => JSON.stringify(row))
 				.join("\n");
-			const sql = `INSERT INTO ${params.table} SETTINGS async_insert=0 FORMAT JSONEachRow ${rows}`;
+			const sql = `INSERT INTO ${params.table} SETTINGS async_insert=1, wait_for_async_insert=1 FORMAT JSONEachRow ${rows}`;
 			for (let attempt = 0; attempt < 5; attempt++) {
 				try {
 					await baseExecutor.execute(sql);
