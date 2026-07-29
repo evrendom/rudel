@@ -1,7 +1,14 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import {
+	chmodSync,
+	existsSync,
+	mkdirSync,
+	readFileSync,
+	writeFileSync,
+} from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { exec } from "./exec.js";
+import { normalizeRemoteUrl } from "./git-info.js";
 
 interface ProjectEntry {
 	organizationId: string;
@@ -22,18 +29,19 @@ function getProjectsConfigPath(): string {
 function loadProjectsConfig(): ProjectsConfig {
 	const path = getProjectsConfigPath();
 	if (!existsSync(path)) return { projects: {} };
+	chmodSync(getConfigDir(), 0o700);
+	chmodSync(path, 0o600);
 	const content = readFileSync(path, "utf-8");
 	return JSON.parse(content) as ProjectsConfig;
 }
 
 function saveProjectsConfig(config: ProjectsConfig): void {
 	const dir = getConfigDir();
-	if (!existsSync(dir)) {
-		mkdirSync(dir, { recursive: true, mode: 0o700 });
-	}
-	writeFileSync(getProjectsConfigPath(), JSON.stringify(config, null, 2), {
-		mode: 0o600,
-	});
+	mkdirSync(dir, { recursive: true, mode: 0o700 });
+	chmodSync(dir, 0o700);
+	const path = getProjectsConfigPath();
+	writeFileSync(path, JSON.stringify(config, null, 2), { mode: 0o600 });
+	chmodSync(path, 0o600);
 }
 
 async function getProjectKey(cwd: string): Promise<string> {
@@ -48,11 +56,9 @@ async function getProjectKey(cwd: string): Promise<string> {
 		]);
 		if (result.exitCode === 0) {
 			const url = result.stdout.trim();
-			// Normalize: strip .git suffix and protocol
-			return url
-				.replace(/^(https?:\/\/|git@|ssh:\/\/)/, "")
-				.replace(/:/, "/")
-				.replace(/\.git$/, "");
+			if (url.length > 0) {
+				return normalizeRemoteUrl(url);
+			}
 		}
 	} catch {
 		// Not a git repo or no remote

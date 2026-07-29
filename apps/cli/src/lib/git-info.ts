@@ -14,7 +14,8 @@ export interface GitInfo {
  * Normalize a git remote URL to a canonical form: "github.com/owner/repo"
  */
 export function normalizeRemoteUrl(url: string): string {
-	return url
+	const sanitizedUrl = url.replace(/^([a-z][a-z\d+.-]*:\/\/)[^/]+@/i, "$1");
+	return sanitizedUrl
 		.replace(/^(https?:\/\/|git@|ssh:\/\/)/, "")
 		.replace(/:/, "/")
 		.replace(/\.git$/, "");
