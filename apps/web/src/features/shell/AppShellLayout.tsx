@@ -1,7 +1,6 @@
 import type { CSSProperties } from "react";
 import * as React from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
-import { useMountEffect } from "@/app/hooks/useMountEffect";
 import { AppToaster } from "@/app/ui/AppToaster";
 import "@/app/app-surface.css";
 import { SidebarInset, SidebarProvider } from "@/app/ui/sidebar";
@@ -99,8 +98,9 @@ export function AppShellLayout() {
 		location.pathname === shellRouteMap.settings.path ||
 		location.pathname.startsWith(`${shellRouteMap.settings.path}/`);
 	const sidebarTuning = React.useMemo(getDefaultSidebarShellTuningState, []);
-	const handleShellShortcutKeyDown = React.useEffectEvent(
-		(event: KeyboardEvent) => {
+
+	React.useEffect(() => {
+		const handleShellShortcutKeyDown = (event: KeyboardEvent) => {
 			if (
 				event.defaultPrevented ||
 				event.metaKey ||
@@ -120,14 +120,12 @@ export function AppShellLayout() {
 
 			event.preventDefault();
 			navigate(nextPath);
-		},
-	);
+		};
 
-	useMountEffect(() => {
 		window.addEventListener("keydown", handleShellShortcutKeyDown);
 		return () =>
 			window.removeEventListener("keydown", handleShellShortcutKeyDown);
-	});
+	}, [location.pathname, navigate]);
 
 	return (
 		<TooltipProvider>
@@ -147,7 +145,7 @@ export function AppShellLayout() {
 						{
 							"--sidebar-width": `${sidebarTuning.expandedWidth}rem`,
 							"--sidebar-width-icon": `${sidebarTuning.collapsedWidth}rem`,
-							"--header-height": "calc(var(--spacing) * 12)",
+							"--header-height": "var(--dashboard-01-header-height)",
 							"--sidebar-section-first-margin-top": `${sidebarTuning.sectionMarginTop}rem`,
 							"--sidebar-rail-inset-left": `${sidebarTuning.railInsetLeft}rem`,
 							"--sidebar-rail-inset-right": `${sidebarTuning.railInsetRight}rem`,
@@ -182,7 +180,7 @@ export function AppShellLayout() {
 					<AppSidebar
 						navigationMode={isSettingsShellRoute ? "settings" : "app"}
 					/>
-					<SidebarInset className="dashboard-01-window min-h-0 overflow-hidden overscroll-none bg-[var(--dashboard-01-content-background)] md:m-2 md:ml-0 md:rounded-[12px] md:shadow-[0_3px_6px_-2px_rgba(0,0,0,0.02),0_1px_1px_0_rgba(0,0,0,0.04)]">
+					<SidebarInset className="dashboard-01-window min-h-0 overflow-hidden overscroll-none bg-[var(--dashboard-01-content-background)] md:m-(--dashboard-01-window-inset) md:ml-0 md:rounded-(--dashboard-01-window-radius) md:shadow-[0_3px_6px_-2px_rgba(0,0,0,0.02),0_1px_1px_0_rgba(0,0,0,0.04)]">
 						<SiteHeader />
 						<div className="flex min-h-0 flex-1 flex-col overflow-auto overscroll-none">
 							<div className="@container/main flex min-h-0 flex-1 flex-col gap-2">

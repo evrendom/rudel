@@ -1,5 +1,4 @@
 import type { SessionAnalytics } from "@rudel/api-routes";
-import { ArrowUpRight } from "lucide-react";
 import { useState } from "react";
 import { Skeleton } from "@/app/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -29,6 +28,14 @@ const SKELETON_ROW_IDS = [
 ] as const;
 const INITIAL_VISIBLE_ROWS = 10;
 const VISIBLE_ROW_INCREMENT = 10;
+// Every column except Repository is sized to its widest realistic value so the
+// table fits the dashboard content box without horizontal scrolling. Repository
+// absorbs the leftover width because it holds the longest, most variable label;
+// Developer and Repository both truncate once their track runs out.
+const SESSIONS_GRID_TEMPLATE_COLUMNS =
+	"120px 160px minmax(0,1fr) 116px 104px 120px 76px";
+const SESSIONS_MIN_WIDTH_CLASS_NAME = "min-w-[58rem]";
+const SESSIONS_COLUMN_GAP_CLASS_NAME = "gap-4";
 
 function formatSessionTimestamp(value: string) {
 	const normalizedValue = value.endsWith("Z") ? value : `${value}Z`;
@@ -75,35 +82,16 @@ function formatTokenMix(session: SessionAnalytics) {
 }
 
 function DashboardTokenRecentSessionsTimeCell({
-	isHovered,
 	sessionDate,
 }: {
-	isHovered: boolean;
 	sessionDate: string;
 }) {
 	return (
-		<div className="relative min-w-0 overflow-hidden">
-			<div
-				className={cn(
-					"pointer-events-none absolute inset-y-0 left-0 flex items-center text-[color:var(--dashboardy-muted)] opacity-0 -translate-x-2 transition-[opacity,transform] duration-200",
-					isHovered && "translate-x-0 opacity-100",
-				)}
-			>
-				<ArrowUpRight className="size-3.5" />
-			</div>
-			<div
-				className={cn(
-					"transition-transform duration-200",
-					isHovered && "translate-x-6",
-				)}
-			>
-				<DashboardCellStack
-					primary={formatRelativeTime(sessionDate)}
-					secondary={formatSessionTimestamp(sessionDate)}
-					primaryClassName="font-medium"
-				/>
-			</div>
-		</div>
+		<DashboardCellStack
+			primary={formatRelativeTime(sessionDate)}
+			secondary={formatSessionTimestamp(sessionDate)}
+			primaryClassName="font-medium"
+		/>
 	);
 }
 
@@ -123,8 +111,11 @@ function DashboardTokenRecentSessionsTableSkeleton({
 				</div>
 			) : null}
 			<div className="overflow-x-auto">
-				<div className="flex min-w-[78rem] flex-col gap-1">
-					<div className="grid grid-cols-[120px_minmax(180px,11fr)_minmax(180px,9fr)_minmax(180px,9fr)_140px_minmax(180px,0.95fr)_120px] gap-6 px-3.5 text-[13px] font-semibold text-[color:var(--dashboardy-muted)]">
+				<div className={`flex flex-col gap-1 ${SESSIONS_MIN_WIDTH_CLASS_NAME}`}>
+					<div
+						className={`grid px-3.5 text-[13px] font-semibold text-[color:var(--dashboardy-muted)] ${SESSIONS_COLUMN_GAP_CLASS_NAME}`}
+						style={{ gridTemplateColumns: SESSIONS_GRID_TEMPLATE_COLUMNS }}
+					>
 						<p>Time</p>
 						<p>Developer</p>
 						<p>Repository</p>
@@ -137,7 +128,8 @@ function DashboardTokenRecentSessionsTableSkeleton({
 						{SKELETON_ROW_IDS.slice(0, SKELETON_ROWS).map((rowId) => (
 							<div
 								key={rowId}
-								className="grid min-h-12 grid-cols-[120px_minmax(180px,11fr)_minmax(180px,9fr)_minmax(180px,9fr)_140px_minmax(180px,0.95fr)_120px] items-center gap-6 rounded-lg px-3.5 py-2 odd:bg-[color:var(--dashboardy-subsurface-strong)]"
+								className={`grid min-h-12 items-center rounded-lg px-3.5 py-2 odd:bg-[color:var(--dashboardy-subsurface-strong)] ${SESSIONS_COLUMN_GAP_CLASS_NAME}`}
+								style={{ gridTemplateColumns: SESSIONS_GRID_TEMPLATE_COLUMNS }}
 							>
 								<Skeleton className="h-4 w-16 rounded-full" />
 								<Skeleton className="h-4 w-28 rounded-full" />
@@ -159,6 +151,7 @@ function DashboardTokenRecentSessionsTableSkeleton({
 }
 
 export function DashboardTokenRecentSessionsTable({
+	activeSessionId,
 	canOpenSession,
 	highlightSource,
 	highlightedSessionId,
@@ -170,6 +163,7 @@ export function DashboardTokenRecentSessionsTable({
 	showHeader = true,
 	totalSessionCount,
 }: {
+	activeSessionId?: string | null;
 	canOpenSession?: (session: SessionAnalytics) => boolean;
 	highlightSource?: "chart" | "table" | null;
 	highlightedSessionId?: string | null;
@@ -200,11 +194,19 @@ export function DashboardTokenRecentSessionsTable({
 	const hasChartHighlight =
 		highlightSource === "chart" && highlightedSessionId != null;
 	const hasHoveredSession = hoveredSessionId != null;
+	const hasActiveSession = activeSessionId != null;
 	const canShowSessionHoverPreview = onSessionClick !== undefined;
 
 	function handleRowHoverChange(sessionId: string | null) {
 		setHoveredSessionId(sessionId);
 		onHighlightSessionChange?.(sessionId);
+	}
+
+	function isSessionFocused(sessionId: string) {
+		return (
+			activeSessionId === sessionId ||
+			(canShowSessionHoverPreview && hoveredSessionId === sessionId)
+		);
 	}
 
 	if (isLoading) {
@@ -245,10 +247,6 @@ export function DashboardTokenRecentSessionsTable({
 						header: "Time",
 						renderCell: (session) => (
 							<DashboardTokenRecentSessionsTimeCell
-								isHovered={
-									canShowSessionHoverPreview &&
-									hoveredSessionId === session.session_id
-								}
 								sessionDate={session.session_date}
 							/>
 						),
@@ -256,11 +254,18 @@ export function DashboardTokenRecentSessionsTable({
 					{
 						id: "developer",
 						header: "Developer",
-						renderCell: (session) => (
-							<p className="truncate font-semibold text-[color:var(--dashboardy-heading)]">
-								{formatUsername(session.user_id, userMap)}
-							</p>
-						),
+						renderCell: (session) => {
+							const developerLabel = formatUsername(session.user_id, userMap);
+
+							return (
+								<p
+									className="truncate font-semibold text-[color:var(--dashboardy-heading)]"
+									title={developerLabel}
+								>
+									{developerLabel}
+								</p>
+							);
+						},
 					},
 					{
 						id: "repository",
@@ -335,26 +340,32 @@ export function DashboardTokenRecentSessionsTable({
 				]}
 				rows={visibleSessions}
 				rowKey={(session) => session.session_id}
-				gridTemplateColumns="120px minmax(180px,11fr) minmax(180px,9fr) minmax(180px,9fr) 140px minmax(180px,0.95fr) 120px"
-				minWidthClassName="min-w-[82rem]"
+				gridTemplateColumns={SESSIONS_GRID_TEMPLATE_COLUMNS}
+				minWidthClassName={SESSIONS_MIN_WIDTH_CLASS_NAME}
+				columnGapClassName={SESSIONS_COLUMN_GAP_CLASS_NAME}
 				onRowHoverChange={
 					canShowSessionHoverPreview ? handleRowHoverChange : undefined
 				}
 				getHoverRowId={(session) => session.session_id}
 				onRowClick={onSessionClick}
 				isRowClickable={canOpenSession}
+				isRowSelected={(session) => activeSessionId === session.session_id}
+				rowInteractionScope="session"
 				rowClassName={(session) =>
 					cn(
-						"w-full text-left",
+						"w-full text-left focus:outline-none focus-visible:outline-none focus-visible:ring-0",
 						onSessionClick &&
 							(canOpenSession?.(session) ?? true) &&
 							"cursor-pointer",
-						canShowSessionHoverPreview &&
-							hasHoveredSession &&
-							hoveredSessionId !== session.session_id &&
+						hasActiveSession &&
+							"bg-[color:var(--dashboardy-surface)] odd:bg-[color:var(--dashboardy-surface)]",
+						(hasActiveSession || hasHoveredSession) &&
+							!isSessionFocused(session.session_id) &&
 							"opacity-40",
 						canShowSessionHoverPreview &&
 							hoveredSessionId === session.session_id &&
+							"bg-[color:var(--dashboardy-subsurface-strong)] odd:bg-[color:var(--dashboardy-subsurface-strong)]",
+						activeSessionId === session.session_id &&
 							"bg-[color:var(--dashboardy-subsurface-strong)] odd:bg-[color:var(--dashboardy-subsurface-strong)]",
 						hasTableHighlight &&
 							"bg-[color:var(--dashboardy-surface)] odd:bg-[color:var(--dashboardy-surface)]",

@@ -18,6 +18,7 @@ type DashboardGridTableProps<T> = {
 	rowKey: (row: T) => string;
 	gridTemplateColumns: string;
 	minWidthClassName: string;
+	columnGapClassName?: string;
 	className?: string;
 	headerClassName?: string;
 	bodyClassName?: string;
@@ -30,6 +31,7 @@ type DashboardGridTableProps<T> = {
 	onRowClick?: (row: T) => void;
 	isRowClickable?: (row: T) => boolean;
 	isRowSelected?: (row: T) => boolean;
+	rowInteractionScope?: string;
 };
 
 type DashboardCellStackProps = {
@@ -194,6 +196,7 @@ export function DashboardGridTable<T>({
 	rowKey,
 	gridTemplateColumns,
 	minWidthClassName,
+	columnGapClassName = "gap-6",
 	className,
 	headerClassName,
 	bodyClassName,
@@ -206,6 +209,7 @@ export function DashboardGridTable<T>({
 	onRowClick,
 	isRowClickable,
 	isRowSelected,
+	rowInteractionScope,
 }: DashboardGridTableProps<T>) {
 	if (rows.length === 0) {
 		return loadingState ?? emptyState ?? null;
@@ -216,7 +220,8 @@ export function DashboardGridTable<T>({
 			<div className={cn("flex flex-col gap-1", minWidthClassName)}>
 				<div
 					className={cn(
-						"grid gap-6 px-3.5 text-[13px] font-semibold text-[color:var(--dashboardy-muted)]",
+						"grid px-3.5 text-[13px] font-semibold text-[color:var(--dashboardy-muted)]",
+						columnGapClassName,
 						headerClassName,
 					)}
 					style={{ gridTemplateColumns }}
@@ -243,9 +248,11 @@ export function DashboardGridTable<T>({
 							onRowClick != null && (isRowClickable?.(row) ?? true);
 						const sharedProps = {
 							"data-dashboard-grid-hover-id": hoverId,
+							"data-dashboard-grid-row-scope": rowInteractionScope,
 							"data-selected": isSelected ? "true" : undefined,
 							className: cn(
-								"grid min-h-12 items-center gap-6 rounded-lg px-3.5 py-2 text-sm odd:bg-[color:var(--dashboardy-subsurface-strong)]",
+								"grid min-h-12 items-center rounded-lg px-3.5 py-2 text-sm odd:bg-[color:var(--dashboardy-subsurface-strong)]",
+								columnGapClassName,
 								isClickable && "text-left transition-colors duration-200",
 								onRowHoverChange &&
 									"focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--dashboardy-border)] focus-visible:ring-offset-0",

@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
+import { loadEnv } from "vite";
 import { defineConfig } from "vitest/config";
 
 const { version } = JSON.parse(
@@ -63,8 +64,32 @@ async function resolveAppVersion() {
 	}
 }
 
-export default defineConfig(async () => {
+// Point the dev proxy at a remote API (e.g. RUDEL_API_TARGET=https://app.rudel.ai)
+// instead of the default local API server. For https targets the proxy rewrites
+// the Host/Origin headers and cookie domain so the remote server's origin checks
+// pass and its session cookie sticks to localhost.
+function buildApiProxy(target: string) {
+	if (!target.startsWith("https://")) {
+		return { "/api": target, "/rpc": target };
+	}
+
+	const options = {
+		target,
+		changeOrigin: true,
+		cookieDomainRewrite: "localhost",
+		headers: { origin: target },
+	};
+
+	return { "/api": options, "/rpc": options };
+}
+
+export default defineConfig(async ({ mode }) => {
 	const appVersion = await resolveAppVersion();
+	const env = loadEnv(mode, __dirname, "");
+	const apiTarget =
+		env.RUDEL_API_TARGET ??
+		process.env.RUDEL_API_TARGET ??
+		"http://localhost:4010";
 
 	return {
 		define: {
@@ -73,10 +98,7 @@ export default defineConfig(async () => {
 		plugins: [react(), tailwindcss()],
 		server: {
 			port: 4011,
-			proxy: {
-				"/api": "http://localhost:4010",
-				"/rpc": "http://localhost:4010",
-			},
+			proxy: buildApiProxy(apiTarget),
 		},
 		resolve: {
 			alias: {

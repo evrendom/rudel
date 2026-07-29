@@ -68,3 +68,33 @@ export function resolveActiveSessionDateRangeOptionId({
 		})?.id ?? null
 	);
 }
+
+/**
+ * Session list query input for a picked date range.
+ *
+ * The rolling 24-hour view is the one case that cannot use an absolute window:
+ * it spans the last 24 hours rather than a calendar day, so it over-fetches two
+ * days by `days` and lets the view filter down to the rolling window. Every
+ * other range is sent as explicit start/end dates so a window that does not end
+ * today returns that window instead of the last N days.
+ */
+export function buildSessionListDateInput({
+	dayCount,
+	endDate,
+	startDate,
+	today = new Date(),
+}: {
+	dayCount: number;
+	endDate: string;
+	startDate: string;
+	today?: Date;
+}) {
+	if (
+		resolveActiveSessionDateRangeOptionId({ endDate, startDate, today }) ===
+		"24-hours"
+	) {
+		return { days: 2 };
+	}
+
+	return { days: dayCount, startDate, endDate };
+}

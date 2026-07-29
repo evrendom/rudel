@@ -1,7 +1,11 @@
-type ModelBadgeTone = {
-	chipClassName: string;
-	icon: "claude" | "codex" | null;
-};
+import type { ComponentType } from "react";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/app/ui/tooltip";
+import { cn } from "@/lib/utils";
+import {
+	formatModelDisplayLabel,
+	getModelBadgeTone,
+	getModelIdentityIconClassName,
+} from "./dashboard-model-brand";
 
 type DashboardModelBadgeSize = "sm" | "md";
 
@@ -11,65 +15,6 @@ type ModelBadgeSizeClasses = {
 	labelClassName: string;
 	paddingClassName: string;
 };
-
-function normalizeModelVersion(version: string | null | undefined) {
-	if (!version) {
-		return null;
-	}
-
-	return version
-		.replaceAll(/[-_]/g, ".")
-		.replaceAll(/\.+/g, ".")
-		.replaceAll(/^\./g, "")
-		.replaceAll(/\.$/g, "");
-}
-
-function formatFallbackModelLabel(model: string) {
-	return model
-		.replaceAll(/[-_]+/g, " ")
-		.replaceAll(/\s+/g, " ")
-		.trim()
-		.replaceAll(/\b\w/g, (char) => char.toUpperCase());
-}
-
-function formatModelDisplayLabel(model: string) {
-	const normalizedModel = model.trim().toLowerCase();
-	const claudeFamilyMatch = normalizedModel.match(/(opus|sonnet|haiku)/);
-
-	if (claudeFamilyMatch) {
-		const familyLabel =
-			claudeFamilyMatch[1][0]?.toUpperCase() +
-			(claudeFamilyMatch[1].slice(1) ?? "");
-		const versionAfterFamily = normalizedModel.match(
-			/(?:opus|sonnet|haiku)[-_ ]?([0-9]+(?:[._-][0-9]+)?)/,
-		)?.[1];
-		const versionBeforeFamily = normalizedModel.match(
-			/claude[-_ ]?([0-9]+(?:[._-][0-9]+)?(?:[-_][0-9]+(?:\.[0-9]+)?)?)[-_ ]?(?:opus|sonnet|haiku)/,
-		)?.[1];
-		const version =
-			normalizeModelVersion(versionAfterFamily) ??
-			normalizeModelVersion(versionBeforeFamily);
-
-		return version ? `${familyLabel} ${version}` : familyLabel;
-	}
-
-	if (
-		normalizedModel.includes("gpt") ||
-		normalizedModel.includes("chatgpt") ||
-		normalizedModel.includes("codex")
-	) {
-		const version = normalizeModelVersion(
-			normalizedModel.match(/gpt[-_ ]?([0-9]+(?:[._-][0-9]+)?)/)?.[1] ??
-				normalizedModel.match(
-					/(?:chatgpt|codex)[-_ ]?([0-9]+(?:[._-][0-9]+)?)/,
-				)?.[1],
-		);
-
-		return version ? `GPT ${version}` : "GPT";
-	}
-
-	return formatFallbackModelLabel(model);
-}
 
 function shouldHideModelBadge(model: string) {
 	const normalizedModel = model
@@ -109,7 +54,7 @@ export function ClaudeModelIcon({ className }: { className?: string }) {
 		<svg viewBox="0 0 1200 1200" aria-hidden="true" className={className}>
 			<path
 				fill="currentColor"
-				d="M233.959793 800.214905L468.644287 668.536987L472.590637 657.100647L468.644287 650.738403L457.208069 650.738403L417.986633 648.322144L283.892639 644.69812L167.597321 639.865845L54.926208 633.825623L26.577238 627.785339L0.00033 592.751709L2.73832 575.27533L26.577238 559.248352L60.724873 562.228149L136.187973 567.382629L249.422867 575.194763L331.570496 580.026978L453.261841 592.671082L472.590637 592.671082L475.328857 584.859009L468.724915 580.026978L463.570557 575.194763L346.389313 495.785217L219.543671 411.865906L153.100723 363.543762L117.181267 339.060425L99.060455 316.107361L91.248367 266.01355L123.865784 230.093994L167.677887 233.073853L178.872513 236.053772L223.248367 270.201477L318.040283 343.570496L441.825592 434.738342L459.946411 449.798706L467.194672 444.64447L468.080597 441.020203L459.946411 427.409485L392.617493 305.718323L320.778564 181.932983L288.80542 130.630859L280.348999 99.865845C277.369171 87.221436 275.194641 76.590698 275.194641 63.624268L312.322174 13.20813L332.8591 6.604126L382.389313 13.20813L403.248352 31.328979L434.013519 101.71814L483.865753 212.537048L561.181274 363.221497L583.812134 407.919434L595.892639 449.315491L600.40271 461.959839L608.214783 461.959839L608.214783 454.711609L614.577271 369.825623L626.335632 265.61084L637.771851 131.516846L641.718201 93.745117L660.402832 48.483276L697.530334 24.000122L726.52356 37.852417L750.362549 72L747.060486 94.067139L732.886047 186.201416L705.100708 330.52356L686.979919 427.167847L697.530334 427.167847L709.61084 415.087341L758.496704 350.174561L840.644348 247.490051L876.885925 206.738342L919.167847 161.71814L946.308838 140.29541L997.61084 140.29541L1035.38269 196.429626L1018.469849 254.416199L965.637634 321.422852L921.825562 378.201538L859.006714 462.765259L819.785278 530.41626L823.409424 535.812073L832.75177 534.92627L974.657776 504.724915L1051.328979 490.872559L1142.818848 475.167786L1184.214844 494.496582L1188.724854 514.147644L1172.456421 554.335693L1074.604126 578.496765L959.838989 601.449829L788.939636 641.879272L786.845764 643.409485L789.261841 646.389343L866.255127 653.637634L899.194702 655.409424L979.812134 655.409424L1129.932861 666.604187L1169.154419 692.537109L1192.671265 724.268677L1188.724854 748.429688L1128.322144 779.194641L1046.818848 759.865845L856.590759 714.604126L791.355774 698.335754L782.335693 698.335754L782.335693 703.731567L836.69812 756.885986L936.322205 846.845581L1061.073975 962.81897L1067.436279 991.490112L1051.409424 1014.120911L1034.496704 1011.704712L924.885986 929.234924L882.604126 892.107544L786.845764 811.48999L780.483276 811.48999L780.483276 819.946289L802.550415 852.241699L919.087341 1027.409424L925.127625 1081.127686L916.671204 1098.604126L886.469849 1109.154419L853.288696 1103.114136L785.073914 1007.355835L714.684631 899.516785L657.906067 802.872498L650.979858 806.81897L617.476624 1167.704834L601.771851 1186.147705L565.530212 1200L535.328857 1177.046997L519.302124 1139.919556L535.328857 1066.550537L554.657776 970.792053L570.362488 894.68457L584.536926 800.134277L592.993347 768.724976L592.429626 766.630859L585.503479 767.516968L514.22821 865.369263L405.825531 1011.865906L320.053711 1103.677979L299.516815 1111.812256L263.919525 1093.369263L267.221497 1060.429688L287.114136 1031.114136L405.825531 880.107361L477.422913 786.52356L523.651062 732.483276L523.328918 724.671265L520.590698 724.671265L205.288605 929.395935L149.154434 936.644409L124.993355 914.01355L127.973183 876.885986L139.409409 864.80542L234.201385 799.570435L233.879227 799.8927Z"
+				d="M233.96 800.21L468.64 668.54L472.59 657.1L468.64 650.74L457.21 650.74L417.99 648.32L283.89 644.7L167.6 639.87L54.93 633.83L26.58 627.79L0 592.75L2.74 575.28L26.58 559.25L60.72 562.23L136.19 567.38L249.42 575.19L331.57 580.03L453.26 592.67L472.59 592.67L475.33 584.86L468.72 580.03L463.57 575.19L346.39 495.79L219.54 411.87L153.1 363.54L117.18 339.06L99.06 316.11L91.25 266.01L123.87 230.09L167.68 233.07L178.87 236.05L223.25 270.2L318.04 343.57L441.83 434.74L459.95 449.8L467.19 444.64L468.08 441.02L459.95 427.41L392.62 305.72L320.78 181.93L288.81 130.63L280.35 99.87C277.37 87.22 275.19 76.59 275.19 63.62L312.32 13.21L332.86 6.6L382.39 13.21L403.25 31.33L434.01 101.72L483.87 212.54L561.18 363.22L583.81 407.92L595.89 449.32L600.4 461.96L608.21 461.96L608.21 454.71L614.58 369.83L626.34 265.61L637.77 131.52L641.72 93.75L660.4 48.48L697.53 24L726.52 37.85L750.36 72L747.06 94.07L732.89 186.2L705.1 330.52L686.98 427.17L697.53 427.17L709.61 415.09L758.5 350.17L840.64 247.49L876.89 206.74L919.17 161.72L946.31 140.3L997.61 140.3L1035.38 196.43L1018.47 254.42L965.64 321.42L921.83 378.2L859.01 462.77L819.79 530.42L823.41 535.81L832.75 534.93L974.66 504.72L1051.33 490.87L1142.82 475.17L1184.21 494.5L1188.72 514.15L1172.46 554.34L1074.6 578.5L959.84 601.45L788.94 641.88L786.85 643.41L789.26 646.39L866.26 653.64L899.19 655.41L979.81 655.41L1129.93 666.6L1169.15 692.54L1192.67 724.27L1188.72 748.43L1128.32 779.19L1046.82 759.87L856.59 714.6L791.36 698.34L782.34 698.34L782.34 703.73L836.7 756.89L936.32 846.85L1061.07 962.82L1067.44 991.49L1051.41 1014.12L1034.5 1011.7L924.89 929.23L882.6 892.11L786.85 811.49L780.48 811.49L780.48 819.95L802.55 852.24L919.09 1027.41L925.13 1081.13L916.67 1098.6L886.47 1109.15L853.29 1103.11L785.07 1007.36L714.68 899.52L657.91 802.87L650.98 806.82L617.48 1167.7L601.77 1186.15L565.53 1200L535.33 1177.05L519.3 1139.92L535.33 1066.55L554.66 970.79L570.36 894.68L584.54 800.13L592.99 768.72L592.43 766.63L585.5 767.52L514.23 865.37L405.83 1011.87L320.05 1103.68L299.52 1111.81L263.92 1093.37L267.22 1060.43L287.11 1031.11L405.83 880.11L477.42 786.52L523.65 732.48L523.33 724.67L520.59 724.67L205.29 929.4L149.15 936.64L124.99 914.01L127.97 876.89L139.41 864.81L234.2 799.57L233.88 799.89Z"
 			/>
 		</svg>
 	);
@@ -126,36 +71,66 @@ export function CodexModelIcon({ className }: { className?: string }) {
 	);
 }
 
-function getModelBadgeTone(model: string): ModelBadgeTone {
-	const normalizedModel = model.toLowerCase();
-
-	if (normalizedModel.includes("claude")) {
-		return {
-			chipClassName:
-				"border-transparent bg-[#CC7D5E] text-[#F9F9F7] shadow-none",
-			icon: "claude",
-		};
+/**
+ * The vendor mark for a raw model id, for places that name a model outside a
+ * badge. Null when the vendor is unrecognized, so callers can pick a fallback.
+ */
+function getModelIconComponent(
+	model: string | undefined,
+): ComponentType<{ className?: string }> | null {
+	if (!model) {
+		return null;
 	}
 
-	if (normalizedModel.includes("codex")) {
-		return {
-			chipClassName: "border-black/10 bg-[#FFFFFF] text-[#111111] shadow-none",
-			icon: "codex",
-		};
+	const { icon } = getModelBadgeTone(model);
+
+	if (icon === "claude") {
+		return ClaudeModelIcon;
 	}
 
-	if (normalizedModel.includes("chatgpt") || normalizedModel.includes("gpt")) {
-		return {
-			chipClassName: "border-black/10 bg-[#FFFFFF] text-[#111111] shadow-none",
-			icon: "codex",
-		};
+	if (icon === "codex") {
+		return CodexModelIcon;
 	}
 
-	return {
-		chipClassName:
-			"border-[color:var(--dashboardy-chip-border)] bg-[color:var(--dashboardy-chip-surface)] text-[color:var(--dashboardy-chip-foreground)]",
-		icon: null,
-	};
+	return null;
+}
+
+export function DashboardModelIdentity({
+	className,
+	model,
+	messageCount,
+}: {
+	className: string;
+	model: string;
+	messageCount: number | undefined;
+}) {
+	if (shouldHideModelBadge(model)) {
+		return null;
+	}
+
+	const ModelIcon = getModelIconComponent(model);
+	const modelLabel = formatModelDisplayLabel(model);
+	const safeMessageCount = messageCount ?? 0;
+
+	return (
+		<Tooltip>
+			<TooltipTrigger asChild>
+				<div className={cn("cursor-help", className)}>
+					{ModelIcon ? (
+						<ModelIcon
+							className={`size-4 h-lh shrink-0 ${getModelIdentityIconClassName(model)}`}
+						/>
+					) : null}
+					<div className="shrink-0 font-mono text-base font-semibold tracking-normal text-[color:var(--dashboardy-heading)] tabular-nums sm:text-[0.8125rem]">
+						{safeMessageCount}
+					</div>
+				</div>
+			</TooltipTrigger>
+			<TooltipContent>
+				{modelLabel}: {safeMessageCount} messages
+			</TooltipContent>
+		</Tooltip>
+	);
 }
 
 export function DashboardModelBadges({
