@@ -2,9 +2,6 @@ import { execSync } from "node:child_process";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join, relative } from "node:path";
 
-const CHKIT_PATH =
-	process.env.CHKIT_PATH || "/Users/marc/Workspace/chkit";
-
 const PACKAGE_MAP: Record<string, string> = {
 	chkit: "cli",
 	"@chkit/core": "core",
@@ -29,8 +26,16 @@ if (mode !== "link" && mode !== "unlink") {
 const rootPkg = JSON.parse(readFileSync(ROOT_PKG_PATH, "utf-8"));
 
 if (mode === "link") {
+	const chkitPath = process.env.CHKIT_PATH?.trim();
+	if (!chkitPath) {
+		console.error(
+			"CHKIT_PATH is required. Set it to the root of your local chkit checkout.",
+		);
+		process.exit(1);
+	}
+
 	for (const [pkg, dir] of Object.entries(PACKAGE_MAP)) {
-		const absPath = join(CHKIT_PATH, "packages", dir);
+		const absPath = join(chkitPath, "packages", dir);
 		const relPath = relative(ROOT, absPath);
 		rootPkg.overrides[pkg] = `file:${relPath}`;
 	}

@@ -13,6 +13,7 @@ export type RudelClaudeSessionsRow = {
   package_name: string
   package_type: string
   content: string
+  filter_version: number
   ingested_at: string
   user_id: string
   git_branch: string | null
@@ -31,6 +32,7 @@ export const RudelClaudeSessionsRowSchema = z.object({
   package_name: z.string(),
   package_type: z.string(),
   content: z.string(),
+  filter_version: z.number(),
   ingested_at: z.string(),
   user_id: z.string(),
   git_branch: z.string().nullable(),
@@ -52,6 +54,7 @@ export type RudelCodexSessionsRow = {
   package_name: string
   package_type: string
   content: string
+  filter_version: number
   ingested_at: string
   user_id: string
   git_branch: string | null
@@ -69,6 +72,7 @@ export const RudelCodexSessionsRowSchema = z.object({
   package_name: z.string(),
   package_type: z.string(),
   content: z.string(),
+  filter_version: z.number(),
   ingested_at: z.string(),
   user_id: z.string(),
   git_branch: z.string().nullable(),
@@ -89,6 +93,7 @@ export type RudelSessionAnalyticsRow = {
   package_name: string
   package_type: string
   content: string
+  filter_version: number
   subagents: Record<string, string>
   skills: string[]
   slash_commands: string[]
@@ -131,6 +136,7 @@ export const RudelSessionAnalyticsRowSchema = z.object({
   package_name: z.string(),
   package_type: z.string(),
   content: z.string(),
+  filter_version: z.number(),
   subagents: z.record(z.string(), z.string()),
   skills: z.array(z.string()),
   slash_commands: z.array(z.string()),

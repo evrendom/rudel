@@ -10,7 +10,7 @@ allowed-tools: [Read, Edit, Grep, Glob, Bash]
 - Use `bun:test` imports (`describe`, `test`, `expect`, etc.)
 - Use Bun test runner, typically via workspace scripts (`bun run test`)
 - Do not introduce Vitest or Jest in this repo
-- For local e2e/integration runs that need env vars, use Doppler (`bun run test:env`)
+- For local e2e/integration runs, provide required env vars through the shell or `.env`
 
 ## Test Strategy
 - **Default to API integration tests against real infrastructure** (real Postgres, real ClickHouse). Call a real endpoint, let data flow through the API into the DB, then verify by calling another endpoint. This is "e2e" from the API perspective only — frontend is out of scope here.
@@ -79,11 +79,11 @@ describe('integration', () => {
 - E2E tests must never be conditional on env availability
 - Never use `skip`, `skipIf`, guard `return`, or branching that bypasses e2e execution when env vars are absent
 - Missing required env vars must cause test failure immediately
-- Local e2e execution must use Doppler so required vars are injected
+- Local e2e execution must provide the required vars through the shell or `.env`
 
 ```bash
 # Required local command for env-dependent suites
-bun run test:env
+bun run test:integration
 ```
 
 ### 5. Prefer Inline Setup Over `beforeEach`
@@ -123,5 +123,5 @@ assert(checkoutRecord)
 When adding new env vars for tests, update:
 1. Package's `turbo.json` → `passThroughEnv` array
 2. `.github/workflows/ci.yml` → `env` section
-3. Run local e2e/integration suites with `bun run test:env`
+3. Run local e2e/integration suites with `bun run test:integration`
 4. Treat missing vars as a hard failure, not a skip path

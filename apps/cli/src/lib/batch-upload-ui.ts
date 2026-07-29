@@ -5,6 +5,7 @@ import {
 	type BatchUploadSummary,
 	batchUpload,
 } from "./batch-upload.js";
+import { formatRedactionSummary } from "./uploader.js";
 
 export interface BatchProgressOptions<T extends BatchUploadItem> {
 	items: T[];
@@ -60,6 +61,13 @@ export function renderBatchSummary(
 
 	if (summary.succeeded > 0) {
 		lines.push(`${prefix}${summary.succeeded} session(s) uploaded`);
+	}
+	const redactionSummary = formatRedactionSummary(
+		summary.redacted,
+		summary.redactedBytes,
+	);
+	if (redactionSummary) {
+		lines.push(`${prefix}${redactionSummary}`);
 	}
 	if (summary.failed > 0) {
 		lines.push(`${prefix}${summary.failed} session(s) failed`);

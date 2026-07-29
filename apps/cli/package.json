@@ -1,9 +1,12 @@
 {
 	"name": "rudel",
-	"version": "0.1.17",
+	"version": "0.2.1",
 	"type": "module",
 	"description": "CLI for the Coding Agent Analytics Platform rudel.ai",
 	"license": "MIT",
+	"engines": {
+		"node": ">=20"
+	},
 	"homepage": "https://app.rudel.ai",
 	"repository": {
 		"type": "git",
@@ -35,7 +38,9 @@
 		"build": "bun build src/bin/cli.ts --outdir dist --target node",
 		"prepack": "bun run build",
 		"test": "bun test",
-		"test:integration": "bun test ./src/__tests__/api-upload.integration.ts ./src/__tests__/uploader-rate-limit.integration.ts ./src/__tests__/auth-verify.integration.ts ./src/__tests__/auth.e2e.integration.ts"
+		"test:integration": "bun test ./src/__tests__/api-upload.integration.ts ./src/__tests__/uploader-rate-limit.integration.ts ./src/__tests__/auth-verify.integration.ts ./src/__tests__/auth.e2e.integration.ts ./src/__tests__/release-pressure.integration.ts",
+		"test:integration:skew": "bun test ./src/__tests__/version-skew.integration.ts",
+		"test:packed-smoke": "bun test ./src/__tests__/packed-cli-smoke.integration.ts"
 	},
 	"dependencies": {
 		"@clack/prompts": "^1.0.1",
@@ -50,6 +55,7 @@
 	"devDependencies": {
 		"@rudel/agent-adapters": "workspace:*",
 		"@rudel/api-routes": "workspace:*",
+		"@rudel/secret-filter": "workspace:*",
 		"@rudel/typescript-config": "workspace:*",
 		"@types/node": "^22",
 		"bun-types": "latest",

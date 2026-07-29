@@ -8,10 +8,14 @@ import {
 	test,
 } from "bun:test";
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { IngestSessionInput } from "@rudel/api-routes";
+import {
+	type IngestSessionInput,
+	REDACTION_BUDGET_EXCEEDED_CODE,
+} from "@rudel/api-routes";
+import { FILTER_VERSION } from "@rudel/secret-filter";
 import {
 	getClickhouse,
 	getSafeClickHouseTable,
@@ -24,8 +28,41 @@ import {
 	startTestServer,
 	type TestServer,
 } from "./helpers/bun-server.js";
+import {
+	buildCliArtifact,
+	containsAnyCanary,
+	createClaudeFixtureSecrets,
+	createCodexFixtureSecrets,
+	EXPECTED_CLAUDE_REDACTION_SUMMARY,
+	type FixtureSecret,
+	getNodeMajorVersion,
+	hashText,
+	hasRealisticClaudeShape,
+	hasRealisticClaudeSubagentShape,
+	hasRealisticCodexShape,
+	parseJsonl,
+	readRedactionTemplates,
+	renderFixture,
+	runBuiltCli,
+	startBoundaryRelay,
+	stopAllBoundaryRelays,
+	writeCliCredentials,
+} from "./helpers/cli-e2e.js";
+import { createStoredSessionReaders } from "./helpers/stored-sessions.js";
 
 setDefaultTimeout(60_000);
+
+const {
+	getPhysicalSessionCount,
+	getStoredContentHash,
+	getStoredFilteredSession,
+	getStoredCodexSession,
+	getStoredAnalyticsSession,
+} = createStoredSessionReaders({
+	getClickhouse,
+	getSafeTable: getSafeClickHouseTable,
+	sql: sqlClient,
+});
 
 let server: TestServer;
 let limitedServer: TestServer;
@@ -33,6 +70,9 @@ let bearerToken: string;
 let limitedBearerToken: string;
 let tempDir: string;
 let userId: string;
+let claudeSessionTemplate: string;
+let claudeSubagentTemplate: string;
+let codexSessionTemplate: string;
 
 interface ApiKeyCreateResponse {
 	id: string;
@@ -54,10 +94,20 @@ beforeAll(async () => {
 		RATE_LIMIT_INGEST_REQUESTS_MAX: "2",
 	});
 	limitedBearerToken = await signUpTestUser(limitedServer.baseUrl);
+
+	await buildCliArtifact();
+	const templates = await readRedactionTemplates();
+	claudeSessionTemplate = templates.claudeSession;
+	claudeSubagentTemplate = templates.claudeSubagent;
+	codexSessionTemplate = templates.codexSession;
 });
 
 afterAll(async () => {
-	await Promise.all([server?.stop(), limitedServer?.stop()]);
+	await Promise.all([
+		server?.stop(),
+		limitedServer?.stop(),
+		stopAllBoundaryRelays(),
+	]);
 	if (tempDir) {
 		await rm(tempDir, { recursive: true, force: true }).catch(() => {});
 	}
@@ -100,6 +150,7 @@ describe("CLI upload to local API", () => {
 				uploadSession(request, {
 					endpoint: server.rpcUrl,
 					token: bearerToken,
+					allowInsecureEndpoint: false,
 				}),
 				Bun.sleep(25_000).then(
 					() =>
@@ -270,6 +321,7 @@ describe("CLI upload to local API", () => {
 		const result = await uploadSession(request, {
 			endpoint: server.rpcUrl,
 			token: "invalid-token",
+			allowInsecureEndpoint: false,
 		});
 
 		expect(result.success).toBe(false);
@@ -303,6 +355,7 @@ describe("CLI upload to local API", () => {
 		const firstUpload = await uploadSession(request, {
 			endpoint: server.rpcUrl,
 			token: bearerToken,
+			allowInsecureEndpoint: false,
 		});
 		expect(firstUpload.success).toBe(true);
 		const firstPhysicalCount = await getPhysicalSessionCount(
@@ -317,6 +370,7 @@ describe("CLI upload to local API", () => {
 		const duplicateUpload = await uploadSession(request, {
 			endpoint: server.rpcUrl,
 			token: bearerToken,
+			allowInsecureEndpoint: false,
 		});
 		expect(duplicateUpload.success).toBe(true);
 		expect(await getPhysicalSessionCount(userId, sessionDate, sessionId)).toBe(
@@ -339,6 +393,7 @@ describe("CLI upload to local API", () => {
 			{
 				endpoint: server.rpcUrl,
 				token: bearerToken,
+				allowInsecureEndpoint: false,
 			},
 		);
 		expect(appendedUpload.success).toBe(true);
@@ -347,6 +402,541 @@ describe("CLI upload to local API", () => {
 		);
 		expect(await getStoredContentHash(userId, sessionId)).not.toBe(firstHash);
 	}, 60_000);
+
+	test("redacts known patterns in all transcript fields and dedupes old and new clients", async () => {
+		const sessionId = `cli_redaction_${crypto.randomUUID()}`;
+		const sessionDate = "2026-07-24 16:00:00.000";
+		const openAiCanary = `sk-${"CANARY".padEnd(20, "A")}T3BlbkFJ${"CANARY".padEnd(20, "B")}`;
+		const awsCanary = "AKIACANARY234567ABCD";
+		const request: IngestSessionInput = {
+			content: JSON.stringify({
+				message: {
+					content: `Use ${openAiCanary}`,
+					role: "user",
+				},
+				notes: "Benign transcript context. ".repeat(20),
+				timestamp: "2026-07-24T16:00:00.000Z",
+				type: "user",
+			}),
+			projectPath: "/test/cli-redaction",
+			sessionId,
+			source: "claude_code",
+			subagents: [
+				{
+					agentId: "agent-canary",
+					content: `AWS_ACCESS_KEY_ID=${awsCanary}`,
+				},
+			],
+			upload_mode: "manual",
+		};
+
+		const oldClientResponse = await createApiClient({
+			apiBaseUrl: server.baseUrl,
+			token: bearerToken,
+		}).ingestSession(request);
+		expect(oldClientResponse.redacted).toEqual({
+			"aws-access-key-id": 1,
+			"openai-api-key": 1,
+		});
+		expect(oldClientResponse.redactedBytes).toBe(71);
+
+		const storedRow = await getStoredFilteredSession(userId, sessionId);
+		assert(storedRow);
+		expect(storedRow.content.includes(openAiCanary)).toBe(false);
+		expect(
+			storedRow.subagents["agent-canary"]?.includes(awsCanary) ?? false,
+		).toBe(false);
+		expect(storedRow.content).toContain("[REDACTED:openai-api-key]");
+		expect(storedRow.subagents["agent-canary"]).toContain(
+			"[REDACTED:aws-access-key-id]",
+		);
+		expect(storedRow.filter_version).toBe(FILTER_VERSION);
+
+		const newClientResponse = await uploadSession(request, {
+			endpoint: server.rpcUrl,
+			token: bearerToken,
+		});
+		expect(newClientResponse.success).toBe(true);
+		expect(newClientResponse.redacted).toEqual({
+			"aws-access-key-id": 1,
+			"openai-api-key": 1,
+		});
+		expect(newClientResponse.redactedBytes).toBe(71);
+		expect(await getPhysicalSessionCount(userId, sessionDate, sessionId)).toBe(
+			1,
+		);
+	}, 90_000);
+
+	test("API rejects an over-budget redaction without storing the session", async () => {
+		const sessionId = `api_redaction_budget_${crypto.randomUUID()}`;
+		const openAiCanary = `sk-${"CANARY".padEnd(20, "A")}T3BlbkFJ${"CANARY".padEnd(20, "B")}`;
+		const request = createApiClient({
+			apiBaseUrl: server.baseUrl,
+			token: bearerToken,
+		}).ingestSession({
+			content: JSON.stringify({
+				message: { content: openAiCanary, role: "user" },
+				timestamp: "2026-07-24T16:30:00.000Z",
+				type: "user",
+			}),
+			projectPath: "/test/api-redaction-budget",
+			sessionId,
+			source: "claude_code",
+			upload_mode: "manual",
+		});
+
+		await expect(request).rejects.toMatchObject({
+			code: REDACTION_BUDGET_EXCEEDED_CODE,
+			data: {
+				redactedBytes: 51,
+				ruleIds: ["openai-api-key"],
+			},
+		});
+		expect(await getStoredFilteredSession(userId, sessionId)).toBeNull();
+		expect(await getStoredContentHash(userId, sessionId)).toBeNull();
+	}, 60_000);
+
+	test("API fully redacts an overlong under-budget match", async () => {
+		const sessionId = `api_overlong_redaction_${crypto.randomUUID()}`;
+		const slackPrefix = "xoxb-1234567890-1234567890-";
+		const slackToken = `${slackPrefix}${"A".repeat(8193 - slackPrefix.length)}`;
+		const ingestRequest: IngestSessionInput = {
+			content: JSON.stringify({
+				message: {
+					content: `${slackToken}${".".repeat(slackToken.length * 4)}`,
+					role: "user",
+				},
+				timestamp: "2026-07-28T12:00:00.000Z",
+				type: "user",
+			}),
+			projectPath: "/test/api-overlong-redaction",
+			sessionId,
+			source: "claude_code",
+			upload_mode: "manual",
+		};
+		const response = await createApiClient({
+			apiBaseUrl: server.baseUrl,
+			token: bearerToken,
+		}).ingestSession(ingestRequest);
+
+		expect(response.redacted).toEqual({
+			"overlong-match": 1,
+			"slack-bot-token": 1,
+		});
+		expect(response.redactedBytes).toBe(8193);
+		const stored = await getStoredFilteredSession(userId, sessionId);
+		assert(stored);
+		expect(stored.content).toContain("[REDACTED:slack-bot-token]");
+		expect(stored.content).not.toContain(slackToken);
+		expect(stored.content).not.toContain("A".repeat(256));
+
+		const cliResult = await uploadSession(ingestRequest, {
+			endpoint: server.rpcUrl,
+			token: bearerToken,
+		});
+		expect(cliResult.success).toBe(true);
+		expect(cliResult.redacted).toEqual({
+			"overlong-match": 1,
+			"slack-bot-token": 1,
+		});
+		expect(cliResult.redactedBytes).toBe(8193);
+	}, 60_000);
+
+	test("API rejects an overlong over-budget match without storing it", async () => {
+		const sessionId = `api_overlong_budget_${crypto.randomUUID()}`;
+		const slackPrefix = "xoxb-1234567890-1234567890-";
+		const slackToken = `${slackPrefix}${"A".repeat(8193 - slackPrefix.length)}`;
+		const request = createApiClient({
+			apiBaseUrl: server.baseUrl,
+			token: bearerToken,
+		}).ingestSession({
+			content: JSON.stringify({
+				message: { content: slackToken, role: "user" },
+				timestamp: "2026-07-28T12:01:00.000Z",
+				type: "user",
+			}),
+			projectPath: "/test/api-overlong-budget",
+			sessionId,
+			source: "claude_code",
+			upload_mode: "manual",
+		});
+
+		await expect(request).rejects.toMatchObject({
+			code: REDACTION_BUDGET_EXCEEDED_CODE,
+			data: {
+				redactedBytes: 8193,
+				ruleIds: ["overlong-match", "slack-bot-token"],
+			},
+		});
+		expect(await getStoredFilteredSession(userId, sessionId)).toBeNull();
+		expect(await getStoredContentHash(userId, sessionId)).toBeNull();
+		expect(
+			await getStoredAnalyticsSession(userId, sessionId, "claude_code"),
+		).toBeNull();
+	}, 60_000);
+
+	test("SessionEnd hook queues an over-budget transcript without transport", async () => {
+		const sessionId = `cli_redaction_budget_hook_${crypto.randomUUID()}`;
+		const openAiCanary = `sk-${"CANARY".padEnd(20, "A")}T3BlbkFJ${"CANARY".padEnd(20, "B")}`;
+		const secrets: readonly FixtureSecret[] = [
+			{
+				placeholder: "{{OPENAI_CANARY}}",
+				ruleId: "openai-api-key",
+				value: openAiCanary,
+			},
+		];
+		const home = join(tempDir, sessionId);
+		const configDir = join(home, ".rudel");
+		const projectDir = join(home, "claude-hook-project");
+		const sessionFile = join(projectDir, `${sessionId}.jsonl`);
+		const rawContent = JSON.stringify({
+			message: { content: openAiCanary, role: "user" },
+			timestamp: "2026-07-24T16:45:00.000Z",
+			type: "user",
+		});
+		const relay = startBoundaryRelay(
+			() => server.baseUrl,
+			() => server.ensureAlive(),
+			secrets,
+		);
+
+		await Promise.all([
+			mkdir(configDir, { recursive: true }),
+			mkdir(projectDir, { recursive: true }),
+		]);
+		await Promise.all([
+			writeCliCredentials(configDir, bearerToken, relay.baseUrl),
+			writeFile(sessionFile, rawContent),
+		]);
+
+		const manualResult = await runBuiltCli(
+			["upload", sessionFile, "--endpoint", relay.rpcUrl],
+			{ configDir, home },
+		);
+		expect(manualResult.exitCode).not.toBe(0);
+		expect(manualResult.stderr).toContain(
+			"Redaction safety check stopped upload",
+		);
+		expect(manualResult.stderr).not.toContain(openAiCanary);
+		expect(relay.getObservation().requestCount).toBe(0);
+
+		const hookResult = await runBuiltCli(["hooks", "claude", "session-end"], {
+			configDir,
+			env: {
+				RUDEL_API_BASE: relay.baseUrl,
+				RUDEL_ALLOW_INSECURE_ENDPOINT: "",
+			},
+			home,
+			stdin: JSON.stringify({
+				session_id: sessionId,
+				transcript_path: sessionFile,
+				cwd: projectDir,
+			}),
+		});
+
+		const [hookLog, failedUploads] = await Promise.all([
+			readFile(join(home, ".rudel", "logs", "hook-upload.log"), "utf8"),
+			readFile(join(home, ".rudel", "failed-uploads.json"), "utf8"),
+		]);
+		expect(hookResult.exitCode).toBe(0);
+		expect(relay.getObservation().requestCount).toBe(0);
+		expect(hookLog).toContain("Redaction safety check stopped upload");
+		expect(failedUploads).toContain(sessionId);
+		expect(failedUploads).toContain("above the 20% transcript budget");
+		expect(hookLog).not.toContain(openAiCanary);
+		expect(failedUploads).not.toContain(openAiCanary);
+		expect(await getStoredFilteredSession(userId, sessionId)).toBeNull();
+	}, 90_000);
+
+	test("built CLI redacts a realistic Claude transcript before transport and persistence", async () => {
+		const sessionId = `cli_claude_realistic_${crypto.randomUUID()}`;
+		const secrets = createClaudeFixtureSecrets();
+		const home = join(tempDir, sessionId);
+		const configDir = join(home, ".rudel");
+		const projectDir = join(home, "claude-project");
+		const sessionFile = join(projectDir, `${sessionId}.jsonl`);
+		const subagentDir = join(projectDir, sessionId, "subagents");
+		const subagentFile = join(subagentDir, "agent-nested-agent-001.jsonl");
+		const rawContent = renderFixture(
+			claudeSessionTemplate,
+			sessionId,
+			secrets,
+			false,
+		);
+		const expectedContent = renderFixture(
+			claudeSessionTemplate,
+			sessionId,
+			secrets,
+			true,
+		);
+		const rawSubagent = renderFixture(
+			claudeSubagentTemplate,
+			sessionId,
+			secrets,
+			false,
+		);
+		const expectedSubagent = renderFixture(
+			claudeSubagentTemplate,
+			sessionId,
+			secrets,
+			true,
+		);
+		const relay = startBoundaryRelay(
+			() => server.baseUrl,
+			() => server.ensureAlive(),
+			secrets,
+		);
+
+		await Promise.all([
+			mkdir(configDir, { recursive: true }),
+			mkdir(projectDir, { recursive: true }),
+			mkdir(subagentDir, { recursive: true }),
+		]);
+		await Promise.all([
+			writeCliCredentials(configDir, bearerToken, relay.baseUrl),
+			writeFile(sessionFile, rawContent),
+			writeFile(subagentFile, rawSubagent),
+		]);
+
+		const rawEntries = parseJsonl(rawContent);
+		const rawSubagentEntries = parseJsonl(rawSubagent);
+		expect(hasRealisticClaudeShape(rawEntries)).toBe(true);
+		expect(hasRealisticClaudeSubagentShape(rawSubagentEntries)).toBe(true);
+		expect(await getNodeMajorVersion()).toBeGreaterThanOrEqual(20);
+
+		const result = await runBuiltCli(
+			["upload", sessionFile, "--endpoint", relay.rpcUrl],
+			{
+				configDir,
+				home,
+			},
+		);
+
+		expect(result.exitCode).toBe(0);
+		expect(result.stdout.includes("Upload successful!")).toBe(true);
+		expect(result.stdout.includes(EXPECTED_CLAUDE_REDACTION_SUMMARY)).toBe(
+			true,
+		);
+		expect(containsAnyCanary(result.stdout, secrets)).toBe(false);
+		expect(containsAnyCanary(result.stderr, secrets)).toBe(false);
+
+		const boundary = relay.getObservation();
+		expect(boundary.requestCount).toBeGreaterThan(0);
+		expect(boundary.leakedRuleIds).toEqual([]);
+		for (const secret of secrets) {
+			expect(boundary.markerCounts[secret.ruleId]).toBe(boundary.requestCount);
+		}
+
+		const storedRow = await getStoredFilteredSession(userId, sessionId);
+		assert(storedRow);
+		const storedSubagent = storedRow.subagents["nested-agent-001"];
+		assert(storedSubagent);
+		expect(containsAnyCanary(storedRow.content, secrets)).toBe(false);
+		expect(containsAnyCanary(storedSubagent, secrets)).toBe(false);
+		expect(hashText(storedRow.content)).toBe(hashText(expectedContent));
+		expect(hashText(storedSubagent)).toBe(hashText(expectedSubagent));
+		expect(storedRow.filter_version).toBe(FILTER_VERSION);
+		expect(hasRealisticClaudeShape(parseJsonl(storedRow.content))).toBe(true);
+		expect(hasRealisticClaudeSubagentShape(parseJsonl(storedSubagent))).toBe(
+			true,
+		);
+
+		const analytics = await getStoredAnalyticsSession(
+			userId,
+			sessionId,
+			"claude_code",
+		);
+		assert(analytics);
+		const analyticsSubagent = analytics.subagents["nested-agent-001"];
+		assert(analyticsSubagent);
+		expect(containsAnyCanary(analytics.content, secrets)).toBe(false);
+		expect(containsAnyCanary(analyticsSubagent, secrets)).toBe(false);
+		expect(hashText(analytics.content)).toBe(hashText(expectedContent));
+		expect(hashText(analyticsSubagent)).toBe(hashText(expectedSubagent));
+		expect(analytics.filter_version).toBe(FILTER_VERSION);
+	}, 120_000);
+
+	test("built CLI redacts a realistic Claude transcript through the SessionEnd hook", async () => {
+		const sessionId = `cli_claude_hook_realistic_${crypto.randomUUID()}`;
+		const secrets = createClaudeFixtureSecrets();
+		const home = join(tempDir, sessionId);
+		const configDir = join(home, ".rudel");
+		const projectDir = join(home, "claude-hook-project");
+		const sessionFile = join(projectDir, `${sessionId}.jsonl`);
+		const subagentDir = join(projectDir, sessionId, "subagents");
+		const subagentFile = join(subagentDir, "agent-nested-agent-001.jsonl");
+		const rawContent = renderFixture(
+			claudeSessionTemplate,
+			sessionId,
+			secrets,
+			false,
+		);
+		const expectedContent = renderFixture(
+			claudeSessionTemplate,
+			sessionId,
+			secrets,
+			true,
+		);
+		const rawSubagent = renderFixture(
+			claudeSubagentTemplate,
+			sessionId,
+			secrets,
+			false,
+		);
+		const expectedSubagent = renderFixture(
+			claudeSubagentTemplate,
+			sessionId,
+			secrets,
+			true,
+		);
+		const relay = startBoundaryRelay(
+			() => server.baseUrl,
+			() => server.ensureAlive(),
+			secrets,
+		);
+
+		await Promise.all([
+			mkdir(configDir, { recursive: true }),
+			mkdir(projectDir, { recursive: true }),
+			mkdir(subagentDir, { recursive: true }),
+		]);
+		await Promise.all([
+			writeCliCredentials(configDir, bearerToken, relay.baseUrl),
+			writeFile(sessionFile, rawContent),
+			writeFile(subagentFile, rawSubagent),
+		]);
+
+		const result = await runBuiltCli(["hooks", "claude", "session-end"], {
+			configDir,
+			env: {
+				RUDEL_API_BASE: relay.baseUrl,
+				RUDEL_ALLOW_INSECURE_ENDPOINT: "",
+			},
+			home,
+			stdin: JSON.stringify({
+				session_id: sessionId,
+				transcript_path: sessionFile,
+				cwd: projectDir,
+			}),
+		});
+
+		const hookLog = await readFile(
+			join(home, ".rudel", "logs", "hook-upload.log"),
+			"utf8",
+		);
+		expect(result.exitCode).toBe(0);
+		expect(hookLog.includes("Upload successful for session")).toBe(true);
+		expect(hookLog.includes(EXPECTED_CLAUDE_REDACTION_SUMMARY)).toBe(true);
+		expect(containsAnyCanary(result.stdout, secrets)).toBe(false);
+		expect(containsAnyCanary(result.stderr, secrets)).toBe(false);
+		expect(containsAnyCanary(hookLog, secrets)).toBe(false);
+
+		const boundary = relay.getObservation();
+		expect(boundary.requestCount).toBeGreaterThan(0);
+		expect(boundary.leakedRuleIds).toEqual([]);
+		for (const secret of secrets) {
+			expect(boundary.markerCounts[secret.ruleId]).toBe(boundary.requestCount);
+		}
+
+		const storedRow = await getStoredFilteredSession(userId, sessionId);
+		assert(storedRow);
+		const storedSubagent = storedRow.subagents["nested-agent-001"];
+		assert(storedSubagent);
+		expect(containsAnyCanary(storedRow.content, secrets)).toBe(false);
+		expect(containsAnyCanary(storedSubagent, secrets)).toBe(false);
+		expect(hashText(storedRow.content)).toBe(hashText(expectedContent));
+		expect(hashText(storedSubagent)).toBe(hashText(expectedSubagent));
+		expect(storedRow.filter_version).toBe(FILTER_VERSION);
+	}, 120_000);
+
+	test("built CLI redacts a realistic Codex rollout through the hook path", async () => {
+		const sessionId = `cli_codex_realistic_${crypto.randomUUID()}`;
+		const secrets = createCodexFixtureSecrets();
+		const home = join(tempDir, sessionId);
+		const configDir = join(home, ".rudel");
+		const projectDir = join(home, "codex-project");
+		const sessionFile = join(projectDir, `${sessionId}.jsonl`);
+		const rawContent = renderFixture(
+			codexSessionTemplate,
+			sessionId,
+			secrets,
+			false,
+		);
+		const expectedContent = renderFixture(
+			codexSessionTemplate,
+			sessionId,
+			secrets,
+			true,
+		);
+		const relay = startBoundaryRelay(
+			() => server.baseUrl,
+			() => server.ensureAlive(),
+			secrets,
+		);
+
+		await Promise.all([
+			mkdir(configDir, { recursive: true }),
+			mkdir(projectDir, { recursive: true }),
+		]);
+		await Promise.all([
+			writeCliCredentials(configDir, bearerToken, relay.baseUrl),
+			writeFile(sessionFile, rawContent),
+		]);
+
+		expect(hasRealisticCodexShape(parseJsonl(rawContent))).toBe(true);
+
+		const result = await runBuiltCli(["hooks", "codex", "turn-complete"], {
+			configDir,
+			env: {
+				RUDEL_API_BASE: relay.baseUrl,
+				RUDEL_ALLOW_INSECURE_ENDPOINT: "",
+			},
+			home,
+			stdin: JSON.stringify({
+				type: "agent-turn-complete",
+				thread_id: sessionId,
+				turn_id: "88888888-8888-4888-8888-888888888888",
+				cwd: projectDir,
+				transcript_path: sessionFile,
+			}),
+		});
+
+		const hookLog = await readFile(
+			join(home, ".rudel", "logs", "hook-upload.log"),
+			"utf8",
+		);
+		const expectedSummary =
+			"3 values matching known secret patterns were redacted (anthropic-api-key ×1, sendgrid-api-token ×1, stripe-access-token ×1, 209 B).";
+		expect(result.exitCode).toBe(0);
+		expect(hookLog.includes(expectedSummary)).toBe(true);
+		expect(containsAnyCanary(result.stdout, secrets)).toBe(false);
+		expect(containsAnyCanary(result.stderr, secrets)).toBe(false);
+		expect(containsAnyCanary(hookLog, secrets)).toBe(false);
+
+		const boundary = relay.getObservation();
+		expect(boundary.requestCount).toBeGreaterThan(0);
+		expect(boundary.leakedRuleIds).toEqual([]);
+		for (const secret of secrets) {
+			expect(boundary.markerCounts[secret.ruleId]).toBe(boundary.requestCount);
+		}
+
+		const storedRow = await getStoredCodexSession(userId, sessionId);
+		assert(storedRow);
+		expect(containsAnyCanary(storedRow.content, secrets)).toBe(false);
+		expect(hashText(storedRow.content)).toBe(hashText(expectedContent));
+		expect(storedRow.filter_version).toBe(FILTER_VERSION);
+		expect(hasRealisticCodexShape(parseJsonl(storedRow.content))).toBe(true);
+
+		const analytics = await getStoredAnalyticsSession(
+			userId,
+			sessionId,
+			"codex",
+		);
+		assert(analytics);
+		expect(containsAnyCanary(analytics.content, secrets)).toBe(false);
+		expect(hashText(analytics.content)).toBe(hashText(expectedContent));
+		expect(analytics.filter_version).toBe(FILTER_VERSION);
+	}, 120_000);
 
 	test("allows concurrent identical ingests with best-effort deduplication", async () => {
 		const sessionId = `cli_concurrent_dedup_${crypto.randomUUID()}`;
@@ -357,10 +947,12 @@ describe("CLI upload to local API", () => {
 			uploadSession(request, {
 				endpoint: server.rpcUrl,
 				token: bearerToken,
+				allowInsecureEndpoint: false,
 			}),
 			uploadSession(request, {
 				endpoint: server.rpcUrl,
 				token: bearerToken,
+				allowInsecureEndpoint: false,
 			}),
 		]);
 
@@ -380,14 +972,17 @@ describe("CLI upload to local API", () => {
 		const firstUpload = await uploadSession(request, {
 			endpoint: limitedServer.rpcUrl,
 			token: limitedBearerToken,
+			allowInsecureEndpoint: false,
 		});
 		const duplicateUpload = await uploadSession(request, {
 			endpoint: limitedServer.rpcUrl,
 			token: limitedBearerToken,
+			allowInsecureEndpoint: false,
 		});
 		const limitedUpload = await uploadSession(request, {
 			endpoint: limitedServer.rpcUrl,
 			token: limitedBearerToken,
+			allowInsecureEndpoint: false,
 		});
 
 		expect(firstUpload.success).toBe(true);
@@ -451,33 +1046,4 @@ function createDedupeInput(
 		source: "claude_code",
 		upload_mode: "manual",
 	};
-}
-
-async function getPhysicalSessionCount(
-	organizationId: string,
-	sessionDate: string,
-	sessionId: string,
-): Promise<number> {
-	const [row] = await getClickhouse().query<{ row_count: number }>({
-		query: `SELECT count() AS row_count FROM ${getSafeClickHouseTable("rudel.claude_sessions")} WHERE organization_id = {organizationId:String} AND session_date = {sessionDate:DateTime64(3)} AND session_id = {sessionId:String}`,
-		query_params: {
-			organizationId,
-			sessionDate,
-			sessionId,
-		},
-	});
-	return Number(row?.row_count ?? 0);
-}
-
-async function getStoredContentHash(
-	organizationId: string,
-	sessionId: string,
-): Promise<string | null> {
-	const [row] = await sqlClient<Array<{ last_content_sha256: string | null }>>`
-		SELECT last_content_sha256
-		FROM session_ownership
-		WHERE organization_id = ${organizationId}
-			AND session_id = ${sessionId}
-	`;
-	return row?.last_content_sha256 ?? null;
 }

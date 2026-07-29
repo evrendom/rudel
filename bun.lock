@@ -25,6 +25,7 @@
         "@rudel/agent-adapters": "workspace:*",
         "@rudel/api-routes": "workspace:*",
         "@rudel/ch-schema": "workspace:*",
+        "@rudel/secret-filter": "workspace:*",
         "@rudel/sql-schema": "workspace:*",
         "better-auth": "^1.5.4",
         "drizzle-orm": "0.45.1",
@@ -57,6 +58,7 @@
       "devDependencies": {
         "@rudel/agent-adapters": "workspace:*",
         "@rudel/api-routes": "workspace:*",
+        "@rudel/secret-filter": "workspace:*",
         "@rudel/typescript-config": "workspace:*",
         "@types/node": "^22",
         "bun-types": "latest",
@@ -156,6 +158,7 @@
         "zod": "^3.24.0",
       },
       "devDependencies": {
+        "@rudel/secret-filter": "workspace:*",
         "@rudel/typescript-config": "workspace:*",
         "bun-types": "latest",
         "typescript": "5.9.2",
@@ -175,6 +178,16 @@
         "chkit": "0.1.0-beta.16",
         "zod": "^3.24.0",
       },
+      "devDependencies": {
+        "@obsessiondb/chcli": "0.1.1-beta.4",
+        "@rudel/typescript-config": "workspace:*",
+        "bun-types": "latest",
+        "typescript": "5.9.2",
+      },
+    },
+    "packages/secret-filter": {
+      "name": "@rudel/secret-filter",
+      "version": "0.0.0",
       "devDependencies": {
         "@rudel/typescript-config": "workspace:*",
         "bun-types": "latest",
@@ -534,6 +547,8 @@
 
     "@nodelib/fs.walk": ["@nodelib/fs.walk@1.2.8", "", { "dependencies": { "@nodelib/fs.scandir": "2.1.5", "fastq": "^1.6.0" } }, "sha512-oGB+UxlgWcgQkgwo8GcEGwemoTFt3FIO9ababBmaGwXIoBKZ+GTy0pP185beGg7Llih/NSHSV2XAs1lnznocSg=="],
 
+    "@obsessiondb/chcli": ["@obsessiondb/chcli@0.1.1-beta.4", "", { "dependencies": { "@clickhouse/client": "^1.17.0" }, "peerDependencies": { "typescript": "^5" }, "bin": { "chcli": "dist/chcli.js" } }, "sha512-jsapc7STpKdHlMvyOnRa9kkFB/nZ7AAG6ZBmZeVYghsqHx89QP+bd3p+SePMDiGfHDf74rD6vazg9olX5Q445Q=="],
+
     "@open-draft/deferred-promise": ["@open-draft/deferred-promise@2.2.0", "", {}, "sha512-CecwLWx3rhxVQF6V4bAgPS5t+So2sTbPgAzafKkVizyi7tlwpcFpdFqq+wqF2OwNBmqFuu6tOyouTuxgpMfzmA=="],
 
     "@open-draft/logger": ["@open-draft/logger@0.3.0", "", { "dependencies": { "is-node-process": "^1.2.0", "outvariant": "^1.4.0" } }, "sha512-X2g45fzhxH238HKO4xbSr7+wBS8Fvw6ixhTDuvLd5mqh6bJJCFAPwU9mPDxbcrRtfxv4u5IHCEH77BmxvXmmxQ=="],
@@ -851,6 +866,8 @@
     "@rudel/api-routes": ["@rudel/api-routes@workspace:packages/api-routes"],
 
     "@rudel/ch-schema": ["@rudel/ch-schema@workspace:packages/ch-schema"],
+
+    "@rudel/secret-filter": ["@rudel/secret-filter@workspace:packages/secret-filter"],
 
     "@rudel/sql-schema": ["@rudel/sql-schema@workspace:packages/sql-schema"],
 

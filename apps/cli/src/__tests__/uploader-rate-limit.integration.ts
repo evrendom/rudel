@@ -42,6 +42,7 @@ describe("CLI ingest rate-limit messages", () => {
 			{
 				endpoint: server.rpcUrl,
 				token: bearerToken,
+				allowInsecureEndpoint: false,
 			},
 		);
 

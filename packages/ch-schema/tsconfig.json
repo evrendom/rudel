@@ -4,6 +4,6 @@
 		"noEmit": true,
 		"types": ["bun-types"]
 	},
-	"include": ["src"],
+	"include": ["src", "scripts/chcli-connect.ts"],
 	"exclude": ["src/generated"]
 }

@@ -61,8 +61,8 @@ A platform for ingesting, storing, and analyzing Claude Code / Codex session tra
 To test local chkit changes without publishing:
 
 ```bash
-# Link to local chkit (at /Users/marc/Workspace/chkit or CHKIT_PATH)
-bun run chkit:link
+# Link to a local chkit checkout
+CHKIT_PATH=/path/to/chkit bun run chkit:link
 
 # Restore to published versions
 bun run chkit:unlink
@@ -120,14 +120,6 @@ The `prd_local` Doppler config sets `APP_URL=http://localhost:4010` and `ALLOWED
 
 The web app's Vite config proxies `/api` and `/rpc` requests to `http://localhost:4010`, so the web dev server only needs to be started with `bun run --cwd apps/web dev` (no Doppler needed for the frontend).
 
-Alternatively, the API has a convenience script:
-
-```bash
-bun run --cwd apps/api dev:env
-```
-
-This runs `doppler run --project rudel --config prd_local -- bun --watch src/index.ts`.
-
 ## Wrapped card avatars
 
 Wrapped card profile avatars persist to Postgres in the `user_avatar` sidecar table (one row per user, keyed by `user_id`, with a stable `public_id` UUID and the raw bytes in `image_data` bytea). `user.image` stores a relative URL `/api/avatar/<public_id>`; never absolutize it at write time so production shares don't capture localhost from `prd_local` dev.
@@ -168,20 +160,19 @@ doppler run --project rudel --config ci -- <command>
 
 chcli (`@obsessiondb/chcli`) is installed as a local devDependency in `packages/ch-schema` and optionally globally (`npm install -g @obsessiondb/chcli`).
 
-**Env var mapping required.** Doppler provides `CLICKHOUSE_URL` and `CLICKHOUSE_USERNAME`, but chcli expects different env var names. The `chcli` and `chcli:prd` scripts in `packages/ch-schema/package.json` handle this mapping automatically:
+**Env var mapping required.** Rudel uses `CLICKHOUSE_URL` and `CLICKHOUSE_USERNAME`, but chcli expects different env var names. The `chcli` script in `packages/ch-schema/package.json` handles this mapping automatically:
 
-| Doppler var | chcli var | Transformation |
+| Rudel var | chcli var | Transformation |
 |---|---|---|
-| `CLICKHOUSE_URL` | `CLICKHOUSE_HOST` | Strip `https://` prefix |
+| `CLICKHOUSE_URL` | `CLICKHOUSE_HOST` | Parse the URL and use its hostname |
 | `CLICKHOUSE_USERNAME` | `CLICKHOUSE_USER` | Same value, different name |
-| (not in Doppler) | `CLICKHOUSE_SECURE` | Must be `true` (not `1`) |
-| (not in Doppler) | `CLICKHOUSE_PORT` | `443` (behind reverse proxy, not default 8123) |
+| URL protocol | `CLICKHOUSE_SECURE` | `true` for HTTPS, otherwise `false` |
+| URL port and protocol | `CLICKHOUSE_PORT` | Explicit port, otherwise `443` for HTTPS or `8123` for HTTP |
 | `CLICKHOUSE_PASSWORD` | `CLICKHOUSE_PASSWORD` | No mapping needed |
 
 ```bash
 # From packages/ch-schema:
-bun run chcli -- -q "SELECT 1" -F json        # CI
-bun run chcli:prd -- -q "SHOW TABLES" -F json  # PRD
+bun run chcli -- -q "SELECT 1" -F json
 ```
 
 ## ClickHouse Schema Management (chkit)
@@ -190,7 +181,7 @@ Schema definitions live in `packages/ch-schema/src/db/schema/*.ts`. The toolkit 
 
 **Important**: chkit must run with `bun --bun` (not plain `bun`) because the `.exe` spawns Node.js which cannot load `.ts` config files. All scripts below already handle this.
 
-**Important**: Doppler sets `CLICKHOUSE_DB=rudel`, but chkit needs to connect to `default` first (to run `CREATE DATABASE`). The `ch:migrate` scripts override this with `CLICKHOUSE_DB=default`. The `ch:generate` and `ch:codegen` scripts don't need the override since they don't connect to ClickHouse or only read schema files.
+**Important**: chkit needs to connect to `default` first (to run `CREATE DATABASE`). The `ch:migrate` script overrides any configured database with `CLICKHOUSE_DB=default`. The `ch:generate` and `ch:codegen` scripts don't need the override since they don't connect to ClickHouse or only read schema files.
 
 ### Workflow
 
@@ -205,19 +196,16 @@ bun run ch:generate:dryrun
 # 3. Generate migration SQL + update snapshot/journal
 bun run ch:generate
 
-# 4. Apply pending migrations to CI ClickHouse
+# 4. Apply pending migrations to the configured ClickHouse
 bun run ch:migrate
 
-# 5. Apply pending migrations to PRD ClickHouse
-bun run ch:migrate:prd
-
-# 6. Regenerate TypeScript types from schema
+# 5. Regenerate TypeScript types from schema
 bun run ch:codegen
 
-# 7. Check migration status
+# 6. Check migration status
 bun run ch:status
 
-# 8. Check schema drift (snapshot vs live ClickHouse)
+# 7. Check schema drift (snapshot vs live ClickHouse)
 bun run ch:drift
 ```
 
@@ -226,28 +214,18 @@ bun run ch:drift
 `chcli` is the preferred tool for ad-hoc queries. It supports `-q` (inline SQL), `-f` (SQL file), and various output formats (`-F json`, `-F pretty`, `-F csv`, etc.).
 
 ```bash
-# Inline query against CI
+# Inline query against the configured ClickHouse
 bun run chcli -- -q "SELECT count() FROM rudel.session_analytics" -F pretty
 
-# Run a SQL file against CI
+# Run a SQL file
 bun run chcli -- -f scripts/example.sql -v
-
-# Query PRD
-bun run chcli:prd -- -q "SHOW TABLES FROM rudel" -F pretty
-```
-
-The `ch:query` and `ch:describe` scripts use raw curl and are kept as fallbacks:
-
-```bash
-bun run ch:query scripts/my_query.sql
-bun run ch:describe rudel.claude_sessions
 ```
 
 ### Resetting from scratch
 
 To drop everything and recreate:
 
-1. Drop the database via `ch:query` or curl
+1. Drop the database via `bun run chcli -- -q "DROP DATABASE IF EXISTS rudel"`
 2. Delete `chx/migrations/`, reset `chx/meta/journal.json` to `{"version":1,"applied":[]}`, reset `chx/meta/snapshot.json` to `{"version":1,"generatedAt":"","definitions":[]}`
 3. Run `bun run ch:generate` to create a fresh migration from current schema (codegen plugin may fail — ignore, migration file is still created)
 4. **Manually reorder** the migration SQL: database -> tables -> materialized views (see known issues below)
@@ -265,7 +243,7 @@ To drop everything and recreate:
 
 **Codegen plugin failure.** `bun run ch:generate` may fail with `Plugin "codegen" failed in generate integration with exit code 1`. The migration file and snapshot are still created despite this error. Run `bun run ch:codegen` separately if needed.
 
-**`CLICKHOUSE_DB=default` override.** Doppler sets `CLICKHOUSE_DB=rudel`. When the `rudel` database doesn't exist yet (e.g., during initial migration), chkit fails to connect. The `ch:migrate` script overrides this with `CLICKHOUSE_DB=default` inside a bash subshell so the override happens after Doppler injects env vars.
+**`CLICKHOUSE_DB=default` override.** When the `rudel` database doesn't exist yet (e.g., during initial migration), chkit fails to connect. The `ch:migrate` script overrides configured shell or `.env` values with `CLICKHOUSE_DB=default` inside a bash subshell.
 
 **ClickHouse Cloud silent INSERT behavior.** `INSERT ... SELECT` via the HTTP interface may silently return 200 with 0 rows written. Use `SETTINGS async_insert=0` as a workaround. Additionally, `INSERT INTO table_x SELECT ... FROM table_x` (same source and target table) silently writes 0 rows even with `async_insert=0` — you must read from a different source table. The API uses `client.command()` with `FORMAT JSONEachRow` and `async_insert=0` (see `apps/api/src/clickhouse.ts`).
 
@@ -275,7 +253,7 @@ To drop everything and recreate:
 
 **`bun run` resolves binaries from local `node_modules/.bin/`, not global PATH.** When running package.json scripts, `bun run` looks for binaries in `node_modules/.bin/` first. If a tool like `chcli` is only installed globally, `bun run` won't find it. Fix: add the tool as a local devDependency (e.g., `@obsessiondb/chcli` in `packages/ch-schema`). Bun also rewrites `npx` to `bun x` in scripts, which has the same local-first resolution behavior.
 
-**chcli env var mapping.** Doppler provides `CLICKHOUSE_URL` (e.g., `https://host.example.com`) and `CLICKHOUSE_USERNAME`, but chcli expects `CLICKHOUSE_HOST` (hostname only), `CLICKHOUSE_USER`, `CLICKHOUSE_SECURE=true`, and `CLICKHOUSE_PORT=443`. The `chcli`/`chcli:prd` scripts in `packages/ch-schema/package.json` handle this mapping via `bash -c` with shell parameter expansion (`${CLICKHOUSE_URL#https://}`).
+**chcli env var mapping.** Rudel uses `CLICKHOUSE_URL` (e.g., `https://host.example.com`) and `CLICKHOUSE_USERNAME`, but chcli expects `CLICKHOUSE_HOST`, `CLICKHOUSE_USER`, `CLICKHOUSE_SECURE`, and `CLICKHOUSE_PORT`. The `chcli` script in `packages/ch-schema/package.json` parses the URL in `scripts/chcli-connect.ts`, maps the hostname and username, and derives the secure flag and default port from the URL protocol.
 
 **`CLICKHOUSE_SECURE` must be the string `true`, not `1`.** chcli does not recognize `1` or other truthy values for `CLICKHOUSE_SECURE`. Always use `CLICKHOUSE_SECURE=true`.
 
@@ -301,16 +279,13 @@ The plugin uses `session_date` for time windowing, configured via `defaults.time
 # From packages/ch-schema
 
 # Preview what the backfill will do
-bun run ch:backfill:plan -- --target rudel.session_analytics --from 2025-01-01 --to 2026-03-01        # CI
-bun run ch:backfill:plan:prd -- --target rudel.session_analytics --from 2025-01-01 --to 2026-03-01    # PRD
+bun run ch:backfill:plan -- --target rudel.session_analytics --from 2025-01-01 --to 2026-03-01
 
 # Run the backfill
-bun run ch:backfill:run -- --plan-id <plan-id>         # CI
-bun run ch:backfill:run:prd -- --plan-id <plan-id>     # PRD
+bun run ch:backfill:run -- --plan-id <plan-id>
 
 # Check backfill status
-bun run ch:backfill:status -- --plan-id <plan-id>      # CI
-bun run ch:backfill:status:prd -- --plan-id <plan-id>  # PRD
+bun run ch:backfill:status -- --plan-id <plan-id>
 ```
 
 ### Codegen (TypeScript types)
@@ -329,7 +304,7 @@ The generated `RudelSessionAnalyticsRow` type includes both source columns (from
 
 ```bash
 # Run API with production databases (prd_local Doppler config)
-bun run --cwd apps/api dev:env
+doppler run --project rudel --config prd_local -- bun --watch apps/api/src/index.ts
 
 # Run tests locally
 doppler run --project rudel --config ci -- bun run verify
@@ -337,20 +312,19 @@ doppler run --project rudel --config ci -- bun run verify
 
 ## Releasing
 
-The CLI (`rudel` on npm) uses Release Please for automated versioning and changelogs, with manual npm publishing (OTP required).
+The CLI (`rudel` on npm) uses Release Please for automated versioning and changelogs, with automated npm publishing via OIDC trusted publishing (no OTP).
 
 **How it works:**
 
 1. PRs must have conventional commit titles (`feat:`, `fix:`, `chore:`, etc.) — enforced by `.github/workflows/pr-title.yml`
 2. When PRs merge to `main`, Release Please creates/updates a Release PR that accumulates changelog entries and version bumps
-3. Merging the Release PR creates a GitHub Release + tag, and bumps `package.json` + `src/app.ts` versions
-4. After the Release PR merges, publish to npm manually: `bun run --cwd apps/cli build && cd apps/cli && npm publish` (requires OTP)
+3. Merging the Release PR creates a GitHub Release + tag, and bumps the `package.json` version (`apps/cli/src/app.ts` reads the version from `package.json` at build time)
+4. The release workflow (`.github/workflows/release.yml`) then publishes to npm automatically with `npm publish --provenance` (OIDC `id-token: write`, no manual OTP step)
 
 **Configuration files:**
 
 - `release-please-config.json` — Release Please manifest config (only `apps/cli` is releasable)
 - `.release-please-manifest.json` — tracks current version
-- `apps/cli/src/app.ts` has a `// x-release-please-version` annotation so the hardcoded version stays in sync
 
 **Manual release script:** `scripts/release-cli.ts` can also be used for releases outside the Release Please flow.
 

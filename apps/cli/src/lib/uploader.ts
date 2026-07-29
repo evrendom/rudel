@@ -6,13 +6,29 @@ import {
 	INGEST_AGGREGATE_CONTENT_MAX_BYTES,
 	INGEST_LIMIT_REASONS,
 	type IngestSessionInput,
+	parseSafeApiEndpoint,
+	REDACTION_BUDGET_EXCEEDED_CODE,
+	REDACTION_DID_NOT_CONVERGE_CODE,
 	SESSION_OWNERSHIP_CONFLICT_CODE,
 } from "@rudel/api-routes";
+import {
+	FILTER_VERSION,
+	filterSessionTextFields,
+	getRedactionBudgetAnomaly,
+	getRedactionCount,
+	mergeRedactionCounts,
+	type RedactionBudgetAnomaly,
+	type RedactionCounts,
+	SecretFilterConvergenceError,
+	type SessionTextFilterResult,
+} from "@rudel/secret-filter";
 import type { UploadResult } from "./types.js";
+import { describeUploadEndpointRejection } from "./upload-endpoint.js";
 
 export interface UploadConfig {
 	endpoint: string;
 	token: string;
+	allowInsecureEndpoint: boolean;
 	authType?: "bearer" | "api-key";
 	maxAggregateBytes?: number;
 	onRetry?: (attempt: number, maxAttempts: number, error: string) => void;
@@ -32,6 +48,8 @@ interface ErrorData {
 	readonly tryAgainIn: number | null;
 	readonly windowSeconds: number | null;
 }
+
+type UploadSubagent = NonNullable<IngestSessionInput["subagents"]>[number];
 
 function isRetryable(error: unknown): boolean {
 	if (error instanceof ORPCError) {
@@ -74,6 +92,21 @@ function isApiKeyRateLimited(
 	);
 }
 
+export function getSecretFilterUploadFailure(
+	error: unknown,
+): UploadResult | null {
+	if (!(error instanceof SecretFilterConvergenceError)) {
+		return null;
+	}
+	return {
+		success: false,
+		error:
+			"Redaction safety check stopped upload because known-pattern filtering did not converge. The unfiltered transcript was not uploaded.",
+		attempts: 0,
+		redactionConvergenceExceeded: true,
+	};
+}
+
 export function formatUploadError(error: unknown): string {
 	if (isApiKeyRateLimited(error)) {
 		const data = getErrorData(error);
@@ -111,6 +144,21 @@ export function formatUploadError(error: unknown): string {
 		error.code === SESSION_OWNERSHIP_CONFLICT_CODE
 	) {
 		return "This session ID is already owned by another organization member. Upload it from the original member account or use a different session ID.";
+	}
+	if (
+		error instanceof ORPCError &&
+		error.code === REDACTION_BUDGET_EXCEEDED_CODE
+	) {
+		const data = getRedactionBudgetErrorData(error);
+		return data
+			? formatRedactionBudgetError(data)
+			: "Redaction safety check stopped upload because known-pattern redaction exceeded the 20% transcript budget. The unfiltered transcript was not uploaded.";
+	}
+	if (
+		error instanceof ORPCError &&
+		error.code === REDACTION_DID_NOT_CONVERGE_CODE
+	) {
+		return "Redaction safety check stopped upload because known-pattern filtering did not converge. The unfiltered transcript was not uploaded.";
 	}
 	if (isPayloadTooLarge(error)) {
 		const data = getErrorData(error);
@@ -173,6 +221,24 @@ function getErrorData(error: ORPCError<string, unknown>): ErrorData {
 	};
 }
 
+function getRedactionBudgetErrorData(
+	error: ORPCError<string, unknown>,
+): RedactionBudgetAnomaly | null {
+	const data = isRecord(error.data) ? error.data : null;
+	const inputBytes = getNumberField(data, "inputBytes");
+	const redactedBytes = getNumberField(data, "redactedBytes");
+	const ruleIdsValue = data?.ruleIds;
+	if (
+		inputBytes === null ||
+		redactedBytes === null ||
+		!Array.isArray(ruleIdsValue) ||
+		!ruleIdsValue.every((ruleId) => typeof ruleId === "string")
+	) {
+		return null;
+	}
+	return { inputBytes, redactedBytes, ruleIds: ruleIdsValue };
+}
+
 function getStringField(record: Record<string, unknown> | null, key: string) {
 	const value = record?.[key];
 	return typeof value === "string" && value.length > 0 ? value : null;
@@ -211,9 +277,42 @@ export async function uploadSession(
 	request: IngestSessionInput,
 	config: UploadConfig,
 ): Promise<UploadResult> {
+	const inputBytes = getUploadAggregateBytes(request);
+	let filteredText: SessionTextFilterResult<UploadSubagent>;
+	try {
+		filteredText = filterSessionTextFields({
+			content: request.content,
+			subagents: request.subagents,
+		});
+	} catch (error) {
+		const filterFailure = getSecretFilterUploadFailure(error);
+		if (filterFailure) {
+			return filterFailure;
+		}
+		throw error;
+	}
+	const redactionBudgetAnomaly = getRedactionBudgetAnomaly(
+		filteredText.redactedBytes,
+		inputBytes,
+		filteredText.counts,
+	);
+	if (redactionBudgetAnomaly) {
+		return {
+			success: false,
+			error: formatRedactionBudgetError(redactionBudgetAnomaly),
+			attempts: 0,
+			redactionBudgetExceeded: true,
+		};
+	}
+	const filteredRequest: IngestSessionInput = {
+		...request,
+		content: filteredText.content,
+		subagents: filteredText.subagents ? [...filteredText.subagents] : undefined,
+		filter_version: FILTER_VERSION,
+	};
 	const maxAggregateBytes =
 		config.maxAggregateBytes ?? INGEST_AGGREGATE_CONTENT_MAX_BYTES;
-	const aggregateBytes = getUploadAggregateBytes(request);
+	const aggregateBytes = getUploadAggregateBytes(filteredRequest);
 	if (aggregateBytes > maxAggregateBytes) {
 		return {
 			success: false,
@@ -222,8 +321,20 @@ export async function uploadSession(
 		};
 	}
 
+	const endpoint = parseSafeApiEndpoint(config.endpoint, {
+		allowPlaintext: config.allowInsecureEndpoint,
+	});
+	if (!endpoint.ok) {
+		return {
+			success: false,
+			error: `Upload endpoint refused: ${describeUploadEndpointRejection(endpoint)}`,
+			attempts: 0,
+			endpointRejected: true,
+		};
+	}
+
 	const link = new RPCLink({
-		url: config.endpoint,
+		url: endpoint.url,
 		headers:
 			config.authType === "api-key"
 				? { "x-api-key": config.token }
@@ -234,8 +345,28 @@ export async function uploadSession(
 
 	for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
 		try {
-			await client.ingestSession(request);
-			return { success: true, status: 200, attempts: attempt };
+			const response: unknown = await client.ingestSession(filteredRequest);
+			// A proxy or SSO gateway can answer 200 with an HTML page or arbitrary
+			// JSON. oRPC deserializes those to strings/undefined rather than
+			// throwing, so without this guard a dropped upload reports success.
+			if (!isIngestSessionResponse(response)) {
+				return {
+					success: false,
+					error: formatUnrecognizedResponseError(),
+					attempts: attempt,
+				};
+			}
+			return {
+				success: true,
+				status: 200,
+				attempts: attempt,
+				redacted: mergeRedactionCounts(
+					filteredText.counts,
+					response.redacted ?? {},
+				),
+				redactedBytes:
+					filteredText.redactedBytes + (response.redactedBytes ?? 0),
+			};
 		} catch (error) {
 			const errorMessage = formatUploadError(error);
 
@@ -270,6 +401,70 @@ export async function uploadSession(
 	};
 }
 
+export function formatRedactionSummary(
+	counts: RedactionCounts | undefined,
+	redactedBytes: number | undefined,
+): string | null {
+	if (!counts) {
+		return null;
+	}
+
+	const total = getRedactionCount(counts);
+	if (total === 0) {
+		return null;
+	}
+
+	const details = Object.entries(counts)
+		.filter(([, count]) => count > 0)
+		.sort(([left], [right]) => left.localeCompare(right))
+		.map(([ruleId, count]) => `${ruleId} ×${count}`)
+		.join(", ");
+	const subject = total === 1 ? "value" : "values";
+	const verb = total === 1 ? "was" : "were";
+	const byteDetail =
+		redactedBytes === undefined ? "" : `, ${formatBytes(redactedBytes)}`;
+	return `${total} ${subject} matching known secret patterns ${verb} redacted (${details}${byteDetail}).`;
+}
+
+export function formatRedactionBudgetError(
+	anomaly: RedactionBudgetAnomaly,
+): string {
+	const ratio = ((anomaly.redactedBytes / anomaly.inputBytes) * 100).toFixed(1);
+	const rules = anomaly.ruleIds.join(", ");
+	return `Redaction safety check stopped upload: known-pattern redaction would replace ${formatBytes(anomaly.redactedBytes)} of ${formatBytes(anomaly.inputBytes)} (${ratio}%), above the 20% transcript budget (${rules}). The unfiltered transcript was not uploaded.`;
+}
+
+interface IngestSessionResponse {
+	readonly success: true;
+	readonly sessionId: string;
+	readonly redacted?: RedactionCounts;
+	readonly redactedBytes?: number;
+}
+
+// success + sessionId is the floor every deployed API version returns; redacted
+// and redactedBytes only exist on filtering servers, so their absence must not
+// fail a response from an older API.
+function isIngestSessionResponse(
+	value: unknown,
+): value is IngestSessionResponse {
+	if (!isRecord(value) || value.success !== true) {
+		return false;
+	}
+	if (typeof value.sessionId !== "string") {
+		return false;
+	}
+	if (value.redacted !== undefined && !isRecord(value.redacted)) {
+		return false;
+	}
+	return (
+		value.redactedBytes === undefined || typeof value.redactedBytes === "number"
+	);
+}
+
+function formatUnrecognizedResponseError(): string {
+	return "Rudel API returned an unrecognized response instead of an ingest confirmation, so this upload cannot be verified and was treated as failed. This usually means a proxy, SSO gateway, or wrong endpoint URL answered instead of the Rudel API. Check the endpoint and retry with: rudel upload --retry";
+}
+
 function getUploadAggregateBytes(request: IngestSessionInput): number {
 	return (
 		Buffer.byteLength(request.content, "utf8") +
@@ -295,4 +490,14 @@ function formatTranscriptTooLargeError(
 
 function formatMebibytes(bytes: number): string {
 	return (bytes / (1024 * 1024)).toFixed(2);
+}
+
+function formatBytes(bytes: number): string {
+	if (bytes < 1024) {
+		return `${bytes} B`;
+	}
+	if (bytes < 1024 * 1024) {
+		return `${(bytes / 1024).toFixed(1)} KB`;
+	}
+	return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }

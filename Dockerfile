@@ -9,6 +9,7 @@ COPY apps/web/package.json apps/web/package.json
 COPY packages/agent-adapters/package.json packages/agent-adapters/package.json
 COPY packages/api-routes/package.json packages/api-routes/package.json
 COPY packages/ch-schema/package.json packages/ch-schema/package.json
+COPY packages/secret-filter/package.json packages/secret-filter/package.json
 COPY packages/sql-schema/package.json packages/sql-schema/package.json
 COPY packages/typescript-config/package.json packages/typescript-config/package.json
 RUN bun install --frozen-lockfile

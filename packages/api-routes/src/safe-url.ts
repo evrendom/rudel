@@ -182,16 +182,14 @@ export function parseSafeBrowserUrl(
 }
 
 /**
- * Validate an API base URL that will receive the device code, the access token
- * and the minted ingest API key (RUD-237).
+ * Validate a full API endpoint that will receive credentials and request data.
  *
- * Set `allowPlaintext` to permit non-loopback http: — an explicit, opt-in
- * downgrade for plaintext internal deployments.
- *
- * Returns the base with trailing slashes removed, so callers can safely
- * template `${base}/api/...` without producing a doubled slash.
+ * Unlike an API base, an endpoint may intentionally carry a path, query string,
+ * fragment, or trailing slash. It therefore shares the common scheme,
+ * credential, control-character, and plaintext checks without applying base
+ * normalization.
  */
-export function parseSafeApiBase(
+export function parseSafeApiEndpoint(
 	input: string,
 	options: { allowPlaintext: boolean },
 ): SafeUrlResult {
@@ -209,6 +207,29 @@ export function parseSafeApiBase(
 		};
 	}
 
+	return result;
+}
+
+/**
+ * Validate an API base URL that will receive the device code, the access token
+ * and the minted ingest API key (RUD-237).
+ *
+ * Set `allowPlaintext` to permit non-loopback http: — an explicit, opt-in
+ * downgrade for plaintext internal deployments.
+ *
+ * Returns the base with trailing slashes removed, so callers can safely
+ * template `${base}/api/...` without producing a doubled slash.
+ */
+export function parseSafeApiBase(
+	input: string,
+	options: { allowPlaintext: boolean },
+): SafeUrlResult {
+	const result = parseSafeApiEndpoint(input, options);
+	if (!result.ok) {
+		return result;
+	}
+
+	const parsed = new URL(result.url);
 	// Callers template `${base}/api/...` onto this, which a query string or
 	// fragment silently swallows: `https://host?a=1` would yield
 	// `https://host/?a=1/api/auth/device/code`. Reject rather than guess.

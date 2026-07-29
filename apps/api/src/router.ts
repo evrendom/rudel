@@ -5,8 +5,15 @@ import {
 	INGEST_AGGREGATE_CONTENT_MAX_BYTES,
 	type IngestSessionInput,
 	PRODUCT_ANALYTICS_EVENTS,
+	REDACTION_BUDGET_EXCEEDED_CODE,
+	REDACTION_DID_NOT_CONVERGE_CODE,
 	SESSION_OWNERSHIP_CONFLICT_CODE,
 } from "@rudel/api-routes";
+import {
+	FILTER_VERSION,
+	getRedactionBudgetAnomaly,
+	SecretFilterConvergenceError,
+} from "@rudel/secret-filter";
 import { getClickhouse } from "./clickhouse.js";
 import { sqlClient } from "./db.js";
 import { adminRouter } from "./handlers/admin/index.js";
@@ -36,6 +43,8 @@ import {
 	checkManualIngestRateLimit,
 	checkOrganizationSessionCountRateLimit,
 } from "./rate-limit.js";
+import { filterSessionTextFieldsOffThread } from "./services/ingest-filter.service.js";
+import { getNextIngestedAt } from "./services/ingest-timestamp.service.js";
 import {
 	deleteOrgSessions,
 	getCachedOrgSessionCount,
@@ -168,6 +177,38 @@ const ingestSessionHandler = os.ingestSession
 			INGEST_AGGREGATE_CONTENT_MAX_BYTES,
 		);
 		checkIngestByteRateLimit(context.user.id, aggregateBytes);
+		const filteredText = await filterSessionTextFieldsOffThread({
+			content: input.content,
+			subagents: input.subagents,
+		}).catch((error: unknown) => {
+			if (error instanceof SecretFilterConvergenceError) {
+				throw errors[REDACTION_DID_NOT_CONVERGE_CODE]({
+					data: { maxPasses: error.maxPasses },
+				});
+			}
+			throw error;
+		});
+		const redactionBudgetAnomaly = getRedactionBudgetAnomaly(
+			filteredText.redactedBytes,
+			aggregateBytes,
+			filteredText.counts,
+		);
+		if (redactionBudgetAnomaly) {
+			throw errors[REDACTION_BUDGET_EXCEEDED_CODE]({
+				data: {
+					...redactionBudgetAnomaly,
+					ruleIds: [...redactionBudgetAnomaly.ruleIds],
+				},
+			});
+		}
+		const filteredInput: IngestSessionInput = {
+			...input,
+			content: filteredText.content,
+			subagents: filteredText.subagents
+				? [...filteredText.subagents]
+				: undefined,
+			filter_version: FILTER_VERSION,
+		};
 
 		const activeOrgId =
 			context.session &&
@@ -211,10 +252,15 @@ const ingestSessionHandler = os.ingestSession
 			throw errors[SESSION_OWNERSHIP_CONFLICT_CODE]();
 		}
 
-		const contentHash = computeIngestContentHash(input);
+		// Hash the exact bytes and filter version stored by the server. This makes
+		// an old unfiltered CLI upload and a current pre-filtered CLI upload
+		// converge after server filtering instead of creating duplicate rows.
+		const contentHash = computeIngestContentHash(filteredInput);
 		const response = {
 			success: true as const,
 			sessionId: input.sessionId,
+			redacted: filteredText.counts,
+			redactedBytes: filteredText.redactedBytes,
 		};
 
 		// This is a best-effort cost optimization, not a cross-instance
@@ -228,9 +274,12 @@ const ingestSessionHandler = os.ingestSession
 			return response;
 		}
 
-		const ingestedAt = new Date();
-		const adapter = getAdapter(input.source);
-		await adapter.ingest(getClickhouse(), input, {
+		// Acknowledged async inserts can batch concurrent requests into one part.
+		// Give each request a distinct millisecond RMT version even when the
+		// process clock has not advanced, so FINAL and hash bookkeeping agree.
+		const ingestedAt = getNextIngestedAt();
+		const adapter = getAdapter(filteredInput.source);
+		await adapter.ingest(getClickhouse(), filteredInput, {
 			ingestedAt,
 			userId: context.user.id,
 			organizationId: orgId,
@@ -255,7 +304,7 @@ const ingestSessionHandler = os.ingestSession
 		}
 
 		const uploadCompletedPayload = getSessionUploadCompletedPayload(
-			input,
+			filteredInput,
 			orgId,
 			context.user.id,
 		);

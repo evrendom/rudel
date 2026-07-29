@@ -1,3 +1,4 @@
+import { getLogger } from "@logtape/logtape";
 import {
 	codexAdapter,
 	findActiveRolloutFile,
@@ -5,13 +6,16 @@ import {
 } from "@rudel/agent-adapters";
 import { buildCommand } from "@stricli/core";
 import { loadCredentials } from "../../../lib/credentials.js";
-import {
-	recordFailedUpload,
-	removeFailedUpload,
-} from "../../../lib/failed-uploads.js";
+import { removeFailedUpload } from "../../../lib/failed-uploads.js";
 import { getGitInfo } from "../../../lib/git-info.js";
+import { reportHookUploadFailure } from "../../../lib/hook-upload-failure.js";
 import { getProjectOrgId } from "../../../lib/project-config.js";
-import { uploadSession } from "../../../lib/uploader.js";
+import { allowsInsecureEndpointFromEnv } from "../../../lib/upload-endpoint.js";
+import {
+	formatRedactionSummary,
+	uploadSession,
+} from "../../../lib/uploader.js";
+import { disposeLogging, setupHookLogging } from "../../../logging.js";
 
 interface CodexNotifyInput {
 	type: string;
@@ -29,7 +33,10 @@ async function readStdin(): Promise<string> {
 	return chunks.join("");
 }
 
-async function runTurnComplete(): Promise<void> {
+async function runTurnComplete(): Promise<undefined | Error> {
+	await setupHookLogging();
+	const logger = getLogger(["rudel", "cli", "hook"]);
+
 	try {
 		const raw = await readStdin();
 		if (!raw.trim()) return;
@@ -64,23 +71,33 @@ async function runTurnComplete(): Promise<void> {
 		const result = await uploadSession(request, {
 			endpoint,
 			token: credentials.token,
+			allowInsecureEndpoint: allowsInsecureEndpointFromEnv(),
 			authType: credentials.authType,
 		});
 
 		if (result.success) {
+			const redactionSummary = formatRedactionSummary(
+				result.redacted,
+				result.redactedBytes,
+			);
+			if (redactionSummary) {
+				logger.info("{redactionSummary}", { redactionSummary });
+			}
 			await removeFailedUpload(input.thread_id);
 		} else {
-			await recordFailedUpload({
+			const hookError = await reportHookUploadFailure(logger, result, {
 				sessionId: input.thread_id,
 				transcriptPath,
 				projectPath: input.cwd,
 				source: codexAdapter.source,
 				organizationId,
-				error: result.error ?? "Unknown error",
 			});
+			return hookError;
 		}
-	} catch {
-		// Swallow all errors — this runs async in the background
+	} catch (error) {
+		logger.error("Codex turn-complete hook failed: {error}", { error });
+	} finally {
+		await disposeLogging();
 	}
 }
 

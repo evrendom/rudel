@@ -12,6 +12,7 @@ describe("RudelClaudeSessionsRowSchema", () => {
 		package_name: "my-project",
 		package_type: "package.json",
 		content: "session transcript content",
+		filter_version: 1,
 		subagents: { agent1: "result1" },
 		ingested_at: "2026-02-13T09:24:27.180Z",
 		user_id: "user_123",
@@ -24,6 +25,7 @@ describe("RudelClaudeSessionsRowSchema", () => {
 		const result = RudelClaudeSessionsRowSchema.parse(validRow);
 		expect(result.session_id).toBe("sess_abc123");
 		expect(result.organization_id).toBe("org_xyz");
+		expect(result.filter_version).toBe(1);
 		expect(result.subagents).toEqual({ agent1: "result1" });
 	});
 

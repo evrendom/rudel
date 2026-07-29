@@ -71,6 +71,22 @@ rudel upload --dry-run
 rudel upload --classify
 ```
 
+Upload endpoints must use HTTPS, except that loopback HTTP endpoints such as
+`http://localhost:4010/rpc` are allowed for local development. Plaintext HTTP
+to any other host is refused unless the upload-specific
+`--allow-insecure-endpoint` flag is passed or
+`RUDEL_ALLOW_INSECURE_ENDPOINT=1` is set. This opt-in is intentionally separate
+from `--allow-insecure-api-base`: it permits the ingest API key and full
+transcript to cross the network unencrypted and should only be used on a
+trusted network. Non-HTTP URLs, malformed URLs, and URLs with embedded
+credentials are always refused.
+
+Automatic Claude Code and Codex uploads use the environment form because hooks
+run unattended. If `RUDEL_API_BASE` names an unsafe destination, the hook
+refuses the upload, reports the reason in stderr and
+`~/.rudel/logs/hook-upload.log`, and adds the session to the failed-upload queue
+for `rudel upload --retry`; it does not fall back to the saved API base.
+
 When run without arguments, `rudel upload` scans `~/.claude/projects/` for all projects with session transcripts and presents an interactive picker. The current project (matched from your working directory) and its subfolders are pre-selected. Use arrow keys to navigate, space to toggle, and enter to confirm.
 
 ### `rudel whoami`
@@ -91,6 +107,12 @@ Each uploaded session includes:
 - Git context (repository, branch, SHA, remote)
 - Session transcript (full prompt & response content)
 - Sub-agent usage
+
+## Known-secret Redaction
+
+Before upload, the CLI redacts known secret patterns in both the main transcript and every sub-agent transcript. The Rudel API reapplies the same deterministic filter before storage and reports counts by pattern; matched values are removed in full and never included in the summary. Uploads are stopped if known-pattern redaction exceeds 20% of the transcript or the bounded filter cannot establish a stable result.
+
+This substantially reduces exposure, but it does not catch `DB_PASSWORD=hunter2`, bare custom tokens without a distinguishing prefix, secrets split across lines, base64-encoded or paraphrased secrets, credentials in screenshots, or double-escaped JSON embedded inside another JSON string. Seven of the 18 selected rules also require a restricted trailing delimiter, so ordinary punctuation immediately after a secret can prevent a match. Keep secrets out of coding-agent sessions whenever possible.
 
 ## Links
 

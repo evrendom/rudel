@@ -2,9 +2,17 @@ import { describe, expect, test } from "bun:test";
 import { ORPCError } from "@orpc/client";
 import {
 	INGEST_LIMIT_REASONS,
+	type IngestSessionInput,
+	REDACTION_DID_NOT_CONVERGE_CODE,
 	SESSION_OWNERSHIP_CONFLICT_CODE,
 } from "@rudel/api-routes";
-import { formatUploadError, uploadSession } from "../lib/uploader.js";
+import { SecretFilterConvergenceError } from "@rudel/secret-filter";
+import {
+	formatRedactionSummary,
+	formatUploadError,
+	getSecretFilterUploadFailure,
+	uploadSession,
+} from "../lib/uploader.js";
 
 describe("formatUploadError", () => {
 	test("explains API key rate limits from ingest auth", () => {
@@ -80,6 +88,17 @@ describe("formatUploadError", () => {
 		);
 	});
 
+	test("explains server-side convergence rejection without exposing content", () => {
+		const error = new ORPCError(REDACTION_DID_NOT_CONVERGE_CODE, {
+			status: 422,
+			data: { maxPasses: 4 },
+		});
+
+		expect(formatUploadError(error)).toBe(
+			"Redaction safety check stopped upload because known-pattern filtering did not converge. The unfiltered transcript was not uploaded.",
+		);
+	});
+
 	test("explains oversized upload requests", () => {
 		const error = new ORPCError("PAYLOAD_TOO_LARGE", {
 			status: 413,
@@ -146,6 +165,7 @@ describe("uploadSession aggregate size guard", () => {
 			},
 			{
 				endpoint: "http://127.0.0.1:1/rpc",
+				allowInsecureEndpoint: false,
 				maxAggregateBytes: 1024 * 1024,
 				token: "unused",
 			},
@@ -157,5 +177,169 @@ describe("uploadSession aggregate size guard", () => {
 				"Session transcript payload is 2.00 MiB, above the 1.00 MiB per-session limit. Reduce the transcript/subagent payload before retrying.",
 			attempts: 0,
 		});
+	});
+});
+
+describe("formatRedactionSummary", () => {
+	test("summarizes counts without including matched values", () => {
+		expect(
+			formatRedactionSummary(
+				{
+					"aws-access-key-id": 1,
+					"openai-api-key": 2,
+				},
+				2048,
+			),
+		).toBe(
+			"3 values matching known secret patterns were redacted (aws-access-key-id ×1, openai-api-key ×2, 2.0 KB).",
+		);
+	});
+
+	test("omits a summary when nothing was redacted", () => {
+		expect(formatRedactionSummary({}, 0)).toBeNull();
+		expect(formatRedactionSummary(undefined, undefined)).toBeNull();
+	});
+});
+
+describe("uploadSession redaction safety budget", () => {
+	test("aborts before transport one secret byte over 20 percent", async () => {
+		const secret = `sk_live_${"a".repeat(13)}`;
+		const content = `${secret}\n${"x".repeat(78)}`;
+		const result = await uploadSession(
+			{
+				source: "claude_code",
+				sessionId: "redaction-budget-test",
+				projectPath: "/test/project",
+				content,
+			},
+			{
+				endpoint: "http://127.0.0.1:1/rpc",
+				allowInsecureEndpoint: false,
+				token: "unused",
+			},
+		);
+
+		expect(result).toEqual({
+			success: false,
+			error:
+				"Redaction safety check stopped upload: known-pattern redaction would replace 21 B of 100 B (21.0%), above the 20% transcript budget (stripe-access-token). The unfiltered transcript was not uploaded.",
+			attempts: 0,
+			redactionBudgetExceeded: true,
+		});
+	});
+
+	test("proceeds past the budget check at exactly 20 percent redaction", async () => {
+		// A 20-byte flexible-length stripe secret plus newline plus 79 filler
+		// bytes: 20 redacted of 100 input bytes, 20% on the nose. The budget
+		// check must let this through to the next pre-flight guard.
+		const secret = `sk_live_${"a".repeat(12)}`;
+		const content = `${secret}\n${"x".repeat(79)}`;
+		const result = await uploadSession(
+			{
+				source: "claude_code",
+				sessionId: "redaction-budget-boundary-pass",
+				projectPath: "/test/project",
+				content,
+			},
+			{
+				endpoint: "http://127.0.0.1:1/rpc",
+				allowInsecureEndpoint: false,
+				maxAggregateBytes: 16,
+				token: "unused",
+			},
+		);
+
+		expect(result.success).toBe(false);
+		expect(result.attempts).toBe(0);
+		expect(result.redactionBudgetExceeded).toBeUndefined();
+		expect(result.endpointRejected).toBeUndefined();
+		expect(result.error).not.toContain("Redaction safety check");
+		expect(result.error).toContain("per-session limit");
+	});
+
+	test("counts a complete overlong match and aborts before transport", async () => {
+		const slackPrefix = "xoxb-1234567890-1234567890-";
+		const slackToken = `${slackPrefix}${"A".repeat(8193 - slackPrefix.length)}`;
+		const result = await uploadSession(
+			{
+				source: "claude_code",
+				sessionId: "overlong-redaction-budget-test",
+				projectPath: "/test/project",
+				content: `${slackToken}${".".repeat(100)}`,
+			},
+			{
+				endpoint: "http://127.0.0.1:1/rpc",
+				allowInsecureEndpoint: false,
+				token: "unused",
+			},
+		);
+
+		expect(result.success).toBe(false);
+		expect(result.attempts).toBe(0);
+		expect(result.redactionBudgetExceeded).toBe(true);
+		expect(result.error).toContain("8.0 KB of 8.1 KB");
+		expect(result.error).toContain("overlong-match, slack-bot-token");
+		expect(result.error).not.toContain(slackToken);
+	});
+});
+
+describe("uploadSession redaction convergence", () => {
+	test("maps a convergence error to a zero-attempt upload failure", () => {
+		const result = getSecretFilterUploadFailure(
+			new SecretFilterConvergenceError(),
+		);
+
+		expect(result).toEqual({
+			success: false,
+			error:
+				"Redaction safety check stopped upload because known-pattern filtering did not converge. The unfiltered transcript was not uploaded.",
+			attempts: 0,
+			redactionConvergenceExceeded: true,
+		});
+		expect(getSecretFilterUploadFailure(new Error("worker failed"))).toBeNull();
+	});
+});
+
+describe("uploadSession endpoint safety", () => {
+	const request: IngestSessionInput = {
+		source: "claude_code",
+		sessionId: "endpoint-safety-test",
+		projectPath: "/test/project",
+		content: "sensitive transcript",
+	};
+
+	test("refuses a plaintext non-loopback endpoint before a network attempt", async () => {
+		const result = await uploadSession(request, {
+			endpoint: "http://evil.example/rpc",
+			token: "must-not-leak",
+			allowInsecureEndpoint: false,
+		});
+
+		expect(result).toEqual({
+			success: false,
+			error:
+				'Upload endpoint refused: refusing to send credentials over plaintext http: to "evil.example". Pass --allow-insecure-endpoint (or set RUDEL_ALLOW_INSECURE_ENDPOINT=1) if this upload destination really is plaintext. This does not opt login or other API-base traffic into --allow-insecure-api-base.',
+			attempts: 0,
+			endpointRejected: true,
+		});
+		expect(result.error).not.toContain("must-not-leak");
+	});
+
+	test.each([
+		["file:///etc/passwd", "scheme"],
+		["http://user:pass@evil.example/rpc", "embedded credentials"],
+		["not a url", "valid absolute URL"],
+	])("always refuses %p despite the opt-in", async (endpoint, detail) => {
+		const result = await uploadSession(request, {
+			endpoint,
+			token: "must-not-leak",
+			allowInsecureEndpoint: true,
+		});
+
+		expect(result.success).toBe(false);
+		expect(result.endpointRejected).toBe(true);
+		expect(result.error).toContain(detail);
+		expect(result.error).not.toContain("must-not-leak");
+		expect(result.error).not.toContain("--allow-insecure-endpoint");
 	});
 });

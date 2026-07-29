@@ -1,3 +1,5 @@
+import type { RedactionCounts } from "@rudel/secret-filter";
+
 export type SessionTag =
 	| "research"
 	| "new_feature"
@@ -23,6 +25,11 @@ export interface UploadResult {
 	error?: string;
 	attempts?: number;
 	rateLimited?: boolean;
+	redacted?: RedactionCounts;
+	redactedBytes?: number;
+	redactionBudgetExceeded?: boolean;
+	redactionConvergenceExceeded?: boolean;
+	endpointRejected?: boolean;
 }
 
 export const DEFAULT_ENDPOINT = "https://app.rudel.ai/rpc";

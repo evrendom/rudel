@@ -1,16 +1,19 @@
 import { existsSync, readFileSync } from "node:fs";
-import { mkdir, writeFile } from "node:fs/promises";
-import { homedir } from "node:os";
-import { dirname, join } from "node:path";
-
-const CACHE_PATH = join(homedir(), ".rudel", "remote-cache.json");
+import { join } from "node:path";
+import {
+	ensurePrivateFile,
+	getRudelConfigDir,
+	writePrivateFile,
+} from "./local-state.js";
 
 type RemoteCacheData = Record<string, string>;
 
 export async function getRemoteCache(): Promise<RemoteCacheData> {
 	try {
-		if (!existsSync(CACHE_PATH)) return {};
-		return JSON.parse(readFileSync(CACHE_PATH, "utf-8")) as RemoteCacheData;
+		const path = getRemoteCachePath();
+		if (!existsSync(path)) return {};
+		await ensurePrivateFile(path, getRudelConfigDir());
+		return JSON.parse(readFileSync(path, "utf-8")) as RemoteCacheData;
 	} catch {
 		return {};
 	}
@@ -33,9 +36,16 @@ export function cacheRemote(
 
 export async function cacheRemotes(cache: RemoteCacheData): Promise<void> {
 	try {
-		await mkdir(dirname(CACHE_PATH), { recursive: true });
-		await writeFile(CACHE_PATH, JSON.stringify(cache));
+		await writePrivateFile(
+			getRemoteCachePath(),
+			JSON.stringify(cache),
+			getRudelConfigDir(),
+		);
 	} catch {
 		// Fire-and-forget — cache is best-effort
 	}
+}
+
+function getRemoteCachePath(): string {
+	return join(getRudelConfigDir(), "remote-cache.json");
 }

@@ -138,6 +138,7 @@ describe("describeApiBaseRejection", () => {
 		);
 
 		expect(message).toContain("--allow-insecure-api-base");
+		expect(message).toContain("--allow-insecure-endpoint");
 	});
 
 	test.each([

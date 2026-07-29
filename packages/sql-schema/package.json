@@ -12,9 +12,7 @@
 		"check-types": "tsc --noEmit",
 		"drizzle:check": "drizzle-kit check",
 		"drizzle:generate": "drizzle-kit generate",
-		"migrate": "bun run src/migrate.ts",
-		"migrate:ci": "doppler run --project rudel --config ci -- bun run src/migrate.ts",
-		"migrate:prd": "doppler run --project rudel --config prd -- bun run src/migrate.ts"
+		"migrate": "bun run src/migrate.ts"
 	},
 	"dependencies": {
 		"drizzle-orm": "0.45.1",

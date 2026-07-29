@@ -1,10 +1,19 @@
 import { existsSync, readFileSync } from "node:fs";
-import { mkdir, writeFile } from "node:fs/promises";
-import { homedir } from "node:os";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 import { type Source, SourceSchema } from "@rudel/api-routes";
+import {
+	ensurePrivateFile,
+	getRudelConfigDir,
+	writePrivateFile,
+} from "./local-state.js";
 
-const FAILED_UPLOADS_PATH = join(homedir(), ".rudel", "failed-uploads.json");
+// Resolved per call, not at module load: RUDEL_CONFIG_DIR must work the same
+// way it does for credentials.ts, including when set after import (Bun
+// snapshots homedir() at process start, so a load-time constant would pin the
+// real home directory for the life of the process).
+function getFailedUploadsPath(): string {
+	return join(getRudelConfigDir(), "failed-uploads.json");
+}
 
 export interface FailedUpload {
 	sessionId: string;
@@ -29,10 +38,10 @@ function normalizeSource(raw: unknown): Source | undefined {
 
 export async function loadFailedUploads(): Promise<FailedUpload[]> {
 	try {
-		if (!existsSync(FAILED_UPLOADS_PATH)) return [];
-		const data = JSON.parse(
-			readFileSync(FAILED_UPLOADS_PATH, "utf-8"),
-		) as FailedUploadsData;
+		const path = getFailedUploadsPath();
+		if (!existsSync(path)) return [];
+		await ensurePrivateFile(path, getRudelConfigDir());
+		const data = JSON.parse(readFileSync(path, "utf-8")) as FailedUploadsData;
 		return data.failures.map((f) => ({
 			...f,
 			source: normalizeSource(f.source),
@@ -44,9 +53,13 @@ export async function loadFailedUploads(): Promise<FailedUpload[]> {
 
 async function saveFailedUploads(failures: FailedUpload[]): Promise<void> {
 	try {
-		await mkdir(dirname(FAILED_UPLOADS_PATH), { recursive: true });
+		const path = getFailedUploadsPath();
 		const data: FailedUploadsData = { failures };
-		await writeFile(FAILED_UPLOADS_PATH, JSON.stringify(data, null, 2));
+		await writePrivateFile(
+			path,
+			JSON.stringify(data, null, 2),
+			getRudelConfigDir(),
+		);
 	} catch {
 		// Best-effort — don't break the upload flow
 	}

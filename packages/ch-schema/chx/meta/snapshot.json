@@ -1,6 +1,6 @@
 {
 	"version": 1,
-	"generatedAt": "2026-05-18T23:34:37.446Z",
+	"generatedAt": "2026-07-28T09:32:04.316Z",
 	"definitions": [
 		{
 			"database": "rudel",
@@ -47,6 +47,11 @@
 				{
 					"name": "content",
 					"type": "String"
+				},
+				{
+					"name": "filter_version",
+					"type": "UInt8",
+					"default": "fn:0"
 				},
 				{
 					"name": "ingested_at",
@@ -135,6 +140,11 @@
 					"type": "String"
 				},
 				{
+					"name": "filter_version",
+					"type": "UInt8",
+					"default": "fn:0"
+				},
+				{
 					"name": "ingested_at",
 					"type": "DateTime64(3, 'UTC')",
 					"default": "fn:now64(3)"
@@ -214,6 +224,11 @@
 				{
 					"name": "content",
 					"type": "String"
+				},
+				{
+					"name": "filter_version",
+					"type": "UInt8",
+					"default": "fn:0"
 				},
 				{
 					"name": "subagents",
