@@ -10,10 +10,8 @@ permissions:
   contents: read
   pull-requests: read
 
-env:
-  TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
-  TURBO_TEAM: ${{ vars.TURBO_TEAM }}
-
+# Pull requests execute checked-out code. Keep repository secrets out of
+# workflow and verification-job scope.
 concurrency:
   group: ci-${{ github.event.pull_request.number || github.sha }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
@@ -86,6 +84,7 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 12
+    # These credentials are only for the disposable services created above.
     env:
       PG_CONNECTION_STRING: postgres://postgres:postgres@localhost:5432/rudel
       CLICKHOUSE_URL: http://localhost:8123
