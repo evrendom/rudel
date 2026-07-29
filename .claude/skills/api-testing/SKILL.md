@@ -187,7 +187,7 @@ curl -s -X POST http://localhost:4010/rpc/me \
 
 ## API Server Logs
 
-When `RUDEL_LOG_DIR` is set (configured in the `prd_local` Doppler env), the API writes logs to a daily file in that directory, resolved from the project root. The current value is `.context`, so logs are at:
+If you set `RUDEL_LOG_DIR` (for example, in `.env`), the API writes logs to a daily file in that directory, resolved from the project root. With `RUDEL_LOG_DIR=.context`, logs are at:
 
 ```
 .context/api-logs-YYYY-MM-DD.txt

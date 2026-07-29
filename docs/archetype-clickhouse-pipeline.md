@@ -13,7 +13,7 @@ It is written for the backend team, not for design. The goal is:
 
 The active product taxonomy is documented in:
 
-- [archetype-taxonomy.md](/Users/evrendombak/conductor/workspaces/rudel/geneva/docs/archetype-taxonomy.md)
+- [archetype-taxonomy.md](./archetype-taxonomy.md)
 
 The current label family is:
 
@@ -40,31 +40,7 @@ Instead:
 3. Read Wrapped archetypes only from the latest successful snapshot.
 4. Freeze a specific snapshot id for a Wrapped campaign.
 
-At the current production size, a full rebuild is cheap enough to prefer correctness and simplicity over streaming complexity.
-
-## What Exists Today
-
-Observed in production on April 19, 2026:
-
-- Raw tables:
-  - `rudel.claude_sessions` -> `SharedMergeTree`
-  - `rudel.codex_sessions` -> `SharedReplacingMergeTree(ingested_at)` with 365-day TTL
-- Derived table:
-  - `rudel.session_analytics` -> `SharedReplacingMergeTree(ingested_at)`
-- Dependent materialized views:
-  - `rudel.session_analytics_mv`
-  - `rudel.codex_session_analytics_mv`
-- Insert path:
-  - `apps/api/src/clickhouse.ts` uses synchronous inserts with `async_insert=0`
-  - current server setting also shows `async_insert=0`
-
-Relevant code paths:
-
-- `apps/api/src/clickhouse.ts`
-- `apps/api/src/router.ts`
-- `apps/api/src/services/wrapped.service.ts`
-- `packages/ch-schema/src/db/schema/session-analytics.ts`
-- `packages/ch-schema/src/db/schema/codex-sessions.ts`
+At the current data volume, a full rebuild is cheap enough to prefer correctness and simplicity over streaming complexity.
 
 ## Current Risks in the Existing Setup
 
@@ -72,14 +48,7 @@ Relevant code paths:
 
 `apps/api/src/services/wrapped.service.ts` queries `rudel.session_analytics` directly and does not use `FINAL` or `argMax`.
 
-Observed in prod:
-
-- raw `session_analytics` rows: `6037`
-- deduped `(source, session_id)` rows: `5657`
-- raw total tokens: `1,580,545,849`
-- deduped total tokens: `1,062,910,169`
-
-That is large enough to materially distort Wrapped metrics.
+Duplicate rows can materially distort Wrapped metrics.
 
 ### 2. `session_id` alone is not a safe dedupe key
 
@@ -114,16 +83,16 @@ That makes `session_analytics` a fine intermediate store, but a bad direct sourc
 
 ### 5. Async inserts need a measured verification pass, not a version upgrade
 
-ClickHouse 26.1 added reliable deduplication for asynchronous inserts with dependent materialized views. The cluster has since been upgraded past that release, so the **version** constraint that originally forced `async_insert=0` no longer applies.
+A recent ClickHouse release added reliable deduplication for asynchronous inserts with dependent materialized views. The deployed cluster has since been upgraded, so the **version** constraint that originally forced `async_insert=0` no longer applies.
 
 The setting is still `async_insert=0`, and it should stay that way until someone measures this pipeline specifically. Async inserts help frequent small client inserts; they do not help bulk `INSERT ... SELECT`. So the remaining question is whether they help *this* flow at all, which is an empirical one — not something the version number answers.
 
-### 6. There is prod/schema drift already
+### 6. There is deployed/schema drift already
 
 Local schema definitions and production are not identical today. Example:
 
 - local `claude_sessions` definition expects `SharedReplacingMergeTree(ingested_at)` plus TTL
-- prod `claude_sessions` is still `SharedMergeTree`
+- the deployed `claude_sessions` table is still `SharedMergeTree`
 
 Do not design the archetype system assuming raw-table dedupe or TTL behavior that only exists in source control.
 
@@ -360,7 +329,7 @@ Run the rebuild query once manually.
 Validate:
 
 - row count equals current distinct `(organization_id, user_id)` count
-- Numia users resolve to the expected archetypes from the current active taxonomy outputs
+- pilot-org users resolve to the expected archetypes from the current active taxonomy outputs
 - no product query uses raw `session_analytics` for archetype reads
 
 ### Phase 3: wire the upload trigger
@@ -404,7 +373,7 @@ Useful checks:
 - Do not use `project_path` in breadth.
 - Do not rely on `ReplacingMergeTree` merges for product correctness.
 - Do not use `FINAL` in Wrapped request paths as the steady-state design.
-- Do not turn on async inserts for this pipeline on the strength of the ClickHouse version alone. The version constraint (the 26.1 materialized-view dedupe fix) has been lifted; a dedicated verification pass on this pipeline has not happened.
+- Do not turn on async inserts for this pipeline on the strength of the ClickHouse version alone. The materialized-view dedupe version constraint has been lifted; a dedicated verification pass on this pipeline has not happened.
 - Do not hardcode centroid values in multiple places. Keep one versioned centroid table.
 
 ## When to Revisit This Design

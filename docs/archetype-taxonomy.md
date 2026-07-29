@@ -115,9 +115,8 @@ Reads like:
 
 The active taxonomy should be read from:
 
-- [archetype-clickhouse-pipeline.md](/Users/evrendombak/conductor/workspaces/rudel/geneva/docs/archetype-clickhouse-pipeline.md)
+- [archetype-clickhouse-pipeline.md](./archetype-clickhouse-pipeline.md)
 - `.context/archetype-clickhouse-reference.sql`
 - `.context/all-user-archetypes-v2.json`
-- `.context/numia-org-user-archetypes.json`
 
 If these ever disagree, fix the source data and pipeline notes rather than reintroducing legacy labels.

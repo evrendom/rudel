@@ -76,11 +76,9 @@ CI runs `scripts/check-overrides.ts` before `bun install` to catch any accidenta
 
 ## Local Development
 
-There are two ways to run the app locally:
-
 ### 1. Standalone (local infra)
 
-Uses Docker containers for Postgres and ClickHouse. No Doppler or external accounts required. Good for working on auth, UI, or API logic without needing real data.
+Uses Docker containers for Postgres and ClickHouse. No hosted-service access or external accounts are required. Good for working on auth, UI, or API logic without needing hosted data.
 
 **Prerequisites**: Docker (or [OrbStack](https://orbstack.dev)) must be installed and running.
 
@@ -100,29 +98,11 @@ Environment is hardcoded in the script: local Postgres (`postgres://postgres:pos
 
 Manage containers separately: `bun run infra:up` / `bun run infra:down`. To wipe all data and start fresh: `docker compose down -v`.
 
-### 2. Dev (production databases)
-
-> **Note**: This mode is used by the core team to develop against the hosted `app.rudel.ai` production data. If you're self-hosting or contributing, use **Standalone** above — it's the fully functional default.
-
-Connects to production Neon Postgres and ObsessionDB ClickHouse via the `prd_local` Doppler config. Runs API + web locally but with real data. Requires Doppler access.
-
-```bash
-bun install
-
-# Terminal 1: API
-doppler run --project rudel --config prd_local -- bun --watch apps/api/src/index.ts
-
-# Terminal 2: Web
-bun run --cwd apps/web dev
-```
-
-The `prd_local` Doppler config sets `APP_URL=http://localhost:4010` and `ALLOWED_ORIGIN=http://localhost:4011` so it routes to local servers, but `PG_CONNECTION_STRING` and `CLICKHOUSE_*` vars point to production databases. GitHub OAuth is configured in this mode (`GITHUB_CLIENT_ID`/`GITHUB_CLIENT_SECRET` are set).
-
-The web app's Vite config proxies `/api` and `/rpc` requests to `http://localhost:4010`, so the web dev server only needs to be started with `bun run --cwd apps/web dev` (no Doppler needed for the frontend).
+Hosted-service operations live in the core team's private ops repo.
 
 ## Wrapped card avatars
 
-Wrapped card profile avatars persist to Postgres in the `user_avatar` sidecar table (one row per user, keyed by `user_id`, with a stable `public_id` UUID and the raw bytes in `image_data` bytea). `user.image` stores a relative URL `/api/avatar/<public_id>`; never absolutize it at write time so production shares don't capture localhost from `prd_local` dev.
+Wrapped card profile avatars persist to Postgres in the `user_avatar` sidecar table (one row per user, keyed by `user_id`, with a stable `public_id` UUID and the raw bytes in `image_data` bytea). `user.image` stores a relative URL `/api/avatar/<public_id>`; never absolutize it at write time so hosted shares don't capture localhost from local development.
 
 - `GET /api/avatar/<publicId>` is public, no auth, served by Bun with `Cache-Control: public, max-age=300` and `ETag` for 304 revalidation. Re-uploading bytes keeps the same `public_id` so the URL stays stable.
 - `POST /api/profile/avatar` accepts a single multipart `file` field (PNG, JPEG, or WEBP), enforces a 2 MB cap, sniffs magic bytes (rejects spoofed types), and atomically upserts the sidecar row + updates `user.image`.
@@ -136,52 +116,13 @@ Shared avatar constants (size caps, MIME allowlist, regex patterns) live in `pac
 
 See [docs/self-hosting.md](docs/self-hosting.md) for deploying with ObsessionDB + Neon + Fly.io.
 
-## Secrets Management (Doppler)
-
-This project uses Doppler for secrets. Project: `rudel`.
-
-| Config | Database | Use for |
-|--------|----------|---------|
-| `prd` | Production | ClickHouse queries, data exploration, deployed app |
-| `prd_local` | Production | Local dev with real data (localhost URLs, production databases) |
-| `ci` | CI/test | Running tests locally (`bun run verify`) |
-
-### Injecting secrets
-
-```bash
-# Production (app, queries)
-doppler run --project rudel --config prd -- <command>
-
-# CI/test (local tests)
-doppler run --project rudel --config ci -- <command>
-```
-
-### ClickHouse CLI (chcli)
-
-chcli (`@obsessiondb/chcli`) is installed as a local devDependency in `packages/ch-schema` and optionally globally (`npm install -g @obsessiondb/chcli`).
-
-**Env var mapping required.** Rudel uses `CLICKHOUSE_URL` and `CLICKHOUSE_USERNAME`, but chcli expects different env var names. The `chcli` script in `packages/ch-schema/package.json` handles this mapping automatically:
-
-| Rudel var | chcli var | Transformation |
-|---|---|---|
-| `CLICKHOUSE_URL` | `CLICKHOUSE_HOST` | Parse the URL and use its hostname |
-| `CLICKHOUSE_USERNAME` | `CLICKHOUSE_USER` | Same value, different name |
-| URL protocol | `CLICKHOUSE_SECURE` | `true` for HTTPS, otherwise `false` |
-| URL port and protocol | `CLICKHOUSE_PORT` | Explicit port, otherwise `443` for HTTPS or `8123` for HTTP |
-| `CLICKHOUSE_PASSWORD` | `CLICKHOUSE_PASSWORD` | No mapping needed |
-
-```bash
-# From packages/ch-schema:
-bun run chcli -- -q "SELECT 1" -F json
-```
-
 ## ClickHouse Schema Management (chkit)
 
 Schema definitions live in `packages/ch-schema/src/db/schema/*.ts`. The toolkit `chkit` generates SQL migrations, applies them, and produces TypeScript codegen.
 
 **Important**: chkit must run with `bun --bun` (not plain `bun`) because the `.exe` spawns Node.js which cannot load `.ts` config files. All scripts below already handle this.
 
-**Important**: chkit needs to connect to `default` first (to run `CREATE DATABASE`). The `ch:migrate` script overrides any configured database with `CLICKHOUSE_DB=default`. The `ch:generate` and `ch:codegen` scripts don't need the override since they don't connect to ClickHouse or only read schema files.
+**Important**: chkit needs to connect to `default` first when it may need to run `CREATE DATABASE`. The migration and status scripts set `CLICKHOUSE_DB=default` for that connection. The generate and codegen scripts do not need the override because they do not connect to ClickHouse or only read schema files.
 
 ### Workflow
 
@@ -196,7 +137,7 @@ bun run ch:generate:dryrun
 # 3. Generate migration SQL + update snapshot/journal
 bun run ch:generate
 
-# 4. Apply pending migrations to the configured ClickHouse
+# 4. Apply pending migrations to the configured ClickHouse instance
 bun run ch:migrate
 
 # 5. Regenerate TypeScript types from schema
@@ -214,8 +155,8 @@ bun run ch:drift
 `chcli` is the preferred tool for ad-hoc queries. It supports `-q` (inline SQL), `-f` (SQL file), and various output formats (`-F json`, `-F pretty`, `-F csv`, etc.).
 
 ```bash
-# Inline query against the configured ClickHouse
-bun run chcli -- -q "SELECT count() FROM rudel.session_analytics" -F pretty
+# Inline metadata query against the configured ClickHouse instance
+bun run chcli -- -q "SELECT database, name, engine FROM system.tables ORDER BY database, name LIMIT 100" -F json
 
 # Run a SQL file
 bun run chcli -- -f scripts/example.sql -v
@@ -225,7 +166,7 @@ bun run chcli -- -f scripts/example.sql -v
 
 To drop everything and recreate:
 
-1. Drop the database via `bun run chcli -- -q "DROP DATABASE IF EXISTS rudel"`
+1. Drop the database with the `chcli` wrapper
 2. Delete `chx/migrations/`, reset `chx/meta/journal.json` to `{"version":1,"applied":[]}`, reset `chx/meta/snapshot.json` to `{"version":1,"generatedAt":"","definitions":[]}`
 3. Run `bun run ch:generate` to create a fresh migration from current schema (codegen plugin may fail — ignore, migration file is still created)
 4. **Manually reorder** the migration SQL: database -> tables -> materialized views (see known issues below)
@@ -243,7 +184,7 @@ To drop everything and recreate:
 
 **Codegen plugin failure.** `bun run ch:generate` may fail with `Plugin "codegen" failed in generate integration with exit code 1`. The migration file and snapshot are still created despite this error. Run `bun run ch:codegen` separately if needed.
 
-**`CLICKHOUSE_DB=default` override.** When the `rudel` database doesn't exist yet (e.g., during initial migration), chkit fails to connect. The `ch:migrate` script overrides configured shell or `.env` values with `CLICKHOUSE_DB=default` inside a bash subshell.
+**`CLICKHOUSE_DB=default` override.** When the application database does not exist yet (for example, during an initial migration), chkit cannot connect to it. The migration and status scripts override the connection database with `CLICKHOUSE_DB=default`.
 
 **ClickHouse Cloud silent INSERT behavior.** `INSERT ... SELECT` via the HTTP interface may silently return 200 with 0 rows written. Use `SETTINGS async_insert=0` as a workaround. Additionally, `INSERT INTO table_x SELECT ... FROM table_x` (same source and target table) silently writes 0 rows even with `async_insert=0` — you must read from a different source table. The API uses `client.command()` with `FORMAT JSONEachRow` and `async_insert=0` (see `apps/api/src/clickhouse.ts`).
 
@@ -253,11 +194,9 @@ To drop everything and recreate:
 
 **`bun run` resolves binaries from local `node_modules/.bin/`, not global PATH.** When running package.json scripts, `bun run` looks for binaries in `node_modules/.bin/` first. If a tool like `chcli` is only installed globally, `bun run` won't find it. Fix: add the tool as a local devDependency (e.g., `@obsessiondb/chcli` in `packages/ch-schema`). Bun also rewrites `npx` to `bun x` in scripts, which has the same local-first resolution behavior.
 
-**chcli env var mapping.** Rudel uses `CLICKHOUSE_URL` (e.g., `https://host.example.com`) and `CLICKHOUSE_USERNAME`, but chcli expects `CLICKHOUSE_HOST`, `CLICKHOUSE_USER`, `CLICKHOUSE_SECURE`, and `CLICKHOUSE_PORT`. The `chcli` script in `packages/ch-schema/package.json` parses the URL in `scripts/chcli-connect.ts`, maps the hostname and username, and derives the secure flag and default port from the URL protocol.
+**chcli connection mapping.** The wrapper in `scripts/chcli-connect.ts` parses `CLICKHOUSE_URL`, maps its hostname, protocol, and port to the variables expected by chcli, maps `CLICKHOUSE_USERNAME` to `CLICKHOUSE_USER`, and forwards arguments without shell interpolation.
 
 **`CLICKHOUSE_SECURE` must be the string `true`, not `1`.** chcli does not recognize `1` or other truthy values for `CLICKHOUSE_SECURE`. Always use `CLICKHOUSE_SECURE=true`.
-
-**ClickHouse is on port 443, not 8123/8443.** The ClickHouse instance is behind a reverse proxy serving HTTPS on port 443. The default ClickHouse ports (8123 HTTP, 8443 HTTPS) are not open.
 
 **Broken global npm `bun` shim on Windows.** If `npm install -g bun` was run previously, it creates a broken shim at `$APPDATA/npm/bun` that shadows the real bun at `~/.bun/bin/bun`. This breaks any globally installed tool that uses `#!/usr/bin/env bun`. Fix: delete the broken shims (`rm "$APPDATA/npm/bun" "$APPDATA/npm/bun.cmd"`).
 
@@ -299,16 +238,6 @@ bun run ch:codegen
 This updates `src/generated/chkit-types.ts` (interfaces + Zod schemas) and `src/generated/chkit-ingest.ts` (typed ingest functions). If codegen fails, check for stale `.tmp` files in `src/generated/` and clean them up.
 
 The generated `RudelSessionAnalyticsRow` type includes both source columns (from `SELECT *` on `claude_sessions`) and computed columns (from the MV). The `RudelClaudeSessionsRow` type covers only the source table columns.
-
-### Local development shortcuts
-
-```bash
-# Run API with production databases (prd_local Doppler config)
-doppler run --project rudel --config prd_local -- bun --watch apps/api/src/index.ts
-
-# Run tests locally
-doppler run --project rudel --config ci -- bun run verify
-```
 
 ## Releasing
 
