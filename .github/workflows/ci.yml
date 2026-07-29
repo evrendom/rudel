@@ -50,6 +50,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -62,6 +64,20 @@ jobs:
 
       - name: Check for local overrides
         run: bun scripts/check-overrides.ts
+
+      - name: Check for accidental disclosures
+        run: bun run check:disclosure
+
+      - name: Test disclosure checker
+        run: bun test scripts/check-disclosure.test.ts
+
+      - name: Check pull request disclosure channels
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          bun scripts/check-disclosure.ts --commits "${{ github.event.pull_request.base.sha }}"
+          bun scripts/check-disclosure.ts --pull-request "${{ github.event.pull_request.number }}"
 
       - name: Verify
         run: bun run turbo run lint check-types test build
