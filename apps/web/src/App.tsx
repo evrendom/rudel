@@ -30,11 +30,13 @@ const WrappedRouteGate = lazy(() =>
 	})),
 );
 
-const WrappedDevPage = lazy(() =>
-	import("@/features/wrapped/WrappedDevPage").then((module) => ({
-		default: module.WrappedDevPage,
-	})),
-);
+const WrappedDevPage = import.meta.env.DEV
+	? lazy(() =>
+			import("@/features/wrapped/WrappedDevPage").then((module) => ({
+				default: module.WrappedDevPage,
+			})),
+		)
+	: null;
 
 const WrappedDesktopResumePage = lazy(() =>
 	import("@/features/get-started/WrappedDesktopResumePage").then((module) => ({
@@ -117,7 +119,7 @@ function App() {
 			<>
 				<ProductAnalyticsSessionSync session={session} />
 				<Suspense fallback={<FullscreenRouteLoadingScreen />}>
-					{import.meta.env.DEV ? (
+					{WrappedDevPage ? (
 						<WrappedDevPage />
 					) : (
 						<Navigate replace to={appRoutes.wrappedTeamCard()} />
