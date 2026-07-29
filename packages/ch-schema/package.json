@@ -14,7 +14,7 @@
 	"scripts": {
 		"check-types": "tsc --noEmit",
 		"test": "bun test",
-		"test:integration": "bun test --max-concurrency=1 ./src/__tests__/codex-mv.integration.ts ./src/__tests__/ingest-clickhouse.integration.ts ./src/__tests__/filter-version-migration.integration.ts",
+		"test:integration": "bun test --preload ./src/__tests__/helpers/local-clickhouse-guard.ts --max-concurrency=1 ./src/__tests__/codex-mv.integration.ts ./src/__tests__/ingest-clickhouse.integration.ts ./src/__tests__/filter-version-migration.integration.ts ./src/__tests__/purge-index-migration.integration.ts",
 		"ch:generate": "bun --bun chkit generate",
 		"ch:generate:dryrun": "bun --bun chkit generate --dryrun",
 		"ch:migrate": "bash -c 'CLICKHOUSE_DB=default bun --bun chkit migrate --apply'",

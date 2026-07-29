@@ -4,6 +4,7 @@ import { ORPCError, onError } from "@orpc/server";
 import { RPCHandler } from "@orpc/server/fetch";
 import type { Session as AuthSession } from "./auth.js";
 import { createAuth } from "./auth.js";
+import { shutdownClickhouse } from "./clickhouse.js";
 import { db, sqlClient } from "./db.js";
 import { getResendConfigWarnings } from "./email.js";
 import {
@@ -304,6 +305,7 @@ async function shutdown(signal?: string) {
 		shutdownApiProductAnalytics(),
 		clickHousePurgeWorker?.stop(),
 	]);
+	await shutdownClickhouse();
 
 	if (signal) {
 		server.stop(true);

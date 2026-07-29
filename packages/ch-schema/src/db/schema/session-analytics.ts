@@ -74,10 +74,15 @@ const rudel_session_analytics = table({
 	},
 	indexes: [
 		{
-			name: "idx_user_id",
+			name: "idx_purge_organization_id",
+			expression: "organization_id",
+			type: "bloom_filter",
+			granularity: 4,
+		},
+		{
+			name: "idx_purge_user_id",
 			expression: "user_id",
-			type: "set",
-			typeArgs: "0",
+			type: "bloom_filter",
 			granularity: 4,
 		},
 		{

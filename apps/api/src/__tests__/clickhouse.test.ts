@@ -116,13 +116,17 @@ describe("analytics service guardrails", () => {
 		expect(clickhouseSource).not.toContain("normalizeStatement(");
 		expect(clickhouseSource).not.toContain("{table:Identifier}");
 		expect(clickhouseSource).not.toContain("async_insert=0");
-		expect(clickhouseSource).toContain(
-			"async_insert=1, wait_for_async_insert=1",
-		);
+		expect(clickhouseSource).toContain("await client.insert({");
+		expect(clickhouseSource).toContain("async_insert: 1");
+		expect(clickhouseSource).toContain("wait_for_async_insert: 1");
+		expect(clickhouseSource).not.toContain("const rows = params.values");
 		expect(clickhouseSource).not.toContain("lightweight_deletes_sync");
 		expect(
 			orgSessionSource.match(/lightweight_deletes_sync: "3"/gu),
-		).toHaveLength(2);
+		).toHaveLength(1);
+		expect(orgSessionSource.match(/purgeClickHouseTable\(\{/gu)).toHaveLength(
+			2,
+		);
 		expect(sessionAnalyticsSource).not.toContain("{table:Identifier}");
 		expect(sessionAnalyticsSource).not.toContain("|| dimension");
 		expect(sessionAnalyticsSource).not.toContain("|| split_by");
@@ -159,5 +163,17 @@ describe("analytics service guardrails", () => {
 		expect(
 			backfillSource.match(/clickhouse_settings: BACKFILL_QUERY_SETTINGS/g),
 		).toHaveLength(2);
+	});
+
+	test("drains the purge worker before closing the shared client", async () => {
+		const apiSource = await readFile(
+			resolve(import.meta.dir, "..", "index.ts"),
+			"utf8",
+		);
+		const stopWorkerIndex = apiSource.indexOf("clickHousePurgeWorker?.stop()");
+		const closeClientIndex = apiSource.indexOf("await shutdownClickhouse()");
+
+		expect(stopWorkerIndex).toBeGreaterThanOrEqual(0);
+		expect(closeClientIndex).toBeGreaterThan(stopWorkerIndex);
 	});
 });

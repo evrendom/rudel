@@ -1,4 +1,11 @@
-import { afterEach, describe, expect, setDefaultTimeout, test } from "bun:test";
+import {
+	afterAll,
+	afterEach,
+	describe,
+	expect,
+	setDefaultTimeout,
+	test,
+} from "bun:test";
 import {
 	createClickHouseExecutor,
 	getSafeClickHouseTable,
@@ -30,6 +37,10 @@ afterEach(async () => {
 		DELETE FROM clickhouse_purge_job
 		WHERE target_id LIKE ${`${TEST_RUN_ID}%`}
 	`;
+});
+
+afterAll(async () => {
+	await unavailableClickHouse.close();
 });
 
 describe("durable ClickHouse purge worker", () => {

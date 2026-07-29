@@ -18,6 +18,10 @@ interface ClickHouseDeletion {
 	table: string;
 }
 
+interface ClickHousePurgeRow {
+	row_exists: number;
+}
+
 type ClickHouseDeletionScope =
 	| { organizationId: string; type: "organization" }
 	| { type: "user"; userId: string };
@@ -147,17 +151,11 @@ export async function deleteOrgSessions(orgId: string): Promise<void> {
 		(table): ClickHouseDeletion => ({
 			table,
 			promise: Promise.resolve().then(() =>
-				getClickhouse().execute({
-					// Cloud tables use SharedMergeTree. Wait for active replicas so
-					// account deletion is visible cluster-wide.
-					clickhouse_settings: { lightweight_deletes_sync: "3" },
-					// organization_id leads the raw/session analytics sort keys. The
-					// wrapped snapshot predicate is a deliberate low-frequency full-scan
-					// field exception because its key starts with snapshot_id.
-					query: `DELETE FROM ${getSafeClickHouseTable(table)} WHERE organization_id = {orgId:String}`,
-					query_params: {
-						orgId,
-					},
+				purgeClickHouseTable({
+					paramName: "orgId",
+					paramValue: orgId,
+					predicateColumn: "organization_id",
+					table,
 				}),
 			),
 		}),
@@ -174,24 +172,49 @@ export async function deleteUserSessions(userId: string): Promise<void> {
 		(table): ClickHouseDeletion => ({
 			table,
 			promise: Promise.resolve().then(() =>
-				getClickhouse().execute({
-					// Cloud tables use SharedMergeTree. Wait for active replicas so
-					// account deletion is visible cluster-wide.
-					clickhouse_settings: { lightweight_deletes_sync: "3" },
-					// Deliberate schema-pk-filter-on-orderby field exception: user_id is
-					// not a leading sort-key column in these tables. A complete,
-					// low-frequency account purge must still cover historical rows for
-					// which Postgres cannot provide an authoritative organization list.
-					query: `DELETE FROM ${getSafeClickHouseTable(table)} WHERE user_id = {userId:String}`,
-					query_params: {
-						userId,
-					},
+				purgeClickHouseTable({
+					paramName: "userId",
+					paramValue: userId,
+					predicateColumn: "user_id",
+					table,
 				}),
 			),
 		}),
 	);
 
 	await settleClickHouseDeletions(deletions, { type: "user", userId });
+}
+
+async function purgeClickHouseTable(options: {
+	paramName: "orgId" | "userId";
+	paramValue: string;
+	predicateColumn: "organization_id" | "user_id";
+	table: string;
+}): Promise<void> {
+	const clickhouse = getClickhouse();
+	const table = getSafeClickHouseTable(options.table);
+	const predicate = `${options.predicateColumn} = {${options.paramName}:String}`;
+	const queryParams = { [options.paramName]: options.paramValue };
+
+	// Per insert-mutation-avoid-delete, use lightweight deletes rather than
+	// ALTER TABLE ... DELETE. Sync level 3 waits for active SharedMergeTree
+	// replicas before the durable purge can advance to verification.
+	await clickhouse.execute({
+		clickhouse_settings: { lightweight_deletes_sync: "3" },
+		query: `DELETE FROM ${table} WHERE ${predicate}`,
+		query_params: queryParams,
+	});
+
+	// A successful command response is necessary but not sufficient for the
+	// deletion contract. Read back the same parameterized predicate so a job
+	// stays retryable if any replica-visible row remains.
+	const remainingRows = await clickhouse.query<ClickHousePurgeRow>({
+		query: `SELECT 1 AS row_exists FROM ${table} WHERE ${predicate} LIMIT 1`,
+		query_params: queryParams,
+	});
+	if (remainingRows.length > 0) {
+		throw new Error(`ClickHouse purge verification failed for ${table}`);
+	}
 }
 
 function getDeletionTableNames(): string[] {
