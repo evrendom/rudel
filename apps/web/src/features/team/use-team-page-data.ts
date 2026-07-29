@@ -1,5 +1,4 @@
 import type { DeveloperSummary, DeveloperTeamCard } from "@rudel/api-routes";
-import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
 import {
 	announceFrontendFixturesEnabled,
@@ -199,17 +198,6 @@ export function useTeamPageData() {
 		() => buildTeamRosterMembers(fullOrganization?.members),
 		[fullOrganization?.members],
 	);
-	const teamInviteLinkQuery = useQuery({
-		...(canInviteTeamMembers
-			? orpc.teamInviteLink.get.queryOptions({
-					input: { organizationId: activeOrganizationId ?? "" },
-				})
-			: {
-					queryFn: async () => null,
-					queryKey: ["team-invite-link", activeOrganizationId],
-				}),
-		enabled: canInviteTeamMembers,
-	});
 	const teamCardsQuery = useAnalyticsQuery({
 		...orpc.analytics.developers.teamCards.queryOptions({
 			input: { days: requestedDays },
@@ -282,15 +270,12 @@ export function useTeamPageData() {
 		teamMemberRows,
 		canInviteTeamMembers,
 		currentUserId,
-		isInviteLinkPending: teamInviteLinkQuery.isPending,
-		teamInviteLink: teamInviteLinkQuery.data?.invite_url ?? null,
 		requestedDays,
 		refetch: async () => {
 			await Promise.all([
 				teamCardsQuery.refetch(),
 				developersQuery.refetch(),
 				activeOrganizationId ? invalidateFullOrganization() : null,
-				canInviteTeamMembers ? teamInviteLinkQuery.refetch() : null,
 			]);
 		},
 		teamCards,
