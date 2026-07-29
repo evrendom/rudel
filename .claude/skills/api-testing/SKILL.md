@@ -4,7 +4,7 @@ description: Test the local Rudel API with authenticated requests. Use when the 
 metadata:
   author: rudel
   version: "1.1"
-compatibility: Requires curl, jq, and a running local API server (bun run dev:local or bun run --cwd apps/api dev:env).
+compatibility: Requires curl, jq, and a running local API server (bun run dev:local or bun run --cwd apps/api dev).
 allowed-tools: Bash(curl:*) Bash(source:*) Bash(mkdir:*) Read
 ---
 
@@ -203,7 +203,7 @@ For today's date, read `.context/api-logs-$(date +%Y-%m-%d).txt`. The log file c
 - **Input validation failed / BAD_REQUEST**: Check that input is wrapped in `{"json": {...}}`. Endpoints with parameters require this wrapper.
 - **MISSING_OR_NULL_ORIGIN on auth endpoints**: Add `-H "Origin: http://localhost:4010"` to better-auth API calls (`/api/auth/*`).
 - **BAD_REQUEST on analytics endpoints**: No active organization set. Run step 2 to set the active org.
-- **Connection refused**: API server not running. Start it with `bun run dev:local` or `bun run --cwd apps/api dev:env`.
+- **Connection refused**: API server not running. Start it with `bun run dev:local` or `bun run --cwd apps/api dev`.
 - **Unexpected 500 or unclear error**: Read the API log file at `.context/api-logs-$(date +%Y-%m-%d).txt` for the server-side stack trace.
 
 ## Best Practices

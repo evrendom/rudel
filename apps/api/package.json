@@ -5,7 +5,6 @@
 	"type": "module",
 	"scripts": {
 		"dev": "bun --watch src/index.ts",
-		"dev:env": "doppler run --project rudel --config prd_local -- bun --watch src/index.ts",
 		"backfill:session-ownership": "bun src/scripts/backfill-session-ownership.ts",
 		"resolve:session-ownership": "bun src/scripts/resolve-session-ownership.ts",
 		"check-types": "tsc --noEmit",

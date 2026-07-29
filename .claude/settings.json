@@ -8,9 +8,7 @@
 			"Bash(bun test:*)",
 			"Bash(where:*)",
 			"Bash(npm root:*)",
-			"Bash(CLICKHOUSE_DB=default doppler run:*)",
 			"Bash(chcli:*)",
-			"Bash(doppler whoami:*)",
 			"Bash(sqlite3:*)"
 		],
 		"deny": ["Read(./.entire/metadata/**)"]
