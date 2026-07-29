@@ -9,11 +9,6 @@ import {
 
 export const MAX_ANALYTICS_DAYS = 365;
 
-export type AnalyticsDateRange = {
-	start: string;
-	end: string;
-};
-
 export function getInclusiveDateRangeDays(startDate: string, endDate: string) {
 	const range = parseDateRange(startDate, endDate);
 
@@ -31,7 +26,7 @@ export function isAnalyticsRangeTooLarge(days: number) {
 export function normalizeAnalyticsDateRange(
 	startDate: string,
 	endDate: string,
-): AnalyticsDateRange | null {
+) {
 	const range = parseDateRange(startDate, endDate);
 
 	if (!range) {

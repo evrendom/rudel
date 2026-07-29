@@ -1,4 +1,4 @@
-import { format, parseISO, subDays } from "date-fns";
+import { format } from "date-fns";
 import { describe, expect, it } from "vitest";
 import {
 	expandAnalyticsDateRange,
@@ -30,14 +30,8 @@ describe("normalizeAnalyticsDateRange", () => {
 	});
 
 	it("handles extreme four-digit dates without oversized output", () => {
-		const endDate = parseISO("9999-12-31");
-		const expectedStartDate = format(
-			subDays(endDate, MAX_ANALYTICS_DAYS - 1),
-			"yyyy-MM-dd",
-		);
-
 		expect(normalizeAnalyticsDateRange("0001-01-01", "9999-12-31")).toEqual({
-			start: expectedStartDate,
+			start: "9999-01-01",
 			end: "9999-12-31",
 		});
 	});
