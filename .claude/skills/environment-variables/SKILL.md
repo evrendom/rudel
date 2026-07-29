@@ -6,17 +6,23 @@ allowed-tools: [Read, Edit, Grep, Glob, Bash]
 
 # Environment Variables Management
 
-## Source of Truth: Doppler
+## Source of Truth
 
-All environment variables are stored in Doppler. Never hardcode secrets or commit them to git.
+`.env.example` documents the variables supported by the public repo. Contributors
+put local values in an untracked `.env` file or export them in the current shell.
+Never hardcode secrets or commit real values.
+
+The core team injects hosted-service values through a private secrets manager.
+Hosted-service configuration and operations are intentionally outside this repo.
 
 ## Four Integration Points
 
 When adding a new environment variable:
 
-### 1. Doppler
+### 1. Contributor Environment
 
-Add to the appropriate Doppler project and environment.
+Add the variable with a safe placeholder and description to `.env.example`.
+Contributors set the real value in `.env` or their shell.
 
 ### 2. GitHub CI Workflow
 
@@ -70,7 +76,8 @@ If either is missing, the variable will be empty in the deployed frontend.
 
 ## Checklist: Adding New Environment Variable
 
-- [ ] Add to Doppler for all environments
+- [ ] Add a safe placeholder and description to `.env.example`
+- [ ] Set the local value in an untracked `.env` file or the current shell
 - [ ] Add to GitHub Secrets (if used in CI)
 - [ ] Add to `.github/workflows/ci.yml` (if used in CI)
 - [ ] If `VITE_*`: Add `ARG` in `Dockerfile` and `--build-arg` in CI deploy step
@@ -81,9 +88,12 @@ If either is missing, the variable will be empty in the deployed frontend.
 
 Check in order:
 
-1. **Doppler**: `doppler secrets get VAR_NAME`
+1. **Local environment**: confirm the variable is exported or present in the
+   untracked `.env`
 2. **Package turbo.json**: `cat packages/your-package/turbo.json | grep -A 10 passThroughEnv`
 3. **GitHub Secrets**: Repository settings → Secrets → Actions
+4. **Hosted deployments**: ask the core team to verify the private secrets
+   manager and deployment mapping
 
 ## Common Mistakes
 

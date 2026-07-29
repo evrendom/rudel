@@ -1,150 +1,147 @@
 ---
 name: clickhouse-query
-description: Query ClickHouse databases using the chcli CLI tool. Use when the user wants to run SQL queries against ClickHouse, explore database schemas, inspect tables, or extract data from ClickHouse.
+description: Run bounded, read-only ClickHouse queries through the repository wrapper.
 metadata:
-  author: obsessiondb
-  version: "1.0"
-compatibility: Requires bun or node (for bunx/npx). Needs network access to a ClickHouse instance.
-allowed-tools: Bash(bunx @obsessiondb/chcli:*) Bash(npx @obsessiondb/chcli:*) Bash(doppler run:*) Bash(chcli:*) Read Write
+  author: rudel
+  version: "2.0"
+compatibility: Requires Bun and a reachable ClickHouse instance.
+allowed-tools: Bash(bun run --cwd packages/ch-schema chcli --:*) Read Write
 ---
 
-# chcli — ClickHouse CLI
+# ClickHouse Query
 
-chcli is a lightweight ClickHouse command-line client. Use it to run SQL queries, explore schemas, and extract data from ClickHouse databases.
-
-## Running chcli
-
-Prefer `bunx` if Bun is available, otherwise use `npx`:
+Use one command:
 
 ```bash
-bunx @obsessiondb/chcli -q "SELECT 1"
-npx @obsessiondb/chcli -q "SELECT 1"
+bun run --cwd packages/ch-schema chcli -- -F json -q "<SQL>"
 ```
 
-Or install globally:
+The wrapper reads `CLICKHOUSE_URL`, `CLICKHOUSE_USERNAME`, and
+`CLICKHOUSE_PASSWORD` from the current process. The URL must not contain
+credentials. See [references/connection.md](references/connection.md).
 
-```bash
-bun install -g chcli
-chcli -q "SELECT 1"
+## Guardrails
+
+- Run only read-only queries. Never run DDL, inserts, mutations, deletes, or
+  administrative commands.
+- Local and staging use their configured identities. Production requires a
+  separate least-privilege, read-only identity; stop if it is unavailable.
+- Never print or persist credentials or production-derived result data.
+- Use `-F json` by default; use `-F jsonl` only for bounded streaming output.
+
+Per ClickHouse's
+[`agent-query-safety`](https://github.com/ClickHouse/agent-skills/blob/main/skills/clickhouse-best-practices/rules/agent-query-safety.md)
+rule, every application-data query must have:
+
+- a filter on a discovered sorting or partition key;
+- a finite `LIMIT`;
+- `max_execution_time`;
+- `max_rows_to_read` or `max_bytes_to_read`.
+
+`LIMIT` does not cap scanned rows. Metadata queries must also have a finite
+`LIMIT`, a time limit, and a read limit.
+
+## Workflow
+
+Per ClickHouse's
+[`agent-discovery-schema`](https://github.com/ClickHouse/agent-skills/blob/main/skills/clickhouse-best-practices/rules/agent-discovery-schema.md)
+rule, run these steps in order. Execute every SQL block with the wrapper command
+above and structured output.
+
+### 1. Databases
+
+```sql
+SELECT name
+FROM system.databases
+WHERE name NOT IN ('system', 'information_schema', 'INFORMATION_SCHEMA')
+ORDER BY name
+LIMIT 100
+SETTINGS max_execution_time = 10, max_rows_to_read = 100000
 ```
 
-## Connection
+### 2. Tables and active-part sizes
 
-Set connection details via environment variables (preferred for agent use) or CLI flags. CLI flags override env vars.
+Replace `analytics` with the selected database.
 
-| Flag | Env Var | Alt Env Var | Default |
-|------|---------|-------------|---------|
-| | `CLICKHOUSE_URL` | | *(none)* |
-| `--host` | `CLICKHOUSE_HOST` | | `localhost` |
-| `--port` | `CLICKHOUSE_PORT` | | `8123` |
-| `-u, --user` | `CLICKHOUSE_USER` | `CLICKHOUSE_USERNAME` | `default` |
-| `--password` | `CLICKHOUSE_PASSWORD` | | *(empty)* |
-| `-d, --database` | `CLICKHOUSE_DATABASE` | `CLICKHOUSE_DB` | `default` |
-| `-s, --secure` | `CLICKHOUSE_SECURE` | | `false` |
-
-`CLICKHOUSE_URL` (e.g. `https://host:8443`) is parsed into host, port, secure, and password. Individual env vars and CLI flags take precedence over the URL.
-
-For agent workflows, prefer setting env vars via a `.env` file (Bun loads it automatically) or a secrets manager like Doppler so every invocation uses the same connection without repeating flags.
-
-See `references/connection.md` for detailed connection examples.
-
-## Query Patterns
-
-**Inline query** (most common for agents):
-
-```bash
-bunx @obsessiondb/chcli -q "SELECT count() FROM events"
+```sql
+SELECT
+  t.name,
+  t.engine,
+  coalesce(sumIf(p.rows, p.active), 0) AS rows,
+  formatReadableSize(coalesce(sumIf(p.bytes_on_disk, p.active), 0)) AS size
+FROM system.tables AS t
+LEFT JOIN system.parts AS p
+  ON p.database = t.database AND p.table = t.name
+WHERE t.database = 'analytics'
+GROUP BY t.name, t.engine
+ORDER BY sumIf(p.bytes_on_disk, p.active) DESC
+LIMIT 200
+SETTINGS max_execution_time = 15, max_rows_to_read = 1000000
 ```
 
-**From a SQL file:**
+### 3. Columns and comments
 
-```bash
-bunx @obsessiondb/chcli -f query.sql
+```sql
+SELECT position, name, type, default_expression, comment
+FROM system.columns
+WHERE database = 'analytics' AND table = 'events'
+ORDER BY position
+LIMIT 500
+SETTINGS max_execution_time = 10, max_rows_to_read = 100000
 ```
 
-**Via stdin pipe:**
+### 4. Sorting and partition keys
 
-```bash
-echo "SELECT 1" | bunx @obsessiondb/chcli
+```sql
+SELECT sorting_key, primary_key, partition_key
+FROM system.tables
+WHERE database = 'analytics' AND name = 'events'
+LIMIT 1
+SETTINGS max_execution_time = 10, max_rows_to_read = 100000
 ```
 
-## Output Formats
+### 5. Skipping indexes
 
-**Always use `-F json` or `-F csv` when the output will be parsed by an agent.** The default format (`pretty`) is for human display and is difficult to parse programmatically.
-
-```bash
-# JSON — best for structured parsing
-bunx @obsessiondb/chcli -q "SELECT * FROM events LIMIT 5" -F json
-
-# CSV — good for tabular data
-bunx @obsessiondb/chcli -q "SELECT * FROM events LIMIT 5" -F csv
-
-# JSONL (one JSON object per line) — good for streaming/large results
-bunx @obsessiondb/chcli -q "SELECT * FROM events LIMIT 100" -F jsonl
+```sql
+SELECT name, type_full, expr, granularity
+FROM system.data_skipping_indices
+WHERE database = 'analytics' AND table = 'events'
+ORDER BY name
+LIMIT 100
+SETTINGS max_execution_time = 10, max_rows_to_read = 100000
 ```
 
-Available format aliases: `json`, `jsonl`/`ndjson`, `jsoncompact`, `csv`, `tsv`, `pretty`, `vertical`, `markdown`, `sql`. Any native ClickHouse format name also works.
+### 6. Bounded sample
 
-See `references/formats.md` for the full format reference.
+Use fields discovered in steps 3–4. This example assumes `event_date` is a key:
 
-## Common Workflows
-
-### Schema Discovery
-
-```bash
-# List all databases
-bunx @obsessiondb/chcli -q "SHOW DATABASES" -F json
-
-# List tables in current database
-bunx @obsessiondb/chcli -q "SHOW TABLES" -F json
-
-# List tables in a specific database
-bunx @obsessiondb/chcli -q "SHOW TABLES FROM analytics" -F json
-
-# Describe table schema
-bunx @obsessiondb/chcli -q "DESCRIBE TABLE events" -F json
-
-# Show CREATE TABLE statement
-bunx @obsessiondb/chcli -q "SHOW CREATE TABLE events"
+```sql
+SELECT event_date, user_id, event_type
+FROM analytics.events
+WHERE event_date >= today() - 1
+LIMIT 10
+SETTINGS max_execution_time = 30,
+         max_rows_to_read = 10000000,
+         timeout_before_checking_execution_speed = 0
 ```
 
-### Data Exploration
+### 7. Explain, then execute
 
-```bash
-# Row count
-bunx @obsessiondb/chcli -q "SELECT count() FROM events" -F json
+Explain the exact bounded query:
 
-# Sample rows
-bunx @obsessiondb/chcli -q "SELECT * FROM events LIMIT 10" -F json
-
-# Column statistics
-bunx @obsessiondb/chcli -q "SELECT uniq(user_id), min(created_at), max(created_at) FROM events" -F json
+```sql
+EXPLAIN indexes = 1
+SELECT event_type, count() AS events
+FROM analytics.events
+WHERE event_date >= today() - 1
+GROUP BY event_type
+ORDER BY events DESC
+LIMIT 100
+SETTINGS max_execution_time = 30,
+         max_rows_to_read = 10000000,
+         timeout_before_checking_execution_speed = 0
 ```
 
-### Data Extraction
-
-```bash
-# Extract to CSV file
-bunx @obsessiondb/chcli -q "SELECT * FROM events WHERE date = '2024-01-01'" -F csv > export.csv
-
-# Extract as JSON
-bunx @obsessiondb/chcli -q "SELECT * FROM events LIMIT 1000" -F json > export.json
-```
-
-## Additional Flags
-
-| Flag | Description |
-|------|-------------|
-| `-t, --time` | Print execution time to stderr |
-| `-v, --verbose` | Print query metadata (format, elapsed time) to stderr |
-| `--help` | Show help text |
-| `--version` | Print version |
-
-## Best Practices for Agents
-
-1. **Always specify `-F json` or `-F csv`** — never rely on the default format, which varies by TTY context.
-2. **Always use `LIMIT`** on SELECT queries unless you know the table is small. ClickHouse tables can contain billions of rows.
-3. **Start with schema discovery** — run `SHOW TABLES` and `DESCRIBE TABLE` before querying unfamiliar databases.
-4. **Use `-t` for timing** — helps gauge whether queries are efficient.
-5. **Prefer env vars for connection** — set them once in `.env` rather than repeating flags on every command.
-6. **Use `count()` first** — before extracting data, check how many rows match to avoid overwhelming output.
+If the plan shows useful part or granule pruning, run the same query without
+`EXPLAIN`. Otherwise narrow the key filter. On timeout, read-limit, or memory
+errors, narrow the query rather than increasing limits.

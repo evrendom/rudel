@@ -3,7 +3,8 @@
 // flow at the service layer: entitlement claim → wrappedShare.create with
 // variant=decimal → wrappedShare.getPublic. Cleans up after itself.
 //
-// Run with: doppler run --project rudel --config ci -- bun run scripts/decimal-e2e-gate.ts
+// Run with: bun run scripts/decimal-e2e-gate.ts
+// Requires the Postgres connection variables in the current environment.
 
 import { createHash, randomBytes } from "node:crypto";
 import type { WrappedShareSnapshot } from "@rudel/api-routes";
