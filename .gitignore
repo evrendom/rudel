@@ -47,7 +47,6 @@ coverage/
 .context
 
 # Local agent/editor skill installs
-skills-lock.json
 .agents/skills/posthog-debugger/
 .agents/skills/vercel-react-best-practices/
 .codex/skills/
@@ -58,6 +57,10 @@ skills-lock.json
 # skills actually committed here.
 .claude/skills/*
 !.claude/skills/api-testing/
+!.claude/skills/clickhouse-architecture-advisor/
+!.claude/skills/clickhouse-best-practices/
+!.claude/skills/clickhouse-js-node-coding/
+!.claude/skills/clickhouse-js-node-troubleshooting/
 !.claude/skills/clickhouse-query/
 !.claude/skills/code-architecture/
 !.claude/skills/environment-variables/
