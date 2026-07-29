@@ -4,7 +4,10 @@ import type {
 	DateRangeContextValue,
 	DateRangeSource,
 } from "@/features/analytics/date-range/types";
-import { getInclusiveDateRangeDays } from "@/lib/analytics-date-range";
+import {
+	getInclusiveDateRangeDays,
+	normalizeAnalyticsDateRange,
+} from "@/lib/analytics-date-range";
 import { formatIsoDate } from "@/lib/format";
 
 type StoredDateRange = {
@@ -35,7 +38,7 @@ function readDateRangeFromSearchParams(
 	const toParam = searchParams.get("to");
 
 	if (fromParam && toParam) {
-		return { start: fromParam, end: toParam };
+		return normalizeAnalyticsDateRange(fromParam, toParam);
 	}
 
 	return null;
@@ -49,12 +52,9 @@ function readStoredDateRange(): StoredDateRange | null {
 	try {
 		const stored = window.localStorage.getItem(STORAGE_KEY);
 		if (stored) {
-			const parsed = JSON.parse(stored) as Partial<StoredDateRange>;
-			if (parsed.start && parsed.end) {
-				return {
-					start: parsed.start,
-					end: parsed.end,
-				};
+			const parsed: unknown = JSON.parse(stored);
+			if (isStoredDateRange(parsed)) {
+				return normalizeAnalyticsDateRange(parsed.start, parsed.end);
 			}
 		}
 	} catch {
@@ -62,6 +62,17 @@ function readStoredDateRange(): StoredDateRange | null {
 	}
 
 	return null;
+}
+
+function isStoredDateRange(value: unknown): value is StoredDateRange {
+	return (
+		typeof value === "object" &&
+		value !== null &&
+		"start" in value &&
+		typeof value.start === "string" &&
+		"end" in value &&
+		typeof value.end === "string"
+	);
 }
 
 function resolveDateRange(searchParams: URLSearchParams): {
@@ -104,11 +115,14 @@ export function DateRangeProvider({ children }: { children: ReactNode }) {
 			(prev) => {
 				const { dateRange: currentDateRange } = resolveDateRange(prev);
 				const nextDateRange = updater(currentDateRange);
+				const normalizedDateRange =
+					normalizeAnalyticsDateRange(nextDateRange.start, nextDateRange.end) ??
+					currentDateRange;
 				const nextSearchParams = new URLSearchParams(prev);
 
-				nextSearchParams.set("from", nextDateRange.start);
-				nextSearchParams.set("to", nextDateRange.end);
-				writeStoredDateRange(nextDateRange);
+				nextSearchParams.set("from", normalizedDateRange.start);
+				nextSearchParams.set("to", normalizedDateRange.end);
+				writeStoredDateRange(normalizedDateRange);
 
 				return nextSearchParams;
 			},
