@@ -27,9 +27,13 @@ const session: SessionAnalytics = {
 	skills: [],
 	slash_commands: [],
 	has_commit: true,
-	session_archetype: "builder",
 	model_used: "gpt-5",
 	used_plan_mode: false,
+};
+
+const otherSession: SessionAnalytics = {
+	...session,
+	session_id: "session-2",
 };
 
 describe("DashboardTokenRecentSessionsTable", () => {
@@ -54,5 +58,29 @@ describe("DashboardTokenRecentSessionsTable", () => {
 		fireEvent.click(screen.getByText("obsessiondb/rudel"));
 
 		expect(handleSessionClick).not.toHaveBeenCalled();
+	});
+
+	it("keeps the open session row visibly selected", () => {
+		render(
+			<DashboardTokenRecentSessionsTable
+				activeSessionId={session.session_id}
+				canOpenSession={() => true}
+				onSessionClick={vi.fn()}
+				sessions={[session, otherSession]}
+				totalSessionCount={2}
+			/>,
+		);
+
+		const activeRow = screen.getByRole("button", { pressed: true });
+		const inactiveRow = screen.getByRole("button", { pressed: false });
+
+		expect(activeRow).toHaveClass(
+			"bg-[color:var(--dashboardy-subsurface-strong)]",
+		);
+		expect(inactiveRow).toHaveClass("opacity-40");
+		expect(inactiveRow).toHaveClass(
+			"bg-[color:var(--dashboardy-surface)]",
+			"odd:bg-[color:var(--dashboardy-surface)]",
+		);
 	});
 });

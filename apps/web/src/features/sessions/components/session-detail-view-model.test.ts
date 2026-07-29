@@ -35,7 +35,6 @@ describe("buildSessionDetailViewModel", () => {
 				model_used: "claude-sonnet-4-5",
 				output_tokens: 3400,
 				repository: "rudel",
-				session_archetype: "deep_work",
 				session_date: "2026-05-12",
 				session_id: "session-123456",
 				skills: ["refactor", 12, "tests"],
@@ -45,7 +44,6 @@ describe("buildSessionDetailViewModel", () => {
 					ignored: 42,
 					worker: "patched code",
 				},
-				success_score: "88.5",
 				total_interactions: "7",
 				user_id: "user-1",
 			},
@@ -57,13 +55,11 @@ describe("buildSessionDetailViewModel", () => {
 		expect(model.safeUserDisplayName).toBe("Ada Lovelace");
 		expect(model.safeDurationMin).toBe(42);
 		expect(model.safeTotalInteractions).toBe(7);
-		expect(model.safeSuccessScore).toBe(88.5);
 		expect(model.safeSkills).toEqual(["refactor", "tests"]);
 		expect(model.safeSlashCommands).toEqual(["plan", "review"]);
 		expect(model.subagentNames).toEqual(["explorer", "worker"]);
 		expect(model.tokenUsageLabel).toBe("1,200 / 3,400");
-		expect(model.costLabel).toMatch(/^\$\d+\.\d{4}$/);
-		expect(model.safeSessionArchetype).toBe("deep_work");
+		expect(model.costLabel).toBe("$0.05");
 		expect(model.conversationSummary).toEqual({
 			assistantMessages: 1,
 			systemMessages: 0,
@@ -103,9 +99,22 @@ describe("buildSessionDetailViewModel", () => {
 		expect(model.safeSlashCommands).toEqual([]);
 		expect(model.subagentNames).toEqual(["reviewer"]);
 		expect(model.tokenUsageLabel).toBe("0 / 0");
-		expect(model.costLabel).toBe("$0.0000");
+		expect(model.costLabel).toBe("$0.00");
 		expect(model.conversationSummary).toBeNull();
 		expect(model.metadataBadges).toEqual([]);
 		expect(model.safeContent).toBe('{\n  "unsupported": true\n}');
+	});
+
+	it("rounds costs of at least one hundred dollars to whole dollars", () => {
+		const model = buildSessionDetailViewModel(
+			{
+				input_tokens: 100_000_000,
+				model_used: "claude-sonnet-4-5",
+				output_tokens: 0,
+			},
+			{},
+		);
+
+		expect(model.costLabel).toBe("$300");
 	});
 });

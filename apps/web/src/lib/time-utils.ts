@@ -30,3 +30,22 @@ export function formatRelativeTime(dateString: string): string {
 		year: date.getFullYear() !== now.getFullYear() ? "numeric" : undefined,
 	});
 }
+
+export function formatExactDateTime(dateString: string): string {
+	const normalizedDate = dateString.endsWith("Z")
+		? dateString
+		: `${dateString}Z`;
+	const date = new Date(normalizedDate);
+
+	if (Number.isNaN(date.getTime())) {
+		return dateString || "—";
+	}
+
+	return date.toLocaleString(undefined, {
+		year: "numeric",
+		month: "short",
+		day: "numeric",
+		hour: "numeric",
+		minute: "2-digit",
+	});
+}

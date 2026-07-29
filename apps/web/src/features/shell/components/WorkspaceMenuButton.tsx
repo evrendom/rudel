@@ -14,7 +14,7 @@ import {
 	getUtilityRailItemClassName,
 	getUtilityRailLabelClassName,
 	type SidebarRowMode,
-} from "@/features/shell/components/shell-rail";
+} from "@/features/shell/components/shell-rail-utils";
 import { useOrganization } from "@/features/workspace/organization/useOrganization";
 import { cn } from "@/lib/utils";
 

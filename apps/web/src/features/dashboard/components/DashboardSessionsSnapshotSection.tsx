@@ -24,11 +24,19 @@ import {
 import { DashboardTokenRecentSessionsTable } from "@/features/dashboard/components/DashboardTokenRecentSessionsTable";
 import { DashboardTopChartSection } from "@/features/dashboard/components/DashboardTopChartSection";
 import type { DashboardHeadlineMetric } from "@/features/dashboard/data/dashboard-static-data";
+import {
+	getSessionTimestamp,
+	orderSessionsForDisplay,
+} from "@/features/sessions/session-ordering";
 
-function getSessionTimestamp(value: string) {
-	const normalizedValue = value.endsWith("Z") ? value : `${value}Z`;
-	return new Date(normalizedValue);
-}
+const dashboardSessionChartSkeletonHeights = [
+	"h-[8rem]",
+	"h-[10rem]",
+	"h-[6.75rem]",
+	"h-[11rem]",
+	"h-[8.5rem]",
+	"h-[9.5rem]",
+] as const;
 
 function getGranularity(
 	dateRangeDays: number,
@@ -216,18 +224,9 @@ function buildSessionTrendData({
 }
 
 function DashboardSessionChartFallback() {
-	const skeletonHeights = [
-		"h-[8rem]",
-		"h-[10rem]",
-		"h-[6.75rem]",
-		"h-[11rem]",
-		"h-[8.5rem]",
-		"h-[9.5rem]",
-	] as const;
-
 	return (
 		<div className="flex h-[12.875rem] items-end gap-3 px-4 pb-8 pt-4">
-			{skeletonHeights.map((heightClassName) => (
+			{dashboardSessionChartSkeletonHeights.map((heightClassName) => (
 				<div
 					key={heightClassName}
 					className="flex min-w-0 flex-1 flex-col items-center gap-3"
@@ -243,35 +242,35 @@ function DashboardSessionChartFallback() {
 }
 
 export function DashboardSessionsSnapshotSection({
+	activeSessionId,
 	canOpenSession,
 	endDate,
 	dateRangeDays,
-	hideMetrics = false,
 	isMetricsPending = false,
 	isSessionsPending,
 	metrics,
 	onSessionClick,
 	sessions,
 	sessionDetailDisabledNote,
-	showDelta = false,
 	startDate,
 	totalSessionCount,
 	useRolling24Hours = false,
+	variant,
 }: {
+	activeSessionId?: string | null;
 	canOpenSession?: (session: SessionAnalytics) => boolean;
 	endDate: string;
 	dateRangeDays: number;
-	hideMetrics?: boolean;
 	isMetricsPending?: boolean;
 	isSessionsPending: boolean;
 	metrics: DashboardHeadlineMetric[];
 	onSessionClick?: (session: SessionAnalytics) => void;
 	sessions: SessionAnalytics[] | undefined;
 	sessionDetailDisabledNote?: string;
-	showDelta?: boolean;
 	startDate: string;
 	totalSessionCount: number;
 	useRolling24Hours?: boolean;
+	variant: "dashboard" | "sessions";
 }) {
 	const chartData = buildSessionTrendData({
 		endDate,
@@ -280,27 +279,15 @@ export function DashboardSessionsSnapshotSection({
 		dateRangeDays,
 		useRolling24Hours,
 	});
-	const rollingWindowStart = subHours(new Date(), 24);
-	const snapshotSessions = (sessions ?? []).filter((session) => {
-		if (!useRolling24Hours) {
-			return true;
-		}
-
-		return isAfter(
-			getSessionTimestamp(session.session_date),
-			rollingWindowStart,
-		);
+	const latestSessions = orderSessionsForDisplay({
+		sessions,
+		useRolling24Hours,
 	});
-	const latestSessions = [...snapshotSessions].sort(
-		(leftSession, rightSession) =>
-			getSessionTimestamp(rightSession.session_date).getTime() -
-			getSessionTimestamp(leftSession.session_date).getTime(),
-	);
 	const sessionsTableKey = `${latestSessions.length}:${latestSessions[0]?.session_id ?? ""}:${latestSessions.at(-1)?.session_id ?? ""}`;
 
 	return (
 		<DashboardTopChartSection
-			hideMetrics={hideMetrics}
+			hideMetrics={variant === "sessions"}
 			chart={
 				isSessionsPending ? (
 					<DashboardSessionChartFallback />
@@ -311,6 +298,7 @@ export function DashboardSessionsSnapshotSection({
 			detail={
 				<DashboardTokenRecentSessionsTable
 					key={sessionsTableKey}
+					activeSessionId={activeSessionId}
 					canOpenSession={canOpenSession}
 					isLoading={isSessionsPending}
 					onSessionClick={onSessionClick}
@@ -318,13 +306,13 @@ export function DashboardSessionsSnapshotSection({
 					sessionDetailDisabledNote={sessionDetailDisabledNote}
 					showHeader={false}
 					totalSessionCount={
-						useRolling24Hours ? snapshotSessions.length : totalSessionCount
+						useRolling24Hours ? latestSessions.length : totalSessionCount
 					}
 				/>
 			}
 			isMetricsLoading={isMetricsPending}
 			metrics={metrics}
-			showDelta={showDelta}
+			showDelta
 		/>
 	);
 }

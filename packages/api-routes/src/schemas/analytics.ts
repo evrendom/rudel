@@ -341,7 +341,6 @@ export const SessionAnalyticsSchema = z.object({
 	skills: z.array(z.string()),
 	slash_commands: z.array(z.string()),
 	has_commit: z.boolean(),
-	session_archetype: z.string(),
 	model_used: z.string(),
 	used_plan_mode: z.boolean(),
 	source: SourceSchema.optional(),
@@ -367,6 +366,11 @@ export const SessionAnalyticsSummaryComparisonSchema = z.object({
 });
 
 export const SessionListInputSchema = DaysInputSchema.extend({
+	// When both are supplied they replace the rolling `days` lookback, so a
+	// range that does not end today (e.g. a past month) returns that window
+	// instead of the last N days.
+	startDate: z.string().date().optional(),
+	endDate: z.string().date().optional(),
 	userId: z.string().max(MAX_ID_FILTER_LENGTH).optional(),
 	projectPath: z.string().max(MAX_PATH_FILTER_LENGTH).optional(),
 	repository: z.string().max(MAX_PATH_FILTER_LENGTH).optional(),
@@ -383,7 +387,6 @@ const VALID_DIMENSIONS = [
 	"user_id",
 	"project_path",
 	"repository",
-	"session_archetype",
 	"model_used",
 	"has_commit",
 	"used_plan_mode",
@@ -441,7 +444,6 @@ export const SessionDetailSchema = z.object({
 	success_score: z.number().optional(),
 	duration_min: z.number().optional(),
 	total_interactions: z.number().optional(),
-	session_archetype: z.string().optional(),
 	model_used: z.string().optional(),
 	source: SourceSchema.optional(),
 });

@@ -17,6 +17,23 @@ type MessageBlock =
 	| ToolUseContent
 	| ToolResultContent;
 
+function getMessageBlockIdentity(block: MessageBlock): string {
+	if (typeof block === "string") {
+		return `string:${block}`;
+	}
+
+	switch (block.type) {
+		case "text":
+			return `text:${block.text}`;
+		case "thinking":
+			return `thinking:${block.thinking}`;
+		case "tool_use":
+			return `tool-use:${block.id}`;
+		case "tool_result":
+			return `tool-result:${block.tool_use_id}`;
+	}
+}
+
 interface MessageContentProps {
 	content: string | MessageBlock[];
 	className?: string;
@@ -167,11 +184,11 @@ function XmlBlock({
 					)}
 				</div>
 				<div className="grid min-w-0 flex-1 gap-0.5">
-					<p className="text-sm font-semibold text-[color:var(--dashboardy-heading)]">
+					<p className="text-[0.8125rem] font-semibold text-[color:var(--dashboardy-heading)]">
 						{formatTagLabel(tag)}
 					</p>
 					{isOpen ? null : (
-						<p className="text-sm text-[color:var(--dashboardy-muted)] [overflow-wrap:anywhere]">
+						<p className="text-[0.8125rem] text-[color:var(--dashboardy-muted)] [overflow-wrap:anywhere]">
 							{formatXmlBlockSummary(entries)}
 						</p>
 					)}
@@ -184,10 +201,10 @@ function XmlBlock({
 				>
 					{entries.map((entry) => (
 						<div key={entry.key} className="flex gap-4 px-4 py-3">
-							<p className="min-w-[6.5rem] shrink-0 text-sm font-medium text-[color:var(--dashboardy-muted)]">
+							<p className="min-w-[6.5rem] shrink-0 text-[0.8125rem] font-medium text-[color:var(--dashboardy-muted)]">
 								{formatTagLabel(entry.key)}
 							</p>
-							<p className="font-mono text-[0.875rem] leading-6 text-[color:var(--dashboardy-heading)] break-all">
+							<p className="break-all font-mono text-[0.8125rem] leading-5 text-[color:var(--dashboardy-heading)]">
 								{entry.value}
 							</p>
 						</div>
@@ -198,7 +215,7 @@ function XmlBlock({
 	);
 }
 
-function renderPlainText(text: string, key: number) {
+function renderPlainText(text: string, key: string) {
 	const parts = parseTextContent(text);
 	return (
 		<div key={key} className="space-y-3.5">
@@ -229,7 +246,7 @@ function renderPlainText(text: string, key: number) {
 						key={partIdx}
 						className="max-w-none"
 					>
-						<p className="whitespace-pre-wrap break-words text-base leading-7 text-[color:var(--dashboardy-heading)] text-pretty [overflow-wrap:anywhere]">
+						<p className="whitespace-pre-wrap break-words text-[0.8125rem] leading-5 text-[color:var(--dashboardy-heading)] text-pretty [overflow-wrap:anywhere]">
 							{part.content}
 						</p>
 					</div>
@@ -256,7 +273,7 @@ export function MessageContent({ content, className }: MessageContentProps) {
 	if (typeof content === "string") {
 		return (
 			<div className={cn("space-y-3.5", className)}>
-				{renderPlainText(content, 0)}
+				{renderPlainText(content, "plain-content")}
 			</div>
 		);
 	}
@@ -276,6 +293,7 @@ export function MessageContent({ content, className }: MessageContentProps) {
 
 	const toolUses = new Map<string, ToolUseContent>();
 	const toolResults = new Map<string, ToolResultContent>();
+	const blockIdentityCounts = new Map<string, number>();
 
 	for (const block of content) {
 		if (typeof block === "string") continue;
@@ -288,26 +306,31 @@ export function MessageContent({ content, className }: MessageContentProps) {
 
 	return (
 		<div className={cn("space-y-3.5", className)}>
-			{content.map((block, idx) => {
+			{content.map((block) => {
+				const blockIdentity = getMessageBlockIdentity(block);
+				const identityOccurrence =
+					(blockIdentityCounts.get(blockIdentity) ?? 0) + 1;
+				blockIdentityCounts.set(blockIdentity, identityOccurrence);
+				const blockKey = `${blockIdentity}:${identityOccurrence}`;
+
 				if (typeof block === "string") {
-					return renderPlainText(block, idx);
+					return renderPlainText(block, blockKey);
 				}
 
 				switch (block.type) {
 					case "text":
-						return renderPlainText(block.text, idx);
+						return renderPlainText(block.text, blockKey);
 
 					case "thinking":
 						return (
 							<div
-								// biome-ignore lint/suspicious/noArrayIndexKey: content blocks have no stable id
-								key={idx}
+								key={blockKey}
 								className="rounded-[1rem] border border-[color:var(--dashboardy-divider)] bg-[color:color-mix(in_srgb,var(--dashboardy-subsurface)_82%,white)] px-4 py-3.5"
 							>
 								<p className="mb-1 text-sm font-semibold text-[color:var(--dashboardy-heading)]">
 									Thinking
 								</p>
-								<p className="whitespace-pre-wrap text-base leading-7 text-[color:var(--dashboardy-muted)] italic text-pretty">
+								<p className="whitespace-pre-wrap text-[0.8125rem] leading-5 text-[color:var(--dashboardy-muted)] italic text-pretty">
 									{block.thinking}
 								</p>
 							</div>
@@ -317,8 +340,7 @@ export function MessageContent({ content, className }: MessageContentProps) {
 						const toolResult = toolResults.get(block.id);
 						return (
 							<ToolInvocation
-								// biome-ignore lint/suspicious/noArrayIndexKey: content blocks have no stable id
-								key={idx}
+								key={blockKey}
 								toolName={block.name}
 								input={block.input}
 								result={
@@ -351,8 +373,7 @@ export function MessageContent({ content, className }: MessageContentProps) {
 
 						return (
 							<div
-								// biome-ignore lint/suspicious/noArrayIndexKey: content blocks have no stable id
-								key={idx}
+								key={blockKey}
 								className={cn(
 									"grid gap-2.5 rounded-[1rem] border p-3.5",
 									block.is_error

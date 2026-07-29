@@ -5,6 +5,7 @@ import {
 	getActiveSettingsRouteId,
 	settingsRouteMap,
 } from "@/features/settings/config/settings-routes";
+import { DashboardHeader } from "@/features/shell/components/dashboard-header";
 import { useCurrentShellRoute } from "@/features/shell/hooks/useCurrentShellRoute";
 
 export function SiteHeader() {
@@ -16,7 +17,7 @@ export function SiteHeader() {
 			: currentShellRoute.title;
 
 	return (
-		<header className="flex h-(--header-height) shrink-0 items-center gap-2 border-b bg-[var(--dashboard-01-content-background)] px-4 lg:px-6">
+		<DashboardHeader showDivider className="gap-2 px-4 lg:px-6">
 			<div className="flex min-w-0 items-center gap-2">
 				<SidebarTrigger className="-ml-1 size-9 rounded-lg text-[color:var(--dashboard-01-rail-icon)] hover:bg-[color:var(--dashboard-01-rail-hover)] hover:text-[color:var(--dashboard-01-rail-icon-active)] md:hidden" />
 				<Separator
@@ -27,6 +28,6 @@ export function SiteHeader() {
 					{title}
 				</h1>
 			</div>
-		</header>
+		</DashboardHeader>
 	);
 }

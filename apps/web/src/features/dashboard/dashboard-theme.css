@@ -1,6 +1,8 @@
 .dashboardy-page {
 	--dashboardy-surface: rgba(255, 255, 255, 0.92);
+	--dashboardy-surface-opaque: #ffffff;
 	--dashboardy-subsurface: rgba(245, 247, 250, 0.96);
+	--dashboardy-subsurface-opaque: #f5f7fa;
 	--dashboardy-subsurface-strong: rgba(240, 243, 247, 0.98);
 	--dashboardy-border: rgba(15, 23, 42, 0.08);
 	--dashboardy-border-strong: rgba(15, 23, 42, 0.12);
@@ -26,7 +28,9 @@
 
 .dark .dashboardy-page {
 	--dashboardy-surface: rgba(17, 24, 39, 0.92);
+	--dashboardy-surface-opaque: #111827;
 	--dashboardy-subsurface: rgba(30, 41, 59, 0.95);
+	--dashboardy-subsurface-opaque: #1e293b;
 	--dashboardy-subsurface-strong: rgba(15, 23, 42, 0.98);
 	--dashboardy-border: rgba(148, 163, 184, 0.18);
 	--dashboardy-border-strong: rgba(148, 163, 184, 0.24);

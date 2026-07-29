@@ -331,6 +331,9 @@ body:has(.dashboard-01-preview),
 	--dashboard-01-chrome-noise-texture:
 		url("/shell/team-lineup-stats-panel-noise.svg"),
 		url("/shell/team-lineup-stats-panel-noise.svg");
+	--dashboard-01-header-height: 3rem;
+	--dashboard-01-window-inset: 0.5rem;
+	--dashboard-01-window-radius: 0.75rem;
 	--dashboard-01-window-shadow: 0 0 4px rgb(0 0 0 / 0.13);
 	--sidebar: var(--dashboard-01-chrome-surface);
 	--sidebar-foreground: oklch(0.145 0 0);
