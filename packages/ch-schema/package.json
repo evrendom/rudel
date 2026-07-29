@@ -14,24 +14,16 @@
 		"check-types": "tsc --noEmit",
 		"test": "bun test",
 		"test:integration": "bun test --max-concurrency=1 ./src/__tests__/codex-mv.integration.ts ./src/__tests__/ingest-clickhouse.integration.ts ./src/__tests__/filter-version-migration.integration.ts",
-		"ch:generate": "doppler run --project rudel --config ci -- bun --bun chkit generate",
-		"ch:generate:dryrun": "doppler run --project rudel --config ci -- bun --bun chkit generate --dryrun",
-		"ch:migrate": "doppler run --project rudel --config ci -- bash -c 'CLICKHOUSE_DB=default bun --bun chkit migrate --apply'",
-		"ch:migrate:prd": "doppler run --project rudel --config prd -- bash -c 'CLICKHOUSE_DB=default bun --bun chkit migrate --apply'",
-		"ch:status": "doppler run --project rudel --config ci -- bash -c 'CLICKHOUSE_DB=default bun --bun chkit status'",
-		"ch:status:prd": "doppler run --project rudel --config prd -- bash -c 'CLICKHOUSE_DB=default bun --bun chkit status'",
-		"ch:codegen": "doppler run --project rudel --config ci -- bun --bun chkit codegen",
-		"ch:drift": "doppler run --project rudel --config ci -- bash -c 'CLICKHOUSE_DB=default bun --bun chkit drift'",
-		"ch:backfill:plan": "doppler run --project rudel --config ci -- bash -c 'CLICKHOUSE_DB=default bun --bun chkit backfill plan \"$@\"' --",
-		"ch:backfill:plan:prd": "doppler run --project rudel --config prd -- bash -c 'CLICKHOUSE_DB=default bun --bun chkit backfill plan \"$@\"' --",
-		"ch:backfill:run": "doppler run --project rudel --config ci -- bash -c 'CLICKHOUSE_DB=default bun --bun chkit backfill run \"$@\"' --",
-		"ch:backfill:run:prd": "doppler run --project rudel --config prd -- bash -c 'CLICKHOUSE_DB=default bun --bun chkit backfill run \"$@\"' --",
-		"ch:backfill:status": "doppler run --project rudel --config ci -- bash -c 'CLICKHOUSE_DB=default bun --bun chkit backfill status \"$@\"' --",
-		"ch:backfill:status:prd": "doppler run --project rudel --config prd -- bash -c 'CLICKHOUSE_DB=default bun --bun chkit backfill status \"$@\"' --",
-		"ch:query": "doppler run --project rudel --config ci -- bash -c 'curl -sk \"${CLICKHOUSE_URL}/?user=${CLICKHOUSE_USERNAME}&password=${CLICKHOUSE_PASSWORD}\" --data-binary @\"$1\"' --",
-		"ch:describe": "doppler run --project rudel --config ci -- bash -c 'curl -sk \"${CLICKHOUSE_URL}/?user=${CLICKHOUSE_USERNAME}&password=${CLICKHOUSE_PASSWORD}\" --data-binary \"DESCRIBE $1 FORMAT Pretty\"' --",
-		"chcli": "doppler run --project rudel --config ci -- bash -c 'CLICKHOUSE_HOST=${CLICKHOUSE_URL#https://} CLICKHOUSE_USER=$CLICKHOUSE_USERNAME CLICKHOUSE_SECURE=true CLICKHOUSE_PORT=443 chcli \"$@\"' --",
-		"chcli:prd": "doppler run --project rudel --config prd -- bash -c 'CLICKHOUSE_HOST=${CLICKHOUSE_URL#https://} CLICKHOUSE_USER=$CLICKHOUSE_USERNAME CLICKHOUSE_SECURE=true CLICKHOUSE_PORT=443 chcli \"$@\"' --"
+		"ch:generate": "bun --bun chkit generate",
+		"ch:generate:dryrun": "bun --bun chkit generate --dryrun",
+		"ch:migrate": "bash -c 'CLICKHOUSE_DB=default bun --bun chkit migrate --apply'",
+		"ch:status": "bash -c 'CLICKHOUSE_DB=default bun --bun chkit status'",
+		"ch:codegen": "bun --bun chkit codegen",
+		"ch:drift": "bash -c 'CLICKHOUSE_DB=default bun --bun chkit drift'",
+		"ch:backfill:plan": "bash -c 'CLICKHOUSE_DB=default bun --bun chkit backfill plan \"$@\"' --",
+		"ch:backfill:run": "bash -c 'CLICKHOUSE_DB=default bun --bun chkit backfill run \"$@\"' --",
+		"ch:backfill:status": "bash -c 'CLICKHOUSE_DB=default bun --bun chkit backfill status \"$@\"' --",
+		"chcli": "bun scripts/chcli-connect.ts"
 	},
 	"dependencies": {
 		"@chkit/clickhouse": "0.1.0-beta.16",
@@ -45,6 +37,7 @@
 		"zod": "^3.24.0"
 	},
 	"devDependencies": {
+		"@obsessiondb/chcli": "0.1.1-beta.4",
 		"@rudel/typescript-config": "workspace:*",
 		"bun-types": "latest",
 		"typescript": "5.9.2"

@@ -1,0 +1,29 @@
+{
+	"version": 1,
+	"skills": {
+		"clickhouse-architecture-advisor": {
+			"source": "clickhouse/agent-skills",
+			"sourceType": "github",
+			"skillPath": "skills/clickhouse-architecture-advisor/SKILL.md",
+			"computedHash": "5cecc53a1aa47ff41f84b7f984c1242d70af09b8bbce4f52d423dd5a06f5ae0b"
+		},
+		"clickhouse-best-practices": {
+			"source": "clickhouse/agent-skills",
+			"sourceType": "github",
+			"skillPath": "skills/clickhouse-best-practices/SKILL.md",
+			"computedHash": "4523a31bd5911ec70b68533d7d15bc445bca2e77b1bd6f649d5a36d52bdcc099"
+		},
+		"clickhouse-js-node-coding": {
+			"source": "clickhouse/agent-skills",
+			"sourceType": "github",
+			"skillPath": "skills/clickhouse-js-node-coding/SKILL.md",
+			"computedHash": "0a1de8c68328512c8c6e40e57a976dcf793c70cc71912cd261db6ff65ced257f"
+		},
+		"clickhouse-js-node-troubleshooting": {
+			"source": "clickhouse/agent-skills",
+			"sourceType": "github",
+			"skillPath": "skills/clickhouse-js-node-troubleshooting/SKILL.md",
+			"computedHash": "5b07cae87b545082c9c651638b842ff58092105fac45ecbe1e20200c1d306256"
+		}
+	}
+}

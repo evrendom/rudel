@@ -23,8 +23,8 @@ const executor = createTestExecutor();
 
 afterAll(async () => {
 	// The incremental MV writes a separate target row on insert; deleting its source
-	// row does not propagate. Clean both tables so persistent environments used by
-	// `test:env` do not accumulate fixtures.
+	// row does not propagate. Clean both tables so `test:integration` does not
+	// accumulate fixtures in persistent environments.
 	// The executor reuses one ClickHouse session, so commands must be sequential;
 	// concurrent deletes fail with SESSION_IS_LOCKED.
 	// Best-effort like ingest-clickhouse's cleanup: rows are scoped to this run's
