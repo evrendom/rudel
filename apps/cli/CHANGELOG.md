@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.2](https://github.com/evrendom/rudel/compare/rudel@0.2.1...rudel@0.2.2) (2026-07-29)
+
+
+### Bug Fixes
+
+* **cli:** repair existing credential permissions ([#399](https://github.com/evrendom/rudel/issues/399)) ([d8cf505](https://github.com/evrendom/rudel/commit/d8cf505809e06f039a55c25e4b2843ec599a376b))
+
 ## [0.2.1](https://github.com/evrendom/rudel/compare/rudel@0.2.0...rudel@0.2.1) (2026-07-29)
 
 
