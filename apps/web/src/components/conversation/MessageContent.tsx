@@ -48,6 +48,8 @@ type TextPart =
 			entries: Array<{ key: string; value: string }>;
 	  };
 
+export const MAX_RENDERED_MESSAGE_CODE_UNITS = 256 * 1024;
+
 /**
  * Format an XML tag name into a human-readable label.
  * e.g. "environment_context" -> "Environment Context"
@@ -65,75 +67,202 @@ function parseXmlEntries(
 	innerContent: string,
 ): Array<{ key: string; value: string }> {
 	const entries: Array<{ key: string; value: string }> = [];
-	const leafTagRegex = /<([\w-]+)>([\s\S]*?)<\/\1>/g;
-	let leafMatch = leafTagRegex.exec(innerContent);
+	let cursor = 0;
 
-	if (!leafMatch) {
-		const trimmed = innerContent.trim();
-		if (trimmed) {
-			entries.push({ key: "content", value: trimmed });
+	while (cursor < innerContent.length) {
+		if (innerContent[cursor] !== "<") {
+			cursor += 1;
+			continue;
 		}
-		return entries;
+
+		const openingTagEnd = innerContent.indexOf(">", cursor + 1);
+		if (openingTagEnd === -1) {
+			break;
+		}
+
+		const tag = readXmlTagName(innerContent, cursor + 1, openingTagEnd, false);
+		if (!tag) {
+			cursor = openingTagEnd + 1;
+			continue;
+		}
+
+		const closingTag = `</${tag}>`;
+		const closingTagStart = innerContent.indexOf(closingTag, openingTagEnd + 1);
+		if (closingTagStart === -1) {
+			break;
+		}
+
+		entries.push({
+			key: tag,
+			value: innerContent.slice(openingTagEnd + 1, closingTagStart).trim(),
+		});
+		cursor = closingTagStart + closingTag.length;
 	}
 
-	while (leafMatch !== null) {
-		entries.push({
-			key: leafMatch[1] as string,
-			value: (leafMatch[2] as string).trim(),
-		});
-		leafMatch = leafTagRegex.exec(innerContent);
+	if (entries.length === 0) {
+		const trimmedContent = innerContent.trim();
+		if (trimmedContent) {
+			entries.push({ key: "content", value: trimmedContent });
+		}
 	}
 
 	return entries;
 }
 
-// Parse code blocks and XML blocks from text content
-function parseTextContent(text: string): Array<TextPart> {
+export function parseMessageText(text: string): Array<TextPart> {
+	if (text.length > MAX_RENDERED_MESSAGE_CODE_UNITS) {
+		const visibleText = text
+			.slice(0, MAX_RENDERED_MESSAGE_CODE_UNITS)
+			.trimEnd();
+		const omittedCodeUnits = text.length - MAX_RENDERED_MESSAGE_CODE_UNITS;
+
+		return [
+			{
+				type: "text",
+				content: `${visibleText}\n\n[Message truncated: ${omittedCodeUnits} code units omitted]`,
+			},
+		];
+	}
+
 	const parts: Array<TextPart> = [];
+	let plainTextStart = 0;
+	let cursor = 0;
 
-	// Combined regex: code blocks OR top-level XML blocks (inline or multiline)
-	const combinedRegex =
-		/```(\w+)?\n([\s\S]*?)```|<([\w-]+)(?:\s[^>]*)?>([\s\S]*?)<\/\3>/g;
-	let lastIndex = 0;
-	let match: RegExpExecArray | null = combinedRegex.exec(text);
-
-	while (match !== null) {
-		if (match.index > lastIndex) {
-			const textContent = text.slice(lastIndex, match.index).trim();
-			if (textContent) {
-				parts.push({ type: "text", content: textContent });
+	while (cursor < text.length) {
+		if (text.startsWith("```", cursor)) {
+			const codeBlock = readCodeBlockStart(text, cursor);
+			if (!codeBlock) {
+				cursor += 3;
+				continue;
 			}
+
+			const closingFenceStart = text.indexOf("```", codeBlock.contentStart);
+			if (closingFenceStart === -1) {
+				cursor = codeBlock.contentStart;
+				continue;
+			}
+
+			appendTextPart(parts, text.slice(plainTextStart, cursor));
+			parts.push({
+				type: "code",
+				content: text.slice(codeBlock.contentStart, closingFenceStart),
+				language: codeBlock.language,
+			});
+			cursor = closingFenceStart + 3;
+			plainTextStart = cursor;
+			continue;
 		}
 
-		if (match[2] !== undefined) {
-			// Code block match
-			const language = match[1] || "text";
-			parts.push({ type: "code", content: match[2], language });
-		} else if (match[3] !== undefined && match[4] !== undefined) {
-			// XML block match
-			const tag = match[3];
-			const entries = parseXmlEntries(match[4]);
-			if (entries.length > 0) {
-				parts.push({ type: "xml", tag, entries });
-			}
+		if (text[cursor] !== "<") {
+			cursor += 1;
+			continue;
 		}
 
-		lastIndex = match.index + match[0].length;
-		match = combinedRegex.exec(text);
+		const openingTagEnd = text.indexOf(">", cursor + 1);
+		if (openingTagEnd === -1) {
+			break;
+		}
+
+		const tag = readXmlTagName(text, cursor + 1, openingTagEnd, true);
+		if (!tag) {
+			cursor = openingTagEnd + 1;
+			continue;
+		}
+
+		const closingTag = `</${tag}>`;
+		const closingTagStart = text.indexOf(closingTag, openingTagEnd + 1);
+		if (closingTagStart === -1) {
+			break;
+		}
+
+		appendTextPart(parts, text.slice(plainTextStart, cursor));
+		const entries = parseXmlEntries(
+			text.slice(openingTagEnd + 1, closingTagStart),
+		);
+		if (entries.length > 0) {
+			parts.push({ type: "xml", tag, entries });
+		}
+
+		cursor = closingTagStart + closingTag.length;
+		plainTextStart = cursor;
 	}
 
-	if (lastIndex < text.length) {
-		const textContent = text.slice(lastIndex).trim();
-		if (textContent) {
-			parts.push({ type: "text", content: textContent });
-		}
-	}
+	appendTextPart(parts, text.slice(plainTextStart));
 
 	if (parts.length === 0 && text.trim()) {
 		parts.push({ type: "text", content: text.trim() });
 	}
 
 	return parts;
+}
+
+function appendTextPart(parts: TextPart[], text: string) {
+	const content = text.trim();
+	if (content) {
+		parts.push({ type: "text", content });
+	}
+}
+
+function readCodeBlockStart(
+	text: string,
+	fenceStart: number,
+): { contentStart: number; language: string } | null {
+	const languageStart = fenceStart + 3;
+	let cursor = languageStart;
+
+	while (
+		cursor < text.length &&
+		isCodeLanguageCharacter(text.charCodeAt(cursor))
+	) {
+		cursor += 1;
+	}
+
+	if (text[cursor] !== "\n") {
+		return null;
+	}
+
+	return {
+		contentStart: cursor + 1,
+		language: text.slice(languageStart, cursor) || "text",
+	};
+}
+
+function readXmlTagName(
+	text: string,
+	nameStart: number,
+	tagEnd: number,
+	allowAttributes: boolean,
+): string | null {
+	let cursor = nameStart;
+
+	while (cursor < tagEnd && isTagNameCharacter(text.charCodeAt(cursor))) {
+		cursor += 1;
+	}
+
+	if (cursor === nameStart) {
+		return null;
+	}
+
+	if (cursor < tagEnd) {
+		if (!allowAttributes || text[cursor]?.trim() !== "") {
+			return null;
+		}
+	}
+
+	return text.slice(nameStart, cursor);
+}
+
+function isTagNameCharacter(characterCode: number) {
+	return isCodeLanguageCharacter(characterCode) || characterCode === 45;
+}
+
+function isCodeLanguageCharacter(characterCode: number) {
+	return (
+		(characterCode >= 48 && characterCode <= 57) ||
+		(characterCode >= 65 && characterCode <= 90) ||
+		characterCode === 95 ||
+		(characterCode >= 97 && characterCode <= 122)
+	);
 }
 
 function shouldCollapseXmlBlockByDefault(tag: string): boolean {
@@ -216,7 +345,7 @@ function XmlBlock({
 }
 
 function renderPlainText(text: string, key: string) {
-	const parts = parseTextContent(text);
+	const parts = parseMessageText(text);
 	return (
 		<div key={key} className="space-y-3.5">
 			{parts.map((part, partIdx) => {
