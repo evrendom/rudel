@@ -1,6 +1,6 @@
 {
 	"version": 1,
-	"generatedAt": "2026-07-29T11:58:01.524Z",
+	"generatedAt": "2026-07-28T09:32:04.316Z",
 	"definitions": [
 		{
 			"database": "rudel",
@@ -87,22 +87,9 @@
 			"orderBy": ["organization_id", "session_date", "session_id"],
 			"partitionBy": "toYYYYMM(toDate(session_date))",
 			"ttl": "toDate(session_date) + toIntervalDay(365)",
-			"indexes": [
-				{
-					"name": "idx_purge_organization_id",
-					"expression": "organization_id",
-					"type": "bloom_filter",
-					"granularity": 4
-				},
-				{
-					"name": "idx_purge_user_id",
-					"expression": "user_id",
-					"type": "bloom_filter",
-					"granularity": 4
-				}
-			],
 			"settings": {
-				"index_granularity": "8192"
+				"index_granularity": "8192",
+				"storage_policy": "'s3'"
 			},
 			"kind": "table"
 		},
@@ -186,22 +173,9 @@
 			"orderBy": ["organization_id", "session_date", "session_id"],
 			"partitionBy": "toYYYYMM(toDate(session_date))",
 			"ttl": "toDate(session_date) + toIntervalDay(365)",
-			"indexes": [
-				{
-					"name": "idx_purge_organization_id",
-					"expression": "organization_id",
-					"type": "bloom_filter",
-					"granularity": 4
-				},
-				{
-					"name": "idx_purge_user_id",
-					"expression": "user_id",
-					"type": "bloom_filter",
-					"granularity": 4
-				}
-			],
 			"settings": {
-				"index_granularity": "8192"
+				"index_granularity": "8192",
+				"storage_policy": "'s3'"
 			},
 			"kind": "table"
 		},
@@ -435,20 +409,15 @@
 					"granularity": 4
 				},
 				{
-					"name": "idx_purge_organization_id",
-					"expression": "organization_id",
-					"type": "bloom_filter",
-					"granularity": 4
-				},
-				{
-					"name": "idx_purge_user_id",
-					"expression": "user_id",
-					"type": "bloom_filter",
-					"granularity": 4
-				},
-				{
 					"name": "idx_source",
 					"expression": "source",
+					"type": "set",
+					"typeArgs": "0",
+					"granularity": 4
+				},
+				{
+					"name": "idx_user_id",
+					"expression": "user_id",
 					"type": "set",
 					"typeArgs": "0",
 					"granularity": 4
@@ -679,20 +648,6 @@
 			"primaryKey": [],
 			"orderBy": ["snapshot_id", "organization_id", "user_id"],
 			"partitionBy": "toYYYYMM(toDate(snapshot_created_at))",
-			"indexes": [
-				{
-					"name": "idx_purge_organization_id",
-					"expression": "organization_id",
-					"type": "bloom_filter",
-					"granularity": 1
-				},
-				{
-					"name": "idx_purge_user_id",
-					"expression": "user_id",
-					"type": "bloom_filter",
-					"granularity": 1
-				}
-			],
 			"kind": "table"
 		},
 		{

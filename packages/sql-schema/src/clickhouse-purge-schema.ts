@@ -88,7 +88,7 @@ export const clickhousePurgeJob = pgTable(
 		),
 		check(
 			"clickhouse_purge_job_attempt_count_check",
-			sql`${table.attemptCount} >= 0`,
+			sql`${table.attemptCount} >= 0 AND ${table.attemptCount} <= ${table.maxAttempts}`,
 		),
 		check(
 			"clickhouse_purge_job_max_attempts_check",
@@ -97,6 +97,10 @@ export const clickhousePurgeJob = pgTable(
 		check(
 			"clickhouse_purge_job_alert_attempt_count_check",
 			sql`${table.alertAttemptCount} >= 0`,
+		),
+		check(
+			"clickhouse_purge_job_target_id_check",
+			sql`length(btrim(${table.targetId})) > 0`,
 		),
 	],
 );

@@ -83,6 +83,12 @@ export async function deleteUserPostgresData(
 		const deletedOrganizationIds = deletedOrganizations.map(
 			(organization) => organization.id,
 		);
+		for (const organizationId of deletedOrganizationIds) {
+			await enqueueClickHousePurge(
+				{ targetId: organizationId, targetType: "organization" },
+				transaction,
+			);
+		}
 
 		await transaction.unsafe("DELETE FROM apikey WHERE reference_id = $1", [
 			userId,

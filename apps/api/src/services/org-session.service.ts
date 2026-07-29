@@ -13,19 +13,6 @@ interface SessionCountRow {
 	count: string;
 }
 
-interface ClickHouseDeletion {
-	promise: Promise<void>;
-	table: string;
-}
-
-interface ClickHousePurgeRow {
-	row_exists: number;
-}
-
-type ClickHouseDeletionScope =
-	| { organizationId: string; type: "organization" }
-	| { type: "user"; userId: string };
-
 interface GetOrgSessionCountOptions {
 	querySessionCount?: (
 		statement: ClickHouseStatement,
@@ -146,107 +133,61 @@ export async function hasOrgUploadsInLastDays(
 	return results.some((rows) => Number(rows[0]?.count ?? 0) > 0);
 }
 
-export async function deleteOrgSessions(orgId: string): Promise<void> {
-	const deletions = getDeletionTableNames().map(
-		(table): ClickHouseDeletion => ({
-			table,
-			promise: Promise.resolve().then(() =>
-				purgeClickHouseTable({
-					paramName: "orgId",
-					paramValue: orgId,
-					predicateColumn: "organization_id",
-					table,
-				}),
-			),
-		}),
-	);
-
-	await settleClickHouseDeletions(deletions, {
-		type: "organization",
-		organizationId: orgId,
-	});
+export async function deleteOrgSessions(organizationId: string): Promise<void> {
+	await deleteSessions("organization_id", organizationId);
 }
 
 export async function deleteUserSessions(userId: string): Promise<void> {
-	const deletions = getDeletionTableNames().map(
-		(table): ClickHouseDeletion => ({
-			table,
-			promise: Promise.resolve().then(() =>
-				purgeClickHouseTable({
-					paramName: "userId",
-					paramValue: userId,
-					predicateColumn: "user_id",
-					table,
-				}),
-			),
-		}),
-	);
-
-	await settleClickHouseDeletions(deletions, { type: "user", userId });
+	await deleteSessions("user_id", userId);
 }
 
-async function purgeClickHouseTable(options: {
-	paramName: "orgId" | "userId";
-	paramValue: string;
-	predicateColumn: "organization_id" | "user_id";
-	table: string;
-}): Promise<void> {
-	const clickhouse = getClickhouse();
-	const table = getSafeClickHouseTable(options.table);
-	const predicate = `${options.predicateColumn} = {${options.paramName}:String}`;
-	const queryParams = { [options.paramName]: options.paramValue };
+async function deleteSessions(
+	column: "organization_id" | "user_id",
+	targetId: string,
+): Promise<void> {
+	const tables = [
+		...getAllAdapters().map((adapter) => adapter.rawTableName),
+		SESSION_ANALYTICS_TABLE,
+		WRAPPED_USER_ARCHETYPE_SNAPSHOTS_TABLE,
+	];
+	const results = await Promise.allSettled(
+		tables.map((table) => deleteSessionsFromTable(table, column, targetId)),
+	);
+	const failures = results.flatMap((result, index) =>
+		result.status === "rejected"
+			? [`${tables[index] ?? "unknown"}: ${String(result.reason)}`]
+			: [],
+	);
 
-	// Per insert-mutation-avoid-delete, use lightweight deletes rather than
-	// ALTER TABLE ... DELETE. Sync level 3 waits for active SharedMergeTree
-	// replicas before the durable purge can advance to verification.
+	if (failures.length > 0) {
+		throw new Error(`ClickHouse purge failed for ${failures.join("; ")}`);
+	}
+}
+
+async function deleteSessionsFromTable(
+	tableName: string,
+	column: "organization_id" | "user_id",
+	targetId: string,
+): Promise<void> {
+	const clickhouse = getClickhouse();
+	const table = getSafeClickHouseTable(tableName);
+	const predicate = `${column} = {targetId:String}`;
+	const queryParams = { targetId };
+
+	// Privacy deletion is an infrequent mutation, so use a lightweight DELETE.
+	// Sync level 3 waits for active SharedMergeTree replicas. The read-back
+	// confirms query-level deletion; merges reclaim the physical data later.
 	await clickhouse.execute({
 		clickhouse_settings: { lightweight_deletes_sync: "3" },
 		query: `DELETE FROM ${table} WHERE ${predicate}`,
 		query_params: queryParams,
 	});
 
-	// A successful command response is necessary but not sufficient for the
-	// deletion contract. Read back the same parameterized predicate so a job
-	// stays retryable if any replica-visible row remains.
-	const remainingRows = await clickhouse.query<ClickHousePurgeRow>({
-		query: `SELECT 1 AS row_exists FROM ${table} WHERE ${predicate} LIMIT 1`,
+	const remainingRows = await clickhouse.query({
+		query: `SELECT 1 FROM ${table} WHERE ${predicate} LIMIT 1`,
 		query_params: queryParams,
 	});
 	if (remainingRows.length > 0) {
 		throw new Error(`ClickHouse purge verification failed for ${table}`);
-	}
-}
-
-function getDeletionTableNames(): string[] {
-	return [
-		...getAllAdapters().map((adapter) => adapter.rawTableName),
-		SESSION_ANALYTICS_TABLE,
-		WRAPPED_USER_ARCHETYPE_SNAPSHOTS_TABLE,
-	];
-}
-
-async function settleClickHouseDeletions(
-	deletions: readonly ClickHouseDeletion[],
-	scope: ClickHouseDeletionScope,
-): Promise<void> {
-	const results = await Promise.allSettled(
-		deletions.map((deletion) => deletion.promise),
-	);
-	const failures = results.flatMap((result, index) => {
-		if (result.status === "fulfilled") {
-			return [];
-		}
-		const table = deletions[index]?.table ?? "unknown";
-		return [`${table}: ${String(result.reason)}`];
-	});
-
-	if (failures.length > 0) {
-		const target =
-			scope.type === "organization"
-				? `organization ${scope.organizationId}`
-				: `account ${scope.userId}`;
-		throw new Error(
-			`ClickHouse ${target} purge failed for ${failures.length} table(s): ${failures.join("; ")}`,
-		);
 	}
 }

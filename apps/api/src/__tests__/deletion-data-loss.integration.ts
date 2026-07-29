@@ -12,6 +12,7 @@ import type { IngestSessionInput } from "@rudel/api-routes";
 import postgres from "postgres";
 import { getClickhouse, getSafeClickHouseTable } from "../clickhouse.js";
 import { sqlClient } from "../db.js";
+import { deleteOrgSessions } from "../services/org-session.service.js";
 import { deleteUserPostgresData } from "../services/user-deletion.service.js";
 import {
 	type ApiTestServer,
@@ -206,6 +207,8 @@ describe("deletion data-loss hardening", () => {
 		expect(victimUser).toBeUndefined();
 		expect(survivingOrganization?.id).toBe(victim.userId);
 		expect(survivorMembership?.id).toBeDefined();
+		expect(await countPurgeJobs("account", victim.userId)).toBe(1);
+		expect(await countPurgeJobs("organization", victim.userId)).toBe(0);
 	});
 
 	test("returns committed organization IDs and clears stale active organization references", async () => {
@@ -233,6 +236,31 @@ describe("deletion data-loss hardening", () => {
 		`;
 		expect(victimOrganization).toBeUndefined();
 		expect(observerSession?.activeOrganizationId).toBeNull();
+		expect(await countPurgeJobs("account", victim.userId)).toBe(1);
+		expect(await countPurgeJobs("organization", victim.userId)).toBe(1);
+	});
+
+	test("queues organization cleanup for historical rows owned by a former member", async () => {
+		const victim = await createTestIdentity("historical-org-victim");
+		const formerMember = await createTestIdentity(
+			"historical-org-former-member",
+		);
+		const sessionId = `${TEST_RUN_ID}_historical_org_row`;
+		await ingestSession(sessionId, formerMember.userId, victim.userId);
+		CLICKHOUSE_SESSIONS.push({
+			organizationId: victim.userId,
+			sessionId,
+		});
+		expect(await waitForRawSession(formerMember.userId, sessionId)).toBe(true);
+
+		const result = await deleteUserPostgresData(victim.userId, { sqlClient });
+
+		expect(result.deletedOrganizationIds).toEqual([victim.userId]);
+		expect(await countPurgeJobs("account", victim.userId)).toBe(1);
+		expect(await countPurgeJobs("organization", victim.userId)).toBe(1);
+
+		await deleteOrgSessions(victim.userId);
+		expect(await countRawSessions(formerMember.userId, sessionId)).toBe(0);
 	});
 
 	test("does not purge account ClickHouse rows when the Postgres transaction cannot acquire its user lock", async () => {

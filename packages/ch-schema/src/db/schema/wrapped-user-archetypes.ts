@@ -50,20 +50,6 @@ const rudel_wrapped_user_archetype_snapshots_v1 = table({
 	primaryKey: [],
 	orderBy: ["snapshot_id", "organization_id", "user_id"],
 	partitionBy: "toYYYYMM(toDate(snapshot_created_at))",
-	indexes: [
-		{
-			name: "idx_purge_organization_id",
-			expression: "organization_id",
-			type: "bloom_filter",
-			granularity: 1,
-		},
-		{
-			name: "idx_purge_user_id",
-			expression: "user_id",
-			type: "bloom_filter",
-			granularity: 1,
-		},
-	],
 });
 
 const rudel_wrapped_user_archetype_runs_v1 = table({

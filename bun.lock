@@ -19,7 +19,7 @@
       "version": "0.0.0",
       "dependencies": {
         "@better-auth/api-key": "^1.5.4",
-        "@clickhouse/client": "^1.18.2",
+        "@clickhouse/client-web": "^1.11.0",
         "@logtape/file": "^2.0.4",
         "@logtape/logtape": "^2.0.4",
         "@orpc/server": "latest",
@@ -366,6 +366,8 @@
     "@clickhouse/client": ["@clickhouse/client@1.18.2", "", { "dependencies": { "@clickhouse/client-common": "1.18.2" } }, "sha512-fuquQswRSHWM6D079ZeuGqkMOsqtcUPL06UdTnowmoeeYjVrqisfVmvnw8pc3OeKS4kVb91oygb/MfLDiMs0TQ=="],
 
     "@clickhouse/client-common": ["@clickhouse/client-common@1.18.2", "", {}, "sha512-J0SG6q9V31ydxonglpj9xhNRsUxCsF71iEZ784yldqMYwsHixj/9xHFDgBDX3DuMiDx/kPDfXnf+pimp08wIBA=="],
+
+    "@clickhouse/client-web": ["@clickhouse/client-web@1.18.2", "", { "dependencies": { "@clickhouse/client-common": "1.18.2" } }, "sha512-+iFOVZKdsdqdpqc0pupcYuYJBA87f0pH3vROkmJ/xs7QY5C3kCEhcoipjPDjKkyfmYJNq3Ygv0ePbfYhWrmP9Q=="],
 
     "@csstools/color-helpers": ["@csstools/color-helpers@5.1.0", "", {}, "sha512-S11EXWJyy0Mz5SYvRmY8nJYTFFd1LCNV+7cXyAgQtOOuzb4EsgfqDufL+9esx72/eLhsRdGZwaldu/h+E4t4BA=="],
 

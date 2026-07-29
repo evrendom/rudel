@@ -1,4 +1,4 @@
-import { type ClickHouseSettings, createClient } from "@clickhouse/client";
+import { type ClickHouseSettings, createClient } from "@clickhouse/client-web";
 import { getLogger } from "@logtape/logtape";
 import { resolveClickHouseUsername } from "@rudel/ch-schema/connection";
 
@@ -19,7 +19,6 @@ export interface ClickHouseStatement {
 }
 
 export interface ClickHouseExecutor {
-	close(): Promise<void>;
 	execute(statement: ClickHouseStatement): Promise<void>;
 	query<T>(statement: ClickHouseStatement): Promise<T[]>;
 	insert(params: { table: string; values: object[] }): Promise<void>;
@@ -50,9 +49,6 @@ export function createClickHouseExecutor(config: {
 		},
 	});
 	return {
-		async close() {
-			await client.close();
-		},
 		async execute(statement: ClickHouseStatement) {
 			await client.command({
 				clickhouse_settings: statement.clickhouse_settings,
@@ -71,14 +67,11 @@ export function createClickHouseExecutor(config: {
 		},
 		async insert(params) {
 			const table = getSafeClickHouseTable(params.table);
-			await client.insert({
-				clickhouse_settings: {
-					async_insert: 1,
-					wait_for_async_insert: 1,
-				},
-				format: "JSONEachRow",
-				table,
-				values: params.values,
+			// Use command() with FORMAT JSONEachRow instead of client.insert()
+			// because ClickHouse Cloud's @clickhouse/client insert() silently drops data.
+			const rows = params.values.map((r) => JSON.stringify(r)).join("\n");
+			await client.command({
+				query: `INSERT INTO ${table} SETTINGS async_insert=1, wait_for_async_insert=1 FORMAT JSONEachRow ${rows}`,
 			});
 		},
 	};
@@ -130,12 +123,6 @@ export function getClickhouse(): ClickHouseExecutor {
 		};
 	}
 	return _clickhouse;
-}
-
-export async function shutdownClickhouse(): Promise<void> {
-	const clickhouse = _clickhouse;
-	_clickhouse = null;
-	await clickhouse?.close();
 }
 
 export function addOptionalStringEqFilter(

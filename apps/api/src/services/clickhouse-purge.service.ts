@@ -53,7 +53,7 @@ interface ClaimedPurgeJob {
 	leaseToken: string;
 	maxAttempts: number;
 	targetId: string;
-	targetType: "account" | "organization";
+	targetType: ClickHousePurgeTarget["targetType"];
 }
 
 interface ClaimedPurgeAlert extends ClickHousePurgeFailureAlert {
@@ -71,7 +71,7 @@ interface ClaimedPurgeAlertRow {
 	lastError: string | null;
 	leaseToken: string;
 	targetId: string;
-	targetType: "account" | "organization";
+	targetType: ClickHousePurgeTarget["targetType"];
 }
 
 export interface StartClickHousePurgeWorkerOptions {
@@ -242,7 +242,7 @@ async function claimNextPurgeJob(
 					status = 'running'
 					AND lease_expires_at <= NOW()
 				)
-				ORDER BY next_attempt_at ASC, created_at ASC
+				ORDER BY next_attempt_at ASC NULLS LAST, created_at ASC
 				FOR UPDATE SKIP LOCKED
 				LIMIT 1
 			`,
@@ -257,8 +257,12 @@ async function claimNextPurgeJob(
 				UPDATE clickhouse_purge_job
 				SET
 					status = 'running',
-					attempt_count = attempt_count + 1,
+					attempt_count = CASE
+						WHEN status = 'running' THEN attempt_count
+						ELSE attempt_count + 1
+					END,
 					last_attempt_at = NOW(),
+					next_attempt_at = NULL,
 					lease_token = $1,
 					lease_expires_at = NOW() + $2::bigint * INTERVAL '1 millisecond',
 					updated_at = NOW()
@@ -282,84 +286,194 @@ async function processClaimedPurgeJob(
 	job: ClaimedPurgeJob,
 	env: ClickHousePurgeProcessorEnv,
 ): Promise<void> {
+	const heartbeat = startPurgeLeaseHeartbeat(job, env);
+	let purgeError: unknown;
+
 	try {
 		await env.executePurge({
 			targetId: job.targetId,
 			targetType: job.targetType,
 		});
-		await markPurgeSucceeded(job, env);
-		logger.info(
-			"ClickHouse purge succeeded (job_id={jobId} target_type={targetType} target_id={targetId} attempts={attemptCount})",
-			{
-				attemptCount: job.attemptCount,
-				jobId: job.id,
-				targetId: job.targetId,
-				targetType: job.targetType,
-			},
-		);
 	} catch (error) {
-		const sanitizedError = sanitizeClickHousePurgeError(error);
-		await markPurgeFailedAttempt(job, sanitizedError, env);
+		purgeError = error;
+	}
 
-		if (job.attemptCount >= job.maxAttempts) {
-			logger.error(
-				"ClickHouse purge permanently failed (job_id={jobId} target_type={targetType} target_id={targetId} attempts={attemptCount} error={error})",
-				{
-					attemptCount: job.attemptCount,
-					error: sanitizedError,
-					jobId: job.id,
-					targetId: job.targetId,
-					targetType: job.targetType,
-				},
-			);
-			return;
-		}
+	const heartbeatError = await heartbeat.stop();
+	const error = purgeError ?? heartbeatError;
+	if (error !== undefined && error !== null) {
+		await handleClickHousePurgeFailure(job, error, env);
+		return;
+	}
 
+	const markedSucceeded = await markPurgeSucceeded(job, env);
+	if (!markedSucceeded) {
 		logger.warn(
-			"ClickHouse purge attempt failed and will retry (job_id={jobId} target_type={targetType} target_id={targetId} attempt={attemptCount}/{maxAttempts} error={error})",
+			"ClickHouse purge completed after its lease was lost; a current worker will confirm the idempotent purge (job_id={jobId})",
+			{ jobId: job.id },
+		);
+		return;
+	}
+
+	logger.info(
+		"ClickHouse purge succeeded (job_id={jobId} target_type={targetType} target_id={targetId} attempts={attemptCount})",
+		{
+			attemptCount: job.attemptCount,
+			jobId: job.id,
+			targetId: job.targetId,
+			targetType: job.targetType,
+		},
+	);
+}
+
+async function handleClickHousePurgeFailure(
+	job: ClaimedPurgeJob,
+	error: unknown,
+	env: ClickHousePurgeProcessorEnv,
+): Promise<void> {
+	const sanitizedError = sanitizeClickHousePurgeError(error);
+	const exhausted = job.attemptCount >= job.maxAttempts;
+	const nextAttemptAt = exhausted
+		? null
+		: new Date(
+				env.now().getTime() +
+					calculateExponentialBackoffWithJitter(job.attemptCount, env.random()),
+			);
+	const markedFailed = await markPurgeFailedAttempt(
+		job,
+		sanitizedError,
+		nextAttemptAt,
+		env,
+	);
+
+	if (!markedFailed) {
+		logger.warn(
+			"ClickHouse purge attempt finished after its lease was lost; state was left to the current worker (job_id={jobId})",
+			{ jobId: job.id },
+		);
+		return;
+	}
+
+	if (exhausted) {
+		logger.error(
+			"ClickHouse purge permanently failed (job_id={jobId} target_type={targetType} target_id={targetId} attempts={attemptCount} error={error})",
 			{
 				attemptCount: job.attemptCount,
 				error: sanitizedError,
 				jobId: job.id,
-				maxAttempts: job.maxAttempts,
 				targetId: job.targetId,
 				targetType: job.targetType,
 			},
 		);
+		return;
 	}
+
+	logger.warn(
+		"ClickHouse purge attempt failed and will retry (job_id={jobId} target_type={targetType} target_id={targetId} attempt={attemptCount}/{maxAttempts} error={error})",
+		{
+			attemptCount: job.attemptCount,
+			error: sanitizedError,
+			jobId: job.id,
+			maxAttempts: job.maxAttempts,
+			targetId: job.targetId,
+			targetType: job.targetType,
+		},
+	);
+}
+
+function startPurgeLeaseHeartbeat(
+	job: ClaimedPurgeJob,
+	env: ClickHousePurgeProcessorEnv,
+): { stop: () => Promise<Error | null> } {
+	const intervalMs = Math.max(25, Math.floor(env.leaseDurationMs / 3));
+	let activeHeartbeat = Promise.resolve();
+	let heartbeatError: Error | null = null;
+
+	const timer = setInterval(() => {
+		activeHeartbeat = activeHeartbeat.then(async () => {
+			if (heartbeatError) {
+				return;
+			}
+			try {
+				const renewed = await renewClickHousePurgeJobLease(
+					job,
+					env.leaseDurationMs,
+					env,
+				);
+				if (!renewed) {
+					heartbeatError = new Error(
+						"ClickHouse purge lease was lost during execution",
+					);
+				}
+			} catch (error) {
+				heartbeatError =
+					error instanceof Error
+						? error
+						: new Error("ClickHouse purge lease renewal failed");
+			}
+		});
+	}, intervalMs);
+	timer.unref();
+
+	return {
+		async stop() {
+			clearInterval(timer);
+			await activeHeartbeat;
+			return heartbeatError;
+		},
+	};
+}
+
+async function renewClickHousePurgeJobLease(
+	job: ClaimedPurgeJob,
+	leaseDurationMs: number,
+	env: ClickHousePurgeProcessorEnv,
+): Promise<boolean> {
+	const renewed = await env.sqlClient<Array<{ id: string }>>`
+		UPDATE clickhouse_purge_job
+		SET
+			lease_expires_at = NOW() + ${leaseDurationMs}::bigint * INTERVAL '1 millisecond',
+			updated_at = NOW()
+		WHERE id = ${job.id}
+			AND status = 'running'
+			AND lease_token = ${job.leaseToken}
+		RETURNING id
+	`;
+	return renewed.length === 1;
 }
 
 async function markPurgeSucceeded(
 	job: ClaimedPurgeJob,
 	env: ClickHousePurgeProcessorEnv,
-): Promise<void> {
-	await env.sqlClient`
+): Promise<boolean> {
+	const updated = await env.sqlClient<Array<{ id: string }>>`
 		UPDATE clickhouse_purge_job
 		SET
 			status = 'succeeded',
 			last_error = NULL,
-			next_attempt_at = NULL,
 			succeeded_at = NOW(),
 			lease_token = NULL,
 			lease_expires_at = NULL,
 			updated_at = NOW()
 		WHERE id = ${job.id}
+			AND status = 'running'
 			AND lease_token = ${job.leaseToken}
+		RETURNING id
 	`;
+	return updated.length === 1;
 }
 
 async function markPurgeFailedAttempt(
 	job: ClaimedPurgeJob,
 	sanitizedError: string,
+	nextAttemptAt: Date | null,
 	env: ClickHousePurgeProcessorEnv,
-): Promise<void> {
-	if (job.attemptCount >= job.maxAttempts) {
-		await env.sqlClient`
+): Promise<boolean> {
+	if (nextAttemptAt === null) {
+		const updated = await env.sqlClient<Array<{ id: string }>>`
 			UPDATE clickhouse_purge_job
 			SET
 				status = 'failed',
 				last_error = ${sanitizedError},
-				next_attempt_at = NULL,
 				failed_at = NOW(),
 				alert_status = 'pending',
 				alert_next_attempt_at = NOW(),
@@ -367,30 +481,28 @@ async function markPurgeFailedAttempt(
 				lease_expires_at = NULL,
 				updated_at = NOW()
 			WHERE id = ${job.id}
+				AND status = 'running'
 				AND lease_token = ${job.leaseToken}
+			RETURNING id
 		`;
-		return;
+		return updated.length === 1;
 	}
 
-	const retryDelayMs = calculateExponentialBackoffWithJitter(
-		job.attemptCount,
-		env.random(),
-	);
-	const nextAttemptAt = new Date(
-		env.now().getTime() + retryDelayMs,
-	).toISOString();
-	await env.sqlClient`
+	const updated = await env.sqlClient<Array<{ id: string }>>`
 		UPDATE clickhouse_purge_job
 		SET
 			status = 'retrying',
 			last_error = ${sanitizedError},
-			next_attempt_at = ${nextAttemptAt},
+			next_attempt_at = ${nextAttemptAt.toISOString()}::timestamptz,
 			lease_token = NULL,
 			lease_expires_at = NULL,
 			updated_at = NOW()
 		WHERE id = ${job.id}
+			AND status = 'running'
 			AND lease_token = ${job.leaseToken}
+		RETURNING id
 	`;
+	return updated.length === 1;
 }
 
 async function claimNextPurgeAlert(
@@ -414,7 +526,7 @@ async function claimNextPurgeAlert(
 							AND lease_expires_at <= NOW()
 						)
 					)
-				ORDER BY alert_next_attempt_at ASC, failed_at ASC
+				ORDER BY alert_next_attempt_at ASC NULLS LAST, failed_at ASC
 				FOR UPDATE SKIP LOCKED
 				LIMIT 1
 			`,
@@ -426,26 +538,27 @@ async function claimNextPurgeAlert(
 
 		const [claimed] = await transaction.unsafe<ClaimedPurgeAlertRow[]>(
 			`
-				UPDATE clickhouse_purge_job
-				SET
-					alert_status = 'sending',
-					alert_attempt_count = alert_attempt_count + 1,
-					lease_token = $1,
-					lease_expires_at = NOW() + $2::bigint * INTERVAL '1 millisecond',
-					updated_at = NOW()
-				WHERE id = $3
-				RETURNING
-					id,
-					target_type AS "targetType",
-					target_id AS "targetId",
-					attempt_count AS "attemptCount",
-					last_error AS "lastError",
-					created_at AS "createdAt",
-					last_attempt_at AS "lastAttemptAt",
-					failed_at AS "failedAt",
-					alert_attempt_count AS "alertAttemptCount",
-					lease_token AS "leaseToken"
-			`,
+					UPDATE clickhouse_purge_job
+					SET
+						alert_status = 'sending',
+						alert_attempt_count = alert_attempt_count + 1,
+						alert_next_attempt_at = NULL,
+						lease_token = $1,
+						lease_expires_at = NOW() + $2::bigint * INTERVAL '1 millisecond',
+						updated_at = NOW()
+					WHERE id = $3
+					RETURNING
+						id,
+						target_type AS "targetType",
+						target_id AS "targetId",
+						attempt_count AS "attemptCount",
+						last_error AS "lastError",
+						created_at AS "createdAt",
+						last_attempt_at AS "lastAttemptAt",
+						failed_at AS "failedAt",
+						alert_attempt_count AS "alertAttemptCount",
+						lease_token AS "leaseToken"
+				`,
 			[leaseToken, env.leaseDurationMs, candidate.id],
 		);
 
@@ -478,19 +591,28 @@ async function processClaimedPurgeAlert(
 ): Promise<void> {
 	try {
 		await env.sendFailureAlert(alert);
-		await env.sqlClient`
+		const updated = await env.sqlClient<Array<{ id: string }>>`
 			UPDATE clickhouse_purge_job
 			SET
 				alert_status = 'sent',
 				alert_last_error = NULL,
-				alert_next_attempt_at = NULL,
 				alert_sent_at = NOW(),
 				lease_token = NULL,
 				lease_expires_at = NULL,
 				updated_at = NOW()
 			WHERE id = ${alert.id}
+				AND status = 'failed'
+				AND alert_status = 'sending'
 				AND lease_token = ${alert.leaseToken}
+			RETURNING id
 		`;
+		if (updated.length === 0) {
+			logger.warn(
+				"ClickHouse purge alert was accepted after its lease was lost; the stable provider idempotency key will deduplicate recovery (job_id={jobId})",
+				{ jobId: alert.id },
+			);
+			return;
+		}
 		logger.info("ClickHouse purge failure alert sent (job_id={jobId})", {
 			jobId: alert.id,
 		});
@@ -505,19 +627,28 @@ async function processClaimedPurgeAlert(
 		const nextAttemptAt = new Date(
 			env.now().getTime() + retryDelayMs,
 		).toISOString();
-
-		await env.sqlClient`
+		const updated = await env.sqlClient<Array<{ id: string }>>`
 			UPDATE clickhouse_purge_job
 			SET
 				alert_status = 'retrying',
 				alert_last_error = ${sanitizedError},
-				alert_next_attempt_at = ${nextAttemptAt},
+				alert_next_attempt_at = ${nextAttemptAt}::timestamptz,
 				lease_token = NULL,
 				lease_expires_at = NULL,
 				updated_at = NOW()
 			WHERE id = ${alert.id}
+				AND status = 'failed'
+				AND alert_status = 'sending'
 				AND lease_token = ${alert.leaseToken}
+			RETURNING id
 		`;
+		if (updated.length === 0) {
+			logger.warn(
+				"ClickHouse purge alert attempt finished after its lease was lost; state was left to the current worker (job_id={jobId})",
+				{ jobId: alert.id },
+			);
+			return;
+		}
 		logger.error(
 			"ClickHouse purge failure alert delivery failed and will retry (job_id={jobId} error={error})",
 			{ error: sanitizedError, jobId: alert.id },

@@ -26,11 +26,13 @@ CREATE TABLE "clickhouse_purge_job" (
 	CONSTRAINT "clickhouse_purge_job_alert_status_check"
 		CHECK ("alert_status" IN ('not_required', 'pending', 'sending', 'retrying', 'sent')),
 	CONSTRAINT "clickhouse_purge_job_attempt_count_check"
-		CHECK ("attempt_count" >= 0),
+		CHECK ("attempt_count" >= 0 AND "attempt_count" <= "max_attempts"),
 	CONSTRAINT "clickhouse_purge_job_max_attempts_check"
 		CHECK ("max_attempts" > 0),
 	CONSTRAINT "clickhouse_purge_job_alert_attempt_count_check"
-		CHECK ("alert_attempt_count" >= 0)
+		CHECK ("alert_attempt_count" >= 0),
+	CONSTRAINT "clickhouse_purge_job_target_id_check"
+		CHECK (length(btrim("target_id")) > 0)
 );
 --> statement-breakpoint
 CREATE UNIQUE INDEX "clickhouse_purge_job_target_unique"

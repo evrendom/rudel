@@ -1,4 +1,4 @@
-import type { ColumnDefinition, SkipIndexDefinition } from "@chkit/core";
+import type { ColumnDefinition } from "@chkit/core";
 
 export const baseSessionColumns: ColumnDefinition[] = [
 	{
@@ -35,20 +35,6 @@ export const baseSessionTableConfig = {
 	orderBy: ["organization_id", "session_date", "session_id"],
 	partitionBy: "toYYYYMM(toDate(session_date))",
 	ttl: "toDate(session_date) + toIntervalDay(365)",
-	indexes: [
-		{
-			name: "idx_purge_organization_id",
-			expression: "organization_id",
-			type: "bloom_filter",
-			granularity: 4,
-		},
-		{
-			name: "idx_purge_user_id",
-			expression: "user_id",
-			type: "bloom_filter",
-			granularity: 4,
-		},
-	] satisfies SkipIndexDefinition[],
 	settings: {
 		index_granularity: "8192" as const,
 		storage_policy: "'s3'" as const,

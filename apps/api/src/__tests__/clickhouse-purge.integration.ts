@@ -1,18 +1,11 @@
-import {
-	afterAll,
-	afterEach,
-	describe,
-	expect,
-	setDefaultTimeout,
-	test,
-} from "bun:test";
+import { afterEach, describe, expect, setDefaultTimeout, test } from "bun:test";
 import {
 	createClickHouseExecutor,
 	getSafeClickHouseTable,
 } from "../clickhouse.js";
 import { sqlClient } from "../db.js";
+import type { ClickHousePurgeFailureAlertData } from "../email.js";
 import {
-	type ClickHousePurgeFailureAlert,
 	type ClickHousePurgeProcessorEnv,
 	type ClickHousePurgeTarget,
 	calculateExponentialBackoffWithJitter,
@@ -39,10 +32,6 @@ afterEach(async () => {
 	`;
 });
 
-afterAll(async () => {
-	await unavailableClickHouse.close();
-});
-
 describe("durable ClickHouse purge worker", () => {
 	test("retries a transient failure and records success after ClickHouse recovers", async () => {
 		const target: ClickHousePurgeTarget = {
@@ -50,17 +39,23 @@ describe("durable ClickHouse purge worker", () => {
 			targetType: "organization",
 		};
 		await enqueue(target, 3);
+		const retryBaseTime = Date.now();
+		const failingEnv = createProcessorEnv(
+			executeUnavailablePurge,
+			rejectUnexpectedAlert,
+		);
+		failingEnv.now = () => new Date(retryBaseTime);
 
-		expect(
-			await runClickHousePurgeWorkerOnce(
-				createProcessorEnv(executeUnavailablePurge, rejectUnexpectedAlert),
-			),
-		).toBe(true);
-		expect(await getPurgeJob(target)).toEqual(
+		expect(await runClickHousePurgeWorkerOnce(failingEnv)).toBe(true);
+		const retryingJob = await getPurgeJob(target);
+		expect(retryingJob).toEqual(
 			expect.objectContaining({
 				attemptCount: 1,
 				status: "retrying",
 			}),
+		);
+		expect(new Date(retryingJob?.nextAttemptAt ?? 0).getTime()).toBe(
+			retryBaseTime + 5_625,
 		);
 
 		await makePurgeDue(target);
@@ -79,7 +74,7 @@ describe("durable ClickHouse purge worker", () => {
 		);
 	});
 
-	test("recovers an expired running lease after a worker restart", async () => {
+	test("recovers an expired running lease without double-counting the attempt", async () => {
 		const target: ClickHousePurgeTarget = {
 			targetId: `${TEST_RUN_ID}_restart`,
 			targetType: "organization",
@@ -104,7 +99,7 @@ describe("durable ClickHouse purge worker", () => {
 				'running',
 				1,
 				3,
-				TIMESTAMPTZ '1970-01-01 00:00:00+00',
+				NULL,
 				NOW() - INTERVAL '2 minutes',
 				'abandoned-worker',
 				NOW() - INTERVAL '1 minute'
@@ -118,8 +113,73 @@ describe("durable ClickHouse purge worker", () => {
 		).toBe(true);
 		expect(await getPurgeJob(target)).toEqual(
 			expect.objectContaining({
-				attemptCount: 2,
+				attemptCount: 1,
 				status: "succeeded",
+			}),
+		);
+	});
+
+	test("renews the lease while a slow purge is still running", async () => {
+		const target: ClickHousePurgeTarget = {
+			targetId: `${TEST_RUN_ID}_heartbeat`,
+			targetType: "organization",
+		};
+		const started = createSignal();
+		const release = createSignal();
+		let executionCount = 0;
+		const slowEnv = createProcessorEnv(async () => {
+			executionCount += 1;
+			started.release();
+			await release.wait;
+		}, rejectUnexpectedAlert);
+		slowEnv.leaseDurationMs = 90;
+		await enqueue(target, 3);
+
+		const firstRun = runClickHousePurgeWorkerOnce(slowEnv);
+		await started.wait;
+		await Bun.sleep(180);
+
+		const secondProcessed = await runClickHousePurgeWorkerOnce(
+			createProcessorEnv(async () => {
+				executionCount += 1;
+			}, rejectUnexpectedAlert),
+		);
+		expect(secondProcessed).toBe(false);
+
+		release.release();
+		expect(await firstRun).toBe(true);
+		expect(executionCount).toBe(1);
+		expect(await getPurgeJob(target)).toEqual(
+			expect.objectContaining({
+				attemptCount: 1,
+				status: "succeeded",
+			}),
+		);
+	});
+
+	test("does not overwrite state after losing a lease", async () => {
+		const target: ClickHousePurgeTarget = {
+			targetId: `${TEST_RUN_ID}_lost_lease`,
+			targetType: "account",
+		};
+		await enqueue(target, 3);
+		const env = createProcessorEnv(async () => {
+			await sqlClient`
+				UPDATE clickhouse_purge_job
+				SET
+					lease_token = 'replacement-worker',
+					lease_expires_at = NOW() + INTERVAL '1 minute'
+				WHERE target_type = ${target.targetType}
+					AND target_id = ${target.targetId}
+			`;
+		}, rejectUnexpectedAlert);
+
+		expect(await runClickHousePurgeWorkerOnce(env)).toBe(true);
+		expect(await getPurgeJob(target)).toEqual(
+			expect.objectContaining({
+				attemptCount: 1,
+				leaseToken: "replacement-worker",
+				status: "running",
 			}),
 		);
 	});
@@ -129,7 +189,7 @@ describe("durable ClickHouse purge worker", () => {
 			targetId: `${TEST_RUN_ID}_exhausted`,
 			targetType: "account",
 		};
-		const alerts: ClickHousePurgeFailureAlert[] = [];
+		const alerts: ClickHousePurgeFailureAlertData[] = [];
 		const env = createProcessorEnv(executeUnavailablePurge, async (alert) => {
 			alerts.push(alert);
 		});
@@ -178,7 +238,7 @@ describe("durable ClickHouse purge worker", () => {
 		expect(await runClickHousePurgeWorkerOnce(env)).toBe(true);
 		await enqueue(target, 3);
 		expect(await runClickHousePurgeWorkerOnce(env)).toBe(false);
-		await deleteUserSessions(target.targetId);
+		await executeLivePurge(target);
 
 		expect(await countPurgeJobs(target)).toBe(1);
 		expect(await getPurgeJob(target)).toEqual(
@@ -216,7 +276,7 @@ describe("ClickHouse purge error sanitization", () => {
 
 function createProcessorEnv(
 	executePurge: (target: ClickHousePurgeTarget) => Promise<void>,
-	sendFailureAlert: (alert: ClickHousePurgeFailureAlert) => Promise<void>,
+	sendFailureAlert: (alert: ClickHousePurgeFailureAlertData) => Promise<void>,
 ): ClickHousePurgeProcessorEnv {
 	return {
 		executePurge,
@@ -285,6 +345,8 @@ interface PurgeJobRow {
 	failedAt: Date | string | null;
 	lastAttemptAt: Date | string | null;
 	lastError: string | null;
+	leaseToken: string | null;
+	nextAttemptAt: Date | string | null;
 	status: string;
 }
 
@@ -296,10 +358,12 @@ async function getPurgeJob(
 			status,
 			attempt_count AS "attemptCount",
 			last_error AS "lastError",
+			next_attempt_at AS "nextAttemptAt",
 			last_attempt_at AS "lastAttemptAt",
 			failed_at AS "failedAt",
 			alert_status AS "alertStatus",
-			alert_attempt_count AS "alertAttemptCount"
+			alert_attempt_count AS "alertAttemptCount",
+			lease_token AS "leaseToken"
 		FROM clickhouse_purge_job
 		WHERE target_type = ${target.targetType}
 			AND target_id = ${target.targetId}
@@ -322,4 +386,12 @@ function expectValidTimestamp(value: Date | string | null | undefined): void {
 	expect(value).not.toBeUndefined();
 	const timestamp = value instanceof Date ? value : new Date(value ?? "");
 	expect(Number.isNaN(timestamp.getTime())).toBe(false);
+}
+
+function createSignal(): { release: () => void; wait: Promise<void> } {
+	let releaseSignal: () => void = () => {};
+	const wait = new Promise<void>((resolve) => {
+		releaseSignal = resolve;
+	});
+	return { release: releaseSignal, wait };
 }

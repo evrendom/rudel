@@ -9,15 +9,15 @@
 		"resolve:session-ownership": "bun src/scripts/resolve-session-ownership.ts",
 		"check-types": "tsc --noEmit",
 		"test": "bun test",
-		"test:clickhouse": "bun test --preload ./src/__tests__/helpers/local-integration-guard.ts ./src/__tests__/clickhouse.integration.ts ./src/__tests__/clickhouse-purge-schema.integration.ts",
-		"test:integration": "bun test --preload ./src/__tests__/helpers/local-integration-guard.ts --max-concurrency=1 ./src/__tests__/ingest-clickhouse.integration.ts ./src/__tests__/ingest-rate-limit.integration.ts ./src/__tests__/session-ingest-content.integration.ts ./src/__tests__/clickhouse.integration.ts ./src/__tests__/clickhouse-credentials.integration.ts ./src/__tests__/clickhouse-purge.integration.ts ./src/__tests__/clickhouse-purge-schema.integration.ts ./src/__tests__/delete-sessions.integration.ts ./src/__tests__/deletion-data-loss.integration.ts ./src/__tests__/session-sharing.integration.ts ./src/__tests__/session-analytics-values.integration.ts ./src/__tests__/team-invite-link.integration.ts ./src/__tests__/wrapped-share-rate-limit.integration.ts ./src/__tests__/wrapped-share-resource-budget.integration.ts",
+		"test:clickhouse": "bun test --preload ./src/__tests__/helpers/local-integration-guard.ts ./src/__tests__/clickhouse.integration.ts",
+		"test:integration": "bun test --preload ./src/__tests__/helpers/local-integration-guard.ts --max-concurrency=1 ./src/__tests__/ingest-clickhouse.integration.ts ./src/__tests__/ingest-rate-limit.integration.ts ./src/__tests__/session-ingest-content.integration.ts ./src/__tests__/clickhouse.integration.ts ./src/__tests__/clickhouse-credentials.integration.ts ./src/__tests__/clickhouse-purge.integration.ts ./src/__tests__/delete-sessions.integration.ts ./src/__tests__/deletion-data-loss.integration.ts ./src/__tests__/session-sharing.integration.ts ./src/__tests__/session-analytics-values.integration.ts ./src/__tests__/team-invite-link.integration.ts ./src/__tests__/wrapped-share-rate-limit.integration.ts ./src/__tests__/wrapped-share-resource-budget.integration.ts",
 		"test:analytics": "bun test src/__tests__/session-analytics-values.integration.ts",
 		"test:migrate": "bun test src/__tests__/migrate-sessions.integration.ts",
 		"test:delete-sessions": "bun test --preload ./src/__tests__/helpers/local-integration-guard.ts ./src/__tests__/delete-sessions.integration.ts"
 	},
 	"dependencies": {
 		"@better-auth/api-key": "^1.5.4",
-		"@clickhouse/client": "^1.18.2",
+		"@clickhouse/client-web": "^1.11.0",
 		"@logtape/file": "^2.0.4",
 		"@logtape/logtape": "^2.0.4",
 		"@orpc/server": "latest",

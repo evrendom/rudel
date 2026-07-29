@@ -1,4 +1,4 @@
-import type { ClickHouseSettings } from "@clickhouse/client";
+import type { ClickHouseSettings } from "@clickhouse/client-web";
 import { getAllAdapters } from "@rudel/agent-adapters";
 import type postgres from "postgres";
 import { getClickhouse, getSafeClickHouseTable } from "../clickhouse.js";
