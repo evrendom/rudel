@@ -41,7 +41,12 @@ interface MessageContentProps {
 
 type TextPart =
 	| { type: "text"; content: string }
-	| { type: "code"; content: string; language?: string }
+	| {
+			type: "code";
+			content: string;
+			language?: string;
+			highlight: boolean;
+	  }
 	| {
 			type: "xml";
 			tag: string;
@@ -49,6 +54,11 @@ type TextPart =
 	  };
 
 export const MAX_RENDERED_MESSAGE_CODE_UNITS = 256 * 1024;
+export const MAX_RENDERED_MESSAGE_PARTS = 100;
+export const MAX_HIGHLIGHTED_MESSAGE_CODE_UNITS = 4 * 1024;
+
+const FORMATTING_LIMIT_NOTICE =
+	"[Remaining message shown as plain text because it contains too many formatted parts]";
 
 /**
  * Format an XML tag name into a human-readable label.
@@ -65,7 +75,8 @@ function formatTagLabel(tag: string): string {
  */
 function parseXmlEntries(
 	innerContent: string,
-): Array<{ key: string; value: string }> {
+	maxEntries: number,
+): Array<{ key: string; value: string }> | null {
 	const entries: Array<{ key: string; value: string }> = [];
 	let cursor = 0;
 
@@ -92,6 +103,10 @@ function parseXmlEntries(
 			break;
 		}
 
+		if (entries.length === maxEntries) {
+			return null;
+		}
+
 		entries.push({
 			key: tag,
 			value: innerContent.slice(openingTagEnd + 1, closingTagStart).trim(),
@@ -102,6 +117,9 @@ function parseXmlEntries(
 	if (entries.length === 0) {
 		const trimmedContent = innerContent.trim();
 		if (trimmedContent) {
+			if (maxEntries === 0) {
+				return null;
+			}
 			entries.push({ key: "content", value: trimmedContent });
 		}
 	}
@@ -125,6 +143,8 @@ export function parseMessageText(text: string): Array<TextPart> {
 	}
 
 	const parts: Array<TextPart> = [];
+	let highlightedCodeUnits = 0;
+	let renderedPartCount = 0;
 	let plainTextStart = 0;
 	let cursor = 0;
 
@@ -142,12 +162,35 @@ export function parseMessageText(text: string): Array<TextPart> {
 				continue;
 			}
 
-			appendTextPart(parts, text.slice(plainTextStart, cursor));
+			const precedingText = createTextPart(text.slice(plainTextStart, cursor));
+			const partsToAdd = precedingText ? 2 : 1;
+
+			// Keep one final part available for the unformatted remainder.
+			if (renderedPartCount + partsToAdd >= MAX_RENDERED_MESSAGE_PARTS) {
+				appendFormattingFallback(parts, text.slice(plainTextStart));
+				return parts;
+			}
+
+			if (precedingText) {
+				parts.push(precedingText);
+				renderedPartCount += 1;
+			}
+			const codeContent = text.slice(codeBlock.contentStart, closingFenceStart);
+			const highlight =
+				codeBlock.language !== "text" &&
+				highlightedCodeUnits + codeContent.length <=
+					MAX_HIGHLIGHTED_MESSAGE_CODE_UNITS;
+
 			parts.push({
 				type: "code",
-				content: text.slice(codeBlock.contentStart, closingFenceStart),
+				content: codeContent,
 				language: codeBlock.language,
+				highlight,
 			});
+			if (highlight) {
+				highlightedCodeUnits += codeContent.length;
+			}
+			renderedPartCount += 1;
 			cursor = closingFenceStart + 3;
 			plainTextStart = cursor;
 			continue;
@@ -175,19 +218,43 @@ export function parseMessageText(text: string): Array<TextPart> {
 			break;
 		}
 
-		appendTextPart(parts, text.slice(plainTextStart, cursor));
+		const precedingText = createTextPart(text.slice(plainTextStart, cursor));
+		const precedingTextCost = precedingText ? 1 : 0;
+		// Reserve one part each for the XML wrapper and unformatted remainder.
+		const availableEntryParts =
+			MAX_RENDERED_MESSAGE_PARTS - renderedPartCount - precedingTextCost - 2;
+
+		if (availableEntryParts < 0) {
+			appendFormattingFallback(parts, text.slice(plainTextStart));
+			return parts;
+		}
+
 		const entries = parseXmlEntries(
 			text.slice(openingTagEnd + 1, closingTagStart),
+			availableEntryParts,
 		);
+		if (!entries) {
+			appendFormattingFallback(parts, text.slice(plainTextStart));
+			return parts;
+		}
+
+		if (precedingText) {
+			parts.push(precedingText);
+			renderedPartCount += 1;
+		}
 		if (entries.length > 0) {
 			parts.push({ type: "xml", tag, entries });
+			renderedPartCount += entries.length + 1;
 		}
 
 		cursor = closingTagStart + closingTag.length;
 		plainTextStart = cursor;
 	}
 
-	appendTextPart(parts, text.slice(plainTextStart));
+	const trailingText = createTextPart(text.slice(plainTextStart));
+	if (trailingText) {
+		parts.push(trailingText);
+	}
 
 	if (parts.length === 0 && text.trim()) {
 		parts.push({ type: "text", content: text.trim() });
@@ -196,11 +263,23 @@ export function parseMessageText(text: string): Array<TextPart> {
 	return parts;
 }
 
-function appendTextPart(parts: TextPart[], text: string) {
+function createTextPart(text: string): TextPart | null {
 	const content = text.trim();
-	if (content) {
-		parts.push({ type: "text", content });
+
+	if (!content) {
+		return null;
 	}
+
+	return { type: "text", content };
+}
+
+function appendFormattingFallback(parts: TextPart[], text: string) {
+	const remainingText = text.trim();
+	const content = remainingText
+		? `${FORMATTING_LIMIT_NOTICE}\n\n${remainingText}`
+		: FORMATTING_LIMIT_NOTICE;
+
+	parts.push({ type: "text", content });
 }
 
 function readCodeBlockStart(
@@ -356,6 +435,7 @@ function renderPlainText(text: string, key: string) {
 							key={partIdx}
 							code={part.content}
 							language={part.language}
+							highlight={part.highlight}
 						/>
 					);
 				}

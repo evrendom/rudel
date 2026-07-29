@@ -16,7 +16,7 @@
 		"check-types": "turbo run check-types",
 		"test": "turbo run test",
 		"test:integration": "turbo run test:integration --concurrency=1",
-		"verify": "bun scripts/check-disclosure.ts && turbo run lint check-types test build",
+		"verify": "bun scripts/check-disclosure.ts && turbo run lint check-types test build && bun run --cwd apps/web test:browser",
 		"release:cli": "bun run ./scripts/release-cli.ts",
 		"deploy": "turbo run build",
 		"dev:local": "bash scripts/dev-local.sh",
@@ -27,6 +27,7 @@
 	},
 	"devDependencies": {
 		"@biomejs/biome": "^2.4.0",
+		"@playwright/test": "1.61.0",
 		"turbo": "^2.8.9",
 		"typescript": "5.9.2"
 	},

@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import { describe, expect, it } from "vitest";
 import {
+	MAX_HIGHLIGHTED_MESSAGE_CODE_UNITS,
 	MAX_RENDERED_MESSAGE_CODE_UNITS,
+	MAX_RENDERED_MESSAGE_PARTS,
 	parseMessageText,
 } from "./MessageContent";
 
@@ -25,6 +27,7 @@ After
 				type: "code",
 				content: "const answer = 42;\n",
 				language: "ts",
+				highlight: true,
 			},
 			{
 				type: "xml",
@@ -55,6 +58,45 @@ After
 		expect(part.content.length).toBeLessThan(
 			MAX_RENDERED_MESSAGE_CODE_UNITS + 100,
 		);
+	});
+
+	it("shows excess code blocks as one plain-text remainder", () => {
+		const codeBlock = "```js\nconst value = 1;\n```";
+		const input = codeBlock.repeat(MAX_RENDERED_MESSAGE_PARTS * 2);
+		const parts = parseMessageText(input);
+		const lastPart = parts.at(-1);
+
+		assert(lastPart?.type === "text");
+		expect(parts).toHaveLength(MAX_RENDERED_MESSAGE_PARTS);
+		expect(parts.filter((part) => part.type === "code")).toHaveLength(
+			MAX_RENDERED_MESSAGE_PARTS - 1,
+		);
+		expect(lastPart.content).toContain("shown as plain text");
+		expect(lastPart.content).toContain(codeBlock);
+	});
+
+	it("counts nested XML fields against the rendered-part budget", () => {
+		const innerContent = "<field>value</field>".repeat(
+			MAX_RENDERED_MESSAGE_PARTS,
+		);
+		const input = `<metadata>${innerContent}</metadata>`;
+		const [part] = parseMessageText(input);
+
+		assert(part?.type === "text");
+		expect(part.content).toContain("shown as plain text");
+		expect(part.content).toContain(input);
+	});
+
+	it("bounds syntax highlighting across code blocks", () => {
+		const code = "x".repeat(MAX_HIGHLIGHTED_MESSAGE_CODE_UNITS);
+		const codeBlock = `\`\`\`js\n${code}\`\`\``;
+		const parts = parseMessageText(codeBlock.repeat(2));
+		const [firstPart, secondPart] = parts;
+
+		assert(firstPart?.type === "code");
+		assert(secondPart?.type === "code");
+		expect(firstPart.highlight).toBe(true);
+		expect(secondPart.highlight).toBe(false);
 	});
 
 	it("scales approximately linearly for unmatched markup prefixes", () => {

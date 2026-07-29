@@ -5,14 +5,18 @@ import { cn } from "@/lib/utils";
 interface CodeBlockProps {
 	code: string;
 	language?: string;
+	highlight?: boolean;
 	className?: string;
 }
 
 export function CodeBlock({
 	code,
 	language = "text",
+	highlight = true,
 	className,
 }: CodeBlockProps) {
+	const syntaxLanguage = highlight ? language : "text";
+
 	return (
 		<div
 			className={cn(
@@ -29,7 +33,7 @@ export function CodeBlock({
 			)}
 			<div className="overflow-x-auto max-w-full">
 				<SyntaxHighlighter
-					language={language}
+					language={syntaxLanguage}
 					style={vscDarkPlus}
 					customStyle={{
 						margin: 0,
@@ -40,7 +44,7 @@ export function CodeBlock({
 						background: "transparent",
 						backgroundColor: "transparent",
 					}}
-					showLineNumbers={language !== "text"}
+					showLineNumbers={syntaxLanguage !== "text"}
 					wrapLines={false}
 					wrapLongLines={false}
 				>
