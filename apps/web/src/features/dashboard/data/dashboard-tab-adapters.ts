@@ -5,13 +5,14 @@ import type {
 	UserDailyTrendData,
 	UserTokenUsageData,
 } from "@rudel/api-routes";
-import { eachDayOfInterval, format, parseISO } from "date-fns";
+import { format, parseISO } from "date-fns";
 import type { DashboardRepositorySummaryRow } from "@/features/dashboard/data/dashboard-repository-trend";
 import type {
 	DashboardDailyPatternPoint,
 	DashboardDeltaTone,
 	DashboardHeadlineMetric,
 } from "@/features/dashboard/data/dashboard-static-data";
+import { expandAnalyticsDateRange } from "@/lib/analytics-date-range";
 import { calculateCost, formatCompactWholeCurrency } from "@/lib/format";
 
 export type DashboardTokenDailyPoint = {
@@ -83,29 +84,6 @@ function getDeltaTone(
 	return isPositive ? "positive" : "negative";
 }
 
-function buildDateRange(startDate: string, endDate: string) {
-	const parsedStartDate = parseISO(startDate);
-	const parsedEndDate = parseISO(endDate);
-
-	if (
-		Number.isNaN(parsedStartDate.getTime()) ||
-		Number.isNaN(parsedEndDate.getTime())
-	) {
-		return [];
-	}
-
-	return eachDayOfInterval({
-		start:
-			parsedStartDate.getTime() <= parsedEndDate.getTime()
-				? parsedStartDate
-				: parsedEndDate,
-		end:
-			parsedStartDate.getTime() <= parsedEndDate.getTime()
-				? parsedEndDate
-				: parsedStartDate,
-	});
-}
-
 function normalizeDateKey(value: string) {
 	if (/^\d{4}-\d{2}-\d{2}$/u.test(value)) {
 		return value;
@@ -125,7 +103,7 @@ function buildDailyPattern(
 	endDate: string,
 	rowsByDate: Map<string, { commits: number; sessions: number }>,
 ): DashboardDailyPatternPoint[] {
-	return buildDateRange(startDate, endDate).map((date) => {
+	return expandAnalyticsDateRange(startDate, endDate).map((date) => {
 		const isoDate = format(date, "yyyy-MM-dd");
 		const row = rowsByDate.get(isoDate);
 		const sessions = row?.sessions ?? null;
@@ -230,7 +208,7 @@ export function buildDashboardRepositoryDailyOverviewRows(
 		rowsByDate.set(dateKey, currentRow);
 	}
 
-	return buildDateRange(startDate, endDate).map((date) => {
+	return expandAnalyticsDateRange(startDate, endDate).map((date) => {
 		const isoDate = format(date, "yyyy-MM-dd");
 		const row = rowsByDate.get(isoDate);
 		const sessions = row?.sessions ?? 0;
@@ -459,7 +437,7 @@ export function buildDashboardTokenDailyPattern(
 		}
 	}
 
-	return buildDateRange(startDate, endDate).map((date) => {
+	return expandAnalyticsDateRange(startDate, endDate).map((date) => {
 		const isoDate = format(date, "yyyy-MM-dd");
 		const sessions = sessionsByDate.get(isoDate) ?? 0;
 		const tokensRow = tokensByDate.get(isoDate) ?? {
