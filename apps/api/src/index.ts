@@ -12,6 +12,7 @@ import {
 } from "./handlers/avatar-http.js";
 import {
 	readBetterAuthSecret,
+	readBooleanEnv,
 	readCliDeviceVerificationUrl,
 	readNonNegativeSafeIntegerEnv,
 	readPositiveSafeIntegerEnv,
@@ -22,6 +23,7 @@ import { setupLogging } from "./logging.js";
 import type { ApiKeyAuthFailure } from "./middleware.js";
 import { getWrappedShareLookupRateLimitMetrics } from "./rate-limit.js";
 import { router } from "./router.js";
+import { startClickHousePurgeWorker } from "./services/clickhouse-purge.service.js";
 import {
 	getPublicWrappedShareForPageMetadata,
 	getPublicWrappedShareWithSocialImage,
@@ -242,6 +244,12 @@ const server = Bun.serve({
 		);
 	},
 });
+const clickHousePurgeWorker = readBooleanEnv(
+	"CLICKHOUSE_PURGE_WORKER_ENABLED",
+	true,
+)
+	? startClickHousePurgeWorker({ resend })
+	: undefined;
 
 function resolveAuthAppURL(input: {
 	defaultDevApiOrigin: string;
@@ -292,7 +300,10 @@ async function shutdown(signal?: string) {
 	}
 	isShuttingDown = true;
 
-	await shutdownApiProductAnalytics();
+	await Promise.all([
+		shutdownApiProductAnalytics(),
+		clickHousePurgeWorker?.stop(),
+	]);
 
 	if (signal) {
 		server.stop(true);

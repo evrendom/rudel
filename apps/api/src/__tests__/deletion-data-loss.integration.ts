@@ -43,7 +43,6 @@ interface CountRow {
 
 let server: ApiTestServer;
 let lockTimeoutServer: ApiTestServer;
-let clickHouseFailureServer: ApiTestServer;
 
 setDefaultTimeout(120_000);
 
@@ -53,15 +52,11 @@ beforeAll(async () => {
 	lockTimeoutServer = await startApiTestServer({
 		PG_CONNECTION_STRING: withLockTimeout(connectionString, 250),
 	});
-	clickHouseFailureServer = await startApiTestServer({
-		CLICKHOUSE_URL: "http://127.0.0.1:1",
-	});
 });
 
 afterAll(async () => {
 	await server?.stop();
 	await lockTimeoutServer?.stop();
-	await clickHouseFailureServer?.stop();
 
 	await Promise.all(
 		CLICKHOUSE_SESSIONS.map((session) =>
@@ -79,6 +74,10 @@ afterAll(async () => {
 		);
 	}
 	if (USER_IDS.length > 0) {
+		await sqlClient.unsafe(
+			"DELETE FROM clickhouse_purge_job WHERE target_id = ANY($1::text[])",
+			[[...USER_IDS, ...ORGANIZATION_IDS]],
+		);
 		await sqlClient.unsafe(
 			"DELETE FROM apikey WHERE reference_id = ANY($1::text[])",
 			[USER_IDS],
@@ -140,6 +139,16 @@ describe("deletion data-loss hardening", () => {
 			WHERE user_id = ${identity.userId}
 		`;
 		expect(membershipSummary?.count).toBe(1);
+		const purgeJobs = await sqlClient<
+			Array<{ status: string; targetId: string }>
+		>`
+			SELECT target_id AS "targetId", status
+			FROM clickhouse_purge_job
+			WHERE target_type = 'organization'
+				AND target_id IN (${identity.userId}, ${secondOrganizationId})
+		`;
+		expect(purgeJobs).toHaveLength(1);
+		expect(purgeJobs[0]?.status).toBe("pending");
 	});
 
 	test("preserves a candidate organization that gains another member before account deletion commits", async () => {
@@ -262,6 +271,7 @@ describe("deletion data-loss hardening", () => {
 			SELECT id FROM "user" WHERE id = ${identity.userId}
 		`;
 		expect(user?.id).toBe(identity.userId);
+		expect(await countPurgeJobs("account", identity.userId)).toBe(0);
 	});
 
 	test("does not purge organization ClickHouse rows when the Postgres transaction cannot acquire its user lock", async () => {
@@ -304,26 +314,41 @@ describe("deletion data-loss hardening", () => {
 			SELECT id FROM organization WHERE id = ${targetOrganizationId}
 		`;
 		expect(organization?.id).toBe(targetOrganizationId);
+		expect(await countPurgeJobs("organization", targetOrganizationId)).toBe(0);
 	});
 
-	test("commits account deletion and logs each table when ClickHouse is unreachable", async () => {
-		const identity = await createTestIdentity("clickhouse-failure");
+	test("commits account deletion with an explicit pending ClickHouse cleanup job", async () => {
+		const identity = await createTestIdentity("clickhouse-pending");
 
-		const response = await callRpc(
-			identity.token,
-			"profile/deleteMine",
-			undefined,
-			clickHouseFailureServer.baseUrl,
-		);
+		const response = await callRpc(identity.token, "profile/deleteMine");
 
 		expect(response.status).toBe(200);
-		const output = clickHouseFailureServer.readOutput();
-		expect(output).toContain(`user_id=${identity.userId}`);
-		expect(output).toContain("rudel.claude_sessions");
-		expect(output).toContain("rudel.codex_sessions");
-		expect(output).toContain("rudel.session_analytics");
-		expect(output).toContain("rudel.wrapped_user_archetype_snapshots_v1");
-		expect(output.match(/purge outcome unknown/gu)).toHaveLength(4);
+		const [purgeJob] = await sqlClient<
+			Array<{
+				attemptCount: number;
+				lastError: string | null;
+				status: string;
+				targetId: string;
+				targetType: string;
+			}>
+		>`
+			SELECT
+				target_type AS "targetType",
+				target_id AS "targetId",
+				status,
+				attempt_count AS "attemptCount",
+				last_error AS "lastError"
+			FROM clickhouse_purge_job
+			WHERE target_type = 'account'
+				AND target_id = ${identity.userId}
+		`;
+		expect(purgeJob).toEqual({
+			attemptCount: 0,
+			lastError: null,
+			status: "pending",
+			targetId: identity.userId,
+			targetType: "account",
+		});
 
 		const [user] = await sqlClient<Array<{ id: string }>>`
 			SELECT id FROM "user" WHERE id = ${identity.userId}
@@ -331,6 +356,19 @@ describe("deletion data-loss hardening", () => {
 		expect(user).toBeUndefined();
 	});
 });
+
+async function countPurgeJobs(
+	targetType: "account" | "organization",
+	targetId: string,
+): Promise<number> {
+	const [row] = await sqlClient<Array<{ count: number }>>`
+		SELECT COUNT(*)::int AS count
+		FROM clickhouse_purge_job
+		WHERE target_type = ${targetType}
+			AND target_id = ${targetId}
+	`;
+	return row?.count ?? 0;
+}
 
 async function createTestIdentity(label: string): Promise<TestIdentity> {
 	const response = await fetch(`${server.baseUrl}/api/auth/sign-up/email`, {

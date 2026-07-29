@@ -15,7 +15,6 @@ import {
 	deleteUserAvatarInTx,
 	getUserAvatarOwnerByPublicId,
 } from "../services/avatar-upload.service.js";
-import { deleteUserSessions } from "../services/org-session.service.js";
 import { deleteUserPostgresData } from "../services/user-deletion.service.js";
 import { notifyAccountDeletion } from "../slack.js";
 
@@ -145,13 +144,10 @@ const deleteMine = os.profile.deleteMine
 				)
 			: Promise.resolve();
 
-		// The committed owner deletion revokes access through current API reads.
-		// ClickHouse lightweight deletes are best-effort query-level masking;
-		// physical removal happens later during background merges.
-		await Promise.all([deleteUserSessions(userId), slackNotification]);
+		await slackNotification;
 
 		logger.info(
-			"User {userId} self-delete completed; deletedOrganizationIds={deletedOrganizationIds}",
+			"User {userId} self-delete committed; ClickHouse purge queued; deletedOrganizationIds={deletedOrganizationIds}",
 			{ userId, deletedOrganizationIds },
 		);
 

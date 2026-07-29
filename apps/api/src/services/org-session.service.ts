@@ -1,4 +1,3 @@
-import { getLogger } from "@logtape/logtape";
 import { getAllAdapters } from "@rudel/agent-adapters";
 import {
 	type ClickHouseStatement,
@@ -6,7 +5,6 @@ import {
 	getSafeClickHouseTable,
 } from "../clickhouse.js";
 
-const logger = getLogger(["rudel", "api", "org-session"]);
 const SESSION_ANALYTICS_TABLE = "rudel.session_analytics";
 const WRAPPED_USER_ARCHETYPE_SNAPSHOTS_TABLE =
 	"rudel.wrapped_user_archetype_snapshots_v1";
@@ -211,32 +209,21 @@ async function settleClickHouseDeletions(
 	const results = await Promise.allSettled(
 		deletions.map((deletion) => deletion.promise),
 	);
-
-	for (const [index, result] of results.entries()) {
+	const failures = results.flatMap((result, index) => {
 		if (result.status === "fulfilled") {
-			continue;
+			return [];
 		}
-
 		const table = deletions[index]?.table ?? "unknown";
-		if (scope.type === "organization") {
-			logger.error(
-				"ClickHouse organization purge failed; purge outcome unknown (organization_id={organizationId} table={table} error={error})",
-				{
-					error: String(result.reason),
-					organizationId: scope.organizationId,
-					table,
-				},
-			);
-			continue;
-		}
+		return [`${table}: ${String(result.reason)}`];
+	});
 
-		logger.error(
-			"ClickHouse account purge failed; purge outcome unknown (user_id={userId} table={table} error={error})",
-			{
-				error: String(result.reason),
-				table,
-				userId: scope.userId,
-			},
+	if (failures.length > 0) {
+		const target =
+			scope.type === "organization"
+				? `organization ${scope.organizationId}`
+				: `account ${scope.userId}`;
+		throw new Error(
+			`ClickHouse ${target} purge failed for ${failures.length} table(s): ${failures.join("; ")}`,
 		);
 	}
 }
