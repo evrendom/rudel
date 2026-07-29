@@ -1,18 +1,16 @@
-import { homedir } from "node:os";
 import { join } from "node:path";
 import { getFileSink } from "@logtape/file";
 import { configure, dispose } from "@logtape/logtape";
-
-const LOG_DIR = join(homedir(), ".rudel", "logs");
-const LOG_FILE = join(LOG_DIR, "hook-upload.log");
+import { ensurePrivateFile, getRudelConfigDir } from "./lib/local-state.js";
 
 export async function setupHookLogging(): Promise<void> {
-	const { mkdir } = await import("node:fs/promises");
-	await mkdir(LOG_DIR, { recursive: true }).catch(() => {});
+	const configDir = getRudelConfigDir();
+	const logFile = join(configDir, "logs", "hook-upload.log");
+	await ensurePrivateFile(logFile, configDir);
 
 	await configure({
 		sinks: {
-			file: getFileSink(LOG_FILE),
+			file: getFileSink(logFile),
 		},
 		loggers: [
 			{
