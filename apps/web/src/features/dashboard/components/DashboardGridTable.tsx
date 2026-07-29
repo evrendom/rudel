@@ -31,6 +31,7 @@ type DashboardGridTableProps<T> = {
 	onRowClick?: (row: T) => void;
 	isRowClickable?: (row: T) => boolean;
 	isRowSelected?: (row: T) => boolean;
+	rowInteractionScope?: string;
 };
 
 type DashboardCellStackProps = {
@@ -208,6 +209,7 @@ export function DashboardGridTable<T>({
 	onRowClick,
 	isRowClickable,
 	isRowSelected,
+	rowInteractionScope,
 }: DashboardGridTableProps<T>) {
 	if (rows.length === 0) {
 		return loadingState ?? emptyState ?? null;
@@ -246,6 +248,7 @@ export function DashboardGridTable<T>({
 							onRowClick != null && (isRowClickable?.(row) ?? true);
 						const sharedProps = {
 							"data-dashboard-grid-hover-id": hoverId,
+							"data-dashboard-grid-row-scope": rowInteractionScope,
 							"data-selected": isSelected ? "true" : undefined,
 							className: cn(
 								"grid min-h-12 items-center rounded-lg px-3.5 py-2 text-sm odd:bg-[color:var(--dashboardy-subsurface-strong)]",

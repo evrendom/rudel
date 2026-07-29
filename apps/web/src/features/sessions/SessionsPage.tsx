@@ -16,6 +16,16 @@ import { useCanViewSession } from "@/features/workspace/hooks/useCanViewSession"
 import { orpc } from "@/lib/orpc";
 import { getSessionDetailPath } from "@/lib/session-paths";
 
+type SessionDetailState =
+	| { status: "closed"; sessionId: null }
+	| { status: "closing"; sessionId: string }
+	| { status: "open"; sessionId: string };
+
+const closedSessionDetailState: SessionDetailState = {
+	status: "closed",
+	sessionId: null,
+};
+
 export function SessionsPage() {
 	const {
 		meta,
@@ -23,9 +33,14 @@ export function SessionsPage() {
 	} = useDateRange();
 	const canViewSession = useCanViewSession();
 	const { trackDrilldown } = useAnalyticsTracking();
-	const [selectedSessionId, setSelectedSessionId] = useState<string | null>(
-		null,
-	);
+	const [sessionDetailState, setSessionDetailState] =
+		useState<SessionDetailState>(closedSessionDetailState);
+	const selectedSessionId =
+		sessionDetailState.status === "closed"
+			? null
+			: sessionDetailState.sessionId;
+	const activeSessionId =
+		sessionDetailState.status === "open" ? sessionDetailState.sessionId : null;
 	const activeDateRangeOptionId = resolveActiveSessionDateRangeOptionId({
 		endDate,
 		startDate,
@@ -139,9 +154,27 @@ export function SessionsPage() {
 	const nextSession = findNeighbourSession(1);
 
 	function handleSessionSheetOpenChange(open: boolean) {
-		if (!open) {
-			setSelectedSessionId(null);
+		if (open) {
+			return;
 		}
+
+		setSessionDetailState((currentState) =>
+			currentState.status === "open"
+				? { status: "closing", sessionId: currentState.sessionId }
+				: currentState,
+		);
+	}
+
+	function handleSessionSheetOpenChangeComplete(open: boolean) {
+		if (open) {
+			return;
+		}
+
+		setSessionDetailState((currentState) =>
+			currentState.status === "closing"
+				? closedSessionDetailState
+				: currentState,
+		);
 	}
 
 	function handleSessionClick(session: {
@@ -159,7 +192,10 @@ export function SessionsPage() {
 			targetId: session.session_id,
 			targetPath: getSessionDetailPath(session.session_id),
 		});
-		setSelectedSessionId(session.session_id);
+		setSessionDetailState({
+			status: "open",
+			sessionId: session.session_id,
+		});
 	}
 
 	return (
@@ -179,16 +215,15 @@ export function SessionsPage() {
 							</div>
 						) : (
 							<DashboardSessionsSnapshotSection
+								activeSessionId={activeSessionId}
 								canOpenSession={(session) => canViewSession(session.user_id)}
 								endDate={endDate}
 								dateRangeDays={meta.dayCount}
-								hideMetrics
 								isMetricsPending={isSummaryPending}
 								isSessionsPending={isSnapshotSessionsPending}
 								metrics={headlineMetrics}
 								onSessionClick={handleSessionClick}
 								sessions={snapshotSessionsData}
-								showDelta
 								startDate={startDate}
 								totalSessionCount={
 									summaryComparison?.current.total_sessions ??
@@ -196,6 +231,7 @@ export function SessionsPage() {
 									0
 								}
 								useRolling24Hours={activeDateRangeOptionId === "24-hours"}
+								variant="sessions"
 							/>
 						)}
 					</div>
@@ -203,18 +239,26 @@ export function SessionsPage() {
 			</div>
 			<SessionDetailSheet
 				sessionId={selectedSessionId}
+				open={sessionDetailState.status === "open"}
 				onOpenChange={handleSessionSheetOpenChange}
+				onOpenChangeComplete={handleSessionSheetOpenChangeComplete}
 				navigation={{
 					hasPreviousSession: previousSession !== undefined,
 					hasNextSession: nextSession !== undefined,
 					onPreviousSession: () => {
 						if (previousSession) {
-							setSelectedSessionId(previousSession.session_id);
+							setSessionDetailState({
+								status: "open",
+								sessionId: previousSession.session_id,
+							});
 						}
 					},
 					onNextSession: () => {
 						if (nextSession) {
-							setSelectedSessionId(nextSession.session_id);
+							setSessionDetailState({
+								status: "open",
+								sessionId: nextSession.session_id,
+							});
 						}
 					},
 				}}

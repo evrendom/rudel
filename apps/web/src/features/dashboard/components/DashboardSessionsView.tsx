@@ -84,7 +84,6 @@ export function DashboardSessionsView({
 				isSessionsPending={isSnapshotSessionsPending}
 				metrics={headlineMetrics}
 				sessions={sortedSnapshotSessions}
-				showDelta
 				startDate={startDate}
 				totalSessionCount={
 					sessionSummaryComparison?.current.total_sessions ??
@@ -92,6 +91,7 @@ export function DashboardSessionsView({
 					0
 				}
 				useRolling24Hours={activeDateRangeOptionId === "24-hours"}
+				variant="dashboard"
 			/>
 			<DashboardRepositoryPanel
 				isChartPending={isRepositoryChartPending}

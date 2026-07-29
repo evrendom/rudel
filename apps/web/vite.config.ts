@@ -69,7 +69,6 @@ async function resolveAppVersion() {
 // the Host/Origin headers and cookie domain so the remote server's origin checks
 // pass and its session cookie sticks to localhost.
 function buildApiProxy(target: string) {
-
 	if (!target.startsWith("https://")) {
 		return { "/api": target, "/rpc": target };
 	}

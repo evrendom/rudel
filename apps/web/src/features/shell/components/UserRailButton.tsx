@@ -15,7 +15,7 @@ import {
 	getUtilityRailItemClassName,
 	getUtilityRailLabelClassName,
 	type SidebarRowMode,
-} from "@/features/shell/components/shell-rail";
+} from "@/features/shell/components/shell-rail-utils";
 import { authClient, signOut } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
 

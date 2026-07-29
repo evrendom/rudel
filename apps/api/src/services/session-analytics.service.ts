@@ -709,7 +709,7 @@ export async function getSessionDetail(
       input_tokens,
       output_tokens,
       success_score,
-      actual_duration_min as duration_min,
+      dateDiff('second', sa.session_date, sa.last_interaction_date) / 60.0 as duration_min,
       total_interactions,
       model_used
     FROM rudel.session_analytics AS sa

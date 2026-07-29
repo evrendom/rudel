@@ -1,7 +1,6 @@
 import {
 	Bot,
 	Brain,
-	ChevronDown,
 	FileText,
 	Globe,
 	List,
@@ -13,15 +12,7 @@ import {
 	Terminal,
 	Wrench,
 } from "lucide-react";
-import {
-	type ComponentType,
-	type Dispatch,
-	type ReactNode,
-	type SetStateAction,
-	useId,
-	useState,
-} from "react";
-import { getModelIconComponent } from "@/features/dashboard/components/DashboardModelBadges";
+import { type ComponentType, useId, useState } from "react";
 import {
 	isSlashCommandMessage,
 	parseSlashCommand,
@@ -44,7 +35,21 @@ import {
 	type UserContent,
 	userContentText,
 } from "./conversation-trace";
+import {
+	ModelTraceIcon,
+	TraceDisclosureIcon,
+	TraceIcon,
+	UserTraceAvatar,
+} from "./conversation-trace-icons";
+import {
+	ExpandableTraceRow,
+	type TraceFocusRequest,
+	traceRowClassName,
+	useTraceFocus,
+} from "./expandable-trace-row";
 import { MessageContent } from "./MessageContent";
+
+export type { TraceFocusRequest } from "./expandable-trace-row";
 
 const TOOL_ICONS: Record<
 	ToolIconName,
@@ -61,118 +66,14 @@ const TOOL_ICONS: Record<
 	wrench: Wrench,
 };
 
-const rowClassName =
-	"flex w-full min-w-0 items-center gap-2.5 px-3 py-2 text-left text-[0.8125rem] transition-colors hover:bg-[color:var(--dashboardy-subsurface-strong)] focus-visible:outline-none focus-visible:bg-[color:var(--dashboardy-subsurface-strong)]";
-
-const iconShellClassName =
-	"flex size-5 shrink-0 items-center justify-center rounded-[0.4rem] border border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-surface)] text-[color:var(--dashboardy-muted)]";
-
 const chipClassName =
 	"inline-flex max-w-[18rem] shrink-0 items-center truncate rounded-[0.4rem] border border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-surface)] px-1.5 py-0.5 font-mono text-[0.75rem] text-[color:var(--dashboardy-heading)]";
 
 const previewClassName =
-	"min-w-0 flex-1 truncate text-[color:var(--dashboardy-muted)]";
+	"min-w-0 flex-1 truncate text-[color:var(--dashboardy-muted)] group-aria-expanded:invisible";
 
-const deltaClassName =
-	"shrink-0 tabular-nums text-[0.75rem] text-[color:var(--dashboardy-muted)]";
-
-const expandedBodyClassName =
-	"border-t border-[color:var(--dashboardy-divider)] bg-[color:var(--dashboardy-surface)] px-3 py-3";
-
-/**
- * A request to reveal one row. The id repeats on every click of the same chip,
- * so it carries a counter to make each request distinct.
- */
-export type TraceFocusRequest = { anchorId: string; requestId: number };
-
-/**
- * Opens the targeted row — including a collapsed agent turn hiding it — as soon
- * as a jump names it. Derived during render rather than in an effect, so the
- * caller can flush the open state and scroll to the row in one go.
- */
-function useTraceFocus(
-	anchorId: string | undefined,
-	focus: TraceFocusRequest | undefined,
-	setOpen: Dispatch<SetStateAction<boolean>>,
-) {
-	const requestId =
-		anchorId !== undefined && focus?.anchorId === anchorId
-			? focus.requestId
-			: undefined;
-	const [handledRequestId, setHandledRequestId] = useState<number>();
-
-	if (requestId !== undefined && requestId !== handledRequestId) {
-		setHandledRequestId(requestId);
-		setOpen(true);
-	}
-}
-
-function TraceIcon({
-	icon: Icon,
-	className,
-}: {
-	icon: ComponentType<{ className?: string }>;
-	className?: string;
-}) {
-	return (
-		<span className={cn(iconShellClassName, className)}>
-			<Icon className="size-3" />
-		</span>
-	);
-}
-
-/**
- * One slim row that can open to reveal its full body. Rows without a body stay
- * inert so a click does not produce an empty panel.
- */
-function ExpandableRow({
-	children,
-	body,
-	delta,
-	className,
-	anchorId,
-	focus,
-}: {
-	children: ReactNode;
-	body?: ReactNode;
-	delta?: string;
-	className?: string;
-	anchorId?: string;
-	focus?: TraceFocusRequest;
-}) {
-	const [open, setOpen] = useState(false);
-	const panelId = useId();
-	const hasBody = body !== undefined && body !== null;
-
-	useTraceFocus(anchorId, focus, setOpen);
-
-	return (
-		<div id={anchorId} className={cn("min-w-0 scroll-mt-6", className)}>
-			{hasBody ? (
-				<button
-					type="button"
-					onClick={() => setOpen(!open)}
-					aria-expanded={open}
-					aria-controls={panelId}
-					className={rowClassName}
-				>
-					{children}
-					{delta ? <span className={deltaClassName}>{delta}</span> : null}
-				</button>
-			) : (
-				<div className={cn(rowClassName, "hover:bg-transparent")}>
-					{children}
-					{delta ? <span className={deltaClassName}>{delta}</span> : null}
-				</div>
-			)}
-			{hasBody && open ? (
-				<div id={panelId} className={expandedBodyClassName}>
-					{body}
-				</div>
-			) : null}
-		</div>
-	);
-}
+const speakerLabelClassName =
+	"shrink-0 [font-family:var(--app-font-heading)] text-[0.8125rem]/[1.125rem] font-bold text-[color:var(--dashboardy-heading)]";
 
 function ToolResultBody({ result }: { result: TraceToolResult }) {
 	const text = toolResultText(result.content);
@@ -205,42 +106,66 @@ function ToolResultBody({ result }: { result: TraceToolResult }) {
 function EventRow({ event, delta }: { event: TraceEvent; delta?: string }) {
 	if (event.kind === "reasoning") {
 		return (
-			<ExpandableRow
+			<ExpandableTraceRow
 				delta={delta}
+				fullPreviewText={event.text}
 				body={
 					<p className="whitespace-pre-wrap text-[0.8125rem] leading-6 text-[color:var(--dashboardy-heading)]">
 						{event.text}
 					</p>
 				}
 			>
-				<TraceIcon icon={Brain} />
-				<span className="shrink-0 font-semibold text-[color:var(--dashboardy-heading)]">
-					Reasoning
-				</span>
-				<span className={previewClassName}>{compactPreview(event.text)}</span>
-			</ExpandableRow>
+				{(expanded, expandable) => (
+					<>
+						<TraceDisclosureIcon
+							expanded={expanded}
+							expandable={expandable}
+							icon={Brain}
+						/>
+						<span className="shrink-0 font-semibold text-[color:var(--dashboardy-heading)]">
+							Reasoning
+						</span>
+						<span className={previewClassName} data-trace-preview>
+							{compactPreview(event.text)}
+						</span>
+					</>
+				)}
+			</ExpandableTraceRow>
 		);
 	}
 
 	if (event.kind === "message") {
 		return (
-			<ExpandableRow
+			<ExpandableTraceRow
 				delta={delta}
+				fullPreviewText={event.text || undefined}
 				body={<MessageContent content={event.content} />}
 			>
-				<TraceIcon icon={MessageSquare} />
-				<span className="shrink-0 font-semibold text-[color:var(--dashboardy-heading)]">
-					Message:
-				</span>
-				<span className={previewClassName}>{compactPreview(event.text)}</span>
-			</ExpandableRow>
+				{(expanded, expandable) => (
+					<>
+						<TraceDisclosureIcon
+							expanded={expanded}
+							expandable={expandable}
+							icon={MessageSquare}
+						/>
+						<span className="shrink-0 font-semibold text-[color:var(--dashboardy-heading)]">
+							Message:
+						</span>
+						<span className={previewClassName} data-trace-preview>
+							{compactPreview(event.text)}
+						</span>
+					</>
+				)}
+			</ExpandableTraceRow>
 		);
 	}
 
 	if (event.kind === "orphan-result") {
+		const resultText = toolResultText(event.result.content);
 		return (
-			<ExpandableRow
+			<ExpandableTraceRow
 				delta={delta}
+				fullPreviewText={resultText}
 				body={<ToolResultBody result={event.result} />}
 				className={
 					event.result.isError
@@ -248,14 +173,22 @@ function EventRow({ event, delta }: { event: TraceEvent; delta?: string }) {
 						: undefined
 				}
 			>
-				<TraceIcon icon={Wrench} />
-				<span className="shrink-0 font-semibold text-[color:var(--dashboardy-heading)]">
-					Result
-				</span>
-				<span className={previewClassName}>
-					{compactPreview(toolResultText(event.result.content))}
-				</span>
-			</ExpandableRow>
+				{(expanded, expandable) => (
+					<>
+						<TraceDisclosureIcon
+							expanded={expanded}
+							expandable={expandable}
+							icon={Wrench}
+						/>
+						<span className="shrink-0 font-semibold text-[color:var(--dashboardy-heading)]">
+							Result
+						</span>
+						<span className={previewClassName} data-trace-preview>
+							{compactPreview(resultText)}
+						</span>
+					</>
+				)}
+			</ExpandableTraceRow>
 		);
 	}
 
@@ -265,8 +198,9 @@ function EventRow({ event, delta }: { event: TraceEvent; delta?: string }) {
 	const isError = event.result?.isError === true;
 
 	return (
-		<ExpandableRow
+		<ExpandableTraceRow
 			delta={delta}
+			fullPreviewText={undefined}
 			className={
 				isError ? "bg-[color:var(--dashboardy-danger-surface)]" : undefined
 			}
@@ -280,26 +214,37 @@ function EventRow({ event, delta }: { event: TraceEvent; delta?: string }) {
 				)
 			}
 		>
-			<TraceIcon
-				icon={TOOL_ICONS[icon]}
-				className={
-					isError
-						? "border-[color:var(--dashboardy-danger-foreground)] text-[color:var(--dashboardy-danger-foreground)]"
-						: undefined
-				}
-			/>
-			<span className="shrink-0 font-semibold text-[color:var(--dashboardy-heading)]">
-				{verb}
-			</span>
-			{primaryArg ? <span className={chipClassName}>{primaryArg}</span> : null}
-			{inputPreview ? (
-				<span className={cn(previewClassName, "font-mono text-[0.75rem]")}>
-					{inputPreview}
-				</span>
-			) : (
-				<span className="min-w-0 flex-1" />
+			{(expanded, expandable) => (
+				<>
+					<TraceDisclosureIcon
+						icon={TOOL_ICONS[icon]}
+						expanded={expanded}
+						expandable={expandable}
+						className={
+							isError
+								? "border-[color:var(--dashboardy-danger-foreground)] text-[color:var(--dashboardy-danger-foreground)]"
+								: undefined
+						}
+					/>
+					<span className="shrink-0 font-semibold text-[color:var(--dashboardy-heading)]">
+						{verb}
+					</span>
+					{primaryArg ? (
+						<span className={chipClassName}>{primaryArg}</span>
+					) : null}
+					{inputPreview ? (
+						<span
+							className={cn(previewClassName, "font-mono text-[0.75rem]")}
+							data-trace-preview
+						>
+							{inputPreview}
+						</span>
+					) : (
+						<span className="min-w-0 flex-1" />
+					)}
+				</>
 			)}
-		</ExpandableRow>
+		</ExpandableTraceRow>
 	);
 }
 
@@ -356,38 +301,46 @@ function AgentSection({
 	useTraceFocus(anchorId, focus, setOpen);
 	// The turn is the model's, so it wears the model's mark; unrecognized
 	// vendors fall back to the generic agent glyph.
-	const ModelIcon = getModelIconComponent(agentModel) ?? Bot;
 	let cursor = previousTimestamp;
 
 	return (
 		<div
 			id={anchorId}
-			className="min-w-0 scroll-mt-6 overflow-hidden rounded-[0.75rem] border border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-subsurface)]"
+			className={cn(
+				"isolate min-w-0 scroll-mt-6 overflow-clip rounded-[0.75rem]",
+				open
+					? "bg-transparent"
+					: "border border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-subsurface)]",
+			)}
 		>
-			<button
-				type="button"
-				onClick={() => setOpen(!open)}
-				aria-expanded={open}
-				aria-controls={panelId}
-				className={cn(rowClassName, "gap-2")}
+			<div
+				className={cn(
+					open &&
+						"sticky top-0 z-20 bg-[color:var(--dashboardy-surface-opaque)]",
+				)}
 			>
-				<ChevronDown
+				<button
+					type="button"
+					onClick={() => setOpen(!open)}
+					aria-expanded={open}
+					aria-controls={panelId}
 					className={cn(
-						"size-3.5 shrink-0 text-[color:var(--dashboardy-muted)] transition-transform",
-						!open && "-rotate-90",
+						traceRowClassName,
+						"group gap-2",
+						open &&
+							"rounded-t-[0.75rem] border border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-subsurface-opaque)] [border-bottom-color:var(--dashboardy-divider)]",
 					)}
-				/>
-				<TraceIcon icon={ModelIcon} />
-				<span className="shrink-0 font-semibold text-[color:var(--dashboardy-heading)]">
-					{agentLabel}
-				</span>
-				{!open ? <AgentToolStrip events={events} /> : null}
-				<span className="min-w-0 flex-1" />
-			</button>
+				>
+					<ModelTraceIcon expanded={open} model={agentModel} />
+					<span className={speakerLabelClassName}>{agentLabel}</span>
+					{!open ? <AgentToolStrip events={events} /> : null}
+					<span className="min-w-0 flex-1" />
+				</button>
+			</div>
 			{open ? (
 				<div
 					id={panelId}
-					className="grid divide-y divide-[color:var(--dashboardy-divider)] border-t border-[color:var(--dashboardy-divider)] bg-[color:var(--dashboardy-surface)]"
+					className="grid divide-y divide-[color:var(--dashboardy-divider)] rounded-b-[0.75rem] border-x border-b border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-surface)] [--conversation-trace-sticky-offset:2.375rem]"
 				>
 					{events.map((event) => {
 						const delta = formatTimeDelta(cursor, event.timestamp);
@@ -434,6 +387,7 @@ function TraceRow({
 	previousTimestamp,
 	isLast,
 	userLabel,
+	userImageUrl,
 	agentLabel,
 	agentModel,
 	focus,
@@ -443,6 +397,7 @@ function TraceRow({
 	previousTimestamp: string | undefined;
 	isLast: boolean;
 	userLabel: string;
+	userImageUrl: string | undefined;
 	agentLabel: string;
 	agentModel: string | undefined;
 	focus?: TraceFocusRequest;
@@ -469,67 +424,99 @@ function TraceRow({
 
 	if (item.kind === "summary") {
 		return (
-			<ExpandableRow
+			<ExpandableTraceRow
 				anchorId={anchorId}
 				focus={focus}
+				fullPreviewText={item.text}
 				body={
 					<p className="whitespace-pre-wrap text-[0.8125rem] leading-6 text-[color:var(--dashboardy-heading)]">
 						{item.text}
 					</p>
 				}
 			>
-				<TraceIcon icon={FileText} />
-				<span className="shrink-0 font-semibold text-[color:var(--dashboardy-heading)]">
-					Summary
-				</span>
-				<span className={previewClassName}>{compactPreview(item.text)}</span>
-			</ExpandableRow>
+				{(expanded, expandable) => (
+					<>
+						<TraceDisclosureIcon
+							expanded={expanded}
+							expandable={expandable}
+							icon={FileText}
+						/>
+						<span className="shrink-0 font-semibold text-[color:var(--dashboardy-heading)]">
+							Summary
+						</span>
+						<span className={previewClassName} data-trace-preview>
+							{compactPreview(item.text)}
+						</span>
+					</>
+				)}
+			</ExpandableTraceRow>
 		);
 	}
 
 	if (item.kind === "system") {
 		return (
-			<ExpandableRow
+			<ExpandableTraceRow
 				anchorId={anchorId}
 				delta={delta}
 				focus={focus}
+				fullPreviewText={item.text}
 				body={
 					<p className="whitespace-pre-wrap font-mono text-[0.8125rem] leading-6 text-[color:var(--dashboardy-heading)]">
 						{item.text}
 					</p>
 				}
 			>
-				<TraceIcon icon={Settings} />
-				<span className="shrink-0 font-semibold text-[color:var(--dashboardy-heading)]">
-					System
-				</span>
-				<span className={previewClassName}>{compactPreview(item.text)}</span>
-			</ExpandableRow>
+				{(expanded, expandable) => (
+					<>
+						<TraceDisclosureIcon
+							expanded={expanded}
+							expandable={expandable}
+							icon={Settings}
+						/>
+						<span className="shrink-0 font-semibold text-[color:var(--dashboardy-heading)]">
+							System
+						</span>
+						<span className={previewClassName} data-trace-preview>
+							{compactPreview(item.text)}
+						</span>
+					</>
+				)}
+			</ExpandableTraceRow>
 		);
 	}
 
 	const previewText = userContentText(item.content);
 
 	return (
-		<ExpandableRow
+		<ExpandableTraceRow
 			anchorId={anchorId}
 			delta={delta}
 			focus={focus}
-			className="rounded-[0.75rem] border border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-surface)]"
+			fullPreviewText={previewText || undefined}
+			className="overflow-clip rounded-[0.75rem] border border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-surface)]"
 			body={<UserRowBody content={item.content} />}
 		>
-			<TraceIcon icon={MessageSquare} />
-			<span className="shrink-0 font-semibold text-[color:var(--dashboardy-heading)]">
-				{userLabel}:
-			</span>
-			<span className={previewClassName}>{compactPreview(previewText)}</span>
-		</ExpandableRow>
+			{(expanded, expandable) => (
+				<>
+					<UserTraceAvatar
+						expanded={expanded}
+						expandable={expandable}
+						imageUrl={userImageUrl}
+					/>
+					<span className={speakerLabelClassName}>{userLabel}</span>
+					<span className={previewClassName} data-trace-preview>
+						{compactPreview(previewText)}
+					</span>
+				</>
+			)}
+		</ExpandableTraceRow>
 	);
 }
 
 export function ConversationTrace({
 	items,
 	userLabel = "User",
+	userImageUrl,
 	agentLabel = "Agent",
 	agentModel,
 	focus,
@@ -537,6 +524,7 @@ export function ConversationTrace({
 }: {
 	items: TraceItem[];
 	userLabel?: string;
+	userImageUrl?: string;
 	agentLabel?: string;
 	agentModel?: string;
 	focus?: TraceFocusRequest;
@@ -545,7 +533,12 @@ export function ConversationTrace({
 	let cursor: string | undefined;
 
 	return (
-		<ol className={cn("grid gap-1.5", className)}>
+		<ol
+			className={cn(
+				"grid gap-1.5 [--conversation-trace-sticky-offset:0rem]",
+				className,
+			)}
+		>
 			{items.map((item, index) => {
 				const previousTimestamp = cursor;
 
@@ -564,6 +557,7 @@ export function ConversationTrace({
 							previousTimestamp={previousTimestamp}
 							isLast={index === items.length - 1}
 							userLabel={userLabel}
+							userImageUrl={userImageUrl}
 							agentLabel={agentLabel}
 							agentModel={agentModel}
 							focus={focus}

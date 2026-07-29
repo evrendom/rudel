@@ -1,5 +1,4 @@
 import type { SessionAnalytics } from "@rudel/api-routes";
-import { ArrowUpRight } from "lucide-react";
 import { useState } from "react";
 import { Skeleton } from "@/app/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -83,35 +82,16 @@ function formatTokenMix(session: SessionAnalytics) {
 }
 
 function DashboardTokenRecentSessionsTimeCell({
-	isHovered,
 	sessionDate,
 }: {
-	isHovered: boolean;
 	sessionDate: string;
 }) {
 	return (
-		<div className="relative min-w-0 overflow-hidden">
-			<div
-				className={cn(
-					"pointer-events-none absolute inset-y-0 left-0 flex items-center text-[color:var(--dashboardy-muted)] opacity-0 -translate-x-2 transition-[opacity,transform] duration-200",
-					isHovered && "translate-x-0 opacity-100",
-				)}
-			>
-				<ArrowUpRight className="size-3.5" />
-			</div>
-			<div
-				className={cn(
-					"transition-transform duration-200",
-					isHovered && "translate-x-6",
-				)}
-			>
-				<DashboardCellStack
-					primary={formatRelativeTime(sessionDate)}
-					secondary={formatSessionTimestamp(sessionDate)}
-					primaryClassName="font-medium"
-				/>
-			</div>
-		</div>
+		<DashboardCellStack
+			primary={formatRelativeTime(sessionDate)}
+			secondary={formatSessionTimestamp(sessionDate)}
+			primaryClassName="font-medium"
+		/>
 	);
 }
 
@@ -171,6 +151,7 @@ function DashboardTokenRecentSessionsTableSkeleton({
 }
 
 export function DashboardTokenRecentSessionsTable({
+	activeSessionId,
 	canOpenSession,
 	highlightSource,
 	highlightedSessionId,
@@ -182,6 +163,7 @@ export function DashboardTokenRecentSessionsTable({
 	showHeader = true,
 	totalSessionCount,
 }: {
+	activeSessionId?: string | null;
 	canOpenSession?: (session: SessionAnalytics) => boolean;
 	highlightSource?: "chart" | "table" | null;
 	highlightedSessionId?: string | null;
@@ -212,11 +194,19 @@ export function DashboardTokenRecentSessionsTable({
 	const hasChartHighlight =
 		highlightSource === "chart" && highlightedSessionId != null;
 	const hasHoveredSession = hoveredSessionId != null;
+	const hasActiveSession = activeSessionId != null;
 	const canShowSessionHoverPreview = onSessionClick !== undefined;
 
 	function handleRowHoverChange(sessionId: string | null) {
 		setHoveredSessionId(sessionId);
 		onHighlightSessionChange?.(sessionId);
+	}
+
+	function isSessionFocused(sessionId: string) {
+		return (
+			activeSessionId === sessionId ||
+			(canShowSessionHoverPreview && hoveredSessionId === sessionId)
+		);
 	}
 
 	if (isLoading) {
@@ -257,10 +247,6 @@ export function DashboardTokenRecentSessionsTable({
 						header: "Time",
 						renderCell: (session) => (
 							<DashboardTokenRecentSessionsTimeCell
-								isHovered={
-									canShowSessionHoverPreview &&
-									hoveredSessionId === session.session_id
-								}
 								sessionDate={session.session_date}
 							/>
 						),
@@ -363,18 +349,23 @@ export function DashboardTokenRecentSessionsTable({
 				getHoverRowId={(session) => session.session_id}
 				onRowClick={onSessionClick}
 				isRowClickable={canOpenSession}
+				isRowSelected={(session) => activeSessionId === session.session_id}
+				rowInteractionScope="session"
 				rowClassName={(session) =>
 					cn(
-						"w-full text-left",
+						"w-full text-left focus:outline-none focus-visible:outline-none focus-visible:ring-0",
 						onSessionClick &&
 							(canOpenSession?.(session) ?? true) &&
 							"cursor-pointer",
-						canShowSessionHoverPreview &&
-							hasHoveredSession &&
-							hoveredSessionId !== session.session_id &&
+						hasActiveSession &&
+							"bg-[color:var(--dashboardy-surface)] odd:bg-[color:var(--dashboardy-surface)]",
+						(hasActiveSession || hasHoveredSession) &&
+							!isSessionFocused(session.session_id) &&
 							"opacity-40",
 						canShowSessionHoverPreview &&
 							hoveredSessionId === session.session_id &&
+							"bg-[color:var(--dashboardy-subsurface-strong)] odd:bg-[color:var(--dashboardy-subsurface-strong)]",
+						activeSessionId === session.session_id &&
 							"bg-[color:var(--dashboardy-subsurface-strong)] odd:bg-[color:var(--dashboardy-subsurface-strong)]",
 						hasTableHighlight &&
 							"bg-[color:var(--dashboardy-surface)] odd:bg-[color:var(--dashboardy-surface)]",

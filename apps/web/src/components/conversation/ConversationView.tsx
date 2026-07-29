@@ -9,6 +9,7 @@ interface ConversationViewProps {
 	content: string;
 	className?: string;
 	userLabel?: string;
+	userImageUrl: string | undefined;
 	agentLabel?: string;
 	/** Raw model id, so agent turns can carry the vendor's mark. */
 	agentModel?: string;
@@ -62,6 +63,7 @@ export function ConversationView({
 	content,
 	className,
 	userLabel,
+	userImageUrl,
 	agentLabel,
 	agentModel,
 }: ConversationViewProps) {
@@ -106,6 +108,7 @@ export function ConversationView({
 			<ConversationTrace
 				items={traceItems}
 				userLabel={userLabel}
+				userImageUrl={userImageUrl}
 				agentLabel={agentLabel}
 				agentModel={agentModel}
 			/>

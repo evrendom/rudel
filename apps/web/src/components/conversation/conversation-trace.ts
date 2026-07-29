@@ -96,8 +96,9 @@ export function toolResultText(content: ToolResultContent["content"]): string {
 	}
 
 	return content
-		.map((part) => ("text" in part && part.type === "text" ? part.text : ""))
-		.filter(Boolean)
+		.flatMap((part) =>
+			"text" in part && part.type === "text" && part.text ? [part.text] : [],
+		)
 		.join("\n");
 }
 
@@ -108,14 +109,13 @@ export function userContentText(content: UserContent): string {
 	}
 
 	return content
-		.map((part) => {
+		.flatMap((part) => {
 			if (typeof part === "string") {
-				return part;
+				return part ? [part] : [];
 			}
 
-			return part.type === "text" ? part.text : "";
+			return part.type === "text" && part.text ? [part.text] : [];
 		})
-		.filter(Boolean)
 		.join("\n");
 }
 

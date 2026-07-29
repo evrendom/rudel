@@ -29,6 +29,15 @@ import {
 	orderSessionsForDisplay,
 } from "@/features/sessions/session-ordering";
 
+const dashboardSessionChartSkeletonHeights = [
+	"h-[8rem]",
+	"h-[10rem]",
+	"h-[6.75rem]",
+	"h-[11rem]",
+	"h-[8.5rem]",
+	"h-[9.5rem]",
+] as const;
+
 function getGranularity(
 	dateRangeDays: number,
 ): DashboardSessionTrendGranularity {
@@ -215,18 +224,9 @@ function buildSessionTrendData({
 }
 
 function DashboardSessionChartFallback() {
-	const skeletonHeights = [
-		"h-[8rem]",
-		"h-[10rem]",
-		"h-[6.75rem]",
-		"h-[11rem]",
-		"h-[8.5rem]",
-		"h-[9.5rem]",
-	] as const;
-
 	return (
 		<div className="flex h-[12.875rem] items-end gap-3 px-4 pb-8 pt-4">
-			{skeletonHeights.map((heightClassName) => (
+			{dashboardSessionChartSkeletonHeights.map((heightClassName) => (
 				<div
 					key={heightClassName}
 					className="flex min-w-0 flex-1 flex-col items-center gap-3"
@@ -242,35 +242,35 @@ function DashboardSessionChartFallback() {
 }
 
 export function DashboardSessionsSnapshotSection({
+	activeSessionId,
 	canOpenSession,
 	endDate,
 	dateRangeDays,
-	hideMetrics = false,
 	isMetricsPending = false,
 	isSessionsPending,
 	metrics,
 	onSessionClick,
 	sessions,
 	sessionDetailDisabledNote,
-	showDelta = false,
 	startDate,
 	totalSessionCount,
 	useRolling24Hours = false,
+	variant,
 }: {
+	activeSessionId?: string | null;
 	canOpenSession?: (session: SessionAnalytics) => boolean;
 	endDate: string;
 	dateRangeDays: number;
-	hideMetrics?: boolean;
 	isMetricsPending?: boolean;
 	isSessionsPending: boolean;
 	metrics: DashboardHeadlineMetric[];
 	onSessionClick?: (session: SessionAnalytics) => void;
 	sessions: SessionAnalytics[] | undefined;
 	sessionDetailDisabledNote?: string;
-	showDelta?: boolean;
 	startDate: string;
 	totalSessionCount: number;
 	useRolling24Hours?: boolean;
+	variant: "dashboard" | "sessions";
 }) {
 	const chartData = buildSessionTrendData({
 		endDate,
@@ -287,7 +287,7 @@ export function DashboardSessionsSnapshotSection({
 
 	return (
 		<DashboardTopChartSection
-			hideMetrics={hideMetrics}
+			hideMetrics={variant === "sessions"}
 			chart={
 				isSessionsPending ? (
 					<DashboardSessionChartFallback />
@@ -298,6 +298,7 @@ export function DashboardSessionsSnapshotSection({
 			detail={
 				<DashboardTokenRecentSessionsTable
 					key={sessionsTableKey}
+					activeSessionId={activeSessionId}
 					canOpenSession={canOpenSession}
 					isLoading={isSessionsPending}
 					onSessionClick={onSessionClick}
@@ -311,7 +312,7 @@ export function DashboardSessionsSnapshotSection({
 			}
 			isMetricsLoading={isMetricsPending}
 			metrics={metrics}
-			showDelta={showDelta}
+			showDelta
 		/>
 	);
 }
