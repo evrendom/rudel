@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1](https://github.com/evrendom/rudel/compare/rudel@0.2.0...rudel@0.2.1) (2026-07-29)
+
+
+### Bug Fixes
+
+* **cli:** stop persisting git remote credentials ([#394](https://github.com/evrendom/rudel/issues/394)) ([d09b547](https://github.com/evrendom/rudel/commit/d09b5479ac44d844708197c7d5988a80add7246e))
+
 ## [0.2.0](https://github.com/evrendom/rudel/compare/rudel@0.1.17...rudel@0.2.0) (2026-07-28)
 
 
