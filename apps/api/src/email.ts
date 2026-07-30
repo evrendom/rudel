@@ -2,11 +2,11 @@ import { getLogger } from "@logtape/logtape";
 import { Resend } from "resend";
 
 const logger = getLogger(["rudel", "api", "email"]);
-const CLICKHOUSE_PURGE_ALERT_RECIPIENT = "e.k.dombak@gmail.com";
 
 export interface ResendConfig {
 	apiKey?: string;
 	audienceId?: string;
+	clickHousePurgeAlertRecipient?: string;
 	fromEmail?: string;
 }
 
@@ -67,11 +67,21 @@ export interface ClickHousePurgeFailureAlertContent {
 }
 
 export function getResendConfigWarnings(config: ResendConfig): string[] {
-	if (!config.apiKey || config.fromEmail) {
+	if (!config.apiKey) {
 		return [];
 	}
 
-	return ["Resend emails are disabled because RESEND_FROM_EMAIL is not set."];
+	if (!config.fromEmail) {
+		return ["Resend emails are disabled because RESEND_FROM_EMAIL is not set."];
+	}
+
+	if (!config.clickHousePurgeAlertRecipient) {
+		return [
+			"ClickHouse purge failure alerts are disabled because CLICKHOUSE_PURGE_ALERT_RECIPIENT is not set.",
+		];
+	}
+
+	return [];
 }
 
 function escapeHtml(value: string): string {
@@ -391,7 +401,11 @@ export async function sendClickHousePurgeFailureAlert(
 	config: ResendConfig,
 	data: ClickHousePurgeFailureAlertData,
 ): Promise<void> {
-	if (!config.apiKey || !config.fromEmail) {
+	if (
+		!config.apiKey ||
+		!config.fromEmail ||
+		!config.clickHousePurgeAlertRecipient
+	) {
 		throw new Error(
 			"Resend is not configured for ClickHouse purge failure alerts",
 		);
@@ -402,7 +416,7 @@ export async function sendClickHousePurgeFailureAlert(
 	const response = await resend.emails.send(
 		{
 			from: config.fromEmail,
-			to: CLICKHOUSE_PURGE_ALERT_RECIPIENT,
+			to: config.clickHousePurgeAlertRecipient,
 			subject: message.subject,
 			html: message.html,
 			text: message.text,

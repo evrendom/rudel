@@ -225,6 +225,29 @@ describe("durable ClickHouse purge worker", () => {
 		expect(alerts[0]?.lastAttemptAt).toBeInstanceOf(Date);
 	});
 
+	test("does not queue a terminal alert when alerts are disabled", async () => {
+		const target: ClickHousePurgeTarget = {
+			targetId: `${TEST_RUN_ID}_alerts_disabled`,
+			targetType: "account",
+		};
+		const env = createProcessorEnv(
+			executeUnavailablePurge,
+			rejectUnexpectedAlert,
+		);
+		env.sendFailureAlert = undefined;
+		await enqueue(target, 1);
+
+		expect(await runClickHousePurgeWorkerOnce(env)).toBe(true);
+		expect(await getPurgeJob(target)).toEqual(
+			expect.objectContaining({
+				alertStatus: "not_required",
+				attemptCount: 1,
+				status: "failed",
+			}),
+		);
+		expect(await runClickHousePurgeWorkerOnce(env)).toBe(false);
+	});
+
 	test("deduplicates enqueue and leaves a succeeded replay unchanged", async () => {
 		const target: ClickHousePurgeTarget = {
 			targetId: `${TEST_RUN_ID}_idempotent`,
@@ -271,6 +294,19 @@ describe("ClickHouse purge error sanitization", () => {
 		expect(sanitized).toContain("authorization=[redacted]");
 		expect(sanitized).not.toContain("hunter2");
 		expect(sanitized).not.toContain("admin:secret");
+	});
+
+	test("redacts the complete Authorization scheme and credential", () => {
+		const sanitized = sanitizeClickHousePurgeError(
+			new Error(
+				"Authorization: Bearer supersecret\nClickHouse request timed out",
+			),
+		);
+
+		expect(sanitized).toContain("authorization=[redacted]");
+		expect(sanitized).toContain("ClickHouse request timed out");
+		expect(sanitized).not.toContain("Bearer");
+		expect(sanitized).not.toContain("supersecret");
 	});
 });
 

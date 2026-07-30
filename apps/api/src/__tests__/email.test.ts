@@ -93,13 +93,22 @@ describe("email helpers", () => {
 		);
 	});
 
-	test("getResendConfigWarnings warns when sender is missing", () => {
+	test("getResendConfigWarnings reports disabled email integrations", () => {
 		expect(getResendConfigWarnings({ apiKey: "test-key" })).toEqual([
 			"Resend emails are disabled because RESEND_FROM_EMAIL is not set.",
 		]);
 		expect(
 			getResendConfigWarnings({
 				apiKey: "test-key",
+				fromEmail: "Rudel <noreply@example.com>",
+			}),
+		).toEqual([
+			"ClickHouse purge failure alerts are disabled because CLICKHOUSE_PURGE_ALERT_RECIPIENT is not set.",
+		]);
+		expect(
+			getResendConfigWarnings({
+				apiKey: "test-key",
+				clickHousePurgeAlertRecipient: "operator@example.com",
 				fromEmail: "Rudel <noreply@example.com>",
 			}),
 		).toEqual([]);

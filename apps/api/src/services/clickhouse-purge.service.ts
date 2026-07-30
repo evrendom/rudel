@@ -39,7 +39,7 @@ export interface ClickHousePurgeProcessorEnv {
 	leaseDurationMs: number;
 	now: () => Date;
 	random: () => number;
-	sendFailureAlert: (alert: ClickHousePurgeFailureAlert) => Promise<void>;
+	sendFailureAlert?: (alert: ClickHousePurgeFailureAlert) => Promise<void>;
 	sqlClient: postgres.Sql;
 }
 
@@ -121,8 +121,12 @@ export function startClickHousePurgeWorker(
 		leaseDurationMs: DEFAULT_LEASE_DURATION_MS,
 		now: () => new Date(),
 		random: Math.random,
-		sendFailureAlert: (alert) =>
-			sendClickHousePurgeFailureAlert(options.resend, alert),
+		sendFailureAlert:
+			options.resend.apiKey &&
+			options.resend.fromEmail &&
+			options.resend.clickHousePurgeAlertRecipient
+				? (alert) => sendClickHousePurgeFailureAlert(options.resend, alert)
+				: undefined,
 		sqlClient,
 	};
 
@@ -181,9 +185,10 @@ export async function runClickHousePurgeWorkerOnce(
 		await processClaimedPurgeJob(purgeJob, env);
 	}
 
-	const purgeAlert = await claimNextPurgeAlert(env);
-	if (purgeAlert) {
-		await processClaimedPurgeAlert(purgeAlert, env);
+	const sendFailureAlert = env.sendFailureAlert;
+	const purgeAlert = sendFailureAlert ? await claimNextPurgeAlert(env) : null;
+	if (purgeAlert && sendFailureAlert) {
+		await processClaimedPurgeAlert(purgeAlert, sendFailureAlert, env);
 	}
 
 	return purgeJob !== null || purgeAlert !== null;
@@ -216,7 +221,11 @@ export function sanitizeClickHousePurgeError(error: unknown): string {
 	return rawMessage
 		.replace(/\b[a-z][a-z0-9+.-]*:\/\/[^\s"'<>]+/giu, "[redacted-url]")
 		.replace(
-			/\b(authorization|credential|password|secret|token|api[_-]?key)\b\s*[:=]\s*[^\s,;]+/giu,
+			/\bauthorization\b["']?\s*[:=]\s*["']?[^\r\n]*/giu,
+			"authorization=[redacted]",
+		)
+		.replace(
+			/\b(credential|password|secret|token|api[_-]?key)\b\s*[:=]\s*[^\s,;]+/giu,
 			"$1=[redacted]",
 		)
 		.replace(/[\r\n\t]+/gu, " ")
@@ -469,14 +478,21 @@ async function markPurgeFailedAttempt(
 	env: ClickHousePurgeProcessorEnv,
 ): Promise<boolean> {
 	if (nextAttemptAt === null) {
+		const alertsEnabled = env.sendFailureAlert !== undefined;
 		const updated = await env.sqlClient<Array<{ id: string }>>`
 			UPDATE clickhouse_purge_job
 			SET
 				status = 'failed',
 				last_error = ${sanitizedError},
 				failed_at = NOW(),
-				alert_status = 'pending',
-				alert_next_attempt_at = NOW(),
+				alert_status = CASE
+					WHEN ${alertsEnabled} THEN 'pending'
+					ELSE 'not_required'
+				END,
+				alert_next_attempt_at = CASE
+					WHEN ${alertsEnabled} THEN NOW()
+					ELSE NULL
+				END,
 				lease_token = NULL,
 				lease_expires_at = NULL,
 				updated_at = NOW()
@@ -587,10 +603,11 @@ async function claimNextPurgeAlert(
 
 async function processClaimedPurgeAlert(
 	alert: ClaimedPurgeAlert,
+	sendFailureAlert: (alert: ClickHousePurgeFailureAlert) => Promise<void>,
 	env: ClickHousePurgeProcessorEnv,
 ): Promise<void> {
 	try {
-		await env.sendFailureAlert(alert);
+		await sendFailureAlert(alert);
 		const updated = await env.sqlClient<Array<{ id: string }>>`
 			UPDATE clickhouse_purge_job
 			SET
