@@ -33,13 +33,11 @@ describe("wrapped share media policy", () => {
 		).toBeNull();
 	});
 
-	it("keeps data and blob urls for designer-controlled local media", () => {
-		expect(getWrappedShareSafeImageUrl("data:image/png;base64,abc")).toBe(
-			"data:image/png;base64,abc",
-		);
-		expect(getWrappedShareSafeImageUrl("blob:https://rudel.ai/1234")).toBe(
-			"blob:https://rudel.ai/1234",
-		);
+	it("rejects inline and browser-local image blobs", () => {
+		expect(getWrappedShareSafeImageUrl("data:image/png;base64,abc")).toBeNull();
+		expect(
+			getWrappedShareSafeImageUrl("blob:https://rudel.ai/1234"),
+		).toBeNull();
 	});
 
 	it("rejects empty/null/whitespace input", () => {

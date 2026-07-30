@@ -1,5 +1,8 @@
 import { Resvg } from "@resvg/resvg-js";
-import type { WrappedShareSnapshot } from "@rudel/api-routes";
+import {
+	WRAPPED_SHARE_RESOURCE_LIMITS,
+	type WrappedShareSnapshot,
+} from "@rudel/api-routes";
 
 const CARD_WIDTH = 1200;
 const CARD_HEIGHT = 630;
@@ -11,7 +14,6 @@ const PNG_SIGNATURE = [137, 80, 78, 71, 13, 10, 26, 10] as const;
 const PNG_IHDR_WIDTH_OFFSET = 16;
 const PNG_IHDR_HEIGHT_OFFSET = 20;
 const PNG_IHDR_MIN_BYTE_LENGTH = 24;
-const WRAPPED_SHARE_SOCIAL_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
 
 interface WrappedShareCardPalette {
 	accent: string;
@@ -60,14 +62,14 @@ const WRAPPED_SHARE_CARD_PALETTES: Record<
 	},
 };
 
-export function getWrappedShareCardImagePng(snapshot: WrappedShareSnapshot) {
-	return getWrappedShareSocialImagePng(snapshot);
+export function getWrappedShareCardImagePng(socialImageDataUrl: string | null) {
+	return getWrappedShareSocialImagePng(socialImageDataUrl);
 }
 
 export function getWrappedShareCardImageMetadata(
-	snapshot: WrappedShareSnapshot,
+	socialImageDataUrl: string | null,
 ) {
-	const image = getWrappedShareSocialImagePng(snapshot);
+	const image = getWrappedShareSocialImagePng(socialImageDataUrl);
 	const size = image ? getPngImageSize(image) : null;
 
 	if (!size) {
@@ -81,14 +83,16 @@ export function getWrappedShareCardImageMetadata(
 	};
 }
 
-export function getWrappedShareSocialImagePng(snapshot: WrappedShareSnapshot) {
-	const dataUrl = snapshot.socialImageDataUrl;
-
-	if (!dataUrl?.startsWith(SOCIAL_IMAGE_DATA_URL_PREFIX)) {
+export function getWrappedShareSocialImagePng(
+	socialImageDataUrl: string | null,
+) {
+	if (!socialImageDataUrl?.startsWith(SOCIAL_IMAGE_DATA_URL_PREFIX)) {
 		return null;
 	}
 
-	const base64Data = dataUrl.slice(SOCIAL_IMAGE_DATA_URL_PREFIX.length);
+	const base64Data = socialImageDataUrl.slice(
+		SOCIAL_IMAGE_DATA_URL_PREFIX.length,
+	);
 
 	if (!base64Data || !BASE64_DATA_REGEX.test(base64Data)) {
 		return null;
@@ -96,7 +100,7 @@ export function getWrappedShareSocialImagePng(snapshot: WrappedShareSnapshot) {
 
 	const image = Buffer.from(base64Data, "base64");
 
-	if (image.byteLength > WRAPPED_SHARE_SOCIAL_IMAGE_MAX_BYTES) {
+	if (image.byteLength > WRAPPED_SHARE_RESOURCE_LIMITS.socialImageBytes) {
 		return null;
 	}
 

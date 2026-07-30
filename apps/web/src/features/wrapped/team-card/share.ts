@@ -1,4 +1,7 @@
-import type { WrappedSourceSplit } from "@rudel/api-routes";
+import {
+	WRAPPED_SHARE_RESOURCE_LIMITS,
+	type WrappedSourceSplit,
+} from "@rudel/api-routes";
 import type { RefObject } from "react";
 import { toast } from "sonner";
 import type { TeamPageMemberRow } from "@/features/team/use-team-page-data";
@@ -13,11 +16,8 @@ const TEAM_CARD_SHARE_CLIPBOARD_CAPTURE_SIZE = 3000;
 const TEAM_CARD_SHARE_OUTPUT_SIZE = 4096;
 const TEAM_CARD_SHARE_SOCIAL_IMAGE_CAPTURE_WIDTH = 2400;
 const TEAM_CARD_SHARE_SOCIAL_IMAGE_CAPTURE_HEIGHT = 1260;
-const TEAM_CARD_SHARE_SOCIAL_IMAGE_OUTPUT_WIDTH = 2400;
-const TEAM_CARD_SHARE_SOCIAL_IMAGE_OUTPUT_HEIGHT = 1260;
-const TEAM_CARD_SHARE_SOCIAL_IMAGE_FALLBACK_OUTPUT_WIDTH = 1200;
-const TEAM_CARD_SHARE_SOCIAL_IMAGE_FALLBACK_OUTPUT_HEIGHT = 630;
-const TEAM_CARD_SHARE_SOCIAL_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
+const TEAM_CARD_SHARE_SOCIAL_IMAGE_OUTPUT_WIDTH = 1200;
+const TEAM_CARD_SHARE_SOCIAL_IMAGE_OUTPUT_HEIGHT = 630;
 const TEAM_CARD_SHARE_REFERENCE_SIZE = 464;
 const TEAM_CARD_SHARE_FRONT_CARD_SCALE = 0.96;
 const TEAM_CARD_SHARE_SPREAD_CARD_SCALE = 0.72;
@@ -36,13 +36,6 @@ const TEAM_CARD_SHARE_SOCIAL_IMAGE_CAPTURE_OPTIONS =
 		captureWidth: TEAM_CARD_SHARE_SOCIAL_IMAGE_CAPTURE_WIDTH,
 		outputHeight: TEAM_CARD_SHARE_SOCIAL_IMAGE_OUTPUT_HEIGHT,
 		outputWidth: TEAM_CARD_SHARE_SOCIAL_IMAGE_OUTPUT_WIDTH,
-	});
-const TEAM_CARD_SHARE_SOCIAL_IMAGE_FALLBACK_CAPTURE_OPTIONS =
-	buildTeamCardShareLandscapeCaptureOptions({
-		captureHeight: TEAM_CARD_SHARE_SOCIAL_IMAGE_CAPTURE_HEIGHT,
-		captureWidth: TEAM_CARD_SHARE_SOCIAL_IMAGE_CAPTURE_WIDTH,
-		outputHeight: TEAM_CARD_SHARE_SOCIAL_IMAGE_FALLBACK_OUTPUT_HEIGHT,
-		outputWidth: TEAM_CARD_SHARE_SOCIAL_IMAGE_FALLBACK_OUTPUT_WIDTH,
 	});
 
 type WrappedShareActionKind =
@@ -194,16 +187,13 @@ export async function captureWrappedTeamCardSocialImageDataUrl(
 		return undefined;
 	}
 
-	let imageBlob = await captureElement(
+	const imageBlob = await captureElement(
 		sharePostElement,
 		TEAM_CARD_SHARE_SOCIAL_IMAGE_CAPTURE_OPTIONS,
 	);
 
-	if (imageBlob.size > TEAM_CARD_SHARE_SOCIAL_IMAGE_MAX_BYTES) {
-		imageBlob = await captureElement(
-			sharePostElement,
-			TEAM_CARD_SHARE_SOCIAL_IMAGE_FALLBACK_CAPTURE_OPTIONS,
-		);
+	if (imageBlob.size > WRAPPED_SHARE_RESOURCE_LIMITS.socialImageBytes) {
+		return undefined;
 	}
 
 	return blobToDataUrl(imageBlob);
