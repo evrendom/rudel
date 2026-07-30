@@ -8,7 +8,6 @@
 			"@rudel/api-routes": ["packages/api-routes/src/index.ts"]
 		},
 		"rootDir": "..",
-		"typeRoots": ["../apps/api/node_modules"],
 		"types": ["bun-types"]
 	},
 	"files": ["decimal-e2e-gate.ts"]
