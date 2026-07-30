@@ -102,6 +102,27 @@ export function readPositiveSafeIntegerEnv(
 	return parsedValue;
 }
 
+export function readNonNegativeSafeIntegerEnv(
+	name: string,
+	defaultValue: number,
+): number {
+	const rawValue = process.env[name];
+	if (rawValue === undefined) {
+		return defaultValue;
+	}
+
+	if (rawValue.trim() === "") {
+		throw new Error(`${name} must be a non-negative safe integer`);
+	}
+
+	const parsedValue = Number(rawValue);
+	if (!Number.isSafeInteger(parsedValue) || parsedValue < 0) {
+		throw new Error(`${name} must be a non-negative safe integer`);
+	}
+
+	return parsedValue;
+}
+
 export function readRequiredSecretEnv(
 	name: string,
 	minimumLength: number,

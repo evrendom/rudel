@@ -11,6 +11,7 @@ import {
 	WrappedShareSnapshotSchema,
 } from "@rudel/api-routes";
 import { sqlClient } from "../db.js";
+import { checkWrappedShareLookupRateLimit } from "../rate-limit.js";
 import {
 	buildWrappedShareIdBase,
 	getNextWrappedShareIdCandidate,
@@ -292,7 +293,9 @@ async function getWrappedShareForUser(
 // That makes the read path small, cache-friendly, and safe for anonymous access.
 export async function getPublicWrappedShare(
 	shareId: string,
+	source: string,
 ): Promise<PublicWrappedShare | null> {
+	checkWrappedShareLookupRateLimit(shareId, source);
 	const share = await getPublicWrappedShareById(shareId);
 
 	if (!share) {
@@ -307,7 +310,9 @@ export async function getPublicWrappedShare(
 
 export async function getPublicWrappedShareWithSocialImage(
 	shareId: string,
+	source: string,
 ): Promise<PublicWrappedShareWithSocialImage | null> {
+	checkWrappedShareLookupRateLimit(shareId, source);
 	return getPublicWrappedShareById(shareId);
 }
 
