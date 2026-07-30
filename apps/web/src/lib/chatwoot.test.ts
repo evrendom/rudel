@@ -4,6 +4,7 @@ import {
 	CHATWOOT_OPENED_EVENT,
 	closeChatwoot,
 	openChatwoot,
+	syncChatwootUser,
 } from "./chatwoot";
 
 afterEach(() => {
@@ -55,5 +56,28 @@ describe("chatwoot", () => {
 		window.removeEventListener(CHATWOOT_CLOSED_EVENT, handleClosed);
 		expect(toggle).toHaveBeenCalledWith("close");
 		expect(handleClosed).toHaveBeenCalledTimes(1);
+	});
+
+	it("passes the matching server-signed identity pair to setUser", async () => {
+		const identifierHash = "a".repeat(64);
+
+		stubChatwootEnv();
+		stubLoadedChatwoot(vi.fn());
+
+		await syncChatwootUser({
+			identifier: "user-123",
+			identifier_hash: identifierHash,
+			email: "user@example.com",
+			name: "Rudel User",
+		});
+
+		expect(window.$chatwoot?.setUser).toHaveBeenCalledWith("user-123", {
+			avatar_url: undefined,
+			company_name: undefined,
+			description: "Rudel dashboard user",
+			email: "user@example.com",
+			identifier_hash: identifierHash,
+			name: "Rudel User",
+		});
 	});
 });
