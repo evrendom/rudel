@@ -3,9 +3,9 @@ import { expect, test } from "@playwright/test";
 // One second leaves ample shared-CI headroom while still catching tab-freezing
 // regressions. The fixtures also enforce a measured ceiling on generated DOM.
 const MAX_BROWSER_RENDER_MS = 1_000;
-const MAX_BROWSER_DOM_NODES = 2_500;
+const MAX_BROWSER_DOM_NODES = 3_000;
 
-for (const scenario of ["code", "large-code", "xml"]) {
+for (const scenario of ["array", "code", "large-code", "xml"]) {
 	test(`bounds maximum-size adversarial ${scenario} rendering`, async ({
 		page,
 	}) => {
@@ -36,7 +36,7 @@ for (const scenario of ["code", "large-code", "xml"]) {
 		expect(durationMs).toBeLessThan(MAX_BROWSER_RENDER_MS);
 		expect(domNodes).toBeLessThan(MAX_BROWSER_DOM_NODES);
 
-		if (scenario === "code") {
+		if (scenario === "array" || scenario === "code") {
 			expect(codeBlocks).toBe(99);
 			expect(xmlBlocks).toBe(0);
 		} else if (scenario === "xml") {

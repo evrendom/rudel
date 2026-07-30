@@ -82,6 +82,9 @@ jobs:
       - name: Verify
         run: bun run turbo run lint check-types test build
 
+      - name: Test browser rendering limits
+        run: bun run --cwd apps/web test:browser
+
   integration:
     runs-on: ubuntu-24.04
     timeout-minutes: 30

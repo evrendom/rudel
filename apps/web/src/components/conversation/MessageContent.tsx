@@ -60,6 +60,15 @@ export const MAX_HIGHLIGHTED_MESSAGE_CODE_UNITS = 4 * 1024;
 const FORMATTING_LIMIT_NOTICE =
 	"[Remaining message shown as plain text because it contains too many formatted parts]";
 
+function createMessageRenderBudget() {
+	return {
+		remainingParts: MAX_RENDERED_MESSAGE_PARTS,
+		remainingHighlightedCodeUnits: MAX_HIGHLIGHTED_MESSAGE_CODE_UNITS,
+	};
+}
+
+type MessageRenderBudget = ReturnType<typeof createMessageRenderBudget>;
+
 /**
  * Format an XML tag name into a human-readable label.
  * e.g. "environment_context" -> "Environment Context"
@@ -69,8 +78,7 @@ function formatTagLabel(tag: string): string {
 }
 
 /**
- * Parse an XML block's inner content into key-value entries.
- * Handles simple `<key>value</key>` pairs and produces a fallback
+ * Parse an XML block's simple `<key>value</key>` pairs into entries and fallback
  * "content" entry for anything that doesn't match.
  */
 function parseXmlEntries(
@@ -127,13 +135,21 @@ function parseXmlEntries(
 	return entries;
 }
 
-export function parseMessageText(text: string): Array<TextPart> {
+export function parseMessageText(
+	text: string,
+	budget: MessageRenderBudget = createMessageRenderBudget(),
+): Array<TextPart> {
+	if (budget.remainingParts === 0) {
+		return [];
+	}
+
 	if (text.length > MAX_RENDERED_MESSAGE_CODE_UNITS) {
 		const visibleText = text
 			.slice(0, MAX_RENDERED_MESSAGE_CODE_UNITS)
 			.trimEnd();
 		const omittedCodeUnits = text.length - MAX_RENDERED_MESSAGE_CODE_UNITS;
 
+		budget.remainingParts -= 1;
 		return [
 			{
 				type: "text",
@@ -143,8 +159,6 @@ export function parseMessageText(text: string): Array<TextPart> {
 	}
 
 	const parts: Array<TextPart> = [];
-	let highlightedCodeUnits = 0;
-	let renderedPartCount = 0;
 	let plainTextStart = 0;
 	let cursor = 0;
 
@@ -166,20 +180,19 @@ export function parseMessageText(text: string): Array<TextPart> {
 			const partsToAdd = precedingText ? 2 : 1;
 
 			// Keep one final part available for the unformatted remainder.
-			if (renderedPartCount + partsToAdd >= MAX_RENDERED_MESSAGE_PARTS) {
-				appendFormattingFallback(parts, text.slice(plainTextStart));
+			if (partsToAdd >= budget.remainingParts) {
+				appendFormattingFallback(parts, text.slice(plainTextStart), budget);
 				return parts;
 			}
 
 			if (precedingText) {
 				parts.push(precedingText);
-				renderedPartCount += 1;
+				budget.remainingParts -= 1;
 			}
 			const codeContent = text.slice(codeBlock.contentStart, closingFenceStart);
 			const highlight =
 				codeBlock.language !== "text" &&
-				highlightedCodeUnits + codeContent.length <=
-					MAX_HIGHLIGHTED_MESSAGE_CODE_UNITS;
+				codeContent.length <= budget.remainingHighlightedCodeUnits;
 
 			parts.push({
 				type: "code",
@@ -188,9 +201,9 @@ export function parseMessageText(text: string): Array<TextPart> {
 				highlight,
 			});
 			if (highlight) {
-				highlightedCodeUnits += codeContent.length;
+				budget.remainingHighlightedCodeUnits -= codeContent.length;
 			}
-			renderedPartCount += 1;
+			budget.remainingParts -= 1;
 			cursor = closingFenceStart + 3;
 			plainTextStart = cursor;
 			continue;
@@ -221,11 +234,10 @@ export function parseMessageText(text: string): Array<TextPart> {
 		const precedingText = createTextPart(text.slice(plainTextStart, cursor));
 		const precedingTextCost = precedingText ? 1 : 0;
 		// Reserve one part each for the XML wrapper and unformatted remainder.
-		const availableEntryParts =
-			MAX_RENDERED_MESSAGE_PARTS - renderedPartCount - precedingTextCost - 2;
+		const availableEntryParts = budget.remainingParts - precedingTextCost - 2;
 
 		if (availableEntryParts < 0) {
-			appendFormattingFallback(parts, text.slice(plainTextStart));
+			appendFormattingFallback(parts, text.slice(plainTextStart), budget);
 			return parts;
 		}
 
@@ -234,17 +246,17 @@ export function parseMessageText(text: string): Array<TextPart> {
 			availableEntryParts,
 		);
 		if (!entries) {
-			appendFormattingFallback(parts, text.slice(plainTextStart));
+			appendFormattingFallback(parts, text.slice(plainTextStart), budget);
 			return parts;
 		}
 
 		if (precedingText) {
 			parts.push(precedingText);
-			renderedPartCount += 1;
+			budget.remainingParts -= 1;
 		}
 		if (entries.length > 0) {
 			parts.push({ type: "xml", tag, entries });
-			renderedPartCount += entries.length + 1;
+			budget.remainingParts -= entries.length + 1;
 		}
 
 		cursor = closingTagStart + closingTag.length;
@@ -254,10 +266,12 @@ export function parseMessageText(text: string): Array<TextPart> {
 	const trailingText = createTextPart(text.slice(plainTextStart));
 	if (trailingText) {
 		parts.push(trailingText);
+		budget.remainingParts -= 1;
 	}
 
 	if (parts.length === 0 && text.trim()) {
 		parts.push({ type: "text", content: text.trim() });
+		budget.remainingParts -= 1;
 	}
 
 	return parts;
@@ -273,13 +287,18 @@ function createTextPart(text: string): TextPart | null {
 	return { type: "text", content };
 }
 
-function appendFormattingFallback(parts: TextPart[], text: string) {
+function appendFormattingFallback(
+	parts: TextPart[],
+	text: string,
+	budget: MessageRenderBudget,
+) {
 	const remainingText = text.trim();
 	const content = remainingText
 		? `${FORMATTING_LIMIT_NOTICE}\n\n${remainingText}`
 		: FORMATTING_LIMIT_NOTICE;
 
 	parts.push({ type: "text", content });
+	budget.remainingParts -= 1;
 }
 
 function readCodeBlockStart(
@@ -423,8 +442,17 @@ function XmlBlock({
 	);
 }
 
-function renderPlainText(text: string, key: string) {
-	const parts = parseMessageText(text);
+function renderPlainText(
+	text: string,
+	key: string,
+	budget: MessageRenderBudget,
+) {
+	const parts = parseMessageText(text, budget);
+
+	if (parts.length === 0) {
+		return null;
+	}
+
 	return (
 		<div key={key} className="space-y-3.5">
 			{parts.map((part, partIdx) => {
@@ -482,7 +510,7 @@ export function MessageContent({ content, className }: MessageContentProps) {
 	if (typeof content === "string") {
 		return (
 			<div className={cn("space-y-3.5", className)}>
-				{renderPlainText(content, "plain-content")}
+				{renderPlainText(content, "plain-content", createMessageRenderBudget())}
 			</div>
 		);
 	}
@@ -503,6 +531,7 @@ export function MessageContent({ content, className }: MessageContentProps) {
 	const toolUses = new Map<string, ToolUseContent>();
 	const toolResults = new Map<string, ToolResultContent>();
 	const blockIdentityCounts = new Map<string, number>();
+	const renderBudget = createMessageRenderBudget();
 
 	for (const block of content) {
 		if (typeof block === "string") continue;
@@ -523,12 +552,12 @@ export function MessageContent({ content, className }: MessageContentProps) {
 				const blockKey = `${blockIdentity}:${identityOccurrence}`;
 
 				if (typeof block === "string") {
-					return renderPlainText(block, blockKey);
+					return renderPlainText(block, blockKey, renderBudget);
 				}
 
 				switch (block.type) {
 					case "text":
-						return renderPlainText(block.text, blockKey);
+						return renderPlainText(block.text, blockKey, renderBudget);
 
 					case "thinking":
 						return (

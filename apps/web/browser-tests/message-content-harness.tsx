@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import {
 	MAX_HIGHLIGHTED_MESSAGE_CODE_UNITS,
 	MAX_RENDERED_MESSAGE_CODE_UNITS,
+	MAX_RENDERED_MESSAGE_PARTS,
 	MessageContent,
 } from "../src/components/conversation/MessageContent";
 import "../src/index.css";
@@ -19,12 +20,15 @@ if (!(renderResult instanceof HTMLOutputElement)) {
 }
 
 const scenario = new URLSearchParams(window.location.search).get("scenario");
-const adversarialMessage = createAdversarialMessage(scenario);
+const adversarialContent =
+	scenario === "array"
+		? createAdversarialArrayContent()
+		: createAdversarialMessage(scenario);
 const root = createRoot(messageRoot);
 const renderStartedAt = performance.now();
 
 flushSync(() => {
-	root.render(<MessageContent content={adversarialMessage} />);
+	root.render(<MessageContent content={adversarialContent} />);
 });
 
 requestAnimationFrame(() => {
@@ -41,6 +45,21 @@ requestAnimationFrame(() => {
 	);
 	renderResult.textContent = "Rendered";
 });
+
+function createAdversarialArrayContent() {
+	const blockCount = MAX_RENDERED_MESSAGE_PARTS * 2;
+	const codeLine = "const value = 1;\n";
+	const fenceLength = "```js\n\n```".length;
+	const codeUnitsPerBlock =
+		Math.floor(MAX_RENDERED_MESSAGE_CODE_UNITS / blockCount) - fenceLength;
+	const code = codeLine.repeat(Math.floor(codeUnitsPerBlock / codeLine.length));
+	const text = `\`\`\`js\n${code}\`\`\``;
+
+	return Array.from({ length: blockCount }, () => ({
+		type: "text" as const,
+		text,
+	}));
+}
 
 function createAdversarialMessage(scenario: string | null) {
 	if (scenario === "large-code") {
