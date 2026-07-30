@@ -4,7 +4,7 @@ import path from "node:path";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { loadEnv } from "vite";
-import { defineConfig } from "vitest/config";
+import { configDefaults, defineConfig } from "vitest/config";
 
 const { version } = JSON.parse(
 	readFileSync(new URL("./package.json", import.meta.url), "utf-8"),
@@ -112,6 +112,7 @@ export default defineConfig(async ({ mode }) => {
 					url: "http://localhost:4011",
 				},
 			},
+			exclude: [...configDefaults.exclude, "e2e/**"],
 			setupFiles: ["./src/test/setup.ts"],
 		},
 	};

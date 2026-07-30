@@ -1,6 +1,10 @@
 import { beforeEach, describe, expect, mock, test } from "bun:test";
 import assert from "node:assert";
-import type { WrappedShareSnapshot } from "@rudel/api-routes";
+import {
+	getWrappedShareSnapshotByteLength,
+	WRAPPED_SHARE_RESOURCE_LIMITS,
+	type WrappedShareSnapshot,
+} from "@rudel/api-routes";
 import {
 	WRAPPED_SHARE_LOOKUP_MAX_REQUESTS,
 	WRAPPED_SHARE_LOOKUP_SOURCE_MAX_REQUESTS,
@@ -47,6 +51,7 @@ mock.module("../db.js", () => ({
 const {
 	createWrappedShare,
 	getPublicWrappedShare,
+	getPublicWrappedShareForPageMetadata,
 	getPublicWrappedShareWithSocialImage,
 } = await import("../services/wrapped-share.service.js");
 
@@ -81,6 +86,25 @@ describe("wrapped share service", () => {
 		expect(getSqlQuery(2).values[0]).toBe("evren");
 	});
 
+	test("persists the social image outside the replay snapshot", async () => {
+		insertRows = [{ id: "evren" }];
+		const socialImageDataUrl = createSocialImageDataUrl(3);
+
+		await createWrappedShare({
+			organizationId: "org-1",
+			snapshot: createSnapshot({ displayName: "Evren" }),
+			socialImageDataUrl,
+			userId: "user-1",
+			variant: "normal",
+		});
+
+		const insertQuery = getSqlQuery(2);
+		const snapshotJson = insertQuery.values[3];
+		assert.strictEqual(typeof snapshotJson, "string");
+		expect(insertQuery.values[4]).toBe(socialImageDataUrl);
+		expect(snapshotJson).not.toContain("socialImageDataUrl");
+	});
+
 	test("keeps the same link for later creates by the same user", async () => {
 		const existingCreatedAt = "2026-04-22T10:00:00.000Z";
 		selectRows = [{ createdAt: existingCreatedAt, id: "evren" }];
@@ -97,8 +121,8 @@ describe("wrapped share service", () => {
 		expect(record.created_at).toBe(existingCreatedAt);
 		expect(sqlQueries).toHaveLength(2);
 		expect(getSqlQuery(1).sql.startsWith("UPDATE wrapped_share")).toBe(true);
-		expect(getSqlQuery(1).values[4]).toBe("evren");
-		expect(getSqlQuery(1).values[5]).toBe("user-1");
+		expect(getSqlQuery(1).values[5]).toBe("evren");
+		expect(getSqlQuery(1).values[6]).toBe("user-1");
 	});
 
 	test("renames a legacy uuid link to the card name for the same user", async () => {
@@ -126,8 +150,8 @@ describe("wrapped share service", () => {
 		]);
 		expect(getSqlQuery(2).sql.startsWith("UPDATE wrapped_share")).toBe(true);
 		expect(getSqlQuery(2).values[0]).toBe("evren");
-		expect(getSqlQuery(2).values[5]).toBe(legacyShareId);
-		expect(getSqlQuery(2).values[6]).toBe("user-1");
+		expect(getSqlQuery(2).values[6]).toBe(legacyShareId);
+		expect(getSqlQuery(2).values[7]).toBe("user-1");
 	});
 
 	test("hydrates an older public share without an image from the account profile", async () => {
@@ -192,6 +216,23 @@ describe("wrapped share service", () => {
 			getPublicWrappedShareWithSocialImage(shareId, source),
 		).rejects.toThrow("Wrapped share lookup is temporarily rate limited");
 		expect(sqlQueries).toHaveLength(WRAPPED_SHARE_LOOKUP_MAX_REQUESTS);
+
+		const pageShareId = `throttled-page-share-${crypto.randomUUID()}`;
+		const pageSource = `throttled-page-source-${crypto.randomUUID()}`;
+
+		for (
+			let request = 0;
+			request < WRAPPED_SHARE_LOOKUP_MAX_REQUESTS;
+			request += 1
+		) {
+			await getPublicWrappedShareForPageMetadata(pageShareId, pageSource);
+		}
+
+		expect(sqlQueries).toHaveLength(WRAPPED_SHARE_LOOKUP_MAX_REQUESTS * 2);
+		await expect(
+			getPublicWrappedShareForPageMetadata(pageShareId, pageSource),
+		).rejects.toThrow("Wrapped share lookup is temporarily rate limited");
+		expect(sqlQueries).toHaveLength(WRAPPED_SHARE_LOOKUP_MAX_REQUESTS * 2);
 	});
 
 	test("rejects source churn before loading another attacker-chosen ID", async () => {
@@ -213,6 +254,186 @@ describe("wrapped share service", () => {
 			getPublicWrappedShare(`churning-share-${crypto.randomUUID()}`, source),
 		).rejects.toThrow("Wrapped share lookup is temporarily rate limited");
 		expect(sqlQueries).toHaveLength(WRAPPED_SHARE_LOOKUP_SOURCE_MAX_REQUESTS);
+	});
+
+	test("loads the largest supported public card without selecting its social image", async () => {
+		selectRows = [
+			{
+				createdAt: "2026-04-22T10:00:00.000Z",
+				expiresAt: new Date(Date.now() + 60_000).toISOString(),
+				id: "evren",
+				payloadVersion: 1,
+				snapshotJson: JSON.stringify(
+					createSnapshot({
+						backMetricCount: WRAPPED_SHARE_RESOURCE_LIMITS.backMetricCount,
+						displayName: "Evren",
+						statItemCount: WRAPPED_SHARE_RESOURCE_LIMITS.statItemCount,
+					}),
+				),
+				socialImageDataUrl: createSocialImageDataUrl(
+					WRAPPED_SHARE_RESOURCE_LIMITS.socialImageBytes,
+				),
+				userImage: null,
+			},
+		];
+
+		const share = await getPublicWrappedShare(
+			"evren",
+			WRAPPED_SHARE_TEST_SOURCE,
+		);
+
+		assert(share);
+		expect(share.snapshot.statItems).toHaveLength(
+			WRAPPED_SHARE_RESOURCE_LIMITS.statItemCount,
+		);
+		expect(share.snapshot.backMetrics).toHaveLength(
+			WRAPPED_SHARE_RESOURCE_LIMITS.backMetricCount,
+		);
+		expect(getSqlQuery(0).sql).toContain(
+			"octet_length(wrapped_share.snapshot_json)",
+		);
+		expect(getSqlQuery(0).sql).not.toContain("social_image_data_url");
+		expect(getSqlQuery(0).values).toEqual([
+			"evren",
+			WRAPPED_SHARE_RESOURCE_LIMITS.snapshotBytes,
+		]);
+	});
+
+	test("loads the social image only for the specialized card-image lookup", async () => {
+		const socialImageDataUrl = createSocialImageDataUrl(
+			WRAPPED_SHARE_RESOURCE_LIMITS.socialImageBytes,
+		);
+		selectRows = [
+			{
+				createdAt: "2026-04-22T10:00:00.000Z",
+				expiresAt: new Date(Date.now() + 60_000).toISOString(),
+				id: "evren",
+				payloadVersion: 1,
+				snapshotJson: JSON.stringify(createSnapshot({ displayName: "Evren" })),
+				socialImageDataUrl,
+				userImage: null,
+			},
+		];
+
+		const share = await getPublicWrappedShareWithSocialImage(
+			"evren",
+			WRAPPED_SHARE_TEST_SOURCE,
+		);
+
+		assert(share);
+		expect(share.socialImageDataUrl).toBe(socialImageDataUrl);
+		expect(getSqlQuery(0).sql).toContain("social_image_data_url");
+		expect(getSqlQuery(0).sql).toContain(
+			"octet_length(wrapped_share.social_image_data_url)",
+		);
+	});
+
+	test("checks image availability for page metadata without selecting the blob", async () => {
+		selectRows = [
+			{
+				createdAt: "2026-04-22T10:00:00.000Z",
+				expiresAt: new Date(Date.now() + 60_000).toISOString(),
+				hasSocialImage: true,
+				id: "evren",
+				payloadVersion: 1,
+				snapshotJson: JSON.stringify(createSnapshot({ displayName: "Evren" })),
+				userImage: null,
+			},
+		];
+
+		const share = await getPublicWrappedShareForPageMetadata(
+			"evren",
+			WRAPPED_SHARE_TEST_SOURCE,
+		);
+
+		assert(share);
+		expect(share.hasSocialImage).toBe(true);
+		expect(getSqlQuery(0).sql).toContain(
+			'wrapped_share.social_image_data_url IS NOT NULL AS "hasSocialImage"',
+		);
+		expect(getSqlQuery(0).sql).not.toContain('AS "socialImageDataUrl"');
+	});
+
+	test("fails closed when a legacy row has one stat item over the limit", async () => {
+		selectRows = [
+			{
+				createdAt: "2026-04-22T10:00:00.000Z",
+				expiresAt: new Date(Date.now() + 60_000).toISOString(),
+				id: "evren",
+				payloadVersion: 1,
+				snapshotJson: JSON.stringify(
+					createSnapshot({
+						displayName: "Evren",
+						statItemCount: WRAPPED_SHARE_RESOURCE_LIMITS.statItemCount + 1,
+					}),
+				),
+				userImage: null,
+			},
+		];
+
+		const share = await getPublicWrappedShare(
+			"evren",
+			WRAPPED_SHARE_TEST_SOURCE,
+		);
+
+		expect(share).toBeNull();
+	});
+
+	test("rejects oversized creation before querying the database", async () => {
+		await expect(
+			createWrappedShare({
+				organizationId: "org-1",
+				snapshot: createSnapshot({
+					displayName: "Evren",
+					statItemCount: WRAPPED_SHARE_RESOURCE_LIMITS.statItemCount + 1,
+				}),
+				userId: "user-1",
+				variant: "normal",
+			}),
+		).rejects.toThrow();
+		expect(sqlQueries).toHaveLength(0);
+	});
+
+	test("rejects aggregate snapshot bytes before querying the database", async () => {
+		const maximumText = "界".repeat(WRAPPED_SHARE_RESOURCE_LIMITS.textLength);
+		const snapshot = createSnapshot({
+			backMetricCount: WRAPPED_SHARE_RESOURCE_LIMITS.backMetricCount,
+			displayName: maximumText,
+			imageUrl: "界".repeat(WRAPPED_SHARE_RESOURCE_LIMITS.imageUrlLength),
+			shellClassName: "界".repeat(
+				WRAPPED_SHARE_RESOURCE_LIMITS.classNameLength,
+			),
+			statItemCount: WRAPPED_SHARE_RESOURCE_LIMITS.statItemCount,
+			text: maximumText,
+		});
+
+		expect(getWrappedShareSnapshotByteLength(snapshot)).toBeGreaterThan(
+			WRAPPED_SHARE_RESOURCE_LIMITS.snapshotBytes,
+		);
+		await expect(
+			createWrappedShare({
+				organizationId: "org-1",
+				snapshot,
+				userId: "user-1",
+				variant: "normal",
+			}),
+		).rejects.toThrow(/Wrapped share snapshot must be at most/u);
+		expect(sqlQueries).toHaveLength(0);
+	});
+
+	test("rejects an oversized social image before querying the database", async () => {
+		await expect(
+			createWrappedShare({
+				organizationId: "org-1",
+				snapshot: createSnapshot({ displayName: "Evren" }),
+				socialImageDataUrl: createSocialImageDataUrl(
+					WRAPPED_SHARE_RESOURCE_LIMITS.socialImageBytes + 1,
+				),
+				userId: "user-1",
+				variant: "normal",
+			}),
+		).rejects.toThrow(/social image must be at most/u);
+		expect(sqlQueries).toHaveLength(0);
 	});
 
 	test("keeps a saved share image ahead of the account profile fallback", async () => {
@@ -553,32 +774,58 @@ describe("wrapped share service", () => {
 });
 
 function createSnapshot(input: {
+	backMetricCount?: number;
 	displayName: string;
 	imageUrl?: string | null;
+	shellClassName?: string;
+	statItemCount?: number;
+	text?: string;
 }): WrappedShareSnapshot {
+	const text = input.text ?? "x";
+
 	return {
-		archetypeLabel: "Builder",
-		backMetrics: [],
-		headerLeftMetric: { label: "Sessions", value: "12" },
-		headerRightMetric: { label: "Days", value: "6" },
+		archetypeLabel: text,
+		backMetrics: Array.from({ length: input.backMetricCount ?? 0 }, () => ({
+			label: text,
+			value: text,
+		})),
+		headerLeftMetric: { label: text, title: text, value: text },
+		headerRightMetric: { label: text, title: text, value: text },
 		row: {
 			activeDays: 6,
 			cost: 42,
 			displayName: input.displayName,
-			favoriteModel: "o3",
+			favoriteModel: text,
 			hasActivity: true,
 			imageUrl: input.imageUrl ?? null,
 			inputTokens: 120,
-			lastActiveDate: "2026-04-22",
+			lastActiveDate: text,
 			outputTokens: 240,
-			role: "Builder",
+			role: text,
 			totalSessions: 12,
 			totalTokens: 360,
 		},
-		shellClassName: "team-lineup-shell",
-		statItems: [],
+		shellClassName: input.shellClassName ?? "team-lineup-shell",
+		statItems: Array.from({ length: input.statItemCount ?? 0 }, (_, index) => ({
+			key: `stat-${index}`,
+			label: text,
+			title: text,
+			value: text,
+		})),
 		theme: "light",
 	};
+}
+
+function createSocialImageDataUrl(byteLength: number) {
+	const prefix = "data:image/png;base64,";
+	const base64Length = Math.ceil(byteLength / 3) * 4;
+	const paddingLength = (3 - (byteLength % 3)) % 3;
+
+	return (
+		prefix +
+		"A".repeat(base64Length - paddingLength) +
+		"=".repeat(paddingLength)
+	);
 }
 
 function getSqlQuery(index: number) {
