@@ -79,6 +79,9 @@ jobs:
           bun scripts/check-disclosure.ts --commits "${{ github.event.pull_request.base.sha }}"
           bun scripts/check-disclosure.ts --pull-request "${{ github.event.pull_request.number }}"
 
+      - name: Typecheck standalone Decimal gate
+        run: bun run check-types:decimal-e2e
+
       - name: Verify
         run: bun run turbo run lint check-types test build
 

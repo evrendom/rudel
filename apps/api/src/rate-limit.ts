@@ -22,6 +22,7 @@ const analyticsWindows = new Map<string, SlidingWindowEntry>();
 const organizationSessionCountWindows = new Map<string, SlidingWindowEntry>();
 const wrappedShareCreateWindows = new Map<string, SlidingWindowEntry>();
 const wrappedShareLookupWindows = new Map<string, SlidingWindowEntry>();
+const wrappedShareLookupSourceWindows = new Map<string, SlidingWindowEntry>();
 const wrappedResumeCreateWindows = new Map<string, SlidingWindowEntry>();
 const wrappedDecimalClaimRedeemWindows = new Map<string, SlidingWindowEntry>();
 const ingestRequestWindows = new Map<string, WeightedWindowEntry>();
@@ -39,11 +40,26 @@ const WRAPPED_SHARE_CREATE_MAX_REQUESTS = Number(
 );
 const WRAPPED_SHARE_CREATE_WINDOW_MS =
 	Number(process.env.RATE_LIMIT_WRAPPED_SHARE_CREATE_WINDOW ?? 600) * 1000;
-const WRAPPED_SHARE_LOOKUP_MAX_REQUESTS = Number(
-	process.env.RATE_LIMIT_WRAPPED_SHARE_LOOKUP_MAX ?? 180,
+export const WRAPPED_SHARE_LOOKUP_MAX_REQUESTS = readPositiveSafeIntegerEnv(
+	"RATE_LIMIT_WRAPPED_SHARE_LOOKUP_MAX",
+	180,
 );
-const WRAPPED_SHARE_LOOKUP_WINDOW_MS =
-	Number(process.env.RATE_LIMIT_WRAPPED_SHARE_LOOKUP_WINDOW ?? 60) * 1000;
+export const WRAPPED_SHARE_LOOKUP_WINDOW_MS =
+	readPositiveSafeIntegerEnv("RATE_LIMIT_WRAPPED_SHARE_LOOKUP_WINDOW", 60) *
+	1000;
+export const WRAPPED_SHARE_LOOKUP_CAPACITY = readPositiveSafeIntegerEnv(
+	"RATE_LIMIT_WRAPPED_SHARE_LOOKUP_CAPACITY",
+	5_000,
+);
+export const WRAPPED_SHARE_LOOKUP_SOURCE_MAX_REQUESTS =
+	readPositiveSafeIntegerEnv("RATE_LIMIT_WRAPPED_SHARE_LOOKUP_SOURCE_MAX", 600);
+// One source must be rejected before it can fill and start evicting the
+// per-share cache with attacker-chosen IDs.
+if (WRAPPED_SHARE_LOOKUP_SOURCE_MAX_REQUESTS > WRAPPED_SHARE_LOOKUP_CAPACITY) {
+	throw new Error(
+		"RATE_LIMIT_WRAPPED_SHARE_LOOKUP_SOURCE_MAX must not exceed RATE_LIMIT_WRAPPED_SHARE_LOOKUP_CAPACITY",
+	);
+}
 const WRAPPED_RESUME_CREATE_MAX_REQUESTS = Number(
 	process.env.RATE_LIMIT_WRAPPED_RESUME_CREATE_MAX ?? 6,
 );
@@ -128,15 +144,153 @@ export function checkWrappedShareCreateRateLimit(userId: string) {
 	});
 }
 
-export function checkWrappedShareLookupRateLimit(shareId: string) {
-	checkSlidingWindowRateLimit({
-		entityId: shareId,
-		errorMessage: `Wrapped share lookup is temporarily rate limited. Maximum ${WRAPPED_SHARE_LOOKUP_MAX_REQUESTS} requests per ${Math.round(WRAPPED_SHARE_LOOKUP_WINDOW_MS / 1000)} seconds.`,
-		maxRequests: WRAPPED_SHARE_LOOKUP_MAX_REQUESTS,
-		map: wrappedShareLookupWindows,
-		operationName: "wrapped share lookup",
-		windowMs: WRAPPED_SHARE_LOOKUP_WINDOW_MS,
-	});
+let wrappedShareLookupEvictions = 0;
+let wrappedShareLookupRejectedTraffic = 0;
+
+const wrappedShareLookupCleanupTimer = setInterval(
+	() => {
+		const now = Date.now();
+		evictExpiredWrappedShareLookupWindows(now);
+		evictExpiredWrappedShareLookupSourceWindows(now);
+	},
+	Math.min(WRAPPED_SHARE_LOOKUP_WINDOW_MS, 60_000),
+);
+wrappedShareLookupCleanupTimer.unref();
+
+export function checkWrappedShareLookupRateLimit(
+	shareId: string,
+	source: string,
+): void {
+	checkWrappedShareLookupSourceRateLimit(source);
+
+	const now = Date.now();
+	const cutoff = now - WRAPPED_SHARE_LOOKUP_WINDOW_MS;
+	evictExpiredWrappedShareLookupWindows(now);
+
+	let entry = wrappedShareLookupWindows.get(shareId);
+	if (!entry) {
+		if (wrappedShareLookupWindows.size >= WRAPPED_SHARE_LOOKUP_CAPACITY) {
+			evictOldestWrappedShareLookupWindow();
+		}
+
+		entry = { timestamps: [] };
+	}
+
+	entry.timestamps = entry.timestamps.filter((timestamp) => timestamp > cutoff);
+
+	if (entry.timestamps.length >= WRAPPED_SHARE_LOOKUP_MAX_REQUESTS) {
+		wrappedShareLookupRejectedTraffic += 1;
+		logger.warn(
+			"Wrapped share lookup rate limit exceeded for {shareId}: {count}/{max} in {window}s",
+			{
+				count: entry.timestamps.length,
+				max: WRAPPED_SHARE_LOOKUP_MAX_REQUESTS,
+				shareId,
+				window: Math.round(WRAPPED_SHARE_LOOKUP_WINDOW_MS / 1000),
+			},
+		);
+		throw new ORPCError("TOO_MANY_REQUESTS", {
+			message: `Wrapped share lookup is temporarily rate limited. Maximum ${WRAPPED_SHARE_LOOKUP_MAX_REQUESTS} requests per ${Math.round(WRAPPED_SHARE_LOOKUP_WINDOW_MS / 1000)} seconds.`,
+		});
+	}
+
+	entry.timestamps.push(now);
+
+	// Map insertion order tracks the last accepted request, so the first entry
+	// is always the right one to evict for both expiry and capacity pressure.
+	wrappedShareLookupWindows.delete(shareId);
+	wrappedShareLookupWindows.set(shareId, entry);
+}
+
+export function getWrappedShareLookupRateLimitMetrics() {
+	const now = Date.now();
+	evictExpiredWrappedShareLookupWindows(now);
+	evictExpiredWrappedShareLookupSourceWindows(now);
+
+	return {
+		cardinality: wrappedShareLookupWindows.size,
+		evictions: wrappedShareLookupEvictions,
+		rejectedTraffic: wrappedShareLookupRejectedTraffic,
+		sourceCardinality: wrappedShareLookupSourceWindows.size,
+	};
+}
+
+function checkWrappedShareLookupSourceRateLimit(source: string): void {
+	const now = Date.now();
+	const cutoff = now - WRAPPED_SHARE_LOOKUP_WINDOW_MS;
+	evictExpiredWrappedShareLookupSourceWindows(now);
+
+	let entry = wrappedShareLookupSourceWindows.get(source);
+	if (!entry) {
+		if (wrappedShareLookupSourceWindows.size >= WRAPPED_SHARE_LOOKUP_CAPACITY) {
+			const oldestSource = wrappedShareLookupSourceWindows.keys().next().value;
+			if (typeof oldestSource === "string") {
+				wrappedShareLookupSourceWindows.delete(oldestSource);
+				wrappedShareLookupEvictions += 1;
+			}
+		}
+
+		entry = { timestamps: [] };
+	}
+
+	entry.timestamps = entry.timestamps.filter((timestamp) => timestamp > cutoff);
+
+	if (entry.timestamps.length >= WRAPPED_SHARE_LOOKUP_SOURCE_MAX_REQUESTS) {
+		wrappedShareLookupRejectedTraffic += 1;
+		logger.warn(
+			"Wrapped share lookup source rate limit exceeded: {count}/{max} in {window}s",
+			{
+				count: entry.timestamps.length,
+				max: WRAPPED_SHARE_LOOKUP_SOURCE_MAX_REQUESTS,
+				window: Math.round(WRAPPED_SHARE_LOOKUP_WINDOW_MS / 1000),
+			},
+		);
+		throw new ORPCError("TOO_MANY_REQUESTS", {
+			message: `Wrapped share lookup is temporarily rate limited. Maximum ${WRAPPED_SHARE_LOOKUP_SOURCE_MAX_REQUESTS} requests per ${Math.round(WRAPPED_SHARE_LOOKUP_WINDOW_MS / 1000)} seconds.`,
+		});
+	}
+
+	entry.timestamps.push(now);
+	wrappedShareLookupSourceWindows.delete(source);
+	wrappedShareLookupSourceWindows.set(source, entry);
+}
+
+function evictExpiredWrappedShareLookupWindows(now: number): void {
+	const cutoff = now - WRAPPED_SHARE_LOOKUP_WINDOW_MS;
+
+	for (const [shareId, entry] of wrappedShareLookupWindows) {
+		const latestTimestamp = entry.timestamps.at(-1);
+		if (latestTimestamp !== undefined && latestTimestamp > cutoff) {
+			break;
+		}
+
+		wrappedShareLookupWindows.delete(shareId);
+		wrappedShareLookupEvictions += 1;
+	}
+}
+
+function evictExpiredWrappedShareLookupSourceWindows(now: number): void {
+	const cutoff = now - WRAPPED_SHARE_LOOKUP_WINDOW_MS;
+
+	for (const [source, entry] of wrappedShareLookupSourceWindows) {
+		const latestTimestamp = entry.timestamps.at(-1);
+		if (latestTimestamp !== undefined && latestTimestamp > cutoff) {
+			break;
+		}
+
+		wrappedShareLookupSourceWindows.delete(source);
+		wrappedShareLookupEvictions += 1;
+	}
+}
+
+function evictOldestWrappedShareLookupWindow(): void {
+	const oldestShareId = wrappedShareLookupWindows.keys().next().value;
+	if (typeof oldestShareId !== "string") {
+		return;
+	}
+
+	wrappedShareLookupWindows.delete(oldestShareId);
+	wrappedShareLookupEvictions += 1;
 }
 
 export function checkWrappedResumeCreateRateLimit(userId: string) {

@@ -1,6 +1,10 @@
 import { beforeEach, describe, expect, mock, test } from "bun:test";
 import assert from "node:assert";
 import type { WrappedShareSnapshot } from "@rudel/api-routes";
+import {
+	WRAPPED_SHARE_LOOKUP_MAX_REQUESTS,
+	WRAPPED_SHARE_LOOKUP_SOURCE_MAX_REQUESTS,
+} from "../rate-limit.js";
 
 interface SqlQuery {
 	sql: string;
@@ -12,6 +16,7 @@ let selectRows: unknown[] = [];
 let selectRouter: ((sql: string, values: unknown[]) => unknown[]) | null = null;
 let insertRows: unknown[] = [];
 let updateRows: unknown[] = [];
+const WRAPPED_SHARE_TEST_SOURCE = "wrapped-share-service-test";
 
 function sqlClient(strings: TemplateStringsArray, ...values: unknown[]) {
 	const sql = strings.join("?").replace(/\s+/gu, " ").trim();
@@ -39,9 +44,11 @@ mock.module("../db.js", () => ({
 	sqlClient,
 }));
 
-const { createWrappedShare, getPublicWrappedShare } = await import(
-	"../services/wrapped-share.service.js"
-);
+const {
+	createWrappedShare,
+	getPublicWrappedShare,
+	getPublicWrappedShareWithSocialImage,
+} = await import("../services/wrapped-share.service.js");
 
 describe("wrapped share service", () => {
 	beforeEach(() => {
@@ -137,13 +144,75 @@ describe("wrapped share service", () => {
 			},
 		];
 
-		const share = await getPublicWrappedShare("evren");
+		const share = await getPublicWrappedShare(
+			"evren",
+			WRAPPED_SHARE_TEST_SOURCE,
+		);
 
 		assert(share);
 		expect(share.snapshot.row.imageUrl).toBe(
 			"https://avatars.githubusercontent.com/u/1?v=4",
 		);
 		expect(getSqlQuery(0).sql).toContain('LEFT JOIN "user"');
+	});
+
+	test("rejects throttled public RPC lookups before querying the database", async () => {
+		const shareId = `throttled-rpc-share-${crypto.randomUUID()}`;
+		const source = `throttled-rpc-source-${crypto.randomUUID()}`;
+
+		for (
+			let request = 0;
+			request < WRAPPED_SHARE_LOOKUP_MAX_REQUESTS;
+			request += 1
+		) {
+			await getPublicWrappedShare(shareId, source);
+		}
+
+		expect(sqlQueries).toHaveLength(WRAPPED_SHARE_LOOKUP_MAX_REQUESTS);
+		await expect(getPublicWrappedShare(shareId, source)).rejects.toThrow(
+			"Wrapped share lookup is temporarily rate limited",
+		);
+		expect(sqlQueries).toHaveLength(WRAPPED_SHARE_LOOKUP_MAX_REQUESTS);
+	});
+
+	test("rejects throttled page and image lookups before querying the database", async () => {
+		const shareId = `throttled-social-share-${crypto.randomUUID()}`;
+		const source = `throttled-social-source-${crypto.randomUUID()}`;
+
+		for (
+			let request = 0;
+			request < WRAPPED_SHARE_LOOKUP_MAX_REQUESTS;
+			request += 1
+		) {
+			await getPublicWrappedShareWithSocialImage(shareId, source);
+		}
+
+		expect(sqlQueries).toHaveLength(WRAPPED_SHARE_LOOKUP_MAX_REQUESTS);
+		await expect(
+			getPublicWrappedShareWithSocialImage(shareId, source),
+		).rejects.toThrow("Wrapped share lookup is temporarily rate limited");
+		expect(sqlQueries).toHaveLength(WRAPPED_SHARE_LOOKUP_MAX_REQUESTS);
+	});
+
+	test("rejects source churn before loading another attacker-chosen ID", async () => {
+		const source = `churning-source-${crypto.randomUUID()}`;
+
+		for (
+			let request = 0;
+			request < WRAPPED_SHARE_LOOKUP_SOURCE_MAX_REQUESTS;
+			request += 1
+		) {
+			await getPublicWrappedShare(
+				`churning-share-${crypto.randomUUID()}`,
+				source,
+			);
+		}
+
+		expect(sqlQueries).toHaveLength(WRAPPED_SHARE_LOOKUP_SOURCE_MAX_REQUESTS);
+		await expect(
+			getPublicWrappedShare(`churning-share-${crypto.randomUUID()}`, source),
+		).rejects.toThrow("Wrapped share lookup is temporarily rate limited");
+		expect(sqlQueries).toHaveLength(WRAPPED_SHARE_LOOKUP_SOURCE_MAX_REQUESTS);
 	});
 
 	test("keeps a saved share image ahead of the account profile fallback", async () => {
@@ -163,7 +232,10 @@ describe("wrapped share service", () => {
 			},
 		];
 
-		const share = await getPublicWrappedShare("evren");
+		const share = await getPublicWrappedShare(
+			"evren",
+			WRAPPED_SHARE_TEST_SOURCE,
+		);
 
 		assert(share);
 		expect(share.snapshot.row.imageUrl).toBe("data:image/png;base64,saved");
@@ -183,7 +255,10 @@ describe("wrapped share service", () => {
 			},
 		];
 
-		const share = await getPublicWrappedShare("evren");
+		const share = await getPublicWrappedShare(
+			"evren",
+			WRAPPED_SHARE_TEST_SOURCE,
+		);
 
 		assert(share);
 		expect(share.snapshot.row.imageUrl).toBeNull();
@@ -204,7 +279,10 @@ describe("wrapped share service", () => {
 			},
 		];
 
-		const share = await getPublicWrappedShare("evren");
+		const share = await getPublicWrappedShare(
+			"evren",
+			WRAPPED_SHARE_TEST_SOURCE,
+		);
 
 		assert(share);
 		expect(share.snapshot.row.imageUrl).toBe(avatarPath);
@@ -224,7 +302,10 @@ describe("wrapped share service", () => {
 			},
 		];
 
-		const share = await getPublicWrappedShare("evren");
+		const share = await getPublicWrappedShare(
+			"evren",
+			WRAPPED_SHARE_TEST_SOURCE,
+		);
 
 		assert(share);
 		expect(share.snapshot.row.imageUrl).toBeNull();
@@ -249,7 +330,10 @@ describe("wrapped share service", () => {
 			},
 		];
 
-		const share = await getPublicWrappedShare("evren");
+		const share = await getPublicWrappedShare(
+			"evren",
+			WRAPPED_SHARE_TEST_SOURCE,
+		);
 
 		assert(share);
 		expect(share.snapshot.row.imageUrl).toBe(newAvatarPath);
@@ -273,7 +357,10 @@ describe("wrapped share service", () => {
 			},
 		];
 
-		const share = await getPublicWrappedShare("evren");
+		const share = await getPublicWrappedShare(
+			"evren",
+			WRAPPED_SHARE_TEST_SOURCE,
+		);
 
 		assert(share);
 		expect(share.snapshot.row.imageUrl).toBeNull();
@@ -298,7 +385,10 @@ describe("wrapped share service", () => {
 			},
 		];
 
-		const share = await getPublicWrappedShare("evren");
+		const share = await getPublicWrappedShare(
+			"evren",
+			WRAPPED_SHARE_TEST_SOURCE,
+		);
 
 		assert(share);
 		expect(share.snapshot.row.imageUrl).toBe(googleUrl);
@@ -322,7 +412,10 @@ describe("wrapped share service", () => {
 			},
 		];
 
-		const share = await getPublicWrappedShare("evren");
+		const share = await getPublicWrappedShare(
+			"evren",
+			WRAPPED_SHARE_TEST_SOURCE,
+		);
 
 		assert(share);
 		expect(share.snapshot.row.imageUrl).toBe(avatarPath);
@@ -421,7 +514,10 @@ describe("wrapped share service", () => {
 			},
 		];
 
-		const share = await getPublicWrappedShare("evren-decimal");
+		const share = await getPublicWrappedShare(
+			"evren-decimal",
+			WRAPPED_SHARE_TEST_SOURCE,
+		);
 
 		assert(share);
 		expect(share.variant).toBe("decimal");
@@ -444,7 +540,10 @@ describe("wrapped share service", () => {
 			},
 		];
 
-		const share = await getPublicWrappedShare("evren");
+		const share = await getPublicWrappedShare(
+			"evren",
+			WRAPPED_SHARE_TEST_SOURCE,
+		);
 
 		assert(share);
 		expect(share.snapshot.row.imageUrl).toBe(
