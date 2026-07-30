@@ -1,5 +1,6 @@
 import { type ClickHouseSettings, createClient } from "@clickhouse/client-web";
 import { getLogger } from "@logtape/logtape";
+import { resolveClickHouseUsername } from "@rudel/ch-schema/connection";
 
 const logger = getLogger(["rudel", "api", "clickhouse"]);
 
@@ -80,12 +81,10 @@ let _clickhouse: ClickHouseExecutor | null = null;
 
 export function getClickhouse(): ClickHouseExecutor {
 	if (!_clickhouse) {
+		const url = process.env.CLICKHOUSE_URL || "http://localhost:8123";
 		const executor = createClickHouseExecutor({
-			url: process.env.CLICKHOUSE_URL || "http://localhost:8123",
-			username:
-				process.env.CLICKHOUSE_USERNAME ||
-				process.env.CLICKHOUSE_USER ||
-				"default",
+			url,
+			username: resolveClickHouseUsername(process.env, url),
 			password: process.env.CLICKHOUSE_PASSWORD || "",
 			database: "default",
 		});

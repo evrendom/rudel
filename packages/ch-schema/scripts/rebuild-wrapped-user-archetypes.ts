@@ -1,5 +1,6 @@
 #!/usr/bin/env bun
 import { randomUUID } from "node:crypto";
+import { resolveClickHouseUsername } from "../src/clickhouse-connection.js";
 import {
 	WRAPPED_ARCHETYPE_CENTROID_VERSION,
 	WRAPPED_ARCHETYPE_PIPELINE_VERSION,
@@ -56,7 +57,7 @@ async function runClickhouseStatement(
 
 async function main() {
 	const url = getEnv("CLICKHOUSE_URL");
-	const username = process.env.CLICKHOUSE_USERNAME ?? "default";
+	const username = resolveClickHouseUsername(process.env, url);
 	const password = process.env.CLICKHOUSE_PASSWORD ?? "";
 	const database = process.env.CLICKHOUSE_DB ?? "rudel";
 	const snapshotId = randomUUID();
