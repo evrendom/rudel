@@ -3,13 +3,14 @@ import { getFrontendOrigin } from "../frontend-origin.js";
 import { authMiddleware, os } from "../middleware.js";
 import {
 	acceptTeamInviteLink,
-	getTeamInviteLink,
+	createTeamInviteLink,
+	revokeTeamInviteLink,
 } from "../services/team-invite-link.service.js";
 
-const get = os.teamInviteLink.get
+const create = os.teamInviteLink.create
 	.use(authMiddleware)
 	.handler(async ({ context, input }) => {
-		const link = await getTeamInviteLink({
+		const link = await createTeamInviteLink({
 			organizationId: input.organizationId,
 			userId: context.user.id,
 		});
@@ -21,10 +22,28 @@ const get = os.teamInviteLink.get
 		}
 
 		return {
+			expires_at: link.expiresAt,
 			invite_url: buildTeamInviteUrl(link.token),
 			organization_id: link.organizationId,
 			organization_name: link.organizationName,
 		};
+	});
+
+const revoke = os.teamInviteLink.revoke
+	.use(authMiddleware)
+	.handler(async ({ context, input }) => {
+		const revoked = await revokeTeamInviteLink({
+			organizationId: input.organizationId,
+			userId: context.user.id,
+		});
+
+		if (!revoked) {
+			throw new ORPCError("FORBIDDEN", {
+				message: "Only organization owners and admins can revoke team links",
+			});
+		}
+
+		return { success: true as const };
 	});
 
 const accept = os.teamInviteLink.accept
@@ -50,7 +69,8 @@ const accept = os.teamInviteLink.accept
 
 export const teamInviteLinkRouter = os.teamInviteLink.router({
 	accept,
-	get,
+	create,
+	revoke,
 });
 
 function buildTeamInviteUrl(token: string) {

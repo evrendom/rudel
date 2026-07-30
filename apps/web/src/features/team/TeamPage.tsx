@@ -257,12 +257,10 @@ export function TeamPage() {
 		currentUserId,
 		diagnostics,
 		error,
-		isInviteLinkPending,
 		isError,
 		isPending,
 		teamMemberRows,
 		refetch,
-		teamInviteLink,
 		teamCards,
 	} = useTeamPageData();
 	const [isRefreshing, setIsRefreshing] = useState(false);
@@ -286,9 +284,8 @@ export function TeamPage() {
 		<TeamMembersCardGrid
 			canInviteTeamMembers={canInviteTeamMembers}
 			currentUserId={currentUserId}
-			isInviteLinkPending={isInviteLinkPending}
+			organizationId={diagnostics.organizationId}
 			rows={teamMemberRows}
-			teamInviteLink={teamInviteLink}
 		/>
 	);
 
