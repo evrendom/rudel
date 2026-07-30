@@ -1,6 +1,9 @@
 import { getLogger } from "@logtape/logtape";
 import { ORPCError } from "@orpc/server";
-import { getAdapter } from "@rudel/agent-adapters";
+import {
+	getAdapter,
+	getMissingTranscriptTimestampMessage,
+} from "@rudel/agent-adapters";
 import {
 	INGEST_AGGREGATE_CONTENT_MAX_BYTES,
 	type IngestSessionInput,
@@ -210,6 +213,14 @@ const ingestSessionHandler = os.ingestSession
 				: undefined,
 			filter_version: FILTER_VERSION,
 		};
+		const adapter = getAdapter(filteredInput.source);
+		const timestamps = adapter.extractTimestamps(filteredInput.content);
+
+		if (!timestamps) {
+			throw new ORPCError("BAD_REQUEST", {
+				message: getMissingTranscriptTimestampMessage(filteredInput.source),
+			});
+		}
 
 		const activeOrgId =
 			context.session &&
@@ -279,11 +290,11 @@ const ingestSessionHandler = os.ingestSession
 		// Give each request a distinct millisecond RMT version even when the
 		// process clock has not advanced, so FINAL and hash bookkeeping agree.
 		const ingestedAt = getNextIngestedAt();
-		const adapter = getAdapter(filteredInput.source);
 		await adapter.ingest(getClickhouse(), filteredInput, {
 			ingestedAt,
 			userId: context.user.id,
 			organizationId: orgId,
+			timestamps,
 		});
 
 		try {

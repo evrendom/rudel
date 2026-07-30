@@ -197,9 +197,10 @@ describe("CLI upload to local API", () => {
 					sessionId: "e2e-test-session",
 				}),
 				JSON.stringify({
-					type: "message",
+					type: "user",
 					role: "human",
 					content: "test",
+					timestamp: "2026-07-29T10:00:00.000Z",
 				}),
 			].join("\n"),
 		);
@@ -280,9 +281,10 @@ describe("CLI upload to local API", () => {
 					sessionId: "rejected-session",
 				}),
 				JSON.stringify({
-					type: "message",
+					type: "user",
 					role: "human",
 					content: "test",
+					timestamp: "2026-07-29T10:00:00.000Z",
 				}),
 			].join("\n"),
 		);
