@@ -58,3 +58,44 @@ for (const scenario of ["array", "code", "large-code", "xml"]) {
 		}
 	});
 }
+
+test("caps the outer message block loop", async ({ page }) => {
+	await page.goto("/browser-tests/message-content.html?scenario=blocks");
+
+	const renderResult = page.locator("#render-result");
+	await expect(renderResult).toHaveAttribute("data-complete", "true");
+	await expect(page.getByTestId("message-block-limit-notice")).toHaveText(
+		"Additional content not shown (1 block omitted).",
+	);
+
+	const textBlocks = Number(
+		await renderResult.getAttribute("data-text-blocks"),
+	);
+	const maxMessageBlocks = Number(
+		await renderResult.getAttribute("data-max-message-blocks"),
+	);
+
+	expect(textBlocks).toBe(maxMessageBlocks);
+});
+
+test("renders repeated XML fields without duplicate React keys", async ({
+	page,
+}) => {
+	const duplicateKeyErrors: string[] = [];
+	page.on("console", (message) => {
+		if (
+			message.type() === "error" &&
+			/same key|unique "key"/i.test(message.text())
+		) {
+			duplicateKeyErrors.push(message.text());
+		}
+	});
+
+	await page.goto("/browser-tests/message-content.html?scenario=duplicate-xml");
+	await expect(page.locator("#render-result")).toHaveAttribute(
+		"data-complete",
+		"true",
+	);
+
+	expect(duplicateKeyErrors).toEqual([]);
+});
