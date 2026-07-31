@@ -176,6 +176,12 @@ describe("analytics service guardrails", () => {
 		expect(sessionAnalyticsSource.slice(sessionDetailStart)).not.toContain(
 			"FINAL",
 		);
+		expect(sessionAnalyticsSource.slice(sessionDetailStart)).toContain(
+			"raw.content AS content",
+		);
+		expect(sessionAnalyticsSource.slice(sessionDetailStart)).toContain(
+			"raw.subagents AS subagents",
+		);
 		expect(backfillSource).toContain("max_bytes_to_read");
 		expect(backfillSource).toContain("max_execution_time");
 		expect(
