@@ -56,13 +56,42 @@ function scopeMigrationToDatabase(database: string): string {
 }
 
 function parseStatements(sql: string): string[] {
-	return sql
+	const sqlWithoutComments = sql
 		.split("\n")
 		.filter((line) => !line.trimStart().startsWith("--"))
-		.join("\n")
-		.split(";")
-		.map((statement) => statement.trim())
-		.filter((statement) => statement.length > 0);
+		.join("\n");
+	const statements: string[] = [];
+	let currentStatement = "";
+	let insideString = false;
+
+	for (let index = 0; index < sqlWithoutComments.length; index += 1) {
+		const character = sqlWithoutComments[index];
+		if (character === "'") {
+			currentStatement += character;
+			if (insideString && sqlWithoutComments[index + 1] === "'") {
+				currentStatement += "'";
+				index += 1;
+				continue;
+			}
+			insideString = !insideString;
+			continue;
+		}
+
+		if (character === ";" && !insideString) {
+			const statement = currentStatement.trim();
+			if (statement.length > 0) statements.push(statement);
+			currentStatement = "";
+			continue;
+		}
+
+		currentStatement += character;
+	}
+
+	if (insideString)
+		throw new Error("migration contains an unclosed SQL string");
+	const finalStatement = currentStatement.trim();
+	if (finalStatement.length > 0) statements.push(finalStatement);
+	return statements;
 }
 
 async function executeStatements(
@@ -332,7 +361,9 @@ describe("session_analytics populated migration rehearsal", () => {
 		await executor.query(requireStatement(statements, 0));
 		await expect(
 			executor.query(requireStatement(statements, 1)),
-		).rejects.toThrow("backup table already exists");
+		).rejects.toThrow(
+			"session_analytics rebuild aborted: backup table already exists; inspect cutover state and resume at the RECOVERY marker if the rename completed",
+		);
 
 		const shadowCount = await executor.query<{ table_count: string | number }>(`
 			SELECT count() AS table_count FROM system.tables
