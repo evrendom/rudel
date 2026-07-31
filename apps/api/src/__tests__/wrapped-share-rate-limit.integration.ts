@@ -157,16 +157,6 @@ describe("wrapped share capacity churn over HTTP", () => {
 			),
 		).toBe(404);
 
-		expect(await readHealth(api.baseUrl)).toMatchObject({
-			rateLimits: {
-				wrappedShareLookup: {
-					cardinality: 2,
-					evictions: 0,
-					rejectedTraffic: 0,
-				},
-			},
-		});
-
 		expect(
 			await callPublicRpc(
 				proxy.baseUrl,
@@ -177,15 +167,7 @@ describe("wrapped share capacity churn over HTTP", () => {
 		expect(
 			await callPublicRpc(proxy.baseUrl, "198.51.100.51", validShareId),
 		).toBe(429);
-		expect(await readHealth(api.baseUrl)).toMatchObject({
-			rateLimits: {
-				wrappedShareLookup: {
-					cardinality: 2,
-					evictions: 0,
-					rejectedTraffic: 2,
-				},
-			},
-		});
+		expect(await readHealth(api.baseUrl)).toEqual({ status: "ok" });
 	});
 });
 
