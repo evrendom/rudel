@@ -113,6 +113,7 @@ export async function enqueueClickHousePurge(
 			VALUES ($1, $2, $3, $4)
 			ON CONFLICT (target_type, target_id) DO UPDATE
 			SET
+				id = EXCLUDED.id,
 				status = 'pending',
 				attempt_count = 0,
 				max_attempts = EXCLUDED.max_attempts,
@@ -264,18 +265,22 @@ export function sanitizeClickHousePurgeError(error: unknown): string {
 	return rawMessage
 		.replace(/\b[a-z][a-z0-9+.-]*:\/\/[^\s"'<>]+/giu, "[redacted-url]")
 		.replace(
-			/\bauthorization\b["']?\s*[:=]\s*["']?[^\r\n]*/giu,
+			/\bauthorization\b(?:\\?["'])?\s*[:=]\s*(?:\\?["'])?[^\r\n\u0085\u2028\u2029]*/giu,
 			"authorization=[redacted]",
 		)
 		.replace(
-			/\b([\w-]*(?:credential|password|secret|token|key)[\w-]*)\b\s*[:=]\s*[^\s,;]+/giu,
+			/\b([\w-]*(?:credential|password|secret|token|key)[\w-]*)\b(?:\\?["'])?\s*[:=]\s*(?:\\?["'])?[^\s,;}\]"'\u0085\u2028\u2029]+/giu,
 			"$1=[redacted]",
+		)
+		.replace(
+			/\[[0-9a-f:.]+(?:%[a-z0-9_.-]+)?\]:\d{1,5}\b/giu,
+			"[redacted-host]",
 		)
 		.replace(
 			/\b(?:(?:\d{1,3}\.){3}\d{1,3}|localhost|[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?):\d{1,5}\b/giu,
 			"[redacted-host]",
 		)
-		.replace(/[\r\n\t]+/gu, " ")
+		.replace(/[\r\n\t\u0085\u2028\u2029]+/gu, " ")
 		.replace(/\s{2,}/gu, " ")
 		.trim()
 		.slice(0, MAX_SANITIZED_ERROR_LENGTH);
@@ -358,32 +363,33 @@ async function claimNextPurgeJob(
 			return null;
 		}
 
-		if (
-			candidate.status === "running" &&
-			candidate.attemptCount >= candidate.maxAttempts
-		) {
+		if (candidate.attemptCount >= candidate.maxAttempts) {
 			const alertsEnabled = env.sendFailureAlert !== undefined;
+			const lastError =
+				candidate.status === "running"
+					? "ClickHouse purge worker lease expired after the final attempt"
+					: "ClickHouse purge job reached its maximum attempts before execution";
 			await transaction.unsafe(
 				`
 					UPDATE clickhouse_purge_job
 					SET
 						status = 'failed',
-						last_error = 'ClickHouse purge worker lease expired after the final attempt',
+						last_error = $1,
 						failed_at = NOW(),
 						alert_status = CASE
-							WHEN $1 THEN 'pending'
+							WHEN $2 THEN 'pending'
 							ELSE 'not_required'
 						END,
 						alert_next_attempt_at = CASE
-							WHEN $1 THEN NOW()
+							WHEN $2 THEN NOW()
 							ELSE NULL
 						END,
 						lease_token = NULL,
 						lease_expires_at = NULL,
 						updated_at = NOW()
-					WHERE id = $2
+					WHERE id = $3
 				`,
-				[alertsEnabled, candidate.id],
+				[lastError, alertsEnabled, candidate.id],
 			);
 			return null;
 		}

@@ -5,7 +5,8 @@
 		"rootDir": "./src",
 		"noEmit": true,
 		"module": "ESNext",
-		"moduleResolution": "Bundler"
+		"moduleResolution": "Bundler",
+		"types": ["bun-types"]
 	},
 	"include": ["src/**/*"],
 	"exclude": ["node_modules", "src/migrate.ts"]
