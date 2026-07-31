@@ -386,18 +386,19 @@ describe("CLI upload to local API", () => {
 			firstPhysicalCount,
 		);
 
+		const appendedContent = `${request.content}\n${JSON.stringify({
+			message: {
+				content: "Appended response",
+				role: "assistant",
+				usage: { input_tokens: 1, output_tokens: 1 },
+			},
+			timestamp: "2026-07-24T13:00:01.000Z",
+			type: "assistant",
+		})}`;
 		const appendedUpload = await uploadSession(
 			{
 				...request,
-				content: `${request.content}\n${JSON.stringify({
-					message: {
-						content: "Appended response",
-						role: "assistant",
-						usage: { input_tokens: 1, output_tokens: 1 },
-					},
-					timestamp: "2026-07-24T13:00:01.000Z",
-					type: "assistant",
-				})}`,
+				content: appendedContent,
 			},
 			{
 				endpoint: server.rpcUrl,
@@ -406,8 +407,8 @@ describe("CLI upload to local API", () => {
 			},
 		);
 		expect(appendedUpload.success).toBe(true);
-		expect(await getPhysicalSessionCount(userId, sessionDate, sessionId)).toBe(
-			firstPhysicalCount + 1,
+		expect((await getStoredFilteredSession(userId, sessionId))?.content).toBe(
+			appendedContent,
 		);
 		expect(await getStoredContentHash(userId, sessionId)).not.toBe(firstHash);
 	}, 60_000);
