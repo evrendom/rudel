@@ -1,5 +1,5 @@
 import { ChevronDown, ChevronRight } from "lucide-react";
-import { useId, useState } from "react";
+import { useId, useMemo, useState } from "react";
 import type {
 	TextContent,
 	ThinkingContent,
@@ -8,6 +8,10 @@ import type {
 } from "@/lib/conversation-schema";
 import { cn } from "@/lib/utils";
 import { CodeBlock } from "./CodeBlock";
+import {
+	parseMessageTextBlocks,
+	type TextPart,
+} from "./message-content-parser";
 import { ToolInvocation } from "./ToolInvocation";
 
 type MessageBlock =
@@ -39,17 +43,6 @@ interface MessageContentProps {
 	className?: string;
 }
 
-type TextPart =
-	| { type: "text"; content: string }
-	| { type: "code"; content: string; language?: string }
-	| {
-			type: "xml";
-			tag: string;
-			entries: Array<{ key: string; value: string }>;
-	  };
-
-export const MAX_RENDERED_MESSAGE_CODE_UNITS = 256 * 1024;
-
 /**
  * Format an XML tag name into a human-readable label.
  * e.g. "environment_context" -> "Environment Context"
@@ -58,219 +51,12 @@ function formatTagLabel(tag: string): string {
 	return tag.replace(/[-_]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-/**
- * Parse an XML block's inner content into key-value entries.
- * Handles simple `<key>value</key>` pairs and produces a fallback
- * "content" entry for anything that doesn't match.
- */
-function parseXmlEntries(
-	innerContent: string,
-): Array<{ key: string; value: string }> {
-	const entries: Array<{ key: string; value: string }> = [];
-	let cursor = 0;
-
-	while (cursor < innerContent.length) {
-		if (innerContent[cursor] !== "<") {
-			cursor += 1;
-			continue;
-		}
-
-		const openingTagEnd = innerContent.indexOf(">", cursor + 1);
-		if (openingTagEnd === -1) {
-			break;
-		}
-
-		const tag = readXmlTagName(innerContent, cursor + 1, openingTagEnd, false);
-		if (!tag) {
-			cursor = openingTagEnd + 1;
-			continue;
-		}
-
-		const closingTag = `</${tag}>`;
-		const closingTagStart = innerContent.indexOf(closingTag, openingTagEnd + 1);
-		if (closingTagStart === -1) {
-			break;
-		}
-
-		entries.push({
-			key: tag,
-			value: innerContent.slice(openingTagEnd + 1, closingTagStart).trim(),
-		});
-		cursor = closingTagStart + closingTag.length;
-	}
-
-	if (entries.length === 0) {
-		const trimmedContent = innerContent.trim();
-		if (trimmedContent) {
-			entries.push({ key: "content", value: trimmedContent });
-		}
-	}
-
-	return entries;
-}
-
-export function parseMessageText(text: string): Array<TextPart> {
-	if (text.length > MAX_RENDERED_MESSAGE_CODE_UNITS) {
-		const visibleText = text
-			.slice(0, MAX_RENDERED_MESSAGE_CODE_UNITS)
-			.trimEnd();
-		const omittedCodeUnits = text.length - MAX_RENDERED_MESSAGE_CODE_UNITS;
-
-		return [
-			{
-				type: "text",
-				content: `${visibleText}\n\n[Message truncated: ${omittedCodeUnits} code units omitted]`,
-			},
-		];
-	}
-
-	const parts: Array<TextPart> = [];
-	let plainTextStart = 0;
-	let cursor = 0;
-
-	while (cursor < text.length) {
-		if (text.startsWith("```", cursor)) {
-			const codeBlock = readCodeBlockStart(text, cursor);
-			if (!codeBlock) {
-				cursor += 3;
-				continue;
-			}
-
-			const closingFenceStart = text.indexOf("```", codeBlock.contentStart);
-			if (closingFenceStart === -1) {
-				cursor = codeBlock.contentStart;
-				continue;
-			}
-
-			appendTextPart(parts, text.slice(plainTextStart, cursor));
-			parts.push({
-				type: "code",
-				content: text.slice(codeBlock.contentStart, closingFenceStart),
-				language: codeBlock.language,
-			});
-			cursor = closingFenceStart + 3;
-			plainTextStart = cursor;
-			continue;
-		}
-
-		if (text[cursor] !== "<") {
-			cursor += 1;
-			continue;
-		}
-
-		const openingTagEnd = text.indexOf(">", cursor + 1);
-		if (openingTagEnd === -1) {
-			break;
-		}
-
-		const tag = readXmlTagName(text, cursor + 1, openingTagEnd, true);
-		if (!tag) {
-			cursor = openingTagEnd + 1;
-			continue;
-		}
-
-		const closingTag = `</${tag}>`;
-		const closingTagStart = text.indexOf(closingTag, openingTagEnd + 1);
-		if (closingTagStart === -1) {
-			break;
-		}
-
-		appendTextPart(parts, text.slice(plainTextStart, cursor));
-		const entries = parseXmlEntries(
-			text.slice(openingTagEnd + 1, closingTagStart),
-		);
-		if (entries.length > 0) {
-			parts.push({ type: "xml", tag, entries });
-		}
-
-		cursor = closingTagStart + closingTag.length;
-		plainTextStart = cursor;
-	}
-
-	appendTextPart(parts, text.slice(plainTextStart));
-
-	if (parts.length === 0 && text.trim()) {
-		parts.push({ type: "text", content: text.trim() });
-	}
-
-	return parts;
-}
-
-function appendTextPart(parts: TextPart[], text: string) {
-	const content = text.trim();
-	if (content) {
-		parts.push({ type: "text", content });
-	}
-}
-
-function readCodeBlockStart(
-	text: string,
-	fenceStart: number,
-): { contentStart: number; language: string } | null {
-	const languageStart = fenceStart + 3;
-	let cursor = languageStart;
-
-	while (
-		cursor < text.length &&
-		isCodeLanguageCharacter(text.charCodeAt(cursor))
-	) {
-		cursor += 1;
-	}
-
-	if (text[cursor] !== "\n") {
-		return null;
-	}
-
-	return {
-		contentStart: cursor + 1,
-		language: text.slice(languageStart, cursor) || "text",
-	};
-}
-
-function readXmlTagName(
-	text: string,
-	nameStart: number,
-	tagEnd: number,
-	allowAttributes: boolean,
-): string | null {
-	let cursor = nameStart;
-
-	while (cursor < tagEnd && isTagNameCharacter(text.charCodeAt(cursor))) {
-		cursor += 1;
-	}
-
-	if (cursor === nameStart) {
-		return null;
-	}
-
-	if (cursor < tagEnd) {
-		if (!allowAttributes || text[cursor]?.trim() !== "") {
-			return null;
-		}
-	}
-
-	return text.slice(nameStart, cursor);
-}
-
-function isTagNameCharacter(characterCode: number) {
-	return isCodeLanguageCharacter(characterCode) || characterCode === 45;
-}
-
-function isCodeLanguageCharacter(characterCode: number) {
-	return (
-		(characterCode >= 48 && characterCode <= 57) ||
-		(characterCode >= 65 && characterCode <= 90) ||
-		characterCode === 95 ||
-		(characterCode >= 97 && characterCode <= 122)
-	);
-}
-
 function shouldCollapseXmlBlockByDefault(tag: string): boolean {
 	return /instruction|context/i.test(tag);
 }
 
 function formatXmlBlockSummary(
-	entries: Array<{ key: string; value: string }>,
+	entries: ReadonlyArray<{ readonly key: string; readonly value: string }>,
 ): string {
 	const [firstEntry] = entries;
 	if (!firstEntry) {
@@ -291,13 +77,16 @@ function XmlBlock({
 	entries,
 }: {
 	tag: string;
-	entries: Array<{ key: string; value: string }>;
+	entries: ReadonlyArray<{ readonly key: string; readonly value: string }>;
 }) {
 	const [isOpen, setIsOpen] = useState(!shouldCollapseXmlBlockByDefault(tag));
 	const panelId = useId();
 
 	return (
-		<div className="overflow-hidden rounded-[1rem] border border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-surface)]">
+		<div
+			data-testid="message-xml-block"
+			className="overflow-hidden rounded-[1rem] border border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-surface)]"
+		>
 			<button
 				type="button"
 				onClick={() => setIsOpen((current) => !current)}
@@ -344,8 +133,7 @@ function XmlBlock({
 	);
 }
 
-function renderPlainText(text: string, key: string) {
-	const parts = parseMessageText(text);
+function renderTextParts(parts: ReadonlyArray<TextPart>, key: string) {
 	return (
 		<div key={key} className="space-y-3.5">
 			{parts.map((part, partIdx) => {
@@ -356,6 +144,7 @@ function renderPlainText(text: string, key: string) {
 							key={partIdx}
 							code={part.content}
 							language={part.language}
+							highlight={part.highlight}
 						/>
 					);
 				}
@@ -367,6 +156,18 @@ function renderPlainText(text: string, key: string) {
 							tag={part.tag}
 							entries={part.entries}
 						/>
+					);
+				}
+				if (part.type === "notice") {
+					return (
+						<p
+							// biome-ignore lint/suspicious/noArrayIndexKey: static parsed content blocks
+							key={partIdx}
+							data-testid="message-content-notice"
+							className="whitespace-pre-wrap break-words text-[0.8125rem] leading-5 text-[color:var(--dashboardy-muted)] italic [overflow-wrap:anywhere]"
+						>
+							{part.content}
+						</p>
 					);
 				}
 				return (
@@ -385,7 +186,27 @@ function renderPlainText(text: string, key: string) {
 	);
 }
 
+function getMessageBlockText(block: MessageBlock): string | null {
+	if (typeof block === "string") {
+		return block;
+	}
+
+	return block.type === "text" ? block.text : null;
+}
+
 export function MessageContent({ content, className }: MessageContentProps) {
+	const textPartsByBlock = useMemo(() => {
+		if (typeof content === "string") {
+			return parseMessageTextBlocks([content]);
+		}
+
+		if (!Array.isArray(content)) {
+			return [];
+		}
+
+		return parseMessageTextBlocks(content.map(getMessageBlockText));
+	}, [content]);
+
 	if (!content) {
 		return (
 			<div
@@ -402,7 +223,7 @@ export function MessageContent({ content, className }: MessageContentProps) {
 	if (typeof content === "string") {
 		return (
 			<div className={cn("space-y-3.5", className)}>
-				{renderPlainText(content, "plain-content")}
+				{renderTextParts(textPartsByBlock[0] ?? [], "plain-content")}
 			</div>
 		);
 	}
@@ -435,7 +256,7 @@ export function MessageContent({ content, className }: MessageContentProps) {
 
 	return (
 		<div className={cn("space-y-3.5", className)}>
-			{content.map((block) => {
+			{content.map((block, blockIndex) => {
 				const blockIdentity = getMessageBlockIdentity(block);
 				const identityOccurrence =
 					(blockIdentityCounts.get(blockIdentity) ?? 0) + 1;
@@ -443,12 +264,15 @@ export function MessageContent({ content, className }: MessageContentProps) {
 				const blockKey = `${blockIdentity}:${identityOccurrence}`;
 
 				if (typeof block === "string") {
-					return renderPlainText(block, blockKey);
+					return renderTextParts(textPartsByBlock[blockIndex] ?? [], blockKey);
 				}
 
 				switch (block.type) {
 					case "text":
-						return renderPlainText(block.text, blockKey);
+						return renderTextParts(
+							textPartsByBlock[blockIndex] ?? [],
+							blockKey,
+						);
 
 					case "thinking":
 						return (

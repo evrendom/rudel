@@ -17,8 +17,6 @@ jobs:
     name: Fresh clone without npm auth
     runs-on: ubuntu-24.04
     timeout-minutes: 30
-    env:
-      CLEAN_HOME: ${{ runner.temp }}/rudel-public-build-home
     steps:
       - name: Clone the public repository without credentials
         shell: bash
@@ -45,6 +43,8 @@ jobs:
 
       - name: Assert the clone has no registry or auth configuration
         shell: bash
+        env:
+          CLEAN_HOME: ${{ runner.temp }}/rudel-public-build-home
         run: |
           mkdir -p "${CLEAN_HOME}/.config"
 
@@ -79,6 +79,8 @@ jobs:
 
       - name: Install dependencies without npm auth
         shell: bash
+        env:
+          CLEAN_HOME: ${{ runner.temp }}/rudel-public-build-home
         run: |
           set -o pipefail
 
@@ -122,6 +124,8 @@ jobs:
 
       - name: Build the fresh clone
         shell: bash
+        env:
+          CLEAN_HOME: ${{ runner.temp }}/rudel-public-build-home
         run: |
           export HOME="${CLEAN_HOME}"
           export XDG_CONFIG_HOME="${CLEAN_HOME}/.config"
