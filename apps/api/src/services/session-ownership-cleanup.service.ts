@@ -5,7 +5,7 @@ import { sqlClient } from "../db.js";
 
 const SESSION_ANALYTICS_TABLE = "rudel.session_analytics";
 const OWNERSHIP_OPERATION_LOCK_ID = 941_821_301;
-const DELETE_BATCH_SIZE = 100;
+const DELETE_BATCH_SIZE = 10;
 const CLEANUP_QUERY_SETTINGS = {
 	max_bytes_to_read: "10000000000",
 	max_execution_time: 90,
