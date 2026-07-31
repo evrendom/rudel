@@ -18,6 +18,7 @@ export async function startApiTestServer(
 		APP_URL: "http://localhost",
 		BETTER_AUTH_SECRET: "test-secret-for-integration-tests",
 		CLICKHOUSE_PURGE_WORKER_ENABLED: "false",
+		NODE_ENV: "test",
 		PORT: "0",
 		...environmentOverrides,
 	};

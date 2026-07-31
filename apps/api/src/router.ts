@@ -102,7 +102,6 @@ function getSessionUploadCompletedPayload(
 const health = os.health.handler(() => {
 	return {
 		status: "ok" as const,
-		timestamp: Date.now(),
 	};
 });
 
