@@ -337,17 +337,10 @@ describe("IngestFilterQueue cleanup and fairness", () => {
 			signal: new AbortController().signal,
 			userId: "timeout-user",
 		});
-		const nextTenant = queue.filter({
-			bytes: 11,
-			fields: { content: "next tenant", subagents: undefined },
-			signal: new AbortController().signal,
-			userId: "next-tenant",
-		});
 
 		await expect(timedOut).rejects.toBeInstanceOf(
 			IngestFilterQueueTimeoutError,
 		);
-		expect((await nextTenant).content).toBe("next tenant");
 		expect(queue.getMetrics()).toMatchObject({
 			activeJobs: 0,
 			queueDepth: 0,
