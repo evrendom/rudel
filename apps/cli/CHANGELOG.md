@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.3](https://github.com/evrendom/rudel/compare/rudel@0.2.2...rudel@0.2.3) (2026-07-31)
+
+
+### Bug Fixes
+
+* **adapters:** harden session ingestion ([#412](https://github.com/evrendom/rudel/issues/412)) ([ddc855a](https://github.com/evrendom/rudel/commit/ddc855a0d7dc2392e95e964a0688271831190137))
+
 ## [0.2.2](https://github.com/evrendom/rudel/compare/rudel@0.2.1...rudel@0.2.2) (2026-07-29)
 
 

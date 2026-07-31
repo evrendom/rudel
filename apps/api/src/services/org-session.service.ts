@@ -1,4 +1,3 @@
-import { getLogger } from "@logtape/logtape";
 import { getAllAdapters } from "@rudel/agent-adapters";
 import {
 	type ClickHouseStatement,
@@ -6,7 +5,6 @@ import {
 	getSafeClickHouseTable,
 } from "../clickhouse.js";
 
-const logger = getLogger(["rudel", "api", "org-session"]);
 const SESSION_ANALYTICS_TABLE = "rudel.session_analytics";
 const WRAPPED_USER_ARCHETYPE_SNAPSHOTS_TABLE =
 	"rudel.wrapped_user_archetype_snapshots_v1";
@@ -14,15 +12,6 @@ const WRAPPED_USER_ARCHETYPE_SNAPSHOTS_TABLE =
 interface SessionCountRow {
 	count: string;
 }
-
-interface ClickHouseDeletion {
-	promise: Promise<void>;
-	table: string;
-}
-
-type ClickHouseDeletionScope =
-	| { organizationId: string; type: "organization" }
-	| { type: "user"; userId: string };
 
 interface GetOrgSessionCountOptions {
 	querySessionCount?: (
@@ -144,99 +133,66 @@ export async function hasOrgUploadsInLastDays(
 	return results.some((rows) => Number(rows[0]?.count ?? 0) > 0);
 }
 
-export async function deleteOrgSessions(orgId: string): Promise<void> {
-	const deletions = getDeletionTableNames().map(
-		(table): ClickHouseDeletion => ({
-			table,
-			promise: Promise.resolve().then(() =>
-				getClickhouse().execute({
-					// Cloud tables use SharedMergeTree. Wait for active replicas so
-					// account deletion is visible cluster-wide.
-					clickhouse_settings: { lightweight_deletes_sync: "3" },
-					// organization_id leads the raw/session analytics sort keys. The
-					// wrapped snapshot predicate is a deliberate low-frequency full-scan
-					// field exception because its key starts with snapshot_id.
-					query: `DELETE FROM ${getSafeClickHouseTable(table)} WHERE organization_id = {orgId:String}`,
-					query_params: {
-						orgId,
-					},
-				}),
-			),
-		}),
-	);
-
-	await settleClickHouseDeletions(deletions, {
-		type: "organization",
-		organizationId: orgId,
-	});
+export async function deleteOrgSessions(organizationId: string): Promise<void> {
+	await deleteSessions("organization_id", organizationId);
 }
 
 export async function deleteUserSessions(userId: string): Promise<void> {
-	const deletions = getDeletionTableNames().map(
-		(table): ClickHouseDeletion => ({
-			table,
-			promise: Promise.resolve().then(() =>
-				getClickhouse().execute({
-					// Cloud tables use SharedMergeTree. Wait for active replicas so
-					// account deletion is visible cluster-wide.
-					clickhouse_settings: { lightweight_deletes_sync: "3" },
-					// Deliberate schema-pk-filter-on-orderby field exception: user_id is
-					// not a leading sort-key column in these tables. A complete,
-					// low-frequency account purge must still cover historical rows for
-					// which Postgres cannot provide an authoritative organization list.
-					query: `DELETE FROM ${getSafeClickHouseTable(table)} WHERE user_id = {userId:String}`,
-					query_params: {
-						userId,
-					},
-				}),
-			),
-		}),
-	);
-
-	await settleClickHouseDeletions(deletions, { type: "user", userId });
+	await deleteSessions("user_id", userId);
 }
 
-function getDeletionTableNames(): string[] {
-	return [
+async function deleteSessions(
+	column: "organization_id" | "user_id",
+	targetId: string,
+): Promise<void> {
+	const tables = [
 		...getAllAdapters().map((adapter) => adapter.rawTableName),
 		SESSION_ANALYTICS_TABLE,
 		WRAPPED_USER_ARCHETYPE_SNAPSHOTS_TABLE,
 	];
-}
-
-async function settleClickHouseDeletions(
-	deletions: readonly ClickHouseDeletion[],
-	scope: ClickHouseDeletionScope,
-): Promise<void> {
 	const results = await Promise.allSettled(
-		deletions.map((deletion) => deletion.promise),
+		tables.map((table) => deleteSessionsFromTable(table, column, targetId)),
+	);
+	const failures = results.flatMap((result, index) =>
+		result.status === "rejected"
+			? [
+					new Error(
+						`ClickHouse purge failed for ${tables[index] ?? "unknown"}`,
+						{ cause: result.reason },
+					),
+				]
+			: [],
 	);
 
-	for (const [index, result] of results.entries()) {
-		if (result.status === "fulfilled") {
-			continue;
-		}
+	if (failures.length > 0) {
+		throw new AggregateError(failures, "ClickHouse purge failed");
+	}
+}
 
-		const table = deletions[index]?.table ?? "unknown";
-		if (scope.type === "organization") {
-			logger.error(
-				"ClickHouse organization purge failed; purge outcome unknown (organization_id={organizationId} table={table} error={error})",
-				{
-					error: String(result.reason),
-					organizationId: scope.organizationId,
-					table,
-				},
-			);
-			continue;
-		}
+async function deleteSessionsFromTable(
+	tableName: string,
+	column: "organization_id" | "user_id",
+	targetId: string,
+): Promise<void> {
+	const clickhouse = getClickhouse();
+	const table = getSafeClickHouseTable(tableName);
+	const predicate = `${column} = {targetId:String}`;
+	const queryParams = { targetId };
 
-		logger.error(
-			"ClickHouse account purge failed; purge outcome unknown (user_id={userId} table={table} error={error})",
-			{
-				error: String(result.reason),
-				table,
-				userId: scope.userId,
-			},
-		);
+	// Privacy deletion is an infrequent mutation, so use a lightweight DELETE.
+	// Sync level 3 waits for active SharedMergeTree replicas. The read-back
+	// confirms query-level deletion; merges reclaim the physical data later.
+	await clickhouse.execute({
+		clickhouse_settings: { lightweight_deletes_sync: "3" },
+		query: `DELETE FROM ${table} WHERE ${predicate}`,
+		query_params: queryParams,
+	});
+
+	const remainingRows = await clickhouse.query({
+		query: `SELECT 1 FROM ${table} WHERE ${predicate} LIMIT 1`,
+		query_params: queryParams,
+	});
+	if (remainingRows.length > 0) {
+		throw new Error(`ClickHouse purge verification failed for ${table}`);
 	}
 }

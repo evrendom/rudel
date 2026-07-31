@@ -3,7 +3,11 @@ import type {
 	LearningsFeedStats,
 	LearningsTrendDataPoint,
 } from "@rudel/api-routes";
-import { addOptionalStringEqFilter, queryClickhouse } from "../clickhouse.js";
+import {
+	addOptionalStringEqFilter,
+	buildLatestRawSessionContentSql,
+	queryClickhouse,
+} from "../clickhouse.js";
 
 export interface LearningEntry extends LearningEntryBase {
 	organization_id: string;
@@ -35,40 +39,52 @@ export async function getLearningsFeed(
 		orgId,
 	};
 	const filters = [
-		"last_interaction_date >= now64(3) - toIntervalDay({days:UInt32})",
-		"has(slash_commands, 'compound:feedback')",
-		"organization_id = {orgId:String}",
+		"sa.last_interaction_date >= now64(3) - toIntervalDay({days:UInt32})",
+		"has(sa.slash_commands, 'compound:feedback')",
+		"sa.organization_id = {orgId:String}",
 	];
 	addOptionalStringEqFilter(
 		filters,
 		query_params,
-		"user_id",
+		"sa.user_id",
 		"userId",
 		user_id,
 	);
 	addOptionalStringEqFilter(
 		filters,
 		query_params,
-		"project_path",
+		"sa.project_path",
 		"projectPath",
 		project_path,
 	);
 
 	const query = `
     WITH
+      latest_raw_session_content AS (
+        ${buildLatestRawSessionContentSql({
+					lookbackDays: true,
+					projectPath: Boolean(project_path),
+					userId: Boolean(user_id),
+				})}
+      ),
       feedback_data AS (
         SELECT
-          session_id,
-          user_id,
-          last_interaction_date,
-          project_path,
-          organization_id,
-          if(git_remote != '', git_remote, if(package_name != '', package_name, project_path)) as repository,
-          subagents,
-          skills,
-          slash_commands,
-          content
-        FROM rudel.session_analytics FINAL
+          sa.session_id,
+          sa.user_id,
+          sa.last_interaction_date,
+          sa.project_path,
+          sa.organization_id,
+          if(sa.git_remote != '', sa.git_remote, if(sa.package_name != '', sa.package_name, sa.project_path)) as repository,
+          raw.subagents,
+          sa.skills,
+          sa.slash_commands,
+          raw.content
+        FROM rudel.session_analytics AS sa FINAL
+        INNER ANY JOIN latest_raw_session_content AS raw
+          ON raw.source = sa.source
+          AND raw.organization_id = sa.organization_id
+          AND raw.user_id = sa.user_id
+          AND raw.session_id = sa.session_id
         WHERE ${filters.join("\n          AND ")}
       )
     SELECT

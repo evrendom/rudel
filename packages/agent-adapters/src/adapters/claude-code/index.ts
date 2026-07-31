@@ -1,17 +1,19 @@
-import { readdir, readFile, stat } from "node:fs/promises";
+import { readdir, readFile, realpath, stat } from "node:fs/promises";
 import { homedir } from "node:os";
-import { dirname, join } from "node:path";
+import { dirname, isAbsolute, join, relative, sep } from "node:path";
 import type { IngestSessionInput } from "@rudel/api-routes";
 import {
 	type Ingestor,
 	ingestRudelClaudeSessions,
 	type RudelClaudeSessionsRow,
 } from "@rudel/ch-schema/generated";
+import { MissingTranscriptTimestampError } from "../../errors.js";
 import type {
 	AgentAdapter,
 	IngestContext,
 	ScannedProject,
 	SessionFile,
+	SessionTimestamps,
 	UploadContext,
 } from "../../types.js";
 import {
@@ -27,6 +29,7 @@ import {
 } from "./settings.js";
 
 const SESSIONS_BASE_DIR = join(homedir(), ".claude", "projects");
+const SAFE_BASENAME_PATTERN = /^[A-Za-z0-9_-]{1,200}$/;
 
 // ── Exported utilities ──
 
@@ -88,9 +91,12 @@ export function extractAgentIds(sessionContent: string): string[] {
 		if (!line.trim()) continue;
 
 		try {
-			const entry = JSON.parse(line);
-			if (entry.toolUseResult?.agentId) {
-				agentIds.add(entry.toolUseResult.agentId);
+			const entry: unknown = JSON.parse(line);
+			if (!isRecord(entry) || !isRecord(entry.toolUseResult)) continue;
+
+			const agentId = entry.toolUseResult.agentId;
+			if (isSafeBasename(agentId)) {
+				agentIds.add(agentId);
 			}
 		} catch {
 			// Skip malformed lines
@@ -111,16 +117,20 @@ export async function readSubagentFiles(
 	sessionId?: string,
 ): Promise<SubagentFile[]> {
 	const subagents: SubagentFile[] = [];
+	const subagentDirs = await resolveSubagentDirectories(sessionDir, sessionId);
 
 	for (const agentId of agentIds) {
-		const possiblePaths = [
-			join(sessionDir, `agent-${agentId}.jsonl`),
-			...(sessionId
-				? [join(sessionDir, sessionId, "subagents", `agent-${agentId}.jsonl`)]
-				: []),
-		];
+		if (!isSafeBasename(agentId)) continue;
 
-		for (const agentPath of possiblePaths) {
+		for (const subagentDir of subagentDirs) {
+			let agentPath: string;
+			try {
+				agentPath = await realpath(join(subagentDir, `agent-${agentId}.jsonl`));
+			} catch {
+				continue;
+			}
+			if (!isContainedPath(subagentDir, agentPath)) continue;
+
 			try {
 				const content = await readFile(agentPath, "utf-8");
 				subagents.push({ agentId, content });
@@ -221,6 +231,9 @@ class ClaudeCodeAdapter implements AgentAdapter {
 		context: UploadContext,
 	): Promise<IngestSessionInput> {
 		const content = await readFileWithRetry(session.transcriptPath);
+		if (!this.extractTimestamps(content)) {
+			throw new MissingTranscriptTimestampError(this.source);
+		}
 
 		const agentIds = extractAgentIds(content);
 		const sessionDir = dirname(session.transcriptPath);
@@ -246,28 +259,34 @@ class ClaudeCodeAdapter implements AgentAdapter {
 		};
 	}
 
-	extractTimestamps(content: string): {
-		sessionDate: string;
-		lastInteractionDate: string;
-	} | null {
+	extractTimestamps(content: string): SessionTimestamps | null {
 		let min: string | null = null;
 		let max: string | null = null;
+		let minTime = Number.POSITIVE_INFINITY;
+		let maxTime = Number.NEGATIVE_INFINITY;
 
 		for (const line of content.split("\n")) {
 			if (!line) continue;
-			let parsed: { type?: string; timestamp?: string };
+			let parsed: unknown;
 			try {
 				parsed = JSON.parse(line);
 			} catch {
 				continue;
 			}
-			if (
-				(parsed.type === "user" || parsed.type === "assistant") &&
-				parsed.timestamp
-			) {
-				const ts = parsed.timestamp;
-				if (!min || ts < min) min = ts;
-				if (!max || ts > max) max = ts;
+			if (!isRecord(parsed)) continue;
+			if (parsed.type !== "user" && parsed.type !== "assistant") continue;
+			if (typeof parsed.timestamp !== "string") continue;
+			const timestampTime = Date.parse(parsed.timestamp);
+			if (!Number.isFinite(timestampTime)) continue;
+
+			const timestamp = new Date(timestampTime).toISOString();
+			if (timestampTime < minTime) {
+				min = timestamp;
+				minTime = timestampTime;
+			}
+			if (timestampTime > maxTime) {
+				max = timestamp;
+				maxTime = timestampTime;
 			}
 		}
 
@@ -298,15 +317,17 @@ class ClaudeCodeAdapter implements AgentAdapter {
 			}
 		}
 
-		const timestamps = this.extractTimestamps(input.content);
+		const timestamps =
+			context.timestamps ?? this.extractTimestamps(input.content);
+		if (!timestamps) {
+			throw new MissingTranscriptTimestampError(this.source);
+		}
 
 		return {
-			session_date: timestamps
-				? toClickHouseDateTime(timestamps.sessionDate)
-				: now,
-			last_interaction_date: timestamps
-				? toClickHouseDateTime(timestamps.lastInteractionDate)
-				: now,
+			session_date: toClickHouseDateTime(timestamps.sessionDate),
+			last_interaction_date: toClickHouseDateTime(
+				timestamps.lastInteractionDate,
+			),
 			session_id: input.sessionId,
 			organization_id: context.organizationId,
 			project_path: input.projectPath,
@@ -367,3 +388,51 @@ class ClaudeCodeAdapter implements AgentAdapter {
 }
 
 export const claudeCodeAdapter = new ClaudeCodeAdapter();
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null;
+}
+
+function isSafeBasename(value: unknown): value is string {
+	return typeof value === "string" && SAFE_BASENAME_PATTERN.test(value);
+}
+
+async function resolveSubagentDirectories(
+	sessionDir: string,
+	sessionId: string | undefined,
+): Promise<string[]> {
+	let canonicalSessionDir: string;
+	try {
+		canonicalSessionDir = await realpath(sessionDir);
+	} catch {
+		return [];
+	}
+
+	const directories = [canonicalSessionDir];
+	if (!isSafeBasename(sessionId)) {
+		return directories;
+	}
+
+	try {
+		const nestedDir = await realpath(
+			join(canonicalSessionDir, sessionId, "subagents"),
+		);
+		if (isContainedPath(canonicalSessionDir, nestedDir)) {
+			directories.push(nestedDir);
+		}
+	} catch {
+		// The nested subagent directory is optional.
+	}
+
+	return directories;
+}
+
+function isContainedPath(parentPath: string, candidatePath: string): boolean {
+	const pathFromParent = relative(parentPath, candidatePath);
+	return (
+		pathFromParent !== "" &&
+		pathFromParent !== ".." &&
+		!pathFromParent.startsWith(`..${sep}`) &&
+		!isAbsolute(pathFromParent)
+	);
+}

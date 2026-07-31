@@ -17,40 +17,20 @@ export interface CrossDeveloperError {
 	avg_session_duration_min: number;
 }
 
-const ERROR_CONTENT_FILTER = `
-      (
-        content ILIKE '%error%' OR
-        content ILIKE '%exception%' OR
-        content ILIKE '%failed%' OR
-        content ILIKE '%timeout%'
-      )
-`;
-
-const ERROR_PATTERN_SQL = `
-        CASE
-          WHEN content ILIKE '%Error:%' THEN extractAll(content, '([A-Z][a-zA-Z]+Error):')[1]
-          WHEN content ILIKE '%Exception:%' THEN extractAll(content, '([A-Z][a-zA-Z]+Exception):')[1]
-          WHEN content ILIKE '%failed%' THEN 'OperationFailed'
-          WHEN content ILIKE '%timeout%' THEN 'Timeout'
-          WHEN content ILIKE '%not found%' THEN 'NotFound'
-          ELSE 'UnknownError'
-        END
-`;
-
 function buildRecurringErrorsQuery(dateFilter: string) {
 	return `
     WITH error_sessions AS (
-      SELECT
-        session_id,
-        user_id,
-        session_date,
-        if(git_remote != '', git_remote, if(package_name != '', package_name, project_path)) as repository,
-        ${ERROR_PATTERN_SQL} as error_pattern
-      FROM rudel.session_analytics FINAL
-      WHERE ${dateFilter}
-        AND organization_id = {orgId:String}
-        AND ${ERROR_CONTENT_FILTER}
-    )
+        SELECT
+          sa.session_id,
+          sa.user_id,
+          sa.session_date,
+          if(sa.git_remote != '', sa.git_remote, if(sa.package_name != '', sa.package_name, sa.project_path)) as repository,
+          sa.error_pattern
+        FROM rudel.session_analytics AS sa FINAL
+        WHERE ${dateFilter}
+          AND sa.organization_id = {orgId:String}
+          AND sa.error_pattern != ''
+      )
     SELECT
       error_pattern,
       COUNT(*) as occurrences,
@@ -81,7 +61,9 @@ export async function getTopRecurringErrors(
 ): Promise<RecurringError[]> {
 	const { days = 7, min_occurrences = 2, limit = 15 } = params;
 	return queryClickhouse<RecurringError>({
-		query: buildRecurringErrorsQuery(buildDateFilter("days")),
+		query: buildRecurringErrorsQuery(
+			buildDateFilter("days", "sa.session_date"),
+		),
 		query_params: {
 			days: Number(days),
 			minOccurrences: Number(min_occurrences),
@@ -108,22 +90,16 @@ export async function getCrossDeveloperErrors(
 
 	const query = `
     SELECT
-      CASE
-        WHEN content ILIKE '%Error:%' THEN 'TypeError'
-        WHEN content ILIKE '%Exception:%' THEN 'Exception'
-        WHEN content ILIKE '%failed%' THEN 'OperationFailed'
-        WHEN content ILIKE '%timeout%' THEN 'Timeout'
-        ELSE 'UnknownError'
-      END as error_pattern,
-      uniq(user_id) as developers_affected,
+      sa.error_pattern,
+      uniq(sa.user_id) as developers_affected,
       COUNT(*) as total_occurrences,
-      groupUniqArray(user_id) as affected_user_ids,
-      round(AVG(actual_duration_min), 2) as avg_session_duration_min
-    FROM rudel.session_analytics FINAL
-    WHERE ${buildDateFilter("days")}
-      AND organization_id = {orgId:String}
-      AND ${ERROR_CONTENT_FILTER}
-    GROUP BY error_pattern
+      groupUniqArray(sa.user_id) as affected_user_ids,
+      round(AVG(sa.actual_duration_min), 2) as avg_session_duration_min
+    FROM rudel.session_analytics AS sa FINAL
+    WHERE ${buildDateFilter("days", "sa.session_date")}
+      AND sa.organization_id = {orgId:String}
+      AND sa.error_pattern != ''
+    GROUP BY sa.error_pattern
     HAVING developers_affected >= {minDevelopers:UInt32}
     ORDER BY developers_affected DESC, total_occurrences DESC
     LIMIT {limit:UInt32}
@@ -146,7 +122,7 @@ export async function getErrorsDashboard(
 	const { start_date, end_date, limit = 15 } = params;
 	const recurring = await queryClickhouse<RecurringError>({
 		query: buildRecurringErrorsQuery(
-			buildInclusiveDateRangeFilter("startDate", "endDate"),
+			buildInclusiveDateRangeFilter("startDate", "endDate", "sa.session_date"),
 		),
 		query_params: {
 			startDate: start_date,
@@ -211,8 +187,7 @@ export async function getErrorTrends(
         sa.session_id,
         sa.user_id,
         ${dimensionExpr} as dimension_value,
-        sa.error_count,
-        ${ERROR_PATTERN_SQL} as error_pattern
+        sa.error_count
       FROM rudel.session_analytics AS sa FINAL
       WHERE ${buildInclusiveDateRangeFilter("startDate", "endDate", "sa.session_date")}
         AND sa.organization_id = {orgId:String}
@@ -241,16 +216,17 @@ export async function getErrorTrends(
 
 	const patternQuery = `
     WITH error_sessions AS (
-      SELECT
-        toDate(sa.session_date) as date,
-        ${dimensionExpr} as dimension_value,
-        sa.error_count,
-        ${ERROR_PATTERN_SQL} as error_pattern
-      FROM rudel.session_analytics AS sa FINAL
-      WHERE ${buildInclusiveDateRangeFilter("startDate", "endDate", "sa.session_date")}
-        AND sa.organization_id = {orgId:String}
-        AND sa.error_count > 0
-    )
+        SELECT
+          toDate(sa.session_date) as date,
+          ${dimensionExpr} as dimension_value,
+          sa.error_count,
+          sa.error_pattern
+        FROM rudel.session_analytics AS sa FINAL
+        WHERE ${buildInclusiveDateRangeFilter("startDate", "endDate", "sa.session_date")}
+          AND sa.organization_id = {orgId:String}
+          AND sa.error_count > 0
+          AND sa.error_pattern != ''
+      )
     SELECT
       date,
       dimension_value as dimension,

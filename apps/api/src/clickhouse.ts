@@ -19,9 +19,81 @@ export interface ClickHouseStatement {
 }
 
 export interface ClickHouseExecutor {
+	close(): Promise<void>;
 	execute(statement: ClickHouseStatement): Promise<void>;
 	query<T>(statement: ClickHouseStatement): Promise<T[]>;
 	insert(params: { table: string; values: object[] }): Promise<void>;
+}
+
+interface LatestRawSessionContentFilters {
+	sessionId?: boolean;
+	userId?: boolean;
+	projectPath?: boolean;
+	lookbackDays?: boolean;
+}
+
+/**
+ * Latest transcript content from the raw tables that enforce 365-day retention.
+ *
+ * Callers must narrow the raw scan beyond organization. Analytics outlives raw
+ * transcripts, so transcript-backed features return no row after raw expiry.
+ */
+export function buildLatestRawSessionContentSql(
+	filters: LatestRawSessionContentFilters,
+): string {
+	const where = ["organization_id = {orgId:String}"];
+	if (filters.sessionId) where.push("session_id = {sessionId:String}");
+	if (filters.userId) where.push("user_id = {userId:String}");
+	if (filters.projectPath) where.push("project_path = {projectPath:String}");
+	if (filters.lookbackDays) {
+		where.push(
+			"last_interaction_date >= now64(3) - toIntervalDay({days:UInt32})",
+		);
+	}
+
+	if (where.length === 1) {
+		throw new Error(
+			"Raw transcript queries must be narrowed by session, user, project, or date",
+		);
+	}
+
+	const rawWhere = where.join("\n      AND ");
+
+	return `
+  SELECT
+    source,
+    organization_id,
+    user_id,
+    session_id,
+    argMax(content, ingested_at) AS content,
+    argMax(subagents, ingested_at) AS subagents
+  FROM (
+    SELECT
+      'claude_code' AS source,
+      organization_id,
+      user_id,
+      session_id,
+      content,
+      subagents,
+      ingested_at
+    FROM rudel.claude_sessions
+    WHERE ${rawWhere}
+
+    UNION ALL
+
+    SELECT
+      'codex' AS source,
+      organization_id,
+      user_id,
+      session_id,
+      content,
+      CAST(map(), 'Map(String, String)') AS subagents,
+      ingested_at
+    FROM rudel.codex_sessions
+    WHERE ${rawWhere}
+  )
+  GROUP BY source, organization_id, user_id, session_id
+`;
 }
 
 export function getSafeClickHouseTable(table: string): string {
@@ -49,6 +121,9 @@ export function createClickHouseExecutor(config: {
 		},
 	});
 	return {
+		async close() {
+			await client.close();
+		},
 		async execute(statement: ClickHouseStatement) {
 			await client.command({
 				clickhouse_settings: statement.clickhouse_settings,

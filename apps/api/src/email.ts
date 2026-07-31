@@ -6,6 +6,7 @@ const logger = getLogger(["rudel", "api", "email"]);
 export interface ResendConfig {
 	apiKey?: string;
 	audienceId?: string;
+	clickHousePurgeAlertRecipient?: string;
 	fromEmail?: string;
 }
 
@@ -48,12 +49,39 @@ export interface WrappedDesktopResumeEmailContent {
 	text: string;
 }
 
+export interface ClickHousePurgeFailureAlertData {
+	attemptCount: number;
+	createdAt: Date;
+	failedAt: Date;
+	id: string;
+	lastAttemptAt: Date;
+	lastError: string;
+	targetId: string;
+	targetType: "account" | "organization";
+}
+
+export interface ClickHousePurgeFailureAlertContent {
+	html: string;
+	subject: string;
+	text: string;
+}
+
 export function getResendConfigWarnings(config: ResendConfig): string[] {
-	if (!config.apiKey || config.fromEmail) {
+	if (!config.apiKey) {
 		return [];
 	}
 
-	return ["Resend emails are disabled because RESEND_FROM_EMAIL is not set."];
+	if (!config.fromEmail) {
+		return ["Resend emails are disabled because RESEND_FROM_EMAIL is not set."];
+	}
+
+	if (!config.clickHousePurgeAlertRecipient) {
+		return [
+			"ClickHouse purge failure alerts are disabled because CLICKHOUSE_PURGE_ALERT_RECIPIENT is not set.",
+		];
+	}
+
+	return [];
 }
 
 function escapeHtml(value: string): string {
@@ -166,6 +194,50 @@ export function buildEmailVerificationOtpEmailContent(data: {
 `,
 		text: `Your Rudel code is: ${safeOtp}\n\nThis code expires in 5 minutes. If you did not request it, you can ignore this email.`,
 	};
+}
+
+export function buildClickHousePurgeFailureAlertContent(
+	data: ClickHousePurgeFailureAlertData,
+): ClickHousePurgeFailureAlertContent {
+	const targetLabel =
+		data.targetType === "organization" ? "workspace" : "account";
+	const targetId = normalizeText(data.targetId);
+	const lastError = normalizeText(data.lastError);
+	const createdAt = data.createdAt.toISOString();
+	const lastAttemptAt = data.lastAttemptAt.toISOString();
+	const failedAt = data.failedAt.toISOString();
+
+	return {
+		subject: `Rudel ClickHouse purge failed: ${targetLabel}`,
+		html: `
+<p>A Rudel ClickHouse ${escapeHtml(targetLabel)} purge exhausted all retry attempts.</p>
+<dl>
+  <dt>Job ID</dt><dd>${escapeHtml(data.id)}</dd>
+  <dt>Target</dt><dd>${escapeHtml(targetLabel)} ${escapeHtml(targetId)}</dd>
+  <dt>Attempts</dt><dd>${data.attemptCount}</dd>
+  <dt>Created</dt><dd>${createdAt}</dd>
+  <dt>Last attempt</dt><dd>${lastAttemptAt}</dd>
+  <dt>Failed</dt><dd>${failedAt}</dd>
+  <dt>Sanitized error</dt><dd>${escapeHtml(lastError)}</dd>
+</dl>
+`,
+		text: [
+			`A Rudel ClickHouse ${targetLabel} purge exhausted all retry attempts.`,
+			`Job ID: ${data.id}`,
+			`Target: ${targetLabel} ${targetId}`,
+			`Attempts: ${data.attemptCount}`,
+			`Created: ${createdAt}`,
+			`Last attempt: ${lastAttemptAt}`,
+			`Failed: ${failedAt}`,
+			`Sanitized error: ${lastError}`,
+		].join("\n"),
+	};
+}
+
+export function getClickHousePurgeFailureAlertIdempotencyKey(
+	jobId: string,
+): string {
+	return `clickhouse-purge-failed/${jobId}`;
 }
 
 // Wrapped desktop resume links are intentionally separate from auth emails.
@@ -322,6 +394,42 @@ export async function sendEmailVerificationOtpEmail(
 			error: err,
 		});
 		return false;
+	}
+}
+
+export async function sendClickHousePurgeFailureAlert(
+	config: ResendConfig,
+	data: ClickHousePurgeFailureAlertData,
+): Promise<void> {
+	if (
+		!config.apiKey ||
+		!config.fromEmail ||
+		!config.clickHousePurgeAlertRecipient
+	) {
+		throw new Error(
+			"Resend is not configured for ClickHouse purge failure alerts",
+		);
+	}
+
+	const message = buildClickHousePurgeFailureAlertContent(data);
+	const resend = new Resend(config.apiKey);
+	const response = await resend.emails.send(
+		{
+			from: config.fromEmail,
+			to: config.clickHousePurgeAlertRecipient,
+			subject: message.subject,
+			html: message.html,
+			text: message.text,
+		},
+		{
+			idempotencyKey: getClickHousePurgeFailureAlertIdempotencyKey(data.id),
+		},
+	);
+
+	if (response.error) {
+		throw new Error(
+			`Resend rejected ClickHouse purge alert (${response.error.name}): ${response.error.message}`,
+		);
 	}
 }
 

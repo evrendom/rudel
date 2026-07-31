@@ -1,10 +1,12 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import {
+	readBooleanEnv,
 	readNonNegativeSafeIntegerEnv,
 	readRequiredSecretEnv,
 } from "../lib/env.js";
 
 const TEST_SECRET_ENV_NAME = "RUDEL_TEST_REQUIRED_SECRET";
+const TEST_BOOLEAN_ENV_NAME = "RUDEL_TEST_BOOLEAN";
 
 describe("readRequiredSecretEnv", () => {
 	afterEach(() => {
@@ -64,6 +66,29 @@ describe("readNonNegativeSafeIntegerEnv", () => {
 			process.env[envName] = invalidValue;
 			expect(() => readNonNegativeSafeIntegerEnv(envName, 0)).toThrow(
 				`${envName} must be a non-negative safe integer`,
+			);
+		}
+	});
+});
+
+describe("readBooleanEnv", () => {
+	afterEach(() => {
+		delete process.env[TEST_BOOLEAN_ENV_NAME];
+	});
+
+	test("uses the default and accepts explicit boolean strings", () => {
+		expect(readBooleanEnv(TEST_BOOLEAN_ENV_NAME, true)).toBe(true);
+		process.env[TEST_BOOLEAN_ENV_NAME] = "false";
+		expect(readBooleanEnv(TEST_BOOLEAN_ENV_NAME, true)).toBe(false);
+		process.env[TEST_BOOLEAN_ENV_NAME] = "true";
+		expect(readBooleanEnv(TEST_BOOLEAN_ENV_NAME, false)).toBe(true);
+	});
+
+	test("fails closed for ambiguous values", () => {
+		for (const invalidValue of ["1", "FALSE", "yes", ""]) {
+			process.env[TEST_BOOLEAN_ENV_NAME] = invalidValue;
+			expect(() => readBooleanEnv(TEST_BOOLEAN_ENV_NAME, true)).toThrow(
+				`${TEST_BOOLEAN_ENV_NAME} must be either "true" or "false"`,
 			);
 		}
 	});
