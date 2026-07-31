@@ -19,6 +19,8 @@ export function CodeBlock({
 
 	return (
 		<div
+			data-testid="message-code-block"
+			data-highlighted={highlight ? "true" : "false"}
 			className={cn(
 				"relative overflow-hidden rounded-[1rem] border border-[color:var(--dashboardy-border)] bg-[#0f172a]",
 				className,

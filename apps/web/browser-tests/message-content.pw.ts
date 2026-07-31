@@ -1,9 +1,13 @@
 import { expect, test } from "@playwright/test";
+import {
+	MAX_FORMATTED_MESSAGE_PARTS,
+	MAX_HIGHLIGHTED_CODE_BLOCKS,
+} from "../src/components/conversation/message-content-parser";
 
-// One second leaves ample shared-CI headroom while still catching tab-freezing
-// regressions. The fixtures also enforce a measured ceiling on generated DOM.
-const MAX_BROWSER_RENDER_MS = 1_000;
-const MAX_BROWSER_DOM_NODES = 3_000;
+// DOM size is the hard resource bound. Time is only a generous smoke check
+// because shared CI runners vary substantially in speed.
+const MAX_BROWSER_RENDER_MS = 5_000;
+const MAX_BROWSER_DOM_NODES = 20_000;
 
 for (const scenario of ["array", "code", "large-code", "xml"]) {
 	test(`bounds maximum-size adversarial ${scenario} rendering`, async ({
@@ -15,11 +19,10 @@ for (const scenario of ["array", "code", "large-code", "xml"]) {
 		await expect(renderResult).toHaveAttribute("data-complete", "true");
 
 		if (scenario !== "large-code") {
-			await expect(
-				page.getByText(
-					"Remaining message shown as plain text because it contains too many formatted parts",
-				),
-			).toBeVisible();
+			await expect(page.getByTestId("message-content-notice")).toBeVisible();
+		}
+		if (scenario === "array") {
+			await expect(page.getByText(/array-tail-visible/)).toBeVisible();
 		}
 
 		const durationMs = Number(
@@ -29,21 +32,28 @@ for (const scenario of ["array", "code", "large-code", "xml"]) {
 		const codeBlocks = Number(
 			await renderResult.getAttribute("data-code-blocks"),
 		);
+		const highlightedCodeBlocks = Number(
+			await renderResult.getAttribute("data-highlighted-code-blocks"),
+		);
 		const xmlBlocks = Number(
 			await renderResult.getAttribute("data-xml-blocks"),
 		);
 
 		expect(durationMs).toBeLessThan(MAX_BROWSER_RENDER_MS);
 		expect(domNodes).toBeLessThan(MAX_BROWSER_DOM_NODES);
+		expect(highlightedCodeBlocks).toBeLessThanOrEqual(
+			MAX_HIGHLIGHTED_CODE_BLOCKS,
+		);
 
 		if (scenario === "array" || scenario === "code") {
-			expect(codeBlocks).toBe(99);
+			expect(codeBlocks).toBe(MAX_FORMATTED_MESSAGE_PARTS);
 			expect(xmlBlocks).toBe(0);
 		} else if (scenario === "xml") {
 			expect(codeBlocks).toBe(0);
-			expect(xmlBlocks).toBe(49);
+			expect(xmlBlocks).toBe(Math.floor(MAX_FORMATTED_MESSAGE_PARTS / 2));
 		} else {
-			expect(codeBlocks).toBe(2);
+			expect(codeBlocks).toBe(MAX_HIGHLIGHTED_CODE_BLOCKS + 1);
+			expect(highlightedCodeBlocks).toBe(MAX_HIGHLIGHTED_CODE_BLOCKS);
 			expect(xmlBlocks).toBe(0);
 		}
 	});

@@ -1,11 +1,12 @@
 import { flushSync } from "react-dom";
 import { createRoot } from "react-dom/client";
+import { MessageContent } from "../src/components/conversation/MessageContent";
 import {
-	MAX_HIGHLIGHTED_MESSAGE_CODE_UNITS,
+	MAX_FORMATTED_MESSAGE_PARTS,
+	MAX_HIGHLIGHTED_CODE_BLOCK_UNITS,
+	MAX_HIGHLIGHTED_CODE_BLOCKS,
 	MAX_RENDERED_MESSAGE_CODE_UNITS,
-	MAX_RENDERED_MESSAGE_PARTS,
-	MessageContent,
-} from "../src/components/conversation/MessageContent";
+} from "../src/components/conversation/message-content-parser";
 import "../src/index.css";
 
 const messageRoot = document.querySelector("#message-root");
@@ -38,26 +39,33 @@ requestAnimationFrame(() => {
 		messageRoot.querySelectorAll("*").length,
 	);
 	renderResult.dataset.codeBlocks = String(
-		messageRoot.querySelectorAll("pre").length,
+		messageRoot.querySelectorAll('[data-testid="message-code-block"]').length,
+	);
+	renderResult.dataset.highlightedCodeBlocks = String(
+		messageRoot.querySelectorAll(
+			'[data-testid="message-code-block"][data-highlighted="true"]',
+		).length,
 	);
 	renderResult.dataset.xmlBlocks = String(
-		messageRoot.querySelectorAll("button").length,
+		messageRoot.querySelectorAll('[data-testid="message-xml-block"]').length,
 	);
 	renderResult.textContent = "Rendered";
 });
 
 function createAdversarialArrayContent() {
-	const blockCount = MAX_RENDERED_MESSAGE_PARTS * 2;
+	const blockCount = MAX_FORMATTED_MESSAGE_PARTS * 2;
 	const codeLine = "const value = 1;\n";
 	const fenceLength = "```js\n\n```".length;
 	const codeUnitsPerBlock =
 		Math.floor(MAX_RENDERED_MESSAGE_CODE_UNITS / blockCount) - fenceLength;
 	const code = codeLine.repeat(Math.floor(codeUnitsPerBlock / codeLine.length));
-	const text = `\`\`\`js\n${code}\`\`\``;
 
-	return Array.from({ length: blockCount }, () => ({
+	return Array.from({ length: blockCount }, (_, blockIndex) => ({
 		type: "text" as const,
-		text,
+		text:
+			blockIndex === blockCount - 1
+				? '```js\nconst marker = "array-tail-visible";\n```'
+				: `\`\`\`js\n${code}\`\`\``,
 	}));
 }
 
@@ -65,19 +73,22 @@ function createAdversarialMessage(scenario: string | null) {
 	if (scenario === "large-code") {
 		const codeLine = "const value = 1;\n";
 		const highlightedCode = codeLine.repeat(
-			Math.floor(MAX_HIGHLIGHTED_MESSAGE_CODE_UNITS / codeLine.length),
+			Math.floor(MAX_HIGHLIGHTED_CODE_BLOCK_UNITS / codeLine.length),
 		);
 		const highlightedBlock = `\`\`\`js\n${highlightedCode}\`\`\``;
-		const secondFenceLength = "```js\n\n```".length;
+		const highlightedBlocks = highlightedBlock.repeat(
+			MAX_HIGHLIGHTED_CODE_BLOCKS,
+		);
+		const finalFenceLength = "```js\n\n```".length;
 		const remainingCode = codeLine.repeat(
 			Math.floor(
 				(MAX_RENDERED_MESSAGE_CODE_UNITS -
-					highlightedBlock.length -
-					secondFenceLength) /
+					highlightedBlocks.length -
+					finalFenceLength) /
 					codeLine.length,
 			),
 		);
-		return `${highlightedBlock}\`\`\`js\n${remainingCode}\`\`\``;
+		return `${highlightedBlocks}\`\`\`js\n${remainingCode}\`\`\``;
 	}
 
 	const repeatedBlock =
