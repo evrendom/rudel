@@ -450,10 +450,15 @@ describe("session_analytics populated migration rehearsal", () => {
 		if (recoveryMarkerIndex < 0) {
 			throw new Error("migration recovery marker is missing");
 		}
-		const beforeRecovery = scopedMigration.slice(0, recoveryMarkerIndex);
-		const recoveryTail = scopedMigration.slice(
-			recoveryMarkerIndex + RECOVERY_MARKER.length,
+		const recoveryMarkerLineEnd = scopedMigration.indexOf(
+			"\n",
+			recoveryMarkerIndex,
 		);
+		if (recoveryMarkerLineEnd < 0) {
+			throw new Error("migration recovery marker line is incomplete");
+		}
+		const beforeRecovery = scopedMigration.slice(0, recoveryMarkerIndex);
+		const recoveryTail = scopedMigration.slice(recoveryMarkerLineEnd + 1);
 
 		await executeStatements(parseStatements(beforeRecovery));
 
