@@ -18,7 +18,7 @@ function countOccurrences(value: string, search: string): number {
 }
 
 describe("session_analytics identity migration", () => {
-	test("keeps rebuild and deployed MV SQL synchronized with schema sources", () => {
+	test("keeps deployed MVs synchronized and rebuild deduplication narrow", () => {
 		const normalizedMigration = normalizeSql(migration);
 
 		expect(
@@ -26,13 +26,38 @@ describe("session_analytics identity migration", () => {
 				normalizedMigration,
 				normalizeSql(CLAUDE_SESSION_ANALYTICS_MV_SQL),
 			),
-		).toBe(2);
+		).toBe(1);
 		expect(
 			countOccurrences(
 				normalizedMigration,
 				normalizeSql(CODEX_SESSION_ANALYTICS_MV_SQL),
 			),
-		).toBe(2);
+		).toBe(1);
+
+		expect(countOccurrences(normalizedMigration, "ROW_NUMBER() OVER")).toBe(2);
+		expect(countOccurrences(normalizedMigration, "INNER ANY JOIN")).toBe(2);
+		expect(normalizedMigration).toContain(
+			normalizeSql(`
+FROM rudel.claude_sessions AS cs
+INNER ANY JOIN
+(
+  SELECT organization_id, user_id, session_id, max(ingested_at) AS ingested_at
+  FROM rudel.claude_sessions
+  GROUP BY organization_id, user_id, session_id
+) AS latest
+USING (organization_id, user_id, session_id, ingested_at)`),
+		);
+		expect(normalizedMigration).toContain(
+			normalizeSql(`
+FROM rudel.codex_sessions AS cs
+INNER ANY JOIN
+(
+  SELECT organization_id, user_id, session_id, max(ingested_at) AS ingested_at
+  FROM rudel.codex_sessions
+  GROUP BY organization_id, user_id, session_id
+) AS latest
+USING (organization_id, user_id, session_id, ingested_at)`),
+		);
 	});
 
 	test("checks physical shadow rows for duplicate identities before cutover", () => {

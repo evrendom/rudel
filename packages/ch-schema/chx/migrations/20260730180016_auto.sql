@@ -139,7 +139,7 @@ SETTINGS
   max_threads=1,
   max_insert_threads=1,
   max_block_size=1,
-  max_bytes_before_external_sort=268435456
+  max_bytes_before_external_group_by=268435456
 SELECT
   session_date,
   last_interaction_date,
@@ -181,9 +181,6 @@ SELECT
   inference_duration_sec,
   human_duration_sec
 FROM (
-
-  SELECT * EXCEPT (_dedupe_rank)
-  FROM (
   WITH
     arrayFilter(
       x -> JSONExtractString(x, 'type') IN ('user', 'assistant'),
@@ -374,16 +371,21 @@ toUInt8(
       )
     )
   )
-) as success_score,
-    ROW_NUMBER() OVER (
-      PARTITION BY cs.organization_id, cs.user_id, cs.session_id
-      ORDER BY cs.ingested_at DESC
-    ) AS _dedupe_rank
+) as success_score
 
   FROM rudel.claude_sessions AS cs
+  INNER ANY JOIN
+  (
+    SELECT
+      organization_id,
+      user_id,
+      session_id,
+      max(ingested_at) AS ingested_at
+    FROM rudel.claude_sessions
+    GROUP BY organization_id, user_id, session_id
+  ) AS latest
+  USING (organization_id, user_id, session_id, ingested_at)
   WHERE length(_timestamps) > 0
-  )
-  WHERE _dedupe_rank = 1
 );
 
 INSERT INTO rudel.session_analytics_v2
@@ -433,7 +435,7 @@ SETTINGS
   max_threads=1,
   max_insert_threads=1,
   max_block_size=1,
-  max_bytes_before_external_sort=268435456
+  max_bytes_before_external_group_by=268435456
 SELECT
   session_date,
   last_interaction_date,
@@ -475,9 +477,6 @@ SELECT
   inference_duration_sec,
   human_duration_sec
 FROM (
-
-  SELECT * EXCEPT (_dedupe_rank)
-  FROM (
   WITH
     arrayFilter(
       x -> x != '',
@@ -671,16 +670,21 @@ toUInt8(
       )
     )
   )
-) as success_score,
-    ROW_NUMBER() OVER (
-      PARTITION BY cs.organization_id, cs.user_id, cs.session_id
-      ORDER BY cs.ingested_at DESC
-    ) AS _dedupe_rank
+) as success_score
 
   FROM rudel.codex_sessions AS cs
+  INNER ANY JOIN
+  (
+    SELECT
+      organization_id,
+      user_id,
+      session_id,
+      max(ingested_at) AS ingested_at
+    FROM rudel.codex_sessions
+    GROUP BY organization_id, user_id, session_id
+  ) AS latest
+  USING (organization_id, user_id, session_id, ingested_at)
   WHERE length(_timestamps) > 0
-  )
-  WHERE _dedupe_rank = 1
 );
 
 -- Canonical-source invariants. Count physical rows here: FINAL would collapse
