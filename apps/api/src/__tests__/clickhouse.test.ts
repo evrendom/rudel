@@ -147,6 +147,15 @@ describe("analytics service guardrails", () => {
 			),
 			"utf8",
 		);
+		const cleanupSource = await readFile(
+			resolve(
+				import.meta.dir,
+				"..",
+				"services",
+				"session-ownership-cleanup.service.ts",
+			),
+			"utf8",
+		);
 		const sessionDetailStart = sessionAnalyticsSource.indexOf(
 			"export async function getSessionDetail",
 		);
@@ -159,5 +168,9 @@ describe("analytics service guardrails", () => {
 		expect(
 			backfillSource.match(/clickhouse_settings: BACKFILL_QUERY_SETTINGS/g),
 		).toHaveLength(2);
+		expect(cleanupSource).toContain("max_bytes_to_read");
+		expect(cleanupSource).toContain("max_execution_time");
+		expect(cleanupSource).toContain('lightweight_deletes_sync: "3"');
+		expect(cleanupSource).not.toContain("ALTER TABLE");
 	});
 });

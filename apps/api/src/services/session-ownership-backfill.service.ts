@@ -4,7 +4,6 @@ import type postgres from "postgres";
 import { getClickhouse, getSafeClickHouseTable } from "../clickhouse.js";
 import { sqlClient } from "../db.js";
 
-const BACKFILL_KEY = "session_ownership_v1";
 const BACKFILL_LOCK_ID = 941_821_301;
 const INSERT_BATCH_SIZE = 500;
 const BACKFILL_QUERY_SETTINGS = {
@@ -18,9 +17,31 @@ interface BackfillCandidate {
 	userIds: string[];
 }
 
-interface BackfillResult {
-	insertedCount: number;
-	status: "already_completed" | "completed";
+interface BackfillPlan {
+	counts: SessionOwnershipCutoverCounts;
+	rowsToInsert: InsertOwnershipRow[];
+}
+
+export interface SessionOwnershipCutoverCounts {
+	alreadyClaimedCount: number;
+	candidateCount: number;
+	claimableCount: number;
+	claimedCount: number;
+	conflictedCount: number;
+	skippedCount: number;
+	skippedOrganizationCount: number;
+	skippedDisposition: {
+		archive: number;
+		deleteLater: number;
+		migrate: number;
+		retain: number;
+	};
+}
+
+export interface SessionOwnershipCutoverResult
+	extends SessionOwnershipCutoverCounts {
+	cutoff: string;
+	status: "completed" | "preview";
 }
 
 interface ExistingOwnershipRow {
@@ -51,28 +72,47 @@ interface IdRow {
 	id: string;
 }
 
-export async function backfillSessionOwnership(): Promise<BackfillResult> {
+export async function previewSessionOwnershipCutover(
+	cutoff: Date,
+): Promise<SessionOwnershipCutoverResult> {
+	const candidates = await getLegacyOwnershipCandidates(cutoff);
+	const [existingRows, organizationRows, userRows] = await Promise.all([
+		sqlClient.unsafe<ExistingOwnershipRow[]>(`
+			SELECT organization_id, session_id, user_id
+			FROM session_ownership
+		`),
+		sqlClient.unsafe<IdRow[]>(`
+			SELECT id
+			FROM organization
+		`),
+		sqlClient.unsafe<IdRow[]>(`
+			SELECT id
+			FROM "user"
+		`),
+	]);
+	const plan = planOwnershipClaims(
+		candidates,
+		existingRows,
+		new Set(organizationRows.map((row) => row.id)),
+		new Set(userRows.map((row) => row.id)),
+	);
+
+	return {
+		...plan.counts,
+		cutoff: cutoff.toISOString(),
+		status: "preview",
+	};
+}
+
+export async function backfillSessionOwnership(
+	cutoff = new Date(),
+): Promise<SessionOwnershipCutoverResult> {
 	return sqlClient.begin(async (transaction) => {
 		await transaction.unsafe("SELECT pg_advisory_xact_lock($1)", [
 			BACKFILL_LOCK_ID,
 		]);
 
-		const [completed] = await transaction.unsafe<
-			Array<{ backfill_key: string }>
-		>(
-			`
-			SELECT backfill_key
-			FROM session_ownership_backfill_state
-			WHERE backfill_key = $1
-			LIMIT 1
-		`,
-			[BACKFILL_KEY],
-		);
-		if (completed) {
-			return { insertedCount: 0, status: "already_completed" };
-		}
-
-		const candidates = await getLegacyOwnershipCandidates();
+		const candidates = await getLegacyOwnershipCandidates(cutoff);
 		const existingRows = await transaction.unsafe<ExistingOwnershipRow[]>(`
 			SELECT organization_id, session_id, user_id
 			FROM session_ownership
@@ -85,25 +125,30 @@ export async function backfillSessionOwnership(): Promise<BackfillResult> {
 			SELECT id
 			FROM "user"
 		`);
-		const rowsToInsert = selectOwnershipRows(
+		const plan = planOwnershipClaims(
 			candidates,
 			existingRows,
 			new Set(organizationRows.map((row) => row.id)),
 			new Set(userRows.map((row) => row.id)),
 		);
-		const insertedCount = await insertOwnershipRows(transaction, rowsToInsert);
+		if (plan.counts.conflictedCount > 0) {
+			throw new Error(
+				`Session ownership catch-up found ${plan.counts.conflictedCount} conflicting sessions. Run the counts-only preview and resolve conflicts before execution.`,
+			);
+		}
 
-		await transaction.unsafe(
-			`
-			INSERT INTO session_ownership_backfill_state (
-				backfill_key
-			)
-			VALUES ($1)
-		`,
-			[BACKFILL_KEY],
+		const claimedCount = await insertOwnershipRows(
+			transaction,
+			plan.rowsToInsert,
 		);
+		await assertPlannedOwnersWereRegistered(transaction, plan.rowsToInsert);
 
-		return { insertedCount, status: "completed" };
+		return {
+			...plan.counts,
+			claimedCount,
+			cutoff: cutoff.toISOString(),
+			status: "completed",
+		};
 	});
 }
 
@@ -166,7 +211,9 @@ export async function resolveSessionOwnershipConflict(
 	});
 }
 
-async function getLegacyOwnershipCandidates(): Promise<BackfillCandidate[]> {
+async function getLegacyOwnershipCandidates(
+	cutoff: Date,
+): Promise<BackfillCandidate[]> {
 	const clickhouse = getClickhouse();
 	const rowsBySession = new Map<string, BackfillCandidate>();
 
@@ -183,8 +230,10 @@ async function getLegacyOwnershipCandidates(): Promise<BackfillCandidate[]> {
 				WHERE organization_id != ''
 					AND session_id != ''
 					AND user_id != ''
+					AND ingested_at <= parseDateTime64BestEffort({cutoff:String})
 				GROUP BY organization_id, session_id
 			`,
+			query_params: { cutoff: cutoff.toISOString() },
 		});
 
 		for (const row of rows) {
@@ -229,44 +278,52 @@ async function getLegacyOwnerIds(
 	return [...ownerIds];
 }
 
-function selectOwnershipRows(
+function planOwnershipClaims(
 	candidates: BackfillCandidate[],
 	existingRows: ExistingOwnershipRow[],
 	organizationIds: Set<string>,
 	userIds: Set<string>,
-): InsertOwnershipRow[] {
+): BackfillPlan {
 	const existingOwners = new Map(
 		existingRows.map((row) => [
 			getOwnershipKey(row.organization_id, row.session_id),
 			row.user_id,
 		]),
 	);
-	const conflicts: BackfillCandidate[] = [];
 	const rowsToInsert: InsertOwnershipRow[] = [];
+	const skippedOrganizationIds = new Set<string>();
+	let alreadyClaimedCount = 0;
+	let conflictedCount = 0;
+	let skippedCount = 0;
 
 	for (const candidate of candidates) {
 		if (!organizationIds.has(candidate.organizationId)) {
+			skippedCount++;
+			skippedOrganizationIds.add(candidate.organizationId);
 			continue;
 		}
 		const currentUserIds = candidate.userIds.filter((userId) =>
 			userIds.has(userId),
 		);
 		if (currentUserIds.length === 0) {
+			skippedCount++;
+			skippedOrganizationIds.add(candidate.organizationId);
 			continue;
 		}
-		const currentCandidate = { ...candidate, userIds: currentUserIds };
 		const key = getOwnershipKey(candidate.organizationId, candidate.sessionId);
 		const existingOwner = existingOwners.get(key);
 		if (existingOwner) {
-			if (!currentCandidate.userIds.includes(existingOwner)) {
-				conflicts.push(currentCandidate);
+			if (!currentUserIds.includes(existingOwner)) {
+				conflictedCount++;
+			} else {
+				alreadyClaimedCount++;
 			}
 			continue;
 		}
 
-		const [onlyOwner] = currentCandidate.userIds;
-		if (currentCandidate.userIds.length !== 1 || !onlyOwner) {
-			conflicts.push(currentCandidate);
+		const [onlyOwner] = currentUserIds;
+		if (currentUserIds.length !== 1 || !onlyOwner) {
+			conflictedCount++;
 			continue;
 		}
 		rowsToInsert.push({
@@ -276,20 +333,24 @@ function selectOwnershipRows(
 		});
 	}
 
-	if (conflicts.length > 0) {
-		const sample = conflicts
-			.slice(0, 10)
-			.map(
-				(conflict) =>
-					`${conflict.organizationId}/${conflict.sessionId} (${conflict.userIds.length} owners)`,
-			)
-			.join(", ");
-		throw new Error(
-			`Session ownership backfill found ${conflicts.length} conflicting session IDs. Resolve the registered owners before deployment. Conflicts: ${sample}`,
-		);
-	}
-
-	return rowsToInsert;
+	return {
+		counts: {
+			alreadyClaimedCount,
+			candidateCount: candidates.length,
+			claimableCount: rowsToInsert.length,
+			claimedCount: 0,
+			conflictedCount,
+			skippedCount,
+			skippedOrganizationCount: skippedOrganizationIds.size,
+			skippedDisposition: {
+				archive: 0,
+				deleteLater: skippedOrganizationIds.size,
+				migrate: 0,
+				retain: 0,
+			},
+		},
+		rowsToInsert,
+	};
 }
 
 async function insertOwnershipRows(
@@ -328,6 +389,37 @@ async function insertOwnershipRows(
 	}
 
 	return insertedCount;
+}
+
+async function assertPlannedOwnersWereRegistered(
+	transaction: postgres.TransactionSql,
+	plannedRows: InsertOwnershipRow[],
+): Promise<void> {
+	if (plannedRows.length === 0) {
+		return;
+	}
+
+	const registeredRows = await transaction.unsafe<ExistingOwnershipRow[]>(`
+		SELECT organization_id, session_id, user_id
+		FROM session_ownership
+	`);
+	const registeredOwners = new Map(
+		registeredRows.map((row) => [
+			getOwnershipKey(row.organization_id, row.session_id),
+			row.user_id,
+		]),
+	);
+	const conflictCount = plannedRows.filter(
+		(row) =>
+			registeredOwners.get(
+				getOwnershipKey(row.organization_id, row.session_id),
+			) !== row.user_id,
+	).length;
+	if (conflictCount > 0) {
+		throw new Error(
+			`Session ownership catch-up lost ${conflictCount} claims to concurrent owners. No catch-up claims were committed.`,
+		);
+	}
 }
 
 function getOwnershipKey(organizationId: string, sessionId: string): string {
