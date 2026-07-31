@@ -75,7 +75,10 @@ describe("ingestSession", () => {
 			gitBranch: "feature-branch",
 			gitSha: "deadbeef",
 			tag: "tests",
-			content: "integration test content",
+			content: JSON.stringify({
+				type: "user",
+				timestamp: "2026-07-29T10:00:00.000Z",
+			}),
 			subagents: [{ agentId: "sub-1", content: "subagent content" }],
 		};
 
@@ -104,5 +107,28 @@ describe("ingestSession", () => {
 		expect(results[0]?.tag).toBe("tests");
 		expect(results[0]?.user_id).toBe("test_user");
 		expect(results[0]?.organization_id).toBe("test_org");
+	}, 120000);
+
+	test.each([
+		{ source: "claude_code" as const },
+		{ source: "codex" as const },
+	])("rejects a timestamp-less $source session before insertion", async ({
+		source,
+	}) => {
+		const input: IngestSessionInput = {
+			source,
+			sessionId: `${testId}_timestamp_less_${source}`,
+			projectPath: "/test/api-ingest/rejected",
+			content: "timestamp-less integration test content",
+		};
+		const adapter = getAdapter(source);
+
+		await expect(
+			adapter.ingest(executor, input, {
+				ingestedAt: new Date("2026-07-29T10:00:00.000Z"),
+				userId: "test_user",
+				organizationId: "test_org",
+			}),
+		).rejects.toThrow("transcript contains no valid timestamp");
 	}, 120000);
 });

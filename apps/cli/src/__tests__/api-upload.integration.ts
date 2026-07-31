@@ -131,7 +131,14 @@ describe("CLI upload to local API", () => {
 			gitBranch: "main",
 			gitSha: "abc123",
 			tag: "tests",
-			content: "cli api integration test content",
+			content: JSON.stringify({
+				type: "user",
+				timestamp: "2026-07-31T10:00:00.000Z",
+				message: {
+					role: "user",
+					content: "cli api integration test content",
+				},
+			}),
 			subagents: [{ agentId: "sub-1", content: "subagent content" }],
 		};
 
@@ -197,9 +204,10 @@ describe("CLI upload to local API", () => {
 					sessionId: "e2e-test-session",
 				}),
 				JSON.stringify({
-					type: "message",
+					type: "user",
 					role: "human",
 					content: "test",
+					timestamp: "2026-07-29T10:00:00.000Z",
 				}),
 			].join("\n"),
 		);
@@ -280,9 +288,10 @@ describe("CLI upload to local API", () => {
 					sessionId: "rejected-session",
 				}),
 				JSON.stringify({
-					type: "message",
+					type: "user",
 					role: "human",
 					content: "test",
+					timestamp: "2026-07-29T10:00:00.000Z",
 				}),
 			].join("\n"),
 		);

@@ -3,7 +3,7 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 
 export function toClickHouseDateTime(isoString: string): string {
-	return isoString.replace("T", " ").replace("Z", "").replace(/\+.*$/, "");
+	return new Date(isoString).toISOString().replace("T", " ").replace("Z", "");
 }
 
 export async function readFileWithRetry(

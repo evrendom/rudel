@@ -244,25 +244,18 @@ async function runEnable(): Promise<undefined | Error> {
 				if (!session) {
 					return { success: false, error: "Session not found" };
 				}
-				try {
-					const request = await adapter.buildUploadRequest(session, {
-						gitInfo,
-						organizationId: selectedOrgId,
-						uploadMode: "manual",
-					});
-					return uploadSession(request, {
-						endpoint,
-						token: credentials.token,
-						allowInsecureEndpoint: allowPlaintextEndpoint,
-						authType: credentials.authType,
-						onRetry,
-					});
-				} catch (error) {
-					return {
-						success: false,
-						error: error instanceof Error ? error.message : String(error),
-					};
-				}
+				const request = await adapter.buildUploadRequest(session, {
+					gitInfo,
+					organizationId: selectedOrgId,
+					uploadMode: "manual",
+				});
+				return uploadSession(request, {
+					endpoint,
+					token: credentials.token,
+					allowInsecureEndpoint: allowPlaintextEndpoint,
+					authType: credentials.authType,
+					onRetry,
+				});
 			},
 		});
 

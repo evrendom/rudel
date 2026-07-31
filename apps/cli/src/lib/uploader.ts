@@ -1,6 +1,7 @@
 import { createORPCClient, ORPCError } from "@orpc/client";
 import { RPCLink } from "@orpc/client/fetch";
 import type { ContractRouterClient } from "@orpc/contract";
+import { isMissingTranscriptTimestampMessage } from "@rudel/agent-adapters";
 import {
 	type contract,
 	INGEST_AGGREGATE_CONTENT_MAX_BYTES,
@@ -368,6 +369,19 @@ export async function uploadSession(
 					filteredText.redactedBytes + (response.redactedBytes ?? 0),
 			};
 		} catch (error) {
+			if (
+				error instanceof ORPCError &&
+				error.status === 400 &&
+				isMissingTranscriptTimestampMessage(request.source, error.message)
+			) {
+				return {
+					success: false,
+					error: error.message,
+					attempts: attempt,
+					retryable: false,
+				};
+			}
+
 			const errorMessage = formatUploadError(error);
 
 			if (isRateLimited(error) || isApiKeyRateLimited(error)) {

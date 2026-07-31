@@ -76,7 +76,10 @@ async function ingestSession(
 		gitBranch: "main",
 		gitSha: "deadbeef",
 		tag: "tests",
-		content: "delete-sessions integration test",
+		content: JSON.stringify({
+			type: "user",
+			timestamp: "2026-07-29T10:00:00.000Z",
+		}),
 		subagents: [],
 	};
 	const adapter = getAdapter(input.source);
