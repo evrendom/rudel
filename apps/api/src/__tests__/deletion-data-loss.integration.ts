@@ -408,7 +408,10 @@ async function ingestSession(
 	organizationId: string,
 ): Promise<void> {
 	const input: IngestSessionInput = {
-		content: "deletion hardening integration test",
+		content: JSON.stringify({
+			type: "user",
+			timestamp: "2026-07-29T10:00:00.000Z",
+		}),
 		projectPath: "/test/deletion-hardening",
 		sessionId,
 		source: "claude_code",

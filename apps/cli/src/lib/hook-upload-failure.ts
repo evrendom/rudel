@@ -1,5 +1,9 @@
 import type { Logger } from "@logtape/logtape";
-import { type FailedUpload, recordFailedUpload } from "./failed-uploads.js";
+import {
+	type FailedUpload,
+	recordFailedUpload,
+	removeFailedUpload,
+} from "./failed-uploads.js";
 import type { UploadResult } from "./types.js";
 
 /**
@@ -16,6 +20,11 @@ export async function reportHookUploadFailure(
 		sessionId: failure.sessionId,
 		error: uploadError,
 	});
+
+	if (result.retryable === false) {
+		await removeFailedUpload(failure.sessionId);
+		return;
+	}
 
 	if (result.endpointRejected) {
 		process.stderr.write(

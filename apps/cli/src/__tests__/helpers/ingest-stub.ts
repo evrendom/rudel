@@ -175,9 +175,10 @@ export async function createCliFixture(
 					payload: { id: sessionId, cwd: projectPath },
 				}),
 				JSON.stringify({
-					type: "message",
+					type: source === "codex" ? "message" : "user",
 					role: "human",
 					content: "endpoint security integration test",
+					timestamp: "2026-07-29T10:00:01.000Z",
 				}),
 			].join("\n"),
 		),

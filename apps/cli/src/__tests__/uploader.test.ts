@@ -13,6 +13,10 @@ import {
 	getSecretFilterUploadFailure,
 	uploadSession,
 } from "../lib/uploader.js";
+import {
+	INGEST_STUB_TEST_TOKEN,
+	startIngestStub,
+} from "./helpers/ingest-stub.js";
 
 describe("formatUploadError", () => {
 	test("explains API key rate limits from ingest auth", () => {
@@ -177,6 +181,62 @@ describe("uploadSession aggregate size guard", () => {
 				"Session transcript payload is 2.00 MiB, above the 1.00 MiB per-session limit. Reduce the transcript/subagent payload before retrying.",
 			attempts: 0,
 		});
+	});
+});
+
+describe("uploadSession timestamp validation", () => {
+	test.each([
+		{
+			source: "claude_code" as const,
+			message: "Claude Code transcript contains no valid timestamp",
+		},
+		{
+			source: "codex" as const,
+			message: "Codex transcript contains no valid timestamp",
+		},
+	])("marks a $source server rejection as not retryable", async ({
+		source,
+		message,
+	}) => {
+		const stub = startIngestStub({
+			respond: () =>
+				Response.json(
+					{
+						json: {
+							defined: false,
+							code: "BAD_REQUEST",
+							status: 400,
+							message,
+						},
+					},
+					{ status: 400 },
+				),
+		});
+
+		try {
+			const result = await uploadSession(
+				{
+					source,
+					sessionId: `${source}-server-timestamp-validation`,
+					projectPath: "/test/project",
+					content: '{"type":"user","timestamp":"2026-07-31T10:00:00.000Z"}',
+				},
+				{
+					endpoint: `${stub.loopbackBase}/rpc`,
+					token: INGEST_STUB_TEST_TOKEN,
+					allowInsecureEndpoint: false,
+				},
+			);
+
+			expect(result).toEqual({
+				success: false,
+				error: message,
+				attempts: 1,
+				retryable: false,
+			});
+		} finally {
+			await stub.server.stop(true);
+		}
 	});
 });
 
