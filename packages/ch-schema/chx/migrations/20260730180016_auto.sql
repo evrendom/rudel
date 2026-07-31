@@ -134,7 +134,12 @@ INSERT INTO rudel.session_analytics_v2
   `inference_duration_sec`,
   `human_duration_sec`
 )
-SETTINGS async_insert=0
+SETTINGS
+  async_insert=0,
+  max_threads=1,
+  max_insert_threads=1,
+  max_block_size=1,
+  max_bytes_before_external_sort=268435456
 SELECT
   session_date,
   last_interaction_date,
@@ -423,7 +428,12 @@ INSERT INTO rudel.session_analytics_v2
   `inference_duration_sec`,
   `human_duration_sec`
 )
-SETTINGS async_insert=0
+SETTINGS
+  async_insert=0,
+  max_threads=1,
+  max_insert_threads=1,
+  max_block_size=1,
+  max_bytes_before_external_sort=268435456
 SELECT
   session_date,
   last_interaction_date,
