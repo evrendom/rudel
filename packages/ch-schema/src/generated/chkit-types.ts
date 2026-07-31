@@ -92,23 +92,21 @@ export type RudelSessionAnalyticsRow = {
   git_remote: string
   package_name: string
   package_type: string
-  content: string
   filter_version: number
-  subagents: Record<string, string>
-  skills: string[]
-  slash_commands: string[]
-  subagent_types: string[]
   ingested_at: string
   user_id: string
   git_branch: string | null
   git_sha: string | null
+  tag: string | null
+  source: string
+  skills: string[]
+  slash_commands: string[]
+  subagent_types: string[]
   input_tokens: string
   output_tokens: string
   cache_read_input_tokens: string
   cache_creation_input_tokens: string
   total_tokens: string
-  tag: string | null
-  source: string
   total_interactions: number
   actual_duration_min: number
   avg_period_sec: number
@@ -117,6 +115,7 @@ export type RudelSessionAnalyticsRow = {
   normal_responses: number
   long_pauses: number
   error_count: number
+  error_pattern: string
   model_used: string
   has_commit: number
   session_archetype: string
@@ -135,23 +134,21 @@ export const RudelSessionAnalyticsRowSchema = z.object({
   git_remote: z.string(),
   package_name: z.string(),
   package_type: z.string(),
-  content: z.string(),
   filter_version: z.number(),
-  subagents: z.record(z.string(), z.string()),
-  skills: z.array(z.string()),
-  slash_commands: z.array(z.string()),
-  subagent_types: z.array(z.string()),
   ingested_at: z.string(),
   user_id: z.string(),
   git_branch: z.string().nullable(),
   git_sha: z.string().nullable(),
+  tag: z.string().nullable(),
+  source: z.string(),
+  skills: z.array(z.string()),
+  slash_commands: z.array(z.string()),
+  subagent_types: z.array(z.string()),
   input_tokens: z.string(),
   output_tokens: z.string(),
   cache_read_input_tokens: z.string(),
   cache_creation_input_tokens: z.string(),
   total_tokens: z.string(),
-  tag: z.string().nullable(),
-  source: z.string(),
   total_interactions: z.number(),
   actual_duration_min: z.number(),
   avg_period_sec: z.number(),
@@ -160,6 +157,7 @@ export const RudelSessionAnalyticsRowSchema = z.object({
   normal_responses: z.number(),
   long_pauses: z.number(),
   error_count: z.number(),
+  error_pattern: z.string(),
   model_used: z.string(),
   has_commit: z.number(),
   session_archetype: z.string(),

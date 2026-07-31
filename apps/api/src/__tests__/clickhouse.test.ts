@@ -6,6 +6,7 @@ import {
 	addOptionalStringInFilter,
 	buildAbsoluteDateFilter,
 	buildDateFilter,
+	buildLatestRawSessionContentSql,
 	getSafeClickHouseTable,
 } from "../clickhouse.js";
 
@@ -67,6 +68,25 @@ describe("clickhouse helpers", () => {
 		expect(() => getSafeClickHouseTable("rudel.unknown_table")).toThrow(
 			"Unsupported ClickHouse table",
 		);
+	});
+
+	test("requires pushed-down filters for raw transcript scans", () => {
+		expect(() => buildLatestRawSessionContentSql({})).toThrow(
+			"Raw transcript queries must be narrowed",
+		);
+
+		const sql = buildLatestRawSessionContentSql({
+			sessionId: true,
+			userId: true,
+		});
+
+		expect(sql.match(/session_id = \{sessionId:String\}/g)).toHaveLength(2);
+		expect(sql.match(/user_id = \{userId:String\}/g)).toHaveLength(2);
+		expect(sql).toContain("argMax(content, ingested_at)");
+		expect(sql).toContain(
+			"GROUP BY source, organization_id, user_id, session_id",
+		);
+		expect(sql).not.toContain("ORDER BY ingested_at");
 	});
 });
 

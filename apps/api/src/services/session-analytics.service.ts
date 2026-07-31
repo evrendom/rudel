@@ -8,6 +8,7 @@ import {
 	addOptionalStringEqFilter,
 	buildDateFilter,
 	buildInclusiveDateRangeFilter,
+	buildLatestRawSessionContentSql,
 	queryClickhouse,
 } from "../clickhouse.js";
 
@@ -692,31 +693,42 @@ export async function getSessionDetail(
 	ownerId: string,
 ): Promise<SessionDetail | null> {
 	const query = `
+    WITH latest_raw_session_content AS (
+      ${buildLatestRawSessionContentSql({
+				sessionId: true,
+				userId: true,
+			})}
+    )
     SELECT
-      session_id,
-      user_id,
+      sa.session_id,
+      sa.user_id,
       formatDateTime(sa.session_date, '%Y-%m-%dT%H:%i:%SZ') as session_date,
       formatDateTime(sa.last_interaction_date, '%Y-%m-%dT%H:%i:%SZ') as last_interaction_date,
-      project_path,
-      if(git_remote != '', git_remote, if(package_name != '', package_name, project_path)) as repository,
-      content,
-      subagents,
-      skills,
-      slash_commands,
-      git_branch,
-      git_sha,
-      total_tokens,
-      input_tokens,
-      output_tokens,
-      success_score,
+      sa.project_path,
+      if(sa.git_remote != '', sa.git_remote, if(sa.package_name != '', sa.package_name, sa.project_path)) as repository,
+      raw.content,
+      raw.subagents,
+      sa.skills,
+      sa.slash_commands,
+      sa.git_branch,
+      sa.git_sha,
+      sa.total_tokens,
+      sa.input_tokens,
+      sa.output_tokens,
+      sa.success_score,
       dateDiff('second', sa.session_date, sa.last_interaction_date) / 60.0 as duration_min,
-      total_interactions,
-      model_used
+      sa.total_interactions,
+      sa.model_used
     FROM rudel.session_analytics AS sa
-    PREWHERE organization_id = {orgId:String}
-      AND session_id = {sessionId:String}
-    WHERE user_id = {ownerId:String}
-    ORDER BY ingested_at DESC
+    INNER ANY JOIN latest_raw_session_content AS raw
+      ON raw.source = sa.source
+      AND raw.organization_id = sa.organization_id
+      AND raw.user_id = sa.user_id
+      AND raw.session_id = sa.session_id
+    WHERE sa.organization_id = {orgId:String}
+      AND sa.session_id = {sessionId:String}
+      AND sa.user_id = {ownerId:String}
+    ORDER BY sa.ingested_at DESC
     LIMIT 1
   `;
 
@@ -726,6 +738,7 @@ export async function getSessionDetail(
 			orgId,
 			ownerId,
 			sessionId,
+			userId: ownerId,
 		},
 	});
 

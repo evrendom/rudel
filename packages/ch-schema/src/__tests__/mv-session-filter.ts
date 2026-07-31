@@ -10,8 +10,8 @@ export interface SessionScope {
  * Scopes a materialized-view SELECT body to a single session.
  *
  * Injects the predicates into the MV's own trailing WHERE rather than wrapping the
- * query, so the inner `ROW_NUMBER() OVER (PARTITION BY cs.session_id ...)` is
- * evaluated over the filtered rows instead of the whole table.
+ * query, so the inner `ROW_NUMBER()` over the full session identity is evaluated
+ * over the filtered rows instead of the whole table.
  *
  * `organization_id` leads because it is the first column of the source table's
  * ORDER BY `(organization_id, session_date, session_id)` — a session-only predicate
