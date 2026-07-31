@@ -1,4 +1,5 @@
-import { type CSSProperties, type ReactNode, useState } from "react";
+import { WRAPPED_SHARE_RESOURCE_LIMITS } from "@rudel/api-routes";
+import { type CSSProperties, type ReactNode, useMemo, useState } from "react";
 import type { TeamCardTone } from "@/features/team/data/team-card-types";
 import type { TeamPageMemberRow } from "@/features/team/use-team-page-data";
 import statSectionTextureWebp from "@/features/wrapped/assets/team-card-stat-texture.webp";
@@ -164,6 +165,13 @@ export function WrappedTeamMemberCard(props: {
 	const shouldRenderPortraitImage = Boolean(
 		row.imageUrl && row.imageUrl !== failedPortraitImageUrl,
 	);
+	// Keep the component safe when it is called outside the validated API path.
+	// Eight tiles produce at most eight stat subtrees and one ResizeObserver
+	// instance observing nine targets: the section plus each tile.
+	const boundedStatItems = useMemo(
+		() => statItems.slice(0, WRAPPED_SHARE_RESOURCE_LIMITS.statItemCount),
+		[statItems],
+	);
 	const animalFaceEmoji = getWrappedAnimalFaceEmoji(
 		`${row.userId}:${row.displayName}`,
 	);
@@ -172,7 +180,7 @@ export function WrappedTeamMemberCard(props: {
 	const { statSectionRef, statSurfaceStyles, statTileRefs } =
 		useWrappedStatSurfaceStyles({
 			bleedPx: STAT_SURFACE_BLEED_PX,
-			statItems,
+			statItems: boundedStatItems,
 		});
 	const resolvedStatLayerOpacities: WrappedTeamMemberCardStatLayerOpacities = {
 		...DEFAULT_STAT_LAYER_OPACITIES,
@@ -506,6 +514,7 @@ export function WrappedTeamMemberCard(props: {
 
 					<div
 						className="relative z-10"
+						data-wrapped-stat-section=""
 						ref={statSectionRef}
 						style={statSectionStyle}
 					>
@@ -513,13 +522,14 @@ export function WrappedTeamMemberCard(props: {
 							className="relative grid grid-cols-2 [font-family:var(--dashboard-01-font-roster-mono)] font-normal text-[#4b4d49]"
 							style={statGridStyle}
 						>
-							{statItems.map((stat) => (
+							{boundedStatItems.map((stat) => (
 								<div
 									key={stat.key}
 									className={cn(
 										"relative z-10 min-w-0 overflow-hidden",
 										statTileClassName,
 									)}
+									data-wrapped-stat-tile={stat.key}
 									ref={(node) => {
 										statTileRefs.current[stat.key] = node;
 									}}

@@ -184,6 +184,29 @@ export function WrappedPublicMockPage(props: WrappedPublicMockPageProps) {
 	const { debugControls } = props;
 	const navigate = useNavigate();
 	const [searchParams] = useSearchParams();
+	const statItems = searchParams.has("overStats")
+		? [
+				...MOCK_PUBLIC_SHARE_STAT_ITEMS,
+				{
+					key: "over-limit-seven",
+					label: "SEVEN",
+					title: "Seventh stat item",
+					value: "7",
+				},
+				{
+					key: "over-limit-eight",
+					label: "EIGHT",
+					title: "Eighth stat item",
+					value: "8",
+				},
+				{
+					key: "over-limit-nine",
+					label: "NINE",
+					title: "Ninth stat item",
+					value: "9",
+				},
+			]
+		: MOCK_PUBLIC_SHARE_STAT_ITEMS;
 	const onboardingMetrics = searchParams.has("longSkill")
 		? {
 				...MOCK_PUBLIC_SHARE_ONBOARDING_METRICS,
@@ -232,7 +255,7 @@ export function WrappedPublicMockPage(props: WrappedPublicMockPageProps) {
 			row={MOCK_PUBLIC_SHARE_ROW}
 			shellClassName={MOCK_PUBLIC_SHARE_ARCHETYPE.shellClassName}
 			shellStyle={MOCK_PUBLIC_SHARE_SHELL_STYLE}
-			statItems={MOCK_PUBLIC_SHARE_STAT_ITEMS}
+			statItems={statItems}
 			statLayerOpacities={MOCK_PUBLIC_SHARE_STAT_LAYER_OPACITIES}
 			theme={MOCK_PUBLIC_SHARE_ARCHETYPE.theme}
 		/>

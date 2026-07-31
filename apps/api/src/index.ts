@@ -21,11 +21,11 @@ import { resolveWrappedShareLookupSource } from "./lib/wrapped-share-lookup-sour
 import { setupLogging } from "./logging.js";
 import type { ApiKeyAuthFailure } from "./middleware.js";
 import { router } from "./router.js";
-import { getPublicWrappedShareWithSocialImage } from "./services/wrapped-share.service.js";
 import {
-	getWrappedShareCardImageMetadata,
-	getWrappedShareCardImagePng,
-} from "./services/wrapped-share-card-image.js";
+	getPublicWrappedShareForPageMetadata,
+	getPublicWrappedShareWithSocialImage,
+} from "./services/wrapped-share.service.js";
+import { getWrappedShareCardImagePng } from "./services/wrapped-share-card-image.js";
 import {
 	buildWrappedSharePageMetadata,
 	injectWrappedSharePageMetadata,
@@ -536,7 +536,7 @@ async function handleWrappedShareCardImageRequest(input: {
 			return new Response("Not found", { headers: cors, status: 404 });
 		}
 
-		const image = getWrappedShareCardImagePng(share.snapshot);
+		const image = getWrappedShareCardImagePng(share.socialImageDataUrl);
 		if (!image) {
 			return new Response("Not found", { headers: cors, status: 404 });
 		}
@@ -599,7 +599,7 @@ async function handleWrappedPublicPageRequest(input: {
 	const indexHtml = await indexFile.text();
 
 	try {
-		const share = await getPublicWrappedShareWithSocialImage(shareId, source);
+		const share = await getPublicWrappedShareForPageMetadata(shareId, source);
 
 		if (!share) {
 			return new Response(method === "HEAD" ? null : indexHtml, {
@@ -608,20 +608,16 @@ async function handleWrappedPublicPageRequest(input: {
 		}
 
 		const publicUrl = new URL(requestPathname, publicOrigin).toString();
-		const imageMetadata = getWrappedShareCardImageMetadata(share.snapshot);
 		const html = injectWrappedSharePageMetadata(
 			indexHtml,
 			buildWrappedSharePageMetadata({
-				...(imageMetadata
+				...(share.hasSocialImage
 					? {
-							imageHeight: imageMetadata.height,
-							imageType: imageMetadata.type,
 							imageUrl: buildWrappedShareCardImageUrl({
 								publicOrigin,
 								requestPathname,
 								share,
 							}),
-							imageWidth: imageMetadata.width,
 						}
 					: {}),
 				publicUrl,
