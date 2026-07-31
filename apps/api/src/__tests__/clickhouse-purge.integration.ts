@@ -1,4 +1,12 @@
-import { afterEach, describe, expect, setDefaultTimeout, test } from "bun:test";
+import {
+	afterAll,
+	afterEach,
+	describe,
+	expect,
+	setDefaultTimeout,
+	test,
+} from "bun:test";
+import postgres from "postgres";
 import {
 	createClickHouseExecutor,
 	getSafeClickHouseTable,
@@ -12,6 +20,7 @@ import {
 	enqueueClickHousePurge,
 	runClickHousePurgeWorkerOnce,
 	sanitizeClickHousePurgeError,
+	startClickHousePurgeWorker,
 } from "../services/clickhouse-purge.service.js";
 import {
 	deleteOrgSessions,
@@ -22,8 +31,22 @@ const TEST_RUN_ID = `clickhouse_purge_${Date.now()}_${crypto.randomUUID()}`;
 const unavailableClickHouse = createClickHouseExecutor({
 	url: "http://127.0.0.1:1",
 });
+const postgresConnectionString = getPostgresConnectionString();
+const lockTimeoutSqlClient = postgres(
+	withLockTimeout(postgresConnectionString, 25),
+	{ max: 1 },
+);
+const rowLockSqlClient = postgres(postgresConnectionString, { max: 1 });
 
 setDefaultTimeout(120_000);
+
+afterAll(async () => {
+	await Promise.all([
+		unavailableClickHouse.close(),
+		lockTimeoutSqlClient.end(),
+		rowLockSqlClient.end(),
+	]);
+});
 
 afterEach(async () => {
 	await sqlClient`
@@ -74,7 +97,7 @@ describe("durable ClickHouse purge worker", () => {
 		);
 	});
 
-	test("recovers an expired running lease without double-counting the attempt", async () => {
+	test("counts an expired running lease as another attempt", async () => {
 		const target: ClickHousePurgeTarget = {
 			targetId: `${TEST_RUN_ID}_restart`,
 			targetType: "organization",
@@ -113,8 +136,57 @@ describe("durable ClickHouse purge worker", () => {
 		).toBe(true);
 		expect(await getPurgeJob(target)).toEqual(
 			expect.objectContaining({
-				attemptCount: 1,
+				attemptCount: 2,
 				status: "succeeded",
+			}),
+		);
+	});
+
+	test("fails an expired final attempt instead of reclaiming it forever", async () => {
+		const target: ClickHousePurgeTarget = {
+			targetId: `${TEST_RUN_ID}_expired_final`,
+			targetType: "organization",
+		};
+		await sqlClient`
+			INSERT INTO clickhouse_purge_job (
+				id,
+				target_type,
+				target_id,
+				status,
+				attempt_count,
+				max_attempts,
+				next_attempt_at,
+				last_attempt_at,
+				lease_token,
+				lease_expires_at
+			)
+			VALUES (
+				${crypto.randomUUID()},
+				${target.targetType},
+				${target.targetId},
+				'running',
+				1,
+				1,
+				NULL,
+				NOW() - INTERVAL '2 minutes',
+				'abandoned-worker',
+				NOW() - INTERVAL '1 minute'
+			)
+		`;
+
+		let executionCount = 0;
+		const env = createProcessorEnv(async () => {
+			executionCount += 1;
+		});
+
+		expect(await runClickHousePurgeWorkerOnce(env)).toBe(false);
+		expect(executionCount).toBe(0);
+		expect(await getPurgeJob(target)).toEqual(
+			expect.objectContaining({
+				alertStatus: "not_required",
+				attemptCount: 1,
+				leaseToken: null,
+				status: "failed",
 			}),
 		);
 	});
@@ -136,19 +208,58 @@ describe("durable ClickHouse purge worker", () => {
 		await enqueue(target, 3);
 
 		const firstRun = runClickHousePurgeWorkerOnce(slowEnv);
-		await started.wait;
-		await Bun.sleep(180);
+		try {
+			await started.wait;
+			await Bun.sleep(180);
 
-		const secondProcessed = await runClickHousePurgeWorkerOnce(
-			createProcessorEnv(async () => {
-				executionCount += 1;
-			}, rejectUnexpectedAlert),
-		);
-		expect(secondProcessed).toBe(false);
+			const secondProcessed = await runClickHousePurgeWorkerOnce(
+				createProcessorEnv(async () => {
+					executionCount += 1;
+				}, rejectUnexpectedAlert),
+			);
+			expect(secondProcessed).toBe(false);
+		} finally {
+			release.release();
+		}
 
-		release.release();
 		expect(await firstRun).toBe(true);
 		expect(executionCount).toBe(1);
+		expect(await getPurgeJob(target)).toEqual(
+			expect.objectContaining({
+				attemptCount: 1,
+				status: "succeeded",
+			}),
+		);
+	});
+
+	test("records success after a transient heartbeat database error", async () => {
+		const target: ClickHousePurgeTarget = {
+			targetId: `${TEST_RUN_ID}_heartbeat_error`,
+			targetType: "organization",
+		};
+		const purgeStarted = createSignal();
+		const releasePurge = createSignal();
+		const env = createProcessorEnv(async () => {
+			purgeStarted.release();
+			await releasePurge.wait;
+		});
+		env.leaseDurationMs = 90;
+		env.sqlClient = lockTimeoutSqlClient;
+		await enqueue(target, 3);
+
+		const run = runClickHousePurgeWorkerOnce(env);
+		await purgeStarted.wait;
+		const rowLock = holdPurgeJobRowLock(target);
+		try {
+			await rowLock.acquired;
+			await Bun.sleep(100);
+		} finally {
+			rowLock.release();
+			await rowLock.completed;
+			releasePurge.release();
+		}
+
+		expect(await run).toBe(true);
 		expect(await getPurgeJob(target)).toEqual(
 			expect.objectContaining({
 				attemptCount: 1,
@@ -248,26 +359,177 @@ describe("durable ClickHouse purge worker", () => {
 		expect(await runClickHousePurgeWorkerOnce(env)).toBe(false);
 	});
 
-	test("deduplicates enqueue and leaves a succeeded replay unchanged", async () => {
+	test("deduplicates active enqueue and revives a succeeded purge", async () => {
 		const target: ClickHousePurgeTarget = {
 			targetId: `${TEST_RUN_ID}_idempotent`,
 			targetType: "account",
 		};
 		await enqueue(target, 3);
-		await enqueue(target, 3);
+		await enqueue(target, 7);
 		expect(await countPurgeJobs(target)).toBe(1);
+		expect(await getPurgeJob(target)).toEqual(
+			expect.objectContaining({
+				maxAttempts: 3,
+				status: "pending",
+			}),
+		);
 
 		const env = createProcessorEnv(executeLivePurge, rejectUnexpectedAlert);
 		expect(await runClickHousePurgeWorkerOnce(env)).toBe(true);
-		await enqueue(target, 3);
-		expect(await runClickHousePurgeWorkerOnce(env)).toBe(false);
-		await executeLivePurge(target);
+		await enqueue(target, 4);
+		expect(await runClickHousePurgeWorkerOnce(env)).toBe(true);
 
 		expect(await countPurgeJobs(target)).toBe(1);
 		expect(await getPurgeJob(target)).toEqual(
 			expect.objectContaining({
 				attemptCount: 1,
+				maxAttempts: 4,
 				status: "succeeded",
+			}),
+		);
+	});
+
+	test("revives a failed purge and clears its alert state", async () => {
+		const target: ClickHousePurgeTarget = {
+			targetId: `${TEST_RUN_ID}_revive_failed`,
+			targetType: "account",
+		};
+		await enqueue(target, 1);
+		expect(
+			await runClickHousePurgeWorkerOnce(
+				createProcessorEnv(executeUnavailablePurge),
+			),
+		).toBe(true);
+		expect(await getPurgeJob(target)).toEqual(
+			expect.objectContaining({
+				alertStatus: "not_required",
+				status: "failed",
+			}),
+		);
+
+		await enqueue(target, 2);
+		expect(await getPurgeJob(target)).toEqual(
+			expect.objectContaining({
+				alertAttemptCount: 0,
+				alertStatus: "not_required",
+				attemptCount: 0,
+				failedAt: null,
+				lastAttemptAt: null,
+				lastError: null,
+				maxAttempts: 2,
+				status: "pending",
+			}),
+		);
+	});
+
+	test("deletes only succeeded purge jobs past the retention window", async () => {
+		const expiredTarget: ClickHousePurgeTarget = {
+			targetId: `${TEST_RUN_ID}_expired_success`,
+			targetType: "account",
+		};
+		const retainedTarget: ClickHousePurgeTarget = {
+			targetId: `${TEST_RUN_ID}_retained_failure`,
+			targetType: "account",
+		};
+		await sqlClient`
+			INSERT INTO clickhouse_purge_job (
+				id,
+				target_type,
+				target_id,
+				status,
+				attempt_count,
+				max_attempts,
+				next_attempt_at,
+				succeeded_at
+			)
+			VALUES
+				(
+					${crypto.randomUUID()},
+					${expiredTarget.targetType},
+					${expiredTarget.targetId},
+					'succeeded',
+					1,
+					1,
+					NULL,
+					NOW() - INTERVAL '31 days'
+				),
+				(
+					${crypto.randomUUID()},
+					${retainedTarget.targetType},
+					${retainedTarget.targetId},
+					'failed',
+					1,
+					1,
+					NULL,
+					NULL
+				)
+		`;
+
+		const worker = startClickHousePurgeWorker({
+			pollIntervalMs: 60_000,
+			resend: {},
+		});
+		await worker.stop();
+
+		expect(await countPurgeJobs(expiredTarget)).toBe(0);
+		expect(await countPurgeJobs(retainedTarget)).toBe(1);
+	});
+
+	test("sends an alert even when legacy failure timestamps are missing", async () => {
+		const target: ClickHousePurgeTarget = {
+			targetId: `${TEST_RUN_ID}_missing_timestamps`,
+			targetType: "organization",
+		};
+		const alerts: ClickHousePurgeFailureAlertData[] = [];
+		await sqlClient`
+			INSERT INTO clickhouse_purge_job (
+				id,
+				target_type,
+				target_id,
+				status,
+				attempt_count,
+				max_attempts,
+				next_attempt_at,
+				last_attempt_at,
+				failed_at,
+				alert_status,
+				alert_next_attempt_at
+			)
+			VALUES (
+				${crypto.randomUUID()},
+				${target.targetType},
+				${target.targetId},
+				'failed',
+				1,
+				1,
+				NULL,
+				NULL,
+				NULL,
+				'pending',
+				TIMESTAMPTZ '1970-01-01 00:00:00+00'
+			)
+		`;
+
+		expect(
+			await runClickHousePurgeWorkerOnce(
+				createProcessorEnv(
+					async () => {
+						throw new Error("Purge execution was not expected");
+					},
+					async (alert) => {
+						alerts.push(alert);
+					},
+				),
+			),
+		).toBe(true);
+
+		expect(alerts).toHaveLength(1);
+		expect(alerts[0]?.createdAt).toBeInstanceOf(Date);
+		expect(alerts[0]?.failedAt).toBeInstanceOf(Date);
+		expect(alerts[0]?.lastAttemptAt).toBeInstanceOf(Date);
+		expect(await getPurgeJob(target)).toEqual(
+			expect.objectContaining({
+				alertStatus: "sent",
 			}),
 		);
 	});
@@ -308,11 +570,47 @@ describe("ClickHouse purge error sanitization", () => {
 		expect(sanitized).not.toContain("Bearer");
 		expect(sanitized).not.toContain("supersecret");
 	});
+
+	test("redacts compound secret names and bare database hosts", () => {
+		const sanitized = sanitizeClickHousePurgeError(
+			new Error(
+				"ECONNREFUSED clickhouse.internal:8123 CLICKHOUSE_PASSWORD=hunter2 X-ClickHouse-Key: supersecret",
+			),
+		);
+
+		expect(sanitized).toContain("[redacted-host]");
+		expect(sanitized).toContain("CLICKHOUSE_PASSWORD=[redacted]");
+		expect(sanitized).toContain("X-ClickHouse-Key=[redacted]");
+		expect(sanitized).not.toContain("clickhouse.internal");
+		expect(sanitized).not.toContain("hunter2");
+		expect(sanitized).not.toContain("supersecret");
+	});
+
+	test("sanitizes bounded causes and aggregate errors", () => {
+		const sanitized = sanitizeClickHousePurgeError(
+			new AggregateError(
+				[
+					new Error("primary failed at 10.2.3.4:8123"),
+					new Error("secondary failed", {
+						cause: new Error("apiToken=nested-secret"),
+					}),
+				],
+				"ClickHouse table purges failed",
+			),
+		);
+
+		expect(sanitized).toContain("ClickHouse table purges failed");
+		expect(sanitized).toContain("primary failed");
+		expect(sanitized).toContain("secondary failed");
+		expect(sanitized).toContain("apiToken=[redacted]");
+		expect(sanitized).not.toContain("10.2.3.4");
+		expect(sanitized).not.toContain("nested-secret");
+	});
 });
 
 function createProcessorEnv(
 	executePurge: (target: ClickHousePurgeTarget) => Promise<void>,
-	sendFailureAlert: (alert: ClickHousePurgeFailureAlertData) => Promise<void>,
+	sendFailureAlert?: (alert: ClickHousePurgeFailureAlertData) => Promise<void>,
 ): ClickHousePurgeProcessorEnv {
 	return {
 		executePurge,
@@ -382,6 +680,7 @@ interface PurgeJobRow {
 	lastAttemptAt: Date | string | null;
 	lastError: string | null;
 	leaseToken: string | null;
+	maxAttempts: number;
 	nextAttemptAt: Date | string | null;
 	status: string;
 }
@@ -399,7 +698,8 @@ async function getPurgeJob(
 			failed_at AS "failedAt",
 			alert_status AS "alertStatus",
 			alert_attempt_count AS "alertAttemptCount",
-			lease_token AS "leaseToken"
+			lease_token AS "leaseToken",
+			max_attempts AS "maxAttempts"
 		FROM clickhouse_purge_job
 		WHERE target_type = ${target.targetType}
 			AND target_id = ${target.targetId}
@@ -430,4 +730,47 @@ function createSignal(): { release: () => void; wait: Promise<void> } {
 		releaseSignal = resolve;
 	});
 	return { release: releaseSignal, wait };
+}
+
+function holdPurgeJobRowLock(target: ClickHousePurgeTarget): {
+	acquired: Promise<void>;
+	completed: Promise<void>;
+	release: () => void;
+} {
+	const acquired = createSignal();
+	const release = createSignal();
+	const completed = rowLockSqlClient.begin(async (transaction) => {
+		await transaction.unsafe(
+			`
+				SELECT id
+				FROM clickhouse_purge_job
+				WHERE target_type = $1
+					AND target_id = $2
+				FOR UPDATE
+			`,
+			[target.targetType, target.targetId],
+		);
+		acquired.release();
+		await release.wait;
+	});
+
+	return {
+		acquired: acquired.wait,
+		completed,
+		release: release.release,
+	};
+}
+
+function getPostgresConnectionString(): string {
+	const connectionString = process.env.PG_CONNECTION_STRING;
+	if (!connectionString) {
+		throw new Error("PG_CONNECTION_STRING is required for integration tests");
+	}
+	return connectionString;
+}
+
+function withLockTimeout(connectionString: string, timeoutMs: number): string {
+	const url = new URL(connectionString);
+	url.searchParams.set("options", `-c lock_timeout=${timeoutMs}ms`);
+	return url.toString();
 }
