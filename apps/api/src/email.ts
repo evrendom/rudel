@@ -208,7 +208,7 @@ export function buildClickHousePurgeFailureAlertContent(
 	const failedAt = data.failedAt.toISOString();
 
 	return {
-		subject: `Rudel ClickHouse purge failed: ${targetLabel} ${targetId}`,
+		subject: `Rudel ClickHouse purge failed: ${targetLabel}`,
 		html: `
 <p>A Rudel ClickHouse ${escapeHtml(targetLabel)} purge exhausted all retry attempts.</p>
 <dl>

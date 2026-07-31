@@ -76,9 +76,7 @@ describe("email helpers", () => {
 			targetType: "organization",
 		});
 
-		expect(message.subject).toBe(
-			"Rudel ClickHouse purge failed: workspace workspace-456",
-		);
+		expect(message.subject).toBe("Rudel ClickHouse purge failed: workspace");
 		expect(message.text).toContain("Attempts: 5");
 		expect(message.text).toContain("2026-07-28T08:15:00.000Z");
 		expect(message.html).toContain(
