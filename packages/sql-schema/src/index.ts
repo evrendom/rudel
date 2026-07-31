@@ -3,6 +3,8 @@ export type {
 	AccountSelect,
 	ApiKeyInsert,
 	ApiKeySelect,
+	ClickHousePurgeJobInsert,
+	ClickHousePurgeJobSelect,
 	DeviceCodeInsert,
 	DeviceCodeSelect,
 	InvitationInsert,
@@ -35,6 +37,7 @@ export type {
 export {
 	account,
 	apikey,
+	clickhousePurgeJob,
 	deviceCode,
 	invitation,
 	member,

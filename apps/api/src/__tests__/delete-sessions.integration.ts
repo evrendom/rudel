@@ -186,8 +186,8 @@ afterAll(async () => {
 		.catch(() => {});
 });
 
-describe("delete session helpers (integration)", () => {
-	test("deleteOrgSessions removes rows scoped to organization_id", async () => {
+describe("ClickHouse session purge (integration)", () => {
+	test("organization purge removes rows scoped to organization_id", async () => {
 		await ingestSession(sessionByOrgId, userIdAlpha, orgId);
 		await ingestSnapshot(snapshotByOrgId, userIdAlpha, orgId);
 		const inserted = await waitFor(
@@ -206,7 +206,7 @@ describe("delete session helpers (integration)", () => {
 		expect(cleared).toBe(true);
 	}, 120000);
 
-	test("deleteUserSessions removes rows scoped to user_id only", async () => {
+	test("account purge removes rows scoped to user_id only", async () => {
 		await ingestSession(sessionByUserAlpha, userIdAlpha, orgId);
 		await ingestSession(sessionByUserBeta, userIdBeta, orgId);
 		await ingestSnapshot(snapshotByUserAlpha, userIdAlpha, orgId);
