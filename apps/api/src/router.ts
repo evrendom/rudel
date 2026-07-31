@@ -43,7 +43,13 @@ import {
 	checkManualIngestRateLimit,
 	checkOrganizationSessionCountRateLimit,
 } from "./rate-limit.js";
-import { filterSessionTextFieldsOffThread } from "./services/ingest-filter.service.js";
+import {
+	filterSessionTextFieldsOffThread,
+	IngestFilterQueueAbortedError,
+	IngestFilterQueueClosedError,
+	IngestFilterQueueFullError,
+	IngestFilterQueueTimeoutError,
+} from "./services/ingest-filter.service.js";
 import { getNextIngestedAt } from "./services/ingest-timestamp.service.js";
 import {
 	deleteOrgSessions,
@@ -170,7 +176,7 @@ const listMyOrganizations = os.listMyOrganizations
 
 const ingestSessionHandler = os.ingestSession
 	.use(ingestAuthMiddleware)
-	.handler(async ({ input, context, errors }) => {
+	.handler(async ({ input, context, errors, signal }) => {
 		checkIngestRequestRateLimit(context.user.id);
 		const aggregateBytes = enforceIngestAggregateSize(
 			input,
@@ -178,12 +184,50 @@ const ingestSessionHandler = os.ingestSession
 		);
 		checkIngestByteRateLimit(context.user.id, aggregateBytes);
 		const filteredText = await filterSessionTextFieldsOffThread({
-			content: input.content,
-			subagents: input.subagents,
+			bytes: aggregateBytes,
+			fields: {
+				content: input.content,
+				subagents: input.subagents,
+			},
+			signal,
+			userId: context.user.id,
 		}).catch((error: unknown) => {
 			if (error instanceof SecretFilterConvergenceError) {
 				throw errors[REDACTION_DID_NOT_CONVERGE_CODE]({
 					data: { maxPasses: error.maxPasses },
+				});
+			}
+			if (error instanceof IngestFilterQueueFullError) {
+				throw new ORPCError("SERVICE_UNAVAILABLE", {
+					data: {
+						reason: "ingest_filter_queue_full",
+						limit: error.limit,
+						retryAfterMs: error.retryAfterMs,
+					},
+					message: error.message,
+				});
+			}
+			if (error instanceof IngestFilterQueueClosedError) {
+				throw new ORPCError("SERVICE_UNAVAILABLE", {
+					data: {
+						reason: "ingest_filter_queue_closed",
+						retryAfterMs: error.retryAfterMs,
+					},
+					message: error.message,
+				});
+			}
+			if (error instanceof IngestFilterQueueTimeoutError) {
+				throw new ORPCError("GATEWAY_TIMEOUT", {
+					data: {
+						reason: "ingest_filter_queue_timeout",
+						retryAfterMs: error.retryAfterMs,
+					},
+					message: error.message,
+				});
+			}
+			if (error instanceof IngestFilterQueueAbortedError) {
+				throw new ORPCError("CLIENT_CLOSED_REQUEST", {
+					message: error.message,
 				});
 			}
 			throw error;
