@@ -515,7 +515,7 @@ describe("session_analytics populated migration rehearsal", () => {
 			`SHOW CREATE TABLE ${database}.session_analytics_pre_identity_20260730`,
 		);
 		expect(createTableRows[0]?.statement).toContain(
-			"TTL _backup_expires_at DELETE",
+			"\nTTL _backup_expires_at\n",
 		);
 	}, 300_000);
 });
