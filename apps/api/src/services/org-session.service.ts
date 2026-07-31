@@ -155,12 +155,17 @@ async function deleteSessions(
 	);
 	const failures = results.flatMap((result, index) =>
 		result.status === "rejected"
-			? [`${tables[index] ?? "unknown"}: ${String(result.reason)}`]
+			? [
+					new Error(
+						`ClickHouse purge failed for ${tables[index] ?? "unknown"}`,
+						{ cause: result.reason },
+					),
+				]
 			: [],
 	);
 
 	if (failures.length > 0) {
-		throw new Error(`ClickHouse purge failed for ${failures.join("; ")}`);
+		throw new AggregateError(failures, "ClickHouse purge failed");
 	}
 }
 

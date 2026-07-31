@@ -21,7 +21,11 @@ const DEFAULT_RETRY_BASE_DELAY_MS = 5_000;
 const DEFAULT_RETRY_MAX_DELAY_MS = 15 * 60_000;
 const DEFAULT_ALERT_RETRY_BASE_DELAY_MS = 30_000;
 const DEFAULT_ALERT_RETRY_MAX_DELAY_MS = 60 * 60_000;
+const SUCCEEDED_JOB_RETENTION_MS = 30 * 24 * 60 * 60_000;
+const SUCCEEDED_JOB_CLEANUP_INTERVAL_MS = 24 * 60 * 60_000;
 const MAX_WORK_ITEMS_PER_PASS = 20;
+const MAX_ERROR_SEGMENTS = 8;
+const MAX_ERROR_DEPTH = 4;
 const MAX_SANITIZED_ERROR_LENGTH = 800;
 const CONFIGURED_MAX_ATTEMPTS = readPositiveSafeIntegerEnv(
 	"CLICKHOUSE_PURGE_MAX_ATTEMPTS",
@@ -74,6 +78,13 @@ interface ClaimedPurgeAlertRow {
 	targetType: ClickHousePurgeTarget["targetType"];
 }
 
+interface PurgeJobCandidate {
+	attemptCount: number;
+	id: string;
+	maxAttempts: number;
+	status: "pending" | "retrying" | "running";
+}
+
 export interface StartClickHousePurgeWorkerOptions {
 	pollIntervalMs?: number;
 	resend: ResendConfig;
@@ -100,7 +111,26 @@ export async function enqueueClickHousePurge(
 				max_attempts
 			)
 			VALUES ($1, $2, $3, $4)
-			ON CONFLICT (target_type, target_id) DO NOTHING
+			ON CONFLICT (target_type, target_id) DO UPDATE
+			SET
+				status = 'pending',
+				attempt_count = 0,
+				max_attempts = EXCLUDED.max_attempts,
+				last_error = NULL,
+				next_attempt_at = NOW(),
+				last_attempt_at = NULL,
+				succeeded_at = NULL,
+				failed_at = NULL,
+				alert_status = 'not_required',
+				alert_attempt_count = 0,
+				alert_last_error = NULL,
+				alert_next_attempt_at = NULL,
+				alert_sent_at = NULL,
+				lease_token = NULL,
+				lease_expires_at = NULL,
+				created_at = NOW(),
+				updated_at = NOW()
+			WHERE clickhouse_purge_job.status IN ('succeeded', 'failed')
 		`,
 		[crypto.randomUUID(), target.targetType, target.targetId, maxAttempts],
 	);
@@ -131,6 +161,7 @@ export function startClickHousePurgeWorker(
 	};
 
 	let activeRun = Promise.resolve();
+	let nextCleanupAt = 0;
 	let stopped = false;
 	let timer: ReturnType<typeof setTimeout> | undefined;
 
@@ -146,6 +177,19 @@ export function startClickHousePurgeWorker(
 
 	const runWorkerPass = async () => {
 		try {
+			const now = Date.now();
+			if (now >= nextCleanupAt) {
+				nextCleanupAt = now + SUCCEEDED_JOB_CLEANUP_INTERVAL_MS;
+				try {
+					await deleteExpiredSucceededPurgeJobs(env.sqlClient);
+				} catch (error) {
+					logger.error(
+						"ClickHouse purge job retention cleanup failed: {error}",
+						{ error: sanitizeClickHousePurgeError(error) },
+					);
+				}
+			}
+
 			for (
 				let processed = 0;
 				processed < MAX_WORK_ITEMS_PER_PASS;
@@ -186,8 +230,12 @@ export async function runClickHousePurgeWorkerOnce(
 	}
 
 	const sendFailureAlert = env.sendFailureAlert;
-	const purgeAlert = sendFailureAlert ? await claimNextPurgeAlert(env) : null;
-	if (purgeAlert && sendFailureAlert) {
+	if (!sendFailureAlert) {
+		return purgeJob !== null;
+	}
+
+	const purgeAlert = await claimNextPurgeAlert(env);
+	if (purgeAlert) {
 		await processClaimedPurgeAlert(purgeAlert, sendFailureAlert, env);
 	}
 
@@ -211,12 +259,7 @@ export function calculateExponentialBackoffWithJitter(
 }
 
 export function sanitizeClickHousePurgeError(error: unknown): string {
-	const rawMessage =
-		error instanceof Error
-			? `${error.name}: ${error.message}`
-			: typeof error === "string"
-				? error
-				: "Unknown ClickHouse purge error";
+	const rawMessage = collectErrorSegments(error).join("; ");
 
 	return rawMessage
 		.replace(/\b[a-z][a-z0-9+.-]*:\/\/[^\s"'<>]+/giu, "[redacted-url]")
@@ -225,13 +268,61 @@ export function sanitizeClickHousePurgeError(error: unknown): string {
 			"authorization=[redacted]",
 		)
 		.replace(
-			/\b(credential|password|secret|token|api[_-]?key)\b\s*[:=]\s*[^\s,;]+/giu,
+			/\b([\w-]*(?:credential|password|secret|token|key)[\w-]*)\b\s*[:=]\s*[^\s,;]+/giu,
 			"$1=[redacted]",
+		)
+		.replace(
+			/\b(?:(?:\d{1,3}\.){3}\d{1,3}|localhost|[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?):\d{1,5}\b/giu,
+			"[redacted-host]",
 		)
 		.replace(/[\r\n\t]+/gu, " ")
 		.replace(/\s{2,}/gu, " ")
 		.trim()
 		.slice(0, MAX_SANITIZED_ERROR_LENGTH);
+}
+
+function collectErrorSegments(error: unknown): string[] {
+	const segments: string[] = [];
+	const seen = new Set<Error>();
+
+	const visit = (value: unknown, depth: number): void => {
+		if (depth > MAX_ERROR_DEPTH || segments.length >= MAX_ERROR_SEGMENTS) {
+			return;
+		}
+		if (typeof value === "string") {
+			segments.push(value);
+			return;
+		}
+		if (!(value instanceof Error) || seen.has(value)) {
+			return;
+		}
+
+		seen.add(value);
+		segments.push(`${value.name}: ${value.message}`);
+
+		if (value instanceof AggregateError) {
+			for (const nestedError of value.errors) {
+				visit(nestedError, depth + 1);
+				if (segments.length >= MAX_ERROR_SEGMENTS) {
+					break;
+				}
+			}
+		}
+		visit(value.cause, depth + 1);
+	};
+
+	visit(error, 0);
+	return segments.length > 0 ? segments : ["Unknown ClickHouse purge error"];
+}
+
+async function deleteExpiredSucceededPurgeJobs(
+	database: postgres.Sql,
+): Promise<void> {
+	await database`
+		DELETE FROM clickhouse_purge_job
+		WHERE status = 'succeeded'
+			AND succeeded_at < NOW() - ${SUCCEEDED_JOB_RETENTION_MS}::bigint * INTERVAL '1 millisecond'
+	`;
 }
 
 async function claimNextPurgeJob(
@@ -240,9 +331,13 @@ async function claimNextPurgeJob(
 	const leaseToken = crypto.randomUUID();
 
 	return env.sqlClient.begin(async (transaction) => {
-		const [candidate] = await transaction.unsafe<Array<{ id: string }>>(
+		const [candidate] = await transaction.unsafe<PurgeJobCandidate[]>(
 			`
-				SELECT id
+				SELECT
+					id,
+					status,
+					attempt_count AS "attemptCount",
+					max_attempts AS "maxAttempts"
 				FROM clickhouse_purge_job
 				WHERE (
 					status IN ('pending', 'retrying')
@@ -251,7 +346,9 @@ async function claimNextPurgeJob(
 					status = 'running'
 					AND lease_expires_at <= NOW()
 				)
-				ORDER BY next_attempt_at ASC NULLS LAST, created_at ASC
+				ORDER BY
+					COALESCE(next_attempt_at, lease_expires_at) ASC,
+					created_at ASC
 				FOR UPDATE SKIP LOCKED
 				LIMIT 1
 			`,
@@ -261,15 +358,42 @@ async function claimNextPurgeJob(
 			return null;
 		}
 
+		if (
+			candidate.status === "running" &&
+			candidate.attemptCount >= candidate.maxAttempts
+		) {
+			const alertsEnabled = env.sendFailureAlert !== undefined;
+			await transaction.unsafe(
+				`
+					UPDATE clickhouse_purge_job
+					SET
+						status = 'failed',
+						last_error = 'ClickHouse purge worker lease expired after the final attempt',
+						failed_at = NOW(),
+						alert_status = CASE
+							WHEN $1 THEN 'pending'
+							ELSE 'not_required'
+						END,
+						alert_next_attempt_at = CASE
+							WHEN $1 THEN NOW()
+							ELSE NULL
+						END,
+						lease_token = NULL,
+						lease_expires_at = NULL,
+						updated_at = NOW()
+					WHERE id = $2
+				`,
+				[alertsEnabled, candidate.id],
+			);
+			return null;
+		}
+
 		const [claimed] = await transaction.unsafe<ClaimedPurgeJob[]>(
 			`
 				UPDATE clickhouse_purge_job
 				SET
 					status = 'running',
-					attempt_count = CASE
-						WHEN status = 'running' THEN attempt_count
-						ELSE attempt_count + 1
-					END,
+					attempt_count = attempt_count + 1,
 					last_attempt_at = NOW(),
 					next_attempt_at = NULL,
 					lease_token = $1,
@@ -308,10 +432,18 @@ async function processClaimedPurgeJob(
 	}
 
 	const heartbeatError = await heartbeat.stop();
-	const error = purgeError ?? heartbeatError;
-	if (error !== undefined && error !== null) {
-		await handleClickHousePurgeFailure(job, error, env);
+	if (purgeError !== undefined && purgeError !== null) {
+		await handleClickHousePurgeFailure(job, purgeError, env);
 		return;
+	}
+	if (heartbeatError) {
+		logger.warn(
+			"ClickHouse purge completed after a lease heartbeat error; the lease-guarded update will confirm ownership (job_id={jobId} error={error})",
+			{
+				error: sanitizeClickHousePurgeError(heartbeatError),
+				jobId: job.id,
+			},
+		);
 	}
 
 	const markedSucceeded = await markPurgeSucceeded(job, env);
@@ -542,7 +674,9 @@ async function claimNextPurgeAlert(
 							AND lease_expires_at <= NOW()
 						)
 					)
-				ORDER BY alert_next_attempt_at ASC NULLS LAST, failed_at ASC
+				ORDER BY
+					COALESCE(alert_next_attempt_at, lease_expires_at) ASC,
+					failed_at ASC NULLS LAST
 				FOR UPDATE SKIP LOCKED
 				LIMIT 1
 			`,
@@ -582,16 +716,17 @@ async function claimNextPurgeAlert(
 			return null;
 		}
 
+		const fallbackTimestamp = env.now();
+		const createdAt = readTimestamp(claimed.createdAt, fallbackTimestamp);
+		const lastAttemptAt = readTimestamp(claimed.lastAttemptAt, createdAt);
+
 		return {
 			alertAttemptCount: claimed.alertAttemptCount,
 			attemptCount: claimed.attemptCount,
-			createdAt: readRequiredTimestamp(claimed.createdAt, "created_at"),
-			failedAt: readRequiredTimestamp(claimed.failedAt, "failed_at"),
+			createdAt,
+			failedAt: readTimestamp(claimed.failedAt, lastAttemptAt),
 			id: claimed.id,
-			lastAttemptAt: readRequiredTimestamp(
-				claimed.lastAttemptAt,
-				"last_attempt_at",
-			),
+			lastAttemptAt,
 			lastError:
 				claimed.lastError ?? "No sanitized error details were recorded",
 			leaseToken: claimed.leaseToken,
@@ -673,17 +808,10 @@ async function processClaimedPurgeAlert(
 	}
 }
 
-function readRequiredTimestamp(
-	value: Date | string | null,
-	fieldName: string,
-): Date {
+function readTimestamp(value: Date | string | null, fallback: Date): Date {
 	if (value === null) {
-		throw new Error(`ClickHouse purge alert is missing ${fieldName}`);
+		return fallback;
 	}
-
 	const timestamp = value instanceof Date ? value : new Date(value);
-	if (Number.isNaN(timestamp.getTime())) {
-		throw new Error(`ClickHouse purge alert has an invalid ${fieldName}`);
-	}
-	return timestamp;
+	return Number.isNaN(timestamp.getTime()) ? fallback : timestamp;
 }
