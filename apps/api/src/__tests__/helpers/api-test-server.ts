@@ -4,6 +4,7 @@ const MONOREPO_ROOT = resolve(import.meta.dir, "..", "..", "..", "..", "..");
 
 export interface ApiTestServer {
 	baseUrl: string;
+	pid: number;
 	readOutput: () => string;
 	stop: () => Promise<void>;
 }
@@ -38,6 +39,7 @@ export async function startApiTestServer(
 
 	return {
 		baseUrl: `http://localhost:${port}`,
+		pid: processHandle.pid,
 		readOutput() {
 			return processOutput;
 		},

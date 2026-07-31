@@ -24,6 +24,7 @@ export const wrappedShare = pgTable(
 		// public share contract changes after launch.
 		payloadVersion: integer("payload_version").notNull().default(1),
 		snapshotJson: text("snapshot_json").notNull(),
+		socialImageDataUrl: text("social_image_data_url"),
 		userId: text("user_id")
 			.notNull()
 			.references(() => user.id, { onDelete: "cascade" }),

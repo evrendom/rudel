@@ -8,6 +8,7 @@
 		"build": "tsc -b && vite build",
 		"check-types": "tsc -b",
 		"test": "vitest run",
+		"test:wrapped:chrome": "playwright test --config playwright.config.ts",
 		"preview": "vite preview",
 		"preset:sync": "node ./scripts/sync-preset.mjs"
 	},

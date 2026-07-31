@@ -85,6 +85,9 @@ jobs:
       - name: Verify
         run: bun run turbo run lint check-types test build
 
+      - name: Verify Wrapped resource budget in Chrome
+        run: bun run --cwd apps/web test:wrapped:chrome
+
   integration:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
