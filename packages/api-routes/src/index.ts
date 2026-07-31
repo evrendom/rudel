@@ -110,6 +110,11 @@ export const CliSetupStatusSchema = z.object({
 	hasCliLogin: z.boolean(),
 });
 
+export const ChatwootIdentitySchema = z.object({
+	identifier: z.string(),
+	identifier_hash: z.string().regex(/^[a-f0-9]{64}$/u),
+});
+
 export const OrganizationSchema = z.object({
 	id: z.string(),
 	name: z.string(),
@@ -241,6 +246,9 @@ export const contract = {
 		authStatus: oc.output(CliUserSchema),
 		revokeToken: oc.output(z.object({ success: z.literal(true) })),
 		setupStatus: oc.output(CliSetupStatusSchema),
+	},
+	chatwoot: {
+		identity: oc.output(ChatwootIdentitySchema.nullable()),
 	},
 	listMyOrganizations: oc.output(z.array(OrganizationSchema)),
 	ingestSession: oc
