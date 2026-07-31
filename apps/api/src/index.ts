@@ -23,7 +23,10 @@ import { setupLogging } from "./logging.js";
 import type { ApiKeyAuthFailure } from "./middleware.js";
 import { router } from "./router.js";
 import { startClickHousePurgeWorker } from "./services/clickhouse-purge.service.js";
-import { shutdownIngestFilterQueue } from "./services/ingest-filter.service.js";
+import {
+	getIngestFilterQueueMetrics,
+	shutdownIngestFilterQueue,
+} from "./services/ingest-filter.service.js";
 import {
 	getPublicWrappedShareForPageMetadata,
 	getPublicWrappedShareWithSocialImage,
@@ -284,6 +287,19 @@ const server = Bun.serve({
 						headers: { ...cors, "Content-Type": "application/json" },
 					},
 				),
+				{
+					pathname: url.pathname,
+					requestId,
+				},
+			);
+		}
+
+		if (
+			process.env.NODE_ENV === "test" &&
+			url.pathname === "/__test/ingest-filter-queue-metrics"
+		) {
+			return applyHttpResponsePolicy(
+				Response.json(getIngestFilterQueueMetrics()),
 				{
 					pathname: url.pathname,
 					requestId,

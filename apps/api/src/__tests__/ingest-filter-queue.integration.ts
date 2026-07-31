@@ -308,11 +308,11 @@ async function waitForQueueMetrics(
 }
 
 async function readQueueMetrics(baseUrl: string): Promise<QueueMetrics> {
-	const response = await fetch(`${baseUrl}/health`);
+	const response = await fetch(`${baseUrl}/__test/ingest-filter-queue-metrics`);
 	expect(response.ok).toBe(true);
 	const body: unknown = await response.json();
-	assert(isHealthResponse(body));
-	return body.queues.ingestFilter;
+	assert(isQueueMetrics(body));
+	return body;
 }
 
 async function readRpcError(response: Response): Promise<{
@@ -340,27 +340,21 @@ function isAuthResponse(value: unknown): value is { token: string } {
 	return isRecord(value) && typeof value.token === "string";
 }
 
-function isHealthResponse(value: unknown): value is {
-	queues: { ingestFilter: QueueMetrics };
-} {
-	if (!isRecord(value) || !isRecord(value.queues)) {
-		return false;
-	}
-	const metrics = value.queues.ingestFilter;
-	if (!isRecord(metrics) || !isRecord(metrics.waitTimeMs)) {
+function isQueueMetrics(value: unknown): value is QueueMetrics {
+	if (!isRecord(value) || !isRecord(value.waitTimeMs)) {
 		return false;
 	}
 
 	return (
-		typeof metrics.activeJobs === "number" &&
-		typeof metrics.cancellationCount === "number" &&
-		typeof metrics.queueDepth === "number" &&
-		typeof metrics.queuedBytes === "number" &&
-		typeof metrics.rejectionCount === "number" &&
-		typeof metrics.timeoutCount === "number" &&
-		typeof metrics.waitTimeMs.average === "number" &&
-		typeof metrics.waitTimeMs.last === "number" &&
-		typeof metrics.waitTimeMs.max === "number"
+		typeof value.activeJobs === "number" &&
+		typeof value.cancellationCount === "number" &&
+		typeof value.queueDepth === "number" &&
+		typeof value.queuedBytes === "number" &&
+		typeof value.rejectionCount === "number" &&
+		typeof value.timeoutCount === "number" &&
+		typeof value.waitTimeMs.average === "number" &&
+		typeof value.waitTimeMs.last === "number" &&
+		typeof value.waitTimeMs.max === "number"
 	);
 }
 
