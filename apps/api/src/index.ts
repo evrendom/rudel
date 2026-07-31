@@ -20,7 +20,6 @@ import { shutdownApiProductAnalytics } from "./lib/product-analytics.js";
 import { resolveWrappedShareLookupSource } from "./lib/wrapped-share-lookup-source.js";
 import { setupLogging } from "./logging.js";
 import type { ApiKeyAuthFailure } from "./middleware.js";
-import { getWrappedShareLookupRateLimitMetrics } from "./rate-limit.js";
 import { router } from "./router.js";
 import { getPublicWrappedShareWithSocialImage } from "./services/wrapped-share.service.js";
 import {
@@ -38,6 +37,9 @@ const logger = getLogger(["rudel", "api", "http"]);
 type AuthUser = AuthSession["user"];
 const betterAuthSecret = readBetterAuthSecret();
 const port = process.env.PORT ?? "4010";
+const IS_PRODUCTION =
+	process.env.NODE_ENV === "production" ||
+	process.env.FLY_APP_NAME !== undefined;
 const DEFAULT_DEV_API_ORIGIN = `http://localhost:${port}`;
 const DEFAULT_DEV_ORIGIN = "http://localhost:4011";
 const DEFAULT_DEV_ORIGINS = [
@@ -128,11 +130,30 @@ const auth = createAuth(db, {
 });
 
 const rpcHandler = new RPCHandler(router, {
+	clientInterceptors: [
+		onError((error, { context }) => {
+			if (
+				error instanceof ORPCError &&
+				error.code !== "INTERNAL_SERVER_ERROR"
+			) {
+				return;
+			}
+
+			throw new ORPCError("INTERNAL_SERVER_ERROR", {
+				cause: error,
+				data: { requestId: context.requestId },
+			});
+		}),
+	],
 	interceptors: [
 		onError((error) => {
+			const logError =
+				error instanceof Error && error.cause instanceof Error
+					? error.cause
+					: error;
 			logger.error("RPC unhandled exception: {error} {stack}", {
-				error: String(error),
-				stack: error instanceof Error ? error.stack : undefined,
+				error: String(logError),
+				stack: logError instanceof Error ? logError.stack : undefined,
 			});
 		}),
 	],
@@ -152,6 +173,30 @@ const WRAPPED_SHARE_CARD_IMAGE_PATH_PATTERN = new RegExp(
 	`^/wrapped/${WRAPPED_PUBLIC_SHARE_ID_SEGMENT}/x-card\\.png$`,
 	"u",
 );
+const CONTENT_SECURITY_POLICY = [
+	"default-src 'self'",
+	"base-uri 'self'",
+	"connect-src 'self' https://*.posthog.com https://*.chatwoot.com wss://*.chatwoot.com",
+	"font-src 'self' data:",
+	"form-action 'self'",
+	"frame-ancestors 'none'",
+	"frame-src https://*.chatwoot.com",
+	"img-src 'self' data: blob: https:",
+	"media-src 'self' blob: https:",
+	"object-src 'none'",
+	"script-src 'self' https://*.posthog.com https://*.chatwoot.com",
+	"style-src 'self' 'unsafe-inline'",
+	"worker-src 'self' blob:",
+].join("; ");
+const PRODUCTION_SECURITY_HEADERS = {
+	"Content-Security-Policy": CONTENT_SECURITY_POLICY,
+	"Permissions-Policy":
+		"accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()",
+	"Referrer-Policy": "strict-origin-when-cross-origin",
+	"Strict-Transport-Security": "max-age=31536000; includeSubDomains",
+	"X-Content-Type-Options": "nosniff",
+	"X-Frame-Options": "DENY",
+} as const;
 
 function corsHeaders(origin: string | null): Record<string, string> {
 	if (!origin || !trustedOrigins.includes(origin)) return {};
@@ -161,6 +206,37 @@ function corsHeaders(origin: string | null): Record<string, string> {
 		"Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
 		"Access-Control-Allow-Headers": "Content-Type, Authorization, X-API-Key",
 	};
+}
+
+function applyHttpResponsePolicy(
+	response: Response,
+	input: {
+		readonly pathname: string;
+		readonly requestId: string;
+	},
+) {
+	response.headers.set("X-Request-ID", input.requestId);
+
+	if (!response.headers.has("Cache-Control")) {
+		const isImmutableAsset =
+			response.status === 200 &&
+			input.pathname.startsWith("/assets/") &&
+			!response.headers.get("Content-Type")?.startsWith("text/html");
+		response.headers.set(
+			"Cache-Control",
+			isImmutableAsset ? "public, max-age=31536000, immutable" : "no-store",
+		);
+	}
+
+	if (!IS_PRODUCTION) {
+		return response;
+	}
+
+	for (const [name, value] of Object.entries(PRODUCTION_SECURITY_HEADERS)) {
+		response.headers.set(name, value);
+	}
+
+	return response;
 }
 
 const MAX_REQUEST_BODY_BYTES = readPositiveSafeIntegerEnv(
@@ -178,38 +254,46 @@ const server = Bun.serve({
 	async fetch(request, server) {
 		const origin = request.headers.get("Origin");
 		const cors = corsHeaders(origin);
+		const url = new URL(request.url);
+		const requestId = crypto.randomUUID();
 
 		if (request.method === "OPTIONS") {
-			return new Response(null, { status: 204, headers: cors });
-		}
-
-		const contentLength = request.headers.get("Content-Length");
-		if (contentLength && Number(contentLength) > MAX_REQUEST_BODY_BYTES) {
-			return new Response(
-				JSON.stringify({
-					error: `Request body too large. Maximum size is ${Math.round(MAX_REQUEST_BODY_BYTES / (1024 * 1024))} MB.`,
-				}),
+			return applyHttpResponsePolicy(
+				new Response(null, { status: 204, headers: cors }),
 				{
-					status: 413,
-					headers: { ...cors, "Content-Type": "application/json" },
+					pathname: url.pathname,
+					requestId,
 				},
 			);
 		}
 
-		const url = new URL(request.url);
+		const contentLength = request.headers.get("Content-Length");
+		if (contentLength && Number(contentLength) > MAX_REQUEST_BODY_BYTES) {
+			return applyHttpResponsePolicy(
+				new Response(
+					JSON.stringify({
+						error: `Request body too large. Maximum size is ${Math.round(MAX_REQUEST_BODY_BYTES / (1024 * 1024))} MB.`,
+					}),
+					{
+						status: 413,
+						headers: { ...cors, "Content-Type": "application/json" },
+					},
+				),
+				{
+					pathname: url.pathname,
+					requestId,
+				},
+			);
+		}
 
 		// Health check for Fly.io (must be GET-accessible)
 		if (url.pathname === "/health") {
-			return Response.json({
-				rateLimits: {
-					wrappedShareLookup: getWrappedShareLookupRateLimitMetrics(),
-				},
-				status: "ok",
-				timestamp: Date.now(),
+			return applyHttpResponsePolicy(Response.json({ status: "ok" }), {
+				pathname: url.pathname,
+				requestId,
 			});
 		}
 
-		const requestId = crypto.randomUUID();
 		const start = performance.now();
 		const wrappedShareLookupSource = resolveWrappedShareLookupSource({
 			flyClientIp: process.env.FLY_APP_NAME
@@ -237,7 +321,10 @@ const server = Bun.serve({
 					status: response.status,
 					duration,
 				});
-				return response;
+				return applyHttpResponsePolicy(response, {
+					pathname: url.pathname,
+					requestId,
+				});
 			},
 		);
 	},
@@ -372,7 +459,7 @@ async function handleRequest(
 
 	const { matched, response } = await rpcHandler.handle(request, {
 		prefix: "/rpc",
-		context: await getContext(request, wrappedShareLookupSource),
+		context: await getContext(request, requestId, wrappedShareLookupSource),
 	});
 
 	if (matched) {
@@ -627,7 +714,11 @@ function isTooManyRequestsError(error: unknown) {
 	return error instanceof ORPCError && error.code === "TOO_MANY_REQUESTS";
 }
 
-async function getContext(request: Request, wrappedShareLookupSource: string) {
+async function getContext(
+	request: Request,
+	requestId: string,
+	wrappedShareLookupSource: string,
+) {
 	const session = await auth.api.getSession({
 		headers: request.headers,
 	});
@@ -707,6 +798,7 @@ async function getContext(request: Request, wrappedShareLookupSource: string) {
 		session: session?.session ?? null,
 		apiKeyId,
 		authFailure,
+		requestId,
 		wrappedShareLookupSource,
 	};
 }

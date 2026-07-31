@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { TeamPage } from "@/features/team/TeamPage";
 
 const { mockRefetch, mockUseTeamPageData } = vi.hoisted(() => ({
@@ -60,6 +60,10 @@ describe("TeamPage", () => {
 		});
 	});
 
+	afterEach(() => {
+		vi.unstubAllEnvs();
+	});
+
 	it("refreshes team cards when the user asks for fresh data", async () => {
 		const user = userEvent.setup();
 
@@ -69,5 +73,50 @@ describe("TeamPage", () => {
 		await user.click(screen.getByRole("button", { name: "Refresh" }));
 
 		expect(mockRefetch).toHaveBeenCalledTimes(1);
+	});
+
+	it("hides raw error diagnostics in production", () => {
+		vi.stubEnv("DEV", false);
+		const error = new Error("ClickHouse at internal-db:8123 failed");
+		Object.assign(error, {
+			data: { requestId: "01f6142a-097f-4635-9fbf-f09d2fcbbff8" },
+		});
+		mockUseTeamPageData.mockReturnValue({
+			diagnostics: {
+				days: 365,
+				endDate: "2026-04-22",
+				endpoint: "analytics.developers.teamCards",
+				maxDays: 365,
+				organizationId: "secret-org-id",
+				organizationName: "Secret workspace",
+				requestedDays: 365,
+				startDate: "2025-04-22",
+			},
+			error,
+			isError: true,
+			isPending: false,
+			refetch: mockRefetch,
+			teamCards: [],
+			teamMemberRows: [],
+		});
+
+		render(<TeamPage />);
+
+		expect(
+			screen.getByText(
+				"We couldn't load the team cards for this workspace. Try again, or contact support if the problem continues.",
+			),
+		).toBeInTheDocument();
+		expect(
+			screen.queryByText("ClickHouse at internal-db:8123 failed"),
+		).not.toBeInTheDocument();
+		expect(screen.queryByText("Raw error details")).not.toBeInTheDocument();
+		expect(screen.queryByText("secret-org-id")).not.toBeInTheDocument();
+		expect(
+			screen.queryByText("analytics.developers.teamCards"),
+		).not.toBeInTheDocument();
+		expect(
+			screen.getByText("01f6142a-097f-4635-9fbf-f09d2fcbbff8"),
+		).toBeInTheDocument();
 	});
 });

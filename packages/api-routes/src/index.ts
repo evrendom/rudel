@@ -90,7 +90,6 @@ export * from "./schemas/wrapped-share.js";
 
 export const HealthSchema = z.object({
 	status: z.literal("ok"),
-	timestamp: z.number(),
 });
 
 export const UserSchema = z.object({
