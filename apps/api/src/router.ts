@@ -1,6 +1,9 @@
 import { getLogger } from "@logtape/logtape";
 import { ORPCError } from "@orpc/server";
-import { getAdapter } from "@rudel/agent-adapters";
+import {
+	getAdapter,
+	getMissingTranscriptTimestampMessage,
+} from "@rudel/agent-adapters";
 import {
 	INGEST_AGGREGATE_CONTENT_MAX_BYTES,
 	type IngestSessionInput,
@@ -18,6 +21,7 @@ import { getClickhouse } from "./clickhouse.js";
 import { sqlClient } from "./db.js";
 import { adminRouter } from "./handlers/admin/index.js";
 import { analyticsRouter } from "./handlers/analytics/index.js";
+import { chatwootRouter } from "./handlers/chatwoot.js";
 import { profileRouter } from "./handlers/profile.js";
 import { teamInviteLinkRouter } from "./handlers/team-invite-link.js";
 import { wrappedDecimalClaimRouter } from "./handlers/wrapped-decimal-claim.js";
@@ -43,7 +47,13 @@ import {
 	checkManualIngestRateLimit,
 	checkOrganizationSessionCountRateLimit,
 } from "./rate-limit.js";
-import { filterSessionTextFieldsOffThread } from "./services/ingest-filter.service.js";
+import {
+	filterSessionTextFieldsOffThread,
+	IngestFilterQueueAbortedError,
+	IngestFilterQueueClosedError,
+	IngestFilterQueueFullError,
+	IngestFilterQueueTimeoutError,
+} from "./services/ingest-filter.service.js";
 import { getNextIngestedAt } from "./services/ingest-timestamp.service.js";
 import {
 	deleteOrgSessions,
@@ -170,7 +180,7 @@ const listMyOrganizations = os.listMyOrganizations
 
 const ingestSessionHandler = os.ingestSession
 	.use(ingestAuthMiddleware)
-	.handler(async ({ input, context, errors }) => {
+	.handler(async ({ input, context, errors, signal }) => {
 		checkIngestRequestRateLimit(context.user.id);
 		const aggregateBytes = enforceIngestAggregateSize(
 			input,
@@ -178,12 +188,50 @@ const ingestSessionHandler = os.ingestSession
 		);
 		checkIngestByteRateLimit(context.user.id, aggregateBytes);
 		const filteredText = await filterSessionTextFieldsOffThread({
-			content: input.content,
-			subagents: input.subagents,
+			bytes: aggregateBytes,
+			fields: {
+				content: input.content,
+				subagents: input.subagents,
+			},
+			signal,
+			userId: context.user.id,
 		}).catch((error: unknown) => {
 			if (error instanceof SecretFilterConvergenceError) {
 				throw errors[REDACTION_DID_NOT_CONVERGE_CODE]({
 					data: { maxPasses: error.maxPasses },
+				});
+			}
+			if (error instanceof IngestFilterQueueFullError) {
+				throw new ORPCError("SERVICE_UNAVAILABLE", {
+					data: {
+						reason: "ingest_filter_queue_full",
+						limit: error.limit,
+						retryAfterMs: error.retryAfterMs,
+					},
+					message: error.message,
+				});
+			}
+			if (error instanceof IngestFilterQueueClosedError) {
+				throw new ORPCError("SERVICE_UNAVAILABLE", {
+					data: {
+						reason: "ingest_filter_queue_closed",
+						retryAfterMs: error.retryAfterMs,
+					},
+					message: error.message,
+				});
+			}
+			if (error instanceof IngestFilterQueueTimeoutError) {
+				throw new ORPCError("GATEWAY_TIMEOUT", {
+					data: {
+						reason: "ingest_filter_queue_timeout",
+						retryAfterMs: error.retryAfterMs,
+					},
+					message: error.message,
+				});
+			}
+			if (error instanceof IngestFilterQueueAbortedError) {
+				throw new ORPCError("CLIENT_CLOSED_REQUEST", {
+					message: error.message,
 				});
 			}
 			throw error;
@@ -209,6 +257,14 @@ const ingestSessionHandler = os.ingestSession
 				: undefined,
 			filter_version: FILTER_VERSION,
 		};
+		const adapter = getAdapter(filteredInput.source);
+		const timestamps = adapter.extractTimestamps(filteredInput.content);
+
+		if (!timestamps) {
+			throw new ORPCError("BAD_REQUEST", {
+				message: getMissingTranscriptTimestampMessage(filteredInput.source),
+			});
+		}
 
 		const activeOrgId =
 			context.session &&
@@ -278,11 +334,11 @@ const ingestSessionHandler = os.ingestSession
 		// Give each request a distinct millisecond RMT version even when the
 		// process clock has not advanced, so FINAL and hash bookkeeping agree.
 		const ingestedAt = getNextIngestedAt();
-		const adapter = getAdapter(filteredInput.source);
 		await adapter.ingest(getClickhouse(), filteredInput, {
 			ingestedAt,
 			userId: context.user.id,
 			organizationId: orgId,
+			timestamps,
 		});
 
 		try {
@@ -534,6 +590,7 @@ export const router = os.router({
 		revokeToken: revokeCliToken,
 		setupStatus: cliSetupStatus,
 	},
+	chatwoot: chatwootRouter,
 	listMyOrganizations,
 	ingestSession: ingestSessionHandler,
 	getOrganizationSessionCount,

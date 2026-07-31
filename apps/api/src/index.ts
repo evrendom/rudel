@@ -23,6 +23,10 @@ import type { ApiKeyAuthFailure } from "./middleware.js";
 import { getWrappedShareLookupRateLimitMetrics } from "./rate-limit.js";
 import { router } from "./router.js";
 import {
+	getIngestFilterQueueMetrics,
+	shutdownIngestFilterQueue,
+} from "./services/ingest-filter.service.js";
+import {
 	getPublicWrappedShareForPageMetadata,
 	getPublicWrappedShareWithSocialImage,
 } from "./services/wrapped-share.service.js";
@@ -204,6 +208,9 @@ const server = Bun.serve({
 				rateLimits: {
 					wrappedShareLookup: getWrappedShareLookupRateLimitMetrics(),
 				},
+				queues: {
+					ingestFilter: getIngestFilterQueueMetrics(),
+				},
 				status: "ok",
 				timestamp: Date.now(),
 			});
@@ -292,6 +299,7 @@ async function shutdown(signal?: string) {
 	}
 	isShuttingDown = true;
 
+	shutdownIngestFilterQueue();
 	await shutdownApiProductAnalytics();
 
 	if (signal) {

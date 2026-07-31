@@ -35,6 +35,7 @@ const LEGACY_SHADOW_SESSION_ID = `${TEST_RUN_ID}_legacy_shadow`;
 const CROSS_ORG_SESSION_ID = `${TEST_RUN_ID}_cross_org`;
 const UNAUTHORIZED_SESSION_ID = `${TEST_RUN_ID}_unauthorized`;
 const CASCADE_SESSION_ID = `${TEST_RUN_ID}_cascade`;
+const TIMESTAMPLESS_SESSION_ID = `${TEST_RUN_ID}_timestampless`;
 
 setDefaultTimeout(60_000);
 
@@ -134,6 +135,28 @@ afterAll(async () => {
 });
 
 describe("organization session ownership", () => {
+	test("rejects timestamp-less transcripts before claiming ownership", async () => {
+		const input = createSessionInput(TIMESTAMPLESS_SESSION_ID, "invalid");
+		input.content = JSON.stringify({
+			result: "Meaningful transcript data without a timestamp",
+			type: "result",
+		});
+
+		const response = await callRpc(owner.token, "ingestSession", input);
+		expect(response.status).toBe(400);
+		expect(JSON.stringify(response.body)).toContain(
+			"Claude Code transcript contains no valid timestamp",
+		);
+
+		const ownership = await sqlClient<Array<{ session_id: string }>>`
+			SELECT session_id
+			FROM session_ownership
+			WHERE organization_id = ${organizationId}
+				AND session_id = ${TIMESTAMPLESS_SESSION_ID}
+		`;
+		expect(ownership).toHaveLength(0);
+	}, 60_000);
+
 	test("keeps teammate transcripts private and prevents replacement", async () => {
 		const ownerUpload = await callRpc(
 			owner.token,

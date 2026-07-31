@@ -2,10 +2,11 @@ import * as p from "@clack/prompts";
 import {
 	claudeCodeAdapter,
 	getAdapter,
+	MissingTranscriptTimestampError,
 	type ScannedProject,
 	type SessionFile,
 } from "@rudel/agent-adapters";
-import type { Source } from "@rudel/api-routes";
+import type { IngestSessionInput, Source } from "@rudel/api-routes";
 import { buildCommand } from "@stricli/core";
 import type { BatchUploadItem } from "../lib/batch-upload.js";
 import { renderBatchSummary, runBatchUpload } from "../lib/batch-upload-ui.js";
@@ -238,12 +239,22 @@ async function runSingleUpload(
 		projectPath: sessionInfo.projectPath,
 	};
 
-	const request = await claudeCodeAdapter.buildUploadRequest(sessionFile, {
-		tag: flags.tag,
-		gitInfo,
-		organizationId,
-		uploadMode: "manual",
-	});
+	let request: IngestSessionInput;
+	try {
+		request = await claudeCodeAdapter.buildUploadRequest(sessionFile, {
+			tag: flags.tag,
+			gitInfo,
+			organizationId,
+			uploadMode: "manual",
+		});
+	} catch (error) {
+		if (error instanceof MissingTranscriptTimestampError) {
+			return new Error(
+				"This transcript has no timestamped user/assistant messages, so it cannot be uploaded.",
+			);
+		}
+		throw error;
+	}
 
 	write(`Transcript: ${request.content.length} bytes`);
 	if (request.subagents && request.subagents.length > 0) {
