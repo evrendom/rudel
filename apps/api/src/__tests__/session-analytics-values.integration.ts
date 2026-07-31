@@ -11,7 +11,10 @@ import { getDeveloperErrors } from "../services/developer.service.js";
 import { getTopRecurringErrors } from "../services/error.service.js";
 import { getLearningsFeed } from "../services/learnings.service.js";
 import { getProjectErrors } from "../services/project.service.js";
-import { getSessionDetail } from "../services/session-analytics.service.js";
+import {
+	getSessionAnalytics,
+	getSessionDetail,
+} from "../services/session-analytics.service.js";
 
 /**
  * Value assertions for the session_analytics materialized views.
@@ -31,6 +34,9 @@ const MONOREPO_ROOT = resolve(import.meta.dir, "..", "..", "..", "..");
 const runId = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 const ORG_ID = `test_org_values_${runId}`;
 const USER_ID = `test_user_values_${runId}`;
+const OTHER_ORG_ID = `test_org_values_other_${runId}`;
+const OTHER_USER_ID = `test_user_values_other_${runId}`;
+const TEST_ORGANIZATION_IDS = [ORG_ID, OTHER_ORG_ID];
 
 const executor = createClickHouseExecutor({
 	url: process.env.CLICKHOUSE_URL || "http://localhost:8123",
@@ -148,6 +154,43 @@ function claudeUnderflowTranscript(): string {
 	].join("\n");
 }
 
+function codexUnderflowTranscript(): string {
+	const errorLines = Array.from({ length: 10 }, (_, index) => ({
+		timestamp: `2026-03-02T04:29:${String(40 + index).padStart(2, "0")}.000Z`,
+		type: "response_item",
+		payload: {
+			type: "function_call_output",
+			call_id: `call_error_${index}`,
+			output: `TypeError: failure ${index}`,
+		},
+	}));
+
+	return [
+		{
+			timestamp: "2026-03-02T04:29:38.576Z",
+			type: "session_meta",
+			payload: { model_provider: "openai" },
+		},
+		...errorLines,
+		{
+			timestamp: "2026-03-02T04:29:55.000Z",
+			type: "event_msg",
+			payload: {
+				type: "token_count",
+				info: {
+					total_token_usage: {
+						input_tokens: 1_600_000,
+						output_tokens: 100,
+						cached_input_tokens: 0,
+					},
+				},
+			},
+		},
+	]
+		.map((line) => JSON.stringify(line))
+		.join("\n");
+}
+
 function recentRetentionTranscript(): string {
 	const startedAt = new Date();
 	startedAt.setUTCSeconds(startedAt.getUTCSeconds() - 30);
@@ -187,6 +230,10 @@ const EXPECTED = {
 interface AnalyticsRow {
 	session_id: string;
 	source: string;
+	organization_id: string;
+	user_id: string;
+	project_path: string;
+	session_date_ms: string | number;
 	input_tokens: string | number;
 	output_tokens: string | number;
 	cache_read_input_tokens: string | number;
@@ -197,15 +244,18 @@ interface AnalyticsRow {
 	success_score: number;
 }
 
-async function ingest(input: IngestSessionInput): Promise<void> {
+async function ingest(
+	input: IngestSessionInput,
+	identity = { organizationId: ORG_ID, userId: USER_ID },
+): Promise<void> {
 	const adapter = getAdapter(input.source);
 	// ClickHouse Cloud can throw transient race errors (code 236) on insert.
 	for (let attempt = 0; attempt < 5; attempt += 1) {
 		try {
 			await adapter.ingest(executor, input, {
 				ingestedAt: new Date(),
-				organizationId: ORG_ID,
-				userId: USER_ID,
+				organizationId: identity.organizationId,
+				userId: identity.userId,
 			});
 			return;
 		} catch (error) {
@@ -226,8 +276,10 @@ async function readAnalytics(
 	while (Date.now() < deadline) {
 		try {
 			rows = await executor.query<AnalyticsRow>({
-				query: `SELECT session_id, source, input_tokens, output_tokens,
-					               cache_read_input_tokens, cache_creation_input_tokens, total_tokens,
+				query: `SELECT session_id, source, organization_id, user_id, project_path,
+				               toUnixTimestamp64Milli(session_date) AS session_date_ms,
+				               input_tokens, output_tokens,
+						               cache_read_input_tokens, cache_creation_input_tokens, total_tokens,
 					               error_count, error_pattern, success_score
 					        FROM ${getSafeClickHouseTable("rudel.session_analytics")} FINAL
 				        WHERE organization_id = {orgId:String} AND session_id = {sessionId:String}`,
@@ -242,23 +294,53 @@ async function readAnalytics(
 	return rows;
 }
 
+async function readAnalyticsAcrossOrganizations(
+	sessionId: string,
+	expectedRows: number,
+	timeoutMs = 60000,
+): Promise<AnalyticsRow[]> {
+	const deadline = Date.now() + timeoutMs;
+	let rows: AnalyticsRow[] = [];
+	while (Date.now() < deadline) {
+		try {
+			rows = await executor.query<AnalyticsRow>({
+				query: `SELECT session_id, source, organization_id, user_id, project_path,
+				               toUnixTimestamp64Milli(session_date) AS session_date_ms,
+				               input_tokens, output_tokens,
+				               cache_read_input_tokens, cache_creation_input_tokens, total_tokens,
+				               error_count, error_pattern, success_score
+				        FROM ${getSafeClickHouseTable("rudel.session_analytics")} FINAL
+				        WHERE session_id = {sessionId:String}`,
+				query_params: { sessionId },
+			});
+			if (rows.length >= expectedRows) return rows;
+		} catch {
+			// transient — retry
+		}
+		await new Promise((resolve) => setTimeout(resolve, 2000));
+	}
+	return rows;
+}
+
 function num(value: string | number): number {
 	return typeof value === "number" ? value : Number(value);
 }
 
 afterAll(() => {
 	// Fire-and-forget: DELETE mutations are slow on ClickHouse Cloud.
-	for (const table of [
-		"rudel.claude_sessions",
-		"rudel.codex_sessions",
-		"rudel.session_analytics",
-	]) {
-		executor
-			.execute({
-				query: `DELETE FROM ${getSafeClickHouseTable(table)} WHERE organization_id = {orgId:String}`,
-				query_params: { orgId: ORG_ID },
-			})
-			.catch(() => {});
+	for (const organizationId of TEST_ORGANIZATION_IDS) {
+		for (const table of [
+			"rudel.claude_sessions",
+			"rudel.codex_sessions",
+			"rudel.session_analytics",
+		]) {
+			executor
+				.execute({
+					query: `DELETE FROM ${getSafeClickHouseTable(table)} WHERE organization_id = {orgId:String}`,
+					query_params: { orgId: organizationId },
+				})
+				.catch(() => {});
+		}
 	}
 });
 
@@ -327,7 +409,38 @@ describe("session_analytics computed values", () => {
 		expect(num(row.total_tokens)).toBe(EXPECTED.total_tokens);
 	}, 180000);
 
-	test("re-ingesting the same session does not double-count tokens", async () => {
+	test("does not double-count the same transcript inserted in separate batches", async () => {
+		const sessionId = `values_double_upload_${runId}`;
+		const projectPath = `/test/double-upload-${runId}`;
+		const input: IngestSessionInput = {
+			source: "claude_code",
+			sessionId,
+			projectPath,
+			content: claudeTranscript(),
+		};
+
+		await ingest(input);
+		await readAnalytics(sessionId);
+		await ingest(input);
+
+		const rows = await readAnalytics(sessionId);
+		expect(rows).toHaveLength(1);
+		const row = rows[0];
+		if (!row) throw new Error("no double-upload analytics row produced");
+		expect(num(row.input_tokens)).toBe(EXPECTED.input_tokens);
+		expect(num(row.output_tokens)).toBe(EXPECTED.output_tokens);
+		expect(num(row.total_tokens)).toBe(EXPECTED.total_tokens);
+
+		const dashboardRows = await getSessionAnalytics(ORG_ID, {
+			start_date: "2026-05-01",
+			end_date: "2026-05-31",
+			project_path: projectPath,
+		});
+		expect(dashboardRows).toHaveLength(1);
+		expect(dashboardRows[0]?.total_tokens).toBe(EXPECTED.total_tokens);
+	}, 240000);
+
+	test("keeps corrected values when a session date crosses a month boundary", async () => {
 		const sessionId = `values_reingest_${runId}`;
 		const input: IngestSessionInput = {
 			source: "claude_code",
@@ -340,6 +453,7 @@ describe("session_analytics computed values", () => {
 		await readAnalytics(sessionId);
 		await ingest({
 			...input,
+			projectPath: "/test/analytics-values-corrected",
 			content: claudeTranscriptWithCorrectedDate(),
 		});
 
@@ -351,9 +465,13 @@ describe("session_analytics computed values", () => {
 		const row = rows[0];
 		if (!row) throw new Error("no analytics row produced");
 		expect(num(row.total_tokens)).toBe(EXPECTED.total_tokens);
+		expect(row.project_path).toBe("/test/analytics-values-corrected");
+		expect(num(row.session_date_ms)).toBe(
+			Date.parse("2026-07-04T10:00:00.000Z"),
+		);
 	}, 240000);
 
-	test("keeps the same session identity from Claude and Codex", async () => {
+	test("keeps source, organization, and user identity collisions independent", async () => {
 		const sessionId = `values_source_identity_${runId}`;
 
 		// Committed fixture rather than a hand-written Codex transcript: the Codex
@@ -379,14 +497,35 @@ describe("session_analytics computed values", () => {
 			projectPath: "/test/analytics-values",
 			content: codexContent,
 		});
+		await ingest(
+			{
+				source: "claude_code",
+				sessionId,
+				projectPath: "/test/analytics-values-other-identity",
+				content: claudeTranscriptAtCodexStart(),
+			},
+			{ organizationId: OTHER_ORG_ID, userId: OTHER_USER_ID },
+		);
 
-		const rows = await readAnalytics(sessionId, 2);
+		const rows = await readAnalyticsAcrossOrganizations(sessionId, 3);
 
-		expect(rows).toHaveLength(2);
+		expect(rows).toHaveLength(3);
 		expect(rows.map((row) => row.source).sort()).toEqual([
+			"claude_code",
 			"claude_code",
 			"codex",
 		]);
+		expect(
+			rows
+				.map((row) => [row.source, row.organization_id, row.user_id].join(":"))
+				.sort(),
+		).toEqual(
+			[
+				`claude_code:${ORG_ID}:${USER_ID}`,
+				`claude_code:${OTHER_ORG_ID}:${OTHER_USER_ID}`,
+				`codex:${ORG_ID}:${USER_ID}`,
+			].sort(),
+		);
 	}, 300000);
 
 	test("clamps a negative Claude success score to zero", async () => {
@@ -405,6 +544,26 @@ describe("session_analytics computed values", () => {
 
 		expect(row.error_count).toBe(10);
 		expect(row.error_pattern).toBe("UnknownError");
+		expect(num(row.total_tokens)).toBe(1_600_100);
+		expect(row.success_score).toBe(0);
+	}, 180000);
+
+	test("clamps a negative Codex success score to zero through real ingest", async () => {
+		const sessionId = `values_codex_underflow_${runId}`;
+		await ingest({
+			source: "codex",
+			sessionId,
+			projectPath: "/test/analytics-values",
+			content: codexUnderflowTranscript(),
+		});
+
+		const rows = await readAnalytics(sessionId);
+		expect(rows).toHaveLength(1);
+		const row = rows[0];
+		if (!row) throw new Error("no Codex underflow analytics row produced");
+
+		expect(row.error_count).toBe(10);
+		expect(row.error_pattern).toBe("TypeError");
 		expect(num(row.total_tokens)).toBe(1_600_100);
 		expect(row.success_score).toBe(0);
 	}, 180000);

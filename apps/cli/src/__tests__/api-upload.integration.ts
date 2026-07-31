@@ -936,7 +936,12 @@ describe("CLI upload to local API", () => {
 			"codex",
 		);
 		assert(analytics);
+		expect(analytics.session_id).toBe(sessionId);
+		expect(analytics.organization_id).toBe(userId);
+		expect(analytics.user_id).toBe(userId);
+		expect(analytics.source).toBe("codex");
 		expect(analytics.filter_version).toBe(FILTER_VERSION);
+		expect(analytics.error_pattern).toBe("TypeError");
 	}, 120_000);
 
 	test("allows concurrent identical ingests with best-effort deduplication", async () => {
