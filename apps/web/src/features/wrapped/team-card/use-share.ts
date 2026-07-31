@@ -59,13 +59,13 @@ export function useWrappedTeamCardShare(
 		setIsCreatingShare(true);
 		setHasShareError(false);
 
-		const shareRequest = resolveWrappedShareSnapshotWithSocialImage({
+		const shareRequest = resolveWrappedShareSocialImageDataUrl(
 			resolveSocialImageDataUrl,
-			snapshot,
-		})
-			.then((snapshotWithSocialImage) =>
+		)
+			.then((socialImageDataUrl) =>
 				client.wrappedShare.create({
-					snapshot: snapshotWithSocialImage,
+					socialImageDataUrl,
+					snapshot,
 					variant,
 				}),
 			)
@@ -106,28 +106,14 @@ export function useWrappedTeamCardShare(
 	};
 }
 
-async function resolveWrappedShareSnapshotWithSocialImage(input: {
-	resolveSocialImageDataUrl: (() => Promise<string | undefined>) | undefined;
-	snapshot: WrappedShareSnapshot;
-}) {
-	const { resolveSocialImageDataUrl, snapshot } = input;
-
+async function resolveWrappedShareSocialImageDataUrl(
+	resolveSocialImageDataUrl: (() => Promise<string | undefined>) | undefined,
+) {
 	if (!resolveSocialImageDataUrl) {
-		return snapshot;
+		return undefined;
 	}
 
-	const socialImageDataUrl = await resolveSocialImageDataUrl().catch(
-		() => undefined,
-	);
-
-	if (!socialImageDataUrl) {
-		return snapshot;
-	}
-
-	return {
-		...snapshot,
-		socialImageDataUrl,
-	};
+	return resolveSocialImageDataUrl().catch(() => undefined);
 }
 
 // The share URL is browser-derived because the server only needs to persist the

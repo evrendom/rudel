@@ -76,17 +76,15 @@ describe("wrapped share card image", () => {
 	});
 
 	test("serves only the browser-captured social image for OG cards", () => {
-		const snapshot = {
-			...sampleSnapshot,
-			socialImageDataUrl: SAMPLE_SOCIAL_IMAGE_DATA_URL,
-		};
-		const png = getWrappedShareCardImagePng(snapshot);
+		const png = getWrappedShareCardImagePng(SAMPLE_SOCIAL_IMAGE_DATA_URL);
 
 		expect(png).not.toBeNull();
 		expect([...(png ?? new Uint8Array()).subarray(0, 8)]).toEqual([
 			137, 80, 78, 71, 13, 10, 26, 10,
 		]);
-		expect(getWrappedShareCardImageMetadata(snapshot)).toEqual({
+		expect(
+			getWrappedShareCardImageMetadata(SAMPLE_SOCIAL_IMAGE_DATA_URL),
+		).toEqual({
 			height: 1,
 			type: "image/png",
 			width: 1,
@@ -94,8 +92,8 @@ describe("wrapped share card image", () => {
 	});
 
 	test("does not fall back to the server SVG card for OG images", () => {
-		expect(getWrappedShareCardImagePng(sampleSnapshot)).toBeNull();
-		expect(getWrappedShareCardImageMetadata(sampleSnapshot)).toBeNull();
+		expect(getWrappedShareCardImagePng(null)).toBeNull();
+		expect(getWrappedShareCardImageMetadata(null)).toBeNull();
 	});
 });
 

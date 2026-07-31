@@ -9,6 +9,7 @@ type ChatwootUser = {
 	phone_number?: string;
 	description?: string;
 	company_name?: string;
+	identifier_hash: string;
 };
 
 type ChatwootAPI = {
@@ -221,7 +222,8 @@ export async function setChatwootBubbleVisibility(
 }
 
 export async function syncChatwootUser(user: {
-	identifier: string | number;
+	identifier: string;
+	identifier_hash: string;
 	email?: string | null;
 	name?: string | null;
 	avatarUrl?: string | null;
@@ -240,6 +242,7 @@ export async function syncChatwootUser(user: {
 			name: user.name?.trim() || undefined,
 			avatar_url: user.avatarUrl?.trim() || undefined,
 			company_name: user.organizationName?.trim() || undefined,
+			identifier_hash: user.identifier_hash,
 			description: user.organizationName?.trim()
 				? `Rudel dashboard user from ${user.organizationName}`
 				: "Rudel dashboard user",

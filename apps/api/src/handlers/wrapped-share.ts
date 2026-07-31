@@ -18,6 +18,7 @@ const create = os.wrappedShare.create
 
 		const shareOptions = {
 			organizationId: context.organizationId,
+			socialImageDataUrl: input.socialImageDataUrl,
 			snapshot: input.snapshot,
 			userId: context.user.id,
 			variant: input.variant,

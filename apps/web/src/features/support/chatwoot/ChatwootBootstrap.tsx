@@ -1,7 +1,12 @@
 import { useMountEffect } from "@/app/hooks/useMountEffect";
 import { useOrganization } from "@/features/workspace/organization/useOrganization";
 import { authClient } from "@/lib/auth-client";
-import { ensureChatwootLoaded, syncChatwootUser } from "@/lib/chatwoot";
+import {
+	ensureChatwootLoaded,
+	isChatwootEnabled,
+	syncChatwootUser,
+} from "@/lib/chatwoot";
+import { client } from "@/lib/orpc";
 
 function ChatwootLoaderMount() {
 	useMountEffect(() => {
@@ -16,24 +21,42 @@ function ChatwootLoaderMount() {
 function ChatwootUserSyncMount({
 	avatarUrl,
 	email,
-	identifier,
 	name,
 	organizationName,
 }: {
 	avatarUrl?: string;
 	email?: string;
-	identifier: string;
 	name?: string;
 	organizationName?: string;
 }) {
 	useMountEffect(() => {
-		void syncChatwootUser({
-			identifier,
-			email,
-			name,
-			avatarUrl,
-			organizationName,
+		if (!isChatwootEnabled()) {
+			return;
+		}
+
+		let cancelled = false;
+		async function syncCurrentUser() {
+			const identity = await client.chatwoot.identity();
+			if (!identity || cancelled) {
+				return;
+			}
+
+			await syncChatwootUser({
+				...identity,
+				email,
+				name,
+				avatarUrl,
+				organizationName,
+			});
+		}
+
+		void syncCurrentUser().catch(() => {
+			// Keep the dashboard usable if signed identity is unavailable.
 		});
+
+		return () => {
+			cancelled = true;
+		};
 	});
 
 	return null;
@@ -42,14 +65,10 @@ function ChatwootUserSyncMount({
 export function ChatwootBootstrap() {
 	const { data: session } = authClient.useSession();
 	const { state } = useOrganization();
-	const identifier =
-		session?.user &&
-		(("id" in session.user && typeof session.user.id === "string"
+	const userId =
+		session?.user && "id" in session.user && typeof session.user.id === "string"
 			? session.user.id
-			: undefined) ??
-			("email" in session.user && typeof session.user.email === "string"
-				? session.user.email
-				: undefined));
+			: undefined;
 	const email =
 		session?.user &&
 		"email" in session.user &&
@@ -65,12 +84,11 @@ export function ChatwootBootstrap() {
 	return (
 		<>
 			<ChatwootLoaderMount />
-			{identifier ? (
+			{userId ? (
 				<ChatwootUserSyncMount
-					key={`${identifier}:${email ?? ""}:${name ?? ""}:${avatarUrl ?? ""}:${organizationName ?? ""}`}
+					key={`${userId}:${email ?? ""}:${name ?? ""}:${avatarUrl ?? ""}:${organizationName ?? ""}`}
 					avatarUrl={avatarUrl}
 					email={email}
-					identifier={identifier}
 					name={name}
 					organizationName={organizationName}
 				/>
