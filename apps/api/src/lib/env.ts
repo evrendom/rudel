@@ -85,6 +85,20 @@ export function readBetterAuthSecret(): string {
 	);
 }
 
+export function readBooleanEnv(name: string, defaultValue: boolean): boolean {
+	const rawValue = process.env[name];
+	if (rawValue === undefined) {
+		return defaultValue;
+	}
+	if (rawValue === "true") {
+		return true;
+	}
+	if (rawValue === "false") {
+		return false;
+	}
+	throw new Error(`${name} must be either "true" or "false"`);
+}
+
 export function readPositiveSafeIntegerEnv(
 	name: string,
 	defaultValue: number,

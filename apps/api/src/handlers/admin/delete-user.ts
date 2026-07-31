@@ -2,7 +2,6 @@ import { getLogger } from "@logtape/logtape";
 import { ORPCError } from "@orpc/server";
 import { sqlClient } from "../../db.js";
 import { adminMiddleware, os } from "../../middleware.js";
-import { deleteUserSessions } from "../../services/org-session.service.js";
 import { deleteUserPostgresData } from "../../services/user-deletion.service.js";
 
 const logger = getLogger(["rudel", "api", "admin"]);
@@ -40,12 +39,9 @@ export const deleteUser = os.admin.deleteUser
 		const { deletedOrganizationIds } = await deleteUserPostgresData(userId, {
 			sqlClient,
 		});
-		// Postgres has already revoked API access. ClickHouse cleanup is
-		// best-effort query-level masking, not confirmed physical erasure.
-		await deleteUserSessions(userId);
 
 		logger.info(
-			"Successfully deleted user {userId}; deletedOrganizationIds={deletedOrganizationIds}",
+			"User {userId} deletion committed; ClickHouse purge queued; deletedOrganizationIds={deletedOrganizationIds}",
 			{ deletedOrganizationIds, userId },
 		);
 

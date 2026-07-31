@@ -19,6 +19,7 @@ export interface ClickHouseStatement {
 }
 
 export interface ClickHouseExecutor {
+	close(): Promise<void>;
 	execute(statement: ClickHouseStatement): Promise<void>;
 	query<T>(statement: ClickHouseStatement): Promise<T[]>;
 	insert(params: { table: string; values: object[] }): Promise<void>;
@@ -120,6 +121,9 @@ export function createClickHouseExecutor(config: {
 		},
 	});
 	return {
+		async close() {
+			await client.close();
+		},
 		async execute(statement: ClickHouseStatement) {
 			await client.command({
 				clickhouse_settings: statement.clickhouse_settings,

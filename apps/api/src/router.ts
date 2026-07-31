@@ -47,6 +47,7 @@ import {
 	checkManualIngestRateLimit,
 	checkOrganizationSessionCountRateLimit,
 } from "./rate-limit.js";
+import { enqueueClickHousePurge } from "./services/clickhouse-purge.service.js";
 import {
 	filterSessionTextFieldsOffThread,
 	IngestFilterQueueAbortedError,
@@ -56,7 +57,6 @@ import {
 } from "./services/ingest-filter.service.js";
 import { getNextIngestedAt } from "./services/ingest-timestamp.service.js";
 import {
-	deleteOrgSessions,
 	getCachedOrgSessionCount,
 	hasOrgUploadsInLastDays,
 } from "./services/org-session.service.js";
@@ -537,6 +537,10 @@ const deleteOrganization = os.deleteOrganization
 					});
 				}
 
+				await enqueueClickHousePurge(
+					{ targetId: orgId, targetType: "organization" },
+					transaction,
+				);
 				await transaction.unsafe("DELETE FROM organization WHERE id = $1", [
 					orgId,
 				]);
@@ -549,10 +553,6 @@ const deleteOrganization = os.deleteOrganization
 					[orgId],
 				);
 			});
-
-			// Postgres has already revoked API access. ClickHouse cleanup is
-			// best-effort query-level masking, not confirmed physical erasure.
-			await deleteOrgSessions(orgId);
 
 			captureApiProductAnalyticsEvent({
 				distinctId: userId,
@@ -567,7 +567,7 @@ const deleteOrganization = os.deleteOrganization
 			});
 
 			logger.info(
-				"Organization deletion completed (user_id={userId} organization_id={organizationId})",
+				"Organization deletion committed; ClickHouse purge queued (user_id={userId} organization_id={organizationId})",
 				{ organizationId: orgId, userId },
 			);
 			return { success: true as const };

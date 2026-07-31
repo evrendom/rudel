@@ -17,6 +17,7 @@ export async function startApiTestServer(
 		ALLOWED_ORIGIN: "http://localhost",
 		APP_URL: "http://localhost",
 		BETTER_AUTH_SECRET: "test-secret-for-integration-tests",
+		CLICKHOUSE_PURGE_WORKER_ENABLED: "false",
 		PORT: "0",
 		...environmentOverrides,
 	};

@@ -1,9 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import {
+	buildClickHousePurgeFailureAlertContent,
 	buildEmailVerificationOtpEmailContent,
 	buildInvitationEmailContent,
 	buildInvitationLink,
 	buildWrappedDesktopResumeLink,
+	getClickHousePurgeFailureAlertIdempotencyKey,
 	getResendConfigWarnings,
 	sendEmailVerificationOtpEmail,
 	sendOrganizationInvitationEmail,
@@ -62,13 +64,49 @@ describe("email helpers", () => {
 		expect(message.text).toContain('123<45"');
 	});
 
-	test("getResendConfigWarnings warns when sender is missing", () => {
+	test("buildClickHousePurgeFailureAlertContent includes actionable sanitized fields", () => {
+		const message = buildClickHousePurgeFailureAlertContent({
+			attemptCount: 5,
+			createdAt: new Date("2026-07-28T08:00:00.000Z"),
+			failedAt: new Date("2026-07-28T08:15:00.000Z"),
+			id: "purge-job-123",
+			lastAttemptAt: new Date("2026-07-28T08:14:59.000Z"),
+			lastError: "ClickHouseError: request <timed out>",
+			targetId: "workspace-456",
+			targetType: "organization",
+		});
+
+		expect(message.subject).toBe("Rudel ClickHouse purge failed: workspace");
+		expect(message.text).toContain("Attempts: 5");
+		expect(message.text).toContain("2026-07-28T08:15:00.000Z");
+		expect(message.html).toContain(
+			"ClickHouseError: request &lt;timed out&gt;",
+		);
+		expect(message.html).not.toContain("request <timed out>");
+	});
+
+	test("ClickHouse purge alerts use one stable provider idempotency key", () => {
+		expect(getClickHousePurgeFailureAlertIdempotencyKey("purge-job-123")).toBe(
+			"clickhouse-purge-failed/purge-job-123",
+		);
+	});
+
+	test("getResendConfigWarnings reports disabled email integrations", () => {
 		expect(getResendConfigWarnings({ apiKey: "test-key" })).toEqual([
 			"Resend emails are disabled because RESEND_FROM_EMAIL is not set.",
 		]);
 		expect(
 			getResendConfigWarnings({
 				apiKey: "test-key",
+				fromEmail: "Rudel <noreply@example.com>",
+			}),
+		).toEqual([
+			"ClickHouse purge failure alerts are disabled because CLICKHOUSE_PURGE_ALERT_RECIPIENT is not set.",
+		]);
+		expect(
+			getResendConfigWarnings({
+				apiKey: "test-key",
+				clickHousePurgeAlertRecipient: "operator@example.com",
 				fromEmail: "Rudel <noreply@example.com>",
 			}),
 		).toEqual([]);

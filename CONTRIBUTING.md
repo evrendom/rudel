@@ -36,27 +36,6 @@ bun run check-types   # TypeScript type checking
 bun run test          # Run tests
 ```
 
-## Public Repository Boundary
-
-> The public repo contains everything needed to build, test, contribute to, and self-host Rudel — and nothing that requires or describes the core team's access.
-
-Test each line by asking: *"Could an outside contributor with no Doppler access run this, or benefit from reading it?"*
-
-The `bun run check:disclosure` command enforces part of this policy by rejecting
-core-team secret-injection commands outside its documented exclusions.
-
-This is accidental-disclosure lint, not a confidentiality boundary. It catches
-known text shapes in tracked files, pull-request metadata, and commit messages;
-it cannot catch unknown names, encoded material, screenshots, issue comments,
-or CI output produced by other commands. Repository push protection, custom
-secret-scanning patterns, and review remain separate controls.
-
-When removing sensitive material, describe the class of material removed, never
-the specific value or name. Keep instances in the private tracker rather than
-copying them into commit messages, pull-request titles or bodies, issue comments,
-or logs. Editing a pull-request description reduces discoverability but does not
-retract it: GitHub retains public edit history.
-
 ## Before Submitting a PR
 
 Run the full verification suite:
