@@ -10,6 +10,11 @@ export {
 	readCodexSessionMeta,
 } from "./adapters/codex/index.js";
 export {
+	getMissingTranscriptTimestampMessage,
+	isMissingTranscriptTimestampMessage,
+	MissingTranscriptTimestampError,
+} from "./errors.js";
+export {
 	getAdapter,
 	getAllAdapters,
 	getAvailableAdapters,
@@ -21,6 +26,7 @@ export type {
 	IngestContext,
 	ScannedProject,
 	SessionFile,
+	SessionTimestamps,
 	UploadContext,
 } from "./types.js";
 export {

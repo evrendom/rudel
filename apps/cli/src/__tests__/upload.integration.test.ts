@@ -1,9 +1,18 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { existsSync, readdirSync } from "node:fs";
-import { mkdir, mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
+import {
+	mkdir,
+	mkdtemp,
+	readdir,
+	rm,
+	symlink,
+	writeFile,
+} from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import {
+	claudeCodeAdapter,
+	codexAdapter,
 	extractAgentIds,
 	readFileWithRetry,
 	readSubagentFiles,
@@ -13,16 +22,21 @@ import { resolveSession } from "../lib/session-resolver.js";
 
 // Sample JSONL content mimicking a real Claude session
 const SAMPLE_SESSION_CONTENT = [
-	JSON.stringify({ type: "summary", sessionId: "test-session-1" }),
 	JSON.stringify({
-		type: "message",
-		role: "human",
-		content: "Hello, help me fix a bug",
+		type: "summary",
+		sessionId: "test-session-1",
 	}),
 	JSON.stringify({
-		type: "message",
+		type: "user",
+		role: "human",
+		content: "Hello, help me fix a bug",
+		timestamp: "2026-07-29T10:00:00.000Z",
+	}),
+	JSON.stringify({
+		type: "assistant",
 		role: "assistant",
 		content: "Sure, let me look at the code",
+		timestamp: "2026-07-29T10:00:01.000Z",
 	}),
 	JSON.stringify({
 		toolUseResult: { agentId: "sub-agent-001", result: "done" },
@@ -82,14 +96,18 @@ async function findRealSessionId(): Promise<string> {
 	for (const dir of projectDirs) {
 		const fullDir = join(sessionsBase, dir);
 		const files = await readdir(fullDir).catch(() => [] as string[]);
-		const sessionFile = files.find(
-			(f) =>
-				f.endsWith(".jsonl") &&
-				!f.startsWith("agent-") &&
-				f !== "sessions-index.json",
+		const sessionFiles = files.filter(
+			(file) =>
+				file.endsWith(".jsonl") &&
+				!file.startsWith("agent-") &&
+				file !== "sessions-index.json",
 		);
-		if (sessionFile) {
-			return sessionFile.replace(/\.jsonl$/, "");
+
+		for (const sessionFile of sessionFiles) {
+			const content = await readFileWithRetry(join(fullDir, sessionFile));
+			if (claudeCodeAdapter.extractTimestamps(content)) {
+				return sessionFile.replace(/\.jsonl$/, "");
+			}
 		}
 	}
 
@@ -188,6 +206,23 @@ describe("transcript reader", () => {
 		const agentIds = extractAgentIds(content);
 		expect(agentIds).toEqual(["valid-agent"]);
 	});
+
+	test.each([
+		{ name: "non-string", agentId: 42 },
+		{ name: "forward-slash traversal", agentId: "../../../secret" },
+		{ name: "Windows-style traversal", agentId: "..\\..\\secret" },
+		{ name: "absolute path", agentId: "/tmp/secret" },
+		{
+			name: "Windows absolute path",
+			agentId: ["C:", "\\", "temp", "\\", "secret"].join(""),
+		},
+		{ name: "dot segment", agentId: ".." },
+		{ name: "encoded separator", agentId: "..%2f..%2fsecret" },
+	])("rejects $name agent IDs", ({ agentId }) => {
+		const content = JSON.stringify({ toolUseResult: { agentId } });
+
+		expect(extractAgentIds(content)).toEqual([]);
+	});
 });
 
 describe("subagent reader", () => {
@@ -233,6 +268,56 @@ describe("subagent reader", () => {
 		expect(subagents).toHaveLength(1);
 		expect(subagents[0]?.agentId).toBe("new-agent");
 	});
+
+	test("rejects invalid IDs even when called directly", async () => {
+		const sessionDir = join(tempDir, "subagent-invalid-id-test");
+		await mkdir(sessionDir, { recursive: true });
+		await writeFile(join(sessionDir, "secret.jsonl"), "must not be read");
+
+		const subagents = await readSubagentFiles(sessionDir, ["../../secret"]);
+
+		expect(subagents).toEqual([]);
+	});
+
+	test.skipIf(process.platform === "win32")(
+		"does not follow a subagent file symlink outside the session directory",
+		async () => {
+			const sessionDir = join(tempDir, "subagent-file-symlink-test");
+			const outsideFile = join(tempDir, "outside-subagent.jsonl");
+			await mkdir(sessionDir, { recursive: true });
+			await writeFile(outsideFile, "must not be read");
+			await symlink(outsideFile, join(sessionDir, "agent-escape.jsonl"));
+
+			const subagents = await readSubagentFiles(sessionDir, ["escape"]);
+
+			expect(subagents).toEqual([]);
+		},
+	);
+
+	test.skipIf(process.platform === "win32")(
+		"does not follow a subagents directory symlink outside the session directory",
+		async () => {
+			const sessionDir = join(tempDir, "subagent-directory-symlink-test");
+			const sessionId = "safe-session-id";
+			const nestedSessionDir = join(sessionDir, sessionId);
+			const outsideDir = join(tempDir, "outside-subagents");
+			await mkdir(nestedSessionDir, { recursive: true });
+			await mkdir(outsideDir, { recursive: true });
+			await writeFile(
+				join(outsideDir, "agent-escape.jsonl"),
+				"must not be read",
+			);
+			await symlink(outsideDir, join(nestedSessionDir, "subagents"));
+
+			const subagents = await readSubagentFiles(
+				sessionDir,
+				["escape"],
+				sessionId,
+			);
+
+			expect(subagents).toEqual([]);
+		},
+	);
 });
 
 describe("git info", () => {
@@ -254,6 +339,41 @@ describe("git info", () => {
 });
 
 describe("full upload pipeline (dry-run)", () => {
+	test.each([
+		{
+			adapter: claudeCodeAdapter,
+			name: "Claude Code",
+			error: "Claude Code transcript contains no valid timestamp",
+		},
+		{
+			adapter: codexAdapter,
+			name: "Codex",
+			error: "Codex transcript contains no valid timestamp",
+		},
+	])("rejects a timestamp-less $name transcript before upload", async ({
+		adapter,
+		error,
+		name,
+	}) => {
+		const sessionId = `timestamp-less-${name.toLowerCase().replaceAll(" ", "-")}`;
+		const sessionFile = join(tempDir, `${sessionId}.jsonl`);
+		await writeFile(sessionFile, '{"type":"result","result":{"ok":true}}');
+
+		await expect(
+			adapter.buildUploadRequest(
+				{
+					sessionId,
+					transcriptPath: sessionFile,
+					projectPath: tempDir,
+				},
+				{
+					gitInfo: {},
+					uploadMode: "manual",
+				},
+			),
+		).rejects.toThrow(error);
+	});
+
 	test("resolves session by path, reads transcript, extracts subagents, and builds request", async () => {
 		// Set up a realistic session directory
 		const projectDir = join(tempDir, "pipeline-test");

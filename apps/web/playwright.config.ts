@@ -2,7 +2,9 @@ import { defineConfig, devices } from "@playwright/test";
 
 export default defineConfig({
 	fullyParallel: false,
-	outputDir: "../../.context/playwright/wrapped-resource-budget",
+	workers: 1,
+	reporter: "line",
+	outputDir: "../../.context/playwright/resource-budgets",
 	projects: [
 		{
 			name: "Google Chrome",
@@ -12,7 +14,11 @@ export default defineConfig({
 			},
 		},
 	],
-	testDir: "./e2e",
+	testDir: ".",
+	testMatch: [
+		"e2e/wrapped-resource-budget.spec.ts",
+		"browser-tests/**/*.pw.ts",
+	],
 	use: {
 		baseURL: "http://127.0.0.1:4173",
 		headless: true,
