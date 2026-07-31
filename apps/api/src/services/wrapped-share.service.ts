@@ -8,9 +8,13 @@ import type {
 import {
 	AVATAR_URL_PATH_REGEX,
 	WRAPPED_SHARE_PAYLOAD_VERSION,
+	WRAPPED_SHARE_RESOURCE_LIMITS,
+	WRAPPED_SHARE_SOCIAL_IMAGE_DATA_URL_MAX_LENGTH,
 	WrappedShareSnapshotSchema,
+	WrappedShareSocialImageDataUrlSchema,
 } from "@rudel/api-routes";
 import { sqlClient } from "../db.js";
+import { checkWrappedShareLookupRateLimit } from "../rate-limit.js";
 import {
 	buildWrappedShareIdBase,
 	getNextWrappedShareIdCandidate,
@@ -19,14 +23,38 @@ import {
 
 interface CreateWrappedShareOptions {
 	organizationId: string;
+	socialImageDataUrl?: string;
 	snapshot: WrappedShareSnapshot;
 	userId: string;
 	variant: WrappedShareVariant;
 }
 
-interface PublicWrappedShareWithSocialImage
-	extends Omit<PublicWrappedShare, "snapshot"> {
-	snapshot: WrappedShareSnapshot;
+interface PublicWrappedShareWithSocialImage extends PublicWrappedShare {
+	socialImageDataUrl: string | null;
+}
+
+interface PublicWrappedShareForPageMetadata extends PublicWrappedShare {
+	hasSocialImage: boolean;
+}
+
+interface WrappedShareDatabaseRow {
+	createdAt: Date | string;
+	expiresAt: Date | string;
+	id: string;
+	payloadVersion: number;
+	snapshotJson: string;
+	userImage: string | null;
+	variant: WrappedShareVariant | null;
+}
+
+interface WrappedShareDatabaseRowWithSocialImage
+	extends WrappedShareDatabaseRow {
+	socialImageDataUrl: string | null;
+}
+
+interface WrappedShareDatabaseRowForPageMetadata
+	extends WrappedShareDatabaseRow {
+	hasSocialImage: boolean;
 }
 
 const WRAPPED_SHARE_TTL_DAYS = 30;
@@ -39,7 +67,13 @@ const WRAPPED_SHARE_ID_INSERT_ATTEMPTS = 20;
 export async function createWrappedShare(
 	options: CreateWrappedShareOptions,
 ): Promise<WrappedShareRecord> {
-	const { organizationId, snapshot, userId, variant } = options;
+	const { organizationId, userId, variant } = options;
+	const snapshot = WrappedShareSnapshotSchema.parse(options.snapshot);
+	const socialImageDataUrl =
+		options.socialImageDataUrl === undefined
+			? null
+			: WrappedShareSocialImageDataUrlSchema.parse(options.socialImageDataUrl);
+	const snapshotJson = JSON.stringify(snapshot);
 
 	if (variant === "decimal") {
 		await assertDecimalEntitled(userId);
@@ -66,7 +100,8 @@ export async function createWrappedShare(
 				organizationId,
 				share: existingShare,
 				shareIdBase,
-				snapshot,
+				socialImageDataUrl,
+				snapshotJson,
 				userId,
 				variant,
 			});
@@ -76,7 +111,8 @@ export async function createWrappedShare(
 			expiresAtIso,
 			organizationId,
 			share: existingShare,
-			snapshot,
+			socialImageDataUrl,
+			snapshotJson,
 			userId,
 			variant,
 		});
@@ -96,6 +132,7 @@ export async function createWrappedShare(
 				organization_id,
 				payload_version,
 				snapshot_json,
+				social_image_data_url,
 				user_id,
 				variant,
 				created_at,
@@ -105,7 +142,8 @@ export async function createWrappedShare(
 				${shareId},
 				${organizationId},
 				${WRAPPED_SHARE_PAYLOAD_VERSION},
-				${JSON.stringify(snapshot)},
+				${snapshotJson},
+				${socialImageDataUrl},
 				${userId},
 				${variant},
 				${createdAtIso},
@@ -136,7 +174,8 @@ export async function createWrappedShare(
 				expiresAtIso,
 				organizationId,
 				share: concurrentlyCreatedShare,
-				snapshot,
+				socialImageDataUrl,
+				snapshotJson,
 				userId,
 				variant,
 			});
@@ -168,18 +207,27 @@ async function updateWrappedShareSnapshot(input: {
 	expiresAtIso: string;
 	organizationId: string;
 	share: { createdAt: Date; id: string };
-	snapshot: WrappedShareSnapshot;
+	socialImageDataUrl: string | null;
+	snapshotJson: string;
 	userId: string;
 	variant: WrappedShareVariant;
 }) {
-	const { expiresAtIso, organizationId, share, snapshot, userId, variant } =
-		input;
+	const {
+		expiresAtIso,
+		organizationId,
+		share,
+		socialImageDataUrl,
+		snapshotJson,
+		userId,
+		variant,
+	} = input;
 	const updatedRows = await sqlClient<Array<{ id: string }>>`
 		UPDATE wrapped_share
 		SET
 			organization_id = ${organizationId},
 			payload_version = ${WRAPPED_SHARE_PAYLOAD_VERSION},
-			snapshot_json = ${JSON.stringify(snapshot)},
+			snapshot_json = ${snapshotJson},
+			social_image_data_url = ${socialImageDataUrl},
 			expires_at = ${expiresAtIso}
 		WHERE id = ${share.id}
 			AND user_id = ${userId}
@@ -205,7 +253,8 @@ async function renameWrappedShareAndUpdateSnapshot(input: {
 	organizationId: string;
 	share: { createdAt: Date; id: string };
 	shareIdBase: string;
-	snapshot: WrappedShareSnapshot;
+	socialImageDataUrl: string | null;
+	snapshotJson: string;
 	userId: string;
 	variant: WrappedShareVariant;
 }) {
@@ -214,7 +263,8 @@ async function renameWrappedShareAndUpdateSnapshot(input: {
 		organizationId,
 		share,
 		shareIdBase,
-		snapshot,
+		socialImageDataUrl,
+		snapshotJson,
 		userId,
 		variant,
 	} = input;
@@ -231,7 +281,8 @@ async function renameWrappedShareAndUpdateSnapshot(input: {
 				id = ${shareId},
 				organization_id = ${organizationId},
 				payload_version = ${WRAPPED_SHARE_PAYLOAD_VERSION},
-				snapshot_json = ${JSON.stringify(snapshot)},
+				snapshot_json = ${snapshotJson},
+				social_image_data_url = ${socialImageDataUrl},
 				expires_at = ${expiresAtIso}
 			WHERE id = ${share.id}
 				AND user_id = ${userId}
@@ -292,39 +343,53 @@ async function getWrappedShareForUser(
 // That makes the read path small, cache-friendly, and safe for anonymous access.
 export async function getPublicWrappedShare(
 	shareId: string,
+	source: string,
 ): Promise<PublicWrappedShare | null> {
-	const share = await getPublicWrappedShareById(shareId);
+	checkWrappedShareLookupRateLimit(shareId, source);
+	const row = await getPublicWrappedShareRow(shareId);
+	return buildPublicWrappedShare(row);
+}
 
-	if (!share) {
+export async function getPublicWrappedShareWithSocialImage(
+	shareId: string,
+	source: string,
+): Promise<PublicWrappedShareWithSocialImage | null> {
+	checkWrappedShareLookupRateLimit(shareId, source);
+	const row = await getPublicWrappedShareRowWithSocialImage(shareId);
+	const share = buildPublicWrappedShare(row);
+
+	if (!share || !row) {
 		return null;
 	}
 
 	return {
 		...share,
-		snapshot: stripWrappedShareSocialImage(share.snapshot),
+		socialImageDataUrl: parseWrappedShareSocialImage(row.socialImageDataUrl),
 	};
 }
 
-export async function getPublicWrappedShareWithSocialImage(
+export async function getPublicWrappedShareForPageMetadata(
 	shareId: string,
-): Promise<PublicWrappedShareWithSocialImage | null> {
-	return getPublicWrappedShareById(shareId);
+	source: string,
+): Promise<PublicWrappedShareForPageMetadata | null> {
+	checkWrappedShareLookupRateLimit(shareId, source);
+	const row = await getPublicWrappedShareRowForPageMetadata(shareId);
+	const share = buildPublicWrappedShare(row);
+
+	if (!share || !row) {
+		return null;
+	}
+
+	return {
+		...share,
+		hasSocialImage: row.hasSocialImage,
+	};
 }
 
-async function getPublicWrappedShareById(
+async function getPublicWrappedShareRow(
 	shareId: string,
-): Promise<PublicWrappedShareWithSocialImage | null> {
-	const [row] = await sqlClient<
-		Array<{
-			createdAt: Date | string;
-			expiresAt: Date | string;
-			id: string;
-			payloadVersion: number;
-			snapshotJson: string;
-			userImage: string | null;
-			variant: WrappedShareVariant | null;
-		}>
-	>`
+): Promise<WrappedShareDatabaseRow | null> {
+	const [row] = await sqlClient<Array<WrappedShareDatabaseRow>>`
 		SELECT
 			wrapped_share.id,
 			wrapped_share.created_at AS "createdAt",
@@ -336,9 +401,66 @@ async function getPublicWrappedShareById(
 		FROM wrapped_share
 		LEFT JOIN "user" ON "user".id = wrapped_share.user_id
 		WHERE wrapped_share.id = ${shareId}
+			AND octet_length(wrapped_share.snapshot_json) <= ${WRAPPED_SHARE_RESOURCE_LIMITS.snapshotBytes}
 		LIMIT 1
 	`;
 
+	return row ?? null;
+}
+
+async function getPublicWrappedShareRowWithSocialImage(
+	shareId: string,
+): Promise<WrappedShareDatabaseRowWithSocialImage | null> {
+	const [row] = await sqlClient<Array<WrappedShareDatabaseRowWithSocialImage>>`
+		SELECT
+			wrapped_share.id,
+			wrapped_share.created_at AS "createdAt",
+			wrapped_share.expires_at AS "expiresAt",
+			wrapped_share.payload_version AS "payloadVersion",
+			wrapped_share.snapshot_json AS "snapshotJson",
+			CASE
+				WHEN octet_length(wrapped_share.social_image_data_url) <= ${WRAPPED_SHARE_SOCIAL_IMAGE_DATA_URL_MAX_LENGTH}
+					THEN wrapped_share.social_image_data_url
+				ELSE NULL
+			END AS "socialImageDataUrl",
+			wrapped_share.variant AS "variant",
+			"user".image AS "userImage"
+		FROM wrapped_share
+		LEFT JOIN "user" ON "user".id = wrapped_share.user_id
+		WHERE wrapped_share.id = ${shareId}
+			AND octet_length(wrapped_share.snapshot_json) <= ${WRAPPED_SHARE_RESOURCE_LIMITS.snapshotBytes}
+		LIMIT 1
+	`;
+
+	return row ?? null;
+}
+
+async function getPublicWrappedShareRowForPageMetadata(
+	shareId: string,
+): Promise<WrappedShareDatabaseRowForPageMetadata | null> {
+	const [row] = await sqlClient<Array<WrappedShareDatabaseRowForPageMetadata>>`
+		SELECT
+			wrapped_share.id,
+			wrapped_share.created_at AS "createdAt",
+			wrapped_share.expires_at AS "expiresAt",
+			wrapped_share.payload_version AS "payloadVersion",
+			wrapped_share.snapshot_json AS "snapshotJson",
+			wrapped_share.social_image_data_url IS NOT NULL AS "hasSocialImage",
+			wrapped_share.variant AS "variant",
+			"user".image AS "userImage"
+		FROM wrapped_share
+		LEFT JOIN "user" ON "user".id = wrapped_share.user_id
+		WHERE wrapped_share.id = ${shareId}
+			AND octet_length(wrapped_share.snapshot_json) <= ${WRAPPED_SHARE_RESOURCE_LIMITS.snapshotBytes}
+		LIMIT 1
+	`;
+
+	return row ?? null;
+}
+
+function buildPublicWrappedShare(
+	row: WrappedShareDatabaseRow | null,
+): PublicWrappedShare | null {
 	if (!row) {
 		return null;
 	}
@@ -354,31 +476,57 @@ async function getPublicWrappedShareById(
 		return null;
 	}
 
+	const snapshot = parseWrappedShareSnapshot(row.snapshotJson);
+
+	if (!snapshot) {
+		return null;
+	}
+
 	return {
 		created_at: createdAt.toISOString(),
 		expires_at: expiresAt.toISOString(),
 		id: row.id,
 		snapshot: hydrateWrappedShareSnapshotProfile({
 			profileImageUrl: row.userImage,
-			snapshot: parseWrappedShareSnapshot(row.snapshotJson),
+			snapshot,
 		}),
 		variant: row.variant ?? "normal",
 	};
 }
 
-function stripWrappedShareSocialImage(
-	snapshot: WrappedShareSnapshot,
-): PublicWrappedShare["snapshot"] {
-	const { socialImageDataUrl, ...publicSnapshot } = snapshot;
-	void socialImageDataUrl;
-	return publicSnapshot;
+// Stored rows can predate the current budget. Invalid or oversized snapshots
+// fail closed as a missing public share instead of reaching anonymous renderers.
+function parseWrappedShareSnapshot(
+	snapshotJson: string,
+): WrappedShareSnapshot | null {
+	if (
+		new TextEncoder().encode(snapshotJson).byteLength >
+		WRAPPED_SHARE_RESOURCE_LIMITS.snapshotBytes
+	) {
+		return null;
+	}
+
+	let parsedSnapshot: unknown;
+	try {
+		parsedSnapshot = JSON.parse(snapshotJson);
+	} catch {
+		return null;
+	}
+
+	const result = WrappedShareSnapshotSchema.safeParse(parsedSnapshot);
+	return result.success ? result.data : null;
 }
 
-// Validate the stored JSON on the way out so corrupt or stale payloads fail
-// loudly at the service boundary instead of leaking invalid UI state downstream.
-function parseWrappedShareSnapshot(snapshotJson: string): WrappedShareSnapshot {
-	const parsedSnapshot = JSON.parse(snapshotJson) as unknown;
-	return WrappedShareSnapshotSchema.parse(parsedSnapshot);
+function parseWrappedShareSocialImage(
+	socialImageDataUrl: string | null,
+): string | null {
+	if (!socialImageDataUrl) {
+		return null;
+	}
+
+	const result =
+		WrappedShareSocialImageDataUrlSchema.safeParse(socialImageDataUrl);
+	return result.success ? result.data : null;
 }
 
 function hydrateWrappedShareSnapshotProfile(input: {
@@ -425,6 +573,10 @@ function getSafePublicProfileImageUrl(imageUrl: string | null) {
 	const trimmedImageUrl = imageUrl?.trim();
 
 	if (!trimmedImageUrl) {
+		return null;
+	}
+
+	if (trimmedImageUrl.length > WRAPPED_SHARE_RESOURCE_LIMITS.imageUrlLength) {
 		return null;
 	}
 

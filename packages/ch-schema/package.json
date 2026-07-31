@@ -5,6 +5,7 @@
 	"type": "module",
 	"exports": {
 		".": "./src/index.ts",
+		"./connection": "./src/clickhouse-connection.ts",
 		"./generated": "./src/generated/index.ts",
 		"./wrapped-archetype-centroids": "./src/wrapped-archetype-centroids.ts",
 		"./wrapped-archetype-constants": "./src/wrapped-archetype-constants.ts",

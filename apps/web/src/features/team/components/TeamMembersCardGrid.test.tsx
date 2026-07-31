@@ -28,14 +28,29 @@ function buildTeamMemberRow(
 }
 
 describe("TeamMembersCardGrid", () => {
+	it("exposes explicit create and revoke actions", () => {
+		render(
+			<TeamMembersCardGrid
+				canInviteTeamMembers
+				currentUserId={null}
+				organizationId="org-1"
+				rows={[]}
+			/>,
+		);
+
+		expect(screen.getByRole("button", { name: "Create link" })).toBeVisible();
+		expect(
+			screen.getByRole("button", { name: "Revoke existing link" }),
+		).toBeVisible();
+	});
+
 	it("shows real archetypes and applies the matching card theme", () => {
 		render(
 			<TeamMembersCardGrid
 				canInviteTeamMembers={false}
 				currentUserId={null}
-				isInviteLinkPending={false}
+				organizationId={null}
 				rows={[buildTeamMemberRow()]}
-				teamInviteLink={null}
 			/>,
 		);
 
@@ -54,7 +69,7 @@ describe("TeamMembersCardGrid", () => {
 			<TeamMembersCardGrid
 				canInviteTeamMembers={false}
 				currentUserId={null}
-				isInviteLinkPending={false}
+				organizationId={null}
 				rows={[
 					buildTeamMemberRow({
 						archetype: {
@@ -64,7 +79,6 @@ describe("TeamMembersCardGrid", () => {
 						userId: "user-2",
 					}),
 				]}
-				teamInviteLink={null}
 			/>,
 		);
 
@@ -78,9 +92,8 @@ describe("TeamMembersCardGrid", () => {
 				<TeamMembersCardGrid
 					canInviteTeamMembers={false}
 					currentUserId="user-1"
-					isInviteLinkPending={false}
+					organizationId={null}
 					rows={[buildTeamMemberRow()]}
-					teamInviteLink={null}
 				/>
 			</MemoryRouter>,
 		);

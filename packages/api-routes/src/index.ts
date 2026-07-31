@@ -119,6 +119,7 @@ export const OrganizationSchema = z.object({
 });
 
 export const TeamInviteLinkSchema = z.object({
+	expires_at: z.string().datetime(),
 	invite_url: z.string().url(),
 	organization_id: z.string(),
 	organization_name: z.string(),
@@ -277,9 +278,12 @@ export const contract = {
 		.input(z.object({ organizationId: z.string() }))
 		.output(z.object({ success: z.literal(true) })),
 	teamInviteLink: {
-		get: oc
+		create: oc
 			.input(z.object({ organizationId: z.string() }))
 			.output(TeamInviteLinkSchema),
+		revoke: oc
+			.input(z.object({ organizationId: z.string() }))
+			.output(z.object({ success: z.literal(true) })),
 		accept: oc
 			.input(z.object({ token: z.string().min(1) }))
 			.output(TeamInviteAcceptResultSchema),

@@ -1,7 +1,11 @@
+import { WRAPPED_SHARE_RESOURCE_LIMITS } from "@rudel/api-routes";
 import { toast } from "sonner";
 import { describe, expect, it, vi } from "vitest";
 import type { TeamPageMemberRow } from "@/features/team/use-team-page-data";
-import { createWrappedTeamCardShareActions } from "@/features/wrapped/team-card/share";
+import {
+	captureWrappedTeamCardSocialImageDataUrl,
+	createWrappedTeamCardShareActions,
+} from "@/features/wrapped/team-card/share";
 import { copyTextToClipboardWithResult } from "@/lib/clipboard";
 import {
 	captureElement,
@@ -284,6 +288,41 @@ describe("createWrappedTeamCardShareActions", () => {
 		expect(toast.success).toHaveBeenCalledWith(
 			"Post copied. X is open. Paste the image into the post; your card link is included.",
 			{ duration: 7000 },
+		);
+	});
+});
+
+describe("captureWrappedTeamCardSocialImageDataUrl", () => {
+	it("drops a generated PNG above the shared image budget", async () => {
+		vi.clearAllMocks();
+		const requestAnimationFrame = vi
+			.spyOn(window, "requestAnimationFrame")
+			.mockImplementation((callback) => {
+				callback(0);
+				return 1;
+			});
+		const oversizedImage = new Blob(
+			[new Uint8Array(WRAPPED_SHARE_RESOURCE_LIMITS.socialImageBytes + 1)],
+			{ type: "image/png" },
+		);
+		const sharePostRef = { current: document.createElement("div") };
+		vi.mocked(captureElement).mockResolvedValue(oversizedImage);
+
+		try {
+			await expect(
+				captureWrappedTeamCardSocialImageDataUrl(sharePostRef),
+			).resolves.toBeUndefined();
+		} finally {
+			requestAnimationFrame.mockRestore();
+		}
+
+		expect(captureElement).toHaveBeenCalledTimes(1);
+		expect(captureElement).toHaveBeenCalledWith(
+			sharePostRef.current,
+			expect.objectContaining({
+				outputHeight: 630,
+				outputWidth: 1200,
+			}),
 		);
 	});
 });

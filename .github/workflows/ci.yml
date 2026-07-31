@@ -79,11 +79,14 @@ jobs:
           bun scripts/check-disclosure.ts --commits "${{ github.event.pull_request.base.sha }}"
           bun scripts/check-disclosure.ts --pull-request "${{ github.event.pull_request.number }}"
 
+      - name: Typecheck standalone Decimal gate
+        run: bun run check-types:decimal-e2e
+
       - name: Verify
         run: bun run turbo run lint check-types test build
 
-      - name: Test browser rendering limits
-        run: bun run --cwd apps/web test:browser
+      - name: Verify browser resource budgets in Chrome
+        run: bun run --cwd apps/web test:resource-budgets:chrome
 
   integration:
     runs-on: ubuntu-24.04
@@ -110,6 +113,10 @@ jobs:
       CLICKHOUSE_USERNAME: rudel
       CLICKHOUSE_PASSWORD: rudel-ci
       CLICKHOUSE_DB: default
+      CLICKHOUSE_CREDENTIAL_TEST_URL: http://localhost.:8124
+      CLICKHOUSE_CREDENTIAL_TEST_USERNAME: rudel_app
+      CLICKHOUSE_CREDENTIAL_TEST_PASSWORD: rudel-app-ci
+      CLICKHOUSE_CREDENTIAL_TEST_DEFAULT_PASSWORD: default-ci
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -135,16 +142,47 @@ jobs:
             --volume "${GITHUB_WORKSPACE}/.github/clickhouse/config.d/storage-policy.xml:/etc/clickhouse-server/config.d/storage-policy.xml:ro" \
             clickhouse/clickhouse-server:26.3.17.56
 
+          docker run --detach \
+            --name rudel-ci-clickhouse-credentials \
+            --publish 8124:8123 \
+            --env CLICKHOUSE_DB=default \
+            --env CLICKHOUSE_PASSWORD=default-ci \
+            --env CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=1 \
+            clickhouse/clickhouse-server:26.3.17.56
+
       - name: Wait for ClickHouse
         run: |
-          for attempt in {1..60}; do
-            if curl --fail --silent --user rudel:rudel-ci http://localhost:8123/ping | grep --quiet Ok; then
-              exit 0
-            fi
-            sleep 1
-          done
-          docker logs rudel-ci-clickhouse
-          exit 1
+          wait_for_clickhouse() {
+            local container="$1"
+            local credentials="$2"
+            local url="$3"
+
+            for attempt in {1..60}; do
+              if curl --fail --silent --user "${credentials}" "${url}/ping" | grep --quiet Ok; then
+                return 0
+              fi
+              sleep 1
+            done
+
+            docker logs "${container}"
+            return 1
+          }
+
+          wait_for_clickhouse \
+            rudel-ci-clickhouse \
+            rudel:rudel-ci \
+            http://localhost:8123
+          wait_for_clickhouse \
+            rudel-ci-clickhouse-credentials \
+            default:default-ci \
+            http://localhost:8124
+
+      - name: Provision ClickHouse credential test user
+        run: |
+          curl --fail --silent --show-error \
+            --user default:default-ci \
+            --data-binary "CREATE USER rudel_app IDENTIFIED WITH sha256_password BY 'rudel-app-ci'" \
+            http://localhost:8124/
 
       - name: Run Postgres migrations
         run: bun run --cwd packages/sql-schema migrate

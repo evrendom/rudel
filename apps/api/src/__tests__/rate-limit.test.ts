@@ -8,10 +8,16 @@ import {
 	checkIngestRequestRateLimit,
 	checkManualIngestRateLimit,
 	checkOrganizationSessionCountRateLimit,
+	checkWrappedShareLookupRateLimit,
+	getWrappedShareLookupRateLimitMetrics,
 	INGEST_BYTES_MAX,
 	INGEST_BYTES_WINDOW_MS,
 	INGEST_REQUESTS_MAX,
 	INGEST_REQUESTS_WINDOW_MS,
+	WRAPPED_SHARE_LOOKUP_CAPACITY,
+	WRAPPED_SHARE_LOOKUP_MAX_REQUESTS,
+	WRAPPED_SHARE_LOOKUP_SOURCE_MAX_REQUESTS,
+	WRAPPED_SHARE_LOOKUP_WINDOW_MS,
 } from "../rate-limit.js";
 
 describe("IngestSessionInputSchema metadata field limits", () => {
@@ -204,6 +210,150 @@ describe("checkOrganizationSessionCountRateLimit", () => {
 		expect(() =>
 			checkOrganizationSessionCountRateLimit(userId, "org-fresh"),
 		).not.toThrow();
+	});
+});
+
+describe("checkWrappedShareLookupRateLimit", () => {
+	test("evicts expired share entries", () => {
+		const realNow = Date.now;
+		let now = realNow();
+		Date.now = () => now;
+
+		try {
+			const shareId = `expiring-share-${now}`;
+			const source = `expiring-source-${now}`;
+			checkWrappedShareLookupRateLimit(shareId, source);
+
+			now += WRAPPED_SHARE_LOOKUP_WINDOW_MS + 1;
+
+			for (
+				let index = 0;
+				index < WRAPPED_SHARE_LOOKUP_MAX_REQUESTS;
+				index += 1
+			) {
+				checkWrappedShareLookupRateLimit(shareId, source);
+			}
+
+			expect(() => checkWrappedShareLookupRateLimit(shareId, source)).toThrow(
+				"Wrapped share lookup is temporarily rate limited",
+			);
+
+			now += WRAPPED_SHARE_LOOKUP_WINDOW_MS + 1;
+			expect(getWrappedShareLookupRateLimitMetrics()).toMatchObject({
+				cardinality: 0,
+				sourceCardinality: 0,
+			});
+		} finally {
+			Date.now = realNow;
+		}
+	});
+
+	test("rejects one source before unique IDs can churn the cache", () => {
+		const realNow = Date.now;
+		let now = realNow();
+		Date.now = () => now;
+
+		try {
+			const source = `churning-source-${crypto.randomUUID()}`;
+
+			for (
+				let index = 0;
+				index < WRAPPED_SHARE_LOOKUP_SOURCE_MAX_REQUESTS;
+				index += 1
+			) {
+				checkWrappedShareLookupRateLimit(
+					`churning-share-${crypto.randomUUID()}`,
+					source,
+				);
+			}
+
+			const metricsBeforeRejection = getWrappedShareLookupRateLimitMetrics();
+
+			expect(() =>
+				checkWrappedShareLookupRateLimit(
+					`churning-share-${crypto.randomUUID()}`,
+					source,
+				),
+			).toThrow("Wrapped share lookup is temporarily rate limited");
+			expect(getWrappedShareLookupRateLimitMetrics()).toMatchObject({
+				cardinality: metricsBeforeRejection.cardinality,
+				rejectedTraffic: metricsBeforeRejection.rejectedTraffic + 1,
+			});
+
+			now += WRAPPED_SHARE_LOOKUP_WINDOW_MS + 1;
+			getWrappedShareLookupRateLimitMetrics();
+		} finally {
+			Date.now = realNow;
+		}
+	});
+
+	test("keeps a throttled share while the same source churns IDs", () => {
+		const testId = crypto.randomUUID();
+		const shareId = `protected-share-${testId}`;
+		const source = `churning-source-${testId}`;
+
+		for (
+			let request = 0;
+			request < WRAPPED_SHARE_LOOKUP_MAX_REQUESTS;
+			request += 1
+		) {
+			checkWrappedShareLookupRateLimit(shareId, source);
+		}
+
+		const remainingSourceRequests =
+			WRAPPED_SHARE_LOOKUP_SOURCE_MAX_REQUESTS -
+			WRAPPED_SHARE_LOOKUP_MAX_REQUESTS;
+		for (let request = 0; request < remainingSourceRequests; request += 1) {
+			checkWrappedShareLookupRateLimit(
+				`attacker-share-${testId}-${request}`,
+				source,
+			);
+		}
+
+		const metricsBeforeRejection = getWrappedShareLookupRateLimitMetrics();
+		expect(() =>
+			checkWrappedShareLookupRateLimit(
+				`rejected-attacker-share-${testId}`,
+				source,
+			),
+		).toThrow("Wrapped share lookup is temporarily rate limited");
+		expect(() =>
+			checkWrappedShareLookupRateLimit(shareId, `second-source-${testId}`),
+		).toThrow("Wrapped share lookup is temporarily rate limited");
+		expect(getWrappedShareLookupRateLimitMetrics()).toMatchObject({
+			cardinality: metricsBeforeRejection.cardinality,
+			evictions: metricsBeforeRejection.evictions,
+			rejectedTraffic: metricsBeforeRejection.rejectedTraffic + 2,
+		});
+	});
+
+	test("bounds cardinality and throttles a valid share after capacity eviction", () => {
+		const testId = crypto.randomUUID();
+		const metricsBeforeFlood = getWrappedShareLookupRateLimitMetrics();
+
+		for (let index = 0; index <= WRAPPED_SHARE_LOOKUP_CAPACITY; index += 1) {
+			checkWrappedShareLookupRateLimit(
+				`${testId}-${index}`,
+				`${testId}-source-${index}`,
+			);
+		}
+
+		const metricsAfterFlood = getWrappedShareLookupRateLimitMetrics();
+		expect(metricsAfterFlood).toMatchObject({
+			cardinality: WRAPPED_SHARE_LOOKUP_CAPACITY,
+		});
+		expect(metricsAfterFlood.evictions).toBeGreaterThan(
+			metricsBeforeFlood.evictions,
+		);
+
+		const evictedShareId = `${testId}-0`;
+		for (let index = 0; index < WRAPPED_SHARE_LOOKUP_MAX_REQUESTS; index += 1) {
+			checkWrappedShareLookupRateLimit(evictedShareId, `${testId}-valid`);
+		}
+
+		expect(() =>
+			checkWrappedShareLookupRateLimit(evictedShareId, `${testId}-valid`),
+		).toThrow("Wrapped share lookup is temporarily rate limited");
 	});
 });
 

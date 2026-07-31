@@ -50,6 +50,7 @@ function readTrimmed(value: string | undefined): string | undefined {
  * as `default`).
  */
 export interface ClickHouseUsernameEnv {
+	[name: string]: string | undefined;
 	CLICKHOUSE_USERNAME?: string | undefined;
 	CLICKHOUSE_USER?: string | undefined;
 }

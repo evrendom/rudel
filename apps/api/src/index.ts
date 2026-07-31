@@ -13,18 +13,20 @@ import {
 import {
 	readBetterAuthSecret,
 	readCliDeviceVerificationUrl,
+	readNonNegativeSafeIntegerEnv,
 	readPositiveSafeIntegerEnv,
 } from "./lib/env.js";
 import { shutdownApiProductAnalytics } from "./lib/product-analytics.js";
+import { resolveWrappedShareLookupSource } from "./lib/wrapped-share-lookup-source.js";
 import { setupLogging } from "./logging.js";
 import type { ApiKeyAuthFailure } from "./middleware.js";
-import { checkWrappedShareLookupRateLimit } from "./rate-limit.js";
+import { getWrappedShareLookupRateLimitMetrics } from "./rate-limit.js";
 import { router } from "./router.js";
-import { getPublicWrappedShareWithSocialImage } from "./services/wrapped-share.service.js";
 import {
-	getWrappedShareCardImageMetadata,
-	getWrappedShareCardImagePng,
-} from "./services/wrapped-share-card-image.js";
+	getPublicWrappedShareForPageMetadata,
+	getPublicWrappedShareWithSocialImage,
+} from "./services/wrapped-share.service.js";
+import { getWrappedShareCardImagePng } from "./services/wrapped-share-card-image.js";
 import {
 	buildWrappedSharePageMetadata,
 	injectWrappedSharePageMetadata,
@@ -165,11 +167,15 @@ const MAX_REQUEST_BODY_BYTES = readPositiveSafeIntegerEnv(
 	"MAX_REQUEST_BODY_BYTES",
 	160 * 1024 * 1024,
 );
+const TRUSTED_PROXY_HOPS = readNonNegativeSafeIntegerEnv(
+	"TRUSTED_PROXY_HOPS",
+	0,
+);
 
 const server = Bun.serve({
 	maxRequestBodySize: MAX_REQUEST_BODY_BYTES,
 	port,
-	async fetch(request) {
+	async fetch(request, server) {
 		const origin = request.headers.get("Origin");
 		const cors = corsHeaders(origin);
 
@@ -194,16 +200,36 @@ const server = Bun.serve({
 
 		// Health check for Fly.io (must be GET-accessible)
 		if (url.pathname === "/health") {
-			return Response.json({ status: "ok", timestamp: Date.now() });
+			return Response.json({
+				rateLimits: {
+					wrappedShareLookup: getWrappedShareLookupRateLimitMetrics(),
+				},
+				status: "ok",
+				timestamp: Date.now(),
+			});
 		}
 
 		const requestId = crypto.randomUUID();
 		const start = performance.now();
+		const wrappedShareLookupSource = resolveWrappedShareLookupSource({
+			flyClientIp: process.env.FLY_APP_NAME
+				? request.headers.get("fly-client-ip")
+				: null,
+			forwardedFor: request.headers.get("x-forwarded-for"),
+			socketIp: server.requestIP(request)?.address ?? null,
+			trustedProxyHops: TRUSTED_PROXY_HOPS,
+		});
 
 		return withContext(
 			{ requestId, method: request.method, path: url.pathname },
 			async () => {
-				const response = await handleRequest(request, url, cors, requestId);
+				const response = await handleRequest(
+					request,
+					url,
+					cors,
+					requestId,
+					wrappedShareLookupSource,
+				);
 				const duration = Math.round(performance.now() - start);
 				logger.info("{method} {path} {status} {duration}ms", {
 					method: request.method,
@@ -289,6 +315,7 @@ async function handleRequest(
 	url: URL,
 	cors: Record<string, string>,
 	requestId: string,
+	wrappedShareLookupSource: string,
 ): Promise<Response> {
 	const wrappedShareCardImageId = getWrappedShareCardImageId(url.pathname);
 	if (wrappedShareCardImageId) {
@@ -296,6 +323,7 @@ async function handleRequest(
 			cors,
 			method: request.method,
 			shareId: wrappedShareCardImageId,
+			source: wrappedShareLookupSource,
 		});
 	}
 
@@ -344,7 +372,7 @@ async function handleRequest(
 
 	const { matched, response } = await rpcHandler.handle(request, {
 		prefix: "/rpc",
-		context: await getContext(request),
+		context: await getContext(request, wrappedShareLookupSource),
 	});
 
 	if (matched) {
@@ -381,6 +409,7 @@ async function handleRequest(
 				publicOrigin: getPublicRequestOrigin(request, url),
 				requestPathname: url.pathname,
 				shareId: wrappedPublicShareId,
+				source: wrappedShareLookupSource,
 			});
 		}
 
@@ -403,8 +432,9 @@ async function handleWrappedShareCardImageRequest(input: {
 	cors: Record<string, string>;
 	method: string;
 	shareId: string;
+	source: string;
 }) {
-	const { cors, method, shareId } = input;
+	const { cors, method, shareId, source } = input;
 	if (method !== "GET" && method !== "HEAD") {
 		return new Response("Method not allowed", {
 			headers: { ...cors, Allow: "GET, HEAD" },
@@ -413,14 +443,13 @@ async function handleWrappedShareCardImageRequest(input: {
 	}
 
 	try {
-		checkWrappedShareLookupRateLimit(shareId);
-		const share = await getPublicWrappedShareWithSocialImage(shareId);
+		const share = await getPublicWrappedShareWithSocialImage(shareId, source);
 
 		if (!share) {
 			return new Response("Not found", { headers: cors, status: 404 });
 		}
 
-		const image = getWrappedShareCardImagePng(share.snapshot);
+		const image = getWrappedShareCardImagePng(share.socialImageDataUrl);
 		if (!image) {
 			return new Response("Not found", { headers: cors, status: 404 });
 		}
@@ -461,9 +490,17 @@ async function handleWrappedPublicPageRequest(input: {
 	publicOrigin: string;
 	requestPathname: string;
 	shareId: string;
+	source: string;
 }) {
-	const { cors, indexFile, method, publicOrigin, requestPathname, shareId } =
-		input;
+	const {
+		cors,
+		indexFile,
+		method,
+		publicOrigin,
+		requestPathname,
+		shareId,
+		source,
+	} = input;
 
 	if (method !== "GET" && method !== "HEAD") {
 		return new Response("Method not allowed", {
@@ -475,8 +512,7 @@ async function handleWrappedPublicPageRequest(input: {
 	const indexHtml = await indexFile.text();
 
 	try {
-		checkWrappedShareLookupRateLimit(shareId);
-		const share = await getPublicWrappedShareWithSocialImage(shareId);
+		const share = await getPublicWrappedShareForPageMetadata(shareId, source);
 
 		if (!share) {
 			return new Response(method === "HEAD" ? null : indexHtml, {
@@ -485,20 +521,16 @@ async function handleWrappedPublicPageRequest(input: {
 		}
 
 		const publicUrl = new URL(requestPathname, publicOrigin).toString();
-		const imageMetadata = getWrappedShareCardImageMetadata(share.snapshot);
 		const html = injectWrappedSharePageMetadata(
 			indexHtml,
 			buildWrappedSharePageMetadata({
-				...(imageMetadata
+				...(share.hasSocialImage
 					? {
-							imageHeight: imageMetadata.height,
-							imageType: imageMetadata.type,
 							imageUrl: buildWrappedShareCardImageUrl({
 								publicOrigin,
 								requestPathname,
 								share,
 							}),
-							imageWidth: imageMetadata.width,
 						}
 					: {}),
 				publicUrl,
@@ -510,6 +542,13 @@ async function handleWrappedPublicPageRequest(input: {
 			headers: { ...cors, "Content-Type": "text/html; charset=utf-8" },
 		});
 	} catch (error) {
+		if (isTooManyRequestsError(error)) {
+			return new Response("Too many requests", {
+				headers: cors,
+				status: 429,
+			});
+		}
+
 		logger.error("Failed to inject wrapped share metadata: {error}", {
 			error: String(error),
 		});
@@ -584,7 +623,7 @@ function isTooManyRequestsError(error: unknown) {
 	return error instanceof ORPCError && error.code === "TOO_MANY_REQUESTS";
 }
 
-async function getContext(request: Request) {
+async function getContext(request: Request, wrappedShareLookupSource: string) {
 	const session = await auth.api.getSession({
 		headers: request.headers,
 	});
@@ -664,6 +703,7 @@ async function getContext(request: Request) {
 		session: session?.session ?? null,
 		apiKeyId,
 		authFailure,
+		wrappedShareLookupSource,
 	};
 }
 

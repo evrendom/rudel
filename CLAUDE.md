@@ -21,7 +21,7 @@ A platform for ingesting, storing, and analyzing Claude Code / Codex session tra
 | Package | Description |
 |---------|-------------|
 | `packages/api-routes` (`@rudel/api-routes`) | Shared RPC contract (`@orpc/contract` + Zod schemas). Single source of truth for the API interface. |
-| `packages/ch-schema` (`@rudel/ch-schema`) | ClickHouse table schema (`rudel.claude_sessions`, `rudel.session_analytics`), generated TypeScript types, and ingest functions via `chkit`. Has two entry points: `@rudel/ch-schema` (full — includes schema definitions that pull in `@chkit/core` and `@clickhouse/client`) and `@rudel/ch-schema/generated` (lightweight — only generated types and ingest functions). **Use `@rudel/ch-schema/generated`** for runtime imports to avoid loading heavy ClickHouse dependencies. |
+| `packages/ch-schema` (`@rudel/ch-schema`) | ClickHouse table schema (`rudel.claude_sessions`, `rudel.session_analytics`), generated TypeScript types, and ingest functions via `chkit`. The root entry point is full and pulls in `@chkit/core` and `@clickhouse/client`; `@rudel/ch-schema/generated` and `@rudel/ch-schema/connection` are lightweight. **Use the narrowest entry point** for runtime imports to avoid loading heavy ClickHouse dependencies. |
 | `packages/sql-schema` (`@rudel/sql-schema`) | Drizzle ORM schema for Postgres auth tables (`user`, `session`, `account`, `verification`, `user_avatar`). |
 | `packages/typescript-config` (`@rudel/typescript-config`) | Shared `tsconfig` base files (`base.json`, `node.json`, `react-library.json`). |
 
@@ -41,16 +41,21 @@ A platform for ingesting, storing, and analyzing Claude Code / Codex session tra
 | `PG_CONNECTION_STRING` | Yes | Postgres connection string (e.g. `postgres://postgres:postgres@localhost:5432/rudel`) |
 | `BETTER_AUTH_SECRET` | Yes | Auth secret (generate with `openssl rand -base64 32`) |
 | `CLICKHOUSE_URL` | Yes | ClickHouse HTTP endpoint |
-| `CLICKHOUSE_USERNAME` | No | ClickHouse username |
+| `CLICKHOUSE_USERNAME` | Remote only | ClickHouse username; local endpoints may use `default` |
 | `CLICKHOUSE_PASSWORD` | No | ClickHouse password |
 | `CLICKHOUSE_DB` | No | ClickHouse database name |
 | `APP_URL` | No | API base URL (default: `http://localhost:4010`) |
 | `ALLOWED_ORIGIN` | No | CORS origin (default: `http://localhost:4011`) |
+| `TRUSTED_PROXY_HOPS` | No | Number of trusted reverse proxies in front of the API (or in front of Fly Proxy); used to resolve client IPs from right to left in `X-Forwarded-For` (default: 0) |
 | `MAX_REQUEST_BODY_BYTES` | No | Positive integer HTTP request-body ceiling in bytes (default: 160 MiB) |
 | `RATE_LIMIT_INGEST_REQUESTS_MAX` | No | Positive integer per-user ingest request cap per API process (default: 15,000) |
 | `RATE_LIMIT_INGEST_REQUESTS_WINDOW` | No | Positive integer ingest request window in seconds (default: 3,600) |
 | `RATE_LIMIT_INGEST_BYTES_MAX` | No | Positive integer per-user ingest byte cap per API process (default: 10 GiB) |
 | `RATE_LIMIT_INGEST_BYTES_WINDOW` | No | Positive integer ingest byte window in seconds (default: 3,600) |
+| `RATE_LIMIT_WRAPPED_SHARE_LOOKUP_MAX` | No | Positive integer per-share Wrapped lookup cap per API process (default: 180) |
+| `RATE_LIMIT_WRAPPED_SHARE_LOOKUP_WINDOW` | No | Positive integer Wrapped lookup window in seconds (default: 60) |
+| `RATE_LIMIT_WRAPPED_SHARE_LOOKUP_CAPACITY` | No | Positive integer maximum retained Wrapped share limiter entries per API process (default: 5,000) |
+| `RATE_LIMIT_WRAPPED_SHARE_LOOKUP_SOURCE_MAX` | No | Positive integer anonymous Wrapped lookup cap per client source and window (default: 600; must not exceed capacity) |
 | `RESEND_API_KEY` | No | Resend API key for email integration |
 | `RESEND_FROM_EMAIL` | No | Sender address for organization invitation emails |
 | `RESEND_AUDIENCE_ID` | No | Resend audience ID for signup contact sync |
@@ -194,7 +199,7 @@ To drop everything and recreate:
 
 **`bun run` resolves binaries from local `node_modules/.bin/`, not global PATH.** When running package.json scripts, `bun run` looks for binaries in `node_modules/.bin/` first. If a tool like `chcli` is only installed globally, `bun run` won't find it. Fix: add the tool as a local devDependency (e.g., `@obsessiondb/chcli` in `packages/ch-schema`). Bun also rewrites `npx` to `bun x` in scripts, which has the same local-first resolution behavior.
 
-**chcli connection mapping.** The wrapper in `scripts/chcli-connect.ts` parses `CLICKHOUSE_URL`, maps its hostname, protocol, and port to the variables expected by chcli, maps `CLICKHOUSE_USERNAME` to `CLICKHOUSE_USER`, and forwards arguments without shell interpolation.
+**chcli connection mapping.** The wrapper in `scripts/chcli-connect.ts` parses `CLICKHOUSE_URL`, maps its hostname, protocol, and port to the variables expected by chcli, maps the resolved `CLICKHOUSE_USERNAME` to `CLICKHOUSE_USER`, and forwards arguments without shell interpolation. Like the API and chkit, it refuses to assume `default` for a remote endpoint or to choose between conflicting username variables.
 
 **`CLICKHOUSE_SECURE` must be the string `true`, not `1`.** chcli does not recognize `1` or other truthy values for `CLICKHOUSE_SECURE`. Always use `CLICKHOUSE_SECURE=true`.
 
