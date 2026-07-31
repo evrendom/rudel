@@ -195,10 +195,16 @@ test("over-budget transcript aborts with zero requests seen", async () => {
 	const stub = startIngestStub();
 	const fixture = await createCliFixture("claude_code");
 	try {
-		// The transcript is one whole secret: redaction would replace 100% of
-		// the content, far beyond the 20% budget, so the CLI must abort before
-		// any transport attempt.
-		await writeFile(fixture.transcriptPath, AWS_CANARY);
+		// Keep the fixture valid for timestamp extraction while making the secret
+		// large enough to exceed the 20% budget before any transport attempt.
+		await writeFile(
+			fixture.transcriptPath,
+			JSON.stringify({
+				type: "user",
+				timestamp: "2026-07-31T10:00:00.000Z",
+				message: `${AWS_CANARY} ${AWS_CANARY}`,
+			}),
+		);
 
 		const result = await runBuiltCli(
 			[
@@ -221,6 +227,44 @@ test("over-budget transcript aborts with zero requests seen", async () => {
 		expect(result.stderr).toContain("above the 20% transcript budget");
 		expect(result.stderr).not.toContain(AWS_CANARY);
 		expect(result.stdout).not.toContain(AWS_CANARY);
+		expect(stub.requests).toHaveLength(0);
+	} finally {
+		await stub.server.stop(true);
+		await rm(fixture.home, { recursive: true, force: true });
+	}
+}, 60_000);
+
+test("timestamp-less single upload reports a friendly error", async () => {
+	const packedCliPath = requirePackedCliPath();
+	const stub = startIngestStub();
+	const fixture = await createCliFixture("claude_code");
+	try {
+		await writeFile(
+			fixture.transcriptPath,
+			JSON.stringify({ type: "user", message: "No timestamp" }),
+		);
+
+		const result = await runBuiltCli(
+			[
+				"upload",
+				fixture.transcriptPath,
+				"--endpoint",
+				`${stub.loopbackBase}/rpc`,
+			],
+			{
+				home: fixture.home,
+				configDir: fixtureConfigDir(fixture),
+				cliPath: packedCliPath,
+				env: { RUDEL_ALLOW_INSECURE_ENDPOINT: "" },
+			},
+		);
+
+		expect(result.exitCode).toBe(1);
+		expect(result.stderr).toContain(
+			"This transcript has no timestamped user/assistant messages, so it cannot be uploaded.",
+		);
+		expect(result.stderr).not.toContain("MissingTranscriptTimestampError");
+		expect(result.stderr).not.toContain("at ClaudeCodeAdapter");
 		expect(stub.requests).toHaveLength(0);
 	} finally {
 		await stub.server.stop(true);

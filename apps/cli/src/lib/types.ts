@@ -25,6 +25,8 @@ export interface UploadResult {
 	error?: string;
 	attempts?: number;
 	rateLimited?: boolean;
+	/** Whether a failed upload belongs in the durable retry queue. */
+	retryable?: boolean;
 	redacted?: RedactionCounts;
 	redactedBytes?: number;
 	redactionBudgetExceeded?: boolean;

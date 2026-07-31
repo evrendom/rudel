@@ -12,6 +12,7 @@ import {
 } from "./handlers/avatar-http.js";
 import {
 	readBetterAuthSecret,
+	readBooleanEnv,
 	readCliDeviceVerificationUrl,
 	readNonNegativeSafeIntegerEnv,
 	readPositiveSafeIntegerEnv,
@@ -21,6 +22,8 @@ import { resolveWrappedShareLookupSource } from "./lib/wrapped-share-lookup-sour
 import { setupLogging } from "./logging.js";
 import type { ApiKeyAuthFailure } from "./middleware.js";
 import { router } from "./router.js";
+import { startClickHousePurgeWorker } from "./services/clickhouse-purge.service.js";
+import { shutdownIngestFilterQueue } from "./services/ingest-filter.service.js";
 import {
 	getPublicWrappedShareForPageMetadata,
 	getPublicWrappedShareWithSocialImage,
@@ -93,6 +96,8 @@ const trustedOrigins = [
 const resend = {
 	apiKey: process.env.RESEND_API_KEY,
 	audienceId: process.env.RESEND_AUDIENCE_ID,
+	clickHousePurgeAlertRecipient:
+		process.env.CLICKHOUSE_PURGE_ALERT_RECIPIENT?.trim() || undefined,
 	fromEmail: process.env.RESEND_FROM_EMAIL,
 };
 
@@ -329,6 +334,12 @@ const server = Bun.serve({
 		);
 	},
 });
+const clickHousePurgeWorker = readBooleanEnv(
+	"CLICKHOUSE_PURGE_WORKER_ENABLED",
+	true,
+)
+	? startClickHousePurgeWorker({ resend })
+	: undefined;
 
 function resolveAuthAppURL(input: {
 	defaultDevApiOrigin: string;
@@ -379,8 +390,11 @@ async function shutdown(signal?: string) {
 	}
 	isShuttingDown = true;
 
-	await shutdownApiProductAnalytics();
-
+	shutdownIngestFilterQueue();
+	await Promise.all([
+		shutdownApiProductAnalytics(),
+		clickHousePurgeWorker?.stop(),
+	]);
 	if (signal) {
 		server.stop(true);
 		process.exit(0);

@@ -650,27 +650,18 @@ export async function getProjectErrors(
 
 	const query = `
     WITH error_extracts AS (
-      SELECT
-        session_id,
-        user_id,
-        session_date,
-        CASE
-          WHEN content LIKE '%OperationFailed%' THEN 'OperationFailed'
-          WHEN content LIKE '%UnknownError%' THEN 'UnknownError'
-          WHEN content LIKE '%ORPCError%' THEN 'ORPCError'
-          WHEN content LIKE '%TimeoutError%' THEN 'TimeoutError'
-          WHEN content LIKE '%TypeError%' THEN 'TypeError'
-          WHEN content LIKE '%ReferenceError%' THEN 'ReferenceError'
-          WHEN content LIKE '%Error:%' OR content LIKE '%error:%' THEN 'GenericError'
-          ELSE NULL
-        END as error_pattern
-      FROM rudel.session_analytics FINAL
-      WHERE ${PROJECT_DISPLAY_EXPR} = ${projectDisplaySubquery}
-        AND ${buildDateFilter("days")}
-        AND organization_id = {orgId:String}
-        AND (git_remote != '' OR package_name != '' OR project_path != '')
-        AND (content LIKE '%Error:%' OR content LIKE '%error:%')
-    )
+        SELECT
+          sa.session_id,
+          sa.user_id,
+          sa.session_date,
+          sa.error_pattern
+        FROM rudel.session_analytics AS sa FINAL
+        WHERE ${PROJECT_DISPLAY_EXPR} = ${projectDisplaySubquery}
+          AND ${buildDateFilter("days", "sa.session_date")}
+          AND sa.organization_id = {orgId:String}
+          AND (sa.git_remote != '' OR sa.package_name != '' OR sa.project_path != '')
+          AND sa.error_pattern != ''
+      )
     SELECT
       error_pattern,
       COUNT(*) as occurrences,
@@ -678,7 +669,7 @@ export async function getProjectErrors(
       toString(min(session_date)) as first_seen,
       toString(max(session_date)) as last_seen
     FROM error_extracts
-    WHERE error_pattern IS NOT NULL
+    WHERE error_pattern != ''
     GROUP BY error_pattern
     ORDER BY occurrences DESC
     LIMIT 20

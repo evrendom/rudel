@@ -39,7 +39,9 @@ export async function runBatchUpload<T extends BatchUploadItem>(
 	bar.stop(
 		summary.failed > 0
 			? `Completed with ${summary.failed} error(s)`
-			: "Upload complete",
+			: summary.skipped > 0
+				? `Completed with ${summary.skipped} skipped`
+				: "Upload complete",
 	);
 
 	return summary;
@@ -76,6 +78,15 @@ export function renderBatchSummary(
 		}
 		if (summary.errors.length > maxErrors) {
 			lines.push(`  ...and ${summary.errors.length - maxErrors} more`);
+		}
+	}
+	if (summary.skipped > 0) {
+		lines.push(`${prefix}${summary.skipped} session(s) skipped`);
+		for (const item of summary.skippedItems.slice(0, maxErrors)) {
+			lines.push(`  ${item.label}: ${item.reason}`);
+		}
+		if (summary.skippedItems.length > maxErrors) {
+			lines.push(`  ...and ${summary.skippedItems.length - maxErrors} more`);
 		}
 	}
 

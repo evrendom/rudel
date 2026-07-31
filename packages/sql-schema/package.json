@@ -12,7 +12,8 @@
 		"check-types": "tsc --noEmit",
 		"drizzle:check": "drizzle-kit check",
 		"drizzle:generate": "drizzle-kit generate",
-		"migrate": "bun run src/migrate.ts"
+		"migrate": "bun run src/migrate.ts",
+		"test:integration": "bun test --preload ./src/__tests__/helpers/local-postgres-guard.ts --max-concurrency=1 ./src/__tests__/incremental-migration.integration.ts"
 	},
 	"dependencies": {
 		"drizzle-orm": "0.45.1",

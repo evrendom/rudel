@@ -16,6 +16,7 @@ import { getClickhouse, getSafeClickHouseTable } from "../clickhouse.js";
 import { sqlClient } from "../db.js";
 import {
 	backfillSessionOwnership,
+	previewSessionOwnershipCutover,
 	resolveSessionOwnershipConflict,
 } from "../services/session-ownership-backfill.service.js";
 import {
@@ -31,10 +32,14 @@ const SHARED_SESSION_ID = `${TEST_RUN_ID}_existing`;
 const CONCURRENT_SESSION_ID = `${TEST_RUN_ID}_concurrent`;
 const LEGACY_SESSION_ID = `${TEST_RUN_ID}_legacy`;
 const AMBIGUOUS_LEGACY_SESSION_ID = `${TEST_RUN_ID}_ambiguous_legacy`;
+const LATE_LEGACY_SESSION_ID = `${TEST_RUN_ID}_late_legacy`;
+const CONCURRENT_CATCHUP_SESSION_ID = `${TEST_RUN_ID}_concurrent_catchup`;
+const CODEX_UPLOAD_SESSION_ID = `${TEST_RUN_ID}_codex_upload`;
 const LEGACY_SHADOW_SESSION_ID = `${TEST_RUN_ID}_legacy_shadow`;
 const CROSS_ORG_SESSION_ID = `${TEST_RUN_ID}_cross_org`;
 const UNAUTHORIZED_SESSION_ID = `${TEST_RUN_ID}_unauthorized`;
 const CASCADE_SESSION_ID = `${TEST_RUN_ID}_cascade`;
+const TIMESTAMPLESS_SESSION_ID = `${TEST_RUN_ID}_timestampless`;
 
 setDefaultTimeout(60_000);
 
@@ -54,10 +59,6 @@ let member: TestIdentity;
 let organizationId: string;
 
 beforeAll(async () => {
-	await sqlClient`
-		DELETE FROM session_ownership_backfill_state
-		WHERE backfill_key = 'session_ownership_v1'
-	`;
 	server = await startApiTestServer();
 	owner = await createTestIdentity(OWNER_EMAIL, "Session Owner");
 	member = await createTestIdentity(MEMBER_EMAIL, "Organization Member");
@@ -94,6 +95,16 @@ beforeAll(async () => {
 afterAll(async () => {
 	await server?.stop();
 
+	await sqlClient.unsafe(
+		"DROP TRIGGER IF EXISTS session_ownership_concurrent_claim_test_trigger ON session_ownership",
+	);
+	await sqlClient.unsafe(
+		"DROP FUNCTION IF EXISTS simulate_session_ownership_concurrent_claim()",
+	);
+	await sqlClient.unsafe(
+		"DROP TABLE IF EXISTS session_ownership_concurrent_claim_test",
+	);
+
 	const clickhouse = getClickhouse();
 	await Promise.all(
 		[
@@ -102,7 +113,7 @@ afterAll(async () => {
 			"rudel.session_analytics",
 		].map((table) =>
 			clickhouse.execute({
-				query: `DELETE FROM ${getSafeClickHouseTable(table)} WHERE organization_id IN ({organizationIdOne:String}, {organizationIdTwo:String}) AND session_id IN ({sessionIdOne:String}, {sessionIdTwo:String}, {sessionIdThree:String}, {sessionIdFour:String}, {sessionIdFive:String}, {sessionIdSix:String}, {sessionIdSeven:String}, {sessionIdEight:String})`,
+				query: `DELETE FROM ${getSafeClickHouseTable(table)} WHERE organization_id IN ({organizationIdOne:String}, {organizationIdTwo:String}) AND session_id IN ({sessionIdOne:String}, {sessionIdTwo:String}, {sessionIdThree:String}, {sessionIdFour:String}, {sessionIdFive:String}, {sessionIdSix:String}, {sessionIdSeven:String}, {sessionIdEight:String}, {sessionIdNine:String}, {sessionIdTen:String}, {sessionIdEleven:String})`,
 				query_params: {
 					organizationIdOne: owner.userId,
 					organizationIdTwo: member.userId,
@@ -114,15 +125,14 @@ afterAll(async () => {
 					sessionIdSix: LEGACY_SHADOW_SESSION_ID,
 					sessionIdSeven: CASCADE_SESSION_ID,
 					sessionIdEight: AMBIGUOUS_LEGACY_SESSION_ID,
+					sessionIdNine: LATE_LEGACY_SESSION_ID,
+					sessionIdTen: CODEX_UPLOAD_SESSION_ID,
+					sessionIdEleven: CONCURRENT_CATCHUP_SESSION_ID,
 				},
 			}),
 		),
 	);
 
-	await sqlClient`
-		DELETE FROM session_ownership_backfill_state
-		WHERE backfill_key = 'session_ownership_v1'
-	`;
 	await sqlClient`
 		DELETE FROM organization
 		WHERE id IN (${owner.userId}, ${member.userId})
@@ -134,6 +144,28 @@ afterAll(async () => {
 });
 
 describe("organization session ownership", () => {
+	test("rejects timestamp-less transcripts before claiming ownership", async () => {
+		const input = createSessionInput(TIMESTAMPLESS_SESSION_ID, "invalid");
+		input.content = JSON.stringify({
+			result: "Meaningful transcript data without a timestamp",
+			type: "result",
+		});
+
+		const response = await callRpc(owner.token, "ingestSession", input);
+		expect(response.status).toBe(400);
+		expect(JSON.stringify(response.body)).toContain(
+			"Claude Code transcript contains no valid timestamp",
+		);
+
+		const ownership = await sqlClient<Array<{ session_id: string }>>`
+			SELECT session_id
+			FROM session_ownership
+			WHERE organization_id = ${organizationId}
+				AND session_id = ${TIMESTAMPLESS_SESSION_ID}
+		`;
+		expect(ownership).toHaveLength(0);
+	}, 60_000);
+
 	test("keeps teammate transcripts private and prevents replacement", async () => {
 		const ownerUpload = await callRpc(
 			owner.token,
@@ -217,7 +249,36 @@ describe("organization session ownership", () => {
 		expect(ownership?.user_id).toBe(winner.userId);
 	}, 60_000);
 
-	test("backfills a legacy owner once and protects the session", async () => {
+	test("claims Claude and Codex uploads through the enforced path", async () => {
+		const codexUpload = await callRpc(
+			owner.token,
+			"ingestSession",
+			createSessionInput(
+				CODEX_UPLOAD_SESSION_ID,
+				"codex-owner",
+				organizationId,
+				"codex",
+			),
+		);
+		expect(codexUpload.status).toBe(200);
+		await expectRawSessionOwner(
+			"rudel.codex_sessions",
+			organizationId,
+			CODEX_UPLOAD_SESSION_ID,
+			owner.userId,
+		);
+		await waitForAnalyticsSession(CODEX_UPLOAD_SESSION_ID);
+
+		const codexRead = await callRpc(owner.token, "analytics/sessions/detail", {
+			sessionId: CODEX_UPLOAD_SESSION_ID,
+		});
+		expect(codexRead.status).toBe(200);
+		expect(readRpcJsonProperty(codexRead.body, "user_id")).toBe(owner.userId);
+	}, 60_000);
+
+	test("catches up a late legacy owner and is safe to replay", async () => {
+		const originalCutoff = new Date("2026-07-23T12:00:00.000Z");
+		const finalCutoff = new Date("2026-07-23T14:00:00.000Z");
 		const legacyInput = createSessionInput(
 			LEGACY_SESSION_ID,
 			"legacy-owner",
@@ -225,7 +286,7 @@ describe("organization session ownership", () => {
 			"codex",
 		);
 		await getAdapter(legacyInput.source).ingest(getClickhouse(), legacyInput, {
-			ingestedAt: new Date(),
+			ingestedAt: new Date("2026-07-23T11:00:00.000Z"),
 			organizationId,
 			userId: owner.userId,
 		});
@@ -241,7 +302,7 @@ describe("organization session ownership", () => {
 			getClickhouse(),
 			ambiguousOwnerInput,
 			{
-				ingestedAt: new Date(),
+				ingestedAt: new Date("2026-07-23T11:10:00.000Z"),
 				organizationId,
 				userId: owner.userId,
 			},
@@ -257,14 +318,17 @@ describe("organization session ownership", () => {
 			getClickhouse(),
 			ambiguousMemberInput,
 			{
-				ingestedAt: new Date(),
+				ingestedAt: new Date("2026-07-23T11:20:00.000Z"),
 				organizationId,
 				userId: member.userId,
 			},
 		);
 
-		await expect(backfillSessionOwnership()).rejects.toThrow(
-			"conflicting session IDs",
+		const conflictPreview =
+			await previewSessionOwnershipCutover(originalCutoff);
+		expect(conflictPreview.conflictedCount).toBeGreaterThanOrEqual(1);
+		await expect(backfillSessionOwnership(originalCutoff)).rejects.toThrow(
+			"conflicting sessions",
 		);
 		const legacyBeforeResolution = await sqlClient<Array<{ user_id: string }>>`
 			SELECT user_id
@@ -286,14 +350,47 @@ describe("organization session ownership", () => {
 			sessionId: AMBIGUOUS_LEGACY_SESSION_ID,
 			userId: owner.userId,
 		});
-		const firstBackfill = await backfillSessionOwnership();
-		expect(firstBackfill.status).toBe("completed");
 
-		const secondBackfill = await backfillSessionOwnership();
-		expect(secondBackfill).toEqual({
-			insertedCount: 0,
-			status: "already_completed",
+		const originalPreview =
+			await previewSessionOwnershipCutover(originalCutoff);
+		const originalCatchUp = await backfillSessionOwnership(originalCutoff);
+		expect(originalCatchUp).toMatchObject({
+			alreadyClaimedCount: originalPreview.alreadyClaimedCount,
+			candidateCount: originalPreview.candidateCount,
+			claimableCount: originalPreview.claimableCount,
+			claimedCount: originalPreview.claimableCount,
+			conflictedCount: 0,
+			skippedCount: originalPreview.skippedCount,
+			status: "completed",
 		});
+
+		const lateLegacyInput = createSessionInput(
+			LATE_LEGACY_SESSION_ID,
+			"late-legacy-owner",
+			organizationId,
+			"claude_code",
+		);
+		await getAdapter(lateLegacyInput.source).ingest(
+			getClickhouse(),
+			lateLegacyInput,
+			{
+				ingestedAt: new Date("2026-07-23T13:00:00.000Z"),
+				organizationId,
+				userId: owner.userId,
+			},
+		);
+
+		const finalPreview = await previewSessionOwnershipCutover(finalCutoff);
+		expect(finalPreview.claimableCount).toBeGreaterThanOrEqual(1);
+		const finalCatchUp = await backfillSessionOwnership(finalCutoff);
+		expect(finalCatchUp.claimedCount).toBe(finalPreview.claimableCount);
+
+		const replay = await backfillSessionOwnership(finalCutoff);
+		expect(replay.claimedCount).toBe(0);
+		expect(replay.claimableCount).toBe(0);
+		expect(replay.alreadyClaimedCount).toBe(
+			finalPreview.alreadyClaimedCount + finalPreview.claimableCount,
+		);
 
 		await waitForAnalyticsOwners(AMBIGUOUS_LEGACY_SESSION_ID, 2);
 		const resolvedLegacyRead = await callRpc(
@@ -327,6 +424,40 @@ describe("organization session ownership", () => {
 			LEGACY_SESSION_ID,
 			owner.userId,
 		);
+	}, 60_000);
+
+	test("does not overwrite an owner claimed concurrently during catch-up", async () => {
+		const concurrentInput = createSessionInput(
+			CONCURRENT_CATCHUP_SESSION_ID,
+			"concurrent-catchup-owner",
+			organizationId,
+			"claude_code",
+		);
+		await getAdapter(concurrentInput.source).ingest(
+			getClickhouse(),
+			concurrentInput,
+			{
+				ingestedAt: new Date("2026-07-23T15:00:00.000Z"),
+				organizationId,
+				userId: owner.userId,
+			},
+		);
+		await configureConcurrentClaim(member.userId);
+
+		await expect(
+			backfillSessionOwnership(new Date("2026-07-23T16:00:00.000Z")),
+		).rejects.toThrow(
+			"lost 1 claims to concurrent owners. No catch-up claims were committed",
+		);
+
+		const ownership = await sqlClient<Array<{ user_id: string }>>`
+			SELECT user_id
+			FROM session_ownership
+			WHERE organization_id = ${organizationId}
+				AND session_id = ${CONCURRENT_CATCHUP_SESSION_ID}
+		`;
+		expect(ownership).toHaveLength(1);
+		expect(ownership[0]?.user_id).toBe(member.userId);
 	}, 60_000);
 
 	test("reads the registered owner's content for a shadowed legacy ID", async () => {
@@ -507,6 +638,89 @@ async function createTestIdentity(
 		token,
 		userId: readRpcJsonProperty(meResponse.body, "id"),
 	};
+}
+
+async function configureConcurrentClaim(
+	competingUserId: string,
+): Promise<void> {
+	const connectionString = process.env.PG_CONNECTION_STRING;
+	if (!connectionString) {
+		throw new Error("PG_CONNECTION_STRING is required for integration tests");
+	}
+
+	await sqlClient.unsafe("CREATE EXTENSION IF NOT EXISTS dblink");
+	await sqlClient.unsafe(`
+		CREATE TABLE IF NOT EXISTS session_ownership_concurrent_claim_test (
+			session_id text PRIMARY KEY,
+			organization_id text NOT NULL,
+			planned_user_id text NOT NULL,
+			competing_user_id text NOT NULL,
+			connection_string text NOT NULL
+		)
+	`);
+	await sqlClient`
+		INSERT INTO session_ownership_concurrent_claim_test (
+			session_id,
+			organization_id,
+			planned_user_id,
+			competing_user_id,
+			connection_string
+		)
+		VALUES (
+			${CONCURRENT_CATCHUP_SESSION_ID},
+			${organizationId},
+			${owner.userId},
+			${competingUserId},
+			${connectionString}
+		)
+		ON CONFLICT (session_id) DO UPDATE SET
+			organization_id = EXCLUDED.organization_id,
+			planned_user_id = EXCLUDED.planned_user_id,
+			competing_user_id = EXCLUDED.competing_user_id,
+			connection_string = EXCLUDED.connection_string
+	`;
+	await sqlClient.unsafe(`
+		CREATE OR REPLACE FUNCTION simulate_session_ownership_concurrent_claim()
+		RETURNS trigger
+		LANGUAGE plpgsql
+		AS $$
+		DECLARE
+			competing_claim record;
+		BEGIN
+			SELECT *
+			INTO competing_claim
+			FROM session_ownership_concurrent_claim_test
+			WHERE session_id = NEW.session_id
+				AND organization_id = NEW.organization_id
+				AND planned_user_id = NEW.user_id
+			LIMIT 1;
+
+			IF NOT FOUND THEN
+				RETURN NEW;
+			END IF;
+
+			PERFORM dblink_exec(
+				competing_claim.connection_string,
+				format(
+					'INSERT INTO session_ownership (organization_id, session_id, user_id) VALUES (%L, %L, %L) ON CONFLICT (organization_id, session_id) DO NOTHING',
+					NEW.organization_id,
+					NEW.session_id,
+					competing_claim.competing_user_id
+				)
+			);
+			RETURN NEW;
+		END;
+		$$
+	`);
+	await sqlClient.unsafe(
+		"DROP TRIGGER IF EXISTS session_ownership_concurrent_claim_test_trigger ON session_ownership",
+	);
+	await sqlClient.unsafe(`
+		CREATE TRIGGER session_ownership_concurrent_claim_test_trigger
+		BEFORE INSERT ON session_ownership
+		FOR EACH ROW
+		EXECUTE FUNCTION simulate_session_ownership_concurrent_claim()
+	`);
 }
 
 async function callRpc(

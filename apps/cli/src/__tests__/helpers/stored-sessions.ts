@@ -31,9 +31,12 @@ export interface StoredCodexSession {
 }
 
 export interface StoredAnalyticsSession {
-	readonly content: string;
+	readonly session_id: string;
+	readonly organization_id: string;
+	readonly user_id: string;
+	readonly source: string;
 	readonly filter_version: number;
-	readonly subagents: Record<string, string>;
+	readonly error_pattern: string;
 }
 
 export interface StoredSessionReaders {
@@ -67,7 +70,7 @@ export function createStoredSessionReaders(
 	return {
 		async getPhysicalSessionCount(organizationId, sessionDate, sessionId) {
 			const [row] = await deps.getClickhouse().query<{ row_count: number }>({
-				query: `SELECT count() AS row_count FROM ${deps.getSafeTable("rudel.claude_sessions")} WHERE organization_id = {organizationId:String} AND session_date = {sessionDate:DateTime64(3)} AND session_id = {sessionId:String}`,
+				query: `SELECT count() AS row_count FROM ${deps.getSafeTable("rudel.claude_sessions")} WHERE organization_id = {organizationId:String} AND session_date = {sessionDate:DateTime64(3, 'UTC')} AND session_id = {sessionId:String}`,
 				query_params: {
 					organizationId,
 					sessionDate,
@@ -117,7 +120,7 @@ export function createStoredSessionReaders(
 		async getStoredAnalyticsSession(organizationId, sessionId, source) {
 			for (let attempt = 0; attempt < 20; attempt += 1) {
 				const [row] = await deps.getClickhouse().query<StoredAnalyticsSession>({
-					query: `SELECT content, filter_version, subagents FROM ${deps.getSafeTable("rudel.session_analytics")} WHERE organization_id = {organizationId:String} AND session_id = {sessionId:String} AND source = {source:String} ORDER BY ingested_at DESC LIMIT 1`,
+					query: `SELECT session_id, organization_id, user_id, source, filter_version, error_pattern FROM ${deps.getSafeTable("rudel.session_analytics")} WHERE organization_id = {organizationId:String} AND session_id = {sessionId:String} AND source = {source:String} ORDER BY ingested_at DESC LIMIT 1`,
 					query_params: {
 						organizationId,
 						sessionId,

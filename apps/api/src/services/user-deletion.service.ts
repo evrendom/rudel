@@ -1,4 +1,5 @@
 import type postgres from "postgres";
+import { enqueueClickHousePurge } from "./clickhouse-purge.service.js";
 
 export interface DeletedUserPostgresData {
 	deletedOrganizationIds: string[];
@@ -21,6 +22,10 @@ export async function deleteUserPostgresData(
 				FOR UPDATE
 			`,
 			[userId],
+		);
+		await enqueueClickHousePurge(
+			{ targetId: userId, targetType: "account" },
+			transaction,
 		);
 
 		const candidateOrganizations = await transaction.unsafe<
@@ -78,6 +83,12 @@ export async function deleteUserPostgresData(
 		const deletedOrganizationIds = deletedOrganizations.map(
 			(organization) => organization.id,
 		);
+		for (const organizationId of deletedOrganizationIds) {
+			await enqueueClickHousePurge(
+				{ targetId: organizationId, targetType: "organization" },
+				transaction,
+			);
+		}
 
 		await transaction.unsafe("DELETE FROM apikey WHERE reference_id = $1", [
 			userId,
