@@ -21,26 +21,28 @@ type MessageBlock =
 	| ToolUseContent
 	| ToolResultContent;
 
-function getMessageBlockIdentity(block: MessageBlock): string {
+// Keep room for the formatted-part limit plus a plain-text fallback while
+// bounding every message-level loop in this component.
+export const MAX_RENDERED_MESSAGE_BLOCKS = 128;
+
+function getMessageBlockKey(block: MessageBlock, blockIndex: number): string {
+	// Parsed transcript blocks are immutable; their position is a bounded key
+	// that does not copy arbitrarily large message text into React's key space.
 	if (typeof block === "string") {
-		return `string:${block}`;
+		return `string:${blockIndex}`;
 	}
 
-	switch (block.type) {
-		case "text":
-			return `text:${block.text}`;
-		case "thinking":
-			return `thinking:${block.thinking}`;
-		case "tool_use":
-			return `tool-use:${block.id}`;
-		case "tool_result":
-			return `tool-result:${block.tool_use_id}`;
-	}
+	return `${block.type}:${blockIndex}`;
 }
 
 interface MessageContentProps {
 	content: string | MessageBlock[];
 	className?: string;
+}
+
+interface MessageRenderPlan {
+	readonly visibleBlocks: ReadonlyArray<MessageBlock>;
+	readonly textPartsByBlock: ReadonlyArray<ReadonlyArray<TextPart> | null>;
 }
 
 /**
@@ -117,8 +119,12 @@ function XmlBlock({
 					id={panelId}
 					className="divide-y divide-[color:var(--dashboardy-divider)]"
 				>
-					{entries.map((entry) => (
-						<div key={entry.key} className="flex gap-4 px-4 py-3">
+					{entries.map((entry, entryIndex) => (
+						<div
+							// biome-ignore lint/suspicious/noArrayIndexKey: parsed XML fields are static and may repeat names
+							key={`${entry.key}:${entryIndex}`}
+							className="flex gap-4 px-4 py-3"
+						>
 							<p className="min-w-[6.5rem] shrink-0 text-[0.8125rem] font-medium text-[color:var(--dashboardy-muted)]">
 								{formatTagLabel(entry.key)}
 							</p>
@@ -135,7 +141,7 @@ function XmlBlock({
 
 function renderTextParts(parts: ReadonlyArray<TextPart>, key: string) {
 	return (
-		<div key={key} className="space-y-3.5">
+		<div key={key} data-testid="message-text-block" className="space-y-3.5">
 			{parts.map((part, partIdx) => {
 				if (part.type === "code") {
 					return (
@@ -195,16 +201,25 @@ function getMessageBlockText(block: MessageBlock): string | null {
 }
 
 export function MessageContent({ content, className }: MessageContentProps) {
-	const textPartsByBlock = useMemo(() => {
+	const renderPlan = useMemo<MessageRenderPlan>(() => {
 		if (typeof content === "string") {
-			return parseMessageTextBlocks([content]);
+			return {
+				visibleBlocks: [],
+				textPartsByBlock: parseMessageTextBlocks([content]),
+			};
 		}
 
 		if (!Array.isArray(content)) {
-			return [];
+			return { visibleBlocks: [], textPartsByBlock: [] };
 		}
 
-		return parseMessageTextBlocks(content.map(getMessageBlockText));
+		const visibleBlocks = content.slice(0, MAX_RENDERED_MESSAGE_BLOCKS);
+		return {
+			visibleBlocks,
+			textPartsByBlock: parseMessageTextBlocks(
+				visibleBlocks.map(getMessageBlockText),
+			),
+		};
 	}, [content]);
 
 	if (!content) {
@@ -223,7 +238,7 @@ export function MessageContent({ content, className }: MessageContentProps) {
 	if (typeof content === "string") {
 		return (
 			<div className={cn("space-y-3.5", className)}>
-				{renderTextParts(textPartsByBlock[0] ?? [], "plain-content")}
+				{renderTextParts(renderPlan.textPartsByBlock[0] ?? [], "plain-content")}
 			</div>
 		);
 	}
@@ -243,9 +258,9 @@ export function MessageContent({ content, className }: MessageContentProps) {
 
 	const toolUses = new Map<string, ToolUseContent>();
 	const toolResults = new Map<string, ToolResultContent>();
-	const blockIdentityCounts = new Map<string, number>();
+	const omittedBlockCount = content.length - renderPlan.visibleBlocks.length;
 
-	for (const block of content) {
+	for (const block of renderPlan.visibleBlocks) {
 		if (typeof block === "string") continue;
 		if (block.type === "tool_use") {
 			toolUses.set(block.id, block);
@@ -256,21 +271,20 @@ export function MessageContent({ content, className }: MessageContentProps) {
 
 	return (
 		<div className={cn("space-y-3.5", className)}>
-			{content.map((block, blockIndex) => {
-				const blockIdentity = getMessageBlockIdentity(block);
-				const identityOccurrence =
-					(blockIdentityCounts.get(blockIdentity) ?? 0) + 1;
-				blockIdentityCounts.set(blockIdentity, identityOccurrence);
-				const blockKey = `${blockIdentity}:${identityOccurrence}`;
+			{renderPlan.visibleBlocks.map((block, blockIndex) => {
+				const blockKey = getMessageBlockKey(block, blockIndex);
 
 				if (typeof block === "string") {
-					return renderTextParts(textPartsByBlock[blockIndex] ?? [], blockKey);
+					return renderTextParts(
+						renderPlan.textPartsByBlock[blockIndex] ?? [],
+						blockKey,
+					);
 				}
 
 				switch (block.type) {
 					case "text":
 						return renderTextParts(
-							textPartsByBlock[blockIndex] ?? [],
+							renderPlan.textPartsByBlock[blockIndex] ?? [],
 							blockKey,
 						);
 
@@ -353,6 +367,15 @@ export function MessageContent({ content, className }: MessageContentProps) {
 						return null;
 				}
 			})}
+			{omittedBlockCount > 0 ? (
+				<p
+					data-testid="message-block-limit-notice"
+					className="whitespace-pre-wrap break-words text-[0.8125rem] leading-5 text-[color:var(--dashboardy-muted)] italic [overflow-wrap:anywhere]"
+				>
+					Additional content not shown ({omittedBlockCount}{" "}
+					{omittedBlockCount === 1 ? "block" : "blocks"} omitted).
+				</p>
+			) : null}
 		</div>
 	);
 }

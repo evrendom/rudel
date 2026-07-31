@@ -1,6 +1,9 @@
 import { flushSync } from "react-dom";
 import { createRoot } from "react-dom/client";
-import { MessageContent } from "../src/components/conversation/MessageContent";
+import {
+	MAX_RENDERED_MESSAGE_BLOCKS,
+	MessageContent,
+} from "../src/components/conversation/MessageContent";
 import {
 	MAX_FORMATTED_MESSAGE_PARTS,
 	MAX_HIGHLIGHTED_CODE_BLOCK_UNITS,
@@ -24,7 +27,9 @@ const scenario = new URLSearchParams(window.location.search).get("scenario");
 const adversarialContent =
 	scenario === "array"
 		? createAdversarialArrayContent()
-		: createAdversarialMessage(scenario);
+		: scenario === "blocks"
+			? createExcessMessageBlocks()
+			: createAdversarialMessage(scenario);
 const root = createRoot(messageRoot);
 const renderStartedAt = performance.now();
 
@@ -49,11 +54,15 @@ requestAnimationFrame(() => {
 	renderResult.dataset.xmlBlocks = String(
 		messageRoot.querySelectorAll('[data-testid="message-xml-block"]').length,
 	);
+	renderResult.dataset.textBlocks = String(
+		messageRoot.querySelectorAll('[data-testid="message-text-block"]').length,
+	);
+	renderResult.dataset.maxMessageBlocks = String(MAX_RENDERED_MESSAGE_BLOCKS);
 	renderResult.textContent = "Rendered";
 });
 
 function createAdversarialArrayContent() {
-	const blockCount = MAX_FORMATTED_MESSAGE_PARTS * 2;
+	const blockCount = MAX_FORMATTED_MESSAGE_PARTS + 2;
 	const codeLine = "const value = 1;\n";
 	const fenceLength = "```js\n\n```".length;
 	const codeUnitsPerBlock =
@@ -69,7 +78,21 @@ function createAdversarialArrayContent() {
 	}));
 }
 
+function createExcessMessageBlocks() {
+	return Array.from(
+		{ length: MAX_RENDERED_MESSAGE_BLOCKS + 1 },
+		(_, blockIndex) => ({
+			type: "text" as const,
+			text: `Plain text block ${blockIndex}`,
+		}),
+	);
+}
+
 function createAdversarialMessage(scenario: string | null) {
+	if (scenario === "duplicate-xml") {
+		return "<metadata><field>first</field><field>second</field></metadata>";
+	}
+
 	if (scenario === "large-code") {
 		const codeLine = "const value = 1;\n";
 		const highlightedCode = codeLine.repeat(
