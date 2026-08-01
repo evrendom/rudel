@@ -92,7 +92,7 @@ USING (organization_id, user_id, session_id, ingested_at)`),
 		);
 	});
 
-	test("caps transcript parsing by bytes and lines", () => {
+	test("bounds transcript parsing and error scans", () => {
 		const normalizedMigration = normalizeSql(migration);
 		const cap = normalizeSql(`
 (
@@ -110,9 +110,12 @@ USING (organization_id, user_id, session_id, ingested_at)`),
 		expect(
 			countOccurrences(
 				normalizedMigration,
-				"if(_is_capped, substring(cs.content, 1, 20000000), cs.content) AS _error_sample_content",
+				"substring(cs.content, 1, 20000000) AS _error_sample_content",
 			),
 		).toBe(34);
+		expect(normalizedMigration).not.toContain(
+			"if(_is_capped, substring(cs.content, 1, 20000000), cs.content)",
+		);
 		expect(normalizedMigration).not.toContain(
 			"length(extractAll(cs.content, '\"isApiErrorMessage\":true'))",
 		);
