@@ -192,7 +192,7 @@ FROM (
     ) AS _is_capped,
 
     if(_is_capped, '', cs.content) AS _line_safe_content,
-    if(_is_capped, substring(cs.content, 1, 20000000), cs.content) AS _error_sample_content,
+    substring(cs.content, 1, 20000000) AS _error_sample_content,
 
     arrayFilter(
       x -> JSONExtractString(x, 'type') IN ('user', 'assistant'),
@@ -508,7 +508,7 @@ FROM (
     ) AS _is_capped,
 
     if(_is_capped, '', cs.content) AS _line_safe_content,
-    if(_is_capped, substring(cs.content, 1, 20000000), cs.content) AS _error_sample_content,
+    substring(cs.content, 1, 20000000) AS _error_sample_content,
 
     arrayFilter(
       x -> x != '',
@@ -828,7 +828,7 @@ FROM (
     ) AS _is_capped,
 
     if(_is_capped, '', cs.content) AS _line_safe_content,
-    if(_is_capped, substring(cs.content, 1, 20000000), cs.content) AS _error_sample_content,
+    substring(cs.content, 1, 20000000) AS _error_sample_content,
 
     arrayFilter(
       x -> JSONExtractString(x, 'type') IN ('user', 'assistant'),
@@ -1146,7 +1146,7 @@ FROM (
     ) AS _is_capped,
 
     if(_is_capped, '', cs.content) AS _line_safe_content,
-    if(_is_capped, substring(cs.content, 1, 20000000), cs.content) AS _error_sample_content,
+    substring(cs.content, 1, 20000000) AS _error_sample_content,
 
     arrayFilter(
       x -> x != '',
@@ -1468,7 +1468,7 @@ FROM (
     ) AS _is_capped,
 
     if(_is_capped, '', cs.content) AS _line_safe_content,
-    if(_is_capped, substring(cs.content, 1, 20000000), cs.content) AS _error_sample_content,
+    substring(cs.content, 1, 20000000) AS _error_sample_content,
 
     arrayFilter(
       x -> JSONExtractString(x, 'type') IN ('user', 'assistant'),
@@ -1786,7 +1786,7 @@ FROM (
     ) AS _is_capped,
 
     if(_is_capped, '', cs.content) AS _line_safe_content,
-    if(_is_capped, substring(cs.content, 1, 20000000), cs.content) AS _error_sample_content,
+    substring(cs.content, 1, 20000000) AS _error_sample_content,
 
     arrayFilter(
       x -> x != '',
@@ -2108,7 +2108,7 @@ FROM (
     ) AS _is_capped,
 
     if(_is_capped, '', cs.content) AS _line_safe_content,
-    if(_is_capped, substring(cs.content, 1, 20000000), cs.content) AS _error_sample_content,
+    substring(cs.content, 1, 20000000) AS _error_sample_content,
 
     arrayFilter(
       x -> JSONExtractString(x, 'type') IN ('user', 'assistant'),
@@ -2426,7 +2426,7 @@ FROM (
     ) AS _is_capped,
 
     if(_is_capped, '', cs.content) AS _line_safe_content,
-    if(_is_capped, substring(cs.content, 1, 20000000), cs.content) AS _error_sample_content,
+    substring(cs.content, 1, 20000000) AS _error_sample_content,
 
     arrayFilter(
       x -> x != '',
@@ -2748,7 +2748,7 @@ FROM (
     ) AS _is_capped,
 
     if(_is_capped, '', cs.content) AS _line_safe_content,
-    if(_is_capped, substring(cs.content, 1, 20000000), cs.content) AS _error_sample_content,
+    substring(cs.content, 1, 20000000) AS _error_sample_content,
 
     arrayFilter(
       x -> JSONExtractString(x, 'type') IN ('user', 'assistant'),
@@ -3066,7 +3066,7 @@ FROM (
     ) AS _is_capped,
 
     if(_is_capped, '', cs.content) AS _line_safe_content,
-    if(_is_capped, substring(cs.content, 1, 20000000), cs.content) AS _error_sample_content,
+    substring(cs.content, 1, 20000000) AS _error_sample_content,
 
     arrayFilter(
       x -> x != '',
@@ -3388,7 +3388,7 @@ FROM (
     ) AS _is_capped,
 
     if(_is_capped, '', cs.content) AS _line_safe_content,
-    if(_is_capped, substring(cs.content, 1, 20000000), cs.content) AS _error_sample_content,
+    substring(cs.content, 1, 20000000) AS _error_sample_content,
 
     arrayFilter(
       x -> JSONExtractString(x, 'type') IN ('user', 'assistant'),
@@ -3706,7 +3706,7 @@ FROM (
     ) AS _is_capped,
 
     if(_is_capped, '', cs.content) AS _line_safe_content,
-    if(_is_capped, substring(cs.content, 1, 20000000), cs.content) AS _error_sample_content,
+    substring(cs.content, 1, 20000000) AS _error_sample_content,
 
     arrayFilter(
       x -> x != '',
@@ -4028,7 +4028,7 @@ FROM (
     ) AS _is_capped,
 
     if(_is_capped, '', cs.content) AS _line_safe_content,
-    if(_is_capped, substring(cs.content, 1, 20000000), cs.content) AS _error_sample_content,
+    substring(cs.content, 1, 20000000) AS _error_sample_content,
 
     arrayFilter(
       x -> JSONExtractString(x, 'type') IN ('user', 'assistant'),
@@ -4346,7 +4346,7 @@ FROM (
     ) AS _is_capped,
 
     if(_is_capped, '', cs.content) AS _line_safe_content,
-    if(_is_capped, substring(cs.content, 1, 20000000), cs.content) AS _error_sample_content,
+    substring(cs.content, 1, 20000000) AS _error_sample_content,
 
     arrayFilter(
       x -> x != '',
@@ -4668,7 +4668,7 @@ FROM (
     ) AS _is_capped,
 
     if(_is_capped, '', cs.content) AS _line_safe_content,
-    if(_is_capped, substring(cs.content, 1, 20000000), cs.content) AS _error_sample_content,
+    substring(cs.content, 1, 20000000) AS _error_sample_content,
 
     arrayFilter(
       x -> JSONExtractString(x, 'type') IN ('user', 'assistant'),
@@ -4986,7 +4986,7 @@ FROM (
     ) AS _is_capped,
 
     if(_is_capped, '', cs.content) AS _line_safe_content,
-    if(_is_capped, substring(cs.content, 1, 20000000), cs.content) AS _error_sample_content,
+    substring(cs.content, 1, 20000000) AS _error_sample_content,
 
     arrayFilter(
       x -> x != '',
@@ -5308,7 +5308,7 @@ FROM (
     ) AS _is_capped,
 
     if(_is_capped, '', cs.content) AS _line_safe_content,
-    if(_is_capped, substring(cs.content, 1, 20000000), cs.content) AS _error_sample_content,
+    substring(cs.content, 1, 20000000) AS _error_sample_content,
 
     arrayFilter(
       x -> JSONExtractString(x, 'type') IN ('user', 'assistant'),
@@ -5626,7 +5626,7 @@ FROM (
     ) AS _is_capped,
 
     if(_is_capped, '', cs.content) AS _line_safe_content,
-    if(_is_capped, substring(cs.content, 1, 20000000), cs.content) AS _error_sample_content,
+    substring(cs.content, 1, 20000000) AS _error_sample_content,
 
     arrayFilter(
       x -> x != '',
@@ -5948,7 +5948,7 @@ FROM (
     ) AS _is_capped,
 
     if(_is_capped, '', cs.content) AS _line_safe_content,
-    if(_is_capped, substring(cs.content, 1, 20000000), cs.content) AS _error_sample_content,
+    substring(cs.content, 1, 20000000) AS _error_sample_content,
 
     arrayFilter(
       x -> JSONExtractString(x, 'type') IN ('user', 'assistant'),
@@ -6266,7 +6266,7 @@ FROM (
     ) AS _is_capped,
 
     if(_is_capped, '', cs.content) AS _line_safe_content,
-    if(_is_capped, substring(cs.content, 1, 20000000), cs.content) AS _error_sample_content,
+    substring(cs.content, 1, 20000000) AS _error_sample_content,
 
     arrayFilter(
       x -> x != '',
@@ -6588,7 +6588,7 @@ FROM (
     ) AS _is_capped,
 
     if(_is_capped, '', cs.content) AS _line_safe_content,
-    if(_is_capped, substring(cs.content, 1, 20000000), cs.content) AS _error_sample_content,
+    substring(cs.content, 1, 20000000) AS _error_sample_content,
 
     arrayFilter(
       x -> JSONExtractString(x, 'type') IN ('user', 'assistant'),
@@ -6906,7 +6906,7 @@ FROM (
     ) AS _is_capped,
 
     if(_is_capped, '', cs.content) AS _line_safe_content,
-    if(_is_capped, substring(cs.content, 1, 20000000), cs.content) AS _error_sample_content,
+    substring(cs.content, 1, 20000000) AS _error_sample_content,
 
     arrayFilter(
       x -> x != '',
@@ -7228,7 +7228,7 @@ FROM (
     ) AS _is_capped,
 
     if(_is_capped, '', cs.content) AS _line_safe_content,
-    if(_is_capped, substring(cs.content, 1, 20000000), cs.content) AS _error_sample_content,
+    substring(cs.content, 1, 20000000) AS _error_sample_content,
 
     arrayFilter(
       x -> JSONExtractString(x, 'type') IN ('user', 'assistant'),
@@ -7546,7 +7546,7 @@ FROM (
     ) AS _is_capped,
 
     if(_is_capped, '', cs.content) AS _line_safe_content,
-    if(_is_capped, substring(cs.content, 1, 20000000), cs.content) AS _error_sample_content,
+    substring(cs.content, 1, 20000000) AS _error_sample_content,
 
     arrayFilter(
       x -> x != '',
@@ -7868,7 +7868,7 @@ FROM (
     ) AS _is_capped,
 
     if(_is_capped, '', cs.content) AS _line_safe_content,
-    if(_is_capped, substring(cs.content, 1, 20000000), cs.content) AS _error_sample_content,
+    substring(cs.content, 1, 20000000) AS _error_sample_content,
 
     arrayFilter(
       x -> JSONExtractString(x, 'type') IN ('user', 'assistant'),
@@ -8186,7 +8186,7 @@ FROM (
     ) AS _is_capped,
 
     if(_is_capped, '', cs.content) AS _line_safe_content,
-    if(_is_capped, substring(cs.content, 1, 20000000), cs.content) AS _error_sample_content,
+    substring(cs.content, 1, 20000000) AS _error_sample_content,
 
     arrayFilter(
       x -> x != '',
@@ -8508,7 +8508,7 @@ FROM (
     ) AS _is_capped,
 
     if(_is_capped, '', cs.content) AS _line_safe_content,
-    if(_is_capped, substring(cs.content, 1, 20000000), cs.content) AS _error_sample_content,
+    substring(cs.content, 1, 20000000) AS _error_sample_content,
 
     arrayFilter(
       x -> JSONExtractString(x, 'type') IN ('user', 'assistant'),
@@ -8826,7 +8826,7 @@ FROM (
     ) AS _is_capped,
 
     if(_is_capped, '', cs.content) AS _line_safe_content,
-    if(_is_capped, substring(cs.content, 1, 20000000), cs.content) AS _error_sample_content,
+    substring(cs.content, 1, 20000000) AS _error_sample_content,
 
     arrayFilter(
       x -> x != '',
@@ -9148,7 +9148,7 @@ FROM (
     ) AS _is_capped,
 
     if(_is_capped, '', cs.content) AS _line_safe_content,
-    if(_is_capped, substring(cs.content, 1, 20000000), cs.content) AS _error_sample_content,
+    substring(cs.content, 1, 20000000) AS _error_sample_content,
 
     arrayFilter(
       x -> JSONExtractString(x, 'type') IN ('user', 'assistant'),
@@ -9466,7 +9466,7 @@ FROM (
     ) AS _is_capped,
 
     if(_is_capped, '', cs.content) AS _line_safe_content,
-    if(_is_capped, substring(cs.content, 1, 20000000), cs.content) AS _error_sample_content,
+    substring(cs.content, 1, 20000000) AS _error_sample_content,
 
     arrayFilter(
       x -> x != '',
@@ -9788,7 +9788,7 @@ FROM (
     ) AS _is_capped,
 
     if(_is_capped, '', cs.content) AS _line_safe_content,
-    if(_is_capped, substring(cs.content, 1, 20000000), cs.content) AS _error_sample_content,
+    substring(cs.content, 1, 20000000) AS _error_sample_content,
 
     arrayFilter(
       x -> JSONExtractString(x, 'type') IN ('user', 'assistant'),
@@ -10104,7 +10104,7 @@ FROM (
     ) AS _is_capped,
 
     if(_is_capped, '', cs.content) AS _line_safe_content,
-    if(_is_capped, substring(cs.content, 1, 20000000), cs.content) AS _error_sample_content,
+    substring(cs.content, 1, 20000000) AS _error_sample_content,
 
     arrayFilter(
       x -> x != '',
@@ -10433,7 +10433,7 @@ TO rudel.session_analytics AS
     ) AS _is_capped,
 
     if(_is_capped, '', cs.content) AS _line_safe_content,
-    if(_is_capped, substring(cs.content, 1, 20000000), cs.content) AS _error_sample_content,
+    substring(cs.content, 1, 20000000) AS _error_sample_content,
 
     arrayFilter(
       x -> x != '',
@@ -10655,7 +10655,7 @@ TO rudel.session_analytics AS
     ) AS _is_capped,
 
     if(_is_capped, '', cs.content) AS _line_safe_content,
-    if(_is_capped, substring(cs.content, 1, 20000000), cs.content) AS _error_sample_content,
+    substring(cs.content, 1, 20000000) AS _error_sample_content,
 
     arrayFilter(
       x -> JSONExtractString(x, 'type') IN ('user', 'assistant'),

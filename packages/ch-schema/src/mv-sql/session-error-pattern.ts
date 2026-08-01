@@ -2,7 +2,7 @@
  * Classify one representative error pattern while the raw transcript is still
  * available. Raw transcripts expire after 365 days, but this compact value is
  * retained with session analytics. Callers bound `_error_sample_content` to the
- * first 20 MB for capped transcripts.
+ * first 20 MB so error scans have a fixed memory ceiling.
  */
 export const SESSION_ERROR_PATTERN_SQL = `
     if(
