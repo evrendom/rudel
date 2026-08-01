@@ -75,7 +75,8 @@ USING (organization_id, user_id, session_id, ingested_at)`),
 				"INSERT INTO rudel.session_analytics_v2",
 			),
 		).toBe(32);
-		expect(countOccurrences(normalizedMigration, "max_block_size=64")).toBe(32);
+		expect(countOccurrences(normalizedMigration, "max_block_size=1")).toBe(32);
+		expect(normalizedMigration).not.toContain("max_block_size=64");
 		expect(
 			countOccurrences(
 				normalizedMigration,
@@ -91,7 +92,7 @@ USING (organization_id, user_id, session_id, ingested_at)`),
 		);
 	});
 
-	test("caps the line-array pipeline by transcript bytes and lines", () => {
+	test("caps transcript parsing by bytes and lines", () => {
 		const normalizedMigration = normalizeSql(migration);
 		const cap = normalizeSql(`
 (
@@ -106,6 +107,35 @@ USING (organization_id, user_id, session_id, ingested_at)`),
 				"if(_is_capped, '', cs.content) AS _line_safe_content",
 			),
 		).toBe(34);
+		expect(
+			countOccurrences(
+				normalizedMigration,
+				"if(_is_capped, substring(cs.content, 1, 20000000), cs.content) AS _error_sample_content",
+			),
+		).toBe(34);
+		expect(normalizedMigration).not.toContain(
+			"length(extractAll(cs.content, '\"isApiErrorMessage\":true'))",
+		);
+		expect(normalizedMigration).not.toContain(
+			"length(extractAll(cs.content, '\"is_error\":true'))",
+		);
+		expect(migration).not.toMatch(/extractAll\(cs\.content,[^\n]*exit_code/);
+		expect(normalizedMigration).not.toContain("cs.content ILIKE");
+		expect(
+			countOccurrences(
+				normalizedMigration,
+				normalizeSql(`
+if(
+  _is_capped,
+  length(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Error):'))
+    + length(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Exception):')),
+  arrayCount(
+    x -> x ILIKE '%Error:%' OR x ILIKE '%Exception:%',
+    _tool_output_lines
+  )
+)`),
+			),
+		).toBe(17);
 	});
 
 	test("checks physical shadow rows for duplicate identities before cutover", () => {

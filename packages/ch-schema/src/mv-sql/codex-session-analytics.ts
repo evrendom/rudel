@@ -15,6 +15,7 @@ export const CODEX_SESSION_ANALYTICS_MV_SQL = `
     ) AS _is_capped,
 
     if(_is_capped, '', cs.content) AS _line_safe_content,
+    if(_is_capped, substring(cs.content, 1, 20000000), cs.content) AS _error_sample_content,
 
     arrayFilter(
       x -> x != '',
@@ -91,10 +92,15 @@ export const CODEX_SESSION_ANALYTICS_MV_SQL = `
     arrayDistinct(arrayFilter(x -> x != '', extractAll(cs.content, '"name":"exec_command"[^}]*skills/([a-zA-Z0-9_-]+)/SKILL'))) AS _skills,
 
     toUInt32(
-      length(extractAll(cs.content, '\\\\\\\\"exit_code\\\\\\\\":[1-9][0-9]*'))
-      + arrayCount(
-          x -> x ILIKE '%Error:%' OR x ILIKE '%Exception:%',
-          _tool_output_lines
+      length(extractAll(_error_sample_content, '\\\\\\\\"exit_code\\\\\\\\":[1-9][0-9]*'))
+      + if(
+          _is_capped,
+          length(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Error):'))
+            + length(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Exception):')),
+          arrayCount(
+            x -> x ILIKE '%Error:%' OR x ILIKE '%Exception:%',
+            _tool_output_lines
+          )
         )
     ) AS _error_count
 

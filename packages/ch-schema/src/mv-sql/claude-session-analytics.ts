@@ -15,6 +15,7 @@ export const CLAUDE_SESSION_ANALYTICS_MV_SQL = `
     ) AS _is_capped,
 
     if(_is_capped, '', cs.content) AS _line_safe_content,
+    if(_is_capped, substring(cs.content, 1, 20000000), cs.content) AS _error_sample_content,
 
     arrayFilter(
       x -> JSONExtractString(x, 'type') IN ('user', 'assistant'),
@@ -79,8 +80,8 @@ export const CLAUDE_SESSION_ANALYTICS_MV_SQL = `
     arrayDistinct(arrayFilter(x -> x != '', extractAll(cs.content, '<command-name>/([^<]+)</command-name>'))) AS _slash_commands,
 
     toUInt32(
-      length(extractAll(cs.content, '"isApiErrorMessage":true'))
-      + length(extractAll(cs.content, '"is_error":true'))
+      length(extractAll(_error_sample_content, '"isApiErrorMessage":true'))
+      + length(extractAll(_error_sample_content, '"is_error":true'))
     ) AS _error_count,
 
     if(_is_capped, cs.session_date, arrayMin(_timestamps)) AS _session_date,
