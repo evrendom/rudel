@@ -601,13 +601,17 @@ describe("session_analytics computed values", () => {
 			content: string;
 			sessionDate: number;
 			lastInteractionDate: number;
+			errorCount: number;
+			errorPattern: string;
 		}> = [
 			{
 				source: "claude_code",
 				sessionId: `values_capped_claude_${runId}`,
-				content: overLineLimitTranscript(claudeTranscript()),
+				content: overLineLimitTranscript(claudeUnderflowTranscript()),
 				sessionDate: Date.parse("2026-05-04T10:00:00.000Z"),
 				lastInteractionDate: Date.parse("2026-05-04T10:00:30.000Z"),
+				errorCount: 10,
+				errorPattern: "UnknownError",
 			},
 			{
 				source: "codex",
@@ -615,6 +619,8 @@ describe("session_analytics computed values", () => {
 				content: overByteLimitTranscript(codexUnderflowTranscript()),
 				sessionDate: Date.parse("2026-03-02T04:29:38.576Z"),
 				lastInteractionDate: Date.parse("2026-03-02T04:29:55.000Z"),
+				errorCount: 10,
+				errorPattern: "TypeError",
 			},
 		];
 
@@ -646,6 +652,8 @@ describe("session_analytics computed values", () => {
 			expect(num(row.long_pauses)).toBe(0);
 			expect(num(row.inference_duration_sec)).toBe(0);
 			expect(num(row.human_duration_sec)).toBe(0);
+			expect(row.error_count).toBe(testCase.errorCount);
+			expect(row.error_pattern).toBe(testCase.errorPattern);
 		}
 	}, 300000);
 

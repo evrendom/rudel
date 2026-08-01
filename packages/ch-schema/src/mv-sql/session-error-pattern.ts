@@ -1,35 +1,36 @@
 /**
  * Classify one representative error pattern while the raw transcript is still
  * available. Raw transcripts expire after 365 days, but this compact value is
- * retained with session analytics.
+ * retained with session analytics. Callers bound `_error_sample_content` to the
+ * first 20 MB for capped transcripts.
  */
 export const SESSION_ERROR_PATTERN_SQL = `
     if(
       _error_count = 0,
       '',
       multiIf(
-        cs.content ILIKE '%OperationFailed%', 'OperationFailed',
-        cs.content ILIKE '%UnknownError%', 'UnknownError',
-        cs.content ILIKE '%ORPCError%', 'ORPCError',
-        cs.content ILIKE '%TimeoutError%', 'TimeoutError',
-        cs.content ILIKE '%TypeError%', 'TypeError',
-        cs.content ILIKE '%ReferenceError%', 'ReferenceError',
-        cs.content ILIKE '%Error:%',
+        _error_sample_content ILIKE '%OperationFailed%', 'OperationFailed',
+        _error_sample_content ILIKE '%UnknownError%', 'UnknownError',
+        _error_sample_content ILIKE '%ORPCError%', 'ORPCError',
+        _error_sample_content ILIKE '%TimeoutError%', 'TimeoutError',
+        _error_sample_content ILIKE '%TypeError%', 'TypeError',
+        _error_sample_content ILIKE '%ReferenceError%', 'ReferenceError',
+        _error_sample_content ILIKE '%Error:%',
           if(
-            length(extractAll(cs.content, '([A-Z][a-zA-Z]+Error):')) > 0,
-            arrayElement(extractAll(cs.content, '([A-Z][a-zA-Z]+Error):'), 1),
+            length(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Error):')) > 0,
+            arrayElement(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Error):'), 1),
             'GenericError'
           ),
-        cs.content ILIKE '%Exception:%',
+        _error_sample_content ILIKE '%Exception:%',
           if(
-            length(extractAll(cs.content, '([A-Z][a-zA-Z]+Exception):')) > 0,
-            arrayElement(extractAll(cs.content, '([A-Z][a-zA-Z]+Exception):'), 1),
+            length(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Exception):')) > 0,
+            arrayElement(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Exception):'), 1),
             'Exception'
           ),
-        cs.content ILIKE '%error:%', 'GenericError',
-        cs.content ILIKE '%failed%', 'OperationFailed',
-        cs.content ILIKE '%timeout%', 'Timeout',
-        cs.content ILIKE '%not found%', 'NotFound',
+        _error_sample_content ILIKE '%error:%', 'GenericError',
+        _error_sample_content ILIKE '%failed%', 'OperationFailed',
+        _error_sample_content ILIKE '%timeout%', 'Timeout',
+        _error_sample_content ILIKE '%not found%', 'NotFound',
         'UnknownError'
       )
     )`;

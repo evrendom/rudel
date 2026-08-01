@@ -142,7 +142,7 @@ SETTINGS
   async_insert=0,
   max_threads=1,
   max_insert_threads=1,
-  max_block_size=64,
+  max_block_size=1,
   max_bytes_before_external_group_by=268435456
 SELECT
   session_date,
@@ -192,6 +192,7 @@ FROM (
     ) AS _is_capped,
 
     if(_is_capped, '', cs.content) AS _line_safe_content,
+    if(_is_capped, substring(cs.content, 1, 20000000), cs.content) AS _error_sample_content,
 
     arrayFilter(
       x -> JSONExtractString(x, 'type') IN ('user', 'assistant'),
@@ -256,8 +257,8 @@ FROM (
     arrayDistinct(arrayFilter(x -> x != '', extractAll(cs.content, '<command-name>/([^<]+)</command-name>'))) AS _slash_commands,
 
     toUInt32(
-      length(extractAll(cs.content, '"isApiErrorMessage":true'))
-      + length(extractAll(cs.content, '"is_error":true'))
+      length(extractAll(_error_sample_content, '"isApiErrorMessage":true'))
+      + length(extractAll(_error_sample_content, '"is_error":true'))
     ) AS _error_count,
 
     if(_is_capped, cs.session_date, arrayMin(_timestamps)) AS _session_date,
@@ -296,28 +297,28 @@ FROM (
       _error_count = 0,
       '',
       multiIf(
-        cs.content ILIKE '%OperationFailed%', 'OperationFailed',
-        cs.content ILIKE '%UnknownError%', 'UnknownError',
-        cs.content ILIKE '%ORPCError%', 'ORPCError',
-        cs.content ILIKE '%TimeoutError%', 'TimeoutError',
-        cs.content ILIKE '%TypeError%', 'TypeError',
-        cs.content ILIKE '%ReferenceError%', 'ReferenceError',
-        cs.content ILIKE '%Error:%',
+        _error_sample_content ILIKE '%OperationFailed%', 'OperationFailed',
+        _error_sample_content ILIKE '%UnknownError%', 'UnknownError',
+        _error_sample_content ILIKE '%ORPCError%', 'ORPCError',
+        _error_sample_content ILIKE '%TimeoutError%', 'TimeoutError',
+        _error_sample_content ILIKE '%TypeError%', 'TypeError',
+        _error_sample_content ILIKE '%ReferenceError%', 'ReferenceError',
+        _error_sample_content ILIKE '%Error:%',
           if(
-            length(extractAll(cs.content, '([A-Z][a-zA-Z]+Error):')) > 0,
-            arrayElement(extractAll(cs.content, '([A-Z][a-zA-Z]+Error):'), 1),
+            length(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Error):')) > 0,
+            arrayElement(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Error):'), 1),
             'GenericError'
           ),
-        cs.content ILIKE '%Exception:%',
+        _error_sample_content ILIKE '%Exception:%',
           if(
-            length(extractAll(cs.content, '([A-Z][a-zA-Z]+Exception):')) > 0,
-            arrayElement(extractAll(cs.content, '([A-Z][a-zA-Z]+Exception):'), 1),
+            length(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Exception):')) > 0,
+            arrayElement(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Exception):'), 1),
             'Exception'
           ),
-        cs.content ILIKE '%error:%', 'GenericError',
-        cs.content ILIKE '%failed%', 'OperationFailed',
-        cs.content ILIKE '%timeout%', 'Timeout',
-        cs.content ILIKE '%not found%', 'NotFound',
+        _error_sample_content ILIKE '%error:%', 'GenericError',
+        _error_sample_content ILIKE '%failed%', 'OperationFailed',
+        _error_sample_content ILIKE '%timeout%', 'Timeout',
+        _error_sample_content ILIKE '%not found%', 'NotFound',
         'UnknownError'
       )
     ) as error_pattern,
@@ -457,7 +458,7 @@ SETTINGS
   async_insert=0,
   max_threads=1,
   max_insert_threads=1,
-  max_block_size=64,
+  max_block_size=1,
   max_bytes_before_external_group_by=268435456
 SELECT
   session_date,
@@ -507,6 +508,7 @@ FROM (
     ) AS _is_capped,
 
     if(_is_capped, '', cs.content) AS _line_safe_content,
+    if(_is_capped, substring(cs.content, 1, 20000000), cs.content) AS _error_sample_content,
 
     arrayFilter(
       x -> x != '',
@@ -583,10 +585,15 @@ FROM (
     arrayDistinct(arrayFilter(x -> x != '', extractAll(cs.content, '"name":"exec_command"[^}]*skills/([a-zA-Z0-9_-]+)/SKILL'))) AS _skills,
 
     toUInt32(
-      length(extractAll(cs.content, '\\\\"exit_code\\\\":[1-9][0-9]*'))
-      + arrayCount(
-          x -> x ILIKE '%Error:%' OR x ILIKE '%Exception:%',
-          _tool_output_lines
+      length(extractAll(_error_sample_content, '\\\\"exit_code\\\\":[1-9][0-9]*'))
+      + if(
+          _is_capped,
+          length(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Error):'))
+            + length(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Exception):')),
+          arrayCount(
+            x -> x ILIKE '%Error:%' OR x ILIKE '%Exception:%',
+            _tool_output_lines
+          )
         )
     ) AS _error_count
 
@@ -622,28 +629,28 @@ FROM (
       _error_count = 0,
       '',
       multiIf(
-        cs.content ILIKE '%OperationFailed%', 'OperationFailed',
-        cs.content ILIKE '%UnknownError%', 'UnknownError',
-        cs.content ILIKE '%ORPCError%', 'ORPCError',
-        cs.content ILIKE '%TimeoutError%', 'TimeoutError',
-        cs.content ILIKE '%TypeError%', 'TypeError',
-        cs.content ILIKE '%ReferenceError%', 'ReferenceError',
-        cs.content ILIKE '%Error:%',
+        _error_sample_content ILIKE '%OperationFailed%', 'OperationFailed',
+        _error_sample_content ILIKE '%UnknownError%', 'UnknownError',
+        _error_sample_content ILIKE '%ORPCError%', 'ORPCError',
+        _error_sample_content ILIKE '%TimeoutError%', 'TimeoutError',
+        _error_sample_content ILIKE '%TypeError%', 'TypeError',
+        _error_sample_content ILIKE '%ReferenceError%', 'ReferenceError',
+        _error_sample_content ILIKE '%Error:%',
           if(
-            length(extractAll(cs.content, '([A-Z][a-zA-Z]+Error):')) > 0,
-            arrayElement(extractAll(cs.content, '([A-Z][a-zA-Z]+Error):'), 1),
+            length(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Error):')) > 0,
+            arrayElement(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Error):'), 1),
             'GenericError'
           ),
-        cs.content ILIKE '%Exception:%',
+        _error_sample_content ILIKE '%Exception:%',
           if(
-            length(extractAll(cs.content, '([A-Z][a-zA-Z]+Exception):')) > 0,
-            arrayElement(extractAll(cs.content, '([A-Z][a-zA-Z]+Exception):'), 1),
+            length(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Exception):')) > 0,
+            arrayElement(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Exception):'), 1),
             'Exception'
           ),
-        cs.content ILIKE '%error:%', 'GenericError',
-        cs.content ILIKE '%failed%', 'OperationFailed',
-        cs.content ILIKE '%timeout%', 'Timeout',
-        cs.content ILIKE '%not found%', 'NotFound',
+        _error_sample_content ILIKE '%error:%', 'GenericError',
+        _error_sample_content ILIKE '%failed%', 'OperationFailed',
+        _error_sample_content ILIKE '%timeout%', 'Timeout',
+        _error_sample_content ILIKE '%not found%', 'NotFound',
         'UnknownError'
       )
     ) as error_pattern,
@@ -771,7 +778,7 @@ SETTINGS
   async_insert=0,
   max_threads=1,
   max_insert_threads=1,
-  max_block_size=64,
+  max_block_size=1,
   max_bytes_before_external_group_by=268435456
 SELECT
   session_date,
@@ -821,6 +828,7 @@ FROM (
     ) AS _is_capped,
 
     if(_is_capped, '', cs.content) AS _line_safe_content,
+    if(_is_capped, substring(cs.content, 1, 20000000), cs.content) AS _error_sample_content,
 
     arrayFilter(
       x -> JSONExtractString(x, 'type') IN ('user', 'assistant'),
@@ -885,8 +893,8 @@ FROM (
     arrayDistinct(arrayFilter(x -> x != '', extractAll(cs.content, '<command-name>/([^<]+)</command-name>'))) AS _slash_commands,
 
     toUInt32(
-      length(extractAll(cs.content, '"isApiErrorMessage":true'))
-      + length(extractAll(cs.content, '"is_error":true'))
+      length(extractAll(_error_sample_content, '"isApiErrorMessage":true'))
+      + length(extractAll(_error_sample_content, '"is_error":true'))
     ) AS _error_count,
 
     if(_is_capped, cs.session_date, arrayMin(_timestamps)) AS _session_date,
@@ -925,28 +933,28 @@ FROM (
       _error_count = 0,
       '',
       multiIf(
-        cs.content ILIKE '%OperationFailed%', 'OperationFailed',
-        cs.content ILIKE '%UnknownError%', 'UnknownError',
-        cs.content ILIKE '%ORPCError%', 'ORPCError',
-        cs.content ILIKE '%TimeoutError%', 'TimeoutError',
-        cs.content ILIKE '%TypeError%', 'TypeError',
-        cs.content ILIKE '%ReferenceError%', 'ReferenceError',
-        cs.content ILIKE '%Error:%',
+        _error_sample_content ILIKE '%OperationFailed%', 'OperationFailed',
+        _error_sample_content ILIKE '%UnknownError%', 'UnknownError',
+        _error_sample_content ILIKE '%ORPCError%', 'ORPCError',
+        _error_sample_content ILIKE '%TimeoutError%', 'TimeoutError',
+        _error_sample_content ILIKE '%TypeError%', 'TypeError',
+        _error_sample_content ILIKE '%ReferenceError%', 'ReferenceError',
+        _error_sample_content ILIKE '%Error:%',
           if(
-            length(extractAll(cs.content, '([A-Z][a-zA-Z]+Error):')) > 0,
-            arrayElement(extractAll(cs.content, '([A-Z][a-zA-Z]+Error):'), 1),
+            length(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Error):')) > 0,
+            arrayElement(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Error):'), 1),
             'GenericError'
           ),
-        cs.content ILIKE '%Exception:%',
+        _error_sample_content ILIKE '%Exception:%',
           if(
-            length(extractAll(cs.content, '([A-Z][a-zA-Z]+Exception):')) > 0,
-            arrayElement(extractAll(cs.content, '([A-Z][a-zA-Z]+Exception):'), 1),
+            length(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Exception):')) > 0,
+            arrayElement(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Exception):'), 1),
             'Exception'
           ),
-        cs.content ILIKE '%error:%', 'GenericError',
-        cs.content ILIKE '%failed%', 'OperationFailed',
-        cs.content ILIKE '%timeout%', 'Timeout',
-        cs.content ILIKE '%not found%', 'NotFound',
+        _error_sample_content ILIKE '%error:%', 'GenericError',
+        _error_sample_content ILIKE '%failed%', 'OperationFailed',
+        _error_sample_content ILIKE '%timeout%', 'Timeout',
+        _error_sample_content ILIKE '%not found%', 'NotFound',
         'UnknownError'
       )
     ) as error_pattern,
@@ -1088,7 +1096,7 @@ SETTINGS
   async_insert=0,
   max_threads=1,
   max_insert_threads=1,
-  max_block_size=64,
+  max_block_size=1,
   max_bytes_before_external_group_by=268435456
 SELECT
   session_date,
@@ -1138,6 +1146,7 @@ FROM (
     ) AS _is_capped,
 
     if(_is_capped, '', cs.content) AS _line_safe_content,
+    if(_is_capped, substring(cs.content, 1, 20000000), cs.content) AS _error_sample_content,
 
     arrayFilter(
       x -> x != '',
@@ -1214,10 +1223,15 @@ FROM (
     arrayDistinct(arrayFilter(x -> x != '', extractAll(cs.content, '"name":"exec_command"[^}]*skills/([a-zA-Z0-9_-]+)/SKILL'))) AS _skills,
 
     toUInt32(
-      length(extractAll(cs.content, '\\\\"exit_code\\\\":[1-9][0-9]*'))
-      + arrayCount(
-          x -> x ILIKE '%Error:%' OR x ILIKE '%Exception:%',
-          _tool_output_lines
+      length(extractAll(_error_sample_content, '\\\\"exit_code\\\\":[1-9][0-9]*'))
+      + if(
+          _is_capped,
+          length(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Error):'))
+            + length(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Exception):')),
+          arrayCount(
+            x -> x ILIKE '%Error:%' OR x ILIKE '%Exception:%',
+            _tool_output_lines
+          )
         )
     ) AS _error_count
 
@@ -1253,28 +1267,28 @@ FROM (
       _error_count = 0,
       '',
       multiIf(
-        cs.content ILIKE '%OperationFailed%', 'OperationFailed',
-        cs.content ILIKE '%UnknownError%', 'UnknownError',
-        cs.content ILIKE '%ORPCError%', 'ORPCError',
-        cs.content ILIKE '%TimeoutError%', 'TimeoutError',
-        cs.content ILIKE '%TypeError%', 'TypeError',
-        cs.content ILIKE '%ReferenceError%', 'ReferenceError',
-        cs.content ILIKE '%Error:%',
+        _error_sample_content ILIKE '%OperationFailed%', 'OperationFailed',
+        _error_sample_content ILIKE '%UnknownError%', 'UnknownError',
+        _error_sample_content ILIKE '%ORPCError%', 'ORPCError',
+        _error_sample_content ILIKE '%TimeoutError%', 'TimeoutError',
+        _error_sample_content ILIKE '%TypeError%', 'TypeError',
+        _error_sample_content ILIKE '%ReferenceError%', 'ReferenceError',
+        _error_sample_content ILIKE '%Error:%',
           if(
-            length(extractAll(cs.content, '([A-Z][a-zA-Z]+Error):')) > 0,
-            arrayElement(extractAll(cs.content, '([A-Z][a-zA-Z]+Error):'), 1),
+            length(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Error):')) > 0,
+            arrayElement(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Error):'), 1),
             'GenericError'
           ),
-        cs.content ILIKE '%Exception:%',
+        _error_sample_content ILIKE '%Exception:%',
           if(
-            length(extractAll(cs.content, '([A-Z][a-zA-Z]+Exception):')) > 0,
-            arrayElement(extractAll(cs.content, '([A-Z][a-zA-Z]+Exception):'), 1),
+            length(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Exception):')) > 0,
+            arrayElement(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Exception):'), 1),
             'Exception'
           ),
-        cs.content ILIKE '%error:%', 'GenericError',
-        cs.content ILIKE '%failed%', 'OperationFailed',
-        cs.content ILIKE '%timeout%', 'Timeout',
-        cs.content ILIKE '%not found%', 'NotFound',
+        _error_sample_content ILIKE '%error:%', 'GenericError',
+        _error_sample_content ILIKE '%failed%', 'OperationFailed',
+        _error_sample_content ILIKE '%timeout%', 'Timeout',
+        _error_sample_content ILIKE '%not found%', 'NotFound',
         'UnknownError'
       )
     ) as error_pattern,
@@ -1404,7 +1418,7 @@ SETTINGS
   async_insert=0,
   max_threads=1,
   max_insert_threads=1,
-  max_block_size=64,
+  max_block_size=1,
   max_bytes_before_external_group_by=268435456
 SELECT
   session_date,
@@ -1454,6 +1468,7 @@ FROM (
     ) AS _is_capped,
 
     if(_is_capped, '', cs.content) AS _line_safe_content,
+    if(_is_capped, substring(cs.content, 1, 20000000), cs.content) AS _error_sample_content,
 
     arrayFilter(
       x -> JSONExtractString(x, 'type') IN ('user', 'assistant'),
@@ -1518,8 +1533,8 @@ FROM (
     arrayDistinct(arrayFilter(x -> x != '', extractAll(cs.content, '<command-name>/([^<]+)</command-name>'))) AS _slash_commands,
 
     toUInt32(
-      length(extractAll(cs.content, '"isApiErrorMessage":true'))
-      + length(extractAll(cs.content, '"is_error":true'))
+      length(extractAll(_error_sample_content, '"isApiErrorMessage":true'))
+      + length(extractAll(_error_sample_content, '"is_error":true'))
     ) AS _error_count,
 
     if(_is_capped, cs.session_date, arrayMin(_timestamps)) AS _session_date,
@@ -1558,28 +1573,28 @@ FROM (
       _error_count = 0,
       '',
       multiIf(
-        cs.content ILIKE '%OperationFailed%', 'OperationFailed',
-        cs.content ILIKE '%UnknownError%', 'UnknownError',
-        cs.content ILIKE '%ORPCError%', 'ORPCError',
-        cs.content ILIKE '%TimeoutError%', 'TimeoutError',
-        cs.content ILIKE '%TypeError%', 'TypeError',
-        cs.content ILIKE '%ReferenceError%', 'ReferenceError',
-        cs.content ILIKE '%Error:%',
+        _error_sample_content ILIKE '%OperationFailed%', 'OperationFailed',
+        _error_sample_content ILIKE '%UnknownError%', 'UnknownError',
+        _error_sample_content ILIKE '%ORPCError%', 'ORPCError',
+        _error_sample_content ILIKE '%TimeoutError%', 'TimeoutError',
+        _error_sample_content ILIKE '%TypeError%', 'TypeError',
+        _error_sample_content ILIKE '%ReferenceError%', 'ReferenceError',
+        _error_sample_content ILIKE '%Error:%',
           if(
-            length(extractAll(cs.content, '([A-Z][a-zA-Z]+Error):')) > 0,
-            arrayElement(extractAll(cs.content, '([A-Z][a-zA-Z]+Error):'), 1),
+            length(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Error):')) > 0,
+            arrayElement(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Error):'), 1),
             'GenericError'
           ),
-        cs.content ILIKE '%Exception:%',
+        _error_sample_content ILIKE '%Exception:%',
           if(
-            length(extractAll(cs.content, '([A-Z][a-zA-Z]+Exception):')) > 0,
-            arrayElement(extractAll(cs.content, '([A-Z][a-zA-Z]+Exception):'), 1),
+            length(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Exception):')) > 0,
+            arrayElement(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Exception):'), 1),
             'Exception'
           ),
-        cs.content ILIKE '%error:%', 'GenericError',
-        cs.content ILIKE '%failed%', 'OperationFailed',
-        cs.content ILIKE '%timeout%', 'Timeout',
-        cs.content ILIKE '%not found%', 'NotFound',
+        _error_sample_content ILIKE '%error:%', 'GenericError',
+        _error_sample_content ILIKE '%failed%', 'OperationFailed',
+        _error_sample_content ILIKE '%timeout%', 'Timeout',
+        _error_sample_content ILIKE '%not found%', 'NotFound',
         'UnknownError'
       )
     ) as error_pattern,
@@ -1721,7 +1736,7 @@ SETTINGS
   async_insert=0,
   max_threads=1,
   max_insert_threads=1,
-  max_block_size=64,
+  max_block_size=1,
   max_bytes_before_external_group_by=268435456
 SELECT
   session_date,
@@ -1771,6 +1786,7 @@ FROM (
     ) AS _is_capped,
 
     if(_is_capped, '', cs.content) AS _line_safe_content,
+    if(_is_capped, substring(cs.content, 1, 20000000), cs.content) AS _error_sample_content,
 
     arrayFilter(
       x -> x != '',
@@ -1847,10 +1863,15 @@ FROM (
     arrayDistinct(arrayFilter(x -> x != '', extractAll(cs.content, '"name":"exec_command"[^}]*skills/([a-zA-Z0-9_-]+)/SKILL'))) AS _skills,
 
     toUInt32(
-      length(extractAll(cs.content, '\\\\"exit_code\\\\":[1-9][0-9]*'))
-      + arrayCount(
-          x -> x ILIKE '%Error:%' OR x ILIKE '%Exception:%',
-          _tool_output_lines
+      length(extractAll(_error_sample_content, '\\\\"exit_code\\\\":[1-9][0-9]*'))
+      + if(
+          _is_capped,
+          length(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Error):'))
+            + length(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Exception):')),
+          arrayCount(
+            x -> x ILIKE '%Error:%' OR x ILIKE '%Exception:%',
+            _tool_output_lines
+          )
         )
     ) AS _error_count
 
@@ -1886,28 +1907,28 @@ FROM (
       _error_count = 0,
       '',
       multiIf(
-        cs.content ILIKE '%OperationFailed%', 'OperationFailed',
-        cs.content ILIKE '%UnknownError%', 'UnknownError',
-        cs.content ILIKE '%ORPCError%', 'ORPCError',
-        cs.content ILIKE '%TimeoutError%', 'TimeoutError',
-        cs.content ILIKE '%TypeError%', 'TypeError',
-        cs.content ILIKE '%ReferenceError%', 'ReferenceError',
-        cs.content ILIKE '%Error:%',
+        _error_sample_content ILIKE '%OperationFailed%', 'OperationFailed',
+        _error_sample_content ILIKE '%UnknownError%', 'UnknownError',
+        _error_sample_content ILIKE '%ORPCError%', 'ORPCError',
+        _error_sample_content ILIKE '%TimeoutError%', 'TimeoutError',
+        _error_sample_content ILIKE '%TypeError%', 'TypeError',
+        _error_sample_content ILIKE '%ReferenceError%', 'ReferenceError',
+        _error_sample_content ILIKE '%Error:%',
           if(
-            length(extractAll(cs.content, '([A-Z][a-zA-Z]+Error):')) > 0,
-            arrayElement(extractAll(cs.content, '([A-Z][a-zA-Z]+Error):'), 1),
+            length(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Error):')) > 0,
+            arrayElement(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Error):'), 1),
             'GenericError'
           ),
-        cs.content ILIKE '%Exception:%',
+        _error_sample_content ILIKE '%Exception:%',
           if(
-            length(extractAll(cs.content, '([A-Z][a-zA-Z]+Exception):')) > 0,
-            arrayElement(extractAll(cs.content, '([A-Z][a-zA-Z]+Exception):'), 1),
+            length(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Exception):')) > 0,
+            arrayElement(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Exception):'), 1),
             'Exception'
           ),
-        cs.content ILIKE '%error:%', 'GenericError',
-        cs.content ILIKE '%failed%', 'OperationFailed',
-        cs.content ILIKE '%timeout%', 'Timeout',
-        cs.content ILIKE '%not found%', 'NotFound',
+        _error_sample_content ILIKE '%error:%', 'GenericError',
+        _error_sample_content ILIKE '%failed%', 'OperationFailed',
+        _error_sample_content ILIKE '%timeout%', 'Timeout',
+        _error_sample_content ILIKE '%not found%', 'NotFound',
         'UnknownError'
       )
     ) as error_pattern,
@@ -2037,7 +2058,7 @@ SETTINGS
   async_insert=0,
   max_threads=1,
   max_insert_threads=1,
-  max_block_size=64,
+  max_block_size=1,
   max_bytes_before_external_group_by=268435456
 SELECT
   session_date,
@@ -2087,6 +2108,7 @@ FROM (
     ) AS _is_capped,
 
     if(_is_capped, '', cs.content) AS _line_safe_content,
+    if(_is_capped, substring(cs.content, 1, 20000000), cs.content) AS _error_sample_content,
 
     arrayFilter(
       x -> JSONExtractString(x, 'type') IN ('user', 'assistant'),
@@ -2151,8 +2173,8 @@ FROM (
     arrayDistinct(arrayFilter(x -> x != '', extractAll(cs.content, '<command-name>/([^<]+)</command-name>'))) AS _slash_commands,
 
     toUInt32(
-      length(extractAll(cs.content, '"isApiErrorMessage":true'))
-      + length(extractAll(cs.content, '"is_error":true'))
+      length(extractAll(_error_sample_content, '"isApiErrorMessage":true'))
+      + length(extractAll(_error_sample_content, '"is_error":true'))
     ) AS _error_count,
 
     if(_is_capped, cs.session_date, arrayMin(_timestamps)) AS _session_date,
@@ -2191,28 +2213,28 @@ FROM (
       _error_count = 0,
       '',
       multiIf(
-        cs.content ILIKE '%OperationFailed%', 'OperationFailed',
-        cs.content ILIKE '%UnknownError%', 'UnknownError',
-        cs.content ILIKE '%ORPCError%', 'ORPCError',
-        cs.content ILIKE '%TimeoutError%', 'TimeoutError',
-        cs.content ILIKE '%TypeError%', 'TypeError',
-        cs.content ILIKE '%ReferenceError%', 'ReferenceError',
-        cs.content ILIKE '%Error:%',
+        _error_sample_content ILIKE '%OperationFailed%', 'OperationFailed',
+        _error_sample_content ILIKE '%UnknownError%', 'UnknownError',
+        _error_sample_content ILIKE '%ORPCError%', 'ORPCError',
+        _error_sample_content ILIKE '%TimeoutError%', 'TimeoutError',
+        _error_sample_content ILIKE '%TypeError%', 'TypeError',
+        _error_sample_content ILIKE '%ReferenceError%', 'ReferenceError',
+        _error_sample_content ILIKE '%Error:%',
           if(
-            length(extractAll(cs.content, '([A-Z][a-zA-Z]+Error):')) > 0,
-            arrayElement(extractAll(cs.content, '([A-Z][a-zA-Z]+Error):'), 1),
+            length(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Error):')) > 0,
+            arrayElement(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Error):'), 1),
             'GenericError'
           ),
-        cs.content ILIKE '%Exception:%',
+        _error_sample_content ILIKE '%Exception:%',
           if(
-            length(extractAll(cs.content, '([A-Z][a-zA-Z]+Exception):')) > 0,
-            arrayElement(extractAll(cs.content, '([A-Z][a-zA-Z]+Exception):'), 1),
+            length(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Exception):')) > 0,
+            arrayElement(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Exception):'), 1),
             'Exception'
           ),
-        cs.content ILIKE '%error:%', 'GenericError',
-        cs.content ILIKE '%failed%', 'OperationFailed',
-        cs.content ILIKE '%timeout%', 'Timeout',
-        cs.content ILIKE '%not found%', 'NotFound',
+        _error_sample_content ILIKE '%error:%', 'GenericError',
+        _error_sample_content ILIKE '%failed%', 'OperationFailed',
+        _error_sample_content ILIKE '%timeout%', 'Timeout',
+        _error_sample_content ILIKE '%not found%', 'NotFound',
         'UnknownError'
       )
     ) as error_pattern,
@@ -2354,7 +2376,7 @@ SETTINGS
   async_insert=0,
   max_threads=1,
   max_insert_threads=1,
-  max_block_size=64,
+  max_block_size=1,
   max_bytes_before_external_group_by=268435456
 SELECT
   session_date,
@@ -2404,6 +2426,7 @@ FROM (
     ) AS _is_capped,
 
     if(_is_capped, '', cs.content) AS _line_safe_content,
+    if(_is_capped, substring(cs.content, 1, 20000000), cs.content) AS _error_sample_content,
 
     arrayFilter(
       x -> x != '',
@@ -2480,10 +2503,15 @@ FROM (
     arrayDistinct(arrayFilter(x -> x != '', extractAll(cs.content, '"name":"exec_command"[^}]*skills/([a-zA-Z0-9_-]+)/SKILL'))) AS _skills,
 
     toUInt32(
-      length(extractAll(cs.content, '\\\\"exit_code\\\\":[1-9][0-9]*'))
-      + arrayCount(
-          x -> x ILIKE '%Error:%' OR x ILIKE '%Exception:%',
-          _tool_output_lines
+      length(extractAll(_error_sample_content, '\\\\"exit_code\\\\":[1-9][0-9]*'))
+      + if(
+          _is_capped,
+          length(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Error):'))
+            + length(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Exception):')),
+          arrayCount(
+            x -> x ILIKE '%Error:%' OR x ILIKE '%Exception:%',
+            _tool_output_lines
+          )
         )
     ) AS _error_count
 
@@ -2519,28 +2547,28 @@ FROM (
       _error_count = 0,
       '',
       multiIf(
-        cs.content ILIKE '%OperationFailed%', 'OperationFailed',
-        cs.content ILIKE '%UnknownError%', 'UnknownError',
-        cs.content ILIKE '%ORPCError%', 'ORPCError',
-        cs.content ILIKE '%TimeoutError%', 'TimeoutError',
-        cs.content ILIKE '%TypeError%', 'TypeError',
-        cs.content ILIKE '%ReferenceError%', 'ReferenceError',
-        cs.content ILIKE '%Error:%',
+        _error_sample_content ILIKE '%OperationFailed%', 'OperationFailed',
+        _error_sample_content ILIKE '%UnknownError%', 'UnknownError',
+        _error_sample_content ILIKE '%ORPCError%', 'ORPCError',
+        _error_sample_content ILIKE '%TimeoutError%', 'TimeoutError',
+        _error_sample_content ILIKE '%TypeError%', 'TypeError',
+        _error_sample_content ILIKE '%ReferenceError%', 'ReferenceError',
+        _error_sample_content ILIKE '%Error:%',
           if(
-            length(extractAll(cs.content, '([A-Z][a-zA-Z]+Error):')) > 0,
-            arrayElement(extractAll(cs.content, '([A-Z][a-zA-Z]+Error):'), 1),
+            length(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Error):')) > 0,
+            arrayElement(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Error):'), 1),
             'GenericError'
           ),
-        cs.content ILIKE '%Exception:%',
+        _error_sample_content ILIKE '%Exception:%',
           if(
-            length(extractAll(cs.content, '([A-Z][a-zA-Z]+Exception):')) > 0,
-            arrayElement(extractAll(cs.content, '([A-Z][a-zA-Z]+Exception):'), 1),
+            length(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Exception):')) > 0,
+            arrayElement(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Exception):'), 1),
             'Exception'
           ),
-        cs.content ILIKE '%error:%', 'GenericError',
-        cs.content ILIKE '%failed%', 'OperationFailed',
-        cs.content ILIKE '%timeout%', 'Timeout',
-        cs.content ILIKE '%not found%', 'NotFound',
+        _error_sample_content ILIKE '%error:%', 'GenericError',
+        _error_sample_content ILIKE '%failed%', 'OperationFailed',
+        _error_sample_content ILIKE '%timeout%', 'Timeout',
+        _error_sample_content ILIKE '%not found%', 'NotFound',
         'UnknownError'
       )
     ) as error_pattern,
@@ -2670,7 +2698,7 @@ SETTINGS
   async_insert=0,
   max_threads=1,
   max_insert_threads=1,
-  max_block_size=64,
+  max_block_size=1,
   max_bytes_before_external_group_by=268435456
 SELECT
   session_date,
@@ -2720,6 +2748,7 @@ FROM (
     ) AS _is_capped,
 
     if(_is_capped, '', cs.content) AS _line_safe_content,
+    if(_is_capped, substring(cs.content, 1, 20000000), cs.content) AS _error_sample_content,
 
     arrayFilter(
       x -> JSONExtractString(x, 'type') IN ('user', 'assistant'),
@@ -2784,8 +2813,8 @@ FROM (
     arrayDistinct(arrayFilter(x -> x != '', extractAll(cs.content, '<command-name>/([^<]+)</command-name>'))) AS _slash_commands,
 
     toUInt32(
-      length(extractAll(cs.content, '"isApiErrorMessage":true'))
-      + length(extractAll(cs.content, '"is_error":true'))
+      length(extractAll(_error_sample_content, '"isApiErrorMessage":true'))
+      + length(extractAll(_error_sample_content, '"is_error":true'))
     ) AS _error_count,
 
     if(_is_capped, cs.session_date, arrayMin(_timestamps)) AS _session_date,
@@ -2824,28 +2853,28 @@ FROM (
       _error_count = 0,
       '',
       multiIf(
-        cs.content ILIKE '%OperationFailed%', 'OperationFailed',
-        cs.content ILIKE '%UnknownError%', 'UnknownError',
-        cs.content ILIKE '%ORPCError%', 'ORPCError',
-        cs.content ILIKE '%TimeoutError%', 'TimeoutError',
-        cs.content ILIKE '%TypeError%', 'TypeError',
-        cs.content ILIKE '%ReferenceError%', 'ReferenceError',
-        cs.content ILIKE '%Error:%',
+        _error_sample_content ILIKE '%OperationFailed%', 'OperationFailed',
+        _error_sample_content ILIKE '%UnknownError%', 'UnknownError',
+        _error_sample_content ILIKE '%ORPCError%', 'ORPCError',
+        _error_sample_content ILIKE '%TimeoutError%', 'TimeoutError',
+        _error_sample_content ILIKE '%TypeError%', 'TypeError',
+        _error_sample_content ILIKE '%ReferenceError%', 'ReferenceError',
+        _error_sample_content ILIKE '%Error:%',
           if(
-            length(extractAll(cs.content, '([A-Z][a-zA-Z]+Error):')) > 0,
-            arrayElement(extractAll(cs.content, '([A-Z][a-zA-Z]+Error):'), 1),
+            length(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Error):')) > 0,
+            arrayElement(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Error):'), 1),
             'GenericError'
           ),
-        cs.content ILIKE '%Exception:%',
+        _error_sample_content ILIKE '%Exception:%',
           if(
-            length(extractAll(cs.content, '([A-Z][a-zA-Z]+Exception):')) > 0,
-            arrayElement(extractAll(cs.content, '([A-Z][a-zA-Z]+Exception):'), 1),
+            length(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Exception):')) > 0,
+            arrayElement(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Exception):'), 1),
             'Exception'
           ),
-        cs.content ILIKE '%error:%', 'GenericError',
-        cs.content ILIKE '%failed%', 'OperationFailed',
-        cs.content ILIKE '%timeout%', 'Timeout',
-        cs.content ILIKE '%not found%', 'NotFound',
+        _error_sample_content ILIKE '%error:%', 'GenericError',
+        _error_sample_content ILIKE '%failed%', 'OperationFailed',
+        _error_sample_content ILIKE '%timeout%', 'Timeout',
+        _error_sample_content ILIKE '%not found%', 'NotFound',
         'UnknownError'
       )
     ) as error_pattern,
@@ -2987,7 +3016,7 @@ SETTINGS
   async_insert=0,
   max_threads=1,
   max_insert_threads=1,
-  max_block_size=64,
+  max_block_size=1,
   max_bytes_before_external_group_by=268435456
 SELECT
   session_date,
@@ -3037,6 +3066,7 @@ FROM (
     ) AS _is_capped,
 
     if(_is_capped, '', cs.content) AS _line_safe_content,
+    if(_is_capped, substring(cs.content, 1, 20000000), cs.content) AS _error_sample_content,
 
     arrayFilter(
       x -> x != '',
@@ -3113,10 +3143,15 @@ FROM (
     arrayDistinct(arrayFilter(x -> x != '', extractAll(cs.content, '"name":"exec_command"[^}]*skills/([a-zA-Z0-9_-]+)/SKILL'))) AS _skills,
 
     toUInt32(
-      length(extractAll(cs.content, '\\\\"exit_code\\\\":[1-9][0-9]*'))
-      + arrayCount(
-          x -> x ILIKE '%Error:%' OR x ILIKE '%Exception:%',
-          _tool_output_lines
+      length(extractAll(_error_sample_content, '\\\\"exit_code\\\\":[1-9][0-9]*'))
+      + if(
+          _is_capped,
+          length(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Error):'))
+            + length(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Exception):')),
+          arrayCount(
+            x -> x ILIKE '%Error:%' OR x ILIKE '%Exception:%',
+            _tool_output_lines
+          )
         )
     ) AS _error_count
 
@@ -3152,28 +3187,28 @@ FROM (
       _error_count = 0,
       '',
       multiIf(
-        cs.content ILIKE '%OperationFailed%', 'OperationFailed',
-        cs.content ILIKE '%UnknownError%', 'UnknownError',
-        cs.content ILIKE '%ORPCError%', 'ORPCError',
-        cs.content ILIKE '%TimeoutError%', 'TimeoutError',
-        cs.content ILIKE '%TypeError%', 'TypeError',
-        cs.content ILIKE '%ReferenceError%', 'ReferenceError',
-        cs.content ILIKE '%Error:%',
+        _error_sample_content ILIKE '%OperationFailed%', 'OperationFailed',
+        _error_sample_content ILIKE '%UnknownError%', 'UnknownError',
+        _error_sample_content ILIKE '%ORPCError%', 'ORPCError',
+        _error_sample_content ILIKE '%TimeoutError%', 'TimeoutError',
+        _error_sample_content ILIKE '%TypeError%', 'TypeError',
+        _error_sample_content ILIKE '%ReferenceError%', 'ReferenceError',
+        _error_sample_content ILIKE '%Error:%',
           if(
-            length(extractAll(cs.content, '([A-Z][a-zA-Z]+Error):')) > 0,
-            arrayElement(extractAll(cs.content, '([A-Z][a-zA-Z]+Error):'), 1),
+            length(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Error):')) > 0,
+            arrayElement(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Error):'), 1),
             'GenericError'
           ),
-        cs.content ILIKE '%Exception:%',
+        _error_sample_content ILIKE '%Exception:%',
           if(
-            length(extractAll(cs.content, '([A-Z][a-zA-Z]+Exception):')) > 0,
-            arrayElement(extractAll(cs.content, '([A-Z][a-zA-Z]+Exception):'), 1),
+            length(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Exception):')) > 0,
+            arrayElement(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Exception):'), 1),
             'Exception'
           ),
-        cs.content ILIKE '%error:%', 'GenericError',
-        cs.content ILIKE '%failed%', 'OperationFailed',
-        cs.content ILIKE '%timeout%', 'Timeout',
-        cs.content ILIKE '%not found%', 'NotFound',
+        _error_sample_content ILIKE '%error:%', 'GenericError',
+        _error_sample_content ILIKE '%failed%', 'OperationFailed',
+        _error_sample_content ILIKE '%timeout%', 'Timeout',
+        _error_sample_content ILIKE '%not found%', 'NotFound',
         'UnknownError'
       )
     ) as error_pattern,
@@ -3303,7 +3338,7 @@ SETTINGS
   async_insert=0,
   max_threads=1,
   max_insert_threads=1,
-  max_block_size=64,
+  max_block_size=1,
   max_bytes_before_external_group_by=268435456
 SELECT
   session_date,
@@ -3353,6 +3388,7 @@ FROM (
     ) AS _is_capped,
 
     if(_is_capped, '', cs.content) AS _line_safe_content,
+    if(_is_capped, substring(cs.content, 1, 20000000), cs.content) AS _error_sample_content,
 
     arrayFilter(
       x -> JSONExtractString(x, 'type') IN ('user', 'assistant'),
@@ -3417,8 +3453,8 @@ FROM (
     arrayDistinct(arrayFilter(x -> x != '', extractAll(cs.content, '<command-name>/([^<]+)</command-name>'))) AS _slash_commands,
 
     toUInt32(
-      length(extractAll(cs.content, '"isApiErrorMessage":true'))
-      + length(extractAll(cs.content, '"is_error":true'))
+      length(extractAll(_error_sample_content, '"isApiErrorMessage":true'))
+      + length(extractAll(_error_sample_content, '"is_error":true'))
     ) AS _error_count,
 
     if(_is_capped, cs.session_date, arrayMin(_timestamps)) AS _session_date,
@@ -3457,28 +3493,28 @@ FROM (
       _error_count = 0,
       '',
       multiIf(
-        cs.content ILIKE '%OperationFailed%', 'OperationFailed',
-        cs.content ILIKE '%UnknownError%', 'UnknownError',
-        cs.content ILIKE '%ORPCError%', 'ORPCError',
-        cs.content ILIKE '%TimeoutError%', 'TimeoutError',
-        cs.content ILIKE '%TypeError%', 'TypeError',
-        cs.content ILIKE '%ReferenceError%', 'ReferenceError',
-        cs.content ILIKE '%Error:%',
+        _error_sample_content ILIKE '%OperationFailed%', 'OperationFailed',
+        _error_sample_content ILIKE '%UnknownError%', 'UnknownError',
+        _error_sample_content ILIKE '%ORPCError%', 'ORPCError',
+        _error_sample_content ILIKE '%TimeoutError%', 'TimeoutError',
+        _error_sample_content ILIKE '%TypeError%', 'TypeError',
+        _error_sample_content ILIKE '%ReferenceError%', 'ReferenceError',
+        _error_sample_content ILIKE '%Error:%',
           if(
-            length(extractAll(cs.content, '([A-Z][a-zA-Z]+Error):')) > 0,
-            arrayElement(extractAll(cs.content, '([A-Z][a-zA-Z]+Error):'), 1),
+            length(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Error):')) > 0,
+            arrayElement(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Error):'), 1),
             'GenericError'
           ),
-        cs.content ILIKE '%Exception:%',
+        _error_sample_content ILIKE '%Exception:%',
           if(
-            length(extractAll(cs.content, '([A-Z][a-zA-Z]+Exception):')) > 0,
-            arrayElement(extractAll(cs.content, '([A-Z][a-zA-Z]+Exception):'), 1),
+            length(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Exception):')) > 0,
+            arrayElement(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Exception):'), 1),
             'Exception'
           ),
-        cs.content ILIKE '%error:%', 'GenericError',
-        cs.content ILIKE '%failed%', 'OperationFailed',
-        cs.content ILIKE '%timeout%', 'Timeout',
-        cs.content ILIKE '%not found%', 'NotFound',
+        _error_sample_content ILIKE '%error:%', 'GenericError',
+        _error_sample_content ILIKE '%failed%', 'OperationFailed',
+        _error_sample_content ILIKE '%timeout%', 'Timeout',
+        _error_sample_content ILIKE '%not found%', 'NotFound',
         'UnknownError'
       )
     ) as error_pattern,
@@ -3620,7 +3656,7 @@ SETTINGS
   async_insert=0,
   max_threads=1,
   max_insert_threads=1,
-  max_block_size=64,
+  max_block_size=1,
   max_bytes_before_external_group_by=268435456
 SELECT
   session_date,
@@ -3670,6 +3706,7 @@ FROM (
     ) AS _is_capped,
 
     if(_is_capped, '', cs.content) AS _line_safe_content,
+    if(_is_capped, substring(cs.content, 1, 20000000), cs.content) AS _error_sample_content,
 
     arrayFilter(
       x -> x != '',
@@ -3746,10 +3783,15 @@ FROM (
     arrayDistinct(arrayFilter(x -> x != '', extractAll(cs.content, '"name":"exec_command"[^}]*skills/([a-zA-Z0-9_-]+)/SKILL'))) AS _skills,
 
     toUInt32(
-      length(extractAll(cs.content, '\\\\"exit_code\\\\":[1-9][0-9]*'))
-      + arrayCount(
-          x -> x ILIKE '%Error:%' OR x ILIKE '%Exception:%',
-          _tool_output_lines
+      length(extractAll(_error_sample_content, '\\\\"exit_code\\\\":[1-9][0-9]*'))
+      + if(
+          _is_capped,
+          length(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Error):'))
+            + length(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Exception):')),
+          arrayCount(
+            x -> x ILIKE '%Error:%' OR x ILIKE '%Exception:%',
+            _tool_output_lines
+          )
         )
     ) AS _error_count
 
@@ -3785,28 +3827,28 @@ FROM (
       _error_count = 0,
       '',
       multiIf(
-        cs.content ILIKE '%OperationFailed%', 'OperationFailed',
-        cs.content ILIKE '%UnknownError%', 'UnknownError',
-        cs.content ILIKE '%ORPCError%', 'ORPCError',
-        cs.content ILIKE '%TimeoutError%', 'TimeoutError',
-        cs.content ILIKE '%TypeError%', 'TypeError',
-        cs.content ILIKE '%ReferenceError%', 'ReferenceError',
-        cs.content ILIKE '%Error:%',
+        _error_sample_content ILIKE '%OperationFailed%', 'OperationFailed',
+        _error_sample_content ILIKE '%UnknownError%', 'UnknownError',
+        _error_sample_content ILIKE '%ORPCError%', 'ORPCError',
+        _error_sample_content ILIKE '%TimeoutError%', 'TimeoutError',
+        _error_sample_content ILIKE '%TypeError%', 'TypeError',
+        _error_sample_content ILIKE '%ReferenceError%', 'ReferenceError',
+        _error_sample_content ILIKE '%Error:%',
           if(
-            length(extractAll(cs.content, '([A-Z][a-zA-Z]+Error):')) > 0,
-            arrayElement(extractAll(cs.content, '([A-Z][a-zA-Z]+Error):'), 1),
+            length(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Error):')) > 0,
+            arrayElement(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Error):'), 1),
             'GenericError'
           ),
-        cs.content ILIKE '%Exception:%',
+        _error_sample_content ILIKE '%Exception:%',
           if(
-            length(extractAll(cs.content, '([A-Z][a-zA-Z]+Exception):')) > 0,
-            arrayElement(extractAll(cs.content, '([A-Z][a-zA-Z]+Exception):'), 1),
+            length(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Exception):')) > 0,
+            arrayElement(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Exception):'), 1),
             'Exception'
           ),
-        cs.content ILIKE '%error:%', 'GenericError',
-        cs.content ILIKE '%failed%', 'OperationFailed',
-        cs.content ILIKE '%timeout%', 'Timeout',
-        cs.content ILIKE '%not found%', 'NotFound',
+        _error_sample_content ILIKE '%error:%', 'GenericError',
+        _error_sample_content ILIKE '%failed%', 'OperationFailed',
+        _error_sample_content ILIKE '%timeout%', 'Timeout',
+        _error_sample_content ILIKE '%not found%', 'NotFound',
         'UnknownError'
       )
     ) as error_pattern,
@@ -3936,7 +3978,7 @@ SETTINGS
   async_insert=0,
   max_threads=1,
   max_insert_threads=1,
-  max_block_size=64,
+  max_block_size=1,
   max_bytes_before_external_group_by=268435456
 SELECT
   session_date,
@@ -3986,6 +4028,7 @@ FROM (
     ) AS _is_capped,
 
     if(_is_capped, '', cs.content) AS _line_safe_content,
+    if(_is_capped, substring(cs.content, 1, 20000000), cs.content) AS _error_sample_content,
 
     arrayFilter(
       x -> JSONExtractString(x, 'type') IN ('user', 'assistant'),
@@ -4050,8 +4093,8 @@ FROM (
     arrayDistinct(arrayFilter(x -> x != '', extractAll(cs.content, '<command-name>/([^<]+)</command-name>'))) AS _slash_commands,
 
     toUInt32(
-      length(extractAll(cs.content, '"isApiErrorMessage":true'))
-      + length(extractAll(cs.content, '"is_error":true'))
+      length(extractAll(_error_sample_content, '"isApiErrorMessage":true'))
+      + length(extractAll(_error_sample_content, '"is_error":true'))
     ) AS _error_count,
 
     if(_is_capped, cs.session_date, arrayMin(_timestamps)) AS _session_date,
@@ -4090,28 +4133,28 @@ FROM (
       _error_count = 0,
       '',
       multiIf(
-        cs.content ILIKE '%OperationFailed%', 'OperationFailed',
-        cs.content ILIKE '%UnknownError%', 'UnknownError',
-        cs.content ILIKE '%ORPCError%', 'ORPCError',
-        cs.content ILIKE '%TimeoutError%', 'TimeoutError',
-        cs.content ILIKE '%TypeError%', 'TypeError',
-        cs.content ILIKE '%ReferenceError%', 'ReferenceError',
-        cs.content ILIKE '%Error:%',
+        _error_sample_content ILIKE '%OperationFailed%', 'OperationFailed',
+        _error_sample_content ILIKE '%UnknownError%', 'UnknownError',
+        _error_sample_content ILIKE '%ORPCError%', 'ORPCError',
+        _error_sample_content ILIKE '%TimeoutError%', 'TimeoutError',
+        _error_sample_content ILIKE '%TypeError%', 'TypeError',
+        _error_sample_content ILIKE '%ReferenceError%', 'ReferenceError',
+        _error_sample_content ILIKE '%Error:%',
           if(
-            length(extractAll(cs.content, '([A-Z][a-zA-Z]+Error):')) > 0,
-            arrayElement(extractAll(cs.content, '([A-Z][a-zA-Z]+Error):'), 1),
+            length(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Error):')) > 0,
+            arrayElement(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Error):'), 1),
             'GenericError'
           ),
-        cs.content ILIKE '%Exception:%',
+        _error_sample_content ILIKE '%Exception:%',
           if(
-            length(extractAll(cs.content, '([A-Z][a-zA-Z]+Exception):')) > 0,
-            arrayElement(extractAll(cs.content, '([A-Z][a-zA-Z]+Exception):'), 1),
+            length(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Exception):')) > 0,
+            arrayElement(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Exception):'), 1),
             'Exception'
           ),
-        cs.content ILIKE '%error:%', 'GenericError',
-        cs.content ILIKE '%failed%', 'OperationFailed',
-        cs.content ILIKE '%timeout%', 'Timeout',
-        cs.content ILIKE '%not found%', 'NotFound',
+        _error_sample_content ILIKE '%error:%', 'GenericError',
+        _error_sample_content ILIKE '%failed%', 'OperationFailed',
+        _error_sample_content ILIKE '%timeout%', 'Timeout',
+        _error_sample_content ILIKE '%not found%', 'NotFound',
         'UnknownError'
       )
     ) as error_pattern,
@@ -4253,7 +4296,7 @@ SETTINGS
   async_insert=0,
   max_threads=1,
   max_insert_threads=1,
-  max_block_size=64,
+  max_block_size=1,
   max_bytes_before_external_group_by=268435456
 SELECT
   session_date,
@@ -4303,6 +4346,7 @@ FROM (
     ) AS _is_capped,
 
     if(_is_capped, '', cs.content) AS _line_safe_content,
+    if(_is_capped, substring(cs.content, 1, 20000000), cs.content) AS _error_sample_content,
 
     arrayFilter(
       x -> x != '',
@@ -4379,10 +4423,15 @@ FROM (
     arrayDistinct(arrayFilter(x -> x != '', extractAll(cs.content, '"name":"exec_command"[^}]*skills/([a-zA-Z0-9_-]+)/SKILL'))) AS _skills,
 
     toUInt32(
-      length(extractAll(cs.content, '\\\\"exit_code\\\\":[1-9][0-9]*'))
-      + arrayCount(
-          x -> x ILIKE '%Error:%' OR x ILIKE '%Exception:%',
-          _tool_output_lines
+      length(extractAll(_error_sample_content, '\\\\"exit_code\\\\":[1-9][0-9]*'))
+      + if(
+          _is_capped,
+          length(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Error):'))
+            + length(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Exception):')),
+          arrayCount(
+            x -> x ILIKE '%Error:%' OR x ILIKE '%Exception:%',
+            _tool_output_lines
+          )
         )
     ) AS _error_count
 
@@ -4418,28 +4467,28 @@ FROM (
       _error_count = 0,
       '',
       multiIf(
-        cs.content ILIKE '%OperationFailed%', 'OperationFailed',
-        cs.content ILIKE '%UnknownError%', 'UnknownError',
-        cs.content ILIKE '%ORPCError%', 'ORPCError',
-        cs.content ILIKE '%TimeoutError%', 'TimeoutError',
-        cs.content ILIKE '%TypeError%', 'TypeError',
-        cs.content ILIKE '%ReferenceError%', 'ReferenceError',
-        cs.content ILIKE '%Error:%',
+        _error_sample_content ILIKE '%OperationFailed%', 'OperationFailed',
+        _error_sample_content ILIKE '%UnknownError%', 'UnknownError',
+        _error_sample_content ILIKE '%ORPCError%', 'ORPCError',
+        _error_sample_content ILIKE '%TimeoutError%', 'TimeoutError',
+        _error_sample_content ILIKE '%TypeError%', 'TypeError',
+        _error_sample_content ILIKE '%ReferenceError%', 'ReferenceError',
+        _error_sample_content ILIKE '%Error:%',
           if(
-            length(extractAll(cs.content, '([A-Z][a-zA-Z]+Error):')) > 0,
-            arrayElement(extractAll(cs.content, '([A-Z][a-zA-Z]+Error):'), 1),
+            length(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Error):')) > 0,
+            arrayElement(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Error):'), 1),
             'GenericError'
           ),
-        cs.content ILIKE '%Exception:%',
+        _error_sample_content ILIKE '%Exception:%',
           if(
-            length(extractAll(cs.content, '([A-Z][a-zA-Z]+Exception):')) > 0,
-            arrayElement(extractAll(cs.content, '([A-Z][a-zA-Z]+Exception):'), 1),
+            length(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Exception):')) > 0,
+            arrayElement(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Exception):'), 1),
             'Exception'
           ),
-        cs.content ILIKE '%error:%', 'GenericError',
-        cs.content ILIKE '%failed%', 'OperationFailed',
-        cs.content ILIKE '%timeout%', 'Timeout',
-        cs.content ILIKE '%not found%', 'NotFound',
+        _error_sample_content ILIKE '%error:%', 'GenericError',
+        _error_sample_content ILIKE '%failed%', 'OperationFailed',
+        _error_sample_content ILIKE '%timeout%', 'Timeout',
+        _error_sample_content ILIKE '%not found%', 'NotFound',
         'UnknownError'
       )
     ) as error_pattern,
@@ -4569,7 +4618,7 @@ SETTINGS
   async_insert=0,
   max_threads=1,
   max_insert_threads=1,
-  max_block_size=64,
+  max_block_size=1,
   max_bytes_before_external_group_by=268435456
 SELECT
   session_date,
@@ -4619,6 +4668,7 @@ FROM (
     ) AS _is_capped,
 
     if(_is_capped, '', cs.content) AS _line_safe_content,
+    if(_is_capped, substring(cs.content, 1, 20000000), cs.content) AS _error_sample_content,
 
     arrayFilter(
       x -> JSONExtractString(x, 'type') IN ('user', 'assistant'),
@@ -4683,8 +4733,8 @@ FROM (
     arrayDistinct(arrayFilter(x -> x != '', extractAll(cs.content, '<command-name>/([^<]+)</command-name>'))) AS _slash_commands,
 
     toUInt32(
-      length(extractAll(cs.content, '"isApiErrorMessage":true'))
-      + length(extractAll(cs.content, '"is_error":true'))
+      length(extractAll(_error_sample_content, '"isApiErrorMessage":true'))
+      + length(extractAll(_error_sample_content, '"is_error":true'))
     ) AS _error_count,
 
     if(_is_capped, cs.session_date, arrayMin(_timestamps)) AS _session_date,
@@ -4723,28 +4773,28 @@ FROM (
       _error_count = 0,
       '',
       multiIf(
-        cs.content ILIKE '%OperationFailed%', 'OperationFailed',
-        cs.content ILIKE '%UnknownError%', 'UnknownError',
-        cs.content ILIKE '%ORPCError%', 'ORPCError',
-        cs.content ILIKE '%TimeoutError%', 'TimeoutError',
-        cs.content ILIKE '%TypeError%', 'TypeError',
-        cs.content ILIKE '%ReferenceError%', 'ReferenceError',
-        cs.content ILIKE '%Error:%',
+        _error_sample_content ILIKE '%OperationFailed%', 'OperationFailed',
+        _error_sample_content ILIKE '%UnknownError%', 'UnknownError',
+        _error_sample_content ILIKE '%ORPCError%', 'ORPCError',
+        _error_sample_content ILIKE '%TimeoutError%', 'TimeoutError',
+        _error_sample_content ILIKE '%TypeError%', 'TypeError',
+        _error_sample_content ILIKE '%ReferenceError%', 'ReferenceError',
+        _error_sample_content ILIKE '%Error:%',
           if(
-            length(extractAll(cs.content, '([A-Z][a-zA-Z]+Error):')) > 0,
-            arrayElement(extractAll(cs.content, '([A-Z][a-zA-Z]+Error):'), 1),
+            length(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Error):')) > 0,
+            arrayElement(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Error):'), 1),
             'GenericError'
           ),
-        cs.content ILIKE '%Exception:%',
+        _error_sample_content ILIKE '%Exception:%',
           if(
-            length(extractAll(cs.content, '([A-Z][a-zA-Z]+Exception):')) > 0,
-            arrayElement(extractAll(cs.content, '([A-Z][a-zA-Z]+Exception):'), 1),
+            length(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Exception):')) > 0,
+            arrayElement(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Exception):'), 1),
             'Exception'
           ),
-        cs.content ILIKE '%error:%', 'GenericError',
-        cs.content ILIKE '%failed%', 'OperationFailed',
-        cs.content ILIKE '%timeout%', 'Timeout',
-        cs.content ILIKE '%not found%', 'NotFound',
+        _error_sample_content ILIKE '%error:%', 'GenericError',
+        _error_sample_content ILIKE '%failed%', 'OperationFailed',
+        _error_sample_content ILIKE '%timeout%', 'Timeout',
+        _error_sample_content ILIKE '%not found%', 'NotFound',
         'UnknownError'
       )
     ) as error_pattern,
@@ -4886,7 +4936,7 @@ SETTINGS
   async_insert=0,
   max_threads=1,
   max_insert_threads=1,
-  max_block_size=64,
+  max_block_size=1,
   max_bytes_before_external_group_by=268435456
 SELECT
   session_date,
@@ -4936,6 +4986,7 @@ FROM (
     ) AS _is_capped,
 
     if(_is_capped, '', cs.content) AS _line_safe_content,
+    if(_is_capped, substring(cs.content, 1, 20000000), cs.content) AS _error_sample_content,
 
     arrayFilter(
       x -> x != '',
@@ -5012,10 +5063,15 @@ FROM (
     arrayDistinct(arrayFilter(x -> x != '', extractAll(cs.content, '"name":"exec_command"[^}]*skills/([a-zA-Z0-9_-]+)/SKILL'))) AS _skills,
 
     toUInt32(
-      length(extractAll(cs.content, '\\\\"exit_code\\\\":[1-9][0-9]*'))
-      + arrayCount(
-          x -> x ILIKE '%Error:%' OR x ILIKE '%Exception:%',
-          _tool_output_lines
+      length(extractAll(_error_sample_content, '\\\\"exit_code\\\\":[1-9][0-9]*'))
+      + if(
+          _is_capped,
+          length(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Error):'))
+            + length(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Exception):')),
+          arrayCount(
+            x -> x ILIKE '%Error:%' OR x ILIKE '%Exception:%',
+            _tool_output_lines
+          )
         )
     ) AS _error_count
 
@@ -5051,28 +5107,28 @@ FROM (
       _error_count = 0,
       '',
       multiIf(
-        cs.content ILIKE '%OperationFailed%', 'OperationFailed',
-        cs.content ILIKE '%UnknownError%', 'UnknownError',
-        cs.content ILIKE '%ORPCError%', 'ORPCError',
-        cs.content ILIKE '%TimeoutError%', 'TimeoutError',
-        cs.content ILIKE '%TypeError%', 'TypeError',
-        cs.content ILIKE '%ReferenceError%', 'ReferenceError',
-        cs.content ILIKE '%Error:%',
+        _error_sample_content ILIKE '%OperationFailed%', 'OperationFailed',
+        _error_sample_content ILIKE '%UnknownError%', 'UnknownError',
+        _error_sample_content ILIKE '%ORPCError%', 'ORPCError',
+        _error_sample_content ILIKE '%TimeoutError%', 'TimeoutError',
+        _error_sample_content ILIKE '%TypeError%', 'TypeError',
+        _error_sample_content ILIKE '%ReferenceError%', 'ReferenceError',
+        _error_sample_content ILIKE '%Error:%',
           if(
-            length(extractAll(cs.content, '([A-Z][a-zA-Z]+Error):')) > 0,
-            arrayElement(extractAll(cs.content, '([A-Z][a-zA-Z]+Error):'), 1),
+            length(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Error):')) > 0,
+            arrayElement(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Error):'), 1),
             'GenericError'
           ),
-        cs.content ILIKE '%Exception:%',
+        _error_sample_content ILIKE '%Exception:%',
           if(
-            length(extractAll(cs.content, '([A-Z][a-zA-Z]+Exception):')) > 0,
-            arrayElement(extractAll(cs.content, '([A-Z][a-zA-Z]+Exception):'), 1),
+            length(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Exception):')) > 0,
+            arrayElement(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Exception):'), 1),
             'Exception'
           ),
-        cs.content ILIKE '%error:%', 'GenericError',
-        cs.content ILIKE '%failed%', 'OperationFailed',
-        cs.content ILIKE '%timeout%', 'Timeout',
-        cs.content ILIKE '%not found%', 'NotFound',
+        _error_sample_content ILIKE '%error:%', 'GenericError',
+        _error_sample_content ILIKE '%failed%', 'OperationFailed',
+        _error_sample_content ILIKE '%timeout%', 'Timeout',
+        _error_sample_content ILIKE '%not found%', 'NotFound',
         'UnknownError'
       )
     ) as error_pattern,
@@ -5202,7 +5258,7 @@ SETTINGS
   async_insert=0,
   max_threads=1,
   max_insert_threads=1,
-  max_block_size=64,
+  max_block_size=1,
   max_bytes_before_external_group_by=268435456
 SELECT
   session_date,
@@ -5252,6 +5308,7 @@ FROM (
     ) AS _is_capped,
 
     if(_is_capped, '', cs.content) AS _line_safe_content,
+    if(_is_capped, substring(cs.content, 1, 20000000), cs.content) AS _error_sample_content,
 
     arrayFilter(
       x -> JSONExtractString(x, 'type') IN ('user', 'assistant'),
@@ -5316,8 +5373,8 @@ FROM (
     arrayDistinct(arrayFilter(x -> x != '', extractAll(cs.content, '<command-name>/([^<]+)</command-name>'))) AS _slash_commands,
 
     toUInt32(
-      length(extractAll(cs.content, '"isApiErrorMessage":true'))
-      + length(extractAll(cs.content, '"is_error":true'))
+      length(extractAll(_error_sample_content, '"isApiErrorMessage":true'))
+      + length(extractAll(_error_sample_content, '"is_error":true'))
     ) AS _error_count,
 
     if(_is_capped, cs.session_date, arrayMin(_timestamps)) AS _session_date,
@@ -5356,28 +5413,28 @@ FROM (
       _error_count = 0,
       '',
       multiIf(
-        cs.content ILIKE '%OperationFailed%', 'OperationFailed',
-        cs.content ILIKE '%UnknownError%', 'UnknownError',
-        cs.content ILIKE '%ORPCError%', 'ORPCError',
-        cs.content ILIKE '%TimeoutError%', 'TimeoutError',
-        cs.content ILIKE '%TypeError%', 'TypeError',
-        cs.content ILIKE '%ReferenceError%', 'ReferenceError',
-        cs.content ILIKE '%Error:%',
+        _error_sample_content ILIKE '%OperationFailed%', 'OperationFailed',
+        _error_sample_content ILIKE '%UnknownError%', 'UnknownError',
+        _error_sample_content ILIKE '%ORPCError%', 'ORPCError',
+        _error_sample_content ILIKE '%TimeoutError%', 'TimeoutError',
+        _error_sample_content ILIKE '%TypeError%', 'TypeError',
+        _error_sample_content ILIKE '%ReferenceError%', 'ReferenceError',
+        _error_sample_content ILIKE '%Error:%',
           if(
-            length(extractAll(cs.content, '([A-Z][a-zA-Z]+Error):')) > 0,
-            arrayElement(extractAll(cs.content, '([A-Z][a-zA-Z]+Error):'), 1),
+            length(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Error):')) > 0,
+            arrayElement(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Error):'), 1),
             'GenericError'
           ),
-        cs.content ILIKE '%Exception:%',
+        _error_sample_content ILIKE '%Exception:%',
           if(
-            length(extractAll(cs.content, '([A-Z][a-zA-Z]+Exception):')) > 0,
-            arrayElement(extractAll(cs.content, '([A-Z][a-zA-Z]+Exception):'), 1),
+            length(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Exception):')) > 0,
+            arrayElement(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Exception):'), 1),
             'Exception'
           ),
-        cs.content ILIKE '%error:%', 'GenericError',
-        cs.content ILIKE '%failed%', 'OperationFailed',
-        cs.content ILIKE '%timeout%', 'Timeout',
-        cs.content ILIKE '%not found%', 'NotFound',
+        _error_sample_content ILIKE '%error:%', 'GenericError',
+        _error_sample_content ILIKE '%failed%', 'OperationFailed',
+        _error_sample_content ILIKE '%timeout%', 'Timeout',
+        _error_sample_content ILIKE '%not found%', 'NotFound',
         'UnknownError'
       )
     ) as error_pattern,
@@ -5519,7 +5576,7 @@ SETTINGS
   async_insert=0,
   max_threads=1,
   max_insert_threads=1,
-  max_block_size=64,
+  max_block_size=1,
   max_bytes_before_external_group_by=268435456
 SELECT
   session_date,
@@ -5569,6 +5626,7 @@ FROM (
     ) AS _is_capped,
 
     if(_is_capped, '', cs.content) AS _line_safe_content,
+    if(_is_capped, substring(cs.content, 1, 20000000), cs.content) AS _error_sample_content,
 
     arrayFilter(
       x -> x != '',
@@ -5645,10 +5703,15 @@ FROM (
     arrayDistinct(arrayFilter(x -> x != '', extractAll(cs.content, '"name":"exec_command"[^}]*skills/([a-zA-Z0-9_-]+)/SKILL'))) AS _skills,
 
     toUInt32(
-      length(extractAll(cs.content, '\\\\"exit_code\\\\":[1-9][0-9]*'))
-      + arrayCount(
-          x -> x ILIKE '%Error:%' OR x ILIKE '%Exception:%',
-          _tool_output_lines
+      length(extractAll(_error_sample_content, '\\\\"exit_code\\\\":[1-9][0-9]*'))
+      + if(
+          _is_capped,
+          length(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Error):'))
+            + length(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Exception):')),
+          arrayCount(
+            x -> x ILIKE '%Error:%' OR x ILIKE '%Exception:%',
+            _tool_output_lines
+          )
         )
     ) AS _error_count
 
@@ -5684,28 +5747,28 @@ FROM (
       _error_count = 0,
       '',
       multiIf(
-        cs.content ILIKE '%OperationFailed%', 'OperationFailed',
-        cs.content ILIKE '%UnknownError%', 'UnknownError',
-        cs.content ILIKE '%ORPCError%', 'ORPCError',
-        cs.content ILIKE '%TimeoutError%', 'TimeoutError',
-        cs.content ILIKE '%TypeError%', 'TypeError',
-        cs.content ILIKE '%ReferenceError%', 'ReferenceError',
-        cs.content ILIKE '%Error:%',
+        _error_sample_content ILIKE '%OperationFailed%', 'OperationFailed',
+        _error_sample_content ILIKE '%UnknownError%', 'UnknownError',
+        _error_sample_content ILIKE '%ORPCError%', 'ORPCError',
+        _error_sample_content ILIKE '%TimeoutError%', 'TimeoutError',
+        _error_sample_content ILIKE '%TypeError%', 'TypeError',
+        _error_sample_content ILIKE '%ReferenceError%', 'ReferenceError',
+        _error_sample_content ILIKE '%Error:%',
           if(
-            length(extractAll(cs.content, '([A-Z][a-zA-Z]+Error):')) > 0,
-            arrayElement(extractAll(cs.content, '([A-Z][a-zA-Z]+Error):'), 1),
+            length(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Error):')) > 0,
+            arrayElement(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Error):'), 1),
             'GenericError'
           ),
-        cs.content ILIKE '%Exception:%',
+        _error_sample_content ILIKE '%Exception:%',
           if(
-            length(extractAll(cs.content, '([A-Z][a-zA-Z]+Exception):')) > 0,
-            arrayElement(extractAll(cs.content, '([A-Z][a-zA-Z]+Exception):'), 1),
+            length(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Exception):')) > 0,
+            arrayElement(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Exception):'), 1),
             'Exception'
           ),
-        cs.content ILIKE '%error:%', 'GenericError',
-        cs.content ILIKE '%failed%', 'OperationFailed',
-        cs.content ILIKE '%timeout%', 'Timeout',
-        cs.content ILIKE '%not found%', 'NotFound',
+        _error_sample_content ILIKE '%error:%', 'GenericError',
+        _error_sample_content ILIKE '%failed%', 'OperationFailed',
+        _error_sample_content ILIKE '%timeout%', 'Timeout',
+        _error_sample_content ILIKE '%not found%', 'NotFound',
         'UnknownError'
       )
     ) as error_pattern,
@@ -5835,7 +5898,7 @@ SETTINGS
   async_insert=0,
   max_threads=1,
   max_insert_threads=1,
-  max_block_size=64,
+  max_block_size=1,
   max_bytes_before_external_group_by=268435456
 SELECT
   session_date,
@@ -5885,6 +5948,7 @@ FROM (
     ) AS _is_capped,
 
     if(_is_capped, '', cs.content) AS _line_safe_content,
+    if(_is_capped, substring(cs.content, 1, 20000000), cs.content) AS _error_sample_content,
 
     arrayFilter(
       x -> JSONExtractString(x, 'type') IN ('user', 'assistant'),
@@ -5949,8 +6013,8 @@ FROM (
     arrayDistinct(arrayFilter(x -> x != '', extractAll(cs.content, '<command-name>/([^<]+)</command-name>'))) AS _slash_commands,
 
     toUInt32(
-      length(extractAll(cs.content, '"isApiErrorMessage":true'))
-      + length(extractAll(cs.content, '"is_error":true'))
+      length(extractAll(_error_sample_content, '"isApiErrorMessage":true'))
+      + length(extractAll(_error_sample_content, '"is_error":true'))
     ) AS _error_count,
 
     if(_is_capped, cs.session_date, arrayMin(_timestamps)) AS _session_date,
@@ -5989,28 +6053,28 @@ FROM (
       _error_count = 0,
       '',
       multiIf(
-        cs.content ILIKE '%OperationFailed%', 'OperationFailed',
-        cs.content ILIKE '%UnknownError%', 'UnknownError',
-        cs.content ILIKE '%ORPCError%', 'ORPCError',
-        cs.content ILIKE '%TimeoutError%', 'TimeoutError',
-        cs.content ILIKE '%TypeError%', 'TypeError',
-        cs.content ILIKE '%ReferenceError%', 'ReferenceError',
-        cs.content ILIKE '%Error:%',
+        _error_sample_content ILIKE '%OperationFailed%', 'OperationFailed',
+        _error_sample_content ILIKE '%UnknownError%', 'UnknownError',
+        _error_sample_content ILIKE '%ORPCError%', 'ORPCError',
+        _error_sample_content ILIKE '%TimeoutError%', 'TimeoutError',
+        _error_sample_content ILIKE '%TypeError%', 'TypeError',
+        _error_sample_content ILIKE '%ReferenceError%', 'ReferenceError',
+        _error_sample_content ILIKE '%Error:%',
           if(
-            length(extractAll(cs.content, '([A-Z][a-zA-Z]+Error):')) > 0,
-            arrayElement(extractAll(cs.content, '([A-Z][a-zA-Z]+Error):'), 1),
+            length(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Error):')) > 0,
+            arrayElement(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Error):'), 1),
             'GenericError'
           ),
-        cs.content ILIKE '%Exception:%',
+        _error_sample_content ILIKE '%Exception:%',
           if(
-            length(extractAll(cs.content, '([A-Z][a-zA-Z]+Exception):')) > 0,
-            arrayElement(extractAll(cs.content, '([A-Z][a-zA-Z]+Exception):'), 1),
+            length(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Exception):')) > 0,
+            arrayElement(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Exception):'), 1),
             'Exception'
           ),
-        cs.content ILIKE '%error:%', 'GenericError',
-        cs.content ILIKE '%failed%', 'OperationFailed',
-        cs.content ILIKE '%timeout%', 'Timeout',
-        cs.content ILIKE '%not found%', 'NotFound',
+        _error_sample_content ILIKE '%error:%', 'GenericError',
+        _error_sample_content ILIKE '%failed%', 'OperationFailed',
+        _error_sample_content ILIKE '%timeout%', 'Timeout',
+        _error_sample_content ILIKE '%not found%', 'NotFound',
         'UnknownError'
       )
     ) as error_pattern,
@@ -6152,7 +6216,7 @@ SETTINGS
   async_insert=0,
   max_threads=1,
   max_insert_threads=1,
-  max_block_size=64,
+  max_block_size=1,
   max_bytes_before_external_group_by=268435456
 SELECT
   session_date,
@@ -6202,6 +6266,7 @@ FROM (
     ) AS _is_capped,
 
     if(_is_capped, '', cs.content) AS _line_safe_content,
+    if(_is_capped, substring(cs.content, 1, 20000000), cs.content) AS _error_sample_content,
 
     arrayFilter(
       x -> x != '',
@@ -6278,10 +6343,15 @@ FROM (
     arrayDistinct(arrayFilter(x -> x != '', extractAll(cs.content, '"name":"exec_command"[^}]*skills/([a-zA-Z0-9_-]+)/SKILL'))) AS _skills,
 
     toUInt32(
-      length(extractAll(cs.content, '\\\\"exit_code\\\\":[1-9][0-9]*'))
-      + arrayCount(
-          x -> x ILIKE '%Error:%' OR x ILIKE '%Exception:%',
-          _tool_output_lines
+      length(extractAll(_error_sample_content, '\\\\"exit_code\\\\":[1-9][0-9]*'))
+      + if(
+          _is_capped,
+          length(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Error):'))
+            + length(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Exception):')),
+          arrayCount(
+            x -> x ILIKE '%Error:%' OR x ILIKE '%Exception:%',
+            _tool_output_lines
+          )
         )
     ) AS _error_count
 
@@ -6317,28 +6387,28 @@ FROM (
       _error_count = 0,
       '',
       multiIf(
-        cs.content ILIKE '%OperationFailed%', 'OperationFailed',
-        cs.content ILIKE '%UnknownError%', 'UnknownError',
-        cs.content ILIKE '%ORPCError%', 'ORPCError',
-        cs.content ILIKE '%TimeoutError%', 'TimeoutError',
-        cs.content ILIKE '%TypeError%', 'TypeError',
-        cs.content ILIKE '%ReferenceError%', 'ReferenceError',
-        cs.content ILIKE '%Error:%',
+        _error_sample_content ILIKE '%OperationFailed%', 'OperationFailed',
+        _error_sample_content ILIKE '%UnknownError%', 'UnknownError',
+        _error_sample_content ILIKE '%ORPCError%', 'ORPCError',
+        _error_sample_content ILIKE '%TimeoutError%', 'TimeoutError',
+        _error_sample_content ILIKE '%TypeError%', 'TypeError',
+        _error_sample_content ILIKE '%ReferenceError%', 'ReferenceError',
+        _error_sample_content ILIKE '%Error:%',
           if(
-            length(extractAll(cs.content, '([A-Z][a-zA-Z]+Error):')) > 0,
-            arrayElement(extractAll(cs.content, '([A-Z][a-zA-Z]+Error):'), 1),
+            length(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Error):')) > 0,
+            arrayElement(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Error):'), 1),
             'GenericError'
           ),
-        cs.content ILIKE '%Exception:%',
+        _error_sample_content ILIKE '%Exception:%',
           if(
-            length(extractAll(cs.content, '([A-Z][a-zA-Z]+Exception):')) > 0,
-            arrayElement(extractAll(cs.content, '([A-Z][a-zA-Z]+Exception):'), 1),
+            length(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Exception):')) > 0,
+            arrayElement(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Exception):'), 1),
             'Exception'
           ),
-        cs.content ILIKE '%error:%', 'GenericError',
-        cs.content ILIKE '%failed%', 'OperationFailed',
-        cs.content ILIKE '%timeout%', 'Timeout',
-        cs.content ILIKE '%not found%', 'NotFound',
+        _error_sample_content ILIKE '%error:%', 'GenericError',
+        _error_sample_content ILIKE '%failed%', 'OperationFailed',
+        _error_sample_content ILIKE '%timeout%', 'Timeout',
+        _error_sample_content ILIKE '%not found%', 'NotFound',
         'UnknownError'
       )
     ) as error_pattern,
@@ -6468,7 +6538,7 @@ SETTINGS
   async_insert=0,
   max_threads=1,
   max_insert_threads=1,
-  max_block_size=64,
+  max_block_size=1,
   max_bytes_before_external_group_by=268435456
 SELECT
   session_date,
@@ -6518,6 +6588,7 @@ FROM (
     ) AS _is_capped,
 
     if(_is_capped, '', cs.content) AS _line_safe_content,
+    if(_is_capped, substring(cs.content, 1, 20000000), cs.content) AS _error_sample_content,
 
     arrayFilter(
       x -> JSONExtractString(x, 'type') IN ('user', 'assistant'),
@@ -6582,8 +6653,8 @@ FROM (
     arrayDistinct(arrayFilter(x -> x != '', extractAll(cs.content, '<command-name>/([^<]+)</command-name>'))) AS _slash_commands,
 
     toUInt32(
-      length(extractAll(cs.content, '"isApiErrorMessage":true'))
-      + length(extractAll(cs.content, '"is_error":true'))
+      length(extractAll(_error_sample_content, '"isApiErrorMessage":true'))
+      + length(extractAll(_error_sample_content, '"is_error":true'))
     ) AS _error_count,
 
     if(_is_capped, cs.session_date, arrayMin(_timestamps)) AS _session_date,
@@ -6622,28 +6693,28 @@ FROM (
       _error_count = 0,
       '',
       multiIf(
-        cs.content ILIKE '%OperationFailed%', 'OperationFailed',
-        cs.content ILIKE '%UnknownError%', 'UnknownError',
-        cs.content ILIKE '%ORPCError%', 'ORPCError',
-        cs.content ILIKE '%TimeoutError%', 'TimeoutError',
-        cs.content ILIKE '%TypeError%', 'TypeError',
-        cs.content ILIKE '%ReferenceError%', 'ReferenceError',
-        cs.content ILIKE '%Error:%',
+        _error_sample_content ILIKE '%OperationFailed%', 'OperationFailed',
+        _error_sample_content ILIKE '%UnknownError%', 'UnknownError',
+        _error_sample_content ILIKE '%ORPCError%', 'ORPCError',
+        _error_sample_content ILIKE '%TimeoutError%', 'TimeoutError',
+        _error_sample_content ILIKE '%TypeError%', 'TypeError',
+        _error_sample_content ILIKE '%ReferenceError%', 'ReferenceError',
+        _error_sample_content ILIKE '%Error:%',
           if(
-            length(extractAll(cs.content, '([A-Z][a-zA-Z]+Error):')) > 0,
-            arrayElement(extractAll(cs.content, '([A-Z][a-zA-Z]+Error):'), 1),
+            length(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Error):')) > 0,
+            arrayElement(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Error):'), 1),
             'GenericError'
           ),
-        cs.content ILIKE '%Exception:%',
+        _error_sample_content ILIKE '%Exception:%',
           if(
-            length(extractAll(cs.content, '([A-Z][a-zA-Z]+Exception):')) > 0,
-            arrayElement(extractAll(cs.content, '([A-Z][a-zA-Z]+Exception):'), 1),
+            length(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Exception):')) > 0,
+            arrayElement(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Exception):'), 1),
             'Exception'
           ),
-        cs.content ILIKE '%error:%', 'GenericError',
-        cs.content ILIKE '%failed%', 'OperationFailed',
-        cs.content ILIKE '%timeout%', 'Timeout',
-        cs.content ILIKE '%not found%', 'NotFound',
+        _error_sample_content ILIKE '%error:%', 'GenericError',
+        _error_sample_content ILIKE '%failed%', 'OperationFailed',
+        _error_sample_content ILIKE '%timeout%', 'Timeout',
+        _error_sample_content ILIKE '%not found%', 'NotFound',
         'UnknownError'
       )
     ) as error_pattern,
@@ -6785,7 +6856,7 @@ SETTINGS
   async_insert=0,
   max_threads=1,
   max_insert_threads=1,
-  max_block_size=64,
+  max_block_size=1,
   max_bytes_before_external_group_by=268435456
 SELECT
   session_date,
@@ -6835,6 +6906,7 @@ FROM (
     ) AS _is_capped,
 
     if(_is_capped, '', cs.content) AS _line_safe_content,
+    if(_is_capped, substring(cs.content, 1, 20000000), cs.content) AS _error_sample_content,
 
     arrayFilter(
       x -> x != '',
@@ -6911,10 +6983,15 @@ FROM (
     arrayDistinct(arrayFilter(x -> x != '', extractAll(cs.content, '"name":"exec_command"[^}]*skills/([a-zA-Z0-9_-]+)/SKILL'))) AS _skills,
 
     toUInt32(
-      length(extractAll(cs.content, '\\\\"exit_code\\\\":[1-9][0-9]*'))
-      + arrayCount(
-          x -> x ILIKE '%Error:%' OR x ILIKE '%Exception:%',
-          _tool_output_lines
+      length(extractAll(_error_sample_content, '\\\\"exit_code\\\\":[1-9][0-9]*'))
+      + if(
+          _is_capped,
+          length(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Error):'))
+            + length(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Exception):')),
+          arrayCount(
+            x -> x ILIKE '%Error:%' OR x ILIKE '%Exception:%',
+            _tool_output_lines
+          )
         )
     ) AS _error_count
 
@@ -6950,28 +7027,28 @@ FROM (
       _error_count = 0,
       '',
       multiIf(
-        cs.content ILIKE '%OperationFailed%', 'OperationFailed',
-        cs.content ILIKE '%UnknownError%', 'UnknownError',
-        cs.content ILIKE '%ORPCError%', 'ORPCError',
-        cs.content ILIKE '%TimeoutError%', 'TimeoutError',
-        cs.content ILIKE '%TypeError%', 'TypeError',
-        cs.content ILIKE '%ReferenceError%', 'ReferenceError',
-        cs.content ILIKE '%Error:%',
+        _error_sample_content ILIKE '%OperationFailed%', 'OperationFailed',
+        _error_sample_content ILIKE '%UnknownError%', 'UnknownError',
+        _error_sample_content ILIKE '%ORPCError%', 'ORPCError',
+        _error_sample_content ILIKE '%TimeoutError%', 'TimeoutError',
+        _error_sample_content ILIKE '%TypeError%', 'TypeError',
+        _error_sample_content ILIKE '%ReferenceError%', 'ReferenceError',
+        _error_sample_content ILIKE '%Error:%',
           if(
-            length(extractAll(cs.content, '([A-Z][a-zA-Z]+Error):')) > 0,
-            arrayElement(extractAll(cs.content, '([A-Z][a-zA-Z]+Error):'), 1),
+            length(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Error):')) > 0,
+            arrayElement(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Error):'), 1),
             'GenericError'
           ),
-        cs.content ILIKE '%Exception:%',
+        _error_sample_content ILIKE '%Exception:%',
           if(
-            length(extractAll(cs.content, '([A-Z][a-zA-Z]+Exception):')) > 0,
-            arrayElement(extractAll(cs.content, '([A-Z][a-zA-Z]+Exception):'), 1),
+            length(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Exception):')) > 0,
+            arrayElement(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Exception):'), 1),
             'Exception'
           ),
-        cs.content ILIKE '%error:%', 'GenericError',
-        cs.content ILIKE '%failed%', 'OperationFailed',
-        cs.content ILIKE '%timeout%', 'Timeout',
-        cs.content ILIKE '%not found%', 'NotFound',
+        _error_sample_content ILIKE '%error:%', 'GenericError',
+        _error_sample_content ILIKE '%failed%', 'OperationFailed',
+        _error_sample_content ILIKE '%timeout%', 'Timeout',
+        _error_sample_content ILIKE '%not found%', 'NotFound',
         'UnknownError'
       )
     ) as error_pattern,
@@ -7101,7 +7178,7 @@ SETTINGS
   async_insert=0,
   max_threads=1,
   max_insert_threads=1,
-  max_block_size=64,
+  max_block_size=1,
   max_bytes_before_external_group_by=268435456
 SELECT
   session_date,
@@ -7151,6 +7228,7 @@ FROM (
     ) AS _is_capped,
 
     if(_is_capped, '', cs.content) AS _line_safe_content,
+    if(_is_capped, substring(cs.content, 1, 20000000), cs.content) AS _error_sample_content,
 
     arrayFilter(
       x -> JSONExtractString(x, 'type') IN ('user', 'assistant'),
@@ -7215,8 +7293,8 @@ FROM (
     arrayDistinct(arrayFilter(x -> x != '', extractAll(cs.content, '<command-name>/([^<]+)</command-name>'))) AS _slash_commands,
 
     toUInt32(
-      length(extractAll(cs.content, '"isApiErrorMessage":true'))
-      + length(extractAll(cs.content, '"is_error":true'))
+      length(extractAll(_error_sample_content, '"isApiErrorMessage":true'))
+      + length(extractAll(_error_sample_content, '"is_error":true'))
     ) AS _error_count,
 
     if(_is_capped, cs.session_date, arrayMin(_timestamps)) AS _session_date,
@@ -7255,28 +7333,28 @@ FROM (
       _error_count = 0,
       '',
       multiIf(
-        cs.content ILIKE '%OperationFailed%', 'OperationFailed',
-        cs.content ILIKE '%UnknownError%', 'UnknownError',
-        cs.content ILIKE '%ORPCError%', 'ORPCError',
-        cs.content ILIKE '%TimeoutError%', 'TimeoutError',
-        cs.content ILIKE '%TypeError%', 'TypeError',
-        cs.content ILIKE '%ReferenceError%', 'ReferenceError',
-        cs.content ILIKE '%Error:%',
+        _error_sample_content ILIKE '%OperationFailed%', 'OperationFailed',
+        _error_sample_content ILIKE '%UnknownError%', 'UnknownError',
+        _error_sample_content ILIKE '%ORPCError%', 'ORPCError',
+        _error_sample_content ILIKE '%TimeoutError%', 'TimeoutError',
+        _error_sample_content ILIKE '%TypeError%', 'TypeError',
+        _error_sample_content ILIKE '%ReferenceError%', 'ReferenceError',
+        _error_sample_content ILIKE '%Error:%',
           if(
-            length(extractAll(cs.content, '([A-Z][a-zA-Z]+Error):')) > 0,
-            arrayElement(extractAll(cs.content, '([A-Z][a-zA-Z]+Error):'), 1),
+            length(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Error):')) > 0,
+            arrayElement(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Error):'), 1),
             'GenericError'
           ),
-        cs.content ILIKE '%Exception:%',
+        _error_sample_content ILIKE '%Exception:%',
           if(
-            length(extractAll(cs.content, '([A-Z][a-zA-Z]+Exception):')) > 0,
-            arrayElement(extractAll(cs.content, '([A-Z][a-zA-Z]+Exception):'), 1),
+            length(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Exception):')) > 0,
+            arrayElement(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Exception):'), 1),
             'Exception'
           ),
-        cs.content ILIKE '%error:%', 'GenericError',
-        cs.content ILIKE '%failed%', 'OperationFailed',
-        cs.content ILIKE '%timeout%', 'Timeout',
-        cs.content ILIKE '%not found%', 'NotFound',
+        _error_sample_content ILIKE '%error:%', 'GenericError',
+        _error_sample_content ILIKE '%failed%', 'OperationFailed',
+        _error_sample_content ILIKE '%timeout%', 'Timeout',
+        _error_sample_content ILIKE '%not found%', 'NotFound',
         'UnknownError'
       )
     ) as error_pattern,
@@ -7418,7 +7496,7 @@ SETTINGS
   async_insert=0,
   max_threads=1,
   max_insert_threads=1,
-  max_block_size=64,
+  max_block_size=1,
   max_bytes_before_external_group_by=268435456
 SELECT
   session_date,
@@ -7468,6 +7546,7 @@ FROM (
     ) AS _is_capped,
 
     if(_is_capped, '', cs.content) AS _line_safe_content,
+    if(_is_capped, substring(cs.content, 1, 20000000), cs.content) AS _error_sample_content,
 
     arrayFilter(
       x -> x != '',
@@ -7544,10 +7623,15 @@ FROM (
     arrayDistinct(arrayFilter(x -> x != '', extractAll(cs.content, '"name":"exec_command"[^}]*skills/([a-zA-Z0-9_-]+)/SKILL'))) AS _skills,
 
     toUInt32(
-      length(extractAll(cs.content, '\\\\"exit_code\\\\":[1-9][0-9]*'))
-      + arrayCount(
-          x -> x ILIKE '%Error:%' OR x ILIKE '%Exception:%',
-          _tool_output_lines
+      length(extractAll(_error_sample_content, '\\\\"exit_code\\\\":[1-9][0-9]*'))
+      + if(
+          _is_capped,
+          length(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Error):'))
+            + length(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Exception):')),
+          arrayCount(
+            x -> x ILIKE '%Error:%' OR x ILIKE '%Exception:%',
+            _tool_output_lines
+          )
         )
     ) AS _error_count
 
@@ -7583,28 +7667,28 @@ FROM (
       _error_count = 0,
       '',
       multiIf(
-        cs.content ILIKE '%OperationFailed%', 'OperationFailed',
-        cs.content ILIKE '%UnknownError%', 'UnknownError',
-        cs.content ILIKE '%ORPCError%', 'ORPCError',
-        cs.content ILIKE '%TimeoutError%', 'TimeoutError',
-        cs.content ILIKE '%TypeError%', 'TypeError',
-        cs.content ILIKE '%ReferenceError%', 'ReferenceError',
-        cs.content ILIKE '%Error:%',
+        _error_sample_content ILIKE '%OperationFailed%', 'OperationFailed',
+        _error_sample_content ILIKE '%UnknownError%', 'UnknownError',
+        _error_sample_content ILIKE '%ORPCError%', 'ORPCError',
+        _error_sample_content ILIKE '%TimeoutError%', 'TimeoutError',
+        _error_sample_content ILIKE '%TypeError%', 'TypeError',
+        _error_sample_content ILIKE '%ReferenceError%', 'ReferenceError',
+        _error_sample_content ILIKE '%Error:%',
           if(
-            length(extractAll(cs.content, '([A-Z][a-zA-Z]+Error):')) > 0,
-            arrayElement(extractAll(cs.content, '([A-Z][a-zA-Z]+Error):'), 1),
+            length(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Error):')) > 0,
+            arrayElement(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Error):'), 1),
             'GenericError'
           ),
-        cs.content ILIKE '%Exception:%',
+        _error_sample_content ILIKE '%Exception:%',
           if(
-            length(extractAll(cs.content, '([A-Z][a-zA-Z]+Exception):')) > 0,
-            arrayElement(extractAll(cs.content, '([A-Z][a-zA-Z]+Exception):'), 1),
+            length(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Exception):')) > 0,
+            arrayElement(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Exception):'), 1),
             'Exception'
           ),
-        cs.content ILIKE '%error:%', 'GenericError',
-        cs.content ILIKE '%failed%', 'OperationFailed',
-        cs.content ILIKE '%timeout%', 'Timeout',
-        cs.content ILIKE '%not found%', 'NotFound',
+        _error_sample_content ILIKE '%error:%', 'GenericError',
+        _error_sample_content ILIKE '%failed%', 'OperationFailed',
+        _error_sample_content ILIKE '%timeout%', 'Timeout',
+        _error_sample_content ILIKE '%not found%', 'NotFound',
         'UnknownError'
       )
     ) as error_pattern,
@@ -7734,7 +7818,7 @@ SETTINGS
   async_insert=0,
   max_threads=1,
   max_insert_threads=1,
-  max_block_size=64,
+  max_block_size=1,
   max_bytes_before_external_group_by=268435456
 SELECT
   session_date,
@@ -7784,6 +7868,7 @@ FROM (
     ) AS _is_capped,
 
     if(_is_capped, '', cs.content) AS _line_safe_content,
+    if(_is_capped, substring(cs.content, 1, 20000000), cs.content) AS _error_sample_content,
 
     arrayFilter(
       x -> JSONExtractString(x, 'type') IN ('user', 'assistant'),
@@ -7848,8 +7933,8 @@ FROM (
     arrayDistinct(arrayFilter(x -> x != '', extractAll(cs.content, '<command-name>/([^<]+)</command-name>'))) AS _slash_commands,
 
     toUInt32(
-      length(extractAll(cs.content, '"isApiErrorMessage":true'))
-      + length(extractAll(cs.content, '"is_error":true'))
+      length(extractAll(_error_sample_content, '"isApiErrorMessage":true'))
+      + length(extractAll(_error_sample_content, '"is_error":true'))
     ) AS _error_count,
 
     if(_is_capped, cs.session_date, arrayMin(_timestamps)) AS _session_date,
@@ -7888,28 +7973,28 @@ FROM (
       _error_count = 0,
       '',
       multiIf(
-        cs.content ILIKE '%OperationFailed%', 'OperationFailed',
-        cs.content ILIKE '%UnknownError%', 'UnknownError',
-        cs.content ILIKE '%ORPCError%', 'ORPCError',
-        cs.content ILIKE '%TimeoutError%', 'TimeoutError',
-        cs.content ILIKE '%TypeError%', 'TypeError',
-        cs.content ILIKE '%ReferenceError%', 'ReferenceError',
-        cs.content ILIKE '%Error:%',
+        _error_sample_content ILIKE '%OperationFailed%', 'OperationFailed',
+        _error_sample_content ILIKE '%UnknownError%', 'UnknownError',
+        _error_sample_content ILIKE '%ORPCError%', 'ORPCError',
+        _error_sample_content ILIKE '%TimeoutError%', 'TimeoutError',
+        _error_sample_content ILIKE '%TypeError%', 'TypeError',
+        _error_sample_content ILIKE '%ReferenceError%', 'ReferenceError',
+        _error_sample_content ILIKE '%Error:%',
           if(
-            length(extractAll(cs.content, '([A-Z][a-zA-Z]+Error):')) > 0,
-            arrayElement(extractAll(cs.content, '([A-Z][a-zA-Z]+Error):'), 1),
+            length(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Error):')) > 0,
+            arrayElement(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Error):'), 1),
             'GenericError'
           ),
-        cs.content ILIKE '%Exception:%',
+        _error_sample_content ILIKE '%Exception:%',
           if(
-            length(extractAll(cs.content, '([A-Z][a-zA-Z]+Exception):')) > 0,
-            arrayElement(extractAll(cs.content, '([A-Z][a-zA-Z]+Exception):'), 1),
+            length(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Exception):')) > 0,
+            arrayElement(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Exception):'), 1),
             'Exception'
           ),
-        cs.content ILIKE '%error:%', 'GenericError',
-        cs.content ILIKE '%failed%', 'OperationFailed',
-        cs.content ILIKE '%timeout%', 'Timeout',
-        cs.content ILIKE '%not found%', 'NotFound',
+        _error_sample_content ILIKE '%error:%', 'GenericError',
+        _error_sample_content ILIKE '%failed%', 'OperationFailed',
+        _error_sample_content ILIKE '%timeout%', 'Timeout',
+        _error_sample_content ILIKE '%not found%', 'NotFound',
         'UnknownError'
       )
     ) as error_pattern,
@@ -8051,7 +8136,7 @@ SETTINGS
   async_insert=0,
   max_threads=1,
   max_insert_threads=1,
-  max_block_size=64,
+  max_block_size=1,
   max_bytes_before_external_group_by=268435456
 SELECT
   session_date,
@@ -8101,6 +8186,7 @@ FROM (
     ) AS _is_capped,
 
     if(_is_capped, '', cs.content) AS _line_safe_content,
+    if(_is_capped, substring(cs.content, 1, 20000000), cs.content) AS _error_sample_content,
 
     arrayFilter(
       x -> x != '',
@@ -8177,10 +8263,15 @@ FROM (
     arrayDistinct(arrayFilter(x -> x != '', extractAll(cs.content, '"name":"exec_command"[^}]*skills/([a-zA-Z0-9_-]+)/SKILL'))) AS _skills,
 
     toUInt32(
-      length(extractAll(cs.content, '\\\\"exit_code\\\\":[1-9][0-9]*'))
-      + arrayCount(
-          x -> x ILIKE '%Error:%' OR x ILIKE '%Exception:%',
-          _tool_output_lines
+      length(extractAll(_error_sample_content, '\\\\"exit_code\\\\":[1-9][0-9]*'))
+      + if(
+          _is_capped,
+          length(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Error):'))
+            + length(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Exception):')),
+          arrayCount(
+            x -> x ILIKE '%Error:%' OR x ILIKE '%Exception:%',
+            _tool_output_lines
+          )
         )
     ) AS _error_count
 
@@ -8216,28 +8307,28 @@ FROM (
       _error_count = 0,
       '',
       multiIf(
-        cs.content ILIKE '%OperationFailed%', 'OperationFailed',
-        cs.content ILIKE '%UnknownError%', 'UnknownError',
-        cs.content ILIKE '%ORPCError%', 'ORPCError',
-        cs.content ILIKE '%TimeoutError%', 'TimeoutError',
-        cs.content ILIKE '%TypeError%', 'TypeError',
-        cs.content ILIKE '%ReferenceError%', 'ReferenceError',
-        cs.content ILIKE '%Error:%',
+        _error_sample_content ILIKE '%OperationFailed%', 'OperationFailed',
+        _error_sample_content ILIKE '%UnknownError%', 'UnknownError',
+        _error_sample_content ILIKE '%ORPCError%', 'ORPCError',
+        _error_sample_content ILIKE '%TimeoutError%', 'TimeoutError',
+        _error_sample_content ILIKE '%TypeError%', 'TypeError',
+        _error_sample_content ILIKE '%ReferenceError%', 'ReferenceError',
+        _error_sample_content ILIKE '%Error:%',
           if(
-            length(extractAll(cs.content, '([A-Z][a-zA-Z]+Error):')) > 0,
-            arrayElement(extractAll(cs.content, '([A-Z][a-zA-Z]+Error):'), 1),
+            length(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Error):')) > 0,
+            arrayElement(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Error):'), 1),
             'GenericError'
           ),
-        cs.content ILIKE '%Exception:%',
+        _error_sample_content ILIKE '%Exception:%',
           if(
-            length(extractAll(cs.content, '([A-Z][a-zA-Z]+Exception):')) > 0,
-            arrayElement(extractAll(cs.content, '([A-Z][a-zA-Z]+Exception):'), 1),
+            length(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Exception):')) > 0,
+            arrayElement(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Exception):'), 1),
             'Exception'
           ),
-        cs.content ILIKE '%error:%', 'GenericError',
-        cs.content ILIKE '%failed%', 'OperationFailed',
-        cs.content ILIKE '%timeout%', 'Timeout',
-        cs.content ILIKE '%not found%', 'NotFound',
+        _error_sample_content ILIKE '%error:%', 'GenericError',
+        _error_sample_content ILIKE '%failed%', 'OperationFailed',
+        _error_sample_content ILIKE '%timeout%', 'Timeout',
+        _error_sample_content ILIKE '%not found%', 'NotFound',
         'UnknownError'
       )
     ) as error_pattern,
@@ -8367,7 +8458,7 @@ SETTINGS
   async_insert=0,
   max_threads=1,
   max_insert_threads=1,
-  max_block_size=64,
+  max_block_size=1,
   max_bytes_before_external_group_by=268435456
 SELECT
   session_date,
@@ -8417,6 +8508,7 @@ FROM (
     ) AS _is_capped,
 
     if(_is_capped, '', cs.content) AS _line_safe_content,
+    if(_is_capped, substring(cs.content, 1, 20000000), cs.content) AS _error_sample_content,
 
     arrayFilter(
       x -> JSONExtractString(x, 'type') IN ('user', 'assistant'),
@@ -8481,8 +8573,8 @@ FROM (
     arrayDistinct(arrayFilter(x -> x != '', extractAll(cs.content, '<command-name>/([^<]+)</command-name>'))) AS _slash_commands,
 
     toUInt32(
-      length(extractAll(cs.content, '"isApiErrorMessage":true'))
-      + length(extractAll(cs.content, '"is_error":true'))
+      length(extractAll(_error_sample_content, '"isApiErrorMessage":true'))
+      + length(extractAll(_error_sample_content, '"is_error":true'))
     ) AS _error_count,
 
     if(_is_capped, cs.session_date, arrayMin(_timestamps)) AS _session_date,
@@ -8521,28 +8613,28 @@ FROM (
       _error_count = 0,
       '',
       multiIf(
-        cs.content ILIKE '%OperationFailed%', 'OperationFailed',
-        cs.content ILIKE '%UnknownError%', 'UnknownError',
-        cs.content ILIKE '%ORPCError%', 'ORPCError',
-        cs.content ILIKE '%TimeoutError%', 'TimeoutError',
-        cs.content ILIKE '%TypeError%', 'TypeError',
-        cs.content ILIKE '%ReferenceError%', 'ReferenceError',
-        cs.content ILIKE '%Error:%',
+        _error_sample_content ILIKE '%OperationFailed%', 'OperationFailed',
+        _error_sample_content ILIKE '%UnknownError%', 'UnknownError',
+        _error_sample_content ILIKE '%ORPCError%', 'ORPCError',
+        _error_sample_content ILIKE '%TimeoutError%', 'TimeoutError',
+        _error_sample_content ILIKE '%TypeError%', 'TypeError',
+        _error_sample_content ILIKE '%ReferenceError%', 'ReferenceError',
+        _error_sample_content ILIKE '%Error:%',
           if(
-            length(extractAll(cs.content, '([A-Z][a-zA-Z]+Error):')) > 0,
-            arrayElement(extractAll(cs.content, '([A-Z][a-zA-Z]+Error):'), 1),
+            length(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Error):')) > 0,
+            arrayElement(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Error):'), 1),
             'GenericError'
           ),
-        cs.content ILIKE '%Exception:%',
+        _error_sample_content ILIKE '%Exception:%',
           if(
-            length(extractAll(cs.content, '([A-Z][a-zA-Z]+Exception):')) > 0,
-            arrayElement(extractAll(cs.content, '([A-Z][a-zA-Z]+Exception):'), 1),
+            length(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Exception):')) > 0,
+            arrayElement(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Exception):'), 1),
             'Exception'
           ),
-        cs.content ILIKE '%error:%', 'GenericError',
-        cs.content ILIKE '%failed%', 'OperationFailed',
-        cs.content ILIKE '%timeout%', 'Timeout',
-        cs.content ILIKE '%not found%', 'NotFound',
+        _error_sample_content ILIKE '%error:%', 'GenericError',
+        _error_sample_content ILIKE '%failed%', 'OperationFailed',
+        _error_sample_content ILIKE '%timeout%', 'Timeout',
+        _error_sample_content ILIKE '%not found%', 'NotFound',
         'UnknownError'
       )
     ) as error_pattern,
@@ -8684,7 +8776,7 @@ SETTINGS
   async_insert=0,
   max_threads=1,
   max_insert_threads=1,
-  max_block_size=64,
+  max_block_size=1,
   max_bytes_before_external_group_by=268435456
 SELECT
   session_date,
@@ -8734,6 +8826,7 @@ FROM (
     ) AS _is_capped,
 
     if(_is_capped, '', cs.content) AS _line_safe_content,
+    if(_is_capped, substring(cs.content, 1, 20000000), cs.content) AS _error_sample_content,
 
     arrayFilter(
       x -> x != '',
@@ -8810,10 +8903,15 @@ FROM (
     arrayDistinct(arrayFilter(x -> x != '', extractAll(cs.content, '"name":"exec_command"[^}]*skills/([a-zA-Z0-9_-]+)/SKILL'))) AS _skills,
 
     toUInt32(
-      length(extractAll(cs.content, '\\\\"exit_code\\\\":[1-9][0-9]*'))
-      + arrayCount(
-          x -> x ILIKE '%Error:%' OR x ILIKE '%Exception:%',
-          _tool_output_lines
+      length(extractAll(_error_sample_content, '\\\\"exit_code\\\\":[1-9][0-9]*'))
+      + if(
+          _is_capped,
+          length(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Error):'))
+            + length(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Exception):')),
+          arrayCount(
+            x -> x ILIKE '%Error:%' OR x ILIKE '%Exception:%',
+            _tool_output_lines
+          )
         )
     ) AS _error_count
 
@@ -8849,28 +8947,28 @@ FROM (
       _error_count = 0,
       '',
       multiIf(
-        cs.content ILIKE '%OperationFailed%', 'OperationFailed',
-        cs.content ILIKE '%UnknownError%', 'UnknownError',
-        cs.content ILIKE '%ORPCError%', 'ORPCError',
-        cs.content ILIKE '%TimeoutError%', 'TimeoutError',
-        cs.content ILIKE '%TypeError%', 'TypeError',
-        cs.content ILIKE '%ReferenceError%', 'ReferenceError',
-        cs.content ILIKE '%Error:%',
+        _error_sample_content ILIKE '%OperationFailed%', 'OperationFailed',
+        _error_sample_content ILIKE '%UnknownError%', 'UnknownError',
+        _error_sample_content ILIKE '%ORPCError%', 'ORPCError',
+        _error_sample_content ILIKE '%TimeoutError%', 'TimeoutError',
+        _error_sample_content ILIKE '%TypeError%', 'TypeError',
+        _error_sample_content ILIKE '%ReferenceError%', 'ReferenceError',
+        _error_sample_content ILIKE '%Error:%',
           if(
-            length(extractAll(cs.content, '([A-Z][a-zA-Z]+Error):')) > 0,
-            arrayElement(extractAll(cs.content, '([A-Z][a-zA-Z]+Error):'), 1),
+            length(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Error):')) > 0,
+            arrayElement(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Error):'), 1),
             'GenericError'
           ),
-        cs.content ILIKE '%Exception:%',
+        _error_sample_content ILIKE '%Exception:%',
           if(
-            length(extractAll(cs.content, '([A-Z][a-zA-Z]+Exception):')) > 0,
-            arrayElement(extractAll(cs.content, '([A-Z][a-zA-Z]+Exception):'), 1),
+            length(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Exception):')) > 0,
+            arrayElement(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Exception):'), 1),
             'Exception'
           ),
-        cs.content ILIKE '%error:%', 'GenericError',
-        cs.content ILIKE '%failed%', 'OperationFailed',
-        cs.content ILIKE '%timeout%', 'Timeout',
-        cs.content ILIKE '%not found%', 'NotFound',
+        _error_sample_content ILIKE '%error:%', 'GenericError',
+        _error_sample_content ILIKE '%failed%', 'OperationFailed',
+        _error_sample_content ILIKE '%timeout%', 'Timeout',
+        _error_sample_content ILIKE '%not found%', 'NotFound',
         'UnknownError'
       )
     ) as error_pattern,
@@ -9000,7 +9098,7 @@ SETTINGS
   async_insert=0,
   max_threads=1,
   max_insert_threads=1,
-  max_block_size=64,
+  max_block_size=1,
   max_bytes_before_external_group_by=268435456
 SELECT
   session_date,
@@ -9050,6 +9148,7 @@ FROM (
     ) AS _is_capped,
 
     if(_is_capped, '', cs.content) AS _line_safe_content,
+    if(_is_capped, substring(cs.content, 1, 20000000), cs.content) AS _error_sample_content,
 
     arrayFilter(
       x -> JSONExtractString(x, 'type') IN ('user', 'assistant'),
@@ -9114,8 +9213,8 @@ FROM (
     arrayDistinct(arrayFilter(x -> x != '', extractAll(cs.content, '<command-name>/([^<]+)</command-name>'))) AS _slash_commands,
 
     toUInt32(
-      length(extractAll(cs.content, '"isApiErrorMessage":true'))
-      + length(extractAll(cs.content, '"is_error":true'))
+      length(extractAll(_error_sample_content, '"isApiErrorMessage":true'))
+      + length(extractAll(_error_sample_content, '"is_error":true'))
     ) AS _error_count,
 
     if(_is_capped, cs.session_date, arrayMin(_timestamps)) AS _session_date,
@@ -9154,28 +9253,28 @@ FROM (
       _error_count = 0,
       '',
       multiIf(
-        cs.content ILIKE '%OperationFailed%', 'OperationFailed',
-        cs.content ILIKE '%UnknownError%', 'UnknownError',
-        cs.content ILIKE '%ORPCError%', 'ORPCError',
-        cs.content ILIKE '%TimeoutError%', 'TimeoutError',
-        cs.content ILIKE '%TypeError%', 'TypeError',
-        cs.content ILIKE '%ReferenceError%', 'ReferenceError',
-        cs.content ILIKE '%Error:%',
+        _error_sample_content ILIKE '%OperationFailed%', 'OperationFailed',
+        _error_sample_content ILIKE '%UnknownError%', 'UnknownError',
+        _error_sample_content ILIKE '%ORPCError%', 'ORPCError',
+        _error_sample_content ILIKE '%TimeoutError%', 'TimeoutError',
+        _error_sample_content ILIKE '%TypeError%', 'TypeError',
+        _error_sample_content ILIKE '%ReferenceError%', 'ReferenceError',
+        _error_sample_content ILIKE '%Error:%',
           if(
-            length(extractAll(cs.content, '([A-Z][a-zA-Z]+Error):')) > 0,
-            arrayElement(extractAll(cs.content, '([A-Z][a-zA-Z]+Error):'), 1),
+            length(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Error):')) > 0,
+            arrayElement(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Error):'), 1),
             'GenericError'
           ),
-        cs.content ILIKE '%Exception:%',
+        _error_sample_content ILIKE '%Exception:%',
           if(
-            length(extractAll(cs.content, '([A-Z][a-zA-Z]+Exception):')) > 0,
-            arrayElement(extractAll(cs.content, '([A-Z][a-zA-Z]+Exception):'), 1),
+            length(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Exception):')) > 0,
+            arrayElement(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Exception):'), 1),
             'Exception'
           ),
-        cs.content ILIKE '%error:%', 'GenericError',
-        cs.content ILIKE '%failed%', 'OperationFailed',
-        cs.content ILIKE '%timeout%', 'Timeout',
-        cs.content ILIKE '%not found%', 'NotFound',
+        _error_sample_content ILIKE '%error:%', 'GenericError',
+        _error_sample_content ILIKE '%failed%', 'OperationFailed',
+        _error_sample_content ILIKE '%timeout%', 'Timeout',
+        _error_sample_content ILIKE '%not found%', 'NotFound',
         'UnknownError'
       )
     ) as error_pattern,
@@ -9317,7 +9416,7 @@ SETTINGS
   async_insert=0,
   max_threads=1,
   max_insert_threads=1,
-  max_block_size=64,
+  max_block_size=1,
   max_bytes_before_external_group_by=268435456
 SELECT
   session_date,
@@ -9367,6 +9466,7 @@ FROM (
     ) AS _is_capped,
 
     if(_is_capped, '', cs.content) AS _line_safe_content,
+    if(_is_capped, substring(cs.content, 1, 20000000), cs.content) AS _error_sample_content,
 
     arrayFilter(
       x -> x != '',
@@ -9443,10 +9543,15 @@ FROM (
     arrayDistinct(arrayFilter(x -> x != '', extractAll(cs.content, '"name":"exec_command"[^}]*skills/([a-zA-Z0-9_-]+)/SKILL'))) AS _skills,
 
     toUInt32(
-      length(extractAll(cs.content, '\\\\"exit_code\\\\":[1-9][0-9]*'))
-      + arrayCount(
-          x -> x ILIKE '%Error:%' OR x ILIKE '%Exception:%',
-          _tool_output_lines
+      length(extractAll(_error_sample_content, '\\\\"exit_code\\\\":[1-9][0-9]*'))
+      + if(
+          _is_capped,
+          length(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Error):'))
+            + length(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Exception):')),
+          arrayCount(
+            x -> x ILIKE '%Error:%' OR x ILIKE '%Exception:%',
+            _tool_output_lines
+          )
         )
     ) AS _error_count
 
@@ -9482,28 +9587,28 @@ FROM (
       _error_count = 0,
       '',
       multiIf(
-        cs.content ILIKE '%OperationFailed%', 'OperationFailed',
-        cs.content ILIKE '%UnknownError%', 'UnknownError',
-        cs.content ILIKE '%ORPCError%', 'ORPCError',
-        cs.content ILIKE '%TimeoutError%', 'TimeoutError',
-        cs.content ILIKE '%TypeError%', 'TypeError',
-        cs.content ILIKE '%ReferenceError%', 'ReferenceError',
-        cs.content ILIKE '%Error:%',
+        _error_sample_content ILIKE '%OperationFailed%', 'OperationFailed',
+        _error_sample_content ILIKE '%UnknownError%', 'UnknownError',
+        _error_sample_content ILIKE '%ORPCError%', 'ORPCError',
+        _error_sample_content ILIKE '%TimeoutError%', 'TimeoutError',
+        _error_sample_content ILIKE '%TypeError%', 'TypeError',
+        _error_sample_content ILIKE '%ReferenceError%', 'ReferenceError',
+        _error_sample_content ILIKE '%Error:%',
           if(
-            length(extractAll(cs.content, '([A-Z][a-zA-Z]+Error):')) > 0,
-            arrayElement(extractAll(cs.content, '([A-Z][a-zA-Z]+Error):'), 1),
+            length(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Error):')) > 0,
+            arrayElement(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Error):'), 1),
             'GenericError'
           ),
-        cs.content ILIKE '%Exception:%',
+        _error_sample_content ILIKE '%Exception:%',
           if(
-            length(extractAll(cs.content, '([A-Z][a-zA-Z]+Exception):')) > 0,
-            arrayElement(extractAll(cs.content, '([A-Z][a-zA-Z]+Exception):'), 1),
+            length(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Exception):')) > 0,
+            arrayElement(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Exception):'), 1),
             'Exception'
           ),
-        cs.content ILIKE '%error:%', 'GenericError',
-        cs.content ILIKE '%failed%', 'OperationFailed',
-        cs.content ILIKE '%timeout%', 'Timeout',
-        cs.content ILIKE '%not found%', 'NotFound',
+        _error_sample_content ILIKE '%error:%', 'GenericError',
+        _error_sample_content ILIKE '%failed%', 'OperationFailed',
+        _error_sample_content ILIKE '%timeout%', 'Timeout',
+        _error_sample_content ILIKE '%not found%', 'NotFound',
         'UnknownError'
       )
     ) as error_pattern,
@@ -9633,7 +9738,7 @@ SETTINGS
   async_insert=0,
   max_threads=1,
   max_insert_threads=1,
-  max_block_size=64,
+  max_block_size=1,
   max_bytes_before_external_group_by=268435456
 SELECT
   session_date,
@@ -9683,6 +9788,7 @@ FROM (
     ) AS _is_capped,
 
     if(_is_capped, '', cs.content) AS _line_safe_content,
+    if(_is_capped, substring(cs.content, 1, 20000000), cs.content) AS _error_sample_content,
 
     arrayFilter(
       x -> JSONExtractString(x, 'type') IN ('user', 'assistant'),
@@ -9747,8 +9853,8 @@ FROM (
     arrayDistinct(arrayFilter(x -> x != '', extractAll(cs.content, '<command-name>/([^<]+)</command-name>'))) AS _slash_commands,
 
     toUInt32(
-      length(extractAll(cs.content, '"isApiErrorMessage":true'))
-      + length(extractAll(cs.content, '"is_error":true'))
+      length(extractAll(_error_sample_content, '"isApiErrorMessage":true'))
+      + length(extractAll(_error_sample_content, '"is_error":true'))
     ) AS _error_count,
 
     if(_is_capped, cs.session_date, arrayMin(_timestamps)) AS _session_date,
@@ -9787,28 +9893,28 @@ FROM (
       _error_count = 0,
       '',
       multiIf(
-        cs.content ILIKE '%OperationFailed%', 'OperationFailed',
-        cs.content ILIKE '%UnknownError%', 'UnknownError',
-        cs.content ILIKE '%ORPCError%', 'ORPCError',
-        cs.content ILIKE '%TimeoutError%', 'TimeoutError',
-        cs.content ILIKE '%TypeError%', 'TypeError',
-        cs.content ILIKE '%ReferenceError%', 'ReferenceError',
-        cs.content ILIKE '%Error:%',
+        _error_sample_content ILIKE '%OperationFailed%', 'OperationFailed',
+        _error_sample_content ILIKE '%UnknownError%', 'UnknownError',
+        _error_sample_content ILIKE '%ORPCError%', 'ORPCError',
+        _error_sample_content ILIKE '%TimeoutError%', 'TimeoutError',
+        _error_sample_content ILIKE '%TypeError%', 'TypeError',
+        _error_sample_content ILIKE '%ReferenceError%', 'ReferenceError',
+        _error_sample_content ILIKE '%Error:%',
           if(
-            length(extractAll(cs.content, '([A-Z][a-zA-Z]+Error):')) > 0,
-            arrayElement(extractAll(cs.content, '([A-Z][a-zA-Z]+Error):'), 1),
+            length(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Error):')) > 0,
+            arrayElement(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Error):'), 1),
             'GenericError'
           ),
-        cs.content ILIKE '%Exception:%',
+        _error_sample_content ILIKE '%Exception:%',
           if(
-            length(extractAll(cs.content, '([A-Z][a-zA-Z]+Exception):')) > 0,
-            arrayElement(extractAll(cs.content, '([A-Z][a-zA-Z]+Exception):'), 1),
+            length(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Exception):')) > 0,
+            arrayElement(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Exception):'), 1),
             'Exception'
           ),
-        cs.content ILIKE '%error:%', 'GenericError',
-        cs.content ILIKE '%failed%', 'OperationFailed',
-        cs.content ILIKE '%timeout%', 'Timeout',
-        cs.content ILIKE '%not found%', 'NotFound',
+        _error_sample_content ILIKE '%error:%', 'GenericError',
+        _error_sample_content ILIKE '%failed%', 'OperationFailed',
+        _error_sample_content ILIKE '%timeout%', 'Timeout',
+        _error_sample_content ILIKE '%not found%', 'NotFound',
         'UnknownError'
       )
     ) as error_pattern,
@@ -9948,7 +10054,7 @@ SETTINGS
   async_insert=0,
   max_threads=1,
   max_insert_threads=1,
-  max_block_size=64,
+  max_block_size=1,
   max_bytes_before_external_group_by=268435456
 SELECT
   session_date,
@@ -9998,6 +10104,7 @@ FROM (
     ) AS _is_capped,
 
     if(_is_capped, '', cs.content) AS _line_safe_content,
+    if(_is_capped, substring(cs.content, 1, 20000000), cs.content) AS _error_sample_content,
 
     arrayFilter(
       x -> x != '',
@@ -10074,10 +10181,15 @@ FROM (
     arrayDistinct(arrayFilter(x -> x != '', extractAll(cs.content, '"name":"exec_command"[^}]*skills/([a-zA-Z0-9_-]+)/SKILL'))) AS _skills,
 
     toUInt32(
-      length(extractAll(cs.content, '\\\\"exit_code\\\\":[1-9][0-9]*'))
-      + arrayCount(
-          x -> x ILIKE '%Error:%' OR x ILIKE '%Exception:%',
-          _tool_output_lines
+      length(extractAll(_error_sample_content, '\\\\"exit_code\\\\":[1-9][0-9]*'))
+      + if(
+          _is_capped,
+          length(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Error):'))
+            + length(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Exception):')),
+          arrayCount(
+            x -> x ILIKE '%Error:%' OR x ILIKE '%Exception:%',
+            _tool_output_lines
+          )
         )
     ) AS _error_count
 
@@ -10113,28 +10225,28 @@ FROM (
       _error_count = 0,
       '',
       multiIf(
-        cs.content ILIKE '%OperationFailed%', 'OperationFailed',
-        cs.content ILIKE '%UnknownError%', 'UnknownError',
-        cs.content ILIKE '%ORPCError%', 'ORPCError',
-        cs.content ILIKE '%TimeoutError%', 'TimeoutError',
-        cs.content ILIKE '%TypeError%', 'TypeError',
-        cs.content ILIKE '%ReferenceError%', 'ReferenceError',
-        cs.content ILIKE '%Error:%',
+        _error_sample_content ILIKE '%OperationFailed%', 'OperationFailed',
+        _error_sample_content ILIKE '%UnknownError%', 'UnknownError',
+        _error_sample_content ILIKE '%ORPCError%', 'ORPCError',
+        _error_sample_content ILIKE '%TimeoutError%', 'TimeoutError',
+        _error_sample_content ILIKE '%TypeError%', 'TypeError',
+        _error_sample_content ILIKE '%ReferenceError%', 'ReferenceError',
+        _error_sample_content ILIKE '%Error:%',
           if(
-            length(extractAll(cs.content, '([A-Z][a-zA-Z]+Error):')) > 0,
-            arrayElement(extractAll(cs.content, '([A-Z][a-zA-Z]+Error):'), 1),
+            length(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Error):')) > 0,
+            arrayElement(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Error):'), 1),
             'GenericError'
           ),
-        cs.content ILIKE '%Exception:%',
+        _error_sample_content ILIKE '%Exception:%',
           if(
-            length(extractAll(cs.content, '([A-Z][a-zA-Z]+Exception):')) > 0,
-            arrayElement(extractAll(cs.content, '([A-Z][a-zA-Z]+Exception):'), 1),
+            length(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Exception):')) > 0,
+            arrayElement(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Exception):'), 1),
             'Exception'
           ),
-        cs.content ILIKE '%error:%', 'GenericError',
-        cs.content ILIKE '%failed%', 'OperationFailed',
-        cs.content ILIKE '%timeout%', 'Timeout',
-        cs.content ILIKE '%not found%', 'NotFound',
+        _error_sample_content ILIKE '%error:%', 'GenericError',
+        _error_sample_content ILIKE '%failed%', 'OperationFailed',
+        _error_sample_content ILIKE '%timeout%', 'Timeout',
+        _error_sample_content ILIKE '%not found%', 'NotFound',
         'UnknownError'
       )
     ) as error_pattern,
@@ -10321,6 +10433,7 @@ TO rudel.session_analytics AS
     ) AS _is_capped,
 
     if(_is_capped, '', cs.content) AS _line_safe_content,
+    if(_is_capped, substring(cs.content, 1, 20000000), cs.content) AS _error_sample_content,
 
     arrayFilter(
       x -> x != '',
@@ -10397,10 +10510,15 @@ TO rudel.session_analytics AS
     arrayDistinct(arrayFilter(x -> x != '', extractAll(cs.content, '"name":"exec_command"[^}]*skills/([a-zA-Z0-9_-]+)/SKILL'))) AS _skills,
 
     toUInt32(
-      length(extractAll(cs.content, '\\\\"exit_code\\\\":[1-9][0-9]*'))
-      + arrayCount(
-          x -> x ILIKE '%Error:%' OR x ILIKE '%Exception:%',
-          _tool_output_lines
+      length(extractAll(_error_sample_content, '\\\\"exit_code\\\\":[1-9][0-9]*'))
+      + if(
+          _is_capped,
+          length(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Error):'))
+            + length(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Exception):')),
+          arrayCount(
+            x -> x ILIKE '%Error:%' OR x ILIKE '%Exception:%',
+            _tool_output_lines
+          )
         )
     ) AS _error_count
 
@@ -10436,28 +10554,28 @@ TO rudel.session_analytics AS
       _error_count = 0,
       '',
       multiIf(
-        cs.content ILIKE '%OperationFailed%', 'OperationFailed',
-        cs.content ILIKE '%UnknownError%', 'UnknownError',
-        cs.content ILIKE '%ORPCError%', 'ORPCError',
-        cs.content ILIKE '%TimeoutError%', 'TimeoutError',
-        cs.content ILIKE '%TypeError%', 'TypeError',
-        cs.content ILIKE '%ReferenceError%', 'ReferenceError',
-        cs.content ILIKE '%Error:%',
+        _error_sample_content ILIKE '%OperationFailed%', 'OperationFailed',
+        _error_sample_content ILIKE '%UnknownError%', 'UnknownError',
+        _error_sample_content ILIKE '%ORPCError%', 'ORPCError',
+        _error_sample_content ILIKE '%TimeoutError%', 'TimeoutError',
+        _error_sample_content ILIKE '%TypeError%', 'TypeError',
+        _error_sample_content ILIKE '%ReferenceError%', 'ReferenceError',
+        _error_sample_content ILIKE '%Error:%',
           if(
-            length(extractAll(cs.content, '([A-Z][a-zA-Z]+Error):')) > 0,
-            arrayElement(extractAll(cs.content, '([A-Z][a-zA-Z]+Error):'), 1),
+            length(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Error):')) > 0,
+            arrayElement(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Error):'), 1),
             'GenericError'
           ),
-        cs.content ILIKE '%Exception:%',
+        _error_sample_content ILIKE '%Exception:%',
           if(
-            length(extractAll(cs.content, '([A-Z][a-zA-Z]+Exception):')) > 0,
-            arrayElement(extractAll(cs.content, '([A-Z][a-zA-Z]+Exception):'), 1),
+            length(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Exception):')) > 0,
+            arrayElement(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Exception):'), 1),
             'Exception'
           ),
-        cs.content ILIKE '%error:%', 'GenericError',
-        cs.content ILIKE '%failed%', 'OperationFailed',
-        cs.content ILIKE '%timeout%', 'Timeout',
-        cs.content ILIKE '%not found%', 'NotFound',
+        _error_sample_content ILIKE '%error:%', 'GenericError',
+        _error_sample_content ILIKE '%failed%', 'OperationFailed',
+        _error_sample_content ILIKE '%timeout%', 'Timeout',
+        _error_sample_content ILIKE '%not found%', 'NotFound',
         'UnknownError'
       )
     ) as error_pattern,
@@ -10537,6 +10655,7 @@ TO rudel.session_analytics AS
     ) AS _is_capped,
 
     if(_is_capped, '', cs.content) AS _line_safe_content,
+    if(_is_capped, substring(cs.content, 1, 20000000), cs.content) AS _error_sample_content,
 
     arrayFilter(
       x -> JSONExtractString(x, 'type') IN ('user', 'assistant'),
@@ -10601,8 +10720,8 @@ TO rudel.session_analytics AS
     arrayDistinct(arrayFilter(x -> x != '', extractAll(cs.content, '<command-name>/([^<]+)</command-name>'))) AS _slash_commands,
 
     toUInt32(
-      length(extractAll(cs.content, '"isApiErrorMessage":true'))
-      + length(extractAll(cs.content, '"is_error":true'))
+      length(extractAll(_error_sample_content, '"isApiErrorMessage":true'))
+      + length(extractAll(_error_sample_content, '"is_error":true'))
     ) AS _error_count,
 
     if(_is_capped, cs.session_date, arrayMin(_timestamps)) AS _session_date,
@@ -10641,28 +10760,28 @@ TO rudel.session_analytics AS
       _error_count = 0,
       '',
       multiIf(
-        cs.content ILIKE '%OperationFailed%', 'OperationFailed',
-        cs.content ILIKE '%UnknownError%', 'UnknownError',
-        cs.content ILIKE '%ORPCError%', 'ORPCError',
-        cs.content ILIKE '%TimeoutError%', 'TimeoutError',
-        cs.content ILIKE '%TypeError%', 'TypeError',
-        cs.content ILIKE '%ReferenceError%', 'ReferenceError',
-        cs.content ILIKE '%Error:%',
+        _error_sample_content ILIKE '%OperationFailed%', 'OperationFailed',
+        _error_sample_content ILIKE '%UnknownError%', 'UnknownError',
+        _error_sample_content ILIKE '%ORPCError%', 'ORPCError',
+        _error_sample_content ILIKE '%TimeoutError%', 'TimeoutError',
+        _error_sample_content ILIKE '%TypeError%', 'TypeError',
+        _error_sample_content ILIKE '%ReferenceError%', 'ReferenceError',
+        _error_sample_content ILIKE '%Error:%',
           if(
-            length(extractAll(cs.content, '([A-Z][a-zA-Z]+Error):')) > 0,
-            arrayElement(extractAll(cs.content, '([A-Z][a-zA-Z]+Error):'), 1),
+            length(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Error):')) > 0,
+            arrayElement(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Error):'), 1),
             'GenericError'
           ),
-        cs.content ILIKE '%Exception:%',
+        _error_sample_content ILIKE '%Exception:%',
           if(
-            length(extractAll(cs.content, '([A-Z][a-zA-Z]+Exception):')) > 0,
-            arrayElement(extractAll(cs.content, '([A-Z][a-zA-Z]+Exception):'), 1),
+            length(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Exception):')) > 0,
+            arrayElement(extractAll(_error_sample_content, '([A-Z][a-zA-Z]+Exception):'), 1),
             'Exception'
           ),
-        cs.content ILIKE '%error:%', 'GenericError',
-        cs.content ILIKE '%failed%', 'OperationFailed',
-        cs.content ILIKE '%timeout%', 'Timeout',
-        cs.content ILIKE '%not found%', 'NotFound',
+        _error_sample_content ILIKE '%error:%', 'GenericError',
+        _error_sample_content ILIKE '%failed%', 'OperationFailed',
+        _error_sample_content ILIKE '%timeout%', 'Timeout',
+        _error_sample_content ILIKE '%not found%', 'NotFound',
         'UnknownError'
       )
     ) as error_pattern,
