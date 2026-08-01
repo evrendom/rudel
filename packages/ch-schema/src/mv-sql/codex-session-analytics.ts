@@ -9,9 +9,16 @@ export const CODEX_SESSION_ANALYTICS_MV_SQL = `
   SELECT * EXCEPT (_dedupe_rank)
   FROM (
   WITH
+    (
+      length(cs.content) > 20000000
+      OR countSubstrings(cs.content, '\\n') > 2000
+    ) AS _is_capped,
+
+    if(_is_capped, '', cs.content) AS _line_safe_content,
+
     arrayFilter(
       x -> x != '',
-      splitByChar('\\n', cs.content)
+      splitByChar('\\n', _line_safe_content)
     ) AS _all_lines,
 
     arrayFilter(x -> JSONHas(x, 'timestamp'), _all_lines) AS _ts_lines,
@@ -60,8 +67,8 @@ export const CODEX_SESSION_ANALYTICS_MV_SQL = `
     toUInt64OrZero(JSONExtractRaw(_final_usage, 'output_tokens')) AS _output_tokens,
     toUInt64OrZero(JSONExtractRaw(_final_usage, 'cached_input_tokens')) AS _cache_read_input_tokens,
 
-    arrayMin(_timestamps) AS _session_date,
-    arrayMax(_timestamps) AS _last_interaction_date,
+    if(_is_capped, cs.session_date, arrayMin(_timestamps)) AS _session_date,
+    if(_is_capped, cs.last_interaction_date, arrayMax(_timestamps)) AS _last_interaction_date,
     dateDiff('minute', _session_date, _last_interaction_date) AS _duration_min,
 
     arrayFilter(x -> JSONExtractString(x, 'type') = 'session_meta', _all_lines) AS _meta_lines,
@@ -158,6 +165,6 @@ export const CODEX_SESSION_ANALYTICS_MV_SQL = `
     ) AS _dedupe_rank
 
   FROM rudel.codex_sessions AS cs
-  WHERE length(_timestamps) > 0
+  WHERE _is_capped OR length(_timestamps) > 0
   )
   WHERE _dedupe_rank = 1`;

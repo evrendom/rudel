@@ -9,9 +9,16 @@ export const CLAUDE_SESSION_ANALYTICS_MV_SQL = `
   SELECT * EXCEPT (_dedupe_rank)
   FROM (
   WITH
+    (
+      length(cs.content) > 20000000
+      OR countSubstrings(cs.content, '\\n') > 2000
+    ) AS _is_capped,
+
+    if(_is_capped, '', cs.content) AS _line_safe_content,
+
     arrayFilter(
       x -> JSONExtractString(x, 'type') IN ('user', 'assistant'),
-      splitByChar('\\n', cs.content)
+      splitByChar('\\n', _line_safe_content)
     ) AS _interaction_lines,
 
     arrayFilter(x -> JSONHas(x, 'timestamp'), _interaction_lines) AS _ts_lines,
@@ -45,7 +52,7 @@ export const CLAUDE_SESSION_ANALYTICS_MV_SQL = `
 
     arrayFilter(
       x -> JSONExtractString(x, 'type') = 'assistant' AND JSONHas(x, 'message'),
-      splitByChar('\\n', cs.content)
+      splitByChar('\\n', _line_safe_content)
     ) AS _assistant_lines,
 
     arrayMap(
@@ -76,8 +83,8 @@ export const CLAUDE_SESSION_ANALYTICS_MV_SQL = `
       + length(extractAll(cs.content, '"is_error":true'))
     ) AS _error_count,
 
-    arrayMin(_timestamps) AS _session_date,
-    arrayMax(_timestamps) AS _last_interaction_date,
+    if(_is_capped, cs.session_date, arrayMin(_timestamps)) AS _session_date,
+    if(_is_capped, cs.last_interaction_date, arrayMax(_timestamps)) AS _last_interaction_date,
     dateDiff('minute', _session_date, _last_interaction_date) AS _duration_min
 
   SELECT
@@ -109,18 +116,22 @@ export const CLAUDE_SESSION_ANALYTICS_MV_SQL = `
     toUInt32(arrayCount(x -> x > 300, _prompt_periods_sec)) as long_pauses,
     _error_count as error_count,
     ${SESSION_ERROR_PATTERN_SQL} as error_pattern,
-    JSONExtractString(
-      JSONExtractRaw(
-        arrayElement(
-          arrayFilter(
-            x -> JSONExtractString(x, 'type') = 'assistant',
-            splitByChar('\\n', cs.content)
+    if(
+      _is_capped,
+      '',
+      JSONExtractString(
+        JSONExtractRaw(
+          arrayElement(
+            arrayFilter(
+              x -> JSONExtractString(x, 'type') = 'assistant',
+              splitByChar('\\n', _line_safe_content)
+            ),
+            -1
           ),
-          -1
+          'message'
         ),
-        'message'
-      ),
-      'model'
+        'model'
+      )
     ) as model_used,
     toUInt8(if(cs.git_sha IS NOT NULL AND cs.git_sha != '', 1, 0)) as has_commit,
     toUInt8(if(position(cs.content, '"name":"EnterPlanMode"') > 0, 1, 0)) as used_plan_mode,
@@ -155,6 +166,6 @@ export const CLAUDE_SESSION_ANALYTICS_MV_SQL = `
     ) AS _dedupe_rank
 
   FROM rudel.claude_sessions AS cs
-  WHERE length(_timestamps) > 0
+  WHERE _is_capped OR length(_timestamps) > 0
   )
   WHERE _dedupe_rank = 1`;

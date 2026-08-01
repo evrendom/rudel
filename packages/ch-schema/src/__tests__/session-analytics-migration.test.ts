@@ -35,7 +35,7 @@ describe("session_analytics identity migration", () => {
 		).toBe(1);
 
 		expect(countOccurrences(normalizedMigration, "ROW_NUMBER() OVER")).toBe(2);
-		expect(countOccurrences(normalizedMigration, "INNER ANY JOIN")).toBe(2);
+		expect(countOccurrences(normalizedMigration, "INNER ANY JOIN")).toBe(32);
 		expect(normalizedMigration).toContain(
 			normalizeSql(`
 FROM rudel.claude_sessions AS cs
@@ -58,6 +58,54 @@ INNER ANY JOIN
 ) AS latest
 USING (organization_id, user_id, session_id, ingested_at)`),
 		);
+	});
+
+	test("rebuilds in resumable session-month chunks", () => {
+		const normalizedMigration = normalizeSql(migration);
+
+		expect(migration).toContain(
+			"CREATE TABLE IF NOT EXISTS rudel.session_analytics_v2",
+		);
+		expect(migration).not.toContain(
+			"DROP TABLE IF EXISTS rudel.session_analytics_v2",
+		);
+		expect(
+			countOccurrences(
+				normalizedMigration,
+				"INSERT INTO rudel.session_analytics_v2",
+			),
+		).toBe(32);
+		expect(countOccurrences(normalizedMigration, "max_block_size=64")).toBe(32);
+		expect(
+			countOccurrences(
+				normalizedMigration,
+				"SELECT count() FROM rudel.session_analytics_v2 WHERE source =",
+			),
+		).toBe(32);
+		expect(
+			countOccurrences(normalizedMigration, "source = 'claude_code'"),
+		).toBe(16);
+		expect(countOccurrences(normalizedMigration, "source = 'codex'")).toBe(16);
+		expect(migration).toContain(
+			"DROP PARTITION would discard the entire unpartitioned shadow",
+		);
+	});
+
+	test("caps the line-array pipeline by transcript bytes and lines", () => {
+		const normalizedMigration = normalizeSql(migration);
+		const cap = normalizeSql(`
+(
+  length(cs.content) > 20000000
+  OR countSubstrings(cs.content, '\\n') > 2000
+) AS _is_capped`);
+
+		expect(countOccurrences(normalizedMigration, cap)).toBe(34);
+		expect(
+			countOccurrences(
+				normalizedMigration,
+				"if(_is_capped, '', cs.content) AS _line_safe_content",
+			),
+		).toBe(34);
 	});
 
 	test("checks physical shadow rows for duplicate identities before cutover", () => {
