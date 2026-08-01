@@ -192,11 +192,11 @@ function codexUnderflowTranscript(): string {
 }
 
 function overLineLimitTranscript(transcript: string): string {
-	return [transcript, ...Array.from({ length: 2_000 }, () => "{}")].join("\n");
+	return [transcript, ...Array.from({ length: 8_000 }, () => "{}")].join("\n");
 }
 
 function overByteLimitTranscript(transcript: string): string {
-	return [transcript, "x".repeat(20_000_000)].join("\n");
+	return [transcript, "x".repeat(120_000_000)].join("\n");
 }
 
 function recentRetentionTranscript(): string {

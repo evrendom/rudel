@@ -95,8 +95,8 @@ USING (organization_id, user_id, session_id, ingested_at)`),
 		const normalizedMigration = normalizeSql(migration);
 		const cap = normalizeSql(`
 (
-  length(cs.content) > 20000000
-  OR countSubstrings(cs.content, '\\n') > 2000
+  length(cs.content) > 120000000
+  OR countSubstrings(cs.content, '\\n') > 8000
 ) AS _is_capped`);
 
 		expect(countOccurrences(normalizedMigration, cap)).toBe(34);

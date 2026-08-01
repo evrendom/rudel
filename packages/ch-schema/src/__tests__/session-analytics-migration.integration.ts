@@ -196,12 +196,12 @@ function claudeContent(
 function overLineLimitContent(...meaningfulLines: string[]): string {
 	return [
 		...meaningfulLines,
-		...Array.from({ length: 2_000 }, () => "{}"),
+		...Array.from({ length: 8_000 }, () => "{}"),
 	].join("\n");
 }
 
 function overByteLimitContent(content: string): string {
-	return [content, "x".repeat(20_000_000)].join("\n");
+	return [content, "x".repeat(120_000_000)].join("\n");
 }
 
 function buildClaudeRow(

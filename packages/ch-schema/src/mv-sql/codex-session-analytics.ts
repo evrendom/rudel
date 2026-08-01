@@ -10,8 +10,8 @@ export const CODEX_SESSION_ANALYTICS_MV_SQL = `
   FROM (
   WITH
     (
-      length(cs.content) > 20000000
-      OR countSubstrings(cs.content, '\\n') > 2000
+      length(cs.content) > 120000000
+      OR countSubstrings(cs.content, '\\n') > 8000
     ) AS _is_capped,
 
     if(_is_capped, '', cs.content) AS _line_safe_content,
