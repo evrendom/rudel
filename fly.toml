@@ -3,6 +3,10 @@ primary_region = "fra"
 
 [build]
 
+[[vm]]
+  size = "shared-cpu-2x"
+  memory = "2gb"
+
 [http_service]
   internal_port = 3000
   force_https = true
