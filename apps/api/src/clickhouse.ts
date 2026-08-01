@@ -144,9 +144,10 @@ export function createClickHouseExecutor(config: {
 			const table = getSafeClickHouseTable(params.table);
 			// Use command() with FORMAT JSONEachRow instead of client.insert()
 			// because ClickHouse Cloud's @clickhouse/client insert() silently drops data.
+			// Single-row transcript inserts hit the parallel JSON parser's ~115 MB cliff.
 			const rows = params.values.map((r) => JSON.stringify(r)).join("\n");
 			await client.command({
-				query: `INSERT INTO ${table} SETTINGS async_insert=1, wait_for_async_insert=1 FORMAT JSONEachRow ${rows}`,
+				query: `INSERT INTO ${table} SETTINGS async_insert=1, wait_for_async_insert=1, input_format_parallel_parsing=0 FORMAT JSONEachRow ${rows}`,
 			});
 		},
 	};

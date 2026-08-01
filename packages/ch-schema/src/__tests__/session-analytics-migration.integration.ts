@@ -35,6 +35,23 @@ interface SourceSummaryRow {
 	total_tokens: string | number;
 }
 
+interface CappedAnalyticsRow {
+	source: string;
+	session_id: string;
+	session_date_ms: string | number;
+	last_interaction_date_ms: string | number;
+	total_tokens: string | number;
+	total_interactions: string | number;
+	actual_duration_min: string | number;
+	avg_period_sec: string | number;
+	median_period_sec: string | number;
+	quick_responses: string | number;
+	normal_responses: string | number;
+	long_pauses: string | number;
+	inference_duration_sec: string | number;
+	human_duration_sec: string | number;
+}
+
 function createDatabaseName(suffix: string): string {
 	const database = `${TEST_DATABASE_PREFIX}_${suffix}`;
 	if (!/^[a-zA-Z0-9_]+$/.test(database)) {
@@ -176,6 +193,17 @@ function claudeContent(
 	].join("\n");
 }
 
+function overLineLimitContent(...meaningfulLines: string[]): string {
+	return [
+		...meaningfulLines,
+		...Array.from({ length: 8_000 }, () => "{}"),
+	].join("\n");
+}
+
+function overByteLimitContent(content: string): string {
+	return [content, "x".repeat(120_000_000)].join("\n");
+}
+
 function buildClaudeRow(
 	sessionId: string,
 	organizationId: string,
@@ -208,6 +236,8 @@ function buildCodexRow(
 	sessionId: string,
 	organizationId: string,
 	userId: string,
+	content = CODEX_CONTENT,
+	ingestedAt = "2026-03-02T06:37:00.000",
 ): RudelCodexSessionsRow {
 	return {
 		session_date: "2026-03-02T04:29:38.576",
@@ -218,9 +248,9 @@ function buildCodexRow(
 		git_remote: "",
 		package_name: "migration-rehearsal",
 		package_type: "package.json",
-		content: CODEX_CONTENT,
+		content,
 		filter_version: 5,
-		ingested_at: "2026-03-02T06:37:00.000",
+		ingested_at: ingestedAt,
 		user_id: userId,
 		git_branch: "main",
 		git_sha: null,
@@ -231,6 +261,8 @@ function buildCodexRow(
 async function seedMessyRawData(database: string): Promise<void> {
 	const correctedSessionId = `${RUN_ID}_corrected`;
 	const sharedSessionId = `${RUN_ID}_shared`;
+	const cappedClaudeSessionId = `${RUN_ID}_capped_claude`;
+	const cappedCodexSessionId = `${RUN_ID}_capped_codex`;
 
 	await executor.insert({
 		table: `${database}.claude_sessions`,
@@ -277,11 +309,30 @@ async function seedMessyRawData(database: string): Promise<void> {
 				"2026-04-01T10:01:00.000",
 				claudeContent("2026-04-01T10:00:00.000Z", 400, 60),
 			),
+			buildClaudeRow(
+				cappedClaudeSessionId,
+				"org_capped",
+				"user_capped",
+				"2026-05-01T10:00:00.000",
+				"2026-05-01T10:05:00.000",
+				overLineLimitContent(
+					claudeContent("2026-05-01T10:00:00.000Z", 900, 100),
+				),
+			),
 		],
 	});
 	await executor.insert({
 		table: `${database}.codex_sessions`,
-		values: [buildCodexRow(sharedSessionId, "org_a", "user_a")],
+		values: [
+			buildCodexRow(sharedSessionId, "org_a", "user_a"),
+			buildCodexRow(
+				cappedCodexSessionId,
+				"org_capped",
+				"user_capped",
+				overByteLimitContent(CODEX_CONTENT),
+				"2026-05-01T10:06:00.000",
+			),
+		],
 	});
 }
 
@@ -394,7 +445,7 @@ describe("session_analytics populated migration rehearsal", () => {
 				difference: row.difference,
 				identity_count: Number(row.identity_count),
 			})),
-		).toEqual([{ difference: "new_only_identity", identity_count: 4 }]);
+		).toEqual([{ difference: "new_only_identity", identity_count: 6 }]);
 
 		const summaries = await readSourceSummaries(database);
 		expect(
@@ -404,8 +455,8 @@ describe("session_analytics populated migration rehearsal", () => {
 				total_tokens: Number(row.total_tokens),
 			})),
 		).toEqual([
-			{ source: "claude_code", identity_count: 3, total_tokens: 1050 },
-			{ source: "codex", identity_count: 1, total_tokens: 55459 },
+			{ source: "claude_code", identity_count: 4, total_tokens: 1050 },
+			{ source: "codex", identity_count: 2, total_tokens: 55459 },
 		]);
 		expect(Number(summaries[0]?.identity_count ?? 0)).toBe(
 			await readRawIdentityCount(database, "claude_sessions"),
@@ -430,6 +481,79 @@ describe("session_analytics populated migration rehearsal", () => {
 			Date.parse("2026-02-01T00:01:00.000Z"),
 		);
 		expect(Number(correctedRows[0]?.total_tokens)).toBe(240);
+
+		const cappedRows = await executor.query<CappedAnalyticsRow>(`
+			SELECT
+				source,
+				session_id,
+				toUnixTimestamp64Milli(session_date) AS session_date_ms,
+				toUnixTimestamp64Milli(last_interaction_date) AS last_interaction_date_ms,
+				total_tokens,
+				total_interactions,
+				actual_duration_min,
+				avg_period_sec,
+				median_period_sec,
+				quick_responses,
+				normal_responses,
+				long_pauses,
+				inference_duration_sec,
+				human_duration_sec
+			FROM ${database}.session_analytics FINAL
+			WHERE organization_id = 'org_capped'
+			ORDER BY source
+		`);
+		expect(cappedRows).toHaveLength(2);
+		expect(
+			cappedRows.map((row) => ({
+				source: row.source,
+				sessionId: row.session_id,
+				sessionDate: Number(row.session_date_ms),
+				lastInteractionDate: Number(row.last_interaction_date_ms),
+				totalTokens: Number(row.total_tokens),
+				totalInteractions: Number(row.total_interactions),
+				actualDurationMin: Number(row.actual_duration_min),
+				avgPeriodSec: Number(row.avg_period_sec),
+				medianPeriodSec: Number(row.median_period_sec),
+				quickResponses: Number(row.quick_responses),
+				normalResponses: Number(row.normal_responses),
+				longPauses: Number(row.long_pauses),
+				inferenceDurationSec: Number(row.inference_duration_sec),
+				humanDurationSec: Number(row.human_duration_sec),
+			})),
+		).toEqual([
+			{
+				source: "claude_code",
+				sessionId: `${RUN_ID}_capped_claude`,
+				sessionDate: Date.parse("2026-05-01T10:00:00.000Z"),
+				lastInteractionDate: Date.parse("2026-05-01T10:00:00.000Z"),
+				totalTokens: 0,
+				totalInteractions: 0,
+				actualDurationMin: 0,
+				avgPeriodSec: 0,
+				medianPeriodSec: 0,
+				quickResponses: 0,
+				normalResponses: 0,
+				longPauses: 0,
+				inferenceDurationSec: 0,
+				humanDurationSec: 0,
+			},
+			{
+				source: "codex",
+				sessionId: `${RUN_ID}_capped_codex`,
+				sessionDate: Date.parse("2026-03-02T04:29:38.576Z"),
+				lastInteractionDate: Date.parse("2026-03-02T06:36:38.201Z"),
+				totalTokens: 0,
+				totalInteractions: 0,
+				actualDurationMin: 127,
+				avgPeriodSec: 0,
+				medianPeriodSec: 0,
+				quickResponses: 0,
+				normalResponses: 0,
+				longPauses: 0,
+				inferenceDurationSec: 0,
+				humanDurationSec: 0,
+			},
+		]);
 
 		const transcriptColumns = await executor.query<{ name: string }>(`
 			SELECT name FROM system.columns

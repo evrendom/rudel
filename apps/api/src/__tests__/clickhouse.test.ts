@@ -135,6 +135,7 @@ describe("analytics service guardrails", () => {
 		expect(clickhouseSource).toContain(
 			"async_insert=1, wait_for_async_insert=1",
 		);
+		expect(clickhouseSource).toContain("input_format_parallel_parsing=0");
 		expect(clickhouseSource).not.toContain("lightweight_deletes_sync");
 		expect(sessionAnalyticsSource).not.toContain("{table:Identifier}");
 		expect(sessionAnalyticsSource).not.toContain("|| dimension");

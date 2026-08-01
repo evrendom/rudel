@@ -69,8 +69,8 @@ afterAll(async () => {
 });
 
 // Minimal-but-realistic Claude Code transcript. The Claude analytics MV only
-// emits a row when the content yields parseable timestamps on user/assistant
-// lines (`WHERE length(_timestamps) > 0`), so all three lines carry them.
+// emits an uncapped row when the content yields parseable timestamps on
+// user/assistant lines, so all three lines carry them.
 const CLAUDE_MV_CONTENT = [
 	JSON.stringify({
 		type: "user",

@@ -191,6 +191,14 @@ function codexUnderflowTranscript(): string {
 		.join("\n");
 }
 
+function overLineLimitTranscript(transcript: string): string {
+	return [transcript, ...Array.from({ length: 8_000 }, () => "{}")].join("\n");
+}
+
+function overByteLimitTranscript(transcript: string): string {
+	return [transcript, "x".repeat(120_000_000)].join("\n");
+}
+
 function recentRetentionTranscript(): string {
 	const startedAt = new Date();
 	startedAt.setUTCSeconds(startedAt.getUTCSeconds() - 30);
@@ -234,11 +242,21 @@ interface AnalyticsRow {
 	user_id: string;
 	project_path: string;
 	session_date_ms: string | number;
+	last_interaction_date_ms: string | number;
 	input_tokens: string | number;
 	output_tokens: string | number;
 	cache_read_input_tokens: string | number;
 	cache_creation_input_tokens: string | number;
 	total_tokens: string | number;
+	total_interactions: string | number;
+	actual_duration_min: string | number;
+	avg_period_sec: string | number;
+	median_period_sec: string | number;
+	quick_responses: string | number;
+	normal_responses: string | number;
+	long_pauses: string | number;
+	inference_duration_sec: string | number;
+	human_duration_sec: string | number;
 	error_count: number;
 	error_pattern: string;
 	success_score: number;
@@ -278,8 +296,12 @@ async function readAnalytics(
 			rows = await executor.query<AnalyticsRow>({
 				query: `SELECT session_id, source, organization_id, user_id, project_path,
 				               toUnixTimestamp64Milli(session_date) AS session_date_ms,
+				               toUnixTimestamp64Milli(last_interaction_date) AS last_interaction_date_ms,
 				               input_tokens, output_tokens,
-						               cache_read_input_tokens, cache_creation_input_tokens, total_tokens,
+				               cache_read_input_tokens, cache_creation_input_tokens, total_tokens,
+				               total_interactions, actual_duration_min, avg_period_sec, median_period_sec,
+				               quick_responses, normal_responses, long_pauses,
+				               inference_duration_sec, human_duration_sec,
 					               error_count, error_pattern, success_score
 					        FROM ${getSafeClickHouseTable("rudel.session_analytics")} FINAL
 				        WHERE organization_id = {orgId:String} AND session_id = {sessionId:String}`,
@@ -306,8 +328,12 @@ async function readAnalyticsAcrossOrganizations(
 			rows = await executor.query<AnalyticsRow>({
 				query: `SELECT session_id, source, organization_id, user_id, project_path,
 				               toUnixTimestamp64Milli(session_date) AS session_date_ms,
+				               toUnixTimestamp64Milli(last_interaction_date) AS last_interaction_date_ms,
 				               input_tokens, output_tokens,
 				               cache_read_input_tokens, cache_creation_input_tokens, total_tokens,
+				               total_interactions, actual_duration_min, avg_period_sec, median_period_sec,
+				               quick_responses, normal_responses, long_pauses,
+				               inference_duration_sec, human_duration_sec,
 				               error_count, error_pattern, success_score
 				        FROM ${getSafeClickHouseTable("rudel.session_analytics")} FINAL
 				        WHERE session_id = {sessionId:String}`,
@@ -567,6 +593,61 @@ describe("session_analytics computed values", () => {
 		expect(num(row.total_tokens)).toBe(1_600_100);
 		expect(row.success_score).toBe(0);
 	}, 180000);
+
+	test("caps over-limit Claude and Codex transcripts during ingest", async () => {
+		const cases: Array<{
+			source: "claude_code" | "codex";
+			sessionId: string;
+			content: string;
+			sessionDate: number;
+			lastInteractionDate: number;
+		}> = [
+			{
+				source: "claude_code",
+				sessionId: `values_capped_claude_${runId}`,
+				content: overLineLimitTranscript(claudeTranscript()),
+				sessionDate: Date.parse("2026-05-04T10:00:00.000Z"),
+				lastInteractionDate: Date.parse("2026-05-04T10:00:30.000Z"),
+			},
+			{
+				source: "codex",
+				sessionId: `values_capped_codex_${runId}`,
+				content: overByteLimitTranscript(codexUnderflowTranscript()),
+				sessionDate: Date.parse("2026-03-02T04:29:38.576Z"),
+				lastInteractionDate: Date.parse("2026-03-02T04:29:55.000Z"),
+			},
+		];
+
+		for (const testCase of cases) {
+			await ingest({
+				source: testCase.source,
+				sessionId: testCase.sessionId,
+				projectPath: "/test/analytics-values-capped",
+				content: testCase.content,
+			});
+
+			const rows = await readAnalytics(testCase.sessionId);
+			expect(rows).toHaveLength(1);
+			const row = rows[0];
+			if (!row) throw new Error(`no capped ${testCase.source} row produced`);
+
+			expect(row.source).toBe(testCase.source);
+			expect(num(row.session_date_ms)).toBe(testCase.sessionDate);
+			expect(num(row.last_interaction_date_ms)).toBe(
+				testCase.lastInteractionDate,
+			);
+			expect(num(row.total_tokens)).toBe(0);
+			expect(num(row.total_interactions)).toBe(0);
+			expect(num(row.actual_duration_min)).toBe(0);
+			expect(num(row.avg_period_sec)).toBe(0);
+			expect(num(row.median_period_sec)).toBe(0);
+			expect(num(row.quick_responses)).toBe(0);
+			expect(num(row.normal_responses)).toBe(0);
+			expect(num(row.long_pauses)).toBe(0);
+			expect(num(row.inference_duration_sec)).toBe(0);
+			expect(num(row.human_duration_sec)).toBe(0);
+		}
+	}, 300000);
 
 	test("retains error classification after raw transcripts expire", async () => {
 		const sessionId = `values_retention_${runId}`;

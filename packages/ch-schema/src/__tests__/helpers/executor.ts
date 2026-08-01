@@ -30,7 +30,8 @@ export function createTestExecutor(): TestExecutor {
 			const rows = params.values
 				.map((row: Record<string, unknown>) => JSON.stringify(row))
 				.join("\n");
-			const sql = `INSERT INTO ${params.table} SETTINGS async_insert=1, wait_for_async_insert=1 FORMAT JSONEachRow ${rows}`;
+			// Match production: large single-row transcripts exceed the parallel parser's object limit.
+			const sql = `INSERT INTO ${params.table} SETTINGS async_insert=1, wait_for_async_insert=1, input_format_parallel_parsing=0 FORMAT JSONEachRow ${rows}`;
 			for (let attempt = 0; attempt < 5; attempt++) {
 				try {
 					await baseExecutor.execute(sql);
