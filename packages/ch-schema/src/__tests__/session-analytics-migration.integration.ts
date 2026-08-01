@@ -544,7 +544,7 @@ describe("session_analytics populated migration rehearsal", () => {
 				lastInteractionDate: Date.parse("2026-03-02T06:36:38.201Z"),
 				totalTokens: 0,
 				totalInteractions: 0,
-				actualDurationMin: 0,
+				actualDurationMin: 127,
 				avgPeriodSec: 0,
 				medianPeriodSec: 0,
 				quickResponses: 0,

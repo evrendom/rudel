@@ -1,4 +1,4 @@
-const MARKER = "WHERE length(_timestamps) > 0";
+const MARKER = "WHERE _is_capped OR length(_timestamps) > 0";
 const SAFE_ID = /^[A-Za-z0-9_-]+$/;
 
 export interface SessionScope {
@@ -44,6 +44,6 @@ export function withSessionFilter(mvSql: string, scope: SessionScope): string {
 	return parts.join(
 		`WHERE cs.organization_id = '${scope.organizationId}'` +
 			` AND cs.session_id = '${scope.sessionId}'` +
-			` AND length(_timestamps) > 0`,
+			` AND (_is_capped OR length(_timestamps) > 0)`,
 	);
 }
