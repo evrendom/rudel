@@ -177,7 +177,7 @@ function buildCostComponentSql(tokensExpr: string, rateSql: string) {
 
 export function buildEstimatedCostSql({
 	modelExpr,
-	dateExpr = "today()",
+	dateExpr,
 	inputExpr,
 	outputExpr,
 	cacheReadInputExpr = "0",
@@ -187,7 +187,7 @@ export function buildEstimatedCostSql({
 	precision,
 }: {
 	modelExpr: string;
-	dateExpr?: string;
+	dateExpr: string;
 	inputExpr: string;
 	outputExpr: string;
 	cacheReadInputExpr?: string;
@@ -284,6 +284,8 @@ export function renderModelPricingTable() {
 		`Rate card version: ${MODEL_RATE_CARD_VERSION}. Standard first-party API rates in USD per million tokens.`,
 		"Cache-write columns show 5-minute / 1-hour rates; an em dash means the provider does not publish that tier.",
 		"OpenAI publishes a duration-agnostic cache-write rate, shown in the 5-minute column for a consistent schema.",
+		"",
+		"Known estimation limits: session aggregates assign all tokens to one resolved model; callers use the base context band unless request-level context is available; cache writes use the 5-minute tier unless 1-hour token counts are supplied; unresolved models return no estimate.",
 		"",
 		sections.join("\n\n"),
 		"",

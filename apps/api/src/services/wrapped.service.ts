@@ -27,6 +27,7 @@ const VERIFIED_METRIC_COUNT = 8;
 
 const PER_SESSION_COST_SQL = buildEstimatedCostSql({
 	modelExpr: "model_used",
+	dateExpr: "session_date",
 	inputExpr:
 		"(ifNull(input_tokens, 0) - ifNull(cache_read_input_tokens, 0) - ifNull(cache_creation_input_tokens, 0))",
 	outputExpr: "ifNull(output_tokens, 0)",
