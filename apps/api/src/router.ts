@@ -177,6 +177,55 @@ const listMyOrganizations = os.listMyOrganizations
 		}));
 	});
 
+async function resolveIngestOrganizationId(
+	requestedOrganizationId: string | null,
+	userId: string,
+): Promise<string> {
+	if (requestedOrganizationId) {
+		const membership = await sqlClient<Array<{ id: string }>>`
+			SELECT id
+			FROM member
+			WHERE organization_id = ${requestedOrganizationId}
+				AND user_id = ${userId}
+			LIMIT 1
+		`;
+
+		if (membership.length === 0) {
+			throw new ORPCError("FORBIDDEN", {
+				message: "Not a member of the specified organization",
+			});
+		}
+		return requestedOrganizationId;
+	}
+
+	const memberships = await sqlClient<Array<{ organization_id: string }>>`
+		SELECT organization_id
+		FROM member
+		WHERE user_id = ${userId}
+		GROUP BY organization_id
+		ORDER BY (organization_id = ${userId}) DESC, MIN(created_at) ASC
+		LIMIT 2
+	`;
+	const personalWorkspace = memberships.find(
+		(membership) => membership.organization_id === userId,
+	);
+	if (personalWorkspace) {
+		return personalWorkspace.organization_id;
+	}
+	if (memberships.length === 1 && memberships[0]) {
+		return memberships[0].organization_id;
+	}
+	if (memberships.length === 0) {
+		throw new ORPCError("BAD_REQUEST", {
+			message: "No organization is available for this upload",
+		});
+	}
+
+	throw new ORPCError("BAD_REQUEST", {
+		message: "Choose an organization with --org or rudel set-org",
+	});
+}
+
 const ingestSessionHandler = os.ingestSession
 	.use(ingestAuthMiddleware)
 	.handler(async ({ input, context, errors, signal }) => {
@@ -279,24 +328,10 @@ const ingestSessionHandler = os.ingestSession
 			checkHookIngestRateLimit(context.user.id, input.sessionId);
 		}
 
-		const orgId = input.organizationId ?? activeOrgId ?? context.user.id;
-
-		// Verify membership for any org that isn't the user's personal workspace
-		if (orgId !== context.user.id) {
-			const membership = await sqlClient<Array<{ id: string }>>`
-				SELECT id
-				FROM member
-				WHERE organization_id = ${orgId}
-					AND user_id = ${context.user.id}
-				LIMIT 1
-			`;
-
-			if (membership.length === 0) {
-				throw new ORPCError("FORBIDDEN", {
-					message: "Not a member of the specified organization",
-				});
-			}
-		}
+		const orgId = await resolveIngestOrganizationId(
+			input.organizationId ?? activeOrgId,
+			context.user.id,
+		);
 
 		const ownership = await claimSessionIngestOwnership(
 			orgId,
