@@ -90,6 +90,13 @@ beforeAll(async () => {
 		DELETE FROM organization
 		WHERE id = ${orgless.userId}
 	`;
+	await sqlClient.begin(async (transaction) => {
+		await transaction.unsafe("SET LOCAL session_replication_role = replica");
+		await transaction.unsafe(
+			"INSERT INTO member (id, organization_id, user_id, role) VALUES ($1, $2, $3, 'owner')",
+			[crypto.randomUUID(), orgless.userId, orgless.userId],
+		);
+	});
 
 	const activeOrganizationResponse = await fetch(
 		`${server.baseUrl}/api/auth/organization/set-active`,
@@ -579,7 +586,7 @@ describe("organization session ownership", () => {
 		);
 	}, 60_000);
 
-	test("routes an org-less API-key upload to its only remaining organization", async () => {
+	test("ignores dangling memberships when routing an org-less API-key upload", async () => {
 		const input = createSessionInput(ORGLESS_SESSION_ID, "org-less-api-key");
 		delete input.organizationId;
 
