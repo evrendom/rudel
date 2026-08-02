@@ -111,6 +111,7 @@ describe("buildSessionDetailViewModel", () => {
 				input_tokens: 100_000_000,
 				model_used: "claude-sonnet-4-5",
 				output_tokens: 0,
+				session_date: "2026-08-01T00:00:00Z",
 			},
 			{},
 		);

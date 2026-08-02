@@ -183,6 +183,7 @@ export function calculateCost(
 		| string
 		| null
 		| {
+				at: Date | string;
 				model?: string | null;
 				cacheReadInputTokens?: number;
 				cacheCreationInputTokens?: number;
@@ -191,6 +192,8 @@ export function calculateCost(
 	const model =
 		typeof options === "string" ? options : (options?.model ?? null);
 	const cost = calculateEstimatedModelCost({
+		at:
+			typeof options === "object" && options !== null ? options.at : undefined,
 		model,
 		inputTokens,
 		outputTokens,

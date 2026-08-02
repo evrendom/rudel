@@ -493,7 +493,11 @@ export function buildDashboardTokenTabMetrics(
 	);
 	const totalCostFromModels = (modelRows ?? []).reduce(
 		(sum, row) =>
-			sum + calculateCost(row.input_tokens, row.output_tokens, row.model),
+			sum +
+			calculateCost(row.input_tokens, row.output_tokens, {
+				at: row.date,
+				model: row.model,
+			}),
 		0,
 	);
 	const totalCost =

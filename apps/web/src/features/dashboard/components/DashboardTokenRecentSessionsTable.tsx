@@ -321,6 +321,7 @@ export function DashboardTokenRecentSessionsTable({
 						header: "Cost",
 						renderCell: (session) => (
 							<DashboardTokenCostCell
+								at={session.session_date}
 								inputTokens={session.input_tokens}
 								outputTokens={session.output_tokens}
 								model={session.model_used}

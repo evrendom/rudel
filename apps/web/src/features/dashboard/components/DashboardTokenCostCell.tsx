@@ -9,13 +9,15 @@ function formatCostSplit(
 	inputTokens: number,
 	outputTokens: number,
 	model?: string | null,
+	at?: string,
 ) {
 	if (inputTokens <= 0 && outputTokens <= 0) {
 		return "—";
 	}
 
-	const inputCost = calculateCost(inputTokens, 0, model);
-	const outputCost = calculateCost(0, outputTokens, model);
+	const pricingOptions = at === undefined ? model : { at, model };
+	const inputCost = calculateCost(inputTokens, 0, pricingOptions);
+	const outputCost = calculateCost(0, outputTokens, pricingOptions);
 	const totalCost = inputCost + outputCost;
 
 	if (totalCost <= 0) {
@@ -29,19 +31,23 @@ function formatCostSplit(
 }
 
 export function DashboardTokenCostCell({
+	at,
 	cost,
 	inputTokens,
 	outputTokens,
 	model,
 	showDetailedCost = true,
 }: {
+	at?: string;
 	cost?: number;
 	inputTokens: number;
 	outputTokens: number;
 	model?: string | null;
 	showDetailedCost?: boolean;
 }) {
-	const resolvedCost = cost ?? calculateCost(inputTokens, outputTokens, model);
+	const pricingOptions = at === undefined ? model : { at, model };
+	const resolvedCost =
+		cost ?? calculateCost(inputTokens, outputTokens, pricingOptions);
 
 	return (
 		<DashboardCellStack
@@ -50,7 +56,7 @@ export function DashboardTokenCostCell({
 					? formatCurrency(resolvedCost)
 					: formatWholeCurrency(resolvedCost)
 			}
-			secondary={formatCostSplit(inputTokens, outputTokens, model)}
+			secondary={formatCostSplit(inputTokens, outputTokens, model, at)}
 			primaryClassName="font-medium tabular-nums"
 			secondaryClassName="font-medium tabular-nums uppercase tracking-[0.02em]"
 		/>
