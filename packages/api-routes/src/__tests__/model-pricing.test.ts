@@ -101,11 +101,16 @@ describe("model rate card", () => {
 	});
 
 	it("leaves unknown and pre-release models unresolved", () => {
-		expect(resolveModelPricing("codex-auto-review")).toBeNull();
-		expect(resolveModelPricing("gpt-5.3-codex-spark")).toBeNull();
+		expect(
+			resolveModelPricing("codex-auto-review", { at: "2026-08-02" }),
+		).toBeNull();
+		expect(
+			resolveModelPricing("gpt-5.3-codex-spark", { at: "2026-08-02" }),
+		).toBeNull();
 		expect(resolveModelPricing("gpt-5.6-sol", { at: "2026-06-11" })).toBeNull();
 		expect(
 			calculateEstimatedCost({
+				at: "2026-08-02",
 				model: "unknown-model",
 				inputTokens: 1_000_000,
 				outputTokens: 1_000_000,

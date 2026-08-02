@@ -1,5 +1,4 @@
 import type { UserDailyTrendData, UserTokenUsageData } from "@rudel/api-routes";
-import { calculateCost } from "@/lib/format";
 
 export type DashboardPerformanceUserComparison = {
 	commits: number;
@@ -152,10 +151,7 @@ function resolvePerformanceTotals(
 	const totalTokens = trendUsage?.totalTokens ?? usage?.total_tokens ?? 0;
 
 	return {
-		cost:
-			usage && usage.cost > 0
-				? usage.cost
-				: calculateCost(inputTokens, outputTokens),
+		cost: usage && usage.cost > 0 ? usage.cost : 0,
 		inputTokens,
 		outputTokens,
 		totalCommits,

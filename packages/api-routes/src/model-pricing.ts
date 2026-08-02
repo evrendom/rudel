@@ -8,7 +8,7 @@ import {
 export const ESTIMATED_PRICING_MODE = "estimated_model_pricing_v2" as const;
 
 export type ResolveModelPricingOptions = {
-	at?: Date | string;
+	at: Date | string;
 	contextBand?: ModelContextBand;
 };
 
@@ -26,7 +26,7 @@ function normalizeModelId(model: string | null | undefined) {
 	return model?.trim().toLowerCase() ?? "";
 }
 
-function normalizeDate(at: Date | string | undefined) {
+function normalizeDate(at: Date | string) {
 	if (at instanceof Date) {
 		return Number.isNaN(at.getTime()) ? null : at.toISOString().slice(0, 10);
 	}
@@ -38,7 +38,7 @@ function normalizeDate(at: Date | string | undefined) {
 			: parsed.toISOString().slice(0, 10);
 	}
 
-	return new Date().toISOString().slice(0, 10);
+	return null;
 }
 
 function isEffectiveOn(entry: ModelRateCardEntry, date: string) {
@@ -50,7 +50,7 @@ function isEffectiveOn(entry: ModelRateCardEntry, date: string) {
 
 export function resolveModelPricing(
 	model: string | null | undefined,
-	options: ResolveModelPricingOptions = {},
+	options: ResolveModelPricingOptions,
 ): ModelRateCardEntry | null {
 	const normalizedModel = normalizeModelId(model);
 	const date = normalizeDate(options.at);
@@ -285,7 +285,7 @@ export function renderModelPricingTable() {
 		"Cache-write columns show 5-minute / 1-hour rates; an em dash means the provider does not publish that tier.",
 		"OpenAI publishes a duration-agnostic cache-write rate, shown in the 5-minute column for a consistent schema.",
 		"",
-		"Known estimation limits: session aggregates assign all tokens to one resolved model; callers use the base context band unless request-level context is available; cache writes use the 5-minute tier unless 1-hour token counts are supplied; unresolved models return no estimate.",
+		"Known estimation limits: session aggregates assign all tokens to one resolved model; callers use the base context band unless request-level context is available; cache writes use the 5-minute tier unless 1-hour token counts are supplied; unresolved models return no estimate. Effective dates use the stored session date; its UTC-versus-user-local boundary can move sessions near a rate cutoff by one day until per-request timestamps are available.",
 		"",
 		sections.join("\n\n"),
 		"",

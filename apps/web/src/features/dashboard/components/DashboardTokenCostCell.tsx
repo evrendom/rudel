@@ -8,16 +8,19 @@ import {
 function formatCostSplit(
 	inputTokens: number,
 	outputTokens: number,
-	model?: string | null,
-	at?: string,
+	model: string | null | undefined,
+	at: string | undefined,
 ) {
-	if (inputTokens <= 0 && outputTokens <= 0) {
+	if (
+		(inputTokens <= 0 && outputTokens <= 0) ||
+		at === undefined ||
+		model == null
+	) {
 		return "—";
 	}
 
-	const pricingOptions = at === undefined ? model : { at, model };
-	const inputCost = calculateCost(inputTokens, 0, pricingOptions);
-	const outputCost = calculateCost(0, outputTokens, pricingOptions);
+	const inputCost = calculateCost(inputTokens, 0, { at, model });
+	const outputCost = calculateCost(0, outputTokens, { at, model });
 	const totalCost = inputCost + outputCost;
 
 	if (totalCost <= 0) {
@@ -38,23 +41,26 @@ export function DashboardTokenCostCell({
 	model,
 	showDetailedCost = true,
 }: {
-	at?: string;
-	cost?: number;
+	at: string | undefined;
+	cost: number | null | undefined;
 	inputTokens: number;
 	outputTokens: number;
-	model?: string | null;
+	model: string | null | undefined;
 	showDetailedCost?: boolean;
 }) {
-	const pricingOptions = at === undefined ? model : { at, model };
 	const resolvedCost =
-		cost ?? calculateCost(inputTokens, outputTokens, pricingOptions);
+		cost === undefined && at !== undefined && model != null
+			? calculateCost(inputTokens, outputTokens, { at, model })
+			: (cost ?? null);
 
 	return (
 		<DashboardCellStack
 			primary={
-				showDetailedCost
-					? formatCurrency(resolvedCost)
-					: formatWholeCurrency(resolvedCost)
+				resolvedCost === null
+					? "—"
+					: showDetailedCost
+						? formatCurrency(resolvedCost)
+						: formatWholeCurrency(resolvedCost)
 			}
 			secondary={formatCostSplit(inputTokens, outputTokens, model, at)}
 			primaryClassName="font-medium tabular-nums"

@@ -10,6 +10,7 @@ type DashboardTokenDailyOverviewRow = {
 	avgTokensPerSession: number | null;
 	dateLabel: string;
 	dayLabel: string;
+	estimatedCost: number | null;
 	id: string;
 	inputTokens: number;
 	outputTokens: number;
@@ -49,6 +50,7 @@ function buildTokenRows(
 				avgTokensPerSession: point.avgTokensPerSession,
 				dateLabel: safeDateLabel,
 				dayLabel: safeDayLabel,
+				estimatedCost: point.estimatedCost,
 				id: point.date,
 				inputTokens: point.inputTokens,
 				outputTokens: point.outputTokens,
@@ -134,7 +136,10 @@ export function DashboardTokenDailyOverviewTable({
 										: formatCompactNumber(row.avgTokensPerSession)}
 								</p>
 								<DashboardTokenCostCell
+									at={row.id}
+									cost={row.estimatedCost}
 									inputTokens={row.inputTokens}
+									model={undefined}
 									outputTokens={row.outputTokens}
 								/>
 							</button>

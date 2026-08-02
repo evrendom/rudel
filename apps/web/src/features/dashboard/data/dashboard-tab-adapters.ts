@@ -1,9 +1,10 @@
-import type {
-	ModelTokensTrendData,
-	RepositoryDailyTrendData,
-	SessionAnalyticsSummaryComparison,
-	UserDailyTrendData,
-	UserTokenUsageData,
+import {
+	calculateEstimatedCost as calculateEstimatedModelCost,
+	type ModelTokensTrendData,
+	type RepositoryDailyTrendData,
+	type SessionAnalyticsSummaryComparison,
+	type UserDailyTrendData,
+	type UserTokenUsageData,
 } from "@rudel/api-routes";
 import { format, parseISO } from "date-fns";
 import type { DashboardRepositorySummaryRow } from "@/features/dashboard/data/dashboard-repository-trend";
@@ -22,6 +23,7 @@ export type DashboardTokenDailyPoint = {
 	date: string;
 	dominantModel: string | null;
 	dominantModelTokens: number;
+	estimatedCost: number | null;
 	fullLabel: string;
 	inputTokens: number;
 	modelTokens: Record<string, number>;
@@ -388,6 +390,13 @@ export function buildDashboardTokenDailyPattern(
 			outputTokens: number;
 		}
 	>();
+	const estimatedCostByDate = new Map<
+		string,
+		{
+			hasResolvedCost: boolean;
+			total: number;
+		}
+	>();
 	const modelTokensByDate = new Map<string, Record<string, number>>();
 	let hasUserTokenBreakdown = false;
 	let hasModelTokenBreakdown = false;
@@ -427,6 +436,22 @@ export function buildDashboardTokenDailyPattern(
 
 	for (const row of modelRows ?? []) {
 		const dateKey = normalizeDateKey(row.date);
+		const estimatedCost = calculateEstimatedModelCost({
+			at: row.date,
+			inputTokens: row.input_tokens,
+			model: row.model,
+			outputTokens: row.output_tokens,
+		});
+		const currentCost = estimatedCostByDate.get(dateKey) ?? {
+			hasResolvedCost: false,
+			total: 0,
+		};
+
+		estimatedCostByDate.set(dateKey, {
+			hasResolvedCost: currentCost.hasResolvedCost || estimatedCost !== null,
+			total: currentCost.total + (estimatedCost ?? 0),
+		});
+
 		const currentBreakdown = modelTokensByDate.get(dateKey) ?? {};
 		currentBreakdown[row.model] =
 			(currentBreakdown[row.model] ?? 0) + row.total_tokens;
@@ -445,6 +470,7 @@ export function buildDashboardTokenDailyPattern(
 			outputTokens: 0,
 		};
 		const modelTokens = modelTokensByDate.get(isoDate) ?? {};
+		const estimatedCost = estimatedCostByDate.get(isoDate);
 		const totalTokens = tokensRow.inputTokens + tokensRow.outputTokens;
 		const sortedModels = Object.entries(modelTokens)
 			.filter(([, value]) => value > 0)
@@ -461,6 +487,8 @@ export function buildDashboardTokenDailyPattern(
 			date: isoDate,
 			dominantModel,
 			dominantModelTokens,
+			estimatedCost:
+				estimatedCost?.hasResolvedCost === true ? estimatedCost.total : null,
 			fullLabel: format(date, "EEEE, MMM d"),
 			inputTokens: tokensRow.inputTokens,
 			modelTokens,
