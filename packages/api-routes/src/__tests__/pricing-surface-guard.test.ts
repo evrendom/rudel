@@ -51,12 +51,12 @@ const FORBIDDEN_PRICING_PATTERNS = [
 	{
 		description: "token division followed by an inline price",
 		expression:
-			/\b[A-Za-z_][A-Za-z0-9_.]*tokens?\b[\s)]{0,12}\/\s*(?:1_?000_?000(?:\.0)?|1e6)[\s)]{0,12}\*\s*\d+(?:\.\d+)?/iu,
+			/\b(?:[A-Za-z_][A-Za-z0-9_.]*)?tokens?\b[\s)]{0,12}\/\s*(?:1_?000_?000(?:\.0)?|1e6)[\s)]{0,12}\*\s*\d+(?:\.\d+)?/iu,
 	},
 	{
 		description: "token multiplication followed by per-million division",
 		expression:
-			/\b[A-Za-z_][A-Za-z0-9_.]*tokens?\b[\s)]{0,12}\*\s*\d+(?:\.\d+)?[\s)]{0,12}\/\s*(?:1_?000_?000(?:\.0)?|1e6)/iu,
+			/\b(?:[A-Za-z_][A-Za-z0-9_.]*)?tokens?\b[\s)]{0,12}\*\s*\d+(?:\.\d+)?[\s)]{0,12}\/\s*(?:1_?000_?000(?:\.0)?|1e6)/iu,
 	},
 	{
 		description: "dollar-per-token-class literal",
@@ -109,6 +109,7 @@ describe("canonical pricing surface guard", () => {
 			"const cost = (input_tokens / 1e6) * 3;",
 			"const cost = output_tokens * 15 / 1000000;",
 			"const cost = inputTokens * 0.000015;",
+			"const cost = (tokens / 1000000) * 15.0;",
 			"const label = '$212/MTok';",
 		];
 
