@@ -201,11 +201,13 @@ async function resolveIngestOrganizationId(
 	// Two rows are enough to distinguish a sole membership from an ambiguous choice.
 	// Prefer the personal workspace when it exists; creation time makes the fallback deterministic.
 	const memberships = await sqlClient<Array<{ organization_id: string }>>`
-		SELECT organization_id
-		FROM member
-		WHERE user_id = ${userId}
-		GROUP BY organization_id
-		ORDER BY (organization_id = ${userId}) DESC, MIN(created_at) ASC
+		SELECT m.organization_id
+		FROM member m
+		INNER JOIN organization o
+			ON o.id = m.organization_id
+		WHERE m.user_id = ${userId}
+		GROUP BY m.organization_id
+		ORDER BY (m.organization_id = ${userId}) DESC, MIN(m.created_at) ASC
 		LIMIT 2
 	`;
 	const personalWorkspace = memberships.find(
