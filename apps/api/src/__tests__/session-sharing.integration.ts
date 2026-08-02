@@ -27,6 +27,7 @@ import {
 const TEST_RUN_ID = `session_sharing_${Date.now()}_${crypto.randomUUID()}`;
 const OWNER_EMAIL = `${TEST_RUN_ID}_owner@example.com`;
 const MEMBER_EMAIL = `${TEST_RUN_ID}_member@example.com`;
+const ORGLESS_EMAIL = `${TEST_RUN_ID}_orgless@example.com`;
 const TEST_PASSWORD = "session-sharing-test-password-42";
 const SHARED_SESSION_ID = `${TEST_RUN_ID}_existing`;
 const CONCURRENT_SESSION_ID = `${TEST_RUN_ID}_concurrent`;
@@ -37,6 +38,7 @@ const CONCURRENT_CATCHUP_SESSION_ID = `${TEST_RUN_ID}_concurrent_catchup`;
 const CODEX_UPLOAD_SESSION_ID = `${TEST_RUN_ID}_codex_upload`;
 const LEGACY_SHADOW_SESSION_ID = `${TEST_RUN_ID}_legacy_shadow`;
 const CROSS_ORG_SESSION_ID = `${TEST_RUN_ID}_cross_org`;
+const ORGLESS_SESSION_ID = `${TEST_RUN_ID}_orgless`;
 const UNAUTHORIZED_SESSION_ID = `${TEST_RUN_ID}_unauthorized`;
 const CASCADE_SESSION_ID = `${TEST_RUN_ID}_cascade`;
 const TIMESTAMPLESS_SESSION_ID = `${TEST_RUN_ID}_timestampless`;
@@ -56,22 +58,37 @@ interface RpcResponse {
 let server: ApiTestServer;
 let owner: TestIdentity;
 let member: TestIdentity;
+let orgless: TestIdentity;
+let orglessApiKey: string;
 let organizationId: string;
 
 beforeAll(async () => {
 	server = await startApiTestServer();
 	owner = await createTestIdentity(OWNER_EMAIL, "Session Owner");
 	member = await createTestIdentity(MEMBER_EMAIL, "Organization Member");
+	orgless = await createTestIdentity(ORGLESS_EMAIL, "Orgless Uploader");
+	orglessApiKey = await createIngestApiKey(orgless.token);
 	organizationId = owner.userId;
 
 	await sqlClient`
 		INSERT INTO member (id, organization_id, user_id, role)
-		VALUES (
-			${crypto.randomUUID()},
-			${organizationId},
-			${member.userId},
-			'member'
-		)
+		VALUES
+			(
+				${crypto.randomUUID()},
+				${organizationId},
+				${member.userId},
+				'member'
+			),
+			(
+				${crypto.randomUUID()},
+				${organizationId},
+				${orgless.userId},
+				'member'
+			)
+	`;
+	await sqlClient`
+		DELETE FROM organization
+		WHERE id = ${orgless.userId}
 	`;
 
 	const activeOrganizationResponse = await fetch(
@@ -113,7 +130,7 @@ afterAll(async () => {
 			"rudel.session_analytics",
 		].map((table) =>
 			clickhouse.execute({
-				query: `DELETE FROM ${getSafeClickHouseTable(table)} WHERE organization_id IN ({organizationIdOne:String}, {organizationIdTwo:String}) AND session_id IN ({sessionIdOne:String}, {sessionIdTwo:String}, {sessionIdThree:String}, {sessionIdFour:String}, {sessionIdFive:String}, {sessionIdSix:String}, {sessionIdSeven:String}, {sessionIdEight:String}, {sessionIdNine:String}, {sessionIdTen:String}, {sessionIdEleven:String})`,
+				query: `DELETE FROM ${getSafeClickHouseTable(table)} WHERE organization_id IN ({organizationIdOne:String}, {organizationIdTwo:String}) AND session_id IN ({sessionIdOne:String}, {sessionIdTwo:String}, {sessionIdThree:String}, {sessionIdFour:String}, {sessionIdFive:String}, {sessionIdSix:String}, {sessionIdSeven:String}, {sessionIdEight:String}, {sessionIdNine:String}, {sessionIdTen:String}, {sessionIdEleven:String}, {sessionIdTwelve:String})`,
 				query_params: {
 					organizationIdOne: owner.userId,
 					organizationIdTwo: member.userId,
@@ -128,6 +145,7 @@ afterAll(async () => {
 					sessionIdNine: LATE_LEGACY_SESSION_ID,
 					sessionIdTen: CODEX_UPLOAD_SESSION_ID,
 					sessionIdEleven: CONCURRENT_CATCHUP_SESSION_ID,
+					sessionIdTwelve: ORGLESS_SESSION_ID,
 				},
 			}),
 		),
@@ -138,8 +156,12 @@ afterAll(async () => {
 		WHERE id IN (${owner.userId}, ${member.userId})
 	`;
 	await sqlClient`
+		DELETE FROM apikey
+		WHERE reference_id = ${orgless.userId}
+	`;
+	await sqlClient`
 		DELETE FROM "user"
-		WHERE id IN (${owner.userId}, ${member.userId})
+		WHERE id IN (${owner.userId}, ${member.userId}, ${orgless.userId})
 	`;
 });
 
@@ -557,6 +579,28 @@ describe("organization session ownership", () => {
 		);
 	}, 60_000);
 
+	test("routes an org-less API-key upload to its only remaining organization", async () => {
+		const input = createSessionInput(ORGLESS_SESSION_ID, "org-less-api-key");
+		delete input.organizationId;
+
+		const response = await callApiKeyRpc(orglessApiKey, "ingestSession", input);
+
+		expect(response.status).toBe(200);
+		const [ownership] = await sqlClient<Array<{ user_id: string }>>`
+			SELECT user_id
+			FROM session_ownership
+			WHERE organization_id = ${organizationId}
+				AND session_id = ${ORGLESS_SESSION_ID}
+		`;
+		expect(ownership?.user_id).toBe(orgless.userId);
+		await expectRawSessionOwner(
+			"rudel.claude_sessions",
+			organizationId,
+			ORGLESS_SESSION_ID,
+			orgless.userId,
+		);
+	}, 60_000);
+
 	test("does not let a non-member reserve a session ID", async () => {
 		const unauthorizedAttempt = await callRpc(
 			owner.token,
@@ -741,6 +785,51 @@ async function callRpc(
 		body: await response.json(),
 		status: response.status,
 	};
+}
+
+async function callApiKeyRpc(
+	apiKey: string,
+	path: string,
+	input: Record<string, unknown>,
+): Promise<RpcResponse> {
+	const response = await fetch(`${server.baseUrl}/rpc/${path}`, {
+		method: "POST",
+		headers: {
+			"Content-Type": "application/json",
+			"x-api-key": apiKey,
+		},
+		body: JSON.stringify({ json: input }),
+	});
+
+	return {
+		body: await response.json(),
+		status: response.status,
+	};
+}
+
+async function createIngestApiKey(accessToken: string): Promise<string> {
+	const response = await fetch(`${server.baseUrl}/api/auth/api-key/create`, {
+		method: "POST",
+		headers: {
+			Authorization: `Bearer ${accessToken}`,
+			"Content-Type": "application/json",
+		},
+		body: JSON.stringify({ expiresIn: null, name: "orgless-ingest-test" }),
+	});
+	if (!response.ok) {
+		throw new Error(`API key creation failed: ${await response.text()}`);
+	}
+
+	const body: unknown = await response.json();
+	if (
+		typeof body !== "object" ||
+		body === null ||
+		!("key" in body) ||
+		typeof body.key !== "string"
+	) {
+		throw new Error("API key creation returned an invalid response");
+	}
+	return body.key;
 }
 
 function createSessionInput(
