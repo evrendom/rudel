@@ -281,15 +281,17 @@ export function DashboardTokenRecentSessionsTable({
 					break;
 				case "cost":
 					comparison =
-						calculateCost(
-							leftSession.input_tokens,
-							leftSession.output_tokens,
-							leftSession.model_used,
-						) -
+						calculateCost(leftSession.input_tokens, leftSession.output_tokens, {
+							at: leftSession.session_date,
+							model: leftSession.model_used,
+						}) -
 						calculateCost(
 							rightSession.input_tokens,
 							rightSession.output_tokens,
-							rightSession.model_used,
+							{
+								at: rightSession.session_date,
+								model: rightSession.model_used,
+							},
 						);
 					break;
 				case "duration":
@@ -556,7 +558,7 @@ export function DashboardTokenRecentSessionsTable({
 					const sessionCost = calculateCost(
 						session.input_tokens,
 						session.output_tokens,
-						session.model_used,
+						{ at: session.session_date, model: session.model_used },
 					);
 					const isClickable =
 						(onSessionClick != null || sessionHref != null) &&

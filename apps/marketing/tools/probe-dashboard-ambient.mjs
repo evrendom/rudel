@@ -89,6 +89,11 @@ try {
 				}
 				return ancestors;
 			});
+		const firstThinkingLeaf = [...shell.querySelectorAll('*')].find(
+			(element) => element.children.length === 0 && element.textContent.includes('AI is thinking'),
+		);
+		const firstThinkingLayer = firstThinkingLeaf?.parentElement?.parentElement;
+		const firstThinkingCell = firstThinkingLayer?.parentElement?.parentElement;
 		const leaves = [...shell.querySelectorAll('*')]
 			.filter((element) => element.children.length === 0 && element.textContent.trim())
 			.map((element) => summarize(element, shell));
@@ -99,6 +104,8 @@ try {
 			thinking,
 			markers,
 			thinkingAncestors,
+			firstThinkingCellHtml: firstThinkingCell?.outerHTML ?? null,
+			terminalHtml: windows.find((element) => element.getAttribute('data-home-hero-app') === 'terminal')?.outerHTML ?? null,
 			leaves,
 		};
 	})()`, { frameId: compositionFrame.id });

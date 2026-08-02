@@ -155,11 +155,10 @@ export function SessionsOverviewTable({
 				(maximumCost, session) =>
 					Math.max(
 						maximumCost,
-						calculateCost(
-							session.input_tokens,
-							session.output_tokens,
-							session.model_used,
-						),
+						calculateCost(session.input_tokens, session.output_tokens, {
+							at: session.session_date,
+							model: session.model_used,
+						}),
 					),
 				0,
 			),

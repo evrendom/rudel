@@ -67,7 +67,10 @@ export function SessionsOverviewRow({
 	const sessionCost = calculateCost(
 		session.input_tokens,
 		session.output_tokens,
-		session.model_used,
+		{
+			at: session.session_date,
+			model: session.model_used,
+		},
 	);
 	const visibleSkills = session.skills.slice(0, 2);
 	const additionalSkillCount = Math.max(

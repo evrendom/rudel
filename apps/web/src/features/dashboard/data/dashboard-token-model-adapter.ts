@@ -44,6 +44,7 @@ export function buildDashboardTokenModelRows(
 	const rowsByModel = new Map<
 		string,
 		{
+			estimatedCost: number;
 			inputTokens: number;
 			outputTokens: number;
 			totalTokens: number;
@@ -52,11 +53,20 @@ export function buildDashboardTokenModelRows(
 
 	for (const row of modelTokensTrend ?? []) {
 		const currentRow = rowsByModel.get(row.model) ?? {
+			estimatedCost: 0,
 			inputTokens: 0,
 			outputTokens: 0,
 			totalTokens: 0,
 		};
 
+		currentRow.estimatedCost += calculateCost(
+			row.input_tokens,
+			row.output_tokens,
+			{
+				at: row.date,
+				model: row.model,
+			},
+		);
 		currentRow.inputTokens += row.input_tokens;
 		currentRow.outputTokens += row.output_tokens;
 		currentRow.totalTokens += row.total_tokens;
@@ -66,7 +76,7 @@ export function buildDashboardTokenModelRows(
 
 	return Array.from(rowsByModel.entries())
 		.map(([model, row]) => ({
-			estimatedCost: calculateCost(row.inputTokens, row.outputTokens, model),
+			estimatedCost: row.estimatedCost,
 			id: model,
 			inputTokens: row.inputTokens,
 			label: model,

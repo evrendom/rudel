@@ -201,8 +201,10 @@ export function DashboardTokenDeveloperTable({
 					header: "Cost",
 					renderCell: (row) => (
 						<DashboardTokenCostCell
-							cost={row.cost}
+							at={undefined}
+							cost={row.cost > 0 ? row.cost : null}
 							inputTokens={row.inputTokens}
+							model={undefined}
 							outputTokens={row.outputTokens}
 						/>
 					),

@@ -154,16 +154,14 @@ export function compareSessions(
 			return leftSession.total_tokens - rightSession.total_tokens;
 		case "cost":
 			return (
-				calculateCost(
-					leftSession.input_tokens,
-					leftSession.output_tokens,
-					leftSession.model_used,
-				) -
-				calculateCost(
-					rightSession.input_tokens,
-					rightSession.output_tokens,
-					rightSession.model_used,
-				)
+				calculateCost(leftSession.input_tokens, leftSession.output_tokens, {
+					at: leftSession.session_date,
+					model: leftSession.model_used,
+				}) -
+				calculateCost(rightSession.input_tokens, rightSession.output_tokens, {
+					at: rightSession.session_date,
+					model: rightSession.model_used,
+				})
 			);
 		case "errors":
 			return leftSession.error_count - rightSession.error_count;

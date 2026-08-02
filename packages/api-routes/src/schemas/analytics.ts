@@ -523,8 +523,7 @@ export const ROIMetricsSchema = z.object({
 export const ROIAssumptionsSchema = z.object({
 	pricing_mode: z.literal(ESTIMATED_PRICING_MODE),
 	priced_model_entries: z.number().int().positive(),
-	fallback_input_price_per_million: z.number(),
-	fallback_output_price_per_million: z.number(),
+	unresolved_models_priced: z.literal(false),
 	code_percentage: z.number(),
 	tokens_per_loc: z.number(),
 	loc_per_hour: z.number(),

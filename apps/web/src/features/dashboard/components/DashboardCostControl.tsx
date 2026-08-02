@@ -281,7 +281,9 @@ function buildCostRows(input: {
 			cost:
 				currentTotals.cost +
 				(row.cost ??
-					calculateCost(row.input_tokens ?? 0, row.output_tokens ?? 0)),
+					calculateCost(row.input_tokens ?? 0, row.output_tokens ?? 0, {
+						at: row.date,
+					})),
 			sessions: currentTotals.sessions + row.sessions,
 			tokens: currentTotals.tokens + (row.total_tokens ?? 0),
 		});
@@ -326,7 +328,10 @@ function buildCostHistoryData(input: {
 					break;
 				case "cost":
 					value =
-						row.cost ?? calculateCost(row.input_tokens, row.output_tokens);
+						row.cost ??
+						calculateCost(row.input_tokens, row.output_tokens, {
+							at: row.date,
+						});
 					break;
 				case "errors":
 					value = errorTotals.get(`${row.date}\u0000${row.user_id}`) ?? 0;
@@ -360,7 +365,10 @@ function buildCostHistoryData(input: {
 			label: row.model,
 			value:
 				input.metric === "cost"
-					? calculateCost(row.input_tokens, row.output_tokens, row.model)
+					? calculateCost(row.input_tokens, row.output_tokens, {
+							at: row.date,
+							model: row.model,
+						})
 					: input.metric === "errors"
 						? (errorTotals.get(`${row.date}\u0000${row.model}`) ?? 0)
 						: row.total_tokens,
@@ -388,7 +396,9 @@ function buildCostHistoryData(input: {
 			case "cost":
 				value =
 					row.cost ??
-					calculateCost(row.input_tokens ?? 0, row.output_tokens ?? 0);
+					calculateCost(row.input_tokens ?? 0, row.output_tokens ?? 0, {
+						at: row.date,
+					});
 				break;
 			case "errors":
 				value = errorTotals.get(`${row.date}\u0000${repositoryKey}`) ?? 0;

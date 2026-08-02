@@ -84,6 +84,7 @@ import {
 export * from "./avatar.js";
 export * from "./device-flow.js";
 export * from "./model-pricing.js";
+export * from "./model-rate-card.js";
 export * from "./product-analytics.js";
 export { type RepoIdentity, resolveRepoIdentity } from "./repo-identity.js";
 export * from "./safe-url.js";

@@ -23,6 +23,7 @@ export interface Insight {
 
 const USER_USAGE_PER_SESSION_COST_SQL = buildEstimatedCostSql({
 	modelExpr: "sa.model_used",
+	dateExpr: "sa.session_date",
 	inputExpr:
 		"(ifNull(sa.input_tokens, 0) - ifNull(sa.cache_read_input_tokens, 0) - ifNull(sa.cache_creation_input_tokens, 0))",
 	outputExpr: "ifNull(sa.output_tokens, 0)",
