@@ -239,7 +239,10 @@ export function buildSessionDetailViewModel(
 	const subagentNames = subagentSummaries.map((subagent) => subagent.id);
 	const tokenUsageLabel = `${safeInputTokens.toLocaleString()} / ${safeOutputTokens.toLocaleString()}`;
 	const costLabel = formatSessionCost(
-		calculateCost(safeInputTokens, safeOutputTokens, safeModelUsed),
+		calculateCost(safeInputTokens, safeOutputTokens, {
+			at: safeSessionDate,
+			model: safeModelUsed,
+		}),
 	);
 
 	return {

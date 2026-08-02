@@ -13,7 +13,6 @@ import {
 import {
 	buildEstimatedCostSql,
 	ESTIMATED_PRICING_MODE,
-	FALLBACK_MODEL_PRICING,
 	getModelPricingCatalog,
 } from "./pricing.service.js";
 
@@ -27,6 +26,7 @@ const OUTPUT_PRICE_PER_MILLION = 15.0;
 const DEFAULT_DEV_HOURLY_RATE = 100;
 const PER_SESSION_COST_SQL = buildEstimatedCostSql({
 	modelExpr: "model_used",
+	dateExpr: "session_date",
 	inputExpr:
 		"(ifNull(input_tokens, 0) - ifNull(cache_read_input_tokens, 0) - ifNull(cache_creation_input_tokens, 0))",
 	outputExpr: "ifNull(output_tokens, 0)",
@@ -798,9 +798,7 @@ export async function getROIDashboard(
 		assumptions: {
 			pricing_mode: ESTIMATED_PRICING_MODE,
 			priced_model_entries: getModelPricingCatalog().length,
-			fallback_input_price_per_million: FALLBACK_MODEL_PRICING.inputPerMillion,
-			fallback_output_price_per_million:
-				FALLBACK_MODEL_PRICING.outputPerMillion,
+			unresolved_models_priced: false,
 			code_percentage: CODE_PERCENTAGE,
 			tokens_per_loc: TOKENS_PER_LOC,
 			loc_per_hour: LOC_PER_HOUR,

@@ -1,338 +1,70 @@
-export type ModelPricingProvider = "anthropic" | "openai";
+import {
+	MODEL_RATE_CARD,
+	MODEL_RATE_CARD_VERSION,
+	type ModelContextBand,
+	type ModelRateCardEntry,
+} from "./model-rate-card.js";
 
-export type ModelPricingEntry = {
-	key: string;
-	displayName: string;
-	provider: ModelPricingProvider;
-	inputPerMillion: number;
-	cachedInputPerMillion: number;
-	cacheWritePerMillion: number;
-	outputPerMillion: number;
-	matchPatterns: readonly string[];
-	sourceUrls: readonly string[];
+export const ESTIMATED_PRICING_MODE = "estimated_model_pricing_v2" as const;
+
+export type ResolveModelPricingOptions = {
+	at: Date | string;
+	contextBand?: ModelContextBand;
 };
 
-export type ModelPricing = Omit<
-	ModelPricingEntry,
-	"matchPatterns" | "sourceUrls"
->;
-
-export const MODEL_PRICING_CATALOG_VERSION = "2026-04-08";
-export const ESTIMATED_PRICING_MODE = "estimated_model_pricing_v1" as const;
-
-// Fallback pricing for unknown text models keeps historical dashboards usable
-// while making the model-specific catalog the primary source of truth.
-export const FALLBACK_MODEL_PRICING: ModelPricing = {
-	key: "fallback-text",
-	displayName: "Fallback text model pricing",
-	provider: "anthropic",
-	inputPerMillion: 3,
-	cachedInputPerMillion: 0.3,
-	cacheWritePerMillion: 3.75,
-	outputPerMillion: 15,
+export type CalculateEstimatedCostInput = ResolveModelPricingOptions & {
+	model?: string | null;
+	inputTokens: number;
+	outputTokens: number;
+	cacheReadInputTokens?: number;
+	cacheCreationInputTokens?: number;
+	cacheCreation1hInputTokens?: number;
+	precision?: number;
 };
-
-// Sources:
-// - OpenAI pricing: https://developers.openai.com/api/docs/pricing
-// - GPT-5.1 Chat: https://developers.openai.com/api/docs/models/gpt-5.1-chat-latest
-// - GPT-5.1 Codex Max: https://developers.openai.com/api/docs/models/gpt-5.1-codex-max
-// - Anthropic pricing: https://platform.claude.com/docs/en/about-claude/pricing
-// - Anthropic models overview: https://platform.claude.com/docs/en/about-claude/models/overview
-//
-// Anthropic prompt-cache writes are priced with the 5 minute write rate here.
-// The current analytics schema tracks cache creation tokens, but not whether the
-// underlying write used the 5 minute or 1 hour cache tier.
-export const MODEL_PRICING_CATALOG = [
-	{
-		key: "openai-gpt-5.4-pro",
-		displayName: "GPT-5.4 Pro",
-		provider: "openai",
-		inputPerMillion: 30,
-		cachedInputPerMillion: 0,
-		cacheWritePerMillion: 0,
-		outputPerMillion: 180,
-		matchPatterns: ["^gpt-5\\.4-pro$"],
-		sourceUrls: ["https://developers.openai.com/api/docs/pricing"],
-	},
-	{
-		key: "openai-gpt-5.4-mini",
-		displayName: "GPT-5.4 Mini",
-		provider: "openai",
-		inputPerMillion: 0.75,
-		cachedInputPerMillion: 0.075,
-		cacheWritePerMillion: 0.075,
-		outputPerMillion: 4.5,
-		matchPatterns: ["^gpt-5\\.4-mini$"],
-		sourceUrls: ["https://developers.openai.com/api/docs/pricing"],
-	},
-	{
-		key: "openai-gpt-5.4-nano",
-		displayName: "GPT-5.4 Nano",
-		provider: "openai",
-		inputPerMillion: 0.2,
-		cachedInputPerMillion: 0.02,
-		cacheWritePerMillion: 0.02,
-		outputPerMillion: 1.25,
-		matchPatterns: ["^gpt-5\\.4-nano$"],
-		sourceUrls: ["https://developers.openai.com/api/docs/pricing"],
-	},
-	{
-		key: "openai-gpt-5.4",
-		displayName: "GPT-5.4",
-		provider: "openai",
-		inputPerMillion: 2.5,
-		cachedInputPerMillion: 0.25,
-		cacheWritePerMillion: 0.25,
-		outputPerMillion: 15,
-		matchPatterns: ["^gpt-5\\.4$"],
-		sourceUrls: ["https://developers.openai.com/api/docs/pricing"],
-	},
-	{
-		key: "openai-gpt-5.3-chat-latest",
-		displayName: "GPT-5.3 Chat",
-		provider: "openai",
-		inputPerMillion: 1.75,
-		cachedInputPerMillion: 0.175,
-		cacheWritePerMillion: 0.175,
-		outputPerMillion: 14,
-		matchPatterns: ["^gpt-5\\.3-chat-latest$"],
-		sourceUrls: ["https://developers.openai.com/api/docs/pricing"],
-	},
-	{
-		key: "openai-gpt-5.3-codex",
-		displayName: "GPT-5.3 Codex",
-		provider: "openai",
-		inputPerMillion: 1.75,
-		cachedInputPerMillion: 0.175,
-		cacheWritePerMillion: 0.175,
-		outputPerMillion: 14,
-		matchPatterns: ["^gpt-5\\.3-codex$"],
-		sourceUrls: ["https://developers.openai.com/api/docs/pricing"],
-	},
-	{
-		key: "openai-gpt-5.1-chat-latest",
-		displayName: "GPT-5.1 Chat",
-		provider: "openai",
-		inputPerMillion: 1.25,
-		cachedInputPerMillion: 0.125,
-		cacheWritePerMillion: 0.125,
-		outputPerMillion: 10,
-		matchPatterns: ["^gpt-5\\.1-chat-latest$", "^gpt-5-chat-latest$"],
-		sourceUrls: [
-			"https://developers.openai.com/api/docs/models/gpt-5.1-chat-latest",
-		],
-	},
-	{
-		key: "openai-gpt-5.1-codex-max",
-		displayName: "GPT-5.1 Codex Max",
-		provider: "openai",
-		inputPerMillion: 1.25,
-		cachedInputPerMillion: 0.125,
-		cacheWritePerMillion: 0.125,
-		outputPerMillion: 10,
-		matchPatterns: ["^gpt-5\\.1-codex-max$", "^gpt-5-codex-max$"],
-		sourceUrls: [
-			"https://developers.openai.com/api/docs/models/gpt-5.1-codex-max",
-		],
-	},
-	{
-		key: "openai-gpt-5.1-codex-mini",
-		displayName: "GPT-5.1 Codex Mini",
-		provider: "openai",
-		inputPerMillion: 0.25,
-		cachedInputPerMillion: 0.025,
-		cacheWritePerMillion: 0.025,
-		outputPerMillion: 2,
-		matchPatterns: ["^gpt-5\\.1-codex-mini$", "^gpt-5-codex-mini$"],
-		sourceUrls: [
-			"https://developers.openai.com/api/docs/models/gpt-5.1-codex-mini",
-		],
-	},
-	{
-		key: "openai-gpt-5-codex",
-		displayName: "GPT-5 Codex",
-		provider: "openai",
-		inputPerMillion: 1.25,
-		cachedInputPerMillion: 0.125,
-		cacheWritePerMillion: 0.125,
-		outputPerMillion: 10,
-		matchPatterns: ["^gpt-5\\.1-codex$", "^gpt-5-codex$"],
-		sourceUrls: [
-			"https://developers.openai.com/api/docs/models/gpt-5.1-codex-max",
-		],
-	},
-	{
-		key: "anthropic-claude-opus-4-6",
-		displayName: "Claude Opus 4.6",
-		provider: "anthropic",
-		inputPerMillion: 5,
-		cachedInputPerMillion: 0.5,
-		cacheWritePerMillion: 6.25,
-		outputPerMillion: 25,
-		matchPatterns: ["^claude-opus-4-6(?:-\\d{8})?$"],
-		sourceUrls: [
-			"https://platform.claude.com/docs/en/about-claude/pricing",
-			"https://platform.claude.com/docs/en/about-claude/models/overview",
-		],
-	},
-	{
-		key: "anthropic-claude-opus-4-5",
-		displayName: "Claude Opus 4.5",
-		provider: "anthropic",
-		inputPerMillion: 5,
-		cachedInputPerMillion: 0.5,
-		cacheWritePerMillion: 6.25,
-		outputPerMillion: 25,
-		matchPatterns: ["^claude-opus-4-5(?:-\\d{8})?$"],
-		sourceUrls: ["https://platform.claude.com/docs/en/about-claude/pricing"],
-	},
-	{
-		key: "anthropic-claude-opus-4-1",
-		displayName: "Claude Opus 4.1",
-		provider: "anthropic",
-		inputPerMillion: 15,
-		cachedInputPerMillion: 1.5,
-		cacheWritePerMillion: 18.75,
-		outputPerMillion: 75,
-		matchPatterns: ["^claude-opus-4-1(?:-\\d{8})?$"],
-		sourceUrls: ["https://platform.claude.com/docs/en/about-claude/pricing"],
-	},
-	{
-		key: "anthropic-claude-opus-4",
-		displayName: "Claude Opus 4",
-		provider: "anthropic",
-		inputPerMillion: 15,
-		cachedInputPerMillion: 1.5,
-		cacheWritePerMillion: 18.75,
-		outputPerMillion: 75,
-		matchPatterns: ["^claude-opus-4(?:-\\d{8})?$"],
-		sourceUrls: ["https://platform.claude.com/docs/en/about-claude/pricing"],
-	},
-	{
-		key: "anthropic-claude-sonnet-4-6",
-		displayName: "Claude Sonnet 4.6",
-		provider: "anthropic",
-		inputPerMillion: 3,
-		cachedInputPerMillion: 0.3,
-		cacheWritePerMillion: 3.75,
-		outputPerMillion: 15,
-		matchPatterns: ["^claude-sonnet-4-6(?:-\\d{8})?$"],
-		sourceUrls: [
-			"https://platform.claude.com/docs/en/about-claude/pricing",
-			"https://platform.claude.com/docs/en/about-claude/models/overview",
-		],
-	},
-	{
-		key: "anthropic-claude-sonnet-4-5",
-		displayName: "Claude Sonnet 4.5",
-		provider: "anthropic",
-		inputPerMillion: 3,
-		cachedInputPerMillion: 0.3,
-		cacheWritePerMillion: 3.75,
-		outputPerMillion: 15,
-		matchPatterns: ["^claude-sonnet-4-5(?:-\\d{8})?$"],
-		sourceUrls: ["https://platform.claude.com/docs/en/about-claude/pricing"],
-	},
-	{
-		key: "anthropic-claude-sonnet-4",
-		displayName: "Claude Sonnet 4",
-		provider: "anthropic",
-		inputPerMillion: 3,
-		cachedInputPerMillion: 0.3,
-		cacheWritePerMillion: 3.75,
-		outputPerMillion: 15,
-		matchPatterns: ["^claude-sonnet-4(?:-\\d{8})?$"],
-		sourceUrls: ["https://platform.claude.com/docs/en/about-claude/pricing"],
-	},
-	{
-		key: "anthropic-claude-sonnet-3-7",
-		displayName: "Claude Sonnet 3.7",
-		provider: "anthropic",
-		inputPerMillion: 3,
-		cachedInputPerMillion: 0.3,
-		cacheWritePerMillion: 3.75,
-		outputPerMillion: 15,
-		matchPatterns: [
-			"^claude-3-7-sonnet(?:-latest|-\\d{8})?$",
-			"^claude-sonnet-3-7(?:-\\d{8})?$",
-		],
-		sourceUrls: ["https://platform.claude.com/docs/en/about-claude/pricing"],
-	},
-	{
-		key: "anthropic-claude-haiku-4-5",
-		displayName: "Claude Haiku 4.5",
-		provider: "anthropic",
-		inputPerMillion: 1,
-		cachedInputPerMillion: 0.1,
-		cacheWritePerMillion: 1.25,
-		outputPerMillion: 5,
-		matchPatterns: [
-			"^claude-haiku-4-5(?:-\\d{8})?$",
-			"^claude-haiku-4-5-20251001$",
-		],
-		sourceUrls: [
-			"https://platform.claude.com/docs/en/about-claude/pricing",
-			"https://platform.claude.com/docs/en/about-claude/models/overview",
-		],
-	},
-	{
-		key: "anthropic-claude-haiku-3-5",
-		displayName: "Claude Haiku 3.5",
-		provider: "anthropic",
-		inputPerMillion: 0.8,
-		cachedInputPerMillion: 0.08,
-		cacheWritePerMillion: 1,
-		outputPerMillion: 4,
-		matchPatterns: [
-			"^claude-3-5-haiku(?:-latest|-\\d{8})?$",
-			"^claude-haiku-3-5(?:-\\d{8})?$",
-		],
-		sourceUrls: ["https://platform.claude.com/docs/en/about-claude/pricing"],
-	},
-	{
-		key: "anthropic-claude-opus-3",
-		displayName: "Claude Opus 3",
-		provider: "anthropic",
-		inputPerMillion: 15,
-		cachedInputPerMillion: 1.5,
-		cacheWritePerMillion: 18.75,
-		outputPerMillion: 75,
-		matchPatterns: [
-			"^claude-3-opus(?:-latest|-\\d{8})?$",
-			"^claude-opus-3(?:-\\d{8})?$",
-		],
-		sourceUrls: ["https://platform.claude.com/docs/en/about-claude/pricing"],
-	},
-	{
-		key: "anthropic-claude-haiku-3",
-		displayName: "Claude Haiku 3",
-		provider: "anthropic",
-		inputPerMillion: 0.25,
-		cachedInputPerMillion: 0.03,
-		cacheWritePerMillion: 0.3,
-		outputPerMillion: 1.25,
-		matchPatterns: [
-			"^claude-3-haiku(?:-latest|-\\d{8})?$",
-			"^claude-haiku-3(?:-\\d{8})?$",
-		],
-		sourceUrls: ["https://platform.claude.com/docs/en/about-claude/pricing"],
-	},
-] as const satisfies readonly ModelPricingEntry[];
 
 function normalizeModelId(model: string | null | undefined) {
 	return model?.trim().toLowerCase() ?? "";
 }
 
-function getResolvedPricing(model: string | null | undefined): ModelPricing {
-	const normalizedModel = normalizeModelId(model);
-
-	if (!normalizedModel) {
-		return FALLBACK_MODEL_PRICING;
+function normalizeDate(at: Date | string) {
+	if (at instanceof Date) {
+		return Number.isNaN(at.getTime()) ? null : at.toISOString().slice(0, 10);
 	}
 
-	for (const entry of MODEL_PRICING_CATALOG) {
+	if (typeof at === "string") {
+		const parsed = new Date(at);
+		return Number.isNaN(parsed.getTime())
+			? null
+			: parsed.toISOString().slice(0, 10);
+	}
+
+	return null;
+}
+
+function isEffectiveOn(entry: ModelRateCardEntry, date: string) {
+	return (
+		entry.effectiveFrom <= date &&
+		(entry.effectiveTo === undefined || date <= entry.effectiveTo)
+	);
+}
+
+export function resolveModelPricing(
+	model: string | null | undefined,
+	options: ResolveModelPricingOptions,
+): ModelRateCardEntry | null {
+	const normalizedModel = normalizeModelId(model);
+	const date = normalizeDate(options.at);
+	const contextBand = options.contextBand ?? "base";
+
+	if (!normalizedModel || date === null) {
+		return null;
+	}
+
+	for (const entry of MODEL_RATE_CARD) {
 		if (
-			entry.matchPatterns.some((pattern) =>
+			entry.contextBand === contextBand &&
+			isEffectiveOn(entry, date) &&
+			entry.match.some((pattern) =>
 				new RegExp(pattern, "u").test(normalizedModel),
 			)
 		) {
@@ -340,23 +72,19 @@ function getResolvedPricing(model: string | null | undefined): ModelPricing {
 		}
 	}
 
-	return FALLBACK_MODEL_PRICING;
-}
-
-export function resolveModelPricing(
-	model: string | null | undefined,
-): ModelPricing | null {
-	const normalizedModel = normalizeModelId(model);
-
-	if (!normalizedModel) {
-		return null;
-	}
-
-	return getResolvedPricing(normalizedModel);
+	return null;
 }
 
 export function getModelPricingCatalog() {
-	return MODEL_PRICING_CATALOG;
+	return MODEL_RATE_CARD;
+}
+
+function calculateComponent(tokens: number, rate: number | null) {
+	if (tokens === 0) {
+		return 0;
+	}
+
+	return rate === null ? null : (tokens / 1_000_000) * rate;
 }
 
 export function calculateEstimatedCost({
@@ -365,22 +93,33 @@ export function calculateEstimatedCost({
 	outputTokens,
 	cacheReadInputTokens = 0,
 	cacheCreationInputTokens = 0,
+	cacheCreation1hInputTokens = 0,
 	precision = 4,
-}: {
-	model?: string | null;
-	inputTokens: number;
-	outputTokens: number;
-	cacheReadInputTokens?: number;
-	cacheCreationInputTokens?: number;
-	precision?: number;
-}) {
-	const pricing = getResolvedPricing(model);
-	const cost =
-		(inputTokens / 1_000_000) * pricing.inputPerMillion +
-		(outputTokens / 1_000_000) * pricing.outputPerMillion +
-		(cacheReadInputTokens / 1_000_000) * pricing.cachedInputPerMillion +
-		(cacheCreationInputTokens / 1_000_000) * pricing.cacheWritePerMillion;
+	at,
+	contextBand,
+}: CalculateEstimatedCostInput): number | null {
+	const pricing = resolveModelPricing(model, { at, contextBand });
 
+	if (pricing === null) {
+		return null;
+	}
+
+	const components = [
+		calculateComponent(inputTokens, pricing.inputPerMTok),
+		calculateComponent(outputTokens, pricing.outputPerMTok),
+		calculateComponent(cacheReadInputTokens, pricing.cacheReadPerMTok),
+		calculateComponent(cacheCreationInputTokens, pricing.cacheWrite5mPerMTok),
+		calculateComponent(cacheCreation1hInputTokens, pricing.cacheWrite1hPerMTok),
+	];
+
+	if (components.some((component) => component === null)) {
+		return null;
+	}
+
+	const cost = components.reduce<number>(
+		(sum, component) => sum + (component ?? 0),
+		0,
+	);
 	return Number(cost.toFixed(precision));
 }
 
@@ -388,52 +127,167 @@ function escapeSqlString(value: string) {
 	return value.replaceAll("\\", "\\\\").replaceAll("'", "\\'");
 }
 
-function buildRateSql(
-	modelExpr: string,
-	rateSelector: keyof Pick<
-		ModelPricing,
-		| "inputPerMillion"
-		| "cachedInputPerMillion"
-		| "cacheWritePerMillion"
-		| "outputPerMillion"
-	>,
-) {
-	const clauses = MODEL_PRICING_CATALOG.flatMap((entry) =>
-		entry.matchPatterns.flatMap((pattern) => [
-			`match(lowerUTF8(${modelExpr}), '${escapeSqlString(pattern)}')`,
-			String(entry[rateSelector]),
-		]),
-	);
+type RateSelector = keyof Pick<
+	ModelRateCardEntry,
+	| "inputPerMTok"
+	| "cacheReadPerMTok"
+	| "cacheWrite5mPerMTok"
+	| "cacheWrite1hPerMTok"
+	| "outputPerMTok"
+>;
 
-	const fallback = String(FALLBACK_MODEL_PRICING[rateSelector]);
-	return `multiIf(${clauses.join(", ")}, ${fallback})`;
+function buildRateSql({
+	modelExpr,
+	dateExpr,
+	contextBand,
+	rateSelector,
+}: {
+	modelExpr: string;
+	dateExpr: string;
+	contextBand: ModelContextBand;
+	rateSelector: RateSelector;
+}) {
+	const clauses = MODEL_RATE_CARD.filter(
+		(entry) => entry.contextBand === contextBand,
+	).flatMap((entry) => {
+		const dateConditions = [
+			`toDate(${dateExpr}) >= toDate('${entry.effectiveFrom}')`,
+		];
+
+		if (entry.effectiveTo !== undefined) {
+			dateConditions.push(
+				`toDate(${dateExpr}) <= toDate('${entry.effectiveTo}')`,
+			);
+		}
+
+		return entry.match.flatMap((pattern) => [
+			`match(lowerUTF8(${modelExpr}), '${escapeSqlString(pattern)}') AND ${dateConditions.join(" AND ")}`,
+			entry[rateSelector] === null
+				? "CAST(NULL, 'Nullable(Float64)')"
+				: `toNullable(toFloat64(${entry[rateSelector]}))`,
+		]);
+	});
+
+	return `multiIf(${clauses.join(", ")}, CAST(NULL, 'Nullable(Float64)'))`;
+}
+
+function buildCostComponentSql(tokensExpr: string, rateSql: string) {
+	return `if((${tokensExpr}) = 0, toNullable(0.0), ((${tokensExpr}) / 1000000.0) * (${rateSql}))`;
 }
 
 export function buildEstimatedCostSql({
 	modelExpr,
+	dateExpr,
 	inputExpr,
 	outputExpr,
 	cacheReadInputExpr = "0",
 	cacheCreationInputExpr = "0",
+	cacheCreation1hInputExpr = "0",
+	contextBand = "base",
 	precision,
 }: {
 	modelExpr: string;
+	dateExpr: string;
 	inputExpr: string;
 	outputExpr: string;
 	cacheReadInputExpr?: string;
 	cacheCreationInputExpr?: string;
+	cacheCreation1hInputExpr?: string;
+	contextBand?: ModelContextBand;
 	precision?: number;
 }) {
-	const inputRateSql = buildRateSql(modelExpr, "inputPerMillion");
-	const outputRateSql = buildRateSql(modelExpr, "outputPerMillion");
-	const cachedInputRateSql = buildRateSql(modelExpr, "cachedInputPerMillion");
-	const cacheWriteRateSql = buildRateSql(modelExpr, "cacheWritePerMillion");
+	const inputRateSql = buildRateSql({
+		modelExpr,
+		dateExpr,
+		contextBand,
+		rateSelector: "inputPerMTok",
+	});
+	const outputRateSql = buildRateSql({
+		modelExpr,
+		dateExpr,
+		contextBand,
+		rateSelector: "outputPerMTok",
+	});
+	const cachedInputRateSql = buildRateSql({
+		modelExpr,
+		dateExpr,
+		contextBand,
+		rateSelector: "cacheReadPerMTok",
+	});
+	const cacheWriteRateSql = buildRateSql({
+		modelExpr,
+		dateExpr,
+		contextBand,
+		rateSelector: "cacheWrite5mPerMTok",
+	});
+	const cacheWrite1hRateSql = buildRateSql({
+		modelExpr,
+		dateExpr,
+		contextBand,
+		rateSelector: "cacheWrite1hPerMTok",
+	});
+	const components = [
+		buildCostComponentSql(inputExpr, inputRateSql),
+		buildCostComponentSql(outputExpr, outputRateSql),
+		buildCostComponentSql(cacheReadInputExpr, cachedInputRateSql),
+		buildCostComponentSql(cacheCreationInputExpr, cacheWriteRateSql),
+		buildCostComponentSql(cacheCreation1hInputExpr, cacheWrite1hRateSql),
+	];
+	const expression = `(${components.join(" + ")})`;
 
-	const expression = `((${inputExpr}) / 1000000.0) * (${inputRateSql}) + ((${outputExpr}) / 1000000.0) * (${outputRateSql}) + ((${cacheReadInputExpr}) / 1000000.0) * (${cachedInputRateSql}) + ((${cacheCreationInputExpr}) / 1000000.0) * (${cacheWriteRateSql})`;
+	return typeof precision === "number"
+		? `round(${expression}, ${precision})`
+		: expression;
+}
 
-	if (typeof precision === "number") {
-		return `round(${expression}, ${precision})`;
-	}
+function formatPrice(rate: number | null) {
+	return rate === null ? "—" : `$${rate}`;
+}
 
-	return expression;
+function formatPeriod(entry: ModelRateCardEntry) {
+	return entry.effectiveTo === undefined
+		? `${entry.effectiveFrom} → current`
+		: `${entry.effectiveFrom} → ${entry.effectiveTo}`;
+}
+
+function formatRateCardRow(entry: ModelRateCardEntry) {
+	const modelLabel =
+		entry.contextBand === "long"
+			? `${entry.displayName} (long)`
+			: entry.displayName;
+	const cacheWrite = `${formatPrice(entry.cacheWrite5mPerMTok)} / ${formatPrice(entry.cacheWrite1hPerMTok)}`;
+
+	return `| [${modelLabel}](${entry.source}) | ${formatPeriod(entry)} | ${formatPrice(entry.inputPerMTok)} | ${formatPrice(entry.cacheReadPerMTok)} | ${cacheWrite} | ${formatPrice(entry.outputPerMTok)} | ${entry.verifiedAt} | ${entry.notes} |`;
+}
+
+export function renderModelPricingTable() {
+	const sections = ["openai", "anthropic"].map((provider) => {
+		const title = provider === "openai" ? "OpenAI" : "Anthropic";
+		const rows = MODEL_RATE_CARD.filter(
+			(entry) => entry.provider === provider,
+		).map(formatRateCardRow);
+
+		return [
+			`## ${title}`,
+			"",
+			"| Model | Effective period | Input / MTok | Cache read / MTok | Cache write 5m / 1h | Output / MTok | Verified | Notes |",
+			"| --- | --- | ---: | ---: | ---: | ---: | --- | --- |",
+			...rows,
+		].join("\n");
+	});
+
+	return [
+		"# Model pricing",
+		"",
+		"<!-- Generated by `bun run pricing:table`. Do not edit by hand. -->",
+		"",
+		`Rate card version: ${MODEL_RATE_CARD_VERSION}. Standard first-party API rates in USD per million tokens.`,
+		"Cache-write columns show 5-minute / 1-hour rates; an em dash means the provider does not publish that tier.",
+		"OpenAI publishes a duration-agnostic cache-write rate, shown in the 5-minute column for a consistent schema.",
+		"",
+		"Known estimation limits: session aggregates assign all tokens to one resolved model; callers use the base context band unless request-level context is available; cache writes use the 5-minute tier unless 1-hour token counts are supplied; unresolved models return no estimate. Effective dates use the stored session date; its UTC-versus-user-local boundary can move sessions near a rate cutoff by one day until per-request timestamps are available.",
+		"",
+		sections.join("\n\n"),
+		"",
+	].join("\n");
 }

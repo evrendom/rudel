@@ -179,28 +179,25 @@ export function formatUsername(
 export function calculateCost(
 	inputTokens: number,
 	outputTokens: number,
-	options?:
-		| string
-		| null
-		| {
-				model?: string | null;
-				cacheReadInputTokens?: number;
-				cacheCreationInputTokens?: number;
-		  },
+	options: {
+		at: Date | string;
+		model?: string | null;
+		cacheReadInputTokens?: number;
+		cacheCreationInputTokens?: number;
+	},
 ) {
-	const model =
-		typeof options === "string" ? options : (options?.model ?? null);
-	return calculateEstimatedModelCost({
-		model,
+	const cost = calculateEstimatedModelCost({
+		at: options.at,
+		model: options.model ?? null,
 		inputTokens,
 		outputTokens,
-		cacheReadInputTokens:
-			typeof options === "string" ? 0 : (options?.cacheReadInputTokens ?? 0),
-		cacheCreationInputTokens:
-			typeof options === "string"
-				? 0
-				: (options?.cacheCreationInputTokens ?? 0),
+		cacheReadInputTokens: options.cacheReadInputTokens ?? 0,
+		cacheCreationInputTokens: options.cacheCreationInputTokens ?? 0,
 	});
+
+	// The nullable resolver is exposed for new callers. Legacy numeric-only
+	// surfaces remain stable until the focused caller migration in #227.
+	return cost ?? 0;
 }
 
 export function encodeProjectPath(projectPath: string) {
