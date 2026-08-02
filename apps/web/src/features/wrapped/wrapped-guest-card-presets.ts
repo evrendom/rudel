@@ -56,6 +56,7 @@ const RICK_PLACEHOLDER_ROW: TeamPageMemberRow = {
 const RICK_PLACEHOLDER_ONBOARDING_METRICS: WrappedOnboardingMetrics = {
 	activeDays: 58,
 	avgSessionMin: 37,
+	coreWindow: "all_time",
 	commitRate: 48,
 	commitSessions: 105,
 	daysSinceFirst: 214,
@@ -63,15 +64,20 @@ const RICK_PLACEHOLDER_ONBOARDING_METRICS: WrappedOnboardingMetrics = {
 	estimatedCostTokenBasis: 0,
 	estimatedCostUsd: 347,
 	favoriteModel: "claude-3-7-sonnet",
+	inputTokens: 1_180_000,
 	longestSessionMin: 143,
 	modelByMonth: [],
 	repoPulse: {
+		availableSessions: 219,
 		entries: [],
+		isTruncated: false,
 		leadRepoName: "geneva",
+		sampledSessions: 219,
 		totalRepos: 12,
 		totalSessions: 219,
 	},
 	skillsAdoptionRate: 71.23,
+	recentWindowSessions: 219,
 	sourceSplit: [
 		{ session_count: 125, session_share_percent: 57, source: "claude_code" },
 		{ session_count: 94, session_share_percent: 43, source: "codex" },
@@ -92,6 +98,7 @@ const RICK_PLACEHOLDER_ONBOARDING_METRICS: WrappedOnboardingMetrics = {
 	topSubagent: "Reviewer",
 	topSubagentCount: 11,
 	topSubagents: [{ count: 11, name: "Reviewer" }],
+	outputTokens: 740_000,
 	totalSessions: 219,
 	totalTokens: 1_920_000,
 };

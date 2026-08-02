@@ -2,6 +2,7 @@ import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import type { CSSProperties } from "react";
 import { useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useEffectOnceWhen } from "@/app/hooks/useEffectOnceWhen";
 import { useMountEffect } from "@/app/hooks/useMountEffect";
 import { formatCompactWholeCurrency } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -199,7 +200,7 @@ const SCALE_STAGE_SEQUENCE_TRANSITION = {
 function WrappedScaleStageSequenceTitle(props: {
 	displayName?: string;
 	displayTokens: number;
-	estimatedSpendUsd: number;
+	estimatedSpendUsd: number | null;
 	onAdvanceSequenceComplete?: () => void;
 	onRevealChange?: (isVisible: boolean) => void;
 	scaleAdvanceState: WrappedScaleAdvanceState;
@@ -392,17 +393,18 @@ function WrappedScaleCountTitle(props: {
 }
 
 function WrappedScaleSpendTitle(props: {
-	estimatedSpendUsd: number;
+	estimatedSpendUsd: number | null;
 	onSequenceComplete?: () => void;
 	showKebabs: boolean;
 	totalKebabs: number;
 }) {
 	const { estimatedSpendUsd, onSequenceComplete, showKebabs, totalKebabs } =
 		props;
+	const pricedSpendUsd = estimatedSpendUsd ?? 0;
 	const shouldReduceMotion = useReducedMotion();
 	const reduceMotion = shouldReduceMotion ?? false;
 	const [displaySpendUsd, setDisplaySpendUsd] = useState(() =>
-		reduceMotion ? estimatedSpendUsd : 0,
+		reduceMotion ? pricedSpendUsd : 0,
 	);
 	const [isSpendValueVisible, setIsSpendValueVisible] = useState(reduceMotion);
 	const revealTimerRef = useRef<number | null>(null);
@@ -420,9 +422,15 @@ function WrappedScaleSpendTitle(props: {
 		}
 	}
 
+	useEffectOnceWhen({
+		effect: () => onSequenceComplete?.(),
+		isReady: showKebabs && estimatedSpendUsd === null,
+		key: estimatedSpendUsd === null ? "unpriced-scale-spend" : null,
+	});
+
 	useMountEffect(() => {
 		if (reduceMotion) {
-			setDisplaySpendUsd(estimatedSpendUsd);
+			setDisplaySpendUsd(pricedSpendUsd);
 			setIsSpendValueVisible(true);
 			return;
 		}
@@ -442,7 +450,7 @@ function WrappedScaleSpendTitle(props: {
 					),
 				);
 				const easedProgress = 1 - (1 - progress) ** 3;
-				setDisplaySpendUsd(Math.round(estimatedSpendUsd * easedProgress));
+				setDisplaySpendUsd(Math.round(pricedSpendUsd * easedProgress));
 
 				if (progress < 1) {
 					frameRef.current = window.requestAnimationFrame(animateValue);
@@ -461,7 +469,7 @@ function WrappedScaleSpendTitle(props: {
 	return (
 		<span className="rudel-wrapped-scale-stage__spend-shell">
 			<span className="rudel-wrapped-scale-stage__spend-label">
-				This equals to
+				{estimatedSpendUsd === null ? "Estimated spend" : "This equals to"}
 			</span>
 			<AnimatePresence initial={false}>
 				{isSpendValueVisible ? (
@@ -496,13 +504,15 @@ function WrappedScaleSpendTitle(props: {
 						}
 					>
 						<span className="rudel-wrapped-scale-stage__spend-value">
-							{formatCompactWholeCurrency(displaySpendUsd)}
+							{estimatedSpendUsd === null
+								? "—"
+								: formatCompactWholeCurrency(displaySpendUsd)}
 						</span>
 					</motion.span>
 				) : null}
 			</AnimatePresence>
 			<AnimatePresence initial={false}>
-				{showKebabs ? (
+				{showKebabs && totalKebabs > 0 ? (
 					<motion.span
 						key={`kebabs:${totalKebabs}`}
 						animate={
@@ -537,7 +547,7 @@ function WrappedScaleSpendTitle(props: {
 					</motion.span>
 				) : null}
 			</AnimatePresence>
-			{showKebabs && !reduceMotion ? (
+			{showKebabs && totalKebabs > 0 && !reduceMotion ? (
 				<WrappedScaleKebabRain
 					onComplete={onSequenceComplete}
 					totalDrops={totalKebabs}
@@ -675,8 +685,8 @@ function buildScaleKebabDropSlotIds(dropCount: number) {
 	);
 }
 
-function resolveScaleKebabCount(estimatedSpendUsd: number) {
-	if (estimatedSpendUsd <= 0) {
+function resolveScaleKebabCount(estimatedSpendUsd: number | null) {
+	if (estimatedSpendUsd === null || estimatedSpendUsd <= 0) {
 		return 0;
 	}
 
@@ -1286,6 +1296,11 @@ export function WrappedOnboardingRepoPulseStage(props: SharedStageProps) {
 						</motion.ul>
 					</motion.article>
 				</motion.div>
+			}
+			support={
+				<p className="rudel-wrapped-repo-pulse-stage__footnote">
+					{model.disclosure}
+				</p>
 			}
 		/>
 	);

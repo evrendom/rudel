@@ -106,7 +106,11 @@ export type RudelSessionAnalyticsRow = {
   output_tokens: string
   cache_read_input_tokens: string
   cache_creation_input_tokens: string
+  cache_creation_5m_input_tokens: string
+  cache_creation_1h_input_tokens: string
   total_tokens: string
+  is_capped: number
+  stale_extraction: number
   total_interactions: number
   actual_duration_min: number
   avg_period_sec: number
@@ -148,7 +152,11 @@ export const RudelSessionAnalyticsRowSchema = z.object({
   output_tokens: z.string(),
   cache_read_input_tokens: z.string(),
   cache_creation_input_tokens: z.string(),
+  cache_creation_5m_input_tokens: z.string(),
+  cache_creation_1h_input_tokens: z.string(),
   total_tokens: z.string(),
+  is_capped: z.number(),
+  stale_extraction: z.number(),
   total_interactions: z.number(),
   actual_duration_min: z.number(),
   avg_period_sec: z.number(),

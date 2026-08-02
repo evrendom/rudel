@@ -73,19 +73,19 @@ export function buildResolvedTeamCardRow(
 
 		return {
 			...developerRow,
-			...getWrappedMetricFallbackFields(wrappedMetrics, developerRow),
+			...getResolvedMetricFields(wrappedMetrics, developerRow),
 		};
 	}
 
 	if (currentUserRow) {
 		return {
 			...currentUserRow,
-			...getWrappedMetricFallbackFields(wrappedMetrics, currentUserRow),
+			...getResolvedMetricFields(wrappedMetrics, currentUserRow),
 			imageUrl: profileImageSrc,
 		};
 	}
 
-	const wrappedFallbackFields = getWrappedMetricFallbackFields(wrappedMetrics);
+	const wrappedFallbackFields = getResolvedMetricFields(wrappedMetrics);
 
 	return {
 		activeDays: wrappedFallbackFields.activeDays,
@@ -95,9 +95,9 @@ export function buildResolvedTeamCardRow(
 		favoriteModel: wrappedFallbackFields.favoriteModel,
 		hasActivity: wrappedFallbackFields.hasActivity,
 		imageUrl: profileImageSrc,
-		inputTokens: 0,
+		inputTokens: wrappedFallbackFields.inputTokens,
 		lastActiveDate: wrappedMetrics?.last_session_at ?? null,
-		outputTokens: 0,
+		outputTokens: wrappedFallbackFields.outputTokens,
 		role: "Tracked collaborator",
 		totalSessions: wrappedFallbackFields.totalSessions,
 		totalTokens: wrappedFallbackFields.totalTokens,
@@ -127,26 +127,19 @@ export function resolveTeamCardProfileImageSrc(input: {
 	return input.fallbackSrc;
 }
 
-function getWrappedMetricFallbackFields(
+function getResolvedMetricFields(
 	wrappedMetrics: WrappedV1["metrics"] | undefined,
 	currentRow?: TeamPageMemberRow,
 ) {
-	const totalSessions = Math.max(
-		currentRow?.totalSessions ?? 0,
-		wrappedMetrics?.total_sessions ?? 0,
-	);
-	const activeDays = Math.max(
-		currentRow?.activeDays ?? 0,
-		wrappedMetrics?.active_days ?? 0,
-	);
-	const totalTokens = Math.max(
-		currentRow?.totalTokens ?? 0,
-		wrappedMetrics?.total_tokens ?? 0,
-	);
-	const cost = Math.max(
-		currentRow?.cost ?? 0,
-		wrappedMetrics?.estimated_spend_usd ?? 0,
-	);
+	const totalSessions =
+		wrappedMetrics?.total_sessions ?? currentRow?.totalSessions ?? 0;
+	const activeDays = wrappedMetrics?.active_days ?? currentRow?.activeDays ?? 0;
+	const inputTokens =
+		wrappedMetrics?.input_tokens ?? currentRow?.inputTokens ?? 0;
+	const outputTokens =
+		wrappedMetrics?.output_tokens ?? currentRow?.outputTokens ?? 0;
+	const totalTokens = inputTokens + outputTokens;
+	const cost = wrappedMetrics?.estimated_spend_usd ?? currentRow?.cost ?? 0;
 
 	return {
 		activeDays,
@@ -154,12 +147,14 @@ function getWrappedMetricFallbackFields(
 		favoriteModel:
 			wrappedMetrics?.favorite_model ?? currentRow?.favoriteModel ?? null,
 		hasActivity:
-			Boolean(currentRow?.hasActivity) ||
+			(wrappedMetrics ? false : Boolean(currentRow?.hasActivity)) ||
 			totalSessions > 0 ||
 			activeDays > 0 ||
 			totalTokens > 0,
 		totalSessions,
 		totalTokens,
+		inputTokens,
+		outputTokens,
 	};
 }
 

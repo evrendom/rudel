@@ -1,20 +1,4 @@
 import type { SessionAnalytics } from "@rudel/api-routes";
-import {
-	addDays,
-	eachDayOfInterval,
-	eachHourOfInterval,
-	eachMonthOfInterval,
-	eachWeekOfInterval,
-	endOfDay,
-	format,
-	isAfter,
-	parseISO,
-	startOfDay,
-	startOfHour,
-	startOfMonth,
-	startOfWeek,
-	subHours,
-} from "date-fns";
 import { Skeleton } from "@/app/ui/skeleton";
 import {
 	DashboardSessionTrendChart,
@@ -28,6 +12,18 @@ import {
 	getSessionTimestamp,
 	orderSessionsForDisplay,
 } from "@/features/sessions/session-ordering";
+import {
+	addUtcDays,
+	addUtcHours,
+	addUtcMonths,
+	addUtcWeeks,
+	formatAnalyticsUtcDate,
+	parseAnalyticsUtcDate,
+	startOfUtcDay,
+	startOfUtcHour,
+	startOfUtcMonth,
+	startOfUtcWeek,
+} from "@/lib/analytics-utc-date";
 
 const dashboardSessionChartSkeletonHeights = [
 	"h-[8rem]",
@@ -62,13 +58,13 @@ function getBucketDate(
 ) {
 	switch (granularity) {
 		case "hour":
-			return startOfHour(date);
+			return startOfUtcHour(date);
 		case "day":
-			return startOfDay(date);
+			return startOfUtcDay(date);
 		case "week":
-			return startOfWeek(date, { weekStartsOn: 1 });
+			return startOfUtcWeek(date);
 		case "month":
-			return startOfMonth(date);
+			return startOfUtcMonth(date);
 	}
 }
 
@@ -78,13 +74,16 @@ function formatBucketShortLabel(
 ) {
 	switch (granularity) {
 		case "hour":
-			return format(date, "ha");
+			return formatAnalyticsUtcDate(date, { hour: "numeric", hour12: true });
 		case "day":
-			return format(date, "MMM d");
+			return formatAnalyticsUtcDate(date, { day: "numeric", month: "short" });
 		case "week":
-			return format(date, "MMM d");
+			return formatAnalyticsUtcDate(date, { day: "numeric", month: "short" });
 		case "month":
-			return format(date, "MMM yy");
+			return formatAnalyticsUtcDate(date, {
+				month: "short",
+				year: "2-digit",
+			});
 	}
 }
 
@@ -94,13 +93,26 @@ function formatBucketFullLabel(
 ) {
 	switch (granularity) {
 		case "hour":
-			return format(date, "EEEE, MMM d • ha");
+			return formatAnalyticsUtcDate(date, {
+				day: "numeric",
+				hour: "numeric",
+				hour12: true,
+				month: "short",
+				weekday: "long",
+			});
 		case "day":
-			return format(date, "EEEE, MMM d");
+			return formatAnalyticsUtcDate(date, {
+				day: "numeric",
+				month: "short",
+				weekday: "long",
+			});
 		case "week":
-			return `${format(date, "MMM d")} – ${format(addDays(date, 6), "MMM d")}`;
+			return `${formatBucketShortLabel(date, "day")} – ${formatBucketShortLabel(addUtcDays(date, 6), "day")}`;
 		case "month":
-			return format(date, "MMMM yyyy");
+			return formatAnalyticsUtcDate(date, {
+				month: "long",
+				year: "numeric",
+			});
 	}
 }
 
@@ -109,57 +121,66 @@ function buildBucketSeeds(
 	endDate: string,
 	granularity: DashboardSessionTrendGranularity,
 	useRolling24Hours: boolean,
+	now: Date,
 ) {
 	if (useRolling24Hours) {
-		const now = new Date();
-
 		return Array.from({ length: 24 }, (_, index) =>
-			startOfHour(subHours(now, 23 - index)),
+			startOfUtcHour(addUtcHours(now, -(23 - index))),
 		);
 	}
 
-	const intervalStart = parseISO(startDate);
-	const intervalEnd = parseISO(endDate);
+	const intervalStart = parseAnalyticsUtcDate(startDate);
+	const intervalEnd = parseAnalyticsUtcDate(endDate);
+	const seeds: Date[] = [];
+	let cursor: Date;
+	let lastBucket: Date;
+	let advance: (date: Date) => Date;
 
 	switch (granularity) {
 		case "hour":
-			return eachHourOfInterval({
-				start: startOfDay(intervalStart),
-				end: endOfDay(intervalEnd),
-			}).map((date) => startOfHour(date));
+			cursor = startOfUtcDay(intervalStart);
+			lastBucket = addUtcHours(startOfUtcDay(intervalEnd), 23);
+			advance = (date) => addUtcHours(date, 1);
+			break;
 		case "day":
-			return eachDayOfInterval({
-				start: intervalStart,
-				end: intervalEnd,
-			}).map((date) => startOfDay(date));
+			cursor = startOfUtcDay(intervalStart);
+			lastBucket = startOfUtcDay(intervalEnd);
+			advance = (date) => addUtcDays(date, 1);
+			break;
 		case "week":
-			return eachWeekOfInterval(
-				{
-					start: intervalStart,
-					end: intervalEnd,
-				},
-				{ weekStartsOn: 1 },
-			).map((date) => startOfWeek(date, { weekStartsOn: 1 }));
+			cursor = startOfUtcWeek(intervalStart);
+			lastBucket = startOfUtcWeek(intervalEnd);
+			advance = (date) => addUtcWeeks(date, 1);
+			break;
 		case "month":
-			return eachMonthOfInterval({
-				start: intervalStart,
-				end: intervalEnd,
-			}).map((date) => startOfMonth(date));
+			cursor = startOfUtcMonth(intervalStart);
+			lastBucket = startOfUtcMonth(intervalEnd);
+			advance = (date) => addUtcMonths(date, 1);
+			break;
 	}
+
+	while (cursor.getTime() <= lastBucket.getTime()) {
+		seeds.push(cursor);
+		cursor = advance(cursor);
+	}
+
+	return seeds;
 }
 
-function buildSessionTrendData({
+export function buildSessionTrendData({
 	endDate,
 	sessions,
 	startDate,
 	dateRangeDays,
 	useRolling24Hours,
+	now = new Date(),
 }: {
 	endDate: string;
 	sessions: SessionAnalytics[] | undefined;
 	startDate: string;
 	dateRangeDays: number;
 	useRolling24Hours: boolean;
+	now?: Date;
 }): DashboardSessionTrendChartDatum[] {
 	const granularity = getGranularity(dateRangeDays);
 	const bucketSeeds = buildBucketSeeds(
@@ -167,8 +188,9 @@ function buildSessionTrendData({
 		endDate,
 		granularity,
 		useRolling24Hours,
+		now,
 	);
-	const rollingWindowStart = subHours(new Date(), 24);
+	const rollingWindowStart = addUtcHours(now, -24);
 	const bucketMap = new Map(
 		bucketSeeds.map((date) => [
 			date.toISOString(),
@@ -189,7 +211,10 @@ function buildSessionTrendData({
 			continue;
 		}
 
-		if (useRolling24Hours && !isAfter(sessionDate, rollingWindowStart)) {
+		if (
+			useRolling24Hours &&
+			sessionDate.getTime() <= rollingWindowStart.getTime()
+		) {
 			continue;
 		}
 
@@ -221,6 +246,21 @@ function buildSessionTrendData({
 			totalTokens: bucket?.totalTokens ?? 0,
 		};
 	});
+}
+
+export function getSessionChartTruncationLabel(input: {
+	loadedSessionCount: number;
+	totalSessionCount: number;
+	useRolling24Hours: boolean;
+}) {
+	if (
+		input.useRolling24Hours ||
+		input.totalSessionCount <= input.loadedSessionCount
+	) {
+		return null;
+	}
+
+	return `Chart reflects the latest ${input.loadedSessionCount.toLocaleString()} of ${input.totalSessionCount.toLocaleString()} sessions.`;
 }
 
 function DashboardSessionChartFallback() {
@@ -284,6 +324,11 @@ export function DashboardSessionsSnapshotSection({
 		useRolling24Hours,
 	});
 	const sessionsTableKey = `${latestSessions.length}:${latestSessions[0]?.session_id ?? ""}:${latestSessions.at(-1)?.session_id ?? ""}`;
+	const chartTruncationLabel = getSessionChartTruncationLabel({
+		loadedSessionCount: sessions?.length ?? 0,
+		totalSessionCount,
+		useRolling24Hours,
+	});
 
 	return (
 		<DashboardTopChartSection
@@ -292,7 +337,14 @@ export function DashboardSessionsSnapshotSection({
 				isSessionsPending ? (
 					<DashboardSessionChartFallback />
 				) : (
-					<DashboardSessionTrendChart className="min-w-0" data={chartData} />
+					<div className="flex min-w-0 flex-col">
+						<DashboardSessionTrendChart className="min-w-0" data={chartData} />
+						{chartTruncationLabel ? (
+							<p className="px-4 pb-2 text-xs text-muted-foreground">
+								{chartTruncationLabel}
+							</p>
+						) : null}
+					</div>
 				)
 			}
 			detail={

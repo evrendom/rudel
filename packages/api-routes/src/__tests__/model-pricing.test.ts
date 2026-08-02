@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import {
 	buildEstimatedCostSql,
+	buildSessionEstimatedCostSql,
 	calculateEstimatedCost,
 	renderModelPricingTable,
 	resolveModelPricing,
@@ -144,6 +145,19 @@ describe("model rate card", () => {
 		).toBe(309.821024);
 	});
 
+	it("prices 5-minute and 1-hour cache writes at their own tiers", () => {
+		expect(
+			calculateEstimatedCost({
+				model: "claude-opus-5",
+				at: "2026-08-01",
+				inputTokens: 0,
+				cacheCreationInputTokens: 1_000_000,
+				cacheCreation1hInputTokens: 1_000_000,
+				outputTokens: 0,
+			}),
+		).toBe(16.25);
+	});
+
 	it("builds date-aware SQL with a null unresolved branch", () => {
 		const sql = buildEstimatedCostSql({
 			modelExpr: "model_used",
@@ -155,6 +169,22 @@ describe("model rate card", () => {
 		expect(sql).toContain("toDate(session_date)");
 		expect(sql).toContain("Nullable(Float64)");
 		expect(sql).not.toContain("fallback");
+	});
+
+	it("builds the canonical cache-aware session cost SQL", () => {
+		const sql = buildSessionEstimatedCostSql("sa");
+
+		expect(sql).toContain("toDate(sa.session_date)");
+		expect(sql).toContain("sa.model_used");
+		expect(sql).toContain(
+			"greatest(ifNull(sa.input_tokens, 0) - ifNull(sa.cache_read_input_tokens, 0) - ifNull(sa.cache_creation_input_tokens, 0), 0)",
+		);
+		expect(sql).toContain("ifNull(sa.cache_read_input_tokens, 0)");
+		expect(sql).toContain("ifNull(sa.cache_creation_5m_input_tokens, 0)");
+		expect(sql).toContain("ifNull(sa.cache_creation_1h_input_tokens, 0)");
+		expect(() => buildSessionEstimatedCostSql("sa; DROP TABLE x")).toThrow(
+			"Invalid session analytics table alias",
+		);
 	});
 
 	it("keeps the generated pricing sheet in sync", async () => {

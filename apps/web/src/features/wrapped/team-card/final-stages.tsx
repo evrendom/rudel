@@ -1942,38 +1942,20 @@ function resolveWrappedRevealDistinctProjectCount(input: {
 		return revealCount;
 	}
 
-	const statItemValue = input.statItems?.find(
-		(item) => item.key === "repos",
-	)?.value;
-	const parsedStatItemValue = statItemValue
-		? Number.parseInt(statItemValue.replaceAll(/\D/gu, ""), 10)
-		: Number.NaN;
-
-	if (Number.isFinite(parsedStatItemValue)) {
-		return parsedStatItemValue;
-	}
-
-	return input.onboardingMetrics?.repoPulse.totalRepos ?? 0;
+	return input.onboardingMetrics?.distinctProjectCount ?? 0;
 }
 
 function resolveWrappedRevealAvgSessionMin(input: WrappedRevealCopyInput) {
 	return (
 		input.onboardingMetrics?.avgSessionMin ??
 		input.revealMetrics?.avgSessionMin ??
-		resolveWrappedRevealBackMetricNumber(
-			input.backMetrics,
-			"Avg session min",
-		) ??
 		0
 	);
 }
 
 function resolveWrappedRevealCommitRate(input: WrappedRevealCopyInput) {
 	return (
-		input.onboardingMetrics?.commitRate ??
-		input.revealMetrics?.commitRate ??
-		resolveWrappedRevealBackMetricNumber(input.backMetrics, "Commit rate %") ??
-		0
+		input.onboardingMetrics?.commitRate ?? input.revealMetrics?.commitRate ?? 0
 	);
 }
 
@@ -1989,29 +1971,8 @@ function resolveWrappedRevealLongestSessionMin(input: WrappedRevealCopyInput) {
 	return (
 		input.onboardingMetrics?.longestSessionMin ??
 		input.revealMetrics?.longestSessionMin ??
-		resolveWrappedRevealBackMetricNumber(
-			input.backMetrics,
-			"Longest session min",
-		) ??
 		0
 	);
-}
-
-function resolveWrappedRevealBackMetricNumber(
-	backMetrics: readonly WrappedTeamMemberCardBackMetric[] | undefined,
-	label: string,
-) {
-	const metricValue = backMetrics?.find(
-		(metric) => metric.label === label,
-	)?.value;
-
-	if (!metricValue) {
-		return null;
-	}
-
-	const parsedMetricValue = Number(metricValue.replace(/[,%$]/gu, "").trim());
-
-	return Number.isFinite(parsedMetricValue) ? parsedMetricValue : null;
 }
 
 function formatWrappedRevealCompanyCardHappyLine(input: {

@@ -20,6 +20,7 @@ let selectRows: unknown[] = [];
 let selectRouter: ((sql: string, values: unknown[]) => unknown[]) | null = null;
 let insertRows: unknown[] = [];
 let updateRows: unknown[] = [];
+let clickhouseRows: unknown[] = [];
 const WRAPPED_SHARE_TEST_SOURCE = "wrapped-share-service-test";
 
 function sqlClient(strings: TemplateStringsArray, ...values: unknown[]) {
@@ -48,6 +49,10 @@ mock.module("../db.js", () => ({
 	sqlClient,
 }));
 
+mock.module("../clickhouse.js", () => ({
+	queryClickhouse: () => Promise.resolve(clickhouseRows),
+}));
+
 const {
 	createWrappedShare,
 	getPublicWrappedShare,
@@ -62,6 +67,14 @@ describe("wrapped share service", () => {
 		selectRouter = null;
 		insertRows = [];
 		updateRows = [];
+		clickhouseRows = [
+			{
+				commitSessions: 12,
+				estimatedCostUsd: 42,
+				unpricedSessionCount: 0,
+				unpricedTokenCount: 0,
+			},
+		];
 	});
 
 	test("creates a name-based link for a user without an existing share", async () => {
@@ -103,6 +116,68 @@ describe("wrapped share service", () => {
 		assert.strictEqual(typeof snapshotJson, "string");
 		expect(insertQuery.values[4]).toBe(socialImageDataUrl);
 		expect(snapshotJson).not.toContain("socialImageDataUrl");
+	});
+
+	test("overrides client-authored spend fields with authoritative pricing", async () => {
+		insertRows = [{ id: "evren" }];
+		clickhouseRows = [
+			{
+				commitSessions: 4,
+				estimatedCostUsd: 12.5,
+				unpricedSessionCount: 0,
+				unpricedTokenCount: 0,
+			},
+		];
+		const snapshot = createSnapshot({ displayName: "Evren" });
+		snapshot.row.cost = 999;
+		snapshot.headerLeftMetric = {
+			title: "$999 estimated spend",
+			value: "$999",
+		};
+		snapshot.backMetrics = [
+			{ label: "Spent", value: "999" },
+			{ label: "Dollar per commit", value: "999" },
+		];
+
+		await createWrappedShare({
+			organizationId: "org-1",
+			snapshot,
+			userId: "user-1",
+			variant: "normal",
+		});
+
+		const snapshotJson = getSqlQuery(2).values[3];
+		if (typeof snapshotJson !== "string") {
+			throw new Error("expected the persisted wrapped snapshot to be JSON");
+		}
+		const persisted = JSON.parse(snapshotJson) as WrappedShareSnapshot;
+		expect(persisted.row.cost).toBe(12.5);
+		expect(persisted.headerLeftMetric?.value).toBe("$13");
+		expect(persisted.backMetrics).toEqual([
+			{ label: "Spent", value: "13" },
+			{ label: "Dollar per commit", value: "3.13" },
+		]);
+	});
+
+	test("refuses to publish a partial-cost snapshot", async () => {
+		clickhouseRows = [
+			{
+				commitSessions: 0,
+				estimatedCostUsd: 0,
+				unpricedSessionCount: 1,
+				unpricedTokenCount: 360,
+			},
+		];
+
+		await expect(
+			createWrappedShare({
+				organizationId: "org-1",
+				snapshot: createSnapshot({ displayName: "Evren" }),
+				userId: "user-1",
+				variant: "normal",
+			}),
+		).rejects.toThrow(/pricing is available for every session/u);
+		expect(sqlQueries).toHaveLength(0);
 	});
 
 	test("keeps the same link for later creates by the same user", async () => {

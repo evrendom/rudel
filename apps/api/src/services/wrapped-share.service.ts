@@ -13,8 +13,10 @@ import {
 	WrappedShareSnapshotSchema,
 	WrappedShareSocialImageDataUrlSchema,
 } from "@rudel/api-routes";
+import { queryClickhouse } from "../clickhouse.js";
 import { sqlClient } from "../db.js";
 import { checkWrappedShareLookupRateLimit } from "../rate-limit.js";
+import { buildSessionEstimatedCostSql } from "./pricing.service.js";
 import {
 	buildWrappedShareIdBase,
 	getNextWrappedShareIdCandidate,
@@ -57,6 +59,13 @@ interface WrappedShareDatabaseRowForPageMetadata
 	hasSocialImage: boolean;
 }
 
+interface WrappedSharePricingRow {
+	estimatedCostUsd: number | string | null;
+	commitSessions: number | string | null;
+	unpricedSessionCount: number | string | null;
+	unpricedTokenCount: number | string | null;
+}
+
 const WRAPPED_SHARE_TTL_DAYS = 30;
 const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000;
 const WRAPPED_SHARE_ID_INSERT_ATTEMPTS = 20;
@@ -68,16 +77,30 @@ export async function createWrappedShare(
 	options: CreateWrappedShareOptions,
 ): Promise<WrappedShareRecord> {
 	const { organizationId, userId, variant } = options;
-	const snapshot = WrappedShareSnapshotSchema.parse(options.snapshot);
+	const submittedSnapshot = WrappedShareSnapshotSchema.parse(options.snapshot);
 	const socialImageDataUrl =
 		options.socialImageDataUrl === undefined
 			? null
 			: WrappedShareSocialImageDataUrlSchema.parse(options.socialImageDataUrl);
-	const snapshotJson = JSON.stringify(snapshot);
 
 	if (variant === "decimal") {
 		await assertDecimalEntitled(userId);
 	}
+
+	const pricing = await getAuthoritativeWrappedSharePricing(
+		organizationId,
+		userId,
+	);
+	if (pricing.unpricedSessionCount > 0 || pricing.unpricedTokenCount > 0) {
+		throw new ORPCError("BAD_REQUEST", {
+			message:
+				"Wrapped sharing is unavailable until pricing is available for every session",
+		});
+	}
+	const snapshot = WrappedShareSnapshotSchema.parse(
+		overrideWrappedSharePricing(submittedSnapshot, pricing),
+	);
+	const snapshotJson = JSON.stringify(snapshot);
 
 	const existingShare = await getWrappedShareForUser(userId, variant);
 	const shareIdBase = buildWrappedShareIdBase({
@@ -183,6 +206,128 @@ export async function createWrappedShare(
 	}
 
 	throw new Error("Could not allocate a wrapped share id");
+}
+
+async function getAuthoritativeWrappedSharePricing(
+	organizationId: string,
+	userId: string,
+) {
+	const estimatedCostSql = buildSessionEstimatedCostSql();
+	const rows = await queryClickhouse<WrappedSharePricingRow>({
+		query: `
+			SELECT
+				round(ifNull(sum(priced.estimated_cost), 0), 4) AS estimatedCostUsd,
+				sum(ifNull(priced.has_commit, 0)) AS commitSessions,
+				countIf(isNull(priced.estimated_cost)) AS unpricedSessionCount,
+				sumIf(ifNull(priced.total_tokens, 0), isNull(priced.estimated_cost)) AS unpricedTokenCount
+			FROM (
+				SELECT *, ${estimatedCostSql} AS estimated_cost
+				FROM rudel.session_analytics FINAL
+				WHERE organization_id = {organizationId:String}
+					AND user_id = {userId:String}
+			) AS priced
+		`,
+		query_params: {
+			organizationId,
+			userId,
+		},
+	});
+	const row = rows[0];
+
+	return {
+		estimatedCostUsd: toNonNegativeNumber(row?.estimatedCostUsd),
+		commitSessions: toNonNegativeNumber(row?.commitSessions),
+		unpricedSessionCount: toNonNegativeNumber(row?.unpricedSessionCount),
+		unpricedTokenCount: toNonNegativeNumber(row?.unpricedTokenCount),
+	};
+}
+
+function overrideWrappedSharePricing(
+	snapshot: WrappedShareSnapshot,
+	pricing: {
+		estimatedCostUsd: number;
+		commitSessions: number;
+		unpricedSessionCount: number;
+		unpricedTokenCount: number;
+	},
+): WrappedShareSnapshot {
+	const formattedSpend = new Intl.NumberFormat("en-US", {
+		style: "currency",
+		currency: "USD",
+		notation: "compact",
+		maximumFractionDigits: 0,
+	}).format(pricing.estimatedCostUsd);
+	const spendInteger = Math.round(pricing.estimatedCostUsd).toLocaleString(
+		"en-US",
+	);
+	const spendPerCommit =
+		pricing.commitSessions > 0
+			? Number(
+					(pricing.estimatedCostUsd / pricing.commitSessions).toFixed(2),
+				).toLocaleString("en-US")
+			: "0";
+
+	// Existing public snapshots remain frozen for their normal 30-day lifetime.
+	// Only create/update crosses this authoritative pricing boundary.
+	return {
+		...snapshot,
+		backMetrics: snapshot.backMetrics?.map((metric) => {
+			if (metric.label === "Spent") {
+				return { ...metric, value: spendInteger };
+			}
+			if (metric.label === "Dollar per commit") {
+				return { ...metric, value: spendPerCommit };
+			}
+			return metric;
+		}),
+		headerLeftMetric: overrideSnapshotSpendMetric(
+			snapshot.headerLeftMetric,
+			formattedSpend,
+		),
+		headerRightMetric: overrideSnapshotSpendMetric(
+			snapshot.headerRightMetric,
+			formattedSpend,
+		),
+		row: {
+			...snapshot.row,
+			cost: pricing.estimatedCostUsd,
+		},
+		statItems: snapshot.statItems.map((item) =>
+			overrideSnapshotSpendMetric(item, formattedSpend),
+		),
+	};
+}
+
+function overrideSnapshotSpendMetric<
+	T extends { label?: string; title?: string; value: string },
+>(metric: T, formattedSpend: string): T;
+function overrideSnapshotSpendMetric<
+	T extends { label?: string; title?: string; value: string },
+>(metric: T | undefined, formattedSpend: string): T | undefined;
+function overrideSnapshotSpendMetric<
+	T extends { label?: string; title?: string; value: string },
+>(metric: T | undefined, formattedSpend: string): T | undefined {
+	if (!metric) {
+		return undefined;
+	}
+	const descriptor = `${metric.label ?? ""} ${metric.title ?? ""}`;
+	if (!/(?:cost|spend)/iu.test(descriptor)) {
+		return metric;
+	}
+
+	return {
+		...metric,
+		title:
+			metric.title === undefined
+				? undefined
+				: `${formattedSpend} estimated spend`,
+		value: formattedSpend,
+	};
+}
+
+function toNonNegativeNumber(value: number | string | null | undefined) {
+	const numeric = Number(value ?? 0);
+	return Number.isFinite(numeric) ? Math.max(0, numeric) : 0;
 }
 
 // Decimal share creation is server-gated: the only authoritative source of

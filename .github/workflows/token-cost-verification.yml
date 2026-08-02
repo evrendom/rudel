@@ -1,0 +1,104 @@
+name: Token cost continuous verification
+
+on:
+  schedule:
+    - cron: "17 5 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  verify-token-cost:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      CLICKHOUSE_READONLY_PASSWORD: ${{ secrets.CLICKHOUSE_READONLY_PASSWORD }}
+      CLICKHOUSE_READONLY_URL: ${{ secrets.CLICKHOUSE_READONLY_URL }}
+      CLICKHOUSE_READONLY_USERNAME: ${{ secrets.CLICKHOUSE_READONLY_USERNAME }}
+      PRICING_ALLOWED_UNRESOLVED_MODELS: ${{ vars.PRICING_ALLOWED_UNRESOLVED_MODELS }}
+      TOKEN_COST_ALERT_ASSIGNEE: ${{ vars.TOKEN_COST_ALERT_ASSIGNEE || github.actor }}
+      TOKEN_RECOUNT_ORGANIZATION_ID: ${{ secrets.TOKEN_RECOUNT_ORGANIZATION_ID }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 20
+          package-manager-cache: false
+
+      - name: Setup Bun
+        uses: ./.github/actions/setup
+
+      - name: Materialize provider anchors
+        env:
+          TOKEN_RECOUNT_ANCHORS_JSON: ${{ secrets.TOKEN_RECOUNT_ANCHORS_JSON }}
+        run: |
+          mkdir -p .context
+          printf '%s' "${TOKEN_RECOUNT_ANCHORS_JSON}" > .context/token-recount-anchors.json
+
+      - name: Check provider pricing pages
+        id: pricing-drift
+        continue-on-error: true
+        run: bun run pricing:drift
+
+      - name: Check daily pricing coverage
+        id: pricing-coverage
+        continue-on-error: true
+        run: bun run pricing:coverage -- --target prod --lookback-days 1
+
+      - name: Recount sampled production sessions
+        id: token-recount
+        continue-on-error: true
+        run: |
+          bun run tokens:recount -- \
+            --target prod \
+            --organization-id "${TOKEN_RECOUNT_ORGANIZATION_ID}" \
+            --lookback-days 365 \
+            --sample-size 100 \
+            --require-anchors \
+            --require-feature-anchors \
+            --require-zero-diff
+
+      - name: Summarize verification
+        if: always()
+        run: |
+          {
+            echo "## Token cost verification"
+            echo ""
+            echo "- Pricing-page drift: ${{ steps.pricing-drift.outcome }}"
+            echo "- Pricing coverage: ${{ steps.pricing-coverage.outcome }}"
+            echo "- Independent recount: ${{ steps.token-recount.outcome }}"
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Page the token-cost owner
+        if: >-
+          steps.pricing-drift.outcome == 'failure' ||
+          steps.pricing-coverage.outcome == 'failure' ||
+          steps.token-recount.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          issue_number="$(gh issue list --state open --search 'Token-cost continuous verification failed in:title' --json number --jq '.[0].number // empty')"
+          body="Scheduled token-cost verification failed. Inspect ${RUN_URL} for the provider drift, pricing coverage, and independent recount receipts."
+          if [[ -n "${issue_number}" ]]; then
+            gh issue edit "${issue_number}" --add-assignee "${TOKEN_COST_ALERT_ASSIGNEE}"
+            gh issue comment "${issue_number}" --body "${body}"
+          else
+            gh issue create --title "Token-cost continuous verification failed" --body "${body}" --assignee "${TOKEN_COST_ALERT_ASSIGNEE}"
+          fi
+
+      - name: Require every verification check
+        if: always()
+        env:
+          COVERAGE_OUTCOME: ${{ steps.pricing-coverage.outcome }}
+          DRIFT_OUTCOME: ${{ steps.pricing-drift.outcome }}
+          RECOUNT_OUTCOME: ${{ steps.token-recount.outcome }}
+        run: |
+          if [[ "${COVERAGE_OUTCOME}" != "success" || "${DRIFT_OUTCOME}" != "success" || "${RECOUNT_OUTCOME}" != "success" ]]; then
+            exit 1
+          fi

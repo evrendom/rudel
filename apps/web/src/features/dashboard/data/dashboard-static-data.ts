@@ -381,7 +381,7 @@ const sessionProfileTemplate: DashboardProfileComparisonRow[] = [
 	{ label: "Avg interactions", committed: "9.2", uncommitted: "6.8" },
 	{ label: "Avg errors", committed: "0.8", uncommitted: "1.6" },
 	{ label: "Avg tokens", committed: "84k", uncommitted: "66k" },
-	{ label: "Avg cost", committed: "$3.19", uncommitted: "$2.41" },
+	{ label: "Avg cost", committed: "—", uncommitted: "—" },
 	{ label: "Most common model", committed: "Sonnet 4", uncommitted: "Opus" },
 	{ label: "Plan mode usage", committed: "58%", uncommitted: "31%" },
 ];
@@ -418,8 +418,8 @@ const commitCostMetricsTemplate: DashboardCommitCostMetric[] = [
 	},
 	{
 		label: "Cost per commit",
-		valueLabel: "$3.19",
-		description: "Committed session spend divided by shipped commits.",
+		valueLabel: "—",
+		description: "Cost is unavailable until server-priced data loads.",
 	},
 ];
 

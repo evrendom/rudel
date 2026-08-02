@@ -7,12 +7,12 @@ import type {
 	UserTokenUsageData,
 } from "@rudel/api-routes";
 import {
-	buildAbsoluteDateFilter,
 	buildDateFilter,
+	buildInclusiveDateRangeFilter,
 	queryClickhouse,
 } from "../clickhouse.js";
 import { sqlClient } from "../db.js";
-import { buildEstimatedCostSql } from "./pricing.service.js";
+import { buildSessionEstimatedCostSql } from "./pricing.service.js";
 
 export interface Insight {
 	type: "trend" | "performer" | "alert" | "info";
@@ -21,15 +21,7 @@ export interface Insight {
 	link: string;
 }
 
-const USER_USAGE_PER_SESSION_COST_SQL = buildEstimatedCostSql({
-	modelExpr: "sa.model_used",
-	dateExpr: "sa.session_date",
-	inputExpr:
-		"(ifNull(sa.input_tokens, 0) - ifNull(sa.cache_read_input_tokens, 0) - ifNull(sa.cache_creation_input_tokens, 0))",
-	outputExpr: "ifNull(sa.output_tokens, 0)",
-	cacheReadInputExpr: "ifNull(sa.cache_read_input_tokens, 0)",
-	cacheCreationInputExpr: "ifNull(sa.cache_creation_input_tokens, 0)",
-});
+const USER_USAGE_PER_SESSION_COST_SQL = buildSessionEstimatedCostSql("sa");
 
 /**
  * Get overview KPI counts: distinct users, sessions, projects, subagents, skills, slash commands
@@ -39,7 +31,7 @@ export async function getOverviewKPIs(
 	startDate: string,
 	endDate: string,
 ): Promise<OverviewKPIs> {
-	const dateFilter = buildAbsoluteDateFilter("startDate", "endDate");
+	const dateFilter = buildInclusiveDateRangeFilter("startDate", "endDate");
 	const query_params = {
 		startDate,
 		endDate,
@@ -114,23 +106,46 @@ export async function getModelTokensTrend(
 	startDate: string,
 	endDate: string,
 ): Promise<ModelTokensTrendData[]> {
-	const dateFilter = buildAbsoluteDateFilter("startDate", "endDate");
+	const dateFilter = buildInclusiveDateRangeFilter("startDate", "endDate");
+	const estimatedCostSql = buildSessionEstimatedCostSql("sa");
 
 	const query = `
-    SELECT
-      toDate(session_date) as date,
-      model_used as model,
-      sum(total_tokens) as total_tokens,
-      sum(input_tokens) as input_tokens,
-      sum(output_tokens) as output_tokens
-    FROM rudel.session_analytics FINAL
-    WHERE ${dateFilter}
-      AND organization_id = {orgId:String}
-      AND model_used != ''
-      AND model_used != 'unknown'
-    GROUP BY date, model
-    ORDER BY date ASC, total_tokens DESC
-  `;
+	    SELECT
+	      date,
+	      model,
+	      sum(total_tokens) as total_tokens,
+	      sum(input_tokens) as input_tokens,
+	      sum(output_tokens) as output_tokens,
+	      sum(cache_read_input_tokens) as cache_read_input_tokens,
+	      sum(cache_creation_input_tokens) as cache_creation_input_tokens,
+	      sum(cache_creation_5m_input_tokens) as cache_creation_5m_input_tokens,
+	      sum(cache_creation_1h_input_tokens) as cache_creation_1h_input_tokens,
+	      if(
+	        countIf(isNull(priced.estimated_cost)) > 0,
+	        CAST(NULL, 'Nullable(Float64)'),
+	        toNullable(round(sum(ifNull(priced.estimated_cost, 0)), 4))
+	      ) as estimated_cost,
+	      countIf(isNull(priced.estimated_cost)) as unpriced_session_count,
+	      sumIf(priced.total_tokens, isNull(priced.estimated_cost)) as unpriced_token_count
+	    FROM (
+	      SELECT
+	        toString(toDate(sa.session_date)) as date,
+	        if(sa.model_used = '', 'unknown', sa.model_used) as model,
+	        ifNull(sa.total_tokens, 0) as total_tokens,
+	        ifNull(sa.input_tokens, 0) as input_tokens,
+	        ifNull(sa.output_tokens, 0) as output_tokens,
+	        ifNull(sa.cache_read_input_tokens, 0) as cache_read_input_tokens,
+	        ifNull(sa.cache_creation_input_tokens, 0) as cache_creation_input_tokens,
+	        ifNull(sa.cache_creation_5m_input_tokens, 0) as cache_creation_5m_input_tokens,
+	        ifNull(sa.cache_creation_1h_input_tokens, 0) as cache_creation_1h_input_tokens,
+	        ${estimatedCostSql} as estimated_cost
+	      FROM rudel.session_analytics AS sa FINAL
+	      WHERE ${dateFilter}
+	        AND sa.organization_id = {orgId:String}
+	    ) AS priced
+	    GROUP BY date, model
+	    ORDER BY date ASC, total_tokens DESC
+	  `;
 
 	return queryClickhouse<ModelTokensTrendData>({
 		query,
@@ -147,7 +162,7 @@ export async function getUsersTokenUsage(
 	startDate: string,
 	endDate: string,
 ): Promise<UserTokenUsageData[]> {
-	const dateFilter = buildAbsoluteDateFilter("startDate", "endDate");
+	const dateFilter = buildInclusiveDateRangeFilter("startDate", "endDate");
 	const rows = await queryClickhouse<{
 		models_used: string[];
 		repositories_touched: string[];
@@ -157,6 +172,8 @@ export async function getUsersTokenUsage(
 		input_tokens: number;
 		output_tokens: number;
 		cost: number;
+		unpriced_session_count: number;
+		unpriced_token_count: number;
 		total_sessions: number;
 		total_duration_min: number;
 		success_rate: number;
@@ -192,16 +209,23 @@ export async function getUsersTokenUsage(
       sum(ifNull(sa.total_tokens, 0)) as total_tokens,
       sum(ifNull(sa.input_tokens, 0)) as input_tokens,
       sum(ifNull(sa.output_tokens, 0)) as output_tokens,
-      round(sum(${USER_USAGE_PER_SESSION_COST_SQL}), 4) as cost,
+	      round(ifNull(sum(sa.estimated_cost), 0), 4) as cost,
+	      countIf(isNull(sa.estimated_cost)) as unpriced_session_count,
+	      sumIf(ifNull(sa.total_tokens, 0), isNull(sa.estimated_cost)) as unpriced_token_count,
       count() as total_sessions,
       round(sum(sa.actual_duration_min), 2) as total_duration_min,
       round(avg(sa.success_score), 2) as success_rate,
       length(arrayDistinct(arrayFilter(x -> x != '', arrayFlatten(groupArray(sa.skills))))) as distinct_skills,
       length(arrayDistinct(arrayFilter(x -> x != '', arrayFlatten(groupArray(sa.slash_commands))))) as distinct_slash_commands
-    FROM rudel.session_analytics AS sa FINAL
-    WHERE ${dateFilter}
-      AND sa.organization_id = {orgId:String}
-      AND sa.user_id != ''
+	    FROM (
+	      SELECT
+	        sa.*,
+	        ${USER_USAGE_PER_SESSION_COST_SQL} as estimated_cost
+	      FROM rudel.session_analytics AS sa FINAL
+	      WHERE ${dateFilter}
+	        AND sa.organization_id = {orgId:String}
+	        AND sa.user_id != ''
+	    ) AS sa
     GROUP BY sa.user_id
     ORDER BY total_tokens DESC
   `,
@@ -237,6 +261,8 @@ export async function getUsersTokenUsage(
 		input_tokens: Number(row.input_tokens),
 		output_tokens: Number(row.output_tokens),
 		cost: Number(row.cost),
+		unpriced_session_count: Number(row.unpriced_session_count),
+		unpriced_token_count: Number(row.unpriced_token_count),
 		total_sessions: Number(row.total_sessions),
 		total_duration_min: Number(row.total_duration_min),
 		success_rate: Number(row.success_rate),
@@ -250,7 +276,7 @@ export async function getUsersDailyTrend(
 	startDate: string,
 	endDate: string,
 ): Promise<UserDailyTrendData[]> {
-	const dateFilter = buildAbsoluteDateFilter("startDate", "endDate");
+	const dateFilter = buildInclusiveDateRangeFilter("startDate", "endDate");
 
 	return queryClickhouse<UserDailyTrendData>({
 		query: `
@@ -263,6 +289,13 @@ export async function getUsersDailyTrend(
       sum(ifNull(total_tokens, 0)) as total_tokens,
       sum(ifNull(input_tokens, 0)) as input_tokens,
       sum(ifNull(output_tokens, 0)) as output_tokens,
+	  if(
+	    countIf(isNull(estimated_cost)) > 0,
+	    CAST(NULL, 'Nullable(Float64)'),
+	    toNullable(round(sum(ifNull(estimated_cost, 0)), 4))
+	  ) as estimated_cost,
+	  countIf(isNull(estimated_cost)) as unpriced_session_count,
+	  sumIf(ifNull(total_tokens, 0), isNull(estimated_cost)) as unpriced_token_count,
       round(avg(success_score), 2) as avg_success_rate,
       length(arrayDistinct(arrayFilter(x -> x != '', arrayFlatten(groupArray(skills))))) as distinct_skills,
       length(arrayDistinct(arrayFilter(x -> x != '', arrayFlatten(groupArray(slash_commands))))) as distinct_slash_commands,
@@ -288,10 +321,15 @@ export async function getUsersDailyTrend(
           )
         )
       ) as repositories_touched
-    FROM rudel.session_analytics FINAL
-    WHERE ${dateFilter}
-      AND organization_id = {orgId:String}
-      AND user_id != ''
+	FROM (
+	  SELECT
+	    sa.*,
+	    ${USER_USAGE_PER_SESSION_COST_SQL} as estimated_cost
+	  FROM rudel.session_analytics AS sa FINAL
+	  WHERE ${dateFilter}
+	    AND sa.organization_id = {orgId:String}
+	    AND sa.user_id != ''
+	) AS priced
     GROUP BY date, user_id
     ORDER BY date ASC, user_id ASC
   `,
@@ -308,7 +346,7 @@ export async function getRepositoriesDailyTrend(
 	startDate: string,
 	endDate: string,
 ): Promise<RepositoryDailyTrendData[]> {
-	const dateFilter = buildAbsoluteDateFilter("startDate", "endDate");
+	const dateFilter = buildInclusiveDateRangeFilter("startDate", "endDate");
 
 	return queryClickhouse<RepositoryDailyTrendData>({
 		query: `
@@ -348,7 +386,7 @@ export async function getUsageTrendDetailed(
 	startDate: string,
 	endDate: string,
 ): Promise<UsageTrendData[]> {
-	const dateFilter = buildAbsoluteDateFilter("startDate", "endDate");
+	const dateFilter = buildInclusiveDateRangeFilter("startDate", "endDate");
 
 	const query = `
     SELECT
@@ -388,8 +426,11 @@ export async function getOverviewInsights(
 	const prevStart = new Date(prevEnd.getTime() - periodMs);
 	const prevStartStr = prevStart.toISOString().slice(0, 10);
 	const prevEndStr = prevEnd.toISOString().slice(0, 10);
-	const currentDateFilter = buildAbsoluteDateFilter("startDate", "endDate");
-	const previousDateFilter = buildAbsoluteDateFilter(
+	const currentDateFilter = buildInclusiveDateRangeFilter(
+		"startDate",
+		"endDate",
+	);
+	const previousDateFilter = buildInclusiveDateRangeFilter(
 		"previousStartDate",
 		"previousEndDate",
 	);
@@ -558,8 +599,11 @@ export async function getTeamSummaryWithComparison(
 	const prevStart = new Date(prevEnd.getTime() - periodMs);
 	const prevStartStr = prevStart.toISOString().slice(0, 10);
 	const prevEndStr = prevEnd.toISOString().slice(0, 10);
-	const currentDateFilter = buildAbsoluteDateFilter("startDate", "endDate");
-	const previousDateFilter = buildAbsoluteDateFilter(
+	const currentDateFilter = buildInclusiveDateRangeFilter(
+		"startDate",
+		"endDate",
+	);
+	const previousDateFilter = buildInclusiveDateRangeFilter(
 		"previousStartDate",
 		"previousEndDate",
 	);
@@ -568,8 +612,8 @@ export async function getTeamSummaryWithComparison(
     SELECT
       count() as total_sessions,
       uniq(user_id) as active_users,
-      round(avg(actual_duration_min), 2) as avg_duration_min,
-      round(count() / uniq(user_id), 2) as avg_sessions_per_user
+	      ifNull(round(avgOrNull(actual_duration_min), 2), 0) as avg_duration_min,
+	      if(uniq(user_id) > 0, round(count() / uniq(user_id), 2), 0) as avg_sessions_per_user
     FROM rudel.session_analytics FINAL
     WHERE ${currentDateFilter}
       AND organization_id = {orgId:String}
@@ -579,8 +623,8 @@ export async function getTeamSummaryWithComparison(
     SELECT
       count() as total_sessions,
       uniq(user_id) as active_users,
-      round(avg(actual_duration_min), 2) as avg_duration_min,
-      round(count() / uniq(user_id), 2) as avg_sessions_per_user
+	      ifNull(round(avgOrNull(actual_duration_min), 2), 0) as avg_duration_min,
+	      if(uniq(user_id) > 0, round(count() / uniq(user_id), 2), 0) as avg_sessions_per_user
     FROM rudel.session_analytics FINAL
     WHERE ${previousDateFilter}
       AND organization_id = {orgId:String}
@@ -605,15 +649,16 @@ export async function getTeamSummaryWithComparison(
 		}),
 	]);
 
-	const defaultPeriod: TeamSummaryPeriodData = {
-		total_sessions: 0,
-		active_users: 0,
-		avg_duration_min: 0,
-		avg_sessions_per_user: 0,
-	};
-
-	const current = currentData[0] || defaultPeriod;
-	const previous = previousData[0] || defaultPeriod;
+	const coercePeriod = (
+		row: TeamSummaryPeriodData | undefined,
+	): TeamSummaryPeriodData => ({
+		total_sessions: Number(row?.total_sessions) || 0,
+		active_users: Number(row?.active_users) || 0,
+		avg_duration_min: Number(row?.avg_duration_min) || 0,
+		avg_sessions_per_user: Number(row?.avg_sessions_per_user) || 0,
+	});
+	const current = coercePeriod(currentData[0]);
+	const previous = coercePeriod(previousData[0]);
 
 	const calculateChange = (curr: number, prev: number) => {
 		if (!prev || prev === 0) return 0;
@@ -655,8 +700,11 @@ export async function getSuccessRateMetrics(
 	const prevStart = new Date(prevEnd.getTime() - periodMs);
 	const prevStartStr = prevStart.toISOString().slice(0, 10);
 	const prevEndStr = prevEnd.toISOString().slice(0, 10);
-	const currentDateFilter = buildAbsoluteDateFilter("startDate", "endDate");
-	const previousDateFilter = buildAbsoluteDateFilter(
+	const currentDateFilter = buildInclusiveDateRangeFilter(
+		"startDate",
+		"endDate",
+	);
+	const previousDateFilter = buildInclusiveDateRangeFilter(
 		"previousStartDate",
 		"previousEndDate",
 	);

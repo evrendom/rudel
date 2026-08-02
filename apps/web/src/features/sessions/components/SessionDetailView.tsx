@@ -6,7 +6,6 @@ import {
 	Clock3,
 	Gauge,
 	Info,
-	type LucideIcon,
 	User,
 	X,
 } from "lucide-react";
@@ -25,7 +24,12 @@ import { useUserMap } from "@/features/workspace/hooks/useUserMap";
 import { orpc } from "@/lib/orpc";
 import { cn } from "@/lib/utils";
 import { buildSessionDetailViewModel } from "./session-detail-view-model";
-import { SessionDetailErrorBoundary } from "./session-detail-view-parts";
+import {
+	SessionDetailErrorBoundary,
+	SessionMetric,
+	SessionMetricSkeleton,
+	sessionMetricItemClassName,
+} from "./session-detail-view-parts";
 import type { SessionDetailNavigation } from "./session-detail-view-types";
 import { isForbiddenError } from "./session-detail-view-utils";
 
@@ -193,9 +197,6 @@ function SessionUserIdentity({
 const sessionMetricsGroupClassName =
 	"flex w-fit min-w-0 max-w-full items-center divide-x divide-[color:var(--dashboardy-divider)] overflow-x-auto";
 
-const sessionMetricItemClassName =
-	"flex shrink-0 items-start gap-2 px-3 first:pl-0 last:pr-0";
-
 const sessionIdentityCounterClassName = "flex shrink-0 items-start gap-2";
 
 const sessionCapabilityTagClassName =
@@ -309,59 +310,6 @@ function SessionCapabilitiesTable({
 	);
 }
 
-function SessionMetric({
-	icon: Icon,
-	label,
-	value,
-	mono = false,
-}: {
-	icon: LucideIcon;
-	label: string;
-	value: string | number;
-	mono?: boolean;
-}) {
-	return (
-		<Tooltip>
-			<TooltipTrigger asChild>
-				<div className={cn(sessionMetricItemClassName, "cursor-help")}>
-					<Icon
-						aria-hidden="true"
-						className="size-4 h-lh shrink-0 stroke-[color:var(--dashboardy-heading)]"
-					/>
-					<div className="min-w-0 flex-1">
-						<div
-							className={cn(
-								"whitespace-nowrap text-base font-semibold text-[color:var(--dashboardy-heading)] tabular-nums sm:text-[0.8125rem]",
-								mono && "font-mono",
-							)}
-						>
-							<span className="sr-only">{label}: </span>
-							{value}
-						</div>
-					</div>
-				</div>
-			</TooltipTrigger>
-			<TooltipContent>{label}</TooltipContent>
-		</Tooltip>
-	);
-}
-
-function SessionMetricSkeleton({ valueClassName }: { valueClassName: string }) {
-	return (
-		<div className={sessionMetricItemClassName}>
-			<Skeleton className="size-4 shrink-0 rounded-sm bg-[color:var(--dashboardy-subsurface-strong)]" />
-			<div className="min-w-0 flex-1">
-				<Skeleton
-					className={cn(
-						"h-4 rounded-sm bg-[color:var(--dashboardy-subsurface-strong)]",
-						valueClassName,
-					)}
-				/>
-			</div>
-		</div>
-	);
-}
-
 function formatRoundedTokenCount(value: number) {
 	if (value < 1_000) {
 		return Math.round(value).toLocaleString();
@@ -411,6 +359,7 @@ function SessionMetrics({
 		costLabel,
 		safeDurationMin,
 		safeInputTokens,
+		safeIsPartialData,
 		safeModelUsed,
 		safeOutputTokens,
 		safeUserDisplayName,
@@ -441,7 +390,13 @@ function SessionMetrics({
 				label="Duration"
 				value={formatRoundedDuration(safeDurationMin)}
 			/>
-			<SessionMetric icon={Gauge} label="Tokens" value={tokenUsageLabel} mono />
+			<SessionMetric
+				badge={safeIsPartialData ? "Partial data" : undefined}
+				icon={Gauge}
+				label="Input (incl. cache) / output"
+				value={tokenUsageLabel}
+				mono
+			/>
 			<SessionMetric
 				icon={CircleDollarSign}
 				label="Cost"

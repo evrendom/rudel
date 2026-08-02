@@ -236,20 +236,12 @@ export function buildDateFilter(
 	return `${column} >= now64(3) - toIntervalDay({${paramName}:UInt32}) AND ${column} <= now64(3)`;
 }
 
-export function buildAbsoluteDateFilter(
-	startParamName: string,
-	endParamName: string,
-	column = "session_date",
-): string {
-	return `toDate(${column}) >= toDate({${startParamName}:String}) AND toDate(${column}) <= toDate({${endParamName}:String})`;
-}
-
 export function buildInclusiveDateRangeFilter(
 	startParamName: string,
 	endParamName: string,
 	column = "session_date",
 ): string {
-	return buildAbsoluteDateFilter(startParamName, endParamName, column);
+	return `toDate(${column}) >= toDate({${startParamName}:String}) AND toDate(${column}) <= toDate({${endParamName}:String})`;
 }
 
 export async function queryClickhouse<T>(

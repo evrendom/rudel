@@ -11,6 +11,19 @@
 				"CLICKHOUSE_PASSWORD",
 				"CLICKHOUSE_DB"
 			]
+		},
+		"tokens:recount": {
+			"cache": false,
+			"passThroughEnv": [
+				"CLICKHOUSE_URL",
+				"CLICKHOUSE_USER",
+				"CLICKHOUSE_USERNAME",
+				"CLICKHOUSE_PASSWORD",
+				"CLICKHOUSE_READONLY_URL",
+				"CLICKHOUSE_READONLY_USERNAME",
+				"CLICKHOUSE_READONLY_PASSWORD",
+				"TOKEN_RECOUNT_ORGANIZATION_ID"
+			]
 		}
 	}
 }

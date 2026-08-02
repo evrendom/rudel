@@ -39,7 +39,12 @@ async function runSessionEnd(): Promise<undefined | Error> {
 		if (!input.session_id || !input.transcript_path) return;
 
 		const credentials = loadCredentials();
-		if (!credentials) return;
+		if (!credentials) {
+			process.stderr.write(
+				`Rudel hook upload skipped for session ${input.session_id}: not authenticated; run \`rudel login\`.\n`,
+			);
+			return;
+		}
 
 		logger.info("Uploading session {sessionId}", {
 			sessionId: input.session_id,
@@ -100,6 +105,9 @@ async function runSessionEnd(): Promise<undefined | Error> {
 		}
 	} catch (error) {
 		logger.error("Session end hook failed: {error}", { error });
+		process.stderr.write(
+			`Rudel Claude Code hook failed: ${error instanceof Error ? error.message : String(error)}\n`,
+		);
 	} finally {
 		await disposeLogging();
 	}

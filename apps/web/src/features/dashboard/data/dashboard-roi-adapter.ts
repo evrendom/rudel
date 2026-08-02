@@ -1,18 +1,20 @@
 import type { ROIDashboard } from "@rudel/api-routes";
-import {
-	addMonths,
-	addWeeks,
-	eachDayOfInterval,
-	format,
-	parseISO,
-	startOfMonth,
-	startOfWeek,
-} from "date-fns";
 import type {
 	DashboardDailyPatternPoint,
 	DashboardHeadlineMetric,
 	DashboardOutputSnapshot,
 } from "@/features/dashboard/data/dashboard-static-data";
+import {
+	addUtcDays,
+	addUtcMonths,
+	addUtcWeeks,
+	formatAnalyticsUtcDate,
+	formatAnalyticsUtcDateKey,
+	parseAnalyticsUtcDate,
+	startOfUtcDay,
+	startOfUtcMonth,
+	startOfUtcWeek,
+} from "@/lib/analytics-utc-date";
 
 function formatMetricValue(value: number) {
 	return new Intl.NumberFormat("en-US").format(value);
@@ -59,8 +61,8 @@ function buildHeadlineMetrics(
 }
 
 function buildBucketDates(roiDashboard: ROIDashboard) {
-	const startDate = parseISO(roiDashboard.start_date);
-	const endDate = parseISO(roiDashboard.end_date);
+	const startDate = parseAnalyticsUtcDate(roiDashboard.start_date);
+	const endDate = parseAnalyticsUtcDate(roiDashboard.end_date);
 
 	if (
 		Number.isNaN(startDate.getTime()) ||
@@ -71,29 +73,38 @@ function buildBucketDates(roiDashboard: ROIDashboard) {
 	}
 
 	if (roiDashboard.trend_interval === "day") {
-		return eachDayOfInterval({ start: startDate, end: endDate });
+		const buckets: Date[] = [];
+		let cursor = startOfUtcDay(startDate);
+		const lastBucket = startOfUtcDay(endDate);
+
+		while (cursor.getTime() <= lastBucket.getTime()) {
+			buckets.push(cursor);
+			cursor = addUtcDays(cursor, 1);
+		}
+
+		return buckets;
 	}
 
 	if (roiDashboard.trend_interval === "week") {
 		const buckets: Date[] = [];
-		let cursor = startOfWeek(startDate, { weekStartsOn: 1 });
-		const lastBucket = startOfWeek(endDate, { weekStartsOn: 1 });
+		let cursor = startOfUtcWeek(startDate);
+		const lastBucket = startOfUtcWeek(endDate);
 
 		while (cursor.getTime() <= lastBucket.getTime()) {
 			buckets.push(cursor);
-			cursor = addWeeks(cursor, 1);
+			cursor = addUtcWeeks(cursor, 1);
 		}
 
 		return buckets;
 	}
 
 	const buckets: Date[] = [];
-	let cursor = startOfMonth(startDate);
-	const lastBucket = startOfMonth(endDate);
+	let cursor = startOfUtcMonth(startDate);
+	const lastBucket = startOfUtcMonth(endDate);
 
 	while (cursor.getTime() <= lastBucket.getTime()) {
 		buckets.push(cursor);
-		cursor = addMonths(cursor, 1);
+		cursor = addUtcMonths(cursor, 1);
 	}
 
 	return buckets;
@@ -104,14 +115,14 @@ function formatBucketAxisLabel(
 	interval: ROIDashboard["trend_interval"],
 ) {
 	if (interval === "day") {
-		return format(date, "EEE");
+		return formatAnalyticsUtcDate(date, { weekday: "short" });
 	}
 
 	if (interval === "week") {
-		return format(date, "MMM d");
+		return formatAnalyticsUtcDate(date, { day: "numeric", month: "short" });
 	}
 
-	return format(date, "MMM");
+	return formatAnalyticsUtcDate(date, { month: "short" });
 }
 
 function formatBucketFullLabel(
@@ -119,14 +130,18 @@ function formatBucketFullLabel(
 	interval: ROIDashboard["trend_interval"],
 ) {
 	if (interval === "day") {
-		return format(date, "EEEE, MMM d");
+		return formatAnalyticsUtcDate(date, {
+			day: "numeric",
+			month: "short",
+			weekday: "long",
+		});
 	}
 
 	if (interval === "week") {
-		return `Week of ${format(date, "MMM d")}`;
+		return `Week of ${formatAnalyticsUtcDate(date, { day: "numeric", month: "short" })}`;
 	}
 
-	return format(date, "MMMM yyyy");
+	return formatAnalyticsUtcDate(date, { month: "long", year: "numeric" });
 }
 
 function buildDailyPattern(
@@ -137,7 +152,7 @@ function buildDailyPattern(
 	);
 
 	return buildBucketDates(roiDashboard).map((bucketDate) => {
-		const bucketKey = format(bucketDate, "yyyy-MM-dd");
+		const bucketKey = formatAnalyticsUtcDateKey(bucketDate);
 		const bucket = trendByBucket.get(bucketKey);
 		const sessions = bucket?.total_sessions ?? null;
 		const commits = bucket?.total_commits ?? null;

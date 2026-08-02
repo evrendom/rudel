@@ -24,6 +24,11 @@ export const DateRangeInputSchema = z.object({
 const MAX_ID_FILTER_LENGTH = 512;
 const MAX_PATH_FILTER_LENGTH = 4096;
 
+export const CostCoverageSchema = z.object({
+	unpriced_session_count: z.number(),
+	unpriced_token_count: z.number(),
+});
+
 // ── Overview ───────────────────────────────────────────────────────
 
 export const OverviewKPIsSchema = z.object({
@@ -50,6 +55,13 @@ export const ModelTokensTrendDataSchema = z.object({
 	total_tokens: z.number(),
 	input_tokens: z.number(),
 	output_tokens: z.number(),
+	cache_read_input_tokens: z.number(),
+	cache_creation_input_tokens: z.number(),
+	cache_creation_5m_input_tokens: z.number(),
+	cache_creation_1h_input_tokens: z.number(),
+	estimated_cost: z.number().nullable(),
+	unpriced_session_count: z.number(),
+	unpriced_token_count: z.number(),
 });
 
 export const UserTokenUsageDataSchema = z.object({
@@ -62,6 +74,8 @@ export const UserTokenUsageDataSchema = z.object({
 	input_tokens: z.number(),
 	output_tokens: z.number(),
 	cost: z.number(),
+	unpriced_session_count: z.number(),
+	unpriced_token_count: z.number(),
 	total_sessions: z.number(),
 	total_duration_min: z.number(),
 	success_rate: z.number(),
@@ -78,6 +92,9 @@ export const UserDailyTrendDataSchema = z.object({
 	total_tokens: z.number(),
 	input_tokens: z.number(),
 	output_tokens: z.number(),
+	estimated_cost: z.number().nullable(),
+	unpriced_session_count: z.number(),
+	unpriced_token_count: z.number(),
 	avg_success_rate: z.number(),
 	distinct_skills: z.number(),
 	distinct_slash_commands: z.number(),
@@ -152,6 +169,8 @@ export const DeveloperSummarySchema = z.object({
 	cost: z.number(),
 	success_rate_trend: z.number(),
 	favorite_model: z.string().nullable(),
+	unpriced_session_count: z.number(),
+	unpriced_token_count: z.number(),
 });
 
 export const DeveloperTeamCardSchema = z.object({
@@ -172,6 +191,8 @@ export const DeveloperTeamCardSchema = z.object({
 	last_active_date: z.string(),
 	favorite_model: z.string().nullable(),
 	top_skills: z.array(z.object({ name: z.string(), count: z.number() })),
+	unpriced_session_count: z.number(),
+	unpriced_token_count: z.number(),
 });
 
 export const DeveloperDetailsSchema = DeveloperSummarySchema.extend({
@@ -187,6 +208,7 @@ export const DeveloperSessionSchema = z.object({
 	package_name: z.string().optional(),
 	duration_min: z.number(),
 	total_tokens: z.number(),
+	estimated_cost: z.number().nullable(),
 	has_subagents: z.boolean(),
 	has_skills: z.boolean(),
 	has_slash_commands: z.boolean(),
@@ -267,6 +289,8 @@ export const ProjectInvestmentSchema = z.object({
 	success_rate: z.number(),
 	cost: z.number(),
 	success_rate_trend: z.number(),
+	unpriced_session_count: z.number(),
+	unpriced_token_count: z.number(),
 });
 
 export const ProjectDetailDataSchema = z.object({
@@ -279,6 +303,8 @@ export const ProjectDetailDataSchema = z.object({
 	success_rate: z.number(),
 	total_duration_min: z.number(),
 	cost: z.number(),
+	unpriced_session_count: z.number(),
+	unpriced_token_count: z.number(),
 });
 
 export const ProjectContributorSchema = z.object({
@@ -343,6 +369,9 @@ export const SessionAnalyticsSchema = z.object({
 	has_commit: z.boolean(),
 	model_used: z.string(),
 	used_plan_mode: z.boolean(),
+	is_capped: z.boolean(),
+	stale_extraction: z.boolean(),
+	estimated_cost: z.number().nullable(),
 	source: SourceSchema.optional(),
 });
 
@@ -445,6 +474,9 @@ export const SessionDetailSchema = z.object({
 	duration_min: z.number().optional(),
 	total_interactions: z.number().optional(),
 	model_used: z.string().optional(),
+	is_capped: z.boolean(),
+	stale_extraction: z.boolean(),
+	estimated_cost: z.number().nullable(),
 	source: SourceSchema.optional(),
 });
 
@@ -482,6 +514,10 @@ export const ROIMetricsSchema = z.object({
 	current_period_end: z.string(),
 	previous_period_start: z.string(),
 	previous_period_end: z.string(),
+	unpriced_session_count: z.number(),
+	unpriced_token_count: z.number(),
+	previous_unpriced_session_count: z.number(),
+	previous_unpriced_token_count: z.number(),
 });
 
 export const ROIAssumptionsSchema = z.object({
@@ -505,6 +541,8 @@ export const ROIDashboardTrendPointSchema = z.object({
 	sessions_per_dollar: z.number(),
 	total_sessions: z.number(),
 	total_commits: z.number(),
+	unpriced_session_count: z.number(),
+	unpriced_token_count: z.number(),
 });
 
 export const ROIDashboardSummarySchema = z.object({
@@ -522,6 +560,8 @@ export const ROIDashboardSummarySchema = z.object({
 	total_commits: z.number(),
 	active_developers: z.number(),
 	avg_success_score: z.number(),
+	unpriced_session_count: z.number(),
+	unpriced_token_count: z.number(),
 });
 
 export const ROIDashboardSchema = z.object({
@@ -535,6 +575,8 @@ export const ROIDashboardSchema = z.object({
 	trend: z.array(ROIDashboardTrendPointSchema),
 	developer_breakdown: z.array(z.lazy(() => DeveloperCostBreakdownSchema)),
 	project_breakdown: z.array(z.lazy(() => ProjectCostBreakdownSchema)),
+	comparison_unpriced_session_count: z.number(),
+	comparison_unpriced_token_count: z.number(),
 });
 
 export const ROITrendSchema = z.object({
@@ -547,6 +589,8 @@ export const ROITrendSchema = z.object({
 	total_tokens: z.number(),
 	output_tokens: z.number(),
 	productivity_score: z.number(),
+	unpriced_session_count: z.number(),
+	unpriced_token_count: z.number(),
 });
 
 export const DeveloperCostBreakdownSchema = z.object({
@@ -556,6 +600,8 @@ export const DeveloperCostBreakdownSchema = z.object({
 	cost: z.number(),
 	cost_percentage: z.number(),
 	avg_success_score: z.number(),
+	unpriced_session_count: z.number(),
+	unpriced_token_count: z.number(),
 });
 
 export const ProjectCostBreakdownSchema = z.object({
@@ -565,6 +611,8 @@ export const ProjectCostBreakdownSchema = z.object({
 	cost: z.number(),
 	cost_percentage: z.number(),
 	avg_success_score: z.number(),
+	unpriced_session_count: z.number(),
+	unpriced_token_count: z.number(),
 });
 
 // ── Errors ─────────────────────────────────────────────────────────
@@ -678,9 +726,18 @@ export const WrappedV1MetricsSchema = z.object({
 	total_sessions: z.number(),
 	active_days: z.number(),
 	favorite_model: z.string().nullable(),
+	input_tokens: z.number(),
+	output_tokens: z.number(),
 	total_tokens: z.number(),
+	avg_session_min: z.number(),
+	commit_sessions: z.number(),
+	commit_rate: z.number(),
+	success_rate: z.number(),
+	distinct_project_count: z.number(),
 	estimated_spend_usd: z.number(),
 	longest_session_min: z.number(),
+	unpriced_session_count: z.number(),
+	unpriced_token_count: z.number(),
 	source_split: z.array(WrappedSourceSplitSchema),
 	model_by_month: z.array(MonthlyModelUsageSchema),
 });
@@ -726,7 +783,7 @@ export const WrappedV1Schema = z.object({
 	pricing_mode: z.literal(ESTIMATED_PRICING_MODE),
 	scope: z.literal("active_organization_all_time"),
 	user_id: z.string(),
-	verified_metric_count: z.literal(8),
+	verified_metric_count: z.literal(15),
 	metrics: WrappedV1MetricsSchema,
 	archetype: WrappedV1ArchetypeSchema.nullable(),
 	archetype_gate: WrappedV1ArchetypeGateSchema,

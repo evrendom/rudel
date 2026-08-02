@@ -12,19 +12,33 @@ const queryClickhouse = mock((input: QueryClickhouseInput) => {
 	expect(input.query).not.toMatch(
 		/FROM\s+rudel\.session_analytics(?!\s+FINAL\b)/u,
 	);
+	expect(input.query).not.toMatch(/\)\s+AS\s+priced\s+AND\b/u);
 
 	if (input.query.includes("count() AS total_sessions")) {
+		expect(input.query).toContain("sum(priced.estimated_cost)");
+		expect(input.query).toMatch(
+			/FROM\s+\(\s*SELECT \*,[\s\S]+AS estimated_cost[\s\S]+\) AS priced/u,
+		);
 		return Promise.resolve([
 			{
 				active_days: summaryActiveDays,
+				avg_session_min: 12,
 				claude_session_count: summaryTotalSessions,
 				codex_session_count: 0,
+				commit_rate: 50,
+				commit_sessions: summaryTotalSessions / 2,
+				distinct_project_count: 3,
 				estimated_spend_usd: 12.34,
 				first_session_at: "2026-04-01T10:00:00Z",
 				last_session_at: "2026-04-22T10:00:00Z",
 				longest_session_min: 45,
+				input_tokens: 100_000,
+				output_tokens: 23_456,
+				success_rate: 80,
 				total_sessions: summaryTotalSessions,
 				total_tokens: 123_456,
+				unpriced_session_count: 0,
+				unpriced_token_count: 0,
 			},
 		]);
 	}
@@ -96,18 +110,9 @@ function buildDateFilter(paramName: string, column = "session_date"): string {
 	return `${column} >= now64(3) - toIntervalDay({${paramName}:UInt32}) AND ${column} <= now64(3)`;
 }
 
-function buildAbsoluteDateFilter(
-	startParamName: string,
-	endParamName: string,
-	column = "session_date",
-): string {
-	return `toDate(${column}) >= toDate({${startParamName}:String}) AND toDate(${column}) <= toDate({${endParamName}:String})`;
-}
-
 mock.module("../clickhouse.js", () => ({
 	addOptionalStringEqFilter,
 	addOptionalStringInFilter,
-	buildAbsoluteDateFilter,
 	buildDateFilter,
 	getClickhouse: () => ({
 		execute: mock(() => Promise.resolve()),

@@ -15,28 +15,16 @@ import {
 } from "@/features/wrapped/team-card/card";
 import { UNKNOWN_GUEST_CARD_PRESET } from "@/features/wrapped/wrapped-guest-card-presets";
 import { copyTextToClipboardWithResult } from "@/lib/clipboard";
+import { formatCompactCurrency, formatCurrency } from "@/lib/format";
 import { client } from "@/lib/orpc";
 import "@/features/wrapped/wrapped.css";
 
 const TEAM_CARD_UNCLASSIFIED_ARCHETYPE_LABEL = "Unclassified";
 const TEAM_LINK_COPY_RESET_MS = 1800;
 
-const compactCurrencyFormatter = new Intl.NumberFormat("en-US", {
-	currency: "USD",
-	maximumFractionDigits: 1,
-	notation: "compact",
-	style: "currency",
-});
-
 const compactNumberFormatter = new Intl.NumberFormat("en-US", {
 	maximumFractionDigits: 1,
 	notation: "compact",
-});
-
-const currencyFormatter = new Intl.NumberFormat("en-US", {
-	currency: "USD",
-	maximumFractionDigits: 2,
-	style: "currency",
 });
 
 const shortDateFormatter = new Intl.DateTimeFormat("en-US", {
@@ -45,11 +33,9 @@ const shortDateFormatter = new Intl.DateTimeFormat("en-US", {
 });
 
 function buildHeaderLeftMetric(row: TeamPageMemberRow) {
-	const formattedSpend = formatSpendValue(row.cost);
-
 	return {
-		title: `${currencyFormatter.format(row.cost)} estimated spend`,
-		value: formattedSpend,
+		title: `${formatCurrency(row.cost)} estimated spend`,
+		value: formatCompactCurrency(row.cost),
 	} satisfies WrappedTeamMemberCardHeaderMetric;
 }
 
@@ -111,8 +97,8 @@ function buildTeamCardStats(
 		},
 		{
 			key: "input",
-			label: "IN",
-			title: `${row.inputTokens.toLocaleString()} input tokens`,
+			label: "IN+C",
+			title: `${row.inputTokens.toLocaleString()} input tokens including cache`,
 			value: formatCompactNumber(row.inputTokens),
 		},
 		{
@@ -140,22 +126,6 @@ function formatShortDate(lastActiveDate: string | null) {
 	}
 
 	return shortDateFormatter.format(parsedDate);
-}
-
-function formatSpendValue(cost: number) {
-	if (cost === 0) {
-		return "$0";
-	}
-
-	if (Math.abs(cost) >= 1000) {
-		return compactCurrencyFormatter.format(cost);
-	}
-
-	if (Math.abs(cost) >= 100) {
-		return currencyFormatter.format(cost).replace(/\.00$/, "");
-	}
-
-	return currencyFormatter.format(cost);
 }
 
 function isCurrentUserTeamCard(

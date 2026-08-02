@@ -78,7 +78,7 @@ describe("WrappedTeamMemberCardBack", () => {
 		});
 
 		expect(
-			metrics.find((metric) => metric.label === "Skills used")?.value,
+			metrics.find((metric) => metric.label === "Skills used (365d)")?.value,
 		).toBe("0");
 		expect(
 			metrics.find((metric) => metric.label === "FAV SKILL"),
@@ -87,7 +87,7 @@ describe("WrappedTeamMemberCardBack", () => {
 			valueTruncation: "start",
 		});
 		expect(
-			metrics.find((metric) => metric.label === "Commands used")?.value,
+			metrics.find((metric) => metric.label === "Commands used (365d)")?.value,
 		).toBe("0");
 	});
 });
@@ -112,6 +112,7 @@ const row = {
 const onboardingMetrics = {
 	activeDays: 2,
 	avgSessionMin: 12,
+	coreWindow: "all_time",
 	commitRate: 50,
 	commitSessions: 4,
 	daysSinceFirst: 8,
@@ -119,15 +120,20 @@ const onboardingMetrics = {
 	estimatedCostTokenBasis: 3000,
 	estimatedCostUsd: 4,
 	favoriteModel: "claude-sonnet-4.5",
+	inputTokens: 1000,
 	longestSessionMin: 32,
 	modelByMonth: [],
 	repoPulse: {
+		availableSessions: 8,
 		entries: [],
+		isTruncated: false,
 		leadRepoName: null,
+		sampledSessions: 8,
 		totalRepos: 1,
 		totalSessions: 8,
 	},
 	skillsAdoptionRate: 50,
+	recentWindowSessions: 8,
 	slashCommandsAdoptionRate: 25,
 	sourceSplit: [],
 	subagentsAdoptionRate: 0,
@@ -142,6 +148,7 @@ const onboardingMetrics = {
 	topSubagent: null,
 	topSubagentCount: 0,
 	topSubagents: [],
+	outputTokens: 2000,
 	totalSessions: 8,
 	totalTokens: 3000,
 } satisfies WrappedOnboardingMetrics;

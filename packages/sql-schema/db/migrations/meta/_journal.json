@@ -148,6 +148,13 @@
 			"when": 1785480272000,
 			"tag": "0020_durable_clickhouse_purge",
 			"breakpoints": true
+		},
+		{
+			"idx": 21,
+			"version": "7",
+			"when": 1785686400000,
+			"tag": "0021_session_ownership_ingest_shape",
+			"breakpoints": true
 		}
 	]
 }

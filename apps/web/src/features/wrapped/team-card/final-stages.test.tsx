@@ -93,6 +93,7 @@ Object.defineProperty(window, "matchMedia", {
 const onboardingMetrics: WrappedOnboardingMetrics = {
 	activeDays: 12,
 	avgSessionMin: 24,
+	coreWindow: "all_time",
 	commitRate: 41,
 	commitSessions: 15,
 	daysSinceFirst: 180,
@@ -100,15 +101,20 @@ const onboardingMetrics: WrappedOnboardingMetrics = {
 	estimatedCostTokenBasis: 0,
 	estimatedCostUsd: 42,
 	favoriteModel: "claude-sonnet-4",
+	inputTokens: 60_000,
 	longestSessionMin: 88,
 	modelByMonth: [],
 	repoPulse: {
+		availableSessions: 0,
 		entries: [],
+		isTruncated: false,
 		leadRepoName: null,
+		sampledSessions: 0,
 		totalRepos: 0,
 		totalSessions: 0,
 	},
 	skillsAdoptionRate: 62.16,
+	recentWindowSessions: 37,
 	sourceSplit: [
 		{ session_count: 21, session_share_percent: 57, source: "claude_code" },
 		{ session_count: 16, session_share_percent: 43, source: "codex" },
@@ -129,6 +135,7 @@ const onboardingMetrics: WrappedOnboardingMetrics = {
 	topSubagent: "Reviewer",
 	topSubagentCount: 4,
 	topSubagents: [{ count: 4, name: "Reviewer" }],
+	outputTokens: 64_000,
 	totalSessions: 37,
 	totalTokens: 124_000,
 };
@@ -257,6 +264,8 @@ describe("buildWrappedTeamCardBackMetrics", () => {
 		const metrics = buildWrappedTeamCardBackMetrics({
 			onboardingMetrics: {
 				...onboardingMetrics,
+				inputTokens: 1_180_000,
+				outputTokens: 740_000,
 				totalTokens: 1_920_000,
 			},
 			row: {
@@ -269,7 +278,8 @@ describe("buildWrappedTeamCardBackMetrics", () => {
 		});
 
 		expect(
-			metrics.find((metric) => metric.label === "Input/output tokens")?.value,
+			metrics.find((metric) => metric.label === "Input (incl. cache)/output")
+				?.value,
 		).toBe("1.2M/740K");
 		expect(
 			metrics.find((metric) => metric.label === "Total tokens")?.value,
@@ -359,7 +369,7 @@ describe("WrappedTeamCardSharePreview", () => {
 			"data-header-right",
 			"Smooth Operator",
 		);
-		expect(screen.getByText("Input/output tokens")).toBeInTheDocument();
+		expect(screen.getByText("Input (incl. cache)/output")).toBeInTheDocument();
 	});
 });
 
@@ -412,7 +422,7 @@ describe("WrappedTeamCardShareStage", () => {
 			"aria-pressed",
 			"true",
 		);
-		expect(screen.getByText("Input/output tokens")).toBeInTheDocument();
+		expect(screen.getByText("Input (incl. cache)/output")).toBeInTheDocument();
 	});
 
 	it("shows copied feedback on the copy image button after a successful copy", async () => {
@@ -1414,21 +1424,21 @@ describe("WrappedTeamCardRevealStage", () => {
 		expect(screen.queryByText("Skill: Refactor")).toBeNull();
 		expect(screen.getByText("Claude/Codex %")).toBeInTheDocument();
 		expect(screen.getByText("57%/43%")).toBeInTheDocument();
-		expect(screen.getByText("Input/output tokens")).toBeInTheDocument();
+		expect(screen.getByText("Input (incl. cache)/output")).toBeInTheDocument();
 		expect(screen.getByText("60K/64K")).toBeInTheDocument();
 		expect(screen.getByText("Total tokens")).toBeInTheDocument();
 		expect(screen.getByText("120K")).toBeInTheDocument();
-		expect(screen.getByText("Skills used")).toBeInTheDocument();
+		expect(screen.getByText("Skills used (365d)")).toBeInTheDocument();
 		expect(screen.getByText("23")).toBeInTheDocument();
 		expect(screen.getByText("FAV SKILL")).toBeInTheDocument();
 		expect(screen.getByText("Refactor")).toBeInTheDocument();
-		expect(screen.getByText("Commands used")).toBeInTheDocument();
+		expect(screen.getByText("Commands used (365d)")).toBeInTheDocument();
 		expect(screen.getAllByText("11")[0]).toBeInTheDocument();
-		expect(screen.getByText("Sub-agents used")).toBeInTheDocument();
+		expect(screen.getByText("Sub-agents used (365d)")).toBeInTheDocument();
 		expect(screen.getByText("Repos touched")).toBeInTheDocument();
-		expect(screen.getByText("Spent")).toBeInTheDocument();
-		expect(screen.getByText("Dollar per commit")).toBeInTheDocument();
-		expect(screen.getByText("2.8")).toBeInTheDocument();
+		expect(screen.getByText("Estimated spend")).toBeInTheDocument();
+		expect(screen.getByText("Estimated $ / commit")).toBeInTheDocument();
+		expect(screen.getByText("$2.80")).toBeInTheDocument();
 		expect(screen.getByText("04/24/2026")).toBeInTheDocument();
 		const revealButton = screen.getByRole("button", {
 			name: "Reveal front of card",
@@ -1813,7 +1823,7 @@ describe("WrappedTeamCardPublicStage", () => {
 		).toBeInTheDocument();
 	});
 
-	it("falls back to public back metrics for older ADHD shares", () => {
+	it("does not reparse display strings for older ADHD shares", () => {
 		const activeArchetype = WRAPPED_ARCHETYPE_CARD_THEMES.find(
 			(archetype) => archetype.id === "adhd_brain",
 		);
@@ -1862,12 +1872,12 @@ describe("WrappedTeamCardPublicStage", () => {
 
 		expect(
 			screen.getByText(
-				"12 out of 12 days. 6 repos. 48% of sessions shipped something. Avery Chen would call this a DaVinci. We're just worried about the 6 repos.",
+				"12 out of 12 days. 0 repos. 0% of sessions shipped something. Avery Chen would call this a DaVinci. We're just worried about the 0 repos.",
 			),
 		).toBeInTheDocument();
 	});
 
-	it("falls back to public back metrics for older Smooth Operator shares", () => {
+	it("does not reparse display strings for older Smooth Operator shares", () => {
 		const activeArchetype = WRAPPED_ARCHETYPE_CARD_THEMES.find(
 			(archetype) => archetype.id === "smooth_operator",
 		);
@@ -1909,7 +1919,7 @@ describe("WrappedTeamCardPublicStage", () => {
 		);
 
 		expect(
-			screen.getByText(/24 minutes average\. 88 at Avery Chen's longest\./u),
+			screen.getByText(/0 minutes average\. 0 at Avery Chen's longest\./u),
 		).toBeInTheDocument();
 	});
 

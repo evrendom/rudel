@@ -66,6 +66,8 @@ describe("buildResolvedTeamCardRow", () => {
 				active_days: 14,
 				estimated_spend_usd: 91,
 				favorite_model: "all-time-model",
+				input_tokens: 30_000,
+				output_tokens: 8_000,
 				total_sessions: 135,
 				total_tokens: 38_000,
 			}),
@@ -74,6 +76,7 @@ describe("buildResolvedTeamCardRow", () => {
 		expect(row.totalSessions).toBe(135);
 		expect(row.activeDays).toBe(14);
 		expect(row.totalTokens).toBe(38_000);
+		expect(row.inputTokens + row.outputTokens).toBe(row.totalTokens);
 		expect(row.cost).toBe(91);
 		expect(row.favoriteModel).toBe("all-time-model");
 	});
@@ -117,6 +120,8 @@ function createDeveloperDetails(
 		total_duration_min: 10,
 		total_sessions: 1,
 		total_tokens: 300,
+		unpriced_session_count: 0,
+		unpriced_token_count: 0,
 		user_id: "user_1",
 		...overrides,
 	} satisfies DeveloperDetails;
@@ -127,16 +132,25 @@ function createWrappedMetrics(
 ): WrappedV1["metrics"] {
 	return {
 		active_days: 1,
+		avg_session_min: 10,
+		commit_rate: 100,
+		commit_sessions: 1,
 		days_since_first_session: 1,
+		distinct_project_count: 1,
 		estimated_spend_usd: 1,
 		favorite_model: null,
 		first_session_at: "2026-04-20T00:00:00Z",
+		input_tokens: 100,
 		last_session_at: "2026-04-21T00:00:00Z",
 		longest_session_min: 10,
 		model_by_month: [],
+		output_tokens: 200,
 		source_split: [],
 		total_sessions: 1,
 		total_tokens: 300,
+		success_rate: 100,
+		unpriced_session_count: 0,
+		unpriced_token_count: 0,
 		...overrides,
 	} satisfies WrappedV1["metrics"];
 }

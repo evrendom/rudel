@@ -5,17 +5,11 @@ import type {
 	WrappedHandover,
 	WrappedMetricCandidate,
 } from "@/features/wrapped/lib/handover-schema";
+import { formatCurrency } from "@/lib/format";
 
 const COMPACT_NUMBER_FORMATTER = new Intl.NumberFormat("en", {
 	maximumFractionDigits: 1,
 	notation: "compact",
-});
-
-const CURRENCY_FORMATTER = new Intl.NumberFormat("en-US", {
-	currency: "USD",
-	maximumFractionDigits: 2,
-	minimumFractionDigits: 2,
-	style: "currency",
 });
 
 export interface BuildWrappedHandoverOptions {
@@ -133,7 +127,7 @@ function getTotalTokensNote(wrappedData: WrappedV1): string {
 }
 
 function getEstimatedSpendNote(wrappedData: WrappedV1): string {
-	return `${CURRENCY_FORMATTER.format(wrappedData.metrics.estimated_spend_usd)} estimated from the model pricing catalog.`;
+	return `${formatCurrency(wrappedData.metrics.estimated_spend_usd)} estimated from the model pricing catalog.`;
 }
 
 function formatCompactNumber(value: number): string {

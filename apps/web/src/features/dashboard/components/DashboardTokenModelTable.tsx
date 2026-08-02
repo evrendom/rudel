@@ -92,7 +92,7 @@ export function DashboardTokenModelTable({
 				},
 				{
 					id: "input",
-					header: "Input",
+					header: "Input (incl. cache)",
 					renderCell: (row) => (
 						<p className="font-medium tabular-nums text-[color:var(--dashboardy-heading)]">
 							{formatCompactWholeNumber(row.inputTokens)}

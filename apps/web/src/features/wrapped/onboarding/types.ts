@@ -9,8 +9,11 @@ export interface WrappedRepoPulseEntry {
 }
 
 export interface WrappedRepoPulseMetrics {
+	availableSessions: number;
 	entries: readonly WrappedRepoPulseEntry[];
+	isTruncated: boolean;
 	leadRepoName: string | null;
+	sampledSessions: number;
 	totalRepos: number;
 	totalSessions: number;
 }
@@ -23,6 +26,7 @@ export interface WrappedSkillUsageItem {
 export interface WrappedOnboardingMetrics {
 	activeDays: number;
 	avgSessionMin: number | null;
+	coreWindow: "all_time" | "last_365_days";
 	commitRate: number | null;
 	commitSessions: number;
 	daysSinceFirst: number;
@@ -30,6 +34,7 @@ export interface WrappedOnboardingMetrics {
 	estimatedCostTokenBasis: number;
 	estimatedCostUsd: number;
 	favoriteModel: string | null;
+	inputTokens: number;
 	longestSessionMin: number | null;
 	modelByMonth: readonly MonthlyModelUsage[];
 	sourceSplit: readonly WrappedSourceSplit[];
@@ -38,6 +43,7 @@ export interface WrappedOnboardingMetrics {
 	subagentsAdoptionRate: number | null;
 	successRate: number | null;
 	repoPulse: WrappedRepoPulseMetrics;
+	recentWindowSessions: number;
 	topProjectName: string | null;
 	topProjectSessions: number;
 	topProjectTokens: number;
@@ -48,6 +54,7 @@ export interface WrappedOnboardingMetrics {
 	topSubagent: string | null;
 	topSubagents: readonly WrappedSkillUsageItem[];
 	topSubagentCount: number | null;
+	outputTokens: number;
 	totalSessions: number;
 	totalTokens: number;
 }

@@ -14,12 +14,12 @@ import { migrate } from "drizzle-orm/postgres-js/migrator";
 import postgres from "postgres";
 
 const MIGRATION_0019_TIMESTAMP = "1785426102000";
-const MIGRATION_0020_TIMESTAMP = "1785480272000";
+const MIGRATION_0021_TIMESTAMP = "1785686400000";
 const migrationsFolder = join(import.meta.dir, "..", "..", "db", "migrations");
 
 setDefaultTimeout(120_000);
 
-test("applies migration 0020 to a database already migrated through 0019", async () => {
+test("applies migrations 0020-0021 to a database already migrated through 0019", async () => {
 	const connectionString = getPostgresConnectionString();
 	const databaseName = `rudel_migration_${Date.now()}_${crypto.randomUUID().replaceAll("-", "")}`;
 	const migrationsThrough0019 = await createMigrationsThrough0019();
@@ -62,10 +62,25 @@ test("applies migration 0020 to a database already migrated through 0019", async
 				SELECT to_regclass('public.clickhouse_purge_job')::text AS name
 			`;
 			expect(after0020).toEqual({
-				count: 21,
-				latestTimestamp: MIGRATION_0020_TIMESTAMP,
+				count: 22,
+				latestTimestamp: MIGRATION_0021_TIMESTAMP,
 			});
 			expect(tableAfter0020?.name).toBe("clickhouse_purge_job");
+			const shapeColumns = await migrationSql<Array<{ name: string }>>`
+				SELECT column_name AS name
+				FROM information_schema.columns
+				WHERE table_schema = 'public'
+					AND table_name = 'session_ownership'
+					AND column_name IN (
+						'last_content_bytes',
+						'last_assistant_line_count'
+					)
+				ORDER BY column_name
+			`;
+			expect([...shapeColumns]).toEqual([
+				{ name: "last_assistant_line_count" },
+				{ name: "last_content_bytes" },
+			]);
 		} finally {
 			await migrationSql.end();
 		}

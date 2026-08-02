@@ -26,8 +26,6 @@ interface ScaleStageModel {
 	totalTokens: number;
 }
 
-const SCALE_STAGE_FALLBACK_USD_PER_TOKEN = 182 / 860_000;
-
 export function resolveScalePreviewTokens(
 	totalTokens: number,
 	previewState: string,
@@ -70,10 +68,11 @@ export function resolveScaleEstimatedSpendUsd(input: {
 
 	const normalizedBaseCostUsd = Math.max(0, input.baseCostUsd);
 	const normalizedBaseCostTokenBasis = Math.max(0, input.baseCostTokenBasis);
-	const usdPerToken =
-		normalizedBaseCostUsd > 0 && normalizedBaseCostTokenBasis > 0
-			? normalizedBaseCostUsd / normalizedBaseCostTokenBasis
-			: SCALE_STAGE_FALLBACK_USD_PER_TOKEN;
+	if (normalizedBaseCostUsd <= 0 || normalizedBaseCostTokenBasis <= 0) {
+		return null;
+	}
+
+	const usdPerToken = normalizedBaseCostUsd / normalizedBaseCostTokenBasis;
 
 	return Math.max(0, Math.round(normalizedTotalTokens * usdPerToken));
 }

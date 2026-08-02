@@ -1,7 +1,10 @@
 "use client";
-import { format, parseISO } from "date-fns";
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import { type ChartConfig, ChartContainer, ChartTooltip } from "@/app/ui/chart";
+import {
+	formatAnalyticsUtcDate,
+	parseAnalyticsUtcDate,
+} from "@/lib/analytics-utc-date";
 import { formatCompactWholeNumber } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -156,7 +159,7 @@ function getTickLabel(
 		return "";
 	}
 
-	const parsedDate = parseISO(point.id);
+	const parsedDate = parseAnalyticsUtcDate(point.id);
 
 	if (Number.isNaN(parsedDate.getTime())) {
 		return point.shortLabel;
@@ -164,7 +167,7 @@ function getTickLabel(
 
 	switch (point.granularity) {
 		case "hour": {
-			const isMidnightTick = parsedDate.getHours() === 0;
+			const isMidnightTick = parsedDate.getUTCHours() === 0;
 			const shouldRender =
 				isMidnightTick || shouldRenderTickLabel(index, total, 6);
 
@@ -173,24 +176,25 @@ function getTickLabel(
 			}
 
 			return isMidnightTick
-				? format(parsedDate, "MMM d")
-				: format(parsedDate, "ha");
+				? formatAnalyticsUtcDate(parsedDate, { day: "numeric", month: "short" })
+				: point.shortLabel;
 		}
 		case "day":
 			if (total <= 7) {
-				return format(parsedDate, "EEE d");
+				return formatAnalyticsUtcDate(parsedDate, {
+					day: "numeric",
+					weekday: "short",
+				});
 			}
 
-			return shouldRenderTickLabel(index, total, 6)
-				? format(parsedDate, "MMM d")
-				: "";
+			return shouldRenderTickLabel(index, total, 6) ? point.shortLabel : "";
 		case "week":
-			return shouldRenderTickLabel(index, total, 5)
-				? format(parsedDate, "MMM d")
-				: "";
+			return shouldRenderTickLabel(index, total, 5) ? point.shortLabel : "";
 		case "month":
 			return shouldRenderTickLabel(index, total, 5)
-				? format(parsedDate, total <= 6 ? "MMM yy" : "MMM")
+				? total <= 6
+					? point.shortLabel
+					: formatAnalyticsUtcDate(parsedDate, { month: "short" })
 				: "";
 	}
 }

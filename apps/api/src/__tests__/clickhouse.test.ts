@@ -4,8 +4,8 @@ import { resolve } from "node:path";
 import {
 	addOptionalStringEqFilter,
 	addOptionalStringInFilter,
-	buildAbsoluteDateFilter,
 	buildDateFilter,
+	buildInclusiveDateRangeFilter,
 	buildLatestRawSessionContentSql,
 	getSafeClickHouseTable,
 } from "../clickhouse.js";
@@ -58,7 +58,7 @@ describe("clickhouse helpers", () => {
 			"sa.session_date >= now64(3) - toIntervalDay({days:UInt32}) AND sa.session_date <= now64(3)",
 		);
 		expect(
-			buildAbsoluteDateFilter("startDate", "endDate", "session_date"),
+			buildInclusiveDateRangeFilter("startDate", "endDate", "session_date"),
 		).toBe(
 			"toDate(session_date) >= toDate({startDate:String}) AND toDate(session_date) <= toDate({endDate:String})",
 		);

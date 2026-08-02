@@ -23,6 +23,7 @@ export interface FailedUpload {
 	organizationId?: string;
 	error: string;
 	failedAt: string;
+	status: "permanent" | "retryable";
 }
 
 interface FailedUploadsData {
@@ -45,6 +46,7 @@ export async function loadFailedUploads(): Promise<FailedUpload[]> {
 		return data.failures.map((f) => ({
 			...f,
 			source: normalizeSource(f.source),
+			status: f.status === "permanent" ? "permanent" : "retryable",
 		}));
 	} catch {
 		return [];
@@ -66,13 +68,16 @@ async function saveFailedUploads(failures: FailedUpload[]): Promise<void> {
 }
 
 export async function recordFailedUpload(
-	failure: Omit<FailedUpload, "failedAt">,
+	failure: Omit<FailedUpload, "failedAt" | "status"> & {
+		status?: FailedUpload["status"];
+	},
 ): Promise<void> {
 	const failures = await loadFailedUploads();
 	const existing = failures.findIndex((f) => f.sessionId === failure.sessionId);
 	const entry: FailedUpload = {
 		...failure,
 		failedAt: new Date().toISOString(),
+		status: failure.status ?? "retryable",
 	};
 	if (existing >= 0) {
 		failures[existing] = entry;

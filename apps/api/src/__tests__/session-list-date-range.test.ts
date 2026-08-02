@@ -67,6 +67,14 @@ describe("session list date range", () => {
 			startDate: "2026-03-01",
 			endDate: "2026-03-31",
 		});
+		expect(query).toContain("AS estimated_cost");
+		expect(query).toContain(
+			"greatest(ifNull(sa.input_tokens, 0) - ifNull(sa.cache_read_input_tokens, 0) - ifNull(sa.cache_creation_input_tokens, 0), 0)",
+		);
+		expect(query).toContain("ifNull(sa.cache_creation_5m_input_tokens, 0)");
+		expect(query).toContain("ifNull(sa.cache_creation_1h_input_tokens, 0)");
+		expect(query).toContain("is_capped");
+		expect(query).toContain("stale_extraction");
 	});
 
 	test("falls back to the rolling lookback when no window is given", async () => {

@@ -28,7 +28,7 @@ function formatTokenMix(point: DashboardTokenDailyOverviewRow) {
 	const inputPercent = Math.round(
 		(point.inputTokens / point.totalTokens) * 100,
 	);
-	return `${inputPercent} IN / ${100 - inputPercent} OUT`;
+	return `${inputPercent} IN (incl. cache) / ${100 - inputPercent} OUT`;
 }
 
 function buildTokenRows(
@@ -135,13 +135,7 @@ export function DashboardTokenDailyOverviewTable({
 										? "—"
 										: formatCompactNumber(row.avgTokensPerSession)}
 								</p>
-								<DashboardTokenCostCell
-									at={row.id}
-									cost={row.estimatedCost}
-									inputTokens={row.inputTokens}
-									model={undefined}
-									outputTokens={row.outputTokens}
-								/>
+								<DashboardTokenCostCell cost={row.estimatedCost} />
 							</button>
 						);
 					})}

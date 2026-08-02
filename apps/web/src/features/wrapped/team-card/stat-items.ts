@@ -1,6 +1,5 @@
 import type { WrappedSourceSplit } from "@rudel/api-routes";
 import type { TeamPageMemberRow } from "@/features/team/use-team-page-data";
-import { MAX_ANALYTICS_DAYS } from "@/lib/analytics-date-range";
 import { formatCompactWholeNumber } from "@/lib/format";
 import type { WrappedTeamMemberCardStatItem } from "./card";
 
@@ -33,7 +32,7 @@ export function buildWrappedStatItems(
 		{
 			key: "days",
 			label: "DAYS",
-			title: `${row.activeDays.toLocaleString()} active days across ${MAX_ANALYTICS_DAYS.toLocaleString()} tracked days`,
+			title: `${row.activeDays.toLocaleString()} active days across the all-time wrapped window`,
 			value: row.activeDays.toLocaleString(),
 		},
 		{

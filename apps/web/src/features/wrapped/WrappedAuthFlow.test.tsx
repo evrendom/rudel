@@ -169,7 +169,9 @@ describe("WrappedGuestPage", () => {
 		expect(screen.getAllByText("12").length).toBeGreaterThan(0);
 
 		await user.click(screen.getByRole("button", { name: "Show back of card" }));
-		expect(await screen.findByText("Input/output tokens")).toBeInTheDocument();
+		expect(
+			await screen.findByText("Input (incl. cache)/output"),
+		).toBeInTheDocument();
 	});
 
 	it("restores the auth step from session storage", () => {

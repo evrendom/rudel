@@ -139,7 +139,7 @@ function formatTokenMix(inputTokens: number, outputTokens: number) {
 	}
 
 	const inputShare = Math.round((inputTokens / totalTokens) * 100);
-	return `${inputShare} IN / ${100 - inputShare} OUT`;
+	return `${inputShare} IN (incl. cache) / ${100 - inputShare} OUT`;
 }
 
 function DashboardSessionTooltip({

@@ -78,7 +78,7 @@ function formatTokenMix(session: SessionAnalytics) {
 	);
 	const outputShare = Math.max(100 - inputShare, 0);
 
-	return `${inputShare} IN / ${outputShare} OUT`;
+	return `${inputShare} IN (incl. cache) / ${outputShare} OUT`;
 }
 
 function DashboardTokenRecentSessionsTimeCell({
@@ -321,11 +321,7 @@ export function DashboardTokenRecentSessionsTable({
 						header: "Cost",
 						renderCell: (session) => (
 							<DashboardTokenCostCell
-								at={session.session_date}
-								cost={undefined}
-								inputTokens={session.input_tokens}
-								outputTokens={session.output_tokens}
-								model={session.model_used}
+								cost={session.estimated_cost}
 								showDetailedCost
 							/>
 						),

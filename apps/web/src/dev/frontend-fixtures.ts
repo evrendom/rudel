@@ -156,6 +156,8 @@ export function buildTeamAnalyticsFixtures(
 			total_duration_min: teamCard.total_sessions * (42 - index * 4),
 			total_sessions: teamCard.total_sessions,
 			total_tokens: teamCard.total_tokens,
+			unpriced_session_count: teamCard.unpriced_session_count,
+			unpriced_token_count: teamCard.unpriced_token_count,
 			user_id: teamCard.user_id,
 		})),
 		teamCards,
@@ -214,9 +216,7 @@ function buildUserTokenUsage(
 		const totalTokens = inputTokens + outputTokens;
 
 		return {
-			cost: Number(
-				(inputTokens * 0.000003 + outputTokens * 0.000015).toFixed(2),
-			),
+			cost: Number((24 - index * 4.25).toFixed(2)),
 			distinct_skills: 4 - Math.min(index, 2),
 			distinct_slash_commands: 3 - Math.min(index, 1),
 			input_tokens: inputTokens,
@@ -228,6 +228,8 @@ function buildUserTokenUsage(
 			total_duration_min: totalSessions * (42 - index * 3),
 			total_sessions: totalSessions,
 			total_tokens: totalTokens,
+			unpriced_session_count: 0,
+			unpriced_token_count: 0,
 			user_id: member.userId,
 			user_label: member.displayName,
 		};
@@ -249,6 +251,7 @@ function buildUserDailyTrend(
 				date,
 				distinct_skills: 3,
 				distinct_slash_commands: 2,
+				estimated_cost: null,
 				input_tokens: inputTokens,
 				models_used: [
 					FIXTURE_MODELS[(dayIndex + memberIndex) % FIXTURE_MODELS.length],
@@ -263,6 +266,8 @@ function buildUserDailyTrend(
 				total_commits: Math.max(0, sessions - 1 + (dayIndex % 2)),
 				total_hours: Number((sessions * 0.7).toFixed(1)),
 				total_tokens: inputTokens + outputTokens,
+				unpriced_session_count: sessions,
+				unpriced_token_count: inputTokens + outputTokens,
 				user_id: member.userId,
 			};
 		}),
@@ -278,11 +283,20 @@ function buildModelTokensTrend(
 			const outputTokens = 20_000 + dayIndex * 1_500 + modelIndex * 4_000;
 
 			return {
+				cache_creation_input_tokens: 0,
+				cache_creation_5m_input_tokens: 0,
+				cache_creation_1h_input_tokens: 0,
+				cache_read_input_tokens: 0,
 				date,
+				estimated_cost: Number(
+					(1.5 + dayIndex * 0.2 + modelIndex * 0.35).toFixed(2),
+				),
 				input_tokens: inputTokens,
 				model,
 				output_tokens: outputTokens,
 				total_tokens: inputTokens + outputTokens,
+				unpriced_session_count: 0,
+				unpriced_token_count: 0,
 			};
 		}),
 	);
@@ -310,7 +324,7 @@ function buildRoiDashboard(input: {
 	totalSessions: number;
 	totalTokens: number;
 }): ROIDashboard {
-	const totalCost = Number((input.totalTokens * 0.000004).toFixed(2));
+	const totalCost = Number((input.totalSessions * 2.75).toFixed(2));
 	const devHoursSaved = Number((input.totalCommits * 1.25).toFixed(1));
 	const dollarValueSaved = devHoursSaved * 100;
 
@@ -326,6 +340,8 @@ function buildRoiDashboard(input: {
 		},
 		comparison_end_date: input.startDate,
 		comparison_start_date: input.startDate,
+		comparison_unpriced_session_count: 0,
+		comparison_unpriced_token_count: 0,
 		developer_breakdown: [],
 		end_date: input.endDate,
 		project_breakdown: [],
@@ -350,6 +366,8 @@ function buildRoiDashboard(input: {
 			total_cost: totalCost,
 			total_cost_change_pct: 4,
 			total_sessions: input.totalSessions,
+			unpriced_session_count: 0,
+			unpriced_token_count: 0,
 		},
 		trend: input.dates.map((date, index) => ({
 			bucket_label: date.slice(5),
@@ -362,6 +380,8 @@ function buildRoiDashboard(input: {
 			total_commits: 4 + (index % 3),
 			total_cost: 7 + index,
 			total_sessions: 7 + (index % 4),
+			unpriced_session_count: 0,
+			unpriced_token_count: 0,
 		})),
 		trend_interval: "day",
 	};
@@ -466,7 +486,7 @@ function buildDeveloperTeamCard(
 		active_days: 8 - Math.min(index, 4),
 		archetype:
 			FIXTURE_TEAM_CARD_ARCHETYPES[index % FIXTURE_TEAM_CARD_ARCHETYPES.length],
-		cost: Number((inputTokens * 0.000003 + outputTokens * 0.000015).toFixed(2)),
+		cost: Number((28 - index * 4.5).toFixed(2)),
 		display_name: member.displayName,
 		favorite_model: FIXTURE_MODELS[index % FIXTURE_MODELS.length],
 		input_tokens: inputTokens,
@@ -478,6 +498,8 @@ function buildDeveloperTeamCard(
 		],
 		total_sessions: 22 - index * 4,
 		total_tokens: totalTokens,
+		unpriced_session_count: 0,
+		unpriced_token_count: 0,
 		user_id: member.userId,
 	};
 }

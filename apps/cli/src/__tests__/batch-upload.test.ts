@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { MissingTranscriptTimestampError } from "@rudel/agent-adapters";
@@ -89,5 +89,36 @@ describe("batchUpload", () => {
 			],
 		});
 		expect(await loadFailedUploads()).toEqual([]);
+	});
+
+	test("normalizes legacy failures as retryable and persists dispositions", async () => {
+		await writeFile(
+			join(configDir, "failed-uploads.json"),
+			JSON.stringify({
+				failures: [
+					{
+						error: "legacy transport failure",
+						failedAt: "2026-07-31T10:00:00.000Z",
+						projectPath: "/project",
+						sessionId: "legacy",
+						transcriptPath: "/sessions/legacy.jsonl",
+					},
+				],
+			}),
+		);
+
+		expect((await loadFailedUploads())[0]?.status).toBe("retryable");
+		await recordFailedUpload({
+			error: "invalid transcript",
+			projectPath: "/project",
+			sessionId: "permanent",
+			status: "permanent",
+			transcriptPath: "/sessions/permanent.jsonl",
+		});
+		expect(
+			(await loadFailedUploads()).find(
+				(failure) => failure.sessionId === "permanent",
+			)?.status,
+		).toBe("permanent");
 	});
 });

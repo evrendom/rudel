@@ -39,6 +39,15 @@ export class SecretFilterConvergenceError extends Error {
 	}
 }
 
+export class SecretFilterJsonIntegrityError extends Error {
+	constructor() {
+		super(
+			"Secret filtering changed valid JSON transcript text into invalid JSON.",
+		);
+		this.name = "SecretFilterJsonIntegrityError";
+	}
+}
+
 export function filterKnownSecrets(text: string): SecretFilterResult {
 	return filterKnownSecretsWithCompiledRules(text, COMPILED_SECRET_RULES);
 }
@@ -95,11 +104,11 @@ export function filterSessionTextFields<
 	readonly content: string;
 	readonly subagents: readonly TSubagent[] | undefined;
 }): SessionTextFilterResult<TSubagent> {
-	const contentResult = filterKnownSecrets(fields.content);
+	const contentResult = filterKnownSecretsPreservingJson(fields.content);
 	let counts = contentResult.counts;
 	let redactedBytes = contentResult.redactedBytes;
 	const subagents = fields.subagents?.map((subagent) => {
-		const result = filterKnownSecrets(subagent.content);
+		const result = filterKnownSecretsPreservingJson(subagent.content);
 		counts = mergeRedactionCounts(counts, result.counts);
 		redactedBytes += result.redactedBytes;
 		return { ...subagent, content: result.text };
@@ -111,6 +120,60 @@ export function filterSessionTextFields<
 		counts,
 		redactedBytes,
 	};
+}
+
+function filterKnownSecretsPreservingJson(text: string) {
+	const result = filterKnownSecrets(text);
+	assertFilteredJsonValidity(text, result.text);
+	return result;
+}
+
+export function assertFilteredJsonValidity(input: string, output: string) {
+	const inputMode = getJsonValidationMode(input);
+
+	if (inputMode === "unchecked") {
+		return;
+	}
+
+	if (inputMode === "document") {
+		if (!isValidJson(output)) {
+			throw new SecretFilterJsonIntegrityError();
+		}
+		return;
+	}
+
+	const inputLines = getNonEmptyLines(input);
+	const outputLines = getNonEmptyLines(output);
+	if (
+		inputLines.length !== outputLines.length ||
+		outputLines.some((line) => !isValidJson(line))
+	) {
+		throw new SecretFilterJsonIntegrityError();
+	}
+}
+
+function getJsonValidationMode(
+	text: string,
+): "document" | "jsonl" | "unchecked" {
+	if (isValidJson(text)) {
+		return "document";
+	}
+
+	const lines = getNonEmptyLines(text);
+	return lines.length > 0 && lines.every(isValidJson) ? "jsonl" : "unchecked";
+}
+
+function getNonEmptyLines(text: string) {
+	return text.split("\n").filter((line) => line.trim().length > 0);
+}
+
+function isValidJson(text: string) {
+	try {
+		JSON.parse(text);
+		return true;
+	} catch {
+		return false;
+	}
 }
 
 export function mergeRedactionCounts(

@@ -29,9 +29,11 @@ describe("buildSessionDetailViewModel", () => {
 			{
 				content: `${userEntry}\n${assistantEntry}`,
 				duration_min: "42",
+				estimated_cost: 2.502135,
 				git_branch: "main",
 				git_sha: "abcdef123456",
 				input_tokens: "1200",
+				is_capped: true,
 				model_used: "claude-sonnet-4-5",
 				output_tokens: 3400,
 				repository: "rudel",
@@ -59,7 +61,8 @@ describe("buildSessionDetailViewModel", () => {
 		expect(model.safeSlashCommands).toEqual(["plan", "review"]);
 		expect(model.subagentNames).toEqual(["explorer", "worker"]);
 		expect(model.tokenUsageLabel).toBe("1,200 / 3,400");
-		expect(model.costLabel).toBe("$0.05");
+		expect(model.costLabel).toBe("$2.50");
+		expect(model.safeIsPartialData).toBe(true);
 		expect(model.conversationSummary).toEqual({
 			assistantMessages: 1,
 			systemMessages: 0,
@@ -99,16 +102,18 @@ describe("buildSessionDetailViewModel", () => {
 		expect(model.safeSlashCommands).toEqual([]);
 		expect(model.subagentNames).toEqual(["reviewer"]);
 		expect(model.tokenUsageLabel).toBe("0 / 0");
-		expect(model.costLabel).toBe("$0.00");
+		expect(model.costLabel).toBe("—");
+		expect(model.safeIsPartialData).toBe(false);
 		expect(model.conversationSummary).toBeNull();
 		expect(model.metadataBadges).toEqual([]);
 		expect(model.safeContent).toBe('{\n  "unsupported": true\n}');
 	});
 
-	it("rounds costs of at least one hundred dollars to whole dollars", () => {
+	it("preserves cents for authoritative costs of at least one hundred dollars", () => {
 		const model = buildSessionDetailViewModel(
 			{
-				input_tokens: 100_000_000,
+				estimated_cost: 300.25,
+				input_tokens: 0,
 				model_used: "claude-sonnet-4-5",
 				output_tokens: 0,
 				session_date: "2026-08-01T00:00:00Z",
@@ -116,6 +121,6 @@ describe("buildSessionDetailViewModel", () => {
 			{},
 		);
 
-		expect(model.costLabel).toBe("$300");
+		expect(model.costLabel).toBe("$300.25");
 	});
 });

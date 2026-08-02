@@ -11,6 +11,7 @@ import {
 	REDACTION_BUDGET_EXCEEDED_CODE,
 	REDACTION_DID_NOT_CONVERGE_CODE,
 	SESSION_OWNERSHIP_CONFLICT_CODE,
+	SESSION_UPLOAD_SHRINK_REJECTED_CODE,
 } from "@rudel/api-routes";
 import {
 	FILTER_VERSION,
@@ -28,6 +29,10 @@ import { wrappedDecimalClaimRouter } from "./handlers/wrapped-decimal-claim.js";
 import { wrappedResumeRouter } from "./handlers/wrapped-resume.js";
 import { wrappedShareRouter } from "./handlers/wrapped-share.js";
 import { computeIngestContentHash } from "./lib/ingest-content-hash.js";
+import {
+	getIngestContentShape,
+	isUnexpectedIngestShrink,
+} from "./lib/ingest-content-shape.js";
 import { enforceIngestAggregateSize } from "./lib/ingest-size.js";
 import {
 	bucketContentSize,
@@ -60,6 +65,7 @@ import {
 	getCachedOrgSessionCount,
 	hasOrgUploadsInLastDays,
 } from "./services/org-session.service.js";
+import { hasRawSessionRow } from "./services/raw-session.service.js";
 import {
 	claimSessionIngestOwnership,
 	recordSessionIngestContent,
@@ -345,6 +351,39 @@ const ingestSessionHandler = os.ingestSession
 		if (!ownership.owned) {
 			throw errors[SESSION_OWNERSHIP_CONFLICT_CODE]();
 		}
+		const contentShape = getIngestContentShape(filteredInput);
+		if (
+			!input.force_replace &&
+			ownership.lastContentBytes !== null &&
+			ownership.lastAssistantLineCount !== null &&
+			isUnexpectedIngestShrink(
+				{
+					assistantLineCount: ownership.lastAssistantLineCount,
+					contentBytes: ownership.lastContentBytes,
+				},
+				contentShape,
+			)
+		) {
+			logger.warn(
+				"Refusing smaller session re-upload (organization_id={organizationId} session_id={sessionId} previous_content_bytes={previousContentBytes} current_content_bytes={currentContentBytes} previous_assistant_lines={previousAssistantLineCount} current_assistant_lines={currentAssistantLineCount})",
+				{
+					currentAssistantLineCount: contentShape.assistantLineCount,
+					currentContentBytes: contentShape.contentBytes,
+					organizationId: orgId,
+					previousAssistantLineCount: ownership.lastAssistantLineCount,
+					previousContentBytes: ownership.lastContentBytes,
+					sessionId: input.sessionId,
+				},
+			);
+			throw errors[SESSION_UPLOAD_SHRINK_REJECTED_CODE]({
+				data: {
+					currentAssistantLineCount: contentShape.assistantLineCount,
+					currentContentBytes: contentShape.contentBytes,
+					previousAssistantLineCount: ownership.lastAssistantLineCount,
+					previousContentBytes: ownership.lastContentBytes,
+				},
+			});
+		}
 
 		// Hash the exact bytes and filter version stored by the server. This makes
 		// an old unfiltered CLI upload and a current pre-filtered CLI upload
@@ -360,7 +399,15 @@ const ingestSessionHandler = os.ingestSession
 		// This is a best-effort cost optimization, not a cross-instance
 		// security control. Concurrent identical requests can both reach the
 		// ClickHouse insert before either records its successful hash.
-		if (ownership.lastContentSha256 === contentHash) {
+		if (
+			ownership.lastContentSha256 === contentHash &&
+			(await hasRawSessionRow({
+				organizationId: orgId,
+				sessionId: input.sessionId,
+				table: adapter.rawTableName,
+				userId: context.user.id,
+			}))
+		) {
 			logger.info(
 				"Skipping duplicate session ingest (organization_id={organizationId} session_id={sessionId})",
 				{ organizationId: orgId, sessionId: input.sessionId },
@@ -384,6 +431,8 @@ const ingestSessionHandler = os.ingestSession
 				orgId,
 				input.sessionId,
 				contentHash,
+				contentShape.contentBytes,
+				contentShape.assistantLineCount,
 				ingestedAt,
 			);
 		} catch (error) {

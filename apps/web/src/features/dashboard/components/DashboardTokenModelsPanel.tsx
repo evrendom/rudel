@@ -7,9 +7,11 @@ import { DashboardTokenModelChart } from "@/features/dashboard/components/Dashbo
 import { DashboardTokenModelTable } from "@/features/dashboard/components/DashboardTokenModelTable";
 import { useDashboardHighlightState } from "@/features/dashboard/components/dashboard-highlight-state";
 import {
+	buildDashboardPricingCoverage,
 	buildDashboardTokenModelChartData,
 	buildDashboardTokenModelRows,
 } from "@/features/dashboard/data/dashboard-token-model-adapter";
+import { formatCompactWholeNumber } from "@/lib/format";
 
 function DashboardTokenModelChartFallback() {
 	const skeletonHeights = [
@@ -55,12 +57,40 @@ export function DashboardTokenModelsPanel({
 	);
 	const hasModelData = modelRows.length > 0;
 	const isPending = modelTokensTrend === undefined;
+	const pricingCoverage = useMemo(
+		() => buildDashboardPricingCoverage(modelTokensTrend),
+		[modelTokensTrend],
+	);
+	const pricingCoverageTitle = pricingCoverage.dailyUnresolvedModels
+		.slice(0, 8)
+		.map(
+			(row) =>
+				`${row.date}: ${row.model} (${formatCompactWholeNumber(row.unpricedTokens)} tokens)`,
+		)
+		.join("\n");
 
 	return (
 		<DashboardAnalysisPanel
 			title="By model"
 			icon={
 				<CpuIcon className="size-5 text-[color:var(--dashboardy-heading)]" />
+			}
+			controls={
+				!isPending && pricingCoverage.pricedTokenPercent !== null ? (
+					<p
+						className={
+							pricingCoverage.unpricedTokens > 0
+								? "text-xs font-medium text-amber-700 dark:text-amber-300"
+								: "text-xs font-medium text-muted-foreground"
+						}
+						title={pricingCoverageTitle || undefined}
+					>
+						{pricingCoverage.pricedTokenPercent}% of tokens priced
+						{pricingCoverage.unpricedModelCount > 0
+							? ` · ${pricingCoverage.unpricedModelCount} unresolved ${pricingCoverage.unpricedModelCount === 1 ? "model" : "models"}`
+							: ""}
+					</p>
+				) : null
 			}
 			chartShellDataSlot="dashboard-token-model-chart-shell"
 			showTableDivider={hasModelData}

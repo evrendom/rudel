@@ -240,6 +240,37 @@ export function buildEstimatedCostSql({
 		: expression;
 }
 
+/**
+ * Build the canonical ClickHouse estimate for one session_analytics row.
+ *
+ * `session_analytics.input_tokens` is cache-inclusive, while the rate card's
+ * input rate applies only to uncached input. Keeping that translation beside
+ * the rate-card implementation prevents each API surface from recreating it.
+ */
+export function buildSessionEstimatedCostSql(tableAlias = "") {
+	if (tableAlias !== "" && !/^[A-Za-z_][A-Za-z0-9_]*$/u.test(tableAlias)) {
+		throw new Error("Invalid session analytics table alias");
+	}
+
+	const column = (name: string) =>
+		tableAlias === "" ? name : `${tableAlias}.${name}`;
+	const inputTokens = `ifNull(${column("input_tokens")}, 0)`;
+	const cacheReadInputTokens = `ifNull(${column("cache_read_input_tokens")}, 0)`;
+	const cacheCreationInputTokens = `ifNull(${column("cache_creation_input_tokens")}, 0)`;
+	const cacheCreation5mInputTokens = `ifNull(${column("cache_creation_5m_input_tokens")}, 0)`;
+	const cacheCreation1hInputTokens = `ifNull(${column("cache_creation_1h_input_tokens")}, 0)`;
+
+	return buildEstimatedCostSql({
+		modelExpr: column("model_used"),
+		dateExpr: column("session_date"),
+		inputExpr: `greatest(${inputTokens} - ${cacheReadInputTokens} - ${cacheCreationInputTokens}, 0)`,
+		outputExpr: `ifNull(${column("output_tokens")}, 0)`,
+		cacheReadInputExpr: cacheReadInputTokens,
+		cacheCreationInputExpr: cacheCreation5mInputTokens,
+		cacheCreation1hInputExpr: cacheCreation1hInputTokens,
+	});
+}
+
 function formatPrice(rate: number | null) {
 	return rate === null ? "—" : `$${rate}`;
 }

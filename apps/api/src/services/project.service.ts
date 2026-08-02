@@ -13,11 +13,13 @@ import {
 	buildDateFilter,
 	queryClickhouse,
 } from "../clickhouse.js";
+import { buildSessionEstimatedCostSql } from "./pricing.service.js";
 
 const logger = getLogger(["rudel", "api", "project-service"]);
 
 const PROJECT_KEY_EXPR = `if(git_remote != '', git_remote, if(package_name != '', package_name, project_path))`;
 const PROJECT_DISPLAY_EXPR = `if(git_remote != '', arrayElement(splitByChar('/', git_remote), -1), arrayElement(splitByChar('/', replaceAll(project_path, '\\\\', '/')), -1))`;
+const PER_SESSION_COST_SQL = buildSessionEstimatedCostSql();
 
 function buildProjectDisplaySubquery(
 	orgParamName: string,
@@ -161,12 +163,18 @@ export async function getProjectInvestment(
         SUM(ifNull(input_tokens, 0) + ifNull(output_tokens, 0)) as total_tokens,
         round(SUM(actual_duration_min), 2) as total_duration_min,
         round(AVG(actual_duration_min), 2) as avg_session_duration_min,
-        round(AVG(success_score), 2) as success_rate
-      FROM rudel.session_analytics FINAL
-      WHERE ${buildDateFilter("currentDays")}
-        AND organization_id = {orgId:String}
-        AND (git_remote != '' OR package_name != '' OR project_path != '')
-        ${projectFilters.length > 0 ? `AND ${projectFilters.join("\n        AND ")}` : ""}
+	        round(AVG(success_score), 2) as success_rate,
+	        round(ifNull(SUM(priced.estimated_cost), 0), 4) as cost,
+	        countIf(isNull(priced.estimated_cost)) as unpriced_session_count,
+	        sumIf(ifNull(priced.total_tokens, 0), isNull(priced.estimated_cost)) as unpriced_token_count
+	      FROM (
+	        SELECT *, ${PER_SESSION_COST_SQL} as estimated_cost
+	        FROM rudel.session_analytics FINAL
+	        WHERE ${buildDateFilter("currentDays")}
+	          AND organization_id = {orgId:String}
+	          AND (git_remote != '' OR package_name != '' OR project_path != '')
+	          ${projectFilters.length > 0 ? `AND ${projectFilters.join("\n          AND ")}` : ""}
+	      ) AS priced
       GROUP BY ${PROJECT_DISPLAY_EXPR}
     ),
     previous_period AS (
@@ -192,8 +200,10 @@ export async function getProjectInvestment(
       c.output_tokens_sum as output_tokens,
       c.total_duration_min,
       c.avg_session_duration_min,
-      c.success_rate,
-      round((c.output_tokens_sum / 1000000.0) * 15.0 + (c.input_tokens_sum / 1000000.0) * 3.0, 4) as cost,
+	      c.success_rate,
+	      c.cost,
+	      c.unpriced_session_count,
+	      c.unpriced_token_count,
       round(c.success_rate - ifNull(p.prev_success_rate, c.success_rate), 2) as success_rate_trend
     FROM current_period c
     LEFT JOIN previous_period p ON c.project_display = p.project_display
@@ -211,8 +221,11 @@ export async function getProjectInvestment(
 
 	return results.map((project) => ({
 		...project,
+		cost: Number(project.cost) || 0,
 		repository: project.repository || null,
 		git_remote: project.git_remote || undefined,
+		unpriced_session_count: Number(project.unpriced_session_count) || 0,
+		unpriced_token_count: Number(project.unpriced_token_count) || 0,
 	}));
 }
 
@@ -392,12 +405,18 @@ export async function getProjectDetails(
       countIf(success_score < 40) as errors_count,
       ifNull(round(avgOrNull(actual_duration_min), 2), 0) as avg_session_duration_min,
       ifNull(round(avgOrNull(success_score), 2), 0) as success_rate,
-      round(SUM(actual_duration_min), 2) as total_duration_min
-    FROM rudel.session_analytics FINAL
-    WHERE ${PROJECT_DISPLAY_EXPR} = ${projectDisplaySubquery}
-      AND ${buildDateFilter("days")}
-      AND organization_id = {orgId:String}
-      AND (git_remote != '' OR package_name != '' OR project_path != '')
+	      round(SUM(actual_duration_min), 2) as total_duration_min,
+	      round(ifNull(SUM(priced.estimated_cost), 0), 4) as cost,
+	      countIf(isNull(priced.estimated_cost)) as unpriced_session_count,
+	      sumIf(ifNull(priced.total_tokens, 0), isNull(priced.estimated_cost)) as unpriced_token_count
+	    FROM (
+	      SELECT *, ${PER_SESSION_COST_SQL} as estimated_cost
+	      FROM rudel.session_analytics FINAL
+	      WHERE ${PROJECT_DISPLAY_EXPR} = ${projectDisplaySubquery}
+	        AND ${buildDateFilter("days")}
+	        AND organization_id = {orgId:String}
+	        AND (git_remote != '' OR package_name != '' OR project_path != '')
+	    ) AS priced
   `;
 
 	let results: (Omit<ProjectDetails, "project_path"> & {
@@ -426,8 +445,6 @@ export async function getProjectDetails(
 
 	const [row] = results;
 	if (!row || row.total_sessions === 0) return null;
-	const cost =
-		row.output_tokens_sum * 0.000015 + row.input_tokens_sum * 0.000003;
 	return {
 		project_path: row.raw_project_path,
 		total_sessions: row.total_sessions,
@@ -437,7 +454,9 @@ export async function getProjectDetails(
 		avg_session_duration_min: row.avg_session_duration_min,
 		success_rate: row.success_rate,
 		total_duration_min: row.total_duration_min,
-		cost: parseFloat(cost.toFixed(4)),
+		cost: Number(row.cost) || 0,
+		unpriced_session_count: Number(row.unpriced_session_count) || 0,
+		unpriced_token_count: Number(row.unpriced_token_count) || 0,
 	};
 }
 

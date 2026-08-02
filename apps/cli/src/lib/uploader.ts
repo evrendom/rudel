@@ -11,6 +11,7 @@ import {
 	REDACTION_BUDGET_EXCEEDED_CODE,
 	REDACTION_DID_NOT_CONVERGE_CODE,
 	SESSION_OWNERSHIP_CONFLICT_CODE,
+	SESSION_UPLOAD_SHRINK_REJECTED_CODE,
 } from "@rudel/api-routes";
 import {
 	FILTER_VERSION,
@@ -145,6 +146,12 @@ export function formatUploadError(error: unknown): string {
 		error.code === SESSION_OWNERSHIP_CONFLICT_CODE
 	) {
 		return "This session ID is already owned by another organization member. Upload it from the original member account or use a different session ID.";
+	}
+	if (
+		error instanceof ORPCError &&
+		error.code === SESSION_UPLOAD_SHRINK_REJECTED_CODE
+	) {
+		return "Rudel refused this upload because it is smaller than the stored session. Check that the transcript is complete, then run `rudel upload <session> --force-replace` only if the replacement is intentional.";
 	}
 	if (
 		error instanceof ORPCError &&
@@ -377,6 +384,17 @@ export async function uploadSession(
 				return {
 					success: false,
 					error: error.message,
+					attempts: attempt,
+					retryable: false,
+				};
+			}
+			if (
+				error instanceof ORPCError &&
+				error.code === SESSION_UPLOAD_SHRINK_REJECTED_CODE
+			) {
+				return {
+					success: false,
+					error: formatUploadError(error),
 					attempts: attempt,
 					retryable: false,
 				};

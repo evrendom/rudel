@@ -29,56 +29,72 @@ export function buildWrappedOnboardingMetrics(
 		developerSessions,
 		wrappedMetrics,
 	} = input;
-	const totalSessions = Math.max(
-		developerDetails?.total_sessions ?? 0,
-		wrappedMetrics?.total_sessions ?? 0,
-	);
-	const commitSessions = findBooleanDimensionCount(commitBreakdown, true);
+	const hasAllTimeMetrics = wrappedMetrics !== undefined;
+	const recentCommitSessions = findBooleanDimensionCount(commitBreakdown, true);
+	const totalSessions = hasAllTimeMetrics
+		? wrappedMetrics.total_sessions
+		: (developerDetails?.total_sessions ?? 0);
+	const inputTokens = hasAllTimeMetrics
+		? wrappedMetrics.input_tokens
+		: (developerDetails?.input_tokens ?? 0);
+	const outputTokens = hasAllTimeMetrics
+		? wrappedMetrics.output_tokens
+		: (developerDetails?.output_tokens ?? 0);
+	const commitSessions = hasAllTimeMetrics
+		? wrappedMetrics.commit_sessions
+		: recentCommitSessions;
 	const topProject = findTopProject(developerProjects);
-	const estimatedCostTokenBasis = Math.max(
-		0,
-		developerDetails?.total_tokens ?? 0,
-		wrappedMetrics?.total_tokens ?? 0,
-	);
+	const estimatedCostTokenBasis = Math.max(0, inputTokens + outputTokens);
 	const estimatedCostUsdRaw = Math.max(
 		0,
-		developerDetails?.cost ?? 0,
-		wrappedMetrics?.estimated_spend_usd ?? 0,
+		hasAllTimeMetrics
+			? wrappedMetrics.estimated_spend_usd
+			: (developerDetails?.cost ?? 0),
 	);
-	const estimatedCostUsd = Math.round(estimatedCostUsdRaw);
-	const repoPulse = buildRepoPulse(developerSessions, {
-		baseCostTokenBasis: estimatedCostTokenBasis,
-		baseCostUsd: estimatedCostUsdRaw,
-	});
+	const estimatedCostUsd = estimatedCostUsdRaw;
+	const repoPulse = buildRepoPulse(
+		developerSessions,
+		developerDetails?.total_sessions ?? 0,
+	);
 
 	return {
-		activeDays: Math.max(
-			developerDetails?.active_days ?? 0,
-			wrappedMetrics?.active_days ?? 0,
-		),
-		avgSessionMin: developerDetails?.avg_session_duration_min ?? null,
-		commitRate:
-			totalSessions > 0 ? (commitSessions / totalSessions) * 100 : null,
+		activeDays: hasAllTimeMetrics
+			? wrappedMetrics.active_days
+			: (developerDetails?.active_days ?? 0),
+		avgSessionMin: hasAllTimeMetrics
+			? wrappedMetrics.avg_session_min
+			: (developerDetails?.avg_session_duration_min ?? null),
+		coreWindow: hasAllTimeMetrics ? "all_time" : "last_365_days",
+		commitRate: hasAllTimeMetrics
+			? wrappedMetrics.commit_rate
+			: totalSessions > 0
+				? (commitSessions / totalSessions) * 100
+				: null,
 		commitSessions,
 		daysSinceFirst: wrappedMetrics?.days_since_first_session ?? 0,
-		distinctProjectCount:
-			developerDetails?.distinct_projects ?? developerProjects?.length ?? 0,
+		distinctProjectCount: hasAllTimeMetrics
+			? wrappedMetrics.distinct_project_count
+			: (developerDetails?.distinct_projects ?? developerProjects?.length ?? 0),
 		estimatedCostTokenBasis,
 		estimatedCostUsd,
 		favoriteModel: formatWrappedLabel(
-			wrappedMetrics?.favorite_model ??
-				developerDetails?.favorite_model ??
-				undefined,
+			hasAllTimeMetrics
+				? (wrappedMetrics.favorite_model ?? undefined)
+				: (developerDetails?.favorite_model ?? undefined),
 		),
+		inputTokens,
 		longestSessionMin: wrappedMetrics?.longest_session_min ?? null,
 		modelByMonth: wrappedMetrics?.model_by_month ?? [],
 		sourceSplit: wrappedMetrics?.source_split ?? [],
 		repoPulse,
+		recentWindowSessions: developerDetails?.total_sessions ?? 0,
 		skillsAdoptionRate: developerFeatures?.skills_adoption_rate ?? null,
 		slashCommandsAdoptionRate:
 			developerFeatures?.slash_commands_adoption_rate ?? null,
 		subagentsAdoptionRate: developerFeatures?.subagents_adoption_rate ?? null,
-		successRate: developerDetails?.success_rate ?? null,
+		successRate: hasAllTimeMetrics
+			? wrappedMetrics.success_rate
+			: (developerDetails?.success_rate ?? null),
 		topProjectName: getProjectDisplayName(topProject),
 		topProjectSessions: topProject?.sessions ?? 0,
 		topProjectTokens: topProject?.total_tokens ?? 0,
@@ -131,11 +147,9 @@ export function buildWrappedOnboardingMetrics(
 					} => Boolean(subagent.name),
 				) ?? [],
 		topSubagentCount: developerFeatures?.top_subagents[0]?.count ?? null,
+		outputTokens,
 		totalSessions,
-		totalTokens: Math.max(
-			developerDetails?.total_tokens ?? 0,
-			wrappedMetrics?.total_tokens ?? 0,
-		),
+		totalTokens: inputTokens + outputTokens,
 	};
 }
 
@@ -182,15 +196,14 @@ function findTopProject(projects: readonly DeveloperProject[] | undefined) {
 
 function buildRepoPulse(
 	sessions: readonly DeveloperSession[] | undefined,
-	input: {
-		baseCostTokenBasis: number;
-		baseCostUsd: number;
-	},
+	totalAvailableSessions: number,
 ): WrappedOnboardingMetrics["repoPulse"] {
 	const repoStats = new Map<
 		string,
 		{
 			repoName: string;
+			estimatedCostUsd: number;
+			hasUnpricedSession: boolean;
 			sessionCount: number;
 			totalDurationMin: number;
 			totalTokens: number;
@@ -208,6 +221,11 @@ function buildRepoPulse(
 		const existingStats = repoStats.get(repoKey);
 		repoStats.set(repoKey, {
 			repoName: repoLabel,
+			estimatedCostUsd:
+				(existingStats?.estimatedCostUsd ?? 0) + (session.estimated_cost ?? 0),
+			hasUnpricedSession:
+				(existingStats?.hasUnpricedSession ?? false) ||
+				session.estimated_cost === null,
 			sessionCount: (existingStats?.sessionCount ?? 0) + 1,
 			totalDurationMin:
 				(existingStats?.totalDurationMin ?? 0) + session.duration_min,
@@ -217,8 +235,11 @@ function buildRepoPulse(
 
 	if (repoStats.size === 0) {
 		return {
+			availableSessions: Math.max(0, totalAvailableSessions),
 			entries: [],
+			isTruncated: totalAvailableSessions > (sessions?.length ?? 0),
 			leadRepoName: null,
+			sampledSessions: sessions?.length ?? 0,
 			totalRepos: 0,
 			totalSessions: 0,
 		};
@@ -237,11 +258,8 @@ function buildRepoPulse(
 		sessionCountLabel: formatRepoPulseSessionCount(stats.sessionCount),
 		totalHoursLabel: buildRepoPulseHoursLabel(stats.totalDurationMin),
 		totalSpendLabel: buildRepoPulseSpendLabel(
-			resolveRepoPulseSpendUsd({
-				baseCostTokenBasis: input.baseCostTokenBasis,
-				baseCostUsd: input.baseCostUsd,
-				totalTokens: stats.totalTokens,
-			}),
+			stats.estimatedCostUsd,
+			stats.hasUnpricedSession,
 		),
 	}));
 	const totalSessions = rankedRepos.reduce(
@@ -250,8 +268,11 @@ function buildRepoPulse(
 	);
 
 	return {
+		availableSessions: Math.max(0, totalAvailableSessions),
 		entries,
+		isTruncated: totalAvailableSessions > (sessions?.length ?? 0),
 		leadRepoName: entries[0]?.repoName ?? null,
+		sampledSessions: sessions?.length ?? 0,
 		totalRepos: rankedRepos.length,
 		totalSessions,
 	};
@@ -308,20 +329,13 @@ function buildRepoPulseHoursLabel(totalDurationMin: number) {
 	return `${formatDurationMinutesAsHours(totalDurationMin)} total`;
 }
 
-function buildRepoPulseSpendLabel(spendUsd: number) {
-	return `${formatCompactCurrency(spendUsd)} spent`;
-}
-
-function resolveRepoPulseSpendUsd(input: {
-	baseCostTokenBasis: number;
-	baseCostUsd: number;
-	totalTokens: number;
-}) {
-	if (input.baseCostTokenBasis <= 0 || input.baseCostUsd <= 0) {
-		return 0;
-	}
-
-	return (input.totalTokens / input.baseCostTokenBasis) * input.baseCostUsd;
+function buildRepoPulseSpendLabel(
+	spendUsd: number,
+	hasUnpricedSession: boolean,
+) {
+	return hasUnpricedSession
+		? "— estimated share"
+		: `${formatCompactCurrency(spendUsd)} estimated share`;
 }
 
 function formatDurationMinutesAsHours(totalDurationMin: number) {

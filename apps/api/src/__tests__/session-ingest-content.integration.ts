@@ -58,6 +58,8 @@ describe("session ingest content bookkeeping", () => {
 			userId,
 			CLAIM_SESSION_ID,
 			contentHash,
+			12_345,
+			42,
 			new Date("2026-07-24T10:00:00.000Z"),
 		);
 
@@ -68,6 +70,8 @@ describe("session ingest content bookkeeping", () => {
 		);
 		assert(repeatedClaim.owned);
 		expect(repeatedClaim.lastContentSha256).toBe(contentHash);
+		expect(repeatedClaim.lastContentBytes).toBe(12_345);
+		expect(repeatedClaim.lastAssistantLineCount).toBe(42);
 	});
 
 	test("does not let older bookkeeping overwrite a newer ingest", async () => {
@@ -84,27 +88,39 @@ describe("session ingest content bookkeeping", () => {
 			userId,
 			MONOTONIC_SESSION_ID,
 			newerHash,
+			20_000,
+			20,
 			newerIngestedAt,
 		);
 		await recordSessionIngestContent(
 			userId,
 			MONOTONIC_SESSION_ID,
 			"c".repeat(64),
+			10_000,
+			10,
 			new Date("2026-07-24T11:00:00.000Z"),
 		);
 
 		const [row] = await sqlClient<
 			Array<{
+				last_assistant_line_count: number | null;
+				last_content_bytes: number | null;
 				last_content_sha256: string | null;
 				last_ingested_at: string | null;
 			}>
 		>`
-			SELECT last_content_sha256, last_ingested_at
+			SELECT
+				last_content_sha256,
+				last_content_bytes,
+				last_assistant_line_count,
+				last_ingested_at
 			FROM session_ownership
 			WHERE organization_id = ${userId}
 				AND session_id = ${MONOTONIC_SESSION_ID}
 		`;
 		expect(row?.last_content_sha256).toBe(newerHash);
+		expect(row?.last_content_bytes).toBe(20_000);
+		expect(row?.last_assistant_line_count).toBe(20);
 		expect(new Date(row?.last_ingested_at ?? "")).toEqual(newerIngestedAt);
 	});
 });

@@ -1,10 +1,9 @@
-import {
-	calculateEstimatedCost as calculateEstimatedModelCost,
-	type ModelTokensTrendData,
-	type RepositoryDailyTrendData,
-	type SessionAnalyticsSummaryComparison,
-	type UserDailyTrendData,
-	type UserTokenUsageData,
+import type {
+	ModelTokensTrendData,
+	RepositoryDailyTrendData,
+	SessionAnalyticsSummaryComparison,
+	UserDailyTrendData,
+	UserTokenUsageData,
 } from "@rudel/api-routes";
 import { format, parseISO } from "date-fns";
 import type { DashboardRepositorySummaryRow } from "@/features/dashboard/data/dashboard-repository-trend";
@@ -14,7 +13,7 @@ import type {
 	DashboardHeadlineMetric,
 } from "@/features/dashboard/data/dashboard-static-data";
 import { expandAnalyticsDateRange } from "@/lib/analytics-date-range";
-import { calculateCost, formatCompactWholeCurrency } from "@/lib/format";
+import { formatCompactCurrency } from "@/lib/format";
 
 export type DashboardTokenDailyPoint = {
 	activeModels: number;
@@ -393,7 +392,7 @@ export function buildDashboardTokenDailyPattern(
 	const estimatedCostByDate = new Map<
 		string,
 		{
-			hasResolvedCost: boolean;
+			hasUnpricedCost: boolean;
 			total: number;
 		}
 	>();
@@ -436,20 +435,17 @@ export function buildDashboardTokenDailyPattern(
 
 	for (const row of modelRows ?? []) {
 		const dateKey = normalizeDateKey(row.date);
-		const estimatedCost = calculateEstimatedModelCost({
-			at: row.date,
-			inputTokens: row.input_tokens,
-			model: row.model,
-			outputTokens: row.output_tokens,
-		});
 		const currentCost = estimatedCostByDate.get(dateKey) ?? {
-			hasResolvedCost: false,
+			hasUnpricedCost: false,
 			total: 0,
 		};
 
 		estimatedCostByDate.set(dateKey, {
-			hasResolvedCost: currentCost.hasResolvedCost || estimatedCost !== null,
-			total: currentCost.total + (estimatedCost ?? 0),
+			hasUnpricedCost:
+				currentCost.hasUnpricedCost ||
+				row.estimated_cost === null ||
+				row.unpriced_session_count > 0,
+			total: currentCost.total + (row.estimated_cost ?? 0),
 		});
 
 		const currentBreakdown = modelTokensByDate.get(dateKey) ?? {};
@@ -488,7 +484,9 @@ export function buildDashboardTokenDailyPattern(
 			dominantModel,
 			dominantModelTokens,
 			estimatedCost:
-				estimatedCost?.hasResolvedCost === true ? estimatedCost.total : null,
+				estimatedCost !== undefined && !estimatedCost.hasUnpricedCost
+					? estimatedCost.total
+					: null,
 			fullLabel: format(date, "EEEE, MMM d"),
 			inputTokens: tokensRow.inputTokens,
 			modelTokens,
@@ -515,21 +513,25 @@ export function buildDashboardTokenTabMetrics(
 	);
 	const totalTokens =
 		totalTokensFromUsage > 0 ? totalTokensFromUsage : totalTokensFromPattern;
-	const totalCostFromUsage = (usersTokenUsage ?? []).reduce(
-		(sum, row) => sum + row.cost,
-		0,
+	const resolvedModelRows = modelRows ?? [];
+	const modelCostIsIncomplete = resolvedModelRows.some(
+		(row) => row.estimated_cost === null || row.unpriced_session_count > 0,
 	);
-	const totalCostFromModels = (modelRows ?? []).reduce(
-		(sum, row) =>
-			sum +
-			calculateCost(row.input_tokens, row.output_tokens, {
-				at: row.date,
-				model: row.model,
-			}),
-		0,
+	const totalCostFromModels = modelCostIsIncomplete
+		? null
+		: resolvedModelRows.reduce(
+				(sum, row) => sum + (row.estimated_cost ?? 0),
+				0,
+			);
+	const resolvedUsageRows = usersTokenUsage ?? [];
+	const usageCostIsIncomplete = resolvedUsageRows.some(
+		(row) => row.unpriced_session_count > 0,
 	);
+	const totalCostFromUsage = usageCostIsIncomplete
+		? null
+		: resolvedUsageRows.reduce((sum, row) => sum + row.cost, 0);
 	const totalCost =
-		totalCostFromUsage > 0 ? totalCostFromUsage : totalCostFromModels;
+		resolvedModelRows.length > 0 ? totalCostFromModels : totalCostFromUsage;
 	const activeDevelopersFromUsage = (usersTokenUsage ?? []).filter(
 		(row) => row.total_tokens > 0 || row.total_sessions > 0,
 	).length;
@@ -560,7 +562,7 @@ export function buildDashboardTokenTabMetrics(
 		{
 			id: "uncommitted",
 			label: "Est. spend",
-			valueLabel: formatCompactWholeCurrency(totalCost),
+			valueLabel: formatCompactCurrency(totalCost),
 			deltaLabel: "0",
 			deltaTone: "neutral",
 			description:

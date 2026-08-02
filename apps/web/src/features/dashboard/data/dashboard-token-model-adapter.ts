@@ -1,8 +1,7 @@
 import type { ModelTokensTrendData } from "@rudel/api-routes";
-import { calculateCost } from "@/lib/format";
 
 export type DashboardTokenModelSummaryRow = {
-	estimatedCost: number;
+	estimatedCost: number | null;
 	id: string;
 	inputTokens: number;
 	label: string;
@@ -11,13 +10,25 @@ export type DashboardTokenModelSummaryRow = {
 };
 
 export type DashboardTokenModelChartDatum = {
-	estimatedCost: number;
+	estimatedCost: number | null;
 	id: string;
 	inputTokens: number;
 	label: string;
 	outputTokens: number;
 	shortLabel: string;
 	value: number;
+};
+
+export type DashboardPricingCoverage = {
+	dailyUnresolvedModels: readonly {
+		date: string;
+		model: string;
+		unpricedTokens: number;
+	}[];
+	pricedTokenPercent: number | null;
+	totalTokens: number;
+	unpricedModelCount: number;
+	unpricedTokens: number;
 };
 
 const MAX_VISIBLE_MODEL_BARS = 20;
@@ -44,7 +55,7 @@ export function buildDashboardTokenModelRows(
 	const rowsByModel = new Map<
 		string,
 		{
-			estimatedCost: number;
+			estimatedCost: number | null;
 			inputTokens: number;
 			outputTokens: number;
 			totalTokens: number;
@@ -59,14 +70,12 @@ export function buildDashboardTokenModelRows(
 			totalTokens: 0,
 		};
 
-		currentRow.estimatedCost += calculateCost(
-			row.input_tokens,
-			row.output_tokens,
-			{
-				at: row.date,
-				model: row.model,
-			},
-		);
+		currentRow.estimatedCost =
+			currentRow.estimatedCost === null ||
+			row.estimated_cost === null ||
+			row.unpriced_session_count > 0
+				? null
+				: currentRow.estimatedCost + row.estimated_cost;
 		currentRow.inputTokens += row.input_tokens;
 		currentRow.outputTokens += row.output_tokens;
 		currentRow.totalTokens += row.total_tokens;
@@ -89,6 +98,54 @@ export function buildDashboardTokenModelRows(
 				right.inputTokens - left.inputTokens ||
 				left.label.localeCompare(right.label),
 		);
+}
+
+export function buildDashboardPricingCoverage(
+	modelTokensTrend: ModelTokensTrendData[] | undefined,
+): DashboardPricingCoverage {
+	let totalTokens = 0;
+	let unpricedTokens = 0;
+	const unresolvedModels = new Set<string>();
+	const dailyUnresolvedModels: {
+		date: string;
+		model: string;
+		unpricedTokens: number;
+	}[] = [];
+
+	for (const row of modelTokensTrend ?? []) {
+		const safeTotalTokens = Math.max(0, row.total_tokens);
+		const safeUnpricedTokens = Math.min(
+			safeTotalTokens,
+			Math.max(0, row.unpriced_token_count),
+		);
+		totalTokens += safeTotalTokens;
+		unpricedTokens += safeUnpricedTokens;
+
+		if (safeUnpricedTokens > 0) {
+			unresolvedModels.add(row.model);
+			dailyUnresolvedModels.push({
+				date: row.date,
+				model: row.model,
+				unpricedTokens: safeUnpricedTokens,
+			});
+		}
+	}
+
+	return {
+		dailyUnresolvedModels: dailyUnresolvedModels.sort(
+			(left, right) =>
+				right.unpricedTokens - left.unpricedTokens ||
+				left.date.localeCompare(right.date) ||
+				left.model.localeCompare(right.model),
+		),
+		pricedTokenPercent:
+			totalTokens > 0
+				? Math.round(((totalTokens - unpricedTokens) / totalTokens) * 1000) / 10
+				: null,
+		totalTokens,
+		unpricedModelCount: unresolvedModels.size,
+		unpricedTokens,
+	};
 }
 
 export function buildDashboardTokenModelChartData(

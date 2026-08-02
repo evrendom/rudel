@@ -11,28 +11,13 @@ import {
 	queryClickhouse,
 } from "../clickhouse.js";
 import {
-	buildEstimatedCostSql,
+	buildSessionEstimatedCostSql,
 	ESTIMATED_PRICING_MODE,
 	getModelPricingCatalog,
 } from "./pricing.service.js";
 
-// Pricing constants based on Claude Sonnet 4 rates, used as a default approximation
-// across all models. TODO: implement per-model pricing using the model_used column.
-// Sonnet 4: input=$3/MTok, output=$15/MTok
-// Opus 4:   input=$5/MTok, output=$25/MTok
-// Haiku 4:  input=$1/MTok, output=$5/MTok
-const INPUT_PRICE_PER_MILLION = 3.0;
-const OUTPUT_PRICE_PER_MILLION = 15.0;
 const DEFAULT_DEV_HOURLY_RATE = 100;
-const PER_SESSION_COST_SQL = buildEstimatedCostSql({
-	modelExpr: "model_used",
-	dateExpr: "session_date",
-	inputExpr:
-		"(ifNull(input_tokens, 0) - ifNull(cache_read_input_tokens, 0) - ifNull(cache_creation_input_tokens, 0))",
-	outputExpr: "ifNull(output_tokens, 0)",
-	cacheReadInputExpr: "ifNull(cache_read_input_tokens, 0)",
-	cacheCreationInputExpr: "ifNull(cache_creation_input_tokens, 0)",
-});
+const PER_SESSION_COST_SQL = buildSessionEstimatedCostSql();
 
 // ROI calculation constants
 const CODE_PERCENTAGE = 0.65; // 65% of output tokens are actual code
@@ -60,6 +45,10 @@ interface ROIMetricsQueryResult {
 	current_period_end: string;
 	previous_period_start: string;
 	previous_period_end: string;
+	unpriced_session_count: number;
+	unpriced_token_count: number;
+	previous_unpriced_session_count: number;
+	previous_unpriced_token_count: number;
 }
 
 interface TrendQueryResult {
@@ -71,6 +60,8 @@ interface TrendQueryResult {
 	active_developers: number;
 	total_tokens: number;
 	total_output_tokens: number;
+	unpriced_session_count: number;
+	unpriced_token_count: number;
 }
 
 interface DeveloperBreakdownQueryResult {
@@ -82,6 +73,8 @@ interface DeveloperBreakdownQueryResult {
 	total_hours: number;
 	avg_success_score: number;
 	success_rate: number;
+	unpriced_session_count: number;
+	unpriced_token_count: number;
 }
 
 interface ProjectBreakdownQueryResult {
@@ -92,6 +85,8 @@ interface ProjectBreakdownQueryResult {
 	total_commits: number;
 	total_hours: number;
 	avg_success_score: number;
+	unpriced_session_count: number;
+	unpriced_token_count: number;
 }
 
 interface RangeSnapshotRow {
@@ -104,6 +99,8 @@ interface RangeSnapshotRow {
 	avg_success_score: number;
 	active_developers: number;
 	total_commits: number;
+	unpriced_session_count: number;
+	unpriced_token_count: number;
 }
 
 interface ROIDashboardTrendQueryRow {
@@ -114,6 +111,8 @@ interface ROIDashboardTrendQueryRow {
 	total_tokens: number;
 	total_cost: number;
 	total_commits: number;
+	unpriced_session_count: number;
+	unpriced_token_count: number;
 }
 
 type TrendInterval = "day" | "week" | "month";
@@ -129,6 +128,8 @@ interface DerivedROISnapshot {
 	total_commits: number;
 	active_developers: number;
 	avg_success_score: number;
+	unpriced_session_count: number;
+	unpriced_token_count: number;
 }
 
 function roundTo(value: number, digits = 2) {
@@ -213,6 +214,8 @@ function deriveROISnapshot(row?: RangeSnapshotRow): DerivedROISnapshot {
 		total_commits: totalCommits,
 		active_developers: activeDevelopers,
 		avg_success_score: avgSuccessScore,
+		unpriced_session_count: Number(row?.unpriced_session_count) || 0,
+		unpriced_token_count: Number(row?.unpriced_token_count) || 0,
 	};
 }
 
@@ -231,69 +234,73 @@ export async function getROIMetrics(
 	};
 
 	const query = `
-    WITH current_period AS (
-      SELECT
-        COUNT(*) as total_sessions,
-        SUM(input_tokens) as total_input_tokens,
-        SUM(output_tokens) as total_output_tokens,
-        SUM(total_tokens) as total_tokens,
-        SUM(actual_duration_min) / 60.0 as total_hours,
-        AVG(success_score) as avg_success_score,
-        COUNT(DISTINCT user_id) as active_developers,
-        SUM(has_commit) as total_commits,
-        now64(3) - toIntervalDay({currentDays:UInt32}) as period_start,
-        now64(3) as period_end
-      FROM rudel.session_analytics FINAL
-      WHERE ${buildDateFilter("currentDays")}
-        AND organization_id = {orgId:String}
-    ),
-    previous_period AS (
-      SELECT
-        COUNT(*) as total_sessions,
-        SUM(input_tokens) as total_input_tokens,
-        SUM(output_tokens) as total_output_tokens,
-        SUM(has_commit) as total_commits,
-        now64(3) - toIntervalDay({previousDays:UInt32}) as period_start,
-        now64(3) - toIntervalDay({currentDays:UInt32}) as period_end
-      FROM rudel.session_analytics FINAL
-      WHERE session_date >= now64(3) - toIntervalDay({previousDays:UInt32})
-        AND session_date < now64(3) - toIntervalDay({currentDays:UInt32})
-        AND organization_id = {orgId:String}
-    )
-    SELECT
-      c.total_sessions,
-      c.total_input_tokens,
-      c.total_output_tokens,
-      c.total_tokens,
-      c.total_hours,
-      c.avg_success_score,
-      c.active_developers,
-      c.total_commits,
-      round((c.total_output_tokens / 1000000.0) * ${OUTPUT_PRICE_PER_MILLION} +
-            (c.total_input_tokens / 1000000.0) * ${INPUT_PRICE_PER_MILLION}, 2) as total_cost,
-      round((c.total_output_tokens / 1000000.0) * ${OUTPUT_PRICE_PER_MILLION} +
-            (c.total_input_tokens / 1000000.0) * ${INPUT_PRICE_PER_MILLION}, 4) / c.total_sessions as cost_per_session,
-      if(c.total_commits > 0,
-        round((c.total_output_tokens / 1000000.0) * ${OUTPUT_PRICE_PER_MILLION} +
-              (c.total_input_tokens / 1000000.0) * ${INPUT_PRICE_PER_MILLION}, 4) / c.total_commits,
-        0) as cost_per_commit,
-      round((p.total_output_tokens / 1000000.0) * ${OUTPUT_PRICE_PER_MILLION} +
-            (p.total_input_tokens / 1000000.0) * ${INPUT_PRICE_PER_MILLION}, 2) as prev_total_cost,
-      round((p.total_output_tokens / 1000000.0) * ${OUTPUT_PRICE_PER_MILLION} +
-            (p.total_input_tokens / 1000000.0) * ${INPUT_PRICE_PER_MILLION}, 4) / p.total_sessions as prev_cost_per_session,
-      if(p.total_commits > 0,
-        round((p.total_output_tokens / 1000000.0) * ${OUTPUT_PRICE_PER_MILLION} +
-              (p.total_input_tokens / 1000000.0) * ${INPUT_PRICE_PER_MILLION}, 4) / p.total_commits,
-        0) as prev_cost_per_commit,
-      p.total_commits as prev_total_commits,
-      p.total_output_tokens as prev_total_output_tokens,
-      formatDateTime(c.period_start, '%Y-%m-%d') as current_period_start,
-      formatDateTime(c.period_end, '%Y-%m-%d') as current_period_end,
-      formatDateTime(p.period_start, '%Y-%m-%d') as previous_period_start,
-      formatDateTime(p.period_end, '%Y-%m-%d') as previous_period_end
-    FROM current_period c
-    CROSS JOIN previous_period p
-  `;
+	    WITH priced_sessions AS (
+	      SELECT *, ${PER_SESSION_COST_SQL} as estimated_cost
+	      FROM rudel.session_analytics FINAL
+	      WHERE session_date >= now64(3) - toIntervalDay({previousDays:UInt32})
+	        AND session_date <= now64(3)
+	        AND organization_id = {orgId:String}
+	    ),
+	    current_period AS (
+	      SELECT
+	        COUNT(*) as total_sessions,
+	        SUM(input_tokens) as total_input_tokens,
+	        SUM(output_tokens) as total_output_tokens,
+	        SUM(total_tokens) as total_tokens,
+	        SUM(actual_duration_min) / 60.0 as total_hours,
+	        ifNull(AVG(success_score), 0) as avg_success_score,
+	        COUNT(DISTINCT user_id) as active_developers,
+	        SUM(has_commit) as total_commits,
+	        round(ifNull(SUM(ps.estimated_cost), 0), 4) as total_cost,
+	        countIf(isNull(ps.estimated_cost)) as unpriced_session_count,
+	        sumIf(ifNull(ps.total_tokens, 0), isNull(ps.estimated_cost)) as unpriced_token_count,
+	        now64(3) - toIntervalDay({currentDays:UInt32}) as period_start,
+	        now64(3) as period_end
+	      FROM priced_sessions AS ps
+	      WHERE ${buildDateFilter("currentDays")}
+	    ),
+	    previous_period AS (
+	      SELECT
+	        COUNT(*) as total_sessions,
+	        SUM(output_tokens) as total_output_tokens,
+	        SUM(has_commit) as total_commits,
+	        round(ifNull(SUM(ps.estimated_cost), 0), 4) as total_cost,
+	        countIf(isNull(ps.estimated_cost)) as unpriced_session_count,
+	        sumIf(ifNull(ps.total_tokens, 0), isNull(ps.estimated_cost)) as unpriced_token_count,
+	        now64(3) - toIntervalDay({previousDays:UInt32}) as period_start,
+	        now64(3) - toIntervalDay({currentDays:UInt32}) as period_end
+	      FROM priced_sessions AS ps
+	      WHERE session_date >= now64(3) - toIntervalDay({previousDays:UInt32})
+	        AND session_date < now64(3) - toIntervalDay({currentDays:UInt32})
+	    )
+	    SELECT
+	      c.total_sessions,
+	      c.total_input_tokens,
+	      c.total_output_tokens,
+	      c.total_tokens,
+	      c.total_hours,
+	      c.avg_success_score,
+	      c.active_developers,
+	      c.total_commits,
+	      c.total_cost,
+	      if(c.total_sessions > 0, c.total_cost / c.total_sessions, 0) as cost_per_session,
+	      if(c.total_commits > 0, c.total_cost / c.total_commits, 0) as cost_per_commit,
+	      p.total_cost as prev_total_cost,
+	      if(p.total_sessions > 0, p.total_cost / p.total_sessions, 0) as prev_cost_per_session,
+	      if(p.total_commits > 0, p.total_cost / p.total_commits, 0) as prev_cost_per_commit,
+	      p.total_commits as prev_total_commits,
+	      p.total_output_tokens as prev_total_output_tokens,
+	      c.unpriced_session_count,
+	      c.unpriced_token_count,
+	      p.unpriced_session_count as previous_unpriced_session_count,
+	      p.unpriced_token_count as previous_unpriced_token_count,
+	      formatDateTime(c.period_start, '%Y-%m-%d') as current_period_start,
+	      formatDateTime(c.period_end, '%Y-%m-%d') as current_period_end,
+	      formatDateTime(p.period_start, '%Y-%m-%d') as previous_period_start,
+	      formatDateTime(p.period_end, '%Y-%m-%d') as previous_period_end
+	    FROM current_period c
+	    CROSS JOIN previous_period p
+	  `;
 
 	const result = await queryClickhouse<ROIMetricsQueryResult>({
 		query,
@@ -398,6 +405,12 @@ export async function getROIMetrics(
 		current_period_end: data.current_period_end,
 		previous_period_start: data.previous_period_start,
 		previous_period_end: data.previous_period_end,
+		unpriced_session_count: Number(data.unpriced_session_count) || 0,
+		unpriced_token_count: Number(data.unpriced_token_count) || 0,
+		previous_unpriced_session_count:
+			Number(data.previous_unpriced_session_count) || 0,
+		previous_unpriced_token_count:
+			Number(data.previous_unpriced_token_count) || 0,
 	};
 }
 
@@ -419,12 +432,16 @@ export async function getROITrends(
       SUM(total_tokens) as total_tokens,
       SUM(has_commit) as total_commits,
       COUNT(DISTINCT user_id) as active_developers,
-      AVG(success_score) as avg_success_score,
-      round((SUM(output_tokens) / 1000000.0) * ${OUTPUT_PRICE_PER_MILLION} +
-            (SUM(input_tokens) / 1000000.0) * ${INPUT_PRICE_PER_MILLION}, 2) as total_cost
-    FROM rudel.session_analytics FINAL
-    WHERE session_date >= now64(3) - toIntervalDay({days:UInt32})
-      AND organization_id = {orgId:String}
+	      ifNull(AVG(success_score), 0) as avg_success_score,
+	      round(ifNull(SUM(priced.estimated_cost), 0), 4) as total_cost,
+	      countIf(isNull(priced.estimated_cost)) as unpriced_session_count,
+	      sumIf(ifNull(priced.total_tokens, 0), isNull(priced.estimated_cost)) as unpriced_token_count
+	    FROM (
+	      SELECT *, ${PER_SESSION_COST_SQL} as estimated_cost
+	      FROM rudel.session_analytics FINAL
+	      WHERE ${buildDateFilter("days")}
+	        AND organization_id = {orgId:String}
+	    ) AS priced
     GROUP BY week_start
     ORDER BY week_start ASC
   `;
@@ -451,6 +468,8 @@ export async function getROITrends(
 			total_tokens: Number(row.total_tokens) || 0,
 			output_tokens: Number(row.total_output_tokens) || 0,
 			productivity_score: parseFloat(productivityScore.toFixed(2)),
+			unpriced_session_count: Number(row.unpriced_session_count) || 0,
+			unpriced_token_count: Number(row.unpriced_token_count) || 0,
 		};
 	});
 }
@@ -471,12 +490,16 @@ export async function getDeveloperCostBreakdown(
       SUM(input_tokens) as total_input_tokens,
       SUM(output_tokens) as total_output_tokens,
       SUM(total_tokens) as total_tokens,
-      AVG(success_score) as avg_success_score,
-      round((SUM(output_tokens) / 1000000.0) * ${OUTPUT_PRICE_PER_MILLION} +
-            (SUM(input_tokens) / 1000000.0) * ${INPUT_PRICE_PER_MILLION}, 2) as total_cost
-    FROM rudel.session_analytics FINAL
-    WHERE ${buildDateFilter("days")}
-      AND organization_id = {orgId:String}
+	      ifNull(AVG(success_score), 0) as avg_success_score,
+	      round(ifNull(SUM(priced.estimated_cost), 0), 4) as total_cost,
+	      countIf(isNull(priced.estimated_cost)) as unpriced_session_count,
+	      sumIf(ifNull(priced.total_tokens, 0), isNull(priced.estimated_cost)) as unpriced_token_count
+	    FROM (
+	      SELECT *, ${PER_SESSION_COST_SQL} as estimated_cost
+	      FROM rudel.session_analytics FINAL
+	      WHERE ${buildDateFilter("days")}
+	        AND organization_id = {orgId:String}
+	    ) AS priced
     GROUP BY user_id
     ORDER BY total_cost DESC
   `;
@@ -508,6 +531,8 @@ export async function getDeveloperCostBreakdown(
 					? parseFloat(((cost / grandTotalCost) * 100).toFixed(2))
 					: 0,
 			avg_success_score: Number(row.avg_success_score) || 0,
+			unpriced_session_count: Number(row.unpriced_session_count) || 0,
+			unpriced_token_count: Number(row.unpriced_token_count) || 0,
 		};
 	});
 }
@@ -528,13 +553,17 @@ export async function getProjectCostBreakdown(
       SUM(input_tokens) as total_input_tokens,
       SUM(output_tokens) as total_output_tokens,
       SUM(total_tokens) as total_tokens,
-      AVG(success_score) as avg_success_score,
-      round((SUM(output_tokens) / 1000000.0) * ${OUTPUT_PRICE_PER_MILLION} +
-            (SUM(input_tokens) / 1000000.0) * ${INPUT_PRICE_PER_MILLION}, 2) as total_cost
-    FROM rudel.session_analytics FINAL
-    WHERE ${buildDateFilter("days")}
-      AND organization_id = {orgId:String}
-      AND project_path != ''
+	      ifNull(AVG(success_score), 0) as avg_success_score,
+	      round(ifNull(SUM(priced.estimated_cost), 0), 4) as total_cost,
+	      countIf(isNull(priced.estimated_cost)) as unpriced_session_count,
+	      sumIf(ifNull(priced.total_tokens, 0), isNull(priced.estimated_cost)) as unpriced_token_count
+	    FROM (
+	      SELECT *, ${PER_SESSION_COST_SQL} as estimated_cost
+	      FROM rudel.session_analytics FINAL
+	      WHERE ${buildDateFilter("days")}
+	        AND organization_id = {orgId:String}
+	        AND project_path != ''
+	    ) AS priced
     GROUP BY project_path
     ORDER BY total_cost DESC
   `;
@@ -566,6 +595,8 @@ export async function getProjectCostBreakdown(
 					? parseFloat(((cost / grandTotalCost) * 100).toFixed(2))
 					: 0,
 			avg_success_score: Number(row.avg_success_score) || 0,
+			unpriced_session_count: Number(row.unpriced_session_count) || 0,
+			unpriced_token_count: Number(row.unpriced_token_count) || 0,
 		};
 	});
 }
@@ -581,14 +612,19 @@ async function getRangeSnapshot(
       SUM(input_tokens) as total_input_tokens,
       SUM(output_tokens) as total_output_tokens,
       SUM(total_tokens) as total_tokens,
-      round(SUM(${PER_SESSION_COST_SQL}), 4) as total_cost,
+	      round(ifNull(SUM(priced.estimated_cost), 0), 4) as total_cost,
+	      countIf(isNull(priced.estimated_cost)) as unpriced_session_count,
+	      sumIf(ifNull(priced.total_tokens, 0), isNull(priced.estimated_cost)) as unpriced_token_count,
       SUM(actual_duration_min) / 60.0 as total_hours,
       AVG(success_score) as avg_success_score,
       COUNT(DISTINCT user_id) as active_developers,
       SUM(has_commit) as total_commits
-    FROM rudel.session_analytics FINAL
-    WHERE ${buildInclusiveDateRangeFilter("startDate", "endDate")}
-      AND organization_id = {orgId:String}
+	    FROM (
+	      SELECT *, ${PER_SESSION_COST_SQL} as estimated_cost
+	      FROM rudel.session_analytics FINAL
+	      WHERE ${buildInclusiveDateRangeFilter("startDate", "endDate")}
+	        AND organization_id = {orgId:String}
+	    ) AS priced
   `;
 
 	const result = await queryClickhouse<RangeSnapshotRow>({
@@ -613,11 +649,16 @@ async function getDeveloperCostBreakdownForRange(
       user_id,
       COUNT(*) as total_sessions,
       SUM(total_tokens) as total_tokens,
-      AVG(success_score) as avg_success_score,
-      round(SUM(${PER_SESSION_COST_SQL}), 4) as total_cost
-    FROM rudel.session_analytics FINAL
-    WHERE ${buildInclusiveDateRangeFilter("startDate", "endDate")}
-      AND organization_id = {orgId:String}
+	      ifNull(AVG(success_score), 0) as avg_success_score,
+	      round(ifNull(SUM(priced.estimated_cost), 0), 4) as total_cost,
+	      countIf(isNull(priced.estimated_cost)) as unpriced_session_count,
+	      sumIf(ifNull(priced.total_tokens, 0), isNull(priced.estimated_cost)) as unpriced_token_count
+	    FROM (
+	      SELECT *, ${PER_SESSION_COST_SQL} as estimated_cost
+	      FROM rudel.session_analytics FINAL
+	      WHERE ${buildInclusiveDateRangeFilter("startDate", "endDate")}
+	        AND organization_id = {orgId:String}
+	    ) AS priced
     GROUP BY user_id
     ORDER BY total_cost DESC, total_tokens DESC, user_id ASC
   `;
@@ -647,6 +688,8 @@ async function getDeveloperCostBreakdownForRange(
 			cost_percentage:
 				grandTotalCost > 0 ? roundTo((cost / grandTotalCost) * 100) : 0,
 			avg_success_score: roundTo(Number(row.avg_success_score) || 0),
+			unpriced_session_count: Number(row.unpriced_session_count) || 0,
+			unpriced_token_count: Number(row.unpriced_token_count) || 0,
 		};
 	});
 }
@@ -661,12 +704,17 @@ async function getProjectCostBreakdownForRange(
       if(git_remote != '', git_remote, if(package_name != '', package_name, arrayElement(splitByChar('/', project_path), -1))) as project_path,
       COUNT(*) as total_sessions,
       SUM(total_tokens) as total_tokens,
-      AVG(success_score) as avg_success_score,
-      round(SUM(${PER_SESSION_COST_SQL}), 4) as total_cost
-    FROM rudel.session_analytics FINAL
-    WHERE ${buildInclusiveDateRangeFilter("startDate", "endDate")}
-      AND organization_id = {orgId:String}
-      AND project_path != ''
+	      ifNull(AVG(success_score), 0) as avg_success_score,
+	      round(ifNull(SUM(priced.estimated_cost), 0), 4) as total_cost,
+	      countIf(isNull(priced.estimated_cost)) as unpriced_session_count,
+	      sumIf(ifNull(priced.total_tokens, 0), isNull(priced.estimated_cost)) as unpriced_token_count
+	    FROM (
+	      SELECT *, ${PER_SESSION_COST_SQL} as estimated_cost
+	      FROM rudel.session_analytics FINAL
+	      WHERE ${buildInclusiveDateRangeFilter("startDate", "endDate")}
+	        AND organization_id = {orgId:String}
+	        AND project_path != ''
+	    ) AS priced
     GROUP BY project_path
     ORDER BY total_cost DESC, total_tokens DESC, project_path ASC
   `;
@@ -696,6 +744,8 @@ async function getProjectCostBreakdownForRange(
 			cost_percentage:
 				grandTotalCost > 0 ? roundTo((cost / grandTotalCost) * 100) : 0,
 			avg_success_score: roundTo(Number(row.avg_success_score) || 0),
+			unpriced_session_count: Number(row.unpriced_session_count) || 0,
+			unpriced_token_count: Number(row.unpriced_token_count) || 0,
 		};
 	});
 }
@@ -729,11 +779,16 @@ export async function getROIDashboard(
       SUM(input_tokens) as total_input_tokens,
       SUM(output_tokens) as total_output_tokens,
       SUM(total_tokens) as total_tokens,
-      round(SUM(${PER_SESSION_COST_SQL}), 4) as total_cost,
-      SUM(has_commit) as total_commits
-    FROM rudel.session_analytics FINAL
-    WHERE ${buildInclusiveDateRangeFilter("startDate", "endDate")}
-      AND organization_id = {orgId:String}
+	      round(ifNull(SUM(priced.estimated_cost), 0), 4) as total_cost,
+	      SUM(has_commit) as total_commits,
+	      countIf(isNull(priced.estimated_cost)) as unpriced_session_count,
+	      sumIf(ifNull(priced.total_tokens, 0), isNull(priced.estimated_cost)) as unpriced_token_count
+	    FROM (
+	      SELECT *, ${PER_SESSION_COST_SQL} as estimated_cost
+	      FROM rudel.session_analytics FINAL
+	      WHERE ${buildInclusiveDateRangeFilter("startDate", "endDate")}
+	        AND organization_id = {orgId:String}
+	    ) AS priced
     GROUP BY bucket_start
     ORDER BY bucket_start ASC
   `;
@@ -794,6 +849,8 @@ export async function getROIDashboard(
 			total_commits: current.total_commits,
 			active_developers: current.active_developers,
 			avg_success_score: current.avg_success_score,
+			unpriced_session_count: current.unpriced_session_count,
+			unpriced_token_count: current.unpriced_token_count,
 		},
 		assumptions: {
 			pricing_mode: ESTIMATED_PRICING_MODE,
@@ -816,6 +873,8 @@ export async function getROIDashboard(
 				avg_success_score: 0,
 				active_developers: 0,
 				total_commits: Number(row.total_commits) || 0,
+				unpriced_session_count: Number(row.unpriced_session_count) || 0,
+				unpriced_token_count: Number(row.unpriced_token_count) || 0,
 			});
 
 			return {
@@ -829,9 +888,13 @@ export async function getROIDashboard(
 				sessions_per_dollar: snapshot.sessions_per_dollar,
 				total_sessions: Number(row.total_sessions) || 0,
 				total_commits: Number(row.total_commits) || 0,
+				unpriced_session_count: snapshot.unpriced_session_count,
+				unpriced_token_count: snapshot.unpriced_token_count,
 			};
 		}),
 		developer_breakdown: developerBreakdown,
 		project_breakdown: projectBreakdown,
+		comparison_unpriced_session_count: previous.unpriced_session_count,
+		comparison_unpriced_token_count: previous.unpriced_token_count,
 	};
 }

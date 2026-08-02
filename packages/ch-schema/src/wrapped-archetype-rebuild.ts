@@ -1,3 +1,4 @@
+import { buildSessionEstimatedCostSql } from "../../api-routes/src/model-pricing.js";
 import { WRAPPED_ARCHETYPE_CENTROIDS } from "./wrapped-archetype-centroids.js";
 import {
 	WRAPPED_ARCHETYPE_CENTROID_VERSION,
@@ -21,15 +22,7 @@ export interface WrappedArchetypeRunInsertSqlInput
 	triggerSource: string | null;
 }
 
-// Approximate per-token cost for percent_rank normalization. Centroid
-// classification depends only on the relative ranking of users by cost, so an
-// average Sonnet-grade pricing is good enough for the launch rebuild.
-const PER_SESSION_COST_SQL = `(
-  (ifNull(input_tokens, 0) - ifNull(cache_read_input_tokens, 0) - ifNull(cache_creation_input_tokens, 0)) / 1000000.0 * 3.0
-  + ifNull(output_tokens, 0) / 1000000.0 * 15.0
-  + ifNull(cache_read_input_tokens, 0) / 1000000.0 * 0.3
-  + ifNull(cache_creation_input_tokens, 0) / 1000000.0 * 3.75
-)`;
+const PER_SESSION_COST_SQL = buildSessionEstimatedCostSql();
 
 export function buildWrappedArchetypeCentroidUnionAll(): string {
 	return WRAPPED_ARCHETYPE_CENTROIDS.map(
@@ -49,7 +42,7 @@ INSERT INTO rudel.wrapped_user_archetype_snapshots_v1
   organization_id, user_id, first_session_at, last_session_at,
   days_since_first_session, total_sessions, active_days,
   claude_session_count, codex_session_count, total_tokens,
-  estimated_spend_usd, mean_session_min, longest_session_min, commit_sessions,
+	  estimated_spend_usd, mean_session_min, longest_session_min, commit_sessions,
   distinct_repos, breadth_available, range_entropy,
   consistency_raw, intensity_raw, session_shape_raw, cost_intensity_raw,
   output_raw, breadth_raw, range_raw,
@@ -127,7 +120,9 @@ WITH
       countIf(se.source = 'claude_code') AS claude_session_count,
       countIf(se.source = 'codex') AS codex_session_count,
       sum(se.total_tokens) AS total_tokens,
-      sum(se.estimated_session_cost) AS estimated_spend_usd,
+	      -- Deprecated output column: retained only for the existing snapshot table
+	      -- shape. Product spend surfaces price live session rows and never consume it.
+	      ifNull(sum(se.estimated_session_cost), 0) AS estimated_spend_usd,
       avg(se.actual_duration_min) AS mean_session_min,
       max(se.actual_duration_min) AS longest_session_min,
       sum(se.has_commit) AS commit_sessions,
@@ -140,7 +135,7 @@ WITH
       ) AS consistency_raw,
       if(uniqExact(toDate(se.session_date)) > 0, toFloat64(count()) / uniqExact(toDate(se.session_date)), 0.0) AS intensity_raw,
       if(avg(se.actual_duration_min) > 0, toFloat64(max(se.actual_duration_min)) / avg(se.actual_duration_min), 0.0) AS session_shape_raw,
-      if(count() > 0, sum(se.estimated_session_cost) / count(), 0.0) AS cost_intensity_raw,
+	      if(count() > 0, ifNull(sum(se.estimated_session_cost), 0) / count(), 0.0) AS cost_intensity_raw,
       if(count() > 0, toFloat64(sum(se.has_commit)) / count(), 0.0) AS output_raw,
       if(
         uniqExactIf(se.repo_key, se.repo_key IS NOT NULL) > 0

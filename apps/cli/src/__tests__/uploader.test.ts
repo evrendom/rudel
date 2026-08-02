@@ -5,6 +5,7 @@ import {
 	type IngestSessionInput,
 	REDACTION_DID_NOT_CONVERGE_CODE,
 	SESSION_OWNERSHIP_CONFLICT_CODE,
+	SESSION_UPLOAD_SHRINK_REJECTED_CODE,
 } from "@rudel/api-routes";
 import { SecretFilterConvergenceError } from "@rudel/secret-filter";
 import {
@@ -89,6 +90,22 @@ describe("formatUploadError", () => {
 
 		expect(formatUploadError(error)).toBe(
 			"This session ID is already owned by another organization member. Upload it from the original member account or use a different session ID.",
+		);
+	});
+
+	test("makes the intentional smaller-session override explicit", () => {
+		const error = new ORPCError(SESSION_UPLOAD_SHRINK_REJECTED_CODE, {
+			status: 409,
+			data: {
+				currentAssistantLineCount: 2,
+				currentContentBytes: 50_000,
+				previousAssistantLineCount: 4,
+				previousContentBytes: 100_000,
+			},
+		});
+
+		expect(formatUploadError(error)).toContain(
+			"rudel upload <session> --force-replace",
 		);
 	});
 

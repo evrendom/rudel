@@ -1,4 +1,7 @@
-const MARKER = "WHERE _is_capped OR length(_timestamps) > 0";
+const SOURCE_MARKERS = [
+	"FROM rudel.claude_sessions AS cs",
+	"FROM rudel.codex_sessions AS cs",
+] as const;
 const SAFE_ID = /^[A-Za-z0-9_-]+$/;
 
 export interface SessionScope {
@@ -9,18 +12,16 @@ export interface SessionScope {
 /**
  * Scopes a materialized-view SELECT body to a single session.
  *
- * Injects the predicates into the MV's own trailing WHERE rather than wrapping the
- * query, so the inner `ROW_NUMBER()` over the full session identity is evaluated
- * over the filtered rows instead of the whole table.
+ * Injects predicates immediately after the raw source rather than wrapping the
+ * query, so the inner `ROW_NUMBER()` sees only the fixture rows.
  *
  * `organization_id` leads because it is the first column of the source table's
  * ORDER BY `(organization_id, session_date, session_id)` — a session-only predicate
  * cannot use the primary index. `session_id` is still required: tests in one run
  * share an organization id and each asserts an exact row count.
  *
- * Throws unless the marker appears exactly once. If a future SQL edit moves or
- * duplicates that clause, this fails loudly rather than silently producing an
- * unfiltered query that scans everything.
+ * Throws unless exactly one known source marker appears. If a future SQL edit
+ * moves or duplicates it, this fails loudly instead of scanning everything.
  *
  * Test-only. The chkit executor's `query<T>(sql)` takes a bare string, so the ids are
  * interpolated; the allowlist below is what makes that safe.
@@ -34,16 +35,20 @@ export function withSessionFilter(mvSql: string, scope: SessionScope): string {
 		}
 	}
 
-	const parts = mvSql.split(MARKER);
-	if (parts.length !== 2) {
+	const matchingMarkers = SOURCE_MARKERS.filter(
+		(marker) => mvSql.split(marker).length === 2,
+	);
+	if (matchingMarkers.length !== 1) {
 		throw new Error(
-			`withSessionFilter: expected exactly 1 occurrence of "${MARKER}", found ${parts.length - 1}`,
+			`withSessionFilter: expected exactly one source marker, found ${matchingMarkers.length}`,
 		);
 	}
+	const marker = matchingMarkers[0];
+	if (!marker) throw new Error("withSessionFilter: source marker missing");
 
-	return parts.join(
-		`WHERE cs.organization_id = '${scope.organizationId}'` +
-			` AND cs.session_id = '${scope.sessionId}'` +
-			` AND (_is_capped OR length(_timestamps) > 0)`,
+	return mvSql.replace(
+		marker,
+		`${marker}\n  WHERE cs.organization_id = '${scope.organizationId}'` +
+			` AND cs.session_id = '${scope.sessionId}'`,
 	);
 }

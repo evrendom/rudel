@@ -1,8 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { CLAUDE_SESSION_ANALYTICS_MV_SQL } from "../mv-sql/claude-session-analytics.js";
-import { CODEX_SESSION_ANALYTICS_MV_SQL } from "../mv-sql/codex-session-analytics.js";
 
 const migration = readFileSync(
 	resolve(import.meta.dir, "../../chx/migrations/20260730180016_auto.sql"),
@@ -18,22 +16,15 @@ function countOccurrences(value: string, search: string): number {
 }
 
 describe("session_analytics identity migration", () => {
-	test("keeps deployed MVs synchronized and rebuild deduplication narrow", () => {
+	test("keeps the historical rebuild deduplication narrow", () => {
 		const normalizedMigration = normalizeSql(migration);
 
 		expect(
 			countOccurrences(
 				normalizedMigration,
-				normalizeSql(CLAUDE_SESSION_ANALYTICS_MV_SQL),
+				"CREATE MATERIALIZED VIEW IF NOT EXISTS",
 			),
-		).toBe(1);
-		expect(
-			countOccurrences(
-				normalizedMigration,
-				normalizeSql(CODEX_SESSION_ANALYTICS_MV_SQL),
-			),
-		).toBe(1);
-
+		).toBe(2);
 		expect(countOccurrences(normalizedMigration, "ROW_NUMBER() OVER")).toBe(2);
 		expect(countOccurrences(normalizedMigration, "INNER ANY JOIN")).toBe(32);
 		expect(normalizedMigration).toContain(

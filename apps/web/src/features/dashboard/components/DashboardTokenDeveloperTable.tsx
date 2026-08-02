@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils";
 
 type DashboardTokenDeveloperTableRow = {
 	avgTokensPerSession: number;
-	cost: number;
+	cost: number | null;
 	id: string;
 	imageUrl?: string | null;
 	inputTokens: number;
@@ -43,7 +43,7 @@ function formatTokenMix(inputTokens: number, outputTokens: number) {
 
 	const inputPercent = Math.round((inputTokens / totalTokens) * 100);
 
-	return `${inputPercent} IN / ${100 - inputPercent} OUT`;
+	return `${inputPercent} IN (incl. cache) / ${100 - inputPercent} OUT`;
 }
 
 function getAvatarInitials(fullLabel: string) {
@@ -63,7 +63,7 @@ function getAvatarInitials(fullLabel: string) {
 	return `${parts[0]?.[0] ?? ""}${parts.at(-1)?.[0] ?? ""}`.toUpperCase();
 }
 
-function buildRows(
+export function buildDashboardTokenDeveloperRows(
 	performanceUsers: DashboardPerformanceUserComparison[],
 	highlightedDate: string | null,
 	trendData: UserDailyTrendData[] | undefined,
@@ -92,12 +92,24 @@ function buildRows(
 			return {
 				avgTokensPerSession:
 					sessions > 0 ? Math.round(totalTokens / sessions) : 0,
-				cost: user.cost,
+				cost:
+					highlightedDate != null
+						? (highlightedRow?.estimated_cost ?? null)
+						: user.cost,
 				id: user.userId,
 				imageUrl: user.imageUrl,
-				inputTokens: user.inputTokens,
-				modelsUsed: user.modelsUsed,
-				outputTokens: user.outputTokens,
+				inputTokens:
+					highlightedDate != null
+						? (highlightedRow?.input_tokens ?? 0)
+						: user.inputTokens,
+				modelsUsed:
+					highlightedDate != null
+						? (highlightedRow?.models_used ?? [])
+						: user.modelsUsed,
+				outputTokens:
+					highlightedDate != null
+						? (highlightedRow?.output_tokens ?? 0)
+						: user.outputTokens,
 				sessions,
 				totalTokens,
 				userLabel: user.label,
@@ -126,7 +138,11 @@ export function DashboardTokenDeveloperTable({
 	performanceUsers: DashboardPerformanceUserComparison[];
 	trendData: UserDailyTrendData[] | undefined;
 }) {
-	const rows = buildRows(performanceUsers, highlightedDate, trendData);
+	const rows = buildDashboardTokenDeveloperRows(
+		performanceUsers,
+		highlightedDate,
+		trendData,
+	);
 	const hasTableHighlight =
 		highlightSource === "table" && highlightedUserId != null;
 	const hasChartHighlight =
@@ -199,15 +215,7 @@ export function DashboardTokenDeveloperTable({
 				{
 					id: "cost",
 					header: "Cost",
-					renderCell: (row) => (
-						<DashboardTokenCostCell
-							at={undefined}
-							cost={row.cost > 0 ? row.cost : null}
-							inputTokens={row.inputTokens}
-							model={undefined}
-							outputTokens={row.outputTokens}
-						/>
-					),
+					renderCell: (row) => <DashboardTokenCostCell cost={row.cost} />,
 				},
 			]}
 			rows={rows}

@@ -1,5 +1,6 @@
 import type {
 	ErrorsDashboard,
+	ErrorsDashboardSummary,
 	ErrorTrendDataPoint,
 	RecurringError,
 } from "@rudel/api-routes";
@@ -49,6 +50,29 @@ function buildRecurringErrorsQuery(dateFilter: string) {
     HAVING occurrences >= {minOccurrences:UInt32}
     ORDER BY occurrences DESC, affected_users DESC, error_pattern ASC
     LIMIT {limit:UInt32}
+  `;
+}
+
+function buildErrorsSummaryQuery(dateFilter: string) {
+	return `
+    WITH error_patterns AS (
+      SELECT
+        sa.error_pattern AS error_pattern,
+        count() AS occurrences,
+        uniq(sa.user_id) AS affected_users
+      FROM rudel.session_analytics AS sa FINAL
+      WHERE ${dateFilter}
+        AND sa.organization_id = {orgId:String}
+        AND sa.error_pattern != ''
+      GROUP BY sa.error_pattern
+    )
+    SELECT
+      ifNull(sum(occurrences), 0) AS total_errors,
+      count() AS distinct_patterns,
+      countIf(occurrences >= 10) AS high_severity_patterns,
+      ifNull(max(affected_users), 0) AS max_affected_users,
+      ifNull(argMax(error_pattern, tuple(occurrences, affected_users, error_pattern)), '') AS top_error_pattern
+    FROM error_patterns
   `;
 }
 
@@ -120,32 +144,41 @@ export async function getErrorsDashboard(
 	},
 ): Promise<ErrorsDashboard> {
 	const { start_date, end_date, limit = 15 } = params;
-	const recurring = await queryClickhouse<RecurringError>({
-		query: buildRecurringErrorsQuery(
-			buildInclusiveDateRangeFilter("startDate", "endDate", "sa.session_date"),
-		),
-		query_params: {
-			startDate: start_date,
-			endDate: end_date,
-			orgId,
-			minOccurrences: 1,
-			limit: Number(limit),
-		},
-	});
+	const dateFilter = buildInclusiveDateRangeFilter(
+		"startDate",
+		"endDate",
+		"sa.session_date",
+	);
+	const queryParams = {
+		startDate: start_date,
+		endDate: end_date,
+		orgId,
+	};
+	const [recurring, summaryRows] = await Promise.all([
+		queryClickhouse<RecurringError>({
+			query: buildRecurringErrorsQuery(dateFilter),
+			query_params: {
+				...queryParams,
+				minOccurrences: 1,
+				limit: Number(limit),
+			},
+		}),
+		queryClickhouse<ErrorsDashboardSummary>({
+			query: buildErrorsSummaryQuery(dateFilter),
+			query_params: queryParams,
+		}),
+	]);
+	const summary = summaryRows[0];
 
 	return {
 		start_date,
 		end_date,
-		summary: {
-			total_errors: recurring.reduce((sum, row) => sum + row.occurrences, 0),
-			distinct_patterns: recurring.length,
-			high_severity_patterns: recurring.filter((row) => row.severity === "high")
-				.length,
-			max_affected_users: recurring.reduce(
-				(max, row) => Math.max(max, row.affected_users),
-				0,
-			),
-			top_error_pattern: recurring[0]?.error_pattern ?? "",
+		summary: summary ?? {
+			total_errors: 0,
+			distinct_patterns: 0,
+			high_severity_patterns: 0,
+			max_affected_users: 0,
+			top_error_pattern: "",
 		},
 		recurring,
 	};

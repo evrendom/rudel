@@ -4,10 +4,17 @@ import { sqlClient } from "../db.js";
 const logger = getLogger(["rudel", "api", "session-ownership"]);
 
 type SessionOwnershipClaim =
-	| { owned: true; lastContentSha256: string | null }
+	| {
+			owned: true;
+			lastAssistantLineCount: number | null;
+			lastContentBytes: number | null;
+			lastContentSha256: string | null;
+	  }
 	| { owned: false; ownerId: string };
 
 interface ReservedSessionOwner {
+	lastAssistantLineCount: number | null;
+	lastContentBytes: number | null;
 	lastContentSha256: string | null;
 	userId: string;
 }
@@ -29,6 +36,8 @@ export async function recordSessionIngestContent(
 	organizationId: string,
 	sessionId: string,
 	contentSha256: string,
+	contentBytes: number,
+	assistantLineCount: number,
 	ingestedAt: Date,
 ): Promise<void> {
 	// This guard orders bookkeeping for successful writes with distinct
@@ -40,6 +49,8 @@ export async function recordSessionIngestContent(
 		UPDATE session_ownership
 		SET
 			last_content_sha256 = ${contentSha256},
+			last_content_bytes = ${contentBytes},
+			last_assistant_line_count = ${assistantLineCount},
 			last_ingested_at = ${ingestedAtIso}
 		WHERE organization_id = ${organizationId}
 			AND session_id = ${sessionId}
@@ -71,7 +82,12 @@ async function reserveSessionOwner(
 ): Promise<ReservedSessionOwner> {
 	// The no-op update returns the winning row when a concurrent insert wins.
 	const [row] = await sqlClient<
-		Array<{ last_content_sha256: string | null; user_id: string }>
+		Array<{
+			last_assistant_line_count: number | null;
+			last_content_bytes: number | null;
+			last_content_sha256: string | null;
+			user_id: string;
+		}>
 	>`
 		INSERT INTO session_ownership AS ownership (
 			organization_id,
@@ -85,12 +101,18 @@ async function reserveSessionOwner(
 		)
 		ON CONFLICT (organization_id, session_id) DO UPDATE
 		SET user_id = ownership.user_id
-		RETURNING user_id, last_content_sha256
+		RETURNING
+			user_id,
+			last_content_sha256,
+			last_content_bytes,
+			last_assistant_line_count
 	`;
 	if (!row) {
 		throw new Error("Session ownership reservation did not return an owner");
 	}
 	return {
+		lastAssistantLineCount: row.last_assistant_line_count,
+		lastContentBytes: row.last_content_bytes,
 		lastContentSha256: row.last_content_sha256,
 		userId: row.user_id,
 	};
@@ -105,6 +127,8 @@ function getOwnershipClaim(
 	if (reservedOwner.userId === userId) {
 		return {
 			owned: true,
+			lastAssistantLineCount: reservedOwner.lastAssistantLineCount,
+			lastContentBytes: reservedOwner.lastContentBytes,
 			lastContentSha256: reservedOwner.lastContentSha256,
 		};
 	}

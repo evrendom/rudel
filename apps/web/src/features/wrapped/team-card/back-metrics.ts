@@ -1,6 +1,7 @@
 import type { TeamPageMemberRow } from "@/features/team/use-team-page-data";
 import { hasWrappedRecapFeatureSignal } from "@/features/wrapped/onboarding/models/feature-signal";
 import type { WrappedOnboardingMetrics } from "@/features/wrapped/onboarding/types";
+import { formatCurrency } from "@/lib/format";
 import type { WrappedTeamMemberCardBackMetric } from "./card-back";
 
 export function buildWrappedTeamCardBackMetrics(input: {
@@ -8,21 +9,12 @@ export function buildWrappedTeamCardBackMetrics(input: {
 	row: TeamPageMemberRow;
 	shareCardCreatedAtLabel: string;
 }): readonly WrappedTeamMemberCardBackMetric[] {
-	const { onboardingMetrics, row, shareCardCreatedAtLabel } = input;
-	const activeDays = Math.max(
-		0,
-		onboardingMetrics.activeDays || row.activeDays,
-	);
-	const totalSessions = Math.max(
-		0,
-		onboardingMetrics.totalSessions || row.totalSessions,
-	);
-	const totalTokens = Math.max(
-		0,
-		onboardingMetrics.totalTokens || row.totalTokens,
-	);
-	const inputTokens = Math.max(0, row.inputTokens);
-	const outputTokens = Math.max(0, row.outputTokens);
+	const { onboardingMetrics, shareCardCreatedAtLabel } = input;
+	const activeDays = Math.max(0, onboardingMetrics.activeDays);
+	const totalSessions = Math.max(0, onboardingMetrics.totalSessions);
+	const totalTokens = Math.max(0, onboardingMetrics.totalTokens);
+	const inputTokens = Math.max(0, onboardingMetrics.inputTokens);
+	const outputTokens = Math.max(0, onboardingMetrics.outputTokens);
 	const avgSessionMin =
 		onboardingMetrics.avgSessionMin && onboardingMetrics.avgSessionMin > 0
 			? onboardingMetrics.avgSessionMin
@@ -40,11 +32,8 @@ export function buildWrappedTeamCardBackMetrics(input: {
 		onboardingMetrics.longestSessionMin > 0
 			? onboardingMetrics.longestSessionMin
 			: null;
-	const estimatedSpend = Math.max(
-		0,
-		Math.round(Math.max(row.cost, onboardingMetrics.estimatedCostUsd)),
-	);
-	const reposTouched = Math.max(0, onboardingMetrics.repoPulse.totalRepos);
+	const estimatedSpend = Math.max(0, onboardingMetrics.estimatedCostUsd);
+	const reposTouched = Math.max(0, onboardingMetrics.distinctProjectCount);
 	const hasSkillRecapSignal = hasWrappedRecapFeatureSignal({
 		adoptionRate: onboardingMetrics.skillsAdoptionRate,
 		topItemCount: onboardingMetrics.topSkills[0]?.count ?? null,
@@ -55,18 +44,18 @@ export function buildWrappedTeamCardBackMetrics(input: {
 	});
 	const skillSessionsUsed = hasSkillRecapSignal
 		? getWrappedBackFeatureSessionCount(
-				totalSessions,
+				onboardingMetrics.recentWindowSessions,
 				onboardingMetrics.skillsAdoptionRate,
 			)
 		: 0;
 	const commandSessionsUsed = hasSlashCommandRecapSignal
 		? getWrappedBackFeatureSessionCount(
-				totalSessions,
+				onboardingMetrics.recentWindowSessions,
 				onboardingMetrics.slashCommandsAdoptionRate,
 			)
 		: 0;
 	const subagentSessionsUsed = getWrappedBackFeatureSessionCount(
-		totalSessions,
+		onboardingMetrics.recentWindowSessions,
 		onboardingMetrics.subagentsAdoptionRate,
 	);
 	const claudeShare = Math.round(
@@ -102,7 +91,7 @@ export function buildWrappedTeamCardBackMetrics(input: {
 			value: formatWrappedBackInteger(longestSessionMin),
 		},
 		{
-			label: "Input/output tokens",
+			label: "Input (incl. cache)/output",
 			value: formatWrappedBackTokenPair(inputTokens, outputTokens),
 		},
 		{
@@ -122,7 +111,7 @@ export function buildWrappedTeamCardBackMetrics(input: {
 			value: formatWrappedBackPercentPair(claudeShare, codexShare),
 		},
 		{
-			label: "Skills used",
+			label: "Skills used (365d)",
 			value: formatWrappedBackInteger(skillSessionsUsed),
 		},
 		{
@@ -133,11 +122,11 @@ export function buildWrappedTeamCardBackMetrics(input: {
 			valueTruncation: "start",
 		},
 		{
-			label: "Commands used",
+			label: "Commands used (365d)",
 			value: formatWrappedBackInteger(commandSessionsUsed),
 		},
 		{
-			label: "Sub-agents used",
+			label: "Sub-agents used (365d)",
 			value: formatWrappedBackInteger(subagentSessionsUsed),
 		},
 		{
@@ -145,12 +134,12 @@ export function buildWrappedTeamCardBackMetrics(input: {
 			value: formatWrappedBackInteger(reposTouched),
 		},
 		{
-			label: "Spent",
-			value: formatWrappedBackInteger(estimatedSpend),
+			label: "Estimated spend",
+			value: formatCurrency(estimatedSpend),
 		},
 		{
-			label: "Dollar per commit",
-			value: formatWrappedBackDecimal(dollarsPerCommit),
+			label: "Estimated $ / commit",
+			value: formatCurrency(dollarsPerCommit),
 		},
 		{
 			label: "",
@@ -240,18 +229,6 @@ function formatWrappedBackPercentPair(
 	rightValue: number | null,
 ) {
 	return `${formatWrappedBackInteger(leftValue)}%/${formatWrappedBackInteger(rightValue)}%`;
-}
-
-function formatWrappedBackDecimal(value: number | null) {
-	if (value === null || !Number.isFinite(value) || value <= 0) {
-		return "0";
-	}
-
-	const roundedValue = Math.round(value * 10) / 10;
-
-	return Number.isInteger(roundedValue)
-		? roundedValue.toString()
-		: roundedValue.toFixed(1);
 }
 
 function getWrappedBackFeatureSessionCount(

@@ -4,6 +4,11 @@
 		"noEmit": true,
 		"types": ["bun-types"]
 	},
-	"include": ["src", "scripts/chcli-connect.ts"],
+	"include": [
+		"src",
+		"scripts/chcli-connect.ts",
+		"scripts/recount-token-classes.ts",
+		"scripts/token-recount"
+	],
 	"exclude": ["src/generated"]
 }

@@ -374,33 +374,31 @@ function applyDevPreviewPublicShareMetrics(input: {
 
 	return {
 		...input.metrics,
-		activeDays: Math.max(input.metrics.activeDays, row.activeDays),
+		activeDays: row.activeDays,
 		avgSessionMin:
 			input.metrics.avgSessionMin ?? revealMetrics?.avgSessionMin ?? null,
 		commitRate: input.metrics.commitRate ?? revealMetrics?.commitRate ?? null,
-		daysSinceFirst: Math.max(
-			input.metrics.daysSinceFirst,
-			revealMetrics?.daysSinceFirst ?? 0,
+		commitSessions: Math.round(
+			(row.totalSessions *
+				(input.metrics.commitRate ?? revealMetrics?.commitRate ?? 0)) /
+				100,
 		),
-		distinctProjectCount: Math.max(
-			input.metrics.distinctProjectCount,
-			revealMetrics?.distinctProjectCount ?? 0,
-		),
-		estimatedCostTokenBasis: Math.max(
-			input.metrics.estimatedCostTokenBasis,
-			row.totalTokens,
-		),
-		estimatedCostUsd: Math.max(
-			input.metrics.estimatedCostUsd,
-			Math.round(row.cost),
-		),
+		coreWindow: "all_time",
+		daysSinceFirst:
+			revealMetrics?.daysSinceFirst ?? input.metrics.daysSinceFirst,
+		distinctProjectCount:
+			revealMetrics?.distinctProjectCount ?? input.metrics.distinctProjectCount,
+		estimatedCostTokenBasis: row.totalTokens,
+		estimatedCostUsd: row.cost,
 		favoriteModel: input.metrics.favoriteModel ?? row.favoriteModel,
+		inputTokens: row.inputTokens,
 		longestSessionMin:
 			input.metrics.longestSessionMin ??
 			revealMetrics?.longestSessionMin ??
 			null,
-		totalSessions: Math.max(input.metrics.totalSessions, row.totalSessions),
-		totalTokens: Math.max(input.metrics.totalTokens, row.totalTokens),
+		outputTokens: row.outputTokens,
+		totalSessions: row.totalSessions,
+		totalTokens: row.inputTokens + row.outputTokens,
 	};
 }
 

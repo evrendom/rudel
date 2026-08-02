@@ -17,6 +17,7 @@ const session: SessionAnalytics = {
 	project_path: "/Users/evren/rudel",
 	repository: "obsessiondb/rudel",
 	duration_min: 12,
+	estimated_cost: 2.502135,
 	total_tokens: 10_000,
 	input_tokens: 6_000,
 	output_tokens: 4_000,
@@ -29,6 +30,8 @@ const session: SessionAnalytics = {
 	has_commit: true,
 	model_used: "gpt-5",
 	used_plan_mode: false,
+	is_capped: false,
+	stale_extraction: false,
 };
 
 const otherSession: SessionAnalytics = {
@@ -54,6 +57,7 @@ describe("DashboardTokenRecentSessionsTable", () => {
 			screen.getByText("Session detail disabled for demo."),
 		).toBeInTheDocument();
 		expect(screen.queryByRole("button")).not.toBeInTheDocument();
+		expect(screen.getByText("$2.50")).toBeInTheDocument();
 
 		fireEvent.click(screen.getByText("obsessiondb/rudel"));
 

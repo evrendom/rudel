@@ -11,6 +11,7 @@ import {
 	buildLatestRawSessionContentSql,
 	queryClickhouse,
 } from "../clickhouse.js";
+import { buildSessionEstimatedCostSql } from "./pricing.service.js";
 
 export interface SessionAnalyticsRaw {
 	session_id: string;
@@ -37,6 +38,7 @@ export interface SessionAnalyticsRaw {
 	total_tokens: number;
 	input_tokens: number;
 	output_tokens: number;
+	estimated_cost: number | null;
 
 	// Git activity
 	git_sha: string;
@@ -55,6 +57,8 @@ export interface SessionAnalyticsRaw {
 	error_count: number;
 	model_used: string;
 	used_plan_mode: number;
+	is_capped: number;
+	stale_extraction: number;
 }
 
 export interface SessionAnalyticsSummary extends SessionAnalyticsSummaryBase {
@@ -144,6 +148,7 @@ export async function getSessionAnalytics(
 				? "total_interactions"
 				: "sa.session_date";
 	const sortDirection = sort_order === "asc" ? "ASC" : "DESC";
+	const estimatedCostSql = buildSessionEstimatedCostSql("sa");
 
 	const query = `
     SELECT
@@ -174,7 +179,10 @@ export async function getSessionAnalytics(
       success_score,
       error_count,
       model_used,
-      used_plan_mode
+      used_plan_mode,
+	  is_capped,
+	  stale_extraction,
+      ${estimatedCostSql} AS estimated_cost
     FROM rudel.session_analytics AS sa FINAL
     WHERE ${dateFilter}
       AND organization_id = {orgId:String}
@@ -211,6 +219,10 @@ export async function getSessionAnalytics(
 			has_commit: row.has_commit > 0,
 			model_used: row.model_used,
 			used_plan_mode: row.used_plan_mode > 0,
+			is_capped: row.is_capped > 0,
+			stale_extraction: row.stale_extraction > 0,
+			estimated_cost:
+				row.estimated_cost === null ? null : Number(row.estimated_cost),
 		}),
 	);
 }
@@ -692,6 +704,7 @@ export async function getSessionDetail(
 	sessionId: string,
 	ownerId: string,
 ): Promise<SessionDetail | null> {
+	const estimatedCostSql = buildSessionEstimatedCostSql("sa");
 	const query = `
     WITH latest_raw_session_content AS (
       ${buildLatestRawSessionContentSql({
@@ -718,7 +731,10 @@ export async function getSessionDetail(
       sa.success_score,
       dateDiff('second', sa.session_date, sa.last_interaction_date) / 60.0 as duration_min,
       sa.total_interactions,
-      sa.model_used
+      sa.model_used,
+	  toUInt8(sa.is_capped) AS is_capped,
+	  toUInt8(sa.stale_extraction) AS stale_extraction,
+      ${estimatedCostSql} AS estimated_cost
     FROM rudel.session_analytics AS sa
     INNER ANY JOIN latest_raw_session_content AS raw
       ON raw.source = sa.source
@@ -751,5 +767,7 @@ export async function getSessionDetail(
 		repository: row.repository || null,
 		git_branch: row.git_branch || null,
 		git_sha: row.git_sha || null,
+		is_capped: Number(row.is_capped) > 0,
+		stale_extraction: Number(row.stale_extraction) > 0,
 	};
 }

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { calculateCost, formatUsername } from "@/lib/format";
+import { formatCurrency, formatUsername } from "@/lib/format";
 import {
 	createSessionMetadataBadges,
 	getConversationSummary,
@@ -13,7 +13,6 @@ import {
 const subagentTokenUsageSchema = z.object({
 	cache_creation_input_tokens: z.number().nonnegative().optional(),
 	cache_read_input_tokens: z.number().nonnegative().optional(),
-	cached_input_tokens: z.number().nonnegative().optional(),
 	input_tokens: z.number().nonnegative().optional(),
 	output_tokens: z.number().nonnegative().optional(),
 });
@@ -24,19 +23,6 @@ const subagentTranscriptLineSchema = z.object({
 			id: z.string().optional(),
 			model: z.string().optional(),
 			usage: subagentTokenUsageSchema.optional(),
-		})
-		.optional(),
-	payload: z
-		.object({
-			info: z
-				.object({
-					total_token_usage: subagentTokenUsageSchema.optional(),
-				})
-				.nullable()
-				.optional(),
-			model: z.string().optional(),
-			model_provider: z.string().optional(),
-			type: z.string().optional(),
 		})
 		.optional(),
 	type: z.string().optional(),
@@ -59,9 +45,11 @@ export interface SessionSubagentSummary {
 export interface SessionDetailViewModelSource {
 	content?: unknown;
 	duration_min?: unknown;
+	estimated_cost?: unknown;
 	git_branch?: unknown;
 	git_sha?: unknown;
 	input_tokens?: unknown;
+	is_capped?: unknown;
 	model_used?: unknown;
 	output_tokens?: unknown;
 	repository?: unknown;
@@ -70,6 +58,7 @@ export interface SessionDetailViewModelSource {
 	skills?: unknown;
 	slash_commands?: unknown;
 	subagents?: unknown;
+	stale_extraction?: unknown;
 	total_interactions?: unknown;
 	user_id?: unknown;
 }
@@ -110,24 +99,11 @@ function getClaudeTokenTotal(
 	return hasUsage ? totalTokens : undefined;
 }
 
-function getCodexTokenTotal(
-	usage: z.infer<typeof subagentTokenUsageSchema> | undefined,
-) {
-	if (!usage) {
-		return undefined;
-	}
-
-	return (usage.input_tokens ?? 0) + (usage.output_tokens ?? 0);
-}
-
 function summarizeSubagentTranscript(
 	id: string,
 	content: string,
 ): SessionSubagentSummary {
 	const assistantLines: ClaudeAssistantLine[] = [];
-	let codexModel: string | undefined;
-	let codexModelProvider: string | undefined;
-	let codexUsage: z.infer<typeof subagentTokenUsageSchema> | undefined;
 
 	for (const rawLine of content.split("\n")) {
 		if (!rawLine.trim()) {
@@ -146,38 +122,16 @@ function summarizeSubagentTranscript(
 				usage: line.message.usage,
 			});
 		}
-
-		if (line.type === "session_meta" && line.payload?.model_provider) {
-			codexModelProvider ??= line.payload.model_provider;
-		}
-
-		if (line.type === "turn_context" && line.payload?.model) {
-			codexModel ??= line.payload.model;
-		}
-
-		if (
-			line.type === "event_msg" &&
-			line.payload?.type === "token_count" &&
-			line.payload.info?.total_token_usage
-		) {
-			codexUsage = line.payload.info.total_token_usage;
-		}
 	}
 
 	const claudeModel = assistantLines.reduce<string | undefined>(
 		(model, line) => line.model ?? model,
 		undefined,
 	);
-	const isClaudeTranscript = assistantLines.length > 0;
-
 	return {
 		id,
-		model: isClaudeTranscript
-			? claudeModel
-			: (codexModel ?? codexModelProvider),
-		totalTokens: isClaudeTranscript
-			? getClaudeTokenTotal(assistantLines)
-			: getCodexTokenTotal(codexUsage),
+		model: claudeModel,
+		totalTokens: getClaudeTokenTotal(assistantLines),
 	};
 }
 
@@ -187,17 +141,6 @@ export function summarizeSessionSubagents(
 	return Object.entries(subagents).map(([id, content]) =>
 		summarizeSubagentTranscript(id, content),
 	);
-}
-
-function formatSessionCost(value: number) {
-	const fractionDigits = value >= 100 ? 0 : 2;
-
-	return value.toLocaleString("en-US", {
-		style: "currency",
-		currency: "USD",
-		minimumFractionDigits: fractionDigits,
-		maximumFractionDigits: fractionDigits,
-	});
 }
 
 export function buildSessionDetailViewModel(
@@ -214,6 +157,11 @@ export function buildSessionDetailViewModel(
 			: formatUsername(safeUserId, userMap);
 	const safeInputTokens = toNumber(session.input_tokens);
 	const safeOutputTokens = toNumber(session.output_tokens);
+	const estimatedCost =
+		typeof session.estimated_cost === "number" &&
+		Number.isFinite(session.estimated_cost)
+			? session.estimated_cost
+			: null;
 	const safeDurationMin =
 		session.duration_min === undefined
 			? undefined
@@ -229,6 +177,11 @@ export function buildSessionDetailViewModel(
 	const safeGitBranch = toOptionalString(session.git_branch);
 	const safeGitSha = toOptionalString(session.git_sha);
 	const safeModelUsed = toOptionalString(session.model_used) ?? undefined;
+	const safeIsPartialData =
+		session.is_capped === true ||
+		toNumber(session.is_capped) > 0 ||
+		session.stale_extraction === true ||
+		toNumber(session.stale_extraction) > 0;
 	const safeContent = toContentString(session.content);
 	const metadataBadges = createSessionMetadataBadges({
 		gitBranch: safeGitBranch,
@@ -238,12 +191,7 @@ export function buildSessionDetailViewModel(
 	const subagentSummaries = summarizeSessionSubagents(safeSubagents);
 	const subagentNames = subagentSummaries.map((subagent) => subagent.id);
 	const tokenUsageLabel = `${safeInputTokens.toLocaleString()} / ${safeOutputTokens.toLocaleString()}`;
-	const costLabel = formatSessionCost(
-		calculateCost(safeInputTokens, safeOutputTokens, {
-			at: safeSessionDate,
-			model: safeModelUsed,
-		}),
-	);
+	const costLabel = formatCurrency(estimatedCost);
 
 	return {
 		conversationSummary,
@@ -253,6 +201,7 @@ export function buildSessionDetailViewModel(
 		safeDurationMin,
 		safeGitSha,
 		safeInputTokens,
+		safeIsPartialData,
 		safeModelUsed,
 		safeOutputTokens,
 		safeSessionDate,

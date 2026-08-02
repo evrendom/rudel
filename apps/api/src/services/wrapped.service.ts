@@ -12,7 +12,7 @@ import {
 } from "@rudel/ch-schema/wrapped-archetype-constants";
 import { buildWrappedArchetypeCentroidUnionAll } from "@rudel/ch-schema/wrapped-archetype-rebuild";
 import { queryClickhouse } from "../clickhouse.js";
-import { buildEstimatedCostSql } from "./pricing.service.js";
+import { buildSessionEstimatedCostSql } from "./pricing.service.js";
 import { buildWrappedArchetypeGate } from "./wrapped-archetype-gate.js";
 import { enqueueWrappedArchetypeSnapshotRebuild } from "./wrapped-archetype-rebuild.service.js";
 
@@ -23,28 +23,29 @@ import { enqueueWrappedArchetypeSnapshotRebuild } from "./wrapped-archetype-rebu
 // More editorial or heuristic beats can still be layered on the client from
 // developer analytics, but this endpoint should remain the baseline contract
 // product can point to without caveats.
-const VERIFIED_METRIC_COUNT = 8;
+const VERIFIED_METRIC_COUNT = 15;
 
-const PER_SESSION_COST_SQL = buildEstimatedCostSql({
-	modelExpr: "model_used",
-	dateExpr: "session_date",
-	inputExpr:
-		"(ifNull(input_tokens, 0) - ifNull(cache_read_input_tokens, 0) - ifNull(cache_creation_input_tokens, 0))",
-	outputExpr: "ifNull(output_tokens, 0)",
-	cacheReadInputExpr: "ifNull(cache_read_input_tokens, 0)",
-	cacheCreationInputExpr: "ifNull(cache_creation_input_tokens, 0)",
-});
+const PER_SESSION_COST_SQL = buildSessionEstimatedCostSql();
 
 interface WrappedSummaryRow {
 	active_days: number | string | null;
+	avg_session_min: number | string | null;
 	claude_session_count: number | string | null;
 	codex_session_count: number | string | null;
+	commit_rate: number | string | null;
+	commit_sessions: number | string | null;
+	distinct_project_count: number | string | null;
 	estimated_spend_usd: number | string | null;
 	first_session_at: string | null;
 	last_session_at: string | null;
 	longest_session_min: number | string | null;
+	input_tokens: number | string | null;
+	output_tokens: number | string | null;
+	success_rate: number | string | null;
 	total_sessions: number | string | null;
 	total_tokens: number | string | null;
+	unpriced_session_count: number | string | null;
+	unpriced_token_count: number | string | null;
 }
 
 interface FavoriteModelRow {
@@ -117,9 +118,18 @@ export async function getWrappedV1Data(
 			total_sessions: totalSessions,
 			active_days: activeDays,
 			favorite_model: favoriteModel,
+			input_tokens: toNumber(summaryRow.input_tokens),
+			output_tokens: toNumber(summaryRow.output_tokens),
 			total_tokens: toNumber(summaryRow.total_tokens),
+			avg_session_min: roundTo(toNumber(summaryRow.avg_session_min), 2),
+			commit_sessions: toNumber(summaryRow.commit_sessions),
+			commit_rate: roundPercent(toNumber(summaryRow.commit_rate)),
+			success_rate: roundPercent(toNumber(summaryRow.success_rate)),
+			distinct_project_count: toNumber(summaryRow.distinct_project_count),
 			estimated_spend_usd: roundCurrency(summaryRow.estimated_spend_usd),
 			longest_session_min: toNumber(summaryRow.longest_session_min),
+			unpriced_session_count: toNumber(summaryRow.unpriced_session_count),
+			unpriced_token_count: toNumber(summaryRow.unpriced_token_count),
 			source_split: [
 				buildSourceSplit("claude_code", claudeSessionCount, totalSessions),
 				buildSourceSplit("codex", codexSessionCount, totalSessions),
@@ -160,13 +170,25 @@ async function getWrappedSummary(
 					formatDateTime(max(session_date), '%Y-%m-%dT%H:%i:%SZ')
 				) AS last_session_at,
 				ifNull(sum(ifNull(input_tokens, 0) + ifNull(output_tokens, 0)), 0) AS total_tokens,
-				round(ifNull(sum(${PER_SESSION_COST_SQL}), 0), 4) AS estimated_spend_usd,
+				ifNull(sum(ifNull(input_tokens, 0)), 0) AS input_tokens,
+				ifNull(sum(ifNull(output_tokens, 0)), 0) AS output_tokens,
+				ifNull(round(avg(actual_duration_min), 2), 0) AS avg_session_min,
+				countIf(has_commit = 1) AS commit_sessions,
+				if(count() = 0, 0, round(countIf(has_commit = 1) * 100 / count(), 2)) AS commit_rate,
+				ifNull(round(avg(success_score), 2), 0) AS success_rate,
+				uniqExact(if(git_remote != '', git_remote, if(package_name != '', package_name, project_path))) AS distinct_project_count,
+				round(ifNull(sum(priced.estimated_cost), 0), 4) AS estimated_spend_usd,
+				countIf(isNull(priced.estimated_cost)) AS unpriced_session_count,
+				sumIf(ifNull(priced.total_tokens, 0), isNull(priced.estimated_cost)) AS unpriced_token_count,
 				ifNull(maxOrNull(actual_duration_min), 0) AS longest_session_min,
 				countIf(source = 'claude_code') AS claude_session_count,
 				countIf(source = 'codex') AS codex_session_count
-			FROM rudel.session_analytics FINAL
-			WHERE organization_id = {orgId:String}
-				AND user_id = {userId:String}
+			FROM (
+				SELECT *, ${PER_SESSION_COST_SQL} AS estimated_cost
+				FROM rudel.session_analytics FINAL
+				WHERE organization_id = {orgId:String}
+					AND user_id = {userId:String}
+			) AS priced
 		`,
 		query_params: {
 			orgId,
@@ -387,14 +409,23 @@ function buildSourceSplit(
 function getEmptyWrappedSummaryRow(): WrappedSummaryRow {
 	return {
 		active_days: 0,
+		avg_session_min: 0,
 		claude_session_count: 0,
 		codex_session_count: 0,
+		commit_rate: 0,
+		commit_sessions: 0,
+		distinct_project_count: 0,
 		estimated_spend_usd: 0,
 		first_session_at: null,
 		last_session_at: null,
 		longest_session_min: 0,
+		input_tokens: 0,
+		output_tokens: 0,
+		success_rate: 0,
 		total_sessions: 0,
 		total_tokens: 0,
+		unpriced_session_count: 0,
+		unpriced_token_count: 0,
 	};
 }
 

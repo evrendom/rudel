@@ -6,7 +6,7 @@ export const wrappedHandoverData = WrappedHandoverSchema.parse({
 		title: "Your Claude Code / Codex Wrapped",
 		description:
 			"A trading-card view of how you actually use Claude Code and Codex, shaped for screenshots instead of dashboards.",
-		termsLabel: "8 verified metrics",
+		termsLabel: "15 verified metrics",
 		hud: {
 			title: "Metric HUD",
 			description: "Candidate stats to pull into the wrapped story.",

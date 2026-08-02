@@ -21,7 +21,7 @@ import {
 	queryClickhouse,
 } from "../clickhouse.js";
 import { sqlClient } from "../db.js";
-import { buildEstimatedCostSql } from "./pricing.service.js";
+import { buildSessionEstimatedCostSql } from "./pricing.service.js";
 
 export interface DeveloperSummary extends DeveloperSummaryBase {
 	username?: string;
@@ -48,15 +48,7 @@ export interface DeveloperProjectTimeline {
 	total_tokens: number;
 }
 
-const PER_SESSION_COST_SQL = buildEstimatedCostSql({
-	modelExpr: "model_used",
-	dateExpr: "session_date",
-	inputExpr:
-		"(ifNull(input_tokens, 0) - ifNull(cache_read_input_tokens, 0) - ifNull(cache_creation_input_tokens, 0))",
-	outputExpr: "ifNull(output_tokens, 0)",
-	cacheReadInputExpr: "ifNull(cache_read_input_tokens, 0)",
-	cacheCreationInputExpr: "ifNull(cache_creation_input_tokens, 0)",
-});
+const PER_SESSION_COST_SQL = buildSessionEstimatedCostSql();
 
 interface FavoriteModelRow {
 	user_id: string;
@@ -201,10 +193,15 @@ export async function getDeveloperList(
         round(AVG(actual_duration_min), 2) as avg_session_duration_min,
         toString(max(session_date)) as last_active_date,
         round(AVG(success_score), 2) as success_rate,
-        round(SUM(${PER_SESSION_COST_SQL}), 4) as total_cost
-      FROM rudel.session_analytics FINAL
-      WHERE ${buildDateFilter("currentDays")}
-        AND organization_id = {orgId:String}
+	        round(ifNull(SUM(priced.estimated_cost), 0), 4) as total_cost,
+	        countIf(isNull(priced.estimated_cost)) as unpriced_session_count,
+	        sumIf(ifNull(priced.total_tokens, 0), isNull(priced.estimated_cost)) as unpriced_token_count
+	      FROM (
+	        SELECT *, ${PER_SESSION_COST_SQL} as estimated_cost
+	        FROM rudel.session_analytics FINAL
+	        WHERE ${buildDateFilter("currentDays")}
+	          AND organization_id = {orgId:String}
+	      ) AS priced
       GROUP BY user_id
     ),
     previous_period AS (
@@ -228,7 +225,9 @@ export async function getDeveloperList(
       c.avg_session_duration_min,
       c.last_active_date,
       c.success_rate,
-      c.total_cost as cost,
+	      c.total_cost as cost,
+	      c.unpriced_session_count,
+	      c.unpriced_token_count,
       round(c.success_rate - ifNull(p.prev_success_rate, c.success_rate), 2) as success_rate_trend
     FROM current_period c
     LEFT JOIN previous_period p ON c.user_id = p.user_id
@@ -245,7 +244,10 @@ export async function getDeveloperList(
 
 	return summaryRows.map((row) => ({
 		...row,
+		cost: Number(row.cost) || 0,
 		favorite_model: favoriteModelByUser.get(row.user_id) ?? null,
+		unpriced_session_count: Number(row.unpriced_session_count) || 0,
+		unpriced_token_count: Number(row.unpriced_token_count) || 0,
 	}));
 }
 
@@ -270,11 +272,16 @@ export async function getDeveloperTeamCards(
       SUM(ifNull(input_tokens, 0)) as total_input_tokens,
       SUM(ifNull(output_tokens, 0)) as total_output_tokens,
       SUM(ifNull(input_tokens, 0) + ifNull(output_tokens, 0)) as total_tokens,
-      round(SUM(${PER_SESSION_COST_SQL}), 4) as cost,
-      toString(max(session_date)) as last_active_date
-    FROM rudel.session_analytics FINAL
-    WHERE ${buildDateFilter("days")}
-      AND organization_id = {orgId:String}
+	      round(ifNull(SUM(priced.estimated_cost), 0), 4) as cost,
+	      countIf(isNull(priced.estimated_cost)) as unpriced_session_count,
+	      sumIf(ifNull(priced.total_tokens, 0), isNull(priced.estimated_cost)) as unpriced_token_count,
+	      toString(max(session_date)) as last_active_date
+	    FROM (
+	      SELECT *, ${PER_SESSION_COST_SQL} as estimated_cost
+	      FROM rudel.session_analytics FINAL
+	      WHERE ${buildDateFilter("days")}
+	        AND organization_id = {orgId:String}
+	    ) AS priced
     GROUP BY user_id
     ORDER BY total_tokens DESC, user_id ASC
   `;
@@ -302,6 +309,8 @@ export async function getDeveloperTeamCards(
 		total_output_tokens: number;
 		total_tokens: number;
 		cost: number;
+		unpriced_session_count: number;
+		unpriced_token_count: number;
 		last_active_date: string;
 	}
 
@@ -375,6 +384,8 @@ export async function getDeveloperTeamCards(
 				display_name: displayName,
 				archetype: archetypeByUser.get(row.user_id) ?? null,
 				cost: Number(row.cost) || 0,
+				unpriced_session_count: Number(row.unpriced_session_count) || 0,
+				unpriced_token_count: Number(row.unpriced_token_count) || 0,
 				input_tokens: Number(row.total_input_tokens) || 0,
 				output_tokens: Number(row.total_output_tokens) || 0,
 				total_tokens: Number(row.total_tokens) || 0,
@@ -419,11 +430,16 @@ export async function getDeveloperDetails(
         round(AVG(success_score), 2) as success_rate,
         COUNT(DISTINCT project_path) as distinct_projects,
         SUM(error_count) as error_count,
-        round(SUM(${PER_SESSION_COST_SQL}), 4) as total_cost
-      FROM rudel.session_analytics FINAL
-      WHERE user_id = {userId:String}
-        AND ${buildDateFilter("currentDays")}
-        AND organization_id = {orgId:String}
+	        round(ifNull(SUM(priced.estimated_cost), 0), 4) as total_cost,
+	        countIf(isNull(priced.estimated_cost)) as unpriced_session_count,
+	        sumIf(ifNull(priced.total_tokens, 0), isNull(priced.estimated_cost)) as unpriced_token_count
+	      FROM (
+	        SELECT *, ${PER_SESSION_COST_SQL} as estimated_cost
+	        FROM rudel.session_analytics FINAL
+	        WHERE user_id = {userId:String}
+	          AND ${buildDateFilter("currentDays")}
+	          AND organization_id = {orgId:String}
+	      ) AS priced
       GROUP BY user_id
     ),
     previous_period AS (
@@ -448,7 +464,9 @@ export async function getDeveloperDetails(
       c.avg_session_duration_min,
       c.last_active_date,
       c.success_rate,
-      c.total_cost as cost,
+	      c.total_cost as cost,
+	      c.unpriced_session_count,
+	      c.unpriced_token_count,
       round(c.success_rate - ifNull(p.prev_success_rate, c.success_rate), 2) as success_rate_trend,
       c.distinct_projects,
       c.error_count
@@ -481,6 +499,8 @@ export async function getDeveloperDetails(
 		total_duration_min: Number(first.total_duration_min) || 0,
 		total_sessions: Number(first.total_sessions) || 0,
 		total_tokens: Number(first.total_tokens) || 0,
+		unpriced_session_count: Number(first.unpriced_session_count) || 0,
+		unpriced_token_count: Number(first.unpriced_token_count) || 0,
 		user_id: first.user_id,
 	};
 }
@@ -550,6 +570,7 @@ export async function getDeveloperSessions(
       ifNull(input_tokens, 0) as input_tokens,
       ifNull(output_tokens, 0) as output_tokens,
       ifNull(input_tokens, 0) + ifNull(output_tokens, 0) as total_tokens,
+	  ${PER_SESSION_COST_SQL} as estimated_cost,
       length(subagent_types) > 0 as has_subagents,
       length(skills) > 0 as has_skills,
       length(slash_commands) > 0 as has_slash_commands,
@@ -572,6 +593,8 @@ export async function getDeveloperSessions(
 
 	return results.map((session) => ({
 		...session,
+		estimated_cost:
+			session.estimated_cost == null ? null : Number(session.estimated_cost),
 		has_subagents: Boolean(session.has_subagents),
 		has_skills: Boolean(session.has_skills),
 		has_slash_commands: Boolean(session.has_slash_commands),

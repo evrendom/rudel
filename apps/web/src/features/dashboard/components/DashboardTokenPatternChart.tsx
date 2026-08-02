@@ -55,7 +55,7 @@ function formatTokenMix(inputTokens: number, outputTokens: number) {
 	}
 
 	const inputPercent = Math.round((inputTokens / totalTokens) * 100);
-	return `${inputPercent} IN / ${100 - inputPercent} OUT`;
+	return `${inputPercent} IN (incl. cache) / ${100 - inputPercent} OUT`;
 }
 
 function shortenModelLabel(model: string) {

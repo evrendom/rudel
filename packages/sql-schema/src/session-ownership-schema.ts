@@ -1,5 +1,6 @@
 import {
 	index,
+	integer,
 	pgTable,
 	primaryKey,
 	text,
@@ -18,6 +19,8 @@ export const sessionOwnership = pgTable(
 			.notNull()
 			.references(() => user.id, { onDelete: "cascade" }),
 		lastContentSha256: text("last_content_sha256"),
+		lastContentBytes: integer("last_content_bytes"),
+		lastAssistantLineCount: integer("last_assistant_line_count"),
 		lastIngestedAt: timestamp("last_ingested_at", {
 			withTimezone: true,
 			mode: "date",
