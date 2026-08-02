@@ -198,6 +198,8 @@ async function resolveIngestOrganizationId(
 		return requestedOrganizationId;
 	}
 
+	// Two rows are enough to distinguish a sole membership from an ambiguous choice.
+	// Prefer the personal workspace when it exists; creation time makes the fallback deterministic.
 	const memberships = await sqlClient<Array<{ organization_id: string }>>`
 		SELECT organization_id
 		FROM member
