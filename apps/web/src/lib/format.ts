@@ -190,7 +190,7 @@ export function calculateCost(
 ) {
 	const model =
 		typeof options === "string" ? options : (options?.model ?? null);
-	return calculateEstimatedModelCost({
+	const cost = calculateEstimatedModelCost({
 		model,
 		inputTokens,
 		outputTokens,
@@ -201,6 +201,10 @@ export function calculateCost(
 				? 0
 				: (options?.cacheCreationInputTokens ?? 0),
 	});
+
+	// The nullable resolver is exposed for new callers. Legacy numeric-only
+	// surfaces remain stable until the focused caller migration in #227.
+	return cost ?? 0;
 }
 
 export function encodeProjectPath(projectPath: string) {
