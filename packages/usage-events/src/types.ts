@@ -1,7 +1,7 @@
 import { MODEL_RATE_CARD_VERSION } from "@rudel/api-routes/model-pricing";
 
 export const USAGE_EVENT_IDENTITY_VERSION = 1;
-export const USAGE_EVENT_EXTRACTION_VERSION = 1;
+export const USAGE_EVENT_EXTRACTION_VERSION = 2;
 export const USAGE_EVENT_MODEL_RATE_CARD_VERSION = MODEL_RATE_CARD_VERSION;
 
 export type UsageEventSource = "claude_code" | "codex";
