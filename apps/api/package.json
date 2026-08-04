@@ -4,6 +4,8 @@
 	"private": true,
 	"type": "module",
 	"scripts": {
+		"backfill:usage-events": "bun src/scripts/backfill-usage-events.ts",
+		"compare:usage-events": "bun src/scripts/compare-usage-events.ts",
 		"dev": "bun --watch src/index.ts",
 		"cleanup:session-ownership": "bun src/scripts/cleanup-session-ownership.ts",
 		"cutover:session-ownership": "bun src/scripts/backfill-session-ownership.ts",
@@ -11,7 +13,7 @@
 		"check-types": "tsc --noEmit",
 		"test": "bun test",
 		"test:clickhouse": "bun test --preload ./src/__tests__/helpers/local-integration-guard.ts ./src/__tests__/clickhouse.integration.ts",
-		"test:integration": "bun test --preload ./src/__tests__/helpers/local-integration-guard.ts --max-concurrency=1 ./src/__tests__/http-response-policy.integration.ts ./src/__tests__/rpc-request-id.integration.ts ./src/__tests__/ingest-clickhouse.integration.ts ./src/__tests__/usage-event-ingest.integration.ts ./src/__tests__/ingest-rate-limit.integration.ts ./src/__tests__/ingest-filter-queue.integration.ts ./src/__tests__/session-ingest-content.integration.ts ./src/__tests__/clickhouse.integration.ts ./src/__tests__/clickhouse-credentials.integration.ts ./src/__tests__/clickhouse-purge.integration.ts ./src/__tests__/delete-sessions.integration.ts ./src/__tests__/deletion-data-loss.integration.ts ./src/__tests__/session-sharing.integration.ts ./src/__tests__/session-ownership-cleanup.integration.ts ./src/__tests__/session-analytics-values.integration.ts ./src/__tests__/team-invite-link.integration.ts ./src/__tests__/wrapped-share-rate-limit.integration.ts ./src/__tests__/wrapped-share-resource-budget.integration.ts",
+		"test:integration": "bun test --preload ./src/__tests__/helpers/local-integration-guard.ts --max-concurrency=1 ./src/__tests__/http-response-policy.integration.ts ./src/__tests__/rpc-request-id.integration.ts ./src/__tests__/ingest-clickhouse.integration.ts ./src/__tests__/usage-event-ingest.integration.ts ./src/__tests__/usage-event-backfill.integration.ts ./src/__tests__/ingest-rate-limit.integration.ts ./src/__tests__/ingest-filter-queue.integration.ts ./src/__tests__/session-ingest-content.integration.ts ./src/__tests__/clickhouse.integration.ts ./src/__tests__/clickhouse-credentials.integration.ts ./src/__tests__/clickhouse-purge.integration.ts ./src/__tests__/delete-sessions.integration.ts ./src/__tests__/deletion-data-loss.integration.ts ./src/__tests__/session-sharing.integration.ts ./src/__tests__/session-ownership-cleanup.integration.ts ./src/__tests__/session-analytics-values.integration.ts ./src/__tests__/team-invite-link.integration.ts ./src/__tests__/wrapped-share-rate-limit.integration.ts ./src/__tests__/wrapped-share-resource-budget.integration.ts",
 		"test:analytics": "bun test src/__tests__/session-analytics-values.integration.ts",
 		"test:migrate": "bun test src/__tests__/migrate-sessions.integration.ts",
 		"test:delete-sessions": "bun test --preload ./src/__tests__/helpers/local-integration-guard.ts ./src/__tests__/delete-sessions.integration.ts"

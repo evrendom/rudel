@@ -22,6 +22,7 @@ import { getIngestContentShape } from "../lib/ingest-content-shape.js";
 import {
 	claimSessionIngestOwnership,
 	recordSessionIngestContent,
+	reserveUsageBackfillGeneration,
 	reserveUsageExtractionGeneration,
 	UsageExtractionSupersededError,
 } from "../services/session-ownership.service.js";
@@ -43,6 +44,7 @@ const FORCE_REPLACE_SESSION_ID = `${TEST_RUN_ID}_force_replace`;
 const RAW_FIRST_FAILURE_SESSION_ID = `${TEST_RUN_ID}_raw_first_failure`;
 const EXTRACTION_BYPASS_SESSION_ID = `${TEST_RUN_ID}_extraction_bypass`;
 const GENERATION_HEDGE_SESSION_ID = `${TEST_RUN_ID}_generation_hedge`;
+const BACKFILL_GENERATION_SESSION_ID = `${TEST_RUN_ID}_backfill_generation`;
 
 let server: ApiTestServer;
 let userId: string;
@@ -267,6 +269,44 @@ describe("session ingest content bookkeeping", () => {
 		expect(first).toBeGreaterThanOrEqual(BigInt(beforeReservation.epoch_ms));
 		expect(first).toBeLessThanOrEqual(BigInt(afterReservation.epoch_ms));
 		expect(second).toBeGreaterThan(first);
+	});
+
+	test("backfill generation reservation loses to a newer live snapshot", async () => {
+		const claim = await claimSessionIngestOwnership(
+			userId,
+			BACKFILL_GENERATION_SESSION_ID,
+			userId,
+		);
+		assert(claim.owned);
+		const currentHash = "f".repeat(64);
+		await recordSessionIngestContent(
+			userId,
+			BACKFILL_GENERATION_SESSION_ID,
+			currentHash,
+			contentShape(4_000, 4),
+			5,
+			new Date("2026-08-03T10:00:00.000Z"),
+			new Date("2026-08-03T10:01:00.000Z"),
+		);
+
+		expect(
+			await reserveUsageBackfillGeneration(
+				userId,
+				BACKFILL_GENERATION_SESSION_ID,
+				userId,
+				"e".repeat(64),
+				new Date("2026-08-03T10:00:00.000Z"),
+			),
+		).toBeNull();
+		expect(
+			await reserveUsageBackfillGeneration(
+				userId,
+				BACKFILL_GENERATION_SESSION_ID,
+				userId,
+				currentHash,
+				new Date("2026-08-03T10:02:00.000Z"),
+			),
+		).not.toBeNull();
 	});
 
 	test("drives the legacy fallback through total-vs-total pass and shrink rejection", async () => {

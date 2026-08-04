@@ -46,6 +46,36 @@ interface UsageExtractionReceiptRecord {
 	modelRateCardVersion: string;
 }
 
+export interface UsageBackfillOwnershipState {
+	lastContentSha256: string | null;
+	lastIngestedAt: Date | null;
+	lastUsageContentSha256: string | null;
+	lastUsageChecksum: string | null;
+	lastUsageExtractionVersion: number | null;
+	lastUsageEventIdentityVersion: number | null;
+	lastUsageModelRateCardVersion: string | null;
+	userId: string;
+}
+
+export interface UsageBackfillOwnershipStateRow
+	extends UsageBackfillOwnershipState {
+	organizationId: string;
+	sessionId: string;
+}
+
+interface UsageBackfillOwnershipDatabaseRow {
+	last_content_sha256: string | null;
+	last_ingested_at: Date | null;
+	last_usage_checksum: string | null;
+	last_usage_content_sha256: string | null;
+	last_usage_extraction_version: number | null;
+	last_usage_event_identity_version: number | null;
+	last_usage_model_rate_card_version: string | null;
+	organization_id: string;
+	session_id: string;
+	user_id: string;
+}
+
 export class UsageExtractionSupersededError extends Error {
 	constructor() {
 		super(
@@ -172,6 +202,120 @@ export async function reserveUsageExtractionGeneration(
 		throw new Error("Usage extraction generation reservation failed");
 	}
 	return row.generation;
+}
+
+/**
+ * Reserve a backfill generation only while the raw snapshot is still current.
+ * A live upload that records newer content wins without requiring ingest to be
+ * quiesced; a live extraction reserved after this call receives a higher
+ * generation and supersedes the backfill rows.
+ */
+export async function reserveUsageBackfillGeneration(
+	organizationId: string,
+	sessionId: string,
+	userId: string,
+	expectedContentSha256: string,
+	cutoff: Date,
+): Promise<string | null> {
+	const [row] = await sqlClient<Array<{ generation: string }>>`
+		UPDATE session_ownership
+		SET usage_extraction_generation = GREATEST(
+			usage_extraction_generation + 1,
+			FLOOR(EXTRACT(EPOCH FROM clock_timestamp()) * 1000)::bigint
+		)
+		WHERE organization_id = ${organizationId}
+			AND session_id = ${sessionId}
+			AND user_id = ${userId}
+			AND (
+				last_content_sha256 IS NULL
+				OR last_content_sha256 = ${expectedContentSha256}
+			)
+			AND (
+				last_ingested_at IS NULL
+				OR last_ingested_at <= ${cutoff.toISOString()}
+			)
+		RETURNING usage_extraction_generation::text AS generation
+	`;
+	return row?.generation ?? null;
+}
+
+export async function listUsageBackfillOwnershipStates(options: {
+	maxRows: number;
+	organizationId?: string;
+}): Promise<readonly UsageBackfillOwnershipStateRow[]> {
+	const organizationPredicate = options.organizationId
+		? "WHERE organization_id = $1"
+		: "";
+	const limitParameter = options.organizationId ? "$2" : "$1";
+	const parameters = options.organizationId
+		? [options.organizationId, options.maxRows]
+		: [options.maxRows];
+	const rows = await sqlClient.unsafe<UsageBackfillOwnershipDatabaseRow[]>(
+		`
+			SELECT
+				organization_id,
+				session_id,
+				user_id,
+				last_content_sha256,
+				last_ingested_at,
+				last_usage_content_sha256,
+				last_usage_checksum,
+				last_usage_extraction_version,
+				last_usage_event_identity_version,
+				last_usage_model_rate_card_version
+			FROM session_ownership
+			${organizationPredicate}
+			ORDER BY organization_id, session_id
+			LIMIT ${limitParameter}
+		`,
+		parameters,
+	);
+	return rows.map(mapUsageBackfillOwnershipState);
+}
+
+function mapUsageBackfillOwnershipState(
+	row: UsageBackfillOwnershipDatabaseRow,
+): UsageBackfillOwnershipStateRow {
+	return {
+		lastContentSha256: row.last_content_sha256,
+		lastIngestedAt: row.last_ingested_at,
+		lastUsageChecksum: row.last_usage_checksum,
+		lastUsageContentSha256: row.last_usage_content_sha256,
+		lastUsageExtractionVersion: row.last_usage_extraction_version,
+		lastUsageEventIdentityVersion: row.last_usage_event_identity_version,
+		lastUsageModelRateCardVersion: row.last_usage_model_rate_card_version,
+		organizationId: row.organization_id,
+		sessionId: row.session_id,
+		userId: row.user_id,
+	};
+}
+
+export async function recordUsageBackfillReceipt(
+	organizationId: string,
+	sessionId: string,
+	contentSha256: string,
+	receipt: UsageExtractionReceiptRecord,
+): Promise<void> {
+	const completed = await sqlClient<Array<{ generation: string }>>`
+		UPDATE session_ownership
+		SET
+			last_usage_content_sha256 = ${contentSha256},
+			last_usage_extraction_version = ${receipt.extractionVersion},
+			last_usage_event_identity_version = ${receipt.eventIdentityVersion},
+			last_usage_model_rate_card_version = ${receipt.modelRateCardVersion},
+			last_usage_event_count = ${receipt.eventCount},
+			last_usage_checksum = ${receipt.checksum},
+			last_usage_diagnostics_json = ${receipt.diagnostics},
+			last_usage_completed_generation = ${receipt.generation},
+			last_usage_completed_at = NOW()
+		WHERE organization_id = ${organizationId}
+			AND session_id = ${sessionId}
+			AND usage_extraction_generation = ${receipt.generation}
+		RETURNING usage_extraction_generation::text AS generation
+	`;
+	if (completed.length !== 1) {
+		throw new UsageExtractionSupersededError();
+	}
 }
 
 export async function getSessionOwner(
