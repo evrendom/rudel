@@ -314,11 +314,13 @@ describe("session ingest content bookkeeping", () => {
 	});
 
 	test("the operational bypass acknowledges raw without claiming extraction", async () => {
-		const previous = process.env.USAGE_EVENT_EXTRACTION_ENABLED;
-		process.env.USAGE_EVENT_EXTRACTION_ENABLED = "false";
+		const bypassServer = await startApiTestServer({
+			USAGE_EVENT_EXTRACTION_ENABLED: "false",
+		});
 		try {
 			const response = await callIngest(
 				makeClaudeInput(EXTRACTION_BYPASS_SESSION_ID, 0),
+				bypassServer.baseUrl,
 			);
 
 			expect(response.status).toBe(200);
@@ -329,11 +331,7 @@ describe("session ingest content bookkeeping", () => {
 				await readLatestReceiptCompleteness(EXTRACTION_BYPASS_SESSION_ID),
 			).toBeNull();
 		} finally {
-			if (previous === undefined) {
-				delete process.env.USAGE_EVENT_EXTRACTION_ENABLED;
-			} else {
-				process.env.USAGE_EVENT_EXTRACTION_ENABLED = previous;
-			}
+			await bypassServer.stop();
 		}
 	});
 });
@@ -400,8 +398,8 @@ async function seedLegacyContentShape(
 	`;
 }
 
-async function callIngest(input: IngestSessionInput) {
-	const response = await fetch(`${server.baseUrl}/rpc/ingestSession`, {
+async function callIngest(input: IngestSessionInput, baseUrl = server.baseUrl) {
+	const response = await fetch(`${baseUrl}/rpc/ingestSession`, {
 		method: "POST",
 		headers: {
 			Authorization: `Bearer ${bearerToken}`,
