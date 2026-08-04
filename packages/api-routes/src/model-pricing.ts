@@ -1,4 +1,5 @@
 import {
+	MODEL_LONG_CONTEXT_THRESHOLD_TOKENS,
 	MODEL_RATE_CARD,
 	MODEL_RATE_CARD_VERSION,
 	type ModelContextBand,
@@ -12,6 +13,7 @@ export const ESTIMATED_PRICING_MODE = "estimated_model_pricing_v2" as const;
 export type ResolveModelPricingOptions = {
 	at: Date | string;
 	contextBand?: ModelContextBand;
+	contextInputTokens?: number;
 };
 
 export type CalculateEstimatedCostInput = ResolveModelPricingOptions & {
@@ -56,7 +58,12 @@ export function resolveModelPricing(
 ): ModelRateCardEntry | null {
 	const normalizedModel = normalizeModelId(model);
 	const date = normalizeDate(options.at);
-	const contextBand = options.contextBand ?? "base";
+	const contextBand =
+		options.contextBand ??
+		(options.contextInputTokens !== undefined &&
+		options.contextInputTokens > MODEL_LONG_CONTEXT_THRESHOLD_TOKENS
+			? "long"
+			: "base");
 
 	if (!normalizedModel || date === null) {
 		return null;
@@ -72,6 +79,10 @@ export function resolveModelPricing(
 		) {
 			return entry;
 		}
+	}
+
+	if (options.contextBand === undefined && contextBand === "long") {
+		return resolveModelPricing(model, { at: options.at, contextBand: "base" });
 	}
 
 	return null;
@@ -99,8 +110,13 @@ export function calculateEstimatedCost({
 	precision = 4,
 	at,
 	contextBand,
+	contextInputTokens,
 }: CalculateEstimatedCostInput): number | null {
-	const pricing = resolveModelPricing(model, { at, contextBand });
+	const pricing = resolveModelPricing(model, {
+		at,
+		contextBand,
+		contextInputTokens,
+	});
 
 	if (pricing === null) {
 		return null;
@@ -142,19 +158,37 @@ function buildRateSql({
 	modelExpr,
 	dateExpr,
 	contextBand,
+	contextInputExpr,
 	rateSelector,
 }: {
 	modelExpr: string;
 	dateExpr: string;
 	contextBand: ModelContextBand;
+	contextInputExpr: string | undefined;
 	rateSelector: RateSelector;
 }) {
 	const clauses = MODEL_RATE_CARD.filter(
-		(entry) => entry.contextBand === contextBand,
+		(entry) =>
+			contextInputExpr !== undefined || entry.contextBand === contextBand,
 	).flatMap((entry) => {
 		const dateConditions = [
 			`toDate(${dateExpr}) >= toDate('${entry.effectiveFrom}')`,
 		];
+		if (contextInputExpr !== undefined) {
+			const hasLongBand = MODEL_RATE_CARD.some(
+				(candidate) =>
+					candidate.model === entry.model && candidate.contextBand === "long",
+			);
+			if (entry.contextBand === "long") {
+				dateConditions.push(
+					`(${contextInputExpr}) > ${MODEL_LONG_CONTEXT_THRESHOLD_TOKENS}`,
+				);
+			} else if (hasLongBand) {
+				dateConditions.push(
+					`(${contextInputExpr}) <= ${MODEL_LONG_CONTEXT_THRESHOLD_TOKENS}`,
+				);
+			}
+		}
 
 		if (entry.effectiveTo !== undefined) {
 			dateConditions.push(
@@ -186,6 +220,7 @@ export function buildEstimatedCostSql({
 	cacheCreationInputExpr = "0",
 	cacheCreation1hInputExpr = "0",
 	contextBand = "base",
+	contextInputExpr,
 	precision,
 }: {
 	modelExpr: string;
@@ -196,36 +231,42 @@ export function buildEstimatedCostSql({
 	cacheCreationInputExpr?: string;
 	cacheCreation1hInputExpr?: string;
 	contextBand?: ModelContextBand;
+	contextInputExpr?: string;
 	precision?: number;
 }) {
 	const inputRateSql = buildRateSql({
 		modelExpr,
 		dateExpr,
 		contextBand,
+		contextInputExpr,
 		rateSelector: "inputPerMTok",
 	});
 	const outputRateSql = buildRateSql({
 		modelExpr,
 		dateExpr,
 		contextBand,
+		contextInputExpr,
 		rateSelector: "outputPerMTok",
 	});
 	const cachedInputRateSql = buildRateSql({
 		modelExpr,
 		dateExpr,
 		contextBand,
+		contextInputExpr,
 		rateSelector: "cacheReadPerMTok",
 	});
 	const cacheWriteRateSql = buildRateSql({
 		modelExpr,
 		dateExpr,
 		contextBand,
+		contextInputExpr,
 		rateSelector: "cacheWrite5mPerMTok",
 	});
 	const cacheWrite1hRateSql = buildRateSql({
 		modelExpr,
 		dateExpr,
 		contextBand,
+		contextInputExpr,
 		rateSelector: "cacheWrite1hPerMTok",
 	});
 	const components = [

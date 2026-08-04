@@ -2,6 +2,13 @@ import { isLoopbackHostname, parseSafeBrowserUrl } from "@rudel/api-routes";
 
 const MINIMUM_AUTH_SECRET_LENGTH = 32;
 
+export type UsageEventAnalyticsCutoverMode = "all" | "canary" | "off";
+
+export interface UsageEventAnalyticsCutoverConfig {
+	canaryOrganizationIds: ReadonlySet<string>;
+	mode: UsageEventAnalyticsCutoverMode;
+}
+
 export interface CliDeviceVerificationUrlConfig {
 	url: string;
 	/** Non-fatal configuration concern for the caller to log. */
@@ -97,6 +104,42 @@ export function readBooleanEnv(name: string, defaultValue: boolean): boolean {
 		return false;
 	}
 	throw new Error(`${name} must be either "true" or "false"`);
+}
+
+export function readUsageEventAnalyticsCutoverConfig(
+	environment: Readonly<Record<string, string | undefined>> = process.env,
+): UsageEventAnalyticsCutoverConfig {
+	const rawMode = environment.USAGE_EVENT_ANALYTICS_CUTOVER_MODE?.trim();
+	if (rawMode !== "all" && rawMode !== "canary") {
+		return { canaryOrganizationIds: new Set(), mode: "off" };
+	}
+
+	if (rawMode === "all") {
+		return { canaryOrganizationIds: new Set(), mode: "all" };
+	}
+
+	const canaryOrganizationIds = new Set(
+		(environment.USAGE_EVENT_ANALYTICS_CANARY_ORG_IDS ?? "")
+			.split(",")
+			.map((organizationId) => organizationId.trim())
+			.filter((organizationId) => organizationId !== ""),
+	);
+	if (canaryOrganizationIds.size === 0) {
+		return { canaryOrganizationIds, mode: "off" };
+	}
+
+	return { canaryOrganizationIds, mode: "canary" };
+}
+
+export function shouldUseUsageEventAnalytics(
+	organizationId: string,
+	config: UsageEventAnalyticsCutoverConfig = readUsageEventAnalyticsCutoverConfig(),
+): boolean {
+	return (
+		config.mode === "all" ||
+		(config.mode === "canary" &&
+			config.canaryOrganizationIds.has(organizationId))
+	);
 }
 
 export function readPositiveSafeIntegerEnv(

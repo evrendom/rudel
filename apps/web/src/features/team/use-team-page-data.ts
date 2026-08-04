@@ -41,7 +41,7 @@ export interface TeamPageMemberRow {
 	role: string;
 	imageUrl?: string | null;
 	archetype?: TeamPageMemberArchetype | null;
-	cost: number;
+	cost: number | null;
 	favoriteModel: string | null;
 	inputTokens: number;
 	outputTokens: number;
@@ -125,7 +125,12 @@ function buildTeamMemberRows(
 				developerSummary?.output_tokens ?? teamCard?.output_tokens ?? 0;
 			const totalTokens =
 				developerSummary?.total_tokens ?? teamCard?.total_tokens ?? 0;
-			const cost = developerSummary?.cost ?? teamCard?.cost ?? 0;
+			const cost =
+				developerSummary !== undefined
+					? developerSummary.cost
+					: teamCard !== undefined
+						? teamCard.cost
+						: 0;
 			const lastActiveDate =
 				developerSummary?.last_active_date ??
 				teamCard?.last_active_date ??

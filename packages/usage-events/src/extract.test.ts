@@ -5,11 +5,16 @@ import {
 	getUsageAttestationPayload,
 	getUsageEventReceiptId,
 	getUsageIdentityPrefix,
+	USAGE_EVENT_EXTRACTION_VERSION,
 	type UsageEvent,
 	type UsageExtractionResult,
 } from "./index.js";
 
 describe("usage identity versioning", () => {
+	test("pins the replay-safe extraction semantics to v2", () => {
+		expect(USAGE_EVENT_EXTRACTION_VERSION).toBe(2);
+	});
+
 	test("pins every event and lineage prefix to the identity-version knob", () => {
 		const kinds = [
 			"usage-event",
@@ -853,9 +858,11 @@ describe("Codex usage-event extraction", () => {
 			output: 20,
 			reasoning: 4,
 		});
-		expect(events.map((event) => event.contextInputTokens).sort()).toEqual([
-			100, 160,
-		]);
+		expect(
+			events
+				.map((event) => event.contextInputTokens)
+				.sort((left, right) => left - right),
+		).toEqual([60, 100]);
 		expect(
 			events.map((event) => ({
 				rawModel: event.rawModel,
@@ -891,6 +898,188 @@ describe("Codex usage-event extraction", () => {
 		expect(event?.qualityFlags).toContain(
 			"indistinguishable_transition_collision",
 		);
+	});
+
+	test("C-18 suppresses a forked session's dense inherited replay prefix", () => {
+		const result = complete(
+			extractCodex([
+				codexSessionMeta({ forkedFromId: "parent-session" }),
+				turnContext("gpt-5.6-sol"),
+				codexLine(
+					vector(100, 80, 10, 2),
+					vector(100, 80, 10, 2),
+					"2026-08-01T10:00:00.000Z",
+				),
+				codexLine(
+					vector(200, 160, 20, 4),
+					vector(100, 80, 10, 2),
+					"2026-08-01T10:00:00.020Z",
+				),
+				codexLine(
+					vector(250, 200, 25, 5),
+					vector(50, 40, 5, 1),
+					"2026-08-01T10:00:02.000Z",
+				),
+			]),
+		);
+
+		expect(result.events).toHaveLength(1);
+		expect(result.events[0]).toMatchObject({
+			cacheReadInputTokens: 40,
+			contextInputTokens: 50,
+			outputTokens: 5,
+			uncachedInputTokens: 10,
+		});
+		expect(result.events[0]?.qualityFlags).toContain(
+			"inherited_external_baseline_unverified",
+		);
+		expect(result.diagnostics).toContainEqual({
+			code: "codex_replayed_parent_prefix_suppressed",
+			count: 2,
+			fatal: false,
+		});
+	});
+
+	test("C-19 recognizes nested thread-spawn parent metadata", () => {
+		const result = complete(
+			extractCodex([
+				codexSessionMeta({ threadSpawnParentId: "parent-session" }),
+				turnContext("gpt-5.6-sol"),
+				codexLine(
+					vector(100, 80, 10, 2),
+					vector(100, 80, 10, 2),
+					"2026-08-01T10:00:00.000Z",
+				),
+				codexLine(
+					vector(200, 160, 20, 4),
+					vector(100, 80, 10, 2),
+					"2026-08-01T10:00:00.020Z",
+				),
+				codexLine(
+					vector(250, 200, 25, 5),
+					vector(50, 40, 5, 1),
+					"2026-08-01T10:00:02.000Z",
+				),
+			]),
+		);
+
+		expect(result.events).toHaveLength(1);
+		expect(sumTokenClasses(result.events)).toEqual({
+			cacheRead: 40,
+			output: 5,
+			reasoning: 1,
+			uncached: 10,
+		});
+	});
+
+	test("C-20 never suppresses dense requests without explicit parent metadata", () => {
+		const result = complete(
+			extractCodex([
+				turnContext("gpt-5.6-sol"),
+				codexLine(
+					vector(100, 80, 10, 2),
+					vector(100, 80, 10, 2),
+					"2026-08-01T10:00:00.000Z",
+				),
+				codexLine(
+					vector(200, 160, 20, 4),
+					vector(100, 80, 10, 2),
+					"2026-08-01T10:00:00.020Z",
+				),
+			]),
+		);
+
+		expect(result.events).toHaveLength(2);
+		expect(result.diagnostics).not.toContainEqual(
+			expect.objectContaining({
+				code: "codex_replayed_parent_prefix_suppressed",
+			}),
+		);
+	});
+
+	test("C-21 never suppresses a fork whose first requests are not a dense burst", () => {
+		const result = complete(
+			extractCodex([
+				codexSessionMeta({ forkedFromId: "parent-session" }),
+				turnContext("gpt-5.6-sol"),
+				codexLine(
+					vector(100, 80, 10, 2),
+					vector(100, 80, 10, 2),
+					"2026-08-01T10:00:00.000Z",
+				),
+				codexLine(
+					vector(200, 160, 20, 4),
+					vector(100, 80, 10, 2),
+					"2026-08-01T10:00:02.000Z",
+				),
+			]),
+		);
+
+		expect(result.events).toHaveLength(2);
+		expect(result.diagnostics).not.toContainEqual(
+			expect.objectContaining({
+				code: "codex_replayed_parent_prefix_suppressed",
+			}),
+		);
+	});
+
+	test("C-22 repeated telemetry inside replay is suppressed once", () => {
+		const first = codexLine(
+			vector(100, 80, 10, 2),
+			vector(100, 80, 10, 2),
+			"2026-08-01T10:00:00.000Z",
+		);
+		const result = complete(
+			extractCodex([
+				codexSessionMeta({ forkedFromId: "parent-session" }),
+				turnContext("gpt-5.6-sol"),
+				first,
+				first,
+				codexLine(
+					vector(200, 160, 20, 4),
+					vector(100, 80, 10, 2),
+					"2026-08-01T10:00:00.020Z",
+				),
+				codexLine(
+					vector(250, 200, 25, 5),
+					vector(50, 40, 5, 1),
+					"2026-08-01T10:00:02.000Z",
+				),
+			]),
+		);
+
+		expect(result.events).toHaveLength(1);
+		expect(result.diagnostics).toContainEqual({
+			code: "codex_replayed_parent_prefix_suppressed",
+			count: 2,
+			fatal: false,
+		});
+	});
+
+	test("C-23 context input follows each request, not the cumulative session total", () => {
+		const result = complete(
+			extractCodex([
+				turnContext("gpt-5.6-sol"),
+				codexLine(
+					vector(300_000, 250_000, 10, 2),
+					vector(100_000, 80_000, 10, 2),
+				),
+				codexLine(
+					vector(572_000, 500_000, 20, 4),
+					vector(272_000, 250_000, 10, 2),
+				),
+				codexLine(
+					vector(844_001, 750_000, 30, 6),
+					vector(272_001, 250_000, 10, 2),
+				),
+			]),
+		);
+
+		expect(
+			result.events
+				.map((event) => event.contextInputTokens)
+				.sort((left, right) => left - right),
+		).toEqual([100_000, 272_000, 272_001]);
 	});
 
 	test("C-03 missing-last exact total emits no delta", () => {
@@ -1042,7 +1231,7 @@ describe("Codex usage-event extraction", () => {
 			(event) => event.contextInputTokens === 100,
 		);
 		const second = result.events.find(
-			(event) => event.contextInputTokens === 150,
+			(event) => event.contextInputTokens === 50,
 		);
 
 		expect(result.events).toHaveLength(2);
@@ -1068,6 +1257,7 @@ describe("Codex usage-event extraction", () => {
 		);
 
 		expect(fallback).toMatchObject({
+			contextInputTokens: 50,
 			uncachedInputTokens: 40,
 			cacheReadInputTokens: 10,
 			outputTokens: 5,
@@ -1088,7 +1278,7 @@ describe("Codex usage-event extraction", () => {
 		expect(event).toMatchObject({
 			uncachedInputTokens: 100,
 			outputTokens: 10,
-			contextInputTokens: 1_000,
+			contextInputTokens: 100,
 		});
 		expect(event?.qualityFlags).toContain(
 			"inherited_external_baseline_unverified",
@@ -1156,7 +1346,7 @@ describe("Codex usage-event extraction", () => {
 			modelStatus: "conflict",
 		});
 		expect(
-			result.events.find((event) => event.contextInputTokens === 150),
+			result.events.find((event) => event.contextInputTokens === 50),
 		).toMatchObject({
 			rawModel: "gpt-5.1-codex",
 			resolvedModel: "gpt-5.1-codex",
@@ -1492,6 +1682,33 @@ function vector(
 	reasoning: number,
 ): TestCodexVector {
 	return { input, cacheRead, output, reasoning };
+}
+
+function codexSessionMeta(input: {
+	forkedFromId?: string;
+	threadSpawnParentId?: string;
+}): string {
+	return JSON.stringify({
+		timestamp: "2026-08-01T10:00:00.000Z",
+		type: "session_meta",
+		payload: {
+			id: "session-1",
+			...(input.forkedFromId === undefined
+				? {}
+				: { forked_from_id: input.forkedFromId }),
+			...(input.threadSpawnParentId === undefined
+				? {}
+				: {
+						source: {
+							subagent: {
+								thread_spawn: {
+									parent_thread_id: input.threadSpawnParentId,
+								},
+							},
+						},
+					}),
+		},
+	});
 }
 
 function turnContext(model: string): string {

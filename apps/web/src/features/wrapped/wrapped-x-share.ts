@@ -234,11 +234,7 @@ function buildWrappedXRoadrunnerShareBody(input: {
 }) {
 	const activeDays = formatWrappedXWholeNumber(input.activeDays);
 	const daysSinceFirst = formatWrappedXWholeNumber(input.daysSinceFirst);
-	const costPerSession = formatCurrency(
-		input.cost && input.totalSessions && input.totalSessions > 0
-			? input.cost / input.totalSessions
-			: 0,
-	);
+	const costPerSession = formatWrappedXCostPerSession(input);
 
 	return [
 		"Meep meep.",
@@ -323,11 +319,7 @@ function buildWrappedXCheapskateShareBody(input: {
 	totalSessions?: number | null;
 }) {
 	const commitRate = formatWrappedXWholeNumber(input.commitRate);
-	const costPerSession = formatCurrency(
-		input.cost && input.totalSessions && input.totalSessions > 0
-			? input.cost / input.totalSessions
-			: 0,
-	);
+	const costPerSession = formatWrappedXCostPerSession(input);
 
 	return `${costPerSession} a session, ${commitRate}% shipped. Mr. Krabs is very proud of me. Spent less, shipped more. Very efficient. Pls don't ask me to pay for dinner though.`;
 }
@@ -450,6 +442,17 @@ function formatWrappedXWholeNumber(value: number | null | undefined) {
 
 function formatWrappedXWholeCurrency(value: number | null | undefined) {
 	return `$${formatWrappedXWholeNumber(value)}`;
+}
+
+function formatWrappedXCostPerSession(input: {
+	cost?: number | null;
+	totalSessions?: number | null;
+}) {
+	return formatCurrency(
+		input.totalSessions && input.totalSessions > 0
+			? (input.cost ?? 0) / input.totalSessions
+			: 0,
+	);
 }
 
 function formatWrappedXSessionsPerActiveDay(input: {

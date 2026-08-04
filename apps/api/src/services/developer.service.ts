@@ -21,7 +21,7 @@ import {
 	queryClickhouse,
 } from "../clickhouse.js";
 import { sqlClient } from "../db.js";
-import { buildEstimatedCostSql } from "./pricing.service.js";
+import { getUsageAnalyticsQueryContext } from "./usage-event-analytics.service.js";
 
 export interface DeveloperSummary extends DeveloperSummaryBase {
 	username?: string;
@@ -48,16 +48,6 @@ export interface DeveloperProjectTimeline {
 	total_tokens: number;
 }
 
-const PER_SESSION_COST_SQL = buildEstimatedCostSql({
-	modelExpr: "model_used",
-	dateExpr: "session_date",
-	inputExpr:
-		"(ifNull(input_tokens, 0) - ifNull(cache_read_input_tokens, 0) - ifNull(cache_creation_input_tokens, 0))",
-	outputExpr: "ifNull(output_tokens, 0)",
-	cacheReadInputExpr: "ifNull(cache_read_input_tokens, 0)",
-	cacheCreationInputExpr: "ifNull(cache_creation_input_tokens, 0)",
-});
-
 interface FavoriteModelRow {
 	user_id: string;
 	favorite_model: string;
@@ -70,8 +60,10 @@ interface TeamCardArchetypeRow {
 }
 
 async function getFavoriteModelByUser(orgId: string, days: number) {
+	const usage = await getUsageAnalyticsQueryContext(orgId);
 	const rows = await queryClickhouse<FavoriteModelRow>({
 		query: `
+	WITH ${usage.cteDefinitions}
     SELECT
       user_id,
       favorite_model
@@ -81,7 +73,7 @@ async function getFavoriteModelByUser(orgId: string, days: number) {
         model_used as favorite_model,
         COUNT(*) as session_count,
         SUM(ifNull(input_tokens, 0) + ifNull(output_tokens, 0)) as total_tokens
-      FROM rudel.session_analytics FINAL
+      FROM ${usage.sessionsRelation}
       WHERE ${buildDateFilter("days")}
         AND organization_id = {orgId:String}
         AND model_used != ''
@@ -187,9 +179,11 @@ export async function getDeveloperList(
 		previousDays: d * 2,
 		orgId,
 	};
+	const usage = await getUsageAnalyticsQueryContext(orgId);
 
 	const query = `
-    WITH current_period AS (
+	WITH ${usage.cteDefinitions},
+	current_period AS (
       SELECT
         user_id,
         COUNT(*) as total_sessions,
@@ -201,8 +195,8 @@ export async function getDeveloperList(
         round(AVG(actual_duration_min), 2) as avg_session_duration_min,
         toString(max(session_date)) as last_active_date,
         round(AVG(success_score), 2) as success_rate,
-        round(SUM(${PER_SESSION_COST_SQL}), 4) as total_cost
-      FROM rudel.session_analytics FINAL
+		if(countIf(cost_is_complete = 0) = 0, toNullable(round(SUM(ifNull(estimated_cost, 0)), 4)), CAST(NULL, 'Nullable(Float64)')) as total_cost
+      FROM ${usage.sessionsRelation}
       WHERE ${buildDateFilter("currentDays")}
         AND organization_id = {orgId:String}
       GROUP BY user_id
@@ -211,7 +205,7 @@ export async function getDeveloperList(
       SELECT
         user_id,
         round(AVG(success_score), 2) as prev_success_rate
-      FROM rudel.session_analytics FINAL
+      FROM ${usage.sessionsRelation}
       WHERE session_date >= now64(3) - toIntervalDay({previousDays:UInt32})
         AND session_date < now64(3) - toIntervalDay({currentDays:UInt32})
         AND organization_id = {orgId:String}
@@ -261,8 +255,10 @@ export async function getDeveloperTeamCards(
 		days: d,
 		orgId,
 	};
+	const usage = await getUsageAnalyticsQueryContext(orgId);
 
 	const summaryQuery = `
+	WITH ${usage.cteDefinitions}
     SELECT
       user_id,
       COUNT(*) as total_sessions,
@@ -270,9 +266,9 @@ export async function getDeveloperTeamCards(
       SUM(ifNull(input_tokens, 0)) as total_input_tokens,
       SUM(ifNull(output_tokens, 0)) as total_output_tokens,
       SUM(ifNull(input_tokens, 0) + ifNull(output_tokens, 0)) as total_tokens,
-      round(SUM(${PER_SESSION_COST_SQL}), 4) as cost,
+	  if(countIf(cost_is_complete = 0) = 0, toNullable(round(SUM(ifNull(estimated_cost, 0)), 4)), CAST(NULL, 'Nullable(Float64)')) as cost,
       toString(max(session_date)) as last_active_date
-    FROM rudel.session_analytics FINAL
+    FROM ${usage.sessionsRelation}
     WHERE ${buildDateFilter("days")}
       AND organization_id = {orgId:String}
     GROUP BY user_id
@@ -301,7 +297,7 @@ export async function getDeveloperTeamCards(
 		total_input_tokens: number;
 		total_output_tokens: number;
 		total_tokens: number;
-		cost: number;
+		cost: number | null;
 		last_active_date: string;
 	}
 
@@ -374,7 +370,7 @@ export async function getDeveloperTeamCards(
 				user_id: row.user_id,
 				display_name: displayName,
 				archetype: archetypeByUser.get(row.user_id) ?? null,
-				cost: Number(row.cost) || 0,
+				cost: row.cost === null ? null : Number(row.cost),
 				input_tokens: Number(row.total_input_tokens) || 0,
 				output_tokens: Number(row.total_output_tokens) || 0,
 				total_tokens: Number(row.total_tokens) || 0,
@@ -403,9 +399,13 @@ export async function getDeveloperDetails(
 		orgId,
 		userId,
 	};
+	const usage = await getUsageAnalyticsQueryContext(orgId, {
+		userIdParam: "userId",
+	});
 
 	const query = `
-    WITH current_period AS (
+	WITH ${usage.cteDefinitions},
+	current_period AS (
       SELECT
         user_id,
         COUNT(*) as total_sessions,
@@ -419,8 +419,8 @@ export async function getDeveloperDetails(
         round(AVG(success_score), 2) as success_rate,
         COUNT(DISTINCT project_path) as distinct_projects,
         SUM(error_count) as error_count,
-        round(SUM(${PER_SESSION_COST_SQL}), 4) as total_cost
-      FROM rudel.session_analytics FINAL
+		if(countIf(cost_is_complete = 0) = 0, toNullable(round(SUM(ifNull(estimated_cost, 0)), 4)), CAST(NULL, 'Nullable(Float64)')) as total_cost
+      FROM ${usage.sessionsRelation}
       WHERE user_id = {userId:String}
         AND ${buildDateFilter("currentDays")}
         AND organization_id = {orgId:String}
@@ -430,7 +430,7 @@ export async function getDeveloperDetails(
       SELECT
         user_id,
         round(AVG(success_score), 2) as prev_success_rate
-      FROM rudel.session_analytics FINAL
+      FROM ${usage.sessionsRelation}
       WHERE user_id = {userId:String}
         AND session_date >= now64(3) - toIntervalDay({previousDays:UInt32})
         AND session_date < now64(3) - toIntervalDay({currentDays:UInt32})
@@ -469,7 +469,7 @@ export async function getDeveloperDetails(
 	return {
 		active_days: Number(first.active_days) || 0,
 		avg_session_duration_min: Number(first.avg_session_duration_min) || 0,
-		cost: Number(first.cost) || 0,
+		cost: first.cost === null ? null : Number(first.cost),
 		distinct_projects: Number(first.distinct_projects) || 0,
 		error_count: Number(first.error_count) || 0,
 		favorite_model: favoriteModelByUser.get(userId) ?? null,
@@ -538,8 +538,12 @@ export async function getDeveloperSessions(
 				? "total_tokens"
 				: "session_date";
 	const sortDirection = sort_order === "asc" ? "ASC" : "DESC";
+	const usage = await getUsageAnalyticsQueryContext(orgId, {
+		userIdParam: "userId",
+	});
 
 	const query = `
+	WITH ${usage.cteDefinitions}
     SELECT
       session_id,
       session_date,
@@ -555,7 +559,7 @@ export async function getDeveloperSessions(
       length(slash_commands) > 0 as has_slash_commands,
       error_count > 0 as has_errors,
       actual_duration_min BETWEEN 5 AND 240 as likely_success
-    FROM rudel.session_analytics FINAL
+    FROM ${usage.sessionsRelation}
     WHERE user_id = {userId:String}
       AND ${buildDateFilter("days")}
       AND organization_id = {orgId:String}
@@ -589,8 +593,12 @@ export async function getDeveloperProjects(
 	days = 30,
 ): Promise<DeveloperProject[]> {
 	const d = Number(days);
+	const usage = await getUsageAnalyticsQueryContext(orgId, {
+		userIdParam: "userId",
+	});
 
 	const query = `
+	WITH ${usage.cteDefinitions}
     SELECT
       project_path,
       any(git_remote) as git_remote,
@@ -600,7 +608,7 @@ export async function getDeveloperProjects(
       SUM(ifNull(input_tokens, 0) + ifNull(output_tokens, 0)) as total_tokens,
       toString(min(session_date)) as first_session,
       toString(max(session_date)) as last_session
-    FROM rudel.session_analytics FINAL
+    FROM ${usage.sessionsRelation}
     WHERE user_id = {userId:String}
       AND ${buildDateFilter("days")}
       AND organization_id = {orgId:String}
@@ -673,8 +681,12 @@ export async function getDeveloperTimeline(
 	days = 30,
 ): Promise<DeveloperTimeline[]> {
 	const d = Number(days);
+	const usage = await getUsageAnalyticsQueryContext(orgId, {
+		userIdParam: "userId",
+	});
 
 	const query = `
+	WITH ${usage.cteDefinitions}
     SELECT
       toString(toDate(session_date)) as date,
       COUNT(*) as sessions,
@@ -682,7 +694,7 @@ export async function getDeveloperTimeline(
       SUM(ifNull(input_tokens, 0) + ifNull(output_tokens, 0)) as total_tokens,
       COUNT(DISTINCT project_path) as projects_worked,
       round(AVG(success_score), 2) as avg_success_rate
-    FROM rudel.session_analytics FINAL
+    FROM ${usage.sessionsRelation}
     WHERE user_id = {userId:String}
       AND ${buildDateFilter("days")}
       AND organization_id = {orgId:String}
@@ -833,6 +845,7 @@ export async function getDeveloperTrends(
 	groupBy: "day" | "week" = "day",
 ): Promise<DeveloperTrendDataPoint[]> {
 	const d = Number(days);
+	const usage = await getUsageAnalyticsQueryContext(orgId);
 
 	const dateFunc =
 		groupBy === "week"
@@ -840,6 +853,7 @@ export async function getDeveloperTrends(
 			: "toDate(session_date)";
 
 	const query = `
+	WITH ${usage.cteDefinitions}
     SELECT
       toString(${dateFunc}) as date,
       user_id,
@@ -847,7 +861,7 @@ export async function getDeveloperTrends(
       round(SUM(actual_duration_min) / 60, 2) as total_hours,
       SUM(ifNull(input_tokens, 0) + ifNull(output_tokens, 0)) as total_tokens,
       round(AVG(success_score), 2) as avg_success_rate
-    FROM rudel.session_analytics FINAL
+    FROM ${usage.sessionsRelation}
     WHERE ${buildDateFilter("days")}
       AND organization_id = {orgId:String}
     GROUP BY date, user_id
@@ -872,15 +886,19 @@ export async function getDeveloperProjectTimeline(
 	days = 30,
 ): Promise<DeveloperProjectTimeline[]> {
 	const d = Number(days);
+	const usage = await getUsageAnalyticsQueryContext(orgId, {
+		userIdParam: "userId",
+	});
 
 	const query = `
+	WITH ${usage.cteDefinitions}
     SELECT
       toString(toDate(session_date)) as date,
       project_path,
       COUNT(*) as sessions,
       round(SUM(actual_duration_min), 2) as total_duration_min,
       SUM(ifNull(input_tokens, 0) + ifNull(output_tokens, 0)) as total_tokens
-    FROM rudel.session_analytics FINAL
+    FROM ${usage.sessionsRelation}
     WHERE user_id = {userId:String}
       AND ${buildDateFilter("days")}
       AND organization_id = {orgId:String}

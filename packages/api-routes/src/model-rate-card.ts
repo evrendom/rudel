@@ -2,6 +2,8 @@ export type ModelPricingProvider = "anthropic" | "openai";
 
 export type ModelContextBand = "base" | "long";
 
+export const MODEL_LONG_CONTEXT_THRESHOLD_TOKENS = 272_000;
+
 export type ModelRateCardEntry = {
 	provider: ModelPricingProvider;
 	model: string;

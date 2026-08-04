@@ -139,7 +139,7 @@ export const RICK_PLACEHOLDER_GUEST_CARD_PRESET: WrappedGuestCardPreset = {
 	backIssuedAtLabel: "04/25/2026",
 	flipDurationMs: 680,
 	headerLeftMetric: {
-		title: "$347 estimated spend",
+		title: "$347 estimated API-rate cost",
 		value: "$347",
 	},
 	headerRightMetric: {
@@ -158,7 +158,7 @@ export const UNKNOWN_GUEST_CARD_PRESET: WrappedGuestCardPreset = {
 	backIssuedAtLabel: RICK_PLACEHOLDER_GUEST_CARD_PRESET.backIssuedAtLabel,
 	flipDurationMs: RICK_PLACEHOLDER_GUEST_CARD_PRESET.flipDurationMs,
 	headerLeftMetric: {
-		title: "Unknown estimated spend",
+		title: "Estimated API-rate cost unavailable",
 		value: "???",
 	},
 	headerRightMetric: {

@@ -28,7 +28,7 @@ export interface WrappedOnboardingMetrics {
 	daysSinceFirst: number;
 	distinctProjectCount: number;
 	estimatedCostTokenBasis: number;
-	estimatedCostUsd: number;
+	estimatedCostUsd: number | null;
 	favoriteModel: string | null;
 	longestSessionMin: number | null;
 	modelByMonth: readonly MonthlyModelUsage[];

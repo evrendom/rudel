@@ -29,6 +29,20 @@ describe("buildWrappedOnboardingMetrics", () => {
 		expect(metrics.estimatedCostUsd).toBe(91);
 		expect(metrics.estimatedCostTokenBasis).toBe(38_000);
 	});
+
+	it("preserves unknown event pricing instead of falling back to another surface", () => {
+		const metrics = buildWrappedOnboardingMetrics({
+			commitBreakdown: undefined,
+			developerDetails: createDeveloperDetails({ cost: 42 }),
+			developerFeatures: undefined,
+			developerProjects: undefined,
+			developerSessions: undefined,
+			wrappedMetrics: createWrappedMetrics({ estimated_spend_usd: null }),
+		});
+
+		expect(metrics.estimatedCostUsd).toBeNull();
+		expect(metrics.repoPulse.entries).toEqual([]);
+	});
 });
 
 function createDeveloperDetails(

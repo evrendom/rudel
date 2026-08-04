@@ -13,6 +13,7 @@ import {
 	buildDateFilter,
 	queryClickhouse,
 } from "../clickhouse.js";
+import { getUsageAnalyticsQueryContext } from "./usage-event-analytics.service.js";
 
 const logger = getLogger(["rudel", "api", "project-service"]);
 
@@ -147,9 +148,15 @@ export async function getProjectInvestment(
 			project_paths,
 		);
 	}
+	const usage = await getUsageAnalyticsQueryContext(orgId);
+	const costExpression =
+		usage.mode === "events"
+			? "c.total_cost"
+			: "round((c.output_tokens_sum / 1000000.0) * 15.0 + (c.input_tokens_sum / 1000000.0) * 3.0, 4)";
 
 	const query = `
-    WITH current_period AS (
+	WITH ${usage.cteDefinitions},
+	current_period AS (
       SELECT
         ${PROJECT_DISPLAY_EXPR} as project_display,
         any(git_remote) as _git_remote,
@@ -161,8 +168,9 @@ export async function getProjectInvestment(
         SUM(ifNull(input_tokens, 0) + ifNull(output_tokens, 0)) as total_tokens,
         round(SUM(actual_duration_min), 2) as total_duration_min,
         round(AVG(actual_duration_min), 2) as avg_session_duration_min,
-        round(AVG(success_score), 2) as success_rate
-      FROM rudel.session_analytics FINAL
+		round(AVG(success_score), 2) as success_rate,
+		if(countIf(cost_is_complete = 0) = 0, toNullable(round(SUM(ifNull(estimated_cost, 0)), 4)), CAST(NULL, 'Nullable(Float64)')) as total_cost
+      FROM ${usage.sessionsRelation}
       WHERE ${buildDateFilter("currentDays")}
         AND organization_id = {orgId:String}
         AND (git_remote != '' OR package_name != '' OR project_path != '')
@@ -173,7 +181,7 @@ export async function getProjectInvestment(
       SELECT
         ${PROJECT_DISPLAY_EXPR} as project_display,
         round(AVG(success_score), 2) as prev_success_rate
-      FROM rudel.session_analytics FINAL
+      FROM ${usage.sessionsRelation}
       WHERE session_date >= now64(3) - toIntervalDay({previousDays:UInt32})
         AND session_date < now64(3) - toIntervalDay({currentDays:UInt32})
         AND organization_id = {orgId:String}
@@ -193,7 +201,7 @@ export async function getProjectInvestment(
       c.total_duration_min,
       c.avg_session_duration_min,
       c.success_rate,
-      round((c.output_tokens_sum / 1000000.0) * 15.0 + (c.input_tokens_sum / 1000000.0) * 3.0, 4) as cost,
+	  ${costExpression} as cost,
       round(c.success_rate - ifNull(p.prev_success_rate, c.success_rate), 2) as success_rate_trend
     FROM current_period c
     LEFT JOIN previous_period p ON c.project_display = p.project_display
@@ -380,8 +388,10 @@ export async function getProjectDetails(
 		orgId,
 		projectPath,
 	};
+	const usage = await getUsageAnalyticsQueryContext(orgId);
 
 	const query = `
+	WITH ${usage.cteDefinitions}
     SELECT
       any(project_path) as raw_project_path,
       COUNT(*) as total_sessions,
@@ -392,8 +402,9 @@ export async function getProjectDetails(
       countIf(success_score < 40) as errors_count,
       ifNull(round(avgOrNull(actual_duration_min), 2), 0) as avg_session_duration_min,
       ifNull(round(avgOrNull(success_score), 2), 0) as success_rate,
-      round(SUM(actual_duration_min), 2) as total_duration_min
-    FROM rudel.session_analytics FINAL
+	  round(SUM(actual_duration_min), 2) as total_duration_min,
+	  if(countIf(cost_is_complete = 0) = 0, toNullable(round(SUM(ifNull(estimated_cost, 0)), 4)), CAST(NULL, 'Nullable(Float64)')) as event_cost
+    FROM ${usage.sessionsRelation}
     WHERE ${PROJECT_DISPLAY_EXPR} = ${projectDisplaySubquery}
       AND ${buildDateFilter("days")}
       AND organization_id = {orgId:String}
@@ -401,6 +412,7 @@ export async function getProjectDetails(
   `;
 
 	let results: (Omit<ProjectDetails, "project_path"> & {
+		event_cost: number | null;
 		raw_project_path: string;
 		input_tokens_sum: number;
 		output_tokens_sum: number;
@@ -408,6 +420,7 @@ export async function getProjectDetails(
 	try {
 		results = await queryClickhouse<
 			Omit<ProjectDetails, "project_path"> & {
+				event_cost: number | null;
 				raw_project_path: string;
 				input_tokens_sum: number;
 				output_tokens_sum: number;
@@ -427,7 +440,9 @@ export async function getProjectDetails(
 	const [row] = results;
 	if (!row || row.total_sessions === 0) return null;
 	const cost =
-		row.output_tokens_sum * 0.000015 + row.input_tokens_sum * 0.000003;
+		usage.mode === "events"
+			? row.event_cost
+			: row.output_tokens_sum * 0.000015 + row.input_tokens_sum * 0.000003;
 	return {
 		project_path: row.raw_project_path,
 		total_sessions: row.total_sessions,
@@ -437,7 +452,7 @@ export async function getProjectDetails(
 		avg_session_duration_min: row.avg_session_duration_min,
 		success_rate: row.success_rate,
 		total_duration_min: row.total_duration_min,
-		cost: parseFloat(cost.toFixed(4)),
+		cost: cost === null ? null : Number(cost.toFixed(4)),
 	};
 }
 
@@ -460,11 +475,13 @@ export async function getProjectContributors(
 		orgId,
 		projectPath,
 	};
+	const usage = await getUsageAnalyticsQueryContext(orgId);
 
 	const query = `
-    WITH project_totals AS (
+	WITH ${usage.cteDefinitions},
+	project_totals AS (
       SELECT COUNT(*) as total_sessions
-      FROM rudel.session_analytics FINAL
+      FROM ${usage.sessionsRelation}
       WHERE ${PROJECT_DISPLAY_EXPR} = ${projectDisplaySubquery}
         AND ${buildDateFilter("days")}
         AND organization_id = {orgId:String}
@@ -478,7 +495,7 @@ export async function getProjectContributors(
       toString(min(session_date)) as first_session,
       toString(max(session_date)) as last_session,
       round(COUNT(*) * 100.0 / (SELECT total_sessions FROM project_totals), 2) as contribution_percentage
-    FROM rudel.session_analytics FINAL
+    FROM ${usage.sessionsRelation}
     WHERE ${PROJECT_DISPLAY_EXPR} = ${projectDisplaySubquery}
       AND ${buildDateFilter("days")}
       AND organization_id = {orgId:String}
@@ -694,6 +711,7 @@ export async function getProjectTrends(
 	groupBy: "day" | "week" = "day",
 ): Promise<ProjectTrendDataPoint[]> {
 	const d = Number(days);
+	const usage = await getUsageAnalyticsQueryContext(orgId);
 
 	const dateFunc =
 		groupBy === "week"
@@ -701,6 +719,7 @@ export async function getProjectTrends(
 			: "toDate(session_date)";
 
 	const query = `
+	WITH ${usage.cteDefinitions}
     SELECT
       toString(${dateFunc}) as date,
       ${PROJECT_DISPLAY_EXPR} as project_key,
@@ -709,7 +728,7 @@ export async function getProjectTrends(
       round(SUM(actual_duration_min) / 60, 2) as total_hours,
       SUM(ifNull(input_tokens, 0) + ifNull(output_tokens, 0)) as total_tokens,
       round(AVG(success_score), 2) as avg_success_rate
-    FROM rudel.session_analytics FINAL
+    FROM ${usage.sessionsRelation}
     WHERE ${buildDateFilter("days")}
       AND organization_id = {orgId:String}
       AND (git_remote != '' OR package_name != '' OR project_path != '')

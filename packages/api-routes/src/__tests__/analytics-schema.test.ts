@@ -3,10 +3,18 @@ import {
 	DaysInputSchema,
 	DeveloperDetailsInputSchema,
 	DeveloperSessionsInputSchema,
+	DeveloperSummarySchema,
+	DeveloperTeamCardSchema,
 	DimensionAnalysisInputSchema,
+	ProjectDetailDataSchema,
+	ProjectInvestmentSchema,
 	RecurringErrorsInputSchema,
+	ROIDashboardSchema,
+	ROIMetricsSchema,
 	SessionDetailInputSchema,
 	SessionListInputSchema,
+	UserTokenUsageDataSchema,
+	WrappedV1MetricsSchema,
 } from "../schemas/analytics.js";
 
 describe("analytics input schemas", () => {
@@ -83,5 +91,53 @@ describe("analytics input schemas", () => {
 		expect(RecurringErrorsInputSchema.safeParse({ limit: 1001 }).success).toBe(
 			false,
 		);
+	});
+});
+
+describe("usage-event cutover output contract", () => {
+	test("keeps pricing diagnostics and coverage internal", () => {
+		const publicKeys = [
+			DeveloperSummarySchema,
+			DeveloperTeamCardSchema,
+			ProjectDetailDataSchema,
+			ProjectInvestmentSchema,
+			ROIDashboardSchema,
+			ROIMetricsSchema,
+			UserTokenUsageDataSchema,
+			WrappedV1MetricsSchema,
+		].flatMap((schema) => Object.keys(schema.shape));
+
+		for (const internalField of [
+			"integrity_count",
+			"priced_token_percent",
+			"pricing_coverage",
+			"pricing_coverage_percent",
+			"token_classes",
+			"unpriced_session_count",
+			"unresolved_models",
+		]) {
+			expect(publicKeys).not.toContain(internalField);
+		}
+	});
+
+	test("reuses nullable cost fields for fail-closed pricing", () => {
+		expect(DeveloperSummarySchema.shape.cost.safeParse(null).success).toBe(
+			true,
+		);
+		expect(DeveloperTeamCardSchema.shape.cost.safeParse(null).success).toBe(
+			true,
+		);
+		expect(ProjectDetailDataSchema.shape.cost.safeParse(null).success).toBe(
+			true,
+		);
+		expect(ProjectInvestmentSchema.shape.cost.safeParse(null).success).toBe(
+			true,
+		);
+		expect(UserTokenUsageDataSchema.shape.cost.safeParse(null).success).toBe(
+			true,
+		);
+		expect(
+			WrappedV1MetricsSchema.shape.estimated_spend_usd.safeParse(null).success,
+		).toBe(true);
 	});
 });

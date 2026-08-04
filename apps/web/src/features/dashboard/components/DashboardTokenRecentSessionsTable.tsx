@@ -121,7 +121,7 @@ function DashboardTokenRecentSessionsTableSkeleton({
 						<p>Repository</p>
 						<p>Model</p>
 						<p>Tokens</p>
-						<p>Cost</p>
+						<p>Estimated API-rate cost</p>
 						<p>Duration</p>
 					</div>
 					<div className="grid gap-0">
@@ -318,11 +318,11 @@ export function DashboardTokenRecentSessionsTable({
 					},
 					{
 						id: "cost",
-						header: "Cost",
+						header: "Estimated API-rate cost",
 						renderCell: (session) => (
 							<DashboardTokenCostCell
 								at={session.session_date}
-								cost={undefined}
+								cost={session.estimated_cost}
 								inputTokens={session.input_tokens}
 								outputTokens={session.output_tokens}
 								model={session.model_used}

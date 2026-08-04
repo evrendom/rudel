@@ -86,6 +86,20 @@ describe("TeamMembersCardGrid", () => {
 		expect(screen.queryByText("To be revealed")).not.toBeInTheDocument();
 	});
 
+	it("renders a numeric cost when event pricing is unavailable", () => {
+		render(
+			<TeamMembersCardGrid
+				canInviteTeamMembers={false}
+				currentUserId={null}
+				organizationId={null}
+				rows={[buildTeamMemberRow({ cost: null })]}
+			/>,
+		);
+
+		expect(screen.getByText("$0")).toBeVisible();
+		expect(screen.queryByText("—")).not.toBeInTheDocument();
+	});
+
 	it("wraps the current user's card with a hover-revealed secondary sharing page link", () => {
 		render(
 			<MemoryRouter>

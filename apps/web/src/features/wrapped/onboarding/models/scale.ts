@@ -59,7 +59,7 @@ export function resolveScaleStageModel(totalTokens: number): ScaleStageModel {
 
 export function resolveScaleEstimatedSpendUsd(input: {
 	baseCostTokenBasis: number;
-	baseCostUsd: number;
+	baseCostUsd: number | null;
 	totalTokens: number;
 }) {
 	const normalizedTotalTokens = Math.max(0, Math.round(input.totalTokens));
@@ -67,11 +67,14 @@ export function resolveScaleEstimatedSpendUsd(input: {
 	if (normalizedTotalTokens <= 0) {
 		return 0;
 	}
+	if (input.baseCostUsd === null) {
+		return null;
+	}
 
 	const normalizedBaseCostUsd = Math.max(0, input.baseCostUsd);
 	const normalizedBaseCostTokenBasis = Math.max(0, input.baseCostTokenBasis);
 	const usdPerToken =
-		normalizedBaseCostUsd > 0 && normalizedBaseCostTokenBasis > 0
+		normalizedBaseCostTokenBasis > 0
 			? normalizedBaseCostUsd / normalizedBaseCostTokenBasis
 			: SCALE_STAGE_FALLBACK_USD_PER_TOKEN;
 

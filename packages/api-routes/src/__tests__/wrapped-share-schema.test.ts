@@ -27,6 +27,21 @@ describe("wrapped share snapshot resource budget", () => {
 		expect(WrappedShareSnapshotSchema.safeParse(snapshot).success).toBe(true);
 	});
 
+	test("keeps old numeric shares valid and permits an unknown refreshed cost", () => {
+		const numericSnapshot = createSnapshot();
+		const unknownCostSnapshot = {
+			...numericSnapshot,
+			row: { ...numericSnapshot.row, cost: null },
+		};
+
+		expect(WrappedShareSnapshotSchema.safeParse(numericSnapshot).success).toBe(
+			true,
+		);
+		expect(
+			WrappedShareSnapshotSchema.safeParse(unknownCostSnapshot).success,
+		).toBe(true);
+	});
+
 	test("rejects one item over either array limit", () => {
 		const tooManyStats = createSnapshot({
 			statItemCount: WRAPPED_SHARE_RESOURCE_LIMITS.statItemCount + 1,

@@ -99,7 +99,7 @@ export const WrappedShareRowSchema = z
 		// on a public route. We do not include email, internal ids, or raw analytics
 		// records here because the public page only needs the rendered snapshot values.
 		activeDays: z.number().nonnegative(),
-		cost: z.number().nonnegative(),
+		cost: z.number().nonnegative().nullable(),
 		displayName: WrappedShareRequiredTextSchema,
 		favoriteModel: WrappedShareTextSchema.nullable(),
 		hasActivity: z.boolean(),

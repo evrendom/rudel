@@ -133,7 +133,9 @@ function getTotalTokensNote(wrappedData: WrappedV1): string {
 }
 
 function getEstimatedSpendNote(wrappedData: WrappedV1): string {
-	return `${CURRENCY_FORMATTER.format(wrappedData.metrics.estimated_spend_usd)} estimated from the model pricing catalog.`;
+	const estimatedSpend = wrappedData.metrics.estimated_spend_usd;
+
+	return `${CURRENCY_FORMATTER.format(estimatedSpend ?? 0)} estimated from the model pricing catalog.`;
 }
 
 function formatCompactNumber(value: number): string {
