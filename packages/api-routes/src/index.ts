@@ -207,6 +207,10 @@ export const IngestSessionOutputSchema = z.object({
 	sessionId: z.string(),
 	redacted: z.record(z.string(), z.number().int().nonnegative()).default({}),
 	redactedBytes: z.number().int().nonnegative().optional(),
+	usageChecksum: z
+		.string()
+		.regex(/^[a-f0-9]{64}$/u)
+		.optional(),
 });
 
 export const REDACTION_BUDGET_EXCEEDED_CODE = "REDACTION_BUDGET_EXCEEDED";

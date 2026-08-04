@@ -33,6 +33,7 @@ export interface UploadResult {
 	redactionBudgetExceeded?: boolean;
 	redactionConvergenceExceeded?: boolean;
 	endpointRejected?: boolean;
+	usageChecksum?: string;
 }
 
 export const DEFAULT_ENDPOINT = "https://app.rudel.ai/rpc";

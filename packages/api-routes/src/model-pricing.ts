@@ -5,6 +5,8 @@ import {
 	type ModelRateCardEntry,
 } from "./model-rate-card.js";
 
+export { MODEL_RATE_CARD_VERSION };
+
 export const ESTIMATED_PRICING_MODE = "estimated_model_pricing_v2" as const;
 
 export type ResolveModelPricingOptions = {

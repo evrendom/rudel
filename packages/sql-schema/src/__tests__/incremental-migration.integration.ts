@@ -14,12 +14,12 @@ import { migrate } from "drizzle-orm/postgres-js/migrator";
 import postgres from "postgres";
 
 const MIGRATION_0019_TIMESTAMP = "1785426102000";
-const MIGRATION_0022_TIMESTAMP = "1785772800000";
+const MIGRATION_0024_TIMESTAMP = "1785780000000";
 const migrationsFolder = join(import.meta.dir, "..", "..", "db", "migrations");
 
 setDefaultTimeout(120_000);
 
-test("applies migrations 0020-0022 to a database already migrated through 0019", async () => {
+test("applies migrations 0020-0024 to a database already migrated through 0019", async () => {
 	const connectionString = getPostgresConnectionString();
 	const databaseName = `rudel_migration_${Date.now()}_${crypto.randomUUID().replaceAll("-", "")}`;
 	const migrationsThrough0019 = await createMigrationsThrough0019();
@@ -52,7 +52,7 @@ test("applies migrations 0020-0022 to a database already migrated through 0019",
 
 			await migrate(database, { migrationsFolder });
 
-			const [after0022] = await migrationSql<MigrationState[]>`
+			const [after0024] = await migrationSql<MigrationState[]>`
 				SELECT
 					COUNT(*)::int AS count,
 					MAX(created_at)::text AS "latestTimestamp"
@@ -61,9 +61,9 @@ test("applies migrations 0020-0022 to a database already migrated through 0019",
 			const [tableAfter0020] = await migrationSql<TableState[]>`
 				SELECT to_regclass('public.clickhouse_purge_job')::text AS name
 			`;
-			expect(after0022).toEqual({
-				count: 23,
-				latestTimestamp: MIGRATION_0022_TIMESTAMP,
+			expect(after0024).toEqual({
+				count: 25,
+				latestTimestamp: MIGRATION_0024_TIMESTAMP,
 			});
 			expect(tableAfter0020?.name).toBe("clickhouse_purge_job");
 			const shapeColumns = await migrationSql<Array<{ name: string }>>`
@@ -76,7 +76,17 @@ test("applies migrations 0020-0022 to a database already migrated through 0019",
 						'last_assistant_line_count',
 						'last_content_shape_json',
 						'last_filter_version',
-						'last_session_date'
+						'last_session_date',
+						'usage_extraction_generation',
+						'last_usage_content_sha256',
+						'last_usage_extraction_version',
+						'last_usage_event_identity_version',
+						'last_usage_model_rate_card_version',
+						'last_usage_event_count',
+						'last_usage_checksum',
+						'last_usage_diagnostics_json',
+						'last_usage_completed_generation',
+						'last_usage_completed_at'
 					)
 				ORDER BY column_name
 			`;
@@ -86,6 +96,16 @@ test("applies migrations 0020-0022 to a database already migrated through 0019",
 				{ name: "last_content_shape_json" },
 				{ name: "last_filter_version" },
 				{ name: "last_session_date" },
+				{ name: "last_usage_checksum" },
+				{ name: "last_usage_completed_at" },
+				{ name: "last_usage_completed_generation" },
+				{ name: "last_usage_content_sha256" },
+				{ name: "last_usage_diagnostics_json" },
+				{ name: "last_usage_event_count" },
+				{ name: "last_usage_event_identity_version" },
+				{ name: "last_usage_extraction_version" },
+				{ name: "last_usage_model_rate_card_version" },
+				{ name: "usage_extraction_generation" },
 			]);
 		} finally {
 			await migrationSql.end();

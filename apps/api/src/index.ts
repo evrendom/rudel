@@ -27,6 +27,7 @@ import {
 	getIngestFilterQueueMetrics,
 	shutdownIngestFilterQueue,
 } from "./services/ingest-filter.service.js";
+import { shutdownUsageExtractionQueue } from "./services/usage-extraction.service.js";
 import {
 	getPublicWrappedShareForPageMetadata,
 	getPublicWrappedShareWithSocialImage,
@@ -407,6 +408,7 @@ async function shutdown(signal?: string) {
 	isShuttingDown = true;
 
 	shutdownIngestFilterQueue();
+	shutdownUsageExtractionQueue();
 	await Promise.all([
 		shutdownApiProductAnalytics(),
 		clickHousePurgeWorker?.stop(),

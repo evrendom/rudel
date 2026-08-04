@@ -170,6 +170,93 @@ export const RudelSessionAnalyticsRowSchema = z.object({
 export type RudelSessionAnalyticsRowInput = z.input<typeof RudelSessionAnalyticsRowSchema>
 export type RudelSessionAnalyticsRowOutput = z.output<typeof RudelSessionAnalyticsRowSchema>
 
+export type RudelUsageEventsRow = {
+  organization_id: string
+  user_id: string
+  source: string
+  session_id: string
+  event_id: string
+  record_kind: string
+  event_version: string
+  event_identity_version: number
+  extraction_version: number
+  model_rate_card_version: string
+  filter_version: number
+  content_sha256: string
+  occurred_at: string
+  usage_date: string
+  has_valid_timestamp: number
+  raw_model: string
+  resolved_model: string
+  model_status: string
+  service_tier: string
+  context_input_tokens: string
+  uncached_input_tokens: string
+  cache_read_input_tokens: string
+  cache_write_5m_input_tokens: string
+  cache_write_1h_input_tokens: string
+  output_tokens: string
+  reasoning_output_tokens: string
+  agent_id: string
+  lineage_id: string
+  parent_lineage_id: string
+  token_source: string
+  identity_kind: string
+  first_observed_line: number
+  duplicate_observation_count: number
+  quality_flags: string[]
+  is_deleted: number
+  receipt_is_complete: number
+  receipt_event_count: number
+  receipt_checksum: string
+  ingested_at: string
+}
+
+export const RudelUsageEventsRowSchema = z.object({
+  organization_id: z.string(),
+  user_id: z.string(),
+  source: z.string(),
+  session_id: z.string(),
+  event_id: z.string(),
+  record_kind: z.string(),
+  event_version: z.string(),
+  event_identity_version: z.number(),
+  extraction_version: z.number(),
+  model_rate_card_version: z.string(),
+  filter_version: z.number(),
+  content_sha256: z.string(),
+  occurred_at: z.string(),
+  usage_date: z.string(),
+  has_valid_timestamp: z.number(),
+  raw_model: z.string(),
+  resolved_model: z.string(),
+  model_status: z.string(),
+  service_tier: z.string(),
+  context_input_tokens: z.string(),
+  uncached_input_tokens: z.string(),
+  cache_read_input_tokens: z.string(),
+  cache_write_5m_input_tokens: z.string(),
+  cache_write_1h_input_tokens: z.string(),
+  output_tokens: z.string(),
+  reasoning_output_tokens: z.string(),
+  agent_id: z.string(),
+  lineage_id: z.string(),
+  parent_lineage_id: z.string(),
+  token_source: z.string(),
+  identity_kind: z.string(),
+  first_observed_line: z.number(),
+  duplicate_observation_count: z.number(),
+  quality_flags: z.array(z.string()),
+  is_deleted: z.number(),
+  receipt_is_complete: z.number(),
+  receipt_event_count: z.number(),
+  receipt_checksum: z.string(),
+  ingested_at: z.string(),
+})
+
+export type RudelUsageEventsRowInput = z.input<typeof RudelUsageEventsRowSchema>
+export type RudelUsageEventsRowOutput = z.output<typeof RudelUsageEventsRowSchema>
+
 export type RudelWrappedUserArchetypeRunsV1Row = {
   snapshot_id: string
   snapshot_created_at: string

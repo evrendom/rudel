@@ -192,6 +192,19 @@ describe("isRetryableUploadError", () => {
 		expect(isRetryableUploadError(new ORPCError("BAD_REQUEST"))).toBe(false);
 		expect(isRetryableUploadError(new ORPCError("BAD_GATEWAY"))).toBe(true);
 	});
+
+	test("keeps mid-write incomplete extraction retryable", () => {
+		expect(
+			isRetryableUploadError(
+				new ORPCError("SERVICE_UNAVAILABLE", {
+					data: {
+						reason: "usage_extraction_incomplete",
+						retryAfterMs: 1_000,
+					},
+				}),
+			),
+		).toBe(true);
+	});
 });
 
 describe("uploadSession aggregate size guard", () => {
@@ -223,6 +236,39 @@ describe("uploadSession aggregate size guard", () => {
 });
 
 describe("uploadSession transient transport handling", () => {
+	test("returns the server usage checksum for client attestation", async () => {
+		const usageChecksum = "c".repeat(64);
+		const stub = startIngestStub({
+			respond: () =>
+				Response.json({
+					json: {
+						success: true,
+						sessionId: "attested-upload",
+						usageChecksum,
+					},
+				}),
+		});
+		try {
+			const result = await uploadSession(
+				{
+					source: "claude_code",
+					sessionId: "attested-upload",
+					projectPath: "/test/project",
+					content: '{"type":"user","timestamp":"2026-08-03T10:00:00.000Z"}',
+				},
+				{
+					endpoint: `${stub.loopbackBase}/rpc`,
+					token: INGEST_STUB_TEST_TOKEN,
+					allowInsecureEndpoint: false,
+				},
+			);
+
+			expect(result).toMatchObject({ success: true, usageChecksum });
+		} finally {
+			await stub.server.stop(true);
+		}
+	});
+
 	test("retries a 408 response and succeeds on the next attempt", async () => {
 		const stub = startIngestStub({ failFirstN: { n: 1, status: 408 } });
 		const retries: number[] = [];

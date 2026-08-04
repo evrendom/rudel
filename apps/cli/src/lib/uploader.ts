@@ -390,6 +390,7 @@ export async function uploadSession(
 				),
 				redactedBytes:
 					filteredText.redactedBytes + (response.redactedBytes ?? 0),
+				usageChecksum: response.usageChecksum,
 			};
 		} catch (error) {
 			if (
@@ -503,6 +504,7 @@ interface IngestSessionResponse {
 	readonly sessionId: string;
 	readonly redacted?: RedactionCounts;
 	readonly redactedBytes?: number;
+	readonly usageChecksum?: string;
 }
 
 // success + sessionId is the floor every deployed API version returns; redacted
@@ -518,6 +520,13 @@ function isIngestSessionResponse(
 		return false;
 	}
 	if (value.redacted !== undefined && !isRecord(value.redacted)) {
+		return false;
+	}
+	if (
+		value.usageChecksum !== undefined &&
+		(typeof value.usageChecksum !== "string" ||
+			!/^[a-f0-9]{64}$/u.test(value.usageChecksum))
+	) {
 		return false;
 	}
 	return (
