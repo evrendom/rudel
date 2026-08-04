@@ -30,8 +30,7 @@ Use the production operator environment. Set the organization filter when
 performing a staged run; omit it only for the final fleet-wide run.
 
 ```bash
-doppler run --project rudel --config prd_local -- \
-  bun run --cwd apps/api backfill:usage-events -- \
+bun run --cwd apps/api backfill:usage-events -- \
   --organization-id ORGANIZATION_ID \
   --max-sessions REVIEWED_UPPER_BOUND
 ```
@@ -54,8 +53,7 @@ raises its own bound.
 Pass the exact preview `cutoff` and the same organization and size bounds.
 
 ```bash
-doppler run --project rudel --config prd_local -- \
-  bun run --cwd apps/api backfill:usage-events -- \
+bun run --cwd apps/api backfill:usage-events -- \
   --execute \
   --cutoff 2026-01-01T00:00:00.000Z \
   --organization-id ORGANIZATION_ID \
@@ -74,8 +72,7 @@ sessions are idempotently skipped.
 ## 3. Side-by-side coverage and token classes
 
 ```bash
-doppler run --project rudel --config prd_local -- \
-  bun run --cwd apps/api compare:usage-events -- \
+bun run --cwd apps/api compare:usage-events -- \
   --organization-id ORGANIZATION_ID \
   --max-sessions REVIEWED_UPPER_BOUND \
   --top-sessions 20 \
