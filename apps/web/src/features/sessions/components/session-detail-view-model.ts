@@ -191,13 +191,10 @@ export function summarizeSessionSubagents(
 }
 
 function formatSessionCost(value: number | null) {
-	if (value === null) {
-		return "—";
-	}
+	const resolvedValue = value ?? 0;
+	const fractionDigits = resolvedValue >= 100 ? 0 : 2;
 
-	const fractionDigits = value >= 100 ? 0 : 2;
-
-	return value.toLocaleString("en-US", {
+	return resolvedValue.toLocaleString("en-US", {
 		style: "currency",
 		currency: "USD",
 		minimumFractionDigits: fractionDigits,

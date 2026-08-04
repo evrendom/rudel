@@ -315,7 +315,7 @@ function buildRepoPulseHoursLabel(totalDurationMin: number) {
 }
 
 function buildRepoPulseSpendLabel(spendUsd: number | null) {
-	return spendUsd === null ? "—" : `${formatCompactCurrency(spendUsd)} spent`;
+	return `${formatCompactCurrency(spendUsd)} spent`;
 }
 
 function resolveRepoPulseSpendUsd(input: {

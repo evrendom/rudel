@@ -76,9 +76,7 @@ function DashboardTokenModelTooltip({
 			<div className="flex items-center justify-between gap-3">
 				<span className="text-white/65">Estimated API-rate cost</span>
 				<span className="font-mono tabular-nums text-white">
-					{point.estimatedCost === null
-						? "—"
-						: `${point.isCostPartial ? "≥ " : ""}${formatCurrency(point.estimatedCost)}`}
+					{`${point.isCostPartial ? "≥ " : ""}${formatCurrency(point.estimatedCost)}`}
 				</span>
 			</div>
 			<div className="flex items-center justify-between gap-3">

@@ -441,22 +441,16 @@ function formatWrappedXWholeNumber(value: number | null | undefined) {
 }
 
 function formatWrappedXWholeCurrency(value: number | null | undefined) {
-	return value === null || value === undefined
-		? "—"
-		: `$${formatWrappedXWholeNumber(value)}`;
+	return `$${formatWrappedXWholeNumber(value)}`;
 }
 
 function formatWrappedXCostPerSession(input: {
 	cost?: number | null;
 	totalSessions?: number | null;
 }) {
-	if (input.cost === null || input.cost === undefined) {
-		return "—";
-	}
-
 	return formatCurrency(
 		input.totalSessions && input.totalSessions > 0
-			? input.cost / input.totalSessions
+			? (input.cost ?? 0) / input.totalSessions
 			: 0,
 	);
 }

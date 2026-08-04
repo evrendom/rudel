@@ -97,7 +97,7 @@ export function formatDecimal(value: number) {
 
 export function formatCurrency(value: number | null | undefined) {
 	if (value === null || value === undefined || !Number.isFinite(value)) {
-		return "—";
+		return currencyFormatter.format(0);
 	}
 
 	if (value !== 0 && Math.abs(value) < 1) {
@@ -109,7 +109,7 @@ export function formatCurrency(value: number | null | undefined) {
 
 export function formatCompactCurrency(value: number | null | undefined) {
 	if (value === null || value === undefined || !Number.isFinite(value)) {
-		return "—";
+		return currencyFormatter.format(0);
 	}
 
 	if (Math.abs(value) < 1_000) {
@@ -121,7 +121,7 @@ export function formatCompactCurrency(value: number | null | undefined) {
 
 export function formatWholeCurrency(value: number | null | undefined) {
 	if (value === null || value === undefined || !Number.isFinite(value)) {
-		return "—";
+		return wholeCurrencyFormatter.format(0);
 	}
 
 	return wholeCurrencyFormatter.format(value);
@@ -129,7 +129,7 @@ export function formatWholeCurrency(value: number | null | undefined) {
 
 export function formatCompactWholeCurrency(value: number | null | undefined) {
 	if (value === null || value === undefined || !Number.isFinite(value)) {
-		return "—";
+		return wholeCurrencyFormatter.format(0);
 	}
 
 	if (Math.abs(value) < 1_000) {

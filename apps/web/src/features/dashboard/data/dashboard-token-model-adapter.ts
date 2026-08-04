@@ -45,7 +45,6 @@ export function buildDashboardTokenModelRows(
 	const rowsByModel = new Map<
 		string,
 		{
-			hasKnownCost: boolean;
 			inputTokens: number;
 			isCostPartial: boolean;
 			knownCost: number;
@@ -56,7 +55,6 @@ export function buildDashboardTokenModelRows(
 
 	for (const row of modelTokensTrend ?? []) {
 		const currentRow = rowsByModel.get(row.model) ?? {
-			hasKnownCost: false,
 			inputTokens: 0,
 			isCostPartial: false,
 			knownCost: 0,
@@ -67,7 +65,6 @@ export function buildDashboardTokenModelRows(
 		if (row.estimated_cost == null) {
 			currentRow.isCostPartial = true;
 		} else {
-			currentRow.hasKnownCost = true;
 			currentRow.knownCost += row.estimated_cost;
 		}
 		currentRow.inputTokens += row.input_tokens;
@@ -79,10 +76,10 @@ export function buildDashboardTokenModelRows(
 
 	return Array.from(rowsByModel.entries())
 		.map(([model, row]) => ({
-			estimatedCost: row.hasKnownCost ? row.knownCost : null,
+			estimatedCost: row.knownCost,
 			id: model,
 			inputTokens: row.inputTokens,
-			isCostPartial: row.hasKnownCost && row.isCostPartial,
+			isCostPartial: row.isCostPartial,
 			label: model,
 			outputTokens: row.outputTokens,
 			totalTokens: row.totalTokens,

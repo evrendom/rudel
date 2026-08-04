@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test } from "vitest";
 import {
 	buildDashboardTokenDailyPattern,
 	buildDashboardTokenTabMetrics,
@@ -54,7 +54,7 @@ describe("buildDashboardTokenModelRows", () => {
 		expect(row?.isCostPartial).toBe(true);
 	});
 
-	test("keeps a fully unpriced model aggregate unknown", () => {
+	test("renders a fully unpriced model aggregate as a partial numeric zero", () => {
 		const [row] = buildDashboardTokenModelRows([
 			{
 				date: "2026-08-02",
@@ -66,11 +66,11 @@ describe("buildDashboardTokenModelRows", () => {
 			},
 		]);
 
-		expect(row?.estimatedCost).toBeNull();
-		expect(row?.isCostPartial).toBe(false);
+		expect(row?.estimatedCost).toBe(0);
+		expect(row?.isCostPartial).toBe(true);
 	});
 
-	test("renders the dashboard headline as a non-rounded lower bound", () => {
+	test("renders the dashboard headline as a rounded known subtotal", () => {
 		const metrics = buildDashboardTokenTabMetrics(
 			[],
 			[],
@@ -96,7 +96,28 @@ describe("buildDashboardTokenModelRows", () => {
 
 		expect(
 			metrics.find((metric) => metric.id === "uncommitted")?.valueLabel,
-		).toBe("≥ $12.50");
+		).toBe("$13");
+	});
+
+	test("renders a numeric dashboard headline when every model is unpriced", () => {
+		const metrics = buildDashboardTokenTabMetrics(
+			[],
+			[],
+			[
+				{
+					date: "2026-08-01",
+					estimated_cost: null,
+					input_tokens: 50,
+					model: "unpriced-model",
+					output_tokens: 10,
+					total_tokens: 60,
+				},
+			],
+		);
+
+		expect(
+			metrics.find((metric) => metric.id === "uncommitted")?.valueLabel,
+		).toBe("$0");
 	});
 
 	test("keeps daily known cost and partial state separately", () => {

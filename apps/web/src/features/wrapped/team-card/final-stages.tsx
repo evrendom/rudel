@@ -1897,16 +1897,12 @@ function formatWrappedRevealInteger(value: number) {
 }
 
 function formatWrappedRevealWholeCurrency(value: number | null) {
-	return value === null ? "—" : `$${formatWrappedRevealInteger(value)}`;
+	return `$${formatWrappedRevealInteger(value ?? 0)}`;
 }
 
 function formatWrappedCostPerSession(row: TeamPageMemberRow) {
-	if (row.cost === null) {
-		return "—";
-	}
-
 	return formatCurrency(
-		row.totalSessions > 0 ? row.cost / row.totalSessions : 0,
+		row.totalSessions > 0 ? (row.cost ?? 0) / row.totalSessions : 0,
 	);
 }
 

@@ -48,10 +48,7 @@ function buildHeaderLeftMetric(row: TeamPageMemberRow) {
 	const formattedSpend = formatSpendValue(row.cost);
 
 	return {
-		title:
-			row.cost === null
-				? "Estimated API-rate cost unavailable"
-				: `${currencyFormatter.format(row.cost)} estimated API-rate cost`,
+		title: `${currencyFormatter.format(row.cost ?? 0)} estimated API-rate cost`,
 		value: formattedSpend,
 	} satisfies WrappedTeamMemberCardHeaderMetric;
 }
@@ -146,22 +143,20 @@ function formatShortDate(lastActiveDate: string | null) {
 }
 
 function formatSpendValue(cost: number | null) {
-	if (cost === null) {
-		return "—";
-	}
-	if (cost === 0) {
+	const resolvedCost = cost ?? 0;
+	if (resolvedCost === 0) {
 		return "$0";
 	}
 
-	if (Math.abs(cost) >= 1000) {
-		return compactCurrencyFormatter.format(cost);
+	if (Math.abs(resolvedCost) >= 1000) {
+		return compactCurrencyFormatter.format(resolvedCost);
 	}
 
-	if (Math.abs(cost) >= 100) {
-		return currencyFormatter.format(cost).replace(/\.00$/, "");
+	if (Math.abs(resolvedCost) >= 100) {
+		return currencyFormatter.format(resolvedCost).replace(/\.00$/, "");
 	}
 
-	return currencyFormatter.format(cost);
+	return currencyFormatter.format(resolvedCost);
 }
 
 function isCurrentUserTeamCard(

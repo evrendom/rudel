@@ -135,11 +135,7 @@ function getTotalTokensNote(wrappedData: WrappedV1): string {
 function getEstimatedSpendNote(wrappedData: WrappedV1): string {
 	const estimatedSpend = wrappedData.metrics.estimated_spend_usd;
 
-	if (estimatedSpend === null) {
-		return "Estimated API-rate cost is unavailable for this snapshot.";
-	}
-
-	return `${CURRENCY_FORMATTER.format(estimatedSpend)} estimated from the model pricing catalog.`;
+	return `${CURRENCY_FORMATTER.format(estimatedSpend ?? 0)} estimated from the model pricing catalog.`;
 }
 
 function formatCompactNumber(value: number): string {

@@ -28,19 +28,15 @@ export function DashboardTokenCostCell({
 	model: string | null | undefined;
 	showDetailedCost?: boolean;
 }) {
-	const resolvedCost = cost ?? null;
+	const resolvedCost = cost ?? 0;
 
 	return (
 		<DashboardCellStack
-			primary={
-				resolvedCost === null
-					? "—"
-					: `${isCostPartial ? "≥ " : ""}${
-							showDetailedCost
-								? formatCurrency(resolvedCost)
-								: formatWholeCurrency(resolvedCost)
-						}`
-			}
+			primary={`${isCostPartial ? "≥ " : ""}${
+				showDetailedCost
+					? formatCurrency(resolvedCost)
+					: formatWholeCurrency(resolvedCost)
+			}`}
 			secondary={formatCostSplit(inputTokens, outputTokens)}
 			primaryClassName="font-medium tabular-nums"
 			secondaryClassName="font-medium tabular-nums uppercase tracking-[0.02em]"

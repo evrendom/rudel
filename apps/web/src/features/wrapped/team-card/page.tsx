@@ -212,13 +212,10 @@ export function WrappedTeamCardPage(props: {
 	};
 	const headerLeftMetric = useMemo<WrappedTeamMemberCardHeaderMetric>(
 		() => ({
-			title:
-				visibleTeamCardRow.cost === null
-					? "Estimated API-rate cost unavailable"
-					: `${estimatedSpendValue} estimated API-rate cost`,
+			title: `${estimatedSpendValue} estimated API-rate cost`,
 			value: estimatedSpendValue,
 		}),
-		[estimatedSpendValue, visibleTeamCardRow.cost],
+		[estimatedSpendValue],
 	);
 	const headerRightMetric = useMemo<WrappedTeamMemberCardHeaderMetric>(
 		() => ({

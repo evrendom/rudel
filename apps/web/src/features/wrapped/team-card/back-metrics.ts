@@ -149,10 +149,7 @@ export function buildWrappedTeamCardBackMetrics(input: {
 		},
 		{
 			label: "Spent",
-			value:
-				estimatedSpend === null
-					? "—"
-					: formatWrappedBackInteger(estimatedSpend),
+			value: formatWrappedBackInteger(estimatedSpend),
 		},
 		{
 			label: "Dollar per commit",
@@ -250,7 +247,7 @@ function formatWrappedBackPercentPair(
 
 function formatWrappedBackDecimal(value: number | null) {
 	if (value === null || !Number.isFinite(value)) {
-		return "—";
+		return "0";
 	}
 
 	if (value <= 0) {

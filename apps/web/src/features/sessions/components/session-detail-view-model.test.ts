@@ -100,7 +100,7 @@ describe("buildSessionDetailViewModel", () => {
 		expect(model.safeSlashCommands).toEqual([]);
 		expect(model.subagentNames).toEqual(["reviewer"]);
 		expect(model.tokenUsageLabel).toBe("0 / 0");
-		expect(model.costLabel).toBe("—");
+		expect(model.costLabel).toBe("$0.00");
 		expect(model.conversationSummary).toBeNull();
 		expect(model.metadataBadges).toEqual([]);
 		expect(model.safeContent).toBe('{\n  "unsupported": true\n}');
@@ -133,7 +133,7 @@ describe("buildSessionDetailViewModel", () => {
 			{},
 		);
 
-		expect(model.costLabel).toBe("—");
+		expect(model.costLabel).toBe("$0.00");
 	});
 
 	it("renders malformed server costs as unknown", () => {
@@ -144,6 +144,6 @@ describe("buildSessionDetailViewModel", () => {
 			{},
 		);
 
-		expect(model.costLabel).toBe("—");
+		expect(model.costLabel).toBe("$0.00");
 	});
 });
