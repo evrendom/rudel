@@ -27,6 +27,7 @@ export interface UploadResult {
 	rateLimited?: boolean;
 	/** Whether a failed upload belongs in the durable retry queue. */
 	retryable?: boolean;
+	failureKind?: "json-integrity" | "session-shrink-rejected";
 	redacted?: RedactionCounts;
 	redactedBytes?: number;
 	redactionBudgetExceeded?: boolean;

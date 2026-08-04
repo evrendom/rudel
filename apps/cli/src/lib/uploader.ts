@@ -10,7 +10,9 @@ import {
 	parseSafeApiEndpoint,
 	REDACTION_BUDGET_EXCEEDED_CODE,
 	REDACTION_DID_NOT_CONVERGE_CODE,
+	SECRET_FILTER_JSON_INTEGRITY_CODE,
 	SESSION_OWNERSHIP_CONFLICT_CODE,
+	SESSION_UPLOAD_SHRINK_REJECTED_CODE,
 } from "@rudel/api-routes";
 import {
 	FILTER_VERSION,
@@ -21,6 +23,7 @@ import {
 	type RedactionBudgetAnomaly,
 	type RedactionCounts,
 	SecretFilterConvergenceError,
+	SecretFilterJsonIntegrityError,
 	type SessionTextFilterResult,
 } from "@rudel/secret-filter";
 import type { UploadResult } from "./types.js";
@@ -35,7 +38,7 @@ export interface UploadConfig {
 	onRetry?: (attempt: number, maxAttempts: number, error: string) => void;
 }
 
-const RETRYABLE_STATUS_CODES = new Set([502, 503, 504]);
+const RETRYABLE_STATUS_CODES = new Set([408, 502, 503, 504]);
 const MAX_ATTEMPTS = 3;
 const BASE_DELAY_MS = 1_000;
 
@@ -52,14 +55,11 @@ interface ErrorData {
 
 type UploadSubagent = NonNullable<IngestSessionInput["subagents"]>[number];
 
-function isRetryable(error: unknown): boolean {
+export function isRetryableUploadError(error: unknown): boolean {
 	if (error instanceof ORPCError) {
 		return RETRYABLE_STATUS_CODES.has(error.status);
 	}
-	if (error instanceof TypeError) {
-		return true; // network errors (fetch failures)
-	}
-	return false;
+	return true;
 }
 
 function isRateLimited(error: unknown): error is ORPCError<string, unknown> {
@@ -96,16 +96,27 @@ function isApiKeyRateLimited(
 export function getSecretFilterUploadFailure(
 	error: unknown,
 ): UploadResult | null {
-	if (!(error instanceof SecretFilterConvergenceError)) {
-		return null;
+	if (error instanceof SecretFilterJsonIntegrityError) {
+		return {
+			success: false,
+			error:
+				"Redaction safety check stopped upload because filtering could not preserve transcript JSON integrity. The filtered transcript was not uploaded.",
+			attempts: 0,
+			failureKind: "json-integrity",
+			retryable: false,
+		};
 	}
-	return {
-		success: false,
-		error:
-			"Redaction safety check stopped upload because known-pattern filtering did not converge. The unfiltered transcript was not uploaded.",
-		attempts: 0,
-		redactionConvergenceExceeded: true,
-	};
+	if (error instanceof SecretFilterConvergenceError) {
+		return {
+			success: false,
+			error:
+				"Redaction safety check stopped upload because known-pattern filtering did not converge. The unfiltered transcript was not uploaded.",
+			attempts: 0,
+			redactionConvergenceExceeded: true,
+			retryable: false,
+		};
+	}
+	return null;
 }
 
 export function formatUploadError(error: unknown): string {
@@ -148,6 +159,12 @@ export function formatUploadError(error: unknown): string {
 	}
 	if (
 		error instanceof ORPCError &&
+		error.code === SESSION_UPLOAD_SHRINK_REJECTED_CODE
+	) {
+		return "Rudel refused this upload because it is smaller than the stored session. Check that the transcript is complete, then run `rudel upload <session> --force-replace` only if the replacement is intentional. If this CLI does not recognize the flag, upgrade rudel first.";
+	}
+	if (
+		error instanceof ORPCError &&
 		error.code === REDACTION_BUDGET_EXCEEDED_CODE
 	) {
 		const data = getRedactionBudgetErrorData(error);
@@ -160,6 +177,12 @@ export function formatUploadError(error: unknown): string {
 		error.code === REDACTION_DID_NOT_CONVERGE_CODE
 	) {
 		return "Redaction safety check stopped upload because known-pattern filtering did not converge. The unfiltered transcript was not uploaded.";
+	}
+	if (
+		error instanceof ORPCError &&
+		error.code === SECRET_FILTER_JSON_INTEGRITY_CODE
+	) {
+		return "Redaction safety check stopped upload because filtering could not preserve transcript JSON integrity. The filtered transcript was not uploaded.";
 	}
 	if (isPayloadTooLarge(error)) {
 		const data = getErrorData(error);
@@ -174,13 +197,8 @@ export function formatUploadError(error: unknown): string {
 	if (error instanceof ORPCError) {
 		return `${error.status} ${error.message}`;
 	}
-	if (error instanceof TypeError) {
-		return `Network error while contacting Rudel API: ${error.message}. Check your connection and retry with: rudel upload --retry`;
-	}
-	if (error instanceof Error) {
-		return error.message;
-	}
-	return String(error);
+	const message = error instanceof Error ? error.message : "connection failed";
+	return `Network error while contacting Rudel API: ${message}. Check your connection and retry with: rudel upload --retry`;
 }
 
 function formatPayloadTooLargeError(error: ORPCError<string, unknown>): string {
@@ -271,7 +289,8 @@ function formatWait(milliseconds: number) {
 
 /**
  * Upload a session transcript to the backend via oRPC.
- * Retries on transient errors (502, 503, 504) with exponential backoff.
+ * Retries on transport errors and transient statuses (408, 502, 503, 504)
+ * with exponential backoff.
  * Rate limit errors (429) are not retried — the window is too long.
  */
 export async function uploadSession(
@@ -303,6 +322,7 @@ export async function uploadSession(
 			error: formatRedactionBudgetError(redactionBudgetAnomaly),
 			attempts: 0,
 			redactionBudgetExceeded: true,
+			retryable: false,
 		};
 	}
 	const filteredRequest: IngestSessionInput = {
@@ -319,6 +339,7 @@ export async function uploadSession(
 			success: false,
 			error: formatTranscriptTooLargeError(aggregateBytes, maxAggregateBytes),
 			attempts: 0,
+			retryable: false,
 		};
 	}
 
@@ -331,6 +352,7 @@ export async function uploadSession(
 			error: `Upload endpoint refused: ${describeUploadEndpointRejection(endpoint)}`,
 			attempts: 0,
 			endpointRejected: true,
+			retryable: false,
 		};
 	}
 
@@ -355,6 +377,7 @@ export async function uploadSession(
 					success: false,
 					error: formatUnrecognizedResponseError(),
 					attempts: attempt,
+					retryable: false,
 				};
 			}
 			return {
@@ -381,6 +404,30 @@ export async function uploadSession(
 					retryable: false,
 				};
 			}
+			if (
+				error instanceof ORPCError &&
+				error.code === SESSION_UPLOAD_SHRINK_REJECTED_CODE
+			) {
+				return {
+					success: false,
+					error: formatUploadError(error),
+					attempts: attempt,
+					failureKind: "session-shrink-rejected",
+					retryable: false,
+				};
+			}
+			if (
+				error instanceof ORPCError &&
+				error.code === SECRET_FILTER_JSON_INTEGRITY_CODE
+			) {
+				return {
+					success: false,
+					error: formatUploadError(error),
+					attempts: attempt,
+					failureKind: "json-integrity",
+					retryable: false,
+				};
+			}
 
 			const errorMessage = formatUploadError(error);
 
@@ -390,10 +437,11 @@ export async function uploadSession(
 					error: errorMessage,
 					attempts: attempt,
 					rateLimited: true,
+					retryable: true,
 				};
 			}
 
-			if (isRetryable(error) && attempt < MAX_ATTEMPTS) {
+			if (isRetryableUploadError(error) && attempt < MAX_ATTEMPTS) {
 				config.onRetry?.(attempt, MAX_ATTEMPTS, errorMessage);
 				const delay = BASE_DELAY_MS * 2 ** (attempt - 1);
 				await new Promise((resolve) => setTimeout(resolve, delay));
@@ -404,6 +452,7 @@ export async function uploadSession(
 				success: false,
 				error: errorMessage,
 				attempts: attempt,
+				retryable: isRetryableUploadError(error) || isServerError(error),
 			};
 		}
 	}
@@ -412,6 +461,7 @@ export async function uploadSession(
 		success: false,
 		error: "Max retries exceeded",
 		attempts: MAX_ATTEMPTS,
+		retryable: true,
 	};
 }
 

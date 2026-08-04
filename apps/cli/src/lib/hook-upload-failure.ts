@@ -1,9 +1,5 @@
 import type { Logger } from "@logtape/logtape";
-import {
-	type FailedUpload,
-	recordFailedUpload,
-	removeFailedUpload,
-} from "./failed-uploads.js";
+import { type FailedUpload, recordFailedUpload } from "./failed-uploads.js";
 import type { UploadResult } from "./types.js";
 
 /**
@@ -13,7 +9,7 @@ import type { UploadResult } from "./types.js";
 export async function reportHookUploadFailure(
 	logger: Logger,
 	result: UploadResult,
-	failure: Omit<FailedUpload, "error" | "failedAt">,
+	failure: Omit<FailedUpload, "error" | "failedAt" | "status">,
 ): Promise<undefined | Error> {
 	const uploadError = result.error ?? "Unknown error";
 	logger.error("Upload failed for session {sessionId}: {error}", {
@@ -21,20 +17,17 @@ export async function reportHookUploadFailure(
 		error: uploadError,
 	});
 
-	if (result.retryable === false) {
-		await removeFailedUpload(failure.sessionId);
-		return;
-	}
-
-	if (result.endpointRejected) {
-		process.stderr.write(
-			`Rudel hook upload refused for session ${failure.sessionId}: ${uploadError}\n`,
-		);
-	}
+	const disposition = result.retryable === false ? "permanent" : "retryable";
+	const verb = result.endpointRejected ? "refused" : "failed";
+	process.stderr.write(
+		`Rudel hook upload ${verb} for session ${failure.sessionId} [${disposition}]: ${uploadError}\n`,
+	);
 
 	await recordFailedUpload({
 		...failure,
 		error: uploadError,
+		failureKind: result.failureKind,
+		status: disposition,
 	});
 
 	if (result.endpointRejected) {

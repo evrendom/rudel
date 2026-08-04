@@ -45,11 +45,21 @@ async function runTurnComplete(): Promise<undefined | Error> {
 		if (!input.thread_id || !input.cwd) return;
 
 		const credentials = loadCredentials();
-		if (!credentials) return;
+		if (!credentials) {
+			process.stderr.write(
+				`Rudel hook upload skipped for session ${input.thread_id}: not authenticated; run \`rudel login\`.\n`,
+			);
+			return;
+		}
 
 		const transcriptPath =
 			input.transcript_path ?? (await findActiveRolloutFile(input.thread_id));
-		if (!transcriptPath) return;
+		if (!transcriptPath) {
+			process.stderr.write(
+				`Rudel hook upload skipped for session ${input.thread_id}: transcript file was not found.\n`,
+			);
+			return;
+		}
 
 		const sessionFile: SessionFile = {
 			sessionId: input.thread_id,
@@ -96,6 +106,9 @@ async function runTurnComplete(): Promise<undefined | Error> {
 		}
 	} catch (error) {
 		logger.error("Codex turn-complete hook failed: {error}", { error });
+		process.stderr.write(
+			`Rudel Codex hook failed: ${error instanceof Error ? error.message : String(error)}\n`,
+		);
 	} finally {
 		await disposeLogging();
 	}
