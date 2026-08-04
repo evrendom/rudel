@@ -1,8 +1,7 @@
 import type { ModelTokensTrendData } from "@rudel/api-routes";
-import { calculateCost } from "@/lib/format";
 
 export type DashboardTokenModelSummaryRow = {
-	estimatedCost: number;
+	estimatedCost: number | null;
 	id: string;
 	inputTokens: number;
 	label: string;
@@ -11,7 +10,7 @@ export type DashboardTokenModelSummaryRow = {
 };
 
 export type DashboardTokenModelChartDatum = {
-	estimatedCost: number;
+	estimatedCost: number | null;
 	id: string;
 	inputTokens: number;
 	label: string;
@@ -44,7 +43,7 @@ export function buildDashboardTokenModelRows(
 	const rowsByModel = new Map<
 		string,
 		{
-			estimatedCost: number;
+			estimatedCost: number | null;
 			inputTokens: number;
 			outputTokens: number;
 			totalTokens: number;
@@ -59,14 +58,10 @@ export function buildDashboardTokenModelRows(
 			totalTokens: 0,
 		};
 
-		currentRow.estimatedCost += calculateCost(
-			row.input_tokens,
-			row.output_tokens,
-			{
-				at: row.date,
-				model: row.model,
-			},
-		);
+		currentRow.estimatedCost =
+			currentRow.estimatedCost === null || row.estimated_cost == null
+				? null
+				: currentRow.estimatedCost + row.estimated_cost;
 		currentRow.inputTokens += row.input_tokens;
 		currentRow.outputTokens += row.output_tokens;
 		currentRow.totalTokens += row.total_tokens;

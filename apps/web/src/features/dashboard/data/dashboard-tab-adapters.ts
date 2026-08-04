@@ -1,10 +1,9 @@
-import {
-	calculateEstimatedCost as calculateEstimatedModelCost,
-	type ModelTokensTrendData,
-	type RepositoryDailyTrendData,
-	type SessionAnalyticsSummaryComparison,
-	type UserDailyTrendData,
-	type UserTokenUsageData,
+import type {
+	ModelTokensTrendData,
+	RepositoryDailyTrendData,
+	SessionAnalyticsSummaryComparison,
+	UserDailyTrendData,
+	UserTokenUsageData,
 } from "@rudel/api-routes";
 import { format, parseISO } from "date-fns";
 import type { DashboardRepositorySummaryRow } from "@/features/dashboard/data/dashboard-repository-trend";
@@ -14,7 +13,7 @@ import type {
 	DashboardHeadlineMetric,
 } from "@/features/dashboard/data/dashboard-static-data";
 import { expandAnalyticsDateRange } from "@/lib/analytics-date-range";
-import { calculateCost, formatCompactWholeCurrency } from "@/lib/format";
+import { formatCompactWholeCurrency } from "@/lib/format";
 
 export type DashboardTokenDailyPoint = {
 	activeModels: number;
@@ -436,19 +435,14 @@ export function buildDashboardTokenDailyPattern(
 
 	for (const row of modelRows ?? []) {
 		const dateKey = normalizeDateKey(row.date);
-		const estimatedCost = calculateEstimatedModelCost({
-			at: row.date,
-			inputTokens: row.input_tokens,
-			model: row.model,
-			outputTokens: row.output_tokens,
-		});
+		const estimatedCost = row.estimated_cost ?? null;
 		const currentCost = estimatedCostByDate.get(dateKey) ?? {
-			hasResolvedCost: false,
+			hasResolvedCost: true,
 			total: 0,
 		};
 
 		estimatedCostByDate.set(dateKey, {
-			hasResolvedCost: currentCost.hasResolvedCost || estimatedCost !== null,
+			hasResolvedCost: currentCost.hasResolvedCost && estimatedCost !== null,
 			total: currentCost.total + (estimatedCost ?? 0),
 		});
 
@@ -502,7 +496,7 @@ export function buildDashboardTokenDailyPattern(
 export function buildDashboardTokenTabMetrics(
 	usersTokenUsage: UserTokenUsageData[] | undefined,
 	dailyPattern: DashboardTokenDailyPoint[],
-	modelRows?: ModelTokensTrendData[] | undefined,
+	_modelRows?: ModelTokensTrendData[] | undefined,
 	userTrendRows?: UserDailyTrendData[] | undefined,
 ): DashboardHeadlineMetric[] {
 	const totalTokensFromUsage = (usersTokenUsage ?? []).reduce(
@@ -515,21 +509,12 @@ export function buildDashboardTokenTabMetrics(
 	);
 	const totalTokens =
 		totalTokensFromUsage > 0 ? totalTokensFromUsage : totalTokensFromPattern;
-	const totalCostFromUsage = (usersTokenUsage ?? []).reduce(
-		(sum, row) => sum + row.cost,
-		0,
+	const hasCompleteCost = (usersTokenUsage ?? []).every(
+		(row) => row.cost !== null,
 	);
-	const totalCostFromModels = (modelRows ?? []).reduce(
-		(sum, row) =>
-			sum +
-			calculateCost(row.input_tokens, row.output_tokens, {
-				at: row.date,
-				model: row.model,
-			}),
-		0,
-	);
-	const totalCost =
-		totalCostFromUsage > 0 ? totalCostFromUsage : totalCostFromModels;
+	const totalCost = hasCompleteCost
+		? (usersTokenUsage ?? []).reduce((sum, row) => sum + (row.cost ?? 0), 0)
+		: null;
 	const activeDevelopersFromUsage = (usersTokenUsage ?? []).filter(
 		(row) => row.total_tokens > 0 || row.total_sessions > 0,
 	).length;
@@ -559,12 +544,13 @@ export function buildDashboardTokenTabMetrics(
 		},
 		{
 			id: "uncommitted",
-			label: "Est. spend",
-			valueLabel: formatCompactWholeCurrency(totalCost),
+			label: "Estimated API-rate cost",
+			valueLabel:
+				totalCost === null ? "—" : formatCompactWholeCurrency(totalCost),
 			deltaLabel: "0",
 			deltaTone: "neutral",
 			description:
-				"Estimated token cost using the current model pricing catalog.",
+				"Estimated API-rate cost using the current model pricing catalog.",
 		},
 		{
 			id: "commitRate",

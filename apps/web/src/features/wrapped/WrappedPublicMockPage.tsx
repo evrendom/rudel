@@ -44,7 +44,7 @@ const MOCK_PUBLIC_SHARE_ROW = {
 } satisfies TeamPageMemberRow;
 
 const MOCK_PUBLIC_SHARE_HEADER_LEFT_METRIC = {
-	title: "$687 estimated spend",
+	title: "$687 estimated API-rate cost",
 	value: "$687",
 } satisfies WrappedTeamMemberCardHeaderMetric;
 

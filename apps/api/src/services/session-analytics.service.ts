@@ -11,6 +11,16 @@ import {
 	buildLatestRawSessionContentSql,
 	queryClickhouse,
 } from "../clickhouse.js";
+import { buildEstimatedCostSql } from "./pricing.service.js";
+import { getUsageAnalyticsQueryContext } from "./usage-event-analytics.service.js";
+
+const LEGACY_SESSION_DISPLAY_COST_SQL = buildEstimatedCostSql({
+	dateExpr: "sa.session_date",
+	inputExpr: "ifNull(sa.input_tokens, 0)",
+	modelExpr: "sa.model_used",
+	outputExpr: "ifNull(sa.output_tokens, 0)",
+});
+const LEGACY_SESSION_DISPLAY_COST_WITH_FALLBACK_SQL = `ifNull(${LEGACY_SESSION_DISPLAY_COST_SQL}, 0)`;
 
 export interface SessionAnalyticsRaw {
 	session_id: string;
@@ -37,6 +47,7 @@ export interface SessionAnalyticsRaw {
 	total_tokens: number;
 	input_tokens: number;
 	output_tokens: number;
+	estimated_cost: number | null;
 
 	// Git activity
 	git_sha: string;
@@ -77,6 +88,7 @@ export async function getSessionAnalytics(
 		user_id?: string;
 		project_path?: string;
 		repository?: string;
+		source?: string;
 		limit?: number;
 		offset?: number;
 		sort_by?: "date" | "duration" | "interactions";
@@ -90,6 +102,7 @@ export async function getSessionAnalytics(
 		user_id,
 		project_path,
 		repository,
+		source,
 		limit = 50,
 		offset = 0,
 		sort_by = "date",
@@ -136,6 +149,7 @@ export async function getSessionAnalytics(
 		);
 		query_params.repository = repository;
 	}
+	addOptionalStringEqFilter(filters, query_params, "source", "source", source);
 
 	const sortColumn =
 		sort_by === "duration"
@@ -144,8 +158,17 @@ export async function getSessionAnalytics(
 				? "total_interactions"
 				: "sa.session_date";
 	const sortDirection = sort_order === "asc" ? "ASC" : "DESC";
+	const usage = await getUsageAnalyticsQueryContext(orgId, {
+		sourceParam: source ? "source" : undefined,
+		userIdParam: user_id ? "userId" : undefined,
+	});
+	const estimatedCostSql =
+		usage.mode === "events"
+			? "if(sa.cost_is_complete = 1, sa.estimated_cost, CAST(NULL, 'Nullable(Float64)'))"
+			: LEGACY_SESSION_DISPLAY_COST_WITH_FALLBACK_SQL;
 
 	const query = `
+	WITH ${usage.cteDefinitions}
     SELECT
       session_id,
       user_id,
@@ -165,6 +188,7 @@ export async function getSessionAnalytics(
       total_tokens,
       input_tokens,
       output_tokens,
+	  ${estimatedCostSql} AS estimated_cost,
       git_sha,
       git_branch,
       has_commit,
@@ -175,7 +199,7 @@ export async function getSessionAnalytics(
       error_count,
       model_used,
       used_plan_mode
-    FROM rudel.session_analytics AS sa FINAL
+    FROM ${usage.sessionsRelation} AS sa
     WHERE ${dateFilter}
       AND organization_id = {orgId:String}
       ${filters.length > 0 ? `AND ${filters.join("\n      AND ")}` : ""}
@@ -202,6 +226,7 @@ export async function getSessionAnalytics(
 			total_tokens: row.total_tokens,
 			input_tokens: row.input_tokens,
 			output_tokens: row.output_tokens,
+			estimated_cost: row.estimated_cost,
 			success_score: row.success_score,
 			total_interactions: row.total_interactions,
 			avg_period_sec: row.avg_period_sec,
@@ -603,14 +628,19 @@ export async function getSessionDimensionAnalysis(
 	);
 
 	let query: string;
+	const usage = await getUsageAnalyticsQueryContext(
+		orgId,
+		user_id ? { userIdParam: "userId" } : {},
+	);
 
 	if (split_by) {
 		query = `
+	  WITH ${usage.cteDefinitions}
       SELECT
         ${dimensionExpression} as dimension_value,
         ${splitByExpression} as split_value,
         ${metricExpression} as metric_value
-      FROM rudel.session_analytics FINAL
+      FROM ${usage.sessionsRelation}
       WHERE ${buildDateFilter("days")}
         AND organization_id = {orgId:String}
         ${filters.length > 0 ? `AND ${filters.join("\n        AND ")}` : ""}
@@ -619,10 +649,11 @@ export async function getSessionDimensionAnalysis(
     `;
 	} else {
 		query = `
+	  WITH ${usage.cteDefinitions}
       SELECT
         ${dimensionExpression} as dimension_value,
         ${metricExpression} as metric_value
-      FROM rudel.session_analytics FINAL
+      FROM ${usage.sessionsRelation}
       WHERE ${buildDateFilter("days")}
         AND organization_id = {orgId:String}
         ${filters.length > 0 ? `AND ${filters.join("\n        AND ")}` : ""}
@@ -692,8 +723,17 @@ export async function getSessionDetail(
 	sessionId: string,
 	ownerId: string,
 ): Promise<SessionDetail | null> {
+	const usage = await getUsageAnalyticsQueryContext(orgId, {
+		sessionIdParam: "sessionId",
+		userIdParam: "ownerId",
+	});
+	const estimatedCostSql =
+		usage.mode === "events"
+			? "if(sa.cost_is_complete = 1, sa.estimated_cost, CAST(NULL, 'Nullable(Float64)'))"
+			: LEGACY_SESSION_DISPLAY_COST_WITH_FALLBACK_SQL;
 	const query = `
-    WITH latest_raw_session_content AS (
+	WITH ${usage.cteDefinitions},
+	latest_raw_session_content AS (
       ${buildLatestRawSessionContentSql({
 				sessionId: true,
 				userId: true,
@@ -715,11 +755,12 @@ export async function getSessionDetail(
       sa.total_tokens,
       sa.input_tokens,
       sa.output_tokens,
+	  ${estimatedCostSql} AS estimated_cost,
       sa.success_score,
       dateDiff('second', sa.session_date, sa.last_interaction_date) / 60.0 as duration_min,
       sa.total_interactions,
       sa.model_used
-    FROM rudel.session_analytics AS sa
+	FROM ${usage.sessionsRelation} AS sa
     INNER ANY JOIN latest_raw_session_content AS raw
       ON raw.source = sa.source
       AND raw.organization_id = sa.organization_id

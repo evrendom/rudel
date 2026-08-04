@@ -29,6 +29,7 @@ describe("buildSessionDetailViewModel", () => {
 			{
 				content: `${userEntry}\n${assistantEntry}`,
 				duration_min: "42",
+				estimated_cost: 0.05,
 				git_branch: "main",
 				git_sha: "abcdef123456",
 				input_tokens: "1200",
@@ -99,17 +100,18 @@ describe("buildSessionDetailViewModel", () => {
 		expect(model.safeSlashCommands).toEqual([]);
 		expect(model.subagentNames).toEqual(["reviewer"]);
 		expect(model.tokenUsageLabel).toBe("0 / 0");
-		expect(model.costLabel).toBe("$0.00");
+		expect(model.costLabel).toBe("—");
 		expect(model.conversationSummary).toBeNull();
 		expect(model.metadataBadges).toEqual([]);
 		expect(model.safeContent).toBe('{\n  "unsupported": true\n}');
 	});
 
-	it("rounds costs of at least one hundred dollars to whole dollars", () => {
+	it("uses the event-priced cost instead of recalculating from the session model", () => {
 		const model = buildSessionDetailViewModel(
 			{
+				estimated_cost: 300,
 				input_tokens: 100_000_000,
-				model_used: "claude-sonnet-4-5",
+				model_used: "unresolved-session-display-model",
 				output_tokens: 0,
 				session_date: "2026-08-01T00:00:00Z",
 			},
@@ -117,5 +119,31 @@ describe("buildSessionDetailViewModel", () => {
 		);
 
 		expect(model.costLabel).toBe("$300");
+	});
+
+	it("does not price an unresolved event from model_used", () => {
+		const model = buildSessionDetailViewModel(
+			{
+				estimated_cost: null,
+				input_tokens: 1_000_000,
+				model_used: "claude-sonnet-4-5",
+				output_tokens: 1_000_000,
+				session_date: "2026-08-01T00:00:00Z",
+			},
+			{},
+		);
+
+		expect(model.costLabel).toBe("—");
+	});
+
+	it("renders malformed server costs as unknown", () => {
+		const model = buildSessionDetailViewModel(
+			{
+				estimated_cost: "not-a-cost",
+			},
+			{},
+		);
+
+		expect(model.costLabel).toBe("—");
 	});
 });

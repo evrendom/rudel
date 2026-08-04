@@ -50,6 +50,7 @@ export const ModelTokensTrendDataSchema = z.object({
 	total_tokens: z.number(),
 	input_tokens: z.number(),
 	output_tokens: z.number(),
+	estimated_cost: z.number().nullable().optional(),
 });
 
 export const UserTokenUsageDataSchema = z.object({
@@ -61,7 +62,7 @@ export const UserTokenUsageDataSchema = z.object({
 	total_tokens: z.number(),
 	input_tokens: z.number(),
 	output_tokens: z.number(),
-	cost: z.number(),
+	cost: z.number().nullable(),
 	total_sessions: z.number(),
 	total_duration_min: z.number(),
 	success_rate: z.number(),
@@ -149,7 +150,7 @@ export const DeveloperSummarySchema = z.object({
 	avg_session_duration_min: z.number(),
 	last_active_date: z.string(),
 	success_rate: z.number(),
-	cost: z.number(),
+	cost: z.number().nullable(),
 	success_rate_trend: z.number(),
 	favorite_model: z.string().nullable(),
 });
@@ -163,7 +164,7 @@ export const DeveloperTeamCardSchema = z.object({
 			name: z.string(),
 		})
 		.nullable(),
-	cost: z.number(),
+	cost: z.number().nullable(),
 	input_tokens: z.number(),
 	output_tokens: z.number(),
 	total_tokens: z.number(),
@@ -265,7 +266,7 @@ export const ProjectInvestmentSchema = z.object({
 	total_duration_min: z.number(),
 	total_tokens: z.number(),
 	success_rate: z.number(),
-	cost: z.number(),
+	cost: z.number().nullable(),
 	success_rate_trend: z.number(),
 });
 
@@ -278,7 +279,7 @@ export const ProjectDetailDataSchema = z.object({
 	avg_session_duration_min: z.number(),
 	success_rate: z.number(),
 	total_duration_min: z.number(),
-	cost: z.number(),
+	cost: z.number().nullable(),
 });
 
 export const ProjectContributorSchema = z.object({
@@ -334,6 +335,7 @@ export const SessionAnalyticsSchema = z.object({
 	total_tokens: z.number(),
 	input_tokens: z.number(),
 	output_tokens: z.number(),
+	estimated_cost: z.number().nullable().optional(),
 	success_score: z.number(),
 	total_interactions: z.number(),
 	avg_period_sec: z.number(),
@@ -441,6 +443,7 @@ export const SessionDetailSchema = z.object({
 	total_tokens: z.number(),
 	input_tokens: z.number(),
 	output_tokens: z.number(),
+	estimated_cost: z.number().nullable().optional(),
 	success_score: z.number().optional(),
 	duration_min: z.number().optional(),
 	total_interactions: z.number().optional(),
@@ -455,12 +458,12 @@ export const SessionDetailInputSchema = z.object({
 // ── ROI ────────────────────────────────────────────────────────────
 
 export const ROIMetricsSchema = z.object({
-	total_cost: z.number(),
-	total_cost_change_pct: z.number(),
-	cost_per_session: z.number(),
-	cost_per_session_change_pct: z.number(),
-	cost_per_commit: z.number(),
-	cost_per_commit_change_pct: z.number(),
+	total_cost: z.number().nullable(),
+	total_cost_change_pct: z.number().nullable(),
+	cost_per_session: z.number().nullable(),
+	cost_per_session_change_pct: z.number().nullable(),
+	cost_per_commit: z.number().nullable(),
+	cost_per_commit_change_pct: z.number().nullable(),
 	total_tokens: z.number(),
 	input_tokens: z.number(),
 	output_tokens: z.number(),
@@ -470,14 +473,14 @@ export const ROIMetricsSchema = z.object({
 	total_hours: z.number(),
 	active_developers: z.number(),
 	avg_success_score: z.number(),
-	commits_per_dollar: z.number(),
-	sessions_per_dollar: z.number(),
-	productivity_improvement_pct: z.number(),
+	commits_per_dollar: z.number().nullable(),
+	sessions_per_dollar: z.number().nullable(),
+	productivity_improvement_pct: z.number().nullable(),
 	estimated_loc_generated: z.number(),
 	dev_hours_saved: z.number(),
 	dev_hours_saved_change_pct: z.number(),
-	dollar_value_saved: z.number(),
-	roi_percentage: z.number(),
+	dollar_value_saved: z.number().nullable(),
+	roi_percentage: z.number().nullable(),
 	current_period_start: z.string(),
 	current_period_end: z.string(),
 	previous_period_start: z.string(),
@@ -497,27 +500,27 @@ export const ROIAssumptionsSchema = z.object({
 export const ROIDashboardTrendPointSchema = z.object({
 	bucket_start: z.string(),
 	bucket_label: z.string(),
-	total_cost: z.number(),
-	dollar_value_saved: z.number(),
-	roi_percentage: z.number(),
+	total_cost: z.number().nullable(),
+	dollar_value_saved: z.number().nullable(),
+	roi_percentage: z.number().nullable(),
 	dev_hours_saved: z.number(),
-	commits_per_dollar: z.number(),
-	sessions_per_dollar: z.number(),
+	commits_per_dollar: z.number().nullable(),
+	sessions_per_dollar: z.number().nullable(),
 	total_sessions: z.number(),
 	total_commits: z.number(),
 });
 
 export const ROIDashboardSummarySchema = z.object({
-	total_cost: z.number(),
-	total_cost_change_pct: z.number(),
-	dollar_value_saved: z.number(),
-	dollar_value_saved_change_pct: z.number(),
-	roi_percentage: z.number(),
-	roi_percentage_change_pct: z.number(),
+	total_cost: z.number().nullable(),
+	total_cost_change_pct: z.number().nullable(),
+	dollar_value_saved: z.number().nullable(),
+	dollar_value_saved_change_pct: z.number().nullable(),
+	roi_percentage: z.number().nullable(),
+	roi_percentage_change_pct: z.number().nullable(),
 	dev_hours_saved: z.number(),
 	dev_hours_saved_change_pct: z.number(),
-	commits_per_dollar: z.number(),
-	sessions_per_dollar: z.number(),
+	commits_per_dollar: z.number().nullable(),
+	sessions_per_dollar: z.number().nullable(),
 	total_sessions: z.number(),
 	total_commits: z.number(),
 	active_developers: z.number(),
@@ -539,22 +542,22 @@ export const ROIDashboardSchema = z.object({
 
 export const ROITrendSchema = z.object({
 	week_start: z.string(),
-	total_cost: z.number(),
+	total_cost: z.number().nullable(),
 	total_sessions: z.number(),
 	total_commits: z.number(),
 	active_developers: z.number(),
 	avg_success_score: z.number(),
 	total_tokens: z.number(),
 	output_tokens: z.number(),
-	productivity_score: z.number(),
+	productivity_score: z.number().nullable(),
 });
 
 export const DeveloperCostBreakdownSchema = z.object({
 	user_id: z.string(),
 	sessions: z.number(),
 	total_tokens: z.number(),
-	cost: z.number(),
-	cost_percentage: z.number(),
+	cost: z.number().nullable(),
+	cost_percentage: z.number().nullable(),
 	avg_success_score: z.number(),
 });
 
@@ -562,8 +565,8 @@ export const ProjectCostBreakdownSchema = z.object({
 	project_path: z.string(),
 	sessions: z.number(),
 	total_tokens: z.number(),
-	cost: z.number(),
-	cost_percentage: z.number(),
+	cost: z.number().nullable(),
+	cost_percentage: z.number().nullable(),
 	avg_success_score: z.number(),
 });
 
@@ -679,7 +682,7 @@ export const WrappedV1MetricsSchema = z.object({
 	active_days: z.number(),
 	favorite_model: z.string().nullable(),
 	total_tokens: z.number(),
-	estimated_spend_usd: z.number(),
+	estimated_spend_usd: z.number().nullable(),
 	longest_session_min: z.number(),
 	source_split: z.array(WrappedSourceSplitSchema),
 	model_by_month: z.array(MonthlyModelUsageSchema),

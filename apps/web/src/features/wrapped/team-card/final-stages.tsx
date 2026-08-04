@@ -1645,9 +1645,7 @@ function buildRoadrunnerRevealDescription(input: WrappedRevealCopyInput) {
 	const daysSinceFirst = formatWrappedRevealInteger(
 		resolveWrappedRevealDaysSinceFirst(input),
 	);
-	const costPerSession = formatCurrency(
-		row.totalSessions > 0 ? row.cost / row.totalSessions : 0,
-	);
+	const costPerSession = formatWrappedCostPerSession(row);
 
 	if (audience === "public") {
 		return `${row.displayName} is here. Meep meep. ${row.displayName} is gone. Active ${activeDays} out of ${daysSinceFirst} days. When ${row.displayName} showed up, we noticed. ${costPerSession} a session. Meep Meep. Gone again. Where? Nobody knows`;
@@ -1700,9 +1698,7 @@ function buildCompanyCardRevealDescription(input: WrappedRevealCopyInput) {
 	const commitRate = formatWrappedRevealInteger(
 		resolveWrappedRevealCommitRate(input),
 	);
-	const costPerSession = formatCurrency(
-		row.totalSessions > 0 ? row.cost / row.totalSessions : 0,
-	);
+	const costPerSession = formatWrappedCostPerSession(row);
 	const totalCost = formatWrappedRevealWholeCurrency(row.cost);
 	const happyLine = formatWrappedRevealCompanyCardHappyLine({
 		audience,
@@ -1793,9 +1789,7 @@ function buildCheapskateRevealDescription(input: WrappedRevealCopyInput) {
 	const commitRate = formatWrappedRevealInteger(
 		resolveWrappedRevealCommitRate(input),
 	);
-	const costPerSession = formatCurrency(
-		row.totalSessions > 0 ? row.cost / row.totalSessions : 0,
-	);
+	const costPerSession = formatWrappedCostPerSession(row);
 
 	return [
 		`${costPerSession} a session. ${commitRate}% of those shipped something.`,
@@ -1827,9 +1821,7 @@ function buildObsessedRevealDescription(input: WrappedRevealCopyInput) {
 	const commitRate = formatWrappedRevealInteger(
 		resolveWrappedRevealCommitRate(input),
 	);
-	const costPerSession = formatCurrency(
-		row.totalSessions > 0 ? row.cost / row.totalSessions : 0,
-	);
+	const costPerSession = formatWrappedCostPerSession(row);
 	const publicPossessiveName = formatWrappedPublicPossessiveName(
 		row.displayName,
 	);
@@ -1862,9 +1854,7 @@ function buildSmoothOperatorRevealDescription(input: WrappedRevealCopyInput) {
 		activeDays: row.activeDays,
 		totalSessions: row.totalSessions,
 	});
-	const costPerSession = formatCurrency(
-		row.totalSessions > 0 ? row.cost / row.totalSessions : 0,
-	);
+	const costPerSession = formatWrappedCostPerSession(row);
 	const publicPossessiveName = formatWrappedPublicPossessiveName(
 		row.displayName,
 	);
@@ -1888,9 +1878,7 @@ function buildTouristRevealDescription(input: WrappedRevealCopyInput) {
 	const commitRate = formatWrappedRevealInteger(
 		resolveWrappedRevealCommitRate(input),
 	);
-	const costPerSession = formatCurrency(
-		row.totalSessions > 0 ? row.cost / row.totalSessions : 0,
-	);
+	const costPerSession = formatWrappedCostPerSession(row);
 
 	return [
 		`${totalSessions} sessions. ${commitRate}% shipped something. ${costPerSession} a session.`,
@@ -1908,8 +1896,18 @@ function formatWrappedRevealInteger(value: number) {
 	return Math.max(0, Math.round(value)).toLocaleString("en-US");
 }
 
-function formatWrappedRevealWholeCurrency(value: number) {
-	return `$${formatWrappedRevealInteger(value)}`;
+function formatWrappedRevealWholeCurrency(value: number | null) {
+	return value === null ? "—" : `$${formatWrappedRevealInteger(value)}`;
+}
+
+function formatWrappedCostPerSession(row: TeamPageMemberRow) {
+	if (row.cost === null) {
+		return "—";
+	}
+
+	return formatCurrency(
+		row.totalSessions > 0 ? row.cost / row.totalSessions : 0,
+	);
 }
 
 function formatWrappedRevealSessionsPerActiveDay(input: {

@@ -85,7 +85,7 @@ export function DashboardTokenDailyOverviewTable({
 					<p>Sessions</p>
 					<p>Tokens</p>
 					<p>Avg / session</p>
-					<p>Cost</p>
+					<p>Estimated API-rate cost</p>
 				</div>
 				<div className="grid gap-0">
 					{rows.map((row) => {

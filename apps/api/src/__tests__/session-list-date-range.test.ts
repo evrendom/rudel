@@ -20,6 +20,10 @@ mock.module("../clickhouse.js", () => ({
 	addOptionalStringEqFilter,
 	buildDateFilter,
 	buildInclusiveDateRangeFilter,
+	getClickhouse: () => ({
+		query: () => Promise.resolve([]),
+	}),
+	getSafeClickHouseTable: (table: string) => table,
 	queryClickhouse: (statement: ClickHouseStatement) => {
 		queryCalls.push(statement);
 		return Promise.resolve([]);

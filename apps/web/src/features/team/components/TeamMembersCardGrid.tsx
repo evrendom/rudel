@@ -48,7 +48,10 @@ function buildHeaderLeftMetric(row: TeamPageMemberRow) {
 	const formattedSpend = formatSpendValue(row.cost);
 
 	return {
-		title: `${currencyFormatter.format(row.cost)} estimated spend`,
+		title:
+			row.cost === null
+				? "Estimated API-rate cost unavailable"
+				: `${currencyFormatter.format(row.cost)} estimated API-rate cost`,
 		value: formattedSpend,
 	} satisfies WrappedTeamMemberCardHeaderMetric;
 }
@@ -142,7 +145,10 @@ function formatShortDate(lastActiveDate: string | null) {
 	return shortDateFormatter.format(parsedDate);
 }
 
-function formatSpendValue(cost: number) {
+function formatSpendValue(cost: number | null) {
+	if (cost === null) {
+		return "—";
+	}
 	if (cost === 0) {
 		return "$0";
 	}

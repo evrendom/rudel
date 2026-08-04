@@ -9,6 +9,7 @@ describe("DashboardTokenDailyOverviewTable", () => {
 		const modelRows: ModelTokensTrendData[] = [
 			{
 				date: "2026-08-01",
+				estimated_cost: 9,
 				input_tokens: 1_000_000,
 				model: "gpt-5.1-codex",
 				output_tokens: 1_000_000,
@@ -16,6 +17,7 @@ describe("DashboardTokenDailyOverviewTable", () => {
 			},
 			{
 				date: "2026-08-01",
+				estimated_cost: 20.25,
 				input_tokens: 1_000_000,
 				model: "claude-sonnet-4-5",
 				output_tokens: 1_000_000,

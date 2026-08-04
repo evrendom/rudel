@@ -3,6 +3,8 @@ import {
 	readBooleanEnv,
 	readNonNegativeSafeIntegerEnv,
 	readRequiredSecretEnv,
+	readUsageEventAnalyticsCutoverConfig,
+	shouldUseUsageEventAnalytics,
 } from "../lib/env.js";
 
 const TEST_SECRET_ENV_NAME = "RUDEL_TEST_REQUIRED_SECRET";
@@ -91,5 +93,56 @@ describe("readBooleanEnv", () => {
 				`${TEST_BOOLEAN_ENV_NAME} must be either "true" or "false"`,
 			);
 		}
+	});
+});
+
+describe("usage-event analytics cutover configuration", () => {
+	test("fails closed for missing, empty, and invalid modes", () => {
+		for (const mode of [undefined, "", "enabled", "ALL"]) {
+			const config = readUsageEventAnalyticsCutoverConfig({
+				USAGE_EVENT_ANALYTICS_CUTOVER_MODE: mode,
+			});
+
+			expect(config.mode).toBe("off");
+			expect(shouldUseUsageEventAnalytics("org-owner", config)).toBe(false);
+		}
+	});
+
+	test("keeps an empty canary list off", () => {
+		for (const canaryIds of [undefined, "", " ,  "]) {
+			const config = readUsageEventAnalyticsCutoverConfig({
+				USAGE_EVENT_ANALYTICS_CANARY_ORG_IDS: canaryIds,
+				USAGE_EVENT_ANALYTICS_CUTOVER_MODE: "canary",
+			});
+
+			expect(config.mode).toBe("off");
+			expect(shouldUseUsageEventAnalytics("org-owner", config)).toBe(false);
+		}
+	});
+
+	test("routes only normalized canary organization IDs", () => {
+		const config = readUsageEventAnalyticsCutoverConfig({
+			USAGE_EVENT_ANALYTICS_CANARY_ORG_IDS: " org-owner,org-second,org-owner ",
+			USAGE_EVENT_ANALYTICS_CUTOVER_MODE: "canary",
+		});
+
+		expect(config.mode).toBe("canary");
+		expect([...config.canaryOrganizationIds]).toEqual([
+			"org-owner",
+			"org-second",
+		]);
+		expect(shouldUseUsageEventAnalytics("org-owner", config)).toBe(true);
+		expect(shouldUseUsageEventAnalytics("org-third", config)).toBe(false);
+	});
+
+	test("routes every organization only in all mode", () => {
+		const config = readUsageEventAnalyticsCutoverConfig({
+			USAGE_EVENT_ANALYTICS_CANARY_ORG_IDS: "org-owner",
+			USAGE_EVENT_ANALYTICS_CUTOVER_MODE: "all",
+		});
+
+		expect(config.mode).toBe("all");
+		expect(shouldUseUsageEventAnalytics("org-owner", config)).toBe(true);
+		expect(shouldUseUsageEventAnalytics("org-third", config)).toBe(true);
 	});
 });

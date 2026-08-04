@@ -1,5 +1,3 @@
-import { calculateEstimatedCost as calculateEstimatedModelCost } from "@rudel/api-routes";
-
 const numberFormatter = new Intl.NumberFormat();
 
 const compactNumberFormatter = new Intl.NumberFormat(undefined, {
@@ -97,7 +95,11 @@ export function formatDecimal(value: number) {
 	return decimalFormatter.format(value);
 }
 
-export function formatCurrency(value: number) {
+export function formatCurrency(value: number | null | undefined) {
+	if (value === null || value === undefined || !Number.isFinite(value)) {
+		return "—";
+	}
+
 	if (value !== 0 && Math.abs(value) < 1) {
 		return fineCurrencyFormatter.format(value);
 	}
@@ -105,7 +107,11 @@ export function formatCurrency(value: number) {
 	return currencyFormatter.format(value);
 }
 
-export function formatCompactCurrency(value: number) {
+export function formatCompactCurrency(value: number | null | undefined) {
+	if (value === null || value === undefined || !Number.isFinite(value)) {
+		return "—";
+	}
+
 	if (Math.abs(value) < 1_000) {
 		return formatCurrency(value);
 	}
@@ -113,11 +119,19 @@ export function formatCompactCurrency(value: number) {
 	return compactCurrencyFormatter.format(value);
 }
 
-export function formatWholeCurrency(value: number) {
+export function formatWholeCurrency(value: number | null | undefined) {
+	if (value === null || value === undefined || !Number.isFinite(value)) {
+		return "—";
+	}
+
 	return wholeCurrencyFormatter.format(value);
 }
 
-export function formatCompactWholeCurrency(value: number) {
+export function formatCompactWholeCurrency(value: number | null | undefined) {
+	if (value === null || value === undefined || !Number.isFinite(value)) {
+		return "—";
+	}
+
 	if (Math.abs(value) < 1_000) {
 		return formatWholeCurrency(value);
 	}
@@ -174,30 +188,6 @@ export function formatUsername(
 	}
 
 	return userId;
-}
-
-export function calculateCost(
-	inputTokens: number,
-	outputTokens: number,
-	options: {
-		at: Date | string;
-		model?: string | null;
-		cacheReadInputTokens?: number;
-		cacheCreationInputTokens?: number;
-	},
-) {
-	const cost = calculateEstimatedModelCost({
-		at: options.at,
-		model: options.model ?? null,
-		inputTokens,
-		outputTokens,
-		cacheReadInputTokens: options.cacheReadInputTokens ?? 0,
-		cacheCreationInputTokens: options.cacheCreationInputTokens ?? 0,
-	});
-
-	// The nullable resolver is exposed for new callers. Legacy numeric-only
-	// surfaces remain stable until the focused caller migration in #227.
-	return cost ?? 0;
 }
 
 export function encodeProjectPath(projectPath: string) {

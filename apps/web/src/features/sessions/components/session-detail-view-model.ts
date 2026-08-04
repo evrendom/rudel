@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { calculateCost, formatUsername } from "@/lib/format";
+import { formatUsername } from "@/lib/format";
 import {
 	createSessionMetadataBadges,
 	getConversationSummary,
@@ -59,6 +59,7 @@ export interface SessionSubagentSummary {
 export interface SessionDetailViewModelSource {
 	content?: unknown;
 	duration_min?: unknown;
+	estimated_cost?: unknown;
 	git_branch?: unknown;
 	git_sha?: unknown;
 	input_tokens?: unknown;
@@ -189,7 +190,11 @@ export function summarizeSessionSubagents(
 	);
 }
 
-function formatSessionCost(value: number) {
+function formatSessionCost(value: number | null) {
+	if (value === null) {
+		return "—";
+	}
+
 	const fractionDigits = value >= 100 ? 0 : 2;
 
 	return value.toLocaleString("en-US", {
@@ -218,6 +223,17 @@ export function buildSessionDetailViewModel(
 		session.duration_min === undefined
 			? undefined
 			: toNumber(session.duration_min);
+	const parsedEstimatedCost =
+		typeof session.estimated_cost === "number"
+			? session.estimated_cost
+			: typeof session.estimated_cost === "string" &&
+					session.estimated_cost.trim() !== ""
+				? Number(session.estimated_cost)
+				: Number.NaN;
+	const safeEstimatedCost =
+		Number.isFinite(parsedEstimatedCost) && parsedEstimatedCost >= 0
+			? parsedEstimatedCost
+			: null;
 	const safeTotalInteractions =
 		session.total_interactions === undefined
 			? undefined
@@ -238,12 +254,7 @@ export function buildSessionDetailViewModel(
 	const subagentSummaries = summarizeSessionSubagents(safeSubagents);
 	const subagentNames = subagentSummaries.map((subagent) => subagent.id);
 	const tokenUsageLabel = `${safeInputTokens.toLocaleString()} / ${safeOutputTokens.toLocaleString()}`;
-	const costLabel = formatSessionCost(
-		calculateCost(safeInputTokens, safeOutputTokens, {
-			at: safeSessionDate,
-			model: safeModelUsed,
-		}),
-	);
+	const costLabel = formatSessionCost(safeEstimatedCost);
 
 	return {
 		conversationSummary,

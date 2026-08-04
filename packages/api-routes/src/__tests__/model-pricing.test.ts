@@ -100,6 +100,25 @@ describe("model rate card", () => {
 		expect(long?.inputPerMTok).toBe(10);
 	});
 
+	it("selects request-level long-context pricing from context input", () => {
+		const belowThreshold = resolveModelPricing("gpt-5.6-sol", {
+			at: "2026-08-01",
+			contextInputTokens: 272_000,
+		});
+		const aboveThreshold = resolveModelPricing("gpt-5.6-sol", {
+			at: "2026-08-01",
+			contextInputTokens: 272_001,
+		});
+		const modelWithoutLongBand = resolveModelPricing("gpt-5.4-mini", {
+			at: "2026-08-01",
+			contextInputTokens: 500_000,
+		});
+
+		expect(belowThreshold?.inputPerMTok).toBe(5);
+		expect(aboveThreshold?.inputPerMTok).toBe(10);
+		expect(modelWithoutLongBand?.inputPerMTok).toBe(0.75);
+	});
+
 	it("leaves unknown and pre-release models unresolved", () => {
 		expect(
 			resolveModelPricing("codex-auto-review", { at: "2026-08-02" }),
@@ -155,6 +174,26 @@ describe("model rate card", () => {
 		expect(sql).toContain("toDate(session_date)");
 		expect(sql).toContain("Nullable(Float64)");
 		expect(sql).not.toContain("fallback");
+	});
+
+	it("builds request-context-aware SQL without changing token classes", () => {
+		const sql = buildEstimatedCostSql({
+			modelExpr: "resolved_model",
+			dateExpr: "usage_date",
+			inputExpr: "uncached_input_tokens",
+			outputExpr: "output_tokens",
+			cacheReadInputExpr: "cache_read_input_tokens",
+			cacheCreationInputExpr: "cache_write_5m_input_tokens",
+			cacheCreation1hInputExpr: "cache_write_1h_input_tokens",
+			contextInputExpr: "context_input_tokens",
+		});
+
+		expect(sql).toContain("(context_input_tokens) > 272000");
+		expect(sql).toContain("(context_input_tokens) <= 272000");
+		expect(sql).toContain("uncached_input_tokens");
+		expect(sql).toContain("cache_read_input_tokens");
+		expect(sql).toContain("cache_write_5m_input_tokens");
+		expect(sql).toContain("cache_write_1h_input_tokens");
 	});
 
 	it("keeps the generated pricing sheet in sync", async () => {

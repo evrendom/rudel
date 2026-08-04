@@ -199,7 +199,7 @@ const SCALE_STAGE_SEQUENCE_TRANSITION = {
 function WrappedScaleStageSequenceTitle(props: {
 	displayName?: string;
 	displayTokens: number;
-	estimatedSpendUsd: number;
+	estimatedSpendUsd: number | null;
 	onAdvanceSequenceComplete?: () => void;
 	onRevealChange?: (isVisible: boolean) => void;
 	scaleAdvanceState: WrappedScaleAdvanceState;
@@ -392,7 +392,7 @@ function WrappedScaleCountTitle(props: {
 }
 
 function WrappedScaleSpendTitle(props: {
-	estimatedSpendUsd: number;
+	estimatedSpendUsd: number | null;
 	onSequenceComplete?: () => void;
 	showKebabs: boolean;
 	totalKebabs: number;
@@ -401,7 +401,7 @@ function WrappedScaleSpendTitle(props: {
 		props;
 	const shouldReduceMotion = useReducedMotion();
 	const reduceMotion = shouldReduceMotion ?? false;
-	const [displaySpendUsd, setDisplaySpendUsd] = useState(() =>
+	const [displaySpendUsd, setDisplaySpendUsd] = useState<number | null>(() =>
 		reduceMotion ? estimatedSpendUsd : 0,
 	);
 	const [isSpendValueVisible, setIsSpendValueVisible] = useState(reduceMotion);
@@ -421,6 +421,12 @@ function WrappedScaleSpendTitle(props: {
 	}
 
 	useMountEffect(() => {
+		if (estimatedSpendUsd === null) {
+			setDisplaySpendUsd(null);
+			setIsSpendValueVisible(true);
+			return;
+		}
+
 		if (reduceMotion) {
 			setDisplaySpendUsd(estimatedSpendUsd);
 			setIsSpendValueVisible(true);
@@ -675,8 +681,8 @@ function buildScaleKebabDropSlotIds(dropCount: number) {
 	);
 }
 
-function resolveScaleKebabCount(estimatedSpendUsd: number) {
-	if (estimatedSpendUsd <= 0) {
+function resolveScaleKebabCount(estimatedSpendUsd: number | null) {
+	if (estimatedSpendUsd === null || estimatedSpendUsd <= 0) {
 		return 0;
 	}
 
