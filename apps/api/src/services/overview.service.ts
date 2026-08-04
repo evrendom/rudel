@@ -119,10 +119,10 @@ export async function getModelTokensTrend(
 				CAST(NULL, 'Nullable(Float64)')
 			)`
 			: `ifNull(${buildEstimatedCostSql({
-					dateExpr: "usage_date",
-					inputExpr: "sum(input_tokens)",
-					modelExpr: "model_used",
-					outputExpr: "sum(output_tokens)",
+					dateExpr: "sa.usage_date",
+					inputExpr: "sum(sa.input_tokens)",
+					modelExpr: "sa.model_used",
+					outputExpr: "sum(sa.output_tokens)",
 				})}, 0)`;
 
 	const query = `

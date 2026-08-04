@@ -16,12 +16,14 @@ function formatCostSplit(inputTokens: number, outputTokens: number) {
 export function DashboardTokenCostCell({
 	cost,
 	inputTokens,
+	isCostPartial = false,
 	outputTokens,
 	showDetailedCost = true,
 }: {
 	at: string | undefined;
 	cost: number | null | undefined;
 	inputTokens: number;
+	isCostPartial?: boolean;
 	outputTokens: number;
 	model: string | null | undefined;
 	showDetailedCost?: boolean;
@@ -33,9 +35,11 @@ export function DashboardTokenCostCell({
 			primary={
 				resolvedCost === null
 					? "—"
-					: showDetailedCost
-						? formatCurrency(resolvedCost)
-						: formatWholeCurrency(resolvedCost)
+					: `${isCostPartial ? "≥ " : ""}${
+							showDetailedCost
+								? formatCurrency(resolvedCost)
+								: formatWholeCurrency(resolvedCost)
+						}`
 			}
 			secondary={formatCostSplit(inputTokens, outputTokens)}
 			primaryClassName="font-medium tabular-nums"

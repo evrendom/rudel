@@ -13,7 +13,7 @@ import type {
 	DashboardHeadlineMetric,
 } from "@/features/dashboard/data/dashboard-static-data";
 import { expandAnalyticsDateRange } from "@/lib/analytics-date-range";
-import { formatCompactWholeCurrency } from "@/lib/format";
+import { formatCompactWholeCurrency, formatCurrency } from "@/lib/format";
 
 export type DashboardTokenDailyPoint = {
 	activeModels: number;
@@ -25,6 +25,7 @@ export type DashboardTokenDailyPoint = {
 	estimatedCost: number | null;
 	fullLabel: string;
 	inputTokens: number;
+	isCostPartial: boolean;
 	modelTokens: Record<string, number>;
 	outputTokens: number;
 	sessions: number;
@@ -392,7 +393,8 @@ export function buildDashboardTokenDailyPattern(
 	const estimatedCostByDate = new Map<
 		string,
 		{
-			hasResolvedCost: boolean;
+			hasKnownCost: boolean;
+			isPartial: boolean;
 			total: number;
 		}
 	>();
@@ -437,12 +439,14 @@ export function buildDashboardTokenDailyPattern(
 		const dateKey = normalizeDateKey(row.date);
 		const estimatedCost = row.estimated_cost ?? null;
 		const currentCost = estimatedCostByDate.get(dateKey) ?? {
-			hasResolvedCost: true,
+			hasKnownCost: false,
+			isPartial: false,
 			total: 0,
 		};
 
 		estimatedCostByDate.set(dateKey, {
-			hasResolvedCost: currentCost.hasResolvedCost && estimatedCost !== null,
+			hasKnownCost: currentCost.hasKnownCost || estimatedCost !== null,
+			isPartial: currentCost.isPartial || estimatedCost === null,
 			total: currentCost.total + (estimatedCost ?? 0),
 		});
 
@@ -482,9 +486,11 @@ export function buildDashboardTokenDailyPattern(
 			dominantModel,
 			dominantModelTokens,
 			estimatedCost:
-				estimatedCost?.hasResolvedCost === true ? estimatedCost.total : null,
+				estimatedCost?.hasKnownCost === true ? estimatedCost.total : null,
 			fullLabel: format(date, "EEEE, MMM d"),
 			inputTokens: tokensRow.inputTokens,
+			isCostPartial:
+				estimatedCost?.hasKnownCost === true && estimatedCost.isPartial,
 			modelTokens,
 			outputTokens: tokensRow.outputTokens,
 			sessions,
@@ -496,7 +502,7 @@ export function buildDashboardTokenDailyPattern(
 export function buildDashboardTokenTabMetrics(
 	usersTokenUsage: UserTokenUsageData[] | undefined,
 	dailyPattern: DashboardTokenDailyPoint[],
-	_modelRows?: ModelTokensTrendData[] | undefined,
+	modelRows?: ModelTokensTrendData[] | undefined,
 	userTrendRows?: UserDailyTrendData[] | undefined,
 ): DashboardHeadlineMetric[] {
 	const totalTokensFromUsage = (usersTokenUsage ?? []).reduce(
@@ -509,12 +515,29 @@ export function buildDashboardTokenTabMetrics(
 	);
 	const totalTokens =
 		totalTokensFromUsage > 0 ? totalTokensFromUsage : totalTokensFromPattern;
-	const hasCompleteCost = (usersTokenUsage ?? []).every(
+	const hasModelCostRows = (modelRows ?? []).length > 0;
+	const hasKnownModelCost = (modelRows ?? []).some(
+		(row) => row.estimated_cost != null,
+	);
+	const hasPartialModelCost = (modelRows ?? []).some(
+		(row) => row.estimated_cost == null,
+	);
+	const knownModelCost = (modelRows ?? []).reduce(
+		(sum, row) => sum + (row.estimated_cost ?? 0),
+		0,
+	);
+	const hasCompleteUserCost = (usersTokenUsage ?? []).every(
 		(row) => row.cost !== null,
 	);
-	const totalCost = hasCompleteCost
-		? (usersTokenUsage ?? []).reduce((sum, row) => sum + (row.cost ?? 0), 0)
-		: null;
+	const totalCost = hasModelCostRows
+		? hasKnownModelCost
+			? knownModelCost
+			: null
+		: hasCompleteUserCost
+			? (usersTokenUsage ?? []).reduce((sum, row) => sum + (row.cost ?? 0), 0)
+			: null;
+	const isCostPartial =
+		hasModelCostRows && hasKnownModelCost && hasPartialModelCost;
 	const activeDevelopersFromUsage = (usersTokenUsage ?? []).filter(
 		(row) => row.total_tokens > 0 || row.total_sessions > 0,
 	).length;
@@ -546,7 +569,11 @@ export function buildDashboardTokenTabMetrics(
 			id: "uncommitted",
 			label: "Estimated API-rate cost",
 			valueLabel:
-				totalCost === null ? "—" : formatCompactWholeCurrency(totalCost),
+				totalCost === null
+					? "—"
+					: isCostPartial
+						? `≥ ${formatCurrency(totalCost)}`
+						: formatCompactWholeCurrency(totalCost),
 			deltaLabel: "0",
 			deltaTone: "neutral",
 			description:

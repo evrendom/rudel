@@ -88,7 +88,7 @@ export function DashboardTokenModelTable({
 						<p className="font-medium tabular-nums text-[color:var(--dashboardy-heading)]">
 							{row.estimatedCost === null
 								? "—"
-								: formatCurrency(row.estimatedCost)}
+								: `${row.isCostPartial ? "≥ " : ""}${formatCurrency(row.estimatedCost)}`}
 						</p>
 					),
 				},

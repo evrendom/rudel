@@ -4,6 +4,7 @@ export type DashboardTokenModelSummaryRow = {
 	estimatedCost: number | null;
 	id: string;
 	inputTokens: number;
+	isCostPartial: boolean;
 	label: string;
 	outputTokens: number;
 	totalTokens: number;
@@ -13,6 +14,7 @@ export type DashboardTokenModelChartDatum = {
 	estimatedCost: number | null;
 	id: string;
 	inputTokens: number;
+	isCostPartial: boolean;
 	label: string;
 	outputTokens: number;
 	shortLabel: string;
@@ -43,8 +45,10 @@ export function buildDashboardTokenModelRows(
 	const rowsByModel = new Map<
 		string,
 		{
-			estimatedCost: number | null;
+			hasKnownCost: boolean;
 			inputTokens: number;
+			isCostPartial: boolean;
+			knownCost: number;
 			outputTokens: number;
 			totalTokens: number;
 		}
@@ -52,16 +56,20 @@ export function buildDashboardTokenModelRows(
 
 	for (const row of modelTokensTrend ?? []) {
 		const currentRow = rowsByModel.get(row.model) ?? {
-			estimatedCost: 0,
+			hasKnownCost: false,
 			inputTokens: 0,
+			isCostPartial: false,
+			knownCost: 0,
 			outputTokens: 0,
 			totalTokens: 0,
 		};
 
-		currentRow.estimatedCost =
-			currentRow.estimatedCost === null || row.estimated_cost == null
-				? null
-				: currentRow.estimatedCost + row.estimated_cost;
+		if (row.estimated_cost == null) {
+			currentRow.isCostPartial = true;
+		} else {
+			currentRow.hasKnownCost = true;
+			currentRow.knownCost += row.estimated_cost;
+		}
 		currentRow.inputTokens += row.input_tokens;
 		currentRow.outputTokens += row.output_tokens;
 		currentRow.totalTokens += row.total_tokens;
@@ -71,9 +79,10 @@ export function buildDashboardTokenModelRows(
 
 	return Array.from(rowsByModel.entries())
 		.map(([model, row]) => ({
-			estimatedCost: row.estimatedCost,
+			estimatedCost: row.hasKnownCost ? row.knownCost : null,
 			id: model,
 			inputTokens: row.inputTokens,
+			isCostPartial: row.hasKnownCost && row.isCostPartial,
 			label: model,
 			outputTokens: row.outputTokens,
 			totalTokens: row.totalTokens,
@@ -93,6 +102,7 @@ export function buildDashboardTokenModelChartData(
 		estimatedCost: row.estimatedCost,
 		id: row.id,
 		inputTokens: row.inputTokens,
+		isCostPartial: row.isCostPartial,
 		label: row.label,
 		outputTokens: row.outputTokens,
 		shortLabel: formatModelAxisLabel(row.label),

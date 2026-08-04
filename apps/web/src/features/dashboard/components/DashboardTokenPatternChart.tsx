@@ -33,7 +33,7 @@ type TokenModelSeries = {
 };
 
 type TokenChartRow = DashboardTokenDailyPoint &
-	Record<string, number | string | Record<string, number> | null>;
+	Record<string, boolean | number | string | Record<string, number> | null>;
 
 function formatCompactNumber(value: number) {
 	if (value >= 1_000_000) {
