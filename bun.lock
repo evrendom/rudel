@@ -29,6 +29,7 @@
         "@rudel/ch-schema": "workspace:*",
         "@rudel/secret-filter": "workspace:*",
         "@rudel/sql-schema": "workspace:*",
+        "@rudel/usage-events": "workspace:*",
         "better-auth": "^1.5.4",
         "drizzle-orm": "0.45.1",
         "postgres": "^3.4.5",
@@ -212,6 +213,18 @@
     "packages/typescript-config": {
       "name": "@rudel/typescript-config",
       "version": "0.0.0",
+    },
+    "packages/usage-events": {
+      "name": "@rudel/usage-events",
+      "version": "0.0.0",
+      "dependencies": {
+        "@rudel/api-routes": "workspace:*",
+      },
+      "devDependencies": {
+        "@rudel/typescript-config": "workspace:*",
+        "bun-types": "latest",
+        "typescript": "5.9.2",
+      },
     },
   },
   "overrides": {
@@ -876,6 +889,8 @@
     "@rudel/sql-schema": ["@rudel/sql-schema@workspace:packages/sql-schema"],
 
     "@rudel/typescript-config": ["@rudel/typescript-config@workspace:packages/typescript-config"],
+
+    "@rudel/usage-events": ["@rudel/usage-events@workspace:packages/usage-events"],
 
     "@rudel/web": ["@rudel/web@workspace:apps/web"],
 

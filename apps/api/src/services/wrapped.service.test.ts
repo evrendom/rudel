@@ -48,6 +48,7 @@ const allowedClickHouseTables = new Set([
 	"rudel.claude_sessions",
 	"rudel.codex_sessions",
 	"rudel.session_analytics",
+	"rudel.usage_events",
 ]);
 
 function getSafeClickHouseTable(table: string): string {

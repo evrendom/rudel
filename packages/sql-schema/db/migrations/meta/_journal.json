@@ -162,6 +162,20 @@
 			"when": 1785772800000,
 			"tag": "0022_session_ownership_component_shape",
 			"breakpoints": true
+		},
+		{
+			"idx": 23,
+			"version": "7",
+			"when": 1785776400000,
+			"tag": "0023_usage_event_receipt",
+			"breakpoints": true
+		},
+		{
+			"idx": 24,
+			"version": "7",
+			"when": 1785780000000,
+			"tag": "0024_usage_event_identity_receipt",
+			"breakpoints": true
 		}
 	]
 }

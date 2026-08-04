@@ -4,6 +4,7 @@
 	"license": "MIT",
 	"scripts": {
 		"build": "turbo run build",
+		"benchmark:usage-extraction": "bun scripts/benchmark-usage-extraction.ts",
 		"check:disclosure": "bun scripts/check-disclosure.ts",
 		"check-types:decimal-e2e": "tsc --project scripts/tsconfig.decimal-e2e.json",
 		"dev": "turbo run dev",
