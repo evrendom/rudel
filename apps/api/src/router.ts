@@ -20,6 +20,7 @@ import {
 	SecretFilterConvergenceError,
 	SecretFilterJsonIntegrityError,
 } from "@rudel/secret-filter";
+import type { UsageExtractionResult } from "@rudel/usage-events";
 import { getClickhouse } from "./clickhouse.js";
 import { sqlClient } from "./db.js";
 import { adminRouter } from "./handlers/admin/index.js";
@@ -73,7 +74,22 @@ import { hasRawSessionRow } from "./services/raw-session.service.js";
 import {
 	claimSessionIngestOwnership,
 	recordSessionIngestContent,
+	reserveUsageExtractionGeneration,
+	UsageExtractionSupersededError,
 } from "./services/session-ownership.service.js";
+import {
+	hasMatchingUsageExtractionReceipt,
+	shouldReplaceUsageEventsForVersion,
+	writeUsageExtraction,
+} from "./services/usage-event-ingest.service.js";
+import {
+	extractUsageEventsOffThread,
+	UsageExtractionExecutionError,
+	UsageExtractionQueueAbortedError,
+	UsageExtractionQueueClosedError,
+	UsageExtractionQueueFullError,
+	UsageExtractionQueueTimeoutError,
+} from "./services/usage-extraction.service.js";
 
 const logger = getLogger(["rudel", "api", "router"]);
 
@@ -406,6 +422,9 @@ const ingestSessionHandler = os.ingestSession
 			sessionId: input.sessionId,
 			redacted: filteredText.counts,
 			redactedBytes: filteredText.redactedBytes,
+			usageChecksum: hasMatchingUsageExtractionReceipt(ownership, contentHash)
+				? (ownership.lastUsageChecksum ?? undefined)
+				: undefined,
 		};
 
 		// This is a best-effort cost optimization, not a cross-instance
@@ -413,6 +432,7 @@ const ingestSessionHandler = os.ingestSession
 		// ClickHouse insert before either records its successful hash.
 		if (
 			ownership.lastContentSha256 === contentHash &&
+			hasMatchingUsageExtractionReceipt(ownership, contentHash) &&
 			(await hasRawSessionRow({
 				organizationId: orgId,
 				sessionDate: ownership.lastSessionDate,
@@ -438,27 +458,178 @@ const ingestSessionHandler = os.ingestSession
 			organizationId: orgId,
 			timestamps,
 		});
+		await recordSessionIngestContent(
+			orgId,
+			input.sessionId,
+			contentHash,
+			contentShape,
+			FILTER_VERSION,
+			new Date(timestamps.sessionDate),
+			ingestedAt,
+		);
 
-		try {
-			await recordSessionIngestContent(
-				orgId,
-				input.sessionId,
-				contentHash,
-				contentShape,
-				FILTER_VERSION,
-				new Date(timestamps.sessionDate),
-				ingestedAt,
-			);
-		} catch (error) {
+		if (!readBooleanEnv("USAGE_EVENT_EXTRACTION_ENABLED", true)) {
 			logger.warn(
-				"Session ingest succeeded but content hash bookkeeping failed (organization_id={organizationId} session_id={sessionId} error={error})",
+				"Usage-event extraction bypassed after raw ingest (organization_id={organizationId} session_id={sessionId})",
+				{ organizationId: orgId, sessionId: input.sessionId },
+			);
+			return response;
+		}
+
+		const usageGeneration = await reserveUsageExtractionGeneration(
+			orgId,
+			input.sessionId,
+			context.user.id,
+		);
+		const subagents: Record<string, string> = {};
+		for (const subagent of filteredInput.subagents ?? []) {
+			subagents[subagent.agentId] = subagent.content;
+		}
+		let usageExtraction: UsageExtractionResult;
+		try {
+			usageExtraction = await extractUsageEventsOffThread({
+				bytes: contentShape.contentBytes,
+				input: {
+					organizationId: orgId,
+					userId: context.user.id,
+					sessionId: input.sessionId,
+					source: filteredInput.source,
+					content: filteredInput.content,
+					subagents,
+				},
+				signal,
+				userId: context.user.id,
+			});
+		} catch (error) {
+			if (error instanceof UsageExtractionExecutionError) {
+				if (error.shouldPersistReceipt) {
+					await writeUsageExtraction(getClickhouse(), {
+						contentSha256: contentHash,
+						extraction: error.extraction,
+						filterVersion: FILTER_VERSION,
+						generation: usageGeneration,
+						ingestedAt,
+						organizationId: orgId,
+						sessionDate: new Date(timestamps.sessionDate),
+						sessionId: input.sessionId,
+						source: filteredInput.source,
+						userId: context.user.id,
+					});
+				}
+				logger.error(
+					"Usage-event extraction crashed after raw ingest (organization_id={organizationId} session_id={sessionId} error={error})",
+					{
+						error: String(error.cause),
+						organizationId: orgId,
+						sessionId: input.sessionId,
+					},
+				);
+				if (error instanceof UsageExtractionQueueFullError) {
+					throw new ORPCError("SERVICE_UNAVAILABLE", {
+						data: {
+							limit: error.limit,
+							reason: "usage_extraction_queue_full",
+							retryAfterMs: error.retryAfterMs,
+						},
+						message: error.message,
+					});
+				}
+				if (error instanceof UsageExtractionQueueClosedError) {
+					throw new ORPCError("SERVICE_UNAVAILABLE", {
+						data: {
+							reason: "usage_extraction_queue_closed",
+							retryAfterMs: error.retryAfterMs,
+						},
+						message: error.message,
+					});
+				}
+				if (error instanceof UsageExtractionQueueTimeoutError) {
+					throw new ORPCError("GATEWAY_TIMEOUT", {
+						data: {
+							reason: "usage_extraction_timeout",
+							retryAfterMs: error.retryAfterMs,
+						},
+						message: error.message,
+					});
+				}
+				if (error instanceof UsageExtractionQueueAbortedError) {
+					throw new ORPCError("CLIENT_CLOSED_REQUEST", {
+						data: {
+							reason: "usage_extraction_aborted",
+							retryAfterMs: error.retryAfterMs,
+						},
+						message: error.message,
+					});
+				}
+				throw new ORPCError("SERVICE_UNAVAILABLE", {
+					data: { reason: "usage_extraction_execution_failed" },
+					message:
+						"Raw session data was stored, but usage extraction failed. Retry the upload.",
+				});
+			}
+			throw error;
+		}
+		await writeUsageExtraction(getClickhouse(), {
+			contentSha256: contentHash,
+			extraction: usageExtraction,
+			filterVersion: FILTER_VERSION,
+			generation: usageGeneration,
+			ingestedAt,
+			organizationId: orgId,
+			replaceAbsentEvents:
+				input.force_replace === true ||
+				shouldReplaceUsageEventsForVersion(ownership),
+			sessionDate: new Date(timestamps.sessionDate),
+			sessionId: input.sessionId,
+			source: filteredInput.source,
+			userId: context.user.id,
+		});
+		if (usageExtraction.status === "incomplete") {
+			logger.warn(
+				"Usage extraction incomplete after raw ingest (organization_id={organizationId} session_id={sessionId} diagnostics={diagnostics})",
 				{
-					error: String(error),
+					diagnostics: JSON.stringify(usageExtraction.diagnostics),
 					organizationId: orgId,
 					sessionId: input.sessionId,
 				},
 			);
+			throw new ORPCError("SERVICE_UNAVAILABLE", {
+				data: {
+					reason: "usage_extraction_incomplete",
+					retryAfterMs: 1_000,
+				},
+				message:
+					"Raw session data was stored, but usage telemetry is malformed or contradictory. Retry after the transcript writer finishes.",
+			});
 		}
+
+		await recordSessionIngestContent(
+			orgId,
+			input.sessionId,
+			contentHash,
+			contentShape,
+			FILTER_VERSION,
+			new Date(timestamps.sessionDate),
+			ingestedAt,
+			{
+				checksum: usageExtraction.receipt.checksum,
+				diagnostics: JSON.stringify(usageExtraction.diagnostics),
+				eventCount: usageExtraction.receipt.eventCount,
+				extractionVersion: usageExtraction.receipt.extractionVersion,
+				eventIdentityVersion: usageExtraction.receipt.eventIdentityVersion,
+				generation: usageGeneration,
+				modelRateCardVersion: usageExtraction.receipt.modelRateCardVersion,
+			},
+		).catch((error: unknown) => {
+			if (error instanceof UsageExtractionSupersededError) {
+				throw new ORPCError("SERVICE_UNAVAILABLE", {
+					data: { reason: "usage_extraction_superseded" },
+					message: error.message,
+				});
+			}
+			throw error;
+		});
+		response.usageChecksum = usageExtraction.receipt.checksum;
 
 		const uploadCompletedPayload = getSessionUploadCompletedPayload(
 			filteredInput,

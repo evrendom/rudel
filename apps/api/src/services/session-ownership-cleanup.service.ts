@@ -4,6 +4,7 @@ import { getClickhouse, getSafeClickHouseTable } from "../clickhouse.js";
 import { sqlClient } from "../db.js";
 
 const SESSION_ANALYTICS_TABLE = "rudel.session_analytics";
+const USAGE_EVENTS_TABLE = "rudel.usage_events";
 const OWNERSHIP_OPERATION_LOCK_ID = 941_821_301;
 const DELETE_BATCH_SIZE = 10;
 const CLEANUP_QUERY_SETTINGS = {
@@ -206,6 +207,7 @@ function getCleanupTableNames(): string[] {
 	return [
 		...getAllAdapters().map((adapter) => adapter.rawTableName),
 		SESSION_ANALYTICS_TABLE,
+		USAGE_EVENTS_TABLE,
 	];
 }
 

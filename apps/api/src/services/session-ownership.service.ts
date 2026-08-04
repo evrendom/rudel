@@ -13,6 +13,11 @@ type SessionOwnershipClaim =
 			lastContentShape: IngestContentShape | null;
 			lastFilterVersion: number | null;
 			lastSessionDate: Date | null;
+			lastUsageContentSha256: string | null;
+			lastUsageChecksum: string | null;
+			lastUsageExtractionVersion: number | null;
+			lastUsageEventIdentityVersion: number | null;
+			lastUsageModelRateCardVersion: string | null;
 	  }
 	| { owned: false; ownerId: string };
 
@@ -23,7 +28,31 @@ interface ReservedSessionOwner {
 	lastContentShape: IngestContentShape | null;
 	lastFilterVersion: number | null;
 	lastSessionDate: Date | null;
+	lastUsageContentSha256: string | null;
+	lastUsageChecksum: string | null;
+	lastUsageExtractionVersion: number | null;
+	lastUsageEventIdentityVersion: number | null;
+	lastUsageModelRateCardVersion: string | null;
 	userId: string;
+}
+
+interface UsageExtractionReceiptRecord {
+	checksum: string;
+	diagnostics: string;
+	eventCount: number;
+	extractionVersion: number;
+	eventIdentityVersion: number;
+	generation: string;
+	modelRateCardVersion: string;
+}
+
+export class UsageExtractionSupersededError extends Error {
+	constructor() {
+		super(
+			"Usage extraction was superseded before its receipt was confirmed; retry the upload",
+		);
+		this.name = "UsageExtractionSupersededError";
+	}
 }
 
 export async function claimSessionIngestOwnership(
@@ -47,29 +76,102 @@ export async function recordSessionIngestContent(
 	filterVersion: number,
 	sessionDate: Date,
 	ingestedAt: Date,
+	usageReceipt?: UsageExtractionReceiptRecord,
 ): Promise<void> {
-	// This guard orders bookkeeping for successful writes with distinct
-	// ingested_at values. The API allocator prevents same-process millisecond
-	// ties; different ClickHouse sorting keys, cross-instance ties, and failed
-	// bookkeeping remain best-effort.
+	// Raw bookkeeping follows ingested_at ordering. The usage receipt uses the
+	// separately reserved generation as a compare-and-set, so an older writer
+	// cannot certify a newer session snapshot.
 	const ingestedAtIso = ingestedAt.toISOString();
-	await sqlClient`
+	return sqlClient.begin(async (transaction) => {
+		await transaction.unsafe(
+			`
+			UPDATE session_ownership
+			SET
+				last_content_sha256 = $1,
+				last_content_bytes = $2,
+				last_assistant_line_count = $3,
+				last_content_shape_json = $4,
+				last_filter_version = $5,
+				last_session_date = $6,
+				last_ingested_at = $7
+			WHERE organization_id = $8
+				AND session_id = $9
+				AND (
+					last_ingested_at IS NULL
+					OR last_ingested_at <= $7
+				)
+			`,
+			[
+				contentSha256,
+				contentShape.contentBytes,
+				contentShape.assistantLineCount,
+				JSON.stringify(contentShape),
+				filterVersion,
+				sessionDate.toISOString(),
+				ingestedAtIso,
+				organizationId,
+				sessionId,
+			],
+		);
+		if (!usageReceipt) return;
+
+		const completed = await transaction.unsafe<Array<{ generation: string }>>(
+			`
+			UPDATE session_ownership
+			SET
+				last_usage_content_sha256 = $1,
+				last_usage_extraction_version = $2,
+				last_usage_event_identity_version = $3,
+				last_usage_model_rate_card_version = $4,
+				last_usage_event_count = $5,
+				last_usage_checksum = $6,
+				last_usage_diagnostics_json = $7,
+				last_usage_completed_generation = $8,
+				last_usage_completed_at = NOW()
+			WHERE organization_id = $9
+				AND session_id = $10
+				AND usage_extraction_generation = $8
+			RETURNING usage_extraction_generation::text AS generation
+			`,
+			[
+				contentSha256,
+				usageReceipt.extractionVersion,
+				usageReceipt.eventIdentityVersion,
+				usageReceipt.modelRateCardVersion,
+				usageReceipt.eventCount,
+				usageReceipt.checksum,
+				usageReceipt.diagnostics,
+				usageReceipt.generation,
+				organizationId,
+				sessionId,
+			],
+		);
+		if (completed.length !== 1) {
+			throw new UsageExtractionSupersededError();
+		}
+	});
+}
+
+export async function reserveUsageExtractionGeneration(
+	organizationId: string,
+	sessionId: string,
+	userId: string,
+): Promise<string> {
+	const [row] = await sqlClient<Array<{ generation: string }>>`
 		UPDATE session_ownership
-		SET
-			last_content_sha256 = ${contentSha256},
-			last_content_bytes = ${contentShape.contentBytes},
-			last_assistant_line_count = ${contentShape.assistantLineCount},
-			last_content_shape_json = ${JSON.stringify(contentShape)},
-			last_filter_version = ${filterVersion},
-			last_session_date = ${sessionDate.toISOString()},
-			last_ingested_at = ${ingestedAtIso}
+		SET usage_extraction_generation = GREATEST(
+			usage_extraction_generation + 1,
+			FLOOR(EXTRACT(EPOCH FROM clock_timestamp()) * 1000)::bigint
+		)
 		WHERE organization_id = ${organizationId}
 			AND session_id = ${sessionId}
-			AND (
-				last_ingested_at IS NULL
-				OR last_ingested_at <= ${ingestedAtIso}
-			)
+			AND user_id = ${userId}
+		RETURNING usage_extraction_generation::text AS generation
 	`;
+	if (!row) {
+		throw new Error("Usage extraction generation reservation failed");
+	}
+	return row.generation;
 }
 
 export async function getSessionOwner(
@@ -100,6 +202,11 @@ async function reserveSessionOwner(
 			last_content_shape_json: string | null;
 			last_filter_version: number | null;
 			last_session_date: Date | null;
+			last_usage_content_sha256: string | null;
+			last_usage_checksum: string | null;
+			last_usage_extraction_version: number | null;
+			last_usage_event_identity_version: number | null;
+			last_usage_model_rate_card_version: string | null;
 			user_id: string;
 		}>
 	>`
@@ -122,7 +229,12 @@ async function reserveSessionOwner(
 			last_assistant_line_count,
 			last_content_shape_json,
 			last_filter_version,
-			last_session_date
+			last_session_date,
+			last_usage_content_sha256,
+			last_usage_checksum,
+			last_usage_extraction_version,
+			last_usage_event_identity_version,
+			last_usage_model_rate_card_version
 	`;
 	if (!row) {
 		throw new Error("Session ownership reservation did not return an owner");
@@ -134,6 +246,11 @@ async function reserveSessionOwner(
 		lastContentShape: parseContentShape(row.last_content_shape_json),
 		lastFilterVersion: row.last_filter_version,
 		lastSessionDate: row.last_session_date,
+		lastUsageContentSha256: row.last_usage_content_sha256,
+		lastUsageChecksum: row.last_usage_checksum,
+		lastUsageExtractionVersion: row.last_usage_extraction_version,
+		lastUsageEventIdentityVersion: row.last_usage_event_identity_version,
+		lastUsageModelRateCardVersion: row.last_usage_model_rate_card_version,
 		userId: row.user_id,
 	};
 }
@@ -153,6 +270,13 @@ function getOwnershipClaim(
 			lastContentShape: reservedOwner.lastContentShape,
 			lastFilterVersion: reservedOwner.lastFilterVersion,
 			lastSessionDate: reservedOwner.lastSessionDate,
+			lastUsageContentSha256: reservedOwner.lastUsageContentSha256,
+			lastUsageChecksum: reservedOwner.lastUsageChecksum,
+			lastUsageExtractionVersion: reservedOwner.lastUsageExtractionVersion,
+			lastUsageEventIdentityVersion:
+				reservedOwner.lastUsageEventIdentityVersion,
+			lastUsageModelRateCardVersion:
+				reservedOwner.lastUsageModelRateCardVersion,
 		};
 	}
 
