@@ -1000,6 +1000,7 @@ describe("CLI upload to local API", () => {
 				"Ingest request limit reached (2 requests per 60 min). Wait and retry with: rudel upload --retry",
 			attempts: 1,
 			rateLimited: true,
+			retryable: true,
 		});
 	}, 60_000);
 });

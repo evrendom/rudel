@@ -52,6 +52,7 @@ describe("CLI ingest rate-limit messages", () => {
 				"Ingest byte limit reached (0.00 MiB per 60 min). Wait and retry with: rudel upload --retry",
 			attempts: 1,
 			rateLimited: true,
+			retryable: true,
 		});
 	});
 });
