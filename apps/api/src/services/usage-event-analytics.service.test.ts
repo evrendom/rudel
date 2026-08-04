@@ -22,6 +22,8 @@ describe("usage-event analytics query contract", () => {
 		expect(sql).toContain("= r.receipt_event_count");
 		expect(sql).toContain("e.event_version = c.generation");
 		expect(sql).toContain("ANY INNER JOIN consistent_usage_sessions AS c");
+		expect(sql).toContain("sa.organization_id AS organization_id");
+		expect(sql).toContain("sa.user_id AS user_id");
 	});
 
 	test("keeps the tenant prefix and adds available key filters", () => {
@@ -44,7 +46,7 @@ describe("usage-event analytics query contract", () => {
 		const sql = buildUsageEventAnalyticsCte();
 
 		expect(sql).toContain(
-			"sum(uncached_input_tokens + cache_read_input_tokens + cache_write_5m_input_tokens + cache_write_1h_input_tokens) AS input_tokens",
+			"sum(p.uncached_input_tokens + p.cache_read_input_tokens + p.cache_write_5m_input_tokens + p.cache_write_1h_input_tokens) AS input_tokens",
 		);
 		expect(sql).toContain("e.uncached_input_tokens");
 		expect(sql).toContain("e.cache_read_input_tokens");

@@ -278,9 +278,9 @@ export async function getROIMetrics(
 		${costSql} as total_cost,
         now64(3) - toIntervalDay({currentDays:UInt32}) as period_start,
         now64(3) as period_end
-	  FROM ${usage.sessionsRelation}
+	  FROM ${usage.sessionsRelation} AS sa
       WHERE ${buildDateFilter("currentDays")}
-        AND organization_id = {orgId:String}
+        AND sa.organization_id = {orgId:String}
     ),
     previous_period AS (
       SELECT
@@ -291,10 +291,10 @@ export async function getROIMetrics(
 		${costSql} as total_cost,
         now64(3) - toIntervalDay({previousDays:UInt32}) as period_start,
         now64(3) - toIntervalDay({currentDays:UInt32}) as period_end
-	  FROM ${usage.sessionsRelation}
+	  FROM ${usage.sessionsRelation} AS sa
       WHERE session_date >= now64(3) - toIntervalDay({previousDays:UInt32})
         AND session_date < now64(3) - toIntervalDay({currentDays:UInt32})
-        AND organization_id = {orgId:String}
+        AND sa.organization_id = {orgId:String}
     )
     SELECT
       c.total_sessions,
@@ -505,9 +505,9 @@ export async function getROITrends(
       COUNT(DISTINCT user_id) as active_developers,
       AVG(success_score) as avg_success_score,
 	  ${costSql} as total_cost
-    FROM ${usage.sessionsRelation}
+    FROM ${usage.sessionsRelation} AS sa
     WHERE session_date >= now64(3) - toIntervalDay({days:UInt32})
-      AND organization_id = {orgId:String}
+      AND sa.organization_id = {orgId:String}
     GROUP BY week_start
     ORDER BY week_start ASC
   `;
@@ -570,9 +570,9 @@ export async function getDeveloperCostBreakdown(
       SUM(total_tokens) as total_tokens,
       AVG(success_score) as avg_success_score,
 	  ${costSql} as total_cost
-    FROM ${usage.sessionsRelation}
+    FROM ${usage.sessionsRelation} AS sa
     WHERE ${buildDateFilter("days")}
-      AND organization_id = {orgId:String}
+      AND sa.organization_id = {orgId:String}
     GROUP BY user_id
     ORDER BY total_cost DESC
   `;
@@ -635,9 +635,9 @@ export async function getProjectCostBreakdown(
       SUM(total_tokens) as total_tokens,
       AVG(success_score) as avg_success_score,
 	  ${costSql} as total_cost
-    FROM ${usage.sessionsRelation}
+    FROM ${usage.sessionsRelation} AS sa
     WHERE ${buildDateFilter("days")}
-      AND organization_id = {orgId:String}
+      AND sa.organization_id = {orgId:String}
       AND project_path != ''
     GROUP BY project_path
     ORDER BY total_cost DESC
@@ -699,9 +699,9 @@ async function getRangeSnapshot(
       AVG(success_score) as avg_success_score,
       COUNT(DISTINCT user_id) as active_developers,
       SUM(has_commit) as total_commits
-    FROM ${usage.sessionsRelation}
+    FROM ${usage.sessionsRelation} AS sa
     WHERE ${buildInclusiveDateRangeFilter("startDate", "endDate")}
-      AND organization_id = {orgId:String}
+      AND sa.organization_id = {orgId:String}
   `;
 
 	const result = await queryClickhouse<RangeSnapshotRow>({
@@ -735,9 +735,9 @@ async function getDeveloperCostBreakdownForRange(
       SUM(total_tokens) as total_tokens,
       AVG(success_score) as avg_success_score,
 	  ${costSql} as total_cost
-    FROM ${usage.sessionsRelation}
+    FROM ${usage.sessionsRelation} AS sa
     WHERE ${buildInclusiveDateRangeFilter("startDate", "endDate")}
-      AND organization_id = {orgId:String}
+      AND sa.organization_id = {orgId:String}
     GROUP BY user_id
     ORDER BY total_cost DESC, total_tokens DESC, user_id ASC
   `;
@@ -794,9 +794,9 @@ async function getProjectCostBreakdownForRange(
       SUM(total_tokens) as total_tokens,
       AVG(success_score) as avg_success_score,
 	  ${costSql} as total_cost
-    FROM ${usage.sessionsRelation}
+    FROM ${usage.sessionsRelation} AS sa
     WHERE ${buildInclusiveDateRangeFilter("startDate", "endDate")}
-      AND organization_id = {orgId:String}
+      AND sa.organization_id = {orgId:String}
       AND project_path != ''
     GROUP BY project_path
     ORDER BY total_cost DESC, total_tokens DESC, project_path ASC
@@ -873,9 +873,9 @@ export async function getROIDashboard(
       SUM(total_tokens) as total_tokens,
 	  ${trendCostSql} as total_cost,
       SUM(has_commit) as total_commits
-    FROM ${usage.sessionsRelation}
+    FROM ${usage.sessionsRelation} AS sa
     WHERE ${buildInclusiveDateRangeFilter("startDate", "endDate")}
-      AND organization_id = {orgId:String}
+      AND sa.organization_id = {orgId:String}
     GROUP BY bucket_start
     ORDER BY bucket_start ASC
   `;

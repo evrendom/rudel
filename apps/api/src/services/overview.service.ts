@@ -134,9 +134,9 @@ export async function getModelTokensTrend(
       sum(input_tokens) as input_tokens,
 	  sum(output_tokens) as output_tokens,
 	  ${estimatedCostSql} as estimated_cost
-    FROM ${usage.dailySessionsRelation}
+    FROM ${usage.dailySessionsRelation} AS sa
     WHERE ${dateFilter}
-      AND organization_id = {orgId:String}
+      AND sa.organization_id = {orgId:String}
       AND model_used != ''
       AND model_used != 'unknown'
     GROUP BY date, model
@@ -307,9 +307,9 @@ export async function getUsersDailyTrend(
           )
         )
       ) as repositories_touched
-    FROM ${usage.sessionsRelation}
+    FROM ${usage.sessionsRelation} AS sa
     WHERE ${dateFilter}
-      AND organization_id = {orgId:String}
+      AND sa.organization_id = {orgId:String}
       AND user_id != ''
     GROUP BY date, user_id
     ORDER BY date ASC, user_id ASC
@@ -378,9 +378,9 @@ export async function getUsageTrendDetailed(
       uniq(user_id) as active_users,
       round(sum(actual_duration_min) / 60, 2) as total_hours,
       sum(total_tokens) as total_tokens
-    FROM ${usage.sessionsRelation}
+    FROM ${usage.sessionsRelation} AS sa
     WHERE ${dateFilter}
-      AND organization_id = {orgId:String}
+      AND sa.organization_id = {orgId:String}
     GROUP BY date
     ORDER BY date ASC
   `;

@@ -43,40 +43,40 @@ const PRICEABLE_EVENT_SQL = `
 `;
 
 const SESSION_METADATA_COLUMNS = `
-	sa.session_date,
-	sa.last_interaction_date,
-	sa.session_id,
-	sa.organization_id,
-	sa.project_path,
-	sa.git_remote,
-	sa.package_name,
-	sa.package_type,
-	sa.filter_version,
-	sa.ingested_at,
-	sa.user_id,
-	sa.git_branch,
-	sa.git_sha,
-	sa.tag,
-	sa.source,
-	sa.skills,
-	sa.slash_commands,
-	sa.subagent_types,
-	sa.total_interactions,
-	sa.actual_duration_min,
-	sa.avg_period_sec,
-	sa.median_period_sec,
-	sa.quick_responses,
-	sa.normal_responses,
-	sa.long_pauses,
-	sa.error_count,
-	sa.error_pattern,
-	sa.model_used,
-	sa.has_commit,
-	sa.session_archetype,
-	sa.success_score,
-	sa.used_plan_mode,
-	sa.inference_duration_sec,
-	sa.human_duration_sec
+	sa.session_date AS session_date,
+	sa.last_interaction_date AS last_interaction_date,
+	sa.session_id AS session_id,
+	sa.organization_id AS organization_id,
+	sa.project_path AS project_path,
+	sa.git_remote AS git_remote,
+	sa.package_name AS package_name,
+	sa.package_type AS package_type,
+	sa.filter_version AS filter_version,
+	sa.ingested_at AS ingested_at,
+	sa.user_id AS user_id,
+	sa.git_branch AS git_branch,
+	sa.git_sha AS git_sha,
+	sa.tag AS tag,
+	sa.source AS source,
+	sa.skills AS skills,
+	sa.slash_commands AS slash_commands,
+	sa.subagent_types AS subagent_types,
+	sa.total_interactions AS total_interactions,
+	sa.actual_duration_min AS actual_duration_min,
+	sa.avg_period_sec AS avg_period_sec,
+	sa.median_period_sec AS median_period_sec,
+	sa.quick_responses AS quick_responses,
+	sa.normal_responses AS normal_responses,
+	sa.long_pauses AS long_pauses,
+	sa.error_count AS error_count,
+	sa.error_pattern AS error_pattern,
+	sa.model_used AS model_used,
+	sa.has_commit AS has_commit,
+	sa.session_archetype AS session_archetype,
+	sa.success_score AS success_score,
+	sa.used_plan_mode AS used_plan_mode,
+	sa.inference_duration_sec AS inference_duration_sec,
+	sa.human_duration_sec AS human_duration_sec
 `;
 
 export interface UsageAnalyticsScope {
@@ -273,36 +273,36 @@ export function buildUsageEventAnalyticsCte(
 		),
 		usage_event_session_rollups AS (
 			SELECT
-				organization_id,
-				user_id,
-				source,
-				session_id,
-				sum(uncached_input_tokens + cache_read_input_tokens + cache_write_5m_input_tokens + cache_write_1h_input_tokens) AS input_tokens,
-				sum(output_tokens) AS output_tokens,
-				sum(cache_read_input_tokens) AS cache_read_input_tokens,
-				sum(cache_write_5m_input_tokens + cache_write_1h_input_tokens) AS cache_creation_input_tokens,
-				sum(uncached_input_tokens + cache_read_input_tokens + cache_write_5m_input_tokens + cache_write_1h_input_tokens + output_tokens) AS total_tokens,
-				if(countIf(isNotNull(estimated_cost)) > 0, toNullable(sum(ifNull(estimated_cost, 0))), CAST(NULL, 'Nullable(Float64)')) AS estimated_cost,
-				toUInt8(countIf(isNull(estimated_cost)) = 0) AS cost_is_complete
-			FROM priced_usage_events
-			GROUP BY organization_id, user_id, source, session_id
+				p.organization_id,
+				p.user_id,
+				p.source,
+				p.session_id,
+				sum(p.uncached_input_tokens + p.cache_read_input_tokens + p.cache_write_5m_input_tokens + p.cache_write_1h_input_tokens) AS input_tokens,
+				sum(p.output_tokens) AS output_tokens,
+				sum(p.cache_read_input_tokens) AS cache_read_input_tokens,
+				sum(p.cache_write_5m_input_tokens + p.cache_write_1h_input_tokens) AS cache_creation_input_tokens,
+				sum(p.uncached_input_tokens + p.cache_read_input_tokens + p.cache_write_5m_input_tokens + p.cache_write_1h_input_tokens + p.output_tokens) AS total_tokens,
+				if(countIf(isNotNull(p.estimated_cost)) > 0, toNullable(sum(ifNull(p.estimated_cost, 0))), CAST(NULL, 'Nullable(Float64)')) AS estimated_cost,
+				toUInt8(countIf(isNull(p.estimated_cost)) = 0) AS cost_is_complete
+			FROM priced_usage_events AS p
+			GROUP BY p.organization_id, p.user_id, p.source, p.session_id
 		),
 		usage_event_daily_rollups AS (
 			SELECT
-				organization_id,
-				user_id,
-				source,
-				session_id,
-				usage_date,
-				sum(uncached_input_tokens + cache_read_input_tokens + cache_write_5m_input_tokens + cache_write_1h_input_tokens) AS input_tokens,
-				sum(output_tokens) AS output_tokens,
-				sum(cache_read_input_tokens) AS cache_read_input_tokens,
-				sum(cache_write_5m_input_tokens + cache_write_1h_input_tokens) AS cache_creation_input_tokens,
-				sum(uncached_input_tokens + cache_read_input_tokens + cache_write_5m_input_tokens + cache_write_1h_input_tokens + output_tokens) AS total_tokens,
-				if(countIf(isNotNull(estimated_cost)) > 0, toNullable(sum(ifNull(estimated_cost, 0))), CAST(NULL, 'Nullable(Float64)')) AS estimated_cost,
-				toUInt8(countIf(isNull(estimated_cost)) = 0) AS cost_is_complete
-			FROM priced_usage_events
-			GROUP BY organization_id, user_id, source, session_id, usage_date
+				p.organization_id,
+				p.user_id,
+				p.source,
+				p.session_id,
+				p.usage_date,
+				sum(p.uncached_input_tokens + p.cache_read_input_tokens + p.cache_write_5m_input_tokens + p.cache_write_1h_input_tokens) AS input_tokens,
+				sum(p.output_tokens) AS output_tokens,
+				sum(p.cache_read_input_tokens) AS cache_read_input_tokens,
+				sum(p.cache_write_5m_input_tokens + p.cache_write_1h_input_tokens) AS cache_creation_input_tokens,
+				sum(p.uncached_input_tokens + p.cache_read_input_tokens + p.cache_write_5m_input_tokens + p.cache_write_1h_input_tokens + p.output_tokens) AS total_tokens,
+				if(countIf(isNotNull(p.estimated_cost)) > 0, toNullable(sum(ifNull(p.estimated_cost, 0))), CAST(NULL, 'Nullable(Float64)')) AS estimated_cost,
+				toUInt8(countIf(isNull(p.estimated_cost)) = 0) AS cost_is_complete
+			FROM priced_usage_events AS p
+			GROUP BY p.organization_id, p.user_id, p.source, p.session_id, p.usage_date
 		),
 		usage_analytics_metadata AS (
 			SELECT *

@@ -174,7 +174,7 @@ export async function getSessionAnalytics(
       user_id,
       formatDateTime(sa.session_date, '%Y-%m-%dT%H:%i:%SZ') as session_date,
       project_path,
-      organization_id,
+      sa.organization_id AS organization_id,
       git_remote,
       package_name,
       total_interactions,
@@ -201,7 +201,7 @@ export async function getSessionAnalytics(
       used_plan_mode
     FROM ${usage.sessionsRelation} AS sa
     WHERE ${dateFilter}
-      AND organization_id = {orgId:String}
+      AND sa.organization_id = {orgId:String}
       ${filters.length > 0 ? `AND ${filters.join("\n      AND ")}` : ""}
     ORDER BY ${sortColumn} ${sortDirection}
     LIMIT {limit:UInt32}
@@ -640,9 +640,9 @@ export async function getSessionDimensionAnalysis(
         ${dimensionExpression} as dimension_value,
         ${splitByExpression} as split_value,
         ${metricExpression} as metric_value
-      FROM ${usage.sessionsRelation}
+      FROM ${usage.sessionsRelation} AS sa
       WHERE ${buildDateFilter("days")}
-        AND organization_id = {orgId:String}
+        AND sa.organization_id = {orgId:String}
         ${filters.length > 0 ? `AND ${filters.join("\n        AND ")}` : ""}
       GROUP BY dimension_value, split_value
       ORDER BY metric_value DESC
@@ -653,9 +653,9 @@ export async function getSessionDimensionAnalysis(
       SELECT
         ${dimensionExpression} as dimension_value,
         ${metricExpression} as metric_value
-      FROM ${usage.sessionsRelation}
+      FROM ${usage.sessionsRelation} AS sa
       WHERE ${buildDateFilter("days")}
-        AND organization_id = {orgId:String}
+        AND sa.organization_id = {orgId:String}
         ${filters.length > 0 ? `AND ${filters.join("\n        AND ")}` : ""}
       GROUP BY dimension_value
       ORDER BY metric_value DESC
