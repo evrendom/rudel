@@ -18,6 +18,11 @@ const REQUIRED_OWNERSHIP_MIGRATIONS = [
 	{ createdAt: "1784824445931", tag: "0014_session_ownership" },
 	{ createdAt: "1784824638910", tag: "0015_session_ownership_user_index" },
 	{ createdAt: "1784832000000", tag: "0016_session_ownership_backfill_state" },
+	{ createdAt: "1784901786000", tag: "0017_session_ownership_content_hash" },
+	{
+		createdAt: "1785686400000",
+		tag: "0021_session_ownership_ingest_shape",
+	},
 ] as const;
 
 try {
@@ -35,6 +40,8 @@ async function assertOwnershipSchemaDoesNotLeadMigrationHistory(): Promise<void>
 	const recordedMigrations = await getRecordedMigrationTimestamps();
 	const [artifacts] = await sql<
 		Array<{
+			ownership_content_hash_column: boolean;
+			ownership_content_shape_columns: boolean;
 			ownership_backfill_state_table: boolean;
 			ownership_table: boolean;
 			ownership_user_index: boolean;
@@ -48,6 +55,23 @@ async function assertOwnershipSchemaDoesNotLeadMigrationHistory(): Promise<void>
 				AS ownership_user_index,
 			to_regclass('public.session_ownership_backfill_state') IS NOT NULL
 				AS ownership_backfill_state_table,
+			EXISTS (
+				SELECT 1
+				FROM information_schema.columns
+				WHERE table_schema = 'public'
+					AND table_name = 'session_ownership'
+					AND column_name = 'last_content_sha256'
+			) AS ownership_content_hash_column,
+			(
+				SELECT COUNT(*) = 2
+				FROM information_schema.columns
+				WHERE table_schema = 'public'
+					AND table_name = 'session_ownership'
+					AND column_name IN (
+						'last_content_bytes',
+						'last_assistant_line_count'
+					)
+			) AS ownership_content_shape_columns,
 			EXISTS (
 				SELECT 1
 				FROM information_schema.columns
@@ -76,6 +100,14 @@ async function assertOwnershipSchemaDoesNotLeadMigrationHistory(): Promise<void>
 		{
 			artifactExists: artifacts.ownership_backfill_state_table,
 			migration: REQUIRED_OWNERSHIP_MIGRATIONS[4],
+		},
+		{
+			artifactExists: artifacts.ownership_content_hash_column,
+			migration: REQUIRED_OWNERSHIP_MIGRATIONS[5],
+		},
+		{
+			artifactExists: artifacts.ownership_content_shape_columns,
+			migration: REQUIRED_OWNERSHIP_MIGRATIONS[6],
 		},
 	];
 

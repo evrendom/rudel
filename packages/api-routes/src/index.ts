@@ -199,6 +199,7 @@ export const IngestSessionInputSchema = z.object({
 	cli_version: z.string().max(200).optional(),
 	platform_os: ProductAnalyticsPlatformOsSchema.optional(),
 	filter_version: z.number().int().min(0).max(65_535).optional(),
+	force_replace: z.boolean().optional(),
 });
 
 export const IngestSessionOutputSchema = z.object({
@@ -214,9 +215,16 @@ export const REDACTION_BUDGET_EXCEEDED_MESSAGE =
 export const REDACTION_DID_NOT_CONVERGE_CODE = "REDACTION_DID_NOT_CONVERGE";
 export const REDACTION_DID_NOT_CONVERGE_MESSAGE =
 	"Known-pattern redaction did not converge within the safety limit.";
+export const SECRET_FILTER_JSON_INTEGRITY_CODE = "SECRET_FILTER_JSON_INTEGRITY";
+export const SECRET_FILTER_JSON_INTEGRITY_MESSAGE =
+	"Secret filtering could not preserve transcript JSON integrity.";
 export const SESSION_OWNERSHIP_CONFLICT_CODE = "SESSION_OWNERSHIP_CONFLICT";
 export const SESSION_OWNERSHIP_CONFLICT_MESSAGE =
 	"This session belongs to another organization member and cannot be replaced.";
+export const SESSION_UPLOAD_SHRINK_REJECTED_CODE =
+	"SESSION_UPLOAD_SHRINK_REJECTED";
+export const SESSION_UPLOAD_SHRINK_REJECTED_MESSAGE =
+	"This upload is smaller than the stored session and was refused to protect existing data. Inspect the transcript, then use `rudel upload --force-replace` only if the replacement is intentional. If your CLI does not recognize the flag, upgrade rudel first.";
 
 export type IngestSessionInput = z.infer<typeof IngestSessionInputSchema>;
 
@@ -272,9 +280,23 @@ export const contract = {
 					maxPasses: z.number().int().positive(),
 				}),
 			},
+			[SECRET_FILTER_JSON_INTEGRITY_CODE]: {
+				status: 422,
+				message: SECRET_FILTER_JSON_INTEGRITY_MESSAGE,
+			},
 			[SESSION_OWNERSHIP_CONFLICT_CODE]: {
 				status: 409,
 				message: SESSION_OWNERSHIP_CONFLICT_MESSAGE,
+			},
+			[SESSION_UPLOAD_SHRINK_REJECTED_CODE]: {
+				status: 409,
+				message: SESSION_UPLOAD_SHRINK_REJECTED_MESSAGE,
+				data: z.object({
+					currentAssistantLineCount: z.number().int().nonnegative(),
+					currentContentBytes: z.number().int().nonnegative(),
+					previousAssistantLineCount: z.number().int().nonnegative(),
+					previousContentBytes: z.number().int().nonnegative(),
+				}),
 			},
 		}),
 	getOrganizationSessionCount: oc

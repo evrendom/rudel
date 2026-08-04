@@ -1,4 +1,7 @@
-import { SecretFilterConvergenceError } from "@rudel/secret-filter";
+import {
+	SecretFilterConvergenceError,
+	SecretFilterJsonIntegrityError,
+} from "@rudel/secret-filter";
 import type { IngestFilterWorkerErrorResponse } from "./ingest-filter.types.js";
 
 export function createIngestFilterWorkerError(
@@ -11,6 +14,13 @@ export function createIngestFilterWorkerError(
 			requestId,
 			reason: "did-not-converge",
 			maxPasses: error.maxPasses,
+		};
+	}
+	if (error instanceof SecretFilterJsonIntegrityError) {
+		return {
+			status: "error",
+			requestId,
+			reason: "json-integrity",
 		};
 	}
 	return {
@@ -29,6 +39,9 @@ export function getIngestFilterWorkerError(
 ): Error {
 	if (response.reason === "did-not-converge") {
 		return new SecretFilterConvergenceError(response.maxPasses);
+	}
+	if (response.reason === "json-integrity") {
+		return new SecretFilterJsonIntegrityError();
 	}
 	return new Error(response.message);
 }

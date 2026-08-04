@@ -2,8 +2,20 @@ import * as p from "@clack/prompts";
 import { buildCommand } from "@stricli/core";
 import { describeSavedCredentialsApiBaseRisk } from "../lib/api-base.js";
 import { verifyAuth } from "../lib/auth.js";
+import { loadFailedUploads } from "../lib/failed-uploads.js";
 
 async function runWhoami(): Promise<undefined | Error> {
+	const failedUploads = await loadFailedUploads();
+	if (failedUploads.length > 0) {
+		const retryable = failedUploads.filter(
+			(failure) => failure.status === "retryable",
+		).length;
+		const permanent = failedUploads.length - retryable;
+		p.log.warn(
+			`Local upload status: ${retryable} retryable failure(s), ${permanent} permanent failure(s). Run \`rudel upload --retry\` for details.`,
+		);
+	}
+
 	// Before verifyAuth, which sends the stored token to the stored base.
 	const storedApiBaseRisk = describeSavedCredentialsApiBaseRisk();
 	if (storedApiBaseRisk) {

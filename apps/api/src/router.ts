@@ -10,12 +10,15 @@ import {
 	PRODUCT_ANALYTICS_EVENTS,
 	REDACTION_BUDGET_EXCEEDED_CODE,
 	REDACTION_DID_NOT_CONVERGE_CODE,
+	SECRET_FILTER_JSON_INTEGRITY_CODE,
 	SESSION_OWNERSHIP_CONFLICT_CODE,
+	SESSION_UPLOAD_SHRINK_REJECTED_CODE,
 } from "@rudel/api-routes";
 import {
 	FILTER_VERSION,
 	getRedactionBudgetAnomaly,
 	SecretFilterConvergenceError,
+	SecretFilterJsonIntegrityError,
 } from "@rudel/secret-filter";
 import { getClickhouse } from "./clickhouse.js";
 import { sqlClient } from "./db.js";
@@ -27,7 +30,13 @@ import { teamInviteLinkRouter } from "./handlers/team-invite-link.js";
 import { wrappedDecimalClaimRouter } from "./handlers/wrapped-decimal-claim.js";
 import { wrappedResumeRouter } from "./handlers/wrapped-resume.js";
 import { wrappedShareRouter } from "./handlers/wrapped-share.js";
+import { readBooleanEnv } from "./lib/env.js";
 import { computeIngestContentHash } from "./lib/ingest-content-hash.js";
+import {
+	getIngestContentShape,
+	isUnexpectedIngestShrink,
+	resolvePreviousIngestContentShape,
+} from "./lib/ingest-content-shape.js";
 import { enforceIngestAggregateSize } from "./lib/ingest-size.js";
 import {
 	bucketContentSize,
@@ -60,6 +69,7 @@ import {
 	getCachedOrgSessionCount,
 	hasOrgUploadsInLastDays,
 } from "./services/org-session.service.js";
+import { hasRawSessionRow } from "./services/raw-session.service.js";
 import {
 	claimSessionIngestOwnership,
 	recordSessionIngestContent,
@@ -233,6 +243,13 @@ async function resolveIngestOrganizationId(
 const ingestSessionHandler = os.ingestSession
 	.use(ingestAuthMiddleware)
 	.handler(async ({ input, context, errors, signal }) => {
+		if (readBooleanEnv("SESSION_INGEST_QUIESCED", false)) {
+			throw new ORPCError("SERVICE_UNAVAILABLE", {
+				data: { reason: "session_ingest_quiesced" },
+				message:
+					"Session uploads are temporarily paused for an analytics rebuild. Retry shortly.",
+			});
+		}
 		checkIngestRequestRateLimit(context.user.id);
 		const aggregateBytes = enforceIngestAggregateSize(
 			input,
@@ -252,6 +269,9 @@ const ingestSessionHandler = os.ingestSession
 				throw errors[REDACTION_DID_NOT_CONVERGE_CODE]({
 					data: { maxPasses: error.maxPasses },
 				});
+			}
+			if (error instanceof SecretFilterJsonIntegrityError) {
+				throw errors[SECRET_FILTER_JSON_INTEGRITY_CODE]();
 			}
 			if (error instanceof IngestFilterQueueFullError) {
 				throw new ORPCError("SERVICE_UNAVAILABLE", {
@@ -345,6 +365,37 @@ const ingestSessionHandler = os.ingestSession
 		if (!ownership.owned) {
 			throw errors[SESSION_OWNERSHIP_CONFLICT_CODE]();
 		}
+		const contentShape = getIngestContentShape(filteredInput);
+		const previousContentShape = resolvePreviousIngestContentShape(ownership);
+		if (
+			!input.force_replace &&
+			(ownership.lastFilterVersion === null ||
+				ownership.lastFilterVersion === FILTER_VERSION) &&
+			previousContentShape !== null &&
+			isUnexpectedIngestShrink(previousContentShape, contentShape, {
+				compareTotalsOnly: ownership.lastContentShape === null,
+			})
+		) {
+			logger.warn(
+				"Refusing smaller session re-upload (organization_id={organizationId} session_id={sessionId} previous_content_bytes={previousContentBytes} current_content_bytes={currentContentBytes} previous_assistant_lines={previousAssistantLineCount} current_assistant_lines={currentAssistantLineCount})",
+				{
+					currentAssistantLineCount: contentShape.assistantLineCount,
+					currentContentBytes: contentShape.contentBytes,
+					organizationId: orgId,
+					previousAssistantLineCount: previousContentShape.assistantLineCount,
+					previousContentBytes: previousContentShape.contentBytes,
+					sessionId: input.sessionId,
+				},
+			);
+			throw errors[SESSION_UPLOAD_SHRINK_REJECTED_CODE]({
+				data: {
+					currentAssistantLineCount: contentShape.assistantLineCount,
+					currentContentBytes: contentShape.contentBytes,
+					previousAssistantLineCount: previousContentShape.assistantLineCount,
+					previousContentBytes: previousContentShape.contentBytes,
+				},
+			});
+		}
 
 		// Hash the exact bytes and filter version stored by the server. This makes
 		// an old unfiltered CLI upload and a current pre-filtered CLI upload
@@ -360,7 +411,16 @@ const ingestSessionHandler = os.ingestSession
 		// This is a best-effort cost optimization, not a cross-instance
 		// security control. Concurrent identical requests can both reach the
 		// ClickHouse insert before either records its successful hash.
-		if (ownership.lastContentSha256 === contentHash) {
+		if (
+			ownership.lastContentSha256 === contentHash &&
+			(await hasRawSessionRow({
+				organizationId: orgId,
+				sessionDate: ownership.lastSessionDate,
+				sessionId: input.sessionId,
+				table: adapter.rawTableName,
+				userId: context.user.id,
+			}))
+		) {
 			logger.info(
 				"Skipping duplicate session ingest (organization_id={organizationId} session_id={sessionId})",
 				{ organizationId: orgId, sessionId: input.sessionId },
@@ -384,6 +444,9 @@ const ingestSessionHandler = os.ingestSession
 				orgId,
 				input.sessionId,
 				contentHash,
+				contentShape,
+				FILTER_VERSION,
+				new Date(timestamps.sessionDate),
 				ingestedAt,
 			);
 		} catch (error) {

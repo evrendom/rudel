@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
 	MAX_FILTER_PASSES,
 	SecretFilterConvergenceError,
+	SecretFilterJsonIntegrityError,
 } from "@rudel/secret-filter";
 import {
 	createIngestFilterWorkerError,
@@ -91,6 +92,21 @@ describe("filterSessionTextFieldsOffThread", () => {
 		});
 		expect(error).toBeInstanceOf(SecretFilterConvergenceError);
 		expect(error).toMatchObject({ maxPasses: MAX_FILTER_PASSES });
+	});
+
+	test("preserves a JSON-integrity failure across worker serialization", () => {
+		const response = createIngestFilterWorkerError(
+			43,
+			new SecretFilterJsonIntegrityError(),
+		);
+		const error = getIngestFilterWorkerError(response);
+
+		expect(response).toEqual({
+			status: "error",
+			requestId: 43,
+			reason: "json-integrity",
+		});
+		expect(error).toBeInstanceOf(SecretFilterJsonIntegrityError);
 	});
 });
 

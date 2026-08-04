@@ -63,6 +63,8 @@ describe("getOrgSessionCount", () => {
 		expect(queryCalls).toHaveLength(2);
 		expect(queryCalls[0]?.query).toContain("FROM rudel.claude_sessions");
 		expect(queryCalls[1]?.query).toContain("FROM rudel.codex_sessions");
+		expect(queryCalls[0]?.query).toContain("rudel.claude_sessions FINAL");
+		expect(queryCalls[1]?.query).toContain("rudel.codex_sessions FINAL");
 		expect(queryCalls[0]?.query).not.toContain("user_id = {userId:String}");
 		expect(queryCalls[1]?.query).not.toContain("user_id = {userId:String}");
 	});

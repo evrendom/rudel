@@ -3,6 +3,7 @@ import type { Source } from "@rudel/api-routes";
 import {
 	mergeRedactionCounts,
 	type RedactionCounts,
+	SecretFilterJsonIntegrityError,
 } from "@rudel/secret-filter";
 import pMap from "p-map";
 import { recordFailedUpload, removeFailedUpload } from "./failed-uploads.js";
@@ -57,7 +58,6 @@ export async function batchUpload<T extends BatchUploadItem>(
 	let rateLimited = false;
 	const errors: Array<{ label: string; error: string }> = [];
 	const skippedItems: Array<{ label: string; reason: string }> = [];
-	const skippedSessionIds = new Set<string>();
 	let redacted: RedactionCounts = {};
 	let redactedBytes = 0;
 
@@ -75,6 +75,7 @@ export async function batchUpload<T extends BatchUploadItem>(
 					source: item.source,
 					organizationId: item.organizationId,
 					error,
+					status: "retryable",
 				});
 				completed++;
 				onItemComplete?.(completed, total);
@@ -102,7 +103,16 @@ export async function batchUpload<T extends BatchUploadItem>(
 						label: item.label,
 						reason: result.error ?? "Upload cannot be retried",
 					});
-					skippedSessionIds.add(item.sessionId);
+					await recordFailedUpload({
+						sessionId: item.sessionId,
+						transcriptPath: item.transcriptPath,
+						projectPath: item.projectPath,
+						source: item.source,
+						organizationId: item.organizationId,
+						error: result.error ?? "Upload cannot be retried",
+						failureKind: result.failureKind,
+						status: "permanent",
+					});
 				} else {
 					failed++;
 					const error = result.error ?? "Unknown error";
@@ -117,14 +127,31 @@ export async function batchUpload<T extends BatchUploadItem>(
 						source: item.source,
 						organizationId: item.organizationId,
 						error,
+						failureKind: result.failureKind,
+						status: "retryable",
 					});
 				}
 			} catch (err) {
 				const error = err instanceof Error ? err.message : String(err);
-				if (err instanceof MissingTranscriptTimestampError) {
+				if (
+					err instanceof MissingTranscriptTimestampError ||
+					err instanceof SecretFilterJsonIntegrityError
+				) {
 					skipped++;
 					skippedItems.push({ label: item.label, reason: error });
-					skippedSessionIds.add(item.sessionId);
+					await recordFailedUpload({
+						sessionId: item.sessionId,
+						transcriptPath: item.transcriptPath,
+						projectPath: item.projectPath,
+						source: item.source,
+						organizationId: item.organizationId,
+						error,
+						failureKind:
+							err instanceof SecretFilterJsonIntegrityError
+								? "json-integrity"
+								: undefined,
+						status: "permanent",
+					});
 				} else {
 					failed++;
 					errors.push({ label: item.label, error });
@@ -135,6 +162,7 @@ export async function batchUpload<T extends BatchUploadItem>(
 						source: item.source,
 						organizationId: item.organizationId,
 						error,
+						status: "retryable",
 					});
 				}
 			} finally {
@@ -144,10 +172,6 @@ export async function batchUpload<T extends BatchUploadItem>(
 		},
 		{ concurrency, stopOnError: false },
 	);
-
-	for (const sessionId of skippedSessionIds) {
-		await removeFailedUpload(sessionId);
-	}
 
 	if (rateLimited && deferred > 0) {
 		errors.push({

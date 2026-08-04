@@ -23,11 +23,15 @@ export interface FailedUpload {
 	organizationId?: string;
 	error: string;
 	failedAt: string;
+	status: "permanent" | "retryable";
+	failureKind?: "json-integrity" | "session-shrink-rejected";
 }
 
 interface FailedUploadsData {
 	failures: FailedUpload[];
 }
+
+let mutationQueue: Promise<void> = Promise.resolve();
 
 function normalizeSource(raw: unknown): Source | undefined {
 	if (typeof raw !== "string") return undefined;
@@ -45,6 +49,7 @@ export async function loadFailedUploads(): Promise<FailedUpload[]> {
 		return data.failures.map((f) => ({
 			...f,
 			source: normalizeSource(f.source),
+			status: f.status === "permanent" ? "permanent" : "retryable",
 		}));
 	} catch {
 		return [];
@@ -66,26 +71,53 @@ async function saveFailedUploads(failures: FailedUpload[]): Promise<void> {
 }
 
 export async function recordFailedUpload(
-	failure: Omit<FailedUpload, "failedAt">,
+	failure: Omit<FailedUpload, "failedAt" | "status"> & {
+		status?: FailedUpload["status"];
+	},
 ): Promise<void> {
-	const failures = await loadFailedUploads();
-	const existing = failures.findIndex((f) => f.sessionId === failure.sessionId);
-	const entry: FailedUpload = {
-		...failure,
-		failedAt: new Date().toISOString(),
-	};
-	if (existing >= 0) {
-		failures[existing] = entry;
-	} else {
-		failures.push(entry);
-	}
-	await saveFailedUploads(failures);
+	await enqueueMutation(async () => {
+		const failures = await loadFailedUploads();
+		const existing = failures.findIndex(
+			(f) => f.sessionId === failure.sessionId,
+		);
+		const entry: FailedUpload = {
+			...failure,
+			failedAt: new Date().toISOString(),
+			status: failure.status ?? "retryable",
+		};
+		if (existing >= 0) {
+			failures[existing] = entry;
+		} else {
+			failures.push(entry);
+		}
+		await saveFailedUploads(failures);
+	});
 }
 
 export async function removeFailedUpload(sessionId: string): Promise<void> {
-	const failures = await loadFailedUploads();
-	const filtered = failures.filter((f) => f.sessionId !== sessionId);
-	if (filtered.length !== failures.length) {
-		await saveFailedUploads(filtered);
-	}
+	await enqueueMutation(async () => {
+		const failures = await loadFailedUploads();
+		const filtered = failures.filter((f) => f.sessionId !== sessionId);
+		if (filtered.length !== failures.length) {
+			await saveFailedUploads(filtered);
+		}
+	});
+}
+
+async function enqueueMutation(operation: () => Promise<void>): Promise<void> {
+	const queued = mutationQueue.then(operation, operation);
+	mutationQueue = queued.catch(() => {});
+	await queued;
+}
+
+export function isRetryCandidate(
+	failure: FailedUpload,
+	forceReplace: boolean,
+): boolean {
+	if (failure.status === "retryable") return true;
+	if (!forceReplace) return false;
+	return (
+		failure.failureKind === "session-shrink-rejected" ||
+		failure.error.includes("--force-replace")
+	);
 }
