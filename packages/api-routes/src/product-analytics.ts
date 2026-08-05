@@ -227,6 +227,18 @@ const DashboardWebEventSchema = WebEventSchema.extend({
 	user_id: idSchema,
 });
 
+const DashboardCaptureInputSchema = z.object({
+	page_name: ProductAnalyticsDashboardPageNameSchema,
+	date_range_days: z.number().int().nonnegative().optional(),
+	source_component: nonEmptyStringSchema.optional(),
+});
+
+const DashboardApiEventSchema = RequiredCommonSchema.extend({
+	surface: z.literal("api"),
+	organization_id: idSchema,
+	user_id: idSchema,
+});
+
 const ProductAnalyticsActionResultSchema = z.enum([
 	"started",
 	"succeeded",
@@ -394,11 +406,20 @@ export const OrganizationDeletedEventSchema = RequiredCommonSchema.extend({
 	had_uploads_last_30d: z.boolean(),
 }).strict();
 
-export const DashboardViewedEventSchema = DashboardWebEventSchema.extend({
-	has_data: z.boolean(),
-	date_range_days: z.number().int().nonnegative(),
-	insight_count: z.number().int().nonnegative().nullable(),
-}).catchall(webEventValueSchema);
+export const DashboardViewedCaptureInputSchema =
+	DashboardCaptureInputSchema.extend({
+		has_data: z.boolean(),
+		date_range_days: z.number().int().nonnegative(),
+		insight_count: z.number().int().nonnegative().nullable(),
+	}).catchall(webEventValueSchema);
+
+export const DashboardViewedEventSchema = DashboardApiEventSchema.merge(
+	DashboardViewedCaptureInputSchema,
+).catchall(webEventValueSchema);
+
+export type DashboardViewedCaptureInput = z.infer<
+	typeof DashboardViewedCaptureInputSchema
+>;
 
 export const DashboardLoadFailedEventSchema = DashboardWebEventSchema.extend({
 	query_name: nonEmptyStringSchema,
@@ -417,25 +438,41 @@ export const DashboardNavigationClickedEventSchema = WebEventSchema.extend({
 	rank: z.number().int().nonnegative().optional(),
 }).strict();
 
-export const DashboardFilterChangedEventSchema = DashboardWebEventSchema.extend(
-	{
+export const DashboardFilterChangedCaptureInputSchema =
+	DashboardCaptureInputSchema.extend({
 		filter_name: nonEmptyStringSchema,
 		filter_category: nonEmptyStringSchema,
 		change_action: nonEmptyStringSchema,
 		selection_count: z.number().int().nonnegative().optional(),
 		value_key: nonEmptyStringSchema.optional(),
 		affected_scope: nonEmptyStringSchema.optional(),
-	},
+	}).strict();
+
+export const DashboardFilterChangedEventSchema = DashboardApiEventSchema.merge(
+	DashboardFilterChangedCaptureInputSchema,
 ).strict();
 
-export const DashboardDrilldownOpenedEventSchema =
-	DashboardWebEventSchema.extend({
+export type DashboardFilterChangedCaptureInput = z.infer<
+	typeof DashboardFilterChangedCaptureInputSchema
+>;
+
+export const DashboardDrilldownOpenedCaptureInputSchema =
+	DashboardCaptureInputSchema.extend({
 		drilldown_method: nonEmptyStringSchema,
 		target_type: nonEmptyStringSchema,
 		target_path: nonEmptyStringSchema.optional(),
 		target_id: nonEmptyStringSchema.optional(),
 		rank: z.number().int().nonnegative().optional(),
 	}).strict();
+
+export const DashboardDrilldownOpenedEventSchema =
+	DashboardApiEventSchema.merge(
+		DashboardDrilldownOpenedCaptureInputSchema,
+	).strict();
+
+export type DashboardDrilldownOpenedCaptureInput = z.infer<
+	typeof DashboardDrilldownOpenedCaptureInputSchema
+>;
 
 export const ChartExportTriggeredEventSchema = DashboardWebEventSchema.extend({
 	chart_id: nonEmptyStringSchema,

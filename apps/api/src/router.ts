@@ -26,6 +26,7 @@ import { sqlClient } from "./db.js";
 import { adminRouter } from "./handlers/admin/index.js";
 import { analyticsRouter } from "./handlers/analytics/index.js";
 import { chatwootRouter } from "./handlers/chatwoot.js";
+import { productAnalyticsRouter } from "./handlers/product-analytics.js";
 import { profileRouter } from "./handlers/profile.js";
 import { teamInviteLinkRouter } from "./handlers/team-invite-link.js";
 import { wrappedDecimalClaimRouter } from "./handlers/wrapped-decimal-claim.js";
@@ -872,5 +873,6 @@ export const router = os.router({
 	wrappedResume: wrappedResumeRouter,
 	wrappedShare: wrappedShareRouter,
 	admin: adminRouter,
+	productAnalytics: productAnalyticsRouter,
 	analytics: analyticsRouter,
 });

@@ -310,7 +310,9 @@ export function useAnalyticsTracking(options?: UseAnalyticsOptions) {
 		}
 
 		captureDashboardFilterChanged({
-			...payload,
+			page_name: payload.page_name,
+			date_range_days: payload.date_range_days,
+			source_component: payload.source_component,
 			filter_name: input.filterName,
 			filter_category: input.filterCategory,
 			change_action: input.changeAction,
@@ -337,7 +339,9 @@ export function useAnalyticsTracking(options?: UseAnalyticsOptions) {
 		}
 
 		captureDashboardDrilldownOpened({
-			...payload,
+			page_name: payload.page_name,
+			date_range_days: payload.date_range_days,
+			source_component: payload.source_component,
 			drilldown_method: input.drilldownMethod,
 			target_type: input.targetType,
 			target_path: input.targetPath,

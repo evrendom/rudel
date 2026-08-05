@@ -34,7 +34,7 @@
 		"@rudel/usage-events": "workspace:*",
 		"better-auth": "^1.5.4",
 		"drizzle-orm": "0.45.1",
-		"posthog-node": "^5.8.0",
+		"posthog-node": "5.46.1",
 		"postgres": "^3.4.5",
 		"resend": "^6.9.3"
 	},

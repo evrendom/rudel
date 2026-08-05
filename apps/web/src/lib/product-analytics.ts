@@ -2,12 +2,12 @@ import {
 	type ProductAnalyticsPageName as AppPageName,
 	type AuthenticationActionTriggeredEvent,
 	type ChartExportTriggeredEvent,
-	type DashboardDrilldownOpenedEvent,
-	type DashboardFilterChangedEvent,
+	type DashboardDrilldownOpenedCaptureInput,
+	type DashboardFilterChangedCaptureInput,
 	type DashboardLoadFailedEvent,
 	type DashboardNavigationClickedEvent,
 	type ProductAnalyticsDashboardPageName as DashboardPageName,
-	type DashboardViewedEvent,
+	type DashboardViewedCaptureInput,
 	type OrganizationActionTriggeredEvent,
 	PRODUCT_ANALYTICS_APP_PAGE_NAMES,
 	PRODUCT_ANALYTICS_DASHBOARD_PAGE_NAMES,
@@ -20,6 +20,7 @@ import {
 	type WrappedGrowthLoopEvent,
 } from "@rudel/api-routes";
 import { getWrappedPublicIdFromPath } from "@/app/routes";
+import { client } from "@/lib/orpc";
 
 const EVENT_VERSION = PRODUCT_ANALYTICS_EVENT_VERSION;
 const ANALYTICS_SURFACE = "web";
@@ -285,10 +286,10 @@ export function captureSignUpFailed(
 	captureEvent(PRODUCT_ANALYTICS_EVENTS.SIGN_UP_FAILED, payload);
 }
 
-export function captureDashboardViewed(
-	payload: WebCapturePayload<DashboardViewedEvent>,
-) {
-	captureEvent(PRODUCT_ANALYTICS_EVENTS.DASHBOARD_VIEWED, payload);
+export function captureDashboardViewed(payload: DashboardViewedCaptureInput) {
+	void client.productAnalytics.dashboardViewed(payload).catch(() => {
+		// Product analytics must never break the dashboard.
+	});
 }
 
 export function captureDashboardLoadFailed(
@@ -304,15 +305,19 @@ export function captureDashboardNavigationClicked(
 }
 
 export function captureDashboardFilterChanged(
-	payload: WebCapturePayload<DashboardFilterChangedEvent>,
+	payload: DashboardFilterChangedCaptureInput,
 ) {
-	captureEvent(PRODUCT_ANALYTICS_EVENTS.DASHBOARD_FILTER_CHANGED, payload);
+	void client.productAnalytics.dashboardFilterChanged(payload).catch(() => {
+		// Product analytics must never break the dashboard.
+	});
 }
 
 export function captureDashboardDrilldownOpened(
-	payload: WebCapturePayload<DashboardDrilldownOpenedEvent>,
+	payload: DashboardDrilldownOpenedCaptureInput,
 ) {
-	captureEvent(PRODUCT_ANALYTICS_EVENTS.DASHBOARD_DRILLDOWN_OPENED, payload);
+	void client.productAnalytics.dashboardDrilldownOpened(payload).catch(() => {
+		// Product analytics must never break the dashboard.
+	});
 }
 
 export function captureChartExportTriggered(

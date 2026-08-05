@@ -1,6 +1,9 @@
 import { oc } from "@orpc/contract";
 import { z } from "zod";
 import {
+	DashboardDrilldownOpenedCaptureInputSchema,
+	DashboardFilterChangedCaptureInputSchema,
+	DashboardViewedCaptureInputSchema,
 	ProductAnalyticsClientSurfaceSchema,
 	ProductAnalyticsPlatformOsSchema,
 	ProductAnalyticsUploadModeSchema,
@@ -248,6 +251,10 @@ export const UpdateProfileInputSchema = z.object({
 
 export type UpdateProfileInput = z.infer<typeof UpdateProfileInputSchema>;
 
+const ProductAnalyticsCaptureResultSchema = z.object({
+	success: z.literal(true),
+});
+
 export const contract = {
 	health: oc.output(HealthSchema),
 	me: oc.output(UserSchema),
@@ -362,6 +369,17 @@ export const contract = {
 		deleteUser: oc
 			.input(z.object({ userId: z.string() }))
 			.output(z.object({ success: z.literal(true) })),
+	},
+	productAnalytics: {
+		dashboardViewed: oc
+			.input(DashboardViewedCaptureInputSchema)
+			.output(ProductAnalyticsCaptureResultSchema),
+		dashboardFilterChanged: oc
+			.input(DashboardFilterChangedCaptureInputSchema)
+			.output(ProductAnalyticsCaptureResultSchema),
+		dashboardDrilldownOpened: oc
+			.input(DashboardDrilldownOpenedCaptureInputSchema)
+			.output(ProductAnalyticsCaptureResultSchema),
 	},
 	analytics: {
 		overview: {
