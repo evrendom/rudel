@@ -5,7 +5,12 @@ import {
 	getSafeClickHouseTable,
 } from "../clickhouse.js";
 import { shouldUseUsageEventAnalytics } from "../lib/env.js";
-import { buildEstimatedCostSql } from "./pricing.service.js";
+import {
+	buildEstimatedCostSql,
+	getModelPricingCatalog,
+	getModelPricingModifierCatalog,
+	MODEL_LONG_CONTEXT_THRESHOLD_TOKENS,
+} from "./pricing.service.js";
 
 const USAGE_EVENTS_TABLE = "rudel.usage_events";
 const SESSION_ANALYTICS_TABLE = "rudel.session_analytics";
@@ -23,22 +28,6 @@ const LEGACY_SESSION_COST_SQL = buildEstimatedCostSql({
 	cacheCreationInputExpr: "ifNull(sa.cache_creation_input_tokens, 0)",
 });
 
-const EVENT_COST_SQL = buildEstimatedCostSql({
-	modelExpr: "e.resolved_model",
-	dateExpr: "e.usage_date",
-	inputExpr: "e.uncached_input_tokens",
-	outputExpr: "e.output_tokens",
-	cacheReadInputExpr: "e.cache_read_input_tokens",
-	cacheCreationInputExpr: "e.cache_write_5m_input_tokens",
-	cacheCreation1hInputExpr: "e.cache_write_1h_input_tokens",
-	contextInputExpr: "e.context_input_tokens",
-	modelProviderExpr: "e.model_provider",
-	serviceTierExpr: "e.service_tier",
-	inferenceSpeedExpr: "e.inference_speed",
-	inferenceGeoExpr: "e.inference_geo",
-	precision: 12,
-});
-
 const PRICEABLE_EVENT_SQL = `
 	e.model_status = 'resolved'
 	AND e.has_valid_timestamp = 1
@@ -52,6 +41,177 @@ const PRICEABLE_EVENT_SQL = `
 	AND NOT has(e.quality_flags, 'inference_geo_conflict')
 	AND NOT has(e.quality_flags, 'unrecognized_inference_geo')
 `;
+
+type PricingModifierDimension =
+	| "service_tier"
+	| "inference_speed"
+	| "inference_geo";
+
+const EVENT_PRICING_RATE_CARD_SQL = buildEventPricingRateCardSql();
+const EVENT_CANONICAL_PRICING_MODEL_SQL =
+	buildCanonicalPricingModelSql("c.resolved_model");
+const EVENT_LONG_CONTEXT_AVAILABLE_SQL = buildLongContextAvailableSql();
+const EVENT_GROUP_COST_SQL = buildEventGroupCostSql();
+
+function escapeSqlString(value: string): string {
+	return value.replaceAll("\\", "\\\\").replaceAll("'", "\\'");
+}
+
+function buildEventPricingRateCardSql(): string {
+	const catalog = getModelPricingCatalog();
+	const rows = catalog.map((entry) => {
+		return `tuple('${escapeSqlString(entry.model)}', '${entry.provider}', '${entry.contextBand}', toDate('${entry.effectiveFrom}'), toDate('${entry.effectiveTo ?? "2299-12-31"}'), toFloat64(${entry.inputPerMTok}), toFloat64(${entry.cacheReadPerMTok ?? -1}), toFloat64(${entry.cacheWrite5mPerMTok ?? -1}), toFloat64(${entry.cacheWrite1hPerMTok ?? -1}), toFloat64(${entry.outputPerMTok}))`;
+	});
+
+	return `
+		SELECT
+			rate.1 AS model,
+			rate.2 AS provider,
+			rate.3 AS context_band,
+			rate.4 AS effective_from,
+			rate.5 AS effective_to,
+			rate.6 AS input_rate,
+			rate.7 AS cache_read_rate,
+			rate.8 AS cache_write_5m_rate,
+			rate.9 AS cache_write_1h_rate,
+			rate.10 AS output_rate
+		FROM (
+			SELECT arrayJoin([
+				${rows.join(",\n\t\t\t\t")}
+			]) AS rate
+		)
+	`;
+}
+
+function buildCanonicalPricingModelSql(modelExpr: string): string {
+	const canonicalModelByPattern = new Map<string, string>();
+	for (const entry of getModelPricingCatalog()) {
+		for (const pattern of entry.match) {
+			const existingModel = canonicalModelByPattern.get(pattern);
+			if (existingModel !== undefined && existingModel !== entry.model) {
+				throw new Error(
+					`Pricing pattern ${pattern} maps to both ${existingModel} and ${entry.model}`,
+				);
+			}
+			canonicalModelByPattern.set(pattern, entry.model);
+		}
+	}
+
+	const clauses = [...canonicalModelByPattern.entries()].flatMap(
+		([pattern, model]) => [
+			`match(lowerUTF8(${modelExpr}), '${escapeSqlString(pattern)}')`,
+			`'${escapeSqlString(model)}'`,
+		],
+	);
+	return `multiIf(${clauses.join(", ")}, '')`;
+}
+
+function buildLongContextAvailableSql(): string {
+	const clauses = getModelPricingCatalog()
+		.filter((entry) => entry.contextBand === "long")
+		.flatMap((entry) => [
+			`g.pricing_model = '${escapeSqlString(entry.model)}'
+				AND g.usage_date >= toDate('${entry.effectiveFrom}')
+				AND g.usage_date <= toDate('${entry.effectiveTo ?? "2299-12-31"}')`,
+			"toUInt8(1)",
+		]);
+	return `multiIf(${clauses.join(", ")}, toUInt8(0))`;
+}
+
+function buildEventGroupCostSql(): string {
+	const modifierMultiplier = [
+		buildModifierDimensionSql("service_tier", "g.service_tier"),
+		buildModifierDimensionSql("inference_speed", "g.inference_speed"),
+		buildModifierDimensionSql("inference_geo", "g.inference_geo"),
+	]
+		.map((expression) => `(${expression})`)
+		.join(" * ");
+	const components = [
+		buildRateComponentSql("g.group_uncached_input_tokens", "r.input_rate"),
+		buildRateComponentSql(
+			"g.group_cache_read_input_tokens",
+			"r.cache_read_rate",
+		),
+		buildRateComponentSql(
+			"g.group_cache_write_5m_input_tokens",
+			"r.cache_write_5m_rate",
+		),
+		buildRateComponentSql(
+			"g.group_cache_write_1h_input_tokens",
+			"r.cache_write_1h_rate",
+		),
+		buildRateComponentSql("g.group_output_tokens", "r.output_rate"),
+	];
+
+	return `if(
+		g.group_uncached_input_tokens
+			+ g.group_cache_read_input_tokens
+			+ g.group_cache_write_5m_input_tokens
+			+ g.group_cache_write_1h_input_tokens
+			+ g.group_output_tokens = 0,
+		toNullable(0.0),
+		if(
+			g.is_priceable = 1
+				AND r.model != ''
+				AND lowerUTF8(trimBoth(g.model_provider)) IN ('', r.provider),
+			round((${components.join(" + ")}) * (${modifierMultiplier}), 12),
+			CAST(NULL, 'Nullable(Float64)')
+		)
+	)`;
+}
+
+function buildRateComponentSql(tokensExpr: string, rateExpr: string): string {
+	return `if(
+		${tokensExpr} = 0,
+		toNullable(0.0),
+		if(
+			${rateExpr} < 0,
+			CAST(NULL, 'Nullable(Float64)'),
+			toNullable(${tokensExpr} / 1000000.0 * ${rateExpr})
+		)
+	)`;
+}
+
+function buildModifierDimensionSql(
+	dimension: PricingModifierDimension,
+	valueExpr: string,
+): string {
+	const baseValues =
+		dimension === "service_tier"
+			? `if(
+				r.provider = 'anthropic',
+				['', 'auto', 'default', 'priority', 'standard'],
+				['', 'auto', 'default', 'standard']
+			)`
+			: dimension === "inference_speed"
+				? "['', 'standard']"
+				: "['', 'global']";
+	const clauses = getModelPricingModifierCatalog()
+		.filter((rule) => rule.dimension === dimension)
+		.flatMap((rule) => {
+			const conditions = [
+				`g.pricing_model = '${escapeSqlString(rule.model)}'`,
+				`lowerUTF8(trimBoth(${valueExpr})) IN (${rule.values
+					.map((value) => `'${escapeSqlString(value)}'`)
+					.join(", ")})`,
+				`g.usage_date >= toDate('${rule.effectiveFrom}')`,
+			];
+			if (rule.effectiveTo) {
+				conditions.push(`g.usage_date <= toDate('${rule.effectiveTo}')`);
+			}
+			if (rule.contextBand) {
+				conditions.push(`r.context_band = '${rule.contextBand}'`);
+			}
+			return [conditions.join(" AND "), `toNullable(${rule.multiplier})`];
+		});
+
+	return `multiIf(
+		lowerUTF8(trimBoth(${valueExpr})) IN ${baseValues},
+		toNullable(1.0),
+		${clauses.join(",\n\t\t")},
+		CAST(NULL, 'Nullable(Float64)')
+	)`;
+}
 
 const SESSION_METADATA_COLUMNS = `
 	sa.session_date AS session_date,
@@ -237,20 +397,6 @@ export function buildUsageEventAnalyticsCte(
 				AND is_deleted = 0
 				AND record_kind IN ('event', 'receipt')
 		),
-		priced_usage_records AS (
-			SELECT
-				e.*,
-				if(
-					e.uncached_input_tokens
-						+ e.cache_read_input_tokens
-						+ e.cache_write_5m_input_tokens
-						+ e.cache_write_1h_input_tokens
-						+ e.output_tokens = 0,
-					toNullable(0.0),
-					if(${PRICEABLE_EVENT_SQL}, ${EVENT_COST_SQL}, CAST(NULL, 'Nullable(Float64)'))
-				) AS estimated_cost
-			FROM consistent_usage_records AS e
-		),
 		usage_records_with_display_model AS (
 			SELECT
 				*,
@@ -269,10 +415,79 @@ export function buildUsageEventAnalyticsCte(
 						AND model_status = 'resolved'
 						AND resolved_model != ''
 				) OVER usage_session_window AS latest_resolved_model
-			FROM priced_usage_records
+			FROM consistent_usage_records
 			WINDOW usage_session_window AS (
 				PARTITION BY organization_id, user_id, source, session_id
 			)
+		),
+		usage_event_pricing_candidates AS (
+			SELECT
+				e.organization_id,
+				e.user_id,
+				e.source,
+				e.session_id,
+				e.record_kind,
+				e.usage_date,
+				e.resolved_model,
+				e.model_provider,
+				e.service_tier,
+				e.inference_speed,
+				e.inference_geo,
+				if(
+					e.context_input_tokens > ${MODEL_LONG_CONTEXT_THRESHOLD_TOKENS},
+					'long',
+					'base'
+				) AS context_band,
+				toUInt8(${PRICEABLE_EVENT_SQL}) AS is_priceable,
+				toUInt8(has(e.quality_flags, 'inference_geo_not_available')) AS has_geo_gap,
+				any(e.latest_main_model) AS latest_main_model,
+				any(e.latest_resolved_model) AS latest_resolved_model,
+				sum(e.uncached_input_tokens) AS group_uncached_input_tokens,
+				sum(e.cache_read_input_tokens) AS group_cache_read_input_tokens,
+				sum(e.cache_write_5m_input_tokens) AS group_cache_write_5m_input_tokens,
+				sum(e.cache_write_1h_input_tokens) AS group_cache_write_1h_input_tokens,
+				sum(e.output_tokens) AS group_output_tokens
+			FROM usage_records_with_display_model AS e
+			GROUP BY
+				e.organization_id,
+				e.user_id,
+				e.source,
+				e.session_id,
+				e.record_kind,
+				e.usage_date,
+				e.resolved_model,
+				e.model_provider,
+				e.service_tier,
+				e.inference_speed,
+				e.inference_geo,
+				context_band,
+				is_priceable,
+				has_geo_gap
+		),
+		usage_event_pricing_groups AS (
+			SELECT
+				c.*,
+				${EVENT_CANONICAL_PRICING_MODEL_SQL} AS pricing_model
+			FROM usage_event_pricing_candidates AS c
+		),
+		usage_event_pricing_rate_card AS (
+			${EVENT_PRICING_RATE_CARD_SQL}
+		),
+		priced_usage_groups AS (
+			SELECT
+				g.*,
+				${EVENT_GROUP_COST_SQL} AS group_estimated_cost
+			FROM usage_event_pricing_groups AS g
+			ANY LEFT JOIN usage_event_pricing_rate_card AS r
+				ON g.pricing_model = r.model
+				AND r.context_band = if(
+					g.context_band = 'long'
+						AND ${EVENT_LONG_CONTEXT_AVAILABLE_SQL} = 1,
+					'long',
+					'base'
+				)
+				AND g.usage_date >= r.effective_from
+				AND g.usage_date <= r.effective_to
 		),
 		usage_event_session_rollups AS (
 			SELECT
@@ -280,22 +495,22 @@ export function buildUsageEventAnalyticsCte(
 				p.user_id,
 				p.source,
 				p.session_id,
-				sum(p.uncached_input_tokens + p.cache_read_input_tokens + p.cache_write_5m_input_tokens + p.cache_write_1h_input_tokens) AS input_tokens,
-				sum(p.output_tokens) AS output_tokens,
-				sum(p.cache_read_input_tokens) AS cache_read_input_tokens,
-				sum(p.cache_write_5m_input_tokens + p.cache_write_1h_input_tokens) AS cache_creation_input_tokens,
-				sum(p.uncached_input_tokens + p.cache_read_input_tokens + p.cache_write_5m_input_tokens + p.cache_write_1h_input_tokens + p.output_tokens) AS total_tokens,
-				toNullable(sum(ifNull(p.estimated_cost, 0))) AS estimated_cost,
+				sum(p.group_uncached_input_tokens + p.group_cache_read_input_tokens + p.group_cache_write_5m_input_tokens + p.group_cache_write_1h_input_tokens) AS input_tokens,
+				sum(p.group_output_tokens) AS output_tokens,
+				sum(p.group_cache_read_input_tokens) AS cache_read_input_tokens,
+				sum(p.group_cache_write_5m_input_tokens + p.group_cache_write_1h_input_tokens) AS cache_creation_input_tokens,
+				sum(p.group_uncached_input_tokens + p.group_cache_read_input_tokens + p.group_cache_write_5m_input_tokens + p.group_cache_write_1h_input_tokens + p.group_output_tokens) AS total_tokens,
+				toNullable(sum(ifNull(p.group_estimated_cost, 0))) AS estimated_cost,
 				toUInt8(countIf(
 					p.record_kind = 'event'
 					AND (
-						isNull(p.estimated_cost)
-						OR has(p.quality_flags, 'inference_geo_not_available')
+						isNull(p.group_estimated_cost)
+						OR p.has_geo_gap = 1
 					)
 				) = 0) AS cost_is_complete,
 				any(p.latest_main_model) AS latest_main_model,
 				any(p.latest_resolved_model) AS latest_resolved_model
-			FROM usage_records_with_display_model AS p
+			FROM priced_usage_groups AS p
 			GROUP BY p.organization_id, p.user_id, p.source, p.session_id
 		),
 		usage_event_daily_rollups AS (
@@ -305,19 +520,19 @@ export function buildUsageEventAnalyticsCte(
 				p.source,
 				p.session_id,
 				p.usage_date,
-				sum(p.uncached_input_tokens + p.cache_read_input_tokens + p.cache_write_5m_input_tokens + p.cache_write_1h_input_tokens) AS input_tokens,
-				sum(p.output_tokens) AS output_tokens,
-				sum(p.cache_read_input_tokens) AS cache_read_input_tokens,
-				sum(p.cache_write_5m_input_tokens + p.cache_write_1h_input_tokens) AS cache_creation_input_tokens,
-				sum(p.uncached_input_tokens + p.cache_read_input_tokens + p.cache_write_5m_input_tokens + p.cache_write_1h_input_tokens + p.output_tokens) AS total_tokens,
-				toNullable(sum(ifNull(p.estimated_cost, 0))) AS estimated_cost,
+				sum(p.group_uncached_input_tokens + p.group_cache_read_input_tokens + p.group_cache_write_5m_input_tokens + p.group_cache_write_1h_input_tokens) AS input_tokens,
+				sum(p.group_output_tokens) AS output_tokens,
+				sum(p.group_cache_read_input_tokens) AS cache_read_input_tokens,
+				sum(p.group_cache_write_5m_input_tokens + p.group_cache_write_1h_input_tokens) AS cache_creation_input_tokens,
+				sum(p.group_uncached_input_tokens + p.group_cache_read_input_tokens + p.group_cache_write_5m_input_tokens + p.group_cache_write_1h_input_tokens + p.group_output_tokens) AS total_tokens,
+				toNullable(sum(ifNull(p.group_estimated_cost, 0))) AS estimated_cost,
 				toUInt8(countIf(
-					isNull(p.estimated_cost)
-					OR has(p.quality_flags, 'inference_geo_not_available')
+					isNull(p.group_estimated_cost)
+					OR p.has_geo_gap = 1
 				) = 0) AS cost_is_complete,
 				any(p.latest_main_model) AS latest_main_model,
 				any(p.latest_resolved_model) AS latest_resolved_model
-			FROM usage_records_with_display_model AS p
+			FROM priced_usage_groups AS p
 			WHERE p.record_kind = 'event'
 			GROUP BY p.organization_id, p.user_id, p.source, p.session_id, p.usage_date
 		),

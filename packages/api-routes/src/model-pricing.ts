@@ -237,6 +237,10 @@ export function getModelPricingCatalog() {
 	return MODEL_RATE_CARD;
 }
 
+export function getModelPricingModifierCatalog() {
+	return MODEL_RATE_MODIFIERS;
+}
+
 function calculateComponent(tokens: number, rate: number | null) {
 	if (tokens === 0) {
 		return 0;
