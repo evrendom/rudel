@@ -298,15 +298,6 @@ function escapeSqlString(value: string) {
 	return value.replaceAll("\\", "\\\\").replaceAll("'", "\\'");
 }
 
-type RateSelector = keyof Pick<
-	ModelRateCardEntry,
-	| "inputPerMTok"
-	| "cacheReadPerMTok"
-	| "cacheWrite5mPerMTok"
-	| "cacheWrite1hPerMTok"
-	| "outputPerMTok"
->;
-
 function buildDimensionMultiplierSql({
 	entry,
 	dimension,
@@ -318,6 +309,8 @@ function buildDimensionMultiplierSql({
 	valueExpr: string;
 	dateExpr: string;
 }) {
+	if (valueExpr === "''") return "toNullable(1.0)";
+
 	const baseValues =
 		dimension === "service_tier"
 			? entry.provider === "anthropic"
@@ -372,7 +365,10 @@ function buildRateMultiplierSql({
 	inferenceSpeedExpr: string;
 	inferenceGeoExpr: string;
 }) {
-	const providerIsCompatible = `lowerUTF8(trimBoth(${modelProviderExpr})) IN ('', '${entry.provider}')`;
+	const providerIsCompatible =
+		modelProviderExpr === "''"
+			? "1"
+			: `lowerUTF8(trimBoth(${modelProviderExpr})) IN ('', '${entry.provider}')`;
 	const dimensions = [
 		buildDimensionMultiplierSql({
 			entry,
@@ -396,7 +392,13 @@ function buildRateMultiplierSql({
 	return `if(${providerIsCompatible}, ${dimensions.map((dimension) => `(${dimension})`).join(" * ")}, CAST(NULL, 'Nullable(Float64)'))`;
 }
 
-function buildRateSql({
+function buildEntryCostComponentSql(tokensExpr: string, rate: number | null) {
+	return rate === null
+		? `if((${tokensExpr}) = 0, toNullable(0.0), CAST(NULL, 'Nullable(Float64)'))`
+		: `toNullable(((${tokensExpr}) / 1000000.0) * toFloat64(${rate}))`;
+}
+
+function buildCostSql({
 	modelExpr,
 	dateExpr,
 	contextBand,
@@ -405,7 +407,11 @@ function buildRateSql({
 	serviceTierExpr,
 	inferenceSpeedExpr,
 	inferenceGeoExpr,
-	rateSelector,
+	inputExpr,
+	outputExpr,
+	cacheReadInputExpr,
+	cacheCreationInputExpr,
+	cacheCreation1hInputExpr,
 }: {
 	modelExpr: string;
 	dateExpr: string;
@@ -415,7 +421,11 @@ function buildRateSql({
 	serviceTierExpr: string;
 	inferenceSpeedExpr: string;
 	inferenceGeoExpr: string;
-	rateSelector: RateSelector;
+	inputExpr: string;
+	outputExpr: string;
+	cacheReadInputExpr: string;
+	cacheCreationInputExpr: string;
+	cacheCreation1hInputExpr: string;
 }) {
 	const clauses = MODEL_RATE_CARD.filter(
 		(entry) =>
@@ -454,19 +464,32 @@ function buildRateSql({
 			inferenceSpeedExpr,
 			inferenceGeoExpr,
 		});
-		return entry.match.flatMap((pattern) => [
-			`match(lowerUTF8(${modelExpr}), '${escapeSqlString(pattern)}') AND ${dateConditions.join(" AND ")}`,
-			entry[rateSelector] === null
-				? "CAST(NULL, 'Nullable(Float64)')"
-				: `toNullable(toFloat64(${entry[rateSelector]})) * (${modifierSql})`,
-		]);
+		const modelCondition = entry.match
+			.map(
+				(pattern) =>
+					`match(lowerUTF8(${modelExpr}), '${escapeSqlString(pattern)}')`,
+			)
+			.join(" OR ");
+		const components = [
+			buildEntryCostComponentSql(inputExpr, entry.inputPerMTok),
+			buildEntryCostComponentSql(outputExpr, entry.outputPerMTok),
+			buildEntryCostComponentSql(cacheReadInputExpr, entry.cacheReadPerMTok),
+			buildEntryCostComponentSql(
+				cacheCreationInputExpr,
+				entry.cacheWrite5mPerMTok,
+			),
+			buildEntryCostComponentSql(
+				cacheCreation1hInputExpr,
+				entry.cacheWrite1hPerMTok,
+			),
+		];
+		return [
+			`(${modelCondition}) AND ${dateConditions.join(" AND ")}`,
+			`(${components.join(" + ")}) * (${modifierSql})`,
+		];
 	});
 
 	return `multiIf(${clauses.join(", ")}, CAST(NULL, 'Nullable(Float64)'))`;
-}
-
-function buildCostComponentSql(tokensExpr: string, rateSql: string) {
-	return `if((${tokensExpr}) = 0, toNullable(0.0), ((${tokensExpr}) / 1000000.0) * (${rateSql}))`;
 }
 
 export function buildEstimatedCostSql({
@@ -500,7 +523,7 @@ export function buildEstimatedCostSql({
 	inferenceGeoExpr?: string;
 	precision?: number;
 }) {
-	const rateExpressions = {
+	const expression = buildCostSql({
 		modelExpr,
 		dateExpr,
 		contextBand,
@@ -509,35 +532,12 @@ export function buildEstimatedCostSql({
 		serviceTierExpr,
 		inferenceSpeedExpr,
 		inferenceGeoExpr,
-	};
-	const inputRateSql = buildRateSql({
-		...rateExpressions,
-		rateSelector: "inputPerMTok",
+		inputExpr,
+		outputExpr,
+		cacheReadInputExpr,
+		cacheCreationInputExpr,
+		cacheCreation1hInputExpr,
 	});
-	const outputRateSql = buildRateSql({
-		...rateExpressions,
-		rateSelector: "outputPerMTok",
-	});
-	const cachedInputRateSql = buildRateSql({
-		...rateExpressions,
-		rateSelector: "cacheReadPerMTok",
-	});
-	const cacheWriteRateSql = buildRateSql({
-		...rateExpressions,
-		rateSelector: "cacheWrite5mPerMTok",
-	});
-	const cacheWrite1hRateSql = buildRateSql({
-		...rateExpressions,
-		rateSelector: "cacheWrite1hPerMTok",
-	});
-	const components = [
-		buildCostComponentSql(inputExpr, inputRateSql),
-		buildCostComponentSql(outputExpr, outputRateSql),
-		buildCostComponentSql(cacheReadInputExpr, cachedInputRateSql),
-		buildCostComponentSql(cacheCreationInputExpr, cacheWriteRateSql),
-		buildCostComponentSql(cacheCreation1hInputExpr, cacheWrite1hRateSql),
-	];
-	const expression = `(${components.join(" + ")})`;
 
 	return typeof precision === "number"
 		? `round(${expression}, ${precision})`

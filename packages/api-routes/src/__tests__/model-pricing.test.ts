@@ -416,6 +416,7 @@ describe("model rate card", () => {
 		expect(sql).toContain("service_tier");
 		expect(sql).toContain("inference_speed");
 		expect(sql).toContain("inference_geo");
+		expect(sql.length).toBeLessThan(100_000);
 	});
 
 	it("keeps the generated pricing sheet in sync", async () => {
