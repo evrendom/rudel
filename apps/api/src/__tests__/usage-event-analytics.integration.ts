@@ -39,6 +39,8 @@ const invalidTimestampSessionId = `usage_analytics_invalid_timestamp_${runId}`;
 const deletedReceiptSessionId = `usage_analytics_deleted_receipt_${runId}`;
 const tombstonedSessionId = `usage_analytics_tombstone_${runId}`;
 const missingMetadataSessionId = `usage_analytics_missing_metadata_${runId}`;
+const unknownMixedModelSessionId = `usage_analytics_unknown_mixed_${runId}`;
+const unknownSingleModelSessionId = `usage_analytics_unknown_single_${runId}`;
 const eventId = "a".repeat(64);
 const receiptId = "b".repeat(64);
 const executor = createClickHouseExecutor({
@@ -72,6 +74,16 @@ beforeAll(async () => {
 				...buildSessionAnalyticsRow(resolvedSessionId),
 				organization_id: isolatedOrganizationId,
 				user_id: isolatedUserId,
+			},
+			{
+				...buildSessionAnalyticsRow(unknownMixedModelSessionId),
+				model_used: "unknown",
+				source: "codex",
+			},
+			{
+				...buildSessionAnalyticsRow(unknownSingleModelSessionId),
+				model_used: "unknown",
+				source: "codex",
 			},
 		],
 		{ validate: true },
@@ -182,6 +194,23 @@ beforeAll(async () => {
 			buildReceiptRow(tombstonedSessionId, "2", 0, true),
 			buildEventRow(missingMetadataSessionId, "1"),
 			buildReceiptRow(missingMetadataSessionId, "1", 1, true),
+			buildCodexDisplayEvent(
+				unknownMixedModelSessionId,
+				eventId,
+				"gpt-5.6-sol",
+			),
+			buildCodexDisplayEvent(
+				unknownMixedModelSessionId,
+				"f".repeat(64),
+				"gpt-5.6-terra",
+			),
+			buildReceiptRow(unknownMixedModelSessionId, "1", 2, true, "codex"),
+			buildCodexDisplayEvent(
+				unknownSingleModelSessionId,
+				eventId,
+				"gpt-5.6-sol",
+			),
+			buildReceiptRow(unknownSingleModelSessionId, "1", 1, true, "codex"),
 			{
 				...buildEventRow(resolvedSessionId, "1"),
 				organization_id: isolatedOrganizationId,
@@ -291,6 +320,24 @@ describe("usage-event analytics ClickHouse rollups", () => {
 				total_tokens: "5000000",
 			},
 			{
+				cost_is_complete: 1,
+				estimated_cost: 4.97,
+				input_tokens: "400000",
+				model_used: "unknown",
+				output_tokens: "200000",
+				session_id: unknownMixedModelSessionId,
+				total_tokens: "600000",
+			},
+			{
+				cost_is_complete: 1,
+				estimated_cost: 3.55,
+				input_tokens: "200000",
+				model_used: "gpt-5.6-sol",
+				output_tokens: "100000",
+				session_id: unknownSingleModelSessionId,
+				total_tokens: "300000",
+			},
+			{
 				cost_is_complete: 0,
 				estimated_cost: 0,
 				input_tokens: "4000000",
@@ -338,7 +385,7 @@ describe("usage-event analytics ClickHouse rollups", () => {
 			query_params: { orgId: organizationId },
 		});
 
-		expect(rows).toEqual([{ cost: 292.3, incomplete_sessions: 5 }]);
+		expect(rows).toEqual([{ cost: 300.82, incomplete_sessions: 5 }]);
 	});
 
 	test("keeps bounded key prefixes visible across the shared query families", async () => {
@@ -550,4 +597,25 @@ function buildReceiptRow(
 			uncached_input_tokens: "0",
 		}),
 	};
+}
+
+function buildCodexDisplayEvent(
+	sessionId: string,
+	rowEventId: string,
+	model: string,
+): RudelUsageEventsRow {
+	return buildEventRow(sessionId, "1", {
+		cache_read_input_tokens: "100000",
+		cache_write_1h_input_tokens: "0",
+		cache_write_5m_input_tokens: "0",
+		context_input_tokens: "200000",
+		event_id: rowEventId,
+		model_provider: "openai",
+		output_tokens: "100000",
+		raw_model: model,
+		resolved_model: model,
+		service_tier: "auto",
+		source: "codex",
+		uncached_input_tokens: "100000",
+	});
 }

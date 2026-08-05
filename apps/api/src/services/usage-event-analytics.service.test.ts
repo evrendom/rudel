@@ -64,6 +64,16 @@ describe("usage-event analytics query contract", () => {
 		expect(sql).not.toMatch(/match\(lowerUTF8\(sa\.model_used\)/u);
 	});
 
+	test("repairs an unknown display label only for one unanimous event model", () => {
+		const sql = buildUsageEventAnalyticsCte();
+
+		expect(sql).toContain("uniqExactIf(");
+		expect(sql).toContain("AS resolved_model_count");
+		expect(sql).toContain("AS single_resolved_model");
+		expect(sql).toContain("ifNull(r.resolved_model_count, 0) = 1");
+		expect(sql).toContain("ifNull(s.resolved_model_count, 0) = 1");
+	});
+
 	test("prices exact provenance and fails closed for unsupported dimensions", () => {
 		const sql = buildUsageEventAnalyticsCte();
 
