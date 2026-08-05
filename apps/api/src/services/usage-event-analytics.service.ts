@@ -301,7 +301,10 @@ export function buildUsageEventAnalyticsCte(
 				sum(p.cache_write_5m_input_tokens + p.cache_write_1h_input_tokens) AS cache_creation_input_tokens,
 				sum(p.uncached_input_tokens + p.cache_read_input_tokens + p.cache_write_5m_input_tokens + p.cache_write_1h_input_tokens + p.output_tokens) AS total_tokens,
 				toNullable(sum(ifNull(p.estimated_cost, 0))) AS estimated_cost,
-				toUInt8(countIf(isNull(p.estimated_cost)) = 0) AS cost_is_complete
+				toUInt8(countIf(
+					isNull(p.estimated_cost)
+					OR has(p.quality_flags, 'inference_geo_not_available')
+				) = 0) AS cost_is_complete
 			FROM priced_usage_events AS p
 			GROUP BY p.organization_id, p.user_id, p.source, p.session_id
 		),
@@ -318,7 +321,10 @@ export function buildUsageEventAnalyticsCte(
 				sum(p.cache_write_5m_input_tokens + p.cache_write_1h_input_tokens) AS cache_creation_input_tokens,
 				sum(p.uncached_input_tokens + p.cache_read_input_tokens + p.cache_write_5m_input_tokens + p.cache_write_1h_input_tokens + p.output_tokens) AS total_tokens,
 				toNullable(sum(ifNull(p.estimated_cost, 0))) AS estimated_cost,
-				toUInt8(countIf(isNull(p.estimated_cost)) = 0) AS cost_is_complete
+				toUInt8(countIf(
+					isNull(p.estimated_cost)
+					OR has(p.quality_flags, 'inference_geo_not_available')
+				) = 0) AS cost_is_complete
 			FROM priced_usage_events AS p
 			GROUP BY p.organization_id, p.user_id, p.source, p.session_id, p.usage_date
 		),

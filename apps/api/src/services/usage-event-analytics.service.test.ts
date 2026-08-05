@@ -85,7 +85,7 @@ describe("usage-event analytics query contract", () => {
 			"toNullable(sum(ifNull(p.estimated_cost, 0))) AS estimated_cost",
 		);
 		expect(sql).toContain(
-			"toUInt8(countIf(isNull(p.estimated_cost)) = 0) AS cost_is_complete",
+			"OR has(p.quality_flags, 'inference_geo_not_available')",
 		);
 		expect(buildUsageCostSubtotalSql("sa.estimated_cost", 4)).toBe(
 			"toNullable(round(sum(ifNull(sa.estimated_cost, 0)), 4))",

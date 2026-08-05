@@ -416,11 +416,8 @@ function readClaudeCandidate(
 		identityKind,
 		identityValue,
 		isMain: isMainTranscript && !isSidechain,
-		inferenceGeo: normalizeBillingDimension(
+		inferenceGeo: normalizeClaudeInferenceGeo(
 			usage.inference_geo,
-			new Set(["global", "us"]),
-			"claude_code_unrecognized_inference_geo",
-			"unrecognized_inference_geo",
 			qualityFlags,
 			diagnostics,
 		),
@@ -1715,6 +1712,33 @@ function normalizeBillingDimension(
 	qualityFlags.push(qualityFlag);
 	addDiagnostic(diagnostics, diagnosticCode, false, normalized);
 	return "";
+}
+
+function normalizeClaudeInferenceGeo(
+	value: unknown,
+	qualityFlags: string[],
+	diagnostics: Map<string, MutableDiagnostic>,
+): string {
+	const normalized = readNonEmptyString(value)?.toLowerCase() ?? "";
+	if (normalized === "not_available") {
+		// Anthropic emits this documented sentinel when the routing dimension is
+		// unavailable. Use the comparable base rate, but retain internal disclosure.
+		qualityFlags.push("inference_geo_not_available");
+		addDiagnostic(
+			diagnostics,
+			"claude_code_inference_geo_not_available",
+			false,
+		);
+		return "";
+	}
+	return normalizeBillingDimension(
+		normalized,
+		new Set(["global", "us"]),
+		"claude_code_unrecognized_inference_geo",
+		"unrecognized_inference_geo",
+		qualityFlags,
+		diagnostics,
+	);
 }
 
 function readRequiredToken(
