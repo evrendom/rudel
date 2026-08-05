@@ -19,7 +19,7 @@ import {
 	type UiUtilityUsedEvent,
 	type WrappedGrowthLoopEvent,
 } from "@rudel/api-routes";
-import { getWrappedPublicIdFromPath } from "@/app/routes";
+import { getWrappedPublicIdFromPath, isSessionDetailPath } from "@/app/routes";
 
 const EVENT_VERSION = PRODUCT_ANALYTICS_EVENT_VERSION;
 const ANALYTICS_SURFACE = "web";
@@ -453,13 +453,16 @@ const ANALYTICS_PAGE_MATCHERS: ReadonlyArray<{
 	{
 		pageName: "session_detail",
 		matches: (pathname) =>
+			isSessionDetailPath(pathname) ||
 			pathname.startsWith("/legacy/sessions/") ||
 			pathname.startsWith("/dashboard/sessions/"),
 	},
 	{
 		pageName: "sessions",
 		matches: (pathname) =>
-			pathname === "/legacy/sessions" || pathname === "/dashboard/sessions",
+			pathname === "/session" ||
+			pathname === "/legacy/sessions" ||
+			pathname === "/dashboard/sessions",
 	},
 	{
 		pageName: "errors",

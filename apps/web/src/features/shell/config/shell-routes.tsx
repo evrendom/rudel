@@ -1,8 +1,19 @@
-import { Clock3Icon, Settings2Icon, StarIcon, UsersIcon } from "lucide-react";
+import {
+	BookOpenIcon,
+	Clock3Icon,
+	Settings2Icon,
+	StarIcon,
+	UsersIcon,
+} from "lucide-react";
 import type { ReactElement } from "react";
-import { appRoutes } from "@/app/routes";
+import { appRoutes, getCanonicalAppPath } from "@/app/routes";
 
-export type ShellRouteId = "dashboard" | "sessions" | "team" | "settings";
+export type ShellRouteId =
+	| "dashboard"
+	| "sessions"
+	| "skills"
+	| "team"
+	| "settings";
 export type ShellRouteIcon = ReactElement<{ size?: number }>;
 
 export type ShellRouteDefinition = {
@@ -25,11 +36,19 @@ export const shellRoutes = [
 	},
 	{
 		id: "sessions",
-		path: appRoutes.dashboardSessions(),
+		path: appRoutes.session(),
 		title: "Sessions",
 		navLabel: "Sessions",
 		shortcut: "H",
 		icon: <Clock3Icon />,
+	},
+	{
+		id: "skills",
+		path: appRoutes.skills(),
+		title: "Skills",
+		navLabel: "Skills",
+		shortcut: "K",
+		icon: <BookOpenIcon />,
 	},
 	{
 		id: "team",
@@ -52,11 +71,21 @@ export const shellRoutes = [
 export const shellRouteMap = {
 	dashboard: shellRoutes[0],
 	sessions: shellRoutes[1],
-	team: shellRoutes[2],
-	settings: shellRoutes[3],
+	skills: shellRoutes[2],
+	team: shellRoutes[3],
+	settings: shellRoutes[4],
 } as const;
 
 export function getCurrentShellRoute(pathname: string): ShellRouteDefinition {
+	const canonicalPathname = getCanonicalAppPath(pathname);
+
+	if (
+		canonicalPathname === appRoutes.session() ||
+		canonicalPathname.startsWith(`${appRoutes.session()}/`)
+	) {
+		return shellRouteMap.sessions;
+	}
+
 	return (
 		[...shellRoutes]
 			.sort(
@@ -65,7 +94,8 @@ export function getCurrentShellRoute(pathname: string): ShellRouteDefinition {
 			)
 			.find(
 				(route) =>
-					pathname === route.path || pathname.startsWith(`${route.path}/`),
+					canonicalPathname === route.path ||
+					canonicalPathname.startsWith(`${route.path}/`),
 			) ?? shellRouteMap.dashboard
 	);
 }

@@ -73,9 +73,10 @@ export const CLAUDE_SESSION_ANALYTICS_MV_SQL = `
     dateDiff('minute', _session_date, _last_interaction_date) AS _duration_min
 
   SELECT
-    * EXCEPT (session_date, last_interaction_date),
+    * EXCEPT (session_date, last_interaction_date, upload_mode),
     _session_date as session_date,
     _last_interaction_date as last_interaction_date,
+    cs.upload_mode as upload_mode,
     'claude_code' as source,
     _input_tokens as input_tokens,
     _output_tokens as output_tokens,

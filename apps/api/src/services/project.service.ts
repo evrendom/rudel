@@ -147,6 +147,24 @@ export async function getProjectInvestment(
 			project_paths,
 		);
 	}
+	const uploadModeColumnRows = await queryClickhouse<{
+		has_upload_mode: number;
+	}>({
+		query: `
+      SELECT toUInt8(hasColumnInTable('rudel', 'session_analytics', 'upload_mode')) AS has_upload_mode
+    `,
+	});
+	const hasUploadModeColumn =
+		Number(uploadModeColumnRows[0]?.has_upload_mode ?? 0) === 1;
+	const uploadModeAggregates = hasUploadModeColumn
+		? `
+        countIf(upload_mode = 'hook') as automated_sessions,
+        countIf(upload_mode IN ('manual', 'retry')) as manual_sessions,
+        countIf(upload_mode NOT IN ('hook', 'manual', 'retry')) as unclassified_sessions,`
+		: `
+        toUInt64(0) as automated_sessions,
+        toUInt64(0) as manual_sessions,
+        COUNT(*) as unclassified_sessions,`;
 
 	const query = `
     WITH current_period AS (
@@ -156,6 +174,8 @@ export async function getProjectInvestment(
         any(project_path) as _project_path,
         COUNT(*) as sessions,
         COUNT(DISTINCT user_id) as unique_users,
+        ${uploadModeAggregates}
+        max(last_interaction_date) as last_session_at,
         SUM(ifNull(input_tokens, 0)) as input_tokens_sum,
         SUM(ifNull(output_tokens, 0)) as output_tokens_sum,
         SUM(ifNull(input_tokens, 0) + ifNull(output_tokens, 0)) as total_tokens,
@@ -187,6 +207,10 @@ export async function getProjectInvestment(
       c._project_path as project_path,
       c.sessions,
       c.unique_users,
+      c.automated_sessions,
+      c.manual_sessions,
+      c.unclassified_sessions,
+      c.last_session_at,
       c.total_tokens,
       c.input_tokens_sum as input_tokens,
       c.output_tokens_sum as output_tokens,

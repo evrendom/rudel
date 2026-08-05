@@ -313,6 +313,7 @@ class ClaudeCodeAdapter implements AgentAdapter {
 			git_remote: input.gitRemote ?? "",
 			package_name: input.packageName ?? "",
 			package_type: input.packageType ?? "",
+			upload_mode: input.upload_mode ?? "",
 			content: input.content,
 			filter_version: input.filter_version ?? 0,
 			subagents,

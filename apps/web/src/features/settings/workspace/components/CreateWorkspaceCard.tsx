@@ -12,6 +12,7 @@ import {
 import { Field, FieldLabel } from "@/app/ui/field";
 import { Input } from "@/app/ui/input";
 import { useAnalyticsTracking } from "@/features/analytics/tracking/useAnalyticsTracking";
+import { useShellRoutePath } from "@/features/shell/hooks/use-shell-route-path";
 import { useOrganization } from "@/features/workspace/organization/useOrganization";
 import { authClient } from "@/lib/auth-client";
 
@@ -33,6 +34,7 @@ export function CreateWorkspaceCard({
 	submitLabel?: string;
 	title?: string;
 }) {
+	const getShellRoutePath = useShellRoutePath();
 	const navigate = useNavigate();
 	const { actions } = useOrganization();
 	const { trackOrganizationAction } = useAnalyticsTracking({
@@ -73,7 +75,7 @@ export function CreateWorkspaceCard({
 
 		if (response.data) {
 			await actions.switchOrganization(response.data.id);
-			navigate(appRoutes.settingsWorkspace());
+			navigate(getShellRoutePath(appRoutes.settingsWorkspace()));
 		}
 
 		setIsCreating(false);

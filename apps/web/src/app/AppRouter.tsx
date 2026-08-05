@@ -1,10 +1,19 @@
 import { type ComponentType, lazy, type ReactNode, Suspense } from "react";
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes, useParams } from "react-router-dom";
+import {
+	appRoutes,
+	getBottomRailPreviewPath,
+	getLeftSidebarPreviewPath,
+} from "@/app/routes";
 import { NotFoundPage } from "@/app/system/NotFoundPage";
 import { AcceptInvitationPage } from "@/features/invitations/AcceptInvitationPage";
 import { settingsRouteMap } from "@/features/settings/config/settings-routes";
 import { SettingsIndexRedirect } from "@/features/settings/SettingsIndexRedirect";
-import { AppShellLayout } from "@/features/shell/AppShellLayout";
+import {
+	AppShellLayout,
+	BottomRailAppShellLayout,
+	LeftSidebarAppShellLayout,
+} from "@/features/shell/AppShellLayout";
 import { shellRouteMap } from "@/features/shell/config/shell-routes";
 
 function lazyNamed<TModule extends Record<string, unknown>>(
@@ -23,13 +32,13 @@ const DashboardPage = lazyNamed(
 	() => import("@/features/dashboard/DashboardPage"),
 	"DashboardPage",
 );
-const SessionsListPage = lazyNamed(
-	() => import("@/pages/dashboard/SessionsListPage"),
-	"SessionsListPage",
+const SessionsPage = lazyNamed(
+	() => import("@/features/sessions/sessions-page"),
+	"SessionsPage",
 );
-const SessionDetailPage = lazyNamed(
-	() => import("@/pages/dashboard/SessionDetailPage"),
-	"SessionDetailPage",
+const SkillsPage = lazyNamed(
+	() => import("@/features/skills/SkillsPage"),
+	"SkillsPage",
 );
 const SettingsLayout = lazyNamed(
 	() => import("@/features/settings/SettingsLayout"),
@@ -60,6 +69,72 @@ const PresetBaselinePage = lazyNamed(
 	"PresetBaselinePage",
 );
 const LEGACY_DASHBOARDY_PATH = "/dashboardy";
+const LEGACY_DASHBOARD_SESSIONS_PATH = "/dashboard/sessions";
+const LEGACY_SESSION_FULL_PATH = "/session/full";
+const LEGACY_SESSION_SPLIT_PATH = "/session/split";
+
+type ShellRoutePaths = {
+	dashboard: string;
+	session: string;
+	skills: string;
+	team: string;
+	settings: string;
+	settingsAccount: string;
+	settingsWorkspace: string;
+};
+
+const canonicalShellRoutePaths: ShellRoutePaths = {
+	dashboard: appRoutes.dashboard(),
+	session: appRoutes.session(),
+	skills: appRoutes.skills(),
+	team: appRoutes.team(),
+	settings: appRoutes.settings(),
+	settingsAccount: appRoutes.settingsAccount(),
+	settingsWorkspace: appRoutes.settingsWorkspace(),
+};
+
+const bottomRailShellRoutePaths: ShellRoutePaths = {
+	dashboard: getBottomRailPreviewPath(canonicalShellRoutePaths.dashboard),
+	session: getBottomRailPreviewPath(canonicalShellRoutePaths.session),
+	skills: getBottomRailPreviewPath(canonicalShellRoutePaths.skills),
+	team: getBottomRailPreviewPath(canonicalShellRoutePaths.team),
+	settings: getBottomRailPreviewPath(canonicalShellRoutePaths.settings),
+	settingsAccount: getBottomRailPreviewPath(
+		canonicalShellRoutePaths.settingsAccount,
+	),
+	settingsWorkspace: getBottomRailPreviewPath(
+		canonicalShellRoutePaths.settingsWorkspace,
+	),
+};
+
+const leftSidebarShellRoutePaths: ShellRoutePaths = {
+	dashboard: getLeftSidebarPreviewPath(canonicalShellRoutePaths.dashboard),
+	session: getLeftSidebarPreviewPath(canonicalShellRoutePaths.session),
+	skills: getLeftSidebarPreviewPath(canonicalShellRoutePaths.skills),
+	team: getLeftSidebarPreviewPath(canonicalShellRoutePaths.team),
+	settings: getLeftSidebarPreviewPath(canonicalShellRoutePaths.settings),
+	settingsAccount: getLeftSidebarPreviewPath(
+		canonicalShellRoutePaths.settingsAccount,
+	),
+	settingsWorkspace: getLeftSidebarPreviewPath(
+		canonicalShellRoutePaths.settingsWorkspace,
+	),
+};
+
+function LegacySessionDetailRedirect() {
+	const params = useParams<{ sessionId: string }>();
+
+	return (
+		<Navigate
+			replace
+			to={
+				params.sessionId
+					? appRoutes.sessionDetail(params.sessionId)
+					: appRoutes.session()
+			}
+		/>
+	);
+}
 
 function DashboardRouteLoadingScreen() {
 	return (
@@ -94,15 +169,75 @@ function LazyRoute({
 	);
 }
 
+function getShellRouteElements(routePaths: ShellRoutePaths) {
+	return (
+		<>
+			<Route
+				path={routePaths.dashboard}
+				element={<LazyRoute Component={DashboardPage} />}
+			/>
+			<Route
+				path={routePaths.session}
+				element={<LazyRoute Component={SessionsPage} />}
+			/>
+			<Route
+				path={`${routePaths.session}/:sessionId`}
+				element={<LazyRoute Component={SessionsPage} />}
+			/>
+			<Route
+				path={routePaths.skills}
+				element={<LazyRoute Component={SkillsPage} />}
+			/>
+			<Route
+				path={routePaths.team}
+				element={<LazyRoute Component={TeamPage} />}
+			/>
+			<Route
+				path={routePaths.settings}
+				element={<LazyRoute Component={SettingsLayout} />}
+			>
+				<Route index element={<SettingsIndexRedirect />} />
+				<Route
+					path={settingsRouteMap.workspace.segment}
+					element={<LazyRoute Component={WorkspaceSettingsPage} />}
+				/>
+				<Route
+					path={settingsRouteMap.members.segment}
+					element={<LazyRoute Component={MembersSettingsPage} />}
+				/>
+				<Route
+					path={settingsRouteMap.invitations.segment}
+					element={
+						<Navigate
+							replace
+							to={`${routePaths.settingsAccount}#workspace-invitations`}
+						/>
+					}
+				/>
+				<Route
+					path={settingsRouteMap.account.segment}
+					element={<LazyRoute Component={AccountSettingsPage} />}
+				/>
+				<Route
+					path={settingsRouteMap["create-workspace"].segment}
+					element={
+						<Navigate
+							replace
+							to={`${routePaths.settingsWorkspace}#new-workspace`}
+						/>
+					}
+				/>
+			</Route>
+		</>
+	);
+}
+
 export function AppRouter({
 	rootRedirectTarget,
 }: {
 	rootRedirectTarget: string | null;
 }) {
 	const rootRedirect = rootRedirectTarget || shellRouteMap.dashboard.path;
-	const canonicalWorkspaceSettingsPath = settingsRouteMap.workspace.path;
-	const canonicalAccountSettingsPath = settingsRouteMap.account.path;
-
 	return (
 		<Routes>
 			<Route path="/" element={<Navigate to={rootRedirect} replace />} />
@@ -118,63 +253,38 @@ export function AppRouter({
 				path="/__preset-baseline"
 				element={<LazyRoute Component={PresetBaselinePage} />}
 			/>
+			<Route element={<BottomRailAppShellLayout />}>
+				{getShellRouteElements(bottomRailShellRoutePaths)}
+			</Route>
+			<Route element={<LeftSidebarAppShellLayout />}>
+				{getShellRouteElements(leftSidebarShellRoutePaths)}
+			</Route>
 			<Route element={<AppShellLayout />}>
+				{getShellRouteElements(canonicalShellRoutePaths)}
 				<Route
-					path={shellRouteMap.dashboard.path}
-					element={<LazyRoute Component={DashboardPage} />}
+					path={LEGACY_DASHBOARD_SESSIONS_PATH}
+					element={<Navigate to={appRoutes.session()} replace />}
 				/>
 				<Route
-					path={`${shellRouteMap.dashboard.path}/sessions`}
-					element={<LazyRoute Component={SessionsListPage} />}
+					path={`${LEGACY_DASHBOARD_SESSIONS_PATH}/:sessionId`}
+					element={<LegacySessionDetailRedirect />}
 				/>
 				<Route
-					path={`${shellRouteMap.dashboard.path}/sessions/:sessionId`}
-					element={<LazyRoute Component={SessionDetailPage} />}
+					path={LEGACY_SESSION_SPLIT_PATH}
+					element={<Navigate to={appRoutes.session()} replace />}
+				/>
+				<Route
+					path={LEGACY_SESSION_FULL_PATH}
+					element={<Navigate to={appRoutes.session()} replace />}
+				/>
+				<Route
+					path={`${LEGACY_SESSION_FULL_PATH}/:sessionId`}
+					element={<LegacySessionDetailRedirect />}
 				/>
 				<Route
 					path={LEGACY_DASHBOARDY_PATH}
 					element={<Navigate to={shellRouteMap.dashboard.path} replace />}
 				/>
-				<Route
-					path={shellRouteMap.team.path}
-					element={<LazyRoute Component={TeamPage} />}
-				/>
-				<Route
-					path={shellRouteMap.settings.path}
-					element={<LazyRoute Component={SettingsLayout} />}
-				>
-					<Route index element={<SettingsIndexRedirect />} />
-					<Route
-						path={settingsRouteMap.workspace.segment}
-						element={<LazyRoute Component={WorkspaceSettingsPage} />}
-					/>
-					<Route
-						path={settingsRouteMap.members.segment}
-						element={<LazyRoute Component={MembersSettingsPage} />}
-					/>
-					<Route
-						path={settingsRouteMap.invitations.segment}
-						element={
-							<Navigate
-								replace
-								to={`${canonicalAccountSettingsPath}#workspace-invitations`}
-							/>
-						}
-					/>
-					<Route
-						path={settingsRouteMap.account.segment}
-						element={<LazyRoute Component={AccountSettingsPage} />}
-					/>
-					<Route
-						path={settingsRouteMap["create-workspace"].segment}
-						element={
-							<Navigate
-								replace
-								to={`${canonicalWorkspaceSettingsPath}#new-workspace`}
-							/>
-						}
-					/>
-				</Route>
 			</Route>
 			<Route path="*" element={<NotFoundPage />} />
 		</Routes>

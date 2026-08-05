@@ -81,9 +81,10 @@ export const CODEX_SESSION_ANALYTICS_MV_SQL = `
     arrayDistinct(arrayFilter(x -> x != '', extractAll(cs.content, '"name":"exec_command"[^}]*skills/([a-zA-Z0-9_-]+)/SKILL'))) AS _skills
 
   SELECT
-    * EXCEPT (session_date, last_interaction_date),
+    * EXCEPT (session_date, last_interaction_date, upload_mode),
     _session_date as session_date,
     _last_interaction_date as last_interaction_date,
+    cs.upload_mode as upload_mode,
     'codex' as source,
     _input_tokens as input_tokens,
     _output_tokens as output_tokens,

@@ -1,7 +1,8 @@
 import { appendWebAcquisitionSearchParams } from "@/lib/acquisition-attribution";
 
 const DASHBOARD_PATH = "/dashboard";
-const DASHBOARD_SESSIONS_PATH = `${DASHBOARD_PATH}/sessions`;
+const SESSION_PATH = "/session";
+const SKILLS_PATH = "/skills";
 const DASHBOARD_GET_STARTED_LEGACY_PATH = `${DASHBOARD_PATH}/get-started`;
 const GET_STARTED_PATH = "/get-started";
 const TEAM_PATH = "/team";
@@ -13,6 +14,8 @@ const SETTINGS_INVITATIONS_PATH = `${SETTINGS_ROOT_PATH}/invitations`;
 const SETTINGS_ACCOUNT_PATH = `${SETTINGS_ROOT_PATH}/account`;
 const SETTINGS_CREATE_WORKSPACE_PATH = `${SETTINGS_ROOT_PATH}/create-workspace`;
 const PRESET_BASELINE_PATH = "/__preset-baseline";
+const DEV_BOTTOM_RAIL_PATH = "/dev/bottom-rail";
+const DEV_LEFT_SIDEBAR_PATH = "/dev/left-sidebar";
 const WRAPPED_TEAM_CARD_PATH = "/wrapped";
 const DEV_WRAPPED_PATH = "/dev/wrapped";
 const WRAPPED_RESUME_PATH = "/resume";
@@ -44,7 +47,10 @@ export type WrappedVariant =
 export const appRoutes = {
 	home: () => DASHBOARD_PATH,
 	dashboard: () => DASHBOARD_PATH,
-	dashboardSessions: () => DASHBOARD_SESSIONS_PATH,
+	session: () => SESSION_PATH,
+	sessionDetail: (sessionId: string) =>
+		`${SESSION_PATH}/${encodeURIComponent(sessionId)}`,
+	skills: () => SKILLS_PATH,
 	getStarted: () => GET_STARTED_PATH,
 	dashboardGetStartedLegacy: () => DASHBOARD_GET_STARTED_LEGACY_PATH,
 	team: () => TEAM_PATH,
@@ -53,6 +59,8 @@ export const appRoutes = {
 	settings: () => SETTINGS_ROOT_PATH,
 	settingsRoot: () => SETTINGS_ROOT_PATH,
 	presetBaseline: () => PRESET_BASELINE_PATH,
+	devBottomRail: () => DEV_BOTTOM_RAIL_PATH,
+	devLeftSidebar: () => DEV_LEFT_SIDEBAR_PATH,
 	wrappedTeamCard: () => WRAPPED_TEAM_CARD_PATH,
 	wrappedTeamCardShare: () => getWrappedTeamCardSharePath(),
 	wrappedCardProfile: (search?: string) => getWrappedCardProfilePath(search),
@@ -76,6 +84,78 @@ export const appRoutes = {
 	settingsAccount: () => SETTINGS_ACCOUNT_PATH,
 	settingsCreateWorkspace: () => SETTINGS_CREATE_WORKSPACE_PATH,
 };
+
+export function isSessionDetailPath(pathname: string) {
+	const canonicalPathname = getCanonicalAppPath(pathname);
+	const sessionDetailPrefix = `${SESSION_PATH}/`;
+	const normalizedPathname =
+		canonicalPathname.length > 1 && canonicalPathname.endsWith("/")
+			? canonicalPathname.slice(0, -1)
+			: canonicalPathname;
+	if (!normalizedPathname.startsWith(sessionDetailPrefix)) {
+		return false;
+	}
+
+	const sessionDetailSegment = normalizedPathname.slice(
+		sessionDetailPrefix.length,
+	);
+	return (
+		sessionDetailSegment.length > 0 &&
+		!sessionDetailSegment.includes("/") &&
+		sessionDetailSegment !== "full" &&
+		sessionDetailSegment !== "split"
+	);
+}
+
+export function getBottomRailPreviewPath(canonicalPath: string) {
+	if (canonicalPath === DASHBOARD_PATH) {
+		return DEV_BOTTOM_RAIL_PATH;
+	}
+
+	return `${DEV_BOTTOM_RAIL_PATH}${canonicalPath}`;
+}
+
+export function getLeftSidebarPreviewPath(canonicalPath: string) {
+	if (canonicalPath === DASHBOARD_PATH) {
+		return DEV_LEFT_SIDEBAR_PATH;
+	}
+
+	return `${DEV_LEFT_SIDEBAR_PATH}${canonicalPath}`;
+}
+
+export function getCanonicalAppPath(pathname: string) {
+	if (pathname === DEV_BOTTOM_RAIL_PATH) {
+		return DASHBOARD_PATH;
+	}
+
+	if (pathname.startsWith(`${DEV_BOTTOM_RAIL_PATH}/`)) {
+		return pathname.slice(DEV_BOTTOM_RAIL_PATH.length);
+	}
+
+	if (pathname === DEV_LEFT_SIDEBAR_PATH) {
+		return DASHBOARD_PATH;
+	}
+
+	if (pathname.startsWith(`${DEV_LEFT_SIDEBAR_PATH}/`)) {
+		return pathname.slice(DEV_LEFT_SIDEBAR_PATH.length);
+	}
+
+	return pathname;
+}
+
+export function isBottomRailPreviewPath(pathname: string) {
+	return (
+		pathname === DEV_BOTTOM_RAIL_PATH ||
+		pathname.startsWith(`${DEV_BOTTOM_RAIL_PATH}/`)
+	);
+}
+
+export function isLeftSidebarPreviewPath(pathname: string) {
+	return (
+		pathname === DEV_LEFT_SIDEBAR_PATH ||
+		pathname.startsWith(`${DEV_LEFT_SIDEBAR_PATH}/`)
+	);
+}
 
 function getWrappedTeamCardFromSharePath(
 	shareId: string,

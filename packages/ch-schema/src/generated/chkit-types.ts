@@ -12,6 +12,7 @@ export type RudelClaudeSessionsRow = {
   git_remote: string
   package_name: string
   package_type: string
+  upload_mode: string
   content: string
   filter_version: number
   ingested_at: string
@@ -31,6 +32,7 @@ export const RudelClaudeSessionsRowSchema = z.object({
   git_remote: z.string(),
   package_name: z.string(),
   package_type: z.string(),
+  upload_mode: z.string(),
   content: z.string(),
   filter_version: z.number(),
   ingested_at: z.string(),
@@ -53,6 +55,7 @@ export type RudelCodexSessionsRow = {
   git_remote: string
   package_name: string
   package_type: string
+  upload_mode: string
   content: string
   filter_version: number
   ingested_at: string
@@ -71,6 +74,7 @@ export const RudelCodexSessionsRowSchema = z.object({
   git_remote: z.string(),
   package_name: z.string(),
   package_type: z.string(),
+  upload_mode: z.string(),
   content: z.string(),
   filter_version: z.number(),
   ingested_at: z.string(),
@@ -92,6 +96,7 @@ export type RudelSessionAnalyticsRow = {
   git_remote: string
   package_name: string
   package_type: string
+  upload_mode: string
   content: string
   filter_version: number
   subagents: Record<string, string>
@@ -135,6 +140,7 @@ export const RudelSessionAnalyticsRowSchema = z.object({
   git_remote: z.string(),
   package_name: z.string(),
   package_type: z.string(),
+  upload_mode: z.string(),
   content: z.string(),
   filter_version: z.number(),
   subagents: z.record(z.string(), z.string()),

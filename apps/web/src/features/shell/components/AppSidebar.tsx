@@ -34,6 +34,7 @@ import {
 	SHOW_SIDEBAR_NEWS_MODE,
 	SIDEBAR_NEWS_ITEM_ID,
 } from "@/features/shell/config/sidebar-news";
+import { useShellRoutePath } from "@/features/shell/hooks/use-shell-route-path";
 import { useCurrentShellRoute } from "@/features/shell/hooks/useCurrentShellRoute";
 import { cn } from "@/lib/utils";
 
@@ -152,6 +153,7 @@ function SidebarNavigation({
 }) {
 	const currentShellRoute = useCurrentShellRoute();
 	const location = useLocation();
+	const getShellRoutePath = useShellRoutePath();
 	const activeSettingsRouteId = getActiveSettingsRouteId(location.pathname);
 
 	if (navigationMode === "settings") {
@@ -161,7 +163,7 @@ function SidebarNavigation({
 					{primarySettingsRoutes.map((route) => (
 						<RailLink
 							key={route.id}
-							to={route.path}
+							to={getShellRoutePath(route.path)}
 							label={route.label}
 							mode={mode}
 							active={activeSettingsRouteId === route.id}
@@ -180,7 +182,7 @@ function SidebarNavigation({
 				{shellRoutes.map((route) => (
 					<RailLink
 						key={route.id}
-						to={route.path}
+						to={getShellRoutePath(route.path)}
 						label={route.navLabel}
 						shortcut={route.shortcut}
 						mode={mode}
@@ -200,6 +202,7 @@ export function AppSidebar({
 	navigationMode?: SidebarNavigationMode;
 }) {
 	const { state, isMobile, openMobile, toggleSidebar } = useSidebar();
+	const getShellRoutePath = useShellRoutePath();
 	const isSidebarExpanded = isMobile ? openMobile : state === "expanded";
 	const [displayMode, setDisplayMode] = React.useState<SidebarDisplayMode>(
 		isSidebarExpanded ? "expanded" : "collapsed",
@@ -267,7 +270,7 @@ export function AppSidebar({
 							<nav aria-label="Back to app">
 								<ul className="flex flex-col gap-1">
 									<RailLink
-										to={shellRouteMap.dashboard.path}
+										to={getShellRoutePath(shellRouteMap.dashboard.path)}
 										label="Back to app"
 										mode={displayMode}
 									>

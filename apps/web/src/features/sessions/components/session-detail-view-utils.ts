@@ -67,13 +67,42 @@ export function toSubagentMap(value: unknown): Record<string, string> {
 	);
 }
 
-export function isForbiddenError(value: unknown) {
+function hasErrorCode(value: unknown, code: string) {
 	return (
 		typeof value === "object" &&
 		value !== null &&
 		"code" in value &&
-		value.code === "FORBIDDEN"
+		value.code === code
 	);
+}
+
+export function isForbiddenError(value: unknown) {
+	return hasErrorCode(value, "FORBIDDEN");
+}
+
+export function getSessionDetailErrorState(value: unknown) {
+	if (!value) {
+		return undefined;
+	}
+
+	if (isForbiddenError(value)) {
+		return {
+			description: "You can only view your own session transcripts.",
+			title: "Access Denied",
+		};
+	}
+
+	if (hasErrorCode(value, "NOT_FOUND")) {
+		return {
+			description: undefined,
+			title: "Session Not Found",
+		};
+	}
+
+	return {
+		description: "The session could not be loaded. Please try again.",
+		title: "Unable to Load Session",
+	};
 }
 
 export function getConversationSummary(content: string) {

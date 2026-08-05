@@ -160,4 +160,28 @@ describe("analytics service guardrails", () => {
 			backfillSource.match(/clickhouse_settings: BACKFILL_QUERY_SETTINGS/g),
 		).toHaveLength(2);
 	});
+
+	test("reads session transcripts from the raw session tables", async () => {
+		const sessionAnalyticsSource = await readFile(
+			resolve(
+				import.meta.dir,
+				"..",
+				"services",
+				"session-analytics.service.ts",
+			),
+			"utf8",
+		);
+		const sessionDetailStart = sessionAnalyticsSource.indexOf(
+			"export async function getSessionDetail",
+		);
+		const sessionDetailSource =
+			sessionAnalyticsSource.slice(sessionDetailStart);
+
+		expect(sessionDetailSource).toContain("buildLatestRawSessionContentSql");
+		expect(sessionDetailSource).toContain(
+			"INNER ANY JOIN latest_raw_session_content AS raw",
+		);
+		expect(sessionDetailSource).toContain("raw.content AS content");
+		expect(sessionDetailSource).toContain("raw.subagents AS subagents");
+	});
 });

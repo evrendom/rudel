@@ -129,6 +129,35 @@ export function formatMinutes(value: number) {
 	return `${minuteFormatter.format(value)} min`;
 }
 
+export function formatRoundedDuration(minutes: number | undefined) {
+	if (minutes === undefined) {
+		return "—";
+	}
+
+	const safeMinutes = Math.max(0, minutes);
+	if (safeMinutes < 1) {
+		return `${Math.round(safeMinutes * 60)}s`;
+	}
+
+	if (safeMinutes > 10 * 60) {
+		return `${Math.round(safeMinutes / 60)}h`;
+	}
+
+	const roundedMinutes = Math.round(safeMinutes);
+	const hours = Math.floor(roundedMinutes / 60);
+	const remainingMinutes = roundedMinutes % 60;
+
+	if (hours === 0) {
+		return `${roundedMinutes}m`;
+	}
+
+	if (remainingMinutes === 0) {
+		return `${hours}h`;
+	}
+
+	return `${hours}h ${remainingMinutes}m`;
+}
+
 export function formatPercent(value: number) {
 	return `${percentFormatter.format(value)}%`;
 }

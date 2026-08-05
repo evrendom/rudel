@@ -78,6 +78,7 @@ export const UserDailyTrendDataSchema = z.object({
 	total_tokens: z.number(),
 	input_tokens: z.number(),
 	output_tokens: z.number(),
+	cost: z.number().optional(),
 	avg_success_rate: z.number(),
 	distinct_skills: z.number(),
 	distinct_slash_commands: z.number(),
@@ -90,6 +91,10 @@ export const RepositoryDailyTrendDataSchema = z.object({
 	repository: z.string(),
 	sessions: z.number(),
 	total_commits: z.number(),
+	total_tokens: z.number().optional(),
+	input_tokens: z.number().optional(),
+	output_tokens: z.number().optional(),
+	cost: z.number().optional(),
 });
 
 export const InsightSchema = z.object({
@@ -267,6 +272,10 @@ export const ProjectInvestmentSchema = z.object({
 	success_rate: z.number(),
 	cost: z.number(),
 	success_rate_trend: z.number(),
+	automated_sessions: z.number(),
+	manual_sessions: z.number(),
+	unclassified_sessions: z.number(),
+	last_session_at: z.string(),
 });
 
 export const ProjectDetailDataSchema = z.object({
@@ -363,6 +372,30 @@ export const SessionAnalyticsSummaryComparisonSchema = z.object({
 		avg_session_duration_min: z.number(),
 		avg_response_time_sec: z.number(),
 	}),
+});
+
+export const HistoricalSkillSummarySchema = z.object({
+	name: z.string(),
+	sessionCount: z.number().int().nonnegative(),
+});
+
+export const HistoricalSkillVersionSchema = z.object({
+	contentSha256: z.string().length(64),
+	content: z.string(),
+	sessionCount: z.number().int().positive(),
+	firstUsedAt: z.string(),
+	lastUsedAt: z.string(),
+});
+
+export const HistoricalSkillDetailSchema = z.object({
+	name: z.string(),
+	sessionCount: z.number().int().nonnegative(),
+	versions: z.array(HistoricalSkillVersionSchema),
+	unavailableSessionCount: z.number().int().nonnegative(),
+});
+
+export const HistoricalSkillDetailInputSchema = z.object({
+	name: z.string().min(1).max(MAX_ID_FILTER_LENGTH),
 });
 
 export const SessionListInputSchema = DaysInputSchema.extend({
@@ -757,6 +790,13 @@ export type ProjectDetailData = z.infer<typeof ProjectDetailDataSchema>;
 export type ProjectContributor = z.infer<typeof ProjectContributorSchema>;
 export type ProjectTrendDataPoint = z.infer<typeof ProjectTrendDataPointSchema>;
 export type SessionAnalytics = z.infer<typeof SessionAnalyticsSchema>;
+export type HistoricalSkillSummary = z.infer<
+	typeof HistoricalSkillSummarySchema
+>;
+export type HistoricalSkillVersion = z.infer<
+	typeof HistoricalSkillVersionSchema
+>;
+export type HistoricalSkillDetail = z.infer<typeof HistoricalSkillDetailSchema>;
 export type SessionDetail = z.infer<typeof SessionDetailSchema>;
 export type DimensionAnalysisDataPoint = z.infer<
 	typeof DimensionAnalysisDataPointSchema

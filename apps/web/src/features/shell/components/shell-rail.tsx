@@ -20,6 +20,7 @@ export function RailLink({
 	badgeLabel,
 	children,
 	mode = "collapsed",
+	placement = "sidebar",
 }: {
 	to: string;
 	label: string;
@@ -28,16 +29,21 @@ export function RailLink({
 	badgeLabel?: string;
 	children: ReactNode;
 	mode?: SidebarRowMode;
+	placement?: "bottom-rail" | "sidebar";
 }) {
+	const isBottomRailPlacement = placement === "bottom-rail";
 	const link = (
 		<Link
 			to={to}
 			aria-label={label}
+			aria-current={active ? "page" : undefined}
+			data-active={active ? "true" : undefined}
 			data-sidebar-interactive
 			data-sidebar-nav-row
 			className={cn(
 				getUtilityRailItemClassName(mode),
-				active && "bg-white text-[color:var(--dashboard-01-rail-icon-active)]",
+				isBottomRailPlacement &&
+					"!size-9 !w-9 self-auto overflow-visible rounded-lg",
 			)}
 		>
 			<span
@@ -64,16 +70,29 @@ export function RailLink({
 					{badgeLabel}
 				</Badge>
 			) : null}
+			{isBottomRailPlacement ? (
+				<span
+					aria-hidden="true"
+					className="pointer-fine:hidden absolute top-1/2 left-1/2 size-[max(100%,3rem)] -translate-1/2"
+				/>
+			) : null}
 		</Link>
 	);
 
 	return (
-		<li>
+		<li
+			className={
+				isBottomRailPlacement
+					? "flex size-12 items-center justify-center"
+					: undefined
+			}
+		>
 			{mode === "collapsed" ? (
 				<Tooltip>
 					<TooltipTrigger asChild>{link}</TooltipTrigger>
 					<TooltipContent
-						side="right"
+						side={isBottomRailPlacement ? "top" : "right"}
+						sideOffset={isBottomRailPlacement ? 8 : 0}
 						className="[&>[aria-hidden='true']]:hidden"
 					>
 						{shortcut ? (

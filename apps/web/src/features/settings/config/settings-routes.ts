@@ -1,4 +1,4 @@
-import { appRoutes } from "@/app/routes";
+import { appRoutes, getCanonicalAppPath } from "@/app/routes";
 
 export type SettingsRouteId =
 	| "workspace"
@@ -63,10 +63,12 @@ export const primarySettingsRoutes = [
 export function getActiveSettingsRouteId(
 	pathname: string,
 ): PrimarySettingsRouteId {
+	const canonicalPathname = getCanonicalAppPath(pathname);
 	const matchedRoute =
 		settingsRoutes.find(
 			(route) =>
-				pathname === route.path || pathname.startsWith(`${route.path}/`),
+				canonicalPathname === route.path ||
+				canonicalPathname.startsWith(`${route.path}/`),
 		)?.id ?? "workspace";
 
 	if (matchedRoute === "account" || matchedRoute === "invitations") {

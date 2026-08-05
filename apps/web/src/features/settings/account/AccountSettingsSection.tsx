@@ -13,11 +13,13 @@ import { useAccountSettingsData } from "@/features/settings/account/use-account-
 import { useInvitationsSettingsData } from "@/features/settings/invitations/use-invitations-settings-data";
 import { buildAccountSettingsTracking } from "@/features/settings/settings-page-tracking";
 import { WorkspaceIncomingInvitationsCard } from "@/features/settings/workspace/components/WorkspaceIncomingInvitationsCard";
+import { useShellRoutePath } from "@/features/shell/hooks/use-shell-route-path";
 import { useOrganization } from "@/features/workspace/organization/useOrganization";
 import { authClient, signOut } from "@/lib/auth-client";
 
 export function AccountSettingsSection() {
 	const navigate = useNavigate();
+	const getShellRoutePath = useShellRoutePath();
 	const data = useAccountSettingsData();
 	const invitationsData = useInvitationsSettingsData();
 	const { actions } = useOrganization();
@@ -38,7 +40,7 @@ export function AccountSettingsSection() {
 		setLinkingProvider(provider);
 		authClient.linkSocial({
 			provider,
-			callbackURL: `${window.location.origin}${appRoutes.settingsAccount()}`,
+			callbackURL: `${window.location.origin}${getShellRoutePath(appRoutes.settingsAccount())}`,
 		});
 	};
 

@@ -39,7 +39,7 @@ function formatModelAxisLabel(model: string) {
 }
 
 export function buildDashboardTokenModelRows(
-	modelTokensTrend: ModelTokensTrendData[] | undefined,
+	modelTokensTrend: readonly ModelTokensTrendData[] | undefined,
 ): DashboardTokenModelSummaryRow[] {
 	const rowsByModel = new Map<
 		string,

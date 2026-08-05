@@ -262,6 +262,7 @@ export async function getUsersDailyTrend(
       sum(ifNull(total_tokens, 0)) as total_tokens,
       sum(ifNull(input_tokens, 0)) as input_tokens,
       sum(ifNull(output_tokens, 0)) as output_tokens,
+      round(sum(${USER_USAGE_PER_SESSION_COST_SQL}), 4) as cost,
       round(avg(success_score), 2) as avg_success_rate,
       length(arrayDistinct(arrayFilter(x -> x != '', arrayFlatten(groupArray(skills))))) as distinct_skills,
       length(arrayDistinct(arrayFilter(x -> x != '', arrayFlatten(groupArray(slash_commands))))) as distinct_slash_commands,
@@ -287,7 +288,7 @@ export async function getUsersDailyTrend(
           )
         )
       ) as repositories_touched
-    FROM rudel.session_analytics FINAL
+    FROM rudel.session_analytics AS sa FINAL
     WHERE ${dateFilter}
       AND organization_id = {orgId:String}
       AND user_id != ''
@@ -323,8 +324,12 @@ export async function getRepositoriesDailyTrend(
         )
       ) as repository,
       count() as sessions,
-      sum(has_commit) as total_commits
-    FROM rudel.session_analytics FINAL
+      sum(has_commit) as total_commits,
+      sum(ifNull(total_tokens, 0)) as total_tokens,
+      sum(ifNull(input_tokens, 0)) as input_tokens,
+      sum(ifNull(output_tokens, 0)) as output_tokens,
+      round(sum(${USER_USAGE_PER_SESSION_COST_SQL}), 4) as cost
+    FROM rudel.session_analytics AS sa FINAL
     WHERE ${dateFilter}
       AND organization_id = {orgId:String}
     GROUP BY date, repository

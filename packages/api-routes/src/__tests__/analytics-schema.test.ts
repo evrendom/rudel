@@ -4,6 +4,7 @@ import {
 	DeveloperDetailsInputSchema,
 	DeveloperSessionsInputSchema,
 	DimensionAnalysisInputSchema,
+	HistoricalSkillDetailInputSchema,
 	RecurringErrorsInputSchema,
 	SessionDetailInputSchema,
 	SessionListInputSchema,
@@ -28,6 +29,20 @@ describe("analytics input schemas", () => {
 				sessionId: "a".repeat(513),
 			}),
 		).toThrow();
+		expect(() =>
+			HistoricalSkillDetailInputSchema.parse({
+				name: "a".repeat(513),
+			}),
+		).toThrow();
+	});
+
+	test("historical skill names are exact and case-sensitive", () => {
+		expect(HistoricalSkillDetailInputSchema.parse({ name: "Design" })).toEqual({
+			name: "Design",
+		});
+		expect(HistoricalSkillDetailInputSchema.parse({ name: "design" })).toEqual({
+			name: "design",
+		});
 	});
 
 	test("days capped at 365", () => {

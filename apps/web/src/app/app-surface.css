@@ -351,7 +351,7 @@ body:has(.dashboard-01-preview),
 	isolation: isolate;
 	background: var(--sidebar);
 	color: var(--foreground);
-	min-height: 100vh;
+	min-height: 100dvh;
 }
 
 .dark .dashboard-01-theme,
@@ -454,6 +454,64 @@ body:has(.dashboard-01-preview)::after {
 
 .dashboard-01-window {
 	box-shadow: var(--dashboard-01-window-shadow);
+}
+
+.shell-bottom-navigation {
+	view-transition-name: shell-bottom-navigation;
+}
+
+.dashboard-01-bottom-rail {
+	--sidebar-row-height: 2.25rem;
+	--sidebar-row-gap: 0rem;
+	--sidebar-collapsed-row-padding-left: 0rem;
+	--sidebar-collapsed-row-padding-right: 0rem;
+	--sidebar-icon-lane-size: 2.25rem;
+	--sidebar-icon-size: 1rem;
+	--sidebar-avatar-size: 1.5rem;
+	--sidebar-row-idle-bg: transparent;
+	--sidebar-row-hover-bg: var(--dashboard-01-rail-hover);
+	--sidebar-row-active-bg: rgb(15 23 42 / 0.06);
+	--sidebar-row-fg: var(--dashboard-01-rail-icon);
+	--sidebar-row-active-fg: var(--dashboard-01-rail-icon-active);
+}
+
+.dark .dashboard-01-bottom-rail {
+	--sidebar-row-active-bg: rgb(255 255 255 / 0.1);
+}
+
+.shell-dock-content {
+	opacity: 1;
+	transform: translateY(0) scale(1);
+	transition:
+		opacity 160ms cubic-bezier(0.23, 1, 0.32, 1),
+		transform 220ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+@starting-style {
+	.shell-dock-content {
+		opacity: 0;
+		transform: translateY(0.25rem) scale(0.99);
+	}
+}
+
+::view-transition-group(shell-bottom-navigation) {
+	animation-duration: 240ms;
+	animation-timing-function: cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+::view-transition-old(shell-bottom-navigation),
+::view-transition-new(shell-bottom-navigation) {
+	mix-blend-mode: normal;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.shell-dock-content {
+		transition: none;
+	}
+
+	::view-transition-group(shell-bottom-navigation) {
+		animation-duration: 1ms;
+	}
 }
 
 .team-lineup-metric-button {

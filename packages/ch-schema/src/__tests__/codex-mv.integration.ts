@@ -76,6 +76,7 @@ describe("codex_session_analytics_mv", () => {
 			git_remote: "github.com/testorg/testproject",
 			package_name: "myapp",
 			package_type: "package.json",
+			upload_mode: "hook",
 			content: fixtureContent,
 			filter_version: 0,
 			ingested_at: now,
@@ -116,6 +117,7 @@ describe("codex_session_analytics_mv", () => {
 		expect(a.git_remote).toBe("github.com/testorg/testproject");
 		expect(a.package_name).toBe("myapp");
 		expect(a.package_type).toBe("package.json");
+		expect(a.upload_mode).toBe("hook");
 
 		// Codex-specific hardcoded values
 		expect(a.used_plan_mode).toBe(0);
@@ -173,6 +175,7 @@ describe("codex_session_analytics_mv", () => {
 			git_remote: "github.com/testorg/testproject",
 			package_name: "myapp",
 			package_type: "package.json",
+			upload_mode: "hook",
 			content: fixtureContent,
 			filter_version: 0,
 			ingested_at: now,
@@ -230,6 +233,7 @@ describe("codex_session_analytics_mv", () => {
 			git_remote: "github.com/testorg/testproject",
 			package_name: "myapp",
 			package_type: "package.json",
+			upload_mode: "hook",
 			content: fixtureContent,
 			filter_version: 0,
 			ingested_at: now,

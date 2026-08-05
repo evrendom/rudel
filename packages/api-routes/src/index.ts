@@ -25,6 +25,9 @@ import {
 	ErrorsDashboardSchema,
 	ErrorTrendDataPointSchema,
 	ErrorTrendsInputSchema,
+	HistoricalSkillDetailInputSchema,
+	HistoricalSkillDetailSchema,
+	HistoricalSkillSummarySchema,
 	InsightSchema,
 	LearningEntrySchema,
 	LearningsFeedStatsSchema,
@@ -408,6 +411,12 @@ export const contract = {
 				.input(DimensionAnalysisInputSchema)
 				.output(z.array(DimensionAnalysisDataPointSchema)),
 			detail: oc.input(SessionDetailInputSchema).output(SessionDetailSchema),
+		},
+		skills: {
+			list: oc.output(z.array(HistoricalSkillSummarySchema)),
+			detail: oc
+				.input(HistoricalSkillDetailInputSchema)
+				.output(HistoricalSkillDetailSchema),
 		},
 		roi: {
 			dashboard: oc.input(DateRangeInputSchema).output(ROIDashboardSchema),

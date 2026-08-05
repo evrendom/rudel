@@ -15,6 +15,7 @@ import {
 	getUtilityRailLabelClassName,
 	type SidebarRowMode,
 } from "@/features/shell/components/shell-rail-utils";
+import { useShellRoutePath } from "@/features/shell/hooks/use-shell-route-path";
 import { useOrganization } from "@/features/workspace/organization/useOrganization";
 import { cn } from "@/lib/utils";
 
@@ -46,12 +47,17 @@ function WorkspaceMark({ className }: { className?: string }) {
 
 export function WorkspaceMenuButton({
 	mode = "expanded",
+	variant = "sidebar",
 }: {
 	mode?: SidebarRowMode;
+	variant?: "bottom-rail" | "header" | "sidebar";
 }) {
 	const navigate = useNavigate();
+	const getShellRoutePath = useShellRoutePath();
 	const { state, actions } = useOrganization();
 	const workspaceName = state.activeOrg?.name ?? "Workspace";
+	const isHeaderVariant = variant === "header";
+	const isBottomRailVariant = variant === "bottom-rail";
 
 	return (
 		<DropdownMenu>
@@ -63,30 +69,65 @@ export function WorkspaceMenuButton({
 						data-sidebar-interactive
 						data-sidebar-workspace-row
 						className={cn(
-							getUtilityRailItemClassName(mode),
-							mode === "collapsed" &&
+							isHeaderVariant
+								? "relative flex size-9 shrink-0 items-center justify-center rounded-xl text-[#292A2F] outline-none hover:bg-black/4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--dashboard-01-metric-button-focus-ring)] active:scale-95 dark:text-white/90 dark:hover:bg-white/6"
+								: getUtilityRailItemClassName(
+										isBottomRailVariant ? "collapsed" : mode,
+									),
+							isBottomRailVariant &&
+								"!size-9 !w-9 self-auto overflow-visible rounded-lg",
+							!isHeaderVariant &&
+								!isBottomRailVariant &&
+								mode === "collapsed" &&
 								"hover:!bg-transparent active:!bg-transparent",
 						)}
 					/>
 				}
 			>
-				<div
-					data-sidebar-workspace-icon-lane
-					className="flex h-[var(--sidebar-icon-lane-size)] w-[var(--sidebar-icon-lane-size)] shrink-0 items-center justify-center"
-				>
-					<div className="relative flex h-[var(--sidebar-avatar-size)] min-h-[var(--sidebar-avatar-size)] w-[var(--sidebar-avatar-size)] min-w-[var(--sidebar-avatar-size)] shrink-0 items-center justify-center text-[#292A2F] dark:text-white/90">
-						<WorkspaceMark />
-					</div>
-				</div>
-				<span
-					aria-hidden="true"
-					data-sidebar-workspace-label
-					className={getUtilityRailLabelClassName(mode)}
-				>
-					{workspaceName}
-				</span>
+				{isHeaderVariant ? (
+					<>
+						<WorkspaceMark className="h-4 w-auto" />
+						<span
+							className="pointer-events-none absolute top-1/2 left-1/2 size-12 -translate-1/2 pointer-fine:hidden"
+							aria-hidden="true"
+						/>
+					</>
+				) : (
+					<>
+						<div
+							data-sidebar-workspace-icon-lane
+							className="flex h-[var(--sidebar-icon-lane-size)] w-[var(--sidebar-icon-lane-size)] shrink-0 items-center justify-center"
+						>
+							<div className="relative flex h-[var(--sidebar-avatar-size)] min-h-[var(--sidebar-avatar-size)] w-[var(--sidebar-avatar-size)] min-w-[var(--sidebar-avatar-size)] shrink-0 items-center justify-center text-[#292A2F] dark:text-white/90">
+								<WorkspaceMark />
+							</div>
+						</div>
+						<span
+							aria-hidden="true"
+							data-sidebar-workspace-label
+							className={getUtilityRailLabelClassName(
+								isBottomRailVariant ? "collapsed" : mode,
+							)}
+						>
+							{workspaceName}
+						</span>
+						{isBottomRailVariant ? (
+							<span
+								className="absolute top-1/2 left-1/2 size-[max(100%,3rem)] -translate-1/2 pointer-fine:hidden"
+								aria-hidden="true"
+							/>
+						) : null}
+					</>
+				)}
 			</DropdownMenuTrigger>
-			<DropdownMenuContent className="min-w-56" side="right" align="start">
+			<DropdownMenuContent
+				className="min-w-56"
+				side={
+					isHeaderVariant ? "bottom" : isBottomRailVariant ? "top" : "right"
+				}
+				align="start"
+				sideOffset={isHeaderVariant || isBottomRailVariant ? 8 : 4}
+			>
 				{state.organizations.length > 0 ? (
 					state.organizations.map((organization) => (
 						<DropdownMenuItem
@@ -102,14 +143,18 @@ export function WorkspaceMenuButton({
 				)}
 				<DropdownMenuSeparator />
 				<DropdownMenuItem
-					onClick={() => navigate(appRoutes.settingsWorkspace())}
+					onClick={() =>
+						navigate(getShellRoutePath(appRoutes.settingsWorkspace()))
+					}
 				>
 					<Settings2Icon />
 					Workspace settings
 				</DropdownMenuItem>
 				<DropdownMenuItem
 					onClick={() =>
-						navigate(`${appRoutes.settingsWorkspace()}#new-workspace`)
+						navigate(
+							`${getShellRoutePath(appRoutes.settingsWorkspace())}#new-workspace`,
+						)
 					}
 				>
 					<CommandIcon />
