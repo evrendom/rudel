@@ -731,23 +731,17 @@ export async function getSessionDetail(
 		usage.mode === "events"
 			? "sa.estimated_cost"
 			: LEGACY_SESSION_DISPLAY_COST_WITH_FALLBACK_SQL;
-	const query = `
-	WITH ${usage.cteDefinitions},
-	latest_raw_session_content AS (
-      ${buildLatestRawSessionContentSql({
-				sessionId: true,
-				userId: true,
-			})}
-    )
+	const metadataQuery = `
+	WITH ${usage.cteDefinitions}
     SELECT
       sa.session_id,
       sa.user_id,
+	  sa.source,
+	  sa.session_date AS raw_session_date,
       formatDateTime(sa.session_date, '%Y-%m-%dT%H:%i:%SZ') as session_date,
       formatDateTime(sa.last_interaction_date, '%Y-%m-%dT%H:%i:%SZ') as last_interaction_date,
       sa.project_path,
       if(sa.git_remote != '', sa.git_remote, if(sa.package_name != '', sa.package_name, sa.project_path)) as repository,
-      raw.content AS content,
-      raw.subagents AS subagents,
       sa.skills,
       sa.slash_commands,
       sa.git_branch,
@@ -761,11 +755,6 @@ export async function getSessionDetail(
       sa.total_interactions,
       sa.model_used
 	FROM ${usage.sessionsRelation} AS sa
-    INNER ANY JOIN latest_raw_session_content AS raw
-      ON raw.source = sa.source
-      AND raw.organization_id = sa.organization_id
-      AND raw.user_id = sa.user_id
-      AND raw.session_id = sa.session_id
     WHERE sa.organization_id = {orgId:String}
       AND sa.session_id = {sessionId:String}
       AND sa.user_id = {ownerId:String}
@@ -773,8 +762,12 @@ export async function getSessionDetail(
     LIMIT 1
   `;
 
-	const results = await queryClickhouse<SessionDetail>({
-		query,
+	type SessionDetailMetadata = Omit<SessionDetail, "content" | "subagents"> & {
+		raw_session_date: string;
+		source: string;
+	};
+	const metadataResults = await queryClickhouse<SessionDetailMetadata>({
+		query: metadataQuery,
 		query_params: {
 			orgId,
 			ownerId,
@@ -783,14 +776,49 @@ export async function getSessionDetail(
 		},
 	});
 
-	const [row] = results;
-	if (!row) {
+	const [metadata] = metadataResults;
+	if (!metadata) {
 		return null;
 	}
+
+	const contentResults = await queryClickhouse<
+		Pick<SessionDetail, "content" | "subagents">
+	>({
+		query: `
+			WITH latest_raw_session_content AS (
+				${buildLatestRawSessionContentSql({
+					sessionDate: true,
+					sessionId: true,
+					source: true,
+					userId: true,
+				})}
+			)
+			SELECT content, subagents
+			FROM latest_raw_session_content
+			WHERE source = {source:String}
+			LIMIT 1
+		`,
+		query_params: {
+			orgId,
+			sessionDate: metadata.raw_session_date,
+			sessionId,
+			source: metadata.source,
+			userId: ownerId,
+		},
+	});
+	const [content] = contentResults;
+	if (!content) return null;
+
+	const {
+		raw_session_date: _rawSessionDate,
+		source: _source,
+		...publicMetadata
+	} = metadata;
 	return {
-		...row,
-		repository: row.repository || null,
-		git_branch: row.git_branch || null,
-		git_sha: row.git_sha || null,
+		...publicMetadata,
+		...content,
+		repository: metadata.repository || null,
+		git_branch: metadata.git_branch || null,
+		git_sha: metadata.git_sha || null,
 	};
 }
