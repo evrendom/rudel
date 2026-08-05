@@ -377,14 +377,14 @@ export function buildUsageEventAnalyticsCte(
 					s.single_resolved_model,
 					sa.model_used
 				) AS model_used,
-				r.usage_date,
-				r.input_tokens,
-				r.output_tokens,
-				r.cache_read_input_tokens,
-				r.cache_creation_input_tokens,
-				r.total_tokens,
-				r.estimated_cost,
-				r.cost_is_complete
+				r.usage_date AS usage_date,
+				r.input_tokens AS input_tokens,
+				r.output_tokens AS output_tokens,
+				r.cache_read_input_tokens AS cache_read_input_tokens,
+				r.cache_creation_input_tokens AS cache_creation_input_tokens,
+				r.total_tokens AS total_tokens,
+				r.estimated_cost AS estimated_cost,
+				r.cost_is_complete AS cost_is_complete
 			FROM usage_event_daily_rollups AS r
 			ANY INNER JOIN usage_analytics_metadata AS sa
 				ON sa.organization_id = r.organization_id
