@@ -63,14 +63,17 @@ describe("usage-event analytics query contract", () => {
 		expect(sql).not.toMatch(/match\(lowerUTF8\(sa\.model_used\)/u);
 	});
 
-	test("fails closed for unsupported service tiers", () => {
+	test("prices exact provenance and fails closed for unsupported dimensions", () => {
 		const sql = buildUsageEventAnalyticsCte();
 
-		expect(sql).toContain(
-			"e.service_tier IN ('', 'standard', 'default', 'auto')",
-		);
+		expect(sql).toContain("lowerUTF8(trimBoth(e.service_tier))");
+		expect(sql).toContain("lowerUTF8(trimBoth(e.model_provider))");
+		expect(sql).toContain("lowerUTF8(trimBoth(e.inference_speed))");
+		expect(sql).toContain("lowerUTF8(trimBoth(e.inference_geo))");
+		expect(sql).toContain("IN ('fast', 'priority')");
 		expect(sql).toContain("service_tier_conflict");
 		expect(sql).toContain("unrecognized_service_tier");
+		expect(sql).toContain("provider_model_mismatch");
 		expect(sql).toContain("e.has_valid_timestamp = 1");
 	});
 

@@ -24,6 +24,21 @@ const rudel_usage_events = table({
 		{ name: "resolved_model", type: "LowCardinality(String)" },
 		{ name: "model_status", type: "LowCardinality(String)" },
 		{ name: "service_tier", type: "LowCardinality(String)" },
+		{
+			name: "model_provider",
+			type: "LowCardinality(String)",
+			default: "''",
+		},
+		{
+			name: "inference_speed",
+			type: "LowCardinality(String)",
+			default: "''",
+		},
+		{
+			name: "inference_geo",
+			type: "LowCardinality(String)",
+			default: "''",
+		},
 		{ name: "context_input_tokens", type: "UInt64" },
 		{ name: "uncached_input_tokens", type: "UInt64" },
 		{ name: "cache_read_input_tokens", type: "UInt64" },

@@ -125,6 +125,11 @@ describe("usage event ingest recovery contract", () => {
 		expect(retryEvent?.model_rate_card_version).toBe(
 			USAGE_EVENT_MODEL_RATE_CARD_VERSION,
 		);
+		expect(retryEvent).toMatchObject({
+			model_provider: "anthropic",
+			inference_speed: "",
+			inference_geo: "",
+		});
 	});
 
 	test("X-03 a normal longer reupload keeps old IDs and never tombstones absent facts", () => {
@@ -346,8 +351,11 @@ function event(overrides: Partial<UsageEvent> = {}): UsageEvent {
 		eventId: "e".repeat(64),
 		firstObservedLine: 1,
 		identityKind: "message_id",
+		inferenceGeo: "",
+		inferenceSpeed: "",
 		lineageId: "main",
 		modelStatus: "resolved",
+		modelProvider: "anthropic",
 		occurredAt: "2026-08-03T11:00:00.000Z",
 		organizationId: "org-1",
 		outputTokens: 5,

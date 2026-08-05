@@ -32,6 +32,10 @@ const EVENT_COST_SQL = buildEstimatedCostSql({
 	cacheCreationInputExpr: "e.cache_write_5m_input_tokens",
 	cacheCreation1hInputExpr: "e.cache_write_1h_input_tokens",
 	contextInputExpr: "e.context_input_tokens",
+	modelProviderExpr: "e.model_provider",
+	serviceTierExpr: "e.service_tier",
+	inferenceSpeedExpr: "e.inference_speed",
+	inferenceGeoExpr: "e.inference_geo",
 });
 
 const PRICEABLE_EVENT_SQL = `
@@ -39,7 +43,13 @@ const PRICEABLE_EVENT_SQL = `
 	AND e.has_valid_timestamp = 1
 	AND NOT has(e.quality_flags, 'service_tier_conflict')
 	AND NOT has(e.quality_flags, 'unrecognized_service_tier')
-	AND e.service_tier IN ('', 'standard', 'default', 'auto')
+	AND NOT has(e.quality_flags, 'model_provider_conflict')
+	AND NOT has(e.quality_flags, 'provider_model_mismatch')
+	AND NOT has(e.quality_flags, 'unrecognized_model_provider')
+	AND NOT has(e.quality_flags, 'inference_speed_conflict')
+	AND NOT has(e.quality_flags, 'unrecognized_inference_speed')
+	AND NOT has(e.quality_flags, 'inference_geo_conflict')
+	AND NOT has(e.quality_flags, 'unrecognized_inference_geo')
 `;
 
 const SESSION_METADATA_COLUMNS = `
@@ -388,6 +398,9 @@ async function probeUsageEventAnalyticsSchema(
 				resolved_model,
 				model_status,
 				service_tier,
+				model_provider,
+				inference_speed,
+				inference_geo,
 				context_input_tokens,
 				uncached_input_tokens,
 				cache_read_input_tokens,

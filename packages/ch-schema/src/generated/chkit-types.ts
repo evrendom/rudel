@@ -190,6 +190,9 @@ export type RudelUsageEventsRow = {
   resolved_model: string
   model_status: string
   service_tier: string
+  model_provider: string
+  inference_speed: string
+  inference_geo: string
   context_input_tokens: string
   uncached_input_tokens: string
   cache_read_input_tokens: string
@@ -232,6 +235,9 @@ export const RudelUsageEventsRowSchema = z.object({
   resolved_model: z.string(),
   model_status: z.string(),
   service_tier: z.string(),
+  model_provider: z.string(),
+  inference_speed: z.string(),
+  inference_geo: z.string(),
   context_input_tokens: z.string(),
   uncached_input_tokens: z.string(),
   cache_read_input_tokens: z.string(),

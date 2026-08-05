@@ -11,8 +11,8 @@ import {
 } from "./index.js";
 
 describe("usage identity versioning", () => {
-	test("pins the replay-safe extraction semantics to v2", () => {
-		expect(USAGE_EVENT_EXTRACTION_VERSION).toBe(2);
+	test("pins pricing-provenance extraction semantics to v3", () => {
+		expect(USAGE_EVENT_EXTRACTION_VERSION).toBe(3);
 	});
 
 	test("pins every event and lineage prefix to the identity-version knob", () => {
@@ -141,11 +141,16 @@ describe("usage attestation", () => {
 		const payload = getUsageAttestationPayload([event]);
 		expect(payload).toEqual([
 			[
-				"usage-attestation:v1",
+				"usage-attestation:v2",
 				event.eventId,
 				"message_id",
 				"2026-08-01",
 				"claude-sonnet-4-5",
+				"claude-sonnet-4-5-20250929",
+				"",
+				"standard",
+				"",
+				"",
 				10,
 				10,
 				0,
@@ -163,6 +168,15 @@ describe("usage attestation", () => {
 		).not.toEqual(payload);
 		expect(
 			getUsageAttestationPayload([{ ...event, usageDate: "2026-08-02" }]),
+		).not.toEqual(payload);
+		expect(
+			getUsageAttestationPayload([{ ...event, inferenceGeo: "us" }]),
+		).not.toEqual(payload);
+		expect(
+			getUsageAttestationPayload([{ ...event, inferenceSpeed: "fast" }]),
+		).not.toEqual(payload);
+		expect(
+			getUsageAttestationPayload([{ ...event, modelProvider: "anthropic" }]),
 		).not.toEqual(payload);
 	});
 });
@@ -536,7 +550,7 @@ describe("Claude usage-event extraction", () => {
 
 		expect(result.events).toEqual([]);
 		expect(result.receipt.eventCount).toBe(0);
-		expect(result.receipt.modelRateCardVersion).toBe("2026-08-02");
+		expect(result.receipt.modelRateCardVersion).toBe("2026-08-05");
 		expect(result.receipt.checksum).toBe(
 			"4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
 		);
@@ -575,8 +589,8 @@ describe("Claude usage-event extraction", () => {
 			uncachedInputTokens: 8,
 			occurredAt: null,
 			usageDate: null,
-			resolvedModel: "",
-			modelStatus: "unresolved",
+			resolvedModel: "claude-sonnet-4-5-20250929",
+			modelStatus: "resolved",
 		});
 	});
 
@@ -679,6 +693,29 @@ describe("Claude usage-event extraction", () => {
 			resolvedModel: "",
 			modelStatus: "unresolved",
 			uncachedInputTokens: 19,
+		});
+	});
+
+	test("extracts exact Claude speed and geography pricing provenance", () => {
+		const event = onlyEvent(
+			extractClaude(
+				claudeLine({
+					messageId: "claude-routing",
+					requestId: "claude-routing-request",
+					input: 10,
+					output: 2,
+					inferenceGeo: "US",
+					inferenceSpeed: "FAST",
+					model: "claude-opus-4-8 [1m]",
+				}),
+			),
+		);
+
+		expect(event).toMatchObject({
+			inferenceGeo: "us",
+			inferenceSpeed: "fast",
+			rawModel: "claude-opus-4-8 [1m]",
+			resolvedModel: "claude-opus-4-8",
 		});
 	});
 
@@ -834,8 +871,8 @@ describe("Claude usage-event extraction", () => {
 
 		expect(event).toMatchObject({
 			rawModel: "gpt-5.1-codex",
-			resolvedModel: "",
-			modelStatus: "unresolved",
+			resolvedModel: "gpt-5.1-codex",
+			modelStatus: "resolved",
 			uncachedInputTokens: 7,
 		});
 		expect(event.qualityFlags).toContain("provider_model_mismatch");
@@ -843,6 +880,22 @@ describe("Claude usage-event extraction", () => {
 });
 
 describe("Codex usage-event extraction", () => {
+	test("known unpriced identities retain canonical model identity", () => {
+		const event = onlyEvent(
+			extractCodex([
+				turnContext("gpt-5.3-codex-spark"),
+				codexLine(vector(10, 0, 1, 0), vector(10, 0, 1, 0)),
+			]),
+		);
+
+		expect(event).toMatchObject({
+			modelStatus: "resolved",
+			rawModel: "gpt-5.3-codex-spark",
+			resolvedModel: "gpt-5.3-codex-spark",
+			qualityFlags: expect.arrayContaining(["no_public_rate"]),
+		});
+	});
+
 	test("C-01 ordinary unique increments sum to the final snapshot", () => {
 		const result = extractCodex([
 			turnContext("gpt-5.1-codex"),
@@ -1322,7 +1375,7 @@ describe("Codex usage-event extraction", () => {
 		expect(sumTokenClasses(result.events).uncached).toBe(100);
 	});
 
-	test("C-08 each transition retains line-local models and conflicts fail closed", () => {
+	test("C-08 duplicate conflicts retain the earliest exact model with disclosure", () => {
 		const firstTransition = codexLine(
 			vector(100, 0, 10, 0),
 			vector(100, 0, 10, 0),
@@ -1341,9 +1394,10 @@ describe("Codex usage-event extraction", () => {
 		expect(
 			result.events.find((event) => event.contextInputTokens === 100),
 		).toMatchObject({
-			rawModel: "",
-			resolvedModel: "",
-			modelStatus: "conflict",
+			rawModel: "gpt-5",
+			resolvedModel: "gpt-5",
+			modelStatus: "resolved",
+			qualityFlags: expect.arrayContaining(["model_conflict"]),
 		});
 		expect(
 			result.events.find((event) => event.contextInputTokens === 50),
@@ -1421,6 +1475,26 @@ describe("Codex usage-event extraction", () => {
 		expect(unknown).toMatchObject({
 			serviceTier: "",
 			qualityFlags: expect.arrayContaining(["unrecognized_service_tier"]),
+		});
+	});
+
+	test("Codex stores exact provider and accepts literal Fast telemetry", () => {
+		const event = onlyEvent(
+			extractCodex([
+				codexSessionMeta({ modelProvider: "OpenAI" }),
+				turnContext("gpt-5.4"),
+				codexLine(
+					vector(10, 0, 1, 0),
+					vector(10, 0, 1, 0),
+					"2026-08-01T10:00:00.000Z",
+					"FAST",
+				),
+			]),
+		);
+
+		expect(event).toMatchObject({
+			modelProvider: "openai",
+			serviceTier: "fast",
 		});
 	});
 
@@ -1636,6 +1710,8 @@ function claudeLine(input: {
 	model?: string;
 	omitCacheCreation?: boolean;
 	serviceTier?: string;
+	inferenceGeo?: string;
+	inferenceSpeed?: string;
 	timestamp?: string;
 	isSidechain?: boolean;
 }): string {
@@ -1663,6 +1739,12 @@ function claudeLine(input: {
 						}),
 				output_tokens: input.output,
 				service_tier: input.serviceTier ?? "standard",
+				...(input.inferenceGeo === undefined
+					? {}
+					: { inference_geo: input.inferenceGeo }),
+				...(input.inferenceSpeed === undefined
+					? {}
+					: { speed: input.inferenceSpeed }),
 			},
 		},
 	});
@@ -1686,6 +1768,7 @@ function vector(
 
 function codexSessionMeta(input: {
 	forkedFromId?: string;
+	modelProvider?: string;
 	threadSpawnParentId?: string;
 }): string {
 	return JSON.stringify({
@@ -1693,6 +1776,9 @@ function codexSessionMeta(input: {
 		type: "session_meta",
 		payload: {
 			id: "session-1",
+			...(input.modelProvider === undefined
+				? {}
+				: { model_provider: input.modelProvider }),
 			...(input.forkedFromId === undefined
 				? {}
 				: { forked_from_id: input.forkedFromId }),
