@@ -39,6 +39,8 @@ const invalidTimestampSessionId = `usage_analytics_invalid_timestamp_${runId}`;
 const deletedReceiptSessionId = `usage_analytics_deleted_receipt_${runId}`;
 const tombstonedSessionId = `usage_analytics_tombstone_${runId}`;
 const missingMetadataSessionId = `usage_analytics_missing_metadata_${runId}`;
+const syntheticTerminalSessionId = `usage_analytics_synthetic_terminal_${runId}`;
+const syntheticZeroSessionId = `usage_analytics_synthetic_zero_${runId}`;
 const unknownMixedModelSessionId = `usage_analytics_unknown_mixed_${runId}`;
 const unknownSingleModelSessionId = `usage_analytics_unknown_single_${runId}`;
 const eventId = "a".repeat(64);
@@ -84,6 +86,14 @@ beforeAll(async () => {
 				...buildSessionAnalyticsRow(unknownSingleModelSessionId),
 				model_used: "unknown",
 				source: "codex",
+			},
+			{
+				...buildSessionAnalyticsRow(syntheticTerminalSessionId),
+				model_used: "<synthetic>",
+			},
+			{
+				...buildSessionAnalyticsRow(syntheticZeroSessionId),
+				model_used: "<synthetic>",
 			},
 		],
 		{ validate: true },
@@ -194,15 +204,40 @@ beforeAll(async () => {
 			buildReceiptRow(tombstonedSessionId, "2", 0, true),
 			buildEventRow(missingMetadataSessionId, "1"),
 			buildReceiptRow(missingMetadataSessionId, "1", 1, true),
+			buildEventRow(syntheticTerminalSessionId, "1", {
+				event_id: "1".repeat(64),
+				first_observed_line: 10,
+				occurred_at: "2026-08-04 08:00:00.000",
+			}),
+			buildEventRow(syntheticTerminalSessionId, "1", {
+				agent_id: "worker",
+				event_id: "2".repeat(64),
+				first_observed_line: 20,
+				occurred_at: "2026-08-04 08:01:00.000",
+				raw_model: "claude-haiku-4-5",
+				resolved_model: "claude-haiku-4-5-20251001",
+			}),
+			buildSyntheticZeroEvent(syntheticTerminalSessionId, "3".repeat(64)),
+			buildReceiptRow(syntheticTerminalSessionId, "1", 3, true),
+			buildSyntheticZeroEvent(syntheticZeroSessionId, "4".repeat(64)),
+			buildReceiptRow(syntheticZeroSessionId, "1", 1, true),
 			buildCodexDisplayEvent(
 				unknownMixedModelSessionId,
 				eventId,
 				"gpt-5.6-sol",
+				{
+					first_observed_line: 10,
+					occurred_at: "2026-08-04 08:00:00.000",
+				},
 			),
 			buildCodexDisplayEvent(
 				unknownMixedModelSessionId,
 				"f".repeat(64),
 				"gpt-5.6-terra",
+				{
+					first_observed_line: 20,
+					occurred_at: "2026-08-04 08:01:00.000",
+				},
 			),
 			buildReceiptRow(unknownMixedModelSessionId, "1", 2, true, "codex"),
 			buildCodexDisplayEvent(
@@ -251,7 +286,7 @@ describe("usage-event analytics ClickHouse rollups", () => {
 				cost_is_complete: 1,
 				estimated_cost: 102.85,
 				input_tokens: "4000000",
-				model_used: "claude-opus-4-1",
+				model_used: "claude-opus-4-8",
 				output_tokens: "1000000",
 				session_id: claudeFastUsSessionId,
 				total_tokens: "5000000",
@@ -260,7 +295,7 @@ describe("usage-event analytics ClickHouse rollups", () => {
 				cost_is_complete: 0,
 				estimated_cost: 0,
 				input_tokens: "4000000",
-				model_used: "claude-opus-4-1",
+				model_used: "claude-sonnet-4-5",
 				output_tokens: "1000000",
 				session_id: invalidTimestampSessionId,
 				total_tokens: "5000000",
@@ -269,7 +304,7 @@ describe("usage-event analytics ClickHouse rollups", () => {
 				cost_is_complete: 1,
 				estimated_cost: 55,
 				input_tokens: "1000000",
-				model_used: "claude-opus-4-1",
+				model_used: "gpt-5.6-sol",
 				output_tokens: "1000000",
 				session_id: longContextSessionId,
 				total_tokens: "2000000",
@@ -278,7 +313,7 @@ describe("usage-event analytics ClickHouse rollups", () => {
 				cost_is_complete: 1,
 				estimated_cost: 3.55,
 				input_tokens: "200000",
-				model_used: "claude-opus-4-1",
+				model_used: "gpt-5.4",
 				output_tokens: "100000",
 				session_id: openAiFastSessionId,
 				total_tokens: "300000",
@@ -287,7 +322,7 @@ describe("usage-event analytics ClickHouse rollups", () => {
 				cost_is_complete: 0,
 				estimated_cost: 28.05,
 				input_tokens: "8000000",
-				model_used: "claude-opus-4-1",
+				model_used: "claude-sonnet-4-5",
 				output_tokens: "2000000",
 				session_id: partialSessionId,
 				total_tokens: "10000000",
@@ -296,16 +331,34 @@ describe("usage-event analytics ClickHouse rollups", () => {
 				cost_is_complete: 1,
 				estimated_cost: 56.1,
 				input_tokens: "8000000",
-				model_used: "claude-opus-4-1",
+				model_used: "claude-sonnet-4-5",
 				output_tokens: "2000000",
 				session_id: resolvedSessionId,
 				total_tokens: "10000000",
 			},
 			{
 				cost_is_complete: 1,
+				estimated_cost: 37.4,
+				input_tokens: "8000000",
+				model_used: "claude-sonnet-4-5",
+				output_tokens: "2000000",
+				session_id: syntheticTerminalSessionId,
+				total_tokens: "10000000",
+			},
+			{
+				cost_is_complete: 1,
 				estimated_cost: 0,
 				input_tokens: "0",
-				model_used: "claude-opus-4-1",
+				model_used: "",
+				output_tokens: "0",
+				session_id: syntheticZeroSessionId,
+				total_tokens: "0",
+			},
+			{
+				cost_is_complete: 1,
+				estimated_cost: 0,
+				input_tokens: "0",
+				model_used: "",
 				output_tokens: "0",
 				session_id: tombstonedSessionId,
 				total_tokens: "0",
@@ -314,7 +367,7 @@ describe("usage-event analytics ClickHouse rollups", () => {
 				cost_is_complete: 0,
 				estimated_cost: 46.75,
 				input_tokens: "4000000",
-				model_used: "claude-opus-4-1",
+				model_used: "claude-opus-4-8",
 				output_tokens: "1000000",
 				session_id: unavailableGeoSessionId,
 				total_tokens: "5000000",
@@ -323,7 +376,7 @@ describe("usage-event analytics ClickHouse rollups", () => {
 				cost_is_complete: 1,
 				estimated_cost: 4.97,
 				input_tokens: "400000",
-				model_used: "unknown",
+				model_used: "gpt-5.6-terra",
 				output_tokens: "200000",
 				session_id: unknownMixedModelSessionId,
 				total_tokens: "600000",
@@ -341,7 +394,7 @@ describe("usage-event analytics ClickHouse rollups", () => {
 				cost_is_complete: 0,
 				estimated_cost: 0,
 				input_tokens: "4000000",
-				model_used: "claude-opus-4-1",
+				model_used: "",
 				output_tokens: "1000000",
 				session_id: unresolvedSessionId,
 				total_tokens: "5000000",
@@ -350,12 +403,18 @@ describe("usage-event analytics ClickHouse rollups", () => {
 				cost_is_complete: 0,
 				estimated_cost: 0,
 				input_tokens: "4000000",
-				model_used: "claude-opus-4-1",
+				model_used: "claude-sonnet-4-5",
 				output_tokens: "1000000",
 				session_id: unsupportedTierSessionId,
 				total_tokens: "5000000",
 			},
 		]);
+		expect(
+			rows.every(
+				(row) =>
+					row.model_used !== "unknown" && row.model_used !== "<synthetic>",
+			),
+		).toBe(true);
 		expect(
 			rows.some((row) => row.session_id === missingMetadataSessionId),
 		).toBe(false);
@@ -385,7 +444,7 @@ describe("usage-event analytics ClickHouse rollups", () => {
 			query_params: { orgId: organizationId },
 		});
 
-		expect(rows).toEqual([{ cost: 300.82, incomplete_sessions: 5 }]);
+		expect(rows).toEqual([{ cost: 338.22, incomplete_sessions: 5 }]);
 	});
 
 	test("keeps bounded key prefixes visible across the shared query families", async () => {
@@ -603,6 +662,7 @@ function buildCodexDisplayEvent(
 	sessionId: string,
 	rowEventId: string,
 	model: string,
+	overrides: Partial<RudelUsageEventsRow> = {},
 ): RudelUsageEventsRow {
 	return buildEventRow(sessionId, "1", {
 		cache_read_input_tokens: "100000",
@@ -617,5 +677,27 @@ function buildCodexDisplayEvent(
 		service_tier: "auto",
 		source: "codex",
 		uncached_input_tokens: "100000",
+		...overrides,
+	});
+}
+
+function buildSyntheticZeroEvent(
+	sessionId: string,
+	rowEventId: string,
+): RudelUsageEventsRow {
+	return buildEventRow(sessionId, "1", {
+		cache_read_input_tokens: "0",
+		cache_write_1h_input_tokens: "0",
+		cache_write_5m_input_tokens: "0",
+		context_input_tokens: "0",
+		event_id: rowEventId,
+		first_observed_line: 30,
+		model_status: "synthetic",
+		occurred_at: "2026-08-04 08:02:00.000",
+		output_tokens: "0",
+		quality_flags: ["synthetic_model"],
+		raw_model: "",
+		resolved_model: "",
+		uncached_input_tokens: "0",
 	});
 }

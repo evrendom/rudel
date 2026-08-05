@@ -64,14 +64,22 @@ describe("usage-event analytics query contract", () => {
 		expect(sql).not.toMatch(/match\(lowerUTF8\(sa\.model_used\)/u);
 	});
 
-	test("repairs an unknown display label only for one unanimous event model", () => {
+	test("uses the latest resolved main event as display metadata", () => {
 		const sql = buildUsageEventAnalyticsCte();
 
-		expect(sql).toContain("uniqExactIf(");
-		expect(sql).toContain("AS resolved_model_count");
-		expect(sql).toContain("AS single_resolved_model");
-		expect(sql).toContain("ifNull(r.resolved_model_count, 0) = 1");
-		expect(sql).toContain("ifNull(s.resolved_model_count, 0) = 1");
+		expect(sql).toContain("argMaxIf(");
+		expect(sql).toContain("p.agent_id = 'main'");
+		expect(sql).toContain("AS latest_main_model");
+		expect(sql).toContain("AS latest_resolved_model");
+		expect(sql).toContain(
+			"if(r.latest_main_model != '', r.latest_main_model, r.latest_resolved_model) AS model_used",
+		);
+		expect(sql).toContain(
+			"if(s.latest_main_model != '', s.latest_main_model, s.latest_resolved_model) AS model_used",
+		);
+		expect(sql).not.toContain("resolved_model_count");
+		expect(sql).not.toContain("single_resolved_model");
+		expect(sql).not.toContain("lowerUTF8(trimBoth(sa.model_used))");
 	});
 
 	test("prices exact provenance and fails closed for unsupported dimensions", () => {
