@@ -48,6 +48,8 @@ type PricingModifierDimension =
 	| "inference_geo";
 
 const EVENT_PRICING_RATE_CARD_SQL = buildEventPricingRateCardSql();
+const EVENT_CANONICAL_PRICING_MODEL_SQL =
+	buildCanonicalPricingModelSql("c.resolved_model");
 const EVENT_LONG_CONTEXT_AVAILABLE_SQL = buildLongContextAvailableSql();
 const EVENT_GROUP_COST_SQL = buildEventGroupCostSql();
 
@@ -81,11 +83,34 @@ function buildEventPricingRateCardSql(): string {
 	`;
 }
 
+function buildCanonicalPricingModelSql(modelExpr: string): string {
+	const canonicalModelByPattern = new Map<string, string>();
+	for (const entry of getModelPricingCatalog()) {
+		for (const pattern of entry.match) {
+			const existingModel = canonicalModelByPattern.get(pattern);
+			if (existingModel !== undefined && existingModel !== entry.model) {
+				throw new Error(
+					`Pricing pattern ${pattern} maps to both ${existingModel} and ${entry.model}`,
+				);
+			}
+			canonicalModelByPattern.set(pattern, entry.model);
+		}
+	}
+
+	const clauses = [...canonicalModelByPattern.entries()].flatMap(
+		([pattern, model]) => [
+			`match(lowerUTF8(${modelExpr}), '${escapeSqlString(pattern)}')`,
+			`'${escapeSqlString(model)}'`,
+		],
+	);
+	return `multiIf(${clauses.join(", ")}, '')`;
+}
+
 function buildLongContextAvailableSql(): string {
 	const clauses = getModelPricingCatalog()
 		.filter((entry) => entry.contextBand === "long")
 		.flatMap((entry) => [
-			`g.resolved_model = '${escapeSqlString(entry.model)}'
+			`g.pricing_model = '${escapeSqlString(entry.model)}'
 				AND g.usage_date >= toDate('${entry.effectiveFrom}')
 				AND g.usage_date <= toDate('${entry.effectiveTo ?? "2299-12-31"}')`,
 			"toUInt8(1)",
@@ -165,7 +190,7 @@ function buildModifierDimensionSql(
 		.filter((rule) => rule.dimension === dimension)
 		.flatMap((rule) => {
 			const conditions = [
-				`g.resolved_model = '${escapeSqlString(rule.model)}'`,
+				`g.pricing_model = '${escapeSqlString(rule.model)}'`,
 				`lowerUTF8(trimBoth(${valueExpr})) IN (${rule.values
 					.map((value) => `'${escapeSqlString(value)}'`)
 					.join(", ")})`,
@@ -395,7 +420,7 @@ export function buildUsageEventAnalyticsCte(
 				PARTITION BY organization_id, user_id, source, session_id
 			)
 		),
-		usage_event_pricing_groups AS (
+		usage_event_pricing_candidates AS (
 			SELECT
 				e.organization_id,
 				e.user_id,
@@ -439,6 +464,12 @@ export function buildUsageEventAnalyticsCte(
 				is_priceable,
 				has_geo_gap
 		),
+		usage_event_pricing_groups AS (
+			SELECT
+				c.*,
+				${EVENT_CANONICAL_PRICING_MODEL_SQL} AS pricing_model
+			FROM usage_event_pricing_candidates AS c
+		),
 		usage_event_pricing_rate_card AS (
 			${EVENT_PRICING_RATE_CARD_SQL}
 		),
@@ -448,7 +479,7 @@ export function buildUsageEventAnalyticsCte(
 				${EVENT_GROUP_COST_SQL} AS group_estimated_cost
 			FROM usage_event_pricing_groups AS g
 			ANY LEFT JOIN usage_event_pricing_rate_card AS r
-				ON g.resolved_model = r.model
+				ON g.pricing_model = r.model
 				AND r.context_band = if(
 					g.context_band = 'long'
 						AND ${EVENT_LONG_CONTEXT_AVAILABLE_SQL} = 1,

@@ -62,10 +62,16 @@ describe("usage-event analytics query contract", () => {
 	test("groups equivalent events before joining the typed rate card", () => {
 		const sql = buildUsageEventAnalyticsCte();
 
+		expect(sql).toContain("usage_event_pricing_candidates AS");
 		expect(sql).toContain("usage_event_pricing_groups AS");
 		expect(sql).toContain("usage_event_pricing_rate_card AS");
+		expect(sql).toContain("match(lowerUTF8(c.resolved_model)");
+		expect(sql).toContain("ON g.pricing_model = r.model");
 		expect(sql).toContain("ANY LEFT JOIN usage_event_pricing_rate_card AS r");
-		expect(sql.indexOf("usage_event_pricing_groups AS")).toBeLessThan(
+		expect(sql.indexOf("usage_event_pricing_candidates AS")).toBeLessThan(
+			sql.indexOf("match(lowerUTF8(c.resolved_model)"),
+		);
+		expect(sql.indexOf("match(lowerUTF8(c.resolved_model)")).toBeLessThan(
 			sql.indexOf("ANY LEFT JOIN usage_event_pricing_rate_card AS r"),
 		);
 		expect(sql).not.toContain("match(lowerUTF8(e.resolved_model)");
