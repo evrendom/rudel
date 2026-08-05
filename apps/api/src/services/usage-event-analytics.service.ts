@@ -193,88 +193,51 @@ export function buildUsageEventAnalyticsCte(
 	scope: UsageAnalyticsScope = {},
 ): string {
 	const usageEventFilters = buildUsageEventFilters(scope);
+	// The organization/key filters follow the table's primary-key prefix, so FINAL
+	// resolves exact ReplacingMergeTree state without scanning unrelated tenants.
+	// Keep this pipeline single-pass: ClickHouse inlines repeated CTE references.
 	return `
 		latest_usage_records AS (
 			SELECT *
-			FROM (
-				SELECT *
-				FROM ${getSafeClickHouseTable(USAGE_EVENTS_TABLE)}
-				WHERE ${usageEventFilters}
-				ORDER BY
-					organization_id,
-					user_id,
-					source,
-					session_id,
-					event_id,
-					event_version DESC
-				LIMIT 1 BY organization_id, user_id, source, session_id, event_id
+			FROM ${getSafeClickHouseTable(USAGE_EVENTS_TABLE)} FINAL
+			WHERE ${usageEventFilters}
+		),
+		usage_records_with_receipt AS (
+			SELECT
+				*,
+				argMaxIf(event_version, event_version, record_kind = 'receipt') OVER usage_session_window AS receipt_generation,
+				argMaxIf(receipt_event_count, event_version, record_kind = 'receipt') OVER usage_session_window AS latest_receipt_event_count,
+				argMaxIf(receipt_is_complete, event_version, record_kind = 'receipt') OVER usage_session_window AS latest_receipt_is_complete,
+				argMaxIf(is_deleted, event_version, record_kind = 'receipt') OVER usage_session_window AS latest_receipt_is_deleted
+			FROM latest_usage_records
+			WINDOW usage_session_window AS (
+				PARTITION BY organization_id, user_id, source, session_id
 			)
 		),
-		latest_usage_receipts AS (
+		usage_records_with_consistency AS (
+			SELECT
+				*,
+				countIf(
+					record_kind = 'event'
+					AND is_deleted = 0
+					AND event_version = receipt_generation
+				) OVER usage_session_window AS active_event_count
+			FROM usage_records_with_receipt
+			WINDOW usage_session_window AS (
+				PARTITION BY organization_id, user_id, source, session_id
+			)
+		),
+		consistent_usage_records AS (
 			SELECT *
-			FROM (
-				SELECT *
-				FROM latest_usage_records
-				WHERE record_kind = 'receipt'
-				ORDER BY
-					organization_id,
-					user_id,
-					source,
-					session_id,
-					event_version DESC
-				LIMIT 1 BY organization_id, user_id, source, session_id
-			)
+			FROM usage_records_with_consistency
+			WHERE latest_receipt_is_deleted = 0
+				AND latest_receipt_is_complete = 1
+				AND active_event_count = latest_receipt_event_count
+				AND event_version = receipt_generation
+				AND is_deleted = 0
+				AND record_kind IN ('event', 'receipt')
 		),
-		complete_usage_receipts AS (
-			SELECT
-				organization_id,
-				user_id,
-				source,
-				session_id,
-				event_version AS generation,
-				receipt_event_count
-			FROM latest_usage_receipts
-			WHERE is_deleted = 0 AND receipt_is_complete = 1
-		),
-		consistent_usage_sessions AS (
-			SELECT
-				r.organization_id,
-				r.user_id,
-				r.source,
-				r.session_id,
-				r.generation,
-				r.receipt_event_count
-			FROM complete_usage_receipts AS r
-			LEFT JOIN latest_usage_records AS e
-				ON e.organization_id = r.organization_id
-				AND e.user_id = r.user_id
-				AND e.source = r.source
-				AND e.session_id = r.session_id
-			GROUP BY
-				r.organization_id,
-				r.user_id,
-				r.source,
-				r.session_id,
-				r.generation,
-				r.receipt_event_count
-			HAVING countIf(
-				e.record_kind = 'event'
-				AND e.is_deleted = 0
-				AND e.event_version = r.generation
-			) = r.receipt_event_count
-		),
-		active_usage_events AS (
-			SELECT e.*
-			FROM latest_usage_records AS e
-			INNER JOIN consistent_usage_sessions AS c
-				ON e.organization_id = c.organization_id
-				AND e.user_id = c.user_id
-				AND e.source = c.source
-				AND e.session_id = c.session_id
-				AND e.event_version = c.generation
-			WHERE e.record_kind = 'event' AND e.is_deleted = 0
-		),
-		priced_usage_events AS (
+		priced_usage_records AS (
 			SELECT
 				e.*,
 				if(
@@ -286,7 +249,30 @@ export function buildUsageEventAnalyticsCte(
 					toNullable(0.0),
 					if(${PRICEABLE_EVENT_SQL}, ${EVENT_COST_SQL}, CAST(NULL, 'Nullable(Float64)'))
 				) AS estimated_cost
-			FROM active_usage_events AS e
+			FROM consistent_usage_records AS e
+		),
+		usage_records_with_display_model AS (
+			SELECT
+				*,
+				argMaxIf(
+					resolved_model,
+					tuple(has_valid_timestamp, occurred_at, first_observed_line, event_id),
+					record_kind = 'event'
+						AND agent_id = 'main'
+						AND model_status = 'resolved'
+						AND resolved_model != ''
+				) OVER usage_session_window AS latest_main_model,
+				argMaxIf(
+					resolved_model,
+					tuple(has_valid_timestamp, occurred_at, first_observed_line, event_id),
+					record_kind = 'event'
+						AND model_status = 'resolved'
+						AND resolved_model != ''
+				) OVER usage_session_window AS latest_resolved_model
+			FROM priced_usage_records
+			WINDOW usage_session_window AS (
+				PARTITION BY organization_id, user_id, source, session_id
+			)
 		),
 		usage_event_session_rollups AS (
 			SELECT
@@ -301,32 +287,15 @@ export function buildUsageEventAnalyticsCte(
 				sum(p.uncached_input_tokens + p.cache_read_input_tokens + p.cache_write_5m_input_tokens + p.cache_write_1h_input_tokens + p.output_tokens) AS total_tokens,
 				toNullable(sum(ifNull(p.estimated_cost, 0))) AS estimated_cost,
 				toUInt8(countIf(
-					isNull(p.estimated_cost)
-					OR has(p.quality_flags, 'inference_geo_not_available')
+					p.record_kind = 'event'
+					AND (
+						isNull(p.estimated_cost)
+						OR has(p.quality_flags, 'inference_geo_not_available')
+					)
 				) = 0) AS cost_is_complete,
-				argMaxIf(
-					p.resolved_model,
-					tuple(
-						p.has_valid_timestamp,
-						p.occurred_at,
-						p.first_observed_line,
-						p.event_id
-					),
-					p.agent_id = 'main'
-						AND p.model_status = 'resolved'
-						AND p.resolved_model != ''
-				) AS latest_main_model,
-				argMaxIf(
-					p.resolved_model,
-					tuple(
-						p.has_valid_timestamp,
-						p.occurred_at,
-						p.first_observed_line,
-						p.event_id
-					),
-					p.model_status = 'resolved' AND p.resolved_model != ''
-				) AS latest_resolved_model
-			FROM priced_usage_events AS p
+				any(p.latest_main_model) AS latest_main_model,
+				any(p.latest_resolved_model) AS latest_resolved_model
+			FROM usage_records_with_display_model AS p
 			GROUP BY p.organization_id, p.user_id, p.source, p.session_id
 		),
 		usage_event_daily_rollups AS (
@@ -345,8 +314,11 @@ export function buildUsageEventAnalyticsCte(
 				toUInt8(countIf(
 					isNull(p.estimated_cost)
 					OR has(p.quality_flags, 'inference_geo_not_available')
-				) = 0) AS cost_is_complete
-			FROM priced_usage_events AS p
+				) = 0) AS cost_is_complete,
+				any(p.latest_main_model) AS latest_main_model,
+				any(p.latest_resolved_model) AS latest_resolved_model
+			FROM usage_records_with_display_model AS p
+			WHERE p.record_kind = 'event'
 			GROUP BY p.organization_id, p.user_id, p.source, p.session_id, p.usage_date
 		),
 		usage_analytics_metadata AS (
@@ -358,20 +330,15 @@ export function buildUsageEventAnalyticsCte(
 			SELECT
 				${SESSION_METADATA_COLUMNS},
 				if(r.latest_main_model != '', r.latest_main_model, r.latest_resolved_model) AS model_used,
-				ifNull(r.input_tokens, 0) AS input_tokens,
-				ifNull(r.output_tokens, 0) AS output_tokens,
-				ifNull(r.cache_read_input_tokens, 0) AS cache_read_input_tokens,
-				ifNull(r.cache_creation_input_tokens, 0) AS cache_creation_input_tokens,
-				ifNull(r.total_tokens, 0) AS total_tokens,
-				if(c.receipt_event_count = 0, toNullable(0.0), r.estimated_cost) AS estimated_cost,
-				if(c.receipt_event_count = 0, toUInt8(1), r.cost_is_complete) AS cost_is_complete
+				r.input_tokens AS input_tokens,
+				r.output_tokens AS output_tokens,
+				r.cache_read_input_tokens AS cache_read_input_tokens,
+				r.cache_creation_input_tokens AS cache_creation_input_tokens,
+				r.total_tokens AS total_tokens,
+				r.estimated_cost AS estimated_cost,
+				r.cost_is_complete AS cost_is_complete
 			FROM usage_analytics_metadata AS sa
-			ANY INNER JOIN consistent_usage_sessions AS c
-				ON sa.organization_id = c.organization_id
-				AND sa.user_id = c.user_id
-				AND sa.source = c.source
-				AND sa.session_id = c.session_id
-			LEFT ANY JOIN usage_event_session_rollups AS r
+			ANY INNER JOIN usage_event_session_rollups AS r
 				ON sa.organization_id = r.organization_id
 				AND sa.user_id = r.user_id
 				AND sa.source = r.source
@@ -380,7 +347,7 @@ export function buildUsageEventAnalyticsCte(
 		usage_analytics_daily_sessions AS (
 			SELECT
 				${SESSION_METADATA_COLUMNS},
-				if(s.latest_main_model != '', s.latest_main_model, s.latest_resolved_model) AS model_used,
+				if(r.latest_main_model != '', r.latest_main_model, r.latest_resolved_model) AS model_used,
 				r.usage_date AS usage_date,
 				r.input_tokens AS input_tokens,
 				r.output_tokens AS output_tokens,
@@ -395,11 +362,6 @@ export function buildUsageEventAnalyticsCte(
 				AND sa.user_id = r.user_id
 				AND sa.source = r.source
 				AND sa.session_id = r.session_id
-			LEFT ANY JOIN usage_event_session_rollups AS s
-				ON s.organization_id = r.organization_id
-				AND s.user_id = r.user_id
-				AND s.source = r.source
-				AND s.session_id = r.session_id
 		)
 	`;
 }

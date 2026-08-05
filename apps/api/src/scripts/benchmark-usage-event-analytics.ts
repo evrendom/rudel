@@ -9,6 +9,8 @@ const DAY_WINDOWS = [7, 30, 365] as const;
 const DEFAULT_ITERATIONS = 10;
 const DEFAULT_WARMUPS = 1;
 const MAX_PEAK_MEMORY_BYTES = 512 * 1024 * 1024;
+const MAX_ROWS_TO_READ = 10_000_000;
+const MAX_EXECUTION_TIME_SECONDS = 30;
 const QUERY_LOG_WAIT_ATTEMPTS = 10;
 const QUERY_LOG_WAIT_MS = 1_000;
 
@@ -154,10 +156,14 @@ async function runRollup(
 			: buildLegacyUsageAnalyticsCte();
 
 	await executor.query({
-		clickhouse_settings:
-			logComment === undefined
+		clickhouse_settings: {
+			...(logComment === undefined
 				? { log_queries: 0 }
-				: { log_comment: logComment, log_queries: 1 },
+				: { log_comment: logComment, log_queries: 1 }),
+			max_execution_time: MAX_EXECUTION_TIME_SECONDS,
+			max_rows_to_read: String(MAX_ROWS_TO_READ),
+			timeout_before_checking_execution_speed: 0,
+		},
 		query: `
 			WITH ${cte}
 			SELECT
@@ -177,13 +183,18 @@ async function waitForQueryLogRows(
 ): Promise<QueryLogRow[]> {
 	for (let attempt = 0; attempt < QUERY_LOG_WAIT_ATTEMPTS; attempt += 1) {
 		const rows = await executor.query<QueryLogRow>({
+			clickhouse_settings: {
+				max_execution_time: 10,
+				max_rows_to_read: "100000",
+			},
 			query: `
 				SELECT log_comment, memory_usage
 				FROM system.query_log
 				WHERE type = 'QueryFinish'
 					AND startsWith(log_comment, {runPrefix:String})
+				LIMIT {expectedRows:UInt32}
 			`,
-			query_params: { runPrefix },
+			query_params: { expectedRows, runPrefix },
 		});
 		if (rows.length >= expectedRows) return rows;
 		await Bun.sleep(QUERY_LOG_WAIT_MS);
