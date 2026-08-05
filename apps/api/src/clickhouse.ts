@@ -27,7 +27,9 @@ export interface ClickHouseExecutor {
 }
 
 interface LatestRawSessionContentFilters {
+	sessionDate?: boolean;
 	sessionId?: boolean;
+	source?: boolean;
 	userId?: boolean;
 	projectPath?: boolean;
 	lookbackDays?: boolean;
@@ -43,6 +45,11 @@ export function buildLatestRawSessionContentSql(
 	filters: LatestRawSessionContentFilters,
 ): string {
 	const where = ["organization_id = {orgId:String}"];
+	if (filters.sessionDate) {
+		where.push(
+			"session_date = parseDateTime64BestEffort({sessionDate:String}, 3, 'UTC')",
+		);
+	}
 	if (filters.sessionId) where.push("session_id = {sessionId:String}");
 	if (filters.userId) where.push("user_id = {userId:String}");
 	if (filters.projectPath) where.push("project_path = {projectPath:String}");
@@ -59,6 +66,12 @@ export function buildLatestRawSessionContentSql(
 	}
 
 	const rawWhere = where.join("\n      AND ");
+	const claudeWhere = filters.source
+		? `${rawWhere}\n      AND {source:String} = 'claude_code'`
+		: rawWhere;
+	const codexWhere = filters.source
+		? `${rawWhere}\n      AND {source:String} = 'codex'`
+		: rawWhere;
 
 	return `
   SELECT
@@ -78,7 +91,7 @@ export function buildLatestRawSessionContentSql(
       subagents,
       ingested_at
     FROM rudel.claude_sessions
-    WHERE ${rawWhere}
+    WHERE ${claudeWhere}
 
     UNION ALL
 
@@ -91,7 +104,7 @@ export function buildLatestRawSessionContentSql(
       CAST(map(), 'Map(String, String)') AS subagents,
       ingested_at
     FROM rudel.codex_sessions
-    WHERE ${rawWhere}
+    WHERE ${codexWhere}
   )
   GROUP BY source, organization_id, user_id, session_id
 `;
