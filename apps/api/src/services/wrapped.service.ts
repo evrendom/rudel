@@ -12,7 +12,10 @@ import {
 } from "@rudel/ch-schema/wrapped-archetype-constants";
 import { buildWrappedArchetypeCentroidUnionAll } from "@rudel/ch-schema/wrapped-archetype-rebuild";
 import { queryClickhouse } from "../clickhouse.js";
-import { getUsageAnalyticsQueryContext } from "./usage-event-analytics.service.js";
+import {
+	buildUsageCostSubtotalSql,
+	getUsageAnalyticsQueryContext,
+} from "./usage-event-analytics.service.js";
 import { buildWrappedArchetypeGate } from "./wrapped-archetype-gate.js";
 import { enqueueWrappedArchetypeSnapshotRebuild } from "./wrapped-archetype-rebuild.service.js";
 
@@ -154,11 +157,7 @@ async function getWrappedSummary(
 					formatDateTime(max(session_date), '%Y-%m-%dT%H:%i:%SZ')
 				) AS last_session_at,
 				ifNull(sum(ifNull(input_tokens, 0) + ifNull(output_tokens, 0)), 0) AS total_tokens,
-				if(
-					countIf(cost_is_complete = 0) = 0,
-					toNullable(round(sum(ifNull(estimated_cost, 0)), 4)),
-					CAST(NULL, 'Nullable(Float64)')
-				) AS estimated_spend_usd,
+				${buildUsageCostSubtotalSql("estimated_cost", 4)} AS estimated_spend_usd,
 				ifNull(maxOrNull(actual_duration_min), 0) AS longest_session_min,
 				countIf(source = 'claude_code') AS claude_session_count,
 				countIf(source = 'codex') AS codex_session_count

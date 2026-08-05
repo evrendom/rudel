@@ -13,7 +13,10 @@ import {
 	buildDateFilter,
 	queryClickhouse,
 } from "../clickhouse.js";
-import { getUsageAnalyticsQueryContext } from "./usage-event-analytics.service.js";
+import {
+	buildUsageCostSubtotalSql,
+	getUsageAnalyticsQueryContext,
+} from "./usage-event-analytics.service.js";
 
 const logger = getLogger(["rudel", "api", "project-service"]);
 
@@ -169,7 +172,7 @@ export async function getProjectInvestment(
         round(SUM(actual_duration_min), 2) as total_duration_min,
         round(AVG(actual_duration_min), 2) as avg_session_duration_min,
 		round(AVG(success_score), 2) as success_rate,
-		if(countIf(cost_is_complete = 0) = 0, toNullable(round(SUM(ifNull(estimated_cost, 0)), 4)), CAST(NULL, 'Nullable(Float64)')) as total_cost
+		${buildUsageCostSubtotalSql("estimated_cost", 4)} as total_cost
       FROM ${usage.sessionsRelation}
       WHERE ${buildDateFilter("currentDays")}
         AND organization_id = {orgId:String}
@@ -403,7 +406,7 @@ export async function getProjectDetails(
       ifNull(round(avgOrNull(actual_duration_min), 2), 0) as avg_session_duration_min,
       ifNull(round(avgOrNull(success_score), 2), 0) as success_rate,
 	  round(SUM(actual_duration_min), 2) as total_duration_min,
-	  if(countIf(cost_is_complete = 0) = 0, toNullable(round(SUM(ifNull(estimated_cost, 0)), 4)), CAST(NULL, 'Nullable(Float64)')) as event_cost
+	  ${buildUsageCostSubtotalSql("estimated_cost", 4)} as event_cost
     FROM ${usage.sessionsRelation}
     WHERE ${PROJECT_DISPLAY_EXPR} = ${projectDisplaySubquery}
       AND ${buildDateFilter("days")}

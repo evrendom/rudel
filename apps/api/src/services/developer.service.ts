@@ -21,7 +21,10 @@ import {
 	queryClickhouse,
 } from "../clickhouse.js";
 import { sqlClient } from "../db.js";
-import { getUsageAnalyticsQueryContext } from "./usage-event-analytics.service.js";
+import {
+	buildUsageCostSubtotalSql,
+	getUsageAnalyticsQueryContext,
+} from "./usage-event-analytics.service.js";
 
 export interface DeveloperSummary extends DeveloperSummaryBase {
 	username?: string;
@@ -195,7 +198,7 @@ export async function getDeveloperList(
         round(AVG(actual_duration_min), 2) as avg_session_duration_min,
         toString(max(session_date)) as last_active_date,
         round(AVG(success_score), 2) as success_rate,
-		if(countIf(cost_is_complete = 0) = 0, toNullable(round(SUM(ifNull(estimated_cost, 0)), 4)), CAST(NULL, 'Nullable(Float64)')) as total_cost
+		${buildUsageCostSubtotalSql("estimated_cost", 4)} as total_cost
       FROM ${usage.sessionsRelation}
       WHERE ${buildDateFilter("currentDays")}
         AND organization_id = {orgId:String}
@@ -266,7 +269,7 @@ export async function getDeveloperTeamCards(
       SUM(ifNull(input_tokens, 0)) as total_input_tokens,
       SUM(ifNull(output_tokens, 0)) as total_output_tokens,
       SUM(ifNull(input_tokens, 0) + ifNull(output_tokens, 0)) as total_tokens,
-	  if(countIf(cost_is_complete = 0) = 0, toNullable(round(SUM(ifNull(estimated_cost, 0)), 4)), CAST(NULL, 'Nullable(Float64)')) as cost,
+	  ${buildUsageCostSubtotalSql("estimated_cost", 4)} as cost,
       toString(max(session_date)) as last_active_date
     FROM ${usage.sessionsRelation}
     WHERE ${buildDateFilter("days")}
@@ -419,7 +422,7 @@ export async function getDeveloperDetails(
         round(AVG(success_score), 2) as success_rate,
         COUNT(DISTINCT project_path) as distinct_projects,
         SUM(error_count) as error_count,
-		if(countIf(cost_is_complete = 0) = 0, toNullable(round(SUM(ifNull(estimated_cost, 0)), 4)), CAST(NULL, 'Nullable(Float64)')) as total_cost
+		${buildUsageCostSubtotalSql("estimated_cost", 4)} as total_cost
       FROM ${usage.sessionsRelation}
       WHERE user_id = {userId:String}
         AND ${buildDateFilter("currentDays")}

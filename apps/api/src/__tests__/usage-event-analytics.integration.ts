@@ -13,7 +13,10 @@ import {
 	type RudelUsageEventsRow,
 } from "@rudel/ch-schema/generated";
 import { createClickHouseExecutor } from "../clickhouse.js";
-import { buildUsageEventAnalyticsCte } from "../services/usage-event-analytics.service.js";
+import {
+	buildUsageCostSubtotalSql,
+	buildUsageEventAnalyticsCte,
+} from "../services/usage-event-analytics.service.js";
 
 setDefaultTimeout(30_000);
 
@@ -216,7 +219,7 @@ describe("usage-event analytics ClickHouse rollups", () => {
 			},
 			{
 				cost_is_complete: 0,
-				estimated_cost: null,
+				estimated_cost: 0,
 				input_tokens: "4000000",
 				model_used: "claude-opus-4-1",
 				output_tokens: "1000000",
@@ -270,7 +273,7 @@ describe("usage-event analytics ClickHouse rollups", () => {
 			},
 			{
 				cost_is_complete: 0,
-				estimated_cost: null,
+				estimated_cost: 0,
 				input_tokens: "4000000",
 				model_used: "claude-opus-4-1",
 				output_tokens: "1000000",
@@ -279,7 +282,7 @@ describe("usage-event analytics ClickHouse rollups", () => {
 			},
 			{
 				cost_is_complete: 0,
-				estimated_cost: null,
+				estimated_cost: 0,
 				input_tokens: "4000000",
 				model_used: "claude-opus-4-1",
 				output_tokens: "1000000",
@@ -299,6 +302,24 @@ describe("usage-event analytics ClickHouse rollups", () => {
 				false,
 			);
 		}
+	});
+
+	test("returns the known aggregate subtotal without discarding completeness", async () => {
+		const rows = await executor.query<{
+			cost: number;
+			incomplete_sessions: number;
+		}>({
+			query: `
+				WITH ${buildUsageEventAnalyticsCte()}
+				SELECT
+					${buildUsageCostSubtotalSql("estimated_cost", 4)} AS cost,
+					countIf(cost_is_complete = 0) AS incomplete_sessions
+				FROM usage_analytics_sessions
+			`,
+			query_params: { orgId: organizationId },
+		});
+
+		expect(rows).toEqual([{ cost: 245.55, incomplete_sessions: 4 }]);
 	});
 
 	test("keeps bounded key prefixes visible across the shared query families", async () => {
