@@ -36,6 +36,7 @@ const EVENT_COST_SQL = buildEstimatedCostSql({
 	serviceTierExpr: "e.service_tier",
 	inferenceSpeedExpr: "e.inference_speed",
 	inferenceGeoExpr: "e.inference_geo",
+	precision: 12,
 });
 
 const PRICEABLE_EVENT_SQL = `
