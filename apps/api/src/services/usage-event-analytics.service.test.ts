@@ -45,13 +45,30 @@ describe("usage-event analytics query contract", () => {
 		const sql = buildUsageEventAnalyticsCte();
 
 		expect(sql).toContain(
-			"sum(p.uncached_input_tokens + p.cache_read_input_tokens + p.cache_write_5m_input_tokens + p.cache_write_1h_input_tokens) AS input_tokens",
+			"sum(p.group_uncached_input_tokens + p.group_cache_read_input_tokens + p.group_cache_write_5m_input_tokens + p.group_cache_write_1h_input_tokens) AS input_tokens",
 		);
-		expect(sql).toContain("e.uncached_input_tokens");
-		expect(sql).toContain("e.cache_read_input_tokens");
-		expect(sql).toContain("e.cache_write_5m_input_tokens");
-		expect(sql).toContain("e.cache_write_1h_input_tokens");
-		expect(sql).toContain("e.output_tokens");
+		for (const tokenClass of [
+			"uncached_input_tokens",
+			"cache_read_input_tokens",
+			"cache_write_5m_input_tokens",
+			"cache_write_1h_input_tokens",
+			"output_tokens",
+		]) {
+			expect(sql).toContain(`sum(e.${tokenClass}) AS group_${tokenClass}`);
+			expect(sql).toContain(`g.group_${tokenClass}`);
+		}
+	});
+
+	test("groups equivalent events before joining the typed rate card", () => {
+		const sql = buildUsageEventAnalyticsCte();
+
+		expect(sql).toContain("usage_event_pricing_groups AS");
+		expect(sql).toContain("usage_event_pricing_rate_card AS");
+		expect(sql).toContain("ANY LEFT JOIN usage_event_pricing_rate_card AS r");
+		expect(sql.indexOf("usage_event_pricing_groups AS")).toBeLessThan(
+			sql.indexOf("ANY LEFT JOIN usage_event_pricing_rate_card AS r"),
+		);
+		expect(sql).not.toContain("match(lowerUTF8(e.resolved_model)");
 	});
 
 	test("never prices from the session display model", () => {
@@ -82,10 +99,12 @@ describe("usage-event analytics query contract", () => {
 	test("prices exact provenance and fails closed for unsupported dimensions", () => {
 		const sql = buildUsageEventAnalyticsCte();
 
-		expect(sql).toContain("lowerUTF8(trimBoth(e.service_tier))");
-		expect(sql).toContain("lowerUTF8(trimBoth(e.model_provider))");
-		expect(sql).toContain("lowerUTF8(trimBoth(e.inference_speed))");
-		expect(sql).toContain("lowerUTF8(trimBoth(e.inference_geo))");
+		expect(sql).toContain("lowerUTF8(trimBoth(g.service_tier))");
+		expect(sql).toContain(
+			"lowerUTF8(trimBoth(g.model_provider)) IN ('', r.provider)",
+		);
+		expect(sql).toContain("lowerUTF8(trimBoth(g.inference_speed))");
+		expect(sql).toContain("lowerUTF8(trimBoth(g.inference_geo))");
 		expect(sql).toContain("IN ('fast', 'priority')");
 		expect(sql).toContain("service_tier_conflict");
 		expect(sql).toContain("unrecognized_service_tier");
@@ -97,11 +116,9 @@ describe("usage-event analytics query contract", () => {
 		const sql = buildUsageEventAnalyticsCte();
 
 		expect(sql).toContain(
-			"toNullable(sum(ifNull(p.estimated_cost, 0))) AS estimated_cost",
+			"toNullable(sum(ifNull(p.group_estimated_cost, 0))) AS estimated_cost",
 		);
-		expect(sql).toContain(
-			"OR has(p.quality_flags, 'inference_geo_not_available')",
-		);
+		expect(sql).toContain("OR p.has_geo_gap = 1");
 		expect(buildUsageCostSubtotalSql("sa.estimated_cost", 4)).toBe(
 			"toNullable(round(sum(ifNull(sa.estimated_cost, 0)), 4))",
 		);

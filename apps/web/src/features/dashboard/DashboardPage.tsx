@@ -8,9 +8,10 @@ import { DashboardRepositoriesView } from "@/features/dashboard/components/Dashb
 import { DashboardRepositoryPanel } from "@/features/dashboard/components/DashboardRepositoryPanel";
 import { DashboardSessionsView } from "@/features/dashboard/components/DashboardSessionsView";
 import { DashboardTokensView } from "@/features/dashboard/components/DashboardTokensView";
-import { useDashboardPageData } from "@/features/dashboard/use-dashboard-page-data";
-
-type DashboardView = "tokens" | "commits" | "errors" | "repos" | "sessions";
+import {
+	type DashboardView,
+	useDashboardPageData,
+} from "@/features/dashboard/use-dashboard-page-data";
 
 function isDashboardView(value: string | null): value is DashboardView {
 	return (
@@ -23,6 +24,9 @@ function isDashboardView(value: string | null): value is DashboardView {
 }
 
 export function DashboardPage() {
+	const [searchParams, setSearchParams] = useSearchParams();
+	const requestedView = searchParams.get("view");
+	const activeView = isDashboardView(requestedView) ? requestedView : "tokens";
 	const {
 		endDate,
 		errorDashboard,
@@ -45,10 +49,7 @@ export function DashboardPage() {
 		totalSessionCount,
 		userLabelById,
 		usersTokenUsage,
-	} = useDashboardPageData();
-	const [searchParams, setSearchParams] = useSearchParams();
-	const requestedView = searchParams.get("view");
-	const activeView = isDashboardView(requestedView) ? requestedView : "tokens";
+	} = useDashboardPageData(activeView);
 
 	function setDashboardView(nextView: DashboardView) {
 		setSearchParams(
