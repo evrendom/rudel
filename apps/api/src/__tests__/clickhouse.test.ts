@@ -76,17 +76,32 @@ describe("clickhouse helpers", () => {
 		);
 
 		const sql = buildLatestRawSessionContentSql({
+			sessionDate: true,
 			sessionId: true,
 			userId: true,
 		});
 
 		expect(sql.match(/session_id = \{sessionId:String\}/g)).toHaveLength(2);
 		expect(sql.match(/user_id = \{userId:String\}/g)).toHaveLength(2);
+		expect(
+			sql.match(
+				/session_date = parseDateTime64BestEffort\(\{sessionDate:String\}, 3, 'UTC'\)/g,
+			),
+		).toHaveLength(2);
 		expect(sql).toContain("argMax(content, ingested_at)");
 		expect(sql).toContain(
 			"GROUP BY source, organization_id, user_id, session_id",
 		);
 		expect(sql).not.toContain("ORDER BY ingested_at");
+
+		const sourceScopedSql = buildLatestRawSessionContentSql({
+			sessionDate: true,
+			sessionId: true,
+			source: true,
+			userId: true,
+		});
+		expect(sourceScopedSql).toContain("{source:String} = 'claude_code'");
+		expect(sourceScopedSql).toContain("{source:String} = 'codex'");
 	});
 });
 
@@ -177,11 +192,11 @@ describe("analytics service guardrails", () => {
 		expect(sessionAnalyticsSource.slice(sessionDetailStart)).not.toContain(
 			"FINAL",
 		);
-		expect(sessionAnalyticsSource.slice(sessionDetailStart)).toContain(
-			"raw.content AS content",
-		);
-		expect(sessionAnalyticsSource.slice(sessionDetailStart)).toContain(
-			"raw.subagents AS subagents",
+		const sessionDetailSource =
+			sessionAnalyticsSource.slice(sessionDetailStart);
+		expect(sessionDetailSource).toContain("sessionDate: true");
+		expect(sessionDetailSource).not.toContain(
+			"INNER ANY JOIN latest_raw_session_content",
 		);
 		expect(backfillSource).toContain("max_bytes_to_read");
 		expect(backfillSource).toContain("max_execution_time");
