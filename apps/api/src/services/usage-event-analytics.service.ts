@@ -81,7 +81,6 @@ const SESSION_METADATA_COLUMNS = `
 	sa.long_pauses AS long_pauses,
 	sa.error_count AS error_count,
 	sa.error_pattern AS error_pattern,
-	sa.model_used AS model_used,
 	sa.has_commit AS has_commit,
 	sa.session_archetype AS session_archetype,
 	sa.success_score AS success_score,
@@ -304,7 +303,29 @@ export function buildUsageEventAnalyticsCte(
 				toUInt8(countIf(
 					isNull(p.estimated_cost)
 					OR has(p.quality_flags, 'inference_geo_not_available')
-				) = 0) AS cost_is_complete
+				) = 0) AS cost_is_complete,
+				argMaxIf(
+					p.resolved_model,
+					tuple(
+						p.has_valid_timestamp,
+						p.occurred_at,
+						p.first_observed_line,
+						p.event_id
+					),
+					p.agent_id = 'main'
+						AND p.model_status = 'resolved'
+						AND p.resolved_model != ''
+				) AS latest_main_model,
+				argMaxIf(
+					p.resolved_model,
+					tuple(
+						p.has_valid_timestamp,
+						p.occurred_at,
+						p.first_observed_line,
+						p.event_id
+					),
+					p.model_status = 'resolved' AND p.resolved_model != ''
+				) AS latest_resolved_model
 			FROM priced_usage_events AS p
 			GROUP BY p.organization_id, p.user_id, p.source, p.session_id
 		),
@@ -336,6 +357,7 @@ export function buildUsageEventAnalyticsCte(
 		usage_analytics_sessions AS (
 			SELECT
 				${SESSION_METADATA_COLUMNS},
+				if(r.latest_main_model != '', r.latest_main_model, r.latest_resolved_model) AS model_used,
 				ifNull(r.input_tokens, 0) AS input_tokens,
 				ifNull(r.output_tokens, 0) AS output_tokens,
 				ifNull(r.cache_read_input_tokens, 0) AS cache_read_input_tokens,
@@ -358,20 +380,26 @@ export function buildUsageEventAnalyticsCte(
 		usage_analytics_daily_sessions AS (
 			SELECT
 				${SESSION_METADATA_COLUMNS},
-				r.usage_date,
-				r.input_tokens,
-				r.output_tokens,
-				r.cache_read_input_tokens,
-				r.cache_creation_input_tokens,
-				r.total_tokens,
-				r.estimated_cost,
-				r.cost_is_complete
+				if(s.latest_main_model != '', s.latest_main_model, s.latest_resolved_model) AS model_used,
+				r.usage_date AS usage_date,
+				r.input_tokens AS input_tokens,
+				r.output_tokens AS output_tokens,
+				r.cache_read_input_tokens AS cache_read_input_tokens,
+				r.cache_creation_input_tokens AS cache_creation_input_tokens,
+				r.total_tokens AS total_tokens,
+				r.estimated_cost AS estimated_cost,
+				r.cost_is_complete AS cost_is_complete
 			FROM usage_event_daily_rollups AS r
 			ANY INNER JOIN usage_analytics_metadata AS sa
 				ON sa.organization_id = r.organization_id
 				AND sa.user_id = r.user_id
 				AND sa.source = r.source
 				AND sa.session_id = r.session_id
+			LEFT ANY JOIN usage_event_session_rollups AS s
+				ON s.organization_id = r.organization_id
+				AND s.user_id = r.user_id
+				AND s.source = r.source
+				AND s.session_id = r.session_id
 		)
 	`;
 }
