@@ -8,21 +8,19 @@ import {
 } from "./usage-event-analytics.service.js";
 
 describe("usage-event analytics query contract", () => {
-	test("resolves explicit latest state and admits only consistent complete receipts", () => {
+	test("resolves exact latest state and admits only consistent complete receipts", () => {
 		const sql = buildUsageEventAnalyticsCte();
 
+		expect(sql).toContain("FROM rudel.usage_events FINAL");
+		expect(sql.match(/FROM rudel\.usage_events/gu)).toHaveLength(1);
 		expect(sql).toContain(
-			"LIMIT 1 BY organization_id, user_id, source, session_id, event_id",
+			"argMaxIf(event_version, event_version, record_kind = 'receipt') OVER usage_session_window AS receipt_generation",
 		);
-		expect(sql).not.toContain("usage_events FINAL");
-		expect(sql).toContain(
-			"LIMIT 1 BY organization_id, user_id, source, session_id",
-		);
-		expect(sql).toContain("FROM latest_usage_receipts");
-		expect(sql).toContain("is_deleted = 0 AND receipt_is_complete = 1");
-		expect(sql).toContain("= r.receipt_event_count");
-		expect(sql).toContain("e.event_version = c.generation");
-		expect(sql).toContain("ANY INNER JOIN consistent_usage_sessions AS c");
+		expect(sql).toContain("latest_receipt_is_complete = 1");
+		expect(sql).toContain("active_event_count = latest_receipt_event_count");
+		expect(sql).toContain("event_version = receipt_generation");
+		expect(sql).toContain("record_kind IN ('event', 'receipt')");
+		expect(sql).toContain("ANY INNER JOIN usage_event_session_rollups AS r");
 		expect(sql).toContain("sa.organization_id AS organization_id");
 		expect(sql).toContain("sa.user_id AS user_id");
 	});
@@ -39,7 +37,7 @@ describe("usage-event analytics query contract", () => {
 		expect(sql).toContain("source = {source:String}");
 		expect(sql).toContain("session_id = {sessionId:String}");
 		expect(sql.indexOf("WHERE organization_id = {orgId:String}")).toBeLessThan(
-			sql.indexOf("ANY INNER JOIN consistent_usage_sessions"),
+			sql.indexOf("ANY INNER JOIN usage_event_session_rollups"),
 		);
 	});
 
@@ -68,15 +66,14 @@ describe("usage-event analytics query contract", () => {
 		const sql = buildUsageEventAnalyticsCte();
 
 		expect(sql).toContain("argMaxIf(");
-		expect(sql).toContain("p.agent_id = 'main'");
+		expect(sql).toContain("agent_id = 'main'");
 		expect(sql).toContain("AS latest_main_model");
 		expect(sql).toContain("AS latest_resolved_model");
-		expect(sql).toContain(
-			"if(r.latest_main_model != '', r.latest_main_model, r.latest_resolved_model) AS model_used",
-		);
-		expect(sql).toContain(
-			"if(s.latest_main_model != '', s.latest_main_model, s.latest_resolved_model) AS model_used",
-		);
+		expect(
+			sql.match(
+				/if\(r\.latest_main_model != '', r\.latest_main_model, r\.latest_resolved_model\) AS model_used/gu,
+			),
+		).toHaveLength(2);
 		expect(sql).not.toContain("resolved_model_count");
 		expect(sql).not.toContain("single_resolved_model");
 		expect(sql).not.toContain("lowerUTF8(trimBoth(sa.model_used))");
