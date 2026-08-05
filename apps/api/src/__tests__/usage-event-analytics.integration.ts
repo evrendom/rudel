@@ -25,6 +25,8 @@ const isolatedUserId = `usage_analytics_other_user_${runId}`;
 const resolvedSessionId = `usage_analytics_resolved_${runId}`;
 const unresolvedSessionId = `usage_analytics_unresolved_${runId}`;
 const unsupportedTierSessionId = `usage_analytics_unsupported_tier_${runId}`;
+const openAiFastSessionId = `usage_analytics_openai_fast_${runId}`;
+const claudeFastUsSessionId = `usage_analytics_claude_fast_us_${runId}`;
 const longContextSessionId = `usage_analytics_long_${runId}`;
 const mismatchedSessionId = `usage_analytics_mismatch_${runId}`;
 const partialSessionId = `usage_analytics_partial_${runId}`;
@@ -51,6 +53,8 @@ beforeAll(async () => {
 				resolvedSessionId,
 				unresolvedSessionId,
 				unsupportedTierSessionId,
+				openAiFastSessionId,
+				claudeFastUsSessionId,
 				longContextSessionId,
 				mismatchedSessionId,
 				partialSessionId,
@@ -78,6 +82,7 @@ beforeAll(async () => {
 				cache_write_1h_input_tokens: "2000000",
 				cache_write_5m_input_tokens: "2000000",
 				context_input_tokens: "8000000",
+				model_provider: "",
 				output_tokens: "2000000",
 				uncached_input_tokens: "2000000",
 			}),
@@ -89,14 +94,38 @@ beforeAll(async () => {
 			}),
 			buildReceiptRow(unresolvedSessionId, "1", 1, true),
 			buildEventRow(unsupportedTierSessionId, "1", {
-				service_tier: "priority",
+				service_tier: "batch",
 			}),
 			buildReceiptRow(unsupportedTierSessionId, "1", 1, true),
+			buildEventRow(openAiFastSessionId, "1", {
+				cache_read_input_tokens: "100000",
+				cache_write_1h_input_tokens: "0",
+				cache_write_5m_input_tokens: "0",
+				context_input_tokens: "200000",
+				model_provider: "openai",
+				output_tokens: "100000",
+				raw_model: "gpt-5.4",
+				resolved_model: "gpt-5.4",
+				service_tier: "fast",
+				source: "codex",
+				uncached_input_tokens: "100000",
+			}),
+			buildReceiptRow(openAiFastSessionId, "1", 1, true, "codex"),
+			buildEventRow(claudeFastUsSessionId, "1", {
+				inference_geo: "us",
+				inference_speed: "fast",
+				model_provider: "anthropic",
+				raw_model: "claude-opus-4-8",
+				resolved_model: "claude-opus-4-8",
+				service_tier: "priority",
+			}),
+			buildReceiptRow(claudeFastUsSessionId, "1", 1, true),
 			buildEventRow(longContextSessionId, "1", {
 				cache_read_input_tokens: "0",
 				cache_write_1h_input_tokens: "0",
 				cache_write_5m_input_tokens: "0",
 				context_input_tokens: "272001",
+				model_provider: "openai",
 				output_tokens: "1000000",
 				raw_model: "gpt-5.6-sol",
 				resolved_model: "gpt-5.6-sol",
@@ -177,6 +206,15 @@ describe("usage-event analytics ClickHouse rollups", () => {
 
 		expect(rows).toEqual([
 			{
+				cost_is_complete: 1,
+				estimated_cost: 102.85,
+				input_tokens: "4000000",
+				model_used: "claude-opus-4-1",
+				output_tokens: "1000000",
+				session_id: claudeFastUsSessionId,
+				total_tokens: "5000000",
+			},
+			{
 				cost_is_complete: 0,
 				estimated_cost: null,
 				input_tokens: "4000000",
@@ -193,6 +231,15 @@ describe("usage-event analytics ClickHouse rollups", () => {
 				output_tokens: "1000000",
 				session_id: longContextSessionId,
 				total_tokens: "2000000",
+			},
+			{
+				cost_is_complete: 1,
+				estimated_cost: 3.55,
+				input_tokens: "200000",
+				model_used: "claude-opus-4-1",
+				output_tokens: "100000",
+				session_id: openAiFastSessionId,
+				total_tokens: "300000",
 			},
 			{
 				cost_is_complete: 0,
@@ -365,7 +412,10 @@ function buildSessionAnalyticsRow(sessionId: string): RudelSessionAnalyticsRow {
 		session_id: sessionId,
 		skills: [],
 		slash_commands: [],
-		source: sessionId === longContextSessionId ? "codex" : "claude_code",
+		source:
+			sessionId === longContextSessionId || sessionId === openAiFastSessionId
+				? "codex"
+				: "claude_code",
 		subagent_types: [],
 		success_score: 80,
 		tag: null,
@@ -397,11 +447,14 @@ function buildEventRow(
 		first_observed_line: 1,
 		has_valid_timestamp: 1,
 		identity_kind: "message_id",
+		inference_geo: "",
+		inference_speed: "",
 		ingested_at: `2026-08-04 08:0${generation}:00.000`,
 		is_deleted: 0,
 		lineage_id: "main",
-		model_rate_card_version: "2026-08-02",
+		model_rate_card_version: "2026-08-05",
 		model_status: "resolved",
+		model_provider: "anthropic",
 		occurred_at: "2026-08-04 08:00:00.000",
 		organization_id: organizationId,
 		output_tokens: "1000000",

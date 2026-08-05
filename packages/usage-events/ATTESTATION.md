@@ -1,4 +1,4 @@
-# Usage-event receipt attestation v1
+# Usage-event receipt attestation v2
 
 The receipt checksum is the lowercase SHA-256 hex digest of the UTF-8 bytes of
 `JSON.stringify(payload)`, with no whitespace added.
@@ -8,11 +8,16 @@ this positional tuple:
 
 ```text
 [
-  "usage-attestation:v1",
+  "usage-attestation:v2",
   eventId,
   identityKind,
   usageDate,
   rawModel,
+  resolvedModel,
+  modelProvider,
+  serviceTier,
+  inferenceSpeed,
+  inferenceGeo,
   contextInputTokens,
   uncachedInputTokens,
   cacheReadInputTokens,
@@ -26,12 +31,12 @@ this positional tuple:
 `usageDate` is either the `YYYY-MM-DD` UTC date or JSON `null`. Strings are not
 case-normalized. Token values are nonnegative safe integers.
 
-This client-reproducible payload deliberately excludes server rate-card
-resolution and extraction metadata: `resolvedModel`, `modelStatus`,
-`serviceTier`, line numbers, duplicate-observation counts, agent/lineage
-fields, token-source labels, diagnostics, and quality flags. Changes to those
-fields do not change the attestation; changes to identity, model, date, or any
-attested token class do.
+The payload includes every persisted value that can select a published rate.
+It deliberately excludes non-pricing extraction metadata: `modelStatus`, line
+numbers, duplicate-observation counts, agent/lineage fields, token-source
+labels, diagnostics, and quality flags. Changes to those fields do not change
+the attestation; changes to identity, either model value, date, pricing
+provenance, or any attested token class do.
 
 ## Canonical hash primitive
 
@@ -107,6 +112,12 @@ contextInputTokens = uncachedInputTokens + cacheReadInputTokens
   + cacheWrite5mInputTokens + cacheWrite1hInputTokens
 ```
 
+`modelProvider` is empty for native Claude response records because Claude
+Code does not emit a separate first-party provider field in this shape.
+`inferenceGeo` and `inferenceSpeed` come from `message.usage.inference_geo`
+and `message.usage.speed`. Unknown values are quarantined by a quality flag
+and do not inherit a published rate.
+
 ## Codex derivation
 
 A Codex vector is the ordered tuple `(input_tokens, cached_input_tokens,
@@ -140,16 +151,20 @@ contextInputTokens = T.input_tokens
 ```
 
 `rawModel` is the most recent non-synthetic `turn_context.payload.model` at
-the telemetry line. Duplicate observations may fill a previously missing
-model, but conflicting models clear it and leave the event unpriced.
+the telemetry line. `modelProvider` comes from
+`session_meta.payload.model_provider`, and `serviceTier` comes from the token
+count. Duplicate observations may fill previously missing metadata. When a
+later duplicate disagrees, the earliest non-empty model remains authoritative
+and the conflict is diagnosed instead of erasing that observation.
 
 ## Date and checksum delivery
 
 A timestamp is valid only when it is an ISO-8601 date-time carrying `Z` or an
 explicit numeric offset. It is converted to UTC; `usageDate` is the first ten
 characters of that UTC timestamp. Invalid or absent timestamps produce JSON
-`null` and leave the event unpriceable. Claude duplicate metadata follows the
-main-chain preference above; Codex uses the transition observation.
+`null` and leave the event unpriceable even when its canonical model identity
+is known. Claude duplicate metadata follows the main-chain preference above;
+Codex uses the transition observation.
 
 After a successful extraction and receipt compare-and-set, the ingest response
 returns the server checksum as optional `usageChecksum`. The CLI validates it

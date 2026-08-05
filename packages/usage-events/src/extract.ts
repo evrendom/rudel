@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { resolveModelPricing } from "@rudel/api-routes/model-pricing";
+import { resolveCanonicalModelIdentity } from "@rudel/api-routes/model-pricing";
 import {
 	USAGE_EVENT_EXTRACTION_VERSION,
 	USAGE_EVENT_IDENTITY_VERSION,
@@ -42,10 +42,13 @@ interface ClaudeCandidate {
 	identityValue: string;
 	isMain: boolean;
 	model: string;
+	modelProvider: string;
 	modelWasSynthetic: boolean;
 	occurredAt: string | null;
 	outputTokens: number;
 	qualityFlags: readonly string[];
+	inferenceGeo: string;
+	inferenceSpeed: string;
 	serviceTier: string;
 	transcriptName: string;
 	uncachedInputTokens: number;
@@ -205,11 +208,16 @@ export function getUsageAttestationPayload(
 	return [...events]
 		.sort((left, right) => compareBytes(left.eventId, right.eventId))
 		.map((event) => [
-			"usage-attestation:v1",
+			"usage-attestation:v2",
 			event.eventId,
 			event.identityKind,
 			event.usageDate,
 			event.rawModel,
+			event.resolvedModel,
+			event.modelProvider,
+			event.serviceTier,
+			event.inferenceSpeed,
+			event.inferenceGeo,
 			event.contextInputTokens,
 			event.uncachedInputTokens,
 			event.cacheReadInputTokens,
@@ -408,7 +416,24 @@ function readClaudeCandidate(
 		identityKind,
 		identityValue,
 		isMain: isMainTranscript && !isSidechain,
+		inferenceGeo: normalizeBillingDimension(
+			usage.inference_geo,
+			new Set(["global", "us"]),
+			"claude_code_unrecognized_inference_geo",
+			"unrecognized_inference_geo",
+			qualityFlags,
+			diagnostics,
+		),
+		inferenceSpeed: normalizeBillingDimension(
+			usage.speed,
+			new Set(["fast", "standard"]),
+			"claude_code_unrecognized_inference_speed",
+			"unrecognized_inference_speed",
+			qualityFlags,
+			diagnostics,
+		),
 		model: model === SYNTHETIC_MODEL ? "" : model,
+		modelProvider: "",
 		modelWasSynthetic: model === SYNTHETIC_MODEL,
 		occurredAt,
 		outputTokens,
@@ -459,6 +484,27 @@ function mergeClaudeCandidateGroup(
 		group,
 		qualityFlags,
 	);
+	const modelProvider = resolveClaudeMetadataDimension(
+		preferredMetadata,
+		group,
+		"modelProvider",
+		"model_provider_conflict",
+		qualityFlags,
+	);
+	const inferenceSpeed = resolveClaudeMetadataDimension(
+		preferredMetadata,
+		group,
+		"inferenceSpeed",
+		"inference_speed_conflict",
+		qualityFlags,
+	);
+	const inferenceGeo = resolveClaudeMetadataDimension(
+		preferredMetadata,
+		group,
+		"inferenceGeo",
+		"inference_geo_conflict",
+		qualityFlags,
+	);
 	const agentIds = new Set(group.map((candidate) => candidate.agentId));
 	const hasMain = group.some((candidate) => candidate.isMain);
 	const agentId = hasMain
@@ -498,6 +544,9 @@ function mergeClaudeCandidateGroup(
 		resolvedModel: model.resolvedModel,
 		modelStatus: model.status,
 		serviceTier,
+		modelProvider,
+		inferenceSpeed,
+		inferenceGeo,
 		contextInputTokens,
 		uncachedInputTokens,
 		cacheReadInputTokens,
@@ -600,6 +649,27 @@ function resolveClaudeServiceTier(
 	return tiers[0] ?? "";
 }
 
+function resolveClaudeMetadataDimension(
+	preferred: readonly ClaudeCandidate[],
+	all: readonly ClaudeCandidate[],
+	field: "modelProvider" | "inferenceSpeed" | "inferenceGeo",
+	conflictFlag: string,
+	qualityFlags: Set<string>,
+): string {
+	const preferredValues = uniqueNonEmpty(
+		preferred.map((candidate) => candidate[field]),
+	);
+	const values =
+		preferredValues.length > 0
+			? preferredValues
+			: uniqueNonEmpty(all.map((candidate) => candidate[field]));
+	if (values.length > 1) {
+		qualityFlags.add(conflictFlag);
+		return "";
+	}
+	return values[0] ?? "";
+}
+
 function extractCodexEvents(
 	input: VersionedUsageExtractionInput,
 	diagnostics: Map<string, MutableDiagnostic>,
@@ -612,6 +682,8 @@ function extractCodexEvents(
 		{ lineages: string[]; vector: CodexVector }
 	>();
 	let activeModel = "";
+	let activeModelProvider = "";
+	const activeProviderQualityFlags: string[] = [];
 	let previousTotalKey = "";
 	let hasInterleaving = false;
 	let hasUnresolvedFallback = false;
@@ -621,6 +693,17 @@ function extractCodexEvents(
 
 	visitJsonLines(input.content, diagnostics, (line) => {
 		const payload = readRecord(line.value.payload);
+		if (line.value.type === "session_meta") {
+			activeModelProvider = normalizeBillingDimension(
+				payload?.model_provider,
+				new Set(["openai"]),
+				"codex_unrecognized_model_provider",
+				"unrecognized_model_provider",
+				activeProviderQualityFlags,
+				diagnostics,
+			);
+			return;
+		}
 		if (line.value.type === "turn_context") {
 			const model = readNonEmptyString(payload?.model);
 			if (model && model !== SYNTHETIC_MODEL) activeModel = model;
@@ -723,6 +806,7 @@ function extractCodexEvents(
 			if (parent.inherited) hasInheritedBaseline = true;
 			const emitted = emitCodexTransition({
 				activeModel,
+				activeModelProvider,
 				baseline,
 				diagnostics,
 				events,
@@ -731,7 +815,11 @@ function extractCodexEvents(
 				input,
 				occurredAt,
 				parentLineageId: parent.lineageId,
-				qualityFlags: [...parent.qualityFlags, ...lineQualityFlags],
+				qualityFlags: [
+					...parent.qualityFlags,
+					...activeProviderQualityFlags,
+					...lineQualityFlags,
+				],
 				serviceTier,
 				tokenSource: "provider_increment",
 				total,
@@ -770,6 +858,7 @@ function extractCodexEvents(
 			const increment = subtractCodexVectors(total, baseline.vector);
 			const qualityFlags = [
 				"cumulative_delta_fallback_unverified",
+				...activeProviderQualityFlags,
 				...lineQualityFlags,
 			];
 			if (baseline.lineages.length > 1) {
@@ -783,6 +872,7 @@ function extractCodexEvents(
 			const baselineKey = codexVectorKey(baseline.vector);
 			const emitted = emitCodexTransition({
 				activeModel,
+				activeModelProvider,
 				baseline: baseline.vector,
 				diagnostics,
 				events,
@@ -932,6 +1022,7 @@ function shouldSuppressCodexReplayEvent(
 
 function emitCodexTransition(input: {
 	activeModel: string;
+	activeModelProvider: string;
 	baseline: CodexVector;
 	diagnostics: Map<string, MutableDiagnostic>;
 	events: MutableUsageEvent[];
@@ -1003,6 +1094,9 @@ function emitCodexTransition(input: {
 		resolvedModel: model.resolvedModel,
 		modelStatus: model.status,
 		serviceTier: input.serviceTier,
+		modelProvider: input.activeModelProvider,
+		inferenceSpeed: "",
+		inferenceGeo: "",
 		contextInputTokens: input.increment.inputTokens,
 		...tokens,
 		agentId: "main",
@@ -1022,6 +1116,7 @@ function mergeCodexDuplicateMetadata(
 	existing: MutableUsageEvent,
 	input: {
 		activeModel: string;
+		activeModelProvider: string;
 		diagnostics: Map<string, MutableDiagnostic>;
 		occurredAt: string | null;
 		serviceTier: string;
@@ -1048,6 +1143,15 @@ function mergeCodexDuplicateMetadata(
 	) {
 		addQualityFlag(existing, "service_tier_conflict");
 	}
+	if (existing.modelProvider === "" && input.activeModelProvider !== "") {
+		existing.modelProvider = input.activeModelProvider;
+	} else if (
+		existing.modelProvider !== "" &&
+		input.activeModelProvider !== "" &&
+		existing.modelProvider !== input.activeModelProvider
+	) {
+		addQualityFlag(existing, "model_provider_conflict");
+	}
 
 	if (input.activeModel === "") {
 		refreshCodexModelResolution(existing);
@@ -1072,10 +1176,6 @@ function mergeCodexDuplicateMetadata(
 		return;
 	}
 	if (normalizeModel(input.activeModel) !== normalizeModel(existing.rawModel)) {
-		existing.rawModel = "";
-		existing.resolvedModel = "";
-		existing.modelStatus = "conflict";
-		removeQualityFlag(existing, "unresolved_model");
 		addQualityFlag(existing, "model_conflict");
 		addDiagnostic(input.diagnostics, "codex_transition_model_conflict", false);
 		return;
@@ -1523,7 +1623,7 @@ function removeQualityFlag(event: MutableUsageEvent, flag: string): void {
 
 function resolveUsageModel(
 	rawModel: string,
-	occurredAt: string | null,
+	_occurredAt: string | null,
 	qualityFlags: Set<string>,
 	source: UsageEventSource,
 ): {
@@ -1534,26 +1634,21 @@ function resolveUsageModel(
 	if (rawModel === "") {
 		return { rawModel: "", resolvedModel: "", status: "missing" };
 	}
-	if (occurredAt === null) {
-		qualityFlags.add("unresolved_model");
-		return { rawModel, resolvedModel: "", status: "unresolved" };
-	}
-	const pricing = resolveModelPricing(rawModel, {
-		at: occurredAt,
-		contextBand: "base",
-	});
-	if (!pricing) {
+	const identity = resolveCanonicalModelIdentity(rawModel);
+	if (!identity) {
 		qualityFlags.add("unresolved_model");
 		return { rawModel, resolvedModel: "", status: "unresolved" };
 	}
 	const expectedProvider = source === "claude_code" ? "anthropic" : "openai";
-	if (pricing.provider !== expectedProvider) {
+	if (identity.provider !== expectedProvider) {
 		qualityFlags.add("provider_model_mismatch");
-		return { rawModel, resolvedModel: "", status: "unresolved" };
+	}
+	if (identity.priceability === "unpriced") {
+		qualityFlags.add(identity.unpricedReason ?? "no_public_rate");
 	}
 	return {
 		rawModel,
-		resolvedModel: pricing.model,
+		resolvedModel: identity.model,
 		status: "resolved",
 	};
 }
@@ -1588,7 +1683,7 @@ const ALLOWED_SERVICE_TIERS: Readonly<
 	Record<UsageEventSource, ReadonlySet<string>>
 > = {
 	claude_code: new Set(["batch", "priority", "standard"]),
-	codex: new Set(["auto", "default", "flex", "priority", "scale"]),
+	codex: new Set(["auto", "default", "fast", "flex", "priority", "scale"]),
 };
 
 function normalizeServiceTier(
@@ -1597,15 +1692,28 @@ function normalizeServiceTier(
 	qualityFlags: string[],
 	diagnostics: Map<string, MutableDiagnostic>,
 ): string {
-	const tier = readNonEmptyString(value)?.toLowerCase() ?? "";
-	if (tier === "" || ALLOWED_SERVICE_TIERS[source].has(tier)) return tier;
-	qualityFlags.push("unrecognized_service_tier");
-	addDiagnostic(
-		diagnostics,
+	return normalizeBillingDimension(
+		value,
+		ALLOWED_SERVICE_TIERS[source],
 		`${source}_unrecognized_service_tier`,
-		false,
-		tier,
+		"unrecognized_service_tier",
+		qualityFlags,
+		diagnostics,
 	);
+}
+
+function normalizeBillingDimension(
+	value: unknown,
+	allowedValues: ReadonlySet<string>,
+	diagnosticCode: string,
+	qualityFlag: string,
+	qualityFlags: string[],
+	diagnostics: Map<string, MutableDiagnostic>,
+): string {
+	const normalized = readNonEmptyString(value)?.toLowerCase() ?? "";
+	if (normalized === "" || allowedValues.has(normalized)) return normalized;
+	qualityFlags.push(qualityFlag);
+	addDiagnostic(diagnostics, diagnosticCode, false, normalized);
 	return "";
 }
 

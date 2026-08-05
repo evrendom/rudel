@@ -175,6 +175,21 @@
 					"type": "LowCardinality(String)"
 				},
 				{
+					"name": "model_provider",
+					"type": "LowCardinality(String)",
+					"default": "''"
+				},
+				{
+					"name": "inference_speed",
+					"type": "LowCardinality(String)",
+					"default": "''"
+				},
+				{
+					"name": "inference_geo",
+					"type": "LowCardinality(String)",
+					"default": "''"
+				},
+				{
 					"name": "context_input_tokens",
 					"type": "UInt64"
 				},
