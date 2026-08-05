@@ -164,7 +164,7 @@ export async function getSessionAnalytics(
 	});
 	const estimatedCostSql =
 		usage.mode === "events"
-			? "if(sa.cost_is_complete = 1, sa.estimated_cost, CAST(NULL, 'Nullable(Float64)'))"
+			? "sa.estimated_cost"
 			: LEGACY_SESSION_DISPLAY_COST_WITH_FALLBACK_SQL;
 
 	const query = `
@@ -729,7 +729,7 @@ export async function getSessionDetail(
 	});
 	const estimatedCostSql =
 		usage.mode === "events"
-			? "if(sa.cost_is_complete = 1, sa.estimated_cost, CAST(NULL, 'Nullable(Float64)'))"
+			? "sa.estimated_cost"
 			: LEGACY_SESSION_DISPLAY_COST_WITH_FALLBACK_SQL;
 	const query = `
 	WITH ${usage.cteDefinitions},

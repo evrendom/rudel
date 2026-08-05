@@ -14,7 +14,10 @@ import {
 	ESTIMATED_PRICING_MODE,
 	getModelPricingCatalog,
 } from "./pricing.service.js";
-import { getUsageAnalyticsQueryContext } from "./usage-event-analytics.service.js";
+import {
+	buildUsageCostSubtotalSql,
+	getUsageAnalyticsQueryContext,
+} from "./usage-event-analytics.service.js";
 
 // Preserve the legacy ROI formulas while cutover mode is off. Event mode prices
 // each request through the typed rate card in usage-event-analytics.service.
@@ -140,17 +143,13 @@ function calculateChangePct(
 	return roundTo(((current - previous) / previous) * 100);
 }
 
-function buildCompleteCostAggregateSql(
+function buildCostSubtotalSql(
 	mode: "events" | "legacy",
 	precision: number,
 	legacyExpression: string,
 ): string {
 	if (mode === "legacy") return legacyExpression;
-	return `if(
-		countIf(cost_is_complete = 0) = 0,
-		toNullable(round(sum(ifNull(estimated_cost, 0)), ${precision})),
-		CAST(NULL, 'Nullable(Float64)')
-	)`;
+	return buildUsageCostSubtotalSql("estimated_cost", precision);
 }
 
 function shiftIsoDate(isoDate: string, days: number) {
@@ -261,7 +260,7 @@ export async function getROIMetrics(
 		+ (SUM(input_tokens) / 1000000.0) * ${INPUT_PRICE_PER_MILLION},
 		2
 	)`;
-	const costSql = buildCompleteCostAggregateSql(usage.mode, 2, legacyCostSql);
+	const costSql = buildCostSubtotalSql(usage.mode, 2, legacyCostSql);
 
 	const query = `
 	WITH ${usage.cteDefinitions},
@@ -487,7 +486,7 @@ export async function getROITrends(
 ): Promise<ROITrend[]> {
 	const d = Number(days);
 	const usage = await getUsageAnalyticsQueryContext(orgId);
-	const costSql = buildCompleteCostAggregateSql(
+	const costSql = buildCostSubtotalSql(
 		usage.mode,
 		2,
 		`round((SUM(output_tokens) / 1000000.0) * ${OUTPUT_PRICE_PER_MILLION} + (SUM(input_tokens) / 1000000.0) * ${INPUT_PRICE_PER_MILLION}, 2)`,
@@ -554,7 +553,7 @@ export async function getDeveloperCostBreakdown(
 ): Promise<DeveloperCostBreakdown[]> {
 	const d = Number(days);
 	const usage = await getUsageAnalyticsQueryContext(orgId);
-	const costSql = buildCompleteCostAggregateSql(
+	const costSql = buildCostSubtotalSql(
 		usage.mode,
 		2,
 		`round((SUM(output_tokens) / 1000000.0) * ${OUTPUT_PRICE_PER_MILLION} + (SUM(input_tokens) / 1000000.0) * ${INPUT_PRICE_PER_MILLION}, 2)`,
@@ -619,7 +618,7 @@ export async function getProjectCostBreakdown(
 ): Promise<ProjectCostBreakdown[]> {
 	const d = Number(days);
 	const usage = await getUsageAnalyticsQueryContext(orgId);
-	const costSql = buildCompleteCostAggregateSql(
+	const costSql = buildCostSubtotalSql(
 		usage.mode,
 		2,
 		`round((SUM(output_tokens) / 1000000.0) * ${OUTPUT_PRICE_PER_MILLION} + (SUM(input_tokens) / 1000000.0) * ${INPUT_PRICE_PER_MILLION}, 2)`,
@@ -682,7 +681,7 @@ async function getRangeSnapshot(
 	endDate: string,
 ): Promise<RangeSnapshotRow | undefined> {
 	const usage = await getUsageAnalyticsQueryContext(orgId);
-	const costSql = buildCompleteCostAggregateSql(
+	const costSql = buildCostSubtotalSql(
 		usage.mode,
 		4,
 		"round(SUM(ifNull(estimated_cost, 0)), 4)",
@@ -722,7 +721,7 @@ async function getDeveloperCostBreakdownForRange(
 	endDate: string,
 ): Promise<DeveloperCostBreakdown[]> {
 	const usage = await getUsageAnalyticsQueryContext(orgId);
-	const costSql = buildCompleteCostAggregateSql(
+	const costSql = buildCostSubtotalSql(
 		usage.mode,
 		4,
 		"round(SUM(ifNull(estimated_cost, 0)), 4)",
@@ -781,7 +780,7 @@ async function getProjectCostBreakdownForRange(
 	endDate: string,
 ): Promise<ProjectCostBreakdown[]> {
 	const usage = await getUsageAnalyticsQueryContext(orgId);
-	const costSql = buildCompleteCostAggregateSql(
+	const costSql = buildCostSubtotalSql(
 		usage.mode,
 		4,
 		"round(SUM(ifNull(estimated_cost, 0)), 4)",
@@ -857,7 +856,7 @@ export async function getROIDashboard(
 				? "toMonday(session_date)"
 				: "toStartOfMonth(session_date)";
 	const usage = await getUsageAnalyticsQueryContext(orgId);
-	const trendCostSql = buildCompleteCostAggregateSql(
+	const trendCostSql = buildCostSubtotalSql(
 		usage.mode,
 		4,
 		"round(SUM(ifNull(estimated_cost, 0)), 4)",

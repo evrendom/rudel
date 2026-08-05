@@ -13,7 +13,10 @@ import {
 } from "../clickhouse.js";
 import { sqlClient } from "../db.js";
 import { buildEstimatedCostSql } from "./pricing.service.js";
-import { getUsageAnalyticsQueryContext } from "./usage-event-analytics.service.js";
+import {
+	buildUsageCostSubtotalSql,
+	getUsageAnalyticsQueryContext,
+} from "./usage-event-analytics.service.js";
 
 export interface Insight {
 	type: "trend" | "performer" | "alert" | "info";
@@ -113,11 +116,7 @@ export async function getModelTokensTrend(
 	const usage = await getUsageAnalyticsQueryContext(orgId);
 	const estimatedCostSql =
 		usage.mode === "events"
-			? `if(
-				countIf(cost_is_complete = 0) = 0,
-				toNullable(round(sum(ifNull(estimated_cost, 0)), 4)),
-				CAST(NULL, 'Nullable(Float64)')
-			)`
+			? buildUsageCostSubtotalSql("estimated_cost", 4)
 			: `ifNull(${buildEstimatedCostSql({
 					dateExpr: "sa.usage_date",
 					inputExpr: "sum(sa.input_tokens)",
@@ -205,11 +204,7 @@ export async function getUsersTokenUsage(
       sum(ifNull(sa.total_tokens, 0)) as total_tokens,
       sum(ifNull(sa.input_tokens, 0)) as input_tokens,
       sum(ifNull(sa.output_tokens, 0)) as output_tokens,
-      if(
-		countIf(sa.cost_is_complete = 0) = 0,
-		toNullable(round(sum(ifNull(sa.estimated_cost, 0)), 4)),
-		CAST(NULL, 'Nullable(Float64)')
-	  ) as cost,
+		${buildUsageCostSubtotalSql("sa.estimated_cost", 4)} as cost,
       count() as total_sessions,
       round(sum(sa.actual_duration_min), 2) as total_duration_min,
       round(avg(sa.success_score), 2) as success_rate,

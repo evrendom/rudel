@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
 	buildLegacyUsageAnalyticsCte,
+	buildUsageCostSubtotalSql,
 	buildUsageEventAnalyticsCte,
 	getUsageAnalyticsQueryContext,
 	UsageEventAnalyticsReadinessGate,
@@ -75,6 +76,20 @@ describe("usage-event analytics query contract", () => {
 		expect(sql).toContain("unrecognized_service_tier");
 		expect(sql).toContain("provider_model_mismatch");
 		expect(sql).toContain("e.has_valid_timestamp = 1");
+	});
+
+	test("keeps the known cost subtotal while completeness remains internal", () => {
+		const sql = buildUsageEventAnalyticsCte();
+
+		expect(sql).toContain(
+			"toNullable(sum(ifNull(p.estimated_cost, 0))) AS estimated_cost",
+		);
+		expect(sql).toContain(
+			"OR has(p.quality_flags, 'inference_geo_not_available')",
+		);
+		expect(buildUsageCostSubtotalSql("sa.estimated_cost", 4)).toBe(
+			"toNullable(round(sum(ifNull(sa.estimated_cost, 0)), 4))",
+		);
 	});
 
 	test("keeps the legacy branch source-compatible", () => {

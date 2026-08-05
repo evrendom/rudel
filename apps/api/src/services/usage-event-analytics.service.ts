@@ -116,6 +116,13 @@ interface UsageEventAnalyticsReadinessGateOptions {
 	readonly timeoutMs: number;
 }
 
+export function buildUsageCostSubtotalSql(
+	estimatedCostExpression: string,
+	precision: number,
+): string {
+	return `toNullable(round(sum(ifNull(${estimatedCostExpression}, 0)), ${precision}))`;
+}
+
 export class UsageEventAnalyticsReadinessGate {
 	private readonly degradedTtlMs: number;
 	private inFlight: Promise<ReadinessState> | null = null;
@@ -293,8 +300,11 @@ export function buildUsageEventAnalyticsCte(
 				sum(p.cache_read_input_tokens) AS cache_read_input_tokens,
 				sum(p.cache_write_5m_input_tokens + p.cache_write_1h_input_tokens) AS cache_creation_input_tokens,
 				sum(p.uncached_input_tokens + p.cache_read_input_tokens + p.cache_write_5m_input_tokens + p.cache_write_1h_input_tokens + p.output_tokens) AS total_tokens,
-				if(countIf(isNotNull(p.estimated_cost)) > 0, toNullable(sum(ifNull(p.estimated_cost, 0))), CAST(NULL, 'Nullable(Float64)')) AS estimated_cost,
-				toUInt8(countIf(isNull(p.estimated_cost)) = 0) AS cost_is_complete
+				toNullable(sum(ifNull(p.estimated_cost, 0))) AS estimated_cost,
+				toUInt8(countIf(
+					isNull(p.estimated_cost)
+					OR has(p.quality_flags, 'inference_geo_not_available')
+				) = 0) AS cost_is_complete
 			FROM priced_usage_events AS p
 			GROUP BY p.organization_id, p.user_id, p.source, p.session_id
 		),
@@ -310,8 +320,11 @@ export function buildUsageEventAnalyticsCte(
 				sum(p.cache_read_input_tokens) AS cache_read_input_tokens,
 				sum(p.cache_write_5m_input_tokens + p.cache_write_1h_input_tokens) AS cache_creation_input_tokens,
 				sum(p.uncached_input_tokens + p.cache_read_input_tokens + p.cache_write_5m_input_tokens + p.cache_write_1h_input_tokens + p.output_tokens) AS total_tokens,
-				if(countIf(isNotNull(p.estimated_cost)) > 0, toNullable(sum(ifNull(p.estimated_cost, 0))), CAST(NULL, 'Nullable(Float64)')) AS estimated_cost,
-				toUInt8(countIf(isNull(p.estimated_cost)) = 0) AS cost_is_complete
+				toNullable(sum(ifNull(p.estimated_cost, 0))) AS estimated_cost,
+				toUInt8(countIf(
+					isNull(p.estimated_cost)
+					OR has(p.quality_flags, 'inference_geo_not_available')
+				) = 0) AS cost_is_complete
 			FROM priced_usage_events AS p
 			GROUP BY p.organization_id, p.user_id, p.source, p.session_id, p.usage_date
 		),

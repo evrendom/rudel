@@ -13,7 +13,10 @@ import {
 	type RudelUsageEventsRow,
 } from "@rudel/ch-schema/generated";
 import { createClickHouseExecutor } from "../clickhouse.js";
-import { buildUsageEventAnalyticsCte } from "../services/usage-event-analytics.service.js";
+import {
+	buildUsageCostSubtotalSql,
+	buildUsageEventAnalyticsCte,
+} from "../services/usage-event-analytics.service.js";
 
 setDefaultTimeout(30_000);
 
@@ -27,6 +30,7 @@ const unresolvedSessionId = `usage_analytics_unresolved_${runId}`;
 const unsupportedTierSessionId = `usage_analytics_unsupported_tier_${runId}`;
 const openAiFastSessionId = `usage_analytics_openai_fast_${runId}`;
 const claudeFastUsSessionId = `usage_analytics_claude_fast_us_${runId}`;
+const unavailableGeoSessionId = `usage_analytics_unavailable_geo_${runId}`;
 const longContextSessionId = `usage_analytics_long_${runId}`;
 const mismatchedSessionId = `usage_analytics_mismatch_${runId}`;
 const partialSessionId = `usage_analytics_partial_${runId}`;
@@ -55,6 +59,7 @@ beforeAll(async () => {
 				unsupportedTierSessionId,
 				openAiFastSessionId,
 				claudeFastUsSessionId,
+				unavailableGeoSessionId,
 				longContextSessionId,
 				mismatchedSessionId,
 				partialSessionId,
@@ -120,6 +125,14 @@ beforeAll(async () => {
 				service_tier: "priority",
 			}),
 			buildReceiptRow(claudeFastUsSessionId, "1", 1, true),
+			buildEventRow(unavailableGeoSessionId, "1", {
+				inference_geo: "",
+				model_provider: "anthropic",
+				quality_flags: ["inference_geo_not_available"],
+				raw_model: "claude-opus-4-8",
+				resolved_model: "claude-opus-4-8",
+			}),
+			buildReceiptRow(unavailableGeoSessionId, "1", 1, true),
 			buildEventRow(longContextSessionId, "1", {
 				cache_read_input_tokens: "0",
 				cache_write_1h_input_tokens: "0",
@@ -216,7 +229,7 @@ describe("usage-event analytics ClickHouse rollups", () => {
 			},
 			{
 				cost_is_complete: 0,
-				estimated_cost: null,
+				estimated_cost: 0,
 				input_tokens: "4000000",
 				model_used: "claude-opus-4-1",
 				output_tokens: "1000000",
@@ -270,7 +283,16 @@ describe("usage-event analytics ClickHouse rollups", () => {
 			},
 			{
 				cost_is_complete: 0,
-				estimated_cost: null,
+				estimated_cost: 46.75,
+				input_tokens: "4000000",
+				model_used: "claude-opus-4-1",
+				output_tokens: "1000000",
+				session_id: unavailableGeoSessionId,
+				total_tokens: "5000000",
+			},
+			{
+				cost_is_complete: 0,
+				estimated_cost: 0,
 				input_tokens: "4000000",
 				model_used: "claude-opus-4-1",
 				output_tokens: "1000000",
@@ -279,7 +301,7 @@ describe("usage-event analytics ClickHouse rollups", () => {
 			},
 			{
 				cost_is_complete: 0,
-				estimated_cost: null,
+				estimated_cost: 0,
 				input_tokens: "4000000",
 				model_used: "claude-opus-4-1",
 				output_tokens: "1000000",
@@ -299,6 +321,24 @@ describe("usage-event analytics ClickHouse rollups", () => {
 				false,
 			);
 		}
+	});
+
+	test("returns the known aggregate subtotal without discarding completeness", async () => {
+		const rows = await executor.query<{
+			cost: number;
+			incomplete_sessions: number;
+		}>({
+			query: `
+				WITH ${buildUsageEventAnalyticsCte()}
+				SELECT
+					${buildUsageCostSubtotalSql("estimated_cost", 4)} AS cost,
+					countIf(cost_is_complete = 0) AS incomplete_sessions
+				FROM usage_analytics_sessions
+			`,
+			query_params: { orgId: organizationId },
+		});
+
+		expect(rows).toEqual([{ cost: 292.3, incomplete_sessions: 5 }]);
 	});
 
 	test("keeps bounded key prefixes visible across the shared query families", async () => {

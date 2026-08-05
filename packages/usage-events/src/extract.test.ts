@@ -11,8 +11,8 @@ import {
 } from "./index.js";
 
 describe("usage identity versioning", () => {
-	test("pins pricing-provenance extraction semantics to v3", () => {
-		expect(USAGE_EVENT_EXTRACTION_VERSION).toBe(3);
+	test("pins pricing-provenance extraction semantics to v4", () => {
+		expect(USAGE_EVENT_EXTRACTION_VERSION).toBe(4);
 	});
 
 	test("pins every event and lineage prefix to the identity-version knob", () => {
@@ -716,6 +716,48 @@ describe("Claude usage-event extraction", () => {
 			inferenceSpeed: "fast",
 			rawModel: "claude-opus-4-8 [1m]",
 			resolvedModel: "claude-opus-4-8",
+		});
+	});
+
+	test("treats Anthropic's not_available geography sentinel as base-compatible but disclosed", () => {
+		const result = complete(
+			extractClaude(
+				claudeLine({
+					messageId: "claude-routing-unavailable",
+					requestId: "claude-routing-unavailable-request",
+					input: 10,
+					output: 2,
+					inferenceGeo: "not_available",
+					model: "claude-opus-4-6",
+				}),
+			),
+		);
+
+		expect(onlyEvent(result)).toMatchObject({
+			inferenceGeo: "",
+			qualityFlags: ["inference_geo_not_available"],
+		});
+		expect(result.diagnostics).toContainEqual({
+			code: "claude_code_inference_geo_not_available",
+			count: 1,
+			fatal: false,
+		});
+
+		const unsupported = onlyEvent(
+			extractClaude(
+				claudeLine({
+					messageId: "claude-routing-unsupported",
+					requestId: "claude-routing-unsupported-request",
+					input: 10,
+					output: 2,
+					inferenceGeo: "moon",
+					model: "claude-opus-4-6",
+				}),
+			),
+		);
+		expect(unsupported).toMatchObject({
+			inferenceGeo: "",
+			qualityFlags: ["unrecognized_inference_geo"],
 		});
 	});
 
