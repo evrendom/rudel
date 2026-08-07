@@ -1,0 +1,23 @@
+---
+// biome-ignore-all lint/correctness/noUnusedImports: Astro uses this import in set:html.
+import { titleHtml } from "./generated/hero-title-data";
+import "../styles/vendor/interfere/hero-title/naturalized.css";
+import "../styles/vendor/interfere/hero-title/naturalized-isolation.css";
+
+interface Props {
+	brand?: "source" | "opaline";
+}
+
+const { brand = "source" } = Astro.props;
+const renderedTitleHtml =
+	brand === "opaline"
+		? titleHtml.replace(
+				"Interfere finds the root cause and owns the fix.",
+				"Opaline finds the root cause and owns the fix.",
+			)
+		: titleHtml;
+---
+
+<div class="opaline-hero-title-scope light" style="display: contents;">
+	<Fragment set:html={renderedTitleHtml} />
+</div>

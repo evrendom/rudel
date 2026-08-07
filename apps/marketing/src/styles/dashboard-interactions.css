@@ -1,0 +1,30 @@
+:where(.opaline-dashboard-scope)
+	[data-opaline-dashboard-part="desktop-window"] {
+	--opaline-drag-x: 0px;
+	--opaline-drag-y: 0px;
+	translate: var(--opaline-drag-x) var(--opaline-drag-y);
+	cursor: grab;
+	pointer-events: auto !important;
+	touch-action: none;
+	user-select: none;
+}
+
+:where(.opaline-dashboard-scope)
+	[data-opaline-dashboard-part="desktop-window"][data-opaline-dragging] {
+	z-index: 50 !important;
+	cursor: grabbing;
+}
+
+/* The source uses an unscaled, fluid dashboard below its 992px grid breakpoint
+	 and once the available panel is wider than its 1152px design canvas. */
+@media (max-width: 991px), (min-width: 1555px) {
+	:where(.opaline-dashboard-scope)
+		[data-opaline-dashboard-panel]
+		> div
+		> div
+		> div[style*="width: 1152px"] {
+		width: 100% !important;
+		height: 100% !important;
+		transform: none !important;
+	}
+}

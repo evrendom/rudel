@@ -1,0 +1,3 @@
+@charset "UTF-8";
+@layer reset, base, app.base;
+._5mGmSq_root{-webkit-user-select:none;user-select:none;width:1px;min-width:1px;height:1px;min-height:1px;margin-top:calc(var(--height,0px) - 1px);margin-left:calc(var(--width,0px) - 1px);display:block}._5mGmSq_inline{display:inline-block}

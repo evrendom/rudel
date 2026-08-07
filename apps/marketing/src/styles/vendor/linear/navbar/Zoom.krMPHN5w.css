@@ -1,0 +1,3 @@
+@charset "UTF-8";
+@layer reset, base, app.base;
+.o2aWCW_overlay{z-index:var(--layer-dialog-overlay);background:var(--color-bg-primary);position:fixed;inset:0}.o2aWCW_lightbox{z-index:var(--layer-dialog);cursor:zoom-out;transition:width .4s ease-out,height .4s ease-out;position:fixed;inset:0}.o2aWCW_lightbox>div{position:absolute}.o2aWCW_lightbox img{width:100%;height:100%}.o2aWCW_lightbox [data-fade=true]{opacity:1!important;animation:none!important;-webkit-mask:none!important;mask:none!important}.o2aWCW_wrapper{cursor:zoom-in;line-height:0;position:relative}.o2aWCW_wrapper[data-hidden=true]{visibility:hidden}

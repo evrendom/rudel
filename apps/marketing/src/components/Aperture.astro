@@ -1,0 +1,95 @@
+<div class="aperture-root" data-aperture-root aria-hidden="true">
+	<div class="aperture-curtain"></div>
+	<div class="aperture-chroma chroma-green"></div>
+	<div class="aperture-chroma chroma-yellow"></div>
+	<div class="aperture-chroma chroma-pink"></div>
+	<img
+		class="aperture-mark"
+		src="/opaline-icon.svg"
+		alt=""
+		width="1049"
+		height="1042"
+	/>
+</div>
+
+<style is:global>
+	.aperture-root {
+		display: none;
+	}
+
+	html[data-js] .aperture-root {
+		position: fixed;
+		z-index: 100;
+		inset: 0;
+		display: block;
+		width: 100%;
+		height: 100svh;
+		pointer-events: auto;
+		--aperture-size: 48px;
+		--aperture-hole: 13.4px;
+		--aperture-chroma: 0;
+	}
+
+	.aperture-curtain {
+		position: absolute;
+		inset: 0;
+		background: #fff;
+		-webkit-mask: radial-gradient(
+			circle var(--aperture-hole) at 50% 50%,
+			transparent 0 98%,
+			#000 100%
+		);
+		mask: radial-gradient(
+			circle var(--aperture-hole) at 50% 50%,
+			transparent 0 98%,
+			#000 100%
+		);
+		will-change: mask, -webkit-mask;
+	}
+
+	.aperture-mark,
+	.aperture-chroma {
+		position: absolute;
+		top: 50%;
+		left: 50%;
+		width: var(--aperture-size);
+		height: var(--aperture-size);
+		transform: translate(-50%, -50%);
+		transform-origin: center;
+		pointer-events: none;
+		will-change: width, height, opacity, filter;
+	}
+
+	.aperture-chroma {
+		border: max(1px, calc(var(--aperture-size) * 0.018)) solid currentColor;
+		border-radius: 50%;
+		opacity: calc(var(--aperture-chroma) * 0.56);
+		filter: blur(calc(2px + var(--aperture-chroma) * 13px));
+	}
+
+	.chroma-green {
+		color: #a7ffd6;
+		transform: translate(calc(-50% - var(--aperture-chroma) * 18px), -50%) scale(0.94);
+	}
+
+	.chroma-yellow {
+		color: #fffaa7;
+		transform: translate(-50%, calc(-50% + var(--aperture-chroma) * 11px)) scale(1.02);
+	}
+
+	.chroma-pink {
+		color: #ffc0fd;
+		transform: translate(calc(-50% + var(--aperture-chroma) * 18px), -50%) scale(1.1);
+	}
+
+	html[data-aperture="released"] .aperture-root {
+		display: none;
+		pointer-events: none;
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		html[data-js] .aperture-root {
+			display: none;
+		}
+	}
+</style>

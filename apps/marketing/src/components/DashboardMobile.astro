@@ -1,0 +1,16 @@
+---
+// biome-ignore-all lint/correctness/noUnusedImports: Astro uses this import in a set:html directive.
+import {
+	mobileDataHtml,
+	mobileReportingHtml,
+} from "./generated/dashboard-branded-data";
+
+interface Props {
+	scene?: "Data model" | "Reporting";
+}
+
+const { scene = "Data model" } = Astro.props;
+const renderedHtml = scene === "Reporting" ? mobileReportingHtml : mobileDataHtml;
+---
+
+<Fragment set:html={renderedHtml} />

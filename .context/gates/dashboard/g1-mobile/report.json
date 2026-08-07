@@ -1,0 +1,43 @@
+{
+  "gate": "G1-dashboard-mobile",
+  "generatedAt": "2026-08-07T19:54:47.119Z",
+  "viewport": {
+    "width": 390,
+    "height": 844,
+    "dpr": 1,
+    "mobile": true
+  },
+  "thresholds": {
+    "maximumPixelDifferencePercent": 0.1,
+    "structuralDifferences": 0
+  },
+  "passed": true,
+  "results": [
+    {
+      "scene": "Data model",
+      "pixel": {
+        "width": 390,
+        "height": 844,
+        "comparedPixels": 329160,
+        "differingPixels": 0,
+        "diffPercent": 0
+      },
+      "structuralDifferenceCount": 0,
+      "structuralDifferences": [],
+      "excludedTextLayoutFragmentCount": 0
+    },
+    {
+      "scene": "Reporting",
+      "pixel": {
+        "width": 390,
+        "height": 844,
+        "comparedPixels": 329160,
+        "differingPixels": 0,
+        "diffPercent": 0
+      },
+      "structuralDifferenceCount": 0,
+      "structuralDifferences": [],
+      "excludedTextLayoutFragmentCount": 99
+    }
+  ]
+}

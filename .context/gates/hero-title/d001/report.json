@@ -1,0 +1,341 @@
+{
+  "gate": "D001-hero-title",
+  "generatedAt": "2026-08-07T18:42:23.326Z",
+  "sourceUrl": "http://127.0.0.1:4175/__lens-atoms/interfere-title?opaline-copy=agent-sessions",
+  "candidateUrl": "http://127.0.0.1:4321/preview/hero-title-branded",
+  "thresholds": {
+    "maximumPixelDifferencePercent": 0.1,
+    "structuralDifferences": 0
+  },
+  "sanctionedTextChange": {
+    "source": "Stop correlating logs and bug reports across scattered tools. Interfere finds the root cause and owns the fix.",
+    "candidate": "Stop correlating logs and bug reports across scattered tools. Opaline finds the root cause and owns the fix."
+  },
+  "passed": true,
+  "results": [
+    {
+      "name": "phone-default",
+      "viewport": {
+        "width": 390,
+        "height": 844,
+        "dpr": 1,
+        "mobile": true
+      },
+      "pixel": {
+        "width": 390,
+        "height": 844,
+        "comparedPixels": 329160,
+        "differingPixels": 1301,
+        "diffPercent": 0.3952485113622555
+      },
+      "structuralDifferenceCount": 1,
+      "structuralDifferences": [
+        {
+          "type": "value",
+          "path": "div[0]/p[0]",
+          "field": "text",
+          "source": "Stop correlating logs and bug reports across scattered tools. Interfere finds the root cause and owns the fix.",
+          "candidate": "Stop correlating logs and bug reports across scattered tools. Opaline finds the root cause and owns the fix."
+        }
+      ],
+      "unsanctionedStructuralDifferenceCount": 0
+    },
+    {
+      "name": "phone-secondary-hover",
+      "viewport": {
+        "width": 390,
+        "height": 844,
+        "dpr": 1,
+        "mobile": true
+      },
+      "pixel": {
+        "width": 390,
+        "height": 844,
+        "comparedPixels": 329160,
+        "differingPixels": 1301,
+        "diffPercent": 0.3952485113622555
+      },
+      "structuralDifferenceCount": 1,
+      "structuralDifferences": [
+        {
+          "type": "value",
+          "path": "div[0]/p[0]",
+          "field": "text",
+          "source": "Stop correlating logs and bug reports across scattered tools. Interfere finds the root cause and owns the fix.",
+          "candidate": "Stop correlating logs and bug reports across scattered tools. Opaline finds the root cause and owns the fix."
+        }
+      ],
+      "unsanctionedStructuralDifferenceCount": 0
+    },
+    {
+      "name": "phone-focus-visible",
+      "viewport": {
+        "width": 390,
+        "height": 844,
+        "dpr": 1,
+        "mobile": true
+      },
+      "pixel": {
+        "width": 390,
+        "height": 844,
+        "comparedPixels": 329160,
+        "differingPixels": 1301,
+        "diffPercent": 0.3952485113622555
+      },
+      "structuralDifferenceCount": 1,
+      "structuralDifferences": [
+        {
+          "type": "value",
+          "path": "div[0]/p[0]",
+          "field": "text",
+          "source": "Stop correlating logs and bug reports across scattered tools. Interfere finds the root cause and owns the fix.",
+          "candidate": "Stop correlating logs and bug reports across scattered tools. Opaline finds the root cause and owns the fix."
+        }
+      ],
+      "unsanctionedStructuralDifferenceCount": 0
+    },
+    {
+      "name": "tablet-default",
+      "viewport": {
+        "width": 768,
+        "height": 1024,
+        "dpr": 1,
+        "mobile": true
+      },
+      "pixel": {
+        "width": 768,
+        "height": 1024,
+        "comparedPixels": 786432,
+        "differingPixels": 1495,
+        "diffPercent": 0.19009908040364581
+      },
+      "structuralDifferenceCount": 1,
+      "structuralDifferences": [
+        {
+          "type": "value",
+          "path": "div[0]/p[0]",
+          "field": "text",
+          "source": "Stop correlating logs and bug reports across scattered tools. Interfere finds the root cause and owns the fix.",
+          "candidate": "Stop correlating logs and bug reports across scattered tools. Opaline finds the root cause and owns the fix."
+        }
+      ],
+      "unsanctionedStructuralDifferenceCount": 0
+    },
+    {
+      "name": "tablet-secondary-hover",
+      "viewport": {
+        "width": 768,
+        "height": 1024,
+        "dpr": 1,
+        "mobile": true
+      },
+      "pixel": {
+        "width": 768,
+        "height": 1024,
+        "comparedPixels": 786432,
+        "differingPixels": 1495,
+        "diffPercent": 0.19009908040364581
+      },
+      "structuralDifferenceCount": 1,
+      "structuralDifferences": [
+        {
+          "type": "value",
+          "path": "div[0]/p[0]",
+          "field": "text",
+          "source": "Stop correlating logs and bug reports across scattered tools. Interfere finds the root cause and owns the fix.",
+          "candidate": "Stop correlating logs and bug reports across scattered tools. Opaline finds the root cause and owns the fix."
+        }
+      ],
+      "unsanctionedStructuralDifferenceCount": 0
+    },
+    {
+      "name": "tablet-focus-visible",
+      "viewport": {
+        "width": 768,
+        "height": 1024,
+        "dpr": 1,
+        "mobile": true
+      },
+      "pixel": {
+        "width": 768,
+        "height": 1024,
+        "comparedPixels": 786432,
+        "differingPixels": 1495,
+        "diffPercent": 0.19009908040364581
+      },
+      "structuralDifferenceCount": 1,
+      "structuralDifferences": [
+        {
+          "type": "value",
+          "path": "div[0]/p[0]",
+          "field": "text",
+          "source": "Stop correlating logs and bug reports across scattered tools. Interfere finds the root cause and owns the fix.",
+          "candidate": "Stop correlating logs and bug reports across scattered tools. Opaline finds the root cause and owns the fix."
+        }
+      ],
+      "unsanctionedStructuralDifferenceCount": 0
+    },
+    {
+      "name": "desktop-default",
+      "viewport": {
+        "width": 1280,
+        "height": 800,
+        "dpr": 1,
+        "mobile": false
+      },
+      "pixel": {
+        "width": 1280,
+        "height": 800,
+        "comparedPixels": 1024000,
+        "differingPixels": 1495,
+        "diffPercent": 0.14599609375
+      },
+      "structuralDifferenceCount": 1,
+      "structuralDifferences": [
+        {
+          "type": "value",
+          "path": "div[0]/p[0]",
+          "field": "text",
+          "source": "Stop correlating logs and bug reports across scattered tools. Interfere finds the root cause and owns the fix.",
+          "candidate": "Stop correlating logs and bug reports across scattered tools. Opaline finds the root cause and owns the fix."
+        }
+      ],
+      "unsanctionedStructuralDifferenceCount": 0
+    },
+    {
+      "name": "desktop-secondary-hover",
+      "viewport": {
+        "width": 1280,
+        "height": 800,
+        "dpr": 1,
+        "mobile": false
+      },
+      "pixel": {
+        "width": 1280,
+        "height": 800,
+        "comparedPixels": 1024000,
+        "differingPixels": 1495,
+        "diffPercent": 0.14599609375
+      },
+      "structuralDifferenceCount": 1,
+      "structuralDifferences": [
+        {
+          "type": "value",
+          "path": "div[0]/p[0]",
+          "field": "text",
+          "source": "Stop correlating logs and bug reports across scattered tools. Interfere finds the root cause and owns the fix.",
+          "candidate": "Stop correlating logs and bug reports across scattered tools. Opaline finds the root cause and owns the fix."
+        }
+      ],
+      "unsanctionedStructuralDifferenceCount": 0
+    },
+    {
+      "name": "desktop-focus-visible",
+      "viewport": {
+        "width": 1280,
+        "height": 800,
+        "dpr": 1,
+        "mobile": false
+      },
+      "pixel": {
+        "width": 1280,
+        "height": 800,
+        "comparedPixels": 1024000,
+        "differingPixels": 1495,
+        "diffPercent": 0.14599609375
+      },
+      "structuralDifferenceCount": 1,
+      "structuralDifferences": [
+        {
+          "type": "value",
+          "path": "div[0]/p[0]",
+          "field": "text",
+          "source": "Stop correlating logs and bug reports across scattered tools. Interfere finds the root cause and owns the fix.",
+          "candidate": "Stop correlating logs and bug reports across scattered tools. Opaline finds the root cause and owns the fix."
+        }
+      ],
+      "unsanctionedStructuralDifferenceCount": 0
+    },
+    {
+      "name": "wide-default",
+      "viewport": {
+        "width": 1680,
+        "height": 1050,
+        "dpr": 1,
+        "mobile": false
+      },
+      "pixel": {
+        "width": 1680,
+        "height": 1050,
+        "comparedPixels": 1764000,
+        "differingPixels": 1495,
+        "diffPercent": 0.08475056689342404
+      },
+      "structuralDifferenceCount": 1,
+      "structuralDifferences": [
+        {
+          "type": "value",
+          "path": "div[0]/p[0]",
+          "field": "text",
+          "source": "Stop correlating logs and bug reports across scattered tools. Interfere finds the root cause and owns the fix.",
+          "candidate": "Stop correlating logs and bug reports across scattered tools. Opaline finds the root cause and owns the fix."
+        }
+      ],
+      "unsanctionedStructuralDifferenceCount": 0
+    },
+    {
+      "name": "wide-secondary-hover",
+      "viewport": {
+        "width": 1680,
+        "height": 1050,
+        "dpr": 1,
+        "mobile": false
+      },
+      "pixel": {
+        "width": 1680,
+        "height": 1050,
+        "comparedPixels": 1764000,
+        "differingPixels": 1495,
+        "diffPercent": 0.08475056689342404
+      },
+      "structuralDifferenceCount": 1,
+      "structuralDifferences": [
+        {
+          "type": "value",
+          "path": "div[0]/p[0]",
+          "field": "text",
+          "source": "Stop correlating logs and bug reports across scattered tools. Interfere finds the root cause and owns the fix.",
+          "candidate": "Stop correlating logs and bug reports across scattered tools. Opaline finds the root cause and owns the fix."
+        }
+      ],
+      "unsanctionedStructuralDifferenceCount": 0
+    },
+    {
+      "name": "wide-focus-visible",
+      "viewport": {
+        "width": 1680,
+        "height": 1050,
+        "dpr": 1,
+        "mobile": false
+      },
+      "pixel": {
+        "width": 1680,
+        "height": 1050,
+        "comparedPixels": 1764000,
+        "differingPixels": 1495,
+        "diffPercent": 0.08475056689342404
+      },
+      "structuralDifferenceCount": 1,
+      "structuralDifferences": [
+        {
+          "type": "value",
+          "path": "div[0]/p[0]",
+          "field": "text",
+          "source": "Stop correlating logs and bug reports across scattered tools. Interfere finds the root cause and owns the fix.",
+          "candidate": "Stop correlating logs and bug reports across scattered tools. Opaline finds the root cause and owns the fix."
+        }
+      ],
+      "unsanctionedStructuralDifferenceCount": 0
+    }
+  ]
+}

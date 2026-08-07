@@ -1,0 +1,17 @@
+---
+// biome-ignore-all lint/correctness/noUnusedImports: Astro renders imported components in the template.
+import NavbarExtracted from "../../components/NavbarExtracted.astro";
+import "../../styles/vendor/linear/navbar/source.css";
+---
+
+<!doctype html>
+<html lang="en" data-theme="light" style="color-scheme: light;">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>Navbar parity preview</title>
+	</head>
+	<body>
+		<NavbarExtracted />
+	</body>
+</html>

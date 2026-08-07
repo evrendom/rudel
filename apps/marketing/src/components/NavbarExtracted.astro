@@ -1,0 +1,29 @@
+---
+// biome-ignore-all lint/correctness/noUnusedImports: Astro uses these imports in set:html directives.
+import {
+	headerHtml,
+	mobileDialogHtml,
+	productPortalHtml,
+	resourcesPortalHtml,
+} from "./generated/navbar-source-data";
+---
+
+<Fragment set:html={headerHtml} />
+<div
+	class="TZTsQG_viewportPosition hide-mobile"
+	style="--inner-card-height: 192px;"
+	data-opaline-navbar-desktop-portal
+></div>
+<template data-opaline-navbar-template="product">
+	<Fragment set:html={productPortalHtml} />
+</template>
+<template data-opaline-navbar-template="resources">
+	<Fragment set:html={resourcesPortalHtml} />
+</template>
+<template data-opaline-navbar-mobile-template>
+	<Fragment set:html={mobileDialogHtml} />
+</template>
+
+<script>
+	import "../scripts/navbar-extracted";
+</script>

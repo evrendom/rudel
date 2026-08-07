@@ -1,0 +1,20 @@
+---
+// biome-ignore-all lint/correctness/noUnusedImports: Astro uses these imports in set:html directives.
+import {
+	dataPanelHtml,
+	dashboardHtml,
+	reportingPanelHtml,
+} from "./generated/dashboard-source-data";
+---
+
+<Fragment set:html={dashboardHtml} />
+<template data-opaline-dashboard-panel-template="Data model">
+	<Fragment set:html={dataPanelHtml} />
+</template>
+<template data-opaline-dashboard-panel-template="Reporting">
+	<Fragment set:html={reportingPanelHtml} />
+</template>
+
+<script>
+	import "../scripts/dashboard-extracted";
+</script>

@@ -1,0 +1,93 @@
+@import "./tokens.css";
+
+@font-face {
+	font-family: "Inter Variable";
+	font-style: normal;
+	font-weight: 100 900;
+	font-display: swap;
+	src: url("/fonts/inter-latin-variable.woff2") format("woff2-variations");
+}
+
+*,
+*::before,
+*::after {
+	box-sizing: border-box;
+}
+
+html {
+	min-width: 320px;
+	background: var(--color-surface);
+	color: var(--color-ink);
+	font-family: var(--font-sans);
+	font-feature-settings: "cv02", "cv03", "cv04", "cv11", "ss01", "ss03";
+	font-synthesis: none;
+	-webkit-font-smoothing: antialiased;
+	text-rendering: optimizeLegibility;
+}
+
+body {
+	min-width: 320px;
+	min-height: 100svh;
+	margin: 0;
+	overflow-x: clip;
+	background: var(--color-surface);
+}
+
+button,
+a {
+	font: inherit;
+}
+
+button {
+	color: inherit;
+}
+
+a {
+	color: inherit;
+	text-decoration: none;
+}
+
+img,
+svg,
+canvas {
+	display: block;
+}
+
+button:focus-visible,
+a:focus-visible,
+[tabindex]:focus-visible {
+	outline: 2px solid var(--color-focus);
+	outline-offset: 3px;
+}
+
+.page-shell {
+	position: relative;
+	isolation: isolate;
+}
+
+.visually-hidden {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	padding: 0;
+	margin: -1px;
+	overflow: hidden;
+	clip: rect(0, 0, 0, 0);
+	white-space: nowrap;
+	border: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	*,
+	*::before,
+	*::after {
+		scroll-behavior: auto;
+		animation-duration: 0.01ms;
+		animation-iteration-count: 1;
+		transition-duration: 0.01ms;
+	}
+
+	:root {
+		--title-progress: 0;
+	}
+}

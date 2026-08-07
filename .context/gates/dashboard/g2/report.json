@@ -1,0 +1,55 @@
+{
+  "gate": "G2-dashboard",
+  "generatedAt": "2026-08-07T19:52:59.843Z",
+  "sourceUrl": "http://127.0.0.1:4321/preview/dashboard",
+  "candidateUrl": "http://127.0.0.1:4321/preview/dashboard-naturalized",
+  "viewport": {
+    "width": 1280,
+    "height": 800,
+    "dpr": 1,
+    "mobile": false
+  },
+  "thresholds": {
+    "differingPixels": 0,
+    "structuralDifferences": 0
+  },
+  "passed": true,
+  "results": [
+    {
+      "scene": "Data model",
+      "pixel": {
+        "width": 1280,
+        "height": 800,
+        "comparedPixels": 1024000,
+        "differingPixels": 0,
+        "diffPercent": 0
+      },
+      "structuralDifferenceCount": 0,
+      "structuralDifferences": [],
+      "artifacts": {
+        "sourceScreenshot": "/Users/evrendombak/conductor/workspaces/rudel-v2/podgorica/.context/gates/dashboard/g2/data-source.png",
+        "candidateScreenshot": "/Users/evrendombak/conductor/workspaces/rudel-v2/podgorica/.context/gates/dashboard/g2/data-candidate.png",
+        "sourceSnapshot": "/Users/evrendombak/conductor/workspaces/rudel-v2/podgorica/.context/gates/dashboard/g2/data-source.structure.json",
+        "candidateSnapshot": "/Users/evrendombak/conductor/workspaces/rudel-v2/podgorica/.context/gates/dashboard/g2/data-candidate.structure.json"
+      }
+    },
+    {
+      "scene": "Reporting",
+      "pixel": {
+        "width": 1280,
+        "height": 800,
+        "comparedPixels": 1024000,
+        "differingPixels": 0,
+        "diffPercent": 0
+      },
+      "structuralDifferenceCount": 0,
+      "structuralDifferences": [],
+      "artifacts": {
+        "sourceScreenshot": "/Users/evrendombak/conductor/workspaces/rudel-v2/podgorica/.context/gates/dashboard/g2/reporting-source.png",
+        "candidateScreenshot": "/Users/evrendombak/conductor/workspaces/rudel-v2/podgorica/.context/gates/dashboard/g2/reporting-candidate.png",
+        "sourceSnapshot": "/Users/evrendombak/conductor/workspaces/rudel-v2/podgorica/.context/gates/dashboard/g2/reporting-source.structure.json",
+        "candidateSnapshot": "/Users/evrendombak/conductor/workspaces/rudel-v2/podgorica/.context/gates/dashboard/g2/reporting-candidate.structure.json"
+      }
+    }
+  ]
+}

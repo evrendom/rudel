@@ -10,9 +10,19 @@
 		"dev": "astro dev",
 		"build": "astro build",
 		"preview": "astro preview",
-		"astro": "astro"
+		"astro": "astro",
+		"capture:reference": "node tools/capture-matrix.mjs --url http://127.0.0.1:4180/lens-attio-lens-aperture --output ../../.context/reference-shots-v2",
+		"gates:g0": "node tests/g0-instrumentation.mjs",
+		"test:runtime": "node tests/runtime-verification.mjs",
+		"test:visual": "node tests/visual-reference.mjs"
 	},
 	"dependencies": {
 		"astro": "7.0.3"
+	},
+	"devDependencies": {
+		"pixelmatch": "7.2.0",
+		"pngjs": "7.0.0",
+		"postcss": "8.5.25",
+		"postcss-selector-parser": "7.1.4"
 	}
 }

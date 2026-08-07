@@ -1,0 +1,15 @@
+---
+// biome-ignore-all lint/correctness/noUnusedImports: Astro renders imported components in the template.
+import HeroTitleNaturalized from "./HeroTitleNaturalized.astro";
+---
+
+<div class="hero-title-motion">
+	<HeroTitleNaturalized brand="opaline" />
+</div>
+
+<style>
+	.hero-title-motion :global([data-opaline-hero-title]) {
+		--atoms-hero-scroll-opacity: calc(1 - var(--title-progress));
+		--atoms-hero-scroll-scale: calc(1 - var(--title-progress) * 0.1);
+	}
+</style>

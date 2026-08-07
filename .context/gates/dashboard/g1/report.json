@@ -1,0 +1,53 @@
+{
+  "gate": "G1-dashboard",
+  "generatedAt": "2026-08-07T20:03:37.461Z",
+  "sourceUrl": "http://127.0.0.1:4180/?opaline-composition=lens-attio-lens",
+  "candidateUrl": "http://127.0.0.1:4321/preview/dashboard",
+  "viewport": {
+    "width": 1280,
+    "height": 800,
+    "dpr": 1,
+    "mobile": false
+  },
+  "thresholds": {
+    "maximumPixelDifferencePercent": 0.1,
+    "structuralDifferences": 0
+  },
+  "passed": true,
+  "results": [
+    {
+      "scene": "Data model",
+      "sourceScreenshotPath": "/Users/evrendombak/conductor/workspaces/rudel-v2/podgorica/.context/extractions/dashboard/source-data-normalized.png",
+      "sourceSnapshotPath": "/Users/evrendombak/conductor/workspaces/rudel-v2/podgorica/.context/extractions/dashboard/source-data.structure.json",
+      "candidateScreenshotPath": "/Users/evrendombak/conductor/workspaces/rudel-v2/podgorica/.context/gates/dashboard/g1/data-candidate.png",
+      "candidateSnapshotPath": "/Users/evrendombak/conductor/workspaces/rudel-v2/podgorica/.context/gates/dashboard/g1/data-candidate.structure.json",
+      "pixel": {
+        "width": 1280,
+        "height": 800,
+        "comparedPixels": 1024000,
+        "differingPixels": 64,
+        "diffPercent": 0.00625
+      },
+      "structuralDifferenceCount": 0,
+      "structuralDifferences": [],
+      "excludedTextLayoutFragmentCount": 39
+    },
+    {
+      "scene": "Reporting",
+      "sourceScreenshotPath": "/Users/evrendombak/conductor/workspaces/rudel-v2/podgorica/.context/extractions/dashboard/source-reporting-normalized.png",
+      "sourceSnapshotPath": "/Users/evrendombak/conductor/workspaces/rudel-v2/podgorica/.context/extractions/dashboard/source-reporting.structure.json",
+      "candidateScreenshotPath": "/Users/evrendombak/conductor/workspaces/rudel-v2/podgorica/.context/gates/dashboard/g1/reporting-candidate.png",
+      "candidateSnapshotPath": "/Users/evrendombak/conductor/workspaces/rudel-v2/podgorica/.context/gates/dashboard/g1/reporting-candidate.structure.json",
+      "pixel": {
+        "width": 1280,
+        "height": 800,
+        "comparedPixels": 1024000,
+        "differingPixels": 57,
+        "diffPercent": 0.00556640625
+      },
+      "structuralDifferenceCount": 0,
+      "structuralDifferences": [],
+      "excludedTextLayoutFragmentCount": 39
+    }
+  ]
+}

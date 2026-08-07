@@ -1,0 +1,24 @@
+---
+// biome-ignore-all lint/correctness/noUnusedImports: Astro renders imported components in the template.
+import HeroTitleExtracted from "../../components/HeroTitleExtracted.astro";
+import { bodyClass, documentClass } from "../../components/generated/hero-title-source-data";
+import "../../styles/vendor/interfere/hero-title/source.css";
+import "../../styles/vendor/interfere/hero-title/isolation.css";
+---
+
+<!doctype html>
+<html
+	lang="en"
+	class={documentClass}
+	style="color-scheme: light;"
+	data-interfere-title-ready
+>
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>Hero title extraction parity preview</title>
+	</head>
+	<body class={bodyClass}>
+		<HeroTitleExtracted />
+	</body>
+</html>

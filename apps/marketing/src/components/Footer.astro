@@ -1,0 +1,98 @@
+<footer class="site-footer" id="contact">
+	<div class="footer-inner">
+		<div class="footer-brand">
+			<img src="/opaline-wordmark.svg" alt="Opaline" width="2635" height="583" />
+			<p>© 2026 Opaline</p>
+		</div>
+		<nav aria-label="Footer navigation">
+			<div><strong>Developers</strong><a href="#docs">Docs</a><a href="#product">Dashboard</a></div>
+			<div><strong>About</strong><a href="#now">News</a><a href="#resources">FAQ</a></div>
+			<div><strong>Company</strong><a href="#contact">Contact</a><a href="#privacy">Privacy</a><a href="#terms">Terms</a></div>
+		</nav>
+	</div>
+</footer>
+
+<style>
+	.site-footer {
+		padding: 82px 0 64px;
+		background: #fff;
+	}
+
+	.footer-inner {
+		display: flex;
+		justify-content: space-between;
+		width: var(--page-width);
+		margin: 0 auto;
+	}
+
+	.footer-brand {
+		display: flex;
+		justify-content: space-between;
+		flex-direction: column;
+		min-height: 170px;
+	}
+
+	.footer-brand img {
+		width: 98px;
+		height: auto;
+	}
+
+	.footer-brand p {
+		margin: 0;
+		color: var(--color-ink-faint);
+		font-size: 14px;
+	}
+
+	nav {
+		display: grid;
+		grid-template-columns: repeat(3, minmax(100px, 1fr));
+		gap: 50px;
+	}
+
+	nav div {
+		display: flex;
+		align-items: flex-start;
+		flex-direction: column;
+		gap: 18px;
+	}
+
+	strong,
+	a {
+		font-size: 14px;
+		line-height: 20px;
+	}
+
+	strong {
+		font-weight: 500;
+	}
+
+	a {
+		color: var(--color-ink-muted);
+		font-weight: 400;
+	}
+
+	a:hover {
+		color: var(--color-ink);
+	}
+
+	@media (max-width: 767px) {
+		.site-footer {
+			padding: 64px 0 40px;
+		}
+
+		.footer-inner {
+			gap: 56px;
+			flex-direction: column;
+		}
+
+		.footer-brand {
+			min-height: auto;
+			gap: 26px;
+		}
+
+		nav {
+			grid-template-columns: repeat(2, 1fr);
+			gap: 40px 24px;
+		}
+	}
+</style>

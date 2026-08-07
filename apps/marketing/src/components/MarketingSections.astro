@@ -1,0 +1,698 @@
+---
+// biome-ignore-all lint/correctness/noUnusedVariables: Astro frontmatter values are referenced from template markup.
+const productCards = [
+	{
+		tone: "chain",
+		mark: "◯",
+		title: "Lens Chain",
+		description: "Get started with the best chain for SocialFi.",
+		action: "Start Building",
+	},
+	{
+		tone: "social",
+		mark: "◎",
+		title: "Social Primitives",
+		description: "Add social primitives to any onchain application.",
+		action: "Learn More",
+	},
+	{
+		tone: "grove",
+		mark: "⌘",
+		title: "Grove",
+		description: "Onchain-permissioned storage. Your keys, your content.",
+		action: "Build with Grove",
+	},
+];
+
+const benefits = [
+	["Affordable.", "Transactions that make social applications viable."],
+	["Fast.", "A responsive home for every user interaction."],
+	["Scalable.", "Grow bigger, faster, without compromises."],
+	["Secure.", "Backed by Ethereum's security."],
+];
+
+const primitiveDetails = [
+	[
+		"Accounts",
+		"Create portable, gasless identities. One account for all apps.",
+	],
+	["Usernames", "Give every account a namespace, your community, your terms."],
+	[
+		"Graphs",
+		"Utilize the global Graph to benefit from shared network effects, or create your own.",
+	],
+	[
+		"Feeds",
+		"Unlock more possibilities through smart contracts. Add Rules to customise feeds.",
+	],
+	[
+		"Groups",
+		"Set custom Rules for membership, defining how and which Accounts can join.",
+	],
+	[
+		"Learn More",
+		"Extend and customize Social Primitives with Rules and Actions.",
+	],
+];
+---
+
+<div class="content-stage" id="resources">
+	<section class="products-section section-grid">
+		<div class="section-inner">
+			<h2>All-in-One Lens</h2>
+			<div class="product-grid">
+				{
+					productCards.map((card) => (
+						<article class:list={["product-card", `tone-${card.tone}`]}>
+							<div class="product-mark" aria-hidden="true">{card.mark}</div>
+							<h3>{card.title}</h3>
+							<p>{card.description}</p>
+							<a href="#docs">{card.action}<span aria-hidden="true">↗</span></a>
+						</article>
+					))
+				}
+			</div>
+		</div>
+	</section>
+
+	<section class="benefits-section" id="customers">
+		<div class="section-inner benefit-grid">
+			{
+				benefits.map(([title, description], index) => (
+					<article>
+						<div class={`benefit-mark benefit-${index + 1}`} aria-hidden="true">
+							{index === 0 ? "$" : index === 1 ? "↯" : index === 2 ? "▥" : "▢"}
+						</div>
+						<p><strong>{title}</strong> {description}</p>
+					</article>
+				))
+			}
+		</div>
+	</section>
+
+	<section class="feature-section section-grid" id="session-replay">
+		<div class="section-inner feature-grid">
+			<div class="feature-copy">
+				<h2>Flexible Social Primitives</h2>
+				<p>Use our modular primitives to build,<br />earn, and scale.</p>
+				<a href="#docs">Learn More <span aria-hidden="true">↗</span></a>
+			</div>
+			<div class="primitive-orbit" aria-label="Identify, connect, explore, transact, publish, earn">
+				<div class="orbit-ring" aria-hidden="true"></div>
+				<div class="orbit-center">◎<span>Social</span></div>
+				<div class="orbit-item orbit-top">⌕<span>Identify</span></div>
+				<div class="orbit-item orbit-right-top">⌘<span>Connect</span></div>
+				<div class="orbit-item orbit-right-bottom">◒<span>Explore</span></div>
+				<div class="orbit-item orbit-bottom">↔<span>Transact</span></div>
+				<div class="orbit-item orbit-left-bottom">☰<span>Publish</span></div>
+				<div class="orbit-item orbit-left-top">$<span>Earn</span></div>
+			</div>
+		</div>
+	</section>
+
+	<section class="feature-section account-section section-grid" id="agent-analytics">
+		<div class="section-inner feature-grid reversed">
+			<div class="account-visual" aria-hidden="true">
+				<div class="account-core">◉</div>
+				<span class="account-node node-one">Profile</span>
+				<span class="account-node node-two">Graph</span>
+				<span class="account-node node-three">Feed</span>
+			</div>
+			<div class="feature-copy">
+				<h2>Own Your Social Graph</h2>
+				<p>Users control their identity, content,<br />and relationships across every app.</p>
+				<a href="#docs">Explore Accounts <span aria-hidden="true">↗</span></a>
+			</div>
+		</div>
+	</section>
+
+	<section class="rules-section section-grid" id="now">
+		<div class="section-inner">
+			<div class="rules-heading">
+				<h2>Everything social, composable</h2>
+				<p>Build with primitives that stay flexible as your network grows.</p>
+			</div>
+			<div class="rules-grid">
+				{
+					primitiveDetails.map(([title, description], index) => (
+						<article>
+							<span aria-hidden="true">{index === 0 ? "◉" : index === 1 ? "◎" : index === 2 ? "⌘" : index === 3 ? "◫" : index === 4 ? "▦" : "?"}</span>
+							<p><strong>{title}.</strong> {description}</p>
+						</article>
+					))
+				}
+			</div>
+		</div>
+	</section>
+
+	<section class="grove-section section-grid" id="integrations">
+		<div class="section-inner">
+			<div class="grove-card">
+				<div class="grove-mark" aria-hidden="true">⌘</div>
+				<h2>Grove</h2>
+				<p>Onchain-Controlled Storage</p>
+				<a href="#docs">Learn More <span aria-hidden="true">↗</span></a>
+			</div>
+		</div>
+	</section>
+</div>
+
+<style>
+	.content-stage {
+		position: relative;
+		z-index: 10;
+		background: #fff;
+	}
+
+	.section-grid {
+		background-image:
+			linear-gradient(to right, transparent calc(50% - 0.5px), var(--color-line-soft) 50%, transparent calc(50% + 0.5px)),
+			repeating-linear-gradient(to right, transparent 0, transparent calc(25% - 1px), var(--color-line-soft) 25%);
+		background-size: 100% 100%;
+	}
+
+	.section-inner {
+		width: var(--page-width);
+		margin: 0 auto;
+	}
+
+	.products-section {
+		padding: 205px 0 118px;
+	}
+
+	h2 {
+		margin: 0;
+		color: var(--color-ink);
+		font-size: 29px;
+		font-weight: 500;
+		letter-spacing: -0.04em;
+		line-height: 1.1;
+		text-align: center;
+		text-wrap: balance;
+	}
+
+	.product-grid {
+		display: grid;
+		grid-template-columns: repeat(3, 1fr);
+		margin-top: 58px;
+		border-top: 1px dashed var(--color-line);
+		border-bottom: 1px dashed var(--color-line);
+	}
+
+	.product-card {
+		position: relative;
+		display: flex;
+		align-items: center;
+		flex-direction: column;
+		min-height: 290px;
+		padding: 38px 28px 32px;
+		border-right: 1px dashed var(--color-line);
+		text-align: center;
+	}
+
+	.product-card:last-child {
+		border-right: 0;
+	}
+
+	.tone-chain {
+		background: radial-gradient(circle at 80% 85%, rgba(178, 255, 218, 0.35), transparent 45%),
+			radial-gradient(circle at 15% 15%, rgba(255, 229, 207, 0.42), transparent 46%), #fff;
+	}
+
+	.tone-social {
+		background: radial-gradient(circle at 34% 64%, rgba(183, 255, 212, 0.42), transparent 50%),
+			radial-gradient(circle at 90% 80%, rgba(255, 230, 201, 0.45), transparent 45%), #fff;
+	}
+
+	.tone-grove {
+		background: radial-gradient(circle at 25% 80%, rgba(213, 220, 255, 0.5), transparent 46%),
+			radial-gradient(circle at 85% 20%, rgba(237, 222, 255, 0.45), transparent 44%), #fff;
+	}
+
+	.product-mark,
+	.grove-mark {
+		display: grid;
+		place-items: center;
+		width: 70px;
+		height: 70px;
+		border: 1px solid var(--color-line);
+		background: rgba(255, 255, 255, 0.86);
+		clip-path: polygon(50% 0, 63% 8%, 78% 6%, 88% 19%, 100% 27%, 98% 43%, 100% 57%, 88% 66%, 82% 82%, 66% 88%, 51% 100%, 37% 91%, 20% 93%, 11% 79%, 0 71%, 3% 54%, 0 39%, 12% 28%, 18% 12%, 36% 10%);
+		color: #6d727a;
+		font-size: 30px;
+	}
+
+	.product-card h3 {
+		margin: 24px 0 0;
+		font-size: 18px;
+		font-weight: 520;
+		letter-spacing: -0.02em;
+	}
+
+	.product-card p,
+	.feature-copy p,
+	.grove-card p {
+		margin: 8px 0 0;
+		color: var(--color-ink-muted);
+		font-size: 16px;
+		line-height: 22px;
+		text-wrap: pretty;
+	}
+
+	.product-card a,
+	.feature-copy a,
+	.grove-card a {
+		display: inline-flex;
+		align-items: center;
+		gap: 7px;
+		height: 38px;
+		margin-top: 20px;
+		padding: 0 16px;
+		border-radius: 9px;
+		background: rgba(255, 255, 255, 0.9);
+		box-shadow: 0 0 0 1px var(--color-line), 0 2px 5px rgba(21, 24, 31, 0.04);
+		font-size: 14px;
+	}
+
+	.product-card a span,
+	.feature-copy a span,
+	.grove-card a span {
+		color: var(--color-ink-faint);
+	}
+
+	.benefits-section {
+		padding: 0 0 64px;
+	}
+
+	.benefit-grid {
+		display: grid;
+		grid-template-columns: repeat(2, 1fr);
+		gap: 32px;
+	}
+
+	.benefit-grid article {
+		display: flex;
+		align-items: center;
+		min-height: 150px;
+		overflow: hidden;
+		border-radius: 12px;
+		background: #fafafa;
+	}
+
+	.benefit-mark {
+		display: grid;
+		place-items: center;
+		flex: 0 0 122px;
+		height: 150px;
+		margin-left: -12px;
+		border-radius: 46% 48% 38% 54%;
+		background: #f0e9ff;
+		color: #8068cc;
+		font-size: 28px;
+	}
+
+	.benefit-2 {
+		background: #fff1d8;
+		color: #d58d25;
+	}
+
+	.benefit-3 {
+		background: #e2f1ff;
+		color: #438ec7;
+	}
+
+	.benefit-4 {
+		background: #dff8e8;
+		color: #00b76f;
+	}
+
+	.benefit-grid p {
+		max-width: 28ch;
+		margin: 0;
+		padding: 0 28px;
+		color: var(--color-ink-muted);
+		font-size: 18px;
+		line-height: 26px;
+	}
+
+	.benefit-grid strong {
+		color: var(--color-ink);
+		font-weight: 560;
+	}
+
+	.feature-section {
+		padding: 64px 0;
+		border-top: 1px dashed var(--color-line);
+	}
+
+	.feature-grid {
+		display: grid;
+		grid-template-columns: repeat(2, 1fr);
+		min-height: 390px;
+		border-right: 1px dashed var(--color-line);
+		border-left: 1px dashed var(--color-line);
+	}
+
+	.feature-copy,
+	.primitive-orbit,
+	.account-visual {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		flex-direction: column;
+		padding: 48px;
+	}
+
+	.feature-copy {
+		border-right: 1px dashed var(--color-line);
+		text-align: center;
+	}
+
+	.feature-copy h2 {
+		font-size: 28px;
+	}
+
+	.primitive-orbit {
+		position: relative;
+		min-height: 390px;
+	}
+
+	.orbit-ring {
+		position: absolute;
+		width: 230px;
+		height: 230px;
+		border: 2px dashed var(--color-line);
+		border-radius: 50%;
+	}
+
+	.orbit-center,
+	.orbit-item {
+		position: absolute;
+		display: grid;
+		place-items: center;
+		width: 54px;
+		height: 54px;
+		border: 1px solid var(--color-line);
+		border-radius: 48% 44% 53% 47%;
+		background: #fff;
+		color: #7a718a;
+		font-size: 24px;
+		box-shadow: 0 2px 7px rgba(21, 24, 31, 0.04);
+	}
+
+	.orbit-center {
+		width: 66px;
+		height: 66px;
+	}
+
+	.orbit-item span,
+	.orbit-center span {
+		position: absolute;
+		top: calc(100% + 7px);
+		padding: 3px 9px;
+		border-radius: 999px;
+		background: #f8f8f8;
+		color: var(--color-ink-muted);
+		font-size: 12px;
+		white-space: nowrap;
+	}
+
+	.orbit-top {
+		transform: translateY(-116px);
+	}
+
+	.orbit-right-top {
+		transform: translate(99px, -58px);
+	}
+
+	.orbit-right-bottom {
+		transform: translate(99px, 58px);
+	}
+
+	.orbit-bottom {
+		transform: translateY(116px);
+	}
+
+	.orbit-left-bottom {
+		transform: translate(-99px, 58px);
+	}
+
+	.orbit-left-top {
+		transform: translate(-99px, -58px);
+	}
+
+	.account-section {
+		border-bottom: 1px dashed var(--color-line);
+	}
+
+	.rules-section {
+		min-height: 930px;
+		padding: 124px 0;
+		border-bottom: 1px dashed var(--color-line);
+	}
+
+	.rules-heading {
+		display: grid;
+		justify-items: center;
+		gap: 14px;
+		text-align: center;
+	}
+
+	.rules-heading p {
+		max-width: 48ch;
+		margin: 0;
+		color: var(--color-ink-muted);
+		font-size: 16px;
+		line-height: 24px;
+	}
+
+	.rules-grid {
+		display: grid;
+		grid-template-columns: repeat(2, 1fr);
+		margin-top: 108px;
+		border-top: 1px dashed var(--color-line);
+		border-bottom: 1px dashed var(--color-line);
+	}
+
+	.rules-grid article {
+		display: grid;
+		grid-template-columns: 48px 1fr;
+		gap: 22px;
+		min-height: 138px;
+		padding: 34px 32px;
+		border-right: 1px dashed var(--color-line);
+		border-bottom: 1px dashed var(--color-line);
+	}
+
+	.rules-grid article:nth-child(2n) {
+		border-right: 0;
+	}
+
+	.rules-grid article:nth-last-child(-n + 2) {
+		border-bottom: 0;
+	}
+
+	.rules-grid article > span {
+		color: #81728c;
+		font-size: 27px;
+		line-height: 32px;
+	}
+
+	.rules-grid article p {
+		margin: 0;
+		color: var(--color-ink-muted);
+		font-size: 18px;
+		line-height: 26px;
+	}
+
+	.rules-grid article strong {
+		color: var(--color-ink);
+		font-weight: 560;
+	}
+
+	.reversed .feature-copy {
+		border-right: 0;
+		border-left: 1px dashed var(--color-line);
+	}
+
+	.account-visual {
+		position: relative;
+		background: radial-gradient(circle, rgba(221, 231, 255, 0.42), transparent 63%);
+	}
+
+	.account-core {
+		display: grid;
+		place-items: center;
+		width: 122px;
+		height: 122px;
+		border: 1px solid var(--color-line);
+		border-radius: 50%;
+		background: #fff;
+		color: #6e5ace;
+		font-size: 34px;
+		box-shadow: 0 16px 40px rgba(95, 85, 170, 0.12);
+	}
+
+	.account-node {
+		position: absolute;
+		padding: 7px 12px;
+		border: 1px solid var(--color-line);
+		border-radius: 999px;
+		background: #fff;
+		color: var(--color-ink-muted);
+		font-size: 12px;
+	}
+
+	.node-one {
+		transform: translate(-115px, -86px);
+	}
+
+	.node-two {
+		transform: translate(126px, -32px);
+	}
+
+	.node-three {
+		transform: translate(-104px, 99px);
+	}
+
+	.grove-section {
+		padding: 64px 0 80px;
+	}
+
+	.grove-card {
+		display: flex;
+		align-items: center;
+		flex-direction: column;
+		min-height: 320px;
+		padding: 34px;
+		border-top: 1px dashed var(--color-line);
+		border-bottom: 1px dashed var(--color-line);
+		background: radial-gradient(circle at 50% 0, rgba(172, 245, 198, 0.48), transparent 48%);
+		text-align: center;
+	}
+
+	.grove-mark {
+		color: #00b768;
+	}
+
+	.grove-card h2 {
+		margin-top: 20px;
+	}
+
+	.grove-card p {
+		font-size: 27px;
+		line-height: 34px;
+	}
+
+	@media (max-width: 767px) {
+		.products-section {
+			padding: 112px 0 78px;
+		}
+
+		h2 {
+			font-size: 22px;
+		}
+
+		.product-grid,
+		.benefit-grid,
+		.feature-grid,
+		.report-list {
+			grid-template-columns: 1fr;
+		}
+
+		.product-grid {
+			margin-top: 34px;
+		}
+
+		.product-card {
+			min-height: 340px;
+			border-right: 0;
+			border-bottom: 1px dashed var(--color-line);
+		}
+
+		.product-card:last-child {
+			border-bottom: 0;
+		}
+
+		.benefit-grid {
+			gap: 16px;
+		}
+
+		.benefit-grid article {
+			min-height: 124px;
+		}
+
+		.benefit-mark {
+			flex-basis: 98px;
+			height: 124px;
+		}
+
+		.benefit-grid p {
+			padding: 0 20px;
+			font-size: 16px;
+			line-height: 23px;
+		}
+
+		.feature-grid {
+			border-right: 0;
+			border-left: 0;
+		}
+
+		.rules-section {
+			min-height: 0;
+			padding: 88px 0;
+		}
+
+		.rules-grid {
+			grid-template-columns: 1fr;
+			margin-top: 56px;
+		}
+
+		.rules-grid article,
+		.rules-grid article:nth-child(2n),
+		.rules-grid article:nth-last-child(-n + 2) {
+			border-right: 0;
+			border-bottom: 1px dashed var(--color-line);
+		}
+
+		.rules-grid article:last-child {
+			border-bottom: 0;
+		}
+
+		.rules-grid article {
+			grid-template-columns: 36px 1fr;
+			gap: 14px;
+			padding: 28px 20px;
+		}
+
+		.rules-grid article p {
+			font-size: 16px;
+			line-height: 24px;
+		}
+
+		.feature-copy,
+		.primitive-orbit,
+		.account-visual {
+			min-height: 350px;
+			padding: 32px 20px;
+		}
+
+		.feature-copy,
+		.reversed .feature-copy {
+			border: 0;
+			border-bottom: 1px dashed var(--color-line);
+		}
+
+		.reversed .account-visual {
+			order: 2;
+		}
+
+		.reversed .feature-copy {
+			order: 1;
+		}
+
+		.grove-card p {
+			font-size: 23px;
+		}
+	}
+</style>

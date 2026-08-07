@@ -1,0 +1,200 @@
+---
+// biome-ignore-all lint/correctness/noUnusedVariables: Astro props are referenced from template markup.
+interface Props {
+	variant: "left" | "right" | "lower";
+	prompt: string;
+	status: string;
+}
+
+const { variant, prompt, status } = Astro.props;
+---
+
+<article class:list={["code-window", `code-window-${variant}`]} data-drag-window>
+	<header data-drag-handle>
+		<span class="window-dot red"></span>
+		<span class="window-dot amber"></span>
+		<span class="window-dot green"></span>
+	</header>
+	<div class="terminal-frame">
+		<div class="terminal-body">
+			<p class="prompt"><span>&gt;</span> {prompt}</p>
+			{
+				variant !== "lower" && (
+					<>
+						<p class="command"><span>●</span> Ran 3 commands</p>
+						<ul role="list">
+							<li>⎿ search-notes-by-metadata</li>
+							<li>⎿ search-emails-by-metadata</li>
+							<li>⎿ update-record</li>
+						</ul>
+						<p class="result"><span>●</span> {status}</p>
+						</>
+				)
+			}
+			<p class="terminal-status">{variant === "lower" ? "Churning… (12s · ↓ 4k tokens)" : "Ready"}</p>
+			<div class="terminal-input">&gt;</div>
+		</div>
+		<footer><span>▶▶ auto</span> Opus 4.8 · 1M context</footer>
+	</div>
+</article>
+
+<style>
+	.code-window {
+		position: absolute;
+		z-index: 1;
+		padding: 0 6px 6px;
+		overflow: hidden;
+		border-radius: 16px;
+		background: rgba(0, 0, 0, 0.8);
+		color: #a8adb8;
+		font-family: var(--font-mono);
+		font-size: 10px;
+		font-weight: 500;
+		line-height: 15px;
+		letter-spacing: -0.016em;
+		box-shadow:
+			0 0 0 1px rgba(11, 13, 24, 0.06),
+			0 1px 2px rgba(11, 13, 24, 0.024),
+			0 3px 6px rgba(11, 13, 24, 0.03),
+			0 8px 14px rgba(11, 13, 24, 0.035),
+			0 16px 28px rgba(11, 13, 24, 0.04);
+		backdrop-filter: blur(12px);
+		transform: translate3d(var(--drag-x, 0), var(--drag-y, 0), 0);
+		user-select: none;
+		will-change: transform;
+	}
+
+	.code-window-left {
+		top: -7px;
+		left: -15.2%;
+		width: 252px;
+		height: 183px;
+	}
+
+	.code-window-right {
+		top: 58px;
+		right: -15.1%;
+		width: 250px;
+		height: 353px;
+	}
+
+	.code-window-lower {
+		top: 207px;
+		left: -11.7%;
+		width: 285px;
+		height: 300px;
+	}
+
+	header {
+		display: flex;
+		align-items: center;
+		gap: 7px;
+		height: 30px;
+		padding: 0 7px;
+		background: transparent;
+		cursor: grab;
+		touch-action: none;
+	}
+
+	header:active {
+		cursor: grabbing;
+	}
+
+	.window-dot {
+		width: 11px;
+		height: 11px;
+		border-radius: 50%;
+	}
+
+	.terminal-frame {
+		display: flex;
+		flex-direction: column;
+		height: calc(100% - 30px);
+		overflow: hidden;
+		border: 1px solid rgba(0, 0, 0, 0.05);
+		border-radius: 12px;
+		background: #0c0c0c;
+	}
+
+	.red {
+		background: #ff5f57;
+	}
+
+	.amber {
+		background: #ffbd2e;
+	}
+
+	.green {
+		background: #28c840;
+	}
+
+	.terminal-body {
+		display: grid;
+		flex: 1;
+		gap: 8px;
+		padding: 10px 12px;
+		overflow: hidden;
+	}
+
+	p,
+	ul {
+		margin: 0;
+	}
+
+	.prompt,
+	.result {
+		margin-inline: -4px;
+		padding: 2px 4px;
+		border-radius: 4px;
+		background: rgba(255, 255, 255, 0.045);
+		color: #d8dbe1;
+	}
+
+	.prompt span {
+		color: #8c94a3;
+	}
+
+	.command span,
+	.result span,
+	.terminal-status,
+	footer span {
+		color: #e9855f;
+	}
+
+	ul {
+		display: grid;
+		gap: 2px;
+		padding: 0 0 0 8px;
+		color: #697180;
+	}
+
+	.terminal-status {
+		margin-top: auto;
+	}
+
+	.code-window-lower .terminal-status {
+		margin-top: 98px;
+	}
+
+	.terminal-input {
+		height: 38px;
+		padding: 8px;
+		border: 1px solid rgba(255, 255, 255, 0.12);
+		border-radius: 6px;
+	}
+
+	footer {
+		flex: 0 0 38px;
+		height: 38px;
+		padding: 10px 12px;
+		border-top: 1px solid rgba(255, 255, 255, 0.06);
+		background: #0c0c0c;
+		color: #596170;
+	}
+
+	@media (max-width: 1040px) {
+		.code-window {
+			display: none;
+		}
+	}
+</style>

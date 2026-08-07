@@ -1,0 +1,3 @@
+@charset "UTF-8";
+@layer reset, base, app.base;
+.CsVI0a_root{justify-content:center;width:100%;max-width:1080px;margin:0 auto;display:flex;overflow:hidden}.CsVI0a_diagram{-webkit-user-select:none;user-select:none;white-space:pre;background:0 0;border:none;margin:0;padding:0;overflow:hidden}.CsVI0a_outer{color:var(--color-text-tertiary)}.CsVI0a_border{color:var(--color-border-tertiary)}.CsVI0a_primary{color:var(--color-text-primary)}.CsVI0a_quaternary{color:var(--color-text-quaternary)}@media (max-width:1120px){.CsVI0a_horizontal{display:none}}.CsVI0a_vertical{display:none}@media (max-width:1120px){.CsVI0a_vertical{display:block}}

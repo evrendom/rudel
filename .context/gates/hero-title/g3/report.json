@@ -1,0 +1,2071 @@
+{
+  "generatedAt": "2026-08-07T18:50:25.067Z",
+  "sourceUrl": "http://127.0.0.1:4180/lens-attio-lens-aperture",
+  "candidateUrl": "http://127.0.0.1:4321/",
+  "thresholds": {
+    "referenceCurveDifference": 0.01,
+    "deterministicFormulaDifference": 0.0001
+  },
+  "passed": true,
+  "samples": [
+    {
+      "scrollY": 0,
+      "source": {
+        "scrollY": 0,
+        "opacity": 1,
+        "scale": 1
+      },
+      "candidate": {
+        "scrollY": 0,
+        "opacity": 1,
+        "scale": 1,
+        "progress": 0
+      },
+      "opacityDifference": 0,
+      "scaleDifference": 0,
+      "passed": true
+    },
+    {
+      "scrollY": 20,
+      "source": {
+        "scrollY": 20,
+        "opacity": 1,
+        "scale": 1
+      },
+      "candidate": {
+        "scrollY": 20,
+        "opacity": 1,
+        "scale": 1,
+        "progress": 0
+      },
+      "opacityDifference": 0,
+      "scaleDifference": 0,
+      "passed": true
+    },
+    {
+      "scrollY": 45,
+      "source": {
+        "scrollY": 45,
+        "opacity": 0.861111,
+        "scale": 0.986111
+      },
+      "candidate": {
+        "scrollY": 45,
+        "opacity": 0.8611,
+        "scale": 0.98611,
+        "progress": 0.1389
+      },
+      "opacityDifference": 0.000010999999999983245,
+      "scaleDifference": 9.999999999177334e-7,
+      "passed": true
+    },
+    {
+      "scrollY": 65,
+      "source": {
+        "scrollY": 65,
+        "opacity": 0.75,
+        "scale": 0.975
+      },
+      "candidate": {
+        "scrollY": 65,
+        "opacity": 0.75,
+        "scale": 0.975,
+        "progress": 0.25
+      },
+      "opacityDifference": 0,
+      "scaleDifference": 0,
+      "passed": true
+    },
+    {
+      "scrollY": 90,
+      "source": {
+        "scrollY": 90,
+        "opacity": 0.611111,
+        "scale": 0.961111
+      },
+      "candidate": {
+        "scrollY": 90,
+        "opacity": 0.6111,
+        "scale": 0.96111,
+        "progress": 0.3889
+      },
+      "opacityDifference": 0.000010999999999983245,
+      "scaleDifference": 0.0000010000000000287557,
+      "passed": true
+    },
+    {
+      "scrollY": 110,
+      "source": {
+        "scrollY": 110,
+        "opacity": 0.5,
+        "scale": 0.95
+      },
+      "candidate": {
+        "scrollY": 110,
+        "opacity": 0.5,
+        "scale": 0.95,
+        "progress": 0.5
+      },
+      "opacityDifference": 0,
+      "scaleDifference": 0,
+      "passed": true
+    },
+    {
+      "scrollY": 135,
+      "source": {
+        "scrollY": 135,
+        "opacity": 0.361111,
+        "scale": 0.936111
+      },
+      "candidate": {
+        "scrollY": 135,
+        "opacity": 0.3611,
+        "scale": 0.93611,
+        "progress": 0.6389
+      },
+      "opacityDifference": 0.000011000000000038757,
+      "scaleDifference": 0.0000010000000000287557,
+      "passed": true
+    },
+    {
+      "scrollY": 155,
+      "source": {
+        "scrollY": 155,
+        "opacity": 0.25,
+        "scale": 0.925
+      },
+      "candidate": {
+        "scrollY": 155,
+        "opacity": 0.25,
+        "scale": 0.925,
+        "progress": 0.75
+      },
+      "opacityDifference": 0,
+      "scaleDifference": 0,
+      "passed": true
+    },
+    {
+      "scrollY": 180,
+      "source": {
+        "scrollY": 180,
+        "opacity": 0.111111,
+        "scale": 0.911111
+      },
+      "candidate": {
+        "scrollY": 180,
+        "opacity": 0.1111,
+        "scale": 0.91111,
+        "progress": 0.8889
+      },
+      "opacityDifference": 0.000010999999999997123,
+      "scaleDifference": 0.0000010000000000287557,
+      "passed": true
+    },
+    {
+      "scrollY": 200,
+      "source": {
+        "scrollY": 200,
+        "opacity": 0,
+        "scale": 0.9
+      },
+      "candidate": {
+        "scrollY": 200,
+        "opacity": 0,
+        "scale": 0.9,
+        "progress": 1
+      },
+      "opacityDifference": 0,
+      "scaleDifference": 0,
+      "passed": true
+    },
+    {
+      "scrollY": 240,
+      "source": {
+        "scrollY": 240,
+        "opacity": 0,
+        "scale": 0.9
+      },
+      "candidate": {
+        "scrollY": 240,
+        "opacity": 0,
+        "scale": 0.9,
+        "progress": 1
+      },
+      "opacityDifference": 0,
+      "scaleDifference": 0,
+      "passed": true
+    }
+  ],
+  "deterministicSamples": [
+    {
+      "pass": 0,
+      "scrollY": 0,
+      "state": {
+        "scrollY": 0,
+        "opacity": 1,
+        "scale": 1,
+        "progress": 0
+      },
+      "expected": {
+        "opacity": 1,
+        "scale": 1
+      },
+      "opacityDifference": 0,
+      "scaleDifference": 0,
+      "passed": true
+    },
+    {
+      "pass": 0,
+      "scrollY": 20,
+      "state": {
+        "scrollY": 20,
+        "opacity": 1,
+        "scale": 1,
+        "progress": 0
+      },
+      "expected": {
+        "opacity": 1,
+        "scale": 1
+      },
+      "opacityDifference": 0,
+      "scaleDifference": 0,
+      "passed": true
+    },
+    {
+      "pass": 0,
+      "scrollY": 45,
+      "state": {
+        "scrollY": 45,
+        "opacity": 0.8611,
+        "scale": 0.98611,
+        "progress": 0.1389
+      },
+      "expected": {
+        "opacity": 0.8611111111111112,
+        "scale": 0.9861111111111112
+      },
+      "opacityDifference": 0.000011111111111183902,
+      "scaleDifference": 0.0000011111111111183902,
+      "passed": true
+    },
+    {
+      "pass": 0,
+      "scrollY": 65,
+      "state": {
+        "scrollY": 65,
+        "opacity": 0.75,
+        "scale": 0.975,
+        "progress": 0.25
+      },
+      "expected": {
+        "opacity": 0.75,
+        "scale": 0.975
+      },
+      "opacityDifference": 0,
+      "scaleDifference": 0,
+      "passed": true
+    },
+    {
+      "pass": 0,
+      "scrollY": 90,
+      "state": {
+        "scrollY": 90,
+        "opacity": 0.6111,
+        "scale": 0.96111,
+        "progress": 0.3889
+      },
+      "expected": {
+        "opacity": 0.6111111111111112,
+        "scale": 0.9611111111111111
+      },
+      "opacityDifference": 0.000011111111111183902,
+      "scaleDifference": 0.0000011111111111183902,
+      "passed": true
+    },
+    {
+      "pass": 0,
+      "scrollY": 110,
+      "state": {
+        "scrollY": 110,
+        "opacity": 0.5,
+        "scale": 0.95,
+        "progress": 0.5
+      },
+      "expected": {
+        "opacity": 0.5,
+        "scale": 0.95
+      },
+      "opacityDifference": 0,
+      "scaleDifference": 0,
+      "passed": true
+    },
+    {
+      "pass": 0,
+      "scrollY": 135,
+      "state": {
+        "scrollY": 135,
+        "opacity": 0.3611,
+        "scale": 0.93611,
+        "progress": 0.6389
+      },
+      "expected": {
+        "opacity": 0.36111111111111116,
+        "scale": 0.9361111111111111
+      },
+      "opacityDifference": 0.000011111111111183902,
+      "scaleDifference": 0.0000011111111111183902,
+      "passed": true
+    },
+    {
+      "pass": 0,
+      "scrollY": 155,
+      "state": {
+        "scrollY": 155,
+        "opacity": 0.25,
+        "scale": 0.925,
+        "progress": 0.75
+      },
+      "expected": {
+        "opacity": 0.25,
+        "scale": 0.925
+      },
+      "opacityDifference": 0,
+      "scaleDifference": 0,
+      "passed": true
+    },
+    {
+      "pass": 0,
+      "scrollY": 180,
+      "state": {
+        "scrollY": 180,
+        "opacity": 0.1111,
+        "scale": 0.91111,
+        "progress": 0.8889
+      },
+      "expected": {
+        "opacity": 0.11111111111111116,
+        "scale": 0.9111111111111111
+      },
+      "opacityDifference": 0.000011111111111156147,
+      "scaleDifference": 0.0000011111111111183902,
+      "passed": true
+    },
+    {
+      "pass": 0,
+      "scrollY": 200,
+      "state": {
+        "scrollY": 200,
+        "opacity": 0,
+        "scale": 0.9,
+        "progress": 1
+      },
+      "expected": {
+        "opacity": 0,
+        "scale": 0.9
+      },
+      "opacityDifference": 0,
+      "scaleDifference": 0,
+      "passed": true
+    },
+    {
+      "pass": 0,
+      "scrollY": 240,
+      "state": {
+        "scrollY": 240,
+        "opacity": 0,
+        "scale": 0.9,
+        "progress": 1
+      },
+      "expected": {
+        "opacity": 0,
+        "scale": 0.9
+      },
+      "opacityDifference": 0,
+      "scaleDifference": 0,
+      "passed": true
+    },
+    {
+      "pass": 1,
+      "scrollY": 240,
+      "state": {
+        "scrollY": 240,
+        "opacity": 0,
+        "scale": 0.9,
+        "progress": 1
+      },
+      "expected": {
+        "opacity": 0,
+        "scale": 0.9
+      },
+      "opacityDifference": 0,
+      "scaleDifference": 0,
+      "passed": true
+    },
+    {
+      "pass": 1,
+      "scrollY": 200,
+      "state": {
+        "scrollY": 200,
+        "opacity": 0,
+        "scale": 0.9,
+        "progress": 1
+      },
+      "expected": {
+        "opacity": 0,
+        "scale": 0.9
+      },
+      "opacityDifference": 0,
+      "scaleDifference": 0,
+      "passed": true
+    },
+    {
+      "pass": 1,
+      "scrollY": 180,
+      "state": {
+        "scrollY": 180,
+        "opacity": 0.1111,
+        "scale": 0.91111,
+        "progress": 0.8889
+      },
+      "expected": {
+        "opacity": 0.11111111111111116,
+        "scale": 0.9111111111111111
+      },
+      "opacityDifference": 0.000011111111111156147,
+      "scaleDifference": 0.0000011111111111183902,
+      "passed": true
+    },
+    {
+      "pass": 1,
+      "scrollY": 155,
+      "state": {
+        "scrollY": 155,
+        "opacity": 0.25,
+        "scale": 0.925,
+        "progress": 0.75
+      },
+      "expected": {
+        "opacity": 0.25,
+        "scale": 0.925
+      },
+      "opacityDifference": 0,
+      "scaleDifference": 0,
+      "passed": true
+    },
+    {
+      "pass": 1,
+      "scrollY": 135,
+      "state": {
+        "scrollY": 135,
+        "opacity": 0.3611,
+        "scale": 0.93611,
+        "progress": 0.6389
+      },
+      "expected": {
+        "opacity": 0.36111111111111116,
+        "scale": 0.9361111111111111
+      },
+      "opacityDifference": 0.000011111111111183902,
+      "scaleDifference": 0.0000011111111111183902,
+      "passed": true
+    },
+    {
+      "pass": 1,
+      "scrollY": 110,
+      "state": {
+        "scrollY": 110,
+        "opacity": 0.5,
+        "scale": 0.95,
+        "progress": 0.5
+      },
+      "expected": {
+        "opacity": 0.5,
+        "scale": 0.95
+      },
+      "opacityDifference": 0,
+      "scaleDifference": 0,
+      "passed": true
+    },
+    {
+      "pass": 1,
+      "scrollY": 90,
+      "state": {
+        "scrollY": 90,
+        "opacity": 0.6111,
+        "scale": 0.96111,
+        "progress": 0.3889
+      },
+      "expected": {
+        "opacity": 0.6111111111111112,
+        "scale": 0.9611111111111111
+      },
+      "opacityDifference": 0.000011111111111183902,
+      "scaleDifference": 0.0000011111111111183902,
+      "passed": true
+    },
+    {
+      "pass": 1,
+      "scrollY": 65,
+      "state": {
+        "scrollY": 65,
+        "opacity": 0.75,
+        "scale": 0.975,
+        "progress": 0.25
+      },
+      "expected": {
+        "opacity": 0.75,
+        "scale": 0.975
+      },
+      "opacityDifference": 0,
+      "scaleDifference": 0,
+      "passed": true
+    },
+    {
+      "pass": 1,
+      "scrollY": 45,
+      "state": {
+        "scrollY": 45,
+        "opacity": 0.8611,
+        "scale": 0.98611,
+        "progress": 0.1389
+      },
+      "expected": {
+        "opacity": 0.8611111111111112,
+        "scale": 0.9861111111111112
+      },
+      "opacityDifference": 0.000011111111111183902,
+      "scaleDifference": 0.0000011111111111183902,
+      "passed": true
+    },
+    {
+      "pass": 1,
+      "scrollY": 20,
+      "state": {
+        "scrollY": 20,
+        "opacity": 1,
+        "scale": 1,
+        "progress": 0
+      },
+      "expected": {
+        "opacity": 1,
+        "scale": 1
+      },
+      "opacityDifference": 0,
+      "scaleDifference": 0,
+      "passed": true
+    },
+    {
+      "pass": 1,
+      "scrollY": 0,
+      "state": {
+        "scrollY": 0,
+        "opacity": 1,
+        "scale": 1,
+        "progress": 0
+      },
+      "expected": {
+        "opacity": 1,
+        "scale": 1
+      },
+      "opacityDifference": 0,
+      "scaleDifference": 0,
+      "passed": true
+    },
+    {
+      "pass": 2,
+      "scrollY": 0,
+      "state": {
+        "scrollY": 0,
+        "opacity": 1,
+        "scale": 1,
+        "progress": 0
+      },
+      "expected": {
+        "opacity": 1,
+        "scale": 1
+      },
+      "opacityDifference": 0,
+      "scaleDifference": 0,
+      "passed": true
+    },
+    {
+      "pass": 2,
+      "scrollY": 20,
+      "state": {
+        "scrollY": 20,
+        "opacity": 1,
+        "scale": 1,
+        "progress": 0
+      },
+      "expected": {
+        "opacity": 1,
+        "scale": 1
+      },
+      "opacityDifference": 0,
+      "scaleDifference": 0,
+      "passed": true
+    },
+    {
+      "pass": 2,
+      "scrollY": 45,
+      "state": {
+        "scrollY": 45,
+        "opacity": 0.8611,
+        "scale": 0.98611,
+        "progress": 0.1389
+      },
+      "expected": {
+        "opacity": 0.8611111111111112,
+        "scale": 0.9861111111111112
+      },
+      "opacityDifference": 0.000011111111111183902,
+      "scaleDifference": 0.0000011111111111183902,
+      "passed": true
+    },
+    {
+      "pass": 2,
+      "scrollY": 65,
+      "state": {
+        "scrollY": 65,
+        "opacity": 0.75,
+        "scale": 0.975,
+        "progress": 0.25
+      },
+      "expected": {
+        "opacity": 0.75,
+        "scale": 0.975
+      },
+      "opacityDifference": 0,
+      "scaleDifference": 0,
+      "passed": true
+    },
+    {
+      "pass": 2,
+      "scrollY": 90,
+      "state": {
+        "scrollY": 90,
+        "opacity": 0.6111,
+        "scale": 0.96111,
+        "progress": 0.3889
+      },
+      "expected": {
+        "opacity": 0.6111111111111112,
+        "scale": 0.9611111111111111
+      },
+      "opacityDifference": 0.000011111111111183902,
+      "scaleDifference": 0.0000011111111111183902,
+      "passed": true
+    },
+    {
+      "pass": 2,
+      "scrollY": 110,
+      "state": {
+        "scrollY": 110,
+        "opacity": 0.5,
+        "scale": 0.95,
+        "progress": 0.5
+      },
+      "expected": {
+        "opacity": 0.5,
+        "scale": 0.95
+      },
+      "opacityDifference": 0,
+      "scaleDifference": 0,
+      "passed": true
+    },
+    {
+      "pass": 2,
+      "scrollY": 135,
+      "state": {
+        "scrollY": 135,
+        "opacity": 0.3611,
+        "scale": 0.93611,
+        "progress": 0.6389
+      },
+      "expected": {
+        "opacity": 0.36111111111111116,
+        "scale": 0.9361111111111111
+      },
+      "opacityDifference": 0.000011111111111183902,
+      "scaleDifference": 0.0000011111111111183902,
+      "passed": true
+    },
+    {
+      "pass": 2,
+      "scrollY": 155,
+      "state": {
+        "scrollY": 155,
+        "opacity": 0.25,
+        "scale": 0.925,
+        "progress": 0.75
+      },
+      "expected": {
+        "opacity": 0.25,
+        "scale": 0.925
+      },
+      "opacityDifference": 0,
+      "scaleDifference": 0,
+      "passed": true
+    },
+    {
+      "pass": 2,
+      "scrollY": 180,
+      "state": {
+        "scrollY": 180,
+        "opacity": 0.1111,
+        "scale": 0.91111,
+        "progress": 0.8889
+      },
+      "expected": {
+        "opacity": 0.11111111111111116,
+        "scale": 0.9111111111111111
+      },
+      "opacityDifference": 0.000011111111111156147,
+      "scaleDifference": 0.0000011111111111183902,
+      "passed": true
+    },
+    {
+      "pass": 2,
+      "scrollY": 200,
+      "state": {
+        "scrollY": 200,
+        "opacity": 0,
+        "scale": 0.9,
+        "progress": 1
+      },
+      "expected": {
+        "opacity": 0,
+        "scale": 0.9
+      },
+      "opacityDifference": 0,
+      "scaleDifference": 0,
+      "passed": true
+    },
+    {
+      "pass": 2,
+      "scrollY": 240,
+      "state": {
+        "scrollY": 240,
+        "opacity": 0,
+        "scale": 0.9,
+        "progress": 1
+      },
+      "expected": {
+        "opacity": 0,
+        "scale": 0.9
+      },
+      "opacityDifference": 0,
+      "scaleDifference": 0,
+      "passed": true
+    },
+    {
+      "pass": 3,
+      "scrollY": 240,
+      "state": {
+        "scrollY": 240,
+        "opacity": 0,
+        "scale": 0.9,
+        "progress": 1
+      },
+      "expected": {
+        "opacity": 0,
+        "scale": 0.9
+      },
+      "opacityDifference": 0,
+      "scaleDifference": 0,
+      "passed": true
+    },
+    {
+      "pass": 3,
+      "scrollY": 200,
+      "state": {
+        "scrollY": 200,
+        "opacity": 0,
+        "scale": 0.9,
+        "progress": 1
+      },
+      "expected": {
+        "opacity": 0,
+        "scale": 0.9
+      },
+      "opacityDifference": 0,
+      "scaleDifference": 0,
+      "passed": true
+    },
+    {
+      "pass": 3,
+      "scrollY": 180,
+      "state": {
+        "scrollY": 180,
+        "opacity": 0.1111,
+        "scale": 0.91111,
+        "progress": 0.8889
+      },
+      "expected": {
+        "opacity": 0.11111111111111116,
+        "scale": 0.9111111111111111
+      },
+      "opacityDifference": 0.000011111111111156147,
+      "scaleDifference": 0.0000011111111111183902,
+      "passed": true
+    },
+    {
+      "pass": 3,
+      "scrollY": 155,
+      "state": {
+        "scrollY": 155,
+        "opacity": 0.25,
+        "scale": 0.925,
+        "progress": 0.75
+      },
+      "expected": {
+        "opacity": 0.25,
+        "scale": 0.925
+      },
+      "opacityDifference": 0,
+      "scaleDifference": 0,
+      "passed": true
+    },
+    {
+      "pass": 3,
+      "scrollY": 135,
+      "state": {
+        "scrollY": 135,
+        "opacity": 0.3611,
+        "scale": 0.93611,
+        "progress": 0.6389
+      },
+      "expected": {
+        "opacity": 0.36111111111111116,
+        "scale": 0.9361111111111111
+      },
+      "opacityDifference": 0.000011111111111183902,
+      "scaleDifference": 0.0000011111111111183902,
+      "passed": true
+    },
+    {
+      "pass": 3,
+      "scrollY": 110,
+      "state": {
+        "scrollY": 110,
+        "opacity": 0.5,
+        "scale": 0.95,
+        "progress": 0.5
+      },
+      "expected": {
+        "opacity": 0.5,
+        "scale": 0.95
+      },
+      "opacityDifference": 0,
+      "scaleDifference": 0,
+      "passed": true
+    },
+    {
+      "pass": 3,
+      "scrollY": 90,
+      "state": {
+        "scrollY": 90,
+        "opacity": 0.6111,
+        "scale": 0.96111,
+        "progress": 0.3889
+      },
+      "expected": {
+        "opacity": 0.6111111111111112,
+        "scale": 0.9611111111111111
+      },
+      "opacityDifference": 0.000011111111111183902,
+      "scaleDifference": 0.0000011111111111183902,
+      "passed": true
+    },
+    {
+      "pass": 3,
+      "scrollY": 65,
+      "state": {
+        "scrollY": 65,
+        "opacity": 0.75,
+        "scale": 0.975,
+        "progress": 0.25
+      },
+      "expected": {
+        "opacity": 0.75,
+        "scale": 0.975
+      },
+      "opacityDifference": 0,
+      "scaleDifference": 0,
+      "passed": true
+    },
+    {
+      "pass": 3,
+      "scrollY": 45,
+      "state": {
+        "scrollY": 45,
+        "opacity": 0.8611,
+        "scale": 0.98611,
+        "progress": 0.1389
+      },
+      "expected": {
+        "opacity": 0.8611111111111112,
+        "scale": 0.9861111111111112
+      },
+      "opacityDifference": 0.000011111111111183902,
+      "scaleDifference": 0.0000011111111111183902,
+      "passed": true
+    },
+    {
+      "pass": 3,
+      "scrollY": 20,
+      "state": {
+        "scrollY": 20,
+        "opacity": 1,
+        "scale": 1,
+        "progress": 0
+      },
+      "expected": {
+        "opacity": 1,
+        "scale": 1
+      },
+      "opacityDifference": 0,
+      "scaleDifference": 0,
+      "passed": true
+    },
+    {
+      "pass": 3,
+      "scrollY": 0,
+      "state": {
+        "scrollY": 0,
+        "opacity": 1,
+        "scale": 1,
+        "progress": 0
+      },
+      "expected": {
+        "opacity": 1,
+        "scale": 1
+      },
+      "opacityDifference": 0,
+      "scaleDifference": 0,
+      "passed": true
+    },
+    {
+      "pass": 4,
+      "scrollY": 0,
+      "state": {
+        "scrollY": 0,
+        "opacity": 1,
+        "scale": 1,
+        "progress": 0
+      },
+      "expected": {
+        "opacity": 1,
+        "scale": 1
+      },
+      "opacityDifference": 0,
+      "scaleDifference": 0,
+      "passed": true
+    },
+    {
+      "pass": 4,
+      "scrollY": 20,
+      "state": {
+        "scrollY": 20,
+        "opacity": 1,
+        "scale": 1,
+        "progress": 0
+      },
+      "expected": {
+        "opacity": 1,
+        "scale": 1
+      },
+      "opacityDifference": 0,
+      "scaleDifference": 0,
+      "passed": true
+    },
+    {
+      "pass": 4,
+      "scrollY": 45,
+      "state": {
+        "scrollY": 45,
+        "opacity": 0.8611,
+        "scale": 0.98611,
+        "progress": 0.1389
+      },
+      "expected": {
+        "opacity": 0.8611111111111112,
+        "scale": 0.9861111111111112
+      },
+      "opacityDifference": 0.000011111111111183902,
+      "scaleDifference": 0.0000011111111111183902,
+      "passed": true
+    },
+    {
+      "pass": 4,
+      "scrollY": 65,
+      "state": {
+        "scrollY": 65,
+        "opacity": 0.75,
+        "scale": 0.975,
+        "progress": 0.25
+      },
+      "expected": {
+        "opacity": 0.75,
+        "scale": 0.975
+      },
+      "opacityDifference": 0,
+      "scaleDifference": 0,
+      "passed": true
+    },
+    {
+      "pass": 4,
+      "scrollY": 90,
+      "state": {
+        "scrollY": 90,
+        "opacity": 0.6111,
+        "scale": 0.96111,
+        "progress": 0.3889
+      },
+      "expected": {
+        "opacity": 0.6111111111111112,
+        "scale": 0.9611111111111111
+      },
+      "opacityDifference": 0.000011111111111183902,
+      "scaleDifference": 0.0000011111111111183902,
+      "passed": true
+    },
+    {
+      "pass": 4,
+      "scrollY": 110,
+      "state": {
+        "scrollY": 110,
+        "opacity": 0.5,
+        "scale": 0.95,
+        "progress": 0.5
+      },
+      "expected": {
+        "opacity": 0.5,
+        "scale": 0.95
+      },
+      "opacityDifference": 0,
+      "scaleDifference": 0,
+      "passed": true
+    },
+    {
+      "pass": 4,
+      "scrollY": 135,
+      "state": {
+        "scrollY": 135,
+        "opacity": 0.3611,
+        "scale": 0.93611,
+        "progress": 0.6389
+      },
+      "expected": {
+        "opacity": 0.36111111111111116,
+        "scale": 0.9361111111111111
+      },
+      "opacityDifference": 0.000011111111111183902,
+      "scaleDifference": 0.0000011111111111183902,
+      "passed": true
+    },
+    {
+      "pass": 4,
+      "scrollY": 155,
+      "state": {
+        "scrollY": 155,
+        "opacity": 0.25,
+        "scale": 0.925,
+        "progress": 0.75
+      },
+      "expected": {
+        "opacity": 0.25,
+        "scale": 0.925
+      },
+      "opacityDifference": 0,
+      "scaleDifference": 0,
+      "passed": true
+    },
+    {
+      "pass": 4,
+      "scrollY": 180,
+      "state": {
+        "scrollY": 180,
+        "opacity": 0.1111,
+        "scale": 0.91111,
+        "progress": 0.8889
+      },
+      "expected": {
+        "opacity": 0.11111111111111116,
+        "scale": 0.9111111111111111
+      },
+      "opacityDifference": 0.000011111111111156147,
+      "scaleDifference": 0.0000011111111111183902,
+      "passed": true
+    },
+    {
+      "pass": 4,
+      "scrollY": 200,
+      "state": {
+        "scrollY": 200,
+        "opacity": 0,
+        "scale": 0.9,
+        "progress": 1
+      },
+      "expected": {
+        "opacity": 0,
+        "scale": 0.9
+      },
+      "opacityDifference": 0,
+      "scaleDifference": 0,
+      "passed": true
+    },
+    {
+      "pass": 4,
+      "scrollY": 240,
+      "state": {
+        "scrollY": 240,
+        "opacity": 0,
+        "scale": 0.9,
+        "progress": 1
+      },
+      "expected": {
+        "opacity": 0,
+        "scale": 0.9
+      },
+      "opacityDifference": 0,
+      "scaleDifference": 0,
+      "passed": true
+    },
+    {
+      "pass": 5,
+      "scrollY": 240,
+      "state": {
+        "scrollY": 240,
+        "opacity": 0,
+        "scale": 0.9,
+        "progress": 1
+      },
+      "expected": {
+        "opacity": 0,
+        "scale": 0.9
+      },
+      "opacityDifference": 0,
+      "scaleDifference": 0,
+      "passed": true
+    },
+    {
+      "pass": 5,
+      "scrollY": 200,
+      "state": {
+        "scrollY": 200,
+        "opacity": 0,
+        "scale": 0.9,
+        "progress": 1
+      },
+      "expected": {
+        "opacity": 0,
+        "scale": 0.9
+      },
+      "opacityDifference": 0,
+      "scaleDifference": 0,
+      "passed": true
+    },
+    {
+      "pass": 5,
+      "scrollY": 180,
+      "state": {
+        "scrollY": 180,
+        "opacity": 0.1111,
+        "scale": 0.91111,
+        "progress": 0.8889
+      },
+      "expected": {
+        "opacity": 0.11111111111111116,
+        "scale": 0.9111111111111111
+      },
+      "opacityDifference": 0.000011111111111156147,
+      "scaleDifference": 0.0000011111111111183902,
+      "passed": true
+    },
+    {
+      "pass": 5,
+      "scrollY": 155,
+      "state": {
+        "scrollY": 155,
+        "opacity": 0.25,
+        "scale": 0.925,
+        "progress": 0.75
+      },
+      "expected": {
+        "opacity": 0.25,
+        "scale": 0.925
+      },
+      "opacityDifference": 0,
+      "scaleDifference": 0,
+      "passed": true
+    },
+    {
+      "pass": 5,
+      "scrollY": 135,
+      "state": {
+        "scrollY": 135,
+        "opacity": 0.3611,
+        "scale": 0.93611,
+        "progress": 0.6389
+      },
+      "expected": {
+        "opacity": 0.36111111111111116,
+        "scale": 0.9361111111111111
+      },
+      "opacityDifference": 0.000011111111111183902,
+      "scaleDifference": 0.0000011111111111183902,
+      "passed": true
+    },
+    {
+      "pass": 5,
+      "scrollY": 110,
+      "state": {
+        "scrollY": 110,
+        "opacity": 0.5,
+        "scale": 0.95,
+        "progress": 0.5
+      },
+      "expected": {
+        "opacity": 0.5,
+        "scale": 0.95
+      },
+      "opacityDifference": 0,
+      "scaleDifference": 0,
+      "passed": true
+    },
+    {
+      "pass": 5,
+      "scrollY": 90,
+      "state": {
+        "scrollY": 90,
+        "opacity": 0.6111,
+        "scale": 0.96111,
+        "progress": 0.3889
+      },
+      "expected": {
+        "opacity": 0.6111111111111112,
+        "scale": 0.9611111111111111
+      },
+      "opacityDifference": 0.000011111111111183902,
+      "scaleDifference": 0.0000011111111111183902,
+      "passed": true
+    },
+    {
+      "pass": 5,
+      "scrollY": 65,
+      "state": {
+        "scrollY": 65,
+        "opacity": 0.75,
+        "scale": 0.975,
+        "progress": 0.25
+      },
+      "expected": {
+        "opacity": 0.75,
+        "scale": 0.975
+      },
+      "opacityDifference": 0,
+      "scaleDifference": 0,
+      "passed": true
+    },
+    {
+      "pass": 5,
+      "scrollY": 45,
+      "state": {
+        "scrollY": 45,
+        "opacity": 0.8611,
+        "scale": 0.98611,
+        "progress": 0.1389
+      },
+      "expected": {
+        "opacity": 0.8611111111111112,
+        "scale": 0.9861111111111112
+      },
+      "opacityDifference": 0.000011111111111183902,
+      "scaleDifference": 0.0000011111111111183902,
+      "passed": true
+    },
+    {
+      "pass": 5,
+      "scrollY": 20,
+      "state": {
+        "scrollY": 20,
+        "opacity": 1,
+        "scale": 1,
+        "progress": 0
+      },
+      "expected": {
+        "opacity": 1,
+        "scale": 1
+      },
+      "opacityDifference": 0,
+      "scaleDifference": 0,
+      "passed": true
+    },
+    {
+      "pass": 5,
+      "scrollY": 0,
+      "state": {
+        "scrollY": 0,
+        "opacity": 1,
+        "scale": 1,
+        "progress": 0
+      },
+      "expected": {
+        "opacity": 1,
+        "scale": 1
+      },
+      "opacityDifference": 0,
+      "scaleDifference": 0,
+      "passed": true
+    },
+    {
+      "pass": 6,
+      "scrollY": 0,
+      "state": {
+        "scrollY": 0,
+        "opacity": 1,
+        "scale": 1,
+        "progress": 0
+      },
+      "expected": {
+        "opacity": 1,
+        "scale": 1
+      },
+      "opacityDifference": 0,
+      "scaleDifference": 0,
+      "passed": true
+    },
+    {
+      "pass": 6,
+      "scrollY": 20,
+      "state": {
+        "scrollY": 20,
+        "opacity": 1,
+        "scale": 1,
+        "progress": 0
+      },
+      "expected": {
+        "opacity": 1,
+        "scale": 1
+      },
+      "opacityDifference": 0,
+      "scaleDifference": 0,
+      "passed": true
+    },
+    {
+      "pass": 6,
+      "scrollY": 45,
+      "state": {
+        "scrollY": 45,
+        "opacity": 0.8611,
+        "scale": 0.98611,
+        "progress": 0.1389
+      },
+      "expected": {
+        "opacity": 0.8611111111111112,
+        "scale": 0.9861111111111112
+      },
+      "opacityDifference": 0.000011111111111183902,
+      "scaleDifference": 0.0000011111111111183902,
+      "passed": true
+    },
+    {
+      "pass": 6,
+      "scrollY": 65,
+      "state": {
+        "scrollY": 65,
+        "opacity": 0.75,
+        "scale": 0.975,
+        "progress": 0.25
+      },
+      "expected": {
+        "opacity": 0.75,
+        "scale": 0.975
+      },
+      "opacityDifference": 0,
+      "scaleDifference": 0,
+      "passed": true
+    },
+    {
+      "pass": 6,
+      "scrollY": 90,
+      "state": {
+        "scrollY": 90,
+        "opacity": 0.6111,
+        "scale": 0.96111,
+        "progress": 0.3889
+      },
+      "expected": {
+        "opacity": 0.6111111111111112,
+        "scale": 0.9611111111111111
+      },
+      "opacityDifference": 0.000011111111111183902,
+      "scaleDifference": 0.0000011111111111183902,
+      "passed": true
+    },
+    {
+      "pass": 6,
+      "scrollY": 110,
+      "state": {
+        "scrollY": 110,
+        "opacity": 0.5,
+        "scale": 0.95,
+        "progress": 0.5
+      },
+      "expected": {
+        "opacity": 0.5,
+        "scale": 0.95
+      },
+      "opacityDifference": 0,
+      "scaleDifference": 0,
+      "passed": true
+    },
+    {
+      "pass": 6,
+      "scrollY": 135,
+      "state": {
+        "scrollY": 135,
+        "opacity": 0.3611,
+        "scale": 0.93611,
+        "progress": 0.6389
+      },
+      "expected": {
+        "opacity": 0.36111111111111116,
+        "scale": 0.9361111111111111
+      },
+      "opacityDifference": 0.000011111111111183902,
+      "scaleDifference": 0.0000011111111111183902,
+      "passed": true
+    },
+    {
+      "pass": 6,
+      "scrollY": 155,
+      "state": {
+        "scrollY": 155,
+        "opacity": 0.25,
+        "scale": 0.925,
+        "progress": 0.75
+      },
+      "expected": {
+        "opacity": 0.25,
+        "scale": 0.925
+      },
+      "opacityDifference": 0,
+      "scaleDifference": 0,
+      "passed": true
+    },
+    {
+      "pass": 6,
+      "scrollY": 180,
+      "state": {
+        "scrollY": 180,
+        "opacity": 0.1111,
+        "scale": 0.91111,
+        "progress": 0.8889
+      },
+      "expected": {
+        "opacity": 0.11111111111111116,
+        "scale": 0.9111111111111111
+      },
+      "opacityDifference": 0.000011111111111156147,
+      "scaleDifference": 0.0000011111111111183902,
+      "passed": true
+    },
+    {
+      "pass": 6,
+      "scrollY": 200,
+      "state": {
+        "scrollY": 200,
+        "opacity": 0,
+        "scale": 0.9,
+        "progress": 1
+      },
+      "expected": {
+        "opacity": 0,
+        "scale": 0.9
+      },
+      "opacityDifference": 0,
+      "scaleDifference": 0,
+      "passed": true
+    },
+    {
+      "pass": 6,
+      "scrollY": 240,
+      "state": {
+        "scrollY": 240,
+        "opacity": 0,
+        "scale": 0.9,
+        "progress": 1
+      },
+      "expected": {
+        "opacity": 0,
+        "scale": 0.9
+      },
+      "opacityDifference": 0,
+      "scaleDifference": 0,
+      "passed": true
+    },
+    {
+      "pass": 7,
+      "scrollY": 240,
+      "state": {
+        "scrollY": 240,
+        "opacity": 0,
+        "scale": 0.9,
+        "progress": 1
+      },
+      "expected": {
+        "opacity": 0,
+        "scale": 0.9
+      },
+      "opacityDifference": 0,
+      "scaleDifference": 0,
+      "passed": true
+    },
+    {
+      "pass": 7,
+      "scrollY": 200,
+      "state": {
+        "scrollY": 200,
+        "opacity": 0,
+        "scale": 0.9,
+        "progress": 1
+      },
+      "expected": {
+        "opacity": 0,
+        "scale": 0.9
+      },
+      "opacityDifference": 0,
+      "scaleDifference": 0,
+      "passed": true
+    },
+    {
+      "pass": 7,
+      "scrollY": 180,
+      "state": {
+        "scrollY": 180,
+        "opacity": 0.1111,
+        "scale": 0.91111,
+        "progress": 0.8889
+      },
+      "expected": {
+        "opacity": 0.11111111111111116,
+        "scale": 0.9111111111111111
+      },
+      "opacityDifference": 0.000011111111111156147,
+      "scaleDifference": 0.0000011111111111183902,
+      "passed": true
+    },
+    {
+      "pass": 7,
+      "scrollY": 155,
+      "state": {
+        "scrollY": 155,
+        "opacity": 0.25,
+        "scale": 0.925,
+        "progress": 0.75
+      },
+      "expected": {
+        "opacity": 0.25,
+        "scale": 0.925
+      },
+      "opacityDifference": 0,
+      "scaleDifference": 0,
+      "passed": true
+    },
+    {
+      "pass": 7,
+      "scrollY": 135,
+      "state": {
+        "scrollY": 135,
+        "opacity": 0.3611,
+        "scale": 0.93611,
+        "progress": 0.6389
+      },
+      "expected": {
+        "opacity": 0.36111111111111116,
+        "scale": 0.9361111111111111
+      },
+      "opacityDifference": 0.000011111111111183902,
+      "scaleDifference": 0.0000011111111111183902,
+      "passed": true
+    },
+    {
+      "pass": 7,
+      "scrollY": 110,
+      "state": {
+        "scrollY": 110,
+        "opacity": 0.5,
+        "scale": 0.95,
+        "progress": 0.5
+      },
+      "expected": {
+        "opacity": 0.5,
+        "scale": 0.95
+      },
+      "opacityDifference": 0,
+      "scaleDifference": 0,
+      "passed": true
+    },
+    {
+      "pass": 7,
+      "scrollY": 90,
+      "state": {
+        "scrollY": 90,
+        "opacity": 0.6111,
+        "scale": 0.96111,
+        "progress": 0.3889
+      },
+      "expected": {
+        "opacity": 0.6111111111111112,
+        "scale": 0.9611111111111111
+      },
+      "opacityDifference": 0.000011111111111183902,
+      "scaleDifference": 0.0000011111111111183902,
+      "passed": true
+    },
+    {
+      "pass": 7,
+      "scrollY": 65,
+      "state": {
+        "scrollY": 65,
+        "opacity": 0.75,
+        "scale": 0.975,
+        "progress": 0.25
+      },
+      "expected": {
+        "opacity": 0.75,
+        "scale": 0.975
+      },
+      "opacityDifference": 0,
+      "scaleDifference": 0,
+      "passed": true
+    },
+    {
+      "pass": 7,
+      "scrollY": 45,
+      "state": {
+        "scrollY": 45,
+        "opacity": 0.8611,
+        "scale": 0.98611,
+        "progress": 0.1389
+      },
+      "expected": {
+        "opacity": 0.8611111111111112,
+        "scale": 0.9861111111111112
+      },
+      "opacityDifference": 0.000011111111111183902,
+      "scaleDifference": 0.0000011111111111183902,
+      "passed": true
+    },
+    {
+      "pass": 7,
+      "scrollY": 20,
+      "state": {
+        "scrollY": 20,
+        "opacity": 1,
+        "scale": 1,
+        "progress": 0
+      },
+      "expected": {
+        "opacity": 1,
+        "scale": 1
+      },
+      "opacityDifference": 0,
+      "scaleDifference": 0,
+      "passed": true
+    },
+    {
+      "pass": 7,
+      "scrollY": 0,
+      "state": {
+        "scrollY": 0,
+        "opacity": 1,
+        "scale": 1,
+        "progress": 0
+      },
+      "expected": {
+        "opacity": 1,
+        "scale": 1
+      },
+      "opacityDifference": 0,
+      "scaleDifference": 0,
+      "passed": true
+    },
+    {
+      "pass": 8,
+      "scrollY": 0,
+      "state": {
+        "scrollY": 0,
+        "opacity": 1,
+        "scale": 1,
+        "progress": 0
+      },
+      "expected": {
+        "opacity": 1,
+        "scale": 1
+      },
+      "opacityDifference": 0,
+      "scaleDifference": 0,
+      "passed": true
+    },
+    {
+      "pass": 8,
+      "scrollY": 20,
+      "state": {
+        "scrollY": 20,
+        "opacity": 1,
+        "scale": 1,
+        "progress": 0
+      },
+      "expected": {
+        "opacity": 1,
+        "scale": 1
+      },
+      "opacityDifference": 0,
+      "scaleDifference": 0,
+      "passed": true
+    },
+    {
+      "pass": 8,
+      "scrollY": 45,
+      "state": {
+        "scrollY": 45,
+        "opacity": 0.8611,
+        "scale": 0.98611,
+        "progress": 0.1389
+      },
+      "expected": {
+        "opacity": 0.8611111111111112,
+        "scale": 0.9861111111111112
+      },
+      "opacityDifference": 0.000011111111111183902,
+      "scaleDifference": 0.0000011111111111183902,
+      "passed": true
+    },
+    {
+      "pass": 8,
+      "scrollY": 65,
+      "state": {
+        "scrollY": 65,
+        "opacity": 0.75,
+        "scale": 0.975,
+        "progress": 0.25
+      },
+      "expected": {
+        "opacity": 0.75,
+        "scale": 0.975
+      },
+      "opacityDifference": 0,
+      "scaleDifference": 0,
+      "passed": true
+    },
+    {
+      "pass": 8,
+      "scrollY": 90,
+      "state": {
+        "scrollY": 90,
+        "opacity": 0.6111,
+        "scale": 0.96111,
+        "progress": 0.3889
+      },
+      "expected": {
+        "opacity": 0.6111111111111112,
+        "scale": 0.9611111111111111
+      },
+      "opacityDifference": 0.000011111111111183902,
+      "scaleDifference": 0.0000011111111111183902,
+      "passed": true
+    },
+    {
+      "pass": 8,
+      "scrollY": 110,
+      "state": {
+        "scrollY": 110,
+        "opacity": 0.5,
+        "scale": 0.95,
+        "progress": 0.5
+      },
+      "expected": {
+        "opacity": 0.5,
+        "scale": 0.95
+      },
+      "opacityDifference": 0,
+      "scaleDifference": 0,
+      "passed": true
+    },
+    {
+      "pass": 8,
+      "scrollY": 135,
+      "state": {
+        "scrollY": 135,
+        "opacity": 0.3611,
+        "scale": 0.93611,
+        "progress": 0.6389
+      },
+      "expected": {
+        "opacity": 0.36111111111111116,
+        "scale": 0.9361111111111111
+      },
+      "opacityDifference": 0.000011111111111183902,
+      "scaleDifference": 0.0000011111111111183902,
+      "passed": true
+    },
+    {
+      "pass": 8,
+      "scrollY": 155,
+      "state": {
+        "scrollY": 155,
+        "opacity": 0.25,
+        "scale": 0.925,
+        "progress": 0.75
+      },
+      "expected": {
+        "opacity": 0.25,
+        "scale": 0.925
+      },
+      "opacityDifference": 0,
+      "scaleDifference": 0,
+      "passed": true
+    },
+    {
+      "pass": 8,
+      "scrollY": 180,
+      "state": {
+        "scrollY": 180,
+        "opacity": 0.1111,
+        "scale": 0.91111,
+        "progress": 0.8889
+      },
+      "expected": {
+        "opacity": 0.11111111111111116,
+        "scale": 0.9111111111111111
+      },
+      "opacityDifference": 0.000011111111111156147,
+      "scaleDifference": 0.0000011111111111183902,
+      "passed": true
+    },
+    {
+      "pass": 8,
+      "scrollY": 200,
+      "state": {
+        "scrollY": 200,
+        "opacity": 0,
+        "scale": 0.9,
+        "progress": 1
+      },
+      "expected": {
+        "opacity": 0,
+        "scale": 0.9
+      },
+      "opacityDifference": 0,
+      "scaleDifference": 0,
+      "passed": true
+    },
+    {
+      "pass": 8,
+      "scrollY": 240,
+      "state": {
+        "scrollY": 240,
+        "opacity": 0,
+        "scale": 0.9,
+        "progress": 1
+      },
+      "expected": {
+        "opacity": 0,
+        "scale": 0.9
+      },
+      "opacityDifference": 0,
+      "scaleDifference": 0,
+      "passed": true
+    },
+    {
+      "pass": 9,
+      "scrollY": 240,
+      "state": {
+        "scrollY": 240,
+        "opacity": 0,
+        "scale": 0.9,
+        "progress": 1
+      },
+      "expected": {
+        "opacity": 0,
+        "scale": 0.9
+      },
+      "opacityDifference": 0,
+      "scaleDifference": 0,
+      "passed": true
+    },
+    {
+      "pass": 9,
+      "scrollY": 200,
+      "state": {
+        "scrollY": 200,
+        "opacity": 0,
+        "scale": 0.9,
+        "progress": 1
+      },
+      "expected": {
+        "opacity": 0,
+        "scale": 0.9
+      },
+      "opacityDifference": 0,
+      "scaleDifference": 0,
+      "passed": true
+    },
+    {
+      "pass": 9,
+      "scrollY": 180,
+      "state": {
+        "scrollY": 180,
+        "opacity": 0.1111,
+        "scale": 0.91111,
+        "progress": 0.8889
+      },
+      "expected": {
+        "opacity": 0.11111111111111116,
+        "scale": 0.9111111111111111
+      },
+      "opacityDifference": 0.000011111111111156147,
+      "scaleDifference": 0.0000011111111111183902,
+      "passed": true
+    },
+    {
+      "pass": 9,
+      "scrollY": 155,
+      "state": {
+        "scrollY": 155,
+        "opacity": 0.25,
+        "scale": 0.925,
+        "progress": 0.75
+      },
+      "expected": {
+        "opacity": 0.25,
+        "scale": 0.925
+      },
+      "opacityDifference": 0,
+      "scaleDifference": 0,
+      "passed": true
+    },
+    {
+      "pass": 9,
+      "scrollY": 135,
+      "state": {
+        "scrollY": 135,
+        "opacity": 0.3611,
+        "scale": 0.93611,
+        "progress": 0.6389
+      },
+      "expected": {
+        "opacity": 0.36111111111111116,
+        "scale": 0.9361111111111111
+      },
+      "opacityDifference": 0.000011111111111183902,
+      "scaleDifference": 0.0000011111111111183902,
+      "passed": true
+    },
+    {
+      "pass": 9,
+      "scrollY": 110,
+      "state": {
+        "scrollY": 110,
+        "opacity": 0.5,
+        "scale": 0.95,
+        "progress": 0.5
+      },
+      "expected": {
+        "opacity": 0.5,
+        "scale": 0.95
+      },
+      "opacityDifference": 0,
+      "scaleDifference": 0,
+      "passed": true
+    },
+    {
+      "pass": 9,
+      "scrollY": 90,
+      "state": {
+        "scrollY": 90,
+        "opacity": 0.6111,
+        "scale": 0.96111,
+        "progress": 0.3889
+      },
+      "expected": {
+        "opacity": 0.6111111111111112,
+        "scale": 0.9611111111111111
+      },
+      "opacityDifference": 0.000011111111111183902,
+      "scaleDifference": 0.0000011111111111183902,
+      "passed": true
+    },
+    {
+      "pass": 9,
+      "scrollY": 65,
+      "state": {
+        "scrollY": 65,
+        "opacity": 0.75,
+        "scale": 0.975,
+        "progress": 0.25
+      },
+      "expected": {
+        "opacity": 0.75,
+        "scale": 0.975
+      },
+      "opacityDifference": 0,
+      "scaleDifference": 0,
+      "passed": true
+    },
+    {
+      "pass": 9,
+      "scrollY": 45,
+      "state": {
+        "scrollY": 45,
+        "opacity": 0.8611,
+        "scale": 0.98611,
+        "progress": 0.1389
+      },
+      "expected": {
+        "opacity": 0.8611111111111112,
+        "scale": 0.9861111111111112
+      },
+      "opacityDifference": 0.000011111111111183902,
+      "scaleDifference": 0.0000011111111111183902,
+      "passed": true
+    },
+    {
+      "pass": 9,
+      "scrollY": 20,
+      "state": {
+        "scrollY": 20,
+        "opacity": 1,
+        "scale": 1,
+        "progress": 0
+      },
+      "expected": {
+        "opacity": 1,
+        "scale": 1
+      },
+      "opacityDifference": 0,
+      "scaleDifference": 0,
+      "passed": true
+    },
+    {
+      "pass": 9,
+      "scrollY": 0,
+      "state": {
+        "scrollY": 0,
+        "opacity": 1,
+        "scale": 1,
+        "progress": 0
+      },
+      "expected": {
+        "opacity": 1,
+        "scale": 1
+      },
+      "opacityDifference": 0,
+      "scaleDifference": 0,
+      "passed": true
+    }
+  ]
+}

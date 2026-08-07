@@ -1,0 +1,403 @@
+{
+  "gate": "G3-dashboard",
+  "generatedAt": "2026-08-07T19:44:25.175Z",
+  "sourceUrl": "http://127.0.0.1:4180/?opaline-composition=lens-attio-lens",
+  "candidateUrl": "http://127.0.0.1:4321/preview/dashboard-branded",
+  "viewport": {
+    "width": 1280,
+    "height": 800,
+    "dpr": 1,
+    "mobile": false
+  },
+  "tabSwitch": {
+    "samples": {
+      "source": [
+        {
+          "sample": 0,
+          "events": [
+            {
+              "t": 350.9,
+              "type": "attributes",
+              "attribute": "aria-selected",
+              "selected": "true",
+              "scene": "Data model",
+              "added": 0,
+              "removed": 0
+            },
+            {
+              "t": 351,
+              "type": "attributes",
+              "attribute": "aria-selected",
+              "selected": "false",
+              "scene": "Reporting",
+              "added": 0,
+              "removed": 0
+            },
+            {
+              "t": 427.8,
+              "type": "attributes",
+              "attribute": "aria-selected",
+              "selected": "false",
+              "scene": "Data model",
+              "added": 0,
+              "removed": 0
+            },
+            {
+              "t": 427.8,
+              "type": "attributes",
+              "attribute": "aria-selected",
+              "selected": "true",
+              "scene": "Reporting",
+              "added": 0,
+              "removed": 0
+            },
+            {
+              "t": 497.8,
+              "type": "childList",
+              "attribute": null,
+              "selected": null,
+              "scene": null,
+              "added": 0,
+              "removed": 1
+            },
+            {
+              "t": 497.8,
+              "type": "childList",
+              "attribute": null,
+              "selected": null,
+              "scene": null,
+              "added": 1,
+              "removed": 0
+            }
+          ],
+          "selectedDelayMs": 427.8,
+          "panelDelayMs": 497.8,
+          "switchDelayMs": 70,
+          "shellRetained": true,
+          "panel": "Reporting"
+        },
+        {
+          "sample": 1,
+          "events": [
+            {
+              "t": 438.5,
+              "type": "attributes",
+              "attribute": "aria-selected",
+              "selected": "true",
+              "scene": "Data model",
+              "added": 0,
+              "removed": 0
+            },
+            {
+              "t": 438.6,
+              "type": "attributes",
+              "attribute": "aria-selected",
+              "selected": "false",
+              "scene": "Reporting",
+              "added": 0,
+              "removed": 0
+            },
+            {
+              "t": 458.9,
+              "type": "attributes",
+              "attribute": "aria-selected",
+              "selected": "false",
+              "scene": "Data model",
+              "added": 0,
+              "removed": 0
+            },
+            {
+              "t": 458.9,
+              "type": "attributes",
+              "attribute": "aria-selected",
+              "selected": "true",
+              "scene": "Reporting",
+              "added": 0,
+              "removed": 0
+            },
+            {
+              "t": 522.6,
+              "type": "childList",
+              "attribute": null,
+              "selected": null,
+              "scene": null,
+              "added": 0,
+              "removed": 1
+            },
+            {
+              "t": 522.6,
+              "type": "childList",
+              "attribute": null,
+              "selected": null,
+              "scene": null,
+              "added": 1,
+              "removed": 0
+            }
+          ],
+          "selectedDelayMs": 458.9,
+          "panelDelayMs": 522.6,
+          "switchDelayMs": 63.7,
+          "shellRetained": true,
+          "panel": "Reporting"
+        },
+        {
+          "sample": 2,
+          "events": [
+            {
+              "t": 39,
+              "type": "attributes",
+              "attribute": "aria-selected",
+              "selected": "true",
+              "scene": "Data model",
+              "added": 0,
+              "removed": 0
+            },
+            {
+              "t": 39.1,
+              "type": "attributes",
+              "attribute": "aria-selected",
+              "selected": "false",
+              "scene": "Reporting",
+              "added": 0,
+              "removed": 0
+            },
+            {
+              "t": 50.5,
+              "type": "attributes",
+              "attribute": "aria-selected",
+              "selected": "false",
+              "scene": "Data model",
+              "added": 0,
+              "removed": 0
+            },
+            {
+              "t": 50.5,
+              "type": "attributes",
+              "attribute": "aria-selected",
+              "selected": "true",
+              "scene": "Reporting",
+              "added": 0,
+              "removed": 0
+            },
+            {
+              "t": 84.8,
+              "type": "attributes",
+              "attribute": "aria-selected",
+              "selected": "false",
+              "scene": "Data model",
+              "added": 0,
+              "removed": 0
+            },
+            {
+              "t": 84.8,
+              "type": "attributes",
+              "attribute": "aria-selected",
+              "selected": "true",
+              "scene": "Reporting",
+              "added": 0,
+              "removed": 0
+            },
+            {
+              "t": 98.6,
+              "type": "childList",
+              "attribute": null,
+              "selected": null,
+              "scene": null,
+              "added": 0,
+              "removed": 1
+            },
+            {
+              "t": 98.6,
+              "type": "childList",
+              "attribute": null,
+              "selected": null,
+              "scene": null,
+              "added": 1,
+              "removed": 0
+            },
+            {
+              "t": 152.5,
+              "type": "attributes",
+              "attribute": "aria-selected",
+              "selected": "false",
+              "scene": "Data model",
+              "added": 0,
+              "removed": 0
+            },
+            {
+              "t": 152.5,
+              "type": "attributes",
+              "attribute": "aria-selected",
+              "selected": "true",
+              "scene": "Reporting",
+              "added": 0,
+              "removed": 0
+            }
+          ],
+          "selectedDelayMs": 50.5,
+          "panelDelayMs": 98.6,
+          "switchDelayMs": 48.1,
+          "shellRetained": true,
+          "panel": "Reporting"
+        }
+      ],
+      "candidate": [
+        {
+          "sample": 0,
+          "events": [
+            {
+              "t": 9,
+              "type": "attributes",
+              "attribute": "aria-selected",
+              "selected": "false",
+              "scene": "Data model",
+              "added": 0,
+              "removed": 0
+            },
+            {
+              "t": 9,
+              "type": "attributes",
+              "attribute": "aria-selected",
+              "selected": "true",
+              "scene": "Reporting",
+              "added": 0,
+              "removed": 0
+            },
+            {
+              "t": 85.9,
+              "type": "childList",
+              "attribute": null,
+              "selected": null,
+              "scene": null,
+              "added": 1,
+              "removed": 1
+            }
+          ],
+          "selectedDelayMs": 9,
+          "panelDelayMs": 85.9,
+          "switchDelayMs": 76.9,
+          "shellRetained": true,
+          "panel": "Reporting"
+        },
+        {
+          "sample": 1,
+          "events": [
+            {
+              "t": 9.4,
+              "type": "attributes",
+              "attribute": "aria-selected",
+              "selected": "false",
+              "scene": "Data model",
+              "added": 0,
+              "removed": 0
+            },
+            {
+              "t": 9.5,
+              "type": "attributes",
+              "attribute": "aria-selected",
+              "selected": "true",
+              "scene": "Reporting",
+              "added": 0,
+              "removed": 0
+            },
+            {
+              "t": 86.2,
+              "type": "childList",
+              "attribute": null,
+              "selected": null,
+              "scene": null,
+              "added": 1,
+              "removed": 1
+            }
+          ],
+          "selectedDelayMs": 9.5,
+          "panelDelayMs": 86.2,
+          "switchDelayMs": 76.7,
+          "shellRetained": true,
+          "panel": "Reporting"
+        },
+        {
+          "sample": 2,
+          "events": [
+            {
+              "t": 6.1,
+              "type": "attributes",
+              "attribute": "aria-selected",
+              "selected": "false",
+              "scene": "Data model",
+              "added": 0,
+              "removed": 0
+            },
+            {
+              "t": 6.1,
+              "type": "attributes",
+              "attribute": "aria-selected",
+              "selected": "true",
+              "scene": "Reporting",
+              "added": 0,
+              "removed": 0
+            },
+            {
+              "t": 82.7,
+              "type": "childList",
+              "attribute": null,
+              "selected": null,
+              "scene": null,
+              "added": 1,
+              "removed": 1
+            }
+          ],
+          "selectedDelayMs": 6.1,
+          "panelDelayMs": 82.7,
+          "switchDelayMs": 76.6,
+          "shellRetained": true,
+          "panel": "Reporting"
+        }
+      ]
+    },
+    "sourcePanelMedianMs": 63.7,
+    "candidatePanelMedianMs": 76.7,
+    "differenceMs": 13,
+    "maximumDifferenceMs": 16,
+    "passed": true
+  },
+  "drag": {
+    "before": {
+      "x": 1008,
+      "y": 158.56875610351562,
+      "width": 258.4000244140625,
+      "height": 352.8062438964844,
+      "top": 158.56875610351562,
+      "right": 1266.4000244140625,
+      "bottom": 511.375,
+      "left": 1008
+    },
+    "after": {
+      "x": 1128,
+      "y": 98.56875610351562,
+      "width": 258.4000244140625,
+      "height": 352.8062438964844,
+      "top": 98.56875610351562,
+      "right": 1386.4000244140625,
+      "bottom": 451.375,
+      "left": 1128
+    },
+    "state": {
+      "x": 120,
+      "y": -60,
+      "grabbed": "false",
+      "dragging": false
+    },
+    "delta": {
+      "x": 120,
+      "y": -60
+    },
+    "expectedDelta": {
+      "x": 120,
+      "y": -60
+    },
+    "tolerance": 0.1,
+    "passed": true
+  },
+  "passed": true
+}

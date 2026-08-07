@@ -1,0 +1,84 @@
+
+	@media (min-width: 1280px) {
+		[data-rudel-navbar-actions] {
+			width: 837px !important;
+			max-width: 837px !important;
+			flex: 0 0 837px !important;
+		}
+	}
+
+	[data-rudel-navbar-link-item] {
+		display: flex !important;
+		align-items: center !important;
+		margin: 0 !important;
+		padding: 0 !important;
+	}
+
+	[data-rudel-navbar-link] {
+		display: inline-flex !important;
+		width: auto !important;
+		height: 32px !important;
+		min-width: 32px !important;
+		align-items: center !important;
+		justify-content: center !important;
+		gap: 6px !important;
+		box-sizing: border-box !important;
+		padding: 0 10px !important;
+		border: 0 !important;
+		border-radius: 999px !important;
+		background: rgba(40, 42, 48, 0.06) !important;
+		color: rgb(40, 42, 48) !important;
+		font-family: inherit !important;
+		font-size: 13px !important;
+		font-weight: 500 !important;
+		line-height: 1 !important;
+		text-decoration: none !important;
+		white-space: nowrap !important;
+		transition:
+			background-color 160ms ease,
+			color 160ms ease !important;
+	}
+
+	[data-rudel-navbar-link]:hover {
+		background: rgba(40, 42, 48, 0.11) !important;
+	}
+
+	[data-rudel-navbar-link]:focus-visible {
+		outline: 2px solid rgb(40, 42, 48) !important;
+		outline-offset: 2px !important;
+	}
+
+	[data-rudel-navbar-link] svg {
+		display: block !important;
+		width: 16px !important;
+		height: 16px !important;
+		flex: 0 0 16px !important;
+	}
+
+	[data-rudel-navbar-meta] {
+		margin-left: -2px !important;
+		color: rgba(40, 42, 48, 0.48) !important;
+		font-size: 12px !important;
+		font-weight: 450 !important;
+	}
+
+	@media (max-width: 1279px) {
+		[data-rudel-navbar-link] {
+			width: 32px !important;
+			padding: 0 !important;
+			gap: 0 !important;
+		}
+
+		[data-rudel-navbar-label] {
+			position: absolute !important;
+			width: 1px !important;
+			height: 1px !important;
+			margin: -1px !important;
+			padding: 0 !important;
+			overflow: hidden !important;
+			clip: rect(0 0 0 0) !important;
+			clip-path: inset(50%) !important;
+			white-space: nowrap !important;
+		}
+	}
+

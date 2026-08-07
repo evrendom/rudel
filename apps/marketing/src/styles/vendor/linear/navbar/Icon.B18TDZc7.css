@@ -1,0 +1,5 @@
+@charset "UTF-8";
+@layer reset, base, app.base;
+@charset "UTF-8";
+@layer reset, base, app.base;
+._71adgG_primary{color:var(--color-text-primary)}._71adgG_secondary{color:var(--color-text-secondary)}._71adgG_tertiary{color:var(--color-text-tertiary)}._71adgG_quaternary{color:var(--color-text-quaternary)}.qCstwq_logotype{width:var(--Logotype-width,auto);height:auto}.qCstwq_logotype>*{fill:inherit}

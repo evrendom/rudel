@@ -1,0 +1,556 @@
+{
+  "generatedAt": "2026-08-07T18:28:42.975Z",
+  "sourceUrl": "http://127.0.0.1:4176/next?opaline-source=navbar&opaline-links=rudel",
+  "candidateUrl": "http://127.0.0.1:4321/preview/navbar-naturalized",
+  "thresholds": {
+    "timingMilliseconds": 17,
+    "sequence": "exact"
+  },
+  "passed": true,
+  "results": [
+    {
+      "name": "product-hover-open",
+      "passed": true,
+      "sequenceMatches": true,
+      "maximumTimingDifference": 15.5,
+      "timingDifferences": [
+        {
+          "index": 0,
+          "source": 15.6,
+          "candidate": 2.8,
+          "difference": 12.8
+        },
+        {
+          "index": 1,
+          "source": 15.6,
+          "candidate": 2.8,
+          "difference": 12.8
+        },
+        {
+          "index": 2,
+          "source": 18.3,
+          "candidate": 2.8,
+          "difference": 15.5
+        },
+        {
+          "index": 3,
+          "source": 18.3,
+          "candidate": 2.8,
+          "difference": 15.5
+        }
+      ],
+      "source": [
+        {
+          "t": 15.6,
+          "type": "attribute",
+          "target": "trigger.product",
+          "name": "data-state",
+          "oldValue": "closed",
+          "value": "open"
+        },
+        {
+          "t": 15.6,
+          "type": "attribute",
+          "target": "trigger.product",
+          "name": "aria-expanded",
+          "oldValue": "false",
+          "value": "true"
+        },
+        {
+          "t": 18.3,
+          "type": "attribute",
+          "target": "viewport",
+          "name": "style",
+          "oldValue": null,
+          "value": "--radix-navigation-menu-viewport-width: 856px; --radix-navigation-menu-viewport-height: 268px;"
+        },
+        {
+          "t": 18.3,
+          "type": "attribute",
+          "target": "viewport",
+          "name": "style",
+          "oldValue": "--radix-navigation-menu-viewport-width: 856px;",
+          "value": "--radix-navigation-menu-viewport-width: 856px; --radix-navigation-menu-viewport-height: 268px;"
+        }
+      ],
+      "candidate": [
+        {
+          "t": 2.8,
+          "type": "attribute",
+          "target": "trigger.product",
+          "name": "data-state",
+          "oldValue": "closed",
+          "value": "open"
+        },
+        {
+          "t": 2.8,
+          "type": "attribute",
+          "target": "trigger.product",
+          "name": "aria-expanded",
+          "oldValue": "false",
+          "value": "true"
+        },
+        {
+          "t": 2.8,
+          "type": "attribute",
+          "target": "viewport",
+          "name": "style",
+          "oldValue": null,
+          "value": "--radix-navigation-menu-viewport-width: 856px; --radix-navigation-menu-viewport-height: 268px;"
+        },
+        {
+          "t": 2.8,
+          "type": "attribute",
+          "target": "viewport",
+          "name": "style",
+          "oldValue": "--radix-navigation-menu-viewport-width: 856px;",
+          "value": "--radix-navigation-menu-viewport-width: 856px; --radix-navigation-menu-viewport-height: 268px;"
+        }
+      ]
+    },
+    {
+      "name": "product-to-resources",
+      "passed": true,
+      "sequenceMatches": true,
+      "maximumTimingDifference": 7.2,
+      "timingDifferences": [
+        {
+          "index": 0,
+          "source": 8,
+          "candidate": 0.8,
+          "difference": 7.2
+        },
+        {
+          "index": 1,
+          "source": 8,
+          "candidate": 0.8,
+          "difference": 7.2
+        },
+        {
+          "index": 2,
+          "source": 8,
+          "candidate": 0.8,
+          "difference": 7.2
+        },
+        {
+          "index": 3,
+          "source": 8,
+          "candidate": 0.8,
+          "difference": 7.2
+        },
+        {
+          "index": 4,
+          "source": 8,
+          "candidate": 0.8,
+          "difference": 7.2
+        },
+        {
+          "index": 5,
+          "source": 8,
+          "candidate": 0.8,
+          "difference": 7.2
+        },
+        {
+          "index": 6,
+          "source": 21.5,
+          "candidate": 14.5,
+          "difference": 7
+        }
+      ],
+      "source": [
+        {
+          "t": 8,
+          "type": "attribute",
+          "target": "trigger.product",
+          "name": "data-state",
+          "oldValue": "open",
+          "value": "closed"
+        },
+        {
+          "t": 8,
+          "type": "attribute",
+          "target": "trigger.product",
+          "name": "aria-expanded",
+          "oldValue": "true",
+          "value": "false"
+        },
+        {
+          "t": 8,
+          "type": "attribute",
+          "target": "trigger.resources",
+          "name": "data-state",
+          "oldValue": "closed",
+          "value": "open"
+        },
+        {
+          "t": 8,
+          "type": "attribute",
+          "target": "trigger.resources",
+          "name": "aria-expanded",
+          "oldValue": "false",
+          "value": "true"
+        },
+        {
+          "t": 8,
+          "type": "attribute",
+          "target": "content.product",
+          "name": "data-motion",
+          "oldValue": null,
+          "value": "to-start"
+        },
+        {
+          "t": 8,
+          "type": "attribute",
+          "target": "portal",
+          "name": "style",
+          "oldValue": "--inner-card-height: 192px;",
+          "value": "--inner-card-height: 218px;"
+        },
+        {
+          "t": 21.5,
+          "type": "attribute",
+          "target": "viewport",
+          "name": "style",
+          "oldValue": "--radix-navigation-menu-viewport-width: 856px; --radix-navigation-menu-viewport-height: 268px;",
+          "value": "--radix-navigation-menu-viewport-width: 856px; --radix-navigation-menu-viewport-height: 235px;"
+        }
+      ],
+      "candidate": [
+        {
+          "t": 0.8,
+          "type": "attribute",
+          "target": "trigger.product",
+          "name": "data-state",
+          "oldValue": "open",
+          "value": "closed"
+        },
+        {
+          "t": 0.8,
+          "type": "attribute",
+          "target": "trigger.product",
+          "name": "aria-expanded",
+          "oldValue": "true",
+          "value": "false"
+        },
+        {
+          "t": 0.8,
+          "type": "attribute",
+          "target": "trigger.resources",
+          "name": "data-state",
+          "oldValue": "closed",
+          "value": "open"
+        },
+        {
+          "t": 0.8,
+          "type": "attribute",
+          "target": "trigger.resources",
+          "name": "aria-expanded",
+          "oldValue": "false",
+          "value": "true"
+        },
+        {
+          "t": 0.8,
+          "type": "attribute",
+          "target": "content.product",
+          "name": "data-motion",
+          "oldValue": null,
+          "value": "to-start"
+        },
+        {
+          "t": 0.8,
+          "type": "attribute",
+          "target": "portal",
+          "name": "style",
+          "oldValue": "--inner-card-height: 192px;",
+          "value": "--inner-card-height: 218px;"
+        },
+        {
+          "t": 14.5,
+          "type": "attribute",
+          "target": "viewport",
+          "name": "style",
+          "oldValue": "--radix-navigation-menu-viewport-width: 856px; --radix-navigation-menu-viewport-height: 268px;",
+          "value": "--radix-navigation-menu-viewport-width: 856px; --radix-navigation-menu-viewport-height: 235px;"
+        }
+      ]
+    },
+    {
+      "name": "pointer-leave-close",
+      "passed": true,
+      "sequenceMatches": true,
+      "maximumTimingDifference": 6.3,
+      "timingDifferences": [
+        {
+          "index": 0,
+          "source": 158.5,
+          "candidate": 152.2,
+          "difference": 6.3
+        },
+        {
+          "index": 1,
+          "source": 158.5,
+          "candidate": 152.2,
+          "difference": 6.3
+        },
+        {
+          "index": 2,
+          "source": 158.5,
+          "candidate": 152.3,
+          "difference": 6.2
+        },
+        {
+          "index": 3,
+          "source": 158.5,
+          "candidate": 152.4,
+          "difference": 6.1
+        }
+      ],
+      "source": [
+        {
+          "t": 158.5,
+          "type": "attribute",
+          "target": "trigger.product",
+          "name": "data-state",
+          "oldValue": "open",
+          "value": "closed"
+        },
+        {
+          "t": 158.5,
+          "type": "attribute",
+          "target": "trigger.product",
+          "name": "aria-expanded",
+          "oldValue": "true",
+          "value": "false"
+        },
+        {
+          "t": 158.5,
+          "type": "attribute",
+          "target": "viewport",
+          "name": "data-state",
+          "oldValue": "open",
+          "value": "closed"
+        },
+        {
+          "t": 158.5,
+          "type": "attribute",
+          "target": "viewport",
+          "name": "style",
+          "oldValue": "--radix-navigation-menu-viewport-width: 856px; --radix-navigation-menu-viewport-height: 268px;",
+          "value": "--radix-navigation-menu-viewport-width: 856px; --radix-navigation-menu-viewport-height: 268px; pointer-events: none;"
+        }
+      ],
+      "candidate": [
+        {
+          "t": 152.2,
+          "type": "attribute",
+          "target": "trigger.product",
+          "name": "data-state",
+          "oldValue": "open",
+          "value": "closed"
+        },
+        {
+          "t": 152.2,
+          "type": "attribute",
+          "target": "trigger.product",
+          "name": "aria-expanded",
+          "oldValue": "true",
+          "value": "false"
+        },
+        {
+          "t": 152.3,
+          "type": "attribute",
+          "target": "viewport",
+          "name": "data-state",
+          "oldValue": "open",
+          "value": "closed"
+        },
+        {
+          "t": 152.4,
+          "type": "attribute",
+          "target": "viewport",
+          "name": "style",
+          "oldValue": "--radix-navigation-menu-viewport-width: 856px; --radix-navigation-menu-viewport-height: 268px;",
+          "value": "--radix-navigation-menu-viewport-width: 856px; --radix-navigation-menu-viewport-height: 268px; pointer-events: none;"
+        }
+      ]
+    },
+    {
+      "name": "mobile-open",
+      "passed": true,
+      "sequenceMatches": true,
+      "maximumTimingDifference": 11.3,
+      "timingDifferences": [
+        {
+          "index": 0,
+          "source": 14.6,
+          "candidate": 3.5,
+          "difference": 11.1
+        },
+        {
+          "index": 1,
+          "source": 14.6,
+          "candidate": 3.5,
+          "difference": 11.1
+        },
+        {
+          "index": 2,
+          "source": 14.8,
+          "candidate": 3.5,
+          "difference": 11.3
+        }
+      ],
+      "source": [
+        {
+          "t": 14.6,
+          "type": "attribute",
+          "target": "trigger.mobile",
+          "name": "aria-expanded",
+          "oldValue": "false",
+          "value": "true"
+        },
+        {
+          "t": 14.6,
+          "type": "attribute",
+          "target": "trigger.mobile",
+          "name": "data-state",
+          "oldValue": "closed",
+          "value": "open"
+        },
+        {
+          "t": 14.8,
+          "type": "attribute",
+          "target": "body",
+          "name": "style",
+          "oldValue": null,
+          "value": "pointer-events: none;"
+        }
+      ],
+      "candidate": [
+        {
+          "t": 3.5,
+          "type": "attribute",
+          "target": "trigger.mobile",
+          "name": "aria-expanded",
+          "oldValue": "false",
+          "value": "true"
+        },
+        {
+          "t": 3.5,
+          "type": "attribute",
+          "target": "trigger.mobile",
+          "name": "data-state",
+          "oldValue": "closed",
+          "value": "open"
+        },
+        {
+          "t": 3.5,
+          "type": "attribute",
+          "target": "body",
+          "name": "style",
+          "oldValue": null,
+          "value": "pointer-events: none;"
+        }
+      ]
+    },
+    {
+      "name": "mobile-escape-close",
+      "passed": true,
+      "sequenceMatches": true,
+      "maximumTimingDifference": 6.7,
+      "timingDifferences": [
+        {
+          "index": 0,
+          "source": 4.7,
+          "candidate": 0.8,
+          "difference": 3.9
+        },
+        {
+          "index": 1,
+          "source": 4.7,
+          "candidate": 0.8,
+          "difference": 3.9
+        },
+        {
+          "index": 2,
+          "source": 4.7,
+          "candidate": 0.8,
+          "difference": 3.9
+        },
+        {
+          "index": 3,
+          "source": 188.9,
+          "candidate": 182.2,
+          "difference": 6.7
+        }
+      ],
+      "source": [
+        {
+          "t": 4.7,
+          "type": "attribute",
+          "target": "trigger.mobile",
+          "name": "aria-expanded",
+          "oldValue": "true",
+          "value": "false"
+        },
+        {
+          "t": 4.7,
+          "type": "attribute",
+          "target": "trigger.mobile",
+          "name": "data-state",
+          "oldValue": "open",
+          "value": "closed"
+        },
+        {
+          "t": 4.7,
+          "type": "attribute",
+          "target": "dialog.mobile",
+          "name": "data-state",
+          "oldValue": "open",
+          "value": "closed"
+        },
+        {
+          "t": 188.9,
+          "type": "attribute",
+          "target": "body",
+          "name": "style",
+          "oldValue": "pointer-events: none;",
+          "value": ""
+        }
+      ],
+      "candidate": [
+        {
+          "t": 0.8,
+          "type": "attribute",
+          "target": "trigger.mobile",
+          "name": "aria-expanded",
+          "oldValue": "true",
+          "value": "false"
+        },
+        {
+          "t": 0.8,
+          "type": "attribute",
+          "target": "trigger.mobile",
+          "name": "data-state",
+          "oldValue": "open",
+          "value": "closed"
+        },
+        {
+          "t": 0.8,
+          "type": "attribute",
+          "target": "dialog.mobile",
+          "name": "data-state",
+          "oldValue": "open",
+          "value": "closed"
+        },
+        {
+          "t": 182.2,
+          "type": "attribute",
+          "target": "body",
+          "name": "style",
+          "oldValue": "pointer-events: none;",
+          "value": ""
+        }
+      ]
+    }
+  ]
+}

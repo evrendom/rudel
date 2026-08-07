@@ -1,0 +1,13 @@
+{
+	"classes": {
+		"inter_4a995166-module__F0d0Tq__variable": "opaline-dashboard-font-inter",
+		"interdisplay_ab4bf036-module__f38q6G__variable": "opaline-dashboard-font-inter-display",
+		"tiempostext_f5e22e8b-module__4u-Eba__variable": "opaline-dashboard-font-tiempos",
+		"jetbrains_mono_80e6829-module__gijXjG__variable": "opaline-dashboard-font-mono"
+	},
+	"attributes": {
+		"data-home-hero": "data-opaline-dashboard-part",
+		"data-home-hero-app": "data-opaline-dashboard-app",
+		"data-home-hero-preview-tab": "data-opaline-dashboard-panel"
+	}
+}

@@ -1,0 +1,843 @@
+{
+  "gate": "G1/G2-dashboard-responsive",
+  "generatedAt": "2026-08-07T19:56:34.539Z",
+  "referenceUrl": "http://127.0.0.1:4180/?opaline-composition=lens-attio-lens",
+  "extractedUrl": "http://127.0.0.1:4321/preview/dashboard",
+  "naturalizedUrl": "http://127.0.0.1:4321/preview/dashboard-naturalized",
+  "viewports": [
+    {
+      "name": "tablet",
+      "width": 768,
+      "height": 1024,
+      "dpr": 1,
+      "mobile": false
+    },
+    {
+      "name": "wide",
+      "width": 1680,
+      "height": 1050,
+      "dpr": 1,
+      "mobile": false
+    }
+  ],
+  "thresholds": {
+    "g1MaximumPixelDifferencePercent": 0.1,
+    "g2DifferingPixels": 0,
+    "geometryTolerancePx": 0.5
+  },
+  "passed": false,
+  "results": [
+    {
+      "viewport": "tablet",
+      "scene": "Data model",
+      "g1": {
+        "pixel": {
+          "width": 768,
+          "height": 1024,
+          "comparedPixels": 769446,
+          "differingPixels": 46,
+          "diffPercent": 0.0059783272640315235
+        },
+        "audit": {
+          "geometryDifferences": [],
+          "elementCountMatches": true,
+          "textMatches": true,
+          "passed": true
+        },
+        "referenceSelfPixel": {
+          "width": 768,
+          "height": 1024,
+          "comparedPixels": 786432,
+          "differingPixels": 1503,
+          "diffPercent": 0.1911163330078125
+        },
+        "animationMask": {
+          "width": 768,
+          "height": 1024,
+          "maskedPixels": 16986,
+          "maskedPercent": 2.159881591796875,
+          "dilationRadius": 1
+        },
+        "passed": true
+      },
+      "g2": {
+        "pixel": {
+          "width": 768,
+          "height": 1024,
+          "comparedPixels": 786432,
+          "differingPixels": 0,
+          "diffPercent": 0
+        },
+        "audit": {
+          "geometryDifferences": [],
+          "elementCountMatches": true,
+          "textMatches": true,
+          "passed": true
+        },
+        "passed": true
+      },
+      "audits": {
+        "reference": {
+          "shell": {
+            "x": 128,
+            "y": 100,
+            "width": 512,
+            "height": 399
+          },
+          "panel": {
+            "x": 130.9999,
+            "y": 115.9999,
+            "width": 506.0002,
+            "height": 380.0001
+          },
+          "scaleWrapper": {
+            "x": 130.9999,
+            "y": 115.9999,
+            "width": 506.0002,
+            "height": 380.0001
+          },
+          "grid": {
+            "x": 130.9999,
+            "y": 115.9999,
+            "width": 506.0002,
+            "height": 380.0001
+          },
+          "scaleWrapperClass": "h-full w-full",
+          "scaleWrapperInlineStyle": null,
+          "scaleWrapperStyles": {
+            "display": "block",
+            "grid-template-columns": "none",
+            "grid-template-rows": "none",
+            "height": "380px",
+            "transform": "none",
+            "transform-origin": "253px 190px",
+            "width": "506px"
+          },
+          "gridStyles": {
+            "display": "grid",
+            "grid-template-columns": "506px",
+            "grid-template-rows": "24px 24px 332px",
+            "height": "380px",
+            "transform": "none",
+            "transform-origin": "253px 190px",
+            "width": "506px"
+          },
+          "elementCount": 955,
+          "text": "BasepointCompaniesAL+1ShareAsk AttioQuick Actions⌘K/HomeNotificationsTasksNotesCallsReportsAutomationsSequencesWorkflowsFavoritesLead workflowsPipelineDealsOutreachLead triageReportsRevenueRecordsPeopleCompaniesTop companiesView settingsImport / ExportSorted by Last email interactionAdvanced filter3CompanyDomainsAssociated dealsICP FitAIEstimated ARRAIConnection strengthVercelvercel.comVercelVercel - ExpansionAI is thinking...ExcellentAI is thinking...$100M-$250MVery strongCursorcursor.comCursorAI is thinking...ExcellentAI is thinking...$500M-$1BStrongGitHubgithub.comGitHub - x20 EnterpriseAI is thinking...LowAI is thinking...$1B-$10BVery strongStripestripe.comStripeAI is thinking...LowAI is thinking...$1B-$10BVery strongFigmafigma.comFigmaAI is thinking...GoodAI is thinking...$500M-$1BVery strongIntercomintercom.comIntercomIntercom - AutomationsAI is thinking...MediumAI is thinking...$250M-$500MVery strongElevenlabselevenlabs.ioElevenlabsAI is thinking...ExcellentAI is thinking...$150M-$250MStrongNotionnotion.soNotion - ExecNotion - GTMAI is thinking...GoodAI is thinking...$250M-$500MStrongSlackslack.comSlackSlack - ExpansionAI is thinking...LowAI is thinking...$1B-$10BWeakSierrasierra.aiSierraAI is thinking...ExcellentAI is thinking...$100M-$250MGoodRetoolretool.comRetoolAI is thinking...ExcellentAI is thinking...$50M-$100MGoodCustomer.iocustomer.ioCustomer.io - x10 PlusAI is thinking...ExcellentAI is thinking...$10-$50MStrongSnowflakesnowflake.comSnowflakeSnowflake - ExpansionAI is thinking...LowAI is thinking...$1B-$10BStrong1,439countAdd calculationAdd calculationAdd calculationAdd calculationAdd calculationDataReporting"
+        },
+        "extracted": {
+          "shell": {
+            "x": 128,
+            "y": 100,
+            "width": 512,
+            "height": 399
+          },
+          "panel": {
+            "x": 131.0004,
+            "y": 116.0003,
+            "width": 505.9992,
+            "height": 379.9994
+          },
+          "scaleWrapper": {
+            "x": 131.0004,
+            "y": 116.0003,
+            "width": 505.9992,
+            "height": 379.9994
+          },
+          "grid": {
+            "x": 131.0004,
+            "y": 116.0003,
+            "width": 505.9992,
+            "height": 379.9994
+          },
+          "scaleWrapperClass": "h-full w-full",
+          "scaleWrapperInlineStyle": null,
+          "scaleWrapperStyles": {
+            "display": "block",
+            "grid-template-columns": "none",
+            "grid-template-rows": "none",
+            "height": "380px",
+            "transform": "none",
+            "transform-origin": "253px 190px",
+            "width": "506px"
+          },
+          "gridStyles": {
+            "display": "grid",
+            "grid-template-columns": "506px",
+            "grid-template-rows": "24px 24px 332px",
+            "height": "380px",
+            "transform": "none",
+            "transform-origin": "253px 190px",
+            "width": "506px"
+          },
+          "elementCount": 955,
+          "text": "BasepointCompaniesAL+1ShareAsk AttioQuick Actions⌘K/HomeNotificationsTasksNotesCallsReportsAutomationsSequencesWorkflowsFavoritesLead workflowsPipelineDealsOutreachLead triageReportsRevenueRecordsPeopleCompaniesTop companiesView settingsImport / ExportSorted by Last email interactionAdvanced filter3CompanyDomainsAssociated dealsICP FitAIEstimated ARRAIConnection strengthVercelvercel.comVercelVercel - ExpansionAI is thinking...ExcellentAI is thinking...$100M-$250MVery strongCursorcursor.comCursorAI is thinking...ExcellentAI is thinking...$500M-$1BStrongGitHubgithub.comGitHub - x20 EnterpriseAI is thinking...LowAI is thinking...$1B-$10BVery strongStripestripe.comStripeAI is thinking...LowAI is thinking...$1B-$10BVery strongFigmafigma.comFigmaAI is thinking...GoodAI is thinking...$500M-$1BVery strongIntercomintercom.comIntercomIntercom - AutomationsAI is thinking...MediumAI is thinking...$250M-$500MVery strongElevenlabselevenlabs.ioElevenlabsAI is thinking...ExcellentAI is thinking...$150M-$250MStrongNotionnotion.soNotion - ExecNotion - GTMAI is thinking...GoodAI is thinking...$250M-$500MStrongSlackslack.comSlackSlack - ExpansionAI is thinking...LowAI is thinking...$1B-$10BWeakSierrasierra.aiSierraAI is thinking...ExcellentAI is thinking...$100M-$250MGoodRetoolretool.comRetoolAI is thinking...ExcellentAI is thinking...$50M-$100MGoodCustomer.iocustomer.ioCustomer.io - x10 PlusAI is thinking...ExcellentAI is thinking...$10-$50MStrongSnowflakesnowflake.comSnowflakeSnowflake - ExpansionAI is thinking...LowAI is thinking...$1B-$10BStrong1,439countAdd calculationAdd calculationAdd calculationAdd calculationAdd calculationDataReporting"
+        },
+        "naturalized": {
+          "shell": {
+            "x": 128,
+            "y": 100,
+            "width": 512,
+            "height": 399
+          },
+          "panel": {
+            "x": 131.0004,
+            "y": 116.0003,
+            "width": 505.9992,
+            "height": 379.9994
+          },
+          "scaleWrapper": {
+            "x": 131.0004,
+            "y": 116.0003,
+            "width": 505.9992,
+            "height": 379.9994
+          },
+          "grid": {
+            "x": 131.0004,
+            "y": 116.0003,
+            "width": 505.9992,
+            "height": 379.9994
+          },
+          "scaleWrapperClass": "h-full w-full",
+          "scaleWrapperInlineStyle": null,
+          "scaleWrapperStyles": {
+            "display": "block",
+            "grid-template-columns": "none",
+            "grid-template-rows": "none",
+            "height": "380px",
+            "transform": "none",
+            "transform-origin": "253px 190px",
+            "width": "506px"
+          },
+          "gridStyles": {
+            "display": "grid",
+            "grid-template-columns": "506px",
+            "grid-template-rows": "24px 24px 332px",
+            "height": "380px",
+            "transform": "none",
+            "transform-origin": "253px 190px",
+            "width": "506px"
+          },
+          "elementCount": 955,
+          "text": "BasepointCompaniesAL+1ShareAsk AttioQuick Actions⌘K/HomeNotificationsTasksNotesCallsReportsAutomationsSequencesWorkflowsFavoritesLead workflowsPipelineDealsOutreachLead triageReportsRevenueRecordsPeopleCompaniesTop companiesView settingsImport / ExportSorted by Last email interactionAdvanced filter3CompanyDomainsAssociated dealsICP FitAIEstimated ARRAIConnection strengthVercelvercel.comVercelVercel - ExpansionAI is thinking...ExcellentAI is thinking...$100M-$250MVery strongCursorcursor.comCursorAI is thinking...ExcellentAI is thinking...$500M-$1BStrongGitHubgithub.comGitHub - x20 EnterpriseAI is thinking...LowAI is thinking...$1B-$10BVery strongStripestripe.comStripeAI is thinking...LowAI is thinking...$1B-$10BVery strongFigmafigma.comFigmaAI is thinking...GoodAI is thinking...$500M-$1BVery strongIntercomintercom.comIntercomIntercom - AutomationsAI is thinking...MediumAI is thinking...$250M-$500MVery strongElevenlabselevenlabs.ioElevenlabsAI is thinking...ExcellentAI is thinking...$150M-$250MStrongNotionnotion.soNotion - ExecNotion - GTMAI is thinking...GoodAI is thinking...$250M-$500MStrongSlackslack.comSlackSlack - ExpansionAI is thinking...LowAI is thinking...$1B-$10BWeakSierrasierra.aiSierraAI is thinking...ExcellentAI is thinking...$100M-$250MGoodRetoolretool.comRetoolAI is thinking...ExcellentAI is thinking...$50M-$100MGoodCustomer.iocustomer.ioCustomer.io - x10 PlusAI is thinking...ExcellentAI is thinking...$10-$50MStrongSnowflakesnowflake.comSnowflakeSnowflake - ExpansionAI is thinking...LowAI is thinking...$1B-$10BStrong1,439countAdd calculationAdd calculationAdd calculationAdd calculationAdd calculationDataReporting"
+        }
+      },
+      "artifacts": {
+        "reference": "/Users/evrendombak/conductor/workspaces/rudel-v2/podgorica/.context/gates/dashboard/responsive/tablet-data-reference.png",
+        "referenceControl": "/Users/evrendombak/conductor/workspaces/rudel-v2/podgorica/.context/gates/dashboard/responsive/tablet-data-reference-control.png",
+        "extracted": "/Users/evrendombak/conductor/workspaces/rudel-v2/podgorica/.context/gates/dashboard/responsive/tablet-data-extracted.png",
+        "naturalized": "/Users/evrendombak/conductor/workspaces/rudel-v2/podgorica/.context/gates/dashboard/responsive/tablet-data-naturalized.png",
+        "animationMask": "/Users/evrendombak/conductor/workspaces/rudel-v2/podgorica/.context/gates/dashboard/responsive/tablet-data-reference-animation-mask.png"
+      }
+    },
+    {
+      "viewport": "tablet",
+      "scene": "Reporting",
+      "g1": {
+        "pixel": {
+          "width": 768,
+          "height": 1024,
+          "comparedPixels": 785484,
+          "differingPixels": 281,
+          "diffPercent": 0.03577412143340921
+        },
+        "audit": {
+          "geometryDifferences": [],
+          "elementCountMatches": false,
+          "textMatches": true,
+          "passed": false
+        },
+        "referenceSelfPixel": {
+          "width": 768,
+          "height": 1024,
+          "comparedPixels": 786432,
+          "differingPixels": 217,
+          "diffPercent": 0.027592976888020832
+        },
+        "animationMask": {
+          "width": 768,
+          "height": 1024,
+          "maskedPixels": 948,
+          "maskedPercent": 0.12054443359375,
+          "dilationRadius": 1
+        },
+        "passed": false
+      },
+      "g2": {
+        "pixel": {
+          "width": 768,
+          "height": 1024,
+          "comparedPixels": 786432,
+          "differingPixels": 0,
+          "diffPercent": 0
+        },
+        "audit": {
+          "geometryDifferences": [],
+          "elementCountMatches": true,
+          "textMatches": true,
+          "passed": true
+        },
+        "passed": true
+      },
+      "audits": {
+        "reference": {
+          "shell": {
+            "x": 128,
+            "y": 100,
+            "width": 512,
+            "height": 399
+          },
+          "panel": {
+            "x": 130.9999,
+            "y": 115.9999,
+            "width": 506.0002,
+            "height": 380.0001
+          },
+          "scaleWrapper": {
+            "x": 130.9999,
+            "y": 115.9999,
+            "width": 506.0002,
+            "height": 380.0001
+          },
+          "grid": {
+            "x": 130.9999,
+            "y": 115.9999,
+            "width": 506.0002,
+            "height": 380.0001
+          },
+          "scaleWrapperClass": "h-full w-full",
+          "scaleWrapperInlineStyle": null,
+          "scaleWrapperStyles": {
+            "display": "block",
+            "grid-template-columns": "none",
+            "grid-template-rows": "none",
+            "height": "380px",
+            "transform": "none",
+            "transform-origin": "253px 190px",
+            "width": "506px"
+          },
+          "gridStyles": {
+            "display": "grid",
+            "grid-template-columns": "506px",
+            "grid-template-rows": "24px 24px 332px",
+            "height": "380px",
+            "transform": "none",
+            "transform-origin": "253px 190px",
+            "width": "506px"
+          },
+          "elementCount": 505,
+          "text": "BasepointReportsBusiness MetricsAL+1ShareAsk AttioQuick Actions⌘K/HomeNotificationsTasksNotesCallsReportsAutomationsSequencesWorkflowsFavoritesLead workflowsPipelineDealsOutreachLead triageReportsRevenueRecordsPeopleCompaniesRefresh dataAdd reportBusiness MetricsOverview of our sales pipeline, revenue growth, customer demographics, and more.Revenue growth by paid planWorkspacesApr - JunJul - SepPlusProEnterprise$ 2.8M$ 2.4M$ 2.0M$ 1.6M$ 1.2M$ 0.8M$ 0.4MJulyAugustSeptemberARR Contribution+63%Aug 2026ProductProARR ContributionUSD 2,493,651.04May 2026ProductProARR ContributionUSD 1,528,710.36Closed-won deals by MQL typeDealsICPVCSPTtS+3 moreSales pipelineDealsLeads100%Qualification87.6%Contacted65.4%Negotiation44.2%Won12.1%New signups by creation cohortWorkspacesMRR 2023MRR 2024DataReporting"
+        },
+        "extracted": {
+          "shell": {
+            "x": 128,
+            "y": 100,
+            "width": 512,
+            "height": 399
+          },
+          "panel": {
+            "x": 131.0004,
+            "y": 116.0003,
+            "width": 505.9992,
+            "height": 379.9994
+          },
+          "scaleWrapper": {
+            "x": 131.0004,
+            "y": 116.0003,
+            "width": 505.9992,
+            "height": 379.9994
+          },
+          "grid": {
+            "x": 131.0004,
+            "y": 116.0003,
+            "width": 505.9992,
+            "height": 379.9994
+          },
+          "scaleWrapperClass": "h-full w-full",
+          "scaleWrapperInlineStyle": null,
+          "scaleWrapperStyles": {
+            "display": "block",
+            "grid-template-columns": "none",
+            "grid-template-rows": "none",
+            "height": "380px",
+            "transform": "none",
+            "transform-origin": "253px 190px",
+            "width": "506px"
+          },
+          "gridStyles": {
+            "display": "grid",
+            "grid-template-columns": "506px",
+            "grid-template-rows": "24px 24px 332px",
+            "height": "380px",
+            "transform": "none",
+            "transform-origin": "253px 190px",
+            "width": "506px"
+          },
+          "elementCount": 451,
+          "text": "BasepointReportsBusiness MetricsAL+1ShareAsk AttioQuick Actions⌘K/HomeNotificationsTasksNotesCallsReportsAutomationsSequencesWorkflowsFavoritesLead workflowsPipelineDealsOutreachLead triageReportsRevenueRecordsPeopleCompaniesRefresh dataAdd reportBusiness MetricsOverview of our sales pipeline, revenue growth, customer demographics, and more.Revenue growth by paid planWorkspacesApr - JunJul - SepPlusProEnterprise$ 2.8M$ 2.4M$ 2.0M$ 1.6M$ 1.2M$ 0.8M$ 0.4MJulyAugustSeptemberARR Contribution+63%Aug 2026ProductProARR ContributionUSD 2,493,651.04May 2026ProductProARR ContributionUSD 1,528,710.36Closed-won deals by MQL typeDealsICPVCSPTtS+3 moreSales pipelineDealsLeads100%Qualification87.6%Contacted65.4%Negotiation44.2%Won12.1%New signups by creation cohortWorkspacesMRR 2023MRR 2024DataReporting"
+        },
+        "naturalized": {
+          "shell": {
+            "x": 128,
+            "y": 100,
+            "width": 512,
+            "height": 399
+          },
+          "panel": {
+            "x": 131.0004,
+            "y": 116.0003,
+            "width": 505.9992,
+            "height": 379.9994
+          },
+          "scaleWrapper": {
+            "x": 131.0004,
+            "y": 116.0003,
+            "width": 505.9992,
+            "height": 379.9994
+          },
+          "grid": {
+            "x": 131.0004,
+            "y": 116.0003,
+            "width": 505.9992,
+            "height": 379.9994
+          },
+          "scaleWrapperClass": "h-full w-full",
+          "scaleWrapperInlineStyle": null,
+          "scaleWrapperStyles": {
+            "display": "block",
+            "grid-template-columns": "none",
+            "grid-template-rows": "none",
+            "height": "380px",
+            "transform": "none",
+            "transform-origin": "253px 190px",
+            "width": "506px"
+          },
+          "gridStyles": {
+            "display": "grid",
+            "grid-template-columns": "506px",
+            "grid-template-rows": "24px 24px 332px",
+            "height": "380px",
+            "transform": "none",
+            "transform-origin": "253px 190px",
+            "width": "506px"
+          },
+          "elementCount": 451,
+          "text": "BasepointReportsBusiness MetricsAL+1ShareAsk AttioQuick Actions⌘K/HomeNotificationsTasksNotesCallsReportsAutomationsSequencesWorkflowsFavoritesLead workflowsPipelineDealsOutreachLead triageReportsRevenueRecordsPeopleCompaniesRefresh dataAdd reportBusiness MetricsOverview of our sales pipeline, revenue growth, customer demographics, and more.Revenue growth by paid planWorkspacesApr - JunJul - SepPlusProEnterprise$ 2.8M$ 2.4M$ 2.0M$ 1.6M$ 1.2M$ 0.8M$ 0.4MJulyAugustSeptemberARR Contribution+63%Aug 2026ProductProARR ContributionUSD 2,493,651.04May 2026ProductProARR ContributionUSD 1,528,710.36Closed-won deals by MQL typeDealsICPVCSPTtS+3 moreSales pipelineDealsLeads100%Qualification87.6%Contacted65.4%Negotiation44.2%Won12.1%New signups by creation cohortWorkspacesMRR 2023MRR 2024DataReporting"
+        }
+      },
+      "artifacts": {
+        "reference": "/Users/evrendombak/conductor/workspaces/rudel-v2/podgorica/.context/gates/dashboard/responsive/tablet-reporting-reference.png",
+        "referenceControl": "/Users/evrendombak/conductor/workspaces/rudel-v2/podgorica/.context/gates/dashboard/responsive/tablet-reporting-reference-control.png",
+        "extracted": "/Users/evrendombak/conductor/workspaces/rudel-v2/podgorica/.context/gates/dashboard/responsive/tablet-reporting-extracted.png",
+        "naturalized": "/Users/evrendombak/conductor/workspaces/rudel-v2/podgorica/.context/gates/dashboard/responsive/tablet-reporting-naturalized.png",
+        "animationMask": "/Users/evrendombak/conductor/workspaces/rudel-v2/podgorica/.context/gates/dashboard/responsive/tablet-reporting-reference-animation-mask.png"
+      }
+    },
+    {
+      "viewport": "wide",
+      "scene": "Data model",
+      "g1": {
+        "pixel": {
+          "width": 1680,
+          "height": 1050,
+          "comparedPixels": 1747190,
+          "differingPixels": 88,
+          "diffPercent": 0.005036658863661079
+        },
+        "audit": {
+          "geometryDifferences": [],
+          "elementCountMatches": true,
+          "textMatches": true,
+          "passed": true
+        },
+        "referenceSelfPixel": {
+          "width": 1680,
+          "height": 1050,
+          "comparedPixels": 1764000,
+          "differingPixels": 783,
+          "diffPercent": 0.044387755102040814
+        },
+        "animationMask": {
+          "width": 1680,
+          "height": 1050,
+          "maskedPixels": 16810,
+          "maskedPercent": 0.9529478458049887,
+          "dilationRadius": 1
+        },
+        "passed": true
+      },
+      "g2": {
+        "pixel": {
+          "width": 1680,
+          "height": 1050,
+          "comparedPixels": 1764000,
+          "differingPixels": 0,
+          "diffPercent": 0
+        },
+        "audit": {
+          "geometryDifferences": [],
+          "elementCountMatches": true,
+          "textMatches": true,
+          "passed": true
+        },
+        "passed": true
+      },
+      "audits": {
+        "reference": {
+          "shell": {
+            "x": 210,
+            "y": 100,
+            "width": 1260,
+            "height": 715.875
+          },
+          "panel": {
+            "x": 216.9998,
+            "y": 132.9999,
+            "width": 1246.0005,
+            "height": 675.8752
+          },
+          "scaleWrapper": {
+            "x": 216.9998,
+            "y": 132.9999,
+            "width": 1246.0005,
+            "height": 675.8752
+          },
+          "grid": {
+            "x": 216.9998,
+            "y": 132.9999,
+            "width": 1246.0005,
+            "height": 675.8752
+          },
+          "scaleWrapperClass": "h-full w-full",
+          "scaleWrapperInlineStyle": null,
+          "scaleWrapperStyles": {
+            "display": "block",
+            "grid-template-columns": "none",
+            "grid-template-rows": "none",
+            "height": "675.875px",
+            "transform": "none",
+            "transform-origin": "623px 337.938px",
+            "width": "1246px"
+          },
+          "gridStyles": {
+            "display": "grid",
+            "grid-template-columns": "272px 974px",
+            "grid-template-rows": "48px 0px 627.875px",
+            "height": "675.875px",
+            "transform": "none",
+            "transform-origin": "623px 337.938px",
+            "width": "1246px"
+          },
+          "elementCount": 955,
+          "text": "BasepointCompaniesAL+1ShareAsk AttioQuick Actions⌘K/HomeNotificationsTasksNotesCallsReportsAutomationsSequencesWorkflowsFavoritesLead workflowsPipelineDealsOutreachLead triageReportsRevenueRecordsPeopleCompaniesTop companiesView settingsImport / ExportSorted by Last email interactionAdvanced filter3CompanyDomainsAssociated dealsICP FitAIEstimated ARRAIConnection strengthVercelvercel.comVercelVercel - ExpansionAI is thinking...ExcellentAI is thinking...$100M-$250MVery strongCursorcursor.comCursorAI is thinking...ExcellentAI is thinking...$500M-$1BStrongGitHubgithub.comGitHub - x20 EnterpriseAI is thinking...LowAI is thinking...$1B-$10BVery strongStripestripe.comStripeAI is thinking...LowAI is thinking...$1B-$10BVery strongFigmafigma.comFigmaAI is thinking...GoodAI is thinking...$500M-$1BVery strongIntercomintercom.comIntercomIntercom - AutomationsAI is thinking...MediumAI is thinking...$250M-$500MVery strongElevenlabselevenlabs.ioElevenlabsAI is thinking...ExcellentAI is thinking...$150M-$250MStrongNotionnotion.soNotion - ExecNotion - GTMAI is thinking...GoodAI is thinking...$250M-$500MStrongSlackslack.comSlackSlack - ExpansionAI is thinking...LowAI is thinking...$1B-$10BWeakSierrasierra.aiSierraAI is thinking...ExcellentAI is thinking...$100M-$250MGoodRetoolretool.comRetoolAI is thinking...ExcellentAI is thinking...$50M-$100MGoodCustomer.iocustomer.ioCustomer.io - x10 PlusAI is thinking...ExcellentAI is thinking...$10-$50MStrongSnowflakesnowflake.comSnowflakeSnowflake - ExpansionAI is thinking...LowAI is thinking...$1B-$10BStrong1,439countAdd calculationAdd calculationAdd calculationAdd calculationAdd calculationDataReporting"
+        },
+        "extracted": {
+          "shell": {
+            "x": 210,
+            "y": 100,
+            "width": 1260,
+            "height": 715.875
+          },
+          "panel": {
+            "x": 217.001,
+            "y": 133.0005,
+            "width": 1245.998,
+            "height": 675.874
+          },
+          "scaleWrapper": {
+            "x": 217.001,
+            "y": 133.0005,
+            "width": 1245.998,
+            "height": 675.874
+          },
+          "grid": {
+            "x": 217.001,
+            "y": 133.0005,
+            "width": 1245.998,
+            "height": 675.874
+          },
+          "scaleWrapperClass": "h-full w-full",
+          "scaleWrapperInlineStyle": null,
+          "scaleWrapperStyles": {
+            "display": "block",
+            "grid-template-columns": "none",
+            "grid-template-rows": "none",
+            "height": "675.875px",
+            "transform": "none",
+            "transform-origin": "623px 337.938px",
+            "width": "1246px"
+          },
+          "gridStyles": {
+            "display": "grid",
+            "grid-template-columns": "272px 974px",
+            "grid-template-rows": "48px 0px 627.875px",
+            "height": "675.875px",
+            "transform": "none",
+            "transform-origin": "623px 337.938px",
+            "width": "1246px"
+          },
+          "elementCount": 955,
+          "text": "BasepointCompaniesAL+1ShareAsk AttioQuick Actions⌘K/HomeNotificationsTasksNotesCallsReportsAutomationsSequencesWorkflowsFavoritesLead workflowsPipelineDealsOutreachLead triageReportsRevenueRecordsPeopleCompaniesTop companiesView settingsImport / ExportSorted by Last email interactionAdvanced filter3CompanyDomainsAssociated dealsICP FitAIEstimated ARRAIConnection strengthVercelvercel.comVercelVercel - ExpansionAI is thinking...ExcellentAI is thinking...$100M-$250MVery strongCursorcursor.comCursorAI is thinking...ExcellentAI is thinking...$500M-$1BStrongGitHubgithub.comGitHub - x20 EnterpriseAI is thinking...LowAI is thinking...$1B-$10BVery strongStripestripe.comStripeAI is thinking...LowAI is thinking...$1B-$10BVery strongFigmafigma.comFigmaAI is thinking...GoodAI is thinking...$500M-$1BVery strongIntercomintercom.comIntercomIntercom - AutomationsAI is thinking...MediumAI is thinking...$250M-$500MVery strongElevenlabselevenlabs.ioElevenlabsAI is thinking...ExcellentAI is thinking...$150M-$250MStrongNotionnotion.soNotion - ExecNotion - GTMAI is thinking...GoodAI is thinking...$250M-$500MStrongSlackslack.comSlackSlack - ExpansionAI is thinking...LowAI is thinking...$1B-$10BWeakSierrasierra.aiSierraAI is thinking...ExcellentAI is thinking...$100M-$250MGoodRetoolretool.comRetoolAI is thinking...ExcellentAI is thinking...$50M-$100MGoodCustomer.iocustomer.ioCustomer.io - x10 PlusAI is thinking...ExcellentAI is thinking...$10-$50MStrongSnowflakesnowflake.comSnowflakeSnowflake - ExpansionAI is thinking...LowAI is thinking...$1B-$10BStrong1,439countAdd calculationAdd calculationAdd calculationAdd calculationAdd calculationDataReporting"
+        },
+        "naturalized": {
+          "shell": {
+            "x": 210,
+            "y": 100,
+            "width": 1260,
+            "height": 715.875
+          },
+          "panel": {
+            "x": 217.001,
+            "y": 133.0005,
+            "width": 1245.998,
+            "height": 675.874
+          },
+          "scaleWrapper": {
+            "x": 217.001,
+            "y": 133.0005,
+            "width": 1245.998,
+            "height": 675.874
+          },
+          "grid": {
+            "x": 217.001,
+            "y": 133.0005,
+            "width": 1245.998,
+            "height": 675.874
+          },
+          "scaleWrapperClass": "h-full w-full",
+          "scaleWrapperInlineStyle": null,
+          "scaleWrapperStyles": {
+            "display": "block",
+            "grid-template-columns": "none",
+            "grid-template-rows": "none",
+            "height": "675.875px",
+            "transform": "none",
+            "transform-origin": "623px 337.938px",
+            "width": "1246px"
+          },
+          "gridStyles": {
+            "display": "grid",
+            "grid-template-columns": "272px 974px",
+            "grid-template-rows": "48px 0px 627.875px",
+            "height": "675.875px",
+            "transform": "none",
+            "transform-origin": "623px 337.938px",
+            "width": "1246px"
+          },
+          "elementCount": 955,
+          "text": "BasepointCompaniesAL+1ShareAsk AttioQuick Actions⌘K/HomeNotificationsTasksNotesCallsReportsAutomationsSequencesWorkflowsFavoritesLead workflowsPipelineDealsOutreachLead triageReportsRevenueRecordsPeopleCompaniesTop companiesView settingsImport / ExportSorted by Last email interactionAdvanced filter3CompanyDomainsAssociated dealsICP FitAIEstimated ARRAIConnection strengthVercelvercel.comVercelVercel - ExpansionAI is thinking...ExcellentAI is thinking...$100M-$250MVery strongCursorcursor.comCursorAI is thinking...ExcellentAI is thinking...$500M-$1BStrongGitHubgithub.comGitHub - x20 EnterpriseAI is thinking...LowAI is thinking...$1B-$10BVery strongStripestripe.comStripeAI is thinking...LowAI is thinking...$1B-$10BVery strongFigmafigma.comFigmaAI is thinking...GoodAI is thinking...$500M-$1BVery strongIntercomintercom.comIntercomIntercom - AutomationsAI is thinking...MediumAI is thinking...$250M-$500MVery strongElevenlabselevenlabs.ioElevenlabsAI is thinking...ExcellentAI is thinking...$150M-$250MStrongNotionnotion.soNotion - ExecNotion - GTMAI is thinking...GoodAI is thinking...$250M-$500MStrongSlackslack.comSlackSlack - ExpansionAI is thinking...LowAI is thinking...$1B-$10BWeakSierrasierra.aiSierraAI is thinking...ExcellentAI is thinking...$100M-$250MGoodRetoolretool.comRetoolAI is thinking...ExcellentAI is thinking...$50M-$100MGoodCustomer.iocustomer.ioCustomer.io - x10 PlusAI is thinking...ExcellentAI is thinking...$10-$50MStrongSnowflakesnowflake.comSnowflakeSnowflake - ExpansionAI is thinking...LowAI is thinking...$1B-$10BStrong1,439countAdd calculationAdd calculationAdd calculationAdd calculationAdd calculationDataReporting"
+        }
+      },
+      "artifacts": {
+        "reference": "/Users/evrendombak/conductor/workspaces/rudel-v2/podgorica/.context/gates/dashboard/responsive/wide-data-reference.png",
+        "referenceControl": "/Users/evrendombak/conductor/workspaces/rudel-v2/podgorica/.context/gates/dashboard/responsive/wide-data-reference-control.png",
+        "extracted": "/Users/evrendombak/conductor/workspaces/rudel-v2/podgorica/.context/gates/dashboard/responsive/wide-data-extracted.png",
+        "naturalized": "/Users/evrendombak/conductor/workspaces/rudel-v2/podgorica/.context/gates/dashboard/responsive/wide-data-naturalized.png",
+        "animationMask": "/Users/evrendombak/conductor/workspaces/rudel-v2/podgorica/.context/gates/dashboard/responsive/wide-data-reference-animation-mask.png"
+      }
+    },
+    {
+      "viewport": "wide",
+      "scene": "Reporting",
+      "g1": {
+        "pixel": {
+          "width": 1680,
+          "height": 1050,
+          "comparedPixels": 1762482,
+          "differingPixels": 1272,
+          "diffPercent": 0.072170949830977
+        },
+        "audit": {
+          "geometryDifferences": [],
+          "elementCountMatches": false,
+          "textMatches": false,
+          "passed": false
+        },
+        "referenceSelfPixel": {
+          "width": 1680,
+          "height": 1050,
+          "comparedPixels": 1764000,
+          "differingPixels": 448,
+          "diffPercent": 0.025396825396825397
+        },
+        "animationMask": {
+          "width": 1680,
+          "height": 1050,
+          "maskedPixels": 1518,
+          "maskedPercent": 0.08605442176870748,
+          "dilationRadius": 1
+        },
+        "passed": false
+      },
+      "g2": {
+        "pixel": {
+          "width": 1680,
+          "height": 1050,
+          "comparedPixels": 1764000,
+          "differingPixels": 0,
+          "diffPercent": 0
+        },
+        "audit": {
+          "geometryDifferences": [],
+          "elementCountMatches": true,
+          "textMatches": true,
+          "passed": true
+        },
+        "passed": true
+      },
+      "audits": {
+        "reference": {
+          "shell": {
+            "x": 210,
+            "y": 100,
+            "width": 1260,
+            "height": 715.875
+          },
+          "panel": {
+            "x": 216.9998,
+            "y": 132.9999,
+            "width": 1246.0005,
+            "height": 675.8752
+          },
+          "scaleWrapper": {
+            "x": 216.9998,
+            "y": 132.9999,
+            "width": 1246.0005,
+            "height": 675.8752
+          },
+          "grid": {
+            "x": 216.9998,
+            "y": 132.9999,
+            "width": 1246.0005,
+            "height": 675.8752
+          },
+          "scaleWrapperClass": "h-full w-full",
+          "scaleWrapperInlineStyle": null,
+          "scaleWrapperStyles": {
+            "display": "block",
+            "grid-template-columns": "none",
+            "grid-template-rows": "none",
+            "height": "675.875px",
+            "transform": "none",
+            "transform-origin": "623px 337.938px",
+            "width": "1246px"
+          },
+          "gridStyles": {
+            "display": "grid",
+            "grid-template-columns": "272px 974px",
+            "grid-template-rows": "48px 0px 627.875px",
+            "height": "675.875px",
+            "transform": "none",
+            "transform-origin": "623px 337.938px",
+            "width": "1246px"
+          },
+          "elementCount": 242,
+          "text": "BasepointReportsBusiness MetricsAL+1ShareAsk AttioQuick Actions⌘K/HomeNotificationsTasksNotesCallsReportsAutomationsSequencesWorkflowsFavoritesLead workflowsPipelineDealsOutreachLead triageReportsRevenueRecordsPeopleCompaniesDataReporting"
+        },
+        "extracted": {
+          "shell": {
+            "x": 210,
+            "y": 100,
+            "width": 1260,
+            "height": 715.875
+          },
+          "panel": {
+            "x": 217.001,
+            "y": 133.0005,
+            "width": 1245.998,
+            "height": 675.874
+          },
+          "scaleWrapper": {
+            "x": 217.001,
+            "y": 133.0005,
+            "width": 1245.998,
+            "height": 675.874
+          },
+          "grid": {
+            "x": 217.001,
+            "y": 133.0005,
+            "width": 1245.998,
+            "height": 675.874
+          },
+          "scaleWrapperClass": "h-full w-full",
+          "scaleWrapperInlineStyle": null,
+          "scaleWrapperStyles": {
+            "display": "block",
+            "grid-template-columns": "none",
+            "grid-template-rows": "none",
+            "height": "675.875px",
+            "transform": "none",
+            "transform-origin": "623px 337.938px",
+            "width": "1246px"
+          },
+          "gridStyles": {
+            "display": "grid",
+            "grid-template-columns": "272px 974px",
+            "grid-template-rows": "48px 0px 627.875px",
+            "height": "675.875px",
+            "transform": "none",
+            "transform-origin": "623px 337.938px",
+            "width": "1246px"
+          },
+          "elementCount": 451,
+          "text": "BasepointReportsBusiness MetricsAL+1ShareAsk AttioQuick Actions⌘K/HomeNotificationsTasksNotesCallsReportsAutomationsSequencesWorkflowsFavoritesLead workflowsPipelineDealsOutreachLead triageReportsRevenueRecordsPeopleCompaniesRefresh dataAdd reportBusiness MetricsOverview of our sales pipeline, revenue growth, customer demographics, and more.Revenue growth by paid planWorkspacesApr - JunJul - SepPlusProEnterprise$ 2.8M$ 2.4M$ 2.0M$ 1.6M$ 1.2M$ 0.8M$ 0.4MJulyAugustSeptemberARR Contribution+63%Aug 2026ProductProARR ContributionUSD 2,493,651.04May 2026ProductProARR ContributionUSD 1,528,710.36Closed-won deals by MQL typeDealsICPVCSPTtS+3 moreSales pipelineDealsLeads100%Qualification87.6%Contacted65.4%Negotiation44.2%Won12.1%New signups by creation cohortWorkspacesMRR 2023MRR 2024DataReporting"
+        },
+        "naturalized": {
+          "shell": {
+            "x": 210,
+            "y": 100,
+            "width": 1260,
+            "height": 715.875
+          },
+          "panel": {
+            "x": 217.001,
+            "y": 133.0005,
+            "width": 1245.998,
+            "height": 675.874
+          },
+          "scaleWrapper": {
+            "x": 217.001,
+            "y": 133.0005,
+            "width": 1245.998,
+            "height": 675.874
+          },
+          "grid": {
+            "x": 217.001,
+            "y": 133.0005,
+            "width": 1245.998,
+            "height": 675.874
+          },
+          "scaleWrapperClass": "h-full w-full",
+          "scaleWrapperInlineStyle": null,
+          "scaleWrapperStyles": {
+            "display": "block",
+            "grid-template-columns": "none",
+            "grid-template-rows": "none",
+            "height": "675.875px",
+            "transform": "none",
+            "transform-origin": "623px 337.938px",
+            "width": "1246px"
+          },
+          "gridStyles": {
+            "display": "grid",
+            "grid-template-columns": "272px 974px",
+            "grid-template-rows": "48px 0px 627.875px",
+            "height": "675.875px",
+            "transform": "none",
+            "transform-origin": "623px 337.938px",
+            "width": "1246px"
+          },
+          "elementCount": 451,
+          "text": "BasepointReportsBusiness MetricsAL+1ShareAsk AttioQuick Actions⌘K/HomeNotificationsTasksNotesCallsReportsAutomationsSequencesWorkflowsFavoritesLead workflowsPipelineDealsOutreachLead triageReportsRevenueRecordsPeopleCompaniesRefresh dataAdd reportBusiness MetricsOverview of our sales pipeline, revenue growth, customer demographics, and more.Revenue growth by paid planWorkspacesApr - JunJul - SepPlusProEnterprise$ 2.8M$ 2.4M$ 2.0M$ 1.6M$ 1.2M$ 0.8M$ 0.4MJulyAugustSeptemberARR Contribution+63%Aug 2026ProductProARR ContributionUSD 2,493,651.04May 2026ProductProARR ContributionUSD 1,528,710.36Closed-won deals by MQL typeDealsICPVCSPTtS+3 moreSales pipelineDealsLeads100%Qualification87.6%Contacted65.4%Negotiation44.2%Won12.1%New signups by creation cohortWorkspacesMRR 2023MRR 2024DataReporting"
+        }
+      },
+      "artifacts": {
+        "reference": "/Users/evrendombak/conductor/workspaces/rudel-v2/podgorica/.context/gates/dashboard/responsive/wide-reporting-reference.png",
+        "referenceControl": "/Users/evrendombak/conductor/workspaces/rudel-v2/podgorica/.context/gates/dashboard/responsive/wide-reporting-reference-control.png",
+        "extracted": "/Users/evrendombak/conductor/workspaces/rudel-v2/podgorica/.context/gates/dashboard/responsive/wide-reporting-extracted.png",
+        "naturalized": "/Users/evrendombak/conductor/workspaces/rudel-v2/podgorica/.context/gates/dashboard/responsive/wide-reporting-naturalized.png",
+        "animationMask": "/Users/evrendombak/conductor/workspaces/rudel-v2/podgorica/.context/gates/dashboard/responsive/wide-reporting-reference-animation-mask.png"
+      }
+    }
+  ]
+}

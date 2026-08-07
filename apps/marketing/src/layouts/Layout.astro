@@ -1,28 +1,39 @@
+---
+// biome-ignore-all lint/correctness/noUnusedVariables: Astro props are referenced from template markup.
+import "../styles/global.css";
+
+interface Props {
+	title?: string;
+	description?: string;
+}
+
+const {
+	title = "Opaline — Clarity for agent sessions",
+	description = "Pull back the curtain on your agent sessions. Understand what happened, why it happened, and what your team should do next.",
+} = Astro.props;
+---
+
 <!doctype html>
 <html lang="en">
 	<head>
 		<meta charset="utf-8" />
-		<meta name="viewport" content="width=device-width" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<link
+			rel="preload"
+			href="/fonts/inter-latin-variable.woff2"
+			as="font"
+			type="font/woff2"
+			crossorigin
+		/>
 		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 		<link rel="mask-icon" href="/opaline-icon.svg" color="#2c2d30" />
 		<meta name="theme-color" content="#ffffff" />
 		<meta name="generator" content={Astro.generator} />
-		<meta
-			name="description"
-			content="Clarity for your team's agent sessions."
-		/>
-		<title>Opaline</title>
+		<meta name="description" content={description} />
+		<title>{title}</title>
+		<script is:inline>document.documentElement.dataset.js = "true";</script>
 	</head>
 	<body>
 		<slot />
 	</body>
 </html>
-
-<style>
-	html,
-	body {
-		margin: 0;
-		width: 100%;
-		height: 100%;
-	}
-</style>

@@ -1,0 +1,107 @@
+---
+// biome-ignore-all lint/correctness/noUnusedImports: Astro renders imported components in the template.
+import DashboardBranded from "./DashboardBranded.astro";
+import DashboardMobile from "./DashboardMobile.astro";
+import { dashboardPageRoot } from "./generated/dashboard-branded-data";
+---
+
+<div
+	class="dashboard-shell opaline-dashboard-scope"
+	data-dashboard-shell
+	data-opaline-dashboard-stage
+>
+	<div class={dashboardPageRoot.htmlClass} style="display: contents;">
+		<DashboardBranded />
+	</div>
+</div>
+
+<div
+	class="dashboard-mobile-shell opaline-dashboard-scope"
+	data-opaline-mobile-dashboard
+>
+	<div class={dashboardPageRoot.htmlClass} style="display: contents;">
+		<DashboardMobile />
+	</div>
+</div>
+
+<style>
+	.dashboard-shell {
+		position: absolute;
+		z-index: 4;
+		top: 675.34375px;
+		left: 0;
+		display: flex;
+		width: 100%;
+		justify-content: center;
+		pointer-events: none;
+	}
+
+	.dashboard-mobile-shell {
+		display: none;
+	}
+
+	.dashboard-shell :global([data-opaline-use-case-strip]),
+	.dashboard-shell :global([data-opaline-draggable-window]) {
+		pointer-events: auto;
+	}
+
+	.dashboard-shell :global([data-opaline-claude-window]) {
+		background: rgb(20, 20, 20) !important;
+	}
+
+	.dashboard-shell
+		:global(
+			[data-opaline-claude-window]
+				> :not([data-opaline-claude-code])
+		) {
+		visibility: hidden !important;
+	}
+
+	.dashboard-shell :global([data-opaline-claude-code]) {
+		position: absolute;
+		z-index: 20;
+		inset: 0;
+		overflow: hidden;
+		padding: 0 6px 6px;
+		border-radius: inherit;
+		background: rgb(20, 20, 20);
+		pointer-events: none;
+	}
+
+	.dashboard-shell :global([data-opaline-claude-code]),
+	.dashboard-shell :global([data-opaline-claude-code] *) {
+		visibility: visible !important;
+	}
+
+	@media (min-width: 1440px) {
+		.dashboard-shell {
+			top: 657.234375px;
+		}
+	}
+
+	@media (min-width: 768px) and (max-width: 1023px) {
+		.dashboard-shell {
+			top: 743.03125px;
+		}
+
+		.dashboard-shell :global([data-opaline-claude-code]) {
+			padding: 0 3px 3px;
+		}
+	}
+
+	@media (max-width: 767px) {
+		.dashboard-shell {
+			display: none;
+		}
+
+		.dashboard-mobile-shell {
+			position: absolute;
+			z-index: 4;
+			top: 525px;
+			left: 0;
+			display: block;
+			width: 100%;
+			pointer-events: none;
+		}
+	}
+</style>
