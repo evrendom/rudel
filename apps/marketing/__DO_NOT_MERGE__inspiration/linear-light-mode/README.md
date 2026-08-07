@@ -30,6 +30,17 @@ stylesheets—including the supplied StyleX variable sheet.
 
 Keep the receiver running and open <http://127.0.0.1:4176/next>.
 
+The isolated, source-exact navbar used by the Lens × Atoms composition is
+available at:
+
+```text
+http://127.0.0.1:4176/next?opaline-source=navbar
+```
+
+It preserves Linear's captured responsive header runtime, desktop dropdowns,
+mobile dialog, and the existing Opaline branding substitution while hiding the
+rest of the Linear page. The normal `/next` route remains unchanged.
+
 The local server proxies public Linear GET requests without cookies,
 authorization, or writes. The reference needs an internet connection and does
 not reproduce authenticated application behavior.

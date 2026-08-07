@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<meta
+			name="description"
+			content="Opaline turns isolated agent sessions into shared team memory."
+		/>
+		<title>Opaline — Sessions in focus</title>
+		<script>document.documentElement.classList.add("js")</script>
+		<link rel="stylesheet" href="/session-story.css" />
+	</head>
+	<body>
+		<a class="skip-link" href="#beats">Skip to the story</a>
+
+		<header class="site-header" data-site-header>
+			<a class="site-header__brand" href="/session-story" aria-label="Homepage">
+				<img src="/__opaline/wordmark.svg" alt="Opaline" />
+			</a>
+			<p class="site-header__counter" aria-live="polite">
+				<span data-current-beat>01</span><span aria-hidden="true"> / </span>07
+			</p>
+		</header>
+
+		<main class="journey" data-journey>
+			<div class="journey-stage" data-stage data-beat="0" aria-hidden="true">
+				<svg class="connection-map" viewBox="0 0 1000 700" preserveAspectRatio="none" role="presentation">
+					<path data-connection="0" pathLength="1" d="M170 120C330 200 410 290 500 350" />
+					<path data-connection="1" pathLength="1" d="M830 120C670 200 590 290 500 350" />
+					<path data-connection="2" pathLength="1" d="M170 580C330 500 410 410 500 350" />
+					<path data-connection="3" pathLength="1" d="M830 580C670 500 590 410 500 350" />
+				</svg>
+
+				<div class="agent agent--mira" data-agent="0">
+					<div class="agent__bubble"><span></span></div>
+					<div class="agent__character-float">
+						<img class="agent__character" src="/session-story/assets/character-faster.svg" alt="" />
+					</div>
+					<div class="agent__float">
+						<div class="terminal-host" data-terminal data-agent-name="Mira" data-file="checkout-agent.ts" data-task="payment retry"></div>
+					</div>
+				</div>
+
+				<div class="agent agent--jon" data-agent="1">
+					<div class="agent__bubble"><span></span></div>
+					<div class="agent__character-float">
+						<img class="agent__character" src="/session-story/assets/character-cheaper.svg" alt="" />
+					</div>
+					<div class="agent__float">
+						<div class="terminal-host" data-terminal data-agent-name="Jon" data-file="cache-agent.ts" data-task="read volume"></div>
+					</div>
+				</div>
+
+				<div class="agent agent--noa" data-agent="2">
+					<div class="agent__bubble"><span></span></div>
+					<div class="agent__character-float">
+						<img class="agent__character" src="/session-story/assets/character-security.svg" alt="" />
+					</div>
+					<div class="agent__float">
+						<div class="terminal-host" data-terminal data-agent-name="Noa" data-file="auth-agent.ts" data-task="token refresh"></div>
+					</div>
+				</div>
+
+				<div class="agent agent--ivo" data-agent="3">
+					<div class="agent__bubble"><span></span></div>
+					<div class="agent__character-float">
+						<img class="agent__character" src="/session-story/assets/character-scalable.svg" alt="" />
+					</div>
+					<div class="agent__float">
+						<div class="terminal-host" data-terminal data-agent-name="Ivo" data-file="queue-agent.ts" data-task="worker scale"></div>
+					</div>
+				</div>
+
+				<div class="error-note" data-error-note>
+					<span></span>
+					<p><strong>Race detected</strong>Duplicate charge on retry.</p>
+				</div>
+
+				<div class="local-context" data-local-context>
+					<p>Fixed here.</p>
+					<span>Reasoning stayed behind.</span>
+				</div>
+
+				<div class="opaline-core" data-opaline-core>
+					<img src="/__opaline/icon.svg" alt="" />
+					<p>Team memory</p>
+				</div>
+
+				<div class="memory-note" data-memory-note>
+					<p>Session captured</p>
+					<ul role="list">
+						<li>decision</li>
+						<li>failure</li>
+						<li>fix</li>
+					</ul>
+				</div>
+
+				<div class="insight-panel" data-insight-panel>
+					<div class="insight-panel__metric">
+						<p>Repeated failures</p>
+						<strong>−27%</strong>
+					</div>
+					<svg viewBox="0 0 320 96" role="presentation">
+						<path class="insight-panel__area" d="M0 22c28 5 40 23 62 20 21-3 26-20 48-12 21 7 23 28 45 30 23 2 31-17 53-10 20 6 28 28 50 28 22 0 36-11 62-3v21H0Z" />
+						<path class="insight-panel__line" pathLength="1" d="M0 22c28 5 40 23 62 20 21-3 26-20 48-12 21 7 23 28 45 30 23 2 31-17 53-10 20 6 28 28 50 28 22 0 36-11 62-3" />
+					</svg>
+				</div>
+			</div>
+
+			<div class="story-beats" id="beats">
+				<section class="beat beat--center" id="isolated" data-story-beat="0">
+					<div class="beat__copy">
+						<h1>Everyone is building in their own terminal.</h1>
+					</div>
+				</section>
+
+				<section class="beat beat--left" id="error" data-story-beat="1">
+					<div class="beat__copy">
+						<h2>Only one person sees it.</h2>
+					</div>
+				</section>
+
+				<section class="beat beat--right" id="fix" data-story-beat="2">
+					<div class="beat__copy">
+						<h2>The learning stays local.</h2>
+					</div>
+				</section>
+
+				<section class="beat beat--center" id="bubbles" data-story-beat="3">
+					<div class="beat__copy">
+						<h2>Every session becomes a bubble.</h2>
+					</div>
+				</section>
+
+				<section class="beat beat--center beat--low" id="burst" data-story-beat="4">
+					<div class="beat__copy">
+						<h2>The walls disappear.</h2>
+					</div>
+				</section>
+
+				<section class="beat beat--left beat--low" id="memory" data-story-beat="5">
+					<div class="beat__copy">
+						<h2>Each session becomes team memory.</h2>
+					</div>
+				</section>
+
+				<section class="beat beat--center beat--low beat--final" id="learning" data-story-beat="6">
+					<div class="beat__copy">
+						<h2>Every session makes the next one clearer.</h2>
+						<p class="beat__description">Learn from the team's successes, mistakes, and workflows.</p>
+						<button class="replay-button" type="button" data-replay>Replay</button>
+					</div>
+				</section>
+			</div>
+
+			<nav class="story-progress" aria-label="Story beats">
+				<ol role="list">
+					<li><a href="#isolated" aria-label="Beat 1" aria-current="step">01</a></li>
+					<li><a href="#error" aria-label="Beat 2">02</a></li>
+					<li><a href="#fix" aria-label="Beat 3">03</a></li>
+					<li><a href="#bubbles" aria-label="Beat 4">04</a></li>
+					<li><a href="#burst" aria-label="Beat 5">05</a></li>
+					<li><a href="#memory" aria-label="Beat 6">06</a></li>
+					<li><a href="#learning" aria-label="Beat 7">07</a></li>
+				</ol>
+			</nav>
+		</main>
+
+		<footer class="site-footer">
+			<img src="/__opaline/icon.svg" alt="" />
+			<p>Sessions in focus.</p>
+		</footer>
+
+		<script type="module" src="/session-story.js"></script>
+	</body>
+</html>

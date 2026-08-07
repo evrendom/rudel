@@ -3,14 +3,35 @@ import { appendFile, readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 
 const overlayPath = fileURLToPath(new URL("overlay.js", import.meta.url));
+const brandingScriptPath = fileURLToPath(
+	new URL("opaline-branding.js", import.meta.url),
+);
+const brandingAssets = new Map([
+	[
+		"/__opaline/wordmark.svg",
+		fileURLToPath(new URL("../../public/opaline-wordmark.svg", import.meta.url)),
+	],
+	[
+		"/__opaline/icon.svg",
+		fileURLToPath(new URL("../../public/opaline-icon.svg", import.meta.url)),
+	],
+	[
+		"/__opaline/favicon.svg",
+		fileURLToPath(new URL("../../public/favicon.svg", import.meta.url)),
+	],
+]);
 const maximumEventBytes = 1024 * 1024;
 
 export const injectAgentation = (html, site) => {
 	const overlayPath = `/__agentation/overlay.js?site=${encodeURIComponent(site)}`;
+	const head = `<script data-opaline-branding>(()=>{const favicon=document.createElement("link");favicon.rel="icon";favicon.type="image/svg+xml";favicon.href=new URL("/__opaline/favicon.svg",window.location.origin).href;favicon.dataset.opalineFavicon="";document.head.append(favicon);import(new URL("/__opaline/branding.js",window.location.origin).href)})()</script>`;
 	const script = `<script type="module" data-opaline-agentation>import(new URL(${JSON.stringify(overlayPath)}, window.location.origin).href)</script>`;
-	return /<\/body>/i.test(html)
-		? html.replace(/<\/body>/i, `${script}</body>`)
-		: `${html}${script}`;
+	const brandedHtml = /<\/head>/i.test(html)
+		? html.replace(/<\/head>/i, `${head}</head>`)
+		: `${head}${html}`;
+	return /<\/body>/i.test(brandedHtml)
+		? brandedHtml.replace(/<\/body>/i, `${script}</body>`)
+		: `${brandedHtml}${script}`;
 };
 
 export const serveCaptureWithAgentation = async (
@@ -45,6 +66,33 @@ export const handleAgentationRequest = async ({
 	requestUrl,
 	site,
 }) => {
+	if (
+		requestUrl.pathname === "/__opaline/branding.js" &&
+		["GET", "HEAD"].includes(request.method || "")
+	) {
+		response.writeHead(200, {
+			"cache-control": "no-store",
+			"content-type": "text/javascript; charset=utf-8",
+		});
+		if (request.method === "HEAD") response.end();
+		else createReadStream(brandingScriptPath).pipe(response);
+		return true;
+	}
+
+	const brandingAssetPath = brandingAssets.get(requestUrl.pathname);
+	if (
+		brandingAssetPath &&
+		["GET", "HEAD"].includes(request.method || "")
+	) {
+		response.writeHead(200, {
+			"cache-control": "no-store",
+			"content-type": "image/svg+xml",
+		});
+		if (request.method === "HEAD") response.end();
+		else createReadStream(brandingAssetPath).pipe(response);
+		return true;
+	}
+
 	if (
 		requestUrl.pathname === "/__agentation/overlay.js" &&
 		request.method === "GET"

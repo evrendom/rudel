@@ -1,0 +1,454 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>Opaline clarity hero</title>
+		<style>
+			@font-face {
+				font-family: "Saans";
+				font-style: normal;
+				font-weight: 500;
+				font-display: swap;
+				src: url("https://lens.xyz/_next/static/media/SaansMedium-s.p.034ibix0l-04w.woff2") format("woff2");
+			}
+
+			@font-face {
+				font-family: "Saans";
+				font-style: normal;
+				font-weight: 600;
+				font-display: swap;
+				src: url("https://lens.xyz/_next/static/media/SaansSemiBold-s.p.0fobzaifrab0q.woff2") format("woff2");
+			}
+
+			@font-face {
+				font-family: "Inter";
+				font-style: normal;
+				font-weight: 100 900;
+				font-display: swap;
+				src: url("https://lens.xyz/_next/static/media/InterVariable-s.p.0ih_be98enti2.woff2") format("woff2");
+			}
+
+			:root {
+				color-scheme: light;
+				background: #fff;
+			}
+
+			* {
+				box-sizing: border-box;
+			}
+
+			html,
+			body {
+				margin: 0;
+				min-height: 100%;
+			}
+
+			body {
+				min-height: 100svh;
+				overflow-x: hidden;
+				background: #fff;
+				font-family: "Saans", Arial, sans-serif;
+				-webkit-font-smoothing: antialiased;
+			}
+
+			main {
+				isolation: isolate;
+			}
+
+			.lens-hero-section {
+				display: flex;
+				width: calc(100% - 64px);
+				margin: 128px 32px 0;
+			}
+
+			.lens-hero-inner {
+				position: relative;
+				width: min(100%, 1082px);
+				margin-inline: auto;
+			}
+
+			.lens-hero {
+				position: relative;
+				display: flex;
+				height: 460px;
+				flex-direction: column;
+				align-items: center;
+				justify-content: center;
+				gap: 24px;
+				overflow: hidden;
+				padding: 56px 0 100px;
+				background: #fff;
+			}
+
+			.lens-hero-canvas-mask,
+			.lens-hero-canvas-container,
+			.lens-hero-canvas-frame,
+			[data-testid="image-gen-loading-state-dots"] {
+				position: absolute;
+				inset: 0;
+			}
+
+			.lens-hero-canvas-mask {
+				pointer-events: none;
+				animation: canvas-enter 900ms cubic-bezier(0.22, 1, 0.36, 1) both;
+			}
+
+			.lens-hero-canvas-container,
+			.lens-hero-canvas-frame {
+				width: 100%;
+				height: 100%;
+			}
+
+			[data-testid="image-gen-loading-state-dots"] {
+				overflow: hidden;
+				pointer-events: none;
+			}
+
+			[data-testid="loading-halftone-dots-animation"] {
+				height: 100%;
+				opacity: 0.38;
+			}
+
+			.lens-hero canvas {
+				display: block;
+				width: 100%;
+				height: 100%;
+				mask-image: linear-gradient(
+					to top left,
+					rgb(0 0 0 / 0%) 0%,
+					rgb(0 0 0) 30%,
+					rgb(0 0 0) 70%,
+					rgb(0 0 0 / 0%) 100%
+				);
+				mask-repeat: no-repeat;
+				mask-size: 100% 100%;
+				-webkit-mask-image: linear-gradient(
+					to top left,
+					rgb(0 0 0 / 0%) 0%,
+					rgb(0 0 0) 30%,
+					rgb(0 0 0) 70%,
+					rgb(0 0 0 / 0%) 100%
+				);
+				-webkit-mask-repeat: no-repeat;
+				-webkit-mask-size: 100% 100%;
+			}
+
+			.lens-hero-lockup {
+				position: relative;
+				z-index: 10;
+				display: flex;
+				flex-direction: column;
+				align-items: center;
+				gap: 36px;
+				padding-inline: 16px;
+			}
+
+			.lens-hero-text {
+				display: flex;
+				flex-direction: column;
+				align-items: center;
+				gap: 16px;
+			}
+
+			h1 {
+				display: flex;
+				max-width: 900px;
+				justify-content: center;
+				margin: 0;
+				color: color(display-p3 0.172549 0.176471 0.188235);
+				font-size: 46px;
+				font-weight: 600;
+				line-height: 1.2;
+				text-align: center;
+				text-wrap: balance;
+				animation: headline-enter 720ms 120ms cubic-bezier(0.22, 1, 0.36, 1) both;
+			}
+
+			.lens-hero-caption {
+				max-width: 620px;
+				margin: 0;
+				color: color(display-p3 0.172549 0.176471 0.188235 / 60%);
+				font-family: "Inter", Arial, sans-serif;
+				font-feature-settings: "cv11";
+				font-size: 20px;
+				font-weight: 400;
+				letter-spacing: -0.5px;
+				line-height: 29px;
+				text-align: center;
+				animation: headline-enter 720ms 180ms cubic-bezier(0.22, 1, 0.36, 1) both;
+			}
+
+			.lens-hero-buttons {
+				display: flex;
+				column-gap: 16px;
+				animation: headline-enter 720ms 240ms cubic-bezier(0.22, 1, 0.36, 1) both;
+			}
+
+			.lens-button {
+				position: relative;
+				display: flex;
+				width: fit-content;
+				height: 44px;
+				align-items: center;
+				justify-content: center;
+				border: 0;
+				color: color(display-p3 0.172549 0.176471 0.188235);
+				font-family: "Inter", Arial, sans-serif;
+				font-size: 15px;
+				font-weight: 400;
+				font-variation-settings: "wght" 500;
+				letter-spacing: -0.13px;
+				line-height: 1.1;
+				text-decoration: none;
+				white-space: nowrap;
+				cursor: pointer;
+				user-select: none;
+				transition: 170ms;
+			}
+
+			.lens-button-content,
+			.lens-button-children {
+				display: flex;
+				align-items: center;
+				justify-content: center;
+			}
+
+			.lens-button-content {
+				position: relative;
+				height: 36px;
+				padding: 16px 26px;
+			}
+
+			.lens-button-children {
+				gap: 4px;
+				transition: transform 170ms;
+			}
+
+			.lens-button-secondary {
+				border-radius: 8px;
+				background: #fff;
+				box-shadow: rgb(0 0 0 / 5%) 0 0 0 1px;
+			}
+
+			.lens-button-secondary:hover {
+				box-shadow: rgb(0 0 0 / 10%) 0 0 0 1px;
+			}
+
+			.lens-button-success {
+				border: 1px solid color(display-p3 0 0 0 / 3%);
+				border-radius: 10px;
+				background: linear-gradient(
+					color(display-p3 1 1 1 / 0%) 0%,
+					color(display-p3 0 0 0 / 5%) 100%
+				), color(display-p3 0.1608 0.702 0.3137);
+				box-shadow: color(display-p3 0 0 0 / 5%) 0 1px 2px;
+				color: #fff;
+			}
+
+			.lens-button-success:hover {
+				background: rgb(0 163 58);
+			}
+
+			.lens-button:active .lens-button-children {
+				transform: scale(0.99);
+			}
+
+			.lens-button:focus-visible {
+				outline: 2px solid color(display-p3 0.172549 0.176471 0.188235);
+				outline-offset: 2px;
+			}
+
+			.lens-button-arrow {
+				display: block;
+				flex: 0 0 auto;
+				border-radius: 50%;
+				transform: translate(2px, 0) rotate(225deg);
+				transform-origin: center;
+			}
+
+			.lens-button-secondary .lens-button-arrow {
+				color: color(display-p3 0.172549 0.176471 0.188235 / 40%);
+				transition: color 170ms;
+			}
+
+			.lens-button-secondary:hover .lens-button-arrow {
+				color: color(display-p3 0.172549 0.176471 0.188235 / 60%);
+			}
+
+			.lens-button-arrow-slide {
+				transform: translateX(-0.5px);
+				transform-box: fill-box;
+				transform-origin: 0 0;
+				transition: transform 260ms cubic-bezier(0.22, 1, 0.36, 1);
+			}
+
+			.lens-button:hover .lens-button-arrow-slide {
+				transform: translate(-0.5px, 20px);
+			}
+
+			@keyframes canvas-enter {
+				from {
+					opacity: 0;
+					transform: scale(1.025);
+				}
+
+				to {
+					opacity: 1;
+					transform: scale(1);
+				}
+			}
+
+			@keyframes headline-enter {
+				from {
+					opacity: 0;
+					transform: translateY(18px);
+				}
+
+				to {
+					opacity: 1;
+					transform: translateY(0);
+				}
+			}
+
+			@media (max-width: 767px) {
+				.lens-hero-section {
+					width: 100%;
+					margin: 64px 0 0;
+				}
+
+				.lens-hero {
+					height: 581px;
+				}
+
+				h1 {
+					font-size: 40px;
+					line-height: 1.2;
+				}
+
+				.lens-hero-caption {
+					font-size: 18px;
+					line-height: 24.3px;
+				}
+			}
+
+			@media (max-width: 432px) {
+				.lens-hero-buttons {
+					flex-direction: column;
+					align-items: center;
+					row-gap: 16px;
+				}
+
+				.lens-button {
+					width: 100%;
+				}
+			}
+
+			@media (prefers-reduced-motion: reduce) {
+				.lens-hero-canvas-mask,
+				h1,
+				.lens-hero-caption,
+				.lens-hero-buttons {
+					animation: none;
+				}
+			}
+		</style>
+	</head>
+	<body>
+		<main>
+			<section class="lens-hero-section">
+				<div class="lens-hero-inner">
+					<div
+						class="lens-hero"
+						aria-label="Clarity for your team's agent sessions"
+						data-testid="image-gen-loading-state"
+					>
+						<div class="lens-hero-canvas-mask" aria-hidden="true">
+							<div class="lens-hero-canvas-container">
+								<div
+									data-testid="image-gen-loading-state-dots"
+								>
+									<div
+										data-testid="loading-halftone-dots-animation"
+										style="opacity: 0.38"
+									>
+										<div class="lens-hero-canvas-frame">
+											<canvas aria-hidden="true"></canvas>
+										</div>
+									</div>
+								</div>
+							</div>
+						</div>
+
+						<div class="lens-hero-lockup">
+							<div class="lens-hero-text">
+								<h1>Clarity for your team's agent sessions</h1>
+								<p class="lens-hero-caption">
+									The full-stack platform for social and financial experiences.
+								</p>
+							</div>
+						</div>
+
+						<div class="lens-hero-buttons">
+							<a
+								class="lens-button lens-button-secondary"
+								href="http://127.0.0.1:4175/docs"
+							>
+								<span class="lens-button-content">
+									<span class="lens-button-children">
+										<span>Developer Docs</span>
+										<svg
+											class="lens-button-arrow"
+											xmlns="http://www.w3.org/2000/svg"
+											width="16"
+											height="16"
+											viewBox="0 0 16 16"
+											fill="none"
+											overflow="hidden"
+											aria-hidden="true"
+										>
+											<circle cx="8" cy="8" r="8" fill="currentColor" fill-opacity="0.12" />
+											<g class="lens-button-arrow-slide">
+												<path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-opacity="0.9" stroke-width="1.5" d="M8.5 4.812v6.5m0 0 2.5-2.5m-2.5 2.5L6 8.812" />
+												<path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-opacity="0.9" stroke-width="1.5" transform="translate(0 -20)" d="M8.5 4.812v6.5m0 0 2.5-2.5m-2.5 2.5L6 8.812" />
+											</g>
+										</svg>
+									</span>
+								</span>
+							</a>
+
+							<a
+								class="lens-button lens-button-success"
+								href="https://developer.lens.xyz"
+							>
+								<span class="lens-button-content">
+									<span class="lens-button-children">
+										<span>Start Building</span>
+										<svg
+											class="lens-button-arrow"
+											xmlns="http://www.w3.org/2000/svg"
+											width="16"
+											height="16"
+											viewBox="0 0 16 16"
+											fill="none"
+											overflow="hidden"
+											aria-hidden="true"
+										>
+											<circle cx="8" cy="8" r="8" fill="#fff" fill-opacity="0.12" />
+											<g class="lens-button-arrow-slide">
+												<path stroke="#fff" stroke-linecap="round" stroke-linejoin="round" stroke-opacity="0.9" stroke-width="1.5" d="M8.5 4.812v6.5m0 0 2.5-2.5m-2.5 2.5L6 8.812" />
+												<path stroke="#fff" stroke-linecap="round" stroke-linejoin="round" stroke-opacity="0.9" stroke-width="1.5" transform="translate(0 -20)" d="M8.5 4.812v6.5m0 0 2.5-2.5m-2.5 2.5L6 8.812" />
+											</g>
+										</svg>
+									</span>
+								</span>
+							</a>
+						</div>
+					</div>
+				</div>
+			</section>
+		</main>
+
+		<script type="module" src="/animation-pointer.js"></script>
+	</body>
+</html>

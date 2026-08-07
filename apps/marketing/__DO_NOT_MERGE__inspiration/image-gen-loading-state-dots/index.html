@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>Image generation loading dots reference</title>
+		<style>
+			:root {
+				color-scheme: light;
+				background: #fff;
+			}
+
+			* {
+				box-sizing: border-box;
+			}
+
+			html,
+			body {
+				margin: 0;
+				min-height: 100%;
+			}
+
+			body {
+				display: grid;
+				min-height: 100svh;
+				place-items: center;
+				background: #fff;
+			}
+
+			[data-testid="image-gen-loading-state-frame"] {
+				width: min(480px, calc(100vw - 24px));
+				max-width: 480px;
+			}
+
+			[data-testid="image-gen-loading-state-entry-surface"] {
+				position: relative;
+				width: 100%;
+				clip-path: inset(0 round 36px);
+				transform-origin: 0 0;
+			}
+
+			[data-testid="image-gen-loading-state"] {
+				position: relative;
+				isolation: isolate;
+				width: 100%;
+				overflow: hidden;
+				border-radius: 36px;
+				background: #fff;
+				padding-bottom: 100%;
+			}
+
+			.loading-layer,
+			[data-testid="image-gen-loading-state-dots"] {
+				position: absolute;
+				inset: 0;
+			}
+
+			.loading-layer {
+				z-index: 10;
+			}
+
+			[data-testid="image-gen-loading-state-dots"] {
+				pointer-events: none;
+				overflow: hidden;
+			}
+
+			[data-testid="loading-halftone-dots-animation"],
+			.loading-canvas-frame {
+				height: 100%;
+			}
+
+			[data-testid="loading-halftone-dots-animation"] {
+				opacity: 0.38;
+			}
+
+			.loading-canvas-frame {
+				position: relative;
+				bottom: 0;
+				width: 100%;
+			}
+
+			canvas {
+				display: block;
+				width: 100%;
+				height: 100%;
+				mask-image: linear-gradient(
+					to top left,
+					rgb(0 0 0 / 0%) 0%,
+					rgb(0 0 0) 30%,
+					rgb(0 0 0) 70%,
+					rgb(0 0 0 / 0%) 100%
+				);
+				mask-repeat: no-repeat;
+				mask-size: 100% 100%;
+				-webkit-mask-image: linear-gradient(
+					to top left,
+					rgb(0 0 0 / 0%) 0%,
+					rgb(0 0 0) 30%,
+					rgb(0 0 0) 70%,
+					rgb(0 0 0 / 0%) 100%
+				);
+				-webkit-mask-repeat: no-repeat;
+				-webkit-mask-size: 100% 100%;
+			}
+		</style>
+	</head>
+	<body>
+		<div
+			class="relative w-full max-w-[480px]"
+			data-testid="image-gen-loading-state-frame"
+			style="max-width: 480px"
+		>
+			<div
+				class="relative w-full"
+				data-testid="image-gen-loading-state-entry-surface"
+				style="opacity: 1; clip-path: inset(0 round 36px); transform-origin: 0% 0%; transform: none"
+			>
+				<div
+					aria-label="Generating image..."
+					data-testid="image-gen-loading-state"
+					style="padding-bottom: 100%"
+				>
+					<div class="loading-layer">
+						<div
+							aria-hidden="true"
+							data-testid="image-gen-loading-state-dots"
+						>
+							<div
+								data-testid="loading-halftone-dots-animation"
+								style="opacity: 0.38"
+							>
+								<div class="loading-canvas-frame">
+									<canvas aria-hidden="true" width="960" height="960"></canvas>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<script type="module" src="/animation.js"></script>
+	</body>
+</html>
