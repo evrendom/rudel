@@ -275,6 +275,197 @@ const colorFieldStyles = `<style data-vercel-color-field-reference>
 		pointer-events: none;
 	}
 
+	[data-field-circle-overlay] {
+		position: fixed;
+		z-index: 3;
+		border-radius: 50%;
+		background: #fff;
+		pointer-events: none;
+	}
+
+	[data-field-scale-control],
+	[data-field-scale-control] * {
+		box-sizing: border-box;
+	}
+
+	[data-field-scale-control] {
+		position: fixed;
+		bottom: max(16px, env(safe-area-inset-bottom));
+		left: 50%;
+		z-index: 2147483647;
+		display: grid;
+		width: min(378px, calc(100% - 24px));
+		padding: 5px 7px;
+		translate: -50% 0;
+		border: 1px solid rgba(0, 0, 0, 0.12);
+		border-radius: 14px;
+		background: rgba(255, 255, 255, 0.9);
+		box-shadow: 0 14px 40px rgba(0, 0, 0, 0.13);
+		color: #111;
+		font: 11px/1.25 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+		backdrop-filter: blur(20px) saturate(1.2);
+		-webkit-backdrop-filter: blur(20px) saturate(1.2);
+	}
+
+	[data-field-scale-row] {
+		display: grid;
+		grid-template-columns: 42px minmax(0, 1fr) 52px;
+		gap: 10px;
+		min-height: 48px;
+		align-items: center;
+		padding-left: 6px;
+	}
+
+	[data-field-scale-row] + [data-field-scale-row] {
+		border-top: 1px solid rgba(0, 0, 0, 0.08);
+	}
+
+	[data-field-scale-label] {
+		font-weight: 650;
+		letter-spacing: -0.01em;
+	}
+
+	[data-field-scale-input],
+	[data-field-center-scale-input] {
+		width: 100%;
+		height: 44px;
+		margin: 0;
+		accent-color: #111;
+		cursor: ew-resize;
+	}
+
+	[data-field-scale-reset],
+	[data-field-center-scale-reset] {
+		min-width: 52px;
+		height: 44px;
+		padding: 0 7px;
+		border: 0;
+		border-radius: 9px;
+		background: rgba(0, 0, 0, 0.065);
+		color: inherit;
+		font: inherit;
+		font-variant-numeric: tabular-nums;
+		cursor: pointer;
+	}
+
+	[data-field-scale-reset]:hover,
+	[data-field-center-scale-reset]:hover {
+		background: rgba(0, 0, 0, 0.1);
+	}
+
+	[data-field-scale-reset]:focus-visible,
+	[data-field-center-scale-reset]:focus-visible,
+	[data-field-scale-input]:focus-visible,
+	[data-field-center-scale-input]:focus-visible {
+		outline: 2px solid #0070f3;
+		outline-offset: 2px;
+	}
+
+	[data-field-layer-control],
+	[data-field-layer-control] * {
+		box-sizing: border-box;
+	}
+
+	[data-field-layer-control] {
+		position: fixed;
+		top: 50%;
+		right: 12px;
+		z-index: 2147483647;
+		width: 168px;
+		overflow: hidden;
+		translate: 0 -50%;
+		border: 1px solid rgba(0, 0, 0, 0.12);
+		border-radius: 14px;
+		background: rgba(255, 255, 255, 0.9);
+		box-shadow: 0 14px 40px rgba(0, 0, 0, 0.13);
+		color: #111;
+		font: 11px/1.25 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+		backdrop-filter: blur(20px) saturate(1.2);
+		-webkit-backdrop-filter: blur(20px) saturate(1.2);
+	}
+
+	[data-field-layer-header] {
+		display: grid;
+		gap: 2px;
+		padding: 12px 13px 10px;
+		border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+	}
+
+	[data-field-layer-kicker] {
+		color: rgba(0, 0, 0, 0.48);
+		font-size: 9px;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+	}
+
+	[data-field-layer-title] {
+		font-size: 12px;
+		font-weight: 680;
+		letter-spacing: -0.02em;
+	}
+
+	[data-field-layer-list] {
+		display: grid;
+		padding: 5px;
+	}
+
+	[data-field-layer-option] {
+		display: grid;
+		grid-template-columns: 28px minmax(0, 1fr) 22px;
+		gap: 5px;
+		min-height: 44px;
+		align-items: center;
+		padding: 0 7px;
+		border-radius: 9px;
+		cursor: pointer;
+	}
+
+	[data-field-layer-option]:hover {
+		background: rgba(0, 0, 0, 0.045);
+	}
+
+	[data-field-layer-toggle] {
+		width: 16px;
+		height: 16px;
+		margin: 0;
+		accent-color: #111;
+	}
+
+	[data-field-layer-name] {
+		font-weight: 620;
+		letter-spacing: -0.01em;
+	}
+
+	[data-field-layer-state] {
+		color: rgba(0, 0, 0, 0.42);
+		font-size: 9px;
+		text-align: right;
+		text-transform: uppercase;
+	}
+
+	[data-field-layer-toggle]:focus-visible {
+		outline: 2px solid #0070f3;
+		outline-offset: 3px;
+	}
+
+	html[data-layer-white="off"] [data-field-circle-overlay] {
+		display: none;
+	}
+
+	@media (max-width: 440px) {
+		[data-field-scale-control] {
+			bottom: max(12px, env(safe-area-inset-bottom));
+			width: calc(100% - 24px);
+		}
+
+		[data-field-layer-control] {
+			top: 12px;
+			right: 8px;
+			width: 148px;
+			translate: 0;
+		}
+	}
+
 	[data-field-repair-mask] {
 		position: fixed;
 		top: 50%;
@@ -1048,6 +1239,20 @@ const createCircleFieldBootstrap = () =>
 		const workers = [];
 		let toggleFallbackEnergy;
 		let usingNativeWarp = false;
+		let fieldScale = 1;
+		let centerScale = 1;
+		const layerVisibility = {
+			outer: 1,
+			refraction: 1,
+			inner: 1,
+			white: 1,
+		};
+		let syncWhiteCircleOverlay = () => {};
+		root.setAttribute("data-field-scale", fieldScale.toFixed(2));
+		root.setAttribute("data-center-scale", centerScale.toFixed(2));
+		for (const layer of Object.keys(layerVisibility)) {
+			root.setAttribute("data-layer-" + layer, "on");
+		}
 		window.__opalineCircleFieldWorkers = workers;
 		window.Worker = class CircleFieldWorker extends nativeWorker {
 			constructor(url, options) {
@@ -1211,79 +1416,87 @@ const createCircleFieldBootstrap = () =>
 				const longestEdge = Math.max(width, height);
 				const centerX = width * 0.5;
 				const centerY = height * 0.5;
-				const radius = Math.min(width, height) * 0.225;
+				const baseRadius = Math.min(width, height) * 0.225;
+				const outerRadius = baseRadius * fieldScale;
+				const innerRadius = baseRadius * centerScale;
 				const pulse = 0.96 + Math.sin(time * 0.42) * 0.04;
 
 				context.fillStyle = "#fdfbf8";
 				context.fillRect(0, 0, width, height);
 
-				for (const arc of arcs) {
-					const midpoint = arc.start + Math.PI / 3;
-					const drift = Math.sin(time * 0.16 + midpoint) * radius * 0.018;
-					const sourceX = centerX + Math.cos(midpoint) * (radius * 0.88 + drift);
-					const sourceY = centerY + Math.sin(midpoint) * (radius * 0.88 + drift);
-					const glowRadius = longestEdge * (0.58 + energy * 0.08);
-					const gradient = context.createRadialGradient(
-						sourceX,
-						sourceY,
+				if (layerVisibility.outer) {
+					for (const arc of arcs) {
+						const midpoint = arc.start + Math.PI / 3;
+						const drift = Math.sin(time * 0.16 + midpoint) * outerRadius * 0.018;
+						const sourceX = centerX + Math.cos(midpoint) * (outerRadius * 0.88 + drift);
+						const sourceY = centerY + Math.sin(midpoint) * (outerRadius * 0.88 + drift);
+						const glowRadius = longestEdge * (0.58 + energy * 0.08) * fieldScale;
+						const gradient = context.createRadialGradient(
+							sourceX,
+							sourceY,
+							0,
+							sourceX,
+							sourceY,
+							glowRadius,
+						);
+						gradient.addColorStop(0, rgba(arc.color, 0.4 * energy));
+						gradient.addColorStop(0.24, rgba(arc.color, 0.27 * energy));
+						gradient.addColorStop(0.68, rgba(arc.color, 0.09 * energy));
+						gradient.addColorStop(1, rgba(arc.color, 0));
+						context.fillStyle = gradient;
+						context.fillRect(0, 0, width, height);
+					}
+				}
+
+				if (layerVisibility.inner) {
+					context.save();
+					context.beginPath();
+					context.arc(centerX, centerY, innerRadius, 0, Math.PI * 2);
+					context.clip();
+					context.fillStyle = "rgba(255,255,255,0.12)";
+					context.fillRect(centerX - innerRadius, centerY - innerRadius, innerRadius * 2, innerRadius * 2);
+					for (const arc of arcs) drawConeFace(centerX, centerY, innerRadius, arc, energy);
+					const centerLight = context.createRadialGradient(
+						centerX,
+						centerY,
 						0,
-						sourceX,
-						sourceY,
-						glowRadius,
+						centerX,
+						centerY,
+						innerRadius * 0.42,
 					);
-					gradient.addColorStop(0, rgba(arc.color, 0.4 * energy));
-					gradient.addColorStop(0.24, rgba(arc.color, 0.27 * energy));
-					gradient.addColorStop(0.68, rgba(arc.color, 0.09 * energy));
-					gradient.addColorStop(1, rgba(arc.color, 0));
-					context.fillStyle = gradient;
-					context.fillRect(0, 0, width, height);
+					centerLight.addColorStop(0, "rgba(255,255,255,0.9)");
+					centerLight.addColorStop(0.08, "rgba(255,255,255,0.58)");
+					centerLight.addColorStop(0.38, "rgba(255,255,255,0.16)");
+					centerLight.addColorStop(1, "rgba(255,255,255,0)");
+					context.fillStyle = centerLight;
+					context.fillRect(centerX - innerRadius, centerY - innerRadius, innerRadius * 2, innerRadius * 2);
+					context.restore();
 				}
 
-				context.save();
-				context.beginPath();
-				context.arc(centerX, centerY, radius, 0, Math.PI * 2);
-				context.clip();
-				context.fillStyle = "rgba(255,255,255,0.12)";
-				context.fillRect(centerX - radius, centerY - radius, radius * 2, radius * 2);
-				for (const arc of arcs) drawConeFace(centerX, centerY, radius, arc, energy);
-				const centerLight = context.createRadialGradient(
-					centerX,
-					centerY,
-					0,
-					centerX,
-					centerY,
-					radius * 0.42,
-				);
-				centerLight.addColorStop(0, "rgba(255,255,255,0.9)");
-				centerLight.addColorStop(0.08, "rgba(255,255,255,0.58)");
-				centerLight.addColorStop(0.38, "rgba(255,255,255,0.16)");
-				centerLight.addColorStop(1, "rgba(255,255,255,0)");
-				context.fillStyle = centerLight;
-				context.fillRect(centerX - radius, centerY - radius, radius * 2, radius * 2);
-				context.restore();
+				if (layerVisibility.refraction) {
+					for (const arc of arcs) drawArc(centerX, centerY, innerRadius, arc, energy * pulse);
 
-				for (const arc of arcs) drawArc(centerX, centerY, radius, arc, energy * pulse);
-
-				context.save();
-				for (let index = 0; index < 66; index += 1) {
-					const angle = index / 66 * Math.PI * 2;
-					const arcIndex = angle >= Math.PI * 5 / 6 && angle < Math.PI * 3 / 2
-						? 0
-						: angle < Math.PI / 6 || angle >= Math.PI * 3 / 2
-							? 1
-							: 2;
-					const offset = (random(index * 4.17 + Math.floor(time * 3)) - 0.5) * radius * 0.075;
-					const particleRadius = radius + offset;
-					const x = centerX + Math.cos(angle) * particleRadius;
-					const y = centerY + Math.sin(angle) * particleRadius;
-					const size = 0.35 + random(index * 7.31) * 1.15;
-					context.fillStyle = rgba(palette[arcIndex], (0.14 + random(index * 2.77) * 0.33) * energy);
-					context.fillRect(x, y, size, size);
+					context.save();
+					for (let index = 0; index < 66; index += 1) {
+						const angle = index / 66 * Math.PI * 2;
+						const arcIndex = angle >= Math.PI * 5 / 6 && angle < Math.PI * 3 / 2
+							? 0
+							: angle < Math.PI / 6 || angle >= Math.PI * 3 / 2
+								? 1
+								: 2;
+						const offset = (random(index * 4.17 + Math.floor(time * 3)) - 0.5) * innerRadius * 0.075;
+						const particleRadius = innerRadius + offset;
+						const x = centerX + Math.cos(angle) * particleRadius;
+						const y = centerY + Math.sin(angle) * particleRadius;
+						const size = 0.35 + random(index * 7.31) * 1.15;
+						context.fillStyle = rgba(palette[arcIndex], (0.14 + random(index * 2.77) * 0.33) * energy);
+						context.fillRect(x, y, size, size);
+					}
+					context.restore();
 				}
-				context.restore();
 
 				const pattern = context.createPattern(grainCanvas, "repeat");
-				if (pattern) {
+				if (pattern && layerVisibility.outer) {
 					context.save();
 					context.globalAlpha = 0.06;
 					context.translate((time * 6) % 96, (time * 3) % 96);
@@ -1327,10 +1540,19 @@ const createCircleFieldBootstrap = () =>
 				"uniform sampler2D u_frame;",
 				"uniform vec2 u_viewport_css;",
 				"uniform vec2 u_source_css;",
+				"uniform float u_scale;",
+				"uniform float u_center_scale;",
+				"uniform float u_show_outer;",
+				"uniform float u_show_refraction;",
+				"uniform float u_show_inner;",
 				"in vec2 v_uv;",
 				"out vec4 out_color;",
+				"vec3 resolve_field(vec4 field) {",
+				"  return mix(vec3(0.9803922), field.rgb, field.a);",
+				"}",
 				"void main() {",
-				"  vec2 position = (v_uv - 0.5) * u_viewport_css;",
+				"  vec2 viewport_position = (v_uv - 0.5) * u_viewport_css;",
+				"  vec2 position = viewport_position / max(u_scale, 0.001);",
 				"  float radius = length(position);",
 				"  vec2 direction = radius > 0.0001 ? position / radius : vec2(0.0, 1.0);",
 				"  vec2 normal_bottom = vec2(0.0, -1.0);",
@@ -1340,13 +1562,26 @@ const createCircleFieldBootstrap = () =>
 				"  float triangle_inradius = u_source_css.y * 0.059;",
 				"  float triangle_boundary = triangle_inradius / max(facing, 0.001);",
 				"  float circle_radius = triangle_inradius * 1.7320508;",
-				"  vec2 warped = direction * (radius / circle_radius) * triangle_boundary;",
-				"  float restore_original = smoothstep(circle_radius * 3.2, circle_radius * 6.0, radius);",
-				"  vec2 sample_position = mix(warped, position, restore_original);",
+				"  float normalized_radius = radius / circle_radius;",
+				"  float center_ratio = clamp(u_center_scale / max(u_scale, 0.001), 0.001, 1.0);",
+				"  float outer_anchor = 6.0;",
+				"  float inner_sample_radius = normalized_radius / center_ratio;",
+				"  float outer_sample_radius = 1.0 + (normalized_radius - center_ratio) * (outer_anchor - 1.0) / (outer_anchor - center_ratio);",
+				"  float stretched_radius = normalized_radius <= center_ratio ? inner_sample_radius : outer_sample_radius;",
+				"  vec2 stretched_position = direction * stretched_radius * circle_radius;",
+				"  vec2 stretched_warped = direction * stretched_radius * triangle_boundary;",
+				"  float restore_original = smoothstep(3.2, outer_anchor, stretched_radius);",
+				"  vec2 sample_position = mix(stretched_warped, stretched_position, restore_original);",
 				"  vec2 source_uv = clamp(vec2(0.5) + sample_position / u_source_css, vec2(0.0), vec2(1.0));",
-				"  vec4 field = texture(u_frame, source_uv);",
+				"  vec3 stretched_color = resolve_field(texture(u_frame, source_uv));",
 				"  vec3 floor_color = vec3(0.9803922);",
-				"  out_color = vec4(mix(floor_color, field.rgb, field.a), 1.0);",
+				"  float outer_mask = smoothstep(1.45, 1.55, stretched_radius) * u_show_outer;",
+				"  vec3 color = mix(floor_color, stretched_color, outer_mask);",
+				"  float refraction_mask = smoothstep(0.86, 0.94, stretched_radius) * (1.0 - smoothstep(1.55, 1.65, stretched_radius)) * u_show_refraction;",
+				"  color = mix(color, stretched_color, refraction_mask);",
+				"  float inner_mask = (1.0 - smoothstep(0.94, 1.02, stretched_radius)) * u_show_inner;",
+				"  color = mix(color, stretched_color, inner_mask);",
+				"  out_color = vec4(color, 1.0);",
 				"}",
 			].join("\\n");
 
@@ -1392,6 +1627,11 @@ const createCircleFieldBootstrap = () =>
 			gl.uniform1i(gl.getUniformLocation(program, "u_frame"), 0);
 			const viewportLocation = gl.getUniformLocation(program, "u_viewport_css");
 			const sourceLocation = gl.getUniformLocation(program, "u_source_css");
+			const scaleLocation = gl.getUniformLocation(program, "u_scale");
+			const centerScaleLocation = gl.getUniformLocation(program, "u_center_scale");
+			const showOuterLocation = gl.getUniformLocation(program, "u_show_outer");
+			const showRefractionLocation = gl.getUniformLocation(program, "u_show_refraction");
+			const showInnerLocation = gl.getUniformLocation(program, "u_show_inner");
 			let animationFrame;
 			let hasFrame = false;
 
@@ -1429,6 +1669,11 @@ const createCircleFieldBootstrap = () =>
 						gl.useProgram(program);
 						gl.uniform2f(viewportLocation, innerWidth, innerHeight);
 						gl.uniform2f(sourceLocation, sourceRect.width, sourceRect.height);
+						gl.uniform1f(scaleLocation, fieldScale);
+						gl.uniform1f(centerScaleLocation, centerScale);
+						gl.uniform1f(showOuterLocation, layerVisibility.outer);
+						gl.uniform1f(showRefractionLocation, layerVisibility.refraction);
+						gl.uniform1f(showInnerLocation, layerVisibility.inner);
 						gl.drawArrays(gl.TRIANGLES, 0, 3);
 						if (!hasFrame) {
 							hasFrame = true;
@@ -1451,6 +1696,191 @@ const createCircleFieldBootstrap = () =>
 
 		const mount = () => {
 			let mounted = false;
+			const mountScaleControl = () => {
+				const control = document.createElement("div");
+				control.setAttribute("data-field-scale-control", "");
+				control.setAttribute("role", "group");
+				control.setAttribute("aria-label", "Field zoom and center scale controls");
+
+				const createScaleRow = (labelText, id, inputAttribute, resetAttribute) => {
+					const row = document.createElement("div");
+					row.setAttribute("data-field-scale-row", "");
+
+					const label = document.createElement("label");
+					label.setAttribute("data-field-scale-label", "");
+					label.setAttribute("for", id);
+					label.textContent = labelText;
+
+					const input = document.createElement("input");
+					input.id = id;
+					input.type = "range";
+					input.min = "1";
+					input.step = "1";
+					input.value = "100";
+					input.setAttribute(inputAttribute, "");
+
+					const reset = document.createElement("button");
+					reset.type = "button";
+					reset.setAttribute(resetAttribute, "");
+
+					row.append(label, input, reset);
+					return { row, input, reset };
+				};
+
+				const zoom = createScaleRow(
+					"Zoom",
+					"field-total-scale",
+					"data-field-scale-input",
+					"data-field-scale-reset",
+				);
+				zoom.input.max = "160";
+				zoom.input.setAttribute("aria-label", "Complete color field zoom");
+				zoom.reset.setAttribute("aria-label", "Reset complete color field zoom to 100 percent");
+				zoom.reset.title = "Reset zoom to 100%";
+
+				const center = createScaleRow(
+					"Center",
+					"field-center-scale",
+					"data-field-center-scale-input",
+					"data-field-center-scale-reset",
+				);
+				center.input.max = zoom.input.value;
+				center.input.setAttribute("aria-label", "White center circle scale");
+
+				const updateCenter = () => {
+					const percentage = Math.min(Number(center.input.value), Number(center.input.max));
+					center.input.value = String(percentage);
+					centerScale = percentage / 100;
+					center.reset.textContent = percentage + "%";
+					center.input.setAttribute("aria-valuetext", percentage + "%");
+					center.reset.setAttribute(
+						"aria-label",
+						"Match center scale to field zoom at " + zoom.input.value + " percent",
+					);
+					center.reset.title = "Match center to zoom (" + zoom.input.value + "%)";
+					root.setAttribute("data-center-scale", centerScale.toFixed(2));
+					syncWhiteCircleOverlay();
+				};
+
+				const updateZoom = () => {
+					const previousPercentage = Math.round(fieldScale * 100);
+					const centerWasMatched = Number(center.input.value) === previousPercentage;
+					const percentage = Number(zoom.input.value);
+					fieldScale = percentage / 100;
+					zoom.reset.textContent = percentage + "%";
+					zoom.input.setAttribute("aria-valuetext", percentage + "%");
+					root.setAttribute("data-field-scale", fieldScale.toFixed(2));
+					center.input.max = String(percentage);
+					if (centerWasMatched || Number(center.input.value) > percentage) {
+						center.input.value = String(percentage);
+					}
+					updateCenter();
+				};
+
+				zoom.input.addEventListener("input", updateZoom);
+				center.input.addEventListener("input", updateCenter);
+				zoom.reset.addEventListener("click", () => {
+					zoom.input.value = "100";
+					updateZoom();
+					zoom.input.focus();
+				});
+				center.reset.addEventListener("click", () => {
+					center.input.value = zoom.input.value;
+					updateCenter();
+					center.input.focus();
+				});
+				control.append(zoom.row, center.row);
+				document.body.append(control);
+				updateZoom();
+			};
+			const mountLayerControl = () => {
+				const control = document.createElement("aside");
+				control.setAttribute("data-field-layer-control", "");
+				control.setAttribute("aria-label", "Color field layer visibility");
+
+				const header = document.createElement("div");
+				header.setAttribute("data-field-layer-header", "");
+				const kicker = document.createElement("span");
+				kicker.setAttribute("data-field-layer-kicker", "");
+				kicker.textContent = "Debug";
+				const title = document.createElement("strong");
+				title.setAttribute("data-field-layer-title", "");
+				title.textContent = "Layers";
+				header.append(kicker, title);
+
+				const list = document.createElement("div");
+				list.setAttribute("data-field-layer-list", "");
+				const definitions = [
+					{ key: "outer", label: "Outer color" },
+					{ key: "refraction", label: "Refraction" },
+					{ key: "inner", label: "Inner cone" },
+					{ key: "white", label: "White center" },
+				];
+
+				for (const definition of definitions) {
+					const option = document.createElement("label");
+					option.setAttribute("data-field-layer-option", "");
+					const input = document.createElement("input");
+					input.type = "checkbox";
+					input.checked = true;
+					input.setAttribute("data-field-layer-toggle", definition.key);
+					input.setAttribute("aria-label", "Show " + definition.label.toLowerCase());
+					const name = document.createElement("span");
+					name.setAttribute("data-field-layer-name", "");
+					name.textContent = definition.label;
+					const state = document.createElement("span");
+					state.setAttribute("data-field-layer-state", "");
+					state.textContent = "On";
+
+					input.addEventListener("change", () => {
+						const enabled = input.checked;
+						layerVisibility[definition.key] = enabled ? 1 : 0;
+						state.textContent = enabled ? "On" : "Off";
+						root.setAttribute("data-layer-" + definition.key, enabled ? "on" : "off");
+					});
+					option.append(input, name, state);
+					list.append(option);
+				}
+
+				control.append(header, list);
+				document.body.append(control);
+			};
+			const mountWhiteCircleOverlay = () => {
+				const polygon = document.querySelector('polygon[fill="#000"]');
+				const sourceSvg = polygon?.closest("svg");
+				const sourceLayer = sourceSvg?.parentElement;
+				if (!(sourceSvg instanceof SVGSVGElement) || !(sourceLayer instanceof HTMLElement)) {
+					root.setAttribute("data-circle-overlay", "source-missing");
+					return;
+				}
+
+				sourceLayer.setAttribute("data-circle-overlay-source", "");
+				sourceLayer.style.setProperty("display", "block", "important");
+				sourceLayer.style.setProperty("visibility", "hidden", "important");
+				const overlay = document.createElement("div");
+				overlay.setAttribute("data-field-circle-overlay", "");
+				overlay.setAttribute("aria-hidden", "true");
+				document.body.append(overlay);
+
+				syncWhiteCircleOverlay = () => {
+					const rect = sourceSvg.getBoundingClientRect();
+					if (rect.width <= 0 || rect.height <= 0) return;
+					const diameter = rect.width * 0.8660254038 * centerScale;
+					overlay.style.width = diameter + "px";
+					overlay.style.height = diameter + "px";
+					overlay.style.left = rect.left + rect.width / 2 - diameter / 2 + "px";
+					overlay.style.top = rect.top + rect.height / 2 - diameter / 2 + "px";
+					root.setAttribute("data-circle-overlay", "mounted");
+				};
+
+				const resizeObserver = new ResizeObserver(syncWhiteCircleOverlay);
+				resizeObserver.observe(sourceSvg);
+				addEventListener("resize", syncWhiteCircleOverlay, { passive: true });
+				syncWhiteCircleOverlay();
+				setTimeout(syncWhiteCircleOverlay, 250);
+				setTimeout(syncWhiteCircleOverlay, 1200);
+				addEventListener("pagehide", () => resizeObserver.disconnect(), { once: true });
+			};
 			const createCanvas = () => {
 				const canvas = document.createElement("canvas");
 				canvas.setAttribute("data-field-experiment-canvas", "circle");
@@ -1497,6 +1927,9 @@ const createCircleFieldBootstrap = () =>
 					mountFallback();
 				}, 10000);
 			}
+			mountWhiteCircleOverlay();
+			mountScaleControl();
+			mountLayerControl();
 		};
 
 		document.addEventListener(

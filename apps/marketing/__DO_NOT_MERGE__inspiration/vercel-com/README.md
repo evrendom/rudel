@@ -53,6 +53,16 @@ bloom, grain, additive mixing, animation, and click state are therefore kept,
 while its three faces become a top-down cone with a circular base. Click or tap
 the field to shift the native color energy. The route is forced to light mode;
 a procedural cone is used only if the external native canvas cannot initialize.
+The original foreground SVG layer is measured in place and represented by a
+pure-white circle above the cone, using the original triangle's width and
+centroid. Use `Zoom` to resize the complete native color field from 1% to 160%.
+Use `Center` to shrink the white foreground circle and inner cone. The native
+refraction and outer color field stretch continuously from that resized center
+back to the fixed Zoom extent, so no layer separates or leaves a gap. Center is
+capped at the current Zoom value. Click either percentage to reset Zoom to 100%
+or match Center back to Zoom. The right-side layer debugger independently
+toggles the stretched outer color, stretched refraction, inner cone, and white
+center.
 
 For the triangle-removal comparison lab, open:
 
