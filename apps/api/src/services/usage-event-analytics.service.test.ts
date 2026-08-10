@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { buildEstimatedCostSql } from "@rudel/api-routes";
 import {
 	buildLegacyUsageAnalyticsCte,
 	buildUsageCostSubtotalSql,
@@ -137,6 +138,34 @@ describe("usage-event analytics query contract", () => {
 		expect(sql).toContain("AS estimated_cost");
 		expect(sql).toContain("toUInt8(1) AS cost_is_complete");
 		expect(sql).toContain("AS usage_date");
+	});
+
+	test("prices legacy cache writes at the 1-hour tier", () => {
+		const sql = buildLegacyUsageAnalyticsCte();
+		const oneHourTierSql = buildEstimatedCostSql({
+			modelExpr: "sa.model_used",
+			dateExpr: "sa.session_date",
+			inputExpr:
+				"(ifNull(sa.input_tokens, 0) - ifNull(sa.cache_read_input_tokens, 0) - ifNull(sa.cache_creation_input_tokens, 0))",
+			outputExpr: "ifNull(sa.output_tokens, 0)",
+			cacheReadInputExpr: "ifNull(sa.cache_read_input_tokens, 0)",
+			cacheCreation1hInputExpr: "ifNull(sa.cache_creation_input_tokens, 0)",
+		});
+		const fiveMinuteTierSql = buildEstimatedCostSql({
+			modelExpr: "sa.model_used",
+			dateExpr: "sa.session_date",
+			inputExpr:
+				"(ifNull(sa.input_tokens, 0) - ifNull(sa.cache_read_input_tokens, 0) - ifNull(sa.cache_creation_input_tokens, 0))",
+			outputExpr: "ifNull(sa.output_tokens, 0)",
+			cacheReadInputExpr: "ifNull(sa.cache_read_input_tokens, 0)",
+			cacheCreationInputExpr: "ifNull(sa.cache_creation_input_tokens, 0)",
+		});
+
+		// session_analytics has no 5m/1h split; ~89% of Claude Code write
+		// tokens are 1-hour tier and Codex reports no cache writes, so the
+		// legacy path bills the undivided total at the 1-hour rate.
+		expect(sql).toContain(oneHourTierSql);
+		expect(sql).not.toContain(fiveMinuteTierSql);
 	});
 
 	test("keeps explicit off mode as a source rollback without probing events", async () => {

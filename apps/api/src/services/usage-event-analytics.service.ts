@@ -18,6 +18,12 @@ const READY_TTL_MS = 60_000;
 const DEGRADED_TTL_MS = 5_000;
 const PROBE_TIMEOUT_MS = 2_000;
 
+// session_analytics stores only the undivided cache-write total, so the legacy
+// path must assume a tier. Sampled prod transcripts show ~89% of Claude Code
+// cache-write tokens are 1-hour tier (Codex reports no cache writes at all),
+// so the total is priced at the 1-hour rate: a small overcharge on the 5m
+// minority instead of a 37.5% undercharge on the 1h majority. The events path
+// needs no assumption: usage_events carries the real 5m/1h split.
 const LEGACY_SESSION_COST_SQL = buildEstimatedCostSql({
 	modelExpr: "sa.model_used",
 	dateExpr: "sa.session_date",
@@ -25,7 +31,7 @@ const LEGACY_SESSION_COST_SQL = buildEstimatedCostSql({
 		"(ifNull(sa.input_tokens, 0) - ifNull(sa.cache_read_input_tokens, 0) - ifNull(sa.cache_creation_input_tokens, 0))",
 	outputExpr: "ifNull(sa.output_tokens, 0)",
 	cacheReadInputExpr: "ifNull(sa.cache_read_input_tokens, 0)",
-	cacheCreationInputExpr: "ifNull(sa.cache_creation_input_tokens, 0)",
+	cacheCreation1hInputExpr: "ifNull(sa.cache_creation_input_tokens, 0)",
 });
 
 const PRICEABLE_EVENT_SQL = `
