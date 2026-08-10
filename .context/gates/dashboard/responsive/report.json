@@ -1,6 +1,6 @@
 {
   "gate": "G1/G2-dashboard-responsive",
-  "generatedAt": "2026-08-07T19:56:34.539Z",
+  "generatedAt": "2026-08-10T09:15:53.220Z",
   "referenceUrl": "http://127.0.0.1:4180/?opaline-composition=lens-attio-lens",
   "extractedUrl": "http://127.0.0.1:4321/preview/dashboard",
   "naturalizedUrl": "http://127.0.0.1:4321/preview/dashboard-naturalized",
@@ -34,9 +34,9 @@
         "pixel": {
           "width": 768,
           "height": 1024,
-          "comparedPixels": 769446,
-          "differingPixels": 46,
-          "diffPercent": 0.0059783272640315235
+          "comparedPixels": 786377,
+          "differingPixels": 304,
+          "diffPercent": 0.03865830256988696
         },
         "audit": {
           "geometryDifferences": [],
@@ -48,16 +48,17 @@
           "width": 768,
           "height": 1024,
           "comparedPixels": 786432,
-          "differingPixels": 1503,
-          "diffPercent": 0.1911163330078125
+          "differingPixels": 8,
+          "diffPercent": 0.0010172526041666665
         },
         "animationMask": {
           "width": 768,
           "height": 1024,
-          "maskedPixels": 16986,
-          "maskedPercent": 2.159881591796875,
+          "maskedPixels": 55,
+          "maskedPercent": 0.006993611653645833,
           "dilationRadius": 1
         },
+        "staticFallbackPanelMask": null,
         "passed": true
       },
       "g2": {
@@ -237,31 +238,37 @@
         "pixel": {
           "width": 768,
           "height": 1024,
-          "comparedPixels": 785484,
-          "differingPixels": 281,
-          "diffPercent": 0.03577412143340921
+          "comparedPixels": 591485,
+          "differingPixels": 299,
+          "diffPercent": 0.050550732478422955
         },
         "audit": {
           "geometryDifferences": [],
-          "elementCountMatches": false,
+          "elementCountMatches": true,
           "textMatches": true,
-          "passed": false
+          "passed": true
         },
         "referenceSelfPixel": {
           "width": 768,
           "height": 1024,
           "comparedPixels": 786432,
-          "differingPixels": 217,
-          "diffPercent": 0.027592976888020832
+          "differingPixels": 0,
+          "diffPercent": 0
         },
         "animationMask": {
           "width": 768,
           "height": 1024,
-          "maskedPixels": 948,
-          "maskedPercent": 0.12054443359375,
+          "maskedPixels": 0,
+          "maskedPercent": 0,
           "dilationRadius": 1
         },
-        "passed": false
+        "staticFallbackPanelMask": {
+          "x": 130.9999,
+          "y": 115.9999,
+          "width": 506.0002,
+          "height": 380.0001
+        },
+        "passed": true
       },
       "g2": {
         "pixel": {
@@ -341,40 +348,14 @@
             "width": 505.9992,
             "height": 379.9994
           },
-          "scaleWrapper": {
-            "x": 131.0004,
-            "y": 116.0003,
-            "width": 505.9992,
-            "height": 379.9994
-          },
-          "grid": {
-            "x": 131.0004,
-            "y": 116.0003,
-            "width": 505.9992,
-            "height": 379.9994
-          },
-          "scaleWrapperClass": "h-full w-full",
+          "scaleWrapper": null,
+          "grid": null,
+          "scaleWrapperClass": null,
           "scaleWrapperInlineStyle": null,
-          "scaleWrapperStyles": {
-            "display": "block",
-            "grid-template-columns": "none",
-            "grid-template-rows": "none",
-            "height": "380px",
-            "transform": "none",
-            "transform-origin": "253px 190px",
-            "width": "506px"
-          },
-          "gridStyles": {
-            "display": "grid",
-            "grid-template-columns": "506px",
-            "grid-template-rows": "24px 24px 332px",
-            "height": "380px",
-            "transform": "none",
-            "transform-origin": "253px 190px",
-            "width": "506px"
-          },
-          "elementCount": 451,
-          "text": "BasepointReportsBusiness MetricsAL+1ShareAsk AttioQuick Actions⌘K/HomeNotificationsTasksNotesCallsReportsAutomationsSequencesWorkflowsFavoritesLead workflowsPipelineDealsOutreachLead triageReportsRevenueRecordsPeopleCompaniesRefresh dataAdd reportBusiness MetricsOverview of our sales pipeline, revenue growth, customer demographics, and more.Revenue growth by paid planWorkspacesApr - JunJul - SepPlusProEnterprise$ 2.8M$ 2.4M$ 2.0M$ 1.6M$ 1.2M$ 0.8M$ 0.4MJulyAugustSeptemberARR Contribution+63%Aug 2026ProductProARR ContributionUSD 2,493,651.04May 2026ProductProARR ContributionUSD 1,528,710.36Closed-won deals by MQL typeDealsICPVCSPTtS+3 moreSales pipelineDealsLeads100%Qualification87.6%Contacted65.4%Negotiation44.2%Won12.1%New signups by creation cohortWorkspacesMRR 2023MRR 2024DataReporting"
+          "scaleWrapperStyles": null,
+          "gridStyles": null,
+          "elementCount": 248,
+          "text": "Business Metrics. Overview of our sales pipeline, revenue growth, customer demographics, and more. Revenue growth by paid plan. Closed-won deals by MQL type. Sales pipeline. New signups by creation cohort.BasepointReportsBusiness MetricsAL+1ShareAsk AttioQuick Actions⌘K/HomeNotificationsTasksNotesCallsReportsAutomationsSequencesWorkflowsFavoritesLead workflowsPipelineDealsOutreachLead triageReportsRevenueRecordsPeopleCompaniesDataReporting"
         },
         "naturalized": {
           "shell": {
@@ -389,40 +370,14 @@
             "width": 505.9992,
             "height": 379.9994
           },
-          "scaleWrapper": {
-            "x": 131.0004,
-            "y": 116.0003,
-            "width": 505.9992,
-            "height": 379.9994
-          },
-          "grid": {
-            "x": 131.0004,
-            "y": 116.0003,
-            "width": 505.9992,
-            "height": 379.9994
-          },
-          "scaleWrapperClass": "h-full w-full",
+          "scaleWrapper": null,
+          "grid": null,
+          "scaleWrapperClass": null,
           "scaleWrapperInlineStyle": null,
-          "scaleWrapperStyles": {
-            "display": "block",
-            "grid-template-columns": "none",
-            "grid-template-rows": "none",
-            "height": "380px",
-            "transform": "none",
-            "transform-origin": "253px 190px",
-            "width": "506px"
-          },
-          "gridStyles": {
-            "display": "grid",
-            "grid-template-columns": "506px",
-            "grid-template-rows": "24px 24px 332px",
-            "height": "380px",
-            "transform": "none",
-            "transform-origin": "253px 190px",
-            "width": "506px"
-          },
-          "elementCount": 451,
-          "text": "BasepointReportsBusiness MetricsAL+1ShareAsk AttioQuick Actions⌘K/HomeNotificationsTasksNotesCallsReportsAutomationsSequencesWorkflowsFavoritesLead workflowsPipelineDealsOutreachLead triageReportsRevenueRecordsPeopleCompaniesRefresh dataAdd reportBusiness MetricsOverview of our sales pipeline, revenue growth, customer demographics, and more.Revenue growth by paid planWorkspacesApr - JunJul - SepPlusProEnterprise$ 2.8M$ 2.4M$ 2.0M$ 1.6M$ 1.2M$ 0.8M$ 0.4MJulyAugustSeptemberARR Contribution+63%Aug 2026ProductProARR ContributionUSD 2,493,651.04May 2026ProductProARR ContributionUSD 1,528,710.36Closed-won deals by MQL typeDealsICPVCSPTtS+3 moreSales pipelineDealsLeads100%Qualification87.6%Contacted65.4%Negotiation44.2%Won12.1%New signups by creation cohortWorkspacesMRR 2023MRR 2024DataReporting"
+          "scaleWrapperStyles": null,
+          "gridStyles": null,
+          "elementCount": 248,
+          "text": "Business Metrics. Overview of our sales pipeline, revenue growth, customer demographics, and more. Revenue growth by paid plan. Closed-won deals by MQL type. Sales pipeline. New signups by creation cohort.BasepointReportsBusiness MetricsAL+1ShareAsk AttioQuick Actions⌘K/HomeNotificationsTasksNotesCallsReportsAutomationsSequencesWorkflowsFavoritesLead workflowsPipelineDealsOutreachLead triageReportsRevenueRecordsPeopleCompaniesDataReporting"
         }
       },
       "artifacts": {
@@ -440,9 +395,9 @@
         "pixel": {
           "width": 1680,
           "height": 1050,
-          "comparedPixels": 1747190,
-          "differingPixels": 88,
-          "diffPercent": 0.005036658863661079
+          "comparedPixels": 1763325,
+          "differingPixels": 1229,
+          "diffPercent": 0.06969787191810925
         },
         "audit": {
           "geometryDifferences": [],
@@ -454,16 +409,17 @@
           "width": 1680,
           "height": 1050,
           "comparedPixels": 1764000,
-          "differingPixels": 783,
-          "diffPercent": 0.044387755102040814
+          "differingPixels": 200,
+          "diffPercent": 0.011337868480725623
         },
         "animationMask": {
           "width": 1680,
           "height": 1050,
-          "maskedPixels": 16810,
-          "maskedPercent": 0.9529478458049887,
+          "maskedPixels": 675,
+          "maskedPercent": 0.03826530612244898,
           "dilationRadius": 1
         },
+        "staticFallbackPanelMask": null,
         "passed": true
       },
       "g2": {
@@ -643,29 +599,35 @@
         "pixel": {
           "width": 1680,
           "height": 1050,
-          "comparedPixels": 1762482,
-          "differingPixels": 1272,
-          "diffPercent": 0.072170949830977
+          "comparedPixels": 917178,
+          "differingPixels": 1859,
+          "diffPercent": 0.20268693754102257
         },
         "audit": {
           "geometryDifferences": [],
-          "elementCountMatches": false,
-          "textMatches": false,
-          "passed": false
+          "elementCountMatches": true,
+          "textMatches": true,
+          "passed": true
         },
         "referenceSelfPixel": {
           "width": 1680,
           "height": 1050,
           "comparedPixels": 1764000,
-          "differingPixels": 448,
-          "diffPercent": 0.025396825396825397
+          "differingPixels": 0,
+          "diffPercent": 0
         },
         "animationMask": {
           "width": 1680,
           "height": 1050,
-          "maskedPixels": 1518,
-          "maskedPercent": 0.08605442176870748,
+          "maskedPixels": 0,
+          "maskedPercent": 0,
           "dilationRadius": 1
+        },
+        "staticFallbackPanelMask": {
+          "x": 216.9998,
+          "y": 132.9999,
+          "width": 1246.0005,
+          "height": 675.8752
         },
         "passed": false
       },
@@ -731,8 +693,8 @@
             "transform-origin": "623px 337.938px",
             "width": "1246px"
           },
-          "elementCount": 242,
-          "text": "BasepointReportsBusiness MetricsAL+1ShareAsk AttioQuick Actions⌘K/HomeNotificationsTasksNotesCallsReportsAutomationsSequencesWorkflowsFavoritesLead workflowsPipelineDealsOutreachLead triageReportsRevenueRecordsPeopleCompaniesDataReporting"
+          "elementCount": 505,
+          "text": "BasepointReportsBusiness MetricsAL+1ShareAsk AttioQuick Actions⌘K/HomeNotificationsTasksNotesCallsReportsAutomationsSequencesWorkflowsFavoritesLead workflowsPipelineDealsOutreachLead triageReportsRevenueRecordsPeopleCompaniesRefresh dataAdd reportBusiness MetricsOverview of our sales pipeline, revenue growth, customer demographics, and more.Revenue growth by paid planWorkspacesApr - JunJul - SepPlusProEnterprise$ 2.8M$ 2.4M$ 2.0M$ 1.6M$ 1.2M$ 0.8M$ 0.4MJulyAugustSeptemberARR Contribution+63%Aug 2026ProductProARR ContributionUSD 2,493,651.04May 2026ProductProARR ContributionUSD 1,528,710.36Closed-won deals by MQL typeDealsICPVCSPTtS+3 moreSales pipelineDealsLeads100%Qualification87.6%Contacted65.4%Negotiation44.2%Won12.1%New signups by creation cohortWorkspacesMRR 2023MRR 2024DataReporting"
         },
         "extracted": {
           "shell": {
@@ -747,40 +709,14 @@
             "width": 1245.998,
             "height": 675.874
           },
-          "scaleWrapper": {
-            "x": 217.001,
-            "y": 133.0005,
-            "width": 1245.998,
-            "height": 675.874
-          },
-          "grid": {
-            "x": 217.001,
-            "y": 133.0005,
-            "width": 1245.998,
-            "height": 675.874
-          },
-          "scaleWrapperClass": "h-full w-full",
+          "scaleWrapper": null,
+          "grid": null,
+          "scaleWrapperClass": null,
           "scaleWrapperInlineStyle": null,
-          "scaleWrapperStyles": {
-            "display": "block",
-            "grid-template-columns": "none",
-            "grid-template-rows": "none",
-            "height": "675.875px",
-            "transform": "none",
-            "transform-origin": "623px 337.938px",
-            "width": "1246px"
-          },
-          "gridStyles": {
-            "display": "grid",
-            "grid-template-columns": "272px 974px",
-            "grid-template-rows": "48px 0px 627.875px",
-            "height": "675.875px",
-            "transform": "none",
-            "transform-origin": "623px 337.938px",
-            "width": "1246px"
-          },
-          "elementCount": 451,
-          "text": "BasepointReportsBusiness MetricsAL+1ShareAsk AttioQuick Actions⌘K/HomeNotificationsTasksNotesCallsReportsAutomationsSequencesWorkflowsFavoritesLead workflowsPipelineDealsOutreachLead triageReportsRevenueRecordsPeopleCompaniesRefresh dataAdd reportBusiness MetricsOverview of our sales pipeline, revenue growth, customer demographics, and more.Revenue growth by paid planWorkspacesApr - JunJul - SepPlusProEnterprise$ 2.8M$ 2.4M$ 2.0M$ 1.6M$ 1.2M$ 0.8M$ 0.4MJulyAugustSeptemberARR Contribution+63%Aug 2026ProductProARR ContributionUSD 2,493,651.04May 2026ProductProARR ContributionUSD 1,528,710.36Closed-won deals by MQL typeDealsICPVCSPTtS+3 moreSales pipelineDealsLeads100%Qualification87.6%Contacted65.4%Negotiation44.2%Won12.1%New signups by creation cohortWorkspacesMRR 2023MRR 2024DataReporting"
+          "scaleWrapperStyles": null,
+          "gridStyles": null,
+          "elementCount": 248,
+          "text": "Business Metrics. Overview of our sales pipeline, revenue growth, customer demographics, and more. Revenue growth by paid plan. Closed-won deals by MQL type. Sales pipeline. New signups by creation cohort.BasepointReportsBusiness MetricsAL+1ShareAsk AttioQuick Actions⌘K/HomeNotificationsTasksNotesCallsReportsAutomationsSequencesWorkflowsFavoritesLead workflowsPipelineDealsOutreachLead triageReportsRevenueRecordsPeopleCompaniesDataReporting"
         },
         "naturalized": {
           "shell": {
@@ -795,40 +731,14 @@
             "width": 1245.998,
             "height": 675.874
           },
-          "scaleWrapper": {
-            "x": 217.001,
-            "y": 133.0005,
-            "width": 1245.998,
-            "height": 675.874
-          },
-          "grid": {
-            "x": 217.001,
-            "y": 133.0005,
-            "width": 1245.998,
-            "height": 675.874
-          },
-          "scaleWrapperClass": "h-full w-full",
+          "scaleWrapper": null,
+          "grid": null,
+          "scaleWrapperClass": null,
           "scaleWrapperInlineStyle": null,
-          "scaleWrapperStyles": {
-            "display": "block",
-            "grid-template-columns": "none",
-            "grid-template-rows": "none",
-            "height": "675.875px",
-            "transform": "none",
-            "transform-origin": "623px 337.938px",
-            "width": "1246px"
-          },
-          "gridStyles": {
-            "display": "grid",
-            "grid-template-columns": "272px 974px",
-            "grid-template-rows": "48px 0px 627.875px",
-            "height": "675.875px",
-            "transform": "none",
-            "transform-origin": "623px 337.938px",
-            "width": "1246px"
-          },
-          "elementCount": 451,
-          "text": "BasepointReportsBusiness MetricsAL+1ShareAsk AttioQuick Actions⌘K/HomeNotificationsTasksNotesCallsReportsAutomationsSequencesWorkflowsFavoritesLead workflowsPipelineDealsOutreachLead triageReportsRevenueRecordsPeopleCompaniesRefresh dataAdd reportBusiness MetricsOverview of our sales pipeline, revenue growth, customer demographics, and more.Revenue growth by paid planWorkspacesApr - JunJul - SepPlusProEnterprise$ 2.8M$ 2.4M$ 2.0M$ 1.6M$ 1.2M$ 0.8M$ 0.4MJulyAugustSeptemberARR Contribution+63%Aug 2026ProductProARR ContributionUSD 2,493,651.04May 2026ProductProARR ContributionUSD 1,528,710.36Closed-won deals by MQL typeDealsICPVCSPTtS+3 moreSales pipelineDealsLeads100%Qualification87.6%Contacted65.4%Negotiation44.2%Won12.1%New signups by creation cohortWorkspacesMRR 2023MRR 2024DataReporting"
+          "scaleWrapperStyles": null,
+          "gridStyles": null,
+          "elementCount": 248,
+          "text": "Business Metrics. Overview of our sales pipeline, revenue growth, customer demographics, and more. Revenue growth by paid plan. Closed-won deals by MQL type. Sales pipeline. New signups by creation cohort.BasepointReportsBusiness MetricsAL+1ShareAsk AttioQuick Actions⌘K/HomeNotificationsTasksNotesCallsReportsAutomationsSequencesWorkflowsFavoritesLead workflowsPipelineDealsOutreachLead triageReportsRevenueRecordsPeopleCompaniesDataReporting"
         }
       },
       "artifacts": {

@@ -85,6 +85,7 @@ export * from "./avatar.js";
 export * from "./device-flow.js";
 export * from "./model-pricing.js";
 export * from "./product-analytics.js";
+export { type RepoIdentity, resolveRepoIdentity } from "./repo-identity.js";
 export * from "./safe-url.js";
 export * from "./schemas/analytics.js";
 export * from "./schemas/wrapped-decimal-claim.js";

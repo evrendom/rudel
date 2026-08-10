@@ -58,6 +58,8 @@ const sectionAnchors = async (session) => {
 	);
 	const content = await session.evaluate(
 		`(() => {
+			const main = document.querySelector("body > main");
+			const mainTop = main?.getBoundingClientRect().top ?? 0;
 			const allSections = [...document.querySelectorAll("section")]
 				.filter((node) => !node.parentElement?.closest("section"))
 				.map((node, index) => {
@@ -65,7 +67,7 @@ const sectionAnchors = async (session) => {
 					const style = getComputedStyle(node);
 					return {
 						index,
-						top: rect.top,
+						top: rect.top - mainTop,
 						height: rect.height,
 						label: node.textContent?.trim().replace(/\\s+/g, " ").slice(0, 80) ?? "",
 						display: style.display,
@@ -91,6 +93,42 @@ const sectionAnchors = async (session) => {
 		footerScrollY: stageTop + content.height,
 		allSections: content.allSections,
 	};
+};
+
+const waitForContentSync = async (session) => {
+	const compositionFrame = await session.frameByName("lens-build-live");
+	const contentFrame = await session.frameByName("lens-attio-lens-content-source");
+	let consecutive = 0;
+	for (let attempt = 0; attempt < 40; attempt += 1) {
+		const outer = await session.evaluate(
+			`(() => {
+				const stage = document.querySelector("#lens-attio-lens-content-stage");
+				const frame = document.querySelector("#lens-attio-lens-content-source");
+				return stage && frame ? {
+					stageTop: stage.getBoundingClientRect().top,
+					frameTop: frame.getBoundingClientRect().top,
+				} : null;
+			})()`,
+			{ frameId: compositionFrame.id },
+		);
+		const mainTop = await session.evaluate(
+			'document.querySelector("body > main")?.getBoundingClientRect().top ?? null',
+			{ frameId: contentFrame.id },
+		);
+		const expected = outer ? outer.stageTop - outer.frameTop : null;
+		if (
+			Number.isFinite(expected) &&
+			Number.isFinite(mainTop) &&
+			Math.abs(expected - mainTop) <= 0.05
+		) {
+			consecutive += 1;
+			if (consecutive >= 3) return;
+		} else {
+			consecutive = 0;
+		}
+		await wait(50);
+	}
+	throw new Error("Lens content stage did not reach a stable synchronized offset");
 };
 
 const captureNavbarStates = async ({
@@ -515,7 +553,7 @@ export const captureMatrix = async ({
 				};
 				for (const section of anchors.sections) {
 					await session.scrollTo(section.scrollY);
-					await wait(120);
+					await waitForContentSync(session);
 					await captureShot({
 						session,
 						outputDirectory,
@@ -530,7 +568,7 @@ export const captureMatrix = async ({
 					});
 				}
 				await session.scrollTo(anchors.footerScrollY);
-				await wait(120);
+				await waitForContentSync(session);
 				await captureShot({
 					session,
 					outputDirectory,

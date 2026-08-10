@@ -271,7 +271,7 @@ export class BrowserSession {
 	async completeAperture(targetProgress = 1) {
 		const rootFrame = (await this.frameTree())[0];
 		const apertureExists = await this.evaluate(
-			'Boolean(document.querySelector("#opaline-aperture-mark") || document.querySelector("[data-aperture-curtain]"))',
+			'Boolean(document.querySelector("#opaline-aperture-mark") || document.querySelector("[data-aperture-curtain]") || document.querySelector("[data-aperture-root]"))',
 			{ frameId: rootFrame.id },
 		);
 		if (!apertureExists) return;

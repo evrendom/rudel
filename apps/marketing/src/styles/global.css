@@ -33,29 +33,29 @@ body {
 	background: var(--color-surface);
 }
 
-button,
-a {
+:where(button:not(.opaline-title-button)):not(:where([data-opaline-lens-content] *)),
+:where(a:not(.opaline-title-button)):not(:where([data-opaline-lens-content] *)) {
 	font: inherit;
 }
 
-button {
+:where(button):not(:where([data-opaline-lens-content] *)) {
 	color: inherit;
 }
 
-a {
+:where(a:not(.opaline-title-button)):not(:where([data-opaline-lens-content] *)) {
 	color: inherit;
 	text-decoration: none;
 }
 
-img,
-svg,
-canvas {
+a.opaline-title-button {
+	text-decoration: none;
+}
+
+:where(img, svg, canvas):not(:where([data-opaline-lens-content] *)) {
 	display: block;
 }
 
-button:focus-visible,
-a:focus-visible,
-[tabindex]:focus-visible {
+:where(button, a, [tabindex]):not(:where([data-opaline-lens-content] *)):focus-visible {
 	outline: 2px solid var(--color-focus);
 	outline-offset: 3px;
 }

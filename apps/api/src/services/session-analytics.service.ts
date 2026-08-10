@@ -1,8 +1,9 @@
-import type {
-	DimensionAnalysisInput,
-	SessionAnalytics,
-	SessionAnalyticsSummary as SessionAnalyticsSummaryBase,
-	SessionDetail,
+import {
+	type DimensionAnalysisInput,
+	resolveRepoIdentity,
+	type SessionAnalytics,
+	type SessionAnalyticsSummary as SessionAnalyticsSummaryBase,
+	type SessionDetail,
 } from "@rudel/api-routes";
 import {
 	addOptionalStringEqFilter,
@@ -45,6 +46,7 @@ export interface SessionAnalyticsRaw {
 
 	// Feature arrays
 	subagent_types: string[];
+	subagent_count: number;
 	skills: string[];
 	slash_commands: string[];
 
@@ -115,6 +117,20 @@ export async function getSessionAnalytics(
 	const dateFilter = hasAbsoluteRange
 		? buildInclusiveDateRangeFilter("startDate", "endDate", "sa.session_date")
 		: buildDateFilter("days", "sa.session_date");
+	const claudeSessionDateFilter = hasAbsoluteRange
+		? buildInclusiveDateRangeFilter(
+				"startDate",
+				"endDate",
+				"claude_session.session_date",
+			)
+		: buildDateFilter("days", "claude_session.session_date");
+	const codexSessionDateFilter = hasAbsoluteRange
+		? buildInclusiveDateRangeFilter(
+				"startDate",
+				"endDate",
+				"codex_session.session_date",
+			)
+		: buildDateFilter("days", "codex_session.session_date");
 	const filters: string[] = [];
 	addOptionalStringEqFilter(
 		filters,
@@ -169,6 +185,7 @@ export async function getSessionAnalytics(
       git_branch,
       has_commit,
       subagent_types,
+      toUInt32(ifNull(subagent_usage.subagent_count, 0)) AS subagent_count,
       skills,
       slash_commands,
       success_score,
@@ -176,6 +193,41 @@ export async function getSessionAnalytics(
       model_used,
       used_plan_mode
     FROM rudel.session_analytics AS sa FINAL
+    LEFT JOIN (
+      SELECT
+        organization_id,
+        session_date,
+        session_id,
+        'claude_code' AS source,
+        toUInt32(length(mapKeys(subagents))) AS subagent_count
+      FROM rudel.claude_sessions AS claude_session FINAL
+      WHERE ${claudeSessionDateFilter}
+        AND organization_id = {orgId:String}
+
+      UNION ALL
+
+      SELECT
+        organization_id,
+        session_date,
+        session_id,
+        'codex' AS source,
+        toUInt32(
+          arrayCount(
+            line ->
+              JSONExtractString(line, 'type') = 'response_item'
+              AND JSONExtractString(JSONExtractRaw(line, 'payload'), 'type') = 'function_call'
+              AND endsWith(JSONExtractString(JSONExtractRaw(line, 'payload'), 'name'), 'spawn_agent'),
+            splitByChar('\\n', content)
+          )
+        ) AS subagent_count
+      FROM rudel.codex_sessions AS codex_session FINAL
+      WHERE ${codexSessionDateFilter}
+        AND organization_id = {orgId:String}
+    ) AS subagent_usage
+      ON sa.organization_id = subagent_usage.organization_id
+      AND sa.session_date = subagent_usage.session_date
+      AND sa.session_id = subagent_usage.session_id
+      AND sa.source = subagent_usage.source
     WHERE ${dateFilter}
       AND organization_id = {orgId:String}
       ${filters.length > 0 ? `AND ${filters.join("\n      AND ")}` : ""}
@@ -189,14 +241,20 @@ export async function getSessionAnalytics(
 		query_params,
 	});
 
-	return raw.map(
-		(row): SessionAnalytics => ({
+	return raw.map((row): SessionAnalytics => {
+		const repoIdentity = resolveRepoIdentity({
+			projectPath: row.project_path,
+			gitRemote: row.git_remote || null,
+			packageName: row.package_name || null,
+		});
+
+		return {
 			session_id: row.session_id,
 			user_id: row.user_id,
 			session_date: row.session_date,
 			project_path: row.project_path,
-			repository:
-				row.git_remote || row.package_name || row.project_path || null,
+			repository: repoIdentity.repoLabel,
+			worktree: repoIdentity.worktree,
 			git_remote: row.git_remote || undefined,
 			duration_min: row.actual_duration_min,
 			total_tokens: row.total_tokens,
@@ -206,13 +264,15 @@ export async function getSessionAnalytics(
 			total_interactions: row.total_interactions,
 			avg_period_sec: row.avg_period_sec,
 			subagent_types: row.subagent_types,
+			subagent_count: row.subagent_count,
 			skills: row.skills,
 			slash_commands: row.slash_commands,
 			has_commit: row.has_commit > 0,
 			model_used: row.model_used,
 			used_plan_mode: row.used_plan_mode > 0,
-		}),
-	);
+			error_count: row.error_count,
+		};
+	});
 }
 
 /**

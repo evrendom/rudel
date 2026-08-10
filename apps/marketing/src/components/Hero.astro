@@ -1,12 +1,12 @@
 ---
 // biome-ignore-all lint/correctness/noUnusedImports: Astro components are referenced from template markup.
 import DashboardWindow from "./DashboardWindow.astro";
+import HeroCanvas from "./HeroCanvas.astro";
 import HeroTitle from "./HeroTitle.astro";
 ---
 
 <section class="hero" id="product" data-hero>
-	<div class="canvas-fallback" aria-hidden="true"></div>
-	<canvas class="hero-canvas" data-hero-canvas aria-hidden="true"></canvas>
+	<HeroCanvas />
 	<HeroTitle />
 	<DashboardWindow />
 </section>
@@ -14,62 +14,38 @@ import HeroTitle from "./HeroTitle.astro";
 <style>
 	.hero {
 		position: relative;
-		height: 1271px;
+		height: 1271.578125px;
 		overflow: clip;
 		background: #fff;
 	}
 
-	.canvas-fallback,
-	.hero-canvas {
-		position: absolute;
-		z-index: 0;
-		inset: var(--site-header-height) 0 0;
-		width: 100%;
-		height: calc(100% - var(--site-header-height));
+	@media (min-width: 1024px) and (max-width: 1279px) {
+		.hero {
+			height: calc(1255.578125px + (100vw - 1024px) * 0.0625);
+		}
 	}
 
-	.canvas-fallback {
-		background:
-			repeating-linear-gradient(
-				132deg,
-				transparent 0,
-				transparent 82px,
-				rgba(142, 213, 111, 0.38) 83px,
-				rgba(255, 205, 109, 0.38) 84px,
-				rgba(251, 130, 167, 0.34) 85px,
-				transparent 86px,
-				transparent 132px
-			),
-			radial-gradient(circle at 48% 48%, #fff 0 12%, rgba(255, 255, 255, 0.82) 38%, transparent 72%);
+	@media (min-width: 1280px) and (max-width: 1439px) {
+		.hero {
+			height: calc(1271.578125px + (100vw - 1280px) * 0.31875);
+		}
 	}
 
-	.hero[data-canvas-ready] .canvas-fallback {
-		opacity: 0;
+	@media (min-width: 1440px) {
+		.hero {
+			height: calc(1322.578125px + (100vw - 1440px) * 0.569140625);
+		}
 	}
 
-	.hero-canvas {
-		z-index: 1;
-		pointer-events: none;
+	@media (min-width: 768px) and (max-width: 1023px) {
+		.hero {
+			height: calc(100svh + 349.53125px);
+		}
 	}
 
 	@media (max-width: 767px) {
 		.hero {
-			height: 1010px;
-		}
-
-		.canvas-fallback {
-			background:
-				repeating-linear-gradient(
-					132deg,
-					transparent 0,
-					transparent 96px,
-					rgba(142, 213, 111, 0.4) 97px,
-					rgba(255, 205, 109, 0.36) 98px,
-					rgba(251, 130, 167, 0.3) 99px,
-					transparent 100px,
-					transparent 148px
-				),
-				radial-gradient(circle at 50% 44%, #fff 0 14%, rgba(255, 255, 255, 0.78) 42%, transparent 78%);
+			height: calc(905px + max(0px, (100vw - 430px) * 0.476286765));
 		}
 	}
 </style>

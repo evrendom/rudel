@@ -1,0 +1,8 @@
+---
+// biome-ignore-all lint/correctness/noUnusedImports: Astro uses this import in a set:html directive.
+import { mainHtml } from "./generated/lens-content-source-data";
+import "../styles/vendor/lens/content/source.css";
+import "../styles/vendor/lens/content/source-route.css";
+---
+
+<Fragment set:html={mainHtml} />

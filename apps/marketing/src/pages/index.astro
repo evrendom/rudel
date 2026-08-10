@@ -1,9 +1,8 @@
 ---
 // biome-ignore-all lint/correctness/noUnusedImports: Astro components are referenced from template markup.
 import Aperture from "../components/Aperture.astro";
-import Footer from "../components/Footer.astro";
 import Hero from "../components/Hero.astro";
-import MarketingSections from "../components/MarketingSections.astro";
+import LensContentBranded from "../components/LensContentBranded.astro";
 import Navbar from "../components/Navbar.astro";
 import Layout from "../layouts/Layout.astro";
 ---
@@ -14,14 +13,12 @@ import Layout from "../layouts/Layout.astro";
 		<Navbar />
 		<main>
 			<Hero />
-			<MarketingSections />
 		</main>
-		<Footer />
+		<LensContentBranded />
 	</div>
 
 	<script>
 		import "../scripts/aperture";
-		import "../scripts/hero-canvas";
 		import "../scripts/motion";
 	</script>
 </Layout>

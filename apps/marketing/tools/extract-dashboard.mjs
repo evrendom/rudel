@@ -22,6 +22,80 @@ const artifactRoot = path.resolve(
 	"../../.context/extractions/dashboard",
 );
 
+const reportingPaintAuditExpression = `(() => {
+	const panel = [...document.querySelectorAll("[data-home-hero-preview-tab=Reporting]")]
+		.find((element) => element.getBoundingClientRect().width > 0);
+	if (!(panel instanceof HTMLElement)) return { ready: false, reason: "panel" };
+	const isPainted = (element) => {
+		const bounds = element.getBoundingClientRect();
+		if (bounds.width <= 2 || bounds.height <= 2) return false;
+		for (let current = element; current && current !== panel.parentElement; current = current.parentElement) {
+			const style = getComputedStyle(current);
+			if (style.display === "none" || style.visibility === "hidden" || Number(style.opacity) < 0.9) return false;
+		}
+		return true;
+	};
+	const isColorful = (value) => {
+		const channels = value.match(/[\\d.]+/g)?.map(Number) ?? [];
+		if (channels.length < 3 || (channels.length >= 4 && channels[3] < 0.1)) return false;
+		return Math.max(...channels.slice(0, 3)) - Math.min(...channels.slice(0, 3)) >= 24;
+	};
+	const elements = [...panel.querySelectorAll("*")];
+	const exactTextIsPainted = (text) => {
+		const element = elements.find((candidate) => candidate.textContent?.trim() === text);
+		return Boolean(element && isPainted(element));
+	};
+	const coloredElements = elements.filter((element) => {
+		if (!isPainted(element)) return false;
+		const style = getComputedStyle(element);
+		return [style.backgroundColor, style.borderColor, style.fill, style.stroke].some(isColorful);
+	});
+	const coloredArea = Math.round(coloredElements.reduce((total, element) => {
+		const bounds = element.getBoundingClientRect();
+		return total + Math.min(bounds.width * bounds.height, 100_000);
+	}, 0));
+	const panelBounds = panel.getBoundingClientRect();
+	const panelArea = panelBounds.width * panelBounds.height;
+	const activeAnimations = panel.getAnimations({ subtree: true }).length;
+	const htmlBytes = panel.outerHTML.length;
+	return {
+		ready:
+			exactTextIsPainted("Business Metrics") &&
+			exactTextIsPainted("Revenue growth by paid plan") &&
+			exactTextIsPainted("Closed-won deals by MQL type") &&
+			coloredElements.length >= 400 &&
+			coloredArea >= panelArea * 4 &&
+			htmlBytes >= 180_000 &&
+			activeAnimations === 0,
+		coloredElements: coloredElements.length,
+		coloredArea,
+		panelArea: Math.round(panelArea),
+		htmlBytes,
+		activeAnimations,
+	};
+})()`;
+
+const waitForSettledReporting = async (browserSession) =>
+	browserSession.evaluate(
+		`new Promise((resolve, reject) => {
+			const deadline = performance.now() + 12_000;
+			let stableFrames = 0;
+			let peak = { coloredArea: 0 };
+			const tick = () => {
+				const audit = ${reportingPaintAuditExpression};
+				if (audit.coloredArea > peak.coloredArea) peak = audit;
+				stableFrames = audit.ready ? stableFrames + 1 : 0;
+				if (stableFrames >= 3) return resolve({ ...audit, stableFrames });
+				if (performance.now() >= deadline) {
+					return reject(new Error("Reporting paint predicate timed out: " + JSON.stringify({ audit, peak })));
+				}
+				requestAnimationFrame(tick);
+			};
+			requestAnimationFrame(tick);
+		})`,
+		{ awaitPromise: true },
+	);
+
 const session = await createBrowserSession({
 	url: sourceUrl,
 	width: 1280,
@@ -102,9 +176,9 @@ try {
 	await session.waitFor(
 		'document.querySelector("[data-home-hero-preview-tab]")?.getAttribute("data-home-hero-preview-tab") === "Reporting"',
 	);
-	// The Reporting panel mounts after the tab shell and needs roughly 1 s for its
-	// cell-by-cell reveal to settle. Capture only the stable, fully visible state.
-	await wait(1_200);
+	// The Reporting DOM cycles through several visually blank transition states.
+	// Capture only after the complete painted chart holds for three frames.
+	await waitForSettledReporting(session);
 	const reporting = await session.evaluate(
 		`(() => {
 			const panel = document.querySelector("[data-home-hero-preview-tab]");
@@ -259,7 +333,7 @@ try {
 	await mobileSession.waitFor(
 		'[...document.querySelectorAll("[data-home-hero-preview-tab]")].some((panel) => panel.getBoundingClientRect().width > 0 && panel.getAttribute("data-home-hero-preview-tab") === "Reporting")',
 	);
-	await wait(1_200);
+	await waitForSettledReporting(mobileSession);
 	const mobileReporting = await mobileSession.evaluate(`(() => {
 		const panel = [...document.querySelectorAll("[data-home-hero-preview-tab]")]
 			.find((candidate) => candidate.getBoundingClientRect().width > 0);

@@ -21,6 +21,7 @@ const temporaryCapturePath = fileURLToPath(
 const maximumCaptureBytes = 24 * 1024 * 1024;
 const attioOrigin = "https://attio.com";
 const lensAtomsOrigin = "http://127.0.0.1:4175";
+const opalineApertureSource = `${lensAtomsOrigin}/build/opaline-aperture`;
 const lensAtomsCanvasSource = `${lensAtomsOrigin}/__lens-atoms/hero?opaline-layer=canvas`;
 const interfereTitleSource = `${lensAtomsOrigin}/__lens-atoms/interfere-title`;
 const agentSessionsTitleSource = `${interfereTitleSource}?opaline-copy=agent-sessions`;
@@ -30,11 +31,15 @@ const linearNavbarSource = `${linearNavbarOrigin}/next?opaline-source=navbar`;
 const linearRudelNavbarSource = `${linearNavbarSource}&opaline-links=rudel`;
 const lensAttioRoutes = new Set(["/lens-attio", "/lens-attio/"]);
 const lensAttioLensRoutes = new Set(["/lens-attio-lens", "/lens-attio-lens/"]);
+const lensAttioLensApertureRoutes = new Set([
+	"/lens-attio-lens-aperture",
+	"/lens-attio-lens-aperture/",
+]);
 const attioHeroChunkPath = "/_next/static/chunks/0nbkc_oe2sf1x.js";
 const attioHeroAutoplaySource =
 	"let a=function(e){let[t,a]=(0,c.useState)(Z.HomeUiTabId.askAttio);return(0,c.useEffect)(()=>{if(!e)return;let r=window.setTimeout(()=>{a(e=>{let t;return t=(K.indexOf(e)+1)%K.length,K[t]})},U[t]);return()=>window.clearTimeout(r)},[t,e]),t}(!0);";
 const attioHeroControlledSource =
-	'let a=function(){let[e,a]=(0,c.useState)(()=>window.__opalineAttioScene||Z.HomeUiTabId.askAttio);return(0,c.useEffect)(()=>{let e=e=>{K.includes(e.detail)&&a(e.detail)};return window.addEventListener("opaline-attio-scene",e),()=>window.removeEventListener("opaline-attio-scene",e)},[]),e}();';
+	'let a=function(){let[e,a]=(0,c.useState)(Z.HomeUiTabId.askAttio),r=[Z.HomeUiTabId.data,Z.HomeUiTabId.reporting];return(0,c.useEffect)(()=>{let e=e=>{r.includes(e.detail)&&a(e.detail)},t=window.__opalineAttioScene;return r.includes(t)&&a(t),window.addEventListener("opaline-attio-scene",e),()=>window.removeEventListener("opaline-attio-scene",e)},[]),e}();';
 
 const patchAttioHeroChunk = (source) => {
 	if (!source.includes(attioHeroAutoplaySource)) {
@@ -83,6 +88,13 @@ const lensAttioRouteHeaders = {
 	"cache-control": "no-store",
 	"content-security-policy":
 		"default-src 'none'; frame-src 'self'; style-src 'unsafe-inline'",
+	"content-type": "text/html; charset=utf-8",
+};
+
+const lensAttioApertureRouteHeaders = {
+	"cache-control": "no-store",
+	"content-security-policy":
+		"default-src 'none'; frame-src 'self'; script-src 'unsafe-inline'; style-src 'unsafe-inline'",
 	"content-type": "text/html; charset=utf-8",
 };
 
@@ -732,6 +744,16 @@ const lensAttioLensStyle = `<style data-lens-attio-lens-composition>
 		will-change: transform, scale !important;
 	}
 
+	main > section:first-of-type [data-opaline-dashboard-stage] {
+		padding-top: calc(var(--site-header-height) + 64px) !important;
+		padding-bottom: 16px !important;
+	}
+
+	[data-opaline-scene-controller]:not([data-opaline-scene-ready])
+		[data-home-hero-preview-tab] {
+		opacity: 0 !important;
+	}
+
 	[data-opaline-use-case-strip] {
 		position: absolute;
 		z-index: 25;
@@ -754,19 +776,11 @@ const lensAttioLensStyle = `<style data-lens-attio-lens-composition>
 		pointer-events: auto;
 	}
 
-	[data-opaline-use-case-label] {
-		padding: 0 8px 0 10px;
-		color: rgba(17, 18, 20, 0.46);
-		font-size: 12px;
-		font-weight: 500;
-		line-height: 32px;
-		white-space: nowrap;
-	}
-
 	[data-opaline-use-case-divider] {
+		flex: 0 0 auto;
 		width: 1px;
 		height: 16px;
-		margin-right: 2px;
+		margin: 0 2px;
 		background: rgba(17, 18, 20, 0.1);
 	}
 
@@ -831,11 +845,6 @@ const lensAttioLensStyle = `<style data-lens-attio-lens-composition>
 			display: none;
 		}
 
-		[data-opaline-use-case-label],
-		[data-opaline-use-case-divider] {
-			display: none;
-		}
-
 		[data-opaline-use-case] {
 			height: 36px;
 			padding: 0 12px;
@@ -866,9 +875,7 @@ const lensAttioLensScript = `<script data-lens-attio-lens-composition>
 		let contentScrollScheduled = false;
 		let contentHeight = 4200;
 		const useCaseScenes = [
-			{ id: "Ask Attio", label: "Ask Attio" },
 			{ id: "Data model", label: "Data" },
-			{ id: "Workflows", label: "Workflows" },
 			{ id: "Reporting", label: "Reporting" },
 		];
 		window.__opalineAttioScene ||= useCaseScenes[0].id;
@@ -903,16 +910,16 @@ const lensAttioLensScript = `<script data-lens-attio-lens-composition>
 			const strip = document.createElement("div");
 			strip.dataset.opalineUseCaseStrip = "";
 			strip.setAttribute("aria-label", "Dashboard use case");
-			const label = document.createElement("span");
-			label.dataset.opalineUseCaseLabel = "";
-			label.textContent = "Use case";
-			const divider = document.createElement("span");
-			divider.dataset.opalineUseCaseDivider = "";
-			divider.setAttribute("aria-hidden", "true");
 			const tabs = document.createElement("div");
 			tabs.dataset.opalineUseCaseTabs = "";
 			tabs.setAttribute("role", "tablist");
-			for (const scene of useCaseScenes) {
+			for (const [index, scene] of useCaseScenes.entries()) {
+				if (index > 0) {
+					const divider = document.createElement("span");
+					divider.dataset.opalineUseCaseDivider = "";
+					divider.setAttribute("aria-hidden", "true");
+					tabs.append(divider);
+				}
 				const button = document.createElement("button");
 				button.type = "button";
 				button.dataset.opalineUseCase = scene.id;
@@ -940,7 +947,7 @@ const lensAttioLensScript = `<script data-lens-attio-lens-composition>
 				});
 				tabs.append(button);
 			}
-			strip.append(label, divider, tabs);
+			strip.append(tabs);
 			updateUseCaseStrip(strip);
 			return strip;
 		};
@@ -949,6 +956,11 @@ const lensAttioLensScript = `<script data-lens-attio-lens-composition>
 				'main > section:first-of-type [data-home-hero="attio-window-shell"]',
 			);
 			if (!(shell instanceof HTMLElement)) return;
+			shell.dataset.opalineSceneController = "";
+			const dashboardStage = shell.parentElement?.parentElement;
+			if (dashboardStage instanceof HTMLElement) {
+				dashboardStage.dataset.opalineDashboardStage = "";
+			}
 			let strip = document.querySelector("[data-opaline-use-case-strip]");
 			if (!(strip instanceof HTMLElement)) strip = createUseCaseStrip();
 			if (strip.parentElement !== shell) shell.append(strip);
@@ -956,6 +968,12 @@ const lensAttioLensScript = `<script data-lens-attio-lens-composition>
 			if (panel instanceof HTMLElement) {
 				panel.id = "opaline-attio-use-case-panel";
 				panel.setAttribute("role", "tabpanel");
+				if (
+					panel.getAttribute("data-home-hero-preview-tab") ===
+					window.__opalineAttioScene
+				) {
+					shell.dataset.opalineSceneReady = "";
+				}
 			}
 			updateUseCaseStrip(strip);
 		};
@@ -1191,6 +1209,21 @@ const lensAttioLensRouteHtml = createLensAttioRouteHtml({
 	title: "Lens × Attio × Lens · Opaline",
 });
 
+const composeLensAttioApertureHtml = (html) =>
+	html
+		.replace(
+			/<title>[\s\S]*?<\/title>/i,
+			"<title>Lens × Attio × Lens aperture · Opaline</title>",
+		)
+		.replace(
+			/\s*<link rel="icon" href="\/__opaline\/favicon\.svg" type="image\/svg\+xml">/i,
+			"",
+		)
+		.replace(
+			'src="/build" title="Lens Build inspiration"',
+			'src="/?opaline-composition=lens-attio-lens" title="Opaline agent sessions"',
+		);
+
 const readCaptureBody = async (request) => {
 	const declaredLength = Number.parseInt(
 		request.headers["content-length"] || "0",
@@ -1277,6 +1310,29 @@ const serveAttioDashboardSource = async (request, response) => {
 const serveLensAttioRoute = (request, response, html = lensAttioRouteHtml) => {
 	response.writeHead(200, lensAttioRouteHeaders);
 	response.end(request.method === "HEAD" ? undefined : html);
+};
+
+const serveLensAttioApertureRoute = async (request, response) => {
+	if (request.method === "HEAD") {
+		response.writeHead(200, lensAttioApertureRouteHeaders);
+		response.end();
+		return;
+	}
+	try {
+		const apertureResponse = await fetch(opalineApertureSource, {
+			headers: { accept: "text/html" },
+		});
+		if (!apertureResponse.ok) {
+			throw new Error(`Aperture source returned ${apertureResponse.status}.`);
+		}
+		response.writeHead(200, lensAttioApertureRouteHeaders);
+		response.end(composeLensAttioApertureHtml(await apertureResponse.text()));
+	} catch (error) {
+		response.writeHead(502, { "content-type": "text/plain; charset=utf-8" });
+		response.end(
+			`Aperture route failed: ${error instanceof Error ? error.message : String(error)}\n`,
+		);
+	}
 };
 
 const proxyAttioGet = async (request, response, requestUrl) => {
@@ -1389,6 +1445,14 @@ createServer(async (request, response) => {
 
 	if (
 		["GET", "HEAD"].includes(request.method || "") &&
+		lensAttioLensApertureRoutes.has(requestUrl.pathname)
+	) {
+		await serveLensAttioApertureRoute(request, response);
+		return;
+	}
+
+	if (
+		["GET", "HEAD"].includes(request.method || "") &&
 		lensAttioLensRoutes.has(requestUrl.pathname)
 	) {
 		if (!existsSync(capturePath) || !statSync(capturePath).isFile()) {
@@ -1489,6 +1553,9 @@ createServer(async (request, response) => {
 	console.log(`Lens × Attio: http://127.0.0.1:${port}/lens-attio`);
 	console.log(
 		`Lens × Attio with Lens content: http://127.0.0.1:${port}/lens-attio-lens`,
+	);
+	console.log(
+		`Lens × Attio aperture: http://127.0.0.1:${port}/lens-attio-lens-aperture`,
 	);
 	console.log(`Captures save directly to ${capturePath}`);
 	console.log(

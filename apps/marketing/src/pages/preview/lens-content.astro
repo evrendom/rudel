@@ -1,0 +1,21 @@
+---
+// biome-ignore-all lint/correctness/noUnusedImports: Astro renders imported components from template markup.
+import LensContentExtracted from "../../components/LensContentExtracted.astro";
+import { lensContentPageRoot } from "../../components/generated/lens-content-source-data";
+---
+
+<!doctype html>
+<html
+	lang="en"
+	class={lensContentPageRoot.htmlClass}
+	style={lensContentPageRoot.htmlStyle || undefined}
+>
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>Lens content source preview</title>
+	</head>
+	<body class={lensContentPageRoot.bodyClass}>
+		<LensContentExtracted />
+	</body>
+</html>

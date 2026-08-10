@@ -1,0 +1,28 @@
+---
+// biome-ignore-all lint/correctness/noUnusedImports: Astro renders imported components from template markup.
+import LensContentNaturalized from "../../components/LensContentNaturalized.astro";
+---
+
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>Lens content naturalized preview</title>
+	</head>
+	<body>
+		<LensContentNaturalized />
+	</body>
+</html>
+
+<style is:global>
+	html,
+	body {
+		width: 100%;
+		height: auto;
+		min-height: 0;
+		margin: 0;
+		overflow: hidden;
+		background: #fff;
+	}
+</style>

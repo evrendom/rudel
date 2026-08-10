@@ -1,6 +1,6 @@
 {
   "gate": "G1-dashboard-mobile",
-  "generatedAt": "2026-08-07T19:54:47.119Z",
+  "generatedAt": "2026-08-10T09:10:40.356Z",
   "viewport": {
     "width": 390,
     "height": 844,
@@ -19,8 +19,8 @@
         "width": 390,
         "height": 844,
         "comparedPixels": 329160,
-        "differingPixels": 0,
-        "diffPercent": 0
+        "differingPixels": 9,
+        "diffPercent": 0.0027342325920524974
       },
       "structuralDifferenceCount": 0,
       "structuralDifferences": [],
@@ -37,7 +37,7 @@
       },
       "structuralDifferenceCount": 0,
       "structuralDifferences": [],
-      "excludedTextLayoutFragmentCount": 99
+      "excludedTextLayoutFragmentCount": 0
     }
   ]
 }

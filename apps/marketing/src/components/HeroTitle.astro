@@ -9,7 +9,26 @@ import HeroTitleNaturalized from "./HeroTitleNaturalized.astro";
 
 <style>
 	.hero-title-motion :global([data-opaline-hero-title]) {
+		top: 373.5703125px !important;
 		--atoms-hero-scroll-opacity: calc(1 - var(--title-progress));
 		--atoms-hero-scroll-scale: calc(1 - var(--title-progress) * 0.1);
+	}
+
+	@media (max-width: 767px) {
+		.hero-title-motion :global([data-opaline-hero-title]) {
+			top: 413px !important;
+		}
+	}
+
+	@media (min-width: 768px) and (max-width: 1023px) {
+		.hero-title-motion :global([data-opaline-hero-title]) {
+			top: 453.3203125px !important;
+		}
+	}
+
+	@media (min-width: 1440px) {
+		.hero-title-motion :global([data-opaline-hero-title]) {
+			top: 390.1640625px !important;
+		}
 	}
 </style>

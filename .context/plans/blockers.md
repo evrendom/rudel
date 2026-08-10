@@ -56,3 +56,99 @@ properties by source/clone node index and immediately serialize. If that does no
 hold at all four viewports, replace only the report-visual subtree with a static
 source capture while retaining the owned Attio shell, tab behavior, and accessibility
 tree; that would require ledger approval because it changes implementation form.
+
+## Dashboard Reporting approved fallback and composed-state residual — 2026-08-10
+
+**Status:** The pre-approved Reporting fallback is installed. R6 remains active;
+no further dashboard predicate, responsive, or auxiliary-motion iterations are
+authorized in this run.
+
+### Final fallback result
+
+- Reporting is a breakpoint-specific static source capture inside the owned,
+  interactive Attio shell. Data/Reporting tabs and the accessibility description
+  remain live DOM; only the decorative report visual is rasterized.
+- Desktop G1: Data 0.061621%, Reporting 0%; both have 0 structural differences.
+- Desktop G2: exact 0 pixels / 0 structural differences for both scenes.
+- Mobile G1: Data 0.002734%, Reporting 0%; both have 0 structural differences.
+- Mobile G2: exact 0 pixels / 0 structural differences for both scenes.
+- Responsive tablet: Data 0.038658%, Reporting 0.050551%; G2 exact.
+- Responsive wide: Data 0.069698% and G2 exact; Reporting geometry and G2 exact,
+  but G1 is 0.202687%.
+
+The wide Reporting residual is outside the masked static Reporting panel. It is
+the source Claude terminal's time-dependent typing/paint state advancing during
+the six-second source wait. Three fallback passes were exhausted: body-only static,
+full breakpoint panel, and full breakpoint panel with its raster round-trip mask.
+
+### Fresh composed evidence
+
+- `desktop-top`: 5.771094% pixel difference.
+- `hero-focus`: 8.284180% pixel difference.
+- Report and captures: `.context/gates/composed/dashboard/`.
+
+The composed pair exposed two integration facts:
+
+1. The candidate's auxiliary Claude windows are already visible at the top state;
+   the reference keeps them out until the dashboard-focused state. This is the
+   largest top-state residual and belongs to dashboard motion, so it is recorded
+   under R6 rather than iterated further.
+2. The black `Request a demo` background is source-correct. Its candidate label
+   was incorrectly black/15px because the unlayered global anchor reset overrode
+   the extracted layered 13px/white rule. The integration reset was narrowed and
+   the current audit is 13px, white, with the exact source dimensions.
+
+### Artifacts
+
+- Static captures: `apps/marketing/public/vendor/attio-dashboard/reporting-panel-*-source.png`
+  and `reporting-panel-*-branded.png`.
+- Capture metadata: `.context/extractions/dashboard/reporting-static/metadata.json`.
+- Isolated gates: `.context/gates/dashboard/g1/`, `g2/`, `g1-mobile/`,
+  `g2-mobile/`, `g3/`, and `responsive/`.
+- Composed pair: `.context/gates/composed/dashboard/`.
+
+## Full integration G4 — 2026-08-10
+
+**Status:** R6 triggered after the third consecutive full-page G4 attempt. All
+components are installed on `/`; no fourth G4 tuning or capture pass is authorized
+without an explicit reset.
+
+### Three attempts
+
+1. `.context/gates/g4-fresh-20260810-1210/` exposed two harness/integration defects:
+   transformed section anchors were used as document anchors, and candidate
+   aperture progress was not externally observable.
+2. `.context/gates/g4-final-fresh-20260810-1230/` verified the corrected anchors,
+   aperture state, and responsive hero/content boundary, but still used the
+   viewport center for the extracted title rather than the reference title iframe's
+   responsive center.
+3. `.context/gates/g4-blind-final-20260810-rerun/` is the authoritative final fresh
+   set after the title-slot correction: 96 reference shots, 96 candidate shots,
+   96 comparisons, 0 missing. Strict G4 is false with 36 unapproved paint failures
+   and 49 states carrying the existing dashboard R6 residual.
+
+### Current residuals
+
+- Fresh desktop composed evidence: `desktop-top` 3.559961%; `hero-focus`
+  8.704688%. These are dominated by the dashboard auxiliary Claude windows being
+  visible at rest in the candidate and time-dependent in 4180. Dashboard R6 already
+  forbids another motion pass.
+- All 32 native Lens section comparisons are geometrically aligned but exceed the
+  0.1% pixel threshold (maximum 0.740723%). The reference paints this exact subtree
+  through a translated iframe compositor; the owned candidate paints it natively.
+  The full-page diffs isolate rasterization edges around text and SVGs. The isolated
+  G1 and G2 matrices remain exact 0 pixels / 0 structural differences across all
+  40 states.
+- Aperture-mid is 0.556406–2.318629%. The mask geometry aligns; unsynchronized
+  dynamic canvas phase and composited edge rasterization remain. The canvas's
+  isolated deterministic first-frame gate is exact at all four viewports and its
+  ten-second A/B maximum remains 0.033691%.
+
+### Final evidence
+
+- Gate report: `.context/gates/g4-blind-final-20260810-rerun/report.json`
+- Fresh captures: `.context/gates/g4-blind-final-20260810-rerun/reference/` and
+  `.context/gates/g4-blind-final-20260810-rerun/candidate/`
+- Pixel diffs: `.context/gates/g4-blind-final-20260810-rerun/diff/`
+- Blind review: `.context/gates/g4-blind-final-20260810-rerun/blind-review.html`
+- Labeled review: `.context/gates/g4-blind-final-20260810-rerun/side-by-side.html`

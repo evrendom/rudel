@@ -18,6 +18,7 @@ if (layer && !reducedMotion.matches) {
 	);
 
 	const render = () => {
+		root.dataset.opalineProgress = progress.toFixed(6);
 		const scale = Math.exp(Math.log(finalScale) * progress);
 		layer.style.setProperty("--aperture-size", `${48 * scale}px`);
 		layer.style.setProperty("--aperture-hole", `${13.4 * scale}px`);
@@ -35,6 +36,7 @@ if (layer && !reducedMotion.matches) {
 
 	const finish = () => {
 		progress = 1;
+		root.dataset.opalineProgress = "1";
 		chroma = 0;
 		render();
 		removeControls();

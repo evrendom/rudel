@@ -3,26 +3,126 @@ import { getSessionTimestamp } from "@/features/sessions/session-ordering";
 import { calculateCost, formatUsername } from "@/lib/format";
 
 export const SESSION_OVERVIEW_GRID_CLASS_NAME =
-	"grid-cols-[250px_215px_288px_200px_150px_120px_140px_180px]";
-export const SESSION_OVERVIEW_MIN_WIDTH_CLASS_NAME = "min-w-[1543px]";
+	"grid-cols-[80px_288px_215px_200px_150px_150px_170px_180px_140px_320px]";
+export const SESSION_OVERVIEW_MIN_WIDTH_CLASS_NAME = "min-w-[1893px]";
+export const SESSION_OVERVIEW_SECOND_FROZEN_COLUMN_LEFT_CLASS_NAME =
+	"left-[80px]";
 export const SESSION_OVERVIEW_COLUMNS = [
-	{ align: "left", key: "session", label: "Session" },
-	{ align: "left", key: "user", label: "User" },
+	{ align: "left", key: "time", label: "Date" },
 	{ align: "left", key: "repository", label: "Repository" },
+	{ align: "left", key: "user", label: "Member" },
 	{ align: "left", key: "model", label: "Model" },
 	{ align: "right", key: "tokens", label: "Tokens" },
 	{ align: "right", key: "cost", label: "Cost" },
+	{ align: "right", key: "subagents", label: "Subagents Used" },
+	{ align: "right", key: "errors", label: "Tool/API Errors" },
 	{ align: "right", key: "duration", label: "Duration" },
-	{ align: "right", key: "time", label: "Time" },
+	{ align: "left", key: "skills", label: "Skills Used" },
 ] as const;
 
 export type SessionOverviewColumnKey =
 	(typeof SESSION_OVERVIEW_COLUMNS)[number]["key"];
+export const SESSION_OVERVIEW_FILTER_KEYS = [
+	"repository",
+	"user",
+	"model",
+] as const;
+export type SessionOverviewFilterKey =
+	(typeof SESSION_OVERVIEW_FILTER_KEYS)[number];
+export const SESSION_OVERVIEW_FILTER_DIMENSIONS = [
+	...SESSION_OVERVIEW_FILTER_KEYS,
+	"worktree",
+] as const;
+export type SessionOverviewFilterDimensionKey =
+	(typeof SESSION_OVERVIEW_FILTER_DIMENSIONS)[number];
+export type SessionOverviewWorktreeFilterOption = {
+	label: string;
+	value: string;
+};
+export type SessionOverviewFilterOption = {
+	label: string;
+	value: string;
+	worktrees: readonly SessionOverviewWorktreeFilterOption[];
+};
+export type SessionOverviewExcludedFilterValues = Record<
+	SessionOverviewFilterDimensionKey,
+	ReadonlySet<string>
+>;
 export type SortDirection = "asc" | "desc";
 export type SessionSortState = {
 	key: SessionOverviewColumnKey;
 	direction: SortDirection;
 };
+
+export function isSessionOverviewFilterKey(
+	columnKey: SessionOverviewColumnKey,
+): columnKey is SessionOverviewFilterKey {
+	return SESSION_OVERVIEW_FILTER_KEYS.some(
+		(filterKey) => filterKey === columnKey,
+	);
+}
+
+export function buildSessionOverviewFilterOptions(
+	sessions: readonly SessionAnalytics[],
+	filterKey: SessionOverviewFilterKey,
+	userMap: Record<string, string>,
+) {
+	const labelsByValue = new Map<string, string>();
+	const worktreesByRepository = new Map<string, Map<string, string>>();
+
+	for (const session of sessions) {
+		const value = getSessionOverviewFilterValue(session, filterKey);
+		labelsByValue.set(
+			value,
+			getSessionOverviewFilterLabel(session, filterKey, userMap),
+		);
+
+		if (filterKey === "repository" && session.worktree) {
+			const repositoryWorktrees =
+				worktreesByRepository.get(value) ?? new Map<string, string>();
+			repositoryWorktrees.set(
+				getWorktreeFilterValue(value, session.worktree),
+				session.worktree,
+			);
+			worktreesByRepository.set(value, repositoryWorktrees);
+		}
+	}
+
+	return [...labelsByValue.entries()]
+		.map(
+			([value, label]): SessionOverviewFilterOption => ({
+				label,
+				value,
+				worktrees: buildWorktreeFilterOptions(worktreesByRepository.get(value)),
+			}),
+		)
+		.sort(
+			(leftOption, rightOption) =>
+				compareSessionLabels(leftOption.label, rightOption.label) ||
+				compareSessionLabels(leftOption.value, rightOption.value),
+		);
+}
+
+export function matchesSessionOverviewFilters(
+	session: SessionAnalytics,
+	excludedFilterValues: SessionOverviewExcludedFilterValues,
+) {
+	const matchesTopLevelFilters = SESSION_OVERVIEW_FILTER_KEYS.every(
+		(filterKey) =>
+			!excludedFilterValues[filterKey].has(
+				getSessionOverviewFilterValue(session, filterKey),
+			),
+	);
+	const worktreeFilterValue = session.worktree
+		? getWorktreeFilterValue(getRepositoryLabel(session), session.worktree)
+		: null;
+
+	return (
+		matchesTopLevelFilters &&
+		(worktreeFilterValue === null ||
+			!excludedFilterValues.worktree.has(worktreeFilterValue))
+	);
+}
 
 export function compareSessions(
 	leftSession: SessionAnalytics,
@@ -31,11 +131,6 @@ export function compareSessions(
 	userMap: Record<string, string>,
 ) {
 	switch (sortKey) {
-		case "session":
-			return compareSessionLabels(
-				leftSession.session_id,
-				rightSession.session_id,
-			);
 		case "user":
 			return compareSessionLabels(
 				formatUsername(leftSession.user_id, userMap),
@@ -51,6 +146,10 @@ export function compareSessions(
 				leftSession.model_used,
 				rightSession.model_used,
 			);
+		case "skills":
+			return leftSession.skills.length - rightSession.skills.length;
+		case "subagents":
+			return leftSession.subagent_count - rightSession.subagent_count;
 		case "tokens":
 			return leftSession.total_tokens - rightSession.total_tokens;
 		case "cost":
@@ -66,6 +165,8 @@ export function compareSessions(
 					rightSession.model_used,
 				)
 			);
+		case "errors":
+			return leftSession.error_count - rightSession.error_count;
 		case "duration":
 			return leftSession.duration_min - rightSession.duration_min;
 		case "time":
@@ -80,8 +181,11 @@ export function getInitialSortDirection(
 	sortKey: SessionOverviewColumnKey,
 ): SortDirection {
 	switch (sortKey) {
+		case "skills":
+		case "subagents":
 		case "tokens":
 		case "cost":
+		case "errors":
 		case "duration":
 		case "time":
 			return "desc";
@@ -91,20 +195,61 @@ export function getInitialSortDirection(
 }
 
 export function getRepositoryLabel(session: SessionAnalytics) {
-	const primaryPath = session.repository || session.project_path;
-	const segments = primaryPath.split("/").filter(Boolean);
-
-	if (segments.length === 0) {
-		return "Untitled project";
-	}
-
-	return segments.slice(-2).join("/");
+	return session.repository || "Untitled project";
 }
 
-export function getSessionIdentifier(sessionId: string) {
-	const identifier =
-		sessionId.split("-")[0]?.slice(0, 8) || sessionId.slice(0, 8);
-	return identifier.toUpperCase();
+function getSessionOverviewFilterValue(
+	session: SessionAnalytics,
+	filterKey: SessionOverviewFilterKey,
+) {
+	switch (filterKey) {
+		case "repository":
+			return getRepositoryLabel(session);
+		case "user":
+			return session.user_id;
+		case "model":
+			return session.model_used;
+	}
+}
+
+function buildWorktreeFilterOptions(
+	worktreeLabelsByValue: ReadonlyMap<string, string> | undefined,
+): readonly SessionOverviewWorktreeFilterOption[] {
+	if (!worktreeLabelsByValue || worktreeLabelsByValue.size <= 1) {
+		return [];
+	}
+
+	return [...worktreeLabelsByValue.entries()]
+		.map(
+			([value, label]): SessionOverviewWorktreeFilterOption => ({
+				label,
+				value,
+			}),
+		)
+		.sort(
+			(leftOption, rightOption) =>
+				compareSessionLabels(leftOption.label, rightOption.label) ||
+				compareSessionLabels(leftOption.value, rightOption.value),
+		);
+}
+
+function getWorktreeFilterValue(repository: string, worktree: string) {
+	return `${repository}/${worktree}`;
+}
+
+function getSessionOverviewFilterLabel(
+	session: SessionAnalytics,
+	filterKey: SessionOverviewFilterKey,
+	userMap: Record<string, string>,
+) {
+	switch (filterKey) {
+		case "repository":
+			return getRepositoryLabel(session);
+		case "user":
+			return formatUsername(session.user_id, userMap);
+		case "model":
+			return session.model_used;
+	}
 }
 
 export function compareSessionLabels(leftValue: string, rightValue: string) {

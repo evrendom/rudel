@@ -1,0 +1,76 @@
+<div class="hero-canvas-stage" data-hero-canvas-stage aria-hidden="true">
+	<div class="hero-canvas-viewport">
+		<picture>
+			<source
+				media="(max-width: 767px)"
+				srcset="/vendor/lens-canvas/hero-poster-phone.png"
+			/>
+			<source
+				media="(max-width: 1023px)"
+				srcset="/vendor/lens-canvas/hero-poster-tablet.png"
+			/>
+			<source
+				media="(min-width: 1440px)"
+				srcset="/vendor/lens-canvas/hero-poster-wide.png"
+			/>
+			<img
+				class="hero-canvas-poster"
+				src="/vendor/lens-canvas/hero-poster-desktop.png"
+				alt=""
+				width="1280"
+				height="800"
+				fetchpriority="high"
+				decoding="async"
+			/>
+		</picture>
+		<canvas class="hero-canvas" data-hero-canvas></canvas>
+	</div>
+</div>
+
+<script>
+	import "../scripts/hero-canvas";
+</script>
+
+<style>
+	.hero-canvas-stage {
+		position: absolute;
+		z-index: 0;
+		inset: 0;
+		pointer-events: none;
+	}
+
+	.hero-canvas-viewport {
+		position: sticky;
+		top: 0;
+		width: 100%;
+		height: 100svh;
+		overflow: hidden;
+		background: #fff;
+	}
+
+	.hero-canvas,
+	.hero-canvas-viewport picture,
+	.hero-canvas-poster {
+		position: absolute;
+		inset: 0;
+		display: block;
+		width: 100%;
+		height: 100%;
+	}
+
+	.hero-canvas-poster {
+		object-fit: fill;
+	}
+
+	.hero-canvas {
+		opacity: 0;
+	}
+
+	.hero-canvas-stage[data-canvas-ready] .hero-canvas {
+		opacity: 1;
+	}
+
+	.hero-canvas-stage[data-canvas-ready] .hero-canvas-poster {
+		opacity: 0;
+	}
+</style>

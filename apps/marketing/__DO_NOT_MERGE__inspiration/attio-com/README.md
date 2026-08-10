@@ -61,6 +61,18 @@ vertical motion and draggable auxiliary windows. Once the hero ends, the page
 continues through Lens's captured content beginning at “All-in-One Lens” and
 ending with the Lens footer; Attio's remaining homepage sections are omitted.
 
+The same composition with the Opaline aperture reveal as its entry point is
+available at:
+
+```text
+http://127.0.0.1:4180/lens-attio-lens-aperture
+```
+
+The route reuses the aperture component served by the Lens reference, but
+reveals the combined Lens × Attio × Lens composition directly. After the mark
+expands beyond the viewport, the transition layer releases pointer events and
+the underlying page behaves exactly like `/lens-attio-lens`.
+
 ## Refresh the capture
 
 1. Keep the local receiver running.

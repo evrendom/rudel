@@ -258,6 +258,16 @@ mask, same poster fallback. Record which path shipped in this file.
 
 Either way, the canvas owns only its own pixels and never touches scroll state.
 
+**Implementation record — 2026-08-10:** the primary owned WebGL2 path shipped on
+the first bounded gate attempt; the video fallback was not used. The source terrain
+buffer, shader program, camera matrices, blend state, and color handling were
+captured from the local 4175 source. First-frame G1 is exact (0 differing pixels) at
+390×844, 768×1024, 1280×800, and 1680×1050. The controlled 10 s A/B recording has
+a maximum 0.033691% frame difference; 19 of 20 sampled frames are exact 0.
+Artifacts: `.context/gates/hero-canvas/g1/`,
+`.context/gates/hero-canvas/recording/`, and
+`.context/extractions/canvas/program-trace.json`.
+
 ## 10. Integration, audit, ship
 
 1. Assemble into `src/pages/index.astro`. **Gate G4:** full-page §5 matrix (both

@@ -6,6 +6,7 @@ import {
 	DimensionAnalysisInputSchema,
 	HistoricalSkillDetailInputSchema,
 	RecurringErrorsInputSchema,
+	SessionAnalyticsSchema,
 	SessionDetailInputSchema,
 	SessionListInputSchema,
 } from "../schemas/analytics.js";
@@ -98,5 +99,49 @@ describe("analytics input schemas", () => {
 		expect(RecurringErrorsInputSchema.safeParse({ limit: 1001 }).success).toBe(
 			false,
 		);
+	});
+});
+
+describe("analytics output schemas", () => {
+	const sessionCountMetricsSchema = SessionAnalyticsSchema.pick({
+		error_count: true,
+		subagent_count: true,
+	});
+
+	test("accepts nonnegative integer session count metrics", () => {
+		expect(
+			sessionCountMetricsSchema.parse({
+				error_count: 3,
+				subagent_count: 2,
+			}),
+		).toEqual({
+			error_count: 3,
+			subagent_count: 2,
+		});
+		expect(
+			sessionCountMetricsSchema.safeParse({
+				error_count: -1,
+				subagent_count: 2,
+			}).success,
+		).toBe(false);
+		expect(
+			sessionCountMetricsSchema.safeParse({
+				error_count: 1.5,
+				subagent_count: 2,
+			}).success,
+		).toBe(false);
+		expect(
+			sessionCountMetricsSchema.safeParse({
+				error_count: 0,
+				subagent_count: -1,
+			}).success,
+		).toBe(false);
+	});
+
+	test("accepts nullable worktree metadata", () => {
+		expect(SessionAnalyticsSchema.shape.worktree.parse("podgorica")).toBe(
+			"podgorica",
+		);
+		expect(SessionAnalyticsSchema.shape.worktree.parse(null)).toBeNull();
 	});
 });

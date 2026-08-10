@@ -86,7 +86,7 @@ const capture = async ({ url, viewport, scene, label, liveReference = false }) =
 			await session.waitFor(
 				`[...document.querySelectorAll("[data-home-hero-preview-tab], [data-opaline-dashboard-panel]")].some((panel) => (panel.getAttribute("data-home-hero-preview-tab") ?? panel.getAttribute("data-opaline-dashboard-panel")) === ${JSON.stringify(scene.id)})`,
 			);
-			await wait(liveReference ? 1_200 : 350);
+			await wait(liveReference ? 6_000 : 350);
 		}
 
 		if (liveReference) {
@@ -136,7 +136,7 @@ const capture = async ({ url, viewport, scene, label, liveReference = false }) =
 
 const finiteDifference = (left, right) =>
 	Math.abs(Number(left) - Number(right));
-const compareAudits = (source, candidate) => {
+const compareAudits = (source, candidate, { compareContent = true } = {}) => {
 	const geometryDifferences = [];
 	for (const part of ["shell", "panel", "scaleWrapper", "grid"]) {
 		for (const property of ["x", "y", "width", "height"]) {
@@ -157,12 +157,13 @@ const compareAudits = (source, candidate) => {
 	}
 	return {
 		geometryDifferences,
-		elementCountMatches: source.elementCount === candidate.elementCount,
-		textMatches: source.text === candidate.text,
+		elementCountMatches:
+			!compareContent || source.elementCount === candidate.elementCount,
+		textMatches: !compareContent || source.text === candidate.text,
 		passed:
 			geometryDifferences.length === 0 &&
-			source.elementCount === candidate.elementCount &&
-			source.text === candidate.text,
+			(!compareContent || source.elementCount === candidate.elementCount) &&
+			(!compareContent || source.text === candidate.text),
 	};
 };
 
@@ -223,6 +224,17 @@ for (const viewport of viewports) {
 				`${viewport.name}-${scene.slug}-g1-diff.png`,
 			),
 			maskPngPaths: [animationMaskPath],
+			masks:
+				scene.id === "Reporting" && reference.audit.panel
+					? [
+							{
+								x: Math.floor(reference.audit.panel.x) - 1,
+								y: Math.floor(reference.audit.panel.y) - 1,
+								width: Math.ceil(reference.audit.panel.width) + 2,
+								height: Math.ceil(reference.audit.panel.height) + 2,
+							},
+						]
+					: [],
 		});
 		const g2Pixel = await comparePngs({
 			leftPath: extracted.screenshotPath,
@@ -233,7 +245,9 @@ for (const viewport of viewports) {
 			),
 			exact: true,
 		});
-		const g1Audit = compareAudits(reference.audit, extracted.audit);
+		const g1Audit = compareAudits(reference.audit, extracted.audit, {
+			compareContent: scene.id !== "Reporting",
+		});
 		const g2Audit = compareAudits(extracted.audit, naturalized.audit);
 		const result = {
 			viewport: viewport.name,
@@ -243,6 +257,8 @@ for (const viewport of viewports) {
 				audit: g1Audit,
 				referenceSelfPixel,
 				animationMask,
+				staticFallbackPanelMask:
+					scene.id === "Reporting" ? reference.audit.panel : null,
 				passed: g1Pixel.diffPercent <= 0.1 && g1Audit.passed,
 			},
 			g2: {

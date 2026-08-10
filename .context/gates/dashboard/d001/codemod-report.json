@@ -1,6 +1,6 @@
 {
   "gate": "D-003-dashboard-removals",
-  "generatedAt": "2026-08-07T20:03:29.535Z",
+  "generatedAt": "2026-08-10T09:09:50.821Z",
   "passed": true,
   "whitelist": [
     "Ask Attio",
@@ -65,8 +65,8 @@
     {
       "field": "reportingPanelHtml",
       "label": "Ask Attio",
-      "start": 11964,
-      "end": 13427,
+      "start": 12718,
+      "end": 14181,
       "bytes": 1463,
       "sha256": "fa19a1c03116bb169f7f81c5a6b47c6f8de50ba0ffafcd783b940d035bfc28aa",
       "html": "<div class=\"flex h-[14px] shrink-0 items-center justify-center gap-[2px] overflow-clip rounded-[4px] border border-[rgba(255,255,255,0)] bg-white-100 px-[3.5px] shadow-[0px_0px_2px_0px_rgba(28,40,64,0.18),0px_1px_3px_0px_rgba(0,0,0,0.04)] lg:h-[28px] lg:gap-[4px] lg:rounded-[8px] lg:px-[7px]\"><svg class=\"size-[7px] text-[#242629] lg:size-[14px]\" width=\"14\" height=\"14\" viewBox=\"0 0 14 14\" fill=\"none\"><g clip-path=\"url(#clip0_7940_5855)\"><path fill-rule=\"evenodd\" clip-rule=\"evenodd\" d=\"M6.99902 0.499023C10.5889 0.499023 13.499 3.40917 13.499 6.99902C13.499 10.5889 10.5889 13.499 6.99902 13.499H1.76953C0.681791 13.499 0.154951 12.1679 0.948242 11.4238L1.68164 10.7354C0.937568 9.67818 0.499023 8.3896 0.499023 6.99902C0.499023 3.40917 3.40917 0.499023 6.99902 0.499023ZM6.99902 1.49902C3.96146 1.49902 1.49902 3.96146 1.49902 6.99902C1.49902 8.31914 1.96339 9.52961 2.73828 10.4775L3.03418 10.8389L2.69336 11.1582L1.63281 12.1533C1.50054 12.2773 1.58822 12.499 1.76953 12.499H6.99902C10.0366 12.499 12.499 10.0366 12.499 6.99902C12.499 3.96146 10.0366 1.49902 6.99902 1.49902Z\" fill=\"currentColor\"></path></g><defs><clipPath id=\"clip0_7940_5855\"><rect width=\"14\" height=\"14\" fill=\"white\"></rect></clipPath></defs></svg><div class=\"flex shrink-0 items-center justify-center px-[0.5px] lg:px-px\"><span class=\"font-medium text-[7px] leading-[10px] tracking-[-0.14px] lg:text-[14px] lg:leading-5 lg:tracking-[-0.28px] text-[#242629]\">Ask Attio</span></div></div>"
@@ -74,8 +74,8 @@
     {
       "field": "reportingPanelHtml",
       "label": "Workflows",
-      "start": 35178,
-      "end": 35918,
+      "start": 35932,
+      "end": 36672,
       "bytes": 740,
       "sha256": "e8b8b34804be7d6e3d23d5f73fd8a834bd4890e3e84b9f9c92e6298a34af27d9",
       "html": "<div class=\"flex h-[14px] items-center gap-[3px] rounded-[4.5px] px-[4px] lg:h-[28px] lg:gap-[6px] lg:rounded-[9px] lg:px-[8px] transition-colors duration-500 ease-in-cubic\"><svg class=\"size-[7px] shrink-0 lg:size-[14px]\" viewBox=\"0 0 14 14\" fill=\"none\"><g stroke=\"#5C5E63\" stroke-width=\"1.1\" stroke-linecap=\"round\"><rect x=\"1.5\" y=\"1.5\" width=\"4.5\" height=\"4.5\" rx=\"1.5\" stroke-linejoin=\"round\"></rect><rect x=\"8\" y=\"8\" width=\"4.5\" height=\"4.5\" rx=\"2.25\" stroke-linejoin=\"round\"></rect><path d=\"M2.5 8v1A2.5 2.5 0 0 0 5 11.5h1M11.5 6V5A2.5 2.5 0 0 0 9 2.5H8\"></path></g></svg><span class=\"font-medium text-[#242629] text-[7px] leading-[10px] tracking-[-0.14px] lg:text-[14px] lg:leading-[20px] lg:tracking-[-0.28px]\">Workflows</span></div>"
@@ -101,8 +101,8 @@
     {
       "field": "mobileReportingHtml",
       "label": "Ask Attio",
-      "start": 12484,
-      "end": 13947,
+      "start": 13238,
+      "end": 14701,
       "bytes": 1463,
       "sha256": "fa19a1c03116bb169f7f81c5a6b47c6f8de50ba0ffafcd783b940d035bfc28aa",
       "html": "<div class=\"flex h-[14px] shrink-0 items-center justify-center gap-[2px] overflow-clip rounded-[4px] border border-[rgba(255,255,255,0)] bg-white-100 px-[3.5px] shadow-[0px_0px_2px_0px_rgba(28,40,64,0.18),0px_1px_3px_0px_rgba(0,0,0,0.04)] lg:h-[28px] lg:gap-[4px] lg:rounded-[8px] lg:px-[7px]\"><svg class=\"size-[7px] text-[#242629] lg:size-[14px]\" width=\"14\" height=\"14\" viewBox=\"0 0 14 14\" fill=\"none\"><g clip-path=\"url(#clip0_7940_5855)\"><path fill-rule=\"evenodd\" clip-rule=\"evenodd\" d=\"M6.99902 0.499023C10.5889 0.499023 13.499 3.40917 13.499 6.99902C13.499 10.5889 10.5889 13.499 6.99902 13.499H1.76953C0.681791 13.499 0.154951 12.1679 0.948242 11.4238L1.68164 10.7354C0.937568 9.67818 0.499023 8.3896 0.499023 6.99902C0.499023 3.40917 3.40917 0.499023 6.99902 0.499023ZM6.99902 1.49902C3.96146 1.49902 1.49902 3.96146 1.49902 6.99902C1.49902 8.31914 1.96339 9.52961 2.73828 10.4775L3.03418 10.8389L2.69336 11.1582L1.63281 12.1533C1.50054 12.2773 1.58822 12.499 1.76953 12.499H6.99902C10.0366 12.499 12.499 10.0366 12.499 6.99902C12.499 3.96146 10.0366 1.49902 6.99902 1.49902Z\" fill=\"currentColor\"></path></g><defs><clipPath id=\"clip0_7940_5855\"><rect width=\"14\" height=\"14\" fill=\"white\"></rect></clipPath></defs></svg><div class=\"flex shrink-0 items-center justify-center px-[0.5px] lg:px-px\"><span class=\"font-medium text-[7px] leading-[10px] tracking-[-0.14px] lg:text-[14px] lg:leading-5 lg:tracking-[-0.28px] text-[#242629]\">Ask Attio</span></div></div>"
@@ -110,11 +110,12 @@
     {
       "field": "mobileReportingHtml",
       "label": "Workflows",
-      "start": 35698,
-      "end": 36438,
+      "start": 36452,
+      "end": 37192,
       "bytes": 740,
       "sha256": "e8b8b34804be7d6e3d23d5f73fd8a834bd4890e3e84b9f9c92e6298a34af27d9",
       "html": "<div class=\"flex h-[14px] items-center gap-[3px] rounded-[4.5px] px-[4px] lg:h-[28px] lg:gap-[6px] lg:rounded-[9px] lg:px-[8px] transition-colors duration-500 ease-in-cubic\"><svg class=\"size-[7px] shrink-0 lg:size-[14px]\" viewBox=\"0 0 14 14\" fill=\"none\"><g stroke=\"#5C5E63\" stroke-width=\"1.1\" stroke-linecap=\"round\"><rect x=\"1.5\" y=\"1.5\" width=\"4.5\" height=\"4.5\" rx=\"1.5\" stroke-linejoin=\"round\"></rect><rect x=\"8\" y=\"8\" width=\"4.5\" height=\"4.5\" rx=\"2.25\" stroke-linejoin=\"round\"></rect><path d=\"M2.5 8v1A2.5 2.5 0 0 0 5 11.5h1M11.5 6V5A2.5 2.5 0 0 0 9 2.5H8\"></path></g></svg><span class=\"font-medium text-[#242629] text-[7px] leading-[10px] tracking-[-0.14px] lg:text-[14px] lg:leading-[20px] lg:tracking-[-0.28px]\">Workflows</span></div>"
     }
-  ]
+  ],
+  "reportingStaticVisualSwaps": 8
 }

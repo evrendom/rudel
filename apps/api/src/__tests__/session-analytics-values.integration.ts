@@ -1,4 +1,5 @@
 import { afterAll, describe, expect, test } from "bun:test";
+import assert from "node:assert";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { getAdapter } from "@rudel/agent-adapters";
@@ -7,6 +8,7 @@ import {
 	createClickHouseExecutor,
 	getSafeClickHouseTable,
 } from "../clickhouse.js";
+import { getSessionAnalytics } from "../services/session-analytics.service.js";
 
 /**
  * Value assertions for the session_analytics materialized views.
@@ -60,6 +62,31 @@ function assistantLine(
 	});
 }
 
+function taskLine(at: string, id: string, subagentType: string): string {
+	return JSON.stringify({
+		type: "assistant",
+		timestamp: at,
+		message: {
+			id,
+			model: "claude-sonnet-4-5",
+			usage: {
+				input_tokens: 0,
+				output_tokens: 0,
+				cache_read_input_tokens: 0,
+				cache_creation_input_tokens: 0,
+			},
+			content: [
+				{
+					type: "tool_use",
+					id: `${id}_tool`,
+					name: "Task",
+					input: { subagent_type: subagentType },
+				},
+			],
+		},
+	});
+}
+
 const USAGE_A = {
 	input_tokens: 100,
 	output_tokens: 20,
@@ -80,6 +107,26 @@ function claudeTranscript(): string {
 		assistantLine("2026-05-04T10:00:10.000Z", "msg_a", USAGE_A),
 		userLine("2026-05-04T10:00:20.000Z", "second prompt"),
 		assistantLine("2026-05-04T10:00:30.000Z", "msg_b", USAGE_B),
+	].join("\n");
+}
+
+function claudeTranscriptWithToolApiError(): string {
+	const startedAt = Date.now();
+	const at = (offsetMs: number) => new Date(startedAt + offsetMs).toISOString();
+
+	return [
+		userLine(at(0), "first prompt"),
+		assistantLine(at(10_000), "msg_a", USAGE_A),
+		userLine(at(20_000), "second prompt"),
+		assistantLine(at(30_000), "msg_b", USAGE_B),
+		taskLine(at(35_000), "msg_task_a", "reviewer"),
+		taskLine(at(36_000), "msg_task_b", "tester"),
+		JSON.stringify({
+			type: "user",
+			timestamp: at(40_000),
+			isApiErrorMessage: true,
+			message: { role: "user", content: "Tool request failed" },
+		}),
 	].join("\n");
 }
 
@@ -121,6 +168,7 @@ const EXPECTED = {
 interface AnalyticsRow {
 	session_id: string;
 	source: string;
+	error_count: string | number;
 	input_tokens: string | number;
 	output_tokens: string | number;
 	cache_read_input_tokens: string | number;
@@ -153,22 +201,26 @@ async function readAnalytics(
 	timeoutMs = 60000,
 ): Promise<AnalyticsRow[]> {
 	const deadline = Date.now() + timeoutMs;
+	let lastError: unknown;
 	let rows: AnalyticsRow[] = [];
 	while (Date.now() < deadline) {
 		try {
 			rows = await executor.query<AnalyticsRow>({
-				query: `SELECT session_id, source, input_tokens, output_tokens,
+				query: `SELECT session_id, source, error_count,
+				               input_tokens, output_tokens,
 				               cache_read_input_tokens, cache_creation_input_tokens, total_tokens
 				        FROM ${getSafeClickHouseTable("rudel.session_analytics")} FINAL
 				        WHERE organization_id = {orgId:String} AND session_id = {sessionId:String}`,
 				query_params: { orgId: ORG_ID, sessionId },
 			});
 			if (rows.length >= expectedRows) return rows;
-		} catch {
+		} catch (error) {
 			// transient — retry
+			lastError = error;
 		}
 		await new Promise((r) => setTimeout(r, 2000));
 	}
+	if (lastError) throw lastError;
 	return rows;
 }
 
@@ -218,6 +270,62 @@ describe("session_analytics computed values", () => {
 		);
 		expect(num(row.total_tokens)).toBe(EXPECTED.total_tokens);
 		expect(row.source).toBe("claude_code");
+	}, 180000);
+
+	test("resolves Conductor workspaces to repository and worktree metadata", async () => {
+		const sessionId = `values_conductor_repo_${runId}`;
+		const projectPath =
+			"/Users/x/conductor/workspaces/rudel-v2/podgorica/apps/web";
+		await ingest({
+			source: "claude_code",
+			sessionId,
+			projectPath,
+			content: claudeTranscriptWithToolApiError(),
+		});
+
+		await readAnalytics(sessionId);
+		const sessions = await getSessionAnalytics(ORG_ID, {
+			days: 1,
+			limit: 1_000,
+			project_path: projectPath,
+		});
+		const listedSession = sessions.find(
+			(session) => session.session_id === sessionId,
+		);
+		assert(listedSession);
+		expect(listedSession.repository).toBe("rudel-v2");
+		expect(listedSession.worktree).toBe("podgorica");
+	}, 180000);
+
+	test("exposes tool/API errors and subagent usage on the session list", async () => {
+		const sessionId = `values_errors_${runId}`;
+		await ingest({
+			source: "claude_code",
+			sessionId,
+			projectPath: "/test/analytics-values",
+			content: claudeTranscriptWithToolApiError(),
+			subagents: [
+				{ agentId: "reviewer", content: "Reviewed the changes" },
+				{ agentId: "tester", content: "Ran focused tests" },
+			],
+		});
+
+		const rows = await readAnalytics(sessionId);
+		expect(rows).toHaveLength(1);
+		const row = rows[0];
+		assert(row);
+		expect(num(row.error_count)).toBe(1);
+
+		const sessions = await getSessionAnalytics(ORG_ID, {
+			days: 1,
+			limit: 1_000,
+			project_path: "/test/analytics-values",
+		});
+		const listedSession = sessions.find(
+			(session) => session.session_id === sessionId,
+		);
+		expect(listedSession?.error_count).toBe(1);
+		expect(listedSession?.subagent_count).toBe(2);
 	}, 180000);
 
 	test("collapses adjacent duplicate assistant blocks", async () => {

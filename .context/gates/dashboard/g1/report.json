@@ -1,6 +1,6 @@
 {
   "gate": "G1-dashboard",
-  "generatedAt": "2026-08-07T20:03:37.461Z",
+  "generatedAt": "2026-08-10T09:10:29.611Z",
   "sourceUrl": "http://127.0.0.1:4180/?opaline-composition=lens-attio-lens",
   "candidateUrl": "http://127.0.0.1:4321/preview/dashboard",
   "viewport": {
@@ -25,8 +25,8 @@
         "width": 1280,
         "height": 800,
         "comparedPixels": 1024000,
-        "differingPixels": 64,
-        "diffPercent": 0.00625
+        "differingPixels": 631,
+        "diffPercent": 0.06162109375
       },
       "structuralDifferenceCount": 0,
       "structuralDifferences": [],
@@ -42,12 +42,12 @@
         "width": 1280,
         "height": 800,
         "comparedPixels": 1024000,
-        "differingPixels": 57,
-        "diffPercent": 0.00556640625
+        "differingPixels": 0,
+        "diffPercent": 0
       },
       "structuralDifferenceCount": 0,
       "structuralDifferences": [],
-      "excludedTextLayoutFragmentCount": 39
+      "excludedTextLayoutFragmentCount": 0
     }
   ]
 }

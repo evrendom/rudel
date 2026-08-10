@@ -1,0 +1,37 @@
+
+	html,
+	body {
+		width: 100% !important;
+		height: auto !important;
+		min-height: 0 !important;
+		margin: 0 !important;
+		overflow: hidden !important;
+		background: rgb(255, 255, 255) !important;
+	}
+
+	body > :not(main):not(script):not(next-route-announcer) {
+		display: none !important;
+	}
+
+	body > main {
+		width: 100% !important;
+		height: auto !important;
+		min-height: 0 !important;
+	}
+
+	body > main > :first-child,
+	body > main > :nth-child(2) > :first-child,
+	body > main > :nth-child(2) > :nth-child(2) {
+		display: none !important;
+	}
+
+	body > main > :nth-child(2),
+	body > main > :nth-child(2) [style*="opacity:0;"],
+	body > main > :nth-child(2) [style$="opacity:0"] {
+		opacity: 1 !important;
+	}
+
+	body > main > :nth-child(2) [style*="opacity:0;"],
+	body > main > :nth-child(2) [style$="opacity:0"] {
+		transform: none !important;
+	}

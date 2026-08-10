@@ -64,6 +64,22 @@ or match Center back to Zoom. The right-side layer debugger independently
 toggles the stretched outer color, stretched refraction, inner cone, and white
 center.
 
+Two pointer-reactive halftone studies branch from that circle field:
+
+```text
+http://127.0.0.1:4181/color-field/dots/reveal
+http://127.0.0.1:4181/color-field/dots/shaders
+```
+
+Both open at the supplied reference settings—`Zoom 49%`, `Center 1%`, all four
+layers enabled—and automatically enter the native shader's colors-on state.
+The reveal route keeps one continuous cone composition and exposes it only
+through the inertial dot-density field. The shaders route instead remaps the
+complete cone composition independently inside every dot, so each point carries
+its own red, blue, and green faces, refraction, inner cone, and white center.
+Mouse and pen hover steer the density field; touch steers it while pressed.
+The existing sliders and layer debugger remain live on both routes.
+
 For the triangle-removal comparison lab, open:
 
 ```text

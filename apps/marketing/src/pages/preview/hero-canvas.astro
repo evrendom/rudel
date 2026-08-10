@@ -1,0 +1,30 @@
+---
+// biome-ignore-all lint/correctness/noUnusedImports: Astro renders imported components from template markup.
+import HeroCanvas from "../../components/HeroCanvas.astro";
+---
+
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>Hero canvas preview</title>
+	</head>
+	<body>
+		<main data-hero>
+			<HeroCanvas />
+		</main>
+	</body>
+</html>
+
+<style is:global>
+	html,
+	body,
+	main {
+		width: 100%;
+		height: 100%;
+		margin: 0;
+		overflow: hidden;
+		background: #fff;
+	}
+</style>

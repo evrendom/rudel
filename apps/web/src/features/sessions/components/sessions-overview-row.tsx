@@ -4,8 +4,8 @@ import { Link } from "react-router-dom";
 import { DashboardModelBadges } from "@/features/dashboard/components/DashboardModelBadges";
 import {
 	getRepositoryLabel,
-	getSessionIdentifier,
 	SESSION_OVERVIEW_GRID_CLASS_NAME,
+	SESSION_OVERVIEW_SECOND_FROZEN_COLUMN_LEFT_CLASS_NAME,
 } from "@/features/sessions/components/sessions-overview-table-utils";
 import {
 	calculateCost,
@@ -22,11 +22,31 @@ type SessionsOverviewRowProps = {
 	canOpenSession: ((session: SessionAnalytics) => boolean) | undefined;
 	getSessionHref: ((session: SessionAnalytics) => string) | undefined;
 	getSessionLinkState: ((session: SessionAnalytics) => unknown) | undefined;
+	maximumSessionCost: number;
 	maximumSessionTokens: number;
 	onSessionClick: ((session: SessionAnalytics) => void) | undefined;
 	session: SessionAnalytics;
 	userLabel: string;
 };
+
+function SessionMetricProgress({
+	label,
+	maximumValue,
+	value,
+}: {
+	label: string;
+	maximumValue: number;
+	value: number;
+}) {
+	return (
+		<progress
+			aria-label={label}
+			className="h-1.5 w-8 shrink-0 appearance-none overflow-hidden rounded-full bg-(--session-overview-border) [&::-moz-progress-bar]:rounded-full [&::-moz-progress-bar]:bg-(--session-overview-accent) [&::-webkit-progress-bar]:rounded-full [&::-webkit-progress-bar]:bg-(--session-overview-border) [&::-webkit-progress-value]:rounded-full [&::-webkit-progress-value]:bg-(--session-overview-accent)"
+			max={maximumValue > 0 ? maximumValue : 1}
+			value={value}
+		/>
+	);
+}
 
 export function SessionsOverviewRow({
 	activeSessionId,
@@ -34,6 +54,7 @@ export function SessionsOverviewRow({
 	canOpenSession,
 	getSessionHref,
 	getSessionLinkState,
+	maximumSessionCost,
 	maximumSessionTokens,
 	onSessionClick,
 	session,
@@ -42,12 +63,19 @@ export function SessionsOverviewRow({
 	const sessionHref = getSessionHref?.(session);
 	const repositoryLabel = getRepositoryLabel(session);
 	const fullRepositoryLabel =
-		session.repository || session.project_path || repositoryLabel;
+		session.project_path || session.repository || repositoryLabel;
 	const sessionCost = calculateCost(
 		session.input_tokens,
 		session.output_tokens,
 		session.model_used,
 	);
+	const visibleSkills = session.skills.slice(0, 2);
+	const additionalSkillCount = Math.max(
+		session.skills.length - visibleSkills.length,
+		0,
+	);
+	const skillsTitle =
+		session.skills.length > 0 ? session.skills.join(", ") : "No skills used";
 	const isClickable =
 		(onSessionClick !== undefined || sessionHref !== undefined) &&
 		(canOpenSession?.(session) ?? true);
@@ -65,12 +93,33 @@ export function SessionsOverviewRow({
 	);
 	const rowContents = (
 		<>
-			<div className={cn(cellClassName, "sticky left-0 z-10 px-4")}>
-				<p
-					className="min-w-0 truncate font-mono text-base font-medium tabular-nums text-(--session-overview-text) sm:text-sm"
-					title={session.session_id.toUpperCase()}
+			<div className={cn(cellClassName, "sticky left-0 z-10")}>
+				<time
+					dateTime={session.session_date}
+					title={formatExactDateTime(session.session_date)}
+					className="whitespace-nowrap text-base font-medium tracking-[-0.01em] text-(--session-overview-muted) tabular-nums sm:text-sm"
 				>
-					{getSessionIdentifier(session.session_id)}
+					{formatRelativeTime(session.session_date)}
+				</time>
+			</div>
+			<div
+				className={cn(
+					cellClassName,
+					"sticky z-10 px-4",
+					SESSION_OVERVIEW_SECOND_FROZEN_COLUMN_LEFT_CLASS_NAME,
+				)}
+			>
+				<p
+					className="min-w-0 truncate text-base font-medium tracking-[-0.01em] text-(--session-overview-text) sm:text-sm"
+					title={fullRepositoryLabel}
+				>
+					{repositoryLabel}
+					{session.worktree ? (
+						<span className="text-(--session-overview-muted)">
+							{" "}
+							/ {session.worktree}
+						</span>
+					) : null}
 				</p>
 			</div>
 			<div className={cellClassName} title={userLabel}>
@@ -93,49 +142,77 @@ export function SessionsOverviewRow({
 				</p>
 			</div>
 			<div className={cellClassName}>
-				<p
-					className="min-w-0 truncate text-base font-medium tracking-[-0.01em] text-(--session-overview-text) sm:text-sm"
-					title={fullRepositoryLabel}
-				>
-					{repositoryLabel}
-				</p>
-			</div>
-			<div className={cellClassName}>
 				<div className="flex min-w-0 items-center overflow-hidden">
-					<DashboardModelBadges models={[session.model_used]} />
+					<DashboardModelBadges models={[session.model_used]} size="table" />
 				</div>
 			</div>
 			<div className={cn(cellClassName, "justify-end")}>
 				<div className="flex min-w-0 items-center justify-end gap-2">
-					<p className="truncate font-mono text-base tabular-nums text-(--session-overview-muted) sm:text-sm">
+					<p className="truncate text-base font-medium tracking-[-0.01em] text-(--session-overview-muted) tabular-nums sm:text-sm">
 						{formatCompactNumber(session.total_tokens)}
 					</p>
-					<progress
-						aria-label={`${session.total_tokens.toLocaleString()} tokens relative to the largest session`}
-						className="h-1.5 w-8 shrink-0 appearance-none overflow-hidden rounded-full bg-(--session-overview-border) [&::-moz-progress-bar]:rounded-full [&::-moz-progress-bar]:bg-(--session-overview-accent) [&::-webkit-progress-bar]:rounded-full [&::-webkit-progress-bar]:bg-(--session-overview-border) [&::-webkit-progress-value]:rounded-full [&::-webkit-progress-value]:bg-(--session-overview-accent)"
-						max={Math.max(maximumSessionTokens, 1)}
+					<SessionMetricProgress
+						label={`${session.total_tokens.toLocaleString()} tokens relative to the largest session`}
+						maximumValue={maximumSessionTokens}
 						value={session.total_tokens}
 					/>
 				</div>
 			</div>
 			<div className={cn(cellClassName, "justify-end")}>
-				<p className="truncate font-mono text-base tabular-nums text-(--session-overview-muted) sm:text-sm">
-					{formatCurrency(sessionCost)}
+				<div className="flex min-w-0 items-center justify-end gap-2">
+					<p className="truncate text-base font-medium tracking-[-0.01em] text-(--session-overview-muted) tabular-nums sm:text-sm">
+						{formatCurrency(sessionCost)}
+					</p>
+					<SessionMetricProgress
+						label={`${formatCurrency(sessionCost)} cost relative to the most expensive session`}
+						maximumValue={maximumSessionCost}
+						value={sessionCost}
+					/>
+				</div>
+			</div>
+			<div className={cn(cellClassName, "justify-end")}>
+				<p
+					className="truncate text-base font-medium tracking-[-0.01em] text-(--session-overview-muted) tabular-nums sm:text-sm"
+					title={`${session.subagent_count.toLocaleString()} ${session.subagent_count === 1 ? "subagent" : "subagents"} used`}
+				>
+					{session.subagent_count.toLocaleString()}
 				</p>
 			</div>
 			<div className={cn(cellClassName, "justify-end")}>
-				<p className="truncate font-mono text-base tabular-nums text-(--session-overview-muted) sm:text-sm">
+				<p
+					className={cn(
+						"truncate text-base font-medium tracking-[-0.01em] tabular-nums sm:text-sm",
+						session.error_count > 0
+							? "text-red-600 dark:text-red-400"
+							: "text-(--session-overview-muted)",
+					)}
+					title={`${session.error_count.toLocaleString()} detected tool/API ${session.error_count === 1 ? "error" : "errors"}`}
+				>
+					{session.error_count.toLocaleString()}
+				</p>
+			</div>
+			<div className={cn(cellClassName, "justify-end")}>
+				<p className="truncate text-base font-medium tracking-[-0.01em] text-(--session-overview-muted) tabular-nums sm:text-sm">
 					{formatRoundedDuration(session.duration_min)}
 				</p>
 			</div>
-			<div className={cn(cellClassName, "justify-end")}>
-				<time
-					dateTime={session.session_date}
-					title={formatExactDateTime(session.session_date)}
-					className="whitespace-nowrap text-base tabular-nums text-(--session-overview-muted) sm:text-sm"
-				>
-					{formatRelativeTime(session.session_date)}
-				</time>
+			<div className={cellClassName} title={skillsTitle}>
+				{visibleSkills.length > 0 ? (
+					<div className="flex min-w-0 items-center gap-1.5">
+						<p className="min-w-0 truncate text-base font-medium tracking-[-0.01em] text-(--session-overview-text) sm:text-sm">
+							{visibleSkills.join(", ")}
+						</p>
+						{additionalSkillCount > 0 ? (
+							<span className="shrink-0 rounded-full bg-(--session-overview-hover) px-1.5 py-0.5 text-base font-medium tracking-[-0.01em] text-(--session-overview-muted) tabular-nums sm:text-sm">
+								+{additionalSkillCount}
+							</span>
+						) : null}
+					</div>
+				) : (
+					<span className="text-base font-medium tracking-[-0.01em] text-(--session-overview-muted) sm:text-sm">
+						—
+					</span>
+				)}
 			</div>
 		</>
 	);

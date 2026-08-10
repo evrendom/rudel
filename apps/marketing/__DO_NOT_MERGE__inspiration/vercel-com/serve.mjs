@@ -1226,21 +1226,23 @@ const createTrianglelessBootstrap = (fieldMethod) => {
 	})()</script>`;
 };
 
-const createCircleFieldBootstrap = () =>
+const createCircleFieldBootstrap = (dotMode = "") =>
 	`<script data-vercel-circle-field-bootstrap>(() => {
 		const root = document.documentElement;
+		const dotMode = ${JSON.stringify(dotMode)};
 		root.setAttribute("data-color-field-advanced", "off");
 		root.setAttribute("data-color-field-canvas", "on");
 		root.setAttribute("data-color-field-dom-triangle", "off");
 		root.setAttribute("data-color-field-fallback", "off");
 		root.setAttribute("data-color-field-iteration", "circle");
+		if (dotMode) root.setAttribute("data-dot-field-mode", dotMode);
 
 		const nativeWorker = window.Worker;
 		const workers = [];
 		let toggleFallbackEnergy;
 		let usingNativeWarp = false;
-		let fieldScale = 1;
-		let centerScale = 1;
+		let fieldScale = dotMode ? 0.49 : 1;
+		let centerScale = dotMode ? 0.01 : 1;
 		const layerVisibility = {
 			outer: 1,
 			refraction: 1,
@@ -1545,14 +1547,22 @@ const createCircleFieldBootstrap = () =>
 				"uniform float u_show_outer;",
 				"uniform float u_show_refraction;",
 				"uniform float u_show_inner;",
+				"uniform float u_show_white;",
+				"uniform int u_dot_mode;",
+				"uniform float u_time;",
+				"uniform vec2 u_pointer;",
+				"uniform vec2 u_secondary;",
 				"in vec2 v_uv;",
 				"out vec4 out_color;",
 				"vec3 resolve_field(vec4 field) {",
 				"  return mix(vec3(0.9803922), field.rgb, field.a);",
 				"}",
-				"void main() {",
-				"  vec2 viewport_position = (v_uv - 0.5) * u_viewport_css;",
-				"  vec2 position = viewport_position / max(u_scale, 0.001);",
+				"float smooth_field(float minimum, float maximum, float value) {",
+				"  float normalized = clamp((value - minimum) / (maximum - minimum), 0.0, 1.0);",
+				"  return normalized * normalized * (3.0 - 2.0 * normalized);",
+				"}",
+				"vec3 sample_circle_field(vec2 field_position) {",
+				"  vec2 position = field_position / max(u_scale, 0.001);",
 				"  float radius = length(position);",
 				"  vec2 direction = radius > 0.0001 ? position / radius : vec2(0.0, 1.0);",
 				"  vec2 normal_bottom = vec2(0.0, -1.0);",
@@ -1581,7 +1591,56 @@ const createCircleFieldBootstrap = () =>
 				"  color = mix(color, stretched_color, refraction_mask);",
 				"  float inner_mask = (1.0 - smoothstep(0.94, 1.02, stretched_radius)) * u_show_inner;",
 				"  color = mix(color, stretched_color, inner_mask);",
-				"  out_color = vec4(color, 1.0);",
+				"  float white_mask = (1.0 - smoothstep(center_ratio * 0.94, center_ratio * 1.02, normalized_radius)) * u_show_white;",
+				"  return mix(color, vec3(1.0), white_mask);",
+				"}",
+				"void main() {",
+				"  vec2 viewport_position = (v_uv - 0.5) * u_viewport_css;",
+				"  if (u_dot_mode == 0) {",
+				"    out_color = vec4(sample_circle_field(viewport_position), 1.0);",
+				"    return;",
+				"  }",
+				"  float grid_spacing = 13.55;",
+				"  vec2 cell = floor(viewport_position / grid_spacing + 0.5);",
+				"  vec2 dot_center = cell * grid_spacing;",
+				"  vec2 local_position = viewport_position - dot_center;",
+				"  vec2 primary_scale = vec2(u_viewport_css.x * 0.31, u_viewport_css.y * 0.29);",
+				"  vec2 secondary_scale = vec2(u_viewport_css.x * 0.34, u_viewport_css.y * 0.34);",
+				"  float primary_distance = length((dot_center - u_pointer) / primary_scale);",
+				"  float secondary_distance = length((dot_center - u_secondary) / secondary_scale);",
+				"  float primary_field = 1.0 - smooth_field(0.08, 1.08, primary_distance);",
+				"  float secondary_field = (1.0 - smooth_field(0.12, 1.14, secondary_distance)) * 0.36;",
+				"  float diagonal_wave = 0.92 + 0.08 * sin((dot_center.x - dot_center.y) * 0.031 - u_time * 1.75 + cell.y * 0.08);",
+				"  float strength = clamp(max(primary_field, secondary_field) * diagonal_wave, 0.0, 1.0);",
+				"  float peak_radius = u_dot_mode == 2 ? 5.45 : 1.82;",
+				"  float resting_radius = u_dot_mode == 2 ? 0.58 : 0.42;",
+				"  float dot_radius = mix(resting_radius, peak_radius, pow(strength, 1.45));",
+				"  float edge = 1.0 - smoothstep(max(0.0, dot_radius - 0.65), dot_radius + 0.3, length(local_position));",
+				"  if (edge <= 0.0) {",
+				"    out_color = vec4(vec3(0.9803922), 1.0);",
+				"    return;",
+				"  }",
+				"  vec3 dot_color;",
+				"  if (u_dot_mode == 1) {",
+				"    dot_color = sample_circle_field(viewport_position);",
+				"  } else {",
+				"    float circle_radius = u_source_css.y * 0.059 * 1.7320508;",
+				"    vec2 miniature_position = local_position / max(dot_radius, 0.001) * (u_scale * circle_radius * 6.0);",
+				"    vec2 sample_x = dFdx(miniature_position) * 0.45;",
+				"    vec2 sample_y = dFdy(miniature_position) * 0.45;",
+				"    dot_color = sample_circle_field(miniature_position) * 4.0;",
+				"    dot_color += sample_circle_field(miniature_position + sample_x) * 2.0;",
+				"    dot_color += sample_circle_field(miniature_position - sample_x) * 2.0;",
+				"    dot_color += sample_circle_field(miniature_position + sample_y) * 2.0;",
+				"    dot_color += sample_circle_field(miniature_position - sample_y) * 2.0;",
+				"    dot_color += sample_circle_field(miniature_position + sample_x + sample_y);",
+				"    dot_color += sample_circle_field(miniature_position + sample_x - sample_y);",
+				"    dot_color += sample_circle_field(miniature_position - sample_x + sample_y);",
+				"    dot_color += sample_circle_field(miniature_position - sample_x - sample_y);",
+				"    dot_color /= 16.0;",
+				"  }",
+				"  vec3 floor_color = vec3(0.9803922);",
+				"  out_color = vec4(mix(floor_color, dot_color, edge), 1.0);",
 				"}",
 			].join("\\n");
 
@@ -1632,11 +1691,59 @@ const createCircleFieldBootstrap = () =>
 			const showOuterLocation = gl.getUniformLocation(program, "u_show_outer");
 			const showRefractionLocation = gl.getUniformLocation(program, "u_show_refraction");
 			const showInnerLocation = gl.getUniformLocation(program, "u_show_inner");
+			const showWhiteLocation = gl.getUniformLocation(program, "u_show_white");
+			const dotModeLocation = gl.getUniformLocation(program, "u_dot_mode");
+			const timeLocation = gl.getUniformLocation(program, "u_time");
+			const pointerLocation = gl.getUniformLocation(program, "u_pointer");
+			const secondaryLocation = gl.getUniformLocation(program, "u_secondary");
+			const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
+			const startedAt = performance.now();
+			let previousFrameAt = startedAt;
+			const pointer = {
+				active: false,
+				currentX: innerWidth * 0.33,
+				currentY: innerHeight * 0.55,
+				targetX: innerWidth * 0.33,
+				targetY: innerHeight * 0.55,
+			};
 			let animationFrame;
 			let hasFrame = false;
 
+			const setPointerTarget = (event) => {
+				if (!dotMode || (event.pointerType === "touch" && !pointer.active)) return;
+				pointer.active = true;
+				pointer.targetX = Math.min(innerWidth, Math.max(0, event.clientX));
+				pointer.targetY = Math.min(innerHeight, Math.max(0, event.clientY));
+			};
+			const handlePointerDown = (event) => {
+				if (!dotMode) return;
+				pointer.active = true;
+				setPointerTarget(event);
+			};
+			const handlePointerEnd = (event) => {
+				if (event.pointerType === "touch") pointer.active = false;
+			};
+			const handlePointerOut = (event) => {
+				if (!event.relatedTarget && event.pointerType !== "touch") pointer.active = false;
+			};
+
+			if (dotMode) {
+				addEventListener("pointermove", setPointerTarget, { passive: true });
+				addEventListener("pointerdown", handlePointerDown, { passive: true });
+				addEventListener("pointerup", handlePointerEnd, { passive: true });
+				addEventListener("pointercancel", handlePointerEnd, { passive: true });
+				addEventListener("pointerout", handlePointerOut, { passive: true });
+			}
+
 			const resize = () => {
-				const ratio = Math.min(devicePixelRatio || 1, 2);
+				const deviceRatio = Math.min(devicePixelRatio || 1, 2);
+				const shaderDotRatio = Math.min(
+					3,
+					Math.sqrt(16000000 / Math.max(1, innerWidth * innerHeight)),
+				);
+				const ratio = dotMode === "shaders"
+					? Math.max(deviceRatio, shaderDotRatio)
+					: deviceRatio;
 				const width = Math.max(1, Math.round(innerWidth * ratio));
 				const height = Math.max(1, Math.round(innerHeight * ratio));
 				if (canvas.width !== width || canvas.height !== height) {
@@ -1646,8 +1753,28 @@ const createCircleFieldBootstrap = () =>
 				}
 			};
 
-			const render = () => {
+			const render = (now) => {
 				resize();
+				const frameAt = Number.isFinite(now) ? now : performance.now();
+				const elapsed = reducedMotion.matches ? 0 : frameAt - startedAt;
+				const phase = elapsed / 6800 * Math.PI * 2;
+				const idleX = innerWidth * (0.33 + 0.22 * Math.sin(phase));
+				const idleY = innerHeight * (0.55 + 0.17 * Math.sin(phase * 0.83 - 0.25));
+				const destinationX = pointer.active ? pointer.targetX : idleX;
+				const destinationY = pointer.active ? pointer.targetY : idleY;
+				const deltaTime = Math.min(64, Math.max(0, frameAt - previousFrameAt));
+				const followStrength = reducedMotion.matches
+					? 1
+					: 1 - Math.exp(-deltaTime / (pointer.active ? 72 : 240));
+				pointer.currentX += (destinationX - pointer.currentX) * followStrength;
+				pointer.currentY += (destinationY - pointer.currentY) * followStrength;
+				previousFrameAt = frameAt;
+				const secondaryX = pointer.active
+					? pointer.currentX + (idleX - pointer.currentX) * 0.42
+					: innerWidth * (0.72 + 0.11 * Math.cos(phase * 0.71));
+				const secondaryY = pointer.active
+					? pointer.currentY + (idleY - pointer.currentY) * 0.42
+					: innerHeight * (0.38 + 0.2 * Math.sin(phase * 0.61 + 1.4));
 				const sourceRect = sourceCanvas.getBoundingClientRect();
 				if (
 					sourceCanvas.width > 300 &&
@@ -1674,10 +1801,26 @@ const createCircleFieldBootstrap = () =>
 						gl.uniform1f(showOuterLocation, layerVisibility.outer);
 						gl.uniform1f(showRefractionLocation, layerVisibility.refraction);
 						gl.uniform1f(showInnerLocation, layerVisibility.inner);
+						gl.uniform1f(showWhiteLocation, dotMode ? layerVisibility.white : 0);
+						gl.uniform1i(dotModeLocation, dotMode === "reveal" ? 1 : dotMode === "shaders" ? 2 : 0);
+						gl.uniform1f(timeLocation, phase);
+						gl.uniform2f(
+							pointerLocation,
+							pointer.currentX - innerWidth * 0.5,
+							innerHeight * 0.5 - pointer.currentY,
+						);
+						gl.uniform2f(
+							secondaryLocation,
+							secondaryX - innerWidth * 0.5,
+							innerHeight * 0.5 - secondaryY,
+						);
 						gl.drawArrays(gl.TRIANGLES, 0, 3);
 						if (!hasFrame) {
 							hasFrame = true;
-							root.setAttribute("data-circle-field-renderer", "native-radial-warp");
+							root.setAttribute(
+								"data-circle-field-renderer",
+								dotMode ? "native-dots-" + dotMode : "native-radial-warp",
+							);
 						}
 					} catch (error) {
 						root.setAttribute("data-circle-field-renderer", "native-warp-error");
@@ -1690,7 +1833,14 @@ const createCircleFieldBootstrap = () =>
 			addEventListener("resize", resize, { passive: true });
 			resize();
 			animationFrame = requestAnimationFrame(render);
-			addEventListener("pagehide", () => cancelAnimationFrame(animationFrame), { once: true });
+			addEventListener("pagehide", () => {
+				cancelAnimationFrame(animationFrame);
+				removeEventListener("pointermove", setPointerTarget);
+				removeEventListener("pointerdown", handlePointerDown);
+				removeEventListener("pointerup", handlePointerEnd);
+				removeEventListener("pointercancel", handlePointerEnd);
+				removeEventListener("pointerout", handlePointerOut);
+			}, { once: true });
 			return true;
 		};
 
@@ -1733,6 +1883,7 @@ const createCircleFieldBootstrap = () =>
 					"data-field-scale-input",
 					"data-field-scale-reset",
 				);
+				zoom.input.value = String(Math.round(fieldScale * 100));
 				zoom.input.max = "160";
 				zoom.input.setAttribute("aria-label", "Complete color field zoom");
 				zoom.reset.setAttribute("aria-label", "Reset complete color field zoom to 100 percent");
@@ -1744,6 +1895,7 @@ const createCircleFieldBootstrap = () =>
 					"data-field-center-scale-input",
 					"data-field-center-scale-reset",
 				);
+				center.input.value = String(Math.round(centerScale * 100));
 				center.input.max = zoom.input.value;
 				center.input.setAttribute("aria-label", "White center circle scale");
 
@@ -1883,8 +2035,18 @@ const createCircleFieldBootstrap = () =>
 			};
 			const createCanvas = () => {
 				const canvas = document.createElement("canvas");
-				canvas.setAttribute("data-field-experiment-canvas", "circle");
-				canvas.setAttribute("aria-label", "Interactive top-down RGB cone color field");
+				canvas.setAttribute(
+					"data-field-experiment-canvas",
+					dotMode ? "dots-" + dotMode : "circle",
+				);
+				canvas.setAttribute(
+					"aria-label",
+					dotMode === "reveal"
+						? "Pointer-reactive halftone revealing an RGB cone color field"
+						: dotMode === "shaders"
+							? "Pointer-reactive halftone made from miniature RGB cone shaders"
+							: "Interactive top-down RGB cone color field",
+				);
 				canvas.setAttribute("role", "img");
 				document.body.append(canvas);
 				return canvas;
@@ -1914,6 +2076,14 @@ const createCircleFieldBootstrap = () =>
 				}
 				mounted = true;
 				usingNativeWarp = true;
+				if (dotMode) {
+					setTimeout(() => {
+						for (const worker of workers) {
+							worker.postMessage({ type: "click", click: { kind: "toggle" } });
+						}
+						root.setAttribute("data-dot-field-colors", "on");
+					}, 600);
+				}
 				return true;
 			};
 
@@ -1927,7 +2097,7 @@ const createCircleFieldBootstrap = () =>
 					mountFallback();
 				}, 10000);
 			}
-			mountWhiteCircleOverlay();
+			if (!dotMode) mountWhiteCircleOverlay();
 			mountScaleControl();
 			mountLayerControl();
 		};
@@ -1943,6 +2113,7 @@ const createCircleFieldBootstrap = () =>
 					)
 				) return;
 				event.stopImmediatePropagation();
+				if (dotMode) return;
 				if (usingNativeWarp) {
 					for (const worker of workers) {
 						worker.postMessage({ type: "click", click: { kind: "toggle" } });
@@ -1997,7 +2168,7 @@ const stabilizeCapture = (html, options = {}) => {
 		? `<script data-vercel-reference-route-bootstrap>(()=>{const replace=history.replaceState.bind(history);replace(null,"",${JSON.stringify(options.shaderGui ? "/?shaderGui" : "/")});addEventListener("load",()=>setTimeout(()=>replace(null,"",${JSON.stringify(options.displayPath)}),${options.shaderGui ? 12000 : 1600}),{once:true})})()</script>`
 		: "";
 	const variantBootstrap = options.circleField
-		? createCircleFieldBootstrap()
+		? createCircleFieldBootstrap(options.dotMode || "")
 		: options.triangleless
 			? createTrianglelessBootstrap(options.fieldMethod || fieldMethodDefault)
 			: options.colorField && options.displayPath
@@ -2259,6 +2430,42 @@ createServer(async (request, response) => {
 			return;
 		}
 		await serveCapture(response);
+		return;
+	}
+
+	if (
+		[
+			"/color-field/dots/reveal",
+			"/color-field/dots/reveal/",
+			"/color-field/dots/shaders",
+			"/color-field/dots/shaders/",
+		].includes(requestUrl.pathname) &&
+		["GET", "HEAD"].includes(request.method || "")
+	) {
+		if (!existsSync(capturePath) || !statSync(capturePath).isFile()) {
+			response.writeHead(404, {
+				"content-type": "text/plain; charset=utf-8",
+			});
+			response.end(
+				`Missing ${defaultFile}. Capture https://vercel.com/ first.\n`,
+			);
+			return;
+		}
+		if (request.method === "HEAD") {
+			response.writeHead(200, {
+				"cache-control": "no-store",
+				"content-type": "text/html; charset=utf-8",
+			});
+			response.end();
+			return;
+		}
+		await serveCapture(response, {
+			circleField: true,
+			colorField: true,
+			displayPath: requestUrl.pathname,
+			dotMode: requestUrl.pathname.includes("/shaders") ? "shaders" : "reveal",
+			forceLight: true,
+		});
 		return;
 	}
 
