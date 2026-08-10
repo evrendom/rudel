@@ -12,7 +12,6 @@ import {
 	queryClickhouse,
 } from "../clickhouse.js";
 import { sqlClient } from "../db.js";
-import { buildEstimatedCostSql } from "./pricing.service.js";
 import {
 	buildUsageCostSubtotalSql,
 	getUsageAnalyticsQueryContext,
@@ -114,15 +113,7 @@ export async function getModelTokensTrend(
 		"usage_date",
 	);
 	const usage = await getUsageAnalyticsQueryContext(orgId);
-	const estimatedCostSql =
-		usage.mode === "events"
-			? buildUsageCostSubtotalSql("estimated_cost", 4)
-			: `ifNull(${buildEstimatedCostSql({
-					dateExpr: "sa.usage_date",
-					inputExpr: "sum(sa.input_tokens)",
-					modelExpr: "sa.model_used",
-					outputExpr: "sum(sa.output_tokens)",
-				})}, 0)`;
+	const estimatedCostSql = buildUsageCostSubtotalSql("estimated_cost", 4);
 
 	const query = `
 	WITH ${usage.cteDefinitions}
