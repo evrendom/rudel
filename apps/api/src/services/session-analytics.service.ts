@@ -11,16 +11,7 @@ import {
 	buildLatestRawSessionContentSql,
 	queryClickhouse,
 } from "../clickhouse.js";
-import { buildEstimatedCostSql } from "./pricing.service.js";
 import { getUsageAnalyticsQueryContext } from "./usage-event-analytics.service.js";
-
-const LEGACY_SESSION_DISPLAY_COST_SQL = buildEstimatedCostSql({
-	dateExpr: "sa.session_date",
-	inputExpr: "ifNull(sa.input_tokens, 0)",
-	modelExpr: "sa.model_used",
-	outputExpr: "ifNull(sa.output_tokens, 0)",
-});
-const LEGACY_SESSION_DISPLAY_COST_WITH_FALLBACK_SQL = `ifNull(${LEGACY_SESSION_DISPLAY_COST_SQL}, 0)`;
 
 export interface SessionAnalyticsRaw {
 	session_id: string;
@@ -162,10 +153,7 @@ export async function getSessionAnalytics(
 		sourceParam: source ? "source" : undefined,
 		userIdParam: user_id ? "userId" : undefined,
 	});
-	const estimatedCostSql =
-		usage.mode === "events"
-			? "sa.estimated_cost"
-			: LEGACY_SESSION_DISPLAY_COST_WITH_FALLBACK_SQL;
+	const estimatedCostSql = "sa.estimated_cost";
 
 	const query = `
 	WITH ${usage.cteDefinitions}
@@ -727,10 +715,7 @@ export async function getSessionDetail(
 		sessionIdParam: "sessionId",
 		userIdParam: "ownerId",
 	});
-	const estimatedCostSql =
-		usage.mode === "events"
-			? "sa.estimated_cost"
-			: LEGACY_SESSION_DISPLAY_COST_WITH_FALLBACK_SQL;
+	const estimatedCostSql = "sa.estimated_cost";
 	const metadataQuery = `
 	WITH ${usage.cteDefinitions}
     SELECT
