@@ -2,8 +2,12 @@ import type { SessionAnalytics } from "@rudel/api-routes";
 import { describe, expect, it } from "vitest";
 import {
 	buildSessionOverviewFilterOptions,
+	buildSessionOverviewRangeBounds,
 	matchesSessionOverviewFilters,
+	matchesSessionOverviewRangeFilters,
+	SESSION_OVERVIEW_NO_SKILLS_FILTER_VALUE,
 	type SessionOverviewExcludedFilterValues,
+	type SessionOverviewRangeFilterValues,
 } from "./sessions-overview-table-utils";
 
 const baseSession: SessionAnalytics = {
@@ -32,6 +36,7 @@ const baseSession: SessionAnalytics = {
 
 const otherSession: SessionAnalytics = {
 	...baseSession,
+	error_count: 0,
 	model_used: "gpt-5",
 	repository: "openai/codex",
 	session_id: "session-2",
@@ -45,8 +50,21 @@ function createFilters(
 	return {
 		model: new Set<string>(),
 		repository: new Set<string>(),
+		skills: new Set<string>(),
 		user: new Set<string>(),
-		worktree: new Set<string>(),
+		...overrides,
+	};
+}
+
+function createRangeFilters(
+	overrides: Partial<SessionOverviewRangeFilterValues> = {},
+): SessionOverviewRangeFilterValues {
+	return {
+		cost: { maximum: null, minimum: null },
+		duration: { maximum: null, minimum: null },
+		errors: { maximum: null, minimum: null },
+		subagents: { maximum: null, minimum: null },
+		tokens: { maximum: null, minimum: null },
 		...overrides,
 	};
 }
@@ -63,27 +81,28 @@ describe("sessions overview filters", () => {
 		expect(
 			buildSessionOverviewFilterOptions(sessions, "repository", userMap),
 		).toEqual([
-			{
-				label: "obsessiondb/rudel",
-				value: "obsessiondb/rudel",
-				worktrees: [
-					{
-						label: "lansing",
-						value: "obsessiondb/rudel/lansing",
-					},
-					{
-						label: "podgorica",
-						value: "obsessiondb/rudel/podgorica",
-					},
-				],
-			},
-			{ label: "openai/codex", value: "openai/codex", worktrees: [] },
+			{ label: "obsessiondb/rudel", value: "obsessiondb/rudel" },
+			{ label: "openai/codex", value: "openai/codex" },
 		]);
 		expect(
 			buildSessionOverviewFilterOptions(sessions, "user", userMap),
 		).toEqual([
-			{ label: "Ada", value: "user-2", worktrees: [] },
-			{ label: "Evren", value: "user-1", worktrees: [] },
+			{ label: "Ada", value: "user-2" },
+			{ label: "Evren", value: "user-1" },
+		]);
+		expect(
+			buildSessionOverviewFilterOptions(
+				[{ ...baseSession, skills: ["ui", "testing-bun"] }, otherSession],
+				"skills",
+				userMap,
+			),
+		).toEqual([
+			{
+				label: "No skills used",
+				value: SESSION_OVERVIEW_NO_SKILLS_FILTER_VALUE,
+			},
+			{ label: "testing-bun", value: "testing-bun" },
+			{ label: "ui", value: "ui" },
 		]);
 	});
 
@@ -107,31 +126,44 @@ describe("sessions overview filters", () => {
 		).toBe(true);
 	});
 
-	it("lets repository exclusions dominate individual worktree exclusions", () => {
-		const lansingSession = {
+	it("filters sessions by skills and numeric ranges", () => {
+		const skilledSession = {
 			...baseSession,
-			session_id: "session-lansing",
-			worktree: "lansing",
+			skills: ["ui", "testing-bun"],
 		};
-		const repositoryFilters = createFilters({
-			repository: new Set(["obsessiondb/rudel"]),
-		});
 
-		expect(matchesSessionOverviewFilters(baseSession, repositoryFilters)).toBe(
-			false,
-		);
 		expect(
-			matchesSessionOverviewFilters(lansingSession, repositoryFilters),
+			matchesSessionOverviewFilters(
+				skilledSession,
+				createFilters({ skills: new Set(["ui"]) }),
+			),
+		).toBe(false);
+		expect(
+			matchesSessionOverviewFilters(
+				baseSession,
+				createFilters({
+					skills: new Set([SESSION_OVERVIEW_NO_SKILLS_FILTER_VALUE]),
+				}),
+			),
 		).toBe(false);
 
-		const worktreeFilters = createFilters({
-			worktree: new Set(["obsessiondb/rudel/podgorica"]),
-		});
-		expect(matchesSessionOverviewFilters(baseSession, worktreeFilters)).toBe(
-			false,
-		);
-		expect(matchesSessionOverviewFilters(lansingSession, worktreeFilters)).toBe(
-			true,
-		);
+		const bounds = buildSessionOverviewRangeBounds([
+			baseSession,
+			{ ...otherSession, duration_min: 25, total_tokens: 20_000 },
+		]);
+		expect(bounds.tokens).toMatchObject({ maximum: 20_000, minimum: 10_000 });
+		expect(bounds.duration).toMatchObject({ maximum: 25, minimum: 12 });
+		expect(
+			matchesSessionOverviewRangeFilters(
+				baseSession,
+				createRangeFilters({ errors: { maximum: null, minimum: 1 } }),
+			),
+		).toBe(true);
+		expect(
+			matchesSessionOverviewRangeFilters(
+				otherSession,
+				createRangeFilters({ errors: { maximum: null, minimum: 1 } }),
+			),
+		).toBe(false);
 	});
 });

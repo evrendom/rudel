@@ -13,6 +13,7 @@
 		"astro": "astro",
 		"capture:reference": "node tools/capture-matrix.mjs --url http://127.0.0.1:4180/lens-attio-lens-aperture --output ../../.context/reference-shots-v2",
 		"gates:g0": "node tests/g0-instrumentation.mjs",
+		"gate:terminal-windows": "OPALINE_TERMINAL_AUDIT_MODE=after node tools/audit-terminal-window-parity.mjs",
 		"test:runtime": "node tests/runtime-verification.mjs",
 		"test:visual": "node tests/visual-reference.mjs"
 	},

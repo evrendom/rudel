@@ -26,28 +26,44 @@ export const SESSION_OVERVIEW_FILTER_KEYS = [
 	"repository",
 	"user",
 	"model",
+	"skills",
 ] as const;
 export type SessionOverviewFilterKey =
 	(typeof SESSION_OVERVIEW_FILTER_KEYS)[number];
-export const SESSION_OVERVIEW_FILTER_DIMENSIONS = [
-	...SESSION_OVERVIEW_FILTER_KEYS,
-	"worktree",
+export const SESSION_OVERVIEW_RANGE_FILTER_KEYS = [
+	"tokens",
+	"cost",
+	"subagents",
+	"errors",
+	"duration",
 ] as const;
-export type SessionOverviewFilterDimensionKey =
-	(typeof SESSION_OVERVIEW_FILTER_DIMENSIONS)[number];
-export type SessionOverviewWorktreeFilterOption = {
-	label: string;
-	value: string;
+export type SessionOverviewRangeFilterKey =
+	(typeof SESSION_OVERVIEW_RANGE_FILTER_KEYS)[number];
+export type SessionOverviewRangeFilter = {
+	minimum: number | null;
+	maximum: number | null;
 };
+export type SessionOverviewRangeFilterValues = Record<
+	SessionOverviewRangeFilterKey,
+	SessionOverviewRangeFilter
+>;
+export type SessionOverviewRangeBounds = Record<
+	SessionOverviewRangeFilterKey,
+	{
+		minimum: number;
+		maximum: number;
+		step: number;
+	}
+>;
 export type SessionOverviewFilterOption = {
 	label: string;
 	value: string;
-	worktrees: readonly SessionOverviewWorktreeFilterOption[];
 };
 export type SessionOverviewExcludedFilterValues = Record<
-	SessionOverviewFilterDimensionKey,
+	SessionOverviewFilterKey,
 	ReadonlySet<string>
 >;
+export const SESSION_OVERVIEW_NO_SKILLS_FILTER_VALUE = "__no_skills_used__";
 export type SortDirection = "asc" | "desc";
 export type SessionSortState = {
 	key: SessionOverviewColumnKey;
@@ -62,40 +78,33 @@ export function isSessionOverviewFilterKey(
 	);
 }
 
+export function isSessionOverviewRangeFilterKey(
+	columnKey: SessionOverviewColumnKey,
+): columnKey is SessionOverviewRangeFilterKey {
+	return SESSION_OVERVIEW_RANGE_FILTER_KEYS.some(
+		(filterKey) => filterKey === columnKey,
+	);
+}
+
 export function buildSessionOverviewFilterOptions(
 	sessions: readonly SessionAnalytics[],
 	filterKey: SessionOverviewFilterKey,
 	userMap: Record<string, string>,
 ) {
 	const labelsByValue = new Map<string, string>();
-	const worktreesByRepository = new Map<string, Map<string, string>>();
 
 	for (const session of sessions) {
-		const value = getSessionOverviewFilterValue(session, filterKey);
-		labelsByValue.set(
-			value,
-			getSessionOverviewFilterLabel(session, filterKey, userMap),
-		);
-
-		if (filterKey === "repository" && session.worktree) {
-			const repositoryWorktrees =
-				worktreesByRepository.get(value) ?? new Map<string, string>();
-			repositoryWorktrees.set(
-				getWorktreeFilterValue(value, session.worktree),
-				session.worktree,
+		const values = getSessionOverviewFilterValues(session, filterKey);
+		for (const value of values) {
+			labelsByValue.set(
+				value,
+				getSessionOverviewFilterLabel(session, filterKey, value, userMap),
 			);
-			worktreesByRepository.set(value, repositoryWorktrees);
 		}
 	}
 
 	return [...labelsByValue.entries()]
-		.map(
-			([value, label]): SessionOverviewFilterOption => ({
-				label,
-				value,
-				worktrees: buildWorktreeFilterOptions(worktreesByRepository.get(value)),
-			}),
-		)
+		.map(([value, label]): SessionOverviewFilterOption => ({ label, value }))
 		.sort(
 			(leftOption, rightOption) =>
 				compareSessionLabels(leftOption.label, rightOption.label) ||
@@ -107,21 +116,38 @@ export function matchesSessionOverviewFilters(
 	session: SessionAnalytics,
 	excludedFilterValues: SessionOverviewExcludedFilterValues,
 ) {
-	const matchesTopLevelFilters = SESSION_OVERVIEW_FILTER_KEYS.every(
-		(filterKey) =>
-			!excludedFilterValues[filterKey].has(
-				getSessionOverviewFilterValue(session, filterKey),
-			),
+	return SESSION_OVERVIEW_FILTER_KEYS.every((filterKey) =>
+		getSessionOverviewFilterValues(session, filterKey).every(
+			(value) => !excludedFilterValues[filterKey].has(value),
+		),
 	);
-	const worktreeFilterValue = session.worktree
-		? getWorktreeFilterValue(getRepositoryLabel(session), session.worktree)
-		: null;
+}
 
-	return (
-		matchesTopLevelFilters &&
-		(worktreeFilterValue === null ||
-			!excludedFilterValues.worktree.has(worktreeFilterValue))
-	);
+export function buildSessionOverviewRangeBounds(
+	sessions: readonly SessionAnalytics[],
+): SessionOverviewRangeBounds {
+	return {
+		cost: buildSessionOverviewRangeBound(sessions, "cost"),
+		duration: buildSessionOverviewRangeBound(sessions, "duration"),
+		errors: buildSessionOverviewRangeBound(sessions, "errors"),
+		subagents: buildSessionOverviewRangeBound(sessions, "subagents"),
+		tokens: buildSessionOverviewRangeBound(sessions, "tokens"),
+	};
+}
+
+export function matchesSessionOverviewRangeFilters(
+	session: SessionAnalytics,
+	rangeFilterValues: SessionOverviewRangeFilterValues,
+) {
+	return SESSION_OVERVIEW_RANGE_FILTER_KEYS.every((filterKey) => {
+		const range = rangeFilterValues[filterKey];
+		const value = getSessionOverviewRangeValue(session, filterKey);
+
+		return (
+			(range.minimum === null || value >= range.minimum) &&
+			(range.maximum === null || value <= range.maximum)
+		);
+	});
 }
 
 export function compareSessions(
@@ -196,48 +222,28 @@ export function getRepositoryLabel(session: SessionAnalytics) {
 	return session.repository || "Untitled project";
 }
 
-function getSessionOverviewFilterValue(
+function getSessionOverviewFilterValues(
 	session: SessionAnalytics,
 	filterKey: SessionOverviewFilterKey,
 ) {
 	switch (filterKey) {
 		case "repository":
-			return getRepositoryLabel(session);
+			return [getRepositoryLabel(session)];
 		case "user":
-			return session.user_id;
+			return [session.user_id];
 		case "model":
-			return session.model_used;
+			return [session.model_used];
+		case "skills":
+			return session.skills.length > 0
+				? session.skills
+				: [SESSION_OVERVIEW_NO_SKILLS_FILTER_VALUE];
 	}
-}
-
-function buildWorktreeFilterOptions(
-	worktreeLabelsByValue: ReadonlyMap<string, string> | undefined,
-): readonly SessionOverviewWorktreeFilterOption[] {
-	if (!worktreeLabelsByValue || worktreeLabelsByValue.size <= 1) {
-		return [];
-	}
-
-	return [...worktreeLabelsByValue.entries()]
-		.map(
-			([value, label]): SessionOverviewWorktreeFilterOption => ({
-				label,
-				value,
-			}),
-		)
-		.sort(
-			(leftOption, rightOption) =>
-				compareSessionLabels(leftOption.label, rightOption.label) ||
-				compareSessionLabels(leftOption.value, rightOption.value),
-		);
-}
-
-function getWorktreeFilterValue(repository: string, worktree: string) {
-	return `${repository}/${worktree}`;
 }
 
 function getSessionOverviewFilterLabel(
 	session: SessionAnalytics,
 	filterKey: SessionOverviewFilterKey,
+	value: string,
 	userMap: Record<string, string>,
 ) {
 	switch (filterKey) {
@@ -247,7 +253,87 @@ function getSessionOverviewFilterLabel(
 			return formatUsername(session.user_id, userMap);
 		case "model":
 			return session.model_used;
+		case "skills":
+			return value === SESSION_OVERVIEW_NO_SKILLS_FILTER_VALUE
+				? "No skills used"
+				: value;
 	}
+}
+
+function buildSessionOverviewRangeBound(
+	sessions: readonly SessionAnalytics[],
+	filterKey: SessionOverviewRangeFilterKey,
+) {
+	if (sessions.length === 0) {
+		return {
+			minimum: 0,
+			maximum: 0,
+			step: getSessionOverviewRangeStep(filterKey),
+		};
+	}
+
+	let minimum = Number.POSITIVE_INFINITY;
+	let maximum = Number.NEGATIVE_INFINITY;
+
+	for (const session of sessions) {
+		const value = getSessionOverviewRangeValue(session, filterKey);
+		minimum = Math.min(minimum, value);
+		maximum = Math.max(maximum, value);
+	}
+	const step = getSessionOverviewRangeStep(filterKey);
+
+	return {
+		minimum: normalizeRangeBoundary(minimum, step, "minimum"),
+		maximum: normalizeRangeBoundary(maximum, step, "maximum"),
+		step,
+	};
+}
+
+function getSessionOverviewRangeValue(
+	session: SessionAnalytics,
+	filterKey: SessionOverviewRangeFilterKey,
+) {
+	switch (filterKey) {
+		case "tokens":
+			return session.total_tokens;
+		case "cost":
+			return calculateCost(session.input_tokens, session.output_tokens, {
+				at: session.session_date,
+				model: session.model_used,
+			});
+		case "subagents":
+			return session.subagent_count;
+		case "errors":
+			return session.error_count;
+		case "duration":
+			return session.duration_min;
+	}
+}
+
+function getSessionOverviewRangeStep(filterKey: SessionOverviewRangeFilterKey) {
+	switch (filterKey) {
+		case "cost":
+			return 0.0001;
+		case "duration":
+			return 0.1;
+		default:
+			return 1;
+	}
+}
+
+function normalizeRangeBoundary(
+	value: number,
+	step: number,
+	direction: "minimum" | "maximum",
+) {
+	const scaledValue = value / step;
+	const normalizedValue =
+		direction === "minimum"
+			? Math.floor(scaledValue) * step
+			: Math.ceil(scaledValue) * step;
+	const precision = Math.max(0, Math.ceil(-Math.log10(step)));
+
+	return Number(normalizedValue.toFixed(precision));
 }
 
 export function compareSessionLabels(leftValue: string, rightValue: string) {

@@ -62,14 +62,19 @@ export interface SessionDetailViewModelSource {
 	git_branch?: unknown;
 	git_sha?: unknown;
 	input_tokens?: unknown;
+	last_interaction_date?: unknown;
 	model_used?: unknown;
 	output_tokens?: unknown;
+	project_path?: unknown;
 	repository?: unknown;
 	session_date?: unknown;
 	session_id?: unknown;
 	skills?: unknown;
 	slash_commands?: unknown;
+	source?: unknown;
 	subagents?: unknown;
+	success_score?: unknown;
+	total_tokens?: unknown;
 	total_interactions?: unknown;
 	user_id?: unknown;
 }
@@ -214,6 +219,10 @@ export function buildSessionDetailViewModel(
 			: formatUsername(safeUserId, userMap);
 	const safeInputTokens = toNumber(session.input_tokens);
 	const safeOutputTokens = toNumber(session.output_tokens);
+	const safeTotalTokens =
+		session.total_tokens === undefined
+			? safeInputTokens + safeOutputTokens
+			: toNumber(session.total_tokens);
 	const safeDurationMin =
 		session.duration_min === undefined
 			? undefined
@@ -229,6 +238,14 @@ export function buildSessionDetailViewModel(
 	const safeGitBranch = toOptionalString(session.git_branch);
 	const safeGitSha = toOptionalString(session.git_sha);
 	const safeModelUsed = toOptionalString(session.model_used) ?? undefined;
+	const safeLastInteractionDate =
+		toOptionalString(session.last_interaction_date) ?? undefined;
+	const safeProjectPath = toOptionalString(session.project_path) ?? undefined;
+	const safeSource = toOptionalString(session.source) ?? undefined;
+	const safeSuccessScore =
+		session.success_score === undefined
+			? undefined
+			: toNumber(session.success_score);
 	const safeContent = toContentString(session.content);
 	const metadataBadges = createSessionMetadataBadges({
 		gitBranch: safeGitBranch,
@@ -251,15 +268,22 @@ export function buildSessionDetailViewModel(
 		metadataBadges,
 		safeContent,
 		safeDurationMin,
+		safeGitBranch,
 		safeGitSha,
 		safeInputTokens,
+		safeLastInteractionDate,
 		safeModelUsed,
 		safeOutputTokens,
+		safeProjectPath,
+		safeRepository,
 		safeSessionDate,
 		safeSessionId,
 		safeSkills,
 		safeSlashCommands,
+		safeSource,
 		safeSubagents,
+		safeSuccessScore,
+		safeTotalTokens,
 		safeTotalInteractions,
 		safeUserDisplayName,
 		safeUserId,

@@ -1,40 +1,18 @@
 import { ChevronDown, ChevronUp } from "lucide-react";
-import { SessionOverviewFilterMenu } from "@/features/sessions/components/sessions-overview-filter-menu";
 import {
-	isSessionOverviewFilterKey,
 	SESSION_OVERVIEW_COLUMNS,
 	SESSION_OVERVIEW_GRID_CLASS_NAME,
 	SESSION_OVERVIEW_SECOND_FROZEN_COLUMN_LEFT_CLASS_NAME,
 	type SessionOverviewColumnKey,
-	type SessionOverviewExcludedFilterValues,
-	type SessionOverviewFilterKey,
-	type SessionOverviewFilterOption,
 	type SessionSortState,
 } from "@/features/sessions/components/sessions-overview-table-utils";
 import { cn } from "@/lib/utils";
 
 export function SessionsOverviewHeader({
-	excludedFilterValues,
-	filterOptions,
-	onClearFilter,
-	onFilterOptionChecked,
-	onWorktreeOptionChecked,
 	onSort,
 	sessionCountLabel,
 	sort,
 }: {
-	excludedFilterValues: SessionOverviewExcludedFilterValues;
-	filterOptions: Record<
-		SessionOverviewFilterKey,
-		readonly SessionOverviewFilterOption[]
-	>;
-	onClearFilter: (filterKey: SessionOverviewFilterKey) => void;
-	onFilterOptionChecked: (
-		filterKey: SessionOverviewFilterKey,
-		value: string,
-		checked: boolean,
-	) => void;
-	onWorktreeOptionChecked: (value: string, checked: boolean) => void;
 	onSort: (sortKey: SessionOverviewColumnKey) => void;
 	sessionCountLabel: number;
 	sort: SessionSortState;
@@ -46,56 +24,29 @@ export function SessionsOverviewHeader({
 				SESSION_OVERVIEW_GRID_CLASS_NAME,
 			)}
 		>
-			{SESSION_OVERVIEW_COLUMNS.map((column, index) => {
-				const filterKey = isSessionOverviewFilterKey(column.key)
-					? column.key
-					: undefined;
-
-				return (
-					<div
-						key={column.key}
-						className={cn(
-							"flex min-w-0 border-r border-(--session-overview-border) bg-(--session-overview-surface)",
-							index < 2 && "sticky z-40",
-							index === 0 && "left-0",
-							index === 1 &&
-								SESSION_OVERVIEW_SECOND_FROZEN_COLUMN_LEFT_CLASS_NAME,
-						)}
-					>
-						<SessionOverviewSortableHeader
-							align={column.align}
-							label={column.label}
-							onSort={onSort}
-							secondaryLabel={
-								index === 1 ? sessionCountLabel.toLocaleString() : undefined
-							}
-							sort={sort}
-							sortKey={column.key}
-						/>
-						{filterKey ? (
-							<SessionOverviewFilterMenu
-								excludedChildValues={
-									filterKey === "repository"
-										? excludedFilterValues.worktree
-										: undefined
-								}
-								excludedValues={excludedFilterValues[filterKey]}
-								label={column.label}
-								onClear={() => onClearFilter(filterKey)}
-								onOptionChecked={(value, checked) =>
-									onFilterOptionChecked(filterKey, value, checked)
-								}
-								onChildOptionChecked={
-									filterKey === "repository"
-										? onWorktreeOptionChecked
-										: undefined
-								}
-								options={filterOptions[filterKey]}
-							/>
-						) : null}
-					</div>
-				);
-			})}
+			{SESSION_OVERVIEW_COLUMNS.map((column, index) => (
+				<div
+					key={column.key}
+					className={cn(
+						"flex min-w-0 border-r border-(--session-overview-border) bg-(--session-overview-surface) [border-right-color:transparent]",
+						index < 2 && "sticky z-40",
+						index === 0 && "left-0",
+						index === 1 &&
+							SESSION_OVERVIEW_SECOND_FROZEN_COLUMN_LEFT_CLASS_NAME,
+					)}
+				>
+					<SessionOverviewSortableHeader
+						align={column.align}
+						label={column.label}
+						onSort={onSort}
+						secondaryLabel={
+							index === 1 ? sessionCountLabel.toLocaleString() : undefined
+						}
+						sort={sort}
+						sortKey={column.key}
+					/>
+				</div>
+			))}
 		</div>
 	);
 }

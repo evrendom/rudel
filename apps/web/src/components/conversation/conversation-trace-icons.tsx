@@ -114,10 +114,12 @@ export function TraceDisclosureIcon({
 export function ModelTraceIcon({
 	className,
 	expanded,
+	expandable = true,
 	model,
 }: {
 	className?: string;
 	expanded: boolean;
+	expandable?: boolean;
 	model: string | undefined;
 }) {
 	const ModelIcon = getModelIconComponent(model);
@@ -130,7 +132,7 @@ export function ModelTraceIcon({
 				className,
 			)}
 			expanded={expanded}
-			expandable
+			expandable={expandable}
 			icon={ModelIcon ?? Bot}
 		/>
 	);

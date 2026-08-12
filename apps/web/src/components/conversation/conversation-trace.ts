@@ -50,10 +50,22 @@ export type UserContent = Extract<
 	{ type: "user" }
 >["message"]["content"];
 
+export type TraceSystemType =
+	| "context"
+	| "interruption"
+	| "notification"
+	| "system";
+
 export type TraceItem =
 	| { kind: "user"; id: string; timestamp: string; content: UserContent }
 	| { kind: "agent"; id: string; timestamp: string; events: TraceEvent[] }
-	| { kind: "system"; id: string; timestamp: string; text: string }
+	| {
+			kind: "system";
+			id: string;
+			timestamp: string;
+			text: string;
+			systemType: TraceSystemType;
+	  }
 	| { kind: "summary"; id: string; timestamp: undefined; text: string };
 
 function isToolResult(value: unknown): value is ToolResultContent {
@@ -133,6 +145,25 @@ function textFromBlocks(blocks: TextContent[]): string {
 	return blocks.map((block) => block.text).join("\n");
 }
 
+function classifyNonMemberUserEntry(
+	entry: Extract<Conversation, { type: "user" }>,
+): TraceSystemType | undefined {
+	const text = userContentText(entry.message.content).trim();
+	if (entry.isMeta === true) {
+		return "context";
+	}
+
+	if (/^\[Request interrupted by user\]$/iu.test(text)) {
+		return "interruption";
+	}
+
+	if (/^<task-notification(?:\s|>)/iu.test(text)) {
+		return "notification";
+	}
+
+	return undefined;
+}
+
 /**
  * Groups entries into trace items. Consecutive assistant entries, plus the
  * tool-result carriers between them, collapse into a single agent section.
@@ -184,6 +215,7 @@ export function buildConversationTrace(
 			items.push({
 				kind: "system",
 				id: entry.uuid,
+				systemType: "system",
 				timestamp: entry.timestamp,
 				text: entry.message.content,
 			});
@@ -265,6 +297,19 @@ export function buildConversationTrace(
 				agentTimestamp = entry.timestamp;
 			}
 
+			return;
+		}
+
+		const systemType = classifyNonMemberUserEntry(entry);
+		if (systemType) {
+			flushAgentSection();
+			items.push({
+				kind: "system",
+				id: entry.uuid,
+				systemType,
+				timestamp: entry.timestamp,
+				text: userContentText(entry.message.content),
+			});
 			return;
 		}
 

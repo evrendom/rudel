@@ -1,20 +1,46 @@
 import { useQuery } from "@tanstack/react-query";
-import { useCallback, useRef } from "react";
+import {
+	useCallback,
+	// biome-ignore lint/style/noRestrictedImports: the tab title must update when async session details reveal the model and when client-side navigation changes the session id.
+	useEffect,
+	useRef,
+} from "react";
+import { useLocation } from "react-router-dom";
+import {
+	isLeftSidebarAdalinePreviewPath,
+	isLeftSidebarPreviewPath,
+	isLeftSidebarTablePreviewPath,
+	isLeftSidebarThreadCollapsiblePreviewPath,
+	isLeftSidebarThreadPreviewPath,
+	isLeftSidebarThreadV2PreviewPath,
+	isLeftSidebarThreadWaterfallPreviewPath,
+	isLeftSidebarTurnsPreviewPath,
+} from "@/app/routes";
 import { Skeleton } from "@/app/ui/skeleton";
 import { ConversationView } from "@/components/conversation/ConversationView";
 import { useTrackProductPageView } from "@/features/analytics/tracking/useTrackProductPageView";
 import { formatModelDisplayLabel } from "@/features/dashboard/components/dashboard-model-brand";
+import type { SessionNavigation } from "@/features/sessions/session-navigation";
 import { useShellHeaderPortal } from "@/features/shell/shell-header-portal";
 import { useUserMap } from "@/features/workspace/hooks/useUserMap";
 import { orpc } from "@/lib/orpc";
 import { cn } from "@/lib/utils";
+import { NormalSessionTurnStrip } from "./normal-session-turn-strip";
 import { SessionDetailHeader } from "./session-detail-header";
+import {
+	SessionDetailTriptychView,
+	TRIPTYCH_SESSION_IDS,
+	useTriptychDesktopLayout,
+} from "./session-detail-triptych-view";
 import { buildSessionDetailViewModel } from "./session-detail-view-model";
 import { SessionDetailErrorBoundary } from "./session-detail-view-parts";
 import { getSessionDetailErrorState } from "./session-detail-view-utils";
 
 type SessionDetailViewProps = {
+	navigation: SessionNavigation;
+	position: number | undefined;
 	sessionId: string;
+	totalSessions: number;
 	onReturn: () => void;
 };
 
@@ -276,12 +302,17 @@ function SessionDetailLoadedContent({
 }
 
 export function SessionDetailView({
+	navigation,
+	position,
 	sessionId,
+	totalSessions,
 	onReturn,
 }: SessionDetailViewProps) {
 	const headerRef = useRef<HTMLElement>(null);
 	const transcriptScrollRef = useRef<HTMLDivElement>(null);
+	const location = useLocation();
 	const shellHeaderPortal = useShellHeaderPortal();
+	const isTriptychDesktopLayout = useTriptychDesktopLayout();
 
 	const handleHeaderWheel = useCallback((event: WheelEvent) => {
 		if (Math.abs(event.deltaY) <= Math.abs(event.deltaX)) {
@@ -325,7 +356,49 @@ export function SessionDetailView({
 	const viewModel = session
 		? buildSessionDetailViewModel(session, userMap)
 		: undefined;
+	const sessionTabTitle = `${
+		viewModel?.safeModelUsed
+			? formatModelDisplayLabel(viewModel.safeModelUsed)
+			: "Session"
+	} · ${sessionId}`;
+
+	useEffect(() => {
+		const previousTitle = document.title;
+		document.title = sessionTabTitle;
+
+		return () => {
+			document.title = previousTitle;
+		};
+	}, [sessionTabTitle]);
+
 	const errorState = getSessionDetailErrorState(error);
+	const isAdalinePreview = isLeftSidebarAdalinePreviewPath(location.pathname);
+	const isTablePreview = isLeftSidebarTablePreviewPath(location.pathname);
+	const isCollapsibleThreadPreview = isLeftSidebarThreadCollapsiblePreviewPath(
+		location.pathname,
+	);
+	const isThreadPreview = isLeftSidebarThreadPreviewPath(location.pathname);
+	const isThreadWaterfallPreview = isLeftSidebarThreadWaterfallPreviewPath(
+		location.pathname,
+	);
+	const isThreadV2Preview = isLeftSidebarThreadV2PreviewPath(location.pathname);
+	const isTurnsPreview = isLeftSidebarTurnsPreviewPath(location.pathname);
+	const isTriptychExample =
+		(isLeftSidebarPreviewPath(location.pathname) ||
+			isAdalinePreview ||
+			isTablePreview ||
+			isCollapsibleThreadPreview ||
+			isThreadWaterfallPreview ||
+			isThreadV2Preview ||
+			isThreadPreview ||
+			isTurnsPreview) &&
+		TRIPTYCH_SESSION_IDS.has(sessionId.toLowerCase());
+	const showTriptych =
+		!isLoading &&
+		errorState === undefined &&
+		viewModel !== undefined &&
+		isTriptychExample &&
+		isTriptychDesktopLayout;
 
 	return (
 		<SessionDetailErrorBoundary>
@@ -333,38 +406,80 @@ export function SessionDetailView({
 				<SessionDetailHeader
 					avatarMap={avatarMap}
 					headerRef={setHeaderElement}
+					hideMetrics={isTriptychExample}
 					isLoading={isLoading}
+					navigation={navigation}
 					onReturn={onReturn}
 					portalHost={shellHeaderPortal}
+					position={position}
 					sessionId={sessionId}
+					totalSessions={totalSessions}
 					viewModel={viewModel}
 				/>
 
 				<div
 					key={sessionId}
-					ref={transcriptScrollRef}
-					className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-none pb-[calc(5rem+env(safe-area-inset-bottom))]"
+					className="relative min-h-0 min-w-0 flex-1 overflow-hidden"
 				>
-					{isLoading ? <SessionDetailContentLoadingView /> : null}
-					{!isLoading && errorState ? (
-						<SessionDetailStateMessage
-							description={errorState.description}
-							title={errorState.title}
-						/>
-					) : null}
-					{!isLoading && !errorState && viewModel ? (
-						<SessionDetailLoadedContent
-							key={viewModel.safeSessionId}
+					{showTriptych && viewModel ? (
+						<SessionDetailTriptychView
+							key={`${viewModel.safeSessionId}-${isAdalinePreview ? "adaline" : isThreadWaterfallPreview ? "thread-waterfall" : isThreadV2Preview ? "thread-v2" : isCollapsibleThreadPreview ? "thread-collapsible" : isThreadPreview ? "thread" : isTablePreview ? "table" : isTurnsPreview ? "focus" : "overview"}`}
+							responseScrollRef={transcriptScrollRef}
+							turnRailVariant={
+								isAdalinePreview
+									? "adaline"
+									: isThreadWaterfallPreview
+										? "thread-waterfall"
+										: isThreadV2Preview
+											? "thread-v2"
+											: isCollapsibleThreadPreview
+												? "thread-collapsible"
+												: isThreadPreview
+													? "thread"
+													: isTablePreview
+														? "table"
+														: isTurnsPreview
+															? "focus"
+															: "overview"
+							}
 							userImageUrl={avatarMap[viewModel.safeUserId]}
 							viewModel={viewModel}
 						/>
-					) : null}
-					{!isLoading && !errorState && !viewModel ? (
-						<SessionDetailStateMessage
-							description={undefined}
-							title="Session Not Found"
-						/>
-					) : null}
+					) : (
+						<div className="flex h-full min-h-0 min-w-0">
+							<div
+								ref={transcriptScrollRef}
+								className="h-full min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-none pb-[calc(5rem+env(safe-area-inset-bottom))]"
+							>
+								{isLoading ? <SessionDetailContentLoadingView /> : null}
+								{!isLoading && errorState ? (
+									<SessionDetailStateMessage
+										description={errorState.description}
+										title={errorState.title}
+									/>
+								) : null}
+								{!isLoading && !errorState && viewModel ? (
+									<SessionDetailLoadedContent
+										key={viewModel.safeSessionId}
+										userImageUrl={avatarMap[viewModel.safeUserId]}
+										viewModel={viewModel}
+									/>
+								) : null}
+								{!isLoading && !errorState && !viewModel ? (
+									<SessionDetailStateMessage
+										description={undefined}
+										title="Session Not Found"
+									/>
+								) : null}
+							</div>
+							{!isLoading && !errorState && viewModel ? (
+								<NormalSessionTurnStrip
+									content={viewModel.safeContent}
+									scrollContainerRef={transcriptScrollRef}
+								/>
+							) : null}
+						</div>
+					)}
 				</div>
 			</div>
 		</SessionDetailErrorBoundary>

@@ -1,5 +1,12 @@
 import type { SessionAnalytics } from "@rudel/api-routes";
 
+export interface SessionNavigation {
+	hasNextSession: boolean;
+	hasPreviousSession: boolean;
+	onNextSession: () => void;
+	onPreviousSession: () => void;
+}
+
 export function getSessionNeighbours({
 	canViewSession,
 	orderedSessions,

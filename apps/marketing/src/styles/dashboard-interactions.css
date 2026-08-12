@@ -1,17 +1,27 @@
-:where(.opaline-dashboard-scope)
-	[data-opaline-dashboard-part="desktop-window"] {
+:where(.opaline-dashboard-scope) {
+	--font-inter: "inter", "inter Fallback";
+	--default-font-family: var(--font-inter);
+	/* biome-ignore lint/a11y/useGenericFontNames: this list is measured from the reference root. */
+	font-family: inter, "inter Fallback";
+	font-size: 16px;
+	font-weight: 500;
+	line-height: 22px;
+	letter-spacing: -0.16px;
+}
+
+:where(.opaline-dashboard-scope) [data-opaline-draggable-window] {
 	--opaline-drag-x: 0px;
 	--opaline-drag-y: 0px;
 	translate: var(--opaline-drag-x) var(--opaline-drag-y);
 	cursor: grab;
+	/* biome-ignore lint/complexity/noImportantStyles: the extracted shell has an important pointer-events lock. */
 	pointer-events: auto !important;
 	touch-action: none;
 	user-select: none;
 }
 
 :where(.opaline-dashboard-scope)
-	[data-opaline-dashboard-part="desktop-window"][data-opaline-dragging] {
-	z-index: 50 !important;
+	[data-opaline-draggable-window][data-opaline-dragging] {
 	cursor: grabbing;
 }
 
@@ -23,8 +33,11 @@
 		> div
 		> div
 		> div[style*="width: 1152px"] {
+		/* biome-ignore lint/complexity/noImportantStyles: these override extracted inline canvas dimensions. */
 		width: 100% !important;
+		/* biome-ignore lint/complexity/noImportantStyles: these override extracted inline canvas dimensions. */
 		height: 100% !important;
+		/* biome-ignore lint/complexity/noImportantStyles: these override an extracted inline transform. */
 		transform: none !important;
 	}
 }

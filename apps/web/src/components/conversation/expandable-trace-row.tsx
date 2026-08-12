@@ -10,8 +10,11 @@ import {
 import { cn } from "@/lib/utils";
 import { compactPreview } from "./conversation-trace";
 
+// min-h-10 matches CONVERSATION_TRACE_TREE_ROW_HEIGHT (40px): the tree's
+// connector elbows and depth-derived sticky slots both assume this height,
+// so shorter rows would leave see-through gaps between stacked sticky levels.
 export const traceRowClassName =
-	"flex w-full min-w-0 items-center gap-2.5 px-3 py-2 text-left text-[0.8125rem] hover:bg-[color:var(--dashboardy-subsurface-strong)] focus-visible:outline-none focus-visible:bg-[color:var(--dashboardy-subsurface-strong)]";
+	"flex min-h-10 w-full min-w-0 items-center gap-2.5 px-3 py-2 text-left text-[0.8125rem] hover:bg-[color:var(--dashboardy-subsurface-strong)] focus-visible:outline-none focus-visible:bg-[color:var(--dashboardy-subsurface-strong)]";
 
 const deltaClassName =
 	"shrink-0 tabular-nums text-[0.75rem] text-[color:var(--dashboardy-muted)]";
@@ -100,6 +103,7 @@ export function ExpandableTraceRow({
 	fullPreviewText,
 	anchorId,
 	focus,
+	trailing,
 }: {
 	children: ReactNode | ((expanded: boolean, expandable: boolean) => ReactNode);
 	body?: ReactNode;
@@ -108,6 +112,7 @@ export function ExpandableTraceRow({
 	fullPreviewText: string | undefined;
 	anchorId?: string;
 	focus?: TraceFocusRequest;
+	trailing?: ReactNode;
 }) {
 	const [open, setOpen] = useState(false);
 	const panelId = useId();
@@ -126,7 +131,7 @@ export function ExpandableTraceRow({
 			ref={rowRef}
 			id={anchorId}
 			className={cn(
-				"min-w-0 scroll-mt-6 bg-[color:var(--dashboardy-surface)]",
+				"min-w-0 scroll-mt-6 bg-[color:var(--conversation-trace-row-surface,var(--dashboardy-surface))]",
 				className,
 			)}
 		>
@@ -144,11 +149,13 @@ export function ExpandableTraceRow({
 					)}
 				>
 					{rowContent}
+					{trailing}
 					{delta ? <span className={deltaClassName}>{delta}</span> : null}
 				</button>
 			) : (
 				<div className={cn(traceRowClassName, "hover:bg-transparent")}>
 					{rowContent}
+					{trailing}
 					{delta ? <span className={deltaClassName}>{delta}</span> : null}
 				</div>
 			)}

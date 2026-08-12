@@ -1,8 +1,11 @@
 import type {
 	AssistantEntry,
 	Conversation,
+	SystemEntry,
 	TextContent,
 	ThinkingContent,
+	ToolResultContent,
+	ToolUseContent,
 	UserEntry,
 } from "./conversation-schema";
 
@@ -26,6 +29,85 @@ interface CodexMessagePayload {
 interface CodexReasoningPayload {
 	type: "reasoning";
 	summary: Array<{ type: string; text: string }>;
+}
+
+interface CodexToolCallPayload {
+	type: "function_call" | "custom_tool_call" | "tool_search_call";
+	name?: string;
+	arguments?: unknown;
+	input?: string;
+	call_id?: string;
+}
+
+interface CodexToolOutputPayload {
+	type:
+		| "function_call_output"
+		| "custom_tool_call_output"
+		| "tool_search_output";
+	call_id?: string;
+	output?: unknown;
+	tools?: unknown;
+}
+
+// Same failure heuristic the turn metadata extractor applies to Codex tool
+// outputs, so trace-level error marks agree with turn-level error counts.
+const CODEX_TOOL_FAILURE_PATTERN =
+	/(?:Error|Exception):|apply_patch verification failed:/iu;
+
+function toToolInput(payload: CodexToolCallPayload): Record<string, unknown> {
+	if (payload.type === "custom_tool_call") {
+		return { input: payload.input ?? "" };
+	}
+	if (payload.type === "tool_search_call") {
+		return typeof payload.arguments === "object" &&
+			payload.arguments !== null &&
+			!Array.isArray(payload.arguments)
+			? (payload.arguments as Record<string, unknown>)
+			: {};
+	}
+	if (typeof payload.arguments !== "string" || !payload.arguments) {
+		return {};
+	}
+	try {
+		const parsed = JSON.parse(payload.arguments) as unknown;
+		if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+			return parsed as Record<string, unknown>;
+		}
+	} catch {
+		// Fall through to the raw-string wrapper.
+	}
+	return { arguments: payload.arguments };
+}
+
+// Tool outputs arrive as plain strings, block arrays, or JSON-encoded block
+// arrays; normalize them to the display string tool_result carriers expect.
+function toToolOutputText(output: unknown): string {
+	let blocks: unknown = output;
+	if (typeof output === "string") {
+		if (!output.startsWith("[") && !output.startsWith("{")) {
+			return output;
+		}
+		try {
+			blocks = JSON.parse(output);
+		} catch {
+			return output;
+		}
+	}
+	if (Array.isArray(blocks)) {
+		const texts = blocks
+			.map((block) =>
+				block &&
+				typeof block === "object" &&
+				typeof (block as { text?: unknown }).text === "string"
+					? (block as { text: string }).text
+					: "",
+			)
+			.filter(Boolean);
+		if (texts.length > 0) {
+			return texts.join("\n");
+		}
+	}
+	return typeof output === "string" ? output : JSON.stringify(output ?? "");
 }
 
 /**
@@ -71,6 +153,18 @@ export function parseCodexConversations(content: string): Array<Conversation> {
 			continue;
 		}
 
+		if (parsed.type === "event_msg" && parsed.payload.type === "turn_aborted") {
+			const entry: SystemEntry = {
+				uuid: `codex-${entryIndex++}`,
+				timestamp: parsed.timestamp,
+				sessionId,
+				type: "system",
+				message: { content: "Turn aborted" },
+			};
+			conversations.push(entry);
+			continue;
+		}
+
 		if (parsed.type !== "response_item") continue;
 
 		const payload = parsed.payload as unknown as
@@ -100,6 +194,63 @@ export function parseCodexConversations(content: string): Array<Conversation> {
 					role: "assistant",
 					content: [thinkingBlock],
 				},
+			};
+			conversations.push(entry);
+			continue;
+		}
+
+		// Tool calls become assistant tool_use blocks and their outputs become
+		// tool_result carriers, so Codex shell/tool activity shows up in the
+		// trace the same way Claude Code tool events do.
+		if (
+			payload.type === "function_call" ||
+			payload.type === "custom_tool_call" ||
+			payload.type === "tool_search_call"
+		) {
+			const call = payload as CodexToolCallPayload;
+			const toolUse: ToolUseContent = {
+				type: "tool_use",
+				id: call.call_id ?? `codex-call-${entryIndex}`,
+				name:
+					call.type === "tool_search_call"
+						? "tool_search"
+						: (call.name ?? "tool"),
+				input: toToolInput(call),
+			};
+			const entry: AssistantEntry = {
+				uuid: `codex-${entryIndex++}`,
+				timestamp: parsed.timestamp,
+				sessionId,
+				type: "assistant",
+				message: { role: "assistant", content: [toolUse] },
+			};
+			conversations.push(entry);
+			continue;
+		}
+
+		if (
+			payload.type === "function_call_output" ||
+			payload.type === "custom_tool_call_output" ||
+			payload.type === "tool_search_output"
+		) {
+			const output = payload as CodexToolOutputPayload;
+			if (!output.call_id) continue;
+			const text =
+				output.type === "tool_search_output"
+					? toToolOutputText(output.tools)
+					: toToolOutputText(output.output);
+			const resultBlock: ToolResultContent = {
+				type: "tool_result",
+				tool_use_id: output.call_id,
+				content: text,
+				is_error: CODEX_TOOL_FAILURE_PATTERN.test(text) ? true : undefined,
+			};
+			const entry: UserEntry = {
+				uuid: `codex-${entryIndex++}`,
+				timestamp: parsed.timestamp,
+				sessionId,
+				type: "user",
+				message: { role: "user", content: [resultBlock] },
 			};
 			conversations.push(entry);
 			continue;

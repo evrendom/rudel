@@ -1,14 +1,8 @@
 import { ArrowDown, ArrowLeft, ArrowUp } from "lucide-react";
 import type { ReactNode } from "react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/app/ui/tooltip";
+import type { SessionNavigation } from "@/features/sessions/session-navigation";
 import { cn } from "@/lib/utils";
-
-type SessionTraceNavigation = {
-	hasNextSession: boolean;
-	hasPreviousSession: boolean;
-	onNextSession: () => void;
-	onPreviousSession: () => void;
-};
 
 const sessionTraceDockPressClassName =
 	"scale-100 transition-transform duration-150 ease-out active:scale-[0.96] motion-reduce:transition-none motion-reduce:active:scale-100";
@@ -62,7 +56,7 @@ export function SessionTraceDock({
 	position,
 	totalSessions,
 }: {
-	navigation: SessionTraceNavigation;
+	navigation: SessionNavigation;
 	onReturn: () => void;
 	position: number | undefined;
 	totalSessions: number;

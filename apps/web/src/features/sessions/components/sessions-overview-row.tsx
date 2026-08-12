@@ -62,8 +62,6 @@ export function SessionsOverviewRow({
 }: SessionsOverviewRowProps) {
 	const sessionHref = getSessionHref?.(session);
 	const repositoryLabel = getRepositoryLabel(session);
-	const fullRepositoryLabel =
-		session.project_path || session.repository || repositoryLabel;
 	const sessionCost = calculateCost(
 		session.input_tokens,
 		session.output_tokens,
@@ -89,7 +87,7 @@ export function SessionsOverviewRow({
 		isClickable ? "cursor-pointer" : "cursor-default opacity-65",
 	);
 	const cellClassName = cn(
-		"flex min-w-0 items-center border-r border-b border-(--session-overview-border) bg-(--session-overview-surface) px-3",
+		"flex min-w-0 items-center border-r border-b border-(--session-overview-border) bg-(--session-overview-surface) px-3 [border-right-color:transparent]",
 		isClickable &&
 			"group-hover/session:bg-(--session-overview-hover) group-focus-visible/session:bg-(--session-overview-hover)",
 		isActive && "bg-(--session-overview-hover)",
@@ -114,15 +112,9 @@ export function SessionsOverviewRow({
 			>
 				<p
 					className="min-w-0 truncate text-base font-medium tracking-[-0.01em] text-(--session-overview-text) sm:text-sm"
-					title={fullRepositoryLabel}
+					title={repositoryLabel}
 				>
 					{repositoryLabel}
-					{session.worktree ? (
-						<span className="text-(--session-overview-muted)">
-							{" "}
-							/ {session.worktree}
-						</span>
-					) : null}
 				</p>
 			</div>
 			<div className={cellClassName} title={userLabel}>
@@ -202,9 +194,14 @@ export function SessionsOverviewRow({
 			<div className={cellClassName} title={skillsTitle}>
 				{visibleSkills.length > 0 ? (
 					<div className="flex min-w-0 items-center gap-1.5">
-						<p className="min-w-0 truncate text-base font-medium tracking-[-0.01em] text-(--session-overview-text) sm:text-sm">
-							{visibleSkills.join(", ")}
-						</p>
+						{visibleSkills.map((skill) => (
+							<span
+								key={skill}
+								className="min-w-0 truncate rounded-full bg-(--session-overview-hover) px-2 py-0.5 text-base font-medium tracking-[-0.01em] text-(--session-overview-text) sm:text-sm"
+							>
+								{skill}
+							</span>
+						))}
 						{additionalSkillCount > 0 ? (
 							<span className="shrink-0 rounded-full bg-(--session-overview-hover) px-1.5 py-0.5 text-base font-medium tracking-[-0.01em] text-(--session-overview-muted) tabular-nums sm:text-sm">
 								+{additionalSkillCount}
@@ -219,7 +216,6 @@ export function SessionsOverviewRow({
 			</div>
 		</>
 	);
-
 	return (
 		<li>
 			{isClickable && sessionHref ? (

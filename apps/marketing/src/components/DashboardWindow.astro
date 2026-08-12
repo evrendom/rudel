@@ -6,21 +6,41 @@ import { dashboardPageRoot } from "./generated/dashboard-branded-data";
 ---
 
 <div
-	class="dashboard-shell opaline-dashboard-scope"
+	class="dashboard-shell"
 	data-dashboard-shell
 	data-opaline-dashboard-stage
 >
-	<div class={dashboardPageRoot.htmlClass} style="display: contents;">
-		<DashboardBranded />
+	<div
+		class="opaline-dashboard-scope"
+		style="display: contents;"
+	>
+		<div
+			class={dashboardPageRoot.htmlClass}
+			style={`display: contents; ${dashboardPageRoot.htmlStyle} font-synthesis: initial; text-rendering: auto;`}
+		>
+			<div class={dashboardPageRoot.bodyClass} style="display: contents;">
+				<DashboardBranded />
+			</div>
+		</div>
 	</div>
 </div>
 
 <div
-	class="dashboard-mobile-shell opaline-dashboard-scope"
+	class="dashboard-mobile-shell"
 	data-opaline-mobile-dashboard
 >
-	<div class={dashboardPageRoot.htmlClass} style="display: contents;">
-		<DashboardMobile />
+	<div
+		class="opaline-dashboard-scope"
+		style="display: contents;"
+	>
+		<div
+			class={dashboardPageRoot.htmlClass}
+			style={`display: contents; ${dashboardPageRoot.htmlStyle} font-synthesis: initial; text-rendering: auto;`}
+		>
+			<div class={dashboardPageRoot.bodyClass} style="display: contents;">
+				<DashboardMobile />
+			</div>
+		</div>
 	</div>
 </div>
 

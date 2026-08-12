@@ -16,6 +16,16 @@ const SETTINGS_CREATE_WORKSPACE_PATH = `${SETTINGS_ROOT_PATH}/create-workspace`;
 const PRESET_BASELINE_PATH = "/__preset-baseline";
 const DEV_BOTTOM_RAIL_PATH = "/dev/bottom-rail";
 const DEV_LEFT_SIDEBAR_PATH = "/dev/left-sidebar";
+const DEV_LEFT_SIDEBAR_TABLE_PATH = "/dev/left-sidebar-table";
+const DEV_LEFT_SIDEBAR_ADALINE_PATH = "/dev/left-sidebar-adaline";
+const DEV_LEFT_SIDEBAR_THREAD_COLLAPSIBLE_PATH =
+	"/dev/left-sidebar-thread-collapsible";
+const DEV_LEFT_SIDEBAR_THREAD_WATERFALL_PATH =
+	"/dev/left-sidebar-thread-waterfall";
+const DEV_LEFT_SIDEBAR_THREAD_V2_PATH = "/dev/left-sidebar-thread-v2";
+const DEV_LEFT_SIDEBAR_THREAD_PATH = "/dev/left-sidebar-thread";
+const DEV_LEFT_SIDEBAR_TURNS_PATH = "/dev/left-sidebar-turns";
+const DEV_OVERVIEW_STRIP_LAB_PATH = "/dev/overview-strip-lab";
 const WRAPPED_TEAM_CARD_PATH = "/wrapped";
 const DEV_WRAPPED_PATH = "/dev/wrapped";
 const WRAPPED_RESUME_PATH = "/resume";
@@ -61,6 +71,15 @@ export const appRoutes = {
 	presetBaseline: () => PRESET_BASELINE_PATH,
 	devBottomRail: () => DEV_BOTTOM_RAIL_PATH,
 	devLeftSidebar: () => DEV_LEFT_SIDEBAR_PATH,
+	devLeftSidebarTable: () => DEV_LEFT_SIDEBAR_TABLE_PATH,
+	devLeftSidebarAdaline: () => DEV_LEFT_SIDEBAR_ADALINE_PATH,
+	devLeftSidebarThreadCollapsible: () =>
+		DEV_LEFT_SIDEBAR_THREAD_COLLAPSIBLE_PATH,
+	devLeftSidebarThreadWaterfall: () => DEV_LEFT_SIDEBAR_THREAD_WATERFALL_PATH,
+	devLeftSidebarThreadV2: () => DEV_LEFT_SIDEBAR_THREAD_V2_PATH,
+	devLeftSidebarThread: () => DEV_LEFT_SIDEBAR_THREAD_PATH,
+	devLeftSidebarTurns: () => DEV_LEFT_SIDEBAR_TURNS_PATH,
+	devOverviewStripLab: () => DEV_OVERVIEW_STRIP_LAB_PATH,
 	wrappedTeamCard: () => WRAPPED_TEAM_CARD_PATH,
 	wrappedTeamCardShare: () => getWrappedTeamCardSharePath(),
 	wrappedCardProfile: (search?: string) => getWrappedCardProfilePath(search),
@@ -123,6 +142,66 @@ export function getLeftSidebarPreviewPath(canonicalPath: string) {
 	return `${DEV_LEFT_SIDEBAR_PATH}${canonicalPath}`;
 }
 
+export function getLeftSidebarTurnsPreviewPath(canonicalPath: string) {
+	if (canonicalPath === DASHBOARD_PATH) {
+		return DEV_LEFT_SIDEBAR_TURNS_PATH;
+	}
+
+	return `${DEV_LEFT_SIDEBAR_TURNS_PATH}${canonicalPath}`;
+}
+
+export function getLeftSidebarTablePreviewPath(canonicalPath: string) {
+	if (canonicalPath === DASHBOARD_PATH) {
+		return DEV_LEFT_SIDEBAR_TABLE_PATH;
+	}
+
+	return `${DEV_LEFT_SIDEBAR_TABLE_PATH}${canonicalPath}`;
+}
+
+export function getLeftSidebarAdalinePreviewPath(canonicalPath: string) {
+	if (canonicalPath === DASHBOARD_PATH) {
+		return DEV_LEFT_SIDEBAR_ADALINE_PATH;
+	}
+
+	return `${DEV_LEFT_SIDEBAR_ADALINE_PATH}${canonicalPath}`;
+}
+
+export function getLeftSidebarThreadPreviewPath(canonicalPath: string) {
+	if (canonicalPath === DASHBOARD_PATH) {
+		return DEV_LEFT_SIDEBAR_THREAD_PATH;
+	}
+
+	return `${DEV_LEFT_SIDEBAR_THREAD_PATH}${canonicalPath}`;
+}
+
+export function getLeftSidebarThreadCollapsiblePreviewPath(
+	canonicalPath: string,
+) {
+	if (canonicalPath === DASHBOARD_PATH) {
+		return DEV_LEFT_SIDEBAR_THREAD_COLLAPSIBLE_PATH;
+	}
+
+	return `${DEV_LEFT_SIDEBAR_THREAD_COLLAPSIBLE_PATH}${canonicalPath}`;
+}
+
+export function getLeftSidebarThreadWaterfallPreviewPath(
+	canonicalPath: string,
+) {
+	if (canonicalPath === DASHBOARD_PATH) {
+		return DEV_LEFT_SIDEBAR_THREAD_WATERFALL_PATH;
+	}
+
+	return `${DEV_LEFT_SIDEBAR_THREAD_WATERFALL_PATH}${canonicalPath}`;
+}
+
+export function getLeftSidebarThreadV2PreviewPath(canonicalPath: string) {
+	if (canonicalPath === DASHBOARD_PATH) {
+		return DEV_LEFT_SIDEBAR_THREAD_V2_PATH;
+	}
+
+	return `${DEV_LEFT_SIDEBAR_THREAD_V2_PATH}${canonicalPath}`;
+}
+
 export function getCanonicalAppPath(pathname: string) {
 	if (pathname === DEV_BOTTOM_RAIL_PATH) {
 		return DASHBOARD_PATH;
@@ -140,6 +219,62 @@ export function getCanonicalAppPath(pathname: string) {
 		return pathname.slice(DEV_LEFT_SIDEBAR_PATH.length);
 	}
 
+	if (pathname === DEV_LEFT_SIDEBAR_TABLE_PATH) {
+		return DASHBOARD_PATH;
+	}
+
+	if (pathname.startsWith(`${DEV_LEFT_SIDEBAR_TABLE_PATH}/`)) {
+		return pathname.slice(DEV_LEFT_SIDEBAR_TABLE_PATH.length);
+	}
+
+	if (pathname === DEV_LEFT_SIDEBAR_ADALINE_PATH) {
+		return DASHBOARD_PATH;
+	}
+
+	if (pathname.startsWith(`${DEV_LEFT_SIDEBAR_ADALINE_PATH}/`)) {
+		return pathname.slice(DEV_LEFT_SIDEBAR_ADALINE_PATH.length);
+	}
+
+	if (pathname === DEV_LEFT_SIDEBAR_THREAD_PATH) {
+		return DASHBOARD_PATH;
+	}
+
+	if (pathname.startsWith(`${DEV_LEFT_SIDEBAR_THREAD_PATH}/`)) {
+		return pathname.slice(DEV_LEFT_SIDEBAR_THREAD_PATH.length);
+	}
+
+	if (pathname === DEV_LEFT_SIDEBAR_THREAD_COLLAPSIBLE_PATH) {
+		return DASHBOARD_PATH;
+	}
+
+	if (pathname.startsWith(`${DEV_LEFT_SIDEBAR_THREAD_COLLAPSIBLE_PATH}/`)) {
+		return pathname.slice(DEV_LEFT_SIDEBAR_THREAD_COLLAPSIBLE_PATH.length);
+	}
+
+	if (pathname === DEV_LEFT_SIDEBAR_THREAD_WATERFALL_PATH) {
+		return DASHBOARD_PATH;
+	}
+
+	if (pathname.startsWith(`${DEV_LEFT_SIDEBAR_THREAD_WATERFALL_PATH}/`)) {
+		return pathname.slice(DEV_LEFT_SIDEBAR_THREAD_WATERFALL_PATH.length);
+	}
+
+	if (pathname === DEV_LEFT_SIDEBAR_THREAD_V2_PATH) {
+		return DASHBOARD_PATH;
+	}
+
+	if (pathname.startsWith(`${DEV_LEFT_SIDEBAR_THREAD_V2_PATH}/`)) {
+		return pathname.slice(DEV_LEFT_SIDEBAR_THREAD_V2_PATH.length);
+	}
+
+	if (pathname === DEV_LEFT_SIDEBAR_TURNS_PATH) {
+		return DASHBOARD_PATH;
+	}
+
+	if (pathname.startsWith(`${DEV_LEFT_SIDEBAR_TURNS_PATH}/`)) {
+		return pathname.slice(DEV_LEFT_SIDEBAR_TURNS_PATH.length);
+	}
+
 	return pathname;
 }
 
@@ -154,6 +289,55 @@ export function isLeftSidebarPreviewPath(pathname: string) {
 	return (
 		pathname === DEV_LEFT_SIDEBAR_PATH ||
 		pathname.startsWith(`${DEV_LEFT_SIDEBAR_PATH}/`)
+	);
+}
+
+export function isLeftSidebarTurnsPreviewPath(pathname: string) {
+	return (
+		pathname === DEV_LEFT_SIDEBAR_TURNS_PATH ||
+		pathname.startsWith(`${DEV_LEFT_SIDEBAR_TURNS_PATH}/`)
+	);
+}
+
+export function isLeftSidebarTablePreviewPath(pathname: string) {
+	return (
+		pathname === DEV_LEFT_SIDEBAR_TABLE_PATH ||
+		pathname.startsWith(`${DEV_LEFT_SIDEBAR_TABLE_PATH}/`)
+	);
+}
+
+export function isLeftSidebarAdalinePreviewPath(pathname: string) {
+	return (
+		pathname === DEV_LEFT_SIDEBAR_ADALINE_PATH ||
+		pathname.startsWith(`${DEV_LEFT_SIDEBAR_ADALINE_PATH}/`)
+	);
+}
+
+export function isLeftSidebarThreadPreviewPath(pathname: string) {
+	return (
+		pathname === DEV_LEFT_SIDEBAR_THREAD_PATH ||
+		pathname.startsWith(`${DEV_LEFT_SIDEBAR_THREAD_PATH}/`)
+	);
+}
+
+export function isLeftSidebarThreadCollapsiblePreviewPath(pathname: string) {
+	return (
+		pathname === DEV_LEFT_SIDEBAR_THREAD_COLLAPSIBLE_PATH ||
+		pathname.startsWith(`${DEV_LEFT_SIDEBAR_THREAD_COLLAPSIBLE_PATH}/`)
+	);
+}
+
+export function isLeftSidebarThreadWaterfallPreviewPath(pathname: string) {
+	return (
+		pathname === DEV_LEFT_SIDEBAR_THREAD_WATERFALL_PATH ||
+		pathname.startsWith(`${DEV_LEFT_SIDEBAR_THREAD_WATERFALL_PATH}/`)
+	);
+}
+
+export function isLeftSidebarThreadV2PreviewPath(pathname: string) {
+	return (
+		pathname === DEV_LEFT_SIDEBAR_THREAD_V2_PATH ||
+		pathname.startsWith(`${DEV_LEFT_SIDEBAR_THREAD_V2_PATH}/`)
 	);
 }
 

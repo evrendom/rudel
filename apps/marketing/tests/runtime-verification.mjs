@@ -29,7 +29,8 @@ socket.addEventListener("message", (event) => {
 		message.method === "Log.entryAdded" &&
 		message.params.entry.level === "error"
 	) {
-		runtimeErrors.push(message.params.entry.text);
+		const { text, url } = message.params.entry;
+		runtimeErrors.push(url ? `${text} (${url})` : text);
 	}
 	if (!message.id || !pending.has(message.id)) return;
 	const request = pending.get(message.id);
@@ -99,7 +100,7 @@ try {
 	const switchResult = await evaluate(
 		`(async () => {
 			const shell = document.querySelector("[data-dashboard-shell]");
-			const reporting = document.querySelector('[data-scene-tab="reporting"]');
+			const reporting = document.querySelector('[data-opaline-use-case="Reporting"]');
 			const frames = [];
 			reporting.click();
 			for (let index = 0; index < 24; index += 1) {
@@ -108,11 +109,14 @@ try {
 				frames.push({
 					width: rect.width,
 					height: rect.height,
-					visiblePanels: [...document.querySelectorAll("[data-scene-panel]")].filter((panel) => !panel.hidden).length,
+					visiblePanels: [...document.querySelectorAll("[data-opaline-dashboard-panel]")].filter((panel) => {
+						const bounds = panel.getBoundingClientRect();
+						return !panel.hidden && bounds.width > 0 && bounds.height > 0;
+					}).length,
 				});
 			}
 			return {
-				selected: document.querySelector('[data-scene-tab][aria-selected="true"]').textContent.trim(),
+				selected: document.querySelector('[data-opaline-use-case][aria-selected="true"]').textContent.trim(),
 				sizeVariants: [...new Set(frames.map((frame) => frame.width + "x" + frame.height))],
 				emptyFrames: frames.filter((frame) => frame.visiblePanels !== 1).length,
 			};
@@ -124,15 +128,16 @@ try {
 	if (switchResult.sizeVariants.length !== 1)
 		throw new Error("Dashboard resized during switch");
 	if (switchResult.emptyFrames !== 0)
-		throw new Error("Dashboard scene flashed blank");
+		throw new Error(
+			`Dashboard scene flashed blank: ${JSON.stringify(switchResult)}`,
+		);
 
 	const dragStart = await evaluate(`(() => {
-		const windowElement = document.querySelector("[data-drag-window]");
-		const handle = windowElement.querySelector("[data-drag-handle]");
-		const rect = handle.getBoundingClientRect();
+		const windowElement = document.querySelector('[data-opaline-dashboard-app="call"]');
+		const rect = windowElement.getBoundingClientRect();
 		return {
-			x: rect.left + 30,
-			y: rect.top + rect.height / 2,
+			x: rect.left + rect.width / 2,
+			y: rect.top + 24,
 		};
 	})()`);
 	await call("Input.dispatchMouseEvent", {
@@ -147,7 +152,7 @@ try {
 		type: "mouseMoved",
 		x: dragStart.x + 72,
 		y: dragStart.y + 36,
-		button: "none",
+		button: "left",
 		buttons: 1,
 	});
 	await call("Input.dispatchMouseEvent", {
@@ -160,10 +165,10 @@ try {
 	});
 	await wait(50);
 	const drag = await evaluate(`(() => {
-		const windowElement = document.querySelector("[data-drag-window]");
+		const windowElement = document.querySelector('[data-opaline-dashboard-app="call"]');
 		return {
-			x: windowElement.style.getPropertyValue("--drag-x"),
-			y: windowElement.style.getPropertyValue("--drag-y"),
+			x: windowElement.style.getPropertyValue("--opaline-drag-x"),
+			y: windowElement.style.getPropertyValue("--opaline-drag-y"),
 		};
 	})()`);
 	if (drag.x !== "72px" || drag.y !== "36px") {
@@ -210,26 +215,76 @@ try {
 		throw new Error("Dashboard scale changed while scrolling");
 	}
 
+	const terminalAssets = await evaluate(
+		`(async () => {
+			await document.fonts.ready;
+			const expectedApps = ["call", "slack", "terminal"];
+			return {
+				fontLoaded: document.fonts.check('500 10px "JetBrains Mono"'),
+				windows: expectedApps.map((id) => {
+					const windowElement = document.querySelector('[data-opaline-dashboard-app="' + id + '"]');
+					const claude = windowElement?.querySelector('[data-opaline-claude-code]') ?? windowElement;
+					const content = [...(claude?.querySelectorAll('div') ?? [])]
+						.find((element) => element.classList.contains('bg-black-50') && element.classList.contains('font-mono'));
+					const trafficLights = [...(claude?.firstElementChild?.querySelectorAll('span') ?? [])]
+						.slice(0, 3)
+						.map((element) => {
+							const rect = element.getBoundingClientRect();
+							return { width: rect.width, height: rect.height, color: getComputedStyle(element).backgroundColor };
+						});
+					const text = claude?.textContent ?? '';
+					return {
+						id,
+						fontFamily: content ? getComputedStyle(content).fontFamily : null,
+						trafficLights,
+						hasPromptGlyph: text.includes('>'),
+						hasAutocompleteGlyph: text.includes('▶▶ auto'),
+					};
+				}),
+			};
+		})()`,
+		true,
+	);
+	const expectedTerminalFamily = '"JetBrains Mono", "JetBrains Mono Fallback"';
+	if (
+		!terminalAssets.fontLoaded ||
+		terminalAssets.windows.some(
+			(window) =>
+				window.fontFamily !== expectedTerminalFamily ||
+				!window.hasPromptGlyph ||
+				!window.hasAutocompleteGlyph ||
+				window.trafficLights.length !== 3 ||
+				window.trafficLights.some(
+					(light) => light.width <= 0 || light.height <= 0,
+				),
+		)
+	) {
+		throw new Error(
+			`Terminal font or icon glyphs failed to paint: ${JSON.stringify(terminalAssets)}`,
+		);
+	}
+
 	await wait(8200);
 	const remainedReporting = await evaluate(
-		'document.querySelector("[data-scene-tab][aria-selected=true]").textContent.trim()',
+		'document.querySelector("[data-opaline-use-case][aria-selected=true]").textContent.trim()',
 	);
 	if (remainedReporting !== "Reporting")
 		throw new Error("Scene autoplay is still active");
 
 	const navigation = await evaluate(`(() => {
-		const trigger = document.querySelector("[data-nav-trigger]");
+		const trigger = document.querySelector('.opaline-nav-trigger[id*="trigger-product"]');
 		trigger.click();
+		const portal = document.querySelector("[data-opaline-navbar-desktop-portal]");
 		return {
 			expanded: trigger.getAttribute("aria-expanded"),
-			hidden: document.querySelector("[data-nav-popover-position]").hidden,
-			menu: document.querySelector("[data-nav-popover]").dataset.menu,
+			state: trigger.dataset.state,
+			hasProductContent: Boolean(portal.querySelector('.opaline-nav-content[id*="content-product"]')),
 		};
 	})()`);
 	if (
 		navigation.expanded !== "true" ||
-		navigation.hidden ||
-		navigation.menu !== "product"
+		navigation.state !== "open" ||
+		!navigation.hasProductContent
 	) {
 		throw new Error("Desktop navigation disclosure did not open");
 	}
@@ -249,7 +304,7 @@ try {
 		cls: window.__opalineCumulativeLayoutShift,
 		originCount: new Set(performance.getEntriesByType("resource").map((entry) => new URL(entry.name).origin)).size,
 		origin: [...new Set(performance.getEntriesByType("resource").map((entry) => new URL(entry.name).origin))],
-		navExpanded: document.querySelector("[data-nav-trigger]").getAttribute("aria-expanded"),
+		navExpanded: document.querySelector('.opaline-nav-trigger[id*="trigger-product"]').getAttribute("aria-expanded"),
 	})`);
 	if (desktop.aperture !== "released")
 		throw new Error("Aperture did not release");
@@ -288,7 +343,7 @@ try {
 	const mobile = await evaluate(`({
 		overflow: document.documentElement.scrollWidth - innerWidth,
 		titleLines: Math.round(document.querySelector("h1").getBoundingClientRect().height / parseFloat(getComputedStyle(document.querySelector("h1")).lineHeight)),
-		mobileMenuVisible: getComputedStyle(document.querySelector("[data-mobile-nav-trigger]")).display !== "none",
+		mobileMenuVisible: getComputedStyle(document.querySelector('.opaline-nav-mobile-trigger[aria-haspopup="dialog"]')).display !== "none",
 	})`);
 	if (mobile.overflow > 0)
 		throw new Error(`Mobile overflowed by ${mobile.overflow}px`);
@@ -300,21 +355,23 @@ try {
 		);
 
 	const mobileNavigation = await evaluate(`(() => {
-		const trigger = document.querySelector("[data-mobile-nav-trigger]");
-		const menu = document.querySelector("[data-mobile-nav]");
+		const trigger = document.querySelector('.opaline-nav-mobile-trigger[aria-haspopup="dialog"]');
 		trigger.click();
+		const menu = document.querySelector('.opaline-nav-mobile-menu[role="dialog"]');
 		return {
 			expanded: trigger.getAttribute("aria-expanded"),
 			state: trigger.dataset.state,
-			hidden: menu.hidden,
-			bodyOverflow: document.body.style.overflow,
+			menuState: menu?.dataset.state,
+			menuVisible: Boolean(menu && getComputedStyle(menu).display !== "none"),
+			bodyPointerEvents: document.body.style.pointerEvents,
 		};
 	})()`);
 	if (
 		mobileNavigation.expanded !== "true" ||
 		mobileNavigation.state !== "open" ||
-		mobileNavigation.hidden ||
-		mobileNavigation.bodyOverflow !== "hidden"
+		mobileNavigation.menuState !== "open" ||
+		!mobileNavigation.menuVisible ||
+		mobileNavigation.bodyPointerEvents !== "none"
 	) {
 		throw new Error("Mobile navigation did not open cleanly");
 	}
@@ -328,15 +385,16 @@ try {
 		key: "Escape",
 		code: "Escape",
 	});
+	await wait(220);
 	const mobileClosed = await evaluate(`({
-		expanded: document.querySelector("[data-mobile-nav-trigger]").getAttribute("aria-expanded"),
-		hidden: document.querySelector("[data-mobile-nav]").hidden,
-		bodyOverflow: document.body.style.overflow,
+		expanded: document.querySelector('.opaline-nav-mobile-trigger[aria-haspopup="dialog"]').getAttribute("aria-expanded"),
+		menuPresent: Boolean(document.querySelector('.opaline-nav-mobile-menu[role="dialog"]')),
+		bodyPointerEvents: document.body.style.pointerEvents,
 	})`);
 	if (
 		mobileClosed.expanded !== "false" ||
-		!mobileClosed.hidden ||
-		mobileClosed.bodyOverflow !== ""
+		mobileClosed.menuPresent ||
+		mobileClosed.bodyPointerEvents !== ""
 	) {
 		throw new Error("Escape did not close mobile navigation");
 	}
@@ -351,6 +409,7 @@ try {
 				dashboardSwitch: switchResult,
 				drag,
 				determinism,
+				terminalAssets,
 				desktop,
 				mobile,
 				mobileNavigation,

@@ -6,18 +6,23 @@ const outputRoot = path.resolve(
 	process.env.OPALINE_AMBIENT_OUTPUT ??
 		".context/extractions/dashboard/ambient",
 );
-const sourceUrl =
-	"http://127.0.0.1:4180/lens-attio-lens-aperture";
+const sourceUrl = "http://127.0.0.1:4180/lens-attio-lens-aperture";
 const viewport = { width: 1280, height: 800, dpr: 1, mobile: false };
 const durationMs = Number(process.env.OPALINE_AMBIENT_DURATION ?? 40_000);
+const reducedMotion = process.env.OPALINE_REDUCED_MOTION === "1";
 
-const session = await createBrowserSession({ url: sourceUrl, ...viewport });
+const session = await createBrowserSession({
+	url: sourceUrl,
+	...viewport,
+	reducedMotion,
+});
 try {
 	await session.completeAperture();
 	const compositionFrame = (await session.frameTree()).find((frame) =>
 		frame.url.includes("opaline-composition=lens-attio-lens"),
 	);
-	if (!compositionFrame) throw new Error("Attio composition frame was not found");
+	if (!compositionFrame)
+		throw new Error("Attio composition frame was not found");
 	await session.waitFor(
 		'document.querySelector("[data-home-hero=attio-window-shell]") && document.querySelectorAll("[data-home-hero=desktop-window]").length >= 3',
 		{ frameId: compositionFrame.id, timeout: 20_000 },
@@ -43,6 +48,22 @@ try {
 							filter: style.filter,
 							backgroundColor: style.backgroundColor,
 							rect: { x: round(rect.x), y: round(rect.y), width: round(rect.width), height: round(rect.height) },
+							layers: [element, element.parentElement, element.parentElement?.parentElement]
+								.filter(Boolean)
+								.map((layer) => {
+									const layerStyle = getComputedStyle(layer);
+									return {
+										opacity: round(layerStyle.opacity),
+										transform: layerStyle.transform,
+										filter: layerStyle.filter,
+										animations: layer.getAnimations().map((animation) => ({
+											currentTime: round(animation.currentTime ?? 0),
+											playState: animation.playState,
+											timing: animation.effect?.getComputedTiming?.() ?? null,
+											keyframes: animation.effect?.getKeyframes?.() ?? [],
+										})),
+									};
+								}),
 						};
 					}),
 				});
@@ -167,6 +188,7 @@ try {
 		sourceUrl,
 		viewport,
 		durationMs,
+		reducedMotion,
 		capturedAt: new Date().toISOString(),
 		entranceFrames: entrance.length,
 		ambientKeyframes: ambient.length,
@@ -176,7 +198,8 @@ try {
 				new Set(
 					ambient.map(
 						(frame) =>
-							frame.terminals.find((terminal) => terminal.app === app)?.all ?? "",
+							frame.terminals.find((terminal) => terminal.app === app)?.all ??
+							"",
 					),
 				).size,
 			]),

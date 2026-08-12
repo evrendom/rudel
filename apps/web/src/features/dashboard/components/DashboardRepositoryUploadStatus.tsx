@@ -1,10 +1,53 @@
-import type { ProjectInvestment } from "@rudel/api-routes";
+import { type ProjectInvestment, resolveRepoIdentity } from "@rudel/api-routes";
 import { Skeleton } from "@/app/ui/skeleton";
 import { formatNumber } from "@/lib/format";
 import { formatExactDateTime, formatRelativeTime } from "@/lib/time-utils";
 
-function getRepositoryLabel(project: ProjectInvestment) {
-	return project.repository?.trim() || project.project_path.trim() || "Unknown";
+type RepositoryUploadRow = {
+	automatedSessions: number;
+	key: string;
+	label: string;
+	lastSessionAt: string;
+	sessions: number;
+};
+
+function buildRepositoryUploadRows(
+	projects: readonly ProjectInvestment[],
+): RepositoryUploadRow[] {
+	const rowsByRepository = new Map<string, RepositoryUploadRow>();
+
+	for (const project of projects) {
+		const projectPath = project.project_path.trim();
+		const storedRepository = project.repository?.trim() || null;
+		const identity = resolveRepoIdentity({
+			gitRemote: project.git_remote?.trim() || null,
+			packageName:
+				storedRepository && storedRepository !== projectPath
+					? storedRepository
+					: null,
+			projectPath,
+		});
+		const existingRow = rowsByRepository.get(identity.repoKey);
+
+		rowsByRepository.set(identity.repoKey, {
+			automatedSessions:
+				(existingRow?.automatedSessions ?? 0) + project.automated_sessions,
+			key: identity.repoKey,
+			label: identity.repoLabel,
+			lastSessionAt:
+				existingRow && existingRow.lastSessionAt > project.last_session_at
+					? existingRow.lastSessionAt
+					: project.last_session_at,
+			sessions: (existingRow?.sessions ?? 0) + project.sessions,
+		});
+	}
+
+	return [...rowsByRepository.values()].sort(
+		(left, right) =>
+			right.automatedSessions - left.automatedSessions ||
+			right.sessions - left.sessions ||
+			left.label.localeCompare(right.label),
+	);
 }
 
 function RepositoryUploadStatusSkeleton() {
@@ -40,16 +83,11 @@ export function DashboardRepositoryUploadStatus({
 	isPending: boolean;
 	projects: ProjectInvestment[];
 }) {
-	const sortedProjects = [...projects].sort(
-		(left, right) =>
-			right.automated_sessions - left.automated_sessions ||
-			right.sessions - left.sessions ||
-			getRepositoryLabel(left).localeCompare(getRepositoryLabel(right)),
-	);
-	const automaticCount = sortedProjects.filter(
-		(project) => project.automated_sessions > 0,
+	const repositoryRows = buildRepositoryUploadRows(projects);
+	const automaticCount = repositoryRows.filter(
+		(row) => row.automatedSessions > 0,
 	).length;
-	const sessionDataOnlyCount = sortedProjects.length - automaticCount;
+	const sessionDataOnlyCount = repositoryRows.length - automaticCount;
 
 	return (
 		<aside className="@container/repository-uploads dashboardy-card flex min-h-[32rem] flex-col overflow-hidden rounded-2xl border @5xl/dashboard-page:h-full @5xl/dashboard-page:min-h-0">
@@ -73,31 +111,30 @@ export function DashboardRepositoryUploadStatus({
 			<div className="min-h-0 flex-1 overflow-y-auto overscroll-contain [scrollbar-gutter:stable]">
 				{isPending ? (
 					<RepositoryUploadStatusSkeleton />
-				) : sortedProjects.length > 0 ? (
+				) : repositoryRows.length > 0 ? (
 					<ul className="grid list-none divide-y divide-[color:var(--dashboardy-border)]">
-						{sortedProjects.map((project) => {
-							const isAutomatic = project.automated_sessions > 0;
-							const repositoryLabel = getRepositoryLabel(project);
+						{repositoryRows.map((row) => {
+							const isAutomatic = row.automatedSessions > 0;
 
 							return (
 								<li
-									key={project.git_remote || project.project_path}
+									key={row.key}
 									className="flex min-h-12 items-center justify-between gap-3 px-4 py-2.5"
 								>
 									<div className="flex min-w-0 items-baseline gap-2">
 										<p
 											className="min-w-0 truncate text-base font-medium text-[color:var(--dashboardy-heading)] @sm/repository-uploads:text-sm"
-											title={repositoryLabel}
+											title={row.label}
 										>
-											{repositoryLabel}
+											{row.label}
 										</p>
 										<p className="shrink-0 font-mono text-base font-semibold tabular-nums text-[color:var(--dashboardy-muted)] @sm/repository-uploads:text-sm">
 											<span aria-hidden="true">
-												{formatNumber(project.sessions)}
+												{formatNumber(row.sessions)}
 											</span>
 											<span className="sr-only">
-												{formatNumber(project.sessions)}{" "}
-												{project.sessions === 1 ? "session" : "sessions"}
+												{formatNumber(row.sessions)}{" "}
+												{row.sessions === 1 ? "session" : "sessions"}
 											</span>
 										</p>
 									</div>
@@ -122,10 +159,10 @@ export function DashboardRepositoryUploadStatus({
 												upload{" "}
 											</span>
 											<time
-												dateTime={project.last_session_at}
-												title={formatExactDateTime(project.last_session_at)}
+												dateTime={row.lastSessionAt}
+												title={formatExactDateTime(row.lastSessionAt)}
 											>
-												{formatRelativeTime(project.last_session_at)}
+												{formatRelativeTime(row.lastSessionAt)}
 											</time>
 										</p>
 									</div>

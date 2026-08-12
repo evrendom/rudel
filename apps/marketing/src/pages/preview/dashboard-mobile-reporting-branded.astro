@@ -1,0 +1,48 @@
+---
+// biome-ignore-all lint/correctness/noUnusedImports: Astro consumes these bindings in template directives.
+import {
+	dashboardPageRoot,
+	mobileReportingHtml,
+} from "../../components/generated/dashboard-branded-data";
+import "../../styles/vendor/attio/dashboard/naturalized.css";
+import "../../styles/vendor/attio/dashboard/naturalized-composition.css";
+import "../../styles/dashboard-reporting-static.css";
+---
+
+<!doctype html>
+<html lang="en" class="opaline-dashboard-scope" style={dashboardPageRoot.htmlStyle}>
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>Branded mobile Reporting dashboard preview</title>
+	</head>
+	<body class={dashboardPageRoot.bodyClass}>
+		<div id="dashboard-mobile-gate-source-overlay" class={dashboardPageRoot.htmlClass}>
+			<div class="dashboard-mobile-gate-stage">
+				<Fragment set:html={mobileReportingHtml} />
+			</div>
+		</div>
+	</body>
+</html>
+
+<style is:global>
+	html,
+	body {
+		margin: 0 !important;
+		background: #fff !important;
+	}
+
+	#dashboard-mobile-gate-source-overlay {
+		position: fixed;
+		z-index: 2147483647;
+		inset: 0;
+		background: #fff;
+	}
+
+	.dashboard-mobile-gate-stage {
+		position: fixed;
+		top: 525px;
+		left: 0;
+		width: 100%;
+	}
+</style>

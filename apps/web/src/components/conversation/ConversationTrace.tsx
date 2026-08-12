@@ -1,46 +1,54 @@
-import {
-	Bot,
-	Brain,
-	FileText,
-	Globe,
-	List,
-	MessageSquare,
-	Pencil,
-	Search,
-	Settings,
-	Sparkles,
-	Terminal,
-	Wrench,
-} from "lucide-react";
-import { type ComponentType, useId, useState } from "react";
+// biome-ignore-all lint/nursery/noExcessiveLinesPerFile: The shared trace entry point coordinates three render modes.
+import { FileText, Settings } from "lucide-react";
+import { type ReactNode, useId, useState } from "react";
 import {
 	isSlashCommandMessage,
 	parseSlashCommand,
 } from "@/lib/parse-slash-command";
 import { cn } from "@/lib/utils";
 import {
-	formatToolInputPreview,
-	getToolPresentation,
-	getToolPrimaryArg,
-	type ToolIconName,
-} from "./conversation-tools";
-import {
 	compactPreview,
 	formatClockTime,
 	formatTimeDelta,
 	type TraceEvent,
 	type TraceItem,
-	type TraceToolResult,
-	toolResultText,
 	type UserContent,
 	userContentText,
 } from "./conversation-trace";
 import {
+	getTraceCallDisplayConfig,
+	isTraceCallSeparator,
+	shouldCollapseTraceCall,
+	shouldRenderTraceCallHeader,
+	type TraceCallVariant,
+} from "./conversation-trace-call-display";
+import {
+	conversationTraceChipClassName as chipClassName,
+	conversationTracePreviewClassName as previewClassName,
+} from "./conversation-trace-class-names";
+import { ConversationTraceEventRow as EventRow } from "./conversation-trace-event-row";
+import {
 	ModelTraceIcon,
 	TraceDisclosureIcon,
-	TraceIcon,
 	UserTraceAvatar,
 } from "./conversation-trace-icons";
+import {
+	type AgentTraceRequestUsage,
+	type AgentTraceRequestUsagePlacement,
+	getTraceRequestInputTotal,
+	getTraceRequestSkills,
+	groupTraceEventsIntoRequests,
+	takeTraceRequestUsageBefore,
+} from "./conversation-trace-requests";
+import { AgentToolStrip } from "./conversation-trace-tool-strip";
+import {
+	AgentTraceRequestDisplay,
+	type AgentTraceTreeRenderedSection,
+	AgentTraceTreeSection,
+	buildAgentTraceTreeBranches,
+	ConversationTraceRootNode,
+	type ConversationTraceSpeakerLayout,
+} from "./conversation-trace-tree";
 import {
 	ExpandableTraceRow,
 	type TraceFocusRequest,
@@ -49,236 +57,13 @@ import {
 } from "./expandable-trace-row";
 import { MessageContent } from "./MessageContent";
 
+export type { TraceCallVariant } from "./conversation-trace-call-display";
+export type { ConversationTraceSpeakerLayout } from "./conversation-trace-tree";
+export { ConversationTraceTreeNode } from "./conversation-trace-tree";
 export type { TraceFocusRequest } from "./expandable-trace-row";
-
-const TOOL_ICONS: Record<
-	ToolIconName,
-	ComponentType<{ className?: string }>
-> = {
-	file: FileText,
-	pencil: Pencil,
-	terminal: Terminal,
-	search: Search,
-	bot: Bot,
-	globe: Globe,
-	sparkle: Sparkles,
-	list: List,
-	wrench: Wrench,
-};
-
-const chipClassName =
-	"inline-flex max-w-[18rem] shrink-0 items-center truncate rounded-[0.4rem] border border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-surface)] px-1.5 py-0.5 font-mono text-[0.75rem] text-[color:var(--dashboardy-heading)]";
-
-const previewClassName =
-	"min-w-0 flex-1 truncate text-[color:var(--dashboardy-muted)] group-aria-expanded:invisible";
 
 const speakerLabelClassName =
 	"shrink-0 [font-family:var(--app-font-heading)] text-[0.8125rem]/[1.125rem] font-bold text-[color:var(--dashboardy-heading)]";
-
-function ToolResultBody({ result }: { result: TraceToolResult }) {
-	const text = toolResultText(result.content);
-
-	return (
-		<div className="grid gap-1.5">
-			<p
-				className={cn(
-					"text-[0.75rem] font-semibold uppercase tracking-[0.04em]",
-					result.isError
-						? "text-[color:var(--dashboardy-danger-foreground)]"
-						: "text-[color:var(--dashboardy-muted)]",
-				)}
-			>
-				{result.isError ? "Error result" : "Result"}
-			</p>
-			{text ? (
-				<pre className="max-h-80 overflow-auto whitespace-pre-wrap break-words font-mono text-[0.75rem] leading-5 text-[color:var(--dashboardy-heading)]">
-					{text}
-				</pre>
-			) : (
-				<p className="text-[0.75rem] text-[color:var(--dashboardy-muted)]">
-					No output
-				</p>
-			)}
-		</div>
-	);
-}
-
-function EventRow({ event, delta }: { event: TraceEvent; delta?: string }) {
-	if (event.kind === "reasoning") {
-		return (
-			<ExpandableTraceRow
-				delta={delta}
-				fullPreviewText={event.text}
-				body={
-					<p className="whitespace-pre-wrap text-[0.8125rem] leading-6 text-[color:var(--dashboardy-heading)]">
-						{event.text}
-					</p>
-				}
-			>
-				{(expanded, expandable) => (
-					<>
-						<TraceDisclosureIcon
-							expanded={expanded}
-							expandable={expandable}
-							icon={Brain}
-						/>
-						<span className="shrink-0 font-semibold text-[color:var(--dashboardy-heading)]">
-							Reasoning
-						</span>
-						<span className={previewClassName} data-trace-preview>
-							{compactPreview(event.text)}
-						</span>
-					</>
-				)}
-			</ExpandableTraceRow>
-		);
-	}
-
-	if (event.kind === "message") {
-		return (
-			<ExpandableTraceRow
-				delta={delta}
-				fullPreviewText={event.text || undefined}
-				body={<MessageContent content={event.content} />}
-			>
-				{(expanded, expandable) => (
-					<>
-						<TraceDisclosureIcon
-							expanded={expanded}
-							expandable={expandable}
-							icon={MessageSquare}
-						/>
-						<span className="shrink-0 font-semibold text-[color:var(--dashboardy-heading)]">
-							Message:
-						</span>
-						<span className={previewClassName} data-trace-preview>
-							{compactPreview(event.text)}
-						</span>
-					</>
-				)}
-			</ExpandableTraceRow>
-		);
-	}
-
-	if (event.kind === "orphan-result") {
-		const resultText = toolResultText(event.result.content);
-		return (
-			<ExpandableTraceRow
-				delta={delta}
-				fullPreviewText={resultText}
-				body={<ToolResultBody result={event.result} />}
-				className={
-					event.result.isError
-						? "bg-[color:var(--dashboardy-danger-surface)]"
-						: undefined
-				}
-			>
-				{(expanded, expandable) => (
-					<>
-						<TraceDisclosureIcon
-							expanded={expanded}
-							expandable={expandable}
-							icon={Wrench}
-						/>
-						<span className="shrink-0 font-semibold text-[color:var(--dashboardy-heading)]">
-							Result
-						</span>
-						<span className={previewClassName} data-trace-preview>
-							{compactPreview(resultText)}
-						</span>
-					</>
-				)}
-			</ExpandableTraceRow>
-		);
-	}
-
-	const { verb, icon } = getToolPresentation(event.toolName);
-	const primaryArg = getToolPrimaryArg(event.toolName, event.input);
-	const inputPreview = formatToolInputPreview(event.input);
-	const isError = event.result?.isError === true;
-
-	return (
-		<ExpandableTraceRow
-			delta={delta}
-			fullPreviewText={undefined}
-			className={
-				isError ? "bg-[color:var(--dashboardy-danger-surface)]" : undefined
-			}
-			body={
-				event.result ? (
-					<ToolResultBody result={event.result} />
-				) : (
-					<p className="text-[0.75rem] text-[color:var(--dashboardy-muted)]">
-						No result recorded for this call.
-					</p>
-				)
-			}
-		>
-			{(expanded, expandable) => (
-				<>
-					<TraceDisclosureIcon
-						icon={TOOL_ICONS[icon]}
-						expanded={expanded}
-						expandable={expandable}
-						className={
-							isError
-								? "border-[color:var(--dashboardy-danger-foreground)] text-[color:var(--dashboardy-danger-foreground)]"
-								: undefined
-						}
-					/>
-					<span className="shrink-0 font-semibold text-[color:var(--dashboardy-heading)]">
-						{verb}
-					</span>
-					{primaryArg ? (
-						<span className={chipClassName}>{primaryArg}</span>
-					) : null}
-					{inputPreview ? (
-						<span
-							className={cn(previewClassName, "font-mono text-[0.75rem]")}
-							data-trace-preview
-						>
-							{inputPreview}
-						</span>
-					) : (
-						<span className="min-w-0 flex-1" />
-					)}
-				</>
-			)}
-		</ExpandableTraceRow>
-	);
-}
-
-/** Collapsed agent turns advertise which tools ran so the trace stays scannable. */
-function AgentToolStrip({ events }: { events: TraceEvent[] }) {
-	// Keyed by event id, since the same tool usually runs several times a turn.
-	const tools: { id: string; icon: ToolIconName }[] = [];
-
-	for (const event of events) {
-		if (event.kind === "tool") {
-			tools.push({
-				id: event.id,
-				icon: getToolPresentation(event.toolName).icon,
-			});
-		}
-	}
-
-	if (tools.length === 0) {
-		return null;
-	}
-
-	return (
-		<span className="flex min-w-0 items-center gap-1">
-			{tools.slice(0, 8).map((tool) => (
-				<TraceIcon key={tool.id} icon={TOOL_ICONS[tool.icon]} />
-			))}
-			{tools.length > 8 ? (
-				<span className="text-[0.75rem] text-[color:var(--dashboardy-muted)]">
-					+{tools.length - 8}
-				</span>
-			) : null}
-		</span>
-	);
-}
 
 function AgentSection({
 	events,
@@ -286,6 +71,9 @@ function AgentSection({
 	previousTimestamp,
 	agentLabel,
 	agentModel,
+	headerTrailing,
+	expandedSpeakerLayout,
+	mode,
 	focus,
 }: {
 	events: TraceEvent[];
@@ -293,6 +81,9 @@ function AgentSection({
 	previousTimestamp: string | undefined;
 	agentLabel: string;
 	agentModel: string | undefined;
+	headerTrailing?: ReactNode;
+	expandedSpeakerLayout: ConversationTraceSpeakerLayout;
+	mode: "collapsible" | "expanded";
 	focus?: TraceFocusRequest;
 }) {
 	const [open, setOpen] = useState(false);
@@ -302,6 +93,65 @@ function AgentSection({
 	// The turn is the model's, so it wears the model's mark; unrecognized
 	// vendors fall back to the generic agent glyph.
 	let cursor = previousTimestamp;
+	const eventDeltas = new Map<string, string | undefined>();
+	for (const event of events) {
+		const delta = formatTimeDelta(cursor, event.timestamp);
+		eventDeltas.set(event.id, delta);
+		cursor = event.timestamp;
+	}
+	const renderEventRow = (event: TraceEvent) => (
+		<EventRow key={event.id} event={event} delta={eventDeltas.get(event.id)} />
+	);
+	const eventRows = events.map((event) => renderEventRow(event));
+
+	if (mode === "expanded") {
+		if (expandedSpeakerLayout === "table-row") {
+			return (
+				<div
+					id={anchorId}
+					className="min-w-0 scroll-mt-6 border-b border-(--session-overview-border) bg-(--session-overview-surface) [--conversation-trace-sticky-offset:2.25rem]"
+				>
+					<div className="sticky top-0 z-20 flex min-h-9 min-w-0 items-center gap-2 border-b border-(--session-overview-border) bg-(--session-overview-surface) px-3 py-2">
+						<ModelTraceIcon
+							expanded={false}
+							expandable={false}
+							model={agentModel}
+						/>
+						<p className="min-w-0 truncate text-xs font-medium text-(--session-overview-muted)">
+							{agentLabel}
+						</p>
+						{headerTrailing ? (
+							<div className="ml-auto min-w-0">{headerTrailing}</div>
+						) : null}
+					</div>
+					<div className="grid min-w-0 divide-y divide-[color:var(--dashboardy-divider)] pl-7">
+						{eventRows}
+					</div>
+				</div>
+			);
+		}
+
+		return (
+			<div
+				id={anchorId}
+				className="flex min-w-0 scroll-mt-6 items-start gap-2 [--conversation-trace-sticky-offset:0rem]"
+			>
+				<ModelTraceIcon
+					expanded={false}
+					expandable={false}
+					model={agentModel}
+				/>
+				<div className="grid min-w-0 flex-1 gap-2">
+					<p className="text-xs font-medium text-[color:var(--dashboardy-muted)]">
+						{agentLabel}
+					</p>
+					<div className="grid divide-y divide-[color:var(--dashboardy-divider)] border-t border-[color:var(--dashboardy-divider)]">
+						{eventRows}
+					</div>
+				</div>
+			</div>
+		);
+	}
 
 	return (
 		<div
@@ -342,19 +192,14 @@ function AgentSection({
 					id={panelId}
 					className="grid divide-y divide-[color:var(--dashboardy-divider)] rounded-b-[0.75rem] border-x border-b border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-surface)] [--conversation-trace-sticky-offset:2.375rem]"
 				>
-					{events.map((event) => {
-						const delta = formatTimeDelta(cursor, event.timestamp);
-						cursor = event.timestamp;
-
-						return <EventRow key={event.id} event={event} delta={delta} />;
-					})}
+					{eventRows}
 				</div>
 			) : null}
 		</div>
 	);
 }
 
-function UserRowBody({ content }: { content: UserContent }) {
+export function UserTraceContent({ content }: { content: UserContent }) {
 	const isSlashCommand =
 		typeof content === "string" && isSlashCommandMessage(content);
 	const slashCommandInfo = isSlashCommand ? parseSlashCommand(content) : null;
@@ -390,6 +235,9 @@ function TraceRow({
 	userImageUrl,
 	agentLabel,
 	agentModel,
+	agentHeaderTrailing,
+	agentSectionMode,
+	expandedSpeakerLayout,
 	focus,
 }: {
 	item: TraceItem;
@@ -400,6 +248,9 @@ function TraceRow({
 	userImageUrl: string | undefined;
 	agentLabel: string;
 	agentModel: string | undefined;
+	agentHeaderTrailing?: ReactNode;
+	agentSectionMode: "collapsible" | "expanded";
+	expandedSpeakerLayout: ConversationTraceSpeakerLayout;
 	focus?: TraceFocusRequest;
 }) {
 	// Wall-clock times bookend the trace so its start and end are readable at a
@@ -417,6 +268,9 @@ function TraceRow({
 				previousTimestamp={previousTimestamp ?? item.timestamp}
 				agentLabel={agentLabel}
 				agentModel={agentModel}
+				headerTrailing={agentHeaderTrailing}
+				expandedSpeakerLayout={expandedSpeakerLayout}
+				mode={agentSectionMode}
 				focus={focus}
 			/>
 		);
@@ -424,92 +278,349 @@ function TraceRow({
 
 	if (item.kind === "summary") {
 		return (
-			<ExpandableTraceRow
-				anchorId={anchorId}
-				focus={focus}
-				fullPreviewText={item.text}
-				body={
-					<p className="whitespace-pre-wrap text-[0.8125rem] leading-6 text-[color:var(--dashboardy-heading)]">
-						{item.text}
-					</p>
-				}
+			<ConversationTraceRootNode
+				continues={!isLast}
+				layout={expandedSpeakerLayout}
 			>
-				{(expanded, expandable) => (
-					<>
-						<TraceDisclosureIcon
-							expanded={expanded}
-							expandable={expandable}
-							icon={FileText}
-						/>
-						<span className="shrink-0 font-semibold text-[color:var(--dashboardy-heading)]">
-							Summary
-						</span>
-						<span className={previewClassName} data-trace-preview>
-							{compactPreview(item.text)}
-						</span>
-					</>
-				)}
-			</ExpandableTraceRow>
+				<ExpandableTraceRow
+					anchorId={anchorId}
+					focus={focus}
+					fullPreviewText={item.text}
+					body={
+						<p className="whitespace-pre-wrap text-[0.8125rem] leading-6 text-[color:var(--dashboardy-heading)]">
+							{item.text}
+						</p>
+					}
+				>
+					{(expanded, expandable) => (
+						<>
+							<TraceDisclosureIcon
+								expanded={expanded}
+								expandable={expandable}
+								icon={FileText}
+							/>
+							<span className="shrink-0 font-semibold text-[color:var(--dashboardy-heading)]">
+								Summary
+							</span>
+							<span className={previewClassName} data-trace-preview>
+								{compactPreview(item.text)}
+							</span>
+						</>
+					)}
+				</ExpandableTraceRow>
+			</ConversationTraceRootNode>
 		);
 	}
 
 	if (item.kind === "system") {
 		return (
-			<ExpandableTraceRow
-				anchorId={anchorId}
-				delta={delta}
-				focus={focus}
-				fullPreviewText={item.text}
-				body={
-					<p className="whitespace-pre-wrap font-mono text-[0.8125rem] leading-6 text-[color:var(--dashboardy-heading)]">
-						{item.text}
-					</p>
-				}
+			<ConversationTraceRootNode
+				continues={!isLast}
+				layout={expandedSpeakerLayout}
 			>
-				{(expanded, expandable) => (
-					<>
-						<TraceDisclosureIcon
-							expanded={expanded}
-							expandable={expandable}
-							icon={Settings}
-						/>
-						<span className="shrink-0 font-semibold text-[color:var(--dashboardy-heading)]">
-							System
-						</span>
-						<span className={previewClassName} data-trace-preview>
-							{compactPreview(item.text)}
-						</span>
-					</>
-				)}
-			</ExpandableTraceRow>
+				<ExpandableTraceRow
+					anchorId={anchorId}
+					delta={delta}
+					focus={focus}
+					fullPreviewText={item.text}
+					body={
+						<p className="whitespace-pre-wrap font-mono text-[0.8125rem] leading-6 text-[color:var(--dashboardy-heading)]">
+							{item.text}
+						</p>
+					}
+				>
+					{(expanded, expandable) => (
+						<>
+							<TraceDisclosureIcon
+								expanded={expanded}
+								expandable={expandable}
+								icon={Settings}
+							/>
+							<span className="shrink-0 font-semibold text-[color:var(--dashboardy-heading)]">
+								System
+							</span>
+							<span className={previewClassName} data-trace-preview>
+								{compactPreview(item.text)}
+							</span>
+						</>
+					)}
+				</ExpandableTraceRow>
+			</ConversationTraceRootNode>
 		);
 	}
 
 	const previewText = userContentText(item.content);
 
 	return (
-		<ExpandableTraceRow
-			anchorId={anchorId}
-			delta={delta}
-			focus={focus}
-			fullPreviewText={previewText || undefined}
-			className="overflow-clip rounded-[0.75rem] border border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-surface)]"
-			body={<UserRowBody content={item.content} />}
+		<ConversationTraceRootNode
+			continues={!isLast}
+			layout={expandedSpeakerLayout}
 		>
-			{(expanded, expandable) => (
-				<>
-					<UserTraceAvatar
-						expanded={expanded}
-						expandable={expandable}
-						imageUrl={userImageUrl}
+			<ExpandableTraceRow
+				anchorId={anchorId}
+				delta={delta}
+				focus={focus}
+				fullPreviewText={previewText || undefined}
+				className={cn(
+					expandedSpeakerLayout !== "trace-tree" &&
+						"overflow-clip rounded-[0.75rem] border border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-surface)]",
+				)}
+				body={<UserTraceContent content={item.content} />}
+			>
+				{(expanded, expandable) => (
+					<>
+						<UserTraceAvatar
+							expanded={expanded}
+							expandable={expandable}
+							imageUrl={userImageUrl}
+						/>
+						<span className={speakerLabelClassName}>{userLabel}</span>
+						<span className={previewClassName} data-trace-preview>
+							{compactPreview(previewText)}
+						</span>
+					</>
+				)}
+			</ExpandableTraceRow>
+		</ConversationTraceRootNode>
+	);
+}
+
+function ConversationTraceTurnTree({
+	agentHeaderTrailing,
+	agentLabel,
+	agentModel,
+	className,
+	focus,
+	items,
+	requestUsage,
+	requestUsagePlacement = "start",
+	traceCallVariant = "v1",
+	userImageUrl,
+	userLabel,
+}: {
+	agentHeaderTrailing?: ReactNode;
+	agentLabel: string;
+	agentModel: string | undefined;
+	className?: string;
+	focus?: TraceFocusRequest;
+	items: TraceItem[];
+	requestUsage?: readonly AgentTraceRequestUsage[];
+	requestUsagePlacement?: AgentTraceRequestUsagePlacement;
+	traceCallVariant?: TraceCallVariant;
+	userImageUrl: string | undefined;
+	userLabel: string;
+}) {
+	const sections: AgentTraceTreeRenderedSection[] = [];
+	const events: TraceEvent[] = [];
+	const eventDeltas = new Map<string, string | undefined>();
+	const traceCallConfig = getTraceCallDisplayConfig(traceCallVariant);
+	// Subagent usage events are appended after the main transcript's, so the
+	// pool is not globally time-ordered until sorted here.
+	const usageQueue = [
+		...(traceCallConfig.header === "none" ? [] : (requestUsage ?? [])),
+	].sort((left, right) => Date.parse(left.at) - Date.parse(right.at));
+	let cursor: string | undefined;
+	let pendingAgentEvents: TraceEvent[] = [];
+	let previousRequestInputTotal: number | undefined;
+	let requestIndex = 0;
+
+	const renderEventRow = (event: TraceEvent, trailing?: ReactNode) => (
+		<EventRow
+			event={event}
+			delta={eventDeltas.get(event.id)}
+			trailing={trailing}
+		/>
+	);
+	// Rootless tool runs render directly at branch level — the request header
+	// already scopes them, so a synthetic "Agent activity" parent would only
+	// add an empty indentation level.
+	const toRenderedBranches = (
+		treeBranches: ReturnType<typeof buildAgentTraceTreeBranches>,
+		trailing: ReactNode | undefined,
+	) => {
+		const renderedBranchCount = treeBranches.reduce(
+			(count, branch) => count + (branch.root ? 1 : branch.children.length),
+			0,
+		);
+		return treeBranches.flatMap((branch) =>
+			branch.root
+				? [
+						{
+							children: branch.children.map((event) => ({
+								key: event.id,
+								row: renderEventRow(event),
+							})),
+							key: branch.id,
+							row: renderEventRow(
+								branch.root,
+								renderedBranchCount === 1 ? trailing : undefined,
+							),
+						},
+					]
+				: branch.children.map((event) => ({
+						children: [],
+						key: event.id,
+						row: renderEventRow(
+							event,
+							renderedBranchCount === 1 ? trailing : undefined,
+						),
+					})),
+		);
+	};
+
+	// Flushes accumulated agent events as one section per API request. Each
+	// flush claims only the usage recorded before the interrupting row's
+	// timestamp — later requests' usage stays queued for later flushes.
+	// Without any usage, a single headerless section reproduces the flat tree.
+	const flushAgentSections = (cutoffTimestamp: string | undefined) => {
+		if (pendingAgentEvents.length === 0) {
+			return;
+		}
+		const batchUsage = takeTraceRequestUsageBefore(usageQueue, cutoffTimestamp);
+		for (const group of groupTraceEventsIntoRequests(
+			pendingAgentEvents,
+			batchUsage,
+			requestUsagePlacement,
+		)) {
+			if (group.usage) {
+				requestIndex += 1;
+			}
+			const currentRequestIndex = requestIndex;
+			const inputTotal = group.usage
+				? getTraceRequestInputTotal(group.usage)
+				: undefined;
+			const previousInputTotalForCall = previousRequestInputTotal;
+			if (inputTotal !== undefined) {
+				previousRequestInputTotal = inputTotal;
+			}
+			const treeBranches = buildAgentTraceTreeBranches(group.events);
+			const branchCount = treeBranches.reduce(
+				(count, branch) => count + (branch.root ? 1 : branch.children.length),
+				0,
+			);
+			const skills = getTraceRequestSkills(group.events);
+			const collapse = shouldCollapseTraceCall(traceCallConfig, branchCount);
+			const inlineUsage =
+				group.usage && collapse ? (
+					<AgentTraceRequestDisplay
+						agentModel={agentModel}
+						config={traceCallConfig}
+						index={currentRequestIndex}
+						presentation="inline"
+						previousInputTotal={previousInputTotalForCall}
+						skills={skills}
+						usage={group.usage}
 					/>
-					<span className={speakerLabelClassName}>{userLabel}</span>
-					<span className={previewClassName} data-trace-preview>
-						{compactPreview(previewText)}
-					</span>
-				</>
-			)}
-		</ExpandableTraceRow>
+				) : undefined;
+			const showHeader =
+				group.usage !== undefined &&
+				shouldRenderTraceCallHeader(traceCallConfig, branchCount);
+			const separator = isTraceCallSeparator(traceCallConfig);
+			sections.push({
+				branches: toRenderedBranches(treeBranches, inlineUsage),
+				events: group.events,
+				flatRequestRows: traceCallConfig.flatRequestRows,
+				groupIndex: group.usage ? currentRequestIndex : undefined,
+				groupTreatment: group.usage ? traceCallConfig.groupTreatment : "none",
+				header: showHeader
+					? (expanded, collapsedPreview) => (
+							<AgentTraceRequestDisplay
+								agentModel={agentModel}
+								collapsedPreview={collapsedPreview}
+								config={traceCallConfig}
+								expanded={expanded}
+								index={currentRequestIndex}
+								presentation={
+									traceCallConfig.flatRequestRows
+										? "context-strip"
+										: separator
+											? "separator"
+											: "header"
+								}
+								previousInputTotal={previousInputTotalForCall}
+								skills={skills}
+								usage={group.usage}
+							/>
+						)
+					: undefined,
+				headerSticky: separator ? false : undefined,
+				key: group.usage
+					? `request-${currentRequestIndex}`
+					: `activity-${sections.length}`,
+			});
+		}
+		pendingAgentEvents = [];
+	};
+
+	items.forEach((item, index) => {
+		const previousTimestamp = cursor;
+
+		if (item.kind === "agent") {
+			let eventCursor = previousTimestamp ?? item.timestamp;
+			for (const event of item.events) {
+				eventDeltas.set(
+					event.id,
+					formatTimeDelta(eventCursor, event.timestamp),
+				);
+				eventCursor = event.timestamp;
+			}
+			cursor = eventCursor;
+			events.push(...item.events);
+			pendingAgentEvents.push(...item.events);
+			return;
+		}
+
+		flushAgentSections(item.timestamp);
+		if (item.timestamp) {
+			cursor = item.timestamp;
+		}
+		sections.push({
+			branches: [
+				{
+					children: [],
+					key: item.id,
+					row: (
+						<TraceRow
+							agentHeaderTrailing={undefined}
+							agentLabel={agentLabel}
+							agentModel={agentModel}
+							agentSectionMode="expanded"
+							anchorId={`trace-tree-message-${index}`}
+							expandedSpeakerLayout="inline"
+							focus={focus}
+							isLast={index === items.length - 1}
+							item={item}
+							previousTimestamp={previousTimestamp}
+							userImageUrl={userImageUrl}
+							userLabel={userLabel}
+						/>
+					),
+				},
+			],
+			events: [],
+			flatRequestRows: true,
+			groupIndex: undefined,
+			groupTreatment: "none",
+			header: undefined,
+			key: item.id,
+		});
+	});
+	flushAgentSections(undefined);
+
+	return (
+		<ol className={cn("grid", className)}>
+			<li className="min-w-0">
+				<AgentTraceTreeSection
+					agentLabel={agentLabel}
+					agentModel={agentModel}
+					anchorId="message-0"
+					events={events}
+					focus={focus}
+					headerTrailing={agentHeaderTrailing}
+					sections={sections}
+				/>
+			</li>
+		</ol>
 	);
 }
 
@@ -519,23 +630,54 @@ export function ConversationTrace({
 	userImageUrl,
 	agentLabel = "Agent",
 	agentModel,
+	agentHeaderTrailing,
+	agentSectionMode = "collapsible",
+	expandedSpeakerLayout = "inline",
 	focus,
 	className,
+	requestUsage,
+	requestUsagePlacement,
+	traceCallVariant = "v1",
 }: {
 	items: TraceItem[];
 	userLabel?: string;
 	userImageUrl?: string;
 	agentLabel?: string;
 	agentModel?: string;
+	agentHeaderTrailing?: ReactNode;
+	agentSectionMode?: "collapsible" | "expanded";
+	expandedSpeakerLayout?: ConversationTraceSpeakerLayout;
 	focus?: TraceFocusRequest;
 	className?: string;
+	requestUsage?: readonly AgentTraceRequestUsage[];
+	requestUsagePlacement?: AgentTraceRequestUsagePlacement;
+	traceCallVariant?: TraceCallVariant;
 }) {
+	if (expandedSpeakerLayout === "trace-tree") {
+		return (
+			<ConversationTraceTurnTree
+				agentHeaderTrailing={agentHeaderTrailing}
+				agentLabel={agentLabel}
+				agentModel={agentModel}
+				className={className}
+				focus={focus}
+				items={items}
+				requestUsage={requestUsage}
+				requestUsagePlacement={requestUsagePlacement}
+				traceCallVariant={traceCallVariant}
+				userImageUrl={userImageUrl}
+				userLabel={userLabel}
+			/>
+		);
+	}
+
 	let cursor: string | undefined;
 
 	return (
 		<ol
 			className={cn(
-				"grid gap-1.5 [--conversation-trace-sticky-offset:0rem]",
+				"grid [--conversation-trace-sticky-offset:0rem]",
+				expandedSpeakerLayout === "table-row" ? "gap-0" : "gap-1.5",
 				className,
 			)}
 		>
@@ -560,6 +702,9 @@ export function ConversationTrace({
 							userImageUrl={userImageUrl}
 							agentLabel={agentLabel}
 							agentModel={agentModel}
+							agentHeaderTrailing={agentHeaderTrailing}
+							agentSectionMode={agentSectionMode}
+							expandedSpeakerLayout={expandedSpeakerLayout}
 							focus={focus}
 						/>
 					</li>

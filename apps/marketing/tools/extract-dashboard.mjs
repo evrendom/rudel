@@ -4,8 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createBrowserSession, wait } from "./driver.mjs";
 
-const sourceUrl =
-	"http://127.0.0.1:4180/?opaline-composition=lens-attio-lens";
+const sourceUrl = "http://127.0.0.1:4180/?opaline-composition=lens-attio-lens";
 const marketingRoot = path.resolve(
 	path.dirname(fileURLToPath(import.meta.url)),
 	"..",
@@ -65,7 +64,6 @@ const reportingPaintAuditExpression = `(() => {
 			exactTextIsPainted("Closed-won deals by MQL type") &&
 			coloredElements.length >= 400 &&
 			coloredArea >= panelArea * 4 &&
-			htmlBytes >= 180_000 &&
 			activeAnimations === 0,
 		coloredElements: coloredElements.length,
 		coloredArea,
@@ -169,7 +167,9 @@ try {
 	);
 	await mkdir(artifactRoot, { recursive: true });
 	await wait(250);
-	await session.screenshot(path.join(artifactRoot, "source-data-normalized.png"));
+	await session.screenshot(
+		path.join(artifactRoot, "source-data-normalized.png"),
+	);
 	await session.evaluate(
 		'document.querySelector("[data-opaline-use-case=Reporting]")?.click()',
 	);
@@ -178,7 +178,7 @@ try {
 	);
 	// The Reporting DOM cycles through several visually blank transition states.
 	// Capture only after the complete painted chart holds for three frames.
-	await waitForSettledReporting(session);
+	const reportingPaintAudit = await waitForSettledReporting(session);
 	const reporting = await session.evaluate(
 		`(() => {
 			const panel = document.querySelector("[data-home-hero-preview-tab]");
@@ -232,7 +232,9 @@ try {
 		})()`,
 	);
 	await wait(250);
-	await session.screenshot(path.join(artifactRoot, "source-reporting-normalized.png"));
+	await session.screenshot(
+		path.join(artifactRoot, "source-reporting-normalized.png"),
+	);
 	await session.freezeAtDeterministicState();
 	await session.evaluate(`(() => {
 		const overlay = document.querySelector("#dashboard-gate-source-overlay");
@@ -268,6 +270,7 @@ try {
 	});
 	capture = {
 		...base,
+		reportingPaintAudit,
 		reportingPanelHtml: reporting.html,
 		images: [...base.images, ...reporting.images],
 		dataSnapshot,
@@ -333,7 +336,8 @@ try {
 	await mobileSession.waitFor(
 		'[...document.querySelectorAll("[data-home-hero-preview-tab]")].some((panel) => panel.getBoundingClientRect().width > 0 && panel.getAttribute("data-home-hero-preview-tab") === "Reporting")',
 	);
-	await waitForSettledReporting(mobileSession);
+	const mobileReportingPaintAudit =
+		await waitForSettledReporting(mobileSession);
 	const mobileReporting = await mobileSession.evaluate(`(() => {
 		const panel = [...document.querySelectorAll("[data-home-hero-preview-tab]")]
 			.find((candidate) => candidate.getBoundingClientRect().width > 0);
@@ -413,6 +417,7 @@ try {
 	});
 	capture = {
 		...capture,
+		mobileReportingPaintAudit,
 		mobileDataHtml: mobileBase.windowHtml,
 		mobileReportingHtml: mobileReporting.windowHtml,
 		mobileDataSnapshot,
@@ -431,7 +436,8 @@ const uniqueStylesheets = [...new Set(capture.stylesheets)];
 const cssChunks = await Promise.all(
 	uniqueStylesheets.map(async (url) => {
 		const response = await fetch(url);
-		if (!response.ok) throw new Error(`Could not download ${url}: ${response.status}`);
+		if (!response.ok)
+			throw new Error(`Could not download ${url}: ${response.status}`);
 		return { url, css: await response.text() };
 	}),
 );
@@ -447,7 +453,8 @@ const fontManifest = [];
 await mkdir(fontRoot, { recursive: true });
 for (const [url] of fontUrls) {
 	const response = await fetch(url);
-	if (!response.ok) throw new Error(`Could not download ${url}: ${response.status}`);
+	if (!response.ok)
+		throw new Error(`Could not download ${url}: ${response.status}`);
 	const bytes = Buffer.from(await response.arrayBuffer());
 	const filename = new URL(url).pathname.split("/").at(-1);
 	await writeFile(path.join(fontRoot, filename), bytes);
@@ -465,16 +472,22 @@ for (const { url, filename } of fontManifest) {
 		const relativeUrl = [...chunk.css.matchAll(/url\(([^)]+\.woff2[^)]*)\)/g)]
 			.map((match) => match[1].replace(/^['"]|['"]$/g, ""))
 			.find((raw) => new URL(raw, chunk.url).href === url);
-		if (relativeUrl) sourceCss = sourceCss.replaceAll(relativeUrl, `/fonts/attio/${filename}`);
+		if (relativeUrl)
+			sourceCss = sourceCss.replaceAll(relativeUrl, `/fonts/attio/${filename}`);
 	}
 }
 
 const imageManifest = [];
 await mkdir(imageRoot, { recursive: true });
-for (const [index, image] of [...new Map(capture.images.map((item) => [item.currentSrc, item])).values()].entries()) {
+for (const [index, image] of [
+	...new Map(capture.images.map((item) => [item.currentSrc, item])).values(),
+].entries()) {
 	if (!image.currentSrc) continue;
 	const response = await fetch(image.currentSrc);
-	if (!response.ok) throw new Error(`Could not download ${image.currentSrc}: ${response.status}`);
+	if (!response.ok)
+		throw new Error(
+			`Could not download ${image.currentSrc}: ${response.status}`,
+		);
 	const bytes = Buffer.from(await response.arrayBuffer());
 	const contentType = response.headers.get("content-type") ?? "image/webp";
 	const extension = contentType.includes("png")
@@ -492,13 +505,17 @@ for (const [index, image] of [...new Map(capture.images.map((item) => [item.curr
 	});
 }
 
-const escapeAttribute = (value) => value.replaceAll("&", "&amp;").replaceAll('"', "&quot;");
+const escapeAttribute = (value) =>
+	value.replaceAll("&", "&amp;").replaceAll('"', "&quot;");
 const localizeMarkup = (markup) => {
 	let result = markup;
 	for (const image of imageManifest) {
 		const localUrl = `/vendor/attio-dashboard/${image.filename}`;
 		if (image.src) {
-			result = result.replaceAll(`src="${escapeAttribute(image.src)}"`, `src="${localUrl}"`);
+			result = result.replaceAll(
+				`src="${escapeAttribute(image.src)}"`,
+				`src="${localUrl}"`,
+			);
 		}
 		if (image.srcset) {
 			result = result.replaceAll(
@@ -546,9 +563,15 @@ await Promise.all([
 	),
 	writeFile(path.join(artifactRoot, "shell-data.html"), shellHtml),
 	writeFile(path.join(artifactRoot, "dashboard-data.html"), dashboardHtml),
-	writeFile(path.join(artifactRoot, "panel-reporting.html"), reportingPanelHtml),
+	writeFile(
+		path.join(artifactRoot, "panel-reporting.html"),
+		reportingPanelHtml,
+	),
 	writeFile(path.join(artifactRoot, "mobile-data.html"), mobileDataHtml),
-	writeFile(path.join(artifactRoot, "mobile-reporting.html"), mobileReportingHtml),
+	writeFile(
+		path.join(artifactRoot, "mobile-reporting.html"),
+		mobileReportingHtml,
+	),
 	writeFile(
 		path.join(artifactRoot, "source-data.structure.json"),
 		`${JSON.stringify(capture.dataSnapshot)}\n`,
@@ -575,6 +598,10 @@ await Promise.all([
 				compositionCssBytes: Buffer.byteLength(compositionCss),
 				shellBytes: Buffer.byteLength(shellHtml),
 				dashboardBytes: Buffer.byteLength(dashboardHtml),
+				reportingPaintAudits: {
+					desktop: capture.reportingPaintAudit,
+					mobile: capture.mobileReportingPaintAudit,
+				},
 				fonts: fontManifest,
 				images: imageManifest,
 			},

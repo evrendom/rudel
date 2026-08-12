@@ -78,7 +78,7 @@ describe("AppRouter", () => {
 		});
 	});
 
-	it("routes /skills through the authenticated app shell", async () => {
+	it("routes /skills through the default left sidebar shell", async () => {
 		render(
 			<MemoryRouter initialEntries={["/skills"]}>
 				<AppRouter rootRedirectTarget={null} />
@@ -86,12 +86,13 @@ describe("AppRouter", () => {
 		);
 
 		await waitFor(() => {
-			expect(screen.getByText("App shell")).toBeInTheDocument();
+			expect(screen.getByText("Left sidebar shell")).toBeInTheDocument();
 			expect(screen.getByText("Historical skills page")).toBeInTheDocument();
+			expect(screen.queryByText("App shell")).not.toBeInTheDocument();
 		});
 	});
 
-	it("keeps /dashboard on the existing app shell", async () => {
+	it("routes /dashboard through the default left sidebar shell", async () => {
 		render(
 			<MemoryRouter initialEntries={["/dashboard"]}>
 				<AppRouter rootRedirectTarget={null} />
@@ -99,8 +100,9 @@ describe("AppRouter", () => {
 		);
 
 		await waitFor(() => {
-			expect(screen.getByText("App shell")).toBeInTheDocument();
+			expect(screen.getByText("Left sidebar shell")).toBeInTheDocument();
 			expect(screen.getByText("Dashboard page")).toBeInTheDocument();
+			expect(screen.queryByText("App shell")).not.toBeInTheDocument();
 			expect(screen.queryByText("Bottom rail shell")).not.toBeInTheDocument();
 		});
 	});
@@ -171,6 +173,144 @@ describe("AppRouter", () => {
 		["/dev/left-sidebar/settings/invitations", "Account settings page"],
 		["/dev/left-sidebar/settings/create-workspace", "Workspace settings page"],
 	])("keeps %s inside the left sidebar shell", async (path, pageContent) => {
+		render(
+			<MemoryRouter initialEntries={[path]}>
+				<AppRouter rootRedirectTarget={null} />
+			</MemoryRouter>,
+		);
+
+		await waitFor(() => {
+			expect(screen.getByText("Left sidebar shell")).toBeInTheDocument();
+			expect(screen.getByText(pageContent)).toBeInTheDocument();
+			expect(screen.queryByText("App shell")).not.toBeInTheDocument();
+			expect(screen.queryByText("Bottom rail shell")).not.toBeInTheDocument();
+		});
+	});
+
+	it.each([
+		["/dev/left-sidebar-turns", "Dashboard page"],
+		["/dev/left-sidebar-turns/session", "Sessions page"],
+		["/dev/left-sidebar-turns/session/session-123", "Sessions page"],
+		["/dev/left-sidebar-turns/skills", "Historical skills page"],
+		["/dev/left-sidebar-turns/team", "Team page"],
+		["/dev/left-sidebar-turns/settings", "Workspace settings page"],
+		["/dev/left-sidebar-turns/settings/workspace", "Workspace settings page"],
+		["/dev/left-sidebar-turns/settings/members", "Members settings page"],
+		["/dev/left-sidebar-turns/settings/account", "Account settings page"],
+		["/dev/left-sidebar-turns/settings/invitations", "Account settings page"],
+		[
+			"/dev/left-sidebar-turns/settings/create-workspace",
+			"Workspace settings page",
+		],
+	])("keeps %s inside the left sidebar turns shell", async (path, pageContent) => {
+		render(
+			<MemoryRouter initialEntries={[path]}>
+				<AppRouter rootRedirectTarget={null} />
+			</MemoryRouter>,
+		);
+
+		await waitFor(() => {
+			expect(screen.getByText("Left sidebar shell")).toBeInTheDocument();
+			expect(screen.getByText(pageContent)).toBeInTheDocument();
+			expect(screen.queryByText("App shell")).not.toBeInTheDocument();
+			expect(screen.queryByText("Bottom rail shell")).not.toBeInTheDocument();
+		});
+	});
+
+	it.each([
+		["/dev/left-sidebar-table", "Dashboard page"],
+		["/dev/left-sidebar-table/session", "Sessions page"],
+		["/dev/left-sidebar-table/session/session-123", "Sessions page"],
+		["/dev/left-sidebar-table/skills", "Historical skills page"],
+		["/dev/left-sidebar-table/team", "Team page"],
+		["/dev/left-sidebar-table/settings", "Workspace settings page"],
+		["/dev/left-sidebar-table/settings/workspace", "Workspace settings page"],
+		["/dev/left-sidebar-table/settings/members", "Members settings page"],
+		["/dev/left-sidebar-table/settings/account", "Account settings page"],
+		["/dev/left-sidebar-table/settings/invitations", "Account settings page"],
+		[
+			"/dev/left-sidebar-table/settings/create-workspace",
+			"Workspace settings page",
+		],
+	])("keeps %s inside the left sidebar table shell", async (path, pageContent) => {
+		render(
+			<MemoryRouter initialEntries={[path]}>
+				<AppRouter rootRedirectTarget={null} />
+			</MemoryRouter>,
+		);
+
+		await waitFor(() => {
+			expect(screen.getByText("Left sidebar shell")).toBeInTheDocument();
+			expect(screen.getByText(pageContent)).toBeInTheDocument();
+			expect(screen.queryByText("App shell")).not.toBeInTheDocument();
+			expect(screen.queryByText("Bottom rail shell")).not.toBeInTheDocument();
+		});
+	});
+
+	it.each([
+		["/dev/left-sidebar-thread", "Dashboard page"],
+		["/dev/left-sidebar-thread/session", "Sessions page"],
+		["/dev/left-sidebar-thread/session/session-123", "Sessions page"],
+		["/dev/left-sidebar-thread/skills", "Historical skills page"],
+		["/dev/left-sidebar-thread/team", "Team page"],
+		["/dev/left-sidebar-thread/settings", "Workspace settings page"],
+		["/dev/left-sidebar-thread/settings/workspace", "Workspace settings page"],
+		["/dev/left-sidebar-thread/settings/members", "Members settings page"],
+		["/dev/left-sidebar-thread/settings/account", "Account settings page"],
+		["/dev/left-sidebar-thread/settings/invitations", "Account settings page"],
+		[
+			"/dev/left-sidebar-thread/settings/create-workspace",
+			"Workspace settings page",
+		],
+	])("keeps %s inside the left sidebar thread shell", async (path, pageContent) => {
+		render(
+			<MemoryRouter initialEntries={[path]}>
+				<AppRouter rootRedirectTarget={null} />
+			</MemoryRouter>,
+		);
+
+		await waitFor(() => {
+			expect(screen.getByText("Left sidebar shell")).toBeInTheDocument();
+			expect(screen.getByText(pageContent)).toBeInTheDocument();
+			expect(screen.queryByText("App shell")).not.toBeInTheDocument();
+			expect(screen.queryByText("Bottom rail shell")).not.toBeInTheDocument();
+		});
+	});
+
+	it.each([
+		["/dev/left-sidebar-thread-collapsible", "Dashboard page"],
+		["/dev/left-sidebar-thread-collapsible/session", "Sessions page"],
+		[
+			"/dev/left-sidebar-thread-collapsible/session/session-123",
+			"Sessions page",
+		],
+		["/dev/left-sidebar-thread-collapsible/skills", "Historical skills page"],
+		["/dev/left-sidebar-thread-collapsible/team", "Team page"],
+		[
+			"/dev/left-sidebar-thread-collapsible/settings",
+			"Workspace settings page",
+		],
+		[
+			"/dev/left-sidebar-thread-collapsible/settings/workspace",
+			"Workspace settings page",
+		],
+		[
+			"/dev/left-sidebar-thread-collapsible/settings/members",
+			"Members settings page",
+		],
+		[
+			"/dev/left-sidebar-thread-collapsible/settings/account",
+			"Account settings page",
+		],
+		[
+			"/dev/left-sidebar-thread-collapsible/settings/invitations",
+			"Account settings page",
+		],
+		[
+			"/dev/left-sidebar-thread-collapsible/settings/create-workspace",
+			"Workspace settings page",
+		],
+	])("keeps %s inside the collapsible thread shell", async (path, pageContent) => {
 		render(
 			<MemoryRouter initialEntries={[path]}>
 				<AppRouter rootRedirectTarget={null} />

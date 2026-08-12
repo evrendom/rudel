@@ -16,6 +16,7 @@ const render = () => {
 	const heroProgress = clamp(scrollY / heroRange);
 	root.style.setProperty("--title-progress", titleProgress.toFixed(4));
 	root.style.setProperty("--hero-progress", heroProgress.toFixed(4));
+	root.dataset.opalineMotionReady = "";
 };
 
 const schedule = () => {

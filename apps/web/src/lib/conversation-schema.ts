@@ -62,6 +62,7 @@ const BaseEntrySchema = z.object({
 });
 
 export const UserEntrySchema = BaseEntrySchema.extend({
+	isMeta: z.boolean().optional(),
 	type: z.literal("user"),
 	message: UserMessageSchema,
 });

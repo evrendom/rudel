@@ -3,7 +3,18 @@ import * as React from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { AppToaster } from "@/app/ui/AppToaster";
 import "@/app/app-surface.css";
-import { appRoutes, getCanonicalAppPath } from "@/app/routes";
+import {
+	appRoutes,
+	getCanonicalAppPath,
+	isLeftSidebarAdalinePreviewPath,
+	isLeftSidebarPreviewPath,
+	isLeftSidebarTablePreviewPath,
+	isLeftSidebarThreadCollapsiblePreviewPath,
+	isLeftSidebarThreadPreviewPath,
+	isLeftSidebarThreadV2PreviewPath,
+	isLeftSidebarThreadWaterfallPreviewPath,
+	isLeftSidebarTurnsPreviewPath,
+} from "@/app/routes";
 import { SidebarInset, SidebarProvider } from "@/app/ui/sidebar";
 import { TooltipProvider } from "@/app/ui/tooltip";
 import "@/features/dashboard/dashboard-theme.css";
@@ -173,6 +184,16 @@ function ShellLayout({
 	const isSkillsWorkspaceRoute = canonicalPathname === appRoutes.skills();
 	const isFixedWorkspaceRoute =
 		isSessionWorkspaceRoute || isSkillsWorkspaceRoute;
+	const isEdgeToEdgeSessionPreview =
+		!isSessionOverviewRoute &&
+		(isLeftSidebarPreviewPath(location.pathname) ||
+			isLeftSidebarAdalinePreviewPath(location.pathname) ||
+			isLeftSidebarTablePreviewPath(location.pathname) ||
+			isLeftSidebarThreadCollapsiblePreviewPath(location.pathname) ||
+			isLeftSidebarThreadWaterfallPreviewPath(location.pathname) ||
+			isLeftSidebarThreadPreviewPath(location.pathname) ||
+			isLeftSidebarThreadV2PreviewPath(location.pathname) ||
+			isLeftSidebarTurnsPreviewPath(location.pathname));
 	const [shellHeaderPortal, setShellHeaderPortal] =
 		React.useState<HTMLElement | null>(null);
 	const [shellBottomNavigationPortal, setShellBottomNavigationPortal] =
@@ -243,6 +264,7 @@ function ShellLayout({
 							isFixedWorkspaceRoute && "overflow-hidden",
 							isSessionWorkspaceRoute &&
 								!isSessionOverviewRoute &&
+								!isEdgeToEdgeSessionPreview &&
 								"pt-4 md:pt-6",
 							!isFixedWorkspaceRoute && "gap-4 py-4 md:gap-6 md:py-6",
 						)}

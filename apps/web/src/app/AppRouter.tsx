@@ -3,14 +3,20 @@ import { Navigate, Route, Routes, useParams } from "react-router-dom";
 import {
 	appRoutes,
 	getBottomRailPreviewPath,
+	getLeftSidebarAdalinePreviewPath,
 	getLeftSidebarPreviewPath,
+	getLeftSidebarTablePreviewPath,
+	getLeftSidebarThreadCollapsiblePreviewPath,
+	getLeftSidebarThreadPreviewPath,
+	getLeftSidebarThreadV2PreviewPath,
+	getLeftSidebarThreadWaterfallPreviewPath,
+	getLeftSidebarTurnsPreviewPath,
 } from "@/app/routes";
 import { NotFoundPage } from "@/app/system/NotFoundPage";
 import { AcceptInvitationPage } from "@/features/invitations/AcceptInvitationPage";
 import { settingsRouteMap } from "@/features/settings/config/settings-routes";
 import { SettingsIndexRedirect } from "@/features/settings/SettingsIndexRedirect";
 import {
-	AppShellLayout,
 	BottomRailAppShellLayout,
 	LeftSidebarAppShellLayout,
 } from "@/features/shell/AppShellLayout";
@@ -68,6 +74,10 @@ const PresetBaselinePage = lazyNamed(
 	() => import("@/app/system/PresetBaselinePage"),
 	"PresetBaselinePage",
 );
+const SessionThreadOverviewLabPage = lazyNamed(
+	() => import("@/features/sessions/components/session-thread-overview-lab"),
+	"SessionThreadOverviewLabPage",
+);
 const LEGACY_DASHBOARDY_PATH = "/dashboardy";
 const LEGACY_DASHBOARD_SESSIONS_PATH = "/dashboard/sessions";
 const LEGACY_SESSION_FULL_PATH = "/session/full";
@@ -117,6 +127,130 @@ const leftSidebarShellRoutePaths: ShellRoutePaths = {
 		canonicalShellRoutePaths.settingsAccount,
 	),
 	settingsWorkspace: getLeftSidebarPreviewPath(
+		canonicalShellRoutePaths.settingsWorkspace,
+	),
+};
+
+const leftSidebarTurnsShellRoutePaths: ShellRoutePaths = {
+	dashboard: getLeftSidebarTurnsPreviewPath(canonicalShellRoutePaths.dashboard),
+	session: getLeftSidebarTurnsPreviewPath(canonicalShellRoutePaths.session),
+	skills: getLeftSidebarTurnsPreviewPath(canonicalShellRoutePaths.skills),
+	team: getLeftSidebarTurnsPreviewPath(canonicalShellRoutePaths.team),
+	settings: getLeftSidebarTurnsPreviewPath(canonicalShellRoutePaths.settings),
+	settingsAccount: getLeftSidebarTurnsPreviewPath(
+		canonicalShellRoutePaths.settingsAccount,
+	),
+	settingsWorkspace: getLeftSidebarTurnsPreviewPath(
+		canonicalShellRoutePaths.settingsWorkspace,
+	),
+};
+
+const leftSidebarTableShellRoutePaths: ShellRoutePaths = {
+	dashboard: getLeftSidebarTablePreviewPath(canonicalShellRoutePaths.dashboard),
+	session: getLeftSidebarTablePreviewPath(canonicalShellRoutePaths.session),
+	skills: getLeftSidebarTablePreviewPath(canonicalShellRoutePaths.skills),
+	team: getLeftSidebarTablePreviewPath(canonicalShellRoutePaths.team),
+	settings: getLeftSidebarTablePreviewPath(canonicalShellRoutePaths.settings),
+	settingsAccount: getLeftSidebarTablePreviewPath(
+		canonicalShellRoutePaths.settingsAccount,
+	),
+	settingsWorkspace: getLeftSidebarTablePreviewPath(
+		canonicalShellRoutePaths.settingsWorkspace,
+	),
+};
+
+const leftSidebarAdalineShellRoutePaths: ShellRoutePaths = {
+	dashboard: getLeftSidebarAdalinePreviewPath(
+		canonicalShellRoutePaths.dashboard,
+	),
+	session: getLeftSidebarAdalinePreviewPath(canonicalShellRoutePaths.session),
+	skills: getLeftSidebarAdalinePreviewPath(canonicalShellRoutePaths.skills),
+	team: getLeftSidebarAdalinePreviewPath(canonicalShellRoutePaths.team),
+	settings: getLeftSidebarAdalinePreviewPath(canonicalShellRoutePaths.settings),
+	settingsAccount: getLeftSidebarAdalinePreviewPath(
+		canonicalShellRoutePaths.settingsAccount,
+	),
+	settingsWorkspace: getLeftSidebarAdalinePreviewPath(
+		canonicalShellRoutePaths.settingsWorkspace,
+	),
+};
+
+const leftSidebarThreadShellRoutePaths: ShellRoutePaths = {
+	dashboard: getLeftSidebarThreadPreviewPath(
+		canonicalShellRoutePaths.dashboard,
+	),
+	session: getLeftSidebarThreadPreviewPath(canonicalShellRoutePaths.session),
+	skills: getLeftSidebarThreadPreviewPath(canonicalShellRoutePaths.skills),
+	team: getLeftSidebarThreadPreviewPath(canonicalShellRoutePaths.team),
+	settings: getLeftSidebarThreadPreviewPath(canonicalShellRoutePaths.settings),
+	settingsAccount: getLeftSidebarThreadPreviewPath(
+		canonicalShellRoutePaths.settingsAccount,
+	),
+	settingsWorkspace: getLeftSidebarThreadPreviewPath(
+		canonicalShellRoutePaths.settingsWorkspace,
+	),
+};
+
+const leftSidebarThreadCollapsibleShellRoutePaths: ShellRoutePaths = {
+	dashboard: getLeftSidebarThreadCollapsiblePreviewPath(
+		canonicalShellRoutePaths.dashboard,
+	),
+	session: getLeftSidebarThreadCollapsiblePreviewPath(
+		canonicalShellRoutePaths.session,
+	),
+	skills: getLeftSidebarThreadCollapsiblePreviewPath(
+		canonicalShellRoutePaths.skills,
+	),
+	team: getLeftSidebarThreadCollapsiblePreviewPath(
+		canonicalShellRoutePaths.team,
+	),
+	settings: getLeftSidebarThreadCollapsiblePreviewPath(
+		canonicalShellRoutePaths.settings,
+	),
+	settingsAccount: getLeftSidebarThreadCollapsiblePreviewPath(
+		canonicalShellRoutePaths.settingsAccount,
+	),
+	settingsWorkspace: getLeftSidebarThreadCollapsiblePreviewPath(
+		canonicalShellRoutePaths.settingsWorkspace,
+	),
+};
+
+const leftSidebarThreadWaterfallShellRoutePaths: ShellRoutePaths = {
+	dashboard: getLeftSidebarThreadWaterfallPreviewPath(
+		canonicalShellRoutePaths.dashboard,
+	),
+	session: getLeftSidebarThreadWaterfallPreviewPath(
+		canonicalShellRoutePaths.session,
+	),
+	skills: getLeftSidebarThreadWaterfallPreviewPath(
+		canonicalShellRoutePaths.skills,
+	),
+	team: getLeftSidebarThreadWaterfallPreviewPath(canonicalShellRoutePaths.team),
+	settings: getLeftSidebarThreadWaterfallPreviewPath(
+		canonicalShellRoutePaths.settings,
+	),
+	settingsAccount: getLeftSidebarThreadWaterfallPreviewPath(
+		canonicalShellRoutePaths.settingsAccount,
+	),
+	settingsWorkspace: getLeftSidebarThreadWaterfallPreviewPath(
+		canonicalShellRoutePaths.settingsWorkspace,
+	),
+};
+
+const leftSidebarThreadV2ShellRoutePaths: ShellRoutePaths = {
+	dashboard: getLeftSidebarThreadV2PreviewPath(
+		canonicalShellRoutePaths.dashboard,
+	),
+	session: getLeftSidebarThreadV2PreviewPath(canonicalShellRoutePaths.session),
+	skills: getLeftSidebarThreadV2PreviewPath(canonicalShellRoutePaths.skills),
+	team: getLeftSidebarThreadV2PreviewPath(canonicalShellRoutePaths.team),
+	settings: getLeftSidebarThreadV2PreviewPath(
+		canonicalShellRoutePaths.settings,
+	),
+	settingsAccount: getLeftSidebarThreadV2PreviewPath(
+		canonicalShellRoutePaths.settingsAccount,
+	),
+	settingsWorkspace: getLeftSidebarThreadV2PreviewPath(
 		canonicalShellRoutePaths.settingsWorkspace,
 	),
 };
@@ -253,13 +387,24 @@ export function AppRouter({
 				path="/__preset-baseline"
 				element={<LazyRoute Component={PresetBaselinePage} />}
 			/>
+			<Route
+				path="/dev/overview-strip-lab"
+				element={<LazyRoute Component={SessionThreadOverviewLabPage} />}
+			/>
 			<Route element={<BottomRailAppShellLayout />}>
 				{getShellRouteElements(bottomRailShellRoutePaths)}
 			</Route>
 			<Route element={<LeftSidebarAppShellLayout />}>
 				{getShellRouteElements(leftSidebarShellRoutePaths)}
+				{getShellRouteElements(leftSidebarAdalineShellRoutePaths)}
+				{getShellRouteElements(leftSidebarTableShellRoutePaths)}
+				{getShellRouteElements(leftSidebarThreadCollapsibleShellRoutePaths)}
+				{getShellRouteElements(leftSidebarThreadWaterfallShellRoutePaths)}
+				{getShellRouteElements(leftSidebarThreadV2ShellRoutePaths)}
+				{getShellRouteElements(leftSidebarThreadShellRoutePaths)}
+				{getShellRouteElements(leftSidebarTurnsShellRoutePaths)}
 			</Route>
-			<Route element={<AppShellLayout />}>
+			<Route element={<LeftSidebarAppShellLayout />}>
 				{getShellRouteElements(canonicalShellRoutePaths)}
 				<Route
 					path={LEGACY_DASHBOARD_SESSIONS_PATH}

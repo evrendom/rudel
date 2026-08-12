@@ -9,6 +9,7 @@ import {
 import { DashboardHeader } from "@/features/shell/components/dashboard-header";
 import { WorkspaceMenuButton } from "@/features/shell/components/WorkspaceMenuButton";
 import { useCurrentShellRoute } from "@/features/shell/hooks/useCurrentShellRoute";
+import { cn } from "@/lib/utils";
 
 export function SiteHeader({
 	setPortalHost,
@@ -28,7 +29,10 @@ export function SiteHeader({
 			: currentShellRoute.title;
 
 	return (
-		<DashboardHeader showDivider className="gap-2 px-3 sm:px-4 lg:px-6">
+		<DashboardHeader
+			showDivider
+			className={cn("gap-2", isSessionDetail ? "px-2" : "px-3 sm:px-4 lg:px-6")}
+		>
 			{showSidebarTrigger ? (
 				<>
 					<SidebarTrigger className="-ml-1 size-9 rounded-lg text-[color:var(--dashboard-01-rail-icon)] hover:bg-[color:var(--dashboard-01-rail-hover)] hover:text-[color:var(--dashboard-01-rail-icon-active)] md:hidden" />

@@ -2,7 +2,16 @@ import type { SessionAnalytics } from "@rudel/api-routes";
 import { useLayoutEffect, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
-import { appRoutes } from "@/app/routes";
+import {
+	appRoutes,
+	isLeftSidebarAdalinePreviewPath,
+	isLeftSidebarPreviewPath,
+	isLeftSidebarTablePreviewPath,
+	isLeftSidebarThreadCollapsiblePreviewPath,
+	isLeftSidebarThreadPreviewPath,
+	isLeftSidebarThreadWaterfallPreviewPath,
+	isLeftSidebarTurnsPreviewPath,
+} from "@/app/routes";
 import { useAnalyticsTracking } from "@/features/analytics/tracking/useAnalyticsTracking";
 import { SessionDetailView } from "@/features/sessions/components/SessionDetailView";
 import { SessionTraceDock } from "@/features/sessions/components/session-trace-dock";
@@ -17,6 +26,7 @@ import { useSessionsPageData } from "@/features/sessions/use-sessions-page-data"
 import { useShellRoutePath } from "@/features/shell/hooks/use-shell-route-path";
 import { useShellBottomNavigationPortal } from "@/features/shell/shell-bottom-navigation-portal";
 import { useCanViewSession } from "@/features/workspace/hooks/useCanViewSession";
+import { cn } from "@/lib/utils";
 
 const SESSION_LIST_SCROLL_POSITION_LIMIT = 20;
 const sessionListScrollPositions = new Map<string, number>();
@@ -121,6 +131,14 @@ function SessionDetail({ sessionId }: { sessionId: string }) {
 	const navigate = useNavigate();
 	const getShellRoutePath = useShellRoutePath();
 	const shellBottomNavigationPortal = useShellBottomNavigationPortal();
+	const isEdgeToEdgeSessionPreview =
+		isLeftSidebarAdalinePreviewPath(location.pathname) ||
+		isLeftSidebarPreviewPath(location.pathname) ||
+		isLeftSidebarTablePreviewPath(location.pathname) ||
+		isLeftSidebarThreadCollapsiblePreviewPath(location.pathname) ||
+		isLeftSidebarThreadWaterfallPreviewPath(location.pathname) ||
+		isLeftSidebarThreadPreviewPath(location.pathname) ||
+		isLeftSidebarTurnsPreviewPath(location.pathname);
 	const returnState = isSessionReturnState(location.state)
 		? location.state
 		: undefined;
@@ -177,10 +195,18 @@ function SessionDetail({ sessionId }: { sessionId: string }) {
 
 	return (
 		<>
-			<div className="dashboardy-page flex min-h-0 min-w-0 flex-1 overflow-hidden px-4 sm:px-6 lg:px-[76px]">
+			<div
+				className={cn(
+					"dashboardy-page flex min-h-0 min-w-0 flex-1 overflow-hidden",
+					!isEdgeToEdgeSessionPreview && "px-4 sm:px-6 lg:px-[76px]",
+				)}
+			>
 				<SessionDetailView
+					navigation={sessionNavigation}
 					onReturn={returnToSessionSource}
+					position={sessionPosition}
 					sessionId={sessionId}
+					totalSessions={viewableSessions.length}
 				/>
 			</div>
 			{shellBottomNavigationPortal
