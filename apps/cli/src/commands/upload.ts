@@ -11,7 +11,7 @@ import { buildCommand } from "@stricli/core";
 import type { BatchUploadItem } from "../lib/batch-upload.js";
 import { renderBatchSummary, runBatchUpload } from "../lib/batch-upload-ui.js";
 import { classifySession } from "../lib/classifier.js";
-import { loadCredentials } from "../lib/credentials.js";
+import { type Credentials, loadCredentials } from "../lib/credentials.js";
 import {
 	isRetryCandidate,
 	loadFailedUploads,
@@ -35,7 +35,7 @@ import {
 
 interface UploadFlags {
 	tag?: SessionTag;
-	endpoint: string;
+	endpoint?: string;
 	allowInsecureEndpoint: boolean;
 	classify: boolean;
 	dryRun: boolean;
@@ -46,21 +46,23 @@ interface UploadFlags {
 	forceReplace: boolean;
 }
 
-async function runInteractiveUpload(
-	flags: UploadFlags,
-	allowPlaintextEndpoint: boolean,
-): Promise<undefined | Error> {
-	const credentials = loadCredentials();
-	if (!credentials && !flags.dryRun) {
-		return new Error("Not authenticated. Run `rudel login` first.");
-	}
+interface ResolvedUploadFlags extends UploadFlags {
+	endpoint: string;
+}
 
+async function runInteractiveUpload(
+	flags: ResolvedUploadFlags,
+	allowPlaintextEndpoint: boolean,
+	credentials: Credentials | null,
+): Promise<undefined | Error> {
 	p.intro("rudel upload");
 
 	const spin = p.spinner();
 	spin.start("Scanning projects...");
 
-	const { projects: allProjects, groups } = await scanAndGroupProjects();
+	const { projects: allProjects, groups } = await scanAndGroupProjects({
+		persistRemoteCache: !flags.dryRun,
+	});
 
 	spin.stop(`Found ${allProjects.length} project(s)`);
 
@@ -106,15 +108,30 @@ async function runInteractiveUpload(
 		(sum, proj) => sum + proj.sessionCount,
 		0,
 	);
+
+	if (flags.dryRun) {
+		for (const project of selected) {
+			p.log.info(
+				`Would upload ${sessionCountHint(project.sessionCount)} from [${getAdapterName(project.source)}] ${project.displayPath}`,
+			);
+		}
+		p.outro("Dry run complete — no sessions were uploaded.");
+		return;
+	}
+
+	if (!credentials) {
+		return new Error("Not authenticated. Run `rudel login` first.");
+	}
+
 	p.log.info(
 		`Uploading ${totalSessions} session(s) from ${selected.length} project(s)`,
 	);
 
 	const uploadConfig: UploadConfig = {
 		endpoint: flags.endpoint,
-		token: credentials?.token ?? "",
+		token: credentials.token,
 		allowInsecureEndpoint: allowPlaintextEndpoint,
-		authType: credentials?.authType,
+		authType: credentials.authType,
 	};
 
 	// Flatten all sessions with their project context for concurrent upload
@@ -174,21 +191,13 @@ async function runInteractiveUpload(
 				}
 			}
 
-			if (flags.dryRun) {
-				return { success: true };
-			}
-
 			return uploadSession(request, { ...uploadConfig, onRetry });
 		},
 	});
 
 	renderBatchSummary(summary, { showRetryHint: summary.failed > 0 });
 
-	if (flags.dryRun) {
-		p.outro("Dry run complete — no sessions were uploaded.");
-	} else {
-		p.outro("Done!");
-	}
+	p.outro("Done!");
 
 	if (summary.failed > 0) {
 		return new Error(`${summary.failed} upload(s) failed.`);
@@ -204,18 +213,14 @@ function sessionCountHint(count: number): string {
 }
 
 async function runSingleUpload(
-	flags: UploadFlags,
+	flags: ResolvedUploadFlags,
 	session: string,
 	allowPlaintextEndpoint: boolean,
+	credentials: Credentials | null,
 ): Promise<undefined | Error> {
 	const write = (msg: string) => {
 		process.stdout.write(`${msg}\n`);
 	};
-
-	const credentials = loadCredentials();
-	if (!credentials && !flags.dryRun) {
-		return new Error("Not authenticated. Run `rudel login` first.");
-	}
 
 	write(`Resolving session: ${session}`);
 	let sessionInfo: Awaited<ReturnType<typeof resolveSession>>;
@@ -267,14 +272,6 @@ async function runSingleUpload(
 		write(`Subagents: ${request.subagents.length} file(s)`);
 	}
 
-	if (!flags.tag && flags.classify) {
-		write("Classifying session...");
-		const classified = await classifySession(request.content);
-		if (classified) {
-			(request as { tag?: string }).tag = classified;
-			write(`Classified as: ${classified}`);
-		}
-	}
 	if (flags.forceReplace) request.force_replace = true;
 
 	if (flags.dryRun) {
@@ -291,13 +288,25 @@ async function runSingleUpload(
 		return;
 	}
 
+	if (!credentials) {
+		return new Error("Not authenticated. Run `rudel login` first.");
+	}
+
+	if (!flags.tag && flags.classify) {
+		write("Classifying session...");
+		const classified = await classifySession(request.content);
+		if (classified) {
+			(request as { tag?: string }).tag = classified;
+			write(`Classified as: ${classified}`);
+		}
+	}
+
 	write("Uploading...");
 	const result = await uploadSession(request, {
 		endpoint: flags.endpoint,
-		// biome-ignore lint/style/noNonNullAssertion: validated above with early return
-		token: credentials!.token,
+		token: credentials.token,
 		allowInsecureEndpoint: allowPlaintextEndpoint,
-		authType: credentials?.authType,
+		authType: credentials.authType,
 	});
 
 	if (result.success) {
@@ -316,14 +325,10 @@ async function runSingleUpload(
 }
 
 async function runRetryUpload(
-	flags: UploadFlags,
+	flags: ResolvedUploadFlags,
 	allowPlaintextEndpoint: boolean,
+	credentials: Credentials | null,
 ): Promise<undefined | Error> {
-	const credentials = loadCredentials();
-	if (!credentials) {
-		return new Error("Not authenticated. Run `rudel login` first.");
-	}
-
 	p.intro("rudel upload --retry");
 
 	const failures = await loadFailedUploads();
@@ -359,6 +364,17 @@ async function runRetryUpload(
 		return;
 	}
 
+	if (flags.dryRun) {
+		p.outro(
+			`Dry run complete — ${retryableFailures.length} retryable upload(s) were not sent.`,
+		);
+		return;
+	}
+
+	if (!credentials) {
+		return new Error("Not authenticated. Run `rudel login` first.");
+	}
+
 	if (!flags.yes) {
 		const shouldRetry = await p.confirm({
 			message: `Retry ${retryableFailures.length} retryable upload(s)?`,
@@ -370,8 +386,6 @@ async function runRetryUpload(
 			return;
 		}
 	}
-
-	const endpoint = flags.endpoint;
 
 	type RetryItem = BatchUploadItem & {
 		failure: (typeof failures)[number];
@@ -387,6 +401,7 @@ async function runRetryUpload(
 		failure: f,
 	}));
 
+	const { token, authType } = credentials;
 	const summary = await runBatchUpload({
 		items,
 		label: "Retrying uploads...",
@@ -415,10 +430,10 @@ async function runRetryUpload(
 			if (flags.forceReplace) request.force_replace = true;
 
 			return uploadSession(request, {
-				endpoint,
-				token: credentials.token,
+				endpoint: flags.endpoint,
+				token,
 				allowInsecureEndpoint: allowPlaintextEndpoint,
-				authType: credentials.authType,
+				authType,
 				onRetry,
 			});
 		},
@@ -437,16 +452,36 @@ async function runUpload(
 	flags: UploadFlags,
 	...sessions: string[]
 ): Promise<undefined | Error> {
+	const credentials = loadCredentials();
+	if (!credentials && !flags.dryRun) {
+		return new Error("Not authenticated. Run `rudel login` first.");
+	}
+	const apiBaseUrl = credentials?.apiBaseUrl.replace(/\/+$/u, "");
+	const resolvedFlags: ResolvedUploadFlags = {
+		...flags,
+		endpoint:
+			flags.endpoint ??
+			(apiBaseUrl === undefined ? DEFAULT_ENDPOINT : `${apiBaseUrl}/rpc`),
+	};
 	const allowPlaintextEndpoint = allowsInsecureEndpoint(
-		flags.allowInsecureEndpoint,
+		resolvedFlags.allowInsecureEndpoint,
 	);
-	if (flags.retry) {
-		return runRetryUpload(flags, allowPlaintextEndpoint);
+	if (resolvedFlags.retry) {
+		return runRetryUpload(resolvedFlags, allowPlaintextEndpoint, credentials);
 	}
 	if (sessions.length === 0) {
-		return runInteractiveUpload(flags, allowPlaintextEndpoint);
+		return runInteractiveUpload(
+			resolvedFlags,
+			allowPlaintextEndpoint,
+			credentials,
+		);
 	}
-	return runSingleUpload(flags, sessions[0] as string, allowPlaintextEndpoint);
+	return runSingleUpload(
+		resolvedFlags,
+		sessions[0] as string,
+		allowPlaintextEndpoint,
+		credentials,
+	);
 }
 
 export const uploadCommand = buildCommand({
@@ -471,7 +506,7 @@ export const uploadCommand = buildCommand({
 				kind: "parsed",
 				parse: String,
 				brief: "Override the upload endpoint URL",
-				default: DEFAULT_ENDPOINT,
+				optional: true,
 			},
 			allowInsecureEndpoint: {
 				kind: "boolean",

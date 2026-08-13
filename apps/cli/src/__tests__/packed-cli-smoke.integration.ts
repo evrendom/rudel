@@ -320,11 +320,12 @@ test.each(
 			);
 		}
 
-		const result = await runBuiltCli([...hookCase.command], {
+		const invocation = hookCase.buildInvocation(fixture);
+		const result = await runBuiltCli(invocation.command, {
 			home: fixture.home,
 			configDir: fixtureConfigDir(fixture),
 			cliPath: packedCliPath,
-			stdin: hookCase.buildInput(fixture),
+			stdin: invocation.stdin,
 			env: {
 				RUDEL_API_BASE: stub.loopbackBase,
 				RUDEL_ALLOW_INSECURE_ENDPOINT: "",

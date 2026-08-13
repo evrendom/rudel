@@ -10,7 +10,7 @@ import {
 import assert from "node:assert/strict";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { claudeCodeAdapter, type SessionFile } from "@rudel/agent-adapters";
 import {
 	INGEST_LIMIT_REASONS,
@@ -51,6 +51,7 @@ import {
 	stopAllBoundaryRelays,
 	writeCliCredentials,
 } from "./helpers/cli-e2e.js";
+import { codexRolloutPath } from "./helpers/ingest-stub.js";
 import { createStoredSessionReaders } from "./helpers/stored-sessions.js";
 
 setDefaultTimeout(90_000);
@@ -740,7 +741,9 @@ describe("release pressure: E2E integration", () => {
 			const home = join(tempDir, sessionId);
 			const configDir = join(home, ".rudel");
 			const projectDir = join(home, "hook-project");
-			const sessionFile = join(projectDir, `${sessionId}.jsonl`);
+			const sessionFile = isClaude
+				? join(projectDir, `${sessionId}.jsonl`)
+				: codexRolloutPath(home, sessionId);
 			const template = isClaude ? claudeSessionTemplate : codexSessionTemplate;
 			const rawContent = renderFixture(template, sessionId, secrets, false);
 			const expectedContent = renderFixture(template, sessionId, secrets, true);
@@ -748,6 +751,7 @@ describe("release pressure: E2E integration", () => {
 			await Promise.all([
 				mkdir(configDir, { recursive: true }),
 				mkdir(projectDir, { recursive: true }),
+				mkdir(dirname(sessionFile), { recursive: true }),
 			]);
 			await Promise.all([
 				writeCliCredentials(configDir, bearerToken, sharedRelay.baseUrl),
@@ -769,7 +773,7 @@ describe("release pressure: E2E integration", () => {
 				);
 			}
 
-			const stdin = isClaude
+			const notification = isClaude
 				? JSON.stringify({
 						session_id: sessionId,
 						transcript_path: sessionFile,
@@ -777,14 +781,16 @@ describe("release pressure: E2E integration", () => {
 					})
 				: JSON.stringify({
 						type: "agent-turn-complete",
-						thread_id: sessionId,
-						turn_id: "99999999-9999-4999-8999-999999999999",
+						"thread-id": sessionId,
+						"turn-id": "99999999-9999-4999-8999-999999999999",
 						cwd: projectDir,
-						transcript_path: sessionFile,
+						"input-messages": ["test"],
+						"last-assistant-message": "done",
 					});
 			const hookArgs = isClaude
 				? ["hooks", "claude", "session-end"]
-				: ["hooks", "codex", "turn-complete"];
+				: ["hooks", "codex", "turn-complete", notification];
+			const stdin = isClaude ? notification : undefined;
 
 			// Phase 1: dead loopback endpoint. Hooks must exit 0 on transport
 			// failures (they only exit 1 on endpointRejected) and queue the session.

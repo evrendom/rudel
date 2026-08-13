@@ -10,7 +10,7 @@ import {
 import assert from "node:assert/strict";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import {
 	type IngestSessionInput,
 	REDACTION_BUDGET_EXCEEDED_CODE,
@@ -48,6 +48,7 @@ import {
 	stopAllBoundaryRelays,
 	writeCliCredentials,
 } from "./helpers/cli-e2e.js";
+import { codexRolloutPath } from "./helpers/ingest-stub.js";
 import { createStoredSessionReaders } from "./helpers/stored-sessions.js";
 
 setDefaultTimeout(60_000);
@@ -859,7 +860,7 @@ describe("CLI upload to local API", () => {
 		const home = join(tempDir, sessionId);
 		const configDir = join(home, ".rudel");
 		const projectDir = join(home, "codex-project");
-		const sessionFile = join(projectDir, `${sessionId}.jsonl`);
+		const sessionFile = codexRolloutPath(home, sessionId);
 		const rawContent = renderFixture(
 			codexSessionTemplate,
 			sessionId,
@@ -881,6 +882,7 @@ describe("CLI upload to local API", () => {
 		await Promise.all([
 			mkdir(configDir, { recursive: true }),
 			mkdir(projectDir, { recursive: true }),
+			mkdir(dirname(sessionFile), { recursive: true }),
 		]);
 		await Promise.all([
 			writeCliCredentials(configDir, bearerToken, relay.baseUrl),
@@ -889,21 +891,25 @@ describe("CLI upload to local API", () => {
 
 		expect(hasRealisticCodexShape(parseJsonl(rawContent))).toBe(true);
 
-		const result = await runBuiltCli(["hooks", "codex", "turn-complete"], {
-			configDir,
-			env: {
-				RUDEL_API_BASE: relay.baseUrl,
-				RUDEL_ALLOW_INSECURE_ENDPOINT: "",
-			},
-			home,
-			stdin: JSON.stringify({
-				type: "agent-turn-complete",
-				thread_id: sessionId,
-				turn_id: "88888888-8888-4888-8888-888888888888",
-				cwd: projectDir,
-				transcript_path: sessionFile,
-			}),
+		const notification = JSON.stringify({
+			type: "agent-turn-complete",
+			"thread-id": sessionId,
+			"turn-id": "88888888-8888-4888-8888-888888888888",
+			cwd: projectDir,
+			"input-messages": ["test"],
+			"last-assistant-message": "done",
 		});
+		const result = await runBuiltCli(
+			["hooks", "codex", "turn-complete", notification],
+			{
+				configDir,
+				env: {
+					RUDEL_API_BASE: relay.baseUrl,
+					RUDEL_ALLOW_INSECURE_ENDPOINT: "",
+				},
+				home,
+			},
+		);
 
 		const hookLog = await readFile(
 			join(home, ".rudel", "logs", "hook-upload.log"),
