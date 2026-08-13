@@ -6,7 +6,11 @@ import {
 	SecretFilterJsonIntegrityError,
 } from "@rudel/secret-filter";
 import pMap from "p-map";
-import { recordFailedUpload, removeFailedUpload } from "./failed-uploads.js";
+import {
+	type FailedUpload,
+	recordFailedUpload,
+	removeFailedUpload,
+} from "./failed-uploads.js";
 import type { UploadResult } from "./types.js";
 
 export interface BatchUploadItem {
@@ -49,6 +53,23 @@ export async function batchUpload<T extends BatchUploadItem>(
 	options: BatchUploadOptions<T>,
 ): Promise<BatchUploadSummary> {
 	const { items, upload, concurrency = 5, onItemComplete, onRetry } = options;
+	const recordFailure = async (
+		item: T,
+		failure: {
+			error: string;
+			status: FailedUpload["status"];
+			failureKind?: FailedUpload["failureKind"];
+		},
+	) => {
+		await recordFailedUpload({
+			sessionId: item.sessionId,
+			transcriptPath: item.transcriptPath,
+			projectPath: item.projectPath,
+			source: item.source,
+			organizationId: item.organizationId,
+			...failure,
+		});
+	};
 	const total = items.length;
 	let succeeded = 0;
 	let failed = 0;
@@ -68,15 +89,7 @@ export async function batchUpload<T extends BatchUploadItem>(
 				deferred++;
 				const error =
 					"Skipped — rate limit reached. Run `rudel upload --retry` to upload remaining sessions.";
-				await recordFailedUpload({
-					sessionId: item.sessionId,
-					transcriptPath: item.transcriptPath,
-					projectPath: item.projectPath,
-					source: item.source,
-					organizationId: item.organizationId,
-					error,
-					status: "retryable",
-				});
+				await recordFailure(item, { error, status: "retryable" });
 				completed++;
 				onItemComplete?.(completed, total);
 				return;
@@ -103,12 +116,7 @@ export async function batchUpload<T extends BatchUploadItem>(
 						label: item.label,
 						reason: result.error ?? "Upload cannot be retried",
 					});
-					await recordFailedUpload({
-						sessionId: item.sessionId,
-						transcriptPath: item.transcriptPath,
-						projectPath: item.projectPath,
-						source: item.source,
-						organizationId: item.organizationId,
+					await recordFailure(item, {
 						error: result.error ?? "Upload cannot be retried",
 						failureKind: result.failureKind,
 						status: "permanent",
@@ -120,12 +128,7 @@ export async function batchUpload<T extends BatchUploadItem>(
 					if (result.rateLimited) {
 						rateLimited = true;
 					}
-					await recordFailedUpload({
-						sessionId: item.sessionId,
-						transcriptPath: item.transcriptPath,
-						projectPath: item.projectPath,
-						source: item.source,
-						organizationId: item.organizationId,
+					await recordFailure(item, {
 						error,
 						failureKind: result.failureKind,
 						status: "retryable",
@@ -139,12 +142,7 @@ export async function batchUpload<T extends BatchUploadItem>(
 				) {
 					skipped++;
 					skippedItems.push({ label: item.label, reason: error });
-					await recordFailedUpload({
-						sessionId: item.sessionId,
-						transcriptPath: item.transcriptPath,
-						projectPath: item.projectPath,
-						source: item.source,
-						organizationId: item.organizationId,
+					await recordFailure(item, {
 						error,
 						failureKind:
 							err instanceof SecretFilterJsonIntegrityError
@@ -155,15 +153,7 @@ export async function batchUpload<T extends BatchUploadItem>(
 				} else {
 					failed++;
 					errors.push({ label: item.label, error });
-					await recordFailedUpload({
-						sessionId: item.sessionId,
-						transcriptPath: item.transcriptPath,
-						projectPath: item.projectPath,
-						source: item.source,
-						organizationId: item.organizationId,
-						error,
-						status: "retryable",
-					});
+					await recordFailure(item, { error, status: "retryable" });
 				}
 			} finally {
 				completed++;

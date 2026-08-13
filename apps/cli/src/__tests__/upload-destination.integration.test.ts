@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
-import { readFile, rm, writeFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
+import { chmod, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import {
 	createCliFixture,
@@ -10,6 +11,140 @@ import {
 } from "./helpers/ingest-stub.js";
 
 const TEST_TOKEN = INGEST_STUB_TEST_TOKEN;
+
+async function pointCredentialsAt(
+	home: string,
+	apiBaseUrl: string,
+): Promise<void> {
+	await writeFile(
+		join(home, ".rudel", "credentials.json"),
+		JSON.stringify({
+			token: TEST_TOKEN,
+			apiBaseUrl,
+			authType: "api-key",
+		}),
+	);
+}
+
+test("upload defaults to the authenticated API base", async () => {
+	const stub = startIngestStub();
+	const fixture = await createCliFixture("claude_code");
+	try {
+		await pointCredentialsAt(fixture.home, stub.loopbackBase);
+
+		const result = await runCli(["upload", fixture.transcriptPath], fixture);
+
+		expect(result.exitCode).toBe(0);
+		expect(result.stdout).toContain("Upload successful!");
+		expect(stub.requests).toEqual([
+			{
+				apiKey: TEST_TOKEN,
+				pathname: "/rpc/ingestSession",
+			},
+		]);
+	} finally {
+		await stub.server.stop(true);
+		await rm(fixture.home, { recursive: true, force: true });
+	}
+}, 30_000);
+
+test("retry defaults to the authenticated API base", async () => {
+	const stub = startIngestStub();
+	const fixture = await createCliFixture("claude_code");
+	try {
+		await pointCredentialsAt(fixture.home, stub.loopbackBase);
+		await writeFile(
+			join(fixture.home, ".rudel", "failed-uploads.json"),
+			JSON.stringify({
+				failures: [
+					{
+						sessionId: fixture.sessionId,
+						transcriptPath: fixture.transcriptPath,
+						projectPath: fixture.projectPath,
+						source: "claude_code",
+						error: "network failure",
+						failedAt: "2026-08-12T10:00:00.000Z",
+						status: "retryable",
+					},
+				],
+			}),
+		);
+
+		const result = await runCli(["upload", "--retry", "--yes"], fixture);
+
+		expect(result.exitCode).toBe(0);
+		expect(stub.requests).toHaveLength(1);
+		expect(stub.requests[0]).toEqual({
+			apiKey: TEST_TOKEN,
+			pathname: "/rpc/ingestSession",
+		});
+	} finally {
+		await stub.server.stop(true);
+		await rm(fixture.home, { recursive: true, force: true });
+	}
+}, 30_000);
+
+test("retry dry-run performs no network or persistent-state writes", async () => {
+	const stub = startIngestStub();
+	const fixture = await createCliFixture("claude_code");
+	const queuePath = join(fixture.home, ".rudel", "failed-uploads.json");
+	const queue = JSON.stringify(
+		{
+			failures: [
+				{
+					sessionId: fixture.sessionId,
+					transcriptPath: fixture.transcriptPath,
+					projectPath: fixture.projectPath,
+					source: "claude_code",
+					error: "network failure",
+					failedAt: "2026-08-12T10:00:00.000Z",
+					status: "retryable",
+				},
+			],
+		},
+		null,
+		2,
+	);
+	try {
+		await pointCredentialsAt(fixture.home, stub.loopbackBase);
+		await writeFile(queuePath, queue);
+
+		const result = await runCli(["upload", "--retry", "--dry-run"], fixture);
+
+		expect(result.exitCode).toBe(0);
+		expect(result.stdout).toContain("Dry run complete");
+		expect(result.stderr).not.toContain("failed");
+		expect(stub.requests).toHaveLength(0);
+		expect(await readFile(queuePath, "utf8")).toBe(queue);
+	} finally {
+		await stub.server.stop(true);
+		await rm(fixture.home, { recursive: true, force: true });
+	}
+}, 30_000);
+
+test("single-session dry-run does not launch the classifier", async () => {
+	const fixture = await createCliFixture("claude_code");
+	const fakeBin = join(fixture.home, "bin");
+	const marker = join(fixture.home, "classifier-was-launched");
+	try {
+		await mkdir(fakeBin, { recursive: true });
+		const fakeClaude = join(fakeBin, "claude");
+		await writeFile(fakeClaude, `#!/bin/sh\ntouch "${marker}"\n`);
+		await chmod(fakeClaude, 0o755);
+
+		const result = await runCli(
+			["upload", fixture.transcriptPath, "--dry-run", "--classify"],
+			fixture,
+			{ env: { PATH: `${fakeBin}:${process.env.PATH ?? ""}` } },
+		);
+
+		expect(result.exitCode).toBe(0);
+		expect(result.stdout).toContain("Dry run - would upload:");
+		expect(existsSync(marker)).toBe(false);
+	} finally {
+		await rm(fixture.home, { recursive: true, force: true });
+	}
+}, 30_000);
 
 test("upload --endpoint refuses plaintext non-loopback without an opt-in", async () => {
 	const stub = startIngestStub();
@@ -121,8 +256,9 @@ test.each(
 	const stub = startIngestStub();
 	const fixture = await createCliFixture(hookCase.source);
 	try {
-		const result = await runCli(hookCase.command, fixture, {
-			stdin: hookCase.buildInput(fixture),
+		const invocation = hookCase.buildInvocation(fixture);
+		const result = await runCli(invocation.command, fixture, {
+			stdin: invocation.stdin,
 			env: {
 				RUDEL_API_BASE: stub.nonLoopbackBase,
 				RUDEL_ALLOW_INSECURE_ENDPOINT: "",
@@ -160,8 +296,9 @@ test.each(
 	const stub = startIngestStub();
 	const fixture = await createCliFixture(hookCase.source);
 	try {
-		const result = await runCli(hookCase.command, fixture, {
-			stdin: hookCase.buildInput(fixture),
+		const invocation = hookCase.buildInvocation(fixture);
+		const result = await runCli(invocation.command, fixture, {
+			stdin: invocation.stdin,
 			env: {
 				RUDEL_API_BASE: stub.nonLoopbackBase,
 				RUDEL_ALLOW_INSECURE_ENDPOINT: "1",
@@ -205,8 +342,9 @@ test.each(
 	});
 	const fixture = await createCliFixture(hookCase.source);
 	try {
-		const result = await runCli(hookCase.command, fixture, {
-			stdin: hookCase.buildInput(fixture),
+		const invocation = hookCase.buildInvocation(fixture);
+		const result = await runCli(invocation.command, fixture, {
+			stdin: invocation.stdin,
 			env: { RUDEL_API_BASE: stub.loopbackBase },
 		});
 

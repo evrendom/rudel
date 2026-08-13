@@ -17,15 +17,20 @@ export interface ScanResult {
 }
 
 export async function scanAndGroupProjects(
-	cwd: string = process.cwd(),
+	options: { persistRemoteCache?: boolean } = {},
 ): Promise<ScanResult> {
+	const cwd = process.cwd();
 	const adapters = getAvailableAdapters();
 	const projects: ScannedProject[] = [];
 	for (const adapter of adapters) {
 		const scanned = await adapter.scanAllSessions();
 		projects.push(...scanned);
 	}
-	const groups = await groupProjectsByRemote(projects, cwd);
+	const groups = await groupProjectsByRemote(
+		projects,
+		cwd,
+		options.persistRemoteCache ?? true,
+	);
 	return { projects, groups };
 }
 
@@ -53,6 +58,7 @@ function encodeProjectPath(projectPath: string): string {
 export async function groupProjectsByRemote(
 	projects: ScannedProject[],
 	cwd: string,
+	persistRemoteCache: boolean = true,
 ): Promise<ProjectGroup[]> {
 	const cache = await getRemoteCache();
 	let cacheUpdated = false;
@@ -158,7 +164,7 @@ export async function groupProjectsByRemote(
 	});
 
 	// Fire-and-forget cache write
-	if (cacheUpdated) {
+	if (persistRemoteCache && cacheUpdated) {
 		cacheRemotes(cache);
 	}
 

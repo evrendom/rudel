@@ -18,51 +18,57 @@ import {
 import { disposeLogging, setupHookLogging } from "../../../logging.js";
 
 interface CodexNotifyInput {
-	type: string;
-	thread_id: string;
-	turn_id?: string;
+	type: "agent-turn-complete";
+	threadId: string;
 	cwd: string;
-	transcript_path?: string;
 }
 
-async function readStdin(): Promise<string> {
-	const chunks: string[] = [];
-	for await (const chunk of process.stdin) {
-		chunks.push(typeof chunk === "string" ? chunk : chunk.toString());
+function parseNotification(raw: string): CodexNotifyInput | null {
+	const parsed: unknown = JSON.parse(raw);
+	if (typeof parsed !== "object" || parsed === null) return null;
+	if (!("type" in parsed) || parsed.type !== "agent-turn-complete") return null;
+	if (!("thread-id" in parsed) || typeof parsed["thread-id"] !== "string") {
+		return null;
 	}
-	return chunks.join("");
+	if (!("cwd" in parsed) || typeof parsed.cwd !== "string") return null;
+	return {
+		type: parsed.type,
+		threadId: parsed["thread-id"],
+		cwd: parsed.cwd,
+	};
 }
 
-async function runTurnComplete(): Promise<undefined | Error> {
+async function runTurnComplete(
+	_flags: Record<string, never>,
+	notification: string,
+): Promise<undefined | Error> {
 	await setupHookLogging();
 	const logger = getLogger(["rudel", "cli", "hook"]);
 
 	try {
-		const raw = await readStdin();
-		if (!raw.trim()) return;
+		if (!notification.trim()) return;
 
-		const input = JSON.parse(raw) as CodexNotifyInput;
-		if (!input.thread_id || !input.cwd) return;
+		const input = parseNotification(notification);
+		if (!input) return;
 
 		const credentials = loadCredentials();
 		if (!credentials) {
 			process.stderr.write(
-				`Rudel hook upload skipped for session ${input.thread_id}: not authenticated; run \`rudel login\`.\n`,
+				`Rudel hook upload skipped for session ${input.threadId}: not authenticated; run \`rudel login\`.\n`,
 			);
 			return;
 		}
 
-		const transcriptPath =
-			input.transcript_path ?? (await findActiveRolloutFile(input.thread_id));
+		const transcriptPath = await findActiveRolloutFile(input.threadId);
 		if (!transcriptPath) {
 			process.stderr.write(
-				`Rudel hook upload skipped for session ${input.thread_id}: transcript file was not found.\n`,
+				`Rudel hook upload skipped for session ${input.threadId}: transcript file was not found.\n`,
 			);
 			return;
 		}
 
 		const sessionFile: SessionFile = {
-			sessionId: input.thread_id,
+			sessionId: input.threadId,
 			transcriptPath,
 			projectPath: input.cwd,
 		};
@@ -93,10 +99,10 @@ async function runTurnComplete(): Promise<undefined | Error> {
 			if (redactionSummary) {
 				logger.info("{redactionSummary}", { redactionSummary });
 			}
-			await removeFailedUpload(input.thread_id);
+			await removeFailedUpload(input.threadId);
 		} else {
 			const hookError = await reportHookUploadFailure(logger, result, {
-				sessionId: input.thread_id,
+				sessionId: input.threadId,
 				transcriptPath,
 				projectPath: input.cwd,
 				source: codexAdapter.source,
@@ -116,7 +122,19 @@ async function runTurnComplete(): Promise<undefined | Error> {
 
 export const turnCompleteCommand = buildCommand({
 	loader: async () => ({ default: runTurnComplete }),
-	parameters: {},
+	parameters: {
+		flags: {},
+		positional: {
+			kind: "tuple",
+			parameters: [
+				{
+					brief: "Codex notification JSON",
+					parse: String,
+					placeholder: "notification",
+				},
+			],
+		},
+	},
 	docs: {
 		brief: "Handle Codex agent-turn-complete hook",
 	},

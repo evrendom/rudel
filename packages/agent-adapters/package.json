@@ -6,6 +6,9 @@
 	"exports": {
 		".": "./src/index.ts"
 	},
+	"scripts": {
+		"test": "bun test"
+	},
 	"dependencies": {
 		"@rudel/api-routes": "workspace:*",
 		"@rudel/ch-schema": "workspace:*",
