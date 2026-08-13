@@ -229,6 +229,7 @@ export async function runCli(
 		env: {
 			...process.env,
 			HOME: fixture.home,
+			USERPROFILE: fixture.home,
 			RUDEL_CONFIG_DIR: join(fixture.home, ".rudel"),
 			POSTHOG_ENABLED: "false",
 			...options.env,
