@@ -8,6 +8,9 @@
 		"build": "tsc -b && vite build",
 		"check-types": "tsc -b",
 		"test": "vitest run",
+		"trace-tree:e2e:browsers": "playwright install chromium firefox webkit",
+		"trace-tree:e2e:browsers:ci": "playwright install --with-deps chromium firefox webkit",
+		"test:trace-tree:e2e": "playwright test --config=playwright.trace-tree.config.ts",
 		"preview": "vite preview",
 		"preset:sync": "node ./scripts/sync-preset.mjs"
 	},
@@ -59,6 +62,7 @@
 		"zod": "^3.25.0"
 	},
 	"devDependencies": {
+		"@playwright/test": "1.62.0",
 		"@rudel/typescript-config": "workspace:*",
 		"@tailwindcss/vite": "^4.1.0",
 		"@testing-library/jest-dom": "6.6.3",

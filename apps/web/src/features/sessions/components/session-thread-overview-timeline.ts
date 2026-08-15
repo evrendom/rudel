@@ -1,3 +1,4 @@
+// biome-ignore-all lint/nursery/noExcessiveLinesPerFile: Projection, idle compression, and truthful clock ticks must share one scale implementation.
 import {
 	DEFAULT_SESSION_THREAD_OVERVIEW_STRIP_CONFIG,
 	type SessionThreadOverviewTimelineSettings,
@@ -6,6 +7,26 @@ import {
 const MINUTE_MS = 60 * 1_000;
 const HOUR_MS = 60 * MINUTE_MS;
 const DAY_MS = 24 * HOUR_MS;
+const CLOCK_RULER_INTERVALS_MS: readonly number[] = [
+	1_000,
+	5_000,
+	15_000,
+	30_000,
+	MINUTE_MS,
+	2 * MINUTE_MS,
+	5 * MINUTE_MS,
+	10 * MINUTE_MS,
+	15 * MINUTE_MS,
+	30 * MINUTE_MS,
+	HOUR_MS,
+	2 * HOUR_MS,
+	4 * HOUR_MS,
+	6 * HOUR_MS,
+	12 * HOUR_MS,
+	DAY_MS,
+	2 * DAY_MS,
+	7 * DAY_MS,
+];
 const ROUND_TICK_INTERVALS_MS: readonly number[] = [
 	MINUTE_MS,
 	5 * MINUTE_MS,
@@ -44,13 +65,15 @@ export type SessionThreadOverviewTick = {
 	xRatio: number;
 };
 
-type TimelineScale = {
+export type SessionThreadOverviewTimelineProjection = {
 	axisEndTimestamp: number | undefined;
 	axisStartTimestamp: number | undefined;
 	breaks: readonly SessionThreadOverviewBreak[];
 	projectTimestamp: (timestamp: number) => number | undefined;
 	unprojectRatio: (ratio: number) => number | undefined;
 };
+
+type TimelineScale = SessionThreadOverviewTimelineProjection;
 
 export type SessionThreadOverviewTimelineScale = TimelineScale & {
 	ticks: readonly SessionThreadOverviewTick[];
@@ -274,6 +297,19 @@ function getNextRoundTick(timestamp: number, intervalMs: number) {
 		return date.getTime();
 	}
 
+	if (intervalMs < MINUTE_MS) {
+		const intervalSeconds = Math.max(Math.round(intervalMs / 1_000), 1);
+		date.setMilliseconds(0);
+		const secondRemainder = date.getSeconds() % intervalSeconds;
+		date.setSeconds(
+			date.getSeconds() +
+				(secondRemainder === 0
+					? intervalSeconds
+					: intervalSeconds - secondRemainder),
+		);
+		return date.getTime();
+	}
+
 	const intervalMinutes = Math.max(Math.round(intervalMs / MINUTE_MS), 1);
 	date.setSeconds(0, 0);
 	const minuteRemainder = date.getMinutes() % intervalMinutes;
@@ -300,10 +336,162 @@ function advanceRoundTick(timestamp: number, intervalMs: number) {
 		return date.getTime();
 	}
 
+	if (intervalMs < MINUTE_MS) {
+		date.setSeconds(
+			date.getSeconds() + Math.max(Math.round(intervalMs / 1_000), 1),
+		);
+		return date.getTime();
+	}
+
 	date.setMinutes(
 		date.getMinutes() + Math.max(Math.round(intervalMs / MINUTE_MS), 1),
 	);
 	return date.getTime();
+}
+
+function getNearestClockRulerInterval(targetIntervalMs: number) {
+	return CLOCK_RULER_INTERVALS_MS.reduce((nearest, intervalMs) =>
+		Math.abs(intervalMs - targetIntervalMs) <
+		Math.abs(nearest - targetIntervalMs)
+			? intervalMs
+			: nearest,
+	);
+}
+
+function getRemovedDurationWithinRange(
+	breaks: readonly SessionThreadOverviewBreak[],
+	startTimestamp: number,
+	endTimestamp: number,
+) {
+	return breaks.reduce((total, gap) => {
+		const overlapStart = Math.max(startTimestamp, gap.startTimestamp);
+		const overlapEnd = Math.min(endTimestamp, gap.endTimestamp);
+		return total + Math.max(overlapEnd - overlapStart, 0);
+	}, 0);
+}
+
+function isTimestampInsideBreak(
+	breaks: readonly SessionThreadOverviewBreak[],
+	timestamp: number,
+) {
+	return breaks.some(
+		(gap) => timestamp >= gap.startTimestamp && timestamp <= gap.endTimestamp,
+	);
+}
+
+function filterTicksByMinimumSpacing(
+	ticks: readonly SessionThreadOverviewTick[],
+	xStartRatio: number,
+	xEndRatio: number,
+	minimumSpacingRatio: number,
+) {
+	if (ticks.length <= 2 || minimumSpacingRatio <= 0) {
+		return ticks;
+	}
+
+	const visibleSpan = Math.max(xEndRatio - xStartRatio, Number.EPSILON);
+	const firstTick = ticks[0];
+	const lastTick = ticks.at(-1);
+	if (!firstTick || !lastTick) {
+		return ticks;
+	}
+
+	const filtered = [firstTick];
+	for (const tick of ticks.slice(1, -1)) {
+		const previousTick = filtered.at(-1);
+		if (!previousTick) {
+			continue;
+		}
+		const previousDistance = (tick.xRatio - previousTick.xRatio) / visibleSpan;
+		const endDistance = (lastTick.xRatio - tick.xRatio) / visibleSpan;
+		if (
+			previousDistance >= minimumSpacingRatio &&
+			endDistance >= minimumSpacingRatio
+		) {
+			filtered.push(tick);
+		}
+	}
+	filtered.push(lastTick);
+	return filtered;
+}
+
+export function buildSessionThreadOverviewClockTicks(
+	scale: SessionThreadOverviewTimelineProjection,
+	options: {
+		includeBounds: boolean;
+		minimumSpacingRatio?: number;
+		targetTickCount: number;
+		xEndRatio: number;
+		xStartRatio: number;
+	},
+): readonly SessionThreadOverviewTick[] {
+	const xStartRatio = Math.min(
+		Math.max(Math.min(options.xStartRatio, options.xEndRatio), 0),
+		1,
+	);
+	const xEndRatio = Math.min(
+		Math.max(Math.max(options.xStartRatio, options.xEndRatio), 0),
+		1,
+	);
+	const startTimestamp = scale.unprojectRatio(xStartRatio);
+	const endTimestamp = scale.unprojectRatio(xEndRatio);
+	if (
+		startTimestamp === undefined ||
+		endTimestamp === undefined ||
+		endTimestamp < startTimestamp
+	) {
+		return [];
+	}
+
+	if (endTimestamp === startTimestamp) {
+		return options.includeBounds
+			? [{ timestamp: startTimestamp, xRatio: xStartRatio }]
+			: [];
+	}
+
+	const removedDurationMs = getRemovedDurationWithinRange(
+		scale.breaks,
+		startTimestamp,
+		endTimestamp,
+	);
+	const visibleClockDurationMs = Math.max(
+		endTimestamp - startTimestamp - removedDurationMs,
+		1,
+	);
+	const intervalMs = getNearestClockRulerInterval(
+		visibleClockDurationMs / Math.max(options.targetTickCount, 1),
+	);
+	const ticks: SessionThreadOverviewTick[] = options.includeBounds
+		? [{ timestamp: startTimestamp, xRatio: xStartRatio }]
+		: [];
+
+	let timestamp = getNextRoundTick(startTimestamp, intervalMs);
+	let guard = 0;
+	while (timestamp < endTimestamp && guard < 10_000) {
+		guard += 1;
+		if (!isTimestampInsideBreak(scale.breaks, timestamp)) {
+			const xRatio = scale.projectTimestamp(timestamp);
+			if (
+				xRatio !== undefined &&
+				xRatio >= xStartRatio &&
+				xRatio <= xEndRatio
+			) {
+				ticks.push({ timestamp, xRatio });
+			}
+		}
+		timestamp = advanceRoundTick(timestamp, intervalMs);
+	}
+
+	if (options.includeBounds) {
+		ticks.push({ timestamp: endTimestamp, xRatio: xEndRatio });
+	}
+
+	return filterTicksByMinimumSpacing(
+		ticks,
+		xStartRatio,
+		xEndRatio,
+		options.minimumSpacingRatio ?? 0,
+	);
 }
 
 function buildTimelineTicks(

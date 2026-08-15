@@ -10,19 +10,21 @@ import {
 	getSessionThreadOverviewMetricRatio,
 	getSessionThreadOverviewViewport,
 } from "./session-thread-overview-chart";
-import { createSessionTurnV2TestOption } from "./session-turn-v2-test-fixtures";
+import { createSessionTurnTestOption } from "./session-turn-test-fixtures";
 
 describe("session thread overview chart", () => {
 	test("places turns on the true clock and scales each metric independently", () => {
 		const first = {
-			...createSessionTurnV2TestOption({
+			...createSessionTurnTestOption({
 				metrics: {
 					editedFiles: ["src/first.ts"],
 					errorCount: 1,
+					errorEvents: [],
 					estimatedCost: 0.1,
 					inputTokens: 1_000,
 					outputTokens: 200,
 					skills: ["ui"],
+					skillEvents: [],
 					usageEvents: [],
 				},
 				timing: {
@@ -38,7 +40,7 @@ describe("session thread overview chart", () => {
 			subagentCount: 1,
 		};
 		const second = {
-			...createSessionTurnV2TestOption({
+			...createSessionTurnTestOption({
 				compactionsBefore: [
 					{
 						key: "compact-1",
@@ -49,10 +51,12 @@ describe("session thread overview chart", () => {
 				metrics: {
 					editedFiles: ["src/second.ts", "src/third.ts"],
 					errorCount: 0,
+					errorEvents: [],
 					estimatedCost: 0.2,
 					inputTokens: 2_000,
 					outputTokens: 400,
 					skills: ["ui", "testing-bun"],
+					skillEvents: [],
 					usageEvents: [],
 				},
 				timing: {
@@ -83,22 +87,13 @@ describe("session thread overview chart", () => {
 		const firstRow = chart.rows[0];
 		expect(firstRow?.cost).toBe(0.1);
 		expect(firstRow?.inputTokens).toBe(1_000);
-		expect(firstRow?.outputTokens).toBe(200);
 		expect(getSessionThreadOverviewMetricMaximum(chart.rows, "input")).toBe(
 			2_000,
-		);
-		expect(getSessionThreadOverviewMetricMaximum(chart.rows, "output")).toBe(
-			400,
 		);
 		expect(getSessionThreadOverviewMetricMaximum(chart.rows, "cost")).toBe(0.2);
 		expect(
 			firstRow
 				? getSessionThreadOverviewMetricRatio(firstRow, "input", 2_000)
-				: undefined,
-		).toBeCloseTo(Math.sqrt(0.5));
-		expect(
-			firstRow
-				? getSessionThreadOverviewMetricRatio(firstRow, "output", 400)
 				: undefined,
 		).toBeCloseTo(Math.sqrt(0.5));
 		expect(
@@ -112,7 +107,6 @@ describe("session thread overview chart", () => {
 		expect(chart.rows[1]?.editCount).toBe(2);
 		expect(chart.rows[1]?.subagentCount).toBe(2);
 		expect(chart.totals.inputTokens).toBe(3_000);
-		expect(chart.totals.outputTokens).toBe(600);
 		expect(chart.totals.cost).toBeCloseTo(0.3);
 		expect(chart.totals.errors).toBe(1);
 		expect(chart.totals.reasoning).toBe(3);
@@ -135,14 +129,16 @@ describe("session thread overview chart", () => {
 
 	test("keeps missing usage out of totals and distributes untimed turns", () => {
 		const option = {
-			...createSessionTurnV2TestOption({
+			...createSessionTurnTestOption({
 				metrics: {
 					editedFiles: [],
 					errorCount: 0,
+					errorEvents: [],
 					estimatedCost: undefined,
 					inputTokens: undefined,
 					outputTokens: undefined,
 					skills: [],
+					skillEvents: [],
 					usageEvents: [],
 				},
 				timing: {
@@ -164,7 +160,6 @@ describe("session thread overview chart", () => {
 		expect(chart.axisStartTimestamp).toBeUndefined();
 		expect(chart.axisEndTimestamp).toBeUndefined();
 		expect(chart.totals.inputTokens).toBeUndefined();
-		expect(chart.totals.outputTokens).toBeUndefined();
 		expect(chart.totals.cost).toBeUndefined();
 		expect(chart.totals.errors).toBe(0);
 		expect(chart.totals.reasoning).toBe(0);
@@ -197,7 +192,7 @@ describe("session thread overview chart", () => {
 
 	test("places long-session ticks on round local times across calendar days", () => {
 		const option = {
-			...createSessionTurnV2TestOption({
+			...createSessionTurnTestOption({
 				timing: {
 					durationLabel: "46h",
 					durationSeconds: 46 * 60 * 60,
@@ -228,7 +223,7 @@ describe("session thread overview chart", () => {
 	});
 
 	test("attributes each subagent once using its first transcript timestamp", () => {
-		const first = createSessionTurnV2TestOption({
+		const first = createSessionTurnTestOption({
 			timing: {
 				durationLabel: "30s",
 				durationSeconds: 30,
@@ -238,7 +233,7 @@ describe("session thread overview chart", () => {
 				startTimestamp: "2026-08-11T10:00:00.000Z",
 			},
 		});
-		const second = createSessionTurnV2TestOption({
+		const second = createSessionTurnTestOption({
 			key: "turn-2",
 			timing: {
 				durationLabel: "30s",
@@ -265,7 +260,7 @@ describe("session thread overview chart", () => {
 
 	test("compresses hour-long idle gaps into explicit fixed-width breaks", () => {
 		const first = {
-			...createSessionTurnV2TestOption({
+			...createSessionTurnTestOption({
 				timing: {
 					durationLabel: "10 min",
 					durationSeconds: 600,
@@ -279,7 +274,7 @@ describe("session thread overview chart", () => {
 			subagentCount: 0,
 		};
 		const second = {
-			...createSessionTurnV2TestOption({
+			...createSessionTurnTestOption({
 				key: "turn-2",
 				timing: {
 					durationLabel: "10 min",
@@ -321,7 +316,7 @@ describe("session thread overview chart", () => {
 
 	test("removes complete idle hours and preserves the remaining time", () => {
 		const first = {
-			...createSessionTurnV2TestOption({
+			...createSessionTurnTestOption({
 				timing: {
 					durationLabel: "10 min",
 					durationSeconds: 600,
@@ -335,7 +330,7 @@ describe("session thread overview chart", () => {
 			subagentCount: 0,
 		};
 		const second = {
-			...createSessionTurnV2TestOption({
+			...createSessionTurnTestOption({
 				key: "turn-2",
 				timing: {
 					durationLabel: "10 min",
@@ -367,7 +362,7 @@ describe("session thread overview chart", () => {
 
 	test("gives every removed-hour cutoff the same compact width", () => {
 		const first = {
-			...createSessionTurnV2TestOption({
+			...createSessionTurnTestOption({
 				timing: {
 					durationLabel: "10 min",
 					durationSeconds: 600,
@@ -381,7 +376,7 @@ describe("session thread overview chart", () => {
 			subagentCount: 0,
 		};
 		const second = {
-			...createSessionTurnV2TestOption({
+			...createSessionTurnTestOption({
 				key: "turn-2",
 				timing: {
 					durationLabel: "10 min",
@@ -396,7 +391,7 @@ describe("session thread overview chart", () => {
 			subagentCount: 0,
 		};
 		const third = {
-			...createSessionTurnV2TestOption({
+			...createSessionTurnTestOption({
 				key: "turn-3",
 				timing: {
 					durationLabel: "10 min",

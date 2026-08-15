@@ -1,3 +1,4 @@
+// biome-ignore-all lint/nursery/noExcessiveLinesPerFile: Claude and Codex metadata extraction share deduplication and turn attribution state.
 import { calculateEstimatedCost } from "@rudel/api-routes";
 import { z } from "zod";
 import { isCodexFormat } from "@/lib/conversation-schema";
@@ -49,6 +50,7 @@ const codexLineSchema = z.object({
 			info: z
 				.object({
 					last_token_usage: tokenUsageSchema.optional(),
+					model_context_window: z.number().positive().optional(),
 					total_token_usage: tokenUsageSchema.optional(),
 				})
 				.nullable()
@@ -88,13 +90,16 @@ export type TokenUsageEvent = {
 	cacheReadInputTokens: number;
 	inputTokens: number;
 	model: string | undefined;
+	modelContextWindow?: number;
 	outputTokens: number;
 };
 
 type TurnMetricsBuilder = {
 	editedFiles: string[];
 	errorCount: number;
+	errorEvents: SessionTurnErrorEvent[];
 	skills: string[];
+	skillEvents: SessionTurnSkillEvent[];
 	usageEvents: TokenUsageEvent[];
 };
 
@@ -106,11 +111,22 @@ type PendingFileEdit = {
 export type SessionTurnMetrics = {
 	editedFiles: readonly string[];
 	errorCount: number;
+	errorEvents: readonly SessionTurnErrorEvent[];
 	estimatedCost: number | undefined;
 	inputTokens: number | undefined;
 	outputTokens: number | undefined;
 	skills: readonly string[];
+	skillEvents: readonly SessionTurnSkillEvent[];
 	usageEvents: readonly TokenUsageEvent[];
+};
+
+export type SessionTurnErrorEvent = {
+	at: string;
+};
+
+export type SessionTurnSkillEvent = {
+	at: string;
+	skill: string;
 };
 
 type SessionTurnMetadataOptions = {
@@ -133,7 +149,9 @@ function createTurnMetricsBuilders(turnCount: number): TurnMetricsBuilder[] {
 		(): TurnMetricsBuilder => ({
 			editedFiles: [],
 			errorCount: 0,
+			errorEvents: [],
 			skills: [],
+			skillEvents: [],
 			usageEvents: [],
 		}),
 	);
@@ -172,13 +190,41 @@ function getTurnIndex(
 	return undefined;
 }
 
-function addSkill(builder: TurnMetricsBuilder, skill: string | undefined) {
-	const normalizedSkill = skill?.trim();
-	if (!normalizedSkill || builder.skills.includes(normalizedSkill)) {
+function addErrors(
+	builder: TurnMetricsBuilder,
+	at: string | undefined,
+	count: number,
+) {
+	if (count <= 0) {
 		return;
 	}
 
-	builder.skills.push(normalizedSkill);
+	builder.errorCount += count;
+	if (!at) {
+		return;
+	}
+
+	for (let index = 0; index < count; index += 1) {
+		builder.errorEvents.push({ at });
+	}
+}
+
+function addSkill(
+	builder: TurnMetricsBuilder,
+	skill: string | undefined,
+	at: string | undefined,
+) {
+	const normalizedSkill = skill?.trim();
+	if (!normalizedSkill) {
+		return;
+	}
+
+	if (!builder.skills.includes(normalizedSkill)) {
+		builder.skills.push(normalizedSkill);
+	}
+	if (at) {
+		builder.skillEvents.push({ at, skill: normalizedSkill });
+	}
 }
 
 function addUsageEvent(
@@ -187,6 +233,7 @@ function addUsageEvent(
 	at: string,
 	model: string | undefined,
 	inputIncludesCache: boolean,
+	modelContextWindow?: number,
 ) {
 	const cacheReadInputTokens =
 		usage.cache_read_input_tokens ?? usage.cached_input_tokens ?? 0;
@@ -212,6 +259,7 @@ function addUsageEvent(
 		cacheReadInputTokens,
 		inputTokens,
 		model,
+		...(modelContextWindow === undefined ? {} : { modelContextWindow }),
 		outputTokens,
 	});
 }
@@ -244,16 +292,18 @@ function extractClaudeTurnMetadata(
 		}
 
 		if (!editsOnly && line.isApiErrorMessage === true) {
-			builder.errorCount += 1;
+			addErrors(builder, line.timestamp, 1);
 		}
 
 		const contentBlocks = Array.isArray(line.message?.content)
 			? line.message.content
 			: [];
 		if (!editsOnly) {
-			builder.errorCount += contentBlocks.filter(
-				(block) => block.is_error === true,
-			).length;
+			addErrors(
+				builder,
+				line.timestamp,
+				contentBlocks.filter((block) => block.is_error === true).length,
+			);
 		}
 
 		for (const block of contentBlocks) {
@@ -280,7 +330,11 @@ function extractClaudeTurnMetadata(
 			}
 
 			const skill = block.input?.skill;
-			addSkill(builder, typeof skill === "string" ? skill : undefined);
+			addSkill(
+				builder,
+				typeof skill === "string" ? skill : undefined,
+				line.timestamp,
+			);
 		}
 
 		if (editsOnly || line.type !== "assistant") {
@@ -318,6 +372,7 @@ function getCodexSkillCommand(argumentsJson: string | undefined) {
 function addCodexSkills(
 	builder: TurnMetricsBuilder,
 	argumentsJson: string | undefined,
+	timestamp: string | undefined,
 ) {
 	const command = getCodexSkillCommand(argumentsJson);
 	if (!command) {
@@ -327,7 +382,7 @@ function addCodexSkills(
 	for (const match of command.matchAll(
 		/skills\/([a-zA-Z0-9_-]+)\/SKILL(?:\.md)?/gu,
 	)) {
-		addSkill(builder, match[1]);
+		addSkill(builder, match[1], timestamp);
 	}
 }
 
@@ -398,7 +453,7 @@ function extractCodexTurnMetadata(
 				line.payload?.type === "custom_tool_call")
 		) {
 			if (line.payload.name === "exec_command") {
-				addCodexSkills(builder, line.payload.arguments);
+				addCodexSkills(builder, line.payload.arguments, line.timestamp);
 			}
 
 			const mutationFiles = getCodexMutationFiles(
@@ -421,7 +476,7 @@ function extractCodexTurnMetadata(
 				line.payload?.type === "custom_tool_call_output")
 		) {
 			const errorCount = countCodexToolErrors(line.payload.output);
-			builder.errorCount += errorCount;
+			addErrors(builder, line.timestamp, errorCount);
 
 			if (line.payload.call_id) {
 				const pendingEdit = pendingFileEdits.get(line.payload.call_id);
@@ -458,7 +513,14 @@ function extractCodexTurnMetadata(
 
 		previousTokenUsageSignature = signature;
 		const turnUsage = line.payload.info?.last_token_usage ?? totalUsage;
-		addUsageEvent(builder, turnUsage, line.timestamp, currentModel, true);
+		addUsageEvent(
+			builder,
+			turnUsage,
+			line.timestamp,
+			currentModel,
+			true,
+			line.payload.info?.model_context_window,
+		);
 	}
 }
 
@@ -499,10 +561,12 @@ function finalizeTurnMetrics(builder: TurnMetricsBuilder): SessionTurnMetrics {
 	return {
 		editedFiles: builder.editedFiles,
 		errorCount: builder.errorCount,
+		errorEvents: builder.errorEvents,
 		estimatedCost,
 		inputTokens,
 		outputTokens,
 		skills: builder.skills,
+		skillEvents: builder.skillEvents,
 		usageEvents: builder.usageEvents,
 	};
 }

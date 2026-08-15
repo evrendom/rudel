@@ -1,15 +1,7 @@
 import type { CSSProperties } from "react";
 import { formatTraceRequestTokens } from "./conversation-trace-requests";
 
-export type TraceCallVariant =
-	| "v1"
-	| "v2"
-	| "v3"
-	| "v4"
-	| "v5"
-	| "v6"
-	| "v7"
-	| "v8";
+export type TraceCallDisplayMode = "normal" | "request";
 
 export type TraceCallGroupTreatment = "none" | "fill" | "connector";
 
@@ -42,10 +34,10 @@ export type TraceCallDisplayConfig = {
 	flatRequestRows: boolean;
 };
 
-export const TRACE_CALL_DISPLAY_PRESETS: Readonly<
-	Record<TraceCallVariant, TraceCallDisplayConfig>
+export const TRACE_CALL_DISPLAY_CONFIGS: Readonly<
+	Record<TraceCallDisplayMode, TraceCallDisplayConfig>
 > = {
-	v1: {
+	request: {
 		flatRequestRows: false,
 		groupTreatment: "none",
 		header: "always",
@@ -53,39 +45,7 @@ export const TRACE_CALL_DISPLAY_PRESETS: Readonly<
 		inlineUsageOnCollapsedRow: false,
 		label: "request",
 	},
-	v2: {
-		flatRequestRows: false,
-		groupTreatment: "none",
-		header: "always",
-		inputPill: "delta",
-		inlineUsageOnCollapsedRow: false,
-		label: "model-call",
-	},
-	v3: {
-		flatRequestRows: false,
-		groupTreatment: "none",
-		header: "multi-only",
-		inputPill: "delta",
-		inlineUsageOnCollapsedRow: true,
-		label: "model-call",
-	},
-	v4: {
-		flatRequestRows: false,
-		groupTreatment: "none",
-		header: "separator",
-		inputPill: "delta",
-		inlineUsageOnCollapsedRow: false,
-		label: "none",
-	},
-	v5: {
-		flatRequestRows: false,
-		groupTreatment: "none",
-		header: "separator-multi-only",
-		inputPill: "delta",
-		inlineUsageOnCollapsedRow: true,
-		label: "none",
-	},
-	v6: {
+	normal: {
 		flatRequestRows: true,
 		groupTreatment: "none",
 		header: "none",
@@ -93,45 +53,12 @@ export const TRACE_CALL_DISPLAY_PRESETS: Readonly<
 		inlineUsageOnCollapsedRow: false,
 		label: "none",
 	},
-	v7: {
-		flatRequestRows: true,
-		groupTreatment: "fill",
-		header: "separator",
-		inputPill: "delta",
-		inlineUsageOnCollapsedRow: false,
-		label: "none",
-	},
-	v8: {
-		flatRequestRows: true,
-		groupTreatment: "connector",
-		header: "separator",
-		inputPill: "delta",
-		inlineUsageOnCollapsedRow: false,
-		label: "none",
-	},
 };
 
-export function resolveTraceCallVariant(
-	value: string | null,
-): TraceCallVariant {
-	switch (value) {
-		case "v2":
-		case "v3":
-		case "v4":
-		case "v5":
-		case "v6":
-		case "v7":
-		case "v8":
-			return value;
-		default:
-			return "v1";
-	}
-}
-
 export function getTraceCallDisplayConfig(
-	variant: TraceCallVariant,
+	mode: TraceCallDisplayMode,
 ): TraceCallDisplayConfig {
-	return TRACE_CALL_DISPLAY_PRESETS[variant];
+	return TRACE_CALL_DISPLAY_CONFIGS[mode];
 }
 
 export function formatTraceCallContext(

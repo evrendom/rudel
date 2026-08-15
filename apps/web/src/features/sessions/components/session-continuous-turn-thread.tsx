@@ -1,35 +1,21 @@
-import { ChevronDown } from "lucide-react";
-import {
-	Fragment,
-	type RefObject,
-	useEffectEvent,
-	useMemo,
-	useRef,
-} from "react";
+import { memo, type RefObject, useEffectEvent, useRef } from "react";
 import { useMountEffect } from "@/app/hooks/useMountEffect";
-import type {
-	ConversationTraceSpeakerLayout,
-	TraceCallVariant,
+import {
+	ConversationTraceTreeConnectorStyleProvider,
+	type TraceCallDisplayMode,
 } from "@/components/conversation/ConversationTrace";
 import { userContentText } from "@/components/conversation/conversation-trace";
-import { cn } from "@/lib/utils";
 import { getContinuousTurnViewport } from "./session-continuous-turn-focus";
 import type { buildSessionDetailViewModel } from "./session-detail-view-model";
-import {
-	type SelectedTurnOption,
-	SelectedTurnResponseTrace,
-	SessionMemberRow,
-} from "./session-selected-turn";
-import {
-	type SessionThreadSegment,
-	summarizeHiddenTurns,
-} from "./session-thread-visibility";
-import type { SessionTurnEpisode } from "./session-turn-episodes";
+import { SessionMemberRow } from "./session-member-row";
 import {
 	SessionTurnCharacterCountTag,
 	type SessionTurnMetadataTagKind,
 	SessionTurnMetadataTags,
 } from "./session-turn-metadata-tags";
+import type { SessionTurnOption } from "./session-turn-option";
+import { SessionTurnResponseTrace } from "./session-turn-response-trace";
+import type { SessionTurnSelection } from "./session-turn-table-selection";
 
 type SessionDetailViewModel = ReturnType<typeof buildSessionDetailViewModel>;
 
@@ -38,73 +24,37 @@ const ACTIVE_TURN_FOCUS_RATIO = 0.3;
 const TRANSCRIPT_METADATA_TAGS: readonly SessionTurnMetadataTagKind[] = [
 	"input",
 	"output",
+	"cost",
+	"skills",
 	"errors",
 	"tools",
-	"files",
-	"skills",
 ];
 
 export function SessionContinuousTurnThread({
-	activeIndex,
-	collapsedEpisodeKeys,
-	episodes,
 	onActiveIndexChange,
-	onToggleHiddenSegment,
-	onToggleEpisode,
 	onViewportChange,
 	options,
-	responseTraceLayout = "table-row",
 	scrollContainerRef,
-	segments,
-	showTurnMetadataTags = false,
-	traceCallVariant = "v1",
+	selection,
+	traceCallDisplayMode = "normal",
 	userImageUrl,
 	viewModel,
 }: {
-	activeIndex: number;
-	collapsedEpisodeKeys?: ReadonlySet<string>;
-	episodes?: readonly SessionTurnEpisode[];
 	onActiveIndexChange: (index: number) => void;
-	onToggleHiddenSegment?: (key: string) => void;
-	onToggleEpisode?: (key: string) => void;
-	onViewportChange?: (
+	onViewportChange: (
 		activeIndex: number,
 		visibleRange: readonly [number, number],
 	) => void;
-	options: readonly SelectedTurnOption[];
-	responseTraceLayout?: ConversationTraceSpeakerLayout;
+	options: readonly SessionTurnOption[];
 	scrollContainerRef: RefObject<HTMLDivElement | null>;
-	segments?: readonly SessionThreadSegment[];
-	showTurnMetadataTags?: boolean;
-	traceCallVariant?: TraceCallVariant;
+	selection: SessionTurnSelection;
+	traceCallDisplayMode?: TraceCallDisplayMode;
 	userImageUrl: string | undefined;
 	viewModel: SessionDetailViewModel;
 }) {
 	const threadElementRef = useRef<HTMLDivElement>(null);
 	const lastViewportRef = useRef("");
-	const resolvedSegments = useMemo(
-		() =>
-			segments ??
-			options.map(
-				(_, index): SessionThreadSegment => ({
-					dimmed: false,
-					index,
-					type: "turn",
-				}),
-			),
-		[options, segments],
-	);
-	const episodeByStartIndex = useMemo(
-		() => new Map(episodes?.map((episode) => [episode.startIndex, episode])),
-		[episodes],
-	);
-	const episodeByTurnIndex = useMemo(() => {
-		const entries = episodes?.flatMap((episode) =>
-			episode.indices.map((index) => [index, episode] as const),
-		);
-		return new Map(entries);
-	}, [episodes]);
-	const syncActiveTurn = useEffectEvent(() => {
+	const syncViewport = useEffectEvent((syncActiveIndex: boolean) => {
 		const scrollContainer = scrollContainerRef.current;
 		const threadElement = threadElementRef.current;
 		if (!scrollContainer || !threadElement) {
@@ -144,13 +94,13 @@ export function SessionContinuousTurnThread({
 			viewportTop: containerBounds.top,
 		});
 
-		if (viewport.activeIndex !== activeIndex) {
+		if (syncActiveIndex && viewport.activeIndex !== selection.index) {
 			onActiveIndexChange(viewport.activeIndex);
 		}
-		const viewportKey = `${viewport.activeIndex}:${viewport.visibleRange[0]}:${viewport.visibleRange[1]}`;
+		const viewportKey = `${viewport.visibleRange[0]}:${viewport.visibleRange[1]}`;
 		if (viewportKey !== lastViewportRef.current) {
 			lastViewportRef.current = viewportKey;
-			onViewportChange?.(viewport.activeIndex, viewport.visibleRange);
+			onViewportChange(viewport.activeIndex, viewport.visibleRange);
 		}
 	});
 
@@ -162,30 +112,41 @@ export function SessionContinuousTurnThread({
 		}
 
 		let animationFrame: number | undefined;
-		const scheduleSync = () => {
+		let lastScrollTop = scrollContainer.scrollTop;
+		let shouldSyncActiveIndex = false;
+		const scheduleSync = (syncActiveIndex = false) => {
+			shouldSyncActiveIndex ||= syncActiveIndex;
 			if (animationFrame !== undefined) {
 				return;
 			}
 
 			animationFrame = window.requestAnimationFrame(() => {
 				animationFrame = undefined;
-				syncActiveTurn();
+				const syncActiveIndexForFrame = shouldSyncActiveIndex;
+				shouldSyncActiveIndex = false;
+				syncViewport(syncActiveIndexForFrame);
 			});
 		};
+		const scheduleScrollSync = () => {
+			const nextScrollTop = scrollContainer.scrollTop;
+			const scrollPositionChanged = nextScrollTop !== lastScrollTop;
+			lastScrollTop = nextScrollTop;
+			scheduleSync(scrollPositionChanged);
+		};
 
-		scrollContainer.addEventListener("scroll", scheduleSync, {
+		scrollContainer.addEventListener("scroll", scheduleScrollSync, {
 			passive: true,
 		});
 		const resizeObserver =
 			typeof ResizeObserver === "function"
-				? new ResizeObserver(scheduleSync)
+				? new ResizeObserver(() => scheduleSync())
 				: undefined;
 		resizeObserver?.observe(scrollContainer);
 		resizeObserver?.observe(threadElement);
-		scheduleSync();
+		scheduleSync(true);
 
 		return () => {
-			scrollContainer.removeEventListener("scroll", scheduleSync);
+			scrollContainer.removeEventListener("scroll", scheduleScrollSync);
 			resizeObserver?.disconnect();
 			if (animationFrame !== undefined) {
 				window.cancelAnimationFrame(animationFrame);
@@ -200,94 +161,53 @@ export function SessionContinuousTurnThread({
 			</div>
 		);
 	}
+	const firstMemberIndex = options.findIndex(
+		(option) => option.turn.userItems.length > 0,
+	);
 
 	return (
-		<div ref={threadElementRef} className="min-w-0">
-			{resolvedSegments.map((segment) => {
-				if (segment.type === "hidden") {
-					return (
-						<button
-							key={segment.key}
-							type="button"
-							aria-expanded="false"
-							className="group flex min-h-11 w-full items-center justify-center gap-2 border-y border-(--session-overview-border) bg-[color-mix(in_srgb,var(--session-overview-hover)_60%,transparent)] px-4 text-xs font-medium text-(--session-overview-muted) outline-none hover:text-(--session-overview-text) focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-(--session-overview-accent)"
-							onClick={() => onToggleHiddenSegment?.(segment.key)}
-						>
-							{summarizeHiddenTurns(segment.indices, options)}
-							<ChevronDown aria-hidden="true" className="size-3.5" />
-						</button>
-					);
-				}
-
-				const option = options[segment.index];
-				const episode = episodeByStartIndex.get(segment.index);
-				const containingEpisode = episodeByTurnIndex.get(segment.index);
-				const episodeCollapsed =
-					containingEpisode !== undefined &&
-					collapsedEpisodeKeys?.has(containingEpisode.key);
-				return option ? (
-					<Fragment key={option.key}>
-						{episode ? (
-							<button
-								type="button"
-								aria-expanded={!episodeCollapsed}
-								className="sticky top-0 z-10 flex min-h-9 w-full items-center gap-2 border-y border-(--session-overview-border) bg-[color-mix(in_srgb,var(--session-overview-hover)_84%,var(--session-overview-surface))] px-4 text-left text-xs font-medium text-(--session-overview-text) outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-(--session-overview-accent)"
-								onClick={() => onToggleEpisode?.(episode.key)}
-							>
-								<ChevronDown
-									aria-hidden="true"
-									className={cn(
-										"size-3.5 transition-transform",
-										episodeCollapsed && "-rotate-90",
-									)}
-								/>
-								<span className="min-w-0 flex-1 truncate">{episode.label}</span>
-								<span className="shrink-0 font-normal text-(--session-overview-muted) tabular-nums">
-									{episode.indices.length} turns · {episode.stats.tools} tools
-								</span>
-							</button>
-						) : null}
-						{episodeCollapsed ? null : (
-							<ContinuousTurnSection
-								active={segment.index === activeIndex}
-								dimmed={segment.dimmed}
-								index={segment.index}
-								option={option}
-								responseTraceLayout={responseTraceLayout}
-								showTurnMetadataTags={showTurnMetadataTags}
-								traceCallVariant={traceCallVariant}
-								userImageUrl={userImageUrl}
-								viewModel={viewModel}
-							/>
-						)}
-					</Fragment>
-				) : null;
-			})}
-		</div>
+		<ConversationTraceTreeConnectorStyleProvider style="interfere-branch-dots-no-horizontal">
+			<div ref={threadElementRef} className="min-w-0">
+				{options.map((option, index) => (
+					<ContinuousTurnSection
+						key={option.key}
+						activeSpeaker={
+							index === selection.index ? selection.speaker : undefined
+						}
+						continuesThread={index < options.length - 1}
+						index={index}
+						option={option}
+						startsTrace={index === firstMemberIndex}
+						traceCallDisplayMode={traceCallDisplayMode}
+						userImageUrl={userImageUrl}
+						viewModel={viewModel}
+					/>
+				))}
+			</div>
+		</ConversationTraceTreeConnectorStyleProvider>
 	);
 }
 
-function ContinuousTurnSection({
-	active,
-	dimmed,
+const ContinuousTurnSection = memo(function ContinuousTurnSection({
+	activeSpeaker,
+	continuesThread,
 	index,
 	option,
-	responseTraceLayout,
-	showTurnMetadataTags,
-	traceCallVariant,
+	startsTrace,
+	traceCallDisplayMode,
 	userImageUrl,
 	viewModel,
 }: {
-	active: boolean;
-	dimmed: boolean;
+	activeSpeaker: SessionTurnSelection["speaker"] | undefined;
+	continuesThread: boolean;
 	index: number;
-	option: SelectedTurnOption;
-	responseTraceLayout: ConversationTraceSpeakerLayout;
-	showTurnMetadataTags: boolean;
-	traceCallVariant: TraceCallVariant;
+	option: SessionTurnOption;
+	startsTrace: boolean;
+	traceCallDisplayMode: TraceCallDisplayMode;
 	userImageUrl: string | undefined;
 	viewModel: SessionDetailViewModel;
 }) {
+	const active = activeSpeaker !== undefined;
 	const hasMemberMessage = option.turn.userItems.length > 0;
 	const sectionLabel =
 		option.turnNumber === undefined
@@ -300,7 +220,7 @@ function ContinuousTurnSection({
 				: characterCount,
 		0,
 	);
-	const modelMetadataTags = showTurnMetadataTags ? (
+	const modelMetadataTags = (
 		<SessionTurnMetadataTags
 			className="mt-0 justify-end"
 			maxVisibleSkills={1}
@@ -308,31 +228,38 @@ function ContinuousTurnSection({
 			toolCallCount={option.toolCallCount}
 			visibleTags={TRANSCRIPT_METADATA_TAGS}
 		/>
-	) : null;
-	const memberCharacterTag = showTurnMetadataTags ? (
+	);
+	const memberCharacterTag = (
 		<SessionTurnCharacterCountTag
 			characterCount={memberCharacterCount}
 			className="mt-0 justify-end"
 		/>
-	) : null;
+	);
+	const activeModelPosition =
+		activeSpeaker === "model"
+			? index === 0
+				? "first"
+				: continuesThread
+					? "middle"
+					: "last"
+			: undefined;
 
 	return (
 		<section
 			aria-current={active ? "step" : undefined}
 			aria-label={sectionLabel}
-			className={cn(
-				"scroll-mt-0 transition-opacity motion-reduce:transition-none",
-				dimmed && "opacity-45",
-			)}
+			className="scroll-mt-0"
 			data-continuous-turn-index={index}
 		>
 			<div className="w-full min-w-0">
 				{hasMemberMessage ? (
 					<SessionMemberRow
+						active={activeSpeaker === "member"}
 						headerTrailing={memberCharacterTag}
 						headingId={`continuous-member-message-${index}`}
 						items={option.turn.userItems}
-						speakerLayout={responseTraceLayout}
+						speakerLayout="trace-tree"
+						startsTrace={startsTrace}
 						userImageUrl={userImageUrl}
 						userLabel={viewModel.safeUserDisplayName}
 					/>
@@ -340,13 +267,16 @@ function ContinuousTurnSection({
 				<section
 					aria-label={option.turnNumber === undefined ? "Preamble" : "Response"}
 					className="min-w-0"
+					data-active-rail-position={activeModelPosition}
+					data-session-turn-speaker="model"
 				>
-					<SelectedTurnResponseTrace
+					<SessionTurnResponseTrace
 						agentHeaderTrailing={modelMetadataTags}
 						agentSectionMode="expanded"
+						continuesAfter={continuesThread}
 						option={option}
-						speakerLayout={responseTraceLayout}
-						traceCallVariant={traceCallVariant}
+						speakerLayout="trace-tree"
+						traceCallDisplayMode={traceCallDisplayMode}
 						userImageUrl={userImageUrl}
 						viewModel={viewModel}
 					/>
@@ -354,4 +284,4 @@ function ContinuousTurnSection({
 			</div>
 		</section>
 	);
-}
+});

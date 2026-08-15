@@ -1,0 +1,262 @@
+diff --git a/dist/index.js b/dist/index.js
+index 5265feff8a6e932afe80699959941d91fb5466f6..b4662c061ee631a6df6c9591fe827f0ebde1cdbc 100644
+--- a/dist/index.js
++++ b/dist/index.js
+@@ -1089,6 +1089,7 @@ if (typeof window !== "undefined" && !_s.installed) {
+ }
+ var originalSetTimeout = _s.origSetTimeout;
+ var originalSetInterval = _s.origSetInterval;
++var originalRequestAnimationFrame = _s.origRAF;
+ function isAgentationElement(el) {
+   if (!el) return false;
+   return EXCLUDE_ATTRS.some((attr) => !!el.closest?.(`[${attr}]`));
+@@ -1211,12 +1212,12 @@ var AnnotationPopupCSS = (0, import_react.forwardRef)(
+     lightMode = false,
+     computedStyles
+   }, ref) {
+-    const [text, setText] = (0, import_react.useState)(initialValue);
+     const [isShaking, setIsShaking] = (0, import_react.useState)(false);
+     const [animState, setAnimState] = (0, import_react.useState)("initial");
+     const [isFocused, setIsFocused] = (0, import_react.useState)(false);
+     const [isStylesExpanded, setIsStylesExpanded] = (0, import_react.useState)(false);
+     const textareaRef = (0, import_react.useRef)(null);
++    const submitButtonRef = (0, import_react.useRef)(null);
+     const popupRef = (0, import_react.useRef)(null);
+     const cancelTimerRef = (0, import_react.useRef)(null);
+     const shakeTimerRef = (0, import_react.useRef)(null);
+@@ -1265,9 +1266,22 @@ var AnnotationPopupCSS = (0, import_react.forwardRef)(
+       }, 150);
+     }, [onCancel]);
+     const handleSubmit = (0, import_react.useCallback)(() => {
+-      if (!text.trim()) return;
+-      onSubmit(text.trim());
+-    }, [text, onSubmit]);
++      const text = textareaRef.current?.value.trim() ?? "";
++      if (!text) return;
++      onSubmit(text);
++    }, [onSubmit]);
++    const handleTextChange = (0, import_react.useCallback)((e) => {
++      const hasText = e.target.value.trim().length > 0;
++      const submitButton = submitButtonRef.current;
++      if (submitButton) {
++        submitButton.disabled = !hasText;
++        submitButton.style.opacity = hasText ? "1" : "0.4";
++      }
++    }, []);
++    const setSubmitButtonRef = (0, import_react.useCallback)((button) => {
++      submitButtonRef.current = button;
++      if (button) button.disabled = !initialValue.trim();
++    }, [initialValue]);
+     const handleKeyDown = (0, import_react.useCallback)(
+       (e) => {
+         e.stopPropagation();
+@@ -1359,8 +1373,8 @@ var AnnotationPopupCSS = (0, import_react.forwardRef)(
+               className: styles_module_default.textarea,
+               style: { borderColor: isFocused ? accentColor : void 0 },
+               placeholder,
+-              value: text,
+-              onChange: (e) => setText(e.target.value),
++              defaultValue: initialValue,
++              onChange: handleTextChange,
+               onFocus: () => setIsFocused(true),
+               onBlur: () => setIsFocused(false),
+               rows: 2,
+@@ -1373,13 +1387,13 @@ var AnnotationPopupCSS = (0, import_react.forwardRef)(
+             /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+               "button",
+               {
++                ref: setSubmitButtonRef,
+                 className: styles_module_default.submit,
+                 style: {
+                   backgroundColor: accentColor,
+-                  opacity: text.trim() ? 1 : 0.4
++                  opacity: initialValue.trim() ? 1 : 0.4
+                 },
+                 onClick: handleSubmit,
+-                disabled: !text.trim(),
+                 children: submitLabel
+               }
+             )
+@@ -3850,13 +3864,19 @@ function PageFeedbackToolbarCSS({
+   }, [isActive]);
+   (0, import_react4.useEffect)(() => {
+     if (!isActive || pendingAnnotation) return;
+-    const handleMouseMove = (e) => {
+-      const target = e.composedPath()[0] || e.target;
++    let animationFrame = null;
++    let latestPointer = null;
++    const updateHover = () => {
++      animationFrame = null;
++      const pointer = latestPointer;
++      latestPointer = null;
++      if (!pointer) return;
++      const { target, clientX, clientY } = pointer;
+       if (closestCrossingShadow(target, "[data-feedback-toolbar]")) {
+         setHoverInfo(null);
+         return;
+       }
+-      const elementUnder = deepElementFromPoint(e.clientX, e.clientY);
++      const elementUnder = deepElementFromPoint(clientX, clientY);
+       if (!elementUnder || closestCrossingShadow(elementUnder, "[data-feedback-toolbar]")) {
+         setHoverInfo(null);
+         return;
+@@ -3870,10 +3890,25 @@ function PageFeedbackToolbarCSS({
+         rect,
+         reactComponents
+       });
+-      setHoverPosition({ x: e.clientX, y: e.clientY });
++      setHoverPosition({ x: clientX, y: clientY });
++    };
++    const handleMouseMove = (e) => {
++      latestPointer = {
++        target: e.composedPath()[0] || e.target,
++        clientX: e.clientX,
++        clientY: e.clientY
++      };
++      if (animationFrame === null) {
++        animationFrame = originalRequestAnimationFrame(updateHover);
++      }
++    };
++    document.addEventListener("mousemove", handleMouseMove, { passive: true });
++    return () => {
++      document.removeEventListener("mousemove", handleMouseMove);
++      if (animationFrame !== null) {
++        window.cancelAnimationFrame(animationFrame);
++      }
+     };
+-    document.addEventListener("mousemove", handleMouseMove);
+-    return () => document.removeEventListener("mousemove", handleMouseMove);
+   }, [isActive, pendingAnnotation, effectiveReactMode]);
+   (0, import_react4.useEffect)(() => {
+     if (!isActive) return;
+diff --git a/dist/index.mjs b/dist/index.mjs
+index f1fa7d166510e2aa293e66a5402ce36aa0e6ff14..5e27978a52cf9b9e0d69b3b93c68293f3b7b1639 100644
+--- a/dist/index.mjs
++++ b/dist/index.mjs
+@@ -1006,6 +1006,7 @@ if (typeof window !== "undefined" && !_s.installed) {
+ }
+ var originalSetTimeout = _s.origSetTimeout;
+ var originalSetInterval = _s.origSetInterval;
++var originalRequestAnimationFrame = _s.origRAF;
+ function isAgentationElement(el) {
+   if (!el) return false;
+   return EXCLUDE_ATTRS.some((attr) => !!el.closest?.(`[${attr}]`));
+@@ -1128,12 +1129,12 @@ var AnnotationPopupCSS = forwardRef(
+     lightMode = false,
+     computedStyles
+   }, ref) {
+-    const [text, setText] = useState(initialValue);
+     const [isShaking, setIsShaking] = useState(false);
+     const [animState, setAnimState] = useState("initial");
+     const [isFocused, setIsFocused] = useState(false);
+     const [isStylesExpanded, setIsStylesExpanded] = useState(false);
+     const textareaRef = useRef(null);
++    const submitButtonRef = useRef(null);
+     const popupRef = useRef(null);
+     const cancelTimerRef = useRef(null);
+     const shakeTimerRef = useRef(null);
+@@ -1182,9 +1183,22 @@ var AnnotationPopupCSS = forwardRef(
+       }, 150);
+     }, [onCancel]);
+     const handleSubmit = useCallback(() => {
+-      if (!text.trim()) return;
+-      onSubmit(text.trim());
+-    }, [text, onSubmit]);
++      const text = textareaRef.current?.value.trim() ?? "";
++      if (!text) return;
++      onSubmit(text);
++    }, [onSubmit]);
++    const handleTextChange = useCallback((e) => {
++      const hasText = e.target.value.trim().length > 0;
++      const submitButton = submitButtonRef.current;
++      if (submitButton) {
++        submitButton.disabled = !hasText;
++        submitButton.style.opacity = hasText ? "1" : "0.4";
++      }
++    }, []);
++    const setSubmitButtonRef = useCallback((button) => {
++      submitButtonRef.current = button;
++      if (button) button.disabled = !initialValue.trim();
++    }, [initialValue]);
+     const handleKeyDown = useCallback(
+       (e) => {
+         e.stopPropagation();
+@@ -1276,8 +1290,8 @@ var AnnotationPopupCSS = forwardRef(
+               className: styles_module_default.textarea,
+               style: { borderColor: isFocused ? accentColor : void 0 },
+               placeholder,
+-              value: text,
+-              onChange: (e) => setText(e.target.value),
++              defaultValue: initialValue,
++              onChange: handleTextChange,
+               onFocus: () => setIsFocused(true),
+               onBlur: () => setIsFocused(false),
+               rows: 2,
+@@ -1290,13 +1304,13 @@ var AnnotationPopupCSS = forwardRef(
+             /* @__PURE__ */ jsx2(
+               "button",
+               {
++                ref: setSubmitButtonRef,
+                 className: styles_module_default.submit,
+                 style: {
+                   backgroundColor: accentColor,
+-                  opacity: text.trim() ? 1 : 0.4
++                  opacity: initialValue.trim() ? 1 : 0.4
+                 },
+                 onClick: handleSubmit,
+-                disabled: !text.trim(),
+                 children: submitLabel
+               }
+             )
+@@ -3767,13 +3781,19 @@ function PageFeedbackToolbarCSS({
+   }, [isActive]);
+   useEffect3(() => {
+     if (!isActive || pendingAnnotation) return;
+-    const handleMouseMove = (e) => {
+-      const target = e.composedPath()[0] || e.target;
++    let animationFrame = null;
++    let latestPointer = null;
++    const updateHover = () => {
++      animationFrame = null;
++      const pointer = latestPointer;
++      latestPointer = null;
++      if (!pointer) return;
++      const { target, clientX, clientY } = pointer;
+       if (closestCrossingShadow(target, "[data-feedback-toolbar]")) {
+         setHoverInfo(null);
+         return;
+       }
+-      const elementUnder = deepElementFromPoint(e.clientX, e.clientY);
++      const elementUnder = deepElementFromPoint(clientX, clientY);
+       if (!elementUnder || closestCrossingShadow(elementUnder, "[data-feedback-toolbar]")) {
+         setHoverInfo(null);
+         return;
+@@ -3787,10 +3807,25 @@ function PageFeedbackToolbarCSS({
+         rect,
+         reactComponents
+       });
+-      setHoverPosition({ x: e.clientX, y: e.clientY });
++      setHoverPosition({ x: clientX, y: clientY });
++    };
++    const handleMouseMove = (e) => {
++      latestPointer = {
++        target: e.composedPath()[0] || e.target,
++        clientX: e.clientX,
++        clientY: e.clientY
++      };
++      if (animationFrame === null) {
++        animationFrame = originalRequestAnimationFrame(updateHover);
++      }
++    };
++    document.addEventListener("mousemove", handleMouseMove, { passive: true });
++    return () => {
++      document.removeEventListener("mousemove", handleMouseMove);
++      if (animationFrame !== null) {
++        window.cancelAnimationFrame(animationFrame);
++      }
+     };
+-    document.addEventListener("mousemove", handleMouseMove);
+-    return () => document.removeEventListener("mousemove", handleMouseMove);
+   }, [isActive, pendingAnnotation, effectiveReactMode]);
+   useEffect3(() => {
+     if (!isActive) return;

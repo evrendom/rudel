@@ -3,15 +3,15 @@ import {
 	groupTurnsIntoEpisodes,
 	startsNewEpisode,
 } from "./session-turn-episodes";
-import { createSessionTurnV2TestOption } from "./session-turn-v2-test-fixtures";
+import { createSessionTurnTestOption } from "./session-turn-test-fixtures";
 
 describe("session turn episodes", () => {
 	test("starts episodes for a new intent, command, compaction, and long gap", () => {
-		const previous = createSessionTurnV2TestOption();
+		const previous = createSessionTurnTestOption();
 		expect(
 			startsNewEpisode(
 				previous,
-				createSessionTurnV2TestOption({
+				createSessionTurnTestOption({
 					memberText: "Build a new analytics view please",
 				}),
 			),
@@ -19,13 +19,13 @@ describe("session turn episodes", () => {
 		expect(
 			startsNewEpisode(
 				previous,
-				createSessionTurnV2TestOption({ slashCommands: ["review"] }),
+				createSessionTurnTestOption({ slashCommands: ["review"] }),
 			),
 		).toBe(true);
 		expect(
 			startsNewEpisode(
 				previous,
-				createSessionTurnV2TestOption({
+				createSessionTurnTestOption({
 					compactionsBefore: [
 						{ key: "compaction", timestamp: "2026-08-11T10:02:00.000Z" },
 					],
@@ -35,7 +35,7 @@ describe("session turn episodes", () => {
 		expect(
 			startsNewEpisode(
 				previous,
-				createSessionTurnV2TestOption({
+				createSessionTurnTestOption({
 					memberText: "continue",
 					timing: {
 						...previous.timing,
@@ -48,8 +48,8 @@ describe("session turn episodes", () => {
 
 	test("keeps short continuations together and folds the preamble into episode one", () => {
 		const options = [
-			createSessionTurnV2TestOption({ memberText: "", turnNumber: undefined }),
-			createSessionTurnV2TestOption({
+			createSessionTurnTestOption({ memberText: "", turnNumber: undefined }),
+			createSessionTurnTestOption({
 				key: "turn-2",
 				memberText: "ok",
 				turnNumber: 1,

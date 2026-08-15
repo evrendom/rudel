@@ -1,4 +1,4 @@
-import { Wrench } from "lucide-react";
+import { TraceWrenchIcon } from "@/components/conversation/conversation-trace-hugeicons";
 import { cn } from "@/lib/utils";
 import type { SessionTurnMetrics } from "./session-turn-metadata";
 
@@ -91,10 +91,14 @@ export function SessionTurnMetadataTags({
 	const editedFilesLabel = `${metrics.editedFiles.length.toLocaleString()} ${metrics.editedFiles.length === 1 ? "file edited" : "files edited"}`;
 
 	return (
-		<div className={cn("mt-2 flex min-w-0 flex-wrap gap-1", className)}>
+		<div
+			className={cn("mt-2 flex min-w-0 flex-wrap gap-1", className)}
+			data-session-turn-metadata-tags
+		>
 			{visibleTags.includes("input") ? (
 				<span
 					className={turnTagClassName}
+					data-session-turn-tag-kind="input"
 					title={
 						metrics.inputTokens === undefined
 							? "Input token usage not recorded for this turn"
@@ -107,6 +111,7 @@ export function SessionTurnMetadataTags({
 			{visibleTags.includes("output") ? (
 				<span
 					className={turnTagClassName}
+					data-session-turn-tag-kind="output"
 					title={
 						metrics.outputTokens === undefined
 							? "Output token usage not recorded for this turn"
@@ -119,6 +124,7 @@ export function SessionTurnMetadataTags({
 			{visibleTags.includes("cost") ? (
 				<span
 					className={turnTagClassName}
+					data-session-turn-tag-kind="cost"
 					title={
 						metrics.estimatedCost === undefined
 							? "Cost unavailable for this turn"
@@ -135,6 +141,8 @@ export function SessionTurnMetadataTags({
 						metrics.errorCount > 0 &&
 							"bg-red-50 text-red-700 group-aria-pressed:bg-red-100 dark:bg-red-950/40 dark:text-red-300",
 					)}
+					data-session-turn-tag-danger={metrics.errorCount > 0 || undefined}
+					data-session-turn-tag-kind="errors"
 					title={`${metrics.errorCount.toLocaleString()} tool/API ${metrics.errorCount === 1 ? "error" : "errors"}`}
 				>
 					{errorLabel}
@@ -143,9 +151,10 @@ export function SessionTurnMetadataTags({
 			{visibleTags.includes("tools") && toolCallCount > 0 ? (
 				<span
 					className={cn(turnTagClassName, "gap-1 tabular-nums")}
+					data-session-turn-tag-kind="tools"
 					title={`${toolCallCount.toLocaleString()} ${toolCallCount === 1 ? "tool call" : "tool calls"}`}
 				>
-					<Wrench aria-hidden="true" className="size-3" />
+					<TraceWrenchIcon className="size-3" />
 					{toolCallCount.toLocaleString()}{" "}
 					{toolCallCount === 1 ? "tool call" : "tool calls"}
 				</span>
@@ -153,6 +162,7 @@ export function SessionTurnMetadataTags({
 			{visibleTags.includes("files") ? (
 				<span
 					className={turnTagClassName}
+					data-session-turn-tag-kind="files"
 					title={
 						metrics.editedFiles.length > 0
 							? `Files edited:\n${metrics.editedFiles.join("\n")}\n\nDirect agent edits only — changes made by shell commands aren't counted.`
@@ -170,6 +180,7 @@ export function SessionTurnMetadataTags({
 							<span
 								key={skill}
 								className={cn(turnTagClassName, "max-w-full truncate")}
+								data-session-turn-tag-kind="skills"
 								title={`Skill used: ${skill}`}
 							>
 								{skill}
@@ -179,6 +190,7 @@ export function SessionTurnMetadataTags({
 					metrics.skills.length > maxVisibleSkills ? (
 						<span
 							className={cn(turnTagClassName, "tabular-nums")}
+							data-session-turn-tag-kind="skills"
 							title={`Also used:\n${metrics.skills.slice(maxVisibleSkills).join("\n")}`}
 						>
 							+{metrics.skills.length - maxVisibleSkills}
@@ -186,7 +198,11 @@ export function SessionTurnMetadataTags({
 					) : null}
 				</>
 			) : visibleTags.includes("skills") ? (
-				<span className={turnTagClassName} title="No skill used in this turn">
+				<span
+					className={turnTagClassName}
+					data-session-turn-tag-kind="skills"
+					title="No skill used in this turn"
+				>
 					No skill
 				</span>
 			) : null}

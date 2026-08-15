@@ -1,0 +1,41 @@
+import { describe, expect, test } from "bun:test";
+import { renderToStaticMarkup } from "react-dom/server";
+import { ConversationTraceTreeConnectorStyleProvider } from "@/components/conversation/ConversationTrace";
+import { SessionMemberRow } from "./session-member-row";
+
+describe("SessionMemberRow trace rail", () => {
+	test("starts member prompts collapsed with a compact header preview", () => {
+		const markup = renderToStaticMarkup(
+			<ConversationTraceTreeConnectorStyleProvider style="interfere-branch-dots-no-horizontal">
+				<SessionMemberRow
+					active
+					headingId="member-heading"
+					items={[
+						{
+							content:
+								"A multiline member prompt that extends below its header.",
+							id: "member-message",
+							kind: "user",
+							timestamp: "2026-08-14T09:00:00.000Z",
+						},
+					]}
+					speakerLayout="trace-tree"
+					startsTrace
+					userImageUrl={undefined}
+					userLabel="Member"
+				/>
+			</ConversationTraceTreeConnectorStyleProvider>,
+		);
+
+		expect(markup).toContain('aria-expanded="false"');
+		expect(markup).toContain('data-trace-start-node="true"');
+		expect(markup).toContain('data-active-member="true"');
+		expect(markup).toContain('data-session-turn-speaker="member"');
+		expect(markup).toContain('data-trace-disclosure-symbol="chevron"');
+		expect(markup).toContain("data-trace-preview");
+		expect(markup).not.toContain("data-trace-tree-subtree-rails");
+		expect(markup).toContain(
+			"A multiline member prompt that extends below its header.",
+		);
+	});
+});

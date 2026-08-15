@@ -101,7 +101,7 @@ function getSidebarContentFrameClassName(mode: SidebarDisplayMode) {
 		"relative flex h-full min-h-0 flex-col overscroll-none bg-transparent",
 		mode === "expanded"
 			? "w-(--sidebar-width) overflow-x-clip overflow-y-auto text-clip whitespace-nowrap"
-			: "w-(--sidebar-width-icon) pb-1.5",
+			: "w-(--sidebar-width-icon) pb-3",
 	);
 }
 
@@ -159,7 +159,12 @@ function SidebarNavigation({
 	if (navigationMode === "settings") {
 		return (
 			<nav aria-label="Settings">
-				<ul className="flex flex-col gap-1">
+				<ul
+					className={cn(
+						"flex flex-col",
+						mode === "collapsed" ? "gap-0.5" : "gap-1",
+					)}
+				>
 					{primarySettingsRoutes.map((route) => (
 						<RailLink
 							key={route.id}
@@ -178,7 +183,12 @@ function SidebarNavigation({
 
 	return (
 		<nav aria-label="Primary">
-			<ul className="flex flex-col gap-1">
+			<ul
+				className={cn(
+					"flex flex-col",
+					mode === "collapsed" ? "gap-0.5" : "gap-1",
+				)}
+			>
 				{shellRoutes.map((route) => (
 					<RailLink
 						key={route.id}
@@ -268,7 +278,12 @@ export function AppSidebar({
 					<div className={getSidebarTopClusterClassName(displayMode)}>
 						{navigationMode === "settings" ? (
 							<nav aria-label="Back to app">
-								<ul className="flex flex-col gap-1">
+								<ul
+									className={cn(
+										"flex flex-col",
+										displayMode === "collapsed" ? "gap-0.5" : "gap-1",
+									)}
+								>
 									<RailLink
 										to={getShellRoutePath(shellRouteMap.dashboard.path)}
 										label="Back to app"

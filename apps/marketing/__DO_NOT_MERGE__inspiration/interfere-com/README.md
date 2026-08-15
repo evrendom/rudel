@@ -49,6 +49,62 @@ clears the page when it hydrates away from the original site origin.
 Keep the receiver running and open <http://127.0.0.1:4174>. Use the same viewport
 as the capture when comparing layout.
 
+The newer supplied engineers-page reference is preserved separately:
+
+- Full page: <http://127.0.0.1:4174/product/engineers-v2>
+- Isolated product hero: <http://127.0.0.1:4174/product/engineers-v2/hero>
+- Design-system inventory: `INTERFERE-ENGINEERS-V2-DESIGN.md`
+
+Regenerate the v2 page, localized CSS/fonts, isolated hero, and inventory with:
+
+```sh
+node apps/marketing/__DO_NOT_MERGE__inspiration/interfere-com/materialize-engineers-v2.mjs
+```
+
+The materializer removes analytics and the origin-dependent Interfere runtime.
+It retains the supplied rendered DOM and inline state, and localizes all
+referenced CSS, fonts, and image-CDN assets. It also installs a small local
+runtime for captured spinner motion, header scroll state, and changelog
+scrolling.
+
+The generated documents do not use an upstream \`<base>\` element. Replica
+assets therefore resolve against whichever local preview origin is open, while
+the source page's original root-relative links are made explicit against
+\`https://interfere.com\`.
+
+When the Rudel web development server is running, its Vite middleware exposes
+the same full-page and hero routes on the workspace's normal web origin. This
+keeps the capture HTML, stylesheets, fonts, images, and local runtime on one
+origin instead of letting unknown paths fall through to the SPA shell.
+
+The supplied designers-page capture, all three “Ship faster” states, and all
+three support-customer states are available in the local reference:
+
+- Full page: <http://127.0.0.1:4174/product/designers-v2>
+- Six-screen, screen-only vertical scroll story: <http://127.0.0.1:4174/product/designers-v2/ship-faster>
+- First state: <http://127.0.0.1:4174/product/designers-v2/ship-faster#follow-ongoing-problems>
+- Second state: <http://127.0.0.1:4174/product/designers-v2/ship-faster#understand-whats-going-on>
+- Third state: <http://127.0.0.1:4174/product/designers-v2/ship-faster#follow-the-problems-resolution>
+- Support state 1: <http://127.0.0.1:4174/product/designers-v2/ship-faster#identify-impacted-customers>
+- Support state 2: <http://127.0.0.1:4174/product/designers-v2/ship-faster#answer-questions-faster>
+- Support state 3: <http://127.0.0.1:4174/product/designers-v2/ship-faster#get-ahead-of-support-tickets>
+- Complete token inventory: `interfere-designers-session.tokens.json`
+- Human-readable token guide: `INTERFERE-DESIGNERS-SESSION-TOKENS.md`
+
+Recapture the live first state, then regenerate the localized page, scroll
+story, individual states, assets, and token exports with:
+
+```sh
+node apps/marketing/__DO_NOT_MERGE__inspiration/interfere-com/capture-designers-ship-faster-first.mjs
+node apps/marketing/__DO_NOT_MERGE__inspiration/interfere-com/capture-designers-support-states.mjs
+node apps/marketing/__DO_NOT_MERGE__inspiration/interfere-com/materialize-designers-session.mjs
+```
+
+The inventory includes every custom-property definition and captured value,
+font face, keyframe, media/supports query, selected raw declaration value,
+utility-class usage, and inline style declaration from the supplied page and
+fragment. The localized CSS bundles remain the canonical selector-level source.
+
 Each new capture atomically replaces the previous HTML reference at the same
 path.
 

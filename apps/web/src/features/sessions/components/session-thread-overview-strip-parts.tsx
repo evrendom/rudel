@@ -1,5 +1,4 @@
 import { cn } from "@/lib/utils";
-import type { SelectedTurnOption } from "./session-selected-turn";
 import {
 	getSessionThreadOverviewMetricValue,
 	type SessionThreadOverviewChart,
@@ -11,6 +10,8 @@ import {
 	DEFAULT_SESSION_THREAD_OVERVIEW_STRIP_CONFIG,
 	type SessionThreadOverviewStripConfig,
 } from "./session-thread-overview-config";
+import { formatTimelineMoment } from "./session-thread-overview-time-format";
+import type { SessionTurnOption } from "./session-turn-option";
 
 type SessionOverviewMetricDefinition = {
 	label: string;
@@ -31,7 +32,6 @@ export const SESSION_OVERVIEW_METRICS: readonly SessionOverviewMetricDefinition[
 	[
 		{ label: "Cost", metric: "cost", title: "Estimated turn cost" },
 		{ label: "IN", metric: "input", title: "Recorded input tokens" },
-		{ label: "OUT", metric: "output", title: "Recorded output tokens" },
 		{ label: "Reasoning", metric: "reasoning", title: "Reasoning blocks" },
 		{ label: "Skills", metric: "skills", title: "Skill uses" },
 		{ label: "Edits", metric: "edits", title: "Directly edited files" },
@@ -57,13 +57,24 @@ export function getPlotBounds(config: SessionThreadOverviewStripConfig) {
 	};
 }
 
+function getChartDomain(config: SessionThreadOverviewStripConfig) {
+	const boundedStart = Math.min(Math.max(config.xDomainStartRatio, 0), 1);
+	const boundedEnd = Math.min(Math.max(config.xDomainEndRatio, 0), 1);
+	return boundedEnd > boundedStart
+		? { end: boundedEnd, start: boundedStart }
+		: { end: 1, start: 0 };
+}
+
 export function getChartX(
 	xRatio: number,
 	config: SessionThreadOverviewStripConfig = DEFAULT_SESSION_THREAD_OVERVIEW_STRIP_CONFIG,
 ) {
 	const { plotLeft, plotRight } = getPlotBounds(config);
 	const boundedRatio = Math.min(Math.max(xRatio, 0), 1);
-	return plotLeft + boundedRatio * (plotRight - plotLeft);
+	const domain = getChartDomain(config);
+	const visibleRatio =
+		(boundedRatio - domain.start) / (domain.end - domain.start);
+	return plotLeft + visibleRatio * (plotRight - plotLeft);
 }
 
 export function getChartRatioAtX(
@@ -71,7 +82,33 @@ export function getChartRatioAtX(
 	config: SessionThreadOverviewStripConfig = DEFAULT_SESSION_THREAD_OVERVIEW_STRIP_CONFIG,
 ) {
 	const { plotLeft, plotRight } = getPlotBounds(config);
-	return Math.min(Math.max((x - plotLeft) / (plotRight - plotLeft), 0), 1);
+	const domain = getChartDomain(config);
+	const visibleRatio = Math.min(
+		Math.max((x - plotLeft) / (plotRight - plotLeft), 0),
+		1,
+	);
+	return domain.start + visibleRatio * (domain.end - domain.start);
+}
+
+export function getSessionOverviewViewportLayout(
+	viewport: { xEndRatio: number; xStartRatio: number } | undefined,
+	config: SessionThreadOverviewStripConfig,
+) {
+	if (!viewport) {
+		return { viewportStartX: 0, viewportWidth: 0 };
+	}
+
+	const rawStartX = getChartX(viewport.xStartRatio, config);
+	const rawEndX = getChartX(viewport.xEndRatio, config);
+	const viewportWidth = Math.max(
+		rawEndX - rawStartX,
+		config.minimumViewportWidth,
+	);
+	const viewportCenterX = (rawStartX + rawEndX) / 2;
+	return {
+		viewportStartX: viewportCenterX - viewportWidth / 2,
+		viewportWidth,
+	};
 }
 
 export function getBarHeight(
@@ -83,7 +120,7 @@ export function getBarHeight(
 		: Math.max(metricRatio * config.maxBarHeight, config.minBarHeight);
 }
 
-export function countReasoningBlocks(option: SelectedTurnOption) {
+export function countReasoningBlocks(option: SessionTurnOption) {
 	let count = 0;
 	for (const item of option.turn.responseItems) {
 		if (item.kind !== "agent") {
@@ -110,7 +147,7 @@ export function formatMetricValue(
 	if (metric === "cost") {
 		return formatCost(value);
 	}
-	if (metric === "input" || metric === "output") {
+	if (metric === "input") {
 		return value === undefined ? "—" : `${formatCompactNumber(value)} tok`;
 	}
 	return value === undefined ? "—" : value.toLocaleString();
@@ -127,8 +164,6 @@ export function getMetricTotal(
 			return chart.totals.edits;
 		case "input":
 			return chart.totals.inputTokens;
-		case "output":
-			return chart.totals.outputTokens;
 		case "reasoning":
 			return chart.totals.reasoning;
 		case "skills":
@@ -136,53 +171,6 @@ export function getMetricTotal(
 		case "subagents":
 			return chart.totals.subagents;
 	}
-}
-
-function formatTimelineClock(timestamp: number) {
-	return new Date(timestamp).toLocaleTimeString([], {
-		hour: "2-digit",
-		hour12: false,
-		minute: "2-digit",
-	});
-}
-
-export function formatTimelineMoment(timestamp: number) {
-	const date = new Date(timestamp);
-	return `${date.toLocaleDateString([], {
-		day: "numeric",
-		month: "short",
-	})} ${formatTimelineClock(timestamp)}`;
-}
-
-function isSameCalendarDay(left: number, right: number) {
-	const leftDate = new Date(left);
-	const rightDate = new Date(right);
-	return (
-		leftDate.getFullYear() === rightDate.getFullYear() &&
-		leftDate.getMonth() === rightDate.getMonth() &&
-		leftDate.getDate() === rightDate.getDate()
-	);
-}
-
-export function formatTimelineTick(
-	timestamp: number,
-	previousTimestamp: number | undefined,
-) {
-	const date = new Date(timestamp);
-	const showDate =
-		previousTimestamp === undefined ||
-		!isSameCalendarDay(timestamp, previousTimestamp);
-	if (!showDate) {
-		return formatTimelineClock(timestamp);
-	}
-
-	const dateLabel = date.toLocaleDateString([], {
-		day: "numeric",
-		month: "short",
-	});
-	return date.getHours() === 0 && date.getMinutes() === 0
-		? dateLabel
-		: `${dateLabel} ${formatTimelineClock(timestamp)}`;
 }
 
 export function formatIdleDuration(durationMs: number) {
@@ -199,7 +187,7 @@ export function formatIdleDuration(durationMs: number) {
 		.join(" ");
 }
 
-export function getTurnLabel(option: SelectedTurnOption) {
+export function getTurnLabel(option: SessionTurnOption) {
 	return option.turnNumber === undefined
 		? "Session start"
 		: `Turn ${option.turnNumber}`;
@@ -437,7 +425,7 @@ export function SessionOverviewReadout({
 }: {
 	activeMetric: SessionThreadOverviewMetric;
 	config?: SessionThreadOverviewStripConfig;
-	option: SelectedTurnOption;
+	option: SessionTurnOption;
 	readoutId: string;
 	row: SessionThreadOverviewChartRow;
 	xRatio: number;
@@ -446,10 +434,7 @@ export function SessionOverviewReadout({
 		? Date.parse(option.timing.startTimestamp)
 		: undefined;
 	const activeValue = getSessionThreadOverviewMetricValue(row, activeMetric);
-	const showActiveValue =
-		activeMetric !== "cost" &&
-		activeMetric !== "input" &&
-		activeMetric !== "output";
+	const showActiveValue = activeMetric !== "cost" && activeMetric !== "input";
 
 	return (
 		<div
@@ -484,8 +469,6 @@ export function SessionOverviewReadout({
 				</span>
 				<span aria-hidden="true">·</span>
 				<span>{formatCompactNumber(row.inputTokens)} in</span>
-				<span aria-hidden="true">·</span>
-				<span>{formatCompactNumber(row.outputTokens)} out</span>
 				{showActiveValue ? (
 					<>
 						<span aria-hidden="true">·</span>

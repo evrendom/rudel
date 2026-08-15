@@ -1,4 +1,8 @@
-import type { SessionTurnLensInput } from "./session-turn-lenses";
+import type { SessionTurnTableOption } from "./session-turn-table";
+
+export type SessionTurnEpisodeInput = SessionTurnTableOption & {
+	memberText: string;
+};
 
 export type SessionTurnEpisode = {
 	endIndex: number;
@@ -30,8 +34,8 @@ function getTimestampSeconds(timestamp: string | undefined) {
 }
 
 export function startsNewEpisode(
-	previous: SessionTurnLensInput,
-	current: SessionTurnLensInput,
+	previous: SessionTurnEpisodeInput,
+	current: SessionTurnEpisodeInput,
 	gapThresholdSeconds = 1_800,
 ) {
 	if (
@@ -65,7 +69,10 @@ function sumDefined(values: readonly (number | undefined)[]) {
 		: defined.reduce((total, value) => total + value, 0);
 }
 
-function getEpisodeLabel(option: SessionTurnLensInput, episodeNumber: number) {
+function getEpisodeLabel(
+	option: SessionTurnEpisodeInput,
+	episodeNumber: number,
+) {
 	const normalized = option.memberText.replace(/\s+/gu, " ").trim();
 	if (!normalized) {
 		return episodeNumber === 1 ? "Session start" : `Episode ${episodeNumber}`;
@@ -77,7 +84,7 @@ function getEpisodeLabel(option: SessionTurnLensInput, episodeNumber: number) {
 }
 
 function buildEpisode(
-	options: readonly SessionTurnLensInput[],
+	options: readonly SessionTurnEpisodeInput[],
 	indices: readonly number[],
 	episodeNumber: number,
 ): SessionTurnEpisode {
@@ -125,7 +132,7 @@ function buildEpisode(
 }
 
 export function groupTurnsIntoEpisodes(
-	options: readonly SessionTurnLensInput[],
+	options: readonly SessionTurnEpisodeInput[],
 	settings: { gapThresholdSeconds?: number } = {},
 ) {
 	if (options.length === 0) {

@@ -1,9 +1,9 @@
 import type {
 	SessionTurnTableOption,
 	SessionTurnTableRow,
+	SessionTurnTableSpeaker,
 } from "./session-turn-table";
 import type { SessionTurnTableSortKey } from "./session-turn-table-filters";
-import type { SessionTurnTableView } from "./session-turn-table-view-tabs";
 
 type TurnTableValue = {
 	label: string;
@@ -36,6 +36,14 @@ function formatCompactTurnTokens(value: number) {
 	}
 
 	return `${(value / 1_000_000).toFixed(value < 10_000_000 ? 1 : 0)}m`;
+}
+
+function formatCompactTurnDuration(label: string) {
+	return label
+		.replace(/\s*minutes?\b/gi, "m")
+		.replace(/\s*mins?\b/gi, "m")
+		.replace(/\s*seconds?\b/gi, "s")
+		.replace(/\s*secs?\b/gi, "s");
 }
 
 function buildIndexedColumns({
@@ -74,9 +82,9 @@ function buildIndexedColumns({
 
 export function buildSessionTurnTableColumns(
 	options: readonly SessionTurnTableOption[],
-	tableView: SessionTurnTableView,
+	primarySpeaker: SessionTurnTableSpeaker,
 ): TurnTableColumn[] {
-	if (tableView === "member") {
+	if (primarySpeaker === "member") {
 		return [
 			{
 				appearance: "plain",
@@ -136,7 +144,9 @@ export function buildSessionTurnTableColumns(
 				}
 				const value = row.match.option.timing.durationLabel
 					? {
-							label: `+${row.match.option.timing.durationLabel}`,
+							label: formatCompactTurnDuration(
+								row.match.option.timing.durationLabel,
+							),
 							title: "Prompt to final assistant message",
 						}
 					: undefined;

@@ -1,4 +1,3 @@
-import { Bot, ChevronDown, User } from "lucide-react";
 import type { ComponentType, ReactNode } from "react";
 import {
 	ClaudeModelIcon,
@@ -9,11 +8,28 @@ import {
 	getModelBrandIconClassName,
 } from "@/features/dashboard/components/dashboard-model-brand";
 import { cn } from "@/lib/utils";
+import type { ToolIconName } from "./conversation-tools";
+import {
+	TraceBotIcon,
+	TraceChevronDownIcon,
+	TraceUserIcon,
+} from "./conversation-trace-hugeicons";
 
 const iconShellClassName =
-	"flex size-5 shrink-0 items-center justify-center rounded-[0.4rem] border border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-surface)] text-[color:var(--dashboardy-muted)]";
+	"flex size-5 shrink-0 items-center justify-center overflow-hidden rounded-sm border border-[color:var(--dashboardy-border)] text-[color:var(--dashboardy-muted)]";
 
-function getModelIconComponent(
+export type TraceIconTone =
+	| "amber"
+	| "blue"
+	| "claude"
+	| "cyan"
+	| "grass"
+	| "neutral"
+	| "openai"
+	| "tomato"
+	| "violet";
+
+export function getModelIconComponent(
 	model: string | undefined,
 ): ComponentType<{ className?: string }> | null {
 	if (!model) {
@@ -35,13 +51,22 @@ function getModelIconComponent(
 export function TraceIcon({
 	icon: Icon,
 	className,
+	toolIcon,
+	tone = "neutral",
 }: {
 	icon: ComponentType<{ className?: string }>;
 	className?: string;
+	toolIcon?: ToolIconName;
+	tone?: TraceIconTone;
 }) {
 	return (
-		<span className={cn(iconShellClassName, className)}>
-			<Icon className="size-3" />
+		<span
+			className={cn(iconShellClassName, className)}
+			data-trace-icon
+			data-trace-icon-tone={tone}
+			data-trace-tool-icon={toolIcon}
+		>
+			<Icon className="size-3.5" />
 		</span>
 	);
 }
@@ -51,38 +76,40 @@ function TraceDisclosureFrame({
 	className,
 	expanded,
 	expandable,
+	toolIcon,
+	tone,
 }: {
 	children: ReactNode;
 	className?: string;
 	expanded: boolean;
 	expandable: boolean;
+	toolIcon?: ToolIconName;
+	tone?: TraceIconTone;
 }) {
 	return (
 		<span
 			aria-hidden="true"
 			className={cn("relative overflow-hidden", className)}
+			data-trace-icon={tone ? "" : undefined}
+			data-trace-icon-tone={tone}
+			data-trace-tool-icon={toolIcon}
 		>
 			<span
 				className={cn(
-					"flex size-full items-center justify-center transition-opacity duration-100",
-					expanded && "opacity-0",
-					expandable &&
-						!expanded &&
-						"group-hover:opacity-0 group-focus-visible:opacity-0",
+					"flex size-full items-center justify-center",
+					expandable && "group-hover:opacity-0 group-focus-visible:opacity-0",
 				)}
+				data-trace-disclosure-symbol="icon"
 			>
 				{children}
 			</span>
 			{expandable ? (
-				<ChevronDown
+				<TraceChevronDownIcon
 					className={cn(
-						"pointer-events-none absolute inset-0 m-auto size-3 shrink-0 opacity-0 transition-[opacity,transform] duration-100",
+						"pointer-events-none absolute inset-0 m-auto size-3 shrink-0 opacity-0 group-hover:opacity-90 group-focus-visible:opacity-90",
 						!expanded && "-rotate-90",
-						expanded
-							? "opacity-90"
-							: "group-hover:opacity-90 group-focus-visible:opacity-90",
 					)}
-					strokeWidth={2.5}
+					data-trace-disclosure-symbol="chevron"
 				/>
 			) : null}
 		</span>
@@ -94,19 +121,25 @@ export function TraceDisclosureIcon({
 	className,
 	expanded,
 	expandable,
+	toolIcon,
+	tone = "neutral",
 }: {
 	icon: ComponentType<{ className?: string }>;
 	className?: string;
 	expanded: boolean;
 	expandable: boolean;
+	toolIcon?: ToolIconName;
+	tone?: TraceIconTone;
 }) {
 	return (
 		<TraceDisclosureFrame
 			className={cn(iconShellClassName, className)}
 			expanded={expanded}
 			expandable={expandable}
+			toolIcon={toolIcon}
+			tone={tone}
 		>
-			<Icon className="size-3" />
+			<Icon className="size-3.5" />
 		</TraceDisclosureFrame>
 	);
 }
@@ -123,17 +156,25 @@ export function ModelTraceIcon({
 	model: string | undefined;
 }) {
 	const ModelIcon = getModelIconComponent(model);
+	const modelBrand = model ? getModelBadgeTone(model).icon : null;
+	const modelTone: TraceIconTone =
+		modelBrand === "claude"
+			? "claude"
+			: modelBrand === "codex"
+				? "openai"
+				: "violet";
 
 	return (
 		<TraceDisclosureIcon
 			className={cn(
-				ModelIcon && "border-black/10 bg-white",
+				ModelIcon && "border-black/10",
 				ModelIcon && getModelBrandIconClassName(model),
 				className,
 			)}
 			expanded={expanded}
 			expandable={expandable}
-			icon={ModelIcon ?? Bot}
+			icon={ModelIcon ?? TraceBotIcon}
+			tone={modelTone}
 		/>
 	);
 }
@@ -152,7 +193,7 @@ export function UserTraceAvatar({
 	return (
 		<TraceDisclosureFrame
 			className={cn(
-				"flex size-5 shrink-0 items-center justify-center rounded-full bg-white text-[color:var(--dashboardy-muted)] outline-1 -outline-offset-1 outline-black/5 dark:outline-white/10",
+				"flex size-5 shrink-0 items-center justify-center rounded-full text-[color:var(--dashboardy-muted)] outline-1 -outline-offset-1 outline-black/5 dark:outline-white/10",
 				className,
 			)}
 			expanded={expanded}
@@ -167,7 +208,7 @@ export function UserTraceAvatar({
 					className="size-full rounded-full object-cover"
 				/>
 			) : (
-				<User className="size-3" />
+				<TraceUserIcon className="size-3" />
 			)}
 		</TraceDisclosureFrame>
 	);

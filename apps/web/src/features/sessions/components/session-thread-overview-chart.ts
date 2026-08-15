@@ -20,7 +20,6 @@ export type SessionThreadOverviewMetric =
 	| "cost"
 	| "edits"
 	| "input"
-	| "output"
 	| "reasoning"
 	| "skills"
 	| "subagents";
@@ -40,7 +39,6 @@ export type SessionThreadOverviewChartRow = {
 	errorCount: number;
 	index: number;
 	inputTokens: number | undefined;
-	outputTokens: number | undefined;
 	reasoningCount: number;
 	skillCount: number;
 	subagentCount: number;
@@ -71,13 +69,13 @@ export type SessionThreadOverviewChart = {
 	breaks: readonly SessionThreadOverviewBreak[];
 	rows: readonly SessionThreadOverviewChartRow[];
 	ticks: readonly SessionThreadOverviewTick[];
+	projectTimestamp: (timestamp: number) => number | undefined;
 	unprojectRatio: (ratio: number) => number | undefined;
 	totals: {
 		cost: number | undefined;
 		edits: number;
 		errors: number;
 		inputTokens: number | undefined;
-		outputTokens: number | undefined;
 		reasoning: number;
 		skills: number;
 		subagents: number;
@@ -214,8 +212,6 @@ export function getSessionThreadOverviewMetricValue(
 			return row.editCount;
 		case "input":
 			return row.inputTokens;
-		case "output":
-			return row.outputTokens;
 		case "reasoning":
 			return row.reasoningCount;
 		case "skills":
@@ -444,7 +440,6 @@ export function buildSessionThreadOverviewChart(
 ): SessionThreadOverviewChart {
 	const costValues = options.map((option) => option.metrics.estimatedCost);
 	const inputValues = options.map((option) => option.metrics.inputTokens);
-	const outputValues = options.map((option) => option.metrics.outputTokens);
 	const scale = buildSessionThreadOverviewTimelineScale(
 		[...getTurnActivityIntervals(options), ...additionalActivityIntervals],
 		timelineSettings,
@@ -476,7 +471,6 @@ export function buildSessionThreadOverviewChart(
 			errorCount: option.metrics.errorCount,
 			index,
 			inputTokens: inputValues[index],
-			outputTokens: outputValues[index],
 			reasoningCount: option.reasoningCount,
 			skillCount: option.metrics.skills.length,
 			subagentCount: option.subagentCount,
@@ -490,6 +484,7 @@ export function buildSessionThreadOverviewChart(
 		axisEndTimestamp: scale.axisEndTimestamp,
 		axisStartTimestamp: scale.axisStartTimestamp,
 		breaks: scale.breaks,
+		projectTimestamp: scale.projectTimestamp,
 		rows,
 		ticks: scale.ticks,
 		unprojectRatio: scale.unprojectRatio,
@@ -498,7 +493,6 @@ export function buildSessionThreadOverviewChart(
 			edits: rows.reduce((total, row) => total + row.editCount, 0),
 			errors: rows.reduce((total, row) => total + row.errorCount, 0),
 			inputTokens: sumRecordedValues(inputValues),
-			outputTokens: sumRecordedValues(outputValues),
 			reasoning: rows.reduce((total, row) => total + row.reasoningCount, 0),
 			skills: rows.reduce((total, row) => total + row.skillCount, 0),
 			subagents: rows.reduce((total, row) => total + row.subagentCount, 0),

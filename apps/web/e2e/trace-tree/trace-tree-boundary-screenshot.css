@@ -1,0 +1,30 @@
+[data-trace-fixture-scroller] * {
+	animation: none;
+	caret-color: transparent;
+	transition: none;
+}
+
+[data-trace-fixture-scroller] [data-trace-tree-line],
+[data-trace-fixture-scroller] [data-trace-tree-row-content],
+[data-trace-fixture-scroller] svg {
+	visibility: hidden;
+}
+
+[data-trace-fixture-scroller] [data-trace-tree-row-owner] {
+	background: #ffffff;
+}
+
+[data-trace-fixture-scroller]
+	[data-trace-tree-row-owner][data-trace-tree-sticky-top="0"] {
+	background: #ef4444;
+}
+
+[data-trace-fixture-scroller]
+	[data-trace-tree-row-owner][data-trace-tree-sticky-top="40"] {
+	background: #22c55e;
+}
+
+[data-trace-fixture-scroller]
+	[data-trace-tree-row-owner][data-trace-tree-sticky-top="80"] {
+	background: #3b82f6;
+}

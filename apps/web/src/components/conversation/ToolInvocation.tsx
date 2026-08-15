@@ -1,7 +1,13 @@
-import { AlertCircle, ChevronDown, ChevronRight, Terminal } from "lucide-react";
 import { useId, useState } from "react";
 import { cn } from "@/lib/utils";
 import { CodeBlock } from "./CodeBlock";
+import { formatShellOutput } from "./conversation-tools";
+import {
+	TraceAlertIcon,
+	TraceChevronDownIcon,
+	TraceChevronRightIcon,
+	TraceTerminalIcon,
+} from "./conversation-trace-hugeicons";
 
 interface ToolInvocationProps {
 	toolName: string;
@@ -63,6 +69,7 @@ export function ToolInvocation({
 
 	const hasResult = result?.content;
 	const isError = result?.is_error;
+	const output = formatShellOutput(getResultContent());
 
 	return (
 		<div
@@ -82,15 +89,15 @@ export function ToolInvocation({
 				className="flex min-w-0 w-full items-center gap-3 px-4 py-3.5 text-left transition-colors hover:bg-[color:var(--dashboardy-subsurface-strong)] focus-visible:bg-[color:var(--dashboardy-subsurface-strong)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--dashboardy-border)]"
 			>
 				{isExpanded ? (
-					<ChevronDown className="size-4 shrink-0 text-[color:var(--dashboardy-muted)]" />
+					<TraceChevronDownIcon className="size-4 shrink-0 text-[color:var(--dashboardy-muted)]" />
 				) : (
-					<ChevronRight className="size-4 shrink-0 text-[color:var(--dashboardy-muted)]" />
+					<TraceChevronRightIcon className="size-4 shrink-0 text-[color:var(--dashboardy-muted)]" />
 				)}
 				<div className="flex size-8 shrink-0 items-center justify-center rounded-full border border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-surface)]">
 					{isError ? (
-						<AlertCircle className="size-4 text-[color:var(--dashboardy-danger-foreground)]" />
+						<TraceAlertIcon className="size-4 text-[color:var(--dashboardy-danger-foreground)]" />
 					) : (
-						<Terminal className="size-4 text-[color:var(--dashboardy-heading)]" />
+						<TraceTerminalIcon className="size-4 text-[color:var(--dashboardy-heading)]" />
 					)}
 				</div>
 				<div className="grid min-w-0 flex-1 gap-1">
@@ -116,36 +123,20 @@ export function ToolInvocation({
 					className="space-y-3.5 border-t border-[color:var(--dashboardy-divider)] px-4 py-4"
 				>
 					{/* Tool Input */}
-					<div>
-						<h4 className="mb-2 text-sm font-semibold text-[color:var(--dashboardy-heading)]">
-							Input Parameters
-						</h4>
-						<CodeBlock code={JSON.stringify(input, null, 2)} language="json" />
-					</div>
+					<CodeBlock
+						code={JSON.stringify(input, null, 2)}
+						filename="Input"
+						language="json"
+					/>
 
 					{/* Tool Result */}
 					{hasResult && (
-						<div>
-							<h4
-								className={cn(
-									"mb-2 text-sm font-semibold",
-									isError
-										? "text-[color:var(--dashboardy-danger-foreground)]"
-										: "text-[color:var(--dashboardy-heading)]",
-								)}
-							>
-								{isError ? "Error Output" : "Output"}
-							</h4>
-							<CodeBlock
-								code={getResultContent()}
-								language="text"
-								className={
-									isError
-										? "border-[color:var(--dashboardy-border)]"
-										: undefined
-								}
-							/>
-						</div>
+						<CodeBlock
+							code={output.text}
+							filename={isError ? "Error Output" : "Output"}
+							language={output.language}
+							showLineNumbers
+						/>
 					)}
 				</div>
 			)}

@@ -11,8 +11,39 @@ import {
 const root = fileURLToPath(new URL(".", import.meta.url));
 const port = Number.parseInt(process.env.OPALINE_REFERENCE_PORT || "4174", 10);
 const defaultFile = "interfere-engineers.capture.html";
-const capturePath = resolve(root, defaultFile);
-const temporaryCapturePath = resolve(root, `${defaultFile}.tmp`);
+const captureRoutes = new Map([
+	["/", defaultFile],
+	["/product/engineers-v2", "interfere-engineers-v2.capture.html"],
+	["/product/engineers-v2/", "interfere-engineers-v2.capture.html"],
+	["/product/engineers-v2/hero", "interfere-engineers-v2-hero.capture.html"],
+	["/product/engineers-v2/hero/", "interfere-engineers-v2-hero.capture.html"],
+	["/product/designers-v2", "interfere-designers-session.capture.html"],
+	["/product/designers-v2/", "interfere-designers-session.capture.html"],
+	[
+		"/product/designers-v2/ship-faster",
+		"interfere-designers-ship-faster-scroll.capture.html",
+	],
+	[
+		"/product/designers-v2/ship-faster/",
+		"interfere-designers-ship-faster-scroll.capture.html",
+	],
+	[
+		"/product/designers-v2/ship-faster/state-1",
+		"interfere-designers-ship-faster-state-1.capture.html",
+	],
+	[
+		"/product/designers-v2/ship-faster/state-2",
+		"interfere-designers-session-section.capture.html",
+	],
+	[
+		"/product/designers-v2/ship-faster/state-3",
+		"interfere-designers-ship-faster-state-3.capture.html",
+	],
+]);
+const writableCaptureFiles = new Set([
+	defaultFile,
+	"interfere-engineers-v2.capture.html",
+]);
 const maximumCaptureBytes = 128 * 1024 * 1024;
 
 const contentTypes = {
@@ -60,6 +91,18 @@ createServer(async (request, response) => {
 
 	if (requestPath === "/__capture" && request.method === "POST") {
 		try {
+			const requestedFile =
+				requestUrl.searchParams.get("file")?.trim() || defaultFile;
+			if (!writableCaptureFiles.has(requestedFile)) {
+				response.writeHead(400, {
+					...corsHeaders,
+					"content-type": "application/json; charset=utf-8",
+				});
+				response.end(JSON.stringify({ error: "Unknown capture target." }));
+				return;
+			}
+			const capturePath = resolve(root, requestedFile);
+			const temporaryCapturePath = resolve(root, `${requestedFile}.tmp`);
 			const declaredLength = Number.parseInt(
 				request.headers["content-length"] || "0",
 				10,
@@ -111,7 +154,7 @@ createServer(async (request, response) => {
 		return;
 	}
 
-	const relativePath = requestPath === "/" ? defaultFile : requestPath.slice(1);
+	const relativePath = captureRoutes.get(requestPath) || requestPath.slice(1);
 	const filePath = resolve(root, normalize(relativePath));
 	const resolvedRoot = resolve(root);
 	const isInsideRoot =
@@ -127,12 +170,12 @@ createServer(async (request, response) => {
 		return;
 	}
 
-	if (filePath === capturePath) {
-		await serveCaptureWithAgentation(
-			response,
-			capturePath,
-			"interfere-com",
-		);
+	if (
+		captureRoutes.has(requestPath) ||
+		writableCaptureFiles.has(relativePath) ||
+		relativePath === "interfere-engineers-v2-hero.capture.html"
+	) {
+		await serveCaptureWithAgentation(response, filePath, "interfere-com");
 		return;
 	}
 	response.writeHead(200, {
@@ -144,6 +187,18 @@ createServer(async (request, response) => {
 	createReadStream(filePath).pipe(response);
 }).listen(port, "127.0.0.1", () => {
 	console.log(`Interfere reference: http://127.0.0.1:${port}`);
-	console.log(`Captures save directly to ${capturePath}`);
+	console.log(
+		`Interfere engineers v2: http://127.0.0.1:${port}/product/engineers-v2`,
+	);
+	console.log(
+		`Interfere engineers v2 hero: http://127.0.0.1:${port}/product/engineers-v2/hero`,
+	);
+	console.log(
+		`Interfere designers v2: http://127.0.0.1:${port}/product/designers-v2`,
+	);
+	console.log(
+		`Interfere designers ship-faster scroll story: http://127.0.0.1:${port}/product/designers-v2/ship-faster`,
+	);
+	console.log(`Captures save directly to ${resolve(root, defaultFile)}`);
 	console.log("Press Ctrl+C to stop.");
 });

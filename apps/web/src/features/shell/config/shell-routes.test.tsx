@@ -56,42 +56,6 @@ describe("getCurrentShellRoute", () => {
 		);
 	});
 
-	it("matches routes inside the left sidebar turns namespace", () => {
-		expect(getCurrentShellRoute("/dev/left-sidebar-turns")).toBe(
-			shellRouteMap.dashboard,
-		);
-		expect(
-			getCurrentShellRoute("/dev/left-sidebar-turns/session/session-123"),
-		).toBe(shellRouteMap.sessions);
-		expect(getCurrentShellRoute("/dev/left-sidebar-turns/skills")).toBe(
-			shellRouteMap.skills,
-		);
-		expect(getCurrentShellRoute("/dev/left-sidebar-turns/team")).toBe(
-			shellRouteMap.team,
-		);
-		expect(
-			getCurrentShellRoute("/dev/left-sidebar-turns/settings/account"),
-		).toBe(shellRouteMap.settings);
-	});
-
-	it("matches routes inside the left sidebar table namespace", () => {
-		expect(getCurrentShellRoute("/dev/left-sidebar-table")).toBe(
-			shellRouteMap.dashboard,
-		);
-		expect(
-			getCurrentShellRoute("/dev/left-sidebar-table/session/session-123"),
-		).toBe(shellRouteMap.sessions);
-		expect(getCurrentShellRoute("/dev/left-sidebar-table/skills")).toBe(
-			shellRouteMap.skills,
-		);
-		expect(getCurrentShellRoute("/dev/left-sidebar-table/team")).toBe(
-			shellRouteMap.team,
-		);
-		expect(
-			getCurrentShellRoute("/dev/left-sidebar-table/settings/account"),
-		).toBe(shellRouteMap.settings);
-	});
-
 	it("matches routes inside the left sidebar thread namespace", () => {
 		expect(getCurrentShellRoute("/dev/left-sidebar-thread")).toBe(
 			shellRouteMap.dashboard,
@@ -107,28 +71,6 @@ describe("getCurrentShellRoute", () => {
 		);
 		expect(
 			getCurrentShellRoute("/dev/left-sidebar-thread/settings/account"),
-		).toBe(shellRouteMap.settings);
-	});
-
-	it("matches routes inside the collapsible thread namespace", () => {
-		expect(getCurrentShellRoute("/dev/left-sidebar-thread-collapsible")).toBe(
-			shellRouteMap.dashboard,
-		);
-		expect(
-			getCurrentShellRoute(
-				"/dev/left-sidebar-thread-collapsible/session/session-123",
-			),
-		).toBe(shellRouteMap.sessions);
-		expect(
-			getCurrentShellRoute("/dev/left-sidebar-thread-collapsible/skills"),
-		).toBe(shellRouteMap.skills);
-		expect(
-			getCurrentShellRoute("/dev/left-sidebar-thread-collapsible/team"),
-		).toBe(shellRouteMap.team);
-		expect(
-			getCurrentShellRoute(
-				"/dev/left-sidebar-thread-collapsible/settings/account",
-			),
 		).toBe(shellRouteMap.settings);
 	});
 

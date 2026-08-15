@@ -14,14 +14,26 @@ import { compactPreview } from "./conversation-trace";
 // connector elbows and depth-derived sticky slots both assume this height,
 // so shorter rows would leave see-through gaps between stacked sticky levels.
 export const traceRowClassName =
-	"flex min-h-10 w-full min-w-0 items-center gap-2.5 px-3 py-2 text-left text-[0.8125rem] hover:bg-[color:var(--dashboardy-subsurface-strong)] focus-visible:outline-none focus-visible:bg-[color:var(--dashboardy-subsurface-strong)]";
+	"flex min-h-10 w-full min-w-0 items-center gap-2 px-3 py-2 text-left text-[0.8125rem]";
 
-const deltaClassName =
+export const traceInteractiveRowClassName = "focus-visible:outline-none";
+
+const timestampClassName =
 	"shrink-0 tabular-nums text-[0.75rem] text-[color:var(--dashboardy-muted)]";
 
-const expandedBodyClassName = "bg-[color:var(--dashboardy-surface)] px-3 py-3";
+// Keep the expanded content below the sticky row's masking boundary. The 4px
+// top inset preserves Interfere's header-to-body gap and leaves rounded code
+// cards fully visible instead of tucking their top edge beneath the row.
+const expandedBodyClassName = "pt-1 pr-3 pb-2.5 pl-3";
 
 export type TraceFocusRequest = { anchorId: string; requestId: number };
+
+// A tree item supplies this slot so an expanded body can render below its
+// fixed-height node. Outside the tree, ExpandableTraceRow keeps its normal
+// inline body layout.
+export const TraceTreeRowBodySlotContext = React.createContext<
+	Dispatch<SetStateAction<ReactNode | undefined>> | undefined
+>(undefined);
 
 export function useTraceFocus(
 	anchorId: string | undefined,
@@ -40,10 +52,7 @@ export function useTraceFocus(
 	}, [requestId, setOpen]);
 }
 
-function usePreviewTruncation(
-	fullPreviewText: string | undefined,
-	setOpen: Dispatch<SetStateAction<boolean>>,
-) {
+function usePreviewTruncation(fullPreviewText: string | undefined) {
 	const rowRef = useRef<HTMLDivElement>(null);
 	const [visuallyTruncated, setVisuallyTruncated] = useState(false);
 	const semanticallyTruncated =
@@ -67,10 +76,6 @@ function usePreviewTruncation(
 			const previewIsClipped =
 				preview !== null && preview.scrollWidth > preview.clientWidth + 1;
 			setVisuallyTruncated(previewIsClipped);
-
-			if (!semanticallyTruncated && !previewIsClipped) {
-				setOpen(false);
-			}
 		};
 		const resizeObserver = new ResizeObserver(measure);
 		const mutationObserver = new MutationObserver(measure);
@@ -87,7 +92,7 @@ function usePreviewTruncation(
 			resizeObserver.disconnect();
 			mutationObserver.disconnect();
 		};
-	}, [fullPreviewText, semanticallyTruncated, setOpen]);
+	}, [fullPreviewText]);
 
 	return {
 		rowRef,
@@ -98,72 +103,90 @@ function usePreviewTruncation(
 export function ExpandableTraceRow({
 	children,
 	body,
-	delta,
 	className,
 	fullPreviewText,
 	anchorId,
 	focus,
+	timestamp,
 	trailing,
+	treeBodyClassName,
 }: {
 	children: ReactNode | ((expanded: boolean, expandable: boolean) => ReactNode);
 	body?: ReactNode;
-	delta?: string;
 	className?: string;
 	fullPreviewText: string | undefined;
 	anchorId?: string;
 	focus?: TraceFocusRequest;
+	timestamp?: string;
 	trailing?: ReactNode;
+	treeBodyClassName?: string;
 }) {
 	const [open, setOpen] = useState(false);
 	const panelId = useId();
+	const setTreeRowBody = React.useContext(TraceTreeRowBodySlotContext);
 	const hasBody = body !== undefined && body !== null;
-	const { rowRef, truncated } = usePreviewTruncation(fullPreviewText, setOpen);
+	const { rowRef, truncated } = usePreviewTruncation(fullPreviewText);
 	const expandable = hasBody && (fullPreviewText === undefined || truncated);
 	const expanded = expandable && open;
+	const expandedBody = expanded ? (
+		<div
+			id={panelId}
+			className={cn(expandedBodyClassName, treeBodyClassName)}
+			data-trace-expanded-content
+		>
+			{body}
+		</div>
+	) : undefined;
 
 	useTraceFocus(anchorId, focus, setOpen);
+	React.useLayoutEffect(() => {
+		if (!setTreeRowBody) {
+			return;
+		}
+
+		setTreeRowBody(expandedBody);
+		return () => setTreeRowBody(undefined);
+	}, [expandedBody, setTreeRowBody]);
 
 	const rowContent =
 		typeof children === "function" ? children(expanded, expandable) : children;
 
 	return (
-		<div
-			ref={rowRef}
-			id={anchorId}
-			className={cn(
-				"min-w-0 scroll-mt-6 bg-[color:var(--conversation-trace-row-surface,var(--dashboardy-surface))]",
-				className,
-			)}
-		>
+		<div ref={rowRef} id={anchorId} className="min-w-0 scroll-mt-6">
 			{expandable ? (
 				<button
 					type="button"
+					data-trace-hover-row
+					data-trace-row-header
 					onClick={() => setOpen(!open)}
 					aria-expanded={expanded}
 					aria-controls={panelId}
 					className={cn(
 						traceRowClassName,
-						"group",
-						expanded &&
-							"sticky top-(--conversation-trace-sticky-offset) z-10 border-b border-[color:var(--dashboardy-divider)] bg-[color:var(--dashboardy-surface-opaque)]",
+						"group focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[color:var(--dashboard-01-metric-button-focus-ring)]",
+						className,
 					)}
 				>
 					{rowContent}
 					{trailing}
-					{delta ? <span className={deltaClassName}>{delta}</span> : null}
+					{timestamp ? (
+						<span className={timestampClassName} data-trace-timestamp>
+							{timestamp}
+						</span>
+					) : null}
 				</button>
 			) : (
-				<div className={cn(traceRowClassName, "hover:bg-transparent")}>
+				<div data-trace-row-header className={cn(traceRowClassName, className)}>
 					{rowContent}
 					{trailing}
-					{delta ? <span className={deltaClassName}>{delta}</span> : null}
+					{timestamp ? (
+						<span className={timestampClassName} data-trace-timestamp>
+							{timestamp}
+						</span>
+					) : null}
 				</div>
 			)}
-			{expanded ? (
-				<div id={panelId} className={expandedBodyClassName}>
-					{body}
-				</div>
-			) : null}
+			{setTreeRowBody === undefined ? expandedBody : null}
 		</div>
 	);
 }

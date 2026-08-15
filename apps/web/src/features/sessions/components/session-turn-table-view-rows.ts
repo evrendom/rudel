@@ -1,7 +1,11 @@
+import { getToolPresentation } from "@/components/conversation/conversation-tools";
 import { userContentText } from "@/components/conversation/conversation-trace";
-import type { SessionTurnTableRow } from "./session-turn-table";
+import type {
+	SessionTurnTableRow,
+	SessionTurnTableSpeaker,
+	SessionTurnTableToolCallGroup,
+} from "./session-turn-table";
 import type { SessionTurnTablePaneMatch } from "./session-turn-table-pane";
-import type { SessionTurnTableView } from "./session-turn-table-view-tabs";
 
 function getMemberCharacterCount(match: SessionTurnTablePaneMatch) {
 	const turn = match.option.turn;
@@ -38,7 +42,60 @@ function buildMemberRow(match: SessionTurnTablePaneMatch): SessionTurnTableRow {
 		key: `${match.option.key}:member`,
 		match,
 		speaker: "member",
+		toolCallGroups: [],
 	};
+}
+
+function getToolCallGroups(match: SessionTurnTablePaneMatch) {
+	const toolCalls: readonly {
+		icon: SessionTurnTableToolCallGroup["icon"];
+		name: string;
+		tone: SessionTurnTableToolCallGroup["tone"];
+	}[] =
+		match.option.turn?.responseItems.flatMap((item) =>
+			item.kind === "agent"
+				? item.events.flatMap((event) =>
+						event.kind === "tool"
+							? [
+									{
+										icon: getToolPresentation(event.toolName).icon,
+										name: event.toolName,
+										tone: event.result?.isError ? "tomato" : "amber",
+									},
+								]
+							: [],
+					)
+				: [],
+		) ?? [];
+
+	const groupsByIcon = new Map<
+		SessionTurnTableToolCallGroup["icon"],
+		SessionTurnTableToolCallGroup
+	>();
+	for (const toolCall of toolCalls) {
+		const group = groupsByIcon.get(toolCall.icon);
+		groupsByIcon.set(
+			toolCall.icon,
+			group
+				? {
+						...group,
+						count: group.count + 1,
+						names: [...group.names, toolCall.name],
+						tone:
+							group.tone === "tomato" || toolCall.tone === "tomato"
+								? "tomato"
+								: "amber",
+					}
+				: {
+						count: 1,
+						icon: toolCall.icon,
+						names: [toolCall.name],
+						tone: toolCall.tone,
+					},
+		);
+	}
+
+	return Array.from(groupsByIcon.values());
 }
 
 function buildModelRow(match: SessionTurnTablePaneMatch): SessionTurnTableRow {
@@ -47,24 +104,27 @@ function buildModelRow(match: SessionTurnTablePaneMatch): SessionTurnTableRow {
 		key: `${match.option.key}:model`,
 		match,
 		speaker: "model",
+		toolCallGroups: getToolCallGroups(match),
 	};
 }
 
 export function buildSessionTurnTableViewRows(
 	matches: readonly SessionTurnTablePaneMatch[],
-	view: SessionTurnTableView,
+	visibleSpeakers: ReadonlySet<SessionTurnTableSpeaker>,
+	primarySpeaker: SessionTurnTableSpeaker,
 ): SessionTurnTableRow[] {
-	if (view === "model") {
-		return matches.map(buildModelRow);
-	}
-
-	if (view === "member") {
-		return matches.filter(hasMemberMessage).map(buildMemberRow);
-	}
+	const orderedSpeakers: readonly SessionTurnTableSpeaker[] =
+		primarySpeaker === "model" ? ["model", "member"] : ["member", "model"];
 
 	return matches.flatMap((match) =>
-		hasMemberMessage(match)
-			? [buildMemberRow(match), buildModelRow(match)]
-			: [buildModelRow(match)],
+		orderedSpeakers.flatMap((speaker) => {
+			if (!visibleSpeakers.has(speaker)) {
+				return [];
+			}
+			if (speaker === "member") {
+				return hasMemberMessage(match) ? [buildMemberRow(match)] : [];
+			}
+			return [buildModelRow(match)];
+		}),
 	);
 }

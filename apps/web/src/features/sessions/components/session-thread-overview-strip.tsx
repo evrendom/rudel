@@ -1,119 +1,132 @@
 import {
 	type KeyboardEvent,
 	type PointerEvent,
-	type ReactNode,
 	useId,
 	useMemo,
 	useRef,
 	useState,
 } from "react";
 import { cn } from "@/lib/utils";
-import type { SelectedTurnOption } from "./session-selected-turn";
 import {
 	buildSessionThreadOverviewChart,
-	buildSessionThreadOverviewCumulativeCostPoints,
-	buildSessionThreadOverviewMonotonePath,
-	DEFAULT_SESSION_THREAD_OVERVIEW_METRIC,
-	getSessionSubagentActivityIntervals,
-	getSessionSubagentCountsByTurn,
 	getSessionThreadOverviewIndexAtRatio,
-	getSessionThreadOverviewMetricMaximum,
-	getSessionThreadOverviewMetricMedian,
-	getSessionThreadOverviewMetricRatio,
-	getSessionThreadOverviewMetricValue,
 	getSessionThreadOverviewViewport,
-	type SessionThreadOverviewMetric,
 } from "./session-thread-overview-chart";
 import {
 	getSessionThreadOverviewTimelineSettings,
 	resolveSessionThreadOverviewStripConfig,
 	type SessionThreadOverviewStripConfig,
 } from "./session-thread-overview-config";
+import { buildSessionThreadOverviewTimelineEvents } from "./session-thread-overview-events";
 import {
-	SessionOverviewAxis,
-	SessionOverviewBreakButtons,
-	SessionOverviewEndTotal,
-	SessionOverviewHeader,
-	SessionOverviewMaxMarker,
-	SessionOverviewReferenceBand,
-	SessionOverviewTickLabels,
+	buildSessionOverviewCallSeries,
+	formatElapsedSinceStart,
+	formatTimelineMomentWithSeconds,
+} from "./session-thread-overview-model";
+import {
+	SessionOverviewCallMarker,
+	SessionOverviewHoverValueLabel,
+	SessionOverviewTimelineFooter,
 	SessionOverviewTurnHitTargets,
 } from "./session-thread-overview-strip-layers";
 import {
-	countReasoningBlocks,
-	formatMetricValue,
-	getBarHeight,
 	getChartRatioAtX,
 	getChartX,
-	getCostLineY,
-	getCumulativeCostAtRatio,
 	getPlotBounds,
+	getSessionOverviewViewportLayout,
 	getTurnLabel,
 	type SessionOverviewHover,
-	SessionOverviewReadout,
-	SessionTurnEventGlyphs,
 } from "./session-thread-overview-strip-parts";
+import { formatTimelineMoment } from "./session-thread-overview-time-format";
+import { buildSessionThreadOverviewClockTicks } from "./session-thread-overview-timeline";
+import { SessionThreadOverviewTokenLayer } from "./session-thread-overview-token-layer";
+import {
+	getSessionOverviewZoomAnchor,
+	getSessionOverviewZoomLevel,
+	SESSION_OVERVIEW_MAX_ZOOM_LEVEL,
+	SESSION_OVERVIEW_ZOOM_STEP,
+	zoomSessionOverviewWindowAt,
+} from "./session-thread-overview-zoom";
+import { SessionThreadOverviewZoomControls } from "./session-thread-overview-zoom-controls";
+import { handleSessionOverviewZoomWheel } from "./session-thread-overview-zoom-interactions";
+import type { SessionTurnOption } from "./session-turn-option";
+import { useSessionThreadOverviewZoom } from "./use-session-thread-overview-zoom";
 
+const SESSION_OVERVIEW_PLOT_HEIGHT_SCALE = 0.51;
+
+// The canonical session activity map. It plots model calls on the session
+// timescale and lets the user inspect input context usage.
 export function SessionThreadOverviewStrip({
 	config,
-	headerTrailing,
 	onSelect,
 	options,
 	selectedIndex,
-	subagents,
 	visibleRange,
 }: {
 	config?: Partial<SessionThreadOverviewStripConfig>;
-	headerTrailing?: ReactNode;
 	onSelect: (index: number) => void;
-	options: readonly SelectedTurnOption[];
+	options: readonly SessionTurnOption[];
 	selectedIndex: number;
-	subagents: Readonly<Record<string, string>>;
 	visibleRange: readonly [number, number] | undefined;
 }) {
 	const readoutId = useId();
+	const tokenGradientId = useId();
 	const chartPlotRef = useRef<HTMLDivElement>(null);
-	const resolvedConfig = useMemo(
-		() => resolveSessionThreadOverviewStripConfig(config),
+	// The axis sits low so the activity signal can use nearly the full plot.
+	const baseConfig = useMemo(
+		() =>
+			resolveSessionThreadOverviewStripConfig({
+				axisY: 74 * SESSION_OVERVIEW_PLOT_HEIGHT_SCALE,
+				chartHeight: 80 * SESSION_OVERVIEW_PLOT_HEIGHT_SCALE,
+				chartWidth: 615,
+				eventY: 68 * SESSION_OVERVIEW_PLOT_HEIGHT_SCALE,
+				maxBarHeight: 70 * SESSION_OVERVIEW_PLOT_HEIGHT_SCALE,
+				plotPadding: 0,
+				...config,
+			}),
 		[config],
-	);
-	const { plotLeft, plotRight } = getPlotBounds(resolvedConfig);
-	const subagentCounts = useMemo(
-		() => getSessionSubagentCountsByTurn(options, subagents),
-		[options, subagents],
-	);
-	const subagentIntervals = useMemo(
-		() => getSessionSubagentActivityIntervals(subagents),
-		[subagents],
 	);
 	const chartOptions = useMemo(
 		() =>
-			options.map((option, index) => ({
+			options.map((option) => ({
 				...option,
-				reasoningCount: countReasoningBlocks(option),
-				subagentCount: subagentCounts[index] ?? 0,
+				reasoningCount: 0,
+				subagentCount: 0,
 			})),
-		[options, subagentCounts],
+		[options],
 	);
 	const chart = useMemo(
 		() =>
 			buildSessionThreadOverviewChart(
 				chartOptions,
-				subagentIntervals,
-				getSessionThreadOverviewTimelineSettings(resolvedConfig),
+				[],
+				getSessionThreadOverviewTimelineSettings(baseConfig),
 			),
-		[chartOptions, resolvedConfig, subagentIntervals],
-	);
-	const [activeMetric, setActiveMetric] = useState<SessionThreadOverviewMetric>(
-		DEFAULT_SESSION_THREAD_OVERVIEW_METRIC,
-	);
-	const [hover, setHover] = useState<SessionOverviewHover | undefined>();
-	const [focusedIndex, setFocusedIndex] = useState<number | undefined>();
-	const maximumMetricValue = getSessionThreadOverviewMetricMaximum(
-		chart.rows,
-		activeMetric,
+		[baseConfig, chartOptions],
 	);
 	const selectedRow = chart.rows.find((row) => row.index === selectedIndex);
+	const selectedRatio = selectedRow?.xRatio;
+	const { setZoomWindow, zoomWindow } =
+		useSessionThreadOverviewZoom(selectedRatio);
+	const resolvedConfig = useMemo(
+		() => ({
+			...baseConfig,
+			xDomainEndRatio: zoomWindow.xEndRatio,
+			xDomainStartRatio: zoomWindow.xStartRatio,
+		}),
+		[baseConfig, zoomWindow],
+	);
+	const { plotLeft, plotRight } = getPlotBounds(resolvedConfig);
+	const [hover, setHover] = useState<SessionOverviewHover | undefined>();
+	const [focusedIndex, setFocusedIndex] = useState<number | undefined>();
+	const callSeries = useMemo(
+		() =>
+			buildSessionOverviewCallSeries(
+				chart.rows,
+				(rowIndex) => options[rowIndex]?.metrics.usageEvents ?? [],
+			),
+		[chart.rows, options],
+	);
 	const selectedOption = options[selectedIndex];
 	const reportedViewport = getSessionThreadOverviewViewport(
 		chart.rows,
@@ -127,106 +140,74 @@ export function SessionThreadOverviewStrip({
 					xStartRatio: selectedRow.xRatio,
 				}
 			: undefined);
-	const rawViewportStartX = viewport
-		? getChartX(viewport.xStartRatio, resolvedConfig)
-		: 0;
-	const rawViewportEndX = viewport
-		? getChartX(viewport.xEndRatio, resolvedConfig)
-		: 0;
-	const viewportCenterX = (rawViewportStartX + rawViewportEndX) / 2;
-	const viewportWidth = viewport
-		? Math.max(
-				rawViewportEndX - rawViewportStartX,
-				resolvedConfig.minimumViewportWidth,
-			)
-		: 0;
-	const viewportStartX = Math.min(
-		Math.max(viewportCenterX - viewportWidth / 2, plotLeft),
-		plotRight - viewportWidth,
+	const { viewportStartX, viewportWidth } = getSessionOverviewViewportLayout(
+		viewport,
+		resolvedConfig,
 	);
-	const cumulativeCostPoints = useMemo(
-		() => buildSessionThreadOverviewCumulativeCostPoints(chart.rows),
-		[chart.rows],
-	);
-	const cumulativeCostMaximum =
-		cumulativeCostPoints.at(-1)?.cumulativeCost ?? 0;
-	const cumulativeCostPath = useMemo(() => {
-		if (cumulativeCostMaximum <= 0) {
-			return "";
-		}
-		return buildSessionThreadOverviewMonotonePath([
-			{ x: plotLeft, y: resolvedConfig.costLineBottom },
-			...cumulativeCostPoints.map((point) => ({
-				x: getChartX(point.xRatio, resolvedConfig),
-				y: getCostLineY(
-					point.cumulativeCost,
-					cumulativeCostMaximum,
-					resolvedConfig,
-				),
-			})),
-		]);
-	}, [cumulativeCostMaximum, cumulativeCostPoints, plotLeft, resolvedConfig]);
+	const readout =
+		hover ??
+		(focusedIndex === undefined
+			? undefined
+			: (() => {
+					const focusedRow = chart.rows.find(
+						(row) => row.index === focusedIndex,
+					);
+					return focusedRow
+						? { index: focusedRow.index, xRatio: focusedRow.xRatio }
+						: undefined;
+				})());
 	const focusedRow =
 		focusedIndex === undefined
 			? undefined
 			: chart.rows.find((row) => row.index === focusedIndex);
-	const readout =
-		hover ??
-		(focusedRow
-			? { index: focusedRow.index, xRatio: focusedRow.xRatio }
-			: undefined);
-	const readoutRow = readout
-		? chart.rows.find((row) => row.index === readout.index)
-		: undefined;
-	const readoutOption = readout ? options[readout.index] : undefined;
-	const crosshairXRatio =
-		readout === undefined
-			? undefined
-			: resolvedConfig.crosshairMode === "snap"
-				? (readoutRow?.xRatio ?? readout.xRatio)
-				: readout.xRatio;
-	const crosshairCost =
-		crosshairXRatio === undefined
-			? 0
-			: resolvedConfig.crosshairMode === "snap"
-				? (cumulativeCostPoints.find((point) => point.index === readout?.index)
-						?.cumulativeCost ?? 0)
-				: getCumulativeCostAtRatio(cumulativeCostPoints, crosshairXRatio);
-	const medianMetricValue = resolvedConfig.showReferenceBand
-		? getSessionThreadOverviewMetricMedian(chart.rows, activeMetric)
-		: undefined;
-	const medianBarHeight =
-		medianMetricValue === undefined || maximumMetricValue <= 0
-			? undefined
-			: getBarHeight(
-					resolvedConfig.barScale === "sqrt"
-						? Math.sqrt(medianMetricValue / maximumMetricValue)
-						: medianMetricValue / maximumMetricValue,
-					resolvedConfig,
-				);
-	const maximumRow = resolvedConfig.showMaxMarker
-		? chart.rows.find(
-				(row) =>
-					getSessionThreadOverviewMetricValue(row, activeMetric) ===
-						maximumMetricValue && maximumMetricValue > 0,
-			)
-		: undefined;
-	const tokenBarWidth = Math.min(
-		Math.max(
-			resolvedConfig.barWidthBudget / Math.max(chart.rows.length, 1),
-			resolvedConfig.barWidthMin,
-		),
-		resolvedConfig.barWidthMax,
+	const markerRatio = focusedRow?.xRatio ?? selectedRatio;
+	const hoverTimestamp = hover ? chart.unprojectRatio(hover.xRatio) : undefined;
+	const hoverElapsedMs =
+		hoverTimestamp !== undefined && chart.axisStartTimestamp !== undefined
+			? hoverTimestamp - chart.axisStartTimestamp
+			: undefined;
+	const visibleAxisStartTimestamp = chart.unprojectRatio(
+		zoomWindow.xStartRatio,
+	);
+	const visibleAxisEndTimestamp = chart.unprojectRatio(zoomWindow.xEndRatio);
+	const zoomLevel = getSessionOverviewZoomLevel(zoomWindow);
+	const zoomAnchorRatio = getSessionOverviewZoomAnchor(
+		zoomWindow,
+		selectedRatio,
+	);
+	const footerTicks = useMemo(
+		() =>
+			buildSessionThreadOverviewClockTicks(chart, {
+				includeBounds: true,
+				minimumSpacingRatio: 0.12,
+				targetTickCount: 6,
+				xEndRatio: zoomWindow.xEndRatio,
+				xStartRatio: zoomWindow.xStartRatio,
+			}),
+		[chart, zoomWindow],
+	);
+	const rulerTicks = useMemo(
+		() =>
+			buildSessionThreadOverviewClockTicks(chart, {
+				includeBounds: false,
+				targetTickCount: Math.max(Math.round(baseConfig.chartWidth / 6), 40),
+				xEndRatio: zoomWindow.xEndRatio,
+				xStartRatio: zoomWindow.xStartRatio,
+			}),
+		[baseConfig.chartWidth, chart, zoomWindow],
+	);
+	const timelineEvents = useMemo(
+		() => buildSessionThreadOverviewTimelineEvents(chart, options),
+		[chart, options],
 	);
 
-	function getPointerRatio(event: PointerEvent<HTMLDivElement>) {
+	function getPointerRatio(clientX: number) {
 		const bounds = chartPlotRef.current?.getBoundingClientRect();
 		if (!bounds || bounds.width <= 0) {
 			return undefined;
 		}
 		return getChartRatioAtX(
-			((event.clientX - bounds.left) / bounds.width) *
-				resolvedConfig.chartWidth,
+			((clientX - bounds.left) / bounds.width) * resolvedConfig.chartWidth,
 			resolvedConfig,
 		);
 	}
@@ -235,7 +216,7 @@ export function SessionThreadOverviewStrip({
 		if (!resolvedConfig.showCrosshair) {
 			return;
 		}
-		const xRatio = getPointerRatio(event);
+		const xRatio = getPointerRatio(event.clientX);
 		if (xRatio === undefined) {
 			return;
 		}
@@ -246,7 +227,7 @@ export function SessionThreadOverviewStrip({
 	}
 
 	function scrubAtPointer(event: PointerEvent<HTMLDivElement>) {
-		const xRatio = getPointerRatio(event);
+		const xRatio = getPointerRatio(event.clientX);
 		if (xRatio === undefined) {
 			return;
 		}
@@ -254,6 +235,12 @@ export function SessionThreadOverviewStrip({
 		if (index !== undefined) {
 			onSelect(index);
 		}
+	}
+
+	function zoomAt(anchorRatio: number, zoomFactor: number) {
+		setZoomWindow((currentWindow) =>
+			zoomSessionOverviewWindowAt(currentWindow, anchorRatio, zoomFactor),
+		);
 	}
 
 	function handleViewportKeyDown(event: KeyboardEvent<HTMLDivElement>) {
@@ -271,255 +258,168 @@ export function SessionThreadOverviewStrip({
 
 	return (
 		<section
-			aria-label="Session activity map"
-			className="@container h-28 shrink-0 border-b border-(--session-overview-border) bg-(--session-overview-surface)"
+			aria-label="Session activity map (input context)"
+			className="@container h-[6.57rem] shrink-0 border-b border-(--session-overview-border) bg-(--session-overview-surface)"
 		>
-			<SessionOverviewHeader
-				activeMetric={activeMetric}
-				chart={chart}
-				onMetricChange={setActiveMetric}
-				trailing={headerTrailing}
-			/>
-
 			<div
-				className="relative h-[4.75rem] min-w-0 overflow-hidden"
-				onPointerLeave={() => setHover(undefined)}
-				onPointerMove={updateHoverAtPointer}
+				id={readoutId}
+				className="relative h-6 shrink-0 border-b border-(--session-overview-border)"
 			>
-				<div ref={chartPlotRef} className="absolute inset-y-0 left-3 right-3">
-					<svg
-						aria-hidden="true"
-						className="h-full w-full"
-						preserveAspectRatio="none"
-						viewBox={`0 0 ${resolvedConfig.chartWidth} ${resolvedConfig.chartHeight}`}
-					>
-						{resolvedConfig.showViewportBand && viewport ? (
-							<rect
-								className="fill-[color-mix(in_srgb,var(--session-overview-accent)_9%,transparent)] stroke-[color-mix(in_srgb,var(--session-overview-accent)_38%,transparent)]"
-								height={resolvedConfig.eventY + 5}
-								rx="2"
-								strokeWidth="1"
-								vectorEffect="non-scaling-stroke"
-								width={viewportWidth}
-								x={viewportStartX}
-								y="2"
+				<div className="absolute inset-y-0 left-3 right-3">
+					{visibleAxisStartTimestamp !== undefined ? (
+						<span
+							className={cn(
+								"absolute top-1/2 left-0 -translate-y-1/2 font-mono text-[0.5625rem] whitespace-nowrap text-(--session-overview-subtle) tabular-nums transition-opacity duration-150 motion-reduce:transition-none",
+								hover && "opacity-0",
+							)}
+						>
+							{formatTimelineMoment(visibleAxisStartTimestamp)}
+						</span>
+					) : null}
+					{hover && hoverTimestamp !== undefined ? (
+						<div
+							aria-hidden="true"
+							className="pointer-events-none absolute top-1/2 z-40 -translate-x-1/2 -translate-y-1/2 bg-(--session-overview-surface) px-1 font-mono text-[0.5625rem] font-medium whitespace-nowrap text-(--session-overview-text) tabular-nums"
+							style={{
+								left: `${(Math.min(Math.max(getChartX(hover.xRatio, resolvedConfig), 70), resolvedConfig.chartWidth - 70) / resolvedConfig.chartWidth) * 100}%`,
+							}}
+						>
+							{formatTimelineMomentWithSeconds(hoverTimestamp)}
+							{hoverElapsedMs !== undefined ? (
+								<span className="text-(--session-overview-muted)">
+									{" "}
+									{formatElapsedSinceStart(hoverElapsedMs)}
+								</span>
+							) : null}
+							<SessionOverviewHoverValueLabel
+								config={resolvedConfig}
+								series={callSeries}
+								x={getChartX(hover.xRatio, resolvedConfig)}
 							/>
-						) : null}
-
-						<SessionOverviewAxis
-							config={resolvedConfig}
-							ticks={resolvedConfig.showTicks ? chart.ticks : []}
+						</div>
+					) : null}
+					<div className="absolute inset-y-0 right-0 z-40 flex items-center gap-2">
+						<SessionThreadOverviewZoomControls
+							canZoomIn={zoomLevel < SESSION_OVERVIEW_MAX_ZOOM_LEVEL - 0.001}
+							canZoomOut={zoomLevel > 1.001}
+							onZoomIn={() =>
+								zoomAt(zoomAnchorRatio, SESSION_OVERVIEW_ZOOM_STEP)
+							}
+							onZoomOut={() =>
+								zoomAt(zoomAnchorRatio, 1 / SESSION_OVERVIEW_ZOOM_STEP)
+							}
+							zoomLevel={zoomLevel}
 						/>
-
-						{medianBarHeight !== undefined ? (
-							<SessionOverviewReferenceBand
-								barHeight={medianBarHeight}
-								config={resolvedConfig}
-							/>
-						) : null}
-
-						{chart.rows.map((row) => {
-							const x = getChartX(row.xRatio, resolvedConfig);
-							const barHeight = getBarHeight(
-								getSessionThreadOverviewMetricRatio(
-									row,
-									activeMetric,
-									maximumMetricValue,
-									resolvedConfig.barScale,
-								),
-								resolvedConfig,
-							);
-							const selected = row.index === selectedIndex;
-							const errorY =
-								resolvedConfig.errorPlacement === "fixed-lane"
-									? Math.max(
-											resolvedConfig.axisY - resolvedConfig.maxBarHeight - 6,
-											3,
-										)
-									: Math.max(3, resolvedConfig.axisY - barHeight - 4);
-							return (
-								<g key={row.index}>
-									{barHeight > 0 ? (
-										<rect
-											className={cn(
-												selected && "stroke-(--session-overview-accent)",
-											)}
-											height={barHeight}
-											rx="1.5"
-											strokeWidth={selected ? 1.5 : 0}
-											style={{
-												fill: `color-mix(in srgb, var(--session-overview-accent) ${resolvedConfig.barAccentMix}%, var(--session-overview-surface))`,
-											}}
-											vectorEffect="non-scaling-stroke"
-											width={tokenBarWidth}
-											x={x - tokenBarWidth / 2}
-											y={resolvedConfig.axisY - barHeight}
-										/>
-									) : null}
-									{resolvedConfig.showErrorTicks && row.errorCount > 0 ? (
-										<path
-											d={`M ${x - resolvedConfig.errorTickHalfWidth} ${errorY} H ${x + resolvedConfig.errorTickHalfWidth}`}
-											className="stroke-red-600 dark:stroke-red-400"
-											strokeLinecap="round"
-											strokeWidth={resolvedConfig.errorTickStroke}
-											vectorEffect="non-scaling-stroke"
-										/>
-									) : null}
-									{resolvedConfig.showEventGlyphs ? (
-										<SessionTurnEventGlyphs
-											config={resolvedConfig}
-											row={row}
-											x={x}
-										/>
-									) : null}
-								</g>
-							);
-						})}
-
-						{maximumRow ? (
-							<SessionOverviewMaxMarker
-								barHeight={getBarHeight(
-									getSessionThreadOverviewMetricRatio(
-										maximumRow,
-										activeMetric,
-										maximumMetricValue,
-										resolvedConfig.barScale,
-									),
-									resolvedConfig,
+						{visibleAxisEndTimestamp !== undefined ? (
+							<span
+								className={cn(
+									"font-mono text-[0.5625rem] whitespace-nowrap text-(--session-overview-subtle) tabular-nums transition-opacity duration-150 motion-reduce:transition-none",
+									hover && "opacity-0",
 								)}
+							>
+								{formatTimelineMoment(visibleAxisEndTimestamp)}
+							</span>
+						) : null}
+					</div>
+				</div>
+			</div>
+
+			<div className="relative flex h-[5.07rem] min-w-0 flex-col overflow-hidden bg-(--session-overview-surface)">
+				<div
+					className="relative h-[2.57rem] min-w-0 overflow-hidden"
+					onPointerLeave={() => setHover(undefined)}
+					onPointerMove={updateHoverAtPointer}
+					onWheel={(event) =>
+						handleSessionOverviewZoomWheel(event, {
+							enabled: true,
+							plotWidth: chartPlotRef.current?.getBoundingClientRect().width,
+							setZoomWindow,
+							zoomAnchorRatio,
+							zoomLevel,
+						})
+					}
+				>
+					<div ref={chartPlotRef} className="absolute inset-0">
+						<svg
+							aria-hidden="true"
+							className="h-full w-full"
+							preserveAspectRatio="none"
+							viewBox={`0 0 ${resolvedConfig.chartWidth} ${resolvedConfig.chartHeight}`}
+						>
+							<SessionThreadOverviewTokenLayer
+								breaks={chart.breaks}
 								config={resolvedConfig}
-								label={formatMetricValue(maximumMetricValue, activeMetric)}
-								x={getChartX(maximumRow.xRatio, resolvedConfig)}
+								gradientId={tokenGradientId}
+								plotLeft={plotLeft}
+								plotRight={plotRight}
+								series={callSeries}
 							/>
-						) : null}
 
-						{resolvedConfig.showCostLine && cumulativeCostPath ? (
-							<path
-								d={cumulativeCostPath}
-								className="fill-none stroke-(--session-overview-accent)"
-								strokeLinecap="round"
-								strokeLinejoin="round"
-								strokeWidth={resolvedConfig.costLineWidth}
-								style={{ opacity: resolvedConfig.costLineOpacity }}
-								vectorEffect="non-scaling-stroke"
-							/>
-						) : null}
-
-						{resolvedConfig.showEndTotal &&
-						resolvedConfig.showCostLine &&
-						cumulativeCostMaximum > 0 ? (
-							<SessionOverviewEndTotal
-								config={resolvedConfig}
-								total={cumulativeCostMaximum}
-							/>
-						) : null}
-
-						{selectedRow ? (
-							<path
-								d={`M ${getChartX(selectedRow.xRatio, resolvedConfig)} 2 V ${resolvedConfig.eventY + 5}`}
-								className="stroke-(--session-overview-accent) opacity-45"
-								strokeDasharray="2 2"
-								strokeWidth="1.25"
-								vectorEffect="non-scaling-stroke"
-							/>
-						) : null}
-
-						{resolvedConfig.showCrosshair &&
-						readout &&
-						crosshairXRatio !== undefined ? (
-							<>
+							{resolvedConfig.showCrosshair && readout ? (
 								<path
-									d={`M ${getChartX(crosshairXRatio, resolvedConfig)} 2 V ${resolvedConfig.eventY + 5}`}
+									d={`M ${getChartX(readout.xRatio, resolvedConfig)} 2 V ${resolvedConfig.eventY + 5}`}
 									className="stroke-[color-mix(in_srgb,var(--session-overview-text)_28%,transparent)]"
 									vectorEffect="non-scaling-stroke"
 								/>
-								{resolvedConfig.showCostLine && cumulativeCostMaximum > 0 ? (
-									<circle
-										className="fill-(--session-overview-accent) stroke-(--session-overview-surface)"
-										cx={getChartX(crosshairXRatio, resolvedConfig)}
-										cy={getCostLineY(
-											crosshairCost,
-											cumulativeCostMaximum,
-											resolvedConfig,
-										)}
-										r="2.75"
-										strokeWidth="1.25"
-										vectorEffect="non-scaling-stroke"
-									/>
-								) : null}
-							</>
-						) : null}
-					</svg>
+							) : null}
+						</svg>
 
-					<SessionOverviewTurnHitTargets
-						config={resolvedConfig}
-						onFocusIndexChange={setFocusedIndex}
-						onSelect={onSelect}
-						options={options}
-						readoutId={readoutId}
-						readoutIndex={readout?.index}
-						rows={chart.rows}
-						selectedIndex={selectedIndex}
-					/>
-
-					{resolvedConfig.showViewportBand && viewport ? (
-						<div
-							role="slider"
-							aria-label="Visible transcript range"
-							aria-valuemax={Math.max(chart.rows.length - 1, 0)}
-							aria-valuemin={0}
-							aria-valuenow={selectedIndex}
-							aria-valuetext={
-								selectedOption ? getTurnLabel(selectedOption) : "Session start"
-							}
-							className="absolute top-0.5 bottom-3.5 z-20 cursor-ew-resize touch-none rounded-[2px] outline-none focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-(--session-overview-accent)"
-							style={{
-								left: `${(viewportStartX / resolvedConfig.chartWidth) * 100}%`,
-								width: `${(viewportWidth / resolvedConfig.chartWidth) * 100}%`,
-							}}
-							tabIndex={0}
-							onKeyDown={handleViewportKeyDown}
-							onPointerDown={(event) => {
-								event.preventDefault();
-								event.currentTarget.setPointerCapture(event.pointerId);
-								scrubAtPointer(event);
-							}}
-							onPointerMove={(event) => {
-								if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-									scrubAtPointer(event);
-								}
-							}}
-						/>
-					) : null}
-
-					{resolvedConfig.showCrosshair &&
-					readout &&
-					readoutRow &&
-					readoutOption ? (
-						<SessionOverviewReadout
-							activeMetric={activeMetric}
+						<SessionOverviewTurnHitTargets
 							config={resolvedConfig}
-							option={readoutOption}
+							onFocusIndexChange={setFocusedIndex}
+							onSelect={onSelect}
+							options={options}
 							readoutId={readoutId}
-							row={readoutRow}
-							xRatio={readout.xRatio}
+							readoutIndex={readout?.index}
+							rows={chart.rows}
+							selectedIndex={selectedIndex}
 						/>
-					) : null}
 
-					{resolvedConfig.showTicks ? (
-						<SessionOverviewTickLabels
-							config={resolvedConfig}
-							ticks={chart.ticks}
-						/>
-					) : null}
-
-					{resolvedConfig.showBreaks ? (
-						<SessionOverviewBreakButtons
-							breaks={chart.breaks}
-							config={resolvedConfig}
-						/>
-					) : null}
+						{resolvedConfig.showViewportBand && viewport ? (
+							<div
+								role="slider"
+								aria-label="Visible transcript range"
+								aria-valuemax={Math.max(chart.rows.length - 1, 0)}
+								aria-valuemin={0}
+								aria-valuenow={selectedIndex}
+								aria-valuetext={
+									selectedOption
+										? getTurnLabel(selectedOption)
+										: "Session start"
+								}
+								className="absolute top-0.5 bottom-3.5 z-20 cursor-ew-resize touch-none rounded-[2px] outline-none focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-(--session-overview-accent)"
+								style={{
+									left: `${(viewportStartX / resolvedConfig.chartWidth) * 100}%`,
+									width: `${(viewportWidth / resolvedConfig.chartWidth) * 100}%`,
+								}}
+								tabIndex={0}
+								onKeyDown={handleViewportKeyDown}
+								onPointerDown={(event) => {
+									event.preventDefault();
+									event.currentTarget.setPointerCapture(event.pointerId);
+									scrubAtPointer(event);
+								}}
+								onPointerMove={(event) => {
+									if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+										scrubAtPointer(event);
+									}
+								}}
+							/>
+						) : null}
+					</div>
 				</div>
+
+				<SessionOverviewTimelineFooter
+					config={resolvedConfig}
+					events={timelineEvents}
+					rulerTicks={resolvedConfig.showTicks ? rulerTicks : []}
+					ticks={resolvedConfig.showTicks ? footerTicks : []}
+				/>
+
+				<SessionOverviewCallMarker
+					config={resolvedConfig}
+					selectedXRatio={markerRatio}
+				/>
 			</div>
 		</section>
 	);

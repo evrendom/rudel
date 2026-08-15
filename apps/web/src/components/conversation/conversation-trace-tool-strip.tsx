@@ -24,7 +24,12 @@ export function AgentToolStrip({ events }: { events: TraceEvent[] }) {
 	return (
 		<span className="flex min-w-0 items-center gap-1">
 			{tools.slice(0, 8).map((tool) => (
-				<TraceIcon key={tool.id} icon={CONVERSATION_TOOL_ICONS[tool.icon]} />
+				<TraceIcon
+					key={tool.id}
+					icon={CONVERSATION_TOOL_ICONS[tool.icon]}
+					toolIcon={tool.icon}
+					tone="amber"
+				/>
 			))}
 			{tools.length > 8 ? (
 				<span className="text-[0.75rem] text-[color:var(--dashboardy-muted)]">

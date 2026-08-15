@@ -20,7 +20,6 @@ function createRow(
 		errorCount: 0,
 		index: 0,
 		inputTokens: undefined,
-		outputTokens: undefined,
 		reasoningCount: 0,
 		skillCount: 0,
 		subagentCount: 0,

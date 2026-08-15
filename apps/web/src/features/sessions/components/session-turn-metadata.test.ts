@@ -120,8 +120,15 @@ describe("extractSessionTurnMetrics", () => {
 		expect(first.inputTokens).toBe(115);
 		expect(first.outputTokens).toBe(20);
 		expect(first.errorCount).toBe(1);
+		expect(first.errorEvents).toEqual([{ at: "2026-08-10T10:00:20.000Z" }]);
 		expect(first.editedFiles).toEqual(["src/a.ts"]);
 		expect(first.skills).toEqual(["testing-bun"]);
+		expect(first.skillEvents).toEqual([
+			{
+				at: "2026-08-10T10:00:10.000Z",
+				skill: "testing-bun",
+			},
+		]);
 		expect(first.estimatedCost).toBeGreaterThan(0);
 		expect(second.inputTokens).toBe(200);
 		expect(second.outputTokens).toBe(40);
@@ -208,6 +215,7 @@ describe("extractSessionTurnMetrics", () => {
 							input_tokens: 1_000,
 							output_tokens: 100,
 						},
+						model_context_window: 258_400,
 					},
 					type: "token_count",
 				},
@@ -251,9 +259,17 @@ describe("extractSessionTurnMetrics", () => {
 
 		expect(first.inputTokens).toBe(1_000);
 		expect(first.outputTokens).toBe(100);
+		expect(first.usageEvents[0]?.modelContextWindow).toBe(258_400);
 		expect(first.errorCount).toBe(1);
+		expect(first.errorEvents).toEqual([{ at: "2026-08-10T10:00:20.000Z" }]);
 		expect(first.editedFiles).toEqual(["src/a.ts", "src/b.ts"]);
 		expect(first.skills).toEqual(["testing-bun"]);
+		expect(first.skillEvents).toEqual([
+			{
+				at: "2026-08-10T10:00:10.000Z",
+				skill: "testing-bun",
+			},
+		]);
 		expect(second.inputTokens).toBe(2_000);
 		expect(second.outputTokens).toBe(200);
 		expect(second.errorCount).toBe(0);

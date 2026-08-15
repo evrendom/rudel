@@ -38,6 +38,24 @@ const WrappedDevPage = import.meta.env.DEV
 		)
 	: null;
 
+const ConversationTraceFixturePage = import.meta.env.DEV
+	? lazy(() =>
+			import("@/components/conversation/ConversationTraceFixturePage").then(
+				(module) => ({ default: module.ConversationTraceFixturePage }),
+			),
+		)
+	: null;
+
+const SessionContinuousTraceFixturePage = import.meta.env.DEV
+	? lazy(() =>
+			import(
+				"@/features/sessions/components/SessionContinuousTraceFixturePage"
+			).then((module) => ({
+				default: module.SessionContinuousTraceFixturePage,
+			})),
+		)
+	: null;
+
 const WrappedDesktopResumePage = lazy(() =>
 	import("@/features/get-started/WrappedDesktopResumePage").then((module) => ({
 		default: module.WrappedDesktopResumePage,
@@ -48,7 +66,7 @@ function FullscreenRouteLoadingScreen() {
 	return <AppLoadingScreen />;
 }
 
-function App() {
+function SessionAwareApp() {
 	const location = useLocation();
 	const { data: session, isPending } = authClient.useSession();
 	useOAuthDebugAutoDump(session);
@@ -193,6 +211,27 @@ function App() {
 			{showDesktopOnlyOverlay ? <DesktopOnlyOverlay /> : null}
 		</>
 	);
+}
+
+function App() {
+	const location = useLocation();
+	const isTraceTreeFixturePath =
+		location.pathname === "/dev/trace-tree-fixture";
+	const traceTreeFixtureMode = new URLSearchParams(location.search).get("mode");
+	const TraceTreeFixturePage =
+		traceTreeFixtureMode === "continuous"
+			? SessionContinuousTraceFixturePage
+			: ConversationTraceFixturePage;
+
+	if (isTraceTreeFixturePath && TraceTreeFixturePage) {
+		return (
+			<Suspense fallback={<FullscreenRouteLoadingScreen />}>
+				<TraceTreeFixturePage />
+			</Suspense>
+		);
+	}
+
+	return <SessionAwareApp />;
 }
 
 export default App;

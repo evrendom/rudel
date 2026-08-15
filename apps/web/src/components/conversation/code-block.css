@@ -1,0 +1,256 @@
+/* biome-ignore-all lint/complexity/noImportantStyles: the temporary ?debug=colors palette must override every layer it diagnoses */
+.trace-code-block,
+.trace-inline-code {
+	--trace-code-surface: #fff;
+	--trace-code-sticky-surface: var(--session-overview-surface, #fff);
+	--trace-code-border: #0000000f;
+	--trace-code-outline: #0000000f;
+	--trace-code-primary: #000000df;
+	--trace-code-secondary: #0000009b;
+	--trace-code-tertiary: #00000072;
+	--trace-code-comment: #00000072;
+	--trace-code-line-number: #0004;
+	--trace-code-keyword: #e93d82;
+	--trace-code-function: #a144af;
+	--trace-code-type: #3e63dd;
+	--trace-code-property: #ffc53d;
+	--trace-code-string: #953ea3;
+	--trace-code-deletion-surface: #ff200008;
+	--trace-code-deletion-marker: #cd2200ea;
+	--trace-code-addition-surface: #00a32f0b;
+	--trace-code-addition-marker: #00713fde;
+
+	background-color: var(--trace-code-surface);
+	box-shadow:
+		0 1px 1px -1px #0000001a,
+		0 1px 2px 0 #0000000d;
+}
+
+/* Split borders preserve the filename-row treatment while the complete card
+ * passes behind its owning sticky trace node. The root must not clip because
+ * the top dressing paints just outside its box. */
+.trace-code-block [data-trace-code-block-header] {
+	border-top: 0.5px solid var(--trace-code-outline);
+	border-right: 0.5px solid var(--trace-code-outline);
+	border-left: 0.5px solid var(--trace-code-outline);
+	/* Card tint layered over the opaque pane surface: composites exactly like
+	 * the card resting on the pane, but stays opaque while code slides behind
+	 * the filename row (the dark-mode card surface alone is translucent). */
+	background:
+		linear-gradient(var(--trace-code-surface), var(--trace-code-surface)),
+		var(--trace-code-sticky-surface);
+	/* Outer shadows knock out the border box, so this paints only the sliver
+	 * hugging the outside of the rounded top corners — the notch where code
+	 * would otherwise peek from behind the curve. */
+	box-shadow: 0 -2px 0 2px var(--trace-code-sticky-surface);
+}
+
+/* Borderless apron above the filename row fills the gap below the trace node
+ * while the card passes behind it. bottom is lifted by the 0.5px border
+ * so the card's top stroke stays visible. */
+.trace-code-block [data-trace-code-block-header]::before {
+	position: absolute;
+	inset-inline: -2px;
+	bottom: calc(100% + 0.5px);
+	height: var(--trace-code-sticky-gap, 4px);
+	background: var(--trace-code-sticky-surface);
+	content: "";
+}
+
+.trace-code-block [data-trace-code-block-content] {
+	border-right: 0.5px solid var(--trace-code-outline);
+	border-bottom: 0.5px solid var(--trace-code-outline);
+	border-left: 0.5px solid var(--trace-code-outline);
+	border-radius: 0 0 8px 8px;
+	/* Cap the card so its end is always discoverable on screen; longer files
+	 * scroll through the card instead of stretching the page. The focus-gated
+	 * scroll container is this content box, never the card root. */
+	max-height: var(--trace-code-max-height, 24rem);
+	overflow-y: hidden;
+	overscroll-behavior-y: auto;
+	outline: none;
+}
+
+/* Page scrolling is the default even when the pointer is over code. Clicking
+ * or keyboard-focusing the code body explicitly hands wheel/trackpad input to
+ * this inner pane; blur returns it to the conversation. */
+.trace-code-block [data-trace-code-block-content]:focus {
+	overflow-y: auto;
+	overscroll-behavior-y: contain;
+}
+
+.trace-inline-code {
+	font-family: "Geist Mono", ui-monospace, SFMono-Regular, Consolas, monospace;
+	font-size: 12px;
+	line-height: 16px;
+	color: var(--trace-code-primary);
+	box-shadow:
+		inset 0 0 0 0.5px transparent,
+		0 0 0 0.5px var(--trace-code-outline),
+		0 1px 1px -1px #0000001a,
+		0 1px 2px 0 #0000000d;
+}
+
+/* Prism uses `table` as a Markdown token name; keep Tailwind's display utility
+ * from turning every table token into its own layout table. */
+.trace-code-block .token.table {
+	display: inline;
+}
+
+.dark .trace-code-block,
+.dark .trace-inline-code {
+	--trace-code-surface: #ffffff09;
+	--trace-code-sticky-surface: var(--session-overview-surface, #111827);
+	--trace-code-border: #ffffff3b;
+	--trace-code-outline: #ffffff12;
+	--trace-code-primary: #ffffffed;
+	--trace-code-secondary: #ffffffaf;
+	--trace-code-tertiary: #ffffff64;
+	--trace-code-comment: #ffffff64;
+	--trace-code-line-number: #fff5;
+	--trace-code-function: #e796f3;
+	--trace-code-type: #9eb1ff;
+	--trace-code-string: #e796f3;
+	--trace-code-deletion-surface: #ff55330f;
+	--trace-code-deletion-marker: #ff977d;
+	--trace-code-addition-surface: #29f99d0b;
+	--trace-code-addition-marker: #46fea5d4;
+
+	box-shadow: none;
+}
+
+.dark .trace-inline-code {
+	box-shadow:
+		inset 0 0 0 0.5px var(--trace-code-outline),
+		0 0 0 0.5px transparent;
+}
+
+@supports (color: color(display-p3 1 1 1)) {
+	.trace-code-block,
+	.trace-inline-code {
+		--trace-code-surface: color(display-p3 1 1 1);
+		--trace-code-border: color(display-p3 0 0 0 / 0.063);
+		--trace-code-outline: color(display-p3 0 0 0 / 0.063);
+		--trace-code-primary: color(display-p3 0 0 0 / 0.875);
+		--trace-code-secondary: color(display-p3 0 0 0 / 0.608);
+		--trace-code-tertiary: color(display-p3 0 0 0 / 0.447);
+		--trace-code-comment: color(display-p3 0 0 0 / 0.447);
+		--trace-code-line-number: color(display-p3 0 0 0 / 0.267);
+		--trace-code-keyword: color(display-p3 0.843 0.298 0.507);
+		--trace-code-function: color(display-p3 0.587 0.29 0.667);
+		--trace-code-type: color(display-p3 0.276 0.384 0.837);
+		--trace-code-property: color(display-p3 1 0.77 0.26);
+		--trace-code-string: color(display-p3 0.543 0.263 0.619);
+		--trace-code-deletion-surface: color(display-p3 0.757 0.145 0.02 / 0.032);
+		--trace-code-deletion-marker: color(display-p3 0.755 0.259 0.152);
+		--trace-code-addition-surface: color(display-p3 0.024 0.565 0.129 / 0.036);
+		--trace-code-addition-marker: color(display-p3 0.19 0.5 0.32);
+	}
+
+	.dark .trace-code-block,
+	.dark .trace-inline-code {
+		--trace-code-surface: color(display-p3 1 1 1 / 0.034);
+		--trace-code-border: color(display-p3 1 1 1 / 0.231);
+		--trace-code-outline: color(display-p3 1 1 1 / 0.071);
+		--trace-code-primary: color(display-p3 1 1 1 / 0.929);
+		--trace-code-secondary: color(display-p3 1 1 1 / 0.685);
+		--trace-code-tertiary: color(display-p3 1 1 1 / 0.391);
+		--trace-code-comment: color(display-p3 1 1 1 / 0.391);
+		--trace-code-line-number: color(display-p3 1 1 1 / 0.332);
+		--trace-code-function: color(display-p3 0.86 0.602 0.933);
+		--trace-code-type: color(display-p3 0.63 0.69 1);
+		--trace-code-string: color(display-p3 0.86 0.602 0.933);
+		--trace-code-deletion-surface: color(display-p3 0.992 0.376 0.224 / 0.051);
+		--trace-code-deletion-marker: color(display-p3 1 0.585 0.455);
+		--trace-code-addition-surface: color(display-p3 0.341 0.98 0.616 / 0.043);
+		--trace-code-addition-marker: color(display-p3 0.434 0.828 0.573);
+	}
+}
+
+/* =====================================================================
+ * DEBUG COLORS v3 — temporary, remove after diagnosing sticky artifacts.
+ * Active only when the URL has ?debug=colors (main.tsx sets
+ * data-debug-sticky-colors on <html>); without the param the app renders
+ * normally, so the two views can be compared side by side.
+ * The "DBG3" chip in the header proves the tab runs the newest bundle.
+ * Legend:
+ *   RED + dark-red outline   = filename header
+ *   MAGENTA                  = ::before apron above the header
+ *   CYAN                     = notch box-shadow at the rounded corners
+ *   GREEN + dashed outline   = STUCK tree rows (opaque slabs)
+ *   TEAL                     = non-sticky tree rows
+ *   ORANGE + orange outline  = card root (moves with the card)
+ *   YELLOW                   = code content box
+ *   PURPLE                   = pre/code text area
+ *   BLUE tint                = expanded row bodies
+ *   BROWN tint               = expanded-body rails
+ *   PINK tint                = tool detail panels
+ *   DARK GREEN               = non-tree sticky bars
+ * Anything peeking in NONE of these colors escapes every known layer.
+ * ===================================================================== */
+[data-debug-sticky-colors] .trace-code-block {
+	background-color: rgba(255, 140, 0, 0.65) !important;
+	outline: 2px solid rgb(255, 100, 0) !important;
+	outline-offset: -2px;
+}
+
+[data-debug-sticky-colors] .trace-code-block [data-trace-code-block-header] {
+	background: rgba(255, 0, 0, 0.9) !important;
+	box-shadow: 0 -2px 0 2px rgba(0, 200, 255, 0.9) !important;
+	outline: 1px solid rgb(130, 0, 0) !important;
+	outline-offset: -1px;
+}
+
+[data-debug-sticky-colors]
+	.trace-code-block
+	[data-trace-code-block-header]::after {
+	content: "DBG3";
+	margin-left: 8px;
+	padding: 2px 4px;
+	border-radius: 3px;
+	background: #000;
+	color: #fff;
+	font: 700 10px / 1 sans-serif;
+}
+
+[data-debug-sticky-colors]
+	.trace-code-block
+	[data-trace-code-block-header]::before {
+	background: rgba(255, 0, 255, 0.9) !important;
+}
+
+[data-debug-sticky-colors] .trace-code-block [data-trace-code-block-content] {
+	background-color: rgba(255, 230, 0, 0.5) !important;
+}
+
+[data-debug-sticky-colors] .trace-code-block pre {
+	background: rgba(150, 0, 255, 0.18) !important;
+}
+
+[data-debug-sticky-colors] [data-trace-tree-sticky-surface] {
+	background-color: rgba(0, 200, 80, 0.9) !important;
+	outline: 1px dashed rgb(0, 100, 0) !important;
+	outline-offset: -1px;
+}
+
+[data-debug-sticky-colors]
+	[data-trace-tree-row-owner]:not([data-trace-tree-sticky-surface]) {
+	background-color: rgba(0, 220, 220, 0.45) !important;
+}
+
+[data-debug-sticky-colors] [data-trace-tree-row-body] {
+	background-color: rgba(0, 80, 255, 0.12) !important;
+}
+
+[data-debug-sticky-colors] [data-trace-tree-expanded-rails] {
+	background-color: rgba(160, 90, 30, 0.35) !important;
+}
+
+[data-debug-sticky-colors] [data-trace-tool-details],
+[data-debug-sticky-colors] [data-trace-shell-command-details] {
+	background-color: rgba(255, 105, 180, 0.25) !important;
+}
+
+[data-debug-sticky-colors] .sticky.top-0 {
+	background: rgba(0, 90, 40, 0.9) !important;
+}

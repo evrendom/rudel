@@ -68,3 +68,13 @@ export function getContinuousTurnViewport({
 		] as const,
 	};
 }
+
+export function shouldSyncContinuousTurnFocus(
+	programmaticTargetIndex: number | undefined,
+	observedIndex: number,
+) {
+	return (
+		programmaticTargetIndex === undefined ||
+		programmaticTargetIndex === observedIndex
+	);
+}

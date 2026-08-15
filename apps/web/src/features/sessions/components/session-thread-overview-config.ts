@@ -40,6 +40,8 @@ export type SessionThreadOverviewStripConfig =
 		minBarHeight: number;
 		minimumViewportWidth: number;
 		plotPadding: number;
+		xDomainEndRatio: number;
+		xDomainStartRatio: number;
 		showBreaks: boolean;
 		showCostLine: boolean;
 		showCrosshair: boolean;
@@ -86,6 +88,8 @@ export const DEFAULT_SESSION_THREAD_OVERVIEW_STRIP_CONFIG: SessionThreadOverview
 		minimumTickSpacingRatio: 0.09,
 		minimumViewportWidth: 10,
 		plotPadding: 10,
+		xDomainEndRatio: 1,
+		xDomainStartRatio: 0,
 		showBreaks: true,
 		showCostLine: true,
 		showCrosshair: true,

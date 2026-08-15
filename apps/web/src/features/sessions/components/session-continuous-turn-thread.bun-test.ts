@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
 	getActiveContinuousTurnIndex,
 	getContinuousTurnViewport,
+	shouldSyncContinuousTurnFocus,
 } from "./session-continuous-turn-focus";
 
 describe("getActiveContinuousTurnIndex", () => {
@@ -67,5 +68,13 @@ describe("getContinuousTurnViewport", () => {
 			activePosition: 1,
 			visibleRange: [2, 7],
 		});
+	});
+});
+
+describe("shouldSyncContinuousTurnFocus", () => {
+	test("keeps a clicked destination stable while smooth scrolling approaches it", () => {
+		expect(shouldSyncContinuousTurnFocus(8, 2)).toBe(false);
+		expect(shouldSyncContinuousTurnFocus(8, 8)).toBe(true);
+		expect(shouldSyncContinuousTurnFocus(undefined, 2)).toBe(true);
 	});
 });

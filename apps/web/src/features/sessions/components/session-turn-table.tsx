@@ -1,9 +1,11 @@
 import { Fragment, type KeyboardEvent, useMemo } from "react";
+import type { ToolIconName } from "@/components/conversation/conversation-tools";
 import {
-	ModelTraceIcon,
+	TraceIcon,
+	type TraceIconTone,
 	UserTraceAvatar,
 } from "@/components/conversation/conversation-trace-icons";
-import { formatModelDisplayLabel } from "@/features/dashboard/components/dashboard-model-brand";
+import { CONVERSATION_TOOL_ICONS } from "@/components/conversation/conversation-trace-tool-icons";
 import { cn } from "@/lib/utils";
 import type { SessionCompaction } from "./session-compactions";
 import type { SessionTurnEpisode } from "./session-turn-episodes";
@@ -21,8 +23,16 @@ import {
 	SessionTurnCompactionRow,
 	SessionTurnEpisodeRow,
 } from "./session-turn-table-rows";
+import {
+	getSessionTurnTableSelectedRowKey,
+	isSessionTurnTableRowInViewport,
+	type SessionTurnSelection,
+	type SessionTurnTableSpeaker,
+} from "./session-turn-table-selection";
 import { SessionTurnTableSortableHeader } from "./session-turn-table-sortable-header";
-import type { SessionTurnTableView } from "./session-turn-table-view-tabs";
+import { SessionTurnTableSpeakerFocusToggle } from "./session-turn-table-view-tabs";
+import "./session-constellation-tree.css";
+import "./session-turn-table.css";
 
 export type SessionTurnTableOption = {
 	compactionsBefore: readonly SessionCompaction[];
@@ -46,11 +56,21 @@ export type SessionTurnTableMatch = {
 	option: SessionTurnTableOption;
 };
 
+export type SessionTurnTableToolCallGroup = {
+	count: number;
+	icon: ToolIconName;
+	names: readonly string[];
+	tone: TraceIconTone;
+};
+
+export type { SessionTurnTableSpeaker } from "./session-turn-table-selection";
+
 export type SessionTurnTableRow = {
 	characterCount: number | undefined;
 	key: string;
 	match: SessionTurnTableMatch;
-	speaker: "member" | "model";
+	speaker: SessionTurnTableSpeaker;
+	toolCallGroups: readonly SessionTurnTableToolCallGroup[];
 };
 
 type SessionTurnTableProps = {
@@ -58,20 +78,22 @@ type SessionTurnTableProps = {
 	collapsedEpisodeKeys?: ReadonlySet<string>;
 	episodes?: readonly SessionTurnEpisode[];
 	matchedIndices?: ReadonlySet<number>;
+	model: string | undefined;
 	onEpisodeToggle?: (key: string) => void;
+	onPrimarySpeakerChange: (speaker: SessionTurnTableSpeaker) => void;
 	onSort: (sortKey: SessionTurnTableSortKey) => void;
-	onSelect: (index: number) => void;
+	onSelect: (selection: SessionTurnSelection) => void;
 	options: readonly SessionTurnTableOption[];
+	primarySpeaker?: SessionTurnTableSpeaker;
 	rows?: readonly SessionTurnTableRow[];
-	selectedIndex: number;
+	selection: SessionTurnSelection;
 	sort: SessionTurnTableSortState;
-	tableView?: SessionTurnTableView;
-	model?: string;
 	userImageUrl?: string;
 	userLabel?: string;
 	visibleOptions: readonly SessionTurnTableMatch[];
 	visibleColumnKeys: ReadonlySet<SessionTurnTableColumnKey>;
 	viewportRange?: readonly [number, number];
+	visibleSpeakers: ReadonlySet<SessionTurnTableSpeaker>;
 };
 
 export function SessionTurnTable({
@@ -79,20 +101,22 @@ export function SessionTurnTable({
 	episodes,
 	hasActiveFilters,
 	matchedIndices,
+	model,
 	onEpisodeToggle,
+	onPrimarySpeakerChange,
 	onSort,
 	onSelect,
 	options,
+	primarySpeaker = "model",
 	rows,
-	selectedIndex,
+	selection,
 	sort,
-	tableView = "model",
-	model,
 	userImageUrl,
 	userLabel = "Member",
 	visibleOptions,
 	visibleColumnKeys,
 	viewportRange,
+	visibleSpeakers,
 }: SessionTurnTableProps) {
 	const tableRows = useMemo<readonly SessionTurnTableRow[]>(
 		() =>
@@ -102,17 +126,18 @@ export function SessionTurnTable({
 				key: `${match.option.key}:model`,
 				match,
 				speaker: "model",
+				toolCallGroups: [],
 			})),
 		[rows, visibleOptions],
 	);
 	const columns = useMemo(
 		() =>
-			buildSessionTurnTableColumns(options, tableView).filter(
+			buildSessionTurnTableColumns(options, primarySpeaker).filter(
 				(column) =>
-					tableView === "member" ||
+					primarySpeaker === "member" ||
 					isSessionTurnTableColumnVisible(column.key, visibleColumnKeys),
 			),
-		[options, tableView, visibleColumnKeys],
+		[options, primarySpeaker, visibleColumnKeys],
 	);
 	const episodeByStartIndex = useMemo(
 		() =>
@@ -123,6 +148,14 @@ export function SessionTurnTable({
 			),
 		[episodes, sort.direction, sort.key],
 	);
+	const selectedRowKey = useMemo(
+		() =>
+			getSessionTurnTableSelectedRowKey({
+				rows: tableRows,
+				selection,
+			}),
+		[selection, tableRows],
+	);
 
 	function handleRowKeyDown(
 		event: KeyboardEvent<HTMLTableRowElement>,
@@ -130,7 +163,10 @@ export function SessionTurnTable({
 	) {
 		if (event.key === "Enter" || event.key === " ") {
 			event.preventDefault();
-			onSelect(tableRows[visibleIndex]?.match.index ?? selectedIndex);
+			const row = tableRows[visibleIndex];
+			if (row) {
+				onSelect({ index: row.match.index, speaker: row.speaker });
+			}
 			return;
 		}
 
@@ -149,7 +185,7 @@ export function SessionTurnTable({
 			return;
 		}
 
-		onSelect(nextRow.match.index);
+		onSelect({ index: nextRow.match.index, speaker: nextRow.speaker });
 		const nextRowElement = event.currentTarget.parentElement?.querySelector(
 			`[data-visible-index="${nextVisibleIndex}"]`,
 		);
@@ -158,189 +194,246 @@ export function SessionTurnTable({
 		}
 	}
 
+	const hasMemberRows = tableRows.some((row) => row.speaker === "member");
+	const hasModelRows = tableRows.some((row) => row.speaker === "model");
 	const tableLabel =
-		tableView === "member"
-			? "Member session turns"
-			: tableView === "both"
-				? "Chronological member and model session turns"
-				: "Filterable session turns";
-	const modelLabel = model ? formatModelDisplayLabel(model) : "Model";
-
+		hasMemberRows && hasModelRows
+			? `${primarySpeaker === "model" ? "Model" : "User"}-first user and model session turns`
+			: hasMemberRows
+				? "User session turns"
+				: "Model session turns";
 	return (
 		<div className="min-h-0 flex-1 overflow-x-auto overflow-y-auto overscroll-none">
-			<table aria-label={tableLabel} className="w-max min-w-full table-fixed">
-				<colgroup>
-					{columns.map((column) => (
-						<col key={column.key} className={column.widthClassName} />
-					))}
-				</colgroup>
-				<thead className="sticky top-0 z-10 bg-(--session-overview-surface)">
-					<tr className="border-b border-(--session-overview-border)">
-						{columns.map((column, columnIndex) => (
+			<div className="inline-block min-w-full px-1.5 align-middle [--session-turn-row-hover:#f0f0f0] dark:[--session-turn-row-hover:#222]">
+				<table
+					aria-label={tableLabel}
+					className="session-turn-table w-max min-w-full table-fixed [&:has(tbody_tr[data-visible-index='0']:hover)_thead_tr]:border-b-transparent [&:has(tbody_tr[data-visible-index='0'][data-selected])_thead_tr]:border-b-transparent"
+				>
+					<colgroup>
+						<col className="w-[8%]" />
+						{columns.map((column) => (
+							<col key={column.key} className={column.widthClassName} />
+						))}
+					</colgroup>
+					<thead className="sticky top-0 z-10 w-full bg-(--session-overview-surface)">
+						<tr className="w-full border-b border-(--session-overview-border) bg-(--session-overview-surface)">
 							<th
-								key={column.key}
-								className="h-8 p-0 text-left text-xs font-medium whitespace-nowrap text-(--session-overview-subtle)"
+								aria-label="Speaker and tool calls"
+								className="h-8 bg-(--session-overview-surface) p-0"
 								scope="col"
 							>
-								{column.sortKey ? (
-									<SessionTurnTableSortableHeader
-										className={undefined}
-										columnIndex={columnIndex}
-										label={column.label}
-										onSort={onSort}
-										sort={sort}
-										sortKey={column.sortKey}
-									/>
-								) : (
-									<span
-										className={cn(
-											"flex h-8 items-center",
-											columnIndex === 0 ? "pr-1.5 pl-3" : "px-1.5",
-										)}
-									>
-										{column.label}
-									</span>
-								)}
+								<SessionTurnTableSpeakerFocusToggle
+									className="h-8"
+									model={model}
+									onPrimarySpeakerChange={onPrimarySpeakerChange}
+									primarySpeaker={primarySpeaker}
+									userImageUrl={userImageUrl}
+									visibleSpeakers={visibleSpeakers}
+								/>
 							</th>
-						))}
-					</tr>
-				</thead>
-				<tbody>
-					{tableRows.map((row, visibleIndex) => {
-						const { match } = row;
-						const selected = match.index === selectedIndex;
-						const beginsTurn =
-							visibleIndex === 0 ||
-							tableRows[visibleIndex - 1]?.match.option.key !==
-								match.option.key;
-						const episode = beginsTurn
-							? episodeByStartIndex.get(match.index)
-							: undefined;
-						const inViewport =
-							viewportRange !== undefined &&
-							match.index >= viewportRange[0] &&
-							match.index <= viewportRange[1];
-						const matchesLens = matchedIndices?.has(match.index) ?? false;
-						return (
-							<Fragment key={row.key}>
-								{episode ? (
-									<SessionTurnEpisodeRow
-										collapsed={collapsedEpisodeKeys?.has(episode.key) ?? false}
-										columnCount={columns.length}
-										episode={episode}
-										onToggle={
-											onEpisodeToggle
-												? () => onEpisodeToggle(episode.key)
-												: undefined
-										}
-									/>
-								) : null}
-								{beginsTurn
-									? match.option.compactionsBefore.map((compaction) => (
-											<SessionTurnCompactionRow
-												key={compaction.key}
-												columnCount={columns.length}
-												compaction={compaction}
-											/>
-										))
-									: null}
-								<tr
-									aria-current={selected ? "true" : undefined}
-									className={cn(
-										"group cursor-pointer border-b border-(--session-overview-border) outline-none hover:bg-(--session-overview-hover) focus-visible:z-10 focus-visible:-outline-offset-2 focus-visible:outline-2 focus-visible:outline-(--session-overview-accent)",
-										inViewport &&
-											"bg-[color-mix(in_srgb,var(--session-overview-accent)_7%,var(--session-overview-surface))]",
-										matchesLens &&
-											"[box-shadow:inset_2px_0_0_var(--session-overview-accent)]",
-										selected &&
-											"bg-[color-mix(in_srgb,var(--session-overview-accent)_13%,var(--session-overview-surface))]",
-									)}
-									data-visible-index={visibleIndex}
-									data-turn-index={match.index}
-									data-speaker={row.speaker}
-									data-selected={selected ? "true" : undefined}
-									tabIndex={0}
-									onClick={() => onSelect(match.index)}
-									onKeyDown={(event) => handleRowKeyDown(event, visibleIndex)}
+							{columns.map((column, columnIndex) => (
+								<th
+									key={column.key}
+									className="h-8 bg-(--session-overview-surface) p-0 text-left text-xs font-medium whitespace-nowrap text-(--session-overview-subtle)"
+									scope="col"
 								>
-									{columns.map((column, columnIndex) => {
-										const values = column.getValues(row);
-										return (
-											<td
-												key={column.key}
-												className={cn(
-													"py-1.5 align-top",
-													columnIndex === 0 ? "pr-1.5 pl-3" : "px-1.5",
-												)}
-											>
+									{column.sortKey ? (
+										<SessionTurnTableSortableHeader
+											className={undefined}
+											columnIndex={columnIndex + 1}
+											label={column.label}
+											onSort={onSort}
+											sort={sort}
+											sortKey={column.sortKey}
+										/>
+									) : (
+										<span className="flex h-8 items-center px-1.5">
+											{column.label}
+										</span>
+									)}
+								</th>
+							))}
+						</tr>
+					</thead>
+					<tbody className="[&_tr:last-child]:border-0 [&_tr:has(+_tr:hover)]:border-b-transparent [&_tr:has(+_tr[data-selected])]:border-b-transparent">
+						{tableRows.map((row, visibleIndex) => {
+							const { match } = row;
+							const selected = row.key === selectedRowKey;
+							const beginsTurn =
+								visibleIndex === 0 ||
+								tableRows[visibleIndex - 1]?.match.option.key !==
+									match.option.key;
+							const episode = beginsTurn
+								? episodeByStartIndex.get(match.index)
+								: undefined;
+							const inViewport = isSessionTurnTableRowInViewport({
+								turnIndex: match.index,
+								viewportRange,
+							});
+							const matchesLens = matchedIndices?.has(match.index) ?? false;
+							return (
+								<Fragment key={row.key}>
+									{episode ? (
+										<SessionTurnEpisodeRow
+											collapsed={
+												collapsedEpisodeKeys?.has(episode.key) ?? false
+											}
+											columnCount={columns.length + 1}
+											episode={episode}
+											onToggle={
+												onEpisodeToggle
+													? () => onEpisodeToggle(episode.key)
+													: undefined
+											}
+										/>
+									) : null}
+									{beginsTurn
+										? match.option.compactionsBefore.map((compaction) => (
+												<SessionTurnCompactionRow
+													key={compaction.key}
+													columnCount={columns.length + 1}
+													compaction={compaction}
+												/>
+											))
+										: null}
+									<tr
+										aria-current={selected ? "true" : undefined}
+										className={cn(
+											"group relative isolate cursor-pointer select-none border-b border-b-(--session-turn-row-hover) outline-none [&>td:first-child]:rounded-l-md [&>td:last-child]:rounded-r-md hover:border-b-transparent hover:[&>td]:bg-(--session-turn-row-hover) focus-visible:z-10 focus-visible:rounded-md focus-visible:-outline-offset-2 focus-visible:outline-2 focus-visible:outline-(--session-overview-accent) data-selected:border-b-transparent",
+											inViewport && "[&>td]:bg-(--session-overview-hover)",
+											matchesLens &&
+												"[box-shadow:inset_2px_0_0_var(--session-overview-accent)]",
+											selected && "[&>td]:bg-(--session-turn-row-hover)",
+										)}
+										data-visible-index={visibleIndex}
+										data-turn-index={match.index}
+										data-speaker={row.speaker}
+										data-in-viewport={inViewport ? "true" : undefined}
+										data-selected={selected ? "true" : undefined}
+										tabIndex={0}
+										onClick={() =>
+											onSelect({ index: match.index, speaker: row.speaker })
+										}
+										onKeyDown={(event) => handleRowKeyDown(event, visibleIndex)}
+									>
+										<td className="py-1.5 pr-1 pl-2 align-middle">
+											<div className="session-constellation-tree min-w-0">
 												<div
-													className={cn(
-														"min-w-0",
-														columnIndex === 0 && "flex items-start gap-1.5",
-													)}
+													className="flex min-w-0 items-center"
+													data-trace-tree-row-content
 												>
-													{columnIndex === 0 && tableView === "both" ? (
+													{row.speaker === "member" ? (
 														<span
-															title={
-																row.speaker === "member"
-																	? userLabel
-																	: modelLabel
-															}
+															className="relative z-20 shrink-0"
+															title={userLabel}
 														>
-															{row.speaker === "member" ? (
-																<UserTraceAvatar
-																	expanded={false}
-																	expandable={false}
-																	imageUrl={userImageUrl}
-																/>
-															) : (
-																<ModelTraceIcon
-																	expanded={false}
-																	expandable={false}
-																	model={model}
-																/>
-															)}
+															<UserTraceAvatar
+																expanded={false}
+																expandable={false}
+																imageUrl={userImageUrl}
+															/>
 														</span>
 													) : null}
-													{values.length > 0 ? (
-														<div
-															className={cn(
-																"min-w-0 flex-1",
-																column.appearance === "tag"
-																	? "flex flex-wrap gap-1"
-																	: "grid gap-0.5",
-															)}
-														>
-															{values.map((value) => (
-																<div
-																	key={`${value.title ?? "value"}:${value.label}`}
-																	className={cn(
-																		"min-w-0 max-w-full truncate text-(--session-overview-muted)",
-																		column.appearance === "tag"
-																			? "rounded-full bg-(--session-overview-surface) px-1.5 py-0.5 text-xs font-medium tracking-[-0.01em]"
-																			: "text-xs",
-																	)}
-																	title={value.title}
-																>
-																	{value.label}
-																</div>
-															))}
-														</div>
-													) : (
-														<p className="text-xs text-(--session-overview-subtle)">
-															—
-														</p>
-													)}
+													{row.speaker === "model"
+														? row.toolCallGroups.map(
+																(toolCallGroup, groupIndex) => {
+																	const toolNames = Array.from(
+																		new Set(toolCallGroup.names),
+																	).join(", ");
+																	const countLabel = `${toolCallGroup.count.toLocaleString()} ${
+																		toolCallGroup.count === 1
+																			? "tool call"
+																			: "tool calls"
+																	}`;
+																	return (
+																		<span
+																			key={toolCallGroup.icon}
+																			aria-label={`${countLabel}: ${toolNames}`}
+																			className={cn(
+																				"relative shrink-0",
+																				groupIndex > 0 && "-ml-2.5",
+																			)}
+																			role="img"
+																			style={{
+																				zIndex:
+																					row.toolCallGroups.length -
+																					groupIndex,
+																			}}
+																			title={`${countLabel}: ${toolNames}`}
+																		>
+																			<TraceIcon
+																				icon={
+																					CONVERSATION_TOOL_ICONS[
+																						toolCallGroup.icon
+																					]
+																				}
+																				toolIcon={toolCallGroup.icon}
+																				tone={toolCallGroup.tone}
+																			/>
+																			{toolCallGroup.count > 1 ? (
+																				<span
+																					aria-hidden="true"
+																					className="absolute right-0 bottom-0 z-10 min-w-2.5 rounded-[2px] bg-(--session-overview-surface) px-px text-center text-[0.5rem] leading-[0.625rem] font-semibold text-(--session-overview-text) tabular-nums shadow-[0_0_0_1px_var(--session-overview-surface)]"
+																				>
+																					{toolCallGroup.count}x
+																				</span>
+																			) : null}
+																		</span>
+																	);
+																},
+															)
+														: null}
 												</div>
-											</td>
-										);
-									})}
-								</tr>
-							</Fragment>
-						);
-					})}
-				</tbody>
-			</table>
+											</div>
+										</td>
+										{columns.map((column) => {
+											const values = column.getValues(row);
+											return (
+												<td
+													key={column.key}
+													className="px-1.5 py-1.5 align-middle"
+												>
+													<div className="min-w-0">
+														{values.length > 0 ? (
+															<div
+																className={cn(
+																	"min-w-0 flex-1",
+																	column.appearance === "tag"
+																		? "flex flex-wrap gap-1"
+																		: "grid gap-0.5",
+																)}
+															>
+																{values.map((value) => (
+																	<div
+																		key={`${value.title ?? "value"}:${value.label}`}
+																		className={cn(
+																			"min-w-0 max-w-full truncate text-(--session-overview-muted)",
+																			column.appearance === "tag"
+																				? "rounded-full bg-(--session-overview-surface) px-1.5 py-0.5 text-xs font-medium tracking-[-0.01em]"
+																				: "text-xs",
+																		)}
+																		title={value.title}
+																	>
+																		{value.label}
+																	</div>
+																))}
+															</div>
+														) : (
+															<p className="text-xs text-(--session-overview-subtle)">
+																—
+															</p>
+														)}
+													</div>
+												</td>
+											);
+										})}
+									</tr>
+								</Fragment>
+							);
+						})}
+					</tbody>
+				</table>
+			</div>
 			{tableRows.length === 0 ? (
 				<div className="flex min-h-40 items-center justify-center px-6 text-center">
 					<p className="text-sm text-(--session-overview-muted)">

@@ -1,5 +1,4 @@
 // biome-ignore-all lint/nursery/noExcessiveLinesPerFile: The shared trace entry point coordinates three render modes.
-import { FileText, Settings } from "lucide-react";
 import { type ReactNode, useId, useState } from "react";
 import {
 	isSlashCommandMessage,
@@ -9,7 +8,6 @@ import { cn } from "@/lib/utils";
 import {
 	compactPreview,
 	formatClockTime,
-	formatTimeDelta,
 	type TraceEvent,
 	type TraceItem,
 	type UserContent,
@@ -20,13 +18,17 @@ import {
 	isTraceCallSeparator,
 	shouldCollapseTraceCall,
 	shouldRenderTraceCallHeader,
-	type TraceCallVariant,
+	type TraceCallDisplayMode,
 } from "./conversation-trace-call-display";
 import {
-	conversationTraceChipClassName as chipClassName,
 	conversationTracePreviewClassName as previewClassName,
+	conversationTraceLabelClassName as traceLabelClassName,
 } from "./conversation-trace-class-names";
 import { ConversationTraceEventRow as EventRow } from "./conversation-trace-event-row";
+import {
+	TraceFileIcon,
+	TraceSettingsIcon,
+} from "./conversation-trace-hugeicons";
 import {
 	ModelTraceIcon,
 	TraceDisclosureIcon,
@@ -40,6 +42,7 @@ import {
 	groupTraceEventsIntoRequests,
 	takeTraceRequestUsageBefore,
 } from "./conversation-trace-requests";
+import { ConversationTraceTag } from "./conversation-trace-tag";
 import { AgentToolStrip } from "./conversation-trace-tool-strip";
 import {
 	AgentTraceRequestDisplay,
@@ -52,14 +55,22 @@ import {
 import {
 	ExpandableTraceRow,
 	type TraceFocusRequest,
+	traceInteractiveRowClassName,
 	traceRowClassName,
 	useTraceFocus,
 } from "./expandable-trace-row";
 import { MessageContent } from "./MessageContent";
 
-export type { TraceCallVariant } from "./conversation-trace-call-display";
-export type { ConversationTraceSpeakerLayout } from "./conversation-trace-tree";
-export { ConversationTraceTreeNode } from "./conversation-trace-tree";
+export type { TraceCallDisplayMode } from "./conversation-trace-call-display";
+export type {
+	ConversationTraceSpeakerLayout,
+	ConversationTraceTreeConnectorStyle,
+} from "./conversation-trace-tree";
+export {
+	ConversationTraceTreeConnectorStyleProvider,
+	ConversationTraceTreeItem,
+	ConversationTraceTreeNode,
+} from "./conversation-trace-tree";
 export type { TraceFocusRequest } from "./expandable-trace-row";
 
 const speakerLabelClassName =
@@ -68,7 +79,6 @@ const speakerLabelClassName =
 function AgentSection({
 	events,
 	anchorId,
-	previousTimestamp,
 	agentLabel,
 	agentModel,
 	headerTrailing,
@@ -78,7 +88,6 @@ function AgentSection({
 }: {
 	events: TraceEvent[];
 	anchorId?: string;
-	previousTimestamp: string | undefined;
 	agentLabel: string;
 	agentModel: string | undefined;
 	headerTrailing?: ReactNode;
@@ -92,15 +101,8 @@ function AgentSection({
 	useTraceFocus(anchorId, focus, setOpen);
 	// The turn is the model's, so it wears the model's mark; unrecognized
 	// vendors fall back to the generic agent glyph.
-	let cursor = previousTimestamp;
-	const eventDeltas = new Map<string, string | undefined>();
-	for (const event of events) {
-		const delta = formatTimeDelta(cursor, event.timestamp);
-		eventDeltas.set(event.id, delta);
-		cursor = event.timestamp;
-	}
 	const renderEventRow = (event: TraceEvent) => (
-		<EventRow key={event.id} event={event} delta={eventDeltas.get(event.id)} />
+		<EventRow key={event.id} event={event} />
 	);
 	const eventRows = events.map((event) => renderEventRow(event));
 
@@ -111,7 +113,7 @@ function AgentSection({
 					id={anchorId}
 					className="min-w-0 scroll-mt-6 border-b border-(--session-overview-border) bg-(--session-overview-surface) [--conversation-trace-sticky-offset:2.25rem]"
 				>
-					<div className="sticky top-0 z-20 flex min-h-9 min-w-0 items-center gap-2 border-b border-(--session-overview-border) bg-(--session-overview-surface) px-3 py-2">
+					<div className="sticky top-0 z-30 flex min-h-9 min-w-0 items-center gap-2 border-b border-(--session-overview-border) bg-(--session-overview-surface) px-3 py-2">
 						<ModelTraceIcon
 							expanded={false}
 							expandable={false}
@@ -166,7 +168,7 @@ function AgentSection({
 			<div
 				className={cn(
 					open &&
-						"sticky top-0 z-20 bg-[color:var(--dashboardy-surface-opaque)]",
+						"sticky top-0 z-30 bg-[color:var(--dashboardy-surface-opaque)]",
 				)}
 			>
 				<button
@@ -176,6 +178,7 @@ function AgentSection({
 					aria-controls={panelId}
 					className={cn(
 						traceRowClassName,
+						traceInteractiveRowClassName,
 						"group gap-2",
 						open &&
 							"rounded-t-[0.75rem] border border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-subsurface-opaque)] [border-bottom-color:var(--dashboardy-divider)]",
@@ -209,9 +212,13 @@ export function UserTraceContent({ content }: { content: UserContent }) {
 			<div className="grid gap-2">
 				<div className="flex flex-wrap gap-2">
 					{slashCommandInfo.commandName ? (
-						<span className={chipClassName}>
-							{slashCommandInfo.commandName}
-						</span>
+						<ConversationTraceTag
+							className="max-w-[18rem] shrink-0"
+							toolIcon="terminal"
+							value={slashCommandInfo.commandName}
+						>
+							<span className="truncate">{slashCommandInfo.commandName}</span>
+						</ConversationTraceTag>
 					) : null}
 				</div>
 				{slashCommandInfo.commandArgs ? (
@@ -253,19 +260,18 @@ function TraceRow({
 	expandedSpeakerLayout: ConversationTraceSpeakerLayout;
 	focus?: TraceFocusRequest;
 }) {
-	// Wall-clock times bookend the trace so its start and end are readable at a
-	// glance; every row between them reads better as a gap from the one before.
-	const delta =
+	// Wall-clock times bookend the trace without adding relative-time labels to
+	// the rows between them.
+	const timestamp =
 		previousTimestamp === undefined || isLast
 			? formatClockTime(item.timestamp)
-			: formatTimeDelta(previousTimestamp, item.timestamp);
+			: undefined;
 
 	if (item.kind === "agent") {
 		return (
 			<AgentSection
 				events={item.events}
 				anchorId={anchorId}
-				previousTimestamp={previousTimestamp ?? item.timestamp}
 				agentLabel={agentLabel}
 				agentModel={agentModel}
 				headerTrailing={agentHeaderTrailing}
@@ -297,11 +303,10 @@ function TraceRow({
 							<TraceDisclosureIcon
 								expanded={expanded}
 								expandable={expandable}
-								icon={FileText}
+								icon={TraceFileIcon}
+								tone="grass"
 							/>
-							<span className="shrink-0 font-semibold text-[color:var(--dashboardy-heading)]">
-								Summary
-							</span>
+							<span className={traceLabelClassName}>Summary</span>
 							<span className={previewClassName} data-trace-preview>
 								{compactPreview(item.text)}
 							</span>
@@ -320,9 +325,9 @@ function TraceRow({
 			>
 				<ExpandableTraceRow
 					anchorId={anchorId}
-					delta={delta}
 					focus={focus}
 					fullPreviewText={item.text}
+					timestamp={timestamp}
 					body={
 						<p className="whitespace-pre-wrap font-mono text-[0.8125rem] leading-6 text-[color:var(--dashboardy-heading)]">
 							{item.text}
@@ -334,11 +339,10 @@ function TraceRow({
 							<TraceDisclosureIcon
 								expanded={expanded}
 								expandable={expandable}
-								icon={Settings}
+								icon={TraceSettingsIcon}
+								tone="neutral"
 							/>
-							<span className="shrink-0 font-semibold text-[color:var(--dashboardy-heading)]">
-								System
-							</span>
+							<span className={traceLabelClassName}>System</span>
 							<span className={previewClassName} data-trace-preview>
 								{compactPreview(item.text)}
 							</span>
@@ -358,9 +362,9 @@ function TraceRow({
 		>
 			<ExpandableTraceRow
 				anchorId={anchorId}
-				delta={delta}
 				focus={focus}
-				fullPreviewText={previewText || undefined}
+				fullPreviewText={undefined}
+				timestamp={timestamp}
 				className={cn(
 					expandedSpeakerLayout !== "trace-tree" &&
 						"overflow-clip rounded-[0.75rem] border border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-surface)]",
@@ -390,11 +394,12 @@ function ConversationTraceTurnTree({
 	agentLabel,
 	agentModel,
 	className,
+	continuesAfter,
 	focus,
 	items,
 	requestUsage,
 	requestUsagePlacement = "start",
-	traceCallVariant = "v1",
+	traceCallDisplayMode = "request",
 	userImageUrl,
 	userLabel,
 }: {
@@ -402,18 +407,18 @@ function ConversationTraceTurnTree({
 	agentLabel: string;
 	agentModel: string | undefined;
 	className?: string;
+	continuesAfter: boolean;
 	focus?: TraceFocusRequest;
 	items: TraceItem[];
 	requestUsage?: readonly AgentTraceRequestUsage[];
 	requestUsagePlacement?: AgentTraceRequestUsagePlacement;
-	traceCallVariant?: TraceCallVariant;
+	traceCallDisplayMode?: TraceCallDisplayMode;
 	userImageUrl: string | undefined;
 	userLabel: string;
 }) {
 	const sections: AgentTraceTreeRenderedSection[] = [];
 	const events: TraceEvent[] = [];
-	const eventDeltas = new Map<string, string | undefined>();
-	const traceCallConfig = getTraceCallDisplayConfig(traceCallVariant);
+	const traceCallConfig = getTraceCallDisplayConfig(traceCallDisplayMode);
 	// Subagent usage events are appended after the main transcript's, so the
 	// pool is not globally time-ordered until sorted here.
 	const usageQueue = [
@@ -425,11 +430,7 @@ function ConversationTraceTurnTree({
 	let requestIndex = 0;
 
 	const renderEventRow = (event: TraceEvent, trailing?: ReactNode) => (
-		<EventRow
-			event={event}
-			delta={eventDeltas.get(event.id)}
-			trailing={trailing}
-		/>
+		<EventRow event={event} trailing={trailing} />
 	);
 	// Rootless tool runs render directly at branch level — the request header
 	// already scopes them, so a synthetic "Agent activity" parent would only
@@ -556,15 +557,8 @@ function ConversationTraceTurnTree({
 		const previousTimestamp = cursor;
 
 		if (item.kind === "agent") {
-			let eventCursor = previousTimestamp ?? item.timestamp;
-			for (const event of item.events) {
-				eventDeltas.set(
-					event.id,
-					formatTimeDelta(eventCursor, event.timestamp),
-				);
-				eventCursor = event.timestamp;
-			}
-			cursor = eventCursor;
+			cursor =
+				item.events.at(-1)?.timestamp ?? previousTimestamp ?? item.timestamp;
 			events.push(...item.events);
 			pendingAgentEvents.push(...item.events);
 			return;
@@ -614,6 +608,7 @@ function ConversationTraceTurnTree({
 					agentLabel={agentLabel}
 					agentModel={agentModel}
 					anchorId="message-0"
+					continuesAfter={continuesAfter}
 					events={events}
 					focus={focus}
 					headerTrailing={agentHeaderTrailing}
@@ -635,9 +630,10 @@ export function ConversationTrace({
 	expandedSpeakerLayout = "inline",
 	focus,
 	className,
+	continuesAfter = false,
 	requestUsage,
 	requestUsagePlacement,
-	traceCallVariant = "v1",
+	traceCallDisplayMode = "request",
 }: {
 	items: TraceItem[];
 	userLabel?: string;
@@ -649,9 +645,10 @@ export function ConversationTrace({
 	expandedSpeakerLayout?: ConversationTraceSpeakerLayout;
 	focus?: TraceFocusRequest;
 	className?: string;
+	continuesAfter?: boolean;
 	requestUsage?: readonly AgentTraceRequestUsage[];
 	requestUsagePlacement?: AgentTraceRequestUsagePlacement;
-	traceCallVariant?: TraceCallVariant;
+	traceCallDisplayMode?: TraceCallDisplayMode;
 }) {
 	if (expandedSpeakerLayout === "trace-tree") {
 		return (
@@ -660,11 +657,12 @@ export function ConversationTrace({
 				agentLabel={agentLabel}
 				agentModel={agentModel}
 				className={className}
+				continuesAfter={continuesAfter}
 				focus={focus}
 				items={items}
 				requestUsage={requestUsage}
 				requestUsagePlacement={requestUsagePlacement}
-				traceCallVariant={traceCallVariant}
+				traceCallDisplayMode={traceCallDisplayMode}
 				userImageUrl={userImageUrl}
 				userLabel={userLabel}
 			/>

@@ -1,22 +1,22 @@
-import { useId, useMemo, useState } from "react";
-import type {
-	SessionAdalineMessageRow,
-	SessionAdalineMessageSpeaker,
-} from "./session-adaline-message-rows";
-import { SessionAdalineMessageTable } from "./session-adaline-message-table";
+import { useMemo, useState } from "react";
+import {
+	type SessionContinuousTurnViewportStore,
+	useSessionContinuousTurnVisibleRange,
+} from "./session-continuous-turn-viewport-store";
 import {
 	SessionTurnTable,
 	type SessionTurnTableOption,
+	type SessionTurnTableSpeaker,
 } from "./session-turn-table";
 import { SessionTurnTableColumnComposer } from "./session-turn-table-column-composer";
 import { SessionTurnTableControls } from "./session-turn-table-filter";
 import type { IndexedSessionTurnTableOption } from "./session-turn-table-filters";
-import { buildSessionTurnTableViewRows } from "./session-turn-table-view-rows";
 import {
-	type SessionTurnTableView,
-	SessionTurnTableViewTabs,
-} from "./session-turn-table-view-tabs";
-import { SessionTurnTableVisibilityButton } from "./session-turn-table-visibility-button";
+	getVisibleSessionTurnSpeaker,
+	type SessionTurnSelection,
+} from "./session-turn-table-selection";
+import { buildSessionTurnTableViewRows } from "./session-turn-table-view-rows";
+import { SessionTurnTableSpeakerVisibilityControls } from "./session-turn-table-view-tabs";
 import type { SessionTurn } from "./session-turns";
 import { useSessionTurnTableControls } from "./use-session-turn-table-controls";
 
@@ -30,35 +30,28 @@ export type SessionTurnTablePaneMatch =
 	IndexedSessionTurnTableOption<SessionTurnTablePaneOption>;
 
 export function SessionTurnTablePane({
-	collapseControlsId,
 	model,
-	onCollapse,
 	onSelect,
-	onSelectMessage,
 	options,
-	selectedIndex,
-	selectedMessageKey,
-	selectedMessageSpeaker,
-	showMessageRows,
+	selection,
 	userImageUrl,
 	userLabel,
+	viewportStore,
 }: {
-	collapseControlsId: string | undefined;
 	model: string | undefined;
-	onCollapse: (() => void) | undefined;
-	onSelect: (index: number) => void;
-	onSelectMessage?: (row: SessionAdalineMessageRow) => void;
+	onSelect: (selection: SessionTurnSelection) => void;
 	options: readonly SessionTurnTablePaneOption[];
-	selectedIndex: number;
-	selectedMessageKey?: string;
-	selectedMessageSpeaker?: SessionAdalineMessageSpeaker;
-	showMessageRows: boolean;
+	selection: SessionTurnSelection;
 	userImageUrl: string | undefined;
 	userLabel: string;
+	viewportStore: SessionContinuousTurnViewportStore;
 }) {
-	const panelId = useId();
-	const tabIdPrefix = useId();
-	const [activeView, setActiveView] = useState<SessionTurnTableView>("model");
+	const viewportRange = useSessionContinuousTurnVisibleRange(viewportStore);
+	const [primarySpeaker, setPrimarySpeaker] =
+		useState<SessionTurnTableSpeaker>("model");
+	const [visibleSpeakers, setVisibleSpeakers] = useState<
+		ReadonlySet<SessionTurnTableSpeaker>
+	>(() => new Set(["model"]));
 	const {
 		activeSortLabel,
 		availableColumnKeys,
@@ -78,32 +71,45 @@ export function SessionTurnTablePane({
 		sort,
 		toggleSortDirection,
 		visibleMatches,
-	} = useSessionTurnTableControls({ onSelect, options, selectedIndex });
+	} = useSessionTurnTableControls({
+		onSelect: (index) => onSelect({ ...selection, index }),
+		options,
+		selectedIndex: selection.index,
+	});
 	const tableRows = useMemo(
-		() => buildSessionTurnTableViewRows(visibleMatches, activeView),
-		[activeView, visibleMatches],
+		() =>
+			buildSessionTurnTableViewRows(
+				visibleMatches,
+				visibleSpeakers,
+				primarySpeaker,
+			),
+		[primarySpeaker, visibleMatches, visibleSpeakers],
 	);
+
+	function handleVisibleSpeakersChange(
+		nextVisibleSpeakers: ReadonlySet<SessionTurnTableSpeaker>,
+	) {
+		setVisibleSpeakers(nextVisibleSpeakers);
+		const nextSpeaker = getVisibleSessionTurnSpeaker(
+			selection.speaker,
+			nextVisibleSpeakers,
+		);
+		if (nextSpeaker !== selection.speaker) {
+			onSelect({ ...selection, speaker: nextSpeaker });
+		}
+	}
 
 	return (
 		<>
 			<SessionTurnTableControls
 				actions={
-					<>
-						{activeView !== "member" ? (
-							<SessionTurnTableColumnComposer
-								availableColumns={availableColumnKeys}
-								onVisibleColumnsChange={setVisibleColumnKeys}
-								visibleColumns={effectiveVisibleColumnKeys}
-							/>
-						) : null}
-						{collapseControlsId && onCollapse ? (
-							<SessionTurnTableVisibilityButton
-								controlsId={collapseControlsId}
-								expanded
-								onClick={onCollapse}
-							/>
-						) : null}
-					</>
+					primarySpeaker === "model" ? (
+						<SessionTurnTableColumnComposer
+							availableColumns={availableColumnKeys}
+							onVisibleColumnsChange={setVisibleColumnKeys}
+							visibleColumns={effectiveVisibleColumnKeys}
+						/>
+					) : null
 				}
 				activeSortLabel={activeSortLabel}
 				className={undefined}
@@ -121,58 +127,36 @@ export function SessionTurnTablePane({
 				sort={sort}
 				totalCount={options.length}
 				viewControls={
-					<SessionTurnTableViewTabs
-						activeView={activeView}
+					<SessionTurnTableSpeakerVisibilityControls
 						className={undefined}
-						onViewChange={setActiveView}
-						panelId={panelId}
-						tabIdPrefix={tabIdPrefix}
+						model={model}
+						onPrimarySpeakerChange={setPrimarySpeaker}
+						onVisibleSpeakersChange={handleVisibleSpeakersChange}
+						primarySpeaker={primarySpeaker}
+						userImageUrl={userImageUrl}
+						visibleSpeakers={visibleSpeakers}
 					/>
 				}
 			/>
-			<div
-				role="tabpanel"
-				id={panelId}
-				aria-labelledby={`${tabIdPrefix}-${activeView}`}
-				className="flex min-h-0 flex-1 flex-col"
-			>
-				{activeView === "model" && showMessageRows ? (
-					<SessionAdalineMessageTable
-						hasActiveFilters={hasActiveFilters}
-						matchedIndices={undefined}
-						model={model}
-						onSelect={(row) =>
-							onSelectMessage ? onSelectMessage(row) : onSelect(row.match.index)
-						}
-						onSort={handleSort}
-						options={options}
-						selectedIndex={selectedIndex}
-						selectedKey={selectedMessageKey}
-						selectedSpeaker={selectedMessageSpeaker}
-						sort={sort}
-						userImageUrl={userImageUrl}
-						userLabel={userLabel}
-						viewportRange={undefined}
-						visibleColumnKeys={effectiveVisibleColumnKeys}
-						visibleOptions={visibleMatches}
-					/>
-				) : (
-					<SessionTurnTable
-						hasActiveFilters={hasActiveFilters}
-						model={model}
-						onSort={handleSort}
-						onSelect={onSelect}
-						options={options}
-						rows={tableRows}
-						selectedIndex={selectedIndex}
-						sort={sort}
-						tableView={activeView}
-						userImageUrl={userImageUrl}
-						userLabel={userLabel}
-						visibleColumnKeys={effectiveVisibleColumnKeys}
-						visibleOptions={visibleMatches}
-					/>
-				)}
+			<div className="flex min-h-0 flex-1 flex-col">
+				<SessionTurnTable
+					hasActiveFilters={hasActiveFilters}
+					model={model}
+					onPrimarySpeakerChange={setPrimarySpeaker}
+					onSort={handleSort}
+					onSelect={onSelect}
+					options={options}
+					primarySpeaker={primarySpeaker}
+					rows={tableRows}
+					selection={selection}
+					sort={sort}
+					userImageUrl={userImageUrl}
+					userLabel={userLabel}
+					visibleColumnKeys={effectiveVisibleColumnKeys}
+					visibleOptions={visibleMatches}
+					visibleSpeakers={visibleSpeakers}
+					viewportRange={viewportRange}
+				/>
 			</div>
 		</>
 	);

@@ -3,7 +3,7 @@ export const SIDEBAR_NEWS_ACTIVE_ATTRIBUTE = "data-sidebar-news-card-active";
 const numericTuningConfig = {
 	collapsedWidth: {
 		key: "__sidebar_tune_collapsed_width",
-		defaultValue: 3.5,
+		defaultValue: 3.25,
 	},
 	expandedWidth: {
 		key: "__sidebar_tune_expanded_width",
@@ -11,15 +11,15 @@ const numericTuningConfig = {
 	},
 	sectionMarginTop: {
 		key: "__sidebar_tune_section_margin_top",
-		defaultValue: 0.8,
+		defaultValue: 0.75,
 	},
 	railInsetLeft: {
 		key: "__sidebar_tune_rail_inset_left",
-		defaultValue: 0.375,
+		defaultValue: 0.5,
 	},
 	railInsetRight: {
 		key: "__sidebar_tune_rail_inset_right",
-		defaultValue: 0.375,
+		defaultValue: 0.5,
 	},
 	collapsedSectionPaddingX: {
 		key: "__sidebar_tune_collapsed_section_px",
@@ -51,7 +51,7 @@ const numericTuningConfig = {
 	},
 	rowHeight: {
 		key: "__sidebar_tune_row_height",
-		defaultValue: 2.25,
+		defaultValue: 1.75,
 	},
 	rowRadius: {
 		key: "__sidebar_tune_row_radius",
@@ -79,15 +79,15 @@ const numericTuningConfig = {
 	},
 	iconLaneSize: {
 		key: "__sidebar_tune_icon_lane",
-		defaultValue: 2.25,
+		defaultValue: 1.75,
 	},
 	iconSize: {
 		key: "__sidebar_tune_icon_size",
-		defaultValue: 1.25,
+		defaultValue: 1,
 	},
 	avatarSize: {
 		key: "__sidebar_tune_avatar_size",
-		defaultValue: 1.5,
+		defaultValue: 1.375,
 	},
 	labelFontSize: {
 		key: "__sidebar_tune_label_size",
@@ -126,7 +126,7 @@ const stringTuningConfig = {
 	},
 	rowActiveBg: {
 		key: "__sidebar_tune_active_bg",
-		defaultValue: "white",
+		defaultValue: "rgba(255, 255, 255, 0.72)",
 	},
 	rowFg: {
 		key: "__sidebar_tune_fg",

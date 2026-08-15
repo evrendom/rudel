@@ -1,10 +1,10 @@
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { createReadStream, existsSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
-import { loadEnv } from "vite";
-import { defineConfig } from "vitest/config";
+import { loadEnv, type Plugin } from "vite";
+import { configDefaults, defineConfig } from "vitest/config";
 
 const { version } = JSON.parse(
 	readFileSync(new URL("./package.json", import.meta.url), "utf-8"),
@@ -83,6 +83,121 @@ function buildApiProxy(target: string) {
 	return { "/api": options, "/rpc": options };
 }
 
+const interfereReferenceRoot = path.resolve(
+	__dirname,
+	"../marketing/__DO_NOT_MERGE__inspiration/interfere-com",
+);
+const interfereReferenceAssetRoots = new Map([
+	[
+		"/engineers-v2-assets/",
+		path.resolve(interfereReferenceRoot, "engineers-v2-assets"),
+	],
+	[
+		"/designers-session-assets/",
+		path.resolve(interfereReferenceRoot, "designers-session-assets"),
+	],
+]);
+const interfereReferenceRoutes = new Map([
+	["/product/engineers-v2", "interfere-engineers-v2.capture.html"],
+	["/product/engineers-v2/", "interfere-engineers-v2.capture.html"],
+	["/product/engineers-v2/hero", "interfere-engineers-v2-hero.capture.html"],
+	["/product/engineers-v2/hero/", "interfere-engineers-v2-hero.capture.html"],
+	["/product/designers-v2", "interfere-designers-session.capture.html"],
+	["/product/designers-v2/", "interfere-designers-session.capture.html"],
+	[
+		"/product/designers-v2/ship-faster",
+		"interfere-designers-ship-faster-scroll.capture.html",
+	],
+	[
+		"/product/designers-v2/ship-faster/",
+		"interfere-designers-ship-faster-scroll.capture.html",
+	],
+	[
+		"/product/designers-v2/ship-faster/state-1",
+		"interfere-designers-ship-faster-state-1.capture.html",
+	],
+	[
+		"/product/designers-v2/ship-faster/state-2",
+		"interfere-designers-session-section.capture.html",
+	],
+	[
+		"/product/designers-v2/ship-faster/state-3",
+		"interfere-designers-ship-faster-state-3.capture.html",
+	],
+]);
+const interfereReferenceContentTypes: Record<string, string> = {
+	".avif": "image/avif",
+	".css": "text/css; charset=utf-8",
+	".gif": "image/gif",
+	".html": "text/html; charset=utf-8",
+	".jpeg": "image/jpeg",
+	".jpg": "image/jpeg",
+	".js": "text/javascript; charset=utf-8",
+	".png": "image/png",
+	".svg": "image/svg+xml",
+	".webp": "image/webp",
+	".woff2": "font/woff2",
+};
+
+function interfereReferencePlugin(): Plugin {
+	return {
+		name: "interfere-reference",
+		apply: "serve",
+		configureServer(server) {
+			server.middlewares.use((request, response, next) => {
+				if (!request.url) {
+					next();
+					return;
+				}
+
+				let requestPath: string;
+				try {
+					requestPath = decodeURIComponent(
+						new URL(request.url, "http://localhost").pathname,
+					);
+				} catch {
+					next();
+					return;
+				}
+
+				const captureName = interfereReferenceRoutes.get(requestPath);
+				let filePath = captureName
+					? path.resolve(interfereReferenceRoot, captureName)
+					: null;
+
+				for (const [assetPrefix, assetRoot] of interfereReferenceAssetRoots) {
+					if (requestPath.startsWith(assetPrefix)) {
+						const assetName = requestPath.slice(assetPrefix.length);
+						if (assetName && path.basename(assetName) === assetName) {
+							filePath = path.resolve(assetRoot, assetName);
+						}
+						break;
+					}
+				}
+
+				if (
+					!filePath ||
+					!existsSync(filePath) ||
+					!statSync(filePath).isFile()
+				) {
+					next();
+					return;
+				}
+
+				response.statusCode = 200;
+				response.setHeader("cache-control", "no-store");
+				response.setHeader(
+					"content-type",
+					interfereReferenceContentTypes[
+						path.extname(filePath).toLowerCase()
+					] ?? "application/octet-stream",
+				);
+				createReadStream(filePath).pipe(response);
+			});
+		},
+	};
+}
+
 export default defineConfig(async ({ mode }) => {
 	const appVersion = await resolveAppVersion();
 	const env = loadEnv(mode, __dirname, "");
@@ -95,7 +210,7 @@ export default defineConfig(async ({ mode }) => {
 		define: {
 			__APP_VERSION__: JSON.stringify(appVersion),
 		},
-		plugins: [react(), tailwindcss()],
+		plugins: [interfereReferencePlugin(), react(), tailwindcss()],
 		server: {
 			port: 4011,
 			proxy: buildApiProxy(apiTarget),
@@ -107,6 +222,7 @@ export default defineConfig(async ({ mode }) => {
 		},
 		test: {
 			environment: "jsdom",
+			exclude: [...configDefaults.exclude, "e2e/**"],
 			environmentOptions: {
 				jsdom: {
 					url: "http://localhost:4011",
