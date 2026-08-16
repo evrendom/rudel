@@ -1,6 +1,7 @@
 import { type Ref, useMemo, useState } from "react";
 import {
 	type SessionContinuousTurnViewportStore,
+	useSessionContinuousTurnTrailingActiveSelection,
 	useSessionContinuousTurnVisibleRange,
 } from "./session-continuous-turn-viewport-store";
 import type { SessionTurnTableVirtualizerHandle } from "./session-detail-virtualization";
@@ -50,7 +51,10 @@ export function SessionTurnTablePane({
 	viewportStore: SessionContinuousTurnViewportStore;
 	virtualizerRef?: Ref<SessionTurnTableVirtualizerHandle>;
 }) {
+	const activeSelection =
+		useSessionContinuousTurnTrailingActiveSelection(viewportStore);
 	const viewportRange = useSessionContinuousTurnVisibleRange(viewportStore);
+	const effectiveSelection = activeSelection ?? selection;
 	const [primarySpeaker, setPrimarySpeaker] =
 		useState<SessionTurnTableSpeaker>("model");
 	const [visibleSpeakers, setVisibleSpeakers] = useState<
@@ -76,9 +80,9 @@ export function SessionTurnTablePane({
 		toggleSortDirection,
 		visibleMatches,
 	} = useSessionTurnTableControls({
-		onSelect: (index) => onSelect({ ...selection, index }),
+		onSelect: (index) => onSelect({ ...effectiveSelection, index }),
 		options,
-		selectedIndex: selection.index,
+		selectedIndex: effectiveSelection.index,
 	});
 	const tableRows = useMemo(
 		() =>
@@ -95,11 +99,11 @@ export function SessionTurnTablePane({
 	) {
 		setVisibleSpeakers(nextVisibleSpeakers);
 		const nextSpeaker = getVisibleSessionTurnSpeaker(
-			selection.speaker,
+			effectiveSelection.speaker,
 			nextVisibleSpeakers,
 		);
-		if (nextSpeaker !== selection.speaker) {
-			onSelect({ ...selection, speaker: nextSpeaker });
+		if (nextSpeaker !== effectiveSelection.speaker) {
+			onSelect({ ...effectiveSelection, speaker: nextSpeaker });
 		}
 	}
 
@@ -152,7 +156,7 @@ export function SessionTurnTablePane({
 					options={options}
 					primarySpeaker={primarySpeaker}
 					rows={tableRows}
-					selection={selection}
+					selection={effectiveSelection}
 					sort={sort}
 					userImageUrl={userImageUrl}
 					userLabel={userLabel}

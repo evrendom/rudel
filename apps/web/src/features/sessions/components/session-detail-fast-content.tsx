@@ -110,12 +110,6 @@ export function SessionDetailFastContent({
 		});
 	}
 
-	function handleContinuousTurnFocus(nextIndex: number) {
-		const nextSelection = { ...selection, index: nextIndex };
-		setSelection(nextSelection);
-		turnTableVirtualizerRef.current?.scrollToSelection(nextSelection);
-	}
-
 	async function loadPage(cursor: string, signal?: AbortSignal) {
 		signal?.throwIfAborted();
 		const input = {
@@ -178,17 +172,14 @@ export function SessionDetailFastContent({
 				) : null}
 				<SessionDetailLayout
 					bottomPaddingClassName={columnBottomPaddingClassName}
-					onContinuousTurnFocus={handleContinuousTurnFocus}
 					onSelect={handleSelection}
 					options={options}
-					responsePane={({ onContinuousTurnViewportChange }) => (
+					responsePane={({ viewportStore }) => (
 						<SessionDetailFastResponsePane
 							bottomPaddingClassName={columnBottomPaddingClassName}
 							onCancelSearchLoad={searchLoader.cancel}
-							onContinuousTurnFocus={handleContinuousTurnFocus}
-							onContinuousTurnViewportChange={(activeIndex, visibleRange) => {
-								onContinuousTurnViewportChange(activeIndex, visibleRange);
-								if (nextCursor && visibleRange[1] >= options.length - 5) {
+							onApproachEnd={() => {
+								if (nextCursor) {
 									void handleLoadNextPage();
 								}
 							}}
@@ -206,6 +197,7 @@ export function SessionDetailFastContent({
 							subagents={firstOverview.subagents}
 							userImageUrl={userImageUrl}
 							viewModel={viewModel}
+							viewportStore={viewportStore}
 							virtualizerRef={responseVirtualizerRef}
 						/>
 					)}

@@ -12,7 +12,6 @@ import {
 	extractSessionCompactionMetadata,
 	type SessionCompaction,
 } from "./session-compactions";
-import { shouldSyncContinuousTurnFocus } from "./session-continuous-turn-focus";
 import { SessionDetailLayout } from "./session-detail-layout";
 import {
 	type buildSessionDetailViewModel,
@@ -194,7 +193,6 @@ export function SessionDetailContent({
 		index: 0,
 		speaker: "model",
 	});
-	const programmaticScrollTargetRef = useRef<number | undefined>(undefined);
 	const turnTableSectionRef = useRef<HTMLElement>(null);
 	const boundedSelectedIndex = Math.min(
 		selection.index,
@@ -215,7 +213,6 @@ export function SessionDetailContent({
 
 	function handleTurnSelect(nextSelection: SessionTurnSelection) {
 		setSelection(nextSelection);
-		programmaticScrollTargetRef.current = undefined;
 		const scrollContainer = responseScrollRef.current;
 		const turnTarget = scrollContainer?.querySelector<HTMLElement>(
 			`[data-continuous-turn-index="${nextSelection.index}"]`,
@@ -230,18 +227,6 @@ export function SessionDetailContent({
 				scrollContainer.getBoundingClientRect().top +
 				scrollContainer.scrollTop;
 			const boundedTargetTop = Math.max(targetTop, 0);
-			if (Math.abs(scrollContainer.scrollTop - boundedTargetTop) > 1) {
-				programmaticScrollTargetRef.current = nextSelection.index;
-				scrollContainer.addEventListener(
-					"scrollend",
-					() => {
-						if (programmaticScrollTargetRef.current === nextSelection.index) {
-							programmaticScrollTargetRef.current = undefined;
-						}
-					},
-					{ once: true },
-				);
-			}
 			scrollContainer.scrollTo({
 				behavior: "smooth",
 				top: boundedTargetTop,
@@ -249,46 +234,10 @@ export function SessionDetailContent({
 		}
 	}
 
-	function handleContinuousTurnFocus(nextIndex: number) {
-		if (
-			!shouldSyncContinuousTurnFocus(
-				programmaticScrollTargetRef.current,
-				nextIndex,
-			)
-		) {
-			return;
-		}
-		programmaticScrollTargetRef.current = undefined;
-		if (nextIndex === boundedSelection.index) {
-			return;
-		}
-
-		setSelection((currentSelection) => ({
-			...currentSelection,
-			index: nextIndex,
-		}));
-		window.requestAnimationFrame(() => {
-			const selectedSpeakerRow =
-				turnTableSectionRef.current?.querySelector<HTMLElement>(
-					`[data-turn-index="${nextIndex}"][data-speaker="${boundedSelection.speaker}"]`,
-				);
-			const selectedTurnRow =
-				selectedSpeakerRow ??
-				turnTableSectionRef.current?.querySelector<HTMLElement>(
-					`[data-turn-index="${nextIndex}"]`,
-				);
-			selectedTurnRow?.scrollIntoView({
-				block: "nearest",
-				inline: "nearest",
-			});
-		});
-	}
-
 	return (
 		<div className="grid h-full min-h-0 min-w-0 grid-cols-[minmax(0,1fr)] overflow-hidden bg-(--session-overview-surface) [--session-overview-accent:#266df0] [--session-overview-border:#eeeff1] [--session-overview-hover:#f6f7f7] [--session-overview-muted:rgba(0,0,0,0.63)] [--session-overview-subtle:rgba(0,0,0,0.5)] [--session-overview-surface:#fff] [--session-overview-text:#101112] [font-family:Inter,sans-serif] dark:[--session-overview-border:rgba(255,255,255,0.08)] dark:[--session-overview-hover:rgba(255,255,255,0.05)] dark:[--session-overview-muted:rgba(255,255,255,0.65)] dark:[--session-overview-subtle:rgba(255,255,255,0.5)] dark:[--session-overview-surface:#111827] dark:[--session-overview-text:#f8fafc]">
 			<SessionDetailLayout
 				bottomPaddingClassName={columnBottomPaddingClassName}
-				onContinuousTurnFocus={handleContinuousTurnFocus}
 				onSelect={handleTurnSelect}
 				options={turnOptions}
 				responseScrollRef={responseScrollRef}

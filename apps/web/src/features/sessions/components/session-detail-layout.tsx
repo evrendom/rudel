@@ -4,6 +4,7 @@ import {
 	type Ref,
 	type RefObject,
 	useCallback,
+	useLayoutEffect,
 	useRef,
 	useState,
 } from "react";
@@ -17,6 +18,7 @@ import { clampPaneSize } from "@/components/ui/horizontal-resize-utils";
 import {
 	createSessionContinuousTurnViewportStore,
 	type SessionContinuousTurnViewportStore,
+	useSessionContinuousTurnActiveSelection,
 	useSessionContinuousTurnVisibleRange,
 } from "./session-continuous-turn-viewport-store";
 import {
@@ -48,10 +50,7 @@ type TurnTableGridStyle = CSSProperties & {
 };
 
 type SessionDetailResponsePaneRenderProps = {
-	onContinuousTurnViewportChange: (
-		activeIndex: number,
-		visibleRange: readonly [number, number],
-	) => void;
+	viewportStore: SessionContinuousTurnViewportStore;
 };
 
 function SessionThreadOverviewViewportStrip({
@@ -65,13 +64,15 @@ function SessionThreadOverviewViewportStrip({
 	selection: SessionTurnSelection;
 	store: SessionContinuousTurnViewportStore;
 }) {
+	const activeSelection = useSessionContinuousTurnActiveSelection(store);
 	const visibleRange = useSessionContinuousTurnVisibleRange(store);
+	const effectiveSelection = activeSelection ?? selection;
 
 	return (
 		<SessionThreadOverviewStrip
-			onSelect={(index) => onSelect({ ...selection, index })}
+			onSelect={(index) => onSelect({ ...effectiveSelection, index })}
 			options={options}
-			selectedIndex={selection.index}
+			selectedIndex={effectiveSelection.index}
 			visibleRange={visibleRange}
 		/>
 	);
@@ -79,7 +80,6 @@ function SessionThreadOverviewViewportStrip({
 
 type SessionDetailLayoutProps = {
 	bottomPaddingClassName: string;
-	onContinuousTurnFocus: (index: number) => void;
 	onSelect: (selection: SessionTurnSelection) => void;
 	options: readonly SessionTurnTablePaneOption[];
 	responsePane?: (props: SessionDetailResponsePaneRenderProps) => ReactNode;
@@ -94,7 +94,6 @@ type SessionDetailLayoutProps = {
 
 export function SessionDetailLayout({
 	bottomPaddingClassName,
-	onContinuousTurnFocus,
 	onSelect,
 	options,
 	responsePane,
@@ -135,12 +134,16 @@ export function SessionDetailLayout({
 	const [continuousTurnViewportStore] = useState(
 		createSessionContinuousTurnViewportStore,
 	);
-	const handleContinuousTurnViewportChange = useCallback(
-		(_activeIndex: number, visibleRange: readonly [number, number]) => {
-			continuousTurnViewportStore.publish(visibleRange);
+	const handleSelection = useCallback(
+		(nextSelection: SessionTurnSelection) => {
+			continuousTurnViewportStore.publishSelection(nextSelection);
+			onSelect(nextSelection);
 		},
-		[continuousTurnViewportStore],
+		[continuousTurnViewportStore, onSelect],
 	);
+	useLayoutEffect(() => {
+		continuousTurnViewportStore.publishSelection(selection);
+	}, [continuousTurnViewportStore, selection]);
 	const turnTablePaneMaximum =
 		layoutWidth > 0
 			? Math.min(
@@ -167,7 +170,7 @@ export function SessionDetailLayout({
 		<div className="flex h-full min-h-0 min-w-0 flex-col">
 			<SessionOverviewSummaryStrip options={options} viewModel={viewModel} />
 			<SessionThreadOverviewViewportStrip
-				onSelect={onSelect}
+				onSelect={handleSelection}
 				options={options}
 				selection={selection}
 				store={continuousTurnViewportStore}
@@ -184,7 +187,7 @@ export function SessionDetailLayout({
 				>
 					<SessionTurnTablePane
 						model={viewModel.safeModelUsed}
-						onSelect={onSelect}
+						onSelect={handleSelection}
 						options={options}
 						selection={selection}
 						userImageUrl={userImageUrl}
@@ -204,22 +207,18 @@ export function SessionDetailLayout({
 					onValuePreview={previewTurnTablePaneWidth}
 					value={turnTablePaneWidth}
 				/>
-				{responsePane?.({
-					onContinuousTurnViewportChange: handleContinuousTurnViewportChange,
-				}) ?? (
+				{responsePane?.({ viewportStore: continuousTurnViewportStore }) ?? (
 					<SessionTurnResponsePane
 						bottomPaddingClassName={bottomPaddingClassName}
 						detailLevel={detailLevel}
-						onContinuousTurnFocus={onContinuousTurnFocus}
-						onContinuousTurnViewportChange={handleContinuousTurnViewportChange}
 						onDetailLevelChange={handleDetailLevelChange}
 						options={options}
 						responseScrollRef={responseScrollRef}
-						selection={selection}
 						title="Session Detail"
 						traceCallDisplayMode={detailLevel}
 						userImageUrl={userImageUrl}
 						viewModel={viewModel}
+						viewportStore={continuousTurnViewportStore}
 					/>
 				)}
 			</div>

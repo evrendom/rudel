@@ -135,7 +135,7 @@
 }
 
 .session-constellation-tree
-	[data-continuous-turn-index]:has(
+	[data-continuous-turn-index]:is(
 		[data-active-rail-position="first"],
 		[data-active-rail-position="middle"]
 	)
@@ -144,7 +144,7 @@
 	> :first-child
 	[data-trace-tree-line-depth="1"][data-trace-tree-rail-segment="incoming"],
 .session-constellation-tree
-	[data-continuous-turn-index]:has(
+	[data-continuous-turn-index]:is(
 		[data-active-rail-position="first"],
 		[data-active-rail-position="middle"]
 	)
@@ -181,7 +181,28 @@
 }
 
 .session-constellation-tree
+	[data-continuous-turn-index][data-active-speaker="member"]
+	[data-session-turn-speaker="member"]
+	> [data-trace-tree-item-depth="1"]
+	> [data-trace-tree-row-owner]
+	[data-trace-tree-line-depth="1"] {
+	background-color: var(--active-turn-rail);
+	stroke: var(--active-turn-rail);
+	stroke-width: var(--active-turn-rail-width);
+}
+
+.session-constellation-tree
 	[data-active-member]
+	> [data-trace-tree-item-depth="1"]
+	> [data-trace-tree-row-owner]
+	[data-trace-tree-junction-depth="1"] {
+	--conversation-trace-junction-color: var(--active-turn-rail);
+	transform: scale(1.5);
+}
+
+.session-constellation-tree
+	[data-continuous-turn-index][data-active-speaker="member"]
+	[data-session-turn-speaker="member"]
 	> [data-trace-tree-item-depth="1"]
 	> [data-trace-tree-row-owner]
 	[data-trace-tree-junction-depth="1"] {

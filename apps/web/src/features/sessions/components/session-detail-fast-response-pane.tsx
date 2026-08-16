@@ -12,6 +12,7 @@ import { ConversationTrace } from "@/components/conversation/ConversationTrace";
 import { buildConversationTrace } from "@/components/conversation/conversation-trace";
 import { parseConversations } from "@/lib/conversation-schema";
 import { SessionContinuousTurnThread } from "./session-continuous-turn-thread";
+import type { SessionContinuousTurnViewportStore } from "./session-continuous-turn-viewport-store";
 import {
 	fetchSessionDetailSubagent,
 	fetchSessionDetailTurn,
@@ -45,8 +46,7 @@ type SubagentSummary = SessionDetailOverview["subagents"][number];
 export function SessionDetailFastResponsePane({
 	bottomPaddingClassName,
 	onCancelSearchLoad,
-	onContinuousTurnFocus,
-	onContinuousTurnViewportChange,
+	onApproachEnd,
 	onSearchFocus,
 	onSearchHit,
 	onStaleRevision,
@@ -59,15 +59,12 @@ export function SessionDetailFastResponsePane({
 	subagents,
 	userImageUrl,
 	viewModel,
+	viewportStore,
 	virtualizerRef,
 }: {
 	bottomPaddingClassName: string;
 	onCancelSearchLoad: () => void;
-	onContinuousTurnFocus: (index: number) => void;
-	onContinuousTurnViewportChange: (
-		activeIndex: number,
-		visibleRange: readonly [number, number],
-	) => void;
+	onApproachEnd: () => void;
 	onSearchFocus: () => void;
 	onSearchHit: (index: number) => void;
 	onStaleRevision: (error: unknown) => void;
@@ -80,6 +77,7 @@ export function SessionDetailFastResponsePane({
 	subagents: readonly SubagentSummary[];
 	userImageUrl: string | undefined;
 	viewModel: SessionDetailOverviewViewModel;
+	viewportStore: SessionContinuousTurnViewportStore;
 	virtualizerRef: RefObject<SessionContinuousTurnVirtualizerHandle | null>;
 }) {
 	const queryClient = useQueryClient();
@@ -187,15 +185,25 @@ export function SessionDetailFastResponsePane({
 			for (const index of renderedIndices) {
 				void loadTurnBody(index);
 			}
+			if ((renderedIndices.at(-1) ?? -1) >= options.length - 5) {
+				onApproachEnd();
+			}
 		},
 		[
 			loadTurnBody,
+			onApproachEnd,
 			options,
 			queryClient,
 			revision,
 			searchLoad.status,
 			sessionId,
 		],
+	);
+	const handleRetryTurnBody = useCallback(
+		(index: number) => {
+			void loadTurnBody(index);
+		},
+		[loadTurnBody],
 	);
 
 	useMountEffect(() => {
@@ -245,18 +253,14 @@ export function SessionDetailFastResponsePane({
 			>
 				<SessionContinuousTurnThread
 					bodyStates={bodyStates}
-					onActiveIndexChange={onContinuousTurnFocus}
 					onRenderedRangeChange={handleRenderedRangeChange}
-					onRetryTurnBody={(index) => {
-						void loadTurnBody(index);
-					}}
-					onViewportChange={onContinuousTurnViewportChange}
+					onRetryTurnBody={handleRetryTurnBody}
 					options={loadedOptions}
 					scrollContainerRef={responseScrollRef}
-					selection={selection}
 					traceCallDisplayMode={detailLevel}
 					userImageUrl={userImageUrl}
 					viewModel={viewModel}
+					viewportStore={viewportStore}
 					virtualizerRef={virtualizerRef}
 				/>
 				<SessionDetailSubagents

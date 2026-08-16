@@ -2,43 +2,36 @@ import type { RefObject } from "react";
 import type { TraceCallDisplayMode } from "@/components/conversation/ConversationTrace";
 import "./session-constellation-tree.css";
 import { SessionContinuousTurnThread } from "./session-continuous-turn-thread";
+import type { SessionContinuousTurnViewportStore } from "./session-continuous-turn-viewport-store";
 import type { SessionDetailLevel } from "./session-detail-level";
 import { SessionDetailLevelToggle } from "./session-detail-level-toggle";
 import type { buildSessionDetailViewModel } from "./session-detail-view-model";
 import type { SessionTurnTablePaneOption } from "./session-turn-table-pane";
-import type { SessionTurnSelection } from "./session-turn-table-selection";
 
 type SessionDetailViewModel = ReturnType<typeof buildSessionDetailViewModel>;
 
 export function SessionTurnResponsePane({
 	bottomPaddingClassName,
 	detailLevel,
-	onContinuousTurnFocus,
-	onContinuousTurnViewportChange,
 	onDetailLevelChange,
 	options,
 	responseScrollRef,
-	selection,
 	title,
 	traceCallDisplayMode,
 	userImageUrl,
 	viewModel,
+	viewportStore,
 }: {
 	bottomPaddingClassName: string;
 	detailLevel: SessionDetailLevel;
-	onContinuousTurnFocus: (index: number) => void;
-	onContinuousTurnViewportChange: (
-		activeIndex: number,
-		visibleRange: readonly [number, number],
-	) => void;
 	onDetailLevelChange: (level: SessionDetailLevel) => void;
 	options: readonly SessionTurnTablePaneOption[];
 	responseScrollRef: RefObject<HTMLDivElement | null>;
-	selection: SessionTurnSelection;
 	title: string;
 	traceCallDisplayMode: TraceCallDisplayMode;
 	userImageUrl: string | undefined;
 	viewModel: SessionDetailViewModel;
+	viewportStore: SessionContinuousTurnViewportStore;
 }) {
 	return (
 		<div className="flex h-full min-h-0 min-w-0 flex-col">
@@ -59,14 +52,12 @@ export function SessionTurnResponsePane({
 				className={`session-constellation-tree h-full min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain bg-(--session-overview-surface) ${bottomPaddingClassName}`}
 			>
 				<SessionContinuousTurnThread
-					onActiveIndexChange={onContinuousTurnFocus}
-					onViewportChange={onContinuousTurnViewportChange}
 					options={options}
 					scrollContainerRef={responseScrollRef}
-					selection={selection}
 					traceCallDisplayMode={traceCallDisplayMode}
 					userImageUrl={userImageUrl}
 					viewModel={viewModel}
+					viewportStore={viewportStore}
 				/>
 			</section>
 		</div>

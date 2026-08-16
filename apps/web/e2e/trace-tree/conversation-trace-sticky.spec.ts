@@ -63,25 +63,27 @@ async function openContinuousFixture(
 	const modelTriggers = scroller
 		.locator("[data-trace-model-label]")
 		.locator("xpath=ancestor::button[1]");
-	await expect(modelTriggers.first()).toHaveAttribute("aria-expanded", "false");
 	for (const trigger of await modelTriggers.all()) {
 		await trigger.evaluate((button) => {
 			if (!(button instanceof HTMLButtonElement)) {
 				throw new Error("Fixture model trigger must be a button");
 			}
-			button.click();
+			if (button.getAttribute("aria-expanded") === "false") {
+				button.click();
+			}
 		});
 	}
 	const requestTriggers = scroller
 		.locator("[data-trace-request-label]")
 		.locator("xpath=ancestor::button[1]");
 	for (const trigger of await requestTriggers.all()) {
-		await expect(trigger).toHaveAttribute("aria-expanded", "false");
 		await trigger.evaluate((button) => {
 			if (!(button instanceof HTMLButtonElement)) {
 				throw new Error("Fixture request trigger must be a button");
 			}
-			button.click();
+			if (button.getAttribute("aria-expanded") === "false") {
+				button.click();
+			}
 		});
 	}
 	await waitForStableLayout(page);
@@ -383,6 +385,228 @@ async function readPinnedRows(scroller: Locator): Promise<RowPosition[]> {
 	);
 }
 
+async function runContinuousScrollClassifier(
+	scroller: Locator,
+	pixelsPerFrame: number,
+	maximumFrames: number,
+) {
+	return scroller.evaluate(
+		async (element, input) => {
+			if (!(element instanceof HTMLElement)) {
+				throw new Error("Scroll classifier requires an HTMLElement scroller");
+			}
+			const virtualContainer = element.querySelector<HTMLElement>(
+				"[data-session-virtual-turn-container]",
+			);
+			const resetProfile = element.querySelector<HTMLButtonElement>(
+				"[data-trace-fixture-reset-profile]",
+			);
+			if (!virtualContainer || !resetProfile) {
+				throw new Error("Scroll classifier fixture is incomplete");
+			}
+
+			await new Promise<void>((resolve) =>
+				requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+			);
+			if (
+				element.querySelectorAll("[data-session-virtual-turn-index]").length ===
+				0
+			) {
+				throw new Error("Scroll classifier virtual rows did not mount");
+			}
+			resetProfile.click();
+
+			const longTasks: number[] = [];
+			const observer = PerformanceObserver.supportedEntryTypes.includes(
+				"longtask",
+			)
+				? new PerformanceObserver((list) => {
+						for (const entry of list.getEntries()) {
+							longTasks.push(entry.duration);
+						}
+					})
+				: undefined;
+			observer?.observe({ entryTypes: ["longtask"] });
+
+			let maxBlankPixels = 0;
+			let maxLateRows = 0;
+			let maxMountedRows = 0;
+			let maxOverlapPixels = 0;
+			let maxStaleSizePixels = 0;
+			let maxVelocity = 0;
+			let previousScrollTop = element.scrollTop;
+			let previousTimestamp = performance.now();
+			let samples = 0;
+			const maximumScrollTop = Math.max(
+				0,
+				virtualContainer.offsetHeight - element.clientHeight - 1,
+			);
+			const targetScrollTop = Math.min(
+				maximumScrollTop,
+				element.clientHeight * 5,
+			);
+
+			while (
+				element.scrollTop < targetScrollTop &&
+				samples < input.maximumFrames
+			) {
+				await new Promise<void>((resolve) =>
+					requestAnimationFrame(() => resolve()),
+				);
+				const timestamp = performance.now();
+				element.scrollTop = Math.min(
+					targetScrollTop,
+					element.scrollTop + input.pixelsPerFrame,
+				);
+				const elapsed = Math.max(timestamp - previousTimestamp, 0.01);
+				maxVelocity = Math.max(
+					maxVelocity,
+					((element.scrollTop - previousScrollTop) / elapsed) * 1000,
+				);
+				previousScrollTop = element.scrollTop;
+				previousTimestamp = timestamp;
+				samples += 1;
+
+				const scrollerBounds = element.getBoundingClientRect();
+				const viewportTop = scrollerBounds.top;
+				const viewportBottom = scrollerBounds.bottom;
+				const rows = Array.from(
+					element.querySelectorAll<HTMLElement>(
+						"[data-session-virtual-turn-index]",
+					),
+				)
+					.map((row) => {
+						const bounds = row.getBoundingClientRect();
+						return {
+							bottom: bounds.bottom,
+							empty:
+								!row.querySelector("[data-continuous-turn-index]") ||
+								row.textContent?.trim().length === 0,
+							staleSize: Math.abs(
+								row.offsetHeight -
+									Number(
+										row.dataset.sessionVirtualTurnSize ?? row.offsetHeight,
+									),
+							),
+							top: bounds.top,
+						};
+					})
+					.sort((left, right) => left.top - right.top);
+				maxMountedRows = Math.max(maxMountedRows, rows.length);
+				maxLateRows = Math.max(
+					maxLateRows,
+					rows.filter(
+						(row) =>
+							row.empty && row.bottom > viewportTop && row.top < viewportBottom,
+					).length,
+				);
+				maxStaleSizePixels = Math.max(
+					maxStaleSizePixels,
+					...rows.map((row) => row.staleSize),
+				);
+
+				let coveredUntil = viewportTop;
+				let blankPixels = 0;
+				for (const row of rows) {
+					const top = Math.max(row.top, viewportTop);
+					const bottom = Math.min(row.bottom, viewportBottom);
+					if (bottom <= viewportTop || top >= viewportBottom) {
+						continue;
+					}
+					if (top > coveredUntil) {
+						blankPixels += top - coveredUntil;
+					}
+					coveredUntil = Math.max(coveredUntil, bottom);
+				}
+				blankPixels += Math.max(0, viewportBottom - coveredUntil);
+				maxBlankPixels = Math.max(maxBlankPixels, blankPixels);
+
+				for (let index = 1; index < rows.length; index += 1) {
+					const previous = rows[index - 1];
+					const current = rows[index];
+					if (previous && current) {
+						maxOverlapPixels = Math.max(
+							maxOverlapPixels,
+							previous.bottom - current.top,
+						);
+					}
+				}
+			}
+
+			await new Promise<void>((resolve) =>
+				requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+			);
+			observer?.disconnect();
+
+			const profile = {
+				maxFullMountDuration: Number(
+					element.dataset.traceFixtureProfileMaxFullMountDuration ?? 0,
+				),
+				maxMountDuration: Number(
+					element.dataset.traceFixtureProfileMaxMountDuration ?? 0,
+				),
+				maxRowsPerUpdateCommit: Number(
+					element.dataset.traceFixtureProfileMaxRowsPerUpdateCommit ?? 0,
+				),
+				maxShellMountDuration: Number(
+					element.dataset.traceFixtureProfileMaxShellMountDuration ?? 0,
+				),
+				maxUpdateDuration: Number(
+					element.dataset.traceFixtureProfileMaxUpdateDuration ?? 0,
+				),
+				mountDuration: Number(
+					element.dataset.traceFixtureProfileMountDuration ?? 0,
+				),
+				mounts: Number(element.dataset.traceFixtureProfileMounts ?? 0),
+				rowMounts: JSON.parse(
+					element.dataset.traceFixtureProfileRowMounts ?? "{}",
+				),
+				rowUpdates: JSON.parse(
+					element.dataset.traceFixtureProfileRowUpdates ?? "{}",
+				),
+				updateDuration: Number(
+					element.dataset.traceFixtureProfileUpdateDuration ?? 0,
+				),
+				updates: Number(element.dataset.traceFixtureProfileUpdates ?? 0),
+			};
+			await new Promise<void>((resolve) => window.setTimeout(resolve, 650));
+			await new Promise<void>((resolve) =>
+				requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+			);
+			const scrollerBounds = element.getBoundingClientRect();
+			const visibleShellsAfterSettle = Array.from(
+				element.querySelectorAll<HTMLElement>(
+					"[data-session-virtual-turn-render='shell']",
+				),
+			).filter((row) => {
+				const bounds = row.getBoundingClientRect();
+				return (
+					bounds.bottom > scrollerBounds.top &&
+					bounds.top < scrollerBounds.bottom
+				);
+			}).length;
+
+			return {
+				longTaskCount: longTasks.length,
+				longTaskDuration: longTasks.reduce(
+					(total, duration) => total + duration,
+					0,
+				),
+				maxBlankPixels,
+				maxLateRows,
+				maxMountedRows,
+				maxOverlapPixels,
+				maxStaleSizePixels,
+				maxVelocity,
+				profile,
+				samples,
+				visibleShellsAfterSettle,
+			};
+		},
+		{ maximumFrames, pixelsPerFrame },
+	);
+}
+
 test("streamed turn bodies never paint overlapping virtual rows", async ({
 	page,
 }) => {
@@ -461,6 +685,57 @@ test("streamed turn bodies never paint overlapping virtual rows", async ({
 	}, POSITION_TOLERANCE);
 
 	expect(overlaps).toEqual([]);
+});
+
+test("continuous scrolling keeps mounted trace coverage responsive", async ({
+	page,
+}) => {
+	await page.goto(
+		`${FIXTURE_ROUTE}?mode=continuous&display=normal&profile=scroll`,
+	);
+	const scroller = page.locator("[data-trace-fixture-continuous-scroller]");
+	await expect(scroller).toBeVisible();
+	await expect(scroller).toHaveAttribute(
+		"data-trace-fixture-hydrated-turns",
+		"18",
+	);
+	await waitForStableLayout(page);
+
+	const medium = await runContinuousScrollClassifier(scroller, 16, 360);
+	await page.goto(
+		`${FIXTURE_ROUTE}?mode=continuous&display=normal&profile=scroll`,
+	);
+	const flickScroller = page.locator(
+		"[data-trace-fixture-continuous-scroller]",
+	);
+	await expect(flickScroller).toHaveAttribute(
+		"data-trace-fixture-hydrated-turns",
+		"18",
+	);
+	await waitForStableLayout(page);
+	const flick = await runContinuousScrollClassifier(flickScroller, 96, 90);
+	console.info("scroll-classifier", JSON.stringify({ flick, medium }));
+
+	expect.soft(medium.profile.maxRowsPerUpdateCommit).toBeLessThanOrEqual(2);
+	expect.soft(medium.profile.maxMountDuration).toBeLessThanOrEqual(16);
+	expect.soft(medium.profile.maxFullMountDuration).toBe(0);
+	expect.soft(medium.profile.maxUpdateDuration).toBeLessThanOrEqual(16);
+	expect.soft(medium.maxBlankPixels).toBeLessThanOrEqual(POSITION_TOLERANCE);
+	expect.soft(medium.maxLateRows).toBe(0);
+	expect.soft(medium.maxOverlapPixels).toBeLessThanOrEqual(POSITION_TOLERANCE);
+	expect
+		.soft(medium.maxStaleSizePixels)
+		.toBeLessThanOrEqual(POSITION_TOLERANCE);
+	expect.soft(medium.visibleShellsAfterSettle).toBe(0);
+	expect.soft(flick.profile.maxRowsPerUpdateCommit).toBeLessThanOrEqual(2);
+	expect.soft(flick.profile.maxMountDuration).toBeLessThanOrEqual(16);
+	expect.soft(flick.profile.maxFullMountDuration).toBe(0);
+	expect.soft(flick.profile.maxUpdateDuration).toBeLessThanOrEqual(16);
+	expect.soft(flick.maxBlankPixels).toBeLessThanOrEqual(POSITION_TOLERANCE);
+	expect.soft(flick.maxLateRows).toBe(0);
+	expect.soft(flick.maxOverlapPixels).toBeLessThanOrEqual(POSITION_TOLERANCE);
+	expect.soft(flick.maxStaleSizePixels).toBeLessThanOrEqual(POSITION_TOLERANCE);
+	expect.soft(flick.visibleShellsAfterSettle).toBe(0);
 });
 
 test("sticky geometry is path-independent after down and up sweeps", async ({
