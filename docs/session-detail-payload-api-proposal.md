@@ -307,12 +307,20 @@ reconciliation. For the request-time launch bridge, the agreed bounds are:
 - a 64 MiB maximum cache entry, with larger derivations served but not cached;
 - at most two concurrent cross-session derivations per API process.
 
-Before the guard defaults on, repeat the same 28-session authenticated sweep.
-The re-run must produce cache evictions, preserve a warm overview p95 at or
-below 500 ms on the selected working set, and leave OS-reported RSS at or below
-600 MiB after 30 seconds without session-detail traffic. RSS is measured from
-the operating system because per-derivation heap deltas are not peak-allocation
-measurements and are not assumed to be strictly additive.
+Before the guard defaults on, run the same 28-session authenticated sweep twice
+back-to-back in one fresh API process. The re-run must produce cache evictions,
+preserve a warm overview p95 at or below 500 ms on the selected working set, and
+pass all three memory checks after 30 seconds without session-detail traffic:
+
+- post-idle live memory (`heapUsed + external`) is at or below 600 MiB;
+- OS-reported RSS after sweep two is within 10% of the post-idle RSS after sweep
+  one, proving allocator high-water pages plateau rather than grow per cycle;
+- plateau RSS is at or below 1 GiB on the 2 GB production machine.
+
+OS RSS is intentionally a plateau and headroom signal, not the live-footprint
+metric: Bun/JSC may retain freed allocator pages after transient parse peaks.
+Per-derivation heap deltas are not peak-allocation measurements and are not
+assumed to be strictly additive.
 
 ## Target: ingest-time materialization
 
@@ -458,8 +466,9 @@ or edge layer as long as it is observable and tested end to end.
   each Fly machine is assumed to warm independently.
 - The 28-session step-6 re-run proves the 256 MiB cache evicts, the 64 MiB entry
   guard rejects pathological entries, global derivation concurrency never
-  exceeds two, warm overview p95 remains at or below 500 ms, and quiescent OS
-  RSS remains at or below 600 MiB.
+  exceeds two, warm overview p95 remains at or below 500 ms, post-idle live
+  memory remains at or below 600 MiB, and repeat-sweep RSS plateaus within 10%
+  at or below 1 GiB.
 - No new cost calculation is introduced.
 
 ## Resolved decisions and deferred work
