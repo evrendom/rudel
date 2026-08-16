@@ -47,6 +47,8 @@ A platform for ingesting, storing, and analyzing Claude Code / Codex session tra
 | `APP_URL` | No | API base URL (default: `http://localhost:4010`) |
 | `ALLOWED_ORIGIN` | No | CORS origin (default: `http://localhost:4011`) |
 | `MAX_REQUEST_BODY_BYTES` | No | Positive integer HTTP request-body ceiling in bytes (default: 160 MiB) |
+| `SESSION_DETAIL_DERIVATION_CACHE_MAX_BYTES` | No | Per-process byte budget for revision-keyed session-detail derivations (default: 512 MiB) |
+| `SESSION_DETAIL_DERIVATION_CACHE_MAX_ENTRY_BYTES` | No | Maximum logical bytes retained for one session-detail derivation (default: 192 MiB) |
 | `RATE_LIMIT_INGEST_REQUESTS_MAX` | No | Positive integer per-user ingest request cap per API process (default: 15,000) |
 | `RATE_LIMIT_INGEST_REQUESTS_WINDOW` | No | Positive integer ingest request window in seconds (default: 3,600) |
 | `RATE_LIMIT_INGEST_BYTES_MAX` | No | Positive integer per-user ingest byte cap per API process (default: 10 GiB) |

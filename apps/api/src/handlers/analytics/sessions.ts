@@ -7,8 +7,11 @@ import {
 	getSessionDetail,
 	getSessionDimensionAnalysis,
 } from "../../services/session-analytics.service.js";
+import { getSessionDetailOverview } from "../../services/session-detail.service.js";
+import { InvalidSessionDetailCursorError } from "../../services/session-detail-derivation.service.js";
 import { getSessionOwner } from "../../services/session-ownership.service.js";
 import { requireSessionDetailOwnerAccess } from "./session-detail-access.js";
+import { throwSessionDetailRevisionError } from "./session-detail-errors.js";
 
 const sortByMap: Record<string, "date" | "duration" | "interactions"> = {
 	session_date: "date",
@@ -87,7 +90,41 @@ const detail = os.analytics.sessions.detail
 		return result;
 	});
 
+const detailOverview = os.analytics.sessions.detailOverview
+	.use(orgMiddleware)
+	.handler(async ({ input, context }) => {
+		const ownerId = requireSessionDetailOwnerAccess(
+			await getSessionOwner(context.organizationId, input.sessionId),
+			{
+				isOrgAdmin: context.isOrgAdmin,
+				requesterUserId: context.user.id,
+			},
+		);
+
+		try {
+			const result = await getSessionDetailOverview({
+				organizationId: context.organizationId,
+				ownerId,
+				sessionId: input.sessionId,
+				turnCursor: input.turnCursor,
+				turnLimit: input.turnLimit,
+			});
+			if (!result) {
+				throw new ORPCError("NOT_FOUND");
+			}
+			return result;
+		} catch (error) {
+			if (error instanceof InvalidSessionDetailCursorError) {
+				throw new ORPCError("BAD_REQUEST", {
+					message: error.message,
+				});
+			}
+			return throwSessionDetailRevisionError(error);
+		}
+	});
+
 export const sessionsRouter = os.analytics.sessions.router({
+	detailOverview,
 	list,
 	summary,
 	summaryComparison,

@@ -80,6 +80,7 @@ import {
 	PublicWrappedShareSchema,
 	WrappedShareRecordSchema,
 } from "./schemas/wrapped-share.js";
+import { sessionDetailProcedureContracts } from "./session-detail-contract.js";
 
 export * from "./avatar.js";
 export * from "./device-flow.js";
@@ -131,6 +132,7 @@ export {
 	AssistantEntrySchema,
 	AssistantMessageSchema,
 	addUniqueEditedFiles,
+	assignCompactionsBeforeTurns,
 	buildConversationTrace,
 	type Conversation,
 	type ConversationExecutionMode,
@@ -138,6 +140,7 @@ export {
 	ConversationSchema,
 	compactPreview,
 	extractCodexTokenData,
+	extractSessionCompactionMetadata,
 	extractSessionTurnMetrics,
 	extractTranscriptUsageMetrics,
 	formatClockTime,
@@ -151,8 +154,13 @@ export {
 	getSessionTurnTiming,
 	groupTraceIntoTurns,
 	isCodexFormat,
+	isSlashCommandMessage,
+	type ParsedSlashCommand,
 	parseCodexConversations,
 	parseConversations,
+	parseSlashCommand,
+	type SessionCompaction,
+	type SessionCompactionMetadata,
 	type SessionTurn,
 	type SessionTurnErrorEvent,
 	type SessionTurnMetrics,
@@ -492,6 +500,7 @@ export const contract = {
 				.output(z.array(ProjectErrorSchema)),
 		},
 		sessions: {
+			detailOverview: sessionDetailProcedureContracts.detailOverview,
 			list: oc
 				.input(SessionListInputSchema)
 				.output(z.array(SessionAnalyticsSchema)),

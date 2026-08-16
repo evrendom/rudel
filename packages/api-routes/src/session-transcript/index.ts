@@ -43,6 +43,17 @@ export {
 	userContentText,
 } from "./conversation-trace.js";
 export {
+	isSlashCommandMessage,
+	type ParsedSlashCommand,
+	parseSlashCommand,
+} from "./parse-slash-command.js";
+export {
+	assignCompactionsBeforeTurns,
+	extractSessionCompactionMetadata,
+	type SessionCompaction,
+	type SessionCompactionMetadata,
+} from "./session-compactions.js";
+export {
 	addUniqueEditedFiles,
 	getClaudeMutationFiles,
 	getCodexMutationFiles,
