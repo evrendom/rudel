@@ -3,7 +3,6 @@ import type { SessionDetailOverviewTurnOption } from "./session-detail-overview-
 import {
 	estimateSessionContinuousTurnSize,
 	estimateSessionTurnTableRowSize,
-	getSessionVirtualViewport,
 	measureSessionVirtualElement,
 } from "./session-detail-virtualization";
 import type { SessionTurnTableRow } from "./session-turn-table";
@@ -102,22 +101,5 @@ describe("session detail virtualization", () => {
 				row,
 			}),
 		);
-	});
-
-	it("derives active and visible turns from virtual measurements", () => {
-		const viewport = getSessionVirtualViewport({
-			count: 6,
-			items: [
-				{ end: 300, index: 1, key: "one", lane: 0, size: 200, start: 100 },
-				{ end: 500, index: 2, key: "two", lane: 0, size: 200, start: 300 },
-				{ end: 700, index: 3, key: "three", lane: 0, size: 200, start: 500 },
-			],
-			scrollOffset: 250,
-			viewportSize: 320,
-		});
-		expect(viewport).toEqual({
-			activeIndex: 2,
-			visibleRange: [1, 3],
-		});
 	});
 });

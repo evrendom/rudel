@@ -16,10 +16,7 @@ import {
 	buildSessionDetailOverviewTurnOptions,
 	buildSessionDetailOverviewViewModel,
 } from "./session-detail-overview-model";
-import type {
-	SessionContinuousTurnVirtualizerHandle,
-	SessionTurnTableVirtualizerHandle,
-} from "./session-detail-virtualization";
+import type { SessionTurnTableVirtualizerHandle } from "./session-detail-virtualization";
 import type { SessionTurnSelection } from "./session-turn-table-selection";
 import { useSessionDetailSearchLoader } from "./use-session-detail-search-loader";
 
@@ -61,8 +58,6 @@ export function SessionDetailFastContent({
 		speaker: "model",
 	}));
 	const turnTableSectionRef = useRef<HTMLElement>(null);
-	const responseVirtualizerRef =
-		useRef<SessionContinuousTurnVirtualizerHandle>(null);
 	const turnTableVirtualizerRef =
 		useRef<SessionTurnTableVirtualizerHandle>(null);
 	const pages = useMemo(
@@ -104,9 +99,12 @@ export function SessionDetailFastContent({
 			});
 		}
 		setSelection(nextSelection);
-		responseVirtualizerRef.current?.scrollToIndex(nextSelection.index, {
-			align: "start",
-			behavior: "smooth",
+		window.requestAnimationFrame(() => {
+			responseScrollRef.current
+				?.querySelector<HTMLElement>(
+					`[data-continuous-turn-index="${nextSelection.index}"]`,
+				)
+				?.scrollIntoView({ block: "start", behavior: "smooth" });
 		});
 	}
 
@@ -198,7 +196,6 @@ export function SessionDetailFastContent({
 							userImageUrl={userImageUrl}
 							viewModel={viewModel}
 							viewportStore={viewportStore}
-							virtualizerRef={responseVirtualizerRef}
 						/>
 					)}
 					responseScrollRef={responseScrollRef}

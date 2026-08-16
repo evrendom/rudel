@@ -1,250 +1,156 @@
-import { useVirtualizer, type Virtualizer } from "@tanstack/react-virtual";
 import {
 	memo,
 	Profiler,
 	type ProfilerOnRenderCallback,
-	type Ref,
 	type RefObject,
-	useCallback,
-	useImperativeHandle,
-	useLayoutEffect,
 	useRef,
 } from "react";
+import { useLatestValueRef } from "@/app/hooks/useLatestValueRef";
+import { useMountEffect } from "@/app/hooks/useMountEffect";
 import {
 	ConversationTraceTreeConnectorStyleProvider,
 	type TraceCallDisplayMode,
 } from "@/components/conversation/ConversationTrace";
 import {
+	getContinuousTurnViewport,
+	getPrefetchedContinuousTurnIndices,
+} from "./session-continuous-turn-focus";
+import {
 	type SessionContinuousTurnBodyState,
 	SessionContinuousTurnSection,
-	SessionContinuousTurnShell,
 } from "./session-continuous-turn-row";
 import type { SessionContinuousTurnViewportStore } from "./session-continuous-turn-viewport-store";
 import type { buildSessionDetailViewModel } from "./session-detail-view-model";
-import {
-	estimateSessionContinuousTurnSize,
-	getSessionVirtualViewport,
-	measureSessionVirtualElement,
-	SESSION_DETAIL_VIRTUAL_OVERSCAN,
-	type SessionContinuousTurnVirtualizerHandle,
-} from "./session-detail-virtualization";
+import { estimateSessionContinuousTurnSize } from "./session-detail-virtualization";
 import type { SessionTurnTablePaneOption } from "./session-turn-table-pane";
 
 type SessionDetailViewModel = ReturnType<typeof buildSessionDetailViewModel>;
 
-function positionMountedSessionVirtualRows(
-	virtualizer: Virtualizer<HTMLDivElement, HTMLElement>,
-	scrollContainer: HTMLDivElement | null,
-) {
-	if (!scrollContainer) {
-		return;
-	}
-	const virtualItemsByIndex = new Map(
-		virtualizer.getVirtualItems().map((item) => [item.index, item]),
-	);
-	const mountedRows = Array.from(
-		scrollContainer.querySelectorAll<HTMLElement>(
-			"[data-session-virtual-turn-index]",
-		),
-	)
-		.map((element) => ({
-			element,
-			index: Number(element.dataset.sessionVirtualTurnIndex),
-		}))
-		.sort((left, right) => left.index - right.index);
-
-	let segmentStart = 0;
-	while (segmentStart < mountedRows.length) {
-		let segmentEnd = segmentStart + 1;
-		while (
-			segmentEnd < mountedRows.length &&
-			mountedRows[segmentEnd]?.index ===
-				(mountedRows[segmentEnd - 1]?.index ?? -1) + 1
-		) {
-			segmentEnd += 1;
-		}
-		const segment = mountedRows.slice(segmentStart, segmentEnd);
-		const anchorOffset = segment.findIndex((row) =>
-			virtualItemsByIndex.has(row.index),
-		);
-		const anchor = segment[anchorOffset];
-		const anchorItem = anchor
-			? virtualItemsByIndex.get(anchor.index)
-			: undefined;
-		if (anchor && anchorItem) {
-			const starts = new Map<number, number>([
-				[anchorOffset, anchorItem.start],
-			]);
-			for (
-				let offset = anchorOffset + 1;
-				offset < segment.length;
-				offset += 1
-			) {
-				const previous = segment[offset - 1];
-				const previousStart = starts.get(offset - 1);
-				if (previous && previousStart !== undefined) {
-					starts.set(offset, previousStart + previous.element.offsetHeight);
-				}
-			}
-			for (let offset = anchorOffset - 1; offset >= 0; offset -= 1) {
-				const row = segment[offset];
-				const nextStart = starts.get(offset + 1);
-				if (row && nextStart !== undefined) {
-					starts.set(offset, nextStart - row.element.offsetHeight);
-				}
-			}
-			for (const [offset, start] of starts) {
-				const row = segment[offset];
-				if (row) {
-					row.element.style.transform = `translateY(${start}px)`;
-				}
-			}
-		}
-		segmentStart = segmentEnd;
-	}
-}
+const ACTIVE_TURN_MAX_FOCUS_OFFSET_PX = 160;
+const ACTIVE_TURN_FOCUS_RATIO = 0.3;
+const TURN_BODY_PREFETCH_RADIUS = 4;
 
 export const SessionContinuousTurnThread = memo(
 	function SessionContinuousTurnThread({
 		bodyStates,
-		onRenderedRangeChange,
 		onRetryTurnBody,
 		onTurnRender,
+		onViewportRangeChange,
 		options,
 		scrollContainerRef,
 		traceCallDisplayMode = "normal",
 		userImageUrl,
 		viewModel,
 		viewportStore,
-		virtualizerRef,
 	}: {
 		bodyStates?: ReadonlyMap<string, SessionContinuousTurnBodyState>;
-		onRenderedRangeChange?: (indices: readonly number[]) => void;
 		onRetryTurnBody?: (index: number) => void;
 		onTurnRender?: ProfilerOnRenderCallback;
+		onViewportRangeChange?: (indices: readonly number[]) => void;
 		options: readonly SessionTurnTablePaneOption[];
 		scrollContainerRef: RefObject<HTMLDivElement | null>;
 		traceCallDisplayMode?: TraceCallDisplayMode;
 		userImageUrl: string | undefined;
 		viewModel: SessionDetailViewModel;
 		viewportStore: SessionContinuousTurnViewportStore;
-		virtualizerRef?: Ref<SessionContinuousTurnVirtualizerHandle>;
 	}) {
-		const lastRenderedKeyRef = useRef("");
+		const threadElementRef = useRef<HTMLDivElement>(null);
+		const lastLoadRangeKeyRef = useRef("");
 		const lastViewportKeyRef = useRef("");
-		const fullTurnKeysRef = useRef(new Set<string>());
-		const hasScrolledRef = useRef(false);
-		const virtualizer = useVirtualizer<HTMLDivElement, HTMLElement>({
+		const viewportStateRef = useLatestValueRef({
 			count: options.length,
-			estimateSize: (index) => {
-				const option = options[index];
-				return option ? estimateSessionContinuousTurnSize(option) : 240;
-			},
-			getItemKey: (index) => options[index]?.key ?? index,
-			getScrollElement: () => scrollContainerRef.current,
-			isScrollingResetDelay: 500,
-			measureElement: measureSessionVirtualElement,
-			onChange: (instance) => {
-				if (instance.isScrolling) {
-					hasScrolledRef.current = true;
-				}
-				const nextVirtualItems = instance.getVirtualItems();
-				const nextRenderedIndices = nextVirtualItems.map((item) => item.index);
-				const nextRenderedKey = nextRenderedIndices.join(":");
-				if (nextRenderedKey !== lastRenderedKeyRef.current) {
-					lastRenderedKeyRef.current = nextRenderedKey;
-					onRenderedRangeChange?.(nextRenderedIndices);
-				}
-				const nextViewport = getSessionVirtualViewport({
-					count: options.length,
-					items: nextVirtualItems,
-					scrollOffset: instance.scrollOffset ?? 0,
-					viewportSize:
-						scrollContainerRef.current?.clientHeight ??
-						instance.scrollRect?.height ??
-						0,
-				});
-				if (!nextViewport) {
+			onViewportRangeChange,
+		});
+
+		useMountEffect(() => {
+			const scrollContainer = scrollContainerRef.current;
+			const threadElement = threadElementRef.current;
+			if (!scrollContainer || !threadElement) {
+				return;
+			}
+
+			let animationFrame: number | undefined;
+			const syncViewport = () => {
+				animationFrame = undefined;
+				const turnElements = threadElement.querySelectorAll<HTMLElement>(
+					"[data-continuous-turn-index]",
+				);
+				if (turnElements.length === 0) {
 					return;
 				}
-				const nextViewportKey = `${nextViewport.activeIndex}:${nextViewport.visibleRange[0]}:${nextViewport.visibleRange[1]}`;
-				if (nextViewportKey !== lastViewportKeyRef.current) {
-					lastViewportKeyRef.current = nextViewportKey;
+
+				const containerBounds = scrollContainer.getBoundingClientRect();
+				const focusOffset = Math.min(
+					scrollContainer.clientHeight * ACTIVE_TURN_FOCUS_RATIO,
+					ACTIVE_TURN_MAX_FOCUS_OFFSET_PX,
+				);
+				const sectionTops = Array.from(
+					turnElements,
+					(element) => element.getBoundingClientRect().top,
+				);
+				const sectionIndices = Array.from(turnElements, (element) =>
+					Number(element.dataset.continuousTurnIndex),
+				);
+				const viewport = getContinuousTurnViewport({
+					focusLine: containerBounds.top + focusOffset,
+					isAtScrollEnd:
+						scrollContainer.scrollHeight -
+							scrollContainer.clientHeight -
+							scrollContainer.scrollTop <=
+						2,
+					isAtScrollStart: scrollContainer.scrollTop <= 2,
+					sectionIndices,
+					sectionTops,
+					viewportBottom: containerBounds.bottom,
+					viewportTop: containerBounds.top,
+				});
+				const viewportKey = `${viewport.activeIndex}:${viewport.visibleRange[0]}:${viewport.visibleRange[1]}`;
+				if (viewportKey !== lastViewportKeyRef.current) {
+					lastViewportKeyRef.current = viewportKey;
 					viewportStore.publishViewport(
-						nextViewport.activeIndex,
-						nextViewport.visibleRange,
+						viewport.activeIndex,
+						viewport.visibleRange,
 					);
 				}
-			},
-			overscan: SESSION_DETAIL_VIRTUAL_OVERSCAN,
+
+				const state = viewportStateRef.current;
+				const loadIndices = getPrefetchedContinuousTurnIndices(
+					viewport.visibleRange,
+					state.count,
+					TURN_BODY_PREFETCH_RADIUS,
+				);
+				const loadRangeKey = loadIndices.join(":");
+				if (loadRangeKey !== lastLoadRangeKeyRef.current) {
+					lastLoadRangeKeyRef.current = loadRangeKey;
+					state.onViewportRangeChange?.(loadIndices);
+				}
+			};
+			const scheduleViewportSync = () => {
+				if (animationFrame !== undefined) {
+					return;
+				}
+				animationFrame = window.requestAnimationFrame(syncViewport);
+			};
+
+			scrollContainer.addEventListener("scroll", scheduleViewportSync, {
+				passive: true,
+			});
+			const resizeObserver =
+				typeof ResizeObserver === "function"
+					? new ResizeObserver(scheduleViewportSync)
+					: undefined;
+			resizeObserver?.observe(scrollContainer);
+			resizeObserver?.observe(threadElement);
+			scheduleViewportSync();
+
+			return () => {
+				scrollContainer.removeEventListener("scroll", scheduleViewportSync);
+				resizeObserver?.disconnect();
+				if (animationFrame !== undefined) {
+					window.cancelAnimationFrame(animationFrame);
+				}
+			};
 		});
-		const virtualItems = virtualizer.getVirtualItems();
-		if (!virtualizer.isScrolling) {
-			const viewportStart = virtualizer.scrollOffset ?? 0;
-			const viewportEnd =
-				viewportStart +
-				(scrollContainerRef.current?.clientHeight ??
-					virtualizer.scrollRect?.height ??
-					0);
-			for (const virtualItem of virtualItems) {
-				if (
-					!hasScrolledRef.current &&
-					(virtualItem.end <= viewportStart || virtualItem.start >= viewportEnd)
-				) {
-					continue;
-				}
-				const option = options[virtualItem.index];
-				if (option) {
-					fullTurnKeysRef.current.add(option.key);
-				}
-			}
-		}
-		const measureMountedRows = useCallback(() => {
-			const scrollContainer = scrollContainerRef.current;
-			if (!scrollContainer) {
-				return;
-			}
-			const elements = Array.from(
-				scrollContainer.querySelectorAll<HTMLElement>(
-					"[data-session-virtual-turn-index]",
-				),
-			);
-			for (const element of elements) {
-				const index = Number(element.dataset.sessionVirtualTurnIndex);
-				virtualizer.resizeItem(index, measureSessionVirtualElement(element));
-			}
-			positionMountedSessionVirtualRows(virtualizer, scrollContainer);
-		}, [scrollContainerRef, virtualizer]);
-		const measurementVersion =
-			options.length === 0
-				? ""
-				: `${traceCallDisplayMode}:${options
-						.map(
-							(option) =>
-								`${option.key}:${option.turn ? "loaded" : (bodyStates?.get(option.key) ?? "idle")}`,
-						)
-						.join("|")}`;
-
-		useLayoutEffect(() => {
-			if (!measurementVersion) {
-				return;
-			}
-			measureMountedRows();
-		}, [measurementVersion, measureMountedRows]);
-
-		useImperativeHandle(
-			virtualizerRef,
-			() => ({
-				measure: () => virtualizer.measure(),
-				scrollToIndex: (index, scrollOptions) => {
-					virtualizer.scrollToIndex(index, {
-						align: scrollOptions?.align ?? "auto",
-						behavior: scrollOptions?.behavior,
-					});
-				},
-			}),
-			[virtualizer],
-		);
 
 		if (options.length === 0) {
 			return (
@@ -261,24 +167,14 @@ export const SessionContinuousTurnThread = memo(
 
 		return (
 			<ConversationTraceTreeConnectorStyleProvider style="interfere-branch-dots-no-horizontal">
-				<div
-					className="relative min-w-0"
-					data-session-virtual-turn-container
-					style={{ height: virtualizer.getTotalSize() }}
-				>
-					{virtualItems.map((virtualItem) => {
-						const index = virtualItem.index;
-						const option = options[index];
-						if (!option) {
-							return null;
-						}
-						const estimatedSize = estimateSessionContinuousTurnSize(option);
-						const rendersFullTurn = fullTurnKeysRef.current.has(option.key);
-						const section = rendersFullTurn ? (
+				<div ref={threadElementRef} className="min-w-0">
+					{options.map((option, index) => {
+						const section = (
 							<SessionContinuousTurnSection
+								key={option.key}
 								bodyState={bodyStates?.get(option.key)}
 								continuesThread={index < options.length - 1}
-								estimatedSize={estimatedSize}
+								estimatedSize={estimateSessionContinuousTurnSize(option)}
 								index={index}
 								onRetryTurnBody={onRetryTurnBody}
 								option={option}
@@ -288,48 +184,17 @@ export const SessionContinuousTurnThread = memo(
 								viewModel={viewModel}
 								viewportStore={viewportStore}
 							/>
-						) : (
-							<SessionContinuousTurnShell
-								estimatedSize={Math.max(estimatedSize, virtualItem.size)}
-								index={index}
-								option={option}
-								viewportStore={viewportStore}
-							/>
 						);
-						const scheduleMeasurement = () => {
-							window.requestAnimationFrame(measureMountedRows);
-						};
-						return (
-							<div
+						return onTurnRender ? (
+							<Profiler
 								key={option.key}
-								ref={virtualizer.measureElement}
-								className="absolute top-0 left-0 w-full"
-								data-index={index}
-								data-session-virtual-turn-index={index}
-								data-session-virtual-turn-render={
-									rendersFullTurn ? "full" : "shell"
-								}
-								data-session-virtual-turn-size={virtualItem.size}
-								style={{ transform: `translateY(${virtualItem.start}px)` }}
-								onPointerUpCapture={scheduleMeasurement}
-								onKeyUpCapture={(event) => {
-									if (event.key === "Enter" || event.key === " ") {
-										scheduleMeasurement();
-									}
-								}}
-								onTransitionEndCapture={scheduleMeasurement}
+								id={`${option.key}:full`}
+								onRender={onTurnRender}
 							>
-								{onTurnRender ? (
-									<Profiler
-										id={`${option.key}:${rendersFullTurn ? "full" : "shell"}`}
-										onRender={onTurnRender}
-									>
-										{section}
-									</Profiler>
-								) : (
-									section
-								)}
-							</div>
+								{section}
+							</Profiler>
+						) : (
+							section
 						);
 					})}
 				</div>

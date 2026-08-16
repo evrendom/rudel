@@ -150,9 +150,14 @@ export function SessionContinuousTraceFixturePage() {
 	const streamsTurnBodies = searchParams.get("hydrate") === "manual";
 	const profilesScrolling = searchParams.get("profile") === "scroll";
 	const usesLongFixture = streamsTurnBodies || profilesScrolling;
-	const fixtureOptions = usesLongFixture
+	const requestedTurnCount = Number(searchParams.get("turns"));
+	const allFixtureOptions = usesLongFixture
 		? STREAMED_FIXTURE_OPTIONS
 		: CONTINUOUS_FIXTURE_OPTIONS;
+	const fixtureOptions =
+		Number.isInteger(requestedTurnCount) && requestedTurnCount > 0
+			? allFixtureOptions.slice(0, requestedTurnCount)
+			: allFixtureOptions;
 	const [options, setOptions] = useState<readonly SessionTurnTablePaneOption[]>(
 		() =>
 			streamsTurnBodies

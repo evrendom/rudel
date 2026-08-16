@@ -392,7 +392,7 @@ window.
   turn bodies on demand with concurrency capped at three, visible progress,
   cancellation, and per-turn retry. Results stream in as bodies arrive. Browser
   Cmd+F/Ctrl+F is redirected to this field, and result selection jumps the
-  virtualized thread to the matching turn. This search-triggered fetch must not
+  transcript thread to the matching turn. This search-triggered fetch must not
   eagerly load subagent transcripts or change the initial payload; there is no
   separate **Load full transcript** control.
 - Contract drift: validate every response at its query boundary, retain safe
@@ -464,8 +464,8 @@ or edge layer as long as it is observable and tested end to end.
   a body; later rows load without replacing already-rendered rows.
 - Focusing transcript search, including through Cmd+F/Ctrl+F, fetches all
   remaining main turn bodies with concurrency capped at three; results stream as
-  bodies arrive and each hit can jump into an initially unloaded virtualized
-  region. No separate full-transcript button remains.
+  bodies arrive and each hit can jump to an initially unloaded turn. No separate
+  full-transcript button remains.
 - The current ledger and timeline remain functionally equivalent for ordinary
   sessions. Any activity bucketing for pathological turns is explicit in the
   response and UI review, and its token-component sums equal the true turn
@@ -496,10 +496,12 @@ or edge layer as long as it is observable and tested end to end.
   per-process cache, memory bounds, and measured p95.
 - Target derivation: ingest-time materialization is the immediate follow-up and
   requires a separately reviewed chkit migration and backfill plan.
-- Virtualization: the planned pane virtualization must use viewport-driven turn
-  body loading for the visible range with adjacent-turn prefetch. **Load full
-  transcript** remains the explicit Cmd+F fallback, not the primary loading
-  strategy.
+- Rendering: the ledger remains virtualized, but the transcript thread renders
+  turns in normal document flow with `content-visibility: auto` and estimated
+  `contain-intrinsic-size`. Viewport detection still drives turn-body loading
+  for the visible range with bounded adjacent-turn prefetch. Transcript search
+  is the Cmd+F-triggered full-body loading path; there is no separate full-
+  transcript button.
 - Subagents: raw JSONL is allowed in the first lazy body contract. Normalized
   trace items or a browser worker are follow-up work.
 - Timeline: preserve exact current activity for ordinary sessions; bounded,

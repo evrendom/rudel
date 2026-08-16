@@ -35,7 +35,6 @@ import {
 } from "./session-detail-overview-model";
 import type { SessionDetailSearchLoadState } from "./session-detail-search";
 import { SessionDetailSearchControl } from "./session-detail-search-control";
-import type { SessionContinuousTurnVirtualizerHandle } from "./session-detail-virtualization";
 import type { SessionTurnSelection } from "./session-turn-table-selection";
 
 type SessionDetailOverviewViewModel = ReturnType<
@@ -60,7 +59,6 @@ export function SessionDetailFastResponsePane({
 	userImageUrl,
 	viewModel,
 	viewportStore,
-	virtualizerRef,
 }: {
 	bottomPaddingClassName: string;
 	onCancelSearchLoad: () => void;
@@ -78,7 +76,6 @@ export function SessionDetailFastResponsePane({
 	userImageUrl: string | undefined;
 	viewModel: SessionDetailOverviewViewModel;
 	viewportStore: SessionContinuousTurnViewportStore;
-	virtualizerRef: RefObject<SessionContinuousTurnVirtualizerHandle | null>;
 }) {
 	const queryClient = useQueryClient();
 	const [searchParams, setSearchParams] = useSearchParams();
@@ -159,10 +156,10 @@ export function SessionDetailFastResponsePane({
 		[onStaleRevision, options, queryClient, revision, sessionId],
 	);
 
-	const handleRenderedRangeChange = useCallback(
-		(renderedIndices: readonly number[]) => {
+	const handleViewportRangeChange = useCallback(
+		(viewportIndices: readonly number[]) => {
 			const nextTurnIds = new Set(
-				renderedIndices
+				viewportIndices
 					.map((index) => options[index]?.turnId)
 					.filter((turnId): turnId is string => Boolean(turnId)),
 			);
@@ -182,10 +179,10 @@ export function SessionDetailFastResponsePane({
 					}
 				}
 			}
-			for (const index of renderedIndices) {
+			for (const index of viewportIndices) {
 				void loadTurnBody(index);
 			}
-			if ((renderedIndices.at(-1) ?? -1) >= options.length - 5) {
+			if ((viewportIndices.at(-1) ?? -1) >= options.length - 5) {
 				onApproachEnd();
 			}
 		},
@@ -207,7 +204,11 @@ export function SessionDetailFastResponsePane({
 	);
 
 	useMountEffect(() => {
-		virtualizerRef.current?.scrollToIndex(selection.index, { align: "auto" });
+		responseScrollRef.current
+			?.querySelector<HTMLElement>(
+				`[data-continuous-turn-index="${selection.index}"]`,
+			)
+			?.scrollIntoView({ block: "nearest" });
 	});
 
 	function handleDetailLevelChange(nextLevel: SessionDetailLevel) {
@@ -253,15 +254,14 @@ export function SessionDetailFastResponsePane({
 			>
 				<SessionContinuousTurnThread
 					bodyStates={bodyStates}
-					onRenderedRangeChange={handleRenderedRangeChange}
 					onRetryTurnBody={handleRetryTurnBody}
+					onViewportRangeChange={handleViewportRangeChange}
 					options={loadedOptions}
 					scrollContainerRef={responseScrollRef}
 					traceCallDisplayMode={detailLevel}
 					userImageUrl={userImageUrl}
 					viewModel={viewModel}
 					viewportStore={viewportStore}
-					virtualizerRef={virtualizerRef}
 				/>
 				<SessionDetailSubagents
 					onStaleRevision={onStaleRevision}

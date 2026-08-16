@@ -1,8 +1,8 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test } from "vitest";
 import {
 	getActiveContinuousTurnIndex,
 	getContinuousTurnViewport,
-	shouldSyncContinuousTurnFocus,
+	getPrefetchedContinuousTurnIndices,
 } from "./session-continuous-turn-focus";
 
 describe("getActiveContinuousTurnIndex", () => {
@@ -71,10 +71,13 @@ describe("getContinuousTurnViewport", () => {
 	});
 });
 
-describe("shouldSyncContinuousTurnFocus", () => {
-	test("keeps a clicked destination stable while smooth scrolling approaches it", () => {
-		expect(shouldSyncContinuousTurnFocus(8, 2)).toBe(false);
-		expect(shouldSyncContinuousTurnFocus(8, 8)).toBe(true);
-		expect(shouldSyncContinuousTurnFocus(undefined, 2)).toBe(true);
+describe("getPrefetchedContinuousTurnIndices", () => {
+	test("loads the visible range plus bounded adjacent turns", () => {
+		expect(getPrefetchedContinuousTurnIndices([5, 7], 20, 4)).toEqual([
+			1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11,
+		]);
+		expect(getPrefetchedContinuousTurnIndices([0, 1], 6, 4)).toEqual([
+			0, 1, 2, 3, 4, 5,
+		]);
 	});
 });
