@@ -11,8 +11,7 @@ const outputRoot = path.resolve(
 	marketingRoot,
 	"../../.context/gates/dashboard/g3",
 );
-const sourceUrl =
-	"http://127.0.0.1:4180/?opaline-composition=lens-attio-lens";
+const sourceUrl = "http://127.0.0.1:4180/?opaline-composition=lens-attio-lens";
 const candidateUrl = "http://127.0.0.1:4321/preview/dashboard-branded";
 const viewport = { width: 1280, height: 800, dpr: 1, mobile: false };
 
@@ -20,7 +19,8 @@ const clickPoint = async (session, selector) => {
 	const rect = await session.evaluate(
 		`document.querySelector(${JSON.stringify(selector)})?.getBoundingClientRect().toJSON()`,
 	);
-	if (!rect) throw new Error(`Could not resolve interaction target: ${selector}`);
+	if (!rect)
+		throw new Error(`Could not resolve interaction target: ${selector}`);
 	return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 };
 };
 
@@ -198,7 +198,9 @@ try {
 			dragging: element.hasAttribute("data-opaline-dragging"),
 		};
 	})()`);
-	await session.screenshot(path.join(outputRoot, "dragged-plus-120-minus-60.png"));
+	await session.screenshot(
+		path.join(outputRoot, "dragged-plus-120-minus-60.png"),
+	);
 	drag = {
 		before,
 		after,

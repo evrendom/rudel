@@ -11,7 +11,8 @@ interface Props {
 }
 
 const { scene = "Data model" } = Astro.props;
-const renderedHtml = scene === "Reporting" ? mobileReportingHtml : mobileDataHtml;
+const renderedHtml =
+	scene === "Reporting" ? mobileReportingHtml : mobileDataHtml;
 ---
 
 <Fragment set:html={renderedHtml} />

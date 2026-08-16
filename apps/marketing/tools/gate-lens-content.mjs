@@ -4,11 +4,16 @@ import { fileURLToPath } from "node:url";
 import { comparePngs } from "./diff.mjs";
 import { createBrowserSession, wait } from "./driver.mjs";
 
-const marketingRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const marketingRoot = path.resolve(
+	path.dirname(fileURLToPath(import.meta.url)),
+	"..",
+);
 const gateName = process.env.LENS_CONTENT_GATE_NAME ?? "g1";
-const sourceUrl = process.env.LENS_CONTENT_SOURCE_URL ??
+const sourceUrl =
+	process.env.LENS_CONTENT_SOURCE_URL ??
 	"http://127.0.0.1:4175/build?opaline-source=lens-content";
-const candidateUrl = process.env.LENS_CONTENT_CANDIDATE_URL ??
+const candidateUrl =
+	process.env.LENS_CONTENT_CANDIDATE_URL ??
 	"http://127.0.0.1:4321/preview/lens-content";
 const outputRoot = path.resolve(
 	marketingRoot,
@@ -16,7 +21,10 @@ const outputRoot = path.resolve(
 );
 const manifest = JSON.parse(
 	await readFile(
-		path.resolve(marketingRoot, "../../.context/extractions/lens-content/manifest.json"),
+		path.resolve(
+			marketingRoot,
+			"../../.context/extractions/lens-content/manifest.json",
+		),
 		"utf8",
 	),
 );
@@ -32,7 +40,10 @@ const renameMap = process.env.LENS_CONTENT_RENAME_MAP
 		)
 	: { classes: {} };
 const reverseClassMap = Object.fromEntries(
-	Object.entries(renameMap.classes ?? {}).map(([source, candidate]) => [candidate, source]),
+	Object.entries(renameMap.classes ?? {}).map(([source, candidate]) => [
+		candidate,
+		source,
+	]),
 );
 
 const viewports = {
@@ -53,9 +64,13 @@ const allStates = [
 const selectedViewport = process.env.LENS_CONTENT_VIEWPORT;
 const selectedState = process.env.LENS_CONTENT_STATE;
 const activeViewports = Object.fromEntries(
-	Object.entries(viewports).filter(([name]) => !selectedViewport || name === selectedViewport),
+	Object.entries(viewports).filter(
+		([name]) => !selectedViewport || name === selectedViewport,
+	),
 );
-const states = allStates.filter((state) => !selectedState || state.id === selectedState);
+const states = allStates.filter(
+	(state) => !selectedState || state.id === selectedState,
+);
 
 const readyExpression = `(() => {
 	const main = document.querySelector("[data-opaline-lens-content] > main, body > main");
@@ -134,36 +149,64 @@ const structureExpression = `(() => {
 
 const compareStructures = (source, candidate, tolerance) => {
 	const differences = [];
-	const normalizeAttributes = (attributes, reverse = false) => attributes.class
-		? {
-				...attributes,
-				class: attributes.class
-					.split(/\s+/)
-					.filter(Boolean)
-					.map((className) => reverse ? reverseClassMap[className] ?? className : className)
-					.join(" "),
-			}
-		: attributes;
+	const normalizeAttributes = (attributes, reverse = false) =>
+		attributes.class
+			? {
+					...attributes,
+					class: attributes.class
+						.split(/\s+/)
+						.filter(Boolean)
+						.map((className) =>
+							reverse ? (reverseClassMap[className] ?? className) : className,
+						)
+						.join(" "),
+				}
+			: attributes;
 	if (source.length !== candidate.length) {
-		differences.push({ type: "node-count", source: source.length, candidate: candidate.length });
+		differences.push({
+			type: "node-count",
+			source: source.length,
+			candidate: candidate.length,
+		});
 	}
-	for (let index = 0; index < Math.max(source.length, candidate.length); index += 1) {
+	for (
+		let index = 0;
+		index < Math.max(source.length, candidate.length);
+		index += 1
+	) {
 		const left = source[index];
 		const right = candidate[index];
 		if (!left || !right) continue;
-		for (const field of ["path", "tag", "attributes", "text", "style", "before", "after"]) {
-			const sourceValue = field === "attributes"
-				? normalizeAttributes(left.attributes)
-				: left[field];
-			const candidateValue = field === "attributes"
-				? normalizeAttributes(right.attributes, true)
-				: right[field];
+		for (const field of [
+			"path",
+			"tag",
+			"attributes",
+			"text",
+			"style",
+			"before",
+			"after",
+		]) {
+			const sourceValue =
+				field === "attributes"
+					? normalizeAttributes(left.attributes)
+					: left[field];
+			const candidateValue =
+				field === "attributes"
+					? normalizeAttributes(right.attributes, true)
+					: right[field];
 			if (JSON.stringify(sourceValue) !== JSON.stringify(candidateValue)) {
-				differences.push({ type: field, path: left.path, source: sourceValue, candidate: candidateValue });
+				differences.push({
+					type: field,
+					path: left.path,
+					source: sourceValue,
+					candidate: candidateValue,
+				});
 			}
 		}
 		for (let coordinate = 0; coordinate < 4; coordinate += 1) {
-			if (Math.abs(left.bounds[coordinate] - right.bounds[coordinate]) > tolerance) {
+			if (
+				Math.abs(left.bounds[coordinate] - right.bounds[coordinate]) > tolerance
+			) {
 				differences.push({
 					type: "geometry",
 					path: left.path,
@@ -200,8 +243,14 @@ for (const [viewportName, viewport] of Object.entries(activeViewports)) {
 			]);
 			await wait(80);
 			const prefix = `${viewportName}-${state.id}`;
-			const sourceScreenshotPath = path.join(outputRoot, `${prefix}-source.png`);
-			const candidateScreenshotPath = path.join(outputRoot, `${prefix}-candidate.png`);
+			const sourceScreenshotPath = path.join(
+				outputRoot,
+				`${prefix}-source.png`,
+			);
+			const candidateScreenshotPath = path.join(
+				outputRoot,
+				`${prefix}-candidate.png`,
+			);
 			await Promise.all([
 				source.screenshot(sourceScreenshotPath),
 				candidate.screenshot(candidateScreenshotPath),
@@ -249,10 +298,14 @@ const report = {
 	states: states.map((state) => state.id),
 	thresholds: { maximumPixelDifferencePercent, structuralDifferences: 0 },
 	passed: results.every(
-		(result) => result.pixel.diffPercent <= maximumPixelDifferencePercent &&
+		(result) =>
+			result.pixel.diffPercent <= maximumPixelDifferencePercent &&
 			result.structuralDifferenceCount === 0,
 	),
 	results,
 };
-await writeFile(path.join(outputRoot, "report.json"), `${JSON.stringify(report, null, 2)}\n`);
+await writeFile(
+	path.join(outputRoot, "report.json"),
+	`${JSON.stringify(report, null, 2)}\n`,
+);
 if (!report.passed) process.exitCode = 1;

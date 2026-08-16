@@ -7,7 +7,10 @@ const marketingRoot = path.resolve(
 	path.dirname(fileURLToPath(import.meta.url)),
 	"..",
 );
-const gateRoot = path.resolve(marketingRoot, "../../.context/gates/hero-canvas/g1");
+const gateRoot = path.resolve(
+	marketingRoot,
+	"../../.context/gates/hero-canvas/g1",
+);
 const posterRoot = path.join(marketingRoot, "public/vendor/lens-canvas");
 const sourceUrl =
 	"http://127.0.0.1:4175/__lens-atoms/hero?opaline-layer=canvas";
@@ -42,7 +45,10 @@ const freezeLineBgTime = `(() => {
 	}
 })();`;
 
-await Promise.all([mkdir(gateRoot, { recursive: true }), mkdir(posterRoot, { recursive: true })]);
+await Promise.all([
+	mkdir(gateRoot, { recursive: true }),
+	mkdir(posterRoot, { recursive: true }),
+]);
 
 for (const viewport of viewports) {
 	const session = await createBrowserSession(viewport);
@@ -77,7 +83,10 @@ for (const viewport of viewports) {
 		await session.screenshot(sourceScreenshot);
 		await copyFile(sourceScreenshot, posterPath);
 		if (viewport.name === "desktop") {
-			await copyFile(sourceScreenshot, path.join(gateRoot, "source-first-frame.png"));
+			await copyFile(
+				sourceScreenshot,
+				path.join(gateRoot, "source-first-frame.png"),
+			);
 			await copyFile(posterPath, path.join(posterRoot, "hero-poster.png"));
 		}
 		console.log(`${viewport.name}: ${sourceScreenshot}`);

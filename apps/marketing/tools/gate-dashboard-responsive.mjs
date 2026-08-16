@@ -15,8 +15,7 @@ const outputRoot = path.resolve(
 const referenceUrl =
 	"http://127.0.0.1:4180/?opaline-composition=lens-attio-lens";
 const extractedUrl = "http://127.0.0.1:4321/preview/dashboard";
-const naturalizedUrl =
-	"http://127.0.0.1:4321/preview/dashboard-naturalized";
+const naturalizedUrl = "http://127.0.0.1:4321/preview/dashboard-naturalized";
 const viewports = [
 	{ name: "tablet", width: 768, height: 1024, dpr: 1, mobile: false },
 	{ name: "wide", width: 1680, height: 1050, dpr: 1, mobile: false },
@@ -64,7 +63,13 @@ const auditExpression = `(() => {
 	};
 })()`;
 
-const capture = async ({ url, viewport, scene, label, liveReference = false }) => {
+const capture = async ({
+	url,
+	viewport,
+	scene,
+	label,
+	liveReference = false,
+}) => {
 	const session = await createBrowserSession({ url, ...viewport });
 	try {
 		if (liveReference) {

@@ -148,7 +148,9 @@ try {
 		{ encoding: "utf8" },
 	);
 	if (ffmpeg.status !== 0) {
-		throw new Error(ffmpeg.stderr || "ffmpeg failed to encode the A/B recording");
+		throw new Error(
+			ffmpeg.stderr || "ffmpeg failed to encode the A/B recording",
+		);
 	}
 	const report = {
 		generatedAt: new Date().toISOString(),
@@ -166,10 +168,16 @@ try {
 		path.join(outputRoot, "report.json"),
 		`${JSON.stringify(report, null, 2)}\n`,
 	);
-	console.log(JSON.stringify({
-		maximumDiffPercent: report.maximumDiffPercent,
-		videoPath,
-	}, null, 2));
+	console.log(
+		JSON.stringify(
+			{
+				maximumDiffPercent: report.maximumDiffPercent,
+				videoPath,
+			},
+			null,
+			2,
+		),
+	);
 } finally {
 	await Promise.all([source.close(), candidate.close()]);
 }

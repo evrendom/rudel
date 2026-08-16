@@ -74,7 +74,10 @@ try {
 		};
 	})()`);
 	await session.freezeAtDeterministicState();
-	const snapshot = await session.snapshot({ component: "lens-content", sourceUrl });
+	const snapshot = await session.snapshot({
+		component: "lens-content",
+		sourceUrl,
+	});
 	await writeFile(
 		path.join(artifactRoot, "source.structure.json"),
 		`${JSON.stringify(snapshot)}\n`,
@@ -87,7 +90,8 @@ const uniqueStylesheets = [...new Set(capture.stylesheets)];
 const cssChunks = await Promise.all(
 	uniqueStylesheets.map(async (url) => {
 		const response = await fetch(url);
-		if (!response.ok) throw new Error(`Could not download ${url}: ${response.status}`);
+		if (!response.ok)
+			throw new Error(`Could not download ${url}: ${response.status}`);
 		return { url, css: await response.text() };
 	}),
 );
@@ -109,7 +113,8 @@ await mkdir(assetRoot, { recursive: true });
 const localizeResource = async (url) => {
 	if (resourceByUrl.has(url)) return resourceByUrl.get(url);
 	const response = await fetch(url);
-	if (!response.ok) throw new Error(`Could not download ${url}: ${response.status}`);
+	if (!response.ok)
+		throw new Error(`Could not download ${url}: ${response.status}`);
 	const bytes = Buffer.from(await response.arrayBuffer());
 	const extension = contentExtension(
 		url,
@@ -152,7 +157,8 @@ for (const image of capture.images) {
 	if (!image.currentSrc) continue;
 	const localUrl = await localizeResource(image.currentSrc);
 	if (image.src) mainHtml = mainHtml.replaceAll(image.src, localUrl);
-	if (image.srcset) mainHtml = mainHtml.replaceAll(image.srcset, `${localUrl} 1x`);
+	if (image.srcset)
+		mainHtml = mainHtml.replaceAll(image.srcset, `${localUrl} 1x`);
 }
 
 const sourceCss = localizedCssChunks.join("\n");
@@ -162,7 +168,10 @@ await Promise.all([
 ]);
 await Promise.all([
 	writeFile(path.join(vendorRoot, "source.css"), sourceCss),
-	writeFile(path.join(vendorRoot, "source-route.css"), capture.contentSourceCss),
+	writeFile(
+		path.join(vendorRoot, "source-route.css"),
+		capture.contentSourceCss,
+	),
 	writeFile(
 		path.join(generatedRoot, "lens-content-source-data.ts"),
 		[

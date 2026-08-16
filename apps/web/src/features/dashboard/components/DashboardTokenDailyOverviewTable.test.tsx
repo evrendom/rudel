@@ -6,16 +6,18 @@ import { DashboardTokenDailyOverviewTable } from "./DashboardTokenDailyOverviewT
 
 describe("DashboardTokenDailyOverviewTable", () => {
 	it("renders the summed dated per-model cost for each day", () => {
+		// 2026-07-01 sits inside both models' rate-card windows; gpt-5.1-codex
+		// has no price after its 2026-07-23 API retirement.
 		const modelRows: ModelTokensTrendData[] = [
 			{
-				date: "2026-08-01",
+				date: "2026-07-01",
 				input_tokens: 1_000_000,
 				model: "gpt-5.1-codex",
 				output_tokens: 1_000_000,
 				total_tokens: 2_000_000,
 			},
 			{
-				date: "2026-08-01",
+				date: "2026-07-01",
 				input_tokens: 1_000_000,
 				model: "claude-sonnet-4-5",
 				output_tokens: 1_000_000,
@@ -23,8 +25,8 @@ describe("DashboardTokenDailyOverviewTable", () => {
 			},
 		];
 		const dailyPattern = buildDashboardTokenDailyPattern(
-			"2026-08-01",
-			"2026-08-01",
+			"2026-07-01",
+			"2026-07-01",
 			undefined,
 			modelRows,
 		);

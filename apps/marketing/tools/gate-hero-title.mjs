@@ -51,7 +51,8 @@ const pointFor = async (session, selector) => {
 	const rect = await session.evaluate(
 		`document.querySelector(${JSON.stringify(selector)})?.getBoundingClientRect().toJSON()`,
 	);
-	if (!rect) throw new Error(`Could not resolve hero title target: ${selector}`);
+	if (!rect)
+		throw new Error(`Could not resolve hero title target: ${selector}`);
 	return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 };
 };
 
@@ -132,19 +133,37 @@ const compareStructures = (source, candidate) => {
 	const differences = [];
 	const sourceNodes = new Map(source.map((node) => [node.path, node]));
 	const candidateNodes = new Map(candidate.map((node) => [node.path, node]));
-	for (const key of new Set([...sourceNodes.keys(), ...candidateNodes.keys()])) {
+	for (const key of new Set([
+		...sourceNodes.keys(),
+		...candidateNodes.keys(),
+	])) {
 		const left = sourceNodes.get(key);
 		const right = candidateNodes.get(key);
 		if (!left || !right) {
-			differences.push({ type: "node", path: key, source: left, candidate: right });
+			differences.push({
+				type: "node",
+				path: key,
+				source: left,
+				candidate: right,
+			});
 			continue;
 		}
 		for (const field of ["tag", "className", "text"]) {
-			const candidateValue = field === "className"
-				? right[field].split(/\s+/).map((className) => reverseClassMap[className] ?? className).join(" ")
-				: right[field];
+			const candidateValue =
+				field === "className"
+					? right[field]
+							.split(/\s+/)
+							.map((className) => reverseClassMap[className] ?? className)
+							.join(" ")
+					: right[field];
 			if (left[field] !== candidateValue) {
-				differences.push({ type: "value", path: key, field, source: left[field], candidate: candidateValue });
+				differences.push({
+					type: "value",
+					path: key,
+					field,
+					source: left[field],
+					candidate: candidateValue,
+				});
 			}
 		}
 		for (let index = 0; index < 4; index += 1) {
@@ -160,7 +179,12 @@ const compareStructures = (source, candidate) => {
 		}
 		for (const field of ["style", "before", "after"]) {
 			if (JSON.stringify(left[field]) !== JSON.stringify(right[field])) {
-				differences.push({ type: field, path: key, source: left[field], candidate: right[field] });
+				differences.push({
+					type: field,
+					path: key,
+					source: left[field],
+					candidate: right[field],
+				});
 			}
 		}
 	}
@@ -193,8 +217,18 @@ for (const testCase of cases) {
 	const viewport = viewports[testCase.viewport];
 	const name = `${testCase.viewport}-${testCase.state}`;
 	const [source, candidate] = await Promise.all([
-		capture({ url: sourceUrl, viewport, state: testCase.state, label: `${name}-source` }),
-		capture({ url: candidateUrl, viewport, state: testCase.state, label: `${name}-candidate` }),
+		capture({
+			url: sourceUrl,
+			viewport,
+			state: testCase.state,
+			label: `${name}-source`,
+		}),
+		capture({
+			url: candidateUrl,
+			viewport,
+			state: testCase.state,
+			label: `${name}-candidate`,
+		}),
 	]);
 	const pixel = await comparePngs({
 		leftPath: source.screenshotPath,
@@ -202,7 +236,10 @@ for (const testCase of cases) {
 		diffPath: path.join(outputRoot, `${name}-diff.png`),
 		exact: false,
 	});
-	const structuralDifferences = compareStructures(source.structure, candidate.structure);
+	const structuralDifferences = compareStructures(
+		source.structure,
+		candidate.structure,
+	);
 	const unsanctionedStructuralDifferences = sanctionedTextChange
 		? structuralDifferences.filter(
 				(difference) =>

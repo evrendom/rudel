@@ -28,7 +28,10 @@ const scenes = [
 ];
 
 const captureCandidate = async (scene) => {
-	const session = await createBrowserSession({ url: candidateUrl, ...viewport });
+	const session = await createBrowserSession({
+		url: candidateUrl,
+		...viewport,
+	});
 	try {
 		await session.waitFor(
 			'document.querySelector("#dashboard-gate-source-overlay [data-home-hero=attio-window-shell]")?.getBoundingClientRect().height > 0',
@@ -90,37 +93,43 @@ for (const scene of scenes) {
 	// text-width difference when identical font bytes load from the source and local
 	// origins. Element geometry keeps the prescribed 0.5px gate and pixelmatch
 	// remains the paint backstop; exact naturalization does not use this allowance.
-	const structuralDifferences = structural.differences.filter(
-		(difference) => {
+	const structuralDifferences = structural.differences.filter((difference) => {
+		if (
+			difference.type === "node" &&
+			(difference.left === "#text" || difference.right === "#text")
+		)
+			return false;
+		if (difference.node === "#text") return false;
+		if (difference.type === "style" && difference.property === "transform") {
+			const left = difference.left.match(/-?\d+(?:\.\d+)?/g)?.map(Number) ?? [];
+			const right =
+				difference.right.match(/-?\d+(?:\.\d+)?/g)?.map(Number) ?? [];
 			if (
-				difference.type === "node" &&
-				(difference.left === "#text" || difference.right === "#text")
-			) return false;
-			if (difference.node === "#text") return false;
-			if (difference.type === "style" && difference.property === "transform") {
-				const left = difference.left.match(/-?\d+(?:\.\d+)?/g)?.map(Number) ?? [];
-				const right = difference.right.match(/-?\d+(?:\.\d+)?/g)?.map(Number) ?? [];
-				if (
-					left.length === right.length &&
-					left.every((value, index) => Math.abs(value - right[index]) <= 0.00001)
-				) return false;
-			}
+				left.length === right.length &&
+				left.every((value, index) => Math.abs(value - right[index]) <= 0.00001)
+			)
+				return false;
+		}
+		if (
+			difference.type === "style" &&
+			[
+				"inline-size",
+				"perspective-origin",
+				"transform-origin",
+				"width",
+			].includes(difference.property)
+		) {
+			const left = difference.left.match(/-?\d+(?:\.\d+)?/g)?.map(Number) ?? [];
+			const right =
+				difference.right.match(/-?\d+(?:\.\d+)?/g)?.map(Number) ?? [];
 			if (
-				difference.type === "style" &&
-				["inline-size", "perspective-origin", "transform-origin", "width"].includes(
-					difference.property,
-				)
-			) {
-				const left = difference.left.match(/-?\d+(?:\.\d+)?/g)?.map(Number) ?? [];
-				const right = difference.right.match(/-?\d+(?:\.\d+)?/g)?.map(Number) ?? [];
-				if (
-					left.length === right.length &&
-					left.every((value, index) => Math.abs(value - right[index]) <= 0.05)
-				) return false;
-			}
-			return true;
-		},
-	);
+				left.length === right.length &&
+				left.every((value, index) => Math.abs(value - right[index]) <= 0.05)
+			)
+				return false;
+		}
+		return true;
+	});
 	results.push({
 		scene: scene.id,
 		sourceScreenshotPath,
@@ -141,8 +150,7 @@ for (const scene of scenes) {
 const report = {
 	gate: `${gateName.toUpperCase()}-dashboard`,
 	generatedAt: new Date().toISOString(),
-	sourceUrl:
-		"http://127.0.0.1:4180/?opaline-composition=lens-attio-lens",
+	sourceUrl: "http://127.0.0.1:4180/?opaline-composition=lens-attio-lens",
 	candidateUrl,
 	viewport,
 	thresholds: {

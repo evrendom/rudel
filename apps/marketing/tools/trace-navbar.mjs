@@ -5,8 +5,7 @@ import { createBrowserSession, wait } from "./driver.mjs";
 
 const SOURCE_URL =
 	"http://127.0.0.1:4176/next?opaline-source=navbar&opaline-links=rudel";
-const CANDIDATE_URL =
-	"http://127.0.0.1:4321/preview/navbar-naturalized";
+const CANDIDATE_URL = "http://127.0.0.1:4321/preview/navbar-naturalized";
 const marketingRoot = path.resolve(
 	path.dirname(fileURLToPath(import.meta.url)),
 	"..",
@@ -101,7 +100,7 @@ const dispatchActions = async (session, actions) => {
 		const point =
 			action.type === "move-point"
 				? { x: action.x, y: action.y }
-				: action.point ?? (await pointFor(session, action.selector));
+				: (action.point ?? (await pointFor(session, action.selector)));
 		await session.client.call("Input.dispatchMouseEvent", {
 			type: "mouseMoved",
 			...point,
@@ -205,7 +204,11 @@ const installRecorder = async (session) => {
 };
 
 const recordScenario = async (url, scenario) => {
-	const session = await createBrowserSession({ url, ...scenario.viewport, dpr: 1 });
+	const session = await createBrowserSession({
+		url,
+		...scenario.viewport,
+		dpr: 1,
+	});
 	try {
 		if (!scenario.viewport.mobile) {
 			await dispatchActions(session, [
@@ -256,11 +259,11 @@ for (const scenario of scenarios) {
 		JSON.stringify(sourceSequence) === JSON.stringify(candidateSequence);
 	const timingDifferences = sequenceMatches
 		? source.map((event, index) => ({
-			index,
-			source: event.t,
-			candidate: candidate[index].t,
-			difference: Number(Math.abs(event.t - candidate[index].t).toFixed(2)),
-		}))
+				index,
+				source: event.t,
+				candidate: candidate[index].t,
+				difference: Number(Math.abs(event.t - candidate[index].t).toFixed(2)),
+			}))
 		: [];
 	const maximumTimingDifference = timingDifferences.length
 		? Math.max(...timingDifferences.map(({ difference }) => difference))

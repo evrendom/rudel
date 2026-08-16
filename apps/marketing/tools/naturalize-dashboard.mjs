@@ -92,7 +92,8 @@ const naturalizeCss = (source, from) => {
 		if (
 			rule.parent?.type === "atrule" &&
 			rule.parent.name.endsWith("keyframes")
-		) return;
+		)
+			return;
 		rule.selector = transformSelector.processSync(rule.selector);
 	});
 	return root.toString();
@@ -112,26 +113,30 @@ const readExportedValue = (source, name) => {
 };
 
 const naturalizeMarkup = (markup) => {
-	let result = markup.replace(/class="([^"]*)"/g, (_, classNames) =>
-		`class="${classNames
-			.split(/\s+/)
-			.map((className) => renameMap.classes[className] ?? className)
-			.join(" ")}"`,
+	let result = markup.replace(
+		/class="([^"]*)"/g,
+		(_, classNames) =>
+			`class="${classNames
+				.split(/\s+/)
+				.map((className) => renameMap.classes[className] ?? className)
+				.join(" ")}"`,
 	);
-	for (const [source, candidate] of Object.entries(renameMap.attributes).toSorted(
-		([left], [right]) => right.length - left.length,
-	)) {
+	for (const [source, candidate] of Object.entries(
+		renameMap.attributes,
+	).toSorted(([left], [right]) => right.length - left.length)) {
 		result = result.replaceAll(source, candidate);
 	}
 	return result;
 };
 
-const [sourceCss, compositionCss, sourceData, sourceScript] = await Promise.all([
-	readFile(path.join(vendorRoot, "source.css"), "utf8"),
-	readFile(path.join(vendorRoot, "composition.css"), "utf8"),
-	readFile(sourceDataPath, "utf8"),
-	readFile(sourceScriptPath, "utf8"),
-]);
+const [sourceCss, compositionCss, sourceData, sourceScript] = await Promise.all(
+	[
+		readFile(path.join(vendorRoot, "source.css"), "utf8"),
+		readFile(path.join(vendorRoot, "composition.css"), "utf8"),
+		readFile(sourceDataPath, "utf8"),
+		readFile(sourceScriptPath, "utf8"),
+	],
+);
 const stringFields = [
 	"dashboardHtml",
 	"shellHtml",

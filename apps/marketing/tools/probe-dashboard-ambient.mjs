@@ -6,8 +6,7 @@ const outputRoot = path.resolve(
 	process.env.OPALINE_AMBIENT_OUTPUT ??
 		".context/extractions/dashboard/ambient",
 );
-const sourceUrl =
-	"http://127.0.0.1:4180/lens-attio-lens-aperture";
+const sourceUrl = "http://127.0.0.1:4180/lens-attio-lens-aperture";
 const viewport = { width: 1280, height: 800, dpr: 1, mobile: false };
 
 const session = await createBrowserSession({ url: sourceUrl, ...viewport });
@@ -16,7 +15,8 @@ try {
 	const compositionFrame = (await session.frameTree()).find((frame) =>
 		frame.url.includes("opaline-composition=lens-attio-lens"),
 	);
-	if (!compositionFrame) throw new Error("Attio composition frame was not found");
+	if (!compositionFrame)
+		throw new Error("Attio composition frame was not found");
 	await session.waitFor(
 		'document.querySelector("[data-home-hero=attio-window-shell]") && document.querySelectorAll("[data-opaline-claude-window]").length >= 2',
 		{ frameId: compositionFrame.id, timeout: 20_000 },
@@ -24,7 +24,8 @@ try {
 	await session.evaluate("scrollTo(0, 400)", { frameId: compositionFrame.id });
 	await wait(1_000);
 
-	const inventory = await session.evaluate(`(() => {
+	const inventory = await session.evaluate(
+		`(() => {
 		const shell = document.querySelector('[data-home-hero="attio-window-shell"]');
 		const elementPath = (element, root) => {
 			const parts = [];
@@ -108,7 +109,9 @@ try {
 			terminalHtml: windows.find((element) => element.getAttribute('data-home-hero-app') === 'terminal')?.outerHTML ?? null,
 			leaves,
 		};
-	})()`, { frameId: compositionFrame.id });
+	})()`,
+		{ frameId: compositionFrame.id },
+	);
 
 	await mkdir(outputRoot, { recursive: true });
 	await writeFile(
@@ -118,22 +121,26 @@ try {
 	console.log(
 		JSON.stringify(
 			{
-				windows: inventory.windows.map(({ path: nodePath, attributes, text, style, rect }) => ({
-					path: nodePath,
-					app: attributes["data-home-hero-app"],
-					text,
-					style,
-					rect,
-				})),
+				windows: inventory.windows.map(
+					({ path: nodePath, attributes, text, style, rect }) => ({
+						path: nodePath,
+						app: attributes["data-home-hero-app"],
+						text,
+						style,
+						rect,
+					}),
+				),
 				animatedCount: inventory.animated.length,
 				thinkingCount: inventory.thinking.length,
-				markers: inventory.markers.map(({ path: nodePath, attributes, text, style, rect }) => ({
-					path: nodePath,
-					attributes,
-					text,
-					style,
-					rect,
-				})),
+				markers: inventory.markers.map(
+					({ path: nodePath, attributes, text, style, rect }) => ({
+						path: nodePath,
+						attributes,
+						text,
+						style,
+						rect,
+					}),
+				),
 				thinkingAncestors: inventory.thinkingAncestors,
 				output: path.join(outputRoot, "inventory.json"),
 			},

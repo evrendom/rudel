@@ -169,8 +169,8 @@ const openMenu = (menu: MenuName) => {
 	if (!(viewport instanceof HTMLElement) || !previousMenu) {
 		const firstViewport = sourceViewport.cloneNode(true);
 		if (!(firstViewport instanceof HTMLElement)) return;
-		delete firstViewport.querySelector<HTMLElement>(".opaline-nav-content")?.dataset
-			.motion;
+		delete firstViewport.querySelector<HTMLElement>(".opaline-nav-content")
+			?.dataset.motion;
 		firstViewport.removeAttribute("style");
 		desktopPortal.replaceChildren(firstViewport);
 		setPortalCardHeight(sourcePortal);
@@ -179,8 +179,9 @@ const openMenu = (menu: MenuName) => {
 	}
 
 	const movingForward = previousMenu === "product" && menu === "resources";
-	const previousContent =
-		viewport.querySelector<HTMLElement>(".opaline-nav-content");
+	const previousContent = viewport.querySelector<HTMLElement>(
+		".opaline-nav-content",
+	);
 	if (previousContent) {
 		previousContent.dataset.motion = movingForward ? "to-start" : "to-end";
 	}

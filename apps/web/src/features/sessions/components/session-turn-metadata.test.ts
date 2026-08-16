@@ -1,5 +1,5 @@
-import { describe, expect, test } from "bun:test";
 import assert from "node:assert";
+import { describe, expect, test } from "vitest";
 import type { TraceItem } from "@/components/conversation/conversation-trace";
 import { extractSessionTurnMetrics } from "./session-turn-metadata";
 import type { SessionTurn } from "./session-turns";

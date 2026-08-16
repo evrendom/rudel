@@ -7,7 +7,14 @@
 	},
 	"files": {
 		"ignoreUnknown": false,
-		"includes": ["apps/**", "packages/**", "*.json", "!**/generated"]
+		"includes": [
+			"apps/**",
+			"packages/**",
+			"*.json",
+			"!**/generated",
+			"!apps/marketing/__DO_NOT_MERGE__inspiration",
+			"!apps/marketing/src/styles/vendor"
+		]
 	},
 	"formatter": {
 		"enabled": true,
@@ -31,6 +38,17 @@
 		}
 	},
 	"overrides": [
+		{
+			"includes": ["**/*.astro"],
+			"linter": {
+				"rules": {
+					"correctness": {
+						"noUnusedImports": "off",
+						"noUnusedVariables": "off"
+					}
+				}
+			}
+		},
 		{
 			"includes": [
 				"apps/web/src/components/analytics/**",

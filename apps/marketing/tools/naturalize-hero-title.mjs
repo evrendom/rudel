@@ -103,10 +103,13 @@ const [sourceCss, isolationCss, sourceData] = await Promise.all([
 	readFile(path.join(vendorRoot, "isolation.css"), "utf8"),
 	readFile(sourceDataPath, "utf8"),
 ]);
-const naturalizedHtml = replaceTokens(readExportedString(sourceData, "titleHtml"), {
-	...renameMap.classes,
-	...renameMap.attributes,
-});
+const naturalizedHtml = replaceTokens(
+	readExportedString(sourceData, "titleHtml"),
+	{
+		...renameMap.classes,
+		...renameMap.attributes,
+	},
+);
 
 await mkdir(path.dirname(naturalizedDataPath), { recursive: true });
 await Promise.all([

@@ -14,8 +14,7 @@ const outputRoot = path.resolve(
 	"../../.context/gates/dashboard/g2",
 );
 const sourceUrl = "http://127.0.0.1:4321/preview/dashboard";
-const candidateUrl =
-	"http://127.0.0.1:4321/preview/dashboard-naturalized";
+const candidateUrl = "http://127.0.0.1:4321/preview/dashboard-naturalized";
 const viewport = { width: 1280, height: 800, dpr: 1, mobile: false };
 const scenes = [
 	{ id: "Data model", slug: "data" },

@@ -2,7 +2,10 @@ import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-const marketingRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const marketingRoot = path.resolve(
+	path.dirname(fileURLToPath(import.meta.url)),
+	"..",
+);
 const sourcePath = path.join(
 	marketingRoot,
 	"src/components/generated/lens-content-data.ts",
@@ -14,16 +17,21 @@ const outputPath = path.join(
 const source = await readFile(sourcePath, "utf8");
 const readExportedString = (name) => {
 	const match = source.match(new RegExp(`export const ${name} = (.*);\\n`));
-	if (!match?.[1]) throw new Error(`Could not read Lens content field: ${name}`);
+	if (!match?.[1])
+		throw new Error(`Could not read Lens content field: ${name}`);
 	return JSON.parse(match[1]);
 };
 
 const sourceHtml = readExportedString("mainHtml");
 const scopeClasses = readExportedString("scopeClasses");
-const footerLogoPattern = /<svg\b(?=[^>]*class="opaline-lens-footer-footer-logo")[\s\S]*?<\/svg>/;
-const footerLogoMatches = sourceHtml.match(new RegExp(footerLogoPattern.source, "g")) ?? [];
+const footerLogoPattern =
+	/<svg\b(?=[^>]*class="opaline-lens-footer-footer-logo")[\s\S]*?<\/svg>/;
+const footerLogoMatches =
+	sourceHtml.match(new RegExp(footerLogoPattern.source, "g")) ?? [];
 if (footerLogoMatches.length !== 1) {
-	throw new Error(`Expected one Lens footer logo, found ${footerLogoMatches.length}`);
+	throw new Error(
+		`Expected one Lens footer logo, found ${footerLogoMatches.length}`,
+	);
 }
 if (!sourceHtml.includes("© <!-- -->2026<!-- --> Mask Network")) {
 	throw new Error("Expected Lens footer copyright was not found");
@@ -54,4 +62,10 @@ await writeFile(
 	].join("\n"),
 );
 
-console.log(JSON.stringify({ divergence: "D004", footerLogoMatches: 1, copyrightMatches: 1 }, null, 2));
+console.log(
+	JSON.stringify(
+		{ divergence: "D004", footerLogoMatches: 1, copyrightMatches: 1 },
+		null,
+		2,
+	),
+);

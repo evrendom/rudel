@@ -4,7 +4,10 @@ import { fileURLToPath } from "node:url";
 import { comparePngs } from "./diff.mjs";
 import { createBrowserSession, wait } from "./driver.mjs";
 
-const marketingRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const marketingRoot = path.resolve(
+	path.dirname(fileURLToPath(import.meta.url)),
+	"..",
+);
 const outputRoot = path.resolve(
 	marketingRoot,
 	"../../.context/gates/divergences/D004",
@@ -77,17 +80,32 @@ const compareStructure = (source, candidate) => {
 	const differences = [];
 	const sourceByPath = new Map(source.map((node) => [node.path, node]));
 	const candidateByPath = new Map(candidate.map((node) => [node.path, node]));
-	for (const path of new Set([...sourceByPath.keys(), ...candidateByPath.keys()])) {
+	for (const path of new Set([
+		...sourceByPath.keys(),
+		...candidateByPath.keys(),
+	])) {
 		const left = sourceByPath.get(path);
 		const right = candidateByPath.get(path);
 		const whitelist = left?.whitelist ?? right?.whitelist ?? null;
 		if (!left || !right) {
-			differences.push({ type: "node", path, source: left?.tag ?? null, candidate: right?.tag ?? null, whitelist });
+			differences.push({
+				type: "node",
+				path,
+				source: left?.tag ?? null,
+				candidate: right?.tag ?? null,
+				whitelist,
+			});
 			continue;
 		}
 		for (const field of ["tag", "attributes", "text", "bounds", "style"]) {
 			if (JSON.stringify(left[field]) !== JSON.stringify(right[field])) {
-				differences.push({ type: field, path, source: left[field], candidate: right[field], whitelist });
+				differences.push({
+					type: field,
+					path,
+					source: left[field],
+					candidate: right[field],
+					whitelist,
+				});
 			}
 		}
 	}
@@ -96,8 +114,12 @@ const compareStructure = (source, candidate) => {
 
 const open = async (url, viewport) => {
 	const session = await createBrowserSession({ url, ...viewport });
-	await session.waitFor('document.querySelector("[data-opaline-lens-content] footer")?.getBoundingClientRect().height > 0');
-	await session.waitFor('[...document.images].every((image) => image.complete && image.naturalWidth > 0)');
+	await session.waitFor(
+		'document.querySelector("[data-opaline-lens-content] footer")?.getBoundingClientRect().height > 0',
+	);
+	await session.waitFor(
+		"[...document.images].every((image) => image.complete && image.naturalWidth > 0)",
+	);
 	await wait(300);
 	await session.freezeAtDeterministicState();
 	await session.evaluate(prepareExpression);
@@ -108,18 +130,32 @@ const open = async (url, viewport) => {
 await mkdir(outputRoot, { recursive: true });
 const results = [];
 for (const [name, viewport] of Object.entries(viewports)) {
-	const [source, candidate] = await Promise.all([open(sourceUrl, viewport), open(candidateUrl, viewport)]);
+	const [source, candidate] = await Promise.all([
+		open(sourceUrl, viewport),
+		open(candidateUrl, viewport),
+	]);
 	try {
 		const sourcePath = path.join(outputRoot, `${name}-source.png`);
 		const candidatePath = path.join(outputRoot, `${name}-candidate.png`);
-		await Promise.all([source.screenshot(sourcePath), candidate.screenshot(candidatePath)]);
+		await Promise.all([
+			source.screenshot(sourcePath),
+			candidate.screenshot(candidatePath),
+		]);
 		const [sourceCapture, candidateCapture] = await Promise.all([
 			source.evaluate(captureExpression),
 			candidate.evaluate(captureExpression),
 		]);
-		const differences = compareStructure(sourceCapture.nodes, candidateCapture.nodes);
-		const unsanctioned = differences.filter((difference) => !difference.whitelist);
-		const masks = [...sourceCapture.allowedPaint, ...candidateCapture.allowedPaint];
+		const differences = compareStructure(
+			sourceCapture.nodes,
+			candidateCapture.nodes,
+		);
+		const unsanctioned = differences.filter(
+			(difference) => !difference.whitelist,
+		);
+		const masks = [
+			...sourceCapture.allowedPaint,
+			...candidateCapture.allowedPaint,
+		];
 		const [fullPixel, outsideApprovedPixel] = await Promise.all([
 			comparePngs({
 				leftPath: sourcePath,
@@ -140,10 +176,15 @@ for (const [name, viewport] of Object.entries(viewports)) {
 			fullPixel,
 			outsideApprovedPixel,
 			allowedPaintRegions: masks,
-			structuralDifferences: differences.map(({ source: _source, candidate: _candidate, ...difference }) => difference),
+			structuralDifferences: differences.map(
+				({ source: _source, candidate: _candidate, ...difference }) =>
+					difference,
+			),
 			unsanctionedStructuralDifferenceCount: unsanctioned.length,
 		});
-		console.log(`${name}: ${outsideApprovedPixel.differingPixels} outside pixels, ${unsanctioned.length} unsanctioned structural`);
+		console.log(
+			`${name}: ${outsideApprovedPixel.differingPixels} outside pixels, ${unsanctioned.length} unsanctioned structural`,
+		);
 	} finally {
 		await Promise.all([source.close(), candidate.close()]);
 	}
@@ -158,11 +199,15 @@ const report = {
 		"Lens footer logo subtree -> Opaline wordmark",
 		"© 2026 Mask Network -> © 2026 Opaline",
 	],
-	passed: results.every((result) =>
-		result.outsideApprovedPixel.differingPixels === 0 &&
-		result.unsanctionedStructuralDifferenceCount === 0
+	passed: results.every(
+		(result) =>
+			result.outsideApprovedPixel.differingPixels === 0 &&
+			result.unsanctionedStructuralDifferenceCount === 0,
 	),
 	results,
 };
-await writeFile(path.join(outputRoot, "report.json"), `${JSON.stringify(report, null, 2)}\n`);
+await writeFile(
+	path.join(outputRoot, "report.json"),
+	`${JSON.stringify(report, null, 2)}\n`,
+);
 if (!report.passed) process.exitCode = 1;

@@ -7,9 +7,10 @@ import {
 import "../../styles/vendor/attio/dashboard/naturalized.css";
 import "../../styles/vendor/attio/dashboard/naturalized-composition.css";
 
-const renderedHtml = Astro.url.searchParams.get("scene") === "reporting"
-	? mobileReportingHtml
-	: mobileDataHtml;
+const renderedHtml =
+	Astro.url.searchParams.get("scene") === "reporting"
+		? mobileReportingHtml
+		: mobileDataHtml;
 ---
 
 <!doctype html>

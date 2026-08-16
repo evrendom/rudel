@@ -15,8 +15,18 @@ const artifactRoot = path.resolve(
 );
 const viewport = { width: 390, height: 844, dpr: 1, mobile: true };
 const scenes = [
-	{ id: "Data model", slug: "data", route: "dashboard-mobile", naturalizedRoute: "dashboard-mobile-naturalized" },
-	{ id: "Reporting", slug: "reporting", route: "dashboard-mobile-reporting", naturalizedRoute: "dashboard-mobile-reporting-naturalized" },
+	{
+		id: "Data model",
+		slug: "data",
+		route: "dashboard-mobile",
+		naturalizedRoute: "dashboard-mobile-naturalized",
+	},
+	{
+		id: "Reporting",
+		slug: "reporting",
+		route: "dashboard-mobile-reporting",
+		naturalizedRoute: "dashboard-mobile-reporting-naturalized",
+	},
 ];
 
 const capture = async (url, outputRoot, label) => {
@@ -32,7 +42,10 @@ const capture = async (url, outputRoot, label) => {
 		const screenshotPath = path.join(outputRoot, `${label}.png`);
 		await session.screenshot(screenshotPath);
 		await session.freezeAtDeterministicState();
-		const snapshot = await session.snapshot({ component: "dashboard-mobile", url });
+		const snapshot = await session.snapshot({
+			component: "dashboard-mobile",
+			url,
+		});
 		const snapshotPath = path.join(outputRoot, `${label}.structure.json`);
 		await writeFile(snapshotPath, `${JSON.stringify(snapshot)}\n`);
 		return { screenshotPath, snapshotPath, snapshot };
@@ -46,15 +59,18 @@ const filterSnapshotArtifacts = (differences) =>
 		if (
 			difference.type === "node" &&
 			(difference.left === "#text" || difference.right === "#text")
-		) return false;
+		)
+			return false;
 		if (difference.node === "#text") return false;
 		if (difference.type === "style" && difference.property === "transform") {
 			const left = difference.left.match(/-?\d+(?:\.\d+)?/g)?.map(Number) ?? [];
-			const right = difference.right.match(/-?\d+(?:\.\d+)?/g)?.map(Number) ?? [];
+			const right =
+				difference.right.match(/-?\d+(?:\.\d+)?/g)?.map(Number) ?? [];
 			if (
 				left.length === right.length &&
 				left.every((value, index) => Math.abs(value - right[index]) <= 0.00001)
-			) return false;
+			)
+				return false;
 		}
 		if (
 			difference.type === "style" &&
@@ -69,11 +85,13 @@ const filterSnapshotArtifacts = (differences) =>
 			].includes(difference.property)
 		) {
 			const left = difference.left.match(/-?\d+(?:\.\d+)?/g)?.map(Number) ?? [];
-			const right = difference.right.match(/-?\d+(?:\.\d+)?/g)?.map(Number) ?? [];
+			const right =
+				difference.right.match(/-?\d+(?:\.\d+)?/g)?.map(Number) ?? [];
 			if (
 				left.length === right.length &&
 				left.every((value, index) => Math.abs(value - right[index]) <= 0.05)
-			) return false;
+			)
+				return false;
 		}
 		return true;
 	});
@@ -129,8 +147,7 @@ const g1Report = {
 	thresholds: { maximumPixelDifferencePercent: 0.1, structuralDifferences: 0 },
 	passed: g1Results.every(
 		(result) =>
-			result.pixel.diffPercent <= 0.1 &&
-			result.structuralDifferenceCount === 0,
+			result.pixel.diffPercent <= 0.1 && result.structuralDifferenceCount === 0,
 	),
 	results: g1Results,
 };

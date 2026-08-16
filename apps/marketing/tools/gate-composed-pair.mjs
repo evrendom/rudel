@@ -124,9 +124,9 @@ const capture = async ({ url, label }) => {
 			}
 		}
 		const captures = [];
-	for (const state of states) {
-		await session.scrollTo(state.scrollY);
-		await wait(state.name === "desktop-top" ? 1000 : 500);
+		for (const state of states) {
+			await session.scrollTo(state.scrollY);
+			await wait(state.name === "desktop-top" ? 1000 : 500);
 			const screenshotPath = path.join(
 				outputRoot,
 				`${state.name}-${label}.png`,

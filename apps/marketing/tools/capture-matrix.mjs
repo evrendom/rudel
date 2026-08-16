@@ -97,7 +97,9 @@ const sectionAnchors = async (session) => {
 
 const waitForContentSync = async (session) => {
 	const compositionFrame = await session.frameByName("lens-build-live");
-	const contentFrame = await session.frameByName("lens-attio-lens-content-source");
+	const contentFrame = await session.frameByName(
+		"lens-attio-lens-content-source",
+	);
 	let consecutive = 0;
 	for (let attempt = 0; attempt < 40; attempt += 1) {
 		const outer = await session.evaluate(
@@ -128,7 +130,9 @@ const waitForContentSync = async (session) => {
 		}
 		await wait(50);
 	}
-	throw new Error("Lens content stage did not reach a stable synchronized offset");
+	throw new Error(
+		"Lens content stage did not reach a stable synchronized offset",
+	);
 };
 
 const captureNavbarStates = async ({

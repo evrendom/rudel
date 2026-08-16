@@ -32,7 +32,10 @@ for (const viewport of viewports) {
 		`candidate-first-frame-${viewport.name}.png`,
 	);
 	const diffPath = path.join(outputRoot, `diff-${viewport.name}.png`);
-	const session = await createBrowserSession({ url: candidateUrl, ...viewport });
+	const session = await createBrowserSession({
+		url: candidateUrl,
+		...viewport,
+	});
 	let audit;
 	try {
 		await session.waitFor(
@@ -71,8 +74,7 @@ for (const viewport of viewports) {
 const report = {
 	gate: "G1-hero-canvas-first-frame",
 	generatedAt: new Date().toISOString(),
-	sourceUrl:
-		"http://127.0.0.1:4175/__lens-atoms/hero?opaline-layer=canvas",
+	sourceUrl: "http://127.0.0.1:4175/__lens-atoms/hero?opaline-layer=canvas",
 	candidateUrl,
 	threshold: { maximumPixelDifferencePercent: 0.1 },
 	passed: results.every(({ passed }) => passed),

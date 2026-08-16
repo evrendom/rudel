@@ -4,7 +4,10 @@ import { fileURLToPath } from "node:url";
 import postcss from "postcss";
 import selectorParser from "postcss-selector-parser";
 
-const marketingRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const marketingRoot = path.resolve(
+	path.dirname(fileURLToPath(import.meta.url)),
+	"..",
+);
 const vendorRoot = path.join(marketingRoot, "src/styles/vendor/lens/content");
 const sourceDataPath = path.join(
 	marketingRoot,
@@ -28,10 +31,10 @@ const rootFontClasses = {
 };
 const moduleNames = {
 	"1xjNtG": "page",
-	"iwFn6W": "topbar",
-	"zSSrMW": "intro",
-	"dyHaOG": "intro-lockup",
-	"yvozIa": "brand-mark",
+	iwFn6W: "topbar",
+	zSSrMW: "intro",
+	dyHaOG: "intro-lockup",
+	yvozIa: "brand-mark",
 	"2kXzVG": "eyebrow",
 	HICQDG: "button",
 	"jd8z-a": "spinner",
@@ -47,15 +50,19 @@ const moduleNames = {
 };
 
 const readExportedValue = (source, name) => {
-	const match = source.match(new RegExp(`export const ${name} = (.*?)(?: as const)?;\\n`));
-	if (!match?.[1]) throw new Error(`Could not read Lens content field: ${name}`);
+	const match = source.match(
+		new RegExp(`export const ${name} = (.*?)(?: as const)?;\\n`),
+	);
+	if (!match?.[1])
+		throw new Error(`Could not read Lens content field: ${name}`);
 	return JSON.parse(match[1]);
 };
-const kebab = (value) => value
-	.replace(/([a-z0-9])([A-Z])/g, "$1-$2")
-	.replace(/[^a-zA-Z0-9]+/g, "-")
-	.replace(/^-|-$/g, "")
-	.toLowerCase();
+const kebab = (value) =>
+	value
+		.replace(/([a-z0-9])([A-Z])/g, "$1-$2")
+		.replace(/[^a-zA-Z0-9]+/g, "-")
+		.replace(/^-|-$/g, "")
+		.toLowerCase();
 
 const [sourceCss, sourceRouteCss, sourceData] = await Promise.all([
 	readFile(path.join(vendorRoot, "source.css"), "utf8"),
@@ -74,7 +81,8 @@ for (const className of new Set(markupClasses)) {
 	);
 	if (moduleMatch) {
 		const [, moduleId, localName] = moduleMatch;
-		classes[className] = `opaline-lens-${moduleNames[moduleId] ?? `module-${kebab(moduleId)}`}-${kebab(localName)}`;
+		classes[className] =
+			`opaline-lens-${moduleNames[moduleId] ?? `module-${kebab(moduleId)}`}-${kebab(localName)}`;
 	} else {
 		classes[className] = `opaline-lens-graphic-${kebab(className)}`;
 	}
@@ -82,10 +90,15 @@ for (const className of new Set(markupClasses)) {
 Object.assign(classes, rootFontClasses);
 const renameMap = { classes, attributes: {} };
 
-const naturalizeMarkup = (markup) => markup.replace(
-	/class="([^"]*)"/g,
-	(_match, value) => `class="${value.split(/\s+/).map((name) => classes[name] ?? name).join(" ")}"`,
-);
+const naturalizeMarkup = (markup) =>
+	markup.replace(
+		/class="([^"]*)"/g,
+		(_match, value) =>
+			`class="${value
+				.split(/\s+/)
+				.map((name) => classes[name] ?? name)
+				.join(" ")}"`,
+	);
 
 const scopeNode = () => selectorParser.className({ value: scopeClass });
 const zeroSpecificityScope = () => {
@@ -93,7 +106,13 @@ const zeroSpecificityScope = () => {
 	scope.append(selectorParser.selector({ nodes: [scopeNode()] }));
 	return scope;
 };
-const rootSelectors = new Set(["html", ":root", "body", "html body", "html,html body"]);
+const rootSelectors = new Set([
+	"html",
+	":root",
+	"body",
+	"html body",
+	"html,html body",
+]);
 const transformSelector = selectorParser((selectors) => {
 	selectors.each((selector) => {
 		const original = selector.toString().trim();
@@ -122,20 +141,26 @@ const transformSelector = selectorParser((selectors) => {
 	});
 });
 
-const pxValue = (value) => value.replace(
-	/(-?(?:\d+\.?\d*|\.\d+))rem\b/g,
-	(_match, number) => `${Number(number) * 16}px`,
-);
+const pxValue = (value) =>
+	value.replace(
+		/(-?(?:\d+\.?\d*|\.\d+))rem\b/g,
+		(_match, number) => `${Number(number) * 16}px`,
+	);
 const naturalizeCss = (source, from, { sourceRoute = false } = {}) => {
 	const root = postcss.parse(source, { from });
 	root.walkAtRules((rule) => {
 		if (rule.params?.includes("rem")) rule.params = pxValue(rule.params);
 	});
 	root.walkDecls((declaration) => {
-		if (declaration.value.includes("rem")) declaration.value = pxValue(declaration.value);
+		if (declaration.value.includes("rem"))
+			declaration.value = pxValue(declaration.value);
 	});
 	root.walkRules((rule) => {
-		if (rule.parent?.type === "atrule" && rule.parent.name.endsWith("keyframes")) return;
+		if (
+			rule.parent?.type === "atrule" &&
+			rule.parent.name.endsWith("keyframes")
+		)
+			return;
 		if (sourceRoute) {
 			if (rule.selector.includes("body > :not(main)")) {
 				rule.remove();
@@ -145,7 +170,10 @@ const naturalizeCss = (source, from, { sourceRoute = false } = {}) => {
 				rule.selector = `.${scopeClass}`;
 				return;
 			}
-			rule.selector = rule.selector.replaceAll("body > main", `:where(.${scopeClass}) > main`);
+			rule.selector = rule.selector.replaceAll(
+				"body > main",
+				`:where(.${scopeClass}) > main`,
+			);
 			return;
 		}
 		rule.selector = transformSelector.processSync(rule.selector);
@@ -157,7 +185,9 @@ const naturalizedCss = [
 	`@layer lens {`,
 	`.${scopeClass} { display: contents; font-feature-settings: normal; font-synthesis: initial; }`,
 	naturalizeCss(sourceCss, path.join(vendorRoot, "source.css")),
-	naturalizeCss(sourceRouteCss, path.join(vendorRoot, "source-route.css"), { sourceRoute: true }),
+	naturalizeCss(sourceRouteCss, path.join(vendorRoot, "source-route.css"), {
+		sourceRoute: true,
+	}),
 	`}`,
 ].join("\n");
 const naturalizedHtml = naturalizeMarkup(sourceHtml);
@@ -187,4 +217,10 @@ await Promise.all([
 	writeFile(renameMapPath, `${JSON.stringify(renameMap, null, 2)}\n`),
 ]);
 
-console.log(JSON.stringify({ classesRenamed: Object.keys(classes).length, scopeClass }, null, 2));
+console.log(
+	JSON.stringify(
+		{ classesRenamed: Object.keys(classes).length, scopeClass },
+		null,
+		2,
+	),
+);

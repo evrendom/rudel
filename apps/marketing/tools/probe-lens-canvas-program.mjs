@@ -166,7 +166,11 @@ try {
 			);
 			const trace = observation.trace;
 			if (trace || observation.error) {
-				observations.push({ frame, canvas: trace?.canvas ?? null, error: observation.error });
+				observations.push({
+					frame,
+					canvas: trace?.canvas ?? null,
+					error: observation.error,
+				});
 			}
 			if (trace?.canvas?.width === 1280 && trace?.canvas?.height === 800) {
 				result = { frame, trace };
