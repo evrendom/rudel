@@ -1,8 +1,9 @@
-import { useMemo, useState } from "react";
+import { type Ref, useMemo, useState } from "react";
 import {
 	type SessionContinuousTurnViewportStore,
 	useSessionContinuousTurnVisibleRange,
 } from "./session-continuous-turn-viewport-store";
+import type { SessionTurnTableVirtualizerHandle } from "./session-detail-virtualization";
 import {
 	SessionTurnTable,
 	type SessionTurnTableOption,
@@ -21,6 +22,7 @@ import type { SessionTurn } from "./session-turns";
 import { useSessionTurnTableControls } from "./use-session-turn-table-controls";
 
 export interface SessionTurnTablePaneOption extends SessionTurnTableOption {
+	hasBody?: boolean;
 	memberPreview: string;
 	preview: string;
 	turn?: SessionTurn;
@@ -37,6 +39,7 @@ export function SessionTurnTablePane({
 	userImageUrl,
 	userLabel,
 	viewportStore,
+	virtualizerRef,
 }: {
 	model: string | undefined;
 	onSelect: (selection: SessionTurnSelection) => void;
@@ -45,6 +48,7 @@ export function SessionTurnTablePane({
 	userImageUrl: string | undefined;
 	userLabel: string;
 	viewportStore: SessionContinuousTurnViewportStore;
+	virtualizerRef?: Ref<SessionTurnTableVirtualizerHandle>;
 }) {
 	const viewportRange = useSessionContinuousTurnVisibleRange(viewportStore);
 	const [primarySpeaker, setPrimarySpeaker] =
@@ -156,6 +160,7 @@ export function SessionTurnTablePane({
 					visibleOptions={visibleMatches}
 					visibleSpeakers={visibleSpeakers}
 					viewportRange={viewportRange}
+					virtualizerRef={virtualizerRef}
 				/>
 			</div>
 		</>

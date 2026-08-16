@@ -28,6 +28,10 @@ import {
 	buildSessionDetailOverviewTurnOptions,
 	buildSessionDetailOverviewViewModel,
 } from "./session-detail-overview-model";
+import type {
+	SessionContinuousTurnVirtualizerHandle,
+	SessionTurnTableVirtualizerHandle,
+} from "./session-detail-virtualization";
 import type { SessionTurnSelection } from "./session-turn-table-selection";
 
 const columnBottomPaddingClassName =
@@ -74,6 +78,10 @@ export function SessionDetailFastContent({
 		undefined,
 	);
 	const turnTableSectionRef = useRef<HTMLElement>(null);
+	const responseVirtualizerRef =
+		useRef<SessionContinuousTurnVirtualizerHandle>(null);
+	const turnTableVirtualizerRef =
+		useRef<SessionTurnTableVirtualizerHandle>(null);
 	const pages = useMemo(
 		() => [firstOverview, ...additionalPages],
 		[additionalPages, firstOverview],
@@ -117,24 +125,16 @@ export function SessionDetailFastContent({
 			});
 		}
 		setSelection(nextSelection);
-		const scrollContainer = responseScrollRef.current;
-		const fullTurnTarget = scrollContainer?.querySelector<HTMLElement>(
-			`[data-continuous-turn-index="${nextSelection.index}"]`,
-		);
-		if (fullTranscript.status === "complete" && fullTurnTarget) {
-			fullTurnTarget.scrollIntoView({ behavior: "smooth", block: "start" });
-		} else {
-			scrollContainer?.scrollTo({ top: 0 });
-		}
+		responseVirtualizerRef.current?.scrollToIndex(nextSelection.index, {
+			align: "start",
+			behavior: "smooth",
+		});
 	}
 
 	function handleContinuousTurnFocus(nextIndex: number) {
-		setSelection((current) => ({ ...current, index: nextIndex }));
-		window.requestAnimationFrame(() => {
-			turnTableSectionRef.current
-				?.querySelector<HTMLElement>(`[data-turn-index="${nextIndex}"]`)
-				?.scrollIntoView({ block: "nearest", inline: "nearest" });
-		});
+		const nextSelection = { ...selection, index: nextIndex };
+		setSelection(nextSelection);
+		turnTableVirtualizerRef.current?.scrollToSelection(nextSelection);
 	}
 
 	async function loadPage(cursor: string, signal?: AbortSignal) {
@@ -299,12 +299,18 @@ export function SessionDetailFastContent({
 					onContinuousTurnFocus={handleContinuousTurnFocus}
 					onSelect={handleSelection}
 					options={options}
-					responsePane={
+					responsePane={({ onContinuousTurnViewportChange }) => (
 						<SessionDetailFastResponsePane
 							bottomPaddingClassName={columnBottomPaddingClassName}
 							fullTranscript={fullTranscript}
 							onCancelFullTranscript={handleCancelFullTranscript}
 							onContinuousTurnFocus={handleContinuousTurnFocus}
+							onContinuousTurnViewportChange={(activeIndex, visibleRange) => {
+								onContinuousTurnViewportChange(activeIndex, visibleRange);
+								if (nextCursor && visibleRange[1] >= options.length - 5) {
+									void handleLoadNextPage();
+								}
+							}}
 							onLoadFullTranscript={() => {
 								void handleLoadFullTranscript();
 							}}
@@ -317,8 +323,9 @@ export function SessionDetailFastContent({
 							subagents={firstOverview.subagents}
 							userImageUrl={userImageUrl}
 							viewModel={viewModel}
+							virtualizerRef={responseVirtualizerRef}
 						/>
-					}
+					)}
 					responseScrollRef={responseScrollRef}
 					selection={selection}
 					turnTableFooter={
@@ -332,6 +339,7 @@ export function SessionDetailFastContent({
 						/>
 					}
 					turnTableSectionRef={turnTableSectionRef}
+					turnTableVirtualizerRef={turnTableVirtualizerRef}
 					userImageUrl={userImageUrl}
 					viewModel={viewModel}
 				/>

@@ -1,6 +1,7 @@
 import {
 	type CSSProperties,
 	type ReactNode,
+	type Ref,
 	type RefObject,
 	useCallback,
 	useRef,
@@ -23,6 +24,7 @@ import {
 	type SessionDetailLevel,
 } from "./session-detail-level";
 import type { buildSessionDetailViewModel } from "./session-detail-view-model";
+import type { SessionTurnTableVirtualizerHandle } from "./session-detail-virtualization";
 import { SessionOverviewSummaryStrip } from "./session-overview-summary-strip";
 import { SessionThreadOverviewStrip } from "./session-thread-overview-strip";
 import { SessionTurnResponsePane } from "./session-turn-response-pane";
@@ -43,6 +45,13 @@ const TURN_TABLE_PANE_STORAGE_KEY = "rudel:session-turn-table-pane-width:v1";
 
 type TurnTableGridStyle = CSSProperties & {
 	"--session-turn-table-pane-width": string;
+};
+
+type SessionDetailResponsePaneRenderProps = {
+	onContinuousTurnViewportChange: (
+		activeIndex: number,
+		visibleRange: readonly [number, number],
+	) => void;
 };
 
 function SessionThreadOverviewViewportStrip({
@@ -73,11 +82,12 @@ type SessionDetailLayoutProps = {
 	onContinuousTurnFocus: (index: number) => void;
 	onSelect: (selection: SessionTurnSelection) => void;
 	options: readonly SessionTurnTablePaneOption[];
-	responsePane?: ReactNode;
+	responsePane?: (props: SessionDetailResponsePaneRenderProps) => ReactNode;
 	responseScrollRef: RefObject<HTMLDivElement | null>;
 	selection: SessionTurnSelection;
 	turnTableFooter?: ReactNode;
 	turnTableSectionRef: RefObject<HTMLElement | null>;
+	turnTableVirtualizerRef?: Ref<SessionTurnTableVirtualizerHandle>;
 	userImageUrl: string | undefined;
 	viewModel: SessionDetailViewModel;
 };
@@ -92,6 +102,7 @@ export function SessionDetailLayout({
 	selection,
 	turnTableFooter,
 	turnTableSectionRef,
+	turnTableVirtualizerRef,
 	userImageUrl,
 	viewModel,
 }: SessionDetailLayoutProps) {
@@ -179,6 +190,7 @@ export function SessionDetailLayout({
 						userImageUrl={userImageUrl}
 						userLabel={viewModel.safeUserDisplayName}
 						viewportStore={continuousTurnViewportStore}
+						virtualizerRef={turnTableVirtualizerRef}
 					/>
 					{turnTableFooter}
 				</section>
@@ -192,7 +204,9 @@ export function SessionDetailLayout({
 					onValuePreview={previewTurnTablePaneWidth}
 					value={turnTablePaneWidth}
 				/>
-				{responsePane ?? (
+				{responsePane?.({
+					onContinuousTurnViewportChange: handleContinuousTurnViewportChange,
+				}) ?? (
 					<SessionTurnResponsePane
 						bottomPaddingClassName={bottomPaddingClassName}
 						detailLevel={detailLevel}

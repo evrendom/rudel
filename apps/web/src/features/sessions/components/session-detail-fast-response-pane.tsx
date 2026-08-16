@@ -3,14 +3,12 @@ import type {
 	SessionDetailTurn,
 } from "@rudel/api-routes";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { type RefObject, useMemo, useState } from "react";
+import { type RefObject, useCallback, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import { useMountEffect } from "@/app/hooks/useMountEffect";
 import { Button } from "@/app/ui/button";
 import { Skeleton } from "@/app/ui/skeleton";
-import {
-	ConversationTrace,
-	ConversationTraceTreeConnectorStyleProvider,
-} from "@/components/conversation/ConversationTrace";
+import { ConversationTrace } from "@/components/conversation/ConversationTrace";
 import { buildConversationTrace } from "@/components/conversation/conversation-trace";
 import { parseConversations } from "@/lib/conversation-schema";
 import { SessionContinuousTurnThread } from "./session-continuous-turn-thread";
@@ -34,8 +32,7 @@ import {
 	attachSessionDetailTurnBody,
 	type SessionDetailOverviewTurnOption,
 } from "./session-detail-overview-model";
-import { SessionMemberRow } from "./session-member-row";
-import { SessionTurnResponseTrace } from "./session-turn-response-trace";
+import type { SessionContinuousTurnVirtualizerHandle } from "./session-detail-virtualization";
 import type { SessionTurnSelection } from "./session-turn-table-selection";
 
 type SessionDetailOverviewViewModel = ReturnType<
@@ -67,6 +64,7 @@ export function SessionDetailFastResponsePane({
 	fullTranscript,
 	onCancelFullTranscript,
 	onContinuousTurnFocus,
+	onContinuousTurnViewportChange,
 	onLoadFullTranscript,
 	onStaleRevision,
 	options,
@@ -77,11 +75,16 @@ export function SessionDetailFastResponsePane({
 	subagents,
 	userImageUrl,
 	viewModel,
+	virtualizerRef,
 }: {
 	bottomPaddingClassName: string;
 	fullTranscript: FullTranscriptState;
 	onCancelFullTranscript: () => void;
 	onContinuousTurnFocus: (index: number) => void;
+	onContinuousTurnViewportChange: (
+		activeIndex: number,
+		visibleRange: readonly [number, number],
+	) => void;
 	onLoadFullTranscript: () => void;
 	onStaleRevision: (error: unknown) => void;
 	options: readonly SessionDetailOverviewTurnOption[];
@@ -92,25 +95,130 @@ export function SessionDetailFastResponsePane({
 	subagents: readonly SubagentSummary[];
 	userImageUrl: string | undefined;
 	viewModel: SessionDetailOverviewViewModel;
+	virtualizerRef: RefObject<SessionContinuousTurnVirtualizerHandle | null>;
 }) {
+	const queryClient = useQueryClient();
 	const [searchParams, setSearchParams] = useSearchParams();
+	const [turnBodies, setTurnBodies] = useState<
+		ReadonlyMap<string, SessionDetailTurn>
+	>(() => new Map());
+	const [bodyStates, setBodyStates] = useState<
+		ReadonlyMap<string, "error" | "loading">
+	>(() => new Map());
+	const renderedTurnIdsRef = useRef<ReadonlySet<string>>(new Set());
 	const detailLevel = resolveSessionDetailLevel(searchParams.get("level"));
-	const selectedOption = options[selection.index];
-	const fullOptions = useMemo(
+	const effectiveTurnBodies = useMemo(() => {
+		if (
+			fullTranscript.status !== "complete" &&
+			fullTranscript.status !== "failed"
+		) {
+			return turnBodies;
+		}
+		return mergeSessionDetailTurnBodies(turnBodies, fullTranscript.bodies);
+	}, [fullTranscript, turnBodies]);
+	const loadedOptions = useMemo(
 		() =>
-			fullTranscript.status === "complete"
-				? options.map((option) => {
-						const body = fullTranscript.bodies.get(option.turnId);
-						return body
-							? attachSessionDetailTurnBody(option, body)
-							: {
-									...option,
-									turn: { responseItems: [], userItems: [] },
-								};
-					})
-				: undefined,
-		[fullTranscript, options],
+			options.map((option) => {
+				const body = effectiveTurnBodies.get(option.turnId);
+				return body ? attachSessionDetailTurnBody(option, body) : option;
+			}),
+		[effectiveTurnBodies, options],
 	);
+
+	const loadTurnBody = useCallback(
+		async (index: number) => {
+			const option = options[index];
+			if (!option?.hasBody) {
+				return;
+			}
+			const input = { revision, sessionId, turnId: option.turnId };
+			const queryKey = sessionDetailTurnQueryKey(input);
+			const cached = queryClient.getQueryData<SessionDetailTurn>(queryKey);
+			if (cached) {
+				setTurnBodies((current) =>
+					mergeSessionDetailTurnBodies(
+						current,
+						new Map([[option.turnId, cached]]),
+					),
+				);
+				return;
+			}
+			setBodyStates((current) =>
+				updateSessionDetailBodyState(current, option.turnId, "loading"),
+			);
+			try {
+				const body = await queryClient.fetchQuery({
+					gcTime: SESSION_DETAIL_BODY_CACHE_TIME_MS,
+					queryFn: ({ signal }) => fetchSessionDetailTurn(input, signal),
+					queryKey,
+					retry: shouldRetrySessionDetailFastQuery,
+					staleTime: SESSION_DETAIL_IMMUTABLE_STALE_TIME_MS,
+				});
+				setTurnBodies((current) =>
+					mergeSessionDetailTurnBodies(
+						current,
+						new Map([[option.turnId, body]]),
+					),
+				);
+				setBodyStates((current) =>
+					updateSessionDetailBodyState(current, option.turnId, undefined),
+				);
+			} catch (error) {
+				if (isSessionDetailStaleRevisionError(error)) {
+					onStaleRevision(error);
+					return;
+				}
+				if (!renderedTurnIdsRef.current.has(option.turnId)) {
+					return;
+				}
+				setBodyStates((current) =>
+					updateSessionDetailBodyState(current, option.turnId, "error"),
+				);
+			}
+		},
+		[onStaleRevision, options, queryClient, revision, sessionId],
+	);
+
+	const handleRenderedRangeChange = useCallback(
+		(renderedIndices: readonly number[]) => {
+			const nextTurnIds = new Set(
+				renderedIndices
+					.map((index) => options[index]?.turnId)
+					.filter((turnId): turnId is string => Boolean(turnId)),
+			);
+			const previousTurnIds = renderedTurnIdsRef.current;
+			renderedTurnIdsRef.current = nextTurnIds;
+			if (fullTranscript.status !== "loading") {
+				for (const turnId of previousTurnIds) {
+					if (!nextTurnIds.has(turnId)) {
+						void queryClient.cancelQueries({
+							exact: true,
+							queryKey: sessionDetailTurnQueryKey({
+								revision,
+								sessionId,
+								turnId,
+							}),
+						});
+					}
+				}
+			}
+			for (const index of renderedIndices) {
+				void loadTurnBody(index);
+			}
+		},
+		[
+			fullTranscript.status,
+			loadTurnBody,
+			options,
+			queryClient,
+			revision,
+			sessionId,
+		],
+	);
+
+	useMountEffect(() => {
+		virtualizerRef.current?.scrollToIndex(selection.index, { align: "auto" });
+	});
 
 	function handleDetailLevelChange(nextLevel: SessionDetailLevel) {
 		setSearchParams(
@@ -150,137 +258,30 @@ export function SessionDetailFastResponsePane({
 				data-conversation-trace-scroll-container
 				data-session-trace-presentation="constellation-tree-branch-dots-no-horizontal"
 			>
-				{fullOptions ? (
-					<SessionContinuousTurnThread
-						onActiveIndexChange={onContinuousTurnFocus}
-						onViewportChange={() => undefined}
-						options={fullOptions}
-						scrollContainerRef={responseScrollRef}
-						selection={selection}
-						traceCallDisplayMode={detailLevel}
-						userImageUrl={userImageUrl}
-						viewModel={viewModel}
-					/>
-				) : (
-					<SelectedSessionTurn
-						detailLevel={detailLevel}
-						onStaleRevision={onStaleRevision}
-						option={selectedOption}
-						revision={revision}
-						selection={selection}
-						sessionId={sessionId}
-						subagents={subagents}
-						userImageUrl={userImageUrl}
-						viewModel={viewModel}
-					/>
-				)}
-			</section>
-		</div>
-	);
-}
-
-function SelectedSessionTurn({
-	detailLevel,
-	onStaleRevision,
-	option,
-	revision,
-	selection,
-	sessionId,
-	subagents,
-	userImageUrl,
-	viewModel,
-}: {
-	detailLevel: SessionDetailLevel;
-	onStaleRevision: (error: unknown) => void;
-	option: SessionDetailOverviewTurnOption | undefined;
-	revision: string;
-	selection: SessionTurnSelection;
-	sessionId: string;
-	subagents: readonly SubagentSummary[];
-	userImageUrl: string | undefined;
-	viewModel: SessionDetailOverviewViewModel;
-}) {
-	const turnId = option?.turnId ?? "";
-	const turnInput = { revision, sessionId, turnId };
-	const turnQuery = useQuery({
-		enabled: Boolean(option?.hasBody && turnId),
-		gcTime: SESSION_DETAIL_BODY_CACHE_TIME_MS,
-		queryFn: async ({ signal }) => {
-			try {
-				return await fetchSessionDetailTurn(turnInput, signal);
-			} catch (error) {
-				if (isSessionDetailStaleRevisionError(error)) {
-					onStaleRevision(error);
-				}
-				throw error;
-			}
-		},
-		queryKey: sessionDetailTurnQueryKey(turnInput),
-		retry: shouldRetrySessionDetailFastQuery,
-		staleTime: SESSION_DETAIL_IMMUTABLE_STALE_TIME_MS,
-	});
-
-	if (!option) {
-		return <PaneMessage message="No conversation data available" />;
-	}
-	if (!option.hasBody) {
-		return <PaneMessage message="No response recorded" />;
-	}
-	if (turnQuery.isPending) {
-		return <TurnBodySkeleton />;
-	}
-	if (turnQuery.error) {
-		return (
-			<PaneMessage
-				actionLabel="Retry turn"
-				message="This turn could not be loaded. The session overview is still available."
-				onAction={() => {
-					void turnQuery.refetch();
-				}}
-			/>
-		);
-	}
-	if (!turnQuery.data) {
-		return <PaneMessage message="No response recorded" />;
-	}
-
-	const loadedOption = attachSessionDetailTurnBody(option, turnQuery.data);
-	const startsTrace = optionsStartWithMember(option);
-	return (
-		<ConversationTraceTreeConnectorStyleProvider style="interfere-branch-dots-no-horizontal">
-			<div className="min-w-0">
-				{loadedOption.turn.userItems.length > 0 ? (
-					<SessionMemberRow
-						active={selection.speaker === "member"}
-						headingId={`selected-member-message-${option.turnId}`}
-						items={loadedOption.turn.userItems}
-						speakerLayout="trace-tree"
-						startsTrace={startsTrace}
-						userImageUrl={userImageUrl}
-						userLabel={viewModel.safeUserDisplayName}
-					/>
-				) : null}
-				<section
-					aria-label={option.turnNumber === undefined ? "Preamble" : "Response"}
-					data-session-turn-speaker="model"
-				>
-					<SessionTurnResponseTrace
-						agentSectionMode="expanded"
-						option={loadedOption}
-						speakerLayout="trace-tree"
-						traceCallDisplayMode={detailLevel}
-						userImageUrl={userImageUrl}
-						viewModel={viewModel}
-					/>
-				</section>
+				<SessionContinuousTurnThread
+					bodyStates={bodyStates}
+					onActiveIndexChange={onContinuousTurnFocus}
+					onRenderedRangeChange={handleRenderedRangeChange}
+					onRetryTurnBody={(index) => {
+						void loadTurnBody(index);
+					}}
+					onViewportChange={onContinuousTurnViewportChange}
+					options={loadedOptions}
+					scrollContainerRef={responseScrollRef}
+					selection={selection}
+					traceCallDisplayMode={detailLevel}
+					userImageUrl={userImageUrl}
+					viewModel={viewModel}
+					virtualizerRef={virtualizerRef}
+				/>
 				<SessionDetailSubagents
 					onStaleRevision={onStaleRevision}
 					revision={revision}
 					sessionId={sessionId}
 					subagents={subagents}
 				/>
-			</div>
-		</ConversationTraceTreeConnectorStyleProvider>
+			</section>
+		</div>
 	);
 }
 
@@ -489,6 +490,34 @@ function PaneMessage({
 	);
 }
 
-function optionsStartWithMember(option: SessionDetailOverviewTurnOption) {
-	return option.turnNumber === 1;
+function mergeSessionDetailTurnBodies(
+	current: ReadonlyMap<string, SessionDetailTurn>,
+	incoming: ReadonlyMap<string, SessionDetailTurn>,
+) {
+	let changed = false;
+	const next = new Map(current);
+	for (const [turnId, body] of incoming) {
+		if (next.get(turnId) !== body) {
+			next.set(turnId, body);
+			changed = true;
+		}
+	}
+	return changed ? next : current;
+}
+
+function updateSessionDetailBodyState(
+	current: ReadonlyMap<string, "error" | "loading">,
+	turnId: string,
+	state: "error" | "loading" | undefined,
+) {
+	if (current.get(turnId) === state) {
+		return current;
+	}
+	const next = new Map(current);
+	if (state) {
+		next.set(turnId, state);
+	} else {
+		next.delete(turnId);
+	}
+	return next;
 }
