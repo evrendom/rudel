@@ -5,6 +5,11 @@ import {
 } from "@/components/conversation/conversation-trace-icons";
 import { cn } from "@/lib/utils";
 import type { SessionTurnTableSpeaker } from "./session-turn-table";
+import {
+	focusSessionTurnTableSpeaker,
+	type SessionTurnTableSpeakerSelection,
+	toggleSessionTurnTableSpeakerVisibility,
+} from "./session-turn-table-speaker-visibility";
 
 const SESSION_TURN_TABLE_SPEAKERS: readonly {
 	label: string;
@@ -13,62 +18,6 @@ const SESSION_TURN_TABLE_SPEAKERS: readonly {
 	{ label: "Model", value: "model" },
 	{ label: "User", value: "member" },
 ];
-
-type SessionTurnTableSpeakerSelection = {
-	primarySpeaker: SessionTurnTableSpeaker;
-	visibleSpeakers: ReadonlySet<SessionTurnTableSpeaker>;
-};
-
-export function toggleSessionTurnTableSpeakerVisibility({
-	primarySpeaker,
-	speaker,
-	visibleSpeakers,
-}: {
-	primarySpeaker: SessionTurnTableSpeaker;
-	speaker: SessionTurnTableSpeaker;
-	visibleSpeakers: ReadonlySet<SessionTurnTableSpeaker>;
-}): SessionTurnTableSpeakerSelection {
-	if (visibleSpeakers.size === 1) {
-		if (visibleSpeakers.has(speaker)) {
-			return { primarySpeaker, visibleSpeakers };
-		}
-		return {
-			primarySpeaker,
-			visibleSpeakers: new Set([...visibleSpeakers, speaker]),
-		};
-	}
-
-	const nextSpeakers = new Set(visibleSpeakers);
-	if (nextSpeakers.has(speaker)) {
-		nextSpeakers.delete(speaker);
-	} else {
-		nextSpeakers.add(speaker);
-	}
-	return {
-		primarySpeaker:
-			primarySpeaker === speaker
-				? speaker === "model"
-					? "member"
-					: "model"
-				: primarySpeaker,
-		visibleSpeakers: nextSpeakers,
-	};
-}
-
-export function focusSessionTurnTableSpeaker({
-	primarySpeaker,
-	speaker,
-	visibleSpeakers,
-}: {
-	primarySpeaker: SessionTurnTableSpeaker;
-	speaker: SessionTurnTableSpeaker;
-	visibleSpeakers: ReadonlySet<SessionTurnTableSpeaker>;
-}): SessionTurnTableSpeakerSelection {
-	return {
-		primarySpeaker: visibleSpeakers.has(speaker) ? speaker : primarySpeaker,
-		visibleSpeakers,
-	};
-}
 
 function SessionTurnTableSpeakerIcon({
 	model,

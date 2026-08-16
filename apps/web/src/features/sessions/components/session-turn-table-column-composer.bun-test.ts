@@ -5,7 +5,7 @@ import {
 	SESSION_TURN_TABLE_COLUMN_OPTIONS,
 	type SessionTurnTableColumnKey,
 	toggleSessionTurnTableColumn,
-} from "./session-turn-table-column-composer";
+} from "./session-turn-table-column-options";
 
 describe("session turn table column composer", () => {
 	test("exposes every turn table column in display order", () => {

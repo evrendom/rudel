@@ -1,34 +1,27 @@
 import type { SessionDetailOverview } from "@rudel/api-routes";
-import { type QueryClient, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { type RefObject, useMemo, useRef, useState } from "react";
-import { useMountEffect } from "@/app/hooks/useMountEffect";
 import { Button } from "@/app/ui/button";
 import {
 	fetchSessionDetailOverview,
-	fetchSessionDetailTurn,
 	isSessionDetailStaleRevisionError,
-	SESSION_DETAIL_BODY_CACHE_TIME_MS,
 	SESSION_DETAIL_IMMUTABLE_STALE_TIME_MS,
 	sessionDetailOverviewPageQueryKey,
 	sessionDetailTurnQueryKey,
 	shouldRetrySessionDetailFastQuery,
 } from "./session-detail-fast-query";
 import { SessionDetailFastResponsePane } from "./session-detail-fast-response-pane";
-import {
-	loadRemainingSessionDetailOverviewPages,
-	loadSessionDetailTurnBodies,
-} from "./session-detail-full-transcript";
 import { SessionDetailLayout } from "./session-detail-layout";
 import {
 	buildSessionDetailOverviewTurnOptions,
 	buildSessionDetailOverviewViewModel,
 } from "./session-detail-overview-model";
-import type { SessionDetailSearchLoadState } from "./session-detail-search";
 import type {
 	SessionContinuousTurnVirtualizerHandle,
 	SessionTurnTableVirtualizerHandle,
 } from "./session-detail-virtualization";
 import type { SessionTurnSelection } from "./session-turn-table-selection";
+import { useSessionDetailSearchLoader } from "./use-session-detail-search-loader";
 
 const columnBottomPaddingClassName =
 	"pb-[calc(5rem+env(safe-area-inset-bottom))]";
@@ -58,9 +51,6 @@ export function SessionDetailFastContent({
 		readonly SessionDetailOverview[]
 	>([]);
 	const [pageLoad, setPageLoad] = useState<PageLoadState>({ status: "idle" });
-	const [searchLoad, setSearchLoad] = useState<SessionDetailSearchLoadState>({
-		status: "idle",
-	});
 	const [selection, setSelection] = useState<SessionTurnSelection>(() => ({
 		index: Math.max(
 			firstOverview.turnPage.items.findIndex(
@@ -70,9 +60,6 @@ export function SessionDetailFastContent({
 		),
 		speaker: "model",
 	}));
-	const searchLoadControllerRef = useRef<AbortController | undefined>(
-		undefined,
-	);
 	const turnTableSectionRef = useRef<HTMLElement>(null);
 	const responseVirtualizerRef =
 		useRef<SessionContinuousTurnVirtualizerHandle>(null);
@@ -104,10 +91,6 @@ export function SessionDetailFastContent({
 			items.find((item) => item.turnId === option.turnId)
 				?.activityResolution === "bucketed",
 	);
-
-	useMountEffect(() => () => {
-		searchLoadControllerRef.current?.abort();
-	});
 
 	function handleSelection(nextSelection: SessionTurnSelection) {
 		if (selectedOption) {
@@ -175,124 +158,14 @@ export function SessionDetailFastContent({
 			setPageLoad({ error, status: "error" });
 		}
 	}
-
-	async function loadSearchIndex() {
-		const controller = new AbortController();
-		searchLoadControllerRef.current?.abort();
-		searchLoadControllerRef.current = controller;
-		const streamedBodies = new Map(
-			"bodies" in searchLoad ? searchLoad.bodies : [],
-		);
-		setSearchLoad({
-			bodies: streamedBodies,
-			completed: 0,
-			phase: "pages",
-			status: "loading",
-			total: 0,
-		});
-
-		try {
-			const remainingPages = await loadRemainingSessionDetailOverviewPages({
-				first: latestPage,
-				loadPage: (cursor) => loadPage(cursor, controller.signal),
-				signal: controller.signal,
-			});
-			const allPages = [...pages, ...remainingPages];
-			setAdditionalPages(allPages.slice(1));
-			const allTurns = allPages.flatMap((page) => page.turnPage.items);
-			setSearchLoad({
-				bodies: streamedBodies,
-				completed: 0,
-				phase: "turns",
-				status: "loading",
-				total: allTurns.filter((turn) => turn.hasBody).length,
-			});
-			const result = await loadSessionDetailTurnBodies({
-				concurrency: 3,
-				loadTurn: (turn) =>
-					loadTurnWithCache({
-						controller,
-						queryClient,
-						revision: firstOverview.revision,
-						sessionId: firstOverview.session.sessionId,
-						turnId: turn.turnId,
-					}),
-				onProgress: ({ completed, total }) => {
-					if (!controller.signal.aborted) {
-						setSearchLoad({
-							bodies: new Map(streamedBodies),
-							completed,
-							phase: "turns",
-							status: "loading",
-							total,
-						});
-					}
-				},
-				onTurnLoaded: (turn, body) => {
-					if (!controller.signal.aborted) {
-						streamedBodies.set(turn.turnId, body);
-						setSearchLoad((current) =>
-							current.status === "loading"
-								? { ...current, bodies: new Map(streamedBodies) }
-								: current,
-						);
-					}
-				},
-				signal: controller.signal,
-				shouldStop: isSessionDetailStaleRevisionError,
-				turns: allTurns,
-			});
-			if (result.failures.size > 0) {
-				setSearchLoad({
-					bodies: result.bodies,
-					failedTurnIds: [...result.failures.keys()],
-					status: "failed",
-				});
-			} else {
-				setSearchLoad({ bodies: result.bodies, status: "complete" });
-			}
-		} catch (error) {
-			if (controller.signal.aborted) {
-				return;
-			}
-			if (isSessionDetailStaleRevisionError(error)) {
-				handleStaleRevision(error);
-				return;
-			}
-			setSearchLoad({
-				bodies: streamedBodies,
-				failedTurnIds: [],
-				status: "failed",
-			});
-		} finally {
-			if (searchLoadControllerRef.current === controller) {
-				searchLoadControllerRef.current = undefined;
-			}
-		}
-	}
-
-	function handleSearchFocus() {
-		if (searchLoad.status === "loading" || searchLoad.status === "complete") {
-			return;
-		}
-		void loadSearchIndex();
-	}
-
-	function handleCancelSearchLoad() {
-		searchLoadControllerRef.current?.abort(
-			new DOMException("Transcript indexing was cancelled.", "AbortError"),
-		);
-		setSearchLoad((current) =>
-			current.status === "loading"
-				? {
-						bodies: current.bodies,
-						completed: current.completed,
-						status: "cancelled",
-						total: current.total,
-					}
-				: current,
-		);
-	}
+	const searchLoader = useSessionDetailSearchLoader({
+		firstOverview,
+		latestPage,
+		loadPage,
+		onPagesLoaded: setAdditionalPages,
+		onStaleRevision: handleStaleRevision,
+		pages,
+	});
 
 	return (
 		<div className="grid h-full min-h-0 min-w-0 grid-cols-[minmax(0,1fr)] overflow-hidden bg-(--session-overview-surface) [--session-overview-accent:#266df0] [--session-overview-border:#eeeff1] [--session-overview-hover:#f6f7f7] [--session-overview-muted:rgba(0,0,0,0.63)] [--session-overview-subtle:rgba(0,0,0,0.5)] [--session-overview-surface:#fff] [--session-overview-text:#101112] [font-family:Inter,sans-serif] dark:[--session-overview-border:rgba(255,255,255,0.08)] dark:[--session-overview-hover:rgba(255,255,255,0.05)] dark:[--session-overview-muted:rgba(255,255,255,0.65)] dark:[--session-overview-subtle:rgba(255,255,255,0.5)] dark:[--session-overview-surface:#111827] dark:[--session-overview-text:#f8fafc]">
@@ -311,7 +184,7 @@ export function SessionDetailFastContent({
 					responsePane={({ onContinuousTurnViewportChange }) => (
 						<SessionDetailFastResponsePane
 							bottomPaddingClassName={columnBottomPaddingClassName}
-							onCancelSearchLoad={handleCancelSearchLoad}
+							onCancelSearchLoad={searchLoader.cancel}
 							onContinuousTurnFocus={handleContinuousTurnFocus}
 							onContinuousTurnViewportChange={(activeIndex, visibleRange) => {
 								onContinuousTurnViewportChange(activeIndex, visibleRange);
@@ -319,7 +192,7 @@ export function SessionDetailFastContent({
 									void handleLoadNextPage();
 								}
 							}}
-							onSearchFocus={handleSearchFocus}
+							onSearchFocus={searchLoader.focus}
 							onSearchHit={(index) =>
 								handleSelection({ index, speaker: "model" })
 							}
@@ -327,7 +200,7 @@ export function SessionDetailFastContent({
 							options={options}
 							responseScrollRef={responseScrollRef}
 							revision={firstOverview.revision}
-							searchLoad={searchLoad}
+							searchLoad={searchLoader.loadState}
 							selection={selection}
 							sessionId={firstOverview.session.sessionId}
 							subagents={firstOverview.subagents}
@@ -356,30 +229,6 @@ export function SessionDetailFastContent({
 			</div>
 		</div>
 	);
-}
-
-async function loadTurnWithCache(input: {
-	controller: AbortController;
-	queryClient: QueryClient;
-	revision: string;
-	sessionId: string;
-	turnId: string;
-}) {
-	input.controller.signal.throwIfAborted();
-	const turnInput = {
-		revision: input.revision,
-		sessionId: input.sessionId,
-		turnId: input.turnId,
-	};
-	const result = await input.queryClient.fetchQuery({
-		gcTime: SESSION_DETAIL_BODY_CACHE_TIME_MS,
-		queryFn: ({ signal }) => fetchSessionDetailTurn(turnInput, signal),
-		queryKey: sessionDetailTurnQueryKey(turnInput),
-		retry: shouldRetrySessionDetailFastQuery,
-		staleTime: SESSION_DETAIL_IMMUTABLE_STALE_TIME_MS,
-	});
-	input.controller.signal.throwIfAborted();
-	return result;
 }
 
 function TurnPageFooter({

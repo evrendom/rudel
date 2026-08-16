@@ -527,10 +527,14 @@ export function buildDashboardTokenTabMetrics(
 	const activeDevelopersFromUsage = (usersTokenUsage ?? []).filter(
 		(row) => row.total_tokens > 0 || row.total_sessions > 0,
 	).length;
-	const activeDevelopersFromTrend = new Set(
-		(userTrendRows ?? [])
-			.filter((row) => row.total_tokens > 0 || row.sessions > 0)
-			.map((row) => row.user_id),
+	const activeDevelopersFromTrend = (userTrendRows ?? []).reduce(
+		(activeUsers, row) => {
+			if (row.total_tokens > 0 || row.sessions > 0) {
+				activeUsers.add(row.user_id);
+			}
+			return activeUsers;
+		},
+		new Set<string>(),
 	).size;
 	const activeDevelopers =
 		activeDevelopersFromUsage > 0

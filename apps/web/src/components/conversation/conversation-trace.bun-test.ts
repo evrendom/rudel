@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { Conversation } from "@/lib/conversation-schema";
 import { buildConversationTrace, type TraceEvent } from "./conversation-trace";
-import { buildAgentTraceTreeBranches } from "./conversation-trace-tree";
+import { buildAgentTraceTreeBranches } from "./conversation-trace-tree-branches";
 
 function userEntry(
 	id: string,

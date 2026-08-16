@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import {
 	getConversationTraceTreeBranchPath,
 	getConversationTraceTreeX,
-} from "@/components/conversation/conversation-trace-tree";
+} from "@/components/conversation/conversation-trace-tree-geometry";
 
 describe("session constellation tree tokens", () => {
 	test("uses Interfere rails and typography without changing tree geometry", () => {

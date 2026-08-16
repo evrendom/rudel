@@ -6,7 +6,8 @@ import {
 	UserIcon,
 	UsersIcon,
 } from "lucide-react";
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence, domAnimation, LazyMotion } from "motion/react";
+import * as motion from "motion/react-m";
 import * as React from "react";
 import { useLocation } from "react-router-dom";
 import {
@@ -314,19 +315,21 @@ export function AppSidebar({
 				)}
 				<div className={getSidebarFooterClassName(displayMode)}>
 					<div className={getSidebarFooterStackClassName(displayMode)}>
-						<AnimatePresence initial={false}>
-							{showSidebarNewsCard ? (
-								<motion.div
-									key="sidebar-news-card"
-									initial={{ opacity: 0 }}
-									animate={{ opacity: 1 }}
-									exit={{ opacity: 0 }}
-									transition={SIDEBAR_NEWS_VISIBILITY_TRANSITION}
-								>
-									<SidebarNewsCard onDismiss={dismissNewsCard} />
-								</motion.div>
-							) : null}
-						</AnimatePresence>
+						<LazyMotion features={domAnimation}>
+							<AnimatePresence initial={false}>
+								{showSidebarNewsCard ? (
+									<motion.div
+										key="sidebar-news-card"
+										initial={{ opacity: 0 }}
+										animate={{ opacity: 1 }}
+										exit={{ opacity: 0 }}
+										transition={SIDEBAR_NEWS_VISIBILITY_TRANSITION}
+									>
+										<SidebarNewsCard onDismiss={dismissNewsCard} />
+									</motion.div>
+								) : null}
+							</AnimatePresence>
+						</LazyMotion>
 						{isExpandedMode ? (
 							<UserRailButton />
 						) : (

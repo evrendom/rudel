@@ -9,6 +9,7 @@ import {
 } from "react";
 import { cn } from "@/lib/utils";
 import { compactPreview } from "./conversation-trace";
+import { TraceTreeRowBodySlotContext } from "./conversation-trace-row-body-context";
 
 // min-h-10 matches CONVERSATION_TRACE_TREE_ROW_HEIGHT (40px): the tree's
 // connector elbows and depth-derived sticky slots both assume this height,
@@ -31,17 +32,6 @@ const proseBodyClassName = "px-3 py-1";
 const collapsedProseBodyHeight = 68;
 
 export type TraceFocusRequest = { anchorId: string; requestId: number };
-export type TraceTreeRowBodySlot = {
-	content: ReactNode;
-	expanded: boolean;
-};
-
-// A tree item supplies this slot so an expanded body can render below its
-// fixed-height node. Outside the tree, ExpandableTraceRow keeps its normal
-// inline body layout.
-export const TraceTreeRowBodySlotContext = React.createContext<
-	Dispatch<SetStateAction<TraceTreeRowBodySlot | undefined>> | undefined
->(undefined);
 
 function TraceTextDisclosureIcon({ expanded }: { expanded: boolean }) {
 	return (
@@ -64,7 +54,7 @@ function TraceTextDisclosureIcon({ expanded }: { expanded: boolean }) {
 			width="16"
 			xmlns="http://www.w3.org/2000/svg"
 		>
-			<path d="M7.00194 10.6239C6.66861 10.8183 6.25 10.5779 6.25 10.192V5.80802C6.25 5.42212 6.66861 5.18169 7.00194 5.37613L10.7596 7.56811C11.0904 7.76105 11.0904 8.23895 10.7596 8.43189L7.00194 10.6239Z" />
+			<path d="M7 10.62a.5.5 0 0 1-.75-.43V5.81A.5.5 0 0 1 7 5.38l3.76 2.19a.5.5 0 0 1 0 .86L7 10.62Z" />
 		</svg>
 	);
 }

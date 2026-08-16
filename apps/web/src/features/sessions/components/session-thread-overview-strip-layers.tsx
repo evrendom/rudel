@@ -26,6 +26,8 @@ import {
 	getLivelineInputAxisMaximum,
 } from "./session-thread-overview-liveline-geometry";
 import type { SessionOverviewCallSeries } from "./session-thread-overview-model";
+import { transformSessionOverviewRulerScale } from "./session-thread-overview-ruler-scale";
+import { SessionOverviewMetricButton } from "./session-thread-overview-strip-parts";
 import {
 	formatCost,
 	formatMetricValue,
@@ -34,8 +36,7 @@ import {
 	getPlotBounds,
 	getTurnLabel,
 	SESSION_OVERVIEW_METRICS,
-	SessionOverviewMetricButton,
-} from "./session-thread-overview-strip-parts";
+} from "./session-thread-overview-strip-utils";
 import {
 	formatTimelineFooterTick,
 	formatTimelineTick,
@@ -234,8 +235,8 @@ export function SessionOverviewCallMarker({
 		<LazyMotion features={domAnimation}>
 			<motion.div
 				aria-hidden="true"
-				animate={{ left: targetLeft }}
-				className="pointer-events-none absolute -top-8 bottom-[1.625rem] z-40 flex w-px -translate-x-1/2 flex-col items-center bg-orange-500 text-orange-500 dark:bg-orange-400 dark:text-orange-400"
+				animate={{ x: `calc(${targetLeft} - 0.5px)` }}
+				className="pointer-events-none absolute -top-8 bottom-[1.625rem] left-0 z-40 flex w-px flex-col items-center bg-orange-500 text-orange-500 dark:bg-orange-400 dark:text-orange-400"
 				data-liveline-call-marker
 				data-session-overview-selection-marker
 				initial={false}
@@ -253,10 +254,7 @@ export function SessionOverviewCallMarker({
 					viewBox="0 0 7 6"
 					fill="none"
 				>
-					<path
-						d="M3.54688 6L0.515786 0.75L6.57796 0.75L3.54688 6Z"
-						fill="currentColor"
-					/>
+					<path d="M3.55 6 .52.75h6.06L3.55 6Z" fill="currentColor" />
 				</svg>
 			</motion.div>
 		</LazyMotion>
@@ -567,20 +565,6 @@ export function SessionOverviewTimelineFooter({
 			</div>
 		</LazyMotion>
 	);
-}
-
-const SESSION_OVERVIEW_PROXIMITY_DISTANCE_LIMIT = 96;
-
-export function transformSessionOverviewRulerScale(
-	distance: number,
-	intensity: number,
-) {
-	if (Math.abs(distance) > SESSION_OVERVIEW_PROXIMITY_DISTANCE_LIMIT) {
-		return 1;
-	}
-	const normalizedDistance =
-		1 - Math.abs(distance) / SESSION_OVERVIEW_PROXIMITY_DISTANCE_LIMIT;
-	return 1 + intensity * normalizedDistance * normalizedDistance;
 }
 
 function useSessionOverviewProximityScale({

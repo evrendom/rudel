@@ -1,10 +1,8 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
-import {
-	clampPaneSize,
-	HorizontalResizeHandle,
-} from "./horizontal-resize-handle";
+import { HorizontalResizeHandle } from "./horizontal-resize-handle";
+import { clampPaneSize } from "./horizontal-resize-utils";
 
 vi.stubGlobal("PointerEvent", MouseEvent);
 

@@ -3,7 +3,7 @@ import type { SessionTurnTableOption } from "./session-turn-table";
 import {
 	DEFAULT_SESSION_TURN_TABLE_COLUMNS,
 	type SessionTurnTableColumnKey,
-} from "./session-turn-table-column-composer";
+} from "./session-turn-table-column-options";
 import {
 	buildSessionTurnTableFilterOptions,
 	buildSessionTurnTableRangeBounds,

@@ -8,13 +8,10 @@ import {
 	useState,
 } from "react";
 import { cn } from "@/lib/utils";
+import { clampPaneSize } from "./horizontal-resize-utils";
 
 const KEYBOARD_RESIZE_STEP_PX = 1;
 const KEYBOARD_RESIZE_LARGE_STEP_PX = 10;
-
-export function clampPaneSize(value: number, minimum: number, maximum: number) {
-	return Math.min(Math.max(value, minimum), Math.max(minimum, maximum));
-}
 
 export function useElementWidth<T extends HTMLElement>(
 	ref: RefObject<T | null>,

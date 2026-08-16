@@ -1,9 +1,5 @@
 import type { ComponentType, ReactNode } from "react";
 import {
-	ClaudeModelIcon,
-	CodexModelIcon,
-} from "@/features/dashboard/components/DashboardModelBadges";
-import {
 	getModelBadgeTone,
 	getModelBrandIconClassName,
 } from "@/features/dashboard/components/dashboard-model-brand";
@@ -14,6 +10,7 @@ import {
 	TraceChevronDownIcon,
 	TraceUserIcon,
 } from "./conversation-trace-hugeicons";
+import { getModelIconComponent } from "./conversation-trace-model-icon";
 
 const iconShellClassName =
 	"flex size-5 shrink-0 items-center justify-center overflow-hidden rounded-sm border border-[color:var(--dashboardy-border)] text-[color:var(--dashboardy-muted)]";
@@ -28,25 +25,6 @@ export type TraceIconTone =
 	| "openai"
 	| "tomato"
 	| "violet";
-
-export function getModelIconComponent(
-	model: string | undefined,
-): ComponentType<{ className?: string }> | null {
-	if (!model) {
-		return null;
-	}
-
-	const { icon } = getModelBadgeTone(model);
-	if (icon === "claude") {
-		return ClaudeModelIcon;
-	}
-
-	if (icon === "codex") {
-		return CodexModelIcon;
-	}
-
-	return null;
-}
 
 export function TraceIcon({
 	icon: Icon,

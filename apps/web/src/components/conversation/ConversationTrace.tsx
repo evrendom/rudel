@@ -50,10 +50,10 @@ import {
 	type AgentTraceTreeRenderedBranch,
 	type AgentTraceTreeRenderedSection,
 	AgentTraceTreeSection,
-	buildAgentTraceTreeBranches,
 	ConversationTraceRootNode,
 	type ConversationTraceSpeakerLayout,
 } from "./conversation-trace-tree";
+import { buildAgentTraceTreeBranches } from "./conversation-trace-tree-branches";
 import {
 	ExpandableTraceRow,
 	type TraceFocusRequest,
@@ -64,16 +64,14 @@ import {
 import { MessageContent } from "./MessageContent";
 
 export type { TraceCallDisplayMode } from "./conversation-trace-call-display";
-export type {
-	ConversationTraceSpeakerLayout,
-	ConversationTraceTreeConnectorStyle,
-} from "./conversation-trace-tree";
+export type { ConversationTraceSpeakerLayout } from "./conversation-trace-tree";
 export {
 	ConversationTraceCollapsiblePanel,
 	ConversationTraceTreeConnectorStyleProvider,
 	ConversationTraceTreeItem,
 	ConversationTraceTreeNode,
 } from "./conversation-trace-tree";
+export type { ConversationTraceTreeConnectorStyle } from "./conversation-trace-tree-geometry";
 export type { TraceFocusRequest } from "./expandable-trace-row";
 
 const speakerLabelClassName =
@@ -106,10 +104,9 @@ function AgentSection({
 	useTraceFocus(anchorId, focus, setOpen);
 	// The turn is the model's, so it wears the model's mark; unrecognized
 	// vendors fall back to the generic agent glyph.
-	const renderEventRow = (event: TraceEvent) => (
+	const eventRows = events.map((event) => (
 		<EventRow key={event.id} event={event} />
-	);
-	const eventRows = events.map((event) => renderEventRow(event));
+	));
 
 	if (mode === "expanded") {
 		if (expandedSpeakerLayout === "table-row") {
@@ -400,6 +397,44 @@ function TraceRow({
 	);
 }
 
+function toRenderedBranches(
+	treeBranches: ReturnType<typeof buildAgentTraceTreeBranches>,
+	trailing: ReactNode | undefined,
+): AgentTraceTreeRenderedBranch[] {
+	const renderedBranchCount = treeBranches.reduce(
+		(count, branch) => count + (branch.root ? 1 : branch.children.length),
+		0,
+	);
+	return treeBranches.flatMap<AgentTraceTreeRenderedBranch>((branch) =>
+		branch.root
+			? [
+					{
+						children: branch.children.map((event) => ({
+							key: event.id,
+							row: <EventRow event={event} />,
+						})),
+						key: branch.id,
+						row: (
+							<EventRow
+								event={branch.root}
+								trailing={renderedBranchCount === 1 ? trailing : undefined}
+							/>
+						),
+					},
+				]
+			: branch.children.map((event) => ({
+					children: [],
+					key: event.id,
+					row: (
+						<EventRow
+							event={event}
+							trailing={renderedBranchCount === 1 ? trailing : undefined}
+						/>
+					),
+				})),
+	);
+}
+
 function ConversationTraceTurnTree({
 	agentHeaderTrailing,
 	agentLabel,
@@ -444,46 +479,6 @@ function ConversationTraceTurnTree({
 	const planMode = items.some(
 		(item) => item.kind === "agent" && item.executionMode === "plan",
 	);
-
-	const renderEventRow = (event: TraceEvent, trailing?: ReactNode) => (
-		<EventRow event={event} trailing={trailing} />
-	);
-	// Rootless tool runs render directly at branch level — the request header
-	// already scopes them, so a synthetic "Agent activity" parent would only
-	// add an empty indentation level.
-	const toRenderedBranches = (
-		treeBranches: ReturnType<typeof buildAgentTraceTreeBranches>,
-		trailing: ReactNode | undefined,
-	): AgentTraceTreeRenderedBranch[] => {
-		const renderedBranchCount = treeBranches.reduce(
-			(count, branch) => count + (branch.root ? 1 : branch.children.length),
-			0,
-		);
-		return treeBranches.flatMap<AgentTraceTreeRenderedBranch>((branch) =>
-			branch.root
-				? [
-						{
-							children: branch.children.map((event) => ({
-								key: event.id,
-								row: renderEventRow(event),
-							})),
-							key: branch.id,
-							row: renderEventRow(
-								branch.root,
-								renderedBranchCount === 1 ? trailing : undefined,
-							),
-						},
-					]
-				: branch.children.map((event) => ({
-						children: [],
-						key: event.id,
-						row: renderEventRow(
-							event,
-							renderedBranchCount === 1 ? trailing : undefined,
-						),
-					})),
-		);
-	};
 
 	// Flushes accumulated agent events as one section per API request. Each
 	// flush claims only the usage recorded before the interrupting row's

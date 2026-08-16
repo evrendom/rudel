@@ -156,9 +156,14 @@ export function SessionContinuousTurnThread({
 							className="absolute top-0 left-0 w-full"
 							data-index={index}
 							style={{ transform: `translateY(${virtualItem.start}px)` }}
-							onClickCapture={(event) =>
+							onPointerUpCapture={(event) =>
 								scheduleMeasurement(event.currentTarget)
 							}
+							onKeyUpCapture={(event) => {
+								if (event.key === "Enter" || event.key === " ") {
+									scheduleMeasurement(event.currentTarget);
+								}
+							}}
 							onTransitionEndCapture={(event) =>
 								scheduleMeasurement(event.currentTarget)
 							}

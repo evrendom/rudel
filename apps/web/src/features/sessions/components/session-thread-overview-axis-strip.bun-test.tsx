@@ -1,10 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import { renderToStaticMarkup } from "react-dom/server";
 import { DEFAULT_SESSION_THREAD_OVERVIEW_STRIP_CONFIG } from "./session-thread-overview-config";
+import { transformSessionOverviewRulerScale } from "./session-thread-overview-ruler-scale";
 import {
 	SessionOverviewCallMarker,
 	SessionOverviewTimelineFooter,
-	transformSessionOverviewRulerScale,
 } from "./session-thread-overview-strip-layers";
 import { formatTimelineFooterTick } from "./session-thread-overview-time-format";
 import { SessionThreadOverviewTokenLayer } from "./session-thread-overview-token-layer";

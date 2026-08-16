@@ -13,11 +13,11 @@ import {
 	getVisibleSessionTurnSpeaker,
 	isSessionTurnTableRowInViewport,
 } from "./session-turn-table-selection";
-import { buildSessionTurnTableViewRows } from "./session-turn-table-view-rows";
 import {
 	focusSessionTurnTableSpeaker,
 	toggleSessionTurnTableSpeakerVisibility,
-} from "./session-turn-table-view-tabs";
+} from "./session-turn-table-speaker-visibility";
+import { buildSessionTurnTableViewRows } from "./session-turn-table-view-rows";
 import { getSessionTurnMemberPreview, type SessionTurn } from "./session-turns";
 
 const compaction = {

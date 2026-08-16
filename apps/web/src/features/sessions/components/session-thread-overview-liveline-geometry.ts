@@ -5,7 +5,7 @@ import type {
 	SessionOverviewCallSeries,
 	SessionOverviewCallTurn,
 } from "./session-thread-overview-model";
-import { getChartX } from "./session-thread-overview-strip-parts";
+import { getChartX } from "./session-thread-overview-strip-utils";
 
 export type SessionOverviewLivelinePoint = SessionThreadOverviewPathPoint & {
 	value: number;

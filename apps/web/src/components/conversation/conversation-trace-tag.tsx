@@ -6,7 +6,7 @@ import {
 	TraceMarkdownIcon,
 	TraceTypeScriptIcon,
 } from "./conversation-trace-hugeicons";
-import { getModelIconComponent } from "./conversation-trace-icons";
+import { getModelIconComponent } from "./conversation-trace-model-icon";
 import { CONVERSATION_TOOL_ICONS } from "./conversation-trace-tool-icons";
 
 const tagClassName =

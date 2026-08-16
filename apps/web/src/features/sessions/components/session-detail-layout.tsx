@@ -9,11 +9,11 @@ import {
 } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
-	clampPaneSize,
 	HorizontalResizeHandle,
 	useElementWidth,
 	useStoredPaneSize,
 } from "@/components/ui/horizontal-resize-handle";
+import { clampPaneSize } from "@/components/ui/horizontal-resize-utils";
 import {
 	createSessionContinuousTurnViewportStore,
 	type SessionContinuousTurnViewportStore,

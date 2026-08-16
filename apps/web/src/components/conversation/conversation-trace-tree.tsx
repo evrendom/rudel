@@ -42,11 +42,24 @@ import {
 	getTraceRequestCachedShare,
 	getTraceRequestInputTotal,
 } from "./conversation-trace-requests";
-import { CONVERSATION_TOOL_ICONS } from "./conversation-trace-tool-icons";
 import {
-	type TraceFocusRequest,
 	type TraceTreeRowBodySlot,
 	TraceTreeRowBodySlotContext,
+} from "./conversation-trace-row-body-context";
+import { CONVERSATION_TOOL_ICONS } from "./conversation-trace-tool-icons";
+import {
+	CONVERSATION_TRACE_TREE_LEVEL_GAP,
+	type ConversationTraceTreeConnectorStyle,
+	getConversationTraceTreeBranchPath,
+	getConversationTraceTreeX,
+	INTERFERE_DOT_RADIUS,
+	INTERFERE_DOT_SIZE,
+	INTERFERE_DOT_VERTICAL_LINE_OFFSET,
+	INTERFERE_MARKER_SIZE,
+	INTERFERE_RAIL_OFFSET,
+} from "./conversation-trace-tree-geometry";
+import {
+	type TraceFocusRequest,
 	traceRowClassName,
 	useTraceFocus,
 } from "./expandable-trace-row";
@@ -82,12 +95,6 @@ const COLLAPSED_TRACE_COUNT_STYLE: CollapsedTraceCountStyle = {
 	width: 16,
 };
 
-export type AgentTraceTreeBranch = {
-	children: TraceEvent[];
-	id: string;
-	root: Extract<TraceEvent, { kind: "message" | "reasoning" }> | undefined;
-};
-
 export type AgentTraceTreeRenderedBranch = {
 	children: readonly { key: string; row: ReactNode }[];
 	key: string;
@@ -112,27 +119,10 @@ export type AgentTraceTreeRenderedSection = {
 
 const CONVERSATION_TRACE_TREE_ROW_HEIGHT = 40;
 const CONVERSATION_TRACE_TREE_COMPACT_ROW_HEIGHT = 32;
-const CONVERSATION_TRACE_TREE_LEVEL_GAP = 23;
-const CONVERSATION_TRACE_TREE_FIRST_X = 16;
 const COLLAPSED_TRACE_ICON_LIMIT = 25;
 const traceCollapsiblePanelClassName =
 	"h-(--collapsible-panel-height) min-w-0 overflow-clip transition-[height,opacity] duration-200 ease-[cubic-bezier(0.2,0,0,1)] data-ending-style:h-0 data-ending-style:opacity-0 data-starting-style:h-0 data-starting-style:opacity-0 motion-reduce:transition-none";
-const INTERFERE_MARKER_SIZE = 16;
-const INTERFERE_RAIL_GAP = 4;
-const INTERFERE_RAIL_OFFSET = INTERFERE_MARKER_SIZE / 2 + INTERFERE_RAIL_GAP;
-const INTERFERE_DOT_RADIUS = 2;
-const INTERFERE_DOT_SIZE = INTERFERE_DOT_RADIUS * 2;
-const INTERFERE_DOT_HORIZONTAL_LINE_OFFSET =
-	INTERFERE_DOT_RADIUS + INTERFERE_RAIL_GAP;
-const INTERFERE_DOT_VERTICAL_LINE_OFFSET =
-	INTERFERE_DOT_RADIUS + INTERFERE_RAIL_GAP;
 type ConversationTraceTreeConnectorShape = "branch" | "through";
-export type ConversationTraceTreeConnectorStyle =
-	| "curved"
-	| "interfere"
-	| "interfere-branch"
-	| "interfere-branch-dots"
-	| "interfere-branch-dots-no-horizontal";
 
 function isDottedInterfereBranchStyle(
 	style: ConversationTraceTreeConnectorStyle,
@@ -183,69 +173,6 @@ export function ConversationTraceTreeConnectorStyleProvider({
 		<ConversationTraceTreeConnectorStyleContext.Provider value={style}>
 			{children}
 		</ConversationTraceTreeConnectorStyleContext.Provider>
-	);
-}
-
-export function getConversationTraceTreeBranchPath({
-	continues,
-	currentX,
-	elbowY,
-	style,
-	width,
-}: {
-	continues: boolean;
-	currentX: number;
-	elbowY: number;
-	style: ConversationTraceTreeConnectorStyle;
-	width: number;
-}) {
-	if (style === "interfere") {
-		// Interfere has no branch elbow: the row marker itself interrupts a
-		// single 0.5px vertical rail. Continuing fragments are owned by the
-		// item rail; terminal rows carry only their incoming fragment here so
-		// it remains attached to a pinned row.
-		return continues
-			? undefined
-			: `M ${currentX} 0 V ${Math.max(elbowY - INTERFERE_RAIL_OFFSET, 0)}`;
-	}
-	if (style === "interfere-branch") {
-		return continues
-			? `M ${currentX} ${elbowY} H ${width - 1}`
-			: `M ${currentX} 0 V ${elbowY} H ${width - 1}`;
-	}
-	if (style === "interfere-branch-dots-no-horizontal") {
-		return continues
-			? undefined
-			: `M ${currentX} 0 V ${elbowY - INTERFERE_DOT_VERTICAL_LINE_OFFSET}`;
-	}
-	if (style === "interfere-branch-dots") {
-		const horizontalPath = `M ${currentX + INTERFERE_DOT_HORIZONTAL_LINE_OFFSET} ${elbowY} H ${width - 1}`;
-
-		return continues
-			? horizontalPath
-			: `M ${currentX} 0 V ${elbowY - INTERFERE_DOT_VERTICAL_LINE_OFFSET} ${horizontalPath}`;
-	}
-
-	return continues
-		? `M ${currentX} ${elbowY - 6} Q ${currentX} ${elbowY} ${currentX + 6} ${elbowY} H ${width - 1}`
-		: `M ${currentX} 0 V ${elbowY - 6} Q ${currentX} ${elbowY} ${currentX + 6} ${elbowY} H ${width - 1}`;
-}
-
-export function getConversationTraceTreeX(
-	depth: number,
-	style: ConversationTraceTreeConnectorStyle = "curved",
-) {
-	if (style === "interfere") {
-		// The rail passes through the center of the row's existing 16px
-		// icon/avatar. This preserves the original depth indentation without
-		// introducing a second marker lane or any extra horizontal spacing.
-		return (
-			6 + depth * CONVERSATION_TRACE_TREE_LEVEL_GAP + INTERFERE_MARKER_SIZE / 2
-		);
-	}
-	return (
-		CONVERSATION_TRACE_TREE_FIRST_X +
-		(depth - 1) * CONVERSATION_TRACE_TREE_LEVEL_GAP
 	);
 }
 
@@ -796,31 +723,6 @@ export function ConversationTraceRootNode({
 	) : (
 		children
 	);
-}
-
-export function buildAgentTraceTreeBranches(events: TraceEvent[]) {
-	const branches: AgentTraceTreeBranch[] = [];
-	let activeBranch: AgentTraceTreeBranch | undefined;
-
-	for (const event of events) {
-		if (event.kind === "message" || event.kind === "reasoning") {
-			activeBranch = { children: [], id: event.id, root: event };
-			branches.push(activeBranch);
-			continue;
-		}
-
-		if (!activeBranch) {
-			activeBranch = {
-				children: [],
-				id: `${event.id}:activity`,
-				root: undefined,
-			};
-			branches.push(activeBranch);
-		}
-		activeBranch.children.push(event);
-	}
-
-	return branches;
 }
 
 // Interfere-style timeline metadata: quiet 12/16 text, tabular numerals, and

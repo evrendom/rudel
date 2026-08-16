@@ -4,7 +4,7 @@ import {
 	getChartRatioAtX,
 	getChartX,
 	getSessionOverviewViewportLayout,
-} from "./session-thread-overview-strip-parts";
+} from "./session-thread-overview-strip-utils";
 import {
 	centerSessionOverviewZoomWindowAt,
 	DEFAULT_SESSION_OVERVIEW_ZOOM_WINDOW,

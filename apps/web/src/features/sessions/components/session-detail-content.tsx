@@ -86,7 +86,7 @@ function getTurnSlashCommands(turn: SessionTurn) {
 	});
 }
 
-export function buildTurnOptions(
+function buildTurnOptions(
 	turns: SessionTurn[],
 	metrics: readonly SessionTurnMetrics[],
 	compactions: readonly SessionCompaction[],
