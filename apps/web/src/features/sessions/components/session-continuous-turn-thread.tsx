@@ -1,4 +1,5 @@
-import { memo, type RefObject, useEffectEvent, useRef } from "react";
+import { memo, type RefObject, useRef } from "react";
+import { useLatestValueRef } from "@/app/hooks/useLatestValueRef";
 import { useMountEffect } from "@/app/hooks/useMountEffect";
 import {
 	ConversationTraceTreeConnectorStyleProvider,
@@ -40,7 +41,12 @@ export function SessionContinuousTurnThread({
 }) {
 	const threadElementRef = useRef<HTMLDivElement>(null);
 	const lastViewportRef = useRef("");
-	const syncViewport = useEffectEvent((syncActiveIndex: boolean) => {
+	const viewportStateRef = useLatestValueRef({
+		onActiveIndexChange,
+		onViewportChange,
+		selectionIndex: selection.index,
+	});
+	const syncViewport = (syncActiveIndex: boolean) => {
 		const scrollContainer = scrollContainerRef.current;
 		const threadElement = threadElementRef.current;
 		if (!scrollContainer || !threadElement) {
@@ -80,15 +86,22 @@ export function SessionContinuousTurnThread({
 			viewportTop: containerBounds.top,
 		});
 
-		if (syncActiveIndex && viewport.activeIndex !== selection.index) {
-			onActiveIndexChange(viewport.activeIndex);
+		const viewportState = viewportStateRef.current;
+		if (
+			syncActiveIndex &&
+			viewport.activeIndex !== viewportState.selectionIndex
+		) {
+			viewportState.onActiveIndexChange(viewport.activeIndex);
 		}
 		const viewportKey = `${viewport.visibleRange[0]}:${viewport.visibleRange[1]}`;
 		if (viewportKey !== lastViewportRef.current) {
 			lastViewportRef.current = viewportKey;
-			onViewportChange(viewport.activeIndex, viewport.visibleRange);
+			viewportState.onViewportChange(
+				viewport.activeIndex,
+				viewport.visibleRange,
+			);
 		}
-	});
+	};
 
 	useMountEffect(() => {
 		const scrollContainer = scrollContainerRef.current;
@@ -100,18 +113,19 @@ export function SessionContinuousTurnThread({
 		let animationFrame: number | undefined;
 		let lastScrollTop = scrollContainer.scrollTop;
 		let shouldSyncActiveIndex = false;
+		const runScheduledSync = () => {
+			animationFrame = undefined;
+			const syncActiveIndexForFrame = shouldSyncActiveIndex;
+			shouldSyncActiveIndex = false;
+			syncViewport(syncActiveIndexForFrame);
+		};
 		const scheduleSync = (syncActiveIndex = false) => {
 			shouldSyncActiveIndex ||= syncActiveIndex;
 			if (animationFrame !== undefined) {
 				return;
 			}
 
-			animationFrame = window.requestAnimationFrame(() => {
-				animationFrame = undefined;
-				const syncActiveIndexForFrame = shouldSyncActiveIndex;
-				shouldSyncActiveIndex = false;
-				syncViewport(syncActiveIndexForFrame);
-			});
+			animationFrame = window.requestAnimationFrame(runScheduledSync);
 		};
 		const scheduleScrollSync = () => {
 			const nextScrollTop = scrollContainer.scrollTop;

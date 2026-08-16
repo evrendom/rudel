@@ -72,6 +72,18 @@ type CostMetricOption = {
 	value: CostMetric;
 };
 
+const DASHBOARD_COST_CHART_SKELETONS: readonly {
+	height: string;
+	id: string;
+}[] = [
+	{ height: "h-[9rem]", id: "cost-chart-skeleton-a" },
+	{ height: "h-[13rem]", id: "cost-chart-skeleton-b" },
+	{ height: "h-[7rem]", id: "cost-chart-skeleton-c" },
+	{ height: "h-[15rem]", id: "cost-chart-skeleton-d" },
+	{ height: "h-[10rem]", id: "cost-chart-skeleton-e" },
+	{ height: "h-[12rem]", id: "cost-chart-skeleton-f" },
+];
+
 const MAX_VISIBLE_POINTS = 20;
 
 const dimensionOptions: readonly {
@@ -586,18 +598,9 @@ function getChartPresentation(
 }
 
 function DashboardCostChartFallback() {
-	const skeletonHeights = [
-		{ height: "h-[9rem]", id: "cost-chart-skeleton-a" },
-		{ height: "h-[13rem]", id: "cost-chart-skeleton-b" },
-		{ height: "h-[7rem]", id: "cost-chart-skeleton-c" },
-		{ height: "h-[15rem]", id: "cost-chart-skeleton-d" },
-		{ height: "h-[10rem]", id: "cost-chart-skeleton-e" },
-		{ height: "h-[12rem]", id: "cost-chart-skeleton-f" },
-	];
-
 	return (
 		<div className="flex h-full items-end gap-4 px-7 pb-12 pt-6">
-			{skeletonHeights.map((skeleton) => (
+			{DASHBOARD_COST_CHART_SKELETONS.map((skeleton) => (
 				<div
 					key={skeleton.id}
 					className="flex min-w-0 flex-1 flex-col items-center gap-3"

@@ -1,7 +1,8 @@
 import type { SessionAnalytics } from "@rudel/api-routes";
 import { ChevronDown, ChevronUp, User } from "lucide-react";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import { useLoadMoreIntersectionObserver } from "@/app/hooks/useLoadMoreIntersectionObserver";
 import { Skeleton } from "@/app/ui/skeleton";
 import { DashboardModelBadges } from "@/features/dashboard/components/DashboardModelBadges";
 import { getSessionTimestamp } from "@/features/sessions/session-ordering";
@@ -24,6 +25,7 @@ const SKELETON_ROW_IDS = [
 	"token-session-skeleton-5",
 ] as const;
 const SESSION_ROW_BATCH_SIZE = 50;
+const EMPTY_SESSIONS: readonly SessionAnalytics[] = [];
 const SESSION_COLUMNS = [
 	{ align: "left", key: "session", label: "Session" },
 	{ align: "left", key: "user", label: "User" },
@@ -241,12 +243,11 @@ export function DashboardTokenRecentSessionsTable({
 		direction: "desc",
 	});
 	const { avatarMap, userMap } = useUserMap();
-	const recentSessions = sessions ?? [];
+	const recentSessions = sessions ?? EMPTY_SESSIONS;
 	const resolvedSessionCountLabel = sessionCountLabel ?? totalSessionCount;
 	const [visibleRowCount, setVisibleRowCount] = useState<number>(
 		SESSION_ROW_BATCH_SIZE,
 	);
-	const loadMoreObserverRef = useRef<IntersectionObserver | null>(null);
 	const sortedSessions = useMemo(() => {
 		return [...recentSessions].sort((leftSession, rightSession) => {
 			let comparison = 0;
@@ -347,28 +348,10 @@ export function DashboardTokenRecentSessionsTable({
 			Math.min(currentCount + SESSION_ROW_BATCH_SIZE, recentSessions.length),
 		);
 	}, [recentSessions.length]);
-	const setLoadMoreTrigger = useCallback(
-		(element: HTMLDivElement | null) => {
-			loadMoreObserverRef.current?.disconnect();
-			loadMoreObserverRef.current = null;
-
-			if (!element || remainingLoadedSessionCount === 0) {
-				return;
-			}
-
-			const observer = new IntersectionObserver(
-				(entries) => {
-					if (entries.some((entry) => entry.isIntersecting)) {
-						loadNextSessionBatch();
-					}
-				},
-				{ rootMargin: "320px 0px" },
-			);
-			observer.observe(element);
-			loadMoreObserverRef.current = observer;
-		},
-		[loadNextSessionBatch, remainingLoadedSessionCount],
-	);
+	const setLoadMoreElement = useLoadMoreIntersectionObserver({
+		enabled: remainingLoadedSessionCount > 0,
+		onIntersect: loadNextSessionBatch,
+	});
 
 	function handleSort(sortKey: SessionSortKey) {
 		setSort((currentSort) => ({
@@ -721,7 +704,7 @@ export function DashboardTokenRecentSessionsTable({
 			</ul>
 			{remainingLoadedSessionCount > 0 ? (
 				<div
-					ref={setLoadMoreTrigger}
+					ref={setLoadMoreElement}
 					aria-hidden="true"
 					className="h-px w-full"
 				/>

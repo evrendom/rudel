@@ -1,13 +1,15 @@
 // biome-ignore-all lint/nursery/noExcessiveLinesPerFile: Timeline chrome, event markers, and interaction layers share one rendering contract.
 
 import {
+	domAnimation,
+	LazyMotion,
 	type MotionValue,
-	motion,
 	useMotionValue,
 	useReducedMotion,
 	useSpring,
 	useTransform,
 } from "motion/react";
+import * as motion from "motion/react-m";
 import { type PointerEvent, type ReactNode, useRef } from "react";
 import { cn } from "@/lib/utils";
 import type {
@@ -229,33 +231,35 @@ export function SessionOverviewCallMarker({
 		return null;
 	}
 	return (
-		<motion.div
-			aria-hidden="true"
-			animate={{ left: targetLeft }}
-			className="pointer-events-none absolute -top-8 bottom-[1.625rem] z-40 flex w-px -translate-x-1/2 flex-col items-center bg-orange-500 text-orange-500 dark:bg-orange-400 dark:text-orange-400"
-			data-liveline-call-marker
-			data-session-overview-selection-marker
-			initial={false}
-			transition={
-				reduceMotion
-					? { duration: 0 }
-					: { damping: 24, mass: 0.85, stiffness: 170, type: "spring" }
-			}
-		>
-			<svg
+		<LazyMotion features={domAnimation}>
+			<motion.div
 				aria-hidden="true"
-				className="shrink-0 -translate-y-3"
-				width="7"
-				height="6"
-				viewBox="0 0 7 6"
-				fill="none"
+				animate={{ left: targetLeft }}
+				className="pointer-events-none absolute -top-8 bottom-[1.625rem] z-40 flex w-px -translate-x-1/2 flex-col items-center bg-orange-500 text-orange-500 dark:bg-orange-400 dark:text-orange-400"
+				data-liveline-call-marker
+				data-session-overview-selection-marker
+				initial={false}
+				transition={
+					reduceMotion
+						? { duration: 0 }
+						: { damping: 24, mass: 0.85, stiffness: 170, type: "spring" }
+				}
 			>
-				<path
-					d="M3.54688 6L0.515786 0.75L6.57796 0.75L3.54688 6Z"
-					fill="currentColor"
-				/>
-			</svg>
-		</motion.div>
+				<svg
+					aria-hidden="true"
+					className="shrink-0 -translate-y-3"
+					width="7"
+					height="6"
+					viewBox="0 0 7 6"
+					fill="none"
+				>
+					<path
+						d="M3.54688 6L0.515786 0.75L6.57796 0.75L3.54688 6Z"
+						fill="currentColor"
+					/>
+				</svg>
+			</motion.div>
+		</LazyMotion>
 	);
 }
 
@@ -440,126 +444,128 @@ export function SessionOverviewTimelineFooter({
 	}
 
 	return (
-		<div
-			className="flex h-10 shrink-0 flex-col gap-0.5 border-t-[0.5px] border-(--session-overview-border) px-3 pt-1.5 pb-2"
-			data-session-overview-axis-strip
-			onPointerEnter={updateProximity}
-			onPointerLeave={() => pointerX.set(-1_000)}
-			onPointerMove={updateProximity}
-		>
+		<LazyMotion features={domAnimation}>
 			<div
-				ref={proximityLayerRef}
-				className="relative h-2 shrink-0"
-				role="img"
-				aria-label={`${errorCount.toLocaleString()} errors and ${skillCount.toLocaleString()} skill uses on the timeline`}
+				className="flex h-10 shrink-0 flex-col gap-0.5 border-t-[0.5px] border-(--session-overview-border) px-3 pt-1.5 pb-2"
+				data-session-overview-axis-strip
+				onPointerEnter={updateProximity}
+				onPointerLeave={() => pointerX.set(-1_000)}
+				onPointerMove={updateProximity}
 			>
-				{minorTicks.map((tick) => (
-					<SessionOverviewProximityTick
-						key={`minor-${tick.timestamp}-${tick.xRatio}`}
-						config={config}
-						kind="minor"
-						pointerX={pointerX}
-						reduceMotion={reduceMotion}
-						stripWidth={stripWidth}
-						tick={tick}
-					/>
-				))}
-				{ticks.map((tick) => (
-					<SessionOverviewProximityTick
-						key={`major-${tick.timestamp}-${tick.xRatio}`}
-						config={config}
-						kind="major"
-						pointerX={pointerX}
-						reduceMotion={reduceMotion}
-						stripWidth={stripWidth}
-						tick={tick}
-					/>
-				))}
-				{[...eventClusters.entries()].map(([clusterKey, cluster]) => {
-					const errorEventCount = cluster.errorEvents.reduce(
-						(total, event) => total + event.count,
-						0,
-					);
-					const skillEventCount = cluster.skillEvents.reduce(
-						(total, event) => total + event.count,
-						0,
-					);
-					return (
+				<div
+					ref={proximityLayerRef}
+					className="relative h-2 shrink-0"
+					role="img"
+					aria-label={`${errorCount.toLocaleString()} errors and ${skillCount.toLocaleString()} skill uses on the timeline`}
+				>
+					{minorTicks.map((tick) => (
+						<SessionOverviewProximityTick
+							key={`minor-${tick.timestamp}-${tick.xRatio}`}
+							config={config}
+							kind="minor"
+							pointerX={pointerX}
+							reduceMotion={reduceMotion}
+							stripWidth={stripWidth}
+							tick={tick}
+						/>
+					))}
+					{ticks.map((tick) => (
+						<SessionOverviewProximityTick
+							key={`major-${tick.timestamp}-${tick.xRatio}`}
+							config={config}
+							kind="major"
+							pointerX={pointerX}
+							reduceMotion={reduceMotion}
+							stripWidth={stripWidth}
+							tick={tick}
+						/>
+					))}
+					{[...eventClusters.entries()].map(([clusterKey, cluster]) => {
+						const errorEventCount = cluster.errorEvents.reduce(
+							(total, event) => total + event.count,
+							0,
+						);
+						const skillEventCount = cluster.skillEvents.reduce(
+							(total, event) => total + event.count,
+							0,
+						);
+						return (
+							<span
+								key={clusterKey}
+								aria-hidden="true"
+								className="pointer-events-none absolute inset-y-0 z-10 w-3 -translate-x-1/2"
+								style={{
+									left: `${(getChartX(cluster.xRatio, config) / config.chartWidth) * 100}%`,
+								}}
+							>
+								<span className="absolute bottom-0 left-1/2 flex -translate-x-1/2 items-end gap-px">
+									{errorEventCount > 0 ? (
+										<SessionOverviewEventTick
+											config={config}
+											count={errorEventCount}
+											kind="error"
+											pointerX={pointerX}
+											reduceMotion={reduceMotion}
+											stripWidth={stripWidth}
+											title={cluster.errorEvents
+												.map((event) => event.label)
+												.join(", ")}
+											xRatio={cluster.xRatio}
+										/>
+									) : null}
+									{skillEventCount > 0 ? (
+										<SessionOverviewEventTick
+											config={config}
+											count={skillEventCount}
+											kind="skill"
+											pointerX={pointerX}
+											reduceMotion={reduceMotion}
+											stripWidth={stripWidth}
+											title={cluster.skillEvents
+												.map((event) => event.label)
+												.join(", ")}
+											xRatio={cluster.xRatio}
+										/>
+									) : null}
+								</span>
+							</span>
+						);
+					})}
+				</div>
+				<div className="relative min-h-4 flex-1" aria-hidden="true">
+					{ticks.slice(0, -1).map((tick) => {
+						const x = getChartX(tick.xRatio, config);
+						return (
+							<span
+								key={tick.timestamp}
+								className={cn(
+									"absolute top-0 font-sans text-[0.625rem] leading-4 font-normal whitespace-nowrap text-(--session-overview-subtle) tabular-nums",
+									tick.xRatio <= 0.02 ? "translate-x-0" : "-translate-x-1/2",
+								)}
+								style={{ left: `${(x / config.chartWidth) * 100}%` }}
+							>
+								{formatTimelineFooterTick(
+									tick.timestamp,
+									firstTick?.timestamp,
+									rangeDurationMs,
+								)}
+							</span>
+						);
+					})}
+					{lastTick && lastTickLabel ? (
 						<span
-							key={clusterKey}
-							aria-hidden="true"
-							className="pointer-events-none absolute inset-y-0 z-10 w-3 -translate-x-1/2"
+							className="absolute top-0 -translate-x-full font-sans text-[0.625rem] leading-4 font-normal whitespace-nowrap text-(--session-overview-subtle) tabular-nums"
+							data-session-overview-axis-end
 							style={{
-								left: `${(getChartX(cluster.xRatio, config) / config.chartWidth) * 100}%`,
+								left: `${(getChartX(lastTick.xRatio, config) / config.chartWidth) * 100}%`,
 							}}
 						>
-							<span className="absolute bottom-0 left-1/2 flex -translate-x-1/2 items-end gap-px">
-								{errorEventCount > 0 ? (
-									<SessionOverviewEventTick
-										config={config}
-										count={errorEventCount}
-										kind="error"
-										pointerX={pointerX}
-										reduceMotion={reduceMotion}
-										stripWidth={stripWidth}
-										title={cluster.errorEvents
-											.map((event) => event.label)
-											.join(", ")}
-										xRatio={cluster.xRatio}
-									/>
-								) : null}
-								{skillEventCount > 0 ? (
-									<SessionOverviewEventTick
-										config={config}
-										count={skillEventCount}
-										kind="skill"
-										pointerX={pointerX}
-										reduceMotion={reduceMotion}
-										stripWidth={stripWidth}
-										title={cluster.skillEvents
-											.map((event) => event.label)
-											.join(", ")}
-										xRatio={cluster.xRatio}
-									/>
-								) : null}
-							</span>
+							{lastTickLabel}
 						</span>
-					);
-				})}
+					) : null}
+				</div>
 			</div>
-			<div className="relative min-h-4 flex-1" aria-hidden="true">
-				{ticks.slice(0, -1).map((tick) => {
-					const x = getChartX(tick.xRatio, config);
-					return (
-						<span
-							key={tick.timestamp}
-							className={cn(
-								"absolute top-0 font-sans text-[0.625rem] leading-4 font-normal whitespace-nowrap text-(--session-overview-subtle) tabular-nums",
-								tick.xRatio <= 0.02 ? "translate-x-0" : "-translate-x-1/2",
-							)}
-							style={{ left: `${(x / config.chartWidth) * 100}%` }}
-						>
-							{formatTimelineFooterTick(
-								tick.timestamp,
-								firstTick?.timestamp,
-								rangeDurationMs,
-							)}
-						</span>
-					);
-				})}
-				{lastTick && lastTickLabel ? (
-					<span
-						className="absolute top-0 -translate-x-full font-sans text-[0.625rem] leading-4 font-normal whitespace-nowrap text-(--session-overview-subtle) tabular-nums"
-						data-session-overview-axis-end
-						style={{
-							left: `${(getChartX(lastTick.xRatio, config) / config.chartWidth) * 100}%`,
-						}}
-					>
-						{lastTickLabel}
-					</span>
-				) : null}
-			</div>
-		</div>
+		</LazyMotion>
 	);
 }
 

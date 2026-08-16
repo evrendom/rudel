@@ -92,6 +92,7 @@ export function SessionTurnTableColumnComposer({
 		visibleAvailableCount === availableColumns.length &&
 		availableColumns.every((key) => visibleColumns.has(key));
 	const triggerLabel = `Configure turn table columns, ${visibleAvailableCount} shown`;
+	const availableColumnSet = new Set(availableColumns);
 
 	return (
 		<Popover>
@@ -119,9 +120,11 @@ export function SessionTurnTableColumnComposer({
 					</PopoverTitle>
 				</div>
 				<div className="flex flex-wrap gap-2 px-4 py-4">
-					{SESSION_TURN_TABLE_COLUMN_OPTIONS.filter((option) =>
-						availableColumns.includes(option.key),
-					).map((option) => {
+					{SESSION_TURN_TABLE_COLUMN_OPTIONS.map((option) => {
+						if (!availableColumnSet.has(option.key)) {
+							return null;
+						}
+
 						const selected = visibleColumns.has(option.key);
 						const isLastVisible = selected && visibleAvailableCount === 1;
 

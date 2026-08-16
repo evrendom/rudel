@@ -11,6 +11,14 @@ type RepositoryUploadRow = {
 	sessions: number;
 };
 
+const REPOSITORY_UPLOAD_SKELETON_KEYS: readonly string[] = [
+	"repository-upload-skeleton-a",
+	"repository-upload-skeleton-b",
+	"repository-upload-skeleton-c",
+	"repository-upload-skeleton-d",
+	"repository-upload-skeleton-e",
+];
+
 function buildRepositoryUploadRows(
 	projects: readonly ProjectInvestment[],
 ): RepositoryUploadRow[] {
@@ -51,17 +59,9 @@ function buildRepositoryUploadRows(
 }
 
 function RepositoryUploadStatusSkeleton() {
-	const skeletonKeys = [
-		"repository-upload-skeleton-a",
-		"repository-upload-skeleton-b",
-		"repository-upload-skeleton-c",
-		"repository-upload-skeleton-d",
-		"repository-upload-skeleton-e",
-	];
-
 	return (
 		<div className="grid divide-y divide-[color:var(--dashboardy-border)]">
-			{skeletonKeys.map((key) => (
+			{REPOSITORY_UPLOAD_SKELETON_KEYS.map((key) => (
 				<div key={key} className="px-4 py-3">
 					<div className="flex min-h-5 items-center justify-between gap-3">
 						<div className="flex min-w-0 items-center gap-2">

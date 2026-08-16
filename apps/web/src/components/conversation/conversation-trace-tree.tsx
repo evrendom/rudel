@@ -7,6 +7,7 @@ import {
 	type ReactNode,
 	useContext,
 	useId,
+	useMemo,
 	useState,
 } from "react";
 import { cn } from "@/lib/utils";
@@ -676,7 +677,10 @@ export function ConversationTraceTreeItem({
 		ConversationTraceTreeStickyOffsetContext,
 	);
 	const [rowBody, setRowBody] = useState<TraceTreeRowBodySlot>();
-	const subtreeRails = [...ancestorRails, continues];
+	const subtreeRails = useMemo(
+		() => [...ancestorRails, continues],
+		[ancestorRails, continues],
+	);
 	const rowSticky = sticky ?? false;
 	// Only rows that actually pin consume sticky space, and they consume their
 	// real height — a 24px flat row must not reserve a 40px slot.

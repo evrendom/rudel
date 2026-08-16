@@ -1,6 +1,7 @@
 import type { SessionAnalytics } from "@rudel/api-routes";
 import { ArrowDownWideNarrow, ChevronDown, ChevronUp } from "lucide-react";
 import { type Ref, useCallback, useMemo, useRef, useState } from "react";
+import { useLoadMoreIntersectionObserver } from "@/app/hooks/useLoadMoreIntersectionObserver";
 import { DashboardDateControls } from "@/features/dashboard/components/DashboardDateControls";
 import { SessionsOverviewFiltersMenu } from "@/features/sessions/components/sessions-overview-filters-menu";
 import { SessionsOverviewFooter } from "@/features/sessions/components/sessions-overview-footer";
@@ -34,6 +35,7 @@ import { calculateCost, formatUsername } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 const SESSION_ROW_BATCH_SIZE = 50;
+const EMPTY_SESSIONS: readonly SessionAnalytics[] = [];
 const EMPTY_SESSION_OVERVIEW_FILTERS =
 	(): SessionOverviewExcludedFilterValues => ({
 		model: new Set<string>(),
@@ -93,10 +95,9 @@ export function SessionsOverviewTable({
 	);
 	const [isFrozenEdgeShadowVisible, setIsFrozenEdgeShadowVisible] =
 		useState(false);
-	const loadMoreObserverRef = useRef<IntersectionObserver | null>(null);
 	const tableScrollElementRef = useRef<HTMLDivElement | null>(null);
 	const { avatarMap, userMap } = useUserMap();
-	const recentSessions = sessions ?? [];
+	const recentSessions = sessions ?? EMPTY_SESSIONS;
 	const filterOptions = useMemo(
 		() => ({
 			model: buildSessionOverviewFilterOptions(
@@ -206,28 +207,10 @@ export function SessionsOverviewTable({
 			Math.min(currentCount + SESSION_ROW_BATCH_SIZE, sortedSessions.length),
 		);
 	}, [sortedSessions.length]);
-	const setLoadMoreTrigger = useCallback(
-		(element: HTMLDivElement | null) => {
-			loadMoreObserverRef.current?.disconnect();
-			loadMoreObserverRef.current = null;
-
-			if (!element || remainingLoadedSessionCount === 0) {
-				return;
-			}
-
-			const observer = new IntersectionObserver(
-				(entries) => {
-					if (entries.some((entry) => entry.isIntersecting)) {
-						loadNextSessionBatch();
-					}
-				},
-				{ rootMargin: "320px 0px" },
-			);
-			observer.observe(element);
-			loadMoreObserverRef.current = observer;
-		},
-		[loadNextSessionBatch, remainingLoadedSessionCount],
-	);
+	const setLoadMoreElement = useLoadMoreIntersectionObserver({
+		enabled: remainingLoadedSessionCount > 0,
+		onIntersect: loadNextSessionBatch,
+	});
 	const handleContainedWheel = useCallback((event: WheelEvent) => {
 		if (event.ctrlKey) {
 			return;
@@ -481,7 +464,7 @@ export function SessionsOverviewTable({
 								</ul>
 								{remainingLoadedSessionCount > 0 ? (
 									<div
-										ref={setLoadMoreTrigger}
+										ref={setLoadMoreElement}
 										aria-hidden="true"
 										className="h-px w-full"
 									/>
