@@ -38,7 +38,7 @@ import {
 	formatTimelineFooterTick,
 	formatTimelineTick,
 } from "./session-thread-overview-time-format";
-import type { SessionTurnOption } from "./session-turn-option";
+import type { SessionTurnTablePaneOption } from "./session-turn-table-pane";
 
 export function SessionOverviewHeader({
 	activeMetric,
@@ -709,7 +709,7 @@ export function SessionOverviewTurnHitTargets({
 	config: SessionThreadOverviewStripConfig;
 	onFocusIndexChange: (index: number | undefined) => void;
 	onSelect: (index: number) => void;
-	options: readonly SessionTurnOption[];
+	options: readonly SessionTurnTablePaneOption[];
 	readoutId: string;
 	readoutIndex: number | undefined;
 	rows: readonly SessionThreadOverviewChartRow[];

@@ -1,4 +1,5 @@
 import { describe, expect, test } from "vitest";
+import { SessionDetailFastResponseError } from "./session-detail-fast-response";
 import { getSessionDetailErrorState } from "./session-detail-view-utils";
 
 describe("getSessionDetailErrorState", () => {
@@ -19,6 +20,18 @@ describe("getSessionDetailErrorState", () => {
 		expect(getSessionDetailErrorState({ code: "FORBIDDEN" })).toEqual({
 			description: "You can only view your own session transcripts.",
 			title: "Access Denied",
+		});
+	});
+
+	test("identifies an invalid fast-path contract as unsupported data", () => {
+		expect(
+			getSessionDetailErrorState(
+				new SessionDetailFastResponseError("invalid response", ["revision"]),
+			),
+		).toEqual({
+			description:
+				"The server returned session data in an unsupported format. Try again or check the deployment versions.",
+			title: "Unexpected Session Data",
 		});
 	});
 

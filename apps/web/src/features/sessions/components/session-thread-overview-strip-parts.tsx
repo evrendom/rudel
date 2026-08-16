@@ -12,6 +12,7 @@ import {
 } from "./session-thread-overview-config";
 import { formatTimelineMoment } from "./session-thread-overview-time-format";
 import type { SessionTurnOption } from "./session-turn-option";
+import type { SessionTurnTablePaneOption } from "./session-turn-table-pane";
 
 type SessionOverviewMetricDefinition = {
 	label: string;
@@ -187,7 +188,7 @@ export function formatIdleDuration(durationMs: number) {
 		.join(" ");
 }
 
-export function getTurnLabel(option: SessionTurnOption) {
+export function getTurnLabel(option: SessionTurnTablePaneOption) {
 	return option.turnNumber === undefined
 		? "Session start"
 		: `Turn ${option.turnNumber}`;
@@ -425,7 +426,7 @@ export function SessionOverviewReadout({
 }: {
 	activeMetric: SessionThreadOverviewMetric;
 	config?: SessionThreadOverviewStripConfig;
-	option: SessionTurnOption;
+	option: SessionTurnTablePaneOption;
 	readoutId: string;
 	row: SessionThreadOverviewChartRow;
 	xRatio: number;

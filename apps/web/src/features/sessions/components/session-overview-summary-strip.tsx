@@ -12,7 +12,7 @@ import { formatRoundedDuration } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { buildSessionDetailViewModel } from "./session-detail-view-model";
 import { getSessionOverviewAggregateCounts } from "./session-overview-aggregates";
-import type { SessionTurnOption } from "./session-turn-option";
+import type { SessionTurnTablePaneOption } from "./session-turn-table-pane";
 
 type SessionDetailViewModel = ReturnType<typeof buildSessionDetailViewModel>;
 
@@ -61,7 +61,7 @@ export function SessionOverviewSummaryStrip({
 	options,
 	viewModel,
 }: {
-	options: readonly SessionTurnOption[];
+	options: readonly SessionTurnTablePaneOption[];
 	viewModel: SessionDetailViewModel;
 }) {
 	const counts = getSessionOverviewAggregateCounts(options);

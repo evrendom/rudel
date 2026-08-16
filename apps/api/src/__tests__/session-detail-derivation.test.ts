@@ -63,6 +63,60 @@ function createTranscript(turnCount: number, usageCallsPerTurn = 1) {
 	return lines.join("\n");
 }
 
+function createCodexTranscript() {
+	return [
+		line({
+			payload: { id: "codex-session-1" },
+			timestamp: "2026-08-16T11:00:00.000Z",
+			type: "session_meta",
+		}),
+		line({
+			payload: { collaboration_mode_kind: "default", type: "task_started" },
+			timestamp: "2026-08-16T11:00:01.000Z",
+			type: "event_msg",
+		}),
+		line({
+			payload: {
+				content: [{ text: "Inspect the Codex session", type: "input_text" }],
+				role: "user",
+				type: "message",
+			},
+			timestamp: "2026-08-16T11:00:02.000Z",
+			type: "response_item",
+		}),
+		line({
+			payload: {
+				content: [{ text: "Codex session inspected", type: "output_text" }],
+				role: "assistant",
+				type: "message",
+			},
+			timestamp: "2026-08-16T11:00:03.000Z",
+			type: "response_item",
+		}),
+		line({
+			payload: {
+				info: {
+					last_token_usage: {
+						cached_input_tokens: 100,
+						input_tokens: 1_000,
+						output_tokens: 50,
+					},
+					model_context_window: 300_000,
+					total_token_usage: {
+						cached_input_tokens: 100,
+						input_tokens: 1_000,
+						output_tokens: 50,
+					},
+				},
+				model: "gpt-5.6-sol",
+				type: "token_count",
+			},
+			timestamp: "2026-08-16T11:00:04.000Z",
+			type: "event_msg",
+		}),
+	].join("\n");
+}
+
 function snapshot(
 	content: string,
 	revision = "2026-08-16T08:30:00.123Z",
@@ -115,6 +169,28 @@ describe("session detail derivation", () => {
 				(item) => item.activityResolution === "exact",
 			),
 		).toBe(true);
+	});
+
+	test("derives the additive overview and stable body lookup for a Codex session", () => {
+		const input = snapshot(createCodexTranscript());
+		input.source = "codex";
+		input.modelUsed = "gpt-5.6-sol";
+		const derivation = deriveSessionDetail(input);
+		const overview = getSessionDetailOverviewPage({ derivation, limit: 100 });
+		const turn = overview.turnPage.items[0];
+
+		expect(SessionDetailOverviewSchema.parse(overview)).toEqual(overview);
+		expect(overview.session.source).toBe("codex");
+		expect(turn?.turnId).toMatch(/^codex-/u);
+		expect(turn?.userPreview).toBe("Inspect the Codex session");
+		expect(turn?.responsePreview).toBe("Codex session inspected");
+		expect(turn?.usageCalls[0]).toMatchObject({
+			cacheReadInputTokens: 100,
+			freshInputTokens: 900,
+			model: "gpt-5.6-sol",
+			outputTokens: 50,
+		});
+		expect(getSessionDetailTurn(derivation, turn?.turnId ?? "")).not.toBeNull();
 	});
 
 	test("paginates a synthetic 500-turn session with revision-bound cursors", () => {

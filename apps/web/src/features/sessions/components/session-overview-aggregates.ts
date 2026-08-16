@@ -1,7 +1,7 @@
-import type { SessionTurnOption } from "./session-turn-option";
+import type { SessionTurnTablePaneOption } from "./session-turn-table-pane";
 
 export function getSessionOverviewAggregateCounts(
-	options: readonly SessionTurnOption[],
+	options: readonly SessionTurnTablePaneOption[],
 ) {
 	const editedFiles = new Set<string>();
 	const skills = new Set<string>();

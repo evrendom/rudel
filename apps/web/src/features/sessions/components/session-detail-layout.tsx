@@ -1,5 +1,6 @@
 import {
 	type CSSProperties,
+	type ReactNode,
 	type RefObject,
 	useCallback,
 	useRef,
@@ -24,9 +25,11 @@ import {
 import type { buildSessionDetailViewModel } from "./session-detail-view-model";
 import { SessionOverviewSummaryStrip } from "./session-overview-summary-strip";
 import { SessionThreadOverviewStrip } from "./session-thread-overview-strip";
-import type { SessionTurnOption } from "./session-turn-option";
 import { SessionTurnResponsePane } from "./session-turn-response-pane";
-import { SessionTurnTablePane } from "./session-turn-table-pane";
+import {
+	SessionTurnTablePane,
+	type SessionTurnTablePaneOption,
+} from "./session-turn-table-pane";
 import type { SessionTurnSelection } from "./session-turn-table-selection";
 
 type SessionDetailViewModel = ReturnType<typeof buildSessionDetailViewModel>;
@@ -49,7 +52,7 @@ function SessionThreadOverviewViewportStrip({
 	store,
 }: {
 	onSelect: (selection: SessionTurnSelection) => void;
-	options: readonly SessionTurnOption[];
+	options: readonly SessionTurnTablePaneOption[];
 	selection: SessionTurnSelection;
 	store: SessionContinuousTurnViewportStore;
 }) {
@@ -69,9 +72,11 @@ type SessionDetailLayoutProps = {
 	bottomPaddingClassName: string;
 	onContinuousTurnFocus: (index: number) => void;
 	onSelect: (selection: SessionTurnSelection) => void;
-	options: readonly SessionTurnOption[];
+	options: readonly SessionTurnTablePaneOption[];
+	responsePane?: ReactNode;
 	responseScrollRef: RefObject<HTMLDivElement | null>;
 	selection: SessionTurnSelection;
+	turnTableFooter?: ReactNode;
 	turnTableSectionRef: RefObject<HTMLElement | null>;
 	userImageUrl: string | undefined;
 	viewModel: SessionDetailViewModel;
@@ -82,8 +87,10 @@ export function SessionDetailLayout({
 	onContinuousTurnFocus,
 	onSelect,
 	options,
+	responsePane,
 	responseScrollRef,
 	selection,
+	turnTableFooter,
 	turnTableSectionRef,
 	userImageUrl,
 	viewModel,
@@ -173,6 +180,7 @@ export function SessionDetailLayout({
 						userLabel={viewModel.safeUserDisplayName}
 						viewportStore={continuousTurnViewportStore}
 					/>
+					{turnTableFooter}
 				</section>
 				<HorizontalResizeHandle
 					ariaLabel="Resize turn table panel"
@@ -184,20 +192,22 @@ export function SessionDetailLayout({
 					onValuePreview={previewTurnTablePaneWidth}
 					value={turnTablePaneWidth}
 				/>
-				<SessionTurnResponsePane
-					bottomPaddingClassName={bottomPaddingClassName}
-					detailLevel={detailLevel}
-					onContinuousTurnFocus={onContinuousTurnFocus}
-					onContinuousTurnViewportChange={handleContinuousTurnViewportChange}
-					onDetailLevelChange={handleDetailLevelChange}
-					options={options}
-					responseScrollRef={responseScrollRef}
-					selection={selection}
-					title="Session Detail"
-					traceCallDisplayMode={detailLevel}
-					userImageUrl={userImageUrl}
-					viewModel={viewModel}
-				/>
+				{responsePane ?? (
+					<SessionTurnResponsePane
+						bottomPaddingClassName={bottomPaddingClassName}
+						detailLevel={detailLevel}
+						onContinuousTurnFocus={onContinuousTurnFocus}
+						onContinuousTurnViewportChange={handleContinuousTurnViewportChange}
+						onDetailLevelChange={handleDetailLevelChange}
+						options={options}
+						responseScrollRef={responseScrollRef}
+						selection={selection}
+						title="Session Detail"
+						traceCallDisplayMode={detailLevel}
+						userImageUrl={userImageUrl}
+						viewModel={viewModel}
+					/>
+				)}
 			</div>
 		</div>
 	);

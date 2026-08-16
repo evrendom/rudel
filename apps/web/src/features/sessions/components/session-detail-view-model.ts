@@ -172,8 +172,8 @@ export function summarizeSessionSubagents(
 	);
 }
 
-export function formatSessionCost(value: number | undefined) {
-	if (value === undefined) {
+export function formatSessionCost(value: number | null | undefined) {
+	if (value === undefined || value === null) {
 		return "—";
 	}
 

@@ -49,7 +49,7 @@ import {
 } from "./session-thread-overview-zoom";
 import { SessionThreadOverviewZoomControls } from "./session-thread-overview-zoom-controls";
 import { handleSessionOverviewZoomWheel } from "./session-thread-overview-zoom-interactions";
-import type { SessionTurnOption } from "./session-turn-option";
+import type { SessionTurnTablePaneOption } from "./session-turn-table-pane";
 import { useSessionThreadOverviewZoom } from "./use-session-thread-overview-zoom";
 
 const SESSION_OVERVIEW_PLOT_HEIGHT_SCALE = 0.51;
@@ -65,7 +65,7 @@ export function SessionThreadOverviewStrip({
 }: {
 	config?: Partial<SessionThreadOverviewStripConfig>;
 	onSelect: (index: number) => void;
-	options: readonly SessionTurnOption[];
+	options: readonly SessionTurnTablePaneOption[];
 	selectedIndex: number;
 	visibleRange: readonly [number, number] | undefined;
 }) {

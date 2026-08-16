@@ -5,7 +5,7 @@ import { SessionContinuousTurnThread } from "./session-continuous-turn-thread";
 import type { SessionDetailLevel } from "./session-detail-level";
 import { SessionDetailLevelToggle } from "./session-detail-level-toggle";
 import type { buildSessionDetailViewModel } from "./session-detail-view-model";
-import type { SessionTurnOption } from "./session-turn-option";
+import type { SessionTurnTablePaneOption } from "./session-turn-table-pane";
 import type { SessionTurnSelection } from "./session-turn-table-selection";
 
 type SessionDetailViewModel = ReturnType<typeof buildSessionDetailViewModel>;
@@ -32,7 +32,7 @@ export function SessionTurnResponsePane({
 		visibleRange: readonly [number, number],
 	) => void;
 	onDetailLevelChange: (level: SessionDetailLevel) => void;
-	options: readonly SessionTurnOption[];
+	options: readonly SessionTurnTablePaneOption[];
 	responseScrollRef: RefObject<HTMLDivElement | null>;
 	selection: SessionTurnSelection;
 	title: string;

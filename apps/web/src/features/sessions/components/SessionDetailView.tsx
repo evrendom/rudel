@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
 	useCallback,
 	// biome-ignore lint/style/noRestrictedImports: the tab title must update when async session details reveal the model and when client-side navigation changes the session id.
@@ -13,7 +13,19 @@ import type { SessionNavigation } from "@/features/sessions/session-navigation";
 import { useShellHeaderPortal } from "@/features/shell/shell-header-portal";
 import { useUserMap } from "@/features/workspace/hooks/useUserMap";
 import { SessionDetailContent } from "./session-detail-content";
+import { SessionDetailFastContent } from "./session-detail-fast-content";
+import { isSessionDetailFastPathEnabled } from "./session-detail-fast-path";
+import {
+	fetchSessionDetailOverview,
+	SESSION_DETAIL_OVERVIEW_STALE_TIME_MS,
+	sessionDetailBodyQueryPrefix,
+	sessionDetailFirstOverviewQueryKey,
+	sessionDetailOverviewPageQueryKey,
+	sessionDetailRevisionQueryPrefix,
+	shouldRetrySessionDetailFastQuery,
+} from "./session-detail-fast-query";
 import { SessionDetailHeader } from "./session-detail-header";
+import { buildSessionDetailOverviewViewModel } from "./session-detail-overview-model";
 import { fetchSessionDetail } from "./session-detail-query";
 import { shouldRetrySessionDetailQuery } from "./session-detail-response";
 import { buildSessionDetailViewModel } from "./session-detail-view-model";
@@ -100,7 +112,15 @@ function SessionDetailStateMessage({
 	);
 }
 
-export function SessionDetailView({
+export function SessionDetailView(props: SessionDetailViewProps) {
+	return isSessionDetailFastPathEnabled() ? (
+		<SessionDetailFastView {...props} />
+	) : (
+		<SessionDetailLegacyView {...props} />
+	);
+}
+
+function SessionDetailLegacyView({
 	navigation,
 	position,
 	sessionId,
@@ -222,6 +242,179 @@ export function SessionDetailView({
 					</div>
 				) : null}
 				{!isLoading && !errorState && !viewModel ? (
+					<SessionDetailStateMessage
+						description={undefined}
+						title="Session Not Found"
+					/>
+				) : null}
+			</div>
+		</div>
+	);
+}
+
+function SessionDetailFastView({
+	navigation,
+	position,
+	sessionId,
+	totalSessions,
+	onReturn,
+}: SessionDetailViewProps) {
+	const headerRef = useRef<HTMLElement>(null);
+	const responseScrollRef = useRef<HTMLDivElement>(null);
+	const preservedTurnIdRef = useRef<string | undefined>(undefined);
+	const shellHeaderPortal = useShellHeaderPortal();
+	const queryClient = useQueryClient();
+	const handleHeaderWheel = useCallback((event: WheelEvent) => {
+		if (Math.abs(event.deltaY) <= Math.abs(event.deltaX)) {
+			return;
+		}
+		event.preventDefault();
+		event.stopPropagation();
+		if (responseScrollRef.current) {
+			responseScrollRef.current.scrollTop += event.deltaY;
+		}
+	}, []);
+	const setHeaderElement = useCallback(
+		(element: HTMLElement | null) => {
+			headerRef.current?.removeEventListener("wheel", handleHeaderWheel);
+			headerRef.current = element;
+			element?.addEventListener("wheel", handleHeaderWheel, { passive: false });
+		},
+		[handleHeaderWheel],
+	);
+	const { userMap, avatarMap } = useUserMap();
+	const overviewQuery = useQuery({
+		enabled: sessionId.length > 0,
+		queryFn: async ({ signal }) => {
+			const parsed = await fetchSessionDetailOverview({ sessionId }, signal);
+			queryClient.setQueryData(
+				sessionDetailOverviewPageQueryKey({
+					revision: parsed.overview.revision,
+					sessionId,
+					turnCursor: "first",
+				}),
+				parsed,
+			);
+			return parsed;
+		},
+		queryKey: sessionDetailFirstOverviewQueryKey(sessionId),
+		retry: shouldRetrySessionDetailFastQuery,
+		staleTime: SESSION_DETAIL_OVERVIEW_STALE_TIME_MS,
+	});
+	const overview = overviewQuery.data?.overview;
+	const viewModel = overview
+		? buildSessionDetailOverviewViewModel(overview, userMap)
+		: undefined;
+	const sessionTabTitle = `${
+		viewModel?.safeModelUsed
+			? formatModelDisplayLabel(viewModel.safeModelUsed)
+			: "Session"
+	} · ${sessionId}`;
+
+	useEffect(() => {
+		const previousTitle = document.title;
+		document.title = sessionTabTitle;
+		return () => {
+			document.title = previousTitle;
+		};
+	}, [sessionTabTitle]);
+
+	useTrackProductPageView({
+		isLoading: overviewQuery.isLoading,
+		isError: Boolean(overviewQuery.error),
+		hasData: Boolean(overview),
+	});
+
+	function handleStaleRevision(error: unknown, selectedTurnId?: string) {
+		preservedTurnIdRef.current = selectedTurnId;
+		if (overview) {
+			void queryClient.cancelQueries({
+				queryKey: sessionDetailRevisionQueryPrefix(
+					sessionId,
+					overview.revision,
+				),
+			});
+			queryClient.removeQueries({
+				queryKey: sessionDetailRevisionQueryPrefix(
+					sessionId,
+					overview.revision,
+				),
+			});
+		}
+		void queryClient.cancelQueries({
+			queryKey: sessionDetailBodyQueryPrefix(sessionId),
+		});
+		queryClient.removeQueries({
+			queryKey: sessionDetailBodyQueryPrefix(sessionId),
+		});
+		console.info("[SessionDetailView] Refreshing a stale session revision", {
+			code:
+				typeof error === "object" && error !== null && "code" in error
+					? error.code
+					: "STALE_REVISION",
+			sessionId,
+		});
+		void overviewQuery.refetch();
+	}
+
+	const errorState = getSessionDetailErrorState(overviewQuery.error);
+	const hasShapeWarning =
+		(overviewQuery.data?.shapeIssueFields.length ?? 0) > 0;
+
+	return (
+		<div className="dashboardy-page flex h-full min-h-0 min-w-0 flex-1 flex-col bg-(--dashboardy-surface) text-(--dashboardy-heading)">
+			<SessionDetailHeader
+				avatarMap={avatarMap}
+				headerRef={setHeaderElement}
+				hideMetrics
+				isLoading={overviewQuery.isLoading}
+				navigation={navigation}
+				onReturn={onReturn}
+				portalHost={shellHeaderPortal}
+				position={position}
+				sessionId={sessionId}
+				totalSessions={totalSessions}
+				viewModel={viewModel}
+			/>
+
+			<div className="relative min-h-0 min-w-0 flex-1 overflow-hidden">
+				{overviewQuery.isLoading ? <SessionDetailContentLoadingView /> : null}
+				{!overviewQuery.isLoading && errorState ? (
+					<SessionDetailStateMessage
+						description={errorState.description}
+						isRetrying={overviewQuery.isFetching}
+						onRetry={
+							canRetrySessionDetailError(overviewQuery.error)
+								? () => {
+										void overviewQuery.refetch();
+									}
+								: undefined
+						}
+						title={errorState.title}
+					/>
+				) : null}
+				{!overviewQuery.isLoading && !errorState && overview && viewModel ? (
+					<div className="flex h-full min-h-0 flex-col">
+						{hasShapeWarning ? (
+							<output className="border-b border-amber-500/30 bg-amber-500/10 px-4 py-2 text-sm text-(--dashboardy-heading)">
+								Some session fields were unavailable. Safe overview values are
+								shown.
+							</output>
+						) : null}
+						<div className="min-h-0 flex-1">
+							<SessionDetailFastContent
+								key={`${sessionId}:${overview.revision}`}
+								firstOverview={overview}
+								initialSelectedTurnId={preservedTurnIdRef.current}
+								onStaleRevision={handleStaleRevision}
+								responseScrollRef={responseScrollRef}
+								userImageUrl={avatarMap[viewModel.safeUserId]}
+								userMap={userMap}
+							/>
+						</div>
+					</div>
+				) : null}
+				{!overviewQuery.isLoading && !errorState && !overview ? (
 					<SessionDetailStateMessage
 						description={undefined}
 						title="Session Not Found"

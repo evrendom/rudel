@@ -1,5 +1,6 @@
 import { FolderGit2, GitBranch, type LucideIcon } from "lucide-react";
 import { parseConversations } from "@/lib/conversation-schema";
+import { SessionDetailFastResponseError } from "./session-detail-fast-response";
 import {
 	hasSessionDetailErrorCode,
 	isSessionDetailResponseError,
@@ -103,7 +104,10 @@ export function getSessionDetailErrorState(value: unknown) {
 		};
 	}
 
-	if (isSessionDetailResponseError(value)) {
+	if (
+		isSessionDetailResponseError(value) ||
+		value instanceof SessionDetailFastResponseError
+	) {
 		return {
 			description:
 				"The server returned session data in an unsupported format. Try again or check the deployment versions.",

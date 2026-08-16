@@ -1,8 +1,8 @@
 # Session Detail Payload API Proposal
 
 Status: approved architecture proposal with amendments. This document authorizes
-server-endpoint implementation through rollout steps 3–4. It does not authorize
-the web cutover, a ClickHouse schema migration, or removal of the legacy
+the guarded web cutover through rollout step 5. It does not authorize removing
+the rollout guard, a ClickHouse schema migration, or removal of the legacy
 procedure.
 
 ## Decision summary

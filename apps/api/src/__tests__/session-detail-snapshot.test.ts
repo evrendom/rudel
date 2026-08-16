@@ -17,6 +17,16 @@ describe("session detail ClickHouse snapshot", () => {
 		expect(compact).toContain(
 			"ON tupleElement(analytics.snapshot, 1) = tupleElement(raw.snapshot, 7)",
 		);
+		expect(compact).toContain("LEFT ANY JOIN latest_analytics AS analytics");
+		expect(compact).not.toContain("INNER JOIN latest_analytics AS analytics");
+	});
+
+	test("retains a raw session while its analytics row is missing or lagging", () => {
+		const sql = buildSessionDetailRawSnapshotSql().replace(/\s+/gu, " ");
+		expect(sql).toContain("FROM latest_raw AS raw LEFT ANY JOIN");
+		expect(sql).toContain(
+			"ON tupleElement(analytics.snapshot, 1) = tupleElement(raw.snapshot, 7)",
+		);
 	});
 
 	test("parameterizes uploader, owner, and session filters in both raw tables", () => {

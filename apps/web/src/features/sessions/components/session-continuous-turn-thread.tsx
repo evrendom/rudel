@@ -7,8 +7,8 @@ import {
 import { getContinuousTurnViewport } from "./session-continuous-turn-focus";
 import type { buildSessionDetailViewModel } from "./session-detail-view-model";
 import { SessionMemberRow } from "./session-member-row";
-import type { SessionTurnOption } from "./session-turn-option";
 import { SessionTurnResponseTrace } from "./session-turn-response-trace";
+import type { SessionTurnTablePaneOption } from "./session-turn-table-pane";
 import type { SessionTurnSelection } from "./session-turn-table-selection";
 
 type SessionDetailViewModel = ReturnType<typeof buildSessionDetailViewModel>;
@@ -31,7 +31,7 @@ export function SessionContinuousTurnThread({
 		activeIndex: number,
 		visibleRange: readonly [number, number],
 	) => void;
-	options: readonly SessionTurnOption[];
+	options: readonly SessionTurnTablePaneOption[];
 	scrollContainerRef: RefObject<HTMLDivElement | null>;
 	selection: SessionTurnSelection;
 	traceCallDisplayMode?: TraceCallDisplayMode;
@@ -148,7 +148,9 @@ export function SessionContinuousTurnThread({
 		);
 	}
 	const firstMemberIndex = options.findIndex(
-		(option) => option.turn.userItems.length > 0,
+		(option) =>
+			option.turn?.userItems.some((item) => item.kind === "user") ??
+			option.memberPreview !== "No member message",
 	);
 
 	return (
@@ -187,14 +189,17 @@ const ContinuousTurnSection = memo(function ContinuousTurnSection({
 	activeSpeaker: SessionTurnSelection["speaker"] | undefined;
 	continuesThread: boolean;
 	index: number;
-	option: SessionTurnOption;
+	option: SessionTurnTablePaneOption;
 	startsTrace: boolean;
 	traceCallDisplayMode: TraceCallDisplayMode;
 	userImageUrl: string | undefined;
 	viewModel: SessionDetailViewModel;
 }) {
 	const active = activeSpeaker !== undefined;
-	const hasMemberMessage = option.turn.userItems.length > 0;
+	const turn = option.turn;
+	const hasMemberMessage = turn?.userItems.length
+		? true
+		: option.memberPreview !== "No member message";
 	const sectionLabel =
 		option.turnNumber === undefined
 			? "Session start"
@@ -216,11 +221,11 @@ const ContinuousTurnSection = memo(function ContinuousTurnSection({
 			data-continuous-turn-index={index}
 		>
 			<div className="w-full min-w-0">
-				{hasMemberMessage ? (
+				{hasMemberMessage && turn ? (
 					<SessionMemberRow
 						active={activeSpeaker === "member"}
 						headingId={`continuous-member-message-${index}`}
-						items={option.turn.userItems}
+						items={turn.userItems}
 						speakerLayout="trace-tree"
 						startsTrace={startsTrace}
 						userImageUrl={userImageUrl}
@@ -233,15 +238,21 @@ const ContinuousTurnSection = memo(function ContinuousTurnSection({
 					data-active-rail-position={activeModelPosition}
 					data-session-turn-speaker="model"
 				>
-					<SessionTurnResponseTrace
-						agentSectionMode="expanded"
-						continuesAfter={continuesThread}
-						option={option}
-						speakerLayout="trace-tree"
-						traceCallDisplayMode={traceCallDisplayMode}
-						userImageUrl={userImageUrl}
-						viewModel={viewModel}
-					/>
+					{turn ? (
+						<SessionTurnResponseTrace
+							agentSectionMode="expanded"
+							continuesAfter={continuesThread}
+							option={{ ...option, turn }}
+							speakerLayout="trace-tree"
+							traceCallDisplayMode={traceCallDisplayMode}
+							userImageUrl={userImageUrl}
+							viewModel={viewModel}
+						/>
+					) : (
+						<p className="py-10 text-center text-sm text-(--session-overview-muted)">
+							Turn body not loaded
+						</p>
+					)}
 				</section>
 			</div>
 		</section>

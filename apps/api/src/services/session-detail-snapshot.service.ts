@@ -168,7 +168,7 @@ export function buildSessionDetailRawSnapshotSql() {
     tupleElement(analytics.snapshot, 8) AS skills,
     tupleElement(analytics.snapshot, 9) AS slash_commands
   FROM latest_raw AS raw
-  INNER JOIN latest_analytics AS analytics
+  LEFT ANY JOIN latest_analytics AS analytics
     ON tupleElement(analytics.snapshot, 1) = tupleElement(raw.snapshot, 7)`;
 }
 

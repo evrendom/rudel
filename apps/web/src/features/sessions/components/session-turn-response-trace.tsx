@@ -55,7 +55,9 @@ export function SessionTurnResponseTrace({
 			items={option.turn.responseItems}
 			requestUsage={option.metrics.usageEvents}
 			requestUsagePlacement={
-				isCodexFormat(viewModel.safeContent) ? "end" : "start"
+				viewModel.safeSource === "codex" || isCodexFormat(viewModel.safeContent)
+					? "end"
+					: "start"
 			}
 			traceCallDisplayMode={traceCallDisplayMode}
 			userImageUrl={userImageUrl}
