@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { useMountEffect } from "@/app/hooks/useMountEffect";
 import type { TraceItem } from "@/components/conversation/conversation-trace";
 import {
 	buildConversationTraceFixtureTurns,
@@ -8,6 +9,7 @@ import {
 import { SessionContinuousTurnThread } from "./session-continuous-turn-thread";
 import { buildSessionDetailViewModel } from "./session-detail-view-model";
 import type { SessionTurnOption } from "./session-turn-option";
+import type { SessionTurnTablePaneOption } from "./session-turn-table-pane";
 import type { SessionTurnSelection } from "./session-turn-table-selection";
 
 function countFixtureToolCalls(items: readonly TraceItem[]) {
@@ -72,6 +74,21 @@ function buildContinuousFixtureOptions(): SessionTurnOption[] {
 }
 
 const CONTINUOUS_FIXTURE_OPTIONS = buildContinuousFixtureOptions();
+const STREAMED_FIXTURE_OPTIONS: readonly SessionTurnOption[] = Array.from(
+	{ length: 18 },
+	(_, index) => {
+		const source =
+			CONTINUOUS_FIXTURE_OPTIONS[index % CONTINUOUS_FIXTURE_OPTIONS.length];
+		if (!source) {
+			throw new Error("The streamed trace fixture requires a source turn");
+		}
+		return {
+			...source,
+			key: `${source.key}:streamed:${index}`,
+			turnNumber: index + 1,
+		};
+	},
+);
 const CONTINUOUS_FIXTURE_VIEW_MODEL = buildSessionDetailViewModel(
 	{
 		content: "",
@@ -90,6 +107,22 @@ const CONTINUOUS_FIXTURE_VIEW_MODEL = buildSessionDetailViewModel(
 // can be proven not to change active turn state until scrollTop really moves.
 export function SessionContinuousTraceFixturePage() {
 	const scrollContainerRef = useRef<HTMLDivElement>(null);
+	const hydrationTimerRef = useRef<number | undefined>(undefined);
+	const searchParams = new URLSearchParams(window.location.search);
+	const streamsTurnBodies = searchParams.get("hydrate") === "manual";
+	const fixtureOptions = streamsTurnBodies
+		? STREAMED_FIXTURE_OPTIONS
+		: CONTINUOUS_FIXTURE_OPTIONS;
+	const [options, setOptions] = useState<readonly SessionTurnTablePaneOption[]>(
+		() =>
+			streamsTurnBodies
+				? fixtureOptions.map((option) => {
+						const { turn, ...summary } = option;
+						void turn;
+						return summary;
+					})
+				: CONTINUOUS_FIXTURE_OPTIONS,
+	);
 	const [selection, setSelection] = useState<SessionTurnSelection>({
 		index: 0,
 		speaker: "model",
@@ -98,9 +131,32 @@ export function SessionContinuousTraceFixturePage() {
 	// so sticky-geometry tests can cover the shipped hierarchy, not only the
 	// nested request layout.
 	const traceCallDisplayMode =
-		new URLSearchParams(window.location.search).get("display") === "normal"
-			? "normal"
-			: "request";
+		searchParams.get("display") === "normal" ? "normal" : "request";
+
+	useMountEffect(() => () => {
+		if (hydrationTimerRef.current !== undefined) {
+			window.clearTimeout(hydrationTimerRef.current);
+		}
+	});
+
+	function hydrateTurnBodies() {
+		let nextIndex = 0;
+		const hydrateNext = () => {
+			const indexToHydrate = nextIndex;
+			setOptions((current) =>
+				current.map((option, index) =>
+					index === indexToHydrate ? (fixtureOptions[index] ?? option) : option,
+				),
+			);
+			nextIndex += 1;
+			if (nextIndex < fixtureOptions.length) {
+				hydrationTimerRef.current = window.setTimeout(hydrateNext, 80);
+			}
+		};
+		hydrateNext();
+	}
+
+	const hydratedTurnCount = options.filter((option) => option.turn).length;
 
 	return (
 		<div
@@ -108,7 +164,9 @@ export function SessionContinuousTraceFixturePage() {
 			data-conversation-trace-scroll-container
 			data-trace-fixture-active-turn={selection.index + 1}
 			data-trace-fixture-continuous-scroller
+			data-trace-fixture-hydrated-turns={hydratedTurnCount}
 			data-trace-fixture-scroller
+			data-trace-fixture-total-turns={fixtureOptions.length}
 			className="isolate h-dvh min-w-0 overflow-y-auto bg-(--session-overview-surface) antialiased [--session-overview-accent:#266df0] [--session-overview-border:#eeeff1] [--session-overview-hover:#f6f7f7] [--session-overview-muted:rgba(0,0,0,0.63)] [--session-overview-subtle:rgba(0,0,0,0.5)] [--session-overview-surface:#fff] [--session-overview-text:#101112] [font-family:Inter,sans-serif]"
 		>
 			<SessionContinuousTurnThread
@@ -119,13 +177,23 @@ export function SessionContinuousTraceFixturePage() {
 					}))
 				}
 				onViewportChange={() => {}}
-				options={CONTINUOUS_FIXTURE_OPTIONS}
+				options={options}
 				scrollContainerRef={scrollContainerRef}
 				selection={selection}
 				traceCallDisplayMode={traceCallDisplayMode}
 				userImageUrl={undefined}
 				viewModel={CONTINUOUS_FIXTURE_VIEW_MODEL}
 			/>
+			{streamsTurnBodies ? (
+				<button
+					className="sr-only"
+					data-trace-fixture-hydrate
+					onClick={hydrateTurnBodies}
+					type="button"
+				>
+					Hydrate turn bodies
+				</button>
+			) : null}
 			<div aria-hidden="true" className="h-dvh" />
 		</div>
 	);

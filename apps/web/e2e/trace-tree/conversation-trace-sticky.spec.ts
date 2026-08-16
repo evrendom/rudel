@@ -383,6 +383,86 @@ async function readPinnedRows(scroller: Locator): Promise<RowPosition[]> {
 	);
 }
 
+test("streamed turn bodies never paint overlapping virtual rows", async ({
+	page,
+}) => {
+	await page.goto(
+		`${FIXTURE_ROUTE}?mode=continuous&display=request&hydrate=manual`,
+	);
+	const scroller = page.locator("[data-trace-fixture-continuous-scroller]");
+	await expect(scroller).toBeVisible();
+	await expect(scroller).toHaveAttribute(
+		"data-trace-fixture-hydrated-turns",
+		"0",
+	);
+	await scroller.evaluate((element) => {
+		if (!(element instanceof HTMLElement)) {
+			throw new Error("Hydration fixture scroller must be an HTMLElement");
+		}
+		element.scrollTop = element.scrollHeight * 0.55;
+	});
+	await waitForStableLayout(page);
+
+	const overlaps = await scroller.evaluate(async (element, tolerance) => {
+		if (!(element instanceof HTMLElement)) {
+			throw new Error("Hydration fixture scroller must be an HTMLElement");
+		}
+		const trigger = element.querySelector("[data-trace-fixture-hydrate]");
+		if (!(trigger instanceof HTMLButtonElement)) {
+			throw new Error("Hydration fixture trigger must be a button");
+		}
+		const total = Number(element.dataset.traceFixtureTotalTurns);
+		const failures: string[] = [];
+		trigger.click();
+
+		let settledFrames = 0;
+		let sampledFrames = 0;
+		while (settledFrames < 2 && sampledFrames < 600) {
+			await new Promise<void>((resolve) =>
+				requestAnimationFrame(() => resolve()),
+			);
+			sampledFrames += 1;
+			const rows = Array.from(
+				element.querySelectorAll<HTMLElement>(
+					"[data-session-virtual-turn-index]",
+				),
+			)
+				.map((row) => ({
+					bottom: row.getBoundingClientRect().bottom,
+					index: Number(row.dataset.sessionVirtualTurnIndex),
+					top: row.getBoundingClientRect().top,
+				}))
+				.sort((left, right) => left.index - right.index);
+			for (let index = 1; index < rows.length; index += 1) {
+				const previous = rows[index - 1];
+				const current = rows[index];
+				if (
+					previous !== undefined &&
+					current !== undefined &&
+					previous.bottom > current.top + tolerance
+				) {
+					failures.push(
+						`frame overlap: turn ${previous.index + 1} bottom ${previous.bottom.toFixed(2)} > turn ${current.index + 1} top ${current.top.toFixed(2)}`,
+					);
+				}
+			}
+
+			settledFrames =
+				Number(element.dataset.traceFixtureHydratedTurns) === total
+					? settledFrames + 1
+					: 0;
+		}
+		if (settledFrames < 2) {
+			failures.push(
+				`hydration stalled at ${element.dataset.traceFixtureHydratedTurns ?? "unknown"} of ${total} turns`,
+			);
+		}
+		return failures;
+	}, POSITION_TOLERANCE);
+
+	expect(overlaps).toEqual([]);
+});
+
 test("sticky geometry is path-independent after down and up sweeps", async ({
 	page,
 }) => {

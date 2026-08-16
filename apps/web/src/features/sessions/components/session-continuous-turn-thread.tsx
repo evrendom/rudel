@@ -1,8 +1,9 @@
-import { useVirtualizer } from "@tanstack/react-virtual";
+import { useVirtualizer, type Virtualizer } from "@tanstack/react-virtual";
 import {
 	memo,
 	type Ref,
 	type RefObject,
+	useCallback,
 	useImperativeHandle,
 	useLayoutEffect,
 	useRef,
@@ -29,6 +30,78 @@ import type { SessionTurnSelection } from "./session-turn-table-selection";
 type SessionDetailViewModel = ReturnType<typeof buildSessionDetailViewModel>;
 
 export type SessionContinuousTurnBodyState = "error" | "loading";
+
+function positionMountedSessionVirtualRows(
+	virtualizer: Virtualizer<HTMLDivElement, HTMLElement>,
+	scrollContainer: HTMLDivElement | null,
+) {
+	if (!scrollContainer) {
+		return;
+	}
+	const virtualItemsByIndex = new Map(
+		virtualizer.getVirtualItems().map((item) => [item.index, item]),
+	);
+	const mountedRows = Array.from(
+		scrollContainer.querySelectorAll<HTMLElement>(
+			"[data-session-virtual-turn-index]",
+		),
+	)
+		.map((element) => ({
+			element,
+			index: Number(element.dataset.sessionVirtualTurnIndex),
+		}))
+		.sort((left, right) => left.index - right.index);
+
+	let segmentStart = 0;
+	while (segmentStart < mountedRows.length) {
+		let segmentEnd = segmentStart + 1;
+		while (
+			segmentEnd < mountedRows.length &&
+			mountedRows[segmentEnd]?.index ===
+				(mountedRows[segmentEnd - 1]?.index ?? -1) + 1
+		) {
+			segmentEnd += 1;
+		}
+		const segment = mountedRows.slice(segmentStart, segmentEnd);
+		const anchorOffset = segment.findIndex((row) =>
+			virtualItemsByIndex.has(row.index),
+		);
+		const anchor = segment[anchorOffset];
+		const anchorItem = anchor
+			? virtualItemsByIndex.get(anchor.index)
+			: undefined;
+		if (anchor && anchorItem) {
+			const starts = new Map<number, number>([
+				[anchorOffset, anchorItem.start],
+			]);
+			for (
+				let offset = anchorOffset + 1;
+				offset < segment.length;
+				offset += 1
+			) {
+				const previous = segment[offset - 1];
+				const previousStart = starts.get(offset - 1);
+				if (previous && previousStart !== undefined) {
+					starts.set(offset, previousStart + previous.element.offsetHeight);
+				}
+			}
+			for (let offset = anchorOffset - 1; offset >= 0; offset -= 1) {
+				const row = segment[offset];
+				const nextStart = starts.get(offset + 1);
+				if (row && nextStart !== undefined) {
+					starts.set(offset, nextStart - row.element.offsetHeight);
+				}
+			}
+			for (const [offset, start] of starts) {
+				const row = segment[offset];
+				if (row) {
+					row.element.style.transform = `translateY(${start}px)`;
+				}
+			}
+		}
+		segmentStart = segmentEnd;
+	}
+}
 
 export function SessionContinuousTurnThread({
 	onActiveIndexChange,
@@ -72,6 +145,7 @@ export function SessionContinuousTurnThread({
 		getScrollElement: () => scrollContainerRef.current,
 		measureElement: measureSessionVirtualElement,
 		onChange: (instance) => {
+			positionMountedSessionVirtualRows(instance, scrollContainerRef.current);
 			const nextVirtualItems = instance.getVirtualItems();
 			const nextRenderedIndices = nextVirtualItems.map((item) => item.index);
 			const nextRenderedKey = nextRenderedIndices.join(":");
@@ -106,6 +180,22 @@ export function SessionContinuousTurnThread({
 		overscan: SESSION_DETAIL_VIRTUAL_OVERSCAN,
 	});
 	const virtualItems = virtualizer.getVirtualItems();
+	const measureMountedRows = useCallback(() => {
+		const scrollContainer = scrollContainerRef.current;
+		if (!scrollContainer) {
+			return;
+		}
+		const elements = Array.from(
+			scrollContainer.querySelectorAll<HTMLElement>(
+				"[data-session-virtual-turn-index]",
+			),
+		);
+		for (const element of elements) {
+			const index = Number(element.dataset.sessionVirtualTurnIndex);
+			virtualizer.resizeItem(index, measureSessionVirtualElement(element));
+		}
+		positionMountedSessionVirtualRows(virtualizer, scrollContainer);
+	}, [scrollContainerRef, virtualizer]);
 	const measurementVersion =
 		options.length === 0
 			? ""
@@ -120,20 +210,8 @@ export function SessionContinuousTurnThread({
 		if (!measurementVersion) {
 			return;
 		}
-		const scrollContainer = scrollContainerRef.current;
-		if (!scrollContainer) {
-			return;
-		}
-
-		for (const virtualItem of virtualizer.getVirtualItems()) {
-			const element = scrollContainer.querySelector<HTMLElement>(
-				`[data-session-virtual-turn-index="${virtualItem.index}"]`,
-			);
-			if (element) {
-				virtualizer.measureElement(element);
-			}
-		}
-	}, [measurementVersion, scrollContainerRef, virtualizer]);
+		measureMountedRows();
+	}, [measurementVersion, measureMountedRows]);
 
 	useImperativeHandle(
 		virtualizerRef,
@@ -174,10 +252,8 @@ export function SessionContinuousTurnThread({
 					if (!option) {
 						return null;
 					}
-					const scheduleMeasurement = (element: HTMLElement) => {
-						window.requestAnimationFrame(() =>
-							virtualizer.measureElement(element),
-						);
+					const scheduleMeasurement = () => {
+						window.requestAnimationFrame(measureMountedRows);
 					};
 					return (
 						<div
@@ -187,17 +263,13 @@ export function SessionContinuousTurnThread({
 							data-index={index}
 							data-session-virtual-turn-index={index}
 							style={{ transform: `translateY(${virtualItem.start}px)` }}
-							onPointerUpCapture={(event) =>
-								scheduleMeasurement(event.currentTarget)
-							}
+							onPointerUpCapture={scheduleMeasurement}
 							onKeyUpCapture={(event) => {
 								if (event.key === "Enter" || event.key === " ") {
-									scheduleMeasurement(event.currentTarget);
+									scheduleMeasurement();
 								}
 							}}
-							onTransitionEndCapture={(event) =>
-								scheduleMeasurement(event.currentTarget)
-							}
+							onTransitionEndCapture={scheduleMeasurement}
 						>
 							<ContinuousTurnSection
 								activeSpeaker={
