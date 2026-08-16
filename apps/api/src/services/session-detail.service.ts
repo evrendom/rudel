@@ -11,6 +11,7 @@ import {
 	createSessionDetailDerivationCache,
 	type SessionDetailDerivationCacheKey,
 } from "./session-detail-derivation-cache.js";
+import { createSessionDetailInstrumentation } from "./session-detail-instrumentation.js";
 import {
 	getSessionDetailCurrentRevision,
 	getSessionDetailRawSnapshot,
@@ -18,12 +19,11 @@ import {
 
 const logger = getLogger(["rudel", "api", "session-detail"]);
 const MAX_LATENCY_SAMPLES = 1_024;
-type RequestKind = "overview" | "subagent" | "turn";
-const latencySamples: Record<RequestKind, number[]> = {
-	overview: [],
-	subagent: [],
-	turn: [],
-};
+const instrumentation = createSessionDetailInstrumentation({
+	maxSamples: MAX_LATENCY_SAMPLES,
+	readMemoryUsage: () => process.memoryUsage(),
+	startedAt: new Date().toISOString(),
+});
 const cache = createSessionDetailDerivationCache<SessionDetailDerivation>({
 	maxBytes: readPositiveSafeIntegerEnv(
 		"SESSION_DETAIL_DERIVATION_CACHE_MAX_BYTES",
@@ -45,37 +45,22 @@ export class SessionDetailStaleRevisionError extends Error {
 	}
 }
 
-function percentile(sorted: readonly number[], fraction: number) {
-	if (sorted.length === 0) {
-		return null;
-	}
-	return sorted[Math.ceil(sorted.length * fraction) - 1] ?? null;
-}
-
-function recordLatency(kind: RequestKind, durationMs: number) {
-	const samples = latencySamples[kind];
-	samples.push(durationMs);
-	if (samples.length > MAX_LATENCY_SAMPLES) {
-		samples.shift();
-	}
-	const sorted = [...samples].sort((left, right) => left - right);
-	return {
-		p50Ms: percentile(sorted, 0.5),
-		p95Ms: percentile(sorted, 0.95),
-		p99Ms: percentile(sorted, 0.99),
-		sampleCount: sorted.length,
-	};
-}
-
-function logRequestLatency(kind: RequestKind, startedAt: number) {
+function logRequestLatency(
+	kind: "overview" | "subagent" | "turn",
+	startedAt: number,
+) {
 	const durationMs = Math.round(performance.now() - startedAt);
+	const latency = instrumentation.recordRequestLatency(kind, durationMs);
 	logger.info(
 		"Served session detail {kind} in {durationMs}ms (p50={p50Ms}, p95={p95Ms}, p99={p99Ms}, samples={sampleCount})",
 		{
-			...recordLatency(kind, durationMs),
 			...cache.getStats(),
 			durationMs,
 			kind,
+			p50Ms: latency.p50,
+			p95Ms: latency.p95,
+			p99Ms: latency.p99,
+			sampleCount: latency.sampleCount,
 		},
 	);
 }
@@ -95,7 +80,7 @@ async function loadDerivation(
 ): Promise<SessionDetailDerivation | null> {
 	try {
 		return await cache.getOrLoad(key, async () => {
-			const heapBefore = process.memoryUsage().heapUsed;
+			const memoryBefore = process.memoryUsage();
 			const startedAt = performance.now();
 			const snapshot = await getSessionDetailRawSnapshot(
 				key.organizationId,
@@ -115,18 +100,28 @@ async function loadDerivation(
 				);
 			}
 			const value = deriveSessionDetail(snapshot);
+			const durationMs = Math.round(performance.now() - startedAt);
+			const heapGrowthBytes =
+				process.memoryUsage().heapUsed - memoryBefore.heapUsed;
+			const rawBytes =
+				Buffer.byteLength(snapshot.content, "utf8") +
+				Object.values(snapshot.subagents).reduce(
+					(total, content) => total + Buffer.byteLength(content, "utf8"),
+					0,
+				);
+			instrumentation.recordDerivation({
+				cachedBytes: value.byteSize,
+				durationMs,
+				heapGrowthBytes,
+				rawBytes,
+			});
 			logger.info(
 				"Derived session detail snapshot in {durationMs}ms (rawBytes={rawBytes}, cachedBytes={cachedBytes}, heapGrowthBytes={heapGrowthBytes})",
 				{
 					cachedBytes: value.byteSize,
-					durationMs: Math.round(performance.now() - startedAt),
-					heapGrowthBytes: process.memoryUsage().heapUsed - heapBefore,
-					rawBytes:
-						Buffer.byteLength(snapshot.content, "utf8") +
-						Object.values(snapshot.subagents).reduce(
-							(total, content) => total + Buffer.byteLength(content, "utf8"),
-							0,
-						),
+					durationMs,
+					heapGrowthBytes,
+					rawBytes,
 				},
 			);
 			return { bytes: value.byteSize, value };
@@ -253,25 +248,14 @@ export async function getSessionDetailSubagent(input: {
 	}
 }
 
-export function getSessionDetailDerivationCacheStats() {
-	return cache.getStats();
-}
-
-export function getSessionDetailLatencyStats() {
-	return Object.fromEntries(
-		(Object.keys(latencySamples) as RequestKind[]).map((kind) => {
-			const sorted = [...latencySamples[kind]].sort(
-				(left, right) => left - right,
-			);
-			return [
-				kind,
-				{
-					p50Ms: percentile(sorted, 0.5),
-					p95Ms: percentile(sorted, 0.95),
-					p99Ms: percentile(sorted, 0.99),
-					sampleCount: sorted.length,
-				},
-			];
-		}),
-	);
+export function getSessionDetailInstrumentationStats() {
+	const cacheStats = cache.getStats();
+	const cacheRequests = cacheStats.hitCount + cacheStats.missCount;
+	return {
+		...instrumentation.getStats(),
+		cache: {
+			...cacheStats,
+			hitRate: cacheRequests === 0 ? null : cacheStats.hitCount / cacheRequests,
+		},
+	};
 }

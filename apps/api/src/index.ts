@@ -10,6 +10,7 @@ import {
 	handleAvatarGetRequest,
 	handleAvatarUploadRequest,
 } from "./handlers/avatar-http.js";
+import { handleSessionDetailStatsRequest } from "./handlers/session-detail-stats-http.js";
 import {
 	readBetterAuthSecret,
 	readCliDeviceVerificationUrl,
@@ -340,6 +341,15 @@ async function handleRequest(
 			getSession: (req) => auth.api.getSession({ headers: req.headers }),
 			request,
 			requestId,
+		});
+	}
+
+	if (url.pathname === "/api/dev/session-detail-stats") {
+		return handleSessionDetailStatsRequest({
+			cors,
+			enabled: isLoopbackOrigin(preferredFrontendOrigin),
+			getSession: (req) => auth.api.getSession({ headers: req.headers }),
+			request,
 		});
 	}
 
