@@ -5,8 +5,9 @@ import type { SessionDetailRawSnapshot } from "./session-detail-derivation.servi
 
 const SESSION_DETAIL_QUERY_SETTINGS: ClickHouseSettings = {
 	max_execution_time: 30,
-	max_result_bytes: String(192 * 1024 * 1024),
-	max_rows_to_read: "100000",
+	max_bytes_to_read: String(2 * 1024 * 1024 * 1024),
+	max_result_bytes: String(256 * 1024 * 1024),
+	max_rows_to_read: "10000000",
 };
 
 type CurrentRevisionRow = {

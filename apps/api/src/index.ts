@@ -15,6 +15,7 @@ import {
 	readCliDeviceVerificationUrl,
 	readPositiveSafeIntegerEnv,
 } from "./lib/env.js";
+import { maybeCompressSessionDetailRpcResponse } from "./lib/http-compression.js";
 import { shutdownApiProductAnalytics } from "./lib/product-analytics.js";
 import { setupLogging } from "./logging.js";
 import type { ApiKeyAuthFailure } from "./middleware.js";
@@ -309,7 +310,11 @@ async function handleRequest(
 		for (const [key, value] of Object.entries(cors)) {
 			response.headers.set(key, value);
 		}
-		return response;
+		return maybeCompressSessionDetailRpcResponse({
+			pathname: url.pathname,
+			requestHeaders: request.headers,
+			response,
+		});
 	}
 
 	if (url.pathname.startsWith("/api/avatar/")) {

@@ -501,6 +501,8 @@ export const contract = {
 		},
 		sessions: {
 			detailOverview: sessionDetailProcedureContracts.detailOverview,
+			detailSubagent: sessionDetailProcedureContracts.detailSubagent,
+			detailTurn: sessionDetailProcedureContracts.detailTurn,
 			list: oc
 				.input(SessionListInputSchema)
 				.output(z.array(SessionAnalyticsSchema)),

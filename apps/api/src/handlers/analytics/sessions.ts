@@ -7,7 +7,11 @@ import {
 	getSessionDetail,
 	getSessionDimensionAnalysis,
 } from "../../services/session-analytics.service.js";
-import { getSessionDetailOverview } from "../../services/session-detail.service.js";
+import {
+	getSessionDetailOverview,
+	getSessionDetailSubagent,
+	getSessionDetailTurn,
+} from "../../services/session-detail.service.js";
 import { InvalidSessionDetailCursorError } from "../../services/session-detail-derivation.service.js";
 import { getSessionOwner } from "../../services/session-ownership.service.js";
 import { requireSessionDetailOwnerAccess } from "./session-detail-access.js";
@@ -123,8 +127,66 @@ const detailOverview = os.analytics.sessions.detailOverview
 		}
 	});
 
+const detailTurn = os.analytics.sessions.detailTurn
+	.use(orgMiddleware)
+	.handler(async ({ input, context }) => {
+		const ownerId = requireSessionDetailOwnerAccess(
+			await getSessionOwner(context.organizationId, input.sessionId),
+			{
+				isOrgAdmin: context.isOrgAdmin,
+				requesterUserId: context.user.id,
+			},
+		);
+
+		try {
+			const result = await getSessionDetailTurn({
+				organizationId: context.organizationId,
+				ownerId,
+				revision: input.revision,
+				sessionId: input.sessionId,
+				turnId: input.turnId,
+			});
+			if (!result) {
+				throw new ORPCError("NOT_FOUND");
+			}
+			return result;
+		} catch (error) {
+			return throwSessionDetailRevisionError(error);
+		}
+	});
+
+const detailSubagent = os.analytics.sessions.detailSubagent
+	.use(orgMiddleware)
+	.handler(async ({ input, context }) => {
+		const ownerId = requireSessionDetailOwnerAccess(
+			await getSessionOwner(context.organizationId, input.sessionId),
+			{
+				isOrgAdmin: context.isOrgAdmin,
+				requesterUserId: context.user.id,
+			},
+		);
+
+		try {
+			const result = await getSessionDetailSubagent({
+				organizationId: context.organizationId,
+				ownerId,
+				revision: input.revision,
+				sessionId: input.sessionId,
+				subagentId: input.subagentId,
+			});
+			if (!result) {
+				throw new ORPCError("NOT_FOUND");
+			}
+			return result;
+		} catch (error) {
+			return throwSessionDetailRevisionError(error);
+		}
+	});
+
 export const sessionsRouter = os.analytics.sessions.router({
 	detailOverview,
+	detailSubagent,
+	detailTurn,
 	list,
 	summary,
 	summaryComparison,

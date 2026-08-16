@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+	contract,
 	SESSION_DETAIL_REVISION_ERRORS,
 	SessionDetailOverviewInputSchema,
 	SessionDetailOverviewSchema,
@@ -78,6 +79,15 @@ describe("session detail payload contracts", () => {
 					procedure["~orpc"].errorMap.STALE_REVISION?.status === 409,
 			),
 		).toBe(true);
+		expect(contract.analytics.sessions.detailOverview).toBe(
+			sessionDetailProcedureContracts.detailOverview,
+		);
+		expect(contract.analytics.sessions.detailSubagent).toBe(
+			sessionDetailProcedureContracts.detailSubagent,
+		);
+		expect(contract.analytics.sessions.detailTurn).toBe(
+			sessionDetailProcedureContracts.detailTurn,
+		);
 	});
 
 	test("validates a bounded overview without transcript bodies", () => {

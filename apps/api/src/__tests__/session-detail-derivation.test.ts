@@ -4,6 +4,8 @@ import {
 	bucketSessionDetailUsageCalls,
 	deriveSessionDetail,
 	getSessionDetailOverviewPage,
+	getSessionDetailSubagent,
+	getSessionDetailTurn,
 	SESSION_DETAIL_OVERVIEW_MAX_BYTES,
 	type SessionDetailRawSnapshot,
 	StaleSessionDetailCursorError,
@@ -191,5 +193,21 @@ describe("session detail derivation", () => {
 		const preview = truncateSessionDetailPreview(`  ${"🙂".repeat(150)}  `);
 		expect(Array.from(preview ?? "")).toHaveLength(140);
 		expect(preview?.endsWith("...")).toBe(true);
+	});
+
+	test("indexes turn and subagent bodies once for cache reuse", () => {
+		const input = snapshot(createTranscript(2));
+		input.subagents = { "agent-1": "raw subagent jsonl" };
+		const derivation = deriveSessionDetail(input);
+		const turnId = derivation.turnSummaries[0]?.turnId;
+		expect(turnId).toBe("user-0");
+		const first = getSessionDetailTurn(derivation, turnId ?? "");
+		expect(getSessionDetailTurn(derivation, turnId ?? "")).toBe(first);
+		expect(first?.revision).toBe(input.revision);
+		expect(getSessionDetailSubagent(derivation, "agent-1")).toEqual({
+			content: "raw subagent jsonl",
+			revision: input.revision,
+			subagentId: "agent-1",
+		});
 	});
 });
