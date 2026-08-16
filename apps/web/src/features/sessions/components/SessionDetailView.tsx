@@ -5,18 +5,22 @@ import {
 	useEffect,
 	useRef,
 } from "react";
+import { Button } from "@/app/ui/button";
 import { Skeleton } from "@/app/ui/skeleton";
 import { useTrackProductPageView } from "@/features/analytics/tracking/useTrackProductPageView";
 import { formatModelDisplayLabel } from "@/features/dashboard/components/dashboard-model-brand";
 import type { SessionNavigation } from "@/features/sessions/session-navigation";
 import { useShellHeaderPortal } from "@/features/shell/shell-header-portal";
 import { useUserMap } from "@/features/workspace/hooks/useUserMap";
-import { orpc } from "@/lib/orpc";
 import { SessionDetailContent } from "./session-detail-content";
 import { SessionDetailHeader } from "./session-detail-header";
+import { fetchSessionDetail } from "./session-detail-query";
+import { shouldRetrySessionDetailQuery } from "./session-detail-response";
 import { buildSessionDetailViewModel } from "./session-detail-view-model";
-import { SessionDetailErrorBoundary } from "./session-detail-view-parts";
-import { getSessionDetailErrorState } from "./session-detail-view-utils";
+import {
+	canRetrySessionDetailError,
+	getSessionDetailErrorState,
+} from "./session-detail-view-utils";
 
 type SessionDetailViewProps = {
 	navigation: SessionNavigation;
@@ -61,9 +65,13 @@ function SessionDetailContentLoadingView() {
 
 function SessionDetailStateMessage({
 	description,
+	isRetrying = false,
+	onRetry,
 	title,
 }: {
 	description: string | undefined;
+	isRetrying?: boolean;
+	onRetry?: () => void;
 	title: string;
 }) {
 	return (
@@ -74,6 +82,18 @@ function SessionDetailStateMessage({
 				</p>
 				{description ? (
 					<p className="text-sm text-(--dashboardy-muted)">{description}</p>
+				) : null}
+				{onRetry ? (
+					<Button
+						className="mt-5"
+						disabled={isRetrying}
+						onClick={onRetry}
+						size="sm"
+						type="button"
+						variant="outline"
+					>
+						{isRetrying ? "Trying again…" : "Try again"}
+					</Button>
 				) : null}
 			</div>
 		</div>
@@ -111,16 +131,15 @@ export function SessionDetailView({
 		[handleHeaderWheel],
 	);
 	const { userMap, avatarMap } = useUserMap();
-	const {
-		data: session,
-		error,
-		isLoading,
-	} = useQuery({
-		...orpc.analytics.sessions.detail.queryOptions({
-			input: { sessionId },
-		}),
+	const { data, error, isFetching, isLoading, refetch } = useQuery({
+		// Namespaced away from the oRPC-derived key: this cache entry stores the
+		// parsed boundary shape, not the raw procedure response.
+		queryKey: ["session-detail-parsed", sessionId],
+		queryFn: ({ signal }) => fetchSessionDetail(sessionId, signal),
 		enabled: sessionId.length > 0,
+		retry: shouldRetrySessionDetailQuery,
 	});
+	const session = data?.session;
 
 	useTrackProductPageView({
 		isLoading,
@@ -147,51 +166,68 @@ export function SessionDetailView({
 	}, [sessionTabTitle]);
 
 	const errorState = getSessionDetailErrorState(error);
+	const hasShapeWarning = (data?.shapeIssueFields.length ?? 0) > 0;
 
 	return (
-		<SessionDetailErrorBoundary>
-			<div className="dashboardy-page flex h-full min-h-0 min-w-0 flex-1 flex-col bg-(--dashboardy-surface) text-(--dashboardy-heading)">
-				<SessionDetailHeader
-					avatarMap={avatarMap}
-					headerRef={setHeaderElement}
-					hideMetrics
-					isLoading={isLoading}
-					navigation={navigation}
-					onReturn={onReturn}
-					portalHost={shellHeaderPortal}
-					position={position}
-					sessionId={sessionId}
-					totalSessions={totalSessions}
-					viewModel={viewModel}
-				/>
+		<div className="dashboardy-page flex h-full min-h-0 min-w-0 flex-1 flex-col bg-(--dashboardy-surface) text-(--dashboardy-heading)">
+			<SessionDetailHeader
+				avatarMap={avatarMap}
+				headerRef={setHeaderElement}
+				hideMetrics
+				isLoading={isLoading}
+				navigation={navigation}
+				onReturn={onReturn}
+				portalHost={shellHeaderPortal}
+				position={position}
+				sessionId={sessionId}
+				totalSessions={totalSessions}
+				viewModel={viewModel}
+			/>
 
-				<div
-					key={sessionId}
-					className="relative min-h-0 min-w-0 flex-1 overflow-hidden"
-				>
-					{isLoading ? <SessionDetailContentLoadingView /> : null}
-					{!isLoading && errorState ? (
-						<SessionDetailStateMessage
-							description={errorState.description}
-							title={errorState.title}
-						/>
-					) : null}
-					{!isLoading && !errorState && viewModel ? (
-						<SessionDetailContent
-							key={`${viewModel.safeSessionId}:expanded-speakers-v1`}
-							responseScrollRef={responseScrollRef}
-							userImageUrl={avatarMap[viewModel.safeUserId]}
-							viewModel={viewModel}
-						/>
-					) : null}
-					{!isLoading && !errorState && !viewModel ? (
-						<SessionDetailStateMessage
-							description={undefined}
-							title="Session Not Found"
-						/>
-					) : null}
-				</div>
+			<div
+				key={sessionId}
+				className="relative min-h-0 min-w-0 flex-1 overflow-hidden"
+			>
+				{isLoading ? <SessionDetailContentLoadingView /> : null}
+				{!isLoading && errorState ? (
+					<SessionDetailStateMessage
+						description={errorState.description}
+						isRetrying={isFetching}
+						onRetry={
+							canRetrySessionDetailError(error)
+								? () => {
+										void refetch();
+									}
+								: undefined
+						}
+						title={errorState.title}
+					/>
+				) : null}
+				{!isLoading && !errorState && viewModel ? (
+					<div className="flex h-full min-h-0 flex-col">
+						{hasShapeWarning ? (
+							<output className="border-b border-amber-500/30 bg-amber-500/10 px-4 py-2 text-sm text-(--dashboardy-heading)">
+								Some session fields were unavailable. The rest of the transcript
+								is shown with safe defaults.
+							</output>
+						) : null}
+						<div className="min-h-0 flex-1">
+							<SessionDetailContent
+								key={`${viewModel.safeSessionId}:expanded-speakers-v1`}
+								responseScrollRef={responseScrollRef}
+								userImageUrl={avatarMap[viewModel.safeUserId]}
+								viewModel={viewModel}
+							/>
+						</div>
+					</div>
+				) : null}
+				{!isLoading && !errorState && !viewModel ? (
+					<SessionDetailStateMessage
+						description={undefined}
+						title="Session Not Found"
+					/>
+				) : null}
 			</div>
-		</SessionDetailErrorBoundary>
+		</div>
 	);
 }

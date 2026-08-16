@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { formatUsername } from "@/lib/format";
+import type { SessionDetailViewModelSource } from "./session-detail-response";
 import {
 	createSessionMetadataBadges,
 	getConversationSummary,
@@ -54,29 +55,6 @@ export interface SessionSubagentSummary {
 	id: string;
 	model: string | undefined;
 	totalTokens: number | undefined;
-}
-
-export interface SessionDetailViewModelSource {
-	content?: unknown;
-	duration_min?: unknown;
-	git_branch?: unknown;
-	git_sha?: unknown;
-	input_tokens?: unknown;
-	last_interaction_date?: unknown;
-	model_used?: unknown;
-	output_tokens?: unknown;
-	project_path?: unknown;
-	repository?: unknown;
-	session_date?: unknown;
-	session_id?: unknown;
-	skills?: unknown;
-	slash_commands?: unknown;
-	source?: unknown;
-	subagents?: unknown;
-	success_score?: unknown;
-	total_tokens?: unknown;
-	total_interactions?: unknown;
-	user_id?: unknown;
 }
 
 function parseSubagentTranscriptLine(

@@ -5,6 +5,7 @@ import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { appRoutes } from "@/app/routes";
 import { useAnalyticsTracking } from "@/features/analytics/tracking/useAnalyticsTracking";
 import { SessionDetailView } from "@/features/sessions/components/SessionDetailView";
+import { SessionDetailErrorBoundary } from "@/features/sessions/components/session-detail-view-parts";
 import { SessionTraceDock } from "@/features/sessions/components/session-trace-dock";
 import { SessionsListSurface } from "@/features/sessions/components/sessions-list-surface";
 import { getSessionNeighbours } from "@/features/sessions/session-navigation";
@@ -23,9 +24,15 @@ const sessionListScrollPositions = new Map<string, number>();
 
 export function SessionsPage() {
 	const params = useParams<{ sessionId: string }>();
+	const getShellRoutePath = useShellRoutePath();
 
 	return params.sessionId ? (
-		<SessionDetail sessionId={params.sessionId} />
+		<SessionDetailErrorBoundary
+			fallbackHref={getShellRoutePath(appRoutes.session())}
+			key={params.sessionId}
+		>
+			<SessionDetail sessionId={params.sessionId} />
+		</SessionDetailErrorBoundary>
 	) : (
 		<SessionsList />
 	);
