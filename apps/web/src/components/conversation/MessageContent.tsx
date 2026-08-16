@@ -14,6 +14,10 @@ import {
 } from "./conversation-trace-hugeicons";
 import { ToolInvocation } from "./ToolInvocation";
 
+// Keep room for the formatted-part limit plus a plain-text fallback while
+// bounding every message-level loop in this component.
+export const MAX_RENDERED_MESSAGE_BLOCKS = 128;
+
 type MessageBlock =
 	| string
 	| TextContent
@@ -384,11 +388,12 @@ export function MessageContent({ content, className }: MessageContentProps) {
 		);
 	}
 
+	const visibleBlocks = content.slice(0, MAX_RENDERED_MESSAGE_BLOCKS);
 	const toolUses = new Map<string, ToolUseContent>();
 	const toolResults = new Map<string, ToolResultContent>();
 	const blockIdentityCounts = new Map<string, number>();
 
-	for (const block of content) {
+	for (const block of visibleBlocks) {
 		if (typeof block === "string") continue;
 		if (block.type === "tool_use") {
 			toolUses.set(block.id, block);
@@ -399,7 +404,7 @@ export function MessageContent({ content, className }: MessageContentProps) {
 
 	return (
 		<div className={cn("space-y-3.5", className)}>
-			{content.map((block) => {
+			{visibleBlocks.map((block) => {
 				const blockIdentity = getMessageBlockIdentity(block);
 				const identityOccurrence =
 					(blockIdentityCounts.get(blockIdentity) ?? 0) + 1;
