@@ -1,6 +1,7 @@
 import type { SessionDetailOverview } from "@rudel/api-routes";
 import { useQueryClient } from "@tanstack/react-query";
 import { type RefObject, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Button } from "@/app/ui/button";
 import {
 	fetchSessionDetailOverview,
@@ -16,6 +17,10 @@ import {
 	buildSessionDetailOverviewTurnOptions,
 	buildSessionDetailOverviewViewModel,
 } from "./session-detail-overview-model";
+import {
+	getSessionDetailSkeletonDebugKey,
+	resolveSessionDetailSkeletonDebugMode,
+} from "./session-detail-skeleton-debug";
 import type { SessionTurnTableVirtualizerHandle } from "./session-detail-virtualization";
 import type { SessionTurnSelection } from "./session-turn-table-selection";
 import { useSessionDetailSearchLoader } from "./use-session-detail-search-loader";
@@ -44,6 +49,11 @@ export function SessionDetailFastContent({
 	userMap: Record<string, string>;
 }) {
 	const queryClient = useQueryClient();
+	const [searchParams] = useSearchParams();
+	const skeletonDebugMode = import.meta.env.DEV
+		? resolveSessionDetailSkeletonDebugMode(searchParams.get("skeletons"), true)
+		: ({ kind: "off" } as const);
+	const skeletonDebugKey = getSessionDetailSkeletonDebugKey(skeletonDebugMode);
 	const [additionalPages, setAdditionalPages] = useState<
 		readonly SessionDetailOverview[]
 	>([]);
@@ -151,6 +161,7 @@ export function SessionDetailFastContent({
 		}
 	}
 	const searchLoader = useSessionDetailSearchLoader({
+		debugMode: skeletonDebugMode,
 		firstOverview,
 		latestPage,
 		loadPage,
@@ -174,6 +185,7 @@ export function SessionDetailFastContent({
 					options={options}
 					responsePane={({ viewportStore }) => (
 						<SessionDetailFastResponsePane
+							key={skeletonDebugKey}
 							bottomPaddingClassName={columnBottomPaddingClassName}
 							onCancelSearchLoad={searchLoader.cancel}
 							onApproachEnd={() => {
@@ -190,8 +202,10 @@ export function SessionDetailFastContent({
 							responseScrollRef={responseScrollRef}
 							revision={firstOverview.revision}
 							searchLoad={searchLoader.loadState}
+							searchLoadModeKey={searchLoader.loadModeKey}
 							selection={selection}
 							sessionId={firstOverview.session.sessionId}
+							skeletonDebugMode={skeletonDebugMode}
 							subagents={firstOverview.subagents}
 							userImageUrl={userImageUrl}
 							viewModel={viewModel}

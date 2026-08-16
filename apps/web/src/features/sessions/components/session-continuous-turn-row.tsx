@@ -1,12 +1,17 @@
-import { memo, type ReactNode } from "react";
+import { memo, type ReactNode, type RefObject, useRef, useState } from "react";
+import { useMountEffect } from "@/app/hooks/useMountEffect";
 import { Button } from "@/app/ui/button";
-import { Skeleton } from "@/app/ui/skeleton";
 import type { TraceCallDisplayMode } from "@/components/conversation/ConversationTrace";
 import { cn } from "@/lib/utils";
+import { SessionContinuousTurnSkeleton } from "./session-continuous-turn-skeleton";
 import {
 	type SessionContinuousTurnViewportStore,
 	useSessionContinuousTurnActiveSpeaker,
 } from "./session-continuous-turn-viewport-store";
+import {
+	getSessionDetailSkeletonTurnPolicy,
+	type SessionDetailSkeletonDebugMode,
+} from "./session-detail-skeleton-debug";
 import type { buildSessionDetailViewModel } from "./session-detail-view-model";
 import { SessionMemberRow } from "./session-member-row";
 import { SessionTurnResponseTrace } from "./session-turn-response-trace";
@@ -21,6 +26,7 @@ export const SessionContinuousTurnSection = memo(
 		bodyState,
 		className,
 		continuesThread,
+		debugMode,
 		estimatedSize,
 		index,
 		onRetryTurnBody,
@@ -34,6 +40,7 @@ export const SessionContinuousTurnSection = memo(
 		bodyState: SessionContinuousTurnBodyState | undefined;
 		className?: string;
 		continuesThread: boolean;
+		debugMode: SessionDetailSkeletonDebugMode;
 		estimatedSize: number;
 		index: number;
 		onRetryTurnBody: ((index: number) => void) | undefined;
@@ -48,11 +55,20 @@ export const SessionContinuousTurnSection = memo(
 			option.turnNumber === undefined
 				? "Session start"
 				: `Turn ${option.turnNumber}`;
+		const debugState = option.turn
+			? "full"
+			: bodyState === "loading"
+				? "hydrating"
+				: "skeleton";
+		const forceSkeleton = !getSessionDetailSkeletonTurnPolicy(debugMode, index)
+			.hydrate;
 
 		return (
 			<ContinuousTurnActivityFrame
 				className={className}
 				continuesThread={continuesThread}
+				debugMode={debugMode}
+				debugState={debugState}
 				estimatedSize={estimatedSize}
 				index={index}
 				sectionLabel={sectionLabel}
@@ -62,6 +78,7 @@ export const SessionContinuousTurnSection = memo(
 					bodyState={bodyState}
 					continuesThread={continuesThread}
 					estimatedSize={estimatedSize}
+					forceSkeleton={forceSkeleton}
 					index={index}
 					onRetryTurnBody={onRetryTurnBody}
 					option={option}
@@ -79,6 +96,8 @@ const ContinuousTurnActivityFrame = memo(function ContinuousTurnActivityFrame({
 	children,
 	className,
 	continuesThread,
+	debugMode,
+	debugState,
 	estimatedSize,
 	index,
 	sectionLabel,
@@ -87,6 +106,8 @@ const ContinuousTurnActivityFrame = memo(function ContinuousTurnActivityFrame({
 	children: ReactNode;
 	className?: string;
 	continuesThread: boolean;
+	debugMode: SessionDetailSkeletonDebugMode;
+	debugState: "full" | "hydrating" | "skeleton";
 	estimatedSize: number;
 	index: number;
 	sectionLabel: string;
@@ -104,12 +125,14 @@ const ContinuousTurnActivityFrame = memo(function ContinuousTurnActivityFrame({
 					? "middle"
 					: "last"
 			: undefined;
+	const sectionRef = useRef<HTMLElement>(null);
 
 	return (
 		<section
+			ref={sectionRef}
 			aria-current={activeSpeaker ? "step" : undefined}
 			aria-label={sectionLabel}
-			className={cn("scroll-mt-0", className)}
+			className={cn("relative scroll-mt-0", className)}
 			data-active-rail-position={activeModelPosition}
 			data-active-speaker={activeSpeaker}
 			data-continuous-turn-index={index}
@@ -119,15 +142,60 @@ const ContinuousTurnActivityFrame = memo(function ContinuousTurnActivityFrame({
 			}}
 		>
 			{children}
+			{debugMode.kind === "off" ? null : (
+				<SessionTurnSkeletonDebugBadge
+					estimatedHeight={estimatedSize}
+					sectionRef={sectionRef}
+					state={debugState}
+				/>
+			)}
 		</section>
 	);
 });
+
+function SessionTurnSkeletonDebugBadge({
+	estimatedHeight,
+	sectionRef,
+	state,
+}: {
+	estimatedHeight: number;
+	sectionRef: RefObject<HTMLElement | null>;
+	state: "full" | "hydrating" | "skeleton";
+}) {
+	const [measuredHeight, setMeasuredHeight] = useState<number>();
+	useMountEffect(() => {
+		const element = sectionRef.current;
+		if (!element) {
+			return;
+		}
+		const measure = () => setMeasuredHeight(Math.round(element.offsetHeight));
+		measure();
+		if (typeof ResizeObserver !== "function") {
+			return;
+		}
+		const observer = new ResizeObserver(measure);
+		observer.observe(element);
+		return () => observer.disconnect();
+	});
+	const delta =
+		measuredHeight === undefined ? undefined : measuredHeight - estimatedHeight;
+	return (
+		<output
+			className="pointer-events-none absolute top-1 right-2 z-50 rounded-md border border-(--session-overview-border) bg-(--session-overview-surface) px-2 py-1 text-[0.6875rem] font-medium text-(--session-overview-muted) shadow-sm tabular-nums"
+			data-session-skeleton-debug-state={state}
+		>
+			{state} · est {estimatedHeight}px · measured {measuredHeight ?? "…"}px · Δ{" "}
+			{delta === undefined ? "…" : `${delta >= 0 ? "+" : ""}${delta}px`}
+		</output>
+	);
+}
 
 const ContinuousTurnStaticBody = memo(function ContinuousTurnStaticBody({
 	bodyState,
 	className,
 	continuesThread,
 	estimatedSize,
+	forceSkeleton,
 	index,
 	onRetryTurnBody,
 	option,
@@ -140,6 +208,7 @@ const ContinuousTurnStaticBody = memo(function ContinuousTurnStaticBody({
 	className?: string;
 	continuesThread: boolean;
 	estimatedSize: number;
+	forceSkeleton: boolean;
 	index: number;
 	onRetryTurnBody: ((index: number) => void) | undefined;
 	option: SessionTurnTablePaneOption;
@@ -182,6 +251,13 @@ const ContinuousTurnStaticBody = memo(function ContinuousTurnStaticBody({
 						userImageUrl={userImageUrl}
 						viewModel={viewModel}
 					/>
+				) : forceSkeleton ? (
+					<SessionContinuousTurnSkeleton
+						continuesThread={continuesThread}
+						estimatedSize={estimatedSize}
+						option={option}
+						userLabel={viewModel.safeUserDisplayName}
+					/>
 				) : option.hasBody === false ? (
 					<p className="py-10 text-center text-sm text-(--session-overview-muted)">
 						No response recorded
@@ -201,15 +277,12 @@ const ContinuousTurnStaticBody = memo(function ContinuousTurnStaticBody({
 						) : null}
 					</div>
 				) : (
-					<div
-						aria-busy="true"
-						className="grid gap-3 p-4"
-						style={{ minHeight: estimatedSize }}
-					>
-						<output className="sr-only">Loading turn</output>
-						<Skeleton className="h-16 w-full rounded-md" />
-						<Skeleton className="h-32 w-full rounded-md" />
-					</div>
+					<SessionContinuousTurnSkeleton
+						continuesThread={continuesThread}
+						estimatedSize={estimatedSize}
+						option={option}
+						userLabel={viewModel.safeUserDisplayName}
+					/>
 				)}
 			</section>
 		</div>

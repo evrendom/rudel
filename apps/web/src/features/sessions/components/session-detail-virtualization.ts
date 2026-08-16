@@ -6,10 +6,13 @@ export const SESSION_DETAIL_VIRTUAL_OVERSCAN = 4;
 
 const LEDGER_ROW_HEIGHT_PX = 36;
 const LEDGER_AUXILIARY_ROW_HEIGHT_PX = 34;
-const THREAD_BASE_HEIGHT_PX = 176;
+const THREAD_BASE_HEIGHT_PX = 144;
 const THREAD_LINE_HEIGHT_PX = 22;
 const THREAD_PREVIEW_CHARACTERS_PER_LINE = 86;
-const THREAD_MAX_ESTIMATED_PREVIEW_LINES = 8;
+const THREAD_MAX_ESTIMATED_PREVIEW_LINES = 3;
+const THREAD_MESSAGE_ROW_HEIGHT_PX = 112;
+const THREAD_COMPACT_ROW_HEIGHT_PX = 24;
+const THREAD_CHIP_ROW_HEIGHT_PX = 32;
 
 export type SessionTurnTableVirtualizerHandle = {
 	scrollToSelection: (
@@ -49,15 +52,14 @@ export function estimateSessionContinuousTurnSize(
 			Math.ceil(previewCharacters / THREAD_PREVIEW_CHARACTERS_PER_LINE),
 		),
 	);
-	const activityRows = Math.min(
-		6,
-		option.toolCallCount +
-			option.metrics.errorCount +
-			option.metrics.skills.length,
-	);
+	const messageRows = option.metrics.usageEvents.length;
 	return (
 		THREAD_BASE_HEIGHT_PX +
 		previewLines * THREAD_LINE_HEIGHT_PX +
-		activityRows * 20
+		messageRows * THREAD_MESSAGE_ROW_HEIGHT_PX +
+		(option.toolCallCount + option.metrics.errorCount) *
+			THREAD_COMPACT_ROW_HEIGHT_PX +
+		(option.metrics.skills.length > 0 ? THREAD_CHIP_ROW_HEIGHT_PX : 0) +
+		(option.metrics.editedFiles.length > 0 ? THREAD_CHIP_ROW_HEIGHT_PX : 0)
 	);
 }

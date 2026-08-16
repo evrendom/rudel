@@ -18,8 +18,15 @@ import {
 	loadSessionDetailTurnBodies,
 } from "./session-detail-full-transcript";
 import type { SessionDetailSearchLoadState } from "./session-detail-search";
+import {
+	getSessionDetailSkeletonDebugKey,
+	getSessionDetailSkeletonTurnPolicy,
+	type SessionDetailSkeletonDebugMode,
+	waitForSessionDetailSkeletonDelay,
+} from "./session-detail-skeleton-debug";
 
 export function useSessionDetailSearchLoader(input: {
+	debugMode: SessionDetailSkeletonDebugMode;
 	firstOverview: SessionDetailOverview;
 	latestPage: SessionDetailOverview;
 	loadPage: (
@@ -34,17 +41,24 @@ export function useSessionDetailSearchLoader(input: {
 	const [loadState, setLoadState] = useState<SessionDetailSearchLoadState>({
 		status: "idle",
 	});
+	const [loadModeKey, setLoadModeKey] = useState(() =>
+		getSessionDetailSkeletonDebugKey(input.debugMode),
+	);
 	const controllerRef = useRef<AbortController | undefined>(undefined);
 
 	useMountEffect(() => () => controllerRef.current?.abort());
 
 	async function loadSearchIndex() {
+		const nextLoadModeKey = getSessionDetailSkeletonDebugKey(input.debugMode);
 		const controller = new AbortController();
 		controllerRef.current?.abort();
 		controllerRef.current = controller;
 		const streamedBodies = new Map(
-			"bodies" in loadState ? loadState.bodies : [],
+			loadModeKey === nextLoadModeKey && "bodies" in loadState
+				? loadState.bodies
+				: [],
 		);
+		setLoadModeKey(nextLoadModeKey);
 		setLoadState({
 			bodies: streamedBodies,
 			completed: 0,
@@ -62,18 +76,27 @@ export function useSessionDetailSearchLoader(input: {
 			const allPages = [...input.pages, ...remainingPages];
 			input.onPagesLoaded(allPages.slice(1));
 			const allTurns = allPages.flatMap((page) => page.turnPage.items);
+			const hydratableTurns = allTurns.filter(
+				(turn) =>
+					getSessionDetailSkeletonTurnPolicy(input.debugMode, turn.index)
+						.hydrate,
+			);
 			setLoadState({
 				bodies: streamedBodies,
 				completed: 0,
 				phase: "turns",
 				status: "loading",
-				total: allTurns.filter((turn) => turn.hasBody).length,
+				total: hydratableTurns.filter((turn) => turn.hasBody).length,
 			});
 			const result = await loadSessionDetailTurnBodies({
 				concurrency: 3,
 				loadTurn: (turn) =>
 					loadTurnWithCache({
 						controller,
+						delayMs: getSessionDetailSkeletonTurnPolicy(
+							input.debugMode,
+							turn.index,
+						).delayMs,
 						queryClient,
 						revision: input.firstOverview.revision,
 						sessionId: input.firstOverview.session.sessionId,
@@ -102,7 +125,7 @@ export function useSessionDetailSearchLoader(input: {
 				},
 				signal: controller.signal,
 				shouldStop: isSessionDetailStaleRevisionError,
-				turns: allTurns,
+				turns: hydratableTurns,
 			});
 			setLoadState(
 				result.failures.size > 0
@@ -150,16 +173,22 @@ export function useSessionDetailSearchLoader(input: {
 			);
 		},
 		focus: () => {
-			if (loadState.status !== "loading" && loadState.status !== "complete") {
+			const currentModeKey = getSessionDetailSkeletonDebugKey(input.debugMode);
+			if (
+				loadModeKey !== currentModeKey ||
+				(loadState.status !== "loading" && loadState.status !== "complete")
+			) {
 				void loadSearchIndex();
 			}
 		},
+		loadModeKey,
 		loadState,
 	};
 }
 
 async function loadTurnWithCache(input: {
 	controller: AbortController;
+	delayMs: number;
 	queryClient: QueryClient;
 	revision: string;
 	sessionId: string;
@@ -173,11 +202,19 @@ async function loadTurnWithCache(input: {
 	};
 	const result = await input.queryClient.fetchQuery({
 		gcTime: SESSION_DETAIL_BODY_CACHE_TIME_MS,
-		queryFn: ({ signal }) => fetchSessionDetailTurn(turnInput, signal),
+		queryFn: ({ signal }) =>
+			fetchSessionDetailTurn(
+				turnInput,
+				AbortSignal.any([signal, input.controller.signal]),
+			),
 		queryKey: sessionDetailTurnQueryKey(turnInput),
 		retry: shouldRetrySessionDetailFastQuery,
 		staleTime: SESSION_DETAIL_IMMUTABLE_STALE_TIME_MS,
 	});
+	await waitForSessionDetailSkeletonDelay(
+		input.delayMs,
+		input.controller.signal,
+	);
 	input.controller.signal.throwIfAborted();
 	return result;
 }

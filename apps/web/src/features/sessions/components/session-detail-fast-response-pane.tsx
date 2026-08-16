@@ -35,6 +35,13 @@ import {
 } from "./session-detail-overview-model";
 import type { SessionDetailSearchLoadState } from "./session-detail-search";
 import { SessionDetailSearchControl } from "./session-detail-search-control";
+import {
+	getSessionDetailSkeletonDebugKey,
+	getSessionDetailSkeletonTurnPolicy,
+	isSessionDetailSkeletonDebugActive,
+	type SessionDetailSkeletonDebugMode,
+	waitForSessionDetailSkeletonDelay,
+} from "./session-detail-skeleton-debug";
 import type { SessionTurnSelection } from "./session-turn-table-selection";
 
 type SessionDetailOverviewViewModel = ReturnType<
@@ -53,8 +60,10 @@ export function SessionDetailFastResponsePane({
 	responseScrollRef,
 	revision,
 	searchLoad,
+	searchLoadModeKey,
 	selection,
 	sessionId,
+	skeletonDebugMode,
 	subagents,
 	userImageUrl,
 	viewModel,
@@ -70,8 +79,10 @@ export function SessionDetailFastResponsePane({
 	responseScrollRef: RefObject<HTMLDivElement | null>;
 	revision: string;
 	searchLoad: SessionDetailSearchLoadState;
+	searchLoadModeKey: string;
 	selection: SessionTurnSelection;
 	sessionId: string;
+	skeletonDebugMode: SessionDetailSkeletonDebugMode;
 	subagents: readonly SubagentSummary[];
 	userImageUrl: string | undefined;
 	viewModel: SessionDetailOverviewViewModel;
@@ -86,13 +97,35 @@ export function SessionDetailFastResponsePane({
 		ReadonlyMap<string, "error" | "loading">
 	>(() => new Map());
 	const renderedTurnIdsRef = useRef<ReadonlySet<string>>(new Set());
+	const pendingTurnControllersRef = useRef<Map<string, AbortController>>(
+		new Map(),
+	);
+	const pendingTurnIdsRef = useRef<Set<string>>(new Set());
 	const detailLevel = resolveSessionDetailLevel(searchParams.get("level"));
-	const effectiveTurnBodies = useMemo(() => {
-		if (!("bodies" in searchLoad)) {
+	const skeletonDebugKey = getSessionDetailSkeletonDebugKey(skeletonDebugMode);
+	const availableTurnBodies = useMemo(() => {
+		if (searchLoadModeKey !== skeletonDebugKey || !("bodies" in searchLoad)) {
 			return turnBodies;
 		}
 		return mergeSessionDetailTurnBodies(turnBodies, searchLoad.bodies);
-	}, [searchLoad, turnBodies]);
+	}, [searchLoad, searchLoadModeKey, skeletonDebugKey, turnBodies]);
+	const effectiveTurnBodies = useMemo(() => {
+		if (!isSessionDetailSkeletonDebugActive(skeletonDebugMode)) {
+			return availableTurnBodies;
+		}
+		const visibleBodies = new Map<string, SessionDetailTurn>();
+		for (const [index, option] of options.entries()) {
+			const policy = getSessionDetailSkeletonTurnPolicy(
+				skeletonDebugMode,
+				index,
+			);
+			const body = availableTurnBodies.get(option.turnId);
+			if (policy.hydrate && body) {
+				visibleBodies.set(option.turnId, body);
+			}
+		}
+		return visibleBodies;
+	}, [availableTurnBodies, options, skeletonDebugMode]);
 	const loadedOptions = useMemo(
 		() =>
 			options.map((option) => {
@@ -105,32 +138,51 @@ export function SessionDetailFastResponsePane({
 	const loadTurnBody = useCallback(
 		async (index: number) => {
 			const option = options[index];
-			if (!option?.hasBody) {
+			const policy = getSessionDetailSkeletonTurnPolicy(
+				skeletonDebugMode,
+				index,
+			);
+			if (
+				!option?.hasBody ||
+				!policy.hydrate ||
+				pendingTurnIdsRef.current.has(option.turnId) ||
+				effectiveTurnBodies.has(option.turnId)
+			) {
 				return;
 			}
+			pendingTurnIdsRef.current.add(option.turnId);
+			const controller = new AbortController();
+			pendingTurnControllersRef.current.set(option.turnId, controller);
 			const input = { revision, sessionId, turnId: option.turnId };
 			const queryKey = sessionDetailTurnQueryKey(input);
-			const cached = queryClient.getQueryData<SessionDetailTurn>(queryKey);
-			if (cached) {
-				setTurnBodies((current) =>
-					mergeSessionDetailTurnBodies(
-						current,
-						new Map([[option.turnId, cached]]),
-					),
-				);
-				return;
-			}
 			setBodyStates((current) =>
 				updateSessionDetailBodyState(current, option.turnId, "loading"),
 			);
 			try {
 				const body = await queryClient.fetchQuery({
 					gcTime: SESSION_DETAIL_BODY_CACHE_TIME_MS,
-					queryFn: ({ signal }) => fetchSessionDetailTurn(input, signal),
+					queryFn: ({ signal }) =>
+						fetchSessionDetailTurn(
+							input,
+							AbortSignal.any([signal, controller.signal]),
+						),
 					queryKey,
 					retry: shouldRetrySessionDetailFastQuery,
 					staleTime: SESSION_DETAIL_IMMUTABLE_STALE_TIME_MS,
 				});
+				await waitForSessionDetailSkeletonDelay(
+					policy.delayMs,
+					controller.signal,
+				);
+				if (
+					policy.delayMs > 0 &&
+					!renderedTurnIdsRef.current.has(option.turnId)
+				) {
+					setBodyStates((current) =>
+						updateSessionDetailBodyState(current, option.turnId, undefined),
+					);
+					return;
+				}
 				setTurnBodies((current) =>
 					mergeSessionDetailTurnBodies(
 						current,
@@ -141,6 +193,12 @@ export function SessionDetailFastResponsePane({
 					updateSessionDetailBodyState(current, option.turnId, undefined),
 				);
 			} catch (error) {
+				if (controller.signal.aborted) {
+					setBodyStates((current) =>
+						updateSessionDetailBodyState(current, option.turnId, undefined),
+					);
+					return;
+				}
 				if (isSessionDetailStaleRevisionError(error)) {
 					onStaleRevision(error);
 					return;
@@ -151,9 +209,24 @@ export function SessionDetailFastResponsePane({
 				setBodyStates((current) =>
 					updateSessionDetailBodyState(current, option.turnId, "error"),
 				);
+			} finally {
+				if (
+					pendingTurnControllersRef.current.get(option.turnId) === controller
+				) {
+					pendingTurnControllersRef.current.delete(option.turnId);
+					pendingTurnIdsRef.current.delete(option.turnId);
+				}
 			}
 		},
-		[onStaleRevision, options, queryClient, revision, sessionId],
+		[
+			effectiveTurnBodies,
+			onStaleRevision,
+			options,
+			queryClient,
+			revision,
+			sessionId,
+			skeletonDebugMode,
+		],
 	);
 
 	const handleViewportRangeChange = useCallback(
@@ -168,6 +241,11 @@ export function SessionDetailFastResponsePane({
 			if (searchLoad.status !== "loading") {
 				for (const turnId of previousTurnIds) {
 					if (!nextTurnIds.has(turnId)) {
+						pendingTurnControllersRef.current
+							.get(turnId)
+							?.abort(
+								new DOMException("Turn left the viewport.", "AbortError"),
+							);
 						void queryClient.cancelQueries({
 							exact: true,
 							queryKey: sessionDetailTurnQueryKey({
@@ -202,6 +280,16 @@ export function SessionDetailFastResponsePane({
 		},
 		[loadTurnBody],
 	);
+
+	useMountEffect(() => () => {
+		for (const controller of pendingTurnControllersRef.current.values()) {
+			controller.abort(
+				new DOMException("Session detail pane unmounted.", "AbortError"),
+			);
+		}
+		pendingTurnControllersRef.current.clear();
+		pendingTurnIdsRef.current.clear();
+	});
 
 	useMountEffect(() => {
 		responseScrollRef.current
@@ -254,6 +342,7 @@ export function SessionDetailFastResponsePane({
 			>
 				<SessionContinuousTurnThread
 					bodyStates={bodyStates}
+					debugMode={skeletonDebugMode}
 					onRetryTurnBody={handleRetryTurnBody}
 					onViewportRangeChange={handleViewportRangeChange}
 					options={loadedOptions}

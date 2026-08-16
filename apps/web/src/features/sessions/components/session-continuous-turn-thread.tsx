@@ -20,6 +20,7 @@ import {
 	SessionContinuousTurnSection,
 } from "./session-continuous-turn-row";
 import type { SessionContinuousTurnViewportStore } from "./session-continuous-turn-viewport-store";
+import type { SessionDetailSkeletonDebugMode } from "./session-detail-skeleton-debug";
 import type { buildSessionDetailViewModel } from "./session-detail-view-model";
 import { estimateSessionContinuousTurnSize } from "./session-detail-virtualization";
 import type { SessionTurnTablePaneOption } from "./session-turn-table-pane";
@@ -33,6 +34,7 @@ const TURN_BODY_PREFETCH_RADIUS = 4;
 export const SessionContinuousTurnThread = memo(
 	function SessionContinuousTurnThread({
 		bodyStates,
+		debugMode = { kind: "off" },
 		onRetryTurnBody,
 		onTurnRender,
 		onViewportRangeChange,
@@ -44,6 +46,7 @@ export const SessionContinuousTurnThread = memo(
 		viewportStore,
 	}: {
 		bodyStates?: ReadonlyMap<string, SessionContinuousTurnBodyState>;
+		debugMode?: SessionDetailSkeletonDebugMode;
 		onRetryTurnBody?: (index: number) => void;
 		onTurnRender?: ProfilerOnRenderCallback;
 		onViewportRangeChange?: (indices: readonly number[]) => void;
@@ -174,6 +177,7 @@ export const SessionContinuousTurnThread = memo(
 								key={option.key}
 								bodyState={bodyStates?.get(option.key)}
 								continuesThread={index < options.length - 1}
+								debugMode={debugMode}
 								estimatedSize={estimateSessionContinuousTurnSize(option)}
 								index={index}
 								onRetryTurnBody={onRetryTurnBody}
