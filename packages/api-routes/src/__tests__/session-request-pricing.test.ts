@@ -48,6 +48,21 @@ describe("session request pricing", () => {
 		});
 	});
 
+	test("prices a long-context request at the long-band rate", () => {
+		expect(
+			summarizeSessionRequestUsage([
+				{
+					at: "2026-08-10T10:00:00.000Z",
+					cacheCreationInputTokens: 0,
+					cacheReadInputTokens: 0,
+					inputTokens: 1_000_000,
+					model: "gpt-5.6-sol",
+					outputTokens: 0,
+				},
+			]).estimatedCost,
+		).toBe(10);
+	});
+
 	test("sums turn and subagent request groups without inventing missing prices", () => {
 		expect(
 			calculateSessionRequestCost([PRICED_TURN, [], PRICED_SUBAGENT]),

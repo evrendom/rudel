@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test } from "vitest";
 import type { TraceItem } from "@/components/conversation/conversation-trace";
 import { getSessionEstimatedCost } from "../session-cost";
 import {

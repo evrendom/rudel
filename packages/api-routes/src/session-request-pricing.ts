@@ -41,6 +41,12 @@ export function summarizeSessionRequestUsage(
 				event.cacheCreation1hInputTokens ?? event.cacheCreationInputTokens,
 			cacheCreationInputTokens: event.cacheCreation5mInputTokens ?? 0,
 			cacheReadInputTokens: event.cacheReadInputTokens,
+			// The request's full input context selects the long-context rate band
+			// for models that price >200k-token requests at a premium.
+			contextInputTokens:
+				event.inputTokens +
+				event.cacheReadInputTokens +
+				event.cacheCreationInputTokens,
 			inputTokens: event.inputTokens,
 			model: event.model,
 			outputTokens: event.outputTokens,

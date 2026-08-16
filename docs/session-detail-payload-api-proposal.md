@@ -245,11 +245,14 @@ session cost parity is a prerequisite for the web cutover, not a parallel or
 optional pricing track.
 
 Promote the existing request-level calculator used by the session detail view
-into a server-safe shared module. Preserve its current turn attribution,
-including subagent usage attributed to parent turns, model selection,
-fresh-input tokens, cache-read tokens, cache-creation tiers, output tokens, and
-timestamp-sensitive rate selection. Use golden fixtures to prove that overview
-turn costs, session totals, and the legacy client calculation agree.
+into a server-safe shared module. Preserve its current turn attribution: a
+subagent's edited files attribute to its parent turn, while subagent usage,
+errors, and cost do not join any parent turn and instead contribute separately
+to the session total. Preserve model selection, fresh-input tokens, cache-read
+tokens, cache-creation tiers, output tokens, timestamp-sensitive rate
+selection, and long-context rate-band selection driven by each request's full
+input context. Use golden fixtures to prove that overview turn costs, session
+totals, and the legacy client calculation agree.
 
 `estimatedCost` may be `null` only when the existing request-level calculator
 also cannot price the same usage data. The new API must not use the stored
