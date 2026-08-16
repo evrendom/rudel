@@ -8,3 +8,6 @@ export const conversationTraceStickyOnlyFillClassName =
 
 export const conversationTracePreviewClassName =
 	"min-w-0 flex-1 truncate font-sans text-[calc(var(--spacing)*3.25)]/5 font-normal tracking-normal text-[color:var(--dashboardy-heading)] group-aria-expanded:invisible";
+
+export const conversationTraceProsePreviewClassName =
+	"min-w-0 flex-1 line-clamp-3 whitespace-normal font-sans text-[calc(var(--spacing)*3.25)]/5 font-normal tracking-normal text-[color:var(--dashboardy-heading)] group-aria-expanded:invisible";

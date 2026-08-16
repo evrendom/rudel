@@ -178,7 +178,7 @@ export function SessionDetailView({
 					) : null}
 					{!isLoading && !errorState && viewModel ? (
 						<SessionDetailContent
-							key={viewModel.safeSessionId}
+							key={`${viewModel.safeSessionId}:expanded-speakers-v1`}
 							responseScrollRef={responseScrollRef}
 							userImageUrl={avatarMap[viewModel.safeUserId]}
 							viewModel={viewModel}

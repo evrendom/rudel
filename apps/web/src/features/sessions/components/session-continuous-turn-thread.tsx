@@ -4,15 +4,9 @@ import {
 	ConversationTraceTreeConnectorStyleProvider,
 	type TraceCallDisplayMode,
 } from "@/components/conversation/ConversationTrace";
-import { userContentText } from "@/components/conversation/conversation-trace";
 import { getContinuousTurnViewport } from "./session-continuous-turn-focus";
 import type { buildSessionDetailViewModel } from "./session-detail-view-model";
 import { SessionMemberRow } from "./session-member-row";
-import {
-	SessionTurnCharacterCountTag,
-	type SessionTurnMetadataTagKind,
-	SessionTurnMetadataTags,
-} from "./session-turn-metadata-tags";
 import type { SessionTurnOption } from "./session-turn-option";
 import { SessionTurnResponseTrace } from "./session-turn-response-trace";
 import type { SessionTurnSelection } from "./session-turn-table-selection";
@@ -21,14 +15,6 @@ type SessionDetailViewModel = ReturnType<typeof buildSessionDetailViewModel>;
 
 const ACTIVE_TURN_MAX_FOCUS_OFFSET_PX = 160;
 const ACTIVE_TURN_FOCUS_RATIO = 0.3;
-const TRANSCRIPT_METADATA_TAGS: readonly SessionTurnMetadataTagKind[] = [
-	"input",
-	"output",
-	"cost",
-	"skills",
-	"errors",
-	"tools",
-];
 
 export function SessionContinuousTurnThread({
 	onActiveIndexChange,
@@ -213,28 +199,6 @@ const ContinuousTurnSection = memo(function ContinuousTurnSection({
 		option.turnNumber === undefined
 			? "Session start"
 			: `Turn ${option.turnNumber}`;
-	const memberCharacterCount = option.turn.userItems.reduce(
-		(characterCount, item) =>
-			item.kind === "user"
-				? characterCount + userContentText(item.content).length
-				: characterCount,
-		0,
-	);
-	const modelMetadataTags = (
-		<SessionTurnMetadataTags
-			className="mt-0 justify-end"
-			maxVisibleSkills={1}
-			metrics={option.metrics}
-			toolCallCount={option.toolCallCount}
-			visibleTags={TRANSCRIPT_METADATA_TAGS}
-		/>
-	);
-	const memberCharacterTag = (
-		<SessionTurnCharacterCountTag
-			characterCount={memberCharacterCount}
-			className="mt-0 justify-end"
-		/>
-	);
 	const activeModelPosition =
 		activeSpeaker === "model"
 			? index === 0
@@ -255,7 +219,6 @@ const ContinuousTurnSection = memo(function ContinuousTurnSection({
 				{hasMemberMessage ? (
 					<SessionMemberRow
 						active={activeSpeaker === "member"}
-						headerTrailing={memberCharacterTag}
 						headingId={`continuous-member-message-${index}`}
 						items={option.turn.userItems}
 						speakerLayout="trace-tree"
@@ -271,7 +234,6 @@ const ContinuousTurnSection = memo(function ContinuousTurnSection({
 					data-session-turn-speaker="model"
 				>
 					<SessionTurnResponseTrace
-						agentHeaderTrailing={modelMetadataTags}
 						agentSectionMode="expanded"
 						continuesAfter={continuesThread}
 						option={option}

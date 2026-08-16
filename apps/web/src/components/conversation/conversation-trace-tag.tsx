@@ -2,7 +2,10 @@ import type { ComponentPropsWithoutRef } from "react";
 import { getModelBrandIconClassName } from "@/features/dashboard/components/dashboard-model-brand";
 import { cn } from "@/lib/utils";
 import type { ToolIconName } from "./conversation-tools";
-import { TraceTypeScriptIcon } from "./conversation-trace-hugeicons";
+import {
+	TraceMarkdownIcon,
+	TraceTypeScriptIcon,
+} from "./conversation-trace-hugeicons";
 import { getModelIconComponent } from "./conversation-trace-icons";
 import { CONVERSATION_TOOL_ICONS } from "./conversation-trace-tool-icons";
 
@@ -17,7 +20,12 @@ function isTypeScriptFile(value: string) {
 	return /\.(?:cts|mts|ts|tsx)$/i.test(value);
 }
 
+function isMarkdownFile(value: string) {
+	return /\.(?:markdown|md)$/i.test(value);
+}
+
 interface ConversationTraceTagProps extends ComponentPropsWithoutRef<"span"> {
+	hideIcon?: boolean;
 	model?: string;
 	toolIcon: ToolIconName;
 	value: string;
@@ -26,6 +34,7 @@ interface ConversationTraceTagProps extends ComponentPropsWithoutRef<"span"> {
 export function ConversationTraceTag({
 	children,
 	className,
+	hideIcon = false,
 	model,
 	toolIcon,
 	value,
@@ -33,17 +42,23 @@ export function ConversationTraceTag({
 }: ConversationTraceTagProps) {
 	const usesTypeScriptIcon =
 		(toolIcon === "file" || toolIcon === "pencil") && isTypeScriptFile(value);
+	const usesMarkdownIcon =
+		(toolIcon === "file" || toolIcon === "pencil") && isMarkdownFile(value);
 	const ModelIcon = getModelIconComponent(model);
 	const ContextIcon =
 		ModelIcon ??
 		(usesTypeScriptIcon
 			? TraceTypeScriptIcon
-			: CONVERSATION_TOOL_ICONS[toolIcon]);
+			: usesMarkdownIcon
+				? TraceMarkdownIcon
+				: CONVERSATION_TOOL_ICONS[toolIcon]);
 	const context = ModelIcon
 		? "delegated-model"
 		: usesTypeScriptIcon
 			? "typescript"
-			: toolIcon;
+			: usesMarkdownIcon
+				? "markdown"
+				: toolIcon;
 	const iconClassName = ModelIcon
 		? cn("size-3.5 shrink-0", getModelBrandIconClassName(model))
 		: usesTypeScriptIcon
@@ -56,7 +71,7 @@ export function ConversationTraceTag({
 			className={cn(tagClassName, className)}
 			data-trace-tag-context={context}
 		>
-			<ContextIcon className={iconClassName} />
+			{hideIcon ? null : <ContextIcon className={iconClassName} />}
 			{children}
 		</span>
 	);

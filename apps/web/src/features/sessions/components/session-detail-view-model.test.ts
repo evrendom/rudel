@@ -59,7 +59,7 @@ describe("buildSessionDetailViewModel", () => {
 		expect(model.safeSlashCommands).toEqual(["plan", "review"]);
 		expect(model.subagentNames).toEqual(["explorer", "worker"]);
 		expect(model.tokenUsageLabel).toBe("1,200 / 3,400");
-		expect(model.costLabel).toBe("$0.05");
+		expect(model.costLabel).toBe("—");
 		expect(model.conversationSummary).toEqual({
 			assistantMessages: 1,
 			systemMessages: 0,
@@ -99,13 +99,13 @@ describe("buildSessionDetailViewModel", () => {
 		expect(model.safeSlashCommands).toEqual([]);
 		expect(model.subagentNames).toEqual(["reviewer"]);
 		expect(model.tokenUsageLabel).toBe("0 / 0");
-		expect(model.costLabel).toBe("$0.00");
+		expect(model.costLabel).toBe("—");
 		expect(model.conversationSummary).toBeNull();
 		expect(model.metadataBadges).toEqual([]);
 		expect(model.safeContent).toBe('{\n  "unsupported": true\n}');
 	});
 
-	it("rounds costs of at least one hundred dollars to whole dollars", () => {
+	it("leaves cost unresolved until request-level usage is available", () => {
 		const model = buildSessionDetailViewModel(
 			{
 				input_tokens: 100_000_000,
@@ -116,6 +116,6 @@ describe("buildSessionDetailViewModel", () => {
 			{},
 		);
 
-		expect(model.costLabel).toBe("$300");
+		expect(model.costLabel).toBe("—");
 	});
 });

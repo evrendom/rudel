@@ -26,6 +26,7 @@ function assistantEntry(
 	content: Extract<Conversation, { type: "assistant" }>["message"]["content"],
 ): Conversation {
 	return {
+		executionMode: "unknown",
 		type: "assistant",
 		uuid,
 		timestamp,

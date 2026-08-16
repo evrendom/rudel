@@ -9,7 +9,7 @@ import type { AgentTraceRequestUsage } from "./conversation-trace-requests";
 // geometry instead of hard-coded scroll positions.
 
 export const CONVERSATION_TRACE_FIXTURE_MODEL = "claude-fable-5";
-export const CONVERSATION_TRACE_FIXTURE_AGENT_LABEL = "Claude Fable 5";
+export const CONVERSATION_TRACE_FIXTURE_AGENT_LABEL = "Fable 5";
 export const CONVERSATION_TRACE_FIXTURE_USER_LABEL = "Evren";
 
 const FIXTURE_START_MS = Date.parse("2026-08-02T10:00:00.000Z");
@@ -37,7 +37,7 @@ function messageContent(turn: number, request: number) {
 		return summary;
 	}
 
-	return `${summary}\n\n\`\`\`typescript\nexport function buildResetLink(userId: string) {\n  const token = sign<ResetTokenPayload>({ uid: userId });\n- const baseUrl = \"https://staging.example.com\";\n+ const baseUrl = \"https://example.com/reset-password\";\n}\n\`\`\``;
+	return `${summary}\n\n\`\`\`typescript\nexport function buildResetLink(userId: string) {\n  const token = sign<ResetTokenPayload>({ uid: userId });\n- const baseUrl = "https://staging.example.com";\n+ const baseUrl = "https://example.com/reset-password";\n}\n\`\`\``;
 }
 
 function toolResultContent(turn: number, request: number, tool: number) {
@@ -131,6 +131,7 @@ function buildTurn(turn: number): ConversationTraceFixtureTurn {
 					),
 				),
 				id: `fx-t${turn}-agent`,
+				executionMode: "unknown",
 				kind: "agent",
 				timestamp: fixtureTimestamp(baseOffsetSeconds + 1),
 			},

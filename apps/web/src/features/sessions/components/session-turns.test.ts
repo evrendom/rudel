@@ -21,6 +21,7 @@ function agentItem(id: string, messages: string[] = []): TraceItem {
 			timestamp: `2026-08-10T10:01:0${id.length}Z`,
 		})),
 		id,
+		executionMode: "unknown",
 		kind: "agent",
 		timestamp: `2026-08-10T10:01:0${id.length}Z`,
 	};

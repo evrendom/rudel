@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { calculateCost, formatUsername } from "@/lib/format";
+import { formatUsername } from "@/lib/format";
 import {
 	createSessionMetadataBadges,
 	getConversationSummary,
@@ -194,7 +194,11 @@ export function summarizeSessionSubagents(
 	);
 }
 
-function formatSessionCost(value: number) {
+export function formatSessionCost(value: number | undefined) {
+	if (value === undefined) {
+		return "—";
+	}
+
 	const fractionDigits = value >= 100 ? 0 : 2;
 
 	return value.toLocaleString("en-US", {
@@ -255,12 +259,7 @@ export function buildSessionDetailViewModel(
 	const subagentSummaries = summarizeSessionSubagents(safeSubagents);
 	const subagentNames = subagentSummaries.map((subagent) => subagent.id);
 	const tokenUsageLabel = `${safeInputTokens.toLocaleString()} / ${safeOutputTokens.toLocaleString()}`;
-	const costLabel = formatSessionCost(
-		calculateCost(safeInputTokens, safeOutputTokens, {
-			at: safeSessionDate,
-			model: safeModelUsed,
-		}),
-	);
+	const costLabel = formatSessionCost(undefined);
 
 	return {
 		conversationSummary,

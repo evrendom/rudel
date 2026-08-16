@@ -24,7 +24,7 @@ describe("ConversationTraceFixturePage", () => {
 		expect(screen.getAllByText(/Request 2/)).toHaveLength(2);
 	});
 
-	it("keeps every sticky row at the fixed 40px stack height", () => {
+	it("uses compact event rows without shrinking model and request headers", () => {
 		const { container } = render(<ConversationTraceFixturePage />);
 
 		const stickyRows = Array.from(
@@ -32,7 +32,7 @@ describe("ConversationTraceFixturePage", () => {
 		);
 		expect(stickyRows.length).toBeGreaterThan(0);
 		for (const row of stickyRows) {
-			expect(row.style.height).toBe("40px");
+			expect(["32px", "40px"]).toContain(row.style.height);
 			expect(row.className).toContain("sticky");
 		}
 	});

@@ -1,6 +1,8 @@
+import { Collapsible } from "@base-ui/react/collapsible";
 import { type ReactNode, useId, useRef, useState } from "react";
 import { useMountEffect } from "@/app/hooks/useMountEffect";
 import {
+	ConversationTraceCollapsiblePanel,
 	type ConversationTraceSpeakerLayout,
 	ConversationTraceTreeItem,
 } from "@/components/conversation/ConversationTrace";
@@ -95,7 +97,7 @@ export function SessionMemberRow({
 	userLabel: string;
 }) {
 	const promptPanelId = useId();
-	const [promptExpanded, setPromptExpanded] = useState(false);
+	const [promptExpanded, setPromptExpanded] = useState(true);
 
 	if (speakerLayout === "trace-tree") {
 		const promptPreviewText = items
@@ -104,63 +106,63 @@ export function SessionMemberRow({
 			)
 			.join(" ");
 		const promptRows = (
-			<div
-				id={promptPanelId}
-				className="grid min-w-0 divide-y divide-(--session-overview-border)"
-			>
-				{items.map((item) =>
-					item.kind === "user" ? (
-						<div key={item.id} className="min-w-0 py-2 pr-3 pl-[3.25rem]">
-							<CollapsiblePrompt content={item.content} />
-						</div>
-					) : null,
-				)}
-			</div>
+			<ConversationTraceCollapsiblePanel id={promptPanelId}>
+				<div className="grid min-w-0 divide-y divide-(--session-overview-border)">
+					{items.map((item) =>
+						item.kind === "user" ? (
+							<div key={item.id} className="min-w-0 py-2 pr-3 pl-[3.25rem]">
+								<CollapsiblePrompt content={item.content} />
+							</div>
+						) : null,
+					)}
+				</div>
+			</ConversationTraceCollapsiblePanel>
 		);
 
 		return (
-			<section
-				aria-labelledby={headingId}
-				className={cn("min-w-0", conversationTraceStickyOnlyFillClassName)}
-				data-active-member={active ? "true" : undefined}
-				data-session-turn-speaker="member"
-				data-trace-start-node={startsTrace ? "true" : undefined}
-			>
-				<ConversationTraceTreeItem
-					continues
-					continuesThroughSubtree
-					depth={1}
-					sticky
-					subtree={promptExpanded ? promptRows : undefined}
+			<Collapsible.Root open={promptExpanded} onOpenChange={setPromptExpanded}>
+				<section
+					aria-labelledby={headingId}
+					className={cn("min-w-0", conversationTraceStickyOnlyFillClassName)}
+					data-active-member={active ? "true" : undefined}
+					data-session-turn-speaker="member"
+					data-trace-start-node={startsTrace ? "true" : undefined}
 				>
-					<button
-						type="button"
-						aria-controls={promptPanelId}
-						aria-expanded={promptExpanded}
-						className="group flex min-h-10 w-full min-w-0 items-center gap-2 pr-3 text-left outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-(--session-overview-accent)"
-						data-trace-hover-row
-						onClick={() => setPromptExpanded((current) => !current)}
+					<ConversationTraceTreeItem
+						continues
+						continuesThroughSubtree
+						depth={1}
+						sticky
+						subtree={promptRows}
 					>
-						<UserTraceAvatar
-							expanded={promptExpanded}
-							expandable
-							imageUrl={userImageUrl}
-						/>
-						<h3
-							id={headingId}
-							className="min-w-0 shrink-0 truncate text-xs font-medium text-(--session-overview-text)"
+						<Collapsible.Trigger
+							className="group flex min-h-10 w-full min-w-0 items-center gap-2 pr-3 text-left outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-(--session-overview-accent)"
+							data-trace-hover-row
 						>
-							{userLabel}
-						</h3>
-						<p className={conversationTracePreviewClassName} data-trace-preview>
-							{compactPreview(promptPreviewText)}
-						</p>
-						{headerTrailing ? (
-							<div className="ml-auto min-w-0">{headerTrailing}</div>
-						) : null}
-					</button>
-				</ConversationTraceTreeItem>
-			</section>
+							<UserTraceAvatar
+								expanded={promptExpanded}
+								expandable
+								imageUrl={userImageUrl}
+							/>
+							<h3
+								id={headingId}
+								className="min-w-0 shrink-0 truncate text-xs font-medium text-(--session-overview-text)"
+							>
+								{userLabel}
+							</h3>
+							<p
+								className={conversationTracePreviewClassName}
+								data-trace-preview
+							>
+								{compactPreview(promptPreviewText, Number.POSITIVE_INFINITY)}
+							</p>
+							{headerTrailing ? (
+								<div className="ml-auto min-w-0">{headerTrailing}</div>
+							) : null}
+						</Collapsible.Trigger>
+					</ConversationTraceTreeItem>
+				</section>
+			</Collapsible.Root>
 		);
 	}
 

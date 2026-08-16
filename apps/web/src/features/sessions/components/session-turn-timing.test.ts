@@ -44,6 +44,7 @@ function turn(
 			{
 				events: responseEvents,
 				id: "agent",
+				executionMode: "unknown",
 				kind: "agent",
 				timestamp: responseEvents[0]?.timestamp ?? startTimestamp,
 			},

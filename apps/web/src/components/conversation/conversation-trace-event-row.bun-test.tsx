@@ -34,6 +34,84 @@ describe("formatShellOutput", () => {
 });
 
 describe("ConversationTraceEventRow shell calls", () => {
+	test("renders an associated Claude skill payload inside its Skill row", () => {
+		const markup = renderToStaticMarkup(
+			<ConversationTraceEventRow
+				event={{
+					id: "skill-1",
+					input: {
+						args: "model pricing rate card verification",
+						skill: "claude-api",
+					},
+					kind: "tool",
+					result: undefined,
+					skillContent: {
+						baseDirectory: "/private/tmp/bundled-skills/claude-api",
+						content: "# Building with the Claude API\n\nUse the official SDK.",
+					},
+					timestamp: "2026-08-14T12:00:00.000Z",
+					toolName: "Skill",
+				}}
+			/>,
+		);
+
+		expect(markup).toContain("data-trace-skill-details");
+		expect(markup).toContain("claude-api");
+		expect(markup).toContain("model pricing rate card verification");
+		expect(markup).toContain("/private/tmp/bundled-skills/claude-api");
+		expect(markup).toContain("# Building with the Claude API");
+		expect(markup).not.toContain(">Input<");
+		expect(markup).not.toContain(">Output<");
+		expect(markup).not.toContain("No result recorded for this call");
+	});
+
+	test("lets the row width truncate the full reasoning preview", () => {
+		const preview = [
+			"The first line stays below the node.",
+			"The second line remains available.",
+			"The third line remains available.",
+			"The fourth line is clamped.",
+		].join("\n");
+		const markup = renderToStaticMarkup(
+			<ConversationTraceEventRow
+				event={{
+					id: "reasoning-preview-1",
+					kind: "reasoning",
+					text: preview,
+					timestamp: "2026-08-14T12:00:00.000Z",
+				}}
+			/>,
+		);
+		const headerStart = markup.indexOf("data-trace-row-header");
+		const headerEnd = markup.indexOf("</div>", headerStart);
+		const normalizedPreview = preview.replace(/\s+/gu, " ");
+
+		expect(markup).toContain("data-trace-collapsed-preview");
+		expect(markup.indexOf(normalizedPreview)).toBeGreaterThan(headerEnd);
+		expect(markup).toContain("line-clamp-3");
+		expect(markup).not.toContain("flex-1 truncate font-sans");
+		expect(markup).toContain("data-trace-content-disclosure");
+		expect(markup).toContain("data-trace-prose-motion");
+		expect(markup).toContain("data-trace-expanded-content");
+	});
+
+	test("omits disclosure when a prose preview fits within three lines", () => {
+		const markup = renderToStaticMarkup(
+			<ConversationTraceEventRow
+				event={{
+					id: "reasoning-preview-short",
+					kind: "reasoning",
+					text: "A short reasoning preview.",
+					timestamp: "2026-08-14T12:00:00.000Z",
+				}}
+			/>,
+		);
+
+		expect(markup).toContain("data-trace-collapsed-preview");
+		expect(markup).not.toContain("data-trace-content-disclosure");
+		expect(markup).not.toContain("data-trace-content-disclosure-icon");
+	});
+
 	test("lets expanded reasoning use the same available row width", () => {
 		const source = readFileSync(
 			new URL("./conversation-trace-event-row.tsx", import.meta.url),
@@ -65,19 +143,27 @@ describe("ConversationTraceEventRow shell calls", () => {
 		expect(markup).not.toContain("Run the focused trace test");
 		expect(markup).not.toContain("&quot;command&quot;");
 		expect(markup).not.toContain(">Ran<");
-		expect(markup).not.toContain("data-trace-code-block");
+		expect(markup).toContain("data-trace-details-motion");
+		expect(markup).toContain('aria-hidden="true"');
+		expect(markup).toContain('inert=""');
 		expect(markup).toContain("h-5");
 		expect(markup).toContain("items-center");
-		expect(markup).toContain("gap-1");
-		expect(markup).not.toContain("gap-0.5");
+		expect(markup).toContain("inline-flex h-5 items-center gap-1");
 		expect(markup).toContain("rounded-[5px]");
-		expect(markup).toContain("pl-0.5");
+		expect(markup).toContain("pl-1.5");
+		expect(markup).not.toContain("pl-0.5");
 		expect(markup).toContain("pr-1.5");
 		expect(markup).toContain("dashboardy-mono");
+		expect(markup).toContain(
+			'<code class="min-w-0 truncate whitespace-pre font-mono font-normal tracking-normal [font-variant-ligatures:none]"',
+		);
+		expect(markup).toContain("data-trace-shell-command-preview");
+		expect(
+			markup.indexOf("data-trace-content-disclosure-icon"),
+		).toBeGreaterThan(markup.indexOf("data-trace-shell-command-preview"));
 		expect(markup).toContain("text-[0.75rem]/4");
-		expect(markup).toContain("font-medium");
 		expect(markup).toContain("select-none");
-		expect(markup).toContain("text-[#00000072]");
+		expect(markup.match(/data-trace-hugeicon/g)).toHaveLength(1);
 		expect(markup).toContain('data-trace-tag-context="terminal"');
 	});
 
@@ -137,6 +223,49 @@ describe("ConversationTraceEventRow shell calls", () => {
 		expect(markup.match(/data-trace-code-line-kind="addition"/g)).toHaveLength(
 			3,
 		);
+	});
+
+	test("keeps only the filename tag in a collapsed Write row", () => {
+		const markup = renderToStaticMarkup(
+			<ConversationTraceEventRow
+				event={{
+					id: "write-preview-1",
+					input: {
+						content: "export const answer = 42;",
+						file_path: "/workspace/src/generated.ts",
+					},
+					kind: "tool",
+					result: { content: "File written successfully", isError: false },
+					timestamp: "2026-08-14T12:00:00.000Z",
+					toolName: "Write",
+				}}
+			/>,
+		);
+
+		expect(markup).toContain(">generated.ts<");
+		expect(markup).not.toContain("data-trace-preview");
+	});
+
+	test("keeps only the filename tag in a collapsed Edit row", () => {
+		const markup = renderToStaticMarkup(
+			<ConversationTraceEventRow
+				event={{
+					id: "edit-preview-1",
+					input: {
+						file_path: "/workspace/src/generated.ts",
+						new_string: "export const answer = 42;",
+						old_string: "export const answer = 41;",
+					},
+					kind: "tool",
+					result: { content: "File updated successfully", isError: false },
+					timestamp: "2026-08-14T12:00:00.000Z",
+					toolName: "Edit",
+				}}
+			/>,
+		);
+
+		expect(markup).toContain(">generated.ts<");
+		expect(markup).not.toContain("data-trace-preview");
 	});
 
 	test("renders Claude Edit old and new strings as one file diff", () => {
@@ -200,6 +329,71 @@ describe("ConversationTraceEventRow shell calls", () => {
 		expect(markup).toContain("session-turns.ts");
 		expect(markup).toContain('data-trace-tag-context="typescript"');
 		expect(markup).toContain("text-[#3178c6]");
+		expect(markup).not.toContain("data-trace-preview");
+	});
+
+	test("uses the Markdown Hugeicon for Markdown file tags", () => {
+		const markup = renderToStaticMarkup(
+			<ConversationTraceEventRow
+				event={{
+					id: "write-markdown-1",
+					input: {
+						content: "# Release notes",
+						file_path: "/workspace/CHANGELOG.md",
+					},
+					kind: "tool",
+					result: { content: "File written successfully", isError: false },
+					timestamp: "2026-08-14T12:00:00.000Z",
+					toolName: "Write",
+				}}
+			/>,
+		);
+
+		expect(markup).toContain("CHANGELOG.md");
+		expect(markup).toContain('data-trace-tag-context="markdown"');
+		expect(markup).toContain('data-trace-code-header-icon="markdown"');
+	});
+
+	test("separates inline file disclosure from the leading tool icon", () => {
+		const markup = renderToStaticMarkup(
+			<ConversationTraceEventRow
+				event={{
+					id: "read-disclosure-1",
+					input: { file_path: "/workspace/src/session-turns.ts" },
+					kind: "tool",
+					result: { content: "file contents", isError: false },
+					timestamp: "2026-08-14T12:00:00.000Z",
+					toolName: "Read",
+				}}
+			/>,
+		);
+
+		expect(markup).toContain("data-trace-content-disclosure");
+		expect(markup).toContain("data-trace-content-disclosure-icon");
+		expect(markup).toContain('data-trace-tool-label-group="true"');
+		expect(markup).toContain("items-center gap-1");
+		expect(markup).toContain("items-center gap-0 text-left");
+		expect(markup).toContain("pointer-events-none -ml-0.5 size-4");
+		expect(markup).toContain("transition-transform duration-150");
+		expect(markup).toContain("data-trace-details-motion");
+		expect(markup).toContain("data-trace-expanded-content");
+		expect(markup).toContain('aria-hidden="true"');
+		expect(markup).toContain(
+			"oklch(from var(--constellation-tree-secondary, color(display-p3 0 0 0 / 60.8%)) calc(l + 0.16) c h)",
+		);
+		expect(markup).toContain('fill="currentColor"');
+		expect(markup).toContain(
+			"M7.00194 10.6239C6.66861 10.8183 6.25 10.5779 6.25 10.192V5.80802",
+		);
+		expect(markup).not.toContain("data-trace-collapsed-preview");
+		expect(markup).toContain('aria-expanded="false"');
+		expect(markup).not.toContain('data-trace-disclosure-symbol="chevron"');
+		expect(
+			markup.indexOf("data-trace-content-disclosure-icon"),
+		).toBeGreaterThan(markup.indexOf(">Read<"));
+		expect(
+			markup.indexOf("data-trace-content-disclosure-icon"),
+		).toBeGreaterThan(markup.indexOf("session-turns.ts"));
 	});
 
 	test("renders Claude Read as one named file card with one line-number gutter", () => {

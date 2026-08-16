@@ -4,7 +4,7 @@ import { ConversationTraceTreeConnectorStyleProvider } from "@/components/conver
 import { SessionMemberRow } from "./session-member-row";
 
 describe("SessionMemberRow trace rail", () => {
-	test("starts member prompts collapsed with a compact header preview", () => {
+	test("starts member prompts expanded with their full row body", () => {
 		const markup = renderToStaticMarkup(
 			<ConversationTraceTreeConnectorStyleProvider style="interfere-branch-dots-no-horizontal">
 				<SessionMemberRow
@@ -27,13 +27,15 @@ describe("SessionMemberRow trace rail", () => {
 			</ConversationTraceTreeConnectorStyleProvider>,
 		);
 
-		expect(markup).toContain('aria-expanded="false"');
+		expect(markup).toContain('aria-expanded="true"');
 		expect(markup).toContain('data-trace-start-node="true"');
 		expect(markup).toContain('data-active-member="true"');
 		expect(markup).toContain('data-session-turn-speaker="member"');
 		expect(markup).toContain('data-trace-disclosure-symbol="chevron"');
 		expect(markup).toContain("data-trace-preview");
-		expect(markup).not.toContain("data-trace-tree-subtree-rails");
+		expect(markup).toContain("data-trace-tree-motion-panel");
+		expect(markup).toContain("data-trace-tree-subtree-rails");
+		expect(markup).not.toContain('hidden=""');
 		expect(markup).toContain(
 			"A multiline member prompt that extends below its header.",
 		);

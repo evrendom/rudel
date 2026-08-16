@@ -21,7 +21,7 @@ import {
 	type TraceCallDisplayMode,
 } from "./conversation-trace-call-display";
 import {
-	conversationTracePreviewClassName as previewClassName,
+	conversationTraceProsePreviewClassName as previewClassName,
 	conversationTraceLabelClassName as traceLabelClassName,
 } from "./conversation-trace-class-names";
 import { ConversationTraceEventRow as EventRow } from "./conversation-trace-event-row";
@@ -31,9 +31,10 @@ import {
 } from "./conversation-trace-hugeicons";
 import {
 	ModelTraceIcon,
-	TraceDisclosureIcon,
+	TraceIcon,
 	UserTraceAvatar,
 } from "./conversation-trace-icons";
+import { ConversationTracePlanTag } from "./conversation-trace-plan-tag";
 import {
 	type AgentTraceRequestUsage,
 	type AgentTraceRequestUsagePlacement,
@@ -46,6 +47,7 @@ import { ConversationTraceTag } from "./conversation-trace-tag";
 import { AgentToolStrip } from "./conversation-trace-tool-strip";
 import {
 	AgentTraceRequestDisplay,
+	type AgentTraceTreeRenderedBranch,
 	type AgentTraceTreeRenderedSection,
 	AgentTraceTreeSection,
 	buildAgentTraceTreeBranches,
@@ -67,6 +69,7 @@ export type {
 	ConversationTraceTreeConnectorStyle,
 } from "./conversation-trace-tree";
 export {
+	ConversationTraceCollapsiblePanel,
 	ConversationTraceTreeConnectorStyleProvider,
 	ConversationTraceTreeItem,
 	ConversationTraceTreeNode,
@@ -82,6 +85,7 @@ function AgentSection({
 	agentLabel,
 	agentModel,
 	headerTrailing,
+	planMode,
 	expandedSpeakerLayout,
 	mode,
 	focus,
@@ -91,6 +95,7 @@ function AgentSection({
 	agentLabel: string;
 	agentModel: string | undefined;
 	headerTrailing?: ReactNode;
+	planMode: boolean;
 	expandedSpeakerLayout: ConversationTraceSpeakerLayout;
 	mode: "collapsible" | "expanded";
 	focus?: TraceFocusRequest;
@@ -122,6 +127,7 @@ function AgentSection({
 						<p className="min-w-0 truncate text-xs font-medium text-(--session-overview-muted)">
 							{agentLabel}
 						</p>
+						{planMode ? <ConversationTracePlanTag /> : null}
 						{headerTrailing ? (
 							<div className="ml-auto min-w-0">{headerTrailing}</div>
 						) : null}
@@ -144,9 +150,12 @@ function AgentSection({
 					model={agentModel}
 				/>
 				<div className="grid min-w-0 flex-1 gap-2">
-					<p className="text-xs font-medium text-[color:var(--dashboardy-muted)]">
-						{agentLabel}
-					</p>
+					<div className="flex min-w-0 items-center gap-1.5">
+						<p className="min-w-0 truncate text-xs font-medium text-[color:var(--dashboardy-muted)]">
+							{agentLabel}
+						</p>
+						{planMode ? <ConversationTracePlanTag /> : null}
+					</div>
 					<div className="grid divide-y divide-[color:var(--dashboardy-divider)] border-t border-[color:var(--dashboardy-divider)]">
 						{eventRows}
 					</div>
@@ -186,6 +195,7 @@ function AgentSection({
 				>
 					<ModelTraceIcon expanded={open} model={agentModel} />
 					<span className={speakerLabelClassName}>{agentLabel}</span>
+					{planMode ? <ConversationTracePlanTag /> : null}
 					{!open ? <AgentToolStrip events={events} /> : null}
 					<span className="min-w-0 flex-1" />
 				</button>
@@ -275,6 +285,7 @@ function TraceRow({
 				agentLabel={agentLabel}
 				agentModel={agentModel}
 				headerTrailing={agentHeaderTrailing}
+				planMode={item.executionMode === "plan"}
 				expandedSpeakerLayout={expandedSpeakerLayout}
 				mode={agentSectionMode}
 				focus={focus}
@@ -283,6 +294,10 @@ function TraceRow({
 	}
 
 	if (item.kind === "summary") {
+		const collapsedPreviewText = compactPreview(
+			item.text,
+			Number.POSITIVE_INFINITY,
+		);
 		return (
 			<ConversationTraceRootNode
 				continues={!isLast}
@@ -290,34 +305,31 @@ function TraceRow({
 			>
 				<ExpandableTraceRow
 					anchorId={anchorId}
+					compact
+					collapsedBody={
+						<span className={previewClassName} data-trace-preview>
+							{collapsedPreviewText}
+						</span>
+					}
 					focus={focus}
 					fullPreviewText={item.text}
+					label={<span className={traceLabelClassName}>Summary</span>}
+					leading={<TraceIcon icon={TraceFileIcon} tone="grass" />}
 					body={
 						<p className="whitespace-pre-wrap text-[0.8125rem] leading-6 text-[color:var(--dashboardy-heading)]">
 							{item.text}
 						</p>
 					}
-				>
-					{(expanded, expandable) => (
-						<>
-							<TraceDisclosureIcon
-								expanded={expanded}
-								expandable={expandable}
-								icon={TraceFileIcon}
-								tone="grass"
-							/>
-							<span className={traceLabelClassName}>Summary</span>
-							<span className={previewClassName} data-trace-preview>
-								{compactPreview(item.text)}
-							</span>
-						</>
-					)}
-				</ExpandableTraceRow>
+				/>
 			</ConversationTraceRootNode>
 		);
 	}
 
 	if (item.kind === "system") {
+		const collapsedPreviewText = compactPreview(
+			item.text,
+			Number.POSITIVE_INFINITY,
+		);
 		return (
 			<ConversationTraceRootNode
 				continues={!isLast}
@@ -325,35 +337,32 @@ function TraceRow({
 			>
 				<ExpandableTraceRow
 					anchorId={anchorId}
+					compact
+					collapsedBody={
+						<span className={previewClassName} data-trace-preview>
+							{collapsedPreviewText}
+						</span>
+					}
 					focus={focus}
 					fullPreviewText={item.text}
+					label={<span className={traceLabelClassName}>System</span>}
+					leading={<TraceIcon icon={TraceSettingsIcon} tone="neutral" />}
 					timestamp={timestamp}
 					body={
 						<p className="whitespace-pre-wrap font-mono text-[0.8125rem] leading-6 text-[color:var(--dashboardy-heading)]">
 							{item.text}
 						</p>
 					}
-				>
-					{(expanded, expandable) => (
-						<>
-							<TraceDisclosureIcon
-								expanded={expanded}
-								expandable={expandable}
-								icon={TraceSettingsIcon}
-								tone="neutral"
-							/>
-							<span className={traceLabelClassName}>System</span>
-							<span className={previewClassName} data-trace-preview>
-								{compactPreview(item.text)}
-							</span>
-						</>
-					)}
-				</ExpandableTraceRow>
+				/>
 			</ConversationTraceRootNode>
 		);
 	}
 
 	const previewText = userContentText(item.content);
+	const collapsedPreviewText = compactPreview(
+		previewText,
+		Number.POSITIVE_INFINITY,
+	);
 
 	return (
 		<ConversationTraceRootNode
@@ -362,29 +371,31 @@ function TraceRow({
 		>
 			<ExpandableTraceRow
 				anchorId={anchorId}
+				compact
+				collapsedBody={
+					collapsedPreviewText ? (
+						<span className={previewClassName} data-trace-preview>
+							{collapsedPreviewText}
+						</span>
+					) : undefined
+				}
 				focus={focus}
 				fullPreviewText={undefined}
+				label={<span className={speakerLabelClassName}>{userLabel}</span>}
+				leading={
+					<UserTraceAvatar
+						expanded={false}
+						expandable={false}
+						imageUrl={userImageUrl}
+					/>
+				}
 				timestamp={timestamp}
 				className={cn(
 					expandedSpeakerLayout !== "trace-tree" &&
 						"overflow-clip rounded-[0.75rem] border border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-surface)]",
 				)}
 				body={<UserTraceContent content={item.content} />}
-			>
-				{(expanded, expandable) => (
-					<>
-						<UserTraceAvatar
-							expanded={expanded}
-							expandable={expandable}
-							imageUrl={userImageUrl}
-						/>
-						<span className={speakerLabelClassName}>{userLabel}</span>
-						<span className={previewClassName} data-trace-preview>
-							{compactPreview(previewText)}
-						</span>
-					</>
-				)}
-			</ExpandableTraceRow>
+			/>
 		</ConversationTraceRootNode>
 	);
 }
@@ -395,6 +406,7 @@ function ConversationTraceTurnTree({
 	agentModel,
 	className,
 	continuesAfter,
+	defaultOpen,
 	focus,
 	items,
 	requestUsage,
@@ -408,6 +420,7 @@ function ConversationTraceTurnTree({
 	agentModel: string | undefined;
 	className?: string;
 	continuesAfter: boolean;
+	defaultOpen: boolean;
 	focus?: TraceFocusRequest;
 	items: TraceItem[];
 	requestUsage?: readonly AgentTraceRequestUsage[];
@@ -428,6 +441,9 @@ function ConversationTraceTurnTree({
 	let pendingAgentEvents: TraceEvent[] = [];
 	let previousRequestInputTotal: number | undefined;
 	let requestIndex = 0;
+	const planMode = items.some(
+		(item) => item.kind === "agent" && item.executionMode === "plan",
+	);
 
 	const renderEventRow = (event: TraceEvent, trailing?: ReactNode) => (
 		<EventRow event={event} trailing={trailing} />
@@ -438,12 +454,12 @@ function ConversationTraceTurnTree({
 	const toRenderedBranches = (
 		treeBranches: ReturnType<typeof buildAgentTraceTreeBranches>,
 		trailing: ReactNode | undefined,
-	) => {
+	): AgentTraceTreeRenderedBranch[] => {
 		const renderedBranchCount = treeBranches.reduce(
 			(count, branch) => count + (branch.root ? 1 : branch.children.length),
 			0,
 		);
-		return treeBranches.flatMap((branch) =>
+		return treeBranches.flatMap<AgentTraceTreeRenderedBranch>((branch) =>
 			branch.root
 				? [
 						{
@@ -544,7 +560,6 @@ function ConversationTraceTurnTree({
 							/>
 						)
 					: undefined,
-				headerSticky: separator ? false : undefined,
 				key: group.usage
 					? `request-${currentRequestIndex}`
 					: `activity-${sections.length}`,
@@ -589,6 +604,7 @@ function ConversationTraceTurnTree({
 							userLabel={userLabel}
 						/>
 					),
+					sticky: item.kind === "user",
 				},
 			],
 			events: [],
@@ -609,9 +625,11 @@ function ConversationTraceTurnTree({
 					agentModel={agentModel}
 					anchorId="message-0"
 					continuesAfter={continuesAfter}
+					defaultOpen={defaultOpen}
 					events={events}
 					focus={focus}
 					headerTrailing={agentHeaderTrailing}
+					planMode={planMode}
 					sections={sections}
 				/>
 			</li>
@@ -631,6 +649,7 @@ export function ConversationTrace({
 	focus,
 	className,
 	continuesAfter = false,
+	defaultTraceTreeOpen = true,
 	requestUsage,
 	requestUsagePlacement,
 	traceCallDisplayMode = "request",
@@ -646,6 +665,7 @@ export function ConversationTrace({
 	focus?: TraceFocusRequest;
 	className?: string;
 	continuesAfter?: boolean;
+	defaultTraceTreeOpen?: boolean;
 	requestUsage?: readonly AgentTraceRequestUsage[];
 	requestUsagePlacement?: AgentTraceRequestUsagePlacement;
 	traceCallDisplayMode?: TraceCallDisplayMode;
@@ -658,6 +678,7 @@ export function ConversationTrace({
 				agentModel={agentModel}
 				className={className}
 				continuesAfter={continuesAfter}
+				defaultOpen={defaultTraceTreeOpen}
 				focus={focus}
 				items={items}
 				requestUsage={requestUsage}

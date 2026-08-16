@@ -177,3 +177,45 @@ describe("Codex conversation interruptions", () => {
 		]);
 	});
 });
+
+describe("Codex execution modes", () => {
+	test("tags assistant entries from task and turn collaboration modes", () => {
+		const content = [
+			sessionMeta,
+			codexLine(
+				"event_msg",
+				{ collaboration_mode_kind: "plan", type: "task_started" },
+				"2026-08-11T10:00:01.000Z",
+			),
+			codexLine(
+				"response_item",
+				{
+					content: [{ text: "Planning", type: "output_text" }],
+					role: "assistant",
+					type: "message",
+				},
+				"2026-08-11T10:00:02.000Z",
+			),
+			codexLine(
+				"turn_context",
+				{ collaboration_mode: { mode: "default" } },
+				"2026-08-11T10:00:03.000Z",
+			),
+			codexLine(
+				"response_item",
+				{
+					content: [{ text: "Implementing", type: "output_text" }],
+					role: "assistant",
+					type: "message",
+				},
+				"2026-08-11T10:00:04.000Z",
+			),
+		].join("\n");
+
+		expect(
+			parseCodexConversations(content)
+				.filter((entry) => entry.type === "assistant")
+				.map((entry) => entry.executionMode),
+		).toEqual(["plan", "default"]);
+	});
+});

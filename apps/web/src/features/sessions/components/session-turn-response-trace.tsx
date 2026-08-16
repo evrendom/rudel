@@ -50,6 +50,7 @@ export function SessionTurnResponseTrace({
 			agentModel={viewModel.safeModelUsed}
 			agentSectionMode={agentSectionMode}
 			continuesAfter={continuesAfter}
+			defaultTraceTreeOpen
 			expandedSpeakerLayout={speakerLayout}
 			items={option.turn.responseItems}
 			requestUsage={option.metrics.usageEvents}

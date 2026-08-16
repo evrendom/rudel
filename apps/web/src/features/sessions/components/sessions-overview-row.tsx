@@ -3,6 +3,10 @@ import { User } from "lucide-react";
 import { Link } from "react-router-dom";
 import { DashboardModelBadges } from "@/features/dashboard/components/DashboardModelBadges";
 import {
+	resolveSessionErrorCount,
+	resolveSessionSubagentCount,
+} from "@/features/sessions/components/session-overview-metrics";
+import {
 	getRepositoryLabel,
 	SESSION_OVERVIEW_GRID_CLASS_NAME,
 	SESSION_OVERVIEW_SECOND_FROZEN_COLUMN_LEFT_CLASS_NAME,
@@ -74,6 +78,11 @@ export function SessionsOverviewRow({
 	const additionalSkillCount = Math.max(
 		session.skills.length - visibleSkills.length,
 		0,
+	);
+	const errorCount = resolveSessionErrorCount(session.error_count);
+	const subagentCount = resolveSessionSubagentCount(
+		session.subagent_count,
+		session.subagent_types,
 	);
 	const skillsTitle =
 		session.skills.length > 0 ? session.skills.join(", ") : "No skills used";
@@ -168,22 +177,22 @@ export function SessionsOverviewRow({
 			<div className={cn(cellClassName, "justify-end")}>
 				<p
 					className="truncate text-base font-medium tracking-[-0.01em] text-(--session-overview-muted) tabular-nums sm:text-sm"
-					title={`${session.subagent_count.toLocaleString()} ${session.subagent_count === 1 ? "subagent" : "subagents"} used`}
+					title={`${subagentCount.toLocaleString()} ${subagentCount === 1 ? "subagent" : "subagents"} used`}
 				>
-					{session.subagent_count.toLocaleString()}
+					{subagentCount.toLocaleString()}
 				</p>
 			</div>
 			<div className={cn(cellClassName, "justify-end")}>
 				<p
 					className={cn(
 						"truncate text-base font-medium tracking-[-0.01em] tabular-nums sm:text-sm",
-						session.error_count > 0
+						errorCount > 0
 							? "text-red-600 dark:text-red-400"
 							: "text-(--session-overview-muted)",
 					)}
-					title={`${session.error_count.toLocaleString()} detected tool/API ${session.error_count === 1 ? "error" : "errors"}`}
+					title={`${errorCount.toLocaleString()} detected tool/API ${errorCount === 1 ? "error" : "errors"}`}
 				>
-					{session.error_count.toLocaleString()}
+					{errorCount.toLocaleString()}
 				</p>
 			</div>
 			<div className={cn(cellClassName, "justify-end")}>

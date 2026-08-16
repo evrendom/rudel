@@ -17,8 +17,16 @@ describe("session constellation tree tokens", () => {
 		);
 
 		expect(css).toContain("--conversation-trace-connector-width: 0.5");
+		expect(css).toContain("--active-turn-rail-width: 2px");
+		expect(css).toContain("--active-turn-rail: #9bbaf4");
+		expect(css).toContain('[data-active-rail-position="middle"]');
+		expect(css).toContain("stroke-width: var(--active-turn-rail-width)");
+		expect(css).toContain("transform: scale(1.5)");
 		expect(css).toContain("color(display-p3 0 0 0 / 60.8%)");
 		expect(css).toContain('font-family: "Inter Variable"');
+		expect(css).toContain(
+			"[data-trace-preview]:not([data-trace-shell-command-preview])",
+		);
 		expect(css).toContain("font-size: 12px");
 		expect(css).toContain("line-height: 16px");
 		expect(css).toContain("width: 20px");
@@ -85,7 +93,7 @@ describe("session constellation tree tokens", () => {
 		expect(css).toContain('content: "·"');
 	});
 
-	test("uses the reference hover plate without changing row sizing", () => {
+	test("does not paint hover fills behind trace rows", () => {
 		const css = readFileSync(
 			new URL("./session-constellation-tree.css", import.meta.url),
 			"utf8",
@@ -95,16 +103,9 @@ describe("session constellation tree tokens", () => {
 			"utf8",
 		);
 
-		expect(css).toContain("--constellation-tree-hover: #f0f0f0");
-		expect(css).toContain("--constellation-tree-hover: #222");
-		expect(css).toContain(
-			"--constellation-tree-hover: color(display-p3 0.939 0.939 0.939)",
-		);
-		expect(css).toContain("[data-trace-hover-row]::before");
-		expect(css).toContain("inset: -1px 0");
-		expect(css).toContain("inset-inline: -16px");
-		expect(css).toContain("border-radius: 24px");
-		expect(css).toContain("background: var(--constellation-tree-hover)");
+		expect(css).not.toContain("--constellation-tree-hover");
+		expect(css).not.toContain("[data-trace-hover-row]::before");
+		expect(css).not.toContain("data-trace-prose-hover");
 		expect(css).not.toContain("[data-trace-hover-row] {\n\theight:");
 		expect(responsePane).toContain("overflow-x-hidden overflow-y-auto");
 	});

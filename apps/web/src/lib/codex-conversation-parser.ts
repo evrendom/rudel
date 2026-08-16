@@ -1,6 +1,7 @@
 import type {
 	AssistantEntry,
 	Conversation,
+	ConversationExecutionMode,
 	SystemEntry,
 	TextContent,
 	ThinkingContent,
@@ -47,6 +48,31 @@ interface CodexToolOutputPayload {
 	call_id?: string;
 	output?: unknown;
 	tools?: unknown;
+}
+
+function readCodexExecutionMode(
+	line: CodexLine,
+): ConversationExecutionMode | undefined {
+	if (
+		line.type === "event_msg" &&
+		line.payload.type === "task_started" &&
+		typeof line.payload.collaboration_mode_kind === "string"
+	) {
+		return line.payload.collaboration_mode_kind === "plan" ? "plan" : "default";
+	}
+
+	const collaborationMode = line.payload.collaboration_mode;
+	if (
+		line.type !== "turn_context" ||
+		typeof collaborationMode !== "object" ||
+		collaborationMode === null ||
+		!("mode" in collaborationMode) ||
+		typeof collaborationMode.mode !== "string"
+	) {
+		return undefined;
+	}
+
+	return collaborationMode.mode === "plan" ? "plan" : "default";
 }
 
 // Same failure heuristic the turn metadata extractor applies to Codex tool
@@ -139,6 +165,7 @@ export function parseCodexConversations(content: string): Array<Conversation> {
 
 	let sessionId = "";
 	let entryIndex = 0;
+	let executionMode: ConversationExecutionMode = "unknown";
 
 	for (const line of lines) {
 		let parsed: CodexLine;
@@ -151,6 +178,11 @@ export function parseCodexConversations(content: string): Array<Conversation> {
 		if (parsed.type === "session_meta") {
 			sessionId = (parsed.payload as { id?: string }).id ?? "codex-session";
 			continue;
+		}
+
+		const nextExecutionMode = readCodexExecutionMode(parsed);
+		if (nextExecutionMode !== undefined) {
+			executionMode = nextExecutionMode;
 		}
 
 		if (parsed.type === "event_msg" && parsed.payload.type === "turn_aborted") {
@@ -186,6 +218,7 @@ export function parseCodexConversations(content: string): Array<Conversation> {
 			};
 
 			const entry: AssistantEntry = {
+				executionMode,
 				uuid: `codex-${entryIndex++}`,
 				timestamp: parsed.timestamp,
 				sessionId,
@@ -218,6 +251,7 @@ export function parseCodexConversations(content: string): Array<Conversation> {
 				input: toToolInput(call),
 			};
 			const entry: AssistantEntry = {
+				executionMode,
 				uuid: `codex-${entryIndex++}`,
 				timestamp: parsed.timestamp,
 				sessionId,
@@ -291,6 +325,7 @@ export function parseCodexConversations(content: string): Array<Conversation> {
 			}));
 
 			const entry: AssistantEntry = {
+				executionMode,
 				uuid: `codex-${entryIndex++}`,
 				timestamp: parsed.timestamp,
 				sessionId,

@@ -10,6 +10,12 @@ import {
 import type { SessionTurn } from "./session-turns";
 
 const tokenUsageSchema = z.object({
+	cache_creation: z
+		.object({
+			ephemeral_1h_input_tokens: z.number().nonnegative().optional(),
+			ephemeral_5m_input_tokens: z.number().nonnegative().optional(),
+		})
+		.optional(),
 	cache_creation_input_tokens: z.number().nonnegative().optional(),
 	cache_read_input_tokens: z.number().nonnegative().optional(),
 	cached_input_tokens: z.number().nonnegative().optional(),
@@ -86,6 +92,8 @@ type TokenUsage = z.infer<typeof tokenUsageSchema>;
 
 export type TokenUsageEvent = {
 	at: string;
+	cacheCreation1hInputTokens?: number;
+	cacheCreation5mInputTokens?: number;
 	cacheCreationInputTokens: number;
 	cacheReadInputTokens: number;
 	inputTokens: number;
@@ -238,6 +246,18 @@ function addUsageEvent(
 	const cacheReadInputTokens =
 		usage.cache_read_input_tokens ?? usage.cached_input_tokens ?? 0;
 	const cacheCreationInputTokens = usage.cache_creation_input_tokens ?? 0;
+	const cacheCreation5mInputTokens =
+		usage.cache_creation?.ephemeral_5m_input_tokens ?? 0;
+	const recordedCacheCreation1hInputTokens =
+		usage.cache_creation?.ephemeral_1h_input_tokens ?? 0;
+	const cacheCreation1hInputTokens =
+		recordedCacheCreation1hInputTokens +
+		Math.max(
+			0,
+			cacheCreationInputTokens -
+				cacheCreation5mInputTokens -
+				recordedCacheCreation1hInputTokens,
+		);
 	const recordedInputTokens = usage.input_tokens ?? 0;
 	const inputTokens = inputIncludesCache
 		? Math.max(0, recordedInputTokens - cacheReadInputTokens)
@@ -255,6 +275,8 @@ function addUsageEvent(
 
 	builder.usageEvents.push({
 		at,
+		cacheCreation1hInputTokens,
+		cacheCreation5mInputTokens,
 		cacheCreationInputTokens,
 		cacheReadInputTokens,
 		inputTokens,
@@ -546,7 +568,9 @@ function finalizeTurnMetrics(builder: TurnMetricsBuilder): SessionTurnMetrics {
 	const costs = builder.usageEvents.map((event) =>
 		calculateEstimatedCost({
 			at: event.at,
-			cacheCreationInputTokens: event.cacheCreationInputTokens,
+			cacheCreation1hInputTokens:
+				event.cacheCreation1hInputTokens ?? event.cacheCreationInputTokens,
+			cacheCreationInputTokens: event.cacheCreation5mInputTokens ?? 0,
 			cacheReadInputTokens: event.cacheReadInputTokens,
 			inputTokens: event.inputTokens,
 			model: event.model ?? null,
@@ -569,6 +593,32 @@ function finalizeTurnMetrics(builder: TurnMetricsBuilder): SessionTurnMetrics {
 		skillEvents: builder.skillEvents,
 		usageEvents: builder.usageEvents,
 	};
+}
+
+export function extractTranscriptUsageMetrics(
+	content: string,
+	fallbackModel: string | undefined,
+) {
+	const builders = createTurnMetricsBuilders(1);
+	const anchors = [Number.NEGATIVE_INFINITY];
+
+	if (isCodexFormat(content)) {
+		extractCodexTurnMetadata(content, builders, anchors, fallbackModel);
+	} else {
+		extractClaudeTurnMetadata(content, builders, anchors, fallbackModel, false);
+	}
+
+	const builder = builders[0];
+	return builder
+		? finalizeTurnMetrics(builder)
+		: finalizeTurnMetrics({
+				editedFiles: [],
+				errorCount: 0,
+				errorEvents: [],
+				skills: [],
+				skillEvents: [],
+				usageEvents: [],
+			});
 }
 
 export function extractSessionTurnMetrics(

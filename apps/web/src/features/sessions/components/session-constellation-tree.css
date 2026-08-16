@@ -1,9 +1,10 @@
+@import "./session-constellation-tree-debug.css";
+
 .session-constellation-tree {
 	--constellation-tree-primary: #000000df;
 	--constellation-tree-secondary: #0000009b;
 	--constellation-tree-tertiary: #00000072;
 	--constellation-tree-disabled: #0004;
-	--constellation-tree-hover: #f0f0f0;
 	--constellation-tree-rail: #00000026;
 	--trace-icon-amber-bg: oklch(0.94 0.055 85);
 	--trace-icon-amber-fg: #ffb300c2;
@@ -25,11 +26,8 @@
 	--trace-icon-violet-fg: #2400b7a9;
 	--conversation-trace-connector-color: var(--constellation-tree-rail);
 	--conversation-trace-connector-width: 0.5;
-	--active-turn-rail: color-mix(
-		in srgb,
-		var(--session-overview-accent) 36%,
-		var(--constellation-tree-rail)
-	);
+	--active-turn-rail-width: 2px;
+	--active-turn-rail: #9bbaf4;
 	--dashboardy-divider: var(--constellation-tree-rail);
 	--dashboardy-heading: var(--constellation-tree-primary);
 	--dashboardy-muted: var(--constellation-tree-secondary);
@@ -47,7 +45,6 @@
 	--constellation-tree-secondary: #ffffffaf;
 	--constellation-tree-tertiary: #ffffff64;
 	--constellation-tree-disabled: #fff5;
-	--constellation-tree-hover: #222;
 	--constellation-tree-rail: #ffffff2c;
 	--trace-icon-amber-bg: oklch(0.31 0.055 85);
 	--trace-icon-amber-fg: #ffc53d;
@@ -76,7 +73,6 @@
 			--constellation-tree-secondary: color(display-p3 0 0 0 / 60.8%);
 			--constellation-tree-tertiary: color(display-p3 0 0 0 / 44.7%);
 			--constellation-tree-disabled: color(display-p3 0 0 0 / 26.7%);
-			--constellation-tree-hover: color(display-p3 0.939 0.939 0.939);
 			--constellation-tree-rail: color(display-p3 0 0 0 / 15.3%);
 			--trace-icon-amber-fg: color(display-p3 1 0.686 0 / 74.2%);
 			--trace-icon-blue-fg: color(display-p3 0 0.412 0.961 / 75.3%);
@@ -92,7 +88,6 @@
 			--constellation-tree-secondary: color(display-p3 1 1 1 / 68.5%);
 			--constellation-tree-tertiary: color(display-p3 1 1 1 / 39.1%);
 			--constellation-tree-disabled: color(display-p3 1 1 1 / 33.2%);
-			--constellation-tree-hover: color(display-p3 0.135 0.135 0.135);
 			--constellation-tree-rail: color(display-p3 1 1 1 / 17.2%);
 			--trace-icon-amber-fg: color(display-p3 1 0.769 0.259);
 			--trace-icon-blue-fg: color(display-p3 0.251 0.573 0.996 / 96.7%);
@@ -114,6 +109,11 @@
 	background-color: var(--constellation-tree-rail);
 }
 
+.session-constellation-tree [data-trace-tree-junction-depth="1"] {
+	transform-box: fill-box;
+	transform-origin: center;
+}
+
 .session-constellation-tree
 	[data-active-rail-position="first"]
 	[data-trace-tree-line-depth="1"][data-trace-tree-rail-segment="outgoing"],
@@ -131,6 +131,7 @@
 	[data-trace-tree-line-depth="1"][data-trace-tree-continuation] {
 	background-color: var(--active-turn-rail);
 	stroke: var(--active-turn-rail);
+	stroke-width: var(--active-turn-rail-width);
 }
 
 .session-constellation-tree
@@ -153,6 +154,7 @@
 	[data-trace-tree-line-depth="1"][data-trace-tree-terminal-feed] {
 	background-color: var(--active-turn-rail);
 	stroke: var(--active-turn-rail);
+	stroke-width: var(--active-turn-rail-width);
 }
 
 .session-constellation-tree
@@ -165,6 +167,7 @@
 	[data-active-rail-position="last"]
 	[data-trace-tree-junction-depth="1"] {
 	--conversation-trace-junction-color: var(--active-turn-rail);
+	transform: scale(1.5);
 }
 
 .session-constellation-tree
@@ -174,6 +177,7 @@
 	[data-trace-tree-line-depth="1"] {
 	background-color: var(--active-turn-rail);
 	stroke: var(--active-turn-rail);
+	stroke-width: var(--active-turn-rail-width);
 }
 
 .session-constellation-tree
@@ -182,6 +186,7 @@
 	> [data-trace-tree-row-owner]
 	[data-trace-tree-junction-depth="1"] {
 	--conversation-trace-junction-color: var(--active-turn-rail);
+	transform: scale(1.5);
 }
 
 .session-constellation-tree
@@ -197,30 +202,6 @@
 	> [data-trace-tree-connector-depth="1"]
 	> [data-trace-tree-terminal-feed] {
 	display: none;
-}
-
-.session-constellation-tree [data-trace-hover-row] {
-	position: relative;
-	isolation: isolate;
-}
-
-.session-constellation-tree [data-trace-hover-row]::before {
-	pointer-events: none;
-	position: absolute;
-	inset: -1px 0;
-	z-index: -10;
-	border-radius: 24px;
-	content: "";
-}
-
-@media (min-width: 64rem) and (hover: hover) {
-	.session-constellation-tree [data-trace-hover-row]::before {
-		inset-inline: -16px;
-	}
-
-	.session-constellation-tree [data-trace-hover-row]:hover::before {
-		background: var(--constellation-tree-hover);
-	}
 }
 
 .session-constellation-tree [data-trace-row-header],
@@ -248,7 +229,8 @@
 	line-height: 16px;
 }
 
-.session-constellation-tree [data-trace-preview] {
+.session-constellation-tree
+	[data-trace-preview]:not([data-trace-shell-command-preview]) {
 	color: var(--constellation-tree-primary);
 	font-family: "Inter Variable", InterVariable, sans-serif;
 	font-size: 13px;

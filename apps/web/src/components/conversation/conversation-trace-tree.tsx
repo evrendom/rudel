@@ -34,6 +34,7 @@ import {
 	TraceIcon,
 	type TraceIconTone,
 } from "./conversation-trace-icons";
+import { ConversationTracePlanTag } from "./conversation-trace-plan-tag";
 import {
 	type AgentTraceRequestUsage,
 	formatTraceRequestTokens,
@@ -43,6 +44,7 @@ import {
 import { CONVERSATION_TOOL_ICONS } from "./conversation-trace-tool-icons";
 import {
 	type TraceFocusRequest,
+	type TraceTreeRowBodySlot,
 	TraceTreeRowBodySlotContext,
 	traceRowClassName,
 	useTraceFocus,
@@ -62,6 +64,23 @@ interface ConversationTraceTreeItemStyle extends CSSProperties {
 	"--conversation-trace-sticky-offset": string;
 }
 
+interface CollapsedTraceCountStyle extends CSSProperties {
+	"--trace-icon-bg": string;
+}
+
+const COLLAPSED_TRACE_COUNT_STYLE: CollapsedTraceCountStyle = {
+	"--trace-icon-bg":
+		"color-mix(in srgb, var(--conversation-trace-connector-color, var(--session-overview-border)) 75%, transparent)",
+	background:
+		"color-mix(in srgb, var(--conversation-trace-connector-color, var(--session-overview-border)) 75%, transparent)",
+	color:
+		"var(--constellation-tree-tertiary, var(--session-overview-subtle, var(--session-overview-muted)))",
+	height: 16,
+	mask: 'url("/opaline-trace-fill.svg") center / contain no-repeat',
+	WebkitMask: 'url("/opaline-trace-fill.svg") center / contain no-repeat',
+	width: 16,
+};
+
 export type AgentTraceTreeBranch = {
 	children: TraceEvent[];
 	id: string;
@@ -72,6 +91,7 @@ export type AgentTraceTreeRenderedBranch = {
 	children: readonly { key: string; row: ReactNode }[];
 	key: string;
 	row: ReactNode;
+	sticky?: boolean;
 };
 
 export type AgentTraceTreeRenderedSection = {
@@ -86,13 +106,16 @@ export type AgentTraceTreeRenderedSection = {
 				collapsedPreview: ReactNode,
 		  ) => ReactNode)
 		| undefined;
-	headerSticky?: boolean;
 	key: string;
 };
 
 const CONVERSATION_TRACE_TREE_ROW_HEIGHT = 40;
+const CONVERSATION_TRACE_TREE_COMPACT_ROW_HEIGHT = 32;
 const CONVERSATION_TRACE_TREE_LEVEL_GAP = 23;
 const CONVERSATION_TRACE_TREE_FIRST_X = 16;
+const COLLAPSED_TRACE_ICON_LIMIT = 25;
+const traceCollapsiblePanelClassName =
+	"h-(--collapsible-panel-height) min-w-0 overflow-clip transition-[height,opacity] duration-200 ease-[cubic-bezier(0.2,0,0,1)] data-ending-style:h-0 data-ending-style:opacity-0 data-starting-style:h-0 data-starting-style:opacity-0 motion-reduce:transition-none";
 const INTERFERE_MARKER_SIZE = 16;
 const INTERFERE_RAIL_GAP = 4;
 const INTERFERE_RAIL_OFFSET = INTERFERE_MARKER_SIZE / 2 + INTERFERE_RAIL_GAP;
@@ -128,6 +151,25 @@ const ConversationTraceTreeConnectorStyleContext =
 // as soon as a sticky row is not exactly 40px tall (flat request rows are
 // 24px), opening a see-through slot between stuck rows.
 const ConversationTraceTreeStickyOffsetContext = createContext(0);
+
+export function ConversationTraceCollapsiblePanel({
+	children,
+	id,
+}: {
+	children: ReactNode;
+	id?: string;
+}) {
+	return (
+		<Collapsible.Panel
+			id={id}
+			className={traceCollapsiblePanelClassName}
+			data-trace-tree-motion-panel
+			keepMounted
+		>
+			{children}
+		</Collapsible.Panel>
+	);
+}
 
 export function ConversationTraceTreeConnectorStyleProvider({
 	children,
@@ -536,14 +578,7 @@ export function ConversationTraceTreeNode({
 }) {
 	const ancestorRails = useContext(ConversationTraceTreeRailContext);
 	const connectorStyle = useContext(ConversationTraceTreeConnectorStyleContext);
-	// Indentation decides stickiness: any node that opens a deeper level
-	// (descends) pins one row height per ancestor level, and every node hands
-	// its subtree the next slot down via the offset var — so model header,
-	// request header, and a message row with indented tool children all stack
-	// from the same rule. Their item containers include the corresponding
-	// subtree, so native sticky containment releases each row at the correct
-	// document boundary without runtime transform corrections.
-	const sticky = stickyOverride ?? descends;
+	const sticky = stickyOverride ?? false;
 	const expandedStickySurface = sticky && expanded;
 	const width = 6 + depth * CONVERSATION_TRACE_TREE_LEVEL_GAP;
 	const stickyTop =
@@ -640,9 +675,9 @@ export function ConversationTraceTreeItem({
 	const inheritedStickyOffset = useContext(
 		ConversationTraceTreeStickyOffsetContext,
 	);
-	const [expandedBody, setExpandedBody] = useState<ReactNode>();
+	const [rowBody, setRowBody] = useState<TraceTreeRowBodySlot>();
 	const subtreeRails = [...ancestorRails, continues];
-	const rowSticky = sticky ?? (descends || expandedBody !== undefined);
+	const rowSticky = sticky ?? false;
 	// Only rows that actually pin consume sticky space, and they consume their
 	// real height — a 24px flat row must not reserve a 40px slot.
 	const subtreeStickyOffset =
@@ -670,14 +705,14 @@ export function ConversationTraceTreeItem({
 					rowHeight={rowHeight}
 					shape={connectorShape}
 				/>
-				<TraceTreeRowBodySlotContext.Provider value={setExpandedBody}>
+				<TraceTreeRowBodySlotContext.Provider value={setRowBody}>
 					<ConversationTraceTreeNode
 						className={className}
 						connectorShape={connectorShape}
 						continues={continues}
 						descends={descends}
 						depth={depth}
-						expanded={expandedBody !== undefined}
+						expanded={rowBody?.expanded === true}
 						rowHeight={rowHeight}
 						sticky={rowSticky}
 						stickyTop={inheritedStickyOffset}
@@ -685,7 +720,7 @@ export function ConversationTraceTreeItem({
 						{children}
 					</ConversationTraceTreeNode>
 				</TraceTreeRowBodySlotContext.Provider>
-				{expandedBody === undefined ? null : (
+				{rowBody === undefined ? null : (
 					<div className="relative min-w-0 flow-root" data-trace-tree-row-body>
 						<ConversationTraceTreeExpandedBodyRails
 							ancestorRails={ancestorRails}
@@ -708,7 +743,7 @@ export function ConversationTraceTreeItem({
 							/>
 						) : null}
 						<div className="min-w-0" style={{ paddingLeft: `${rowPadding}px` }}>
-							{expandedBody}
+							{rowBody.content}
 						</div>
 					</div>
 				)}
@@ -747,7 +782,11 @@ export function ConversationTraceRootNode({
 	layout: ConversationTraceSpeakerLayout;
 }) {
 	return layout === "trace-tree" ? (
-		<ConversationTraceTreeItem continues={continues} depth={1}>
+		<ConversationTraceTreeItem
+			continues={continues}
+			depth={1}
+			rowHeight={CONVERSATION_TRACE_TREE_COMPACT_ROW_HEIGHT}
+		>
 			{children}
 		</ConversationTraceTreeItem>
 	) : (
@@ -1034,24 +1073,18 @@ export function AgentTraceRequestDisplay({
 }
 
 function AgentCollapsedTraceIcons({ events }: { events: TraceEvent[] }) {
-	const seenKinds = new Set<string>();
-	const icons: {
+	const steps: {
 		Icon: ComponentType<{ className?: string }>;
+		collapseConsecutive: boolean;
+		groupKey: string;
 		key: string;
+		label: string;
 		toolIcon: ToolIconName | undefined;
 		tone: TraceIconTone;
-	}[] = [];
-
-	for (const event of events) {
+	}[] = events.map((event, index) => {
 		const presentation =
 			event.kind === "tool" ? getToolPresentation(event.toolName) : undefined;
-		const key = presentation ? `tool:${presentation.icon}` : event.kind;
-		if (seenKinds.has(key)) {
-			continue;
-		}
-
-		seenKinds.add(key);
-		icons.push({
+		return {
 			Icon:
 				event.kind === "reasoning"
 					? TraceBrainIcon
@@ -1060,7 +1093,22 @@ function AgentCollapsedTraceIcons({ events }: { events: TraceEvent[] }) {
 						: presentation
 							? CONVERSATION_TOOL_ICONS[presentation.icon]
 							: TraceWrenchIcon,
-			key,
+			collapseConsecutive:
+				event.kind === "reasoning" ||
+				(event.kind === "tool" &&
+					(event.toolName === "Bash" || event.toolName === "exec_command")),
+			groupKey: presentation ? `tool:${presentation.icon}` : event.kind,
+			key: `${event.id}:${index}`,
+			label:
+				event.kind === "reasoning"
+					? "Reasoned"
+					: event.kind === "message"
+						? "Responded"
+						: event.kind === "orphan-result"
+							? event.result.isError
+								? "Tool failed"
+								: "Received tool result"
+							: (presentation?.verb ?? "Used a tool"),
 			toolIcon: presentation?.icon,
 			tone:
 				event.kind === "reasoning"
@@ -1074,31 +1122,105 @@ function AgentCollapsedTraceIcons({ events }: { events: TraceEvent[] }) {
 							: event.kind === "tool" && event.result?.isError
 								? "tomato"
 								: "amber",
-		});
-		if (icons.length === 4) {
-			break;
+		};
+	});
+	const clusters = steps.reduce<(typeof steps)[]>((groupedSteps, step) => {
+		const previousCluster = groupedSteps.at(-1);
+		if (previousCluster?.[0]?.groupKey === step.groupKey) {
+			if (
+				!step.collapseConsecutive ||
+				!previousCluster.at(-1)?.collapseConsecutive
+			) {
+				previousCluster.push(step);
+			}
+			return groupedSteps;
 		}
-	}
-	if (icons.length === 0) {
+
+		groupedSteps.push([step]);
+		return groupedSteps;
+	}, []);
+	const renderedStepCount = clusters.reduce(
+		(count, cluster) => count + cluster.length,
+		0,
+	);
+	const truncated = renderedStepCount > COLLAPSED_TRACE_ICON_LIMIT;
+	const visibleStepLimit = truncated
+		? COLLAPSED_TRACE_ICON_LIMIT - 1
+		: COLLAPSED_TRACE_ICON_LIMIT;
+	let remainingStepCount = visibleStepLimit;
+	const visibleClusters = clusters.flatMap((cluster) => {
+		if (remainingStepCount === 0) {
+			return [];
+		}
+		const visibleCluster = cluster.slice(0, remainingStepCount);
+		remainingStepCount -= visibleCluster.length;
+		return [visibleCluster];
+	});
+	const remainingIconCount = renderedStepCount - visibleStepLimit;
+
+	if (steps.length === 0) {
 		return null;
 	}
 
 	return (
-		<span className="flex shrink-0 items-center pl-1">
-			{icons.map(({ Icon, key, tone, toolIcon }, index) => (
+		<span
+			aria-hidden="true"
+			className="flex min-w-0 flex-1 items-center overflow-hidden pl-1"
+			data-trace-collapsed-flow
+			data-trace-collapsed-flow-truncated={truncated || undefined}
+		>
+			{visibleClusters.map((cluster, clusterIndex) => (
 				<span
-					key={key}
-					className="relative -ml-1.5"
-					style={{ zIndex: icons.length - index }}
+					key={cluster[0]?.key}
+					className="flex shrink-0 items-center"
+					data-trace-collapsed-flow-cluster={cluster[0]?.groupKey}
 				>
-					<TraceIcon
-						className="border-(--session-overview-border) text-(--session-overview-muted)"
-						icon={Icon}
-						toolIcon={toolIcon}
-						tone={tone}
-					/>
+					{clusterIndex === 0 ? null : (
+						<span
+							className="h-px w-1.5 shrink-0 bg-(--session-overview-border)"
+							data-trace-collapsed-flow-connector
+							data-trace-tree-line
+						/>
+					)}
+					{cluster.map(({ Icon, key, label, tone, toolIcon }, stepIndex) => (
+						<span
+							key={key}
+							className={cn("relative", stepIndex > 0 && "-ml-2")}
+							data-trace-collapsed-flow-step
+							style={{ zIndex: cluster.length - stepIndex }}
+							title={label}
+						>
+							<TraceIcon
+								className="border-(--session-overview-border) text-(--session-overview-muted)"
+								icon={Icon}
+								toolIcon={toolIcon}
+								tone={tone}
+							/>
+						</span>
+					))}
 				</span>
 			))}
+			{truncated ? (
+				<span
+					className="flex shrink-0 items-center"
+					data-trace-collapsed-flow-count-slot
+				>
+					<span
+						className="h-px w-1.5 shrink-0 bg-(--session-overview-border)"
+						data-trace-tree-line
+					/>
+					<span
+						className="flex shrink-0 items-center justify-center font-sans text-[8px] leading-none font-medium tracking-[-0.08em] tabular-nums [text-indent:-1.5px]"
+						data-trace-collapsed-flow-count
+						data-trace-icon
+						data-trace-icon-tone="neutral"
+						style={COLLAPSED_TRACE_COUNT_STYLE}
+						title={`${remainingIconCount} more activities`}
+					>
+						+{remainingIconCount}
+					</span>
+				</span>
+			) : null}
 		</span>
 	);
 }
@@ -1125,6 +1247,7 @@ function AgentTraceTreeBranchList({
 									<ConversationTraceTreeItem
 										continues={childIndex < branch.children.length - 1}
 										depth={depth + 1}
+										rowHeight={CONVERSATION_TRACE_TREE_COMPACT_ROW_HEIGHT}
 									>
 										<div className="-ml-3">{child.row}</div>
 									</ConversationTraceTreeItem>
@@ -1138,6 +1261,8 @@ function AgentTraceTreeBranchList({
 							continues={branchHasNext}
 							descends={branch.children.length > 0}
 							depth={depth}
+							rowHeight={CONVERSATION_TRACE_TREE_COMPACT_ROW_HEIGHT}
+							sticky={branch.sticky}
 							subtree={subtree}
 						>
 							<div className="-ml-3">{branch.row}</div>
@@ -1150,13 +1275,15 @@ function AgentTraceTreeBranchList({
 }
 
 function AgentTraceTreeRenderedSectionItem({
+	defaultOpen,
 	hasNextSibling,
 	section,
 }: {
+	defaultOpen: boolean;
 	hasNextSibling: boolean;
 	section: AgentTraceTreeRenderedSection;
 }) {
-	const [open, setOpen] = useState(true);
+	const [open, setOpen] = useState(defaultOpen);
 	const groupStyle =
 		section.groupIndex === undefined && section.groupTreatment === "none"
 			? undefined
@@ -1190,7 +1317,6 @@ function AgentTraceTreeRenderedSectionItem({
 					continues={hasNextSibling}
 					depth={2}
 					rowHeight={section.flatRequestRows ? 24 : undefined}
-					sticky={section.headerSticky}
 				>
 					<span className="-ml-3 block">{section.header(undefined, null)}</span>
 				</ConversationTraceTreeItem>
@@ -1198,13 +1324,13 @@ function AgentTraceTreeRenderedSectionItem({
 		);
 	}
 	const branchPanel = (
-		<Collapsible.Panel className="transition-none">
+		<ConversationTraceCollapsiblePanel>
 			<AgentTraceTreeBranchList
 				branches={section.branches}
 				depth={section.flatRequestRows ? 2 : 3}
 				hasNextSibling={section.flatRequestRows && hasNextSibling}
 			/>
-		</Collapsible.Panel>
+		</ConversationTraceCollapsiblePanel>
 	);
 
 	return (
@@ -1239,7 +1365,6 @@ function AgentTraceTreeRenderedSectionItem({
 						continues={hasNextSibling}
 						descends={open && hasBranches}
 						depth={2}
-						sticky={section.headerSticky}
 						subtree={branchPanel}
 					>
 						<Collapsible.Trigger
@@ -1262,21 +1387,25 @@ export function AgentTraceTreeSection({
 	agentModel,
 	anchorId,
 	continuesAfter = false,
+	defaultOpen = true,
 	events,
 	focus,
 	headerTrailing,
+	planMode,
 	sections,
 }: {
 	agentLabel: string;
 	agentModel: string | undefined;
 	anchorId?: string;
 	continuesAfter?: boolean;
+	defaultOpen?: boolean;
 	events: TraceEvent[];
 	focus?: TraceFocusRequest;
 	headerTrailing?: ReactNode;
+	planMode: boolean;
 	sections: readonly AgentTraceTreeRenderedSection[];
 }) {
-	const [open, setOpen] = useState(true);
+	const [open, setOpen] = useState(defaultOpen);
 	const panelId = useId();
 
 	useTraceFocus(anchorId, focus, setOpen);
@@ -1291,6 +1420,7 @@ export function AgentTraceTreeSection({
 				{visibleSections.map((section, sectionIndex) => (
 					<AgentTraceTreeRenderedSectionItem
 						key={section.key}
+						defaultOpen={defaultOpen}
 						hasNextSibling={sectionIndex < visibleSections.length - 1}
 						section={section}
 					/>
@@ -1312,6 +1442,7 @@ export function AgentTraceTreeSection({
 					continues={continuesAfter}
 					descends={open && hasContent}
 					depth={1}
+					sticky
 					subtree={sectionPanel}
 				>
 					<div
@@ -1329,6 +1460,7 @@ export function AgentTraceTreeSection({
 							>
 								{agentLabel}
 							</p>
+							{planMode ? <ConversationTracePlanTag /> : null}
 							{open ? null : <AgentCollapsedTraceIcons events={events} />}
 						</Collapsible.Trigger>
 						{headerTrailing ? (

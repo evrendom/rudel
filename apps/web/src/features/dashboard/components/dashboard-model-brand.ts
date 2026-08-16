@@ -26,6 +26,13 @@ function formatFallbackModelLabel(model: string) {
 
 export function formatModelDisplayLabel(model: string) {
 	const normalizedModel = model.trim().toLowerCase();
+	const fableVersion = normalizeModelVersion(
+		normalizedModel.match(/fable[-_ ]?([0-9]+(?:[._][0-9]+)?)/)?.[1],
+	);
+	if (normalizedModel.includes("fable")) {
+		return fableVersion ? `Fable ${fableVersion}` : "Fable";
+	}
+
 	const claudeFamilyMatch = normalizedModel.match(/(opus|sonnet|haiku)/);
 
 	if (claudeFamilyMatch) {

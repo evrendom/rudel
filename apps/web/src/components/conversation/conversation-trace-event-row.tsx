@@ -13,22 +13,21 @@ import {
 import {
 	compactPreview,
 	type TraceEvent,
+	type TraceSkillContent,
 	type TraceToolResult,
 	toolResultText,
 } from "./conversation-trace";
 import {
 	conversationTraceLabelClassName,
 	conversationTracePreviewClassName,
+	conversationTraceProsePreviewClassName,
 } from "./conversation-trace-class-names";
 import {
 	TraceBrainIcon,
 	TraceMessageIcon,
 	TraceWrenchIcon,
 } from "./conversation-trace-hugeicons";
-import {
-	ModelTraceIcon,
-	TraceDisclosureIcon,
-} from "./conversation-trace-icons";
+import { ModelTraceIcon, TraceIcon } from "./conversation-trace-icons";
 import { ConversationTraceTag } from "./conversation-trace-tag";
 import { CONVERSATION_TOOL_ICONS } from "./conversation-trace-tool-icons";
 import { ExpandableTraceRow } from "./expandable-trace-row";
@@ -137,6 +136,26 @@ export function ShellToolCallBody({
 	);
 }
 
+export function SkillToolCallBody({
+	skillContent,
+}: {
+	skillContent: TraceSkillContent;
+}) {
+	return (
+		<div className="grid gap-3" data-trace-skill-details>
+			<div className="grid gap-1">
+				<p className="font-sans text-[0.75rem] leading-4 font-normal text-[color:var(--dashboardy-muted)]">
+					Base directory
+				</p>
+				<code className="break-all font-mono text-[0.75rem] leading-4 font-normal text-[color:var(--dashboardy-heading)]">
+					{skillContent.baseDirectory}
+				</code>
+			</div>
+			<MessageContent content={skillContent.content} />
+		</div>
+	);
+}
+
 export function ToolCallBody({
 	input,
 	result,
@@ -240,9 +259,24 @@ export function ConversationTraceEventRow({
 	trailing?: ReactNode;
 }) {
 	if (event.kind === "reasoning") {
+		const collapsedPreviewText = compactPreview(
+			event.text,
+			Number.POSITIVE_INFINITY,
+		);
 		return (
 			<ExpandableTraceRow
+				compact
+				collapsedBody={
+					<p
+						className={conversationTraceProsePreviewClassName}
+						data-trace-preview
+					>
+						{collapsedPreviewText}
+					</p>
+				}
 				fullPreviewText={event.text}
+				label={<p className={conversationTraceLabelClassName}>Reasoning</p>}
+				leading={<TraceIcon icon={TraceBrainIcon} tone="violet" />}
 				trailing={trailing}
 				treeBodyClassName="-ml-3"
 				body={
@@ -250,48 +284,35 @@ export function ConversationTraceEventRow({
 						{event.text}
 					</p>
 				}
-			>
-				{(expanded, expandable) => (
-					<>
-						<TraceDisclosureIcon
-							expanded={expanded}
-							expandable={expandable}
-							icon={TraceBrainIcon}
-							tone="violet"
-						/>
-						<p className={conversationTraceLabelClassName}>Reasoning</p>
-						<p className={conversationTracePreviewClassName} data-trace-preview>
-							{compactPreview(event.text)}
-						</p>
-					</>
-				)}
-			</ExpandableTraceRow>
+			/>
 		);
 	}
 
 	if (event.kind === "message") {
+		const collapsedPreviewText = compactPreview(
+			event.text,
+			Number.POSITIVE_INFINITY,
+		);
 		return (
 			<ExpandableTraceRow
+				compact
+				collapsedBody={
+					collapsedPreviewText ? (
+						<p
+							className={conversationTraceProsePreviewClassName}
+							data-trace-preview
+						>
+							{collapsedPreviewText}
+						</p>
+					) : undefined
+				}
 				fullPreviewText={event.text || undefined}
+				label={<p className={conversationTraceLabelClassName}>Message</p>}
+				leading={<TraceIcon icon={TraceMessageIcon} tone="blue" />}
 				trailing={trailing}
 				treeBodyClassName="-ml-3"
 				body={<MessageContent content={event.content} />}
-			>
-				{(expanded, expandable) => (
-					<>
-						<TraceDisclosureIcon
-							expanded={expanded}
-							expandable={expandable}
-							icon={TraceMessageIcon}
-							tone="blue"
-						/>
-						<p className={conversationTraceLabelClassName}>Message</p>
-						<p className={conversationTracePreviewClassName} data-trace-preview>
-							{compactPreview(event.text)}
-						</p>
-					</>
-				)}
-			</ExpandableTraceRow>
+			/>
 		);
 	}
 
@@ -299,32 +320,35 @@ export function ConversationTraceEventRow({
 		const resultText = toolResultText(event.result.content);
 		return (
 			<ExpandableTraceRow
+				compact
 				fullPreviewText={resultText}
+				label={<p className={conversationTraceLabelClassName}>Result</p>}
+				leading={
+					<TraceIcon
+						icon={TraceWrenchIcon}
+						tone={event.result.isError ? "tomato" : "cyan"}
+					/>
+				}
 				trailing={trailing}
 				treeBodyClassName="-ml-3"
 				body={<ToolResultBody result={event.result} />}
 			>
-				{(expanded, expandable) => (
-					<>
-						<TraceDisclosureIcon
-							expanded={expanded}
-							expandable={expandable}
-							icon={TraceWrenchIcon}
-							tone={event.result.isError ? "tomato" : "cyan"}
-						/>
-						<p className={conversationTraceLabelClassName}>Result</p>
-						<p className={conversationTracePreviewClassName} data-trace-preview>
-							{compactPreview(resultText)}
-						</p>
-					</>
-				)}
+				<p className={conversationTracePreviewClassName} data-trace-preview>
+					{compactPreview(resultText)}
+				</p>
 			</ExpandableTraceRow>
 		);
 	}
 
 	const { verb, icon } = getToolPresentation(event.toolName);
 	const primaryArg = getToolPrimaryArg(event.toolName, event.input);
-	const inputPreview = formatToolInputPreview(event.input);
+	const hasFileTag =
+		primaryArg !== undefined &&
+		(typeof event.input.file_path === "string" ||
+			typeof event.input.notebook_path === "string");
+	const inputPreview = hasFileTag
+		? undefined
+		: formatToolInputPreview(event.input);
 	const isError = event.result?.isError === true;
 	const shellCommand = getShellCommand(event.toolName, event.input);
 	const delegatedModel = getDelegatedModel(event.toolName, event.input);
@@ -332,80 +356,56 @@ export function ConversationTraceEventRow({
 	if (shellCommand) {
 		return (
 			<ExpandableTraceRow
+				compact
 				fullPreviewText={undefined}
+				label={
+					<ConversationTraceTag
+						className="min-w-0 max-w-[36rem] shrink pl-1.5"
+						data-trace-shell-command-tag
+						hideIcon
+						title={shellCommand}
+						toolIcon={icon}
+						value={shellCommand}
+					>
+						<code
+							className="min-w-0 truncate whitespace-pre font-mono font-normal tracking-normal [font-variant-ligatures:none]"
+							data-trace-preview
+							data-trace-shell-command-preview
+						>
+							{compactPreview(shellCommand, Number.POSITIVE_INFINITY)}
+						</code>
+					</ConversationTraceTag>
+				}
+				leading={
+					<TraceIcon
+						className={
+							isError
+								? "border-[color:var(--dashboardy-danger-foreground)] text-[color:var(--dashboardy-danger-foreground)]"
+								: undefined
+						}
+						icon={CONVERSATION_TOOL_ICONS.terminal}
+						toolIcon="terminal"
+						tone={isError ? "tomato" : "amber"}
+					/>
+				}
 				trailing={trailing}
 				treeBodyClassName="-ml-3"
 				body={
 					<ShellToolCallBody command={shellCommand} result={event.result} />
 				}
-			>
-				{(expanded, expandable) => (
-					<>
-						<TraceDisclosureIcon
-							className={
-								isError
-									? "border-[color:var(--dashboardy-danger-foreground)] text-[color:var(--dashboardy-danger-foreground)]"
-									: undefined
-							}
-							expanded={expanded}
-							expandable={expandable}
-							icon={CONVERSATION_TOOL_ICONS.terminal}
-							toolIcon="terminal"
-							tone={isError ? "tomato" : "amber"}
-						/>
-						<ConversationTraceTag
-							className="min-w-0 max-w-[36rem] shrink"
-							data-trace-shell-command-tag
-							title={shellCommand}
-							toolIcon={icon}
-							value={shellCommand}
-						>
-							<span className="truncate" data-trace-preview>
-								{compactPreview(shellCommand, Number.POSITIVE_INFINITY)}
-							</span>
-						</ConversationTraceTag>
-						<span className="min-w-0 flex-1" />
-					</>
-				)}
-			</ExpandableTraceRow>
+			/>
 		);
 	}
 
 	return (
 		<ExpandableTraceRow
+			compact
 			fullPreviewText={undefined}
-			trailing={trailing}
-			treeBodyClassName="-ml-3"
-			body={
-				<ToolCallBody
-					input={event.input}
-					result={event.result}
-					toolName={event.toolName}
-				/>
-			}
-		>
-			{(expanded, expandable) => (
-				<>
-					{delegatedModel ? (
-						<ModelTraceIcon
-							expanded={expanded}
-							expandable={expandable}
-							model={delegatedModel}
-						/>
-					) : (
-						<TraceDisclosureIcon
-							className={
-								isError
-									? "border-[color:var(--dashboardy-danger-foreground)] text-[color:var(--dashboardy-danger-foreground)]"
-									: undefined
-							}
-							expanded={expanded}
-							expandable={expandable}
-							icon={CONVERSATION_TOOL_ICONS[icon]}
-							toolIcon={icon}
-							tone={isError ? "tomato" : "amber"}
-						/>
-					)}
+			label={
+				<span
+					className="flex min-w-0 items-center gap-1"
+					data-trace-tool-label-group
+				>
 					<p className={conversationTraceLabelClassName}>{verb}</p>
 					{primaryArg ? (
 						<ConversationTraceTag
@@ -417,21 +417,53 @@ export function ConversationTraceEventRow({
 							<span className="truncate">{primaryArg}</span>
 						</ConversationTraceTag>
 					) : null}
-					{inputPreview ? (
-						<p
-							className={cn(
-								conversationTracePreviewClassName,
-								"font-mono text-[0.75rem]",
-							)}
-							data-trace-preview
-						>
-							{inputPreview}
-						</p>
-					) : (
-						<span className="min-w-0 flex-1" />
+				</span>
+			}
+			leading={
+				delegatedModel ? (
+					<ModelTraceIcon
+						expanded={false}
+						expandable={false}
+						model={delegatedModel}
+					/>
+				) : (
+					<TraceIcon
+						className={
+							isError
+								? "border-[color:var(--dashboardy-danger-foreground)] text-[color:var(--dashboardy-danger-foreground)]"
+								: undefined
+						}
+						icon={CONVERSATION_TOOL_ICONS[icon]}
+						toolIcon={icon}
+						tone={isError ? "tomato" : "amber"}
+					/>
+				)
+			}
+			trailing={trailing}
+			treeBodyClassName="-ml-3"
+			body={
+				event.skillContent ? (
+					<SkillToolCallBody skillContent={event.skillContent} />
+				) : (
+					<ToolCallBody
+						input={event.input}
+						result={event.result}
+						toolName={event.toolName}
+					/>
+				)
+			}
+		>
+			{inputPreview ? (
+				<p
+					className={cn(
+						conversationTracePreviewClassName,
+						"font-mono text-[0.75rem]",
 					)}
-				</>
-			)}
+					data-trace-preview
+				>
+					{inputPreview}
+				</p>
+			) : null}
 		</ExpandableTraceRow>
 	);
 }

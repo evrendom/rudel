@@ -6,6 +6,7 @@ import {
 } from "@/components/conversation/conversation-trace";
 import { parseConversations } from "@/lib/conversation-schema";
 import { parseSlashCommand } from "@/lib/parse-slash-command";
+import { getSessionEstimatedCost } from "../session-cost";
 import {
 	assignCompactionsBeforeTurns,
 	extractSessionCompactionMetadata,
@@ -13,9 +14,13 @@ import {
 } from "./session-compactions";
 import { shouldSyncContinuousTurnFocus } from "./session-continuous-turn-focus";
 import { SessionDetailLayout } from "./session-detail-layout";
-import type { buildSessionDetailViewModel } from "./session-detail-view-model";
+import {
+	type buildSessionDetailViewModel,
+	formatSessionCost,
+} from "./session-detail-view-model";
 import {
 	extractSessionTurnMetrics,
+	extractTranscriptUsageMetrics,
 	type SessionTurnMetrics,
 } from "./session-turn-metadata";
 import type { SessionTurnOption } from "./session-turn-option";
@@ -163,9 +168,27 @@ export function SessionDetailContent({
 			viewModel.safeSubagents,
 		],
 	);
+	const subagentUsageMetrics = useMemo(
+		() =>
+			Object.values(viewModel.safeSubagents).map((content) =>
+				extractTranscriptUsageMetrics(content, undefined),
+			),
+		[viewModel.safeSubagents],
+	);
 	const turnOptions = useMemo(
 		() => buildTurnOptions(turns, turnMetrics, compactionMetadata.compactions),
 		[compactionMetadata.compactions, turnMetrics, turns],
+	);
+	const sessionEstimatedCost = getSessionEstimatedCost([
+		...turnMetrics,
+		...subagentUsageMetrics,
+	]);
+	const contentViewModel = useMemo(
+		() => ({
+			...viewModel,
+			costLabel: formatSessionCost(sessionEstimatedCost),
+		}),
+		[sessionEstimatedCost, viewModel],
 	);
 	const [selection, setSelection] = useState<SessionTurnSelection>({
 		index: 0,
@@ -272,7 +295,7 @@ export function SessionDetailContent({
 				selection={boundedSelection}
 				turnTableSectionRef={turnTableSectionRef}
 				userImageUrl={userImageUrl}
-				viewModel={viewModel}
+				viewModel={contentViewModel}
 			/>
 		</div>
 	);

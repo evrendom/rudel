@@ -1,4 +1,8 @@
 import type { SessionAnalytics } from "@rudel/api-routes";
+import {
+	resolveSessionErrorCount,
+	resolveSessionSubagentCount,
+} from "@/features/sessions/components/session-overview-metrics";
 import { getSessionTimestamp } from "@/features/sessions/session-ordering";
 import { calculateCost, formatUsername } from "@/lib/format";
 
@@ -175,7 +179,16 @@ export function compareSessions(
 		case "skills":
 			return leftSession.skills.length - rightSession.skills.length;
 		case "subagents":
-			return leftSession.subagent_count - rightSession.subagent_count;
+			return (
+				resolveSessionSubagentCount(
+					leftSession.subagent_count,
+					leftSession.subagent_types,
+				) -
+				resolveSessionSubagentCount(
+					rightSession.subagent_count,
+					rightSession.subagent_types,
+				)
+			);
 		case "tokens":
 			return leftSession.total_tokens - rightSession.total_tokens;
 		case "cost":
@@ -190,7 +203,10 @@ export function compareSessions(
 				})
 			);
 		case "errors":
-			return leftSession.error_count - rightSession.error_count;
+			return (
+				resolveSessionErrorCount(leftSession.error_count) -
+				resolveSessionErrorCount(rightSession.error_count)
+			);
 		case "duration":
 			return leftSession.duration_min - rightSession.duration_min;
 		case "time":
@@ -302,9 +318,12 @@ function getSessionOverviewRangeValue(
 				model: session.model_used,
 			});
 		case "subagents":
-			return session.subagent_count;
+			return resolveSessionSubagentCount(
+				session.subagent_count,
+				session.subagent_types,
+			);
 		case "errors":
-			return session.error_count;
+			return resolveSessionErrorCount(session.error_count);
 		case "duration":
 			return session.duration_min;
 	}

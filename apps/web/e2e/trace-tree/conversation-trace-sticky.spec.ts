@@ -54,6 +54,36 @@ async function openContinuousFixture(
 	await expect(scroller).toBeVisible();
 	await expect(scroller).toHaveAttribute("data-trace-fixture-active-turn", "1");
 	await expect(page.locator(ROW_SELECTOR).first()).toBeVisible();
+	await expect(
+		scroller.locator("[data-session-turn-metadata-tags]"),
+	).toHaveCount(0);
+	await expect(
+		scroller.locator('[title$="in this member message"]'),
+	).toHaveCount(0);
+	const modelTriggers = scroller
+		.locator("[data-trace-model-label]")
+		.locator("xpath=ancestor::button[1]");
+	await expect(modelTriggers.first()).toHaveAttribute("aria-expanded", "false");
+	for (const trigger of await modelTriggers.all()) {
+		await trigger.evaluate((button) => {
+			if (!(button instanceof HTMLButtonElement)) {
+				throw new Error("Fixture model trigger must be a button");
+			}
+			button.click();
+		});
+	}
+	const requestTriggers = scroller
+		.locator("[data-trace-request-label]")
+		.locator("xpath=ancestor::button[1]");
+	for (const trigger of await requestTriggers.all()) {
+		await expect(trigger).toHaveAttribute("aria-expanded", "false");
+		await trigger.evaluate((button) => {
+			if (!(button instanceof HTMLButtonElement)) {
+				throw new Error("Fixture request trigger must be a button");
+			}
+			button.click();
+		});
+	}
 	await waitForStableLayout(page);
 	return scroller;
 }

@@ -264,6 +264,7 @@ describe("session turn table views", () => {
 						},
 					],
 					id: "agent-one",
+					executionMode: "unknown",
 					kind: "agent",
 					timestamp: "2026-08-10T10:00:02.000Z",
 				},

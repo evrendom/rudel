@@ -1,5 +1,6 @@
 import type {
 	Conversation,
+	ConversationExecutionMode,
 	TextContent,
 	ThinkingContent,
 	ToolResultContent,
@@ -21,6 +22,11 @@ export type TraceToolResult = {
 	isError: boolean;
 };
 
+export type TraceSkillContent = {
+	baseDirectory: string;
+	content: string;
+};
+
 export type TraceEvent =
 	| { kind: "reasoning"; id: string; timestamp: string; text: string }
 	| {
@@ -37,6 +43,7 @@ export type TraceEvent =
 			toolName: string;
 			input: Record<string, unknown>;
 			result: TraceToolResult | undefined;
+			skillContent?: TraceSkillContent;
 	  }
 	| {
 			kind: "orphan-result";
@@ -58,7 +65,13 @@ export type TraceSystemType =
 
 export type TraceItem =
 	| { kind: "user"; id: string; timestamp: string; content: UserContent }
-	| { kind: "agent"; id: string; timestamp: string; events: TraceEvent[] }
+	| {
+			kind: "agent";
+			id: string;
+			timestamp: string;
+			executionMode: ConversationExecutionMode;
+			events: TraceEvent[];
+	  }
 	| {
 			kind: "system";
 			id: string;
@@ -96,6 +109,23 @@ function collectToolResults(content: UserContent): ToolResultContent[] {
 	return content.filter((item): item is ToolResultContent =>
 		isToolResult(item),
 	);
+}
+
+function textFromUserTextBlocks(content: UserContent): string | undefined {
+	if (!Array.isArray(content) || content.length === 0) {
+		return undefined;
+	}
+
+	const textBlocks: TextContent[] = [];
+	for (const block of content) {
+		if (typeof block === "string" || block.type !== "text") {
+			return undefined;
+		}
+
+		textBlocks.push(block);
+	}
+
+	return textFromBlocks(textBlocks);
 }
 
 function toTraceResult(result: ToolResultContent): TraceToolResult {
@@ -164,6 +194,43 @@ function classifyNonMemberUserEntry(
 	return undefined;
 }
 
+function parseClaudeSkillContent(text: string): TraceSkillContent | undefined {
+	const normalizedText = text.replace(/\r\n?/gu, "\n");
+	const [header, ...contentLines] = normalizedText.split("\n");
+	const headerPrefix = "Base directory for this skill:";
+
+	if (!header?.startsWith(headerPrefix)) {
+		return undefined;
+	}
+
+	const baseDirectory = header.slice(headerPrefix.length).trim();
+	const content = contentLines.join("\n").trimStart();
+
+	if (baseDirectory === "" || content === "") {
+		return undefined;
+	}
+
+	return { baseDirectory, content };
+}
+
+function attachClaudeSkillContent(events: TraceEvent[], text: string): boolean {
+	const previousEvent = events.at(-1);
+	if (
+		previousEvent?.kind !== "tool" ||
+		previousEvent.toolName.toLowerCase() !== "skill"
+	) {
+		return false;
+	}
+
+	const skillContent = parseClaudeSkillContent(text);
+	if (!skillContent) {
+		return false;
+	}
+
+	previousEvent.skillContent = skillContent;
+	return true;
+}
+
 /**
  * Groups entries into trace items. Consecutive assistant entries, plus the
  * tool-result carriers between them, collapse into a single agent section.
@@ -176,6 +243,7 @@ export function buildConversationTrace(
 	let agentEvents: TraceEvent[] = [];
 	let agentTimestamp: string | undefined;
 	let agentId: string | undefined;
+	let agentExecutionMode: ConversationExecutionMode = "unknown";
 	// tool_use_id -> event awaiting its result, for the open section.
 	const pendingToolEvents = new Map<
 		string,
@@ -188,6 +256,7 @@ export function buildConversationTrace(
 				kind: "agent",
 				id: agentId,
 				timestamp: agentTimestamp,
+				executionMode: agentExecutionMode,
 				events: agentEvents,
 			});
 		}
@@ -195,6 +264,7 @@ export function buildConversationTrace(
 		agentEvents = [];
 		agentTimestamp = undefined;
 		agentId = undefined;
+		agentExecutionMode = "unknown";
 		pendingToolEvents.clear();
 	}
 
@@ -211,6 +281,10 @@ export function buildConversationTrace(
 		}
 
 		if (entry.type === "system") {
+			if (attachClaudeSkillContent(agentEvents, entry.message.content)) {
+				return;
+			}
+
 			flushAgentSection();
 			items.push({
 				kind: "system",
@@ -226,6 +300,9 @@ export function buildConversationTrace(
 			if (agentId === undefined) {
 				agentId = entry.uuid;
 				agentTimestamp = entry.timestamp;
+				agentExecutionMode = entry.executionMode;
+			} else if (agentExecutionMode === "unknown") {
+				agentExecutionMode = entry.executionMode;
 			}
 
 			entry.message.content.forEach((block, blockIndex) => {
@@ -297,6 +374,14 @@ export function buildConversationTrace(
 				agentTimestamp = entry.timestamp;
 			}
 
+			return;
+		}
+
+		const userTextBlockContent = textFromUserTextBlocks(entry.message.content);
+		if (
+			userTextBlockContent !== undefined &&
+			attachClaudeSkillContent(agentEvents, userTextBlockContent)
+		) {
 			return;
 		}
 

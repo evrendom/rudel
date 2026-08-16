@@ -3,6 +3,7 @@ import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { cn } from "@/lib/utils";
 import {
 	TraceCodeIcon,
+	TraceMarkdownIcon,
 	TraceTypeScriptIcon,
 } from "./conversation-trace-hugeicons";
 import "./code-block.css";
@@ -131,6 +132,13 @@ function getCodeHeaderIcon(filename: string, language: string) {
 			className: "text-[#3178c6]",
 			context: "typescript",
 			Icon: TraceTypeScriptIcon,
+		};
+	}
+	if (/\.(?:markdown|md)$/i.test(filename)) {
+		return {
+			className: "text-[color:var(--trace-code-tertiary,rgba(0,0,0,0.447))]",
+			context: "markdown",
+			Icon: TraceMarkdownIcon,
 		};
 	}
 
