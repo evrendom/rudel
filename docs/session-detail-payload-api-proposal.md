@@ -307,11 +307,14 @@ handler.
 Before creating tables, document the endpoint query patterns and choose an
 `ORDER BY` that supports uploader/source/session/revision lookups and stable turn
 selection. ClickHouse primary/order keys are effectively immutable; do not copy
-the existing session key mechanically. Because transcript parsing and pricing
-already live in TypeScript, the initial design should evaluate direct batched
-ingest into typed turn-summary and turn-body tables before choosing an
-incremental materialized view. If an incremental MV is chosen, it handles new
-inserts only and still needs a separate historical backfill.
+the existing session key mechanically. Choose and validate an `ngrambf_v1` or
+`tokenbf_v1` text-skipping index for searchable turn text at table creation so
+in-session turn search does not require a later table rebuild. Because transcript
+parsing and pricing already live in TypeScript, the initial design should
+evaluate direct batched ingest into typed turn-summary and turn-body tables
+before choosing an incremental materialized view. If an incremental MV is
+chosen, it handles new inserts only and still needs a separate historical
+backfill.
 
 The migration and backfill plan must explicitly account for repository-specific
 chkit and ClickHouse hazards:
@@ -444,6 +447,10 @@ or edge layer as long as it is observable and tested end to end.
   per-process cache, memory bounds, and measured p95.
 - Target derivation: ingest-time materialization is the immediate follow-up and
   requires a separately reviewed chkit migration and backfill plan.
+- Virtualization: the planned pane virtualization must use viewport-driven turn
+  body loading for the visible range with adjacent-turn prefetch. **Load full
+  transcript** remains the explicit Cmd+F fallback, not the primary loading
+  strategy.
 - Subagents: raw JSONL is allowed in the first lazy body contract. Normalized
   trace items or a browser worker are follow-up work.
 - Timeline: preserve exact current activity for ordinary sessions; bounded,
