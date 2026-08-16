@@ -11,6 +11,7 @@ import type { TraceIconTone } from "@/components/conversation/conversation-trace
 import type { SessionCompaction } from "./session-compactions";
 import {
 	estimateSessionTurnTableRowSize,
+	measureSessionVirtualElement,
 	SESSION_DETAIL_VIRTUAL_OVERSCAN,
 	type SessionTurnTableVirtualizerHandle,
 } from "./session-detail-virtualization";
@@ -183,8 +184,8 @@ export function SessionTurnTable({
 		},
 		getItemKey: (index) => tableRows[index]?.key ?? index,
 		getScrollElement: () => scrollElementRef.current,
+		measureElement: measureSessionVirtualElement,
 		overscan: SESSION_DETAIL_VIRTUAL_OVERSCAN,
-		useAnimationFrameWithResizeObserver: true,
 	});
 	const virtualRows = rowVirtualizer.getVirtualItems();
 	const paddingTop = virtualRows[0]?.start ?? 0;

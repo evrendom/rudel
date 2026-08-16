@@ -4,6 +4,7 @@ import {
 	type Ref,
 	type RefObject,
 	useImperativeHandle,
+	useLayoutEffect,
 	useRef,
 } from "react";
 import { Button } from "@/app/ui/button";
@@ -16,6 +17,7 @@ import type { buildSessionDetailViewModel } from "./session-detail-view-model";
 import {
 	estimateSessionContinuousTurnSize,
 	getSessionVirtualViewport,
+	measureSessionVirtualElement,
 	SESSION_DETAIL_VIRTUAL_OVERSCAN,
 	type SessionContinuousTurnVirtualizerHandle,
 } from "./session-detail-virtualization";
@@ -68,6 +70,7 @@ export function SessionContinuousTurnThread({
 		},
 		getItemKey: (index) => options[index]?.key ?? index,
 		getScrollElement: () => scrollContainerRef.current,
+		measureElement: measureSessionVirtualElement,
 		onChange: (instance) => {
 			const nextVirtualItems = instance.getVirtualItems();
 			const nextRenderedIndices = nextVirtualItems.map((item) => item.index);
@@ -101,9 +104,36 @@ export function SessionContinuousTurnThread({
 			}
 		},
 		overscan: SESSION_DETAIL_VIRTUAL_OVERSCAN,
-		useAnimationFrameWithResizeObserver: true,
 	});
 	const virtualItems = virtualizer.getVirtualItems();
+	const measurementVersion =
+		options.length === 0
+			? ""
+			: `${traceCallDisplayMode}:${options
+					.map(
+						(option) =>
+							`${option.key}:${option.turn ? "loaded" : (bodyStates?.get(option.key) ?? "idle")}`,
+					)
+					.join("|")}`;
+
+	useLayoutEffect(() => {
+		if (!measurementVersion) {
+			return;
+		}
+		const scrollContainer = scrollContainerRef.current;
+		if (!scrollContainer) {
+			return;
+		}
+
+		for (const virtualItem of virtualizer.getVirtualItems()) {
+			const element = scrollContainer.querySelector<HTMLElement>(
+				`[data-session-virtual-turn-index="${virtualItem.index}"]`,
+			);
+			if (element) {
+				virtualizer.measureElement(element);
+			}
+		}
+	}, [measurementVersion, scrollContainerRef, virtualizer]);
 
 	useImperativeHandle(
 		virtualizerRef,
@@ -155,6 +185,7 @@ export function SessionContinuousTurnThread({
 							ref={virtualizer.measureElement}
 							className="absolute top-0 left-0 w-full"
 							data-index={index}
+							data-session-virtual-turn-index={index}
 							style={{ transform: `translateY(${virtualItem.start}px)` }}
 							onPointerUpCapture={(event) =>
 								scheduleMeasurement(event.currentTarget)

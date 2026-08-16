@@ -30,6 +30,10 @@ export type SessionContinuousTurnVirtualizerHandle = {
 	) => void;
 };
 
+export function measureSessionVirtualElement(element: HTMLElement) {
+	return element.offsetHeight;
+}
+
 export function estimateSessionTurnTableRowSize(input: {
 	beginsTurn: boolean;
 	hasEpisode: boolean;

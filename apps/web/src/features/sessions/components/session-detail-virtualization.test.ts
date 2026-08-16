@@ -4,6 +4,7 @@ import {
 	estimateSessionContinuousTurnSize,
 	estimateSessionTurnTableRowSize,
 	getSessionVirtualViewport,
+	measureSessionVirtualElement,
 } from "./session-detail-virtualization";
 import type { SessionTurnTableRow } from "./session-turn-table";
 
@@ -43,6 +44,21 @@ function createOption(
 }
 
 describe("session detail virtualization", () => {
+	it("remeasures the live element height instead of reusing a stale cached size", () => {
+		const element = document.createElement("div");
+		Object.defineProperty(element, "offsetHeight", {
+			configurable: true,
+			value: 240,
+		});
+		expect(measureSessionVirtualElement(element)).toBe(240);
+
+		Object.defineProperty(element, "offsetHeight", {
+			configurable: true,
+			value: 920,
+		});
+		expect(measureSessionVirtualElement(element)).toBe(920);
+	});
+
 	it("estimates larger thread rows from summary previews and activity", () => {
 		const compact = estimateSessionContinuousTurnSize(createOption());
 		const dense = estimateSessionContinuousTurnSize(
