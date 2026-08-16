@@ -1,9 +1,10 @@
 # Session Detail Payload API Proposal
 
 Status: approved architecture proposal with amendments. This document authorizes
-the guarded web cutover through rollout step 5. It does not authorize removing
-the rollout guard, a ClickHouse schema migration, or removal of the legacy
-procedure.
+the guarded web cutover through rollout step 5 and the bounded-memory step-6
+verification described below. The rollout guard may default on only after that
+verification passes. It does not authorize a ClickHouse schema migration or
+removal of the legacy procedure.
 
 ## Decision summary
 
@@ -296,6 +297,23 @@ coalesced requests, and eviction count. Record p50, p95, and p99 for overview an
 body requests on representative sessions. The rollout requires a measured and
 agreed p95; merely observing that the path is cached is not sufficient.
 
+The production API runs on a `shared-cpu-2x` Fly machine with 2 GB of memory;
+that `[[vm]]` pin is a deployment invariant and must survive branch
+reconciliation. For the request-time launch bridge, the agreed bounds are:
+
+- warm overview p95 at or below 500 ms;
+- cold overview p95 at or below 2.5 seconds;
+- a 256 MiB process-local derivation cache;
+- a 64 MiB maximum cache entry, with larger derivations served but not cached;
+- at most two concurrent cross-session derivations per API process.
+
+Before the guard defaults on, repeat the same 28-session authenticated sweep.
+The re-run must produce cache evictions, preserve a warm overview p95 at or
+below 500 ms on the selected working set, and leave OS-reported RSS at or below
+600 MiB after 30 seconds without session-detail traffic. RSS is measured from
+the operating system because per-derivation heap deltas are not peak-allocation
+measurements and are not assumed to be strictly additive.
+
 ## Target: ingest-time materialization
 
 The process-local cache is a launch bridge, not the steady-state storage model.
@@ -404,9 +422,10 @@ or edge layer as long as it is observable and tested end to end.
    session costs, token/tool/file/error/skill metrics, timeline activity, and
    selected content against the legacy response. The measured session's timeline
    must be exact; explicitly review any bucketed long-session case.
-6. Remove the guard only after the initial payload is at or below 250 KB for the
-   measured session and representative long/event-dense sessions, and after the
-   request-time path meets the agreed p95 and memory/cache bounds.
+6. Default the guard on only after the initial payload is at or below 250 KB for
+   the measured session and representative long/event-dense sessions, and after
+   the request-time path meets the explicit latency, cache, concurrency, and
+   quiescent-RSS gates above. Retain an explicit rollback override until step 8.
 7. Begin the ingest-time materialization migration and backfill as the immediate
    follow-up, using the launch path as a rollback until production parity holds.
 8. Remove `analytics.sessions.detail` only after no supported client consumes it
@@ -437,6 +456,10 @@ or edge layer as long as it is observable and tested end to end.
   current uploader-ID semantics of `organization_id`.
 - The request-time launch path has a byte-bounded cache and meets an agreed p95;
   each Fly machine is assumed to warm independently.
+- The 28-session step-6 re-run proves the 256 MiB cache evicts, the 64 MiB entry
+  guard rejects pathological entries, global derivation concurrency never
+  exceeds two, warm overview p95 remains at or below 500 ms, and quiescent OS
+  RSS remains at or below 600 MiB.
 - No new cost calculation is introduced.
 
 ## Resolved decisions and deferred work

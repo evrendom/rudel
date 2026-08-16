@@ -3,6 +3,14 @@ primary_region = "fra"
 
 [build]
 
+[env]
+  SESSION_DETAIL_DERIVATION_CACHE_MAX_BYTES = "268435456"
+  SESSION_DETAIL_DERIVATION_CACHE_MAX_ENTRY_BYTES = "67108864"
+
+[[vm]]
+  size = "shared-cpu-2x"
+  memory = "2gb"
+
 [deploy]
   release_command = "bun run --cwd apps/api backfill:session-ownership"
 

@@ -11,6 +11,12 @@ import {
 	createSessionDetailDerivationCache,
 	type SessionDetailDerivationCacheKey,
 } from "./session-detail-derivation-cache.js";
+import {
+	SESSION_DETAIL_DERIVATION_CACHE_DEFAULT_MAX_BYTES,
+	SESSION_DETAIL_DERIVATION_CACHE_DEFAULT_MAX_ENTRY_BYTES,
+	SESSION_DETAIL_DERIVATION_MAX_CONCURRENCY,
+} from "./session-detail-derivation-limits.js";
+import { createSessionDetailDerivationSemaphore } from "./session-detail-derivation-semaphore.js";
 import { createSessionDetailInstrumentation } from "./session-detail-instrumentation.js";
 import {
 	getSessionDetailCurrentRevision,
@@ -27,13 +33,16 @@ const instrumentation = createSessionDetailInstrumentation({
 const cache = createSessionDetailDerivationCache<SessionDetailDerivation>({
 	maxBytes: readPositiveSafeIntegerEnv(
 		"SESSION_DETAIL_DERIVATION_CACHE_MAX_BYTES",
-		512 * 1024 * 1024,
+		SESSION_DETAIL_DERIVATION_CACHE_DEFAULT_MAX_BYTES,
 	),
 	maxEntryBytes: readPositiveSafeIntegerEnv(
 		"SESSION_DETAIL_DERIVATION_CACHE_MAX_ENTRY_BYTES",
-		192 * 1024 * 1024,
+		SESSION_DETAIL_DERIVATION_CACHE_DEFAULT_MAX_ENTRY_BYTES,
 	),
 });
+const derivationSemaphore = createSessionDetailDerivationSemaphore(
+	SESSION_DETAIL_DERIVATION_MAX_CONCURRENCY,
+);
 
 export class SessionDetailStaleRevisionError extends Error {
 	constructor(
@@ -79,53 +88,55 @@ async function loadDerivation(
 	key: SessionDetailDerivationCacheKey,
 ): Promise<SessionDetailDerivation | null> {
 	try {
-		return await cache.getOrLoad(key, async () => {
-			const memoryBefore = process.memoryUsage();
-			const startedAt = performance.now();
-			const snapshot = await getSessionDetailRawSnapshot(
-				key.organizationId,
-				key.sessionId,
-				key.ownerId,
-			);
-			if (!snapshot) {
-				throw new SessionDetailSnapshotNotFoundError();
-			}
-			if (
-				snapshot.revision !== key.revision ||
-				snapshot.source !== key.source
-			) {
-				throw new SessionDetailStaleRevisionError(
-					key.revision,
-					snapshot.revision,
+		return await cache.getOrLoad(key, () =>
+			derivationSemaphore.run(async () => {
+				const memoryBefore = process.memoryUsage();
+				const startedAt = performance.now();
+				const snapshot = await getSessionDetailRawSnapshot(
+					key.organizationId,
+					key.sessionId,
+					key.ownerId,
 				);
-			}
-			const value = deriveSessionDetail(snapshot);
-			const durationMs = Math.round(performance.now() - startedAt);
-			const heapGrowthBytes =
-				process.memoryUsage().heapUsed - memoryBefore.heapUsed;
-			const rawBytes =
-				Buffer.byteLength(snapshot.content, "utf8") +
-				Object.values(snapshot.subagents).reduce(
-					(total, content) => total + Buffer.byteLength(content, "utf8"),
-					0,
-				);
-			instrumentation.recordDerivation({
-				cachedBytes: value.byteSize,
-				durationMs,
-				heapGrowthBytes,
-				rawBytes,
-			});
-			logger.info(
-				"Derived session detail snapshot in {durationMs}ms (rawBytes={rawBytes}, cachedBytes={cachedBytes}, heapGrowthBytes={heapGrowthBytes})",
-				{
+				if (!snapshot) {
+					throw new SessionDetailSnapshotNotFoundError();
+				}
+				if (
+					snapshot.revision !== key.revision ||
+					snapshot.source !== key.source
+				) {
+					throw new SessionDetailStaleRevisionError(
+						key.revision,
+						snapshot.revision,
+					);
+				}
+				const value = deriveSessionDetail(snapshot);
+				const durationMs = Math.round(performance.now() - startedAt);
+				const heapGrowthBytes =
+					process.memoryUsage().heapUsed - memoryBefore.heapUsed;
+				const rawBytes =
+					Buffer.byteLength(snapshot.content, "utf8") +
+					Object.values(snapshot.subagents).reduce(
+						(total, content) => total + Buffer.byteLength(content, "utf8"),
+						0,
+					);
+				instrumentation.recordDerivation({
 					cachedBytes: value.byteSize,
 					durationMs,
 					heapGrowthBytes,
 					rawBytes,
-				},
-			);
-			return { bytes: value.byteSize, value };
-		});
+				});
+				logger.info(
+					"Derived session detail snapshot in {durationMs}ms (rawBytes={rawBytes}, cachedBytes={cachedBytes}, heapGrowthBytes={heapGrowthBytes})",
+					{
+						cachedBytes: value.byteSize,
+						durationMs,
+						heapGrowthBytes,
+						rawBytes,
+					},
+				);
+				return { bytes: value.byteSize, value };
+			}),
+		);
 	} catch (error) {
 		if (error instanceof SessionDetailSnapshotNotFoundError) {
 			return null;
@@ -257,5 +268,6 @@ export function getSessionDetailInstrumentationStats() {
 			...cacheStats,
 			hitRate: cacheRequests === 0 ? null : cacheStats.hitCount / cacheRequests,
 		},
+		derivationConcurrency: derivationSemaphore.getStats(),
 	};
 }
