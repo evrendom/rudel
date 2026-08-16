@@ -388,11 +388,13 @@ window.
 - Subagent pending: show an inline expansion skeleton.
 - Subagent failure: keep the parent turn visible and show an inline retry action.
 - Selection changes: cancel obsolete in-flight turn requests.
-- Full-transcript escape hatch: a user-invoked **Load full transcript** action
-  fetches all remaining turn bodies on demand with bounded concurrency, visible
-  progress, cancellation, and per-turn retry. Once complete, the literal main
-  transcript is rendered so browser Cmd+F retains today's behavior. This action
-  must not eagerly load subagent transcripts or change the initial payload.
+- Transcript search: focusing the in-session search field fetches all remaining
+  turn bodies on demand with concurrency capped at three, visible progress,
+  cancellation, and per-turn retry. Results stream in as bodies arrive. Browser
+  Cmd+F/Ctrl+F is redirected to this field, and result selection jumps the
+  virtualized thread to the matching turn. This search-triggered fetch must not
+  eagerly load subagent transcripts or change the initial payload; there is no
+  separate **Load full transcript** control.
 - Contract drift: validate every response at its query boundary, retain safe
   fields where possible, and log field names without logging transcript content.
 
@@ -406,8 +408,10 @@ window.
   only when the first overview page returns a new revision.
 - Retain body queries for a bounded period, initially 10 minutes, rather than
   accumulating every transcript opened during a long browsing session.
-- Do not prefetch all turns or subagents. At most, prefetch an adjacent turn
-  after the selected turn settles and only when the browser is idle.
+- Do not prefetch all turns or subagents outside the explicit transcript-search
+  indexing flow. Viewport loading may include bounded overscan; any additional
+  adjacent prefetch happens only after the selected turn settles and while the
+  browser is idle.
 
 ## Transport compression
 
@@ -458,8 +462,10 @@ or edge layer as long as it is observable and tested end to end.
 - Initial payloads contain no main or subagent transcript strings.
 - First paint renders metadata and the first page of turn rows without fetching
   a body; later rows load without replacing already-rendered rows.
-- For normal-sized sessions, **Load full transcript** fetches and renders all
-  remaining main turn bodies so browser Cmd+F can search the literal transcript.
+- Focusing transcript search, including through Cmd+F/Ctrl+F, fetches all
+  remaining main turn bodies with concurrency capped at three; results stream as
+  bodies arrive and each hit can jump into an initially unloaded virtualized
+  region. No separate full-transcript button remains.
 - The current ledger and timeline remain functionally equivalent for ordinary
   sessions. Any activity bucketing for pathological turns is explicit in the
   response and UI review, and its token-component sums equal the true turn

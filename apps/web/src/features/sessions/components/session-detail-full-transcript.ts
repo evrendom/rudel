@@ -46,6 +46,7 @@ export async function loadSessionDetailTurnBodies(input: {
 	concurrency?: number;
 	loadTurn: (turn: TurnSummary) => Promise<SessionDetailTurn>;
 	onProgress: (progress: SessionDetailBodyLoadProgress) => void;
+	onTurnLoaded?: (turn: TurnSummary, body: SessionDetailTurn) => void;
 	signal: AbortSignal;
 	shouldStop?: (error: unknown) => boolean;
 	turns: readonly TurnSummary[];
@@ -72,6 +73,7 @@ export async function loadSessionDetailTurnBodies(input: {
 			try {
 				const body = await input.loadTurn(turn);
 				bodies.set(turn.turnId, body);
+				input.onTurnLoaded?.(turn, body);
 			} catch (error) {
 				input.signal.throwIfAborted();
 				if (input.shouldStop?.(error)) {

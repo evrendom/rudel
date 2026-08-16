@@ -9,16 +9,11 @@ import {
 	isSessionDetailStaleRevisionError,
 	SESSION_DETAIL_BODY_CACHE_TIME_MS,
 	SESSION_DETAIL_IMMUTABLE_STALE_TIME_MS,
-	sessionDetailBodyQueryPrefix,
 	sessionDetailOverviewPageQueryKey,
-	sessionDetailRevisionQueryPrefix,
 	sessionDetailTurnQueryKey,
 	shouldRetrySessionDetailFastQuery,
 } from "./session-detail-fast-query";
-import {
-	type FullTranscriptState,
-	SessionDetailFastResponsePane,
-} from "./session-detail-fast-response-pane";
+import { SessionDetailFastResponsePane } from "./session-detail-fast-response-pane";
 import {
 	loadRemainingSessionDetailOverviewPages,
 	loadSessionDetailTurnBodies,
@@ -28,6 +23,7 @@ import {
 	buildSessionDetailOverviewTurnOptions,
 	buildSessionDetailOverviewViewModel,
 } from "./session-detail-overview-model";
+import type { SessionDetailSearchLoadState } from "./session-detail-search";
 import type {
 	SessionContinuousTurnVirtualizerHandle,
 	SessionTurnTableVirtualizerHandle,
@@ -62,7 +58,7 @@ export function SessionDetailFastContent({
 		readonly SessionDetailOverview[]
 	>([]);
 	const [pageLoad, setPageLoad] = useState<PageLoadState>({ status: "idle" });
-	const [fullTranscript, setFullTranscript] = useState<FullTranscriptState>({
+	const [searchLoad, setSearchLoad] = useState<SessionDetailSearchLoadState>({
 		status: "idle",
 	});
 	const [selection, setSelection] = useState<SessionTurnSelection>(() => ({
@@ -74,7 +70,7 @@ export function SessionDetailFastContent({
 		),
 		speaker: "model",
 	}));
-	const fullTranscriptControllerRef = useRef<AbortController | undefined>(
+	const searchLoadControllerRef = useRef<AbortController | undefined>(
 		undefined,
 	);
 	const turnTableSectionRef = useRef<HTMLElement>(null);
@@ -110,7 +106,7 @@ export function SessionDetailFastContent({
 	);
 
 	useMountEffect(() => () => {
-		fullTranscriptControllerRef.current?.abort();
+		searchLoadControllerRef.current?.abort();
 	});
 
 	function handleSelection(nextSelection: SessionTurnSelection) {
@@ -180,11 +176,15 @@ export function SessionDetailFastContent({
 		}
 	}
 
-	async function handleLoadFullTranscript() {
+	async function loadSearchIndex() {
 		const controller = new AbortController();
-		fullTranscriptControllerRef.current?.abort();
-		fullTranscriptControllerRef.current = controller;
-		setFullTranscript({
+		searchLoadControllerRef.current?.abort();
+		searchLoadControllerRef.current = controller;
+		const streamedBodies = new Map(
+			"bodies" in searchLoad ? searchLoad.bodies : [],
+		);
+		setSearchLoad({
+			bodies: streamedBodies,
 			completed: 0,
 			phase: "pages",
 			status: "loading",
@@ -200,13 +200,15 @@ export function SessionDetailFastContent({
 			const allPages = [...pages, ...remainingPages];
 			setAdditionalPages(allPages.slice(1));
 			const allTurns = allPages.flatMap((page) => page.turnPage.items);
-			setFullTranscript({
+			setSearchLoad({
+				bodies: streamedBodies,
 				completed: 0,
 				phase: "turns",
 				status: "loading",
 				total: allTurns.filter((turn) => turn.hasBody).length,
 			});
 			const result = await loadSessionDetailTurnBodies({
+				concurrency: 3,
 				loadTurn: (turn) =>
 					loadTurnWithCache({
 						controller,
@@ -217,7 +219,8 @@ export function SessionDetailFastContent({
 					}),
 				onProgress: ({ completed, total }) => {
 					if (!controller.signal.aborted) {
-						setFullTranscript({
+						setSearchLoad({
+							bodies: new Map(streamedBodies),
 							completed,
 							phase: "turns",
 							status: "loading",
@@ -225,18 +228,28 @@ export function SessionDetailFastContent({
 						});
 					}
 				},
+				onTurnLoaded: (turn, body) => {
+					if (!controller.signal.aborted) {
+						streamedBodies.set(turn.turnId, body);
+						setSearchLoad((current) =>
+							current.status === "loading"
+								? { ...current, bodies: new Map(streamedBodies) }
+								: current,
+						);
+					}
+				},
 				signal: controller.signal,
 				shouldStop: isSessionDetailStaleRevisionError,
 				turns: allTurns,
 			});
 			if (result.failures.size > 0) {
-				setFullTranscript({
+				setSearchLoad({
 					bodies: result.bodies,
 					failedTurnIds: [...result.failures.keys()],
 					status: "failed",
 				});
 			} else {
-				setFullTranscript({ bodies: result.bodies, status: "complete" });
+				setSearchLoad({ bodies: result.bodies, status: "complete" });
 			}
 		} catch (error) {
 			if (controller.signal.aborted) {
@@ -246,42 +259,38 @@ export function SessionDetailFastContent({
 				handleStaleRevision(error);
 				return;
 			}
-			setFullTranscript({
-				bodies: new Map(),
+			setSearchLoad({
+				bodies: streamedBodies,
 				failedTurnIds: [],
 				status: "failed",
 			});
 		} finally {
-			if (fullTranscriptControllerRef.current === controller) {
-				fullTranscriptControllerRef.current = undefined;
+			if (searchLoadControllerRef.current === controller) {
+				searchLoadControllerRef.current = undefined;
 			}
 		}
 	}
 
-	function handleCancelFullTranscript() {
-		const state = fullTranscript;
-		fullTranscriptControllerRef.current?.abort(
-			new DOMException("Full transcript loading was cancelled.", "AbortError"),
+	function handleSearchFocus() {
+		if (searchLoad.status === "loading" || searchLoad.status === "complete") {
+			return;
+		}
+		void loadSearchIndex();
+	}
+
+	function handleCancelSearchLoad() {
+		searchLoadControllerRef.current?.abort(
+			new DOMException("Transcript indexing was cancelled.", "AbortError"),
 		);
-		void Promise.all([
-			queryClient.cancelQueries({
-				queryKey: sessionDetailBodyQueryPrefix(firstOverview.session.sessionId),
-			}),
-			queryClient.cancelQueries({
-				queryKey: sessionDetailRevisionQueryPrefix(
-					firstOverview.session.sessionId,
-					firstOverview.revision,
-				),
-			}),
-		]);
-		setFullTranscript(
-			state.status === "loading"
+		setSearchLoad((current) =>
+			current.status === "loading"
 				? {
-						completed: state.completed,
+						bodies: current.bodies,
+						completed: current.completed,
 						status: "cancelled",
-						total: state.total,
+						total: current.total,
 					}
-				: { completed: 0, status: "cancelled", total: 0 },
+				: current,
 		);
 	}
 
@@ -302,8 +311,7 @@ export function SessionDetailFastContent({
 					responsePane={({ onContinuousTurnViewportChange }) => (
 						<SessionDetailFastResponsePane
 							bottomPaddingClassName={columnBottomPaddingClassName}
-							fullTranscript={fullTranscript}
-							onCancelFullTranscript={handleCancelFullTranscript}
+							onCancelSearchLoad={handleCancelSearchLoad}
 							onContinuousTurnFocus={handleContinuousTurnFocus}
 							onContinuousTurnViewportChange={(activeIndex, visibleRange) => {
 								onContinuousTurnViewportChange(activeIndex, visibleRange);
@@ -311,13 +319,15 @@ export function SessionDetailFastContent({
 									void handleLoadNextPage();
 								}
 							}}
-							onLoadFullTranscript={() => {
-								void handleLoadFullTranscript();
-							}}
+							onSearchFocus={handleSearchFocus}
+							onSearchHit={(index) =>
+								handleSelection({ index, speaker: "model" })
+							}
 							onStaleRevision={handleStaleRevision}
 							options={options}
 							responseScrollRef={responseScrollRef}
 							revision={firstOverview.revision}
+							searchLoad={searchLoad}
 							selection={selection}
 							sessionId={firstOverview.session.sessionId}
 							subagents={firstOverview.subagents}

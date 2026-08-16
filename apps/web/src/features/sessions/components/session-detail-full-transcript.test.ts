@@ -72,6 +72,7 @@ describe("full session transcript loading", () => {
 		let active = 0;
 		let maximumActive = 0;
 		const progress: string[] = [];
+		const streamedTurnIds: string[] = [];
 		const result = await loadSessionDetailTurnBodies({
 			concurrency: 3,
 			loadTurn: async (turn) => {
@@ -87,6 +88,7 @@ describe("full session transcript loading", () => {
 			onProgress: ({ completed, total }) => {
 				progress.push(`${completed}/${total}`);
 			},
+			onTurnLoaded: (turn) => streamedTurnIds.push(turn.turnId),
 			signal: new AbortController().signal,
 			turns: Array.from({ length: 8 }, (_, index) => turnSummary(index)),
 		});
@@ -95,6 +97,8 @@ describe("full session transcript loading", () => {
 		expect(result.bodies).toHaveLength(7);
 		expect(result.failures.has("turn-4")).toBe(true);
 		expect(progress.at(-1)).toBe("8/8");
+		expect(streamedTurnIds).toHaveLength(7);
+		expect(streamedTurnIds).not.toContain("turn-4");
 	});
 
 	it("fails loudly when pagination repeats a revision-bound cursor", async () => {

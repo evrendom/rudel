@@ -32,6 +32,8 @@ import {
 	attachSessionDetailTurnBody,
 	type SessionDetailOverviewTurnOption,
 } from "./session-detail-overview-model";
+import type { SessionDetailSearchLoadState } from "./session-detail-search";
+import { SessionDetailSearchControl } from "./session-detail-search-control";
 import type { SessionContinuousTurnVirtualizerHandle } from "./session-detail-virtualization";
 import type { SessionTurnSelection } from "./session-turn-table-selection";
 
@@ -40,36 +42,18 @@ type SessionDetailOverviewViewModel = ReturnType<
 >;
 type SubagentSummary = SessionDetailOverview["subagents"][number];
 
-export type FullTranscriptState =
-	| { status: "idle" }
-	| {
-			completed: number;
-			phase: "pages" | "turns";
-			status: "loading";
-			total: number;
-	  }
-	| {
-			bodies: ReadonlyMap<string, SessionDetailTurn>;
-			failedTurnIds: readonly string[];
-			status: "failed";
-	  }
-	| {
-			bodies: ReadonlyMap<string, SessionDetailTurn>;
-			status: "complete";
-	  }
-	| { completed: number; status: "cancelled"; total: number };
-
 export function SessionDetailFastResponsePane({
 	bottomPaddingClassName,
-	fullTranscript,
-	onCancelFullTranscript,
+	onCancelSearchLoad,
 	onContinuousTurnFocus,
 	onContinuousTurnViewportChange,
-	onLoadFullTranscript,
+	onSearchFocus,
+	onSearchHit,
 	onStaleRevision,
 	options,
 	responseScrollRef,
 	revision,
+	searchLoad,
 	selection,
 	sessionId,
 	subagents,
@@ -78,18 +62,19 @@ export function SessionDetailFastResponsePane({
 	virtualizerRef,
 }: {
 	bottomPaddingClassName: string;
-	fullTranscript: FullTranscriptState;
-	onCancelFullTranscript: () => void;
+	onCancelSearchLoad: () => void;
 	onContinuousTurnFocus: (index: number) => void;
 	onContinuousTurnViewportChange: (
 		activeIndex: number,
 		visibleRange: readonly [number, number],
 	) => void;
-	onLoadFullTranscript: () => void;
+	onSearchFocus: () => void;
+	onSearchHit: (index: number) => void;
 	onStaleRevision: (error: unknown) => void;
 	options: readonly SessionDetailOverviewTurnOption[];
 	responseScrollRef: RefObject<HTMLDivElement | null>;
 	revision: string;
+	searchLoad: SessionDetailSearchLoadState;
 	selection: SessionTurnSelection;
 	sessionId: string;
 	subagents: readonly SubagentSummary[];
@@ -108,14 +93,11 @@ export function SessionDetailFastResponsePane({
 	const renderedTurnIdsRef = useRef<ReadonlySet<string>>(new Set());
 	const detailLevel = resolveSessionDetailLevel(searchParams.get("level"));
 	const effectiveTurnBodies = useMemo(() => {
-		if (
-			fullTranscript.status !== "complete" &&
-			fullTranscript.status !== "failed"
-		) {
+		if (!("bodies" in searchLoad)) {
 			return turnBodies;
 		}
-		return mergeSessionDetailTurnBodies(turnBodies, fullTranscript.bodies);
-	}, [fullTranscript, turnBodies]);
+		return mergeSessionDetailTurnBodies(turnBodies, searchLoad.bodies);
+	}, [searchLoad, turnBodies]);
 	const loadedOptions = useMemo(
 		() =>
 			options.map((option) => {
@@ -188,7 +170,7 @@ export function SessionDetailFastResponsePane({
 			);
 			const previousTurnIds = renderedTurnIdsRef.current;
 			renderedTurnIdsRef.current = nextTurnIds;
-			if (fullTranscript.status !== "loading") {
+			if (searchLoad.status !== "loading") {
 				for (const turnId of previousTurnIds) {
 					if (!nextTurnIds.has(turnId)) {
 						void queryClient.cancelQueries({
@@ -207,11 +189,11 @@ export function SessionDetailFastResponsePane({
 			}
 		},
 		[
-			fullTranscript.status,
 			loadTurnBody,
 			options,
 			queryClient,
 			revision,
+			searchLoad.status,
 			sessionId,
 		],
 	);
@@ -245,10 +227,13 @@ export function SessionDetailFastResponsePane({
 					onChange={handleDetailLevelChange}
 					value={detailLevel}
 				/>
-				<FullTranscriptControl
-					onCancel={onCancelFullTranscript}
-					onLoad={onLoadFullTranscript}
-					state={fullTranscript}
+				<SessionDetailSearchControl
+					bodies={effectiveTurnBodies}
+					loadState={searchLoad}
+					onCancel={onCancelSearchLoad}
+					onFocus={onSearchFocus}
+					onSelectResult={onSearchHit}
+					options={options}
 				/>
 			</header>
 			<section
@@ -403,59 +388,6 @@ function SessionDetailSubagentDisclosure({
 				) : null}
 			</div>
 		</details>
-	);
-}
-
-function FullTranscriptControl({
-	onCancel,
-	onLoad,
-	state,
-}: {
-	onCancel: () => void;
-	onLoad: () => void;
-	state: FullTranscriptState;
-}) {
-	if (state.status === "complete") {
-		return (
-			<output className="ml-auto text-xs text-(--session-overview-muted)">
-				Full transcript loaded
-			</output>
-		);
-	}
-	if (state.status === "loading") {
-		const label =
-			state.phase === "pages"
-				? "Loading turn index…"
-				: `Loading transcript ${state.completed.toLocaleString()}/${state.total.toLocaleString()}`;
-		return (
-			<div className="ml-auto flex items-center gap-2">
-				<output className="text-xs text-(--session-overview-muted)">
-					{label}
-				</output>
-				<Button onClick={onCancel} size="sm" type="button" variant="ghost">
-					Cancel
-				</Button>
-			</div>
-		);
-	}
-	const label =
-		state.status === "failed"
-			? state.failedTurnIds.length > 0
-				? `Retry ${state.failedTurnIds.length.toLocaleString()} failed turns`
-				: "Retry full transcript"
-			: state.status === "cancelled"
-				? `Resume transcript (${state.completed.toLocaleString()}/${state.total.toLocaleString()})`
-				: "Load full transcript";
-	return (
-		<Button
-			className="ml-auto"
-			onClick={onLoad}
-			size="sm"
-			type="button"
-			variant="outline"
-		>
-			{label}
-		</Button>
 	);
 }
 
