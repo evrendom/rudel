@@ -212,7 +212,7 @@ export function WrappedTeamCardPage(props: {
 	};
 	const headerLeftMetric = useMemo<WrappedTeamMemberCardHeaderMetric>(
 		() => ({
-			title: `${estimatedSpendValue} estimated spend`,
+			title: `${estimatedSpendValue} estimated API-rate cost`,
 			value: estimatedSpendValue,
 		}),
 		[estimatedSpendValue],

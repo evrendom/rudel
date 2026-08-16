@@ -129,6 +129,7 @@ describe("uploadSession against an old-API ingest stub", () => {
 		readonly name: string;
 		readonly respond: (info: IngestStubRespondInfo) => Response;
 		readonly expectedErrorSubstring: string;
+		readonly expectedRetryable: boolean;
 	}
 
 	const DEGRADED_RESPONSE_CASES: readonly DegradedResponseCase[] = [
@@ -141,22 +142,44 @@ describe("uploadSession against an old-API ingest stub", () => {
 				}),
 			expectedErrorSubstring:
 				"unrecognized response instead of an ingest confirmation",
+			expectedRetryable: false,
 		},
 		{
 			name: "200 with non-oRPC JSON",
 			respond: () => Response.json({ ok: true }),
 			expectedErrorSubstring:
 				"unrecognized response instead of an ingest confirmation",
+			expectedRetryable: false,
+		},
+		{
+			name: "401 with a plain-text body",
+			respond: () => new Response("unauthorized", { status: 401 }),
+			expectedErrorSubstring: "401 Unauthorized",
+			expectedRetryable: false,
+		},
+		{
+			name: "403 with a plain-text body",
+			respond: () => new Response("forbidden", { status: 403 }),
+			expectedErrorSubstring: "403 Forbidden",
+			expectedRetryable: false,
 		},
 		{
 			name: "404 with a plain-text body",
 			respond: () => new Response("not found", { status: 404 }),
 			expectedErrorSubstring: "404 Not Found",
+			expectedRetryable: false,
+		},
+		{
+			name: "413 with a plain-text body",
+			respond: () => new Response("too large", { status: 413 }),
+			expectedErrorSubstring: "413 Payload Too Large",
+			expectedRetryable: false,
 		},
 		{
 			name: "422 with an unknown JSON shape",
 			respond: () => Response.json({ weird: true }, { status: 422 }),
 			expectedErrorSubstring: "422 Unprocessable Content",
+			expectedRetryable: false,
 		},
 		{
 			name: "500 with an HTML body",
@@ -166,6 +189,7 @@ describe("uploadSession against an old-API ingest stub", () => {
 					headers: { "content-type": "text/html" },
 				}),
 			expectedErrorSubstring: "500 Internal Server Error",
+			expectedRetryable: true,
 		},
 	];
 
@@ -179,12 +203,12 @@ describe("uploadSession against an old-API ingest stub", () => {
 				stubUploadConfig(stub),
 			);
 
-			// 200-but-unrecognized and 404/422/500 are all non-retryable
-			// (RETRYABLE_STATUS_CODES is {502, 503, 504}): exactly one attempt,
-			// a formatted error, and no throw.
+			// Deterministic responses remain permanent. A generic 500 is retained
+			// for a later retry even though only 502/503/504 retry inline.
 			expect(result).toMatchObject({
 				success: false,
 				attempts: 1,
+				retryable: degradedCase.expectedRetryable,
 			});
 			expect(result.error).toContain(degradedCase.expectedErrorSubstring);
 			expect(stub.requests).toHaveLength(1);

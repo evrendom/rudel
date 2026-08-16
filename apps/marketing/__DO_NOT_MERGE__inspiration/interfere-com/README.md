@@ -21,7 +21,7 @@ product code and must be removed before merging to `main`.
 The receiver immediately writes the capture to:
 
 ```text
-/Users/evrendombak/conductor/workspaces/rudel-v2/podgorica/apps/marketing/__DO_NOT_MERGE__inspiration/interfere-com/interfere-engineers.capture.html
+/Users/example/conductor/workspaces/rudel-v2/podgorica/apps/marketing/__DO_NOT_MERGE__inspiration/interfere-com/interfere-engineers.capture.html
 ```
 
 Browsers do not allow website JavaScript to write to an arbitrary absolute

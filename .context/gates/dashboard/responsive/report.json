@@ -224,11 +224,11 @@
         }
       },
       "artifacts": {
-        "reference": "/Users/evrendombak/conductor/workspaces/rudel-v2/podgorica/.context/gates/dashboard/responsive/tablet-data-reference.png",
-        "referenceControl": "/Users/evrendombak/conductor/workspaces/rudel-v2/podgorica/.context/gates/dashboard/responsive/tablet-data-reference-control.png",
-        "extracted": "/Users/evrendombak/conductor/workspaces/rudel-v2/podgorica/.context/gates/dashboard/responsive/tablet-data-extracted.png",
-        "naturalized": "/Users/evrendombak/conductor/workspaces/rudel-v2/podgorica/.context/gates/dashboard/responsive/tablet-data-naturalized.png",
-        "animationMask": "/Users/evrendombak/conductor/workspaces/rudel-v2/podgorica/.context/gates/dashboard/responsive/tablet-data-reference-animation-mask.png"
+        "reference": "/Users/example/conductor/workspaces/rudel-v2/podgorica/.context/gates/dashboard/responsive/tablet-data-reference.png",
+        "referenceControl": "/Users/example/conductor/workspaces/rudel-v2/podgorica/.context/gates/dashboard/responsive/tablet-data-reference-control.png",
+        "extracted": "/Users/example/conductor/workspaces/rudel-v2/podgorica/.context/gates/dashboard/responsive/tablet-data-extracted.png",
+        "naturalized": "/Users/example/conductor/workspaces/rudel-v2/podgorica/.context/gates/dashboard/responsive/tablet-data-naturalized.png",
+        "animationMask": "/Users/example/conductor/workspaces/rudel-v2/podgorica/.context/gates/dashboard/responsive/tablet-data-reference-animation-mask.png"
       }
     },
     {
@@ -381,11 +381,11 @@
         }
       },
       "artifacts": {
-        "reference": "/Users/evrendombak/conductor/workspaces/rudel-v2/podgorica/.context/gates/dashboard/responsive/tablet-reporting-reference.png",
-        "referenceControl": "/Users/evrendombak/conductor/workspaces/rudel-v2/podgorica/.context/gates/dashboard/responsive/tablet-reporting-reference-control.png",
-        "extracted": "/Users/evrendombak/conductor/workspaces/rudel-v2/podgorica/.context/gates/dashboard/responsive/tablet-reporting-extracted.png",
-        "naturalized": "/Users/evrendombak/conductor/workspaces/rudel-v2/podgorica/.context/gates/dashboard/responsive/tablet-reporting-naturalized.png",
-        "animationMask": "/Users/evrendombak/conductor/workspaces/rudel-v2/podgorica/.context/gates/dashboard/responsive/tablet-reporting-reference-animation-mask.png"
+        "reference": "/Users/example/conductor/workspaces/rudel-v2/podgorica/.context/gates/dashboard/responsive/tablet-reporting-reference.png",
+        "referenceControl": "/Users/example/conductor/workspaces/rudel-v2/podgorica/.context/gates/dashboard/responsive/tablet-reporting-reference-control.png",
+        "extracted": "/Users/example/conductor/workspaces/rudel-v2/podgorica/.context/gates/dashboard/responsive/tablet-reporting-extracted.png",
+        "naturalized": "/Users/example/conductor/workspaces/rudel-v2/podgorica/.context/gates/dashboard/responsive/tablet-reporting-naturalized.png",
+        "animationMask": "/Users/example/conductor/workspaces/rudel-v2/podgorica/.context/gates/dashboard/responsive/tablet-reporting-reference-animation-mask.png"
       }
     },
     {
@@ -585,11 +585,11 @@
         }
       },
       "artifacts": {
-        "reference": "/Users/evrendombak/conductor/workspaces/rudel-v2/podgorica/.context/gates/dashboard/responsive/wide-data-reference.png",
-        "referenceControl": "/Users/evrendombak/conductor/workspaces/rudel-v2/podgorica/.context/gates/dashboard/responsive/wide-data-reference-control.png",
-        "extracted": "/Users/evrendombak/conductor/workspaces/rudel-v2/podgorica/.context/gates/dashboard/responsive/wide-data-extracted.png",
-        "naturalized": "/Users/evrendombak/conductor/workspaces/rudel-v2/podgorica/.context/gates/dashboard/responsive/wide-data-naturalized.png",
-        "animationMask": "/Users/evrendombak/conductor/workspaces/rudel-v2/podgorica/.context/gates/dashboard/responsive/wide-data-reference-animation-mask.png"
+        "reference": "/Users/example/conductor/workspaces/rudel-v2/podgorica/.context/gates/dashboard/responsive/wide-data-reference.png",
+        "referenceControl": "/Users/example/conductor/workspaces/rudel-v2/podgorica/.context/gates/dashboard/responsive/wide-data-reference-control.png",
+        "extracted": "/Users/example/conductor/workspaces/rudel-v2/podgorica/.context/gates/dashboard/responsive/wide-data-extracted.png",
+        "naturalized": "/Users/example/conductor/workspaces/rudel-v2/podgorica/.context/gates/dashboard/responsive/wide-data-naturalized.png",
+        "animationMask": "/Users/example/conductor/workspaces/rudel-v2/podgorica/.context/gates/dashboard/responsive/wide-data-reference-animation-mask.png"
       }
     },
     {
@@ -742,11 +742,11 @@
         }
       },
       "artifacts": {
-        "reference": "/Users/evrendombak/conductor/workspaces/rudel-v2/podgorica/.context/gates/dashboard/responsive/wide-reporting-reference.png",
-        "referenceControl": "/Users/evrendombak/conductor/workspaces/rudel-v2/podgorica/.context/gates/dashboard/responsive/wide-reporting-reference-control.png",
-        "extracted": "/Users/evrendombak/conductor/workspaces/rudel-v2/podgorica/.context/gates/dashboard/responsive/wide-reporting-extracted.png",
-        "naturalized": "/Users/evrendombak/conductor/workspaces/rudel-v2/podgorica/.context/gates/dashboard/responsive/wide-reporting-naturalized.png",
-        "animationMask": "/Users/evrendombak/conductor/workspaces/rudel-v2/podgorica/.context/gates/dashboard/responsive/wide-reporting-reference-animation-mask.png"
+        "reference": "/Users/example/conductor/workspaces/rudel-v2/podgorica/.context/gates/dashboard/responsive/wide-reporting-reference.png",
+        "referenceControl": "/Users/example/conductor/workspaces/rudel-v2/podgorica/.context/gates/dashboard/responsive/wide-reporting-reference-control.png",
+        "extracted": "/Users/example/conductor/workspaces/rudel-v2/podgorica/.context/gates/dashboard/responsive/wide-reporting-extracted.png",
+        "naturalized": "/Users/example/conductor/workspaces/rudel-v2/podgorica/.context/gates/dashboard/responsive/wide-reporting-naturalized.png",
+        "animationMask": "/Users/example/conductor/workspaces/rudel-v2/podgorica/.context/gates/dashboard/responsive/wide-reporting-reference-animation-mask.png"
       }
     }
   ]

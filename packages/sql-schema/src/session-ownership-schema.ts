@@ -1,5 +1,7 @@
 import {
+	bigint,
 	index,
+	integer,
 	pgTable,
 	primaryKey,
 	text,
@@ -18,7 +20,34 @@ export const sessionOwnership = pgTable(
 			.notNull()
 			.references(() => user.id, { onDelete: "cascade" }),
 		lastContentSha256: text("last_content_sha256"),
+		lastContentBytes: integer("last_content_bytes"),
+		lastAssistantLineCount: integer("last_assistant_line_count"),
+		lastContentShapeJson: text("last_content_shape_json"),
+		lastFilterVersion: integer("last_filter_version"),
+		lastSessionDate: timestamp("last_session_date", {
+			withTimezone: true,
+			mode: "date",
+		}),
 		lastIngestedAt: timestamp("last_ingested_at", {
+			withTimezone: true,
+			mode: "date",
+		}),
+		usageExtractionGeneration: bigint("usage_extraction_generation", {
+			mode: "number",
+		})
+			.default(0)
+			.notNull(),
+		lastUsageContentSha256: text("last_usage_content_sha256"),
+		lastUsageExtractionVersion: integer("last_usage_extraction_version"),
+		lastUsageEventIdentityVersion: integer("last_usage_event_identity_version"),
+		lastUsageModelRateCardVersion: text("last_usage_model_rate_card_version"),
+		lastUsageEventCount: integer("last_usage_event_count"),
+		lastUsageChecksum: text("last_usage_checksum"),
+		lastUsageDiagnosticsJson: text("last_usage_diagnostics_json"),
+		lastUsageCompletedGeneration: bigint("last_usage_completed_generation", {
+			mode: "number",
+		}),
+		lastUsageCompletedAt: timestamp("last_usage_completed_at", {
 			withTimezone: true,
 			mode: "date",
 		}),

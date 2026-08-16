@@ -8,7 +8,6 @@
 			"Bash(bun test:*)",
 			"Bash(where:*)",
 			"Bash(npm root:*)",
-			"Bash(chcli:*)",
 			"Bash(sqlite3:*)"
 		],
 		"deny": ["Read(./.entire/metadata/**)"]

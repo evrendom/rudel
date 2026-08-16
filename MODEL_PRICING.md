@@ -53,7 +53,7 @@ Request-level callers price each token class from the event model, UTC usage dat
 
 | Model | Effective period | Input / MTok | Cache read / MTok | Cache write 5m / 1h | Output / MTok | Verified | Notes |
 | --- | --- | ---: | ---: | ---: | ---: | --- | --- |
-| [Fable 5](https://platform.claude.com/docs/en/about-claude/pricing) | 2026-06-09 → current | $10 | $1 | $12.5 / $20 | $50 | 2026-08-02 | The full 1M context window is billed at the base rate. |
+| [Claude Fable 5](https://platform.claude.com/docs/en/about-claude/pricing) | 2026-06-09 → current | $10 | $1 | $12.5 / $20 | $50 | 2026-08-02 | The full 1M context window is billed at the base rate. |
 | [Claude Mythos 5](https://platform.claude.com/docs/en/about-claude/pricing) | 2026-06-09 → current | $10 | $1 | $12.5 / $20 | $50 | 2026-08-02 | Limited availability; the full 1M context uses the base rate. |
 | [Claude Opus 5](https://platform.claude.com/docs/en/about-claude/pricing) | 2026-07-24 → current | $5 | $0.5 | $6.25 / $10 | $25 | 2026-08-02 | The full 1M context window is billed at the base rate. |
 | [Claude Opus 4.8](https://platform.claude.com/docs/en/about-claude/pricing) | 2026-05-28 → current | $5 | $0.5 | $6.25 / $10 | $25 | 2026-08-02 | The full 1M context window is billed at the base rate. |

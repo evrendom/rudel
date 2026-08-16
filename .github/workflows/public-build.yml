@@ -1,0 +1,132 @@
+name: Public Build
+
+on:
+  schedule:
+    - cron: "17 4 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: public-build-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  fresh-clone:
+    name: Fresh clone without npm auth
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Clone the public repository without credentials
+        shell: bash
+        env:
+          REPOSITORY_URL: https://github.com/${{ github.repository }}.git
+          REVISION: ${{ github.sha }}
+        run: |
+          workspace_entry="$(
+            find "${GITHUB_WORKSPACE}" -mindepth 1 -maxdepth 1 -print -quit
+          )"
+          if [[ -n "${workspace_entry}" ]]; then
+            echo "::error::Expected an empty workspace before the public clone."
+            exit 1
+          fi
+
+          GIT_TERMINAL_PROMPT=0 git -c credential.helper= clone \
+            --filter=blob:none \
+            "${REPOSITORY_URL}" \
+            "${GITHUB_WORKSPACE}"
+          git -C "${GITHUB_WORKSPACE}" checkout --detach "${REVISION}"
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+
+      - name: Assert the clone has no registry or auth configuration
+        shell: bash
+        env:
+          CLEAN_HOME: ${{ runner.temp }}/rudel-public-build-home
+        run: |
+          mkdir -p "${CLEAN_HOME}/.config"
+
+          npmrc_override=""
+          while IFS= read -r -d '' npmrc_path; do
+            if grep --extended-regexp --ignore-case --quiet \
+              '((^|:)registry[[:space:]]*=|(_authToken|_auth|_password|username|password)[[:space:]]*=)' \
+              "${npmrc_path}"
+            then
+              npmrc_override="${npmrc_path}"
+              break
+            fi
+          done < <(
+            find "${GITHUB_WORKSPACE}" \
+              -path "${GITHUB_WORKSPACE}/.git" -prune -o \
+              -name .npmrc -type f -print0
+          )
+          if [[ -n "${npmrc_override}" ]]; then
+            echo "::error file=${npmrc_override#"${GITHUB_WORKSPACE}/"}::The public build must not configure npm credentials or registry overrides."
+            exit 1
+          fi
+
+          bun_config="${GITHUB_WORKSPACE}/bunfig.toml"
+          if [[ -f "${bun_config}" ]] &&
+            grep --extended-regexp --ignore-case --quiet \
+              '(install\.(registry|scopes)|^[[:space:]]*\[install\.scopes\]|(^|[.[:space:]])(registry|scopes|token|username|password)[[:space:]]*=)' \
+              "${bun_config}"
+          then
+            echo "::error file=bunfig.toml::The public build must not configure registry credentials or overrides."
+            exit 1
+          fi
+
+      - name: Install dependencies without npm auth
+        shell: bash
+        env:
+          CLEAN_HOME: ${{ runner.temp }}/rudel-public-build-home
+        run: |
+          set -o pipefail
+
+          unset \
+            BUN_AUTH_TOKEN \
+            BUN_CONFIG_REGISTRY \
+            BUN_CONFIG_TOKEN \
+            NODE_AUTH_TOKEN \
+            NPM_TOKEN \
+            NPM_CONFIG_AUTH \
+            NPM_CONFIG_AUTH_TOKEN \
+            NPM_CONFIG_TOKEN \
+            NPM_CONFIG_REGISTRY \
+            NPM_CONFIG_USERCONFIG \
+            NPM_CONFIG__AUTH \
+            NPM_CONFIG__AUTH_TOKEN \
+            npm_config_auth \
+            npm_config_auth_token \
+            npm_config_registry \
+            npm_config_token \
+            npm_config_userconfig \
+            npm_config__auth \
+            npm_config__auth_token
+          export HOME="${CLEAN_HOME}"
+          export XDG_CONFIG_HOME="${CLEAN_HOME}/.config"
+
+          install_log="${RUNNER_TEMP}/bun-install.log"
+          if bun install --frozen-lockfile 2>&1 | tee "${install_log}"; then
+            exit 0
+          fi
+
+          echo "::error title=Public dependency resolution failed::A fresh clone could not install from the public npm registry without credentials."
+          echo "Package fetch failures reported by Bun:"
+          if ! grep --extended-regexp --ignore-case \
+            '(^error:|GET https?://|package.*(not found|failed)|no version matching|failed to resolve|404)' \
+            "${install_log}"
+          then
+            tail --lines=100 "${install_log}"
+          fi
+          exit 1
+
+      - name: Build the fresh clone
+        shell: bash
+        env:
+          CLEAN_HOME: ${{ runner.temp }}/rudel-public-build-home
+        run: |
+          export HOME="${CLEAN_HOME}"
+          export XDG_CONFIG_HOME="${CLEAN_HOME}/.config"
+          bun run build

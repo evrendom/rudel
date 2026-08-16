@@ -69,8 +69,8 @@ afterAll(async () => {
 });
 
 // Minimal-but-realistic Claude Code transcript. The Claude analytics MV only
-// emits a row when the content yields parseable timestamps on user/assistant
-// lines (`WHERE length(_timestamps) > 0`), so all three lines carry them.
+// emits an uncapped row when the content yields parseable timestamps on
+// user/assistant lines, so all three lines carry them.
 const CLAUDE_MV_CONTENT = [
 	JSON.stringify({
 		type: "user",
@@ -124,7 +124,6 @@ function buildClaudeRow(
 		git_remote: "github.com/testorg/testproject",
 		package_name: "myapp",
 		package_type: "package.json",
-		upload_mode: "hook",
 		content: CLAUDE_MV_CONTENT,
 		filter_version: 0,
 		ingested_at: now,
@@ -151,7 +150,6 @@ function buildCodexRow(
 		git_remote: "github.com/testorg/testproject",
 		package_name: "myapp",
 		package_type: "package.json",
-		upload_mode: "hook",
 		content: "codex content placeholder",
 		filter_version: 0,
 		ingested_at: now,
@@ -177,10 +175,7 @@ function buildAnalyticsRow(
 		git_remote: "github.com/testorg/testproject",
 		package_name: "myapp",
 		package_type: "package.json",
-		upload_mode: "hook",
-		content: "analytics row inserted directly by the migration rehearsal",
 		filter_version: 0,
-		subagents: {},
 		skills: [],
 		slash_commands: [],
 		subagent_types: [],
@@ -203,6 +198,7 @@ function buildAnalyticsRow(
 		normal_responses: 1,
 		long_pauses: 0,
 		error_count: 0,
+		error_pattern: "",
 		model_used: "claude-fable-5",
 		has_commit: 0,
 		session_archetype: "standard",
@@ -476,8 +472,8 @@ describe("filter_version migration rehearsal", () => {
 		// Distinct session_date values put the two source rows on distinct
 		// sorting keys, so claude_sessions' ReplacingMergeTree can never
 		// background-collapse them: the single winner below can only come from
-		// the MV's own ROW_NUMBER() OVER (PARTITION BY session_id ORDER BY
-		// ingested_at DESC).
+		// the MV's own ROW_NUMBER() over the full session identity, ordered by
+		// ingested_at DESC.
 		await ingestRudelClaudeSessions(executor, [
 			buildClaudeRow(sessionId, {
 				session_date: "2026-07-21T08:00:00.000",

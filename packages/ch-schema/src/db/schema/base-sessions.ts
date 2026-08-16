@@ -17,7 +17,6 @@ export const baseSessionColumns: ColumnDefinition[] = [
 	{ name: "git_remote", type: "String", default: "''" },
 	{ name: "package_name", type: "String", default: "''" },
 	{ name: "package_type", type: "String", default: "''" },
-	{ name: "upload_mode", type: "LowCardinality(String)", default: "''" },
 	{ name: "content", type: "String" },
 	{ name: "filter_version", type: "UInt8", default: "fn:0" },
 	{

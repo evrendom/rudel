@@ -91,6 +91,25 @@ function getErrorMessage(error: unknown) {
 	return "We couldn't load the team cards for this workspace.";
 }
 
+const PRODUCTION_ERROR_MESSAGE =
+	"We couldn't load the team cards for this workspace. Try again, or contact support if the problem continues.";
+
+function getErrorRequestId(error: unknown) {
+	if (
+		typeof error !== "object" ||
+		error === null ||
+		!("data" in error) ||
+		typeof error.data !== "object" ||
+		error.data === null ||
+		!("requestId" in error.data) ||
+		typeof error.data.requestId !== "string"
+	) {
+		return null;
+	}
+
+	return error.data.requestId;
+}
+
 function getErrorDebugValue(error: unknown) {
 	if (error instanceof Error) {
 		return JSON.stringify(
@@ -124,8 +143,12 @@ function TeamPageError({
 	error: unknown;
 	onRetry: () => Promise<unknown>;
 }) {
-	const debugValue = getErrorDebugValue(error);
-	const message = getErrorMessage(error);
+	const isDevelopment = import.meta.env.DEV;
+	const debugValue = isDevelopment ? getErrorDebugValue(error) : null;
+	const message = isDevelopment
+		? getErrorMessage(error)
+		: PRODUCTION_ERROR_MESSAGE;
+	const requestId = getErrorRequestId(error);
 
 	return (
 		<Card
@@ -142,46 +165,56 @@ function TeamPageError({
 				</div>
 			</CardHeader>
 			<CardContent className="flex flex-col gap-4">
-				<Card
-					size="sm"
-					className="bg-muted/20 shadow-none ring-1 ring-border/60"
-				>
-					<CardContent className="grid gap-2 text-sm">
-						<div className="grid gap-1 sm:grid-cols-[9rem_1fr]">
-							<span className="text-muted-foreground">Endpoint</span>
-							<span className="font-medium text-foreground">
-								{diagnostics.endpoint}
-							</span>
-						</div>
-						<div className="grid gap-1 sm:grid-cols-[9rem_1fr]">
-							<span className="text-muted-foreground">Workspace</span>
-							<span className="font-medium text-foreground">
-								{diagnostics.organizationName ?? "No active workspace"}
-							</span>
-						</div>
-						<div className="grid gap-1 sm:grid-cols-[9rem_1fr]">
-							<span className="text-muted-foreground">Org ID</span>
-							<span className="break-all font-mono text-[12px] text-foreground/80">
-								{diagnostics.organizationId ?? "None"}
-							</span>
-						</div>
-						<div className="grid gap-1 sm:grid-cols-[9rem_1fr]">
-							<span className="text-muted-foreground">Date range</span>
-							<span className="font-medium text-foreground">
-								{diagnostics.startDate} {"->"} {diagnostics.endDate}
-							</span>
-						</div>
-						<div className="grid gap-1 sm:grid-cols-[9rem_1fr]">
-							<span className="text-muted-foreground">Computed days</span>
-							<span className="font-medium text-foreground">
-								{diagnostics.days}
-								{diagnostics.requestedDays !== diagnostics.days
-									? ` (query uses ${diagnostics.requestedDays})`
-									: ""}
-							</span>
-						</div>
-					</CardContent>
-				</Card>
+				{requestId ? (
+					<p className="text-sm text-muted-foreground">
+						Support reference:{" "}
+						<code className="font-mono text-xs text-foreground">
+							{requestId}
+						</code>
+					</p>
+				) : null}
+				{isDevelopment ? (
+					<Card
+						size="sm"
+						className="bg-muted/20 shadow-none ring-1 ring-border/60"
+					>
+						<CardContent className="grid gap-2 text-sm">
+							<div className="grid gap-1 sm:grid-cols-[9rem_1fr]">
+								<span className="text-muted-foreground">Endpoint</span>
+								<span className="font-medium text-foreground">
+									{diagnostics.endpoint}
+								</span>
+							</div>
+							<div className="grid gap-1 sm:grid-cols-[9rem_1fr]">
+								<span className="text-muted-foreground">Workspace</span>
+								<span className="font-medium text-foreground">
+									{diagnostics.organizationName ?? "No active workspace"}
+								</span>
+							</div>
+							<div className="grid gap-1 sm:grid-cols-[9rem_1fr]">
+								<span className="text-muted-foreground">Org ID</span>
+								<span className="break-all font-mono text-[12px] text-foreground/80">
+									{diagnostics.organizationId ?? "None"}
+								</span>
+							</div>
+							<div className="grid gap-1 sm:grid-cols-[9rem_1fr]">
+								<span className="text-muted-foreground">Date range</span>
+								<span className="font-medium text-foreground">
+									{diagnostics.startDate} {"->"} {diagnostics.endDate}
+								</span>
+							</div>
+							<div className="grid gap-1 sm:grid-cols-[9rem_1fr]">
+								<span className="text-muted-foreground">Computed days</span>
+								<span className="font-medium text-foreground">
+									{diagnostics.days}
+									{diagnostics.requestedDays !== diagnostics.days
+										? ` (query uses ${diagnostics.requestedDays})`
+										: ""}
+								</span>
+							</div>
+						</CardContent>
+					</Card>
+				) : null}
 				<div className="flex items-center gap-3">
 					<Button
 						size="sm"
@@ -257,12 +290,10 @@ export function TeamPage() {
 		currentUserId,
 		diagnostics,
 		error,
-		isInviteLinkPending,
 		isError,
 		isPending,
 		teamMemberRows,
 		refetch,
-		teamInviteLink,
 		teamCards,
 	} = useTeamPageData();
 	const [isRefreshing, setIsRefreshing] = useState(false);
@@ -286,9 +317,8 @@ export function TeamPage() {
 		<TeamMembersCardGrid
 			canInviteTeamMembers={canInviteTeamMembers}
 			currentUserId={currentUserId}
-			isInviteLinkPending={isInviteLinkPending}
+			organizationId={diagnostics.organizationId}
 			rows={teamMemberRows}
-			teamInviteLink={teamInviteLink}
 		/>
 	);
 

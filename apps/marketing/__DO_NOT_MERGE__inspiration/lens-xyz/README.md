@@ -17,7 +17,7 @@ product code and must be removed before merging to `main`.
 The receiver immediately writes the capture to:
 
 ```text
-/Users/evrendombak/conductor/workspaces/rudel-v2/podgorica/apps/marketing/__DO_NOT_MERGE__inspiration/lens-xyz/lens-build.capture.html
+/Users/example/conductor/workspaces/rudel-v2/podgorica/apps/marketing/__DO_NOT_MERGE__inspiration/lens-xyz/lens-build.capture.html
 ```
 
 Browsers cannot write to arbitrary absolute filesystem paths. The localhost
@@ -115,7 +115,7 @@ with `lens.xyz/build`.
 The direct capture path is:
 
 ```text
-/Users/evrendombak/conductor/workspaces/rudel-v2/podgorica/apps/marketing/__DO_NOT_MERGE__inspiration/lens-xyz/lens-developer-new.capture.html
+/Users/example/conductor/workspaces/rudel-v2/podgorica/apps/marketing/__DO_NOT_MERGE__inspiration/lens-xyz/lens-developer-new.capture.html
 ```
 
 ### Creative iterations

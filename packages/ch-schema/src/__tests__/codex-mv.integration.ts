@@ -16,6 +16,8 @@ const testPrefix = `codex_mv_test_${Date.now()}_${Math.random().toString(36).sli
 const testId = `${testPrefix}_clean`;
 const errorTestId = `${testPrefix}_errors`;
 const skillTestId = `${testPrefix}_skills`;
+const underflowTestId = `${testPrefix}_underflow`;
+const identityTestId = `${testPrefix}_identity`;
 // Unique per run. All fixtures share it, so afterAll can clean by organization.
 const orgId = `org_${testPrefix}`;
 
@@ -58,6 +60,44 @@ const MV_QUERY = withSessionFilter(CODEX_SESSION_ANALYTICS_MV_SQL, {
 	sessionId: testId,
 });
 
+function codexUnderflowTranscript(): string {
+	const startedAt = "2026-03-02T04:29:38.576Z";
+	const errorLines = Array.from({ length: 10 }, (_, index) => ({
+		timestamp: `2026-03-02T04:29:${String(40 + index).padStart(2, "0")}.000Z`,
+		type: "response_item",
+		payload: {
+			type: "function_call_output",
+			call_id: `call_error_${index}`,
+			output: `TypeError: failure ${index}`,
+		},
+	}));
+
+	return [
+		{
+			timestamp: startedAt,
+			type: "session_meta",
+			payload: { model_provider: "openai" },
+		},
+		...errorLines,
+		{
+			timestamp: "2026-03-02T04:29:55.000Z",
+			type: "event_msg",
+			payload: {
+				type: "token_count",
+				info: {
+					total_token_usage: {
+						input_tokens: 1_600_000,
+						output_tokens: 100,
+						cached_input_tokens: 0,
+					},
+				},
+			},
+		},
+	]
+		.map((line) => JSON.stringify(line))
+		.join("\n");
+}
+
 describe("codex_session_analytics_mv", () => {
 	test("derives correct token counts from Codex token_count events", async () => {
 		const fixtureContent = await readFile(
@@ -76,7 +116,6 @@ describe("codex_session_analytics_mv", () => {
 			git_remote: "github.com/testorg/testproject",
 			package_name: "myapp",
 			package_type: "package.json",
-			upload_mode: "hook",
 			content: fixtureContent,
 			filter_version: 0,
 			ingested_at: now,
@@ -117,7 +156,6 @@ describe("codex_session_analytics_mv", () => {
 		expect(a.git_remote).toBe("github.com/testorg/testproject");
 		expect(a.package_name).toBe("myapp");
 		expect(a.package_type).toBe("package.json");
-		expect(a.upload_mode).toBe("hook");
 
 		// Codex-specific hardcoded values
 		expect(a.used_plan_mode).toBe(0);
@@ -139,6 +177,7 @@ describe("codex_session_analytics_mv", () => {
 
 		// Clean session has no tool errors
 		expect(a.error_count).toBe(0);
+		expect(a.error_pattern).toBe("");
 
 		// 127 min with only 428 output tokens matches no special branch:
 		//   quick_win   needs duration <= 10
@@ -175,7 +214,6 @@ describe("codex_session_analytics_mv", () => {
 			git_remote: "github.com/testorg/testproject",
 			package_name: "myapp",
 			package_type: "package.json",
-			upload_mode: "hook",
 			content: fixtureContent,
 			filter_version: 0,
 			ingested_at: now,
@@ -206,6 +244,7 @@ describe("codex_session_analytics_mv", () => {
 		// 3. exit_code:0 with clean "Success" text -> counts as 0
 		// Total: 2 errors
 		expect(a.error_count).toBe(2);
+		expect(a.error_pattern).toBe("TypeError");
 
 		// 50 base + 20 (git_sha) - least(2, 10) * 2 = 66.
 		// The <2min / <200-output penalty does not apply: duration rounds to 0 min,
@@ -233,7 +272,6 @@ describe("codex_session_analytics_mv", () => {
 			git_remote: "github.com/testorg/testproject",
 			package_name: "myapp",
 			package_type: "package.json",
-			upload_mode: "hook",
 			content: fixtureContent,
 			filter_version: 0,
 			ingested_at: now,
@@ -266,5 +304,95 @@ describe("codex_session_analytics_mv", () => {
 		// Duration is 1 minute, but output is 500, so the <200 short-session
 		// penalty does not apply either.
 		expect(analytics.success_score).toBe(80);
+	}, 120_000);
+
+	test("clamps a negative success score to zero before the UInt8 cast", async () => {
+		const now = new Date().toISOString().replace("Z", "");
+		const row: RudelCodexSessionsRow = {
+			session_date: now,
+			last_interaction_date: now,
+			session_id: underflowTestId,
+			organization_id: orgId,
+			project_path: "/Users/testuser/projects/myapp",
+			git_remote: "",
+			package_name: "myapp",
+			package_type: "package.json",
+			content: codexUnderflowTranscript(),
+			filter_version: 0,
+			ingested_at: now,
+			user_id: "user_underflow",
+			git_branch: "main",
+			git_sha: null,
+			tag: "codex-mv-underflow-test",
+		};
+
+		await ingestRudelCodexSessions(executor, [row]);
+
+		const results = await waitForQuery<RudelSessionAnalyticsRow>(
+			executor,
+			withSessionFilter(CODEX_SESSION_ANALYTICS_MV_SQL, {
+				organizationId: orgId,
+				sessionId: underflowTestId,
+			}),
+		);
+
+		expect(results).toHaveLength(1);
+		const analytics = results[0];
+		if (!analytics) throw new Error("no underflow analytics row produced");
+
+		expect(analytics.error_count).toBe(10);
+		expect(analytics.error_pattern).toBe("TypeError");
+		expect(Number(analytics.total_tokens)).toBe(1_600_100);
+		expect(analytics.success_score).toBe(0);
+	}, 120_000);
+
+	test("deduplicates on organization, user, and session identity", async () => {
+		const content = await readFile(
+			resolve(import.meta.dir, "fixtures", "codex-session.jsonl"),
+			"utf-8",
+		);
+		const now = new Date().toISOString().replace("Z", "");
+		const shared = {
+			session_date: now,
+			last_interaction_date: now,
+			session_id: identityTestId,
+			organization_id: orgId,
+			project_path: "/Users/testuser/projects/myapp",
+			git_remote: "github.com/testorg/testproject",
+			package_name: "myapp",
+			package_type: "package.json",
+			content,
+			filter_version: 0,
+			ingested_at: now,
+			git_branch: "main",
+			git_sha: null,
+			tag: "codex-mv-identity-test",
+		};
+		const rows: RudelCodexSessionsRow[] = [
+			{ ...shared, user_id: "user_identity_a" },
+			{
+				...shared,
+				// Keep both raw rows visible despite the source table's older key.
+				// The transcript-derived analytics date is still identical.
+				session_date: "2026-03-01T04:29:38.576",
+				user_id: "user_identity_b",
+			},
+		];
+
+		await ingestRudelCodexSessions(executor, rows);
+
+		const results = await waitForQuery<RudelSessionAnalyticsRow>(
+			executor,
+			withSessionFilter(CODEX_SESSION_ANALYTICS_MV_SQL, {
+				organizationId: orgId,
+				sessionId: identityTestId,
+			}),
+		);
+
+		expect(results).toHaveLength(2);
+		expect(results.map((row) => row.user_id).sort()).toEqual([
+			"user_identity_a",
+			"user_identity_b",
+		]);
 	}, 120_000);
 });

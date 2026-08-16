@@ -662,7 +662,7 @@ export const MODEL_RATE_CARD: readonly ModelRateCardEntry[] = [
 	{
 		provider: "anthropic",
 		model: "claude-fable-5",
-		displayName: "Fable 5",
+		displayName: "Claude Fable 5",
 		match: ["^claude-fable-5(?:-\\d{8})?$"],
 		effectiveFrom: "2026-06-09",
 		contextBand: "base",

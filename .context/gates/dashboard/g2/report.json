@@ -27,10 +27,10 @@
       "structuralDifferenceCount": 0,
       "structuralDifferences": [],
       "artifacts": {
-        "sourceScreenshot": "/Users/evrendombak/conductor/workspaces/rudel-v2/podgorica/.context/gates/dashboard/g2/data-source.png",
-        "candidateScreenshot": "/Users/evrendombak/conductor/workspaces/rudel-v2/podgorica/.context/gates/dashboard/g2/data-candidate.png",
-        "sourceSnapshot": "/Users/evrendombak/conductor/workspaces/rudel-v2/podgorica/.context/gates/dashboard/g2/data-source.structure.json",
-        "candidateSnapshot": "/Users/evrendombak/conductor/workspaces/rudel-v2/podgorica/.context/gates/dashboard/g2/data-candidate.structure.json"
+        "sourceScreenshot": "/Users/example/conductor/workspaces/rudel-v2/podgorica/.context/gates/dashboard/g2/data-source.png",
+        "candidateScreenshot": "/Users/example/conductor/workspaces/rudel-v2/podgorica/.context/gates/dashboard/g2/data-candidate.png",
+        "sourceSnapshot": "/Users/example/conductor/workspaces/rudel-v2/podgorica/.context/gates/dashboard/g2/data-source.structure.json",
+        "candidateSnapshot": "/Users/example/conductor/workspaces/rudel-v2/podgorica/.context/gates/dashboard/g2/data-candidate.structure.json"
       }
     },
     {
@@ -45,10 +45,10 @@
       "structuralDifferenceCount": 0,
       "structuralDifferences": [],
       "artifacts": {
-        "sourceScreenshot": "/Users/evrendombak/conductor/workspaces/rudel-v2/podgorica/.context/gates/dashboard/g2/reporting-source.png",
-        "candidateScreenshot": "/Users/evrendombak/conductor/workspaces/rudel-v2/podgorica/.context/gates/dashboard/g2/reporting-candidate.png",
-        "sourceSnapshot": "/Users/evrendombak/conductor/workspaces/rudel-v2/podgorica/.context/gates/dashboard/g2/reporting-source.structure.json",
-        "candidateSnapshot": "/Users/evrendombak/conductor/workspaces/rudel-v2/podgorica/.context/gates/dashboard/g2/reporting-candidate.structure.json"
+        "sourceScreenshot": "/Users/example/conductor/workspaces/rudel-v2/podgorica/.context/gates/dashboard/g2/reporting-source.png",
+        "candidateScreenshot": "/Users/example/conductor/workspaces/rudel-v2/podgorica/.context/gates/dashboard/g2/reporting-candidate.png",
+        "sourceSnapshot": "/Users/example/conductor/workspaces/rudel-v2/podgorica/.context/gates/dashboard/g2/reporting-source.structure.json",
+        "candidateSnapshot": "/Users/example/conductor/workspaces/rudel-v2/podgorica/.context/gates/dashboard/g2/reporting-candidate.structure.json"
       }
     }
   ]

@@ -97,10 +97,9 @@ describe("DashboardSessionsView", () => {
 				sortOrder: "desc",
 			},
 		});
-		expect(screen.getByRole("link", { name: "Open sessions" })).toHaveAttribute(
-			"href",
-			"/session",
-		);
+		expect(
+			screen.getByRole("link", { name: "Open full sessions view" }),
+		).toHaveAttribute("href", "/dashboard/sessions");
 	});
 
 	it("over-fetches without a window for the rolling 24-hour range", () => {

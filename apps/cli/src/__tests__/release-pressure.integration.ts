@@ -10,7 +10,7 @@ import {
 import assert from "node:assert/strict";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { claudeCodeAdapter, type SessionFile } from "@rudel/agent-adapters";
 import {
 	INGEST_LIMIT_REASONS,
@@ -51,6 +51,7 @@ import {
 	stopAllBoundaryRelays,
 	writeCliCredentials,
 } from "./helpers/cli-e2e.js";
+import { codexRolloutPath } from "./helpers/ingest-stub.js";
 import { createStoredSessionReaders } from "./helpers/stored-sessions.js";
 
 setDefaultTimeout(90_000);
@@ -90,6 +91,7 @@ let batchState:
 	| {
 			overBudgetSessionId: string;
 			overBudgetPath: string;
+			overBudgetFailedAtBefore: string;
 			missingSessionId: string;
 			missingFailedAtBefore: string;
 			fixedContent: string;
@@ -102,6 +104,7 @@ interface QueueEntry {
 	projectPath: string;
 	error: string;
 	failedAt: string;
+	status: "permanent" | "retryable";
 }
 
 type PressureBatchItem = BatchUploadItem & {
@@ -334,7 +337,8 @@ describe("release pressure: E2E integration", () => {
 		});
 
 		expect(summary.succeeded).toBe(4);
-		expect(summary.failed).toBe(2);
+		expect(summary.failed).toBe(1);
+		expect(summary.skipped).toBe(1);
 		expect(summary.total).toBe(6);
 		expect(summary.redacted).toEqual(expectedRedacted);
 		expect(summary.redactedBytes).toBe(expectedRedactedBytes);
@@ -345,17 +349,18 @@ describe("release pressure: E2E integration", () => {
 			4,
 		);
 
-		expect(summary.errors).toHaveLength(2);
-		const errorLabels = summary.errors.map((entry) => entry.label).sort();
-		expect(errorLabels).toEqual([missingId, overBudgetId].sort());
+		expect(summary.errors).toHaveLength(1);
+		expect(summary.errors[0]?.label).toBe(missingId);
 		for (const entry of summary.errors) {
 			expect(containsAnyCanary(entry.error, ALL_SECRETS)).toBe(false);
 		}
-		const overBudgetError = summary.errors.find(
+		expect(summary.skippedItems).toHaveLength(1);
+		const overBudgetSkip = summary.skippedItems.find(
 			(entry) => entry.label === overBudgetId,
 		);
-		assert(overBudgetError);
-		expect(overBudgetError.error).toContain(
+		assert(overBudgetSkip);
+		expect(containsAnyCanary(overBudgetSkip.reason, ALL_SECRETS)).toBe(false);
+		expect(overBudgetSkip.reason).toContain(
 			"Redaction safety check stopped upload",
 		);
 
@@ -371,10 +376,17 @@ describe("release pressure: E2E integration", () => {
 		);
 
 		const missingEntry = queue.find((entry) => entry.sessionId === missingId);
+		const overBudgetEntry = queue.find(
+			(entry) => entry.sessionId === overBudgetId,
+		);
 		assert(missingEntry);
+		assert(overBudgetEntry);
+		expect(missingEntry.status).toBe("retryable");
+		expect(overBudgetEntry.status).toBe("permanent");
 		batchState = {
 			overBudgetSessionId: overBudgetId,
 			overBudgetPath,
+			overBudgetFailedAtBefore: overBudgetEntry.failedAt,
 			missingSessionId: missingId,
 			missingFailedAtBefore: missingEntry.failedAt,
 			fixedContent: JSON.stringify({
@@ -420,8 +432,8 @@ describe("release pressure: E2E integration", () => {
 		expect(sharedRelay.getObservation().requestCount).toBe(requestCountBefore);
 	});
 
-	// ── Test 3 ── `upload --retry --yes` drains the fixed item, re-queues the rest.
-	test("upload --retry --yes drains the fixed queue item and refreshes the unfixed one", async () => {
+	// ── Test 3 ── `upload --retry --yes` attempts only retryable failures.
+	test("upload --retry --yes refreshes the retryable failure and retains the permanent one", async () => {
 		assert(batchState, "test 1 must have populated the failed-upload queue");
 		await writeFile(batchState.overBudgetPath, batchState.fixedContent);
 
@@ -430,32 +442,43 @@ describe("release pressure: E2E integration", () => {
 			{ configDir: batchConfigDir, home: batchHome },
 		);
 
-		// The missing-transcript item still fails, so the command exits 1 while
-		// the fixed item drains.
+		// The missing-transcript item still fails, so the command exits 1. The
+		// locally fixed permanent item remains visible but is not attempted.
 		expect(result.exitCode).toBe(1);
 		expect(containsAnyCanary(result.stdout, ALL_SECRETS)).toBe(false);
 		expect(containsAnyCanary(result.stderr, ALL_SECRETS)).toBe(false);
+		const retryOutput = `${result.stdout}\n${result.stderr}`;
+		expect(retryOutput).toContain(batchState.overBudgetSessionId);
+		expect(retryOutput).toContain(
+			"Permanent failures are retained for visibility and are not retried automatically.",
+		);
 
 		const queueRaw = await readFile(
 			join(batchConfigDir, "failed-uploads.json"),
 			"utf8",
 		);
 		const queue = (JSON.parse(queueRaw) as { failures: QueueEntry[] }).failures;
-		expect(queue).toHaveLength(1);
-		const remaining = queue[0];
-		assert(remaining);
-		expect(remaining.sessionId).toBe(batchState.missingSessionId);
-		expect(Date.parse(remaining.failedAt)).toBeGreaterThan(
+		expect(queue).toHaveLength(2);
+		const missingEntry = queue.find(
+			(entry) => entry.sessionId === batchState?.missingSessionId,
+		);
+		const overBudgetEntry = queue.find(
+			(entry) => entry.sessionId === batchState?.overBudgetSessionId,
+		);
+		assert(missingEntry);
+		assert(overBudgetEntry);
+		expect(missingEntry.status).toBe("retryable");
+		expect(Date.parse(missingEntry.failedAt)).toBeGreaterThan(
 			Date.parse(batchState.missingFailedAtBefore),
 		);
+		expect(overBudgetEntry.status).toBe("permanent");
+		expect(overBudgetEntry.failedAt).toBe(batchState.overBudgetFailedAtBefore);
 
 		const storedRow = await getStoredFilteredSession(
 			userId,
 			batchState.overBudgetSessionId,
 		);
-		assert(storedRow);
-		expect(storedRow.filter_version).toBe(FILTER_VERSION);
-		expect(hashText(storedRow.content)).toBe(hashText(batchState.fixedContent));
+		expect(storedRow).toBeNull();
 	}, 120_000);
 
 	// ── Test 4 ── rate-limited batch: 2 succeed, 1 real 429, 1 skipped, 3 wire requests.
@@ -718,7 +741,9 @@ describe("release pressure: E2E integration", () => {
 			const home = join(tempDir, sessionId);
 			const configDir = join(home, ".rudel");
 			const projectDir = join(home, "hook-project");
-			const sessionFile = join(projectDir, `${sessionId}.jsonl`);
+			const sessionFile = isClaude
+				? join(projectDir, `${sessionId}.jsonl`)
+				: codexRolloutPath(home, sessionId);
 			const template = isClaude ? claudeSessionTemplate : codexSessionTemplate;
 			const rawContent = renderFixture(template, sessionId, secrets, false);
 			const expectedContent = renderFixture(template, sessionId, secrets, true);
@@ -726,6 +751,7 @@ describe("release pressure: E2E integration", () => {
 			await Promise.all([
 				mkdir(configDir, { recursive: true }),
 				mkdir(projectDir, { recursive: true }),
+				mkdir(dirname(sessionFile), { recursive: true }),
 			]);
 			await Promise.all([
 				writeCliCredentials(configDir, bearerToken, sharedRelay.baseUrl),
@@ -747,7 +773,7 @@ describe("release pressure: E2E integration", () => {
 				);
 			}
 
-			const stdin = isClaude
+			const notification = isClaude
 				? JSON.stringify({
 						session_id: sessionId,
 						transcript_path: sessionFile,
@@ -755,14 +781,16 @@ describe("release pressure: E2E integration", () => {
 					})
 				: JSON.stringify({
 						type: "agent-turn-complete",
-						thread_id: sessionId,
-						turn_id: "99999999-9999-4999-8999-999999999999",
+						"thread-id": sessionId,
+						"turn-id": "99999999-9999-4999-8999-999999999999",
 						cwd: projectDir,
-						transcript_path: sessionFile,
+						"input-messages": ["test"],
+						"last-assistant-message": "done",
 					});
 			const hookArgs = isClaude
 				? ["hooks", "claude", "session-end"]
-				: ["hooks", "codex", "turn-complete"];
+				: ["hooks", "codex", "turn-complete", notification];
+			const stdin = isClaude ? notification : undefined;
 
 			// Phase 1: dead loopback endpoint. Hooks must exit 0 on transport
 			// failures (they only exit 1 on endpointRejected) and queue the session.

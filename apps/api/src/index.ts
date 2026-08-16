@@ -13,20 +13,28 @@ import {
 import { handleSessionDetailStatsRequest } from "./handlers/session-detail-stats-http.js";
 import {
 	readBetterAuthSecret,
+	readBooleanEnv,
 	readCliDeviceVerificationUrl,
+	readNonNegativeSafeIntegerEnv,
 	readPositiveSafeIntegerEnv,
 } from "./lib/env.js";
 import { maybeCompressSessionDetailRpcResponse } from "./lib/http-compression.js";
 import { shutdownApiProductAnalytics } from "./lib/product-analytics.js";
+import { resolveWrappedShareLookupSource } from "./lib/wrapped-share-lookup-source.js";
 import { setupLogging } from "./logging.js";
 import type { ApiKeyAuthFailure } from "./middleware.js";
-import { checkWrappedShareLookupRateLimit } from "./rate-limit.js";
 import { router } from "./router.js";
-import { getPublicWrappedShareWithSocialImage } from "./services/wrapped-share.service.js";
+import { startClickHousePurgeWorker } from "./services/clickhouse-purge.service.js";
 import {
-	getWrappedShareCardImageMetadata,
-	getWrappedShareCardImagePng,
-} from "./services/wrapped-share-card-image.js";
+	getIngestFilterQueueMetrics,
+	shutdownIngestFilterQueue,
+} from "./services/ingest-filter.service.js";
+import { shutdownUsageExtractionQueue } from "./services/usage-extraction.service.js";
+import {
+	getPublicWrappedShareForPageMetadata,
+	getPublicWrappedShareWithSocialImage,
+} from "./services/wrapped-share.service.js";
+import { getWrappedShareCardImagePng } from "./services/wrapped-share-card-image.js";
 import {
 	buildWrappedSharePageMetadata,
 	injectWrappedSharePageMetadata,
@@ -38,6 +46,9 @@ const logger = getLogger(["rudel", "api", "http"]);
 type AuthUser = AuthSession["user"];
 const betterAuthSecret = readBetterAuthSecret();
 const port = process.env.PORT ?? "4010";
+const IS_PRODUCTION =
+	process.env.NODE_ENV === "production" ||
+	process.env.FLY_APP_NAME !== undefined;
 const DEFAULT_DEV_API_ORIGIN = `http://localhost:${port}`;
 const DEFAULT_DEV_ORIGIN = "http://localhost:4011";
 const DEFAULT_DEV_ORIGINS = [
@@ -91,6 +102,8 @@ const trustedOrigins = [
 const resend = {
 	apiKey: process.env.RESEND_API_KEY,
 	audienceId: process.env.RESEND_AUDIENCE_ID,
+	clickHousePurgeAlertRecipient:
+		process.env.CLICKHOUSE_PURGE_ALERT_RECIPIENT?.trim() || undefined,
 	fromEmail: process.env.RESEND_FROM_EMAIL,
 };
 
@@ -128,11 +141,30 @@ const auth = createAuth(db, {
 });
 
 const rpcHandler = new RPCHandler(router, {
+	clientInterceptors: [
+		onError((error, { context }) => {
+			if (
+				error instanceof ORPCError &&
+				error.code !== "INTERNAL_SERVER_ERROR"
+			) {
+				return;
+			}
+
+			throw new ORPCError("INTERNAL_SERVER_ERROR", {
+				cause: error,
+				data: { requestId: context.requestId },
+			});
+		}),
+	],
 	interceptors: [
 		onError((error) => {
+			const logError =
+				error instanceof Error && error.cause instanceof Error
+					? error.cause
+					: error;
 			logger.error("RPC unhandled exception: {error} {stack}", {
-				error: String(error),
-				stack: error instanceof Error ? error.stack : undefined,
+				error: String(logError),
+				stack: logError instanceof Error ? logError.stack : undefined,
 			});
 		}),
 	],
@@ -152,6 +184,30 @@ const WRAPPED_SHARE_CARD_IMAGE_PATH_PATTERN = new RegExp(
 	`^/wrapped/${WRAPPED_PUBLIC_SHARE_ID_SEGMENT}/x-card\\.png$`,
 	"u",
 );
+const CONTENT_SECURITY_POLICY = [
+	"default-src 'self'",
+	"base-uri 'self'",
+	"connect-src 'self' https://*.posthog.com https://*.chatwoot.com wss://*.chatwoot.com",
+	"font-src 'self' data:",
+	"form-action 'self'",
+	"frame-ancestors 'none'",
+	"frame-src https://*.chatwoot.com",
+	"img-src 'self' data: blob: https:",
+	"media-src 'self' blob: https:",
+	"object-src 'none'",
+	"script-src 'self' https://*.posthog.com https://*.chatwoot.com",
+	"style-src 'self' 'unsafe-inline'",
+	"worker-src 'self' blob:",
+].join("; ");
+const PRODUCTION_SECURITY_HEADERS = {
+	"Content-Security-Policy": CONTENT_SECURITY_POLICY,
+	"Permissions-Policy":
+		"accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()",
+	"Referrer-Policy": "strict-origin-when-cross-origin",
+	"Strict-Transport-Security": "max-age=31536000; includeSubDomains",
+	"X-Content-Type-Options": "nosniff",
+	"X-Frame-Options": "DENY",
+} as const;
 
 function corsHeaders(origin: string | null): Record<string, string> {
 	if (!origin || !trustedOrigins.includes(origin)) return {};
@@ -163,49 +219,125 @@ function corsHeaders(origin: string | null): Record<string, string> {
 	};
 }
 
+function applyHttpResponsePolicy(
+	response: Response,
+	input: {
+		readonly pathname: string;
+		readonly requestId: string;
+	},
+) {
+	response.headers.set("X-Request-ID", input.requestId);
+
+	if (!response.headers.has("Cache-Control")) {
+		const isImmutableAsset =
+			response.status === 200 &&
+			input.pathname.startsWith("/assets/") &&
+			!response.headers.get("Content-Type")?.startsWith("text/html");
+		response.headers.set(
+			"Cache-Control",
+			isImmutableAsset ? "public, max-age=31536000, immutable" : "no-store",
+		);
+	}
+
+	if (!IS_PRODUCTION) {
+		return response;
+	}
+
+	for (const [name, value] of Object.entries(PRODUCTION_SECURITY_HEADERS)) {
+		response.headers.set(name, value);
+	}
+
+	return response;
+}
+
 const MAX_REQUEST_BODY_BYTES = readPositiveSafeIntegerEnv(
 	"MAX_REQUEST_BODY_BYTES",
 	160 * 1024 * 1024,
+);
+const TRUSTED_PROXY_HOPS = readNonNegativeSafeIntegerEnv(
+	"TRUSTED_PROXY_HOPS",
+	0,
 );
 
 const server = Bun.serve({
 	maxRequestBodySize: MAX_REQUEST_BODY_BYTES,
 	port,
-	async fetch(request) {
+	async fetch(request, server) {
 		const origin = request.headers.get("Origin");
 		const cors = corsHeaders(origin);
+		const url = new URL(request.url);
+		const requestId = crypto.randomUUID();
 
 		if (request.method === "OPTIONS") {
-			return new Response(null, { status: 204, headers: cors });
-		}
-
-		const contentLength = request.headers.get("Content-Length");
-		if (contentLength && Number(contentLength) > MAX_REQUEST_BODY_BYTES) {
-			return new Response(
-				JSON.stringify({
-					error: `Request body too large. Maximum size is ${Math.round(MAX_REQUEST_BODY_BYTES / (1024 * 1024))} MB.`,
-				}),
+			return applyHttpResponsePolicy(
+				new Response(null, { status: 204, headers: cors }),
 				{
-					status: 413,
-					headers: { ...cors, "Content-Type": "application/json" },
+					pathname: url.pathname,
+					requestId,
 				},
 			);
 		}
 
-		const url = new URL(request.url);
+		const contentLength = request.headers.get("Content-Length");
+		if (contentLength && Number(contentLength) > MAX_REQUEST_BODY_BYTES) {
+			return applyHttpResponsePolicy(
+				new Response(
+					JSON.stringify({
+						error: `Request body too large. Maximum size is ${Math.round(MAX_REQUEST_BODY_BYTES / (1024 * 1024))} MB.`,
+					}),
+					{
+						status: 413,
+						headers: { ...cors, "Content-Type": "application/json" },
+					},
+				),
+				{
+					pathname: url.pathname,
+					requestId,
+				},
+			);
+		}
+
+		if (
+			process.env.NODE_ENV === "test" &&
+			url.pathname === "/__test/ingest-filter-queue-metrics"
+		) {
+			return applyHttpResponsePolicy(
+				Response.json(getIngestFilterQueueMetrics()),
+				{
+					pathname: url.pathname,
+					requestId,
+				},
+			);
+		}
 
 		// Health check for Fly.io (must be GET-accessible)
 		if (url.pathname === "/health") {
-			return Response.json({ status: "ok", timestamp: Date.now() });
+			return applyHttpResponsePolicy(Response.json({ status: "ok" }), {
+				pathname: url.pathname,
+				requestId,
+			});
 		}
 
-		const requestId = crypto.randomUUID();
 		const start = performance.now();
+		const wrappedShareLookupSource = resolveWrappedShareLookupSource({
+			flyClientIp: process.env.FLY_APP_NAME
+				? request.headers.get("fly-client-ip")
+				: null,
+			forwardedFor: request.headers.get("x-forwarded-for"),
+			socketIp: server.requestIP(request)?.address ?? null,
+			trustedProxyHops: TRUSTED_PROXY_HOPS,
+		});
 
 		return withContext(
 			{ requestId, method: request.method, path: url.pathname },
 			async () => {
-				const response = await handleRequest(request, url, cors, requestId);
+				const response = await handleRequest(
+					request,
+					url,
+					cors,
+					requestId,
+					wrappedShareLookupSource,
+				);
 				const duration = Math.round(performance.now() - start);
 				logger.info("{method} {path} {status} {duration}ms", {
 					method: request.method,
@@ -213,11 +345,20 @@ const server = Bun.serve({
 					status: response.status,
 					duration,
 				});
-				return response;
+				return applyHttpResponsePolicy(response, {
+					pathname: url.pathname,
+					requestId,
+				});
 			},
 		);
 	},
 });
+const clickHousePurgeWorker = readBooleanEnv(
+	"CLICKHOUSE_PURGE_WORKER_ENABLED",
+	true,
+)
+	? startClickHousePurgeWorker({ resend })
+	: undefined;
 
 function resolveAuthAppURL(input: {
 	defaultDevApiOrigin: string;
@@ -268,8 +409,12 @@ async function shutdown(signal?: string) {
 	}
 	isShuttingDown = true;
 
-	await shutdownApiProductAnalytics();
-
+	shutdownIngestFilterQueue();
+	shutdownUsageExtractionQueue();
+	await Promise.all([
+		shutdownApiProductAnalytics(),
+		clickHousePurgeWorker?.stop(),
+	]);
 	if (signal) {
 		server.stop(true);
 		process.exit(0);
@@ -291,6 +436,7 @@ async function handleRequest(
 	url: URL,
 	cors: Record<string, string>,
 	requestId: string,
+	wrappedShareLookupSource: string,
 ): Promise<Response> {
 	const wrappedShareCardImageId = getWrappedShareCardImageId(url.pathname);
 	if (wrappedShareCardImageId) {
@@ -298,6 +444,7 @@ async function handleRequest(
 			cors,
 			method: request.method,
 			shareId: wrappedShareCardImageId,
+			source: wrappedShareLookupSource,
 		});
 	}
 
@@ -355,7 +502,7 @@ async function handleRequest(
 
 	const { matched, response } = await rpcHandler.handle(request, {
 		prefix: "/rpc",
-		context: await getContext(request),
+		context: await getContext(request, requestId, wrappedShareLookupSource),
 	});
 
 	if (matched) {
@@ -396,6 +543,7 @@ async function handleRequest(
 				publicOrigin: getPublicRequestOrigin(request, url),
 				requestPathname: url.pathname,
 				shareId: wrappedPublicShareId,
+				source: wrappedShareLookupSource,
 			});
 		}
 
@@ -418,8 +566,9 @@ async function handleWrappedShareCardImageRequest(input: {
 	cors: Record<string, string>;
 	method: string;
 	shareId: string;
+	source: string;
 }) {
-	const { cors, method, shareId } = input;
+	const { cors, method, shareId, source } = input;
 	if (method !== "GET" && method !== "HEAD") {
 		return new Response("Method not allowed", {
 			headers: { ...cors, Allow: "GET, HEAD" },
@@ -428,14 +577,13 @@ async function handleWrappedShareCardImageRequest(input: {
 	}
 
 	try {
-		checkWrappedShareLookupRateLimit(shareId);
-		const share = await getPublicWrappedShareWithSocialImage(shareId);
+		const share = await getPublicWrappedShareWithSocialImage(shareId, source);
 
 		if (!share) {
 			return new Response("Not found", { headers: cors, status: 404 });
 		}
 
-		const image = getWrappedShareCardImagePng(share.snapshot);
+		const image = getWrappedShareCardImagePng(share.socialImageDataUrl);
 		if (!image) {
 			return new Response("Not found", { headers: cors, status: 404 });
 		}
@@ -476,9 +624,17 @@ async function handleWrappedPublicPageRequest(input: {
 	publicOrigin: string;
 	requestPathname: string;
 	shareId: string;
+	source: string;
 }) {
-	const { cors, indexFile, method, publicOrigin, requestPathname, shareId } =
-		input;
+	const {
+		cors,
+		indexFile,
+		method,
+		publicOrigin,
+		requestPathname,
+		shareId,
+		source,
+	} = input;
 
 	if (method !== "GET" && method !== "HEAD") {
 		return new Response("Method not allowed", {
@@ -490,8 +646,7 @@ async function handleWrappedPublicPageRequest(input: {
 	const indexHtml = await indexFile.text();
 
 	try {
-		checkWrappedShareLookupRateLimit(shareId);
-		const share = await getPublicWrappedShareWithSocialImage(shareId);
+		const share = await getPublicWrappedShareForPageMetadata(shareId, source);
 
 		if (!share) {
 			return new Response(method === "HEAD" ? null : indexHtml, {
@@ -500,20 +655,16 @@ async function handleWrappedPublicPageRequest(input: {
 		}
 
 		const publicUrl = new URL(requestPathname, publicOrigin).toString();
-		const imageMetadata = getWrappedShareCardImageMetadata(share.snapshot);
 		const html = injectWrappedSharePageMetadata(
 			indexHtml,
 			buildWrappedSharePageMetadata({
-				...(imageMetadata
+				...(share.hasSocialImage
 					? {
-							imageHeight: imageMetadata.height,
-							imageType: imageMetadata.type,
 							imageUrl: buildWrappedShareCardImageUrl({
 								publicOrigin,
 								requestPathname,
 								share,
 							}),
-							imageWidth: imageMetadata.width,
 						}
 					: {}),
 				publicUrl,
@@ -525,6 +676,13 @@ async function handleWrappedPublicPageRequest(input: {
 			headers: { ...cors, "Content-Type": "text/html; charset=utf-8" },
 		});
 	} catch (error) {
+		if (isTooManyRequestsError(error)) {
+			return new Response("Too many requests", {
+				headers: cors,
+				status: 429,
+			});
+		}
+
 		logger.error("Failed to inject wrapped share metadata: {error}", {
 			error: String(error),
 		});
@@ -599,7 +757,11 @@ function isTooManyRequestsError(error: unknown) {
 	return error instanceof ORPCError && error.code === "TOO_MANY_REQUESTS";
 }
 
-async function getContext(request: Request) {
+async function getContext(
+	request: Request,
+	requestId: string,
+	wrappedShareLookupSource: string,
+) {
 	const session = await auth.api.getSession({
 		headers: request.headers,
 	});
@@ -679,6 +841,8 @@ async function getContext(request: Request) {
 		session: session?.session ?? null,
 		apiKeyId,
 		authFailure,
+		requestId,
+		wrappedShareLookupSource,
 	};
 }
 

@@ -390,10 +390,10 @@ function applyDevPreviewPublicShareMetrics(input: {
 			input.metrics.estimatedCostTokenBasis,
 			row.totalTokens,
 		),
-		estimatedCostUsd: Math.max(
-			input.metrics.estimatedCostUsd,
-			Math.round(row.cost),
-		),
+		estimatedCostUsd:
+			input.metrics.estimatedCostUsd === null || row.cost === null
+				? null
+				: Math.max(input.metrics.estimatedCostUsd, Math.round(row.cost)),
 		favoriteModel: input.metrics.favoriteModel ?? row.favoriteModel,
 		longestSessionMin:
 			input.metrics.longestSessionMin ??

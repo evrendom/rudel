@@ -147,7 +147,7 @@ export function SessionsOverviewRow({
 			</div>
 			<div className={cellClassName}>
 				<div className="flex min-w-0 items-center overflow-hidden">
-					<DashboardModelBadges models={[session.model_used]} size="table" />
+					<DashboardModelBadges models={[session.model_used]} size="sm" />
 				</div>
 			</div>
 			<div className={cn(cellClassName, "justify-end")}>

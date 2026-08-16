@@ -34,6 +34,7 @@ const list = os.analytics.sessions.list
 			user_id: input.userId,
 			project_path: input.projectPath,
 			repository: input.repository,
+			source: input.source,
 			limit: input.limit,
 			offset: input.offset,
 			sort_by: sortByMap[input.sortBy] ?? "date",

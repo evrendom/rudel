@@ -12,7 +12,6 @@ export type RudelClaudeSessionsRow = {
   git_remote: string
   package_name: string
   package_type: string
-  upload_mode: string
   content: string
   filter_version: number
   ingested_at: string
@@ -32,7 +31,6 @@ export const RudelClaudeSessionsRowSchema = z.object({
   git_remote: z.string(),
   package_name: z.string(),
   package_type: z.string(),
-  upload_mode: z.string(),
   content: z.string(),
   filter_version: z.number(),
   ingested_at: z.string(),
@@ -55,7 +53,6 @@ export type RudelCodexSessionsRow = {
   git_remote: string
   package_name: string
   package_type: string
-  upload_mode: string
   content: string
   filter_version: number
   ingested_at: string
@@ -74,7 +71,6 @@ export const RudelCodexSessionsRowSchema = z.object({
   git_remote: z.string(),
   package_name: z.string(),
   package_type: z.string(),
-  upload_mode: z.string(),
   content: z.string(),
   filter_version: z.number(),
   ingested_at: z.string(),
@@ -96,24 +92,21 @@ export type RudelSessionAnalyticsRow = {
   git_remote: string
   package_name: string
   package_type: string
-  upload_mode: string
-  content: string
   filter_version: number
-  subagents: Record<string, string>
-  skills: string[]
-  slash_commands: string[]
-  subagent_types: string[]
   ingested_at: string
   user_id: string
   git_branch: string | null
   git_sha: string | null
+  tag: string | null
+  source: string
+  skills: string[]
+  slash_commands: string[]
+  subagent_types: string[]
   input_tokens: string
   output_tokens: string
   cache_read_input_tokens: string
   cache_creation_input_tokens: string
   total_tokens: string
-  tag: string | null
-  source: string
   total_interactions: number
   actual_duration_min: number
   avg_period_sec: number
@@ -122,6 +115,7 @@ export type RudelSessionAnalyticsRow = {
   normal_responses: number
   long_pauses: number
   error_count: number
+  error_pattern: string
   model_used: string
   has_commit: number
   session_archetype: string
@@ -140,24 +134,21 @@ export const RudelSessionAnalyticsRowSchema = z.object({
   git_remote: z.string(),
   package_name: z.string(),
   package_type: z.string(),
-  upload_mode: z.string(),
-  content: z.string(),
   filter_version: z.number(),
-  subagents: z.record(z.string(), z.string()),
-  skills: z.array(z.string()),
-  slash_commands: z.array(z.string()),
-  subagent_types: z.array(z.string()),
   ingested_at: z.string(),
   user_id: z.string(),
   git_branch: z.string().nullable(),
   git_sha: z.string().nullable(),
+  tag: z.string().nullable(),
+  source: z.string(),
+  skills: z.array(z.string()),
+  slash_commands: z.array(z.string()),
+  subagent_types: z.array(z.string()),
   input_tokens: z.string(),
   output_tokens: z.string(),
   cache_read_input_tokens: z.string(),
   cache_creation_input_tokens: z.string(),
   total_tokens: z.string(),
-  tag: z.string().nullable(),
-  source: z.string(),
   total_interactions: z.number(),
   actual_duration_min: z.number(),
   avg_period_sec: z.number(),
@@ -166,6 +157,7 @@ export const RudelSessionAnalyticsRowSchema = z.object({
   normal_responses: z.number(),
   long_pauses: z.number(),
   error_count: z.number(),
+  error_pattern: z.string(),
   model_used: z.string(),
   has_commit: z.number(),
   session_archetype: z.string(),
@@ -177,6 +169,99 @@ export const RudelSessionAnalyticsRowSchema = z.object({
 
 export type RudelSessionAnalyticsRowInput = z.input<typeof RudelSessionAnalyticsRowSchema>
 export type RudelSessionAnalyticsRowOutput = z.output<typeof RudelSessionAnalyticsRowSchema>
+
+export type RudelUsageEventsRow = {
+  organization_id: string
+  user_id: string
+  source: string
+  session_id: string
+  event_id: string
+  record_kind: string
+  event_version: string
+  event_identity_version: number
+  extraction_version: number
+  model_rate_card_version: string
+  filter_version: number
+  content_sha256: string
+  occurred_at: string
+  usage_date: string
+  has_valid_timestamp: number
+  raw_model: string
+  resolved_model: string
+  model_status: string
+  service_tier: string
+  model_provider: string
+  inference_speed: string
+  inference_geo: string
+  context_input_tokens: string
+  uncached_input_tokens: string
+  cache_read_input_tokens: string
+  cache_write_5m_input_tokens: string
+  cache_write_1h_input_tokens: string
+  output_tokens: string
+  reasoning_output_tokens: string
+  agent_id: string
+  lineage_id: string
+  parent_lineage_id: string
+  token_source: string
+  identity_kind: string
+  first_observed_line: number
+  duplicate_observation_count: number
+  quality_flags: string[]
+  is_deleted: number
+  receipt_is_complete: number
+  receipt_event_count: number
+  receipt_checksum: string
+  ingested_at: string
+}
+
+export const RudelUsageEventsRowSchema = z.object({
+  organization_id: z.string(),
+  user_id: z.string(),
+  source: z.string(),
+  session_id: z.string(),
+  event_id: z.string(),
+  record_kind: z.string(),
+  event_version: z.string(),
+  event_identity_version: z.number(),
+  extraction_version: z.number(),
+  model_rate_card_version: z.string(),
+  filter_version: z.number(),
+  content_sha256: z.string(),
+  occurred_at: z.string(),
+  usage_date: z.string(),
+  has_valid_timestamp: z.number(),
+  raw_model: z.string(),
+  resolved_model: z.string(),
+  model_status: z.string(),
+  service_tier: z.string(),
+  model_provider: z.string(),
+  inference_speed: z.string(),
+  inference_geo: z.string(),
+  context_input_tokens: z.string(),
+  uncached_input_tokens: z.string(),
+  cache_read_input_tokens: z.string(),
+  cache_write_5m_input_tokens: z.string(),
+  cache_write_1h_input_tokens: z.string(),
+  output_tokens: z.string(),
+  reasoning_output_tokens: z.string(),
+  agent_id: z.string(),
+  lineage_id: z.string(),
+  parent_lineage_id: z.string(),
+  token_source: z.string(),
+  identity_kind: z.string(),
+  first_observed_line: z.number(),
+  duplicate_observation_count: z.number(),
+  quality_flags: z.array(z.string()),
+  is_deleted: z.number(),
+  receipt_is_complete: z.number(),
+  receipt_event_count: z.number(),
+  receipt_checksum: z.string(),
+  ingested_at: z.string(),
+})
+
+export type RudelUsageEventsRowInput = z.input<typeof RudelUsageEventsRowSchema>
+export type RudelUsageEventsRowOutput = z.output<typeof RudelUsageEventsRowSchema>
 
 export type RudelWrappedUserArchetypeRunsV1Row = {
   snapshot_id: string

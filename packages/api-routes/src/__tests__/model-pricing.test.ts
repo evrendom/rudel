@@ -9,13 +9,6 @@ import {
 import { MODEL_RATE_CARD, MODEL_RATE_MODIFIERS } from "../model-rate-card.js";
 
 describe("model rate card", () => {
-	it("uses the concise Fable display name", () => {
-		expect(
-			MODEL_RATE_CARD.find((entry) => entry.model === "claude-fable-5")
-				?.displayName,
-		).toBe("Fable 5");
-	});
-
 	it("has valid patterns, periods, provenance, and positive rates", () => {
 		for (const entry of MODEL_RATE_CARD) {
 			expect(entry.match.length).toBeGreaterThan(0);

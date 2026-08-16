@@ -1,0 +1,9 @@
+# These rules require branch protection with code-owner review to be enforceable.
+/packages/ch-schema/chx/** @evrendom
+/packages/ch-schema/src/db/schema/** @evrendom
+/packages/ch-schema/clickhouse.config.ts @evrendom
+package.json @evrendom
+/bun.lock @evrendom
+/scripts/check-disclosure.ts @evrendom
+/.github/workflows/** @evrendom
+/.github/CODEOWNERS @evrendom

@@ -1,19 +1,20 @@
 import type { ModelTokensTrendData } from "@rudel/api-routes";
-import { calculateCost } from "@/lib/format";
 
 export type DashboardTokenModelSummaryRow = {
-	estimatedCost: number;
+	estimatedCost: number | null;
 	id: string;
 	inputTokens: number;
+	isCostPartial: boolean;
 	label: string;
 	outputTokens: number;
 	totalTokens: number;
 };
 
 export type DashboardTokenModelChartDatum = {
-	estimatedCost: number;
+	estimatedCost: number | null;
 	id: string;
 	inputTokens: number;
+	isCostPartial: boolean;
 	label: string;
 	outputTokens: number;
 	shortLabel: string;
@@ -39,13 +40,14 @@ function formatModelAxisLabel(model: string) {
 }
 
 export function buildDashboardTokenModelRows(
-	modelTokensTrend: readonly ModelTokensTrendData[] | undefined,
+	modelTokensTrend: ModelTokensTrendData[] | undefined,
 ): DashboardTokenModelSummaryRow[] {
 	const rowsByModel = new Map<
 		string,
 		{
-			estimatedCost: number;
 			inputTokens: number;
+			isCostPartial: boolean;
+			knownCost: number;
 			outputTokens: number;
 			totalTokens: number;
 		}
@@ -53,20 +55,18 @@ export function buildDashboardTokenModelRows(
 
 	for (const row of modelTokensTrend ?? []) {
 		const currentRow = rowsByModel.get(row.model) ?? {
-			estimatedCost: 0,
 			inputTokens: 0,
+			isCostPartial: false,
+			knownCost: 0,
 			outputTokens: 0,
 			totalTokens: 0,
 		};
 
-		currentRow.estimatedCost += calculateCost(
-			row.input_tokens,
-			row.output_tokens,
-			{
-				at: row.date,
-				model: row.model,
-			},
-		);
+		if (row.estimated_cost == null) {
+			currentRow.isCostPartial = true;
+		} else {
+			currentRow.knownCost += row.estimated_cost;
+		}
 		currentRow.inputTokens += row.input_tokens;
 		currentRow.outputTokens += row.output_tokens;
 		currentRow.totalTokens += row.total_tokens;
@@ -76,9 +76,10 @@ export function buildDashboardTokenModelRows(
 
 	return Array.from(rowsByModel.entries())
 		.map(([model, row]) => ({
-			estimatedCost: row.estimatedCost,
+			estimatedCost: row.knownCost,
 			id: model,
 			inputTokens: row.inputTokens,
+			isCostPartial: row.isCostPartial,
 			label: model,
 			outputTokens: row.outputTokens,
 			totalTokens: row.totalTokens,
@@ -98,6 +99,7 @@ export function buildDashboardTokenModelChartData(
 		estimatedCost: row.estimatedCost,
 		id: row.id,
 		inputTokens: row.inputTokens,
+		isCostPartial: row.isCostPartial,
 		label: row.label,
 		outputTokens: row.outputTokens,
 		shortLabel: formatModelAxisLabel(row.label),

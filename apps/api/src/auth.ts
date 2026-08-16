@@ -121,8 +121,6 @@ export function createAuth(db: object, config: AuthConfig) {
 			schema,
 		}),
 		rateLimit: {
-			window: 60,
-			max: 30,
 			customRules: {
 				"/organization/set-active": {
 					window: 10,

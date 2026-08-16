@@ -12,6 +12,7 @@ COPY packages/ch-schema/package.json packages/ch-schema/package.json
 COPY packages/secret-filter/package.json packages/secret-filter/package.json
 COPY packages/sql-schema/package.json packages/sql-schema/package.json
 COPY packages/typescript-config/package.json packages/typescript-config/package.json
+COPY packages/usage-events/package.json packages/usage-events/package.json
 RUN bun install --frozen-lockfile
 
 # Copy source
@@ -34,5 +35,6 @@ RUN cp -r apps/web/dist/ apps/api/public/
 
 EXPOSE 3000
 ENV PORT=3000
+ENV NODE_ENV=production
 
 CMD ["bun", "apps/api/src/index.ts"]

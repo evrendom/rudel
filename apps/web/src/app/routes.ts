@@ -1,6 +1,7 @@
 import { appendWebAcquisitionSearchParams } from "@/lib/acquisition-attribution";
 
 const DASHBOARD_PATH = "/dashboard";
+const DASHBOARD_SESSIONS_PATH = `${DASHBOARD_PATH}/sessions`;
 const SESSION_PATH = "/session";
 const SKILLS_PATH = "/skills";
 const DASHBOARD_GET_STARTED_LEGACY_PATH = `${DASHBOARD_PATH}/get-started`;
@@ -48,6 +49,7 @@ export type WrappedVariant =
 export const appRoutes = {
 	home: () => DASHBOARD_PATH,
 	dashboard: () => DASHBOARD_PATH,
+	dashboardSessions: () => DASHBOARD_SESSIONS_PATH,
 	session: () => SESSION_PATH,
 	sessionDetail: (sessionId: string) =>
 		`${SESSION_PATH}/${encodeURIComponent(sessionId)}`,

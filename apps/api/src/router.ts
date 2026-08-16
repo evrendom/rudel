@@ -1,29 +1,44 @@
 import { getLogger } from "@logtape/logtape";
 import { ORPCError } from "@orpc/server";
-import { getAdapter } from "@rudel/agent-adapters";
+import {
+	getAdapter,
+	getMissingTranscriptTimestampMessage,
+} from "@rudel/agent-adapters";
 import {
 	INGEST_AGGREGATE_CONTENT_MAX_BYTES,
 	type IngestSessionInput,
 	PRODUCT_ANALYTICS_EVENTS,
 	REDACTION_BUDGET_EXCEEDED_CODE,
 	REDACTION_DID_NOT_CONVERGE_CODE,
+	SECRET_FILTER_JSON_INTEGRITY_CODE,
 	SESSION_OWNERSHIP_CONFLICT_CODE,
+	SESSION_UPLOAD_SHRINK_REJECTED_CODE,
 } from "@rudel/api-routes";
 import {
 	FILTER_VERSION,
 	getRedactionBudgetAnomaly,
 	SecretFilterConvergenceError,
+	SecretFilterJsonIntegrityError,
 } from "@rudel/secret-filter";
+import type { UsageExtractionResult } from "@rudel/usage-events";
 import { getClickhouse } from "./clickhouse.js";
 import { sqlClient } from "./db.js";
 import { adminRouter } from "./handlers/admin/index.js";
 import { analyticsRouter } from "./handlers/analytics/index.js";
+import { chatwootRouter } from "./handlers/chatwoot.js";
+import { productAnalyticsRouter } from "./handlers/product-analytics.js";
 import { profileRouter } from "./handlers/profile.js";
 import { teamInviteLinkRouter } from "./handlers/team-invite-link.js";
 import { wrappedDecimalClaimRouter } from "./handlers/wrapped-decimal-claim.js";
 import { wrappedResumeRouter } from "./handlers/wrapped-resume.js";
 import { wrappedShareRouter } from "./handlers/wrapped-share.js";
+import { readBooleanEnv } from "./lib/env.js";
 import { computeIngestContentHash } from "./lib/ingest-content-hash.js";
+import {
+	getIngestContentShape,
+	isUnexpectedIngestShrink,
+	resolvePreviousIngestContentShape,
+} from "./lib/ingest-content-shape.js";
 import { enforceIngestAggregateSize } from "./lib/ingest-size.js";
 import {
 	bucketContentSize,
@@ -43,17 +58,39 @@ import {
 	checkManualIngestRateLimit,
 	checkOrganizationSessionCountRateLimit,
 } from "./rate-limit.js";
-import { filterSessionTextFieldsOffThread } from "./services/ingest-filter.service.js";
+import { enqueueClickHousePurge } from "./services/clickhouse-purge.service.js";
+import {
+	filterSessionTextFieldsOffThread,
+	IngestFilterQueueAbortedError,
+	IngestFilterQueueClosedError,
+	IngestFilterQueueFullError,
+	IngestFilterQueueTimeoutError,
+} from "./services/ingest-filter.service.js";
 import { getNextIngestedAt } from "./services/ingest-timestamp.service.js";
 import {
-	deleteOrgSessions,
 	getCachedOrgSessionCount,
 	hasOrgUploadsInLastDays,
 } from "./services/org-session.service.js";
+import { hasRawSessionRow } from "./services/raw-session.service.js";
 import {
 	claimSessionIngestOwnership,
 	recordSessionIngestContent,
+	reserveUsageExtractionGeneration,
+	UsageExtractionSupersededError,
 } from "./services/session-ownership.service.js";
+import {
+	hasMatchingUsageExtractionReceipt,
+	shouldReplaceUsageEventsForVersion,
+	writeUsageExtraction,
+} from "./services/usage-event-ingest.service.js";
+import {
+	extractUsageEventsOffThread,
+	UsageExtractionExecutionError,
+	UsageExtractionQueueAbortedError,
+	UsageExtractionQueueClosedError,
+	UsageExtractionQueueFullError,
+	UsageExtractionQueueTimeoutError,
+} from "./services/usage-extraction.service.js";
 
 const logger = getLogger(["rudel", "api", "router"]);
 
@@ -92,7 +129,6 @@ function getSessionUploadCompletedPayload(
 const health = os.health.handler(() => {
 	return {
 		status: "ok" as const,
-		timestamp: Date.now(),
 	};
 });
 
@@ -168,9 +204,69 @@ const listMyOrganizations = os.listMyOrganizations
 		}));
 	});
 
+async function resolveIngestOrganizationId(
+	requestedOrganizationId: string | null,
+	userId: string,
+): Promise<string> {
+	if (requestedOrganizationId) {
+		const membership = await sqlClient<Array<{ id: string }>>`
+			SELECT id
+			FROM member
+			WHERE organization_id = ${requestedOrganizationId}
+				AND user_id = ${userId}
+			LIMIT 1
+		`;
+
+		if (membership.length === 0) {
+			throw new ORPCError("FORBIDDEN", {
+				message: "Not a member of the specified organization",
+			});
+		}
+		return requestedOrganizationId;
+	}
+
+	// Two rows are enough to distinguish a sole membership from an ambiguous choice.
+	// Prefer the personal workspace when it exists; creation time makes the fallback deterministic.
+	const memberships = await sqlClient<Array<{ organization_id: string }>>`
+		SELECT m.organization_id
+		FROM member m
+		INNER JOIN organization o
+			ON o.id = m.organization_id
+		WHERE m.user_id = ${userId}
+		GROUP BY m.organization_id
+		ORDER BY (m.organization_id = ${userId}) DESC, MIN(m.created_at) ASC
+		LIMIT 2
+	`;
+	const personalWorkspace = memberships.find(
+		(membership) => membership.organization_id === userId,
+	);
+	if (personalWorkspace) {
+		return personalWorkspace.organization_id;
+	}
+	if (memberships.length === 1 && memberships[0]) {
+		return memberships[0].organization_id;
+	}
+	if (memberships.length === 0) {
+		throw new ORPCError("BAD_REQUEST", {
+			message: "No organization is available for this upload",
+		});
+	}
+
+	throw new ORPCError("BAD_REQUEST", {
+		message: "Choose an organization with --org or rudel set-org",
+	});
+}
+
 const ingestSessionHandler = os.ingestSession
 	.use(ingestAuthMiddleware)
-	.handler(async ({ input, context, errors }) => {
+	.handler(async ({ input, context, errors, signal }) => {
+		if (readBooleanEnv("SESSION_INGEST_QUIESCED", false)) {
+			throw new ORPCError("SERVICE_UNAVAILABLE", {
+				data: { reason: "session_ingest_quiesced" },
+				message:
+					"Session uploads are temporarily paused for an analytics rebuild. Retry shortly.",
+			});
+		}
 		checkIngestRequestRateLimit(context.user.id);
 		const aggregateBytes = enforceIngestAggregateSize(
 			input,
@@ -178,12 +274,53 @@ const ingestSessionHandler = os.ingestSession
 		);
 		checkIngestByteRateLimit(context.user.id, aggregateBytes);
 		const filteredText = await filterSessionTextFieldsOffThread({
-			content: input.content,
-			subagents: input.subagents,
+			bytes: aggregateBytes,
+			fields: {
+				content: input.content,
+				subagents: input.subagents,
+			},
+			signal,
+			userId: context.user.id,
 		}).catch((error: unknown) => {
 			if (error instanceof SecretFilterConvergenceError) {
 				throw errors[REDACTION_DID_NOT_CONVERGE_CODE]({
 					data: { maxPasses: error.maxPasses },
+				});
+			}
+			if (error instanceof SecretFilterJsonIntegrityError) {
+				throw errors[SECRET_FILTER_JSON_INTEGRITY_CODE]();
+			}
+			if (error instanceof IngestFilterQueueFullError) {
+				throw new ORPCError("SERVICE_UNAVAILABLE", {
+					data: {
+						reason: "ingest_filter_queue_full",
+						limit: error.limit,
+						retryAfterMs: error.retryAfterMs,
+					},
+					message: error.message,
+				});
+			}
+			if (error instanceof IngestFilterQueueClosedError) {
+				throw new ORPCError("SERVICE_UNAVAILABLE", {
+					data: {
+						reason: "ingest_filter_queue_closed",
+						retryAfterMs: error.retryAfterMs,
+					},
+					message: error.message,
+				});
+			}
+			if (error instanceof IngestFilterQueueTimeoutError) {
+				throw new ORPCError("GATEWAY_TIMEOUT", {
+					data: {
+						reason: "ingest_filter_queue_timeout",
+						retryAfterMs: error.retryAfterMs,
+					},
+					message: error.message,
+				});
+			}
+			if (error instanceof IngestFilterQueueAbortedError) {
+				throw new ORPCError("CLIENT_CLOSED_REQUEST", {
+					message: error.message,
 				});
 			}
 			throw error;
@@ -209,6 +346,14 @@ const ingestSessionHandler = os.ingestSession
 				: undefined,
 			filter_version: FILTER_VERSION,
 		};
+		const adapter = getAdapter(filteredInput.source);
+		const timestamps = adapter.extractTimestamps(filteredInput.content);
+
+		if (!timestamps) {
+			throw new ORPCError("BAD_REQUEST", {
+				message: getMissingTranscriptTimestampMessage(filteredInput.source),
+			});
+		}
 
 		const activeOrgId =
 			context.session &&
@@ -224,24 +369,10 @@ const ingestSessionHandler = os.ingestSession
 			checkHookIngestRateLimit(context.user.id, input.sessionId);
 		}
 
-		const orgId = input.organizationId ?? activeOrgId ?? context.user.id;
-
-		// Verify membership for any org that isn't the user's personal workspace
-		if (orgId !== context.user.id) {
-			const membership = await sqlClient<Array<{ id: string }>>`
-				SELECT id
-				FROM member
-				WHERE organization_id = ${orgId}
-					AND user_id = ${context.user.id}
-				LIMIT 1
-			`;
-
-			if (membership.length === 0) {
-				throw new ORPCError("FORBIDDEN", {
-					message: "Not a member of the specified organization",
-				});
-			}
-		}
+		const orgId = await resolveIngestOrganizationId(
+			input.organizationId ?? activeOrgId,
+			context.user.id,
+		);
 
 		const ownership = await claimSessionIngestOwnership(
 			orgId,
@@ -250,6 +381,37 @@ const ingestSessionHandler = os.ingestSession
 		);
 		if (!ownership.owned) {
 			throw errors[SESSION_OWNERSHIP_CONFLICT_CODE]();
+		}
+		const contentShape = getIngestContentShape(filteredInput);
+		const previousContentShape = resolvePreviousIngestContentShape(ownership);
+		if (
+			!input.force_replace &&
+			(ownership.lastFilterVersion === null ||
+				ownership.lastFilterVersion === FILTER_VERSION) &&
+			previousContentShape !== null &&
+			isUnexpectedIngestShrink(previousContentShape, contentShape, {
+				compareTotalsOnly: ownership.lastContentShape === null,
+			})
+		) {
+			logger.warn(
+				"Refusing smaller session re-upload (organization_id={organizationId} session_id={sessionId} previous_content_bytes={previousContentBytes} current_content_bytes={currentContentBytes} previous_assistant_lines={previousAssistantLineCount} current_assistant_lines={currentAssistantLineCount})",
+				{
+					currentAssistantLineCount: contentShape.assistantLineCount,
+					currentContentBytes: contentShape.contentBytes,
+					organizationId: orgId,
+					previousAssistantLineCount: previousContentShape.assistantLineCount,
+					previousContentBytes: previousContentShape.contentBytes,
+					sessionId: input.sessionId,
+				},
+			);
+			throw errors[SESSION_UPLOAD_SHRINK_REJECTED_CODE]({
+				data: {
+					currentAssistantLineCount: contentShape.assistantLineCount,
+					currentContentBytes: contentShape.contentBytes,
+					previousAssistantLineCount: previousContentShape.assistantLineCount,
+					previousContentBytes: previousContentShape.contentBytes,
+				},
+			});
 		}
 
 		// Hash the exact bytes and filter version stored by the server. This makes
@@ -261,12 +423,25 @@ const ingestSessionHandler = os.ingestSession
 			sessionId: input.sessionId,
 			redacted: filteredText.counts,
 			redactedBytes: filteredText.redactedBytes,
+			usageChecksum: hasMatchingUsageExtractionReceipt(ownership, contentHash)
+				? (ownership.lastUsageChecksum ?? undefined)
+				: undefined,
 		};
 
 		// This is a best-effort cost optimization, not a cross-instance
 		// security control. Concurrent identical requests can both reach the
 		// ClickHouse insert before either records its successful hash.
-		if (ownership.lastContentSha256 === contentHash) {
+		if (
+			ownership.lastContentSha256 === contentHash &&
+			hasMatchingUsageExtractionReceipt(ownership, contentHash) &&
+			(await hasRawSessionRow({
+				organizationId: orgId,
+				sessionDate: ownership.lastSessionDate,
+				sessionId: input.sessionId,
+				table: adapter.rawTableName,
+				userId: context.user.id,
+			}))
+		) {
 			logger.info(
 				"Skipping duplicate session ingest (organization_id={organizationId} session_id={sessionId})",
 				{ organizationId: orgId, sessionId: input.sessionId },
@@ -278,30 +453,184 @@ const ingestSessionHandler = os.ingestSession
 		// Give each request a distinct millisecond RMT version even when the
 		// process clock has not advanced, so FINAL and hash bookkeeping agree.
 		const ingestedAt = getNextIngestedAt();
-		const adapter = getAdapter(filteredInput.source);
 		await adapter.ingest(getClickhouse(), filteredInput, {
 			ingestedAt,
 			userId: context.user.id,
 			organizationId: orgId,
+			timestamps,
 		});
+		await recordSessionIngestContent(
+			orgId,
+			input.sessionId,
+			contentHash,
+			contentShape,
+			FILTER_VERSION,
+			new Date(timestamps.sessionDate),
+			ingestedAt,
+		);
 
-		try {
-			await recordSessionIngestContent(
-				orgId,
-				input.sessionId,
-				contentHash,
-				ingestedAt,
-			);
-		} catch (error) {
+		if (!readBooleanEnv("USAGE_EVENT_EXTRACTION_ENABLED", true)) {
 			logger.warn(
-				"Session ingest succeeded but content hash bookkeeping failed (organization_id={organizationId} session_id={sessionId} error={error})",
+				"Usage-event extraction bypassed after raw ingest (organization_id={organizationId} session_id={sessionId})",
+				{ organizationId: orgId, sessionId: input.sessionId },
+			);
+			return response;
+		}
+
+		const usageGeneration = await reserveUsageExtractionGeneration(
+			orgId,
+			input.sessionId,
+			context.user.id,
+		);
+		const subagents: Record<string, string> = {};
+		for (const subagent of filteredInput.subagents ?? []) {
+			subagents[subagent.agentId] = subagent.content;
+		}
+		let usageExtraction: UsageExtractionResult;
+		try {
+			usageExtraction = await extractUsageEventsOffThread({
+				bytes: contentShape.contentBytes,
+				input: {
+					organizationId: orgId,
+					userId: context.user.id,
+					sessionId: input.sessionId,
+					source: filteredInput.source,
+					content: filteredInput.content,
+					subagents,
+				},
+				signal,
+				userId: context.user.id,
+			});
+		} catch (error) {
+			if (error instanceof UsageExtractionExecutionError) {
+				if (error.shouldPersistReceipt) {
+					await writeUsageExtraction(getClickhouse(), {
+						contentSha256: contentHash,
+						extraction: error.extraction,
+						filterVersion: FILTER_VERSION,
+						generation: usageGeneration,
+						ingestedAt,
+						organizationId: orgId,
+						sessionDate: new Date(timestamps.sessionDate),
+						sessionId: input.sessionId,
+						source: filteredInput.source,
+						userId: context.user.id,
+					});
+				}
+				logger.error(
+					"Usage-event extraction crashed after raw ingest (organization_id={organizationId} session_id={sessionId} error={error})",
+					{
+						error: String(error.cause),
+						organizationId: orgId,
+						sessionId: input.sessionId,
+					},
+				);
+				if (error instanceof UsageExtractionQueueFullError) {
+					throw new ORPCError("SERVICE_UNAVAILABLE", {
+						data: {
+							limit: error.limit,
+							reason: "usage_extraction_queue_full",
+							retryAfterMs: error.retryAfterMs,
+						},
+						message: error.message,
+					});
+				}
+				if (error instanceof UsageExtractionQueueClosedError) {
+					throw new ORPCError("SERVICE_UNAVAILABLE", {
+						data: {
+							reason: "usage_extraction_queue_closed",
+							retryAfterMs: error.retryAfterMs,
+						},
+						message: error.message,
+					});
+				}
+				if (error instanceof UsageExtractionQueueTimeoutError) {
+					throw new ORPCError("GATEWAY_TIMEOUT", {
+						data: {
+							reason: "usage_extraction_timeout",
+							retryAfterMs: error.retryAfterMs,
+						},
+						message: error.message,
+					});
+				}
+				if (error instanceof UsageExtractionQueueAbortedError) {
+					throw new ORPCError("CLIENT_CLOSED_REQUEST", {
+						data: {
+							reason: "usage_extraction_aborted",
+							retryAfterMs: error.retryAfterMs,
+						},
+						message: error.message,
+					});
+				}
+				throw new ORPCError("SERVICE_UNAVAILABLE", {
+					data: { reason: "usage_extraction_execution_failed" },
+					message:
+						"Raw session data was stored, but usage extraction failed. Retry the upload.",
+				});
+			}
+			throw error;
+		}
+		await writeUsageExtraction(getClickhouse(), {
+			contentSha256: contentHash,
+			extraction: usageExtraction,
+			filterVersion: FILTER_VERSION,
+			generation: usageGeneration,
+			ingestedAt,
+			organizationId: orgId,
+			replaceAbsentEvents:
+				input.force_replace === true ||
+				shouldReplaceUsageEventsForVersion(ownership),
+			sessionDate: new Date(timestamps.sessionDate),
+			sessionId: input.sessionId,
+			source: filteredInput.source,
+			userId: context.user.id,
+		});
+		if (usageExtraction.status === "incomplete") {
+			logger.warn(
+				"Usage extraction incomplete after raw ingest (organization_id={organizationId} session_id={sessionId} diagnostics={diagnostics})",
 				{
-					error: String(error),
+					diagnostics: JSON.stringify(usageExtraction.diagnostics),
 					organizationId: orgId,
 					sessionId: input.sessionId,
 				},
 			);
+			throw new ORPCError("SERVICE_UNAVAILABLE", {
+				data: {
+					reason: "usage_extraction_incomplete",
+					retryAfterMs: 1_000,
+				},
+				message:
+					"Raw session data was stored, but usage telemetry is malformed or contradictory. Retry after the transcript writer finishes.",
+			});
 		}
+
+		await recordSessionIngestContent(
+			orgId,
+			input.sessionId,
+			contentHash,
+			contentShape,
+			FILTER_VERSION,
+			new Date(timestamps.sessionDate),
+			ingestedAt,
+			{
+				checksum: usageExtraction.receipt.checksum,
+				diagnostics: JSON.stringify(usageExtraction.diagnostics),
+				eventCount: usageExtraction.receipt.eventCount,
+				extractionVersion: usageExtraction.receipt.extractionVersion,
+				eventIdentityVersion: usageExtraction.receipt.eventIdentityVersion,
+				generation: usageGeneration,
+				modelRateCardVersion: usageExtraction.receipt.modelRateCardVersion,
+			},
+		).catch((error: unknown) => {
+			if (error instanceof UsageExtractionSupersededError) {
+				throw new ORPCError("SERVICE_UNAVAILABLE", {
+					data: { reason: "usage_extraction_superseded" },
+					message: error.message,
+				});
+			}
+			throw error;
+		});
+		response.usageChecksum = usageExtraction.receipt.checksum;
 
 		const uploadCompletedPayload = getSessionUploadCompletedPayload(
 			filteredInput,
@@ -481,6 +810,10 @@ const deleteOrganization = os.deleteOrganization
 					});
 				}
 
+				await enqueueClickHousePurge(
+					{ targetId: orgId, targetType: "organization" },
+					transaction,
+				);
 				await transaction.unsafe("DELETE FROM organization WHERE id = $1", [
 					orgId,
 				]);
@@ -493,10 +826,6 @@ const deleteOrganization = os.deleteOrganization
 					[orgId],
 				);
 			});
-
-			// Postgres has already revoked API access. ClickHouse cleanup is
-			// best-effort query-level masking, not confirmed physical erasure.
-			await deleteOrgSessions(orgId);
 
 			captureApiProductAnalyticsEvent({
 				distinctId: userId,
@@ -511,7 +840,7 @@ const deleteOrganization = os.deleteOrganization
 			});
 
 			logger.info(
-				"Organization deletion completed (user_id={userId} organization_id={organizationId})",
+				"Organization deletion committed; ClickHouse purge queued (user_id={userId} organization_id={organizationId})",
 				{ organizationId: orgId, userId },
 			);
 			return { success: true as const };
@@ -534,6 +863,7 @@ export const router = os.router({
 		revokeToken: revokeCliToken,
 		setupStatus: cliSetupStatus,
 	},
+	chatwoot: chatwootRouter,
 	listMyOrganizations,
 	ingestSession: ingestSessionHandler,
 	getOrganizationSessionCount,
@@ -543,5 +873,6 @@ export const router = os.router({
 	wrappedResume: wrappedResumeRouter,
 	wrappedShare: wrappedShareRouter,
 	admin: adminRouter,
+	productAnalytics: productAnalyticsRouter,
 	analytics: analyticsRouter,
 });

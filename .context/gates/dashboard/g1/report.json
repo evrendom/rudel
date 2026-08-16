@@ -17,10 +17,10 @@
   "results": [
     {
       "scene": "Data model",
-      "sourceScreenshotPath": "/Users/evrendombak/conductor/workspaces/rudel-v2/podgorica/.context/extractions/dashboard/source-data-normalized.png",
-      "sourceSnapshotPath": "/Users/evrendombak/conductor/workspaces/rudel-v2/podgorica/.context/extractions/dashboard/source-data.structure.json",
-      "candidateScreenshotPath": "/Users/evrendombak/conductor/workspaces/rudel-v2/podgorica/.context/gates/dashboard/g1/data-candidate.png",
-      "candidateSnapshotPath": "/Users/evrendombak/conductor/workspaces/rudel-v2/podgorica/.context/gates/dashboard/g1/data-candidate.structure.json",
+      "sourceScreenshotPath": "/Users/example/conductor/workspaces/rudel-v2/podgorica/.context/extractions/dashboard/source-data-normalized.png",
+      "sourceSnapshotPath": "/Users/example/conductor/workspaces/rudel-v2/podgorica/.context/extractions/dashboard/source-data.structure.json",
+      "candidateScreenshotPath": "/Users/example/conductor/workspaces/rudel-v2/podgorica/.context/gates/dashboard/g1/data-candidate.png",
+      "candidateSnapshotPath": "/Users/example/conductor/workspaces/rudel-v2/podgorica/.context/gates/dashboard/g1/data-candidate.structure.json",
       "pixel": {
         "width": 1280,
         "height": 800,
@@ -34,10 +34,10 @@
     },
     {
       "scene": "Reporting",
-      "sourceScreenshotPath": "/Users/evrendombak/conductor/workspaces/rudel-v2/podgorica/.context/extractions/dashboard/source-reporting-normalized.png",
-      "sourceSnapshotPath": "/Users/evrendombak/conductor/workspaces/rudel-v2/podgorica/.context/extractions/dashboard/source-reporting.structure.json",
-      "candidateScreenshotPath": "/Users/evrendombak/conductor/workspaces/rudel-v2/podgorica/.context/gates/dashboard/g1/reporting-candidate.png",
-      "candidateSnapshotPath": "/Users/evrendombak/conductor/workspaces/rudel-v2/podgorica/.context/gates/dashboard/g1/reporting-candidate.structure.json",
+      "sourceScreenshotPath": "/Users/example/conductor/workspaces/rudel-v2/podgorica/.context/extractions/dashboard/source-reporting-normalized.png",
+      "sourceSnapshotPath": "/Users/example/conductor/workspaces/rudel-v2/podgorica/.context/extractions/dashboard/source-reporting.structure.json",
+      "candidateScreenshotPath": "/Users/example/conductor/workspaces/rudel-v2/podgorica/.context/gates/dashboard/g1/reporting-candidate.png",
+      "candidateSnapshotPath": "/Users/example/conductor/workspaces/rudel-v2/podgorica/.context/gates/dashboard/g1/reporting-candidate.structure.json",
       "pixel": {
         "width": 1280,
         "height": 800,

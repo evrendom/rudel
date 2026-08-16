@@ -7,7 +7,7 @@ import {
 	getModelIdentityIconClassName,
 } from "./dashboard-model-brand";
 
-type DashboardModelBadgeSize = "sm" | "md" | "table";
+type DashboardModelBadgeSize = "sm" | "md";
 
 type ModelBadgeSizeClasses = {
 	badgeClassName: string;
@@ -36,17 +36,6 @@ function getModelBadgeSizeClasses(
 			labelClassName:
 				"flex min-w-0 items-center leading-none [text-box-edge:cap_alphabetic] [text-box-trim:trim-both]",
 			paddingClassName: "px-3",
-		};
-	}
-
-	if (size === "table") {
-		return {
-			badgeClassName:
-				"h-5 gap-1 text-base font-medium tracking-[-0.01em] sm:text-sm",
-			iconClassName: "size-3 shrink-0",
-			labelClassName:
-				"flex min-w-0 items-center leading-none [text-box-edge:cap_alphabetic] [text-box-trim:trim-both]",
-			paddingClassName: "px-2",
 		};
 	}
 
@@ -156,14 +145,7 @@ export function DashboardModelBadges({
 
 	if (visibleModels.length === 0) {
 		return (
-			<span
-				className={cn(
-					"text-[color:var(--dashboardy-muted)]",
-					size === "table"
-						? "text-base font-medium tracking-[-0.01em] sm:text-sm"
-						: "text-[12px]",
-				)}
-			>
+			<span className="text-[12px] text-[color:var(--dashboardy-muted)]">
 				—
 			</span>
 		);

@@ -2,8 +2,9 @@ import { ArrowUpRightIcon, LinkIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
+import { toast } from "sonner";
 import { appRoutes } from "@/app/routes";
-import { buttonVariants } from "@/app/ui/button";
+import { Button, buttonVariants } from "@/app/ui/button";
 import type { TeamPageMemberRow } from "@/features/team/use-team-page-data";
 import { resolveWrappedArchetypeCardThemeByClassifierKey } from "@/features/wrapped/team-card/archetypes";
 import { WrappedTeamCardArtboardFrame } from "@/features/wrapped/team-card/artboard-frame";
@@ -14,6 +15,7 @@ import {
 } from "@/features/wrapped/team-card/card";
 import { UNKNOWN_GUEST_CARD_PRESET } from "@/features/wrapped/wrapped-guest-card-presets";
 import { copyTextToClipboardWithResult } from "@/lib/clipboard";
+import { client } from "@/lib/orpc";
 import "@/features/wrapped/wrapped.css";
 
 const TEAM_CARD_UNCLASSIFIED_ARCHETYPE_LABEL = "Unclassified";
@@ -46,7 +48,7 @@ function buildHeaderLeftMetric(row: TeamPageMemberRow) {
 	const formattedSpend = formatSpendValue(row.cost);
 
 	return {
-		title: `${currencyFormatter.format(row.cost)} estimated spend`,
+		title: `${currencyFormatter.format(row.cost ?? 0)} estimated API-rate cost`,
 		value: formattedSpend,
 	} satisfies WrappedTeamMemberCardHeaderMetric;
 }
@@ -140,20 +142,21 @@ function formatShortDate(lastActiveDate: string | null) {
 	return shortDateFormatter.format(parsedDate);
 }
 
-function formatSpendValue(cost: number) {
-	if (cost === 0) {
+function formatSpendValue(cost: number | null) {
+	const resolvedCost = cost ?? 0;
+	if (resolvedCost === 0) {
 		return "$0";
 	}
 
-	if (Math.abs(cost) >= 1000) {
-		return compactCurrencyFormatter.format(cost);
+	if (Math.abs(resolvedCost) >= 1000) {
+		return compactCurrencyFormatter.format(resolvedCost);
 	}
 
-	if (Math.abs(cost) >= 100) {
-		return currencyFormatter.format(cost).replace(/\.00$/, "");
+	if (Math.abs(resolvedCost) >= 100) {
+		return currencyFormatter.format(resolvedCost).replace(/\.00$/, "");
 	}
 
-	return currencyFormatter.format(cost);
+	return currencyFormatter.format(resolvedCost);
 }
 
 function isCurrentUserTeamCard(
@@ -194,11 +197,9 @@ function TeamMemberShareCardShell({
 }
 
 function TeamCardShapePlaceholder({
-	isInviteLinkPending,
-	teamInviteLink,
+	organizationId,
 }: {
-	isInviteLinkPending: boolean;
-	teamInviteLink: string | null;
+	organizationId: string;
 }) {
 	return (
 		<WrappedTeamCardArtboardFrame>
@@ -228,28 +229,18 @@ function TeamCardShapePlaceholder({
 					<p className="max-w-[19ch] text-center text-sm font-medium text-pretty text-muted-foreground">
 						Add more members to your team with this link
 					</p>
-					<TeamLinkCopySurface
-						isInviteLinkPending={isInviteLinkPending}
-						teamInviteLink={teamInviteLink}
-					/>
+					<TeamLinkCopySurface organizationId={organizationId} />
 				</div>
 			</article>
 		</WrappedTeamCardArtboardFrame>
 	);
 }
 
-function TeamLinkCopySurface({
-	isInviteLinkPending,
-	teamInviteLink,
-}: {
-	isInviteLinkPending: boolean;
-	teamInviteLink: string | null;
-}) {
+function TeamLinkCopySurface({ organizationId }: { organizationId: string }) {
+	const [isInviteLinkPending, setIsInviteLinkPending] = useState(false);
+	const [teamInviteLink, setTeamInviteLink] = useState<string | null>(null);
 	const [copied, setCopied] = useState(false);
 	const resetTimeoutRef = useRef<number | null>(null);
-	const visibleTeamLink =
-		teamInviteLink ??
-		(isInviteLinkPending ? "Loading link..." : "Link unavailable");
 
 	useEffect(() => {
 		return () => {
@@ -285,27 +276,120 @@ function TeamLinkCopySurface({
 		}, TEAM_LINK_COPY_RESET_MS);
 	}
 
-	return (
-		<div className="grid h-11 w-full min-w-0 grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-1 rounded-full border border-border/60 bg-background p-1">
-			<LinkIcon
-				aria-hidden="true"
-				className="mx-auto size-4 shrink-0 text-muted-foreground"
-			/>
-			<div
-				className="min-w-0 truncate [font-family:var(--font-mono)] text-[0.82rem] font-medium text-[#22201f]"
-				title={visibleTeamLink}
-			>
-				{visibleTeamLink}
+	async function handleCreateTeamInviteLink() {
+		setIsInviteLinkPending(true);
+		try {
+			const link = await client.teamInviteLink.create({ organizationId });
+			setTeamInviteLink(link.invite_url);
+			toast.success("Invite link created");
+		} catch {
+			toast.error("Failed to create invite link");
+		} finally {
+			setIsInviteLinkPending(false);
+		}
+	}
+
+	async function handleRevokeTeamInviteLink() {
+		setIsInviteLinkPending(true);
+		try {
+			await client.teamInviteLink.revoke({ organizationId });
+			setTeamInviteLink(null);
+			toast.success("Invite links revoked");
+		} catch {
+			toast.error("Failed to revoke invite links");
+		} finally {
+			setIsInviteLinkPending(false);
+		}
+	}
+
+	if (!teamInviteLink) {
+		return (
+			<div className="flex w-full flex-col items-center gap-2">
+				<Button
+					className="relative"
+					disabled={isInviteLinkPending}
+					onClick={() => void handleCreateTeamInviteLink()}
+					size="sm"
+					type="button"
+					variant="outline"
+				>
+					<span
+						aria-hidden="true"
+						className="pointer-fine:hidden absolute top-1/2 left-1/2 size-[max(100%,3rem)] -translate-1/2"
+					/>
+					Create link
+				</Button>
+				<Button
+					className="relative"
+					disabled={isInviteLinkPending}
+					onClick={() => void handleRevokeTeamInviteLink()}
+					size="sm"
+					type="button"
+					variant="link"
+				>
+					<span
+						aria-hidden="true"
+						className="pointer-fine:hidden absolute top-1/2 left-1/2 size-[max(100%,3rem)] -translate-1/2"
+					/>
+					Revoke existing link
+				</Button>
 			</div>
-			<button
-				aria-label={copied ? "Copied team link" : "Copy team link"}
-				className="flex h-full min-w-18 items-center justify-center rounded-full bg-[#22201f] px-4 [font-family:var(--font-sans)] text-[0.86rem] font-bold text-[#fffaf5] transition-colors hover:bg-[#151312] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#22201f]/30 disabled:cursor-not-allowed disabled:bg-muted-foreground/40 disabled:text-background"
-				disabled={isInviteLinkPending || teamInviteLink === null}
-				onClick={() => void handleCopyTeamLink()}
-				type="button"
-			>
-				{copied ? "Copied" : "Copy"}
-			</button>
+		);
+	}
+
+	return (
+		<div className="flex w-full flex-col gap-2">
+			<div className="grid h-11 w-full min-w-0 grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-1 rounded-full border border-border/60 bg-background p-1">
+				<LinkIcon
+					aria-hidden="true"
+					className="mx-auto size-4 shrink-0 text-muted-foreground"
+				/>
+				<div
+					className="min-w-0 truncate [font-family:var(--font-mono)] text-[0.82rem] font-medium text-[#22201f]"
+					title={teamInviteLink}
+				>
+					{teamInviteLink}
+				</div>
+				<button
+					aria-label={copied ? "Copied team link" : "Copy team link"}
+					className="flex h-full min-w-18 items-center justify-center rounded-full bg-[#22201f] px-4 [font-family:var(--font-sans)] text-[0.86rem] font-bold text-[#fffaf5] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#22201f]/30 disabled:cursor-not-allowed disabled:bg-muted-foreground/40 disabled:text-background"
+					disabled={isInviteLinkPending}
+					onClick={() => void handleCopyTeamLink()}
+					type="button"
+				>
+					{copied ? "Copied" : "Copy"}
+				</button>
+			</div>
+			<div className="flex justify-center gap-1">
+				<Button
+					className="relative"
+					disabled={isInviteLinkPending}
+					onClick={() => void handleCreateTeamInviteLink()}
+					size="sm"
+					type="button"
+					variant="ghost"
+				>
+					<span
+						aria-hidden="true"
+						className="pointer-fine:hidden absolute top-1/2 left-1/2 size-[max(100%,3rem)] -translate-1/2"
+					/>
+					Replace
+				</Button>
+				<Button
+					className="relative"
+					disabled={isInviteLinkPending}
+					onClick={() => void handleRevokeTeamInviteLink()}
+					size="sm"
+					type="button"
+					variant="ghost"
+				>
+					<span
+						aria-hidden="true"
+						className="pointer-fine:hidden absolute top-1/2 left-1/2 size-[max(100%,3rem)] -translate-1/2"
+					/>
+					Revoke
+				</Button>
+			</div>
 		</div>
 	);
 }
@@ -313,24 +397,22 @@ function TeamLinkCopySurface({
 export function TeamMembersCardGrid({
 	canInviteTeamMembers,
 	currentUserId,
-	isInviteLinkPending,
+	organizationId,
 	rows,
-	teamInviteLink,
 }: {
 	canInviteTeamMembers: boolean;
 	currentUserId: string | null;
-	isInviteLinkPending: boolean;
+	organizationId: string | null;
 	rows: TeamPageMemberRow[];
-	teamInviteLink: string | null;
 }) {
 	return (
 		<div className="team-lineup-surface-scope">
 			<ul className="grid justify-center gap-[10px] [grid-template-columns:repeat(auto-fit,minmax(233px,233px))]">
-				{canInviteTeamMembers ? (
+				{canInviteTeamMembers && organizationId ? (
 					<li className="flex justify-center list-none">
 						<TeamCardShapePlaceholder
-							isInviteLinkPending={isInviteLinkPending}
-							teamInviteLink={teamInviteLink}
+							key={organizationId}
+							organizationId={organizationId}
 						/>
 					</li>
 				) : null}

@@ -12,7 +12,10 @@ import {
 } from "@rudel/ch-schema/wrapped-archetype-constants";
 import { buildWrappedArchetypeCentroidUnionAll } from "@rudel/ch-schema/wrapped-archetype-rebuild";
 import { queryClickhouse } from "../clickhouse.js";
-import { buildEstimatedCostSql } from "./pricing.service.js";
+import {
+	buildUsageCostSubtotalSql,
+	getUsageAnalyticsQueryContext,
+} from "./usage-event-analytics.service.js";
 import { buildWrappedArchetypeGate } from "./wrapped-archetype-gate.js";
 import { enqueueWrappedArchetypeSnapshotRebuild } from "./wrapped-archetype-rebuild.service.js";
 
@@ -24,16 +27,6 @@ import { enqueueWrappedArchetypeSnapshotRebuild } from "./wrapped-archetype-rebu
 // developer analytics, but this endpoint should remain the baseline contract
 // product can point to without caveats.
 const VERIFIED_METRIC_COUNT = 8;
-
-const PER_SESSION_COST_SQL = buildEstimatedCostSql({
-	modelExpr: "model_used",
-	dateExpr: "session_date",
-	inputExpr:
-		"(ifNull(input_tokens, 0) - ifNull(cache_read_input_tokens, 0) - ifNull(cache_creation_input_tokens, 0))",
-	outputExpr: "ifNull(output_tokens, 0)",
-	cacheReadInputExpr: "ifNull(cache_read_input_tokens, 0)",
-	cacheCreationInputExpr: "ifNull(cache_creation_input_tokens, 0)",
-});
 
 interface WrappedSummaryRow {
 	active_days: number | string | null;
@@ -144,8 +137,12 @@ async function getWrappedSummary(
 	// Archetypes should never be computed here. The archetype pipeline is a
 	// separate snapshot system because global clustering is the wrong job for a
 	// request-time summary endpoint.
+	const usage = await getUsageAnalyticsQueryContext(orgId, {
+		userIdParam: "userId",
+	});
 	const rows = await queryClickhouse<WrappedSummaryRow>({
 		query: `
+			WITH ${usage.cteDefinitions}
 			SELECT
 				count() AS total_sessions,
 				uniqExact(toDate(session_date)) AS active_days,
@@ -160,11 +157,11 @@ async function getWrappedSummary(
 					formatDateTime(max(session_date), '%Y-%m-%dT%H:%i:%SZ')
 				) AS last_session_at,
 				ifNull(sum(ifNull(input_tokens, 0) + ifNull(output_tokens, 0)), 0) AS total_tokens,
-				round(ifNull(sum(${PER_SESSION_COST_SQL}), 0), 4) AS estimated_spend_usd,
+				${buildUsageCostSubtotalSql("estimated_cost", 4)} AS estimated_spend_usd,
 				ifNull(maxOrNull(actual_duration_min), 0) AS longest_session_min,
 				countIf(source = 'claude_code') AS claude_session_count,
 				countIf(source = 'codex') AS codex_session_count
-			FROM rudel.session_analytics FINAL
+			FROM ${usage.sessionsRelation}
 			WHERE organization_id = {orgId:String}
 				AND user_id = {userId:String}
 		`,
@@ -181,13 +178,17 @@ async function getMonthlyModelUsage(
 	orgId: string,
 	userId: string,
 ): Promise<MonthlyModelUsage[]> {
+	const usage = await getUsageAnalyticsQueryContext(orgId, {
+		userIdParam: "userId",
+	});
 	const rows = await queryClickhouse<MonthlyModelUsageRow>({
 		query: `
+			WITH ${usage.cteDefinitions}
 			SELECT
 				formatDateTime(toStartOfMonth(session_date), '%Y-%m') AS month,
 				model_used AS model,
 				count() AS session_count
-			FROM rudel.session_analytics FINAL
+			FROM ${usage.sessionsRelation}
 			WHERE organization_id = {orgId:String}
 				AND user_id = {userId:String}
 				AND model_used != ''
@@ -212,15 +213,19 @@ async function getFavoriteModel(
 	orgId: string,
 	userId: string,
 ): Promise<string | null> {
+	const usage = await getUsageAnalyticsQueryContext(orgId, {
+		userIdParam: "userId",
+	});
 	const rows = await queryClickhouse<FavoriteModelRow>({
 		query: `
+			WITH ${usage.cteDefinitions}
 			SELECT favorite_model
 			FROM (
 				SELECT
 					model_used AS favorite_model,
 					count() AS session_count,
 					sum(ifNull(input_tokens, 0) + ifNull(output_tokens, 0)) AS total_tokens
-				FROM rudel.session_analytics FINAL
+				FROM ${usage.sessionsRelation}
 				WHERE organization_id = {orgId:String}
 					AND user_id = {userId:String}
 					AND model_used != ''
@@ -412,8 +417,9 @@ function getDaysSinceTimestamp(timestamp: string | null): number {
 	return Math.max(0, Math.floor(diffMs / 86_400_000));
 }
 
-function roundCurrency(value: number | string | null): number {
-	return roundTo(toNumber(value), 4);
+function roundCurrency(value: number | string | null): number | null {
+	const parsed = toNullableNumber(value);
+	return parsed === null ? null : roundTo(parsed, 4);
 }
 
 function roundPercent(value: number): number {

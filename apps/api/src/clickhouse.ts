@@ -1,5 +1,6 @@
 import { type ClickHouseSettings, createClient } from "@clickhouse/client-web";
 import { getLogger } from "@logtape/logtape";
+import { resolveClickHouseUsername } from "@rudel/ch-schema/connection";
 
 const logger = getLogger(["rudel", "api", "clickhouse"]);
 
@@ -7,6 +8,7 @@ const ALLOWED_CLICKHOUSE_TABLES = new Set([
 	"rudel.claude_sessions",
 	"rudel.codex_sessions",
 	"rudel.session_analytics",
+	"rudel.usage_events",
 	"rudel.wrapped_user_archetype_snapshots_v1",
 ]);
 
@@ -18,13 +20,16 @@ export interface ClickHouseStatement {
 }
 
 export interface ClickHouseExecutor {
+	close(): Promise<void>;
 	execute(statement: ClickHouseStatement): Promise<void>;
 	query<T>(statement: ClickHouseStatement): Promise<T[]>;
 	insert(params: { table: string; values: object[] }): Promise<void>;
 }
 
 interface LatestRawSessionContentFilters {
+	sessionDate?: boolean;
 	sessionId?: boolean;
+	source?: boolean;
 	userId?: boolean;
 	projectPath?: boolean;
 	lookbackDays?: boolean;
@@ -40,6 +45,11 @@ export function buildLatestRawSessionContentSql(
 	filters: LatestRawSessionContentFilters,
 ): string {
 	const where = ["organization_id = {orgId:String}"];
+	if (filters.sessionDate) {
+		where.push(
+			"session_date = parseDateTime64BestEffort({sessionDate:String}, 3, 'UTC')",
+		);
+	}
 	if (filters.sessionId) where.push("session_id = {sessionId:String}");
 	if (filters.userId) where.push("user_id = {userId:String}");
 	if (filters.projectPath) where.push("project_path = {projectPath:String}");
@@ -56,6 +66,12 @@ export function buildLatestRawSessionContentSql(
 	}
 
 	const rawWhere = where.join("\n      AND ");
+	const claudeWhere = filters.source
+		? `${rawWhere}\n      AND {source:String} = 'claude_code'`
+		: rawWhere;
+	const codexWhere = filters.source
+		? `${rawWhere}\n      AND {source:String} = 'codex'`
+		: rawWhere;
 
 	return `
   SELECT
@@ -75,7 +91,7 @@ export function buildLatestRawSessionContentSql(
       subagents,
       ingested_at
     FROM rudel.claude_sessions
-    WHERE ${rawWhere}
+    WHERE ${claudeWhere}
 
     UNION ALL
 
@@ -88,7 +104,7 @@ export function buildLatestRawSessionContentSql(
       CAST(map(), 'Map(String, String)') AS subagents,
       ingested_at
     FROM rudel.codex_sessions
-    WHERE ${rawWhere}
+    WHERE ${codexWhere}
   )
   GROUP BY source, organization_id, user_id, session_id
 `;
@@ -119,6 +135,9 @@ export function createClickHouseExecutor(config: {
 		},
 	});
 	return {
+		async close() {
+			await client.close();
+		},
 		async execute(statement: ClickHouseStatement) {
 			await client.command({
 				clickhouse_settings: statement.clickhouse_settings,
@@ -139,9 +158,10 @@ export function createClickHouseExecutor(config: {
 			const table = getSafeClickHouseTable(params.table);
 			// Use command() with FORMAT JSONEachRow instead of client.insert()
 			// because ClickHouse Cloud's @clickhouse/client insert() silently drops data.
+			// Single-row transcript inserts hit the parallel JSON parser's ~115 MB cliff.
 			const rows = params.values.map((r) => JSON.stringify(r)).join("\n");
 			await client.command({
-				query: `INSERT INTO ${table} SETTINGS async_insert=1, wait_for_async_insert=1 FORMAT JSONEachRow ${rows}`,
+				query: `INSERT INTO ${table} SETTINGS async_insert=1, wait_for_async_insert=1, input_format_parallel_parsing=0 FORMAT JSONEachRow ${rows}`,
 			});
 		},
 	};
@@ -151,12 +171,10 @@ let _clickhouse: ClickHouseExecutor | null = null;
 
 export function getClickhouse(): ClickHouseExecutor {
 	if (!_clickhouse) {
+		const url = process.env.CLICKHOUSE_URL || "http://localhost:8123";
 		const executor = createClickHouseExecutor({
-			url: process.env.CLICKHOUSE_URL || "http://localhost:8123",
-			username:
-				process.env.CLICKHOUSE_USERNAME ||
-				process.env.CLICKHOUSE_USER ||
-				"default",
+			url,
+			username: resolveClickHouseUsername(process.env, url),
 			password: process.env.CLICKHOUSE_PASSWORD || "",
 			database: "default",
 		});

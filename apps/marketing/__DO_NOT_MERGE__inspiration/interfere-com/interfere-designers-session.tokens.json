@@ -5,13 +5,13 @@
     "page": {
       "bytes": 382801,
       "elements": 1744,
-      "path": "/Users/evrendombak/conductor/workspaces/rudel-v2/podgorica/.context/attachments/McHr6K/pasted_text_2026-08-14_11-13-12.txt",
+      "path": "/Users/example/conductor/workspaces/rudel-v2/podgorica/.context/attachments/McHr6K/pasted_text_2026-08-14_11-13-12.txt",
       "sha1": "6429cb9b7273c2a2abbaf5424c178ec86f1196d0"
     },
     "fragment": {
       "bytes": 59284,
       "elements": 330,
-      "path": "/Users/evrendombak/conductor/workspaces/rudel-v2/podgorica/.context/attachments/hBqKos/pasted_text_2026-08-14_11-13-01.txt",
+      "path": "/Users/example/conductor/workspaces/rudel-v2/podgorica/.context/attachments/hBqKos/pasted_text_2026-08-14_11-13-01.txt",
       "sha1": "353c5cb50e5e9873ad4b48edd436973fe0add9fe"
     },
     "states": [
@@ -22,7 +22,7 @@
         "label": "Follow ongoing problems",
         "number": 1,
         "origin": "live rendered interaction capture",
-        "path": "/Users/evrendombak/conductor/workspaces/rudel-v2/podgorica/apps/marketing/__DO_NOT_MERGE__inspiration/interfere-com/interfere-designers-ship-faster-state-1.source.html",
+        "path": "/Users/example/conductor/workspaces/rudel-v2/podgorica/apps/marketing/__DO_NOT_MERGE__inspiration/interfere-com/interfere-designers-ship-faster-state-1.source.html",
         "sha1": "e7454356c7257f39c7acfe205be330bf7dfea9d2"
       },
       {
@@ -32,7 +32,7 @@
         "label": "Understand what’s going on",
         "number": 2,
         "origin": "supplied isolated fragment",
-        "path": "/Users/evrendombak/conductor/workspaces/rudel-v2/podgorica/.context/attachments/hBqKos/pasted_text_2026-08-14_11-13-01.txt",
+        "path": "/Users/example/conductor/workspaces/rudel-v2/podgorica/.context/attachments/hBqKos/pasted_text_2026-08-14_11-13-01.txt",
         "sha1": "353c5cb50e5e9873ad4b48edd436973fe0add9fe"
       },
       {
@@ -42,7 +42,7 @@
         "label": "Follow the problem’s resolution",
         "number": 3,
         "origin": "extracted from supplied full-page capture",
-        "path": "/Users/evrendombak/conductor/workspaces/rudel-v2/podgorica/.context/attachments/McHr6K/pasted_text_2026-08-14_11-13-12.txt",
+        "path": "/Users/example/conductor/workspaces/rudel-v2/podgorica/.context/attachments/McHr6K/pasted_text_2026-08-14_11-13-12.txt",
         "sha1": "ef3ae4b65b930daaf5c2d3cd2f0c40be336f5bcf"
       },
       {
@@ -52,7 +52,7 @@
         "label": "Identify impacted customers",
         "number": 4,
         "origin": "live rendered GTM first-tab interaction capture",
-        "path": "/Users/evrendombak/conductor/workspaces/rudel-v2/podgorica/apps/marketing/__DO_NOT_MERGE__inspiration/interfere-com/interfere-designers-support-state-1.source.html",
+        "path": "/Users/example/conductor/workspaces/rudel-v2/podgorica/apps/marketing/__DO_NOT_MERGE__inspiration/interfere-com/interfere-designers-support-state-1.source.html",
         "sha1": "fe14b4038acf26a7d12b5f95a49ecf3349ebd295"
       },
       {
@@ -62,7 +62,7 @@
         "label": "Answer questions faster",
         "number": 5,
         "origin": "live rendered GTM second-tab interaction capture",
-        "path": "/Users/evrendombak/conductor/workspaces/rudel-v2/podgorica/apps/marketing/__DO_NOT_MERGE__inspiration/interfere-com/interfere-designers-support-state-2.source.html",
+        "path": "/Users/example/conductor/workspaces/rudel-v2/podgorica/apps/marketing/__DO_NOT_MERGE__inspiration/interfere-com/interfere-designers-support-state-2.source.html",
         "sha1": "5da59c9ebecd7d242b551474ef886aedf1ef2329"
       },
       {
@@ -72,7 +72,7 @@
         "label": "Get ahead of support tickets",
         "number": 6,
         "origin": "supplied isolated GTM third-tab fragment",
-        "path": "/Users/evrendombak/conductor/workspaces/rudel-v2/podgorica/.context/attachments/O6mnKM/pasted_text_2026-08-14_13-13-12.txt",
+        "path": "/Users/example/conductor/workspaces/rudel-v2/podgorica/.context/attachments/O6mnKM/pasted_text_2026-08-14_13-13-12.txt",
         "sha1": "3468c598c8391c79aded01b19f311406df0db4f9"
       }
     ]

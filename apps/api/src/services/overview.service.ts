@@ -12,7 +12,10 @@ import {
 	queryClickhouse,
 } from "../clickhouse.js";
 import { sqlClient } from "../db.js";
-import { buildEstimatedCostSql } from "./pricing.service.js";
+import {
+	buildUsageCostSubtotalSql,
+	getUsageAnalyticsQueryContext,
+} from "./usage-event-analytics.service.js";
 
 export interface Insight {
 	type: "trend" | "performer" | "alert" | "info";
@@ -20,16 +23,6 @@ export interface Insight {
 	message: string;
 	link: string;
 }
-
-const USER_USAGE_PER_SESSION_COST_SQL = buildEstimatedCostSql({
-	modelExpr: "sa.model_used",
-	dateExpr: "sa.session_date",
-	inputExpr:
-		"(ifNull(sa.input_tokens, 0) - ifNull(sa.cache_read_input_tokens, 0) - ifNull(sa.cache_creation_input_tokens, 0))",
-	outputExpr: "ifNull(sa.output_tokens, 0)",
-	cacheReadInputExpr: "ifNull(sa.cache_read_input_tokens, 0)",
-	cacheCreationInputExpr: "ifNull(sa.cache_creation_input_tokens, 0)",
-});
 
 /**
  * Get overview KPI counts: distinct users, sessions, projects, subagents, skills, slash commands
@@ -114,18 +107,26 @@ export async function getModelTokensTrend(
 	startDate: string,
 	endDate: string,
 ): Promise<ModelTokensTrendData[]> {
-	const dateFilter = buildAbsoluteDateFilter("startDate", "endDate");
+	const dateFilter = buildAbsoluteDateFilter(
+		"startDate",
+		"endDate",
+		"usage_date",
+	);
+	const usage = await getUsageAnalyticsQueryContext(orgId);
+	const estimatedCostSql = buildUsageCostSubtotalSql("estimated_cost", 4);
 
 	const query = `
+	WITH ${usage.cteDefinitions}
     SELECT
-      toDate(session_date) as date,
+      toDate(usage_date) as date,
       model_used as model,
       sum(total_tokens) as total_tokens,
       sum(input_tokens) as input_tokens,
-      sum(output_tokens) as output_tokens
-    FROM rudel.session_analytics FINAL
+	  sum(output_tokens) as output_tokens,
+	  ${estimatedCostSql} as estimated_cost
+    FROM ${usage.dailySessionsRelation} AS sa
     WHERE ${dateFilter}
-      AND organization_id = {orgId:String}
+      AND sa.organization_id = {orgId:String}
       AND model_used != ''
       AND model_used != 'unknown'
     GROUP BY date, model
@@ -148,6 +149,7 @@ export async function getUsersTokenUsage(
 	endDate: string,
 ): Promise<UserTokenUsageData[]> {
 	const dateFilter = buildAbsoluteDateFilter("startDate", "endDate");
+	const usage = await getUsageAnalyticsQueryContext(orgId);
 	const rows = await queryClickhouse<{
 		models_used: string[];
 		repositories_touched: string[];
@@ -156,7 +158,7 @@ export async function getUsersTokenUsage(
 		total_tokens: number;
 		input_tokens: number;
 		output_tokens: number;
-		cost: number;
+		cost: number | null;
 		total_sessions: number;
 		total_duration_min: number;
 		success_rate: number;
@@ -164,6 +166,7 @@ export async function getUsersTokenUsage(
 		distinct_slash_commands: number;
 	}>({
 		query: `
+	WITH ${usage.cteDefinitions}
     SELECT
       sa.user_id,
       arrayFilter(
@@ -192,13 +195,13 @@ export async function getUsersTokenUsage(
       sum(ifNull(sa.total_tokens, 0)) as total_tokens,
       sum(ifNull(sa.input_tokens, 0)) as input_tokens,
       sum(ifNull(sa.output_tokens, 0)) as output_tokens,
-      round(sum(${USER_USAGE_PER_SESSION_COST_SQL}), 4) as cost,
+		${buildUsageCostSubtotalSql("sa.estimated_cost", 4)} as cost,
       count() as total_sessions,
       round(sum(sa.actual_duration_min), 2) as total_duration_min,
       round(avg(sa.success_score), 2) as success_rate,
       length(arrayDistinct(arrayFilter(x -> x != '', arrayFlatten(groupArray(sa.skills))))) as distinct_skills,
       length(arrayDistinct(arrayFilter(x -> x != '', arrayFlatten(groupArray(sa.slash_commands))))) as distinct_slash_commands
-    FROM rudel.session_analytics AS sa FINAL
+    FROM ${usage.sessionsRelation} AS sa
     WHERE ${dateFilter}
       AND sa.organization_id = {orgId:String}
       AND sa.user_id != ''
@@ -236,7 +239,7 @@ export async function getUsersTokenUsage(
 		total_tokens: Number(row.total_tokens),
 		input_tokens: Number(row.input_tokens),
 		output_tokens: Number(row.output_tokens),
-		cost: Number(row.cost),
+		cost: row.cost === null ? null : Number(row.cost),
 		total_sessions: Number(row.total_sessions),
 		total_duration_min: Number(row.total_duration_min),
 		success_rate: Number(row.success_rate),
@@ -251,9 +254,11 @@ export async function getUsersDailyTrend(
 	endDate: string,
 ): Promise<UserDailyTrendData[]> {
 	const dateFilter = buildAbsoluteDateFilter("startDate", "endDate");
+	const usage = await getUsageAnalyticsQueryContext(orgId);
 
 	return queryClickhouse<UserDailyTrendData>({
 		query: `
+	WITH ${usage.cteDefinitions}
     SELECT
       toString(toDate(session_date)) as date,
       user_id,
@@ -263,7 +268,6 @@ export async function getUsersDailyTrend(
       sum(ifNull(total_tokens, 0)) as total_tokens,
       sum(ifNull(input_tokens, 0)) as input_tokens,
       sum(ifNull(output_tokens, 0)) as output_tokens,
-      round(sum(${USER_USAGE_PER_SESSION_COST_SQL}), 4) as cost,
       round(avg(success_score), 2) as avg_success_rate,
       length(arrayDistinct(arrayFilter(x -> x != '', arrayFlatten(groupArray(skills))))) as distinct_skills,
       length(arrayDistinct(arrayFilter(x -> x != '', arrayFlatten(groupArray(slash_commands))))) as distinct_slash_commands,
@@ -289,9 +293,9 @@ export async function getUsersDailyTrend(
           )
         )
       ) as repositories_touched
-    FROM rudel.session_analytics AS sa FINAL
+    FROM ${usage.sessionsRelation} AS sa
     WHERE ${dateFilter}
-      AND organization_id = {orgId:String}
+      AND sa.organization_id = {orgId:String}
       AND user_id != ''
     GROUP BY date, user_id
     ORDER BY date ASC, user_id ASC
@@ -325,12 +329,8 @@ export async function getRepositoriesDailyTrend(
         )
       ) as repository,
       count() as sessions,
-      sum(has_commit) as total_commits,
-      sum(ifNull(total_tokens, 0)) as total_tokens,
-      sum(ifNull(input_tokens, 0)) as input_tokens,
-      sum(ifNull(output_tokens, 0)) as output_tokens,
-      round(sum(${USER_USAGE_PER_SESSION_COST_SQL}), 4) as cost
-    FROM rudel.session_analytics AS sa FINAL
+      sum(has_commit) as total_commits
+    FROM rudel.session_analytics FINAL
     WHERE ${dateFilter}
       AND organization_id = {orgId:String}
     GROUP BY date, repository
@@ -354,17 +354,19 @@ export async function getUsageTrendDetailed(
 	endDate: string,
 ): Promise<UsageTrendData[]> {
 	const dateFilter = buildAbsoluteDateFilter("startDate", "endDate");
+	const usage = await getUsageAnalyticsQueryContext(orgId);
 
 	const query = `
+	WITH ${usage.cteDefinitions}
     SELECT
       toDate(session_date) as date,
       count() as sessions,
       uniq(user_id) as active_users,
       round(sum(actual_duration_min) / 60, 2) as total_hours,
       sum(total_tokens) as total_tokens
-    FROM rudel.session_analytics FINAL
+    FROM ${usage.sessionsRelation} AS sa
     WHERE ${dateFilter}
-      AND organization_id = {orgId:String}
+      AND sa.organization_id = {orgId:String}
     GROUP BY date
     ORDER BY date ASC
   `;

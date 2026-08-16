@@ -1,4 +1,5 @@
 export {
+	assertFilteredJsonValidity,
 	FILTER_VERSION,
 	FILTERED_TRANSCRIPT_PATHS,
 	filterKnownSecrets,
@@ -13,6 +14,7 @@ export {
 	OVERLONG_REDACTION_RULE_ID,
 	SECRET_FILTER_CONVERGENCE_MESSAGE,
 	SecretFilterConvergenceError,
+	SecretFilterJsonIntegrityError,
 } from "./filter.js";
 export { GITLEAKS_VERSION } from "./generated-rules.js";
 export type {

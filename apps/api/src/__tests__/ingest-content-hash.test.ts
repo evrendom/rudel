@@ -122,7 +122,9 @@ describe("computeIngestContentHash", () => {
 		expect(routerSource).toContain(
 			"ownership.lastContentSha256 === contentHash",
 		);
-		expect(routerSource).toContain("contentHash,\n\t\t\t\tingestedAt,");
+		expect(routerSource).toContain("contentShape.contentBytes,");
+		expect(routerSource).toContain("contentShape.assistantLineCount,");
+		expect(routerSource).toContain("await hasRawSessionRow({");
 		expect(routerSource).toContain("await filterSessionTextFieldsOffThread({");
 		expect(routerSource).not.toContain("filterSessionTextFields({");
 	});

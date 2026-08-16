@@ -259,8 +259,6 @@ export function useTrackProductPageView(options: {
 
 		viewedRangeKeyRef.current = viewedRangeKey;
 		captureDashboardViewed({
-			organization_id: organizationId,
-			user_id: userId,
 			page_name: pageName,
 			has_data: options.hasData,
 			date_range_days: dateRangeDays,

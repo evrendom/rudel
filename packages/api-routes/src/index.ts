@@ -1,6 +1,9 @@
 import { oc } from "@orpc/contract";
 import { z } from "zod";
 import {
+	DashboardDrilldownOpenedCaptureInputSchema,
+	DashboardFilterChangedCaptureInputSchema,
+	DashboardViewedCaptureInputSchema,
 	ProductAnalyticsClientSurfaceSchema,
 	ProductAnalyticsPlatformOsSchema,
 	ProductAnalyticsUploadModeSchema,
@@ -193,7 +196,6 @@ export {
 
 export const HealthSchema = z.object({
 	status: z.literal("ok"),
-	timestamp: z.number(),
 });
 
 export const UserSchema = z.object({
@@ -214,6 +216,11 @@ export const CliSetupStatusSchema = z.object({
 	hasCliLogin: z.boolean(),
 });
 
+export const ChatwootIdentitySchema = z.object({
+	identifier: z.string(),
+	identifier_hash: z.string().regex(/^[a-f0-9]{64}$/u),
+});
+
 export const OrganizationSchema = z.object({
 	id: z.string(),
 	name: z.string(),
@@ -222,6 +229,7 @@ export const OrganizationSchema = z.object({
 });
 
 export const TeamInviteLinkSchema = z.object({
+	expires_at: z.string().datetime(),
 	invite_url: z.string().url(),
 	organization_id: z.string(),
 	organization_name: z.string(),
@@ -296,6 +304,7 @@ export const IngestSessionInputSchema = z.object({
 	cli_version: z.string().max(200).optional(),
 	platform_os: ProductAnalyticsPlatformOsSchema.optional(),
 	filter_version: z.number().int().min(0).max(65_535).optional(),
+	force_replace: z.boolean().optional(),
 });
 
 export const IngestSessionOutputSchema = z.object({
@@ -303,6 +312,10 @@ export const IngestSessionOutputSchema = z.object({
 	sessionId: z.string(),
 	redacted: z.record(z.string(), z.number().int().nonnegative()).default({}),
 	redactedBytes: z.number().int().nonnegative().optional(),
+	usageChecksum: z
+		.string()
+		.regex(/^[a-f0-9]{64}$/u)
+		.optional(),
 });
 
 export const REDACTION_BUDGET_EXCEEDED_CODE = "REDACTION_BUDGET_EXCEEDED";
@@ -311,9 +324,16 @@ export const REDACTION_BUDGET_EXCEEDED_MESSAGE =
 export const REDACTION_DID_NOT_CONVERGE_CODE = "REDACTION_DID_NOT_CONVERGE";
 export const REDACTION_DID_NOT_CONVERGE_MESSAGE =
 	"Known-pattern redaction did not converge within the safety limit.";
+export const SECRET_FILTER_JSON_INTEGRITY_CODE = "SECRET_FILTER_JSON_INTEGRITY";
+export const SECRET_FILTER_JSON_INTEGRITY_MESSAGE =
+	"Secret filtering could not preserve transcript JSON integrity.";
 export const SESSION_OWNERSHIP_CONFLICT_CODE = "SESSION_OWNERSHIP_CONFLICT";
 export const SESSION_OWNERSHIP_CONFLICT_MESSAGE =
 	"This session belongs to another organization member and cannot be replaced.";
+export const SESSION_UPLOAD_SHRINK_REJECTED_CODE =
+	"SESSION_UPLOAD_SHRINK_REJECTED";
+export const SESSION_UPLOAD_SHRINK_REJECTED_MESSAGE =
+	"This upload is smaller than the stored session and was refused to protect existing data. Inspect the transcript, then use `rudel upload --force-replace` only if the replacement is intentional. If your CLI does not recognize the flag, upgrade rudel first.";
 
 export type IngestSessionInput = z.infer<typeof IngestSessionInputSchema>;
 
@@ -333,6 +353,10 @@ export const UpdateProfileInputSchema = z.object({
 
 export type UpdateProfileInput = z.infer<typeof UpdateProfileInputSchema>;
 
+const ProductAnalyticsCaptureResultSchema = z.object({
+	success: z.literal(true),
+});
+
 export const contract = {
 	health: oc.output(HealthSchema),
 	me: oc.output(UserSchema),
@@ -344,6 +368,9 @@ export const contract = {
 		authStatus: oc.output(CliUserSchema),
 		revokeToken: oc.output(z.object({ success: z.literal(true) })),
 		setupStatus: oc.output(CliSetupStatusSchema),
+	},
+	chatwoot: {
+		identity: oc.output(ChatwootIdentitySchema.nullable()),
 	},
 	listMyOrganizations: oc.output(z.array(OrganizationSchema)),
 	ingestSession: oc
@@ -366,9 +393,23 @@ export const contract = {
 					maxPasses: z.number().int().positive(),
 				}),
 			},
+			[SECRET_FILTER_JSON_INTEGRITY_CODE]: {
+				status: 422,
+				message: SECRET_FILTER_JSON_INTEGRITY_MESSAGE,
+			},
 			[SESSION_OWNERSHIP_CONFLICT_CODE]: {
 				status: 409,
 				message: SESSION_OWNERSHIP_CONFLICT_MESSAGE,
+			},
+			[SESSION_UPLOAD_SHRINK_REJECTED_CODE]: {
+				status: 409,
+				message: SESSION_UPLOAD_SHRINK_REJECTED_MESSAGE,
+				data: z.object({
+					currentAssistantLineCount: z.number().int().nonnegative(),
+					currentContentBytes: z.number().int().nonnegative(),
+					previousAssistantLineCount: z.number().int().nonnegative(),
+					previousContentBytes: z.number().int().nonnegative(),
+				}),
 			},
 		}),
 	getOrganizationSessionCount: oc
@@ -380,9 +421,12 @@ export const contract = {
 		.input(z.object({ organizationId: z.string() }))
 		.output(z.object({ success: z.literal(true) })),
 	teamInviteLink: {
-		get: oc
+		create: oc
 			.input(z.object({ organizationId: z.string() }))
 			.output(TeamInviteLinkSchema),
+		revoke: oc
+			.input(z.object({ organizationId: z.string() }))
+			.output(z.object({ success: z.literal(true) })),
 		accept: oc
 			.input(z.object({ token: z.string().min(1) }))
 			.output(TeamInviteAcceptResultSchema),
@@ -427,6 +471,17 @@ export const contract = {
 		deleteUser: oc
 			.input(z.object({ userId: z.string() }))
 			.output(z.object({ success: z.literal(true) })),
+	},
+	productAnalytics: {
+		dashboardViewed: oc
+			.input(DashboardViewedCaptureInputSchema)
+			.output(ProductAnalyticsCaptureResultSchema),
+		dashboardFilterChanged: oc
+			.input(DashboardFilterChangedCaptureInputSchema)
+			.output(ProductAnalyticsCaptureResultSchema),
+		dashboardDrilldownOpened: oc
+			.input(DashboardDrilldownOpenedCaptureInputSchema)
+			.output(ProductAnalyticsCaptureResultSchema),
 	},
 	analytics: {
 		overview: {

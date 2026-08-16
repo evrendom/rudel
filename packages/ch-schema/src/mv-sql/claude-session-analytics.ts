@@ -1,3 +1,6 @@
+import { SESSION_ERROR_PATTERN_SQL } from "./session-error-pattern.js";
+import { SESSION_SUCCESS_SCORE_SQL } from "./session-success-score.js";
+
 /**
  * Kept outside `src/db/schema/**` so chkit does not discover it as a schema
  * entrypoint. The schema and its regression tests import this single SQL source.
@@ -6,9 +9,17 @@ export const CLAUDE_SESSION_ANALYTICS_MV_SQL = `
   SELECT * EXCEPT (_dedupe_rank)
   FROM (
   WITH
+    (
+      length(cs.content) > 120000000
+      OR countSubstrings(cs.content, '\\n') > 8000
+    ) AS _is_capped,
+
+    if(_is_capped, '', cs.content) AS _line_safe_content,
+    substring(cs.content, 1, 20000000) AS _error_sample_content,
+
     arrayFilter(
       x -> JSONExtractString(x, 'type') IN ('user', 'assistant'),
-      splitByChar('\\n', cs.content)
+      splitByChar('\\n', _line_safe_content)
     ) AS _interaction_lines,
 
     arrayFilter(x -> JSONHas(x, 'timestamp'), _interaction_lines) AS _ts_lines,
@@ -42,7 +53,7 @@ export const CLAUDE_SESSION_ANALYTICS_MV_SQL = `
 
     arrayFilter(
       x -> JSONExtractString(x, 'type') = 'assistant' AND JSONHas(x, 'message'),
-      splitByChar('\\n', cs.content)
+      splitByChar('\\n', _line_safe_content)
     ) AS _assistant_lines,
 
     arrayMap(
@@ -68,15 +79,19 @@ export const CLAUDE_SESSION_ANALYTICS_MV_SQL = `
     arrayDistinct(arrayFilter(x -> x != '', extractAll(cs.content, '"name":"Task"[^}]*"subagent_type":"([^"]+)"'))) AS _subagent_types,
     arrayDistinct(arrayFilter(x -> x != '', extractAll(cs.content, '<command-name>/([^<]+)</command-name>'))) AS _slash_commands,
 
-    arrayMin(_timestamps) AS _session_date,
-    arrayMax(_timestamps) AS _last_interaction_date,
+    toUInt32(
+      length(extractAll(_error_sample_content, '"isApiErrorMessage":true'))
+      + length(extractAll(_error_sample_content, '"is_error":true'))
+    ) AS _error_count,
+
+    if(_is_capped, cs.session_date, arrayMin(_timestamps)) AS _session_date,
+    if(_is_capped, cs.last_interaction_date, arrayMax(_timestamps)) AS _last_interaction_date,
     dateDiff('minute', _session_date, _last_interaction_date) AS _duration_min
 
   SELECT
-    * EXCEPT (session_date, last_interaction_date, upload_mode),
+    * EXCEPT (session_date, last_interaction_date, content, subagents),
     _session_date as session_date,
     _last_interaction_date as last_interaction_date,
-    cs.upload_mode as upload_mode,
     'claude_code' as source,
     _input_tokens as input_tokens,
     _output_tokens as output_tokens,
@@ -100,22 +115,24 @@ export const CLAUDE_SESSION_ANALYTICS_MV_SQL = `
     toUInt32(arrayCount(x -> x < 5, _prompt_periods_sec)) as quick_responses,
     toUInt32(arrayCount(x -> x >= 5 AND x <= 60, _prompt_periods_sec)) as normal_responses,
     toUInt32(arrayCount(x -> x > 300, _prompt_periods_sec)) as long_pauses,
-    toUInt32(
-      length(extractAll(cs.content, '"isApiErrorMessage":true'))
-      + length(extractAll(cs.content, '"is_error":true'))
-    ) as error_count,
-    JSONExtractString(
-      JSONExtractRaw(
-        arrayElement(
-          arrayFilter(
-            x -> JSONExtractString(x, 'type') = 'assistant',
-            splitByChar('\\n', cs.content)
+    _error_count as error_count,
+    ${SESSION_ERROR_PATTERN_SQL} as error_pattern,
+    if(
+      _is_capped,
+      '',
+      JSONExtractString(
+        JSONExtractRaw(
+          arrayElement(
+            arrayFilter(
+              x -> JSONExtractString(x, 'type') = 'assistant',
+              splitByChar('\\n', _line_safe_content)
+            ),
+            -1
           ),
-          -1
+          'message'
         ),
-        'message'
-      ),
-      'model'
+        'model'
+      )
     ) as model_used,
     toUInt8(if(cs.git_sha IS NOT NULL AND cs.git_sha != '', 1, 0)) as has_commit,
     toUInt8(if(position(cs.content, '"name":"EnterPlanMode"') > 0, 1, 0)) as used_plan_mode,
@@ -143,21 +160,13 @@ export const CLAUDE_SESSION_ANALYTICS_MV_SQL = `
       THEN 'abandoned'
       ELSE 'standard'
     END as session_archetype,
-    toUInt8(round(
-      50
-      + (if(cs.git_sha IS NOT NULL AND cs.git_sha != '', 20, 0))
-      + (if((_output_tokens / nullif(_input_tokens, 0)) > 0.5, 15, 0))
-      + (least(toUInt32(length(_skills)), 3) * 5)
-      - (if((_input_tokens + _output_tokens) > 1500000 AND (cs.git_sha IS NULL OR cs.git_sha = ''), 20, 0))
-      - (if(_duration_min < 2 AND _output_tokens < 200, 30, 0))
-      - (least(toUInt32(
-          length(extractAll(cs.content, '"isApiErrorMessage":true'))
-          + length(extractAll(cs.content, '"is_error":true'))
-        ), 10) * 2)
-    )) as success_score,
-    ROW_NUMBER() OVER (PARTITION BY cs.session_id ORDER BY cs.ingested_at DESC) AS _dedupe_rank
+    ${SESSION_SUCCESS_SCORE_SQL} as success_score,
+    ROW_NUMBER() OVER (
+      PARTITION BY cs.organization_id, cs.user_id, cs.session_id
+      ORDER BY cs.ingested_at DESC
+    ) AS _dedupe_rank
 
   FROM rudel.claude_sessions AS cs
-  WHERE length(_timestamps) > 0
+  WHERE _is_capped OR length(_timestamps) > 0
   )
   WHERE _dedupe_rank = 1`;

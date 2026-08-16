@@ -1,5 +1,4 @@
 import type { SessionAnalytics } from "@rudel/api-routes";
-import type { Ref } from "react";
 import { DashboardSessionsSnapshotSection } from "@/features/dashboard/components/DashboardSessionsSnapshotSection";
 import type { SessionsPageData } from "@/features/sessions/use-sessions-page-data";
 import { cn } from "@/lib/utils";
@@ -8,22 +7,16 @@ type SessionsListSurfaceProps = {
 	activeSessionId: string | null;
 	canOpenSession: (session: SessionAnalytics) => boolean;
 	data: SessionsPageData;
-	getSessionHref?: (session: SessionAnalytics) => string;
-	getSessionLinkState?: (session: SessionAnalytics) => unknown;
 	layout: "page" | "pane" | "workspace";
 	onSessionClick: (session: SessionAnalytics) => void;
-	scrollContainerRef?: Ref<HTMLDivElement>;
 };
 
 export function SessionsListSurface({
 	activeSessionId,
 	canOpenSession,
 	data,
-	getSessionHref,
-	getSessionLinkState,
 	layout,
 	onSessionClick,
-	scrollContainerRef,
 }: SessionsListSurfaceProps) {
 	const {
 		dateRangeDays,
@@ -76,19 +69,13 @@ export function SessionsListSurface({
 							activeSessionId={activeSessionId}
 							canOpenSession={canOpenSession}
 							dateRangeDays={dateRangeDays}
-							dimInactiveSessions={layout === "page"}
 							endDate={endDate}
-							getSessionHref={getSessionHref}
-							getSessionLinkState={getSessionLinkState}
 							isMetricsPending={isSummaryPending}
 							isSessionsPending={isSnapshotSessionsPending}
 							metrics={headlineMetrics}
 							onSessionClick={onSessionClick}
-							overviewSessionCount={totalSessionCount}
 							sessions={snapshotSessionsData}
-							showChart={false}
 							startDate={startDate}
-							tableScrollContainerRef={scrollContainerRef}
 							totalSessionCount={totalSessionCount}
 							useRolling24Hours={useRolling24Hours}
 							variant="sessions"

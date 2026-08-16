@@ -9,6 +9,8 @@ export interface AppContext {
 	session: Session["session"] | null;
 	apiKeyId: string | null;
 	authFailure: ApiKeyAuthFailure | null;
+	requestId: string;
+	wrappedShareLookupSource: string;
 }
 
 export interface ApiKeyAuthFailure {

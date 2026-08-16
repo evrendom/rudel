@@ -1,10 +1,16 @@
+import { MissingTranscriptTimestampError } from "@rudel/agent-adapters";
 import type { Source } from "@rudel/api-routes";
 import {
 	mergeRedactionCounts,
 	type RedactionCounts,
+	SecretFilterJsonIntegrityError,
 } from "@rudel/secret-filter";
 import pMap from "p-map";
-import { recordFailedUpload, removeFailedUpload } from "./failed-uploads.js";
+import {
+	type FailedUpload,
+	recordFailedUpload,
+	removeFailedUpload,
+} from "./failed-uploads.js";
 import type { UploadResult } from "./types.js";
 
 export interface BatchUploadItem {
@@ -35,8 +41,10 @@ export interface BatchUploadOptions<T extends BatchUploadItem> {
 export interface BatchUploadSummary {
 	succeeded: number;
 	failed: number;
+	skipped: number;
 	total: number;
 	errors: Array<{ label: string; error: string }>;
+	skippedItems: Array<{ label: string; reason: string }>;
 	redacted: RedactionCounts;
 	redactedBytes: number;
 }
@@ -45,13 +53,32 @@ export async function batchUpload<T extends BatchUploadItem>(
 	options: BatchUploadOptions<T>,
 ): Promise<BatchUploadSummary> {
 	const { items, upload, concurrency = 5, onItemComplete, onRetry } = options;
+	const recordFailure = async (
+		item: T,
+		failure: {
+			error: string;
+			status: FailedUpload["status"];
+			failureKind?: FailedUpload["failureKind"];
+		},
+	) => {
+		await recordFailedUpload({
+			sessionId: item.sessionId,
+			transcriptPath: item.transcriptPath,
+			projectPath: item.projectPath,
+			source: item.source,
+			organizationId: item.organizationId,
+			...failure,
+		});
+	};
 	const total = items.length;
 	let succeeded = 0;
 	let failed = 0;
 	let skipped = 0;
+	let deferred = 0;
 	let completed = 0;
 	let rateLimited = false;
 	const errors: Array<{ label: string; error: string }> = [];
+	const skippedItems: Array<{ label: string; reason: string }> = [];
 	let redacted: RedactionCounts = {};
 	let redactedBytes = 0;
 
@@ -59,17 +86,10 @@ export async function batchUpload<T extends BatchUploadItem>(
 		items,
 		async (item) => {
 			if (rateLimited) {
-				skipped++;
+				deferred++;
 				const error =
 					"Skipped — rate limit reached. Run `rudel upload --retry` to upload remaining sessions.";
-				await recordFailedUpload({
-					sessionId: item.sessionId,
-					transcriptPath: item.transcriptPath,
-					projectPath: item.projectPath,
-					source: item.source,
-					organizationId: item.organizationId,
-					error,
-				});
+				await recordFailure(item, { error, status: "retryable" });
 				completed++;
 				onItemComplete?.(completed, total);
 				return;
@@ -90,6 +110,17 @@ export async function batchUpload<T extends BatchUploadItem>(
 					redacted = mergeRedactionCounts(redacted, result.redacted ?? {});
 					redactedBytes += result.redactedBytes ?? 0;
 					await removeFailedUpload(item.sessionId);
+				} else if (result.retryable === false) {
+					skipped++;
+					skippedItems.push({
+						label: item.label,
+						reason: result.error ?? "Upload cannot be retried",
+					});
+					await recordFailure(item, {
+						error: result.error ?? "Upload cannot be retried",
+						failureKind: result.failureKind,
+						status: "permanent",
+					});
 				} else {
 					failed++;
 					const error = result.error ?? "Unknown error";
@@ -97,27 +128,33 @@ export async function batchUpload<T extends BatchUploadItem>(
 					if (result.rateLimited) {
 						rateLimited = true;
 					}
-					await recordFailedUpload({
-						sessionId: item.sessionId,
-						transcriptPath: item.transcriptPath,
-						projectPath: item.projectPath,
-						source: item.source,
-						organizationId: item.organizationId,
+					await recordFailure(item, {
 						error,
+						failureKind: result.failureKind,
+						status: "retryable",
 					});
 				}
 			} catch (err) {
-				failed++;
 				const error = err instanceof Error ? err.message : String(err);
-				errors.push({ label: item.label, error });
-				await recordFailedUpload({
-					sessionId: item.sessionId,
-					transcriptPath: item.transcriptPath,
-					projectPath: item.projectPath,
-					source: item.source,
-					organizationId: item.organizationId,
-					error,
-				});
+				if (
+					err instanceof MissingTranscriptTimestampError ||
+					err instanceof SecretFilterJsonIntegrityError
+				) {
+					skipped++;
+					skippedItems.push({ label: item.label, reason: error });
+					await recordFailure(item, {
+						error,
+						failureKind:
+							err instanceof SecretFilterJsonIntegrityError
+								? "json-integrity"
+								: undefined,
+						status: "permanent",
+					});
+				} else {
+					failed++;
+					errors.push({ label: item.label, error });
+					await recordFailure(item, { error, status: "retryable" });
+				}
 			} finally {
 				completed++;
 				onItemComplete?.(completed, total);
@@ -126,13 +163,22 @@ export async function batchUpload<T extends BatchUploadItem>(
 		{ concurrency, stopOnError: false },
 	);
 
-	if (rateLimited && skipped > 0) {
+	if (rateLimited && deferred > 0) {
 		errors.push({
 			label: "Rate limit",
-			error: `${skipped} session(s) skipped. Run \`rudel upload --retry\` later to upload them.`,
+			error: `${deferred} session(s) skipped. Run \`rudel upload --retry\` later to upload them.`,
 		});
-		failed += skipped;
+		failed += deferred;
 	}
 
-	return { succeeded, failed, total, errors, redacted, redactedBytes };
+	return {
+		succeeded,
+		failed,
+		skipped,
+		total,
+		errors,
+		skippedItems,
+		redacted,
+		redactedBytes,
+	};
 }

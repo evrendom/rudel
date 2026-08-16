@@ -55,7 +55,6 @@ describe("ingestRudelClaudeSessions", () => {
 		git_remote: "",
 		package_name: "",
 		package_type: "",
-		upload_mode: "manual",
 		content: "test session content",
 		filter_version: 0,
 		subagents: {},

@@ -32,10 +32,16 @@ export interface UploadContext {
 	uploadMode: IngestSessionInput["upload_mode"];
 }
 
+export interface SessionTimestamps {
+	sessionDate: string;
+	lastInteractionDate: string;
+}
+
 export interface IngestContext {
 	userId: string;
 	organizationId: string;
 	ingestedAt: Date;
+	timestamps?: SessionTimestamps;
 }
 
 export interface AgentAdapter {
@@ -61,10 +67,7 @@ export interface AgentAdapter {
 	): Promise<IngestSessionInput>;
 
 	// Ingestion (API)
-	extractTimestamps(content: string): {
-		sessionDate: string;
-		lastInteractionDate: string;
-	} | null;
+	extractTimestamps(content: string): SessionTimestamps | null;
 	ingest(
 		ingestor: Ingestor,
 		input: IngestSessionInput,

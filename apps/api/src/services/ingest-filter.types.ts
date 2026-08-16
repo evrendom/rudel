@@ -25,6 +25,11 @@ export type IngestFilterWorkerErrorResponse =
 	| {
 			readonly status: "error";
 			readonly requestId: number;
+			readonly reason: "json-integrity";
+	  }
+	| {
+			readonly status: "error";
+			readonly requestId: number;
 			readonly reason: "worker-error";
 			readonly message: string;
 	  };

@@ -4,7 +4,8 @@
 	"private": true,
 	"type": "module",
 	"exports": {
-		".": "./src/index.ts"
+		".": "./src/index.ts",
+		"./model-pricing": "./src/model-pricing.ts"
 	},
 	"scripts": {
 		"check-types": "tsc --noEmit",

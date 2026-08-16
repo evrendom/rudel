@@ -18,7 +18,9 @@ type ApiCapturePayload<Name extends ProductAnalyticsEventName> = Omit<
 let client: PostHog | null | undefined;
 
 function isAnalyticsEnabled() {
-	return process.env.POSTHOG_ENABLED === "true";
+	return (
+		(process.env.POSTHOG_ENABLED ?? process.env.VITE_POSTHOG_ENABLED) === "true"
+	);
 }
 
 function getEnvironment(): "production" | "staging" | "development" | "local" {
@@ -40,8 +42,16 @@ function getClient() {
 		return client;
 	}
 
-	const key = (process.env.POSTHOG_KEY ?? "").trim();
-	const host = (process.env.POSTHOG_HOST ?? "").trim();
+	const key = (
+		process.env.POSTHOG_KEY ??
+		process.env.VITE_POSTHOG_KEY ??
+		""
+	).trim();
+	const host = (
+		process.env.POSTHOG_HOST ??
+		process.env.VITE_POSTHOG_HOST ??
+		""
+	).trim();
 	if (!isAnalyticsEnabled() || key.length === 0 || host.length === 0) {
 		client = null;
 		return client;

@@ -4,15 +4,25 @@ import {
 	INGEST_LIMIT_REASONS,
 	type IngestSessionInput,
 	REDACTION_DID_NOT_CONVERGE_CODE,
+	SECRET_FILTER_JSON_INTEGRITY_CODE,
 	SESSION_OWNERSHIP_CONFLICT_CODE,
+	SESSION_UPLOAD_SHRINK_REJECTED_CODE,
 } from "@rudel/api-routes";
-import { SecretFilterConvergenceError } from "@rudel/secret-filter";
+import {
+	SecretFilterConvergenceError,
+	SecretFilterJsonIntegrityError,
+} from "@rudel/secret-filter";
 import {
 	formatRedactionSummary,
 	formatUploadError,
 	getSecretFilterUploadFailure,
+	isRetryableUploadError,
 	uploadSession,
 } from "../lib/uploader.js";
+import {
+	INGEST_STUB_TEST_TOKEN,
+	startIngestStub,
+} from "./helpers/ingest-stub.js";
 
 describe("formatUploadError", () => {
 	test("explains API key rate limits from ingest auth", () => {
@@ -88,6 +98,22 @@ describe("formatUploadError", () => {
 		);
 	});
 
+	test("makes the intentional smaller-session override explicit", () => {
+		const error = new ORPCError(SESSION_UPLOAD_SHRINK_REJECTED_CODE, {
+			status: 409,
+			data: {
+				currentAssistantLineCount: 2,
+				currentContentBytes: 50_000,
+				previousAssistantLineCount: 4,
+				previousContentBytes: 100_000,
+			},
+		});
+
+		expect(formatUploadError(error)).toContain(
+			"rudel upload <session> --force-replace",
+		);
+	});
+
 	test("explains server-side convergence rejection without exposing content", () => {
 		const error = new ORPCError(REDACTION_DID_NOT_CONVERGE_CODE, {
 			status: 422,
@@ -153,6 +179,34 @@ describe("formatUploadError", () => {
 	});
 });
 
+describe("isRetryableUploadError", () => {
+	test("treats Bun FailedToOpenSocket failures as retryable without a code allowlist", () => {
+		const error = Object.assign(new Error("failed to open socket"), {
+			code: "FailedToOpenSocket",
+		});
+
+		expect(isRetryableUploadError(error)).toBe(true);
+	});
+
+	test("keeps permanent RPC responses non-retryable", () => {
+		expect(isRetryableUploadError(new ORPCError("BAD_REQUEST"))).toBe(false);
+		expect(isRetryableUploadError(new ORPCError("BAD_GATEWAY"))).toBe(true);
+	});
+
+	test("keeps mid-write incomplete extraction retryable", () => {
+		expect(
+			isRetryableUploadError(
+				new ORPCError("SERVICE_UNAVAILABLE", {
+					data: {
+						reason: "usage_extraction_incomplete",
+						retryAfterMs: 1_000,
+					},
+				}),
+			),
+		).toBe(true);
+	});
+});
+
 describe("uploadSession aggregate size guard", () => {
 	test("rejects an oversized aggregate before making a network attempt", async () => {
 		const result = await uploadSession(
@@ -176,7 +230,196 @@ describe("uploadSession aggregate size guard", () => {
 			error:
 				"Session transcript payload is 2.00 MiB, above the 1.00 MiB per-session limit. Reduce the transcript/subagent payload before retrying.",
 			attempts: 0,
+			retryable: false,
 		});
+	});
+});
+
+describe("uploadSession transient transport handling", () => {
+	test("returns the server usage checksum for client attestation", async () => {
+		const usageChecksum = "c".repeat(64);
+		const stub = startIngestStub({
+			respond: () =>
+				Response.json({
+					json: {
+						success: true,
+						sessionId: "attested-upload",
+						usageChecksum,
+					},
+				}),
+		});
+		try {
+			const result = await uploadSession(
+				{
+					source: "claude_code",
+					sessionId: "attested-upload",
+					projectPath: "/test/project",
+					content: '{"type":"user","timestamp":"2026-08-03T10:00:00.000Z"}',
+				},
+				{
+					endpoint: `${stub.loopbackBase}/rpc`,
+					token: INGEST_STUB_TEST_TOKEN,
+					allowInsecureEndpoint: false,
+				},
+			);
+
+			expect(result).toMatchObject({ success: true, usageChecksum });
+		} finally {
+			await stub.server.stop(true);
+		}
+	});
+
+	test("retries a 408 response and succeeds on the next attempt", async () => {
+		const stub = startIngestStub({ failFirstN: { n: 1, status: 408 } });
+		const retries: number[] = [];
+		try {
+			const result = await uploadSession(
+				{
+					source: "claude_code",
+					sessionId: "request-timeout-retry",
+					projectPath: "/test/project",
+					content: '{"type":"user","timestamp":"2026-08-03T10:00:00.000Z"}',
+				},
+				{
+					endpoint: `${stub.loopbackBase}/rpc`,
+					token: INGEST_STUB_TEST_TOKEN,
+					allowInsecureEndpoint: false,
+					onRetry: (attempt) => retries.push(attempt),
+				},
+			);
+
+			expect(result).toMatchObject({ success: true, attempts: 2 });
+			expect(retries).toEqual([1]);
+		} finally {
+			await stub.server.stop(true);
+		}
+	}, 10_000);
+
+	test("retains Bun connection-refused failures for retry", async () => {
+		const retries: number[] = [];
+		const result = await uploadSession(
+			{
+				source: "claude_code",
+				sessionId: "bun-connection-refused",
+				projectPath: "/test/project",
+				content: '{"type":"user","timestamp":"2026-08-03T10:00:00.000Z"}',
+			},
+			{
+				endpoint: "http://127.0.0.1:1/rpc",
+				token: INGEST_STUB_TEST_TOKEN,
+				allowInsecureEndpoint: false,
+				onRetry: (attempt) => retries.push(attempt),
+			},
+		);
+
+		expect(result).toMatchObject({
+			success: false,
+			attempts: 3,
+			retryable: true,
+		});
+		expect(result.error).toContain("Network error while contacting Rudel API");
+		expect(retries).toEqual([1, 2]);
+	}, 10_000);
+});
+
+describe("uploadSession timestamp validation", () => {
+	test.each([
+		{
+			source: "claude_code" as const,
+			message: "Claude Code transcript contains no valid timestamp",
+		},
+		{
+			source: "codex" as const,
+			message: "Codex transcript contains no valid timestamp",
+		},
+	])("marks a $source server rejection as not retryable", async ({
+		source,
+		message,
+	}) => {
+		const stub = startIngestStub({
+			respond: () =>
+				Response.json(
+					{
+						json: {
+							defined: false,
+							code: "BAD_REQUEST",
+							status: 400,
+							message,
+						},
+					},
+					{ status: 400 },
+				),
+		});
+
+		try {
+			const result = await uploadSession(
+				{
+					source,
+					sessionId: `${source}-server-timestamp-validation`,
+					projectPath: "/test/project",
+					content: '{"type":"user","timestamp":"2026-07-31T10:00:00.000Z"}',
+				},
+				{
+					endpoint: `${stub.loopbackBase}/rpc`,
+					token: INGEST_STUB_TEST_TOKEN,
+					allowInsecureEndpoint: false,
+				},
+			);
+
+			expect(result).toEqual({
+				success: false,
+				error: message,
+				attempts: 1,
+				retryable: false,
+			});
+		} finally {
+			await stub.server.stop(true);
+		}
+	});
+});
+
+describe("uploadSession typed filtering failures", () => {
+	test("maps a server JSON-integrity rejection to a permanent result", async () => {
+		const stub = startIngestStub({
+			respond: () =>
+				Response.json(
+					{
+						json: {
+							defined: false,
+							code: SECRET_FILTER_JSON_INTEGRITY_CODE,
+							status: 422,
+							message:
+								"Secret filtering could not preserve transcript JSON integrity.",
+						},
+					},
+					{ status: 422 },
+				),
+		});
+
+		try {
+			const result = await uploadSession(
+				{
+					source: "claude_code",
+					sessionId: "server-json-integrity",
+					projectPath: "/test/project",
+					content: '{"type":"user","timestamp":"2026-07-31T10:00:00.000Z"}',
+				},
+				{
+					endpoint: `${stub.loopbackBase}/rpc`,
+					token: INGEST_STUB_TEST_TOKEN,
+					allowInsecureEndpoint: false,
+				},
+			);
+
+			expect(result).toMatchObject({
+				success: false,
+				attempts: 1,
+				failureKind: "json-integrity",
+				retryable: false,
+			});
+		} finally {
+			await stub.server.stop(true);
+		}
 	});
 });
 
@@ -225,6 +468,7 @@ describe("uploadSession redaction safety budget", () => {
 				"Redaction safety check stopped upload: known-pattern redaction would replace 21 B of 100 B (21.0%), above the 20% transcript budget (stripe-access-token). The unfiltered transcript was not uploaded.",
 			attempts: 0,
 			redactionBudgetExceeded: true,
+			retryable: false,
 		});
 	});
 
@@ -295,8 +539,22 @@ describe("uploadSession redaction convergence", () => {
 				"Redaction safety check stopped upload because known-pattern filtering did not converge. The unfiltered transcript was not uploaded.",
 			attempts: 0,
 			redactionConvergenceExceeded: true,
+			retryable: false,
 		});
 		expect(getSecretFilterUploadFailure(new Error("worker failed"))).toBeNull();
+	});
+
+	test("maps JSON-integrity failures to a permanent ledger disposition", () => {
+		expect(
+			getSecretFilterUploadFailure(new SecretFilterJsonIntegrityError()),
+		).toEqual({
+			success: false,
+			error:
+				"Redaction safety check stopped upload because filtering could not preserve transcript JSON integrity. The filtered transcript was not uploaded.",
+			attempts: 0,
+			failureKind: "json-integrity",
+			retryable: false,
+		});
 	});
 });
 
@@ -321,6 +579,7 @@ describe("uploadSession endpoint safety", () => {
 				'Upload endpoint refused: refusing to send credentials over plaintext http: to "evil.example". Pass --allow-insecure-endpoint (or set RUDEL_ALLOW_INSECURE_ENDPOINT=1) if this upload destination really is plaintext. This does not opt login or other API-base traffic into --allow-insecure-api-base.',
 			attempts: 0,
 			endpointRejected: true,
+			retryable: false,
 		});
 		expect(result.error).not.toContain("must-not-leak");
 	});

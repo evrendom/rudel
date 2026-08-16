@@ -1,0 +1,8 @@
+{
+	"extends": ["//"],
+	"tasks": {
+		"test:integration": {
+			"passThroughEnv": ["PG_CONNECTION_STRING"]
+		}
+	}
+}

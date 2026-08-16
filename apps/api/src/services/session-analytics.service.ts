@@ -1,9 +1,8 @@
-import {
-	type DimensionAnalysisInput,
-	resolveRepoIdentity,
-	type SessionAnalytics,
-	type SessionAnalyticsSummary as SessionAnalyticsSummaryBase,
-	type SessionDetail,
+import type {
+	DimensionAnalysisInput,
+	SessionAnalytics,
+	SessionAnalyticsSummary as SessionAnalyticsSummaryBase,
+	SessionDetail,
 } from "@rudel/api-routes";
 import {
 	addOptionalStringEqFilter,
@@ -12,6 +11,7 @@ import {
 	buildLatestRawSessionContentSql,
 	queryClickhouse,
 } from "../clickhouse.js";
+import { getUsageAnalyticsQueryContext } from "./usage-event-analytics.service.js";
 
 export interface SessionAnalyticsRaw {
 	session_id: string;
@@ -38,6 +38,7 @@ export interface SessionAnalyticsRaw {
 	total_tokens: number;
 	input_tokens: number;
 	output_tokens: number;
+	estimated_cost: number | null;
 
 	// Git activity
 	git_sha: string;
@@ -46,7 +47,6 @@ export interface SessionAnalyticsRaw {
 
 	// Feature arrays
 	subagent_types: string[];
-	subagent_count: number;
 	skills: string[];
 	slash_commands: string[];
 
@@ -79,6 +79,7 @@ export async function getSessionAnalytics(
 		user_id?: string;
 		project_path?: string;
 		repository?: string;
+		source?: string;
 		limit?: number;
 		offset?: number;
 		sort_by?: "date" | "duration" | "interactions";
@@ -92,6 +93,7 @@ export async function getSessionAnalytics(
 		user_id,
 		project_path,
 		repository,
+		source,
 		limit = 50,
 		offset = 0,
 		sort_by = "date",
@@ -117,20 +119,6 @@ export async function getSessionAnalytics(
 	const dateFilter = hasAbsoluteRange
 		? buildInclusiveDateRangeFilter("startDate", "endDate", "sa.session_date")
 		: buildDateFilter("days", "sa.session_date");
-	const claudeSessionDateFilter = hasAbsoluteRange
-		? buildInclusiveDateRangeFilter(
-				"startDate",
-				"endDate",
-				"claude_session.session_date",
-			)
-		: buildDateFilter("days", "claude_session.session_date");
-	const codexSessionDateFilter = hasAbsoluteRange
-		? buildInclusiveDateRangeFilter(
-				"startDate",
-				"endDate",
-				"codex_session.session_date",
-			)
-		: buildDateFilter("days", "codex_session.session_date");
 	const filters: string[] = [];
 	addOptionalStringEqFilter(
 		filters,
@@ -152,6 +140,7 @@ export async function getSessionAnalytics(
 		);
 		query_params.repository = repository;
 	}
+	addOptionalStringEqFilter(filters, query_params, "source", "source", source);
 
 	const sortColumn =
 		sort_by === "duration"
@@ -160,14 +149,20 @@ export async function getSessionAnalytics(
 				? "total_interactions"
 				: "sa.session_date";
 	const sortDirection = sort_order === "asc" ? "ASC" : "DESC";
+	const usage = await getUsageAnalyticsQueryContext(orgId, {
+		sourceParam: source ? "source" : undefined,
+		userIdParam: user_id ? "userId" : undefined,
+	});
+	const estimatedCostSql = "sa.estimated_cost";
 
 	const query = `
+	WITH ${usage.cteDefinitions}
     SELECT
       session_id,
       user_id,
       formatDateTime(sa.session_date, '%Y-%m-%dT%H:%i:%SZ') as session_date,
       project_path,
-      organization_id,
+      sa.organization_id AS organization_id,
       git_remote,
       package_name,
       total_interactions,
@@ -181,55 +176,20 @@ export async function getSessionAnalytics(
       total_tokens,
       input_tokens,
       output_tokens,
+	  ${estimatedCostSql} AS estimated_cost,
       git_sha,
       git_branch,
       has_commit,
       subagent_types,
-      toUInt32(ifNull(subagent_usage.subagent_count, 0)) AS subagent_count,
       skills,
       slash_commands,
       success_score,
       error_count,
       model_used,
       used_plan_mode
-    FROM rudel.session_analytics AS sa FINAL
-    LEFT JOIN (
-      SELECT
-        organization_id,
-        session_date,
-        session_id,
-        'claude_code' AS source,
-        toUInt32(length(mapKeys(subagents))) AS subagent_count
-      FROM rudel.claude_sessions AS claude_session FINAL
-      WHERE ${claudeSessionDateFilter}
-        AND organization_id = {orgId:String}
-
-      UNION ALL
-
-      SELECT
-        organization_id,
-        session_date,
-        session_id,
-        'codex' AS source,
-        toUInt32(
-          arrayCount(
-            line ->
-              JSONExtractString(line, 'type') = 'response_item'
-              AND JSONExtractString(JSONExtractRaw(line, 'payload'), 'type') = 'function_call'
-              AND endsWith(JSONExtractString(JSONExtractRaw(line, 'payload'), 'name'), 'spawn_agent'),
-            splitByChar('\\n', content)
-          )
-        ) AS subagent_count
-      FROM rudel.codex_sessions AS codex_session FINAL
-      WHERE ${codexSessionDateFilter}
-        AND organization_id = {orgId:String}
-    ) AS subagent_usage
-      ON sa.organization_id = subagent_usage.organization_id
-      AND sa.session_date = subagent_usage.session_date
-      AND sa.session_id = subagent_usage.session_id
-      AND sa.source = subagent_usage.source
+    FROM ${usage.sessionsRelation} AS sa
     WHERE ${dateFilter}
-      AND organization_id = {orgId:String}
+      AND sa.organization_id = {orgId:String}
       ${filters.length > 0 ? `AND ${filters.join("\n      AND ")}` : ""}
     ORDER BY ${sortColumn} ${sortDirection}
     LIMIT {limit:UInt32}
@@ -241,38 +201,31 @@ export async function getSessionAnalytics(
 		query_params,
 	});
 
-	return raw.map((row): SessionAnalytics => {
-		const repoIdentity = resolveRepoIdentity({
-			projectPath: row.project_path,
-			gitRemote: row.git_remote || null,
-			packageName: row.package_name || null,
-		});
-
-		return {
+	return raw.map(
+		(row): SessionAnalytics => ({
 			session_id: row.session_id,
 			user_id: row.user_id,
 			session_date: row.session_date,
 			project_path: row.project_path,
-			repository: repoIdentity.repoLabel,
-			worktree: repoIdentity.worktree,
+			repository:
+				row.git_remote || row.package_name || row.project_path || null,
 			git_remote: row.git_remote || undefined,
 			duration_min: row.actual_duration_min,
 			total_tokens: row.total_tokens,
 			input_tokens: row.input_tokens,
 			output_tokens: row.output_tokens,
+			estimated_cost: row.estimated_cost,
 			success_score: row.success_score,
 			total_interactions: row.total_interactions,
 			avg_period_sec: row.avg_period_sec,
 			subagent_types: row.subagent_types,
-			subagent_count: row.subagent_count,
 			skills: row.skills,
 			slash_commands: row.slash_commands,
 			has_commit: row.has_commit > 0,
 			model_used: row.model_used,
 			used_plan_mode: row.used_plan_mode > 0,
-			error_count: row.error_count,
-		};
-	});
+		}),
+	);
 }
 
 /**
@@ -663,28 +616,34 @@ export async function getSessionDimensionAnalysis(
 	);
 
 	let query: string;
+	const usage = await getUsageAnalyticsQueryContext(
+		orgId,
+		user_id ? { userIdParam: "userId" } : {},
+	);
 
 	if (split_by) {
 		query = `
+	  WITH ${usage.cteDefinitions}
       SELECT
         ${dimensionExpression} as dimension_value,
         ${splitByExpression} as split_value,
         ${metricExpression} as metric_value
-      FROM rudel.session_analytics FINAL
+      FROM ${usage.sessionsRelation} AS sa
       WHERE ${buildDateFilter("days")}
-        AND organization_id = {orgId:String}
+        AND sa.organization_id = {orgId:String}
         ${filters.length > 0 ? `AND ${filters.join("\n        AND ")}` : ""}
       GROUP BY dimension_value, split_value
       ORDER BY metric_value DESC
     `;
 	} else {
 		query = `
+	  WITH ${usage.cteDefinitions}
       SELECT
         ${dimensionExpression} as dimension_value,
         ${metricExpression} as metric_value
-      FROM rudel.session_analytics FINAL
+      FROM ${usage.sessionsRelation} AS sa
       WHERE ${buildDateFilter("days")}
-        AND organization_id = {orgId:String}
+        AND sa.organization_id = {orgId:String}
         ${filters.length > 0 ? `AND ${filters.join("\n        AND ")}` : ""}
       GROUP BY dimension_value
       ORDER BY metric_value DESC
@@ -752,22 +711,22 @@ export async function getSessionDetail(
 	sessionId: string,
 	ownerId: string,
 ): Promise<SessionDetail | null> {
-	const query = `
-    WITH latest_raw_session_content AS (
-      ${buildLatestRawSessionContentSql({
-				sessionId: true,
-				userId: true,
-			})}
-    )
+	const usage = await getUsageAnalyticsQueryContext(orgId, {
+		sessionIdParam: "sessionId",
+		userIdParam: "ownerId",
+	});
+	const estimatedCostSql = "sa.estimated_cost";
+	const metadataQuery = `
+	WITH ${usage.cteDefinitions}
     SELECT
       sa.session_id,
       sa.user_id,
+	  sa.source,
+	  sa.session_date AS raw_session_date,
       formatDateTime(sa.session_date, '%Y-%m-%dT%H:%i:%SZ') as session_date,
       formatDateTime(sa.last_interaction_date, '%Y-%m-%dT%H:%i:%SZ') as last_interaction_date,
       sa.project_path,
       if(sa.git_remote != '', sa.git_remote, if(sa.package_name != '', sa.package_name, sa.project_path)) as repository,
-      raw.content AS content,
-      raw.subagents AS subagents,
       sa.skills,
       sa.slash_commands,
       sa.git_branch,
@@ -775,16 +734,12 @@ export async function getSessionDetail(
       sa.total_tokens,
       sa.input_tokens,
       sa.output_tokens,
+	  ${estimatedCostSql} AS estimated_cost,
       sa.success_score,
       dateDiff('second', sa.session_date, sa.last_interaction_date) / 60.0 as duration_min,
       sa.total_interactions,
       sa.model_used
-    FROM rudel.session_analytics AS sa
-    INNER ANY JOIN latest_raw_session_content AS raw
-      ON raw.source = sa.source
-      AND raw.organization_id = sa.organization_id
-      AND raw.user_id = sa.user_id
-      AND raw.session_id = sa.session_id
+	FROM ${usage.sessionsRelation} AS sa
     WHERE sa.organization_id = {orgId:String}
       AND sa.session_id = {sessionId:String}
       AND sa.user_id = {ownerId:String}
@@ -792,8 +747,12 @@ export async function getSessionDetail(
     LIMIT 1
   `;
 
-	const results = await queryClickhouse<SessionDetail>({
-		query,
+	type SessionDetailMetadata = Omit<SessionDetail, "content" | "subagents"> & {
+		raw_session_date: string;
+		source: string;
+	};
+	const metadataResults = await queryClickhouse<SessionDetailMetadata>({
+		query: metadataQuery,
 		query_params: {
 			orgId,
 			ownerId,
@@ -802,14 +761,49 @@ export async function getSessionDetail(
 		},
 	});
 
-	const [row] = results;
-	if (!row) {
+	const [metadata] = metadataResults;
+	if (!metadata) {
 		return null;
 	}
+
+	const contentResults = await queryClickhouse<
+		Pick<SessionDetail, "content" | "subagents">
+	>({
+		query: `
+			WITH latest_raw_session_content AS (
+				${buildLatestRawSessionContentSql({
+					sessionDate: true,
+					sessionId: true,
+					source: true,
+					userId: true,
+				})}
+			)
+			SELECT content, subagents
+			FROM latest_raw_session_content
+			WHERE source = {source:String}
+			LIMIT 1
+		`,
+		query_params: {
+			orgId,
+			sessionDate: metadata.raw_session_date,
+			sessionId,
+			source: metadata.source,
+			userId: ownerId,
+		},
+	});
+	const [content] = contentResults;
+	if (!content) return null;
+
+	const {
+		raw_session_date: _rawSessionDate,
+		source: _source,
+		...publicMetadata
+	} = metadata;
 	return {
-		...row,
-		repository: row.repository || null,
-		git_branch: row.git_branch || null,
-		git_sha: row.git_sha || null,
+		...publicMetadata,
+		...content,
+		repository: metadata.repository || null,
+		git_branch: metadata.git_branch || null,
+		git_sha: metadata.git_sha || null,
 	};
 }

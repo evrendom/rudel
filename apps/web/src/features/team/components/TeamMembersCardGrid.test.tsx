@@ -28,14 +28,29 @@ function buildTeamMemberRow(
 }
 
 describe("TeamMembersCardGrid", () => {
+	it("exposes explicit create and revoke actions", () => {
+		render(
+			<TeamMembersCardGrid
+				canInviteTeamMembers
+				currentUserId={null}
+				organizationId="org-1"
+				rows={[]}
+			/>,
+		);
+
+		expect(screen.getByRole("button", { name: "Create link" })).toBeVisible();
+		expect(
+			screen.getByRole("button", { name: "Revoke existing link" }),
+		).toBeVisible();
+	});
+
 	it("shows real archetypes and applies the matching card theme", () => {
 		render(
 			<TeamMembersCardGrid
 				canInviteTeamMembers={false}
 				currentUserId={null}
-				isInviteLinkPending={false}
+				organizationId={null}
 				rows={[buildTeamMemberRow()]}
-				teamInviteLink={null}
 			/>,
 		);
 
@@ -54,7 +69,7 @@ describe("TeamMembersCardGrid", () => {
 			<TeamMembersCardGrid
 				canInviteTeamMembers={false}
 				currentUserId={null}
-				isInviteLinkPending={false}
+				organizationId={null}
 				rows={[
 					buildTeamMemberRow({
 						archetype: {
@@ -64,12 +79,25 @@ describe("TeamMembersCardGrid", () => {
 						userId: "user-2",
 					}),
 				]}
-				teamInviteLink={null}
 			/>,
 		);
 
 		expect(screen.getByTitle("Smooth Operator")).toBeInTheDocument();
 		expect(screen.queryByText("To be revealed")).not.toBeInTheDocument();
+	});
+
+	it("renders a numeric cost when event pricing is unavailable", () => {
+		render(
+			<TeamMembersCardGrid
+				canInviteTeamMembers={false}
+				currentUserId={null}
+				organizationId={null}
+				rows={[buildTeamMemberRow({ cost: null })]}
+			/>,
+		);
+
+		expect(screen.getByText("$0")).toBeVisible();
+		expect(screen.queryByText("—")).not.toBeInTheDocument();
 	});
 
 	it("wraps the current user's card with a hover-revealed secondary sharing page link", () => {
@@ -78,9 +106,8 @@ describe("TeamMembersCardGrid", () => {
 				<TeamMembersCardGrid
 					canInviteTeamMembers={false}
 					currentUserId="user-1"
-					isInviteLinkPending={false}
+					organizationId={null}
 					rows={[buildTeamMemberRow()]}
-					teamInviteLink={null}
 				/>
 			</MemoryRouter>,
 		);

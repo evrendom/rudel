@@ -7,11 +7,13 @@ import {
 	ingestRudelCodexSessions,
 	type RudelCodexSessionsRow,
 } from "@rudel/ch-schema/generated";
+import { MissingTranscriptTimestampError } from "../../errors.js";
 import type {
 	AgentAdapter,
 	IngestContext,
 	ScannedProject,
 	SessionFile,
+	SessionTimestamps,
 	UploadContext,
 } from "../../types.js";
 import {
@@ -172,6 +174,9 @@ class CodexAdapter implements AgentAdapter {
 		context: UploadContext,
 	): Promise<IngestSessionInput> {
 		const content = await readFile(session.transcriptPath, "utf-8");
+		if (!this.extractTimestamps(content)) {
+			throw new MissingTranscriptTimestampError(this.source);
+		}
 
 		return {
 			source: this.source,
@@ -189,25 +194,32 @@ class CodexAdapter implements AgentAdapter {
 		};
 	}
 
-	extractTimestamps(content: string): {
-		sessionDate: string;
-		lastInteractionDate: string;
-	} | null {
+	extractTimestamps(content: string): SessionTimestamps | null {
 		let min: string | null = null;
 		let max: string | null = null;
+		let minTime = Number.POSITIVE_INFINITY;
+		let maxTime = Number.NEGATIVE_INFINITY;
 
 		for (const line of content.split("\n")) {
 			if (!line) continue;
-			let parsed: { timestamp?: string };
+			let parsed: unknown;
 			try {
 				parsed = JSON.parse(line);
 			} catch {
 				continue;
 			}
-			if (parsed.timestamp) {
-				const ts = parsed.timestamp;
-				if (!min || ts < min) min = ts;
-				if (!max || ts > max) max = ts;
+			if (!isRecord(parsed) || typeof parsed.timestamp !== "string") continue;
+			const timestampTime = Date.parse(parsed.timestamp);
+			if (!Number.isFinite(timestampTime)) continue;
+
+			const timestamp = new Date(timestampTime).toISOString();
+			if (timestampTime < minTime) {
+				min = timestamp;
+				minTime = timestampTime;
+			}
+			if (timestampTime > maxTime) {
+				max = timestamp;
+				maxTime = timestampTime;
 			}
 		}
 
@@ -231,22 +243,23 @@ class CodexAdapter implements AgentAdapter {
 	): RudelCodexSessionsRow {
 		const now = context.ingestedAt.toISOString().replace("Z", "");
 
-		const timestamps = this.extractTimestamps(input.content);
+		const timestamps =
+			context.timestamps ?? this.extractTimestamps(input.content);
+		if (!timestamps) {
+			throw new MissingTranscriptTimestampError(this.source);
+		}
 
 		return {
-			session_date: timestamps
-				? toClickHouseDateTime(timestamps.sessionDate)
-				: now,
-			last_interaction_date: timestamps
-				? toClickHouseDateTime(timestamps.lastInteractionDate)
-				: now,
+			session_date: toClickHouseDateTime(timestamps.sessionDate),
+			last_interaction_date: toClickHouseDateTime(
+				timestamps.lastInteractionDate,
+			),
 			session_id: input.sessionId,
 			organization_id: context.organizationId,
 			project_path: input.projectPath,
 			git_remote: input.gitRemote ?? "",
 			package_name: input.packageName ?? "",
 			package_type: input.packageType ?? "",
-			upload_mode: input.upload_mode ?? "",
 			content: input.content,
 			filter_version: input.filter_version ?? 0,
 			ingested_at: now,
@@ -259,3 +272,7 @@ class CodexAdapter implements AgentAdapter {
 }
 
 export const codexAdapter = new CodexAdapter();
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null;
+}

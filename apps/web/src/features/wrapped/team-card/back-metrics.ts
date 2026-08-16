@@ -40,10 +40,13 @@ export function buildWrappedTeamCardBackMetrics(input: {
 		onboardingMetrics.longestSessionMin > 0
 			? onboardingMetrics.longestSessionMin
 			: null;
-	const estimatedSpend = Math.max(
-		0,
-		Math.round(Math.max(row.cost, onboardingMetrics.estimatedCostUsd)),
-	);
+	const estimatedSpend =
+		row.cost === null || onboardingMetrics.estimatedCostUsd === null
+			? null
+			: Math.max(
+					0,
+					Math.round(Math.max(row.cost, onboardingMetrics.estimatedCostUsd)),
+				);
 	const reposTouched = Math.max(0, onboardingMetrics.repoPulse.totalRepos);
 	const hasSkillRecapSignal = hasWrappedRecapFeatureSignal({
 		adoptionRate: onboardingMetrics.skillsAdoptionRate,
@@ -79,9 +82,9 @@ export function buildWrappedTeamCardBackMetrics(input: {
 			?.session_share_percent ?? 0,
 	);
 	const dollarsPerCommit =
-		onboardingMetrics.commitSessions > 0
+		estimatedSpend !== null && onboardingMetrics.commitSessions > 0
 			? estimatedSpend / onboardingMetrics.commitSessions
-			: 0;
+			: estimatedSpend;
 	const issuedDateLabel = formatWrappedBackIssuedDate(shareCardCreatedAtLabel);
 
 	return [
@@ -243,7 +246,11 @@ function formatWrappedBackPercentPair(
 }
 
 function formatWrappedBackDecimal(value: number | null) {
-	if (value === null || !Number.isFinite(value) || value <= 0) {
+	if (value === null || !Number.isFinite(value)) {
+		return "0";
+	}
+
+	if (value <= 0) {
 		return "0";
 	}
 

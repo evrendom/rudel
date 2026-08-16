@@ -2,16 +2,21 @@ import * as p from "@clack/prompts";
 import {
 	claudeCodeAdapter,
 	getAdapter,
+	MissingTranscriptTimestampError,
 	type ScannedProject,
 	type SessionFile,
 } from "@rudel/agent-adapters";
-import type { Source } from "@rudel/api-routes";
+import type { IngestSessionInput, Source } from "@rudel/api-routes";
 import { buildCommand } from "@stricli/core";
 import type { BatchUploadItem } from "../lib/batch-upload.js";
 import { renderBatchSummary, runBatchUpload } from "../lib/batch-upload-ui.js";
 import { classifySession } from "../lib/classifier.js";
-import { loadCredentials } from "../lib/credentials.js";
-import { loadFailedUploads } from "../lib/failed-uploads.js";
+import { type Credentials, loadCredentials } from "../lib/credentials.js";
+import {
+	isRetryCandidate,
+	loadFailedUploads,
+	removeFailedUpload,
+} from "../lib/failed-uploads.js";
 import { getGitInfo } from "../lib/git-info.js";
 import { getProjectOrgId } from "../lib/project-config.js";
 import { scanAndGroupProjects } from "../lib/project-grouping.js";
@@ -30,7 +35,7 @@ import {
 
 interface UploadFlags {
 	tag?: SessionTag;
-	endpoint: string;
+	endpoint?: string;
 	allowInsecureEndpoint: boolean;
 	classify: boolean;
 	dryRun: boolean;
@@ -38,23 +43,26 @@ interface UploadFlags {
 	retry: boolean;
 	yes: boolean;
 	concurrency: number;
+	forceReplace: boolean;
+}
+
+interface ResolvedUploadFlags extends UploadFlags {
+	endpoint: string;
 }
 
 async function runInteractiveUpload(
-	flags: UploadFlags,
+	flags: ResolvedUploadFlags,
 	allowPlaintextEndpoint: boolean,
+	credentials: Credentials | null,
 ): Promise<undefined | Error> {
-	const credentials = loadCredentials();
-	if (!credentials && !flags.dryRun) {
-		return new Error("Not authenticated. Run `rudel login` first.");
-	}
-
 	p.intro("rudel upload");
 
 	const spin = p.spinner();
 	spin.start("Scanning projects...");
 
-	const { projects: allProjects, groups } = await scanAndGroupProjects();
+	const { projects: allProjects, groups } = await scanAndGroupProjects({
+		persistRemoteCache: !flags.dryRun,
+	});
 
 	spin.stop(`Found ${allProjects.length} project(s)`);
 
@@ -100,15 +108,30 @@ async function runInteractiveUpload(
 		(sum, proj) => sum + proj.sessionCount,
 		0,
 	);
+
+	if (flags.dryRun) {
+		for (const project of selected) {
+			p.log.info(
+				`Would upload ${sessionCountHint(project.sessionCount)} from [${getAdapterName(project.source)}] ${project.displayPath}`,
+			);
+		}
+		p.outro("Dry run complete — no sessions were uploaded.");
+		return;
+	}
+
+	if (!credentials) {
+		return new Error("Not authenticated. Run `rudel login` first.");
+	}
+
 	p.log.info(
 		`Uploading ${totalSessions} session(s) from ${selected.length} project(s)`,
 	);
 
 	const uploadConfig: UploadConfig = {
 		endpoint: flags.endpoint,
-		token: credentials?.token ?? "",
+		token: credentials.token,
 		allowInsecureEndpoint: allowPlaintextEndpoint,
-		authType: credentials?.authType,
+		authType: credentials.authType,
 	};
 
 	// Flatten all sessions with their project context for concurrent upload
@@ -159,6 +182,7 @@ async function runInteractiveUpload(
 				organizationId: item.organizationId,
 				uploadMode: "manual",
 			});
+			if (flags.forceReplace) request.force_replace = true;
 
 			if (!flags.tag && flags.classify) {
 				const classified = await classifySession(request.content);
@@ -167,21 +191,13 @@ async function runInteractiveUpload(
 				}
 			}
 
-			if (flags.dryRun) {
-				return { success: true };
-			}
-
 			return uploadSession(request, { ...uploadConfig, onRetry });
 		},
 	});
 
 	renderBatchSummary(summary, { showRetryHint: summary.failed > 0 });
 
-	if (flags.dryRun) {
-		p.outro("Dry run complete — no sessions were uploaded.");
-	} else {
-		p.outro("Done!");
-	}
+	p.outro("Done!");
 
 	if (summary.failed > 0) {
 		return new Error(`${summary.failed} upload(s) failed.`);
@@ -197,18 +213,14 @@ function sessionCountHint(count: number): string {
 }
 
 async function runSingleUpload(
-	flags: UploadFlags,
+	flags: ResolvedUploadFlags,
 	session: string,
 	allowPlaintextEndpoint: boolean,
+	credentials: Credentials | null,
 ): Promise<undefined | Error> {
 	const write = (msg: string) => {
 		process.stdout.write(`${msg}\n`);
 	};
-
-	const credentials = loadCredentials();
-	if (!credentials && !flags.dryRun) {
-		return new Error("Not authenticated. Run `rudel login` first.");
-	}
 
 	write(`Resolving session: ${session}`);
 	let sessionInfo: Awaited<ReturnType<typeof resolveSession>>;
@@ -238,26 +250,29 @@ async function runSingleUpload(
 		projectPath: sessionInfo.projectPath,
 	};
 
-	const request = await claudeCodeAdapter.buildUploadRequest(sessionFile, {
-		tag: flags.tag,
-		gitInfo,
-		organizationId,
-		uploadMode: "manual",
-	});
+	let request: IngestSessionInput;
+	try {
+		request = await claudeCodeAdapter.buildUploadRequest(sessionFile, {
+			tag: flags.tag,
+			gitInfo,
+			organizationId,
+			uploadMode: "manual",
+		});
+	} catch (error) {
+		if (error instanceof MissingTranscriptTimestampError) {
+			return new Error(
+				"This transcript has no timestamped user/assistant messages, so it cannot be uploaded.",
+			);
+		}
+		throw error;
+	}
 
 	write(`Transcript: ${request.content.length} bytes`);
 	if (request.subagents && request.subagents.length > 0) {
 		write(`Subagents: ${request.subagents.length} file(s)`);
 	}
 
-	if (!flags.tag && flags.classify) {
-		write("Classifying session...");
-		const classified = await classifySession(request.content);
-		if (classified) {
-			(request as { tag?: string }).tag = classified;
-			write(`Classified as: ${classified}`);
-		}
-	}
+	if (flags.forceReplace) request.force_replace = true;
 
 	if (flags.dryRun) {
 		const preview = {
@@ -273,17 +288,30 @@ async function runSingleUpload(
 		return;
 	}
 
+	if (!credentials) {
+		return new Error("Not authenticated. Run `rudel login` first.");
+	}
+
+	if (!flags.tag && flags.classify) {
+		write("Classifying session...");
+		const classified = await classifySession(request.content);
+		if (classified) {
+			(request as { tag?: string }).tag = classified;
+			write(`Classified as: ${classified}`);
+		}
+	}
+
 	write("Uploading...");
 	const result = await uploadSession(request, {
 		endpoint: flags.endpoint,
-		// biome-ignore lint/style/noNonNullAssertion: validated above with early return
-		token: credentials!.token,
+		token: credentials.token,
 		allowInsecureEndpoint: allowPlaintextEndpoint,
-		authType: credentials?.authType,
+		authType: credentials.authType,
 	});
 
 	if (result.success) {
 		write("Upload successful!");
+		await removeFailedUpload(request.sessionId);
 		const redactionSummary = formatRedactionSummary(
 			result.redacted,
 			result.redactedBytes,
@@ -297,14 +325,10 @@ async function runSingleUpload(
 }
 
 async function runRetryUpload(
-	flags: UploadFlags,
+	flags: ResolvedUploadFlags,
 	allowPlaintextEndpoint: boolean,
+	credentials: Credentials | null,
 ): Promise<undefined | Error> {
-	const credentials = loadCredentials();
-	if (!credentials) {
-		return new Error("Not authenticated. Run `rudel login` first.");
-	}
-
 	p.intro("rudel upload --retry");
 
 	const failures = await loadFailedUploads();
@@ -313,17 +337,47 @@ async function runRetryUpload(
 		return;
 	}
 
-	p.log.info(`Found ${failures.length} failed upload(s):`);
+	const retryableFailures = failures.filter((failure) =>
+		isRetryCandidate(failure, flags.forceReplace),
+	);
+	const permanentFailures = failures.filter(
+		(failure) => failure.status === "permanent",
+	);
+	p.log.info(
+		`Found ${failures.length} failed upload(s): ${retryableFailures.length} retryable, ${permanentFailures.length} permanent`,
+	);
 	for (const f of failures.slice(0, 10)) {
-		p.log.warn(`  ${f.sessionId}: ${f.error} (${f.failedAt})`);
+		p.log.warn(`  [${f.status}] ${f.sessionId}: ${f.error} (${f.failedAt})`);
 	}
 	if (failures.length > 10) {
 		p.log.warn(`  ...and ${failures.length - 10} more`);
 	}
+	if (permanentFailures.length > 0) {
+		p.log.warn(
+			flags.forceReplace
+				? "Permanent shrink rejections are promoted by --force-replace; other permanent failures remain recorded."
+				: "Permanent failures are retained for visibility and are not retried automatically.",
+		);
+	}
+	if (retryableFailures.length === 0) {
+		p.outro("No retryable uploads. Permanent failures remain recorded.");
+		return;
+	}
+
+	if (flags.dryRun) {
+		p.outro(
+			`Dry run complete — ${retryableFailures.length} retryable upload(s) were not sent.`,
+		);
+		return;
+	}
+
+	if (!credentials) {
+		return new Error("Not authenticated. Run `rudel login` first.");
+	}
 
 	if (!flags.yes) {
 		const shouldRetry = await p.confirm({
-			message: `Retry all ${failures.length} failed upload(s)?`,
+			message: `Retry ${retryableFailures.length} retryable upload(s)?`,
 			initialValue: true,
 		});
 
@@ -333,13 +387,11 @@ async function runRetryUpload(
 		}
 	}
 
-	const endpoint = flags.endpoint;
-
 	type RetryItem = BatchUploadItem & {
 		failure: (typeof failures)[number];
 	};
 
-	const items: RetryItem[] = failures.map((f) => ({
+	const items: RetryItem[] = retryableFailures.map((f) => ({
 		sessionId: f.sessionId,
 		label: f.sessionId,
 		transcriptPath: f.transcriptPath,
@@ -349,6 +401,7 @@ async function runRetryUpload(
 		failure: f,
 	}));
 
+	const { token, authType } = credentials;
 	const summary = await runBatchUpload({
 		items,
 		label: "Retrying uploads...",
@@ -374,12 +427,13 @@ async function runRetryUpload(
 				organizationId,
 				uploadMode: "retry",
 			});
+			if (flags.forceReplace) request.force_replace = true;
 
 			return uploadSession(request, {
-				endpoint,
-				token: credentials.token,
+				endpoint: flags.endpoint,
+				token,
 				allowInsecureEndpoint: allowPlaintextEndpoint,
-				authType: credentials.authType,
+				authType,
 				onRetry,
 			});
 		},
@@ -398,16 +452,36 @@ async function runUpload(
 	flags: UploadFlags,
 	...sessions: string[]
 ): Promise<undefined | Error> {
+	const credentials = loadCredentials();
+	if (!credentials && !flags.dryRun) {
+		return new Error("Not authenticated. Run `rudel login` first.");
+	}
+	const apiBaseUrl = credentials?.apiBaseUrl.replace(/\/+$/u, "");
+	const resolvedFlags: ResolvedUploadFlags = {
+		...flags,
+		endpoint:
+			flags.endpoint ??
+			(apiBaseUrl === undefined ? DEFAULT_ENDPOINT : `${apiBaseUrl}/rpc`),
+	};
 	const allowPlaintextEndpoint = allowsInsecureEndpoint(
-		flags.allowInsecureEndpoint,
+		resolvedFlags.allowInsecureEndpoint,
 	);
-	if (flags.retry) {
-		return runRetryUpload(flags, allowPlaintextEndpoint);
+	if (resolvedFlags.retry) {
+		return runRetryUpload(resolvedFlags, allowPlaintextEndpoint, credentials);
 	}
 	if (sessions.length === 0) {
-		return runInteractiveUpload(flags, allowPlaintextEndpoint);
+		return runInteractiveUpload(
+			resolvedFlags,
+			allowPlaintextEndpoint,
+			credentials,
+		);
 	}
-	return runSingleUpload(flags, sessions[0] as string, allowPlaintextEndpoint);
+	return runSingleUpload(
+		resolvedFlags,
+		sessions[0] as string,
+		allowPlaintextEndpoint,
+		credentials,
+	);
 }
 
 export const uploadCommand = buildCommand({
@@ -432,7 +506,7 @@ export const uploadCommand = buildCommand({
 				kind: "parsed",
 				parse: String,
 				brief: "Override the upload endpoint URL",
-				default: DEFAULT_ENDPOINT,
+				optional: true,
 			},
 			allowInsecureEndpoint: {
 				kind: "boolean",
@@ -470,6 +544,11 @@ export const uploadCommand = buildCommand({
 				parse: Number,
 				brief: "Max concurrent uploads",
 				default: "5",
+			},
+			forceReplace: {
+				kind: "boolean",
+				brief: "Intentionally replace a stored session with smaller content",
+				default: false,
 			},
 		},
 		aliases: {

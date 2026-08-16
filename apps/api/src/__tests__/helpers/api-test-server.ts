@@ -4,6 +4,7 @@ const MONOREPO_ROOT = resolve(import.meta.dir, "..", "..", "..", "..", "..");
 
 export interface ApiTestServer {
 	baseUrl: string;
+	pid: number;
 	readOutput: () => string;
 	stop: () => Promise<void>;
 }
@@ -16,6 +17,8 @@ export async function startApiTestServer(
 		ALLOWED_ORIGIN: "http://localhost",
 		APP_URL: "http://localhost",
 		BETTER_AUTH_SECRET: "test-secret-for-integration-tests",
+		CLICKHOUSE_PURGE_WORKER_ENABLED: "false",
+		NODE_ENV: "test",
 		PORT: "0",
 		...environmentOverrides,
 	};
@@ -38,6 +41,7 @@ export async function startApiTestServer(
 
 	return {
 		baseUrl: `http://localhost:${port}`,
+		pid: processHandle.pid,
 		readOutput() {
 			return processOutput;
 		},

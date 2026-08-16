@@ -17,6 +17,7 @@ import {
 const TEST_TAG = `e2e-decimal-${Date.now()}`;
 const userId = `${TEST_TAG}-user`;
 const orgId = `${TEST_TAG}-org`;
+const lookupSource = "decimal-e2e-gate";
 
 function snapshot(input: {
 	displayName: string;
@@ -151,8 +152,11 @@ async function main(): Promise<void> {
 	);
 
 	// --- Gate 5: public read returns variant + correct snapshot -----------
-	const publicNormal = await getPublicWrappedShare(normalShare.id);
-	const publicDecimal = await getPublicWrappedShare(decimalShare.id);
+	const publicNormal = await getPublicWrappedShare(normalShare.id, lookupSource);
+	const publicDecimal = await getPublicWrappedShare(
+		decimalShare.id,
+		lookupSource,
+	);
 
 	if (!publicNormal) fail("Normal public read returned null");
 	if (!publicDecimal) fail("Decimal public read returned null");

@@ -13,6 +13,7 @@ type DashboardTokenDailyOverviewRow = {
 	estimatedCost: number | null;
 	id: string;
 	inputTokens: number;
+	isCostPartial: boolean;
 	outputTokens: number;
 	sessions: number;
 	totalTokens: number;
@@ -53,6 +54,7 @@ function buildTokenRows(
 				estimatedCost: point.estimatedCost,
 				id: point.date,
 				inputTokens: point.inputTokens,
+				isCostPartial: point.isCostPartial,
 				outputTokens: point.outputTokens,
 				sessions: point.sessions,
 				totalTokens: point.totalTokens,
@@ -85,7 +87,7 @@ export function DashboardTokenDailyOverviewTable({
 					<p>Sessions</p>
 					<p>Tokens</p>
 					<p>Avg / session</p>
-					<p>Cost</p>
+					<p>Estimated API-rate cost</p>
 				</div>
 				<div className="grid gap-0">
 					{rows.map((row) => {
@@ -139,6 +141,7 @@ export function DashboardTokenDailyOverviewTable({
 									at={row.id}
 									cost={row.estimatedCost}
 									inputTokens={row.inputTokens}
+									isCostPartial={row.isCostPartial}
 									model={undefined}
 									outputTokens={row.outputTokens}
 								/>

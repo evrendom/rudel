@@ -143,10 +143,14 @@ function getWrappedMetricFallbackFields(
 		currentRow?.totalTokens ?? 0,
 		wrappedMetrics?.total_tokens ?? 0,
 	);
-	const cost = Math.max(
-		currentRow?.cost ?? 0,
-		wrappedMetrics?.estimated_spend_usd ?? 0,
-	);
+	const cost =
+		wrappedMetrics !== undefined
+			? wrappedMetrics.estimated_spend_usd
+			: currentRow !== undefined
+				? currentRow.cost
+				: totalSessions === 0
+					? 0
+					: null;
 
 	return {
 		activeDays,

@@ -16,10 +16,29 @@ import {
 
 const queryCalls: ClickHouseStatement[] = [];
 
+const allowedClickHouseTables = new Set([
+	"rudel.claude_sessions",
+	"rudel.codex_sessions",
+	"rudel.session_analytics",
+	"rudel.usage_events",
+	"rudel.wrapped_user_archetype_snapshots_v1",
+]);
+
+function getSafeTestClickHouseTable(table: string): string {
+	if (!allowedClickHouseTables.has(table)) {
+		throw new Error(`Unsupported ClickHouse table: ${table}`);
+	}
+	return table;
+}
+
 mock.module("../clickhouse.js", () => ({
 	addOptionalStringEqFilter,
 	buildDateFilter,
 	buildInclusiveDateRangeFilter,
+	getClickhouse: () => ({
+		query: () => Promise.resolve([]),
+	}),
+	getSafeClickHouseTable: getSafeTestClickHouseTable,
 	queryClickhouse: (statement: ClickHouseStatement) => {
 		queryCalls.push(statement);
 		return Promise.resolve([]);
@@ -67,6 +86,15 @@ describe("session list date range", () => {
 			startDate: "2026-03-01",
 			endDate: "2026-03-31",
 		});
+	});
+
+	test("preserves the production ClickHouse table allowlist in the module mock", () => {
+		expect(() =>
+			getSafeTestClickHouseTable("rudel.session_analytics"),
+		).not.toThrow();
+		expect(() => getSafeTestClickHouseTable("rudel.unknown_table")).toThrow(
+			"Unsupported ClickHouse table: rudel.unknown_table",
+		);
 	});
 
 	test("falls back to the rolling lookback when no window is given", async () => {

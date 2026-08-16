@@ -40,12 +40,18 @@ export function buildWrappedOnboardingMetrics(
 		developerDetails?.total_tokens ?? 0,
 		wrappedMetrics?.total_tokens ?? 0,
 	);
-	const estimatedCostUsdRaw = Math.max(
-		0,
-		developerDetails?.cost ?? 0,
-		wrappedMetrics?.estimated_spend_usd ?? 0,
-	);
-	const estimatedCostUsd = Math.round(estimatedCostUsdRaw);
+	const estimatedCostUsdRaw =
+		wrappedMetrics !== undefined
+			? wrappedMetrics.estimated_spend_usd
+			: developerDetails !== undefined
+				? developerDetails.cost
+				: totalSessions === 0
+					? 0
+					: null;
+	const estimatedCostUsd =
+		estimatedCostUsdRaw === null
+			? null
+			: Math.round(Math.max(0, estimatedCostUsdRaw));
 	const repoPulse = buildRepoPulse(developerSessions, {
 		baseCostTokenBasis: estimatedCostTokenBasis,
 		baseCostUsd: estimatedCostUsdRaw,
@@ -184,7 +190,7 @@ function buildRepoPulse(
 	sessions: readonly DeveloperSession[] | undefined,
 	input: {
 		baseCostTokenBasis: number;
-		baseCostUsd: number;
+		baseCostUsd: number | null;
 	},
 ): WrappedOnboardingMetrics["repoPulse"] {
 	const repoStats = new Map<
@@ -308,15 +314,19 @@ function buildRepoPulseHoursLabel(totalDurationMin: number) {
 	return `${formatDurationMinutesAsHours(totalDurationMin)} total`;
 }
 
-function buildRepoPulseSpendLabel(spendUsd: number) {
+function buildRepoPulseSpendLabel(spendUsd: number | null) {
 	return `${formatCompactCurrency(spendUsd)} spent`;
 }
 
 function resolveRepoPulseSpendUsd(input: {
 	baseCostTokenBasis: number;
-	baseCostUsd: number;
+	baseCostUsd: number | null;
 	totalTokens: number;
 }) {
+	if (input.baseCostUsd === null) {
+		return null;
+	}
+
 	if (input.baseCostTokenBasis <= 0 || input.baseCostUsd <= 0) {
 		return 0;
 	}

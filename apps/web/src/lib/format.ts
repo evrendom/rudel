@@ -97,7 +97,11 @@ export function formatDecimal(value: number) {
 	return decimalFormatter.format(value);
 }
 
-export function formatCurrency(value: number) {
+export function formatCurrency(value: number | null | undefined) {
+	if (value === null || value === undefined || !Number.isFinite(value)) {
+		return currencyFormatter.format(0);
+	}
+
 	if (value !== 0 && Math.abs(value) < 1) {
 		return fineCurrencyFormatter.format(value);
 	}
@@ -105,7 +109,11 @@ export function formatCurrency(value: number) {
 	return currencyFormatter.format(value);
 }
 
-export function formatCompactCurrency(value: number) {
+export function formatCompactCurrency(value: number | null | undefined) {
+	if (value === null || value === undefined || !Number.isFinite(value)) {
+		return currencyFormatter.format(0);
+	}
+
 	if (Math.abs(value) < 1_000) {
 		return formatCurrency(value);
 	}
@@ -113,11 +121,19 @@ export function formatCompactCurrency(value: number) {
 	return compactCurrencyFormatter.format(value);
 }
 
-export function formatWholeCurrency(value: number) {
+export function formatWholeCurrency(value: number | null | undefined) {
+	if (value === null || value === undefined || !Number.isFinite(value)) {
+		return wholeCurrencyFormatter.format(0);
+	}
+
 	return wholeCurrencyFormatter.format(value);
 }
 
-export function formatCompactWholeCurrency(value: number) {
+export function formatCompactWholeCurrency(value: number | null | undefined) {
+	if (value === null || value === undefined || !Number.isFinite(value)) {
+		return wholeCurrencyFormatter.format(0);
+	}
+
 	if (Math.abs(value) < 1_000) {
 		return formatWholeCurrency(value);
 	}
@@ -215,18 +231,16 @@ export function calculateCost(
 		cacheCreationInputTokens?: number;
 	},
 ) {
-	const cost = calculateEstimatedModelCost({
-		at: options.at,
-		model: options.model ?? null,
-		inputTokens,
-		outputTokens,
-		cacheReadInputTokens: options.cacheReadInputTokens ?? 0,
-		cacheCreationInputTokens: options.cacheCreationInputTokens ?? 0,
-	});
-
-	// The nullable resolver is exposed for new callers. Legacy numeric-only
-	// surfaces remain stable until the focused caller migration in #227.
-	return cost ?? 0;
+	return (
+		calculateEstimatedModelCost({
+			at: options.at,
+			model: options.model ?? null,
+			inputTokens,
+			outputTokens,
+			cacheReadInputTokens: options.cacheReadInputTokens ?? 0,
+			cacheCreationInputTokens: options.cacheCreationInputTokens ?? 0,
+		}) ?? 0
+	);
 }
 
 export function encodeProjectPath(projectPath: string) {

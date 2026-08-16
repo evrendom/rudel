@@ -19,29 +19,17 @@ function OrganizationAutoSelectMount({
 	organizationId: string;
 }) {
 	useMountEffect(() => {
-		let isCancelled = false;
-
 		onAttempted(organizationId);
 		void authClient.organization
 			.setActive({ organizationId })
-			.then(() => {
-				if (isCancelled) {
-					return;
+			.then((result) => {
+				if (!result.error) {
+					onSucceeded(organizationId);
 				}
-
-				onSucceeded(organizationId);
 			})
 			.finally(() => {
-				if (isCancelled) {
-					return;
-				}
-
 				onSettled();
 			});
-
-		return () => {
-			isCancelled = true;
-		};
 	});
 
 	return null;
@@ -77,8 +65,12 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
 	const switchOrganization = async (orgId: string) => {
 		setSwitching(true);
 		try {
-			await authClient.organization.setActive({ organizationId: orgId });
-			setOptimisticActiveOrgId(orgId);
+			const result = await authClient.organization.setActive({
+				organizationId: orgId,
+			});
+			if (!result.error) {
+				setOptimisticActiveOrgId(orgId);
+			}
 		} finally {
 			setSwitching(false);
 		}

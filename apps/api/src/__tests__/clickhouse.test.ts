@@ -6,6 +6,7 @@ import {
 	addOptionalStringInFilter,
 	buildAbsoluteDateFilter,
 	buildDateFilter,
+	buildLatestRawSessionContentSql,
 	getSafeClickHouseTable,
 } from "../clickhouse.js";
 
@@ -68,6 +69,40 @@ describe("clickhouse helpers", () => {
 			"Unsupported ClickHouse table",
 		);
 	});
+
+	test("requires pushed-down filters for raw transcript scans", () => {
+		expect(() => buildLatestRawSessionContentSql({})).toThrow(
+			"Raw transcript queries must be narrowed",
+		);
+
+		const sql = buildLatestRawSessionContentSql({
+			sessionDate: true,
+			sessionId: true,
+			userId: true,
+		});
+
+		expect(sql.match(/session_id = \{sessionId:String\}/g)).toHaveLength(2);
+		expect(sql.match(/user_id = \{userId:String\}/g)).toHaveLength(2);
+		expect(
+			sql.match(
+				/session_date = parseDateTime64BestEffort\(\{sessionDate:String\}, 3, 'UTC'\)/g,
+			),
+		).toHaveLength(2);
+		expect(sql).toContain("argMax(content, ingested_at)");
+		expect(sql).toContain(
+			"GROUP BY source, organization_id, user_id, session_id",
+		);
+		expect(sql).not.toContain("ORDER BY ingested_at");
+
+		const sourceScopedSql = buildLatestRawSessionContentSql({
+			sessionDate: true,
+			sessionId: true,
+			source: true,
+			userId: true,
+		});
+		expect(sourceScopedSql).toContain("{source:String} = 'claude_code'");
+		expect(sourceScopedSql).toContain("{source:String} = 'codex'");
+	});
 });
 
 describe("analytics service guardrails", () => {
@@ -98,10 +133,6 @@ describe("analytics service guardrails", () => {
 			resolve(import.meta.dir, "..", "clickhouse.ts"),
 			"utf8",
 		);
-		const orgSessionSource = await readFile(
-			resolve(import.meta.dir, "..", "services", "org-session.service.ts"),
-			"utf8",
-		);
 		const sessionAnalyticsSource = await readFile(
 			resolve(
 				import.meta.dir,
@@ -119,10 +150,8 @@ describe("analytics service guardrails", () => {
 		expect(clickhouseSource).toContain(
 			"async_insert=1, wait_for_async_insert=1",
 		);
+		expect(clickhouseSource).toContain("input_format_parallel_parsing=0");
 		expect(clickhouseSource).not.toContain("lightweight_deletes_sync");
-		expect(
-			orgSessionSource.match(/lightweight_deletes_sync: "3"/gu),
-		).toHaveLength(2);
 		expect(sessionAnalyticsSource).not.toContain("{table:Identifier}");
 		expect(sessionAnalyticsSource).not.toContain("|| dimension");
 		expect(sessionAnalyticsSource).not.toContain("|| split_by");
@@ -147,6 +176,15 @@ describe("analytics service guardrails", () => {
 			),
 			"utf8",
 		);
+		const cleanupSource = await readFile(
+			resolve(
+				import.meta.dir,
+				"..",
+				"services",
+				"session-ownership-cleanup.service.ts",
+			),
+			"utf8",
+		);
 		const sessionDetailStart = sessionAnalyticsSource.indexOf(
 			"export async function getSessionDetail",
 		);
@@ -154,34 +192,20 @@ describe("analytics service guardrails", () => {
 		expect(sessionAnalyticsSource.slice(sessionDetailStart)).not.toContain(
 			"FINAL",
 		);
+		const sessionDetailSource =
+			sessionAnalyticsSource.slice(sessionDetailStart);
+		expect(sessionDetailSource).toContain("sessionDate: true");
+		expect(sessionDetailSource).not.toContain(
+			"INNER ANY JOIN latest_raw_session_content",
+		);
 		expect(backfillSource).toContain("max_bytes_to_read");
 		expect(backfillSource).toContain("max_execution_time");
 		expect(
 			backfillSource.match(/clickhouse_settings: BACKFILL_QUERY_SETTINGS/g),
 		).toHaveLength(2);
-	});
-
-	test("reads session transcripts from the raw session tables", async () => {
-		const sessionAnalyticsSource = await readFile(
-			resolve(
-				import.meta.dir,
-				"..",
-				"services",
-				"session-analytics.service.ts",
-			),
-			"utf8",
-		);
-		const sessionDetailStart = sessionAnalyticsSource.indexOf(
-			"export async function getSessionDetail",
-		);
-		const sessionDetailSource =
-			sessionAnalyticsSource.slice(sessionDetailStart);
-
-		expect(sessionDetailSource).toContain("buildLatestRawSessionContentSql");
-		expect(sessionDetailSource).toContain(
-			"INNER ANY JOIN latest_raw_session_content AS raw",
-		);
-		expect(sessionDetailSource).toContain("raw.content AS content");
-		expect(sessionDetailSource).toContain("raw.subagents AS subagents");
+		expect(cleanupSource).toContain("max_bytes_to_read");
+		expect(cleanupSource).toContain("max_execution_time");
+		expect(cleanupSource).toContain('lightweight_deletes_sync: "3"');
+		expect(cleanupSource).not.toContain("ALTER TABLE");
 	});
 });

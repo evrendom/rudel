@@ -36,15 +36,6 @@ bun run check-types   # TypeScript type checking
 bun run test          # Run tests
 ```
 
-## Public Repository Boundary
-
-> The public repo contains everything needed to build, test, contribute to, and self-host Rudel — and nothing that requires or describes the core team's access.
-
-Test each line by asking: *"Could an outside contributor with no Doppler access run this, or benefit from reading it?"*
-
-The `bun run check:disclosure` command enforces part of this policy by rejecting
-core-team secret-injection commands outside its documented exclusions.
-
 ## Before Submitting a PR
 
 Run the full verification suite:

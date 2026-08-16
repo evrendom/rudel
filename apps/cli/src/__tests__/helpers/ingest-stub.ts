@@ -1,6 +1,6 @@
 import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 
 /**
  * Loopback ingest stub and CLI fixture helpers, extracted from
@@ -94,41 +94,50 @@ export function startIngestStub(options: IngestStubOptions = {}): IngestStub {
 
 export interface HookCase {
 	readonly name: string;
-	readonly command: readonly string[];
 	readonly source: "claude_code" | "codex";
-	buildInput(options: {
+	buildInvocation(options: {
 		sessionId: string;
 		transcriptPath: string;
 		projectPath: string;
-	}): string;
+	}): {
+		readonly command: readonly string[];
+		readonly stdin?: string;
+	};
 }
 
 export const HOOK_CASES: readonly HookCase[] = [
 	{
 		name: "Claude Code SessionEnd",
-		command: ["hooks", "claude", "session-end"],
 		source: "claude_code",
-		buildInput: ({ sessionId, transcriptPath, projectPath }) =>
-			JSON.stringify({
+		buildInvocation: ({ sessionId, transcriptPath, projectPath }) => ({
+			command: ["hooks", "claude", "session-end"],
+			stdin: JSON.stringify({
 				session_id: sessionId,
 				transcript_path: transcriptPath,
 				cwd: projectPath,
 				hook_event_name: "SessionEnd",
 				reason: "other",
 			}),
+		}),
 	},
 	{
 		name: "Codex turn-complete",
-		command: ["hooks", "codex", "turn-complete"],
 		source: "codex",
-		buildInput: ({ sessionId, transcriptPath, projectPath }) =>
-			JSON.stringify({
-				type: "agent-turn-complete",
-				thread_id: sessionId,
-				turn_id: "test-turn",
-				cwd: projectPath,
-				transcript_path: transcriptPath,
-			}),
+		buildInvocation: ({ sessionId, projectPath }) => ({
+			command: [
+				"hooks",
+				"codex",
+				"turn-complete",
+				JSON.stringify({
+					type: "agent-turn-complete",
+					"thread-id": sessionId,
+					"turn-id": "test-turn",
+					cwd: projectPath,
+					"input-messages": ["test"],
+					"last-assistant-message": "done",
+				}),
+			],
+		}),
 	},
 ];
 
@@ -145,6 +154,22 @@ export interface CliResult {
 	readonly stdout: string;
 }
 
+/**
+ * Codex rollout transcripts live under dated subdirectories of
+ * ~/.codex/sessions, where findActiveRolloutFile discovers them by session ID.
+ */
+export function codexRolloutPath(home: string, sessionId: string): string {
+	return join(
+		home,
+		".codex",
+		"sessions",
+		"2026",
+		"08",
+		"12",
+		`${sessionId}.jsonl`,
+	);
+}
+
 export async function createCliFixture(
 	source: HookCase["source"],
 ): Promise<CliFixture> {
@@ -152,10 +177,14 @@ export async function createCliFixture(
 	const configDir = join(home, ".rudel");
 	const projectPath = join(home, "project");
 	const sessionId = `${source}-endpoint-security-session`;
-	const transcriptPath = join(projectPath, `${sessionId}.jsonl`);
+	const transcriptPath =
+		source === "codex"
+			? codexRolloutPath(home, sessionId)
+			: join(projectPath, `${sessionId}.jsonl`);
 	await Promise.all([
 		mkdir(configDir, { recursive: true }),
 		mkdir(projectPath, { recursive: true }),
+		mkdir(dirname(transcriptPath), { recursive: true }),
 	]);
 	await Promise.all([
 		writeFile(
@@ -175,9 +204,10 @@ export async function createCliFixture(
 					payload: { id: sessionId, cwd: projectPath },
 				}),
 				JSON.stringify({
-					type: "message",
+					type: source === "codex" ? "message" : "user",
 					role: "human",
 					content: "endpoint security integration test",
+					timestamp: "2026-07-29T10:00:01.000Z",
 				}),
 			].join("\n"),
 		),
@@ -199,6 +229,7 @@ export async function runCli(
 		env: {
 			...process.env,
 			HOME: fixture.home,
+			USERPROFILE: fixture.home,
 			RUDEL_CONFIG_DIR: join(fixture.home, ".rudel"),
 			POSTHOG_ENABLED: "false",
 			...options.env,

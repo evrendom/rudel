@@ -47,7 +47,15 @@ describe("resolveRepoIdentity", () => {
 		).toEqual(expected);
 		expect(
 			resolveRepoIdentity({
-				projectPath: "C:\\Users\\x\\dev\\myrepo\\.worktrees\\feature-x",
+				projectPath: [
+					"C:",
+					"Users",
+					"x",
+					"dev",
+					"myrepo",
+					".worktrees",
+					"feature-x",
+				].join("\\"),
 				gitRemote: null,
 				packageName: null,
 			}),

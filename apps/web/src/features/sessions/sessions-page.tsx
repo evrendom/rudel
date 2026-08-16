@@ -1,5 +1,5 @@
 import type { SessionAnalytics } from "@rudel/api-routes";
-import { useLayoutEffect, useMemo, useRef } from "react";
+import { useMemo } from "react";
 import { createPortal } from "react-dom";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { appRoutes } from "@/app/routes";
@@ -18,9 +18,6 @@ import { useSessionsPageData } from "@/features/sessions/use-sessions-page-data"
 import { useShellRoutePath } from "@/features/shell/hooks/use-shell-route-path";
 import { useShellBottomNavigationPortal } from "@/features/shell/shell-bottom-navigation-portal";
 import { useCanViewSession } from "@/features/workspace/hooks/useCanViewSession";
-
-const SESSION_LIST_SCROLL_POSITION_LIMIT = 20;
-const sessionListScrollPositions = new Map<string, number>();
 
 export function SessionsPage() {
 	const params = useParams<{ sessionId: string }>();
@@ -42,9 +39,9 @@ function SessionsList() {
 	const data = useSessionsPageData({ trackPageView: true });
 	const canViewSession = useCanViewSession();
 	const location = useLocation();
+	const navigate = useNavigate();
 	const getShellRoutePath = useShellRoutePath();
 	const { trackDrilldown } = useAnalyticsTracking();
-	const scrollContainerRef = useRef<HTMLDivElement>(null);
 	const returnState = useMemo(
 		() =>
 			createSessionReturnState(
@@ -52,39 +49,6 @@ function SessionsList() {
 			),
 		[location.hash, location.pathname, location.search],
 	);
-
-	useLayoutEffect(() => {
-		const scrollContainer = scrollContainerRef.current;
-		if (!scrollContainer) {
-			return;
-		}
-
-		const savedScrollPosition = sessionListScrollPositions.get(location.key);
-		const animationFrame =
-			savedScrollPosition === undefined
-				? undefined
-				: window.requestAnimationFrame(() => {
-						scrollContainer.scrollTop = savedScrollPosition;
-					});
-
-		return () => {
-			if (animationFrame !== undefined) {
-				window.cancelAnimationFrame(animationFrame);
-			}
-
-			sessionListScrollPositions.set(location.key, scrollContainer.scrollTop);
-			if (
-				sessionListScrollPositions.size > SESSION_LIST_SCROLL_POSITION_LIMIT
-			) {
-				const oldestLocationKey = sessionListScrollPositions
-					.keys()
-					.next().value;
-				if (oldestLocationKey !== undefined) {
-					sessionListScrollPositions.delete(oldestLocationKey);
-				}
-			}
-		};
-	}, [location.key]);
 
 	function handleSessionClick(session: SessionAnalytics) {
 		if (!canViewSession(session.user_id)) {
@@ -101,6 +65,10 @@ function SessionsList() {
 			targetId: session.session_id,
 			targetPath,
 		});
+		navigate(targetPath, {
+			state: returnState,
+			viewTransition: true,
+		});
 	}
 
 	return (
@@ -109,13 +77,8 @@ function SessionsList() {
 				activeSessionId={null}
 				canOpenSession={(session) => canViewSession(session.user_id)}
 				data={data}
-				getSessionHref={(session) =>
-					getShellRoutePath(appRoutes.sessionDetail(session.session_id))
-				}
-				getSessionLinkState={() => returnState}
 				layout="workspace"
 				onSessionClick={handleSessionClick}
-				scrollContainerRef={scrollContainerRef}
 			/>
 		</div>
 	);

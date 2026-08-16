@@ -17,7 +17,7 @@ product code and must be removed before merging to `main`.
 The receiver writes directly to:
 
 ```text
-/Users/evrendombak/conductor/workspaces/rudel-v2/podgorica/apps/marketing/__DO_NOT_MERGE__inspiration/linear-light-mode/linear-next-light.capture.html
+/Users/example/conductor/workspaces/rudel-v2/podgorica/apps/marketing/__DO_NOT_MERGE__inspiration/linear-light-mode/linear-next-light.capture.html
 ```
 
 The exporter uses Linear's pristine server document so the original React and

@@ -12,6 +12,7 @@ import type { IngestSessionInput } from "@rudel/api-routes";
 import postgres from "postgres";
 import { getClickhouse, getSafeClickHouseTable } from "../clickhouse.js";
 import { sqlClient } from "../db.js";
+import { deleteOrgSessions } from "../services/org-session.service.js";
 import { deleteUserPostgresData } from "../services/user-deletion.service.js";
 import {
 	type ApiTestServer,
@@ -43,7 +44,6 @@ interface CountRow {
 
 let server: ApiTestServer;
 let lockTimeoutServer: ApiTestServer;
-let clickHouseFailureServer: ApiTestServer;
 
 setDefaultTimeout(120_000);
 
@@ -53,15 +53,11 @@ beforeAll(async () => {
 	lockTimeoutServer = await startApiTestServer({
 		PG_CONNECTION_STRING: withLockTimeout(connectionString, 250),
 	});
-	clickHouseFailureServer = await startApiTestServer({
-		CLICKHOUSE_URL: "http://127.0.0.1:1",
-	});
 });
 
 afterAll(async () => {
 	await server?.stop();
 	await lockTimeoutServer?.stop();
-	await clickHouseFailureServer?.stop();
 
 	await Promise.all(
 		CLICKHOUSE_SESSIONS.map((session) =>
@@ -79,6 +75,10 @@ afterAll(async () => {
 		);
 	}
 	if (USER_IDS.length > 0) {
+		await sqlClient.unsafe(
+			"DELETE FROM clickhouse_purge_job WHERE target_id = ANY($1::text[])",
+			[[...USER_IDS, ...ORGANIZATION_IDS]],
+		);
 		await sqlClient.unsafe(
 			"DELETE FROM apikey WHERE reference_id = ANY($1::text[])",
 			[USER_IDS],
@@ -140,6 +140,16 @@ describe("deletion data-loss hardening", () => {
 			WHERE user_id = ${identity.userId}
 		`;
 		expect(membershipSummary?.count).toBe(1);
+		const purgeJobs = await sqlClient<
+			Array<{ status: string; targetId: string }>
+		>`
+			SELECT target_id AS "targetId", status
+			FROM clickhouse_purge_job
+			WHERE target_type = 'organization'
+				AND target_id IN (${identity.userId}, ${secondOrganizationId})
+		`;
+		expect(purgeJobs).toHaveLength(1);
+		expect(purgeJobs[0]?.status).toBe("pending");
 	});
 
 	test("preserves a candidate organization that gains another member before account deletion commits", async () => {
@@ -197,6 +207,8 @@ describe("deletion data-loss hardening", () => {
 		expect(victimUser).toBeUndefined();
 		expect(survivingOrganization?.id).toBe(victim.userId);
 		expect(survivorMembership?.id).toBeDefined();
+		expect(await countPurgeJobs("account", victim.userId)).toBe(1);
+		expect(await countPurgeJobs("organization", victim.userId)).toBe(0);
 	});
 
 	test("returns committed organization IDs and clears stale active organization references", async () => {
@@ -224,6 +236,31 @@ describe("deletion data-loss hardening", () => {
 		`;
 		expect(victimOrganization).toBeUndefined();
 		expect(observerSession?.activeOrganizationId).toBeNull();
+		expect(await countPurgeJobs("account", victim.userId)).toBe(1);
+		expect(await countPurgeJobs("organization", victim.userId)).toBe(1);
+	});
+
+	test("queues organization cleanup for historical rows owned by a former member", async () => {
+		const victim = await createTestIdentity("historical-org-victim");
+		const formerMember = await createTestIdentity(
+			"historical-org-former-member",
+		);
+		const sessionId = `${TEST_RUN_ID}_historical_org_row`;
+		await ingestSession(sessionId, formerMember.userId, victim.userId);
+		CLICKHOUSE_SESSIONS.push({
+			organizationId: victim.userId,
+			sessionId,
+		});
+		expect(await waitForRawSession(formerMember.userId, sessionId)).toBe(true);
+
+		const result = await deleteUserPostgresData(victim.userId, { sqlClient });
+
+		expect(result.deletedOrganizationIds).toEqual([victim.userId]);
+		expect(await countPurgeJobs("account", victim.userId)).toBe(1);
+		expect(await countPurgeJobs("organization", victim.userId)).toBe(1);
+
+		await deleteOrgSessions(victim.userId);
+		expect(await countRawSessions(formerMember.userId, sessionId)).toBe(0);
 	});
 
 	test("does not purge account ClickHouse rows when the Postgres transaction cannot acquire its user lock", async () => {
@@ -262,6 +299,7 @@ describe("deletion data-loss hardening", () => {
 			SELECT id FROM "user" WHERE id = ${identity.userId}
 		`;
 		expect(user?.id).toBe(identity.userId);
+		expect(await countPurgeJobs("account", identity.userId)).toBe(0);
 	});
 
 	test("does not purge organization ClickHouse rows when the Postgres transaction cannot acquire its user lock", async () => {
@@ -304,26 +342,41 @@ describe("deletion data-loss hardening", () => {
 			SELECT id FROM organization WHERE id = ${targetOrganizationId}
 		`;
 		expect(organization?.id).toBe(targetOrganizationId);
+		expect(await countPurgeJobs("organization", targetOrganizationId)).toBe(0);
 	});
 
-	test("commits account deletion and logs each table when ClickHouse is unreachable", async () => {
-		const identity = await createTestIdentity("clickhouse-failure");
+	test("commits account deletion with an explicit pending ClickHouse cleanup job", async () => {
+		const identity = await createTestIdentity("clickhouse-pending");
 
-		const response = await callRpc(
-			identity.token,
-			"profile/deleteMine",
-			undefined,
-			clickHouseFailureServer.baseUrl,
-		);
+		const response = await callRpc(identity.token, "profile/deleteMine");
 
 		expect(response.status).toBe(200);
-		const output = clickHouseFailureServer.readOutput();
-		expect(output).toContain(`user_id=${identity.userId}`);
-		expect(output).toContain("rudel.claude_sessions");
-		expect(output).toContain("rudel.codex_sessions");
-		expect(output).toContain("rudel.session_analytics");
-		expect(output).toContain("rudel.wrapped_user_archetype_snapshots_v1");
-		expect(output.match(/purge outcome unknown/gu)).toHaveLength(4);
+		const [purgeJob] = await sqlClient<
+			Array<{
+				attemptCount: number;
+				lastError: string | null;
+				status: string;
+				targetId: string;
+				targetType: string;
+			}>
+		>`
+			SELECT
+				target_type AS "targetType",
+				target_id AS "targetId",
+				status,
+				attempt_count AS "attemptCount",
+				last_error AS "lastError"
+			FROM clickhouse_purge_job
+			WHERE target_type = 'account'
+				AND target_id = ${identity.userId}
+		`;
+		expect(purgeJob).toEqual({
+			attemptCount: 0,
+			lastError: null,
+			status: "pending",
+			targetId: identity.userId,
+			targetType: "account",
+		});
 
 		const [user] = await sqlClient<Array<{ id: string }>>`
 			SELECT id FROM "user" WHERE id = ${identity.userId}
@@ -331,6 +384,19 @@ describe("deletion data-loss hardening", () => {
 		expect(user).toBeUndefined();
 	});
 });
+
+async function countPurgeJobs(
+	targetType: "account" | "organization",
+	targetId: string,
+): Promise<number> {
+	const [row] = await sqlClient<Array<{ count: number }>>`
+		SELECT COUNT(*)::int AS count
+		FROM clickhouse_purge_job
+		WHERE target_type = ${targetType}
+			AND target_id = ${targetId}
+	`;
+	return row?.count ?? 0;
+}
 
 async function createTestIdentity(label: string): Promise<TestIdentity> {
 	const response = await fetch(`${server.baseUrl}/api/auth/sign-up/email`, {
@@ -408,7 +474,10 @@ async function ingestSession(
 	organizationId: string,
 ): Promise<void> {
 	const input: IngestSessionInput = {
-		content: "deletion hardening integration test",
+		content: JSON.stringify({
+			type: "user",
+			timestamp: "2026-07-29T10:00:00.000Z",
+		}),
 		projectPath: "/test/deletion-hardening",
 		sessionId,
 		source: "claude_code",
