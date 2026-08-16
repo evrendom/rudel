@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test } from "vitest";
 import { parseCodexConversations } from "./codex-conversation-parser";
 
 function codexLine(type: string, payload: unknown, timestamp: string) {
@@ -172,7 +172,7 @@ describe("Codex conversation interruptions", () => {
 				sessionId: "session",
 				timestamp: "2026-08-11T10:00:01.000Z",
 				type: "system",
-				uuid: "codex-0",
+				uuid: "codex-upcrde1sn9ln2",
 			},
 		]);
 	});

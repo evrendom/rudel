@@ -1,8 +1,9 @@
 # Session Detail Payload API Proposal
 
 Status: approved architecture proposal with amendments. This document authorizes
-contract-schema and ownership-test work only. It does not authorize the web
-cutover, a ClickHouse schema migration, or removal of the legacy procedure.
+server-endpoint implementation through rollout steps 3–4. It does not authorize
+the web cutover, a ClickHouse schema migration, or removal of the legacy
+procedure.
 
 ## Decision summary
 
