@@ -1,5 +1,8 @@
 // biome-ignore-all lint/nursery/noExcessiveLinesPerFile: Claude and Codex metadata extraction share deduplication and turn attribution state.
-import { calculateEstimatedCost } from "@rudel/api-routes";
+import {
+	type SessionRequestUsageEvent,
+	summarizeSessionRequestUsage,
+} from "@rudel/api-routes";
 import { z } from "zod";
 import { isCodexFormat } from "@/lib/conversation-schema";
 import {
@@ -90,17 +93,7 @@ const CODEX_TOOL_FAILURE_PATTERN =
 
 type TokenUsage = z.infer<typeof tokenUsageSchema>;
 
-export type TokenUsageEvent = {
-	at: string;
-	cacheCreation1hInputTokens?: number;
-	cacheCreation5mInputTokens?: number;
-	cacheCreationInputTokens: number;
-	cacheReadInputTokens: number;
-	inputTokens: number;
-	model: string | undefined;
-	modelContextWindow?: number;
-	outputTokens: number;
-};
+export type TokenUsageEvent = SessionRequestUsageEvent;
 
 type TurnMetricsBuilder = {
 	editedFiles: string[];
@@ -547,48 +540,15 @@ function extractCodexTurnMetadata(
 }
 
 function finalizeTurnMetrics(builder: TurnMetricsBuilder): SessionTurnMetrics {
-	const inputTokens =
-		builder.usageEvents.length === 0
-			? undefined
-			: builder.usageEvents.reduce(
-					(total, event) =>
-						total +
-						event.inputTokens +
-						event.cacheReadInputTokens +
-						event.cacheCreationInputTokens,
-					0,
-				);
-	const outputTokens =
-		builder.usageEvents.length === 0
-			? undefined
-			: builder.usageEvents.reduce(
-					(total, event) => total + event.outputTokens,
-					0,
-				);
-	const costs = builder.usageEvents.map((event) =>
-		calculateEstimatedCost({
-			at: event.at,
-			cacheCreation1hInputTokens:
-				event.cacheCreation1hInputTokens ?? event.cacheCreationInputTokens,
-			cacheCreationInputTokens: event.cacheCreation5mInputTokens ?? 0,
-			cacheReadInputTokens: event.cacheReadInputTokens,
-			inputTokens: event.inputTokens,
-			model: event.model ?? null,
-			outputTokens: event.outputTokens,
-		}),
-	);
-	const estimatedCost =
-		costs.length === 0 || costs.some((cost) => cost === null)
-			? undefined
-			: costs.reduce<number>((total, cost) => total + (cost ?? 0), 0);
+	const summary = summarizeSessionRequestUsage(builder.usageEvents);
 
 	return {
 		editedFiles: builder.editedFiles,
 		errorCount: builder.errorCount,
 		errorEvents: builder.errorEvents,
-		estimatedCost,
-		inputTokens,
-		outputTokens,
+		estimatedCost: summary.estimatedCost ?? undefined,
+		inputTokens: summary.inputTokens ?? undefined,
+		outputTokens: summary.outputTokens ?? undefined,
 		skills: builder.skills,
 		skillEvents: builder.skillEvents,
 		usageEvents: builder.usageEvents,

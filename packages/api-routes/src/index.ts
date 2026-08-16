@@ -89,9 +89,43 @@ export * from "./product-analytics.js";
 export { type RepoIdentity, resolveRepoIdentity } from "./repo-identity.js";
 export * from "./safe-url.js";
 export * from "./schemas/analytics.js";
+export {
+	SESSION_DETAIL_ACTIVITY_POINT_LIMIT,
+	SESSION_DETAIL_PREVIEW_CODE_POINT_LIMIT,
+	SESSION_DETAIL_REVISION_ERRORS,
+	SESSION_DETAIL_STALE_REVISION_CODE,
+	SESSION_DETAIL_STALE_REVISION_MESSAGE,
+	SESSION_DETAIL_TURN_PAGE_LIMIT,
+	type SessionDetailOverview,
+	type SessionDetailOverviewInput,
+	SessionDetailOverviewInputSchema,
+	SessionDetailOverviewSchema,
+	SessionDetailRevisionSchema,
+	type SessionDetailStaleRevisionData,
+	SessionDetailStaleRevisionDataSchema,
+	type SessionDetailSubagent,
+	type SessionDetailSubagentInput,
+	SessionDetailSubagentInputSchema,
+	SessionDetailSubagentSchema,
+	type SessionDetailTraceItem,
+	SessionDetailTraceItemSchema,
+	type SessionDetailTurn,
+	type SessionDetailTurnInput,
+	SessionDetailTurnInputSchema,
+	SessionDetailTurnSchema,
+} from "./schemas/session-detail-payload.js";
 export * from "./schemas/wrapped-decimal-claim.js";
 export * from "./schemas/wrapped-resume.js";
 export * from "./schemas/wrapped-share.js";
+export { sessionDetailProcedureContracts } from "./session-detail-contract.js";
+export {
+	calculateSessionRequestCost,
+	type SessionRequestCostEntry,
+	type SessionRequestUsageEvent,
+	type SessionRequestUsageSummary,
+	summarizeSessionRequestUsage,
+	sumSessionRequestCosts,
+} from "./session-request-pricing.js";
 
 export const HealthSchema = z.object({
 	status: z.literal("ok"),
