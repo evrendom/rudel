@@ -1,9 +1,15 @@
-import { gzipSync } from "node:zlib";
+import { promisify } from "node:util";
+import { gzip } from "node:zlib";
+
+const gzipAsync = promisify(gzip);
 
 const GZIP_SESSION_DETAIL_PATHS = new Set([
 	"/rpc/analytics/sessions/detailSubagent",
 	"/rpc/analytics/sessions/detailTurn",
 ]);
+
+// Bodies below this size cost more CPU to compress than bytes they save.
+export const GZIP_MIN_BODY_BYTES = 1_024;
 
 function parseEncoding(value: string) {
 	const [name, ...parameters] = value.trim().toLowerCase().split(";");
@@ -65,7 +71,17 @@ export async function maybeCompressSessionDetailRpcResponse(input: {
 		return response;
 	}
 
-	const compressed = gzipSync(await response.arrayBuffer());
+	const body = await response.arrayBuffer();
+	if (body.byteLength < GZIP_MIN_BODY_BYTES) {
+		return new Response(body, {
+			headers: response.headers,
+			status: response.status,
+			statusText: response.statusText,
+		});
+	}
+
+	// Async zlib: a multi-megabyte body must not block the event loop.
+	const compressed = await gzipAsync(Buffer.from(body));
 	const headers = new Headers(response.headers);
 	headers.set("Content-Encoding", "gzip");
 	headers.set("Content-Length", String(compressed.byteLength));

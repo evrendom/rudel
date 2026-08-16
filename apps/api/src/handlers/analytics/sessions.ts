@@ -96,7 +96,7 @@ const detail = os.analytics.sessions.detail
 
 const detailOverview = os.analytics.sessions.detailOverview
 	.use(orgMiddleware)
-	.handler(async ({ input, context }) => {
+	.handler(async ({ input, context, errors }) => {
 		const ownerId = requireSessionDetailOwnerAccess(
 			await getSessionOwner(context.organizationId, input.sessionId),
 			{
@@ -123,13 +123,13 @@ const detailOverview = os.analytics.sessions.detailOverview
 					message: error.message,
 				});
 			}
-			return throwSessionDetailRevisionError(error);
+			return throwSessionDetailRevisionError(error, errors);
 		}
 	});
 
 const detailTurn = os.analytics.sessions.detailTurn
 	.use(orgMiddleware)
-	.handler(async ({ input, context }) => {
+	.handler(async ({ input, context, errors }) => {
 		const ownerId = requireSessionDetailOwnerAccess(
 			await getSessionOwner(context.organizationId, input.sessionId),
 			{
@@ -151,13 +151,13 @@ const detailTurn = os.analytics.sessions.detailTurn
 			}
 			return result;
 		} catch (error) {
-			return throwSessionDetailRevisionError(error);
+			return throwSessionDetailRevisionError(error, errors);
 		}
 	});
 
 const detailSubagent = os.analytics.sessions.detailSubagent
 	.use(orgMiddleware)
-	.handler(async ({ input, context }) => {
+	.handler(async ({ input, context, errors }) => {
 		const ownerId = requireSessionDetailOwnerAccess(
 			await getSessionOwner(context.organizationId, input.sessionId),
 			{
@@ -179,7 +179,7 @@ const detailSubagent = os.analytics.sessions.detailSubagent
 			}
 			return result;
 		} catch (error) {
-			return throwSessionDetailRevisionError(error);
+			return throwSessionDetailRevisionError(error, errors);
 		}
 	});
 

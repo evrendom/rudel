@@ -310,11 +310,7 @@ async function handleRequest(
 		for (const [key, value] of Object.entries(cors)) {
 			response.headers.set(key, value);
 		}
-		return maybeCompressSessionDetailRpcResponse({
-			pathname: url.pathname,
-			requestHeaders: request.headers,
-			response,
-		});
+		return response;
 	}
 
 	if (url.pathname.startsWith("/api/avatar/")) {
@@ -364,7 +360,11 @@ async function handleRequest(
 		for (const [key, value] of Object.entries(cors)) {
 			response.headers.set(key, value);
 		}
-		return response;
+		return maybeCompressSessionDetailRpcResponse({
+			pathname: url.pathname,
+			requestHeaders: request.headers,
+			response,
+		});
 	}
 
 	// Static file serving (production: frontend assets)

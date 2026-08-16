@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { gunzipSync } from "node:zlib";
 import {
+	GZIP_MIN_BODY_BYTES,
 	maybeCompressSessionDetailRpcResponse,
 	requestAcceptsGzip,
 } from "../lib/http-compression.js";
@@ -35,8 +36,10 @@ describe("session detail HTTP compression", () => {
 		expect(gunzipSync(compressed).toString("utf8")).toBe(body);
 	});
 
-	test("compresses normalized turn bodies on the same transport boundary", async () => {
-		const body = JSON.stringify({ json: { responseItems: [], userItems: [] } });
+	test("compresses turn bodies above the threshold on the transport boundary", async () => {
+		const body = JSON.stringify({
+			json: { responseItems: ["x".repeat(4_096)], userItems: [] },
+		});
 		const response = await maybeCompressSessionDetailRpcResponse({
 			pathname: "/rpc/analytics/sessions/detailTurn",
 			requestHeaders: new Headers({ "Accept-Encoding": "gzip" }),
@@ -46,6 +49,19 @@ describe("session detail HTTP compression", () => {
 		expect(gunzipSync(await response.arrayBuffer()).toString("utf8")).toBe(
 			body,
 		);
+	});
+
+	test("passes a below-threshold body through uncompressed", async () => {
+		const body = JSON.stringify({ json: { responseItems: [], userItems: [] } });
+		expect(body.length).toBeLessThan(GZIP_MIN_BODY_BYTES);
+		const response = await maybeCompressSessionDetailRpcResponse({
+			pathname: "/rpc/analytics/sessions/detailTurn",
+			requestHeaders: new Headers({ "Accept-Encoding": "gzip" }),
+			response: new Response(body),
+		});
+		expect(response.headers.get("Content-Encoding")).toBeNull();
+		expect(response.headers.get("Vary")).toBe("Accept-Encoding");
+		expect(await response.text()).toBe(body);
 	});
 
 	test("does not compress overview, error, or gzip-disabled responses", async () => {
