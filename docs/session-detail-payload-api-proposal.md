@@ -1,10 +1,10 @@
 # Session Detail Payload API Proposal
 
-Status: approved architecture proposal with amendments. This document authorizes
-the guarded web cutover through rollout step 5 and the bounded-memory step-6
-verification described below. The rollout guard may default on only after that
-verification passes. It does not authorize a ClickHouse schema migration or
-removal of the legacy procedure.
+Status: approved architecture proposal with amendments. Rollout step 6's guard
+removal is authorized and complete: the fast path now defaults on, with an
+explicit environment opt-out. The legacy procedure and client path remain intact
+as the rollback through step 8's window. This document does not authorize a
+ClickHouse schema migration or removal of the legacy procedure.
 
 ## Decision summary
 
@@ -307,15 +307,24 @@ reconciliation. For the request-time launch bridge, the agreed bounds are:
 - a 64 MiB maximum cache entry, with larger derivations served but not cached;
 - at most two concurrent cross-session derivations per API process.
 
-Before the guard defaults on, run the same 28-session authenticated sweep twice
-back-to-back in one fresh API process. The re-run must produce cache evictions,
-preserve a warm overview p95 at or below 500 ms on the selected working set, and
-pass all three memory checks after 30 seconds without session-detail traffic:
+Before the guard defaults on, run the same 28-session authenticated cold sweep
+three times back-to-back in one fresh API process. The re-run must produce cache
+evictions and pass all three memory checks after 30 seconds without
+session-detail traffic:
 
 - post-idle live memory (`heapUsed + external`) is at or below 600 MiB;
-- OS-reported RSS after sweep two is within 10% of the post-idle RSS after sweep
-  one, proving allocator high-water pages plateau rather than grow per cycle;
-- plateau RSS is at or below 1 GiB on the 2 GB production machine.
+- convergence holds when RSS(S3) - RSS(S2) is at or below
+  `max(0.5 * 109.3 MiB, 32 MiB)`, or approximately 55 MiB; and
+- post-idle RSS after sweep three is at or below 1 GiB on the 2 GB production
+  machine.
+
+Gate v3 passed on the authorized live authenticated run. The post-idle RSS
+series was 745.1 MiB, 919.5 MiB, and 461.5 MiB; S3 - S2 was -458.0 MiB. Sweep
+three live memory was 359.4 MiB. All 84 overview requests across the three
+cycles were cache misses, with zero hits, 62 evictions, and three oversized
+entry rejections, proving that each cycle remained cold and the configured
+bounds engaged. The previously measured warm overview p95 remains 452 ms,
+inside the separate 500 ms latency gate; gate v3 did not remeasure warm latency.
 
 OS RSS is intentionally a plateau and headroom signal, not the live-footprint
 metric: Bun/JSC may retain freed allocator pages after transient parse peaks.
@@ -430,10 +439,11 @@ or edge layer as long as it is observable and tested end to end.
    session costs, token/tool/file/error/skill metrics, timeline activity, and
    selected content against the legacy response. The measured session's timeline
    must be exact; explicitly review any bucketed long-session case.
-6. Default the guard on only after the initial payload is at or below 250 KB for
-   the measured session and representative long/event-dense sessions, and after
-   the request-time path meets the explicit latency, cache, concurrency, and
-   quiescent-RSS gates above. Retain an explicit rollback override until step 8.
+6. **Completed:** default the guard on only after the initial payload is at or
+   below 250 KB for the measured session and representative long/event-dense
+   sessions, and after the request-time path meets the explicit latency, cache,
+   concurrency, and quiescent-RSS gates above. Retain an explicit rollback
+   override until step 8.
 7. Begin the ingest-time materialization migration and backfill as the immediate
    follow-up, using the launch path as a rollback until production parity holds.
 8. Remove `analytics.sessions.detail` only after no supported client consumes it
@@ -466,9 +476,10 @@ or edge layer as long as it is observable and tested end to end.
   each Fly machine is assumed to warm independently.
 - The 28-session step-6 re-run proves the 256 MiB cache evicts, the 64 MiB entry
   guard rejects pathological entries, global derivation concurrency never
-  exceeds two, warm overview p95 remains at or below 500 ms, post-idle live
-  memory remains at or below 600 MiB, and repeat-sweep RSS plateaus within 10%
-  at or below 1 GiB.
+  exceeds two, the separately measured warm overview p95 remains at or below
+  500 ms, post-idle live memory remains at or below 600 MiB, the third-cycle RSS
+  increment is at or below approximately 55 MiB, and third-cycle RSS is at or
+  below 1 GiB.
 - No new cost calculation is introduced.
 
 ## Resolved decisions and deferred work

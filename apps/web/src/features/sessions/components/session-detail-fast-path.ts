@@ -1,6 +1,6 @@
 export function resolveSessionDetailFastPath(value: string | undefined) {
 	const normalized = value?.trim().toLowerCase();
-	return normalized === "1" || normalized === "true";
+	return normalized !== "0" && normalized !== "false";
 }
 
 export function isSessionDetailFastPathEnabled() {
