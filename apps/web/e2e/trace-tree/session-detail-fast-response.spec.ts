@@ -68,7 +68,7 @@ test("the real fast response pane keeps user scroll authoritative across windows
 		});
 	});
 
-	await page.goto(`${INTEGRATION_ROUTE}?transcriptDebug=1`);
+	await page.goto(`${INTEGRATION_ROUTE}?transcript=virtual&transcriptDebug=1`);
 	const root = page.locator("[data-session-detail-fast-integration]");
 	const scroller = page.getByRole("region", { name: "Conversation thread" });
 	await expect(root).toBeVisible();

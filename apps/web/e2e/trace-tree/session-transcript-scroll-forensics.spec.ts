@@ -72,7 +72,7 @@ test("captures the Step 0 frame ledger over a synthesized inertial fling", async
 	page,
 }) => {
 	const windowRequests = await installWindowTransport(page);
-	await page.goto(`${INTEGRATION_ROUTE}?transcriptDebug=1`);
+	await page.goto(`${INTEGRATION_ROUTE}?transcript=virtual&transcriptDebug=1`);
 	const scroller = page.getByRole("region", { name: "Conversation thread" });
 	await expect(scroller.locator("[data-transcript-virtual-list]")).toBeVisible({
 		timeout: 15_000,
