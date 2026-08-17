@@ -75,6 +75,7 @@ export {
 	createTraceExpansionStore,
 	TraceExpansionNamespaceProvider,
 	TraceExpansionStoreProvider,
+	TraceTextDisclosureIcon,
 } from "./expandable-trace-row";
 
 const speakerLabelClassName =

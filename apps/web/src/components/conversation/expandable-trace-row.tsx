@@ -138,7 +138,7 @@ export function TraceExpansionNamespaceProvider({
 	);
 }
 
-function TraceTextDisclosureIcon({ expanded }: { expanded: boolean }) {
+export function TraceTextDisclosureIcon({ expanded }: { expanded: boolean }) {
 	return (
 		<svg
 			aria-hidden="true"
