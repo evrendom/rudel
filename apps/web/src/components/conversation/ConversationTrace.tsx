@@ -414,42 +414,41 @@ function toRenderedBranches(
 		(count, branch) => count + (branch.root ? 1 : branch.children.length),
 		0,
 	);
-	return treeBranches.flatMap<AgentTraceTreeRenderedBranch>((branch) =>
-		branch.root
-			? [
-					{
-						children: branch.children.map((event) => ({
-							key: event.id,
-							row: (
-								<TraceExpansionIdProvider expansionId={event.id}>
-									<EventRow event={event} />
-								</TraceExpansionIdProvider>
-							),
-						})),
-						key: branch.id,
-						row: (
-							<TraceExpansionIdProvider expansionId={branch.root.id}>
-								<EventRow
-									event={branch.root}
-									trailing={renderedBranchCount === 1 ? trailing : undefined}
-								/>
-							</TraceExpansionIdProvider>
-						),
-					},
-				]
-			: branch.children.map((event) => ({
-					children: [],
-					key: event.id,
+	return treeBranches.map<AgentTraceTreeRenderedBranch>((branch) => ({
+		childStartIndex: branch.childStartIndex,
+		children: branch.children.map((event) => ({
+			key: event.id,
+			row: (
+				<TraceExpansionIdProvider expansionId={event.id}>
+					<EventRow
+						event={event}
+						trailing={
+							!branch.hasRoot && renderedBranchCount === 1
+								? trailing
+								: undefined
+						}
+					/>
+				</TraceExpansionIdProvider>
+			),
+		})),
+		hasFollowingBranch: branch.hasFollowingBranch,
+		hasRoot: branch.hasRoot,
+		key: branch.id,
+		root: branch.root
+			? {
+					key: branch.root.id,
 					row: (
-						<TraceExpansionIdProvider expansionId={event.id}>
+						<TraceExpansionIdProvider expansionId={branch.root.id}>
 							<EventRow
-								event={event}
+								event={branch.root}
 								trailing={renderedBranchCount === 1 ? trailing : undefined}
 							/>
 						</TraceExpansionIdProvider>
 					),
-				})),
-	);
+				}
+			: undefined,
+		totalChildren: branch.totalChildren,
+	}));
 }
 
 function toRenderedSection(input: {
@@ -478,7 +477,10 @@ function toRenderedSection(input: {
 			) : undefined;
 		const separator = isTraceCallSeparator(section.config);
 		return {
+			branchDepth: section.branchDepth,
 			branches: toRenderedBranches(section.branches, inlineUsage),
+			continuesFromPrevious: section.continuesFromPrevious,
+			continuesToNext: section.continuesToNext,
 			events: [...section.events],
 			flatRequestRows: section.config.flatRequestRows,
 			groupIndex: section.groupIndex,
@@ -508,29 +510,39 @@ function toRenderedSection(input: {
 		};
 	}
 	return {
+		branchDepth: 2,
 		branches: [
 			{
+				childStartIndex: 0,
 				children: [],
+				hasFollowingBranch: false,
+				hasRoot: true,
 				key: section.item.id,
-				row: (
-					<TraceRow
-						agentHeaderTrailing={undefined}
-						agentLabel={agentLabel}
-						agentModel={agentModel}
-						agentSectionMode="expanded"
-						anchorId={`trace-tree-message-${section.itemIndex}`}
-						expandedSpeakerLayout="inline"
-						focus={focus}
-						isLast={section.isLast}
-						item={section.item}
-						previousTimestamp={section.previousTimestamp}
-						userImageUrl={userImageUrl}
-						userLabel={userLabel}
-					/>
-				),
+				root: {
+					key: section.item.id,
+					row: (
+						<TraceRow
+							agentHeaderTrailing={undefined}
+							agentLabel={agentLabel}
+							agentModel={agentModel}
+							agentSectionMode="expanded"
+							anchorId={`trace-tree-message-${section.itemIndex}`}
+							expandedSpeakerLayout="inline"
+							focus={focus}
+							isLast={section.isLast}
+							item={section.item}
+							previousTimestamp={section.previousTimestamp}
+							userImageUrl={userImageUrl}
+							userLabel={userLabel}
+						/>
+					),
+				},
 				sticky: section.item.kind === "user",
+				totalChildren: 0,
 			},
 		],
+		continuesFromPrevious: false,
+		continuesToNext: false,
 		events: [],
 		flatRequestRows: true,
 		groupIndex: undefined,

@@ -1,9 +1,17 @@
+// biome-ignore-all lint/nursery/noExcessiveLinesPerFile: Transcript section parity, cache identity, and fold invariants share the same fixture builders.
 import { describe, expect, test } from "bun:test";
 import { SessionDetailTurnBodySchema } from "@rudel/api-routes";
+import type { TraceEvent } from "@/components/conversation/conversation-trace";
+import {
+	type ConversationTraceAgentSection,
+	deriveConversationTraceSections,
+} from "@/components/conversation/conversation-trace-sections";
+import { getAgentTraceTreeEventGeometry } from "@/components/conversation/conversation-trace-tree-branches";
 import {
 	buildSessionDetailOverviewTurnOptions,
 	normalizeSessionDetailTurnBody,
 } from "./session-detail-overview-model";
+import { splitAgentSectionByEstimatedHeight } from "./session-transcript-section-budget";
 import {
 	buildSessionTranscriptRowModel,
 	createTranscriptSectionCache,
@@ -205,6 +213,43 @@ function source(
 	};
 }
 
+function splitGeometryEvents(): TraceEvent[] {
+	const timestamp = (second: number) =>
+		new Date(Date.UTC(2026, 7, 16, 8, 30, second)).toISOString();
+	const events: TraceEvent[] = [];
+	for (let branchIndex = 0; branchIndex < 3; branchIndex += 1) {
+		events.push({
+			id: `geometry:reasoning:${branchIndex}`,
+			kind: "reasoning",
+			text: `Branch ${branchIndex}`,
+			timestamp: timestamp(branchIndex * 10),
+		});
+		for (let childIndex = 0; childIndex < 7; childIndex += 1) {
+			events.push({
+				id: `geometry:tool:${branchIndex}:${childIndex}`,
+				input: { command: `echo ${branchIndex}:${childIndex}` },
+				kind: "tool",
+				result: { content: "ok", isError: false },
+				timestamp: timestamp(branchIndex * 10 + childIndex + 1),
+				toolName: "Bash",
+			});
+		}
+	}
+	return events;
+}
+
+function sectionGeometry(section: ConversationTraceAgentSection) {
+	return section.branches.flatMap((branch) =>
+		getAgentTraceTreeEventGeometry(branch, false).map((geometry) => ({
+			continues: geometry.continues,
+			depth: section.branchDepth + geometry.depthOffset,
+			descends: geometry.descends,
+			id: geometry.event.id,
+			parentContinues: geometry.parentContinues,
+		})),
+	);
+}
+
 function model(
 	turns: readonly SessionTranscriptTurnSource[],
 	level: "normal" | "request" = "request",
@@ -229,6 +274,62 @@ function model(
 let sharedCache = createTranscriptSectionCache();
 
 describe("session transcript sections and rows", () => {
+	test("preserves unsplit tree geometry across every section budget", () => {
+		for (const level of ["normal", "request"] as const) {
+			const derivation = deriveConversationTraceSections({
+				items: [
+					{
+						events: splitGeometryEvents(),
+						executionMode: "default",
+						id: "geometry:agent",
+						kind: "agent",
+						timestamp: "2026-08-16T08:30:00.000Z",
+					},
+				],
+				requestUsage: [
+					{
+						at: "2026-08-16T08:30:00.000Z",
+						cacheCreationInputTokens: 0,
+						cacheReadInputTokens: 0,
+						inputTokens: 100,
+						model: "claude-fable-5",
+						outputTokens: 20,
+					},
+				],
+				traceCallDisplayMode: level,
+			});
+			const section = derivation.sections[0];
+			if (section?.kind !== "agent") {
+				throw new Error("Expected an agent geometry section");
+			}
+			const unsplitGeometry = sectionGeometry(section);
+
+			for (const budget of [96, 128, 160, 224, 320]) {
+				const chunks = splitAgentSectionByEstimatedHeight(section, budget);
+				const splitGeometry = chunks.flatMap((chunk) =>
+					sectionGeometry(chunk.section),
+				);
+				expect(splitGeometry).toEqual(unsplitGeometry);
+				expect(chunks[0]?.section.continuesFromPrevious).toBe(false);
+				expect(chunks.at(-1)?.section.continuesToNext).toBe(false);
+				expect(
+					chunks.slice(1).every((chunk) => {
+						return (
+							chunk.section.continuesFromPrevious && !chunk.section.showHeader
+						);
+					}),
+				).toBe(true);
+				expect(
+					chunks.slice(0, -1).every((chunk) => chunk.section.continuesToNext),
+				).toBe(true);
+			}
+
+			expect(
+				splitAgentSectionByEstimatedHeight(section, 160).length,
+			).toBeGreaterThanOrEqual(3);
+		}
+	});
+
 	test("caps a legal giant request and emits an accurately counted overflow row", () => {
 		sharedCache = createTranscriptSectionCache();
 		const rows = model([source("turn-1", 0, body("turn-1", 75))]).rows;

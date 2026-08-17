@@ -110,6 +110,120 @@ async function profileScrollSweep(scroller: Locator, steps = 60) {
 	}, steps);
 }
 
+type SplitSectionEventGeometry = {
+	continues: boolean;
+	depth: number;
+	descends: boolean;
+	id: string;
+};
+
+async function captureSplitSectionGeometry(input: {
+	display: "normal" | "request";
+	page: Page;
+	scroller: Locator;
+}) {
+	const geometryByEventId = new Map<string, SplitSectionEventGeometry>();
+	const continuationRowIds = new Set<string>();
+	let continuationScreenshot: Buffer | undefined;
+	const maximum = await input.scroller.evaluate(
+		(element) => element.scrollHeight - element.clientHeight,
+	);
+	for (let step = 0; step <= 28; step += 1) {
+		await input.scroller.evaluate(
+			(element, scrollTop) => {
+				element.scrollTop = scrollTop;
+			},
+			Math.round((maximum * step) / 28),
+		);
+		await waitForFrames(input.page, 1);
+		const samples = await input.scroller.evaluate(() =>
+			Array.from(
+				document.querySelectorAll<HTMLElement>(
+					'[data-transcript-turn-id="fixture-turn-1"][data-transcript-row-kind="section"]',
+				),
+			).map((sectionRow) => ({
+				events: Array.from(
+					sectionRow.querySelectorAll<HTMLElement>("[data-trace-expansion-id]"),
+				).map((eventRow) => {
+					const treeItem = eventRow.closest<HTMLElement>(
+						"[data-trace-tree-item-depth]",
+					);
+					if (!treeItem) {
+						throw new Error("Expected every trace event to own tree geometry");
+					}
+					const expansionId = eventRow.dataset.traceExpansionId ?? "";
+					return {
+						continues: treeItem.dataset.traceTreeContinues === "true",
+						depth: Number(treeItem.dataset.traceTreeItemDepth),
+						descends: treeItem.dataset.traceTreeDescends === "true",
+						id: expansionId.slice(expansionId.lastIndexOf("::") + 2),
+					};
+				}),
+				hasIncomingModelRail:
+					sectionRow.querySelector('[data-trace-tree-line-depth="1"]') !== null,
+				id: sectionRow.dataset.transcriptRowId ?? "",
+			})),
+		);
+		for (const sample of samples) {
+			if (/s\d+b\d+$/u.test(sample.id)) {
+				continuationRowIds.add(sample.id);
+				expect(
+					sample.hasIncomingModelRail,
+					`${sample.id} must retain the incoming model rail`,
+				).toBe(true);
+				continuationScreenshot ??= await input.scroller.screenshot();
+			}
+			for (const geometry of sample.events) {
+				geometryByEventId.set(geometry.id, geometry);
+			}
+		}
+	}
+
+	expect(continuationRowIds.size).toBeGreaterThan(0);
+	expect(continuationScreenshot).toBeDefined();
+	for (const request of [1, 2]) {
+		const reasoning = geometryByEventId.get(`fx-t1-r${request}-reasoning`);
+		const message = geometryByEventId.get(`fx-t1-r${request}-message`);
+		expect(reasoning, `${input.display} reasoning geometry`).toBeDefined();
+		expect(message, `${input.display} message geometry`).toBeDefined();
+		for (let tool = 1; tool <= 12; tool += 1) {
+			const toolGeometry = geometryByEventId.get(
+				`fx-t1-r${request}-tool-${tool}`,
+			);
+			expect(
+				toolGeometry,
+				`${input.display} tool ${tool} geometry`,
+			).toBeDefined();
+			expect(toolGeometry?.depth).toBe((message?.depth ?? 0) + 1);
+		}
+	}
+	return continuationScreenshot;
+}
+
+test("budget-split agent sections preserve nesting and rail continuity in both levels", async ({
+	page,
+}, testInfo) => {
+	await page.setViewportSize({ height: 1_200, width: 1_200 });
+	for (const display of ["request", "normal"] as const) {
+		const scroller = await openVirtualFixture(
+			page,
+			`turns=1&display=${display}`,
+		);
+		const screenshot = await captureSplitSectionGeometry({
+			display,
+			page,
+			scroller,
+		});
+		if (!screenshot) {
+			throw new Error(`Expected a ${display} continuation screenshot`);
+		}
+		await testInfo.attach(`budget-split-${display}.png`, {
+			body: screenshot,
+			contentType: "image/png",
+		});
+	}
+});
+
 test("virtual transcript sweeps without gaps or overlapping measured rows", async ({
 	page,
 }) => {

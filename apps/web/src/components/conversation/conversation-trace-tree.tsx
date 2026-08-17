@@ -96,14 +96,21 @@ const COLLAPSED_TRACE_COUNT_STYLE: CollapsedTraceCountStyle = {
 };
 
 export type AgentTraceTreeRenderedBranch = {
+	childStartIndex: number;
 	children: readonly { key: string; row: ReactNode }[];
+	hasFollowingBranch: boolean;
+	hasRoot: boolean;
 	key: string;
-	row: ReactNode;
+	root: { key: string; row: ReactNode } | undefined;
 	sticky?: boolean;
+	totalChildren: number;
 };
 
 export type AgentTraceTreeRenderedSection = {
+	branchDepth: 2 | 3;
 	branches: readonly AgentTraceTreeRenderedBranch[];
+	continuesFromPrevious: boolean;
+	continuesToNext: boolean;
 	events: TraceEvent[];
 	flatRequestRows: boolean;
 	groupIndex: number | undefined;
@@ -623,6 +630,8 @@ export function ConversationTraceTreeItem({
 		<div
 			className="relative min-w-0"
 			data-trace-debug-field={`depth-${depth}-container`}
+			data-trace-tree-continues={continues ? "true" : "false"}
+			data-trace-tree-descends={descends ? "true" : "false"}
 			data-trace-tree-item-depth={depth}
 			style={style}
 		>
@@ -1140,41 +1149,68 @@ function AgentTraceTreeBranchList({
 	depth: number;
 	hasNextSibling: boolean;
 }) {
+	const ancestorRails = useContext(ConversationTraceTreeRailContext);
 	return (
 		<ol className="list-none">
-			{branches.map((branch, branchIndex) => {
-				const branchHasNext =
-					branchIndex < branches.length - 1 || hasNextSibling;
-				const subtree =
-					branch.children.length > 0 ? (
-						<ol className="list-none">
-							{branch.children.map((child, childIndex) => (
-								<li key={child.key}>
-									<ConversationTraceTreeItem
-										continues={childIndex < branch.children.length - 1}
-										depth={depth + 1}
-										rowHeight={CONVERSATION_TRACE_TREE_COMPACT_ROW_HEIGHT}
-									>
-										<div className="-ml-3">{child.row}</div>
-									</ConversationTraceTreeItem>
-								</li>
-							))}
-						</ol>
-					) : undefined;
-				return (
-					<li key={branch.key}>
+			{branches.map((branch) => {
+				const branchHasNext = branch.hasFollowingBranch || hasNextSibling;
+				const childRows = branch.children.map((child, childIndex) => (
+					<li key={child.key}>
 						<ConversationTraceTreeItem
-							continues={branchHasNext}
-							descends={branch.children.length > 0}
-							depth={depth}
+							continues={
+								branch.childStartIndex + childIndex < branch.totalChildren - 1
+							}
+							depth={depth + 1}
 							rowHeight={CONVERSATION_TRACE_TREE_COMPACT_ROW_HEIGHT}
-							sticky={branch.sticky}
-							subtree={subtree}
 						>
-							<div className="-ml-3">{branch.row}</div>
+							<div className="-ml-3">{child.row}</div>
 						</ConversationTraceTreeItem>
 					</li>
-				);
+				));
+				if (branch.hasRoot && !branch.root) {
+					return (
+						<ConversationTraceTreeRailContext.Provider
+							key={branch.key}
+							value={[...ancestorRails, branchHasNext]}
+						>
+							{childRows}
+						</ConversationTraceTreeRailContext.Provider>
+					);
+				}
+				if (branch.root) {
+					const subtree =
+						branch.totalChildren > 0 ? (
+							<ol className="list-none">{childRows}</ol>
+						) : undefined;
+					return (
+						<li key={branch.key}>
+							<ConversationTraceTreeItem
+								continues={branchHasNext}
+								descends={branch.totalChildren > 0}
+								depth={depth}
+								rowHeight={CONVERSATION_TRACE_TREE_COMPACT_ROW_HEIGHT}
+								sticky={branch.sticky}
+								subtree={subtree}
+							>
+								<div className="-ml-3">{branch.root.row}</div>
+							</ConversationTraceTreeItem>
+						</li>
+					);
+				}
+				return branch.children.map((child, childIndex) => (
+					<li key={child.key}>
+						<ConversationTraceTreeItem
+							continues={
+								branch.childStartIndex + childIndex <
+									branch.totalChildren - 1 || branchHasNext
+							}
+							depth={depth}
+							rowHeight={CONVERSATION_TRACE_TREE_COMPACT_ROW_HEIGHT}
+						>
+							<div className="-ml-3">{child.row}</div>
+						</ConversationTraceTreeItem>
+					</li>
+				));
 			})}
 		</ol>
 	);
@@ -1206,7 +1242,7 @@ function AgentTraceTreeRenderedSectionItem({
 			>
 				<AgentTraceTreeBranchList
 					branches={section.branches}
-					depth={2}
+					depth={section.branchDepth}
 					hasNextSibling={hasNextSibling}
 				/>
 			</li>
@@ -1297,12 +1333,19 @@ export function AgentTraceTreeContinuationSection({
 	defaultOpen?: boolean;
 	section: AgentTraceTreeRenderedSection;
 }) {
+	const incomingModelRail = section.continuesFromPrevious || continuesAfter;
 	return (
-		<ConversationTraceTreeRailContext.Provider value={[continuesAfter]}>
+		<ConversationTraceTreeRailContext.Provider
+			value={
+				section.branchDepth === 3
+					? [incomingModelRail, false]
+					: [incomingModelRail]
+			}
+		>
 			<ol className="list-none">
 				<AgentTraceTreeRenderedSectionItem
 					defaultOpen={defaultOpen}
-					hasNextSibling={continuesAfter}
+					hasNextSibling={continuesAfter && !section.continuesToNext}
 					section={section}
 				/>
 			</ol>

@@ -20,8 +20,11 @@ import {
 } from "./conversation-trace-tree-branches";
 
 export type ConversationTraceAgentSection = {
+	branchDepth: 2 | 3;
 	branches: readonly AgentTraceTreeBranch[];
 	config: TraceCallDisplayConfig;
+	continuesFromPrevious: boolean;
+	continuesToNext: boolean;
 	events: readonly TraceEvent[];
 	groupIndex: number | undefined;
 	groupTreatment: TraceCallGroupTreatment;
@@ -112,8 +115,16 @@ export function deriveConversationTraceSections(input: {
 				0,
 			);
 			sections.push({
+				branchDepth:
+					group.usage !== undefined &&
+					shouldRenderTraceCallHeader(config, branchCount) &&
+					!config.flatRequestRows
+						? 3
+						: 2,
 				branches,
 				config,
+				continuesFromPrevious: false,
+				continuesToNext: false,
 				events: group.events,
 				groupIndex: group.usage ? currentRequestIndex : undefined,
 				groupTreatment: group.usage ? config.groupTreatment : "none",

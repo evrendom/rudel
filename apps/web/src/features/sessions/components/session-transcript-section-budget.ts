@@ -3,7 +3,10 @@ import type {
 	ConversationTraceAgentSection,
 	ConversationTraceDerivedSection,
 } from "@/components/conversation/conversation-trace-sections";
-import { buildAgentTraceTreeBranches } from "@/components/conversation/conversation-trace-tree-branches";
+import {
+	type AgentTraceTreeBranch,
+	buildAgentTraceTreeBranches,
+} from "@/components/conversation/conversation-trace-tree-branches";
 
 const REQUEST_HEADER_ESTIMATED_PX = 120;
 const COMPACT_EVENT_ESTIMATED_PX = 32;
@@ -34,29 +37,44 @@ export function splitAgentSectionByEstimatedHeight(
 	section: ConversationTraceAgentSection,
 	maxEstimatedPx: number,
 ) {
-	const eventChunks: TraceEvent[][] = [];
+	const fullBranches = buildAgentTraceTreeBranches(section.events);
+	const eventIndices = new Map<TraceEvent, number>();
+	section.events.forEach((event, eventIndex) => {
+		eventIndices.set(event, eventIndex);
+	});
+	const eventChunks: { events: TraceEvent[]; startIndex: number }[] = [];
 	let events: TraceEvent[] = [];
+	let startIndex = 0;
 	let estimatedHeight = section.showHeader ? REQUEST_HEADER_ESTIMATED_PX : 0;
-	for (const event of section.events) {
+	section.events.forEach((event, eventIndex) => {
 		const eventHeight = estimateTraceEventHeight(event, maxEstimatedPx);
 		if (events.length > 0 && estimatedHeight + eventHeight > maxEstimatedPx) {
-			eventChunks.push(events);
+			eventChunks.push({ events, startIndex });
 			events = [];
+			startIndex = eventIndex;
 			estimatedHeight = 0;
 		}
 		events.push(event);
 		estimatedHeight = Math.min(maxEstimatedPx, estimatedHeight + eventHeight);
-	}
+	});
 	if (events.length > 0) {
-		eventChunks.push(events);
+		eventChunks.push({ events, startIndex });
 	}
 
-	return eventChunks.map((chunkEvents, chunkIndex) => {
+	return eventChunks.map((eventChunk, chunkIndex) => {
 		const continuation = chunkIndex > 0;
+		const continuesToNext = chunkIndex < eventChunks.length - 1;
 		const chunk: ConversationTraceAgentSection = {
 			...section,
-			branches: buildAgentTraceTreeBranches(chunkEvents),
-			events: chunkEvents,
+			branches: sliceAgentTraceTreeBranches({
+				branches: fullBranches,
+				endIndex: eventChunk.startIndex + eventChunk.events.length,
+				eventIndices,
+				startIndex: eventChunk.startIndex,
+			}),
+			continuesFromPrevious: continuation,
+			continuesToNext,
+			events: eventChunk.events,
 			inlineUsage: continuation ? false : section.inlineUsage,
 			key: continuation ? `${section.key}:b${chunkIndex}` : section.key,
 			showHeader: continuation ? false : section.showHeader,
@@ -66,6 +84,54 @@ export function splitAgentSectionByEstimatedHeight(
 			estimatedHeight: estimateAgentSectionHeight(chunk, maxEstimatedPx),
 			section: chunk,
 		};
+	});
+}
+
+function sliceAgentTraceTreeBranches(input: {
+	branches: readonly AgentTraceTreeBranch[];
+	endIndex: number;
+	eventIndices: ReadonlyMap<TraceEvent, number>;
+	startIndex: number;
+}) {
+	return input.branches.flatMap<AgentTraceTreeBranch>((branch) => {
+		const rootIndex = branch.root
+			? input.eventIndices.get(branch.root)
+			: undefined;
+		const root =
+			branch.root &&
+			rootIndex !== undefined &&
+			rootIndex >= input.startIndex &&
+			rootIndex < input.endIndex
+				? branch.root
+				: undefined;
+		const childStartIndex = branch.children.findIndex((child) => {
+			const childIndex = input.eventIndices.get(child);
+			return (
+				childIndex !== undefined &&
+				childIndex >= input.startIndex &&
+				childIndex < input.endIndex
+			);
+		});
+		const children = branch.children.filter((child) => {
+			const eventIndex = input.eventIndices.get(child);
+			return (
+				eventIndex !== undefined &&
+				eventIndex >= input.startIndex &&
+				eventIndex < input.endIndex
+			);
+		});
+		if (!root && children.length === 0) {
+			return [];
+		}
+		return [
+			{
+				...branch,
+				childStartIndex:
+					childStartIndex < 0 ? branch.totalChildren : childStartIndex,
+				children,
+				root,
+			},
+		];
 	});
 }
 
