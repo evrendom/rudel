@@ -1,4 +1,3 @@
-import { useVirtualizer } from "@tanstack/react-virtual";
 import {
 	type KeyboardEvent,
 	type Ref,
@@ -9,14 +8,9 @@ import {
 import type { ToolIconName } from "@/components/conversation/conversation-tools";
 import type { TraceIconTone } from "@/components/conversation/conversation-trace-icons";
 import type { SessionCompaction } from "./session-compactions";
-import {
-	estimateSessionTurnTableRowSize,
-	measureSessionVirtualElement,
-	SESSION_DETAIL_VIRTUAL_OVERSCAN,
-	type SessionTurnTableVirtualizerHandle,
-} from "./session-detail-virtualization";
 import type { SessionTurnEpisode } from "./session-turn-episodes";
 import type { SessionTurnMetrics } from "./session-turn-metadata";
+import { SessionTurnTableBody } from "./session-turn-table-body";
 import {
 	isSessionTurnTableColumnVisible,
 	type SessionTurnTableColumnKey,
@@ -33,7 +27,6 @@ import {
 } from "./session-turn-table-selection";
 import { SessionTurnTableSortableHeader } from "./session-turn-table-sortable-header";
 import { SessionTurnTableSpeakerFocusToggle } from "./session-turn-table-view-tabs";
-import { SessionTurnTableVirtualBody } from "./session-turn-table-virtual-body";
 import "./session-constellation-tree.css";
 import "./session-turn-table.css";
 
@@ -67,6 +60,13 @@ export type SessionTurnTableToolCallGroup = {
 };
 
 export type { SessionTurnTableSpeaker } from "./session-turn-table-selection";
+
+export type SessionTurnTableVirtualizerHandle = {
+	scrollToSelection: (
+		selection: SessionTurnSelection,
+		options?: { behavior?: ScrollBehavior },
+	) => void;
+};
 
 export type SessionTurnTableRow = {
 	characterCount: number | undefined;
@@ -124,7 +124,6 @@ export function SessionTurnTable({
 	virtualizerRef,
 }: SessionTurnTableProps) {
 	const scrollElementRef = useRef<HTMLDivElement>(null);
-	const rowElementsRef = useRef(new Map<number, HTMLTableRowElement>());
 	const tableRows = useMemo<readonly SessionTurnTableRow[]>(
 		() =>
 			rows ??
@@ -163,61 +162,24 @@ export function SessionTurnTable({
 			}),
 		[selection, tableRows],
 	);
-	const rowVirtualizer = useVirtualizer<
-		HTMLDivElement,
-		HTMLTableSectionElement
-	>({
-		count: tableRows.length,
-		estimateSize: (index) => {
-			const row = tableRows[index];
-			if (!row) {
-				return 36;
-			}
-			const beginsTurn =
-				index === 0 ||
-				tableRows[index - 1]?.match.option.key !== row.match.option.key;
-			return estimateSessionTurnTableRowSize({
-				beginsTurn,
-				hasEpisode: beginsTurn && episodeByStartIndex.has(row.match.index),
-				row,
-			});
-		},
-		getItemKey: (index) => tableRows[index]?.key ?? index,
-		getScrollElement: () => scrollElementRef.current,
-		measureElement: measureSessionVirtualElement,
-		overscan: SESSION_DETAIL_VIRTUAL_OVERSCAN,
-	});
-	const virtualRows = rowVirtualizer.getVirtualItems();
-	const paddingTop = virtualRows[0]?.start ?? 0;
-	const paddingBottom = Math.max(
-		0,
-		rowVirtualizer.getTotalSize() - (virtualRows.at(-1)?.end ?? 0),
-	);
-
 	useImperativeHandle(
 		virtualizerRef,
 		() => ({
 			scrollToSelection: (nextSelection, options) => {
-				const exactIndex = tableRows.findIndex(
-					(row) =>
-						row.match.index === nextSelection.index &&
-						row.speaker === nextSelection.speaker,
+				const scrollElement = scrollElementRef.current;
+				const exactRow = scrollElement?.querySelector<HTMLElement>(
+					`[data-turn-index="${nextSelection.index}"][data-speaker="${nextSelection.speaker}"]`,
 				);
-				const rowIndex =
-					exactIndex >= 0
-						? exactIndex
-						: tableRows.findIndex(
-								(row) => row.match.index === nextSelection.index,
-							);
-				if (rowIndex >= 0) {
-					rowVirtualizer.scrollToIndex(rowIndex, {
-						align: "auto",
-						behavior: options?.behavior,
-					});
-				}
+				const fallbackRow = scrollElement?.querySelector<HTMLElement>(
+					`[data-turn-index="${nextSelection.index}"]`,
+				);
+				(exactRow ?? fallbackRow)?.scrollIntoView({
+					behavior: options?.behavior,
+					block: "nearest",
+				});
 			},
 		}),
-		[rowVirtualizer, tableRows],
+		[],
 	);
 
 	function handleRowKeyDown(
@@ -249,25 +211,13 @@ export function SessionTurnTable({
 		}
 
 		onSelect({ index: nextRow.match.index, speaker: nextRow.speaker });
-		rowVirtualizer.scrollToIndex(nextVisibleIndex, { align: "auto" });
+		const nextRowElement = scrollElementRef.current?.querySelector<HTMLElement>(
+			`[data-visible-index="${nextVisibleIndex}"]`,
+		);
+		nextRowElement?.scrollIntoView({ block: "nearest" });
 		window.requestAnimationFrame(() => {
-			rowElementsRef.current.get(nextVisibleIndex)?.focus();
+			nextRowElement?.focus({ preventScroll: true });
 		});
-	}
-
-	function scheduleRowMeasurement(element: HTMLTableSectionElement) {
-		window.requestAnimationFrame(() => rowVirtualizer.measureElement(element));
-	}
-
-	function setRowElement(
-		visibleIndex: number,
-		element: HTMLTableRowElement | null,
-	) {
-		if (element) {
-			rowElementsRef.current.set(visibleIndex, element);
-		} else {
-			rowElementsRef.current.delete(visibleIndex);
-		}
 	}
 
 	const hasMemberRows = tableRows.some((row) => row.speaker === "member");
@@ -334,25 +284,19 @@ export function SessionTurnTable({
 							))}
 						</tr>
 					</thead>
-					<SessionTurnTableVirtualBody
+					<SessionTurnTableBody
 						collapsedEpisodeKeys={collapsedEpisodeKeys}
 						columns={columns}
 						episodeByStartIndex={episodeByStartIndex}
 						matchedIndices={matchedIndices}
-						measureElement={rowVirtualizer.measureElement}
 						onEpisodeToggle={onEpisodeToggle}
 						onKeyDown={handleRowKeyDown}
-						onRowElement={setRowElement}
 						onSelect={onSelect}
-						paddingBottom={paddingBottom}
-						paddingTop={paddingTop}
 						rows={tableRows}
-						scheduleMeasurement={scheduleRowMeasurement}
 						selectedRowKey={selectedRowKey}
 						userImageUrl={userImageUrl}
 						userLabel={userLabel}
 						viewportRange={viewportRange}
-						virtualRows={virtualRows}
 					/>
 				</table>
 			</div>

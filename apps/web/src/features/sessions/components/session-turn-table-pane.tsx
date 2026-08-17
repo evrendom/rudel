@@ -4,11 +4,11 @@ import {
 	useSessionContinuousTurnTrailingActiveSelection,
 	useSessionContinuousTurnVisibleRange,
 } from "./session-continuous-turn-viewport-store";
-import type { SessionTurnTableVirtualizerHandle } from "./session-detail-virtualization";
 import {
 	SessionTurnTable,
 	type SessionTurnTableOption,
 	type SessionTurnTableSpeaker,
+	type SessionTurnTableVirtualizerHandle,
 } from "./session-turn-table";
 import { SessionTurnTableColumnComposer } from "./session-turn-table-column-composer";
 import { SessionTurnTableControls } from "./session-turn-table-filter";

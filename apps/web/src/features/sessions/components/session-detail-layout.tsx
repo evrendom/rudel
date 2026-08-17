@@ -21,9 +21,9 @@ import {
 	useSessionContinuousTurnVisibleRange,
 } from "./session-continuous-turn-viewport-store";
 import type { buildSessionDetailViewModel } from "./session-detail-view-model";
-import type { SessionTurnTableVirtualizerHandle } from "./session-detail-virtualization";
 import { SessionOverviewSummaryStrip } from "./session-overview-summary-strip";
 import { SessionThreadOverviewStrip } from "./session-thread-overview-strip";
+import type { SessionTurnTableVirtualizerHandle } from "./session-turn-table";
 import {
 	SessionTurnTablePane,
 	type SessionTurnTablePaneOption,

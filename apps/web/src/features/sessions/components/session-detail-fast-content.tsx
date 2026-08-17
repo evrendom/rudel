@@ -17,7 +17,7 @@ import {
 	buildSessionDetailOverviewTurnOptions,
 	buildSessionDetailOverviewViewModel,
 } from "./session-detail-overview-model";
-import type { SessionTurnTableVirtualizerHandle } from "./session-detail-virtualization";
+import type { SessionTurnTableVirtualizerHandle } from "./session-turn-table";
 import type { SessionTurnSelection } from "./session-turn-table-selection";
 import { useSessionDetailSearchLoader } from "./use-session-detail-search-loader";
 

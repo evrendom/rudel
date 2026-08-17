@@ -13,20 +13,17 @@ import {
 	SessionTurnEpisodeRow,
 } from "./session-turn-table-rows";
 
-export function SessionTurnTableVirtualRow({
+export function SessionTurnTableRowView({
 	beginsTurn,
 	collapsedEpisodeKeys,
 	columns,
 	episode,
 	inViewport,
 	matchesLens,
-	measureElement,
 	onEpisodeToggle,
 	onKeyDown,
-	onRowElement,
 	onSelect,
 	row,
-	scheduleMeasurement,
 	selected,
 	userImageUrl,
 	userLabel,
@@ -38,19 +35,13 @@ export function SessionTurnTableVirtualRow({
 	episode: SessionTurnEpisode | undefined;
 	inViewport: boolean;
 	matchesLens: boolean;
-	measureElement: (element: HTMLTableSectionElement | null) => void;
 	onEpisodeToggle: ((key: string) => void) | undefined;
 	onKeyDown: (
 		event: KeyboardEvent<HTMLTableRowElement>,
 		visibleIndex: number,
 	) => void;
-	onRowElement: (
-		visibleIndex: number,
-		element: HTMLTableRowElement | null,
-	) => void;
 	onSelect: () => void;
 	row: SessionTurnTableRow;
-	scheduleMeasurement: (element: HTMLTableSectionElement) => void;
 	selected: boolean;
 	userImageUrl: string | undefined;
 	userLabel: string;
@@ -58,20 +49,7 @@ export function SessionTurnTableVirtualRow({
 }) {
 	const { match } = row;
 	return (
-		<tbody
-			ref={measureElement}
-			className="[&_tr:last-child]:border-0 [&_tr:has(+_tr:hover)]:border-b-transparent [&_tr:has(+_tr[data-selected])]:border-b-transparent"
-			data-index={visibleIndex}
-			onPointerUpCapture={(event) => scheduleMeasurement(event.currentTarget)}
-			onKeyUpCapture={(event) => {
-				if (event.key === "Enter" || event.key === " ") {
-					scheduleMeasurement(event.currentTarget);
-				}
-			}}
-			onTransitionEndCapture={(event) =>
-				scheduleMeasurement(event.currentTarget)
-			}
-		>
+		<tbody className="[&_tr:last-child]:border-0 [&_tr:has(+_tr:hover)]:border-b-transparent [&_tr:has(+_tr[data-selected])]:border-b-transparent">
 			{episode ? (
 				<SessionTurnEpisodeRow
 					collapsed={collapsedEpisodeKeys?.has(episode.key) ?? false}
@@ -92,7 +70,6 @@ export function SessionTurnTableVirtualRow({
 					))
 				: null}
 			<tr
-				ref={(element) => onRowElement(visibleIndex, element)}
 				aria-current={selected ? "true" : undefined}
 				className={cn(
 					"group relative isolate cursor-pointer select-none border-b border-b-(--session-turn-row-hover) outline-none [&>td:first-child]:rounded-l-md [&>td:last-child]:rounded-r-md hover:border-b-transparent hover:[&>td]:bg-(--session-turn-row-hover) focus-visible:z-10 focus-visible:rounded-md focus-visible:-outline-offset-2 focus-visible:outline-2 focus-visible:outline-(--session-overview-accent) data-selected:border-b-transparent",
