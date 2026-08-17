@@ -30,12 +30,10 @@ import {
 	TraceWrenchIcon,
 } from "./conversation-trace-hugeicons";
 import {
-	ModelTraceIcon,
 	TraceDisclosureIcon,
 	TraceIcon,
 	type TraceIconTone,
 } from "./conversation-trace-icons";
-import { ConversationTracePlanTag } from "./conversation-trace-plan-tag";
 import {
 	type AgentTraceRequestUsage,
 	formatTraceRequestTokens,
@@ -63,6 +61,7 @@ import {
 	traceRowClassName,
 	useTraceFocus,
 } from "./expandable-trace-row";
+import { ModelSectionHeader } from "./model-section-header";
 
 export type ConversationTraceSpeakerLayout =
 	| "inline"
@@ -1361,9 +1360,12 @@ export function AgentTraceTreeSection({
 	defaultOpen = true,
 	events,
 	focus,
+	headerHeight,
 	headerTrailing,
 	planMode,
 	sections,
+	stickyHeader = true,
+	terminal,
 }: {
 	agentLabel: string;
 	agentModel: string | undefined;
@@ -1372,9 +1374,12 @@ export function AgentTraceTreeSection({
 	defaultOpen?: boolean;
 	events: TraceEvent[];
 	focus?: TraceFocusRequest;
+	headerHeight?: number;
 	headerTrailing?: ReactNode;
 	planMode: boolean;
 	sections: readonly AgentTraceTreeRenderedSection[];
+	stickyHeader?: boolean;
+	terminal?: boolean;
 }) {
 	const [open, setOpen] = useState(defaultOpen);
 	const panelId = useId();
@@ -1385,6 +1390,13 @@ export function AgentTraceTreeSection({
 		(section) => section.header !== undefined || section.branches.length > 0,
 	);
 	const hasContent = visibleSections.length > 0;
+	const modelHeaderData = {
+		agentLabel,
+		agentModel,
+		continues: continuesAfter,
+		planMode,
+		terminal: terminal ?? !continuesAfter,
+	};
 	const sectionPanel = (
 		<Collapsible.Panel id={panelId} className="transition-none">
 			<ol className="list-none">
@@ -1413,26 +1425,25 @@ export function AgentTraceTreeSection({
 					continues={continuesAfter}
 					descends={open && hasContent}
 					depth={1}
-					sticky
+					rowHeight={headerHeight}
+					sticky={stickyHeader}
 					subtree={sectionPanel}
 				>
 					<div
 						className="flex min-h-10 min-w-0 items-center gap-2 pr-3"
+						data-transcript-model-header-source="row"
+						data-transcript-model-header-terminal={
+							modelHeaderData.terminal || undefined
+						}
 						data-trace-hover-row
+						style={headerHeight ? { minHeight: headerHeight } : undefined}
 					>
 						<Collapsible.Trigger className="group flex min-h-10 min-w-0 flex-1 items-center gap-2 text-left outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-(--session-overview-accent)">
-							<ModelTraceIcon expanded={open} model={agentModel} />
-							<p
-								className={cn(
-									conversationTraceLabelClassName,
-									"min-w-0 truncate",
-								)}
-								data-trace-model-label
-							>
-								{agentLabel}
-							</p>
-							{planMode ? <ConversationTracePlanTag /> : null}
-							{open ? null : <AgentCollapsedTraceIcons events={events} />}
+							<ModelSectionHeader
+								collapsedContent={<AgentCollapsedTraceIcons events={events} />}
+								data={modelHeaderData}
+								expanded={open}
+							/>
 						</Collapsible.Trigger>
 						{headerTrailing ? (
 							<div className="ml-auto min-w-0" data-trace-model-metadata>

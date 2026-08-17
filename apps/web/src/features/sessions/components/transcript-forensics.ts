@@ -124,6 +124,12 @@ export type TranscriptForensicsReactCommit = {
 	rowId: string;
 };
 
+export type TranscriptForensicsStickyHeaderOwnerChange = {
+	at: number;
+	from: string | null;
+	to: string | null;
+};
+
 export type TranscriptForensicsViewportRow = {
 	contentVersion: string;
 	rowId: string;
@@ -278,6 +284,7 @@ export type TranscriptForensicsDump = {
 	resources: readonly TranscriptForensicsResource[];
 	rowPaints: readonly TranscriptForensicsRowPaint[];
 	runs: readonly TranscriptForensicsRun[];
+	stickyHeaderOwnerChanges: readonly TranscriptForensicsStickyHeaderOwnerChange[];
 	suspectMeasures: readonly TranscriptForensicsSuspectMeasure[];
 	wheelEventTimings: readonly TranscriptForensicsWheelEventTiming[];
 	version: 1;
@@ -385,6 +392,7 @@ type RuntimeState = {
 	runs: TranscriptForensicsRun[];
 	scrollElement: HTMLElement | undefined;
 	scrollListener: ((event: Event) => void) | undefined;
+	stickyHeaderOwnerChanges: TranscriptForensicsStickyHeaderOwnerChange[];
 	suspectMeasures: TranscriptForensicsSuspectMeasure[];
 	viewportGeometry: TranscriptForensicsViewportGeometry | undefined;
 	wheelEventTimings: TranscriptForensicsWheelEventTiming[];
@@ -494,6 +502,15 @@ export function recordTranscriptMeasurement(
 		return;
 	}
 	pushBounded(runtime.measurements, measurement, TRACE_EVENT_LIMIT);
+}
+
+export function recordTranscriptStickyHeaderOwnerChange(
+	change: TranscriptForensicsStickyHeaderOwnerChange,
+) {
+	if (!runtime) {
+		return;
+	}
+	pushBounded(runtime.stickyHeaderOwnerChanges, change, TRACE_EVENT_LIMIT);
 }
 
 export function recordTranscriptRowLifecycle(
@@ -788,6 +805,7 @@ function createRuntime(): RuntimeState {
 		runs: [],
 		scrollElement: undefined,
 		scrollListener: undefined,
+		stickyHeaderOwnerChanges: [],
 		suspectMeasures: [],
 		viewportGeometry: undefined,
 		wheelEventTimings: [],
@@ -1585,6 +1603,7 @@ function buildDump(trace: RuntimeState): TranscriptForensicsDump {
 		resources: [...trace.resources],
 		rowPaints,
 		runs: [...trace.runs],
+		stickyHeaderOwnerChanges: [...trace.stickyHeaderOwnerChanges],
 		suspectMeasures: [...trace.suspectMeasures],
 		wheelEventTimings: [...trace.wheelEventTimings],
 		version: 1,
@@ -1622,6 +1641,7 @@ function resetRuntime(trace: RuntimeState) {
 	trace.resources.length = 0;
 	trace.rowLifecycles.length = 0;
 	trace.runs.length = 0;
+	trace.stickyHeaderOwnerChanges.length = 0;
 	trace.suspectMeasures.length = 0;
 	trace.wheelEventTimings.length = 0;
 	for (const row of mountedRows) {

@@ -559,8 +559,11 @@ export function ConversationTraceDerivedSectionRow({
 	continuesAfter,
 	focus,
 	isFirst,
+	modelHeaderHeight,
+	modelHeaderTerminal,
 	planMode,
 	section,
+	stickyModelHeader = true,
 	userImageUrl,
 	userLabel = "User",
 }: {
@@ -570,8 +573,11 @@ export function ConversationTraceDerivedSectionRow({
 	continuesAfter: boolean;
 	focus?: TraceFocusRequest;
 	isFirst: boolean;
+	modelHeaderHeight?: number;
+	modelHeaderTerminal?: boolean;
 	planMode: boolean;
 	section: ConversationTraceDerivedSection;
+	stickyModelHeader?: boolean;
 	userImageUrl?: string;
 	userLabel?: string;
 }) {
@@ -602,8 +608,11 @@ export function ConversationTraceDerivedSectionRow({
 					defaultOpen
 					events={[...allEvents]}
 					focus={focus}
+					headerHeight={modelHeaderHeight}
 					planMode={planMode}
 					sections={[renderedSection]}
+					stickyHeader={stickyModelHeader}
+					terminal={modelHeaderTerminal}
 				/>
 			</li>
 		</ol>

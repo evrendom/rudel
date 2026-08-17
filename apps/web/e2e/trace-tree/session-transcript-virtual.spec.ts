@@ -110,6 +110,87 @@ async function profileScrollSweep(scroller: Locator, steps = 60) {
 	}, steps);
 }
 
+async function getTurnSectionRange(scroller: Locator, turnId: string) {
+	return scroller.evaluate((element, targetTurnId) => {
+		const bounds = element.getBoundingClientRect();
+		const rows = Array.from(
+			element.querySelectorAll<HTMLElement>(
+				`[data-transcript-turn-id="${targetTurnId}"][data-transcript-row-kind="section"]`,
+			),
+		).map((row) => {
+			const rect = row.getBoundingClientRect();
+			return {
+				end: rect.bottom - bounds.top + element.scrollTop,
+				id: row.dataset.transcriptRowId ?? "",
+				start: rect.top - bounds.top + element.scrollTop,
+			};
+		});
+		if (rows.length === 0) {
+			throw new Error(`No measured section rows found for ${targetTurnId}`);
+		}
+		return {
+			end: Math.max(...rows.map((row) => row.end)),
+			rowIds: rows.map((row) => row.id),
+			start: Math.min(...rows.map((row) => row.start)),
+		};
+	}, turnId);
+}
+
+async function getTurnRowRange(
+	scroller: Locator,
+	turnId: string,
+	kind: string,
+) {
+	return scroller.evaluate(
+		(element, input) => {
+			const bounds = element.getBoundingClientRect();
+			const row = element.querySelector<HTMLElement>(
+				`[data-transcript-turn-id="${input.turnId}"][data-transcript-row-kind="${input.kind}"]`,
+			);
+			if (!row) {
+				throw new Error(`No ${input.kind} row found for ${input.turnId}`);
+			}
+			const rect = row.getBoundingClientRect();
+			return {
+				end: rect.bottom - bounds.top + element.scrollTop,
+				start: rect.top - bounds.top + element.scrollTop,
+			};
+		},
+		{ kind, turnId },
+	);
+}
+
+async function sampleStickyHeaderAtTop(scroller: Locator) {
+	return scroller.evaluate((element) => {
+		const bounds = element.getBoundingClientRect();
+		const overlay = element.querySelector<HTMLElement>(
+			"[data-transcript-sticky-header-overlay]",
+		);
+		if (!overlay) {
+			throw new Error("Expected the measured transcript-header overlay");
+		}
+		const rect = overlay.getBoundingClientRect();
+		return {
+			atTop: rect.top <= bounds.top + 1 && rect.bottom > bounds.top,
+			bottom: rect.bottom - bounds.top,
+			height: rect.height,
+			label:
+				overlay
+					.querySelector("[data-trace-model-label]")
+					?.textContent?.trim() ?? "",
+			kind: overlay.dataset.transcriptStickyHeaderKind,
+			owner: overlay.dataset.transcriptStickyHeaderOwner,
+			top: rect.top - bounds.top,
+			translateY: new DOMMatrix(getComputedStyle(overlay).transform).m42,
+			visible: getComputedStyle(overlay).visibility === "visible",
+			userLabel:
+				overlay.querySelector("[data-trace-user-label]")?.textContent?.trim() ??
+				"",
+			width: rect.width,
+		};
+	});
+}
+
 type SplitSectionEventGeometry = {
 	continues: boolean;
 	depth: number;
@@ -221,6 +302,299 @@ test("budget-split agent sections preserve nesting and rail continuity in both l
 			body: screenshot,
 			contentType: "image/png",
 		});
+	}
+});
+
+test("the model-header overlay continuously covers every offset in a split section and tracks pane width", async ({
+	page,
+}) => {
+	await page.setViewportSize({ height: 1_200, width: 1_200 });
+	const scroller = await openVirtualFixture(page, "turns=2&modelHeader=split");
+	const memberHeader = await sampleStickyHeaderAtTop(scroller);
+	expect(memberHeader.visible).toBe(true);
+	expect(memberHeader.atTop).toBe(true);
+	expect(memberHeader.kind).toBe("member");
+	expect(memberHeader.owner).toBe("fixture-turn-1");
+	expect(memberHeader.userLabel).toBe("Evren");
+	const firstRange = await getTurnSectionRange(scroller, "fixture-turn-1");
+	expect(
+		firstRange.rowIds.filter((id) => /b\d+$/u.test(id)).length,
+	).toBeGreaterThanOrEqual(2);
+	const overlay = scroller.locator("[data-transcript-sticky-header-overlay]");
+	const measuredHeights = await overlay.evaluate((element) =>
+		Object.fromEntries(
+			Array.from(
+				element.querySelectorAll<HTMLElement>(
+					"[data-transcript-sticky-header-measure]",
+				),
+			).map((measurement) => [
+				measurement.dataset.transcriptStickyHeaderMeasure,
+				measurement.getBoundingClientRect().height,
+			]),
+		),
+	);
+	expect(measuredHeights).toMatchObject({ member: 56, model: 40 });
+	for (
+		let scrollTop = firstRange.start;
+		scrollTop < firstRange.end;
+		scrollTop = Math.min(firstRange.end, scrollTop + 20)
+	) {
+		await scroller.evaluate((element, nextScrollTop) => {
+			element.scrollTop = nextScrollTop;
+		}, scrollTop);
+		await waitForFrames(page, 1);
+		const sample = await sampleStickyHeaderAtTop(scroller);
+		expect(sample.visible, `visibility at scrollTop ${scrollTop}`).toBe(true);
+		expect(sample.atTop, `coverage at scrollTop ${scrollTop}`).toBe(true);
+		expect(sample.owner).toBe("fixture-turn-1");
+		expect(sample.label).toBe("Claude Fable 5");
+		if (scrollTop + 20 >= firstRange.end) {
+			break;
+		}
+	}
+
+	await scroller.evaluate((element, scrollTop) => {
+		element.scrollTop = scrollTop;
+	}, firstRange.start + 200);
+	await waitForFrames(page, 2);
+	const widthBefore = (await sampleStickyHeaderAtTop(scroller)).width;
+	const rowWidthBefore = await scroller
+		.locator("[data-transcript-row-id]")
+		.first()
+		.evaluate((element) => element.getBoundingClientRect().width);
+	expect(Math.abs(widthBefore - rowWidthBefore)).toBeLessThanOrEqual(1);
+	await page.setViewportSize({ height: 1_200, width: 760 });
+	await waitForFrames(page, 3);
+	const widthAfter = (await sampleStickyHeaderAtTop(scroller)).width;
+	const rowWidthAfter = await scroller
+		.locator("[data-transcript-row-id]")
+		.first()
+		.evaluate((element) => element.getBoundingClientRect().width);
+	expect(widthAfter).toBeLessThan(widthBefore);
+	expect(Math.abs(widthAfter - rowWidthAfter)).toBeLessThanOrEqual(1);
+	await expect(overlay).toBeVisible();
+});
+
+test("the permanent overlay is pixel-stable as the real header slides underneath", async ({
+	page,
+}) => {
+	await page.setViewportSize({ height: 1_200, width: 1_200 });
+	const scroller = await openVirtualFixture(page, "turns=2&modelHeader=split");
+	const firstRange = await getTurnSectionRange(scroller, "fixture-turn-1");
+	const overlay = scroller.locator("[data-transcript-sticky-header-overlay]");
+	await scroller.evaluate((element, scrollTop) => {
+		element.scrollTop = scrollTop;
+	}, firstRange.start + 39);
+	await waitForFrames(page, 2);
+	const box = await overlay.boundingBox();
+	if (!box) {
+		throw new Error("Expected model-header overlay bounds");
+	}
+	const clip = {
+		height: Math.floor(box.height),
+		width: Math.min(500, Math.floor(box.width)),
+		x: Math.floor(box.x),
+		y: Math.floor(box.y),
+	};
+	const before = await page.screenshot({ animations: "disabled", clip });
+	await scroller.evaluate((element, scrollTop) => {
+		element.scrollTop = scrollTop;
+	}, firstRange.start + 40);
+	await waitForFrames(page, 1);
+	const after = await page.screenshot({ animations: "disabled", clip });
+	expect(after.equals(before)).toBe(true);
+});
+
+test("the measured overlay pushes off and swaps owners without an uncovered boundary frame", async ({
+	page,
+}) => {
+	await page.setViewportSize({ height: 1_200, width: 1_200 });
+	const scroller = await openVirtualFixture(page, "turns=2&modelHeader=split");
+	const firstRange = await getTurnSectionRange(scroller, "fixture-turn-1");
+	const secondMemberRange = await getTurnRowRange(
+		scroller,
+		"fixture-turn-2",
+		"member",
+	);
+	const secondModelRange = await getTurnSectionRange(
+		scroller,
+		"fixture-turn-2",
+	);
+	const sampleHandoff = async (boundary: number) => {
+		const samples: Array<
+			Awaited<ReturnType<typeof sampleStickyHeaderAtTop>> & {
+				scrollTop: number;
+			}
+		> = [];
+		for (let scrollTop = boundary - 32; scrollTop <= boundary; scrollTop += 4) {
+			await scroller.evaluate((element, nextScrollTop) => {
+				element.scrollTop = nextScrollTop;
+			}, scrollTop);
+			await waitForFrames(page, 1);
+			samples.push({
+				...(await sampleStickyHeaderAtTop(scroller)),
+				scrollTop,
+			});
+		}
+		for (let index = 1; index < samples.length - 1; index += 1) {
+			const previous = samples[index - 1];
+			const current = samples[index];
+			if (!(previous && current)) {
+				continue;
+			}
+			expect(current.visible).toBe(true);
+			expect(current.atTop).toBe(true);
+			expect(current.translateY).toBeLessThanOrEqual(previous.translateY);
+			expect(
+				Math.abs(current.top - previous.top),
+				`header pop at ${current.scrollTop}`,
+			).toBeLessThanOrEqual(current.scrollTop - previous.scrollTop + 1);
+		}
+		return samples;
+	};
+	const modelToMemberSamples = await sampleHandoff(firstRange.end);
+	const outgoing = modelToMemberSamples.at(-2);
+	if (!outgoing) {
+		throw new Error("Expected an outgoing model-header sample");
+	}
+	expect(outgoing.visible).toBe(true);
+	expect(outgoing.atTop).toBe(true);
+	expect(outgoing.owner).toBe("fixture-turn-1");
+	expect(outgoing.translateY).toBeLessThan(0);
+
+	const incoming = modelToMemberSamples.at(-1);
+	if (!incoming) {
+		throw new Error("Expected an incoming member-header sample");
+	}
+	expect(incoming.visible).toBe(true);
+	expect(incoming.atTop).toBe(true);
+	expect(incoming.owner).toBe("fixture-turn-2");
+	expect(incoming.kind).toBe("member");
+	expect(incoming.userLabel).toBe("Evren");
+	expect(incoming.height).toBe(56);
+
+	const memberToModelSamples = await sampleHandoff(secondMemberRange.end);
+	const incomingModel = memberToModelSamples.at(-1);
+	if (!incomingModel) {
+		throw new Error("Expected an incoming model-header sample");
+	}
+	expect(secondModelRange.start).toBeCloseTo(secondMemberRange.end, 0);
+	expect(incomingModel.visible).toBe(true);
+	expect(incomingModel.atTop).toBe(true);
+	expect(incomingModel.owner).toBe("fixture-turn-2");
+	expect(incomingModel.kind).toBe("model");
+	expect(incomingModel.label).toBe("GPT 5.2");
+	expect(incomingModel.height).toBe(40);
+});
+
+test("a no-response turn keeps member-header coverage across its complete extent", async ({
+	page,
+}) => {
+	await page.setViewportSize({ height: 240, width: 900 });
+	const scroller = await openVirtualFixture(
+		page,
+		"turns=3&profile=scroll&modelHeader=no-response",
+	);
+	const memberRange = await getTurnRowRange(
+		scroller,
+		"fixture-turn-2:streamed:1",
+		"member",
+	);
+	const noResponseRange = await getTurnRowRange(
+		scroller,
+		"fixture-turn-2:streamed:1",
+		"no-response",
+	);
+	for (
+		let scrollTop = memberRange.start;
+		scrollTop < noResponseRange.end;
+		scrollTop += 8
+	) {
+		await scroller.evaluate((element, nextScrollTop) => {
+			element.scrollTop = nextScrollTop;
+		}, scrollTop);
+		await waitForFrames(page, 1);
+		const sample = await sampleStickyHeaderAtTop(scroller);
+		expect(sample.visible, `visibility at ${scrollTop}`).toBe(true);
+		expect(sample.atTop, `coverage at ${scrollTop}`).toBe(true);
+		expect(sample.owner).toBe("fixture-turn-2:streamed:1");
+		expect(sample.kind).toBe("member");
+	}
+});
+
+test("model-header overlay adds no scroll-driven React commits", async ({
+	browserName,
+	page,
+}) => {
+	const scroller = await openVirtualFixture(page, "turns=18&profile=scroll");
+	await scroller.evaluate((element) => {
+		element.scrollTop = Math.round(
+			(element.scrollHeight - element.clientHeight) * 0.72,
+		);
+	});
+	await waitForFrames(page, 8);
+	await page.evaluate(() => window.__transcriptTrace?.reset());
+	await scroller
+		.locator("[data-trace-fixture-reset-profile]")
+		.dispatchEvent("click");
+	let runFrameCount: number | undefined;
+	if (browserName === "chromium") {
+		const bounds = await scroller.boundingBox();
+		if (!bounds) {
+			throw new Error("Expected transcript scroller bounds");
+		}
+		await page.evaluate(() =>
+			window.__transcriptTrace?.beginRun("sticky-header-fling", -1),
+		);
+		const cdp = await page.context().newCDPSession(page);
+		await cdp.send("Input.synthesizeScrollGesture", {
+			gestureSourceType: "mouse",
+			interactionMarkerName: "rudel-sticky-header-upward-fling",
+			preventFling: false,
+			speed: 3_500,
+			x: Math.round(bounds.x + bounds.width / 2),
+			xDistance: 0,
+			y: Math.round(bounds.y + bounds.height / 2),
+			yDistance: 5_000,
+		});
+		await page.waitForTimeout(750);
+		runFrameCount = await page.evaluate(
+			() => window.__transcriptTrace?.endRun().frameCount,
+		);
+	} else {
+		await profileScrollSweep(scroller);
+	}
+	const profile = await scroller.evaluate((element) => ({
+		blankFrames: Number(element.dataset.transcriptTrueBlankFrames ?? "0"),
+		maxUpdateDuration: Number(
+			element.dataset.traceFixtureProfileMaxUpdateDuration ?? "0",
+		),
+		rowUpdates: JSON.parse(
+			element.dataset.traceFixtureProfileRowUpdates ?? "{}",
+		) as Record<string, number>,
+	}));
+	const ledger = await page.evaluate(() => window.__transcriptTrace?.dump());
+	if (!ledger) {
+		throw new Error("Expected the transcript forensics ledger");
+	}
+	expect(profile.blankFrames).toBe(0);
+	expect(profile.maxUpdateDuration).toBeLessThanOrEqual(8);
+	expect(
+		Object.keys(profile.rowUpdates).some((id) => id.includes("model-header")),
+	).toBe(false);
+	expect(ledger.stickyHeaderOwnerChanges.length).toBeGreaterThan(1);
+	expect(ledger.stickyHeaderOwnerChanges.length).toBeLessThan(50);
+	if (runFrameCount !== undefined) {
+		expect(ledger.stickyHeaderOwnerChanges.length).toBeLessThan(runFrameCount);
+	}
+	for (
+		let index = 1;
+		index < ledger.stickyHeaderOwnerChanges.length;
+		index += 1
+	) {
+		expect(ledger.stickyHeaderOwnerChanges[index]?.to).not.toBe(
+			ledger.stickyHeaderOwnerChanges[index - 1]?.to,
+		);
 	}
 });
 

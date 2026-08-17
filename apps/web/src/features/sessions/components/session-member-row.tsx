@@ -27,20 +27,28 @@ function UserPrompt({ content }: { content: UserContent }) {
 
 export function SessionMemberRow({
 	active,
+	continues = true,
+	headerHeight,
 	headerTrailing,
 	headingId,
 	items,
 	speakerLayout,
 	startsTrace,
+	stickyHeader = true,
+	terminal = false,
 	userImageUrl,
 	userLabel,
 }: {
 	active: boolean;
+	continues?: boolean;
+	headerHeight?: number;
 	headerTrailing?: ReactNode;
 	headingId: string;
 	items: SessionTurn["userItems"];
 	speakerLayout: ConversationTraceSpeakerLayout;
 	startsTrace: boolean;
+	stickyHeader?: boolean;
+	terminal?: boolean;
 	userImageUrl: string | undefined;
 	userLabel: string;
 }) {
@@ -85,18 +93,22 @@ export function SessionMemberRow({
 				className={cn("min-w-0", conversationTraceStickyOnlyFillClassName)}
 				data-active-member={active ? "true" : undefined}
 				data-session-turn-speaker="member"
+				data-transcript-member-terminal={terminal || undefined}
 				data-trace-start-node={startsTrace ? "true" : undefined}
 			>
 				<ConversationTraceTreeItem
-					continues
+					continues={continues}
 					continuesThroughSubtree
 					depth={1}
-					sticky
+					rowHeight={headerHeight}
+					sticky={stickyHeader}
 					subtree={promptRows}
 				>
 					<div
 						className="flex min-h-10 w-full min-w-0 items-center gap-2 pr-3 text-left"
+						data-transcript-user-header-source="row"
 						data-trace-hover-row
+						style={headerHeight ? { minHeight: headerHeight } : undefined}
 					>
 						<UserTraceAvatar
 							expanded={false}

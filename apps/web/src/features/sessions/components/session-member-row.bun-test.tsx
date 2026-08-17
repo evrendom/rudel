@@ -57,4 +57,29 @@ describe("SessionMemberRow trace rail", () => {
 		expect(source).not.toContain("ConversationTraceCollapsiblePanel");
 		expect(source).not.toContain("@base-ui/react/collapsible");
 	});
+
+	test("renders the sticky-owner connector geometry and measured height", () => {
+		const markup = renderToStaticMarkup(
+			<ConversationTraceTreeConnectorStyleProvider style="interfere-branch-dots-no-horizontal">
+				<SessionMemberRow
+					active={false}
+					continues={false}
+					headerHeight={56}
+					headingId="terminal-member-heading"
+					items={[]}
+					speakerLayout="trace-tree"
+					startsTrace={false}
+					stickyHeader={false}
+					terminal
+					userImageUrl={undefined}
+					userLabel="Member"
+				/>
+			</ConversationTraceTreeConnectorStyleProvider>,
+		);
+
+		expect(markup).toContain('data-transcript-member-terminal="true"');
+		expect(markup).not.toContain('data-trace-tree-continues="true"');
+		expect(markup).toContain('height="56"');
+		expect(markup).toContain("min-height:56px");
+	});
 });

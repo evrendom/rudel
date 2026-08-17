@@ -15,6 +15,7 @@ import {
 	useCallback,
 	useImperativeHandle,
 	useLayoutEffect,
+	useMemo,
 	useReducer,
 	useRef,
 	useState,
@@ -58,6 +59,13 @@ import {
 	type TranscriptForensicsContentFlags,
 	type TranscriptForensicsReactCommitReason,
 } from "./transcript-forensics";
+import {
+	deriveTranscriptStickyHeaderGroups,
+	type TranscriptMemberHeaderData,
+	type TranscriptModelHeaderData,
+	TranscriptStickyHeaderOverlay,
+	useTranscriptModelHeaderOverlay,
+} from "./use-transcript-model-header-overlay";
 import "./session-transcript-mask.css";
 
 const TRANSCRIPT_OVERSCAN = 8;
@@ -111,6 +119,7 @@ export const SessionTranscriptList = forwardRef<
 		renderMode?: SessionTranscriptRenderMode;
 		scrollContainerRef: React.RefObject<HTMLDivElement | null>;
 		selectedTurnId?: string;
+		stickyHeaderHeights?: Partial<Record<"member" | "model", number>>;
 		userImageUrl: string | undefined;
 		viewModel: SessionDetailViewModel;
 		viewportStore: SessionContinuousTurnViewportStore;
@@ -134,6 +143,7 @@ export const SessionTranscriptList = forwardRef<
 		renderMode = "direct-position",
 		scrollContainerRef,
 		selectedTurnId,
+		stickyHeaderHeights,
 		userImageUrl,
 		viewModel,
 		viewportStore,
@@ -168,6 +178,62 @@ export const SessionTranscriptList = forwardRef<
 	);
 	rowsRef.current = model.rows;
 	const modelRef = useLatestValueRef(model);
+	const scheduleFeederRef = useRef<() => void>(() => {});
+	const stickyHeaderGroups = useMemo(
+		() =>
+			deriveTranscriptStickyHeaderGroups({
+				agentModel: viewModel.safeModelUsed,
+				headerHeights: stickyHeaderHeights,
+				rows: model.rows,
+				userImageUrl,
+				userLabel: viewModel.safeUserDisplayName,
+			}),
+		[
+			model.rows,
+			stickyHeaderHeights,
+			userImageUrl,
+			viewModel.safeModelUsed,
+			viewModel.safeUserDisplayName,
+		],
+	);
+	const modelHeadersByTurn = useMemo(
+		() =>
+			new Map(
+				stickyHeaderGroups.flatMap((group) =>
+					group.header.kind === "model"
+						? [[group.turnId, group.header] as const]
+						: [],
+				),
+			),
+		[stickyHeaderGroups],
+	);
+	const memberHeadersByTurn = useMemo(
+		() =>
+			new Map(
+				stickyHeaderGroups.flatMap((group) =>
+					group.header.kind === "member"
+						? [[group.turnId, group.header] as const]
+						: [],
+				),
+			),
+		[stickyHeaderGroups],
+	);
+	const handleOverlayMeasured = useCallback(
+		() => scheduleFeederRef.current(),
+		[],
+	);
+	const {
+		memberMeasureRef: stickyMemberHeaderMeasureRef,
+		memberMeasurementOwner: stickyMemberHeaderMeasurementOwner,
+		modelMeasureRef: stickyModelHeaderMeasureRef,
+		modelMeasurementOwner: stickyModelHeaderMeasurementOwner,
+		overlayRef: stickyHeaderOverlayRef,
+		owner: stickyHeaderOwner,
+		sync: syncStickyHeaderOverlay,
+	} = useTranscriptModelHeaderOverlay({
+		groups: stickyHeaderGroups,
+		onMeasured: handleOverlayMeasured,
+	});
 	const feederInputRef = useLatestValueRef({
 		bodyTurnCount,
 		debugPaintEpoch,
@@ -194,7 +260,6 @@ export const SessionTranscriptList = forwardRef<
 		  }
 		| undefined
 	>(undefined);
-	const scheduleFeederRef = useRef<() => void>(() => {});
 	const handleVirtualizerChange = useCallback(
 		() => scheduleFeederRef.current(),
 		[],
@@ -489,6 +554,10 @@ export const SessionTranscriptList = forwardRef<
 			const clientHeight = scrollElement.clientHeight;
 			const viewportBottom = scrollTop + clientHeight;
 			const currentVirtualItems = virtualizer.getVirtualItems();
+			syncStickyHeaderOverlay({
+				measurements: virtualizer.measurementsCache,
+				scrollTop,
+			});
 			const visibleItems = currentVirtualItems.filter(
 				(item) => item.start < viewportBottom && item.end > scrollTop,
 			);
@@ -646,6 +715,14 @@ export const SessionTranscriptList = forwardRef<
 							: { height: virtualizer.getTotalSize() }
 					}
 				>
+					<TranscriptStickyHeaderOverlay
+						memberMeasureRef={stickyMemberHeaderMeasureRef}
+						memberMeasurementOwner={stickyMemberHeaderMeasurementOwner}
+						modelMeasureRef={stickyModelHeaderMeasureRef}
+						modelMeasurementOwner={stickyModelHeaderMeasurementOwner}
+						overlayRef={stickyHeaderOverlayRef}
+						owner={stickyHeaderOwner}
+					/>
 					{virtualItems.map((virtualItem) => {
 						const row = model.rows[virtualItem.index];
 						if (!row) {
@@ -659,6 +736,16 @@ export const SessionTranscriptList = forwardRef<
 								debugPaintEpoch={debugPaintEpoch}
 								directDomUpdates={directDomUpdates}
 								measureElement={virtualizer.measureElement}
+								memberHeaderData={
+									"turnId" in row
+										? memberHeadersByTurn.get(row.turnId)
+										: undefined
+								}
+								modelHeaderData={
+									"turnId" in row
+										? modelHeadersByTurn.get(row.turnId)
+										: undefined
+								}
 								model={model}
 								onLoadDirection={onLoadDirection}
 								onRetryTurn={onRetryTurn}
@@ -728,7 +815,9 @@ type TranscriptVirtualRowProps = {
 	debugPaintEpoch: number;
 	directDomUpdates: boolean;
 	measureElement: (element: HTMLElement | null) => void;
+	memberHeaderData: TranscriptMemberHeaderData | undefined;
 	model: SessionTranscriptRowModel;
+	modelHeaderData: TranscriptModelHeaderData | undefined;
 	onLoadDirection: ((direction: "newer" | "older") => void) | undefined;
 	onRetryTurn: ((turnId: string) => void) | undefined;
 	onToggleFold: ((turnId: string) => void) | undefined;
@@ -761,7 +850,9 @@ const TranscriptVirtualRow = memo(function TranscriptVirtualRow({
 	debugPaintEpoch,
 	directDomUpdates,
 	measureElement,
+	memberHeaderData,
 	model,
+	modelHeaderData,
 	onLoadDirection,
 	onRetryTurn,
 	onToggleFold,
@@ -823,7 +914,9 @@ const TranscriptVirtualRow = memo(function TranscriptVirtualRow({
 				namespace={"turnId" in row ? row.turnId : row.id}
 			>
 				<TranscriptRowContent
+					memberHeaderData={memberHeaderData}
 					model={model}
+					modelHeaderData={modelHeaderData}
 					onLoadDirection={onLoadDirection}
 					onRetryTurn={onRetryTurn}
 					onToggleFold={onToggleFold}
@@ -852,7 +945,9 @@ function areTranscriptVirtualRowPropsEqual(
 		left.debugPaintEpoch === right.debugPaintEpoch &&
 		left.directDomUpdates === right.directDomUpdates &&
 		left.measureElement === right.measureElement &&
+		left.memberHeaderData === right.memberHeaderData &&
 		left.model === right.model &&
+		left.modelHeaderData === right.modelHeaderData &&
 		left.onLoadDirection === right.onLoadDirection &&
 		left.onRetryTurn === right.onRetryTurn &&
 		left.onToggleFold === right.onToggleFold &&
@@ -868,7 +963,9 @@ function areTranscriptVirtualRowPropsEqual(
 }
 
 function TranscriptRowContent({
+	memberHeaderData,
 	model,
+	modelHeaderData,
 	onLoadDirection,
 	onRetryTurn,
 	onToggleFold,
@@ -876,7 +973,9 @@ function TranscriptRowContent({
 	userImageUrl,
 	viewModel,
 }: {
+	memberHeaderData: TranscriptMemberHeaderData | undefined;
 	model: SessionTranscriptRowModel;
+	modelHeaderData: TranscriptModelHeaderData | undefined;
 	onLoadDirection: ((direction: "newer" | "older") => void) | undefined;
 	onRetryTurn: ((turnId: string) => void) | undefined;
 	onToggleFold: ((turnId: string) => void) | undefined;
@@ -889,10 +988,14 @@ function TranscriptRowContent({
 			return (
 				<SessionMemberRow
 					active={false}
+					continues={memberHeaderData?.continues ?? true}
+					headerHeight={memberHeaderData?.renderHeight}
 					headingId={`${row.id}:heading`}
 					items={[...row.items]}
 					speakerLayout="trace-tree"
 					startsTrace={row.startsTrace}
+					stickyHeader={false}
+					terminal={memberHeaderData?.terminal ?? false}
 					userImageUrl={userImageUrl}
 					userLabel={viewModel.safeUserDisplayName}
 				/>
@@ -902,18 +1005,23 @@ function TranscriptRowContent({
 			return (
 				<ConversationTraceDerivedSectionRow
 					agentLabel={
-						viewModel.safeModelUsed
+						modelHeaderData?.agentLabel ??
+						(viewModel.safeModelUsed
 							? formatModelDisplayLabel(viewModel.safeModelUsed)
-							: undefined
+							: undefined)
 					}
-					agentModel={viewModel.safeModelUsed}
+					agentModel={modelHeaderData?.agentModel ?? viewModel.safeModelUsed}
 					allEvents={payload.allEvents.events}
 					continuesAfter={
+						modelHeaderData?.continues ??
 						(model.rowIndex.get(row.id) ?? 0) < model.rows.length - 1
 					}
 					isFirst={payload.isFirst}
-					planMode={payload.planMode}
+					modelHeaderHeight={modelHeaderData?.renderHeight}
+					modelHeaderTerminal={modelHeaderData?.terminal}
+					planMode={modelHeaderData?.planMode ?? payload.planMode}
 					section={payload.traceSection}
+					stickyModelHeader={false}
 					userImageUrl={userImageUrl}
 					userLabel={viewModel.safeUserDisplayName}
 				/>

@@ -96,6 +96,51 @@ function buildContinuousFixtureOptions(): ContinuousFixtureOption[] {
 
 const CONTINUOUS_FIXTURE_OPTIONS = buildContinuousFixtureOptions();
 
+const MODEL_HEADER_FIXTURE_HEIGHTS = { member: 56, model: 40 } as const;
+
+function expandModelHeaderFixture(
+	options: readonly ContinuousFixtureOption[],
+	hasNoResponseTurn = false,
+) {
+	return options.map((option, optionIndex) => {
+		if (!option.turn) {
+			return option;
+		}
+		return {
+			...option,
+			metrics: {
+				...option.metrics,
+				usageEvents: option.metrics.usageEvents.map((usage) => ({
+					...usage,
+					model:
+						optionIndex === 0 ? CONVERSATION_TRACE_FIXTURE_MODEL : "gpt-5.2",
+				})),
+			},
+			turn: {
+				...option.turn,
+				responseItems:
+					hasNoResponseTurn && optionIndex === Math.min(1, options.length - 1)
+						? []
+						: option.turn.responseItems.map((item) =>
+								item.kind === "agent"
+									? {
+											...item,
+											events: [
+												...item.events,
+												...item.events.map((event) => ({
+													...event,
+													id: `${event.id}:model-header-copy`,
+												})),
+											],
+										}
+									: item,
+							),
+				userItems: option.turn.userItems,
+			},
+		};
+	});
+}
+
 function compactStreamingFixtureTurn(turn: SessionTurn | undefined) {
 	if (!turn) {
 		return undefined;
@@ -216,6 +261,9 @@ export function SessionContinuousTraceFixturePage() {
 	}
 	const renderProfile = renderProfileRef.current;
 	const searchParams = new URLSearchParams(window.location.search);
+	const modelHeaderFixture = searchParams.get("modelHeader");
+	const usesModelHeaderFixture =
+		modelHeaderFixture === "split" || modelHeaderFixture === "no-response";
 	const streamsTurnBodies = searchParams.get("hydrate") === "manual";
 	const profilesScrolling = searchParams.get("profile") === "scroll";
 	const usesFoldFixture = searchParams.get("folds") === "1";
@@ -227,10 +275,16 @@ export function SessionContinuousTraceFixturePage() {
 		: usesLongFixture
 			? STREAMED_FIXTURE_OPTIONS
 			: CONTINUOUS_FIXTURE_OPTIONS;
-	const fixtureOptions =
+	const requestedFixtureOptions =
 		Number.isInteger(requestedTurnCount) && requestedTurnCount > 0
 			? allFixtureOptions.slice(0, requestedTurnCount)
 			: allFixtureOptions;
+	const fixtureOptions = usesModelHeaderFixture
+		? expandModelHeaderFixture(
+				requestedFixtureOptions,
+				modelHeaderFixture === "no-response",
+			)
+		: requestedFixtureOptions;
 	const [options, setOptions] = useState<readonly ContinuousFixtureOption[]>(
 		() =>
 			streamsTurnBodies
@@ -245,7 +299,12 @@ export function SessionContinuousTraceFixturePage() {
 		() => (usesFoldFixture ? fixtureOptions.at(-1) : fixtureOptions[0])?.turnId,
 	);
 	const [expandedTurnIds, setExpandedTurnIds] = useState<ReadonlySet<string>>(
-		() => new Set(),
+		() =>
+			new Set(
+				usesModelHeaderFixture
+					? fixtureOptions.map((option) => option.turnId)
+					: [],
+			),
 	);
 	const [debugPaintEpoch, setDebugPaintEpoch] = useState(0);
 	const [mountsThread, setMountsThread] = useState(false);
@@ -272,15 +331,24 @@ export function SessionContinuousTraceFixturePage() {
 			})),
 		[options],
 	);
+	const protectedTurnIds = useMemo(
+		() =>
+			new Set(
+				usesModelHeaderFixture
+					? options.map((option) => option.turnId)
+					: selectedVirtualTurnId
+						? [selectedVirtualTurnId]
+						: [],
+			),
+		[options, selectedVirtualTurnId, usesModelHeaderFixture],
+	);
 	const virtualModel = useMemo(
 		() =>
 			buildSessionTranscriptRowModel({
 				cache: sectionCache,
 				folds: {
 					expandedTurnIds,
-					protectedTurnIds: new Set(
-						selectedVirtualTurnId ? [selectedVirtualTurnId] : [],
-					),
+					protectedTurnIds,
 				},
 				includeSubagentsAnchor: true,
 				level: traceCallDisplayMode,
@@ -289,8 +357,8 @@ export function SessionContinuousTraceFixturePage() {
 			}),
 		[
 			expandedTurnIds,
+			protectedTurnIds,
 			sectionCache,
-			selectedVirtualTurnId,
 			traceCallDisplayMode,
 			virtualTurns,
 		],
@@ -521,6 +589,9 @@ export function SessionContinuousTraceFixturePage() {
 					renderMode={virtualRenderMode}
 					scrollContainerRef={scrollContainerRef}
 					selectedTurnId={selectedVirtualTurnId}
+					stickyHeaderHeights={
+						usesModelHeaderFixture ? MODEL_HEADER_FIXTURE_HEIGHTS : undefined
+					}
 					userImageUrl={undefined}
 					viewModel={CONTINUOUS_FIXTURE_VIEW_MODEL}
 					viewportStore={viewportStore}
