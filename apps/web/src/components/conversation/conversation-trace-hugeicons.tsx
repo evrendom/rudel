@@ -1,5 +1,4 @@
 import {
-	Activity03Icon,
 	AiBrain01Icon,
 	AlertCircleIcon,
 	ArrowDown01Icon,
@@ -9,9 +8,7 @@ import {
 	ComputerTerminal01Icon,
 	Exchange01Icon,
 	File01Icon,
-	FileExportIcon,
 	FileTypeIcon,
-	GithubIcon,
 	Globe02Icon,
 	LeftToRightListBulletIcon,
 	Message01Icon,
@@ -20,8 +17,6 @@ import {
 	Settings01Icon,
 	SparklesIcon,
 	TypescriptIcon,
-	UnfoldLessIcon,
-	UnfoldMoreIcon,
 	User02Icon,
 	Wrench01Icon,
 } from "@hugeicons/core-free-icons";
@@ -57,8 +52,6 @@ function createConversationTraceHugeicon(
 }
 
 export const TraceAlertIcon = createConversationTraceHugeicon(AlertCircleIcon);
-export const TraceActivityIcon =
-	createConversationTraceHugeicon(Activity03Icon);
 export const TraceBotIcon = createConversationTraceHugeicon(BotIcon);
 export const TraceBrainIcon = createConversationTraceHugeicon(AiBrain01Icon);
 export const TraceChevronDownIcon =
@@ -69,11 +62,8 @@ export const TraceCodeIcon = createConversationTraceHugeicon(CodeIcon);
 export const TraceExchangeIcon =
 	createConversationTraceHugeicon(Exchange01Icon);
 export const TraceFileIcon = createConversationTraceHugeicon(File01Icon);
-export const TraceFileOutputIcon =
-	createConversationTraceHugeicon(FileExportIcon);
 export const TraceMarkdownIcon = createConversationTraceHugeicon(FileTypeIcon);
 export const TraceGlobeIcon = createConversationTraceHugeicon(Globe02Icon);
-export const TraceGithubIcon = createConversationTraceHugeicon(GithubIcon);
 export const TraceListIcon = createConversationTraceHugeicon(
 	LeftToRightListBulletIcon,
 );
@@ -89,9 +79,5 @@ export const TraceTerminalIcon = createConversationTraceHugeicon(
 );
 export const TraceTypeScriptIcon =
 	createConversationTraceHugeicon(TypescriptIcon);
-export const TraceUnfoldLessIcon =
-	createConversationTraceHugeicon(UnfoldLessIcon);
-export const TraceUnfoldMoreIcon =
-	createConversationTraceHugeicon(UnfoldMoreIcon);
 export const TraceUserIcon = createConversationTraceHugeicon(User02Icon);
 export const TraceWrenchIcon = createConversationTraceHugeicon(Wrench01Icon);

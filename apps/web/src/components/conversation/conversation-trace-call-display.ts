@@ -76,13 +76,6 @@ export function formatTraceCallContext(
 	return `+${formatTraceRequestTokens(delta)} ctx`;
 }
 
-export function shouldCollapseTraceCall(
-	config: TraceCallDisplayConfig,
-	branchCount: number,
-): boolean {
-	return config.inlineUsageOnCollapsedRow && branchCount === 1;
-}
-
 export function shouldRenderTraceCallHeader(
 	config: TraceCallDisplayConfig,
 	branchCount: number,

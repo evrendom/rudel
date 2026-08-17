@@ -41,27 +41,6 @@ function formatCompactTurnTokens(value: number) {
 	return `${(value / 1_000_000).toFixed(value < 10_000_000 ? 1 : 0)}m`;
 }
 
-export function SessionTurnCharacterCountTag({
-	characterCount,
-	className,
-}: {
-	characterCount: number;
-	className?: string;
-}) {
-	const characterLabel = `${characterCount.toLocaleString()} ${characterCount === 1 ? "char" : "chars"}`;
-
-	return (
-		<div className={cn("mt-2 flex min-w-0 flex-wrap gap-1", className)}>
-			<span
-				className={turnTagClassName}
-				title={`${characterCount.toLocaleString()} ${characterCount === 1 ? "character" : "characters"} in this member message`}
-			>
-				{characterLabel}
-			</span>
-		</div>
-	);
-}
-
 export function SessionTurnMetadataTags({
 	className,
 	maxVisibleSkills,

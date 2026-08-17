@@ -1,10 +1,14 @@
 # Session Detail Payload API Proposal
 
-Status: approved architecture proposal with amendments. Rollout step 6's guard
-removal is authorized and complete: the fast path now defaults on, with an
-explicit environment opt-out. The legacy procedure and client path remain intact
-as the rollback through step 8's window. This document does not authorize a
-ClickHouse schema migration or removal of the legacy procedure.
+Status: implemented. The shipped client contract is
+`analytics.sessions.detailWindow`, defined in
+`packages/api-routes/src/session-detail-contract.ts` and backed by the bounded,
+revision-aware schemas in `packages/api-routes/src/schemas/session-detail-payload.ts`.
+The delivered outcome is a compact overview followed by byte-budgeted transcript
+windows with directional and anchor loading, lazy subagent and oversized-turn
+fallbacks, stale-revision recovery, and no eager multi-megabyte transcript body
+on the initial detail request; the older procedures remain server-compatible for
+deployed clients.
 
 ## Decision summary
 

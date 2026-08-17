@@ -5,7 +5,7 @@ import {
 	getMissingTranscriptTimestampMessage,
 } from "@rudel/agent-adapters";
 import {
-	contract,
+	type contract,
 	INGEST_AGGREGATE_CONTENT_MAX_BYTES,
 	type IngestSessionInput,
 	PRODUCT_ANALYTICS_EVENTS,
@@ -47,8 +47,8 @@ import {
 	hashProjectPath,
 } from "./lib/product-analytics.js";
 import {
-	authMiddleware,
 	type AppContext,
+	authMiddleware,
 	ingestAuthMiddleware,
 	os,
 	settingsMutationMiddleware,

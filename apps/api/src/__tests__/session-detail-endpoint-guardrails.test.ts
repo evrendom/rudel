@@ -4,8 +4,8 @@ import {
 	throwSessionDetailRevisionError,
 	throwSessionDetailWindowError,
 } from "../handlers/analytics/session-detail-errors.js";
-import { SessionDetailAnchorNotFoundError } from "../services/session-detail-derivation.service.js";
 import { SessionDetailStaleRevisionError } from "../services/session-detail.service.js";
+import { SessionDetailAnchorNotFoundError } from "../services/session-detail-derivation.service.js";
 
 const handlersSource = await Bun.file(
 	new URL("../handlers/analytics/sessions.ts", import.meta.url),

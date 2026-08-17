@@ -2,9 +2,9 @@ import { getLogger } from "@logtape/logtape";
 import type { SessionDetailWindowRequest } from "@rudel/api-routes";
 import { readPositiveSafeIntegerEnv } from "../lib/env.js";
 import {
-	deriveSessionDetail,
 	assembleSessionDetailWindow,
 	decodeSessionDetailWindowCursor,
+	deriveSessionDetail,
 	getSessionDetailSubagent as getCachedSessionDetailSubagent,
 	getSessionDetailTurn as getCachedSessionDetailTurn,
 	getSessionDetailOverviewPage,

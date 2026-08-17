@@ -74,22 +74,6 @@ export type SessionSortState = {
 	direction: SortDirection;
 };
 
-export function isSessionOverviewFilterKey(
-	columnKey: SessionOverviewColumnKey,
-): columnKey is SessionOverviewFilterKey {
-	return SESSION_OVERVIEW_FILTER_KEYS.some(
-		(filterKey) => filterKey === columnKey,
-	);
-}
-
-export function isSessionOverviewRangeFilterKey(
-	columnKey: SessionOverviewColumnKey,
-): columnKey is SessionOverviewRangeFilterKey {
-	return SESSION_OVERVIEW_RANGE_FILTER_KEYS.some(
-		(filterKey) => filterKey === columnKey,
-	);
-}
-
 export function buildSessionOverviewFilterOptions(
 	sessions: readonly SessionAnalytics[],
 	filterKey: SessionOverviewFilterKey,
