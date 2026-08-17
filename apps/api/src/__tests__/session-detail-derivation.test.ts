@@ -224,7 +224,7 @@ describe("session detail derivation", () => {
 		).toThrow(StaleSessionDetailCursorError);
 	});
 
-	test("assembles bounded, revision-bound body windows in both directions", () => {
+	test("returns a normal-sized session in one byte-bounded initial window", () => {
 		const derivation = deriveSessionDetail(snapshot(createTranscript(75)));
 		const initial = assembleSessionDetailWindow({
 			derivation,
@@ -237,14 +237,28 @@ describe("session detail derivation", () => {
 		expect(SessionDetailWindowSchema.parse(initial.window)).toEqual(
 			initial.window,
 		);
-		expect(initial.window.turns).toHaveLength(
-			SESSION_DETAIL_WINDOW_INITIAL_TURNS,
-		);
+		expect(initial.window.turns).toHaveLength(75);
 		expect(initial.window.olderCursor).toBeNull();
-		expect(initial.window.newerCursor).not.toBeNull();
+		expect(initial.window.newerCursor).toBeNull();
 		expect(initial.serializedBytes).toBeLessThanOrEqual(
 			SESSION_DETAIL_WINDOW_MAX_RAW_BYTES,
 		);
+	});
+
+	test("keeps high turn caps as directional pagination safety rails", () => {
+		const derivation = deriveSessionDetail(snapshot(createTranscript(450)));
+		const initial = assembleSessionDetailWindow({
+			derivation,
+			request: {
+				includeBodies: true,
+				mode: "initial",
+				sessionId: "session-1",
+			},
+		});
+		expect(initial.window.turns).toHaveLength(
+			SESSION_DETAIL_WINDOW_INITIAL_TURNS,
+		);
+		expect(initial.window.newerCursor).not.toBeNull();
 
 		const newer = assembleSessionDetailWindow({
 			derivation,
@@ -283,8 +297,8 @@ describe("session detail derivation", () => {
 	});
 
 	test("centers anchor windows and reports stale or missing anchors explicitly", () => {
-		const derivation = deriveSessionDetail(snapshot(createTranscript(75)));
-		const anchorTurnId = derivation.turnSummaries[40]?.turnId ?? "";
+		const derivation = deriveSessionDetail(snapshot(createTranscript(450)));
+		const anchorTurnId = derivation.turnSummaries[225]?.turnId ?? "";
 		const anchored = assembleSessionDetailWindow({
 			derivation,
 			request: {
