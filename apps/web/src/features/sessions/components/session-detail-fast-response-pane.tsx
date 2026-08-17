@@ -662,6 +662,7 @@ function SessionDetailVirtualTranscript({
 				ref={listRef}
 				bodyTurnCount={snapshot.turns.filter((turn) => turn.body).length}
 				debugEnabled={debugEnabled}
+				level={level}
 				model={model}
 				onLoadAnchor={loadAnchor}
 				onLoadDirection={loadDirection}

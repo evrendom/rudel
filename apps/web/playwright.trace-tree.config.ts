@@ -16,12 +16,14 @@ export default defineConfig({
 		{ name: "chromium", use: { browserName: "chromium" } },
 		{
 			name: "webkit",
-			testIgnore: /session-transcript-scroll-forensics\.spec\.ts/u,
+			testIgnore:
+				/session-transcript-(?:instrumentation|scroll-forensics)\.spec\.ts/u,
 			use: { browserName: "webkit" },
 		},
 		{
 			name: "firefox",
-			testIgnore: /session-transcript-scroll-forensics\.spec\.ts/u,
+			testIgnore:
+				/session-transcript-(?:instrumentation|scroll-forensics)\.spec\.ts/u,
 			use: { browserName: "firefox" },
 		},
 	],

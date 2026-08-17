@@ -3,6 +3,8 @@ const TRACE_FRAME_LIMIT = 7_200;
 const TRACE_EVENT_LIMIT = 10_000;
 const ACTIVE_INPUT_WINDOW_MS = 32;
 const EXPENSIVE_MOUNT_WINDOW_MS = 10_000;
+const FLAGGED_FRAME_MS = 32;
+const HEARTBEAT_BLIND_WINDOW_MS = 48;
 
 export type TranscriptProgrammaticWriteCause =
 	| "prepend-anchor"
@@ -17,10 +19,13 @@ export type TranscriptForensicsContentFlags = {
 };
 
 export type TranscriptForensicsFeelScore = {
+	blankMs: number;
 	inputLatencyMs: number | null;
 	lumpCount: number;
+	maxWheelQueueingDelayMs: number | null;
 	maxFrameGapMs: number;
 	momentumKills: number;
+	p95WheelQueueingDelayMs: number | null;
 	reversalCount: number;
 };
 
@@ -43,8 +48,10 @@ export type TranscriptForensicsAdjustment = {
 };
 
 export type TranscriptForensicsFrame = {
+	anatomy: TranscriptForensicsFrameAnatomy;
 	at: number;
 	blankPts: number;
+	blankRowIds: readonly (string | null)[];
 	blankSamples: readonly boolean[];
 	frameMs: number;
 	longTaskMs: number;
@@ -56,6 +63,132 @@ export type TranscriptForensicsFrame = {
 	suspectMarks: readonly string[];
 	unmounted: readonly string[];
 	userDelta: number;
+	wheelEventCount: number;
+	worstWheelQueueingDelayMs: number | null;
+};
+
+export type TranscriptForensicsLongAnimationScript = {
+	duration: number;
+	forcedStyleAndLayoutDuration: number;
+	functionName: string;
+	invoker: string;
+	sourceURL: string;
+};
+
+export type TranscriptForensicsLongAnimationFrame = {
+	blockingDuration: number;
+	duration: number;
+	forcedReflowCount: number;
+	renderStart: number;
+	scripts: readonly TranscriptForensicsLongAnimationScript[];
+	startTime: number;
+	styleAndLayoutDuration: number;
+};
+
+export type TranscriptForensicsRowPaint = {
+	contentVersion: string;
+	mountedAt: number | null;
+	paintLagMs: number | null;
+	paintedAt: number | null;
+	rowId: string;
+};
+
+export type TranscriptForensicsResource = {
+	duration: number;
+	kind: "font" | "image" | "window";
+	responseEnd: number;
+	startTime: number;
+	url: string;
+};
+
+export type TranscriptForensicsReactCommitReason =
+	| "body-attached"
+	| "fold-or-row-data"
+	| "level-change"
+	| "mount"
+	| "no-data-change"
+	| "selection";
+
+export type TranscriptForensicsReactCommit = {
+	actualDuration: number;
+	at: number;
+	phase: "mount" | "nested-update" | "update";
+	reason: TranscriptForensicsReactCommitReason;
+	rowId: string;
+};
+
+export type TranscriptForensicsViewportRow = {
+	contentVersion: string;
+	rowId: string;
+};
+
+export type TranscriptForensicsBlindWindow = {
+	durationMs: number;
+	endedAt: number;
+	entryScrollTop: number;
+	exitScrollTop: number;
+	startedAt: number;
+	viewportRows: readonly TranscriptForensicsViewportRow[];
+};
+
+export type TranscriptForensicsBlankEpisode = {
+	durationMs: number;
+	endedAt: number;
+	loafAttribution: readonly TranscriptForensicsLongAnimationFrame[];
+	rowIds: readonly string[];
+	scrollDelta: number;
+	startedAt: number;
+};
+
+export type TranscriptForensicsFrameResource = TranscriptForensicsResource & {
+	elapsed: number;
+};
+
+export type TranscriptForensicsFrameAnatomy = {
+	attributed: boolean;
+	blindWindows: readonly TranscriptForensicsBlindWindow[];
+	flags: readonly string[];
+	input: {
+		wheelEventCount: number;
+		worstQueueingDelayMs: number | null;
+	};
+	layout: {
+		duration: number;
+		forcedReflowCount: number;
+	};
+	network: readonly TranscriptForensicsFrameResource[];
+	paint: {
+		blankPts: number;
+		blankRowIds: readonly (string | null)[];
+		paintedRows: readonly TranscriptForensicsRowPaint[];
+		unpaintedVisibleRowIds: readonly string[];
+	};
+	react: {
+		commitCount: number;
+		committedRowIds: readonly string[];
+		commits: readonly TranscriptForensicsReactCommit[];
+		mountedRowIds: readonly string[];
+	};
+	scripts: {
+		longAnimationFrames: readonly TranscriptForensicsLongAnimationFrame[];
+		suspectMarks: readonly string[];
+	};
+	topCause: string | null;
+};
+
+export type TranscriptForensicsFlaggedFrame = {
+	anatomy: TranscriptForensicsFrameAnatomy;
+	at: number;
+	frameIndex: number;
+	frameMs: number;
+};
+
+export type TranscriptForensicsWheelEventTiming = {
+	duration: number;
+	processingStart: number;
+	queueingDelay: number;
+	source: "event-timing" | "wheel-timestamp";
+	startTime: number;
 };
 
 export type TranscriptForensicsMount = TranscriptForensicsContentFlags & {
@@ -116,8 +249,11 @@ export type TranscriptForensicsMountAggregate = {
 
 export type TranscriptForensicsDump = {
 	adjustments: readonly TranscriptForensicsAdjustment[];
+	blankEpisodes: readonly TranscriptForensicsBlankEpisode[];
+	blindWindows: readonly TranscriptForensicsBlindWindow[];
 	createdAt: string;
 	feelScore: TranscriptForensicsFeelScore;
+	flaggedFrames: readonly TranscriptForensicsFlaggedFrame[];
 	frames: readonly TranscriptForensicsFrame[];
 	lifecycles: readonly TranscriptForensicsLifecycle[];
 	measurements: readonly TranscriptForensicsMeasure[];
@@ -126,13 +262,19 @@ export type TranscriptForensicsDump = {
 		byKind: readonly TranscriptForensicsMountAggregate[];
 	};
 	mounts: readonly TranscriptForensicsMount[];
+	longAnimationFrames: readonly TranscriptForensicsLongAnimationFrame[];
+	reactCommits: readonly TranscriptForensicsReactCommit[];
+	resources: readonly TranscriptForensicsResource[];
+	rowPaints: readonly TranscriptForensicsRowPaint[];
 	runs: readonly TranscriptForensicsRun[];
 	suspectMeasures: readonly TranscriptForensicsSuspectMeasure[];
+	wheelEventTimings: readonly TranscriptForensicsWheelEventTiming[];
 	version: 1;
 };
 
 export type TranscriptForensicsController = {
 	beginRun: (label: string, expectedDirection?: -1 | 1) => void;
+	blockMainThread: (durationMs: number) => void;
 	dump: () => TranscriptForensicsDump;
 	endRun: () => TranscriptForensicsRun;
 	recordSyntaxHighlight: (input: {
@@ -166,27 +308,59 @@ type LongTaskRecord = {
 	startTime: number;
 };
 
+type TranscriptForensicsElementPaint = {
+	contentVersion: string;
+	paintedAt: number;
+	rowId: string;
+};
+
+type TranscriptForensicsRowLifecycle = TranscriptForensicsViewportRow & {
+	at: number;
+	phase: "mount" | "unmount";
+};
+
+type HeartbeatWitness = {
+	at: number;
+	scrollTop: number;
+};
+
 type RuntimeState = {
 	activeRun: ActiveRun | undefined;
 	adjustments: TranscriptForensicsAdjustment[];
 	attachmentVersion: number;
+	blindWindows: TranscriptForensicsBlindWindow[];
 	controller: TranscriptForensicsController;
+	elementPaints: TranscriptForensicsElementPaint[];
+	elementTimingObserver: PerformanceObserver | undefined;
+	eventTimingObserver: PerformanceObserver | undefined;
 	frameHandle: number | undefined;
 	frames: TranscriptForensicsFrame[];
+	heartbeatEntryWitnesses: Map<number, HeartbeatWitness | undefined>;
+	heartbeatWorker: Worker | undefined;
 	lastFrameAt: number;
+	lastFlaggedCause: string | undefined;
+	lastHeartbeatWitness: HeartbeatWitness | undefined;
 	lastScrollTop: number;
 	lifecycles: TranscriptForensicsLifecycle[];
+	longAnimationFrameObserver: PerformanceObserver | undefined;
+	longAnimationFrames: TranscriptForensicsLongAnimationFrame[];
 	longTasks: LongTaskRecord[];
 	measurements: TranscriptForensicsMeasure[];
 	mounts: TranscriptForensicsMount[];
-	observer: PerformanceObserver | undefined;
+	longTaskObserver: PerformanceObserver | undefined;
 	pendingMounted: string[];
 	pendingUnmounted: string[];
 	pendingUserDelta: number;
 	pendingWrites: TranscriptForensicsProgrammaticWrite[];
+	paintedContentVersions: Map<string, string>;
+	reactCommits: TranscriptForensicsReactCommit[];
+	resourceObserver: PerformanceObserver | undefined;
+	resources: TranscriptForensicsResource[];
+	rowLifecycles: TranscriptForensicsRowLifecycle[];
 	runs: TranscriptForensicsRun[];
 	scrollElement: HTMLElement | undefined;
 	suspectMeasures: TranscriptForensicsSuspectMeasure[];
+	wheelEventTimings: TranscriptForensicsWheelEventTiming[];
 	wheelListener: ((event: WheelEvent) => void) | undefined;
 };
 
@@ -226,13 +400,13 @@ export function attachTranscriptTraceScroller(element: HTMLElement) {
 	trace.lastFrameAt = performance.now();
 	trace.lastScrollTop = element.scrollTop;
 	trace.wheelListener = (event) => {
+		const processingStart = performance.now();
+		const eventAt =
+			event.timeStamp >= 0 && event.timeStamp <= processingStart + 1_000
+				? event.timeStamp
+				: processingStart;
 		trace.pendingUserDelta += event.deltaY;
 		if (trace.activeRun) {
-			const now = performance.now();
-			const eventAt =
-				event.timeStamp >= 0 && event.timeStamp <= now + 1_000
-					? event.timeStamp
-					: now;
 			trace.activeRun.firstInputAt ??= eventAt;
 			trace.activeRun.lastInputAt = eventAt;
 			trace.activeRun.inputEventCount += 1;
@@ -240,6 +414,17 @@ export function attachTranscriptTraceScroller(element: HTMLElement) {
 				trace.activeRun.expectedDirection = event.deltaY > 0 ? 1 : -1;
 			}
 		}
+		pushBounded(
+			trace.wheelEventTimings,
+			{
+				duration: Math.max(0, performance.now() - processingStart),
+				processingStart,
+				queueingDelay: Math.max(0, processingStart - eventAt),
+				source: "wheel-timestamp",
+				startTime: eventAt,
+			},
+			TRACE_EVENT_LIMIT,
+		);
 	};
 	element.addEventListener("wheel", trace.wheelListener, { passive: true });
 	startFrameLoop(trace);
@@ -279,14 +464,29 @@ export function recordTranscriptMeasurement(
 
 export function recordTranscriptRowLifecycle(
 	rowId: string,
+	contentVersion: string,
 	phase: "mount" | "unmount",
 ) {
 	if (!runtime) {
 		return;
 	}
+	pushBounded(
+		runtime.rowLifecycles,
+		{ at: performance.now(), contentVersion, phase, rowId },
+		TRACE_EVENT_LIMIT,
+	);
 	const target =
 		phase === "mount" ? runtime.pendingMounted : runtime.pendingUnmounted;
 	pushBounded(target, rowId, TRACE_EVENT_LIMIT);
+}
+
+export function recordTranscriptReactCommit(
+	commit: TranscriptForensicsReactCommit,
+) {
+	if (!runtime) {
+		return;
+	}
+	pushBounded(runtime.reactCommits, commit, TRACE_EVENT_LIMIT);
 }
 
 export function recordTranscriptComponentLifecycle(input: {
@@ -445,7 +645,10 @@ export function publishTranscriptForensicsHud(element: HTMLElement) {
 	const base = element.dataset.transcriptDebugBaseHud;
 	hud.textContent = [
 		base,
-		`feel latency ${formatMetric(score.inputLatencyMs)} · gap ${score.maxFrameGapMs.toFixed(1)}ms · lumps ${score.lumpCount} · reversals ${score.reversalCount} · kills ${score.momentumKills}`,
+		`feel latency ${formatMetric(score.inputLatencyMs)} · wheel q p95 ${formatMetric(score.p95WheelQueueingDelayMs)} max ${formatMetric(score.maxWheelQueueingDelayMs)} · gap ${score.maxFrameGapMs.toFixed(1)}ms · blank ${score.blankMs.toFixed(1)}ms · lumps ${score.lumpCount} · reversals ${score.reversalCount} · kills ${score.momentumKills}`,
+		runtime.lastFlaggedCause
+			? `last flagged ${runtime.lastFlaggedCause}`
+			: undefined,
 		recentMounts.length > 0
 			? `mount top5 ${recentMounts.join(" | ")}`
 			: undefined,
@@ -470,6 +673,13 @@ function createRuntime(): RuntimeState {
 				startedAt: performance.now(),
 			};
 		},
+		blockMainThread: (durationMs) => {
+			const endAt = performance.now() + Math.max(0, durationMs);
+			while (performance.now() < endAt) {
+				// This debug-only hook validates the worker witness against a known
+				// main-thread blind window.
+			}
+		},
 		dump: () => buildDump(trace),
 		endRun: () => endActiveRun(trace),
 		recordSyntaxHighlight: (input) => recordTranscriptSyntaxHighlight(input),
@@ -479,30 +689,46 @@ function createRuntime(): RuntimeState {
 		activeRun: undefined,
 		adjustments: [],
 		attachmentVersion: 0,
+		blindWindows: [],
 		controller,
+		elementPaints: [],
+		elementTimingObserver: undefined,
+		eventTimingObserver: undefined,
 		frameHandle: undefined,
 		frames: [],
+		heartbeatEntryWitnesses: new Map(),
+		heartbeatWorker: undefined,
 		lastFrameAt: performance.now(),
+		lastFlaggedCause: undefined,
+		lastHeartbeatWitness: undefined,
 		lastScrollTop: 0,
 		lifecycles: [],
+		longAnimationFrameObserver: undefined,
+		longAnimationFrames: [],
 		longTasks: [],
 		measurements: [],
 		mounts: [],
-		observer: undefined,
+		longTaskObserver: undefined,
 		pendingMounted: [],
 		pendingUnmounted: [],
 		pendingUserDelta: 0,
 		pendingWrites: [],
+		paintedContentVersions: new Map(),
+		reactCommits: [],
+		resourceObserver: undefined,
+		resources: [],
+		rowLifecycles: [],
 		runs: [],
 		scrollElement: undefined,
 		suspectMeasures: [],
+		wheelEventTimings: [],
 		wheelListener: undefined,
 	};
 	if (
 		typeof PerformanceObserver === "function" &&
 		PerformanceObserver.supportedEntryTypes.includes("longtask")
 	) {
-		trace.observer = new PerformanceObserver((list) => {
+		trace.longTaskObserver = new PerformanceObserver((list) => {
 			for (const entry of list.getEntries()) {
 				pushBounded(
 					trace.longTasks,
@@ -511,9 +737,412 @@ function createRuntime(): RuntimeState {
 				);
 			}
 		});
-		trace.observer.observe({ entryTypes: ["longtask"] });
+		trace.longTaskObserver.observe({ entryTypes: ["longtask"] });
 	}
+	if (
+		typeof PerformanceObserver === "function" &&
+		PerformanceObserver.supportedEntryTypes.includes("event")
+	) {
+		trace.eventTimingObserver = new PerformanceObserver((list) => {
+			for (const entry of list.getEntries()) {
+				if (
+					entry.name !== "wheel" ||
+					!("processingStart" in entry) ||
+					typeof entry.processingStart !== "number"
+				) {
+					continue;
+				}
+				const fallbackIndex = trace.wheelEventTimings.findIndex(
+					(event) =>
+						event.source === "wheel-timestamp" &&
+						Math.abs(event.startTime - entry.startTime) < 1,
+				);
+				if (fallbackIndex >= 0) {
+					trace.wheelEventTimings.splice(fallbackIndex, 1);
+				}
+				pushBounded(
+					trace.wheelEventTimings,
+					{
+						duration: entry.duration,
+						processingStart: entry.processingStart,
+						queueingDelay: Math.max(0, entry.processingStart - entry.startTime),
+						source: "event-timing",
+						startTime: entry.startTime,
+					},
+					TRACE_EVENT_LIMIT,
+				);
+			}
+		});
+		const eventObserverOptions: PerformanceObserverInit & {
+			durationThreshold: number;
+		} = { durationThreshold: 16, type: "event" };
+		trace.eventTimingObserver.observe(eventObserverOptions);
+	}
+	installLongAnimationFrameObserver(trace);
+	installElementTimingObserver(trace);
+	installResourceObserver(trace);
+	installHeartbeatWorker(trace);
 	return trace;
+}
+
+function installLongAnimationFrameObserver(trace: RuntimeState) {
+	if (
+		typeof PerformanceObserver !== "function" ||
+		!PerformanceObserver.supportedEntryTypes.includes("long-animation-frame")
+	) {
+		return;
+	}
+	trace.longAnimationFrameObserver = new PerformanceObserver((list) => {
+		for (const entry of list.getEntries()) {
+			const scripts =
+				"scripts" in entry && Array.isArray(entry.scripts)
+					? entry.scripts.flatMap((script) => {
+							if (typeof script !== "object" || script === null) {
+								return [];
+							}
+							const forcedStyleAndLayoutDuration =
+								"forcedStyleAndLayoutDuration" in script &&
+								typeof script.forcedStyleAndLayoutDuration === "number"
+									? script.forcedStyleAndLayoutDuration
+									: 0;
+							const functionName =
+								"sourceFunctionName" in script &&
+								typeof script.sourceFunctionName === "string"
+									? script.sourceFunctionName
+									: "";
+							return [
+								{
+									duration:
+										"duration" in script && typeof script.duration === "number"
+											? script.duration
+											: 0,
+									forcedStyleAndLayoutDuration,
+									functionName,
+									invoker:
+										"invoker" in script && typeof script.invoker === "string"
+											? script.invoker
+											: "",
+									sourceURL:
+										"sourceURL" in script &&
+										typeof script.sourceURL === "string"
+											? script.sourceURL
+											: "",
+								},
+							];
+						})
+					: [];
+			const renderStart =
+				"renderStart" in entry && typeof entry.renderStart === "number"
+					? entry.renderStart
+					: 0;
+			const styleAndLayoutStart =
+				"styleAndLayoutStart" in entry &&
+				typeof entry.styleAndLayoutStart === "number"
+					? entry.styleAndLayoutStart
+					: 0;
+			pushBounded(
+				trace.longAnimationFrames,
+				{
+					blockingDuration:
+						"blockingDuration" in entry &&
+						typeof entry.blockingDuration === "number"
+							? entry.blockingDuration
+							: Math.max(0, entry.duration - 50),
+					duration: entry.duration,
+					forcedReflowCount: scripts.filter(
+						(script) => script.forcedStyleAndLayoutDuration > 0,
+					).length,
+					renderStart,
+					scripts,
+					startTime: entry.startTime,
+					styleAndLayoutDuration:
+						styleAndLayoutStart > 0
+							? Math.max(
+									0,
+									entry.startTime + entry.duration - styleAndLayoutStart,
+								)
+							: 0,
+				},
+				TRACE_EVENT_LIMIT,
+			);
+			const topScript = [...scripts].sort(
+				(left, right) => right.duration - left.duration,
+			)[0];
+			trace.lastFlaggedCause = topScript
+				? `script ${topScript.functionName || topScript.sourceURL || "anonymous"} ${topScript.duration.toFixed(1)}ms`
+				: `long animation frame ${entry.duration.toFixed(1)}ms`;
+		}
+	});
+	trace.longAnimationFrameObserver.observe({
+		buffered: true,
+		type: "long-animation-frame",
+	});
+}
+
+function installElementTimingObserver(trace: RuntimeState) {
+	if (
+		typeof PerformanceObserver !== "function" ||
+		!PerformanceObserver.supportedEntryTypes.includes("element")
+	) {
+		return;
+	}
+	trace.elementTimingObserver = new PerformanceObserver((list) => {
+		for (const entry of list.getEntries()) {
+			if (!("element" in entry) || !(entry.element instanceof HTMLElement)) {
+				continue;
+			}
+			const row = entry.element.closest<HTMLElement>("[data-row-id]");
+			const rowId = row?.dataset.rowId;
+			const contentVersion = row?.dataset.transcriptContentVersion;
+			if (!(rowId && contentVersion)) {
+				continue;
+			}
+			const renderTime =
+				"renderTime" in entry && typeof entry.renderTime === "number"
+					? entry.renderTime
+					: 0;
+			const loadTime =
+				"loadTime" in entry && typeof entry.loadTime === "number"
+					? entry.loadTime
+					: 0;
+			const paintedAt = Math.max(entry.startTime, renderTime, loadTime);
+			if (
+				!trace.elementPaints.some(
+					(paint) =>
+						paint.rowId === rowId && paint.contentVersion === contentVersion,
+				)
+			) {
+				pushBounded(
+					trace.elementPaints,
+					{ contentVersion, paintedAt, rowId },
+					TRACE_EVENT_LIMIT,
+				);
+			}
+			trace.paintedContentVersions.set(rowId, contentVersion);
+			const latestEpisode = buildBlankEpisodes(trace, buildRowPaints(trace)).at(
+				-1,
+			);
+			if (latestEpisode) {
+				trace.lastFlaggedCause = `blank episode ${latestEpisode.durationMs.toFixed(1)}ms rows ${latestEpisode.rowIds.join(",")}`;
+			}
+		}
+	});
+	trace.elementTimingObserver.observe({ buffered: true, type: "element" });
+}
+
+function installResourceObserver(trace: RuntimeState) {
+	if (
+		typeof PerformanceObserver !== "function" ||
+		!PerformanceObserver.supportedEntryTypes.includes("resource")
+	) {
+		return;
+	}
+	trace.resourceObserver = new PerformanceObserver((list) => {
+		for (const entry of list.getEntries()) {
+			const initiatorType =
+				"initiatorType" in entry && typeof entry.initiatorType === "string"
+					? entry.initiatorType
+					: "";
+			const kind = classifyTranscriptResource(entry.name, initiatorType);
+			if (!kind) {
+				continue;
+			}
+			const responseEnd =
+				"responseEnd" in entry && typeof entry.responseEnd === "number"
+					? entry.responseEnd
+					: entry.startTime + entry.duration;
+			pushBounded(
+				trace.resources,
+				{
+					duration: entry.duration,
+					kind,
+					responseEnd,
+					startTime: entry.startTime,
+					url: entry.name,
+				},
+				TRACE_EVENT_LIMIT,
+			);
+		}
+	});
+	trace.resourceObserver.observe({ buffered: true, type: "resource" });
+}
+
+function classifyTranscriptResource(
+	url: string,
+	initiatorType: string,
+): TranscriptForensicsResource["kind"] | undefined {
+	if (url.includes("/rpc/analytics/sessions/detailWindow")) {
+		return "window";
+	}
+	if (
+		initiatorType === "img" ||
+		/\.(?:avif|gif|jpe?g|png|svg|webp)(?:\?|$)/iu.test(url)
+	) {
+		return "image";
+	}
+	if (/\.(?:otf|ttf|woff2?)(?:\?|$)/iu.test(url)) {
+		return "font";
+	}
+	return undefined;
+}
+
+function installHeartbeatWorker(trace: RuntimeState) {
+	if (typeof Worker !== "function") {
+		return;
+	}
+	const source = `
+		let sequence = 0;
+		let waiting;
+		self.onmessage = (event) => {
+			if (!waiting || event.data?.type !== "echo" || event.data.sequence !== waiting.sequence) return;
+			const durationMs = performance.now() - waiting.startedAt;
+			self.postMessage({
+				type: "result",
+				sequence: waiting.sequence,
+				durationMs,
+				startedWallTime: waiting.startedWallTime,
+				endedWallTime: Date.now(),
+			});
+			waiting = undefined;
+		};
+		setInterval(() => {
+			if (waiting) return;
+			sequence += 1;
+			waiting = {
+				sequence,
+				startedAt: performance.now(),
+				startedWallTime: Date.now(),
+			};
+			self.postMessage({ type: "ping", sequence });
+		}, 16);
+	`;
+	const workerUrl = URL.createObjectURL(
+		new Blob([source], { type: "text/javascript" }),
+	);
+	const worker = new Worker(workerUrl);
+	URL.revokeObjectURL(workerUrl);
+	trace.heartbeatWorker = worker;
+	worker.addEventListener("message", (event: MessageEvent<unknown>) => {
+		const message = event.data;
+		if (
+			typeof message !== "object" ||
+			message === null ||
+			!("type" in message)
+		) {
+			return;
+		}
+		if (
+			message.type === "ping" &&
+			"sequence" in message &&
+			typeof message.sequence === "number"
+		) {
+			trace.heartbeatEntryWitnesses.set(
+				message.sequence,
+				trace.lastHeartbeatWitness,
+			);
+			worker.postMessage({ type: "echo", sequence: message.sequence });
+			const element = trace.scrollElement;
+			if (element) {
+				trace.lastHeartbeatWitness = {
+					at: performance.now(),
+					scrollTop: element.scrollTop,
+				};
+			}
+			return;
+		}
+		if (
+			message.type !== "result" ||
+			!("sequence" in message) ||
+			typeof message.sequence !== "number" ||
+			!("durationMs" in message) ||
+			typeof message.durationMs !== "number" ||
+			!("startedWallTime" in message) ||
+			typeof message.startedWallTime !== "number" ||
+			!("endedWallTime" in message) ||
+			typeof message.endedWallTime !== "number"
+		) {
+			return;
+		}
+		const entryWitness = trace.heartbeatEntryWitnesses.get(message.sequence);
+		trace.heartbeatEntryWitnesses.delete(message.sequence);
+		const element = trace.scrollElement;
+		if (
+			!(
+				element &&
+				entryWitness &&
+				message.durationMs >= HEARTBEAT_BLIND_WINDOW_MS
+			)
+		) {
+			return;
+		}
+		const startedAt = message.startedWallTime - performance.timeOrigin;
+		const endedAt = message.endedWallTime - performance.timeOrigin;
+		const blindWindow: TranscriptForensicsBlindWindow = {
+			durationMs: message.durationMs,
+			endedAt,
+			entryScrollTop: entryWitness.scrollTop,
+			exitScrollTop: element.scrollTop,
+			startedAt,
+			viewportRows: getVisibleTranscriptRows(element),
+		};
+		pushBounded(trace.blindWindows, blindWindow, TRACE_EVENT_LIMIT);
+		trace.lastFlaggedCause = `heartbeat blind ${message.durationMs.toFixed(1)}ms`;
+		window.requestAnimationFrame(() => {
+			const currentElement = trace.scrollElement;
+			if (!currentElement) {
+				return;
+			}
+			const index = trace.blindWindows.indexOf(blindWindow);
+			if (index < 0) {
+				return;
+			}
+			trace.blindWindows[index] = {
+				...blindWindow,
+				exitScrollTop: currentElement.scrollTop,
+				viewportRows: mergeViewportRows(
+					blindWindow.viewportRows,
+					getVisibleTranscriptRows(currentElement),
+				),
+			};
+		});
+	});
+}
+
+function getVisibleTranscriptRows(element: HTMLElement) {
+	const bounds = element.getBoundingClientRect();
+	return getMountedTranscriptRows(element).filter((row) => {
+		const candidate = element.querySelector<HTMLElement>(
+			`[data-transcript-content-version="${CSS.escape(row.contentVersion)}"]`,
+		);
+		if (!candidate) {
+			return false;
+		}
+		const rect = candidate.getBoundingClientRect();
+		return rect.bottom > bounds.top && rect.top < bounds.bottom;
+	});
+}
+
+function getMountedTranscriptRows(element: HTMLElement) {
+	return Array.from(
+		element.querySelectorAll<HTMLElement>(
+			"[data-row-id][data-transcript-content-version]",
+		),
+	).flatMap<TranscriptForensicsViewportRow>((row) => {
+		const rowId = row.dataset.rowId;
+		const contentVersion = row.dataset.transcriptContentVersion;
+		return rowId && contentVersion ? [{ contentVersion, rowId }] : [];
+	});
+}
+
+function mergeViewportRows(
+	left: readonly TranscriptForensicsViewportRow[],
+	right: readonly TranscriptForensicsViewportRow[],
+) {
+	const rows = new Map<string, TranscriptForensicsViewportRow>();
+	for (const row of [...left, ...right]) {
+		rows.set(`${row.rowId}\u0000${row.contentVersion}`, row);
+	}
+	return [...rows.values()];
 }
 
 function startFrameLoop(trace: RuntimeState) {
@@ -531,7 +1160,7 @@ function startFrameLoop(trace: RuntimeState) {
 		const mounted = trace.pendingMounted.splice(0);
 		const unmounted = trace.pendingUnmounted.splice(0);
 		trace.pendingUserDelta = 0;
-		const blankSamples = sampleBlankPoints(element);
+		const { blankRowIds, blankSamples } = sampleBlankPoints(element, trace);
 		const longTaskMs = trace.longTasks.reduce(
 			(total, task) =>
 				total +
@@ -562,8 +1191,10 @@ function startFrameLoop(trace: RuntimeState) {
 		pushBounded(
 			trace.frames,
 			{
+				anatomy: emptyFrameAnatomy(),
 				at,
 				blankPts: blankSamples.filter(Boolean).length,
+				blankRowIds,
 				blankSamples,
 				frameMs: at - previousFrameAt,
 				longTaskMs,
@@ -575,9 +1206,20 @@ function startFrameLoop(trace: RuntimeState) {
 				suspectMarks,
 				unmounted,
 				userDelta,
+				wheelEventCount: 0,
+				worstWheelQueueingDelayMs: null,
 			},
 			TRACE_FRAME_LIMIT,
 		);
+		if (at - previousFrameAt > FLAGGED_FRAME_MS) {
+			trace.lastFlaggedCause =
+				suspectMarks[0] ??
+				(longTaskMs > 0
+					? `long task ${longTaskMs.toFixed(1)}ms`
+					: blankSamples.some(Boolean)
+						? `unpainted row ${blankRowIds.find((rowId) => rowId) ?? "unknown"}`
+						: `unattributed ${String((at - previousFrameAt).toFixed(1))}ms frame`);
+		}
 		trace.lastFrameAt = at;
 		trace.lastScrollTop = scrollTop;
 		publishTranscriptForensicsHud(element);
@@ -607,10 +1249,23 @@ function endActiveRun(trace: RuntimeState) {
 	const frames = trace.frames.filter(
 		(frame) => frame.at >= activeRun.startedAt && frame.at <= endedAt,
 	);
+	const rowPaints = buildRowPaints(trace);
+	const blankEpisodes = buildBlankEpisodes(trace, rowPaints).filter(
+		(episode) =>
+			episode.startedAt <= endedAt && episode.endedAt >= activeRun.startedAt,
+	);
 	const run: TranscriptForensicsRun = {
 		endedAt,
 		expectedDirection: activeRun.expectedDirection,
-		feelScore: computeFeelScore(frames, activeRun),
+		feelScore: computeFeelScore(
+			frames,
+			activeRun,
+			trace.wheelEventTimings.filter(
+				(event) =>
+					event.startTime >= activeRun.startedAt && event.startTime <= endedAt,
+			),
+			blankEpisodes,
+		),
 		firstInputAt: activeRun.firstInputAt,
 		frameCount: frames.length,
 		inputEventCount: activeRun.inputEventCount,
@@ -630,12 +1285,20 @@ function getCurrentFeelScore(trace: RuntimeState) {
 	return computeFeelScore(
 		trace.frames.filter((frame) => frame.at >= activeRun.startedAt),
 		activeRun,
+		trace.wheelEventTimings.filter(
+			(event) => event.startTime >= activeRun.startedAt,
+		),
+		buildBlankEpisodes(trace, buildRowPaints(trace)).filter(
+			(episode) => episode.endedAt >= activeRun.startedAt,
+		),
 	);
 }
 
 function computeFeelScore(
 	frames: readonly TranscriptForensicsFrame[],
 	run: ActiveRun,
+	wheelEventTimings: readonly TranscriptForensicsWheelEventTiming[],
+	blankEpisodes: readonly TranscriptForensicsBlankEpisode[],
 ): TranscriptForensicsFeelScore {
 	const firstInputAt = run.firstInputAt;
 	const scoredFrames =
@@ -655,6 +1318,7 @@ function computeFeelScore(
 	let reversalCount = 0;
 	let previousVelocity = 0;
 	let momentumKills = 0;
+	const queueingDelays = wheelEventTimings.map((event) => event.queueingDelay);
 	const trailingInputs: number[] = [];
 	const writes = scoredFrames.flatMap((frame) => frame.progWrites);
 	for (const frame of scoredFrames) {
@@ -698,34 +1362,77 @@ function computeFeelScore(
 		}
 	}
 	return {
+		blankMs: blankEpisodes.reduce(
+			(total, episode) =>
+				total +
+				overlapDuration(
+					run.startedAt,
+					performance.now(),
+					episode.startedAt,
+					episode.durationMs,
+				),
+			0,
+		),
 		inputLatencyMs,
 		lumpCount,
+		maxWheelQueueingDelayMs:
+			queueingDelays.length > 0 ? Math.max(...queueingDelays) : null,
 		maxFrameGapMs,
 		momentumKills,
+		p95WheelQueueingDelayMs: percentile(queueingDelays, 0.95),
 		reversalCount,
 	};
 }
 
-function sampleBlankPoints(element: HTMLElement) {
+function sampleBlankPoints(element: HTMLElement, trace: RuntimeState) {
 	const bounds = element.getBoundingClientRect();
 	const x = bounds.left + bounds.width / 2;
-	return [0.1, 0.3, 0.5, 0.7, 0.9].map((ratio) => {
+	const samples = [0.1, 0.3, 0.5, 0.7, 0.9].map((ratio) => {
 		const y = bounds.top + bounds.height * ratio;
 		const target = document.elementFromPoint(x, y);
-		return !(
-			target instanceof Element &&
-			element.contains(target) &&
-			target.closest("[data-transcript-row-id]")
-		);
+		const row =
+			target instanceof Element && element.contains(target)
+				? target.closest<HTMLElement>("[data-transcript-row-id]")
+				: null;
+		const rowId = row?.dataset.rowId ?? null;
+		const contentVersion = row?.dataset.transcriptContentVersion;
+		const painted =
+			rowId !== null &&
+			contentVersion !== undefined &&
+			trace.paintedContentVersions.get(rowId) === contentVersion;
+		return { blank: !painted, rowId };
 	});
+	return {
+		blankRowIds: samples.map((sample) => (sample.blank ? sample.rowId : null)),
+		blankSamples: samples.map((sample) => sample.blank),
+	};
 }
 
 function buildDump(trace: RuntimeState): TranscriptForensicsDump {
+	const rowPaints = buildRowPaints(trace);
+	const blankEpisodes = buildBlankEpisodes(trace, rowPaints);
+	const frames = correlateFrameAnatomy(trace, rowPaints);
+	const flaggedFrames = frames.flatMap<TranscriptForensicsFlaggedFrame>(
+		(frame, frameIndex) =>
+			frame.anatomy.flags.length > 0
+				? [
+						{
+							anatomy: frame.anatomy,
+							at: frame.at,
+							frameIndex,
+							frameMs: frame.frameMs,
+						},
+					]
+				: [],
+	);
 	return {
 		adjustments: [...trace.adjustments],
+		blankEpisodes,
+		blindWindows: [...trace.blindWindows],
 		createdAt: new Date().toISOString(),
 		feelScore: getCurrentFeelScore(trace),
-		frames: [...trace.frames],
+		flaggedFrames,
+		frames,
 		lifecycles: [...trace.lifecycles],
 		measurements: [...trace.measurements],
 		mountAggregates: {
@@ -740,27 +1447,384 @@ function buildDump(trace: RuntimeState): TranscriptForensicsDump {
 			byKind: aggregateMounts(trace.mounts, (mount) => mount.rowKind),
 		},
 		mounts: [...trace.mounts],
+		longAnimationFrames: [...trace.longAnimationFrames],
+		reactCommits: [...trace.reactCommits],
+		resources: [...trace.resources],
+		rowPaints,
 		runs: [...trace.runs],
 		suspectMeasures: [...trace.suspectMeasures],
+		wheelEventTimings: [...trace.wheelEventTimings],
 		version: 1,
 	};
 }
 
 function resetRuntime(trace: RuntimeState) {
+	const resetAt = performance.now();
+	const mountedRows = trace.scrollElement
+		? getMountedTranscriptRows(trace.scrollElement)
+		: [];
+	const paintedRows = mountedRows.filter(
+		(row) => trace.paintedContentVersions.get(row.rowId) === row.contentVersion,
+	);
 	trace.activeRun = undefined;
 	trace.adjustments.length = 0;
+	trace.blindWindows.length = 0;
+	trace.elementPaints.length = 0;
 	trace.frames.length = 0;
-	trace.lastFrameAt = performance.now();
+	trace.heartbeatEntryWitnesses.clear();
+	trace.lastFlaggedCause = undefined;
+	trace.lastFrameAt = resetAt;
 	trace.lastScrollTop = trace.scrollElement?.scrollTop ?? 0;
 	trace.longTasks.length = 0;
+	trace.longAnimationFrames.length = 0;
 	trace.measurements.length = 0;
 	trace.mounts.length = 0;
 	trace.pendingMounted.length = 0;
 	trace.pendingUnmounted.length = 0;
 	trace.pendingUserDelta = 0;
 	trace.pendingWrites.length = 0;
+	trace.reactCommits.length = 0;
+	trace.resources.length = 0;
+	trace.rowLifecycles.length = 0;
 	trace.runs.length = 0;
 	trace.suspectMeasures.length = 0;
+	trace.wheelEventTimings.length = 0;
+	for (const row of mountedRows) {
+		trace.rowLifecycles.push({ ...row, at: resetAt, phase: "mount" });
+	}
+	for (const row of paintedRows) {
+		trace.elementPaints.push({ ...row, paintedAt: resetAt });
+	}
+}
+
+function correlateFrameAnatomy(
+	trace: RuntimeState,
+	rowPaints: readonly TranscriptForensicsRowPaint[],
+) {
+	return trace.frames.map((frame) => {
+		const frameStart = frame.at - frame.frameMs;
+		const overlappingEvents = trace.wheelEventTimings.filter(
+			(event) =>
+				event.startTime <= frame.at && event.processingStart >= frameStart,
+		);
+		const longAnimationFrames = trace.longAnimationFrames.filter((entry) =>
+			intervalsOverlap(
+				frameStart,
+				frame.at,
+				entry.startTime,
+				entry.startTime + entry.duration,
+			),
+		);
+		const commits = trace.reactCommits.filter(
+			(commit) => commit.at > frameStart && commit.at <= frame.at,
+		);
+		const commitCount = new Set(commits.map((commit) => commit.at.toFixed(3)))
+			.size;
+		const resources = trace.resources.flatMap<TranscriptForensicsFrameResource>(
+			(resource) =>
+				intervalsOverlap(
+					frameStart,
+					frame.at,
+					resource.startTime,
+					resource.responseEnd,
+				)
+					? [
+							{
+								...resource,
+								elapsed: Math.max(
+									0,
+									Math.min(frame.at, resource.responseEnd) - resource.startTime,
+								),
+							},
+						]
+					: [],
+		);
+		const paintedRows = rowPaints.filter(
+			(paint) =>
+				paint.paintedAt !== null &&
+				paint.paintedAt > frameStart &&
+				paint.paintedAt <= frame.at,
+		);
+		const blindWindows = trace.blindWindows.filter((window) =>
+			intervalsOverlap(frameStart, frame.at, window.startedAt, window.endedAt),
+		);
+		const unpaintedVisibleRowIds = [
+			...new Set(frame.blankRowIds.filter((rowId) => rowId !== null)),
+		];
+		const worstQueueingDelay =
+			overlappingEvents.length > 0
+				? Math.max(...overlappingEvents.map((event) => event.queueingDelay))
+				: null;
+		const layoutDuration = longAnimationFrames.reduce(
+			(total, entry) => total + entry.styleAndLayoutDuration,
+			0,
+		);
+		const forcedReflowCount = longAnimationFrames.reduce(
+			(total, entry) => total + entry.forcedReflowCount,
+			0,
+		);
+		const flags = [
+			frame.frameMs > FLAGGED_FRAME_MS ? "frame-gap" : undefined,
+			worstQueueingDelay !== null && worstQueueingDelay >= 8
+				? "queued-input"
+				: undefined,
+			frame.blankPts > 0 ? "blank-pixels" : undefined,
+			blindWindows.length > 0 ? "heartbeat-blind-window" : undefined,
+		].filter((flag) => flag !== undefined);
+		const cause = pickFrameTopCause({
+			blindWindows,
+			commits,
+			frame,
+			layoutDuration,
+			longAnimationFrames,
+			paintedRows,
+			resources,
+			trace,
+			unpaintedVisibleRowIds,
+			worstQueueingDelay,
+		});
+		const anatomy: TranscriptForensicsFrameAnatomy = {
+			attributed: cause !== null,
+			blindWindows,
+			flags,
+			input: {
+				wheelEventCount: overlappingEvents.length,
+				worstQueueingDelayMs: worstQueueingDelay,
+			},
+			layout: { duration: layoutDuration, forcedReflowCount },
+			network: resources,
+			paint: {
+				blankPts: frame.blankPts,
+				blankRowIds: frame.blankRowIds,
+				paintedRows,
+				unpaintedVisibleRowIds,
+			},
+			react: {
+				commitCount,
+				committedRowIds: [...new Set(commits.map((commit) => commit.rowId))],
+				commits,
+				mountedRowIds: frame.mounted,
+			},
+			scripts: { longAnimationFrames, suspectMarks: frame.suspectMarks },
+			topCause: cause,
+		};
+		return {
+			...frame,
+			anatomy,
+			wheelEventCount: overlappingEvents.length,
+			worstWheelQueueingDelayMs: worstQueueingDelay,
+		};
+	});
+}
+
+function buildRowPaints(trace: RuntimeState) {
+	const mounts = new Map<string, TranscriptForensicsRowLifecycle>();
+	for (const lifecycle of trace.rowLifecycles) {
+		const key = `${lifecycle.rowId}\u0000${lifecycle.contentVersion}`;
+		if (lifecycle.phase === "mount") {
+			mounts.set(key, lifecycle);
+		}
+	}
+	const keys = new Set([
+		...mounts.keys(),
+		...trace.elementPaints.map(
+			(paint) => `${paint.rowId}\u0000${paint.contentVersion}`,
+		),
+	]);
+	return [...keys].map<TranscriptForensicsRowPaint>((key) => {
+		const separator = key.indexOf("\u0000");
+		const rowId = key.slice(0, separator);
+		const contentVersion = key.slice(separator + 1);
+		const mount = mounts.get(key);
+		const paint = trace.elementPaints.find(
+			(candidate) =>
+				candidate.rowId === rowId &&
+				candidate.contentVersion === contentVersion,
+		);
+		return {
+			contentVersion,
+			mountedAt: mount?.at ?? null,
+			paintLagMs:
+				mount && paint ? Math.max(0, paint.paintedAt - mount.at) : null,
+			paintedAt: paint?.paintedAt ?? null,
+			rowId,
+		};
+	});
+}
+
+function buildBlankEpisodes(
+	trace: RuntimeState,
+	rowPaints: readonly TranscriptForensicsRowPaint[],
+) {
+	return trace.blindWindows.flatMap<TranscriptForensicsBlankEpisode>(
+		(blindWindow) => {
+			const rowIds = [
+				...new Set(
+					blindWindow.viewportRows.flatMap((row) => {
+						const paint = rowPaints.find(
+							(candidate) =>
+								candidate.rowId === row.rowId &&
+								candidate.contentVersion === row.contentVersion,
+						);
+						return paint?.paintedAt !== null &&
+							paint?.paintedAt !== undefined &&
+							paint.paintedAt > blindWindow.endedAt
+							? [row.rowId]
+							: [];
+					}),
+				),
+			];
+			if (rowIds.length === 0) {
+				return [];
+			}
+			return [
+				{
+					durationMs: blindWindow.durationMs,
+					endedAt: blindWindow.endedAt,
+					loafAttribution: trace.longAnimationFrames.filter((entry) =>
+						intervalsOverlap(
+							blindWindow.startedAt,
+							blindWindow.endedAt,
+							entry.startTime,
+							entry.startTime + entry.duration,
+						),
+					),
+					rowIds,
+					scrollDelta: blindWindow.exitScrollTop - blindWindow.entryScrollTop,
+					startedAt: blindWindow.startedAt,
+				},
+			];
+		},
+	);
+}
+
+function pickFrameTopCause(input: {
+	blindWindows: readonly TranscriptForensicsBlindWindow[];
+	commits: readonly TranscriptForensicsReactCommit[];
+	frame: TranscriptForensicsFrame;
+	layoutDuration: number;
+	longAnimationFrames: readonly TranscriptForensicsLongAnimationFrame[];
+	paintedRows: readonly TranscriptForensicsRowPaint[];
+	resources: readonly TranscriptForensicsFrameResource[];
+	trace: RuntimeState;
+	unpaintedVisibleRowIds: readonly string[];
+	worstQueueingDelay: number | null;
+}) {
+	const frameStart = input.frame.at - input.frame.frameMs;
+	const suspects = input.trace.suspectMeasures.filter((measure) =>
+		intervalsOverlap(
+			frameStart,
+			input.frame.at,
+			measure.startTime,
+			measure.startTime + measure.duration,
+		),
+	);
+	const scripts = input.longAnimationFrames.flatMap((entry) => entry.scripts);
+	const candidates: { duration: number; label: string }[] = [];
+	for (const script of scripts) {
+		candidates.push({
+			duration: script.duration,
+			label: `script ${script.functionName || script.sourceURL || "anonymous"} ${script.duration.toFixed(1)}ms`,
+		});
+	}
+	for (const suspect of suspects) {
+		candidates.push({
+			duration: suspect.duration,
+			label: `${suspect.name} ${suspect.duration.toFixed(1)}ms`,
+		});
+	}
+	if (input.layoutDuration > 0) {
+		candidates.push({
+			duration: input.layoutDuration,
+			label: `style/layout ${input.layoutDuration.toFixed(1)}ms`,
+		});
+	}
+	const reactDuration = input.commits.reduce(
+		(total, commit) => total + commit.actualDuration,
+		0,
+	);
+	if (input.commits.length > 0) {
+		candidates.push({
+			duration: reactDuration,
+			label: `React ${String(new Set(input.commits.map((commit) => commit.at.toFixed(3))).size)} commits ${reactDuration.toFixed(1)}ms`,
+		});
+	}
+	if (input.worstQueueingDelay !== null) {
+		candidates.push({
+			duration: input.worstQueueingDelay,
+			label: `wheel queued ${input.worstQueueingDelay.toFixed(1)}ms`,
+		});
+	}
+	if (input.frame.longTaskMs > 0) {
+		candidates.push({
+			duration: input.frame.longTaskMs,
+			label: `long task ${input.frame.longTaskMs.toFixed(1)}ms`,
+		});
+	}
+	for (const blindWindow of input.blindWindows) {
+		candidates.push({
+			duration: blindWindow.durationMs,
+			label: `heartbeat blind ${blindWindow.durationMs.toFixed(1)}ms`,
+		});
+	}
+	if (input.unpaintedVisibleRowIds.length > 0) {
+		candidates.push({
+			duration: input.frame.frameMs,
+			label: `unpainted rows ${input.unpaintedVisibleRowIds.join(",")}`,
+		});
+	}
+	for (const resource of input.resources) {
+		candidates.push({
+			duration: resource.elapsed,
+			label: `${resource.kind} resource in flight ${resource.elapsed.toFixed(1)}ms`,
+		});
+	}
+	for (const paint of input.paintedRows) {
+		if (paint.paintLagMs !== null) {
+			candidates.push({
+				duration: paint.paintLagMs,
+				label: `row ${paint.rowId} paint lag ${paint.paintLagMs.toFixed(1)}ms`,
+			});
+		}
+	}
+	return (
+		candidates.sort((left, right) => right.duration - left.duration)[0]
+			?.label ?? null
+	);
+}
+
+function emptyFrameAnatomy(): TranscriptForensicsFrameAnatomy {
+	return {
+		attributed: false,
+		blindWindows: [],
+		flags: [],
+		input: { wheelEventCount: 0, worstQueueingDelayMs: null },
+		layout: { duration: 0, forcedReflowCount: 0 },
+		network: [],
+		paint: {
+			blankPts: 0,
+			blankRowIds: [],
+			paintedRows: [],
+			unpaintedVisibleRowIds: [],
+		},
+		react: {
+			commitCount: 0,
+			committedRowIds: [],
+			commits: [],
+			mountedRowIds: [],
+		},
+		scripts: { longAnimationFrames: [], suspectMarks: [] },
+		topCause: null,
+	};
+}
+
+function intervalsOverlap(
+	leftStart: number,
+	leftEnd: number,
+	rightStart: number,
+	rightEnd: number,
+) {
+	return leftStart <= rightEnd && rightStart <= leftEnd;
 }
 
 function aggregateMounts(
@@ -836,12 +1900,24 @@ function average(values: readonly number[]) {
 		: values.reduce((total, value) => total + value, 0) / values.length;
 }
 
+function percentile(values: readonly number[], ratio: number) {
+	if (values.length === 0) {
+		return null;
+	}
+	const sorted = [...values].sort((left, right) => left - right);
+	const index = Math.max(0, Math.ceil(sorted.length * ratio) - 1);
+	return sorted[index] ?? null;
+}
+
 function emptyFeelScore(): TranscriptForensicsFeelScore {
 	return {
+		blankMs: 0,
 		inputLatencyMs: null,
 		lumpCount: 0,
+		maxWheelQueueingDelayMs: null,
 		maxFrameGapMs: 0,
 		momentumKills: 0,
+		p95WheelQueueingDelayMs: null,
 		reversalCount: 0,
 	};
 }

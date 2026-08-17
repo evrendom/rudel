@@ -249,6 +249,7 @@ export function SessionContinuousTraceFixturePage() {
 	const [expandedTurnIds, setExpandedTurnIds] = useState<ReadonlySet<string>>(
 		() => new Set(),
 	);
+	const [debugPaintEpoch, setDebugPaintEpoch] = useState(0);
 	const [mountsThread, setMountsThread] = useState(false);
 	const [viewportStore] = useState(createSessionContinuousTurnViewportStore);
 	// ?display=normal mirrors the session detail default (flat request rows)
@@ -513,6 +514,8 @@ export function SessionContinuousTraceFixturePage() {
 					ref={virtualListRef}
 					bodyTurnCount={options.filter((option) => option.turn).length}
 					debugEnabled
+					debugPaintEpoch={debugPaintEpoch}
+					level={traceCallDisplayMode}
 					model={virtualModel}
 					onExpandTurn={expandTurn}
 					onToggleFold={toggleFold}
@@ -603,6 +606,14 @@ export function SessionContinuousTraceFixturePage() {
 						type="button"
 					>
 						Jump to last turn
+					</button>
+					<button
+						className="sr-only"
+						data-trace-fixture-reset-row-paints
+						onClick={() => setDebugPaintEpoch((current) => current + 1)}
+						type="button"
+					>
+						Reset row paint markers
 					</button>
 					<button
 						className="sr-only"

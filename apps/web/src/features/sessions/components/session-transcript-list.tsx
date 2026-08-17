@@ -29,6 +29,7 @@ import {
 import { formatModelDisplayLabel } from "@/features/dashboard/components/dashboard-model-brand";
 import { SessionContinuousTurnSkeleton } from "./session-continuous-turn-skeleton";
 import type { SessionContinuousTurnViewportStore } from "./session-continuous-turn-viewport-store";
+import type { SessionDetailLevel } from "./session-detail-level";
 import type { buildSessionDetailViewModel } from "./session-detail-view-model";
 import { SessionMemberRow } from "./session-member-row";
 import type {
@@ -47,9 +48,11 @@ import {
 	recordTranscriptComponentLifecycle,
 	recordTranscriptMeasurement,
 	recordTranscriptProgrammaticWrite,
+	recordTranscriptReactCommit,
 	recordTranscriptRowLifecycle,
 	recordTranscriptRowMount,
 	type TranscriptForensicsContentFlags,
+	type TranscriptForensicsReactCommitReason,
 } from "./transcript-forensics";
 
 const TRANSCRIPT_OVERSCAN = 8;
@@ -89,6 +92,8 @@ export const SessionTranscriptList = forwardRef<
 	{
 		bodyTurnCount: number;
 		debugEnabled: boolean;
+		debugPaintEpoch?: number;
+		level: SessionDetailLevel;
 		model: SessionTranscriptRowModel;
 		onLoadAnchor?: (turnId: string) => Promise<boolean>;
 		onLoadDirection?: (direction: "newer" | "older") => void;
@@ -110,6 +115,8 @@ export const SessionTranscriptList = forwardRef<
 	{
 		bodyTurnCount,
 		debugEnabled,
+		debugPaintEpoch = 0,
+		level,
 		model,
 		onLoadAnchor,
 		onLoadDirection,
@@ -134,6 +141,16 @@ export const SessionTranscriptList = forwardRef<
 		createTranscriptTraceInstanceId("list"),
 	);
 	const rowsRef = useRef(model.rows);
+	const rowCommitStatesRef = useRef(
+		new Map<
+			string,
+			{
+				active: boolean;
+				level: SessionDetailLevel;
+				row: SessionTranscriptRow;
+			}
+		>(),
+	);
 	const committedRowsRef = useRef(model.rows);
 	const [, resetPrependAnchor] = useReducer(
 		(version: number) => version + 1,
@@ -298,7 +315,7 @@ export const SessionTranscriptList = forwardRef<
 				startTime,
 				commitTime,
 			);
-			if (!(debugEnabled && phase === "mount")) {
+			if (!debugEnabled) {
 				return;
 			}
 			const rowId = id.endsWith(":virtual") ? id.slice(0, -8) : id;
@@ -306,6 +323,37 @@ export const SessionTranscriptList = forwardRef<
 			const row =
 				rowIndex === undefined ? undefined : modelRef.current.rows[rowIndex];
 			if (!row) {
+				return;
+			}
+			const active = "turnId" in row && row.turnId === selectedTurnId;
+			const previousState = rowCommitStatesRef.current.get(rowId);
+			let reason: TranscriptForensicsReactCommitReason = "no-data-change";
+			if (phase === "mount") {
+				const replacedPendingBody =
+					"turnId" in row &&
+					[...rowCommitStatesRef.current.values()].some(
+						(state) =>
+							"turnId" in state.row &&
+							state.row.turnId === row.turnId &&
+							state.row.kind === "turn-pending",
+					);
+				reason = replacedPendingBody ? "body-attached" : "mount";
+			} else if (previousState?.active !== active) {
+				reason = "selection";
+			} else if (previousState?.level !== level) {
+				reason = "level-change";
+			} else if (previousState?.row !== row) {
+				reason = "fold-or-row-data";
+			}
+			rowCommitStatesRef.current.set(rowId, { active, level, row });
+			recordTranscriptReactCommit({
+				actualDuration,
+				at: commitTime,
+				phase,
+				reason,
+				rowId,
+			});
+			if (phase !== "mount") {
 				return;
 			}
 			recordTranscriptRowMount({
@@ -317,7 +365,7 @@ export const SessionTranscriptList = forwardRef<
 				startTime,
 			});
 		},
-		[debugEnabled, modelRef, onTurnRender],
+		[debugEnabled, level, modelRef, onTurnRender, selectedTurnId],
 	);
 	const listFingerprintRef = useLatestValueRef(
 		`${renderMode}:${model.rows.length}`,
@@ -572,6 +620,7 @@ export const SessionTranscriptList = forwardRef<
 							key={row.id}
 							active={"turnId" in row && row.turnId === selectedTurnId}
 							debugEnabled={debugEnabled}
+							debugPaintEpoch={debugPaintEpoch}
 							directDomUpdates={directDomUpdates}
 							measureElement={virtualizer.measureElement}
 							model={model}
@@ -639,6 +688,7 @@ export function shouldAnchorTranscriptPrepend(
 type TranscriptVirtualRowProps = {
 	active: boolean;
 	debugEnabled: boolean;
+	debugPaintEpoch: number;
 	directDomUpdates: boolean;
 	measureElement: (element: HTMLElement | null) => void;
 	model: SessionTranscriptRowModel;
@@ -651,9 +701,27 @@ type TranscriptVirtualRowProps = {
 	virtualItem: VirtualItem;
 };
 
+const transcriptRowContentVersions = new WeakMap<
+	SessionTranscriptRow,
+	string
+>();
+let transcriptRowContentVersionSequence = 0;
+
+function getTranscriptRowContentVersion(row: SessionTranscriptRow) {
+	const existing = transcriptRowContentVersions.get(row);
+	if (existing) {
+		return existing;
+	}
+	transcriptRowContentVersionSequence += 1;
+	const version = `${row.id}:content:${transcriptRowContentVersionSequence}`;
+	transcriptRowContentVersions.set(row, version);
+	return version;
+}
+
 const TranscriptVirtualRow = memo(function TranscriptVirtualRow({
 	active,
 	debugEnabled,
+	debugPaintEpoch,
 	directDomUpdates,
 	measureElement,
 	model,
@@ -665,13 +733,18 @@ const TranscriptVirtualRow = memo(function TranscriptVirtualRow({
 	viewModel,
 	virtualItem,
 }: TranscriptVirtualRowProps) {
-	useMountEffect(() => {
+	const contentVersion = `${getTranscriptRowContentVersion(row)}:epoch:${debugPaintEpoch}`;
+	useLayoutEffect(() => {
 		if (!debugEnabled) {
 			return;
 		}
-		recordTranscriptRowLifecycle(row.id, "mount");
-		return () => recordTranscriptRowLifecycle(row.id, "unmount");
-	});
+		recordTranscriptRowLifecycle(row.id, contentVersion, "mount");
+		return () =>
+			recordTranscriptRowLifecycle(row.id, contentVersion, "unmount");
+	}, [contentVersion, debugEnabled, row.id]);
+	const elementTimingAttributes = debugEnabled
+		? { elementtiming: "transcript-row" }
+		: {};
 	const style = directDomUpdates
 		? { left: 0, position: "absolute" as const, width: "100%" }
 		: {
@@ -682,18 +755,33 @@ const TranscriptVirtualRow = memo(function TranscriptVirtualRow({
 			};
 	return (
 		<section
+			{...elementTimingAttributes}
 			ref={measureElement}
 			aria-busy={row.kind === "turn-pending" || undefined}
 			aria-current={active ? "true" : undefined}
 			aria-label={getTranscriptRowLabel(row)}
 			className="min-w-0 scroll-mt-0"
 			data-index={virtualItem.index}
+			data-row-id={debugEnabled ? row.id : undefined}
+			data-transcript-content-version={
+				debugEnabled ? contentVersion : undefined
+			}
 			data-transcript-row-id={row.id}
 			data-transcript-row-kind={row.kind}
 			data-transcript-turn-id={"turnId" in row ? row.turnId : undefined}
 			style={style}
 			tabIndex={"turnId" in row ? -1 : undefined}
 		>
+			{debugEnabled ? (
+				<span
+					{...elementTimingAttributes}
+					key={contentVersion}
+					aria-hidden
+					className="pointer-events-none absolute top-0 left-0 size-px overflow-hidden text-[1px] leading-none opacity-[0.01]"
+				>
+					{contentVersion}
+				</span>
+			) : null}
 			<TranscriptRowContent
 				model={model}
 				onLoadDirection={onLoadDirection}
@@ -720,6 +808,7 @@ function areTranscriptVirtualRowPropsEqual(
 	return (
 		left.active === right.active &&
 		left.debugEnabled === right.debugEnabled &&
+		left.debugPaintEpoch === right.debugPaintEpoch &&
 		left.directDomUpdates === right.directDomUpdates &&
 		left.measureElement === right.measureElement &&
 		left.model === right.model &&
