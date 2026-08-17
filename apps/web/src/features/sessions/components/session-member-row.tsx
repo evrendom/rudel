@@ -10,7 +10,7 @@ import {
 	userContentText,
 } from "@/components/conversation/conversation-trace";
 import {
-	conversationTracePreviewClassName,
+	conversationTraceProsePreviewClassName,
 	conversationTraceStickyOnlyFillClassName,
 } from "@/components/conversation/conversation-trace-class-names";
 import { UserTraceAvatar } from "@/components/conversation/conversation-trace-icons";
@@ -45,7 +45,7 @@ export function SessionMemberRow({
 	userLabel: string;
 }) {
 	const promptPanelId = useId();
-	const [promptExpanded, setPromptExpanded] = useState(true);
+	const [promptExpanded, setPromptExpanded] = useState(false);
 
 	if (speakerLayout === "trace-tree") {
 		const promptPreviewText = items
@@ -53,19 +53,31 @@ export function SessionMemberRow({
 				item.kind === "user" ? [userContentText(item.content)] : [],
 			)
 			.join(" ");
-		const promptRows = promptExpanded ? (
-			<div id={promptPanelId}>
-				<div className="grid min-w-0 divide-y divide-(--session-overview-border)">
-					{items.map((item) =>
+		const promptRows = (
+			<div
+				id={promptPanelId}
+				className="grid min-w-0 divide-y divide-(--session-overview-border)"
+			>
+				{promptExpanded ? (
+					items.map((item) =>
 						item.kind === "user" ? (
 							<div key={item.id} className="min-w-0 py-2 pr-3 pl-[3.25rem]">
 								<UserPrompt content={item.content} />
 							</div>
 						) : null,
-					)}
-				</div>
+					)
+				) : (
+					<div className="min-w-0 py-2 pr-3 pl-[3.25rem]">
+						<p
+							className={conversationTraceProsePreviewClassName}
+							data-trace-preview
+						>
+							{compactPreview(promptPreviewText, Number.POSITIVE_INFINITY)}
+						</p>
+					</div>
+				)}
 			</div>
-		) : undefined;
+		);
 
 		return (
 			<section
@@ -82,34 +94,35 @@ export function SessionMemberRow({
 					sticky
 					subtree={promptRows}
 				>
-					<button
-						type="button"
-						aria-controls={promptPanelId}
-						aria-expanded={promptExpanded}
-						className="group flex min-h-10 w-full min-w-0 items-center gap-2 pr-3 text-left outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-(--session-overview-accent)"
-						data-trace-content-disclosure
+					<div
+						className="flex min-h-10 w-full min-w-0 items-center gap-2 pr-3 text-left"
 						data-trace-hover-row
-						onClick={() => setPromptExpanded((current) => !current)}
 					>
 						<UserTraceAvatar
 							expanded={false}
 							expandable={false}
 							imageUrl={userImageUrl}
 						/>
-						<h3
-							id={headingId}
-							className="min-w-0 shrink-0 truncate text-xs font-medium text-(--session-overview-text)"
+						<button
+							type="button"
+							aria-controls={promptPanelId}
+							aria-expanded={promptExpanded}
+							className="group flex min-w-0 items-center gap-0 text-left outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-(--session-overview-accent)"
+							data-trace-content-disclosure
+							onClick={() => setPromptExpanded((current) => !current)}
 						>
-							{userLabel}
-						</h3>
-						<p className={conversationTracePreviewClassName} data-trace-preview>
-							{compactPreview(promptPreviewText, Number.POSITIVE_INFINITY)}
-						</p>
-						<TraceTextDisclosureIcon expanded={promptExpanded} />
+							<h3
+								id={headingId}
+								className="min-w-0 shrink-0 truncate text-xs font-medium text-(--session-overview-text)"
+							>
+								{userLabel}
+							</h3>
+							<TraceTextDisclosureIcon expanded={promptExpanded} />
+						</button>
 						{headerTrailing ? (
 							<div className="ml-auto min-w-0">{headerTrailing}</div>
 						) : null}
-					</button>
+					</div>
 				</ConversationTraceTreeItem>
 			</section>
 		);
