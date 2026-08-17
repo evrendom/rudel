@@ -2,6 +2,7 @@ import type { SessionThreadOverviewPathPoint } from "./session-thread-overview-c
 import type { SessionThreadOverviewStripConfig } from "./session-thread-overview-config";
 import { resolveLivelineInputTokenLimit } from "./session-thread-overview-context-limits";
 import type {
+	SessionOverviewCallPoint,
 	SessionOverviewCallSeries,
 	SessionOverviewCallTurn,
 } from "./session-thread-overview-model";
@@ -18,6 +19,12 @@ export type SessionOverviewLivelineSignal = {
 	linePath: string;
 	points: readonly SessionOverviewLivelinePoint[];
 	topY: number;
+};
+
+export type SessionOverviewLivelineCallHit = {
+	call: SessionOverviewCallPoint;
+	callIndex: number;
+	turnIndex: number;
 };
 
 function formatPathNumber(value: number) {
@@ -120,7 +127,7 @@ export function getLivelineCallAtX(
 	series: SessionOverviewCallSeries,
 	config: SessionThreadOverviewStripConfig,
 	x: number,
-) {
+): SessionOverviewLivelineCallHit | undefined {
 	for (const turn of series.turns) {
 		const startX = getChartX(turn.xStartRatio, config);
 		const endX = getChartX(turn.xEndRatio, config);
@@ -139,6 +146,37 @@ export function getLivelineCallAtX(
 		return call ? { call, callIndex, turnIndex: turn.index } : undefined;
 	}
 	return undefined;
+}
+
+// Hovering is point inspection, not step-path inspection. Select the plotted
+// call nearest the cursor so the readout changes halfway between adjacent
+// calls instead of holding the previous value until the next vertical step.
+export function getNearestLivelineCallAtX(
+	series: SessionOverviewCallSeries,
+	config: SessionThreadOverviewStripConfig,
+	x: number,
+): SessionOverviewLivelineCallHit | undefined {
+	const plotLeft = config.plotPadding;
+	const plotRight = config.chartWidth - config.plotPadding;
+	let nearest: SessionOverviewLivelineCallHit | undefined;
+	let nearestDistance = Number.POSITIVE_INFINITY;
+
+	for (const turn of series.turns) {
+		const callXs = getInteriorCallXs(turn, config);
+		for (const [callIndex, call] of turn.calls.entries()) {
+			const callX = callXs[callIndex];
+			if (callX === undefined || callX < plotLeft || callX > plotRight) {
+				continue;
+			}
+			const distance = Math.abs(callX - x);
+			if (distance < nearestDistance) {
+				nearest = { call, callIndex, turnIndex: turn.index };
+				nearestDistance = distance;
+			}
+		}
+	}
+
+	return nearest;
 }
 
 // A historical Liveline-style signal rather than a cumulative curve. Each

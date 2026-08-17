@@ -22,8 +22,8 @@ import type { SessionThreadOverviewStripConfig } from "./session-thread-overview
 import { resolveLivelineInputTokenLimit } from "./session-thread-overview-context-limits";
 import type { SessionThreadOverviewTimelineEvent } from "./session-thread-overview-events";
 import {
-	getLivelineCallAtX,
 	getLivelineInputAxisMaximum,
+	type SessionOverviewLivelineCallHit,
 } from "./session-thread-overview-liveline-geometry";
 import type { SessionOverviewCallSeries } from "./session-thread-overview-model";
 import { transformSessionOverviewRulerScale } from "./session-thread-overview-ruler-scale";
@@ -174,20 +174,15 @@ export function SessionOverviewLivelineAxisLabels({
 	);
 }
 
-// The plotted value under the hover cursor, appended to the time readout.
-// Mirrors the Liveline drawing exactly: step-hold call lookup and the same
-// denominator order (trace-reported window, catalog limit, observed peak with
-// the signal's 1.12 headroom).
+// The nearest plotted call's value, appended to the time readout. The hit is
+// shared with the timestamp so both labels change at the same cursor position.
 export function SessionOverviewHoverValueLabel({
-	config,
+	hit,
 	series,
-	x,
 }: {
-	config: SessionThreadOverviewStripConfig;
+	hit: SessionOverviewLivelineCallHit | undefined;
 	series: SessionOverviewCallSeries;
-	x: number;
 }) {
-	const hit = getLivelineCallAtX(series, config, x);
 	if (!hit) {
 		return null;
 	}

@@ -42,8 +42,16 @@ export type SessionOverviewCallPoint = {
 	inputTotal: number;
 	model: string | undefined;
 	modelContextWindow?: number;
+	timestampMs: number | undefined;
 	xRatio: number;
 };
+
+export function resolveSessionOverviewHoverTimestamp(
+	call: SessionOverviewCallPoint | undefined,
+	cursorTimestampMs: number | undefined,
+): number | undefined {
+	return call?.timestampMs ?? cursorTimestampMs;
+}
 
 export type SessionOverviewCallTurn = {
 	calls: readonly SessionOverviewCallPoint[];
@@ -153,6 +161,7 @@ export function buildSessionOverviewCallSeries(
 				...(event.modelContextWindow === undefined
 					? {}
 					: { modelContextWindow: event.modelContextWindow }),
+				timestampMs: time,
 				xRatio: xStartRatio + progress * xSpan,
 			};
 		});

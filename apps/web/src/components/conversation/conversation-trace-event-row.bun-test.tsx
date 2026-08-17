@@ -34,7 +34,7 @@ describe("formatShellOutput", () => {
 });
 
 describe("ConversationTraceEventRow shell calls", () => {
-	test("renders an associated Claude skill payload inside its Skill row", () => {
+	test("renders a Skill as a tag-only expandable file-style row", () => {
 		const markup = renderToStaticMarkup(
 			<ConversationTraceEventRow
 				event={{
@@ -56,10 +56,22 @@ describe("ConversationTraceEventRow shell calls", () => {
 		);
 
 		expect(markup).toContain("data-trace-skill-details");
+		expect(markup).toContain("data-trace-skill-tag");
+		expect(markup).toContain('data-trace-tag-context="sparkle"');
 		expect(markup).toContain("claude-api");
-		expect(markup).toContain("model pricing rate card verification");
-		expect(markup).toContain("/private/tmp/bundled-skills/claude-api");
-		expect(markup).toContain("# Building with the Claude API");
+		expect(markup).not.toContain(">Used<");
+		expect(markup).not.toContain("model pricing rate card verification");
+		expect(markup).not.toContain("data-trace-preview");
+		expect(markup).not.toContain("data-trace-tool-label-group");
+		expect(markup.match(/data-trace-code-block=/g)).toHaveLength(1);
+		expect(markup).toContain(">SKILL.md<");
+		expect(markup).toContain('data-trace-code-header-icon="markdown"');
+		expect(markup).not.toContain("Base directory");
+		expect(markup).not.toContain("/private/tmp/bundled-skills/claude-api");
+		expect(markup).toContain("Building with the Claude API");
+		expect(
+			markup.indexOf("data-trace-content-disclosure-icon"),
+		).toBeGreaterThan(markup.indexOf("data-trace-skill-tag"));
 		expect(markup).not.toContain(">Input<");
 		expect(markup).not.toContain(">Output<");
 		expect(markup).not.toContain("No result recorded for this call");

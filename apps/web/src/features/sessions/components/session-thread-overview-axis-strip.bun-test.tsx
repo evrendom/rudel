@@ -122,6 +122,7 @@ describe("SessionOverviewTimelineFooter", () => {
 										fresh: 1_000,
 										inputTotal: 1_000,
 										model: undefined,
+										timestampMs: undefined,
 										xRatio: 0.25,
 									},
 								],

@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import type { buildSessionThreadOverviewChart } from "./session-thread-overview-chart";
 import type { SessionThreadOverviewStripConfig } from "./session-thread-overview-config";
 import type { buildSessionThreadOverviewTimelineEvents } from "./session-thread-overview-events";
+import type { SessionOverviewLivelineCallHit } from "./session-thread-overview-liveline-geometry";
 import type { buildSessionOverviewCallSeries } from "./session-thread-overview-model";
 import {
 	formatElapsedSinceStart,
@@ -47,6 +48,7 @@ export function SessionThreadOverviewStripView({
 	footerTicks,
 	hover,
 	hoverElapsedMs,
+	hoveredCall,
 	hoverTimestamp,
 	hasViewport,
 	markerRatio,
@@ -82,6 +84,7 @@ export function SessionThreadOverviewStripView({
 	footerTicks: TimelineTicks;
 	hover: SessionOverviewHover | undefined;
 	hoverElapsedMs: number | undefined;
+	hoveredCall: SessionOverviewLivelineCallHit | undefined;
 	hoverTimestamp: number | undefined;
 	hasViewport: boolean;
 	markerRatio: number | undefined;
@@ -148,9 +151,8 @@ export function SessionThreadOverviewStripView({
 								</span>
 							) : null}
 							<SessionOverviewHoverValueLabel
-								config={resolvedConfig}
+								hit={hoveredCall}
 								series={callSeries}
-								x={getChartX(hover.xRatio, resolvedConfig)}
 							/>
 						</div>
 					) : null}

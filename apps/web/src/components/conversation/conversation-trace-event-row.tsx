@@ -142,16 +142,13 @@ export function SkillToolCallBody({
 	skillContent: TraceSkillContent;
 }) {
 	return (
-		<div className="grid gap-3" data-trace-skill-details>
-			<div className="grid gap-1">
-				<p className="font-sans text-[0.75rem] leading-4 font-normal text-[color:var(--dashboardy-muted)]">
-					Base directory
-				</p>
-				<code className="break-all font-mono text-[0.75rem] leading-4 font-normal text-[color:var(--dashboardy-heading)]">
-					{skillContent.baseDirectory}
-				</code>
-			</div>
-			<MessageContent content={skillContent.content} />
+		<div data-trace-skill-details>
+			<CodeBlock
+				code={skillContent.content}
+				filename="SKILL.md"
+				language="markdown"
+				showLineNumbers
+			/>
 		</div>
 	);
 }
@@ -352,6 +349,7 @@ export function ConversationTraceEventRow({
 	const isError = event.result?.isError === true;
 	const shellCommand = getShellCommand(event.toolName, event.input);
 	const delegatedModel = getDelegatedModel(event.toolName, event.input);
+	const isSkill = event.toolName.toLowerCase() === "skill";
 
 	if (shellCommand) {
 		return (
@@ -392,6 +390,52 @@ export function ConversationTraceEventRow({
 				treeBodyClassName="-ml-3"
 				body={
 					<ShellToolCallBody command={shellCommand} result={event.result} />
+				}
+			/>
+		);
+	}
+
+	if (isSkill) {
+		const skillName = primaryArg ?? "Skill";
+
+		return (
+			<ExpandableTraceRow
+				compact
+				fullPreviewText={undefined}
+				label={
+					<ConversationTraceTag
+						className="max-w-[18rem] shrink-0"
+						data-trace-skill-tag
+						toolIcon={icon}
+						value={skillName}
+					>
+						<span className="truncate">{skillName}</span>
+					</ConversationTraceTag>
+				}
+				leading={
+					<TraceIcon
+						className={
+							isError
+								? "border-[color:var(--dashboardy-danger-foreground)] text-[color:var(--dashboardy-danger-foreground)]"
+								: undefined
+						}
+						icon={CONVERSATION_TOOL_ICONS[icon]}
+						toolIcon={icon}
+						tone={isError ? "tomato" : "amber"}
+					/>
+				}
+				trailing={trailing}
+				treeBodyClassName="-ml-3"
+				body={
+					event.skillContent ? (
+						<SkillToolCallBody skillContent={event.skillContent} />
+					) : (
+						<ToolCallBody
+							input={event.input}
+							result={event.result}
+							toolName={event.toolName}
+						/>
+					)
 				}
 			/>
 		);
@@ -442,15 +486,11 @@ export function ConversationTraceEventRow({
 			trailing={trailing}
 			treeBodyClassName="-ml-3"
 			body={
-				event.skillContent ? (
-					<SkillToolCallBody skillContent={event.skillContent} />
-				) : (
-					<ToolCallBody
-						input={event.input}
-						result={event.result}
-						toolName={event.toolName}
-					/>
-				)
+				<ToolCallBody
+					input={event.input}
+					result={event.result}
+					toolName={event.toolName}
+				/>
 			}
 		>
 			{inputPreview ? (

@@ -17,9 +17,14 @@ import {
 	type SessionThreadOverviewStripConfig,
 } from "./session-thread-overview-config";
 import { buildSessionThreadOverviewTimelineEvents } from "./session-thread-overview-events";
-import { buildSessionOverviewCallSeries } from "./session-thread-overview-model";
+import { getNearestLivelineCallAtX } from "./session-thread-overview-liveline-geometry";
+import {
+	buildSessionOverviewCallSeries,
+	resolveSessionOverviewHoverTimestamp,
+} from "./session-thread-overview-model";
 import {
 	getChartRatioAtX,
+	getChartX,
 	getPlotBounds,
 	getSessionOverviewViewportLayout,
 	type SessionOverviewHover,
@@ -129,7 +134,20 @@ export function SessionThreadOverviewStrip({
 			: chart.rows.find((row) => row.index === focusedIndex);
 	const readout = hover ?? focusedRow;
 	const markerRatio = focusedRow?.xRatio ?? selectedRatio;
-	const hoverTimestamp = hover ? chart.unprojectRatio(hover.xRatio) : undefined;
+	const cursorTimestamp = hover
+		? chart.unprojectRatio(hover.xRatio)
+		: undefined;
+	const hoveredCall = hover
+		? getNearestLivelineCallAtX(
+				callSeries,
+				resolvedConfig,
+				getChartX(hover.xRatio, resolvedConfig),
+			)
+		: undefined;
+	const hoverTimestamp = resolveSessionOverviewHoverTimestamp(
+		hoveredCall?.call,
+		cursorTimestamp,
+	);
 	const hoverElapsedMs =
 		hoverTimestamp !== undefined && chart.axisStartTimestamp !== undefined
 			? hoverTimestamp - chart.axisStartTimestamp
@@ -232,6 +250,7 @@ export function SessionThreadOverviewStrip({
 			footerTicks={footerTicks}
 			hover={hover}
 			hoverElapsedMs={hoverElapsedMs}
+			hoveredCall={hoveredCall}
 			hoverTimestamp={hoverTimestamp}
 			hasViewport={viewport !== undefined}
 			markerRatio={markerRatio}

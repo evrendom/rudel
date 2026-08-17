@@ -4,6 +4,7 @@ import {
 	buildSessionOverviewCallSeries,
 	formatElapsedSinceStart,
 	formatTimelineMomentWithSeconds,
+	resolveSessionOverviewHoverTimestamp,
 } from "./session-thread-overview-model";
 import type { TokenUsageEvent } from "./session-turn-metadata";
 
@@ -58,6 +59,23 @@ function createUsageEvent(
 }
 
 describe("buildSessionOverviewCallSeries", () => {
+	test("uses the token event time instead of the cursor time for its hover readout", () => {
+		const eventTimestamp = Date.parse("2026-08-02T10:00:15.000Z");
+		const cursorTimestamp = Date.parse("2026-08-02T10:00:45.000Z");
+		const rows = [createRow({ index: 0, xEndRatio: 1, xStartRatio: 0 })];
+		const series = buildSessionOverviewCallSeries(rows, () => [
+			createUsageEvent({ at: "2026-08-02T10:00:15.000Z", inputTokens: 100 }),
+		]);
+
+		expect(series.turns[0]?.calls[0]?.timestampMs).toBe(eventTimestamp);
+		expect(
+			resolveSessionOverviewHoverTimestamp(
+				series.turns[0]?.calls[0],
+				cursorTimestamp,
+			),
+		).toBe(eventTimestamp);
+	});
+
 	test("carries a model-call's reported context window into its shared scale", () => {
 		const rows = [createRow({ index: 0, xEndRatio: 1, xStartRatio: 0 })];
 		const series = buildSessionOverviewCallSeries(rows, () => [
@@ -115,6 +133,7 @@ describe("buildSessionOverviewCallSeries", () => {
 			fresh: 100,
 			inputTotal: 420,
 			model: "model-b",
+			timestampMs: Date.parse("2026-08-02T10:00:00.000Z"),
 			xRatio: 0,
 		});
 		expect(series.turns[0]?.inputTotal).toBe(500);
