@@ -23,11 +23,13 @@ export type TranscriptForensicsFeelScore = {
 	blankMs: number;
 	inputLatencyMs: number | null;
 	lumpCount: number;
+	maskedGapMs: number;
 	maxWheelQueueingDelayMs: number | null;
 	maxFrameGapMs: number;
 	momentumKills: number;
 	p95WheelQueueingDelayMs: number | null;
 	reversalCount: number;
+	trueBlankMs: number;
 };
 
 export type TranscriptForensicsProgrammaticWrite = {
@@ -57,11 +59,15 @@ export type TranscriptForensicsFrame = {
 	frameMs: number;
 	longTaskMs: number;
 	mounted: readonly string[];
+	maskedGapPts: number;
+	maskedGapSamples: readonly boolean[];
 	moved: number;
 	phase: "coast" | "idle" | "input";
 	progWrites: readonly TranscriptForensicsProgrammaticWrite[];
 	scrollTop: number;
 	suspectMarks: readonly string[];
+	trueBlankPts: number;
+	trueBlankSamples: readonly boolean[];
 	unmounted: readonly string[];
 	userDelta: number;
 	wheelEventCount: number;
@@ -128,6 +134,7 @@ export type TranscriptForensicsBlindWindow = {
 	endedAt: number;
 	entryScrollTop: number;
 	exitScrollTop: number;
+	maskVisible: boolean;
 	startedAt: number;
 	viewportRows: readonly TranscriptForensicsViewportRow[];
 };
@@ -136,6 +143,7 @@ export type TranscriptForensicsBlankEpisode = {
 	durationMs: number;
 	endedAt: number;
 	loafAttribution: readonly TranscriptForensicsLongAnimationFrame[];
+	presentation: "masked-gap" | "true-blank";
 	rowIds: readonly string[];
 	scrollDelta: number;
 	startedAt: number;
@@ -161,7 +169,9 @@ export type TranscriptForensicsFrameAnatomy = {
 	paint: {
 		blankPts: number;
 		blankRowIds: readonly (string | null)[];
+		maskedGapPts: number;
 		paintedRows: readonly TranscriptForensicsRowPaint[];
+		trueBlankPts: number;
 		unpaintedVisibleRowIds: readonly string[];
 	};
 	react: {
@@ -322,6 +332,7 @@ type TranscriptForensicsRowLifecycle = TranscriptForensicsViewportRow & {
 
 type HeartbeatWitness = {
 	at: number;
+	maskVisible: boolean;
 	scrollTop: number;
 	viewportRows: readonly TranscriptForensicsViewportRow[];
 };
@@ -695,7 +706,7 @@ function renderTranscriptForensicsHud(
 	const base = element.dataset.transcriptDebugBaseHud;
 	const content = [
 		base,
-		`feel latency ${formatMetric(score.inputLatencyMs)} · wheel q p95 ${formatMetric(score.p95WheelQueueingDelayMs)} max ${formatMetric(score.maxWheelQueueingDelayMs)} · gap ${score.maxFrameGapMs.toFixed(1)}ms · blank ${score.blankMs.toFixed(1)}ms · lumps ${score.lumpCount} · reversals ${score.reversalCount} · kills ${score.momentumKills}`,
+		`feel latency ${formatMetric(score.inputLatencyMs)} · wheel q p95 ${formatMetric(score.p95WheelQueueingDelayMs)} max ${formatMetric(score.maxWheelQueueingDelayMs)} · gap ${score.maxFrameGapMs.toFixed(1)}ms · blank ${score.blankMs.toFixed(1)}ms (masked ${score.maskedGapMs.toFixed(1)}ms · true ${score.trueBlankMs.toFixed(1)}ms) · lumps ${score.lumpCount} · reversals ${score.reversalCount} · kills ${score.momentumKills}`,
 		trace.lastFlaggedCause
 			? `last flagged ${trace.lastFlaggedCause}`
 			: undefined,
@@ -1103,6 +1114,7 @@ function installHeartbeatWorker(trace: RuntimeState) {
 			if (element) {
 				trace.lastHeartbeatWitness = {
 					at: performance.now(),
+					maskVisible: isTranscriptTextureMaskVisible(element),
 					scrollTop: trace.lastScrollTop,
 					viewportRows: getVisibleTranscriptRows(trace, trace.lastScrollTop),
 				};
@@ -1141,6 +1153,7 @@ function installHeartbeatWorker(trace: RuntimeState) {
 			endedAt,
 			entryScrollTop: entryWitness.scrollTop,
 			exitScrollTop: trace.lastScrollTop,
+			maskVisible: entryWitness.maskVisible,
 			startedAt,
 			viewportRows: mergeViewportRows(
 				entryWitness.viewportRows,
@@ -1255,11 +1268,15 @@ function startFrameLoop(trace: RuntimeState) {
 			frameMs: at - previousFrameAt,
 			longTaskMs,
 			mounted,
+			maskedGapPts: 0,
+			maskedGapSamples: [false, false, false, false, false],
 			moved,
 			phase,
 			progWrites,
 			scrollTop,
 			suspectMarks,
+			trueBlankPts: 0,
+			trueBlankSamples: [false, false, false, false, false],
 			unmounted,
 			userDelta,
 			wheelEventCount: 0,
@@ -1274,15 +1291,17 @@ function startFrameLoop(trace: RuntimeState) {
 			if (frameIndex < 0) {
 				return;
 			}
-			const { blankRowIds, blankSamples } = sampleBlankPoints(
-				trace,
-				frame.scrollTop,
-			);
+			const { blankRowIds, blankSamples, maskedGapSamples, trueBlankSamples } =
+				sampleBlankPoints(trace, frame.scrollTop);
 			trace.frames[frameIndex] = {
 				...frame,
 				blankPts: blankSamples.filter(Boolean).length,
 				blankRowIds,
 				blankSamples,
+				maskedGapPts: maskedGapSamples.filter(Boolean).length,
+				maskedGapSamples,
+				trueBlankPts: trueBlankSamples.filter(Boolean).length,
+				trueBlankSamples,
 			};
 			const unpaintedRowId = blankRowIds.find((rowId) => rowId);
 			if (unpaintedRowId) {
@@ -1408,6 +1427,15 @@ function computeFeelScore(
 	let previousVelocity = 0;
 	let momentumKills = 0;
 	const queueingDelays = wheelEventTimings.map((event) => event.queueingDelay);
+	const blankEpisodeDurations = blankEpisodes.map((episode) => ({
+		duration: overlapDuration(
+			run.startedAt,
+			performance.now(),
+			episode.startedAt,
+			episode.durationMs,
+		),
+		presentation: episode.presentation,
+	}));
 	const trailingInputs: number[] = [];
 	const writes = scoredFrames.flatMap((frame) => frame.progWrites);
 	for (const frame of scoredFrames) {
@@ -1451,30 +1479,34 @@ function computeFeelScore(
 		}
 	}
 	return {
-		blankMs: blankEpisodes.reduce(
-			(total, episode) =>
-				total +
-				overlapDuration(
-					run.startedAt,
-					performance.now(),
-					episode.startedAt,
-					episode.durationMs,
-				),
+		blankMs: blankEpisodeDurations.reduce(
+			(total, episode) => total + episode.duration,
 			0,
 		),
 		inputLatencyMs,
 		lumpCount,
+		maskedGapMs: blankEpisodeDurations.reduce(
+			(total, episode) =>
+				total + (episode.presentation === "masked-gap" ? episode.duration : 0),
+			0,
+		),
 		maxWheelQueueingDelayMs:
 			queueingDelays.length > 0 ? Math.max(...queueingDelays) : null,
 		maxFrameGapMs,
 		momentumKills,
 		p95WheelQueueingDelayMs: percentile(queueingDelays, 0.95),
 		reversalCount,
+		trueBlankMs: blankEpisodeDurations.reduce(
+			(total, episode) =>
+				total + (episode.presentation === "true-blank" ? episode.duration : 0),
+			0,
+		),
 	};
 }
 
 function sampleBlankPoints(trace: RuntimeState, scrollTop: number) {
 	const geometry = trace.viewportGeometry;
+	const maskVisible = isTranscriptTextureMaskVisible(trace.scrollElement);
 	const samples = [0.1, 0.3, 0.5, 0.7, 0.9].map((ratio) => {
 		const offset = scrollTop + (geometry?.clientHeight ?? 0) * ratio;
 		const row = geometry?.rows.find(
@@ -1491,7 +1523,22 @@ function sampleBlankPoints(trace: RuntimeState, scrollTop: number) {
 	return {
 		blankRowIds: samples.map((sample) => (sample.blank ? sample.rowId : null)),
 		blankSamples: samples.map((sample) => sample.blank),
+		maskedGapSamples: samples.map((sample) => sample.blank && maskVisible),
+		trueBlankSamples: samples.map((sample) => sample.blank && !maskVisible),
 	};
+}
+
+function isTranscriptTextureMaskVisible(element: HTMLElement | undefined) {
+	if (!element?.classList.contains("session-transcript-mask")) {
+		return false;
+	}
+	const style = window.getComputedStyle(element);
+	return (
+		style.backgroundImage !== "none" &&
+		style.backgroundAttachment
+			.split(",")
+			.some((attachment) => attachment.trim() === "local")
+	);
 }
 
 function buildDump(trace: RuntimeState): TranscriptForensicsDump {
@@ -1656,7 +1703,8 @@ function correlateFrameAnatomy(
 			worstQueueingDelay !== null && worstQueueingDelay >= 8
 				? "queued-input"
 				: undefined,
-			frame.blankPts > 0 ? "blank-pixels" : undefined,
+			frame.maskedGapPts > 0 ? "masked-gap-pixels" : undefined,
+			frame.trueBlankPts > 0 ? "true-blank-pixels" : undefined,
 			blindWindows.length > 0 ? "heartbeat-blind-window" : undefined,
 		].filter((flag) => flag !== undefined);
 		const cause = pickFrameTopCause({
@@ -1684,7 +1732,9 @@ function correlateFrameAnatomy(
 			paint: {
 				blankPts: frame.blankPts,
 				blankRowIds: frame.blankRowIds,
+				maskedGapPts: frame.maskedGapPts,
 				paintedRows,
+				trueBlankPts: frame.trueBlankPts,
 				unpaintedVisibleRowIds,
 			},
 			react: {
@@ -1777,6 +1827,7 @@ function buildBlankEpisodes(
 							entry.startTime + entry.duration,
 						),
 					),
+					presentation: blindWindow.maskVisible ? "masked-gap" : "true-blank",
 					rowIds,
 					scrollDelta: blindWindow.exitScrollTop - blindWindow.entryScrollTop,
 					startedAt: blindWindow.startedAt,
@@ -1892,7 +1943,9 @@ function emptyFrameAnatomy(): TranscriptForensicsFrameAnatomy {
 		paint: {
 			blankPts: 0,
 			blankRowIds: [],
+			maskedGapPts: 0,
 			paintedRows: [],
+			trueBlankPts: 0,
 			unpaintedVisibleRowIds: [],
 		},
 		react: {
@@ -2002,11 +2055,13 @@ function emptyFeelScore(): TranscriptForensicsFeelScore {
 		blankMs: 0,
 		inputLatencyMs: null,
 		lumpCount: 0,
+		maskedGapMs: 0,
 		maxWheelQueueingDelayMs: null,
 		maxFrameGapMs: 0,
 		momentumKills: 0,
 		p95WheelQueueingDelayMs: null,
 		reversalCount: 0,
+		trueBlankMs: 0,
 	};
 }
 

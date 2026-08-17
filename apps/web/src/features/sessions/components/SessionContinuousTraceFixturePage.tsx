@@ -507,7 +507,7 @@ export function SessionContinuousTraceFixturePage() {
 			data-trace-fixture-hydrated-turns={hydratedTurnCount}
 			data-trace-fixture-scroller
 			data-trace-fixture-total-turns={fixtureOptions.length}
-			className="isolate h-dvh min-w-0 overflow-y-auto overscroll-contain bg-(--session-overview-surface) antialiased [--session-overview-accent:#266df0] [--session-overview-border:#eeeff1] [--session-overview-hover:#f6f7f7] [--session-overview-muted:rgba(0,0,0,0.63)] [--session-overview-subtle:rgba(0,0,0,0.5)] [--session-overview-surface:#fff] [--session-overview-text:#101112] [font-family:Inter,sans-serif] [overflow-anchor:none] [scrollbar-gutter:stable]"
+			className={`${usesVirtualTranscript ? "session-transcript-mask" : ""} isolate h-dvh min-w-0 overflow-y-auto overscroll-contain bg-(--session-overview-surface) antialiased [--session-overview-accent:#266df0] [--session-overview-border:#eeeff1] [--session-overview-hover:#f6f7f7] [--session-overview-muted:rgba(0,0,0,0.63)] [--session-overview-subtle:rgba(0,0,0,0.5)] [--session-overview-surface:#fff] [--session-overview-text:#101112] [font-family:Inter,sans-serif] [overflow-anchor:none] [scrollbar-gutter:stable]`}
 		>
 			{mountsThread && usesVirtualTranscript ? (
 				<SessionTranscriptList

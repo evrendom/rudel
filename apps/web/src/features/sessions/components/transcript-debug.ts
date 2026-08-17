@@ -2,13 +2,14 @@ import { publishTranscriptForensicsHud } from "./transcript-forensics";
 
 export type TranscriptDebugSnapshot = {
 	activeTurn: number | undefined;
-	blankFrames: number;
 	bodyTurns: number;
 	lastGap: number;
+	maskedGapFrames: number;
 	pending: number;
 	scrollMode: "anchoring-turn" | "free-scrolling";
 	visibleRange: readonly [number, number] | undefined;
 	windows: number;
+	trueBlankFrames: number;
 };
 
 export function publishTranscriptDebugSnapshot(
@@ -24,7 +25,8 @@ export function publishTranscriptDebugSnapshot(
 	element.dataset.transcriptWindows = String(snapshot.windows);
 	element.dataset.transcriptBodyTurns = String(snapshot.bodyTurns);
 	element.dataset.transcriptPending = String(snapshot.pending);
-	element.dataset.transcriptBlankFrames = String(snapshot.blankFrames);
+	element.dataset.transcriptMaskedGapFrames = String(snapshot.maskedGapFrames);
+	element.dataset.transcriptTrueBlankFrames = String(snapshot.trueBlankFrames);
 	element.dataset.transcriptBlankGap = String(snapshot.lastGap);
 	const hud = element.querySelector<HTMLOutputElement>(
 		"[data-transcript-debug-hud]",
@@ -37,7 +39,8 @@ export function publishTranscriptDebugSnapshot(
 			`${snapshot.windows} windows`,
 			`${snapshot.bodyTurns} bodies`,
 			`${snapshot.pending} pending`,
-			`${snapshot.blankFrames} blank`,
+			`${snapshot.maskedGapFrames} masked gaps`,
+			`${snapshot.trueBlankFrames} true blanks`,
 		].join(" · ");
 		element.dataset.transcriptDebugBaseHud = baseHud;
 		publishTranscriptForensicsHud();

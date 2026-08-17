@@ -58,6 +58,7 @@ import {
 	type TranscriptForensicsContentFlags,
 	type TranscriptForensicsReactCommitReason,
 } from "./transcript-forensics";
+import "./session-transcript-mask.css";
 
 const TRANSCRIPT_OVERSCAN = 8;
 const TRANSCRIPT_EDGE_LOAD_DISTANCE = 10;
@@ -176,7 +177,8 @@ export const SessionTranscriptList = forwardRef<
 		pendingCount,
 		windowsLoaded,
 	});
-	const blankFrameCountRef = useRef(0);
+	const maskedGapFrameCountRef = useRef(0);
+	const trueBlankFrameCountRef = useRef(0);
 	const lastBlankGapRef = useRef(0);
 	const loadingEdgesRef = useRef(new Set<"newer" | "older">());
 	const scrollModeRef = useRef<
@@ -547,7 +549,11 @@ export const SessionTranscriptList = forwardRef<
 					? 0
 					: getVisibleBlankGap(visibleItems, scrollTop, virtualContentBottom);
 			if (blankGap > BLANK_FRAME_GAP_TOLERANCE_PX) {
-				blankFrameCountRef.current += 1;
+				if (scrollElement.classList.contains("session-transcript-mask")) {
+					maskedGapFrameCountRef.current += 1;
+				} else {
+					trueBlankFrameCountRef.current += 1;
+				}
 				lastBlankGapRef.current = Math.round(blankGap);
 			}
 			triggerApproachingEdges({
@@ -560,13 +566,14 @@ export const SessionTranscriptList = forwardRef<
 			if (feederInputRef.current.debugEnabled) {
 				publishTranscriptDebugSnapshot(scrollElement, {
 					activeTurn: viewport?.activeTurn,
-					blankFrames: blankFrameCountRef.current,
 					bodyTurns: feederInputRef.current.bodyTurnCount,
 					lastGap: lastBlankGapRef.current,
+					maskedGapFrames: maskedGapFrameCountRef.current,
 					pending: feederInputRef.current.pendingCount,
 					scrollMode: scrollModeRef.current.kind,
 					visibleRange: viewport?.visibleRange,
 					windows: feederInputRef.current.windowsLoaded,
+					trueBlankFrames: trueBlankFrameCountRef.current,
 				});
 			}
 		};
@@ -790,7 +797,7 @@ const TranscriptVirtualRow = memo(function TranscriptVirtualRow({
 			aria-busy={row.kind === "turn-pending" || undefined}
 			aria-current={active ? "true" : undefined}
 			aria-label={getTranscriptRowLabel(row)}
-			className="min-w-0 scroll-mt-0"
+			className="session-transcript-row-surface min-w-0 scroll-mt-0"
 			data-index={virtualItem.index}
 			data-row-id={debugEnabled ? row.id : undefined}
 			data-transcript-content-version={

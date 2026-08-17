@@ -1,0 +1,38 @@
+.session-transcript-mask {
+	--transcript-mask-bar-height: 3px;
+	--transcript-mask-gap: 37px;
+	--transcript-mask-tone: color-mix(
+		in srgb,
+		var(--dashboardy-subsurface-strong, rgb(240 243 247 / 98%)) 32%,
+		transparent
+	);
+
+	background-image: repeating-linear-gradient(
+		to bottom,
+		var(--transcript-mask-tone) 0 var(--transcript-mask-bar-height),
+		transparent var(--transcript-mask-bar-height)
+			calc(var(--transcript-mask-bar-height) + var(--transcript-mask-gap))
+	);
+	background-attachment: local;
+}
+
+.dark .session-transcript-mask {
+	--transcript-mask-tone: color-mix(
+		in srgb,
+		var(--dashboardy-subsurface-strong, rgb(15 23 42 / 98%)) 42%,
+		transparent
+	);
+}
+
+.session-transcript-row-surface {
+	background-color: var(--session-overview-surface);
+}
+
+[data-transcript-mask-overlay] {
+	display: none;
+}
+
+.transcript-mask-demo:has([data-transcript-mask-toggle]:checked)
+	[data-transcript-mask-overlay] {
+	display: block;
+}

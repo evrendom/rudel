@@ -28,7 +28,10 @@ async function openVirtualFixture(
 		scroller.locator("[data-transcript-virtual-list]"),
 	).toBeVisible();
 	await expect(scroller.locator(ROW_SELECTOR).first()).toBeVisible();
-	await expect(scroller).toHaveAttribute("data-transcript-blank-frames", "0");
+	await expect(scroller).toHaveAttribute(
+		"data-transcript-true-blank-frames",
+		"0",
+	);
 	await waitForFrames(page);
 	return scroller;
 }
@@ -122,7 +125,10 @@ test("virtual transcript sweeps without gaps or overlapping measured rows", asyn
 		.locator("[data-trace-fixture-reset-profile]")
 		.dispatchEvent("click");
 	await profileScrollSweep(scroller);
-	await expect(scroller).toHaveAttribute("data-transcript-blank-frames", "0");
+	await expect(scroller).toHaveAttribute(
+		"data-transcript-true-blank-frames",
+		"0",
+	);
 	await expect(scroller).toHaveAttribute(
 		"data-trace-fixture-long-tasks",
 		/^\d+$/,
@@ -188,7 +194,10 @@ test("native keyed anchoring keeps an oversized visible row fixed on prepend", a
 	}, anchor.id);
 	expect(after.scrollTop).toBeGreaterThan(anchor.scrollTop);
 	expect(Math.abs(after.offset - anchor.offset)).toBeLessThanOrEqual(2);
-	await expect(scroller).toHaveAttribute("data-transcript-blank-frames", "0");
+	await expect(scroller).toHaveAttribute(
+		"data-transcript-true-blank-frames",
+		"0",
+	);
 });
 
 test("jump settling, level remeasurement, and viewport resize remain covered", async ({
@@ -219,7 +228,10 @@ test("jump settling, level remeasurement, and viewport resize remain covered", a
 	await waitForFrames(page, 5);
 	await page.setViewportSize({ height: 640, width: 900 });
 	await waitForFrames(page, 5);
-	await expect(scroller).toHaveAttribute("data-transcript-blank-frames", "0");
+	await expect(scroller).toHaveAttribute(
+		"data-transcript-true-blank-frames",
+		"0",
+	);
 });
 
 test("wheel input cancels an in-flight programmatic anchor", async ({
@@ -258,7 +270,10 @@ test("pending rows and incremental body replacement never expose a blank frame",
 		{ timeout: 10_000 },
 	);
 	await scrollSweep(scroller, page, 12);
-	await expect(scroller).toHaveAttribute("data-transcript-blank-frames", "0");
+	await expect(scroller).toHaveAttribute(
+		"data-transcript-true-blank-frames",
+		"0",
+	);
 });
 
 test("semantic folds expand in place and survive keyed prepends", async ({
@@ -294,7 +309,10 @@ test("semantic folds expand in place and survive keyed prepends", async ({
 	await expect(
 		scroller.locator(`[data-transcript-fold-turn-id="${turnId}"]`),
 	).toHaveAttribute("aria-expanded", "true");
-	await expect(scroller).toHaveAttribute("data-transcript-blank-frames", "0");
+	await expect(scroller).toHaveAttribute(
+		"data-transcript-true-blank-frames",
+		"0",
+	);
 });
 
 test("a programmatic hit expands its fold before anchoring", async ({
@@ -345,6 +363,9 @@ for (const mode of [
 		await expect(
 			scroller.locator("[data-trace-tree-row-owner]").first(),
 		).toBeVisible();
-		await expect(scroller).toHaveAttribute("data-transcript-blank-frames", "0");
+		await expect(scroller).toHaveAttribute(
+			"data-transcript-true-blank-frames",
+			"0",
+		);
 	});
 }

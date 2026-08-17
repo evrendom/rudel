@@ -263,7 +263,7 @@ export function SessionDetailFastResponsePane({
 			<section
 				ref={responseScrollRef}
 				aria-label="Conversation thread"
-				className={`session-constellation-tree h-full min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain bg-(--session-overview-surface) [overflow-anchor:none] [scrollbar-gutter:stable] ${bottomPaddingClassName}`}
+				className={`session-constellation-tree h-full min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain bg-(--session-overview-surface) [overflow-anchor:none] [scrollbar-gutter:stable] ${wantsVirtualTranscript ? "session-transcript-mask" : ""} ${bottomPaddingClassName}`}
 				data-conversation-trace-scroll-container
 				data-session-trace-presentation="constellation-tree-branch-dots-no-horizontal"
 			>

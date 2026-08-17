@@ -75,7 +75,10 @@ test("the real fast response pane keeps user scroll authoritative across windows
 	await expect(scroller.locator("[data-transcript-virtual-list]")).toBeVisible({
 		timeout: 15_000,
 	});
-	await expect(scroller).toHaveAttribute("data-transcript-blank-frames", "0");
+	await expect(scroller).toHaveAttribute(
+		"data-transcript-true-blank-frames",
+		"0",
+	);
 	await expect
 		.poll(() => windowRequests.some((request) => request.mode === "initial"))
 		.toBe(true);
@@ -132,7 +135,10 @@ test("the real fast response pane keeps user scroll authoritative across windows
 	await expectWheelDirection({ deltaY: -400, page, scroller });
 	await expectWheelDirection({ deltaY: 600, page, scroller });
 
-	await expect(scroller).toHaveAttribute("data-transcript-blank-frames", "0");
+	await expect(scroller).toHaveAttribute(
+		"data-transcript-true-blank-frames",
+		"0",
+	);
 	await expect(
 		root.locator("[data-session-detail-integration-stale]"),
 	).toHaveCount(0);

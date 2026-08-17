@@ -66,6 +66,16 @@ const SessionDetailFastIntegrationPage = import.meta.env.DEV
 		)
 	: null;
 
+const TranscriptMaskFixturePage = import.meta.env.DEV
+	? lazy(() =>
+			import(
+				"@/features/sessions/components/transcript-mask-fixture-page"
+			).then((module) => ({
+				default: module.TranscriptMaskFixturePage,
+			})),
+		)
+	: null;
+
 const WrappedDesktopResumePage = lazy(() =>
 	import("@/features/get-started/WrappedDesktopResumePage").then((module) => ({
 		default: module.WrappedDesktopResumePage,
@@ -234,6 +244,16 @@ function App() {
 			: ConversationTraceFixturePage;
 	const isSessionDetailFastIntegrationPath =
 		location.pathname === "/dev/session-detail-fast-integration";
+	const isTranscriptMaskFixturePath =
+		location.pathname === "/dev/transcript-mask";
+
+	if (isTranscriptMaskFixturePath && TranscriptMaskFixturePage) {
+		return (
+			<Suspense fallback={<FullscreenRouteLoadingScreen />}>
+				<TranscriptMaskFixturePage />
+			</Suspense>
+		);
+	}
 
 	if (isSessionDetailFastIntegrationPath && SessionDetailFastIntegrationPage) {
 		return (

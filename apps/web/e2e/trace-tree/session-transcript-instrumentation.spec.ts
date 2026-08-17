@@ -121,6 +121,12 @@ test("the causal ledger reconstructs a synthetic mid-fling blind window", async 
 	expect(episode?.durationMs).toBeLessThanOrEqual(500);
 	expect(episode?.loafAttribution.length).toBeGreaterThan(0);
 	expect(capture.run.feelScore.blankMs).toBeGreaterThanOrEqual(250);
+	expect(capture.run.feelScore.maskedGapMs).toBeGreaterThanOrEqual(250);
+	expect(capture.run.feelScore.trueBlankMs).toBe(0);
+	expect(capture.dump.frames.every((frame) => frame.trueBlankPts === 0)).toBe(
+		true,
+	);
+	expect(episode?.presentation).toBe("masked-gap");
 	for (const rowId of episode?.rowIds ?? []) {
 		expect(
 			capture.dump.rowPaints.some(

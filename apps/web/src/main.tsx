@@ -79,7 +79,8 @@ function deferProductAnalyticsInit() {
 const isStandaloneDevRoute =
 	import.meta.env.DEV &&
 	(window.location.pathname === "/dev/trace-tree-fixture" ||
-		window.location.pathname === "/dev/session-detail-fast-integration");
+		window.location.pathname === "/dev/session-detail-fast-integration" ||
+		window.location.pathname === "/dev/transcript-mask");
 
 // biome-ignore lint/style/noNonNullAssertion: root element always exists
 createRoot(document.getElementById("root")!).render(
