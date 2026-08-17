@@ -52,6 +52,8 @@ import {
 import type { AgentTraceTreeBranch } from "./conversation-trace-tree-branches";
 import {
 	ExpandableTraceRow,
+	TraceExpansionIdProvider,
+	TraceExpansionStoreScope,
 	type TraceFocusRequest,
 	traceInteractiveRowClassName,
 	traceRowClassName,
@@ -69,6 +71,11 @@ export {
 } from "./conversation-trace-tree";
 export type { ConversationTraceTreeConnectorStyle } from "./conversation-trace-tree-geometry";
 export type { TraceFocusRequest } from "./expandable-trace-row";
+export {
+	createTraceExpansionStore,
+	TraceExpansionNamespaceProvider,
+	TraceExpansionStoreProvider,
+} from "./expandable-trace-row";
 
 const speakerLabelClassName =
 	"shrink-0 [font-family:var(--app-font-heading)] text-[0.8125rem]/[1.125rem] font-bold text-[color:var(--dashboardy-heading)]";
@@ -101,7 +108,9 @@ function AgentSection({
 	// The turn is the model's, so it wears the model's mark; unrecognized
 	// vendors fall back to the generic agent glyph.
 	const eventRows = events.map((event) => (
-		<EventRow key={event.id} event={event} />
+		<TraceExpansionIdProvider key={event.id} expansionId={event.id}>
+			<EventRow event={event} />
+		</TraceExpansionIdProvider>
 	));
 
 	if (mode === "expanded") {
@@ -305,6 +314,7 @@ function TraceRow({
 						</span>
 					}
 					focus={focus}
+					expansionId={item.id}
 					fullPreviewText={item.text}
 					label={<span className={traceLabelClassName}>Summary</span>}
 					leading={<TraceIcon icon={TraceFileIcon} tone="grass" />}
@@ -337,6 +347,7 @@ function TraceRow({
 						</span>
 					}
 					focus={focus}
+					expansionId={item.id}
 					fullPreviewText={item.text}
 					label={<span className={traceLabelClassName}>System</span>}
 					leading={<TraceIcon icon={TraceSettingsIcon} tone="neutral" />}
@@ -373,6 +384,7 @@ function TraceRow({
 					) : undefined
 				}
 				focus={focus}
+				expansionId={item.id}
 				fullPreviewText={undefined}
 				label={<span className={speakerLabelClassName}>{userLabel}</span>}
 				leading={
@@ -407,14 +419,20 @@ function toRenderedBranches(
 					{
 						children: branch.children.map((event) => ({
 							key: event.id,
-							row: <EventRow event={event} />,
+							row: (
+								<TraceExpansionIdProvider expansionId={event.id}>
+									<EventRow event={event} />
+								</TraceExpansionIdProvider>
+							),
 						})),
 						key: branch.id,
 						row: (
-							<EventRow
-								event={branch.root}
-								trailing={renderedBranchCount === 1 ? trailing : undefined}
-							/>
+							<TraceExpansionIdProvider expansionId={branch.root.id}>
+								<EventRow
+									event={branch.root}
+									trailing={renderedBranchCount === 1 ? trailing : undefined}
+								/>
+							</TraceExpansionIdProvider>
 						),
 					},
 				]
@@ -422,10 +440,12 @@ function toRenderedBranches(
 					children: [],
 					key: event.id,
 					row: (
-						<EventRow
-							event={event}
-							trailing={renderedBranchCount === 1 ? trailing : undefined}
-						/>
+						<TraceExpansionIdProvider expansionId={event.id}>
+							<EventRow
+								event={event}
+								trailing={renderedBranchCount === 1 ? trailing : undefined}
+							/>
+						</TraceExpansionIdProvider>
 					),
 				})),
 	);
@@ -679,63 +699,67 @@ export function ConversationTrace({
 }) {
 	if (expandedSpeakerLayout === "trace-tree") {
 		return (
-			<ConversationTraceTurnTree
-				agentHeaderTrailing={agentHeaderTrailing}
-				agentLabel={agentLabel}
-				agentModel={agentModel}
-				className={className}
-				continuesAfter={continuesAfter}
-				defaultOpen={defaultTraceTreeOpen}
-				focus={focus}
-				items={items}
-				requestUsage={requestUsage}
-				requestUsagePlacement={requestUsagePlacement}
-				traceCallDisplayMode={traceCallDisplayMode}
-				userImageUrl={userImageUrl}
-				userLabel={userLabel}
-			/>
+			<TraceExpansionStoreScope>
+				<ConversationTraceTurnTree
+					agentHeaderTrailing={agentHeaderTrailing}
+					agentLabel={agentLabel}
+					agentModel={agentModel}
+					className={className}
+					continuesAfter={continuesAfter}
+					defaultOpen={defaultTraceTreeOpen}
+					focus={focus}
+					items={items}
+					requestUsage={requestUsage}
+					requestUsagePlacement={requestUsagePlacement}
+					traceCallDisplayMode={traceCallDisplayMode}
+					userImageUrl={userImageUrl}
+					userLabel={userLabel}
+				/>
+			</TraceExpansionStoreScope>
 		);
 	}
 
 	let cursor: string | undefined;
 
 	return (
-		<ol
-			className={cn(
-				"grid [--conversation-trace-sticky-offset:0rem]",
-				expandedSpeakerLayout === "table-row" ? "gap-0" : "gap-1.5",
-				className,
-			)}
-		>
-			{items.map((item, index) => {
-				const previousTimestamp = cursor;
+		<TraceExpansionStoreScope>
+			<ol
+				className={cn(
+					"grid [--conversation-trace-sticky-offset:0rem]",
+					expandedSpeakerLayout === "table-row" ? "gap-0" : "gap-1.5",
+					className,
+				)}
+			>
+				{items.map((item, index) => {
+					const previousTimestamp = cursor;
 
-				if (item.timestamp) {
-					cursor =
-						item.kind === "agent"
-							? (item.events.at(-1)?.timestamp ?? item.timestamp)
-							: item.timestamp;
-				}
+					if (item.timestamp) {
+						cursor =
+							item.kind === "agent"
+								? (item.events.at(-1)?.timestamp ?? item.timestamp)
+								: item.timestamp;
+					}
 
-				return (
-					<li key={item.id} className="min-w-0">
-						<TraceRow
-							item={item}
-							anchorId={`message-${index}`}
-							previousTimestamp={previousTimestamp}
-							isLast={index === items.length - 1}
-							userLabel={userLabel}
-							userImageUrl={userImageUrl}
-							agentLabel={agentLabel}
-							agentModel={agentModel}
-							agentHeaderTrailing={agentHeaderTrailing}
-							agentSectionMode={agentSectionMode}
-							expandedSpeakerLayout={expandedSpeakerLayout}
-							focus={focus}
-						/>
-					</li>
-				);
-			})}
-		</ol>
+					return (
+						<li key={item.id} className="min-w-0">
+							<TraceRow
+								item={item}
+								anchorId={`message-${index}`}
+								previousTimestamp={previousTimestamp}
+								isLast={index === items.length - 1}
+								userLabel={userLabel}
+								userImageUrl={userImageUrl}
+								agentLabel={agentLabel}
+								agentModel={agentModel}
+								agentHeaderTrailing={agentHeaderTrailing}
+								agentSectionMode={agentSectionMode}
+								expandedSpeakerLayout={expandedSpeakerLayout}
+								focus={focus}
+							/>
+						</li>
+					);
+				})}
+			</ol>
+		</TraceExpansionStoreScope>
 	);
 }

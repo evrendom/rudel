@@ -19,6 +19,7 @@ describe("CodeBlock", () => {
 		expect(markup).toContain("data-trace-code-block");
 		expect(markup).toContain("data-trace-code-block-header");
 		expect(markup).toContain("data-trace-code-block-content");
+		expect(markup).toContain('data-trace-code-highlight-state="plain"');
 		expect(markup).toContain('data-trace-code-line-numbers="true"');
 		expect(markup).toContain("trace-code-block relative rounded-lg");
 		expect(markup).not.toContain("overflow-clip");
@@ -66,6 +67,23 @@ describe("CodeBlock", () => {
 		expect(markup).not.toContain("bg-[#0f172a]");
 		expect(markup).not.toContain("padding:1.125rem");
 		expect(markup).not.toContain(">Code<");
+	});
+
+	test("never synchronously highlights while rendering a code block", () => {
+		const source = readFileSync(
+			new URL("./CodeBlock.tsx", import.meta.url),
+			"utf8",
+		);
+		const cacheSource = readFileSync(
+			new URL("./code-highlight-cache.ts", import.meta.url),
+			"utf8",
+		);
+
+		expect(source).not.toContain("SyntaxHighlighter");
+		expect(source).not.toContain("codeToHtml");
+		expect(source).not.toContain("codeToTokens");
+		expect(cacheSource).toContain("new Worker(");
+		expect(cacheSource).toContain("CODE_HIGHLIGHT_CACHE_LIMIT = 64");
 	});
 
 	test("applies diff colors only when the content is explicitly a diff", () => {

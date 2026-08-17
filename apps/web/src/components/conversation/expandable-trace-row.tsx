@@ -1,11 +1,11 @@
 import * as React from "react";
 import {
+	createContext,
 	type Dispatch,
 	type ReactNode,
 	type SetStateAction,
 	useId,
-	useRef,
-	useState,
+	useSyncExternalStore,
 } from "react";
 import { cn } from "@/lib/utils";
 import { compactPreview } from "./conversation-trace";
@@ -29,9 +29,114 @@ const timestampClassName =
 // cards fully visible instead of tucking their top edge beneath the row.
 const expandedBodyClassName = "pt-1 pr-3 pb-2.5 pl-3";
 const proseBodyClassName = "px-3 py-1";
-const collapsedProseBodyHeight = 68;
 
 export type TraceFocusRequest = { anchorId: string; requestId: number };
+
+export type TraceExpansionStore = {
+	isExpanded: (expansionId: string) => boolean;
+	setExpanded: (expansionId: string, expanded: boolean) => void;
+	subscribe: (expansionId: string, listener: () => void) => () => void;
+};
+
+export function createTraceExpansionStore(): TraceExpansionStore {
+	const expandedIds = new Set<string>();
+	const listeners = new Map<string, Set<() => void>>();
+	return {
+		isExpanded: (expansionId) => expandedIds.has(expansionId),
+		setExpanded: (expansionId, expanded) => {
+			if (expanded === expandedIds.has(expansionId)) {
+				return;
+			}
+			if (expanded) {
+				expandedIds.add(expansionId);
+			} else {
+				expandedIds.delete(expansionId);
+			}
+			for (const listener of listeners.get(expansionId) ?? []) {
+				listener();
+			}
+		},
+		subscribe: (expansionId, listener) => {
+			const expansionListeners = listeners.get(expansionId) ?? new Set();
+			expansionListeners.add(listener);
+			listeners.set(expansionId, expansionListeners);
+			return () => {
+				expansionListeners.delete(listener);
+				if (expansionListeners.size === 0) {
+					listeners.delete(expansionId);
+				}
+			};
+		},
+	};
+}
+
+const fallbackTraceExpansionStore = createTraceExpansionStore();
+const TraceExpansionStoreContext = createContext<
+	TraceExpansionStore | undefined
+>(undefined);
+const TraceExpansionIdContext = createContext<string | undefined>(undefined);
+const TraceExpansionNamespaceContext = createContext<string | undefined>(
+	undefined,
+);
+
+export function TraceExpansionStoreProvider({
+	children,
+	store,
+}: {
+	children: ReactNode;
+	store: TraceExpansionStore;
+}) {
+	return (
+		<TraceExpansionStoreContext.Provider value={store}>
+			{children}
+		</TraceExpansionStoreContext.Provider>
+	);
+}
+
+export function TraceExpansionStoreScope({
+	children,
+}: {
+	children: ReactNode;
+}) {
+	const parentStore = React.useContext(TraceExpansionStoreContext);
+	const [localStore] = React.useState(createTraceExpansionStore);
+	if (parentStore) {
+		return children;
+	}
+	return (
+		<TraceExpansionStoreContext.Provider value={localStore}>
+			{children}
+		</TraceExpansionStoreContext.Provider>
+	);
+}
+
+export function TraceExpansionIdProvider({
+	children,
+	expansionId,
+}: {
+	children: ReactNode;
+	expansionId: string;
+}) {
+	return (
+		<TraceExpansionIdContext.Provider value={expansionId}>
+			{children}
+		</TraceExpansionIdContext.Provider>
+	);
+}
+
+export function TraceExpansionNamespaceProvider({
+	children,
+	namespace,
+}: {
+	children: ReactNode;
+	namespace: string;
+}) {
+	return (
+		<TraceExpansionNamespaceContext.Provider value={namespace}>
+			{children}
+		</TraceExpansionNamespaceContext.Provider>
+	);
+}
 
 function TraceTextDisclosureIcon({ expanded }: { expanded: boolean }) {
 	return (
@@ -59,150 +164,6 @@ function TraceTextDisclosureIcon({ expanded }: { expanded: boolean }) {
 	);
 }
 
-function AnimatedTraceProseBody({
-	body,
-	collapsedBody,
-	expanded,
-	panelId,
-	treeBodyClassName,
-}: {
-	body: ReactNode;
-	collapsedBody: ReactNode;
-	expanded: boolean;
-	panelId: string;
-	treeBodyClassName: string | undefined;
-}) {
-	const expandedBodyRef = useRef<HTMLDivElement>(null);
-	const [expandedHeight, setExpandedHeight] = useState(
-		collapsedProseBodyHeight,
-	);
-
-	React.useLayoutEffect(() => {
-		const expandedBodyElement = expandedBodyRef.current;
-		if (!expandedBodyElement) {
-			return;
-		}
-
-		const measure = () => {
-			const nextHeight = Math.ceil(expandedBodyElement.scrollHeight);
-			setExpandedHeight((currentHeight) =>
-				currentHeight === nextHeight ? currentHeight : nextHeight,
-			);
-		};
-		const resizeObserver = new ResizeObserver(measure);
-
-		resizeObserver.observe(expandedBodyElement);
-		measure();
-		return () => resizeObserver.disconnect();
-	}, []);
-
-	const style = {
-		"--trace-prose-body-height": `${expanded ? expandedHeight : collapsedProseBodyHeight}px`,
-	} as React.CSSProperties;
-
-	return (
-		<div
-			id={panelId}
-			className={cn(
-				"relative h-(--trace-prose-body-height) min-w-0 overflow-clip transition-[height] duration-200 ease-[cubic-bezier(0.2,0,0,1)] motion-reduce:transition-none",
-				expanded
-					? "[mask-image:none]"
-					: "[mask-image:linear-gradient(to_bottom,#000_0%,#000_calc(100%_-_0.75rem),transparent_100%)]",
-			)}
-			data-trace-prose-motion
-			style={style}
-		>
-			<div
-				aria-hidden={expanded || undefined}
-				className={cn(
-					"absolute inset-x-0 top-0 flex items-start transition-opacity duration-100 motion-reduce:transition-none",
-					proseBodyClassName,
-					treeBodyClassName,
-					expanded && "pointer-events-none opacity-0",
-				)}
-				data-trace-collapsed-preview
-			>
-				{collapsedBody}
-			</div>
-			<div
-				ref={expandedBodyRef}
-				aria-hidden={!expanded || undefined}
-				className={cn(
-					"absolute inset-x-0 top-0 transition-opacity duration-100 motion-reduce:transition-none",
-					proseBodyClassName,
-					treeBodyClassName,
-					!expanded && "pointer-events-none opacity-0",
-				)}
-				data-trace-expanded-content
-			>
-				{body}
-			</div>
-		</div>
-	);
-}
-
-function AnimatedTraceDetailsBody({
-	body,
-	expanded,
-	panelId,
-	treeBodyClassName,
-}: {
-	body: ReactNode;
-	expanded: boolean;
-	panelId: string;
-	treeBodyClassName: string | undefined;
-}) {
-	const bodyRef = useRef<HTMLDivElement>(null);
-	const [bodyHeight, setBodyHeight] = useState(0);
-
-	React.useLayoutEffect(() => {
-		const bodyElement = bodyRef.current;
-		if (!bodyElement) {
-			return;
-		}
-
-		const measure = () => {
-			const nextHeight = Math.ceil(bodyElement.scrollHeight);
-			setBodyHeight((currentHeight) =>
-				currentHeight === nextHeight ? currentHeight : nextHeight,
-			);
-		};
-		const resizeObserver = new ResizeObserver(measure);
-
-		resizeObserver.observe(bodyElement);
-		measure();
-		return () => resizeObserver.disconnect();
-	}, []);
-
-	const style = {
-		"--trace-details-body-height": `${expanded ? bodyHeight : 0}px`,
-	} as React.CSSProperties;
-
-	return (
-		<div
-			id={panelId}
-			aria-hidden={!expanded || undefined}
-			className="relative h-(--trace-details-body-height) min-w-0 overflow-clip transition-[height] duration-200 ease-[cubic-bezier(0.2,0,0,1)] motion-reduce:transition-none"
-			data-trace-details-motion
-			style={style}
-		>
-			<div
-				ref={bodyRef}
-				className={cn(
-					expandedBodyClassName,
-					treeBodyClassName,
-					"transition-opacity duration-100 motion-reduce:transition-none",
-					!expanded && "pointer-events-none opacity-0",
-				)}
-				data-trace-expanded-content
-				inert={!expanded}
-			>
-				{body}
-			</div>
-		</div>
-	);
-}
-
 export function useTraceFocus(
 	anchorId: string | undefined,
 	focus: TraceFocusRequest | undefined,
@@ -220,67 +181,39 @@ export function useTraceFocus(
 	}, [requestId, setOpen]);
 }
 
-function usePreviewTruncation(fullPreviewText: string | undefined) {
-	const rowRef = useRef<HTMLDivElement>(null);
-	const [visuallyTruncated, setVisuallyTruncated] = useState(false);
+function isPreviewTruncated(fullPreviewText: string | undefined) {
 	const exceedsThreeExplicitLines =
 		fullPreviewText !== undefined &&
 		fullPreviewText.split(/\r\n?|\n/u).length > 3;
-	const semanticallyTruncated =
-		fullPreviewText !== undefined &&
-		compactPreview(fullPreviewText) !==
-			compactPreview(fullPreviewText, Number.POSITIVE_INFINITY);
+	return (
+		exceedsThreeExplicitLines ||
+		(fullPreviewText !== undefined &&
+			compactPreview(fullPreviewText) !==
+				compactPreview(fullPreviewText, Number.POSITIVE_INFINITY))
+	);
+}
 
-	React.useLayoutEffect(() => {
-		const row = rowRef.current;
-		if (!row) {
-			return;
-		}
-
-		const measure = () => {
-			if (fullPreviewText === undefined) {
-				setVisuallyTruncated(false);
-				return;
-			}
-
-			const previewRoot =
-				row.closest<HTMLElement>("[data-trace-tree-item-depth]") ?? row;
-			const preview = previewRoot.querySelector<HTMLElement>(
-				"[data-trace-preview]",
-			);
-			if (preview === null) {
-				return;
-			}
-			const previewIsClipped =
-				preview.scrollWidth > preview.clientWidth + 1 ||
-				preview.scrollHeight > preview.clientHeight + 1;
-			setVisuallyTruncated(previewIsClipped);
-		};
-		const previewRoot =
-			row.closest<HTMLElement>("[data-trace-tree-item-depth]") ?? row;
-		const resizeObserver = new ResizeObserver(measure);
-		const mutationObserver = new MutationObserver(measure);
-
-		resizeObserver.observe(row);
-		mutationObserver.observe(previewRoot, {
-			childList: true,
-			characterData: true,
-			subtree: true,
-		});
-		measure();
-
-		return () => {
-			resizeObserver.disconnect();
-			mutationObserver.disconnect();
-		};
-	}, [fullPreviewText]);
-
-	return {
-		proseTruncated: exceedsThreeExplicitLines || visuallyTruncated,
-		rowRef,
-		truncated:
-			exceedsThreeExplicitLines || semanticallyTruncated || visuallyTruncated,
-	};
+function useTraceExpansionState(expansionId: string) {
+	const store =
+		React.useContext(TraceExpansionStoreContext) ?? fallbackTraceExpansionStore;
+	const subscribe = React.useCallback(
+		(listener: () => void) => store.subscribe(expansionId, listener),
+		[expansionId, store],
+	);
+	const getSnapshot = React.useCallback(
+		() => store.isExpanded(expansionId),
+		[expansionId, store],
+	);
+	const open = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
+	const setOpen: Dispatch<SetStateAction<boolean>> = React.useCallback(
+		(next) => {
+			const expanded =
+				typeof next === "function" ? next(store.isExpanded(expansionId)) : next;
+			store.setExpanded(expansionId, expanded);
+		},
+		[expansionId, store],
+	);
+	return { open, setOpen };
 }
 
 export function ExpandableTraceRow({
@@ -289,6 +222,7 @@ export function ExpandableTraceRow({
 	className,
 	collapsedBody,
 	compact = false,
+	expansionId,
 	fullPreviewText,
 	anchorId,
 	focus,
@@ -303,6 +237,7 @@ export function ExpandableTraceRow({
 	className?: string;
 	collapsedBody?: ReactNode;
 	compact?: boolean;
+	expansionId?: string;
 	fullPreviewText: string | undefined;
 	anchorId?: string;
 	focus?: TraceFocusRequest;
@@ -312,39 +247,24 @@ export function ExpandableTraceRow({
 	trailing?: ReactNode;
 	treeBodyClassName?: string;
 }) {
-	const [open, setOpen] = useState(false);
-	const panelId = useId();
+	const generatedId = useId();
+	const contextExpansionId = React.useContext(TraceExpansionIdContext);
+	const expansionNamespace = React.useContext(TraceExpansionNamespaceContext);
+	const localExpansionId =
+		expansionId ?? contextExpansionId ?? anchorId ?? generatedId;
+	const stableExpansionId = expansionNamespace
+		? `${expansionNamespace}::${localExpansionId}`
+		: localExpansionId;
+	const { open, setOpen } = useTraceExpansionState(stableExpansionId);
+	const panelId = `${generatedId}-panel`;
 	const setTreeRowBody = React.useContext(TraceTreeRowBodySlotContext);
 	const hasBody = body !== undefined && body !== null;
 	const hasProsePreview = collapsedBody !== undefined && collapsedBody !== null;
-	const { proseTruncated, rowRef, truncated } =
-		usePreviewTruncation(fullPreviewText);
-	const expandable =
-		hasBody &&
-		(fullPreviewText === undefined ||
-			(hasProsePreview ? proseTruncated : truncated));
+	const truncated = isPreviewTruncated(fullPreviewText);
+	const expandable = hasBody && (fullPreviewText === undefined || truncated);
 	const expanded = expandable && open;
-	const animatedProseBody =
-		expandable && hasProsePreview ? (
-			<AnimatedTraceProseBody
-				body={body}
-				collapsedBody={collapsedBody}
-				expanded={expanded}
-				panelId={panelId}
-				treeBodyClassName={treeBodyClassName}
-			/>
-		) : undefined;
-	const animatedDetailsBody =
-		expandable && !hasProsePreview ? (
-			<AnimatedTraceDetailsBody
-				body={body}
-				expanded={expanded}
-				panelId={panelId}
-				treeBodyClassName={treeBodyClassName}
-			/>
-		) : undefined;
 	const collapsedPreviewBody =
-		!expandable && collapsedBody !== undefined && collapsedBody !== null ? (
+		!expanded && hasProsePreview ? (
 			<div
 				className={cn(
 					proseBodyClassName,
@@ -356,8 +276,19 @@ export function ExpandableTraceRow({
 				{collapsedBody}
 			</div>
 		) : undefined;
-	const visibleBody =
-		animatedProseBody ?? animatedDetailsBody ?? collapsedPreviewBody;
+	const expandedContentBody = expanded ? (
+		<div
+			id={panelId}
+			className={cn(
+				hasProsePreview ? proseBodyClassName : expandedBodyClassName,
+				treeBodyClassName,
+			)}
+			data-trace-expanded-content
+		>
+			{body}
+		</div>
+	) : undefined;
+	const visibleBody = expandedContentBody ?? collapsedPreviewBody;
 
 	useTraceFocus(anchorId, focus, setOpen);
 	React.useLayoutEffect(() => {
@@ -374,7 +305,11 @@ export function ExpandableTraceRow({
 	}, [expanded, setTreeRowBody, visibleBody]);
 
 	return (
-		<div ref={rowRef} id={anchorId} className="min-w-0 scroll-mt-6">
+		<div
+			id={anchorId}
+			className="min-w-0 scroll-mt-6"
+			data-trace-expansion-id={stableExpansionId}
+		>
 			<div
 				data-trace-hover-row={expandable || undefined}
 				data-trace-row-header

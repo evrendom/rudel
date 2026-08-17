@@ -25,6 +25,9 @@ import { Button } from "@/app/ui/button";
 import {
 	ConversationTraceDerivedSectionRow,
 	ConversationTraceTreeConnectorStyleProvider,
+	createTraceExpansionStore,
+	TraceExpansionNamespaceProvider,
+	TraceExpansionStoreProvider,
 } from "@/components/conversation/ConversationTrace";
 import { formatModelDisplayLabel } from "@/features/dashboard/components/dashboard-model-brand";
 import { SessionContinuousTurnSkeleton } from "./session-continuous-turn-skeleton";
@@ -141,6 +144,7 @@ export const SessionTranscriptList = forwardRef<
 	const [traceInstanceId] = useState(() =>
 		createTranscriptTraceInstanceId("list"),
 	);
+	const [traceExpansionStore] = useState(createTraceExpansionStore);
 	const rowsRef = useRef(model.rows);
 	const rowCommitStatesRef = useRef(
 		new Map<
@@ -623,52 +627,56 @@ export const SessionTranscriptList = forwardRef<
 	);
 
 	return (
-		<ConversationTraceTreeConnectorStyleProvider style="interfere-branch-dots-no-horizontal">
-			<div
-				ref={sizeContainerRef}
-				className="relative min-w-0"
-				data-transcript-virtual-list
-				style={
-					directDomUpdates ? undefined : { height: virtualizer.getTotalSize() }
-				}
-			>
-				{virtualItems.map((virtualItem) => {
-					const row = model.rows[virtualItem.index];
-					if (!row) {
-						return null;
+		<TraceExpansionStoreProvider store={traceExpansionStore}>
+			<ConversationTraceTreeConnectorStyleProvider style="interfere-branch-dots-no-horizontal">
+				<div
+					ref={sizeContainerRef}
+					className="relative min-w-0"
+					data-transcript-virtual-list
+					style={
+						directDomUpdates
+							? undefined
+							: { height: virtualizer.getTotalSize() }
 					}
-					const rendered = (
-						<TranscriptVirtualRow
-							key={row.id}
-							active={"turnId" in row && row.turnId === selectedTurnId}
-							debugEnabled={debugEnabled}
-							debugPaintEpoch={debugPaintEpoch}
-							directDomUpdates={directDomUpdates}
-							measureElement={virtualizer.measureElement}
-							model={model}
-							onLoadDirection={onLoadDirection}
-							onRetryTurn={onRetryTurn}
-							onToggleFold={onToggleFold}
-							row={row}
-							userImageUrl={userImageUrl}
-							viewModel={viewModel}
-							virtualItem={virtualItem}
-						/>
-					);
-					return debugEnabled || onTurnRender ? (
-						<Profiler
-							key={row.id}
-							id={`${row.id}:virtual`}
-							onRender={handleRowRender}
-						>
-							{rendered}
-						</Profiler>
-					) : (
-						rendered
-					);
-				})}
-			</div>
-		</ConversationTraceTreeConnectorStyleProvider>
+				>
+					{virtualItems.map((virtualItem) => {
+						const row = model.rows[virtualItem.index];
+						if (!row) {
+							return null;
+						}
+						const rendered = (
+							<TranscriptVirtualRow
+								key={row.id}
+								active={"turnId" in row && row.turnId === selectedTurnId}
+								debugEnabled={debugEnabled}
+								debugPaintEpoch={debugPaintEpoch}
+								directDomUpdates={directDomUpdates}
+								measureElement={virtualizer.measureElement}
+								model={model}
+								onLoadDirection={onLoadDirection}
+								onRetryTurn={onRetryTurn}
+								onToggleFold={onToggleFold}
+								row={row}
+								userImageUrl={userImageUrl}
+								viewModel={viewModel}
+								virtualItem={virtualItem}
+							/>
+						);
+						return debugEnabled || onTurnRender ? (
+							<Profiler
+								key={row.id}
+								id={`${row.id}:virtual`}
+								onRender={handleRowRender}
+							>
+								{rendered}
+							</Profiler>
+						) : (
+							rendered
+						);
+					})}
+				</div>
+			</ConversationTraceTreeConnectorStyleProvider>
+		</TraceExpansionStoreProvider>
 	);
 });
 
@@ -804,15 +812,19 @@ const TranscriptVirtualRow = memo(function TranscriptVirtualRow({
 					{contentVersion}
 				</span>
 			) : null}
-			<TranscriptRowContent
-				model={model}
-				onLoadDirection={onLoadDirection}
-				onRetryTurn={onRetryTurn}
-				onToggleFold={onToggleFold}
-				row={row}
-				userImageUrl={userImageUrl}
-				viewModel={viewModel}
-			/>
+			<TraceExpansionNamespaceProvider
+				namespace={"turnId" in row ? row.turnId : row.id}
+			>
+				<TranscriptRowContent
+					model={model}
+					onLoadDirection={onLoadDirection}
+					onRetryTurn={onRetryTurn}
+					onToggleFold={onToggleFold}
+					row={row}
+					userImageUrl={userImageUrl}
+					viewModel={viewModel}
+				/>
+			</TraceExpansionNamespaceProvider>
 			{debugEnabled ? (
 				<TranscriptRowDebugBadge
 					estimate={estimateTranscriptRow(row)}

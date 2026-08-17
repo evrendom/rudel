@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 
-describe("ExpandableTraceRow expanded body layout", () => {
-	test("keeps expanded content below the sticky row masking boundary", () => {
+describe("ExpandableTraceRow body layout", () => {
+	test("conditionally mounts bodies below the sticky row masking boundary", () => {
 		const rowSource = readFileSync(
 			new URL("./expandable-trace-row.tsx", import.meta.url),
 			"utf8",
@@ -19,17 +19,24 @@ describe("ExpandableTraceRow expanded body layout", () => {
 		expect(rowSource).not.toContain('"flex min-h-10 items-center"');
 		expect(rowSource).not.toContain('expandedBodyClassName = "-mt-');
 		expect(rowSource).not.toContain("pb-2.5 pl-10");
-		expect(rowSource).toContain("data-trace-prose-motion");
-		expect(rowSource).toContain("data-trace-details-motion");
-		expect(rowSource).toContain(
-			'"relative h-(--trace-prose-body-height) min-w-0 overflow-clip transition-[height] duration-200',
-		);
-		expect(rowSource).toContain(
-			'"relative h-(--trace-details-body-height) min-w-0 overflow-clip transition-[height] duration-200',
-		);
-		expect(rowSource).toContain("collapsedProseBodyHeight = 68");
+		expect(rowSource).not.toContain("data-trace-prose-motion");
+		expect(rowSource).not.toContain("data-trace-details-motion");
+		expect(rowSource).not.toContain("--trace-prose-body-height");
+		expect(rowSource).not.toContain("--trace-details-body-height");
+		expect(rowSource).not.toContain("ResizeObserver");
+		expect(rowSource).not.toContain("MutationObserver");
+		expect(rowSource).not.toContain("scrollHeight");
+		expect(rowSource).not.toContain("scrollWidth");
+		expect(rowSource).not.toContain("opacity-0");
+		expect(rowSource).not.toContain("aria-hidden={!expanded");
+		expect(rowSource).not.toContain("inert={!expanded}");
 		expect(rowSource).toContain("data-trace-collapsed-preview");
 		expect(rowSource).toContain("data-trace-expanded-content");
+		expect(rowSource).toContain("const expandedContentBody = expanded ? (");
+		expect(rowSource).toContain(
+			"const visibleBody = expandedContentBody ?? collapsedPreviewBody",
+		);
+		expect(rowSource).toContain("aria-expanded={expanded}");
 		expect(treeSource).toContain("data-trace-tree-expanded-surface");
 		expect(treeSource).toContain("data-trace-tree-expanded-rails");
 		expect(treeSource).toContain("data-trace-tree-motion-panel");

@@ -91,6 +91,28 @@ const structuralMessageTurn: TraceItem = {
 	],
 };
 
+const topLevelExpandableItems: TraceItem[] = [
+	{
+		id: "summary-1",
+		kind: "summary",
+		text: ["First summary line.", "Second.", "Third.", "Fourth."].join("\n"),
+		timestamp: undefined,
+	},
+	{
+		id: "system-1",
+		kind: "system",
+		systemType: "system",
+		text: ["First system line.", "Second.", "Third.", "Fourth."].join("\n"),
+		timestamp: "2026-07-27T10:00:01Z",
+	},
+	{
+		content: "A user message with expandable content.",
+		id: "user-1",
+		kind: "user",
+		timestamp: "2026-07-27T10:00:02Z",
+	},
+];
+
 const orderedAgentTurn: TraceItem = {
 	executionMode: "unknown",
 	kind: "agent",
@@ -223,6 +245,32 @@ describe("ConversationTrace timestamps", () => {
 		expect(
 			container.querySelectorAll("[data-trace-content-disclosure]")[0],
 		).toHaveAttribute("aria-expanded", "false");
+	});
+});
+
+describe("ConversationTrace conditional row bodies", () => {
+	it("toggles every top-level expandable row kind without retained body DOM", () => {
+		const { container } = render(
+			<ConversationTrace items={topLevelExpandableItems} />,
+		);
+
+		for (const name of [/Summary/, /System/, /User/]) {
+			const trigger = screen.getByRole("button", { name });
+			expect(trigger).toHaveAttribute("aria-expanded", "false");
+			expect(
+				container.querySelector("[data-trace-expanded-content]"),
+			).toBeNull();
+			fireEvent.click(trigger);
+			expect(trigger).toHaveAttribute("aria-expanded", "true");
+			expect(
+				container.querySelector("[data-trace-expanded-content]"),
+			).not.toBeNull();
+			fireEvent.click(trigger);
+			expect(trigger).toHaveAttribute("aria-expanded", "false");
+			expect(
+				container.querySelector("[data-trace-expanded-content]"),
+			).toBeNull();
+		}
 	});
 });
 
@@ -375,7 +423,7 @@ describe("ConversationTrace sticky surfaces", () => {
 	});
 
 	it("mounts an expanded leaf body below its fixed-height tree row", () => {
-		render(
+		const { container } = render(
 			<ConversationTrace
 				expandedSpeakerLayout="trace-tree"
 				items={[toolAgentTurn]}
@@ -383,6 +431,9 @@ describe("ConversationTrace sticky surfaces", () => {
 		);
 
 		const trigger = screen.getByRole("button", { name: /Read/ });
+		expect(trigger).toHaveAttribute("aria-expanded", "false");
+		expect(container.querySelector("[data-trace-expanded-content]")).toBeNull();
+		expect(container.querySelector("[data-trace-code-block]")).toBeNull();
 		fireEvent.click(trigger);
 
 		const treeRow = trigger.closest<HTMLElement>("[data-trace-tree-row-owner]");
@@ -402,6 +453,14 @@ describe("ConversationTrace sticky surfaces", () => {
 		expect(bodySlot).not.toBeNull();
 		expect(treeRow?.nextElementSibling).toBe(bodySlot);
 		expect(treeRow?.contains(bodySlot ?? null)).toBe(false);
+		expect(bodySlot).toContainElement(
+			container.querySelector("[data-trace-code-block]"),
+		);
+
+		fireEvent.click(trigger);
+		expect(trigger).toHaveAttribute("aria-expanded", "false");
+		expect(container.querySelector("[data-trace-expanded-content]")).toBeNull();
+		expect(container.querySelector("[data-trace-code-block]")).toBeNull();
 	});
 
 	it("keeps a structural reasoning node unpinned while its body precedes its children", () => {
@@ -418,6 +477,7 @@ describe("ConversationTrace sticky surfaces", () => {
 		const collapsedPreview = treeItem?.querySelector<HTMLElement>(
 			"[data-trace-collapsed-preview]",
 		);
+		expect(treeItem?.querySelector("[data-trace-expanded-content]")).toBeNull();
 		expect(treeRow).not.toHaveAttribute("data-trace-tree-sticky-surface");
 		expect(treeRow).not.toHaveAttribute("data-trace-tree-sticky-top");
 		expect(collapsedPreview).toHaveClass("px-3", "py-1");
@@ -440,6 +500,13 @@ describe("ConversationTrace sticky surfaces", () => {
 		expect(bodySlot?.textContent).toContain(structuralReasoningText);
 		expect(bodySlot?.nextElementSibling).toBe(subtree);
 		expect(treeRow?.contains(bodySlot ?? null)).toBe(false);
+
+		fireEvent.click(trigger);
+		expect(trigger).toHaveAttribute("aria-expanded", "false");
+		expect(treeItem?.querySelector("[data-trace-expanded-content]")).toBeNull();
+		expect(
+			treeItem?.querySelector("[data-trace-collapsed-preview]"),
+		).not.toBeNull();
 	});
 
 	it("keeps a structural message node unpinned when collapsed or expanded", () => {
@@ -461,5 +528,11 @@ describe("ConversationTrace sticky surfaces", () => {
 		expect(treeRow).not.toHaveAttribute("data-trace-tree-sticky-surface");
 		expect(treeRow).not.toHaveAttribute("data-trace-tree-sticky-top");
 		expect(treeRow?.className).not.toContain("sticky");
+
+		fireEvent.click(trigger);
+		expect(trigger).toHaveAttribute("aria-expanded", "false");
+		expect(
+			treeRow?.parentElement?.querySelector("[data-trace-expanded-content]"),
+		).toBeNull();
 	});
 });

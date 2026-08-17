@@ -1,10 +1,8 @@
-import {
-	type CSSProperties,
-	Profiler,
-	type ProfilerOnRenderCallback,
-} from "react";
-import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
+import { useTheme } from "next-themes";
+import type { CSSProperties } from "react";
 import { cn } from "@/lib/utils";
+import { usePreparedCodeHighlight } from "./code-highlight-cache";
+import type { PreparedCodeToken } from "./code-highlight-types";
 import {
 	TraceCodeIcon,
 	TraceMarkdownIcon,
@@ -35,35 +33,6 @@ interface CodeBlockProps {
 interface InlineCodeProps {
 	children: string;
 }
-
-const interfereSyntaxTheme = {
-	'code[class*="language-"]': {
-		background: "transparent",
-		color: "var(--trace-code-primary, rgba(0, 0, 0, 0.875))",
-		fontFamily: "inherit",
-	},
-	'pre[class*="language-"]': {
-		background: "transparent",
-		color: "var(--trace-code-primary, rgba(0, 0, 0, 0.875))",
-		fontFamily: "inherit",
-	},
-	comment: { color: "var(--trace-code-comment, rgba(0, 0, 0, 0.447))" },
-	prolog: { color: "var(--trace-code-comment, rgba(0, 0, 0, 0.447))" },
-	doctype: { color: "var(--trace-code-comment, rgba(0, 0, 0, 0.447))" },
-	cdata: { color: "var(--trace-code-comment, rgba(0, 0, 0, 0.447))" },
-	linenumber: { color: "var(--trace-code-line-number, rgba(0, 0, 0, 0.267))" },
-	keyword: { color: "var(--trace-code-keyword, rgb(233, 61, 130))" },
-	function: { color: "var(--trace-code-function, rgb(161, 68, 175))" },
-	"class-name": { color: "var(--trace-code-type, rgb(62, 99, 221))" },
-	builtin: { color: "var(--trace-code-type, rgb(62, 99, 221))" },
-	property: { color: "var(--trace-code-property, rgb(255, 197, 61))" },
-	string: { color: "var(--trace-code-string, rgb(149, 62, 163))" },
-	char: { color: "var(--trace-code-string, rgb(149, 62, 163))" },
-	boolean: { color: "var(--trace-code-type, rgb(62, 99, 221))" },
-	number: { color: "var(--trace-code-type, rgb(62, 99, 221))" },
-	operator: { color: "var(--trace-code-primary, rgba(0, 0, 0, 0.875))" },
-	punctuation: { color: "var(--trace-code-primary, rgba(0, 0, 0, 0.875))" },
-};
 
 function getDefaultCodeFilename(language: string) {
 	switch (language.toLowerCase()) {
@@ -168,6 +137,7 @@ export function CodeBlock({
 	lineChangeKinds,
 	showLineNumbers,
 }: CodeBlockProps) {
+	const { resolvedTheme } = useTheme();
 	const normalizedCode = code.trim();
 	const codeLines = normalizedCode.split("\n");
 	const fileLabel = filename ?? getDefaultCodeFilename(language);
@@ -175,23 +145,11 @@ export function CodeBlock({
 	const lineNumberWidth = Math.max(16, String(codeLines.length).length * 8);
 	const lineGutterWidth = lineNumberWidth + 22;
 	const headerIcon = getCodeHeaderIcon(fileLabel, language);
-	const handleSyntaxRender: ProfilerOnRenderCallback = (
-		_id,
-		phase,
-		actualDuration,
-		_baseDuration,
-		startTime,
-		commitTime,
-	) => {
-		window.__transcriptTrace?.recordSyntaxHighlight({
-			actualDuration,
-			charCount: normalizedCode.length,
-			commitTime,
-			language,
-			phase,
-			startTime,
-		});
-	};
+	const preparedHighlight = usePreparedCodeHighlight({
+		code: normalizedCode,
+		language,
+		theme: resolvedTheme === "dark" ? "dark" : "light",
+	});
 	const getLineProps = (lineNumber: number) => {
 		const kind =
 			lineChangeKinds?.[lineNumber - 1] ??
@@ -223,51 +181,66 @@ export function CodeBlock({
 		};
 	};
 
-	const highlightedCode = (
-		<SyntaxHighlighter
-			language={language}
-			style={interfereSyntaxTheme}
-			customStyle={{
+	const highlightedLines = preparedHighlight?.lines;
+	const codeContent = (
+		<pre
+			data-trace-code-highlight-state={
+				highlightedLines ? "highlighted" : "plain"
+			}
+			style={{
 				background: "transparent",
 				backgroundColor: "transparent",
 				borderRadius: 0,
+				color: "var(--trace-code-primary)",
 				fontFamily:
 					'"Geist Mono", ui-monospace, SFMono-Regular, Consolas, monospace',
 				fontSize: "12px",
 				lineHeight: "16px",
 				margin: 0,
 				overflow: "hidden",
+				overflowWrap: "anywhere",
 				padding: "6px 8px",
+				whiteSpace: "pre-wrap",
 			}}
-			lineNumberStyle={{
-				color: "var(--trace-code-line-number)",
-				display: "inline-block",
-				flexShrink: 0,
-				fontStyle: "normal",
-				marginRight: "16px",
-				minWidth: `${lineNumberWidth}px`,
-				paddingRight: 0,
-				textAlign: "right",
-				width: `${lineNumberWidth}px`,
-			}}
-			lineProps={getLineProps}
-			showLineNumbers={shouldShowLineNumbers}
-			wrapLines
-			wrapLongLines
 		>
-			{normalizedCode}
-		</SyntaxHighlighter>
+			<code>
+				{codeLines.map((line, index) => {
+					const lineNumber = index + 1;
+					const tokens = highlightedLines?.[index];
+					return (
+						<span key={lineNumber} {...getLineProps(lineNumber)}>
+							{shouldShowLineNumbers ? (
+								<span
+									aria-hidden="true"
+									style={{
+										color: "var(--trace-code-line-number)",
+										display: "inline-block",
+										fontStyle: "normal",
+										marginRight: "16px",
+										minWidth: `${lineNumberWidth}px`,
+										paddingRight: 0,
+										textAlign: "right",
+										width: `${lineNumberWidth}px`,
+									}}
+								>
+									{lineNumber}
+								</span>
+							) : null}
+							{tokens
+								? tokens.map((token) => (
+										<HighlightedCodeToken
+											key={`${lineNumber}:${token.offset}`}
+											token={token}
+										/>
+									))
+								: line}
+							{index < codeLines.length - 1 ? "\n" : null}
+						</span>
+					);
+				})}
+			</code>
+		</pre>
 	);
-	const tracedCode =
-		import.meta.env.DEV &&
-		typeof window !== "undefined" &&
-		window.__transcriptTrace ? (
-			<Profiler id={`syntax:${fileLabel}`} onRender={handleSyntaxRender}>
-				{highlightedCode}
-			</Profiler>
-		) : (
-			highlightedCode
-		);
 
 	const card = (
 		<div
@@ -320,12 +293,34 @@ export function CodeBlock({
 					event.currentTarget.focus({ preventScroll: true });
 				}}
 			>
-				{tracedCode}
+				{codeContent}
 			</section>
 		</div>
 	);
 
 	return card;
+}
+
+function HighlightedCodeToken({ token }: { token: PreparedCodeToken }) {
+	const fontStyle = token.fontStyle ?? 0;
+	return (
+		<span
+			style={{
+				color: token.color,
+				fontStyle: fontStyle & 1 ? "italic" : undefined,
+				fontWeight: fontStyle & 2 ? 700 : undefined,
+				textDecoration:
+					[
+						fontStyle & 4 ? "underline" : undefined,
+						fontStyle & 8 ? "line-through" : undefined,
+					]
+						.filter((decoration) => decoration !== undefined)
+						.join(" ") || undefined,
+			}}
+		>
+			{token.content}
+		</span>
+	);
 }
 
 export function InlineCode({ children }: InlineCodeProps) {

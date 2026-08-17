@@ -148,3 +148,145 @@ test("the causal ledger reconstructs a synthetic mid-fling blind window", async 
 		),
 	).toBe(true);
 });
+
+test("collapsed code stays unmounted and expansion survives virtual row recycling", async ({
+	page,
+}) => {
+	await page.goto(
+		`${FIXTURE_ROUTE}?mode=continuous&transcript=virtual&folds=1`,
+	);
+	const scroller = page.locator("[data-trace-fixture-continuous-scroller]");
+	await expect(scroller.locator("[data-transcript-virtual-list]")).toBeVisible({
+		timeout: 15_000,
+	});
+	await expect
+		.poll(() => page.evaluate(() => window.__transcriptTrace !== undefined))
+		.toBe(true);
+	await page.locator("[data-trace-fixture-jump-last]").evaluate((button) => {
+		if (!(button instanceof HTMLButtonElement)) {
+			throw new Error("Expected the jump-to-last fixture control");
+		}
+		button.click();
+	});
+	await expect
+		.poll(() => scroller.evaluate((element) => element.scrollTop))
+		.toBeGreaterThan(0);
+
+	const toolToggle = scroller.getByRole("button", { name: /Read/ }).first();
+	await expect(toolToggle).toHaveAttribute("aria-expanded", "false");
+	await expect(scroller.locator("[data-trace-expanded-content]")).toHaveCount(
+		0,
+	);
+	await expect(scroller.locator("[data-trace-code-block]")).toHaveCount(0);
+	await waitForFrames(page, 12);
+	const collapsedSyntaxHighlights = await page.evaluate(
+		() =>
+			window.__transcriptTrace
+				?.dump()
+				.suspectMeasures.filter(
+					(measure) => measure.name === "syntax-highlight",
+				).length ?? -1,
+	);
+	expect(collapsedSyntaxHighlights).toBe(0);
+
+	const expansionId = await toolToggle.evaluate((button) => {
+		const owner = button.closest<HTMLElement>("[data-trace-expansion-id]");
+		if (!owner?.dataset.traceExpansionId) {
+			throw new Error("Expected a stable expansion id on the tool row");
+		}
+		return owner.dataset.traceExpansionId;
+	});
+	const expansionOwner = scroller.locator(
+		`[data-trace-expansion-id=${JSON.stringify(expansionId)}]`,
+	);
+	const stableToolToggle = expansionOwner.getByRole("button", { name: /Read/ });
+	const scrollTopBeforeExpansion = await scroller.evaluate(
+		(element) => element.scrollTop,
+	);
+	await scroller.evaluate((element) => {
+		const observer = new MutationObserver(() => {
+			if (element.querySelector('[data-trace-code-highlight-state="plain"]')) {
+				element.setAttribute("data-test-observed-plain-code", "true");
+				observer.disconnect();
+			}
+		});
+		observer.observe(element, {
+			attributeFilter: ["data-trace-code-highlight-state"],
+			attributes: true,
+			childList: true,
+			subtree: true,
+		});
+	});
+	await stableToolToggle.click();
+	await expect(scroller).toHaveAttribute(
+		"data-test-observed-plain-code",
+		"true",
+	);
+	await expect(stableToolToggle).toHaveAttribute("aria-expanded", "true");
+	await expect(scroller.locator("[data-trace-expanded-content]")).toHaveCount(
+		1,
+	);
+	await expect
+		.poll(
+			() =>
+				page.evaluate(
+					() =>
+						window.__transcriptTrace
+							?.dump()
+							.suspectMeasures.filter(
+								(measure) => measure.name === "syntax-highlight",
+							).length ?? 0,
+				),
+			{ timeout: 15_000 },
+		)
+		.toBeGreaterThan(0);
+
+	await scroller.evaluate((element) => {
+		element.scrollTop = 0;
+	});
+	await expect(expansionOwner).toHaveCount(0);
+
+	await scroller.evaluate((element, scrollTop) => {
+		element.scrollTop = scrollTop;
+	}, scrollTopBeforeExpansion);
+	await expect(expansionOwner).toHaveCount(1);
+	const restoredToolToggle = expansionOwner.getByRole("button", {
+		name: /Read/,
+	});
+	await expect(restoredToolToggle).toHaveAttribute("aria-expanded", "true");
+	await expect(scroller.locator("[data-trace-expanded-content]")).toHaveCount(
+		1,
+	);
+
+	await restoredToolToggle.click();
+	await expect(restoredToolToggle).toHaveAttribute("aria-expanded", "false");
+	await expect(scroller.locator("[data-trace-expanded-content]")).toHaveCount(
+		0,
+	);
+	const reasoningToggle = scroller
+		.getByRole("button", { name: /Reasoning/ })
+		.first();
+	await expect(reasoningToggle).toHaveAttribute("aria-expanded", "false");
+	const reasoningExpansionId = await reasoningToggle.evaluate((button) => {
+		const owner = button.closest<HTMLElement>("[data-trace-expansion-id]");
+		if (!owner?.dataset.traceExpansionId) {
+			throw new Error("Expected a stable expansion id on the reasoning row");
+		}
+		return owner.dataset.traceExpansionId;
+	});
+	const stableReasoningToggle = scroller
+		.locator(
+			`[data-trace-expansion-id=${JSON.stringify(reasoningExpansionId)}]`,
+		)
+		.getByRole("button", { name: /Reasoning/ });
+	await stableReasoningToggle.click();
+	await expect(stableReasoningToggle).toHaveAttribute("aria-expanded", "true");
+	await expect(scroller.locator("[data-trace-expanded-content]")).toHaveCount(
+		1,
+	);
+	await stableReasoningToggle.click();
+	await expect(stableReasoningToggle).toHaveAttribute("aria-expanded", "false");
+	await expect(scroller.locator("[data-trace-expanded-content]")).toHaveCount(
+		0,
+	);
+});

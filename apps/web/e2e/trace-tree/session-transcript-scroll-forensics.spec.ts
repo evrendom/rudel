@@ -134,7 +134,11 @@ test("captures the Step 0 frame ledger over a synthesized inertial fling", async
 	expect(capture.dump.adjustments.length).toBeGreaterThan(0);
 	expect(capture.dump.measurements.length).toBeGreaterThan(0);
 	expect(capture.dump.mounts.length).toBeGreaterThan(0);
-	expect(capture.dump.suspectMeasures.length).toBeGreaterThan(0);
+	expect(
+		capture.dump.suspectMeasures.filter(
+			(measure) => measure.name === "syntax-highlight",
+		),
+	).toHaveLength(0);
 	expect(
 		windowRequests.every(
 			(request) => request.sessionId === SESSION_DETAIL_INTEGRATION_SESSION_ID,
