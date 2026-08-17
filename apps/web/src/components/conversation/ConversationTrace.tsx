@@ -14,10 +14,7 @@ import {
 	userContentText,
 } from "./conversation-trace";
 import {
-	getTraceCallDisplayConfig,
 	isTraceCallSeparator,
-	shouldCollapseTraceCall,
-	shouldRenderTraceCallHeader,
 	type TraceCallDisplayMode,
 } from "./conversation-trace-call-display";
 import {
@@ -35,14 +32,11 @@ import {
 	UserTraceAvatar,
 } from "./conversation-trace-icons";
 import { ConversationTracePlanTag } from "./conversation-trace-plan-tag";
-import {
-	type AgentTraceRequestUsage,
-	type AgentTraceRequestUsagePlacement,
-	getTraceRequestInputTotal,
-	getTraceRequestSkills,
-	groupTraceEventsIntoRequests,
-	takeTraceRequestUsageBefore,
+import type {
+	AgentTraceRequestUsage,
+	AgentTraceRequestUsagePlacement,
 } from "./conversation-trace-requests";
+import { deriveConversationTraceSections } from "./conversation-trace-sections";
 import { ConversationTraceTag } from "./conversation-trace-tag";
 import { AgentToolStrip } from "./conversation-trace-tool-strip";
 import {
@@ -53,7 +47,7 @@ import {
 	ConversationTraceRootNode,
 	type ConversationTraceSpeakerLayout,
 } from "./conversation-trace-tree";
-import { buildAgentTraceTreeBranches } from "./conversation-trace-tree-branches";
+import type { AgentTraceTreeBranch } from "./conversation-trace-tree-branches";
 import {
 	ExpandableTraceRow,
 	type TraceFocusRequest,
@@ -398,7 +392,7 @@ function TraceRow({
 }
 
 function toRenderedBranches(
-	treeBranches: ReturnType<typeof buildAgentTraceTreeBranches>,
+	treeBranches: readonly AgentTraceTreeBranch[],
 	trailing: ReactNode | undefined,
 ): AgentTraceTreeRenderedBranch[] {
 	const renderedBranchCount = treeBranches.reduce(
@@ -464,153 +458,92 @@ function ConversationTraceTurnTree({
 	userImageUrl: string | undefined;
 	userLabel: string;
 }) {
-	const sections: AgentTraceTreeRenderedSection[] = [];
-	const events: TraceEvent[] = [];
-	const traceCallConfig = getTraceCallDisplayConfig(traceCallDisplayMode);
-	// Subagent usage events are appended after the main transcript's, so the
-	// pool is not globally time-ordered until sorted here.
-	const usageQueue = [
-		...(traceCallConfig.header === "none" ? [] : (requestUsage ?? [])),
-	].sort((left, right) => Date.parse(left.at) - Date.parse(right.at));
-	let cursor: string | undefined;
-	let pendingAgentEvents: TraceEvent[] = [];
-	let previousRequestInputTotal: number | undefined;
-	let requestIndex = 0;
-	const planMode = items.some(
-		(item) => item.kind === "agent" && item.executionMode === "plan",
-	);
-
-	// Flushes accumulated agent events as one section per API request. Each
-	// flush claims only the usage recorded before the interrupting row's
-	// timestamp — later requests' usage stays queued for later flushes.
-	// Without any usage, a single headerless section reproduces the flat tree.
-	const flushAgentSections = (cutoffTimestamp: string | undefined) => {
-		if (pendingAgentEvents.length === 0) {
-			return;
-		}
-		const batchUsage = takeTraceRequestUsageBefore(usageQueue, cutoffTimestamp);
-		for (const group of groupTraceEventsIntoRequests(
-			pendingAgentEvents,
-			batchUsage,
-			requestUsagePlacement,
-		)) {
-			if (group.usage) {
-				requestIndex += 1;
-			}
-			const currentRequestIndex = requestIndex;
-			const inputTotal = group.usage
-				? getTraceRequestInputTotal(group.usage)
-				: undefined;
-			const previousInputTotalForCall = previousRequestInputTotal;
-			if (inputTotal !== undefined) {
-				previousRequestInputTotal = inputTotal;
-			}
-			const treeBranches = buildAgentTraceTreeBranches(group.events);
-			const branchCount = treeBranches.reduce(
-				(count, branch) => count + (branch.root ? 1 : branch.children.length),
-				0,
-			);
-			const skills = getTraceRequestSkills(group.events);
-			const collapse = shouldCollapseTraceCall(traceCallConfig, branchCount);
-			const inlineUsage =
-				group.usage && collapse ? (
-					<AgentTraceRequestDisplay
-						agentModel={agentModel}
-						config={traceCallConfig}
-						index={currentRequestIndex}
-						presentation="inline"
-						previousInputTotal={previousInputTotalForCall}
-						skills={skills}
-						usage={group.usage}
-					/>
-				) : undefined;
-			const showHeader =
-				group.usage !== undefined &&
-				shouldRenderTraceCallHeader(traceCallConfig, branchCount);
-			const separator = isTraceCallSeparator(traceCallConfig);
-			sections.push({
-				branches: toRenderedBranches(treeBranches, inlineUsage),
-				events: group.events,
-				flatRequestRows: traceCallConfig.flatRequestRows,
-				groupIndex: group.usage ? currentRequestIndex : undefined,
-				groupTreatment: group.usage ? traceCallConfig.groupTreatment : "none",
-				header: showHeader
-					? (expanded, collapsedPreview) => (
-							<AgentTraceRequestDisplay
-								agentModel={agentModel}
-								collapsedPreview={collapsedPreview}
-								config={traceCallConfig}
-								expanded={expanded}
-								index={currentRequestIndex}
-								presentation={
-									traceCallConfig.flatRequestRows
-										? "context-strip"
-										: separator
-											? "separator"
-											: "header"
-								}
-								previousInputTotal={previousInputTotalForCall}
-								skills={skills}
-								usage={group.usage}
-							/>
-						)
-					: undefined,
-				key: group.usage
-					? `request-${currentRequestIndex}`
-					: `activity-${sections.length}`,
-			});
-		}
-		pendingAgentEvents = [];
-	};
-
-	items.forEach((item, index) => {
-		const previousTimestamp = cursor;
-
-		if (item.kind === "agent") {
-			cursor =
-				item.events.at(-1)?.timestamp ?? previousTimestamp ?? item.timestamp;
-			events.push(...item.events);
-			pendingAgentEvents.push(...item.events);
-			return;
-		}
-
-		flushAgentSections(item.timestamp);
-		if (item.timestamp) {
-			cursor = item.timestamp;
-		}
-		sections.push({
-			branches: [
-				{
-					children: [],
-					key: item.id,
-					row: (
-						<TraceRow
-							agentHeaderTrailing={undefined}
-							agentLabel={agentLabel}
-							agentModel={agentModel}
-							agentSectionMode="expanded"
-							anchorId={`trace-tree-message-${index}`}
-							expandedSpeakerLayout="inline"
-							focus={focus}
-							isLast={index === items.length - 1}
-							item={item}
-							previousTimestamp={previousTimestamp}
-							userImageUrl={userImageUrl}
-							userLabel={userLabel}
-						/>
-					),
-					sticky: item.kind === "user",
-				},
-			],
-			events: [],
-			flatRequestRows: true,
-			groupIndex: undefined,
-			groupTreatment: "none",
-			header: undefined,
-			key: item.id,
-		});
+	const derivation = deriveConversationTraceSections({
+		items,
+		requestUsage,
+		requestUsagePlacement,
+		traceCallDisplayMode,
 	});
-	flushAgentSections(undefined);
+	const sections = derivation.sections.map<AgentTraceTreeRenderedSection>(
+		(section) => {
+			if (section.kind === "agent") {
+				const inlineUsage =
+					section.usage && section.inlineUsage ? (
+						<AgentTraceRequestDisplay
+							key={`${section.key}:inline-usage`}
+							agentModel={agentModel}
+							config={section.config}
+							index={section.groupIndex ?? 0}
+							presentation="inline"
+							previousInputTotal={section.previousInputTotal}
+							skills={section.skills}
+							usage={section.usage}
+						/>
+					) : undefined;
+				const separator = isTraceCallSeparator(section.config);
+				return {
+					branches: toRenderedBranches(section.branches, inlineUsage),
+					events: [...section.events],
+					flatRequestRows: section.config.flatRequestRows,
+					groupIndex: section.groupIndex,
+					groupTreatment: section.groupTreatment,
+					header: section.showHeader
+						? (expanded, collapsedPreview) => (
+								<AgentTraceRequestDisplay
+									agentModel={agentModel}
+									collapsedPreview={collapsedPreview}
+									config={section.config}
+									expanded={expanded}
+									index={section.groupIndex ?? 0}
+									presentation={
+										section.config.flatRequestRows
+											? "context-strip"
+											: separator
+												? "separator"
+												: "header"
+									}
+									previousInputTotal={section.previousInputTotal}
+									skills={section.skills}
+									usage={section.usage}
+								/>
+							)
+						: undefined,
+					key: section.key,
+				};
+			}
+			return {
+				branches: [
+					{
+						children: [],
+						key: section.item.id,
+						row: (
+							<TraceRow
+								agentHeaderTrailing={undefined}
+								agentLabel={agentLabel}
+								agentModel={agentModel}
+								agentSectionMode="expanded"
+								anchorId={`trace-tree-message-${section.itemIndex}`}
+								expandedSpeakerLayout="inline"
+								focus={focus}
+								isLast={section.isLast}
+								item={section.item}
+								previousTimestamp={section.previousTimestamp}
+								userImageUrl={userImageUrl}
+								userLabel={userLabel}
+							/>
+						),
+						sticky: section.item.kind === "user",
+					},
+				],
+				events: [],
+				flatRequestRows: true,
+				groupIndex: undefined,
+				groupTreatment: "none",
+				header: undefined,
+				key: section.key,
+			};
+		},
+	);
 
 	return (
 		<ol className={cn("grid", className)}>
@@ -621,10 +554,10 @@ function ConversationTraceTurnTree({
 					anchorId="message-0"
 					continuesAfter={continuesAfter}
 					defaultOpen={defaultOpen}
-					events={events}
+					events={[...derivation.events]}
 					focus={focus}
 					headerTrailing={agentHeaderTrailing}
-					planMode={planMode}
+					planMode={derivation.planMode}
 					sections={sections}
 				/>
 			</li>

@@ -9,6 +9,7 @@ import {
 	formatSessionCost,
 } from "./session-detail-view-model";
 import type { SessionTurnTablePaneOption } from "./session-turn-table-pane";
+import type { SessionTurn } from "./session-turns";
 
 type TurnSummary = SessionDetailOverview["turnPage"]["items"][number];
 
@@ -80,10 +81,16 @@ export function attachSessionDetailTurnBody(
 ) {
 	return {
 		...option,
-		turn: {
-			responseItems: normalizeTraceItems(body.responseItems),
-			userItems: normalizeTraceItems(body.userItems),
-		},
+		turn: normalizeSessionDetailTurnBody(body),
+	};
+}
+
+export function normalizeSessionDetailTurnBody(
+	body: Pick<SessionDetailTurn, "responseItems" | "userItems">,
+): SessionTurn {
+	return {
+		responseItems: normalizeTraceItems(body.responseItems),
+		userItems: normalizeTraceItems(body.userItems),
 	};
 }
 
