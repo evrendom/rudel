@@ -52,7 +52,10 @@ export function isTranscriptAnchorCancelKey(key: string) {
 }
 
 export type SessionTranscriptListHandle = {
-	scrollToTurn: (turnId: string) => Promise<boolean>;
+	scrollToTurn: (
+		turnId: string,
+		options?: { expandFolds?: boolean },
+	) => Promise<boolean>;
 };
 
 export type SessionTranscriptRenderMode =
@@ -68,7 +71,9 @@ export const SessionTranscriptList = forwardRef<
 		model: SessionTranscriptRowModel;
 		onLoadAnchor?: (turnId: string) => Promise<boolean>;
 		onLoadDirection?: (direction: "newer" | "older") => void;
+		onExpandTurn?: (turnId: string) => void;
 		onRetryTurn?: (turnId: string) => void;
+		onToggleFold?: (turnId: string) => void;
 		onTurnRender?: ProfilerOnRenderCallback;
 		pendingCount: number;
 		renderMode?: SessionTranscriptRenderMode;
@@ -86,7 +91,9 @@ export const SessionTranscriptList = forwardRef<
 		model,
 		onLoadAnchor,
 		onLoadDirection,
+		onExpandTurn,
 		onRetryTurn,
+		onToggleFold,
 		onTurnRender,
 		pendingCount,
 		renderMode = "direct-position",
@@ -152,7 +159,13 @@ export const SessionTranscriptList = forwardRef<
 	useImperativeHandle(
 		ref,
 		() => ({
-			scrollToTurn: async (turnId) => {
+			scrollToTurn: async (turnId, options) => {
+				if (options?.expandFolds) {
+					onExpandTurn?.(turnId);
+					await new Promise<void>((resolve) =>
+						window.requestAnimationFrame(() => resolve()),
+					);
+				}
 				let index = modelRef.current.turnFirstRowIndex.get(turnId);
 				if (index === undefined && onLoadAnchor) {
 					const loaded = await onLoadAnchor(turnId);
@@ -211,7 +224,14 @@ export const SessionTranscriptList = forwardRef<
 				return true;
 			},
 		}),
-		[debugEnabled, modelRef, onLoadAnchor, scrollContainerRef, virtualizer],
+		[
+			debugEnabled,
+			modelRef,
+			onExpandTurn,
+			onLoadAnchor,
+			scrollContainerRef,
+			virtualizer,
+		],
 	);
 
 	useMountEffect(() => {
@@ -362,6 +382,7 @@ export const SessionTranscriptList = forwardRef<
 							model={model}
 							onLoadDirection={onLoadDirection}
 							onRetryTurn={onRetryTurn}
+							onToggleFold={onToggleFold}
 							row={row}
 							userImageUrl={userImageUrl}
 							viewModel={viewModel}
@@ -393,6 +414,7 @@ type TranscriptVirtualRowProps = {
 	model: SessionTranscriptRowModel;
 	onLoadDirection: ((direction: "newer" | "older") => void) | undefined;
 	onRetryTurn: ((turnId: string) => void) | undefined;
+	onToggleFold: ((turnId: string) => void) | undefined;
 	row: SessionTranscriptRow;
 	userImageUrl: string | undefined;
 	viewModel: SessionDetailViewModel;
@@ -407,6 +429,7 @@ const TranscriptVirtualRow = memo(function TranscriptVirtualRow({
 	model,
 	onLoadDirection,
 	onRetryTurn,
+	onToggleFold,
 	row,
 	userImageUrl,
 	viewModel,
@@ -438,6 +461,7 @@ const TranscriptVirtualRow = memo(function TranscriptVirtualRow({
 				model={model}
 				onLoadDirection={onLoadDirection}
 				onRetryTurn={onRetryTurn}
+				onToggleFold={onToggleFold}
 				row={row}
 				userImageUrl={userImageUrl}
 				viewModel={viewModel}
@@ -464,6 +488,7 @@ function areTranscriptVirtualRowPropsEqual(
 		left.model === right.model &&
 		left.onLoadDirection === right.onLoadDirection &&
 		left.onRetryTurn === right.onRetryTurn &&
+		left.onToggleFold === right.onToggleFold &&
 		left.row === right.row &&
 		left.userImageUrl === right.userImageUrl &&
 		left.viewModel === right.viewModel &&
@@ -479,6 +504,7 @@ function TranscriptRowContent({
 	model,
 	onLoadDirection,
 	onRetryTurn,
+	onToggleFold,
 	row,
 	userImageUrl,
 	viewModel,
@@ -486,6 +512,7 @@ function TranscriptRowContent({
 	model: SessionTranscriptRowModel;
 	onLoadDirection: ((direction: "newer" | "older") => void) | undefined;
 	onRetryTurn: ((turnId: string) => void) | undefined;
+	onToggleFold: ((turnId: string) => void) | undefined;
 	row: SessionTranscriptRow;
 	userImageUrl: string | undefined;
 	viewModel: SessionDetailViewModel;
@@ -537,11 +564,15 @@ function TranscriptRowContent({
 		case "turn-fold":
 			return (
 				<button
+					aria-expanded={row.expanded}
+					data-transcript-fold-turn-id={row.turnId}
+					onClick={() => onToggleFold?.(row.turnId)}
 					type="button"
 					className="min-h-11 w-full px-3 text-left text-xs"
 				>
-					Show {row.hidden.toolCalls.toLocaleString()} tool calls and{" "}
-					{row.hidden.events.toLocaleString()} events
+					{row.expanded ? "Collapse" : "Show"}{" "}
+					{formatFoldCount(row.hidden.toolCalls, "tool call")} and{" "}
+					{formatFoldCount(row.hidden.events, "event")}
 				</button>
 			);
 		case "turn-pending":
@@ -595,6 +626,10 @@ function TranscriptRowContent({
 		case "subagents-anchor":
 			return <div id="subagents" className="h-px" />;
 	}
+}
+
+function formatFoldCount(count: number, label: string) {
+	return `${count.toLocaleString()} ${label}${count === 1 ? "" : "s"}`;
 }
 
 function TranscriptRowDebugBadge({

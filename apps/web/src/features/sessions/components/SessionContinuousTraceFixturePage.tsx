@@ -140,6 +140,22 @@ const STREAMED_FIXTURE_OPTIONS: readonly ContinuousFixtureOption[] = Array.from(
 		};
 	},
 );
+const FOLD_FIXTURE_OPTIONS: readonly ContinuousFixtureOption[] = Array.from(
+	{ length: 12 },
+	(_, index) => {
+		const source =
+			CONTINUOUS_FIXTURE_OPTIONS[index % CONTINUOUS_FIXTURE_OPTIONS.length];
+		if (!source) {
+			throw new Error("The fold trace fixture requires a source turn");
+		}
+		return {
+			...source,
+			key: `${source.key}:fold:${index}`,
+			turnId: `${source.turnId}:fold:${index}`,
+			turnNumber: index + 1,
+		};
+	},
+);
 const CONTINUOUS_FIXTURE_VIEW_MODEL = buildSessionDetailViewModel(
 	{
 		content: "",
@@ -203,12 +219,16 @@ export function SessionContinuousTraceFixturePage() {
 	const searchParams = new URLSearchParams(window.location.search);
 	const streamsTurnBodies = searchParams.get("hydrate") === "manual";
 	const profilesScrolling = searchParams.get("profile") === "scroll";
+	const usesFoldFixture = searchParams.get("folds") === "1";
 	const usesVirtualTranscript = searchParams.get("transcript") === "virtual";
-	const usesLongFixture = streamsTurnBodies || profilesScrolling;
+	const usesLongFixture =
+		streamsTurnBodies || profilesScrolling || usesFoldFixture;
 	const requestedTurnCount = Number(searchParams.get("turns"));
-	const allFixtureOptions = usesLongFixture
-		? STREAMED_FIXTURE_OPTIONS
-		: CONTINUOUS_FIXTURE_OPTIONS;
+	const allFixtureOptions = usesFoldFixture
+		? FOLD_FIXTURE_OPTIONS
+		: usesLongFixture
+			? STREAMED_FIXTURE_OPTIONS
+			: CONTINUOUS_FIXTURE_OPTIONS;
 	const fixtureOptions =
 		Number.isInteger(requestedTurnCount) && requestedTurnCount > 0
 			? allFixtureOptions.slice(0, requestedTurnCount)
@@ -224,7 +244,10 @@ export function SessionContinuousTraceFixturePage() {
 				: fixtureOptions,
 	);
 	const [selectedVirtualTurnId, setSelectedVirtualTurnId] = useState(
-		() => fixtureOptions[0]?.turnId,
+		() => (usesFoldFixture ? fixtureOptions.at(-1) : fixtureOptions[0])?.turnId,
+	);
+	const [expandedTurnIds, setExpandedTurnIds] = useState<ReadonlySet<string>>(
+		() => new Set(),
 	);
 	const [mountsThread, setMountsThread] = useState(false);
 	const [viewportStore] = useState(createSessionContinuousTurnViewportStore);
@@ -254,12 +277,24 @@ export function SessionContinuousTraceFixturePage() {
 		() =>
 			buildSessionTranscriptRowModel({
 				cache: sectionCache,
+				folds: {
+					expandedTurnIds,
+					protectedTurnIds: new Set(
+						selectedVirtualTurnId ? [selectedVirtualTurnId] : [],
+					),
+				},
 				includeSubagentsAnchor: true,
 				level: traceCallDisplayMode,
 				revision: "2026-08-02T10:00:00.000Z",
 				turns: virtualTurns,
 			}),
-		[sectionCache, traceCallDisplayMode, virtualTurns],
+		[
+			expandedTurnIds,
+			sectionCache,
+			selectedVirtualTurnId,
+			traceCallDisplayMode,
+			virtualTurns,
+		],
 	);
 
 	useMountEffect(() => () => {
@@ -414,6 +449,22 @@ export function SessionContinuousTraceFixturePage() {
 	}, [publishRenderProfile, renderProfile]);
 
 	const handleRetryTurnBody = useCallback(() => {}, []);
+	const expandTurn = useCallback((turnId: string) => {
+		setExpandedTurnIds((current) =>
+			current.has(turnId) ? current : new Set([...current, turnId]),
+		);
+	}, []);
+	const toggleFold = useCallback((turnId: string) => {
+		setExpandedTurnIds((current) => {
+			const next = new Set(current);
+			if (next.has(turnId)) {
+				next.delete(turnId);
+			} else {
+				next.add(turnId);
+			}
+			return next;
+		});
+	}, []);
 
 	function hydrateTurnBodies() {
 		let nextIndex = 0;
@@ -463,6 +514,8 @@ export function SessionContinuousTraceFixturePage() {
 					bodyTurnCount={options.filter((option) => option.turn).length}
 					debugEnabled
 					model={virtualModel}
+					onExpandTurn={expandTurn}
+					onToggleFold={toggleFold}
 					onTurnRender={profilesScrolling ? handleTurnRender : undefined}
 					pendingCount={options.filter((option) => !option.turn).length}
 					renderMode={virtualRenderMode}
@@ -521,12 +574,30 @@ export function SessionContinuousTraceFixturePage() {
 					</button>
 					<button
 						className="sr-only"
+						data-trace-fixture-jump-first
+						onClick={() => {
+							const turnId = options[0]?.turnId;
+							if (turnId) {
+								setSelectedVirtualTurnId(turnId);
+								void virtualListRef.current?.scrollToTurn(turnId, {
+									expandFolds: true,
+								});
+							}
+						}}
+						type="button"
+					>
+						Jump to first turn
+					</button>
+					<button
+						className="sr-only"
 						data-trace-fixture-jump-last
 						onClick={() => {
 							const turnId = options.at(-1)?.turnId;
 							if (turnId) {
 								setSelectedVirtualTurnId(turnId);
-								void virtualListRef.current?.scrollToTurn(turnId);
+								void virtualListRef.current?.scrollToTurn(turnId, {
+									expandFolds: true,
+								});
 							}
 						}}
 						type="button"

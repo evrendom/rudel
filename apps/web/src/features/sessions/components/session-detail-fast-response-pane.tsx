@@ -329,6 +329,9 @@ function SessionDetailVirtualTranscript({
 }) {
 	const listRef = useRef<SessionTranscriptListHandle>(null);
 	const [sectionCache] = useState(createTranscriptSectionCache);
+	const [expandedTurnIds, setExpandedTurnIds] = useState<ReadonlySet<string>>(
+		() => new Set(),
+	);
 	const [missingTurnId, setMissingTurnId] = useState<string>();
 	const [fallbackBodies, setFallbackBodies] = useState<
 		ReadonlyMap<
@@ -414,6 +417,10 @@ function SessionDetailVirtualTranscript({
 		);
 		return buildSessionTranscriptRowModel({
 			cache: sectionCache,
+			folds: {
+				expandedTurnIds,
+				protectedTurnIds: new Set(selectedTurnId ? [selectedTurnId] : []),
+			},
 			includeSubagentsAnchor: true,
 			level,
 			newerEdge: snapshot.newerCursor ? snapshot.newerState : undefined,
@@ -458,10 +465,12 @@ function SessionDetailVirtualTranscript({
 		});
 	}, [
 		debugReadyTurnIds,
+		expandedTurnIds,
 		fallbackBodies,
 		fallbackStates,
 		level,
 		sectionCache,
+		selectedTurnId,
 		skeletonDebugMode,
 		snapshot,
 		windowOptions,
@@ -545,16 +554,34 @@ function SessionDetailVirtualTranscript({
 		},
 		[onStaleRevision, queryClient, sessionId, snapshot.revision],
 	);
+	const expandTurn = useCallback((turnId: string) => {
+		setExpandedTurnIds((current) =>
+			current.has(turnId) ? current : new Set([...current, turnId]),
+		);
+	}, []);
+	const toggleFold = useCallback((turnId: string) => {
+		setExpandedTurnIds((current) => {
+			const next = new Set(current);
+			if (next.has(turnId)) {
+				next.delete(turnId);
+			} else {
+				next.add(turnId);
+			}
+			return next;
+		});
+	}, []);
 
 	useEffect(() => {
 		if (!anchorTurnId) {
 			return;
 		}
-		void listRef.current?.scrollToTurn(anchorTurnId).then((found) => {
-			if (!found) {
-				setMissingTurnId(anchorTurnId);
-			}
-		});
+		void listRef.current
+			?.scrollToTurn(anchorTurnId, { expandFolds: true })
+			.then((found) => {
+				if (!found) {
+					setMissingTurnId(anchorTurnId);
+				}
+			});
 	}, [anchorTurnId]);
 
 	return (
@@ -571,7 +598,9 @@ function SessionDetailVirtualTranscript({
 				model={model}
 				onLoadAnchor={loadAnchor}
 				onLoadDirection={loadDirection}
+				onExpandTurn={expandTurn}
 				onRetryTurn={retryTurn}
+				onToggleFold={toggleFold}
 				pendingCount={snapshot.pending}
 				scrollContainerRef={responseScrollRef}
 				selectedTurnId={selectedTurnId}

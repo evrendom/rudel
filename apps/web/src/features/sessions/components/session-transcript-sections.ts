@@ -11,6 +11,13 @@ import {
 import { buildAgentTraceTreeBranches } from "@/components/conversation/conversation-trace-tree-branches";
 import type { SessionDetailLevel } from "./session-detail-level";
 import type { SessionDetailOverviewTurnOption } from "./session-detail-overview-model";
+import {
+	deriveTranscriptFoldPlan,
+	deriveTranscriptSectionFoldMetadata,
+	type TranscriptFoldSummary,
+	type TranscriptSectionFoldMetadata,
+} from "./session-transcript-folds";
+import { areTranscriptValuesEqual } from "./session-transcript-structural-sharing";
 import type { SessionTurn } from "./session-turns";
 
 export const SECTION_MAX_RENDERED_EVENTS = 60;
@@ -33,15 +40,13 @@ type ConversationTraceSectionDerivationContext = {
 
 export type TranscriptSection = {
 	estimatedHeight: number;
+	fold: TranscriptSectionFoldMetadata;
 	id: string;
 	payload: DerivedSectionPayload;
 	turnId: string;
 };
 
-export type FoldSummary = {
-	events: number;
-	toolCalls: number;
-};
+export type FoldSummary = TranscriptFoldSummary;
 
 export type SessionTranscriptRow =
 	| {
@@ -58,7 +63,13 @@ export type SessionTranscriptRow =
 			kind: "section-overflow";
 			turnId: string;
 	  }
-	| { hidden: FoldSummary; id: string; kind: "turn-fold"; turnId: string }
+	| {
+			expanded: boolean;
+			hidden: FoldSummary;
+			id: string;
+			kind: "turn-fold";
+			turnId: string;
+	  }
 	| {
 			id: string;
 			kind: "turn-pending";
@@ -87,6 +98,11 @@ export type SessionTranscriptRowModel = {
 	rows: readonly SessionTranscriptRow[];
 	rowTurnIndex: ReadonlyMap<string, number>;
 	turnFirstRowIndex: ReadonlyMap<string, number>;
+};
+
+export type SessionTranscriptFoldState = {
+	expandedTurnIds: ReadonlySet<string>;
+	protectedTurnIds: ReadonlySet<string>;
 };
 
 type CachedSections = {
@@ -157,10 +173,19 @@ export function deriveTranscriptSections(input: {
 		requestUsagePlacement: input.requestUsagePlacement,
 		traceCallDisplayMode: input.level,
 	});
+	const terminalMessageId = derivation.sections
+		.flatMap((section) =>
+			section.kind === "agent"
+				? section.events.filter((event) => event.kind === "message")
+				: [],
+		)
+		.at(-1)?.id;
 	return derivation.sections.map((traceSection, sectionIndex) => {
 		const bounded = boundTraceSection(traceSection);
+		const events = traceSection.kind === "agent" ? traceSection.events : [];
 		return {
 			estimatedHeight: estimateTranscriptSectionHeight(bounded.section),
+			fold: deriveTranscriptSectionFoldMetadata(events, terminalMessageId),
 			id: `${input.option.turnId}:s${sectionIndex}`,
 			payload: {
 				allEvents: {
@@ -181,6 +206,7 @@ export function deriveTranscriptSections(input: {
 
 export function buildSessionTranscriptRowModel(input: {
 	cache: TranscriptSectionCache;
+	folds?: SessionTranscriptFoldState;
 	includeSubagentsAnchor?: boolean;
 	level: SessionDetailLevel;
 	newerEdge?: "error" | "idle" | "loading";
@@ -205,6 +231,7 @@ export function buildSessionTranscriptRowModel(input: {
 	for (const turn of input.turns) {
 		appendTurnRows(rows, turn, {
 			cache: input.cache,
+			folds: input.folds,
 			level: input.level,
 			revision: input.revision,
 			startsTrace: turn.option.turnId === firstMemberTurnId,
@@ -269,6 +296,7 @@ export function isRowUnchanged(
 		case "turn-fold":
 			return (
 				left.kind === "turn-fold" &&
+				left.expanded === right.expanded &&
 				left.hidden.events === right.hidden.events &&
 				left.hidden.toolCalls === right.hidden.toolCalls
 			);
@@ -314,6 +342,7 @@ function appendTurnRows(
 	turn: SessionTranscriptTurnSource,
 	context: {
 		cache: TranscriptSectionCache;
+		folds: SessionTranscriptFoldState | undefined;
 		level: SessionDetailLevel;
 		revision: string;
 		startsTrace: boolean;
@@ -355,19 +384,56 @@ function appendTurnRows(
 		requestUsagePlacement: turn.requestUsagePlacement,
 		revision: context.revision,
 	});
-	for (const section of sections) {
-		rows.push({ id: section.id, kind: "section", section, turnId });
-		if (section.payload.hiddenEventCount > 0) {
-			rows.push({
-				hidden: {
-					events: section.payload.hiddenEventCount,
-					kindLabel: "activity events",
-				},
-				id: `${section.id}:overflow`,
-				kind: "section-overflow",
-				turnId,
-			});
+	const foldPlan = context.folds
+		? deriveTranscriptFoldPlan(
+				sections,
+				context.folds.protectedTurnIds.has(turnId),
+			)
+		: undefined;
+	if (foldPlan) {
+		const expanded = context.folds?.expandedTurnIds.has(turnId) ?? false;
+		let insertedFold = false;
+		for (const section of sections) {
+			if (foldPlan.hiddenSectionIds.has(section.id)) {
+				if (!insertedFold) {
+					rows.push({
+						expanded,
+						hidden: foldPlan.summary,
+						id: `${turnId}:fold`,
+						kind: "turn-fold",
+						turnId,
+					});
+					insertedFold = true;
+				}
+				if (!expanded) {
+					continue;
+				}
+			}
+			appendSectionRows(rows, section, turnId);
 		}
+		return;
+	}
+	for (const section of sections) {
+		appendSectionRows(rows, section, turnId);
+	}
+}
+
+function appendSectionRows(
+	rows: SessionTranscriptRow[],
+	section: TranscriptSection,
+	turnId: string,
+) {
+	rows.push({ id: section.id, kind: "section", section, turnId });
+	if (section.payload.hiddenEventCount > 0) {
+		rows.push({
+			hidden: {
+				events: section.payload.hiddenEventCount,
+				kindLabel: "activity events",
+			},
+			id: `${section.id}:overflow`,
+			kind: "section-overflow",
+			turnId,
+		});
 	}
 }
 
@@ -434,40 +500,4 @@ function sectionCacheKey(input: {
 	revision: string;
 }) {
 	return `${input.option.turnId}\u0000${input.revision}\u0000${input.level}\u0000${input.requestUsagePlacement}`;
-}
-
-function areTranscriptValuesEqual(left: unknown, right: unknown): boolean {
-	if (Object.is(left, right)) {
-		return true;
-	}
-	if (Array.isArray(left) || Array.isArray(right)) {
-		return (
-			Array.isArray(left) &&
-			Array.isArray(right) &&
-			left.length === right.length &&
-			left.every((value, index) =>
-				areTranscriptValuesEqual(value, right[index]),
-			)
-		);
-	}
-	if (
-		typeof left !== "object" ||
-		left === null ||
-		typeof right !== "object" ||
-		right === null
-	) {
-		return false;
-	}
-	const leftRecord = left as Record<string, unknown>;
-	const rightRecord = right as Record<string, unknown>;
-	const leftKeys = Object.keys(leftRecord);
-	const rightKeys = Object.keys(rightRecord);
-	return (
-		leftKeys.length === rightKeys.length &&
-		leftKeys.every(
-			(key) =>
-				Object.hasOwn(rightRecord, key) &&
-				areTranscriptValuesEqual(leftRecord[key], rightRecord[key]),
-		)
-	);
 }

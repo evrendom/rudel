@@ -261,6 +261,71 @@ test("pending rows and incremental body replacement never expose a blank frame",
 	await expect(scroller).toHaveAttribute("data-transcript-blank-frames", "0");
 });
 
+test("semantic folds expand in place and survive keyed prepends", async ({
+	page,
+}) => {
+	const scroller = await openVirtualFixture(page, "folds=1&turns=8");
+	const fold = scroller.locator("[data-transcript-fold-turn-id]").first();
+	await expect(fold).toBeVisible();
+	await expect(fold).toHaveAttribute("aria-expanded", "false");
+	await expect(fold).toContainText(/Show \d+ tool calls? and \d+ events?/);
+	const turnId = await fold.getAttribute("data-transcript-fold-turn-id");
+	if (!turnId) {
+		throw new Error("Expected the fixture fold to identify its turn");
+	}
+	const foldRow = scroller.locator(`[data-transcript-row-id="${turnId}:fold"]`);
+	const offsetBefore = await foldRow.evaluate(
+		(element) =>
+			element.getBoundingClientRect().top -
+			(element.parentElement?.parentElement?.getBoundingClientRect().top ?? 0),
+	);
+	await fold.dispatchEvent("click");
+	await expect(fold).toHaveAttribute("aria-expanded", "true");
+	await waitForFrames(page, 5);
+	const offsetAfter = await foldRow.evaluate(
+		(element) =>
+			element.getBoundingClientRect().top -
+			(element.parentElement?.parentElement?.getBoundingClientRect().top ?? 0),
+	);
+	expect(Math.abs(offsetAfter - offsetBefore)).toBeLessThanOrEqual(2);
+
+	await scroller.locator("[data-trace-fixture-prepend]").dispatchEvent("click");
+	await waitForFrames(page, 5);
+	await expect(
+		scroller.locator(`[data-transcript-fold-turn-id="${turnId}"]`),
+	).toHaveAttribute("aria-expanded", "true");
+	await expect(scroller).toHaveAttribute("data-transcript-blank-frames", "0");
+});
+
+test("a programmatic hit expands its fold before anchoring", async ({
+	page,
+}) => {
+	const scroller = await openVirtualFixture(page, "folds=1&turns=8");
+	const fold = scroller.locator("[data-transcript-fold-turn-id]").first();
+	await expect(fold).toHaveAttribute("aria-expanded", "false");
+	const turnId = await fold.getAttribute("data-transcript-fold-turn-id");
+	if (!turnId) {
+		throw new Error("Expected the fixture fold to identify its turn");
+	}
+	await scroller
+		.locator("[data-trace-fixture-jump-first]")
+		.dispatchEvent("click");
+	await expect
+		.poll(
+			async () =>
+				await scroller.getAttribute("data-transcript-anchor-settle-ms"),
+		)
+		.toMatch(/^\d+$/);
+	await expect(
+		scroller.locator(`[data-transcript-fold-turn-id="${turnId}"]`),
+	).toHaveCount(0);
+	const target = scroller
+		.locator(`[data-transcript-turn-id="${turnId}"]`)
+		.first();
+	await expect(target).toHaveAttribute("aria-current", "true");
+	await expect(target).toBeFocused();
+});
+
 for (const mode of [
 	"default",
 	"direct-position",
