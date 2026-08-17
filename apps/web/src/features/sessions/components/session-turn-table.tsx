@@ -54,7 +54,7 @@ export type SessionTurnTableOption = {
 	turnNumber: number | undefined;
 };
 
-export type SessionTurnTableMatch = {
+type SessionTurnTableMatch = {
 	index: number;
 	option: SessionTurnTableOption;
 };

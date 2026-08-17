@@ -16,7 +16,7 @@ import { ToolInvocation } from "./ToolInvocation";
 
 // Keep room for the formatted-part limit plus a plain-text fallback while
 // bounding every message-level loop in this component.
-export const MAX_RENDERED_MESSAGE_BLOCKS = 128;
+const MAX_RENDERED_MESSAGE_BLOCKS = 128;
 
 type MessageBlock =
 	| string

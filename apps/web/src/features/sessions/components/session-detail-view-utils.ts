@@ -3,7 +3,6 @@ import { parseConversations } from "@/lib/conversation-schema";
 import { SessionDetailFastResponseError } from "./session-detail-fast-response";
 import {
 	hasSessionDetailErrorCode,
-	isSessionDetailResponseError,
 	isSessionDetailTimeoutError,
 } from "./session-detail-response";
 
@@ -73,7 +72,7 @@ export function toSubagentMap(value: unknown): Record<string, string> {
 	);
 }
 
-export function isForbiddenError(value: unknown) {
+function isForbiddenError(value: unknown) {
 	return hasSessionDetailErrorCode(value, "FORBIDDEN");
 }
 
@@ -104,10 +103,7 @@ export function getSessionDetailErrorState(value: unknown) {
 		};
 	}
 
-	if (
-		isSessionDetailResponseError(value) ||
-		value instanceof SessionDetailFastResponseError
-	) {
+	if (value instanceof SessionDetailFastResponseError) {
 		return {
 			description:
 				"The server returned session data in an unsupported format. Try again or check the deployment versions.",
@@ -172,7 +168,7 @@ export function getConversationSummary(content: string) {
 	}
 }
 
-export function shortenLabelFromLeft(label: string, maxLength: number) {
+function shortenLabelFromLeft(label: string, maxLength: number) {
 	if (label.length <= maxLength) {
 		return label;
 	}

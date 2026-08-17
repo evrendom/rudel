@@ -2,11 +2,9 @@ import { useState, useSyncExternalStore } from "react";
 import { useMountEffect } from "@/app/hooks/useMountEffect";
 import type { SessionTurnSelection } from "./session-turn-table-selection";
 
-export type SessionContinuousTurnVisibleRange =
-	| readonly [number, number]
-	| undefined;
+type SessionContinuousTurnVisibleRange = readonly [number, number] | undefined;
 
-export type SessionContinuousTurnViewportSnapshot = {
+type SessionContinuousTurnViewportSnapshot = {
 	activeSelection: SessionTurnSelection | undefined;
 	visibleRange: SessionContinuousTurnVisibleRange;
 };
@@ -119,21 +117,4 @@ export function useSessionContinuousTurnTrailingActiveSelection(
 	});
 
 	return selection;
-}
-
-export function useSessionContinuousTurnActiveSpeaker(
-	store: SessionContinuousTurnViewportStore,
-	index: number,
-) {
-	return useSyncExternalStore(
-		store.subscribe,
-		() => {
-			const selection = store.getSnapshot().activeSelection;
-			return selection?.index === index ? selection.speaker : undefined;
-		},
-		() => {
-			const selection = store.getSnapshot().activeSelection;
-			return selection?.index === index ? selection.speaker : undefined;
-		},
-	);
 }

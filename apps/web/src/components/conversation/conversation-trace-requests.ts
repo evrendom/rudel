@@ -12,7 +12,7 @@ export type AgentTraceRequestUsage = {
 	outputTokens: number;
 };
 
-export type AgentTraceRequestGroup = {
+type AgentTraceRequestGroup = {
 	events: TraceEvent[];
 	usage: AgentTraceRequestUsage | undefined;
 };

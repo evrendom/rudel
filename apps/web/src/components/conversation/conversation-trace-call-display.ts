@@ -34,7 +34,7 @@ export type TraceCallDisplayConfig = {
 	flatRequestRows: boolean;
 };
 
-export const TRACE_CALL_DISPLAY_CONFIGS: Readonly<
+const TRACE_CALL_DISPLAY_CONFIGS: Readonly<
 	Record<TraceCallDisplayMode, TraceCallDisplayConfig>
 > = {
 	request: {

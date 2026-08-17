@@ -24,15 +24,11 @@ import {
 	getSessionDetailTurnSearchText,
 	type SessionDetailSearchLoadState,
 } from "./session-detail-search";
-import {
-	getSessionDetailSkeletonDebugKey,
-	getSessionDetailSkeletonTurnPolicy,
-	type SessionDetailSkeletonDebugMode,
-} from "./session-detail-skeleton-debug";
 import { WINDOW_RETENTION_LIMIT } from "./session-transcript-window-store";
 
+const SEARCH_WINDOW_MODE_KEY = "search";
+
 export function useSessionDetailSearchLoader(input: {
-	debugMode: SessionDetailSkeletonDebugMode;
 	firstOverview: SessionDetailOverview;
 	latestPage: SessionDetailOverview;
 	loadPage: (
@@ -47,24 +43,15 @@ export function useSessionDetailSearchLoader(input: {
 	const [loadState, setLoadState] = useState<SessionDetailSearchLoadState>({
 		status: "idle",
 	});
-	const [loadModeKey, setLoadModeKey] = useState(() =>
-		getSessionDetailSkeletonDebugKey(input.debugMode),
-	);
 	const controllerRef = useRef<AbortController | undefined>(undefined);
 
 	useMountEffect(() => () => controllerRef.current?.abort());
 
 	async function loadSearchIndex() {
-		const nextLoadModeKey = getSessionDetailSkeletonDebugKey(input.debugMode);
 		const controller = new AbortController();
 		controllerRef.current?.abort();
 		controllerRef.current = controller;
-		const searchIndex = new Map(
-			loadModeKey === nextLoadModeKey && "index" in loadState
-				? loadState.index
-				: [],
-		);
-		setLoadModeKey(nextLoadModeKey);
+		const searchIndex = new Map("index" in loadState ? loadState.index : []);
 		setLoadState({
 			completed: 0,
 			index: searchIndex,
@@ -82,11 +69,7 @@ export function useSessionDetailSearchLoader(input: {
 			const allPages = [...input.pages, ...remainingPages];
 			input.onPagesLoaded(allPages.slice(1));
 			const allTurns = allPages.flatMap((page) => page.turnPage.items);
-			const searchableTurns = allTurns.filter(
-				(turn) =>
-					getSessionDetailSkeletonTurnPolicy(input.debugMode, turn.index)
-						.hydrate,
-			);
+			const searchableTurns = allTurns;
 			const searchableTurnIds = new Set(
 				searchableTurns.map((turn) => turn.turnId),
 			);
@@ -100,7 +83,7 @@ export function useSessionDetailSearchLoader(input: {
 
 			const failedTurnIds = await loadSearchIndexFromWindows({
 				controller,
-				debugModeKey: nextLoadModeKey,
+				windowModeKey: SEARCH_WINDOW_MODE_KEY,
 				onProgress: (completed) => {
 					setLoadState({
 						completed,
@@ -165,11 +148,7 @@ export function useSessionDetailSearchLoader(input: {
 			);
 		},
 		focus: () => {
-			const currentModeKey = getSessionDetailSkeletonDebugKey(input.debugMode);
-			if (
-				loadModeKey !== currentModeKey ||
-				(loadState.status !== "loading" && loadState.status !== "complete")
-			) {
+			if (loadState.status !== "loading" && loadState.status !== "complete") {
 				void loadSearchIndex();
 			}
 		},
@@ -179,7 +158,7 @@ export function useSessionDetailSearchLoader(input: {
 
 export async function loadSearchIndexFromWindows(input: {
 	controller: AbortController;
-	debugModeKey: string;
+	windowModeKey: string;
 	loadWindow?: (
 		request: SessionDetailWindowRequest,
 		signal: AbortSignal,
@@ -205,7 +184,7 @@ export async function loadSearchIndexFromWindows(input: {
 	const mutableRetainedKeys = [...retainedQueryKeys];
 	while (true) {
 		input.controller.signal.throwIfAborted();
-		const queryKey = sessionDetailWindowQueryKey(request, input.debugModeKey);
+		const queryKey = sessionDetailWindowQueryKey(request, input.windowModeKey);
 		const window: SessionDetailWindow = input.loadWindow
 			? await input.loadWindow(request, input.controller.signal)
 			: await input.queryClient.fetchQuery({

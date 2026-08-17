@@ -17,10 +17,6 @@ import {
 	buildSessionDetailOverviewTurnOptions,
 	buildSessionDetailOverviewViewModel,
 } from "./session-detail-overview-model";
-import {
-	getSessionDetailSkeletonDebugKey,
-	resolveSessionDetailSkeletonDebugMode,
-} from "./session-detail-skeleton-debug";
 import type { SessionTurnTableVirtualizerHandle } from "./session-detail-virtualization";
 import type { SessionTurnSelection } from "./session-turn-table-selection";
 import { useSessionDetailSearchLoader } from "./use-session-detail-search-loader";
@@ -51,10 +47,6 @@ export function SessionDetailFastContent({
 	const queryClient = useQueryClient();
 	const [searchParams, setSearchParams] = useSearchParams();
 	const requestedTurnId = searchParams.get("turn") ?? undefined;
-	const skeletonDebugMode = import.meta.env.DEV
-		? resolveSessionDetailSkeletonDebugMode(searchParams.get("skeletons"), true)
-		: ({ kind: "off" } as const);
-	const skeletonDebugKey = getSessionDetailSkeletonDebugKey(skeletonDebugMode);
 	const [additionalPages, setAdditionalPages] = useState<
 		readonly SessionDetailOverview[]
 	>([]);
@@ -174,7 +166,6 @@ export function SessionDetailFastContent({
 		}
 	}
 	const searchLoader = useSessionDetailSearchLoader({
-		debugMode: skeletonDebugMode,
 		firstOverview,
 		latestPage,
 		loadPage,
@@ -197,7 +188,6 @@ export function SessionDetailFastContent({
 					options={options}
 					responsePane={({ viewportStore }) => (
 						<SessionDetailFastResponsePane
-							key={skeletonDebugKey}
 							anchorTurnId={selectedTurnId}
 							bottomPaddingClassName={columnBottomPaddingClassName}
 							onCancelSearchLoad={searchLoader.cancel}
@@ -217,7 +207,6 @@ export function SessionDetailFastContent({
 							searchLoad={searchLoader.loadState}
 							selection={selection}
 							sessionId={firstOverview.session.sessionId}
-							skeletonDebugMode={skeletonDebugMode}
 							subagents={firstOverview.subagents}
 							userImageUrl={userImageUrl}
 							viewModel={viewModel}

@@ -1,12 +1,14 @@
-export const SESSION_DETAIL_SKELETON_MAX_DELAY_MS = 60_000;
+import type { SessionDetailWindow } from "@rudel/api-routes";
 
-export type SessionDetailSkeletonDebugMode =
+const SESSION_DETAIL_SKELETON_MAX_DELAY_MS = 60_000;
+
+type SessionDetailSkeletonDebugMode =
 	| { kind: "off" }
 	| { kind: "hold" }
 	| { kind: "mix" }
 	| { delayMs: number; kind: "delay" };
 
-export type SessionDetailSkeletonTurnPolicy = {
+type SessionDetailSkeletonTurnPolicy = {
 	delayMs: number;
 	hydrate: boolean;
 };
@@ -53,12 +55,6 @@ export function getSessionDetailSkeletonTurnPolicy(
 	};
 }
 
-export function isSessionDetailSkeletonDebugActive(
-	mode: SessionDetailSkeletonDebugMode,
-) {
-	return mode.kind !== "off";
-}
-
 export function getSessionDetailSkeletonDebugKey(
 	mode: SessionDetailSkeletonDebugMode,
 ) {
@@ -79,7 +75,29 @@ export function getStableSessionSkeletonWidth(
 	return 48 + ((hash >>> 0) % 45);
 }
 
-export async function waitForSessionDetailSkeletonDelay(
+export async function applySessionDetailSkeletonDebugMode(
+	window: SessionDetailWindow,
+	mode: SessionDetailSkeletonDebugMode,
+	signal?: AbortSignal,
+) {
+	if (mode.kind === "delay") {
+		await waitForSessionDetailSkeletonDelay(mode.delayMs, signal);
+		return window;
+	}
+	if (mode.kind === "off") {
+		return window;
+	}
+	return {
+		...window,
+		turns: window.turns.map((turn) =>
+			getSessionDetailSkeletonTurnPolicy(mode, turn.index).hydrate
+				? turn
+				: { ...turn, body: null },
+		),
+	};
+}
+
+async function waitForSessionDetailSkeletonDelay(
 	delayMs: number,
 	signal?: AbortSignal,
 ) {

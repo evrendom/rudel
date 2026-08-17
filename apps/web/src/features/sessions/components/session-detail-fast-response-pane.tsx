@@ -13,7 +13,7 @@ import {
 	type RefObject,
 	startTransition,
 	useCallback,
-	// biome-ignore lint/style/noRestrictedImports: external-store, URL-anchor, and delayed-debug synchronization require dependency-aware effects.
+	// biome-ignore lint/style/noRestrictedImports: external-store and URL-anchor synchronization require dependency-aware effects.
 	useEffect,
 	useMemo,
 	useRef,
@@ -57,11 +57,10 @@ import {
 import type { SessionDetailSearchLoadState } from "./session-detail-search";
 import { SessionDetailSearchControl } from "./session-detail-search-control";
 import {
+	applySessionDetailSkeletonDebugMode,
 	getSessionDetailSkeletonDebugKey,
-	getSessionDetailSkeletonTurnPolicy,
-	type SessionDetailSkeletonDebugMode,
+	resolveSessionDetailSkeletonDebugMode,
 } from "./session-detail-skeleton-debug";
-import { shouldUseVirtualSessionTranscript } from "./session-detail-transcript-mode";
 import {
 	SessionTranscriptList,
 	type SessionTranscriptListHandle,
@@ -83,6 +82,10 @@ type SessionDetailOverviewViewModel = ReturnType<
 	typeof buildSessionDetailOverviewViewModel
 >;
 type SubagentSummary = SessionDetailOverview["subagents"][number];
+type SessionDetailWindowLoader = (
+	request: SessionDetailWindowRequest,
+	signal: AbortSignal,
+) => Promise<SessionDetailWindow>;
 const EMPTY_SEARCH_INDEX = new Map<string, readonly string[]>();
 
 export function SessionDetailFastResponsePane({
@@ -99,7 +102,6 @@ export function SessionDetailFastResponsePane({
 	searchLoad,
 	selection,
 	sessionId,
-	skeletonDebugMode,
 	subagents,
 	userImageUrl,
 	viewModel,
@@ -118,7 +120,6 @@ export function SessionDetailFastResponsePane({
 	searchLoad: SessionDetailSearchLoadState;
 	selection: SessionTurnSelection;
 	sessionId: string;
-	skeletonDebugMode: SessionDetailSkeletonDebugMode;
 	subagents: readonly SubagentSummary[];
 	userImageUrl: string | undefined;
 	viewModel: SessionDetailOverviewViewModel;
@@ -127,8 +128,15 @@ export function SessionDetailFastResponsePane({
 	const queryClient = useQueryClient();
 	const [searchParams, setSearchParams] = useSearchParams();
 	const detailLevel = resolveSessionDetailLevel(searchParams.get("level"));
-	const wantsVirtualTranscript = shouldUseVirtualSessionTranscript(
-		searchParams.get("transcript"),
+	const requestedTranscriptMode = searchParams.get("transcript");
+	const requestedSkeletonMode = searchParams.get("skeletons");
+	const skeletonDebugMode = useMemo(
+		() =>
+			resolveSessionDetailSkeletonDebugMode(
+				requestedSkeletonMode,
+				import.meta.env.DEV,
+			),
+		[requestedSkeletonMode],
 	);
 	const transcriptDebugEnabled =
 		import.meta.env.DEV && searchParams.get("transcriptDebug") === "1";
@@ -138,6 +146,13 @@ export function SessionDetailFastResponsePane({
 	);
 	const paneFingerprintRef = useRef(`${sessionId}:${revision}`);
 	paneFingerprintRef.current = `${sessionId}:${revision}`;
+	useMountEffect(() => {
+		if (requestedTranscriptMode === "legacy") {
+			console.warn(
+				"[SessionDetailView] ?transcript=legacy is deprecated; the windowed virtual transcript is now the only renderer.",
+			);
+		}
+	});
 	useMountEffect(() => {
 		if (!transcriptDebugEnabled) {
 			return;
@@ -157,6 +172,15 @@ export function SessionDetailFastResponsePane({
 			});
 	});
 	const skeletonDebugKey = getSessionDetailSkeletonDebugKey(skeletonDebugMode);
+	const loadWindow = useCallback<SessionDetailWindowLoader>(
+		async (request, signal) =>
+			applySessionDetailSkeletonDebugMode(
+				await fetchSessionDetailWindow(request, signal),
+				skeletonDebugMode,
+				signal,
+			),
+		[skeletonDebugMode],
+	);
 	const initialWindowRequest = useMemo<SessionDetailWindowRequest>(
 		() => ({
 			includeBodies: true,
@@ -166,10 +190,8 @@ export function SessionDetailFastResponsePane({
 		[sessionId],
 	);
 	const initialWindowQuery = useQuery({
-		enabled: wantsVirtualTranscript,
 		gcTime: SESSION_DETAIL_WINDOW_CACHE_TIME_MS,
-		queryFn: ({ signal }) =>
-			fetchSessionDetailWindow(initialWindowRequest, signal),
+		queryFn: ({ signal }) => loadWindow(initialWindowRequest, signal),
 		queryKey: sessionDetailWindowQueryKey(
 			initialWindowRequest,
 			skeletonDebugKey,
@@ -261,14 +283,14 @@ export function SessionDetailFastResponsePane({
 						debugEnabled={transcriptDebugEnabled}
 						initialWindow={initialWindowQuery.data}
 						level={detailLevel}
+						loadWindow={loadWindow}
 						onApproachEnd={onApproachEnd}
 						onStaleRevision={onStaleRevision}
 						queryClient={queryClient}
 						responseScrollRef={responseScrollRef}
 						selectedTurnId={anchorTurnId ?? options[selection.index]?.turnId}
 						sessionId={sessionId}
-						skeletonDebugKey={skeletonDebugKey}
-						skeletonDebugMode={skeletonDebugMode}
+						windowModeKey={skeletonDebugKey}
 						userImageUrl={userImageUrl}
 						viewModel={viewModel}
 						viewportStore={viewportStore}
@@ -290,14 +312,14 @@ function SessionDetailVirtualTranscript({
 	debugEnabled,
 	initialWindow,
 	level,
+	loadWindow,
 	onApproachEnd,
 	onStaleRevision,
 	queryClient,
 	responseScrollRef,
 	selectedTurnId,
 	sessionId,
-	skeletonDebugKey,
-	skeletonDebugMode,
+	windowModeKey,
 	userImageUrl,
 	viewModel,
 	viewportStore,
@@ -306,14 +328,14 @@ function SessionDetailVirtualTranscript({
 	debugEnabled: boolean;
 	initialWindow: SessionDetailWindow;
 	level: SessionDetailLevel;
+	loadWindow: SessionDetailWindowLoader;
 	onApproachEnd: () => void;
 	onStaleRevision: (error: unknown) => void;
 	queryClient: QueryClient;
 	responseScrollRef: RefObject<HTMLDivElement | null>;
 	selectedTurnId: string | undefined;
 	sessionId: string;
-	skeletonDebugKey: string;
-	skeletonDebugMode: SessionDetailSkeletonDebugMode;
+	windowModeKey: string;
 	userImageUrl: string | undefined;
 	viewModel: SessionDetailOverviewViewModel;
 	viewportStore: SessionContinuousTurnViewportStore;
@@ -333,28 +355,25 @@ function SessionDetailVirtualTranscript({
 	const [fallbackStates, setFallbackStates] = useState<
 		ReadonlyMap<string, "error" | "loading">
 	>(() => new Map());
-	const [debugReadyTurnIds, setDebugReadyTurnIds] = useState<
-		ReadonlySet<string>
-	>(() => new Set());
 	const fetchWindow = useCallback(
 		(request: SessionDetailWindowRequest) =>
 			queryClient.fetchQuery({
 				gcTime: SESSION_DETAIL_WINDOW_CACHE_TIME_MS,
-				queryFn: ({ signal }) => fetchSessionDetailWindow(request, signal),
-				queryKey: sessionDetailWindowQueryKey(request, skeletonDebugKey),
+				queryFn: ({ signal }) => loadWindow(request, signal),
+				queryKey: sessionDetailWindowQueryKey(request, windowModeKey),
 				retry: shouldRetrySessionDetailFastQuery,
 				staleTime: SESSION_DETAIL_IMMUTABLE_STALE_TIME_MS,
 			}),
-		[queryClient, skeletonDebugKey],
+		[loadWindow, queryClient, windowModeKey],
 	);
 	const evictWindow = useCallback(
 		(request: SessionDetailWindowRequest) => {
 			queryClient.removeQueries({
 				exact: true,
-				queryKey: sessionDetailWindowQueryKey(request, skeletonDebugKey),
+				queryKey: sessionDetailWindowQueryKey(request, windowModeKey),
 			});
 		},
-		[queryClient, skeletonDebugKey],
+		[queryClient, windowModeKey],
 	);
 	const windowStore = useMemo(
 		() =>
@@ -384,37 +403,6 @@ function SessionDetailVirtualTranscript({
 		}
 	}, [sectionCache, snapshot.turns]);
 
-	useEffect(() => {
-		const timers: number[] = [];
-		for (const [index, turn] of snapshot.turns.entries()) {
-			const policy = getSessionDetailSkeletonTurnPolicy(
-				skeletonDebugMode,
-				index,
-			);
-			if (
-				policy.hydrate &&
-				policy.delayMs > 0 &&
-				!debugReadyTurnIds.has(turn.turnId)
-			) {
-				timers.push(
-					window.setTimeout(() => {
-						setDebugReadyTurnIds((current) => {
-							if (current.has(turn.turnId)) {
-								return current;
-							}
-							return new Set([...current, turn.turnId]);
-						});
-					}, policy.delayMs),
-				);
-			}
-		}
-		return () => {
-			for (const timer of timers) {
-				window.clearTimeout(timer);
-			}
-		};
-	}, [debugReadyTurnIds, skeletonDebugMode, snapshot.turns]);
-
 	const windowOptions = useMemo(
 		() => buildSessionDetailOverviewTurnOptions(snapshot.turns),
 		[snapshot.turns],
@@ -434,15 +422,11 @@ function SessionDetailVirtualTranscript({
 			newerEdge: snapshot.newerCursor ? snapshot.newerState : undefined,
 			olderEdge: snapshot.olderCursor ? snapshot.olderState : undefined,
 			revision: snapshot.revision,
-			turns: snapshot.turns.flatMap((turn, index) => {
+			turns: snapshot.turns.flatMap((turn) => {
 				const option = optionById.get(turn.turnId);
 				if (!option) {
 					return [];
 				}
-				const policy = getSessionDetailSkeletonTurnPolicy(
-					skeletonDebugMode,
-					index,
-				);
 				const body = fallbackBodies.get(turn.turnId) ?? turn.body ?? undefined;
 				const normalizedBody = body
 					? attachSessionDetailTurnBody(option, {
@@ -452,17 +436,13 @@ function SessionDetailVirtualTranscript({
 							userItems: body.userItems,
 						}).turn
 					: undefined;
-				const debugBodyReady =
-					policy.hydrate &&
-					(policy.delayMs === 0 || debugReadyTurnIds.has(turn.turnId));
-				const visibleBody = debugBodyReady ? normalizedBody : undefined;
 				const fallbackState = fallbackStates.get(turn.turnId);
 				return [
 					{
-						body: visibleBody,
+						body: normalizedBody,
 						bodyState:
 							fallbackState ??
-							(turn.bodyOmitted === "oversized" && !visibleBody
+							(turn.bodyOmitted === "oversized" && !normalizedBody
 								? ("error" as const)
 								: ("loading" as const)),
 						option,
@@ -472,14 +452,12 @@ function SessionDetailVirtualTranscript({
 			}),
 		});
 	}, [
-		debugReadyTurnIds,
 		expandedTurnIds,
 		fallbackBodies,
 		fallbackStates,
 		level,
 		sectionCache,
 		selectedTurnId,
-		skeletonDebugMode,
 		snapshot,
 		windowOptions,
 	]);

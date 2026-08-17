@@ -17,7 +17,7 @@ const TURN_SPACING_SECONDS = 600;
 const REQUEST_SPACING_SECONDS = 120;
 const TOOLS_PER_MESSAGE = 12;
 
-export type ConversationTraceFixtureTurn = {
+type ConversationTraceFixtureTurn = {
 	items: TraceItem[];
 	key: string;
 	requestUsage: AgentTraceRequestUsage[];

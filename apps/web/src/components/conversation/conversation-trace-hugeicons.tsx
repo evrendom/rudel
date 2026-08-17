@@ -28,7 +28,7 @@ type ConversationTraceGlyphProps = {
 	"data-trace-disclosure-symbol"?: string;
 };
 
-export type ConversationTraceGlyph = ComponentType<ConversationTraceGlyphProps>;
+type ConversationTraceGlyph = ComponentType<ConversationTraceGlyphProps>;
 
 function createConversationTraceHugeicon(
 	icon: IconSvgElement,

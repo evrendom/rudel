@@ -14,7 +14,7 @@ type ContainedWheelScrollInput = {
 	scrollWidth: number;
 };
 
-export type ContainedWheelScroll = {
+type ContainedWheelScroll = {
 	left: number;
 	shouldContain: boolean;
 	top: number;

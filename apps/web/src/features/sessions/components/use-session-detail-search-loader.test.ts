@@ -71,7 +71,7 @@ describe("session detail window search indexing", () => {
 		const index = new Map<string, readonly string[]>();
 		const failures = await loadSearchIndexFromWindows({
 			controller: new AbortController(),
-			debugModeKey: "skeletons:off",
+			windowModeKey: "search",
 			loadWindow: async (request) => {
 				requests.push(
 					request.mode === "newer" || request.mode === "older"
@@ -107,7 +107,7 @@ describe("session detail window search indexing", () => {
 		await expect(
 			loadSearchIndexFromWindows({
 				controller: new AbortController(),
-				debugModeKey: "skeletons:off",
+				windowModeKey: "search",
 				loadWindow: async (request) =>
 					window(request.mode === "initial" ? 0 : 1, "same-cursor"),
 				onProgress: () => undefined,

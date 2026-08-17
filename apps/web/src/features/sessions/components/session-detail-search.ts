@@ -7,7 +7,7 @@ import type { SessionDetailOverviewTurnOption } from "./session-detail-overview-
 
 const SEARCH_SNIPPET_CONTEXT_CHARACTERS = 72;
 
-export type SessionDetailSearchResult = {
+type SessionDetailSearchResult = {
 	index: number;
 	snippet: string;
 	turnId: string;

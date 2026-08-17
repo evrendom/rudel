@@ -1,6 +1,5 @@
 import { z } from "zod";
 import { formatUsername } from "@/lib/format";
-import type { SessionDetailViewModelSource } from "./session-detail-response";
 import {
 	createSessionMetadataBadges,
 	getConversationSummary,
@@ -51,7 +50,33 @@ type ClaudeAssistantLine = {
 	usage: z.infer<typeof subagentTokenUsageSchema> | undefined;
 };
 
-export interface SessionSubagentSummary {
+type SessionDetailViewModelSource = Partial<
+	Record<
+		| "content"
+		| "duration_min"
+		| "git_branch"
+		| "git_sha"
+		| "input_tokens"
+		| "last_interaction_date"
+		| "model_used"
+		| "output_tokens"
+		| "project_path"
+		| "repository"
+		| "session_date"
+		| "session_id"
+		| "skills"
+		| "slash_commands"
+		| "source"
+		| "subagents"
+		| "success_score"
+		| "total_interactions"
+		| "total_tokens"
+		| "user_id",
+		unknown
+	>
+>;
+
+interface SessionSubagentSummary {
 	id: string;
 	model: string | undefined;
 	totalTokens: number | undefined;
@@ -164,7 +189,7 @@ function summarizeSubagentTranscript(
 	};
 }
 
-export function summarizeSessionSubagents(
+function summarizeSessionSubagents(
 	subagents: Readonly<Record<string, string>>,
 ) {
 	return Object.entries(subagents).map(([id, content]) =>

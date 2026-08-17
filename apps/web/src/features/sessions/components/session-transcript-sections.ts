@@ -26,9 +26,9 @@ import { measureTranscriptSuspect } from "./transcript-forensics";
 
 export const SECTION_MAX_RENDERED_EVENTS = 60;
 export const SECTION_MAX_ESTIMATED_PX = 800;
-export const TRANSCRIPT_SECTION_CACHE_LIMIT = 1_000;
+const TRANSCRIPT_SECTION_CACHE_LIMIT = 1_000;
 
-export type DerivedSectionPayload = {
+type DerivedSectionPayload = {
 	allEvents: ConversationTraceSectionDerivationContext;
 	hiddenEventCount: number;
 	isFirst: boolean;
@@ -43,7 +43,7 @@ type ConversationTraceSectionDerivationContext = {
 	planMode: boolean;
 };
 
-export type TranscriptSection = {
+type TranscriptSection = {
 	estimatedHeight: number;
 	fold: TranscriptSectionFoldMetadata;
 	id: string;
@@ -51,7 +51,7 @@ export type TranscriptSection = {
 	turnId: string;
 };
 
-export type FoldSummary = TranscriptFoldSummary;
+type FoldSummary = TranscriptFoldSummary;
 
 export type SessionTranscriptRow =
 	| {
@@ -105,7 +105,7 @@ export type SessionTranscriptRowModel = {
 	turnFirstRowIndex: ReadonlyMap<string, number>;
 };
 
-export type SessionTranscriptFoldState = {
+type SessionTranscriptFoldState = {
 	expandedTurnIds: ReadonlySet<string>;
 	protectedTurnIds: ReadonlySet<string>;
 };
@@ -162,11 +162,9 @@ export function createTranscriptSectionCache(
 	};
 }
 
-export type TranscriptSectionCache = ReturnType<
-	typeof createTranscriptSectionCache
->;
+type TranscriptSectionCache = ReturnType<typeof createTranscriptSectionCache>;
 
-export function deriveTranscriptSections(input: {
+function deriveTranscriptSections(input: {
 	body: SessionTurn;
 	level: SessionDetailLevel;
 	option: SessionDetailOverviewTurnOption;
@@ -332,7 +330,7 @@ function stabilizeTranscriptRowsUnmeasured(
 	return changed ? rows : previous;
 }
 
-export function isRowUnchanged(
+function isRowUnchanged(
 	left: SessionTranscriptRow,
 	right: SessionTranscriptRow,
 ) {

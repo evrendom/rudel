@@ -32,7 +32,7 @@ const proseBodyClassName = "px-3 py-1";
 
 export type TraceFocusRequest = { anchorId: string; requestId: number };
 
-export type TraceExpansionStore = {
+type TraceExpansionStore = {
 	isExpanded: (expansionId: string) => boolean;
 	setExpanded: (expansionId: string, expanded: boolean) => void;
 	subscribe: (expansionId: string, listener: () => void) => () => void;

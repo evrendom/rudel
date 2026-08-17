@@ -1,6 +1,6 @@
 import type { SessionTurnTableOption } from "./session-turn-table";
 
-export const SESSION_TURN_TABLE_OPTION_FILTER_KEYS = [
+const SESSION_TURN_TABLE_OPTION_FILTER_KEYS = [
 	"files",
 	"skills",
 	"commands",
@@ -9,7 +9,7 @@ export const SESSION_TURN_TABLE_OPTION_FILTER_KEYS = [
 export type SessionTurnTableOptionFilterKey =
 	(typeof SESSION_TURN_TABLE_OPTION_FILTER_KEYS)[number];
 
-export const SESSION_TURN_TABLE_RANGE_FILTER_KEYS = [
+const SESSION_TURN_TABLE_RANGE_FILTER_KEYS = [
 	"input",
 	"output",
 	"cost",
@@ -21,7 +21,7 @@ export const SESSION_TURN_TABLE_RANGE_FILTER_KEYS = [
 export type SessionTurnTableRangeFilterKey =
 	(typeof SESSION_TURN_TABLE_RANGE_FILTER_KEYS)[number];
 
-export const SESSION_TURN_TABLE_SORT_COLUMNS = [
+const SESSION_TURN_TABLE_SORT_COLUMNS = [
 	{ key: "time", label: "Time" },
 	{ key: "duration", label: "Duration" },
 	{ key: "input", label: "Input" },
@@ -36,7 +36,7 @@ export const SESSION_TURN_TABLE_SORT_COLUMNS = [
 
 export type SessionTurnTableSortKey =
 	(typeof SESSION_TURN_TABLE_SORT_COLUMNS)[number]["key"];
-export type SessionTurnTableSortDirection = "asc" | "desc";
+type SessionTurnTableSortDirection = "asc" | "desc";
 export type SessionTurnTableSortState = {
 	direction: SessionTurnTableSortDirection;
 	key: SessionTurnTableSortKey;

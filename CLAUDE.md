@@ -34,6 +34,10 @@ A platform for ingesting, storing, and analyzing Claude Code / Codex session tra
 @rudel/ch-schema         ← @rudel/api
 ```
 
+### Session transcript architecture
+
+Session details use one transcript renderer: `detailOverview` supplies ledger summaries, `detailWindow` supplies byte-budgeted bodies, and the response pane renders stable virtualized sections. Expandable trace content mounts only while open, code highlighting runs asynchronously through a cached worker, and the scroll surface exposes the shared skeleton texture through any unpainted gap. `detailTurn` remains available for oversized-turn fallback and `detailSubagent` for disclosures. The deprecated `?transcript=legacy` query value is accepted for compatibility and logs a warning, but it no longer selects a second renderer.
+
 ## Environment Variables
 
 | Variable | Required | Description |

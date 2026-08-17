@@ -5,7 +5,7 @@ import type { SessionTurnMetrics } from "./session-turn-metadata";
 const turnTagClassName =
 	"inline-flex min-w-0 max-w-full items-center rounded-full bg-(--session-overview-hover) px-2 py-0.5 text-xs leading-4 font-medium tracking-[-0.01em] text-(--session-overview-muted) group-aria-pressed:bg-(--session-overview-surface)";
 
-export type SessionTurnMetadataTagKind =
+type SessionTurnMetadataTagKind =
 	| "cost"
 	| "errors"
 	| "files"

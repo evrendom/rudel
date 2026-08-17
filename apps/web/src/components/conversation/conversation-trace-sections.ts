@@ -34,7 +34,7 @@ export type ConversationTraceAgentSection = {
 	usage: AgentTraceRequestUsage | undefined;
 };
 
-export type ConversationTraceItemSection = {
+type ConversationTraceItemSection = {
 	item: Exclude<TraceItem, { kind: "agent" }>;
 	itemIndex: number;
 	isLast: boolean;
@@ -47,7 +47,7 @@ export type ConversationTraceDerivedSection =
 	| ConversationTraceAgentSection
 	| ConversationTraceItemSection;
 
-export type ConversationTraceSectionDerivation = {
+type ConversationTraceSectionDerivation = {
 	events: readonly TraceEvent[];
 	planMode: boolean;
 	sections: readonly ConversationTraceDerivedSection[];

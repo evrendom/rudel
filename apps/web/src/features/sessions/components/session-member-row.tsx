@@ -21,7 +21,7 @@ import type { SessionTurn } from "./session-turns";
 
 const COLLAPSED_PROMPT_HEIGHT_PX = 96;
 
-export function CollapsiblePrompt({ content }: { content: UserContent }) {
+function CollapsiblePrompt({ content }: { content: UserContent }) {
 	const contentRef = useRef<HTMLParagraphElement>(null);
 	const panelId = useId();
 	const [expanded, setExpanded] = useState(false);

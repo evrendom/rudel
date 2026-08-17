@@ -87,7 +87,7 @@ export type SessionTranscriptListHandle = {
 	) => Promise<boolean>;
 };
 
-export type SessionTranscriptRenderMode =
+type SessionTranscriptRenderMode =
 	| "default"
 	| "direct-position"
 	| "direct-transform";

@@ -68,7 +68,7 @@ export type SessionOverviewExcludedFilterValues = Record<
 	ReadonlySet<string>
 >;
 export const SESSION_OVERVIEW_NO_SKILLS_FILTER_VALUE = "__no_skills_used__";
-export type SortDirection = "asc" | "desc";
+type SortDirection = "asc" | "desc";
 export type SessionSortState = {
 	key: SessionOverviewColumnKey;
 	direction: SortDirection;

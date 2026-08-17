@@ -214,7 +214,7 @@ function AgentSection({
 	);
 }
 
-export function UserTraceContent({ content }: { content: UserContent }) {
+function UserTraceContent({ content }: { content: UserContent }) {
 	const isSlashCommand =
 		typeof content === "string" && isSlashCommandMessage(content);
 	const slashCommandInfo = isSlashCommand ? parseSlashCommand(content) : null;

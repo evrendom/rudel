@@ -727,7 +727,7 @@ export function ConversationTraceRootNode({
 
 // Interfere-style timeline metadata: quiet 12/16 text, tabular numerals, and
 // semantic foreground hierarchy without pill surfaces or tracking changes.
-export const traceRequestTagClassName =
+const traceRequestTagClassName =
 	"inline-flex min-w-0 max-w-full items-center font-sans text-[calc(var(--spacing)*3)]/[1rem] font-normal tracking-normal text-(--session-overview-subtle) tabular-nums";
 
 const traceRequestSeparatorClassName =
@@ -1180,7 +1180,7 @@ function AgentTraceTreeBranchList({
 	);
 }
 
-export function AgentTraceTreeRenderedSectionItem({
+function AgentTraceTreeRenderedSectionItem({
 	defaultOpen,
 	hasNextSibling,
 	section,

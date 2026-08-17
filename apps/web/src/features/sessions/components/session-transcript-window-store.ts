@@ -7,10 +7,10 @@ import { measureTranscriptSuspect } from "./transcript-forensics";
 
 export const WINDOW_RETENTION_LIMIT = 8;
 
-export type TranscriptWindowDirection = "newer" | "older";
-export type TranscriptWindowEdgeState = "error" | "idle" | "loading";
+type TranscriptWindowDirection = "newer" | "older";
+type TranscriptWindowEdgeState = "error" | "idle" | "loading";
 
-export type SessionTranscriptWindowSnapshot = {
+type SessionTranscriptWindowSnapshot = {
 	bodyWindowsRetained: number;
 	newerCursor: string | null;
 	newerState: TranscriptWindowEdgeState;
@@ -23,7 +23,7 @@ export type SessionTranscriptWindowSnapshot = {
 	windowsLoaded: number;
 };
 
-export type SessionTranscriptWindowStore = {
+type SessionTranscriptWindowStore = {
 	getSnapshot: () => SessionTranscriptWindowSnapshot;
 	loadAnchor: (turnId: string) => Promise<boolean>;
 	loadDirection: (direction: TranscriptWindowDirection) => Promise<boolean>;

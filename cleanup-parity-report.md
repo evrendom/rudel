@@ -1,6 +1,6 @@
 # Transcript cleanup parity report
 
-Date: 2026-08-17  
+Date: 2026-08-17
 Baseline: `d7794c94` (`chore(web): remove transcript cleanup debris`)
 
 All Stage 2 parity gates pass. Existing automated coverage was run where available; the two paths without dedicated browser specs were manually traced through the mounted production components and their request/cache boundaries.

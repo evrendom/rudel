@@ -26,7 +26,7 @@ export type ParsedSessionDetailOverview = {
 	shapeIssueFields: readonly string[];
 };
 
-export type ParsedSessionDetailWindow = {
+type ParsedSessionDetailWindow = {
 	shapeIssueFields: readonly string[];
 	window: SessionDetailWindow;
 };

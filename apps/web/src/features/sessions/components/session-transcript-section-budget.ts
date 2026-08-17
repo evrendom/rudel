@@ -69,7 +69,7 @@ export function splitAgentSectionByEstimatedHeight(
 	});
 }
 
-export function estimateAgentSectionHeight(
+function estimateAgentSectionHeight(
 	section: ConversationTraceAgentSection,
 	maxEstimatedPx: number,
 ) {

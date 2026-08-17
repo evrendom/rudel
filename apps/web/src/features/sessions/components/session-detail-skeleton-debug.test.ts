@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import { SessionContinuousTurnSkeleton } from "./session-continuous-turn-skeleton";
 import type { SessionDetailOverviewTurnOption } from "./session-detail-overview-model";
 import {
+	applySessionDetailSkeletonDebugMode,
 	getSessionDetailSkeletonDebugKey,
 	getSessionDetailSkeletonTurnPolicy,
 	getStableSessionSkeletonWidth,
@@ -62,6 +63,45 @@ describe("session detail skeleton debug mode", () => {
 				resolveSessionDetailSkeletonDebugMode("delay:3000", true),
 			),
 		).toBe("delay:3000");
+	});
+
+	it("short-circuits held bodies at the window boundary", async () => {
+		const window = {
+			newerCursor: null,
+			olderCursor: null,
+			revision: "2026-08-17T10:00:00.000Z",
+			total: 2,
+			turns: [0, 1].map((index) => ({
+				activityResolution: "exact" as const,
+				body: { responseItems: [], userItems: [] },
+				bodyOmitted: null,
+				durationSeconds: 1,
+				editedFiles: [],
+				endedAt: null,
+				errorCount: 0,
+				errorEvents: [],
+				estimatedCost: null,
+				hasBody: true,
+				index,
+				inputTokens: null,
+				outputTokens: null,
+				responsePreview: null,
+				skills: [],
+				skillEvents: [],
+				slashCommands: [],
+				startedAt: null,
+				toolCallCount: 0,
+				turnId: `turn-${index}`,
+				usageCalls: [],
+				userPreview: null,
+			})),
+		};
+
+		const mixed = await applySessionDetailSkeletonDebugMode(window, {
+			kind: "mix",
+		});
+		expect(mixed.turns[0]?.body).toBeNull();
+		expect(mixed.turns[1]?.body).toEqual(window.turns[1]?.body);
 	});
 
 	it("derives stable, bounded shimmer widths from the turn id", () => {
