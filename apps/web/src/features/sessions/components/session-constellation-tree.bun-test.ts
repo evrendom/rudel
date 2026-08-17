@@ -17,7 +17,9 @@ describe("session constellation tree tokens", () => {
 		);
 
 		expect(css).toContain("--conversation-trace-connector-width: 0.5");
-		expect(css).toContain("--active-turn-rail-width: 2px");
+		expect(css).toContain(
+			"--active-turn-rail-width: var(--conversation-trace-connector-width)",
+		);
 		expect(css).toContain("--active-turn-rail: #f9233b");
 		expect(css).toContain('[data-active-rail-position="middle"]');
 		expect(css).toContain("stroke-width: var(--active-turn-rail-width)");

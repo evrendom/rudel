@@ -26,7 +26,7 @@
 	--trace-icon-violet-fg: #2400b7a9;
 	--conversation-trace-connector-color: var(--constellation-tree-rail);
 	--conversation-trace-connector-width: 0.5;
-	--active-turn-rail-width: 2px;
+	--active-turn-rail-width: var(--conversation-trace-connector-width);
 	--active-turn-rail: #f9233b;
 	--dashboardy-divider: var(--constellation-tree-rail);
 	--dashboardy-heading: var(--constellation-tree-primary);
